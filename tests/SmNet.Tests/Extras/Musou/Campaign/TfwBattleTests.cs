@@ -25,7 +25,7 @@ internal static class TfwRig
         var map = TfwTestArena.Build();
         var w = new World(config ?? Config, map.Collision, TfwTestArena.Spawns) { Rules = new MatchRules { CountdownTime = 0.1f, TimeLimit = 0f, ScoreLimit = int.MaxValue / 2, RestartDelay = 2f }, StartAreas = TfwTestArena.Data.StartAreas };
         Assert.True(w.StartTfw(nav, TfwTestArena.Field));
-        w.Tfw!.RetainerUp = _ => false;   // the tests of the extraction; those of the revive set their own
+        w.Tfw!.AllyUp = _ => false;   // the tests of the extraction; those of the revive set their own
         w.Tfw.Guardsmen = true;   // these tests are of the battle with its squads; TfwOrkTests of the switch
         w.Tfw.Patrols = false;    // and of the crowds as they count; TfwPatrolTests of the columns
         w.TfwMeksOn = false;      // the Scrap Meks too (MusouExpansionS4Tests turns them on)

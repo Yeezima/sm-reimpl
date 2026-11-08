@@ -65,7 +65,7 @@ public class TfwSupplyTests
     public void An_ai_marine_keeps_a_full_reserve_in_every_slot()
     {
         var w = TfwRig.War(config: Musou);
-        int r = w.TfwSpawnRetainer(Human, TfwTestArena.LandingZone)!.Value;
+        int r = w.TfwSpawnAlly(TfwTestArena.LandingZone)!.Value;
         SetPlayer(w, r, w.Players[r] with { Reserve = 0, OtherReserve = 0 });
         TfwRig.Steps(w, 1);
         var p = w.Players[r];
@@ -132,7 +132,8 @@ public class TfwSupplyTests
     public void An_ai_marine_takes_a_tenth_of_a_hit_and_a_human_all_of_it()
     {
         var w = TfwRig.War(config: Musou);
-        int r = w.TfwSpawnRetainer(Human, TfwTestArena.LandingZone)!.Value;
+        int r = w.TfwSpawnAlly(TfwTestArena.LandingZone)!.Value;
+        w.Tfw!.PuppetBrain = (_, p) => new PlayerInput(0, 0f, 0f, p.Yaw, InputButtons.None);   // it stands and takes the blows: this test is of the damage alone
         Assert.Equal(TfwSupplyRules.BotDamageTaken, w.DamageTakenScale(r));
         Assert.Equal(1f, w.DamageTakenScale(Human));
 

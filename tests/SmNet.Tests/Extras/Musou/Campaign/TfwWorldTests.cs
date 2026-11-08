@@ -254,7 +254,7 @@ public class TfwWorldTests
         var nav = Nav(data);
         var w = new World(TfwRig.Config, data.Collision, data.Spawns) { Rules = new MatchRules { CountdownTime = 0.1f, TimeLimit = 0f, ScoreLimit = int.MaxValue / 2, RestartDelay = 2f }, StartAreas = data.StartAreas };
         Assert.True(w.StartTfw(nav, data.Field));
-        w.Tfw!.RetainerUp = _ => false;
+        w.Tfw!.AllyUp = _ => false;
         w.Spawn(TfwRig.Human, w.AssignClass(0));
         TfwRig.Steps(w, 30);
         var battle = TfwRig.Deploy(w);

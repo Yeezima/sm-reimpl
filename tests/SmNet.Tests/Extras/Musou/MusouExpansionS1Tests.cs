@@ -132,7 +132,7 @@ public class MusouExpansionS1Tests
         Assert.Equal(MatchState.Playing, w.State);
         w.TfwRespawnAt(Human, new Vector3(0f, -60f, 0f), 0f);
         Tick(w);
-        retainer = w.TfwSpawnRetainer(Human, new Vector3(30f, -60f, 0f)) ?? 0;
+        retainer = w.TfwSpawnAlly(new Vector3(30f, -60f, 0f)) ?? 0;
         Assert.NotEqual(0, retainer);
         Tick(w);
         return w;

@@ -5,80 +5,52 @@ using SmSim.Extras.Musou.Campaign;
 namespace SmSim;
 
 /// <summary>
-/// The AI Marines in the World (TF5; design section E): real players without a peer, who act only by the input <see cref="MarineBrain"/> makes (<see cref="TfwMarineInput"/>, through
-/// <see cref="TfwRun.PuppetBrain"/>). A player's retainer takes that player's orders and revives it; a lord goes by himself to <see cref="TfwRun.ActivePosition"/> with a retainer of
-/// his own, and no player orders either. A dead puppet stays dead (its respawn timer held) until its recovery ends (a retainer) or for good (a lord: the war wounds him).
+/// The AI Marines in the World (TF5; design section E; the owner's pair, 2026-11-08): two real players without a peer, who act only by the input <see cref="MarineBrain"/> makes
+/// (<see cref="TfwMarineInput"/>, through <see cref="TfwRun.PuppetBrain"/>). They land at the landing zone and roam together: the leader goes to the pair's goal (<see cref="TfwBattle.AllyGoal"/>),
+/// reviving a fallen human on the way, and the follower keeps a few metres behind him. No player orders them. A dead one is back at the landing zone <see cref="AllyRules.RespawnSeconds"/> later.
 /// </summary>
 public sealed partial class World
 {
-    /// <summary>The lords' places by lane (classes by role, the design's order: Assault, Tactical, Devastator) and their placeholder names (open question 7, labelled so).</summary>
+    /// <summary>The lords' places by lane and their placeholder names (open question 7, labelled so): the war map still names a lane's lord; no lord fights in a battle since the owner's pair.</summary>
     static readonly (string Role, string Name)[] TfwLords = [("assault", "Aurex"), ("tactical", "Tolmar"), ("heavy", "Severin")];
 
     readonly List<Marine> _tfwMarineWork = new();
 
     /// <summary>
-    /// Gives <paramref name="owner"/> its retainer (a Tactical, default loadout) at <paramref name="at"/>: one per player. Null, and nothing changed, outside a war, for an unknown player, or
-    /// with one in the world, one recovering, or no free puppet id.
+    /// Lands the pair (<see cref="AllyRules.Count"/>) round <paramref name="at"/>, each in a free puppet id; the battle, if any, is told who they are, so they never capture. How many came (fewer with a
+    /// Marine of the pair already here, or no free id).
     /// </summary>
-    public int? TfwSpawnRetainer(int owner, Vector3 at, float yaw = 0f)
+    public int TfwSpawnAllies(Vector3 at, float yaw = 0f)
     {
-        if (_tfw is not { } run || !_players.ContainsKey(owner) || run.RetainerOf(owner) is not null || run.RecoveryLeft(owner) > 0f) return null;
-        return TfwSpawnMarine(MarineRole.Retainer, owner, default, "tactical", "Retainer", at, yaw)?.Id;
-    }
-
-    /// <summary>
-    /// Brings the lord of <paramref name="lane"/> and his Tactical retainer to <paramref name="at"/> (one lord per lane). His id; null, and nothing changed, outside a war, with him already
-    /// here, or without two free puppet ids.
-    /// </summary>
-    public int? TfwSpawnLord(TfwLane lane, Vector3 at, float yaw = 0f)
-    {
-        if (_tfw is not { } run || run.LordOf(lane) is not null) return null;
-        int free = 0;
-        for (int id = TfwContracts.PuppetIdFirst; id <= TfwContracts.PuppetIdLast; id++) if (!_players.ContainsKey(id)) free++;
-        if (free < 2) return null;
-        var (role, name) = TfwLords[(int)lane];
-        var lord = TfwSpawnMarine(MarineRole.Lord, 0, lane, role, $"Brother-Captain {name}", at, yaw)!;
-        TfwSpawnMarine(MarineRole.LordRetainer, lord.Id, lane, "tactical", $"Retainer of {name}", at + new Vector3(1.5f, -1.5f, 0f), yaw);
-        return lord.Id;
-    }
-
-    /// <summary>
-    /// Lands <paramref name="count"/> Defenders (expansion S6, <see cref="DefenderRules"/>) round <paramref name="at"/>, each in a free puppet id after the retainers and lords; the battle is told who they are, so they
-    /// never capture. How many came (fewer with the ids taken).
-    /// </summary>
-    public int TfwSpawnDefenders(int count, Vector3 at, float yaw = 0f)
-    {
-        if (_tfw is not { } run) return 0;
         int n = 0;
-        for (int k = 0; k < count; k++)
-        {
-            var (role, name) = DefenderRules.Roster[k % DefenderRules.Roster.Length];
-            var spot = at + new Vector3((k % 3 - 1) * 2f, -4f - k / 3 * 2f, 0f);
-            if (Musou?.Nav is { } nav && nav.Nearest(spot, 1.5f, 2.5f) is var node and >= 0) spot = nav.Position(node);
-            var m = TfwSpawnMarine(MarineRole.Defender, 0, default, role, name, spot, yaw);
-            if (m is null) break;
-            m.DefenderIndex = k;
-            n++;
-        }
-        var ids = new List<int>();
-        foreach (var m in run.Marines) if (m.Role == MarineRole.Defender) ids.Add(m.Id);
-        run.Battle?.SetDefenders(ids);
+        while (TfwSpawnAlly(at + new Vector3((n % 2) * 2f - 1f, -4f, 0f), yaw, ground: true) is not null) n++;
         return n;
     }
 
-    Marine? TfwSpawnMarine(MarineRole role, int owner, TfwLane lane, string classRole, string name, Vector3 at, float yaw)
+    /// <summary>
+    /// One Marine of the pair at <paramref name="at"/> (the next of <see cref="AllyRules.Roster"/>); its id. Null, and nothing changed, outside a war, with the pair complete, or with no free puppet id.
+    /// The first leads; the second follows him.
+    /// </summary>
+    public int? TfwSpawnAlly(Vector3 at, float yaw = 0f) => TfwSpawnAlly(at, yaw, ground: false);
+
+    int? TfwSpawnAlly(Vector3 at, float yaw, bool ground)
     {
-        var run = _tfw!;
+        if (_tfw is not { } run || run.Marines.Count >= AllyRules.Count) return null;
+        int slot = 0;
+        while (slot < AllyRules.Roster.Length && run.Marines.Any(m => m.Slot == slot)) slot++;
+        var (role, name) = AllyRules.Roster[slot % AllyRules.Roster.Length];
+        if (ground && Musou?.Nav is { } nav && nav.Nearest(at, 1.5f, 2.5f) is var node and >= 0) at = nav.Position(node);
         for (int id = TfwContracts.PuppetIdFirst; id <= TfwContracts.PuppetIdLast; id++)
         {
             if (_players.ContainsKey(id)) continue;
-            int playerClass = TfwMarineClass(classRole);
+            int playerClass = TfwMarineClass(role);
             var state = Spawn(id, playerClass, primaryChoice: Config.Classes[playerClass].PrimaryChoices.Count > 0 ? 0 : -1, team: Team.SpaceMarines);   // a prepared config has no default primary
             _players[id] = state with { Position = at, Yaw = yaw };
-            var marine = new Marine(id, role, owner, lane, name) { HoldAt = at };
+            var marine = new Marine(id, slot, name) { Leads = run.Marines.Count == 0 };
             run.AddMarine(marine);
             run.PuppetBrain ??= TfwMarineInput;
-            return marine;
+            run.Battle?.SetAllies(run.Marines.Select(m => m.Id));
+            return id;
         }
         return null;
     }
@@ -97,16 +69,17 @@ public sealed partial class World
         return Math.Max(first, 0);
     }
 
-    /// <summary>Takes a puppet out of the world (a battle ends; its recovery, if any, runs on).</summary>
+    /// <summary>Takes a puppet out of the world (a battle ends).</summary>
     public bool TfwDismissMarine(int id)
     {
         if (_tfw?.MarineOf(id) is not { } marine) return false;
         _tfw.RemoveMarine(marine);
         Remove(id);
+        if (_tfw.Marines.Count == 1) _tfw.Marines[0].Leads = true;
         return true;
     }
 
-    /// <summary>Takes every puppet out, keeping the recoveries and the orders (a battle ends).</summary>
+    /// <summary>Takes every puppet out (a battle ends).</summary>
     public void TfwDismissMarines()
     {
         if (_tfw is not { } run) return;
@@ -115,29 +88,28 @@ public sealed partial class World
         foreach (var m in _tfwMarineWork) TfwDismissMarine(m.Id);
     }
 
-    /// <summary>A new run: no puppet, no recovery, no order.</summary>
+    /// <summary>A new run: no puppet.</summary>
     public void TfwResetMarines()
     {
         TfwDismissMarines();
         _tfw?.ForgetMarines();
     }
 
-    /// <summary>
-    /// Applies a player's order to its retainers now: orders reach only the retainers that player owns. False for a resend, an old sequence or a command that is no order. A Hold holds where
-    /// the retainer stands at that moment.
-    /// </summary>
-    public bool TfwOrderMarines(int player, TfwCommandRecord command)
+    /// <summary>Whether a Marine of the pair stands (a fallen human's revive window stays open while one does; <see cref="TfwRun.AllyUp"/>).</summary>
+    internal bool TfwAllyUp()
     {
-        if (_tfw is not { } run || !run.Orders.Apply(player, command)) return false;
-        var order = run.Orders.Of(player);
-        foreach (var m in run.Marines)
-        {
-            if (m.Role != MarineRole.Retainer || m.Owner != player || !_players.TryGetValue(m.Id, out var p)) continue;
-            bool place = command.Point != default;   // the sender's crosshair, clamped by the run; none: where the retainer stands
-            if (order == MarineOrder.Hold) m.HoldAt = place ? command.Point : p.Position;
-            m.AttackAt = order == MarineOrder.Attack && place ? command.Point : null;
-        }
-        return true;
+        if (_tfw is not { } run) return false;
+        foreach (var m in run.Marines) if (_players.TryGetValue(m.Id, out var p) && p.Alive) return true;
+        return false;
+    }
+
+    /// <summary>Seconds until the first dead Marine of the pair is back (0: one stands, or none is waiting).</summary>
+    internal float TfwAllyBackIn()
+    {
+        if (_tfw is not { } run || TfwAllyUp()) return 0f;
+        int least = int.MaxValue;
+        foreach (var m in run.Marines) if (m.Down) least = Math.Min(least, m.RespawnTicks);
+        return least == int.MaxValue ? 0f : least / (float)Math.Max(1, Config.TickRate);
     }
 
     /// <summary>
@@ -153,123 +125,110 @@ public sealed partial class World
         return true;
     }
 
-    /// <summary>The puppets' tick, after the fight (<c>TfwGuardsStep</c>, in <see cref="TfwStep"/>): the orders that came in, the recoveries, each puppet's death and revive (its ammunition: <see cref="TfwEndlessAmmo"/>, every player's since 2026-11-06).</summary>
+    /// <summary>The puppets' tick, after the fight (<c>TfwGuardsStep</c>, in <see cref="TfwStep"/>): the pair's goal, each Marine's death and return, who leads, and the revive (its ammunition: <see cref="TfwEndlessAmmo"/>, every player's since 2026-11-06).</summary>
     void TfwPuppetsStep()
     {
         var run = _tfw!;
-        TfwTakeOrders(run);
-        float dt = 1f / Math.Max(1, Config.TickRate);
-        run.StepRecovery(dt);
         if (run.Marines.Count == 0) return;
-        TfwDefenderPosts(run);
         _tfwMarineWork.Clear();
         _tfwMarineWork.AddRange(run.Marines);
         foreach (var m in _tfwMarineWork)
         {
             if (!_players.TryGetValue(m.Id, out var p)) { run.RemoveMarine(m); continue; }
-            bool ownerHere = _players.TryGetValue(m.Owner, out var owner);
-            if (m.Role == MarineRole.Retainer && !ownerHere) { TfwDismissMarine(m.Id); continue; }   // its player left
-            if (!p.Alive) { TfwMarineDown(run, m, p); continue; }
-            m.Down = false;
-            if (m.Role != MarineRole.Retainer || owner.Alive || !run.ReviveWanted(m.Owner)
-                || MarineBrain.Flat(_players[m.Id].Position, owner.Position) > MarineRules.ReviveRadius) { m.ReviveTicks = 0; continue; }
+            if (!p.Alive) TfwMarineDown(run, m);
+            else m.Down = false;
+        }
+        TfwAllyLeader(run);
+        TfwAllyGoal(run);
+        foreach (var m in run.Marines)
+        {
+            if (!_players.TryGetValue(m.Id, out var p) || !p.Alive || !m.Leads) { m.ReviveOf = 0; m.ReviveTicks = 0; continue; }
+            int body = TfwFallenToRevive(p.Position);
+            if (body != m.ReviveOf) { m.ReviveOf = body; m.ReviveTicks = 0; }
+            if (body == 0 || MarineBrain.Flat(p.Position, _players[body].Position) > MarineRules.ReviveRadius) { m.ReviveTicks = 0; continue; }
             if (++m.ReviveTicks < MarineRules.ReviveSeconds * Config.TickRate) continue;
             m.ReviveTicks = 0;
-            TfwRevive(m.Owner);
+            m.ReviveOf = 0;
+            TfwRevive(body);
         }
     }
 
-    readonly List<Marine> _tfwDefenders = new();
-
-    /// <summary>Once a second the Defenders' posts (expansion S6): the battle shares them over the Imperial positions by the Orks' pressure, else the landing zone.</summary>
-    void TfwDefenderPosts(TfwRun run)
+    /// <summary>Exactly one living Marine of the pair leads: a lone survivor leads, and with both up the one that led goes on leading.</summary>
+    void TfwAllyLeader(TfwRun run)
     {
-        if (run.Battle is not { } battle || Tick % (uint)Math.Max(1, (int)(DefenderRules.PostSeconds * Config.TickRate)) != 0) return;
-        _tfwDefenders.Clear();
-        foreach (var m in run.Marines) if (m.Role == MarineRole.Defender) _tfwDefenders.Add(m);
-        if (_tfwDefenders.Count == 0) return;
-        var posts = battle.DefenderPosts(_tfwDefenders.Count);
-        for (int k = 0; k < _tfwDefenders.Count; k++) _tfwDefenders[k].AttackAt = posts[k];
-    }
-
-    /// <summary>Follow, Hold and Attack out of the command queue; the run's other commands stay in it, in their order, for TF4.</summary>
-    void TfwTakeOrders(TfwRun run)
-    {
-        for (int left = run.QueuedCommands; left > 0 && run.TryDequeue(out int player, out var command); left--)
+        Marine? leader = null, alive = null;
+        foreach (var m in run.Marines)
         {
-            if (command.Command is TfwCommand.Follow or TfwCommand.Hold or TfwCommand.Attack) TfwOrderMarines(player, command);
-            else run.Enqueue(player, command);
+            if (!_players.TryGetValue(m.Id, out var p) || !p.Alive) { m.Leads = false; continue; }
+            alive ??= m;
+            if (m.Leads && leader is null) leader = m;
+            else m.Leads = false;
         }
+        if (leader is null && alive is not null) alive.Leads = true;
     }
 
-    /// <summary>A dead puppet: its fall once (a lord's goes to the war, a retainer starts recovering), its respawn timer held, and a recovered retainer back at the landing zone.</summary>
-    void TfwMarineDown(TfwRun run, Marine m, in PlayerState p)
+    /// <summary>Once every <see cref="AllyRules.GoalSeconds"/> the pair's goal: the battle's (<see cref="TfwBattle.AllyGoal"/>) from the leader's feet, else the run's active position.</summary>
+    void TfwAllyGoal(TfwRun run)
+    {
+        if (run.Battle is not { } battle) { run.AllyGoal = run.ActivePosition; run.AllyGoalIndex = -2; return; }
+        if (run.AllyGoal is not null && Tick % (uint)Math.Max(1, (int)(AllyRules.GoalSeconds * Config.TickRate)) != 0) return;
+        Vector3 from = battle.Layout.LandingZone;
+        foreach (var m in run.Marines) if (m.Leads && _players.TryGetValue(m.Id, out var p)) from = p.Position;
+        run.AllyGoalIndex = battle.AllyGoal(from, run.AllyGoalIndex);
+        run.AllyGoal = battle.AllyPlace(run.AllyGoalIndex);
+    }
+
+    /// <summary>The fallen human nearest to <paramref name="from"/> whose revive window is open (0: none).</summary>
+    int TfwFallenToRevive(Vector3 from)
+    {
+        var run = _tfw!;
+        int best = 0;
+        float bestD = float.MaxValue;
+        foreach (var (id, p) in _players)
+        {
+            if (TfwContracts.IsPuppet(id) || p.Alive || !run.ReviveWanted(id)) continue;
+            float d = MarineBrain.Flat(from, p.Position);
+            if (d < bestD) { bestD = d; best = id; }
+        }
+        return best;
+    }
+
+    /// <summary>A dead Marine of the pair: back at the landing zone <see cref="AllyRules.RespawnSeconds"/> (real seconds) after its death, with a fresh life; its respawn timer is held till then.</summary>
+    void TfwMarineDown(TfwRun run, Marine m)
     {
         m.ReviveTicks = 0;
+        m.ReviveOf = 0;
         m.Target = 0;
-        if (m.Role == MarineRole.Defender)
+        m.Leads = false;
+        if (!m.Down) { m.Down = true; m.RespawnTicks = Math.Max(1, (int)MathF.Round(AllyRules.RespawnSeconds * Math.Max(1, Config.TickRate))); }
+        else if (--m.RespawnTicks <= 0)
         {
-            // Expansion S6: a Defender is back at the landing zone DefenderRules.RespawnSeconds after his death (real seconds), with a fresh life.
-            if (!m.Down) { m.Down = true; m.RespawnTicks = Math.Max(1, (int)MathF.Round(DefenderRules.RespawnSeconds * Math.Max(1, Config.TickRate))); }
-            else if (--m.RespawnTicks <= 0)
-            {
-                var back = run.Battle?.Layout.LandingZone ?? run.Field.MarineStart;
-                TfwRespawnAt(m.Id, back, 0f);
-                m.Down = false;
-                return;
-            }
-            _players[m.Id] = _players[m.Id] with { RespawnLeft = MarineRules.DeadHold };
-            return;
-        }
-        int recovery = m.Role == MarineRole.Lord ? 0 : m.Owner;
-        if (!m.Down)
-        {
-            m.Down = true;
-            if (m.Role == MarineRole.Lord) run.LordFallen?.Invoke(m.Lane);
-            else run.StartRecovery(recovery);
-        }
-        else if (m.Role != MarineRole.Lord && run.RecoveryLeft(recovery) <= 0f)
-        {
-            var landing = run.Battle?.Layout.LandingZone ?? run.Field.MarineStart;
-            TfwRespawnAt(m.Id, landing, 0f);
-            m.HoldAt = landing;   // its post fell with it
+            var back = run.Battle?.Layout.LandingZone ?? run.Field.MarineStart;
+            TfwRespawnAt(m.Id, back, 0f);
             m.Down = false;
+            m.WayGoal = -1;
             return;
         }
         _players[m.Id] = _players[m.Id] with { RespawnLeft = MarineRules.DeadHold };
     }
 
-
-    /// <summary>A puppet's input this tick (<see cref="TfwRun.PuppetBrain"/>): the order in force, the enemy it looks at every <see cref="MarineRules.RetargetTicks"/> ticks, then <see cref="MarineBrain"/>.</summary>
+    /// <summary>A puppet's input this tick (<see cref="TfwRun.PuppetBrain"/>): its part in the pair, the enemy it looks at every <see cref="MarineRules.RetargetTicks"/> ticks, then <see cref="MarineBrain"/>.</summary>
     PlayerInput TfwMarineInput(int id, PlayerState self)
     {
         var standing = new PlayerInput(0, 0f, 0f, self.Yaw, InputButtons.None);
         var run = _tfw!;
         if (!self.Alive || run.MarineOf(id) is not { } m) return standing;
 
-        Vector3? ownerAt = null;
-        bool ownerAlive = false;
-        if (_players.TryGetValue(m.Owner, out var owner)) { ownerAt = owner.Position; ownerAlive = owner.Alive; }
-        var order = m.Role switch
-        {
-            MarineRole.Lord or MarineRole.Defender => MarineOrder.Attack,   // a Defender goes to his post (AttackAt, TfwDefenderPosts) and fights there
-            MarineRole.LordRetainer => ownerAlive ? MarineOrder.Follow : MarineOrder.Attack,
-            _ => run.Orders.Of(m.Owner),
-        };
-        bool revive = m.Role == MarineRole.Retainer && ownerAt is not null && !ownerAlive && run.ReviveWanted(m.Owner);
+        Vector3? partnerAt = null;
+        if (run.PartnerOf(m) is { } partner && _players.TryGetValue(partner.Id, out var pp) && pp.Alive) partnerAt = pp.Position;
+        bool follows = !m.Leads && partnerAt is not null;
 
         var musou = _musou!;
         bool struck = m.Target != 0 && musou.TryGet(m.Target, out var held) && held.State != MusouEnemyState.Dying;
         if (!struck || (Tick + (uint)id) % MarineRules.RetargetTicks == 0)
         {
-            var (centre, radius) = order switch
-            {
-                MarineOrder.Follow => (self.Position, MarineRules.FollowEngage),
-                MarineOrder.Hold => (m.HoldAt, MarineRules.HoldRadius),
-                _ => (self.Position, MarineRules.AttackSight),
-            };
             Span<ushort> nearest = stackalloc ushort[MarineRules.SightCandidates];
-            int seen = musou.Query(centre, radius, nearest);
+            int seen = musou.Query(self.Position, follows ? MarineRules.FollowEngage : MarineRules.AttackSight, nearest);
             m.Target = 0;
             for (int k = 0; k < seen && m.Target == 0; k++)
                 if (TfwMarineSees(self, nearest[k])) m.Target = nearest[k];
@@ -285,8 +244,11 @@ public sealed partial class World
         }
 
         bool strikesOnly = Loadouts.Weapon(Config, self, WeaponSlot.Ranged) is null;
-        var objective = m.AttackAt ?? run.Battle?.GoalFrom(self.Position) ?? run.ActivePosition;
-        var goal = MarineBrain.Plan(new MarineSituation(order, self.Position, ownerAt, revive, m.HoldAt, objective, enemyAt, strikesOnly));
+        Vector3? revive = m.ReviveOf != 0 && _players.TryGetValue(m.ReviveOf, out var fallen) && !fallen.Alive ? fallen.Position : null;
+        // The leader waits for a follower left behind (he fights where he stands), and sprints only alone, so the pair keeps together.
+        bool waits = !follows && partnerAt is { } behind && MarineBrain.Flat(self.Position, behind) > AllyRules.LeaderWait;
+        var situation = new MarineSituation(self.Position, follows ? partnerAt : null, waits ? null : revive, waits ? null : run.AllyGoal, enemyAt, strikesOnly, MaySprint: partnerAt is null);
+        var goal = MarineBrain.Plan(situation);
         if (goal is { } g && g.Point != enemyAt && MarineBrain.Flat(self.Position, g.Point) > g.Far && TfwGuards?.Ways is { } ways)
         {
             if (m.WayGoal < 0 || MarineBrain.Flat(m.WayPoint, g.Point) > MarineRules.WayRefresh) { m.WayPoint = g.Point; m.WayGoal = ways.GoalNode(g.Point); }

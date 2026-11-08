@@ -9,8 +9,8 @@ using Xunit.Abstractions;
 namespace SmNet.Tests.Extras.Musou.Campaign;
 
 /// <summary>
-/// The AI Marines (TF5): the brain's decisions, Follow, Hold and Attack as the world runs them, the revive against a fake of the run (TF4 is not in yet), the lords, the reserved ids, and
-/// a loopback server with 7 puppets for 10 simulated minutes.
+/// The AI Marines (TF5; since 2026-11-08 the owner's allied pair, <see cref="AllyRules"/>): the brain's decisions, the pair as the world runs it (two at most, together, to its goal, back 30 s
+/// after a death), the revive against a fake of the run's window, the reserved ids, and a loopback server with the pair for 10 simulated minutes.
 /// </summary>
 public class MarineBrainTests(ITestOutputHelper output)
 {
@@ -37,7 +37,7 @@ public class MarineBrainTests(ITestOutputHelper output)
         var map = TfwTestArena.Build();
         var w = new World(Config, map.Collision, map.Spawns) { Rules = Rules };
         Assert.True(w.StartTfw(null, TfwTestArena.Field));
-        w.Tfw!.Idle = true;   // the Marines alone: these tests set the order, the place and the clock themselves (TF4's run would)
+        w.Tfw!.Idle = true;   // the Marines alone: these tests set the goal and the window themselves (TF4's run would)
         return w;
     }
 
@@ -136,74 +136,76 @@ public class MarineBrainTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public void A_revive_comes_before_any_order()
+    public void A_follower_keeps_to_its_leader_and_a_leader_revives_before_its_goal()
     {
+        var leader = new Vector3(0f, 30f, 0f);
+        var follow = MarineBrain.Plan(new MarineSituation(Vector3.Zero, leader, new Vector3(9f, 9f, 0f), new Vector3(-50f, 0f, 0f), null, false))!.Value;
+        Assert.Equal((leader, AllyRules.FollowNear, AllyRules.FollowFar, true), (follow.Point, follow.Near, follow.Far, follow.Sprint));   // far behind: it sprints after him
         var body = new Vector3(0f, 30f, 0f);
-        foreach (var order in new[] { MarineOrder.Follow, MarineOrder.Hold, MarineOrder.Attack })
-        {
-            var goal = MarineBrain.Plan(new MarineSituation(order, Vector3.Zero, body, true, new Vector3(9f, 9f, 0f), new Vector3(-50f, 0f, 0f), new Vector3(5f, 5f, 0f), false));
-            Assert.Equal(body, goal!.Value.Point);
-            Assert.True(goal.Value.Sprint);
-        }
+        var revive = MarineBrain.Plan(new MarineSituation(Vector3.Zero, null, body, new Vector3(-50f, 0f, 0f), new Vector3(5f, 5f, 0f), false))!.Value;
+        Assert.Equal(body, revive.Point);
+        Assert.True(revive.Sprint);
+        var paired = MarineBrain.Plan(new MarineSituation(Vector3.Zero, null, null, new Vector3(-50f, 0f, 0f), null, false, MaySprint: false))!.Value;
+        Assert.Equal(new Vector3(-50f, 0f, 0f), paired.Point);
+        Assert.False(paired.Sprint);                                         // a leader with a follower never sprints away from him
+    }
+
+    // ---------------------------------------------------------------- the world: the pair
+
+    static (int Leader, int Follower) Pair(World w, Vector3 at)
+    {
+        Assert.Equal(AllyRules.Count, w.TfwSpawnAllies(at));
+        var run = w.Tfw!;
+        return (run.Marines.Single(m => m.Leads).Id, run.Marines.Single(m => !m.Leads).Id);
     }
 
     [Fact]
-    public void Orders_are_deduplicated_by_their_sequence()
+    public void Two_at_most_named_and_led_by_the_first()
     {
-        var o = new MarineOrders();
-        Assert.Equal(MarineOrder.Follow, o.Of(Human));
-        Assert.True(o.Apply(Human, new TfwCommandRecord(65535, TfwCommand.Hold, 0)));
-        Assert.False(o.Apply(Human, new TfwCommandRecord(65535, TfwCommand.Attack, 0)));   // a resend
-        Assert.False(o.Apply(Human, new TfwCommandRecord(65534, TfwCommand.Attack, 0)));   // older
-        Assert.Equal(MarineOrder.Hold, o.Of(Human));
-        Assert.True(o.Apply(Human, new TfwCommandRecord(0, TfwCommand.Attack, 0)));        // wraps
-        Assert.Equal((MarineOrder.Attack, (ushort)0), (o.Of(Human), o.Echo(Human)));
-        Assert.False(o.Apply(Human, new TfwCommandRecord(1, TfwCommand.Deploy, 0)));
+        var w = Playing(new Vector3(0f, -200f, 0f));
+        int first = w.TfwSpawnAlly(Lz)!.Value;
+        int second = w.TfwSpawnAlly(Lz + new Vector3(2f, 0f, 0f))!.Value;
+        Assert.Null(w.TfwSpawnAlly(Lz));
+        Assert.Equal(0, w.TfwSpawnAllies(Lz));
+        var run = w.Tfw!;
+        Assert.Equal([first, second], run.Marines.Select(m => m.Id));
+        Assert.Equal(TfwContracts.PuppetIdFirst, first);
+        Assert.True(run.MarineOf(first)!.Leads && !run.MarineOf(second)!.Leads);
+        Assert.Equal(["Brother Varro", "Brother Calix"], run.Marines.Select(m => run.PuppetName(m.Id)));
+        Assert.Equal(["tactical", "heavy"], run.Marines.Select(m => w.Config.Classes[w.Players[m.Id].Class].Role));
     }
 
-    // ---------------------------------------------------------------- the world: orders
-
     [Fact]
-    public void Follow_keeps_four_to_eight_metres_of_a_moving_owner()
+    public void The_pair_roams_together_to_its_goal_and_fights_there()
     {
-        var w = Playing(Lz);
-        int r = w.TfwSpawnRetainer(Human, Lz + new Vector3(25f, 0f, 0f))!.Value;
-        Assert.Equal(TfwContracts.PuppetIdFirst, r);
-        Run(w, 6f);
-        Assert.InRange(Flat(w, r, Human), MarineRules.FollowMin, MarineRules.FollowMax);
-
-        Func<PlayerState, PlayerInput> walk = _ => new PlayerInput(0, 0f, 1f, 0f, InputButtons.None);
-        Run(w, 3f, walk);   // settling behind him
-        float min = float.MaxValue, max = 0f;
-        Run(w, 10f, walk, () => { float d = Flat(w, r, Human); min = MathF.Min(min, d); max = MathF.Max(max, d); });
-        Assert.True(min >= MarineRules.FollowMin && max <= MarineRules.FollowMax, $"{min} to {max}");
-
-        Place(w, r, w.Players[Human].Position + new Vector3(0.5f, 0.5f, 0f));   // too near: it backs off
+        var w = Playing(new Vector3(0f, -200f, 0f));   // the player stays in the Stormbird: the pair acts alone
+        var (leader, follower) = Pair(w, Lz);
+        var run = w.Tfw!;
+        run.ActivePosition = TfwTestArena.Position1;
+        float most = 0f;
         Run(w, 3f);
-        Assert.InRange(Flat(w, r, Human), MarineRules.FollowMin, MarineRules.FollowMax);
-    }
+        Run(w, 25f, null, () => most = MathF.Max(most, Flat(w, leader, follower)));
+        Assert.True(MarineBrain.Flat(w.Players[leader].Position, TfwTestArena.Position1) <= MarineRules.ArriveRadius + 1f, $"stopped at {w.Players[leader].Position}");
+        Assert.True(most <= AllyRules.LeaderWait + 3f, $"{most} m apart on the way");
+        Assert.InRange(Flat(w, leader, follower), 0f, AllyRules.FollowFar + 2f);
 
-    [Fact]
-    public void Follow_shoots_within_twenty_metres_without_leaving_the_owner()
-    {
-        var w = Playing(Lz);
-        int r = w.TfwSpawnRetainer(Human, Lz + new Vector3(0f, -5f, 0f))!.Value;
-        var musou = w.Musou!;
-        ushort far = musou.Spawn(MusouEnemyType.Boy, w.Players[r].Position + new Vector3(30f, 0f, 0f), 0f, 1f);
-        Run(w, 0.5f);
-        Assert.True(w.Tfw!.MarineOf(r)!.Target == 0 || w.Tfw.MarineOf(r)!.Target != far);
-        musou.Clear();
-        musou.Spawn(MusouEnemyType.Boy, w.Players[r].Position + new Vector3(15f, 0f, 0f), 0f, 85f);
-        Run(w, 5f);
-        Assert.True(Kills(w, r) >= 1);
-        Assert.InRange(Flat(w, r, Human), 0f, MarineRules.FollowMax + 8f);   // it may give ground to a Boy on it, but stays by him
+        run.ActivePosition = TfwTestArena.Position2;                             // the goal moves on: they go together
+        most = 0f;
+        Run(w, 25f, null, () => most = MathF.Max(most, Flat(w, leader, follower)));
+        Assert.True(MarineBrain.Flat(w.Players[leader].Position, TfwTestArena.Position2) <= MarineRules.ArriveRadius + 1f, $"stopped at {w.Players[leader].Position}");
+        Assert.True(most <= AllyRules.LeaderWait + 3f, $"{most} m apart on the way");
+
+        for (int k = 0; k < 6; k++) w.Musou!.Spawn(MusouEnemyType.Boy, TfwTestArena.Position2 + new Vector3(4f + k, 5f, 0f), 0f, 85f);
+        Run(w, 30f);
+        Assert.True(Kills(w, leader) + Kills(w, follower) >= 4, $"{Kills(w, leader)} + {Kills(w, follower)} kills");
+        Assert.True(Kills(w, follower) >= 1, "the follower fights too");
     }
 
     [Fact]
     public void A_puppets_shot_counts_once_in_the_tick()
     {
         var w = Playing(Lz);
-        int r = w.TfwSpawnRetainer(Human, Lz + new Vector3(5f, 0f, 0f))!.Value;
+        int r = w.TfwSpawnAlly(Lz + new Vector3(5f, 0f, 0f))!.Value;
         var musou = w.Musou!;
         musou.Spawn(MusouEnemyType.Boy, w.Players[r].Position + new Vector3(12f, 0f, 0f), 0f, 50000f);
         int shots = 0, hits = 0;
@@ -215,71 +217,32 @@ public class MarineBrainTests(ITestOutputHelper output)
         });
         Assert.True(hits > 0, $"{hits} hits from {shots} shots");
     }
-    [Fact]
-    public void Hold_stays_where_ordered_and_engages_within_its_radius()
-    {
-        var w = Playing(Lz);
-        int r = w.TfwSpawnRetainer(Human, Lz + new Vector3(0f, -6f, 0f))!.Value;
-        Run(w, 0.5f);
-        Assert.True(w.Tfw!.Enqueue(Human, new TfwCommandRecord(1, TfwCommand.Hold, 0)));
-        Run(w, 0.1f);
-        Assert.Equal(MarineOrder.Hold, w.Tfw.Orders.Of(Human));
-        var post = w.Tfw.MarineOf(r)!.HoldAt;
-        Func<PlayerState, PlayerInput> walk = _ => new PlayerInput(0, 0f, 1f, 0f, InputButtons.None);
-        Run(w, 6f, walk);   // the owner walks away; it stays
-        Assert.True(Flat(w, r, Human) > 20f);
-        Assert.True(MarineBrain.Flat(w.Players[r].Position, post) <= MarineRules.HoldStand + 0.5f);
-        w.Musou!.Spawn(MusouEnemyType.Boy, post + new Vector3(20f, 0f, 0f), 0f, 85f);
-        Run(w, 4f);
-        Assert.True(Kills(w, r) >= 1);
-    }
 
     [Fact]
-    public void Attack_goes_to_the_active_position_and_a_resend_is_ignored()
+    public void A_dead_marine_is_back_30_s_later_and_follows_its_partner()
     {
-        var w = Playing(Lz);
-        int r = w.TfwSpawnRetainer(Human, Lz + new Vector3(0f, -6f, 0f))!.Value;
+        var w = Playing(new Vector3(0f, -200f, 0f));
+        var (leader, follower) = Pair(w, Lz);
         var run = w.Tfw!;
-        run.ActivePosition = TfwTestArena.Position1;
-        var attack = new TfwCommandRecord(1, TfwCommand.Attack, 0);
-        run.Enqueue(Human, attack);
-        run.Enqueue(Human, attack);
-        run.Enqueue(Human, new TfwCommandRecord(2, TfwCommand.Deploy, 1));   // not an order: it stays in the queue for the run
-        Run(w, 15f);
-        Assert.Equal(MarineOrder.Attack, run.Orders.Of(Human));
-        Assert.True(MarineBrain.Flat(w.Players[r].Position, TfwTestArena.Position1) <= MarineRules.ArriveRadius);
-        Assert.Equal(1, run.QueuedCommands);
-        Assert.True(run.TryDequeue(out _, out var left));
-        Assert.Equal(TfwCommand.Deploy, left.Command);
-    }
-
-    [Fact]
-    public void A_player_orders_only_its_own_retainer()
-    {
-        var w = Playing(Lz);
-        int r = w.TfwSpawnRetainer(Human, Lz)!.Value;
-        int lord = w.TfwSpawnLord(TfwLane.B, Lz)!.Value;
-        const int other = 2;
-        w.Spawn(other, 0);
-        int theirs = w.TfwSpawnRetainer(other, Lz + new Vector3(3f, 0f, 0f))!.Value;
-        w.TfwOrderMarines(Human, new TfwCommandRecord(1, TfwCommand.Hold, 0));
-        var run = w.Tfw!;
-        Assert.Equal(MarineOrder.Hold, run.Orders.Of(Human));
-        Assert.Equal(MarineOrder.Follow, run.Orders.Of(other));
-        Assert.Equal(Lz, run.MarineOf(r)!.HoldAt);
-        Assert.Equal(new Vector3(3f, 0f, 0f) + Lz, run.MarineOf(theirs)!.HoldAt);
-        var lordRetainer = run.Marines.Single(m => m.Role == MarineRole.LordRetainer);
-        Assert.Equal(lord, lordRetainer.Owner);
+        Kill(w, leader, 0.5f);
+        Run(w, 1f);
+        Assert.True(run.MarineOf(follower)!.Leads);                          // the survivor leads
+        Run(w, AllyRules.RespawnSeconds - 1.5f);
+        Assert.False(w.Players[leader].Alive);                               // the core never respawns it: the timer is held
+        Run(w, 1f);
+        Assert.True(w.Players[leader].Alive);
+        Assert.True(MarineBrain.Flat(w.Players[leader].Position, run.Field.MarineStart) < 1f, $"{w.Players[leader].Position}");   // no battle: the war's start (a battle: its landing zone)
+        Assert.False(run.MarineOf(leader)!.Leads);                           // back, it follows the one that stood
+        Assert.Equal(1, run.Marines.Count(m => m.Leads));
     }
 
     // ---------------------------------------------------------------- the revive, against a fake of the run
 
     [Fact]
-    public void A_retainer_revives_within_six_seconds_of_arrival_at_half_health_and_shield()
+    public void The_leader_revives_within_six_seconds_of_arrival_at_half_health_and_shield()
     {
         var w = Playing(Lz);
-        int r = w.TfwSpawnRetainer(Human, Lz + new Vector3(40f, 0f, 0f))!.Value;
-        w.TfwOrderMarines(Human, new TfwCommandRecord(1, TfwCommand.Hold, 0));   // an order does not stop it
+        var (r, _) = Pair(w, Lz + new Vector3(40f, 0f, 0f));
         Run(w, 0.2f);
         var run = w.Tfw!;
         var carried = w.Players[Human];
@@ -289,7 +252,7 @@ public class MarineBrainTests(ITestOutputHelper output)
 
         float arrived = -1f, clock = 0f, revived = -1f;
         float dt = 1f / w.Config.TickRate;
-        while (clock < 15f && revived < 0f)
+        while (clock < 20f && revived < 0f)
         {
             Tick(w);
             clock += dt;
@@ -305,16 +268,13 @@ public class MarineBrainTests(ITestOutputHelper output)
         Assert.Equal(body.ShieldMax * 0.5f, back.Shield, 2);
         Assert.Equal(carried.Position, back.Position);                 // where it fell
         Assert.Equal((carried.Pistol, carried.Slot, carried.Clip), (back.Pistol, back.Slot, back.Clip));   // no new life
-        Run(w, 0.5f);
-        Assert.True(w.Players[Human].Alive);
-        Assert.Equal(carried.Slot, w.Players[Human].Slot);
     }
 
     [Fact]
     public void A_closed_window_brings_no_revive()
     {
         var w = Playing(Lz);
-        w.TfwSpawnRetainer(Human, Lz + new Vector3(0f, -1f, 0f));
+        Pair(w, Lz + new Vector3(0f, -1f, 0f));
         Kill(w, Human);
         w.Tfw!.ReviveWindow = _ => false;
         Run(w, 5f);
@@ -325,7 +285,7 @@ public class MarineBrainTests(ITestOutputHelper output)
     public void Leaving_the_body_restarts_the_revive()
     {
         var w = Playing(Lz);
-        int r = w.TfwSpawnRetainer(Human, Lz + new Vector3(0f, -1f, 0f))!.Value;
+        int r = w.TfwSpawnAlly(Lz + new Vector3(0f, -1f, 0f))!.Value;
         Kill(w, Human);
         w.Tfw!.ReviveWindow = _ => true;
         Run(w, 2f);
@@ -336,104 +296,25 @@ public class MarineBrainTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public void A_dead_retainer_recovers_three_war_minutes_on_the_war_clock()
-    {
-        var w = Playing(Lz);
-        int r = w.TfwSpawnRetainer(Human, Lz)!.Value;
-        var run = w.Tfw!;
-        run.WarTimeScale = 18f;   // 180 war seconds in 10 s
-        Kill(w, r, 0.5f);
-        Run(w, 5f);
-        Assert.False(w.Players[r].Alive);                        // the core never respawns it: the timer is held
-        Assert.InRange(run.RecoveryLeft(Human), 60f, 120f);
-        Assert.Null(w.TfwSpawnRetainer(Human, Lz));              // one retainer
-        Run(w, 5.5f);
-        Assert.True(w.Players[r].Alive);
-        Assert.Equal(0f, run.RecoveryLeft(Human));
-    }
-
-    [Fact]
-    public void A_retainers_owner_leaving_takes_it_out_and_a_recovery_outlives_the_battle()
-    {
-        var w = Playing(Lz);
-        int r = w.TfwSpawnRetainer(Human, Lz)!.Value;
-        var run = w.Tfw!;
-        Kill(w, r);
-        Run(w, 0.2f);
-        w.TfwDismissMarines();
-        Assert.Empty(run.Marines);
-        Assert.False(w.Players.ContainsKey(r));
-        Assert.True(run.RecoveryLeft(Human) > 0f);
-        Assert.Null(w.TfwSpawnRetainer(Human, Lz));              // not back before its time
-        run.WarTimeScale = 1000f;
-        Run(w, 0.5f);
-        r = w.TfwSpawnRetainer(Human, Lz)!.Value;
-        w.Remove(Human);
-        Tick(w);
-        Assert.False(w.Players.ContainsKey(r));
-        Assert.Empty(run.Marines);
-    }
-
-    // ---------------------------------------------------------------- the lords
-
-    [Fact]
-    public void A_lord_reaches_the_active_position_and_kills_boyz()
-    {
-        foreach (var lane in new[] { TfwLane.A, TfwLane.B, TfwLane.C })
-        {
-            var w = Playing(new Vector3(0f, -200f, 0f));   // the player stays in the Stormbird: the lord acts alone
-            int lord = w.TfwSpawnLord(lane, Lz)!.Value;
-            var run = w.Tfw!;
-            Assert.Equal(lane switch { TfwLane.A => "assault", TfwLane.B => "tactical", _ => "heavy" }, w.Config.Classes[w.Players[lord].Class].Role);
-            run.ActivePosition = TfwTestArena.Position1;
-            Run(w, 20f);
-            Assert.True(MarineBrain.Flat(w.Players[lord].Position, TfwTestArena.Position1) <= MarineRules.ArriveRadius, $"{lane} stopped at {w.Players[lord].Position}");
-            var marines = run.Marines.Select(m => m.Id).ToList();
-            for (int k = 0; k < 6; k++)
-                w.Musou!.Spawn(MusouEnemyType.Boy, TfwTestArena.Position1 + new Vector3(4f + k, 5f, 0f), 0f, 85f);
-            Run(w, 30f);
-            Assert.True(Kills(w, lord) >= 1, $"lord of {lane} killed none");
-            Assert.True(marines.Sum(id => Kills(w, id)) >= 4, $"{lane}: {marines.Sum(id => Kills(w, id))} kills");
-        }
-    }
-
-    [Fact]
-    public void One_lord_per_lane_named_as_the_design_with_a_retainer_each()
-    {
-        var w = Playing(Lz);
-        foreach (var lane in new[] { TfwLane.A, TfwLane.B, TfwLane.C }) Assert.NotNull(w.TfwSpawnLord(lane, Lz));
-        Assert.Null(w.TfwSpawnLord(TfwLane.A, Lz));
-        var run = w.Tfw!;
-        Assert.Equal(6, run.Marines.Count);
-        Assert.Equal(["Brother-Captain Aurex", "Retainer of Aurex", "Brother-Captain Tolmar", "Retainer of Tolmar", "Brother-Captain Severin", "Retainer of Severin"],
-            run.Marines.Select(m => run.PuppetName(m.Id)));
-    }
-
-    [Fact]
-    public void A_fallen_lord_goes_to_the_war_once_and_stays_down_and_his_retainer_fights_on()
-    {
-        var w = Playing(new Vector3(0f, -200f, 0f));
-        int lord = w.TfwSpawnLord(TfwLane.C, Lz)!.Value;
-        var run = w.Tfw!;
-        run.ActivePosition = TfwTestArena.Position1;
-        var fallen = new List<TfwLane>();
-        run.LordFallen = fallen.Add;
-        Kill(w, lord, 0.5f);
-        Run(w, 10f);
-        Assert.Equal([TfwLane.C], fallen);
-        Assert.False(w.Players[lord].Alive);
-        var retainer = run.Marines.Single(m => m.Role == MarineRole.LordRetainer).Id;
-        Assert.True(MarineBrain.Flat(w.Players[retainer].Position, Lz) > 20f, "it went on to the objective");
-    }
-
-    [Fact]
     public void An_empty_gun_is_topped_up_so_a_puppet_keeps_fighting()
     {
         var w = Playing(new Vector3(0f, -200f, 0f));
-        int r = w.TfwSpawnRetainer(Human, Lz)!.Value;
+        int r = w.TfwSpawnAlly(Lz)!.Value;
         SetPlayer(w, r, w.Players[r] with { Reserve = 0 });
         Run(w, 0.1f);
         Assert.Equal(Rifle.ReserveSize, w.Players[r].Reserve);
+    }
+
+    [Fact]
+    public void Dismissing_takes_the_pair_out()
+    {
+        var w = Playing(Lz);
+        var (a, b) = Pair(w, Lz);
+        var run = w.Tfw!;
+        w.TfwDismissMarines();
+        Assert.Empty(run.Marines);
+        Assert.False(w.Players.ContainsKey(a) || w.Players.ContainsKey(b));
+        Assert.Equal(AllyRules.Count, w.TfwSpawnAllies(Lz));                  // a new battle lands a new pair
     }
 
     // ---------------------------------------------------------------- the install's classes
@@ -449,31 +330,27 @@ public class MarineBrainTests(ITestOutputHelper output)
     }
 
     [InstallFact]
-    public void Each_lord_of_the_real_classes_reaches_the_position_and_kills_boyz()
+    public void The_pair_of_the_real_classes_reaches_the_position_and_kills_boyz()
     {
         var config = GameplayTuning.LoadForMatch(Game.Value!, ContentExtras.Musou).Config;
-        foreach (var lane in new[] { TfwLane.A, TfwLane.B, TfwLane.C })
-        {
-            var map = TfwTestArena.Build();
-            var w = new World(config, map.Collision, map.Spawns) { Rules = Rules };
-            Assert.True(w.StartTfw(null, TfwTestArena.Field));
-            w.Tfw!.Idle = true;   // the Marines alone: these tests set the order, the place and the clock themselves (TF4's run would)
-            w.Spawn(Human, 0);
-            for (int k = 0; k < 400 && w.State != MatchState.Playing; k++) Tick(w);
-            Assert.Equal(MatchState.Playing, w.State);
-            int lord = w.TfwSpawnLord(lane, Lz)!.Value;
-            int retainer = w.Tfw!.Marines.Single(m => m.Role == MarineRole.LordRetainer).Id;
-            w.Tfw.ActivePosition = TfwTestArena.Position1;
-            Run(w, 25f);
-            Assert.True(MarineBrain.Flat(w.Players[lord].Position, TfwTestArena.Position1) <= MarineRules.ArriveRadius, $"{lane} stopped at {w.Players[lord].Position}");
-            for (int k = 0; k < 6; k++) w.Musou!.Spawn(MusouEnemyType.Boy, TfwTestArena.Position1 + new Vector3(4f + k, 5f, 0f), 0f, 85f);
-            Run(w, 45f);
-            var p = w.Players[lord];
-            output.WriteLine($"{lane}: {config.Classes[p.Class].Name}, primary {p.Primary}, slot {p.Slot}, alive {p.Alive}, lord kills {Kills(w, lord)}, retainer kills {Kills(w, retainer)}, left {w.Musou!.Alive}");
-            Assert.True(Kills(w, lord) + Kills(w, retainer) >= 3, $"{lane}: {Kills(w, lord)} + {Kills(w, retainer)}");
-            Assert.True(Kills(w, lord) >= 1, $"lord of {lane} killed none");
-        }
+        var map = TfwTestArena.Build();
+        var w = new World(config, map.Collision, map.Spawns) { Rules = Rules };
+        Assert.True(w.StartTfw(null, TfwTestArena.Field));
+        w.Tfw!.Idle = true;   // the Marines alone
+        w.Spawn(Human, 0);
+        for (int k = 0; k < 400 && w.State != MatchState.Playing; k++) Tick(w);
+        Assert.Equal(MatchState.Playing, w.State);
+        Place(w, Human, new Vector3(0f, -200f, 0f));
+        var (leader, follower) = Pair(w, Lz);
+        w.Tfw.ActivePosition = TfwTestArena.Position1;
+        Run(w, 30f);
+        Assert.True(MarineBrain.Flat(w.Players[leader].Position, TfwTestArena.Position1) <= MarineRules.ArriveRadius + 1f, $"stopped at {w.Players[leader].Position}");
+        for (int k = 0; k < 6; k++) w.Musou!.Spawn(MusouEnemyType.Boy, TfwTestArena.Position1 + new Vector3(4f + k, 5f, 0f), 0f, 85f);
+        Run(w, 45f);
+        output.WriteLine($"leader kills {Kills(w, leader)}, follower kills {Kills(w, follower)}, left {w.Musou!.Alive}");
+        Assert.True(Kills(w, leader) + Kills(w, follower) >= 3, $"{Kills(w, leader)} + {Kills(w, follower)}");
     }
+
     // ---------------------------------------------------------------- ids
 
     [Fact]
@@ -498,7 +375,7 @@ public class MarineBrainTests(ITestOutputHelper output)
     // ---------------------------------------------------------------- the server
 
     [Fact]
-    public void Seven_puppets_run_ten_simulated_minutes_on_a_loopback_server()
+    public void The_pair_runs_ten_simulated_minutes_on_a_loopback_server()
     {
         var map = TfwTestArena.ServerMap();
         var h = new Harness(LinkConditions.Perfect, 5, 1, Config, new ServerOptions { Match = Rules }, map: map,
@@ -508,20 +385,16 @@ public class MarineBrainTests(ITestOutputHelper output)
         var run = w.Tfw!;
         run.Idle = true;   // the Marines alone
         int human = Assert.Single(h.Server.Players);
-        Assert.NotNull(w.TfwSpawnRetainer(human, Lz));
-        foreach (var lane in new[] { TfwLane.A, TfwLane.B, TfwLane.C }) Assert.NotNull(w.TfwSpawnLord(lane, Lz + new Vector3((int)lane * 4f - 4f, 0f, 0f)));
-        Assert.Equal(7, run.Marines.Count);
-        Assert.Null(w.TfwSpawnLord(TfwLane.A, Lz));
+        Assert.Equal(AllyRules.Count, w.TfwSpawnAllies(Lz));
+        Assert.Null(w.TfwSpawnAlly(Lz));
         run.ActivePosition = TfwTestArena.Position2;
-        run.WarTimeScale = 1f;
 
         uint started = w.Tick;
         var rng = new Random(7);
         for (int second = 0; second < 600; second += 5)
         {
             h.Run(TimeSpan.FromSeconds(5));
-            if (second == 300)   // deaths on the server too: a lord stays down, a retainer comes back on the war clock
-                foreach (var m in run.Marines.Where(m => m.Role != MarineRole.LordRetainer || m.Lane == TfwLane.A).ToList()) if (m.Role != MarineRole.Lord || m.Lane == TfwLane.B) Kill(w, m.Id, 0.2f);
+            if (second == 300) foreach (var m in run.Marines.ToList()) Kill(w, m.Id, 0.2f);   // deaths on the server too: both back 30 s later
             run.ActivePosition = (second / 60 % 3) switch { 0 => TfwTestArena.Position1, 1 => TfwTestArena.Position2, _ => TfwTestArena.Position3 };
             for (int k = 0; k < 4 && w.Musou!.Alive < 40; k++)
                 w.Musou.Spawn(k == 0 ? MusouEnemyType.ShootaBoy : MusouEnemyType.Boy, run.ActivePosition!.Value + new Vector3(rng.NextSingle() * 30f - 15f, rng.NextSingle() * 30f - 15f, 0f), 0f, 85f);
@@ -530,14 +403,13 @@ public class MarineBrainTests(ITestOutputHelper output)
         Assert.True(w.Tick - started >= 600 * w.Config.TickRate - 1, $"{w.Tick - started} ticks");
         Assert.Equal(0, h.Server.Faults);
         Assert.Equal(ClientStatus.Connected, h.Clients[0].Status);
-        Assert.Equal(7, run.Marines.Count);
-        Assert.Equal(1, run.Marines.Count(m => !w.Players[m.Id].Alive));   // Tolmar; the retainers are back (180 war s < 300 s left)
+        Assert.Equal(AllyRules.Count, run.Marines.Count);
         output.WriteLine($"{w.Tick - started} ticks, kills {string.Join(", ", run.Marines.Select(m => $"{m.Name} {w.Scores.GetValueOrDefault(m.Id).Kills}/{w.Scores.GetValueOrDefault(m.Id).Deaths}"))}");
-        Assert.True(run.Marines.Sum(m => w.Scores.GetValueOrDefault(m.Id).Kills) > 50, "the puppets fought");
+        Assert.True(run.Marines.Sum(m => w.Scores.GetValueOrDefault(m.Id).Kills) > 20, "the pair fought");
+        Assert.True(run.Marines.All(m => w.Players[m.Id].Alive), "both came back 30 s after their deaths at 300 s");
 
         var board = h.Server.ScoreboardOf();
-        string[] names = ["Brother-Captain Aurex", "Retainer of Aurex", "Brother-Captain Tolmar", "Retainer of Tolmar", "Brother-Captain Severin", "Retainer of Severin", "Retainer"];
-        Assert.Equal(names.Order(), board.Players.Where(e => TfwContracts.IsPuppet(e.PlayerId)).Select(e => e.Name).Order());
+        Assert.Equal(["Brother Calix", "Brother Varro"], board.Players.Where(e => TfwContracts.IsPuppet(e.PlayerId)).Select(e => e.Name).Order());
         Assert.Equal("", board.Players.Single(e => e.PlayerId == human).Name);
         h.Run(TimeSpan.FromSeconds(3));   // the scoreboard goes out with them
         Assert.Equal(0, h.Server.Faults);

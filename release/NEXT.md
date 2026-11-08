@@ -9,3 +9,4 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Leave out changes a tester cannot notice (tooling, docs, refactors). Optional "### " headings group long lists.
 - Add your bullets in the same pull request as the change, when it merges.
 -->
+- Musou Mode: only two allied Space Marines fight beside you now, however many players there are. They land with you and roam the map together, pushing the point being attacked and running to defend a held point the Orks attack; a fallen one is back at the landing zone after 30 seconds. Your personal retainer, the Brother-Captains and the six Defenders are gone, and Z, X and V no longer give orders (X and V are back to next weapon and melee).

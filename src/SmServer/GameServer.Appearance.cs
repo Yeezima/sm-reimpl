@@ -70,7 +70,7 @@ public sealed partial class GameServer
 
     /// <summary>
     /// The look of a player that has no peer, as the scoreboard's version and an <see cref="AppearanceQuery"/> answer need it: none in the core (null). Added content may give a
-    /// player without a client a look (Musou Mode's retainers wear their owner's), through <see cref="ExtrasPuppetAppearance"/>.
+    /// player without a client a look (Musou Mode's allied pair wears the host's), through <see cref="ExtrasPuppetAppearance"/>.
     /// </summary>
     (ushort Version, Race Race, AppearanceCode Code)? PeerlessLook(int playerId)
     {

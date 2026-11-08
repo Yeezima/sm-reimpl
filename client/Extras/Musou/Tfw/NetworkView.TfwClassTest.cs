@@ -110,11 +110,11 @@ public partial class NetworkView
         TfwClassCheck("the new class has its full loadout", _config is { } c && (SmSim.Extras.Musou.MusouLoadout.DefaultPrimary(c, changed.Class) < 0 || Loadouts.Weapon(c, changed, WeaponSlot.Ranged) is not null), $"primary {changed.Primary}, pistol {changed.Pistol}");
         TfwClassCheck("no extra slot followed it", _tfwState.Arsenal == TfwArsenalView.Empty, _tfwState.Arsenal.ToString());
 
-        // Item 1: into a battle, the retainer wears the player's colours.
+        // Item 1: into a battle, the allied pair wears the player's colours (the host's since the pair of 2026-11-08; alone, this player is the host).
         if (!await TfwTestDeploy(TfwLane.B)) { _tfwClassFailed++; return; }
         await TfwWait(1.0);
-        // At the landing the retainer stands 2 m behind the player: the camera turned to it ends up past it, so it fills the picture with the player beyond.
-        if (client.Scoreboard?.Players.FirstOrDefault(r => TfwContracts.IsPuppet(r.PlayerId) && r.Name == "Retainer") is { } landed
+        // At the landing the pair stands a few metres from the player: the camera turned to it ends up past it, so it fills the picture with the player beyond.
+        if (client.Scoreboard?.Players.FirstOrDefault(r => TfwContracts.IsPuppet(r.PlayerId)) is { } landed
             && client.RemotePlayers().Players.FirstOrDefault(p => p.PlayerId == landed.PlayerId) is { } landedAt)
         {
             var mine = client.Predicted.Position;
@@ -125,8 +125,8 @@ public partial class NetworkView
         await TfwWait(1.0);
         var board = client.Scoreboard;
         var own = board?.Players.FirstOrDefault(r => r.PlayerId == me);
-        var retainer = board?.Players.Where(r => TfwContracts.IsPuppet(r.PlayerId) && r.Name == "Retainer").Cast<ScoreEntry?>().FirstOrDefault();
-        TfwClassCheck("a retainer stands beside the player", retainer is not null, string.Join(",", board?.Players.Select(r => r.PlayerId + ":" + r.Name) ?? []));
+        var retainer = board?.Players.Where(r => TfwContracts.IsPuppet(r.PlayerId)).Cast<ScoreEntry?>().FirstOrDefault();
+        TfwClassCheck("a Marine of the allied pair is in the battle", retainer is not null, string.Join(",", board?.Players.Select(r => r.PlayerId + ":" + r.Name) ?? []));
         if (own is { } o && retainer is { } r)
         {
             TfwClassCheck("the player's look has a version", o.AppearanceVersion != 0, o.AppearanceVersion.ToString());
@@ -149,7 +149,7 @@ public partial class NetworkView
             GD.Print($"TFWCLASS note: ret. {Describe(rtn.PlayerId, _remotes.GetValueOrDefault(rtn.PlayerId))}");
         }
 
-        // Away from the landing zone's crowd, the camera turns to the retainer (it follows a few metres behind), so one picture holds both armours.
+        // Away from the landing zone's crowd, the camera turns to the Marine of the pair (it roams on its own; the picture may not hold both armours).
         double walkUntil = _connectedFor + 9.0;
         await TfwPathTo(_tfwState.Objectives[0].Position, "walked a little way towards the first position", 30.0, over: () => _connectedFor > walkUntil || !client.Predicted.Alive);
         await TfwWait(1.2);

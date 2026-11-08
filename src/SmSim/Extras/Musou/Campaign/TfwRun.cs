@@ -24,7 +24,6 @@ public sealed partial class TfwRun
         Sites = sites ?? new TfwSites(field, null, null);
         Reset();
         ReviveWindow = ReviveOpen;
-        LordFallen = lane => War.WoundLord(lane);
     }
 
     /// <summary>The places of the battlefield.</summary>
@@ -51,8 +50,8 @@ public sealed partial class TfwRun
     /// <summary>The humans in the field.</summary>
     public IReadOnlyList<int> InField => _deployed;
 
-    /// <summary>Test seam for the AI Marines: whether a player's retainer can revive it (null: the World asks the roster).</summary>
-    public Func<int, bool>? RetainerUp { get; set; }
+    /// <summary>Test seam for the AI Marines: whether the allied pair can revive a fallen player (null: the World asks whether a Marine of the pair stands).</summary>
+    public Func<int, bool>? AllyUp { get; set; }
 
     /// <summary>Battles won this run: the elites rise with them.</summary>
     public int Wins { get; private set; }
@@ -60,9 +59,9 @@ public sealed partial class TfwRun
     public bool Guardsmen { get; set; } = TfwBattleRules.GuardsmenEnabled;
     /// <summary>Whether a battle sends patrol and hunter columns (<see cref="TfwBattle.Patrols"/>; false only in tests that count the crowds alone, and the server's <c>SM_TFW_NO_PATROLS</c>).</summary>
     public bool Patrols { get; set; } = true;
-    /// <summary>Whether a battle runs the battle flow's armies (expansion S6, <see cref="TfwBattle.Armies"/>), and lands the six Defenders (false only in tests that count the old flow alone).</summary>
+    /// <summary>Whether a battle runs the battle flow's armies (expansion S6, <see cref="TfwBattle.Armies"/>), and whether it lands the allied pair (each false only in tests that count without them).</summary>
     public bool Armies { get; set; } = true;
-    public bool Defenders { get; set; } = true;
+    public bool Allies { get; set; } = true;
     /// <summary>Whether a won battle sends the wave from every side (<see cref="TfwBattle.VictoryWave"/>; false only in tests of what a won battle does without it).</summary>
     public bool VictoryWave { get; set; } = true;
 
@@ -75,9 +74,6 @@ public sealed partial class TfwRun
 
     /// <summary>Test aid (ours): the run stands still: it takes no command from the queue and feeds no wire, for tests of the queue and of the wire themselves.</summary>
     public bool Idle { get; set; }
-
-    /// <summary>Test seam: an order as it reaches the Marines.</summary>
-    public Action<int, TfwCommandRecord>? OrderSeen { get; set; }
 
     public TfwRunPhase Phase => War.Phase;
     public bool Ended => Phase is TfwRunPhase.Won or TfwRunPhase.Lost;
@@ -125,7 +121,6 @@ public sealed partial class TfwRun
             War.Step();
             for (; War.Clock >= _nextHqTransport; _nextHqTransport += TfwBattleRules.HqTransportSeconds) Transport++;
         }
-        WarTimeScale = (float)War.TimeScale;
         if (Ended) return;
         RangeStep(w, rate);
         if (Phase == TfwRunPhase.Travel) { if (--TravelTicks <= 0) Land(w, rate); }
@@ -153,18 +148,9 @@ public sealed partial class TfwRun
                 case TfwCommand.RangeBack: RangeBack(w, player); break;
                 case TfwCommand.Orbital: w.TfwOrbital(player, c.Point); break;   // World.TfwFire.cs: the server decides
                 case TfwCommand.FireTest: if (Fire.TestCommands) w.TfwFireForTests((c.Argument & 1) != 0, TfwFireRules.RunsEnabled && (c.Argument & 2) != 0, Field.Clamp(c.Point), w.TfwFireTestHeading(player, c.Point)); break;   // test aid (SM_TFW_FIRE_TEST)
-                default: Order(w, player, c); break;
+                default: break;   // Follow, Hold and Attack (an older client's order keys): no player orders the allied pair since 2026-11-08, so they do nothing
             }
         }
-    }
-
-    /// <summary>An order to the Marines: only with a battle on, from a human in it; its point is the client's, so it is kept inside the battlefield.</summary>
-    void Order(World w, int player, TfwCommandRecord c)
-    {
-        if (Battle is null || !_deployed.Contains(player)) return;
-        var order = c with { Point = Field.Clamp(c.Point) };
-        OrderSeen?.Invoke(player, order);
-        w.TfwOrderMarines(player, order);
     }
 
     void Deploy(World w, int player, byte lane, int rate)
@@ -199,7 +185,7 @@ public sealed partial class TfwRun
         War.Enter(_fighting, War.BattleLane);
     }
 
-    /// <summary>The landing: the battle (a stronghold's lane: the final assault), a fresh life for each human at the landing zone, the AI Marines.</summary>
+    /// <summary>The landing: the battle (a stronghold's lane: the final assault), a fresh life for each human at the landing zone, the allied pair.</summary>
     void Land(World w, int rate)
     {
         var lane = War.BattleLane;
@@ -227,17 +213,9 @@ public sealed partial class TfwRun
             var at = Ashore(w, layout, TfwCoop.LandingOffset(k));
             _landingSlots[id] = k;   // TfwRun.Flow.cs: a redeploy comes back here
             w.TfwRespawnAt(id, at, yaw);
-            w.TfwSpawnRetainer(id, Ashore(w, layout, at - layout.LandingZone + new Vector3(0f, -2f, 0f)), yaw);
         }
         w.TfwPlaceCrates(Sites.Crates(layout, w.Tick), _deployed);
-        int lords = 0;
-        for (int l = 0; l < 3; l++)
-        {
-            var other = (TfwLane)l;
-            if ((final || other == lane) && War.LaneState(other).LordState == WarRules.LordPresent)
-                if (w.TfwSpawnLord(other, Ashore(w, layout, new Vector3(l * 3f - 3f, 3f, 0f)), yaw) is not null) lords++;
-        }
-        if (Defenders && Guardsmen) w.TfwSpawnDefenders(DefenderRules.For(lords), layout.LandingZone, yaw);   // expansion S6: the six who defend beside the Guardsmen
+        if (Allies) w.TfwSpawnAllies(layout.LandingZone, yaw);   // the owner, 2026-11-08: two allied Marines in all, whatever the number of players (no retainer, lord or Defender)
         LastLandMilliseconds = System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds;
     }
 
@@ -283,7 +261,7 @@ public sealed partial class TfwRun
     }
 
     /// <summary>
-    /// The fallen: a death cancels a pickup; a retainer standing gives a revive window; with nobody left fighting and no window open the extraction's prompt runs, then it is paid for or
+    /// The fallen: a death cancels a pickup; a Marine of the allied pair standing gives a revive window; with nobody left fighting and no window open the extraction's prompt runs, then it is paid for or
     /// the run is lost. After a won battle it always happens (the owner, 2026-11-01): the supplies fall by what they can and the run goes on.
     /// </summary>
     void Downed(World w, int rate)
@@ -295,7 +273,7 @@ public sealed partial class TfwRun
             if (p.Alive) { fighting = true; _reviveTicks.Remove(id); continue; }
             // A death cancels a pickup: the death itself (its first tick down), not every tick after it, so the living of a team can call one while a fallen one waits (co-op, 2026-11-06).
             if (Phase == TfwRunPhase.Pickup && !_recall && !_reviveTicks.ContainsKey(id)) EndPickup();   // the host's recall goes on: the fallen fly out with the team
-            bool up = RetainerUp?.Invoke(id) ?? w.TfwRetainerUp(id);
+            bool up = AllyUp?.Invoke(id) ?? w.TfwAllyUp();
             if (!_reviveTicks.TryGetValue(id, out int left)) left = up ? Math.Max(1, (int)MathF.Round(TfwBattleRules.ReviveWindowSeconds * rate)) : 0;
             left = up ? Math.Max(0, left - 1) : 0;
             _reviveTicks[id] = left;

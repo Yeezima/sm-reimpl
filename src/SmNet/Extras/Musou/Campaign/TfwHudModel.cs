@@ -131,7 +131,7 @@ public static class TfwHudModel
 
     /// <summary>
     /// Who contests a capture, said where the player looks: a position being cleared shows how many Orks the client knows standing in it (" - 7 ORKS"); since 2026-11-06 (owner) they no longer stop it, the progress
-    /// grows while a player, lord or retainer stands on the point.
+    /// grows while a player stands on the point.
     /// The count is the client's own (the enemies it was sent, inside the radius and <see cref="ClearingReach"/> up and down), a hint and not the server's count.
     /// </summary>
     public static string ClearingNote(in TfwObjective o, int orksOn) => o.State == TfwPositionState.Clearing && orksOn > 0 ? $" - {orksOn} ORK{(orksOn == 1 ? "" : "S")}" : "";
@@ -162,16 +162,14 @@ public static class TfwHudModel
 
     public static string GuardsText(in TfwOwnView own) => own.Guards == 0 && own.Squads == 0 && own.Reserves == 0 ? "" : $"GUARDS {own.Guards}, {own.Squads} SQUADS + {own.Reserves} IN RESERVE";
 
-    /// <summary>The retainer's line: its state and the order in force.</summary>
+    /// <summary>The allied pair's line (the owner's two Marines, 2026-11-08; the wire's retainer state): roaming, reviving this player, or both down and back in so long.</summary>
     public static string RetainerText(in TfwOwnView own) => own.Retainer switch
     {
-        TfwRetainerState.Ready => $"RETAINER: {OrderText(own.Order)}",
-        TfwRetainerState.Reviving => "RETAINER: REVIVING YOU",
-        TfwRetainerState.Recovering => $"RETAINER RECOVERING: {ClockText(own.RecoverySeconds)} WAR TIME",
-        _ => "RETAINER: STANDING BY",
+        TfwRetainerState.Ready => "ALLIED MARINES: ROAMING",
+        TfwRetainerState.Reviving => "ALLIED MARINES: REVIVING YOU",
+        TfwRetainerState.Recovering => $"ALLIED MARINES BACK IN {ClockText(own.RecoverySeconds)}",
+        _ => "ALLIED MARINES: STANDING BY",
     };
-
-    public static string OrderText(MarineOrder order) => order switch { MarineOrder.Hold => "HOLD", MarineOrder.Attack => "ATTACK", _ => "FOLLOW" };
 
     /// <summary>The big line in the middle of the screen, for what the run asks of the player now; empty when nothing does.</summary>
     public static string Prompt(in TfwWarView war, bool alive)
@@ -186,8 +184,8 @@ public static class TfwHudModel
         }
         if (!alive)
         {
-            if (own.ReviveSeconds > 0 && own.ReviveTenths > 0) return $"YOUR RETAINER REVIVES YOU: {own.ReviveTenths * 10}%";
-            if (own.ReviveSeconds > 0) return $"YOUR RETAINER IS COMING: {own.ReviveSeconds} S";
+            if (own.ReviveSeconds > 0 && own.ReviveTenths > 0) return $"THE ALLIED MARINES REVIVE YOU: {own.ReviveTenths * 10}%";
+            if (own.ReviveSeconds > 0) return $"THE ALLIED MARINES ARE COMING: {own.ReviveSeconds} S";
             if (own.ExtractionSeconds > 0)
             {
                 if (!own.BattleWon && war.Supplies < TfwBattleRules.ExtractionSupplies) return $"NO SUPPLIES FOR AN EXTRACTION: THE WAR IS LOST IN {own.ExtractionSeconds} S";

@@ -68,7 +68,7 @@ public class TfwCoopTests
     }
 
     [Fact]
-    public void One_deploy_lands_all_4_humans_apart_by_the_landing_zone_each_with_its_own_retainer_on_one_side()
+    public void One_deploy_lands_all_4_humans_apart_by_the_landing_zone_with_two_allied_marines_in_all()
     {
         var w = FourHumans();
         var run = w.Tfw!;
@@ -82,15 +82,14 @@ public class TfwCoopTests
         foreach (int id in run.InField)
         {
             Assert.Equal(Team.SpaceMarines, w.Players[id].Team);
-            Assert.NotNull(run.RetainerOf(id));
             Assert.True(w.TfwOwn(id).Deployed);
         }
-        Assert.Equal(4, run.InField.Select(id => run.RetainerOf(id)!.Id).Distinct().Count());
+        Assert.Equal(AllyRules.Count, run.Marines.Count);                    // the owner, 2026-11-08: two, whatever the number of players
         Assert.Equal(0, run.LateJoins);
     }
 
     [Fact]
-    public void A_human_who_joins_during_a_battle_is_flown_in_at_the_landing_zone_with_a_retainer()
+    public void A_human_who_joins_during_a_battle_is_flown_in_at_the_landing_zone_and_brings_no_marine()
     {
         var w = TfwRig.War();
         var run = w.Tfw!;
@@ -103,7 +102,7 @@ public class TfwCoopTests
         Assert.True(w.TfwOwn(2).Deployed);
         Assert.True(Vector3.Distance(w.Players[2].Position with { Z = 0f }, TfwTestArena.LandingZone) < 6f, $"{w.Players[2].Position}");
         Assert.False(TfwTestArena.Hub.Contains(w.Players[2].Position));
-        Assert.NotNull(run.RetainerOf(2));
+        Assert.Equal(AllyRules.Count, run.Marines.Count);
         TfwRig.Steps(w, 30);
         Assert.Equal(1, run.LateJoins);                                     // once
     }
