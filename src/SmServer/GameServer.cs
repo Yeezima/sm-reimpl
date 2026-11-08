@@ -252,7 +252,8 @@ public sealed partial class GameServer
         _nextTickAt ??= now;
         _nextSnapshotAt ??= now;
         _nextScoreboardAt ??= now;
-        for (int ran = 0; now >= _nextTickAt; ran++)
+        int ran = 0;
+        for (; now >= _nextTickAt; ran++)
         {
             if (_options.MaxCatchUpTicks > 0 && ran >= _options.MaxCatchUpTicks) { SkipLateTicks(now, tickLength); break; }
             long tickStarted = TickStatsBegin();   // test aid SM_TICK_STATS (GameServer.TickStats.cs)
@@ -261,7 +262,7 @@ public sealed partial class GameServer
             SmSim.SimProfile.End("world step", section);
             _nextTickAt += tickLength;
             section = SmSim.SimProfile.Begin();
-            if (_nextTickAt > _nextSnapshotAt) { Guard("snapshots", SendSnapshots); _nextSnapshotAt += snapshotLength; }
+            if (_nextTickAt > _nextSnapshotAt) { Guard("snapshots", SendSnapshots); _nextSnapshotAt += snapshotLength; TickStatsSnapshot(); }
             if (_nextTickAt > _nextScoreboardAt) { Guard("scoreboards", SendScoreboards); _nextScoreboardAt += _options.ScoreboardInterval; }
             Guard("bars", SendBars);   // protocol 44: Tactical Readout / Signum Link (GameServer.Bars.cs)
             Guard("pickups", SendPickups);   // protocol 26: dropped pickups, outside the snapshots (GameServer.Pickups.cs)
@@ -271,6 +272,7 @@ public sealed partial class GameServer
             SmSim.SimProfile.End("send: extras", section);
             TickStatsEnd(tickStarted);
         }
+        TickStatsUpdate(ran);
     }
 
     /// <summary>Handles one received packet; <see cref="Update"/> catches a throw and drops only that sender (hardening M3).</summary>
