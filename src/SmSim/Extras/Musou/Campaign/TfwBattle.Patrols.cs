@@ -189,7 +189,7 @@ public sealed partial class TfwBattle
                 if (!first.Contains((ends[i].Segment.Item2, ends[i].Segment.Item1))) independent.Add(i);
                 first.Add(ends[i].Segment);
             }
-            Parallel.ForEach(independent, i => ahead[i] = Search(nav, ends[i].From, ends[i].To));
+            Parallel.ForEach(independent, new ParallelOptions { MaxDegreeOfParallelism = Math.Clamp(Environment.ProcessorCount / 2, 1, 4) }, i => ahead[i] = Search(nav, ends[i].From, ends[i].To));
         }
         var found = new List<((int, int), List<Vector3>?, double)>();
         var reversible = new Dictionary<(int, int), List<Vector3>>();

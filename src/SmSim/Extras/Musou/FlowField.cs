@@ -161,6 +161,8 @@ public sealed class MusouNav
     }
 
     Task<float[]>? _edgeTask;
+    /// <summary>Graphs with fewer nodes compute their edge distances at first use, as before (cheap).</summary>
+    const int PrepareNodes = 20_000;
 
     /// <summary>
     /// Starts <see cref="EdgeDistance"/>'s spread off the tick (musou/perf-pass: computed lazily it took 138 ms of the first tick a Scrap Mek looked for a hide, on Ashfall's graph); the first use waits for it
@@ -168,7 +170,8 @@ public sealed class MusouNav
     /// </summary>
     public void PrepareEdges()
     {
-        if (_edge is null && _edgeTask is null) _edgeTask = Task.Run(ComputeEdges);
+        // Its own thread, not the pool's (a test run makes many worlds; the pool is the other background work's), and only for a graph large enough to stall a tick (Ashfall's has over 100,000 nodes).
+        if (_edge is null && _edgeTask is null && NodeCount >= PrepareNodes) _edgeTask = Task.Factory.StartNew(ComputeEdges, TaskCreationOptions.LongRunning);
     }
 
     float[] ComputeEdges()
