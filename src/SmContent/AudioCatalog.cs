@@ -362,6 +362,18 @@ public sealed class AudioCatalog : IDisposable
         return play;
     }
 
+    /// <summary>musou/battle-ambience: the audio nodes of a dialogue event under a path of keys (<see cref="HircDialogueEvent.LeavesUnder"/>); empty without the event.</summary>
+    public IReadOnlyList<uint> DialogueLeaves(uint dialogueEvent, IReadOnlyList<uint> prefix) =>
+        _lib.Find(dialogueEvent) is HircDialogueEvent d ? d.LeavesUnder(prefix) : [];
+
+    /// <summary>musou/battle-ambience: plays one audio node of a dialogue event (a leaf from <see cref="DialogueLeaves"/>) like any container.</summary>
+    public SoundPlay PostNode(uint node, SoundSwitches switches, ulong emitter = 0)
+    {
+        var play = new SoundPlay { EventId = node, Found = _lib.Find(node) is not null };
+        if (play.Found) Visit(node, 0f, switches, emitter, new List<uint>(), play, new Dictionary<uint, NodeDraw>(), 0);
+        return play;
+    }
+
     /// <summary>The next pick of a continuous container (<see cref="SoundRepeat"/>); its voices' delays count from now.</summary>
     public SoundPlay Continue(SoundRepeat repeat, SoundSwitches switches)
     {

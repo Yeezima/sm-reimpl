@@ -29,10 +29,11 @@ Rows read from the install with high confidence and no such wording are not tagg
 ## Summary
 
 Scanned 2621 spec table rows: **1923 tagged**, 487 not tagged (read from data with high confidence), 211 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 587 rows of the changes document.
+Scanned 2617 spec table rows: **1924 tagged**, 482 not tagged (read from data with high confidence), 211 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 583 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
-| Movement (critical) | 383 | 325 | 325 | 114 | 12 |
+| Movement (critical) | 384 | 326 | 325 | 114 | 12 |
 | Combat core (critical) | 13 | 4 | 12 | 11 | 9 |
 | Weapons (critical) | 121 | 73 | 106 | 54 | 3 |
 | Melee (critical) | 112 | 97 | 88 | 37 | 5 |
@@ -54,6 +55,10 @@ Scanned 2621 spec table rows: **1923 tagged**, 487 not tagged (read from data wi
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 184 | 174 | 86 | 53 | 0 |
 | **All areas** | **1923** | 1679 | 1419 | 623 | 38 |
+| Core simulation (provisional values) | 462 | 438 | 314 | 120 | 1 |
+| General game design | 7 | 7 | 6 | 0 | 0 |
+| Ork faction | 179 | 169 | 82 | 53 | 0 |
+| **All areas** | **1924** | 1678 | 1420 | 616 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -62,6 +67,9 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | kind: ours | 1022 |
 | confidence: low | 683 |
 | confidence: medium | 607 |
+| kind: ours | 1027 |
+| confidence: low | 678 |
+| confidence: medium | 613 |
 | kind: interpretation | 359 |
 | notes: ours | 358 |
 | notes: estimate | 152 |
@@ -91,7 +99,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 ## Part A: gameplay areas, critical first
 
-### Movement (gameplay-critical) (383)
+### Movement (gameplay-critical) (384)
 
 *Spec section: Extracted parameters*
 
@@ -699,6 +707,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-61D70BF7` | Air jump, Classic PvP | Assault / Raptor in the air (any airborne state): a Space hold no longer lifts the pack (the protocol 54 air start, feel/melee-cancels, is gone outside Musou Mode); a Space tap is still the hop (the air dash, sim/movement-fixes C) in the stick's direction (W… | kind: ours; notes: estimate | owner 2026-11-06 | Air jump, Classic PvP: compare with SM1 by feel or video. Ours: Assault / Raptor in the air (any airborne state): a Space hold no… | ☐ |
 | `R-0879224F` | Air jump, Musou Mode | unchanged: a Space hold in the air lifts the pack again (each jump still needs its fuel and the dash's spacing; "infinite" only as fuel allows) | kind: ours; notes: estimate | owner 2026-11-06 | Air jump, Musou Mode: compare with SM1 by feel or video. Ours: unchanged: a Space hold in the air lifts the pack again (each jump… | ☐ |
+| `R-09331B44` | Air jump sound, Musou Mode | every air jump posts the jump pack's launch sound (`action_ascending`, with the launch's tail fade and the loudness rule), as the first jump does, own and others', from the player's emitter: the hang or the fall turning into a take-off (or the ascent, when a… | kind: ours | owner 2026-11-08 ("additional jumps in musou mode (assault marine, raptor) make no noise. they should make the same noise as the initial jump") | Air jump sound, Musou Mode: compare with SM1 by listening A/B at the same distance and state. Ours: every air jump posts the jump pack's launch sound (action_ascending… | ☐ |
 
 *Spec section: Musou Mode: expansion S1, the foundation (musou/exp-s1, 2026-11-07; `MusouSim.Version` 13, no core protocol bump: `Protocol.Version` stays 63)*
 
@@ -2137,6 +2146,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
 ### Core simulation (provisional values) (458)
+### Core simulation (provisional values) (462)
 
 *Spec section: Provisional values in use*
 
@@ -2564,6 +2574,23 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-599C739E` | Slow-frame line | a frame that took **1 s** or more while connected is written to the log with the keep-alive packets sent meanwhile (s) | kind: ours; confidence: none (low) | ours | Slow-frame line: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a frame that took 1 s or more while connected is written to the log… | ☐ |
 | `R-89EEAE92` | "Connection is gone" line | names the cause: a freeze of this client (a frame of at least server timeout minus 1 s since the last snapshot), a freeze earlier in the session, or a server or network that went silent while frames ran normally; with the worst frame, the time since the last… | kind: ours; confidence: none (low) | ours | "Connection is gone" line: compare with SM1 by feel or video. Ours: names the cause: a freeze of this client (a frame of at least server… | ☐ |
 | `R-96F42DFA` | Hosted server lines in the client log | every join, every leave with its reason, every refusal, every fault note (" failed: ", "dropped after", "FATAL") with up to **14** stack lines after it, as "hosted server: ..."; the server's own throttle (the first 20 faults in full, then one in 10 s; stacks… (lines) | kind: ours; confidence: none (low) | ours | Hosted server lines in the client log: compare with SM1 by feel or video. Ours: every join, every leave with its reason, every refusal, every fault… | ☐ |
+
+*Spec section: Added content: Musou battle ambience and Marine barks (musou/battle-ambience; 2026-11-08; client only, Musou Mode only, no protocol or hash change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-1FDA5164` | Far battle: when | in a battle (Battle, FinalAssault), not the Stormbird or travel; added to the older war bed (TfwFireView's far booms every 0.5 to 2.2 s), which stays | kind: ours | owner 2026-11-08 | Far battle: when: compare with SM1 by feel or video. Ours: in a battle (Battle, FinalAssault), not the Stormbird or travel… | ☐ |
+| `R-D8477D28` | Far battle: bolter fire | bursts of 3 to 7 `play_sm_bolter_fire`, 0.12 to 0.17 s apart, every 2 to 5 s, 40 to 100 m, -4 dB, low-pass +10, pitch +-60 cents (s, m, dB) | kind: ours; confidence: low | ours | Far battle: bolter fire: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: bursts of 3 to 7 play_sm_bolter_fire, 0.12 to 0.17 s apart, every 2… | ☐ |
+| `R-6CA70A2F` | Far battle: lasgun fire | bursts of 2 to 6 `play_ig_lasgun_fire` (the Guardsman's, `wargear`), 0.18 to 0.35 s apart, every 1.5 to 4 s, 40 to 100 m, -2 dB, low-pass +10 (s, m, dB) | kind: ours; confidence: low | ours | Far battle: lasgun fire: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: bursts of 2 to 6 play_ig_lasgun_fire (the Guardsman's, wargear), 0.18… | ☐ |
+| `R-B20FD7F9` | Far battle: artillery | 1 or 2 booms (`play_ork_rokk_distant_explosion`, `play_sm_missile_explosion`, `play_powersource_explode_distant`) every 7 to 15 s, 60 to 140 m, heard (and felt) distance / 340 m/s late, 0 dB, low-pass +5 (s, m, dB) | kind: ours; confidence: low | ours ("semi often") | Far battle: artillery: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 1 or 2 booms (play_ork_rokk_distant_explosion… | ☐ |
+| `R-3C438A0A` | Far battle: explosions | one of `play_impact_distant`, `play_big_damage_med_explosion`, `play_sm_grenade_explode_mp`, `play_plasma_cannon_explosion` every 3 to 8 s, 40 to 110 m, -3 dB, low-pass +10 (s, m, dB) | kind: ours; confidence: low | ours | Far battle: explosions: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: one of play_impact_distant, play_big_damage_med_explosion… | ☐ |
+| `R-F8A05B37` | Artillery shake | every artillery boom of the far battle and of the war bed shakes the camera 0.01 rad (0.004 to 0.01, nearer more; the orbital strike's is 0.05 at 0 m), at most once every 4 s, none with Reduce motion, under the strike's 0.07 cap (rad, s) | kind: ours; confidence: low | owner ("a tiny bit - semi often"); the amounts ours | Artillery shake: compare with SM1 by feel or video. Ours: every artillery boom of the far battle and of the war bed shakes the… | ☐ |
+| `R-A9CB35C3` | Far battle: voices | its own voice group (steals only from itself), at most 14 voices at once (of 48); the loudness rule applies (voices) | kind: ours; confidence: medium | ours | Far battle: voices: compare with SM1 by feel or video. Ours: its own voice group (steals only from itself), at most 14 voices at… | ☐ |
+| `R-04C8FF97` | Far battle measured (real server, a hidden windowed client deployed to a battle, 120 s… | about 3.3 sounds a second played (Ork mobs 118, bolter 123, lasgun 125, artillery 15, explosions 19), 78 held by the voice cap, a shake every 5.5 s | confidence: medium | measured 2026-11-08 | Far battle measured (real server, a hidden windowed client…: compare with SM1 by listening A/B at the same distance and state. Ours: about 3.3 sounds a second played (Ork mobs 118, bolter 123, lasgun… | ☐ |
+| `R-64A3B4C6` | Marine barks: who | every living Space Marine of a Musou match: the own player as Titus, the allied pair and other players as Sidonus or Leandros (by player id), within 60 m of the camera; not the Ork Boy or a Chaos player; from his own voice emitter (one line at a time with his… | kind: ours; confidence: medium | owner 2026-11-08; the casting ours | Marine barks: who: compare with SM1 by feel or video. Ours: every living Space Marine of a Musou match: the own player as Titus… | ☐ |
+| `R-D7255E99` | Marine barks: lines | the campaign squad's sets of the speech bank: unnamed dialogue events 0x33c89dfa (sets fce76c70, 3486a710, 8e781e2c) and 0x1930d1dd (8e781e2c), `speech_status` set 2a767f17, the exertions celebration and roar; lines without media left out. Titus has 7 lines… | kind: ours; confidence: low | the data (lines); the choice ours | Marine barks: lines: compare with SM1 by feel or video. Ours: the campaign squad's sets of the speech bank: unnamed dialogue events… | ☐ |
+| `R-06DD6964` | Marine barks: when | every 6 to 14 s with an Ork within 30 m, else every 20 to 40 s; never two within 2 s of each other (s, m) | kind: ours; confidence: low | ours | Marine barks: when: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: every 6 to 14 s with an Ork within 30 m, else every 20 to 40 s; never… | ☐ |
+| `R-BDDECB80` | Marine barks measured (same run) | Titus barked 4 times in 120 s (calm); the allied pair was within 60 m only in the first seconds, so no ally bark was heard | confidence: low | measured 2026-11-08 | Marine barks measured (same run): compare with SM1 by timing a run over a known distance. Ours: Titus barked 4 times in 120 s (calm); the allied pair was within 60 m… | ☐ |
 
 *Spec section: Commander status marker (Musou Mode; client only)*
 
@@ -3082,6 +3109,12 @@ The Orks are an addition the owner keeps (the original multiplayer had Space Mar
 | `R-224A5612` | A shot Ork's flinch | **off**: no drawn flinch (the stagger clip and 0.22 m rock back, read as a 180-degree turn) when a shot hits; the simulation never stopped a shot Ork. `--musou-ork-flinch` brings it back | kind: ours | owner 2026-11-06 | A shot Ork's flinch: compare with SM1 by watching the reaction and timing it frame by frame. Ours: off: no drawn flinch (the stagger clip and 0.22 m rock back, read as… | ☐ |
 | `R-7347F2C0` | Bullet spread, Musou Mode | **none**: every shot (and the melee flinch's scatter) goes exactly along the aim, no bloom, the reticle stays closed; recoil handling unchanged. Classic PvP keeps the data's spread (degrees) | kind: ours | owner 2026-11-06 | Bullet spread, Musou Mode: compare with SM1 with an overlaid screenshot taken from the same position. Ours: none: every shot (and the melee flinch's scatter) goes exactly along… | ☐ |
 
+*Spec section: Added content: Musou battle ambience and Marine barks (musou/battle-ambience; 2026-11-08; client only, Musou Mode only, no protocol or hash change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-815C90B8` | Far battle: Ork mobs | 2 to 4 voices (0.1 to 0.5 s apart, each its own pick of `play_or_bo_1_growls`, `play_or_bo_2_barks`, `play_or_bo_2_roar`, `play_or_bo_1_roar`, `play_or_bo_2_snorts` and the exertions celebration, roar, effort_build of `ork_boy`, `ork_boy_2`, `ork_nob`) every… (s, m, dB) | kind: ours; confidence: low | ours | Far battle: Ork mobs: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 2 to 4 voices (0.1 to 0.5 s apart, each its own pick of… | ☐ |
+
 *Spec section: Added content: Musou Ork guns (musou/ork-weapon-fx; client only, no protocol change)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
@@ -3285,6 +3318,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-8D1FAC43` | Musou enemy sounds: only the nearest enemies are heard | ours (a crowd of hundreds against the original's dozens): the events and mix are the data's, when they play and how many are ours | 24 emitters within 45 m, 6 stepping, at most about 23 voices and 18 lines (2026-11-06), a crowd voice never cuts a player's; the Warboss speaks with the `ork_nob` lines; the crowd's clip tags are stood in for by state changes and ground covered | Musou enemy sounds | Musou enemy sounds: only the nearest enemies are heard: compare with SM1 by feel or video. Ours: ours (a crowd of hundreds against the original's dozens): the events… | ☐ |
 | `C-D4FD42C2` | Musou Ork voices: more often (musou/ork-voices, 2026-11-06; the distance curves back to the data's 2026-11-08) | the owner's ("constant grunting, shouting, yelling" near); since 2026-11-08 the owner's revert ("use the original game's exterminatus sound levels") | the voices keep their own bank curves again (the bolter's curves of 2026-11-06 only with `--musou-ork-voice-curve weapon`); the sound loudness rule applies on top as to every sound; more frequent grunts, barks, roars and taunts, also while fighting, heard to 45 m | Musou Ork voices, shot flinch and spread | Musou Ork voices: more often (musou/ork-voices, 2026-11-06…: compare with SM1 by timing a run over a known distance. Ours: the owner's ("constant grunting, shouting, yelling" near); since… | ☐ |
 | `C-05E961E2` | Musou: no flinch on a shot Ork (2026-11-06) | the owner's ("for now, simply remove those hit reactions completely") | no drawn reaction when shot (our flinch read as a 180-degree turn); blasts and heavy melee still stagger | Musou Ork voices, shot flinch and spread | Musou: no flinch on a shot Ork (2026-11-06): compare with SM1 by watching the reaction and timing it frame by frame. Ours: the owner's ("for now, simply remove those hit reactions completely"). | ☐ |
+| `C-56AD975F` | Musou: far battle ambience and Marine barks (musou/battle-ambience, 2026-11-08) | the owner's ("add looping barks and voice lines for orks, bolter fire, lasgun fire, artillery, explosions ... screen shakes a tiny bit"; "random barks for space marines ... intense voice lines from the campaign"); rates, ranges, levels and the line choice ours | Musou battles only: a far battle of Ork mobs, bolter and lasgun bursts, artillery (a 0.01 rad shake, at most every 4 s) and explosions round the listener; the player barks campaign lines as Titus, the other Marines as Sidonus or Leandros | Musou battle ambience and Marine barks | Musou: far battle ambience and Marine barks…: compare with SM1 by feel or video. Ours: the owner's ("add looping barks and voice lines for orks, bolter… | ☐ |
 | `C-0EB34FE6` | Musou: no bullet spread (2026-11-06) | the owner's ("in musou mode only completely remove bullet spread") | Musou Mode only: shots go exactly along the aim, nothing blooms, the reticle stays closed; Classic PvP keeps the data's spread | Musou Ork voices, shot flinch and spread | Musou: no bullet spread (2026-11-06): compare with SM1 by feel or video. Ours: the owner's ("in musou mode only completely remove bullet spread"). | ☐ |
 | `C-09C74C8A` | Musou Mode replaces the 5-wave run | the owner's decision (2026-11-01) | `--content musou` runs the war on `tfw_war`, Manufactorum from the install with a generated Stormbird beside it and no spawn-room blockers; the 5-wave run stays only as a test aid (`--map mp_tdm_09`) | War map | Musou Mode replaces the 5-wave run: compare with SM1 by timing a run over a known distance. Ours: the owner's decision (2026-11-01). | ☐ |
 | `C-38A58728` | AI Marines in the war | the owner's decisions (2026-11-01) and ours | server-side puppets: a retainer per player who follows orders and revives, three lords with retainers who act alone; ammunition without end, placeholder names | Retainer orders | AI Marines in the war: compare with SM1 by feel or video. Ours: the owner's decisions (2026-11-01) and ours. | ☐ |
@@ -4179,6 +4213,7 @@ Test aids, probes, demo and capture tooling, and engineering decisions (protocol
 | `R-F987BDB3` | Stall keep-alive: scope | Stall keep-alive and freeze diagnostics (fix/stall-keepalive; client and a log filter, no protocol change) |
 | `R-E085B984` | Test aids | Stall keep-alive and freeze diagnostics (fix/stall-keepalive; client and a log filter, no protocol change) |
 | `R-E5247022` | Test aids | Added content: Musou Ork voices, shot flinch and spread (musou/ork-voices; 2026-11-06; client sounds and drawing, plus one Musou-only simulation rule) |
+| `R-CFE4CFB0` | Test aids (battle ambience, barks) | Added content: Musou battle ambience and Marine barks (musou/battle-ambience; 2026-11-08; client only, Musou Mode only, no protocol or hash change) |
 | `R-2F7F28A2` | Switch | Solid bodies: no passing through, the charge meets what it runs into (fix/charge-player-collision; protocol 57, no wire change) |
 | `R-FF7A7041` | Switches | Swing step, the lock-on's lunge and the air jump by mode (sim/swing-step, sim/lock-reach, sim/air-jumps; protocol 59, no wire change) |
 | `R-36C8F88E` | Switches | Jump pack: the launch flash, the ready jets and the legs in an air strike (fx/jumppack-jets; client only, no simulation, wire or protocol change) |

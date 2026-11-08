@@ -114,4 +114,25 @@ public class JumpFlightPoseTests
         Assert.False(ThrustEndRules.EndsNow(true, 0.3f, -0.1f, true, false));      // the apex after a cut: ended already
         Assert.False(ThrustEndRules.EndsNow(true, -0.1f, -0.5f, false, false));    // falling
     }
+
+    // sound/musou-air-jump-sound (owner 2026-11-08): every air jump posts the launch sound, as the first jump does.
+    [Theory]
+    [InlineData(JumpPhase.None, JumpPhase.TakeOff, true)]      // from the ground or a walk-off fall
+    [InlineData(JumpPhase.Landed, JumpPhase.TakeOff, true)]
+    [InlineData(JumpPhase.Fall, JumpPhase.TakeOff, true)]      // a Musou air jump after the apex
+    [InlineData(JumpPhase.Hang, JumpPhase.TakeOff, true)]
+    [InlineData(JumpPhase.Fall, JumpPhase.Ascent, true)]       // a snapshot skipped the take-off
+    [InlineData(JumpPhase.TakeOff, JumpPhase.Ascent, false)]   // the same jump going on
+    [InlineData(JumpPhase.Ascent, JumpPhase.Hang, false)]
+    [InlineData(JumpPhase.Hang, JumpPhase.Fall, false)]
+    [InlineData(JumpPhase.Recover, JumpPhase.TakeOff, false)]  // the escape from a pound's recovery: silent, as before
+    [InlineData(JumpPhase.Ascent, JumpPhase.None, false)]
+    public void The_launch_sound_posts_on_every_jump_start_including_air_jumps(JumpPhase previous, JumpPhase current, bool launches)
+    {
+        Assert.Equal(launches, JumpLaunchSoundRules.LaunchesNow(previous, current));
+        // Classic PvP unchanged: wherever no air jump is possible (not from the hang or the fall), the rule is the old one.
+        if (previous is not (JumpPhase.Hang or JumpPhase.Fall))
+            Assert.Equal(JumpPack.Jumping(current) && !(JumpPack.Jumping(previous) || JumpPack.Pounding(previous)), launches);
+    }
 }
+

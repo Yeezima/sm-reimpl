@@ -137,6 +137,7 @@ public partial class NetworkView
         for (int i = 0; i < deaths.Count; i++) MusouSoundDeath(deaths[i], camera);
         _musouDeathsHanded.Clear();
         TfwWaaaghFrame(camera, now);   // the waves' Waaagh! (Tfw/NetworkView.TfwArmies.cs, expansion S6)
+        MusouMarineBarksFrame(me, shown, camera, now);   // musou/battle-ambience: the Marines' campaign barks (NetworkView.MusouMarineBarks.cs)
         // A Marine down: the nearest Ork with something to say about it.
         if (_musouOwnAlive && !me.Alive && _musouNear.Count > 0 && shown.Count > _musouNear[0].Index && MusouSetOf(shown[_musouNear[0].Index].Type) is { } nearest
             && MusouSlotOf(shown[_musouNear[0].Index].Id) is { } speaker) MusouCue(nearest.Celebrate, nearest, speaker.Emitter, MusouSoundGroup.Celebrate, MathF.Sqrt(_musouNear[0].Distance), "celebrate");

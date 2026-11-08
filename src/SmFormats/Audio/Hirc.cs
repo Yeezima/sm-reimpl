@@ -380,4 +380,42 @@ public sealed class HircDialogueEvent(uint id, ReadOnlyMemory<byte> payload, IRe
         uint audio = Nodes[current].Raw;
         return audio == 0 ? null : audio;
     }
+
+    /// <summary>
+    /// musou/battle-ambience: every audio node under a path of keys (the first levels, exact keys; a shorter path than the tree is deep takes everything under it), in the tree's order.
+    /// Empty when a key of the path is not in the tree. The leaves are the nodes at the tree's last level (<see cref="ArgumentIds"/> deep) that name audio.
+    /// </summary>
+    public IReadOnlyList<uint> LeavesUnder(IReadOnlyList<uint> prefix)
+    {
+        var result = new List<uint>();
+        if (Nodes.Count == 0 || prefix.Count > ArgumentIds.Count) return result;
+        int current = 0;
+        for (int level = 0; level < prefix.Count; level++)
+        {
+            var n = Nodes[current];
+            int found = -1;
+            for (int k = 0; k < n.ChildCount; k++)
+            {
+                int index = n.ChildIndex + k;
+                if (index <= current || index >= Nodes.Count) return result;
+                if (Nodes[index].Key == prefix[level]) { found = index; break; }
+            }
+            if (found < 0) return result;
+            current = found;
+        }
+        Collect(current, prefix.Count, result);
+        return result;
+    }
+
+    void Collect(int index, int level, List<uint> into)
+    {
+        if (level == ArgumentIds.Count) { if (Nodes[index].Raw != 0) into.Add(Nodes[index].Raw); return; }
+        var n = Nodes[index];
+        for (int k = 0; k < n.ChildCount; k++)
+        {
+            int child = n.ChildIndex + k;
+            if (child <= index || child >= Nodes.Count) return;
+            Collect(child, level + 1, into);
+        }
+    }
 }

@@ -51,6 +51,7 @@ static class AudioCommands
                 "audio-tags" => TagReport(rest),
                 "audio-levels" => LevelReport(rest),
                 "audio-objects" when rest.Length >= 1 => ObjectList(rest[0], rest[1..]),
+                "audio-speech" => SpeechTrees(rest),
                 _ => -1,
             };
         }
@@ -309,6 +310,65 @@ static class AudioCommands
     // ---------------------------------------------------------------- audio-objects
 
     /// <summary>Lists the Hierarchy objects of one type (name or number, e.g. Bus, FxShareSet, FxCustom) of the loaded banks with their payload bytes in hex (a test aid for layouts that are kept raw).</summary>
+    /// <summary>
+    /// musou/battle-ambience: the speech bank's dialogue events (HIRC 15) as trees: each event's arguments, then per first-level key (the character) the second-level keys (the
+    /// exertion or action type) with the number of leaves under each, names resolved from the install's blueprint strings (<see cref="LoadNames"/>) and <c>--names file</c>.
+    /// <c>--character re</c> keeps matching characters; <c>--packages a,b</c> (default speech_01).
+    /// </summary>
+    static int SpeechTrees(string[] rest)
+    {
+        string gameDir = GameInstall.Locate(Opt(rest, "--game"), RepoRoot());
+        if (rest.Contains("--bark-sets"))
+        {
+            // musou/battle-ambience: the Marine barks' line sets per character, each line's voices and length (MusouMarineBarkRules).
+            using var catalog = AudioCatalog.Open(gameDir, null, repoRoot: RepoRoot(), log: Console.Error);
+            foreach (var character in new[] { "titus", "sidonus", "leandros" })
+                foreach (var (evt, prefix) in MusouMarineBarkRules.LineSets(character))
+                {
+                    var leaves = catalog.DialogueLeaves(evt, prefix);
+                    var lengths = leaves.Select(n => catalog.PostNode(n, new SoundSwitches())).Select(p => p.Voices.Count == 0 ? "-" : $"{p.Voices.Max(v => catalog.Duration(v.WemId)):0.0}s");
+                    Console.WriteLine($"{character} {evt:x8}/{string.Join("/", prefix.Skip(1).Select(k => k.ToString("x8")))}: {leaves.Count} lines [{string.Join(" ", leaves.Zip(lengths, (n, l) => $"{n:x8}:{l}"))}]");
+                }
+            return 0;
+        }
+        var names = LoadNames(gameDir, Opt(rest, "--names"));
+        foreach (var n in new[] { "speech_exertion", "speech_action", "character", "exertion_type", "action_type", "action_state", "threat_level", "high", "low", "Low", "start", "end" }) names.Add(n);
+        var filter = Opt(rest, "--character") is { } re ? new System.Text.RegularExpressions.Regex(re, System.Text.RegularExpressions.RegexOptions.IgnoreCase) : null;
+        using var lib = WwiseLibrary.Open(Path.Combine(gameDir, "streamingaudio"), (Opt(rest, "--packages") ?? "speech_01").Split(','), out _);
+        var seen = new HashSet<uint>();
+        foreach (var b in lib.Banks)
+            foreach (var d in b.Bank.Objects.OfType<HircDialogueEvent>())
+            {
+                if (!seen.Add(d.Id)) continue;
+                Console.WriteLine($"dialogue {names.Name(d.Id)} [{b.PackageName}]: arguments {string.Join(", ", d.ArgumentIds.Select(names.Name))}; {d.Nodes.Count} nodes");
+                if (d.Nodes.Count == 0) continue;
+                var root = d.Nodes[0];
+                for (int c = 0; c < root.ChildCount; c++)
+                {
+                    var ch = d.Nodes[root.ChildIndex + c];
+                    string chName = ch.Key == 0 ? "(any)" : names.Name(ch.Key);
+                    if (filter is not null && !filter.IsMatch(chName)) continue;
+                    var types = new List<string>();
+                    for (int k = 0; k < ch.ChildCount && d.ArgumentIds.Count > 1; k++)
+                    {
+                        var t = d.Nodes[ch.ChildIndex + k];
+                        types.Add($"{(t.Key == 0 ? "(any)" : names.Name(t.Key))}:{Leaves(d, ch.ChildIndex + k)}");
+                    }
+                    Console.WriteLine($"  {chName}: {string.Join(" ", types)}");
+                }
+            }
+        return 0;
+
+        static int Leaves(HircDialogueEvent d, int i)
+        {
+            var n = d.Nodes[i];
+            if (n.ChildCount == 0 || n.ChildIndex >= d.Nodes.Count || n.ChildIndex <= i) return 1;
+            int sum = 0;
+            for (int k = 0; k < n.ChildCount && n.ChildIndex + k < d.Nodes.Count; k++) sum += Leaves(d, n.ChildIndex + k);
+            return sum;
+        }
+    }
+
     static int ObjectList(string typeText, string[] rest)
     {
         string gameDir = GameInstall.Locate(Opt(rest, "--game"), RepoRoot());
