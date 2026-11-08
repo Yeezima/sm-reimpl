@@ -180,6 +180,7 @@ varying vec3 uv1_power_normal;
 uniform float grime_amount = 1.0;
 uniform float grime_wash = 0.0;
 uniform bool grime_darken = true;
+uniform float grime_floor_dark = 0.82;   // FAST's extra darkening of floors and tops (ours, tuned to EXACT's luminance)
 float grime_h21(vec2 p) { vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
 float grime_vn(vec2 p) {
 	vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 * f);
@@ -225,6 +226,8 @@ float grime_fbm3(vec2 p) { float v = 0.0; float a = 0.5; for (int i = 0; i < 3; 
 		vec3 over = (col * a + vec3(0.10, 0.102, 0.11) * w * (1.0 - a)) / max(total, 1e-3);
 		ALBEDO = mix(ALBEDO, over, total);
 		ROUGHNESS = mix(ROUGHNESS, 1.0, total);
+		SPECULAR *= 1.0 - total;   // the overlay drew its grime with no specular
+		ALBEDO *= mix(1.0, grime_floor_dark, smoothstep(0.5, 0.95, up));   // the owner, 2026-11-08: "make FAST darker" (floors and tops lit brighter folded than under the overlay; tuned on the paired captures)
 	}
 """;
 }

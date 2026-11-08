@@ -208,3 +208,16 @@ bearings): 200 v 200 held **8 of 8** (Guardsmen kept 64-70 %), 500 v 500 **8 of 
 (65-75 %); far clash 511 of 1,000 at every size. So with S6's balance a near army clash at a point still goes to the
 garrison every time (the garrison holds the point and fights from it; the wave's real Orks come in a stream): the owner's
 call whether that is wanted. Base target: the first wave left at 144 s and reached the base at 226 s.
+
+## Follow-up: "leave as is" and "make FAST darker" (2026-11-08)
+
+- Near army clashes: the owner, "leave as is" (with S6's balance the garrison holds a point near a player every time; no change).
+- Ashfall grime FAST darker: where the grime covers, the folded surface loses its specular (the overlay had none), and floors and tops get a further 0.82 (`grime_floor_dark`). Mean luminance (sRGB, Rec. 709 weights) of the same regions over 19 paired captures, same camera within each pair (0.6 s apart):
+
+| Region | Before the tune: EXACT / FAST | After: EXACT / FAST |
+|---|---|---|
+| Plaza (floor left and right of the player) | 76.9 / 86.5 (+12.4 %) | 76.9 / 75.3 (-2.1 %) |
+| Ruins band | 83.2 / 83.4 (+0.2 %) | 65.1 / 64.6 (-0.6 %) |
+
+  (The before and after runs were separate battles, so their views differ; each comparison is EXACT against FAST in the same view.) Perf kept: 500 v 500 A/B after the tune, GPU 4.18 -> 4.06 ms, draw calls 1,742 -> 1,319, primitives 25.7 M -> 17.8 M (the first run's GPU saving was 0.34 ms; this one 0.12 ms: different views). New pair: `%LOCALAPPDATA%\sm-reimpl\shots\musou-perf\ashfall-grime-EXACT.png` and `ashfall-grime-FAST2.png`; all pairs in `grime-fold2\`.
+- The full `dotnet test` was skipped this once at the owner's request; the lead runs it after merging.
