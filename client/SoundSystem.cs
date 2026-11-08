@@ -95,6 +95,12 @@ public partial class SoundSystem : Node
     /// </summary>
     public RtpcVolumeCap RtpcCap { get; set; } = RtpcVolumeCaps.Default;
 
+    /// <summary>
+    /// sound/louder-farther (owner, 2026-11-08; ours): every voice louder and every distance curve read as if the source were nearer (<see cref="SoundLoudness"/>; both modes).
+    /// <c>--loudness-gain</c>, <c>--loudness-range</c>, <c>--loudness-original</c>.
+    /// </summary>
+    public SoundLoudness Loudness { get; set; } = SoundLoudness.Default;
+
     /// <summary>Seconds a voice killed by an instance limit fades out over (ours: Wwise kills with a short fade, its length is not in the data).</summary>
     public const double KillFade = 0.03;
 
@@ -577,7 +583,7 @@ public partial class SoundSystem : Node
     {
         var v = a.Voice;
         float? distance = null;
-        if (v.Is3D && v.Attenuation is not null && Distance(a.Emitter) is var (_, d)) distance = d;
+        if (v.Is3D && v.Attenuation is not null && Distance(a.Emitter) is var (_, d)) distance = Loudness.CurveDistance(d);   // the curve's end read as the mix reads it
         return VoiceAudibility.IsAudible(v.Is3D, v.Attenuation is not null, v.Attenuation?.MaxDistance ?? 0f, distance, MixOf(a).VolumeDb, _masterDb,
             v.Chain.Count > 0 ? v.Chain[0].BelowThreshold : (byte)1, v.Chain.Count > 0, a.Limited);
     }
@@ -682,11 +688,11 @@ public partial class SoundSystem : Node
         return (pos, d);
     }
 
-    /// <summary>The voice's live mix: parent chain, buses, RTPCs (distance now, the emitter's parameters as at the start), attenuation, modifiers.</summary>
+    /// <summary>The voice's live mix: parent chain, buses, RTPCs (distance now, the emitter's parameters as at the start), attenuation, modifiers, and the loudness rule (<see cref="Loudness"/>).</summary>
     VoiceMix MixOf(Active a)
     {
         float? distance = Distance(a.Emitter) is var (_, d) ? d : null;
-        return VoiceMixer.Evaluate(a.Voice, _mods, a.Emitter.Id, _now, distance, a.Params, RtpcCap);
+        return Loudness.Evaluate(a.Voice, _mods, a.Emitter.Id, _now, distance, a.Params, RtpcCap);   // the data's mix with the loudness rule (gain included)
     }
 
     float EffectiveNow(Active a) => MixOf(a).VolumeDb + GlobalGainDb;
@@ -774,7 +780,7 @@ public partial class SoundSystem : Node
         return $"posts {Posts}, voices started {VoicesStarted}, playing {ActiveCount} (peak {PeakActive}; players 3D {_created3D}, 2D {_created2D}), virtual {_active.Count - ActiveCount} (made virtual {Virtual}, revived {Revived}), culled {Culled}, pending {_pending.Count}, steals {Steals}, late {Late}, " +
                $"continuations {Continuations} ({string.Join(", ", ContByEvent.OrderByDescending(kv => kv.Value).Take(4).Select(kv => kv.Key + " " + kv.Value))}), decodes {DecodesDone} (avg {(DecodesDone > 0 ? DecodeMsTotal / DecodesDone : 0):F1} ms, max {DecodeMsMax:F1} ms; converted {_catalog?.Decoded}, disk hits {_catalog?.DiskHits}, failures {_catalog?.DecodeFailures}), " +
                $"streams {StreamsLoaded}, unsupported actions {UnsupportedActions}, sounds without media {MissingMedia}; " +
-               $"M33: property actions {PropertyActions} (live {_mods.Count}), switch actions {SwitchActions}, voices on a filter bus {FilteredStarts} (bus changes {FilterChanges}), master {_masterDb:0.#} dB, " +
+               $"M33: property actions {PropertyActions} (live {_mods.Count}), switch actions {SwitchActions}, voices on a filter bus {FilteredStarts} (bus changes {FilterChanges}), master {_masterDb:0.#} dB, loudness {Loudness}, " +
                $"barks {Barks} (dropped {BarksDropped}, no line {BarksSilent}), footsteps fix: instance-limit kills {LimitKills} drops {LimitDrops}, culled under the threshold (2D) {ThresholdCulls}; events (posts/voices): {events}; events not in the banks: {misses}";
     }
 }

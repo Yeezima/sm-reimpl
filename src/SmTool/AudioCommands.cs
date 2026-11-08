@@ -507,16 +507,22 @@ static class AudioCommands
         }
         if (Opt(rest, "--state") is { } stateEvent) catalog.Post(stateEvent, new SoundSwitches());   // e.g. play_set_state_death_armored before a confirm
         var parameters = new Dictionary<uint, float> { [VoiceMixer.Speed] = speed };
+        // sound/louder-farther: --loudness applies the client's loudness rule (SoundLoudness.Default, or --loudness-gain / --loudness-range); without it the data's mix.
+        var loudness = rest.Contains("--loudness") || rest.Contains("--loudness-gain") || rest.Contains("--loudness-range") ? SoundLoudness.FromArgs(rest, Console.Error.WriteLine) : SoundLoudness.Original;
+        // --speech <character>/<exertion type>: a character's exertion line (speech_exertion) instead of an event, e.g. tactical_marine/effort_short_stab, ork_boy_2/damage_small.
+        string? speech = Opt(rest, "--speech");
         Console.WriteLine($"event {eventName}: {(rest.Contains("--local") ? "local player" : "remote player")}, surface {Opt(rest, "--surface") ?? "(default)"}, speed {speed:0.##} m/s, distance {distance:0.#} m, master bus {catalog.MasterBusVolume:0.#} dB, rtpc volume cap {cap}" +
-                          (offset.IsNone ? "" : $", offset {offset} included"));
+                          (offset.IsNone ? "" : $", offset {offset} included") + $", loudness {loudness}");
         for (int n = 0; n < posts; n++)
         {
-            var play = catalog.Post(eventName, sw, 1);
+            var play = speech is { } sp && sp.Split('/') is [var character, var type]
+                ? catalog.PostSpeech(SpeechKind.Exertion, character, type, "", "high", sw, 1)
+                : catalog.Post(eventName, sw, 1);
             if (!play.Found) { Console.Error.WriteLine("event not found"); return 1; }
             Console.WriteLine($"post {n + 1}: {play.Voices.Count} voices, {play.Stops.Count} stops, {play.Properties.Count} property actions");
             foreach (var v in play.Voices)
             {
-                var mix = VoiceMixer.Evaluate(v, null, 1, 0, v.Is3D ? distance : null, parameters, cap).With(offset);
+                var mix = loudness.Evaluate(v, null, 1, 0, v.Is3D ? distance : null, parameters, cap).With(offset);
                 float dur = catalog.Duration(v.WemId);
                 var rtpcs = v.Chain.SelectMany(c => c.Rtpcs).Where(r => r.RtpcId == VoiceMixer.Speed).Select(r => $"p{r.ParamId}={r.Evaluate(speed):0.#}");
                 Console.WriteLine($"  wem {v.WemId,10} {dur,5:0.00} s  {(v.Is3D ? "3D" : "2D")}  vol {mix.VolumeDb,6:0.0} dB (at post {v.VolumeDb:0.0}, buses {v.BusVolumeDb:0.0})  pitch {mix.PitchCents,6:0} c  lpf {mix.Lpf,4:0.#}  speed-rtpc [{string.Join(" ", rtpcs)}]  bus chain [{string.Join(" > ", v.Buses.Select(b => $"{b.Id:x8}:{b.Volume:0.#}"))}]");
@@ -533,7 +539,7 @@ static class AudioCommands
         if (i < 0) return true;
         if (RtpcVolumeCaps.TryParse(i + 1 < rest.Length ? rest[i + 1] : null, out cap, out string? error)) return true;
         Console.Error.WriteLine($"--cap: {error}");
-        Console.Error.WriteLine("usage: smtool audio-mix <event> [--local] [--surface s] [--speed v] [--distance d] [--posts n] [--cap peak|node|voice|off] [--step] [--treatment impact|confirm-armour|confirm-flesh|confirm-kill] [--state <set-state event>]; smtool audio-levels [--speed v] [--posts n] [--cap ...]");
+        Console.Error.WriteLine("usage: smtool audio-mix <event> [--local] [--surface s] [--speed v] [--distance d] [--posts n] [--cap peak|node|voice|off] [--step] [--treatment impact|confirm-armour|confirm-flesh|confirm-kill] [--state <set-state event>] [--loudness [--loudness-gain dB] [--loudness-range x]] [--speech character/type]; smtool audio-levels [--speed v] [--posts n] [--cap ...]");
         return false;
     }
 

@@ -274,13 +274,13 @@ public partial class NetworkView
             if (own) sp.Player = new AudioStreamPlayer { Name = $"LoyalistBark{id}", Bus = bus };
             else sp.Player = new AudioStreamPlayer3D
             {
-                Name = $"LoyalistBark{id}", Bus = bus, UnitSize = BarkUnitSize, MaxDistance = BarkMaxDistance,
+                Name = $"LoyalistBark{id}", Bus = bus, UnitSize = BarkUnitSize * LoudnessArg.RangeScale, MaxDistance = BarkMaxDistance * LoudnessArg.RangeScale,   // sound/louder-farther: the range scale
                 AttenuationModel = AudioStreamPlayer3D.AttenuationModelEnum.InverseDistance, DopplerTracking = AudioStreamPlayer3D.DopplerTrackingEnum.Disabled,
             };
             AddChild(sp.Player);
             BarkFollow(id, sp);
         }
-        float db = BarkBaseGainDb + LoyalistGainDb + SoundGainDb + (_audio?.MasterBusVolume ?? 0f);
+        float db = BarkBaseGainDb + LoyalistGainDb + SoundGainDb + (_audio?.MasterBusVolume ?? 0f) + LoudnessArg.GainDb;   // sound/louder-farther: the loudness gain
         switch (sp.Player)
         {
             case AudioStreamPlayer p2: p2.Stream = stream; p2.VolumeDb = db + SmClient.Customizer.Model.LiveOptions.GainDb(SmClient.Customizer.Model.SoundCategory.Voice); p2.Play(); break;

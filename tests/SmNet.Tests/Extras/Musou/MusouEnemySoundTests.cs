@@ -20,6 +20,13 @@ public class MusouEnemySoundTests
     };
 
     [Fact]
+    public void The_ork_voices_keep_their_own_distance_curves_by_default()
+    {
+        // The owner, 2026-11-08: "revert the request ... use the original game's exterminatus sound levels" (the weapon-fire curve of 2026-11-06 is a test aid only).
+        Assert.False(MusouSoundRules.VoicesOnWeaponCurve);
+    }
+
+    [Fact]
     public void A_group_posts_up_to_its_burst_then_refills_at_its_rate()
     {
         var budget = new MusouSoundBudget();
