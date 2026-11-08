@@ -55,10 +55,12 @@ elseif ($userArgs -contains '--test-window' -or $userArgs -contains '--bot') {
 # Build the server and hand it over with --server-exe (MUSOU MODE and HOST LOCAL LOBBY need it), unless the caller gave one or the run has no front end. A failed build
 # never stops the client: an exe already there (a running server locks it) is still handed over.
 if (-not ($userArgs -contains '--server-exe' -or $userArgs -contains '--viewer' -or $userArgs -contains '--archive')) {
-    $serverExe = Join-Path $RepoRoot 'src\SmServer\bin\Debug\net10.0\SmServer.exe'
+    # hotfix/musou-server-lag: Release, as server.cmd and the tester zip run it. The Debug build (no JIT optimisation) ran a one-player Musou battle at 13 to 88 ms a
+    # tick against the 33 ms the 30 Hz tick allows: ticks skipped, the world rubber-banding.
+    $serverExe = Join-Path $RepoRoot 'src\SmServer\bin\Release\net10.0\SmServer.exe'
     $built = $false
     try {
-        dotnet build (Join-Path $RepoRoot 'src\SmServer\SmServer.csproj') -nologo -v quiet | Out-Null
+        dotnet build (Join-Path $RepoRoot 'src\SmServer\SmServer.csproj') -c Release -nologo -v quiet | Out-Null
         $built = $LASTEXITCODE -eq 0
     } catch { }
     if (Test-Path -LiteralPath $serverExe) {

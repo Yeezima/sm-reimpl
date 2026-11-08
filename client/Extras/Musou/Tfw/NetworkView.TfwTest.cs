@@ -500,6 +500,10 @@ public partial class NetworkView
             await TfwSwarmShots(shot++);   // --tfw-swarm-shots: overhead views too (NetworkView.TfwSwarmCam.cs)
         }
         TfwCheck("the fight was filmed", shot > 1, TfwNow.Phase.ToString());
+        // hotfix/musou-server-lag: the own player's prediction errors over the run (a late or skipped server tick shows here as a snap back).
+        var errors = client.CorrectionErrors.OrderBy(x => x).ToList();
+        if (errors.Count > 0)
+            GD.Print(System.FormattableString.Invariant($"TFWTEST note: prediction corrections {errors.Count} sampled, {errors.Count(x => x > 0.05f)} above 5 cm, {errors.Count(x => x > 0.5f)} above 50 cm, p99 {errors[System.Math.Clamp((int)System.Math.Ceiling(0.99 * errors.Count) - 1, 0, errors.Count - 1)]:F3} m, max {errors[^1]:F3} m"));
     }
 
     /// <summary>Capture aid <c>--tfw-fight-look-armies</c> (expansion S6): the middle of the nearest army (tag 18) within 150 m, so a rally or a clash stays in the picture; null without the flag or an army.</summary>

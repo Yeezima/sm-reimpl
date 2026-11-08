@@ -477,6 +477,10 @@ server.Stepped += world =>
 Console.WriteLine($"smserver on UDP {port}; protocol {Protocol.Version}; content {fingerprint:X16}; config {config.Hash():X16}; {config.TickRate} Hz");
 Console.CancelKeyPress += (_, e) => { e.Cancel = true; Environment.Exit(0); };
 var lastReport = TimeSpan.Zero;
+// hotfix/musou-server-lag: on Windows the loop's 1 ms pause is a high-resolution timer (Thread.Sleep(1) slept 15.6 ms or, with the PC busy, far longer) and the process
+// runs above normal priority; pacing only (LoopPacing.cs; SM_OLD_LOOP_PACING=1 restores the old loop for tests).
+LoopPacing.Start();
+Console.WriteLine($"loop pacing: {LoopPacing.Describe}");
 // GameServer.Update isolates packet handlers and ticks itself (hardening M3); a fault anywhere else in the loop is logged and the
 // loop goes on. A crash of the process is for a restart supervisor (docs/dedicated-server.md).
 while (true)
@@ -505,7 +509,7 @@ while (true)
         Console.Error.WriteLine($"[{DateTime.UtcNow:yyyy-MM-ddTHH:mm:ssZ}] server loop error: {e}");
         Thread.Sleep(100);   // a fault that repeats every pass must not flood the log at full speed
     }
-    Thread.Sleep(1);
+    LoopPacing.Wait();
 }
 
 // Metres of open view from a spot along a facing, at eye height, against the character collision (up to 100 m).
