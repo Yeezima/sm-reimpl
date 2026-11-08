@@ -28,9 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2595 spec table rows: **1906 tagged**, 479 not tagged (read from data with high confidence), 210 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 581 rows of the changes document.
-Scanned 2594 spec table rows: **1905 tagged**, 480 not tagged (read from data with high confidence), 209 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 582 rows of the changes document.
-Scanned 2600 spec table rows: **1909 tagged**, 481 not tagged (read from data with high confidence), 210 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 582 rows of the changes document.
+Scanned 2601 spec table rows: **1908 tagged**, 482 not tagged (read from data with high confidence), 211 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 583 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -43,11 +41,8 @@ Scanned 2600 spec table rows: **1909 tagged**, 481 not tagged (read from data wi
 | Reactions (critical) | 15 | 13 | 14 | 6 | 0 |
 | Camera (critical) | 55 | 53 | 44 | 22 | 0 |
 | HUD and hit feedback (critical) | 68 | 63 | 50 | 11 | 0 |
-| Sound mix (critical) | 63 | 57 | 55 | 10 | 0 |
-| Effects (critical) | 86 | 76 | 71 | 39 | 0 |
-| HUD and hit feedback (critical) | 67 | 62 | 49 | 10 | 0 |
 | Sound mix (critical) | 66 | 60 | 58 | 10 | 0 |
-| Effects (critical) | 89 | 79 | 74 | 40 | 0 |
+| Effects (critical) | 86 | 76 | 71 | 39 | 0 |
 | Game modes | 41 | 38 | 38 | 19 | 1 |
 | Perks | 59 | 48 | 31 | 25 | 0 |
 | Death and ragdoll | 14 | 10 | 12 | 10 | 0 |
@@ -57,21 +52,16 @@ Scanned 2600 spec table rows: **1909 tagged**, 481 not tagged (read from data wi
 | Networking and render smoothing | 19 | 10 | 10 | 10 | 7 |
 | Core simulation (provisional values) | 451 | 429 | 304 | 120 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 178 | 169 | 80 | 54 | 0 |
-| **All areas** | **1905** | 1662 | 1402 | 617 | 38 |
 | Ork faction | 178 | 168 | 81 | 53 | 0 |
-| **All areas** | **1909** | 1665 | 1407 | 616 | 38 |
+| **All areas** | **1908** | 1664 | 1406 | 616 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1011 |
-| confidence: low | 667 |
-| confidence: medium | 606 |
-| kind: ours | 1014 |
+| kind: ours | 1013 |
 | confidence: low | 669 |
-| confidence: medium | 609 |
+| confidence: medium | 608 |
 | kind: interpretation | 359 |
 | notes: ours | 352 |
 | notes: estimate | 151 |
