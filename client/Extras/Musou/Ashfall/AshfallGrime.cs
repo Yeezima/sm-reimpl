@@ -69,7 +69,18 @@ public static partial class AshfallGrime
     static ShaderMaterial? _darken;
 
     /// <summary>The models' multiply material (one, shared).</summary>
-    public static ShaderMaterial DarkenMaterial() => _darken ??= new ShaderMaterial { Shader = DarkenShaderFor(_pulled) };
+    public static ShaderMaterial DarkenMaterial() => _darken ??= new ShaderMaterial { Shader = DarkenShaderFor(_pulled), RenderPriority = OrderOld ? 0 : DarkenPriority };
+
+    /// <summary>
+    /// The passes' draw order (ashfall-no-flicker, 2026-11-08; ours). The multiply is the overlay's next pass: two transparent passes of the same instance at the same depth, which the engine's transparent sort left
+    /// tied, so per instance and per frame either could draw first; mix-then-multiply and multiply-then-mix differ by about 12 % where the soot is, and whole models and floor slabs switched between the two
+    /// (with any camera motion; which way a launch started was chance). Fixed priorities: the overlay at <see cref="OverlayPriority"/>, the multiply after it at <see cref="DarkenPriority"/>, both after the
+    /// alpha-to-coverage cut-outs (<see cref="RenderQuality.CutOutPriority"/>, -100) and before the ground decals (gore pools -10, the impact glow -1) and every effect (0): blood, glow, smoke and fire are never multiplied by a wall's grime. <c>--ashfall-grime-order old</c>
+    /// (test aid) leaves both at 0, as before.
+    /// </summary>
+    public const int OverlayPriority = -12, DarkenPriority = -11;
+
+    static bool OrderOld => Array.IndexOf(OS.GetCmdlineUserArgs(), "--ashfall-grime-order") is int i && i >= 0 && i + 1 < OS.GetCmdlineUserArgs().Length && OS.GetCmdlineUserArgs()[i + 1] == "old";
 
     /// <summary>
     /// The overlay passes' depth pull (hotfix/ashfall-floor-shimmer, ours): each pass is drawn <see cref="Pull"/> of its distance nearer the camera along its own view ray (the same pixels), so it no longer
@@ -107,7 +118,7 @@ public static partial class AshfallGrime
     public const float LightPassWash = 1f;
 
     /// <summary>The models' overlay material (one, shared).</summary>
-    public static ShaderMaterial OverlayMaterial() => _overlay ??= new ShaderMaterial { Shader = OverlayShaderFor(_pulled) };
+    public static ShaderMaterial OverlayMaterial() => _overlay ??= new ShaderMaterial { Shader = OverlayShaderFor(_pulled), RenderPriority = OrderOld ? 0 : OverlayPriority };
 
     /// <summary>Applies the grime to the kit look under <paramref name="root"/> (the map's game space); returns how many ground materials took it. Models that load later get the overlay as they arrive.</summary>
     public static int Apply(Node? root, float quality, bool compat)
