@@ -28,8 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2817 spec table rows: **2096 tagged**, 499 not tagged (read from data with high confidence), 222 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 632 rows of the changes document.
-Scanned 2765 spec table rows: **2056 tagged**, 492 not tagged (read from data with high confidence), 217 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 614 rows of the changes document.
+Scanned 2818 spec table rows: **2097 tagged**, 499 not tagged (read from data with high confidence), 222 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 632 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -53,29 +52,20 @@ Scanned 2765 spec table rows: **2056 tagged**, 492 not tagged (read from data wi
 | Networking and render smoothing | 22 | 13 | 13 | 12 | 7 |
 | Core simulation (provisional values) | 560 | 536 | 392 | 156 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 233 | 222 | 125 | 63 | 0 |
-| **All areas** | **2096** | 1849 | 1555 | 669 | 38 |
-| Ork faction | 233 | 222 | 124 | 63 | 0 |
-| **All areas** | **2056** | 1809 | 1523 | 653 | 38 |
+| Ork faction | 234 | 223 | 125 | 63 | 0 |
+| **All areas** | **2097** | 1850 | 1555 | 669 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1167 |
+| kind: ours | 1168 |
 | confidence: low | 743 |
 | confidence: medium | 683 |
 | notes: ours | 384 |
 | kind: interpretation | 363 |
 | notes: estimate | 172 |
 | kind: estimate | 144 |
-| kind: ours | 1140 |
-| confidence: low | 728 |
-| confidence: medium | 666 |
-| notes: ours | 370 |
-| kind: interpretation | 360 |
-| notes: estimate | 170 |
-| kind: estimate | 136 |
 | confidence: none (low) | 129 |
 | kind: provisional | 99 |
 | kind: user's knowledge | 55 |
