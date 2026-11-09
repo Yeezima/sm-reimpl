@@ -113,6 +113,12 @@ public sealed record ClientOptions
     public TimeSpan KeepAliveInterval { get; init; } = TimeSpan.FromSeconds(0.5);
     /// <summary>A stall longer than this gets no more keep-alives, so a client that is truly hung still times out on the server.</summary>
     public TimeSpan KeepAliveBound { get; init; } = TimeSpan.FromSeconds(30);
+
+    // ---- net/responsive (ours; GameClient.Latency.cs) ----
+    /// <summary>The latency readout (<see cref="NetLatencyReadout"/>): seconds between two <c>NETLAT</c> lines; 0 (default): off unless <c>SM_NET_LATENCY</c> is set.</summary>
+    public double LatencyReadout { get; init; }
+    /// <summary>Where the readout's lines go (null: the console).</summary>
+    public Action<string>? LatencyLog { get; init; }
 }
 
 /// <summary>
@@ -224,6 +230,7 @@ public sealed partial class GameClient
         _config = config; _contentFingerprint = contentFingerprint; _transport = transport; _clock = clock;
         _options = options ?? new ClientOptions(); _nonce = nonce;
         RememberOwnEmblems(_options.SpaceMarineAppearance, _options.ChaosAppearance, replace: true);
+        StartLatency();   // net/responsive: the readout, when asked for
     }
 
     /// <summary>
@@ -287,6 +294,7 @@ public sealed partial class GameClient
         if (now - _latestSnapshotAt > _options.ServerTimeout) { Status = ClientStatus.Disconnected; return; }
         StepAppearance();
         StepRenderClock(now);
+        StepLatency(now, tickNow);   // net/responsive: the readout (nothing without it)
 
         var tickLength = TimeSpan.FromSeconds(_config.TickSeconds);
         bool ticked = false;
@@ -367,6 +375,7 @@ public sealed partial class GameClient
         var batch = new InputBatch(recent, _session, _latestSnapshotTick);
         _lastBatch = batch;   // fix/stall-keepalive: what the keep-alive repeats
         _transport.Send(Protocol.Write(batch));
+        NoteSent(Tick, events.Fired);   // net/responsive: the echo round trip and the readout's shots
     }
 
     /// <summary>The map the server named in its Challenge ("" for flat ground) and its collision, loaded from this install.</summary>
@@ -460,6 +469,7 @@ public sealed partial class GameClient
         var projectiles = s.Projectiles ?? [];
         if (!projectiles.All(Plausible)) { RefuseSnapshot(); return; }
         RefusedSinceSnapshot = 0;
+        NoteSnapshotLatency(s);   // net/responsive: before the arrival is stored (the gap to the previous)
         _latestSnapshotTick = s.ServerTick;
         _latestSnapshotAt = _clock.Now;
         _snapshots.Add((s.ServerTick, s.Players.ToDictionary(p => p.PlayerId), projectiles.ToDictionary(q => q.Id)));
@@ -495,7 +505,7 @@ public sealed partial class GameClient
 
         // Only the full record of this client's own player can be replayed from (a slim one lacks ammunition and timers).
         if (s.Self != PlayerId) return;
-        if (s.Hits is { } hits) OnHits(hits);
+        if (s.Hits is { } hits) OnHits(hits, s.ServerTick);
         var mine = s.Players.FirstOrDefault(p => p.PlayerId == PlayerId);
         if (mine.PlayerId != PlayerId) return;
 
@@ -559,7 +569,7 @@ public sealed partial class GameClient
     HitReport? _pendingHits;
 
     /// <summary>The change in the server's running hit totals since the previous snapshot, added to the pending report.</summary>
-    void OnHits(HitView h)
+    void OnHits(HitView h, uint serverTick)
     {
         int count = (h.Hits - _hitTotals.Hits) & 0xFFFF;
         // More than half the counter's range at once can only be totals going backwards (a server that restarted them):
@@ -573,6 +583,7 @@ public sealed partial class GameClient
             _pendingHits = new HitReport((p?.Hits ?? 0) + count, (p?.ShieldDamage ?? 0f) + shield, (p?.HealthDamage ?? 0f) + health, (p?.Kills ?? 0) + kills,
                 h.LastVictim, (h.LastFlags & HitFlags.Head) != 0, (h.LastFlags & HitFlags.Killed) != 0, (h.LastFlags & HitFlags.Melee) != 0, (h.LastFlags & HitFlags.Splash) != 0,
                 h.VictimHealth * body.HealthMax, h.VictimShield * body.ShieldMax, (h.LastFlags & HitFlags.Armoured) != 0);
+            NoteHitsLatency(serverTick, (h.LastFlags & (HitFlags.Melee | HitFlags.Splash)) == 0);   // net/responsive: the readout's shot-hit
         }
         _hitTotals = h;
     }
@@ -674,6 +685,9 @@ public sealed partial class GameClient
 
     readonly RenderClock _renderClock = new();
     TimeSpan _renderClockAt;
+
+    /// <summary>The remote players' interpolation delay in use now.</summary>
+    public TimeSpan CurrentInterpolationDelay => _options.InterpolationDelay;
 
     /// <summary>The raw estimate of the server tick to show: the newest snapshot's tick plus the time since it was processed, minus the interpolation delay.</summary>
     double RawRenderTick()
