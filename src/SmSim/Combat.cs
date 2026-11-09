@@ -24,6 +24,10 @@ public readonly record struct SelfEvents(bool Fired, int ShotStage, int MeleeHit
 /// </summary>
 public static class Combat
 {
+    /// <summary>The blast with its reach (radius and fall-off distances) times <paramref name="scale"/> (Musou Mode's doubled frag, owner 2026-11-09; <see cref="SimConfig.ThrownBlastScale"/>); damage and shares unchanged.</summary>
+    public static SplashSpec ScaledReach(SplashSpec splash, float scale) =>
+        splash with { Radius = splash.Radius * scale, FallOff = splash.FallOff.Select(pt => pt with { Distance = pt.Distance * scale }).ToArray() };
+
     /// <summary>
     /// A fresh life for the player's class and loadout (<see cref="PlayerState.Class"/> and the choices, kept; a choice
     /// not valid for the class becomes the class default): full health, shield and ammunition for both weapons, no heat,
@@ -361,6 +365,8 @@ public static class Combat
         bool fired = false, detonate = false, hitHeavy = false;
         int shotStage = 0, meleeHitStep = 0;
         float dt = c.TickSeconds;
+        float attackSpeed = Stims.AttackSpeed(c, s);   // Musou Mode's combat stims (owner 2026-11-09): 1.2 while they work, 1 everywhere else
+        bool freeAmmo = Stims.FreeAmmo(c, s);          // … and no round leaves the magazine
         var realButtons = input.Buttons;
         // The heavy bolter's braced stance (Brace; fidelity gap 7): its transition this tick, and the input as the stance lets it act
         // (the presses it takes are lost, as in a reaction; the held flags follow the real buttons, below).
@@ -553,8 +559,8 @@ public static class Combat
         {
             var m = steps[step - 1];
             float before = time;
-            time += dt;
-            if (m.Reach is not null) (motionStep, motionFrom, motionTo) = (m, MathF.Min(before + dt, m.Duration), MathF.Min(time + dt, m.Duration));   // sim/combat-2: one tick ahead of the clock (below)
+            time += dt * attackSpeed;   // Musou Mode's combat stims: +20 % attack speed (Stims.Speed; 1 elsewhere)
+            if (m.Reach is not null) (motionStep, motionFrom, motionTo) = (m, MathF.Min(before + dt * attackSpeed, m.Duration), MathF.Min(time + dt * attackSpeed, m.Duration));   // sim/combat-2: one tick ahead of the clock (below)
             if (before < m.HitTime && m.HitTime <= time) { meleeHitStep = step; hitHeavy = heavy; }
             // sim/stomp-uninterruptible (protocol 51; the owner 2026-11-01: "devastator/havoc stomp can only be cancelled by a hop move. shooting, aim down sight, or any
             // other action should never interrupt a stomp animation"): the heavy classes' stomp (MeleeStep.InPlace) queues no next attack, so it always plays to its end;
@@ -633,7 +639,8 @@ public static class Combat
         float reloadLeft = s.ReloadLeft;
         float otherReloadLeft = s.OtherReloadLeft, thirdReloadLeft = s.ThirdReloadLeft;   // sim/combat-pass: reloads of the holstered weapons
         // sim/holstered-cooldown (protocol 62): each weapon's shot cooldown runs down in or out of hand and follows its weapon through a switch (below).
-        float cooldown = MathF.Max(0f, s.Cooldown - dt), otherCooldown = MathF.Max(0f, s.OtherCooldown - dt), thirdCooldown = MathF.Max(0f, s.ThirdCooldown - dt);
+        float fireDt = dt * attackSpeed;   // Musou Mode's combat stims: the fire rate rises with the attack speed
+        float cooldown = MathF.Max(0f, s.Cooldown - fireDt), otherCooldown = MathF.Max(0f, s.OtherCooldown - fireDt), thirdCooldown = MathF.Max(0f, s.ThirdCooldown - fireDt);
         bool charging = s.Charging && charge is not null;
         float chargeTime = charging ? s.ChargeTime : 0f;
         int pending = weapon is not null && Shots.ChargeShotOf(weapon, s.PendingShot) is not null ? s.PendingShot : 0;
@@ -723,7 +730,7 @@ public static class Combat
             grenades--;
             grenadeCooldown = item!.Cooldown;
             threw = true;
-            if (item.Stim is { } stim) stimLeft = stim.Lifetime;   // perks/inert-2: the stim works from its release (nothing is launched)
+            if (item.Stim is { } stim) stimLeft = Stims.LifetimeOf(c, stim);   // perks/inert-2: the stim works from its release (nothing is launched)
         }
 
         // Aim mode (protocol 12; interpretation, spec/behavior.md): the Aim button held with a ranged weapon in hand, outside
@@ -746,7 +753,7 @@ public static class Combat
 
         void BasicShot(WeaponSpec w)
         {
-            clip -= Math.Min(Math.Max(1, w.AmmoPerShot), clip);
+            if (!freeAmmo) clip -= Math.Min(Math.Max(1, w.AmmoPerShot), clip);
             cooldown += w.ShotCooldown;
             fired = true; shotStage = 0;
             (heat, overheated, sinceHeat) = AddShotHeat(w.Heat, heat, overheated);
@@ -760,7 +767,7 @@ public static class Combat
             int number = w.BurstLength - burstLeft;   // 1 for the second round
             // Once the cooldown has run out every round is due (never a locked weapon, whatever the data).
             if (cooldown > TimeEpsilon && w.ShotCooldown - cooldown + TimeEpsilon < number * w.BurstInterval) return false;
-            clip -= Math.Min(Math.Max(1, w.AmmoPerShot), clip);
+            if (!freeAmmo) clip -= Math.Min(Math.Max(1, w.AmmoPerShot), clip);
             fired = true; shotStage = 0;
             (heat, overheated, sinceHeat) = AddShotHeat(w.Heat, heat, overheated);
             burstLeft--;
@@ -775,7 +782,7 @@ public static class Combat
         void ChargedShot(WeaponSpec w, int stage)
         {
             var shot = Shots.ChargeShotOf(w, stage)!;
-            clip -= Math.Min(Math.Max(0, shot.AmmoCost), clip);
+            if (!freeAmmo) clip -= Math.Min(Math.Max(0, shot.AmmoCost), clip);
             cooldown += shot.ShotCooldown;
             fired = true; shotStage = stage;
             if (w.Heat is { } hs && shot.HeatPerShot > 0f)

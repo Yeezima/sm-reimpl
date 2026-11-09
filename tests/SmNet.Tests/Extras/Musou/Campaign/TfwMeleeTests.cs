@@ -237,7 +237,7 @@ public class TfwMeleeTests
     }
 
     [Fact]
-    public void A_frags_blast_is_the_datas_size_and_sends_no_big_blast_record()
+    public void A_frags_blast_is_twice_the_datas_size_and_sends_no_big_blast_record()
     {
         var w = War();
         w.Musou!.Frozen = true;
@@ -246,13 +246,13 @@ public class TfwMeleeTests
         int blasts = 0;
         for (int k = 0; k < 300 && w.Projectiles.Count > 0; k++)
         {
-            // 14 m from where it will land: outside the data's 10 m.
-            if (far == 0 && w.Projectiles[0].Position.Z < 1.5f) far = Boy(w, w.Projectiles[0].Position with { Z = 0f } + new Vector3(14f, 0f, 0f), health: 10000f);
+            // 24 m from where it will land: outside the data's 10 m doubled (owner 2026-11-09: frag explosions 2x their size).
+            if (far == 0 && w.Projectiles[0].Position.Z < 1.5f) far = Boy(w, w.Projectiles[0].Position with { Z = 0f } + new Vector3(24f, 0f, 0f), health: 10000f);
             Tick(w);
             blasts += w.LastDetonations.Count(d => d.Thrown);
         }
         Assert.Equal(1, blasts);
-        Assert.True(w.Musou.TryGet(far, out var e) && e.Health >= 10000f, "the blast stays within the data's radius");
+        Assert.True(w.Musou.TryGet(far, out var e) && e.Health >= 10000f, "the blast stays within the doubled radius");
         Assert.Empty(w.Tfw!.Smoke.Where(f => f.Kind == TfwFireKind.Frag));
     }
 

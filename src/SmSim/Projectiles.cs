@@ -443,13 +443,16 @@ public sealed partial class World
             ApplyHit(p.Owner, direct, blastDirect, zone == HitZone.None ? HitZone.Body : zone, 0f, 1f, p.Id, false, weapon: p.Weapon, thrownItem: p.Thrown,
                 direction: BlastPush(point, direct, p.Velocity));
         // Every damaging blast in file order; a lingering one is applied now and stays (StepAreas).
-        foreach (var splash in spec.AllSplashes)
+        // EXTRAS-HOOK via SimConfig.ThrownBlastScale: Musou Mode's frag blasts reach twice as far (owner 2026-11-09); 1 everywhere else, so Classic PvP is untouched.
+        float reach = p.Thrown && p.Weapon >= 0 && p.Weapon < Config.Thrown.Count ? Config.ThrownBlastScale(Config.Thrown[p.Weapon]) : 1f;
+        foreach (var splash0 in spec.AllSplashes)
         {
+            var splash = reach == 1f ? splash0 : Combat.ScaledReach(splash0, reach);
             ApplyBlast(p.Owner, p.Id, point, splash, weapon: p.Weapon, thrownItem: p.Thrown);
             if (splash.Lingers) _areas.Add(new LingeringArea(p.Id, p.Owner, p.Weapon, p.Thrown, point, splash) { Applications = 1 });
         }
         var dealt = _hits.Skip(first).ToList();
-        var e = new DetonationEvent(Tick, p.Id, p.Owner, p.Weapon, p.Stage, point, spec.AllSplashes.Select(x => x.Radius).DefaultIfEmpty(0f).Max(),
+        var e = new DetonationEvent(Tick, p.Id, p.Owner, p.Weapon, p.Stage, point, spec.AllSplashes.Select(x => x.Radius).DefaultIfEmpty(0f).Max() * reach,
             dealt.Select(h => h.Target).Distinct().Count(), dealt.Sum(h => h.ShieldDamage), dealt.Sum(h => h.HealthDamage), dealt.Count(h => h.Killed)) { Thrown = p.Thrown };
         _detonations.Add(e);
         _recentDetonations.Add(e);

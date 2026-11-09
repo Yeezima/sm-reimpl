@@ -285,9 +285,25 @@ public sealed partial class World
         if (!_players.TryGetValue(attacker, out var p) || !p.Alive) return;
         if (!_musouHealTick.TryGetValue(attacker, out uint last) || last != Tick) { _musouHealTick[attacker] = Tick; _musouHealed.RemoveWhere(h => h.Attacker == attacker); }
         if (!_musouHealed.Add((attacker, enemy))) return;
-        float most = Loadouts.Body(Config, p).HealthMax;
-        _players[attacker] = p with { Health = MathF.Min(most, p.Health + most * MusouCombatRules.MeleeHealShare) };
+        // musou/combat-rules (owner, 2026-11-09): every strike also gives back 5 % of the armour; while a combat stim works a strike gives 25 % health and 20 % armour INSTEAD of the 5 % and 5 %.
+        bool stim = Stims.Active(Config, p) is not null;
+        MusouRestore(attacker, stim ? MusouCombatRules.StimStrikeHealthShare : MusouCombatRules.MeleeHealShare, stim ? MusouCombatRules.StimStrikeArmourShare : MusouCombatRules.MeleeArmourShare);
     }
+
+    /// <summary>Gives <paramref name="attacker"/> back these shares of his whole health and armour, never over the maximum.</summary>
+    void MusouRestore(int attacker, float healthShare, float armourShare)
+    {
+        if (!_players.TryGetValue(attacker, out var p) || !p.Alive) return;
+        var body = Loadouts.Body(Config, p);
+        _players[attacker] = p with
+        {
+            Health = MathF.Min(body.HealthMax, p.Health + body.HealthMax * healthShare),
+            Shield = MathF.Min(body.ShieldMax, p.Shield + body.ShieldMax * armourShare),
+        };
+    }
+
+    /// <summary>The air slash's landing (owner, 2026-11-09): 25 % of the health and 10 % of the armour, once per landing, whether or not it struck anybody.</summary>
+    void MusouSlashLandHeal(int player) => MusouRestore(player, MusouCombatRules.SlashLandHealthShare, MusouCombatRules.SlashLandArmourShare);
 
     readonly Dictionary<int, uint> _musouHealTick = new();
     readonly HashSet<(int Attacker, int Enemy)> _musouHealed = new();

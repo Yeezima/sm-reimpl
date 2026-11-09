@@ -12,6 +12,17 @@ public sealed record MusouCombatRules
     public float CleaveExtraRange { get; init; } = 0.5f;
     /// <summary>The share of a player's whole health a melee attack that strikes anybody gives back (the owner, 2026-11-02).</summary>
     public const float MeleeHealShare = 0.05f;
+    // ---- musou/combat-rules (owner, 2026-11-09; all kind: ours, Musou Mode only; Classic PvP never reads them)
+    /// <summary>The share of a player's whole armour a melee strike gives back, per enemy struck (owner: "make all melee attacks restore 5% armor").</summary>
+    public const float MeleeArmourShare = 0.05f;
+    /// <summary>The air slash's landing gives back this share of the player's health and armour, once per landing, hit or not (owner: 25 % health, 10 % armour).</summary>
+    public const float SlashLandHealthShare = 0.25f, SlashLandArmourShare = 0.10f;
+    /// <summary>While a combat stim works, each enemy a melee attack strikes gives back this share of health and armour, in place of the 5 % and 5 % above (owner: 25 % and 20 % per strike).</summary>
+    public const float StimStrikeHealthShare = 0.25f, StimStrikeArmourShare = 0.20f;
+    /// <summary>Combat stims: lifetime x3, melee damage x2 (total, replacing the data's x1.35), attack speed x1.2 (melee swings and fire rate), no ammunition spent.</summary>
+    public const float StimLifetimeScale = 3f, StimMeleeDamage = 2f, StimAttackSpeed = 1.2f;
+    /// <summary>The frag grenade's blast radius (and its fall-off distances) times this: 2x "size".</summary>
+    public const float FragReachScale = 2f;
     /// <summary>A <see cref="MeleeStep.TrackToHit"/> strike's cleave reaches this much farther (ours, feel/melee-reliability: enemies carry no player lock).</summary>
     public const float CleaveTrackRange = 1f;
     /// <summary>
