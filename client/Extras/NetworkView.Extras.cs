@@ -43,7 +43,13 @@ public partial class NetworkView
     /// <summary>A map added content composes: Musou Mode's.</summary>
     partial void ExtrasMeleeTarget(PlayerState me, MeleeStep step, ref System.Numerics.Vector3? at, ref bool? armoured) => MusouMeleeTarget(me, step, ref at, ref armoured);
 
-    partial void ExtrasShotMaterial(ShotView shot, int victim, ref bool? armoured) => MusouShotMaterial(shot, victim, ref armoured);
+    partial void ExtrasShotMaterial(ShotView shot, int victim, ref bool? armoured) { MusouShotMaterial(shot, victim, ref armoured); MusouBolterOthersHit(shot, victim); }
+
+    partial void ExtrasMeleeHitEmitter(SoundEmitter hit) => MusouMeleeHitEmitter(hit);
+
+    partial void ExtrasTrackEmitter(SoundEmitter emitter, bool own) => MusouTrackEmitter(emitter, own);
+
+    partial void ExtrasFireLayers(WeaponSpec spec, SoundEmitter e, bool own) => MusouFireLayers(spec, e, own);
 
     partial void ExtrasOwnStrikeContact(PlayerState me, MeleeStep step) => MusouOwnStrikeContact(me, step);
 

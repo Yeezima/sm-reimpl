@@ -1,0 +1,75 @@
+using System;
+using Godot;
+using SmContent;
+using SmFormats.Audio;
+using SmNet;
+using SmSim;
+
+namespace SmClient;
+
+/// <summary>
+/// musou/audio-pass (owner, 2026-11-09; Musou Mode only, client presentation only: no simulation, wire or config-hash change; every number in <see cref="MusouAudioRules"/> is ours). The hooks
+/// of the shared sound code (<c>ExtrasTrackEmitter</c>, <c>ExtrasMeleeHitEmitter</c>, <c>ExtrasFireLayers</c>, <c>ExtrasShotMaterial</c>) land here, and each asks <see cref="MusouActive"/> first, so
+/// Annihilation and Seize Ground run none of it:
+/// <list type="bullet">
+/// <item>The own character's barks are protected (<see cref="SoundEmitter.ProtectSpeech"/>): no ducking by an explosion's Set/Reset actions, no voice stealing, no instance limit, full level, own bus.</item>
+/// <item>A melee hit's voices are protected and ring out (<see cref="SoundEmitter.Tail"/>): they were cut by voice stealing at the 48-voice cap (the crowd keeps the pool full) and by the data's own
+/// Stop actions (the power axe and thunder hammer hits carry two) and lasted 0.2 to 0.7 s.</item>
+/// <item>The bolter rifles (bolter, storm bolter, stalker bolter, heavy bolter): a deep copy of the fire sound plus a thump under every shot, and on the first Ork a shot hits the wet smack, then the explosion.
+/// Piercing and explosions of the simulation are untouched.</item>
+/// </list>
+/// Test aid: <c>--no-musou-audio-pass</c> (all of it off: the 2026-11-08 sound), <c>--log-sound musou-audio</c> (a line per bolter hit).
+/// </summary>
+public partial class NetworkView
+{
+    static readonly bool NoMusouAudioPass = CmdFlag("no-musou-audio-pass");
+    double _musouBlastAt = double.NegativeInfinity;
+    int _musouBolterShots, _musouBolterHits;
+
+    bool MusouAudioOn => MusouActive && !NoMusouAudioPass && MusouAudioRules.Applies(_config!.Extras);
+
+    void MusouTrackEmitter(SoundEmitter emitter, bool own)
+    {
+        if (own && MusouAudioOn) emitter.ProtectSpeech = true;
+    }
+
+    void MusouMeleeHitEmitter(SoundEmitter hit)
+    {
+        if (MusouAudioOn) hit.Tail = true;
+    }
+
+    /// <summary>A bolter rifle's shot: its fire sound again, deep, and the thump (voices: the copy's, one more).</summary>
+    void MusouFireLayers(WeaponSpec spec, SoundEmitter e, bool own)
+    {
+        if (!MusouAudioOn || _sound is null || _soundTriggers is null || !MusouAudioRules.IsBolterRifle(spec.Name) || _soundTriggers.File(spec.Name) is not { } file) return;
+        _musouBolterShots++;
+        var deep = new VoiceOffset(MusouAudioRules.DeepGainDb, MusouAudioRules.DeepPitchCents, MusouAudioRules.DeepLpf).Plus(SoundMixPass.Fire(SoundSystem.MixClassic));
+        foreach (var b in file.Fire(null)) PostBinding(b, e, own, own ? "fire own deep" : "fire other deep", extra: deep);
+        _sound.Post(MusouAudioRules.ThumpEvent, e, offset: new VoiceOffset(MusouAudioRules.ThumpGainDb, MusouAudioRules.ThumpPitchCents).Plus(SoundMixPass.Fire(SoundSystem.MixClassic)));
+        CountSound("musou bolter thump");
+    }
+
+    /// <summary>The first Ork a bolter rifle's shot hits (<paramref name="at"/>, Godot space): the wet smack, then the explosion.</summary>
+    void MusouBolterFirstHit(string weapon, Vector3 at)
+    {
+        if (!MusouAudioOn || _sound is null || !MusouAudioRules.IsBolterRifle(weapon)) return;
+        if (_connectedFor - _musouBlastAt < MusouAudioRules.BlastDelaySeconds) return;   // a burst's hits cannot pile their explosions
+        _musouBlastAt = _connectedFor;
+        _musouBolterHits++;
+        var hit = SoundMixPass.Hit(SoundSystem.MixClassic);
+        var smack = new SoundEmitter { Position = at, OneShot = true, Label = "musou bolter smack" };
+        smack.Switches.Set(AudioCatalog.MaterialType, Fnv.Hash32("flesh"));
+        _sound.Post(MusouAudioRules.SmackEvent, smack, offset: new VoiceOffset(MusouAudioRules.SmackGainDb).Plus(hit));
+        var blast = new SoundEmitter { Position = at, OneShot = true, Label = "musou bolter blast" };
+        _sound.Post(MusouAudioRules.BlastEvent, blast, MusouAudioRules.BlastDelaySeconds, once: true, offset: new VoiceOffset(MusouAudioRules.BlastGainDb, TailDb: MusouAudioRules.BlastTailDb));
+        CountSound("musou bolter hit");
+        if (LogSound("musou-audio")) GD.Print($"MUSOU AUDIO t {_connectedFor:F3} {weapon}: smack + blast at {at.X:F1},{at.Y:F1},{at.Z:F1} (shots {_musouBolterShots}, hits {_musouBolterHits})");
+    }
+
+    /// <summary>Another player's bolter shot that hit an Ork (the core <c>SoundShot</c> path): the same smack and blast at the shot's end.</summary>
+    void MusouBolterOthersHit(ShotView shot, int victim)
+    {
+        if (!MusouAudioOn || _config is null || victim >= 0 || shot.Hit is not (ShotHit.Body or ShotHit.Head) || shot.Weapon < 0 || shot.Weapon >= _config.Weapons.Count) return;
+        MusouBolterFirstHit(_config.Weapons[shot.Weapon].Name, ToGodot(shot.End));
+    }
+}

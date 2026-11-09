@@ -251,6 +251,7 @@ public partial class NetworkView
             var emitter = new SoundEmitter { Position = ToGodot(at), Label = "musou enemy hit", OneShot = true };
             PostPlayerHitSound(gunHit, emitter, ImpactSounds.ImpactOffset(ImpactTreatmentArg, gunHit, hitScan: true), material);
             CountSound("body hit");
+            MusouBolterFirstHit(gun.Name, emitter.Position);   // musou/audio-pass: a bolter rifle's wet smack, then the explosion, on the first Ork the shot hits (once a shot, as the hit sound)
         }
         if (predicted && e.Value is 1 or 2) return;   // the shot's impact was drawn at the shot (a kill's gore is the death's, elsewhere)
         if (_musouFxTokens < 1f || Num.Vector3.DistanceSquared(at, camera) > FxRange * FxRange) return;

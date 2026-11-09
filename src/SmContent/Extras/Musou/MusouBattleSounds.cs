@@ -29,7 +29,8 @@ public static class MusouAmbienceRules
     [
         new(MusouAmbienceKind.OrkMob, ["play_or_bo_1_growls", "play_or_bo_2_barks", "play_or_bo_2_roar", "play_or_bo_1_roar", "play_or_bo_2_snorts",
                 "speech:ork_boy:celebration", "speech:ork_boy_2:roar", "speech:ork_nob:roar", "speech:ork_nob:celebration", "speech:ork_boy:effort_build"],
-            EveryMin: 1.2f, EveryMax: 3.5f, Near: 35f, Far: 90f, ShotsMin: 2, ShotsMax: 4, GapMin: 0.1f, GapMax: 0.5f, GainDb: -2f, Lpf: 10f),
+            // musou/audio-pass (owner 2026-11-09: "ensure ork ambient voices sound like they are from far away"): well beyond the crowd's near Orks (they stay as they were), quieter and dull (LPF 40 = about 2.7 kHz).
+            EveryMin: 1.2f, EveryMax: 3.5f, Near: 60f, Far: 130f, ShotsMin: 2, ShotsMax: 4, GapMin: 0.1f, GapMax: 0.5f, GainDb: -8f, Lpf: 40f),
         new(MusouAmbienceKind.Bolter, ["play_sm_bolter_fire"], EveryMin: 2f, EveryMax: 5f, Near: 40f, Far: 100f, ShotsMin: 3, ShotsMax: 7, GapMin: 0.12f, GapMax: 0.17f, GainDb: -4f, Lpf: 10f),
         new(MusouAmbienceKind.Lasgun, ["play_ig_lasgun_fire"], EveryMin: 1.5f, EveryMax: 4f, Near: 40f, Far: 100f, ShotsMin: 2, ShotsMax: 6, GapMin: 0.18f, GapMax: 0.35f, GainDb: -2f, Lpf: 10f),
         new(MusouAmbienceKind.Artillery, ["play_ork_rokk_distant_explosion", "play_sm_missile_explosion", "play_powersource_explode_distant"],

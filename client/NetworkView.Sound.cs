@@ -288,11 +288,18 @@ public partial class NetworkView
         }
     }
 
+    /// <summary>An added mode's treatment of a player's sound emitter (Musou Mode: the own character's lines are never ducked, stolen or muffled, musou/audio-pass); none leaves it as it is.</summary>
+    partial void ExtrasTrackEmitter(SoundEmitter emitter, bool own);
+
+    /// <summary>An added mode's extra layers under a weapon's fire sound (Musou Mode: the bolter rifles' deep copy and thump, musou/audio-pass).</summary>
+    partial void ExtrasFireLayers(WeaponSpec spec, SoundEmitter e, bool own);
+
     SoundTrack Track(int id, bool own)
     {
         if (_soundTracks.TryGetValue(id, out var t)) return t;
         var emitter = new SoundEmitter { Own = own, Label = $"P{id}", Follow = () => PlayerSoundPoint(id) };
         if (own) emitter.Switches.Set(AudioCatalog.PlayerGroup, AudioCatalog.LocalPlayerValue);
+        ExtrasTrackEmitter(emitter, own);   // EXTRAS-HOOK: an added mode protects the own character's voice lines (Musou Mode, musou/audio-pass)
         _soundTracks[id] = t = new SoundTrack { Emitter = emitter };
         return t;
     }
@@ -732,6 +739,7 @@ public partial class NetworkView
         // Fidelity gap 7: a braced shot posts the braced ability's fire sound (NetworkView.Brace.cs).
         var bindings = braced && stage == 0 && BracedFireSounds(spec.Name) is { } braceFire ? braceFire : file.Fire(stageName);
         PostAll(bindings, e, own, own ? "fire own" : "fire other", extra: SoundMixPass.Fire(SoundSystem.MixClassic));   // sound/mix-and-reloads: shots louder
+        if (stage == 0) ExtrasFireLayers(spec, e, own);   // EXTRAS-HOOK: Musou Mode's bolter rifles fire deeper (musou/audio-pass)
     }
 
     /// <summary>An added mode's own target material for another player's shot (Musou Mode: armoured Orks null = armour and flesh, the others flesh); unchanged when no added content answers.</summary>
