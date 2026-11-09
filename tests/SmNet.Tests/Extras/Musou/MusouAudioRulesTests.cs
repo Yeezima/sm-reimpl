@@ -85,13 +85,17 @@ public class MusouAudioRulesTests
     }
 
     [Fact]
-    public void The_power_sword_is_found_by_wargear_and_louder()
+    public void Melee_hit_sounds_route_like_Classic_PvP_no_hook_no_flag_no_bus()
     {
-        Assert.True(MusouAudioRules.IsPowerSword("sm_mp_melee_powersword"));
-        Assert.True(MusouAudioRules.IsPowerSword("csm_mp_melee_powersword"));
-        Assert.False(MusouAudioRules.IsPowerSword("sm_mp_melee_chainsword"));
-        Assert.False(MusouAudioRules.IsPowerSword(null));
-        Assert.Equal(6f, MusouAudioRules.PowerSwordHitGainDb);
+        // owner 2026-11-09: every melee on-hit sound plays as the original data defines it, through the path Classic PvP uses; Musou adds nothing to it.
+        var d = new DirectoryInfo(AppContext.BaseDirectory);
+        while (d is not null && !File.Exists(Path.Combine(d.FullName, "SmReimpl.slnx"))) d = d.Parent;
+        string root = d!.FullName;
+        string hit = File.ReadAllText(Path.Combine(root, "client", "NetworkView.MeleeHitSound.cs"));
+        Assert.DoesNotContain("Extras" + "MeleeHitEmitter", hit);
+        Assert.Contains("new SoundEmitter { Position = at, Label = $\"melee hit on {target}\", OneShot = true }, LoudnessArg.MeleeHit, armoured)", hit);
+        string sound = File.ReadAllText(Path.Combine(root, "client", "SoundSystem.cs"));
+        foreach (var gone in new[] { "public bool Tail;", "public bool NoSteal;", "SmTailRev", "SmHitTail" }) Assert.DoesNotContain(gone, sound);
     }
 
     [Fact]
