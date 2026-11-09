@@ -28,14 +28,14 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2674 spec table rows: **1972 tagged**, 488 not tagged (read from data with high confidence), 214 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 596 rows of the changes document.
+Scanned 2675 spec table rows: **1973 tagged**, 488 not tagged (read from data with high confidence), 214 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 596 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
 | Movement (critical) | 386 | 328 | 327 | 114 | 12 |
 | Combat core (critical) | 13 | 4 | 12 | 11 | 9 |
 | Weapons (critical) | 121 | 73 | 106 | 54 | 3 |
-| Melee (critical) | 120 | 105 | 95 | 38 | 5 |
+| Melee (critical) | 121 | 106 | 95 | 38 | 5 |
 | Jump pack (critical) | 79 | 71 | 63 | 19 | 0 |
 | Charge (critical) | 56 | 47 | 47 | 22 | 0 |
 | Reactions (critical) | 15 | 13 | 14 | 6 | 0 |
@@ -53,13 +53,13 @@ Scanned 2674 spec table rows: **1972 tagged**, 488 not tagged (read from data wi
 | Core simulation (provisional values) | 488 | 464 | 336 | 126 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 191 | 181 | 93 | 53 | 0 |
-| **All areas** | **1972** | 1726 | 1461 | 624 | 38 |
+| **All areas** | **1973** | 1727 | 1461 | 624 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1069 |
+| kind: ours | 1070 |
 | confidence: low | 707 |
 | confidence: medium | 625 |
 | kind: interpretation | 359 |
@@ -917,7 +917,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-63D5DA0C` | Magazine returns | at the load tag or when the left hand is back at the weapon, whichever is later (never before the magazine left): bolter tag 0.30, hand 0.35 (`RIG_L_Hand` 0.15 m from the magazine at its closest, 1.13 m at its furthest, away from 0.11 to 0.35) → 0.35; stalker… (fraction of the clip) | kind: interpretation; confidence: medium | clip, skeleton, weapon mount | Magazine returns: compare with SM1 by feel or video. Ours: at the load tag or when the left hand is back at the weapon… | ☐ |
 | `R-125B93CF` | Dropped magazine physics | a `RigidBody3D` (layer none, mask: the level) with a box the size of the mesh, mass 0.4 kg, friction 0.7, bounce 0.3, linear damping 0.05, angular 0.6; initial velocity = the carrier's velocity + up to 0.6 m/s sideways (0.12 up) + up to 5 rad/s spin… (kg, m/s, rad/s, s) | kind: placeholder; confidence: none (low); notes: ours | ours | Dropped magazine physics: compare with SM1 by timing a run over a known distance. Ours: a RigidBody3D (layer none, mask: the level) with a box the size of… | ☐ |
 
-### Melee (gameplay-critical) (120)
+### Melee (gameplay-critical) (121)
 
 *Spec section: Melee flow, the hammer in both hands and the transitions pass (anim/melee-flow; client only, not simulated, no protocol change)*
 
@@ -1078,6 +1078,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
+| `R-0BF0D2EF` | Own bark melee quiet (owner 2026-11-09: "barks from the player only play after the player hasn't… | The player's own bark is held back while a melee step ran within the last 2 s (`PlayerState.MeleeStep > 0`, read every frame; the bark clock is not spent, so it plays at the next look after the quiet). Others' barks unchanged (2 s) | kind: ours | owner 2026-11-09 | Own bark melee quiet (owner 2026-11-09: "barks from the…: compare with SM1 by listening A/B at the same distance and state. Ours: The player's own bark is held back while a melee step ran within the… | ☐ |
 | `R-82648569` | Melee hit tail | every other Musou melee weapon's hit voices are never stolen at the voice cap, never cut by the event's Stop actions (the power axe and thunder hammer hits carry two) or instance limits, ignore the data's Set/Reset ducking, and pass the on-hit high-pass into… (s) | kind: ours; confidence: low | owner 2026-11-09; cause found by reading the voice code (the pool of 48 is full in a Musou crowd; stealing releases one-shot voices); not yet heard by a human | Melee hit tail: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: every other Musou melee weapon's hit voices are never stolen at the… | ☐ |
 
 *Spec section: Melee reliability, the sooner step and the stalker crater (feel/melee-reliability; used by the simulation, config hash, no wire change)*

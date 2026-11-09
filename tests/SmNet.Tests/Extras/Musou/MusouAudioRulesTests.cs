@@ -102,4 +102,7 @@ public class MusouAudioRulesTests
         Assert.True(MusouAudioRules.OwnThumpGainDb > MusouAudioRules.ThumpGainDb);
         Assert.True(MusouAudioRules.OwnSubPitchCents < MusouAudioRules.DeepPitchCents);
     }
+
+    [Fact]
+    public void Own_bark_waits_two_seconds_after_a_melee_attack() => Assert.Equal(2f, MusouAudioRules.OwnBarkMeleeQuietSeconds);
 }

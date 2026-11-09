@@ -87,6 +87,9 @@ public static class MusouAudioRules
 
     // ---- bark themes ----
 
+    /// <summary>The player's own barks play only after this many seconds without a melee attack (owner 2026-11-09). Ours, an exact figure from the owner.</summary>
+    public const float OwnBarkMeleeQuietSeconds = 2f;
+
     /// <summary>
     /// The words that make a Marine bark line about Chaos, the warp or daemons (owner 2026-11-09: "none of the bark voice lines should be about chaos, the warp, or daemons. only use ork-related lines
     /// or generic lines"). Matched case-insensitively as word prefixes in a line's subtitle text; the owner named chaos, warp and daemons, the rest is ours: the same enemy by other names. "heretic"

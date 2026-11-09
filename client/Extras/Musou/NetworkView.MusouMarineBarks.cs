@@ -24,7 +24,7 @@ public partial class NetworkView
     readonly MusouBarkClock _musouBarkClock = new();
     readonly Dictionary<string, List<uint>> _musouBarkLines = new();
     int _musouBarksPosted;
-    double _musouBarkLookAt, _musouBarkLogAt;
+    double _musouBarkLookAt, _musouBarkLogAt, _musouOwnMeleeAt = double.NegativeInfinity;
 
     /// <summary>A character's lines (each leaf of its line sets), read once.</summary>
     List<uint> MusouBarkLinesOf(string character)
@@ -43,6 +43,7 @@ public partial class NetworkView
     /// <summary>The frame (from <c>MusouSoundsFrame</c>): looks at each Marine twice a second.</summary>
     void MusouMarineBarksFrame(PlayerState me, IReadOnlyList<MusouShown> shown, Num.Vector3 camera, double now)
     {
+        if (me.Alive && me.MeleeStep > 0) _musouOwnMeleeAt = now;   // owner 2026-11-09: the own bark waits for a quiet melee hand (every frame, before the 0.5 s look)
         if (NoMusouMarineBarks || _sound is null || _audio is null || _client is null || !_audio.HasSpeech || now < _musouBarkLookAt) return;
         _musouBarkLookAt = now + 0.5;
         if (me.Alive && !OwnDead && MusouBarkSpeaks(me)) MusouMarineBark(me, own: true, shown, now);
@@ -66,6 +67,7 @@ public partial class NetworkView
         bool fighting = false;
         float range = MusouMarineBarkRules.CombatRange * MusouMarineBarkRules.CombatRange;
         for (int i = 0; i < shown.Count && !fighting; i++) fighting = Num.Vector3.DistanceSquared(shown[i].Position, s.Position) <= range;
+        if (own && MusouAudioOn && now - _musouOwnMeleeAt < MusouAudioRules.OwnBarkMeleeQuietSeconds) return;   // the own bark waits (the clock is not spent)
         if (!_musouBarkClock.Due(s.PlayerId, now, fighting)) return;
         string character = MusouMarineBarkRules.CharacterOf(own, s.PlayerId);
         var lines = MusouBarkLinesOf(character);
