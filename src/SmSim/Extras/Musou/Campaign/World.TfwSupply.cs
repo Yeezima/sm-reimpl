@@ -59,7 +59,7 @@ namespace SmSim
 
         /// <summary>
         /// The owner: "grenades should refill every 30 seconds automatically". Each living player (humans and AI Marines) carrying fewer grenades than its item's most gets one back every
-        /// <see cref="TfwSupplyRules.GrenadeRefillSeconds"/>; the time counts only while it is short, and starts again at a full count or a new life. A stim is no grenade and is left alone.
+        /// <see cref="TfwSupplyRules.GrenadeRefillSeconds"/>; the time counts only while it is short, and starts again at a full count or a new life. The combat stims (owner, 2026-11-09: "stimulants need to regenerate the same way grenades do") are the same item slot and run the same rule: one charge back every period, up to the item's most.
         /// </summary>
         void TfwGrenadeRefill()
         {
@@ -69,7 +69,7 @@ namespace SmSim
             foreach (int id in _tfwSupplyIds)
             {
                 var p = _players[id];
-                if (!p.Alive || Loadouts.Equipment(Config, p) is not { Stim: null } item || p.Grenades >= item.Count) { _tfwGrenadeTicks.Remove(id); continue; }
+                if (!p.Alive || Loadouts.Equipment(Config, p) is not { } item || p.Grenades >= item.Count) { _tfwGrenadeTicks.Remove(id); continue; }
                 int ticks = _tfwGrenadeTicks.GetValueOrDefault(id) + 1;
                 if (ticks >= period)
                 {
