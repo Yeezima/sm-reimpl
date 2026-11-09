@@ -129,6 +129,34 @@ public class MusouVolleyTests
     }
 
     [Fact]
+    public void Facing_follows_the_simulations_forward()
+    {
+        // yaw pi/2 faces -X (forward is (-sin yaw, cos yaw), MusouSim.Forward): a target at -X is fired at, one at +X or +Y is not.
+        Assert.True(Run(new MusouVolleyPlanner(), [Ork(1, 0f, 0f, yaw: MathF.PI / 2f)], [new Vector3(-15f, 0f, 0f)], 5f) > 0);
+        Assert.Equal(0, Run(new MusouVolleyPlanner(), [Ork(1, 0f, 0f, yaw: MathF.PI / 2f)], [new Vector3(15f, 0f, 0f)], 5f));
+        Assert.Equal(0, Run(new MusouVolleyPlanner(), [Ork(1, 0f, 0f, yaw: MathF.PI / 2f)], [new Vector3(0f, 15f, 0f)], 5f));
+    }
+
+    [Fact]
+    public void A_burst_cut_short_is_not_finished_later()
+    {
+        var p = new MusouVolleyPlanner();
+        var shooter = new[] { Ork(1, 0f, 0f) };
+        var target = new[] { new Vector3(0f, 15f, 0f) };
+        // Fire until a burst has begun and not ended, then he leaves the view for a few seconds.
+        int guard = 0;
+        while (!(p.Bursts > 0 && p.Rounds % MusouRules.Default.Of(MusouEnemyType.ShootaBoy).RangedRounds != 0) && guard++ < 2000) p.Step(1f / 60f, shooter, target, default);
+        Assert.True(guard < 2000, "no burst began");
+        for (int k = 0; k < 180; k++) p.Step(1f / 60f, [], target, default);
+        // Back in view for a second (he is chosen again within 0.5 s): no frame gives more than one round, never the old burst's rest at once.
+        for (int k = 0; k < 60; k++)
+        {
+            var r = p.Step(1f / 60f, shooter, target, default);
+            Assert.True(r.Count <= 1, $"frame {k}: {r.Count} rounds in one frame");
+        }
+    }
+
+    [Fact]
     public void The_same_inputs_give_the_same_rounds()
     {
         List<MusouVolleyRound> Once()

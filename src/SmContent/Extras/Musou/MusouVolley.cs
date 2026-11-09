@@ -132,7 +132,7 @@ public sealed class MusouVolleyPlanner
         }
         Shooters = n;
         _gone.Clear();
-        foreach (var (id, g) in _gunners) if (!g.Chosen && g.RoundsLeft == 0) _gone.Add(id);
+        foreach (var (id, g) in _gunners) if (!g.Chosen) _gone.Add(id);   // a burst cut short is dropped: kept, it would fire its stale rounds at once if he (or an Ork given his id) were chosen again
         foreach (var id in _gone) _gunners.Remove(id);
         _gone.Clear();
         foreach (var (id, at) in _realAt) if (_now - at > MusouVolleyRules.RealQuietSeconds) _gone.Add(id);

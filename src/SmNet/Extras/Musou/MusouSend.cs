@@ -135,7 +135,7 @@ public static class MusouSendRules
     public const int DirectorEveryTicks = 10;
     /// <summary>
     /// A client's long-run budget for Musou (ours), refilled each tick; up to <see cref="BurstBytes"/> saved. 55 KB/s until musou-net-budget; the owner, 2026-11-09, chose a
-    /// 120 KB/s stream ("option 2 plus a 120 KB/s budget"): Musou 110 KB/s, the war the rest (<c>TfwSendRules.ClientBudgetBytesPerSecond</c>). Measured before: the Ork records alone
+    /// 120 KB/s stream ("option 2 plus a 120 KB/s budget"): Musou 110 KB/s; the war gets what Musou leaves of <c>TfwSendRules.ClientBudgetBytesPerSecond</c> (104, set by measurement), at least its 15 KB/s floor, which Musou's next refill pays back, so the whole stream runs at about 120 KB/s. Measured before: the Ork records alone
     /// filled 39-42 KB/s and about 22,000 due records a second were held back at 1,371 Orks, so the extra goes mostly to a fresher crowd.
     /// </summary>
     public static readonly int BudgetBytesPerSecond = OldBudget ? 55_000 : 110_000;
@@ -275,7 +275,7 @@ public sealed class MusouInterest
             int need = Protocol.ExtrasSectionHeaderBytes + s.Item2.Length;
             if (messages.Count == 0 || sizes[^1] + need > Protocol.MaxExtrasMessageBytes || messages[^1].Count >= Protocol.MaxExtrasSections)
             {
-                if (messages.Count >= MusouSendRules.MaxMessagesPerTick) break;   // more than 4 messages of events: the rest waits for the window's next copy
+                if (messages.Count >= MusouSendRules.MaxMessagesPerTick) break;   // more than MaxMessagesPerTick messages of events: the rest waits for the window's next copy
                 messages.Add(new()); sizes.Add(Protocol.ExtrasHeaderBytes);
             }
             messages[^1].Add(s); sizes[^1] += need;

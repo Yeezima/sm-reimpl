@@ -55,6 +55,16 @@ public class MusouSendTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void The_budgets_are_the_owners_120_kilobyte_stream_or_the_old_ones_under_the_switch()
+    {
+        // musou-net-budget (the owner, 2026-11-09): Musou 110 KB/s in 6 messages, the war 35 (floor 15) in 3, its share 104; SM_MUSOU_OLD_BUDGET=1: 55 / 4, 20 / 8 / 2, 58.
+        var expected = MusouSendRules.OldBudget ? (55_000, 4, 20_000, 8_000, 2, 58_000) : (110_000, 6, 35_000, 15_000, 3, 104_000);
+        Assert.Equal(expected, (MusouSendRules.BudgetBytesPerSecond, MusouSendRules.MaxMessagesPerTick, SmNet.Extras.Musou.Campaign.TfwSendRules.GuardBudgetBytesPerSecond,
+            SmNet.Extras.Musou.Campaign.TfwSendRules.GuardFloorBytesPerSecond, SmNet.Extras.Musou.Campaign.TfwSendRules.MaxMessagesPerTick, SmNet.Extras.Musou.Campaign.TfwSendRules.ClientBudgetBytesPerSecond));
+        Assert.Equal(MusouSendRules.MaxMessagesPerTick * Protocol.MaxExtrasMessageBytes, MusouSendRules.BurstBytes);
+    }
+
+    [Fact]
     public void The_boss_and_the_nobs_go_first_when_the_budget_is_short()
     {
         var interest = new MusouInterest();

@@ -129,7 +129,7 @@ public sealed class TfwEventWindow
 /// <summary>
 /// One client's share of the war (design section H, the second interest): the Guardsmen by distance as <see cref="MusouInterest"/> does the enemies (same bands, a changed state at once) and the war's
 /// other sections, within <see cref="TfwSendRules.MaxMessagesPerTick"/> messages and a token bucket. The bucket refills with what the client's Musou sections left of
-/// <see cref="TfwSendRules.ClientBudgetBytesPerSecond"/>, up to <see cref="TfwSendRules.GuardBudgetBytesPerSecond"/>, so the two together stay under the design's 60 KB/s. Engine-free and deterministic.
+/// <see cref="TfwSendRules.ClientBudgetBytesPerSecond"/>, up to <see cref="TfwSendRules.GuardBudgetBytesPerSecond"/>, so the two together stay near the client's stream (the design's 60 KB/s; about 120 since musou-net-budget). Engine-free and deterministic.
 /// </summary>
 public sealed class TfwGuardInterest
 {
