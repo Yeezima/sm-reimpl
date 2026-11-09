@@ -303,7 +303,7 @@ public class TfwMeleeTests
         return hit;
     }
 
-    /// <summary>owner 2026-11-09: the players' melee volume in the war is a longer, wider, flat cone (reach x1.5, 120 degrees to each side, the core's 1.5 m height band).</summary>
+    /// <summary>owner 2026-11-09: the players' melee volume in the war is a longer, wider, flat cone (reach x1.3 since the owner's 2026-11-09 reduction from x1.5, 120 degrees to each side, the core's 1.5 m height band).</summary>
     [Fact]
     public void The_war_cleave_is_a_longer_wider_flat_cone()
     {
@@ -311,8 +311,8 @@ public class TfwMeleeTests
         w.Musou!.Frozen = true;
         var me = w.Players[Human].Position;   // yaw 0: forward is +Y
         Vector3 Polar(float degrees, float metres, float up = 0f) => me + new Vector3(-MathF.Sin(degrees * MathF.PI / 180f) * metres, MathF.Cos(degrees * MathF.PI / 180f) * metres, up);
-        ushort far = Boy(w, Polar(0f, 9.5f));          // old reach 6.75 (8.25 with a track-to-hit step): now 10.1+
-        ushort tooFar = Boy(w, Polar(0f, 14f));
+        ushort far = Boy(w, Polar(0f, 8.3f));          // old reach 6.75 (8.25 with a track-to-hit step): now 8.8+ (x1.3, owner 2026-11-09)
+        ushort tooFar = Boy(w, Polar(0f, 12f));        // past 10.7 (the track-to-hit reach x1.3)
         ushort wide = Boy(w, Polar(105f, 3f));         // outside the old 90 degrees
         ushort behind = Boy(w, Polar(150f, 3f));       // outside the new 120
         ushort high = Boy(w, Polar(20f, 4f, 2.0f));    // above the 1.5 m height band
@@ -322,7 +322,7 @@ public class TfwMeleeTests
         Assert.DoesNotContain((int)tooFar, hit);
         Assert.DoesNotContain((int)behind, hit);
         Assert.DoesNotContain((int)high, hit);
-        Assert.Equal(1.5f, TfwCombatRules.Default.CleaveReachScale);
+        Assert.Equal(1.3f, TfwCombatRules.Default.CleaveReachScale);
         Assert.Equal(120f, TfwCombatRules.Default.CleaveHalfAngleDegrees);
         Assert.Equal(40, TfwCombatRules.Default.CleaveTargets);
     }

@@ -20,10 +20,10 @@ public sealed record TfwCombatRules
 
     /// <summary>
     /// The players' melee volume in the war (owner, 2026-11-09: "extend the melee hitbox outward and forward of the player in a flat cone - they should reach out further for cleaving purposes"; ours,
-    /// low confidence: about +50 % reach, 120 degrees to each side in place of 90): the cleave's reach (<see cref="MusouCombatRules.CleaveRange"/>) times <see cref="CleaveReachScale"/>, within
+    /// low confidence: about +30 % reach (+50 % until the owner's 2026-11-09 "reduce the latest melee cleave range to be 1.3x, not 1.5x"), 120 degrees to each side in place of 90): the cleave's reach (<see cref="MusouCombatRules.CleaveRange"/>) times <see cref="CleaveReachScale"/>, within
     /// <see cref="CleaveHalfAngleDegrees"/> of the heading. The height band stays the core's vertical reach (1.5 m: waist to head of an Ork, flat). The 5-wave skirmish keeps its old volume (pinned replay).
     /// </summary>
-    public float CleaveReachScale { get; init; } = 1.5f;
+    public float CleaveReachScale { get; init; } = 1.3f;   // owner 2026-11-09: "reduce the latest melee cleave range to be 1.3x, not 1.5x"
     public float CleaveHalfAngleDegrees { get; init; } = 120f;
 
     /// <summary>The cosine of the cleave's half angle (<see cref="CleaveHalfAngleDegrees"/>).</summary>
