@@ -357,6 +357,7 @@ public partial class NetworkView
         FxShot(_client!.PlayerId, weapon, w, index, stage, endG, hit, surface, normalG, dirG, Combat.EyePosition(me, _config!), own: true, victim, ArmourUpForHit(hit, victim, own: true, OwnHitArmoured(victim)),   // protocol 22: the last hit report on this victim
                hitScan ? ToGodot(start) : null, hitScan ? dirG : null);
         ExtrasOwnShotContact(me, weapon, start, dir, end);   // EXTRAS-HOOK: the contact on an added mode's enemy (Musou Mode: the flesh impact and the hit sound on the shot frame)
+        if (hitScan) PredictOwnHit(me, weapon, victim, hit);   // net/responsive: the hit marker and confirmation on the shot frame (NetworkView.Responsive.cs)
     }
 
     /// <summary>An added mode's own enemies on the own shot's ray: <paramref name="distance"/> shortened to the nearest one before it, <paramref name="enemy"/> set (Musou Mode, combat feel 2026-11-09).</summary>

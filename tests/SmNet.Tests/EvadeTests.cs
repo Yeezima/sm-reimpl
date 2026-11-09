@@ -609,7 +609,7 @@ public class EvadeTests(ITestOutputHelper output)
         var h = new Harness(link, seed, 0, config, new ServerOptions { PeerTimeout = TimeSpan.FromMinutes(5), BodyGuard = false }, map: map);
         int[] classes = [Tactical, Tactical, Tactical];
         for (int i = 0; i < classes.Length; i++)
-            h.AddClient(nonce: (uint)(100 + i), options: new ClientOptions { RequestedClass = (byte)classes[i], LoadMap = _ => new LoadedMap(level, 78) });
+            h.AddClient(nonce: (uint)(100 + i), options: new ClientOptions { RequestedClass = (byte)classes[i], LoadMap = _ => new LoadedMap(level, 78), SmoothInputLead = false });   // net/responsive: the old lead steering (a lead of about 5): this checks determinism through 5 % loss, which needs inputs that survive several losses in a row
         int airborne = PredictionMatches(h, classes, EvadeInput, 15);
         output.WriteLine($"{airborne} ticks evading in the air");
         Assert.True(airborne > 0, "nobody rolled off a ledge");
@@ -628,9 +628,9 @@ public class EvadeTests(ITestOutputHelper output)
             RunSpeed = 6.5f, StrafeSpeed = 6f, BackSpeed = 4.5f, SprintSpeed = 10f, GroundTimeToMaxSpeed = 0.2f, MaxAcceleration = 100f,
         };
         var link = new LinkConditions(TimeSpan.FromMilliseconds(75), TimeSpan.FromMilliseconds(10), 0.05);
-        var h = new Harness(link, seed, 0, config, new ServerOptions { PeerTimeout = TimeSpan.FromMinutes(5), BodyGuard = false });
-        var roller = h.AddClient(nonce: 100, options: new ClientOptions { RequestedClass = Tactical });
-        var shooter = h.AddClient(nonce: 101, options: new ClientOptions { RequestedClass = Plain });
+        var h = new Harness(link, seed, 0, config, new ServerOptions { PeerTimeout = TimeSpan.FromMinutes(5), BodyGuard = false, SnapshotRate = 20 });   // net/responsive: the 20 Hz this test's kill cadence was set for (at 30 Hz the shooter kills in every respawn window, leaving none to compare; no mismatch either way)
+        var roller = h.AddClient(nonce: 100, options: new ClientOptions { RequestedClass = Tactical, SmoothInputLead = false });   // net/responsive: the old lead steering (a lead of about 5): this checks determinism through 5 % loss, which needs inputs that survive several losses in a row (and the shooter's
+        var shooter = h.AddClient(nonce: 101, options: new ClientOptions { RequestedClass = Plain, SmoothInputLead = false });   // lead sets how soon after a respawn it kills, so how many ticks are compared)
         PlayerInput Input(int i, uint t)
         {
             if (i == 0)

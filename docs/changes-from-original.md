@@ -250,7 +250,8 @@ the data, so these rules are ours:
 
 | Rule | What we do | What is unknown | Spec section |
 |---|---|---|---|
-| Tick, snapshot and interpolation rates | 30 Hz simulation, 20 Hz snapshots, 100 ms interpolation delay | The original's network rates | Provisional values in use |
+| Tick, snapshot and interpolation rates | 30 Hz simulation, 30 Hz snapshots (20 before net/responsive), an adaptive 67 to 100 ms interpolation delay (100 fixed before; Musou Mode keeps 100) | The original's network rates | Provisional values in use; Network responsiveness |
+| Input lead and own drawing (net/responsive, 2026-11-09) | The input lead is kept at 2 ticks by a 4 % clock slew with a jitter guard (before: whole-tick steps that left it at 3 to 5); the own marine is drawn a tick sooner, from the newest predicted tick toward a speculative next one, the step of each tick blended out over 3 ticks; an own hit-scan hit on an enemy as drawn shows its hit marker and confirmation sound at once, the server's report never twice. Switches back: `--old-input-lead`, `--old-own-draw`, `--interp-delay 100`, `--no-predicted-hits`, `--old-net-feel`, server `--snapshot-rate 20` | The original was peer-hosted; its feel on a host and on a peer is unknown | Network responsiveness |
 | Lag compensation | Targets rewound to the shooter's view tick, capped at 15 ticks (500 ms); the view tick is honoured only back to the last acknowledged snapshot minus the interpolation delay and 4 ticks | The original was peer-hosted, so it had no server rewind | Provisional values in use |
 | Simultaneous shots | All shots of a tick resolve after everyone has moved: a shooter killed in the same tick still lands its shot (a trade) | The original's ordering | Provisional values in use |
 | Silent players | After 500 ms without packets the player stops; after 5 s the player times out | Original behaviour for frozen or departed peers | Provisional values in use |

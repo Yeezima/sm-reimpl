@@ -93,7 +93,7 @@ public class NetLatencyProbe(ITestOutputHelper output)
                     if (client.Status == ClientStatus.Connected && client.Predicted.Alive)
                     {
                         var (from, to, fraction) = client.DrawPair();
-                        client.NoteOwnDrawn(ViewSmoothing.Interpolate(from.Position, to.Position, fraction));
+                        client.NoteOwnDrawn(ViewSmoothing.Interpolate(from.Position, to.Position, fraction) + client.DrawBlendOffset());
                     }
                 }
                 else client.Update(tick => new PlayerInput(tick, TargetMove(t), 0, MathF.PI, InputButtons.None));
@@ -153,6 +153,46 @@ public class NetLatencyProbe(ITestOutputHelper output)
         }
     }
 
+    public static double Median(IEnumerable<double> values) => NetLatencyReadout.Quantile(values.ToList(), 0.5);
+
+    /// <summary>Every net/responsive switch back to the behaviour before it (client and server).</summary>
+    public static ClientOptions OldNet(ClientOptions o) => o with { SmoothInputLead = false, DrawOwnAhead = false, AdaptiveInterpolation = false };
+    public static readonly ServerOptions OldServer = new() { SnapshotRate = 20 };
+
     [ProbeFact]
     public void Current_defaults() => Emit(Report(Environment.GetEnvironmentVariable("SM_NET_PROBE_LABEL") ?? "defaults", null, null));
+
+    [ProbeFact]
+    public void Old_switches() => Emit(Report("old switches", OldNet, OldServer));
+
+    /// <summary>Classic 8v8 bandwidth: 16 clients running and firing full auto (scripted), server to client bytes a second per client (IPv4 + UDP headers counted).</summary>
+    public static double Bandwidth(int players, ServerOptions? serverOptions, double seconds = 10, int seed = 3)
+    {
+        var config = new SimConfig { HealthMax = 1e6f, ShieldMax = 1e6f, ClipSize = 100_000, ReserveSize = 100_000 };
+        var clock = new ManualClock();
+        var net = new LoopbackNetwork(clock, new LinkConditions(TimeSpan.FromMilliseconds(20), TimeSpan.FromMilliseconds(3), 0), seed);
+        var counter = new CountingServer(net.Server);
+        var server = new GameServer(config, Harness.Fingerprint, counter, clock, serverOptions);
+        var clients = Enumerable.Range(0, players).Select(i => new GameClient(config, Harness.Fingerprint, net.Connect(), clock, new ClientOptions(), nonce: (uint)(200 + i))).ToList();
+        long from = 0;
+        int total = (int)((seconds + 3) * 1000);
+        for (int ms = 1; ms <= total; ms++)
+        {
+            clock.Advance(TimeSpan.FromMilliseconds(1));
+            server.Update();
+            if (ms == 3000) from = counter.Bytes;
+            if (ms % 16 != 0) continue;
+            for (int i = 0; i < clients.Count; i++)
+            {
+                int index = i;
+                clients[i].Update(t => Harness.Scripted(index, t) with { Buttons = Harness.Scripted(index, t).Buttons | InputButtons.Fire });
+            }
+        }
+        Assert.All(clients, c => Assert.Equal(ClientStatus.Connected, c.Status));
+        return (counter.Bytes - from) / 1000.0 / seconds / players;
+    }
+
+    [ProbeFact]
+    public void Classic_8v8_bandwidth() => Emit([
+        $"[bandwidth] 16 players running and firing: 20 Hz snapshots {Bandwidth(16, OldServer):F1} KB/s per client; 30 Hz {Bandwidth(16, null):F1} KB/s per client (IPv4 + UDP headers counted)"]);
 }

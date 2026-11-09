@@ -170,7 +170,7 @@ public class ControlFeelTests(Xunit.Abstractions.ITestOutputHelper output)
             early += c.EarlyTicks - before;
             if (c.Status != ClientStatus.Connected || now < 3.0) { last = null; continue; }
             var (from, to, f) = c.DrawPair();
-            var drawn = ViewSmoothing.Interpolate(from.Position, to.Position, f);
+            var drawn = ViewSmoothing.Interpolate(from.Position, to.Position, f) + c.DrawBlendOffset();   // as the client draws it (net/responsive: the tick step blend)
             if (last is { } l && c.CorrectionErrors.Count > 0)
             {
                 float step = Vector3.Distance(drawn, l);
@@ -364,7 +364,7 @@ public class ControlFeelTests(Xunit.Abstractions.ITestOutputHelper output)
             predicted[c.Tick] = c.Predicted;
             if (c.CorrectionSerial != serial) { serial = c.CorrectionSerial; correction.Add(c.LastCorrection); }
             var (from, to, f) = c.DrawPair();
-            var drawn = ViewSmoothing.Interpolate(from.Position, to.Position, f) + correction.Step(0.001f);
+            var drawn = ViewSmoothing.Interpolate(from.Position, to.Position, f) + c.DrawBlendOffset() + correction.Step(0.001f);   // net/responsive: the tick step blend
             if (lastDrawn is { } l && now > 5)
             {
                 float step = Vector3.Distance(drawn, l);

@@ -332,6 +332,7 @@ public partial class NetworkView : Node3D
             if (_demoPlayback is null) clientOptions = SmClient.FrontEnd.FrontEndLaunch.WithProfile(clientOptions);
             if (_demoPlayback is null) clientOptions = WithPerkArgs(clientOptions);   // perks/inert-2 test aid: --perks a,b
             SetOwnLooks(clientOptions);   // customizer T7
+            clientOptions = WithNetFeelArgs(clientOptions);   // net/responsive: the latency switches and the readout (NetworkView.Responsive.cs)
             _client = new GameClient(_config, fingerprint, clientTransport, clientClock, clientOptions, nonce: clientNonce);
             DemoPrerollInReady();   // M40 T0: a replayed demo takes the Challenge (loads the map) and waits for the background loads before the first frame
             if (RequestedSide != Team.None) GD.Print($"--side: requesting the {SideName(RequestedSide)} side (the server may balance onto the other side)");

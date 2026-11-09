@@ -9,7 +9,11 @@ namespace SmServer;
 /// <summary>Server tuning. Provisional prototype defaults (docs/architecture.md), not original values.</summary>
 public sealed partial record ServerOptions
 {
-    public int SnapshotRate { get; init; } = 20;
+    /// <summary>
+    /// Snapshots a second to every client (net/responsive, ours: 30, one every tick; 20 before, <c>--snapshot-rate 20</c>). The clients' adaptive interpolation delay
+    /// follows it (two snapshot intervals: 67 ms at 30 Hz, the old 100 ms at 20 Hz).
+    /// </summary>
+    public int SnapshotRate { get; init; } = 30;
     /// <summary>
     /// Test aid (<c>--bot-damage-scale</c>; owner, 2026-10-29): every hit dealt by a client whose Hello marks it a test bot (<see cref="Hello.Bot"/>,
     /// protocol 37) is scaled by this (<see cref="World.SetDamageScale"/>); 1 (default): off.
@@ -767,6 +771,9 @@ public sealed partial class GameServer
     /// The most players (spectators aside) this match admits: <see cref="ServerOptions.MaxPlayers"/>, which added content may lower (<see cref="ExtrasPlayerCap"/>; Musou Mode: 4, the owner's
     /// co-op of 2026-11-06). A faithful or Extended match keeps <see cref="ServerOptions.MaxPlayers"/>.
     /// </summary>
+    /// <summary>Snapshots a second to every client (net/responsive: <see cref="ServerOptions.SnapshotRate"/>).</summary>
+    public int SnapshotRate => _options.SnapshotRate;
+
     public int PlayerCap
     {
         get

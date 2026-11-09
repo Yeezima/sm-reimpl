@@ -21,9 +21,29 @@ public sealed record HitReport(int Hits, float ShieldDamage, float HealthDamage,
 /// <summary>Client tuning. All values are provisional prototype defaults (docs/architecture.md), not original values.</summary>
 public sealed record ClientOptions
 {
+    /// <summary>
+    /// The remote players' interpolation delay: fixed with <see cref="AdaptiveInterpolation"/> off (the old 100 ms), else the start value until the adaptive estimate has
+    /// enough snapshots.
+    /// </summary>
     public TimeSpan InterpolationDelay { get; init; } = TimeSpan.FromMilliseconds(100);
     /// <summary>Ticks the newest input should reach the server ahead of the tick that applies it (absorbs jitter).</summary>
     public int TargetInputLead { get; init; } = 2;
+
+    // ---- net/responsive (ours; GameClient.Responsive.cs) ----
+    /// <summary>The input lead kept by a smooth clock slew in a tight band (false: the old whole-tick steps; Godot <c>--old-input-lead</c>).</summary>
+    public bool SmoothInputLead { get; init; } = true;
+    /// <summary>The slew acts when the filtered lead is this many ticks off the target (ours: 0.75, a steady report one tick off).</summary>
+    public double LeadBand { get; init; } = 0.75;
+    /// <summary>How much slower or faster the client's ticks run while the lead is steered (ours: 4 %, a tick of lead in about 0.8 s).</summary>
+    public double LeadSlew { get; init; } = 0.04;
+    /// <summary>The own marine drawn from the newest predicted tick toward a speculative next one (false: between the previous tick and the newest; Godot <c>--old-own-draw</c>).</summary>
+    public bool DrawOwnAhead { get; init; } = true;
+    /// <summary>The interpolation delay follows the snapshots (<see cref="InterpolationDelayEstimator"/>; false: <see cref="InterpolationDelay"/> fixed; Godot <c>--interp-delay</c>).</summary>
+    public bool AdaptiveInterpolation { get; init; } = true;
+    /// <summary>The adaptive delay's floor (ours: two 30 Hz ticks, 67 ms).</summary>
+    public TimeSpan MinInterpolationDelay { get; init; } = TimeSpan.FromSeconds(2.0 / 30.0);
+    /// <summary>The adaptive delay's ceiling: the server's lag-compensation bound (<c>ServerOptions.MaxInterpolationDelay</c>, 100 ms).</summary>
+    public TimeSpan MaxInterpolationDelay { get; init; } = TimeSpan.FromMilliseconds(100);
     /// <summary>Inputs repeated in every packet, so a few lost packets lose no input.</summary>
     public int InputRedundancy { get; init; } = 8;
     public TimeSpan HelloInterval { get; init; } = TimeSpan.FromMilliseconds(250);
@@ -189,7 +209,7 @@ public sealed partial class GameClient
     /// <see cref="DrawPair"/>'s states, never with <see cref="PreviousPredicted"/> and <see cref="Predicted"/> (after an early tick those are one
     /// tick ahead of it); clip times use <see cref="ClipFraction"/>.
     /// </summary>
-    public float TickFraction => DrawPair().Fraction;
+    public float TickFraction => DrawFraction();
     /// <summary>feel/controls: the newest tick ran early (<see cref="Update(Func{uint, PlayerInput}, bool)"/>) and no scheduled tick has run since; the time it ran.</summary>
     TimeSpan? _earlyRanAt;
     /// <summary>feel/controls: ticks run early on an input edge since the client started (diagnostics, test aids).</summary>
@@ -203,8 +223,14 @@ public sealed partial class GameClient
     /// </summary>
     public (PlayerState From, PlayerState To, float Fraction) DrawPair()
     {
-        double now = _clock.Now.TotalSeconds, next = _nextTickAt.TotalSeconds, tick = _config.TickSeconds;
-        return EarlyTick.DrawsBehind(_earlyRanAt is not null, now, next, tick)
+        double now = _clock.Now.TotalSeconds, next = _nextTickAt.TotalSeconds, tick = ScheduledTickSeconds;
+        bool behind = EarlyTick.DrawsBehind(_earlyRanAt is not null, now, next, tick);
+        // net/responsive: a tick later on the same timeline: the newest tick toward the speculative next (after an early tick, the tick before it toward it).
+        if (_options.DrawOwnAhead)
+            return behind
+                ? (PreviousPredicted, Predicted, ViewSmoothing.TickFraction(now, next - tick, tick))
+                : (Predicted, Ahead(), ViewSmoothing.TickFraction(now, next, tick));
+        return behind
             ? (_prePrevious, PreviousPredicted, ViewSmoothing.TickFraction(now, next - tick, tick))
             : (PreviousPredicted, Predicted, ViewSmoothing.TickFraction(now, next, tick));
     }
@@ -214,9 +240,19 @@ public sealed partial class GameClient
     /// <see cref="TickFraction"/>, but after an early tick the time since it ran over the time until the next scheduled tick
     /// (<see cref="EarlyTick.ClipFraction"/>), so a clip it started begins at once and runs on without a stop.
     /// </summary>
-    public float ClipFraction => _earlyRanAt is { } ran
+    /// <remarks>net/responsive: with <see cref="ClientOptions.DrawOwnAhead"/> the clips follow the drawn position's own fraction (<see cref="DrawPair"/>), with
+    /// <see cref="ClipLead"/> one tick ahead outside the early tick's wait.</remarks>
+    public float ClipFraction => _options.DrawOwnAhead ? DrawFraction()
+        : _earlyRanAt is { } ran
         ? EarlyTick.ClipFraction(_clock.Now.TotalSeconds, ran.TotalSeconds, _nextTickAt.TotalSeconds)
         : ViewSmoothing.TickFraction(_clock.Now.TotalSeconds, _nextTickAt.TotalSeconds, _config.TickSeconds);
+
+    /// <summary><see cref="DrawPair"/>'s fraction without its states.</summary>
+    float DrawFraction()
+    {
+        double now = _clock.Now.TotalSeconds, next = _nextTickAt.TotalSeconds, tick = ScheduledTickSeconds;
+        return EarlyTick.DrawsBehind(_earlyRanAt is not null, now, next, tick) ? ViewSmoothing.TickFraction(now, next - tick, tick) : ViewSmoothing.TickFraction(now, next, tick);
+    }
     /// <summary>Counts reconciliations that replaced the prediction; <see cref="LastCorrection"/> is the last one's move of the predicted position (new minus old).</summary>
     public int CorrectionSerial { get; private set; }
     public Vector3 LastCorrection { get; private set; }
@@ -242,6 +278,11 @@ public sealed partial class GameClient
     public void Update(Func<uint, PlayerInput> sampleInput, bool tickNow = false)
     {
         MarkUpdated();   // fix/stall-keepalive: the main thread is alive
+        // net/responsive: the drawn own position's course before this update's snapshots and ticks (ahead drawing; GameClient.Responsive.cs).
+        var drawnBefore = Status == ClientStatus.Connected ? DrawnOnCourse(_clock.Now) : null;
+        uint tickBefore = Tick;
+        int correctionBefore = CorrectionSerial;
+        var scheduleBefore = _nextTickAt;   // a lead jump moves it (net/responsive)
         while (_transport.TryReceive(out var packet))
         {
             var message = Protocol.Read(packet);
@@ -296,24 +337,25 @@ public sealed partial class GameClient
         StepRenderClock(now);
         StepLatency(now, tickNow);   // net/responsive: the readout (nothing without it)
 
-        var tickLength = TimeSpan.FromSeconds(_config.TickSeconds);
+        var tickLength = TimeSpan.FromSeconds(CurrentTickSeconds);   // net/responsive: stretched or shortened while the lead is slewed
         bool ticked = false;
         while (now >= _nextTickAt)
         {
             _earlyRanAt = null;
             StepTick(sampleInput);
-            _nextTickAt += tickLength;
+            _nextTickAt += tickLength; _scheduledTick = tickLength;
             ticked = true;
         }
         // feel/controls: an input edge runs the next tick now (EarlyTick). Its number, its one tick of simulation and the schedule are unchanged.
         // A scheduled tick that ran in this update already sampled the edge: no second tick (it would only use up the one-tick allowance).
-        if (tickNow && !ticked && EarlyTick.Allowed(now.TotalSeconds, _nextTickAt.TotalSeconds, _config.TickSeconds))
+        if (tickNow && !ticked && EarlyTick.Allowed(now.TotalSeconds, _nextTickAt.TotalSeconds, CurrentTickSeconds))
         {
             StepTick(sampleInput);
-            _nextTickAt += tickLength;
+            _nextTickAt += tickLength; _scheduledTick = tickLength;
             _earlyRanAt = now;
             EarlyTicks++;
         }
+        if (Tick != tickBefore || _nextTickAt != scheduleBefore + tickLength * (Tick - tickBefore)) BlendDrawnStep(drawnBefore, now, correctionBefore);   // net/responsive: no jump in the drawn own position at a tick or a lead jump
     }
 
     /// <summary>Samples, predicts and sends the next tick's input.</summary>
@@ -433,6 +475,7 @@ public sealed partial class GameClient
         PreviousPredicted = default;
         _prePrevious = default;
         _earlyRanAt = null;
+        _leadSlew = 0; _leadFiltered = double.NaN; _interpolation.Reset(); JitterGuard = 0; _firstInputTick = Tick + 1;   // net/responsive
         StartKeepAlive();   // fix/stall-keepalive
     }
 
@@ -472,6 +515,7 @@ public sealed partial class GameClient
         NoteSnapshotLatency(s);   // net/responsive: before the arrival is stored (the gap to the previous)
         _latestSnapshotTick = s.ServerTick;
         _latestSnapshotAt = _clock.Now;
+        NoteInterpolation(s.ServerTick, _latestSnapshotAt);   // net/responsive: the adaptive interpolation delay
         _snapshots.Add((s.ServerTick, s.Players.ToDictionary(p => p.PlayerId), projectiles.ToDictionary(q => q.Id)));
         if (_snapshots.Count > 64) _snapshots.RemoveAt(0);
         var matchBefore = Match;
@@ -555,14 +599,9 @@ public sealed partial class GameClient
         PreviousPredicted = beforeLast;
         Predicted = state;
 
-        // Steer the lead without skipping tick numbers: run one extra tick now if inputs arrive late, pause one tick if
-        // they arrive far too early. A change shows up in the feedback one round trip later, so wait that long between
-        // changes; and there is no feedback until the server has received an input.
-        var now = _clock.Now;
-        if (s.InputLead == Protocol.NoLead || now < _leadHoldUntil) return;
-        var tickLength = TimeSpan.FromSeconds(_config.TickSeconds);
-        if (s.InputLead < _options.TargetInputLead - 1) { _nextTickAt -= tickLength; _leadHoldUntil = now + HandshakeRoundTrip; }
-        else if (s.InputLead > _options.TargetInputLead + 3) { _nextTickAt += tickLength; _leadHoldUntil = now + HandshakeRoundTrip; }
+        // Steer the lead without skipping tick numbers (net/responsive: a smooth slew in a tight band; GameClient.Responsive.cs). There is no feedback until
+        // the server has received an input.
+        SteerLead(s, _clock.Now);
     }
 
     HitView _hitTotals;   // the server's totals start at zero when the player joins
@@ -687,13 +726,14 @@ public sealed partial class GameClient
     TimeSpan _renderClockAt;
 
     /// <summary>The remote players' interpolation delay in use now.</summary>
-    public TimeSpan CurrentInterpolationDelay => _options.InterpolationDelay;
+    public TimeSpan CurrentInterpolationDelay =>
+        _options.AdaptiveInterpolation && double.IsFinite(_interpolation.DelaySeconds) ? TimeSpan.FromSeconds(_interpolation.DelaySeconds) : _options.InterpolationDelay;
 
     /// <summary>The raw estimate of the server tick to show: the newest snapshot's tick plus the time since it was processed, minus the interpolation delay.</summary>
     double RawRenderTick()
     {
         double serverTickNow = _latestSnapshotTick + (_clock.Now - _latestSnapshotAt).TotalSeconds * _config.TickRate;
-        return serverTickNow - _options.InterpolationDelay.TotalSeconds * _config.TickRate;
+        return serverTickNow - CurrentInterpolationDelay.TotalSeconds * _config.TickRate;
     }
 
     /// <summary>Once per update: advances the smoothed render clock by the time since the last update toward <see cref="RawRenderTick"/> (M40 T2).</summary>

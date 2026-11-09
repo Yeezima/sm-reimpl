@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2748 spec table rows: **2044 tagged**, 489 not tagged (read from data with high confidence), 215 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 609 rows of the changes document.
+Scanned 2759 spec table rows: **2054 tagged**, 489 not tagged (read from data with high confidence), 216 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 610 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -49,20 +49,20 @@ Scanned 2748 spec table rows: **2044 tagged**, 489 not tagged (read from data wi
 | Customizer and paint | 48 | 45 | 26 | 15 | 0 |
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
-| Networking and render smoothing | 19 | 10 | 10 | 10 | 7 |
-| Core simulation (provisional values) | 529 | 505 | 368 | 145 | 1 |
+| Networking and render smoothing | 22 | 13 | 13 | 12 | 7 |
+| Core simulation (provisional values) | 536 | 512 | 375 | 145 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 221 | 211 | 118 | 58 | 0 |
-| **All areas** | **2044** | 1798 | 1517 | 648 | 38 |
+| **All areas** | **2054** | 1808 | 1527 | 650 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1129 |
+| kind: ours | 1139 |
 | confidence: low | 728 |
-| confidence: medium | 660 |
-| notes: ours | 369 |
+| confidence: medium | 670 |
+| notes: ours | 371 |
 | kind: interpretation | 360 |
 | notes: estimate | 166 |
 | kind: estimate | 136 |
@@ -2128,7 +2128,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-EC513790` | Look SSR by preset (fx/impact-pass review) | a look's `ssr.on` (the remaster's) turns screen-space reflections on at medium and high only; low and off never run SSR (older hardware is the next priority); high has SSR anyway. Off = the M40-T7 renderer features alone (no shadows, SSAO, SSIL, volumetric… | kind: ours | ours | Look SSR by preset (fx/impact-pass review): compare with SM1 with side-by-side screenshots in the same spot. Ours: a look's ssr.on (the remaster's) turns screen-space reflections on at… | ☐ |
 | `R-6E7116B1` | Effect checks after the review fixes (demo replays on Godot time, `--fixed-fps 30`, identical… | own bolter tracer and the enemy's shots from the follow camera, own lascannon beam: as bright as on main (the beam is an axis billboard: no edge-on fade; its fade size is its width); `FxTest --pound-test` crater, shockwave rings and dust as on main (flat… | confidence: medium | measured | Effect checks after the review fixes (demo replays on Godot…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: own bolter tracer and the enemy's shots from the follow camera, own… | ☐ |
 
-### Networking and render smoothing (19)
+### Networking and render smoothing (22)
 
 *Spec section: Time-faithful capture and the smoothed render clock (M40 T0, T2; client only, not simulated)*
 
@@ -2143,12 +2143,20 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-CFD33E00` | Simulation tick rate | 30 (Hz) | confidence: none (low); notes: open question; section: placeholder; section: provisional | docs/architecture.md starting value | Simulation tick rate: compare with SM1 by feel or video. Ours: 30. | ☐ |
-| `R-38916EC7` | Snapshot rate | 20 (Hz) | confidence: none (low); section: placeholder; section: provisional | docs/architecture.md starting value | Snapshot rate: compare with SM1 by feel or video. Ours: 20. | ☐ |
-| `R-614FF455` | Interpolation delay | 100 (ms) | confidence: none (low); section: placeholder; section: provisional | docs/architecture.md starting value | Interpolation delay: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 100. | ☐ |
+| `R-38916EC7` | Snapshot rate | 30 (one every tick; 20 before net/responsive, server `--snapshot-rate 20`) (Hz) | confidence: none (low); notes: ours; section: placeholder; section: provisional | ours (net/responsive, 2026-11-09; docs/architecture.md started at 20) | Snapshot rate: compare with SM1 by feel or video. Ours: 30 (one every tick; 20 before net/responsive, server --snapshot-rate… | ☐ |
+| `R-614FF455` | Interpolation delay | adaptive, 67 to 100 (two snapshot intervals on a clean link; 100 fixed before net/responsive, client `--interp-delay 100`); Musou Mode keeps a 100 ms floor (ms) | confidence: none (low); notes: ours; section: placeholder; section: provisional | ours (net/responsive, 2026-11-09; section "Network responsiveness") | Interpolation delay: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: adaptive, 67 to 100 (two snapshot intervals on a clean link; 100… | ☐ |
 | `R-5022629E` | Silent-player neutral input | after 500 ms without packets the player stops (heading kept) instead of repeating its last input (ms) | confidence: none (low); notes: ours; notes: open question; section: placeholder; section: provisional | our choice for departed or frozen clients; the original behavior is unknown | Silent-player neutral input: compare with SM1 by turning the view at full speed with the same input settings and timing a half turn. Ours: after 500 ms without packets the player stops (heading kept) instead… | ☐ |
 | `R-A425B09A` | Lag-compensation rewind cap | 15 (ticks (500 ms; covers about 250 ms RTT with the 100 ms…) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice; the server rewinds targets to the tick the shooter was viewing (protocol 37: the tick at or before the render tick and the fraction toward the… | Lag-compensation rewind cap: compare with SM1 by feel or video. Ours: 15. | ☐ |
 | `R-1C7F9828` | Lag-compensation trust | the view tick is honoured only back to the snapshot the client had acknowledged when the input arrived, minus the interpolation delay (`ServerOptions.MaxInterpolationDelay`, 100 ms) and 4 ticks (timing, plus inputs whose first copies were lost); view tick 0… (ticks) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice (standard practice); the original was peer-hosted | Lag-compensation trust: compare with SM1 by feel or video. Ours: the view tick is honoured only back to the snapshot the client had… | ☐ |
 | `R-AF5CA71E` | Simultaneous shots | all shots fired in a tick are resolved after everyone moves, so a shooter killed in the same tick still lands its shot (a trade) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice | Simultaneous shots: compare with SM1 by feel or video. Ours: all shots fired in a tick are resolved after everyone moves, so a… | ☐ |
+
+*Spec section: Network responsiveness (net/responsive, 2026-11-09; client and server, no protocol or wire change, no gameplay rule changed)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-2450871D` | Own marine: tick step blend | the step a tick or a lead jump makes in that drawing (a new input against the speculative one, ticks run or paused at once) is blended out linearly over **3** ticks; a reconciliation keeps its own 0.1 s fade (ticks) | kind: ours; confidence: medium | ours (net/responsive) | Own marine: tick step blend: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the step a tick or a lead jump makes in that drawing (a new input… | ☐ |
+| `R-3C2CAC91` | Adaptive interpolation delay | the larger of two snapshot intervals and the 95th-percentile snapshot gap plus the arrival jitter (98th percentile of the arrival offset less its median) plus **5 ms**, over the last **2 s** of snapshots; floor **67 ms** (two 30 Hz ticks), ceiling **100 ms**… (ms) | kind: ours; confidence: medium | ours (net/responsive) | Adaptive interpolation delay: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the larger of two snapshot intervals and the 95th-percentile snapshot… | ☐ |
+| `R-5FCE3E5A` | Musou Mode interpolation floor | **100 ms** (its crowd is drawn at the same render tick and its far records come every 5th tick) (ms) | kind: ours; confidence: medium | ours (net/responsive) | Musou Mode interpolation floor: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 100 ms (its crowd is drawn at the same render tick and its far… | ☐ |
 
 *Spec section: Test bots: aim error, engagement range, spawn-door wait, launcher and side requests (M44a; client and server option, test aids, not simulated, no protocol change)*
 
@@ -2174,7 +2182,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (529)
+### Core simulation (provisional values) (536)
 
 *Spec section: Provisional values in use*
 
@@ -2182,6 +2190,18 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-EE2F2B9A` | Movable props: which (M39) | placed objects whose `.O3d` definition has a rigid body with `MotionType` ≠ 0 whose `CShapeMesh.MeshName` is a single-part `ppk` physics shape mesh in the region archive; one prop per placement and (node, shape); placed as the object (node transform, then… (m) | confidence: medium; notes: interpretation; notes: user's knowledge; section: placeholder; section: provisional | which objects: **owner's request 2026-10-28** (user's knowledge of the original: the green boxes are solid); their shapes and placements **original asset… | Movable props: which: compare with SM1 by measuring on a flat spot of the same map. Ours: placed objects whose .O3d definition has a rigid body with MotionType… | ☐ |
 | `R-296266D6` | Movable props: collision (M39) | every prop is solid for every player of both sides in every movement mode (walking, sprint, evade, charge, jump-pack flight: all use the side's character mesh) and for every shot, cone, projectile and thrown item (bounces as off the level; shots report its… | notes: user's knowledge | requirement and no motion: owner (user's knowledge of the original) | Movable props: collision: compare with SM1 by feel or video. Ours: every prop is solid for every player of both sides in every movement… | ☐ |
+
+*Spec section: Network responsiveness (net/responsive, 2026-11-09; client and server, no protocol or wire change, no gameplay rule changed)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-A2B7974C` | Input lead: target | **2** ticks (the server's report: its newest input's tick minus the tick it just ran) plus the jitter guard (ticks) | kind: ours; confidence: medium | ours (unchanged value; before, the steering only acted below 1 and above 5, so the lead sat at 3 to 5) | Input lead: target: compare with SM1 by turning the view at full speed with the same input settings and timing a half turn. Ours: 2 ticks (the server's report: its newest input's tick minus the tick… | ☐ |
+| `R-550D0D48` | Input lead: slew | the client's ticks run **4 %** slower while the filtered lead (time constant **0.25 s**) is **0.75** ticks or more above the target, 4 % faster while as far below, until within **0.25** of it; the drawn fraction runs over the length each tick was scheduled… (%, ticks, s) | kind: ours; confidence: medium | ours (net/responsive) | Input lead: slew: compare with SM1 by turning the view at full speed with the same input settings and timing a half turn. Ours: the client's ticks run 4 % slower while the filtered lead (time… | ☐ |
+| `R-CE614B5C` | Input lead: jumps | a report below 0 (the server repeated an input) runs ticks at once up to a lead of 1 (at most **10**); a filtered lead at or above target + 3 pauses toward the target, at most **2** ticks a time; after a jump the steering waits the echo round trip + 0.25 s +… (ticks) | kind: ours; confidence: medium | ours (before: one tick per handshake round trip) | Input lead: jumps: compare with SM1 by turning the view at full speed with the same input settings and timing a half turn. Ours: a report below 0 (the server repeated an input) runs ticks at once up… | ☐ |
+| `R-F3882DE2` | Input lead: jitter guard | a report of 0 or less, or a snapshot whose tick ran without this client's input (`LastInputTick` older), raises the target by a tick (at most one a second, **2** in all); each **10 s** without either lowers it a tick (ticks, s) | kind: ours; confidence: medium | ours (net/responsive) | Input lead: jitter guard: compare with SM1 by turning the view at full speed with the same input settings and timing a half turn. Ours: a report of 0 or less, or a snapshot whose tick ran without this… | ☐ |
+| `R-DDE009BA` | Echo round trip | the time from sending the input a snapshot names as the server's newest (its tick plus the lead) to the snapshot's arrival, smoothed (1/8 gain); an upper bound (it includes the server's wait for its snapshot send and the client's frame); replaces the… (ms) | kind: ours; confidence: medium | ours (net/responsive) | Echo round trip: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the time from sending the input a snapshot names as the server's… | ☐ |
+| `R-78BEF8C1` | Own marine drawn ahead | the own model and camera are drawn from the newest predicted tick toward a speculative next tick (the newest input stepped once more, held buttons, same collision; presentation only), a tick sooner than before; after an early tick the tick before it toward… (ticks) | kind: ours; confidence: medium | ours (net/responsive; before: between the previous tick and the newest) | Own marine drawn ahead: compare with SM1 by feel or video. Ours: the own model and camera are drawn from the newest predicted tick… | ☐ |
+| `R-8BFC6C77` | Predicted ranged hit feedback | an own hit-scan shot whose traced ray (the tracer's) strikes an enemy as drawn shows the hit marker and plays the hit confirmation on the shot's frame; the server's report then shows and plays nothing again unless it has hits no prediction showed, a kill or… (s) | kind: ours; confidence: medium | ours (net/responsive; before: the marker waited for the report, 100 to 230 ms) | Predicted ranged hit feedback: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: an own hit-scan shot whose traced ray (the tracer's) strikes an enemy… | ☐ |
 
 *Spec section: Stomp impacts, the power sword and the jump-pack thrust (fx/impact-pass; client only, not simulated, no protocol change)*
 
@@ -3695,7 +3715,8 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 
 | ID | Rule | What we do | What is unknown | Spec section | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
-| `C-6823345C` | Tick, snapshot and interpolation rates | 30 Hz simulation, 20 Hz snapshots, 100 ms interpolation delay | The original's network rates | Provisional values in use | Tick, snapshot and interpolation rates: compare with SM1 by feel or video. Ours: 30 Hz simulation, 20 Hz snapshots, 100 ms interpolation delay. | ☐ |
+| `C-6823345C` | Tick, snapshot and interpolation rates | 30 Hz simulation, 30 Hz snapshots (20 before net/responsive), an adaptive 67 to 100 ms interpolation delay (100 fixed before; Musou Mode keeps 100) | The original's network rates | Provisional values in use; Network responsiveness | Tick, snapshot and interpolation rates: compare with SM1 by feel or video. Ours: 30 Hz simulation, 30 Hz snapshots (20 before net/responsive), an… | ☐ |
+| `C-907094F0` | Input lead and own drawing (net/responsive, 2026-11-09) | The input lead is kept at 2 ticks by a 4 % clock slew with a jitter guard (before: whole-tick steps that left it at 3 to 5); the own marine is drawn a tick sooner, from the newest predicted tick toward a speculative next one, the step of each tick blended out over 3 ticks; an own hit-scan hit on an enemy as drawn… | The original was peer-hosted; its feel on a host and on a peer is unknown | Network responsiveness | Input lead and own drawing (net/responsive, 2026-11-09): compare with SM1 by turning the view at full speed with the same input settings and timing a half turn. Ours: The input lead is kept at 2 ticks by a 4 % clock slew with a jitter… | ☐ |
 | `C-09A36C5F` | Lag compensation | Targets rewound to the shooter's view tick, capped at 15 ticks (500 ms); the view tick is honoured only back to the last acknowledged snapshot minus the interpolation delay and 4 ticks | The original was peer-hosted, so it had no server rewind | Provisional values in use | Lag compensation: compare with SM1 by feel or video. Ours: Targets rewound to the shooter's view tick, capped at 15 ticks (500… | ☐ |
 | `C-11F01086` | Simultaneous shots | All shots of a tick resolve after everyone has moved: a shooter killed in the same tick still lands its shot (a trade) | The original's ordering | Provisional values in use | Simultaneous shots: compare with SM1 by feel or video. Ours: All shots of a tick resolve after everyone has moved: a shooter… | ☐ |
 | `C-C329C2BA` | Silent players | After 500 ms without packets the player stops; after 5 s the player times out | Original behaviour for frozen or departed peers | Provisional values in use | Silent players: compare with SM1 by feel or video. Ours: After 500 ms without packets the player stops; after 5 s the player… | ☐ |
@@ -4347,6 +4368,7 @@ Test aids, probes, demo and capture tooling, and engineering decisions (protocol
 | `R-DF3C1294` | `--no-melee-lock`, `--no-melee-assist`, `--hit-stop`, `--no-melee-variants` | Melee target lock, alignment and lunge (feel/melee-lock; used by the simulation; protocol 32) |
 | `R-9175CDEC` | `smtool graph-dump --melee [<graph prefix>]` | Melee target lock, alignment and lunge (feel/melee-lock; used by the simulation; protocol 32) |
 | `R-1A94F1A3` | Protocol 42 | Melee and charge, second pass (feel/melee-charge-2; protocol 42, used by the simulation) |
+| `R-BE29EC39` | Latency readout | Network responsiveness (net/responsive, 2026-11-09; client and server, no protocol or wire change, no gameplay rule changed) |
 | `R-39742A91` | Test aids | Stomp impacts, the power sword and the jump-pack thrust (fx/impact-pass; client only, not simulated, no protocol change) |
 | `R-3415BF37` | Captures (before / after, windowed off-screen, private screenshots folder `impact-pass`) | Stomp impacts, the power sword and the jump-pack thrust (fx/impact-pass; client only, not simulated, no protocol change) |
 | `R-0B825A8F` | Test aids | Ground pound impact and landing effects (M41; client only, not simulated, no protocol change) |
