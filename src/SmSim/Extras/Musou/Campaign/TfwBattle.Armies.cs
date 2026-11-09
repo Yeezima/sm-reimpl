@@ -249,9 +249,11 @@ public sealed partial class TfwBattle
         return best - a.Radius;
     }
 
-    bool FarFromHumans(Vector3 p)
+    bool FarFromHumans(Vector3 p) => FarFromHumans(p, TfwArmyRules.FarMetres);
+
+    bool FarFromHumans(Vector3 p, float metres)
     {
-        foreach (var h in _armyHumans) if (FlatDistance(h, p) <= TfwArmyRules.FarMetres) return false;
+        foreach (var h in _armyHumans) if (FlatDistance(h, p) <= metres) return false;
         return true;
     }
 
@@ -276,6 +278,32 @@ public sealed partial class TfwBattle
             }
             else if (a.Side == TfwArmySide.Ork) DemoteOrks(a, ref orksDown);
             else DemoteSquads(a, ref squadsDown);
+        }
+        if (!TfwArmyRules.OldRange) MakeRoom(ref orksDown, ref squadsDown);
+    }
+
+    /// <summary>
+    /// 2026-11-09 (300 m levels): with the real units' cap full and a near army still partly aggregate, the farthest armies at least <see cref="TfwArmyRules.RoomMargin"/> farther fold back their real units
+    /// beyond <see cref="TfwArmyRules.CoreFarMetres"/> of every human (under the tick's demotion budget), so the fight nearest the players is the one that is real.
+    /// </summary>
+    void MakeRoom(ref int orksDown, ref int squadsDown)
+    {
+        float orkWant = float.NaN, squadWant = float.NaN;
+        foreach (var (d, a) in _byDistance)
+        {
+            if (!a.Near || a.FarCount < 1) continue;
+            if (a.Side == TfwArmySide.Ork && float.IsNaN(orkWant) && ArmyOrksAlive > TfwArmyRules.NearOrksMost - TfwArmyRules.PromotePerTick) orkWant = d;
+            if (a.Side == TfwArmySide.Guard && float.IsNaN(squadWant) && ArmySquads >= TfwArmyRules.NearSquadsMost) squadWant = d;
+        }
+        if (float.IsNaN(orkWant) && float.IsNaN(squadWant)) return;
+        for (int k = _byDistance.Count - 1; k >= 0; k--)
+        {
+            var (d, a) = _byDistance[k];
+            bool ork = a.Side == TfwArmySide.Ork;
+            float want = ork ? orkWant : squadWant;
+            if (float.IsNaN(want) || d <= want + TfwArmyRules.RoomMargin || a.Real <= 0) continue;
+            if (ork) DemoteOrks(a, ref orksDown, TfwArmyRules.CoreFarMetres);
+            else DemoteSquads(a, ref squadsDown, TfwArmyRules.CoreFarMetres);
         }
     }
 
@@ -321,12 +349,14 @@ public sealed partial class TfwBattle
         }
     }
 
-    void DemoteOrks(TfwArmy a, ref int budget)
+    void DemoteOrks(TfwArmy a, ref int budget) => DemoteOrks(a, ref budget, TfwArmyRules.FarMetres);
+
+    void DemoteOrks(TfwArmy a, ref int budget, float clear)
     {
         for (int j = a.Orks.Count - 1; j >= 0 && budget > 0; j--)
         {
             ushort id = a.Orks[j];
-            if (!_enemies.TryGet(id, out var e) || !e.Alive || !FarFromHumans(e.Position)) continue;
+            if (!_enemies.TryGet(id, out var e) || !e.Alive || !FarFromHumans(e.Position, clear)) continue;
             _enemies.Remove(id);
             a.Orks.RemoveAt(j); a.OrkSlots.RemoveAt(j);
             a.Far += 1f;
@@ -348,12 +378,14 @@ public sealed partial class TfwBattle
         a.SlotBase = Math.Min(a.SlotBase, high);
     }
 
-    void DemoteSquads(TfwArmy a, ref int budget)
+    void DemoteSquads(TfwArmy a, ref int budget) => DemoteSquads(a, ref budget, TfwArmyRules.FarMetres);
+
+    void DemoteSquads(TfwArmy a, ref int budget, float clear)
     {
         for (int j = a.Squads.Count - 1; j >= 0 && budget > 0; j--)
         {
             int s = a.Squads[j];
-            if (!FarFromHumans(_guards.Centre(s))) continue;
+            if (!FarFromHumans(_guards.Centre(s), clear)) continue;
             int men = _guards.Dismiss(s);
             _squadArmy[s] = -1;
             a.Squads.RemoveAt(j); a.SquadBlocks.RemoveAt(j); a.SquadLiving.RemoveAt(j);

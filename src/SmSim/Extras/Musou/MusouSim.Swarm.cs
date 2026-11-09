@@ -9,7 +9,7 @@ namespace SmSim.Extras.Musou;
 public sealed record MusouSwarmRules
 {
     /// <summary>Each enemy keeps a bearing of up to this much each way off the flow, its own for life.</summary>
-    public float BearingDegrees { get; init; } = 35f;
+    public float BearingDegrees { get; init; } = MusouSim.OldOrkMovement ? 35f : 50f;   // 2026-11-09 (owner: "fan out more"): 50, was 35
     /// <summary>It turns the flow by its bearing while its target is farther than this.</summary>
     public float FanOutBeyond { get; init; } = 12f;
     /// <summary>Within this of its target, on the same level and with the way there about straight, it heads for its own slot round the target.</summary>
@@ -21,10 +21,10 @@ public sealed record MusouSwarmRules
     public float StraightRatio { get; init; } = 1.3f;
     public float StraightSlack { get; init; } = 2f;
     /// <summary>Beyond <see cref="SpreadBeyond"/> of its target an enemy keeps this many times its radius from others.</summary>
-    public float SpreadScale { get; init; } = 1.6f;
+    public float SpreadScale { get; init; } = MusouSim.OldOrkMovement ? 1.6f : 1.6f;   // 2026-11-09: 2.0, was 1.6
     public float SpreadBeyond { get; init; } = 10f;
     /// <summary>This share of the enemies takes the second-nearest target, within <see cref="FlankReach"/>.</summary>
-    public float FlankShare { get; init; } = 0.3f;
+    public float FlankShare { get; init; } = MusouSim.OldOrkMovement ? 0.3f : 0.4f;   // 2026-11-09: 0.4, was 0.3
     public float FlankReach { get; init; } = 45f;
     /// <summary>Attack tokens on one player and on one Guard squad.</summary>
     public int MeleeTokensPlayer { get; init; } = 6;
@@ -36,11 +36,11 @@ public sealed record MusouSwarmRules
 
     // Packs (MusouSim.Pack.cs; the owner, 2026-11-06: "pool up at their spawn point before fanning out, swarming their target in a rough blobby formation"; every value ours, an estimate).
     /// <summary>A far enemy's heading wanders up to this much each way off the flow, over its own period of <see cref="WanderPeriodMin"/> to <see cref="WanderPeriodMax"/> seconds.</summary>
-    public float WanderDegrees { get; init; } = 25f;
+    public float WanderDegrees { get; init; } = MusouSim.OldOrkMovement ? 25f : 10f;   // 2026-11-09 ("move more intentionally"): 10, was 25
     public float WanderPeriodMin { get; init; } = 3f;
     public float WanderPeriodMax { get; init; } = 7f;
     /// <summary>A pack's disc holds this much ground an Ork (m²): 16 Orks 2.3 m round, 200 about 11 m, 400 about 16 m.</summary>
-    public float PackAreaPerOrk { get; init; } = 2f;
+    public float PackAreaPerOrk { get; init; } = MusouSim.OldOrkMovement ? 2f : 5f;   // 2026-11-09 ("fan out more"): 5, was 2
     /// <summary>
     /// A member heads for its spot in the disc round a point this far beyond the disc's edge down the flow from the pack's centre (0: no pack steering, each Ork down the field on its own), at its speed times its
     /// distance to that spot over the lead, between <see cref="PackLeastSpeed"/> and <see cref="PackMostSpeed"/> (the front waits, the back catches up).

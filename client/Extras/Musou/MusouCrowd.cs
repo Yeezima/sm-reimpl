@@ -80,8 +80,9 @@ public partial class MusouCrowd : CrowdView
             var p = new Vector3(e.Position.X, e.Position.Y, e.Position.Z);
             int clip = GunClip(e, ClipOf(e.State));   // MusouCrowd.Guns.cs: a firing Shoota Boy aims
             _seen.Add(e.Id);
-            float time;
-            if (MusouLooks.Loops(clip)) { _clocks.TryGetValue(e.Id, out time); time += delta; _clocks[e.Id] = time; }
+            float time, rate = 1f;
+            if (clip == MusouLooks.Run && !OldGait) (clip, rate) = Gait(e, p, delta);   // 2026-11-09: the run follows his drawn speed, the idle when he stands (MusouGaitRules)
+            if (MusouLooks.Loops(clip)) { _clocks.TryGetValue(e.Id, out time); time += delta * rate; _clocks[e.Id] = time; }
             else time = e.State == MusouEnemyState.Knocked ? KnockedTime(e) : e.StateSeconds;
             if (_flinch.TryGetValue(e.Id, out float flinch) && e.Type != MusouEnemyType.Warboss && !MusouBossOrks.Is(e.Type) && e.State is MusouEnemyState.Seek or MusouEnemyState.WindUp or MusouEnemyState.Recover)
             {
@@ -108,6 +109,9 @@ public partial class MusouCrowd : CrowdView
         _gone.Clear();
         foreach (var id in _clocks.Keys) if (!_seen.Contains(id)) _gone.Add(id);
         foreach (var id in _gone) _clocks.Remove(id);
+        _gone.Clear();
+        foreach (var id in _gait.Keys) if (!_seen.Contains(id)) _gone.Add(id);
+        foreach (var id in _gone) _gait.Remove(id);
         AddBodyItems(camera, delta);
         Draw(delta);
     }
@@ -115,6 +119,44 @@ public partial class MusouCrowd : CrowdView
     /// <summary>A knocked Ork plays his death clip, lies at its last frame, and plays it backwards to stand (the crowd has no get-up clip baked).</summary>
     float KnockedTime(in MusouShown e) =>
         SmSim.Extras.Musou.Campaign.TfwCombatRules.Default.FallClipTime(e.StateSeconds, _looks.For(e.Type)?.Clips[MusouLooks.Death]?.Animation.Duration ?? 1f);
+
+    /// <summary>Test aid (<c>--musou-old-gait</c>): every seeking Ork plays the run at its own rate, as before 2026-11-09.</summary>
+    public static bool OldGait { get; set; } = Array.IndexOf(OS.GetCmdlineUserArgs(), "--musou-old-gait") >= 0;
+    readonly Dictionary<int, MusouGaitTrack> _gait = new();
+    readonly Dictionary<MusouLooks.Look, float> _clipSpeed = new(ReferenceEqualityComparer.Instance);
+    /// <summary>Test aid (<c>--musou-gait-log</c>): each look's measured run speed once, printed as MUSOUGAIT lines.</summary>
+    static readonly bool GaitLog = Array.IndexOf(OS.GetCmdlineUserArgs(), "--musou-gait-log") >= 0;
+
+    /// <summary>A seeking Ork's clip and run rate from the speed he is drawn at (<see cref="MusouGaitRules"/>): the run at his stride's rate, or the idle when he stands.</summary>
+    (int Clip, float Rate) Gait(in MusouShown e, Vector3 drawn, float delta)
+    {
+        _gait.TryGetValue(e.Id, out var track);
+        bool running = track.Step(new System.Numerics.Vector2(drawn.X, drawn.Y), delta);
+        _gait[e.Id] = track;
+        if (!running) return (MusouLooks.Idle, 1f);
+        return (MusouLooks.Run, MusouGaitRules.Rate(track.Speed, ClipSpeed(_looks.For(e.Type))));
+    }
+
+    /// <summary>A look's run clip's planted-foot speed at its scale (m/s; measured once, <c>ClipGait</c> on the Ork boy's feet, else the Marine's; 0: not measured).</summary>
+    float ClipSpeed(MusouLooks.Look? look)
+    {
+        if (look is null) return 0f;
+        if (_clipSpeed.TryGetValue(look, out float known)) return known;
+        float speed = 0f;
+        try
+        {
+            if (look.Clips[MusouLooks.Run] is { } run)
+            {
+                var skeleton = look.Assets.Model.Rig.Skeleton;
+                var gait = SmContent.ClipGait.Analyze(skeleton, run, feet: SmContent.FootBones.OrkBoy) ?? SmContent.ClipGait.Analyze(skeleton, run, feet: SmContent.FootBones.Marine);
+                if (gait is { } g && g.Speed > 0.5f && g.Speed < 20f) speed = g.Speed * look.Scale;
+                if (GaitLog) GD.Print($"MUSOUGAIT {look.Name}: run {run.Animation.Duration:F3} s, stride {(gait is { } h ? h.Stride.Length() : 0f):F2} m, speed {(gait?.Speed ?? 0f):F2} m/s at scale 1, {speed:F2} m/s at {look.Scale:F2}");
+            }
+        }
+        catch (Exception ex) { GD.PushWarning($"MUSOUGAIT {look.Name}: no stride ({ex.Message})"); }
+        _clipSpeed[look] = speed;
+        return speed;
+    }
 
     static int ClipOf(MusouEnemyState state) => state switch
     {

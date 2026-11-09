@@ -49,8 +49,8 @@ public partial class NetworkView
     {
         TfwArmiesFrame(new Num.Vector3(camera.X, camera.Y, camera.Z), delta);   // the camera in game space
         // The owner, 2026-11-08: "All far battles corpses should instantly vanish. If a player cannot see it, it doesn't ever get drawn. Unless the player is close by." An aggregate's loss leaves a body only
-        // within the near distance (TfwArmyRules.NearMetres) of this view; farther its impostor just goes (--army-far-bodies, test aid: bodies at any distance, as expansion S6 had).
-        float bodiesWithin = ArmyFarBodies ? float.PositiveInfinity : TfwArmyRules.NearMetres;
+        // within the brief's near distance (TfwArmyRules.CoreMetres, 90 m; the real units reach 300 m since 2026-11-09) of this view; farther its impostor just goes (--army-far-bodies, test aid: bodies at any distance, as expansion S6 had).
+        float bodiesWithin = ArmyFarBodies ? float.PositiveInfinity : TfwArmyRules.CoreMetres;
         foreach (var d in _armyImpostors.Deaths)
             if (d.Side == TfwArmySide.Ork && !ArmyImpostorsOff && new Vector3(d.Position.X, d.Position.Y, d.Position.Z).DistanceTo(camera) <= bodiesWithin)
                 _musouCrowd?.AddBody(new MusouDeathShown(ImpostorId(d.Key, MusouSim.Capacity), d.Type, d.Position, d.Yaw, Num.Vector3.Zero, MusouDeathKind.Shot, 0, _tfwState.ArmiesTick));
