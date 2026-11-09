@@ -25,19 +25,19 @@ public class NetResponsiveTests(ITestOutputHelper output)
             double sent = startAt + i * ticksPerSnapshot * Tick;
             double arrival = sent + 0.03 + (rng.NextDouble() * 2 - 1) * jitter;
             double frame = Math.Ceiling(arrival / (1.0 / 60)) * (1.0 / 60);
-            delay = e.Note(tick, frame, Tick, 2 * Tick, 0.1, 0.1);
+            delay = e.Note(tick, frame, Tick, 1.5 * Tick, 0.1, 0.1);
         }
         return delay;
     }
 
     [Fact]
-    public void Interpolation_delay_is_two_snapshot_intervals_on_a_clean_link()
+    public void Interpolation_delay_is_one_and_a_half_snapshot_intervals_on_a_clean_link()
     {
         double at30 = Run(new InterpolationDelayEstimator(), 6, 1, 0.002, 1);
         double at20 = Run(new InterpolationDelayEstimator(), 6, 1.5, 0.002, 1);
         output.WriteLine($"30 Hz {at30 * 1000:F1} ms, 20 Hz {at20 * 1000:F1} ms");
-        Assert.InRange(at30, 2 * Tick - 1e-9, 2 * Tick + 0.004);
-        Assert.InRange(at20, 0.1 - 0.002, 0.1 + 1e-9);   // the old fixed 100 ms at the old rate (the ceiling)
+        Assert.InRange(at30, 1.5 * Tick - 1e-9, 1.5 * Tick + 0.004);   // 50 ms
+        Assert.InRange(at20, 0.075, 0.095);   // at 20 Hz the gaps alternate 1 and 2 ticks: the 2-tick gap plus jitter (about 89 ms)
     }
 
     [Fact]
@@ -60,7 +60,7 @@ public class NetResponsiveTests(ITestOutputHelper output)
     {
         double lossy = Run(new InterpolationDelayEstimator(), 6, 1, 0.002, 6, lossEvery: 3);   // every third snapshot lost: gaps of two ticks
         output.WriteLine($"one in three lost: {lossy * 1000:F1} ms");
-        Assert.True(lossy > 2 * Tick + 0.004 && lossy <= 0.1 + 1e-9);
+        Assert.True(lossy > 1.5 * Tick + 0.01 && lossy <= 0.1 + 1e-9);
     }
 
     // ---- predicted hits ----
@@ -148,9 +148,11 @@ public class NetResponsiveTests(ITestOutputHelper output)
         var old = NetLatencyProbe.Measure(link, 8, NetLatencyProbe.OldNet, NetLatencyProbe.OldServer);
         double Median(NetLatencyProbe.Run r) => NetLatencyProbe.Median(r.Leads.Where(x => x.At > 5).Select(x => (double)x.Lead));
         output.WriteLine($"lead after 2 s: new {Median(fresh)}, old {Median(old)}; new shot-hit {NetLatencyReadout.Stats(fresh.Readout.All("shot-hit"))}");
-        Assert.Equal(2, Median(fresh));
+        Assert.Equal(1, Median(fresh));   // protocol 65: the slack at a tick plus jitter reads as a whole-tick lead of 1
         Assert.True(Median(old) >= 4);
-        Assert.InRange(fresh.Readout.All("lead").Skip(60).Max(), 1, 3);   // once settled, within a tick of the target
+        var slack = fresh.Readout.All("slack").Skip(150).ToList();
+        output.WriteLine($"slack after 5 s: {NetLatencyReadout.Stats(slack)}");
+        Assert.InRange(NetLatencyProbe.Median(slack), 34, 70);   // a tick, the measured jitter (5 ms link jitter, 60 fps frames), 5 ms
         Assert.Equal(0, fresh.Corrections);
     }
 
@@ -160,13 +162,89 @@ public class NetResponsiveTests(ITestOutputHelper output)
         var h = new Harness(new LinkConditions(TimeSpan.FromMilliseconds(0), TimeSpan.Zero, 0), 3, 0);   // a handshake on 127.0.0.1 starts the lead at 3
         var c = h.AddClient(nonce: 100);
         var scales = new HashSet<int>();
-        h.Run(TimeSpan.FromSeconds(6), null, () => scales.Add(c.LeadSlew));
-        output.WriteLine($"slews seen {string.Join(",", scales)}; filtered lead {c.FilteredInputLead:F2}; jumps {c.LeadJumps}");
+        h.Run(TimeSpan.FromSeconds(12), null, () => scales.Add(c.LeadSlew));
+        output.WriteLine($"slews seen {string.Join(",", scales)}; filtered slack {c.FilteredInputSlack:F1} ms, target {c.TargetInputSlack:F1}, jitter {c.SlackJitter:F1}; jumps {c.LeadJumps}");
         Assert.Contains(1, scales);
         Assert.Equal(0, c.LeadSlew);
-        Assert.InRange(c.FilteredInputLead, 1.5, 2.5);
+        Assert.InRange(c.FilteredInputSlack - c.TargetInputSlack, -NetResponsiveDeadband, NetResponsiveDeadband);
+        Assert.InRange(c.TargetInputSlack, 1000 * Tick, 1000 * Tick + 12);   // a tick, ~no jitter, the 5 ms margin
         Assert.Equal(0, c.LeadJumps);
         Assert.InRange(c.CurrentTickSeconds, Tick * 0.959, Tick * 1.041);
+    }
+
+    const double NetResponsiveDeadband = GameClient.SlackDeadbandMs + 2;
+
+    [Fact]
+    public void Snapshots_carry_the_input_slack_and_a_tick_run_without_the_input_reads_negative()
+    {
+        var snap = new Snapshot(9, 8, -3, [], InputSlack: -33);
+        var back = Assert.IsType<Snapshot>(Protocol.Read(Protocol.Write(snap)));
+        Assert.Equal((-3, -33), (back.InputLead, back.InputSlack));
+        var none = Assert.IsType<Snapshot>(Protocol.Read(Protocol.Write(new Snapshot(9, 8, Protocol.NoLead, []))));
+        Assert.Equal((Protocol.NoLead, Protocol.NoSlack), (none.InputLead, none.InputSlack));
+        Assert.Equal(65, Protocol.Version);
+
+        // A live client: positive slack; with its uplink cut for 200 ms (under the 500 ms neutral-input wait) the server runs ticks without its input: negative slack.
+        var h = new Harness(new LinkConditions(TimeSpan.FromMilliseconds(20), TimeSpan.Zero, 0), 5, 1);
+        h.Run(TimeSpan.FromSeconds(3));
+        var c = h.Clients[0];
+        Assert.InRange(c.FilteredInputSlack, 1, 200);
+        int missedBefore = c.MissedInputs;
+        h.Net.Conditions = h.Net.Conditions with { Loss = 1.0 };
+        h.Run(TimeSpan.FromMilliseconds(200));
+        h.Net.Conditions = new LinkConditions(TimeSpan.FromMilliseconds(20), TimeSpan.Zero, 0);
+        h.Run(TimeSpan.FromSeconds(1));
+        output.WriteLine($"missed inputs {c.MissedInputs - missedBefore}, jitter guard {c.JitterGuard}");
+        Assert.True(c.MissedInputs > missedBefore);
+        Assert.True(c.JitterGuard >= 1);
+    }
+
+    [Fact]
+    public void A_client_stall_does_not_pile_up_lead()
+    {
+        // The client freezes for 400 ms (a hitch) three times; its tick loop runs the missed ticks itself, so the lead must not grow by catch-up jumps on top.
+        var h = new Harness(new LinkConditions(TimeSpan.FromMilliseconds(20), TimeSpan.FromMilliseconds(2), 0), 7, 1);
+        var c = h.Clients[0];
+        var leads = new List<int>();
+        for (int ms = 0; ms < 14_000; ms++)
+        {
+            h.Clock.Advance(TimeSpan.FromMilliseconds(1));
+            h.Server.Update();
+            bool frozen = ms is (>= 4000 and < 4400) or (>= 7000 and < 7400) or (>= 10000 and < 10400);
+            if (!frozen && ms % 16 == 0) c.Update(t => new PlayerInput(t, 0, 1, 0f, InputButtons.None));
+            if (ms > 4400 && !frozen && double.IsFinite(c.FilteredInputLead)) leads.Add((int)Math.Round(c.FilteredInputLead));
+        }
+        output.WriteLine($"largest filtered lead after a stall {leads.Max()}; after three 400 ms stalls: filtered slack {c.FilteredInputSlack:F1} ms (target {c.TargetInputSlack:F1}), lead {c.FilteredInputLead:F2}, jumps {c.LeadJumps}, guard {c.JitterGuard}");
+        Assert.True(c.FilteredInputLead <= 3.0, $"lead {c.FilteredInputLead:F2}");
+        Assert.True(leads.Max() <= 3, $"lead after a stall {leads.Max()}");   // before the schedule moved with a stall's skipped ticks: 10
+        Assert.True(c.StallSkips >= 3);
+        Assert.True(c.FilteredInputSlack <= c.TargetInputSlack + 2 * 1000 * Tick, $"slack {c.FilteredInputSlack:F1}");
+        Assert.Equal(0, c.JitterGuard);   // its own stalls are not the link's jitter
+    }
+
+    [Fact]
+    public void A_late_snapshot_carries_remote_players_on_for_at_most_a_tick()
+    {
+        foreach (double cap in new[] { 1.0, 0.0 })
+        {
+            var h = new Harness(new LinkConditions(TimeSpan.FromMilliseconds(10), TimeSpan.Zero, 0), 2, 0);
+            var viewer = h.AddClient(nonce: 100, options: new ClientOptions { MaxExtrapolationTicks = cap });
+            var runner = h.AddClient(nonce: 101);
+            h.Run(TimeSpan.FromSeconds(3), (i, t) => i == 1 ? new PlayerInput(t, 0, 1, 0f, InputButtons.None) : new PlayerInput(t, 0, 0, 0f, InputButtons.None));
+            float Y() => viewer.RemotePlayers().Players.First(p => p.PlayerId == runner.PlayerId).Position.Y;
+            float before = Y();
+            // Snapshots stop arriving for 150 ms (the server's to the viewer and everyone's: the whole link drops); the runner keeps running on the server.
+            h.Net.Conditions = h.Net.Conditions with { Loss = 1.0 };
+            var ys = new List<float>();
+            h.Run(TimeSpan.FromMilliseconds(150), (i, t) => i == 1 ? new PlayerInput(t, 0, 1, 0f, InputButtons.None) : new PlayerInput(t, 0, 0, 0f, InputButtons.None), () => ys.Add(Y()));
+            float moved = ys.Max() - before, step = ys.Zip(ys.Skip(1)).Max(p => MathF.Abs(p.Second - p.First));
+            output.WriteLine($"cap {cap}: drawn on {moved:F3} m in the gap, extrapolated {viewer.ExtrapolatedTicks:F2} ticks, largest step {step * 1000:F1} mm/ms");
+            float speed = h.Config.RunSpeed;
+            if (cap > 0) Assert.InRange(viewer.ExtrapolatedTicks, 0.99, 1.0);
+            else Assert.Equal(0, viewer.ExtrapolatedTicks);
+            // At most the interpolation delay's worth of interpolated motion plus the capped tick (never on without bound).
+            Assert.True(moved <= speed * (0.1f + (float)cap * (float)Tick) + 0.05f, $"moved {moved}");
+        }
     }
 
     [Fact]

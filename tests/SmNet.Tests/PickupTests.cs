@@ -483,7 +483,8 @@ public class PickupTests(ITestOutputHelper output)
     public void Clients_see_drops_collections_and_expiries_through_a_lossy_link()
     {
         var link = new LinkConditions(TimeSpan.FromMilliseconds(60), TimeSpan.FromMilliseconds(10), 0.25);
-        var h = new Harness(link, 24, 2, Config with { Pickups = Drops with { Types = [Drops.Types[0] with { Lifetime = 2f }, Drops.Types[1] with { Lifetime = 2f }] } });
+        // net/responsive: the old lead and interpolation (this test's 0.5 s windows through 25 % loss were set with them; the pickup stream itself is unchanged)
+        var h = new Harness(link, 24, 2, Config with { Pickups = Drops with { Types = [Drops.Types[0] with { Lifetime = 2f }, Drops.Types[1] with { Lifetime = 2f }] } }, clientOptions: new ClientOptions { SmoothInputLead = false, AdaptiveInterpolation = false, MaxExtrapolationTicks = 0 });
         h.Run(TimeSpan.FromSeconds(1.5));
         Assert.All(h.Clients, c => Assert.Equal(ClientStatus.Connected, c.Status));
         int me = h.Clients[0].PlayerId;

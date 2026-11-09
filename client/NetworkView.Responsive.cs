@@ -14,7 +14,9 @@ namespace SmClient;
 /// <item><c>--old-own-draw</c>: the own marine drawn between the previous predicted tick and the newest, a tick later (<see cref="ClientOptions.DrawOwnAhead"/> off).</item>
 /// <item><c>--interp-delay &lt;ms&gt;</c>: the remote players' interpolation delay fixed at that (<see cref="ClientOptions.AdaptiveInterpolation"/> off; 100 was the value before).</item>
 /// <item><c>--no-predicted-hits</c>: the hit marker and hit confirmation of an own ranged hit wait for the server's report, as before.</item>
-/// <item><c>--old-net-feel</c>: all four. The server's <c>--snapshot-rate 20</c> restores its old snapshot rate.</item>
+/// <item><c>--lead-ticks</c>: the input lead steered on the server's whole-tick lead report to 2 ticks (net/responsive's first step) instead of the input slack.</item>
+/// <item><c>--no-extrapolation</c>: remote players wait at the newest snapshot when it is late, as before.</item>
+/// <item><c>--old-net-feel</c>: the four above and no extrapolation. The server's <c>--snapshot-rate 20</c> restores its old snapshot rate.</item>
 /// <item><c>--net-latency [s]</c> (or <c>SM_NET_LATENCY=&lt;s&gt;</c>): a <c>NETLAT</c> line every s seconds (default 5) with each latency stage (<see cref="NetLatencyReadout"/>).</item>
 /// </list>
 /// </summary>
@@ -30,6 +32,8 @@ public partial class NetworkView
     {
         bool old = OldNetFeel;
         if (old || CmdFlag("old-input-lead")) o = o with { SmoothInputLead = false };
+        if (CmdFlag("lead-ticks")) o = o with { PreciseLead = false };
+        if (old || CmdFlag("no-extrapolation")) o = o with { MaxExtrapolationTicks = 0 };
         if (old || CmdFlag("old-own-draw")) o = o with { DrawOwnAhead = false };
         if (CmdArg("interp-delay") is { } ms && double.TryParse(ms, NumberStyles.Float, CultureInfo.InvariantCulture, out double delay) && delay >= 0 && delay <= 500)
             o = o with { AdaptiveInterpolation = false, InterpolationDelay = TimeSpan.FromMilliseconds(delay) };
@@ -37,7 +41,7 @@ public partial class NetworkView
         if (CmdFlag("net-latency"))
             o = o with { LatencyReadout = CmdArg("net-latency") is { } s && double.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out double seconds) && seconds > 0 ? seconds : 5.0 };
         o = o with { LatencyLog = line => GD.Print(line) };
-        GD.Print($"net feel: input lead {(o.SmoothInputLead ? $"slewed ({o.LeadSlew:P0}, band {o.LeadBand:0.##})" : "old steps")}, own marine {(o.DrawOwnAhead ? "drawn ahead" : "old draw")}, " +
+        GD.Print($"net feel: input lead {(!o.SmoothInputLead ? "old steps" : o.PreciseLead ? $"on the server's slack ({o.LeadLossTicks:0.#} tick + jitter + {o.LeadMarginMs:0} ms)" : $"slewed to {o.TargetInputLead} ticks")}, extrapolation {o.MaxExtrapolationTicks:0.#} tick, own marine {(o.DrawOwnAhead ? "drawn ahead" : "old draw")}, " +
                  $"interpolation {(o.AdaptiveInterpolation ? $"adaptive {o.MinInterpolationDelay.TotalMilliseconds:F0}-{o.MaxInterpolationDelay.TotalMilliseconds:F0} ms" : $"fixed {o.InterpolationDelay.TotalMilliseconds:F0} ms")}, " +
                  $"predicted hits {(NoPredictedHits ? "off" : "on")}{(o.LatencyReadout > 0 || NetLatencyReadout.EnvSeconds > 0 ? ", latency readout on" : "")}");
         return o;

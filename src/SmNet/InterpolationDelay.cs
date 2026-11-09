@@ -4,9 +4,10 @@ namespace SmNet;
 /// net/responsive (ours; client presentation, no wire change): the remote players' interpolation delay, adapted to the snapshots that arrive. Over the last
 /// <see cref="WindowSeconds"/> of snapshots it takes the spacing of their ticks (the server's snapshot interval: one tick at 30 Hz, 1.5 at 20 Hz), the 95th percentile
 /// of the gaps between them (a lost snapshot is a double gap) and the spread of their arrival times against their ticks (jitter, including the wait for the client's
-/// next frame: the arrival offset's 98th percentile less its median). The delay wanted is the larger of two snapshot intervals and the 95th-percentile gap plus the
+/// next frame: the arrival offset's 98th percentile less its median). The delay wanted is the larger of <see cref="BaseIntervals"/> snapshot intervals and the 95th-percentile gap plus the
 /// jitter plus <see cref="MarginSeconds"/>, within [floor, ceiling]. It rises at once and falls with a time constant of <see cref="FallSeconds"/>.
-/// With no loss and little jitter it is two intervals: about 67 ms at 30 Hz (100 ms at 20 Hz, the old fixed value).
+/// With no loss and little jitter it is <see cref="BaseIntervals"/> intervals (the owner, 2026-11-09: as low as it plays well): 50 ms at 30 Hz (75 ms at 20 Hz); a late
+/// snapshot is bridged by the client's capped extrapolation (<see cref="ClientOptions.MaxExtrapolationTicks"/>).
 /// </summary>
 public sealed class InterpolationDelayEstimator
 {
@@ -18,6 +19,8 @@ public sealed class InterpolationDelayEstimator
     public const double MarginSeconds = 0.005;
     /// <summary>Snapshots needed before the estimate moves from its start.</summary>
     public const int MinSamples = 8;
+    /// <summary>Snapshot intervals of delay on a clean link (ours: 1.5, half an interval of room for arrival jitter on top of the one being interpolated).</summary>
+    public const double BaseIntervals = 1.5;
 
     readonly Queue<(uint Tick, double Arrival)> _window = new();
     double _delay = double.NaN;
@@ -65,6 +68,6 @@ public sealed class InterpolationDelayEstimator
         var offsets = window.Select(w => w.Arrival - w.Tick * tickSeconds).ToList();
         double jitter = Math.Max(0, NetLatencyReadout.Quantile(offsets, 0.98) - NetLatencyReadout.Quantile(offsets, 0.5));
         double gap = NetLatencyReadout.Quantile(gaps, 0.95);
-        return Math.Max(2 * interval, gap + jitter + MarginSeconds);
+        return Math.Max(BaseIntervals * interval, gap + jitter + MarginSeconds);
     }
 }

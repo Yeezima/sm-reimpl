@@ -55,7 +55,8 @@ public sealed partial class GameClient
                 _echoRtt.Add((now - at).TotalMilliseconds);
             Latency?.Add("lead", s.InputLead);
             Latency?.Add("lead-ms", s.InputLead * _config.TickSeconds * 1000.0);
-            if (_echoRtt.Ms >= 0) Latency?.Add("press-apply", _echoRtt.Ms / 2.0 + Math.Max(0, s.InputLead) * _config.TickSeconds * 1000.0);
+            if (_echoRtt.Ms >= 0) Latency?.Add("press-apply", _echoRtt.Ms / 2.0 + (s.InputSlack != Protocol.NoSlack ? Math.Max(0, s.InputSlack) : Math.Max(0, s.InputLead) * _config.TickSeconds * 1000.0));
+            if (s.InputSlack != Protocol.NoSlack) Latency?.Add("slack", s.InputSlack);
         }
         if (Latency is not null && _echoRtt.Ms >= 0) Latency.Add("rtt", _echoRtt.Ms);
         if (_snapshotArrivedAt != TimeSpan.MinValue) Latency?.Add("snap-gap", (now - _snapshotArrivedAt).TotalMilliseconds);
@@ -105,6 +106,8 @@ public sealed partial class GameClient
             double serverNow = _latestSnapshotTick + (now - _latestSnapshotAt).TotalSeconds * _config.TickRate;
             double behindMs = (serverNow - RenderTick()) * _config.TickSeconds * 1000.0;
             Latency.Add("interp", CurrentInterpolationDelay.TotalMilliseconds);
+            if (ExtrapolatedTicks > 0) Latency.Add("extrap", ExtrapolatedTicks * _config.TickSeconds * 1000.0);
+            if (double.IsFinite(TargetInputSlack)) Latency.Add("slack-target", TargetInputSlack);
             Latency.Add("remote", behindMs + Math.Max(0, _echoRtt.Ms) / 2.0);
         }
         Latency.Step(now);

@@ -11,12 +11,14 @@ namespace SmNet;
 /// on (<see cref="GameClient.NoteOwnDrawn"/>, fed by the renderer; only edges that change the movement count; 1 cm off the extrapolated path); <c>edge-draw-5cm</c>: to 5 cm.</item>
 /// <item><c>lead</c> (ticks) and <c>lead-ms</c>: the input lead the server reports in each snapshot (its newest input's tick minus the tick it just ran): how long an input
 /// waits on the server before the tick that applies it.</item>
+/// <item><c>slack</c> (protocol 65): the server's input slack, ms an input waited before its tick ran (the least of the ticks a snapshot covers); <c>slack-target</c>: what the
+/// precise lead steering aims it at (a tick, the jitter guard's ticks, the measured jitter, the margin).</item>
 /// <item><c>rtt</c>: the round trip from snapshot echoes after the map has loaded: the time from sending the input the server names as its newest (snapshot tick plus lead) to
 /// the snapshot's arrival. An upper bound: it includes the server's wait for its next snapshot send and the client's wait for its next frame (about 17 to 25 ms at 60 fps).</item>
 /// <item><c>press-apply</c>: the estimate of a sampled input's way to the server's tick: half the round trip plus the lead.</item>
 /// <item><c>shot-hit</c>: an own ranged shot (the prediction's fired tick) to the server's hit report on it (the newest own fired tick at or before the snapshot's).</item>
 /// <item><c>marker</c>: an own ranged shot to the hit marker shown (the renderer's <see cref="GameClient.NoteHitMarker"/>: the predicted one, or the server's).</item>
-/// <item><c>interp</c>: the remote players' interpolation delay in use; <c>snap-gap</c>: the time between two snapshots' arrivals; <c>remote</c>: how far behind the server's
+/// <item><c>interp</c>: the remote players' interpolation delay in use; <c>extrap</c>: ms remote players were carried past the newest snapshot, in frames that did so; <c>snap-gap</c>: the time between two snapshots' arrivals; <c>remote</c>: how far behind the server's
 /// newest tick remote players are drawn (the newest snapshot's tick plus its age, less the render tick) plus half the round trip: the age of what is seen.</item>
 /// </list>
 /// Engine-free; nothing in the simulation or on the wire depends on it.
@@ -28,7 +30,7 @@ public sealed class NetLatencyReadout(double intervalSeconds, Action<string>? lo
         double.TryParse(Environment.GetEnvironmentVariable("SM_NET_LATENCY"), NumberStyles.Float, CultureInfo.InvariantCulture, out double s) && s > 0 ? s : 0;
 
     /// <summary>The stages in the order the line prints them.</summary>
-    public static readonly string[] Stages = ["edge-draw", "edge-draw-5cm", "lead", "lead-ms", "rtt", "press-apply", "shot-hit", "marker", "interp", "snap-gap", "remote"];
+    public static readonly string[] Stages = ["edge-draw", "edge-draw-5cm", "slack", "slack-target", "lead", "lead-ms", "rtt", "press-apply", "shot-hit", "marker", "interp", "extrap", "snap-gap", "remote"];
 
     /// <summary>Samples kept per stage over the whole run (tests and the final report); the oldest go first.</summary>
     public const int MaxKept = 100_000;

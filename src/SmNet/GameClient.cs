@@ -36,12 +36,23 @@ public sealed record ClientOptions
     public double LeadBand { get; init; } = 0.75;
     /// <summary>How much slower or faster the client's ticks run while the lead is steered (ours: 4 %, a tick of lead in about 0.8 s).</summary>
     public double LeadSlew { get; init; } = 0.04;
+    /// <summary>Protocol 65: the lead steered on the server's input slack to a tick plus the measured jitter (false: the integer lead at <see cref="TargetInputLead"/>; Godot <c>--lead-ticks</c>).</summary>
+    public bool PreciseLead { get; init; } = true;
+    /// <summary>Ticks of slack kept for lost packets in the precise steering (ours: 1, one lost input batch survived; inputs repeat in every batch).</summary>
+    public double LeadLossTicks { get; init; } = 1;
+    /// <summary>ms added to the precise steering's target (ours).</summary>
+    public double LeadMarginMs { get; init; } = 5;
     /// <summary>The own marine drawn from the newest predicted tick toward a speculative next one (false: between the previous tick and the newest; Godot <c>--old-own-draw</c>).</summary>
     public bool DrawOwnAhead { get; init; } = true;
     /// <summary>The interpolation delay follows the snapshots (<see cref="InterpolationDelayEstimator"/>; false: <see cref="InterpolationDelay"/> fixed; Godot <c>--interp-delay</c>).</summary>
     public bool AdaptiveInterpolation { get; init; } = true;
-    /// <summary>The adaptive delay's floor (ours: two 30 Hz ticks, 67 ms).</summary>
-    public TimeSpan MinInterpolationDelay { get; init; } = TimeSpan.FromSeconds(2.0 / 30.0);
+    /// <summary>The adaptive delay's floor (ours: 1.5 30 Hz ticks, 50 ms; the owner 2026-11-09: as low as it plays well).</summary>
+    public TimeSpan MinInterpolationDelay { get; init; } = TimeSpan.FromSeconds(1.5 / 30.0);
+    /// <summary>
+    /// net/responsive: how far past the newest snapshot remote players are carried on (ticks, along their last two snapshots' motion) when the render tick outruns it (a late
+    /// snapshot); 0: they wait at the newest, as before (Godot <c>--no-extrapolation</c>). Ours: 1 tick.
+    /// </summary>
+    public double MaxExtrapolationTicks { get; init; } = 1;
     /// <summary>The adaptive delay's ceiling: the server's lag-compensation bound (<c>ServerOptions.MaxInterpolationDelay</c>, 100 ms).</summary>
     public TimeSpan MaxInterpolationDelay { get; init; } = TimeSpan.FromMilliseconds(100);
     /// <summary>Inputs repeated in every packet, so a few lost packets lose no input.</summary>
@@ -476,7 +487,7 @@ public sealed partial class GameClient
         PreviousPredicted = default;
         _prePrevious = default;
         _earlyRanAt = null;
-        _leadSlew = 0; _leadFiltered = double.NaN; _interpolation.Reset(); JitterGuard = 0; _firstInputTick = Tick + 1;   // net/responsive
+        _tickStretch = 0; _leadFiltered = double.NaN; _slackFiltered = double.NaN; _slackWindow.Clear(); _lossWindow.Clear(); LossTicks = 1; MeasuredLoss = 0; _interpolation.Reset(); JitterGuard = 0; _firstInputTick = Tick + 1;   // net/responsive
         StartKeepAlive();   // fix/stall-keepalive
     }
 
@@ -517,6 +528,7 @@ public sealed partial class GameClient
         _latestSnapshotTick = s.ServerTick;
         _latestSnapshotAt = _clock.Now;
         NoteInterpolation(s.ServerTick, _latestSnapshotAt);   // net/responsive: the adaptive interpolation delay
+        NoteSnapshotLoss(s.ServerTick, _latestSnapshotAt);   // net/responsive: the lead's loss term
         _snapshots.Add((s.ServerTick, s.Players.ToDictionary(p => p.PlayerId), projectiles.ToDictionary(q => q.Id)));
         if (_snapshots.Count > 64) _snapshots.RemoveAt(0);
         var matchBefore = Match;
@@ -578,7 +590,18 @@ public sealed partial class GameClient
         foreach (var old in _history.Keys.Where(t => t <= s.ServerTick).ToList()) _history.Remove(old);
         // After a client stall the snapshot can be ahead of the client's own tick: inputs for the ticks it already
         // contains can never be applied, so resume sampling after it instead of replaying them on top of it (overshoot).
-        if (s.ServerTick > Tick) Tick = s.ServerTick;
+        if (s.ServerTick > Tick)
+        {
+            // net/responsive: the skipped ticks are spent, so the schedule moves past them too (at most to now); before, the loop then ran them all on top and every stall of
+            // the client (a hitch, a load) added its length to the lead.
+            if (_options.SmoothInputLead)
+            {
+                var skipped = _nextTickAt + TimeSpan.FromSeconds(_config.TickSeconds) * (s.ServerTick - Tick);
+                _nextTickAt = skipped < _clock.Now ? skipped : _clock.Now;
+                StallSkips++;
+            }
+            Tick = s.ServerTick;
+        }
         var state = mine;
         var beforeLast = mine;
         var twoBefore = mine;   // feel/controls: the state before beforeLast (DrawPair after an early tick)
@@ -726,6 +749,9 @@ public sealed partial class GameClient
     readonly RenderClock _renderClock = new();
     TimeSpan _renderClockAt;
 
+    /// <summary>Snapshots that found this client behind the server after a stall (its tick moved up, the schedule with it; net/responsive; diagnostics).</summary>
+    public int StallSkips { get; private set; }
+
     /// <summary>The remote players' interpolation delay in use now.</summary>
     public TimeSpan CurrentInterpolationDelay =>
         _options.AdaptiveInterpolation && double.IsFinite(_interpolation.DelaySeconds) ? TimeSpan.FromSeconds(_interpolation.DelaySeconds) : _options.InterpolationDelay;
@@ -775,11 +801,13 @@ public sealed partial class GameClient
         if (_snapshots.Count == 0) return (0, []);
         double renderTick = RenderTick();
         int after = _snapshots.FindIndex(x => x.Tick >= renderTick);
+        if (after < 0 && _options.MaxExtrapolationTicks > 0 && _snapshots.Count >= 2) return (renderTick, Extrapolated(renderTick));
         if (after <= 0)
             return (renderTick, Others(_snapshots[after < 0 ? ^1 : 0].Players).ToList());
         var (t0, p0, _) = _snapshots[after - 1];
         var (t1, p1, _) = _snapshots[after];
         float alpha = (float)((renderTick - t0) / (t1 - t0));
+        ExtrapolatedTicks = 0;
         var result = new List<PlayerState>();
         foreach (var (id, a) in p0)
         {
@@ -791,6 +819,30 @@ public sealed partial class GameClient
         return (renderTick, result);
 
         IEnumerable<PlayerState> Others(Dictionary<int, PlayerState> players) => players.Values.Where(p => p.PlayerId != PlayerId);
+    }
+
+    /// <summary>Ticks remote players were last carried past the newest snapshot (net/responsive; 0 when interpolated; diagnostics and the readout).</summary>
+    public double ExtrapolatedTicks { get; private set; }
+
+    /// <summary>
+    /// net/responsive: the render tick is past the newest snapshot (it is late): every other player carried on along its motion between the last two snapshots for at most
+    /// <see cref="ClientOptions.MaxExtrapolationTicks"/> past the newest, then held; a teleport (a respawn) or a player missing from the one before stays where the newest has it.
+    /// </summary>
+    List<PlayerState> Extrapolated(double renderTick)
+    {
+        var (t0, p0, _) = _snapshots[^2];
+        var (t1, p1, _) = _snapshots[^1];
+        double ahead = Math.Clamp(renderTick - t1, 0, _options.MaxExtrapolationTicks);
+        ExtrapolatedTicks = ahead;
+        float k = t1 > t0 ? (float)(ahead / (t1 - t0)) : 0f;
+        var result = new List<PlayerState>();
+        foreach (var (id, b) in p1)
+        {
+            if (id == PlayerId) continue;
+            if (!b.Alive || !p0.TryGetValue(id, out var a) || !a.Alive || Vector3.Distance(a.Position, b.Position) > ViewSmoothing.TeleportDistance * Math.Max(1.0, t1 - t0)) { result.Add(b); continue; }
+            result.Add(b with { Position = b.Position + (b.Position - a.Position) * k });
+        }
+        return result;
     }
 
     /// <summary>feel/melee-lock: the melee lock sent with the newest input (a player id; 0 none). Presentation (camera nudge, distance clips) reads it.</summary>

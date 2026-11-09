@@ -156,7 +156,10 @@ public class NetLatencyProbe(ITestOutputHelper output)
     public static double Median(IEnumerable<double> values) => NetLatencyReadout.Quantile(values.ToList(), 0.5);
 
     /// <summary>Every net/responsive switch back to the behaviour before it (client and server).</summary>
-    public static ClientOptions OldNet(ClientOptions o) => o with { SmoothInputLead = false, DrawOwnAhead = false, AdaptiveInterpolation = false };
+    public static ClientOptions OldNet(ClientOptions o) => o with { SmoothInputLead = false, DrawOwnAhead = false, AdaptiveInterpolation = false, MaxExtrapolationTicks = 0 };
+
+    /// <summary>net/responsive's first step (the integer lead at 2 ticks, two snapshot intervals of interpolation, no extrapolation): the midpoint for the report.</summary>
+    public static ClientOptions FirstStep(ClientOptions o) => o with { PreciseLead = false, MinInterpolationDelay = TimeSpan.FromSeconds(2.0 / 30.0), MaxExtrapolationTicks = 0 };
     public static readonly ServerOptions OldServer = new() { SnapshotRate = 20 };
 
     [ProbeFact]
@@ -164,6 +167,9 @@ public class NetLatencyProbe(ITestOutputHelper output)
 
     [ProbeFact]
     public void Old_switches() => Emit(Report("old switches", OldNet, OldServer));
+
+    [ProbeFact]
+    public void First_step() => Emit(Report("first step (2-tick lead, 67 ms)", FirstStep, null));
 
     /// <summary>Classic 8v8 bandwidth: 16 clients running and firing full auto (scripted), server to client bytes a second per client (IPv4 + UDP headers counted).</summary>
     public static double Bandwidth(int players, ServerOptions? serverOptions, double seconds = 10, int seed = 3)
