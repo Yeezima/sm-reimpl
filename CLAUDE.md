@@ -54,6 +54,7 @@ the rule for new added content: `docs/added-content.md`.
 - Private cache: `%LOCALAPPDATA%\sm-reimpl\cache` (outside the repo). Never commit or package it.
 - No original bytes in tests. Generate synthetic fixtures (`SyntheticObpkWriter`).
 - No absolute local paths or account IDs in committed files. The machine path goes in `config/local.json` (git-ignored).
+  That covers docs, comments, spec rows and release notes too (owner, 2026-11-10: "Scrub local pc folder paths ands any other sensitive or identifying information from public view"): write `<media folder>\...`, `%LOCALAPPDATA%\sm-reimpl\...` or "the owner's media folder", never an expanded local path (`PublicTextGuardTests` enforces it).
 - Out of scope: executable decompilation, binary patching, DRM circumvention, replacing online services.
   Do not reuse code from tools without a usable license (e.g. smbod, which is decompiled).
 - Do not push, publish, or spend money unless the user asks.
