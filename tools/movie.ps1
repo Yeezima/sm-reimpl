@@ -4,7 +4,7 @@
   Movie Maker takes its frame size from the project's viewport size before any script runs (--resolution is ignored, and a
   window resized later is only scaled into the first size), so this script runs Godot on a throw-away copy of the client
   project whose project.godot has the wanted viewport size. The copy lives in a per-run folder under
-  %LOCALAPPDATA%\sm-reimpl\cache\movie-project (removed afterwards) and shares the compiled client through a junction to the
+  %LOCALAPPDATA%\sm-reimpl\tmp-build\movie-project (removed afterwards) and shares the compiled client through a junction to the
   repository's git-ignored client\.godot cache, which Godot may update. Nothing else is written into the repository, and
   nothing into the game install.
 .EXAMPLE
@@ -72,7 +72,9 @@ if (-not (Test-Path -LiteralPath (Join-Path $client '.godot'))) { & $Godot --hea
 
 # The copy: sources and scenes copied, the build/import cache shared. A folder per run (so two recordings never meet), whose
 # parent holds nothing else: the client's "repository root" (the folder above res://) is that folder, not the real repository.
-$runDir = Join-Path $env:LOCALAPPDATA ('sm-reimpl\cache\movie-project\' + [guid]::NewGuid().ToString('N'))
+# Outside the private cache (lead 2026-11-10): the release content guard compares the repository with everything in cache\, so a copy of
+# client\ there (a live recording, or one a killed run left behind) made release.cmd -Smoke fail on client\icon.ico and icon.png.
+$runDir = Join-Path $env:LOCALAPPDATA ('sm-reimpl\tmp-build\movie-project\' + [guid]::NewGuid().ToString('N'))
 $shadow = Join-Path $runDir 'client'
 $junction = Join-Path $shadow '.godot'
 $exit = 1
