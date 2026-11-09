@@ -15,8 +15,6 @@ public static class LibrarianSounds
     public const string Tail = "stop_power_conduit_elec";
     /// <summary>Each newly chained target: the psyker bolt's hit (the campaign Chaos psyker's; its two layers' own limits 2 and 3 apply too).</summary>
     public const string Zap = "play_psyker_bolt_hit";
-    /// <summary>The Warp Pull: the psyker bolt's cast (five random variations).</summary>
-    public const string Pull = "play_ch_psyker_bolt_fire";
     /// <summary>The Psychic Shockwave: the multiplayer reactive blast (the stomp's displacement layers with a blast; max 6 instances).</summary>
     public const string Shockwave = "play_reactive_blast";
     /// <summary>Psychic Stress reaching 100 (all powers locked): the Space Marine plasma weapons' overheat vent.</summary>
@@ -65,7 +63,7 @@ public sealed class LibrarianZapBudget
 
 /// <summary>
 /// The Librarian's gauge in the HUD (Musou Mode only), laid out as the weapon box's heat bar (he carries no gun, so the box is his): the Psychic Stress fills the bar as heat does, and while every power is
-/// locked it blinks as an overheated weapon's bar (the same 14 rad/s pulse between 0.55 and 1); the Warp Pull and the Shockwave are the two cells beside it, each with its cooldown as a draining bar.
+/// locked it blinks as an overheated weapon's bar (the same 14 rad/s pulse between 0.55 and 1); the Shockwave is the cell beside it, its cooldown as a draining bar (the Warp Pull's cell went with the power, owner 2026-11-10).
 /// Layout and words are ours.
 /// </summary>
 public static class LibrarianHudModel

@@ -9,14 +9,15 @@ public readonly record struct LibrarianLink(Vector3 From, Vector3 To);
 public readonly record struct LibrarianCaster(int PlayerId, Vector3 Feet, Vector3 Eye, float Yaw, float Pitch);
 
 /// <summary>What a Librarian pressed this tick (<see cref="LibrarianRules"/> names the binding).</summary>
-public readonly record struct LibrarianPress(bool Lightning, bool Pull, bool Shockwave);
+public readonly record struct LibrarianPress(bool Lightning, bool Shockwave);
 
 /// <summary>
 /// One Librarian's psychic powers and Psychic Stress (Musou Mode only; <see cref="LibrarianRules"/>), server-authoritative. It acts on a <see cref="MusouSim"/> through its public damage, stagger, knock-down and
 /// drive calls, so it knows nothing of the World: <see cref="World"/> feeds it the player's input each tick (<c>World.Librarian.cs</c>) and tests drive it on a bare pool.
 /// <list type="bullet">
-/// <item>Stress 0 to 100, shared by all three powers. At 100 everything locks until it is back at 0.</item>
-/// <item>Chain lightning adds 5 a second while held, a Pull and a Shockwave 50 each; it cools 12.5 a second once a second has passed without a cast; a melee swing that strikes takes 6 off.</item>
+/// <item>Stress 0 to 100, shared by both powers. At 100 everything locks until it is back at 0.</item>
+/// <item>Chain lightning adds 5 a second while held, a Shockwave 50; it cools 12.5 a second once a second has passed without a cast; a melee swing that strikes takes 6 off.</item>
+/// <item>The Warp Pull was removed (the owner, 2026-11-10): the Grenade key throws his equipment, as any marine's.</item>
 /// </list>
 /// </summary>
 public sealed class LibrarianPsyker
@@ -29,11 +30,9 @@ public sealed class LibrarianPsyker
     public bool Locked { get; private set; }
     /// <summary>Seconds without a cast.</summary>
     public float SinceCast { get; private set; }
-    /// <summary>Seconds left on each cooldown.</summary>
-    public float PullCooldown { get; private set; }
+    /// <summary>Seconds left on the Shockwave's cooldown.</summary>
     public float ShockwaveCooldown { get; private set; }
-    /// <summary>Counts of Pulls and Shockwaves cast (wrapping bytes: the clients play an effect when they change).</summary>
-    public byte PullCount { get; private set; }
+    /// <summary>Shockwaves cast (a wrapping byte: the clients play the effect when it changes).</summary>
     public byte ShockwaveCount { get; private set; }
     /// <summary>Whether lightning was cast this tick, and the links of it (at most <see cref="LibrarianRules.MaxDrawnLinks"/>; empty when not casting).</summary>
     public bool Casting { get; private set; }
@@ -44,14 +43,14 @@ public sealed class LibrarianPsyker
     readonly List<LibrarianLink> _links = new();
     readonly ushort[] _near = new ushort[96];
     readonly HashSet<ushort> _struck = new();
-    readonly ushort[] _scan = new ushort[2048];
-    bool _prevPull, _prevShockwave;
+    readonly ushort[] _scan = new ushort[4096];   // a 60 m Shockwave may take a whole war's pool
+    bool _prevShockwave;
 
     /// <summary>A new life (or a leave): everything back to rest.</summary>
     public void Reset()
     {
-        Stress = 0f; Locked = false; SinceCast = 0f; PullCooldown = ShockwaveCooldown = 0f;
-        Casting = false; _links.Clear(); LastStruck = 0; _prevPull = _prevShockwave = false;
+        Stress = 0f; Locked = false; SinceCast = 0f; ShockwaveCooldown = 0f;
+        Casting = false; _links.Clear(); LastStruck = 0; _prevShockwave = false;
     }
 
     /// <summary>A melee swing struck at least one enemy: stress falls by <see cref="LibrarianRules.MeleeRelief"/> (an unlock at 0 follows).</summary>
@@ -62,29 +61,20 @@ public sealed class LibrarianPsyker
     }
 
     /// <summary>
-    /// One tick: <paramref name="dt"/> seconds, the presses (a Pull and a Shockwave act on the press edge), the damage credited to <paramref name="caster"/>. <paramref name="blocked"/> says whether level geometry lies between two
-    /// points (null: nothing blocks). The order of a tick: cooldowns run, the powers cast (Pull, Shockwave, lightning), stress rises or cools, the lock sets or clears.
+    /// One tick: <paramref name="dt"/> seconds, the presses (a Shockwave acts on the press edge), the damage credited to <paramref name="caster"/>. <paramref name="blocked"/> says whether level geometry lies between two
+    /// points (null: nothing blocks). The order of a tick: the cooldown runs, the powers cast (Shockwave, lightning), stress rises or cools, the lock sets or clears.
     /// </summary>
     public void Step(MusouSim sim, in LibrarianCaster caster, LibrarianPress press, float dt, Func<Vector3, Vector3, bool>? blocked = null)
     {
-        PullCooldown = MathF.Max(0f, PullCooldown - dt);
         ShockwaveCooldown = MathF.Max(0f, ShockwaveCooldown - dt);
         _links.Clear();
         Casting = false;
         LastStruck = 0;
-        bool pullEdge = press.Pull && !_prevPull, shockEdge = press.Shockwave && !_prevShockwave;
-        _prevPull = press.Pull; _prevShockwave = press.Shockwave;
+        bool shockEdge = press.Shockwave && !_prevShockwave;
+        _prevShockwave = press.Shockwave;
         bool cast = false;
 
-        if (!Locked && pullEdge && PullCooldown <= 0f)
-        {
-            Pull(sim, caster);
-            PullCooldown = LibrarianRules.PullCooldown;
-            PullCount++;
-            Stress += LibrarianRules.PullStress;
-            cast = true;
-        }
-        if (!Locked && !(cast && Stress >= LibrarianRules.StressMax - LockEpsilon) && shockEdge && ShockwaveCooldown <= 0f)
+        if (!Locked && shockEdge && ShockwaveCooldown <= 0f)
         {
             Shockwave(sim, caster);
             ShockwaveCooldown = LibrarianRules.ShockwaveCooldown;
@@ -172,36 +162,11 @@ public sealed class LibrarianPsyker
         return -1;
     }
 
-    // ------------------------------------------------------------------ warp pull
-
-    void Pull(MusouSim sim, in LibrarianCaster c)
-    {
-        var forward = new Vector2(-MathF.Sin(c.Yaw), MathF.Cos(c.Yaw));
-        float minCos = MathF.Cos(LibrarianRules.PullConeDegrees * MathF.PI / 180f);
-        int n = sim.Query(c.Feet, LibrarianRules.PullRange, _scan, LibrarianRules.VerticalReach);
-        int ticks = Math.Max(1, (int)MathF.Round(LibrarianRules.PullSeconds * sim.TickRate));
-        float seconds = ticks / (float)Math.Max(1, sim.TickRate);
-        for (int k = 0; k < n; k++)
-        {
-            if (!sim.TryGet(_scan[k], out var e) || !e.Alive) continue;
-            var tier = LibrarianRules.TierOf(e.Type);
-            if (tier == LibrarianRules.Tier.Boss) continue;
-            var flat = new Vector2(e.Position.X - c.Feet.X, e.Position.Y - c.Feet.Y);
-            float distance = flat.Length();
-            if (distance > 1e-4f && Vector2.Dot(flat / distance, forward) < minCos) continue;
-            float travel = tier == LibrarianRules.Tier.Elite ? distance * LibrarianRules.ElitePullShare : distance - LibrarianRules.PullStopDistance;
-            if (!(travel > 0.05f) || distance < 1e-4f) continue;   // already close: not pushed back out
-            var toward = -flat / distance;
-            sim.Stagger(e.Id, toward, 0f);   // dragged off his feet; a stagger with no push of its own
-            sim.Drive(e.Id, toward * (travel / seconds), ticks);
-        }
-    }
-
     // ------------------------------------------------------------------ psychic shockwave
 
     void Shockwave(MusouSim sim, in LibrarianCaster c)
     {
-        int n = sim.Query(c.Feet, LibrarianRules.ShockwaveRadius, _scan, LibrarianRules.VerticalReach);
+        int n = sim.Query(c.Feet, LibrarianRules.ShockwaveRadius, _scan, LibrarianRules.ShockwaveVerticalReach);
         int ticks = Math.Max(1, (int)MathF.Round(LibrarianRules.ThrowSeconds * sim.TickRate));
         float seconds = ticks / (float)Math.Max(1, sim.TickRate);
         for (int k = 0; k < n; k++)
@@ -210,11 +175,15 @@ public sealed class LibrarianPsyker
             if (!sim.TryGet(id, out var e) || !e.Alive) continue;
             var flat = new Vector2(e.Position.X - c.Feet.X, e.Position.Y - c.Feet.Y);
             var away = flat.LengthSquared() > 1e-6f ? Vector2.Normalize(flat) : new Vector2(-MathF.Sin(c.Yaw), MathF.Cos(c.Yaw));
-            bool killed = false;
-            sim.Damage(id, c.PlayerId, LibrarianRules.ShockwaveDamage, new Vector3(away, 0.5f), out killed, marker: 1, cause: MusouDeathKind.Blast);
-            if (killed || LibrarianRules.TierOf(e.Type) != LibrarianRules.Tier.Ordinary) continue;
-            float distance = LibrarianRules.ThrowMin + (LibrarianRules.ThrowMax - LibrarianRules.ThrowMin) * Roll(sim.Tick, id);
-            if (!sim.KnockDown(id, away, 0.1f, c.PlayerId, 0f)) sim.Stagger(id, away, 0f);   // a war's fodder falls; any other ordinary one staggers
+            sim.Damage(id, c.PlayerId, LibrarianRules.ShockwaveDamage, new Vector3(away, 0.5f), out bool killed, marker: 1, cause: MusouDeathKind.Blast);
+            if (killed) continue;
+            var tier = LibrarianRules.TierOf(e.Type);
+            if (tier == LibrarianRules.Tier.Boss) { sim.Stagger(id, away, 0f); continue; }   // staggered where he stands (false for the stagger-immune Warboss and Boss Orks)
+            float roll = Roll(sim.Tick, id);
+            float distance = tier == LibrarianRules.Tier.Elite
+                ? LibrarianRules.EliteThrowMin + (LibrarianRules.EliteThrowMax - LibrarianRules.EliteThrowMin) * roll
+                : LibrarianRules.ThrowMin + (LibrarianRules.ThrowMax - LibrarianRules.ThrowMin) * roll;
+            if (tier == LibrarianRules.Tier.Elite || !sim.KnockDown(id, away, 0.1f, c.PlayerId, 0f)) sim.Stagger(id, away, 0f);   // a war's fodder falls; any other one staggers
             sim.Drive(id, away * (distance / seconds), ticks);
         }
     }

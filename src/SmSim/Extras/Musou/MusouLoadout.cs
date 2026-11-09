@@ -30,9 +30,10 @@ public static class MusouLoadout
     }
 
     /// <summary>
-    /// The Librarian (docs/musou-expansion.md; <see cref="LibrarianRules"/>), appended after the other classes so no index changes: the Tactical's body, perks and melee choices with no gun, no pistol and no grenade
-    /// (his powers use Fire, Grenade and Reload), and the power sword as his starting melee when some class carries it (the Assault's; else the Tactical's own). No psyker model exists in the install: the body is the
-    /// Tactical's (*placeholder*). Added once, only here, so only under Musou; nothing is added when the config has no Space Marine Tactical to copy.
+    /// The Librarian (docs/musou-expansion.md; <see cref="LibrarianRules"/>), appended after the other classes so no index changes: the Tactical's body, perks and melee choices with no gun and no pistol (his powers
+    /// use Fire and Reload), every equipment item a Space Marine class may choose (the owner, 2026-11-10: "allow the librarian to use all equipment items that other classes can use (frag grenades, blind grenades,
+    /// stims)"; the Tactical's own first, so his default is the Tactical's), and the power sword as his starting melee when some class carries it (the Assault's; else the Tactical's own). No psyker model exists in
+    /// the install: the body is the Tactical's (*placeholder*). Added once, only here, so only under Musou; nothing is added when the config has no Space Marine Tactical to copy.
     /// </summary>
     static void AppendLibrarian(List<ClassLoadout> classes)
     {
@@ -42,7 +43,8 @@ public static class MusouLoadout
         var sword = classes.SelectMany(c => c.MeleeChoices).FirstOrDefault(m => m.Wargear == LibrarianRules.PowerSwordWargear);
         var librarian = tactical with
         {
-            Name = LibrarianRules.ClassName, Primary = -1, Pistol = -1, PrimaryChoices = [], PistolChoices = [], EquipmentChoices = [],
+            Name = LibrarianRules.ClassName, Primary = -1, Pistol = -1, PrimaryChoices = [], PistolChoices = [],
+            EquipmentChoices = tactical.EquipmentChoices.Concat(classes.Where(c => c.Side == Team.SpaceMarines).SelectMany(c => c.EquipmentChoices)).Distinct().ToList(),
         };
         if (sword is not null)
             librarian = librarian with
