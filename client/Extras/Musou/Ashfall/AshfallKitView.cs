@@ -414,20 +414,23 @@ void fragment() {
             list.Add(i);
         }
         _startMs = (long)Time.GetTicksMsec();
+        AshfallKitDetail.Mark(_library, dressing.Items);   // kit-hi-res: the models inside the arena keep their 2048 px textures
         _library.Request(_itemsByAsset.Keys);
     }
 
     /// <summary>The camera-facing options: <c>--ashfall-tex N</c>, <c>--ashfall-lods off</c> and <c>--ashfall-shadows off</c> (measurement aids).</summary>
     bool _shadows = true;
     /// <summary>Mesh LOD threshold (pixels of error) while the kit look is drawn; the engine default is 1. Measured: 1 costs about 20 ms of GPU time on the dense map, 4 about 3 to 5 ms (ours; <c>--ashfall-lod-threshold</c>).</summary>
-    public float LodThreshold { get; set; } = 4f;
+    public float LodThreshold { get; set; } = DefaultLodThreshold;
+    /// <summary>The kit look's mesh LOD threshold unless an argument sets one (pixels).</summary>
+    public const float DefaultLodThreshold = 4f;
     float _baseLod = 1f;
     bool _lodKept;
     void ApplyArguments()
     {
         var args = OS.GetCmdlineUserArgs();
         string? Value(string name) { int i = Array.IndexOf(args, "--" + name); return i >= 0 && i + 1 < args.Length ? args[i + 1] : null; }
-        if (Value("ashfall-tex") is { } t && int.TryParse(t, out var tex)) _library.TextureMax = tex;
+        if (Value("ashfall-tex") is { } t && int.TryParse(t, out var tex)) { _library.TextureMax = tex; _library.HighTextureMax = tex; }
         if (Value("ashfall-lods") == "off") _library.GenerateLods = false;
         if (Value("ashfall-shadows") == "off") _shadows = false;
         if (Value("ashfall-lod-threshold") is { } lt && float.TryParse(lt, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var th) && th >= 0.1f) LodThreshold = th;
@@ -668,6 +671,7 @@ void fragment() {
                     Name = $"{id}_{i}",   // the asset and the dressing item (ashfall-no-flicker: attribution by asset)
                     Mesh = piece.Mesh, Transform = DrawOf(item, model, piece.Local),
                     CastShadow = _shadows ? GeometryInstance3D.ShadowCastingSetting.On : GeometryInstance3D.ShadowCastingSetting.Off,
+                    LodBias = AshfallKitDetail.LodBiasOf(item),   // kit-hi-res: finer LODs inside the arena
                 });
                 _shownInstances++;
             }

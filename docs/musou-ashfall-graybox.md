@@ -1023,3 +1023,34 @@ The clash bench at 1,000 a side, with the shipped rule against the rule before (
 - **Why the front is smaller.** On an avenue the front is the avenue's width (22 m): a 36-file army (about 50 m) does not fit it. Before, its men spilled through the blocks, which measured wider.
 - **Field.** Unchanged in kind: wide ways on both rules.
 - **Draft 10.** Its streets are at most 14 to 20 m, so it stays single file at A and C on both rules.
+
+### Kit detail inside the arena (kit-hi-res, the owner's request, 2026-11-09)
+The owner: "some of the 3d asset buildings appear very low poly after the texture and other blender work. can you make a pass to ensure all the 3d assets used in the main play map are high res? its ok if the buildings outside the main batte arena (map boundary) are low poly."
+
+**What was lost.** On the city, 32 kit models stand inside the arena (|x|, |y| <= 240 m); AC-043 and AC-048 stand only outside it. No model was decimated anywhere: the processed files keep the source's 8,000 to 31,000 triangles, and LODs are made at load. The detail was lost in the Blender bake (`tools/blender/ashfall_bake.py`) and the load:
+- **Texture size.** The bake wrote 1024 px base colours and normal maps (the source has 2048), and the loader capped every texture at 1024.
+- **Weathering at the wrong scale.** The recipe's numbers are metres, but a Meshy file is normalised to about 2 m and the city draws it 8 to 33 times larger (the keep AC-044 at 63 m). The grit, stone tones, streaks, foot band and AO soot came out as building-sized smears and stains over the source's masonry, so its large flat faces read as low poly. A close-up of the untouched source (`--ashfall-kit-files source --ashfall-lods off --ashfall-tex 0`) shows the masonry the bake hid.
+- **No normal map.** The Meshy expansion's 23 models have a base colour only.
+- **LODs.** These were not the main cause: the close-ups at 5 to 14 m draw the full mesh either way. At 35 m the 4 px threshold picks coarser LODs.
+
+**The fix** (29 models re-baked; the three rubble props are already in metres and stay):
+- **Bake at arena scale.** `smtool ashfall-kit-bake-scales` writes each arena model's scale (its largest arena item, along the file's axes). The bake scales the object to that size for the bake only; the mesh is exported as read, so the collision and the stair pass are unchanged. The bake now runs at 2048 px.
+- **What the texture can hold.** Weathering patterns finer than 6 texels at the model's texel density are faded (grit, stone tones, thin streaks), and noise octaves above that are dropped. Stains fade on thinly textured models: full strength from 80 texels/m, at least 15 %. The models land at 12 (the keep) to 297 texels/m.
+- **Relief normal maps.** A model without a normal map gets a tangent-space one, baked from its source colour's relief (luminance as height, strength 1, 0.12 m).
+- **At load** (`AshfallKitDetail`): a model with an item inside the arena keeps 2048 px textures. Its instances inside the arena draw finer LODs: LOD bias 4 against the map's 4 px threshold, the engine's 1 px. That is in Forward+ only; safe mode (the Compatibility renderer) keeps the plain LODs.
+- **Unchanged.** Models placed only outside the arena keep the 1024 px file-scale bake. `--ashfall-kit-detail old` draws as before. Values are ours, tuned by looking at close-ups.
+
+**Cost** (RTX 4070 Ti SUPER, eight city views, `--ashfall-perf`):
+
+| Renderer | Frame time, old -> new | Primitives drawn | Peak video memory |
+|---|---|---|---|
+| Forward+ | 2.6 to 3.9 ms -> 3.0 to 4.9 ms | about 1.4 to 2 times | 634 -> 979 MiB |
+| Compatibility | 0.7 to 1.2 ms -> 0.7 to 1.3 ms | unchanged | 322 -> 519 MiB |
+
+The bundled kit (the release's `ashfall-kit\`, 81 files) grows from 80.8 to 141.9 MiB.
+
+**Media** (never in the repository): `D:\sm-reimpl\media\previews\ashfall-kit-hi-res\` holds:
+- `inventory.md`: each arena model's triangles, textures before and after, texel density, what was lost and the fix.
+- `perf.md`: the frame-time check.
+- `before\`, `after\` and `compare\`: one sheet per model, near and mid, before beside after.
+- Probe stills from the investigation.

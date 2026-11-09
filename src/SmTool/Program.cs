@@ -36,6 +36,7 @@ return args switch
     ["ashfall-clash", .. var clashRest] => SmTool.AshfallClashCommand.Run(clashRest),
     ["ashfall-kit-collision", .. var kitRest] => SmTool.AshfallKitCollisionCommand.Run(kitRest),
     ["ashfall-kit-files"] => SmTool.AshfallKitFilesCommand.Run(),
+    ["ashfall-kit-bake-scales", .. var bakeRest] => SmTool.AshfallKitBakeScalesCommand.Run(bakeRest),
     ["ashfall-kit-stairs", .. var stairRest] => SmTool.AshfallKitStairsCommand.Run(stairRest),
     ["musou-guard-route", .. var routeRest] => SmTool.MusouGuardRouteCommand.Run(routeRest),
     ["musou-army-routes", .. var armyRest] => SmTool.MusouArmyRoutesCommand.Run(armyRest),
