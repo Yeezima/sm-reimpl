@@ -19,22 +19,36 @@ public static class MusouSlashRules
     /// </summary>
     public const float ExtraSeconds = 1f;
 
-    /// <summary>Where the fade starts, as a share of the stroke's old lifetime (the old fade began at 0.45 of it).</summary>
-    public const float FadeStart = 0.45f;
+    /// <summary>
+    /// The tear (owner, 2026-11-09: "they should animate (open up the tear and then close the tear). it's jarring the way that they pop in and fade out"; ours, low confidence). The stroke opens along the
+    /// cut from a hairline to full width over <see cref="OpenSeconds"/> (the head sweeping from the start to the end of the cut), holds, then closes over the last <see cref="CloseSeconds"/> of its
+    /// <see cref="Lifetime"/> (narrowing back to a line, and only then fading out), every step eased with zero slope at both ends so nothing pops.
+    /// </summary>
+    public const float OpenSeconds = 0.16f, CloseSeconds = 0.45f;
 
     /// <summary>The stroke's total lifetime for a style whose old lifetime was <paramref name="baseSeconds"/>.</summary>
     public static float Lifetime(float baseSeconds) => baseSeconds + ExtraSeconds;
 
-    /// <summary>The stroke's brightness at <paramref name="age"/> seconds: 1 until <see cref="FadeStart"/> of the old lifetime, then a smootherstep down to 0 at the new end (no pop, zero slope at both ends).</summary>
-    public static float Fade(float age, float baseSeconds)
+    static float Ease(float t)
     {
-        float from = baseSeconds * FadeStart, to = Lifetime(baseSeconds);
-        float t = System.Math.Clamp((age - from) / (to - from), 0f, 1f);
-        return 1f - t * t * t * (t * (t * 6f - 15f) + 10f);
+        t = System.Math.Clamp(t, 0f, 1f);
+        return t * t * t * (t * (t * 6f - 15f) + 10f);
     }
 
-    /// <summary>The sweep-in's progress at <paramref name="age"/>: over 0.4 of the old lifetime, as before the extra second.</summary>
-    public static float Reveal(float age, float baseSeconds) => System.Math.Clamp(age / (baseSeconds * 0.4f), 0.05f, 1f) * 1.15f;
+    /// <summary>How far the tear has opened at <paramref name="age"/> (0 closed, 1 open; eased).</summary>
+    public static float Opened(float age) => Ease(age / OpenSeconds);
+
+    /// <summary>How far the tear has closed again at <paramref name="age"/> (0 not yet, 1 shut; eased) for a stroke whose old life was <paramref name="baseSeconds"/>.</summary>
+    public static float Closed(float age, float baseSeconds) => Ease((age - (Lifetime(baseSeconds) - CloseSeconds)) / CloseSeconds);
+
+    /// <summary>The tear's width as a share of the full width: opens, holds at 1, closes to a line (0 at both ends).</summary>
+    public static float TearWidth(float age, float baseSeconds) => Opened(age) * (1f - Closed(age, baseSeconds));
+
+    /// <summary>The brightness: rises over the first 60 % of the opening and falls only over the last 45 % of the closing, after the width has narrowed (0 at both ends, never a pop).</summary>
+    public static float Fade(float age, float baseSeconds) => Ease(age / (OpenSeconds * 0.6f)) * (1f - Ease((Closed(age, baseSeconds) - 0.55f) / 0.45f));
+
+    /// <summary>The head of the sweep along the cut (0 to 1.15: a little past the end so the whole cut is lit once open).</summary>
+    public static float Reveal(float age, float baseSeconds) => Opened(age) * 1.15f;
 
     /// <summary>The slashes drawn in one frame at most (a cleave strikes up to 20 enemies; the pool is <see cref="Pool"/>).</summary>
     public const int PerFrame = 24, Pool = 160;   // 160 (was 64): the strokes live a second longer, so more are alive at once

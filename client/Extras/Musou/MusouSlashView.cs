@@ -27,7 +27,7 @@ void fragment() {
     // x along the stroke (0 start .. 1 end), y across it; a crescent: thick in the middle, pointed at both ends, bowed a little.
     float x = UV.x;
     float bow = 0.5 + 0.12 * sin(3.14159 * x) * cd.z;
-    float half_w = pow(sin(3.14159 * clamp(x, 0.0, 1.0)), 0.7) * 0.3;
+    float half_w = max(pow(sin(3.14159 * clamp(x, 0.0, 1.0)), 0.7) * 0.3 * cd.w, 0.002);   // cd.w: the tear's width, 0 shut .. 1 open (MusouSlashRules.TearWidth)
     float d = abs(UV.y - bow);
     float body = smoothstep(half_w, half_w * 0.25, d);
     float core = smoothstep(half_w * 0.45, 0.0, d);
@@ -140,11 +140,11 @@ void fragment() {
                 s.Age += (float)delta;
                 if (s.Age >= s.Seconds) { s.Live = false; continue; }
                 float reveal = MusouSlashRules.Reveal(s.Age, s.Base);   // the head runs a little past the end, so the whole stroke is lit before it fades
-                float fade = MusouSlashRules.Fade(s.Age, s.Base);       // owner 2026-11-09: one second longer, the tail eased out
+                float fade = MusouSlashRules.Fade(s.Age, s.Base);       // owner 2026-11-09: the tear opens, holds and closes (one second longer than before), eased
                 var basis = new Basis(s.Axis * s.Length, s.Up * s.Width * (s.Length / 1.8f) * 2.2f, s.Normal);
                 group.Mesh.SetInstanceTransform(n, new Transform3D(basis, s.Pos));
                 group.Mesh.SetInstanceColor(n, s.Colour);
-                group.Mesh.SetInstanceCustomData(n, new Color(reveal, fade, s.Bow, 0f));
+                group.Mesh.SetInstanceCustomData(n, new Color(reveal, fade, s.Bow, MusouSlashRules.TearWidth(s.Age, s.Base)));
                 n++;
             }
             if (group.Mesh.VisibleInstanceCount != n) group.Mesh.VisibleInstanceCount = n;
