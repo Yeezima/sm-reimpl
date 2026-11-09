@@ -10,6 +10,18 @@ namespace SmFormats.Tests;
 public class FxGpuLayoutTests
 {
     [Theory]
+    [InlineData(false, false, true, 1200)]    // Musou on a normal GPU: the GPU sprays, cap 1,200
+    [InlineData(true, false, false, 160)]     // --fx-cpu: the CPU path, cap 160
+    [InlineData(false, true, false, 160)]     // safe mode (Compatibility renderer or --safe-mode): the CPU path, cap 160
+    [InlineData(true, true, false, 160)]
+    public void Safe_mode_and_fx_cpu_keep_the_cpu_path_and_its_cap(bool fxCpu, bool safeMode, bool gpu, int cap)
+    {
+        Assert.Equal(gpu, FxGpuLayout.UseGpu(fxCpu, safeMode));
+        Assert.Equal(cap, FxGpuLayout.EffectCap(FxGpuLayout.UseGpu(fxCpu, safeMode), null));
+        Assert.Equal(300, FxGpuLayout.EffectCap(FxGpuLayout.UseGpu(fxCpu, safeMode), 300));   // --fx-cap wins on either path
+    }
+
+    [Theory]
     [InlineData(0u)]
     [InlineData(1u)]
     [InlineData(0xFFFFu)]

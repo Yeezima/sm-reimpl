@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2825 spec table rows: **2104 tagged**, 499 not tagged (read from data with high confidence), 222 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 634 rows of the changes document.
+Scanned 2824 spec table rows: **2103 tagged**, 499 not tagged (read from data with high confidence), 222 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 634 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,21 +50,21 @@ Scanned 2825 spec table rows: **2104 tagged**, 499 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 22 | 13 | 13 | 12 | 7 |
-| Core simulation (provisional values) | 566 | 542 | 394 | 160 | 1 |
+| Core simulation (provisional values) | 566 | 542 | 396 | 158 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 235 | 224 | 125 | 64 | 0 |
-| **All areas** | **2104** | 1857 | 1557 | 674 | 38 |
+| Ork faction | 234 | 223 | 125 | 63 | 0 |
+| **All areas** | **2103** | 1856 | 1559 | 671 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1173 |
-| confidence: low | 744 |
-| confidence: medium | 684 |
+| kind: ours | 1172 |
+| confidence: low | 745 |
+| confidence: medium | 685 |
 | notes: ours | 386 |
 | kind: interpretation | 363 |
-| notes: estimate | 175 |
+| notes: estimate | 172 |
 | kind: estimate | 145 |
 | confidence: none (low) | 129 |
 | kind: provisional | 100 |
@@ -3097,9 +3097,9 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-A8370751` | What the GPU draws (Musou) | the ring sprites and streamers a spray's particles carry, directly or under one combo there, when the spray does not loop, its effect does not repeat and has no soft-headed streamers, and it is not a dropper of an effect that runs collisions (a spray inside… | kind: ours | ours (implementation; the look is the CPU path's) | What the GPU draws (Musou): compare with SM1 by feel or video. Ours: the ring sprites and streamers a spray's particles carry, directly or… | ☐ |
 | `R-FFCC7211` | Live-effect cap with the GPU sprays (Musou) | **1,200** shot, hit and blast effects (CPU path: 160); `--fx-cap N` overrides (count) | kind: estimate; confidence: medium; notes: ours | ours (measured, see the milestone) | Live-effect cap with the GPU sprays (Musou): compare with SM1 by feel or video. Ours: 1,200 shot, hit and blast effects (CPU path: 160); --fx-cap N… | ☐ |
 | `R-37A5A2B6` | GPU pools (Musou) | **131,072** records per blend (additive, alpha: 256 layers of 512 records; a layer is uploaded when a record in it changes), **8,192** live sprays; blocks are handed out in powers of two (a freed block is reused by the next of its size; the pool starts over… (count) | kind: ours | ours | GPU pools (Musou): compare with SM1 by feel or video. Ours: 131,072 records per blend (additive, alpha: 256 layers of 512… | ☐ |
+| `R-9142E6C0` | Burst hitch and dropped sprays (Musou, playtest check) | in the burst stress (200 Orks killed by one blast every 4 s) the GPU path's worst burst frame is **63.6 ms** median (CPU path 53.4 ms; p99 54.7 against 41.7 ms) and **34,192** sprays were dropped by the full alpha pool (a dropped spray draws none of its GPU… (ms, count) | kind: ours; confidence: low | measured (`tools\musou-perf.ps1 burst`, see the milestone) | Burst hitch and dropped sprays (Musou, playtest check): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: in the burst stress (200 Orks killed by one blast every 4 s) the GPU… | ☐ |
+| `R-3B45C8AA` | GPU sprays on old GPUs (Musou) | safe mode (the Compatibility renderer or `--safe-mode`) keeps the CPU path and its 160-effect cap; a texture array the renderer cannot make falls back to the CPU path | kind: ours; confidence: medium | ours (review of 2026-11-10) | GPU sprays on old GPUs (Musou): compare with SM1 by feel or video. Ours: safe mode (the Compatibility renderer or --safe-mode) keeps the CPU… | ☐ |
 | `R-4202F822` | Draw order of the GPU sprays' alpha sprites (Musou) | not sorted back to front: drawn before the CPU path's sorted alpha cards, in spawn order (the CPU path sorts every alpha quad by its centre's distance) | kind: provisional; confidence: low; notes: ours | ours (a GPU pass cannot sort without per-frame CPU work) | Draw order of the GPU sprays' alpha sprites (Musou): compare with SM1 by feel or video. Ours: not sorted back to front: drawn before the CPU path's sorted alpha… | ☐ |
-| `R-A46FC9E4` | Waves: size (Musou) | **160** (70 %), **400** (25 %), **800 to 960** (5 %) by the dice (was 200, 500, 1,000 to 1,200), and with no aggregate a wave is what the armies' real cap leaves room for (superseded 2026-11-10: back to 100 %, spec "Musou Mode: the Orks back at 100 %, twice… (Orks) | kind: ours; notes: estimate | owner 2026-11-09 | Waves: size (Musou): compare with SM1 by measuring on a flat spot of the same map. Ours: 160 (70 %), 400 (25 %), 800 to 960 (5 %) by the dice (was 200, 500… | ☐ |
-| `R-2594594B` | Garrison, crowd and caps (Musou) | garrison **77** a point (was 96); crowd **320** (was 400) filling one every **5** ticks (was 4: a crowd still in 53 s); alive cap **960** solo plus **512** a further human, at most **1344** (was 1200, 640, 1680); the trickle **1280** in all (was 1600); route… (Orks) | kind: ours; notes: estimate | owner 2026-11-09 | Garrison, crowd and caps (Musou): compare with SM1 by feel or video. Ours: garrison 77 a point (was 96); crowd 320 (was 400) filling one every 5… | ☐ |
 
 ### General game design (7)
 
@@ -3537,15 +3537,9 @@ The Orks are an addition the owner keeps (the original multiplayer had Space Mar
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-CA8A7F03` | Ork armies (Musou) | an Ork army is real Orks alone: a wave's muster brings real Orks at its stronghold (about one a tick), each army's men are made real in its slots wherever it stands (at most **16** a tick over all armies), never folded back at any distance, and what finds no… | kind: ours; confidence: medium | owner 2026-11-09 | Ork armies (Musou): compare with SM1 by feel or video. Ours: an Ork army is real Orks alone: a wave's muster brings real Orks at… | ☐ |
-| `R-C85C0F75` | Armies' real Orks (Musou) | at most **384** at once (was 480) over all Ork armies, outside the crowds' cap and pool as before (Orks) | kind: ours; notes: estimate | owner 2026-11-09 ("80% of current") | Armies' real Orks (Musou): compare with SM1 by feel or video. Ours: at most 384 at once (was 480) over all Ork armies, outside the… | ☐ |
-| `R-EC633428` | Waves: size (Musou) | **160** (70 %), **400** (25 %), **800 to 960** (5 %) by the dice (was 200, 500, 1,000 to 1,200), and with no aggregate a wave is what the armies' real cap leaves room for (Orks) | kind: ours; notes: estimate | owner 2026-11-09 | Waves: size (Musou): compare with SM1 by measuring on a flat spot of the same map. Ours: 160 (70 %), 400 (25 %), 800 to 960 (5 %) by the dice (was 200, 500… | ☐ |
+| `R-C85C0F75` | Armies' real Orks (Musou) | at most **384** at once (was 480) over all Ork armies, outside the crowds' cap and pool as before (superseded 2026-11-10: back to 100 %, spec "Musou Mode: the Orks back at 100 %, twice the big Orks") (Orks) | kind: ours; notes: estimate | owner 2026-11-09 ("80% of current") | Armies' real Orks (Musou): compare with SM1 by feel or video. Ours: at most 384 at once (was 480) over all Ork armies, outside the… | ☐ |
+| `R-EC633428` | Waves: size (Musou) | **160** (70 %), **400** (25 %), **800 to 960** (5 %) by the dice (was 200, 500, 1,000 to 1,200), and with no aggregate a wave is what the armies' real cap leaves room for (superseded 2026-11-10: back to 100 %, spec "Musou Mode: the Orks back at 100 %, twice… (Orks) | kind: ours; notes: estimate | owner 2026-11-09 | Waves: size (Musou): compare with SM1 by measuring on a flat spot of the same map. Ours: 160 (70 %), 400 (25 %), 800 to 960 (5 %) by the dice (was 200, 500… | ☐ |
 | `R-CCEF4870` | Garrison, crowd and caps (Musou) | garrison **77** a point (was 96); crowd **320** (was 400) filling one every **5** ticks (was 4: a crowd still in 53 s); alive cap **960** solo plus **512** a further human, at most **1344** (was 1200, 640, 1680); the trickle **1280** in all (was 1600); route… (Orks) | kind: ours; notes: estimate | owner 2026-11-09 | Garrison, crowd and caps (Musou): compare with SM1 by feel or video. Ours: garrison 77 a point (was 96); crowd 320 (was 400) filling one every 5… | ☐ |
-
-*Spec section: Musou Mode: GPU spray particles (musou/gpu-particles, 2026-11-10; client only, Musou Mode only; no simulation, wire, protocol, config-hash or rules-version change)*
-
-| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
-|---|---|---|---|---|---|---|
-| `R-4AD25D27` | Armies' real Orks (Musou) | at most **384** at once (was 480) over all Ork armies, outside the crowds' cap and pool as before (superseded 2026-11-10: back to 100 %, spec "Musou Mode: the Orks back at 100 %, twice the big Orks") (Orks) | kind: ours; notes: estimate | owner 2026-11-09 ("80% of current") | Armies' real Orks (Musou): compare with SM1 by feel or video. Ours: at most 384 at once (was 480) over all Ork armies, outside the… | ☐ |
 
 *Spec section: Musou Mode: the big Orks' deaths and gait (musou-big-ork-deaths, 2026-11-09; Musou Mode only; the deaths and gait client presentation; the bodies against the map in the simulation, `MusouSim.Version` 34, to be renumbered at integration; no protocol change)*
 

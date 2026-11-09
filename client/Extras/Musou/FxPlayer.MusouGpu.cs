@@ -28,7 +28,9 @@ namespace SmClient;
 public sealed partial class FxPlayer
 {
     /// <summary>The live-effect cap with the GPU spray path (**ours**: <c>--fx-cap N</c> overrides it; 160 on the CPU path).</summary>
-    public const int GpuMaxEffects = 1200;
+    public const int GpuMaxEffects = FxGpuLayout.GpuMaxEffects;
+    /// <summary>The GPU path's live-effect cap (read once: <c>--fx-cap N</c> or 1,200).</summary>
+    static readonly int GpuCap = FxGpuLayout.EffectCap(gpu: true, FxCapArg());
 
     /// <summary>Segments of a streamer ribbon on the GPU (<see cref="DrawStreamer"/>'s N without a soft head).</summary>
     const int Segments = 8;
@@ -85,22 +87,30 @@ public sealed partial class FxPlayer
     public void MusouGpuEnable()
     {
         if (_gpu is not null || _gpuCpuNoted || !IsReady || _batch is null) return;
-        if (Array.IndexOf(OS.GetCmdlineUserArgs(), "--fx-cpu") >= 0)
+        bool fxCpu = Array.IndexOf(OS.GetCmdlineUserArgs(), "--fx-cpu") >= 0;
+        if (!FxGpuLayout.UseGpu(fxCpu, SafeMode.Active))
         {
-            GD.Print("effects: GPU sprays off (--fx-cpu), the CPU path draws every particle");
+            GD.Print($"effects: GPU sprays off ({(fxCpu ? "--fx-cpu" : "safe mode")}), the CPU path draws every particle (cap {FxGpuLayout.EffectCap(gpu: false, FxCapArg())})");
             _gpuCpuNoted = true;
             return;
         }
         var gpu = new FxGpuSprays { Name = "GpuSprays" };
         AddChild(gpu);
-        if (!gpu.Initialize(_batch)) { gpu.QueueFree(); return; }
+        if (!gpu.Initialize(_batch))
+        {
+            // A texture array the renderer could not make: the CPU path keeps every particle (and its cap) rather than drawing nothing.
+            GD.PushWarning("effects: GPU sprays could not start (texture arrays not created); the CPU path draws every particle");
+            gpu.QueueFree();
+            _gpuCpuNoted = true;
+            return;
+        }
         _gpu = gpu;
-        GD.Print($"effects: GPU sprays on (pools of {FxGpuSprays.PoolCapacity} records, {FxGpuSprays.SlotCapacity} sprays; live-effect cap {FxCapArg() ?? GpuMaxEffects})");
+        GD.Print($"effects: GPU sprays on (pools of {FxGpuSprays.PoolCapacity} records, {FxGpuSprays.SlotCapacity} sprays; live-effect cap {GpuCap})");
     }
 
     partial void ExtrasFxCap(ref int cap)
     {
-        if (_gpu is not null) cap = FxCapArg() ?? GpuMaxEffects;
+        if (_gpu is not null) cap = GpuCap;
     }
 
     partial void ExtrasFxBegin(double dt)
@@ -197,6 +207,7 @@ public sealed partial class FxPlayer
             if (ch.Combo is null) { if (ch.Leaf >= 0) into.Add(ch.Leaf); continue; }
             if (ch.Combo.OneAtRandom)
             {
+                if (ch.Combo.Children.Length == 0) continue;   // nothing to pick (as DrawCombo)
                 int pick = Math.Min(ch.Combo.Children.Length - 1, (int)(R(Mix(ps, ch.K + 5), 4) * ch.Combo.Children.Length));
                 if (ch.ComboLeaves[pick] >= 0) into.Add(ch.ComboLeaves[pick]);
                 continue;
