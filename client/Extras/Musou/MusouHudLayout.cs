@@ -16,4 +16,10 @@ public static class MusouHudLayout
 
     /// <summary>The left margin of the corner panels and the bottom edge's margin under the bottom-left bars (1080-high virtual units).</summary>
     public const float Left = 40f, BottomMargin = 48f;
+
+    /// <summary>
+    /// The own armour and health bar (the match HUD's, <see cref="Hud.Frame.VitalsCorner"/>; owner 2026-11-10 "Bottom left, approve"): its box's left edge at <see cref="Left"/>, its bottom 228 above
+    /// the screen's bottom (clear of the commander's bar and three Boss Ork bars, whose top reaches about 213), at 0.65 of its size (about 385 wide, the commander's bar's 380).
+    /// </summary>
+    public static readonly Godot.Vector3 VitalsCorner = new(Left - 6f, 228f, 0.65f);
 }

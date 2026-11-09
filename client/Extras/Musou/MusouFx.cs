@@ -158,6 +158,8 @@ public partial class NetworkView
 
         // The match HUD's score box: Musou has no team scores (the owner, 2026-11-01: removed; the KOs and points are in the run panel).
         if (_hudView is not null) _hudView.Data.NoScorePanel = true;
+        // The owner, 2026-11-10 ("Bottom left, approve"): the own armour and health bar bottom left, over the Boss Ork bars (MusouHudLayout); --musou-old-hud: the original's top centre.
+        if (_hudView is not null) _hudView.Data.VitalsCorner = MusouHudLayout.Old ? null : MusouHudLayout.VitalsCorner;
 
         // The HUD's frame.
         var f = _musouHud.Data;

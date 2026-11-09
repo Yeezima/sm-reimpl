@@ -101,6 +101,11 @@ public sealed partial class Hud : Control
         public int OwnScore, EnemyScore, ScoreLimit;
         /// <summary>Added content sets this: the mode has its own HUD, and no team score panel is drawn.</summary>
         public bool NoScorePanel;
+        /// <summary>
+        /// Added content sets this: the armour and health bar's place instead of the original's top centre: X its box's left edge, Y its box's bottom edge measured up from the screen's bottom
+        /// (virtual units), Z its scale. Null (the default, and always in Classic PvP): the original's place (Hud.Vitals.cs).
+        /// </summary>
+        public Vector3? VitalsCorner;
         public string Clock = "";
         /// <summary>Centre banner: warm-up or match over; empty while playing.</summary>
         public string Banner = "";
