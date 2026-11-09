@@ -39,6 +39,55 @@ public partial class NetworkView
     bool? _musouGunCam;
     (double At, Vector3 From, Vector3 End)? _musouGunCamShot;
 
+    // Client-built tracers (owner, 2026-11-09; SmSim MusouGunBurst): the bullet-gun Orks' rounds are not on the wire, each burst cue starts a burst here and its rounds come from MusouGunBursts.
+    readonly MusouGunBursts _musouBursts = new();
+    readonly List<MusouEvent> _musouRoundsNow = new();
+    static readonly MusouRules MusouSpecs = new();
+    long _musouBurstsStarted, _musouRoundsBuilt;
+
+    /// <summary>Starts the bursts this frame's cues announce, and gathers the frame's rounds: the server's own Tracer events (a server that still sends them) and those built from the running bursts.</summary>
+    void MusouRoundsFrame(IReadOnlyList<MusouShown> shown)
+    {
+        _musouRoundsNow.Clear();
+        if (!MusouGunsOn) return;
+        foreach (var e in _musouState.NewEvents)
+        {
+            if (e.Kind == MusouEventKind.Tracer) { _musouRoundsNow.Add(e); continue; }
+            if (e.Kind != MusouEventKind.Telegraph) continue;
+            if (e.Value == MusouBigShoota.OverheatCue) { _musouBursts.Cancel(e.Enemy); continue; }
+            if (e.Value != MusouGunBurst.Cue && e.Value != MusouBigShoota.BurstCue) continue;
+            int i = MusouFind(shown, e.Enemy);
+            if (i < 0 || !MusouGunBurst.Synthesized(shown[i].Type)) continue;
+            var type = shown[i].Type;
+            float distance = Num.Vector2.Distance(new Num.Vector2(shown[i].Position.X, shown[i].Position.Y), new Num.Vector2(e.Vector.X, e.Vector.Y));
+            int rounds; double interval; float chance;
+            if (type == MusouEnemyType.BigShootaNob)
+            {
+                rounds = (int)(MusouBigShoota.BurstSeconds * MusouBigShoota.RoundsPerSecond); interval = 1.0 / MusouBigShoota.RoundsPerSecond;
+                chance = MusouBigShoota.HitNear + (MusouBigShoota.HitFar - MusouBigShoota.HitNear) * Math.Clamp((distance - MusouBigShoota.NearRange) / (MusouBigShoota.MaxRange - MusouBigShoota.NearRange), 0f, 1f);
+            }
+            else
+            {
+                var spec = MusouSpecs.Of(type);
+                rounds = spec.RangedRounds; interval = spec.RangedRoundInterval;
+                chance = spec.RangedHitNear + (spec.RangedHitFar - spec.RangedHitNear) * Math.Clamp((distance - spec.RangedMin) / Math.Max(1e-3f, spec.RangedMax - spec.RangedMin), 0f, 1f);
+            }
+            _musouBursts.Start(e.Enemy, e.Player, e.Vector, _connectedFor, rounds, interval, chance);
+            _musouBurstsStarted++;
+        }
+        if (_musouBursts.Count == 0) return;
+        int mark = _musouRoundsNow.Count;
+        _musouBursts.Step(_connectedFor, (uint)(_connectedFor * Math.Max(1, _config.TickRate)), _musouRoundsNow);
+        // A shooter staggered, dying or jammed fires no more: his burst ends and his rounds are dropped.
+        for (int k = _musouRoundsNow.Count - 1; k >= mark; k--)
+        {
+            int i = MusouFind(shown, _musouRoundsNow[k].Enemy);
+            if (i < 0 || shown[i].State is MusouEnemyState.Stagger or MusouEnemyState.Dying or MusouEnemyState.Knocked or MusouEnemyState.Stunned or MusouEnemyState.Vanishing or MusouEnemyState.Overheated)
+            { _musouBursts.Cancel(_musouRoundsNow[k].Enemy); _musouRoundsNow.RemoveAt(k); }
+            else _musouRoundsBuilt++;
+        }
+    }
+
     /// <summary>This frame's rounds (before the crowd's frame: the shooters take their aiming stance).</summary>
     void MusouGunsFrame(IReadOnlyList<MusouShown> shown, Vector3 camera, float delta)
     {
@@ -48,9 +97,8 @@ public partial class NetworkView
         _musouGunPlan.Refill(delta);
         _musouGunShots.Clear(); _musouGunRounds.Clear();
         if (MusouGunCam && _musouGunCamShot is { } cam && _connectedFor - cam.At < 1.4) { _fxLastShotAt = cam.At; _fxLastFrom = cam.From; _fxLastEnd = cam.End; }   // the shot view stays on the Orks' fire
-        foreach (var e in _musouState.NewEvents)
+        foreach (var e in _musouRoundsNow)
         {
-            if (e.Kind != MusouEventKind.Tracer) continue;
             int i = MusouFind(shown, e.Enemy);
             if (i < 0 || MusouOrkGunRules.WargearOf(shown[i].Type) is null) continue;
             crowd.Fired(e.Enemy);
@@ -164,7 +212,7 @@ public partial class NetworkView
         if (_connectedFor < _musouGunLogAt || _musouGunFrames == 0) return;
         _musouGunLogAt = _connectedFor + 10.0;
         var p = _musouGunPlan;
-        GD.Print($"musou guns: t {_connectedFor:F0} s: rounds {p.Rounds}, flashes {p.Flashes}, tracers {p.Tracers}, impacts {p.Impacts}, held by rate {p.OverRate}, too far {p.TooFar}, no muzzle {_musouGunNoMuzzle}, misses into the open {_musouGunNoWall}; " +
+        GD.Print($"musou guns: t {_connectedFor:F0} s: bursts started {_musouBurstsStarted}, rounds built {_musouRoundsBuilt}, rounds {p.Rounds}, flashes {p.Flashes}, tracers {p.Tracers}, impacts {p.Impacts}, held by rate {p.OverRate}, too far {p.TooFar}, no muzzle {_musouGunNoMuzzle}, misses into the open {_musouGunNoWall}; " +
                  $"cost {_musouGunMs / _musouGunFrames:F3} ms a frame; effects live {_fx?.Live.ToString() ?? "-"}");
         _musouGunMs = 0; _musouGunFrames = 0;
     }

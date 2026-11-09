@@ -71,6 +71,7 @@ public partial class NetworkView
             if (_gameSpace is not null) MusouDraw(shown, (float)delta);
             Ph("musou: hud, fx, sounds");
             ulong t0 = SpikeMark();
+            MusouRoundsFrame(shown);   // the gun Orks' rounds: the server's, and those built from burst cues (NetworkView.MusouGuns.cs)
             MusouPresent(me, shown, (float)delta);   // MU3: the HUD, hit feedback and telegraphs (MusouFx.cs)
             MusouSoundsFrame(me, shown, (float)delta);   // the enemies' original sounds (NetworkView.MusouSounds.cs)
             _spikeSoundsMs += SpikeMs(t0);

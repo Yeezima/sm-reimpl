@@ -248,4 +248,43 @@ public class MusouOrkGunTests
         Assert.True((fx[^1] & MusouGunFx.Tracer) != 0);
         Assert.True(planner.OverRate > 0);
     }
+
+    [Fact]
+    public void Client_built_bursts_draw_a_guns_rounds_at_its_own_rate()
+    {
+        Assert.True(MusouGunBurst.Synthesized(MusouEnemyType.ShootaBoy));
+        Assert.True(MusouGunBurst.Synthesized(MusouEnemyType.BossShootaBoy));
+        Assert.True(MusouGunBurst.Synthesized(MusouEnemyType.BigShootaNob));
+        Assert.False(MusouGunBurst.Synthesized(MusouEnemyType.RokkitBoy));
+        Assert.False(MusouGunBurst.Synthesized(MusouEnemyType.Weirdboy));
+        var bursts = new MusouGunBursts();
+        var rounds = new List<MusouEvent>();
+        var aim = new System.Numerics.Vector3(10f, 20f, 1.2f);
+        bursts.Start(5, 3, aim, now: 0.0, rounds: 48, interval: 1.0 / 12.0, hitChance: 1f);   // a Big Shoota's burst
+        bursts.Step(0.0, 0, rounds);
+        Assert.Single(rounds);   // the first round at once
+        Assert.Equal(MusouEventKind.Tracer, rounds[0].Kind);
+        Assert.Equal(5, rounds[0].Enemy);
+        Assert.Equal(3, rounds[0].Player);   // a certain hit names the target
+        Assert.Equal(aim, rounds[0].Vector);
+        rounds.Clear();
+        for (double t = 0.05; t <= 4.2; t += 0.05) bursts.Step(t, (uint)(t * 30), rounds);
+        Assert.Equal(47, rounds.Count);   // 48 in all over 4 s, then it ends
+        Assert.Equal(0, bursts.Count);
+        // A miss lands beside the aim point and names nobody; a cancelled burst gives nothing more; a new one replaces the old.
+        bursts.Start(6, 3, aim, 0.0, 3, 0.12, hitChance: 0f);
+        rounds.Clear();
+        bursts.Step(0.0, 1, rounds);
+        Assert.Equal(0, rounds[0].Player);
+        Assert.NotEqual(aim, rounds[0].Vector);
+        bursts.Cancel(6);
+        rounds.Clear();
+        bursts.Step(1.0, 30, rounds);
+        Assert.Empty(rounds);
+        bursts.Start(7, 3, aim, 0.0, 3, 0.12, 0.5f);
+        bursts.Start(7, 3, aim, 0.0, 2, 0.12, 0.5f);
+        Assert.Equal(1, bursts.Count);
+        bursts.Step(1.0, 30, rounds);
+        Assert.Equal(2, rounds.Count);
+    }
 }

@@ -115,7 +115,7 @@ public sealed partial class MusouSim
                 _fireDue[i] = 1f;   // the first round at once
                 _fireAt[i] = targets[t].Position;
                 BigShootaBursts++;
-                AddEvent(new MusouEvent(MusouEventKind.Telegraph, Tick, (ushort)(i + 1), (ushort)Math.Clamp(targets[t].Id, 0, ushort.MaxValue), MusouBigShoota.BurstCue, _position[i]));
+                AddEvent(new MusouEvent(MusouEventKind.Telegraph, Tick, (ushort)(i + 1), (ushort)Math.Clamp(targets[t].Id, 0, ushort.MaxValue), MusouBigShoota.BurstCue, targets[t].Position + new Vector3(0f, 0f, 1.2f)));   // the aim point in the vector: the client draws his rounds from this cue (MusouGunBurst; the shared event key leaves no room for a second event)
                 TurnTo(i, Toward(i, targets[t].Position), MusouFacingRules.ShooterTurnDegrees);
                 Move(i, spec, Vector2.Zero, targets, near);
                 return true;

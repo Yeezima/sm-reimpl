@@ -132,7 +132,8 @@ public partial class NetworkView
         foreach (var slot in _musouSlots) if (slot.Bound) MusouSlotFrame(slot, shown, camera, now);
 
         var events = _musouState.NewEvents;
-        for (int i = 0; i < events.Count; i++) MusouSoundEvent(events[i], shown, camera, now);
+        for (int i = 0; i < events.Count; i++) if (events[i].Kind != MusouEventKind.Tracer) MusouSoundEvent(events[i], shown, camera, now);
+        for (int i = 0; i < _musouRoundsNow.Count; i++) MusouSoundEvent(_musouRoundsNow[i], shown, camera, now);   // the gun Orks' rounds (NetworkView.MusouGuns.cs)
         IReadOnlyList<MusouDeathShown> deaths = _musouOldDeaths ? _musouState.NewDeaths : _musouDeathsHanded;   // night batch 2026-11-06: a death's sound with its body (NetworkView.MusouDeathSpread.cs)
         for (int i = 0; i < deaths.Count; i++) MusouSoundDeath(deaths[i], camera);
         _musouDeathsHanded.Clear();
