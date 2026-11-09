@@ -47,9 +47,10 @@ public class GuardSimTests(ITestOutputHelper output)
 
     readonly record struct Battle(int Ticks, int Lost, int SquadsLeft, int Shots, int ShotsHit, int Strikes, int Tracers);
 
-    static Battle SixSquadsAgainstSixtyBoyz(Action<string>? Log = null)
+    static Battle SixSquadsAgainstSixtyBoyz(Action<string>? Log = null, bool oldPace = true)
     {
         var w = Box();
+        w.Musou!.OldOrkPace = oldPace;   // TF3's balance as pinned: the Orks' speed before their pace and charge (2026-11-09; the new outcome in Six_squads_against_sixty_charging_boyz)
         var guards = w.TfwGuards!;
         for (int s = 0; s < 6; s++) Assert.Equal(s, guards.SpawnSquad(new Vector3(-20f + s * 8f, -10f, 0f)));
         Boyz(w, 60, new Vector3(-7f, 30f, 0f), health: 85f * GuardRules.Strength);   // as tough as the Guardsmen's scale (night batch 2026-11-06), so TF3's fight still comes to blows
@@ -62,6 +63,17 @@ public class GuardSimTests(ITestOutputHelper output)
             if (tick % 150 == 0) Log?.Invoke($"{tick / 30f:0} s: boyz {w.Musou.Alive}, guards {guards.Alive}, squads {guards.SquadsAlive}, player health {w.Players[1].Health}");
         }
         return new Battle(tick, guards.Lost, guards.SquadsAlive, guards.Shots, guards.ShotsHit, strikes, w.Musou!.Alive);
+    }
+
+    /// <summary>The Orks' pace and charge (the owner, 2026-11-09): 1.2x and a sprint within 30 m tip TF3's box the Orks' way (measured: the six squads gone by 60 s, 21 Boyz left). Recorded, not a goal.</summary>
+    [Fact]
+    public void Six_squads_against_sixty_charging_boyz()
+    {
+        var a = SixSquadsAgainstSixtyBoyz(output.WriteLine, oldPace: false);
+        output.WriteLine($"charging: {a} = {a.Ticks / 30f:0.0} s");
+        Assert.True(a.Strikes > 0);
+        Assert.Equal(a, SixSquadsAgainstSixtyBoyz(oldPace: false));   // deterministic
+        Assert.True(a.Tracers > 0 && a.SquadsLeft == 0, $"the balance moved again: {a}");   // the Orks win the box now
     }
 
     [Fact]

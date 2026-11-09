@@ -101,7 +101,7 @@ public class TfwPackTests
                 Run(sim, [target], 30, ref tick);
                 var now = Shape(sim, ids);
                 trace += $" {s + 1}s {now.Along:F1}x{now.Across:F1}";
-                if (s >= 2 && s < 11) open = MathF.Max(open, now.Ratio);   // the open ground before the gap
+                if (s >= 2 && s < 9) open = MathF.Max(open, now.Ratio);   // the open ground before the gap (11 s before the Orks' 1.2x pace of 2026-11-09)
                 worst = MathF.Max(worst, now.Ratio);
                 if (s >= 2) least = MathF.Min(least, now.Across);
             }

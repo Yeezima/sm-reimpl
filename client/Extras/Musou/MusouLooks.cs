@@ -23,9 +23,9 @@ namespace SmClient;
 public sealed class MusouLooks
 {
     /// <summary>The clip indices of a look (<see cref="Look.Clips"/>).</summary>
-    public const int Run = 0, Idle = 1, Attack = 2, Stagger = 3, Death = 4, ClipCount = 5;
+    public const int Run = 0, Idle = 1, Attack = 2, Stagger = 3, Death = 4, Sprint = 5, ClipCount = 6;   // Sprint: the charge (2026-11-09; the run where a look has none)
     /// <summary>Whether a clip loops (the run and the idle) or holds its last frame (the attack, stagger and death follow the state's time).</summary>
-    public static bool Loops(int clip) => clip is Run or Idle;
+    public static bool Loops(int clip) => clip is Run or Idle or Sprint;
 
     /// <summary>One kind's look.</summary>
     public sealed class Look
@@ -292,6 +292,8 @@ public sealed class MusouLooks
         clips[Attack] = ranged ? Find(["BOY_2HR_RNG_Fire_S_01"], "Fire") : Find(["BOY_1HM_MEL_Cmbo_01_Atk01_1m", "BOY_1HM_MEL_Cmbo_01_Hvy01_1m"], "_Atk");
         clips[Stagger] = Find(["BOY_1HM_REC_Hvy_Front_Hi_L_01", "BOY_1HM_REC_Lt_Front_Hi_L_01"], "_REC_");
         clips[Death] = ranged ? Find(["BOY_2HR_DIE_Fall_Forward_01", "BOY_1HM_DIE_Basic_02"], "_DIE") : Find(["BOY_1HM_DIE_Basic_02", "BOY_1HM_DIE_Basic_03"], "_DIE");
+        // The charge (the owner, 2026-11-09: "sprint to 'charge' the enemy when they reach within 30m"): the boy rig's own sprint for the melee kinds; the gun kinds never charge (the run stands in)
+        if (!ranged) clips[Sprint] = Find(["BOY_1HM_NAV_Sprint_F_01"], "Sprint_F");
         Fill(clips);
         return clips;
     }
@@ -313,6 +315,7 @@ public sealed class MusouLooks
     static void Fill(HavokBoundAnimation?[] clips)
     {
         var any = clips[Idle] ?? clips[Run];
+        clips[Sprint] ??= clips[Run];
         for (int i = 0; i < clips.Length; i++) clips[i] ??= any;
     }
 }

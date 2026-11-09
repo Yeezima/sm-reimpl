@@ -194,6 +194,7 @@ public sealed partial class MusouSim
             }
             int t = Target(i, targets);
             Vector2 desired = Vector2.Zero;
+            _charging[i] = false;   // MusouSim.Charge.cs: Behave decides it again
             if (_scripted[i]) { }   // MU3: the boss's ability drives it (MusouBoss)
             else if (t < 0)
             {
@@ -456,6 +457,7 @@ public sealed partial class MusouSim
         if (_type[i] == MusouEnemyType.Weirdboy && fight && WeirdboyActs(i, target, distance, toward)) return Vector2.Zero;   // a teleport or a summons (MusouSim.Weirdboy.cs)
         bool melee = spec.Melee && (!spec.Hybrid || distance <= spec.HybridMeleeDistance);
         bool ranged = spec.Ranged && !melee;
+        if (melee) DecideCharge(i, target, reach);   // MusouSim.Charge.cs: within 30 m a melee Ork sprints at his enemy
         if ((_token[i] == ShooterToken && !ranged) || (_token[i] == MeleeToken && !melee)) { _token[i] = 0; _burst[i] = 0; }
         bool level = MathF.Abs(d.Z) <= LevelReachOf(i);   // MusouSim.BigBodies.cs (2026-11-09): 1.5 m for a Boy, up to 4.5 m for a big body
         if (melee && distance <= MusouFacingRules.MeleeEngageRange) _faceWant[i] = toward;   // a close melee Ork faces its target while it closes in

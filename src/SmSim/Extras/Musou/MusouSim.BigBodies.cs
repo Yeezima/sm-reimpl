@@ -37,7 +37,9 @@ public static class MusouBigBodyRules
 public sealed partial class MusouSim
 {
     /// <summary>Test aid (server <c>SM_MUSOU_OLD_BIG_BODIES=1</c>): the big bodies' reach, eye, lean and blocked steps before 2026-11-09.</summary>
-    public static bool OldBigBodies { get; set; } = Environment.GetEnvironmentVariable("SM_MUSOU_OLD_BIG_BODIES") == "1";
+    public static readonly bool DefaultOldBigBodies = Environment.GetEnvironmentVariable("SM_MUSOU_OLD_BIG_BODIES") == "1";
+    /// <summary>This pool's switch (tests set it per pool; the server's from <see cref="DefaultOldBigBodies"/>).</summary>
+    public bool OldBigBodies { get; set; } = DefaultOldBigBodies;
 
     bool BigBodyRules => !OldBigBodies && Swarm is not null;
 

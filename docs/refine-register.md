@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2755 spec table rows: **2050 tagged**, 489 not tagged (read from data with high confidence), 216 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 611 rows of the changes document.
+Scanned 2758 spec table rows: **2053 tagged**, 489 not tagged (read from data with high confidence), 216 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 612 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -52,16 +52,16 @@ Scanned 2755 spec table rows: **2050 tagged**, 489 not tagged (read from data wi
 | Networking and render smoothing | 19 | 10 | 10 | 10 | 7 |
 | Core simulation (provisional values) | 529 | 505 | 368 | 145 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 227 | 217 | 121 | 61 | 0 |
-| **All areas** | **2050** | 1804 | 1520 | 651 | 38 |
+| Ork faction | 230 | 220 | 123 | 61 | 0 |
+| **All areas** | **2053** | 1807 | 1522 | 651 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1135 |
+| kind: ours | 1138 |
 | confidence: low | 728 |
-| confidence: medium | 663 |
+| confidence: medium | 665 |
 | notes: ours | 369 |
 | kind: interpretation | 360 |
 | notes: estimate | 169 |
@@ -3470,6 +3470,14 @@ The Orks are an addition the owner keeps (the original multiplayer had Space Mar
 | `R-C604E1B8` | Shooters' eye (Musou, server) | the line of sight starts at **1.5** m times the body's height over a Boy's (1x to 3x): a Boy 1.5 m as before, a Boss Shoota Boy 4.5 m (he looked out at 1.5 m, below the parapets); every body taller than a Boy a little higher ('Ard Boy 1.54, Chaos Marine 1.66… (m) | kind: ours; notes: estimate | owner 2026-11-09 | Shooters' eye (Musou, server): compare with SM1 by shooting at the edges of the head and body and noting where shots register. Ours: the line of sight starts at 1.5 m times the body's height over a… | ☐ |
 | `R-353DB4F9` | Big Orks against walls (Musou, server) | a Boss Ork's lean off a near wall (`BossWallPush`) no longer slows his way: its part against the way he wants is dropped and the move keeps its speed (neither slower nor faster than without the lean); a big body's (taller than a Boy, or a Nob) step that would… (m/s) | kind: ours; confidence: medium | owner 2026-11-09 | Big Orks against walls (Musou, server): compare with SM1 by timing a run over a known distance. Ours: a Boss Ork's lean off a near wall (BossWallPush) no longer slows his… | ☐ |
 
+*Spec section: Musou Mode: the Orks' pace and charge (musou-big-ork-deaths, 2026-11-09; Musou Mode's war only (the 5-wave run as pinned); `MusouSim.Version` 35, to be renumbered at integration; no protocol, wire or per-Ork byte change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-7F7ADCD4` | Orks' pace (Musou) | every Ork on foot moves **1.2x** his speed: Boy 6.24, Shoota and Rokkit Boy 5.76, 'Ard Boy 5.28, Gretchin 7.44, Nob 5.28, Big Shoota Nob 4.8, Stormboy on the ground 6.24, Weirdboy 7.2, the Boss Orks 5.28 and the Warboss 5.52 m/s (the elites, bosses and… (x) | kind: ours | owner 2026-11-09 | Orks' pace (Musou): compare with SM1 by feel or video. Ours: every Ork on foot moves 1.2x his speed: Boy 6.24, Shoota and Rokkit… | ☐ |
+| `R-E2A806F3` | Orks' charge (Musou) | a melee-first Ork (Boy, 'Ard Boy, Gretchin, Nob, Stormboy, Boss Boy, Boss 'Ard Boy, Boss Nob) whose enemy (a player, a retainer or AI Marine, a Guard squad; not a place to retake) is within **30** m of him (from its edge), seeking, sprints until his blow (his… (m, m/s) | kind: ours; confidence: medium | owner 2026-11-09 (30 m, the charge); measured clips (the ratio); ours (the cap, the kinds) | Orks' charge (Musou): compare with SM1 by timing a run over a known distance. Ours: a melee-first Ork (Boy, 'Ard Boy, Gretchin, Nob, Stormboy, Boss Boy… | ☐ |
+| `R-B3B38FA9` | The charge as drawn (Musou, client) | a charging kind's look plays the boy rig's `BOY_1HM_NAV_Sprint_F_01` (the melee looks on the boy rig; the gun looks and the Warboss, Weirdboy, Squig and Stormboy's own rigs keep the run) once his drawn speed passes **0.5** of the way from his paced run to his… (x) | kind: ours; confidence: medium | owner 2026-11-09 | The charge as drawn (Musou, client): compare with SM1 by feel or video. Ours: a charging kind's look plays the boy rig's BOY_1HM_NAV_Sprint_F_01… | ☐ |
+
 ## Part C: Deliberate changes (keep or revert after playtest)
 
 Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our choices where the original is unknown, and what is not reproduced yet. Nothing is classified here; every row is listed. The prompt says what to ask after the playtest.
@@ -4243,6 +4251,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-F52025D9` | Musou: cleave volume and cap (musou/combat-rules, 2026-11-09; `TfwRules.Version` 53) | No Musou Mode in the original | Ours (the owner's request, verbatim: "extend the melee hitbox outward and forward of the player in a flat cone - they should reach out further for cleaving purposes. raise the cleave cap up to 40 orks in one swing."): the war's cleave reaches 1.5x further in a 120 degree half angle (was 90), up to 40 Orks a swing (was… | Musou Mode's war only; the skirmish, Classic PvP and the original are unchanged. spec "Musou combat: cleave volume" | Musou: cleave volume and cap (musou/combat-rules…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-1DD14181` | Musou: the big Orks' deaths and gait (musou-big-ork-deaths, owner 2026-11-09) | No Musou Mode in the original | Ours (the owner: "the elite and boss orks and the warboss need to have death animations. they also look like they move in slow motion because of the way they're scaled up"): an elite or boss Ork is never torn apart by the gore (the burst plays, the body falls with its death clip and lies); the Warboss dies by his own… | Musou Mode only, client presentation. spec "Musou Mode: the big Orks' deaths and gait" | Musou: the big Orks' deaths and gait (musou-big-ork-deaths…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-FEB84D7D` | Musou: the big Orks against the map (musou-big-ork-deaths, owner 2026-11-09) | No Musou Mode in the original | Ours (the owner: "boss enemies are getting stuck along objects and moving in slow motion"): a big body's vertical reach and shooting eye grow with its height (up to 3x: 4.5 m), a Boss Ork's lean off a wall no longer slows him, a big body's blocked step slides along the wall. `SM_MUSOU_OLD_BIG_BODIES=1` restores them | Musou Mode only. spec "Musou Mode: the big Orks' deaths and gait" | Musou: the big Orks against the map (musou-big-ork-deaths…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-42BA83D8` | Musou: the Orks' pace and charge (musou-big-ork-deaths, owner 2026-11-09) | No Musou Mode in the original | Ours (the owner: "make orks run 20% faster, and sprint to 'charge' the enemy when they reach within 30m of an enemy"): every Ork on foot 1.2x his speed (elites, bosses and the Warboss included); a melee-first Ork within 30 m of an enemy sprints at the original sprint clip's ratio over the run (at most 9.9 m/s) and… | Musou Mode's war only. spec "Musou Mode: the Orks' pace and charge" | Musou: the Orks' pace and charge (musou-big-ork-deaths…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 
 ## Appendix: not gameplay
 

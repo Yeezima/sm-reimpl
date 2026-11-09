@@ -195,6 +195,7 @@ public class MarineBrainTests(ITestOutputHelper output)
         Assert.True(MarineBrain.Flat(w.Players[leader].Position, TfwTestArena.Position2) <= MarineRules.ArriveRadius + 1f, $"stopped at {w.Players[leader].Position}");
         Assert.True(most <= AllyRules.LeaderWait + 3f, $"{most} m apart on the way");
 
+        w.Musou!.OldOrkPace = true;   // the pair's fight as pinned: charging Boyz (2026-11-09) reach the leader first and leave the follower nothing to kill
         for (int k = 0; k < 6; k++) w.Musou!.Spawn(MusouEnemyType.Boy, TfwTestArena.Position2 + new Vector3(4f + k, 5f, 0f), 0f, 85f);
         Run(w, 30f);
         Assert.True(Kills(w, leader) + Kills(w, follower) >= 4, $"{Kills(w, leader)} + {Kills(w, follower)} kills");

@@ -31,9 +31,9 @@ public class BigOrkSnagTests(ITestOutputHelper output)
 
     sealed record Walk(bool Arrived, float LongestStand, float MeanSpeed);
 
-    static Walk Go(Map map, MusouEnemyType type, Vector3 from, Vector3 to)
+    static Walk Go(Map map, MusouEnemyType type, Vector3 from, Vector3 to, bool old = false)
     {
-        var sim = new MusouSim(map.Graph) { Swarm = MusouSwarmRules.Default };
+        var sim = new MusouSim(map.Graph) { Swarm = MusouSwarmRules.Default, OldBigBodies = old };
         ushort id = sim.Spawn(type, from, 0f, 1e6f, map.Graph.Nearest(from));
         var targets = new[] { new MusouTarget(1, to, true) };
         var attacks = new List<MusouAttack>();
@@ -47,7 +47,7 @@ public class BigOrkSnagTests(ITestOutputHelper output)
             if (Vector2.Distance(new(e.Position.X, e.Position.Y), new(to.X, to.Y)) < 8f) return new Walk(true, longest, (float)(moving > 0 ? sum / moving : 0));
             float v = e.Velocity.Length();
             if (v < 0.5f) { still += 1f / 30f; longest = MathF.Max(longest, still); }
-            else { still = 0f; moving += 1; sum += v; }
+            else { still = 0f; if (Vector2.Distance(new(e.Position.X, e.Position.Y), new(to.X, to.Y)) > MusouChargeRules.ChargeWithin + 2f) { moving += 1; sum += v; } }   // the speed beyond the charge's 30 m
         }
         return new Walk(false, longest, (float)(moving > 0 ? sum / moving : 0));
     }
@@ -75,14 +75,12 @@ public class BigOrkSnagTests(ITestOutputHelper output)
         var map = Ashfall.Value;
         var pairs = Pairs(map);
         var rules = new MusouRules();
-        try
         {
             foreach (var type in new[] { MusouEnemyType.Nob, MusouEnemyType.BossBoy, MusouEnemyType.BossNob, MusouEnemyType.Warboss })
             {
-                float speed = rules.Of(type).Speed;
+                float speed = rules.Of(type).Speed * MusouChargeRules.PaceScale;   // the Orks' pace (2026-11-09)
                 foreach (var (from, to) in pairs)
                 {
-                    MusouSim.OldBigBodies = false;
                     var now = Go(map, type, from, to);
                     output.WriteLine($"{type} {from.X:F0},{from.Y:F0} -> {to.X:F0},{to.Y:F0}: arrived {now.Arrived}, longest stand {now.LongestStand:F1} s, {now.MeanSpeed:F2} m/s of {speed:F1}");
                     Assert.True(now.Arrived, $"{type} did not arrive from {from} to {to}");
@@ -91,12 +89,11 @@ public class BigOrkSnagTests(ITestOutputHelper output)
                 }
             }
             // Before: a Boss Ork scraped along the walls at under 90 % of his speed.
-            MusouSim.OldBigBodies = true;
-            float old = pairs.Average(p => Go(map, MusouEnemyType.BossNob, p.From, p.To).MeanSpeed);
-            output.WriteLine($"old BossNob: {old:F2} m/s of {rules.Of(MusouEnemyType.BossNob).Speed:F1}");
-            Assert.True(old < 0.92f * rules.Of(MusouEnemyType.BossNob).Speed);
+            float old = pairs.Average(p => Go(map, MusouEnemyType.BossNob, p.From, p.To, old: true).MeanSpeed);
+            float paced = rules.Of(MusouEnemyType.BossNob).Speed * MusouChargeRules.PaceScale;
+            output.WriteLine($"old BossNob: {old:F2} m/s of {paced:F2}");
+            Assert.True(old < 0.92f * paced);
         }
-        finally { MusouSim.OldBigBodies = false; }
     }
 
     [Theory]
@@ -108,10 +105,8 @@ public class BigOrkSnagTests(ITestOutputHelper output)
         // a floor, a block 2.4 m high over x 30..60 with a ramp up 12 m off: the player stands on its edge, the Ork at its foot below.
         var level = new NavigationTests.Level().Floor(0f, 0f, 30f, 32f).Box(new Vector3(30f, 0f, 0f), new Vector3(60f, 40f, 2.4f))
             .Quad(new Vector3(10f, 32f, 0f), new Vector3(30f, 32f, 2.4f), new Vector3(30f, 40f, 2.4f), new Vector3(10f, 40f, 0f));   // a ramp up at the far end: the block's top is on the graph, as a stair's landing is
-        var sim = new MusouSim(NavGraph.Build(level.Mesh(), null, NavSettings.From(new SimConfig()))) { Swarm = MusouSwarmRules.Default };
-        try
+        var sim = new MusouSim(NavGraph.Build(level.Mesh(), null, NavSettings.From(new SimConfig()))) { Swarm = MusouSwarmRules.Default, OldBigBodies = old };
         {
-            MusouSim.OldBigBodies = old;
             var start = new Vector3(28.8f, 20f, 0f);   // at the foot of the ledge, as in the recording
             ushort id = sim.Spawn(type, start, 0f, 1e6f, sim.Walk!.Nearest(start));
             var targets = new[] { new MusouTarget(1, new Vector3(30.8f, 20f, 2.4f), true) };
@@ -128,7 +123,6 @@ public class BigOrkSnagTests(ITestOutputHelper output)
             output.WriteLine($"{type} old {old}: at {end.Position.X:F1},{end.Position.Y:F1},{end.Position.Z:F1} state {end.State}, {blows} blows");
             Assert.Equal(strikes, blows > 0);
         }
-        finally { MusouSim.OldBigBodies = false; }
     }
 
     [Fact]
