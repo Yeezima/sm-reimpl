@@ -58,6 +58,8 @@ public sealed class SoundEmitter
     public bool NoSteal;
     /// <summary>musou/audio-pass (Musou Mode only): the listener distance this emitter's voices read their curves at is multiplied by this (1.2 = the curves end at 1/1.2 of their distance: 20 % more falloff). 1 everywhere else.</summary>
     public float DistanceScale = 1f;
+    /// <summary>musou/audio-pass (Musou Mode only): the emitter's voices are positioned even when the event's own are not (a 2D confirm sound), reading <see cref="AttenuationOverride"/>. False everywhere else.</summary>
+    public bool Positioned;
 
     public Vector3 Current => Follow?.Invoke() ?? Position;
 }
@@ -619,7 +621,7 @@ public partial class SoundSystem : Node
     void Start(Pending p, AudioStreamOggVorbis stream)
     {
         var v = p.Voice;
-        if (v.Is3D && v.Attenuation is not null && p.Emitter.AttenuationOverride is { } curve) v = v with { Attenuation = curve };
+        if (p.Emitter.AttenuationOverride is { } curve && ((v.Is3D && v.Attenuation is not null) || p.Emitter.Positioned)) v = v with { Attenuation = curve, Is3D = true };
         if (v.LoopCount == 0)
         {
             stream = (AudioStreamOggVorbis)stream.Duplicate();   // the cached stream stays one-shot
@@ -660,7 +662,6 @@ public partial class SoundSystem : Node
     bool Audible(Active a)
     {
         var v = a.Voice;
-        if (Shielded(a) && v.LoopCount != 0) return true;   // musou/audio-pass: a protected one-shot is never culled for its level or distance
         float? distance = null;
         if (v.Is3D && v.Attenuation is not null && Distance(a.Emitter) is var (_, d)) distance = Loudness.CurveDistance(d);   // the curve's end read as the mix reads it
         return VoiceAudibility.IsAudible(v.Is3D, v.Attenuation is not null, Loudness.MaxDistanceOf(v.Attenuation), distance, MixOf(a).VolumeDb, _masterDb,
@@ -771,7 +772,6 @@ public partial class SoundSystem : Node
     VoiceMix MixOf(Active a)
     {
         float? distance = Distance(a.Emitter) is var (_, d) ? d : null;
-        if (FullVoice(a)) distance = 0f;   // musou/audio-pass: the own character's line sits at the loudest point of its curve
         return Loudness.Evaluate(a.Voice, Shielded(a) ? null : _mods, a.Emitter.Id, _now, distance, a.Params, RtpcCap);   // protected voices ignore the data's Set/Reset ducking   // the data's mix with the loudness rule (gain included)
     }
 

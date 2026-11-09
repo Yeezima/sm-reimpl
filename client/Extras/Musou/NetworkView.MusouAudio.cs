@@ -23,6 +23,7 @@ namespace SmClient;
 public partial class NetworkView
 {
     static readonly bool NoMusouAudioPass = CmdFlag("no-musou-audio-pass");
+    SmFormats.Audio.WwiseAttenuation? _musouSmackCurve;
     double _musouBlastAt = double.NegativeInfinity;
     int _musouBolterShots, _musouBolterHits;
 
@@ -76,7 +77,7 @@ public partial class NetworkView
         if (_connectedFor - _musouBlastAt < MusouAudioRules.BlastDelaySeconds) return;   // a burst's hits cannot pile their explosions
         _musouBlastAt = _connectedFor;
         _musouBolterHits++;
-        var smack = new SoundEmitter { Position = at, OneShot = true, Label = "musou bolter smack", DistanceScale = MusouAudioRules.SmackFalloffScale };
+        var smack = new SoundEmitter { Position = at, OneShot = true, Label = "musou bolter smack", DistanceScale = MusouAudioRules.SmackFalloffScale, Positioned = true, AttenuationOverride = _musouSmackCurve ??= _sound.AttenuationOf(MusouAudioRules.SmackCurveEvent) };
         smack.Switches.Set(AudioCatalog.MaterialType, Fnv.Hash32("flesh"));
         float mixDb = SoundSystem.MixClassic ? 0f : SoundMixPass.HitGainDb;   // the mix pass's on-hit gain, without its high-pass (the smack is a low body)
         _sound.Post(MusouAudioRules.SmackEvent, smack, offset: new VoiceOffset(MusouAudioRules.SmackGainDb + mixDb, MusouAudioRules.SmackPitchCents, MusouAudioRules.SmackLpf));

@@ -44,8 +44,7 @@ public class MusouAudioRulesTests
         var ork = MusouAmbienceRules.SpecOf(MusouAmbienceKind.OrkMob);
         Assert.True(MusouAudioRules.IsFarOrk(ork.Kind));
         Assert.True(ork.Near >= 55f && ork.Far >= 120f);
-        Assert.True(ork.GainDb <= -6f);
-        Assert.True(ork.Lpf >= 35f);
+        Assert.Equal((0f, 0f), (ork.GainDb, ork.Lpf));   // far through the original events' own curves only (fifth follow-up)
         var bolter = MusouAmbienceRules.SpecOf(MusouAmbienceKind.Bolter);
         Assert.Equal((40f, 100f, -4f, 10f), (bolter.Near, bolter.Far, bolter.GainDb, bolter.Lpf));
     }

@@ -61,6 +61,12 @@ public static class MusouAudioRules
     /// at every distance). Ours.
     /// </summary>
     public const string SmackEvent = "play_bolter_smack";
+
+    /// <summary>
+    /// The smack's own event is the shooter's 2D hit confirm: the data gives it no distance curve (flat at every distance). Its falloff is the original curve of the bolter's real impact event
+    /// (<c>play_bolter_hits</c>, 3D: about -23 dB near, -37 dB beyond 60 m, low-pass 1 at 30 m to 11 at 130 m), read at <see cref="SmackFalloffScale"/> x the distance (fifth follow-up 2026-11-09).
+    /// </summary>
+    public const string SmackCurveEvent = "play_bolter_hits";
     public static readonly float SmackGainDb = 2f + 20f * MathF.Log10(0.6f);   // about -2.44
     public const float SmackPitchCents = -600f, SmackLpf = 40f, SmackFalloffScale = 1.2f;
     /// <remarks>Owner 2026-11-09 follow-up: "lower the bolter damage on hit sound by 50%": half amplitude = -6 dB (smack +8 to +2, blast -9 to -15); the timing is unchanged.</remarks>
