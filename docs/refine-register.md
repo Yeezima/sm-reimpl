@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2748 spec table rows: **2044 tagged**, 489 not tagged (read from data with high confidence), 215 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 609 rows of the changes document.
+Scanned 2749 spec table rows: **2045 tagged**, 489 not tagged (read from data with high confidence), 215 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 609 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,21 +50,21 @@ Scanned 2748 spec table rows: **2044 tagged**, 489 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 19 | 10 | 10 | 10 | 7 |
-| Core simulation (provisional values) | 529 | 505 | 368 | 145 | 1 |
+| Core simulation (provisional values) | 530 | 506 | 368 | 146 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 221 | 211 | 118 | 58 | 0 |
-| **All areas** | **2044** | 1798 | 1517 | 648 | 38 |
+| **All areas** | **2045** | 1799 | 1517 | 649 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1129 |
+| kind: ours | 1130 |
 | confidence: low | 728 |
 | confidence: medium | 660 |
 | notes: ours | 369 |
 | kind: interpretation | 360 |
-| notes: estimate | 166 |
+| notes: estimate | 167 |
 | kind: estimate | 136 |
 | confidence: none (low) | 129 |
 | kind: provisional | 99 |
@@ -2174,7 +2174,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (529)
+### Core simulation (provisional values) (530)
 
 *Spec section: Provisional values in use*
 
@@ -2719,11 +2719,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-016FBA02` | Musou: the Weirdboy's clips | run `EB_WIB_NAV_Run_F_01`, idle `WIB_1HM_ACT_idle_01`, every attack and the summons `WIB_WIB_MEL_Cast_Magic_01`, a stagger and the stun `EB_WIB_REC_Stun_Loop`, death `EB_WIB_Death_Teleport`; fading and appearing play the idle under the teleport effects | kind: ours; notes: interpretation | the rig's clip names; the picks ours | Musou: the Weirdboy's clips: compare with SM1 by feel or video. Ours: run EB_WIB_NAV_Run_F_01, idle WIB_1HM_ACT_idle_01, every attack and… | ☐ |
 | `R-A771641B` | Musou: the Weirdboy's body | health **50**, run **6**, body radius **0.5**, height **2.3**, **300** points for a KO; not fodder (never knocked down) (hp, m/s, m) | kind: ours; notes: estimate | health and run: `health_max`, `speed_standing/run_speed`; body: the model's 2.46 m bounds; points ours | Musou: the Weirdboy's body: compare with SM1 by timing a run over a known distance. Ours: health 50, run 6, body radius 0.5, height 2.3, 300 points for a KO… | ☐ |
 | `R-F1F07E8B` | Musou: the Weirdboy's bolt | aimed at the target's feet when thrown, flies at **40** m/s from 1.5 m up, bursts in **3** m (2.5 m up or down) for **35** to every living target in it (a squad by its spread too; the hit comes from where it was thrown); one bolt a burst, a burst every… (m/s, m, dmg, s) | kind: ours; notes: estimate | `weirdboy_frazzle_coop`: speed 40, sphere radius 3, `damage_general` 70 explosive, heavy armour x0.5; staff: `damage_general` 20, `max_range` 5… | Musou: the Weirdboy's bolt: compare with SM1 by timing a run over a known distance. Ours: aimed at the target's feet when thrown, flies at 40 m/s from 1.5 m… | ☐ |
+| `R-B5F03C46` | Musou: the Weirdboy's cast | each bolt is cast first: **0.5** s in `Casting` (the client plays the cast clip `WIB_WIB_MEL_Cast_Magic_01`), turning to the target, then the bolt leaves at the target's feet as they stand then; a stagger cuts the cast and the bolt is lost; the bolt's… (s) | kind: ours; notes: estimate | the cast clip is the rig's; the 0.5 s, the token exemption and the 5 m throw ours | Musou: the Weirdboy's cast: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: each bolt is cast first: 0.5 s in Casting (the client plays the cast… | ☐ |
 | `R-BFD9262C` | Musou: the Weirdboy's teleport | a target within **6** m: he fades **0.6** s and appears **25 to 35** m from it on the graph (his side first, then 8 directions; only where the players can be walked to); at most every **6** s; moved by the stranded failsafe mid-stun, his stun ends and his… (m, s) | kind: ours; notes: estimate | the data's teleport clips and effects; every number ours | Musou: the Weirdboy's teleport: compare with SM1 by feel or video. Ours: a target within 6 m: he fades 0.6 s and appears 25 to 35 m from it on… | ☐ |
 | `R-D3192CD7` | Musou: the Weirdboy's summons | **8** s after he comes, then every **20** s, with a target within 50 m: he casts **2.5** s and **4** Boyz come on a ring of 2 to 4 m round him (a cast starts only while more than 84 slots are free in the pool, each Boy comes only while more than 80 are, so a… (s, m) | kind: ours; notes: estimate | the data's summon clips and `weirdboy_summon_staff`; every number ours | Musou: the Weirdboy's summons: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 8 s after he comes, then every 20 s, with a target within 50 m: he… | ☐ |
 | `R-AEE9598A` | Musou: the Weirdboy's death burst | when he dies (not by the stranded failsafe's removal), every Ork within **20** m (flat, **4** m up or down) but the Warboss and the Boss Orks dies as a blast (thrown outward: the blast deaths' physics ragdolls), each a KO of his killer; a Weirdboy in it… (m, scale) | kind: ours; kind: user's knowledge; notes: interpretation | the owner, 2026-11-07: "when he dies he explodes in a green psychic energy burst (same effects as the new plasma cannon visual effect but colored green)… | Musou: the Weirdboy's death burst: compare with SM1 by feel or video. Ours: when he dies (not by the stranded failsafe's removal), every Ork… | ☐ |
 | `R-EE58FBB2` | Musou: when Weirdboyz come | in a battle (never in the final assault), the first **45 to 90** s after the landing, then every **60 to 120** s, at most **2** alive; each appears **25 to 40** m from a player picked by a roll, on the graph where the players can be walked to (teleported in) (s, m) | kind: ours; notes: estimate | ours (Exterminatus has them teleport in: `cin_teleportin`) | Musou: when Weirdboyz come: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: in a battle (never in the final assault), the first 45 to 90 s after… | ☐ |
-| `R-B5EEE5B0` | Musou: the Weirdboy's effects | the original `master_fx` effects by name: `weirdboy_shield` on him while it is up, `weirdboy_shield_pulse` on a hit it takes, `weirdboy_shield_break` / `weirdboy_shield_restore`, `weirdboy_staff_muzzle` and the frazzle's `weirdboy_staff_trail` flying to the… (m) | kind: ours; notes: interpretation | effect names: the blueprints; placement ours | Musou: the Weirdboy's effects: compare with SM1 by measuring on a flat spot of the same map. Ours: the original master_fx effects by name: weirdboy_shield on him while… | ☐ |
+| `R-B5EEE5B0` | Musou: the Weirdboy's effects | (since 2026-11-09 his bolt's muzzle, trail and hit and his shield draw at effect priority **1**, above the crowd's gunfire, so the 160-effect cap does not evict them first) the original `master_fx` effects by name: `weirdboy_shield` on him while it is up… (m) | kind: ours; notes: interpretation | effect names: the blueprints; placement ours | Musou: the Weirdboy's effects: compare with SM1 by measuring on a flat spot of the same map. Ours: (since 2026-11-09 his bolt's muzzle, trail and hit and his shield… | ☐ |
 | `R-291961DA` | Musou: the Weirdboy's sounds | his blueprint's and staff's bindings (`ork_coop_weirdboy`, `ork_coop_weirdboy_staff`): the staff's fire on a bolt, the stun on a break; no pain on a shield hit | confidence: medium | the data (its fire event is `play_sm_bolter_fire`, as the file has it) | Musou: the Weirdboy's sounds: compare with SM1 by feel or video. Ours: his blueprint's and staff's bindings (ork_coop_weirdboy… | ☐ |
 
 *Spec section: Musou Mode: expansion S1, the foundation (musou/exp-s1, 2026-11-07; `MusouSim.Version` 13, no core protocol bump: `Protocol.Version` stays 63)*

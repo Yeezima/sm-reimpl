@@ -37,6 +37,7 @@ public sealed partial class GameServer
         TfwTestAids();   // GameServer.TfwWinTest.cs: the same
         TfwStormboyTest();   // GameServer.TfwStormboyTest.cs: the same (expansion S3)
         TfwBigShootaTest();   // GameServer.TfwBigShootaTest.cs: the same (the Big Shoota capture)
+        TfwWeirdboyTest();   // GameServer.TfwWeirdboyTest.cs: the same (the Weirdboy bolt capture)
         TfwArmyTest();   // GameServer.TfwArmyTest.cs: the same (expansion S6)
         FeedTfw();   // GameServer.TfwFeedRun.cs
         SendTfwFire();   // GameServer.TfwFire.cs: tag 11

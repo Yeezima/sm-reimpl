@@ -493,13 +493,14 @@ public partial class NetworkView
         while (_connectedFor - start < seconds && TfwNow.Phase == TfwRunPhase.Battle)
         {
             var me = client.Predicted.Position;
-            var look = (CmdFlag("tfw-fight-meks") ? MekLook(me) : null) ?? TfwFightArmyLook(me) ?? _musouState.MiddleNear(me, 45f) ?? point;   // towards the crowd (--tfw-fight-meks: the Meks' contraptions, Meks/NetworkView.MusouMeks.cs; --tfw-fight-look-armies: the nearest army, expansion S6)
+            var look = WeirdboyLook(me) ?? (CmdFlag("tfw-fight-meks") ? MekLook(me) : null) ?? TfwFightArmyLook(me) ?? _musouState.MiddleNear(me, 45f) ?? point;   // towards the crowd (--tfw-fight-weirdboy: the nearest Weirdboy, NetworkView.MusouWeirdboy.cs; --tfw-fight-meks: the Meks' contraptions, Meks/NetworkView.MusouMeks.cs; --tfw-fight-look-armies: the nearest army, expansion S6)
             _yaw = MathF.Atan2(-(look.X - me.X), look.Y - me.Y);
             await TfwWait(every);
             await TfwShot($"fight-{shot:00}");
             await TfwSwarmShots(shot++);   // --tfw-swarm-shots: overhead views too (NetworkView.TfwSwarmCam.cs)
         }
         TfwCheck("the fight was filmed", shot > 1, TfwNow.Phase.ToString());
+        if (CmdFlag("tfw-fight-weirdboy")) GD.Print($"TFWTEST note: Weirdboy bolts drawn {WeirdboyBoltsDrawn}");
         // hotfix/musou-server-lag: the own player's prediction errors over the run (a late or skipped server tick shows here as a snap back).
         var errors = client.CorrectionErrors.OrderBy(x => x).ToList();
         if (errors.Count > 0)
