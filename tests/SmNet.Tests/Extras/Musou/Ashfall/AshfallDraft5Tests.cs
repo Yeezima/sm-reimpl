@@ -407,7 +407,7 @@ public class AshfallDraft5Tests(ITestOutputHelper output)
     public void The_enemies_graph_reaches_the_places_and_reports_every_v5_walkable_place_as_kept_changed_or_lost()
     {
         var sw = Stopwatch.StartNew();
-        var data = TfwWorld.Load("unused", out _)!;
+        var data = TfwWorld.Load("unused", out _, SmSim.Extras.Musou.Campaign.TfwMap.Draft10Name)!;   // draft 10's own map: since draft 12 the default Musou map (TfwMap.Name) is the city
         string dir = Path.Combine(Path.GetTempPath(), "ashfall-d5-nav-" + Guid.NewGuid().ToString("N"));
         NavGraph graph;
         try { graph = TfwWorld.Nav(data.Collision, data.Field, new SimConfig(), out _, dir); }
