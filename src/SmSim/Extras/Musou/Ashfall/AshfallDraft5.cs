@@ -69,6 +69,9 @@ internal static partial class AshfallDraft5Pass
         public readonly Dictionary<(int, int), List<(int Item, WBox Box)>> Zones = [];
         public int StairsKept, StairsDropped, StairsCarved, Draft9Settled, Draft9Dropped;
         public readonly List<string> StairNotes = [];
+        /// <summary>Draft 10: models refused for a flight with no access point (group: model), and the structures left out because no model of their pool had none.</summary>
+        public readonly List<string> StairAccessRefused = [], StairAccessDroppedNames = [];
+        public int StairAccessDropped;
         public readonly List<string> Draft9DroppedNames = [];
         /// <summary>Draft 9's urban rules: the buildings' graybox footprints, the debris left out away from them, the pieces turned onto the street grid.</summary>
         public readonly List<Vector4> Buildings = [];
@@ -183,6 +186,7 @@ internal static partial class AshfallDraft5Pass
         if (draft9)
         {
             c.Flags.Add($"draft 9 stairs (found in the walkable models' meshes, a ramp over the nosings, the model's boxes cut under it, walked up and down on the item alone; draft 10: narrow flights widened, a corridor carved where the walk stalled): {c.StairsKept} kept ({c.StairsCarved} carved), {c.StairsDropped} dropped" + (c.StairNotes.Count > 0 ? ": " + string.Join("; ", c.StairNotes.GroupBy(n => n).OrderByDescending(g => g.Count()).ThenBy(g => g.Key, StringComparer.Ordinal).Take(80).Select(g => $"{g.Key} x{g.Count()}")) : ""));
+            c.Flags.Add($"draft 10 stair access (no model with a flight that has no access point; the stronghold's pieces authored): {c.StairAccessRefused.Count} model choices refused ({string.Join(", ", c.StairAccessRefused.Select(r => r[(r.LastIndexOf(": ", StringComparison.Ordinal) + 2)..]).GroupBy(x => x).OrderBy(g => g.Key, StringComparer.Ordinal).Select(g => $"{g.Key} x{g.Count()}"))}), {c.StairAccessDropped} structures left out{(c.StairAccessDropped > 0 ? ": " + string.Join(", ", c.StairAccessDroppedNames.Take(12)) : "")}");
             c.Flags.Add($"draft 9 urban rules: {c.Buildings.Count} buildings face their nearest street; {c.Snapped} built pieces (cover, walls, facades) turned onto the street grid; {c.DebrisAlone} loose debris pieces left out (more than {DebrisReach:0} m from any building)");
             c.Flags.Add($"draft 9 placement (no drawn models meet deeper than {AshfallOverlap.Tolerance} m, nothing in a stair's foot or landing): {c.Draft9Settled} items moved or shrunk for it, {c.Draft9Dropped} left out{(c.Draft9Dropped > 0 ? ": " + string.Join(", ", c.Draft9DroppedNames.Take(12)) : "")}");
         }
@@ -272,6 +276,65 @@ internal static partial class AshfallDraft5Pass
     /// <summary>Objective A's dais (AC-076, visual only): its diameter and its squashed height (ours; draft 5's AC-037 dais was 16 m and 0.3 m).</summary>
     internal const float DaisSize = 16f, DaisHeight = 0.3f;
 
+    /// <summary>
+    /// Draft 10: the stronghold's pieces and the models they keep (the draft-10 level's picks before the stair-access rule, commit 82de356f): the seeded pick runs on a counter shared with every placement, so a
+    /// building replaced elsewhere would otherwise change the fortress (a breach end then narrowed the courtyard route to 1.7 m). The owner keeps the stronghold as authored.
+    /// </summary>
+    static readonly Dictionary<string, string> StrongholdModels = new(StringComparer.Ordinal)
+    {
+        ["ring gate"] = "AC-042",
+        ["ring corner south-west"] = "AC-003",
+        ["ring corner south-east"] = "AC-003",
+        ["ring corner north-west"] = "AC-003",
+        ["ring corner north-east"] = "AC-003",
+        ["ring south leg west wall 0 curtain"] = "AC-041",
+        ["ring south leg west wall 0 end 2"] = "AC-005",
+        ["ring south leg west wall 1 end"] = "AC-030",
+        ["ring south leg west wall 1 curtain"] = "AC-041",
+        ["ring south leg east wall 0 curtain"] = "AC-041",
+        ["ring south leg east wall 0 end 2"] = "AC-005",
+        ["ring south leg east wall 1 end"] = "AC-004",
+        ["ring south leg east wall 1 curtain"] = "AC-041",
+        ["ring west leg wall 0 curtain"] = "AC-041",
+        ["ring west leg wall 0 end 2"] = "AC-004",
+        ["ring west leg wall 1 end"] = "AC-005",
+        ["ring west leg wall 1 curtain"] = "AC-041",
+        ["ring west leg wall 1 end 2"] = "AC-006",
+        ["ring west leg wall 2 end"] = "AC-030",
+        ["ring west leg wall 2 curtain"] = "AC-041",
+        ["ring north leg wall 0 curtain"] = "AC-041",
+        ["ring north leg wall 0 end 2"] = "AC-006",
+        ["ring north leg wall 1 end"] = "AC-006",
+        ["ring north leg wall 1 curtain"] = "AC-041",
+        ["ring north leg wall 1 end 2"] = "AC-004",
+        ["ring north leg wall 2 end"] = "AC-006",
+        ["ring north leg wall 2 curtain"] = "AC-041",
+        ["ring north leg wall 2 end 2"] = "AC-006",
+        ["ring north leg wall 3"] = "AC-001",
+        ["ring north leg wall 4 end"] = "AC-030",
+        ["ring north leg wall 4 curtain"] = "AC-041",
+        ["ring east leg wall 0 curtain"] = "AC-041",
+        ["ring east leg wall 0 end 2"] = "AC-006",
+        ["ring east leg wall 1 end"] = "AC-006",
+        ["ring east leg wall 1 curtain"] = "AC-041",
+        ["ring east leg wall 1 end 2"] = "AC-004",
+        ["ring east leg wall 2 end"] = "AC-004",
+        ["ring east leg wall 2 curtain"] = "AC-041",
+        ["keep"] = "AC-044",
+        ["Keep tower"] = "AC-052",
+        ["Stair tower SW"] = "AC-046",
+        ["Stair tower SE"] = "AC-046",
+        ["terrace 1"] = "AC-008",
+        ["terrace 3"] = "AC-008",
+        ["east outer wall 1"] = "AC-041",
+    };
+
+    /// <summary>
+    /// Draft 10: models tried only in place of a model refused by the stair-access rule (never in the first pick, so the pick of every other structure stays as it was): the expansion's stair tower (AC-046, reachable
+    /// stairs inside) for a tower.
+    /// </summary>
+    static string[] ReplacementsOf(string family) => family == "tower" ? ["AC-046"] : [];
+
     static string[] PoolOf(string family, string name, float height) => family switch
     {
         "shell" or "shell2" or "corner" => Shell,
@@ -355,7 +418,8 @@ internal static partial class AshfallDraft5Pass
         float wx = s.Max.X - s.Min.X, wy = s.Max.Y - s.Min.Y;
         int[] yaws = onlyYaw >= 0 ? [onlyYaw] : s.Yaws ?? (s.Box is { } b2 ? [b2.YawStep, (b2.YawStep + 12) % 24] : [0, 6, 12, 18]);
         var cands = new List<Cand>();
-        foreach (var id in s.Pool)
+        var extras = c.Draft9 ? ReplacementsOf(s.Family).Where(id => !s.Pool.Contains(id)).ToArray() : [];
+        foreach (var id in s.Pool.Concat(extras))
         {
             var m = AshfallKit.Get(id);
             var r = m.RawSize;
@@ -381,7 +445,7 @@ internal static partial class AshfallDraft5Pass
             }
         }
         // Best model first; models within 15 % of the best form the pool the hash picks from; a model already placed within 12 m is avoided.
-        var perModel = cands.GroupBy(k => k.Id).Select(grp => grp.OrderBy(k => k.Score).ThenBy(k => k.Yaw).First()).OrderBy(k => k.Score).ThenBy(k => k.Id, StringComparer.Ordinal).ToList();
+        var perModel = cands.Where(k => !extras.Contains(k.Id)).GroupBy(k => k.Id).Select(grp => grp.OrderBy(k => k.Score).ThenBy(k => k.Yaw).First()).OrderBy(k => k.Score).ThenBy(k => k.Id, StringComparer.Ordinal).ToList();
         // Draft 6: the expansion's models first where they fit (the rest stay as the fallback below).
         var preferred = perModel.Where(k => Preferred(k.Id) && k.Mass >= PreferMass.Min && k.Mass <= PreferMass.Max).ToList();
         if (preferred.Count > 0 && preferred.Count < perModel.Count && preferred[0].Score <= perModel[0].Score * PreferSlack + PreferMargin)
@@ -393,6 +457,8 @@ internal static partial class AshfallDraft5Pass
         if (fresh.Count > 0) band = fresh;
         uint pick = AshfallBuilder.Mix(c.Seed, c.Counter++);
         var chosen = band[(int)(pick % (uint)band.Count)];
+        // draft 10: the authored stronghold keeps the models it had (StrongholdModels), so a change elsewhere (a building replaced, a debris piece more or less) never changes the fortress
+        if (c.Draft9 && StrongholdModels.TryGetValue(s.Group, out var frozen) && perModel.FirstOrDefault(k => k.Id == frozen) is { } fk) chosen = fk;
         // Among the model's turns the score decides; ties go to the front facing away from the map's middle.
         var outDir = s.Out ?? (centre.LengthSquared() > 1f ? Vector2.Normalize(centre) : Vector2.UnitY);
         Cand TurnOf(string id)
@@ -412,12 +478,21 @@ internal static partial class AshfallDraft5Pass
         // Draft 6: when the chosen model cannot grow 1.5x where it stands, the pool's other models are tried in their score order (the new models gave "Twin tower east" a second chance); the last one decides.
         var order = new List<string> { chosen.Id };
         order.AddRange(perModel.Select(k => k.Id).Where(id => id != chosen.Id));
+        bool replacing = false;
         for (int k = 0; k < order.Count; k++)
         {
             // a new model that cannot open every narrow gap gives way to the next model; a first-library model keeps its fewest-gaps place as in draft 6
             // draft 9: no piece keeps a gap under 2.4 m to a neighbour (draft 6 let the last model or a first-library one keep its fewest-gaps place; a route then squeezed past a moved platform)
-            int r = Commit(c, s, centre, TurnOf(order[k]), order[k], h, final: k == order.Count - 1, keepNarrow: !c.Draft9 && (k == order.Count - 1 || !Preferred(order[k])));
+            int refused = c.StairAccessRefused.Count;
+            int r = Commit(c, s, centre, TurnOf(order[k]), order[k], h, final: k == order.Count - 1, keepNarrow: !c.Draft9 && (k == order.Count - 1 || !Preferred(order[k])), needStairs: replacing && AshfallKitCollision.Stairs(order[k]).Count > 0 && k < order.Count - 1);
             if (r != Retry) return r;
+            if (!replacing && c.StairAccessRefused.Count > refused)
+            {
+                // draft 10: a model refused for its stairs is replaced first by the pool's models with stairs (in their score order; each must keep a walkable flight where it stands), then by the rest
+                replacing = true;
+                var rest = order.Skip(k + 1).Concat(extras.Where(id => !order.Contains(id)).OrderBy(id => cands.Where(x => x.Id == id).Min(x => x.Score)).ThenBy(id => id, StringComparer.Ordinal)).ToList();
+                order = [.. order.Take(k + 1), .. rest.Where(id => AshfallKitCollision.Stairs(id).Count > 0), .. rest.Where(id => AshfallKitCollision.Stairs(id).Count == 0)];
+            }
         }
         return -1;
     }
@@ -425,7 +500,7 @@ internal static partial class AshfallDraft5Pass
     /// <summary><see cref="Commit"/>'s answer when the model could not grow 1.5x where it stands and another model of the pool may still fit.</summary>
     const int Retry = -2;
 
-    static int Commit(Ctx c, Spec s, Vector2 centre, Cand cand, string id, float h, bool final = true, bool keepNarrow = true)
+    static int Commit(Ctx c, Spec s, Vector2 centre, Cand cand, string id, float h, bool final = true, bool keepNarrow = true, bool needStairs = false)
     {
         var size = cand.Size;
         float bottom = s.Min.Z;
@@ -479,6 +554,24 @@ internal static partial class AshfallDraft5Pass
             else { c.OverlapDropped++; c.OverlapDroppedNames.Add(s.Group); }
             return -1;
         }
+        // Draft 10 (owner, 2026-11-09: "don't use asset buildings that have stairs with no access point. replace them with properly scaled ones that do."): a model with a visible flight that cannot be
+        // reached or walked where it stands gives way to the pool's next model (scaled by the same fit); the last one left out. The stronghold's pieces are authored (the owner keeps the keep as it is).
+        if (c.Draft9 && !s.NoCollision && !s.Family.StartsWith("stronghold") && s.Family is not ("terrace" or "outerwall" or "rubble" or "wallpiece" or "cover") && AshfallKitCollision.Stairs(id).Count > 0)
+        {
+            var at = Item(size);
+            var plan = Stairs(at, cand.Yaw, id, CoarseBoxes(s, at, cand.Yaw, id));
+            var dead = plan.Notes.Where(NoAccess).ToList();
+            dead.AddRange(Unreached(plan, at.Position.Z));   // a kept flight that neither the ground nor another reached flight leads to (a roof stair)
+            if (dead.Count == 0 && needStairs && plan.Kept == 0) return Retry;   // a replacement with stairs keeps a walkable flight, else the next model
+            if (dead.Count > 0)
+            {
+                c.StairAccessRefused.Add($"{s.Group}: {id}");
+                if (!final) return Retry;
+                c.Log.Add(new(s.Group, s.Family, "", -1, $"dropped: stair access (draft 10), {id} has {dead.Count} flight(s) with no access point here ({dead[0]}) and no model of its pool without one fits"));
+                c.StairAccessDropped++; c.StairAccessDroppedNames.Add(s.Group);
+                return -1;
+            }
+        }
         if (overlapNote.Length > 0) { outcome += ", " + overlapNote.Trim(); if (overlapNote.Contains("(draft 9)")) c.Draft9Settled++; else c.OverlapSettled++; }
         if (roadNote.Contains("(roadway)")) c.RoadSettled++;   // counted once the item is kept (a retry with the next model is not)
         if (shrunk is not null) c.Flags.Add(shrunk);
@@ -489,6 +582,7 @@ internal static partial class AshfallDraft5Pass
         if (cand.Mass < 0.35f || cand.Mass > 3f) c.Flags.Add($"{s.Group} ({s.Family}): {id} mass {cand.Mass:0.##} of the structure's bounds (mismatch)");
         else if (cand.Score > 3f) c.Flags.Add($"{s.Group} ({s.Family}): {id} is the closest fit, off by {cand.Score:0.##} in total");
 
+        if (c.StairAccessRefused.Any(r => r.StartsWith(s.Group + ": ", StringComparison.Ordinal))) outcome += ", draft 10: in place of a model with stairs without access (" + string.Join(", ", c.StairAccessRefused.Where(r => r.StartsWith(s.Group + ": ", StringComparison.Ordinal)).Select(r => r[(s.Group.Length + 2)..]).Distinct()) + ")";
         return Emit(c, s, item, cand.Yaw, id, boxes, outcome, centre);
     }
 

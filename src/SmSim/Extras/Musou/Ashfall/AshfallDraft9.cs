@@ -231,6 +231,42 @@ internal static partial class AshfallDraft5Pass
         return res;
     }
 
+    /// <summary>
+    /// Draft 10: whether a stair note names a visible flight a player cannot use where the model stands (no floor at its foot or top, not open, too steep, the walk stalls or lifts): the stair-access rule refuses
+    /// such a model. A run of a few steps (under 0.8 m rise or 0.4 m wide) and steps that do not rise after the scale are not flights.
+    /// </summary>
+    static bool NoAccess(string note) =>
+        note.Contains("foot stands") || note.Contains("no landing") || note.Contains("is open") || note.Contains("degrees after") || note.Contains("stalls") || note.Contains("lifts") || note.Contains("does not arrive");
+
+    /// <summary>How far a flight's foot may lie from the ground or from a reached flight's top and still count as reached (ours: a step and a half; a landing between flights is a step or two of floor).</summary>
+    const float ReachTolerance = 0.6f;
+
+    /// <summary>A foot this high over the model's base still stands on its ground floor (ours: <see cref="FootDrop"/> plus 0.5 m; the ruins' raised floors, which the walk check stands on in front of the foot).</summary>
+    const float GroundBand = FootDrop + 0.5f;
+
+    /// <summary>
+    /// Draft 10: the kept flights of a plan that a player on foot cannot reach: reached when the foot stands within <see cref="GroundBand"/> of the model's base (<paramref name="ground"/>) or within <see cref="ReachTolerance"/> of the top of a reached
+    /// flight of the same model (in rounds until nothing changes). One note per unreached flight (a stair on a roof the model's stairs never lead to).
+    /// </summary>
+    static List<string> Unreached(StairPlan plan, float ground)
+    {
+        var ramps = plan.Ramps.Select(r => AshfallStairs.Of(new AshfallPart(AshfallKind.Stair, r), 0, 0)).Where(r => r is not null).Select(r => r!.Value).ToList();
+        var reached = new bool[ramps.Count];
+        bool more = true;
+        while (more)
+        {
+            more = false;
+            for (int i = 0; i < ramps.Count; i++)
+            {
+                if (reached[i]) continue;
+                bool ok = ramps[i].LowZ <= ground + GroundBand;
+                for (int j = 0; j < ramps.Count && !ok; j++) ok = reached[j] && MathF.Abs(ramps[i].LowZ - ramps[j].HighZ) <= ReachTolerance;
+                if (ok) { reached[i] = true; more = true; }
+            }
+        }
+        return [.. Enumerable.Range(0, ramps.Count).Where(i => !reached[i]).Select(i => $"a flight from {ramps[i].LowZ - ground:0.0} m that no flight or the ground leads to")];
+    }
+
     /// <summary>Draft 10: a flight narrower than <see cref="StairWalkWidth"/> (and at least <see cref="StairWidenFrom"/>) widened to it about its middle, in the raw frame (raw X: item X; raw Z: item -Y).</summary>
     static AshfallRamp Widen(AshfallDressItem item, AshfallRamp rp, AshfallKitModel m)
     {
