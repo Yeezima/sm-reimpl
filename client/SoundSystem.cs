@@ -38,6 +38,17 @@ public sealed class SoundEmitter
     /// fire"): their voices take the weapon-fire curve (<see cref="SoundSystem.AttenuationOf"/>), so they carry and grow duller with distance instead of vanishing past 10 m.
     /// </summary>
     public SmFormats.Audio.WwiseAttenuation? AttenuationOverride;
+    /// <summary>
+    /// musou/audio-pass (Musou Mode only, <see cref="MusouAudioRules"/>): this emitter's character voice lines (speech) are the player's own and must be heard in full: no Set/Reset action of
+    /// the data (an explosion's low-pass or volume cut) touches them, no instance limit kills them, no other voice steals their player, they play at the loudest point of their curve and
+    /// on a bus without the reverb and limiter of <see cref="SoundSystem.BusName"/>. False everywhere else: the sound system behaves exactly as before.
+    /// </summary>
+    public bool ProtectSpeech;
+    /// <summary>
+    /// musou/audio-pass (Musou Mode only): a melee hit's voices play to their end: not stolen at the voice cap, not cut by the data's Stop actions or instance limits, not ducked by the data's Set/Reset
+    /// actions, and through a reverb tail (<see cref="SoundSystem.TailBusOf"/>) so they ring out longer. False everywhere else.
+    /// </summary>
+    public bool Tail;
 
     public Vector3 Current => Follow?.Invoke() ?? Position;
 }
@@ -120,6 +131,15 @@ public partial class SoundSystem : Node
     public const string HitBusName = "SmHit";
     static readonly string[] HitNames = Enumerable.Range(0, LpfBuses + 1).Select(i => i == 0 ? HitBusName : $"SmHitLpf{i}").ToArray();
     public static string HitBusOf(int level) => HitNames[Math.Clamp(level, 0, LpfBuses)];
+
+    /// <summary>
+    /// musou/audio-pass: the buses of the protected voices (only <see cref="SoundEmitter.ProtectSpeech"/> and <see cref="SoundEmitter.Tail"/> emitters use them, so no other sound is routed
+    /// differently): <see cref="VoiceBusName"/> straight into Master (the own character's lines); <see cref="TailBusOf"/>(k) the on-hit high-pass (and at level k the low-pass) into
+    /// <see cref="TailReverbBusName"/>, a reverb with a long tail, into <see cref="BusName"/>.
+    /// </summary>
+    public const string VoiceBusName = "SmVoice", TailReverbBusName = "SmTailRev";
+    static readonly string[] TailNames = Enumerable.Range(0, LpfBuses + 1).Select(i => $"SmHitTail{i}").ToArray();
+    public static string TailBusOf(int level) => TailNames[Math.Clamp(level, 0, LpfBuses)];
 
     /// <summary><c>--sound-mix-classic</c> (test aid): the mix before sound/mix-and-reloads (no fire and hit gains, no hit high-pass, master as set, no jump pack tail fade).</summary>
     public static readonly bool MixClassic = OS.GetCmdlineUserArgs().Contains("--sound-mix-classic");
@@ -268,6 +288,33 @@ public partial class SoundSystem : Node
             if (level > 0) AudioServer.AddBusEffect(index, new AudioEffectLowPassFilter { CutoffHz = CutoffHz(level * LpfStep), Resonance = 0.5f, Db = AudioEffectFilter.FilterDB.Filter12Db });
             AudioServer.AddBusEffect(index, new AudioEffectHighPassFilter { CutoffHz = SoundMixPass.HitHighPassHz, Resonance = 0.5f, Db = AudioEffectFilter.FilterDB.Filter24Db });
         }
+        // musou/audio-pass: the protected voices' buses (unused unless a Musou emitter asks for them).
+        if (AudioServer.GetBusIndex(VoiceBusName) < 0)
+        {
+            AudioServer.AddBus();
+            int index = AudioServer.BusCount - 1;
+            AudioServer.SetBusName(index, VoiceBusName);
+            AudioServer.SetBusSend(index, "Master");
+        }
+        if (AudioServer.GetBusIndex(TailReverbBusName) < 0)
+        {
+            AudioServer.AddBus();
+            int index = AudioServer.BusCount - 1;
+            AudioServer.SetBusName(index, TailReverbBusName);
+            AudioServer.SetBusSend(index, BusName);
+            AudioServer.AddBusEffect(index, new AudioEffectReverb { RoomSize = MusouAudioRules.TailRoomSize, Damping = MusouAudioRules.TailDamping, Spread = 1f, Dry = 1f, Wet = MusouAudioRules.TailWet, PredelayMsec = MusouAudioRules.TailPredelayMs });
+        }
+        for (int level = 0; level <= LpfBuses; level++)
+        {
+            string name = TailBusOf(level);
+            if (AudioServer.GetBusIndex(name) >= 0) continue;
+            AudioServer.AddBus();
+            int index = AudioServer.BusCount - 1;
+            AudioServer.SetBusName(index, name);
+            AudioServer.SetBusSend(index, TailReverbBusName);
+            if (level > 0) AudioServer.AddBusEffect(index, new AudioEffectLowPassFilter { CutoffHz = CutoffHz(level * LpfStep), Resonance = 0.5f, Db = AudioEffectFilter.FilterDB.Filter12Db });
+            AudioServer.AddBusEffect(index, new AudioEffectHighPassFilter { CutoffHz = SoundMixPass.HitHighPassHz, Resonance = 0.5f, Db = AudioEffectFilter.FilterDB.Filter24Db });
+        }
         ApplyMasterVolume(SmClient.Customizer.Model.LiveOptions.Current.MasterVolume);
     }
 
@@ -412,7 +459,7 @@ public partial class SoundSystem : Node
         bool limited = force || Limits == InstanceLimits.All || (Limits == InstanceLimits.Footsteps && footstep);
         UnsupportedActions += play.UnsupportedActions;
         MissingMedia += play.MissingMedia;
-        foreach (var (target, delay) in play.Stops) _stops.Add((target, emitter, _now + extraDelay + delay));
+        if (!emitter.Tail) foreach (var (target, delay) in play.Stops) _stops.Add((target, emitter, _now + extraDelay + delay));   // musou/audio-pass: a melee hit's own Stop actions never cut it
         foreach (var a in play.Properties) _properties.Add((_now + extraDelay + a.Delay, a, emitter.Id));
         SwitchActions += play.SwitchSets.Count;
         ApplyStops();   // stops due now act before this event's own voices start
@@ -604,6 +651,7 @@ public partial class SoundSystem : Node
     bool Audible(Active a)
     {
         var v = a.Voice;
+        if (Shielded(a) && v.LoopCount != 0) return true;   // musou/audio-pass: a protected one-shot is never culled for its level or distance
         float? distance = null;
         if (v.Is3D && v.Attenuation is not null && Distance(a.Emitter) is var (_, d)) distance = Loudness.CurveDistance(d);   // the curve's end read as the mix reads it
         return VoiceAudibility.IsAudible(v.Is3D, v.Attenuation is not null, Loudness.MaxDistanceOf(v.Attenuation), distance, MixOf(a).VolumeDb, _masterDb,
@@ -616,7 +664,7 @@ public partial class SoundSystem : Node
     /// </summary>
     bool ApplyInstanceLimits(Active a)
     {
-        if (a.Voice.Chain.All(n => n.Limit is null)) return true;
+        if (a.Voice.Chain.All(n => n.Limit is null) || Shielded(a)) return true;   // musou/audio-pass: protected voices take no part in the instance limits
         var playing = _active.Where(x => x.FadeUntil <= 0).Select(x => new InstanceLimiter.Playing(x.Handle, x.Emitter.Id, x.PostId, x.Voice.Chain)).ToList();
         var decision = InstanceLimiter.Decide(a.Voice.Chain, a.Emitter.Id, a.PostId, playing);
         foreach (int handle in decision.Kill)
@@ -645,9 +693,9 @@ public partial class SoundSystem : Node
         if (_active.Count(x => x.Player is not null && x.Voice.Is3D == positioned) >= (positioned ? Max3D : Max2D))
         {
             // A crowd's voice (SoundEmitter.Group) takes a player only from its own crowd: it never cuts a player's sounds.
-            var victim = _active.Where(x => x.Player is not null && x.Voice.Is3D == positioned && (a.Emitter.Group is null || x.Emitter.Group == a.Emitter.Group))
+            var victim = _active.Where(x => x.Player is not null && x.Voice.Is3D == positioned && !Shielded(x) && (a.Emitter.Group is null || x.Emitter.Group == a.Emitter.Group))
                 .OrderBy(x => x.Voice.Priority).ThenBy(x => x.Effective).ThenBy(x => x.Started).FirstOrDefault();
-            if (victim is null || victim.Voice.Priority > a.Voice.Priority) return false;
+            if (victim is null || victim.Voice.Priority > a.Voice.Priority && !Shielded(a)) return false;   // musou/audio-pass: a protected voice takes a player whatever the priority
             // A waiting loop takes over only from a voice at least 6 dB quieter than it would be (no swapping back and forth).
             if (revive && (victim.Voice.Priority == a.Voice.Priority && victim.Effective > EffectiveNow(a) - 6f)) return false;
             Steals++;
@@ -714,7 +762,8 @@ public partial class SoundSystem : Node
     VoiceMix MixOf(Active a)
     {
         float? distance = Distance(a.Emitter) is var (_, d) ? d : null;
-        return Loudness.Evaluate(a.Voice, _mods, a.Emitter.Id, _now, distance, a.Params, RtpcCap);   // the data's mix with the loudness rule (gain included)
+        if (FullVoice(a)) distance = 0f;   // musou/audio-pass: the own character's line sits at the loudest point of its curve
+        return Loudness.Evaluate(a.Voice, Shielded(a) ? null : _mods, a.Emitter.Id, _now, distance, a.Params, RtpcCap);   // protected voices ignore the data's Set/Reset ducking   // the data's mix with the loudness rule (gain included)
     }
 
     float EffectiveNow(Active a) => MixOf(a).VolumeDb + GlobalGainDb;
@@ -739,7 +788,7 @@ public partial class SoundSystem : Node
             else FilterChanges++;
             a.LpfLevel = level;
         }
-        StringName? bus = busChanged ? new StringName(a.Offset.HighPass ? HitBusOf(level) : level == 0 ? BusName : LpfBusName(level)) : null;
+        StringName? bus = busChanged ? new StringName(BusOf(a, level)) : null;
         if (a.Player is AudioStreamPlayer3D q)
         {
             q.VolumeDb = clamped;
@@ -752,6 +801,20 @@ public partial class SoundSystem : Node
             if (pitchChanged) q2.PitchScale = pitch;
             if (bus is not null) q2.Bus = bus;
         }
+    }
+
+    /// <summary>Whether a voice is protected (musou/audio-pass): a melee hit's of a <see cref="SoundEmitter.Tail"/> emitter, or the own character's line of a <see cref="SoundEmitter.ProtectSpeech"/> one.</summary>
+    static bool Shielded(Active a) => a.Emitter.Tail || FullVoice(a);
+
+    /// <summary>The own character's line (musou/audio-pass).</summary>
+    static bool FullVoice(Active a) => a.Emitter.ProtectSpeech && IsSpeech(a.Event);
+
+    /// <summary>The bus of a voice at a low-pass level: the protected voices' own (only when asked for), else as before.</summary>
+    static string BusOf(Active a, int level)
+    {
+        if (a.Emitter.Tail) return TailBusOf(level);
+        if (FullVoice(a) && level == 0) return VoiceBusName;
+        return a.Offset.HighPass ? HitBusOf(level) : level == 0 ? BusName : LpfBusName(level);
     }
 
     void UpdateActive(float delta)
