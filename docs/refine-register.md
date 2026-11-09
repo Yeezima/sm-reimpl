@@ -28,8 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2759 spec table rows: **2055 tagged**, 489 not tagged (read from data with high confidence), 215 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 610 rows of the changes document.
-Scanned 2749 spec table rows: **2045 tagged**, 489 not tagged (read from data with high confidence), 215 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 610 rows of the changes document.
+Scanned 2760 spec table rows: **2056 tagged**, 489 not tagged (read from data with high confidence), 215 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 611 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -54,28 +53,19 @@ Scanned 2749 spec table rows: **2045 tagged**, 489 not tagged (read from data wi
 | Core simulation (provisional values) | 539 | 515 | 377 | 155 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 222 | 212 | 119 | 59 | 0 |
-| **All areas** | **2055** | 1809 | 1527 | 659 | 38 |
-| Ork faction | 221 | 211 | 118 | 58 | 0 |
-| **All areas** | **2045** | 1799 | 1517 | 649 | 38 |
+| **All areas** | **2056** | 1810 | 1527 | 660 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1129 |
+| kind: ours | 1130 |
 | confidence: low | 737 |
 | confidence: medium | 661 |
 | notes: ours | 380 |
 | kind: interpretation | 360 |
-| notes: estimate | 166 |
-| kind: estimate | 145 |
-| kind: ours | 1130 |
-| confidence: low | 728 |
-| confidence: medium | 660 |
-| notes: ours | 369 |
-| kind: interpretation | 360 |
 | notes: estimate | 167 |
-| kind: estimate | 136 |
+| kind: estimate | 145 |
 | confidence: none (low) | 129 |
 | kind: provisional | 99 |
 | kind: user's knowledge | 55 |
