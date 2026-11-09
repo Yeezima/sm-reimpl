@@ -43,7 +43,7 @@ public sealed partial class TfwBattle
                 int node = nav.Nearest(spot, 2f, 3f);
                 if (node >= 0) { post = nav.Position(node); break; }
             }
-            float yaw = YawTo(post, _layout.LandingZone);
+            float yaw = FaceCentre(post);
             ushort id = _enemies.Spawn(MusouEnemyType.BigShootaNob, post, yaw, Health(MusouEnemyType.BigShootaNob));
             if (id == 0) continue;
             _enemies.Post(id, post);

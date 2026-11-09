@@ -24,8 +24,7 @@ public sealed partial class TfwRun
         if (_late.Count == 0) return;
         _late.Sort();
         var layout = battle.Layout;
-        var way = new Vector2(layout.Hq.X - layout.LandingZone.X, layout.Hq.Y - layout.LandingZone.Y);
-        float yaw = MathF.Atan2(-way.X, way.Y);
+        float yaw = layout.FaceCentre(layout.LandingZone);   // owner 2026-11-09: a spawn faces the map's centre
         foreach (int id in _late)
         {
             var at = Ashore(w, layout, TfwCoop.LandingOffset(_deployed.Count));

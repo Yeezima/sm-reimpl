@@ -105,7 +105,7 @@ public sealed partial class TfwBattle
         var anchor = CrowdAnchor(point);
         var at = Ground(anchor, anchor);
         float health = Health(type) * _scale;
-        float yaw = YawTo(at, _layout.LandingZone);
+        float yaw = FaceCentre(at);
         ushort id = _enemies.Spawn(type, at, yaw, health);
         if (id == 0) return false;
         _bossOrks.Add(id);

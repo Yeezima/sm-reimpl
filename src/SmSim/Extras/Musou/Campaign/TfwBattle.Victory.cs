@@ -58,7 +58,7 @@ public sealed partial class TfwBattle
             var way = new Vector3(MathF.Cos(angle), MathF.Sin(angle), 0f);
             if (WaveSpot(centre, way) is not { } at) continue;
             var type = n % VictoryWaveRules.EliteEvery == VictoryWaveRules.EliteEvery - 1 ? MusouEnemyType.ArdBoy : Fodder(_picked++);
-            _enemies.Spawn(type, at, YawTo(at, centre), Health(type));
+            _enemies.Spawn(type, at, FaceCentre(at), Health(type));
         }
     }
 

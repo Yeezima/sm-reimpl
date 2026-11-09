@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2665 spec table rows: **1964 tagged**, 488 not tagged (read from data with high confidence), 213 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 595 rows of the changes document.
+Scanned 2670 spec table rows: **1969 tagged**, 488 not tagged (read from data with high confidence), 213 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 596 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -43,25 +43,25 @@ Scanned 2665 spec table rows: **1964 tagged**, 488 not tagged (read from data wi
 | HUD and hit feedback (critical) | 68 | 63 | 50 | 11 | 0 |
 | Sound mix (critical) | 67 | 61 | 59 | 10 | 0 |
 | Effects (critical) | 87 | 77 | 72 | 39 | 0 |
-| Game modes | 41 | 38 | 38 | 19 | 1 |
+| Game modes | 42 | 39 | 38 | 19 | 1 |
 | Perks | 59 | 48 | 31 | 25 | 0 |
 | Death and ragdoll | 14 | 10 | 12 | 10 | 0 |
 | Customizer and paint | 48 | 45 | 26 | 15 | 0 |
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 19 | 10 | 10 | 10 | 7 |
-| Core simulation (provisional values) | 483 | 459 | 332 | 126 | 1 |
+| Core simulation (provisional values) | 487 | 463 | 336 | 126 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 190 | 180 | 92 | 53 | 0 |
-| **All areas** | **1964** | 1718 | 1454 | 624 | 38 |
+| **All areas** | **1969** | 1723 | 1458 | 624 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1061 |
+| kind: ours | 1066 |
 | confidence: low | 703 |
-| confidence: medium | 622 |
+| confidence: medium | 626 |
 | kind: interpretation | 359 |
 | notes: ours | 358 |
 | notes: estimate | 153 |
@@ -1818,7 +1818,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-566447DD` | Base is a target (Musou) | with no position Imperial a wave leaves for the Imperial base (goal `LandingGoal`) instead of waiting; a wave whose point fell with no other Imperial position goes there too; at the base it attacks (real Orks loose as a pack, its remainder clashes with the… (m, s) | kind: ours; confidence: medium | the owner, 2026-11-08 ("base is a target"); 20 m ours | Base is a target (Musou): compare with SM1 with side-by-side video of the same action. Ours: with no position Imperial a wave leaves for the Imperial base (goal… | ☐ |
 | `R-0364AED2` | Ashfall grime: EXACT or FAST (Musou, Graphics option) | Options > Graphics > Ashfall grime: EXACT (OVERLAY), the default, draws the grime as the overlay pass as before; FAST (FOLDED, WEAK GPUS) gives each kit surface a derived shader (its standard material's albedo, vertex colour, normal map, roughness, metallic… | kind: ours; confidence: medium | the owner, 2026-11-08 ("option in Graphics"); the derived shader ours | Ashfall grime: EXACT or FAST (Musou, Graphics option): compare with SM1 with side-by-side video of the same action. Ours: Options > Graphics > Ashfall grime: EXACT (OVERLAY), the default… | ☐ |
 
-### Game modes (41)
+### Game modes (42)
 
 *Spec section: Teams and Annihilation (M15, used by the simulation)*
 
@@ -1885,6 +1885,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-D7F8AB04` | Final boss courtyard (hotfix/boss-trickle, owner 2026-11-01: "the final boss should spawn in the… | The final assault's Warboss starts on the walking graph's open ground just outside the HQ room, not inside it: the first node (by straight distance) on the HQ's connected part that is 22 to 70 m from the HQ's centre, within 3 m of its height, has 8 m of… (m) | kind: ours; kind: estimate; confidence: low | the owner's words; the numbers ours | Final boss courtyard (hotfix/boss-trickle, owner…: compare with SM1 by measuring on a flat spot of the same map. Ours: The final assault's Warboss starts on the walking graph's open ground… | ☐ |
 | `R-08E1FB24` | War spawn-room blockers | none: the commander stands in the Chaos room and Marines must reach him on foot (the design kept them; with them he could only be fought if he came out) | kind: ours | ours | War spawn-room blockers: compare with SM1 by feel or video. Ours: none: the commander stands in the Chaos room and Marines must reach… | ☐ |
+
+*Spec section: Added content: Musou Mode: every spawn faces the map's centre (musou/spawn-facing; `MusouSim.Version` 28, `TfwRules.Version` 52)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-6E7574FE` | Spawn yaw | the horizontal bearing from the spawn to the centre, set at the moment of the spawn: every human (landing, redeploy, late join), the retainers and the allied pair (also their respawns), every Guard squad, every Ork (crowds, defenders, Stormboys, Big Shoota… (rad) | kind: ours | owner 2026-11-09 | Spawn yaw: compare with SM1 with an overlaid screenshot taken from the same position. Ours: the horizontal bearing from the spawn to the centre, set at the… | ☐ |
 
 ### Perks (59)
 
@@ -2156,7 +2162,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (483)
+### Core simulation (provisional values) (487)
 
 *Spec section: Provisional values in use*
 
@@ -2930,6 +2936,15 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-B7F925B0` | Carry-on (Musou, client) | a member past his newest record is carried on along his last step for that step's span plus 3 ticks, at least 6, at most 30: the Orks' running rule of 2026-11-06, now also a runner whose last step started from a stand (a fight, a stagger) and a marching… (ticks) | kind: ours; confidence: medium | ours | Carry-on (Musou, client): compare with SM1 by feel or video. Ours: a member past his newest record is carried on along his last step for… | ☐ |
 | `R-09D12539` | Guardsmen's least share (Musou, server) | the war's bucket refills at least **8 KB/s** whatever Musou spent; the part beyond Musou's leftover that enters the bucket is charged to Musou's next refill, so the client's total stays at about 58 KB/s (KB/s) | kind: ours; confidence: medium | ours | Guardsmen's least share (Musou, server): compare with SM1 by feel or video. Ours: the war's bucket refills at least 8 KB/s whatever Musou spent; the… | ☐ |
 | `R-49817C2C` | Crowd tier hold (Musou, client) | a member drawn skinned stays skinned until **3 m** past the 25 m near distance (no swap between the skinned and the baked pose frame by frame along the line) (m) | kind: ours; confidence: medium | ours | Crowd tier hold (Musou, client): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a member drawn skinned stays skinned until 3 m past the 25 m near… | ☐ |
+
+*Spec section: Added content: Musou Mode: every spawn faces the map's centre (musou/spawn-facing; `MusouSim.Version` 28, `TfwRules.Version` 52)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-CCF1D471` | The map's centre | the middle capture point, B the depot (the layout's position index 1, whichever way the battle runs); a spawn within 1 m of it faces the HQ (m) | kind: ours; confidence: medium | owner 2026-11-09 (the centre's definition is ours: the design names no map centre) | The map's centre: compare with SM1 by measuring on a flat spot of the same map. Ours: the middle capture point, B the depot (the layout's position index 1… | ☐ |
+| `R-C1D08066` | Army made real | keeps the march facing (not a fresh spawn: `keepYaw`); the army itself spawned facing the centre | kind: ours; confidence: medium | ours (the owner said "spawning") | Army made real: compare with SM1 by feel or video. Ours: keeps the march facing (not a fresh spawn: keepYaw); the army itself… | ☐ |
+| `R-B5790B4B` | Not covered | the Stormbird and the Firing Range spawns keep their own facing | kind: ours; confidence: medium | ours | Not covered: compare with SM1 by feel or video. Ours: the Stormbird and the Firing Range spawns keep their own facing. | ☐ |
+| `R-468A6F29` | Client view | the view takes the server's yaw on a respawn (as before) and on a landing or redeploy of a living player (a jump of 15 m or more in one frame), so nothing turns on the first frame (m) | kind: ours; confidence: medium | ours | Client view: compare with SM1 by measuring on a flat spot of the same map. Ours: the view takes the server's yaw on a respawn (as before) and on a… | ☐ |
 
 ### General game design (7)
 
@@ -4066,6 +4081,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-477A605B` | Projectile shots impact on arrival (fx/tracers-impact, 2026-11-07) | An own projectile shot (charged plasma, plasma cannon, launcher) draws no tracer and paints no impact when fired; the detonation draws them when the projectile arrives, with the body hit (armour glow, flash) when it went off on a player (within 0.6 m of the axis, ours) (`--old-charged-impact` restores the early impact) | None (the early impact was our bug) | Effect rendering: "Projectile shots paint their impact on arrival" | Projectile shots impact on arrival (fx/tracers-impact…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-524E7284` | Ranged hit decals only on the map (fix/hit-decals-map-only, 2026-11-08) | The weapon's hit container (decals, impact marks, exit wound) plays at the hit point whatever is hit | A ranged shot that hits a player leaves no decal on or near him; the armour spark, flash and blood feedback stays, in world space (night/weapon-fx's stick-to-victim is gone, `--old-hit-stick` with it); a shot that strikes the map leaves its decal there; a Musou enemy hit is unchanged | Owner's request 2026-11-08; spec "Hit decals only on the map" | Ranged hit decals only on the map (fix/hit-decals-map-only…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-78DDAB2E` | Musou: solid big Orks and the melee lock on them (musou/boss-collision, 2026-11-08; `MusouSim.Version` 24, `TfwRules.Version` 49) | No Musou Mode in the original | Ours (added content; the owner's request): the Warboss, Nobs, Boss Orks, the Big Shoota Nob, the Weirdboy and the Scrap Mek block the players' movement at their body's size (a fixed cylinder; the player takes the whole push) on the server and in the own prediction, and the melee lock takes them like a player (same… | Musou Mode only; Classic PvP's bodies and lock unchanged. spec "Musou: solid big Orks and the melee lock on them" | Musou: solid big Orks and the melee lock on them…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-F26174DD` | Musou: every spawn faces the map's centre (musou/spawn-facing, owner 2026-11-09; `MusouSim.Version` 28, `TfwRules.Version` 52) | No Musou Mode in the original | Ours (added content; the owner's request): in a battle every unit faces the middle capture point (B, the depot) the moment it spawns: humans, retainers and allied Marines, Guardsmen, every Ork type; an army made real mid-march keeps its march facing; the Stormbird and the Range keep their facing | Musou Mode only; Classic PvP unchanged | Musou: every spawn faces the map's centre…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 
 ## Appendix: not gameplay
 

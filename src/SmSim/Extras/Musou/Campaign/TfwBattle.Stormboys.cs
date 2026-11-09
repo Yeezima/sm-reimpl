@@ -161,7 +161,7 @@ public sealed partial class TfwBattle
             ahead = Vector2.Transform(ahead, Matrix3x2.CreateRotation((s.Index - 0.5f) * 0.6f));
             if (LandingSpot(human, ahead, StormTestDistance, out var near)) at = near;
         }
-        float yaw = YawTo(at, _layout.LandingZone);
+        float yaw = FaceCentre(at);
         for (int k = 0; k < size; k++)
         {
             var spot = Ground(at + Offset(k, yaw), at);

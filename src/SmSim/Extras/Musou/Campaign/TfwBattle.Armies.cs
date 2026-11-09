@@ -288,7 +288,7 @@ public sealed partial class TfwBattle
             var type = TfwArmyLayout.OrkType(slot, a.FarEliteShare);
             var spot = TfwArmyLayout.Slot(a.Side, a.Width, a.Anchor, a.Yaw, slot);   // where the client's impostor of this slot stood
             var at = Ground(spot, a.Order is TfwArmyOrder.March or TfwArmyOrder.Retreat && a.Way is not null ? WaySlot(a, slot).Home : a.Anchor);
-            ushort id = _enemies.SpawnLeashed(type, at, a.Yaw, Health(type), a.Group, aggro);
+            ushort id = _enemies.SpawnLeashed(type, at, a.Yaw, Health(type), a.Group, aggro, keepYaw: true);   // an army made real keeps its march facing (a fresh spawn faces the centre: owner 2026-11-09)
             if (id == 0) break;
             a.Orks.Add(id); a.OrkSlots.Add(slot);
             a.SlotBase++;

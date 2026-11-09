@@ -218,8 +218,7 @@ public sealed partial class TfwRun
         Score.BeginMap(lane, (byte)node, _deployed);
         _fighting = final ? TfwRunPhase.FinalAssault : TfwRunPhase.Battle;
         War.Enter(_fighting, lane);
-        var way = new Vector2(layout.Hq.X - layout.LandingZone.X, layout.Hq.Y - layout.LandingZone.Y);
-        float yaw = MathF.Atan2(-way.X, way.Y);
+        float yaw = layout.FaceCentre(layout.LandingZone);   // owner 2026-11-09: a spawn faces the map's centre
         for (int k = 0; k < _deployed.Count; k++)
         {
             int id = _deployed[k];
@@ -318,7 +317,7 @@ public sealed partial class TfwRun
         for (int k = 0; k < _deployed.Count; k++)
         {
             var spawn = Field.Hub.Spawns[k % Field.Hub.Spawns.Count];
-            if (w.Players.ContainsKey(_deployed[k])) w.TfwRespawnAt(_deployed[k], spawn.Position, spawn.Yaw);
+            if (w.Players.ContainsKey(_deployed[k])) w.TfwRespawnAt(_deployed[k], spawn.Position, spawn.Yaw, faceCentre: false);   // back in the Stormbird: its own facing
         }
         if (result == TfwMapResult.Won && Rewards.Offering) w.TfwOfferRewards(_deployed);
         w.TfwClearField();

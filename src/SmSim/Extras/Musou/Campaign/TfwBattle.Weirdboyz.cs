@@ -74,7 +74,7 @@ public sealed partial class TfwBattle
                 if (_enemies.Walk?.Nearest(nav.Position(node)) is int walk and >= 0 && !_enemies.Reachable(walk)) continue;   // never where nobody can walk to him
                 spot = nav.Position(node);
             }
-            ushort id = _enemies.Spawn(MusouEnemyType.Weirdboy, spot, YawTo(spot, player), Health(MusouEnemyType.Weirdboy), node);
+            ushort id = _enemies.Spawn(MusouEnemyType.Weirdboy, spot, FaceCentre(spot), Health(MusouEnemyType.Weirdboy), node);
             if (id == 0) return false;
             _weirdboyz.Add(id);
             _weirdboyCount++;

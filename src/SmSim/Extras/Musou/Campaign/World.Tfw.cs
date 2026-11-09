@@ -149,6 +149,7 @@ public sealed partial class World
     /// <summary>The field is empty: no enemy, Guardsman, drop or AI Marine. A new round does not clear the Guardsmen by itself.</summary>
     internal void TfwClearField()
     {
+        _musou!.SpawnCentre = null;   // no battle: nothing faces its centre (set again by the next TfwBattle)
         _musou!.Clear();   // the enemies fire no projectile: their rounds are rolled hits (MusouSim.Fire)
         TfwGuards!.Clear();
         _projectiles.Clear(); _areas.Clear(); _perkBlasts.Clear();   // the players' own: nothing of this battle lands in the next or in the Stormbird
@@ -290,9 +291,10 @@ public sealed partial class World
     /// <see cref="LastRespawns"/> gets it so the server promotes the pending look; the next <see cref="MusouArm"/> gives it the run's kit (<see cref="TfwArmAll"/>). Call it inside the step
     /// (<see cref="TfwStep"/>): <see cref="LastRespawns"/> is cleared when a tick begins. False, and nothing changed, outside a war or for an unknown player.
     /// </summary>
-    public bool TfwRespawnAt(int id, Vector3 at, float yaw)
+    public bool TfwRespawnAt(int id, Vector3 at, float yaw, bool faceCentre = true)
     {
         if (_tfw is null || !_players.TryGetValue(id, out var p)) return false;
+        if (faceCentre && _tfw.Battle?.Layout is { } layout) yaw = layout.FaceCentre(at);   // owner 2026-11-09: in a battle every unit spawns facing the map's centre (the Stormbird and the Range keep their own facing)
         if (_nextLoadouts.ContainsKey(id) && _tfwArsenals.TryGetValue(id, out var arsenal)) arsenal.LoadedPrimary = arsenal.LoadedPistol = -1;   // a Setup's choice stands: no extra is left to send home
         _players[id] = Combat.Respawned(WithNextLoadout(p) with { Position = at, Yaw = yaw }, Config);
         _respawns.Add(id);
