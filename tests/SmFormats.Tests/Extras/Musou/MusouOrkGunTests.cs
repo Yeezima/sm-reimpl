@@ -222,4 +222,30 @@ public class MusouOrkGunTests
         // A catalogue without the gun's wargear gives nothing to compile (the guns are then drawn without effects).
         Assert.Empty(MusouOrkGunEffects.EffectNames(EffectCatalogue.Build(new Dictionary<string, BafDocument>(), null, new Dictionary<string, IReadOnlyList<BafDocument>>(), null, null)));
     }
+
+    [Fact]
+    public void The_big_shoota_reaches_further_with_every_second_round_and_a_budget_of_his_own()
+    {
+        Assert.True(MusouOrkGunRules.IsElite(MusouEnemyType.BigShootaNob));
+        Assert.False(MusouOrkGunRules.IsElite(MusouEnemyType.ShootaBoy));
+        const ushort nob = 7;
+        var rounds = Enumerable.Range(0, 8).Where(r => MusouOrkGunRules.TracerRound(nob, r, elite: true)).ToList();
+        Assert.Equal(4, rounds.Count);   // every 2nd
+        Assert.All(rounds.Zip(rounds.Skip(1)), p => Assert.Equal(2, p.Second - p.First));
+        // Flash out to 150 m and tracer to 200 m for him; a Shoota Boy's round at the same range gets nothing.
+        var tracerRound = Enumerable.Range(1, 500).Select(id => (ushort)id).First(id => MusouOrkGunRules.TracerRound(id, 0, elite: true));
+        Assert.Equal(MusouGunFx.Flash | MusouGunFx.Tracer, Plan(new MusouGunFxPlanner(), new MusouGunShot(tracerRound, 1, 140f, false, Elite: true))[0]);
+        Assert.Equal(MusouGunFx.Tracer, Plan(new MusouGunFxPlanner(), new MusouGunShot(tracerRound, 1, 190f, false, Elite: true))[0]);
+        Assert.Equal(MusouGunFx.None, Plan(new MusouGunFxPlanner(), new MusouGunShot(tracerRound, 1, 205f, false, Elite: true))[0]);
+        Assert.Equal(MusouGunFx.None, Plan(new MusouGunFxPlanner(), new MusouGunShot(tracerRound, 1, 100f, false))[0]);
+        // A crowd of near Shoota Boyz draining the shared buckets leaves his far tracer alone.
+        var planner = new MusouGunFxPlanner();
+        var shots = new List<MusouGunShot>();
+        for (ushort id = 100; id < 160; id++) shots.Add(new MusouGunShot(id, 1, 10f, false));
+        shots.Add(new MusouGunShot(tracerRound, 1, 120f, false, Elite: true));
+        var fx = new MusouGunFx[shots.Count];
+        planner.Plan(shots, fx);
+        Assert.True((fx[^1] & MusouGunFx.Tracer) != 0);
+        Assert.True(planner.OverRate > 0);
+    }
 }

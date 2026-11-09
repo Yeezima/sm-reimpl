@@ -55,7 +55,7 @@ public partial class NetworkView
             if (i < 0 || MusouOrkGunRules.WargearOf(shown[i].Type) is null) continue;
             crowd.Fired(e.Enemy);
             var p = shown[i].Position;
-            _musouGunShots.Add(new MusouGunShot(e.Enemy, e.Tick, new Vector3(p.X, p.Y, p.Z).DistanceTo(camera), e.Player != 0));
+            _musouGunShots.Add(new MusouGunShot(e.Enemy, e.Tick, new Vector3(p.X, p.Y, p.Z).DistanceTo(camera), e.Player != 0, MusouOrkGunRules.IsElite(shown[i].Type)));
             _musouGunRounds.Add((e, i));
         }
         if (_musouGunShots.Count > 0)

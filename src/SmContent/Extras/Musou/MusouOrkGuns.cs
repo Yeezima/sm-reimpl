@@ -12,7 +12,7 @@ public sealed record MusouGun(MusouEnemyType Type, string Wargear);
 public enum MusouGunFx : byte { None = 0, Flash = 1, Tracer = 2, Impact = 4 }
 
 /// <summary>One round the simulation reported (a <c>Tracer</c> event): who fired, when, how far the shooter is from the camera (m), and whether it struck a player.</summary>
-public readonly record struct MusouGunShot(ushort Enemy, uint Tick, float Distance, bool HitPlayer);
+public readonly record struct MusouGunShot(ushort Enemy, uint Tick, float Distance, bool HitPlayer, bool Elite = false);
 
 /// <summary>
 /// The guns of Musou Mode's ranged Orks (added content; the owner, 2026-11-06: "the ranged attack orks don't have weapon models in their hand, and their shots are invisible ... flesh that out.
@@ -76,10 +76,21 @@ public static class MusouOrkGunRules
     /// <summary>The muzzle flash's scale (the data's play_fx has none: 1).</summary>
     public const float FlashScale = 1f;
 
-    /// <summary>Whether an Ork's <paramref name="round"/>th round (0 first) shows its tracer: every <see cref="TracerEvery"/>th, from a start of his own so a crowd does not flash its tracers together.</summary>
-    public static bool TracerRound(ushort enemy, int round) => (round + Phase(enemy)) % TracerEvery == 0;
+    /// <summary>
+    /// The Big Shoota Nob's own effect profile (owner, 2026-11-09: "make the nobs visible from further away", flash 150 m, tracer 200 m, a tracer every 2nd round; **ours**): his rounds are
+    /// planned apart from the crowd's, with distances, cadence and token buckets of their own, so a busy crowd of Shoota Boyz near the camera cannot take his far tracers.
+    /// </summary>
+    public const float EliteFlashMetres = 150f, EliteTracerMetres = 200f, EliteImpactMetres = ImpactMetres;
+    public const int EliteTracerEvery = 2;
+    public const float EliteFlashesPerSecond = 24f, EliteFlashBurst = 6f, EliteTracersPerSecond = 20f, EliteTracerBurst = 6f, EliteImpactsPerSecond = 8f, EliteImpactBurst = 3f;
 
-    static int Phase(ushort enemy) => (int)((enemy * 2654435761u) >> 16) % TracerEvery;
+    /// <summary>Whether a type's rounds use the elite profile (the Big Shoota Nob).</summary>
+    public static bool IsElite(MusouEnemyType type) => type == MusouEnemyType.BigShootaNob;
+
+    /// <summary>Whether an Ork's <paramref name="round"/>th round (0 first) shows its tracer: every <see cref="TracerEvery"/>th (<see cref="EliteTracerEvery"/>th for the elite), from a start of his own so a crowd does not flash its tracers together.</summary>
+    public static bool TracerRound(ushort enemy, int round, bool elite = false) { int every = elite ? EliteTracerEvery : TracerEvery; return (round + Phase(enemy, every)) % every == 0; }
+
+    static int Phase(ushort enemy, int every) => (int)((enemy * 2654435761u) >> 16) % every;
 }
 
 /// <summary>
@@ -89,6 +100,7 @@ public static class MusouOrkGunRules
 public sealed class MusouGunFxPlanner
 {
     float _flashes = MusouOrkGunRules.FlashBurst, _tracers = MusouOrkGunRules.TracerBurst, _impacts = MusouOrkGunRules.ImpactBurst;
+    float _eliteFlashes = MusouOrkGunRules.EliteFlashBurst, _eliteTracers = MusouOrkGunRules.EliteTracerBurst, _eliteImpacts = MusouOrkGunRules.EliteImpactBurst;
     readonly Dictionary<ushort, int> _rounds = new();
     readonly List<int> _order = new();
 
@@ -106,6 +118,9 @@ public sealed class MusouGunFxPlanner
         _flashes = MathF.Min(MusouOrkGunRules.FlashBurst, _flashes + MusouOrkGunRules.FlashesPerSecond * seconds);
         _tracers = MathF.Min(MusouOrkGunRules.TracerBurst, _tracers + MusouOrkGunRules.TracersPerSecond * seconds);
         _impacts = MathF.Min(MusouOrkGunRules.ImpactBurst, _impacts + MusouOrkGunRules.ImpactsPerSecond * seconds);
+        _eliteFlashes = MathF.Min(MusouOrkGunRules.EliteFlashBurst, _eliteFlashes + MusouOrkGunRules.EliteFlashesPerSecond * seconds);
+        _eliteTracers = MathF.Min(MusouOrkGunRules.EliteTracerBurst, _eliteTracers + MusouOrkGunRules.EliteTracersPerSecond * seconds);
+        _eliteImpacts = MathF.Min(MusouOrkGunRules.EliteImpactBurst, _eliteImpacts + MusouOrkGunRules.EliteImpactsPerSecond * seconds);
     }
 
     /// <summary>The effects of each of <paramref name="shots"/> (same order) into <paramref name="result"/>.</summary>
@@ -121,7 +136,7 @@ public sealed class MusouGunFxPlanner
             var s = shots[i];
             _rounds.TryGetValue(s.Enemy, out int round);
             _rounds[s.Enemy] = round + 1;
-            result[i] = MusouOrkGunRules.TracerRound(s.Enemy, round) ? MusouGunFx.Tracer : MusouGunFx.None;   // a mark for the pass below
+            result[i] = MusouOrkGunRules.TracerRound(s.Enemy, round, s.Elite) ? MusouGunFx.Tracer : MusouGunFx.None;   // a mark for the pass below
             Rounds++;
         }
         if (_rounds.Count > 8192) _rounds.Clear();   // ids are reused across waves; the cadence only needs to look varied
@@ -131,11 +146,13 @@ public sealed class MusouGunFxPlanner
             var s = shots[i];
             bool tracerRound = result[i] == MusouGunFx.Tracer;
             var fx = MusouGunFx.None;
-            if (!(s.Distance <= MusouOrkGunRules.TracerMetres)) { TooFar++; result[i] = fx; continue; }
+            bool elite = s.Elite;
+            float flashAt = elite ? MusouOrkGunRules.EliteFlashMetres : MusouOrkGunRules.FlashMetres, tracerAt = elite ? MusouOrkGunRules.EliteTracerMetres : MusouOrkGunRules.TracerMetres, impactAt = elite ? MusouOrkGunRules.EliteImpactMetres : MusouOrkGunRules.ImpactMetres;
+            if (!(s.Distance <= MathF.Max(tracerAt, MathF.Max(flashAt, impactAt)))) { TooFar++; result[i] = fx; continue; }
             bool held = false;
-            if (s.Distance <= MusouOrkGunRules.FlashMetres) { if (Take(ref _flashes)) { fx |= MusouGunFx.Flash; Flashes++; } else held = true; }
-            if (tracerRound) { if (Take(ref _tracers)) { fx |= MusouGunFx.Tracer; Tracers++; } else held = true; }
-            if (s.Distance <= MusouOrkGunRules.ImpactMetres) { if (Take(ref _impacts)) { fx |= MusouGunFx.Impact; Impacts++; } else held = true; }
+            if (s.Distance <= flashAt) { if (Take(ref elite ? ref _eliteFlashes : ref _flashes)) { fx |= MusouGunFx.Flash; Flashes++; } else held = true; }
+            if (tracerRound && s.Distance <= tracerAt) { if (Take(ref elite ? ref _eliteTracers : ref _tracers)) { fx |= MusouGunFx.Tracer; Tracers++; } else held = true; }
+            if (s.Distance <= impactAt) { if (Take(ref elite ? ref _eliteImpacts : ref _impacts)) { fx |= MusouGunFx.Impact; Impacts++; } else held = true; }
             if (held) OverRate++;
             result[i] = fx;
         }
