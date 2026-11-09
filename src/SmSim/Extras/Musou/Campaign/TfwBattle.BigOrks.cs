@@ -27,6 +27,15 @@ public sealed partial class TfwBattle
         BigsMade++;
     }
 
+    /// <summary>The bodies <paramref name="count"/> elites of the crowds' mix take from pick <paramref name="from"/> on: each Nob his twins too (review fix 2026-11-10: the pool's checks count them).</summary>
+    static int EliteBodies(int from, int count)
+    {
+        int bodies = count;
+        for (int k = 0; k < count; k++)
+            if ((from + k) * 0.7548776662466927 % 1.0 >= TfwBattleRules.EliteArds) bodies += TfwBattleRules.BigTwins - 1;
+        return bodies;
+    }
+
     /// <summary>Forgets the dead (each tick, before the cap is counted).</summary>
     void TidyBigs()
     {

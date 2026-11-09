@@ -437,7 +437,7 @@ public sealed partial class TfwBattle
     bool AddSquad(int point, int spare)
     {
         int squad = TfwBattleRules.EliteSquad;
-        if (_eliteOwed[point] < squad || spare < squad || TfwBattleRules.CrowdSize - _crowds[point].Count < squad || PoolUsed + squad > TfwBattleRules.CrowdPoolRoom) return false;
+        if (_eliteOwed[point] < squad || spare < squad || TfwBattleRules.CrowdSize - _crowds[point].Count < squad || PoolUsed + EliteBodies(_picked, squad) > TfwBattleRules.CrowdPoolRoom) return false;
         _eliteOwed[point] -= squad - EliteShare * (squad - 1);   // the squad's own head count earns its share too
         for (int k = 0; k < squad; k++)
         {
@@ -500,14 +500,68 @@ public sealed partial class TfwBattle
     {
         var hq = !leashed ? _layout.BossSpot : _layout.Hq;   // the final boss stands in the courtyard outside the HQ's room (owner, 2026-11-01); the commander (a Warboss since 2026-11-06) keeps the HQ
         float yaw = FaceCentre(hq);
+        MakeRoom(1, hq);
         BossId = leashed ? _enemies.SpawnLeashed(type, hq, yaw, health, CommanderGroup, TfwBattleRules.DefenderAggro) : _enemies.Spawn(type, hq, yaw, health);
         BossMaxHealth = health;
         _objectives[CommanderObjective] = _objectives[CommanderObjective] with { State = TfwPositionState.Held };
+        _bossDue = BossId == 0 ? (type, health, leashed) : null;   // review fix 2026-11-10: no slot free (the dying keep theirs): tried again each tick (RetryBoss), so a battle can always be won
+    }
+
+    (MusouEnemyType Type, float Health, bool Leashed)? _bossDue;
+    bool _escortDue;
+    MusouEnemy[]? _roomBuffer;
+    readonly HashSet<ushort> _armyIds = new();
+    /// <summary>Orks taken off the map to make room for a boss (review fix 2026-11-10; tests).</summary>
+    public int RoomMade { get; private set; }
+
+    /// <summary>A boss whose spawn found no free slot: room made and tried again each tick until he stands; the commander's escort after him.</summary>
+    void RetryBoss()
+    {
+        if (_bossDue is not { } due || Won) return;
+        SpawnBoss(due.Type, due.Health, due.Leashed);
+        if (BossId != 0 && _escortDue) { _escortDue = false; SpawnEscort(); }
+    }
+
+    /// <summary>
+    /// Frees slots for a boss when the pool has fewer than <paramref name="need"/> (review fix 2026-11-10): the ordinary Orks farthest from <paramref name="near"/> (not a big Ork, an elite or a boss,
+    /// not a man of an army) are taken off the map, at most <paramref name="need"/>.
+    /// </summary>
+    void MakeRoom(int need, Vector3 near)
+    {
+        int free = MusouSim.Capacity - _enemies.Count;
+        if (free >= need) return;
+        _roomBuffer ??= new MusouEnemy[MusouSim.Capacity];
+        int n = _enemies.CopyTo(_roomBuffer);
+        _armyIds.Clear();
+        foreach (var a in _armies) foreach (ushort id in a.Orks) _armyIds.Add(id);
+        for (int left = need - free; left > 0; left--)
+        {
+            int best = -1;
+            float far = -1f;
+            for (int k = 0; k < n; k++)
+            {
+                var e = _roomBuffer[k];
+                if (e.Id == 0 || !e.Alive || TfwBattleRules.Big(e.Type) || MusouTargetRules.ClassOf(e.Type) != MusouTargetClass.Ordinary || _armyIds.Contains(e.Id)) continue;
+                float d = Vector3.DistanceSquared(e.Position, near);
+                if (d > far) { far = d; best = k; }
+            }
+            if (best < 0 || !_enemies.Remove(_roomBuffer[best].Id)) return;
+            RoomMade++;
+            _roomBuffer[best] = default;
+        }
     }
 
     void SpawnCommander()
     {
         SpawnBoss(MusouEnemyType.Warboss, _enemies.Rules.BossHealth * _scale, leashed: true);   // the owner, 2026-11-06: "replace him with the warboss" (was a Nob of CommanderHealth)
+        _commander = true;
+        _tideTicks[Positions] = Ticks(TfwBattleRules.CrowdFillSeconds);
+        if (BossId == 0) { _escortDue = true; return; }   // he comes once there is room (RetryBoss), his escort after him
+        SpawnEscort();
+    }
+
+    void SpawnEscort()
+    {
         int nobs = TfwBattleRules.CommanderNobs * TfwBattleRules.BigTwins, escorts = nobs + TfwBattleRules.CommanderArds;   // the Nob twice since 2026-11-10 (a big Ork), the 'Ard Boyz as before
         for (int k = 0; k < escorts; k++)
         {
@@ -516,8 +570,6 @@ public sealed partial class TfwBattle
             ushort escort = _enemies.SpawnLeashed(type, Ground(_layout.Hq + new Vector3(MathF.Cos(angle) * 3f, MathF.Sin(angle) * 3f, 0f), _layout.Hq), angle, Health(type), CommanderGroup, TfwBattleRules.DefenderAggro);
             if (TfwBattleRules.Big(type)) TrackBig(escort);
         }
-        _commander = true;
-        _tideTicks[Positions] = Ticks(TfwBattleRules.CrowdFillSeconds);
     }
 
     /// <summary>A KO, from the World's <see cref="MusouSim.TakeKills"/> (a Guardsman's KO names no player, so the players' scores would miss it).</summary>
@@ -546,6 +598,7 @@ public sealed partial class TfwBattle
         _enemies.KeepOut.Clear();
         if (Armies) StepArmies(players);   // TfwBattle.Armies.cs: the battle flow (expansion S6): armies, waves, garrisons, retreats
         if (Won) { StepVictoryWave(players); return change; }   // TfwBattle.Victory.cs: the wave from every side
+        RetryBoss();
         if (BossId != 0)
         {
             if (!_enemies.TryGet(BossId, out var boss) || !boss.Alive)

@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2764 spec table rows: **2055 tagged**, 492 not tagged (read from data with high confidence), 217 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 614 rows of the changes document.
+Scanned 2765 spec table rows: **2056 tagged**, 492 not tagged (read from data with high confidence), 217 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 614 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -52,14 +52,14 @@ Scanned 2764 spec table rows: **2055 tagged**, 492 not tagged (read from data wi
 | Networking and render smoothing | 19 | 10 | 10 | 10 | 7 |
 | Core simulation (provisional values) | 529 | 505 | 368 | 145 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 232 | 221 | 124 | 63 | 0 |
-| **All areas** | **2055** | 1808 | 1523 | 653 | 38 |
+| Ork faction | 233 | 222 | 124 | 63 | 0 |
+| **All areas** | **2056** | 1809 | 1523 | 653 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1139 |
+| kind: ours | 1140 |
 | confidence: low | 728 |
 | confidence: medium | 666 |
 | notes: ours | 370 |
@@ -3489,6 +3489,7 @@ The Orks are an addition the owner keeps (the original multiplayer had Space Mar
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-32CEC47F` | Big Orks twice (Musou) | every Nob and Big Shoota Nob comes **2** times where one came before: a crowd's elite squad's Nobs (the twin 1.5 m aside, in the crowd's group, swarming with it), a Boss Ork's retinue's Nobs, the commander's escort (**2** Nobs, the 5 'Ard Boyz as before), an… (x) | confidence: medium; notes: ours | owner 2026-11-10 ("2x of them spawn compared to before"); the twin's and the second post's places ours | Big Orks twice (Musou): compare with SM1 by feel or video. Ours: every Nob and Big Shoota Nob comes 2 times where one came before: a… | ☐ |
+| `R-F62CDEEA` | The pool kept for the commander (Musou) | the armies' bodies, twins included, stay within their own **512** slots (`TfwBattle.ArmySlots`), and every pool check counts a Nob's twins; a boss (the commander, the final assault's Warboss) that finds no free slot (the dying keep theirs) is tried again each… | kind: ours | review 2026-11-10 | The pool kept for the commander (Musou): compare with SM1 by feel or video. Ours: the armies' bodies, twins included, stay within their own 512 slots… | ☐ |
 
 ## Part C: Deliberate changes (keep or revert after playtest)
 
