@@ -29,6 +29,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 ## Summary
 
 Scanned 2792 spec table rows: **2084 tagged**, 491 not tagged (read from data with high confidence), 217 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 620 rows of the changes document.
+Scanned 2761 spec table rows: **2056 tagged**, 490 not tagged (read from data with high confidence), 215 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 611 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -1017,7 +1018,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
-| `R-D3825FC0` | Melee slash, red / blue (musou/melee-feel, owner 2026-11-08) | Musou Mode (whatever the gore setting; replaces the dark gore's ink slash, which the original Ork blood had hidden since 2026-11-07): a glowing curved stroke across each enemy hit by a melee blow of a player or retainer (Hit event, marker 3) within 60 m, 1.5… (s, m) | kind: ours; confidence: low | the owner (colours, "bring back"); the shape and sizes ours | Melee slash, red / blue (musou/melee-feel, owner 2026-11-08): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: Musou Mode (whatever the gore setting; replaces the dark gore's ink… | ☐ |
+| `R-D3825FC0` | Melee slash, red / blue (musou/melee-feel, owner 2026-11-08) | Musou Mode (whatever the gore setting; replaces the dark gore's ink slash, which the original Ork blood had hidden since 2026-11-07): a glowing curved stroke across each enemy hit by a melee blow of a player or retainer (Hit event, marker 3) within 30 m of… (s, m) | kind: ours; confidence: low | the owner (colours, "bring back"); the shape and sizes ours | Melee slash, red / blue (musou/melee-feel, owner 2026-11-08): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: Musou Mode (whatever the gore setting; replaces the dark gore's ink… | ☐ |
 | `R-49628C10` | Melee hit shake, own (musou/melee-feel, owner 2026-11-08) | Musou Mode: "add a bit of screen shake": the own player's melee hit on an enemy shakes the camera by 0.008 rad for the first enemy of a swing and 0.001 rad for each further one, a swing capped at 0.014 rad in all (under half of the pound's 0.03 rad; a swing… (rad, s) | kind: ours; confidence: low | the owner ("a bit"); the numbers ours | Melee hit shake, own (musou/melee-feel, owner 2026-11-08): compare with SM1 by feel or video. Ours: Musou Mode: "add a bit of screen shake": the own player's melee hit… | ☐ |
 
 *Spec section: Added content: Musou Mode: the original blood (gore-original, 2026-11-07; client only, no protocol change)*
