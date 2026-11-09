@@ -1,12 +1,22 @@
-# New weapons: lightning claws, power spear, autocannon (design, 2026-11-10)
+# New weapons and equipment for Musou Mode: lightning claw, power spear, autocannon, demolition charge (design, 2026-11-10)
 
-**Status:** design for the owner's approval. No product code yet. Branch `claude/new-weapons-design`.
+**Status:** design, round 2. No product code yet. Branch `claude/new-weapons-design`.
 
 **Owner's request (2026-11-10, verbatim):** "What cool new gameplay content can we add? Lightning claws for assault marine, Autocannon for devastator
 class ranged weapon that functions like the one in the campaign, new equipments. Start work on lightning claws, power spear for assault marine, auto
 cannon for devastator. Ask me questions to help with the design"
 
-"New equipments" is out of this document. Section 9 lists the questions only the owner can answer. Each choice in sections 3 to 6 has a recommendation.
+## Decided by the owner (2026-11-10, his answers to the first questions, through the lead)
+
+| # | Question | His answer | What it fixes in this design |
+|---|---|---|---|
+| D1 | Where | "Musou Mode only" | Only Musou's customizer pages and Musou battles. Annihilation and Seize Ground stay untouched: no Classic wargear, loadout or rule changes. The code lives inside the Musou feature (section 3). |
+| D2 | Lightning claws | "One claw plus the pistol" | One claw in the Assault Marine's melee slot; the bolt pistol stays (section 5). |
+| D3 | Power spear | "Impaling dive plus wide sweeping swings" (his own answer, combining the two options) | The jump-pack dive lands with an impaling strike; the ground attacks are wide, sweeping polearm swings (section 6). |
+| D4 | Equipment | "Demolition charge" | The install's unused `eq_demolition_charge` (remote detonators) becomes Musou equipment. Not the auspex (section 7). |
+| D5 | Autocannon | no further question | Based on the install's own `exotic_auto_cannon` data, and the campaign's where that differs, for the Musou Devastator (section 4). |
+
+Section 10 lists the questions still open. Each choice has a recommendation, so "all recommended" is a complete answer.
 
 Labels used here:
 - **Verified-local:** read from the install by archive and entry name.
@@ -74,29 +84,49 @@ What can be reused (all Verified-local):
 |---|---|---|
 | Power sword move set | `MP_SM_MEL_PowerSword` (MP rig), `sm_mp_melee_powersword` | A one-handed, right-hand set: X1..X4, Y, X,Y, X,X,Y, X,X,X,Y, the Y,Y stomp. The best fit for claw slashes. |
 | Combat knife and chainsword sets | `MP_SM_MEL_CombatKnife`, `MP_SM_MEL_ChainSword` | Alternatives: stabbing knife strikes, chainsword cuts. |
-| Extra campaign melee clips | campaign rig: `SM_MEL_CK_XATK_HVY_*`, `SM_MEL_CS_YATK_Combo5_*`, the 180-degree attacks `*_DIR180_*`, `SM_MEL_FURY_ACTIVATE` | Not in the MP rig. Same skeleton, so usable later for a claw finisher. |
-| Left-hand attachment point | `rig_prop_lhand`, used by `bolter_offhand`, `storm_bolter_offhand`, `choppa_lefthanded` | Where a second claw hangs. Only the Ork Boy Pro pairs two melee weapons, on the Ork rig. **No marine graph has a left-hand strike.** |
+| Extra campaign melee clips | campaign rig: `SM_MEL_CK_XATK_HVY_*`, `SM_MEL_CS_YATK_Combo5_*`, `SM_MEL_FURY_ACTIVATE` | Not in the MP rig. Same skeleton, so usable later for a claw finisher. |
+| The hands | spec "In-hand mount": pistols on `rig_prop_lhand` (left hand), one-handed melee on `rig_prop_rhand` (right hand) | **One claw on the right hand and the pistol in the left is exactly SM1's layout** for the Assault's sword and pistol. |
 | Claw-like effects | `power_claw_strike_00` (power axe hit container), `power_blade_dmg_00`, `amb_chaos_lightning_whip`, `amb_chaos_lightning_wrapping` | The power-field hit and a lightning look around the blades. |
 | Lightning sounds | `play_capacitor_lightning` (resolves) | The Librarian's pass already uses install lightning events, decoded at run time. |
 | Power klaw sounds | `play_power_klaw_antic`, `_swing`, `_smash` | Warboss klaw: heavier, Ork-flavoured. |
 | Unused text | locale 103270 "Power Fist", 103311 | Not referenced by any wargear. |
 
-### 1.3 Power spear: not in the install
+### 1.3 Power spear: not in the install; its dive and sweeps can borrow the hammer's
 
 **Not found:**
 - No wargear, model, clip, effect, HUD sprite or text names a spear, lance, halberd, glaive, pike or trident. The only "lance" text is "Thunderhawk Lance of Jove".
 - Same searches as the claws, plus `*pole*`, `*staff*` and `*spear*` clips.
+- No thrust (stab) clip exists for a two-handed weapon. The knife's stabs are one-handed.
 
 What can be reused (Verified-local):
 
 | Asset | Where | Use |
 |---|---|---|
 | Force staff model | `forcestaff_basic.oppc`. **Loads with our reader:** one part, 1,360 triangles, about 2.76 m long, locators `RIG_R_Weapon` and `fx_swing` | A marine-scale pole for the spear shaft. Its only user is `sm_wp1_thunder_hammer_fake`, which has no abilities. Locale 103272 "Force Staff" and 103313 "Two-handed Force Staff." are unused. |
-| Two-handed move set | `MP_SM_MEL_ThunderHammer` (MP rig) with `SM_TH_NAV`, `SM_TH_NuSprint`, the 21 `SM_2HM_NAV_TH_*` clips | **The only two-handed melee set** (both hands on a shaft): walk, sprint, three swings, the interrupt, two sweeps, the slam. |
+| Two-handed move set | `MP_SM_MEL_ThunderHammer` (MP rig) with `SM_TH_NAV`, `SM_TH_NuSprint`, the 21 `SM_2HM_NAV_TH_*` clips | **The only two-handed melee set** (both hands on a shaft): walk, sprint, three light swings, the interrupt, the slam. Its two heavy strikes X,Y and X,X,Y are the graph's "Sweeping Attack" (`SequencerGenerator18`, `23`). |
+| The hammer's wide swings | MP rig clips `SM_MEL_TH_XATK_Combo2`, `_Combo3`, `SM_MEL_TH_HeavyATK01` / `02`, `SM_MEL_TH_XATK_180_MP` (3 s), `SM_MEL_TH_XATK_180_combo2`, `SM_MEL_TH_YATK_Displace2` | Big horizontal swings; the `_180` clips turn half a circle. The "wide sweeping swings" the owner chose, already in the data. |
+| The hammer's dive | MP rig clips `SM_JMP_TH_GP_Loop_01` (1.767 s, the dive), `SM_JMP_TH_GP_Impact_01` (1.067 s, the landing), `SM_JMP_TH_GP_ReturnToIdle` (0.867 s) | A two-handed weapon driven down into the ground on landing: with the spear's point turned down, this is the impaling dive. |
+| The pack's dive itself | spec "Pound impact", "Pound stun", "Pound target marker" | The dive steers to a marked point and lands with a blast: r 7, 25 + 50 shield, everyone in it stunned (owner's rule M44). |
 | Other pole models | `weirdboy_staff.oppc`, `nob_waaagh_banner.oppc` | Ork-styled; not for a marine. |
 | Librarian | `ebps` / `librarian` | No weapon at all (armour, backpack, revive). No staff graph exists. |
 
-No thrust (stab) animation exists for a two-handed weapon. The knife's stabs are one-handed.
+### 1.4 Demolition charge: complete in the data, never offered
+
+| Finding | Where (Verified-local) | What it means |
+|---|---|---|
+| The item | `wargear.oppc` / `sm_mp_eq_demolition_charge` (no Chaos twin) | Slot `equipment`, weapon type `weapon_1hand`, animation set `grenade` (the same toss as the frag), `load_type` `mp_weapon`, level 1, `visible_in_customizer` False. No class's `startup_wargear` lists it (they list frag, krak, stimpack and melta bomb). |
+| Texts | locale 105800, 105801, 120190, 120191 | "Remote Detonators". "Explosives linked to a remote activator." "%ABILITY_USEEQUIPMENT% to Throw or Detonate". Icon name `remotedetonation_mp` (not looked up in the HUD files). |
+| How many | its ammunition `remote_det_charge` | 1 carried, starting full (`initial_clip_amount` −1); 2 with Favor of the Armory (`mp_perk_equipment_double`). |
+| One out at a time | a second ammunition `det_pack_deployed` (1) | A throw needs it and spends it. It comes back when the thrown charge is destroyed (`on_tracked_projectile_destroyed_actions`). So a second charge cannot go out until the first has gone off. |
+| Throw | `ability_utility` | Semi auto, cooldown 0.5 s, hand `rig_r_hand`, sound `play_sm_grenade_toss`. Its throw effect is named `test_xyz`: a placeholder. |
+| Detonate | `detonate_projectile`, `input_override` `useequipment`, delay 0.01 s | **The equipment key again sets it off.** The grenade launcher's remote detonation uses the same ability on the reload key; that one is already simulated (spec "Remote detonation"). |
+| The charge in flight and at rest | `ebps.oppc` / `ebps\projectiles\pp_grenade_remote_detonation` | Speed 25, no lifetime (it waits until set off), rigid body, 1 bounce then stops, **sticky**, gravity ×1 at 1 m and ×2 from 2 m, 35 health with `detonate_on_death` (it can be shot off), `on_launcher_death_policy` "die". Fuse effect `ork_frag_grenade_fuse` at `fx_trail`, trail sound `play_frag_grenade_trail_mp`. |
+| The blast | same blueprint, two blasts | Each r 10, line of sight, 100 explosive damage, no shield part, fall-off 0 → 1, 4 → 1, 6 → 0.75, 10 → 0.3. The first throws bodies (force medium); the second staggers at full intensity. **200 at the centre**, the frag grenade's damage. Effect `squig_explosion` ×1.5, sounds `play_sm_grenade_explode` and `play_big_damage_grenade`, a camera shake. |
+| Upgraded | `pp_grenade_remote_detonation_upgraded`, with Master-Crafted Wargear (`mp_perk_equipment_effectiveness`) | 150 + 100, r 15 (fall-off 6 → 1, 9 → 0.75, 15 → 0.3), `max_active_projectiles` 0. |
+| Refill | `pickup_mp_drop_grenades` | A grenade drop gives +1 `remote_det_charge` (spec "Grenade amounts"). |
+| Model | the blueprint names `stikka_bomb_proj` / `geo_stikkbomb_lodh` | **The Ork stikkbomb**, a stand-in on a marine item. Marine-made alternatives in the install: `melta_bomb.oppc`, `frag_grenade.oppc` (not yet loaded with our reader). |
+
+The demolition charge is a finished SM1 item with stand-in art (an Ork model, a placeholder throw effect), left out of every class.
 
 ---
 
@@ -105,10 +135,11 @@ No thrust (stab) animation exists for a two-handed weapon. The knife's stabs are
 - **Simulation numbers.**
   - A gun is a `WeaponSpec` in `SimConfig.Weapons`, read from its wargear by `WeaponTuning.Read`.
   - A melee weapon is a `MeleeCombo` (light steps, heavy steps, charge) in a class's `MeleeChoices`. It is read by `MeleeTuning.From` from a graph map (`MpClasses.MeleeMaps`: graph and sequencers) plus the wargear's abilities (damage).
+  - An equipment item is a `ThrownSpec` in `SimConfig.Thrown`, read by `WeaponTuning`; a class's `EquipmentChoices` index that list.
   - Classes hold `PrimaryChoices`, `PistolChoices`, `MeleeChoices` and `EquipmentChoices`.
 - **Wire.** The Hello carries choices as indices into the class's lists. They are resolved by wargear name (`LoadoutIndices`), sent as U8, and the profile stores names. Appending an item at the end of a list changes no existing index and no wire format.
-- **Config hash.** It covers every weapon and combo, so appended weapons change the hash only of the profiles that carry them.
-- **The added-content load point.** It already exists: `GameplayTuning.ExtrasLoad`, whose dispatcher `src/SmContent/Extras/GameplayTuning.Extras.cs` runs Musou's `MusouLoadout.Prepare`. Prepare copies the class choice lists. A weapon appended in the same dispatcher just before Prepare therefore reaches Musou's drops (`MusouDropRules` picks from the class's choices), reward cards and extra slots 3 to 5 without touching Musou code.
+- **Config hash.** It covers every weapon, combo and thrown item, so items appended only in the Musou profile change only the Musou profile's hash.
+- **The added-content load point.** It already exists: `GameplayTuning.ExtrasLoad`, whose dispatcher `src/SmContent/Extras/GameplayTuning.Extras.cs` runs Musou's `MusouLoadout.Prepare` under the Musou flag. Prepare copies the class choice lists. Items appended in the same dispatcher just before Prepare therefore reach Musou's drops (`MusouDropRules` picks from the class's choices), reward cards (`TfwRewards` takes equipment from the class's list), extra slots 3 to 5 and the Musou customizer, without touching those Musou files.
 - **Customizer.**
   - `PerkCatalog` lists each class's items from the wargear's `ui_data`; Musou's Standard Marines page reads the same catalogue.
   - A new item needs a catalogue entry (name, slot, title, description).
@@ -117,160 +148,162 @@ No thrust (stab) animation exists for a two-handed weapon. The knife's stabs are
   - The weapon model comes from the wargear's `visual_data` (`WeaponModels`).
   - Animation families are chosen by wargear-name rules: `HipFireAnimations.FamilyOf` ("heavy_bolter" → heavy), `LocomotionAnimations.SprintFamilyOf`, `ReloadAnimations`, `FallAnimations` and the flinch rules.
   - The melee clips come from `MpClasses.MeleeMapFor(wargear)`.
-  - Hands: `WeaponHands` (a melee weapon is in hand only while a strike is shown; two-handed items move to the chest prop).
+  - Hands: `WeaponHands` (a melee weapon is in hand only while a strike is shown, or always for a class that always holds it; two-handed items move to the chest prop).
 - **Heavy weapons.**
   - Brace (heavy bolter only, from its `ability_ranged_braced`) and vent (plasma) live in `Brace.cs` / `Vent.cs`.
   - A Devastator primary is one clip for a life (400 for the heavy bolter), refilled by ammo pickups.
-- **Assault jump pack.** Dash attack, ground pound and air slash come from the pack, not the weapon. The only weapon-specific rules are the hammer's (`Loadouts.WieldsHammer`: no pound delay, hop swing, steered slam).
-- **Hit-scan splash is not simulated.** `WeaponTuning.Read` reads a projectile's or a cone's blasts, not a hit-scan shot's `hit_sim` `area_of_effect`. The campaign autocannon's splash needs a new rule.
+- **Assault jump pack.** Dash attack, ground pound and air slash come from the pack, not the weapon. The only weapon-specific rules are the hammer's (`Loadouts.WieldsHammer`, matched by wargear name: no pound delay, hop swing, steered slam).
+- **Throws and remote detonation.** A Grenade press starts a throw in the shared step (`Combat.StepPlayer`; predicted). Remote detonation exists for the grenade launcher only, on the reload key (`World.DetonateRemotely`, `PlayerState.ProjectilesOut`). Sticky projectiles are simulated.
+- **Musou's own combat.** Musou applies the players' hits to the Orks in its own code (`World.MusouCombat.cs`: the cleave, projectiles against Orks, charges), with existing hooks for blasts (`ExtrasBlast`), jump events (`ExtrasJump`: Launch, Dive, Land, Impact, SlashLand), the frag's 2× reach (`ExtrasThrownBlastScale`) and melee (`ExtrasMelee`). A sticky projectile that meets an Ork stops at the point it struck; it does not ride on him.
+- **Hit-scan splash is not simulated.** `WeaponTuning.Read` reads a projectile's or a cone's blasts, not a hit-scan shot's `hit_sim` `area_of_effect`. The campaign autocannon's splash needs a new rule (in Musou's code).
 
 ---
 
-## 3. Where the weapons live
+## 3. Where it lives (decided: Musou Mode only)
 
-None of the three was offered to an SM1 multiplayer player. The claws and the spear have no data at all. The autocannon is cut SM1 data: invisible in the customizer, no class lists it, no MP animation state, its perks marked DISABLED.
+None of the four items was offered to an SM1 multiplayer player, so all four are **added content**. The owner's answer D1 puts them inside the existing Musou feature, not a new one:
+- **Gate:** `ContentExtras.Musou`. No new flag. Faithful and extended builds never load them; Annihilation and Seize Ground are untouched, including the extended profile's config hash (W0 pins it byte for byte).
+- **Folders:** `src/SmContent/Extras/Musou/Arsenal/`, `src/SmSim/Extras/Musou/Arsenal/`, `client/Extras/Musou/Arsenal/`, `tests/*/Extras/Musou/Arsenal/`. Namespaces `<Project>.Extras.Musou.Arsenal`.
+- **Core code** is reached only through `Extras*` hooks (section 8, W0), each a no-op without the Musou flag.
+- **Numbers** stay **data** wherever a file gives them (the autocannon's and the demolition charge's), with the source named. Everything else is tagged estimate or ours and goes into the refine register.
+- `docs/changes-from-original.md` section 0 lists the four items as added content.
 
-So all three are **added content** (docs/added-content.md: "a whole system, faction, mode or mechanic SM1 multiplayer did not have, removable in one piece"). They go in `Extras/Arsenal/` folders, with namespaces `<Project>.Extras.Arsenal` and `Extras*` hooks, and are off in a faithful build.
+Protocol and versions:
+- No protocol change and no extras-wire change is expected. The loadout items are appended indices; projectiles, their stuck and attached flags and their detonations are already on the wire.
+- Musou's rules version (`MusouSim.Version`) goes up with the new rules; renumbered at integration as usual.
+- Musou runs on the player's PC; the VM's Classic server needs nothing.
 
-The autocannon is a special case. The weapon is added content, but its numbers stay **data** wherever the files give them (kind `data`, source the wargear file). It is recorded so in `docs/changes-from-original.md` section 0. It is not an owner's change to something SM1 had, so it is switched, not just tagged.
-
-| Option | Gate | What changes |
-|---|---|---|
-| **A. Musou only (recommended first)** | `ContentExtras.Musou` (the Musou profile takes no other flags) | Musou players get the weapons in the loadout, drops, rewards and the Musou customizer. Annihilation and Seize Ground are untouched, including the extended profile's config hash. Code in `Extras/Arsenal/`, read only when the Musou flag is set. |
-| B. Musou and Classic PvP | a new flag `Arsenal` (next free bit, 16), in `extended`; the Musou code also accepts `Musou` | Classic extended matches offer the weapons on both sides. Needs Chaos twins (section 9, question 2). The extended config hash changes, so builds refuse each other across the change, as with any balance change. The VM server needs the new build. Every Classic number then needs balance against the six classes. |
-
-The recommendation is A first, then B if the owner wants them in PvP after a Musou playtest. Option A costs no Classic risk. The code is the same either way: under B only the gate and the Chaos twins are added.
-
-Protocol:
-- No protocol or extras-wire change is needed for the loadout weapons.
-- Musou's rules version goes up with any Musou number.
-- The tripod pickups (milestone W4) need an interaction message only if mounting is added. That is a Musou wire addition, bumping the extras wire version.
+Classic PvP later only on the owner's word. It would need Chaos twins, a hit-scan splash rule in the core shot path, and balance against the six classes.
 
 ---
 
-## 4. Autocannon (Devastator primary)
+## 4. Autocannon (Musou Devastator primary)
 
-**Role.** A heavy, slow, hard-hitting gun that kills groups (splash) and overheats quickly. It sits between the heavy bolter (sustained fire, brace) and the lascannon (single big shots).
+**Role.** A heavy, slow, hard-hitting gun that kills groups (splash) and overheats quickly. It sits between the heavy bolter (sustained fire) and the lascannon (single big shots).
 
 **What "like the one in the campaign" means in the data.**
 - In the campaign the Orks hold a landing zone with a tripod autocannon. Titus can man it (infinite ammo, turret aim clips) or rip the gun off and carry it.
-- Carried, it fires full auto from the hip with a cannon recoil. It carries 400 rounds with no reserve, so it is dropped when empty (`SM_TB_ThrowtoStow_S_01_v2`). It walks like the heavy bolter.
+- Carried, it fires full auto from the hip with a cannon recoil. It carries 400 rounds with no reserve and walks like the heavy bolter.
 
-Two handling choices follow (question 8).
+**Reading of D5.** The base is the MP file `csm_mp_exotic_auto_cannon`, the gun's only multiplayer data. Where the campaign's carried gun differs (trigger, rate, rounds, head multiplier, heat, splash), the campaign's handling applies: that is what makes it "function like the one in the campaign". The MP file's damage of 50 is the campaign's 100 at MP scale, so the damage scale stays the multiplayer one. Open question 1 confirms this reading.
 
-| Choice | What the Devastator does |
-|---|---|
-| **W1: a loadout primary (recommended now)** | Picked in the loadout like the heavy bolter, lascannon and plasma cannon. Always carried; one clip a life, refilled by ammo. |
-| W4: campaign-style pickups (later, Musou only) | Tripod autocannons on Musou maps. Use to man (infinite ammo, turret clips). Hold Use to rip off and carry until empty, then drop. Any class can do it, as in the campaign. Needs map placement, an interaction and the pickup and drop clips. |
+**Handling.** A Devastator loadout primary in Musou, picked like the heavy bolter, lascannon and plasma cannon. One clip a life, refilled by ammo drops. It also appears in Musou's drops and reward cards, since those read the class's list.
 
-**Controls (W1).**
-- Fire (LMB) shoots. Aim (RMB) uses `aim_sm_heavy_weapon_mp`.
-- Reload (R) does nothing: there is no reload ability and no brace in either file (ours: no brace; question 10).
-- Melee is the Devastator's kick and stomp; the campaign's autocannon strike plays the same kick clip. Hop, sprint and switch follow the heavy bolter's rules. The campaign disables the evade while carrying; the MP Devastator keeps its hop (ours).
+**Controls.**
+- Fire (LMB) shoots, full auto. Aim (RMB) uses `aim_sm_heavy_weapon_mp`.
+- Reload (R) does nothing: there is no reload ability and no brace in either file (ours: no brace; open question 2).
+- Melee is the Devastator's kick and stomp; the campaign's autocannon strike plays the same kick clip. Hop, sprint and switch follow the heavy bolter's rules. The campaign disables the evade while carrying; the Devastator keeps its hop (ours).
 
-**Numbers: two sets, one per mode (question 9).**
+**Numbers.**
 
-| Parameter | Musou (campaign handling; recommended) | Classic, if chosen (MP data) | Kind / source |
-|---|---|---|---|
-| Trigger | full auto | semi auto, 2-round burst 0.2 s apart | data: `auto_cannon` / `csm_mp_exotic_auto_cannon` |
-| Damage per round | 50 | 50 | data: MP file (equals the campaign's 100 scaled ×0.467) |
-| Shot cooldown | 0.22 s | 0.4 s per burst | data: campaign / MP file |
-| Clip | 400 | 120 | data: campaign / MP file |
-| Head multiplier | 1.5 | 1 | data |
-| Fall-off | none | ×0.75 from 45 to 70 m | data |
-| Heat | 3 per round of 100, cools 50/s after 0.5 s: about 33 rounds, 7.3 s of fire to overheat | 1 per round of 15, cools 4.5/s after 0.41 s: 15 rounds, about 3 s | data |
-| Splash | radius 4 m, ×1 to 2 m, ×0.1 at 4 m, line of sight, 50 at the centre | none | data shape; the damage scaled ×0.5 like the round (data, scaled) |
-| Scatter | none (Musou has no bullet spread) | the MP file's sets | data |
+| Parameter | Value | Kind / source |
+|---|---|---|
+| Trigger | full auto | data: campaign `auto_cannon` |
+| Damage per round | 50 | data: MP file (equals the campaign's 100 scaled ×0.467) |
+| Shot cooldown | 0.22 s | data: campaign |
+| Clip | 400, no reserve | data: campaign |
+| Head multiplier | 1.5 | data: campaign |
+| Range, fall-off | 150 m, none | data: campaign |
+| Heat | 3 per round of 100, cools 50/s after 0.5 s: about 33 rounds, 7.3 s of fire to overheat | data: campaign |
+| Splash | radius 4 m, ×1 to 2 m, ×0.1 at 4 m, line of sight, 50 at the centre; at the hit point, on Orks and on the level | data shape (campaign); damage scaled ×0.5 like the round (data, scaled) |
+| Scatter | none (Musou has no bullet spread) | Musou's existing rule |
 
-For scale (estimate, body shots, no splash), Musou is about 227 DPS for 7 s; the heavy bolter is 150 from the hip and 350 braced.
+For scale (estimate, body shots, no splash): about 227 damage a second for 7 s; the heavy bolter is 150 from the hip and 350 braced. A Boy (85 health) falls to two rounds; the splash takes the Boyz around him.
 
 **Presentation.**
 
-| Piece | Recommendation | Source |
+| Piece | Plan | Source |
 |---|---|---|
 | Model | `turret_aa`, held at `rig_prop_m_chest` like the heavy bolter, stowed at `mkr_stow_bolter` | data (every autocannon wargear) |
 | Walk, sprint, hop, fall | the heavy bolter's families (`SM_TB_NAV`, heavy sprint, `SM_EVD_TB_*`) | data: the campaign graph's nav is `SM_TB_NAV` |
 | Shot | additive `SM_RNG_CN_FireIdle_S_01` from the campaign rig (same skeleton); fallback the heavy bolter's fire | data (campaign rig) |
-| Loyalist effects and sound | `autocannon_muzzle`, `heavy_bolter_tracer`, `shell_casing`, the space-marine autocannon hit container, `play_autocannon_turret_fire` | data: campaign file |
-| Chaos effects and sound (Classic) | `chaos_autocannon_*`, `play_ch_autocannon_fire` | data: MP file |
+| Effects and sound | `autocannon_muzzle`, `heavy_bolter_tracer`, `shell_casing`, the space-marine autocannon hit container, `play_autocannon_turret_fire` | data: campaign file |
 | HUD | reticle `autocannon_mc`, ammo `ammo_autocannon_mc`, the round count as the heavy bolter's | data (`Hud.gfx`); the count rule is the owner's heavy-bolter rule |
 | Name, description | 104314 "Autocannon", 104315 | data |
-| Loyalist name | `sm_mp_exotic_auto_cannon` (ours; the twin of the Chaos file, built in code, never written to disk) | ours |
+| Loyalist name | `sm_mp_exotic_auto_cannon` (ours: the Chaos file's twin, built in code, never written to disk) | ours |
 
-**Missing:**
-- A loyalist MP file.
-- The tripod's own animation graph and base packages, needed for W4 only; the tripod base model exists.
+**Missing:** a loyalist MP file (built in code from the Chaos one).
+
+**Later, if wanted (open question 3):** tripod autocannons on Musou maps, as in the campaign (man it, rip it off, carry it until empty, drop it). It would need map placement, an interaction message (an extras-wire addition), the campaign's pickup, drop and turret clips, and the tripod's own graph, which is not in the install.
 
 ---
 
-## 5. Lightning claws (Assault melee choice)
+## 5. Lightning claw (decided: one claw plus the pistol)
 
-**Role.** A fast, shredding close-combat weapon: quicker strings than the sword, lighter hits, more armour damage.
+**Role.** The fastest melee weapon of the Assault: quick strings, lighter hits, and a power field that tears through the big Orks.
 
-**One claw or a pair (question 3).** Every SM1 melee set strikes with the right hand only, and the Assault keeps its bolt pistol with every melee weapon.
+**Hands.** The claw is worn on the right hand, where the sword strikes; the bolt pistol stays in the left hand, as with every Assault melee weapon. This is SM1's own layout, so nothing else moves. The difference from the sword: a claw cannot be put away, so it is always worn (ours). The client's existing "always holds its melee weapon" rule does this, applied to the claw instead of to a class.
 
-| Choice | Look | Cost |
-|---|---|---|
-| **Pair, pistol kept (recommended)** | A claw on each gauntlet. The blades are out only during a strike and fold back into the gauntlet otherwise, so the right hand can hold the pistol (ours; SM1 also shows the melee weapon only for a strike). The left claw rides along: the data has no left-hand strikes. | One more model attachment (`rig_prop_lhand`). |
-| Single claw (right) and pistol | The sword's place exactly. Simplest. | Less iconic. |
-| Pair, no pistol | Both claws always out; Fire does nothing, or fires nothing. | Removes the Assault's gun. Not recommended. |
+**Move set.** The power sword's graph and chain (`MP_SM_MEL_PowerSword`):
+- the light string X1..X4;
+- the heavy strikes Y, X,Y, X,X,Y, X,X,X,Y and the Y,Y stomp;
+- the sword's charge (bull rush);
+- the pack's dash attack, ground pound and air slash, as the sword's.
 
-**Move set (question 4).** Recommended: the power sword's graph, timings and chain unchanged, so all the timing data stays as read:
-- X1..X4.
-- The heavy strikes Y, X,Y, X,X,Y, X,X,X,Y and the Y,Y stomp.
-- The sword's charge (bull rush).
-- The pack's dash attack, ground pound and air slash, as the sword's.
+**Tempo (open question 4).** Recommended: the same clips played 1.25× faster, with every step timing divided by 1.25 and every damage ×0.8, so a claw does the sword's damage per second against Boyz (ours). The alternative is the sword's own speed with its own numbers. The speed-up is checked first in one still and one clip, because the client must play the clips at the new speed in step with the simulation.
 
-The claws differ in numbers. The alternative is a faster string: the same clips played 1.25× faster, with the step timings divided by 1.25 (ours). That is checked first in one still and one clip, because the client must play the clips at the new speed in step with the simulation.
+**The claw's edge (open question 5).** Recommended: the power field ignores armour, so claw hits do ×1.5 against the big Orks (Nobs, the Boss Orks and the Warboss; estimate). Alternatives: lightning arcs from each hit to 2 Orks within 4 m for a quarter of the hit (estimate; close to the Librarian's chain lightning), or no edge.
 
 | Parameter | Recommended | Kind / source |
 |---|---|---|
-| X1..X4 damage | 50 / 55 / 55 / 85 (the pair's X4 is both claws); secondary 25 / 25 / 35 / 45 | estimate (245 a string against the sword's 290 from 65 / 70 / 73 / 82, made up by the armour damage below) |
-| Armour-shield damage per light hit | 100 | estimate (the axe has 250; the sword none) |
-| Heavy strikes, stomp, charge | the power sword's | data: `sm_mp_melee_powersword`, `MP_SM_MEL_PowerSword` |
-| Perks | none of the sword's heal-on-hit perk at first | ours (question 13) |
+| X1..X4 damage | 52 / 56 / 58 / 66 (the sword's 65 / 70 / 73 / 82 ×0.8) | data, scaled (×0.8 with the 1.25× tempo; ours) |
+| Heavy strikes, stomp, charge | the power sword's, ×0.8, played 1.25× faster | data, scaled |
+| Step timings, windows | the sword's ÷1.25 | data, scaled |
+| Against the big Orks | ×1.5 | estimate |
+| Musou's melee rules | as every weapon: the cleave, the heal and armour per enemy struck, the stims | Musou's existing rules |
+| Sword perks | none of the sword's perks count for the claw at first | ours |
 
 **Presentation.**
-- Model: none exists (question 11). Recommended: our own mesh built in code. That is a gauntlet plate and four curved blades per hand, steel with a blue power-field glow.
-  - Parented to `RIG_R_Hand` / `RIG_L_Hand`.
-  - The blades scale out over 0.1 s when a strike starts and back after it (ours).
-  - Fallback placeholder: three combat-knife blades per hand, from the install at run time.
-- Effects: the power sword's field effects on the blades, `power_claw_strike_00` and `power_blade_dmg_00` on a hit, and a thin lightning crackle (`amb_chaos_lightning_wrapping`, recoloured blue) while the blades are out.
-- Sounds: the power sword's swing and hit events, with `play_capacitor_lightning` layered on a hit (install events; no downloads, as the owner asked for the Librarian).
-- Name: "Lightning Claws" (ours, English).
-- Chaos twin (Classic only): the Raptor's (40k Raptors carry claws), same numbers (race parity).
+- Model: none exists. Recommended: our own mesh built in code: a gauntlet plate over the right hand with four long curved blades, steel with a blue power-field glow, parented to `RIG_R_Hand` (open question 6 asks for models or references).
+- Effects: the power sword's field effect on the blades, `power_claw_strike_00` and `power_blade_dmg_00` on a hit, and a thin lightning crackle (`amb_chaos_lightning_wrapping`, recoloured blue) on the blades during strikes.
+- Sounds: the power sword's swing and hit events, with `play_capacitor_lightning` layered on a hit (install events, decoded at run time; no downloads).
+- Name: "Lightning Claw" (ours, English).
 
-**Missing:** the model, any left-hand strike, any claw clip.
+**Missing:** the model, any claw clip.
 
 ---
 
-## 6. Power spear (Assault melee choice)
+## 6. Power spear (decided: impaling dive plus wide sweeping swings)
 
-**Role (question 5).** Reach and the charge: a two-handed weapon that hits from farther than the sword and is deadliest on a charge or a dive. It is slower than the claws and faster than the hammer.
+**Role.** A two-handed polearm that clears crowds on the ground with wide sweeps and kills one big target from the air with an impaling dive. Slower than the claw, faster than the hammer.
 
-**Grip and tempo (question 6).**
+**Grip.** Two-handed on the thunder hammer's set, the only two-handed set in the data (both hands on the shaft); the pistol is kept, as with the hammer.
 
-| Choice | Animation | Feel |
-|---|---|---|
-| **Two-handed on the hammer's set, played faster (recommended)** | `MP_SM_MEL_ThunderHammer` and `SM_TH_NAV` / sprint at 1.4× speed (the step timings ÷1.4; ours) | Wide two-handed swings and sweeps; both hands on the shaft. The only two-handed set in the data. |
-| Two-handed on the hammer's set at its own speed | the same at 1.0× | A heavy halberd; very close to the hammer. |
-| One-handed on the sword's set | `MP_SM_MEL_PowerSword` | Quick, but a 2.5 m pole in one hand clips through the body. Not recommended. |
+### 6.1 The wide sweeping swings
 
-No thrust clip exists. A real stab needs a new animation (ours, procedural, later) or one supplied by the owner.
+The hammer's swings are already wide horizontal sweeps, and its two heavy strikes are the graph's own "Sweeping Attack". The spear keeps that chain and makes it wider and quicker.
 
 | Parameter | Recommended | Kind / source |
 |---|---|---|
+| Tempo | the hammer's clips and step timings at 1.4× (open question 7) | data, scaled |
 | X1..X3 lengths | 1.905 / 1.667 / 1.667 s; hits 0.431 / 0.405 / 0.500 s | data, scaled (the hammer's ÷1.4) |
-| X1..X3 damage | 120 / 120 / 140; secondary 60 | estimate (the hammer's 200 ×0.6–0.7) |
-| Reach | light hits land up to 1 m farther than the hammer's | estimate |
-| Heavy strikes | the hammer's interrupt and sweeps (stun), sped up the same | data, scaled |
-| Y,Y finisher | the hammer's slam at 1.4×; its blast radius 5 m, 75 + 75 | estimate (the hammer's 7 m, 100 + 125) |
+| X1..X3 damage | 120 / 120 / 140 | estimate (the hammer's 200 ×0.6–0.7) |
+| Sweep width (Musou cleave) | a half circle in front (180°) in place of Musou's usual cone, reach +1 m, up to 12 Orks a swing in place of 8 (open question 8) | estimate |
+| Heavy strikes | the hammer's interrupt and its two sweeping attacks (stun), sped up the same | data, scaled |
+| Y,Y finisher | the hammer's slam at 1.4×, steered as the hammer's; blast r 5 m, 75 + 75 | estimate (the hammer's 7 m, 100 + 125) |
 | Charge | the bull rush at ×1.5 damage (112 + 38), stagger | estimate (the data's 75 + 25, stun) |
-| Pistol | kept, as the hammer | data (the hammer keeps it) |
-| Jump pack | the hammer's rules (hop swing, no pound delay) | ours (question 7) |
+| Optional half-turn swing | `SM_MEL_TH_XATK_180_MP` (a 180° hammer swing in the MP rig) for a strike at Orks behind | data clip; use: ours, later |
 
-**Presentation.**
-- Model: none exists (question 11). Recommended: the install's force staff as the shaft (loaded at run time), with a blade head built in code (ours), held at the chest prop like the hammer.
+### 6.2 The impaling dive
+
+The jump pack's dive (a melee press in the air, steered to the marked point) lands with the spear driven point-first into the target.
+
+| Parameter | Recommended | Kind / source |
+|---|---|---|
+| The dive | the pack's own: marker, steering, speed, the 7 m stun blast of 25 + 50 on landing | data and the owner's M44 rule |
+| The impale | on landing, the enemy nearest the impact point within 2 m takes **600** (a Nob's whole health: a Nob or anything smaller dies outright) | estimate |
+| A survivor | a Boss Ork or the Warboss takes the 600 and is pinned (staggered) for 1 s; the Warboss is stagger-immune and only takes the damage | estimate; the Warboss rule is Musou's |
+| Nothing within 2 m | only the pack's blast | ours |
+| The air slash's landing | not an impale (open question 9 asks) | ours |
+| Jump-pack rules | the hammer's: a hop swing, no pound delay (open question 10) | ours |
+| Animation | the hammer's dive and landing clips (`SM_JMP_TH_GP_Loop_01`, `_Impact_01`), the spear turned point-down from the dive's start until the get-up (ours, procedural) | data clips; the turn ours |
+| Effect and sound | the hammer's ground-pound effects and sound, plus `power_blade_dmg_00` at the impaled target | data |
+
+Code: the impale is Musou code on the existing `ExtrasJump` hook (`JumpEventKind.Impact`), so it needs no new core hook. The hammer's jump rules need one hook in `Loadouts.WieldsHammer` (W0).
+
+### 6.3 Presentation
+
+- Model: none exists. Recommended: the install's force staff as the shaft (loaded at run time), with a leaf-shaped blade head built in code (ours), held at the chest prop like the hammer.
 - Effects: the hammer's power-field effects along the blade.
 - Sounds: the power axe's swing and hit events.
 - Name: "Power Spear" (ours).
@@ -279,30 +312,79 @@ No thrust clip exists. A real stab needs a new animation (ours, procedural, late
 
 ---
 
-## 7. Milestones and file ownership
+## 7. Demolition charge (decided: Musou equipment)
+
+**Role.** A placed bomb you set off when the Orks arrive: throw it at a choke point or stick it on a Nob, then press again to blow it.
+
+**Who carries it.** Every Musou class, appended to the end of each class's equipment list (open question 11). The Librarian may use every equipment item other classes use (the owner's rule in the Librarian pass). If his list is built from the other classes' lists, the charge reaches him by itself; otherwise his session adds it, since that session owns his files.
+
+**Controls (data).**
+- The equipment key (G) throws it, with the frag's toss.
+- The same key again sets it off: `detonate_projectile` on `useequipment`, 0.01 s, so it goes off in the next tick.
+- One charge out at a time (data: `det_pack_deployed`). The HUD shows the data's own prompt (120190) while a charge is out.
+
+**Numbers.**
+
+| Parameter | Value | Kind / source |
+|---|---|---|
+| Carried | 1; 2 with Favor of the Armory | data |
+| Upgrade | Master-Crafted Wargear swaps in the upgraded charge: 150 + 100, r 15 | data |
+| Throw cooldown | 0.5 s | data |
+| Flight | speed 25, rigid body, 1 bounce then stops, gravity ×1 at 1 m, ×2 from 2 m | data |
+| Sticks | to the level and to players | data (`sticky`) |
+| On an Ork | sticks to him and rides along until it goes off (open question 12) | ours |
+| Waits | until set off, with no time limit | data (`lifetime` 0, `detonate_when_lifetime_over` False) |
+| Thrower dies | it goes off | interpretation: the policy "die" together with `detonate_on_death` |
+| Shot at | Orks do not target it; the data's 35 health is not used | ours |
+| Blast | two blasts of 100, r 10, line of sight, fall-off 0 → 1, 4 → 1, 6 → 0.75, 10 → 0.3: 200 at the centre; the first throws bodies, the second staggers | data |
+| Musou reach | radius and fall-off distances ×2 (r 20), as Musou already does for the frag (open question 13) | ours (Musou's frag rule) |
+| Refill | full at each respawn; +1 per grenade drop; Musou's reward cards and drops offer it from the class list | data (drop) and Musou's existing rules |
+
+Without the ×2, the charge would reach half as far as a Musou frag for the same 200 damage, which is the reason for the recommendation.
+
+**Presentation.**
+- Model: the data names the Ork stikkbomb, a stand-in. Recommended: the install's melta bomb model (`melta_bomb.oppc`, a marine item), loaded at run time; checked in the first still (open question 14).
+- Effects and sounds: the data's: fuse `ork_frag_grenade_fuse` while it waits, `squig_explosion` ×1.5, `play_sm_grenade_toss`, `play_sm_grenade_explode`, `play_frag_grenade_trail_mp`, the camera shake. The throw effect `test_xyz` is a placeholder and is not played.
+- Customizer row and HUD: the data's texts (105800, 105801, 120190), icon `remotedetonation_mp` if the HUD files hold it, else a placeholder. Name: the install's "Remote Detonators" or the owner's "Demolition Charge" (open question 14).
+
+**Code.**
+- The second press must be decided in the shared step, so that the client's prediction and the server agree. That needs one new hook in `Combat.StepPlayer`: `ExtrasThrowPress`, a no-op without Musou (W0).
+- The world sets the charge off as `World.DetonateRemotely` does for the grenade launcher.
+- Riding on an Ork is Musou code: the server moves the charge with him, and the wire already carries its position and attached flag.
+
+---
+
+## 8. Milestones and file ownership
 
 | Milestone | Owner | Files (one writer each) | Done when |
 |---|---|---|---|
-| **W0: the arsenal base** (first; small) | one implementer | the gate; `src/SmContent/Extras/Arsenal/Arsenal.cs` (the registry: three entries, each a stub that returns nothing); one line in the dispatcher `src/SmContent/Extras/GameplayTuning.Extras.cs` (before Musou's Prepare); the core hooks below; `ExtrasBoundaryTests` pins; the docs' section headings | A faithful and an extended config hash byte for byte as before. A Musou config unchanged while the stubs return nothing. Both builds 0 errors; the boundary and isolation tests pass. |
-| **W1: autocannon** | implementer A | `src/SmContent/Extras/Arsenal/Autocannon.cs` (the loyalist twin from the Chaos file, the Musou numbers), a new file in `src/SmSim/Extras/Musou/` for splash on hit-scan shots against Orks, `client/Extras/Arsenal/Autocannon/*`, `tests/*/Extras/Arsenal/Autocannon*`. Calling the splash file needs one line in Musou's shot code, which other Musou sessions also edit: the lead sequences that line. | Picked in the loadout, fired, overheated, splash on Orks; player and third-person stills; targeted tests. |
-| **W2: lightning claws** | implementer B | `src/SmContent/Extras/Arsenal/LightningClaws.cs`, `client/Extras/Arsenal/Claws/*`, `tests/*/Extras/Arsenal/Claws*` | A string, the heavies, a charge and a dive with claws; blades out and in; stills. |
-| **W3: power spear** | implementer C | `src/SmContent/Extras/Arsenal/PowerSpear.cs`, `client/Extras/Arsenal/Spear/*`, `tests/*/Extras/Arsenal/Spear*` | As W2, with the speed-up checked in a clip against the simulation's hits. |
-| W4 (later, Musou): tripod autocannons | after W1 | Musou map placement, interaction, carried state, campaign pickup / drop / turret clips | Man, rip off, carry, drop. |
+| **W0: the Musou arsenal base** (first; small) | one implementer | `src/SmContent/Extras/Musou/Arsenal/Arsenal.cs` (the registry: four entries, each a stub that adds nothing); one line in the dispatcher `src/SmContent/Extras/GameplayTuning.Extras.cs` (before `MusouLoadout.Prepare`); the core hooks below; the Musou call sites below; `ExtrasBoundaryTests` pins; the docs' section headings | Faithful and extended config hashes byte for byte as before; a Musou config unchanged while the stubs add nothing. Both builds 0 errors; the boundary, Musou isolation and Musou skirmish pin tests pass. |
+| **W1: autocannon** | implementer A | `…/Musou/Arsenal/Autocannon.cs` (SmContent: the loyalist twin and its numbers; SmSim: the splash on hit-scan shots), `client/Extras/Musou/Arsenal/Autocannon/*`, `tests/*/Extras/Musou/Arsenal/Autocannon*` | Picked in the Musou loadout, fired, overheated, splash on Orks; player and third-person stills; targeted tests. |
+| **W2: lightning claw** | implementer B | `…/Musou/Arsenal/LightningClaw.cs`, `client/Extras/Musou/Arsenal/Claw/*`, `tests/*/Extras/Musou/Arsenal/Claw*` | A string, the heavies, a charge and a dive with the claw; the edge against big Orks; stills; the speed-up checked in a clip against the simulation's hits. |
+| **W3: power spear** | implementer C | `…/Musou/Arsenal/PowerSpear.cs`, `client/Extras/Musou/Arsenal/Spear/*`, `tests/*/Extras/Musou/Arsenal/Spear*` | The sweeps hit a half circle; the impaling dive kills a Nob outright; the hammer's jump rules; stills and a clip. |
+| **W4: demolition charge** | implementer D | `…/Musou/Arsenal/DemolitionCharge.cs`, `client/Extras/Musou/Arsenal/Charge/*`, `tests/*/Extras/Musou/Arsenal/Charge*` | Throw, stick (level, Ork), second press sets it off, one out at a time, the perks' counts, the drop refill; prediction agrees with the server; stills. |
+| W5 (later, if wanted): tripod autocannons | after W1 | Musou map placement, interaction, carried state, the campaign's pickup, drop and turret clips | Man, rip off, carry, drop. |
 
-**Core hooks W0 adds.** Each is a partial `Extras*` method, pinned and marked `// EXTRAS-HOOK`. The names are proposals.
+**Core hooks W0 adds.** Each is a partial `Extras*` method, pinned and marked `// EXTRAS-HOOK`, a no-op without the Musou flag. The names are proposals.
 1. `MpClasses.ExtrasMeleeMap(string wargear, ref WeaponMap?)`: the graph map of an added melee name. The client's `MeleeMapFor` uses it too.
-2. `PerkCatalog.ExtrasItems(ref list)`: the customizer rows.
-3. Client `WeaponModels` / `WeaponRig`: `ExtrasWeaponModel(string wargear, ref model)`, a model built in code or loaded from another package.
-4. One animation-family alias, `ExtrasAnimationAlias(ref string wargear)`. It maps an added name to the family it borrows (autocannon → heavy bolter, claws → power sword, spear → thunder hammer). It is applied in the name rules of `HipFireAnimations`, `LocomotionAnimations`, `ReloadAnimations`, `FallAnimations` and the flinch rule, so W1 to W3 touch none of them.
-5. If melee speed-ups are approved: a clip-speed factor the simulation's steps and the client's clip playback both read. It works like the Fast Stomp perk's clip speed (`MeleeTuning.ReadSpeedUpgrades`); W0 checks how the client applies that today.
+2. `Loadouts.WieldsHammer` → `ExtrasWieldsHammer(..., ref bool)`: the spear takes the hammer's jump-pack rules.
+3. `Combat.StepPlayer` → `ExtrasThrowPress(..., ref ThrowPress)`: the charge's second press detonates instead of throwing (shared step: predicted).
+4. `PerkCatalog.ExtrasItems(ref list)`: the customizer rows.
+5. Client `WeaponModels` / `WeaponRig`: `ExtrasWeaponModel(string wargear, ref model)`, a model built in code or loaded from another package.
+6. Client `ExtrasAnimationAlias(ref string wargear)`: maps an added name to the family it borrows (autocannon → heavy bolter, claw → power sword, spear → thunder hammer). It is applied in the name rules of `HipFireAnimations`, `LocomotionAnimations`, `ReloadAnimations`, `FallAnimations` and the flinch rule, so W1 to W4 touch none of them.
+7. If the speed-ups are approved: a clip-speed factor that both the simulation's steps and the client's clip playback read. It works like the Fast Stomp perk's clip speed (`MeleeTuning.ReadSpeedUpgrades`); W0 checks how the client applies that today.
 
-Under option B, add the Chaos twins and a hit-scan splash rule in the core shot path (a hook in `World`). Under A, the splash lives in Musou's own combat code.
+**Musou call sites W0 adds** (each one line calling the registry, in Musou files other sessions also edit; the lead sequences W0 after the current ship and the Musou sessions in flight):
+- the cleave's width, reach and target count per weapon (`World.MusouCombat.cs`);
+- the hit-scan shot's splash against Orks;
+- the pound impact (`ExtrasJump`, Impact) for the impale;
+- a sticky projectile meeting an Ork (ride along, for the charge).
 
 **Shared files.** `spec/behavior.md`, `docs/changes-from-original.md`, `docs/milestones.md`, `docs/commands.md` and the generated `docs/refine-register.md`:
 - Each milestone writes only under its own heading, which W0 creates.
 - The lead regenerates the register at integration.
 
-W1, W2 and W3 share no source file after W0 and can run in parallel.
+W1 to W4 share no source file after W0 and can run in parallel.
 
 Process:
 - Every milestone keeps Musou changes away from Annihilation and Seize Ground (MusouIsolation tests).
@@ -311,33 +393,34 @@ Process:
 
 ---
 
-## 8. Risks and checks
+## 9. Risks and checks
 
 | Risk | Check |
 |---|---|
-| Campaign clips on the MP marine (the autocannon recoil, later the pickup) | The skeletons are identical (checked). W1 plays the recoil in a still before relying on it; fallback the heavy bolter's fire. |
+| Campaign clips on the MP marine (the autocannon recoil) | The skeletons are identical (checked). W1 plays the recoil in a still before relying on it; fallback the heavy bolter's fire. |
 | `turret_aa` is 2.8 m long and was made for a tripod and a carry | W1's first still: the grip at `RIG_Prop_M_Chest`, clipping, camera. |
-| Speeding up melee clips desynchronises sim and client | W0 checks the Fast Stomp path; W2 / W3 compare the simulated hit tick with the clip's contact in a clip. |
-| Claw blades that fold away are ours | Shown to the owner in the first still. |
-| No left-hand strikes or thrusts in the data | Stated as missing; new animation only on the owner's word. |
-| Musou damage scale | Musou applies its own combat rules to every weapon; the new numbers are set against the Musou Orks in a playtest, not only against marines. |
-| Musou rules version and the VM | Musou runs on the player's PC; a Classic option B ship needs the VM update. |
+| Speeding up melee clips desynchronises the simulation and the client | W0 checks the Fast Stomp path; W2 and W3 compare the simulated hit tick with the clip's contact in a clip. |
+| The spear turned point-down for the dive is ours | Shown to the owner in the first still. |
+| The charge's second press mispredicted with two charges carried | The press is decided in the shared step (hook 3); W4 tests prediction against the server with Favor of the Armory. |
+| A charge riding an Ork that dies or is thrown by a blast | W4: it stays where the Ork died and still waits for the press (ours). |
+| Musou damage scale | The new numbers are set against the Musou Orks in a playtest, not only against marines. |
+| Other Musou sessions edit the same Musou files | W0's call sites go in after the current ship, sequenced by the lead; W1 to W4 then touch only their own files. |
 
 ---
 
-## 9. Questions only the owner can answer
+## 10. Open questions (owner)
 
-1. **Where:** Musou Mode only for now, or Classic PvP too (as added content: on in the extended profile, off in faithful)? Recommended: Musou first, Classic after a playtest.
-2. If Classic: should Chaos get them too? The Raptor would get claws, the Havoc the data's own Chaos autocannon, and someone the spear. Or loyalists only?
-3. **Claws, one or two:** a pair with the bolt pistol kept, the blades out only for strikes (recommended)? Or one claw and the pistol, or a pair without the pistol?
-4. **Claw tempo:** the power sword's swings at their own speed with different numbers (lighter hits, armour damage; recommended)? Or the same swings played about 25 % faster?
-5. **Spear's job:** what should it be best at: reach, the charge, the jump-pack dive, or something else? Recommended: reach and the charge.
-6. **Spear's grip and speed:** two-handed on the thunder hammer's swings played about 40 % faster (recommended)? Or at the hammer's own speed, or one-handed? A real thrust (stab) needs a new animation; do you want one later?
-7. Should the spear follow the hammer's jump-pack rules (swing during a hop, no pound delay)? Recommended: yes.
-8. **Autocannon handling:** a Devastator loadout primary carried like the heavy bolter (recommended now)? Or the campaign's pickup (man a tripod gun, rip it off, carry it until empty, then drop it)? Or both, with tripods later on Musou maps?
-9. **Autocannon fire:** full auto at the campaign's pace with splash (recommended for Musou)? Or the MP file's two-round bursts, its 120 rounds and its quick overheat (recommended for Classic, if Classic)?
-10. Should the autocannon brace on R like the heavy bolter? The data gives it no brace; recommended: no.
-11. **Models:** the install has no claw or spear model. Do you have models or reference images to give us? Otherwise we build simple ones in code: claws with four blades and a blue glow, and a spear from the install's force staff with a blade head we make.
-12. How should the claws' lightning look and sound? A thin blue crackle on the blades and a lightning snap on hits, from the install's sounds (recommended), or quieter?
-13. Should the power sword's perks (heal on hit) also count for the claws or the spear? Recommended: no, at first.
-14. Any number you remember from other 40k games that the claws, spear or autocannon should match (damage feel, speed)? It would be labelled as your recollection and checked in a playtest.
+1. **Autocannon handling:** is the reading right: the MP file's damage (50 a round), with the campaign gun's handling (full auto every 0.22 s, 400 rounds, its slower overheat, its 4 m splash)? Or the MP file's own handling: two-round bursts, 120 rounds, a quick overheat, no splash? Recommended: the campaign's handling.
+2. **Autocannon brace:** should it brace on R like the heavy bolter? The data gives it none. Recommended: no.
+3. **Tripod autocannons:** campaign-style tripod guns on Musou maps (man, rip off, carry, drop), later? Recommended: not now; after a playtest of the carried gun.
+4. **Claw tempo:** the sword's swings played 25 % faster with lighter hits (the same damage per second; recommended)? Or the sword's own speed?
+5. **Claw's edge:** ×1.5 against the big Orks (Nobs, Boss Orks, the Warboss; recommended)? Or lightning arcing from each hit to two nearby Orks? Or no edge?
+6. **Looks:** the claw always worn on the right gauntlet with four blades and a blue crackle on strikes, and the spear made from the install's force staff with a blade head we build (both recommended)? Do you have models or reference images for either?
+7. **Spear tempo:** the hammer's swings played 40 % faster (recommended)? Or the hammer's own pace?
+8. **Spear sweeps:** each swing hits a half circle in front, 1 m farther, up to 12 Orks (recommended)? Or wider or narrower?
+9. **Impaling dive:** on landing, the enemy nearest the point (within 2 m) takes 600, enough to kill a Nob outright, and the pack's normal stun blast still goes off around it (recommended)? Should the air slash's landing impale too? Recommended: no, only the dive.
+10. **Spear and the jump pack:** the hammer's rules (swing during a hop, no delay before a dive; recommended)?
+11. **Charge carriers:** every Musou class, the Librarian included (recommended)? Or only some classes?
+12. **Charge on an Ork:** it sticks to him and rides along until you set it off (recommended)? Or it drops at his feet?
+13. **Charge blast:** Musou's frag rule of twice the reach (20 m; recommended)? Or the data's 10 m?
+14. **Charge look and name:** the install's melta bomb model (a marine item; recommended) or the data's Ork stikkbomb? Called "Remote Detonators" (the install's name) or "Demolition Charge"?
