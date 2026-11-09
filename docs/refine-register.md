@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2748 spec table rows: **2044 tagged**, 489 not tagged (read from data with high confidence), 215 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 609 rows of the changes document.
+Scanned 2751 spec table rows: **2046 tagged**, 490 not tagged (read from data with high confidence), 215 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 610 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -41,7 +41,7 @@ Scanned 2748 spec table rows: **2044 tagged**, 489 not tagged (read from data wi
 | Reactions (critical) | 15 | 13 | 14 | 6 | 0 |
 | Camera (critical) | 55 | 53 | 44 | 22 | 0 |
 | HUD and hit feedback (critical) | 68 | 63 | 50 | 11 | 0 |
-| Sound mix (critical) | 67 | 61 | 59 | 10 | 0 |
+| Sound mix (critical) | 69 | 63 | 61 | 11 | 0 |
 | Effects (critical) | 87 | 77 | 72 | 39 | 0 |
 | Game modes | 42 | 39 | 38 | 19 | 1 |
 | Perks | 59 | 48 | 31 | 25 | 0 |
@@ -53,7 +53,7 @@ Scanned 2748 spec table rows: **2044 tagged**, 489 not tagged (read from data wi
 | Core simulation (provisional values) | 529 | 505 | 368 | 145 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 221 | 211 | 118 | 58 | 0 |
-| **All areas** | **2044** | 1798 | 1517 | 648 | 38 |
+| **All areas** | **2046** | 1800 | 1519 | 649 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -61,9 +61,9 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---:|
 | kind: ours | 1129 |
 | confidence: low | 728 |
-| confidence: medium | 660 |
-| notes: ours | 369 |
-| kind: interpretation | 360 |
+| confidence: medium | 662 |
+| notes: ours | 370 |
+| kind: interpretation | 362 |
 | notes: estimate | 166 |
 | kind: estimate | 136 |
 | confidence: none (low) | 129 |
@@ -1587,7 +1587,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-9D0EF360` | HUD line (Musou) | superseded on 2026-11-08 by the restored retainer's line (section "Musou Mode: the retainers back, no Ork ammunition boxes"); before: ALLIED MARINES: ROAMING / REVIVING YOU / BACK IN m:ss (both down: the first back) / STANDING BY; the revive prompt THE ALLIED… | kind: ours | ours | HUD line (Musou): compare with SM1 with side-by-side screenshots in the same spot. Ours: superseded on 2026-11-08 by the restored retainer's line (section… | ☐ |
 
-### Sound mix (gameplay-critical) (67)
+### Sound mix (gameplay-critical) (69)
 
 *Spec section: Sound playback (M26b; client only, not simulated)*
 
@@ -1710,6 +1710,13 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-90D7076E` | Menu sounds | the movies post `Play_Menu_Move` (highlight moves), `Play_Menu_Select` (an entry chosen) and `Play_Menu_Back` (a screen left), each one embedded sound at -12, -9 and -6 dB, "max 1 global" instance; here every button under an attached root (the front end's… | kind: ours; confidence: low | events: the front-end movies; which button is a Select or a Back, the focus rule and the spacing: ours | Menu sounds: compare with SM1 by listening A/B at the same distance and state. Ours: the movies post Play_Menu_Move (highlight moves), Play_Menu_Select… | ☐ |
 | `R-5FBBC333` | Menu sound cost | its own catalogue of two packages (`init`, `in_game_default`) opens in the background in 65 to 130 ms when the first root is attached (not before a button exists) and is disposed when a match starts, one still loading too (the match's sound system plays the… (ms) | kind: ours; confidence: medium | measured | Menu sound cost: compare with SM1 by listening A/B at the same distance and state. Ours: its own catalogue of two packages (init, in_game_default) opens in… | ☐ |
 | `R-30F789A0` | Not played | `Play_Menu_Expand_Main` (the menu opening), `Play_Multiplayer_Select`, `Play_Cooperative_Select`, `Play_Network_Select`, `Play_Campaign_Select` (screens we do not have in that form), `play_mp_point_captured` and `play_mp_bonus` (exist; no trigger found)… | kind: gap (not reproduced); confidence: none (low) | gap | Not played: compare with SM1 by listening A/B at the same distance and state. Ours: Play_Menu_Expand_Main (the menu opening), Play_Multiplayer_Select… | ☐ |
+
+*Spec section: Stalker hit confirm (sound/stalker-hit-confirm, 2026-11-09; client and content only, not simulated, no protocol change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-E206209F` | Stalker confirm level and placement | on the shooter, 2D, at the data's level: no distance falloff (`HitConfirmDistanceDb`, which took -18 dB from 40 m), no mix-pass +4 dB or 250 Hz high-pass (most of the smack's energy is under 150 Hz); the victim's material (ceramite_armour or flesh); with… (dB) | kind: interpretation; confidence: medium | the event's actions 1-2 are non-positioned with no distance curve | Stalker confirm level and placement: compare with SM1 by listening A/B at the same distance and state. Ours: on the shooter, 2D, at the data's level: no distance falloff… | ☐ |
+| `R-90DE024A` | Stalker confirm in Musou | an own Stalker / Daemon Eye Bolter hit on an Ork (predicted contact or server hit, one a shot through the gun-sound budget) posts `play_stalker_smack` on the shooter (flesh, ceramite_armour for an armoured Ork); the wet bolter smack at the Ork is not played… | kind: interpretation; confidence: medium; notes: ours | owner 2026-11-09; that Ork hits confirm as player hits do is ours | Stalker confirm in Musou: compare with SM1 by listening A/B at the same distance and state. Ours: an own Stalker / Daemon Eye Bolter hit on an Ork (predicted contact… | ☐ |
 
 ### Effects (gameplay-critical) (87)
 
@@ -3674,6 +3681,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-9FBF6788` | Death camera orbits with the mouse and right stick (late-g/death-orbit-cam; all modes) | The owner's description of the original (M23): no control while dead, a slow third-person view of the body; whether the original lets the player turn it is not known from the data (the death camera is not decoded) | the owner's request (2026-11-06): while dead the mouse and the right stick orbit the death camera round the own body with the player's sensitivity, invert and pad curves (turning right swings the camera round the body, looking up lowers it); elevation 0.05 to 1.3 rad, the distance and the 0.3 s blend unchanged, kept… | Owner 2026-11-06 (late batch, stream G); spec "Death camera orbit" | Death camera orbits with the mouse and right stick…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-54DE1B7B` | Sound mix pass: louder shots | The data's fire sound levels | every gun's fire sound +4 dB (own and others'); `--sound-mix-classic` restores the old mix | the owner's playtest note (2026-11-06): "gun shoot sounds should be louder"; the amount ours; spec "Sound mix pass and reload sounds" | Sound mix pass: louder shots: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-5B66CCFA` | Sound mix pass: on-hit sounds louder, no bass | The data's impact and hit sounds as mixed (plus the earlier deeper bolter impacts and soft confirm) | shot impacts on the level and on players, melee hits and the shooter's hit confirm +4 dB and through a 250 Hz high-pass (24 dB per octave); explosions unchanged | the owner (2026-11-06): "weapon on hit effects all need to be louder, and have the bass removed. all on hit sound effects should have zero bass"; values ours; same spec section | Sound mix pass: on-hit sounds louder, no bass: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
+| `C-610204A4` | Stalker hit confirm restored (sound/stalker-hit-confirm) | The Stalker / Daemon Eye Bolter confirm a hit to the shooter with `play_stalker_smack` (2D, the data's level) | The two rifles' confirm is exempt from our hit-confirm distance falloff and the mix pass's gain and high-pass (other weapons keep both), so it plays as the data has it; in Musou an own hit on an Ork plays it on the shooter, and the wet bolter smack is not played for these rifles (the explosion stays) | the owner (2026-11-09): "use it for both the stalker bolter and daemon eye bolter"; `--old-stalker-hit-confirm` restores; spec "Stalker hit confirm" | Stalker hit confirm restored (sound/stalker-hit-confirm): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-9079D22D` | Sound mix pass: master volume +10 % | The master bus at the options' level | the master bus ×1.1 (+0.83 dB) at every option level, with a limiter (ceiling -0.3 dB) on it | the owner (2026-11-06): "increase the global master volume by 10%"; the limiter ours; same spec section | Sound mix pass: master volume +10 %: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-412DE228` | Sound mix pass: jump pack tail faded | `play_sm_jump_pack_launch` plays a burst and two thrust layers for 1.7 to 2.4 s | each voice of the launch and apex posts holds full level for 0.5 s, then fades over 0.3 s to -15 dB | the owner (2026-11-06): "the intial sound is fine, but any echoes/reverb or extra something after that should be deeply diminished"; times and depth ours; same spec section | Sound mix pass: jump pack tail faded: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-F25E317A` | Sound loudness: everything louder and heard farther (sound/louder-farther, 2026-11-08) | The data's mix as it is: a remote bolter shot -25.5 dB at the voice at 5 m, -60.9 dB at 60 m; each sound fades by its bank curve | every sound +9 dB and every bank distance curve read at the distance / 2.5 (a sound at 30 m has the data's level of 12 m); distance never takes a sound below 20 % of its amplitude up close (-14 dB) and nothing is cut at a curve's end; melee weapons' on-hit sounds a further 2x (+6 dB); both modes, the loyalist barks… | the owner (2026-11-08): "clearly hearable and relatively much louder from much further away", "make everything much louder", "sounds should scale down to 20% of their normal sound when turned down by distance" (read as amplitude, ours), "raise melee weapon on hit sounds by 2X ... the same treatment as we did for… | Sound loudness: everything louder and heard farther…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |

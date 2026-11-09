@@ -1820,6 +1820,22 @@ Read-only investigation (`smtool audio-event|audio-mix|audio-decode`, a throw-aw
   cooldown; a kill −7 dB with the data's kill layer) and the bolter family's and the stalker's impacts 400 cents lower with a low-pass +40 at the same level.
   The Call of Duty: World at War reference is only the inspiration for the character (a soft, dull thud); no CoD audio is used.
 
+## Stalker hit confirm (sound/stalker-hit-confirm, 2026-11-09)
+
+The owner: the Stalker Bolter "isn't playing the right sound when shooting an enemy target. If a shot lands the shooter hears a sound." Read-only investigation
+(`smtool baf-dump wargear.oppc --entry sniper_rifle`, `baf-dump material_effect_container.oppc`, `audio-event`, `audio-list --all`; a headless Classic run with `--log-sound hitconfirm`):
+
+- **The original's sound to the shooter** (supported by evidence): both rifles (`sm_mp_ranged_sniper_rifle` = Stalker Bolter, `csm_mp_ranged_sniper_rifle` = Daemon Eye Bolter) bind
+  `ability_ranged_primary/delivery/player_hit_something_action/commands/post_sound_event` `start_event_name = "play_stalker_smack"` (trigger point self, delay 0); no upgrade gate, no other
+  ability. The same command list plays the material effect `hit_from_player_highlight` (fx only, its `sfx` empty). `play_stalker_smack` (0x7ee62178, In_Game_Default, 4 actions) is
+  `play_bolter_smack` with its smack layer at -5 dB instead of -8 (the same 12 samples), the same material switch `14c316bf` and kill layer `3cc61118`; actions 1-2 non-positioned.
+- **Other stalker sounds ruled out:** `play_stalker_hits` is the impact at the hit point (`stalker_pattern_bolter` container, `hit_fx`; also `_blocked`), heard by everyone; `play_stalker_penetrating_hit`
+  (`stalker_pattern_bolter_enter`, the penetration entry) plays only on metal (every other material case is empty), so not on a player; `play_stalker_zoom_filter` is the scope's low-pass. No other
+  event name with stalker, sniper, confirm or marker is in the bank's known names.
+- **Why it sounded wrong:** Classic posted `play_stalker_smack` already, but under the hit-confirm distance falloff (-18 dB from 40 m: the Stalker's usual range) plus the mix pass's +4 dB and 250 Hz
+  high-pass: the live log read -34 / -29 dB at the voice, a thin tick (the smack's energy is two thirds under 150 Hz). Musou never posts a confirm (Ork hits make no hit report); its audio pass
+  played the bolter family's `play_bolter_smack` at the Ork, 600 cents down. Fixed: the two rifles' confirm plays at the data's level on the shooter in both modes (spec "Stalker hit confirm").
+
 ## Shield sounds (sound/shield-regen, 2026-10-29)
 
 The owner: "the shield regenerating starting sound is playing constantly on a loop. am i hearing other players armor regenerate or is my own looping?" It was the own player's
