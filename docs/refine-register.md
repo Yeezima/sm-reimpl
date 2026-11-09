@@ -28,11 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2792 spec table rows: **2084 tagged**, 491 not tagged (read from data with high confidence), 217 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 620 rows of the changes document.
-Scanned 2761 spec table rows: **2056 tagged**, 490 not tagged (read from data with high confidence), 215 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 611 rows of the changes document.
-Scanned 2760 spec table rows: **2056 tagged**, 489 not tagged (read from data with high confidence), 215 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 612 rows of the changes document.
-Scanned 2765 spec table rows: **2059 tagged**, 489 not tagged (read from data with high confidence), 217 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 613 rows of the changes document.
-Scanned 2768 spec table rows: **2059 tagged**, 492 not tagged (read from data with high confidence), 217 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 612 rows of the changes document.
+Scanned 2806 spec table rows: **2090 tagged**, 495 not tagged (read from data with high confidence), 221 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 624 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -54,34 +50,22 @@ Scanned 2768 spec table rows: **2059 tagged**, 492 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 22 | 13 | 13 | 12 | 7 |
-| Core simulation (provisional values) | 550 | 526 | 385 | 156 | 1 |
+| Core simulation (provisional values) | 556 | 532 | 389 | 156 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 232 | 222 | 124 | 62 | 0 |
-| **All areas** | **2084** | 1838 | 1547 | 668 | 38 |
-| Networking and render smoothing | 19 | 10 | 10 | 10 | 7 |
-| Core simulation (provisional values) | 542 | 518 | 379 | 155 | 1 |
-| General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 222 | 212 | 119 | 59 | 0 |
-| **All areas** | **2059** | 1813 | 1529 | 660 | 38 |
+| **All areas** | **2090** | 1844 | 1551 | 668 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1156 |
-| confidence: low | 738 |
-| confidence: medium | 680 |
+| kind: ours | 1162 |
+| confidence: low | 740 |
+| confidence: medium | 682 |
 | notes: ours | 383 |
 | kind: interpretation | 363 |
 | notes: estimate | 172 |
 | kind: estimate | 144 |
-| kind: ours | 1133 |
-| confidence: low | 738 |
-| confidence: medium | 662 |
-| notes: ours | 380 |
-| kind: interpretation | 360 |
-| notes: estimate | 167 |
-| kind: estimate | 145 |
 | confidence: none (low) | 129 |
 | kind: provisional | 99 |
 | kind: user's knowledge | 55 |
@@ -2208,8 +2192,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (550)
-### Core simulation (provisional values) (542)
+### Core simulation (provisional values) (556)
 
 *Spec section: Provisional values in use*
 
@@ -4352,7 +4335,6 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-FEB84D7D` | Musou: the big Orks against the map (musou-big-ork-deaths, owner 2026-11-09) | No Musou Mode in the original | Ours (the owner: "boss enemies are getting stuck along objects and moving in slow motion"): a big body's vertical reach and shooting eye grow with its height (up to 3x: 4.5 m), a Boss Ork's lean off a wall no longer slows him, a big body's blocked step slides along the wall. `SM_MUSOU_OLD_BIG_BODIES=1` restores them | Musou Mode only. spec "Musou Mode: the big Orks' deaths and gait" | Musou: the big Orks against the map (musou-big-ork-deaths…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-42BA83D8` | Musou: the Orks' pace and charge (musou-big-ork-deaths, owner 2026-11-09) | No Musou Mode in the original | Ours (the owner: "make orks run 20% faster, and sprint to 'charge' the enemy when they reach within 30m of an enemy"): every Ork on foot 1.2x his speed (elites, bosses and the Warboss included); a melee-first Ork within 30 m of an enemy sprints at the original sprint clip's ratio over the run (at most 9.9 m/s) and… | Musou Mode's war only. spec "Musou Mode: the Orks' pace and charge" | Musou: the Orks' pace and charge (musou-big-ork-deaths…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-07DF5820` | Musou: the Guardsmen meet a charge (musou-big-ork-deaths, owner 2026-11-10; `TfwRules.Version` 58) | No Musou Mode in the original | Ours (the owner: "Rebalance Guards" after the Orks' pace and charge): a Guardsman's hit on a charging Ork does 1.5x damage, so six squads beat sixty charging Boyz again in about the old time while the mixed counterattack and the near army trial stay near their balance; server `SM_MUSOU_GUARD_BRACE=1` restores it | Musou Mode's war only. spec "Musou Mode: the Guardsmen meet a charge" | Musou: the Guardsmen meet a charge (musou-big-ork-deaths…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
-| `C-F52025D9` | Musou: cleave volume and cap (musou/combat-rules, 2026-11-09; `TfwRules.Version` 53) | No Musou Mode in the original | Ours (the owner's request, verbatim: "extend the melee hitbox outward and forward of the player in a flat cone - they should reach out further for cleaving purposes. raise the cleave cap up to 40 orks in one swing."): the war's cleave reaches 1.3x further (1.5x until the owner's 2026-11-09 "reduce the latest melee… | Musou Mode's war only; the skirmish, Classic PvP and the original are unchanged. spec "Musou combat: cleave volume" | Musou: cleave volume and cap (musou/combat-rules…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-1DFF2AE3` | Musou: HUD at the screen edges (musou/ui-edges, owner 2026-11-10; client only, no rules or wire change) | No Musou Mode in the original | Ours (the owner's request, verbatim: "move all musou mode specific UI elements to the edges of the screen, prioritizing the corners nd minimizing impact on free screen space to view the game world."): the commander's and the Boss Orks' bars bottom left (the score panel's corner, empty in Musou), the capture tiles… | Musou Mode and the old 5-wave run only; the match HUD (Classic PvP) is unchanged. docs/milestones.md "Musou HUD at the screen edges" | Musou: HUD at the screen edges (musou/ui-edges, owner…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 
 ## Appendix: not gameplay

@@ -6,7 +6,7 @@ namespace SmContent;
 /// <list type="bullet">
 /// <item>The T key (the loyalist barks' FOR THE EMPEROR key, <c>LoyalistShoutWire</c>: the same cooldown, the same server relay, the same shout sequence) says one line of <see cref="Pool"/> per
 /// accepted press, in the pool's order, slot 0 first: FOR THE EMPEROR (the voice pack's takes, as before), then the six campaign lines the owner kept in the listening sheet
-/// (<c>D:\sm-reimpl\media\previews\musou-generic-barks\listen\checklist.md</c>, rows 02 to 06 and 08). The slot is a function of the player's shout sequence alone (<see cref="SlotOf"/>), so every
+/// (in the owner's media folder, <c>previews\musou-generic-barks\listen\checklist.md</c>, rows 02 to 06 and 08). The slot is a function of the player's shout sequence alone (<see cref="SlotOf"/>), so every
 /// client hears the same line for a press, as it hears the same take today.</item>
 /// <item>The six lines are the install's own audio (dialogue leaves of the speech bank <c>speech_01</c>, posted by node id; a singleplayer-content dependency: the campaign squad's lines,
 /// docs/discovery.md); nothing of them is in the repository.</item>
