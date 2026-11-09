@@ -19,6 +19,10 @@ public partial class NetworkView
 {
     static readonly string? LibrarianClipDir = CmdArg("librarian-clip");
     static readonly string? LibrarianCam = CmdArg("librarian-cam");
+    /// <summary><c>--librarian-clip-no-stills</c>: no stills (a still costs about 130 ms of frame time, which a latency measurement must not carry).</summary>
+    static readonly bool LibrarianClipNoStills = OS.GetCmdlineUserArgs().Contains("--librarian-clip-no-stills");
+
+    Task ClipShot(string name) => LibrarianClipNoStills ? Task.CompletedTask : TfwShot(name);
     bool _librarianClipStarted;
 
     void LibrarianClipFrame()
@@ -64,7 +68,7 @@ public partial class NetworkView
         int next = 0;
         while (Time.GetTicksMsec() / 1000.0 - start < seconds)
         {
-            if (next < shots.Length && Time.GetTicksMsec() / 1000.0 - start >= shots[next].At) await TfwShot(shots[next++].Name);
+            if (next < shots.Length && Time.GetTicksMsec() / 1000.0 - start >= shots[next].At) await ClipShot(shots[next++].Name);
             await TfwFrames(1);
         }
         _tfwTestButtons = InputButtons.None;
@@ -93,16 +97,16 @@ public partial class NetworkView
 
         GD.Print($"LIBCLIP hold 3 s (wall {Time.GetTicksMsec() / 1000.0:F2} s, frame {Engine.GetProcessFrames()})");
         await Hold(InputButtons.Fire, 3.0, [(0.03, "2_hold_00"), (0.15, "2_hold_01"), (0.6, "2_hold_02"), (1.4, "2_hold_03"), (2.4, "2_hold_04")]);
-        await TfwShot("2_release_00");
+        await ClipShot("2_release_00");
         await TfwWait(0.15);
-        await TfwShot("2_release_01");
+        await ClipShot("2_release_01");
         await TfwWait(1.0);
 
         GD.Print($"LIBCLIP shockwave (wall {Time.GetTicksMsec() / 1000.0:F2} s, frame {Engine.GetProcessFrames()})");
         _tfwTestButtons = InputButtons.Reload; await TfwFrames(3); _tfwTestButtons = InputButtons.None;
-        await TfwWait(0.08); await TfwShot("3_shockwave_00");
-        await TfwWait(0.15); await TfwShot("3_shockwave_01");
-        await TfwWait(0.2); await TfwShot("3_shockwave_02");
+        await TfwWait(0.08); await ClipShot("3_shockwave_00");
+        await TfwWait(0.15); await ClipShot("3_shockwave_01");
+        await TfwWait(0.2); await ClipShot("3_shockwave_02");
         await TfwWait(1.5);
 
         GD.Print($"LIBCLIP hold 2 s (wall {Time.GetTicksMsec() / 1000.0:F2} s, frame {Engine.GetProcessFrames()})");

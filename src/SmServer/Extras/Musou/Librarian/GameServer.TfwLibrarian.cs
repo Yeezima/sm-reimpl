@@ -59,9 +59,14 @@ public sealed partial class GameServer
     bool OnLibrarianCommand(int player, byte tag, byte[] payload)
     {
         if (tag != LibrarianWire.CastCommandTag) return false;
-        if (LibrarianWire.ReadCast(payload) is { } pressTick && World.LibrarianCastEarly(player, pressTick)) LibrarianEarlyCasts++;
+        bool taken = LibrarianWire.ReadCast(payload) is { } pressTick && World.LibrarianCastEarly(player, pressTick);
+        if (taken) LibrarianEarlyCasts++;
+        if (LibrarianCastLog) Console.WriteLine($"librarian cast command: player {player}, press tick {(LibrarianWire.ReadCast(payload) is { } t ? t.ToString() : "malformed")}, server tick {World.Tick}: {(taken ? "taken" : "refused")}");
         return true;
     }
+
+    /// <summary>Test aid <c>SM_LIBRARIAN_LOG=1</c>: a line per cast command (its press tick, the server's tick, taken or refused).</summary>
+    static readonly bool LibrarianCastLog = Environment.GetEnvironmentVariable("SM_LIBRARIAN_LOG") == "1";
 
     /// <summary>Cast commands taken (test aids, logs).</summary>
     public int LibrarianEarlyCasts { get; private set; }
