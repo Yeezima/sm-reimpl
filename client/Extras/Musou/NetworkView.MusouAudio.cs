@@ -40,6 +40,7 @@ public partial class NetworkView
         var fire = SoundMixPass.Fire(SoundSystem.MixClassic);
         if (!own)
         {
+            if (MusouSoundIsOff(MusouSoundOff.AllyLayers)) return;   // musou/sound-ab: allylayers off
             // Others' bolters: the lighter deep copy and thump on the shooter's emitter (voices are shared with the crowd).
             var deep = new VoiceOffset(MusouAudioRules.DeepGainDb, MusouAudioRules.DeepPitchCents, MusouAudioRules.DeepLpf).Plus(fire);
             foreach (var b in file.Fire(null)) PostBinding(b, e, own, "fire other deep", extra: deep);

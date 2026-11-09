@@ -25,6 +25,7 @@ public class MusouSoundAbTests
     [InlineData("Duck, LIMITER", MusouSoundOff.Duck | MusouSoundOff.Limiter)]
     [InlineData("steal,instlimit,ambience", MusouSoundOff.Steal | MusouSoundOff.InstLimit | MusouSoundOff.Ambience)]
     [InlineData("lowpass,hitfilter,crowdvoices,blast", MusouSoundOff.LowPass | MusouSoundOff.HitFilter | MusouSoundOff.CrowdVoices | MusouSoundOff.Blast)]
+    [InlineData("allylayers", MusouSoundOff.AllyLayers)]
     [InlineData("all", MusouSoundOff.All)]
     public void The_names_parse(string? text, MusouSoundOff expected)
     {
@@ -80,7 +81,7 @@ public class MusouSoundAbTests
     [Fact]
     public void Only_musous_files_set_the_switches()
     {
-        var setter = new Regex(@"\b(IgnoreBusActions|NoLowPass|NoHitFilter|NoInstanceLimits|Cap3D|Cap2D|MixLog)\s*=(?!=)|\b(SetLimitersBypassed|AddMeters)\s*\(", RegexOptions.CultureInvariant);
+        var setter = new Regex(@"\b(IgnoreBusActions|NoLowPass|NoHitFilter|NoInstanceLimits|Cap3D|Cap2D|MixLog|MixStats)\s*=(?!=)|\b(SetLimitersBypassed|AddMeters)\s*\(", RegexOptions.CultureInvariant);
         string client = Path.Combine(Root(), "client");
         var offenders = Directory.EnumerateFiles(client, "*.cs", SearchOption.AllDirectories)
             .Where(f => !f.Contains($"{Path.DirectorySeparatorChar}.godot{Path.DirectorySeparatorChar}") && setter.IsMatch(File.ReadAllText(f)))

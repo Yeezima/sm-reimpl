@@ -139,6 +139,10 @@ public partial class SoundSystem : Node
     public Action<string>? MixLog { get; set; }
     /// <summary>Bus Set/Reset actions applied and dropped (<see cref="IgnoreBusActions"/>).</summary>
     public int BusActions, BusActionsDropped;
+    /// <summary>Test aid (<c>--log-sound mixab</c>): the stolen voices are tallied for <see cref="MixLine"/> (by event, loud ones, cut young).</summary>
+    public bool MixStats { get; set; }
+    readonly Dictionary<string, int> _stolen = new();
+    int _stolenLoud, _stolenLoudYoung;
     bool _limitersBypassed;
     readonly Dictionary<uint, bool> _isBus = new();
 
@@ -264,7 +268,9 @@ public partial class SoundSystem : Node
         }
         var live = _mods.Live(_now).Where(e => IsBus(e.Target)).Select(e => $"{e.Target:x8} {e.Property} {e.Value:0.#}x{e.Weight:0.00}");
         string sources = string.Join(", ", bySource.OrderByDescending(kv => kv.Value.Amp).Take(6).Select(kv => $"{kv.Key} {kv.Value.Voices} ({20 * Math.Log10(Math.Max(1e-9, kv.Value.Amp)):0} dB)"));
-        return $"voices {p3}/{Cap3D}+{p2}/{Cap2D} virtual {_active.Count - p3 - p2}, low-passed {filtered} (top level {top} = {CutoffHz(top * LpfStep):0} Hz), hit-filtered {hit}; bus changes live: {(live.Any() ? string.Join(", ", live) : "none")}; by source: {sources}";
+        string stolen = $"stolen loud (>= -20 dB) {_stolenLoud} (cut under 0.3 s old {_stolenLoudYoung}), top stolen: {(_stolen.Count == 0 ? "none" : string.Join(", ", _stolen.OrderByDescending(kv => kv.Value).Take(4).Select(kv => $"{kv.Key} {kv.Value}")))}";
+        _stolen.Clear(); _stolenLoud = _stolenLoudYoung = 0;
+        return $"voices {p3}/{Cap3D}+{p2}/{Cap2D} virtual {_active.Count - p3 - p2}, low-passed {filtered} (top level {top} = {CutoffHz(top * LpfStep):0} Hz), hit-filtered {hit}; bus changes live: {(live.Any() ? string.Join(", ", live) : "none")}; by source: {sources}; {stolen}";
     }
 
     /// <summary>One filter bus per this many LPF units (0 = no filter, the bus <see cref="BusName"/>): 20 buses; ours.</summary>
@@ -837,6 +843,11 @@ public partial class SoundSystem : Node
             // A waiting loop takes over only from a voice at least 6 dB quieter than it would be (no swapping back and forth).
             if (revive && (victim.Voice.Priority == a.Voice.Priority && victim.Effective > EffectiveNow(a) - 6f)) return false;
             Steals++;
+            if (MixStats)
+            {
+                _stolen[victim.Event] = _stolen.GetValueOrDefault(victim.Event) + 1;
+                if (victim.Effective >= -20f) { _stolenLoud++; if (_now - victim.Started < 0.3) _stolenLoudYoung++; }
+            }
             MixLog?.Invoke($"STEAL t {_now:F3} {(victim.Voice.LoopCount == 0 ? "demote loop" : "cut")} {victim.Event} '{victim.Emitter.Label}' {_now - victim.Started:F2}s old at {victim.Effective:0} dB for {a.Event} '{a.Emitter.Label}'");
             if (victim.Voice.LoopCount == 0) Demote(victim); else Release(victim);
         }

@@ -15,7 +15,7 @@ namespace SmClient;
 /// </summary>
 public partial class NetworkView
 {
-    void SoundCapMark(string part) => GD.Print($"SOUNDCAP {part} t {_connectedFor:F2} frame {Engine.GetProcessFrames()} grenades {_client?.Predicted.Grenades}");
+    void SoundCapMark(string part) => GD.Print($"SOUNDCAP {part} t {_connectedFor:F2} frame {Engine.GetProcessFrames()} sample {_musouRecorder?.Frames ?? -1} grenades {_client?.Predicted.Grenades}");
 
     async Task TfwSoundCapture()
     {
@@ -46,9 +46,10 @@ public partial class NetworkView
             {
                 second = true;
                 TfwAction(GameAction.Fire, false);
+                await TfwWait(0.3);   // the throw is not taken while the trigger is held
                 TfwFaceCrowd(30f);
                 await TfwActionTap(GameAction.Grenade);
-                await TfwWait(0.3);
+                await TfwWait(0.6);
                 TfwAction(GameAction.Fire, true);
             }
         }
