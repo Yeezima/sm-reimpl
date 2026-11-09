@@ -186,7 +186,8 @@ public class MusouFarMotionTests(ITestOutputHelper output)
         var after = Measure(1800, false, clustered: true, probeRings: rings, extraFar: 480);
         Print("FARMOTION 1800 clustered", before);
         Print("FARMOTION 1800 clustered + 480 at 120-300 m", after);
-        Assert.True(after.BytesPerSecond < 62_000, $"{after.BytesPerSecond / 1000:F1} KB/s");
+        // The bound follows the Musou budget (55 KB/s -> 62 KB/s before musou-net-budget; 110 KB/s since 2026-11-09): the same 1.127x headroom over MusouSendRules.BudgetBytesPerSecond.
+        Assert.True(after.BytesPerSecond < MusouSendRules.BudgetBytesPerSecond * 62.0 / 55.0, $"{after.BytesPerSecond / 1000:F1} KB/s");
         foreach (var b in after.Bands.Where(b => b.Metres <= 30f)) Assert.True(b.StallShare < 0.05, $"{b.Metres} m stalls {b.StallShare:P1}");
     }
 
