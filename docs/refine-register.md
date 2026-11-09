@@ -28,11 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2760 spec table rows: **2056 tagged**, 489 not tagged (read from data with high confidence), 215 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 611 rows of the changes document.
-Scanned 2749 spec table rows: **2045 tagged**, 489 not tagged (read from data with high confidence), 215 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 610 rows of the changes document.
-Scanned 2751 spec table rows: **2046 tagged**, 490 not tagged (read from data with high confidence), 215 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 610 rows of the changes document.
-Scanned 2749 spec table rows: **2045 tagged**, 489 not tagged (read from data with high confidence), 215 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 609 rows of the changes document.
-Scanned 2759 spec table rows: **2054 tagged**, 489 not tagged (read from data with high confidence), 216 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 613 rows of the changes document.
+Scanned 2779 spec table rows: **2072 tagged**, 491 not tagged (read from data with high confidence), 216 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 619 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -46,8 +42,6 @@ Scanned 2759 spec table rows: **2054 tagged**, 489 not tagged (read from data wi
 | Camera (critical) | 55 | 53 | 44 | 22 | 0 |
 | HUD and hit feedback (critical) | 68 | 63 | 50 | 11 | 0 |
 | Sound mix (critical) | 69 | 63 | 61 | 11 | 0 |
-| Effects (critical) | 87 | 77 | 72 | 39 | 0 |
-| Sound mix (critical) | 67 | 61 | 59 | 10 | 0 |
 | Effects (critical) | 89 | 79 | 74 | 40 | 0 |
 | Game modes | 42 | 39 | 38 | 19 | 1 |
 | Perks | 59 | 48 | 31 | 25 | 0 |
@@ -56,52 +50,22 @@ Scanned 2759 spec table rows: **2054 tagged**, 489 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 19 | 10 | 10 | 10 | 7 |
-| Core simulation (provisional values) | 539 | 515 | 377 | 155 | 1 |
+| Core simulation (provisional values) | 541 | 517 | 377 | 156 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 222 | 212 | 119 | 59 | 0 |
-| **All areas** | **2056** | 1810 | 1527 | 660 | 38 |
-| Core simulation (provisional values) | 530 | 506 | 368 | 145 | 1 |
-| General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 221 | 211 | 118 | 58 | 0 |
-| **All areas** | **2045** | 1799 | 1517 | 648 | 38 |
-| Ork faction | 222 | 212 | 119 | 58 | 0 |
-| **All areas** | **2056** | 1810 | 1527 | 659 | 38 |
-| **All areas** | **2046** | 1800 | 1519 | 649 | 38 |
-| Core simulation (provisional values) | 530 | 506 | 368 | 146 | 1 |
-| General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 221 | 211 | 118 | 58 | 0 |
-| **All areas** | **2045** | 1799 | 1517 | 649 | 38 |
-| Ork faction | 231 | 221 | 123 | 62 | 0 |
-| **All areas** | **2054** | 1808 | 1522 | 652 | 38 |
+| Ork faction | 232 | 222 | 124 | 62 | 0 |
+| **All areas** | **2072** | 1826 | 1536 | 666 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1131 |
-| confidence: low | 737 |
-| confidence: medium | 661 |
-| notes: ours | 380 |
-| kind: ours | 1130 |
-| kind: ours | 1139 |
-| confidence: low | 728 |
-| confidence: medium | 665 |
-| notes: ours | 369 |
-| notes: ours | 379 |
-| kind: interpretation | 360 |
-| notes: estimate | 167 |
+| kind: ours | 1144 |
+| confidence: low | 738 |
+| confidence: medium | 669 |
+| notes: ours | 381 |
+| kind: interpretation | 363 |
+| notes: estimate | 172 |
 | kind: estimate | 144 |
-| confidence: medium | 662 |
-| notes: ours | 370 |
-| kind: interpretation | 362 |
-| kind: ours | 1130 |
-| confidence: low | 729 |
-| confidence: medium | 661 |
-| notes: ours | 370 |
-| kind: interpretation | 361 |
-| notes: estimate | 166 |
-| notes: estimate | 170 |
-| kind: estimate | 136 |
 | confidence: none (low) | 129 |
 | kind: provisional | 99 |
 | kind: user's knowledge | 55 |
@@ -1755,7 +1719,6 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-E206209F` | Stalker confirm level and placement | on the shooter, 2D, at the data's level: no distance falloff (`HitConfirmDistanceDb`, which took -18 dB from 40 m), no mix-pass +4 dB or 250 Hz high-pass (most of the smack's energy is under 150 Hz); the victim's material (ceramite_armour or flesh); with… (dB) | kind: interpretation; confidence: medium | the event's actions 1-2 are non-positioned with no distance curve | Stalker confirm level and placement: compare with SM1 by listening A/B at the same distance and state. Ours: on the shooter, 2D, at the data's level: no distance falloff… | ☐ |
 | `R-90DE024A` | Stalker confirm in Musou | an own Stalker / Daemon Eye Bolter hit on an Ork (predicted contact or server hit, one a shot through the gun-sound budget) posts `play_stalker_smack` on the shooter (flesh, ceramite_armour for an armoured Ork); the wet bolter smack at the Ork is not played… | kind: interpretation; confidence: medium; notes: ours | owner 2026-11-09; that Ork hits confirm as player hits do is ours | Stalker confirm in Musou: compare with SM1 by listening A/B at the same distance and state. Ours: an own Stalker / Daemon Eye Bolter hit on an Ork (predicted contact… | ☐ |
 
-### Effects (gameplay-critical) (87)
 ### Effects (gameplay-critical) (89)
 
 *Spec section: Jump-pack feel: fuel, air control, the air slash and impact effects (feel/jump-pack; protocol 31, used by the simulation)*
@@ -2221,8 +2184,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (539)
-### Core simulation (provisional values) (530)
+### Core simulation (provisional values) (541)
 
 *Spec section: Provisional values in use*
 
@@ -4320,8 +4282,8 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-78DDAB2E` | Musou: solid big Orks and the melee lock on them (musou/boss-collision, 2026-11-08; `MusouSim.Version` 24, `TfwRules.Version` 49) | No Musou Mode in the original | Ours (added content; the owner's request): the Warboss, Nobs, Boss Orks, the Big Shoota Nob, the Weirdboy and the Scrap Mek block the players' movement at their body's size (a fixed cylinder; the player takes the whole push) on the server and in the own prediction, and the melee lock takes them like a player (same… | Musou Mode only; Classic PvP's bodies and lock unchanged. spec "Musou: solid big Orks and the melee lock on them" | Musou: solid big Orks and the melee lock on them…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-3CAA83D0` | Musou: combat rules (musou/combat-rules, 2026-11-09; `MusouSim.Version` 28, `TfwRules.Version` 52) | No Musou Mode in the original | Ours (added content; the owner's request, verbatim: "make the blue and red slash strokes persist for a bit longer before more smoothly disappearing. add 1 second to their lifetime before they expire." / "make the air slash landing for all assault melee weapons heal 25% health and restore 10% armor." / "make all melee… | Musou Mode only (the Musou content flag); Classic PvP's stims, frags and melee are unchanged (`MusouCombatRulesTests`). spec "Musou combat rules" | Musou: combat rules (musou/combat-rules, 2026-11-09…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-F26174DD` | Musou: every spawn faces the map's centre (musou/spawn-facing, owner 2026-11-09; `MusouSim.Version` 28, `TfwRules.Version` 52) | No Musou Mode in the original | Ours (added content; the owner's request): in a battle every unit faces the middle capture point (B, the depot) the moment it spawns: humans, retainers and allied Marines, Guardsmen, every Ork type; an army made real mid-march keeps its march facing; the Stormbird and the Range keep their facing | Musou Mode only; Classic PvP unchanged | Musou: every spawn faces the map's centre…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
-| `C-F52025D9` | Musou: cleave volume and cap (musou/combat-rules, 2026-11-09; `TfwRules.Version` 53) | No Musou Mode in the original | Ours (the owner's request, verbatim: "extend the melee hitbox outward and forward of the player in a flat cone - they should reach out further for cleaving purposes. raise the cleave cap up to 40 orks in one swing."): the war's cleave reaches 1.3x further (1.5x until the owner's 2026-11-09 "reduce the latest melee… | Musou Mode's war only; the skirmish, Classic PvP and the original are unchanged. spec "Musou combat: cleave volume" | Musou: cleave volume and cap (musou/combat-rules…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
-| `C-F52025D9` | Musou: cleave volume and cap (musou/combat-rules, 2026-11-09; `TfwRules.Version` 53) | No Musou Mode in the original | Ours (the owner's request, verbatim: "extend the melee hitbox outward and forward of the player in a flat cone - they should reach out further for cleaving purposes. raise the cleave cap up to 40 orks in one swing."): the war's cleave reaches 1.5x further in a 120 degree half angle (was 90), up to 40 Orks a swing (was… | Musou Mode's war only; the skirmish, Classic PvP and the original are unchanged. spec "Musou combat: cleave volume" | Musou: cleave volume and cap (musou/combat-rules…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-C9E9D8CD` | Musou: cleave volume and cap (musou/combat-rules, 2026-11-09; `TfwRules.Version` 53) | No Musou Mode in the original | Ours (the owner's request, verbatim: "extend the melee hitbox outward and forward of the player in a flat cone - they should reach out further for cleaving purposes. raise the cleave cap up to 40 orks in one swing."): the war's cleave reaches 1.3x further (1.5x until the owner's 2026-11-09 "reduce the latest melee… | Musou Mode's war only; the skirmish, Classic PvP and the original are unchanged. spec "Musou combat: cleave volume" | Musou: cleave volume and cap (musou/combat-rules…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-C9E9D8CD-2` | Musou: cleave volume and cap (musou/combat-rules, 2026-11-09; `TfwRules.Version` 53) | No Musou Mode in the original | Ours (the owner's request, verbatim: "extend the melee hitbox outward and forward of the player in a flat cone - they should reach out further for cleaving purposes. raise the cleave cap up to 40 orks in one swing."): the war's cleave reaches 1.5x further in a 120 degree half angle (was 90), up to 40 Orks a swing (was… | Musou Mode's war only; the skirmish, Classic PvP and the original are unchanged. spec "Musou combat: cleave volume" | Musou: cleave volume and cap (musou/combat-rules…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-1DD14181` | Musou: the big Orks' deaths and gait (musou-big-ork-deaths, owner 2026-11-09) | No Musou Mode in the original | Ours (the owner: "the elite and boss orks and the warboss need to have death animations. they also look like they move in slow motion because of the way they're scaled up"): an elite or boss Ork is never torn apart by the gore (the burst plays, the body falls with its death clip and lies); the Warboss dies by his own… | Musou Mode only, client presentation. spec "Musou Mode: the big Orks' deaths and gait" | Musou: the big Orks' deaths and gait (musou-big-ork-deaths…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-FEB84D7D` | Musou: the big Orks against the map (musou-big-ork-deaths, owner 2026-11-09) | No Musou Mode in the original | Ours (the owner: "boss enemies are getting stuck along objects and moving in slow motion"): a big body's vertical reach and shooting eye grow with its height (up to 3x: 4.5 m), a Boss Ork's lean off a wall no longer slows him, a big body's blocked step slides along the wall. `SM_MUSOU_OLD_BIG_BODIES=1` restores them | Musou Mode only. spec "Musou Mode: the big Orks' deaths and gait" | Musou: the big Orks against the map (musou-big-ork-deaths…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-42BA83D8` | Musou: the Orks' pace and charge (musou-big-ork-deaths, owner 2026-11-09) | No Musou Mode in the original | Ours (the owner: "make orks run 20% faster, and sprint to 'charge' the enemy when they reach within 30m of an enemy"): every Ork on foot 1.2x his speed (elites, bosses and the Warboss included); a melee-first Ork within 30 m of an enemy sprints at the original sprint clip's ratio over the run (at most 9.9 m/s) and… | Musou Mode's war only. spec "Musou Mode: the Orks' pace and charge" | Musou: the Orks' pace and charge (musou-big-ork-deaths…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
