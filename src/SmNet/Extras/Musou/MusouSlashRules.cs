@@ -53,8 +53,11 @@ public static class MusouSlashRules
     /// <summary>The slashes drawn in one frame at most (a cleave strikes up to 40 enemies; the pool is <see cref="Pool"/>).</summary>
     public const int PerFrame = 40, Pool = 320;   // 40 (was 24): a cleave strikes up to 40 (owner 2026-11-09), every one drawn; 320 (was 64, 160): the strokes live a second longer and a swing can strike 40
 
-    /// <summary>Farther than this from the camera no slash is drawn (metres).</summary>
-    public const float Metres = 60f;
+    /// <summary>
+    /// Farther than this from the camera no slash is drawn (metres). 30 (was 60): the owner, 2026-11-10, Musou Mode only: "make it so that blue and red slashes don't appear beyond 30m". Both
+    /// paths that draw a red or blue stroke gate on it: the server's melee hit (<c>NetworkView.MusouMeleeSlash</c>) and the own strike's predicted contact (<c>MusouOwnStrikeContact</c>).
+    /// </summary>
+    public const float Metres = 30f;
 
     /// <summary>
     /// The colour for a melee wargear name (case-insensitive). Chain weapons (chainsword, chain axe, gold chainsword) and the combat knife are red; power weapons (power sword, power axe, thunder
