@@ -21,6 +21,14 @@ public partial class TfwMarkers : Node3D
     public const float LabelHeight = TfwMarkerRules.LabelHeight, RingWidth = TfwMarkerRules.RingWidth, LookDegrees = TfwMarkerRules.LookDegrees, NearMargin = TfwMarkerRules.NearMargin;
     static readonly Color RingBlack = new(0.012f, 0.012f, 0.012f);
     readonly bool _old = Array.IndexOf(OS.GetCmdlineUserArgs(), "--tfw-old-markers") >= 0;
+    /// <summary>Capture banners (owner, 2026-11-10; TfwBanners.cs, TfwMarkers.Circle.cs): off with <c>--musou-old-capture-ui</c> (and with <c>--tfw-old-markers</c>).</summary>
+    readonly bool _banners = !TfwBanners.Old && Array.IndexOf(OS.GetCmdlineUserArgs(), "--tfw-old-markers") < 0;
+    static readonly Color OwnerRed = new(0.9f, 0.12f, 0.08f), OwnerBlue = new(0.35f, 0.6f, 1f);
+    TfwBanners? _bannerNodes;
+    /// <summary>The install the banner models are read from (set before the node enters the tree; null: placeholder banners).</summary>
+    public string? GameDir { get; init; }
+    /// <summary>The banners' owner changes this battle (the log, the capture aid).</summary>
+    public int BannerFlips => _bannerNodes?.Flips ?? 0;
     readonly Decal?[] _decals = new Decal?[WarRules.Positions + 1];
     readonly float[] _decalRadius = new float[WarRules.Positions + 1];
     static readonly Dictionary<int, Texture2D> RingTextures = new();
@@ -70,7 +78,9 @@ public partial class TfwMarkers : Node3D
         AddChild(_commander);
         for (int k = 0; k < _pillars.Length; k++) _pillars[k] = Pillar("Source" + k, Held, 1f);
         _beacon = Pillar("Beacon", new Color(0.3f, 0.7f, 1f), 0.5f);
+        if (_banners) { _bannerNodes = new TfwBanners(GameDir); AddChild(_bannerNodes); }
     }
+
 
     /// <summary>Whether the crosshair (the screen centre) is within <see cref="AimDegrees"/> of a point in this node's space.</summary>
     bool Aimed(Vector3 local)
@@ -129,8 +139,10 @@ public partial class TfwMarkers : Node3D
     {
         if (_beacon is null) return;
         bool battle = TfwHudModel.InBattle(war.Phase) && objectives.Count > 0;
+        if (!battle && Visible) _bannerNodes?.Reset();   // the next battle's banners start as its positions stand, without a cloud
         Visible = battle;
         if (!battle) return;
+        _bannerNodes?.Show(objectives);
         _commander.Visible = false;
         var camera = GetViewport()?.GetCamera3D();
         Num.Vector3 eye = default, forward = default;
@@ -149,9 +161,14 @@ public partial class TfwMarkers : Node3D
             var o = objectives[k];
             float radius = MathF.Max(o.Radius, 1f);
             var ground = new Vector3(o.Position.X, o.Position.Y, o.Position.Z);
-            var decal = _old ? null : RingDecal(k, ground, radius);
+            // the capture circle (TfwMarkers.Circle.cs): a flat band on the floor in place of the decal ring, which does not reach Ashfall's ground; the commander's position full
+            float fill = k < WarRules.Positions ? TfwMarkerRules.CircleFill(o) : 1f;
+            var decal = _old || _banners ? null : RingDecal(k, ground, radius);
             if (decal is not null) decal.Visible = true;
-            _rings[k].Visible = decal is null;
+            if (_banners && _decals[k] is { } unused) unused.Visible = false;
+            _rings[k].Visible = decal is null && !_banners;
+            if (_banners) ProgressArc(k, ground, radius, fill);
+            else HideArc(k);
             if (_old) _rings[k].Basis = Upright.Scaled(new Vector3(radius, radius, 1f));
             else
             {
@@ -176,6 +193,7 @@ public partial class TfwMarkers : Node3D
             }
             _labels[k].Text = ((char)('A' + k)).ToString();
             float alpha = _old ? 1f : TfwMarkerRules.LetterAlpha(o.Position, radius, eye, forward, viewer);
+            if (_banners) paint = TfwMarkerRules.BannerImperial(o) ? OwnerBlue : OwnerRed;   // the letter in the banner's colour: the banner says the state
             _labels[k].Modulate = new Color(paint, alpha);
             _labels[k].OutlineModulate = new Color(0f, 0f, 0f, 0.9f * alpha);
             _labels[k].Visible = alpha > 0.01f;
@@ -185,7 +203,7 @@ public partial class TfwMarkers : Node3D
         for (int k = 0; k < _pillars.Length; k++)
         {
             bool shown = k + 1 < sites.Count;
-            _pillars[k].Visible = shown && TfwHudModel.SourceActive(k, objectives, war.Own.BattleWon, final) && Far(sites[k + 1], viewer);
+            _pillars[k].Visible = !_banners && shown && TfwHudModel.SourceActive(k, objectives, war.Own.BattleWon, final) && Far(sites[k + 1], viewer);
             if (!shown) continue;
             var at = sites[k + 1];
             _pillars[k].Position = new Vector3(at.X, at.Y, at.Z + PillarHeight / 2f);

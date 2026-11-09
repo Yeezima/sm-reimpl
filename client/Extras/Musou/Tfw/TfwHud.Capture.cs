@@ -27,6 +27,8 @@ public sealed partial class TfwHud
 
     void DrawCapture(Vector2 vs)
     {
+        // Capture banners (owner, 2026-11-10: "the banners and the letters A, B, C high in the air above the center of each point are the only indicators"): no tracker on the HUD; --musou-old-capture-ui brings it back.
+        if (!TfwBanners.Old) return;
         if (_noCaptureHud || Data.Objectives.Count == 0 || Data.War is not { } war || !TfwHudModel.InBattle(war.Phase)) return;
         _clock = Time.GetTicksMsec() / 1000.0;
         float pulse = 0.65f + 0.35f * MathF.Sin((float)_clock * 6f);

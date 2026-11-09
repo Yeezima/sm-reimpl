@@ -487,14 +487,27 @@ public partial class NetworkView
         var point = Nearest();
         if (!CmdFlag("tfw-fight-hold"))   // --tfw-fight-hold: stay where the landing put the player (the crowds' swarms come to it)
             await TfwPathTo(point, "walked towards the nearest point", 45.0, () => Num.Vector3.Distance(client.Predicted.Position, point) < 26f || !client.Predicted.Alive);
+        // --tfw-fight-capture (capture banners, 2026-11-10): onto the point, 88 % of its radius from the banner, looking at it, so the capture's circle and the flip's smoke are in the picture.
+        bool capture = CmdFlag("tfw-fight-capture");
+        if (capture)
+        {
+            var o = _tfwState.Objectives[0];
+            for (int k = 1; k < TfwBattle.CommanderObjective; k++) if (_tfwState.Objectives[k].Position == point) o = _tfwState.Objectives[k];
+            var me0 = client.Predicted.Position;
+            var away = new Num.Vector3(me0.X - point.X, me0.Y - point.Y, 0f);
+            away = away.LengthSquared() > 1e-4f ? Num.Vector3.Normalize(away) : Num.Vector3.UnitY;
+            var spot = point + away * (MathF.Max(o.Radius, 4f) * 0.88f);
+            await TfwPathTo(spot, "walked onto the point", 45.0, () => Num.Vector2.Distance(new Num.Vector2(client.Predicted.Position.X, client.Predicted.Position.Y), new Num.Vector2(spot.X, spot.Y)) < 1.5f || !client.Predicted.Alive);
+        }
         int shot = 1;
         // --tfw-fight-every <s> (expansion S3's capture of a Stormboy hop): a PNG this often instead of every 6 s.
         double every = double.TryParse(CmdArg("tfw-fight-every"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double e) && e > 0.0 ? e : 6.0;
         while (_connectedFor - start < seconds && TfwNow.Phase == TfwRunPhase.Battle)
         {
             var me = client.Predicted.Position;
-            var look = (CmdFlag("tfw-fight-meks") ? MekLook(me) : null) ?? TfwFightArmyLook(me) ?? _musouState.MiddleNear(me, 45f) ?? point;   // towards the crowd (--tfw-fight-meks: the Meks' contraptions, Meks/NetworkView.MusouMeks.cs; --tfw-fight-look-armies: the nearest army, expansion S6)
+            var look = capture ? point + new Num.Vector3(0f, 0f, 2.5f) : (CmdFlag("tfw-fight-meks") ? MekLook(me) : null) ?? TfwFightArmyLook(me) ?? _musouState.MiddleNear(me, 45f) ?? point;   // towards the crowd (--tfw-fight-meks: the Meks' contraptions, Meks/NetworkView.MusouMeks.cs; --tfw-fight-look-armies: the nearest army, expansion S6)
             _yaw = MathF.Atan2(-(look.X - me.X), look.Y - me.Y);
+            if (capture) _pitch = MathF.Atan2(look.Z - (me.Z + 1.8f), MathF.Max(0.5f, new Num.Vector2(look.X - me.X, look.Y - me.Y).Length())) - 0.12f;   // at the banner, with the circle on the floor in view
             await TfwWait(every);
             await TfwShot($"fight-{shot:00}");
             await TfwSwarmShots(shot++);   // --tfw-swarm-shots: overhead views too (NetworkView.TfwSwarmCam.cs)
