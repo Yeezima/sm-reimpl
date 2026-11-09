@@ -26,7 +26,11 @@ public sealed partial class GameServer
     }
 
     /// <summary>A client's command (message kind 17, only under <c>ContentExtras.CommandUsers</c>): Musou Mode's.</summary>
-    partial void ExtrasCommand(int player, byte tag, byte[] payload) => OnTfwCommand(player, tag, payload);
+    partial void ExtrasCommand(int player, byte tag, byte[] payload)
+    {
+        if (OnLibrarianCommand(player, tag, payload)) return;   // Musou: the Librarian's cast at the press (Librarian/GameServer.TfwLibrarian.cs)
+        OnTfwCommand(player, tag, payload);
+    }
 
     /// <summary>A scoreboard name: Musou Mode's AI Marines.</summary>
     partial void ExtrasPlayerName(int id, ref string name) => TfwPlayerName(id, ref name);

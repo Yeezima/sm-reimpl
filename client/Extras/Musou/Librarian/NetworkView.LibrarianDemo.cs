@@ -12,7 +12,7 @@ namespace SmClient;
 /// <summary>
 /// Capture aid <c>--librarian-demo &lt;dir&gt;</c> (Musou Mode, a windowed client on a war server; test script): in the Stormbird it takes the Librarian through the Esc menu row's own path
 /// (<see cref="PickLibrarian"/>) and shoots the armour and the smoke, goes to the Firing Range (the range's command), and when the Orks come within 22 m casts with the real buttons, aimed at the nearest:
-/// chain lightning held 3 s, a Warp Pull, a Shockwave, then three sword swings (two more first in the empty Stormbird), shooting a frame sequence of each into <c>dir</c>. A <c>LIBDEMO</c> line per step; quits 0, or 1 when a step timed out.
+/// chain lightning held 3 s, a grenade (his equipment), a Shockwave, then three sword swings (two more first in the empty Stormbird), shooting a frame sequence of each into <c>dir</c>. A <c>LIBDEMO</c> line per step; quits 0, or 1 when a step timed out.
 /// </summary>
 public partial class NetworkView
 {
@@ -89,9 +89,9 @@ public partial class NetworkView
         _tfwTestButtons = InputButtons.None;
         await TfwWait(1.2);
 
-        GD.Print("LIBDEMO warp pull");
+        GD.Print("LIBDEMO grenade (his equipment; the Warp Pull was removed)");
         _tfwTestButtons = InputButtons.Grenade; await TfwFrames(4); _tfwTestButtons = InputButtons.None;
-        await Series("4_warp_pull", 8, 0.1);
+        await Series("4_grenade", 8, 0.1);
         await TfwWait(0.6);
 
         GD.Print("LIBDEMO shockwave");

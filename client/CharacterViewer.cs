@@ -640,6 +640,7 @@ public partial class CharacterViewer : Node3D
         ApplyTurnLayer();     // M40-T5 (CharacterViewer.Turn.cs): the turn clip on the pelvis and legs, the spine twist
         ApplySpineTwist();
         ApplyPoseLayer(stanceMode: true);
+        ExtrasPoseOverlay();   // EXTRAS-HOOK: added content's procedural pose over the layers (Musou: the Librarian's cast pose)
         ApplyFootPins();
         RecordApplied();   // animation pass 3 (CharacterViewer.Transitions.cs)
         DrawBones();
@@ -824,6 +825,13 @@ public partial class CharacterViewer : Node3D
     /// <summary>Applies the current pose to the bones at once (test aids that read bone poses in the same frame).</summary>
     public void ForcePose() => ApplyPose();
 
+    /// <summary>
+    /// Added content's procedural pose, laid over the stances or clip and every pose layer, before the feet are pinned (Musou Mode: the Librarian's cast pose,
+    /// <c>Extras/Musou/Librarian/CharacterViewer.LibrarianCast.cs</c>). Unimplemented in a build without added content; the implementation returns at once for a viewer
+    /// that carries no such pose (every character outside Musou Mode).
+    /// </summary>
+    partial void ExtrasPoseOverlay();
+
     void ApplyPose()
     {
         if (_stanceMode && _skeleton is not null) { ApplyStances(); return; }
@@ -856,6 +864,7 @@ public partial class CharacterViewer : Node3D
         if (_entryFootLock) { if (keep > 0f) EntryFootLock(local); else _entryFootLock = false; }
         _clipEntryKeep = keep;   // anim/melee-flow: the melee variant layer fades in with the entry (CharacterViewer.Layers.cs)
         ApplyPoseLayer(stanceMode: false);
+        ExtrasPoseOverlay();   // EXTRAS-HOOK: added content's procedural pose over the layers (Musou: the Librarian's cast pose)
         _lockSampled = local; _lockSampledAnimation = _animation;
         ApplyClipFootLock();   // anim/melee-flow (CharacterViewer.ClipFootLock.cs): the feet the clip puts down stay where they were put down
         RecordApplied();   // animation pass 3 (CharacterViewer.Transitions.cs)

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Godot;
 using SmClient.FrontEnd;
 using SmContent.Customization;
@@ -84,18 +85,25 @@ public partial class NetworkView
 
     double _coopLibrarianCycle = -1;
 
+    /// <summary>The position of <paramref name="item"/> in a class's choice list (equipment or perks), or -1.</summary>
+    static int IndexOfEquipment(IReadOnlyList<int> choices, int item)
+    {
+        for (int i = 0; i < choices.Count; i++) if (choices[i] == item) return i;
+        return -1;
+    }
+
     /// <summary>
-    /// The co-op test bot as a Librarian (test script, <see cref="ExtrasBotInput"/>): with an Ork within fire range it holds Fire (the lightning) and, on a 12 s cycle, presses Grenade (the Warp Pull) at the
-    /// start and Reload (the Shockwave) 2 s later, when the pulled Orks stand close. Null for any other class (the bot's own fire and melee).
+    /// The co-op test bot as a Librarian (test script, <see cref="ExtrasBotInput"/>): with an Ork within fire range it holds Fire (the lightning) and, on a 12 s cycle, presses Grenade (his equipment: the
+    /// Warp Pull was removed, owner 2026-11-10) at the start and Reload (the Shockwave) 2 s later. Null for any other class (the bot's own fire and melee).
     /// </summary>
     PlayerInput? CoopLibrarianInput(PlayerState me, uint tick, float flat)
     {
         if (_config is null || !LibrarianRules.IsLibrarian(_config, me.Class)) return null;
         if (_coopLibrarianCycle < 0) _coopLibrarianCycle = _connectedFor;
         double t = (_connectedFor - _coopLibrarianCycle) % 12.0;
-        var buttons = t < 0.15 && flat <= LibrarianRules.PullRange ? InputButtons.Grenade : t is >= 2.0 and < 2.15 ? InputButtons.Reload : InputButtons.Fire;
+        var buttons = t < 0.15 && flat <= 20f ? InputButtons.Grenade : t is >= 2.0 and < 2.15 ? InputButtons.Reload : InputButtons.Fire;
         if (buttons == InputButtons.Fire) _coopShots++;
-        _coopNote = $"Librarian: {(buttons == InputButtons.Grenade ? "Warp Pull" : buttons == InputButtons.Reload ? "Shockwave" : "chain lightning")} at an Ork {flat:F0} m";
+        _coopNote = $"Librarian: {(buttons == InputButtons.Grenade ? "a grenade" : buttons == InputButtons.Reload ? "Shockwave" : "chain lightning")} at an Ork {flat:F0} m";
         return new PlayerInput(tick, 0f, 0f, _yaw, buttons, _pitch);
     }
 
@@ -108,7 +116,12 @@ public partial class NetworkView
     {
         if (_client is not { Status: ClientStatus.Connected } client || !LibrarianOffered(client.Predicted, out int index)) return false;
         var me = client.Predicted;
-        var choice = new LoadoutChoice(Class: index, Melee: 0, Perk1: me.Perk1, Perk2: me.Perk2);
+        // His equipment (pass 3: every marine item) and perks: the player's current ones when the Librarian may have them, as positions in HIS lists (the choice indexes the class's lists:
+        // the player's perk numbers used to be sent as positions, so from an Assault or a Devastator he got other perks than the player had; lead 2026-11-10), else his defaults.
+        var cfg = _config!;
+        int equipment = IndexOfEquipment(Loadouts.EquipmentChoices(cfg, index), me.Equipment);
+        int perk1 = IndexOfEquipment(Loadouts.PerkChoices(cfg, index), me.Perk1), perk2 = IndexOfEquipment(Loadouts.PerkChoices(cfg, index), me.Perk2);
+        var choice = new LoadoutChoice(Class: index, Melee: 0, Equipment: Math.Max(0, equipment), Perk1: perk1, Perk2: perk2 == perk1 ? -1 : perk2);
         var sm = spaceMarine ?? _ownLooks.Active(Team.SpaceMarines);
         var chaos = chaosLook ?? _ownLooks.Active(Team.Chaos);
         _lastSetupSequence = client.ChangeSetup(choice, sm, chaos, _ownOrkLook);

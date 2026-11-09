@@ -20,6 +20,22 @@ public readonly record struct LibrarianView(ushort Player, float Stress, bool Lo
 public static class LibrarianWire
 {
     public const byte Tag = 16;
+    /// <summary>
+    /// The client-to-server cast command (message kind 17, its own tag namespace; librarian-lightning 2026-11-10): <c>[u32 tick]</c>, the tick of the own input that carries the Fire press. Sent once at the press so
+    /// the server begins the chain lightning on its next tick instead of when that input's tick comes round (the input lead, 2 to 5 ticks), and holds it until then (<c>World.LibrarianCastEarly</c>).
+    /// </summary>
+    public const byte CastCommandTag = 16;
+
+    /// <summary>The cast command's payload (<see cref="CastCommandTag"/>).</summary>
+    public static byte[] WriteCast(uint pressTick)
+    {
+        var bytes = new byte[4];
+        BinaryPrimitives.WriteUInt32LittleEndian(bytes, pressTick);
+        return bytes;
+    }
+
+    /// <summary>The press tick of a cast command, or null for a malformed payload (untrusted bytes).</summary>
+    public static uint? ReadCast(ReadOnlySpan<byte> payload) => payload.Length == 4 ? BinaryPrimitives.ReadUInt32LittleEndian(payload) : null;
     /// <summary>A Librarian's fixed bytes, the chain's first link (two full points) and each further jump (one delta).</summary>
     public const int RecordBytes = 10, FirstLinkBytes = 12, JumpBytes = 3;
     /// <summary>The most Librarians in one section (a Musou Mode party has four).</summary>
