@@ -63,7 +63,7 @@ public partial class NetworkView
             _musouContact.Predict(id, _connectedFor, melee: true);
             _musouContactAt[id] = _connectedFor;
             MusouMeleeShake();   // the swing's cap holds however many
-            if (!NoMusouSlash && Num.Vector3.Distance(chest, camera) <= MusouSlashRules.Metres) MusouSlashAt(chest, me.Position, colour, style);
+            if (!NoMusouSlash && Num.Vector3.Distance(chest, camera) <= MusouSlashRules.Metres) MusouSlashAt(chest, me.Position, colour, style, _client.PlayerId);
             var contact = ToGodot(chest);
             if (k == 0)
             {

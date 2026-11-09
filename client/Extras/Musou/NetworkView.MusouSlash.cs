@@ -39,11 +39,11 @@ public partial class NetworkView
         if (NoMusouSlash || Num.Vector3.Distance(at, camera) > MusouSlashRules.Metres) return;
         PlayerState? attacker = own ? me : MusouPlayerState(e.Player);
         string? wargear = MusouSlashWeaponArg ?? (attacker is { } who ? MeleeWargear(who) : null);   // a retainer (no state): the chainsword's red
-        MusouSlashAt(at, attacker?.Position, MusouSlashRules.ColourOf(wargear), MusouOldContact ? MusouContactRules.DefaultSlash : MusouContactRules.SlashOf(wargear));
+        MusouSlashAt(at, attacker?.Position, MusouSlashRules.ColourOf(wargear), MusouOldContact ? MusouContactRules.DefaultSlash : MusouContactRules.SlashOf(wargear), e.Player);
     }
 
     /// <summary>One slash across the enemy whose chest is at <paramref name="at"/> (game space), struck from <paramref name="from"/> (the camera when unknown), within the frame's budget.</summary>
-    void MusouSlashAt(Num.Vector3 at, Num.Vector3? from, MusouSlashColour colour, MusouSlashStyle style)
+    void MusouSlashAt(Num.Vector3 at, Num.Vector3? from, MusouSlashColour colour, MusouSlashStyle style, int attacker = 0)
     {
         if (_camera is null) return;
         ulong frame = Engine.GetProcessFrames();
@@ -56,7 +56,8 @@ public partial class NetworkView
             AddChild(_musouSlashView);
         }
         var origin = from is { } f ? ToGodot(f) : _camera.GlobalPosition;
-        _musouSlashView.Add(ToGodot(at), origin, _camera.GlobalPosition, colour, _musouSlashRng, style);
+        CharacterViewer? model = attacker == 0 ? null : attacker == _client.PlayerId ? _local : (_remotes.TryGetValue(attacker, out var viewer) ? viewer : null);   // owner 2026-11-09: the striker's own model hides its strokes, no other does
+        _musouSlashView.Add(ToGodot(at), origin, _camera.GlobalPosition, colour, _musouSlashRng, style, attacker, model);
     }
 
     /// <summary>The own melee hit's shake: a small one for the first enemy of a swing, less for each more, the whole swing capped (<see cref="MusouSlashRules.ShakeCap"/>).</summary>
