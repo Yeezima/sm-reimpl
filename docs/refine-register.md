@@ -28,11 +28,11 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2673 spec table rows: **1971 tagged**, 488 not tagged (read from data with high confidence), 214 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 596 rows of the changes document.
+Scanned 2674 spec table rows: **1972 tagged**, 488 not tagged (read from data with high confidence), 214 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 596 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
-| Movement (critical) | 385 | 327 | 326 | 114 | 12 |
+| Movement (critical) | 386 | 328 | 327 | 114 | 12 |
 | Combat core (critical) | 13 | 4 | 12 | 11 | 9 |
 | Weapons (critical) | 121 | 73 | 106 | 54 | 3 |
 | Melee (critical) | 120 | 105 | 95 | 38 | 5 |
@@ -50,16 +50,16 @@ Scanned 2673 spec table rows: **1971 tagged**, 488 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 19 | 10 | 10 | 10 | 7 |
-| Core simulation (provisional values) | 488 | 464 | 337 | 126 | 1 |
+| Core simulation (provisional values) | 488 | 464 | 336 | 126 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 191 | 181 | 93 | 53 | 0 |
-| **All areas** | **1971** | 1725 | 1461 | 624 | 38 |
+| **All areas** | **1972** | 1726 | 1461 | 624 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1068 |
+| kind: ours | 1069 |
 | confidence: low | 708 |
 | confidence: medium | 624 |
 | kind: interpretation | 359 |
@@ -91,7 +91,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 ## Part A: gameplay areas, critical first
 
-### Movement (gameplay-critical) (385)
+### Movement (gameplay-critical) (386)
 
 *Spec section: Extracted parameters*
 
@@ -692,6 +692,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-15F080D4` | C: fuel, spacing, limits | the dash still costs no power and keeps its spacing: `min_time_between_activations` 0.8 s × the 0.7 lock scale (17 ticks) from a dash's start; a tap inside it is kept for the buffer's 0.3 s and dashes when the spacing ends, else it is lost; a press during a… (s, power) | kind: ours; confidence: medium | data (spacing, no cost); no air limit: absence of evidence | C: fuel, spacing, limits: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the dash still costs no power and keeps its spacing:… | ☐ |
 | `R-C82D328F` | C: presentation | a dash started in the air ends the jump's view without a landing (no landing effect, ring or sound in mid-air); its flight, landing and sounds are the dash's own | kind: ours | ours | C: presentation: compare with SM1 by feel or video. Ours: a dash started in the air ends the jump's view without a landing (no… | ☐ |
 | `R-61FA96E8` | D: steering a charge off a ledge | a charge held in the air (the bull rush off a ledge, the dash attack's lunge held at its end; protocol 30's `Rush.Held`: the clip waits, the speed it left the ground with is kept) turns with the stick's sideways part: A left, D right, at most **60 degrees per… (deg/s) | kind: ours; kind: estimate; kind: user's knowledge; confidence: low | the owner's requests (user's knowledge); the rate ours | D: steering a charge off a ledge: compare with SM1 by feel or video. Ours: a charge held in the air (the bull rush off a ledge, the dash… | ☐ |
+
+*Spec section: Added content: Musou audio pass (musou/audio-pass; 2026-11-09; client only, Musou Mode only, no protocol, wire or hash change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-2F9CF38F` | First-hit smack, back (fourth follow-up 2026-11-09: "lower the volume by 40% and make the sound… | `play_bolter_smack` (the data's flesh smack) on the first Ork a shot hits, with the blast: level **-2.44 dB** = 0.6 x linear of the last version that had it (+2 dB, itself half the first pass's +8), i.e. **0.755 x the source event's level** (0 dB), plus the… (dB, cents, x) | kind: ours; confidence: low | owner 2026-11-09; event and numbers ours | First-hit smack, back (fourth follow-up 2026-11-09: "lower…: compare with SM1 by listening A/B at the same distance and state. Ours: play_bolter_smack (the data's flesh smack) on the first Ork a shot… | ☐ |
 
 *Spec section: Swing step, the lock-on's lunge and the air jump by mode (sim/swing-step, sim/lock-reach, sim/air-jumps; protocol 59, no wire change)*
 
@@ -2615,7 +2621,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-13EA644B` | Own barks | the own player's character speech (the Titus battle barks and the class exertion/action lines) is exempt from the data's Set/Reset actions (an explosion such as `play_big_damage_med_explosion` carries 11: the low-pass and volume cuts that muffled them), from… | kind: ours; confidence: medium | owner 2026-11-09 | Own barks: compare with SM1 by feel or video. Ours: the own player's character speech (the Titus battle barks and the… | ☐ |
 | `R-263892F0` | Bolter rifles | bolter, storm bolter, stalker bolter (sniper rifle wargear), heavy bolter, either side's; not the bolt pistols | kind: ours; confidence: medium | owner ("bolter rifle weapons") | Bolter rifles: compare with SM1 by feel or video. Ours: bolter, storm bolter, stalker bolter (sniper rifle wargear), heavy… | ☐ |
 | `R-840E5E4A` | Deeper fire (follow-up 2026-11-09: the gun's own 'bang bang' deeper and more powerful) | **Own gun:** its fire event posted again on an emitter of its own (`ProtectGun`: never stolen at the voice cap, never cut by another event's Stop actions, never ducked by Set/Reset, no instance limit) as a body copy at -800 cents, +2 dB, low-pass +22, a sub… (cents, dB) | kind: ours; confidence: low | owner 2026-11-09; numbers ours | Deeper fire (follow-up 2026-11-09: the gun's own 'bang…: compare with SM1 by feel or video. Ours: Own gun: its fire event posted again on an emitter of its own… | ☐ |
-| `R-E79FD988` | First-hit blast (the added wet smack was removed again, owner 2026-11-09: "remove the wet flesh… | on the first Ork a shot hits (once a shot: the hit-sound dedup of combat feel, others' shots by the shot record), 0.07 s after the original hit sound: `play_sm_grenade_explode_mp` at -15 dB (half amplitude of the first pass's -9) with its tail faded to -30 dB… (dB, s) | kind: ours; confidence: low | owner 2026-11-09; event and numbers ours | First-hit blast (the added wet smack was removed again…: compare with SM1 by listening A/B at the same distance and state. Ours: on the first Ork a shot hits (once a shot: the hit-sound dedup of… | ☐ |
+| `R-B359E0A5` | Bark theme filter (fourth follow-up 2026-11-09: "none of the bark voice lines should be about… | **Not wired: blocked.** `MusouAudioRules.IsOffThemeLine` (case-insensitive word-start match of chaos, warp, daemon, demon, traitor, heretic, renegade, nurgle, khorne, tzeentch, slaanesh, possessed, cultist, dark god, ruinous, corrupt; heretic and traitor are… | kind: ours | owner 2026-11-09 | Bark theme filter (fourth follow-up 2026-11-09: "none of…: compare with SM1 by listening A/B at the same distance and state. Ours: Not wired: blocked. MusouAudioRules.IsOffThemeLine (case-insensitive… | ☐ |
 | `R-7DFF899C` | Power sword hit (follow-up 2026-11-09: "revert ... exactly like the original ... just louder") | the power sword's hit (`sm_mp_melee_powersword` / `csm_`) has **no** tail, no reverb bus, no added length: the data's events and playback as before this pass (mix pass included); only kept from being stolen at the voice cap (`SoundEmitter.NoSteal`), and +6 dB… (dB) | kind: ours; confidence: low | owner 2026-11-09; the +6 dB is ours | Power sword hit (follow-up 2026-11-09: "revert ... exactly…: compare with SM1 by feel or video. Ours: the power sword's hit (sm_mp_melee_powersword / csm_) has no tail, no… | ☐ |
 
 *Spec section: Commander status marker (Musou Mode; client only)*

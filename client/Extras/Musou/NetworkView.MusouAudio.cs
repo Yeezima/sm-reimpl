@@ -76,10 +76,14 @@ public partial class NetworkView
         if (_connectedFor - _musouBlastAt < MusouAudioRules.BlastDelaySeconds) return;   // a burst's hits cannot pile their explosions
         _musouBlastAt = _connectedFor;
         _musouBolterHits++;
+        var smack = new SoundEmitter { Position = at, OneShot = true, Label = "musou bolter smack", DistanceScale = MusouAudioRules.SmackFalloffScale };
+        smack.Switches.Set(AudioCatalog.MaterialType, Fnv.Hash32("flesh"));
+        float mixDb = SoundSystem.MixClassic ? 0f : SoundMixPass.HitGainDb;   // the mix pass's on-hit gain, without its high-pass (the smack is a low body)
+        _sound.Post(MusouAudioRules.SmackEvent, smack, offset: new VoiceOffset(MusouAudioRules.SmackGainDb + mixDb, MusouAudioRules.SmackPitchCents, MusouAudioRules.SmackLpf));
         var blast = new SoundEmitter { Position = at, OneShot = true, Label = "musou bolter blast" };
         _sound.Post(MusouAudioRules.BlastEvent, blast, MusouAudioRules.BlastDelaySeconds, once: true, offset: new VoiceOffset(MusouAudioRules.BlastGainDb, TailDb: MusouAudioRules.BlastTailDb));
         CountSound("musou bolter hit");
-        if (LogSound("musou-audio")) GD.Print($"MUSOU AUDIO t {_connectedFor:F3} {weapon}: blast at {at.X:F1},{at.Y:F1},{at.Z:F1} (shots {_musouBolterShots}, hits {_musouBolterHits})");
+        if (LogSound("musou-audio")) GD.Print($"MUSOU AUDIO t {_connectedFor:F3} {weapon}: smack + blast at {at.X:F1},{at.Y:F1},{at.Z:F1} (shots {_musouBolterShots}, hits {_musouBolterHits})");
     }
 
     /// <summary>Another player's bolter shot that hit an Ork (the core <c>SoundShot</c> path): the same smack and blast at the shot's end.</summary>

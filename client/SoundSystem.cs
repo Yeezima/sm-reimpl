@@ -56,6 +56,8 @@ public sealed class SoundEmitter
     public bool ProtectGun;
     /// <summary>musou/audio-pass (Musou Mode only): the power sword's hit voices are never stolen at the voice cap; nothing else of them changes (events, Stop actions, buses and limits as the data and the mix pass define). False everywhere else.</summary>
     public bool NoSteal;
+    /// <summary>musou/audio-pass (Musou Mode only): the listener distance this emitter's voices read their curves at is multiplied by this (1.2 = the curves end at 1/1.2 of their distance: 20 % more falloff). 1 everywhere else.</summary>
+    public float DistanceScale = 1f;
 
     public Vector3 Current => Follow?.Invoke() ?? Position;
 }
@@ -762,7 +764,7 @@ public partial class SoundSystem : Node
         if (camera is null) return (pos, 0f);
         float d = camera.GlobalPosition.DistanceTo(pos);
         if (e.Own) d = Math.Min(d, OwnMinDistance);
-        return (pos, d);
+        return (pos, d * e.DistanceScale);
     }
 
     /// <summary>The voice's live mix: parent chain, buses, RTPCs (distance now, the emitter's parameters as at the start), attenuation, modifiers, and the loudness rule (<see cref="Loudness"/>).</summary>
