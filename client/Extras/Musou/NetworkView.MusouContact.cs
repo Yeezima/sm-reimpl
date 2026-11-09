@@ -153,6 +153,7 @@ public partial class NetworkView
             var emitter = new SoundEmitter { Position = ToGodot(end), Label = "musou predicted shot hit", OneShot = true };
             PostPlayerHitSound(gunHit, emitter, ImpactSounds.ImpactOffset(ImpactTreatmentArg, gunHit, hitScan: true), material);
             CountSound("body hit");
+            MusouStalkerConfirm(weapon.Name, material == true);   // sound/stalker-hit-confirm: the stalker's confirm on the shooter
             MusouBolterFirstHit(weapon.Name, emitter.Position);   // musou/audio-pass (bolter rifles only: the pilot gun is the pistol)
         }
         if (_camera is null) return;

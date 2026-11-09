@@ -68,14 +68,43 @@ public partial class NetworkView
         if (_connectedFor - _musouBlastAt < MusouAudioRules.BlastDelaySeconds) return;   // a burst's hits cannot pile their explosions
         _musouBlastAt = _connectedFor;
         _musouBolterHits++;
+        // sound/stalker-hit-confirm: the Stalker / Daemon Eye Bolter has its own confirm on the shooter (MusouStalkerConfirm) in place of the wet bolter smack; the explosion stays.
+        bool stalker = !OldStalkerHitConfirm && StalkerHitConfirm.ReplacesMusouSmack(weapon);
+        if (!stalker) MusouBolterSmack(at);
+        var blast = new SoundEmitter { Position = at, OneShot = true, Label = "musou bolter blast" };
+        _sound.Post(MusouAudioRules.BlastEvent, blast, MusouAudioRules.BlastDelaySeconds, once: true, offset: new VoiceOffset(MusouAudioRules.BlastGainDb, TailDb: MusouAudioRules.BlastTailDb));
+        CountSound("musou bolter hit");
+        if (LogSound("musou-audio")) GD.Print($"MUSOU AUDIO t {_connectedFor:F3} {weapon}: {(stalker ? "blast (stalker: no smack)" : "smack + blast")} at {at.X:F1},{at.Y:F1},{at.Z:F1} (shots {_musouBolterShots}, hits {_musouBolterHits})");
+    }
+
+    /// <summary>The wet bolter smack at the Ork (<see cref="MusouAudioRules.SmackEvent"/>).</summary>
+    void MusouBolterSmack(Vector3 at)
+    {
+        if (_sound is null) return;
         var smack = new SoundEmitter { Position = at, OneShot = true, Label = "musou bolter smack", DistanceScale = MusouAudioRules.SmackFalloffScale, Positioned = true, AttenuationOverride = _musouSmackCurve ??= _sound.AttenuationOf(MusouAudioRules.SmackCurveEvent) };
         smack.Switches.Set(AudioCatalog.MaterialType, Fnv.Hash32("flesh"));
         float mixDb = SoundSystem.MixClassic ? 0f : SoundMixPass.HitGainDb;   // the mix pass's on-hit gain, without its high-pass (the smack is a low body)
         _sound.Post(MusouAudioRules.SmackEvent, smack, offset: new VoiceOffset(MusouAudioRules.SmackGainDb + mixDb, MusouAudioRules.SmackPitchCents, MusouAudioRules.SmackLpf));
-        var blast = new SoundEmitter { Position = at, OneShot = true, Label = "musou bolter blast" };
-        _sound.Post(MusouAudioRules.BlastEvent, blast, MusouAudioRules.BlastDelaySeconds, once: true, offset: new VoiceOffset(MusouAudioRules.BlastGainDb, TailDb: MusouAudioRules.BlastTailDb));
-        CountSound("musou bolter hit");
-        if (LogSound("musou-audio")) GD.Print($"MUSOU AUDIO t {_connectedFor:F3} {weapon}: smack + blast at {at.X:F1},{at.Y:F1},{at.Z:F1} (shots {_musouBolterShots}, hits {_musouBolterHits})");
+    }
+
+    /// <summary>
+    /// sound/stalker-hit-confirm (owner 2026-11-09): the own Stalker / Daemon Eye Bolter shot that hit an Ork plays the data's confirm (<see cref="StalkerHitConfirm.Event"/>) on the shooter, as
+    /// Classic does for a hit on a player: 2D, the data's level, the Ork's material (<paramref name="armoured"/>: ceramite_armour, else flesh). Heard by the shooter only (an own emitter).
+    /// </summary>
+    void MusouStalkerConfirm(string weapon, bool armoured)
+    {
+        if (OldStalkerHitConfirm || !MusouActive || _client is null || _audio is null || _sound is null || HitConfirmArg == HitConfirmMode.Off || !StalkerHitConfirm.Is(weapon)) return;
+        int ownId = _client.PlayerId;
+        var at = new SoundEmitter { Own = true, Follow = () => PlayerSoundPoint(ownId), Label = "musou stalker confirm", OneShot = true };
+        at.Switches.Set(AudioCatalog.PlayerGroup, AudioCatalog.LocalPlayerValue);
+        at.Switches.Set(AudioCatalog.MaterialType, Fnv.Hash32(ImpactSounds.ConfirmMaterial(armoured)));
+        uint? stateBefore = _audio.State(ImpactSounds.DeathStateGroup);
+        _audio.SetState(ImpactSounds.DeathStateGroup, ImpactSounds.StateBeforeConfirm(HitConfirmMode.Data, stateBefore, kill: false, armoured));
+        var play = _sound.Post(StalkerHitConfirm.Event, at, offset: StalkerHitConfirm.Offset);
+        _audio.SetState(ImpactSounds.DeathStateGroup, ImpactSounds.StateAfterConfirm(HitConfirmMode.Data, stateBefore, _audio.State(ImpactSounds.DeathStateGroup)));
+        CountSound("hit confirm");
+        if (LogSound("hitconfirm") || LogSound("musou-audio"))
+            GD.Print($"HIT CONFIRM t {_connectedFor:F3} musou {weapon} event {StalkerHitConfirm.Event} on an Ork, {(armoured ? "armour" : "flesh")} | {VoiceMixText(play, at, StalkerHitConfirm.Offset)}");
     }
 
     /// <summary>Another player's bolter shot that hit an Ork (the core <c>SoundShot</c> path): the same smack and blast at the shot's end.</summary>
