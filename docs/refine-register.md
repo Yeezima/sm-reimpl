@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2760 spec table rows: **2056 tagged**, 489 not tagged (read from data with high confidence), 215 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 611 rows of the changes document.
+Scanned 2765 spec table rows: **2059 tagged**, 489 not tagged (read from data with high confidence), 217 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 613 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,18 +50,18 @@ Scanned 2760 spec table rows: **2056 tagged**, 489 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 19 | 10 | 10 | 10 | 7 |
-| Core simulation (provisional values) | 539 | 515 | 377 | 155 | 1 |
+| Core simulation (provisional values) | 542 | 518 | 379 | 155 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 222 | 212 | 119 | 59 | 0 |
-| **All areas** | **2056** | 1810 | 1527 | 660 | 38 |
+| **All areas** | **2059** | 1813 | 1529 | 660 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1130 |
-| confidence: low | 737 |
-| confidence: medium | 661 |
+| kind: ours | 1133 |
+| confidence: low | 738 |
+| confidence: medium | 662 |
 | notes: ours | 380 |
 | kind: interpretation | 360 |
 | notes: estimate | 167 |
@@ -2175,7 +2175,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (539)
+### Core simulation (provisional values) (542)
 
 *Spec section: Provisional values in use*
 
@@ -2979,6 +2979,14 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-10B39DE1` | Row order | score, then kills, fewer deaths, id | kind: ours; confidence: low | ours | Row order: compare with SM1 by feel or video. Ours: score, then kills, fewer deaths, id. | ☐ |
 | `R-72414BFD` | Own row | white fill at 11 % and a 4 px white bar at the left; bold text | kind: ours; confidence: low | the owner ("subtle white accent", relayed brief) | Own row: compare with SM1 by feel or video. Ours: white fill at 11 % and a 4 px white bar at the left; bold text. | ☐ |
 | `R-CCAF9F66` | Icons | the shoulder decal that is a custom emblem, else the left pad's badge, else the right's, of the look the player had when it first appeared on a scoreboard (the first look known after that); kept while it stays listed; forgotten when it leaves, so a return… | kind: ours; confidence: medium | the owner | Icons: compare with SM1 by feel or video. Ours: the shoulder decal that is a custom emblem, else the left pad's… | ☐ |
+
+*Spec section: Screen blink (ui/loading-blink, 2026-11-10, client only)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-49B64CC5` | Where it blinks | the front end's Join (menu to loading screen), the connect (loading screen to match), LEAVE MATCH (match to menu) and Esc on a join still connecting or failed (loading screen to menu); Classic PvP and Musou Mode alike; not the silent Musou rejoin (the loading… | kind: ours | the owner ("transition between main menu and load screen and game to make it feel smoother. like blinking.") | Where it blinks: compare with SM1 by feel or video. Ours: the front end's Join (menu to loading screen), the connect (loading… | ☐ |
+| `R-8233E2A3` | Close, hold, open | a black layer over everything (layer 127) fades in over 0.18 s; 2 frames are drawn at full black, then the change runs (so the match's synchronous load freezes a black window, not a half-dimmed menu); the black holds at least 0.08 s and 3 frames, until a… (s, frames) | kind: ours; confidence: low | ours, by eye (the brief: 0.15 to 0.25 s close, a brief hold, 0.2 to 0.3 s open) | Close, hold, open: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a black layer over everything (layer 127) fades in over 0.18 s; 2… | ☐ |
+| `R-EE1A1048` | Input and errors under the blink | the black never takes mouse or key input (a match under it runs and takes input); a second change asked while one waits for the black is dropped (a double Join, a repeated Esc); a change asked while black runs at once, one asked while opening closes again… | kind: ours; confidence: medium | ours | Input and errors under the blink: compare with SM1 by turning the view at full speed with the same input settings and timing a half turn. Ours: the black never takes mouse or key input (a match under it runs and… | ☐ |
 
 *Spec section: Musou rejoin (2026-11-07, client only)*
 
@@ -4103,6 +4111,13 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-25BE6DAA` | Loading screen | Black with LOADING in the centre while the view loads and connects (no address, no back hint); errors as before | SM1's loading screens (map art and tips) | Loading screen | Loading screen: compare with SM1 by feel or video. Ours: Black with LOADING in the centre while the view loads and connects… | ☐ |
 | `C-83E01E66` | Silent Musou rejoin | A Classic PvP join refused for the Musou profile while this client's own Musou server runs stops that server and joins again with the lobby's profile, no message, once | — (ours: SM1 had no Musou Mode) | Musou rejoin | Silent Musou rejoin: compare with SM1 by feel or video. Ours: A Classic PvP join refused for the Musou profile while this client's… | ☐ |
 
+#### Loading screen picture and screen blink (owner 2026-11-10; client only)
+
+| ID | Area | What we do | What is unknown | Spec | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `C-56DF6FC5` | Loading screen picture | The owner's earlier menu picture behind LOADING, dimmed toward the corners (not SM1's per-map loading art and tips) | SM1's loading screens (map art and tips) | Loading screen: "Loading screen picture" | Loading screen picture: compare with SM1 by feel or video. Ours: The owner's earlier menu picture behind LOADING, dimmed toward the… | ☐ |
+| `C-CC5659E8` | Screen blink | A short fade to black and back (0.18 s close, a hold until the new screen has settled, 0.26 s open) between the menu, the loading screen and the match; `--no-screen-blink` turns it off | How SM1's front end changed screens | Screen blink | Screen blink: compare with SM1 by feel or video. Ours: A short fade to black and back (0.18 s close, a hold until the new… | ☐ |
+
 ### Not yet reproduced
 
 | ID | Missing | Note | Compare in a playtest | Result |
@@ -4464,6 +4479,8 @@ Test aids, probes, demo and capture tooling, and engineering decisions (protocol
 | `R-AFD6145F` | Switch | The charge clash: charger and victim locked through the shove (feel/charge-clash; protocol 59, no wire change) |
 | `R-04107A30` | Headshot on the wire | Headshot medal, score and scream (protocol 64, 2026-11-07) |
 | `R-4B7E3D1D` | Loading screen | Loading screen (2026-11-07, client only) |
+| `R-027C2554` | Loading screen picture (ui/loading-blink, 2026-11-10) | Loading screen (2026-11-07, client only) |
+| `R-E6DE77A1` | Handshake after the blink | Screen blink (ui/loading-blink, 2026-11-10, client only) |
 | `R-BE72EE96` | Core messages counted in the Musou budget (Musou) | Musou performance pass and the owner's battle decisions (musou/perf-pass, 2026-11-08; Musou Mode only but FSR 2 and the off-screen effects, which are shared client settings; `TfwRules.Version` 38, no protocol or wire change) |
 | `R-A9655E6C` | Stormboy hop cue's flight (Musou wire) | Musou Mode: smooth crowd motion (crowd-smooth, 2026-11-08; Musou Mode only; `MusouSim.Version` 22, no core protocol bump: `Protocol.Version` stays 64) |
 
