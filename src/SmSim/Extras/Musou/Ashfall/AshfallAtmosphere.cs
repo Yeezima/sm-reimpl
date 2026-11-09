@@ -38,7 +38,7 @@ public static class AshfallAtmosphere
             var centre = new Vector2(it.Position.X, it.Position.Y);
             if (PlumeRuins.Contains(it.Asset) && MathF.Min(it.Size.X, it.Size.Y) >= 9f)
             {
-                float top = mine.Where(b => Inside(b, centre, 0f)).Select(b => b.Z1).DefaultIfEmpty(AshfallMap.SurfaceAt(centre.X, centre.Y)).Max();
+                float top = mine.Where(b => Inside(b, centre, 0f)).Select(b => b.Z1).DefaultIfEmpty(AshfallMap.SurfaceAt(level, centre.X, centre.Y)).Max();
                 plumeCands.Add((AshfallBuilder.Mix(seed, (uint)i * 16u), new Vector3(centre.X, centre.Y, top), 1.6f + 0.4f * (AshfallBuilder.Mix(seed, (uint)i * 16u + 1u) % 100u) / 100f, centre.LengthSquared() > 1f ? -Vector2.Normalize(centre) : -Vector2.UnitY));
             }
             float s = MathF.Sin(it.Yaw), c = MathF.Cos(it.Yaw);
@@ -51,7 +51,7 @@ public static class AshfallAtmosphere
                 var p = (k % 2 == 0)
                     ? centre + ay * ((k == 0 ? -1f : 1f) * (it.Size.Y / 2f + 0.9f)) + ax * (along * it.Size.X)
                     : centre + ax * ((k == 1 ? -1f : 1f) * (it.Size.X / 2f + 0.9f)) + ay * (along * it.Size.Y);
-                fireCands.Add((h, new Vector3(p.X, p.Y, AshfallMap.SurfaceAt(p.X, p.Y)), 1.2f + 0.7f * ((h >> 10) % 100u) / 100f, o));
+                fireCands.Add((h, new Vector3(p.X, p.Y, AshfallMap.SurfaceAt(level, p.X, p.Y)), 1.2f + 0.7f * ((h >> 10) % 100u) / 100f, o));
             }
         }
         var spots = new List<AshfallFireSpot>();
@@ -88,6 +88,8 @@ public static class AshfallAtmosphere
             if (Vector2.Distance(new(p.Center.X, p.Center.Y), new(at.X, at.Y)) < p.Radius + ZoneClear) return false;
         foreach (var a in level.Areas)
             if (MathF.Abs(at.X - a.Center.X) < a.Size.X / 2f && MathF.Abs(at.Y - a.Center.Y) < a.Size.Y / 2f) return false;
+        if (level.Layout == AshfallLayout.Field)
+            return !AshfallField.Default.Corridors.Any(k => k.Contains(new Vector2(at.X, at.Y), 1f));   // draft 11: fires keep off the army corridors
         const float lane = 4.2f;
         foreach (float v in new[] { -92f, 92f, -232f, 232f })
             if (MathF.Abs(at.X - v) < lane || MathF.Abs(at.Y - v) < lane) return false;

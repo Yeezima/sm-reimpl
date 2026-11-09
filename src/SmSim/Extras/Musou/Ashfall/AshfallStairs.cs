@@ -85,7 +85,7 @@ public static class AshfallStairs
         public Func<float, float, float> Ground { get; init; } = AshfallMap.SurfaceAt;
 
         public static Solids Of(AshfallLevel level) => new(level.Parts.Where(p => p.Solid && p.Kind is not (AshfallKind.Stair or AshfallKind.Ground or AshfallKind.Road or AshfallKind.Paving or AshfallKind.Curb))
-            .Select(AshfallBox.Of).Where(b => b is not null).Select(b => b!.Value));
+            .Select(AshfallBox.Of).Where(b => b is not null).Select(b => b!.Value)) { Ground = AshfallMap.GroundOf(level.Layout) };   // draft 11: the layout's own ground
 
         public void Add(AshfallBox b)
         {

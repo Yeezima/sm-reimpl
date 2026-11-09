@@ -17,16 +17,16 @@ public partial class NetworkView
 
     void TfwAshfallContent(string name, ref MapContent? map)
     {
-        if (name != TfwMap.Name) return;
+        if (!TfwMap.IsAshfall(name)) return;
         var watch = System.Diagnostics.Stopwatch.StartNew();
-        (_ashfallLevel, _ashfallDressing) = AshfallMap.BuildWithDressing();   // one build: the collision and the drawing share the level (Build() is BuildWithDressing().Level)
+        (_ashfallLevel, _ashfallDressing) = AshfallMap.BuildWithDressing(TfwMap.LayoutOf(name));   // draft 11: the server's map name picks the layout (tfw_war_field: the battlefield layout)   // one build: the collision and the drawing share the level (Build() is BuildWithDressing().Level)
         map = AshfallContent.ToMapContent(_ashfallLevel);
-        GD.Print($"ashfall: level generated in {watch.ElapsedMilliseconds} ms, hash {_ashfallLevel.Hash:X16}; nothing read from the install");
+        GD.Print($"ashfall: {_ashfallLevel.Layout} layout generated in {watch.ElapsedMilliseconds} ms, hash {_ashfallLevel.Hash:X16}; nothing read from the install");
     }
 
     void TfwAshfallVisuals(string name, ref bool drawn)
     {
-        if (name != TfwMap.Name || _ashfallLevel is null || _ashfallDressing is null || _gameSpace is null) return;
+        if (!TfwMap.IsAshfall(name) || _ashfallLevel is null || _ashfallDressing is null || _gameSpace is null) return;
         try
         {
             var (level, dressing) = (_ashfallLevel, _ashfallDressing);   // the level the collision came from: its parts index the HiddenParts and the Skin items

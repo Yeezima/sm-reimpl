@@ -6,7 +6,7 @@ namespace SmContent;
 /// the server keeps requested sides (<c>--honor-side-requests</c>) so the bots stay on theirs.</param>
 /// <param name="Difficulty">Easy: the server scales the damage bots deal (<c>--bot-damage-scale</c> <see cref="HostBots.EasyDamageScale"/>); Normal: unscaled.</param>
 public sealed record HostOptions(string Mode, int Port, bool LocalOnly, string GameDir, bool AllowCustomEmblems = false, string? Content = null,
-    int Bots = HostBots.DefaultCount, BotDifficulty Difficulty = BotDifficulty.Easy);
+    int Bots = HostBots.DefaultCount, BotDifficulty Difficulty = BotDifficulty.Easy, string? Map = null);
 
 /// <summary>
 /// The pure parts of starting the bundled dedicated server from the client (the process handling is in the client): where the executable is looked for,
@@ -116,6 +116,7 @@ public static class ServerLaunch
         if (!options.AllowCustomEmblems) args.Add("--no-custom-emblems");
         // Added content E1: the client's profile, so the hosted server's config hash matches the client joining it.
         if (!string.IsNullOrWhiteSpace(options.Content)) { args.Add("--content"); args.Add(options.Content); }
+        if (!string.IsNullOrWhiteSpace(options.Map)) { args.Add("--map"); args.Add(options.Map); }   // draft 11: the client's --ashfall-layout field hosts tfw_war_field
         args.AddRange(HostBots.ServerArguments(options.Bots, options.Difficulty));   // bots: keep requested sides, Easy scales their damage
         return args;
     }

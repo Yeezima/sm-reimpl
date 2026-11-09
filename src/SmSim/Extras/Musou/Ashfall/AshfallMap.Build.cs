@@ -94,7 +94,10 @@ public static partial class AshfallMap
     }
 
     /// <summary>The ground's height at (<paramref name="x"/>, <paramref name="y"/>): 0 on the roads, <see cref="BlockTop"/> on a block, the crater field's heightfield on the west-middle block.</summary>
-    public static float SurfaceAt(float x, float y) =>
+    public static float SurfaceAt(float x, float y) => t_field ? BlockTop : SurfaceAtV5(x, y);
+
+    /// <summary>The v5 grid's ground (draft 10): 0 on the roads, <see cref="BlockTop"/> on a block, the crater field's heightfield on the west-middle block.</summary>
+    static float SurfaceAtV5(float x, float y) =>
         !InBlock(x, y, out bool crater) ? 0f : crater ? CraterHeight(x, y) : BlockTop;
 
     // ---------------------------------------------------------------- ground, streets, boundary

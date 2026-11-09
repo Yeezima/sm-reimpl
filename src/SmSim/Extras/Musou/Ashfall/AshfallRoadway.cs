@@ -21,6 +21,11 @@ public static class AshfallRoadway
     public static List<AshfallBox> Strips(AshfallLevel level, float margin = Margin, float top = 1000f)
     {
         var list = new List<AshfallBox>();
+        if (level.Layout == AshfallLayout.Field)
+        {
+            // draft 11: the army corridors and the fortresses' aprons are the roadways (the default plan's: the game loads only that one)
+            return FieldStrips(AshfallField.Default, margin, top);
+        }
         float len = 2f * AshfallMap.Half;
         foreach (var (c, w) in AshfallDressPass.RoadLines)
         {
@@ -30,6 +35,19 @@ public static class AshfallRoadway
         foreach (var p in level.Parts)
             if (p.Kind == AshfallKind.Road && AshfallBox.Of(p) is { } b)
                 list.Add(b with { Z0 = -2f, Z1 = top, Length = b.Length + 2f * margin, Depth = b.Depth + 2f * margin });
+        return list;
+    }
+
+    /// <summary>Draft 11's roadways: the plan's army corridors and the fortresses' aprons (draft 10's strips round the stronghold and the compound), grown by <paramref name="margin"/>.</summary>
+    public static List<AshfallBox> FieldStrips(AshfallFieldPlan plan, float margin = Margin, float top = 1000f)
+    {
+        var list = plan.Corridors.Select(k => k.Box(margin, -2f, top)).ToList();
+        foreach (var (_, r) in plan.Aprons)
+        {
+            float w = r.Z - r.X, h = r.W - r.Y;
+            list.Add(w >= h ? new AshfallBox((r.X + r.Z) / 2f, (r.Y + r.W) / 2f, -2f, top, w + 2f * margin, h + 2f * margin, 0)
+                            : new AshfallBox((r.X + r.Z) / 2f, (r.Y + r.W) / 2f, -2f, top, h + 2f * margin, w + 2f * margin, 6));
+        }
         return list;
     }
 

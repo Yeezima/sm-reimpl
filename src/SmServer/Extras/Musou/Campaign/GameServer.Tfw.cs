@@ -8,7 +8,7 @@ namespace SmServer;
 /// <summary>
 /// Musou Mode on the server (TF0: the contract and stubs). <c>--content musou</c> runs on the composed map <see cref="TfwMap.Name"/> by default
 /// (<see cref="TfwGeneratedMap"/>: Ashfall Citadel, generated in code, plus the Stormbird and the Firing Range); <c>--map tfw_war_m09</c> (<see cref="TfwMap.ManufactorumName"/>) restores the old
-/// war on the install's Manufactorum; a named map of the install (<c>--map mp_tdm_09</c>) keeps the 5-wave run as a test aid.
+/// war on the install's Manufactorum; <c>--map tfw_war_field</c> (<see cref="TfwMap.FieldName"/>) runs Ashfall's draft-11 battlefield layout; a named map of the install (<c>--map mp_tdm_09</c>) keeps the 5-wave run as a test aid.
 /// </summary>
 public sealed partial class GameServer
 {
@@ -40,6 +40,6 @@ public sealed partial class GameServer
         if (started && float.TryParse(Environment.GetEnvironmentVariable("SM_MUSOU_S2_DEMO"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float demo) && demo > 0f)
             World.TfwS2DemoSeconds = demo;   // expansion S2's capture aid (World.TfwSquigs.cs)
         if (started && Environment.GetEnvironmentVariable("SM_MUSOU_S4_DEMO") == "1") World.TfwMekDemo = true;   // expansion S4's capture aid (World.TfwMeks.cs)
-        _musouNote = started ? $"musou: Musou Mode runs on {Map.Name} ({(Map.Name == TfwMap.ManufactorumName ? $"{TfwMap.Battlefield} from the install" : "Ashfall Citadel, generated")} and the Stormbird at {field.Hub.Centre}; Space Marines only, no limits); {navNote}; {World.Tfw?.Sites.Candidates} open nodes" : "musou: not started (the match has no team rules)";
+        _musouNote = started ? $"musou: Musou Mode runs on {Map.Name} ({(Map.Name == TfwMap.ManufactorumName ? $"{TfwMap.Battlefield} from the install" : Map.Name == TfwMap.FieldName ? "Ashfall Citadel, generated, the battlefield layout (draft 11)" : "Ashfall Citadel, generated")} and the Stormbird at {field.Hub.Centre}; Space Marines only, no limits); {navNote}; {World.Tfw?.Sites.Candidates} open nodes" : "musou: not started (the match has no team rules)";
     }
 }

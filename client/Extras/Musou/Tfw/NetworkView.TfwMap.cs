@@ -24,7 +24,7 @@ public partial class NetworkView
 
     void TfwMapFile(ref string file)
     {
-        if (file == TfwMap.Name) { file = "none"; return; }   // Ashfall Citadel is generated in code: no install file (NetworkView.TfwAshfall.cs); "none" makes the readers of map files skip
+        if (TfwMap.IsAshfall(file)) { file = "none"; return; }   // Ashfall Citadel is generated in code: no install file (NetworkView.TfwAshfall.cs); "none" makes the readers of map files skip
         if (file != TfwMap.ManufactorumName) return;
         if (!MapContent.Available(_gameDir).Contains(TfwMap.Battlefield)) throw new System.IO.FileNotFoundException(TfwWorld.Missing("the map is not in this install"));
         file = TfwMap.Battlefield;

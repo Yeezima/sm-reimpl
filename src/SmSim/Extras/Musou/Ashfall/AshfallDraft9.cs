@@ -526,9 +526,23 @@ internal static partial class AshfallDraft5Pass
             foreach (var (normal, along, half, len) in new[] { (ay, ax, it.Size.Y / 2f, it.Size.X), (-ay, ax, it.Size.Y / 2f, it.Size.X), (ax, ay, it.Size.X / 2f, it.Size.Y), (-ax, ay, it.Size.X / 2f, it.Size.Y) })
                 for (float t = -len / 2f + 3f; t <= len / 2f - 3f; t += 6f) Add(p + normal * half + along * t, normal);
         }
+        // draft 11: the corridors' edges (outside the corridor and its margin), in place of the plaza's edge and the avenues' kerbs
+        if (c.Field is { } fl)
+            foreach (var k in fl.Corridors)
+            {
+                var dir = Vector2.Normalize(k.B - k.A); var nrm = new Vector2(-dir.Y, dir.X);
+                for (float t = 8f; t <= k.Length - 8f; t += 8f)
+                    foreach (float side in new[] { -1f, 1f })
+                    {
+                        var o = nrm * side;
+                        Add(k.A + dir * t + o * (k.Width / 2f + AshfallRoadway.Margin), MathF.Abs(o.X) >= MathF.Abs(o.Y) ? new Vector2(MathF.Sign(o.X), 0f) : new Vector2(0f, MathF.Sign(o.Y)));
+                    }
+            }
         // the plaza's edge (on the block side of it) and the avenues' kerbs (on the blocks)
+        if (c.Field is null)
         for (float t = -56f; t <= 56f; t += 8f)
             foreach (var (pt, o) in new[] { (new Vector2(t, 60f), Vector2.UnitY), (new Vector2(t, -60f), -Vector2.UnitY), (new Vector2(60f, t), Vector2.UnitX), (new Vector2(-60f, t), -Vector2.UnitX) }) Add(pt, o);
+        if (c.Field is null)
         foreach (float v in new[] { -92f, 92f })
             for (float t = -220f; t <= 220f; t += 8f)
                 foreach (float side in new[] { -1f, 1f })
@@ -566,7 +580,7 @@ internal static partial class AshfallDraft5Pass
                 break;
             }
         }
-        c.Flags.Add($"draft 9 rubble props (AR-001..003, separate small piles; AR-004 fails the collision gate): {placed.Count} placed at wall feet, the plaza's edge and the avenues' kerbs ({tried} candidates tried; target {RubbleTarget}, {RubbleSpacing:0} m apart)");
+        c.Flags.Add($"draft 9 rubble props (AR-001..003, separate small piles; AR-004 fails the collision gate): {placed.Count} placed at wall feet, {(c.Field is null ? "the plaza's edge and the avenues' kerbs" : "the army corridors' edges")} ({tried} candidates tried; target {RubbleTarget}, {RubbleSpacing:0} m apart)");
     }
 
     static readonly Spec RubbleSpec = new("rubble prop", "rubble prop", Vector3.Zero, Vector3.Zero, null, RubblePropIds) { Kind = AshfallKind.Rubble, UseNet = false };

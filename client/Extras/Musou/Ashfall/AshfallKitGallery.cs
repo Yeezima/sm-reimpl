@@ -179,8 +179,9 @@ public partial class AshfallKitGallery : Node3D
         }
         else
         {
-            (level, dressing) = AshfallMap.BuildWithDressing();
-            GD.Print($"ashfall gallery: dressing version {dressing.Version}: {dressing.Items.Count} items, {dressing.HiddenParts.Count} hidden parts");
+            var layout = _args.TryGetValue("ashfall-layout", out var lay) && lay == "field" ? AshfallLayout.Field : AshfallLayout.Draft10;   // draft 11: --ashfall-layout field shows the battlefield layout
+            (level, dressing) = AshfallMap.BuildWithDressing(layout);
+            GD.Print($"ashfall gallery: {layout} layout, dressing version {dressing.Version}: {dressing.Items.Count} items, {dressing.HiddenParts.Count} hidden parts");
         }
         _level = level;
         _gray = AshfallView.Build(level);
