@@ -456,6 +456,7 @@ public sealed partial class MusouSim
         if (_type[i] == MusouEnemyType.Weirdboy && fight && WeirdboyActs(i, target, distance, toward)) return Vector2.Zero;   // a teleport or a summons (MusouSim.Weirdboy.cs)
         bool melee = spec.Melee && (!spec.Hybrid || distance <= spec.HybridMeleeDistance);
         bool ranged = spec.Ranged && !melee;
+        if (ranged && _type[i] == MusouEnemyType.Weirdboy && !OldWeirdboyBolt) return WeirdboyRanged(i, t, target, d, distance, toward, spec, fight, collision);   // his bolt, outside the crowd's shooter tokens (MusouSim.Weirdboy.cs)
         if ((_token[i] == ShooterToken && !ranged) || (_token[i] == MeleeToken && !melee)) { _token[i] = 0; _burst[i] = 0; }
         bool level = MathF.Abs(d.Z) <= 1.5f;
         if (melee && distance <= MusouFacingRules.MeleeEngageRange) _faceWant[i] = toward;   // a close melee Ork faces its target while it closes in
