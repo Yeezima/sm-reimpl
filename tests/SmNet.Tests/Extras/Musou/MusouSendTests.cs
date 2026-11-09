@@ -11,7 +11,7 @@ namespace SmNet.Tests.Extras.Musou;
 /// Added content "Musou" (MU2): the server's sends. Interest (<see cref="MusouInterest"/>): near enemies every tick, mid every 2nd, far every 5th, a changed
 /// state at once, the boss and the Nobs first; at most 4 messages a tick, every payload within one envelope section and every message within 1200 bytes; each
 /// event in 3 messages (<see cref="MusouEventWindow"/>); the director first, on a change and every 10 ticks. Over loopback with 300 enemies (the
-/// <c>SM_MUSOU_DUMMIES</c> test aid's walkers, converging on the player) a client gets at most 60 KB/s.
+/// <c>SM_MUSOU_DUMMIES</c> test aid's walkers, converging on the player) a client gets at most its budget and a little (60 KB/s before musou-net-budget).
 /// </summary>
 public class MusouSendTests(ITestOutputHelper output)
 {
@@ -55,22 +55,34 @@ public class MusouSendTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void The_budgets_are_the_owners_120_kilobyte_stream_or_the_old_ones_under_the_switch()
+    {
+        // musou-net-budget (the owner, 2026-11-09): Musou 110 KB/s in 6 messages, the war 35 (floor 15) in 3, its share 104; SM_MUSOU_OLD_BUDGET=1: 55 / 4, 20 / 8 / 2, 58.
+        var expected = MusouSendRules.OldBudget ? (55_000, 4, 20_000, 8_000, 2, 58_000) : (110_000, 6, 35_000, 15_000, 3, 104_000);
+        Assert.Equal(expected, (MusouSendRules.BudgetBytesPerSecond, MusouSendRules.MaxMessagesPerTick, SmNet.Extras.Musou.Campaign.TfwSendRules.GuardBudgetBytesPerSecond,
+            SmNet.Extras.Musou.Campaign.TfwSendRules.GuardFloorBytesPerSecond, SmNet.Extras.Musou.Campaign.TfwSendRules.MaxMessagesPerTick, SmNet.Extras.Musou.Campaign.TfwSendRules.ClientBudgetBytesPerSecond));
+        Assert.Equal(MusouSendRules.MaxMessagesPerTick * Protocol.MaxExtrasMessageBytes, MusouSendRules.BurstBytes);
+    }
+
+    [Fact]
     public void The_boss_and_the_nobs_go_first_when_the_budget_is_short()
     {
         var interest = new MusouInterest();
         var rng = new Random(5);
-        var enemies = Enumerable.Range(1, 500).Select(i => Enemy((ushort)i, new Vector3(rng.NextSingle() * 10f, rng.NextSingle() * 10f, 0f),
+        const int n = 900;   // 500 until musou-net-budget: the raised budget's first tick held them all (at 1,200 all within 15 m the near-overdue order kept 251 never sent after 20 ticks, as it would at the old budget with 3.6 times its crowd)
+        var enemies = Enumerable.Range(1, n).Select(i => Enemy((ushort)i, new Vector3(rng.NextSingle() * 10f, rng.NextSingle() * 10f, 0f),
             i == 333 ? MusouEnemyType.Warboss : i % 50 == 0 ? MusouEnemyType.Nob : MusouEnemyType.Boy)).ToArray();
-        // The first tick: 500 are due, the budget holds fewer: the boss and the 10 Nobs are among those sent.
+        int leaders = 1 + n / 50;
+        // The first tick: all are due, the budget holds fewer: the boss and the Nobs are among those sent.
         var first = EntitiesOf(interest.Plan(1, 30, enemies, Vector3.Zero, Box, Director, [])).ToList();
-        Assert.True(first.Count < 500, $"{first.Count} sent");
+        Assert.True(first.Count < n, $"{first.Count} sent");
         Assert.Equal(MusouEnemyType.Warboss, first[0].Type);
-        Assert.Equal(11, first.Take(11).Count(e => MusouSendRules.IsLeader(e.Type)));
+        Assert.Equal(leaders, first.Take(leaders).Count(e => MusouSendRules.IsLeader(e.Type)));
         Assert.True(interest.RecordsHeld > 0);
         // Over a few ticks every enemy is sent (the held ones keep their priority and climb).
         var seen = first.Select(e => e.Id).ToHashSet();
-        for (uint t = 2; t <= 10; t++) foreach (var e in EntitiesOf(interest.Plan(t, 30, enemies, Vector3.Zero, Box, Director, []))) seen.Add(e.Id);
-        Assert.Equal(500, seen.Count);
+        for (uint t = 2; t <= 20; t++) foreach (var e in EntitiesOf(interest.Plan(t, 30, enemies, Vector3.Zero, Box, Director, []))) seen.Add(e.Id);
+        Assert.Equal(n, seen.Count);
     }
 
     [Fact]
@@ -166,7 +178,7 @@ public class MusouSendTests(ITestOutputHelper output)
         }
         double perSecond = bytes / (ticks / 30.0);
         output.WriteLine($"event storm (100 a tick, cap {cap} copies), 300 enemies: {perSecond / 1000.0:F1} KB/s, {interest.RecordsSent / (ticks / 30.0):F0} records/s");
-        Assert.True(perSecond <= 60_000, $"{perSecond:F0} B/s");
+        Assert.True(perSecond <= MusouSendRules.BudgetBytesPerSecond + 5_000, $"{perSecond:F0} B/s");   // 60 KB/s before musou-net-budget (55 + 5)
     }
 
     [Fact]
@@ -185,7 +197,7 @@ public class MusouSendTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public void Three_hundred_dummies_cost_a_client_at_most_60_kilobytes_a_second()
+    public void Three_hundred_dummies_cost_a_client_at_most_the_budget_and_a_little()
     {
         var h = MusouHarness(out var config);
         h.Server.SetMusouDummies(300);
@@ -207,7 +219,7 @@ public class MusouSendTests(ITestOutputHelper output)
         double messagesPerTick = (h.Server.ExtrasMessagesSent - messages0) / (double)(seconds * config.TickRate);
         output.WriteLine($"300 dummies, 1 client: {perSecond / 1000.0:F1} KB/s, {messagesPerTick:F2} messages a tick, {(h.Server.MusouRecordsSent - records0) / (double)seconds:F0} records/s, " +
                          $"held {h.Server.MusouRecordsHeld}, largest {h.Server.LargestExtrasMessage} B, deaths {h.Server.MusouDummiesKilled}, client knows {state.Count}, events {state.EventsPlayed} (+{state.EventCopies} copies)");
-        Assert.True(perSecond <= 60_000, $"{perSecond:F0} B/s");
+        Assert.True(perSecond <= MusouSendRules.BudgetBytesPerSecond + 5_000, $"{perSecond:F0} B/s");   // 60 KB/s before musou-net-budget (55 + 5)
         Assert.True(h.Server.LargestExtrasMessage <= Protocol.MaxExtrasMessageBytes);
         Assert.True(messagesPerTick <= MusouSendRules.MaxMessagesPerTick);
         Assert.Equal(0, state.SectionsMalformed);
@@ -217,7 +229,7 @@ public class MusouSendTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public void Three_hundred_dummies_in_an_event_storm_still_stream_and_stay_within_60_kilobytes_a_second()
+    public void Three_hundred_dummies_in_an_event_storm_still_stream_and_stay_within_the_budget()
     {
         var h = MusouHarness(out var config);
         h.Server.SetMusouDummies(300);
@@ -237,7 +249,7 @@ public class MusouSendTests(ITestOutputHelper output)
         }
         double perSecond = (h.Server.ExtrasBytesSent - bytes0) / (double)seconds;
         output.WriteLine($"300 dummies + 100 events a tick: {perSecond / 1000.0:F1} KB/s, records/s {string.Join(" ", perSecondRecords)}, events played {state.EventsPlayed}, dropped {h.Server.MusouEventCopiesDropped} copies");
-        Assert.True(perSecond <= 60_000, $"{perSecond:F0} B/s");
+        Assert.True(perSecond <= MusouSendRules.BudgetBytesPerSecond + 5_000, $"{perSecond:F0} B/s");   // 60 KB/s before musou-net-budget (55 + 5)
         Assert.All(perSecondRecords, r => Assert.True(r >= 2000, $"{r} records in a second"));   // the crowd keeps streaming
         Assert.Equal(0, state.SectionsMalformed);
         Assert.InRange(state.Count, 250, 300);

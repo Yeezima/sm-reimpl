@@ -64,11 +64,11 @@ public static class MusouOrkGunRules
     }
 
     /// <summary>A round in this many of each Ork's rounds shows its tracer (ours: the owner's "occasional"; a burst is 3 rounds, so about one a burst).</summary>
-    public const int TracerEvery = 3;
+    public const int TracerEvery = 2;   // 3 until musou-net-budget (2026-11-09: the owner wants "a ton of tracers")
     /// <summary>Metres from the camera within which a round shows its muzzle flash, its tracer and its impact (ours).</summary>
-    public const float FlashMetres = 45f, TracerMetres = 70f, ImpactMetres = 35f;
+    public const float FlashMetres = 70f, TracerMetres = 120f, ImpactMetres = 45f;   // 45 / 70 / 35 until musou-net-budget
     /// <summary>Effects a second over the whole crowd and the most at once (token buckets, ours; the effect player keeps at most 160 effects).</summary>
-    public const float FlashesPerSecond = 40f, FlashBurst = 8f, TracersPerSecond = 16f, TracerBurst = 4f, ImpactsPerSecond = 14f, ImpactBurst = 4f;
+    public const float FlashesPerSecond = 120f, FlashBurst = 24f, TracersPerSecond = 60f, TracerBurst = 12f, ImpactsPerSecond = 40f, ImpactBurst = 10f;   // 40/8, 16/4, 14/4 until musou-net-budget (the client's own volleys add rounds)
     /// <summary>Metres a miss flies on past the simulation's end point (beside the target) to find the wall or floor it strikes (ours); none within: no impact.</summary>
     public const float MissReach = 30f;
     /// <summary>Seconds a Shoota Boy holds his two-handed aiming stance after a round (ours: the simulation's shooter stands still through a burst, but its state is still "seek").</summary>
