@@ -116,7 +116,14 @@ public sealed partial class FxPlayer : Node3D
     /// <summary>A leaf shorter than this still shows this long (one frame of a 0.001 s flash would be missed at 30 fps).</summary>
     public const float MinShow = 0.045f;
     /// <summary>Effects alive at once (shots, hits, explosions); the map's ambient ones are counted apart (<see cref="MaxAmbient"/>).</summary>
-    const int MaxEffects = 160;
+    static readonly int MaxEffects = FxCapArg() ?? 160;
+    /// <summary><c>--fx-cap N</c> (measurement aid, 2026-11-09): the live-effect cap for this run instead of 160 (16 to 20000).</summary>
+    static int? FxCapArg()
+    {
+        var a = OS.GetCmdlineUserArgs();
+        int k = Array.IndexOf(a, "--fx-cap");
+        return k >= 0 && k + 1 < a.Length && int.TryParse(a[k + 1], out int n) ? Math.Clamp(n, 16, 20000) : null;
+    }
     const int MaxAmbient = 200;
     const int MaxLights = 6;
     /// <summary>Alpha decals (Godot Decal boxes) and additive glows (flat quads) alive at once; the oldest fade out when more come (M38: 36 shared before).</summary>
