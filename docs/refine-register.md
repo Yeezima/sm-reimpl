@@ -29,13 +29,14 @@ Rows read from the install with high confidence and no such wording are not tagg
 ## Summary
 
 Scanned 2708 spec table rows: **2006 tagged**, 488 not tagged (read from data with high confidence), 214 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 602 rows of the changes document.
+Scanned 2674 spec table rows: **1971 tagged**, 489 not tagged (read from data with high confidence), 214 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 596 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
 | Movement (critical) | 386 | 328 | 327 | 114 | 12 |
 | Combat core (critical) | 13 | 4 | 12 | 11 | 9 |
 | Weapons (critical) | 121 | 73 | 106 | 54 | 3 |
-| Melee (critical) | 120 | 105 | 95 | 38 | 5 |
+| Melee (critical) | 120 | 105 | 94 | 38 | 5 |
 | Jump pack (critical) | 79 | 71 | 63 | 19 | 0 |
 | Charge (critical) | 56 | 47 | 47 | 22 | 0 |
 | Reactions (critical) | 15 | 13 | 14 | 6 | 0 |
@@ -54,6 +55,10 @@ Scanned 2708 spec table rows: **2006 tagged**, 488 not tagged (read from data wi
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 217 | 207 | 117 | 55 | 0 |
 | **All areas** | **2006** | 1760 | 1492 | 627 | 38 |
+| Core simulation (provisional values) | 487 | 463 | 335 | 126 | 1 |
+| General game design | 7 | 7 | 6 | 0 | 0 |
+| Ork faction | 191 | 181 | 93 | 53 | 0 |
+| **All areas** | **1971** | 1725 | 1459 | 624 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -63,6 +68,10 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | confidence: low | 710 |
 | confidence: medium | 653 |
 | kind: interpretation | 360 |
+| kind: ours | 1068 |
+| confidence: low | 705 |
+| confidence: medium | 625 |
+| kind: interpretation | 359 |
 | notes: ours | 358 |
 | notes: estimate | 156 |
 | confidence: none (low) | 129 |
@@ -1078,7 +1087,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
-| `R-82648569` | Melee hit tail | every other Musou melee weapon's hit voices are never stolen at the voice cap, never cut by the event's Stop actions (the power axe and thunder hammer hits carry two) or instance limits, ignore the data's Set/Reset ducking, and pass the on-hit high-pass into… (s) | kind: ours; confidence: low | owner 2026-11-09; cause found by reading the voice code (the pool of 48 is full in a Musou crowd; stealing releases one-shot voices); not yet heard by a human | Melee hit tail: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: every other Musou melee weapon's hit voices are never stolen at the… | ☐ |
+| `R-0BF0D2EF` | Own bark melee quiet (owner 2026-11-09: "barks from the player only play after the player hasn't… | The player's own bark is held back while a melee step ran within the last 2 s (`PlayerState.MeleeStep > 0`, read every frame; the bark clock is not spent, so it plays at the next look after the quiet). Others' barks unchanged (2 s) | kind: ours | owner 2026-11-09 | Own bark melee quiet (owner 2026-11-09: "barks from the…: compare with SM1 by listening A/B at the same distance and state. Ours: The player's own bark is held back while a melee step ran within the… | ☐ |
 
 *Spec section: Melee reliability, the sooner step and the stalker crater (feel/melee-reliability; used by the simulation, config hash, no wire change)*
 
@@ -2175,6 +2184,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
 ### Core simulation (provisional values) (495)
+### Core simulation (provisional values) (487)
 
 *Spec section: Provisional values in use*
 
@@ -2631,7 +2641,6 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-263892F0` | Bolter rifles | bolter, storm bolter, stalker bolter (sniper rifle wargear), heavy bolter, either side's; not the bolt pistols | kind: ours; confidence: medium | owner ("bolter rifle weapons") | Bolter rifles: compare with SM1 by feel or video. Ours: bolter, storm bolter, stalker bolter (sniper rifle wargear), heavy… | ☐ |
 | `R-840E5E4A` | Deeper fire (follow-up 2026-11-09: the gun's own 'bang bang' deeper and more powerful) | **Own gun:** its fire event posted again on an emitter of its own (`ProtectGun`: never stolen at the voice cap, never cut by another event's Stop actions, never ducked by Set/Reset, no instance limit) as a body copy at -800 cents, +2 dB, low-pass +22, a sub… (cents, dB) | kind: ours; confidence: low | owner 2026-11-09; numbers ours | Deeper fire (follow-up 2026-11-09: the gun's own 'bang…: compare with SM1 by feel or video. Ours: Own gun: its fire event posted again on an emitter of its own… | ☐ |
 | `R-B359E0A5` | Bark theme filter (fourth follow-up 2026-11-09: "none of the bark voice lines should be about… | **Not wired: blocked.** `MusouAudioRules.IsOffThemeLine` (case-insensitive word-start match of chaos, warp, daemon, demon, traitor, heretic, renegade, nurgle, khorne, tzeentch, slaanesh, possessed, cultist, dark god, ruinous, corrupt; heretic and traitor are… | kind: ours | owner 2026-11-09 | Bark theme filter (fourth follow-up 2026-11-09: "none of…: compare with SM1 by listening A/B at the same distance and state. Ours: Not wired: blocked. MusouAudioRules.IsOffThemeLine (case-insensitive… | ☐ |
-| `R-7DFF899C` | Power sword hit (follow-up 2026-11-09: "revert ... exactly like the original ... just louder") | the power sword's hit (`sm_mp_melee_powersword` / `csm_`) has **no** tail, no reverb bus, no added length: the data's events and playback as before this pass (mix pass included); only kept from being stolen at the voice cap (`SoundEmitter.NoSteal`), +6 dB… (dB) | kind: ours; confidence: low | owner 2026-11-09; the +6 dB is ours | Power sword hit (follow-up 2026-11-09: "revert ... exactly…: compare with SM1 by feel or video. Ours: the power sword's hit (sm_mp_melee_powersword / csm_) has no tail, no… | ☐ |
 
 *Spec section: Commander status marker (Musou Mode; client only)*
 
@@ -3458,7 +3467,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-8D1FAC43` | Musou enemy sounds: only the nearest enemies are heard | ours (a crowd of hundreds against the original's dozens): the events and mix are the data's, when they play and how many are ours | 24 emitters within 45 m, 6 stepping, at most about 23 voices and 18 lines (2026-11-06), a crowd voice never cuts a player's; the Warboss speaks with the `ork_nob` lines; the crowd's clip tags are stood in for by state changes and ground covered | Musou enemy sounds | Musou enemy sounds: only the nearest enemies are heard: compare with SM1 by feel or video. Ours: ours (a crowd of hundreds against the original's dozens): the events… | ☐ |
 | `C-D4FD42C2` | Musou Ork voices: more often (musou/ork-voices, 2026-11-06; the distance curves back to the data's 2026-11-08) | the owner's ("constant grunting, shouting, yelling" near); since 2026-11-08 the owner's revert ("use the original game's exterminatus sound levels") | the voices keep their own bank curves again (the bolter's curves of 2026-11-06 only with `--musou-ork-voice-curve weapon`); the sound loudness rule applies on top as to every sound; more frequent grunts, barks, roars and taunts, also while fighting, heard to 45 m | Musou Ork voices, shot flinch and spread | Musou Ork voices: more often (musou/ork-voices, 2026-11-06…: compare with SM1 by timing a run over a known distance. Ours: the owner's ("constant grunting, shouting, yelling" near); since… | ☐ |
 | `C-05E961E2` | Musou: no flinch on a shot Ork (2026-11-06) | the owner's ("for now, simply remove those hit reactions completely") | no drawn reaction when shot (our flinch read as a 180-degree turn); blasts and heavy melee still stagger | Musou Ork voices, shot flinch and spread | Musou: no flinch on a shot Ork (2026-11-06): compare with SM1 by watching the reaction and timing it frame by frame. Ours: the owner's ("for now, simply remove those hit reactions completely"). | ☐ |
-| `C-C9D5C525` | Musou: audio pass (musou/audio-pass, 2026-11-09) | the owner's (far Ork voices, the player's barks at full volume, deeper bolter rifles with a wet smack and explosion on the first hit, melee hit sounds that play out longer); all numbers and the chosen events ours | Musou Mode only: far Ork mobs sound far only through the original events' own distance curves (placed 60 to 130 m; no gain or low-pass of ours); the own character's barks ignore explosion ducking and voice stealing; bolter rifles fire with a deep layer, sub layer and thump (the own gun heavier and protected from voice… | Musou audio pass | Musou: audio pass (musou/audio-pass, 2026-11-09): compare with SM1 by listening A/B at the same distance and state. Ours: the owner's (far Ork voices, the player's barks at full volume… | ☐ |
+| `C-C9D5C525` | Musou: audio pass (musou/audio-pass, 2026-11-09) | the owner's (far Ork voices, the player's barks at full volume, deeper bolter rifles with a wet smack and explosion on the first hit); all numbers and the chosen events ours | Musou Mode only: far Ork mobs sound far only through the original events' own distance curves (placed 60 to 130 m; no gain or low-pass of ours); the own character's barks ignore explosion ducking and voice stealing; bolter rifles fire with a deep layer, sub layer and thump (the own gun heavier and protected from voice… | Musou audio pass | Musou: audio pass (musou/audio-pass, 2026-11-09): compare with SM1 by listening A/B at the same distance and state. Ours: the owner's (far Ork voices, the player's barks at full volume… | ☐ |
 | `C-56AD975F` | Musou: far battle ambience and Marine barks (musou/battle-ambience, 2026-11-08) | the owner's ("add looping barks and voice lines for orks, bolter fire, lasgun fire, artillery, explosions ... screen shakes a tiny bit"; "random barks for space marines ... intense voice lines from the campaign"); rates, ranges, levels and the line choice ours | Musou battles only: a far battle of Ork mobs, bolter and lasgun bursts, artillery (a 0.01 rad shake, at most every 4 s) and explosions round the listener; the player barks campaign lines as Titus, the other Marines as Sidonus or Leandros | Musou battle ambience and Marine barks | Musou: far battle ambience and Marine barks…: compare with SM1 by feel or video. Ours: the owner's ("add looping barks and voice lines for orks, bolter… | ☐ |
 | `C-0EB34FE6` | Musou: no bullet spread (2026-11-06) | the owner's ("in musou mode only completely remove bullet spread") | Musou Mode only: shots go exactly along the aim, nothing blooms, the reticle stays closed; Classic PvP keeps the data's spread | Musou Ork voices, shot flinch and spread | Musou: no bullet spread (2026-11-06): compare with SM1 by feel or video. Ours: the owner's ("in musou mode only completely remove bullet spread"). | ☐ |
 | `C-09C74C8A` | Musou Mode replaces the 5-wave run | the owner's decision (2026-11-01) | `--content musou` runs the war on `tfw_war`, Manufactorum from the install with a generated Stormbird beside it and no spawn-room blockers; the 5-wave run stays only as a test aid (`--map mp_tdm_09`) | War map | Musou Mode replaces the 5-wave run: compare with SM1 by timing a run over a known distance. Ours: the owner's decision (2026-11-01). | ☐ |

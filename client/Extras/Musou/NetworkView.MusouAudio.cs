@@ -9,12 +9,10 @@ namespace SmClient;
 
 /// <summary>
 /// musou/audio-pass (owner, 2026-11-09; Musou Mode only, client presentation only: no simulation, wire or config-hash change; every number in <see cref="MusouAudioRules"/> is ours). The hooks
-/// of the shared sound code (<c>ExtrasTrackEmitter</c>, <c>ExtrasMeleeHitEmitter</c>, <c>ExtrasFireLayers</c>, <c>ExtrasShotMaterial</c>) land here, and each asks <see cref="MusouActive"/> first, so
+/// of the shared sound code (<c>ExtrasTrackEmitter</c>, <c>ExtrasFireLayers</c>, <c>ExtrasShotMaterial</c>) land here, and each asks <see cref="MusouActive"/> first, so
 /// Annihilation and Seize Ground run none of it:
 /// <list type="bullet">
 /// <item>The own character's barks are protected (<see cref="SoundEmitter.ProtectSpeech"/>): no ducking by an explosion's Set/Reset actions, no voice stealing, no instance limit, full level, own bus.</item>
-/// <item>A melee hit's voices are protected and ring out (<see cref="SoundEmitter.Tail"/>): they were cut by voice stealing at the 48-voice cap (the crowd keeps the pool full) and by the data's own
-/// Stop actions (the power axe and thunder hammer hits carry two) and lasted 0.2 to 0.7 s.</item>
 /// <item>The bolter rifles (bolter, storm bolter, stalker bolter, heavy bolter): a deep copy of the fire sound plus a thump under every shot, and on the first Ork a shot hits the wet smack, then the explosion.
 /// Piercing and explosions of the simulation are untouched.</item>
 /// </list>
@@ -32,13 +30,6 @@ public partial class NetworkView
     void MusouTrackEmitter(SoundEmitter emitter, bool own)
     {
         if (own && MusouAudioOn) emitter.ProtectSpeech = true;
-    }
-
-    void MusouMeleeHitEmitter(SoundEmitter hit, string? wargear, ref float extraGainDb)
-    {
-        if (!MusouAudioOn) return;
-        if (MusouAudioRules.IsPowerSword(wargear)) { hit.NoSteal = true; extraGainDb = MusouAudioRules.PowerSwordHitGainDb; if (_sound is not null) hit.AttenuationOverride = _musouSmackCurve ??= _sound.AttenuationOf(MusouAudioRules.SmackCurveEvent); }   // owner: the bolter impact's curve   // owner 2026-11-09: the original's sound, just louder; not cut by the crowd's pool
-        else hit.Tail = true;
     }
 
     /// <summary>A bolter rifle's shot: its fire sound again, deep, and the thump (voices: the copy's, one more).</summary>

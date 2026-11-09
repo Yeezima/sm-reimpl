@@ -1,13 +1,12 @@
 namespace SmContent;
 
 /// <summary>
-/// musou/audio-pass (owner, 2026-11-09, Musou Mode only; every number is **ours**, to refine by ear: spec "Musou audio pass", refine register). The rules of four sound changes the client applies
+/// musou/audio-pass (owner, 2026-11-09, Musou Mode only; every number is **ours**, to refine by ear: spec "Musou audio pass", refine register). The rules of three sound changes the client applies
 /// only when <see cref="SmSim.ContentExtras.Musou"/> is on, so Annihilation and Seize Ground play exactly as before (<see cref="Applies"/> is the one gate):
 /// <list type="bullet">
 /// <item>The far Ork voices of the battle ambience read as far away (<see cref="MusouAmbienceRules"/>: lower gain, high low-pass, farther ring).</item>
 /// <item>The player's own character barks are never ducked, muffled, stolen or limited, and play at full volume (<c>SoundEmitter.ProtectSpeech</c>).</item>
 /// <item>The bolter family's rifles fire deeper and punchier, and the first Ork a shot hits gets an explosion (the wet smack of the first pass was removed again, owner 2026-11-09).</item>
-/// <item>A melee hit's sound plays through to its end and rings out longer (<c>SoundEmitter.Tail</c>).</item>
 /// </list>
 /// </summary>
 public static class MusouAudioRules
@@ -72,20 +71,10 @@ public static class MusouAudioRules
     /// <remarks>Owner 2026-11-09 follow-up: "lower the bolter damage on hit sound by 50%": half amplitude = -6 dB (smack +8 to +2, blast -9 to -15); the timing is unchanged.</remarks>
     public const float BlastDelaySeconds = 0.07f, BlastGainDb = -15f, BlastTailDb = -30f;
 
-    // ---- the melee hit's tail ----
-
-    /// <summary>The ring-out of a melee hit: a reverb bus (room size, damping, wet level) the hit voices pass through, after their high-pass. Ours (the data's hits last 0.2 to 0.7 s).</summary>
-    public const float TailRoomSize = 0.82f, TailDamping = 0.4f, TailWet = 0.5f, TailPredelayMs = 18f;
-
-    /// <summary>
-    /// The power sword's hit (owner follow-up 2026-11-09: "revert ... exactly like the original game's power sword on hit sound effect, just louder"): no tail, no added length, the data's events and
-    /// playback; only kept from being stolen at the voice cap, and +6 dB (ours, to refine by ear) on top of the mix pass's on-hit gain.
-    /// </summary>
-    public const float PowerSwordHitGainDb = 6f;
-
-    public static bool IsPowerSword(string? wargear) => !string.IsNullOrEmpty(wargear) && wargear.Contains("powersword", StringComparison.OrdinalIgnoreCase);
-
     // ---- bark themes ----
+
+    /// <summary>The player's own barks play only after this many seconds without a melee attack (owner 2026-11-09). Ours, an exact figure from the owner.</summary>
+    public const float OwnBarkMeleeQuietSeconds = 2f;
 
     /// <summary>
     /// The words that make a Marine bark line about Chaos, the warp or daemons (owner 2026-11-09: "none of the bark voice lines should be about chaos, the warp, or daemons. only use ork-related lines
