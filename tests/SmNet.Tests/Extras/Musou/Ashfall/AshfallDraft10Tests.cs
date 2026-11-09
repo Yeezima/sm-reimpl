@@ -162,6 +162,26 @@ public class AshfallDraft10Tests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void No_placed_building_outside_the_stronghold_has_a_flight_with_no_access_point()
+    {
+        // owner, 2026-11-09: "don't use asset buildings that have stairs with no access point. replace them with properly scaled ones that do."
+        static bool NoAccess(string n) => n.Contains("leads to") || n.Contains("foot stands") || n.Contains("no landing") || n.Contains("is open") || n.Contains("degrees after") || n.Contains("stalls") || n.Contains("lifts") || n.Contains("does not arrive");
+        var bad = new List<string>();
+        foreach (var p in D.Placements.Where(p => p.Item >= 0 && !p.Family.StartsWith("stronghold") && p.Family is not ("terrace" or "outerwall" or "rubble" or "wallpiece" or "cover") && p.Outcome.Contains("stairs:")))
+        {
+            var notes = p.Outcome[(p.Outcome.IndexOf("stairs:", StringComparison.Ordinal) + 7)..].Split("; ");
+            if (notes.Any(NoAccess)) bad.Add($"{p.Group} ({p.Asset}): {string.Join("; ", notes)}");
+        }
+        foreach (var b in bad) output.WriteLine(b);
+        Assert.Empty(bad);
+        // the replacements are scaled by the pool's fit and keep a walkable flight where one fits (the towers: AC-046, the stair tower)
+        var replaced = D.Placements.Where(p => p.Item >= 0 && p.Outcome.Contains("draft 10: in place of")).ToList();
+        foreach (var p in replaced) output.WriteLine($"{p.Group}: {p.Asset} ({p.Outcome})");
+        Assert.True(replaced.Count >= 5, $"{replaced.Count} replaced");
+        Assert.True(replaced.Count(p => p.Outcome.Contains("kept") && !p.Outcome.Contains("stairs: 0 kept")) >= replaced.Count / 2, "most replacements keep a walkable flight");
+    }
+
+    [Fact]
     public void The_level_version_is_raised()
     {
         Assert.True(AshfallMap.Version >= 17);
