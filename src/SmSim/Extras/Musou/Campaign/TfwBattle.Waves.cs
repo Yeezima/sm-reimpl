@@ -67,7 +67,7 @@ public sealed partial class TfwBattle
         var army = NewArmy(TfwArmySide.Ork, TfwArmyOrder.Muster, size, EliteShare);
         if (army is null) return;
         var at = Ground(PlacePos(place), PlacePos(place));
-        army.Yaw = YawTo(at, _layout.LandingZone);
+        army.Yaw = FaceCentre(at);
         army.Anchor = at + new Vector3(TfwArmyLayout.Forward(army.Yaw) * (TfwArmyLayout.Depth(army.Side, army.Width, size) * 0.5f), 0f);
         army.From = army.To = place;
         army.Goal = StrongholdGoal(place);

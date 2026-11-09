@@ -499,6 +499,7 @@ public partial class NetworkView : Node3D
         var shown = OwnShownState(me, delta);   // M36: position between ticks and view pitch for the model and the camera (NetworkView.Turning.cs)
         // On (re)spawn the server places the player at a spawn point facing its yaw; take that facing as the view.
         if (me.Alive && !_wasAlive) { _yaw = me.Yaw; _pitch = 0f; }
+        TfwSpawnFacingFrame(me);   // musou/spawn-facing: the landing and a redeploy take the server's yaw (NetworkView.TfwSpawnFacing.cs)
         _wasAlive = me.Alive;
         if (!me.Alive) _cameraPlacedValid = false;   // feel/controls: no fresh-aim turn from a camera placed before the death (FreshCenterRay)
         HipFireBegin(me);   // M27: drains the own events and the others' shots once, notes who fired

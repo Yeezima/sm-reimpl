@@ -42,7 +42,7 @@ public sealed partial class TfwBattle
         var g = NewArmy(TfwArmySide.Guard, TfwArmyOrder.Hold, TfwArmyRules.GarrisonCap, 0f);
         if (g is null) return null;
         var point = Ground(_layout.Positions[k], _layout.Positions[k]);
-        g.Yaw = YawTo(point, _layout.Hq);
+        g.Yaw = FaceCentre(point);
         g.Anchor = point + new Vector3(TfwArmyLayout.Forward(g.Yaw) * (TfwArmyLayout.Depth(g.Side, g.Width, TfwArmyRules.GarrisonCap) * 0.5f), 0f);
         g.Goal = g.Post = k;
         g.From = g.To = k;
@@ -75,7 +75,7 @@ public sealed partial class TfwBattle
             army.Far = share;
             army.Start = share;
             army.Anchor = Ground(_layout.LandingZone, _layout.LandingZone);
-            army.Yaw = YawTo(_layout.LandingZone, _layout.Positions[k]);
+            army.Yaw = FaceCentre(_layout.LandingZone);
             army.From = army.To = BasePlace;
             army.Goal = army.Post = k;
             Redirect(army, k);
@@ -171,7 +171,7 @@ public sealed partial class TfwBattle
         if (army is null) return null;
         army.Far = men; army.Start = men;
         army.Anchor = Ground(_layout.LandingZone, _layout.LandingZone);
-        army.Yaw = YawTo(_layout.LandingZone, _layout.Positions[k]);
+        army.Yaw = FaceCentre(_layout.LandingZone);
         army.From = army.To = BasePlace;
         army.Goal = army.Post = k;
         Redirect(army, k);

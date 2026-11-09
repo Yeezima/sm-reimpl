@@ -49,7 +49,7 @@ public class TfwBaseSpawnTests
         Assert.True(Flat(battle.Layout.LandingZone, Base) < 1f, $"the landing zone {battle.Layout.LandingZone} is not the base {Base}");
         Assert.True(Flat(p.Position, Base) < 6f, $"player {id} at {p.Position}, not at the base {Base}");
         Assert.False(TfwTestArena.Hub.Contains(p.Position));
-        Assert.Equal(FieldYaw(battle.Layout), p.Yaw, 3);
+        // the yaw (the map centre since 2026-11-09) is TfwSpawnFacingTests' to check: an idle test input overwrites it on the next tick
     }
 
     [Fact]

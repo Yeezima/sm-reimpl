@@ -71,6 +71,7 @@ public sealed partial class World
             if (_players.ContainsKey(id)) continue;
             int playerClass = TfwMarineClass(role);
             var state = Spawn(id, playerClass, primaryChoice: Config.Classes[playerClass].PrimaryChoices.Count > 0 ? 0 : -1, team: Team.SpaceMarines);   // a prepared config has no default primary
+            if (run.Battle?.Layout is { } layout) yaw = layout.FaceCentre(at);   // owner 2026-11-09: faces the map's centre
             _players[id] = state with { Position = at, Yaw = yaw };
             run.AddMarine(make(id));
             run.PuppetBrain ??= TfwMarineInput;
@@ -234,7 +235,7 @@ public sealed partial class World
         else if (run.RecoveryLeft(m.Owner) <= 0f)
         {
             var landing = run.Battle?.Layout.LandingZone ?? run.Field.MarineStart;
-            TfwRespawnAt(m.Id, landing, 0f);
+            TfwRespawnAt(m.Id, landing, run.Battle?.Layout.FaceCentre(landing) ?? 0f);   // owner 2026-11-09: faces the map's centre
             m.HoldAt = landing;   // its post fell with it
             m.Down = false;
             m.WayGoal = -1;
@@ -304,7 +305,7 @@ public sealed partial class World
         else if (--m.RespawnTicks <= 0)
         {
             var back = run.Battle?.Layout.LandingZone ?? run.Field.MarineStart;
-            TfwRespawnAt(m.Id, back, 0f);
+            TfwRespawnAt(m.Id, back, run.Battle?.Layout.FaceCentre(back) ?? 0f);   // owner 2026-11-09: faces the map's centre
             m.Down = false;
             m.WayGoal = -1;
             return;

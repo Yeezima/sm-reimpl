@@ -136,6 +136,17 @@ public sealed record TfwLayout(Vector3 LandingZone, Vector3[] Positions, Vector3
     /// <summary>Where the final boss comes: the open courtyard just outside the HQ's room (<see cref="TfwSites.Courtyard"/>), else the HQ itself.</summary>
     public Vector3 BossSpot => Boss ?? Hq;
 
+    /// <summary>The map's centre for facing a fresh spawn: the middle capture point, B the depot (<see cref="Positions"/> is A-B-C or C-B-A, so index 1 either way); the HQ for a layout of fewer.</summary>
+    public Vector3 Centre => Positions.Length >= 3 ? Positions[1] : Hq;
+
+    /// <summary>The yaw (the sim's: atan2(-x, y)) from <paramref name="from"/> toward <see cref="Centre"/>; a spot within a metre of the centre faces the HQ instead.</summary>
+    public float FaceCentre(Vector3 from)
+    {
+        var way = new Vector2(Centre.X - from.X, Centre.Y - from.Y);
+        if (way.LengthSquared() <= 1f) way = new Vector2(Hq.X - from.X, Hq.Y - from.Y);
+        return way.LengthSquared() > 1e-6f ? MathF.Atan2(-way.X, way.Y) : 0f;
+    }
+
     /// <summary>A position's radius and half height when the layout names none (the spec's "Musou Mode's map"; the map's markers give the real ones).</summary>
     public const float DefaultRadius = 12f, DefaultHalfHeight = 2.5f;
 
@@ -214,6 +225,7 @@ public sealed partial class TfwBattle
         EliteShare = elite;
         _guardsmen = guardsmen;
         _enemies = enemies;
+        enemies.SpawnCentre = layout.Centre;   // MusouSim.Spawn: every Ork spawns facing the map's centre (owner 2026-11-09)
         _guards = guards;
         _layout = layout;
         _final = final;
@@ -312,7 +324,7 @@ public sealed partial class TfwBattle
         PlanStormboys();   // TfwBattle.Stormboys.cs: the Stormboy squads (expansion S3, in place of the hunters)
         PlaceBigShootas();   // TfwBattle.BigShootas.cs: a Big Shoota Nob and his squad at each position (expansion S3)
         PlanArmyRoutes();   // TfwBattle.Armies.cs: the battle flow's routes (expansion S6)
-        for (int s = 0; s < field; s++) _guards.SpawnSquad(Ground(_layout.LandingZone + SquadOffset(s), _layout.LandingZone), YawTo(_layout.LandingZone, _layout.Hq));
+        for (int s = 0; s < field; s++) _guards.SpawnSquad(Ground(_layout.LandingZone + SquadOffset(s), _layout.LandingZone), FaceCentre(_layout.LandingZone));
         if (_final)
         {
             Secured = Positions;
@@ -342,6 +354,12 @@ public sealed partial class TfwBattle
         return new Vector3(MathF.Cos(angle) * radius, MathF.Sin(angle) * radius, 0f);
     }
 
+    /// <summary>
+    /// The yaw a unit has the moment it spawns at <paramref name="from"/>: toward the map's centre, <see cref="TfwLayout.Centre"/> (owner, 2026-11-09: "any unit spawning ... always point
+    /// forwards towards the center of the map when spawning"). A spawn on the centre itself faces the HQ.
+    /// </summary>
+    internal float FaceCentre(Vector3 from) => _layout.FaceCentre(from);
+
     static float YawTo(Vector3 from, Vector3 to)
     {
         var way = new Vector2(to.X - from.X, to.Y - from.Y);
@@ -370,7 +388,7 @@ public sealed partial class TfwBattle
     {
         var type = Fodder(_picked++);
         var at = DiscSpot(_layout.Positions[position]);
-        ushort id = _enemies.SpawnLeashed(type, at, YawTo(at, _layout.LandingZone), Health(type), position + 1, TfwBattleRules.DefenderAggro);
+        ushort id = _enemies.SpawnLeashed(type, at, FaceCentre(at), Health(type), position + 1, TfwBattleRules.DefenderAggro);
         if (id != 0) _garrisons[position].Add(id);
     }
 
@@ -391,7 +409,7 @@ public sealed partial class TfwBattle
         if (PoolUsed >= TfwBattleRules.CrowdPoolRoom) return false;
         var type = CrowdKind(_picked++);   // expansion S2: Rokkit Boyz among them (TfwBattle.Rokkits.cs)
         var at = DiscSpot(CrowdAnchor(point));
-        ushort id = _enemies.SpawnLeashed(type, at, YawTo(at, _layout.LandingZone), Health(type), CrowdGroup(point), TfwBattleRules.CrowdAggro);
+        ushort id = _enemies.SpawnLeashed(type, at, FaceCentre(at), Health(type), CrowdGroup(point), TfwBattleRules.CrowdAggro);
         if (id == 0) return false;
         _crowds[point].Add(id);
         if (_crowds[point].Count >= TfwBattleRules.CrowdSize) Swarm(point, TfwSwarmWhy.Full);
@@ -412,7 +430,7 @@ public sealed partial class TfwBattle
             int n = _picked++;
             var type = n * 0.7548776662466927 % 1.0 < TfwBattleRules.EliteArds ? MusouEnemyType.ArdBoy : MusouEnemyType.Nob;
             var at = DiscSpot(CrowdAnchor(point));
-            ushort id = _enemies.SpawnLeashed(type, at, YawTo(at, _layout.LandingZone), Health(type), CrowdGroup(point), TfwBattleRules.CrowdAggro);
+            ushort id = _enemies.SpawnLeashed(type, at, FaceCentre(at), Health(type), CrowdGroup(point), TfwBattleRules.CrowdAggro);
             if (id != 0) _crowds[point].Add(id);
         }
         _tideTicks[point] = Ticks(TfwBattleRules.CrowdFillSeconds) * squad;
@@ -464,7 +482,7 @@ public sealed partial class TfwBattle
     void SpawnBoss(MusouEnemyType type, float health, bool leashed)
     {
         var hq = !leashed ? _layout.BossSpot : _layout.Hq;   // the final boss stands in the courtyard outside the HQ's room (owner, 2026-11-01); the commander (a Warboss since 2026-11-06) keeps the HQ
-        float yaw = YawTo(hq, _layout.LandingZone);
+        float yaw = FaceCentre(hq);
         BossId = leashed ? _enemies.SpawnLeashed(type, hq, yaw, health, CommanderGroup, TfwBattleRules.DefenderAggro) : _enemies.Spawn(type, hq, yaw, health);
         BossMaxHealth = health;
         _objectives[CommanderObjective] = _objectives[CommanderObjective] with { State = TfwPositionState.Held };
@@ -668,7 +686,7 @@ public sealed partial class TfwBattle
         if (k == 1 && !_depotPaid) { _depotPaid = true; change |= TfwBattleChange.DepotSecured; }
         if (Armies) ArmiesSecured(k);   // TfwBattle.Retreats.cs
         for (int field = FieldSquadsAlive; field < TfwBattleRules.FieldSquads && _reserves > 0; field++)
-            if (_guards.SpawnSquad(Ground(_layout.LandingZone + SquadOffset(field), _layout.LandingZone), YawTo(_layout.LandingZone, _layout.Positions[k])) >= 0) _reserves--;
+            if (_guards.SpawnSquad(Ground(_layout.LandingZone + SquadOffset(field), _layout.LandingZone), FaceCentre(_layout.LandingZone)) >= 0) _reserves--;
         if (_taken != (1 << Positions) - 1 || _commander) return change;
         SpawnCommander();
         return change | TfwBattleChange.CommanderCame;
@@ -777,7 +795,7 @@ public sealed partial class TfwBattle
         if (_reserves == 0 || FieldSquadsAlive >= Math.Min(Squads, _final ? TfwBattleRules.FinalFieldSquads : TfwBattleRules.FieldSquads)) { _reserveTicks = 0; return; }
         if (++_reserveTicks < Ticks(TfwBattleRules.ReserveSeconds)) return;
         _reserveTicks = 0;
-        if (_guards.SpawnSquad(_layout.LandingZone, YawTo(_layout.LandingZone, _layout.Hq)) >= 0) _reserves--;
+        if (_guards.SpawnSquad(_layout.LandingZone, FaceCentre(_layout.LandingZone)) >= 0) _reserves--;
     }
 
     /// <summary>
@@ -805,7 +823,7 @@ public sealed partial class TfwBattle
         {
             _summons--;
             var at = SourceSpot(_summons % _layout.Sources.Length);
-            _enemies.Spawn(MusouEnemyType.Boy, at, YawTo(at, _layout.LandingZone), Health(MusouEnemyType.Boy));
+            _enemies.Spawn(MusouEnemyType.Boy, at, FaceCentre(at), Health(MusouEnemyType.Boy));
         }
     }
 
@@ -828,7 +846,7 @@ public sealed partial class TfwBattle
             if (_trickled.Count >= cap || Counted() >= TfwBattleRules.TrickleTotalMax || PoolUsed >= TfwBattleRules.CrowdPoolRoom) continue;
             var type = Fodder(_picked++);
             var at = SourceSpot(k);
-            ushort id = _enemies.SpawnLeashed(type, at, YawTo(at, _layout.LandingZone), Health(type), MusterGroupFirst + k, TfwBattleRules.CrowdAggro);
+            ushort id = _enemies.SpawnLeashed(type, at, FaceCentre(at), Health(type), MusterGroupFirst + k, TfwBattleRules.CrowdAggro);
             if (id == 0) continue;
             _trickled.Add(id);
             _musters[k].Add(id);
