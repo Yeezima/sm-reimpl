@@ -38,14 +38,27 @@ public sealed partial class MusouHud
         _hitOf ??= id => Data.HitAt.TryGetValue(id, out double t) ? t : double.NegativeInfinity;
         _farOf ??= id => Data.Distance.TryGetValue(id, out float m) ? m : float.MaxValue;
         _bossOrder.Update(_bossRows, _hitOf, _farOf, Data.Now);
-        if (Data.HitAt.Count > 64) PruneHits();
+        if (Data.HitAt.Count > 0 && Data.Now - _prunedAt >= 1.0) PruneHits();
+    }
+
+    /// <summary>Whether enemy <paramref name="id"/> is one of the bosses the column shows (the commander or a Boss Ork): only their hits are kept, so <see cref="Frame.HitAt"/> stays as small as the bosses alive.</summary>
+    public bool IsBoss(ushort id)
+    {
+        if (id == 0) return false;
+        if (Data.Director is { } d && d.BossId == id) return true;
+        foreach (var b in Data.BossOrks) if (b.Id == id) return true;
+        return false;
     }
 
     readonly List<ushort> _stale = new();
+    double _prunedAt = double.NegativeInfinity;
+
+    /// <summary>Once a second: hits older than the window are forgotten (they no longer count; at most a handful, the bosses alive).</summary>
     void PruneHits()
     {
+        _prunedAt = Data.Now;
         _stale.Clear();
-        foreach (var (id, at) in Data.HitAt) if (Data.Now - at > 30.0) _stale.Add(id);
+        foreach (var (id, at) in Data.HitAt) if (!MusouBossBarOrder.Damaged(at, Data.Now)) _stale.Add(id);
         foreach (ushort id in _stale) Data.HitAt.Remove(id);
     }
 
