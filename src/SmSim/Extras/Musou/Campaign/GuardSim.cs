@@ -62,6 +62,7 @@ public sealed class GuardSim
     readonly float[] _holdRadius = new float[MaxSquads];     // musou/guard-spread: > 0, the order holds a point of this radius round _holdCentre (its men split into fire teams on arrival)
     readonly Vector3[] _holdCentre = new Vector3[MaxSquads];
     readonly bool[] _posted = new bool[MaxSquads];           // the posts of its hold are set
+    readonly float[] _faceYaw = new float[MaxSquads];        // musou/guard-vantage: NaN, men at their posts face out from the centre; else this way (a vantage's open side)
 
     readonly SpatialGrid _grid;
     readonly Vector3[] _gridPos = new Vector3[Capacity];
@@ -143,7 +144,7 @@ public sealed class GuardSim
         if (anchorNode >= 0) centre = centre with { Z = walk!.Z(anchorNode) };
         _active[s] = true; _living[s] = men; _strength[s] = strength;
         _anchor[s] = centre; _anchorNode[s] = anchorNode; _squadYaw[s] = yaw; _order[s] = centre; _moving[s] = false;
-        _seenCount[s] = 0; _goal[s] = -1; _halted[s] = false; _holdRadius[s] = 0f; _posted[s] = false;
+        _seenCount[s] = 0; _goal[s] = -1; _halted[s] = false; _holdRadius[s] = 0f; _posted[s] = false; _faceYaw[s] = float.NaN;
         for (int m = 0; m < SquadSize; m++)
         {
             int i = s * SquadSize + m;
@@ -209,6 +210,7 @@ public sealed class GuardSim
         _holdRadius[squad] = Rules.Spread && float.IsFinite(holdRadius) && holdRadius > 0f ? holdRadius : 0f;
         _holdCentre[squad] = via is { } v && Finite(v) ? v : destination;
         _posted[squad] = false;
+        _faceYaw[squad] = float.NaN;
         _order[squad] = destination;
         _goal[squad] = Ways?.GoalNode(via ?? destination) ?? -1;
         _moving[squad] = true;
@@ -216,6 +218,98 @@ public sealed class GuardSim
         var way = new Vector2(destination.X - _anchor[squad].X, destination.Y - _anchor[squad].Y);
         if (way.LengthSquared() > 1e-4f) _squadYaw[squad] = YawOf(way);
         return true;
+    }
+
+    /// <summary>
+    /// musou/guard-vantage (owner, 2026-11-09): as <see cref="Order"/> to hold <paramref name="destination"/>, its men on <paramref name="posts"/> (given, not worked out round a point: a vantage's own floor), the
+    /// living men in slot order one a post (more men than posts: they share them round), facing <paramref name="faceYaw"/> once there. Needs <see cref="GuardRules.Spread"/>; false without it, or as
+    /// <see cref="Order"/>, or with no posts.
+    /// </summary>
+    public bool OrderPosts(int squad, Vector3 destination, ReadOnlySpan<Vector3> posts, float faceYaw)
+    {
+        if (!Rules.Spread || posts.Length == 0 || !Order(squad, destination, destination, 1f)) return false;
+        int k = 0;
+        for (int i = squad * SquadSize; i < (squad + 1) * SquadSize; i++)
+        {
+            if (!Living(i)) continue;
+            _post[i] = posts[k++ % posts.Length];
+            _direct[i] = false;
+        }
+        _posted[squad] = true;
+        _faceYaw[squad] = float.IsFinite(faceYaw) ? faceYaw : float.NaN;
+        return true;
+    }
+
+    /// <summary>
+    /// musou/guard-vantage: <paramref name="men"/> standing men of squad <paramref name="squad"/> (its highest slots first) leave it as a squad of their own in the first free squad, where they stand, unordered,
+    /// at the squad's strength; their slots change (the client sees them leave and come again in one place), nothing else. The new squad, or -1 (no free squad, or fewer standing men than asked).
+    /// </summary>
+    public int Detach(int squad, int men)
+    {
+        if (squad is < 0 or >= MaxSquads || men < 1) return -1;
+        int standing = 0;
+        for (int i = squad * SquadSize; i < (squad + 1) * SquadSize; i++) if (Standing(i)) standing++;
+        if (standing < men) return -1;
+        int t = Array.IndexOf(_active, false);
+        if (t < 0) return -1;
+        int moved = 0;
+        var sum = Vector3.Zero;
+        for (int i = (squad + 1) * SquadSize - 1; i >= squad * SquadSize && moved < men; i--)
+        {
+            if (!Standing(i)) continue;
+            int j = t * SquadSize + moved++;
+            MoveSlot(i, j);
+            sum += _position[j];
+        }
+        for (int m = moved; m < SquadSize; m++) _state[t * SquadSize + m] = GuardState.Free;
+        _living[squad] -= moved;
+        _active[t] = true; _living[t] = moved; _strength[t] = _strength[squad];
+        var centre = sum / moved;
+        int first = t * SquadSize;
+        _anchor[t] = _position[first]; _anchorNode[t] = _node[first]; _squadYaw[t] = _squadYaw[squad]; _order[t] = _position[first]; _moving[t] = false;
+        _seenCount[t] = 0; _goal[t] = -1; _halted[t] = false; _holdRadius[t] = 0f; _posted[t] = false; _faceYaw[t] = float.NaN;
+        _centre[t] = centre; _reach[t] = 0f;
+        return t;
+    }
+
+    /// <summary>musou/guard-vantage: the living men of squad <paramref name="from"/> go into the free slots of squad <paramref name="into"/> (its dying men stay till they are gone); how many went.</summary>
+    public int Merge(int from, int into)
+    {
+        if (from == into || AliveIn(from) == 0 || AliveIn(into) == 0) return 0;
+        int moved = 0;
+        for (int i = from * SquadSize; i < (from + 1) * SquadSize; i++)
+        {
+            if (!Living(i)) continue;
+            int j = -1;
+            for (int k = into * SquadSize; k < (into + 1) * SquadSize; k++) if (_state[k] == GuardState.Free) { j = k; break; }
+            if (j < 0) break;
+            MoveSlot(i, j);
+            if (_holdRadius[into] > 0f && _posted[into]) _post[j] = _post[FirstLiving(into, j)];   // he takes a post beside a man of his new squad's
+            moved++;
+        }
+        _living[from] -= moved; _living[into] += moved;
+        if (_living[from] == 0)
+        {
+            bool dying = false;
+            for (int i = from * SquadSize; i < (from + 1) * SquadSize; i++) dying |= _state[i] == GuardState.Dying;
+            if (!dying) { _active[from] = false; _moving[from] = false; _seenCount[from] = 0; _goal[from] = -1; _halted[from] = false; _holdRadius[from] = 0f; _posted[from] = false; }
+        }
+        return moved;
+    }
+
+    int FirstLiving(int squad, int except)
+    {
+        for (int i = squad * SquadSize; i < (squad + 1) * SquadSize; i++) if (i != except && Living(i)) return i;
+        return except;
+    }
+
+    /// <summary>Man <paramref name="from"/>'s whole state to slot <paramref name="to"/>; <paramref name="from"/> is freed.</summary>
+    void MoveSlot(int from, int to)
+    {
+        _state[to] = _state[from]; _position[to] = _position[from]; _startPos[to] = _startPos[from]; _yaw[to] = _yaw[from]; _health[to] = _health[from]; _node[to] = _node[from];
+        _shotTicks[to] = _shotTicks[from]; _stateTicks[to] = _stateTicks[from]; _throw[to] = _throw[from]; _throwTicks[to] = _throwTicks[from]; _downTicks[to] = _downTicks[from];
+        _post[to] = _post[from]; _direct[to] = false; _stuckTicks[to] = 0; _detourTicks[to] = 0; _fit[to] = 1f;
+        _state[from] = GuardState.Free;
     }
 
     /// <summary>Whether a squad is done with its order: it arrived, stands, or gave up on a place it cannot walk to (<see cref="GuardRules.StallSeconds"/>).</summary>
@@ -830,7 +924,8 @@ public sealed class GuardSim
         else if (holding)
         {
             var outward = new Vector2(p.X - _holdCentre[s].X, p.Y - _holdCentre[s].Y);
-            if (outward.LengthSquared() > 1f) _yaw[i] = YawOf(outward);   // at his post he faces out
+            if (!float.IsNaN(_faceYaw[s])) _yaw[i] = _faceYaw[s];   // musou/guard-vantage: the vantage's open side
+            else if (outward.LengthSquared() > 1f) _yaw[i] = YawOf(outward);   // at his post he faces out
         }
         _state[i] = going ? GuardState.Moving : GuardState.Idle;
 

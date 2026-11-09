@@ -165,7 +165,12 @@ static class MusouGuardRouteCommand
         foreach (var m in final)
             for (int dy = -4; dy <= 4; dy++) for (int dx = -4; dx <= 4; dx++)
                 if (dx * dx + dy * dy <= 16) Set(PX(m.Position.X) + dx, PY(m.Position.Y) + dy, dx * dx + dy * dy >= 10 ? 0u : Colour(m.Id - 1));
-        // PNG: RGB, no filter, zlib.
+        return RgbPng(px, w, h);
+    }
+
+    /// <summary>An RGB PNG of <paramref name="px"/> (3 bytes a pixel, rows top down): no filter, zlib (also musou-guard-vantage's).</summary>
+    internal static byte[] RgbPng(byte[] px, int w, int h)
+    {
         var raw = new byte[h * (w * 3 + 1)];
         for (int y = 0; y < h; y++) Buffer.BlockCopy(px, y * w * 3, raw, y * (w * 3 + 1) + 1, w * 3);
         using var z = new MemoryStream();

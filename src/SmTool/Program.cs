@@ -37,6 +37,7 @@ return args switch
     ["ashfall-kit-files"] => SmTool.AshfallKitFilesCommand.Run(),
     ["ashfall-kit-stairs", .. var stairRest] => SmTool.AshfallKitStairsCommand.Run(stairRest),
     ["musou-guard-route", .. var routeRest] => SmTool.MusouGuardRouteCommand.Run(routeRest),
+    ["musou-guard-vantage", .. var vantageRest] => SmTool.MusouGuardVantageCommand.Run(vantageRest),
 #endif
     ["weapon-dps", var gameDir, .. var rest] => SmTool.DpsCommands.Run(gameDir, rest),
     ["melee-steps", var gameDir, .. var rest] => SmTool.MeleeStepsCommand.Run(gameDir, rest),
