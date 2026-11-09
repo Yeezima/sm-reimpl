@@ -12,19 +12,24 @@ public static class TfwSendRules
     /// <summary>The war goes out every this many seconds, and on any change (design).</summary>
     public const int WarEverySeconds = 1;
     /// <summary>The most a client gets for the Guardsmen and the war's other sections (design: 20 KB/s).</summary>
-    public const int GuardBudgetBytesPerSecond = 20_000;
+    public static readonly int GuardBudgetBytesPerSecond = MusouSendRules.OldBudget ? 20_000 : 35_000;   // 35 since musou-net-budget (2026-11-09): the design's 20 scaled with the client's stream
     /// <summary>The most a client gets for Musou's and the war's sections together (ours: under the design's 60 KB/s). Musou spends first, the war gets what is left, up to its own budget.</summary>
-    public const int ClientBudgetBytesPerSecond = 58_000;
+    /// <remarks>
+    /// The owner, 2026-11-09: a 120 KB/s stream (58 before; <c>SM_MUSOU_OLD_BUDGET=1</c>). 104 here, set by measurement (clash 500 on Ashfall, one client): the stream ran over this sum by
+    /// the core snapshot (about 7 KB/s), the sections sent outside both budgets (meks, bars, armies: about 3 KB/s) and Musou's spending as <see cref="TfwGuardInterest.MusouBytes"/> reads it
+    /// (low when Musou's bucket is not empty): 120 measured 125-135 KB/s, 112 measured 118-132, 104 measured 105-128 (1,055 to 1,424 Orks); the old 58 measured 56-68.
+    /// </remarks>
+    public static readonly int ClientBudgetBytesPerSecond = MusouSendRules.OldBudget ? 58_000 : 104_000;
     /// <summary>
     /// crowd-smooth (2026-11-08, ours): the least the Guardsmen's bucket refills whatever Musou spent. Under a crowd that fills Musou's 55 KB/s the war got the 3 KB/s left of the client's 58, so a
     /// Guardsman 60 m off had a record about every 48 ticks and was drawn standing, then jumping. What the war spends above Musou's leftover is charged to Musou's next refill
     /// (<see cref="TfwGuardInterest.TakeOverdraw"/>, <see cref="MusouInterest.CoreBytes"/>), so the client's total stays where it was. Server <c>SM_TFW_OLD_GUARD_SHARE=1</c>: no floor (test aid).
     /// </summary>
-    public const int GuardFloorBytesPerSecond = 8_000;
+    public static readonly int GuardFloorBytesPerSecond = MusouSendRules.OldBudget ? 8_000 : 15_000;   // 15 since musou-net-budget (the Guardsmen's records filled 6-17 KB/s under a full crowd)
     /// <summary>Most envelope messages of the war to one client in one tick, on top of Musou's (ours).</summary>
-    public const int MaxMessagesPerTick = 2;
+    public static readonly int MaxMessagesPerTick = MusouSendRules.OldBudget ? 2 : 3;
     /// <summary>Most budget a client saves (ours: one tick of full messages).</summary>
-    public const int BurstBytes = MaxMessagesPerTick * Protocol.MaxExtrasMessageBytes;
+    public static readonly int BurstBytes = MaxMessagesPerTick * Protocol.MaxExtrasMessageBytes;
     /// <summary>The share of a tick's budget the events may take (ours, as Musou's): the rest is the Guardsmen's.</summary>
     public const float EventShare = 0.35f;
     /// <summary>A death goes in this many messages (ours, as Musou's events); a shot or a hurt man once: a lost tracer is not missed, and the shots are many.</summary>

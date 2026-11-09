@@ -11,7 +11,7 @@ namespace SmNet.Tests.Extras.Musou.Campaign;
 
 /// <summary>
 /// Musou Mode on the wire (TF6): every section and command round-trips and fits its limit; a malformed one is refused; the commands are idempotent by sequence, resent until tag 7 echoes them
-/// and held at the core's rate; a client stays within 60 KB/s at 160 Orks and 120 Guardsmen; faithful, extended and 5-wave servers never send tags 7 to 10.
+/// and held at the core's rate; a client stays within its budget (60 KB/s before musou-net-budget) at 160 Orks and 120 Guardsmen; faithful, extended and 5-wave servers never send tags 7 to 10.
 /// </summary>
 public class TfwWireTests(ITestOutputHelper output)
 {
@@ -466,16 +466,16 @@ public class TfwWireTests(ITestOutputHelper output)
         }
         // The share before crowd-smooth (OldShare): only what Musou leaves.
         Assert.InRange(Run(0f, old: true).Bytes, 15_000L, TfwSendRules.GuardBudgetBytesPerSecond + 200L);
-        Assert.True(Run(55_000f / 30f, old: true).Bytes <= TfwSendRules.ClientBudgetBytesPerSecond - 55_000 + 200, $"{Run(55_000f / 30f, old: true)}");
-        Assert.True(Run(60_000f / 30f, old: true).Bytes <= 200, $"{Run(60_000f / 30f, old: true)}");
-        Assert.Equal(0L, Run(60_000f / 30f, old: true).Overdraw);
+        Assert.True(Run(MusouSendRules.BudgetBytesPerSecond / 30f, old: true).Bytes <= Math.Max(0, TfwSendRules.ClientBudgetBytesPerSecond - MusouSendRules.BudgetBytesPerSecond) + 200, $"{Run(MusouSendRules.BudgetBytesPerSecond / 30f, old: true)}");
+        Assert.True(Run((TfwSendRules.ClientBudgetBytesPerSecond + 2_000f) / 30f, old: true).Bytes <= 200, $"{Run((TfwSendRules.ClientBudgetBytesPerSecond + 2_000f) / 30f, old: true)}");
+        Assert.Equal(0L, Run((TfwSendRules.ClientBudgetBytesPerSecond + 2_000f) / 30f, old: true).Overdraw);
         // crowd-smooth: at least the floor, and what the floor paid beyond Musou's leftover is handed back to Musou (charged to its next refill).
         Assert.InRange(Run(0f, old: false).Bytes, 15_000L, TfwSendRules.GuardBudgetBytesPerSecond + 200L);
         Assert.Equal(0L, Run(0f, old: false).Overdraw);
-        var full = Run(55_000f / 30f, old: false);
+        var full = Run(MusouSendRules.BudgetBytesPerSecond / 30f, old: false);
         Assert.InRange(full.Bytes, TfwSendRules.GuardFloorBytesPerSecond - 600L, TfwSendRules.GuardFloorBytesPerSecond + 200L);
-        Assert.InRange(full.Bytes - full.Overdraw, 0L, TfwSendRules.ClientBudgetBytesPerSecond - 55_000 + 200);   // the rest of the floor comes out of Musou's share
-        var over = Run(60_000f / 30f, old: false);
+        Assert.InRange(full.Bytes - full.Overdraw, 0L, Math.Max(0, TfwSendRules.ClientBudgetBytesPerSecond - MusouSendRules.BudgetBytesPerSecond) + 200);   // the rest of the floor comes out of Musou's share
+        var over = Run((TfwSendRules.ClientBudgetBytesPerSecond + 2_000f) / 30f, old: false);
         Assert.InRange(over.Bytes, TfwSendRules.GuardFloorBytesPerSecond - 600L, TfwSendRules.GuardFloorBytesPerSecond + 200L);
         Assert.InRange(over.Overdraw, over.Bytes - 300L, over.Bytes);
     }
@@ -492,7 +492,7 @@ public class TfwWireTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public void A_client_stays_within_60_kilobytes_a_second_at_160_orks_and_120_guardsmen()
+    public void A_client_stays_within_its_budget_at_160_orks_and_120_guardsmen()
     {
         var h = WarServer(0);
         h.Server.SetMusouDummies(160);
@@ -524,7 +524,7 @@ public class TfwWireTests(ITestOutputHelper output)
         double guardRate = (h.Server.TfwRecordsSent - records0) / (double)seconds, orkRate = (h.Server.MusouRecordsSent - musou0) / (double)seconds;
         output.WriteLine($"160 Orks, 120 Guards, 1 client: {perSecond / 1000.0:F1} KB/s, guards {guardRate:F0} records/s, orks {orkRate:F0} records/s, largest {h.Server.LargestExtrasMessage} B, " +
                          $"guards known {war.GuardCount}, orks known {musou.Count}, events {war.EventsPlayed}");
-        Assert.True(perSecond <= 60_000, $"{perSecond:F0} B/s");
+        Assert.True(perSecond <= TfwSendRules.ClientBudgetBytesPerSecond + 2_000, $"{perSecond:F0} B/s");   // 60 KB/s before musou-net-budget (58 + 2)
         Assert.True(h.Server.LargestExtrasMessage <= Protocol.MaxExtrasMessageBytes);
         Assert.Equal(0, war.SectionsMalformed);
         Assert.Equal(0, musou.SectionsMalformed);

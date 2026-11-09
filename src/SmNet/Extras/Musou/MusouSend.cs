@@ -79,6 +79,11 @@ public sealed class MusouEventWindow
 /// <summary>The send rules of Musou (design section C; the values marked ours are estimates for the refine register).</summary>
 public static class MusouSendRules
 {
+    /// <summary>
+    /// Declared first: the other budget fields read it while the class initialises. Server env <c>SM_MUSOU_OLD_BUDGET=1</c> (read once at start): the budgets before musou-net-budget (Musou 55 KB/s in 4 messages a tick, the client's whole stream 58 KB/s,
+    /// the war's 20 KB/s with an 8 KB/s floor in 2 messages). A test aid, and the switch for a server whose remote players cannot take about 1 Mbit/s.
+    /// </summary>
+    public static readonly bool OldBudget = Environment.GetEnvironmentVariable("SM_MUSOU_OLD_BUDGET") == "1";
     /// <summary>Interest bands (design): within 15 m an enemy gains 1.0 a tick, 15-40 m 0.5, beyond 0.2.</summary>
     public const float NearMetres = 15f, MidMetres = 40f, NearRate = 1f, MidRate = 0.5f, FarRate = 0.2f;
     /// <summary>An enemy is due once its priority reaches this (ours: near every tick, mid every 2nd, far every 5th).</summary>
@@ -106,8 +111,11 @@ public static class MusouSendRules
     /// newest record and his runs and stops were guessed. 2 keeps a near enemy's records within the view's 3-tick delay. Server <c>SM_MUSOU_OLD_NEAR_RATE=1</c>: the order before (<see cref="MusouInterest.OldNearRate"/>).
     /// </summary>
     public const uint NearMaxWaitTicks = 2;
-    /// <summary>Most envelope messages to one client in one tick (design).</summary>
-    public const int MaxMessagesPerTick = 4;
+    /// <summary>
+    /// Most envelope messages to one client in one tick (design: 4; 6 since musou-net-budget, 2026-11-09, so the raised budget fits with room for a tick of events;
+    /// <see cref="OldBudget"/> restores 4).
+    /// </summary>
+    public static readonly int MaxMessagesPerTick = OldBudget ? 4 : 6;
     /// <summary>Each event is sent in this many messages (design).</summary>
     public const int EventRepeat = 3;
     /// <summary>Most event copies in one tick's sections (ours: two full sections); the budget lowers it (<see cref="EventsPerTick"/>).</summary>
@@ -125,12 +133,16 @@ public static class MusouSendRules
     }
     /// <summary>The director is sent every this many ticks (and on any change; design).</summary>
     public const int DirectorEveryTicks = 10;
-    /// <summary>A client's long-run budget for Musou (ours: under the 60 KB/s target with headroom), refilled each tick; up to <see cref="BurstBytes"/> saved.</summary>
-    public const int BudgetBytesPerSecond = 55_000;
+    /// <summary>
+    /// A client's long-run budget for Musou (ours), refilled each tick; up to <see cref="BurstBytes"/> saved. 55 KB/s until musou-net-budget; the owner, 2026-11-09, chose a
+    /// 120 KB/s stream ("option 2 plus a 120 KB/s budget"): Musou 110 KB/s, the war the rest (<c>TfwSendRules.ClientBudgetBytesPerSecond</c>). Measured before: the Ork records alone
+    /// filled 39-42 KB/s and about 22,000 due records a second were held back at 1,371 Orks, so the extra goes mostly to a fresher crowd.
+    /// </summary>
+    public static readonly int BudgetBytesPerSecond = OldBudget ? 55_000 : 110_000;
     /// <summary>The least share of a tick's refill Musou keeps whatever the core messages took (ours, musou/perf-pass): the crowd never stops.</summary>
     public const float CoreFloor = 0.3f;
     /// <summary>Most budget a client saves (ours: one tick of <see cref="MaxMessagesPerTick"/> full messages).</summary>
-    public const int BurstBytes = MaxMessagesPerTick * Protocol.MaxExtrasMessageBytes;
+    public static readonly int BurstBytes = MaxMessagesPerTick * Protocol.MaxExtrasMessageBytes;
 
     /// <summary>What an enemy at <paramref name="distance"/> metres gains a tick (design's bands).</summary>
     public static float Rate(float distance) => distance <= NearMetres ? NearRate : distance <= MidMetres ? MidRate : FarRate;
@@ -317,7 +329,7 @@ public sealed class MusouInterest
 /// <summary>Shared helpers of the send side.</summary>
 public static class MusouSend
 {
-    internal const float Burst = MusouSendRules.BurstBytes;
+    internal static float Burst => MusouSendRules.BurstBytes;
 
     /// <summary>
     /// The box to quantise over: the director's when it has a volume (MU1 sets it), else <paramref name="fallback"/> (the nav graph's bounds), else a box of
