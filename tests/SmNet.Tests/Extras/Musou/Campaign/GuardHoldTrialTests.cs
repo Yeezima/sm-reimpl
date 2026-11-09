@@ -105,15 +105,15 @@ public class GuardHoldTrialTests(ITestOutputHelper output)
 {
     /// <summary>
     /// The owner's target (2026-11-08: "near clash balance should match far clash balance", the far clash being even man for man): about half (40 to 60 %) of 20 seeded counterattacks of as many
-    /// Orks as the field has men (60) held (10 of 20 at <see cref="GuardRules.Strength"/> 0.875; at the Orks' pace and charge of 2026-11-09 8, with the volley into a charge of 2026-11-10, <see cref="GuardRules.ChargeDamageScale"/> 1.5, 12; about a minute on 6 cores).
+    /// Orks as the field has men (60) held (10 of 20 at <see cref="GuardRules.Strength"/> 0.875; at the Orks' pace and charge of 2026-11-09 8, with the volley into a charge of 2026-11-10, <see cref="GuardRules.ChargeDamageScale"/> 1.5, 12; with every Nob twice (2026-11-10) 1, and at the strength of 1.1 that followed the same day 10; about a minute on 6 cores).
     /// </summary>
     [Fact]
     [Trait("Speed", "Slow")]
     public void The_guard_hold_wins_about_half_of_twenty_seeded_counterattacks_of_its_own_size()
     {
-        // The crowd as calibrated: one of each Nob (before 2026-11-10's twice the big Orks). With the Nobs' twins the field held 1 of 20 (measured 2026-11-10; the Guardsmen's strength
-        // that brings it back is in spec "Musou Mode: the Orks back at 100 %, twice the big Orks"): whether the Guardsmen follow is the owner's call, so the calibration is pinned here.
-        var all = GuardHoldTrial.RunSeeds(20, crowd: GuardHoldTrial.Men, twins: 1);
+        // The crowd as the battle brings it: every Nob twice (2026-11-10's twice the big Orks). At 0.875 the field held 1 of 20 with the twins (12 with one of each); the owner raised the
+        // Guardsmen's strength to 1.1 the same day ("Raise the guards to 1.1"), which brings it back to 10 (spec "Musou Mode: the Orks back at 100 %, twice the big Orks").
+        var all = GuardHoldTrial.RunSeeds(20, crowd: GuardHoldTrial.Men);
         foreach (var o in all) output.WriteLine(o.ToString());
         int held = all.Count(o => o.Held);
         output.WriteLine($"held {held} of {all.Length}");

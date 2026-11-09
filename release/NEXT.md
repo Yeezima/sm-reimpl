@@ -23,7 +23,7 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 ### Musou Mode
 - The Orks are back to full numbers, Nobs and Big Shoota Nobs come in pairs, and up to 8 Boss Orks can be alive at once, arriving sooner.
 - Orks run faster and sprint at you from about 30 m away. Big Orks fall with a proper death, walk at a natural pace, climb stairs and no longer snag on walls.
-- Guardsmen hit charging Orks harder.
+- Guardsmen are tougher and hit harder, most of all against charging Orks.
 - The Weirdboy casts his lightning bolt again.
 - Combat stims recharge on their own like grenades: one back every 15 seconds.
 - The screen is clearer: the Musou displays sit at the edges and corners, and your armour and health are at the bottom left with the boss health bars above them, the bosses you are hitting first.

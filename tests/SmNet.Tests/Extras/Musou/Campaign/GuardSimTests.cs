@@ -68,7 +68,7 @@ public class GuardSimTests(ITestOutputHelper output)
     [Fact]
     public void Six_squads_beat_sixty_boyz_in_the_box_within_90_s_with_deterministic_losses()
     {
-        // At the Orks' pace and charge (2026-11-09) with the volley into a charge (1.5x, 2026-11-10): measured 34.3 s, 31 men lost, 5 squads left; before the pace 44.1 s, 34 lost, 4 left;
+        // At the Orks' pace and charge (2026-11-09) with the volley into a charge (1.5x, 2026-11-10): measured 34.3 s, 31 men lost, 5 squads left (at GuardRules.Strength 0.875; 1.1 since 2026-11-10 loses fewer); before the pace 44.1 s, 34 lost, 4 left;
         // at the pace without the volley the Orks won (every squad gone by 60 s, 21 Boyz left).
         var a = SixSquadsAgainstSixtyBoyz(output.WriteLine);
         output.WriteLine($"{a} = {a.Ticks / 30f:0.0} s");
