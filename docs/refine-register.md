@@ -28,8 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2765 spec table rows: **2058 tagged**, 491 not tagged (read from data with high confidence), 216 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 612 rows of the changes document.
-Scanned 2818 spec table rows: **2097 tagged**, 499 not tagged (read from data with high confidence), 222 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 633 rows of the changes document.
+Scanned 2823 spec table rows: **2099 tagged**, 501 not tagged (read from data with high confidence), 223 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 634 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,34 +49,22 @@ Scanned 2818 spec table rows: **2097 tagged**, 499 not tagged (read from data wi
 | Customizer and paint | 48 | 45 | 26 | 15 | 0 |
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
-| Networking and render smoothing | 19 | 10 | 10 | 10 | 7 |
-| Core simulation (provisional values) | 541 | 517 | 377 | 157 | 1 |
-| General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 222 | 212 | 119 | 59 | 0 |
-| **All areas** | **2058** | 1812 | 1527 | 662 | 38 |
 | Networking and render smoothing | 22 | 13 | 13 | 12 | 7 |
-| Core simulation (provisional values) | 560 | 536 | 392 | 156 | 1 |
+| Core simulation (provisional values) | 562 | 538 | 392 | 158 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 234 | 223 | 125 | 63 | 0 |
-| **All areas** | **2097** | 1850 | 1555 | 669 | 38 |
+| **All areas** | **2099** | 1852 | 1555 | 671 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1132 |
-| confidence: low | 737 |
-| confidence: medium | 661 |
-| notes: ours | 380 |
-| kind: interpretation | 360 |
-| notes: estimate | 169 |
-| kind: estimate | 145 |
-| kind: ours | 1168 |
+| kind: ours | 1170 |
 | confidence: low | 743 |
 | confidence: medium | 683 |
 | notes: ours | 384 |
 | kind: interpretation | 363 |
-| notes: estimate | 172 |
+| notes: estimate | 174 |
 | kind: estimate | 144 |
 | confidence: none (low) | 129 |
 | kind: provisional | 99 |
@@ -2211,8 +2198,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (541)
-### Core simulation (provisional values) (560)
+### Core simulation (provisional values) (562)
 
 *Spec section: Provisional values in use*
 
@@ -4322,7 +4308,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-F604D098` | Musou: the retainers back, no Ork ammunition boxes (claude/retainers-no-ammo-drops, owner 2026-11-08; `TfwRules.Version` 44) | No Musou Mode in the original; no AI Marines fight beside the players in its matches; in its multiplayer every player death drops an ammunition or grenade box | Ours (added content; the owner: "remove the ammo box drops from ork kills in musou mode. return the player retainer bots with orders as well"): each human lands with its own retainer again (Follow, Hold and Attack on Z, X and V, the revive of its owner, 180 war seconds of recovery after a death) beside the two roaming… | spec/behavior.md, "Musou Mode: the retainers back, no Ork ammunition boxes" | Musou: the retainers back, no Ork ammunition boxes…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-317F4209` | Musou: the Librarian (musou/exp-s5, 2026-11-07; `MusouSim.Version` 14) | No Musou Mode and no playable psyker in the original | Ours (added content, the owner's brief): a Musou-only class on the Tactical's body (a placeholder) with the power sword as a force sword (rainbow glow), no gun; Psychic Stress 0 to 100 shared by chain lightning (30 m, 8 m jumps, 40 targets, 90 dps x0.85 a jump), Warp Pull (cone, 25 m) and Psychic Shockwave (9 m, 40… | spec "Musou Mode: the Librarian" | Musou: the Librarian (musou/exp-s5, 2026-11-07…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-1F489392` | Musou: the Librarian, second pass (MusouSim 15) | The original has MP Librarian armour packages but no class or armour set that wears them | Ours: he wears the install's MP Librarian torso and belt, right pad and hood backpack over the player's Tactical look; PLAY AS LIBRARIAN in the Stormbird's Esc menu; original install sounds chosen for his powers (some from the campaign psyker); a weapon-box-style stress gauge; all 40 lightning links drawn (3-byte… | spec "Musou Mode: the Librarian" | Musou: the Librarian, second pass (MusouSim 15): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
-| `C-7FEAB9F7` | Musou: the Librarian, third pass (librarian-lightning, 2026-11-10; MusouSim 34) | No Musou Mode and no playable psyker in the original | Ours (the owner's requests): a procedural cast pose (palms to the target, the chest turned to it, a shudder); a new procedural chain lightning (forked fractal bolts from both palms, hot core and blue glow, re-strikes and afterglow, hand arcs, impact flares, lights); the own bolt drawn at the press and the cast begun… | spec "Musou Mode: the Librarian" | Musou: the Librarian, third pass (librarian-lightning…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-38D47979` | Musou: the Librarian, third pass (librarian-lightning, 2026-11-10; MusouSim 37) | No Musou Mode and no playable psyker in the original | Ours (the owner's requests): a procedural cast pose (palms to the target, the chest turned to it, a shudder); a new procedural chain lightning (forked fractal bolts from both palms, hot core and blue glow, re-strikes and afterglow, hand arcs, impact flares, lights); the own bolt drawn at the press and the cast begun… | spec "Musou Mode: the Librarian" | Musou: the Librarian, third pass (librarian-lightning…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-79E049F1` | Musou: Boss Ork facing and wall room, bounded column waits (night/ork-movement, 2026-11-06) | No Musou Mode in the original | Ours (added content, the owner's request): a running Boss Ork faces the way it actually moves (turn rate 4 rad/s) instead of the way it is steered, and leans off walls nearer than its body radius; a patrol column's head never stops more than 2.5 s for its ranks (laggards over 9 m behind are let go, the head creeps on) | Musou Mode only; classic PvP unchanged. Spec "Musou Mode: Boss Ork facing and wall room, patrol waits bounded". | Musou: Boss Ork facing and wall room, bounded column waits…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-B8027519` | The charge clash: charger and victim locked through the shove (feel/charge-clash, 2026-11-06; protocol 59) | Ours in its mechanics (the original's pairing is engine code); its length and motion are the data's collision stop (1.83 m forward in 0.2 s, then 1.11 m back) and match the owner's recording | A stunned or staggered victim is carried with the charger through the stop's forward shove at 0.9 m (capsules touching), the charger's step ignores the victim's body, a victim the level stops holds the charger back; any charger meets a body at its edge (guard 0.85 m: the touch less a 5 cm slack, was 0.75 m); remotes… | spec "The charge clash: charger and victim locked through the shove" | The charge clash: charger and victim locked through the…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-FAB1E86D` | Musou: Guardsmen as defenders, capture under fire, Boss Ork cleave (musou/guard-formations, 2026-11-06; `TfwRules.Version` 28) | No Musou Mode in the original | Ours (added content, the owner's requests): the Guardsmen squads are back in every battle; they hold the landing zone, then share the secured positions out by the Orks near each, and never capture; only players, lords and retainers take a point, at the full rate, and Orks on the point no longer stop the progress (only… | Musou Mode only. Spec "Musou Mode: Guardsmen as defenders, the capture under fire, the Boss Ork cleave". | Musou: Guardsmen as defenders, capture under fire, Boss Ork…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
