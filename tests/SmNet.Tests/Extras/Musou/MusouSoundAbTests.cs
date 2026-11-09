@@ -26,6 +26,7 @@ public class MusouSoundAbTests
     [InlineData("steal,instlimit,ambience", MusouSoundOff.Steal | MusouSoundOff.InstLimit | MusouSoundOff.Ambience)]
     [InlineData("lowpass,hitfilter,crowdvoices,blast", MusouSoundOff.LowPass | MusouSoundOff.HitFilter | MusouSoundOff.CrowdVoices | MusouSoundOff.Blast)]
     [InlineData("allylayers", MusouSoundOff.AllyLayers)]
+    [InlineData("boltblast", MusouSoundOff.BoltBlast)]
     [InlineData("all", MusouSoundOff.All)]
     public void The_names_parse(string? text, MusouSoundOff expected)
     {

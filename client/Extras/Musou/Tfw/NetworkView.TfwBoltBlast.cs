@@ -41,7 +41,7 @@ public partial class NetworkView
                 if (_bot || CmdFlag("tfw-test-melee")) GD.Print($"t {_connectedFor:F1} s: war: bolt blast at ({fire.At.X:F1}, {fire.At.Y:F1}, {fire.At.Z:F1}), radius {fire.To.Y:F1}");
                 if (drawn >= BoltBlastsPerFrame || fire.To.X < 0f || Near(fire.At)) continue;
                 var view = new ProjectileView(0, (int)fire.To.X, 0, fire.At, ProjectileFlags.Thrown);
-                if (sounded < BoltBlastSoundsPerFrame) { SoundDetonation(view); sounded++; }
+                if (sounded < BoltBlastSoundsPerFrame && !MusouSoundIsOff(SmContent.MusouSoundOff.BoltBlast)) { SoundDetonation(view); sounded++; }   // musou/sound-ab: boltblast off
                 if (Lean || DisplayServer.GetName() == "headless") { drawn++; _tfwBoltDrawn.Add((_connectedFor, fire.At)); continue; }
                 var shake = _shake;
                 if (FxDetonation(view, BoltBlastFxScale)) _tfwBoltBlastsDrawn++;
