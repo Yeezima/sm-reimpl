@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2752 spec table rows: **2047 tagged**, 489 not tagged (read from data with high confidence), 216 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 610 rows of the changes document.
+Scanned 2755 spec table rows: **2050 tagged**, 489 not tagged (read from data with high confidence), 216 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 611 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -52,19 +52,19 @@ Scanned 2752 spec table rows: **2047 tagged**, 489 not tagged (read from data wi
 | Networking and render smoothing | 19 | 10 | 10 | 10 | 7 |
 | Core simulation (provisional values) | 529 | 505 | 368 | 145 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 224 | 214 | 120 | 59 | 0 |
-| **All areas** | **2047** | 1801 | 1519 | 649 | 38 |
+| Ork faction | 227 | 217 | 121 | 61 | 0 |
+| **All areas** | **2050** | 1804 | 1520 | 651 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1132 |
+| kind: ours | 1135 |
 | confidence: low | 728 |
-| confidence: medium | 662 |
+| confidence: medium | 663 |
 | notes: ours | 369 |
 | kind: interpretation | 360 |
-| notes: estimate | 167 |
+| notes: estimate | 169 |
 | kind: estimate | 136 |
 | confidence: none (low) | 129 |
 | kind: provisional | 99 |
@@ -3459,13 +3459,16 @@ The Orks are an addition the owner keeps (the original multiplayer had Space Mar
 | `R-EC633428` | Waves: size (Musou) | **160** (70 %), **400** (25 %), **800 to 960** (5 %) by the dice (was 200, 500, 1,000 to 1,200), and with no aggregate a wave is what the armies' real cap leaves room for (Orks) | kind: ours; notes: estimate | owner 2026-11-09 | Waves: size (Musou): compare with SM1 by measuring on a flat spot of the same map. Ours: 160 (70 %), 400 (25 %), 800 to 960 (5 %) by the dice (was 200, 500… | ☐ |
 | `R-CCEF4870` | Garrison, crowd and caps (Musou) | garrison **77** a point (was 96); crowd **320** (was 400) filling one every **5** ticks (was 4: a crowd still in 53 s); alive cap **960** solo plus **512** a further human, at most **1344** (was 1200, 640, 1680); the trickle **1280** in all (was 1600); route… (Orks) | kind: ours; notes: estimate | owner 2026-11-09 | Garrison, crowd and caps (Musou): compare with SM1 by feel or video. Ours: garrison 77 a point (was 96); crowd 320 (was 400) filling one every 5… | ☐ |
 
-*Spec section: Musou Mode: the big Orks' deaths and gait (musou-big-ork-deaths, 2026-11-09; Musou Mode only, client presentation; no protocol, wire, config-hash or rules-version change)*
+*Spec section: Musou Mode: the big Orks' deaths and gait (musou-big-ork-deaths, 2026-11-09; Musou Mode only; the deaths and gait client presentation; the bodies against the map in the simulation, `MusouSim.Version` 34, to be renumbered at integration; no protocol change)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-242300A3` | Big Orks keep their bodies (Musou, client) | the elites and bosses of `MusouTargetRules.ClassOf` (Nob, 'Ard Boy, Big Shoota Nob, the Warboss, the four Boss Orks) are never torn apart by the gore: the burst still plays, and the body plays its death clip and lies under the corpse floor like any Ork's; a… | kind: ours; confidence: medium | owner 2026-11-09 | Big Orks keep their bodies (Musou, client): compare with SM1 by feel or video. Ours: the elites and bosses of MusouTargetRules.ClassOf (Nob, 'Ard Boy, Big… | ☐ |
 | `R-E348541F` | The Warboss's death (Musou, client) | his own `WB_Get_Up` (1.33 s) played backwards: from standing he drops to his knees and falls on his back, then lies at its first frame (the rig has no death that ends lying; his campaign death is scripted). `--musou-old-big-orks`: `WB_REC_Explode` as before (s) | kind: ours; confidence: medium | owner 2026-11-09 | The Warboss's death (Musou, client): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: his own WB_Get_Up (1.33 s) played backwards: from standing he drops… | ☐ |
 | `R-9001198C` | Big bodies' stride (Musou, client) | the run (the Warboss's walk) plays at the drawn speed over the clip's planted-foot speed at scale 1 times the look's scale to the power **0.5** (was 1): a 3x Boss Ork 0.46x (was 0.27x), a Boss Shoota Boy 0.42x (0.25x), the Warboss x2.19 0.78x measured on his… (power) | kind: ours; notes: estimate | owner 2026-11-09 | Big bodies' stride (Musou, client): compare with SM1 by feel or video. Ours: the run (the Warboss's walk) plays at the drawn speed over the clip's… | ☐ |
+| `R-87FCC0D7` | Big Orks' vertical reach (Musou, server) | whether a target is level enough to strike, to wait in reach of, to take a melee token for or to keep the player's ring from is **1.5** m times the body's height over a Boy's 1.9 m, at least 1x and at most **3x** (4.5 m): a Boy, Gretchin or smaller 1.5 m as… (m) | kind: ours; notes: estimate | owner 2026-11-09 | Big Orks' vertical reach (Musou, server): compare with SM1 by measuring on a flat spot of the same map. Ours: whether a target is level enough to strike, to wait in reach of, to… | ☐ |
+| `R-C604E1B8` | Shooters' eye (Musou, server) | the line of sight starts at **1.5** m times the body's height over a Boy's (1x to 3x): a Boy 1.5 m as before, a Boss Shoota Boy 4.5 m (he looked out at 1.5 m, below the parapets); every body taller than a Boy a little higher ('Ard Boy 1.54, Chaos Marine 1.66… (m) | kind: ours; notes: estimate | owner 2026-11-09 | Shooters' eye (Musou, server): compare with SM1 by shooting at the edges of the head and body and noting where shots register. Ours: the line of sight starts at 1.5 m times the body's height over a… | ☐ |
+| `R-353DB4F9` | Big Orks against walls (Musou, server) | a Boss Ork's lean off a near wall (`BossWallPush`) no longer slows his way: its part against the way he wants is dropped and the move keeps its speed (neither slower nor faster than without the lean); a big body's (taller than a Boy, or a Nob) step that would… (m/s) | kind: ours; confidence: medium | owner 2026-11-09 | Big Orks against walls (Musou, server): compare with SM1 by timing a run over a known distance. Ours: a Boss Ork's lean off a near wall (BossWallPush) no longer slows his… | ☐ |
 
 ## Part C: Deliberate changes (keep or revert after playtest)
 
@@ -4239,6 +4242,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-F26174DD` | Musou: every spawn faces the map's centre (musou/spawn-facing, owner 2026-11-09; `MusouSim.Version` 28, `TfwRules.Version` 52) | No Musou Mode in the original | Ours (added content; the owner's request): in a battle every unit faces the middle capture point (B, the depot) the moment it spawns: humans, retainers and allied Marines, Guardsmen, every Ork type; an army made real mid-march keeps its march facing; the Stormbird and the Range keep their facing | Musou Mode only; Classic PvP unchanged | Musou: every spawn faces the map's centre…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-F52025D9` | Musou: cleave volume and cap (musou/combat-rules, 2026-11-09; `TfwRules.Version` 53) | No Musou Mode in the original | Ours (the owner's request, verbatim: "extend the melee hitbox outward and forward of the player in a flat cone - they should reach out further for cleaving purposes. raise the cleave cap up to 40 orks in one swing."): the war's cleave reaches 1.5x further in a 120 degree half angle (was 90), up to 40 Orks a swing (was… | Musou Mode's war only; the skirmish, Classic PvP and the original are unchanged. spec "Musou combat: cleave volume" | Musou: cleave volume and cap (musou/combat-rules…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-1DD14181` | Musou: the big Orks' deaths and gait (musou-big-ork-deaths, owner 2026-11-09) | No Musou Mode in the original | Ours (the owner: "the elite and boss orks and the warboss need to have death animations. they also look like they move in slow motion because of the way they're scaled up"): an elite or boss Ork is never torn apart by the gore (the burst plays, the body falls with its death clip and lies); the Warboss dies by his own… | Musou Mode only, client presentation. spec "Musou Mode: the big Orks' deaths and gait" | Musou: the big Orks' deaths and gait (musou-big-ork-deaths…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-FEB84D7D` | Musou: the big Orks against the map (musou-big-ork-deaths, owner 2026-11-09) | No Musou Mode in the original | Ours (the owner: "boss enemies are getting stuck along objects and moving in slow motion"): a big body's vertical reach and shooting eye grow with its height (up to 3x: 4.5 m), a Boss Ork's lean off a wall no longer slows him, a big body's blocked step slides along the wall. `SM_MUSOU_OLD_BIG_BODIES=1` restores them | Musou Mode only. spec "Musou Mode: the big Orks' deaths and gait" | Musou: the big Orks against the map (musou-big-ork-deaths…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 
 ## Appendix: not gameplay
 
@@ -4461,5 +4465,5 @@ Test aids, probes, demo and capture tooling, and engineering decisions (protocol
 | `R-4B7E3D1D` | Loading screen | Loading screen (2026-11-07, client only) |
 | `R-BE72EE96` | Core messages counted in the Musou budget (Musou) | Musou performance pass and the owner's battle decisions (musou/perf-pass, 2026-11-08; Musou Mode only but FSR 2 and the off-screen effects, which are shared client settings; `TfwRules.Version` 38, no protocol or wire change) |
 | `R-A9655E6C` | Stormboy hop cue's flight (Musou wire) | Musou Mode: smooth crowd motion (crowd-smooth, 2026-11-08; Musou Mode only; `MusouSim.Version` 22, no core protocol bump: `Protocol.Version` stays 64) |
-| `R-476D600F` | Test aid: `--musou-crowd-test` | Musou Mode: the big Orks' deaths and gait (musou-big-ork-deaths, 2026-11-09; Musou Mode only, client presentation; no protocol, wire, config-hash or rules-version change) |
+| `R-476D600F` | Test aid: `--musou-crowd-test` | Musou Mode: the big Orks' deaths and gait (musou-big-ork-deaths, 2026-11-09; Musou Mode only; the deaths and gait client presentation; the bodies against the map in the simulation, `MusouSim.Version` 34, to be renumbered at integration; no protocol change) |
 
