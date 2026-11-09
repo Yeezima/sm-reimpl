@@ -67,12 +67,18 @@ public partial class NetworkView
     int _librarianForeseenFrames;
     double _librarianPressAt = -1, _librarianFirstBoltMs = -1;
     bool _librarianServerHeard;
+    int _librarianFramesLogged;
     bool LibrarianTestPick => _librarianTestPick ??= CmdFlag("tfw-librarian");
     bool? _librarianTestPick;
 
     void TfwLibrarianFrame(PlayerState me, IReadOnlyList<PlayerState> others, double delta)
     {
         LibrarianClock.Advance(delta);   // the effects' frame clock (LibrarianBolts.cs)
+        if (_librarianFramesLogged is > 0 and < 4)
+        {
+            _librarianFramesLogged++;
+            if (_bot || LibrarianDemoOn || LibrarianClipDir is not null) GD.Print($"LIBLAT frame {_librarianFramesLogged - 1} after the press took {delta * 1000.0:F0} ms");
+        }
         LibrarianDemoFrame();   // NetworkView.LibrarianDemo.cs: the capture aid, nothing without --librarian-demo
         LibrarianClipFrame();   // NetworkView.LibrarianClip.cs: the clip script, nothing without --librarian-clip
         LibrarianDemoAimFrame();
@@ -156,6 +162,7 @@ public partial class NetworkView
         {
             _librarianPressAt = Time.GetTicksUsec() / 1e6; _librarianFirstBoltMs = -1; _librarianServerHeard = false;
             SendLibrarianCast();
+            _librarianFramesLogged = 1;
         }
         return true;
     }
