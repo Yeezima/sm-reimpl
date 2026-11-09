@@ -107,10 +107,18 @@ internal static partial class AshfallDraft5Pass
     {
         var draft10 = field is null ? null : AshfallMap.BuildDraft5();   // draft 11: the fortress comes from draft 10 (built first, on draft 10's own ground)
         using var ground = new AshfallMap.FieldScope(field is not null);
+        bool wasCity = t_city; t_city = field?.Layout == AshfallLayout.City;   // draft 12: the city's stair rule (CityStairMinRise)
+        var wasRoads = t_cityRoads;
+        try { return RunPass(overlapRule, roadwayRule, draft9, field, draft10); } finally { t_city = wasCity; t_cityRoads = wasRoads; }
+    }
+
+    static AshfallDraft5 RunPass(bool overlapRule, bool roadwayRule, bool draft9, AshfallFieldPlan? field, AshfallDraft5? draft10)
+    {
         var gb = field is null ? AshfallMap.BuildGrayboxWithFeatures() : AshfallMap.BuildFieldGraybox(field);
         var g5 = gb.Level;
         var c = new Ctx { Seed = AshfallBuilder.Mix(field is null ? AshfallMap.VariationSeed : field.Params.DressSeed, 0xA5F411u), OverlapRule = overlapRule, RoadwayRule = roadwayRule, Draft9 = draft9, Field = field };
         c.Roads = field is null ? AshfallRoadway.Strips(g5) : AshfallRoadway.FieldStrips(field);
+        if (t_city) t_cityRoads = c.Roads;
         foreach (var p in g5.Parts)
             if (p.Kind is AshfallKind.Ground or AshfallKind.Road or AshfallKind.Paving or AshfallKind.Curb or AshfallKind.Boundary or AshfallKind.Objective) c.Parts.Add(p);
         // Draft 10's lanes (AshfallLanes): paved connectors to the points and the gate, roadways for the draft-8 rule, drawn as road.
@@ -206,8 +214,10 @@ internal static partial class AshfallDraft5Pass
         foreach (var (id, n) in c.DroppedBoxes.OrderBy(k => k.Key, StringComparer.Ordinal))
             c.Flags.Add($"{id}: {n} collision boxes under {MinBox} m dropped as dust across its placements");
 
+        if (field?.Layout == AshfallLayout.City) EnforceStairAccess(c, g5, field);   // draft 12: every stair reachable at both ends on the final collision
+
         var spawns = g5.Spawns.Select(s => s == g5.Points[0].Center ? points[0].Center : s).ToList();
-        var level = new AshfallLevel(c.Parts, points, g5.Areas, spawns, AshfallMap.HashOf(c.Parts, field is null ? AshfallMap.Version : AshfallField.HashVersion)) { Layout = field is null ? AshfallLayout.Draft10 : AshfallLayout.Field };
+        var level = new AshfallLevel(c.Parts, points, g5.Areas, spawns, AshfallMap.HashOf(c.Parts, field is null ? AshfallMap.Version : field.HashVersion)) { Layout = field is null ? AshfallLayout.Draft10 : field.Layout };
         var hidden = Enumerable.Range(groundCount, c.Parts.Count - groundCount).ToList();
         var dressing = new AshfallDressing(c.Items, hidden, AshfallMap.DressVersion, c.Structures) { ItemParts = c.ItemParts, Flags = c.Flags };
         return new AshfallDraft5(level, dressing, gb, c.Log);

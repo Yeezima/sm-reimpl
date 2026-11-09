@@ -21,6 +21,18 @@ internal static partial class AshfallDraft5Pass
     const float StairMinWidth = 1.0f, StairMinRise = 0.8f;
 
     /// <summary>
+    /// Draft 12 (the city layout only; draft 10 and the field keep <see cref="StairMinRise"/>): a run of steps rising more than the 0.4 m step gets its ramp too. The kit's two-storey ruin (AC-051) stands on a 1.1 m plinth
+    /// whose entry steps rise 0.29 and 0.57 m after the scale: without a ramp no player gets in, and its flight to the upper floor starts on that plinth (owner, 2026-11-09: "no stairs inaccessible").
+    /// </summary>
+    const float CityStairMinRise = 0.4f;
+
+    /// <summary>Set while the city layout's pass runs on this thread (its stair rules: <see cref="CityStairMinRise"/>, the entry ramps).</summary>
+    [ThreadStatic] static bool t_city;
+
+    /// <summary>The city's roadway strips while its pass runs (an entry ramp and its foot zone stay off them).</summary>
+    [ThreadStatic] static List<AshfallBox>? t_cityRoads;
+
+    /// <summary>
     /// Draft 10 (owner, 2026-11-09: "there are still stairs that cannot be walked up"; ours): a drawn flight narrower than <see cref="StairWalkWidth"/> but at least <see cref="StairWidenFrom"/> wide gets a ramp
     /// <see cref="StairWalkWidth"/> wide about its middle (the capsule's 0.9 m plus 0.3 m), the model's boxes cut under the wider footprint; a narrower run stays a few steps (a kerb, a broken tread).
     /// </summary>
@@ -110,7 +122,7 @@ internal static partial class AshfallDraft5Pass
             var r = AshfallStairs.Of(new AshfallPart(AshfallKind.Stair, corners), 0, 0);
             if (r is not { } ramp) { dropped++; notes.Add("not a ramp"); continue; }
             float rise = ramp.HighZ - ramp.LowZ;
-            if (ramp.Width < StairMinWidth || rise < StairMinRise) { notes.Add($"{(ramp.Width < StairMinWidth ? $"{ramp.Width:0.0} m wide" : $"{rise:0.0} m rise")}: a few steps, no ramp"); continue; }
+            if (ramp.Width < StairMinWidth || rise < (t_city ? CityStairMinRise : StairMinRise)) { notes.Add($"{(ramp.Width < StairMinWidth ? $"{ramp.Width:0.0} m wide" : $"{rise:0.0} m rise")}: a few steps, no ramp"); continue; }
             if (ramp.Degrees > StairMaxDegrees) { dropped++; notes.Add($"{ramp.Degrees:0} degrees after the scale"); continue; }
             // local footprint and plane
             var lc = corners.Select(Loc).ToList();
@@ -149,6 +161,12 @@ internal static partial class AshfallDraft5Pass
             }
             if (why is not null) { dropped++; notes.Add(why); continue; }
             cur = cut; ramps.Add(corners); zones.Add(foot); zones.Add(land); taken.Add(fp); kept++; index.Add(si);
+            // draft 12 (the city only): a flight that starts on a raised floor gets an entry ramp up onto that floor from its door
+            if (t_city && walk && ramp.LowZ > item.Position.Z + AshfallStairs.Step + 0.05f)
+            {
+                if (EntryRamp(item, yaw, rp, ramp, cur, ramps) is { } entry) { cur = entry.Boxes; ramps.Add(entry.Corners); zones.Add(entry.Foot); zones.Add(entry.Land); notes.Add(entry.Note); index.Add(si); }   // the entry goes with its flight (a re-walk that fails leaves both out)
+                else notes.Add($"its foot stands {ramp.LowZ - item.Position.Z:0.0} m over the floor in front of it (draft 12: no entry ramp onto its raised floor fits here)");   // the stair-access rule then tries the pool's next model
+            }
         }
         if (kept > 0) cur = Merge(cur, item, yaw);
         return (new StairPlan(ramps, cur, zones, notes, kept, dropped) { Carved = carvedCount }, index);

@@ -33,8 +33,8 @@ public class AshfallDraft11Tests(ITestOutputHelper output)
         Assert.NotEqual(d10.Level.Hash, F.Level.Hash);
         output.WriteLine($"field hash {F.Level.Hash:X16}");
         if (PinnedFieldHash != 0UL) Assert.Equal(PinnedFieldHash, F.Level.Hash);
-        // map names: tfw_war is draft 10, tfw_war_field the field; both are Ashfall and war maps
-        Assert.Equal(AshfallLayout.Draft10, TfwMap.LayoutOf(TfwMap.Name));
+        // map names: tfw_war_draft10 is draft 10 (tfw_war is the draft-12 city since draft 12), tfw_war_field the field; all are Ashfall and war maps
+        Assert.Equal(AshfallLayout.Draft10, TfwMap.LayoutOf(TfwMap.Draft10Name));
         Assert.Equal(AshfallLayout.Field, TfwMap.LayoutOf(TfwMap.FieldName));
         Assert.True(TfwMap.IsWarMap(TfwMap.FieldName) && TfwMap.IsAshfall(TfwMap.FieldName) && TfwMap.IsAshfall(TfwMap.Name) && !TfwMap.IsAshfall(TfwMap.ManufactorumName));
         // the composed worlds differ in their hash, so a client on the other layout is told apart at the handshake

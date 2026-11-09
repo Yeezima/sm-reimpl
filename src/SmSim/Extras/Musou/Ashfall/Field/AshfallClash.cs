@@ -49,7 +49,7 @@ public static class AshfallClash
         var grid = Grids.GetOrAdd(s.Layout, _ => new AshfallGrid(d.Level));
         var pt = d.Level.Points.First(p => p.Name == s.Point);
         var goal = new Vector2(pt.Center.X, pt.Center.Y);
-        var plan = s.Layout == AshfallLayout.Field ? AshfallField.Default : null;
+        var plan = s.Layout.PlanOf();
         Vector2 baseNode = plan is null ? new(0f, -150f) : Mid(plan.Assembly[0].Rect), shNode = plan is null ? new(0f, 98f) : Mid(plan.Assembly[1].Rect);
         var orks = MakeArmy(TfwArmySide.Ork, s.PerSide, shNode, goal, grid, s.Ai);
         var guards = MakeArmy(TfwArmySide.Guard, s.PerSide, baseNode, goal, grid, s.Ai);

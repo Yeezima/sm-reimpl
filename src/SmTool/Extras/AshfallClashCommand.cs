@@ -6,7 +6,7 @@ using SmSim.Extras.Musou.Ashfall;
 namespace SmTool;
 
 /// <summary>
-/// <c>smtool ashfall-clash [--layouts field,draft10] [--points B,A] [--sizes 200,500,1000] [--ai shipped,adaptive] [--table file.md] [--clips dir]</c> (draft 11): the clash bench
+/// <c>smtool ashfall-clash [--layouts city,field,draft10] [--points B,A] [--sizes 200,500,1000] [--ai shipped,adaptive] [--table file.md] [--clips dir]</c> (draft 11): the clash bench
 /// (<see cref="AshfallClash"/>) over a matrix of layouts, points, sizes and army AIs; prints the Markdown table (frontage, queue length, stuck units, arrival spread, throughput, retreat). <c>--clips</c> writes each run's
 /// top-down frames (PNG, 2 a second, the action's box) under <c>dir/&lt;run&gt;/</c> for ffmpeg. A movement model only (docs/musou-ashfall-graybox.md "Draft 11 battlefield layout": nobody is hurt).
 /// </summary>
@@ -14,7 +14,7 @@ static class AshfallClashCommand
 {
     public static int Run(string[] rest)
     {
-        string[] layouts = ["field", "draft10"], points = ["B"], ais = ["shipped"];
+        string[] layouts = ["city", "draft10"], points = ["B"], ais = ["shipped"];
         int[] sizes = [200, 500, 1000];
         string? table = null, clips = null;
         for (int i = 0; i < rest.Length; i++)
@@ -41,7 +41,7 @@ static class AshfallClashCommand
                 foreach (int n in sizes)
                     foreach (var ai in ais)
                     {
-                        var layout = l == "field" ? AshfallLayout.Field : AshfallLayout.Draft10;
+                        var layout = AshfallLayouts.Parse(l);
                         var setup = new AshfallClash.Setup(layout, p, n, ai == "adaptive" ? AshfallClash.ClashAi.Adaptive : AshfallClash.ClashAi.Shipped);
                         Action<AshfallClash.Snapshot>? frame = null;
                         string? dir = null; int f = 0;
@@ -52,7 +52,7 @@ static class AshfallClashCommand
                             foreach (var old in Directory.GetFiles(dir, "f*.png")) File.Delete(old);
                             var grid = new AshfallGrid(AshfallMap.Build(layout));
                             var bg = Background(grid, layout);
-                            frame = s => Frame(Path.Combine(dir, $"f{f++:0000}.png"), grid, bg, s, $"{(layout == AshfallLayout.Field ? "Draft 11 battlefield" : "Draft 10")} - point {p} - {n} a side - {s.Phase} - {s.Time:0} s");
+                            frame = s => Frame(Path.Combine(dir, $"f{f++:0000}.png"), grid, bg, s, $"{(layout switch { AshfallLayout.Field => "Draft 11 battlefield", AshfallLayout.City => "Draft 12 city", _ => "Draft 10" })} - point {p} - {n} a side - {s.Phase} - {s.Time:0} s");
                         }
                         var w = System.Diagnostics.Stopwatch.StartNew();
                         var r = AshfallClash.Run(setup, frame);

@@ -21,7 +21,12 @@ public static partial class AshfallMap
     static readonly Lazy<AshfallDraft5> FieldCache = new(() => AshfallDraft5Pass.Run(AshfallField.Default), LazyThreadSafetyMode.ExecutionAndPublication);
 
     /// <summary>The kit pass's result for a layout (draft 10: <see cref="BuildDraft5()"/>; the field: the battlefield ruleset's level with the default parameters), built once and shared.</summary>
-    public static AshfallDraft5 BuildDraft5(AshfallLayout layout) => layout == AshfallLayout.Field ? FieldCache.Value : Draft5Cache.Value;
+    public static AshfallDraft5 BuildDraft5(AshfallLayout layout) => layout switch { AshfallLayout.Field => FieldCache.Value, AshfallLayout.City => CityCache.Value, _ => Draft5Cache.Value };
+
+    static readonly Lazy<AshfallDraft5> CityCache = new(() => AshfallDraft5Pass.Run(AshfallCity.Default), LazyThreadSafetyMode.ExecutionAndPublication);
+
+    /// <summary>Draft 12: an uncached run of the city layout with <paramref name="p"/>.</summary>
+    public static AshfallDraft5 RebuildCity(AshfallFieldParams p) => AshfallDraft5Pass.Run(AshfallCity.Plan(p));
 
     /// <summary>An uncached run of the field layout with <paramref name="p"/> (the checks' determinism and the seed checks).</summary>
     public static AshfallDraft5 RebuildField(AshfallFieldParams p) => AshfallDraft5Pass.Run(AshfallField.Plan(p));
