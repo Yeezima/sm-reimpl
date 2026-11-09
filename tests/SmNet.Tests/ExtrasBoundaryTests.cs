@@ -39,7 +39,7 @@ public class ExtrasBoundaryTests
         ("src/SmSim/JumpWorld.cs", "ExtrasJump"),                  // World.ExtrasJump(int, JumpEventKind), at the end of ResolveJump (Musou: the air slash's landing heals; owner 2026-11-09)
         ("src/SmSim/Stims.cs", "ExtrasStimBoost"),                 // SimConfig.ExtrasStimBoost(ref StimBoost), Musou Mode's combat stims (x3 lifetime, x2 melee, +20 % speed, no ammunition; owner 2026-11-09)
         ("src/SmSim/Stims.cs", "ExtrasThrownBlastScale"),          // SimConfig.ExtrasThrownBlastScale(ThrownSpec?, ref float), Musou Mode's frag blast x2 (owner 2026-11-09)
-        ("src/SmSim/Projectiles.cs", "ExtrasProjectileStop"),      // World.ExtrasProjectileStop(Vector3, Vector3, float, ref float), in Fly before a hit is taken (Musou S4: a shield dome stops a projectile from outside)
+        ("src/SmSim/Projectiles.cs", "ExtrasProjectileStop"),      // World.ExtrasProjectileStop(in ProjectileState, Vector3, float, ref float), in Fly before a hit is taken (Musou S4: a shield dome or a contraption stops a projectile)
         ("src/SmSim/DamageScale.cs", "ExtrasDamageTaken"),         // World.ExtrasDamageTaken(int target, ref float scale), in DamageTakenScale at every player-damage site (Musou: AI Marines take a tenth)
         ("src/SmSim/Teams.cs", "ExtrasStepMatch"),                 // World.ExtrasStepMatch(ref bool handled), top of StepMatch; the core skips its flow when handled (Musou: one side)
         ("src/SmSim/Teams.cs", "ExtrasJoinSide"),                  // World.ExtrasJoinSide(ref Team, ref bool forced), in AssignClass / AssignSide (Musou: Space Marines only, no balance)

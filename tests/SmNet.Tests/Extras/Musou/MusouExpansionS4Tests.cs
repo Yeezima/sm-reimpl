@@ -411,10 +411,10 @@ public class MusouExpansionS4Tests
     {
         var list = new List<MusouContraption>
         {
-            new(1, MusouContraptionKind.ShieldGenerator, MusouContraptionState.Active, 12, new Vector3(10.2f, -33.4f, 2.1f), 800f, 1f, 0f, false, 0),
-            new(7, MusouContraptionKind.Beacon, MusouContraptionState.Active, 13, new Vector3(-50f, 20f, 0f), 200f, 1f, 0f, true, 10),
-            new(9, MusouContraptionKind.Turret, MusouContraptionState.Active, 14, new Vector3(5f, 6f, 7f), 500f, 1f, 1.5f, false, 0),
-            new(255, MusouContraptionKind.Trap, MusouContraptionState.Building, 2047, new Vector3(-1f, -2f, -3f), 150f, 0.4f, 0f, false, 0),
+            new(1, MusouContraptionKind.ShieldGenerator, MusouContraptionState.Active, 12, new Vector3(10.2f, -33.4f, 2.1f), MusouMekRules.ShieldHealth, 1f, 0f, false, 0),
+            new(7, MusouContraptionKind.Beacon, MusouContraptionState.Active, 13, new Vector3(-50f, 20f, 0f), MusouMekRules.BeaconHealth * 0.5f, 1f, 0f, true, 10),
+            new(9, MusouContraptionKind.Turret, MusouContraptionState.Active, 14, new Vector3(5f, 6f, 7f), MusouMekRules.TurretHealth, 1f, 1.5f, false, 0),
+            new(255, MusouContraptionKind.Trap, MusouContraptionState.Building, 2047, new Vector3(-1f, -2f, -3f), MusouMekRules.TrapHealth, 0.4f, 0f, false, 0),
         };
         var bytes = MekWire.Write(list);
         Assert.Equal(1 + list.Count * MekWire.RecordBytes, bytes.Length);
