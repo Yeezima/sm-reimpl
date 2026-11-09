@@ -236,7 +236,7 @@ public class MusouOrkMovementTests(ITestOutputHelper output)
     {
         sim = new MusouSim(null) { Frozen = true };
         var battle = new TfwBattle(sim, new GuardSim(sim), SmNet.Tests.Extras.Musou.Campaign.TfwTestArena.Layout(), 100.0, 1, false, default, TfwBattleRules.EliteBase, guardsmen: true)
-        { Trickle = false, Patrols = false, BossOrksOn = false, StormboysOn = false, BigShootasOn = false, WeirdboyzOn = false, RokkitsOn = false };
+        { Trickle = false, Patrols = false, BossOrksOn = false, StormboysOn = false, BigShootasOn = false, WeirdboyzOn = false, RokkitsOn = false, OrkAggregates = true };   // the 300 m levels of the Ork aggregates (before 2026-11-09; OrkArmyAggregateTests of none)
         battle.Start();
         return battle;
     }

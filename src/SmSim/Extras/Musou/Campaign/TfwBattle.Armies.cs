@@ -30,6 +30,13 @@ public sealed partial class TfwBattle
 
     /// <summary>Whether the battle flow runs (expansion S6; false only in tests that count the old flow alone, as <see cref="Trickle"/>).</summary>
     public bool Armies { get; set; } = true;
+    /// <summary>
+    /// Whether an Ork army keeps an aggregate (the rules before 2026-11-09; <see cref="TfwArmyRules.OldOrkArmies"/>, and tests of the old far layer). Off: an Ork army is real Orks alone (the owner: "completely
+    /// remove those orks from musou mode"): its men are made real wherever it stands, never folded back, what finds no room under the cap is never made, and no Ork aggregate clashes or counts on a point.
+    /// </summary>
+    public bool OrkAggregates { get; set; } = TfwArmyRules.OldOrkArmies;
+    /// <summary>Ork army men never made for want of room (the real cap or the pool; tests and the profile).</summary>
+    public int OrksNeverMade { get; private set; }
     /// <summary>The armies now (the wire's tag 18 and the tests).</summary>
     public IReadOnlyList<TfwArmy> ArmyList => _armies;
     /// <summary>The armies' real Orks alive now (outside the crowds' pool and cap).</summary>
@@ -271,6 +278,7 @@ public sealed partial class TfwBattle
         {
             if (!a.Near && d <= TfwArmyRules.NearMetres) a.Near = true;
             else if (a.Near && d > TfwArmyRules.FarMetres) a.Near = false;
+            if (a.Side == TfwArmySide.Ork && !OrkAggregates) { MakeOrks(a, ref orksUp); continue; }   // real Orks alone (2026-11-09): made wherever the army is, never folded back
             if (a.Near)
             {
                 if (a.Side == TfwArmySide.Ork) PromoteOrks(a, ref orksUp);
@@ -283,6 +291,24 @@ public sealed partial class TfwBattle
     }
 
     /// <summary>
+    /// An Ork army with no aggregate (2026-11-09): the men its muster brought are made real Orks in its slots under the tick's budget (<see cref="TfwArmyRules.PromotePerTick"/>), wherever it stands; those that
+    /// find no room (the armies' real cap, the pool) are never made, so no Ork of an army ever stands as a count no one can fight. What waits for the next tick's budget is a spawn not yet made: never drawn,
+    /// never in a clash, never on a point (a muster brings about one a tick; only the test aid that sends a whole wave at once queues more, for at most a cap's worth over 24 ticks).
+    /// </summary>
+    void MakeOrks(TfwArmy a, ref int budget)
+    {
+        PromoteOrks(a, ref budget);
+        if (a.Far < 1f) return;
+        int room = Math.Max(0, Math.Min(TfwArmyRules.NearOrksMost - ArmyOrksAlive, MusouSim.Capacity - TfwBattleRules.PoolReserve - _enemies.Alive));
+        if (a.FarCount <= room) return;
+        int drop = a.FarCount - room;
+        OrksNeverMade += drop;
+        if (a.Far > 0f) a.FarElites = MathF.Max(0f, a.FarElites * (1f - drop / a.Far));
+        a.Far = MathF.Max(0f, a.Far - drop);
+        if (a.Far < 1f) { a.Far = 0f; a.FarElites = 0f; }
+    }
+
+    /// <summary>
     /// 2026-11-09 (300 m levels): with the real units' cap full and a near army still partly aggregate, the farthest armies at least <see cref="TfwArmyRules.RoomMargin"/> farther fold back their real units
     /// beyond <see cref="TfwArmyRules.CoreFarMetres"/> of every human (under the tick's demotion budget), so the fight nearest the players is the one that is real.
     /// </summary>
@@ -292,7 +318,7 @@ public sealed partial class TfwBattle
         foreach (var (d, a) in _byDistance)
         {
             if (!a.Near || a.FarCount < 1) continue;
-            if (a.Side == TfwArmySide.Ork && float.IsNaN(orkWant) && ArmyOrksAlive > TfwArmyRules.NearOrksMost - TfwArmyRules.PromotePerTick) orkWant = d;
+            if (a.Side == TfwArmySide.Ork && OrkAggregates && float.IsNaN(orkWant) && ArmyOrksAlive > TfwArmyRules.NearOrksMost - TfwArmyRules.PromotePerTick) orkWant = d;
             if (a.Side == TfwArmySide.Guard && float.IsNaN(squadWant) && ArmySquads >= TfwArmyRules.NearSquadsMost) squadWant = d;
         }
         if (float.IsNaN(orkWant) && float.IsNaN(squadWant)) return;
@@ -528,6 +554,7 @@ public sealed partial class TfwBattle
     /// <summary>Whether an aggregate of Orks stands at position <paramref name="k"/> (it counts there as real Orks do).</summary>
     bool ArmyOrksOn(int k)
     {
+        if (!OrkAggregates) return false;   // 2026-11-09: no Ork aggregate; the real Orks on the point count as every Ork does
         foreach (var a in _armies) if (a.Side == TfwArmySide.Ork && AtPoint(a, k) && a.FarCount > 0 && a.Closing <= 0f) return true;
         return false;
     }
@@ -558,6 +585,7 @@ public sealed partial class TfwBattle
             foreach (var a in _armies)
             {
                 if (!AtPoint(a, k) || a.Far < 1f) continue;   // musou/perf-pass: a fraction of a man is no remainder
+                if (a.Side == TfwArmySide.Ork && !OrkAggregates) continue;   // 2026-11-09: an Ork army's men not yet made real never fight as a count
                 if (a.Side == TfwArmySide.Ork) { if (a.Closing <= 0f) _clashOrks.Add(a); }
                 else _clashGuards.Add(a);
             }

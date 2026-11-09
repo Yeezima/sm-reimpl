@@ -22,8 +22,18 @@ public static class TfwArmyRules
     public const float RoomMargin = 30f;
     /// <summary>Real units made from the aggregates a tick, over all armies (Orks; Guard squads), and folded back a tick: no frame spawns or removes hundreds.</summary>
     public const int PromotePerTick = 16, PromoteSquadsPerTick = 1, DemotePerTick = 32, DemoteSquadsPerTick = 2;
-    /// <summary>Most real Orks and Guard squads the armies hold at once (the pool's new 512 slots less a margin; GuardSim's 40 squads less the field's 12).</summary>
-    public const int NearOrksMost = 480, NearSquadsMost = 28;
+    /// <summary>
+    /// Most real Orks and Guard squads the armies hold at once (the pool's new 512 slots less a margin; GuardSim's 40 squads less the field's 12). The Orks' 480 is 384 since 2026-11-09 (the owner: "reduce the
+    /// total amount of orks on the map to 80% of current"; with no aggregate it is also the most Orks all the armies have together).
+    /// </summary>
+    public const int NearOrksMost = 384, NearSquadsMost = 28;
+    /// <summary>
+    /// The owner, 2026-11-09: "there are currently on occasion large rectangular formations of orks that move from their points to imperial captured points. they walk through objects, don't interact with the
+    /// world or fight. completely remove those orks from musou mode." Those were the Ork armies' aggregates drawn as impostors (900 at most on a client). Since then an Ork army is made of real Orks alone: a
+    /// wave musters real Orks at its stronghold up to <see cref="NearOrksMost"/> over all armies (the rest of its dice is never made), they march, fight and die as every Ork does, at any distance, and none is
+    /// folded back. The Guard armies keep their aggregates. The server's <c>SM_TFW_OLD_ORK_ARMIES=1</c> (with the client's <c>--musou-old-ork-armies</c> to draw them) restores the aggregates (test aid).
+    /// </summary>
+    public static readonly bool OldOrkArmies = Environment.GetEnvironmentVariable("SM_TFW_OLD_ORK_ARMIES") == "1";
     /// <summary>Most armies at once.</summary>
     public const int MaxArmies = 40;
 
@@ -37,13 +47,14 @@ public static class TfwArmyRules
     public const float RouteSeconds = 5f;
     public const int RouteExpansions = 200_000;
 
-    // Waves (the brief): peaks every 3-5 min, lulls of 90-150 s; 200 (70 %), 500 (25 %), 1,000 or more (5 %).
+    // Waves (the brief): peaks every 3-5 min, lulls of 90-150 s; 200 (70 %), 500 (25 %), 1,000 or more (5 %). Since 2026-11-09 80 % of each (the owner: "reduce the total amount of orks on the map to
+    // 80% of current"): 160, 400, 800 and up to 160 more; and with no aggregate a wave is what the armies' real cap leaves room for.
     public const float LullMin = 90f, LullMax = 150f, PeakMin = 180f, PeakMax = 300f;
     /// <summary>A wave is seen gathering at its stronghold this long before it leaves (its aggregate grows to its size).</summary>
     public const float MusterSeconds = 30f;
     /// <summary>With no Imperial position to attack a mustered wave waits, looking again this often.</summary>
     public const float WaitRecheck = 5f;
-    public const int SmallWave = 200, MediumWave = 500, LargeWave = 1000, LargeExtraMost = 200;
+    public const int SmallWave = 160, MediumWave = 400, LargeWave = 800, LargeExtraMost = 160;   // 200, 500, 1000, 200 before 2026-11-09
     public const float SmallShare = 0.70f, MediumShare = 0.25f;
     /// <summary>The two farthest Imperial positions are drawn between (the brief: "random among the two farthest").</summary>
     public const int FarthestDraw = 2;
@@ -292,6 +303,8 @@ public sealed class TfwArmy
     public int Leaves { get; set; }
     /// <summary>The wave's planned size while it musters.</summary>
     public int Planned { get; set; }
+    /// <summary>Men the muster has brought so far (real Ork armies: what was made real or could not be, so a full cap ends the muster's growth instead of counting it again).</summary>
+    public float Mustered { get; set; }
     /// <summary>Men lost so far (aggregate and real).</summary>
     public int Lost { get; set; }
     /// <summary>Real men alive now (kept by the battle each tick).</summary>

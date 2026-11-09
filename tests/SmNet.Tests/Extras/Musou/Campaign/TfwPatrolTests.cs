@@ -146,11 +146,11 @@ public class TfwPatrolTests(Xunit.Abstractions.ITestOutputHelper output)
             {
                 Run(sim, battle, 30, ref tick);
                 int garrisons = battle.Garrisoned(0) + battle.Garrisoned(1) + battle.Garrisoned(2);
-                int counted = sim.Alive - garrisons - battle.Trickled;
+                int counted = sim.Alive - garrisons - battle.Trickled - battle.ArmyOrksAlive;   // the armies' real Orks stand outside the cap (real at any distance since 2026-11-09)
                 Assert.True(counted <= TfwBattleRules.AliveCap(1), $"{counted} counted at {s} s (patrols {patrols})");
                 most = Math.Max(most, sim.Alive);
             }
-            Assert.True(most <= TfwBattleRules.AliveCap(1) + 3 * TfwBattleRules.Garrison + TfwBattleRules.TrickleCap(1), $"{most} alive at most");
+            Assert.True(most <= TfwBattleRules.AliveCap(1) + 3 * TfwBattleRules.Garrison + TfwBattleRules.TrickleCap(1) + TfwArmyRules.NearOrksMost, $"{most} alive at most");
         }
     }
 

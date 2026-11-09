@@ -39,10 +39,12 @@ public sealed partial class TfwBattle
         if (_muster is null && _now >= _nextDeparture - Ticks(TfwArmyRules.MusterSeconds)) StartMuster();
         if (_muster is not { } m) return;
         float rate = m.Planned / MathF.Max(1f, TfwArmyRules.MusterSeconds) * Dt;
-        if (m.Far < m.Planned)
+        float brought = OrkAggregates ? m.Far : m.Mustered;   // real Ork armies (2026-11-09): the muster's men are made real at once, so its count is what it brought
+        if (brought < m.Planned)
         {
-            float add = MathF.Min(rate, m.Planned - m.Far);
+            float add = MathF.Min(rate, m.Planned - brought);
             m.Far += add;
+            m.Mustered += add;
             m.FarElites += add * m.EliteShare;
         }
         bool lost = !Stronghold(m.From);   // its stronghold was taken: it goes with what it has

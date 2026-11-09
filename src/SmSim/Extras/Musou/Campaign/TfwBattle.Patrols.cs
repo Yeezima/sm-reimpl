@@ -13,7 +13,7 @@ public static class TfwPatrolRules
     /// <remarks>Expansion S3 (owner brief 2026-11-07): the Stormboy squads replace the hunter columns (<see cref="TfwStormboyRules"/>), so <see cref="Hunters"/> is 0 (was 2); the hunter code stays for a later use.</remarks>
     public const int RoutePatrols = 4, Hunters = 0;
     /// <summary>Orks in one column (fodder only). They come out of the crowds' cap (<see cref="TfwBattleRules.AliveCap"/>): the map holds no more Orks than before, only some of them march instead of standing in a crowd.</summary>
-    public const int Size = 40;
+    public const int Size = 32;   // 40 until 2026-11-09, then 80 % (the owner: "reduce the total amount of orks on the map to 80% of current")
     /// <summary>A route patrol's march and a hunter column's (both under every Ork's run speed, so the ranks keep up).</summary>
     public const float PatrolSpeed = 2.6f, HunterSpeed = 3.4f;
     /// <summary>A column's Orks notice a target this near their own places in the ranks; one that does wakes the whole column, which goes for the players as one pack.</summary>
