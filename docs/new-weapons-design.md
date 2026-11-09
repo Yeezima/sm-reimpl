@@ -1,6 +1,6 @@
 # New weapons and equipment for Musou Mode: lightning claw, power spear, autocannon, demolition charge (design, 2026-11-10)
 
-**Status:** design, round 3 (the demolition charge redone to the owner's answers D6 to D9). No product code yet. Branch `claude/new-weapons-design`.
+**Status:** design, round 4 (the demolition charge to the owner's answers D6 to D9 and his rolling ring). No product code yet. Branch `claude/new-weapons-design`.
 
 **Owner's request (2026-11-10, verbatim):** "What cool new gameplay content can we add? Lightning claws for assault marine, Autocannon for devastator
 class ranged weapon that functions like the one in the campaign, new equipments. Start work on lightning claws, power spear for assault marine, auto
@@ -350,7 +350,9 @@ Code: the impale is Musou code on the existing `ExtrasJump` hook (`JumpEventKind
 | Both of Favor's charges out at once | allowed | ours (the data's one-out rule, `det_pack_deployed`, served the remote trigger, which is gone) |
 | Reward cards | offered from the class's list | Musou's existing rule |
 
-**Blast (D8). The install's numbers first, then ours.**
+**Blast (D8 and the owner's ring, 2026-11-10). The install's numbers first, then ours.**
+
+The owner, verbatim: "The explosion for the demotion Charge needs to roll a little bit - one explosion at a time in quick succession in a ring around the charge. Forming a circle for explosion spots at the end."
 
 | | Damage at the centre | Radius | Fall-off (distance → share) | Extra |
 |---|---|---|---|---|
@@ -358,36 +360,64 @@ Code: the impale is Musou code on the existing `ExtrasJump` hook (`JumpEventKind
 | Frag in Musou today (×2 reach) | 200 | 20 m | 5 → 1, 5.2 → 0.5, 10 → 0.5, 10.2 → 0.3, 14 → 0.3, 20 → 0.05 | — |
 | **Charge, data** (`pp_grenade_remote_detonation`) | 200 (two blasts of 100) | 10 m | 4 → 1, 6 → 0.75, 10 → 0.3 | the first throws bodies (force medium), the second staggers |
 | Charge, data, Master-Crafted (`…_upgraded`) | 250 (150 + 100) | 15 m | 6 → 1, 9 → 0.75, 15 → 0.3 | as above |
-| **Charge, ours (recommended)** | **400** (two blasts of 200) | **25 m** | **10 → 1, 15 → 0.75, 25 → 0.3** (the data's curve, distances ×2.5) | Boss Orks and the Warboss take ×3 (1200 at the centre); more Orks fly (below) |
 
-How they compare:
-- At the same 10 m radius, the data's charge is already the stronger blast. It deals the frag's 200, but keeps full damage to 4 m against the frag's 2.5 m and 0.75 at 6 m against the frag's 0.3.
-- But Musou doubles the frag's reach, so the data's charge as it stands would reach half as far as a Musou frag. D8 asks for wider and stronger than a frag, hence ours.
+At the same 10 m radius, the data's charge is already the stronger blast:
+- it deals the frag's 200, but keeps full damage to 4 m against the frag's 2.5 m;
+- at 6 m it still does 0.75, against the frag's 0.3.
 
-| Distance | Musou frag | Data charge | Ours |
+But Musou doubles the frag's reach, so the data's charge as it stands would reach half as far as a Musou frag. D8 asks for wider and stronger, hence ours.
+
+**Ours: a centre blast, then a rolling ring** (every value an estimate unless named).
+
+| Part | Value |
+|---|---|
+| Centre blast | When the fuse runs out, at the charge: **400** (the data's two blasts, ×2), r **10 m**, the data's curve (4 → 1, 6 → 0.75, 10 → 0.3). Boss Orks and the Warboss take ×3 (**1,200**): this is the hit a Boss takes when the charge is stuck on him. Open question 16. |
+| Ring | **12 spots** on a circle of **12 m** around the point where the charge went off, 30° apart (6.2 m between neighbours). |
+| Order | One at a time, going round clockwise seen from above, from a start angle fixed by the charge's projectile id (id × 137.5°), so the server and every client agree without a message. |
+| Pace | The first spot **0.1 s** after the centre blast (3 ticks), then one every **0.067 s** (2 ticks at 30 Hz). The 12th goes off at **0.83 s**: the whole roll lasts under a second. |
+| Each spot | A blast of **200**, r **7 m**, the data's curve scaled ×0.7 (2.8 → 1, 4.2 → 0.75, 7 → 0.3), line of sight from the spot. Boss Orks and the Warboss ×3 (600). |
+| Who a spot hurts | **Each spot hurts on its own, in its own tick, but an enemy is hurt by the ring only once**: by the first spot that reaches him, at that spot's share (open question 15). The centre blast counts separately. |
+| Where a spot sits | The ring point at the charge's height, dropped to the ground below it (a ray down, at most 6 m). If a wall stands between the charge and the ring point, the spot goes off at the wall's face. With no ground within 6 m it goes off in the air. The ring stays where the charge went off even if it was riding an Ork. |
+| Thrown Orks | The kills fly away **from the spot that killed them**, so the Orks are thrown outward in a wave that runs round the ring. Up to 40 per charge (open question 12): the whole roll counts as one throw for the cap. Survivors are knocked down and thrown back up to 6 m from their spot; Nobs half; Boss Orks stagger; the Warboss is stagger-immune. |
+| Master-Crafted Wargear | The data's own upgrade ratio (damage ×1.25, reach ×1.5) on every part: centre 500 within 15 m, the ring at 18 m with spots of 250 within 10.5 m (open question 13). |
+| The circle at the end | Each spot's effect is played long enough (1.0 s, ours) that the first spot is still burning when the last goes off: for a moment the full circle of explosions stands round the charge, then they fade together. |
+
+How far it reaches, on a line through a spot (centre blast + the ring's one hit; between two spots it is at most 6 % less):
+
+| Distance from the charge | Musou frag | Data charge | Ours |
 |---|---|---|---|
-| 5 m | 200 | 175 | 400 |
-| 10 m | 100 | 60 | 400 |
-| 15 m | 52 | — | 300 |
-| 20 m | 10 | — | 210 |
-| 25 m | — | — | 120 |
+| 5 m | 200 | 175 | 410 (350 + 60) |
+| 10 m | 100 | 60 | 320 (120 + 200) |
+| 12 m | 60 | — | 200 |
+| 15 m | 52 | — | 193 |
+| 19 m | 10 | — | 60 |
 
-What ours does to the Musou Orks (body health from `MusouTypes`; estimate):
-- **Boyz and smaller** (Gretchin 30, Boy and Shoota Boy 85, Stormboy 120): die anywhere in the 25 m.
-- **'Ard Boyz** (170): die within about 22 m.
-- **Nobs** (600): survive, knocked down and thrown back.
-- **Boss Orks** (at least 3,000): lose up to 1,200, which is 40 % of the smallest.
-- **The Warboss** (15,000): loses up to 1,200, which is 8 %.
+What ours does to the Musou Orks (body health from `MusouTypes`):
+- **Boyz** (Boy and Shoota Boy 85, Gretchin 30): die out to about 18 m.
+- **'Ard Boyz** (170): die out to about 15 m.
+- **Nobs** (600): survive anywhere, knocked down and thrown.
+- **A Boss Ork** (at least 3,000): loses 1,200 with the charge stuck on him (40 % of the smallest), up to 600 more if he stands in the ring.
+- **The Warboss** (15,000): loses the same 1,200 (8 %).
 
-| Throwing the Orks | Recommended | Kind / source |
+**Effects and sounds per spot (install, Verified-local by blueprint).**
+
+| Piece | Choice | Source |
 |---|---|---|
-| Kills that fly as corpses | up to **40** per charge, nearest first; the rest torn apart as now | estimate (the owner's limit for a frag throw is 20; open question 12) |
-| Survivors | knocked down and thrown back up to **6 m** with a lift (Musou's blast knockback is 2 m), scaled by the intensity; Nobs half; Boss Orks stagger; the Warboss is stagger-immune | estimate |
-| Master-Crafted Wargear | the data's own upgrade ratio on ours: damage ×1.25, reach ×1.5 (500 at the centre, 37.5 m) | data ratio on an estimate (open question 13) |
+| Centre blast | the data's own: `squig_explosion` (×1.5 in the data; scaled to the 10 m, ours), `play_sm_grenade_explode`, the camera shake | `pp_grenade_remote_detonation` |
+| Each spot | the frag's explosion `frag_grenade_explosion` (data: scale 0.6, length 0.6; played at length 1.0 for the closing circle, ours) | `pp_grenade_multiplayer` |
+| Each spot's sound | `play_sm_grenade_explode_mp`, the frag's, on every third spot (4 of 12) and none on the rest, so 13 explosions in under a second do not swamp the mix (the owner's sound-overload concern; ours) | `pp_grenade_multiplayer` |
+| Not used | `krak_grenade_explosion` (the blind grenade's flash: reads as a blinding flash, not a blast); the melta bomb's `emp_grenade` and lingering `grenadier_sticky_tar` (a slow burn, not a roll) | `pp_grenade_krak_multiplayer`, `pp_grenade_meltabomb_multiplayer` |
+
+**Network budget: no new event.**
+- The charge's detonation is already on the wire: the projectile record's detonated flag, kept 3 ticks.
+- The client starts the ring from that record, the item index and the projectile id. It places the spots with its own collision world and plays them on the same tick schedule as the server.
+- Damage is server-side, spot by spot. The Orks' hits, deaths and throws arrive through Musou's existing entity updates.
+- With "each enemy once by the ring", one charge sends as many hit events as a single blast would.
+- The ring is fully determined by the charge's position, id and the map, so no spot needs its own message.
 
 **Presentation.**
 - Model: the data names the Ork stikkbomb, a stand-in. Recommended: the install's melta bomb model (`melta_bomb.oppc`, a marine item), loaded at run time; checked in the first still (open question 14).
-- Effects and sounds: the data's: fuse `ork_frag_grenade_fuse` while it burns, `squig_explosion` (×1.5 in the data; scaled with the radius, ours), `play_sm_grenade_toss`, `play_sm_grenade_explode`, `play_frag_grenade_trail_mp`, the camera shake. The throw effect `test_xyz` is a placeholder and is not played.
+- Effects and sounds: the data's toss sound `play_sm_grenade_toss`, trail `play_frag_grenade_trail_mp` and fuse `ork_frag_grenade_fuse` while it burns; the blast's as in the table above. The throw effect `test_xyz` is a placeholder and is not played.
 - Customizer row and HUD: the data's name and description (105800, 105801); the action text 120190 ("to Throw or Detonate") does not fit a fused charge and is not shown. Icon `remotedetonation_mp` if the HUD files hold it, else a placeholder. Name: the install's "Remote Detonators" or the owner's "Demolition Charge" (open question 14).
 
 **Code.**
@@ -396,7 +426,8 @@ What ours does to the Musou Orks (body health from `MusouTypes`; estimate):
 - Musou code (W4):
   - sticking to and riding on Orks and contraptions (the server moves it; the wire already carries its position and attached flag);
   - the fuse from the moment it sticks;
-  - the blast's bigger thrown-corpse limit, the knockback and the ×3 against Bosses;
+  - the centre blast and the ring's twelve spots on their tick schedule (each enemy once by the ring), the bigger thrown-corpse limit, the knockback from each spot and the ×3 against Bosses;
+  - the client's ring: the same spots and schedule from the detonation record, with the effects and sounds above;
   - the 30 s refill (one per-item period in `World.TfwSupply.cs`, which W0 adds).
 
 ---
@@ -409,7 +440,7 @@ What ours does to the Musou Orks (body health from `MusouTypes`; estimate):
 | **W1: autocannon** | implementer A | `…/Musou/Arsenal/Autocannon.cs` (SmContent: the loyalist twin and its numbers; SmSim: the splash on hit-scan shots), `client/Extras/Musou/Arsenal/Autocannon/*`, `tests/*/Extras/Musou/Arsenal/Autocannon*` | Picked in the Musou loadout, fired, overheated, splash on Orks; player and third-person stills; targeted tests. |
 | **W2: lightning claw** | implementer B | `…/Musou/Arsenal/LightningClaw.cs`, `client/Extras/Musou/Arsenal/Claw/*`, `tests/*/Extras/Musou/Arsenal/Claw*` | A string, the heavies, a charge and a dive with the claw; the edge against big Orks; stills; the speed-up checked in a clip against the simulation's hits. |
 | **W3: power spear** | implementer C | `…/Musou/Arsenal/PowerSpear.cs`, `client/Extras/Musou/Arsenal/Spear/*`, `tests/*/Extras/Musou/Arsenal/Spear*` | The sweeps hit a half circle; the impaling dive kills a Nob outright; the hammer's jump rules; stills and a clip. |
-| **W4: demolition charge** | implementer D | `…/Musou/Arsenal/DemolitionCharge.cs`, `client/Extras/Musou/Arsenal/Charge/*`, `tests/*/Extras/Musou/Arsenal/Charge*` | Throw; stick to the level, a contraption, an Ork, a Boss Ork and the Warboss, riding along; the 3 s fuse; the blast's numbers, the thrown corpses and the knockback; 1 carried (2 with Favor of the Armory), one back every 30 s; stills and a clip. |
+| **W4: demolition charge** | implementer D | `…/Musou/Arsenal/DemolitionCharge.cs`, `client/Extras/Musou/Arsenal/Charge/*`, `tests/*/Extras/Musou/Arsenal/Charge*` | Throw; stick to the level, a contraption, an Ork, a Boss Ork and the Warboss, riding along; the 3 s fuse; the centre blast and the rolling ring (spots, pace, each enemy once, the closing circle, the same spots on the client as on the server, no new event); the thrown corpses and the knockback; 1 carried (2 with Favor of the Armory), one back every 30 s; stills and a clip. |
 | W5 (later, if wanted): tripod autocannons | after W1 | Musou map placement, interaction, carried state, the campaign's pickup, drop and turret clips | Man, rip off, carry, drop. |
 
 **Core hooks W0 adds.** Each is a partial `Extras*` method, pinned and marked `// EXTRAS-HOOK`, a no-op without the Musou flag. The names are proposals.
@@ -450,7 +481,8 @@ Process:
 | Speeding up melee clips desynchronises the simulation and the client | W0 checks the Fast Stomp path; W2 and W3 compare the simulated hit tick with the clip's contact in a clip. |
 | The spear turned point-down for the dive is ours | Shown to the owner in the first still. |
 | A charge riding an Ork that dies, is thrown by another blast, or a contraption destroyed under it | W4: it drops where its carrier was and the fuse runs on (ours); a test for each case. |
-| 40 flying corpses and a 25 m blast in one frame | W4 measures the frame time with a charge in a full Musou crowd; the owner's cap of 20 stays if it costs too much. |
+| 40 flying corpses and 13 explosions in under a second | W4 measures the frame time and the sound mix with a charge in a full Musou crowd; the owner's cap of 20 and fewer spot sounds if it costs too much. |
+| The client's ring drifting from the server's | Both place the spots from the same collision world (the map's collision hash is checked at join); W4 compares the spot positions of a server and a client run. The ring is drawn only; its damage comes from the server. |
 | Musou damage scale | The new numbers are set against the Musou Orks in a playtest, not only against marines. |
 | Other Musou sessions edit the same Musou files | W0's call sites go in after the current ship, sequenced by the lead; W1 to W4 then touch only their own files. |
 
@@ -469,6 +501,8 @@ Process:
 9. **Impaling dive:** on landing, the enemy nearest the point (within 2 m) takes 600, enough to kill a Nob outright, and the pack's normal stun blast still goes off around it (recommended)? Should the air slash's landing impale too? Recommended: no, only the dive.
 10. **Spear and the jump pack:** the hammer's rules (swing during a hop, no delay before a dive; recommended)?
 11. **Charge carriers:** every Musou class, the Librarian included (recommended)? Or only some classes?
-12. **Charge, flying Orks:** up to 40 corpses fly from one charge (recommended), or your frag limit of 20? And the rest of the blast as proposed: 400 at the centre, 25 m, three times the damage against Boss Orks and the Warboss, survivors thrown back up to 6 m, a 3 s fuse?
-13. **Charge with Master-Crafted Wargear:** the game file's own upgrade ratio (damage ×1.25 and reach ×1.5: 500 and 37.5 m; recommended)? Or damage only?
+12. **Charge, flying Orks:** up to 40 corpses fly from one charge (recommended), or your frag limit of 20? And the rest as proposed: a 3 s fuse; 12 spots on a 12 m ring, one every 0.067 s, the roll done in 0.83 s; 200 a spot; Boss Orks and the Warboss taking three times the damage; survivors thrown back up to 6 m?
+13. **Charge with Master-Crafted Wargear:** the game file's own upgrade ratio, damage ×1.25 and reach ×1.5, on the centre and the ring (centre 500 within 15 m, the ring at 18 m; recommended)? Or damage only?
 14. **Charge look and name:** the install's melta bomb model (a marine item; recommended) or the data's Ork stikkbomb? Called "Remote Detonators" (the install's name) or "Demolition Charge"?
+15. **Charge ring, damage per spot:** does each spot hurt on its own, with an Ork hurt only by the first spot that reaches him (recommended: the damage follows the explosions round the ring, and a spot never stacks with its neighbours)? Or do the spots stack on an Ork between two of them? Or are the spots only for the eye, with the damage one blast at the centre?
+16. **Charge ring, centre blast:** does the charge itself go off first at the centre (400 within 10 m, 1,200 on a Boss it is stuck to; recommended), with the ring rolling out from it? Or is it the ring alone, so a charge stuck on a Boss hurts him only through the ring?
