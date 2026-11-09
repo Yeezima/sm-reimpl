@@ -65,7 +65,7 @@ public sealed partial class World
 
     /// <summary>
     /// A Boss Ork's cleave on the Guardsmen, by the players' cleave's rules (<see cref="MusouCleave"/>): its reach is its own melee reach plus its body, a Guardsman's and
-    /// <see cref="MusouCombatRules.CleaveExtraRange"/>; its arc the core's melee cone times <see cref="MusouCombatRules.CleaveConeScale"/>; at most <see cref="TfwCombatRules.CleaveTargets"/>, nearest first;
+    /// <see cref="MusouCombatRules.CleaveExtraRange"/>; its arc the core's melee cone times <see cref="MusouCombatRules.CleaveConeScale"/>; at most <see cref="TfwCombatRules.BossCleaveTargets"/>, nearest first;
     /// each falls or dies as a fodder Ork the players strike (<see cref="GuardSim.Cleave"/>). How many it struck (0: none in its arc, and the blow lands as any other).
     /// </summary>
     int TfwGuardCleave(GuardSim guards, in MusouEnemy boss, float damage)
@@ -77,7 +77,7 @@ public sealed partial class World
         float reach = spec.MeleeRange + spec.Radius + guards.Rules.Radius + combat.CleaveExtraRange;
         float minCos = MathF.Cos(MathF.Min(180f, Config.MeleeConeDegrees * combat.CleaveConeScale) * MathF.PI / 180f);
         var forward = new System.Numerics.Vector2(-MathF.Sin(boss.Yaw), MathF.Cos(boss.Yaw));
-        int struck = guards.Cleave(boss.Position, forward, reach, minCos, war.CleaveTargets, damage, war);
+        int struck = guards.Cleave(boss.Position, forward, reach, minCos, war.BossCleaveTargets, damage, war);
         TfwBestGuardCleave = Math.Max(TfwBestGuardCleave, struck);
         return struck;
     }

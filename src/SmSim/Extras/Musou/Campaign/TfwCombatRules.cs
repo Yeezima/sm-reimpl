@@ -15,6 +15,9 @@ public sealed record TfwCombatRules
     /// <summary>Most enemies one swing strikes, nearest first (the owner: "up to 20"; 2026-11-09: "raise the cleave cap up to 40 orks in one swing").</summary>
     public int CleaveTargets { get; init; } = 40;
 
+    /// <summary>Most Guardsmen one Boss Ork swing strikes (20: the cleave cap before the players' 2026-11-09 raise to 40, which was for the players' swings only).</summary>
+    public int BossCleaveTargets { get; init; } = 20;
+
     /// <summary>
     /// The players' melee volume in the war (owner, 2026-11-09: "extend the melee hitbox outward and forward of the player in a flat cone - they should reach out further for cleaving purposes"; ours,
     /// low confidence: about +50 % reach, 120 degrees to each side in place of 90): the cleave's reach (<see cref="MusouCombatRules.CleaveRange"/>) times <see cref="CleaveReachScale"/>, within

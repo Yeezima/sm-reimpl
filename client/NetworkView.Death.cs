@@ -216,7 +216,7 @@ public partial class NetworkView
                     RemoveRagdoll(oldest);
                 }
                 int slot = Enumerable.Range(0, Ragdoll.MaxSlots).FirstOrDefault(s => !_ragdolls.Any(r => r.Simulating && r.Slot == s), -1);
-                if (slot < 0) continue;   // every physics slot simulating (only when added content keeps more corpses than the cap): this death gets no ragdoll
+                if (slot < 0) { MarineDeathForget(id); continue; }   // every physics slot simulating (only when added content keeps more corpses than the cap): this death gets no ragdoll
                 EnsureRagdollWorld();
                 rd = new Ragdoll { Name = $"Ragdoll{id}", PlayerId = id, Own = own, StartedAt = _connectedFor };
                 _gameSpace.AddChild(rd);
