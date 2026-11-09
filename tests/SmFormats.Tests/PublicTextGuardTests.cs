@@ -65,10 +65,47 @@ public class PublicTextGuardTests
     static string? Distinctive(string? name) =>
         string.IsNullOrWhiteSpace(name) || name.Trim().Length < 4 || PackageScanner.IsPlaceholderUser(name.Trim()) || GenericNames.Contains(name.Trim()) ? null : name.Trim();
 
-    static Regex Word(string s) => new(@"(?<![A-Za-z0-9])" + Regex.Escape(s) + @"(?![A-Za-z0-9])", RegexOptions.IgnoreCase);
+    /// <summary>
+    /// The running user's name where it identifies someone, never as a plain word (review, 2026-11-10: a user called "main" or "runner" must not fail on "merge into main" or "the
+    /// test runner"): as the folder after <c>\Users\</c>, <c>/Users/</c> or <c>/home/</c> (also <c>/c/Users/</c>), or as a token of an e-mail's local part (a GitHub noreply address is public).
+    /// </summary>
+    internal static Func<string, bool> UserNameRule(string name)
+    {
+        string n = Regex.Escape(name);
+        var path = new Regex(@"(?:[\\/]Users[\\/]+|/home/)" + n + @"(?![A-Za-z0-9_-])", RegexOptions.IgnoreCase);
+        var token = new Regex(@"(?<![A-Za-z])" + n + @"(?![A-Za-z])", RegexOptions.IgnoreCase);
+        return line =>
+        {
+            if (path.IsMatch(line)) return true;
+            if (!line.Contains('@')) return false;
+            foreach (Match m in PackageScanner.Email.Matches(line))
+            {
+                string domain = m.Groups["domain"].Value;
+                if (domain.EndsWith("noreply.github.com", StringComparison.OrdinalIgnoreCase)) continue;
+                string local = m.Value[..m.Value.IndexOf('@')];
+                if (token.IsMatch(local)) return true;
+            }
+            return false;
+        };
+    }
+
+    /// <summary>
+    /// The machine's name only where it names a host, never as a plain word (a machine called "MAIN" must not fail on "the MAIN menu"): a UNC or URL host (<c>\\name\</c>, <c>//name/</c>),
+    /// a local-network host name (<c>name.local</c>, <c>.lan</c>, <c>.home</c>, <c>.internal</c>, <c>.localdomain</c>), or a host, machine or computer name setting (<c>hostname: name</c>).
+    /// </summary>
+    internal static Func<string, bool> MachineNameRule(string name)
+    {
+        string n = Regex.Escape(name);
+        var host = new Regex(
+            @"(?:\\\\|//)" + n + @"(?=[\\/:]|\s|$)" +
+            @"|(?<![A-Za-z0-9-])" + n + @"\.(?:local|lan|home|internal|localdomain)(?![A-Za-z0-9-])" +
+            @"|(?:host|machine|computer)(?:[ _-]?name)?\s*[=:]\s*[""'`]?" + n + @"(?![A-Za-z0-9-])",
+            RegexOptions.IgnoreCase);
+        return host.IsMatch;
+    }
 
     /// <summary>Every rule that a line of text breaks (names only).</summary>
-    internal static IEnumerable<string> Rules(string line, IReadOnlyList<(string Rule, Regex Pattern)> local)
+    internal static IEnumerable<string> Rules(string line, IReadOnlyList<(string Rule, Func<string, bool> Breaks)> local)
     {
         if (line.Contains("Users", StringComparison.OrdinalIgnoreCase))
         {
@@ -87,8 +124,8 @@ public class PublicTextGuardTests
         if (line.Contains("webhooks/", StringComparison.OrdinalIgnoreCase) && PackageScanner.Webhook.IsMatch(line)) yield return "discord-webhook";
         if (line.Contains('.') && PackageScanner.BotToken.IsMatch(line)) yield return "discord-bot-token";
         if (line.Contains("7656119", StringComparison.Ordinal) && SteamId64.IsMatch(line)) yield return "steam-id";
-        foreach (var (rule, pattern) in local)
-            if (pattern.IsMatch(line)) yield return rule;
+        foreach (var (rule, breaks) in local)
+            if (breaks(line)) yield return rule;
     }
 
     [Fact]
@@ -99,9 +136,9 @@ public class PublicTextGuardTests
         if (files is null) return;   // no git here (the source zip): the release scan's job
         Assert.True(files.Count > 100, $"git ls-files listed {files.Count} files");
 
-        var local = new List<(string, Regex)>();
-        if (Distinctive(Environment.UserName) is { } user) local.Add(("local-user-name", Word(user)));
-        if (Distinctive(Environment.MachineName) is { } machine) local.Add(("machine-name", Word(machine)));
+        var local = new List<(string, Func<string, bool>)>();
+        if (Distinctive(Environment.UserName) is { } user) local.Add(("local-user-name", UserNameRule(user)));
+        if (Distinctive(Environment.MachineName) is { } machine) local.Add(("machine-name", MachineNameRule(machine)));
 
         var findings = new List<string>();
         foreach (string rel in files)
@@ -133,6 +170,40 @@ public class PublicTextGuardTests
         string line = template.Replace("%S%", "\\").Replace("%U%", "Users").Replace("%AT%", "@").Replace("%D%", "8000000000");
         Assert.Contains(rule, Rules(line, []));
     }
+
+    /// <summary>A synthetic line assembled at run time (%S% a backslash, %U% Users, %H% home, %AT% an at sign), so this file trips none of the rules it tests.</summary>
+    static string Fix(string t) => t.Replace("%S%", "\\").Replace("%U%", "Users").Replace("%H%", "home").Replace("%AT%", "@");
+
+    /// <summary>Review, 2026-11-10: a common-word account name (a CI user "runner", "main") or a public account name is not a finding as a plain word or in a noreply address.</summary>
+    [Theory]
+    [InlineData("main", "merge into main as soon as it is verified")]
+    [InlineData("runner", "the test runner starts every class")]
+    [InlineData("main", "X:%S%mainline%S%build and /srv/main/data")]
+    [InlineData("someone", "https://github.com/someone/sm-reimpl")]
+    [InlineData("someone", "Co-Authored-By: 1234+someone%AT%users.noreply.github.com")]
+    [InlineData("jdoe", "jdoe's notes on the charge")]
+    public void The_user_name_as_a_plain_word_is_not_caught(string name, string template) => Assert.False(UserNameRule(name)(Fix(template)));
+
+    [Theory]
+    [InlineData("jdoe", "cache at X:%S%%U%%S%jdoe%S%AppData")]
+    [InlineData("jdoe", "cd /x/%U%/jdoe/project")]
+    [InlineData("jdoe", "cd /%H%/jdoe/.config")]
+    [InlineData("jdoe", "mail tech.jdoe%AT%mail.test")]
+    public void The_user_name_in_a_user_folder_or_an_address_is_caught(string name, string template) => Assert.True(UserNameRule(name)(Fix(template)));
+
+    /// <summary>Review, 2026-11-10: a machine called "MAIN" is not a finding as a plain word.</summary>
+    [Theory]
+    [InlineData("MAIN", "the MAIN menu opens")]
+    [InlineData("MAIN", "merge into main; Mainframe; main.cs")]
+    [InlineData("MAIN", "see https://github.com/x/main-branch and // main loop")]
+    public void The_machine_name_as_a_plain_word_is_not_caught(string name, string template) => Assert.False(MachineNameRule(name)(Fix(template)));
+
+    [Theory]
+    [InlineData("BOX-1", "copy to %S%%S%box-1%S%share")]
+    [InlineData("BOX-1", "open //BOX-1/share")]
+    [InlineData("BOX-1", "ssh admin%AT%box-1.local")]
+    [InlineData("BOX-1", "hostname: box-1")]
+    public void The_machine_name_naming_a_host_is_caught(string name, string template) => Assert.True(MachineNameRule(name)(Fix(template)));
 
     [Theory]
     [InlineData("captures in the owner's media folder (`<media folder>%S%previews%S%a`)")]
