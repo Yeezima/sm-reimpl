@@ -27,6 +27,12 @@ public static partial class UiKit
     /// <summary>Where the background image is read from (the file is optional: without it the menus are plain dark). Not imported by Godot: read as a file.</summary>
     public const string MenuBackgroundPath = "res://assets/menu/background.jpg";
 
+    /// <summary>
+    /// The loading screen's picture (the owner, 2026-11-10: "i want the old main menu screen to be the new loading screen background"): the main menu's picture of before 2026-11-09
+    /// (3840 x 2160), read like <see cref="MenuBackgroundPath"/>. Optional: without it the loading screen is black.
+    /// </summary>
+    public const string LoadingBackgroundPath = "res://assets/menu/loading-background.jpg";
+
     static Texture2D? _menuBackground;
     static bool _menuBackgroundRead;
 
@@ -35,20 +41,37 @@ public static partial class UiKit
     {
         if (_menuBackgroundRead) return _menuBackground;
         _menuBackgroundRead = true;
+        if (ReadMenuPicture(MenuBackgroundPath, "menu background") is { } image) _menuBackground = ImageTexture.CreateFromImage(image);
+        return _menuBackground;
+    }
+
+    /// <summary>
+    /// The loading screen's picture, read for each loading screen and not kept (at full size it is a 33 MB texture the match does not need), halved (a box filter) while it is at
+    /// least twice the window's height, so a 1080p window draws a 1920 x 1080 copy; null when the file is missing or unreadable.
+    /// </summary>
+    public static Texture2D? LoadingBackgroundImage(float windowHeight)
+    {
+        if (ReadMenuPicture(LoadingBackgroundPath, "loading background") is not { } image) return null;
+        while (image.GetHeight() >= 2f * Mathf.Max(windowHeight, 360f)) image.ShrinkX2();
+        return ImageTexture.CreateFromImage(image);
+    }
+
+    /// <summary>One of the pictures in <c>assets/menu</c> (a folder Godot does not import): beside the project in a development run, beside the game in an exported one.</summary>
+    static Image? ReadMenuPicture(string resPath, string what)
+    {
         try
         {
             string exeDir = System.IO.Path.GetDirectoryName(OS.GetExecutablePath()) ?? "";
-            foreach (string path in new[] { ProjectSettings.GlobalizePath(MenuBackgroundPath), System.IO.Path.Combine(exeDir, "assets", "menu", "background.jpg") })
+            foreach (string path in new[] { ProjectSettings.GlobalizePath(resPath), System.IO.Path.Combine(exeDir, "assets", "menu", System.IO.Path.GetFileName(resPath)) })
             {
                 if (!System.IO.File.Exists(path)) continue;
                 var image = Image.LoadFromFile(path);
                 if (image is null || image.IsEmpty()) continue;
-                _menuBackground = ImageTexture.CreateFromImage(image);
-                break;
+                return image;
             }
         }
-        catch (Exception e) when (e is ArgumentException or System.IO.IOException or NotSupportedException) { GD.PrintErr("menu background: " + e.Message); }
-        return _menuBackground;
+        catch (Exception e) when (e is ArgumentException or System.IO.IOException or NotSupportedException) { GD.PrintErr(what + ": " + e.Message); }
+        return null;
     }
 
     /// <summary>The full-screen background of every menu but the customizer and the in-match menu: the image, covering the window without stretching, or the plain dark background.</summary>

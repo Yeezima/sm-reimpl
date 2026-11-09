@@ -659,6 +659,13 @@ the hit is engine code, so these rules are ours (spec "Melee interaction pass").
 | Loading screen | Black with LOADING in the centre while the view loads and connects (no address, no back hint); errors as before | SM1's loading screens (map art and tips) | Loading screen |
 | Silent Musou rejoin | A Classic PvP join refused for the Musou profile while this client's own Musou server runs stops that server and joins again with the lobby's profile, no message, once | — (ours: SM1 had no Musou Mode) | Musou rejoin |
 
+### Loading screen picture and screen blink (owner 2026-11-10; client only)
+
+| Area | What we do | What is unknown | Spec |
+|---|---|---|---|
+| Loading screen picture | The owner's earlier menu picture behind LOADING, dimmed toward the corners (not SM1's per-map loading art and tips) | SM1's loading screens (map art and tips) | Loading screen: "Loading screen picture" |
+| Screen blink | A short fade to black and back (0.18 s close, a hold until the new screen has settled, 0.26 s open) between the menu, the loading screen and the match; `--no-screen-blink` turns it off | How SM1's front end changed screens | Screen blink |
+
 ## 3. Not yet reproduced
 
 Known original features missing from the alpha (alpha scope: Annihilation and Seize Ground on Manufactorum only).

@@ -62,6 +62,9 @@ public sealed partial class FrontEndView : Control
     int _scriptFrame;
 
     /// <summary>A screenshot may be taken: the install is read, the screen is built and its preview (if any) has drawn.</summary>
+    /// <summary>The menus are built (the install has been read) or the read failed and says so: what the blink back to the menu waits for (ui/loading-blink).</summary>
+    public bool Built => _built || (_services.Failed && _frames > 2);
+
     public bool ReadyForScreenshot => _services.Failed ? _frames > 30 : _built && _scripted && _frames > _scriptFrame + 25 && (CurrentPreview?.Loaded ?? true)
         && (!_args.ContainsKey("preview-switch-to") || _switchChecked);
     int _switchedAt, _switchPhase;

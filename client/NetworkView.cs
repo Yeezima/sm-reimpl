@@ -453,6 +453,7 @@ public partial class NetworkView : Node3D
         }
         else if (!_bot && OwnDead && !PickerBusy && _demoPlayback is null) PadLook(delta, deathOrbit: true);   // late-g: dead, the right stick orbits the death camera
 
+        if (LoadingWaitsForBlink()) { UpdateOverlay(); return; }   // ui/loading-blink: the handshake (and the map load) starts once the blink has opened on the loading screen (NetworkView.Loading.cs)
         Ph("client update (input, network)");
         DemoBeforeUpdate(delta);   // M40 T0: a replayed demo advances its clock by this frame and sets the recorded view
         LatencyProbeBeforeUpdate();   // feel/controls test aid (--latency-probe)
