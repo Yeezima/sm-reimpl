@@ -61,9 +61,12 @@ void fragment() {
     /// <summary>Draws the ring invisibly for a few frames in front of the camera, so its material is compiled before the first Shockwave.</summary>
     public void WarmUp() => _warm = 3;
 
-    /// <summary>Starts the ring at <paramref name="feet"/> (game space).</summary>
-    public void Play(Vector3 feet)
+    float _radius = LibrarianRules.ShockwaveRadius;
+
+    /// <summary>Starts the ring at <paramref name="feet"/> (game space), racing out to <paramref name="radius"/> (the Shockwave's reach).</summary>
+    public void Play(Vector3 feet, float radius = LibrarianRules.ShockwaveRadius)
     {
+        _radius = radius;
         Position = feet + new Vector3(0f, 0f, 0.15f);
         _startedAt = LibrarianClock.Now;
         _ring.Visible = _wall.Visible = _flash.Visible = true;
@@ -86,7 +89,7 @@ void fragment() {
         float u = Math.Clamp(t / Seconds, 0f, 1f);
         if (t > Seconds + 0.25f) { _ring.Visible = _wall.Visible = _flash.Visible = false; return; }
         float eased = 1f - MathF.Pow(1f - u, 2.2f);   // fast out of the hands, slowing at the edge
-        float radius = MathF.Max(0.5f, LibrarianRules.ShockwaveRadius * eased);
+        float radius = MathF.Max(0.5f, _radius * eased);
         float fade = u < 1f ? 1f - 0.5f * u : MathF.Max(0f, 0.5f - (t - Seconds) / 0.25f * 0.5f);
         _ring.Scale = new Vector3(radius, radius, 1f);
         _wall.Scale = new Vector3(radius, radius, WallHeight * (1f - 0.6f * u));

@@ -9,7 +9,8 @@ public readonly record struct LibrarianLink(Vector3 From, Vector3 To);
 public readonly record struct LibrarianCaster(int PlayerId, Vector3 Feet, Vector3 Eye, float Yaw, float Pitch);
 
 /// <summary>What a Librarian pressed this tick (<see cref="LibrarianRules"/> names the binding).</summary>
-public readonly record struct LibrarianPress(bool Lightning, bool Shockwave);
+/// <summary>What a Librarian pressed this tick; <paramref name="Pull"/> only with the restore switch <c>pull</c> (<see cref="LibrarianVariant"/>).</summary>
+public readonly record struct LibrarianPress(bool Lightning, bool Shockwave, bool Pull = false);
 
 /// <summary>
 /// One Librarian's psychic powers and Psychic Stress (Musou Mode only; <see cref="LibrarianRules"/>), server-authoritative. It acts on a <see cref="MusouSim"/> through its public damage, stagger, knock-down and
@@ -30,10 +31,12 @@ public sealed class LibrarianPsyker
     public bool Locked { get; private set; }
     /// <summary>Seconds without a cast.</summary>
     public float SinceCast { get; private set; }
-    /// <summary>Seconds left on the Shockwave's cooldown.</summary>
+    /// <summary>Seconds left on the Shockwave's cooldown (and the Warp Pull's, with the restore switch <c>pull</c> only; else 0).</summary>
     public float ShockwaveCooldown { get; private set; }
-    /// <summary>Shockwaves cast (a wrapping byte: the clients play the effect when it changes).</summary>
+    public float PullCooldown { get; private set; }
+    /// <summary>Shockwaves and Warp Pulls cast (wrapping bytes: the clients play the effect when one changes; Pulls only with the restore switch).</summary>
     public byte ShockwaveCount { get; private set; }
+    public byte PullCount { get; private set; }
     /// <summary>Whether lightning was cast this tick, and the links of it (at most <see cref="LibrarianRules.MaxDrawnLinks"/>; empty when not casting).</summary>
     public bool Casting { get; private set; }
     public IReadOnlyList<LibrarianLink> Links => _links;
@@ -44,13 +47,13 @@ public sealed class LibrarianPsyker
     readonly ushort[] _near = new ushort[96];
     readonly HashSet<ushort> _struck = new();
     readonly ushort[] _scan = new ushort[4096];   // a 60 m Shockwave may take a whole war's pool
-    bool _prevShockwave;
+    bool _prevShockwave, _prevPull;
 
     /// <summary>A new life (or a leave): everything back to rest.</summary>
     public void Reset()
     {
-        Stress = 0f; Locked = false; SinceCast = 0f; ShockwaveCooldown = 0f;
-        Casting = false; _links.Clear(); LastStruck = 0; _prevShockwave = false;
+        Stress = 0f; Locked = false; SinceCast = 0f; ShockwaveCooldown = PullCooldown = 0f;
+        Casting = false; _links.Clear(); LastStruck = 0; _prevShockwave = _prevPull = false;
     }
 
     /// <summary>A melee swing struck at least one enemy: stress falls by <see cref="LibrarianRules.MeleeRelief"/> (an unlock at 0 follows).</summary>
@@ -64,19 +67,28 @@ public sealed class LibrarianPsyker
     /// One tick: <paramref name="dt"/> seconds, the presses (a Shockwave acts on the press edge), the damage credited to <paramref name="caster"/>. <paramref name="blocked"/> says whether level geometry lies between two
     /// points (null: nothing blocks). The order of a tick: the cooldown runs, the powers cast (Shockwave, lightning), stress rises or cools, the lock sets or clears.
     /// </summary>
-    public void Step(MusouSim sim, in LibrarianCaster caster, LibrarianPress press, float dt, Func<Vector3, Vector3, bool>? blocked = null)
+    public void Step(MusouSim sim, in LibrarianCaster caster, LibrarianPress press, float dt, Func<Vector3, Vector3, bool>? blocked = null, LibrarianVariant variant = default)
     {
         ShockwaveCooldown = MathF.Max(0f, ShockwaveCooldown - dt);
+        PullCooldown = MathF.Max(0f, PullCooldown - dt);
         _links.Clear();
         Casting = false;
         LastStruck = 0;
-        bool shockEdge = press.Shockwave && !_prevShockwave;
-        _prevShockwave = press.Shockwave;
+        bool shockEdge = press.Shockwave && !_prevShockwave, pullEdge = variant.WarpPull && press.Pull && !_prevPull;
+        _prevShockwave = press.Shockwave; _prevPull = press.Pull;
         bool cast = false;
 
-        if (!Locked && shockEdge && ShockwaveCooldown <= 0f)
+        if (!Locked && pullEdge && PullCooldown <= 0f)   // the restore switch pull only (pass 2)
         {
-            Shockwave(sim, caster);
+            Pull(sim, caster);
+            PullCooldown = LibrarianRules.Pass2.PullCooldown;
+            PullCount++;
+            Stress += LibrarianRules.Pass2.PullStress;
+            cast = true;
+        }
+        if (!Locked && !(cast && Stress >= LibrarianRules.StressMax - LockEpsilon) && shockEdge && ShockwaveCooldown <= 0f)
+        {
+            if (variant.OldShockwave) ShockwavePass2(sim, caster); else Shockwave(sim, caster);
             ShockwaveCooldown = LibrarianRules.ShockwaveCooldown;
             ShockwaveCount++;
             Stress += LibrarianRules.ShockwaveStress;
@@ -185,6 +197,51 @@ public sealed class LibrarianPsyker
                 : LibrarianRules.ThrowMin + (LibrarianRules.ThrowMax - LibrarianRules.ThrowMin) * roll;
             if (tier == LibrarianRules.Tier.Elite || !sim.KnockDown(id, away, 0.1f, c.PlayerId, 0f)) sim.Stagger(id, away, 0f);   // a war's fodder falls; any other one staggers
             sim.Drive(id, away * (distance / seconds), ticks);
+        }
+    }
+
+    /// <summary>The pass 2 Shockwave (restore switch <c>shockwave</c>): 9 m, 40 damage, ordinary Orks thrown 20 to 25 m over 1.0 s, elites and bosses not moved.</summary>
+    void ShockwavePass2(MusouSim sim, in LibrarianCaster c)
+    {
+        int n = sim.Query(c.Feet, LibrarianRules.Pass2.ShockwaveRadius, _scan, LibrarianRules.Pass2.ShockwaveVerticalReach);
+        int ticks = Math.Max(1, (int)MathF.Round(LibrarianRules.Pass2.ThrowSeconds * sim.TickRate));
+        float seconds = ticks / (float)Math.Max(1, sim.TickRate);
+        for (int k = 0; k < n; k++)
+        {
+            ushort id = _scan[k];
+            if (!sim.TryGet(id, out var e) || !e.Alive) continue;
+            var flat = new Vector2(e.Position.X - c.Feet.X, e.Position.Y - c.Feet.Y);
+            var away = flat.LengthSquared() > 1e-6f ? Vector2.Normalize(flat) : new Vector2(-MathF.Sin(c.Yaw), MathF.Cos(c.Yaw));
+            sim.Damage(id, c.PlayerId, LibrarianRules.Pass2.ShockwaveDamage, new Vector3(away, 0.5f), out bool killed, marker: 1, cause: MusouDeathKind.Blast);
+            if (killed || LibrarianRules.TierOf(e.Type) != LibrarianRules.Tier.Ordinary) continue;
+            float distance = LibrarianRules.Pass2.ThrowMin + (LibrarianRules.Pass2.ThrowMax - LibrarianRules.Pass2.ThrowMin) * Roll(sim.Tick, id);
+            if (!sim.KnockDown(id, away, 0.1f, c.PlayerId, 0f)) sim.Stagger(id, away, 0f);
+            sim.Drive(id, away * (distance / seconds), ticks);
+        }
+    }
+
+    // ------------------------------------------------------------------ warp pull (restore switch pull: pass 2)
+
+    void Pull(MusouSim sim, in LibrarianCaster c)
+    {
+        var forward = new Vector2(-MathF.Sin(c.Yaw), MathF.Cos(c.Yaw));
+        float minCos = MathF.Cos(LibrarianRules.Pass2.PullConeDegrees * MathF.PI / 180f);
+        int n = sim.Query(c.Feet, LibrarianRules.Pass2.PullRange, _scan, LibrarianRules.VerticalReach);
+        int ticks = Math.Max(1, (int)MathF.Round(LibrarianRules.Pass2.PullSeconds * sim.TickRate));
+        float seconds = ticks / (float)Math.Max(1, sim.TickRate);
+        for (int k = 0; k < n; k++)
+        {
+            if (!sim.TryGet(_scan[k], out var e) || !e.Alive) continue;
+            var tier = LibrarianRules.TierOf(e.Type);
+            if (tier == LibrarianRules.Tier.Boss) continue;
+            var flat = new Vector2(e.Position.X - c.Feet.X, e.Position.Y - c.Feet.Y);
+            float distance = flat.Length();
+            if (distance > 1e-4f && Vector2.Dot(flat / distance, forward) < minCos) continue;
+            float travel = tier == LibrarianRules.Tier.Elite ? distance * LibrarianRules.Pass2.ElitePullShare : distance - LibrarianRules.Pass2.PullStopDistance;
+            if (!(travel > 0.05f) || distance < 1e-4f) continue;   // already close: not pushed back out
+            var toward = -flat / distance;
+            sim.Stagger(e.Id, toward, 0f);   // dragged off his feet; a stagger with no push of its own
+            sim.Drive(e.Id, toward * (travel / seconds), ticks);
         }
     }
 

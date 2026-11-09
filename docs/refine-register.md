@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2763 spec table rows: **2059 tagged**, 489 not tagged (read from data with high confidence), 215 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 612 rows of the changes document.
+Scanned 2765 spec table rows: **2058 tagged**, 491 not tagged (read from data with high confidence), 216 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 612 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,21 +50,21 @@ Scanned 2763 spec table rows: **2059 tagged**, 489 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 19 | 10 | 10 | 10 | 7 |
-| Core simulation (provisional values) | 542 | 518 | 377 | 158 | 1 |
+| Core simulation (provisional values) | 541 | 517 | 377 | 157 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 222 | 212 | 119 | 59 | 0 |
-| **All areas** | **2059** | 1813 | 1527 | 663 | 38 |
+| **All areas** | **2058** | 1812 | 1527 | 662 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1133 |
+| kind: ours | 1132 |
 | confidence: low | 737 |
 | confidence: medium | 661 |
 | notes: ours | 380 |
 | kind: interpretation | 360 |
-| notes: estimate | 170 |
+| notes: estimate | 169 |
 | kind: estimate | 145 |
 | confidence: none (low) | 129 |
 | kind: provisional | 99 |
@@ -2175,7 +2175,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (542)
+### Core simulation (provisional values) (541)
 
 *Spec section: Provisional values in use*
 
@@ -2753,11 +2753,10 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-7CC64ACA` | Musou: the Librarian's binding | Fire held = chain lightning, Reload press = Psychic Shockwave, Grenade = his equipment as for any marine (pass 3: the Warp Pull on Grenade was removed); no new input bit (he carries no gun, so Fire and Reload are free); the HUD's WAVE cell names RELOAD | kind: ours; notes: estimate | existing buttons, ours; the removal the owner's | Musou: the Librarian's binding: compare with SM1 by feel or video. Ours: Fire held = chain lightning, Reload press = Psychic Shockwave… | ☐ |
 | `R-969BA874` | Musou: Psychic Stress | 0 to **100**, shared by both powers; lightning adds **5**/s while held (20 s to full), a Shockwave adds **50** (= 10 s of lightning: keep the ratio); cooling **12.5**/s (8 s from full) once **1.0** s has passed without a cast; each melee swing that strikes at… (stress, s) | kind: ours; notes: estimate | owner brief 2026-11-07 | Musou: Psychic Stress: compare with SM1 by feel or video. Ours: 0 to 100, shared by both powers; lightning adds 5/s while held (20 s… | ☐ |
 | `R-18992D17` | Musou: chain lightning | hold Fire: the enemy best lined up with the aim within **12** degrees and **30** m, in sight, takes **90** dps; it jumps to the nearest enemy not yet struck within **8** m (4 m up or down), each jump **x0.85** of the one before, up to **40** struck in all; a… (dps, m) | kind: ours; notes: estimate | owner brief 2026-11-07; the 12 degree aim cone ours; the start time the owner's 0.1 s | Musou: chain lightning: compare with SM1 by feel or video. Ours: hold Fire: the enemy best lined up with the aim within 12 degrees and… | ☐ |
-| `R-C9A9B39F` | Musou: Warp Pull (removed) | removed in pass 3 (owner 2026-11-10: "remove this ability and allow the librarian to use all equipment items that other classes can use"); it was: press Grenade, a cone of 30 degrees half-angle and 25 m, ordinary Orks dragged to 2 m over 0.4 s, elites 35 % of… | kind: ours; notes: estimate | the owner's | Musou: Warp Pull (removed): compare with SM1 by feel or video. Ours: removed in pass 3 (owner 2026-11-10: "remove this ability and allow… | ☐ |
-| `R-0ACE4B66` | Musou: Psychic Shockwave | press Reload: every enemy within **60** m (**15** m up or down) takes **300** (kills every ordinary Ork, 'Ard Boy, Stormboy and Chaos Marine; a Nob, 600, keeps half; pass 3: was 9 m, 4 m, 40); a surviving ordinary Ork is thrown **40 to 50** m, an elite (Nob… (m, dmg, s) | kind: ours; notes: estimate | owner 2026-11-10 (60 m, 300, 40 to 50 m, 15 to 20 m, bosses staggered: his picks); the vertical reach, throw time and ring ours | Musou: Psychic Shockwave: compare with SM1 by feel or video. Ours: press Reload: every enemy within 60 m (15 m up or down) takes 300… | ☐ |
+| `R-45B77A4A` | Musou: Psychic Shockwave, our parts | the reach up or down **15** m (a flat 60 m circle; was 4 m), the throws over **1.2** s (the fall Musou's shove uses for the war's fodder, else a stagger, then a drive), and the client's ring racing out to the reach in **0.55** s with a low **4** m wall fading… (m, s) | kind: ours; notes: estimate | ours | Musou: Psychic Shockwave, our parts: compare with SM1 by feel or video. Ours: the reach up or down 15 m (a flat 60 m circle; was 4 m), the throws… | ☐ |
 | `R-2FD01DD6` | Musou: the Librarian's look | the player's own resolved Tactical look with three pieces of the install's MP Librarian armour put on by package name, painted with the look's paint of their slots: torso `sm_armour_mp_librarian_torso` with `_belt`, right pad `_shldrr`, backpack `_backpack`… | kind: ours; notes: estimate | install packages (*original asset loaded*); the combination ours | Musou: the Librarian's look: compare with SM1 by feel or video. Ours: the player's own resolved Tactical look with three pieces of the… | ☐ |
 | `R-AF172235` | Musou: the Librarian's effects | pass 3 (`LibrarianBolts`): each link a fractal main bolt (midpoint displacement, 9 to 33 points by length, the push 0.11 of the link's length within 0.15 to 2.2 m) with 1 to 4 forks (more on the first links and long links) and sub-forks, leaning along the… (m, s) | kind: ours; notes: estimate | original effects borrowed by name for the Shockwave (*original asset loaded*); bolts, ring, recolour and glow ours | Musou: the Librarian's effects: compare with SM1 by feel or video. Ours: pass 3 (LibrarianBolts): each link a fractal main bolt (midpoint… | ☐ |
-| `R-FEF73290` | Musou: the Librarian's sounds | original events from the install's shared bank, by name: the crackle loop while lightning is held `play_power_conduit_elec` (an ambience: a start burst, two looping layers), its release tail `stop_power_conduit_elec` (a discharge one-shot, the loop stopped… (voices, m) | kind: ours; notes: estimate | install events (*original asset loaded*); the choice and the limits ours | Musou: the Librarian's sounds: compare with SM1 by feel or video. Ours: original events from the install's shared bank, by name: the crackle… | ☐ |
+| `R-FEF73290` | Musou: the Librarian's sounds | pass 3 (owner 2026-11-10: no downloaded recordings; the game's own audio at run time plus synthesis): the install's events as in pass 2 (the crackle loop `play_power_conduit_elec` while held, its discharge `stop_power_conduit_elec` at the release… (dB, s, m) | kind: ours; notes: estimate | install events (*original asset loaded*); their choice, pitches and the synthesized layers ours; the psyker events are the campaign Chaos psyker's (a… | Musou: the Librarian's sounds: compare with SM1 by feel or video. Ours: pass 3 (owner 2026-11-10: no downloaded recordings; the game's own… | ☐ |
 | `R-AB89D9C9` | Musou: the Librarian's gauge | for the own Librarian, the weapon box's place, size, tilt and style (he carries no gun): the stress in the reserve's digits, PSYCHIC STRESS (PSYCHIC OVERLOAD while locked) beside them, the stress as the heat bar's red bar along the bottom, blinking as an… | kind: ours; notes: estimate | match HUD colours; layout ours, waiting for the owner's screenshot approval | Musou: the Librarian's gauge: compare with SM1 by feel or video. Ours: for the own Librarian, the weapon box's place, size, tilt and style… | ☐ |
 | `R-6FB32235` | Musou: the Librarian in the class choice | the Esc menu in the Stormbird (match Playing, alive, a Space Marine, not one already) has PLAY AS LIBRARIAN: it sends the DEPLOY button's Setup with his class (his sword the first melee choice) and the current looks, then the class change at once with its… | kind: ours; notes: estimate | ours (the customizer's loadouts are by role; he has none) | Musou: the Librarian in the class choice: compare with SM1 by feel or video. Ours: the Esc menu in the Stormbird (match Playing, alive, a Space Marine… | ☐ |
 | `R-84DB1CA6` | Musou: the Librarian's cast pose | while he casts the lightning (pass 3, owner 2026-11-10: "holds his hands up in an aggressive pose - hands pointed palms forward towards his target - and shudders with power as he casts"), procedural over his stances, clips and pose layers on the upper body:… (m, degrees, s) | kind: ours; notes: estimate | the install's MP marine rig has no psyker, force or push clip (docs/discovery.md "Librarian cast pose"); every number ours | Musou: the Librarian's cast pose: compare with SM1 with an overlaid screenshot taken from the same position. Ours: while he casts the lightning (pass 3, owner 2026-11-10: "holds his… | ☐ |
@@ -4462,6 +4461,7 @@ Test aids, probes, demo and capture tooling, and engineering decisions (protocol
 | `R-A5D771E7` | Test aid: `--warboss-test --model weirdboy` | Musou Mode: the Weirdboy (2026-11-07; `MusouSim.Version` 12, `TfwRules.Version` 31, no protocol or wire format change) |
 | `R-3FDFA812` | Wire: entity type byte | Musou Mode: expansion S1, the foundation (musou/exp-s1, 2026-11-07; `MusouSim.Version` 13, no core protocol bump: `Protocol.Version` stays 63) |
 | `R-A16BD61A` | Musou: the Librarian's wire | Musou Mode: the Librarian (musou/exp-s5, 2026-11-07; `MusouSim.Version` 14, second pass 15, third pass 34 (librarian-lightning, 2026-11-10); no protocol change) |
+| `R-E056191E` | Musou: the Librarian's restore switches | Musou Mode: the Librarian (musou/exp-s5, 2026-11-07; `MusouSim.Version` 14, second pass 15, third pass 34 (librarian-lightning, 2026-11-10); no protocol change) |
 | `R-3E27C9EB` | Wire (S2) | Musou Mode: expansion S2, the Bomb Squig and the Rokkit Boy (musou/exp-s2, 2026-11-07; `MusouSim.Version` 14, `TfwRules.Version` 34, no core protocol bump: `Protocol.Version` stays 63) |
 | `R-6FB25F32` | Stormboy state on the wire | Musou Mode: expansion S3, Stormboy squads and the Big Shoota Nob (musou/exp-s3, 2026-11-07; `MusouSim.Version` 14, `TfwRules.Version` 34, no core protocol bump: `Protocol.Version` stays 63) |
 | `R-21B899DB` | Wire (S4) | Musou Mode: expansion S4, the Scrap Meks and their contraptions (musou/exp-s4, 2026-11-08; `MusouSim.Version` 18, `TfwRules.Version` 36, wire tag 17, no core protocol bump: `Protocol.Version` stays 63) |

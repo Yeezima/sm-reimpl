@@ -15,6 +15,8 @@ public static class LibrarianSounds
     public const string Tail = "stop_power_conduit_elec";
     /// <summary>Each newly chained target: the psyker bolt's hit (the campaign Chaos psyker's; its two layers' own limits 2 and 3 apply too).</summary>
     public const string Zap = "play_psyker_bolt_hit";
+    /// <summary>The Warp Pull (only with the restore switch <c>pull</c>, <c>LibrarianVariant</c>): the psyker bolt's cast (five random variations).</summary>
+    public const string Pull = "play_ch_psyker_bolt_fire";
     /// <summary>The Psychic Shockwave: the multiplayer reactive blast (the stomp's displacement layers with a blast; max 6 instances).</summary>
     public const string Shockwave = "play_reactive_blast";
     /// <summary>Psychic Stress reaching 100 (all powers locked): the Space Marine plasma weapons' overheat vent.</summary>

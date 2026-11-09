@@ -31,7 +31,9 @@ public partial class NetworkView
     static readonly bool NoLibrarianPredict = OldLibrarianLightning || OS.GetCmdlineUserArgs().Contains("--no-librarian-predict");
     LibrarianHud? _librarianHud;
     IReadOnlyList<LibrarianView>? _librarianShown;
-    readonly Dictionary<ushort, byte> _librarianCasts = new();
+    readonly Dictionary<ushort, (byte Pull, byte Shockwave)> _librarianCasts = new();
+    /// <summary>The match's Librarian restore switches (<see cref="LibrarianVariant"/>, from the same environment variable as the server's).</summary>
+    LibrarianVariant LibrarianSwitches => _config?.LibrarianVariant ?? default;
 
     /// <summary>What the client last heard of a Librarian for his sounds.</summary>
     sealed class LibrarianSoundState
@@ -106,9 +108,10 @@ public partial class NetworkView
                 if (_bot || LibrarianDemoOn || LibrarianClipDir is not null) GD.Print($"LIBLAT the server's own links arrived {(Time.GetTicksUsec() / 1e6 - _librarianPressAt) * 1000.0:F0} ms after the press");
             }
             LibrarianSoundFrame(v.Player, at, isOwn, fresh || foreseen, casting, v.Locked, links, now);
-            bool known = _librarianCasts.TryGetValue(v.Player, out var shocks);
-            _librarianCasts[v.Player] = v.ShockwaveCount;
-            if (fresh && known && v.ShockwaveCount != shocks && at is { } shocker) LibrarianShockwaveFx(shocker);   // not the first section this client hears (no replay of old casts)
+            bool known = _librarianCasts.TryGetValue(v.Player, out var casts);
+            _librarianCasts[v.Player] = (v.PullCount, v.ShockwaveCount);
+            if (fresh && known && v.ShockwaveCount != casts.Shockwave && at is { } shocker) LibrarianShockwaveFx(shocker);   // not the first section this client hears (no replay of old casts)
+            if (fresh && known && v.PullCount != casts.Pull && at is { } puller) LibrarianPullFx(puller);   // the restore switch pull only
             if (OldLibrarianLightning) { if (fresh && v.Casting) LibrarianBoltsFeedOld(v); }
             else LibrarianCastFrame(v.Player, isOwn ? _local : _remotes.GetValueOrDefault(v.Player), at, casting, links, v.Stress, isOwn, (float)delta, now);
         }
@@ -118,7 +121,7 @@ public partial class NetworkView
         LibrarianClipCamFrame();   // --librarian-clip --librarian-cam side: the third-person capture view
         if (Lean || _hudView is null) return;
         if (_librarianHud is null) { _librarianHud = new LibrarianHud(); _hudView.AddChild(_librarianHud); }
-        _librarianHud.Feed(own, now);
+        _librarianHud.Feed(own, now, LibrarianSwitches.WarpPull);
     }
 
     static PlayerState? FindPlayer(IReadOnlyList<PlayerState> players, ushort id)
@@ -173,7 +176,7 @@ public partial class NetworkView
     /// </summary>
     void SendLibrarianCast()
     {
-        if (NoLibrarianEarly || _client is not { } c) return;
+        if (NoLibrarianEarly || LibrarianSwitches.NoEarly || _client is not { } c) return;
         uint tick = c.Tick;
         if (_sentInputs.TryGet(c.Tick, out var now) && (now.Buttons & InputButtons.Fire) != 0) tick = c.Tick;
         else if (_sentInputs.TryGet(c.Tick - 1, out var last) && (last.Buttons & InputButtons.Fire) != 0) tick = c.Tick - 1;
@@ -293,9 +296,9 @@ public partial class NetworkView
         s.Seen = true;
         if (at is { } p) s.Emitter.Position = ToGodot(p.Position) + Vector3.Up * 1.4f;
         if (!changed || _sound is null || Lean) return;
-        bool layers = LibrarianLayers;   // the real-world layers (NetworkView.LibrarianAudio.cs), else the original events
-        if (casting && !s.Casting) { if (layers) LibrarianLayerStart(player, own, s.Emitter.Position); else _sound.Post(LibrarianSounds.Loop, s.Emitter); }
-        else if (!casting && s.Casting) { if (layers) LibrarianLayerStop(player, own, s.Emitter.Position); else _sound.Post(LibrarianSounds.Tail, s.Emitter); }
+        bool layers = LibrarianLayers;   // the decoded and synthesized layers on top of the install's events (NetworkView.LibrarianAudio.cs)
+        if (casting && !s.Casting) { _sound.Post(LibrarianSounds.Loop, s.Emitter); if (layers) LibrarianLayerStart(player, own, s.Emitter.Position); }
+        else if (!casting && s.Casting) { _sound.Post(LibrarianSounds.Tail, s.Emitter); if (layers) LibrarianLayerStop(player, own, s.Emitter.Position); }
         if (locked && !s.Locked) _sound.Post(LibrarianSounds.Locked, s.Emitter);
         if (casting)
         {
@@ -305,8 +308,8 @@ public partial class NetworkView
             {
                 if (!_librarianZaps.Take(now)) break;
                 var to = links[hits[k]].To;
+                _sound.Post(LibrarianSounds.Zap, new SoundEmitter { Position = ToGodot(to), OneShot = true, Label = "librarian zap" });
                 if (layers) LibrarianLayerSnap(ToGodot(to));
-                else _sound.Post(LibrarianSounds.Zap, new SoundEmitter { Position = ToGodot(to), OneShot = true, Label = "librarian zap" });
                 _librarianZapsPlayed++;
             }
         }
@@ -323,7 +326,7 @@ public partial class NetworkView
         foreach (var (id, s) in _librarianSounds) if (!s.Seen) _librarianGone.Add(id);
         foreach (var id in _librarianGone)
         {
-            if (_librarianSounds[id].Casting && _sound is not null && !LibrarianLayers) _sound.Post(LibrarianSounds.Tail, _librarianSounds[id].Emitter);
+            if (_librarianSounds[id].Casting && _sound is not null) _sound.Post(LibrarianSounds.Tail, _librarianSounds[id].Emitter);
             LibrarianLayersGone(id);
             _librarianSounds.Remove(id);
             _librarianCasts.Remove(id);
@@ -333,6 +336,14 @@ public partial class NetworkView
     SoundEmitter? LibrarianEmitter(PlayerState p) => _librarianSounds.TryGetValue((ushort)p.PlayerId, out var s) ? s.Emitter : null;
 
     readonly Dictionary<int, LibrarianShockwaveRing> _librarianRings = new();
+
+    /// <summary>The Warp Pull (restore switch <c>pull</c> only, as pass 2): the Weirdboy's summons ring at his feet, tinted blue, and the psyker bolt's cast.</summary>
+    void LibrarianPullFx(PlayerState p)
+    {
+        if (_sound is not null && LibrarianEmitter(p) is { } e) _sound.Post(LibrarianSounds.Pull, e);
+        if (_fx is null || !FxActive) return;
+        _fx.Play("weirdboy_summon_staff", ToGodot(p.Position), Basis.Identity, 1.5f, priority: 2, tint: PsychicBlue);
+    }
 
     void LibrarianShockwaveFx(PlayerState p)
     {
@@ -344,7 +355,7 @@ public partial class NetworkView
         if (_gameSpace is not null && !Lean && DisplayServer.GetName() != "headless")
         {
             if (!_librarianRings.TryGetValue(p.PlayerId, out var ring)) { ring = new LibrarianShockwaveRing(); _gameSpace.AddChild(ring); _librarianRings[p.PlayerId] = ring; }
-            ring.Play(G(p.Position));
+            ring.Play(G(p.Position), LibrarianSwitches.OldShockwave ? LibrarianRules.Pass2.ShockwaveRadius : LibrarianRules.ShockwaveRadius);
             if (p.PlayerId == (_client?.PlayerId ?? 0)) FxShake(0.02f);   // ours: the caster feels his 60 m blast
         }
         if (_fx is null || !FxActive) return;
@@ -387,11 +398,14 @@ public sealed partial class LibrarianHud : Control
 
     public override void _Ready() => (_font, _fontBold) = TfwHud.MakeFonts();
 
-    /// <summary>This frame's view of the own Librarian (null when the client is not one) and the time for the blink.</summary>
-    public void Feed(LibrarianView? view, double time)
+    bool _pull;
+
+    /// <summary>This frame's view of the own Librarian (null when the client is not one), the time for the blink, and whether the Warp Pull is back (restore switch <c>pull</c>: its cell too).</summary>
+    public void Feed(LibrarianView? view, double time, bool pull = false)
     {
         _view = view;
         _time = time;
+        _pull = pull;
         Visible = view is not null;
         QueueRedraw();
     }
@@ -427,6 +441,7 @@ public sealed partial class LibrarianHud : Control
 
         // The Shockwave: a cell left of the match HUD's grenade box (which shows his equipment at -86).
         Cell(-86f - 92f, "WAVE", "RELOAD", v.ShockwaveCooldown, LibrarianRules.ShockwaveCooldown, v.Locked);
+        if (_pull) Cell(-86f, "PULL", "GRENADE", v.PullCooldown, LibrarianRules.Pass2.PullCooldown, v.Locked);   // restore switch pull: no equipment, so the grenade box's place is free
         DrawSetTransform(Vector2.Zero, 0f, Vector2.One);
     }
 

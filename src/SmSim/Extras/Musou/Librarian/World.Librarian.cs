@@ -26,6 +26,7 @@ public sealed partial class World
     /// </summary>
     public bool LibrarianCastEarly(int id, uint pressTick)
     {
+        if (Config.LibrarianVariant.NoEarly) return false;   // restore switch early: the input path alone
         if (_musou is null || _state != MatchState.Playing || !_players.TryGetValue(id, out var p) || !p.Alive || !LibrarianRules.IsLibrarian(Config, p.Class)) return false;
         if (pressTick <= Tick || pressTick - Tick > MaxEarlyTicks) return false;
         _librarianEarly[id] = pressTick;
@@ -64,7 +65,8 @@ public sealed partial class World
             if (_state == MatchState.Playing && _librarianInputs.TryGetValue(id, out var input) && input.Tick == Tick)
             {
                 _librarianPitch[id] = input.Pitch;
-                press = new LibrarianPress(input.Buttons.HasFlag(InputButtons.Fire), input.Buttons.HasFlag(InputButtons.Reload));   // Grenade is his equipment's (the Warp Pull was removed, owner 2026-11-10)
+                press = new LibrarianPress(input.Buttons.HasFlag(InputButtons.Fire), input.Buttons.HasFlag(InputButtons.Reload),
+                    Config.LibrarianVariant.WarpPull && input.Buttons.HasFlag(InputButtons.Grenade));   // Grenade is his equipment's (the Warp Pull was removed, owner 2026-11-10; restore switch pull)
                 pitch = input.Pitch;
             }
             var eye = p.Position + new Vector3(0f, 0f, Config.EyeHeight);
@@ -73,7 +75,7 @@ public sealed partial class World
                 if (!press.Lightning && !(_librarianInputs.TryGetValue(id, out var heard) && heard.Tick == Tick)) pitch = _librarianPitch.GetValueOrDefault(id);
                 press = press with { Lightning = true };
             }
-            psyker.Step(musou, new LibrarianCaster(id, p.Position, eye, p.Yaw, pitch), press, dt, Blocked);
+            psyker.Step(musou, new LibrarianCaster(id, p.Position, eye, p.Yaw, pitch), press, dt, Blocked, Config.LibrarianVariant);
         }
         _librarianInputs.Clear();
     }

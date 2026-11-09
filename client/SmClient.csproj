@@ -22,7 +22,7 @@
     import and export), so a build without added content (-p:SmExtras=false, faithful-build.cmd) carries none of them (Directory.Build.targets).
   -->
   <ItemGroup Condition="'$(SmExtras)' == 'true'">
-    <EmbeddedResource Include="Extras/*/assets/**/*.ogg;Extras/*/assets/**/*.wav;Extras/*/assets/*.json" LogicalName="Extras/%(Filename)%(Extension)" />
+    <EmbeddedResource Include="Extras/*/assets/**/*.ogg;Extras/*/assets/*.json" LogicalName="Extras/%(Filename)%(Extension)" />
   </ItemGroup>
 
 </Project>

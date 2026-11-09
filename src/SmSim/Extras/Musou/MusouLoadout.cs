@@ -25,7 +25,7 @@ public static class MusouLoadout
             Primary = -1,
             PrimaryChoices = c.PrimaryChoices.Count > 0 ? (c.PrimaryChoices.Contains(c.Primary) ? c.PrimaryChoices : [c.Primary, .. c.PrimaryChoices]) : [c.Primary],
         }).ToList();
-        AppendLibrarian(classes);
+        AppendLibrarian(classes, config.LibrarianVariant.WarpPull);
         return config with { Classes = classes, MusouDefaultPrimaries = config.MusouDefaultPrimaries.Count > 0 ? config.MusouDefaultPrimaries : config.Classes.Select(c => c.Primary).ToList() };
     }
 
@@ -35,7 +35,7 @@ public static class MusouLoadout
     /// stims)"; the Tactical's own first, so his default is the Tactical's), and the power sword as his starting melee when some class carries it (the Assault's; else the Tactical's own). No psyker model exists in
     /// the install: the body is the Tactical's (*placeholder*). Added once, only here, so only under Musou; nothing is added when the config has no Space Marine Tactical to copy.
     /// </summary>
-    static void AppendLibrarian(List<ClassLoadout> classes)
+    static void AppendLibrarian(List<ClassLoadout> classes, bool warpPull = false)
     {
         if (classes.Any(c => c.Name == LibrarianRules.ClassName)) return;
         var tactical = classes.FirstOrDefault(c => c.Name == "sm - tactical") ?? classes.FirstOrDefault(c => c.Side == Team.SpaceMarines);
@@ -44,7 +44,7 @@ public static class MusouLoadout
         var librarian = tactical with
         {
             Name = LibrarianRules.ClassName, Primary = -1, Pistol = -1, PrimaryChoices = [], PistolChoices = [],
-            EquipmentChoices = tactical.EquipmentChoices.Concat(classes.Where(c => c.Side == Team.SpaceMarines).SelectMany(c => c.EquipmentChoices)).Distinct().ToList(),
+            EquipmentChoices = warpPull ? [] : tactical.EquipmentChoices.Concat(classes.Where(c => c.Side == Team.SpaceMarines).SelectMany(c => c.EquipmentChoices)).Distinct().ToList(),   // restore switch pull: none (pass 2)
         };
         if (sword is not null)
             librarian = librarian with

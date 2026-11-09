@@ -59,6 +59,7 @@ public partial class NetworkView
 
     double _coopLibrarianCycle = -1;
 
+    /// <summary>The position of <paramref name="item"/> in a class's choice list (equipment or perks), or -1.</summary>
     static int IndexOfEquipment(IReadOnlyList<int> choices, int item)
     {
         for (int i = 0; i < choices.Count; i++) if (choices[i] == item) return i;
@@ -88,9 +89,12 @@ public partial class NetworkView
     {
         if (_client is not { Status: ClientStatus.Connected } client || !LibrarianOffered(client.Predicted, out int index)) return false;
         var me = client.Predicted;
-        // His equipment (pass 3: every marine item): the player's current one when the Librarian may carry it, else his default.
-        int equipment = _config is { } cfg ? IndexOfEquipment(Loadouts.EquipmentChoices(cfg, index), me.Equipment) : -1;
-        var choice = new LoadoutChoice(Class: index, Melee: 0, Equipment: Math.Max(0, equipment), Perk1: me.Perk1, Perk2: me.Perk2);
+        // His equipment (pass 3: every marine item) and perks: the player's current ones when the Librarian may have them, as positions in HIS lists (the choice indexes the class's lists:
+        // the player's perk numbers used to be sent as positions, so from an Assault or a Devastator he got other perks than the player had; lead 2026-11-10), else his defaults.
+        var cfg = _config!;
+        int equipment = IndexOfEquipment(Loadouts.EquipmentChoices(cfg, index), me.Equipment);
+        int perk1 = IndexOfEquipment(Loadouts.PerkChoices(cfg, index), me.Perk1), perk2 = IndexOfEquipment(Loadouts.PerkChoices(cfg, index), me.Perk2);
+        var choice = new LoadoutChoice(Class: index, Melee: 0, Equipment: Math.Max(0, equipment), Perk1: perk1, Perk2: perk2 == perk1 ? -1 : perk2);
         var sm = _ownLooks.Active(Team.SpaceMarines);
         var chaos = _ownLooks.Active(Team.Chaos);
         _lastSetupSequence = client.ChangeSetup(choice, sm, chaos, _ownOrkLook);

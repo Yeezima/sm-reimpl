@@ -35,15 +35,16 @@ public sealed partial class GameServer
         foreach (var (id, psyker) in World.Librarians)
         {
             if (id is <= 0 or > ushort.MaxValue || !World.Players.TryGetValue(id, out var p) || !p.Alive) continue;
-            _librarianViews.Add(new LibrarianView((ushort)id, psyker.Stress, psyker.Locked, psyker.Casting, 0f, psyker.ShockwaveCooldown, 0, psyker.ShockwaveCount,
+            _librarianViews.Add(new LibrarianView((ushort)id, psyker.Stress, psyker.Locked, psyker.Casting, psyker.PullCooldown, psyker.ShockwaveCooldown, psyker.PullCount, psyker.ShockwaveCount,
                 psyker.Casting ? psyker.Links : []));
             casting |= psyker.Casting;
         }
         var bytes = LibrarianWire.Write(_librarianViews);
         bool empty = _librarianViews.Count == 0;
         if (empty && (_librarianSent is null || _librarianSent.Length == 1)) return;
-        ulong edges = EdgeKey(_librarianViews);
-        uint every = (uint)Math.Max(1, tickRate / (casting ? CastingSendsPerSecond : 10)), second = (uint)Math.Max(1, tickRate);
+        bool old = World.Config.LibrarianVariant.OldSend;   // restore switch send: everything at most 10 a second, nothing at once
+        ulong edges = old ? _librarianEdges : EdgeKey(_librarianViews);
+        uint every = (uint)Math.Max(1, tickRate / (casting && !old ? CastingSendsPerSecond : 10)), second = (uint)Math.Max(1, tickRate);
         bool changed = _librarianSent is null || !_librarianSent.AsSpan().SequenceEqual(bytes);
         bool due = edges != _librarianEdges || tick < _librarianTick
             || (changed ? tick - _librarianTick >= every : tick - _librarianTick >= second);

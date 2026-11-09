@@ -52,6 +52,16 @@ public static class LibrarianRules
     public const float ShockwaveRadius = 60f, ShockwaveDamage = 300f, ShockwaveVerticalReach = 15f;
     public const float ThrowMin = 40f, ThrowMax = 50f, EliteThrowMin = 15f, EliteThrowMax = 20f, ThrowSeconds = 1.2f;
 
+    /// <summary>
+    /// The pass 2 numbers, for the restore switches (<see cref="LibrarianVariant"/>, <c>SM_LIBRARIAN_OLD=shockwave,pull</c>): the Shockwave of 9 m (4 m up or down), 40 damage, ordinary Orks thrown 20 to 25 m over
+    /// 1.0 s, elites and bosses not moved; the Warp Pull on Grenade: a cone of 30 degrees half-angle and 25 m, ordinary Orks to 2 m over 0.4 s, elites 35 % of the way, bosses immune, cooldown 8 s, stress 50.
+    /// </summary>
+    public static class Pass2
+    {
+        public const float ShockwaveRadius = 9f, ShockwaveDamage = 40f, ShockwaveVerticalReach = 4f, ThrowMin = 20f, ThrowMax = 25f, ThrowSeconds = 1.0f;
+        public const float PullConeDegrees = 30f, PullRange = 25f, PullStopDistance = 2f, ElitePullShare = 0.35f, PullSeconds = 0.4f, PullCooldown = 8f, PullStress = 50f;
+    }
+
     /// <summary>How the Shockwave treats an enemy: ordinary (thrown far), elite (thrown a shorter way) or boss (staggered in place, when he can be).</summary>
     public enum Tier { Ordinary, Elite, Boss }
 
