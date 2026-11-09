@@ -37,6 +37,9 @@ public partial class NetworkView
 
     bool MusouActive => _config is { } c && c.Extras.HasFlag(ContentExtras.Musou);
 
+    /// <summary>net/responsive: the interpolation delay's floor in Musou Mode (the 100 ms before the adaptive delay; its crowd's far records come every 5th tick).</summary>
+    static readonly System.TimeSpan MusouCrowdInterpolationFloor = System.TimeSpan.FromMilliseconds(100);
+
     /// <summary>The latest director the server sent (null: none yet, or not a Musou match).</summary>
     public MusouDirectorView? MusouDirector => _musouState.Director;
     /// <summary>The crowd state (test aids and the HUD of MU3).</summary>
@@ -46,7 +49,8 @@ public partial class NetworkView
     void MusouFrame(PlayerState me, IReadOnlyList<PlayerState> others, double delta, IReadOnlyList<ExtrasSection> sections)
     {
         if (!MusouActive || _client is not { } client) { if (_musouHud is not null) _musouHud.Visible = false; return; }
-        if (client.ExtrasSolids is null && _config is { } solidConfig) client.ExtrasSolids = new MusouSolidView(_musouState, solidConfig);   // musou/boss-collision: the big Orks are solid and lockable in the own prediction
+        if (client.ExtrasSolids is null && _config is { } solidConfig) client.ExtrasSolids = new MusouSolidView(_musouState, solidConfig);
+        client.InterpolationFloor ??= MusouCrowdInterpolationFloor;   // net/responsive: the crowd is drawn at the render tick; it keeps the 100 ms of before   // musou/boss-collision: the big Orks are solid and lockable in the own prediction
         MusouDeathSpikeStart();   // --musou-death-spike-test (NetworkView.MusouDeathSpike.cs)
         Ph("musou: state");   // musou/perf-pass: --frame-profile's Musou phases
         double now = Time.GetTicksUsec() / 1e6;

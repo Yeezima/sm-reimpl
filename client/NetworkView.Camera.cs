@@ -417,10 +417,12 @@ public partial class NetworkView
     void UpdateHits()
     {
         if (_client?.TakeHits() is not { } hits || _config is null) return;
-        _hudView?.ShowHitMarker(hits.Kills > 0 || hits.LastKilled, hits.LastHead);
+        // net/responsive: hits a prediction already showed (NetworkView.Responsive.cs) show no second marker and play no second confirmation.
+        bool adds = ReportAddsFeedback(hits);
+        if (adds) { _hudView?.ShowHitMarker(hits.Kills > 0 || hits.LastKilled, hits.LastHead); _client.NoteHitMarker(predicted: false); }
         BotNoteHits(hits);   // M44a: the bot's hit statistics
         FlinchNoteOwnHit(hits);   // animation pass 2: the victim flinches
-        SoundHits(hits);   // M26b
+        SoundHits(hits, rangedConfirm: adds);   // M26b
         if (hits.ShieldDamage > 0f && hits.VictimShield <= 0f && !hits.LastKilled) CharacterFlashBroke(hits.LastVictim);   // the armour just went: its red ring at once
         _lastVictim = hits.LastVictim; _lastVictimHealth = hits.VictimHealth; _lastVictimShield = hits.VictimShield;
         _lastHitAt = _connectedFor;

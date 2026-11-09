@@ -770,7 +770,7 @@ public partial class NetworkView
     }
 
     /// <summary>Own hit reports (from <see cref="UpdateHits"/>): the weapon's hit confirmation, a melee hit.</summary>
-    void SoundHits(HitReport hits)
+    void SoundHits(HitReport hits, bool rangedConfirm = true)
     {
         if (_client is null || _config is null || _soundTriggers is null || _sound is null) return;
         var me = _client.Predicted;
@@ -812,7 +812,7 @@ public partial class NetworkView
                 else if (LogSound("melee")) GD.Print($"MELEE HIT SOUND t {_connectedFor:F3} P{me.PlayerId} report on P{hits.LastVictim}: already sounded at the strike");
             }
         }
-        else if (!hits.LastSplash && Loadouts.InHand(_config, me) is { } w && _soundTriggers.File(w.Name) is { } wf && wf.Of("player_hit_something_action").FirstOrDefault() is { } confirm)
+        else if (rangedConfirm && !hits.LastSplash && Loadouts.InHand(_config, me) is { } w && _soundTriggers.File(w.Name) is { } wf && wf.Of("player_hit_something_action").FirstOrDefault() is { } confirm)
             HitConfirmSound(confirm, hits, w.Name);
     }
 

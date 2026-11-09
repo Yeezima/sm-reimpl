@@ -429,7 +429,7 @@ public class MusouExpansionS2Tests
         Assert.NotNull(read);
         Assert.Equal(entities.Select(e => (e.Id, e.Type, e.State)), read.Select(e => (e.Id, e.Type, e.State)));
         Assert.True(MusouSim.Version >= 14u);   // S2 raised it; later stages raise it further
-        Assert.Equal(64u, Protocol.Version);   // main's protocol (headshots raised it to 64 at integration); the Musou expansion does not raise it
+        Assert.Equal(65u, Protocol.Version);   // main's protocol (headshots raised it to 64 at integration, net/responsive to 65); the Musou expansion does not raise it
     }
 
     // ---------------------------------------------------------------- isolation

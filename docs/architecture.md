@@ -68,7 +68,9 @@ use the network yet; `SmNet.GameClient` is the engine-free client it will drive.
   in-process over a loopback transport. There is no second gameplay implementation. The singleplayer campaign is out of scope.
 - **Timing is separated:** fixed simulation tick, variable render rate, input sampled per tick,
   snapshots sent at their own rate. All rates are **provisional and configurable**. Starting values for
-  the prototype: 30 Hz sim, 20 Hz snapshots, 100 ms interpolation delay. The original game's rates are unknown.
+  the prototype: 30 Hz sim, 20 Hz snapshots, 100 ms interpolation delay. The original game's rates are unknown. Since net/responsive (2026-11-09): 30 Hz
+  snapshots, an adaptive 50 to 100 ms interpolation delay with a tick of extrapolation, the input lead slewed to a tick plus jitter (protocol 65's input slack), the own marine drawn a tick sooner and predicted ranged hit feedback
+  (spec/behavior.md, "Network responsiveness").
 - **Prediction and reconciliation** for the local player's movement and suitable local actions.
   The client replays unacknowledged inputs after each authoritative snapshot.
 - **Interpolation** for remote entities from buffered snapshots.

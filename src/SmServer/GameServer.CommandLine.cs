@@ -35,6 +35,8 @@ public sealed record ServerArguments
     /// <summary>--bot-damage-scale (test aid, owner 2026-10-29: "reduce all bot damage by 66% temporarily for testing purposes"): every hit a test bot deals (shots, projectiles,
     /// blasts, melee, the charge; health and shield) is scaled by this; 1 (default) off. Bots say they are bots in their Hello (protocol 37).</summary>
     public float BotDamageScale { get; init; } = 1f;
+    /// <summary>--snapshot-rate (net/responsive): snapshots a second, 1 to the tick rate (default <see cref="ServerOptions.SnapshotRate"/>, 30; 20 restores the rate before).</summary>
+    public int? SnapshotRate { get; init; }
     /// <summary>--name-seed (names/bot-lore): the seed of the test bots' names (<see cref="ServerOptions.NameSeed"/>); null: random at start.</summary>
     public uint? NameSeed { get; init; }
     /// <summary>--honor-side-requests (M44a test aid, ours): a requested side is kept up to the per-side limit; the balance applies only to joins that name no side.</summary>
@@ -78,6 +80,7 @@ public static class ServerCommandLine
           --countdown <seconds>         "MATCH BEGINS" countdown before play, 0 = none (default 5, at most 600; ours)
           --pickup-test <seconds>       test aid: one drop of each type in front of every living player this often
           --bot-damage-scale <f>        test aid: scale all damage dealt by test bots (client --bot) by f, 0 to 1 (default 1 = off; e.g. 0.34 = 66% less)
+          --snapshot-rate <hz>          snapshots a second to every client, 1 to 30 (default 30, every tick; 20 = the rate before net/responsive)
           --name-seed <0-4294967295>    the seed of the test bots' names (per-race pools, ours; default random, printed at start): the same seed and join order give the same names
           --honor-side-requests         switch: keep the side a client asks for up to the per-side limit (test aid for bot fills; the balance applies only to joins with no side)
           --content <profile>           added content: faithful (SM1 alone), extended (every added content: the Ork, gore), musou (the experimental
@@ -102,7 +105,7 @@ public static class ServerCommandLine
 
     static readonly HashSet<string> Switches = ["--no-custom-emblems", "--limit-loopback", "--honor-side-requests", "--ork-data", "--no-player-collision", "--no-charge-lock", "--old-body-contact", "--log-overlaps", "--help", "-h"];
     static readonly HashSet<string> Valued =
-        ["--port", "--bind", "--game-dir", "--map", "--mode", "--score-limit", "--time-limit", "--friendly-fire", "--unlocks", "--countdown", "--pickup-test", "--bot-damage-scale",
+        ["--port", "--bind", "--game-dir", "--map", "--mode", "--score-limit", "--time-limit", "--friendly-fire", "--unlocks", "--countdown", "--pickup-test", "--bot-damage-scale", "--snapshot-rate",
          "--name-seed", "--max-per-ip", "--join-interval", "--idle-kick", "--ban-file", "--content", "--max-spectators"];
 
     /// <summary>Parses the arguments; false with a one-line <paramref name="error"/> for an unknown flag, a missing or invalid value, or a stray word.</summary>
@@ -195,6 +198,9 @@ public static class ServerCommandLine
                     break;
                 case "--name-seed":
                     if (uint.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out uint seed)) a = a with { NameSeed = seed }; else bad = "a whole number from 0 to 4294967295";
+                    break;
+                case "--snapshot-rate":
+                    if (Int(value) is { } rate && rate >= 1 && rate <= 30) a = a with { SnapshotRate = rate }; else bad = "a whole number from 1 to 30 (snapshots a second)";
                     break;
                 case "--bot-damage-scale":
                     if (Number(value) is { } scale && scale >= 0f && scale <= 1f) a = a with { BotDamageScale = scale }; else bad = "a factor from 0 to 1 (1 = off; a bot's flag is its own word, so it may only lower damage)";

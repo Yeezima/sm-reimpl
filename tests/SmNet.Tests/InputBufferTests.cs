@@ -551,7 +551,7 @@ public class InputBufferTests(ITestOutputHelper output)
     [Fact]
     public void The_own_record_carries_the_buffer_and_a_full_snapshot_stays_at_1200_bytes()
     {
-        Assert.Equal(64, Protocol.Version);
+        Assert.Equal(65, Protocol.Version);
         foreach (var action in Enum.GetValues<BufferedAction>())
             foreach (int ticks in action == BufferedAction.None ? new[] { 0 } : new[] { 0, 1, 4, 9, 15 })
             {
@@ -608,8 +608,8 @@ public class InputBufferTests(ITestOutputHelper output)
         });
         var link = new LinkConditions(TimeSpan.FromMilliseconds(75), TimeSpan.FromMilliseconds(10), 0.05);
         var h = new Harness(link, seed, 0, config, new ServerOptions { PeerTimeout = TimeSpan.FromMinutes(5) });
-        h.AddClient(nonce: 900, options: new ClientOptions { RequestedClass = Assault });
-        h.AddClient(nonce: 901, options: new ClientOptions { RequestedClass = Tactical });
+        h.AddClient(nonce: 900, options: new ClientOptions { RequestedClass = Assault, SmoothInputLead = false });   // net/responsive: the old lead steering (about 5 ticks): this checks determinism through 5 % loss, which needs inputs that survive several losses in a row
+        h.AddClient(nonce: 901, options: new ClientOptions { RequestedClass = Tactical, SmoothInputLead = false });
         var truth = new SortedDictionary<uint, Dictionary<int, PlayerState>>();
         var predicted = Enumerable.Range(0, 2).Select(_ => new Dictionary<uint, PlayerState>()).ToArray();
         InputButtons[] presses = [InputButtons.Jump, InputButtons.Melee, InputButtons.MeleeHeavy, InputButtons.Reload, InputButtons.Switch, InputButtons.Jump];
