@@ -69,18 +69,24 @@ public class NetResponsiveTests(ITestOutputHelper output)
     public void Predicted_hits_are_not_shown_twice_but_kills_and_extra_hits_are()
     {
         var l = new PredictedHitLedger();
+        var none = new ReportFeedback(false, false);
+        var both = new ReportFeedback(true, true);
+        var markerOnly = new ReportFeedback(true, false);
         l.Predict(5, head: false, 0.0);
-        Assert.False(l.Confirm(1, 5, head: false, kill: false, melee: false, splash: false, 0.15));   // the prediction showed it
+        Assert.Equal(none, l.Confirm(1, 5, head: false, kill: false, melee: false, splash: false, 0.15));   // the prediction showed it
         l.Predict(5, false, 1.0);
-        Assert.True(l.Confirm(1, 5, false, kill: true, false, false, 1.15));                        // the kill adds its marker
+        Assert.Equal(markerOnly, l.Confirm(1, 5, false, kill: true, false, false, 1.15));                // review M1: the kill marker, no second smack
         l.Predict(5, false, 2.0);
-        Assert.True(l.Confirm(2, 5, false, false, false, false, 2.15));                             // one hit no prediction showed
+        Assert.Equal(both, l.Confirm(2, 5, false, false, false, false, 2.15));                           // one hit no prediction showed: its marker and sound
         l.Predict(5, false, 3.0);
-        Assert.True(l.Confirm(1, 5, head: true, false, false, false, 3.15));                        // a headshot the prediction showed as a body hit
-        Assert.True(l.Confirm(1, 7, false, false, melee: true, false, 3.2));                        // melee is not a ranged prediction
-        Assert.True(l.Confirm(1, 7, false, false, false, false, 3.3));                              // nothing predicted
+        Assert.Equal(markerOnly, l.Confirm(1, 5, head: true, false, false, false, 3.15));                // review M1: a predicted body hit ruled a headshot: the head marker, no second smack
+        l.Predict(5, head: true, 3.5);
+        Assert.Equal(none, l.Confirm(1, 5, head: true, false, false, false, 3.6));                       // a predicted headshot confirmed: nothing again
+        Assert.Equal(both, l.Confirm(1, 7, false, false, melee: true, false, 3.7));                      // melee is not a ranged prediction
+        Assert.Equal(both, l.Confirm(1, 7, false, false, false, false, 3.8));                            // nothing predicted
+        Assert.Equal(both, l.Confirm(1, 7, false, kill: true, false, false, 3.9));                       // an unpredicted kill: its marker and sound
         l.Predict(9, false, 4.0);
-        Assert.True(l.Confirm(1, 9, false, false, false, false, 4.0 + PredictedHitLedger.Window + 0.1));   // too late: expired
+        Assert.Equal(both, l.Confirm(1, 9, false, false, false, false, 4.0 + PredictedHitLedger.Window + 0.1));   // too late: expired
         Assert.Equal(1, l.Unconfirmed);
         Assert.Equal(0, l.Pending);
     }
@@ -90,7 +96,11 @@ public class NetResponsiveTests(ITestOutputHelper output)
     {
         var l = new PredictedHitLedger();
         l.Predict(5, false, 0.0);
-        Assert.False(l.Confirm(1, 6, false, false, false, false, 0.1));   // the marker was shown; the report names another victim (two in the ray)
+        Assert.Equal(new ReportFeedback(false, false), l.Confirm(1, 6, false, false, false, false, 0.1));   // the marker was shown; the report names another victim (two in the ray)
+        l.Predict(5, false, 1.0);
+        l.Clear();
+        Assert.Equal(0, l.Pending);
+        Assert.Equal(new ReportFeedback(true, true), l.Confirm(1, 5, false, false, false, false, 1.1));   // after a respawn's clear nothing is matched
     }
 
     // ---- clip lead ----

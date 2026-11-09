@@ -67,8 +67,22 @@ public partial class NetworkView
     }
 
     /// <summary>
-    /// From <c>UpdateHits</c>: whether the server's report still shows its marker and plays its ranged hit confirmation (false: the predictions showed all of it).
+    /// From <c>UpdateHits</c>: whether the server's report still shows its marker and whether it plays its ranged hit confirmation (<see cref="PredictedHitLedger.Confirm"/>:
+    /// a kill or an unpredicted headshot shows its marker but plays no second confirmation; only hits no prediction showed play one).
     /// </summary>
-    bool ReportAddsFeedback(HitReport hits) =>
-        NoPredictedHits || _predictedHits.Confirm(hits.Hits, hits.LastVictim, hits.LastHead, hits.Kills > 0 || hits.LastKilled, hits.LastMelee, hits.LastSplash, _connectedFor);
+    ReportFeedback ReportFeedbackOf(HitReport hits) =>
+        NoPredictedHits ? new(true, true) : _predictedHits.Confirm(hits.Hits, hits.LastVictim, hits.LastHead, hits.Kills > 0 || hits.LastKilled, hits.LastMelee, hits.LastSplash, _connectedFor);
+
+    GameClient? _ledgerClient;
+    int _ledgerPlayer = -1;
+    bool _ledgerAlive;
+
+    /// <summary>Once a frame (from <c>UpdateHits</c>): the predictions are forgotten on a respawn and on a new connection or player id (review: <c>Clear</c> was never called).</summary>
+    void PredictedHitsLife()
+    {
+        if (_client is not { } c) return;
+        bool alive = c.Predicted.Alive;
+        if (!ReferenceEquals(c, _ledgerClient) || c.PlayerId != _ledgerPlayer || (alive && !_ledgerAlive)) _predictedHits.Clear();
+        _ledgerClient = c; _ledgerPlayer = c.PlayerId; _ledgerAlive = alive;
+    }
 }

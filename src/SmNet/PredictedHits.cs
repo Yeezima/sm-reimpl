@@ -1,12 +1,16 @@
 namespace SmNet;
 
+/// <summary>What a server hit report still shows (<see cref="PredictedHitLedger.Confirm"/>): its hit marker, and its ranged hit confirmation sound.</summary>
+public readonly record struct ReportFeedback(bool Marker, bool Sound);
+
 /// <summary>
 /// net/responsive (ours; client presentation only, the server still decides every hit and its damage): the own predicted ranged hits. When the own predicted hit-scan
 /// shot's ray strikes an enemy as this client draws it (the trace the tracer and impact already use), the hit marker and the hit confirmation sound play at once
 /// (<see cref="Predict"/>) instead of a round trip, the input lead and a snapshot later. The server's report that follows (<see cref="Confirm"/>) is matched against the
-/// predictions still pending (at most <see cref="Window"/> old; the report's victim first, then any): hits already shown play nothing again; the report shows its marker
-/// and sound when it has hits no prediction showed, a kill (its kill marker and kill layer), or a headshot the prediction did not show as one. Melee and blast reports
-/// are not ranged predictions and always play. A prediction no report confirms within the window expires (<see cref="Unconfirmed"/>: a marker shown for a shot the
+/// predictions still pending (at most <see cref="Window"/> old; the report's victim first, then any): hits already shown play nothing again. The report's marker shows
+/// when it has hits no prediction showed, a kill (the kill marker) or a headshot the prediction did not show as one; its hit confirmation sound plays only for hits no
+/// prediction showed (review M1: a kill or an upgrade to a headshot played the weapon's smack a second time; the data's kill layer is a layer of that same event, picked
+/// by the death state, so it cannot play alone). Melee and blast reports are not ranged predictions and always play. A prediction no report confirms within the window expires (<see cref="Unconfirmed"/>: a marker shown for a shot the
 /// server judged a miss).
 /// </summary>
 public sealed class PredictedHitLedger
@@ -36,13 +40,13 @@ public sealed class PredictedHitLedger
     }
 
     /// <summary>
-    /// The server's report of <paramref name="hits"/> hits arrived now: whether it still shows its marker and plays its sound (false: every hit in it was shown by a
-    /// prediction, and it adds no kill and no unpredicted headshot).
+    /// The server's report of <paramref name="hits"/> hits arrived now: whether it still shows its hit marker (<see cref="ReportFeedback.Marker"/>: hits no prediction
+    /// showed, a kill or an unpredicted headshot) and whether it plays the ranged hit confirmation (<see cref="ReportFeedback.Sound"/>: only hits no prediction showed).
     /// </summary>
-    public bool Confirm(int hits, int victim, bool head, bool kill, bool melee, bool splash, double now)
+    public ReportFeedback Confirm(int hits, int victim, bool head, bool kill, bool melee, bool splash, double now)
     {
         Expire(now);
-        if (melee || splash || hits <= 0) return true;
+        if (melee || splash || hits <= 0) return new(true, true);
         int matched = 0;
         bool headShown = false;
         for (int pass = 0; pass < 2 && matched < hits; pass++)
@@ -54,7 +58,8 @@ public sealed class PredictedHitLedger
                 matched++;
             }
         Confirmed += matched;
-        return matched < hits || kill || (head && !headShown);
+        bool unpredicted = matched < hits;
+        return new(unpredicted || kill || (head && !headShown), unpredicted);
     }
 
     /// <summary>Drops predictions older than <see cref="Window"/> (counted as unconfirmed).</summary>
@@ -65,6 +70,9 @@ public sealed class PredictedHitLedger
         Unconfirmed += before - _pending.Count;
     }
 
-    /// <summary>Forgets every prediction (death, a new connection).</summary>
+    /// <summary>
+    /// Forgets every prediction (a respawn, a new connection or player). Not on the own death: the reports of hits landed just before it are still on their way and must
+    /// find their predictions.
+    /// </summary>
     public void Clear() => _pending.Clear();
 }
