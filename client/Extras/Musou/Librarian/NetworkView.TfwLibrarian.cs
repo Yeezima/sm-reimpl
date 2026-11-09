@@ -229,7 +229,11 @@ public partial class NetworkView
         if (own && casting) FxShake(0.0014f);   // a held cast trembles the own view (ours; Musou's shakes do not stack)
 
         if (_gameSpace is null || Lean || DisplayServer.GetName() == "headless") return;
-        if (!_librarianBolts.TryGetValue(id, out var bolts)) { bolts = new LibrarianBolts(); _gameSpace.AddChild(bolts); _librarianBolts[id] = bolts; }
+        if (!_librarianBolts.TryGetValue(id, out var bolts))
+        {
+            bolts = new LibrarianBolts(); _gameSpace.AddChild(bolts); _librarianBolts[id] = bolts;   // made when he is first seen: it warms its materials up before his first cast
+            if (!_librarianRings.ContainsKey(id)) { var ring = new LibrarianShockwaveRing(); _gameSpace.AddChild(ring); _librarianRings[id] = ring; ring.WarmUp(); }
+        }
         var cast = character?.LibrarianCast;
         bool hands = cast is { PalmsValid: true } && track.Weight > 0f;
         bolts.SetHands(hands, hands ? _gameSpace.ToLocal(cast!.PalmLeft) : Vector3.Zero, hands ? _gameSpace.ToLocal(cast!.PalmRight) : Vector3.Zero, casting ? Math.Max(track.Weight, 0.5f) : track.Weight, now);

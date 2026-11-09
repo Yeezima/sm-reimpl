@@ -229,8 +229,32 @@ void fragment() {
         if (valid && charge > 0f && now - _fedAt > FadeSeconds && now - _castStart > FadeSeconds) _castStart = now;
     }
 
+    int _warm = 3;
+
+    /// <summary>
+    /// The first frames after the node is made (when a Librarian is first seen, not at his first cast): one invisible strip and flare in front of the camera, so the materials are compiled before the first
+    /// bolt (a first cast stalled the frame for about 100 ms).
+    /// </summary>
+    void WarmUp()
+    {
+        if (GetViewport()?.GetCamera3D() is not { } camera) return;
+        var at = ToLocal(camera.GlobalPosition - camera.GlobalBasis.Z * 3f);
+        _pts[0] = at; _pts[1] = at + new Vector3(0.01f, 0f, 0f); _widths[0] = _widths[1] = 0.01f;
+        foreach (var (strips, mesh) in new[] { (_bolts, _boltMesh), (_ghost, _ghostMesh), (_arcs, _arcMesh) })
+        {
+            strips.Begin();
+            Strip(strips, _pts, _widths, 2, new Color(0f, 0f, 0f, 0f));
+            strips.Commit(mesh);
+        }
+        _boltMat.SetShaderParameter("intensity", 0f); _ghostMat.SetShaderParameter("intensity", 0f); _arcMat.SetShaderParameter("intensity", 0f);
+        SetFlare(0, at, 0.01f, 0f, 0f, Glow);
+        _flares.VisibleInstanceCount = 1;
+        _boltsShown = true;   // cleared on the first frame with nothing alive
+    }
+
     public override void _Process(double delta)
     {
+        if (_warm > 0) { _warm--; WarmUp(); return; }
         double now = Now;
         float since = (float)(now - _fedAt);
         float alive = Math.Clamp(1f - since / FadeSeconds, 0f, 1f);

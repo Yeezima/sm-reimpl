@@ -56,6 +56,11 @@ void fragment() {
         AddChild(_ring); AddChild(_wall); AddChild(_flash);
     }
 
+    int _warm;
+
+    /// <summary>Draws the ring invisibly for a few frames in front of the camera, so its material is compiled before the first Shockwave.</summary>
+    public void WarmUp() => _warm = 3;
+
     /// <summary>Starts the ring at <paramref name="feet"/> (game space).</summary>
     public void Play(Vector3 feet)
     {
@@ -66,6 +71,16 @@ void fragment() {
 
     public override void _Process(double delta)
     {
+        if (_warm > 0 && GetViewport()?.GetCamera3D() is { } camera && GetParent() is Node3D parent)
+        {
+            _warm--;
+            Position = parent.ToLocal(camera.GlobalPosition - camera.GlobalBasis.Z * 4f);
+            Scale = Vector3.One;
+            _ringMat.SetShaderParameter("fade", 0f); _wallMat.SetShaderParameter("fade", 0f);
+            _ring.Visible = _wall.Visible = _warm > 0;
+            _ring.Scale = _wall.Scale = Vector3.One * 0.5f;
+            return;
+        }
         if (!_ring.Visible) return;
         float t = (float)(LibrarianClock.Now - _startedAt);
         float u = Math.Clamp(t / Seconds, 0f, 1f);
