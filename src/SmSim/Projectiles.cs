@@ -311,7 +311,7 @@ public sealed partial class World
             if (along < best) { best = along; target = id; zone = z; targetDisplacement = displacement; }
         }
         float stop = float.PositiveInfinity;
-        ExtrasProjectileStop(p.Position, direction, MathF.Min(best, length), ref stop);   // EXTRAS-HOOK added content (Musou Mode): a shield dome stops it where it enters from outside
+        ExtrasProjectileStop(p, direction, MathF.Min(best, length), ref stop);   // EXTRAS-HOOK added content (Musou Mode): a shield dome or a contraption stops it
         if (stop <= length && stop < best)
         {
             var at = p.Position + direction * MathF.Max(0f, stop - 0.05f);
@@ -492,8 +492,8 @@ public sealed partial class World
     /// feature runs.
     /// </summary>
     partial void ExtrasBlast(int owner, Vector3 point, SplashSpec splash, bool melee);
-    /// <summary>Added content: how far along a projectile's step (from <paramref name="from"/>, unit <paramref name="direction"/>, at most <paramref name="max"/>) something stops it; it detonates there.</summary>
-    partial void ExtrasProjectileStop(Vector3 from, Vector3 direction, float max, ref float stop);
+    /// <summary>Added content: how far along a projectile's step (from its place, unit <paramref name="direction"/>, at most <paramref name="max"/>) something stops it; it detonates there.</summary>
+    partial void ExtrasProjectileStop(in ProjectileState p, Vector3 direction, float max, ref float stop);
 
     /// <summary>
     /// A blast's push on a player (M23, for the ragdoll; ours): from the blast point to the player's body centre; when they

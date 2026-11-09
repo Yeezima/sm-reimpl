@@ -120,8 +120,10 @@ public sealed partial class World
         if (TfwMeks is not { Count: > 0 } meks) return;
         float dome = meks.DomeEntry(shot.Origin, direction, length);
         bool ended = false;
-        if (dome < length) { length = dome; ended = true; }
+        // The dome lets a shot through to its own generator (owner, 2026-11-09: every contraption can be destroyed); anything else behind its shell it stops.
         byte hit = meks.Raycast(shot.Origin, direction, length, out float distance);
+        if (hit != 0 && distance > dome && !meks.IsGenerator(hit)) hit = 0;
+        if (hit == 0 && dome < length) { length = dome; ended = true; }
         if (hit != 0)
         {
             var spec = Shots.ChargeShotOf(weapon, shot.Stage)?.Damage ?? weapon.DirectDamage with { Damage = Combat.DamageAt(distance, weapon) };
@@ -133,10 +135,22 @@ public sealed partial class World
         _shots[k] = shot;
     }
 
-    /// <summary>A player's projectile (grenade, rocket, plasma ball) against the domes: where along its step it enters one from outside (Projectiles.cs; it detonates there).</summary>
-    partial void ExtrasProjectileStop(Vector3 from, Vector3 direction, float max, ref float stop)
+    /// <summary>
+    /// A player's projectile (grenade, rocket, plasma ball) against the domes and the contraptions: where along its step it enters a dome from outside or strikes a contraption (Projectiles.cs; it detonates
+    /// there). A contraption struck takes the projectile's direct damage first (owner, 2026-11-09: hitboxes for grenades and projectiles).
+    /// </summary>
+    partial void ExtrasProjectileStop(in ProjectileState p, Vector3 direction, float max, ref float stop)
     {
-        if (TfwMeks is { AnyDome: true } meks) stop = MathF.Min(stop, meks.DomeEntry(from, direction, max));
+        if (TfwMeks is not { Count: > 0 } meks) return;
+        float dome = meks.AnyDome ? meks.DomeEntry(p.Position, direction, max) : float.PositiveInfinity;
+        byte hit = meks.Raycast(p.Position, direction, max, out float distance);
+        if (hit != 0 && (distance <= dome || meks.IsGenerator(hit)))
+        {
+            stop = MathF.Min(stop, distance);
+            if (!p.Thrown && Shots.DirectDamageOf(WeaponOf(p), p.Stage) is { } direct) meks.Damage(hit, p.Owner, direct.Damage * direct.BodyMultiplier, out _);
+            return;
+        }
+        stop = MathF.Min(stop, dome);
     }
 
     /// <summary>Whether a dome stops what goes from <paramref name="from"/> (outside it) to <paramref name="to"/> (inside it): a blast or a cone from outside.</summary>
@@ -151,7 +165,7 @@ public sealed partial class World
         {
             if (!meks.TryGet(id, out var c)) continue;
             var centre = MusouMeks.Centre(c);
-            if (TfwShielded(point, centre) || (splash.LineOfSight && Blocked(point, centre))) continue;
+            if ((c.Kind != MusouContraptionKind.ShieldGenerator && TfwShielded(point, centre)) || (splash.LineOfSight && Blocked(point, centre))) continue;   // the dome never keeps it off its own generator
             float damage = splash.Damage.Damage * Combat.SplashIntensity(splash.FallOff, distance) * splash.Damage.BodyMultiplier;
             if (damage > 0f) meks.Damage(id, owner, damage, out _);
         }
@@ -175,8 +189,8 @@ public sealed partial class World
             var flat = new Vector2(c.Position.X - state.Position.X, c.Position.Y - state.Position.Y);
             float distance = flat.Length(), reach = range + MusouMekRules.Body(c.Kind).Radius;
             if (distance > reach || MathF.Abs(c.Position.Z - state.Position.Z) > Config.MeleeVerticalReach) continue;
-            if (distance > 1e-4f && Vector2.Dot(flat / distance, forward) < minCos) continue;
-            meks.Damage(id, attacker, damage, out _);
+            if (distance > 1e-4f && distance > MusouMekRules.Body(c.Kind).Radius && Vector2.Dot(flat / distance, forward) < minCos) continue;   // standing on it counts as facing it
+            meks.Damage(id, attacker, MusouMekRules.MeleeDestroys ? MathF.Max(damage, c.Health + 1f) : damage, out _);   // one blow destroys it (owner, 2026-11-09)
         }
         TfwMekBlasts();
     }
@@ -188,7 +202,7 @@ public sealed partial class World
         meks.Near(point, blast.Radius, _mekNear);
         foreach (var (id, distance) in _mekNear)
         {
-            if (meks.TryGet(id, out var c) && TfwShielded(point, MusouMeks.Centre(c))) continue;   // a dome keeps an Ork blast from outside off what stands in it
+            if (meks.TryGet(id, out var c) && c.Kind != MusouContraptionKind.ShieldGenerator && TfwShielded(point, MusouMeks.Centre(c))) continue;   // a dome keeps an Ork blast from outside off what stands in it, never off its generator
             float damage = blast.Damage * blast.IntensityAt(distance);
             if (damage > 0f) meks.Damage(id, credit, damage, out _);
         }

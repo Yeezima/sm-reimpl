@@ -23,20 +23,29 @@ public static class MusouMekRules
     public const float HideArrive = 1.5f, MekSpacing = 10f;
     /// <summary>One contraption takes this long to build (owner brief: 15 s); a build broken off by a flight is lost (ours).</summary>
     public const float BuildSeconds = 15f;
+
+    /// <summary>
+    /// The owner, 2026-11-09: "not all of the scrap mek's contraptions can currently be destroyed. ensure they have hitboxes and have a low health value to be destroyed at zero." Every kind has this
+    /// health (ours: three standard bolter rounds of 25.4; it was 800, 400, 500 and 150), and any player's melee blow that reaches one destroys it (<see cref="MeleeDestroys"/>). The dome lets every
+    /// attack through to its own generator (<see cref="MusouMeks.DomeEntry"/> stops at the dome only what lies behind the generator's own shell).
+    /// </summary>
+    public const float ContraptionHealth = 75f;
+    /// <summary>A player's melee blow that reaches a contraption destroys it, whatever its damage (owner, 2026-11-09: "one melee swing"; ours).</summary>
+    public const bool MeleeDestroys = true;
     /// <summary>Most contraptions alive per Mek, built or under way (owner brief: 3), and shield generators on the whole map (owner brief: 1).</summary>
     public const int MaxPerMek = 3, MaxShields = 1;
 
-    /// <summary>Shield generator (owner brief): 800 hp, a dome of 10 m round it that stops shots fired from outside it (walk in to fight). The owner, 2026-11-08: it also stops the Guardsmen's fire, Ork blasts
+    /// <summary>Shield generator (owner brief; health <see cref="ContraptionHealth"/> since 2026-11-09, was 800): a dome of 10 m round it that stops shots fired from outside it (walk in to fight). The owner, 2026-11-08: it also stops the Guardsmen's fire, Ork blasts
     /// and grenades (every projectile) from outside; never movement or melee.</summary>
-    public const float ShieldHealth = 800f, ShieldRadius = 10f;
-    /// <summary>Reinforcement beacon (owner brief): 400 hp; every 30 s a drop of 10 Boyz, at most 40 alive from it. Ours: the drop's flight (it lands this long after it is called) and the ring it lands on.</summary>
-    public const float BeaconHealth = 400f, BeaconPeriod = 30f, DropFlightSeconds = 3f, DropRingMin = 2f, DropRingMax = 6f;
+    public const float ShieldHealth = ContraptionHealth, ShieldRadius = 10f;
+    /// <summary>Reinforcement beacon (owner brief; health <see cref="ContraptionHealth"/> since 2026-11-09, was 400): every 30 s a drop of 10 Boyz, at most 40 alive from it. Ours: the drop's flight (it lands this long after it is called) and the ring it lands on.</summary>
+    public const float BeaconHealth = ContraptionHealth, BeaconPeriod = 30f, DropFlightSeconds = 3f, DropRingMin = 2f, DropRingMax = 6f;
     public const int BeaconDrop = 10, BeaconMaxAlive = 40;
-    /// <summary>Rokkit turret (owner brief): 500 hp, the Rokkit Boy's rocket every 4 s at up to 50 m. Ours: the muzzle's height, how far in front of the turret it leaves, the retry with no target.</summary>
-    public const float TurretHealth = 500f, TurretPeriod = 4f, TurretRange = 50f, TurretMuzzleHeight = 1.4f, TurretMuzzleForward = 0.8f, TurretRetrySeconds = 0.5f;
-    /// <summary>Scrap trap (owner brief): 150 hp, radius 3; a Mek's enemy stepping in sets it off for 50 % of a player's maximum health (health and armour together, ours), Orks spared. Ours: the height a body
+    /// <summary>Rokkit turret (owner brief; health <see cref="ContraptionHealth"/> since 2026-11-09, was 500): the Rokkit Boy's rocket every 4 s at up to 50 m. Ours: the muzzle's height, how far in front of the turret it leaves, the retry with no target.</summary>
+    public const float TurretHealth = ContraptionHealth, TurretPeriod = 4f, TurretRange = 50f, TurretMuzzleHeight = 1.4f, TurretMuzzleForward = 0.8f, TurretRetrySeconds = 0.5f;
+    /// <summary>Scrap trap (owner brief; health <see cref="ContraptionHealth"/> since 2026-11-09, was 150): radius 3; a Mek's enemy stepping in sets it off for 50 % of a player's maximum health (health and armour together, ours), Orks spared. Ours: the height a body
     /// counts in it, and that it is spent when it goes off.</summary>
-    public const float TrapHealth = 150f, TrapRadius = 3f, TrapVertical = 2f, TrapShare = 0.5f;
+    public const float TrapHealth = ContraptionHealth, TrapRadius = 3f, TrapVertical = 2f, TrapShare = 0.5f;
     /// <summary>The trap destroyed by a player (shot, blast, blow, or an Ork blast he caused) goes off as an Ork blast that hurts Orks too (ours: radius 4, 150 at the centre, 25 % at the edge).</summary>
     public static readonly OrkBlastSpec TrapBlast = new(4f, 150f) { EdgeFraction = 0.25f };
     /// <summary>The owner, 2026-11-08: "make ai marines be outright killed by scrap mek traps". An AI Marine in a trap that goes off dies at once (this damage before his tenth, far above any body).</summary>
@@ -638,11 +647,22 @@ public sealed class MusouMeks
         into.Clear();
         foreach (var s in _structures)
         {
-            var centre = Centre(s);
-            float d = Vector3.Distance(centre, point);
+            float d = Reach(s, point);
             if (d <= radius) into.Add((s.Id, d));
         }
     }
+
+    /// <summary>How far <paramref name="point"/> is from a contraption's body (its upright cylinder; 0 inside it): a blast meets its edge, not its middle (owner, 2026-11-09: hitboxes).</summary>
+    static float Reach(Structure s, Vector3 point)
+    {
+        var (radius, height) = MusouMekRules.Body(s.Kind);
+        float flat = MathF.Max(0f, new Vector2(point.X - s.Position.X, point.Y - s.Position.Y).Length() - radius);
+        float up = point.Z < s.Position.Z ? s.Position.Z - point.Z : point.Z > s.Position.Z + height ? point.Z - s.Position.Z - height : 0f;
+        return MathF.Sqrt(flat * flat + up * up);
+    }
+
+    /// <summary>Whether contraption <paramref name="id"/> is a built shield generator (the one thing its dome never keeps attacks off).</summary>
+    public bool IsGenerator(byte id) => TryGet(id, out var c) && c.Kind == MusouContraptionKind.ShieldGenerator;
 
     /// <summary>A contraption's middle (half its height up).</summary>
     public static Vector3 Centre(in MusouContraption c) => c.Position + new Vector3(0f, 0f, MusouMekRules.Body(c.Kind).Height * 0.5f);
