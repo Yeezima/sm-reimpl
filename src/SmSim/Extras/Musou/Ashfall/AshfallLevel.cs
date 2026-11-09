@@ -42,6 +42,9 @@ public sealed record AshfallPart(AshfallKind Kind, Vector3[] Corners)
 /// </summary>
 public sealed record AshfallLevel(IReadOnlyList<AshfallPart> Parts, IReadOnlyList<ControlPoint> Points, IReadOnlyList<StartArea> Areas, IReadOnlyList<Vector3> Spawns, ulong Hash)
 {
+    /// <summary>Which generator built it (draft 11: <see cref="AshfallLayout.Field"/>; not hashed apart from the geometry, which differs).</summary>
+    public AshfallLayout Layout { get; init; }
+
     /// <summary>The solid triangles' corners, three a triangle, in part order: the character and the weapon mesh of the level.</summary>
     public Vector3[] SolidCorners() => Parts.Where(p => p.Solid).SelectMany(p => p.Corners).ToArray();
 

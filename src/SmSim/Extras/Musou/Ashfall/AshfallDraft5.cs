@@ -76,6 +76,8 @@ internal static partial class AshfallDraft5Pass
         /// <summary>Draft 9's urban rules: the buildings' graybox footprints, the debris left out away from them, the pieces turned onto the street grid.</summary>
         public readonly List<Vector4> Buildings = [];
         public int DebrisAlone, Snapped;
+        /// <summary>Draft 11: the battlefield plan when the field layout runs (null: draft 10, every rule as before).</summary>
+        public AshfallFieldPlan? Field;
     }
 
     sealed record Spec(string Group, string Family, Vector3 Min, Vector3 Max, AshfallBox? Box, string[] Pool)
@@ -97,17 +99,22 @@ internal static partial class AshfallDraft5Pass
 
     public static AshfallDraft5 Run() => Run(overlapRule: true);
 
+    /// <summary>Draft 11: the pass on the field layout's graybox (<see cref="AshfallMap.BuildFieldGraybox"/>), every standing rule of drafts 7 to 10 on, its corridors as roadways.</summary>
+    public static AshfallDraft5 Run(AshfallFieldPlan field) => Run(overlapRule: true, roadwayRule: true, draft9: true, field: field);
+
     /// <summary>The pass; <paramref name="overlapRule"/> false skips draft 7's overlap rule, <paramref name="roadwayRule"/> false draft 8's roadway rule (report aids: the placement without the rule, under the same version).</summary>
-    public static AshfallDraft5 Run(bool overlapRule, bool roadwayRule = true, bool draft9 = true)
+    public static AshfallDraft5 Run(bool overlapRule, bool roadwayRule = true, bool draft9 = true, AshfallFieldPlan? field = null)
     {
-        var gb = AshfallMap.BuildGrayboxWithFeatures();
+        var draft10 = field is null ? null : AshfallMap.BuildDraft5();   // draft 11: the fortress comes from draft 10 (built first, on draft 10's own ground)
+        using var ground = new AshfallMap.FieldScope(field is not null);
+        var gb = field is null ? AshfallMap.BuildGrayboxWithFeatures() : AshfallMap.BuildFieldGraybox(field);
         var g5 = gb.Level;
-        var c = new Ctx { Seed = AshfallBuilder.Mix(AshfallMap.VariationSeed, 0xA5F411u), OverlapRule = overlapRule, RoadwayRule = roadwayRule, Draft9 = draft9 };
-        c.Roads = AshfallRoadway.Strips(g5);
+        var c = new Ctx { Seed = AshfallBuilder.Mix(field is null ? AshfallMap.VariationSeed : field.Params.DressSeed, 0xA5F411u), OverlapRule = overlapRule, RoadwayRule = roadwayRule, Draft9 = draft9, Field = field };
+        c.Roads = field is null ? AshfallRoadway.Strips(g5) : AshfallRoadway.FieldStrips(field);
         foreach (var p in g5.Parts)
             if (p.Kind is AshfallKind.Ground or AshfallKind.Road or AshfallKind.Paving or AshfallKind.Curb or AshfallKind.Boundary or AshfallKind.Objective) c.Parts.Add(p);
         // Draft 10's lanes (AshfallLanes): paved connectors to the points and the gate, roadways for the draft-8 rule, drawn as road.
-        var lanes = draft9 ? AshfallLanes.Parts() : [];
+        var lanes = draft9 && field is null ? AshfallLanes.Parts() : [];
         c.Parts.AddRange(lanes);
         foreach (var p in lanes)
             if (AshfallBox.Of(p) is { } lb) c.Roads.Add(lb with { Z0 = -2f, Z1 = 1000f, Length = lb.Length + 2f * AshfallRoadway.Margin, Depth = lb.Depth + 2f * AshfallRoadway.Margin });
@@ -116,7 +123,7 @@ internal static partial class AshfallDraft5Pass
         BuildBanned(c, g5);
 
         var items = new List<AshfallDressItem>();
-        AshfallDressPass.SurfaceItems([.. g5.Parts, .. lanes], items);
+        if (field is null) AshfallDressPass.SurfaceItems([.. g5.Parts, .. lanes], items); else AshfallDressPass.FieldSurfaceItems(field, items);
         foreach (var it in items) { c.Items.Add(it); c.ItemParts.Add((0, 0)); }
 
         // Objective A: capture point on the ground; draft 6: the expansion's round objective dais (AC-076, made for it) as a walk-over dais (visual), in place of draft 5's squashed plaza centre tile (AC-037).
@@ -149,6 +156,7 @@ internal static partial class AshfallDraft5Pass
             var g = groups[gi];
             if (byGroup[gi].Count == 0) continue;
             if (g.Family.StartsWith("stronghold") || g.Family is "terrace" or "outerwall" || g.Name == "keep bridge") { stronghold.Add(gi); continue; }
+            if (field is not null && IsTransplanted(g.Name)) continue;   // draft 11: the compound's walls come from draft 10 with the fortress
             var (min, max) = Bounds(g5.Parts, byGroup[gi]);
             AshfallBox? box = byGroup[gi].Count == 1 ? AshfallBox.Of(g5.Parts[byGroup[gi][0]]) : null;
             if (draft9 && g.Family is "rubble" or "wallpiece") { debris.Add(gi); continue; }
@@ -171,7 +179,7 @@ internal static partial class AshfallDraft5Pass
                 Generic(c, groups[gi], min, max, box, g5);
             }
         }
-        Stronghold(c, groups, byGroup, g5, stronghold);
+        if (draft10 is null) Stronghold(c, groups, byGroup, g5, stronghold); else Transplant(c, draft10);
         ExtraPlatforms(c);
         RubbleProps(c);
         foreach (var (name, mn, mx, deck) in c.Bridges) Bridge6(c, name, mn, mx, deck);
@@ -199,7 +207,7 @@ internal static partial class AshfallDraft5Pass
             c.Flags.Add($"{id}: {n} collision boxes under {MinBox} m dropped as dust across its placements");
 
         var spawns = g5.Spawns.Select(s => s == g5.Points[0].Center ? points[0].Center : s).ToList();
-        var level = new AshfallLevel(c.Parts, points, g5.Areas, spawns, AshfallMap.HashOf(c.Parts, AshfallMap.Version));
+        var level = new AshfallLevel(c.Parts, points, g5.Areas, spawns, AshfallMap.HashOf(c.Parts, field is null ? AshfallMap.Version : AshfallField.HashVersion)) { Layout = field is null ? AshfallLayout.Draft10 : AshfallLayout.Field };
         var hidden = Enumerable.Range(groundCount, c.Parts.Count - groundCount).ToList();
         var dressing = new AshfallDressing(c.Items, hidden, AshfallMap.DressVersion, c.Structures) { ItemParts = c.ItemParts, Flags = c.Flags };
         return new AshfallDraft5(level, dressing, gb, c.Log);
@@ -216,6 +224,7 @@ internal static partial class AshfallDraft5Pass
 
     static void BuildBanned(Ctx c, AshfallLevel g5)
     {
+        if (c.Field is { } f) { BuildFieldBanned(c, g5, f); return; }
         const float lane = 4.2f;
         foreach (float v in new[] { -92f, 92f, -232f, 232f })
         {
@@ -372,7 +381,7 @@ internal static partial class AshfallDraft5Pass
     static void Generic(Ctx c, AshfallGroup g, Vector3 min, Vector3 max, AshfallBox? box, AshfallLevel g5)
     {
         if (g.Family == "plinth") { c.Log.Add(new(g.Name, g.Family, "AC-037", c.Items.Count - 1, "replaced: control point on the ground, dais tile")); return; }
-        if (g.Family == "obelisk")
+        if (g.Family == "obelisk" && c.Field is null)
         {
             // A's obelisk would stand inside the capture zone's 6 m ring: moved 30 m west, 6 m south.
             box = null;
@@ -399,7 +408,7 @@ internal static partial class AshfallDraft5Pass
             NoCollision = g.Family == "backdrop",
             UseNet = g.Family is not ("wallrun" or "monument" or "arch"),   // the compound's walls, the monument and the arch were hand-placed on the avenues and around the start area
             Kind = g.Family is "rubble" or "wallpiece" ? AshfallKind.Rubble : null,
-            Out = c.Draft9 && IsBuildingFamily(g.Family, max.Z - min.Z) ? StreetSide(new Vector2((min.X + max.X) / 2f, (min.Y + max.Y) / 2f)) : null,
+            Out = c.Draft9 && IsBuildingFamily(g.Family, max.Z - min.Z) ? (c.Field is { } fp ? FieldStreetSide(fp, new Vector2((min.X + max.X) / 2f, (min.Y + max.Y) / 2f)) : StreetSide(new Vector2((min.X + max.X) / 2f, (min.Y + max.Y) / 2f))) : null,
         };
         if (g.Family == "backdrop") spec.GrowAlong = spec.GrowAcross = 0f;
         Place(c, spec);

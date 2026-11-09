@@ -210,8 +210,17 @@ public static class TfwMap
     public const string Name = "tfw_war";
     /// <summary>The restore switch: the old war map, Manufactorum from the install with the Stormbird and the range (<see cref="ManufactorumVersion"/>'s composition).</summary>
     public const string ManufactorumName = "tfw_war_m09";
-    /// <summary>Whether <paramref name="name"/> is one of the war's maps (<see cref="Name"/> or <see cref="ManufactorumName"/>).</summary>
-    public static bool IsWarMap(string? name) => name is Name or ManufactorumName;
+    /// <summary>
+    /// Draft 11's battlefield layout of Ashfall Citadel (docs/musou-ashfall-graybox.md "Draft 11 battlefield layout"): the same war on the battlefield ruleset's level (<c>AshfallLayout.Field</c>). <see cref="Name"/> keeps the
+    /// draft-10 layout (the rollback path). The name travels in the Challenge, so a client builds the level the server runs, and the level's hash is in the map hash: mismatched builds are told apart.
+    /// </summary>
+    public const string FieldName = "tfw_war_field";
+    /// <summary>Whether <paramref name="name"/> is one of the war's maps (<see cref="Name"/>, <see cref="FieldName"/> or <see cref="ManufactorumName"/>).</summary>
+    public static bool IsWarMap(string? name) => name is Name or FieldName or ManufactorumName;
+    /// <summary>Whether <paramref name="name"/> is an Ashfall Citadel map (generated in code: <see cref="Name"/> or <see cref="FieldName"/>).</summary>
+    public static bool IsAshfall(string? name) => name is Name or FieldName;
+    /// <summary>The Ashfall layout of a map name (<see cref="FieldName"/>: the field; anything else: draft 10).</summary>
+    public static SmSim.Extras.Musou.Ashfall.AshfallLayout LayoutOf(string? name) => name == FieldName ? SmSim.Extras.Musou.Ashfall.AshfallLayout.Field : SmSim.Extras.Musou.Ashfall.AshfallLayout.Draft10;
     /// <summary>The install's map every battle is fought on.</summary>
     public const string Battlefield = "mp_tdm_09";   // Manufactorum: the 5-wave test aid's map and the battlefield of ManufactorumName
     /// <summary>Raised with any change of how the world is composed (hashed into <see cref="TfwMapData.Hash"/>; 2: TF1's arena and Stormbird replace TF0's flat slab; 3: Manufactorum replaces the empty arena; 4: the Thunderhawk's interior replaces the Stormbird's box; 8: Ashfall Citadel replaces Manufactorum under <see cref="Name"/>; the Manufactorum composition keeps <see cref="ManufactorumVersion"/>).</summary>

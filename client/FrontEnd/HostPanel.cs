@@ -293,7 +293,9 @@ public sealed partial class HostPanel : UiKit.MenuColumn
             string? project = OS.HasFeature("template") ? null : ProjectSettings.GlobalizePath("res://").TrimEnd('/', '\\');
             bots = new BotLaunch(botExe, project, port, content, HumanChaos, plan, System.IO.Path.GetFullPath(BotLogs.Folder(ProjectSettings.GlobalizePath("user://"))));
         }
-        var options = new HostOptions(_mode, port, _localOnly, _gameDir, _emblems, content, bots is null ? 0 : plan.Count, Difficulty);
+        // draft 11: --ashfall-layout field hosts Musou Mode on Ashfall's battlefield layout (tfw_war_field); without it the server's default (tfw_war, draft 10)
+        string? map = Musou && _args.TryGetValue("ashfall-layout", out var layout) && layout == "field" ? SmSim.Extras.Musou.Campaign.TfwMap.FieldName : null;
+        var options = new HostOptions(_mode, port, _localOnly, _gameDir, _emblems, content, bots is null ? 0 : plan.Count, Difficulty, map);
         if (HostedServer.Start(_exe, options, bots) is { } error) { Say(error, true); return; }
         GD.Print($"host: server started on UDP {port} ({(_localOnly ? "this PC only" : "all interfaces")}); kill-on-close job: {HostedServer.Guarded}; bots planned: {plan.Count} ({options.Difficulty})");
         _pendingJoin = true;

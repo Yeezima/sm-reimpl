@@ -238,7 +238,8 @@ internal static partial class AshfallDraft5Pass
     static void ExtraPlatforms(Ctx c)
     {
         int have = PlatformIds.Sum(id => c.Uses.GetValueOrDefault(id));
-        if (have >= PlatformTarget) return;
+        int target = c.Field?.Params.PlatformTarget ?? PlatformTarget;
+        if (have >= target) return;
         // Draft 6, phase 2: the added platforms are the expansion's low and medium firing platforms (AC-049, AC-050) at their design size (smaller, their stairs are too narrow to walk: the graph test reached none of the 3/4 and 3/5 sizes), and AC-008 at the sizes draft 6 added it with
         // (12.5 x 4.3 x 2.3 m to 21.0 x 7.2 x 6.0 m); the two new models first (the seeded one, then the other), AC-008 (larger size first) only where neither fits. Every size is lowered uniformly where the model's
         // scaled cell would exceed the step (AC-050 at its design scale: 0.42 m, so it is drawn at about 10.1 m/unit).
@@ -261,8 +262,13 @@ internal static partial class AshfallDraft5Pass
             {
                 uint key = AshfallBuilder.Mix(c.Seed ^ 0x9A7F0u, n++);
                 float objective = points.Min(p => Vector2.Distance(new Vector2(x, y), new Vector2(p.X, p.Y)) - (p.Z - 6f));
-                float route = lanes.Min(v => MathF.Min(MathF.Abs(x - v), MathF.Abs(y - v)));
-                if (y > -160f && y < 80f) route = MathF.Min(route, MathF.Abs(x));
+                float route;
+                if (c.Field is { } fl) route = fl.Corridors.Min(k => k.DistanceTo(new Vector2(x, y)) - k.Width / 2f);   // draft 11: metres beside a corridor's edge
+                else
+                {
+                    route = lanes.Min(v => MathF.Min(MathF.Abs(x - v), MathF.Abs(y - v)));
+                    if (y > -160f && y < 80f) route = MathF.Min(route, MathF.Abs(x));
+                }
                 uint tier = objective >= 10f && objective <= 40f ? 0u : route >= 8f && route <= 30f ? 1u : 2u;
                 cands.Add(((tier << 30) | (key >> 2), x, y));
             }
@@ -278,6 +284,7 @@ internal static partial class AshfallDraft5Pass
         {
             var at = new Vector2(x, y);
             if (platforms.Any(p => Vector2.Distance(p, at) < PlatformSpacing)) continue;
+            if (c.Field is { } fv && fv.Points.Count(q => Vector2.Distance(new Vector2(q.Center.X, q.Center.Y), at) <= fv.Params.HighGroundViewRange) == fv.Points.Count) continue;   // draft 11: no platform overlooks every point
             uint h = AshfallBuilder.Mix(key, 0x51A7u);
             float ground = AshfallMap.SurfaceAt(x, y);
             if (ground != AshfallMap.BlockTop) continue;   // on a block: the roads stay open
@@ -312,7 +319,7 @@ internal static partial class AshfallDraft5Pass
         int added = 0;
         var spec = new Spec("extra platform", "platform", Vector3.Zero, Vector3.Zero, null, PlatformIds);
         var mine = new List<Vector4>();
-        while (have + added < PlatformTarget)
+        while (have + added < target)
         {
             int pick = -1;
             foreach (int region in Enumerable.Range(0, 9).OrderBy(r => perRegion[r]).ThenBy(r => r))
@@ -332,7 +339,7 @@ internal static partial class AshfallDraft5Pass
             perRegion[Region(at)]++;
             added++;
         }
-        c.Flags.Add($"draft 6: {added} shooting platforms added on free ground (AC-049 x{c.Items.Skip(c.Items.Count - added).Count(i => i.Asset == "AC-049")}, AC-050 x{c.Items.Skip(c.Items.Count - added).Count(i => i.Asset == "AC-050")}, AC-008 x{c.Items.Skip(c.Items.Count - added).Count(i => i.Asset == "AC-008")}; {have} from draft 5 after the growth, {have + added} in total; target {PlatformTarget}; bare edges, nothing added to them)");
+        c.Flags.Add($"draft 6: {added} shooting platforms added on free ground (AC-049 x{c.Items.Skip(c.Items.Count - added).Count(i => i.Asset == "AC-049")}, AC-050 x{c.Items.Skip(c.Items.Count - added).Count(i => i.Asset == "AC-050")}, AC-008 x{c.Items.Skip(c.Items.Count - added).Count(i => i.Asset == "AC-008")}; {have} from draft 5 after the growth, {have + added} in total; target {target}; bare edges, nothing added to them)");
     }
 
     /// <summary>Whether the ground under a footprint (and 1 m around) is one level <paramref name="ground"/>: no kerb, crater or rim under a platform.</summary>

@@ -33,6 +33,7 @@ return args switch
     ["musou-sounds", var musouDir, .. var musouRest] => SmTool.MusouSoundCommands.Run(musouDir, musouRest),
     ["ork-blood", var bloodDir] => SmTool.OrkBloodCommand.Run(bloodDir),
     ["ashfall-plan", .. var planRest] => SmTool.AshfallPlanCommand.Run(planRest),
+    ["ashfall-clash", .. var clashRest] => SmTool.AshfallClashCommand.Run(clashRest),
     ["ashfall-kit-collision", .. var kitRest] => SmTool.AshfallKitCollisionCommand.Run(kitRest),
     ["ashfall-kit-files"] => SmTool.AshfallKitFilesCommand.Run(),
     ["ashfall-kit-stairs", .. var stairRest] => SmTool.AshfallKitStairsCommand.Run(stairRest),

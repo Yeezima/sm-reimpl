@@ -18,6 +18,20 @@ public static partial class AshfallMap
     /// <summary>The draft-5 result in full: level, dressing, the v5 graybox it started from and the placement log (built once, shared; treat as read-only).</summary>
     public static AshfallDraft5 BuildDraft5() => Draft5Cache.Value;
 
+    static readonly Lazy<AshfallDraft5> FieldCache = new(() => AshfallDraft5Pass.Run(AshfallField.Default), LazyThreadSafetyMode.ExecutionAndPublication);
+
+    /// <summary>The kit pass's result for a layout (draft 10: <see cref="BuildDraft5()"/>; the field: the battlefield ruleset's level with the default parameters), built once and shared.</summary>
+    public static AshfallDraft5 BuildDraft5(AshfallLayout layout) => layout == AshfallLayout.Field ? FieldCache.Value : Draft5Cache.Value;
+
+    /// <summary>An uncached run of the field layout with <paramref name="p"/> (the checks' determinism and the seed checks).</summary>
+    public static AshfallDraft5 RebuildField(AshfallFieldParams p) => AshfallDraft5Pass.Run(AshfallField.Plan(p));
+
+    /// <summary>The level of a layout.</summary>
+    public static AshfallLevel Build(AshfallLayout layout) => BuildDraft5(layout).Level;
+
+    /// <summary>The level of a layout with its dressing.</summary>
+    public static (AshfallLevel Level, AshfallDressing Dressing) BuildWithDressing(AshfallLayout layout) => (BuildDraft5(layout).Level, BuildDraft5(layout).Dressing);
+
     /// <summary>A second, uncached run of the pass (for the determinism checks).</summary>
     public static AshfallDraft5 RebuildDraft5() => AshfallDraft5Pass.Run();
 
