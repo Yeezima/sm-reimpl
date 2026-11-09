@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using Godot;
 using SmContent;
@@ -77,7 +78,8 @@ public partial class NetworkView
         var last = _musouMixLast;
         _musouMixLast = now;
         GD.Print($"SOUND MIX t {_connectedFor:F2} frame {Engine.GetProcessFrames()} off {MusouSoundAb.Describe(off)}: started +{now.VoicesStarted - last.Started}, steals +{now.Steals - last.Steals}, culled +{now.Culled - last.Culled}, made virtual +{now.Virtual - last.Virtual}, " +
-                 $"instance-limit kills +{now.LimitKills - last.Kills} drops +{now.LimitDrops - last.Drops}, bus actions +{now.BusActions - last.Bus} dropped +{now.BusActionsDropped - last.BusDropped}; {sound.MixLine()}; {sound.MeterLine()}");
+                 $"instance-limit kills +{now.LimitKills - last.Kills} drops +{now.LimitDrops - last.Drops}, bus actions +{now.BusActions - last.Bus} dropped +{now.BusActionsDropped - last.BusDropped}; " +
+                 $"detonations so far: bolt blast records {_tfwBoltBlastsShown} soundable {BoltBlastSoundable} sounded {DetonationSounds.GetValueOrDefault("bolt blast")}, projectile {DetonationSounds.GetValueOrDefault("projectile")}, squig {DetonationSounds.GetValueOrDefault("squig")}, first-hit blasts {_musouBolterHits}; {sound.MixLine()}; {sound.MeterLine()}");
     }
 
     /// <summary>

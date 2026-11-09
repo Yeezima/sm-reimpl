@@ -93,6 +93,22 @@ public class MusouSoundAbTests
         Assert.Empty(offenders);
     }
 
+    /// <summary>
+    /// musou/bolt-blast-sound (owner 2026-11-10: "disable that sound effect for bolter explosions and leave it for regular grenades"): a bolt blast posts the frag's detonation sound only with the restore
+    /// switch; the real projectiles' detonations (thrown grenades) keep calling the sound as before, from the shared path, with no condition.
+    /// </summary>
+    [Fact]
+    public void Bolt_blasts_are_silent_unless_restored_and_grenades_still_sound()
+    {
+        string blast = File.ReadAllText(Path.Combine(Root(), "client", "Extras", "Musou", "Tfw", "NetworkView.TfwBoltBlast.cs"));
+        Assert.Contains("static readonly bool OldBoltBlastSound = CmdFlag(\"musou-old-bolt-blast-sound\");", blast);
+        var posts = Regex.Matches(blast, @"SoundDetonation\(");
+        Assert.Single(posts);
+        Assert.Matches(@"if \(OldBoltBlastSound && [^\n]*SoundDetonation\(view, ""bolt blast""\)", blast);
+        string view = File.ReadAllText(Path.Combine(Root(), "client", "NetworkView.cs"));
+        Assert.Matches(@"\n\s*SoundDetonation\(d\);", view);   // a real projectile's detonation (a thrown grenade): unconditional, as before
+    }
+
     [Fact]
     public void The_live_changes_report_value_and_weight()
     {

@@ -901,13 +901,23 @@ public partial class NetworkView
         }
     }
 
-    /// <summary>A detonation (from <see cref="UpdateProjectiles"/>): the projectile blueprint's detonate sounds and its impact container's.</summary>
-    void SoundDetonation(ProjectileView d)
+    /// <summary>Detonation sounds posted, by source (<c>projectile</c>: a real projectile's; an added mode names its own, e.g. Musou's <c>bolt blast</c>): a test aid's count (musou/sound-ab).</summary>
+    internal readonly Dictionary<string, int> DetonationSounds = new(StringComparer.Ordinal);
+    readonly HashSet<string> _detonationsLogged = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// A detonation (from <see cref="UpdateProjectiles"/>): the projectile blueprint's detonate sounds and its impact container's. <paramref name="source"/> names who asked (counted, and the emitter's
+    /// label when it is not a real projectile's: <c>projectile</c> keeps the label <c>detonation</c>, as before).
+    /// </summary>
+    void SoundDetonation(ProjectileView d, string source = "projectile")
     {
         if (_soundTriggers is null || _sound is null) return;
         var name = ProjectileFile(d.Weapon, d.Stage, d.Thrown);
         var file = name is null ? null : _soundTriggers.File(name);
-        var at = new SoundEmitter { Position = ToGodot(d.Position), Label = "detonation", OneShot = true };
+        DetonationSounds[source] = DetonationSounds.GetValueOrDefault(source) + 1;
+        if ((LogSound("detonation") || LogSound("mixab")) && _detonationsLogged.Add(source + "|" + name))
+            GD.Print($"DETONATION source {source}: projectile file {name ?? "none"}, detonate_action events {string.Join(", ", file?.Of("detonate_action").Select(b => b.StartEvent).Where(e => e.Length > 0) ?? [])}, hit sound {(name is null ? "none" : _soundTriggers.HitSound(name) ?? "none")}");
+        var at = new SoundEmitter { Position = ToGodot(d.Position), Label = source == "projectile" ? "detonation" : source + " detonation", OneShot = true };
         string surface = MaterialEffectTable.DefaultKey;
         if (_client?.Collision is { } world && world.Weapons.Raycast(d.Position + new System.Numerics.Vector3(0, 0, 0.5f), new System.Numerics.Vector3(0, 0, -1), 3f) is { } hit)
             surface = Surfaces.NameOf(world.Weapons.MaterialOf(hit.Triangle));

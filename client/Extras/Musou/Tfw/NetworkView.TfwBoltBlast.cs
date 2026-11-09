@@ -14,10 +14,20 @@ namespace SmClient;
 /// client thins what it draws (ours): a blast within <see cref="BoltBlastMergeMetres"/> of one drawn in the last <see cref="BoltBlastMergeSeconds"/> is left out (the damage is the server's either way),
 /// at most <see cref="BoltBlastsPerFrame"/> effects and <see cref="BoltBlastSoundsPerFrame"/> sounds a frame, and each blast shakes the camera a quarter of a frag's. The effect plays at
 /// <see cref="BoltBlastFxScale"/> of the frag's size (owner, 2026-11-08: "make the vfx 60% smaller").
+/// <para>
+/// musou/bolt-blast-sound (owner, 2026-11-10: "if the sound is triggered so often by the bolter explosions behaving like grenade explosions - disable that sound effect for bolter explosions and leave it
+/// for regular grenades"): a bolt blast no longer posts the frag's detonation sound (measured: up to 2 a frame, the largest single source of the heavy-combat roar and of the voices stolen at the cap;
+/// musou/sound-ab). Its effect, shake and damage stay; a thrown grenade's detonation sounds as before, and so do the bolter's own shot, impact and first-hit smack and blast. Restore switch:
+/// <c>--musou-old-bolt-blast-sound</c> (the blasts post the frag's detonation sound again, as before).
+/// </para>
 /// </summary>
 public partial class NetworkView
 {
     const int BoltBlastsPerFrame = 6, BoltBlastSoundsPerFrame = 2;
+    /// <summary><c>--musou-old-bolt-blast-sound</c>: each bolt blast posts the frag's detonation sound again (the behaviour before musou/bolt-blast-sound).</summary>
+    static readonly bool OldBoltBlastSound = CmdFlag("musou-old-bolt-blast-sound");
+    /// <summary>Bolt blasts that passed the thinning and would sound under the old rule (posted or not): the test aid's count (musou/sound-ab).</summary>
+    internal int BoltBlastSoundable { get; private set; }
     const float BoltBlastMergeMetres = 1.0f, BoltBlastMergeSeconds = 0.12f, BoltBlastShake = 0.25f;
     /// <summary>The bolt blast's effect against the frag detonation it reuses: 60 % smaller (owner, 2026-11-08; until then 1).</summary>
     internal const float BoltBlastFxScale = 0.4f;
@@ -41,7 +51,12 @@ public partial class NetworkView
                 if (_bot || CmdFlag("tfw-test-melee")) GD.Print($"t {_connectedFor:F1} s: war: bolt blast at ({fire.At.X:F1}, {fire.At.Y:F1}, {fire.At.Z:F1}), radius {fire.To.Y:F1}");
                 if (drawn >= BoltBlastsPerFrame || fire.To.X < 0f || Near(fire.At)) continue;
                 var view = new ProjectileView(0, (int)fire.To.X, 0, fire.At, ProjectileFlags.Thrown);
-                if (sounded < BoltBlastSoundsPerFrame && !MusouSoundIsOff(SmContent.MusouSoundOff.BoltBlast)) { SoundDetonation(view); sounded++; }   // musou/sound-ab: boltblast off
+                if (sounded < BoltBlastSoundsPerFrame)
+                {
+                    BoltBlastSoundable++;
+                    if (OldBoltBlastSound && !MusouSoundIsOff(SmContent.MusouSoundOff.BoltBlast)) SoundDetonation(view, "bolt blast");   // musou/bolt-blast-sound: only with the restore switch (musou/sound-ab: boltblast off)
+                    sounded++;
+                }
                 if (Lean || DisplayServer.GetName() == "headless") { drawn++; _tfwBoltDrawn.Add((_connectedFor, fire.At)); continue; }
                 var shake = _shake;
                 if (FxDetonation(view, BoltBlastFxScale)) _tfwBoltBlastsDrawn++;
