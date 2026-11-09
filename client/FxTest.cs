@@ -18,6 +18,7 @@ namespace SmClient;
 /// <c>--stomp-test</c> (fx/impact-pass) plays a stomp's impact as the networked client does (<see cref="StompFx"/>, the first effect named, default <c>interrupt_stomp_dmg</c>, at <c>--pound-radius</c>; <c>--stomp-ring</c> picks the shockwave's sprite);
 /// <c>--fx-shots t1,t2,...</c> with <c>--fx-shot-base file.png</c> (M41) saves the view at those seconds after the first effect starts (<c>file_001.png</c>, ...) and then quits;
 /// <c>--fx-tint r,g,b</c> recolours every effect as <see cref="FxEffect.Tint"/> does; <c>--fx-wargear csm_mp_ranged_plasma_gun</c> plays the effects as that weapon does (a Chaos plasma weapon recolours the loyalist-named plasma effects purple, <see cref="PlasmaColour"/>);
+/// <c>--fx-amount f</c>, <c>--fx-keep-smoke</c>, <c>--fx-gamma</c> (musou/gpu-particles) play the effects as Musou's blood does (<see cref="FxEffect.Amount"/>, <see cref="FxEffect.KeepSmoke"/>, <see cref="FxEffect.GammaColours"/>); <c>--fx-gpu</c> draws their sprays' particles on the GPU;
 /// <c>--fx-rein f</c> (feel/muzzle-smoke) plays the effects with their smoke elements reined in to that fraction (1: the data's look), <c>--fx-decals</c> (M38) draws only the effects' decals, <c>--fx-head m/s</c> sets a tracer's bright-head speed (what the networked client does for long shots), <c>--fx-sprite name</c> shows one atlas sprite as a big quad (to see how it is stored).
 /// </summary>
 public partial class FxTestView : Node3D
@@ -185,12 +186,16 @@ public partial class FxTestView : Node3D
             var e = _player.Play(name, place, basis, scale, target is { } tg ? tg + (place - origin) : null, null, 0f, 0.0, repeat: false, tint: tint, smokeRein: F(_args.GetValueOrDefault("fx-rein"), 1f));
             if (e is null) { GD.PrintErr($"fx: '{name}' not found"); continue; }
             if (_args.TryGetValue("fx-head", out var head)) e.HeadSpeed = F(head, 0f);
+            ExtrasTestEffect(e);   // EXTRAS-HOOK: musou/gpu-particles test aid: Musou's blood settings (--fx-amount, --fx-keep-smoke, --fx-gamma)
             if (_holdAge is { } age) e.Age = age;
             e.Life = _holdAge is not null ? double.PositiveInfinity : e.Life;
             _live.Add(e);
             GD.Print($"fx: {name} life {e.Life:F2} s, {e.System.Roots.Length} roots, streamer {e.System.HasStreamer}{(tint is { } tt ? $", tinted {tt.ToHtml(false)}" : "")}");
         }
     }
+
+    /// <summary>musou/gpu-particles (test aid): an effect the test view started, for added content's settings of it (client/Extras/Musou/FxTestView.Musou.cs).</summary>
+    partial void ExtrasTestEffect(FxEffect e);
 
     static Basis AxesFromY(Vector3 y)
     {
@@ -212,7 +217,7 @@ public partial class FxTestView : Node3D
                 path = System.IO.Path.ChangeExtension(path, null) + $"_{++_shotNext:000}" + ".png";
                 if (SmFormats.InstallPaths.IsWithin(path, _gameDir)) { GD.Print($"screenshot refused: {path} is inside the game folder"); GetTree().Quit(1); return; }
                 System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(path)!);
-                GD.Print(GetViewport().GetTexture().GetImage().SavePng(path) == Error.Ok ? $"screenshot -> {path} (t {_since:F2} s, {_shards?.Live ?? 0} chunks live)" : "screenshot failed");
+                GD.Print(GetViewport().GetTexture().GetImage().SavePng(path) == Error.Ok ? $"screenshot -> {path} (t {_since:F2} s, {_shards?.Live ?? 0} chunks live, {_player.LastQuads} CPU sprites{(_player.ExtraStats is { Length: > 0 } gpu ? "; " + gpu : "")})" : "screenshot failed");
                 if (_shotNext >= _shotTimes.Length) { GetTree().Quit(0); return; }
             }
         }
