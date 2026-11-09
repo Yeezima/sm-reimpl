@@ -16,6 +16,7 @@ namespace SmContent;
 /// <item><see cref="CrowdVoices"/>: the near Orks' voices (grunts, barks, roars, death yells); their steps, swings and weapons stay.</item>
 /// <item><see cref="Blast"/>: musou/audio-pass's explosion on the first Ork each bolter shot hits (<c>play_sm_grenade_explode_mp</c>).</item>
 /// <item><see cref="BoltBlast"/>: the frag detonation sound each bolt blast plays (a bolter round blows up at every enemy it goes through, up to 2 sounds a frame; the effects stay).</item>
+/// <item><see cref="OwnLayers"/>: musou/audio-pass's deep copy, sub copy and thump under the player's own bolter shots (on an emitter nothing may steal, cut or duck).</item>
 /// <item><see cref="AllyLayers"/>: musou/audio-pass's deep copy and thump under every other Marine's bolter shot (the allied Marines' and other players'; the own gun's layers stay).</item>
 /// </list>
 /// </summary>
@@ -34,7 +35,8 @@ public enum MusouSoundOff
     Blast = 1 << 8,
     AllyLayers = 1 << 9,
     BoltBlast = 1 << 10,
-    All = Duck | LowPass | HitFilter | Limiter | Steal | InstLimit | Ambience | CrowdVoices | Blast | AllyLayers | BoltBlast,
+    OwnLayers = 1 << 11,
+    All = Duck | LowPass | HitFilter | Limiter | Steal | InstLimit | Ambience | CrowdVoices | Blast | AllyLayers | BoltBlast | OwnLayers,
 }
 
 /// <summary>The command-line names of <see cref="MusouSoundOff"/> and the numbers of the test aid (all ours, test aids only).</summary>
@@ -47,7 +49,7 @@ public static class MusouSoundAb
     public static readonly IReadOnlyList<(string Name, MusouSoundOff Flag)> Names =
     [
         ("duck", MusouSoundOff.Duck), ("lowpass", MusouSoundOff.LowPass), ("hitfilter", MusouSoundOff.HitFilter), ("limiter", MusouSoundOff.Limiter), ("steal", MusouSoundOff.Steal),
-        ("instlimit", MusouSoundOff.InstLimit), ("ambience", MusouSoundOff.Ambience), ("crowdvoices", MusouSoundOff.CrowdVoices), ("blast", MusouSoundOff.Blast), ("allylayers", MusouSoundOff.AllyLayers), ("boltblast", MusouSoundOff.BoltBlast),
+        ("instlimit", MusouSoundOff.InstLimit), ("ambience", MusouSoundOff.Ambience), ("crowdvoices", MusouSoundOff.CrowdVoices), ("blast", MusouSoundOff.Blast), ("allylayers", MusouSoundOff.AllyLayers), ("boltblast", MusouSoundOff.BoltBlast), ("ownlayers", MusouSoundOff.OwnLayers),
     ];
 
     /// <summary>"duck, lowpass, ... or all".</summary>

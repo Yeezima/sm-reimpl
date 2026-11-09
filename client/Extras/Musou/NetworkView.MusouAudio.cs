@@ -48,6 +48,7 @@ public partial class NetworkView
             CountSound("musou bolter thump");
             return;
         }
+        if (MusouSoundIsOff(MusouSoundOff.OwnLayers)) return;   // musou/sound-ab: ownlayers off
         // The player's own gun (owner follow-up 2026-11-09: "deeper, more powerful"): a protected emitter of its own at the muzzle (never stolen, cut or ducked): a louder deep copy, a sub copy under it, a louder thump.
         var gun = new SoundEmitter { Position = e.Position, Follow = e.Follow, Switches = e.Switches, Own = true, OneShot = true, ProtectGun = true, Label = "musou bolter own layers" };
         var body = new VoiceOffset(MusouAudioRules.OwnDeepGainDb, MusouAudioRules.DeepPitchCents, MusouAudioRules.DeepLpf).Plus(fire);
