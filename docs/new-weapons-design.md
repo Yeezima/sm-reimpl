@@ -1,6 +1,6 @@
 # New weapons and equipment for Musou Mode: lightning claw, power spear, autocannon, demolition charge (design, 2026-11-10)
 
-**Status:** design, round 2. No product code yet. Branch `claude/new-weapons-design`.
+**Status:** design, round 3 (the demolition charge redone to the owner's answers D6 to D9). No product code yet. Branch `claude/new-weapons-design`.
 
 **Owner's request (2026-11-10, verbatim):** "What cool new gameplay content can we add? Lightning claws for assault marine, Autocannon for devastator
 class ranged weapon that functions like the one in the campaign, new equipments. Start work on lightning claws, power spear for assault marine, auto
@@ -15,6 +15,15 @@ cannon for devastator. Ask me questions to help with the design"
 | D3 | Power spear | "Impaling dive plus wide sweeping swings" (his own answer, combining the two options) | The jump-pack dive lands with an impaling strike; the ground attacks are wide, sweeping polearm swings (section 6). |
 | D4 | Equipment | "Demolition charge" | The install's unused `eq_demolition_charge` (remote detonators) becomes Musou equipment. Not the auspex (section 7). |
 | D5 | Autocannon | no further question | Based on the install's own `exotic_auto_cannon` data, and the campaign's where that differs, for the Musou Devastator (section 4). |
+
+**The demolition charge, round 2 (2026-11-10, his answers through the lead):**
+
+| # | Question | His answer | What it fixes |
+|---|---|---|---|
+| D6 | Trigger | "Short fuse on its own" | It goes off by itself a few seconds after it lands; no second press. The fuse length is ours (an estimate). |
+| D7 | Placing | "Thrown, sticks where it hits" | Thrown like a grenade. It sticks to walls, the floor, contraptions or an Ork (Bosses too) and moves with what it is stuck to. |
+| D8 | Blast | "Big blast, throws Orks" | Wider and stronger than a frag: Orks around it fly into the air, Bosses take heavy damage. Compared with the install's own numbers in section 7. |
+| D9 | Count | "1, back every 30 s" | One charge, a new one every 30 s in Musou (grenades come back every 15 s); Favor of the Armory gives 2, as the game file has it. |
 
 Section 10 lists the questions still open. Each choice has a recommendation, so "all recommended" is a complete answer.
 
@@ -155,6 +164,7 @@ The demolition charge is a finished SM1 item with stand-in art (an Ork model, a 
 - **Assault jump pack.** Dash attack, ground pound and air slash come from the pack, not the weapon. The only weapon-specific rules are the hammer's (`Loadouts.WieldsHammer`, matched by wargear name: no pound delay, hop swing, steered slam).
 - **Throws and remote detonation.** A Grenade press starts a throw in the shared step (`Combat.StepPlayer`; predicted). Remote detonation exists for the grenade launcher only, on the reload key (`World.DetonateRemotely`, `PlayerState.ProjectilesOut`). Sticky projectiles are simulated.
 - **Musou's own combat.** Musou applies the players' hits to the Orks in its own code (`World.MusouCombat.cs`: the cleave, projectiles against Orks, charges), with existing hooks for blasts (`ExtrasBlast`), jump events (`ExtrasJump`: Launch, Dive, Land, Impact, SlashLand), the frag's 2× reach (`ExtrasThrownBlastScale`) and melee (`ExtrasMelee`). A sticky projectile that meets an Ork stops at the point it struck; it does not ride on him.
+- **Musou's supply and blasts.** Musou gives one grenade back every 15 s while a player carries fewer than the item's most (`World.TfwSupply.cs`, `TfwSupplyRules.GrenadeRefillSeconds`; one period for every item). A blast's kills fly as corpses, at most 20 per throw (the owner's limit, `BlastThrownMax`); the rest are torn apart. Survivors are knocked down, pushed back up to 2 m (`BlastKnockback`, scaled by the intensity; Nobs half) and staggered from intensity 0.25. The Scrap Mek's contraptions are Musou entities with 75 health.
 - **Hit-scan splash is not simulated.** `WeaponTuning.Read` reads a projectile's or a cone's blasts, not a hit-scan shot's `hit_sim` `area_of_effect`. The campaign autocannon's splash needs a new rule (in Musou's code).
 
 ---
@@ -312,45 +322,82 @@ Code: the impale is Musou code on the existing `ExtrasJump` hook (`JumpEventKind
 
 ---
 
-## 7. Demolition charge (decided: Musou equipment)
+## 7. Demolition charge (decided: Musou equipment, a short fuse, a big blast)
 
-**Role.** A placed bomb you set off when the Orks arrive: throw it at a choke point or stick it on a Nob, then press again to blow it.
+**Role.** A big bomb on a short fuse: stick it on a Nob, a Boss or a choke point, and the Orks around it fly. One charge, back every 30 s.
 
 **Who carries it.** Every Musou class, appended to the end of each class's equipment list (open question 11). The Librarian may use every equipment item other classes use (the owner's rule in the Librarian pass). If his list is built from the other classes' lists, the charge reaches him by itself; otherwise his session adds it, since that session owns his files.
 
-**Controls (data).**
-- The equipment key (G) throws it, with the frag's toss.
-- The same key again sets it off: `detonate_projectile` on `useequipment`, 0.01 s, so it goes off in the next tick.
-- One charge out at a time (data: `det_pack_deployed`). The HUD shows the data's own prompt (120190) while a charge is out.
+**Throwing and sticking (D7).**
+- The equipment key (G) throws it with the frag's toss (data: animation set `grenade`, cooldown 0.5 s).
+- Its flight is the data's: speed 25, gravity ×1 at 1 m and ×2 from 2 m.
+- It sticks to the first thing it hits:
+  - walls and the floor (data: `sticky`);
+  - a Scrap Mek contraption, an Ork, a Boss Ork or the Warboss, and then it moves with them (D7; ours in code).
+- It does not stick to marines (ours) and passes them.
+- If what it is stuck to dies or is destroyed before the fuse runs out, it drops where that was and the fuse runs on (ours). An Ork thrown by another blast carries it along.
 
-**Numbers.**
+**Fuse (D6).** It goes off **3 s after it sticks** (estimate; the frag's ground fuse is 1 s). A charge that sticks to nothing (thrown into the sky) goes off 6 s after the throw (estimate). It shows the data's fuse effect `ork_frag_grenade_fuse` while it burns. There is no second press, so the data's remote trigger (`detonate_projectile` on the equipment key) is not used.
+
+**Count and refill (D9).**
 
 | Parameter | Value | Kind / source |
 |---|---|---|
-| Carried | 1; 2 with Favor of the Armory | data |
-| Upgrade | Master-Crafted Wargear swaps in the upgraded charge: 150 + 100, r 15 | data |
-| Throw cooldown | 0.5 s | data |
-| Flight | speed 25, rigid body, 1 bounce then stops, gravity ×1 at 1 m, ×2 from 2 m | data |
-| Sticks | to the level and to players | data (`sticky`) |
-| On an Ork | sticks to him and rides along until it goes off (open question 12) | ours |
-| Waits | until set off, with no time limit | data (`lifetime` 0, `detonate_when_lifetime_over` False) |
-| Thrower dies | it goes off | interpretation: the policy "die" together with `detonate_on_death` |
-| Shot at | Orks do not target it; the data's 35 health is not used | ours |
-| Blast | two blasts of 100, r 10, line of sight, fall-off 0 → 1, 4 → 1, 6 → 0.75, 10 → 0.3: 200 at the centre; the first throws bodies, the second staggers | data |
-| Musou reach | radius and fall-off distances ×2 (r 20), as Musou already does for the frag (open question 13) | ours (Musou's frag rule) |
-| Refill | full at each respawn; +1 per grenade drop; Musou's reward cards and drops offer it from the class list | data (drop) and Musou's existing rules |
+| Carried | 1 | data (`remote_det_charge`, starts full) |
+| Favor of the Armory | 2 | data |
+| Back in Musou | one every **30 s** while short (grenades: 15 s) | owner (D9) |
+| At a respawn | full | the core's rule |
+| Both of Favor's charges out at once | allowed | ours (the data's one-out rule, `det_pack_deployed`, served the remote trigger, which is gone) |
+| Reward cards | offered from the class's list | Musou's existing rule |
 
-Without the ×2, the charge would reach half as far as a Musou frag for the same 200 damage, which is the reason for the recommendation.
+**Blast (D8). The install's numbers first, then ours.**
+
+| | Damage at the centre | Radius | Fall-off (distance → share) | Extra |
+|---|---|---|---|---|
+| Frag grenade, data (`pp_grenade_multiplayer`) | 200 | 10 m | 2.5 → 1, 2.6 → 0.5, 5 → 0.5, 5.1 → 0.3, 7 → 0.3, 10 → 0.05 | — |
+| Frag in Musou today (×2 reach) | 200 | 20 m | 5 → 1, 5.2 → 0.5, 10 → 0.5, 10.2 → 0.3, 14 → 0.3, 20 → 0.05 | — |
+| **Charge, data** (`pp_grenade_remote_detonation`) | 200 (two blasts of 100) | 10 m | 4 → 1, 6 → 0.75, 10 → 0.3 | the first throws bodies (force medium), the second staggers |
+| Charge, data, Master-Crafted (`…_upgraded`) | 250 (150 + 100) | 15 m | 6 → 1, 9 → 0.75, 15 → 0.3 | as above |
+| **Charge, ours (recommended)** | **400** (two blasts of 200) | **25 m** | **10 → 1, 15 → 0.75, 25 → 0.3** (the data's curve, distances ×2.5) | Boss Orks and the Warboss take ×3 (1200 at the centre); more Orks fly (below) |
+
+How they compare:
+- At the same 10 m radius, the data's charge is already the stronger blast. It deals the frag's 200, but keeps full damage to 4 m against the frag's 2.5 m and 0.75 at 6 m against the frag's 0.3.
+- But Musou doubles the frag's reach, so the data's charge as it stands would reach half as far as a Musou frag. D8 asks for wider and stronger than a frag, hence ours.
+
+| Distance | Musou frag | Data charge | Ours |
+|---|---|---|---|
+| 5 m | 200 | 175 | 400 |
+| 10 m | 100 | 60 | 400 |
+| 15 m | 52 | — | 300 |
+| 20 m | 10 | — | 210 |
+| 25 m | — | — | 120 |
+
+What ours does to the Musou Orks (body health from `MusouTypes`; estimate):
+- **Boyz and smaller** (Gretchin 30, Boy and Shoota Boy 85, Stormboy 120): die anywhere in the 25 m.
+- **'Ard Boyz** (170): die within about 22 m.
+- **Nobs** (600): survive, knocked down and thrown back.
+- **Boss Orks** (at least 3,000): lose up to 1,200, which is 40 % of the smallest.
+- **The Warboss** (15,000): loses up to 1,200, which is 8 %.
+
+| Throwing the Orks | Recommended | Kind / source |
+|---|---|---|
+| Kills that fly as corpses | up to **40** per charge, nearest first; the rest torn apart as now | estimate (the owner's limit for a frag throw is 20; open question 12) |
+| Survivors | knocked down and thrown back up to **6 m** with a lift (Musou's blast knockback is 2 m), scaled by the intensity; Nobs half; Boss Orks stagger; the Warboss is stagger-immune | estimate |
+| Master-Crafted Wargear | the data's own upgrade ratio on ours: damage ×1.25, reach ×1.5 (500 at the centre, 37.5 m) | data ratio on an estimate (open question 13) |
 
 **Presentation.**
 - Model: the data names the Ork stikkbomb, a stand-in. Recommended: the install's melta bomb model (`melta_bomb.oppc`, a marine item), loaded at run time; checked in the first still (open question 14).
-- Effects and sounds: the data's: fuse `ork_frag_grenade_fuse` while it waits, `squig_explosion` ×1.5, `play_sm_grenade_toss`, `play_sm_grenade_explode`, `play_frag_grenade_trail_mp`, the camera shake. The throw effect `test_xyz` is a placeholder and is not played.
-- Customizer row and HUD: the data's texts (105800, 105801, 120190), icon `remotedetonation_mp` if the HUD files hold it, else a placeholder. Name: the install's "Remote Detonators" or the owner's "Demolition Charge" (open question 14).
+- Effects and sounds: the data's: fuse `ork_frag_grenade_fuse` while it burns, `squig_explosion` (×1.5 in the data; scaled with the radius, ours), `play_sm_grenade_toss`, `play_sm_grenade_explode`, `play_frag_grenade_trail_mp`, the camera shake. The throw effect `test_xyz` is a placeholder and is not played.
+- Customizer row and HUD: the data's name and description (105800, 105801); the action text 120190 ("to Throw or Detonate") does not fit a fused charge and is not shown. Icon `remotedetonation_mp` if the HUD files hold it, else a placeholder. Name: the install's "Remote Detonators" or the owner's "Demolition Charge" (open question 14).
 
 **Code.**
-- The second press must be decided in the shared step, so that the client's prediction and the server agree. That needs one new hook in `Combat.StepPlayer`: `ExtrasThrowPress`, a no-op without Musou (W0).
-- The world sets the charge off as `World.DetonateRemotely` does for the grenade launcher.
-- Riding on an Ork is Musou code: the server moves the charge with him, and the wire already carries its position and attached flag.
+- The throw, the flight and sticking to the level are the core's existing thrown-item and sticky rules. The charge's `ThrownSpec` is built in code from the data's file with our numbers, and appended only in the Musou profile.
+- **No core hook is needed**, now that the second press is gone.
+- Musou code (W4):
+  - sticking to and riding on Orks and contraptions (the server moves it; the wire already carries its position and attached flag);
+  - the fuse from the moment it sticks;
+  - the blast's bigger thrown-corpse limit, the knockback and the ×3 against Bosses;
+  - the 30 s refill (one per-item period in `World.TfwSupply.cs`, which W0 adds).
 
 ---
 
@@ -362,23 +409,24 @@ Without the ×2, the charge would reach half as far as a Musou frag for the same
 | **W1: autocannon** | implementer A | `…/Musou/Arsenal/Autocannon.cs` (SmContent: the loyalist twin and its numbers; SmSim: the splash on hit-scan shots), `client/Extras/Musou/Arsenal/Autocannon/*`, `tests/*/Extras/Musou/Arsenal/Autocannon*` | Picked in the Musou loadout, fired, overheated, splash on Orks; player and third-person stills; targeted tests. |
 | **W2: lightning claw** | implementer B | `…/Musou/Arsenal/LightningClaw.cs`, `client/Extras/Musou/Arsenal/Claw/*`, `tests/*/Extras/Musou/Arsenal/Claw*` | A string, the heavies, a charge and a dive with the claw; the edge against big Orks; stills; the speed-up checked in a clip against the simulation's hits. |
 | **W3: power spear** | implementer C | `…/Musou/Arsenal/PowerSpear.cs`, `client/Extras/Musou/Arsenal/Spear/*`, `tests/*/Extras/Musou/Arsenal/Spear*` | The sweeps hit a half circle; the impaling dive kills a Nob outright; the hammer's jump rules; stills and a clip. |
-| **W4: demolition charge** | implementer D | `…/Musou/Arsenal/DemolitionCharge.cs`, `client/Extras/Musou/Arsenal/Charge/*`, `tests/*/Extras/Musou/Arsenal/Charge*` | Throw, stick (level, Ork), second press sets it off, one out at a time, the perks' counts, the drop refill; prediction agrees with the server; stills. |
+| **W4: demolition charge** | implementer D | `…/Musou/Arsenal/DemolitionCharge.cs`, `client/Extras/Musou/Arsenal/Charge/*`, `tests/*/Extras/Musou/Arsenal/Charge*` | Throw; stick to the level, a contraption, an Ork, a Boss Ork and the Warboss, riding along; the 3 s fuse; the blast's numbers, the thrown corpses and the knockback; 1 carried (2 with Favor of the Armory), one back every 30 s; stills and a clip. |
 | W5 (later, if wanted): tripod autocannons | after W1 | Musou map placement, interaction, carried state, the campaign's pickup, drop and turret clips | Man, rip off, carry, drop. |
 
 **Core hooks W0 adds.** Each is a partial `Extras*` method, pinned and marked `// EXTRAS-HOOK`, a no-op without the Musou flag. The names are proposals.
 1. `MpClasses.ExtrasMeleeMap(string wargear, ref WeaponMap?)`: the graph map of an added melee name. The client's `MeleeMapFor` uses it too.
 2. `Loadouts.WieldsHammer` → `ExtrasWieldsHammer(..., ref bool)`: the spear takes the hammer's jump-pack rules.
-3. `Combat.StepPlayer` → `ExtrasThrowPress(..., ref ThrowPress)`: the charge's second press detonates instead of throwing (shared step: predicted).
-4. `PerkCatalog.ExtrasItems(ref list)`: the customizer rows.
-5. Client `WeaponModels` / `WeaponRig`: `ExtrasWeaponModel(string wargear, ref model)`, a model built in code or loaded from another package.
-6. Client `ExtrasAnimationAlias(ref string wargear)`: maps an added name to the family it borrows (autocannon → heavy bolter, claw → power sword, spear → thunder hammer). It is applied in the name rules of `HipFireAnimations`, `LocomotionAnimations`, `ReloadAnimations`, `FallAnimations` and the flinch rule, so W1 to W4 touch none of them.
-7. If the speed-ups are approved: a clip-speed factor that both the simulation's steps and the client's clip playback read. It works like the Fast Stomp perk's clip speed (`MeleeTuning.ReadSpeedUpgrades`); W0 checks how the client applies that today.
+3. `PerkCatalog.ExtrasItems(ref list)`: the customizer rows.
+4. Client `WeaponModels` / `WeaponRig`: `ExtrasWeaponModel(string wargear, ref model)`, a model built in code or loaded from another package.
+5. Client `ExtrasAnimationAlias(ref string wargear)`: maps an added name to the family it borrows (autocannon → heavy bolter, claw → power sword, spear → thunder hammer). It is applied in the name rules of `HipFireAnimations`, `LocomotionAnimations`, `ReloadAnimations`, `FallAnimations` and the flinch rule, so W1 to W4 touch none of them.
+6. If the speed-ups are approved: a clip-speed factor that both the simulation's steps and the client's clip playback read. It works like the Fast Stomp perk's clip speed (`MeleeTuning.ReadSpeedUpgrades`); W0 checks how the client applies that today.
 
 **Musou call sites W0 adds** (each one line calling the registry, in Musou files other sessions also edit; the lead sequences W0 after the current ship and the Musou sessions in flight):
 - the cleave's width, reach and target count per weapon (`World.MusouCombat.cs`);
 - the hit-scan shot's splash against Orks;
 - the pound impact (`ExtrasJump`, Impact) for the impale;
-- a sticky projectile meeting an Ork (ride along, for the charge).
+- a sticky projectile meeting an Ork or a contraption (stick and ride along, for the charge), and the charge's fuse from that moment;
+- a thrown item's blast rules (the thrown-corpse limit, the knockback, the ×3 against Bosses) in Musou's blast path;
+- a per-item grenade refill period in `World.TfwSupply.cs` (15 s for every item as now; 30 s for the charge).
 
 **Shared files.** `spec/behavior.md`, `docs/changes-from-original.md`, `docs/milestones.md`, `docs/commands.md` and the generated `docs/refine-register.md`:
 - Each milestone writes only under its own heading, which W0 creates.
@@ -401,8 +449,8 @@ Process:
 | `turret_aa` is 2.8 m long and was made for a tripod and a carry | W1's first still: the grip at `RIG_Prop_M_Chest`, clipping, camera. |
 | Speeding up melee clips desynchronises the simulation and the client | W0 checks the Fast Stomp path; W2 and W3 compare the simulated hit tick with the clip's contact in a clip. |
 | The spear turned point-down for the dive is ours | Shown to the owner in the first still. |
-| The charge's second press mispredicted with two charges carried | The press is decided in the shared step (hook 3); W4 tests prediction against the server with Favor of the Armory. |
-| A charge riding an Ork that dies or is thrown by a blast | W4: it stays where the Ork died and still waits for the press (ours). |
+| A charge riding an Ork that dies, is thrown by another blast, or a contraption destroyed under it | W4: it drops where its carrier was and the fuse runs on (ours); a test for each case. |
+| 40 flying corpses and a 25 m blast in one frame | W4 measures the frame time with a charge in a full Musou crowd; the owner's cap of 20 stays if it costs too much. |
 | Musou damage scale | The new numbers are set against the Musou Orks in a playtest, not only against marines. |
 | Other Musou sessions edit the same Musou files | W0's call sites go in after the current ship, sequenced by the lead; W1 to W4 then touch only their own files. |
 
@@ -421,6 +469,6 @@ Process:
 9. **Impaling dive:** on landing, the enemy nearest the point (within 2 m) takes 600, enough to kill a Nob outright, and the pack's normal stun blast still goes off around it (recommended)? Should the air slash's landing impale too? Recommended: no, only the dive.
 10. **Spear and the jump pack:** the hammer's rules (swing during a hop, no delay before a dive; recommended)?
 11. **Charge carriers:** every Musou class, the Librarian included (recommended)? Or only some classes?
-12. **Charge on an Ork:** it sticks to him and rides along until you set it off (recommended)? Or it drops at his feet?
-13. **Charge blast:** Musou's frag rule of twice the reach (20 m; recommended)? Or the data's 10 m?
+12. **Charge, flying Orks:** up to 40 corpses fly from one charge (recommended), or your frag limit of 20? And the rest of the blast as proposed: 400 at the centre, 25 m, three times the damage against Boss Orks and the Warboss, survivors thrown back up to 6 m, a 3 s fuse?
+13. **Charge with Master-Crafted Wargear:** the game file's own upgrade ratio (damage ×1.25 and reach ×1.5: 500 and 37.5 m; recommended)? Or damage only?
 14. **Charge look and name:** the install's melta bomb model (a marine item; recommended) or the data's Ork stikkbomb? Called "Remote Detonators" (the install's name) or "Demolition Charge"?
