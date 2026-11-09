@@ -15,6 +15,14 @@ public partial class ModelViewer
             handled = true;
             return;
         }
+        if (args.ContainsKey("musou-crowd-test"))   // the Musou crowd's looks running and dying on a stage (MusouCrowdTestView; it needs the install)
+        {
+            var repoRoot = System.IO.Path.GetFullPath(System.IO.Path.Combine(Godot.ProjectSettings.GlobalizePath("res://"), ".."));
+            var found = SmContent.GameInstall.TryLocate(args.GetValueOrDefault("game-dir"), repoRoot) ?? throw new System.IO.DirectoryNotFoundException(SmContent.GameInstall.NotFoundMessage);
+            AddChild(new MusouCrowdTestView(found.Dir, args) { Name = "MusouCrowdTest" });
+            handled = true;
+            return;
+        }
         if (args.ContainsKey("mek-gallery"))   // expansion S4: the contraptions' SM1 models (Meks/MekGalleryView.cs; it needs the install)
         {
             var repoRoot = System.IO.Path.GetFullPath(System.IO.Path.Combine(Godot.ProjectSettings.GlobalizePath("res://"), ".."));

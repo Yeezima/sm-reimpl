@@ -122,7 +122,7 @@ public abstract partial class CrowdView : Node3D
     /// <summary>A member of this crowd has a skinned skeleton near: the place to give it its own pose. By default the item's clip at its time.</summary>
     protected virtual void PoseSkinned(Skinned s, in Item it)
     {
-        if (s.Look.Clips[it.Clip] is { } clip) Pose(s, clip, ClipTime(clip, it.Clip, it.Time));
+        if (s.Look.Clips[it.Clip] is { } clip) Pose(s, clip, s.Look.SampleTime(it.Clip, ClipTime(clip, it.Clip, it.Time)));
     }
 
     /// <summary>
@@ -425,7 +425,7 @@ public abstract partial class CrowdView : Node3D
         if (!OneBatch && (it.Position.Z < f.Low || it.Position.Z > f.High)) { f.Low = MathF.Min(f.Low, it.Position.Z); f.High = MathF.Max(f.High, it.Position.Z); f.Boxed = false; }
         counts[look] = perLook + 1;
         var vat = look.Vat!;
-        var (r0, r1, blend) = MusouVat.FramesAt(vat.Clips[it.Clip], it.Time);
+        var (r0, r1, blend) = MusouVat.FramesAt(vat.Clips[it.Clip], look.SampleTime(it.Clip, it.Time));
         var basis = BasisOf(it).Scaled(Vector3.One * look.Scale);
         var o = it.Position;
         int at = f.Count * 16;
