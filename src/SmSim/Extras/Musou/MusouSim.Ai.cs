@@ -508,6 +508,7 @@ public sealed partial class MusouSim
                     _roundTicks[i] = 0;
                     _cooldown[i] = Ticks(spec.RangedPeriod);
                     TurnTo(i, toward, MusouFacingRules.ShooterTurnDegrees);
+                    if (MusouGunBurst.Synthesized(_type[i])) AddEvent(new MusouEvent(MusouEventKind.Telegraph, Tick, (ushort)(i + 1), (ushort)Math.Clamp(target.Id, 0, ushort.MaxValue), MusouGunBurst.Cue, target.Position + new Vector3(0f, 0f, 1.2f)));   // the client draws this burst's rounds (MusouGunBurst)
                     return Vector2.Zero;
                 }
             }

@@ -41,7 +41,9 @@ public class MusouSkirmishPinTests(ITestOutputHelper output)
     // Recaptured 2026-11-06 for the owner's melee heal per enemy struck (MusouSim.Version 8; was 1E66FBB5...B573): with that one change reverted the old golden still matched.
     // Recaptured 2026-11-08 for Ork facing (MusouSim.Version 22): gunners turn before they fire, engaged Orks move facing their target.
     // Recaptured 2026-11-09 for musou/combat-rules (MusouSim.Version 28): every melee strike gives back 5 % armour (with that one share at 0 the old golden still matched).
-    const string Golden = "09DB4C484ECBFA20485534444526F52E6D5CDE633B4D013A33235FA18AC76A09";
+    // Recaptured 2026-11-09 for client-built tracers (MusouSim.Version 28): a gun Ork's burst start is announced by a Telegraph event; the replay's stats are unchanged.
+    // Recaptured 2026-11-09 at the Musou integration (both changes above together).
+    const string Golden = "11BAC586C8BD290D5350CD9E48A55DE3C7EBD0AEF61E098DD5FD38438C830CB0";
 
     [Fact]
     public void The_skirmish_replay_is_unchanged()

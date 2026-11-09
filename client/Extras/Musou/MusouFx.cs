@@ -367,6 +367,7 @@ public partial class NetworkView
     /// <summary>A telegraph: the boss's ring, lane and call-outs.</summary>
     void MusouTelegraph(in MusouEvent e, IReadOnlyList<MusouShown> shown, Num.Vector3 camera, MusouBossRules boss)
     {
+        if (e.Value == MusouGunBurst.Cue || e.Value == MusouBigShoota.BurstCue) return;   // a gun Ork's burst begins: its rounds are built in NetworkView.MusouGuns.cs
         if (MusouWeirdboyCue(e, shown)) return;   // the Weirdboy's bolts, shield, teleport and summons (NetworkView.MusouWeirdboy.cs)
         if (MusouS2Cue(e, shown)) return;   // expansion S2: the Bomb Squig's and the Rokkit Boy's cues (NetworkView.MusouSquigRokkit.cs)
         if (MusouStormboyCue(e, shown)) return;

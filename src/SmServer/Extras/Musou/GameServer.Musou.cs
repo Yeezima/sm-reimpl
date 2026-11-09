@@ -102,6 +102,20 @@ public sealed partial class GameServer
     /// This feature's part of the envelope hook (called by the dispatcher <c>GameServer.Extras.cs</c>): per client, the director (on a change, else every 10
     /// ticks), the events of the last 3 ticks (each in 3 messages) and the enemies due by that client's interest.
     /// </summary>
+    /// <summary>Test aid <c>SM_MUSOU_TRACER_EVENTS=1</c>: the gun Orks' per-round Tracer events are sent again (before client-built tracers, 2026-11-09).</summary>
+    static readonly bool MusouTracerEvents = Environment.GetEnvironmentVariable("SM_MUSOU_TRACER_EVENTS") == "1";
+    readonly List<MusouEvent> _musouWireEvents = new();
+
+    /// <summary>The tick's events as they go on the wire: without the per-round Tracer events of the gun Orks, whose rounds each client draws from the burst cue (<see cref="MusouGunBurst"/>).</summary>
+    IReadOnlyList<MusouEvent> WireEvents(MusouSim sim)
+    {
+        if (MusouTracerEvents) return sim.Events;
+        _musouWireEvents.Clear();
+        foreach (var e in sim.Events)
+            if (!(e.Kind == MusouEventKind.Tracer && sim.TryGet(e.Enemy, out var shooter) && MusouGunBurst.Synthesized(shooter.Type))) _musouWireEvents.Add(e);
+        return _musouWireEvents;
+    }
+
     void SendMusou()
     {
         if (World.Musou is not { } sim) return;
@@ -110,7 +124,7 @@ public sealed partial class GameServer
         int n = sim.CopyTo(_musouEnemies);
         PoseMusouDummies(_musouEnemies.AsSpan(0, n));
         LogMusouDirector(sim.Director);
-        var events = _musouEvents.Step(sim.Tick, sim.Events, MusouSendRules.EventsPerTick(World.Config.TickRate));
+        var events = _musouEvents.Step(sim.Tick, WireEvents(sim), MusouSendRules.EventsPerTick(World.Config.TickRate));
         if (n == 0 && events.Count == 0 && sim.Director == default) return;   // nothing in play: MU0's state sends nothing
 
         if (!_musouNavBoxRead) { _musouNavBoxRead = true; _musouNavBox = MusouSend.BoundsOf(sim.Nav); }

@@ -20,7 +20,8 @@ public class MusouOrkGunTests
         Assert.Equal(OrkWeaponMounts.Shoota, MusouOrkGunRules.WargearOf(MusouEnemyType.ShootaBoy));
         Assert.Equal("ork_coop_boy_rokkit_launcha", MusouOrkGunRules.WargearOf(MusouEnemyType.RokkitBoy));   // expansion S2
         Assert.Equal("ork_coop_nob_big_shoota", MusouOrkGunRules.WargearOf(MusouEnemyType.BigShootaNob));   // expansion S3: the co-op Big Shoota Nob's own gun
-        foreach (var t in Enum.GetValues<MusouEnemyType>().Where(t => t is not (MusouEnemyType.ShootaBoy or MusouEnemyType.RokkitBoy or MusouEnemyType.BigShootaNob))) Assert.Null(MusouOrkGunRules.WargearOf(t));
+        Assert.Equal(OrkWeaponMounts.Shoota, MusouOrkGunRules.WargearOf(MusouEnemyType.BossShootaBoy));   // the Boss Shoota Boy shoots like his base kind
+        foreach (var t in Enum.GetValues<MusouEnemyType>().Where(t => t is not (MusouEnemyType.ShootaBoy or MusouEnemyType.RokkitBoy or MusouEnemyType.BigShootaNob or MusouEnemyType.BossShootaBoy))) Assert.Null(MusouOrkGunRules.WargearOf(t));
     }
 
     [Fact]
@@ -220,5 +221,70 @@ public class MusouOrkGunTests
         Assert.Equal(new[] { "test_gun_decal", "test_gun_dmg", "test_gun_dmg_armour", "test_gun_muzzle", "test_gun_tracer" }, MusouOrkGunEffects.EffectNames(Catalogue()).Order(StringComparer.Ordinal));
         // A catalogue without the gun's wargear gives nothing to compile (the guns are then drawn without effects).
         Assert.Empty(MusouOrkGunEffects.EffectNames(EffectCatalogue.Build(new Dictionary<string, BafDocument>(), null, new Dictionary<string, IReadOnlyList<BafDocument>>(), null, null)));
+    }
+
+    [Fact]
+    public void The_big_shoota_reaches_further_with_every_second_round_and_a_budget_of_his_own()
+    {
+        Assert.True(MusouOrkGunRules.IsElite(MusouEnemyType.BigShootaNob));
+        Assert.False(MusouOrkGunRules.IsElite(MusouEnemyType.ShootaBoy));
+        const ushort nob = 7;
+        var rounds = Enumerable.Range(0, 8).Where(r => MusouOrkGunRules.TracerRound(nob, r, elite: true)).ToList();
+        Assert.Equal(4, rounds.Count);   // every 2nd
+        Assert.All(rounds.Zip(rounds.Skip(1)), p => Assert.Equal(2, p.Second - p.First));
+        // Flash out to 150 m and tracer to 200 m for him; a Shoota Boy's round at the same range gets nothing.
+        var tracerRound = Enumerable.Range(1, 500).Select(id => (ushort)id).First(id => MusouOrkGunRules.TracerRound(id, 0, elite: true));
+        Assert.Equal(MusouGunFx.Flash | MusouGunFx.Tracer, Plan(new MusouGunFxPlanner(), new MusouGunShot(tracerRound, 1, 140f, false, Elite: true))[0]);
+        Assert.Equal(MusouGunFx.Tracer, Plan(new MusouGunFxPlanner(), new MusouGunShot(tracerRound, 1, 190f, false, Elite: true))[0]);
+        Assert.Equal(MusouGunFx.None, Plan(new MusouGunFxPlanner(), new MusouGunShot(tracerRound, 1, 205f, false, Elite: true))[0]);
+        Assert.Equal(MusouGunFx.None, Plan(new MusouGunFxPlanner(), new MusouGunShot(tracerRound, 1, 100f, false))[0]);
+        // A crowd of near Shoota Boyz draining the shared buckets leaves his far tracer alone.
+        var planner = new MusouGunFxPlanner();
+        var shots = new List<MusouGunShot>();
+        for (ushort id = 100; id < 160; id++) shots.Add(new MusouGunShot(id, 1, 10f, false));
+        shots.Add(new MusouGunShot(tracerRound, 1, 120f, false, Elite: true));
+        var fx = new MusouGunFx[shots.Count];
+        planner.Plan(shots, fx);
+        Assert.True((fx[^1] & MusouGunFx.Tracer) != 0);
+        Assert.True(planner.OverRate > 0);
+    }
+
+    [Fact]
+    public void Client_built_bursts_draw_a_guns_rounds_at_its_own_rate()
+    {
+        Assert.True(MusouGunBurst.Synthesized(MusouEnemyType.ShootaBoy));
+        Assert.True(MusouGunBurst.Synthesized(MusouEnemyType.BossShootaBoy));
+        Assert.True(MusouGunBurst.Synthesized(MusouEnemyType.BigShootaNob));
+        Assert.False(MusouGunBurst.Synthesized(MusouEnemyType.RokkitBoy));
+        Assert.False(MusouGunBurst.Synthesized(MusouEnemyType.Weirdboy));
+        var bursts = new MusouGunBursts();
+        var rounds = new List<MusouEvent>();
+        var aim = new System.Numerics.Vector3(10f, 20f, 1.2f);
+        bursts.Start(5, 3, aim, now: 0.0, rounds: 48, interval: 1.0 / 12.0, hitChance: 1f);   // a Big Shoota's burst
+        bursts.Step(0.0, 0, rounds);
+        Assert.Single(rounds);   // the first round at once
+        Assert.Equal(MusouEventKind.Tracer, rounds[0].Kind);
+        Assert.Equal(5, rounds[0].Enemy);
+        Assert.Equal(3, rounds[0].Player);   // a certain hit names the target
+        Assert.Equal(aim, rounds[0].Vector);
+        rounds.Clear();
+        for (double t = 0.05; t <= 4.2; t += 0.05) bursts.Step(t, (uint)(t * 30), rounds);
+        Assert.Equal(47, rounds.Count);   // 48 in all over 4 s, then it ends
+        Assert.Equal(0, bursts.Count);
+        // A miss lands beside the aim point and names nobody; a cancelled burst gives nothing more; a new one replaces the old.
+        bursts.Start(6, 3, aim, 0.0, 3, 0.12, hitChance: 0f);
+        rounds.Clear();
+        bursts.Step(0.0, 1, rounds);
+        Assert.Equal(0, rounds[0].Player);
+        Assert.NotEqual(aim, rounds[0].Vector);
+        bursts.Cancel(6);
+        rounds.Clear();
+        bursts.Step(1.0, 30, rounds);
+        Assert.Empty(rounds);
+        bursts.Start(7, 3, aim, 0.0, 3, 0.12, 0.5f);
+        bursts.Start(7, 3, aim, 0.0, 2, 0.12, 0.5f);
+        Assert.Equal(1, bursts.Count);
+        bursts.Step(1.0, 30, rounds);
+        Assert.Equal(2, rounds.Count);
     }
 }

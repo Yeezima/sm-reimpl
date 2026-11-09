@@ -31,6 +31,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 Scanned 2686 spec table rows: **1984 tagged**, 488 not tagged (read from data with high confidence), 214 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 598 rows of the changes document.
 Scanned 2688 spec table rows: **1987 tagged**, 488 not tagged (read from data with high confidence), 213 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 599 rows of the changes document.
 Scanned 2674 spec table rows: **1972 tagged**, 488 not tagged (read from data with high confidence), 214 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 596 rows of the changes document.
+Scanned 2668 spec table rows: **1967 tagged**, 488 not tagged (read from data with high confidence), 213 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 595 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -62,6 +63,8 @@ Scanned 2674 spec table rows: **1972 tagged**, 488 not tagged (read from data wi
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 191 | 181 | 93 | 53 | 0 |
 | **All areas** | **1972** | 1726 | 1461 | 624 | 38 |
+| Ork faction | 193 | 183 | 95 | 53 | 0 |
+| **All areas** | **1967** | 1721 | 1457 | 624 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -72,6 +75,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | confidence: medium | 634 |
 | kind: ours | 1069 |
 | confidence: low | 707 |
+| kind: ours | 1064 |
+| confidence: low | 703 |
 | confidence: medium | 625 |
 | kind: interpretation | 359 |
 | kind: ours | 1083 |
@@ -3209,6 +3214,9 @@ The Orks are an addition the owner keeps (the original multiplayer had Space Mar
 | `R-A29A5A88` | Effect rates over the crowd | flashes 40/s (burst 8), tracers 16/s (burst 4), impacts 14/s (burst 4); nearest rounds first (effects/s) | kind: ours; confidence: medium | ours: bounded cost for hundreds of Orks (the effect player keeps 160) | Effect rates over the crowd: compare with SM1 by feel or video. Ours: flashes 40/s (burst 8), tracers 16/s (burst 4), impacts 14/s (burst… | ☐ |
 | `R-3D5A3179` | Aiming stance while firing | for 0.6 s after a round a Shoota Boy in "seek" plays his look's idle (`BOY_2HR_NAV_Idle_S_01`, the two-handed aim) instead of running on the spot (s) | kind: ours; confidence: medium | ours: the simulation's shooter stands still through a burst | Aiming stance while firing: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: for 0.6 s after a round a Shoota Boy in "seek" plays his look's idle… | ☐ |
 | `R-9C863FA4` | Fire sound | `play_or_shoota_fire` (the wargear's `fire_audio`), under the crowd's Gun budget (50 m, 6/s, burst 4) and the data's instance limits | kind: ours; confidence: medium | data; the budget ours (row "Musou sounds") | Fire sound: compare with SM1 by listening A/B at the same distance and state. Ours: play_or_shoota_fire (the wargear's fire_audio), under the crowd's Gun… | ☐ |
+| `R-D75B94CD` | Boss Shoota Boy's gun (2026-11-09 audit) | the roaming Boss Shoota Boy carries the Shoota Boy's gun and effects (his rounds are tracer events like his base kind's); the gun scales with his 3x body, the effects stay at normal size | kind: ours; confidence: medium | owner's report on the Big Shoota led to the audit; pairing ours | Boss Shoota Boy's gun (2026-11-09 audit): compare with SM1 by feel or video. Ours: the roaming Boss Shoota Boy carries the Shoota Boy's gun and effects… | ☐ |
+| `R-4033AE6B` | Big Shoota Nob effect reach (2026-11-09) | flash out to **150** m, tracer out to **200** m, impact **35** m; a tracer every **2nd** round (other guns: 45/70/35 m, every 3rd); his own token buckets: **24** flashes/s (burst 6), **20** tracers/s (burst 6), **8** impacts/s (burst 3) (m, rounds, effects/s) | kind: ours; confidence: medium | owner 2026-11-09 (distances and cadence); buckets ours | Big Shoota Nob effect reach (2026-11-09): compare with SM1 by measuring on a flat spot of the same map. Ours: flash out to 150 m, tracer out to 200 m, impact 35 m; a tracer every… | ☐ |
+| `R-5EFC4517` | Client-built tracers (2026-11-09) | Shoota Boy, Boss Shoota Boy and Big Shoota Nob send one burst cue (Telegraph **46**; the Nob's **35**) with the target and the aim point instead of a Tracer event a round; each client draws the rounds: Shoota kinds the type's rounds at its round interval, the… (rounds, s) | kind: ours; confidence: medium | owner 2026-11-09 | Client-built tracers (2026-11-09): compare with SM1 by feel or video. Ours: Shoota Boy, Boss Shoota Boy and Big Shoota Nob send one burst cue… | ☐ |
 
 *Spec section: Musou Mode: no Gretchin, flashes behind walls (fix/orks-and-spawn-lights; client and simulation, Musou Mode only)*
 
