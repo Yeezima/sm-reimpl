@@ -29,7 +29,8 @@ public static class MusouOrkGunRules
 {
     /// <summary>The ranged Orks and their guns (the Chaos Marine's bolter is not an Ork weapon: not drawn here).</summary>
     public static readonly IReadOnlyList<MusouGun> Guns = [new(MusouEnemyType.ShootaBoy, OrkWeaponMounts.Shoota), new(MusouEnemyType.RokkitBoy, RokkitLauncha),
-        new(MusouEnemyType.BigShootaNob, BigShoota)];   // expansion S3: the co-op Big Shoota Nob's own gun (owner, 2026-11-08: the original's model and effects)
+        new(MusouEnemyType.BigShootaNob, BigShoota),
+        new(MusouEnemyType.BossShootaBoy, OrkWeaponMounts.Shoota)];   // the roaming Boss Shoota Boy: ranged like his base kind (tracer events), so the same gun and effects (2026-11-09 audit)   // expansion S3: the co-op Big Shoota Nob's own gun (owner, 2026-11-08: the original's model and effects)
 
     /// <summary>The co-op Big Shoota Nob's gun (*supported by evidence*: <c>ork_coop_nob_bigshoota</c>'s default wargear; its <c>fire_fx</c> <c>big_shoota_muzzle</c>, <c>hit_fx</c>
     /// <c>big_shoota_tracer</c> and the container <c>big_shoota</c>, its sound <c>play_or_big_shoota_fire</c> and a jam, <c>actn_snd_wep_gun_jam</c>).</summary>

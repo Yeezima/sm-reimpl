@@ -20,7 +20,8 @@ public class MusouOrkGunTests
         Assert.Equal(OrkWeaponMounts.Shoota, MusouOrkGunRules.WargearOf(MusouEnemyType.ShootaBoy));
         Assert.Equal("ork_coop_boy_rokkit_launcha", MusouOrkGunRules.WargearOf(MusouEnemyType.RokkitBoy));   // expansion S2
         Assert.Equal("ork_coop_nob_big_shoota", MusouOrkGunRules.WargearOf(MusouEnemyType.BigShootaNob));   // expansion S3: the co-op Big Shoota Nob's own gun
-        foreach (var t in Enum.GetValues<MusouEnemyType>().Where(t => t is not (MusouEnemyType.ShootaBoy or MusouEnemyType.RokkitBoy or MusouEnemyType.BigShootaNob))) Assert.Null(MusouOrkGunRules.WargearOf(t));
+        Assert.Equal(OrkWeaponMounts.Shoota, MusouOrkGunRules.WargearOf(MusouEnemyType.BossShootaBoy));   // the Boss Shoota Boy shoots like his base kind
+        foreach (var t in Enum.GetValues<MusouEnemyType>().Where(t => t is not (MusouEnemyType.ShootaBoy or MusouEnemyType.RokkitBoy or MusouEnemyType.BigShootaNob or MusouEnemyType.BossShootaBoy))) Assert.Null(MusouOrkGunRules.WargearOf(t));
     }
 
     [Fact]

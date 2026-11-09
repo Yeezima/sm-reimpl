@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2665 spec table rows: **1964 tagged**, 488 not tagged (read from data with high confidence), 213 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 595 rows of the changes document.
+Scanned 2666 spec table rows: **1965 tagged**, 488 not tagged (read from data with high confidence), 213 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 595 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -52,16 +52,16 @@ Scanned 2665 spec table rows: **1964 tagged**, 488 not tagged (read from data wi
 | Networking and render smoothing | 19 | 10 | 10 | 10 | 7 |
 | Core simulation (provisional values) | 483 | 459 | 332 | 126 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 190 | 180 | 92 | 53 | 0 |
-| **All areas** | **1964** | 1718 | 1454 | 624 | 38 |
+| Ork faction | 191 | 181 | 93 | 53 | 0 |
+| **All areas** | **1965** | 1719 | 1455 | 624 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1061 |
+| kind: ours | 1062 |
 | confidence: low | 703 |
-| confidence: medium | 622 |
+| confidence: medium | 623 |
 | kind: interpretation | 359 |
 | notes: ours | 358 |
 | notes: estimate | 153 |
@@ -3162,6 +3162,7 @@ The Orks are an addition the owner keeps (the original multiplayer had Space Mar
 | `R-A29A5A88` | Effect rates over the crowd | flashes 40/s (burst 8), tracers 16/s (burst 4), impacts 14/s (burst 4); nearest rounds first (effects/s) | kind: ours; confidence: medium | ours: bounded cost for hundreds of Orks (the effect player keeps 160) | Effect rates over the crowd: compare with SM1 by feel or video. Ours: flashes 40/s (burst 8), tracers 16/s (burst 4), impacts 14/s (burst… | ☐ |
 | `R-3D5A3179` | Aiming stance while firing | for 0.6 s after a round a Shoota Boy in "seek" plays his look's idle (`BOY_2HR_NAV_Idle_S_01`, the two-handed aim) instead of running on the spot (s) | kind: ours; confidence: medium | ours: the simulation's shooter stands still through a burst | Aiming stance while firing: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: for 0.6 s after a round a Shoota Boy in "seek" plays his look's idle… | ☐ |
 | `R-9C863FA4` | Fire sound | `play_or_shoota_fire` (the wargear's `fire_audio`), under the crowd's Gun budget (50 m, 6/s, burst 4) and the data's instance limits | kind: ours; confidence: medium | data; the budget ours (row "Musou sounds") | Fire sound: compare with SM1 by listening A/B at the same distance and state. Ours: play_or_shoota_fire (the wargear's fire_audio), under the crowd's Gun… | ☐ |
+| `R-D75B94CD` | Boss Shoota Boy's gun (2026-11-09 audit) | the roaming Boss Shoota Boy carries the Shoota Boy's gun and effects (his rounds are tracer events like his base kind's); the gun scales with his 3x body, the effects stay at normal size | kind: ours; confidence: medium | owner's report on the Big Shoota led to the audit; pairing ours | Boss Shoota Boy's gun (2026-11-09 audit): compare with SM1 by feel or video. Ours: the roaming Boss Shoota Boy carries the Shoota Boy's gun and effects… | ☐ |
 
 *Spec section: Musou Mode: no Gretchin, flashes behind walls (fix/orks-and-spawn-lights; client and simulation, Musou Mode only)*
 

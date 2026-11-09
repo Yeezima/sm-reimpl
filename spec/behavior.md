@@ -4136,6 +4136,7 @@ The owner (2026-11-06): "the ranged attack orks don't have weapon models in thei
 | Effect rates over the crowd | flashes 40/s (burst 8), tracers 16/s (burst 4), impacts 14/s (burst 4); nearest rounds first | effects/s | client frame | `MusouGunFxPlanner`, `MusouOrkGunRules.*PerSecond`, `*Burst` | ours: bounded cost for hundreds of Orks (the effect player keeps 160) | ours | medium |
 | Aiming stance while firing | for 0.6 s after a round a Shoota Boy in "seek" plays his look's idle (`BOY_2HR_NAV_Idle_S_01`, the two-handed aim) instead of running on the spot | s | client clock | `MusouOrkGunRules.AimHoldSeconds`, `MusouCrowd.Guns.cs` | ours: the simulation's shooter stands still through a burst | ours | medium |
 | Fire sound | `play_or_shoota_fire` (the wargear's `fire_audio`), under the crowd's Gun budget (50 m, 6/s, burst 4) and the data's instance limits | - | per round | `NetworkView.MusouSounds.cs` (unchanged) | data; the budget ours (row "Musou sounds") | ours | medium |
+| Boss Shoota Boy's gun (2026-11-09 audit) | the roaming Boss Shoota Boy carries the Shoota Boy's gun and effects (his rounds are tracer events like his base kind's); the gun scales with his 3x body, the effects stay at normal size | - | per look | `MusouOrkGunRules.Guns` | owner's report on the Big Shoota led to the audit; pairing ours | ours | medium |
 
 ### Melee reliability, the sooner step and the stalker crater (feel/melee-reliability; used by the simulation, config hash, no wire change)
 
