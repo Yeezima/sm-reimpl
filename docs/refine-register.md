@@ -28,8 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2668 spec table rows: **1967 tagged**, 488 not tagged (read from data with high confidence), 213 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 595 rows of the changes document.
-Scanned 2665 spec table rows: **1964 tagged**, 488 not tagged (read from data with high confidence), 213 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 596 rows of the changes document.
+Scanned 2673 spec table rows: **1972 tagged**, 488 not tagged (read from data with high confidence), 213 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 597 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -51,21 +50,21 @@ Scanned 2665 spec table rows: **1964 tagged**, 488 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 19 | 10 | 10 | 10 | 7 |
-| Core simulation (provisional values) | 483 | 459 | 332 | 126 | 1 |
+| Core simulation (provisional values) | 488 | 464 | 333 | 130 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 193 | 183 | 95 | 53 | 0 |
-| **All areas** | **1967** | 1721 | 1457 | 624 | 38 |
+| **All areas** | **1972** | 1726 | 1458 | 628 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1064 |
+| kind: ours | 1069 |
 | confidence: low | 703 |
-| confidence: medium | 625 |
+| confidence: medium | 626 |
 | kind: interpretation | 359 |
 | notes: ours | 358 |
-| notes: estimate | 153 |
+| notes: estimate | 157 |
 | confidence: none (low) | 129 |
 | kind: estimate | 126 |
 | kind: provisional | 99 |
@@ -2157,7 +2156,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (483)
+### Core simulation (provisional values) (488)
 
 *Spec section: Provisional values in use*
 
@@ -2325,7 +2324,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-7A2413F5` | Death | a death clip by id and tick out of `IG_DIE_Basic_01`, `_03`, `IG_DIE_FallForward_01`, `IG_DIE_Headshot_01`, `IG_REC_Death_02`, last frame held, sinks after 3 s over 1.5 s (no ragdoll yet) (clips, s) | kind: ours; confidence: low | the owner's order for now; the rule is ours | Death: compare with SM1 by feel or video. Ours: a death clip by id and tick out of IG_DIE_Basic_01, _03… | ☐ |
 | `R-41745417` | One body a death | a man's death is remembered by id for 90 ticks from the first report (Death event or Dying record); later reports add no body and his live records are not drawn (ticks) | kind: ours; confidence: medium | ours: longer than the 60 ticks a slot stays Dying | One body a death: compare with SM1 by feel or video. Ours: a man's death is remembered by id for 90 ticks from the first report… | ☐ |
 | `R-88A2304A` | Clip fade | 0.15 (s) | kind: ours; confidence: medium | ours | Clip fade: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 0.15. | ☐ |
-| `R-8AB2FFB7` | Shot effects' reach | muzzle within 45 m of the camera, tracer within 90 m, at most 12 shots with effects a frame (m, shots) | kind: ours; confidence: medium | ours: `FxPlayer` keeps 160 effects | Shot effects' reach: compare with SM1 by measuring on a flat spot of the same map. Ours: muzzle within 45 m of the camera, tracer within 90 m, at most 12… | ☐ |
+| `R-8AB2FFB7` | Shot effects' reach | muzzle within **70** m of the camera, tracer within **120** m, at most **24** shots with effects a frame (45 / 90 / 12 until musou-net-budget, 2026-11-09) (m, shots) | kind: ours; confidence: medium | ours: `FxPlayer` keeps 160 effects | Shot effects' reach: compare with SM1 by measuring on a flat spot of the same map. Ours: muzzle within 70 m of the camera, tracer within 120 m, at most 24… | ☐ |
 
 *Spec section: Added content: Musou Mode: gore (Musou pass 2 M10, owner items 8, 22 and 23; client only, no protocol change)*
 
@@ -2602,6 +2601,16 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-D7255E99` | Marine barks: lines | the campaign squad's sets of the speech bank: unnamed dialogue events 0x33c89dfa (sets fce76c70, 3486a710, 8e781e2c) and 0x1930d1dd (8e781e2c), `speech_status` set 2a767f17, the exertions celebration and roar; lines without media left out. Titus has 7 lines… | kind: ours; confidence: low | the data (lines); the choice ours | Marine barks: lines: compare with SM1 by feel or video. Ours: the campaign squad's sets of the speech bank: unnamed dialogue events… | ☐ |
 | `R-06DD6964` | Marine barks: when | every 6 to 14 s with an Ork within 30 m, else every 20 to 40 s; never two within 2 s of each other (s, m) | kind: ours; confidence: low | ours | Marine barks: when: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: every 6 to 14 s with an Ork within 30 m, else every 20 to 40 s; never… | ☐ |
 | `R-BDDECB80` | Marine barks measured (same run) | Titus barked 4 times in 120 s (calm); the allied pair was within 60 m only in the first seconds, so no ally bark was heard | confidence: low | measured 2026-11-08 | Marine barks measured (same run): compare with SM1 by timing a run over a known distance. Ours: Titus barked 4 times in 120 s (calm); the allied pair was within 60 m… | ☐ |
+
+*Spec section: Added content: the client's own volleys (musou-net-budget; client only, no protocol change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-A994C842` | Who joins | Shoota Boy and Boss Shoota Boy in Seek, within **120** m of the camera (the guns' tracer reach), not having fired a server or burst-cue round in the last **2** s (m, s) | kind: ours; notes: estimate | ours | Who joins: compare with SM1 by feel or video. Ours: Shoota Boy and Boss Shoota Boy in Seek, within 120 m of the camera… | ☐ |
+| `R-89A3A1C8` | Target | the nearest player or Guardsman **8-30** m away (flat), at most **4** m higher or lower, within **50** degrees of the Ork's facing, with a clear line from his muzzle (1.4 m up) to the target's chest (1.2 m up) at the burst's start (m, degrees) | kind: ours; notes: estimate | ours | Target: compare with SM1 with an overlaid screenshot taken from the same position. Ours: the nearest player or Guardsman 8-30 m away (flat), at most 4 m… | ☐ |
+| `R-E1B57309` | Rhythm | the Ork's own rounds a burst and round interval (Shoota: 3 rounds, 0.12 s); a burst every period x 1 to **1.4** (Shoota 1.6 s), from a phase of his own (rounds, s) | kind: ours; notes: estimate | the simulation's Shoota; the spread ours | Rhythm: compare with SM1 by feel or video. Ours: the Ork's own rounds a burst and round interval (Shoota: 3 rounds… | ☐ |
+| `R-31EA28B3` | Misses only | each round ends **0.6-1.4** m beside the target's chest, 0.4 m high or low (the simulation's miss), then flies on to a wall or floor as a server miss does (m) | kind: ours; confidence: medium | the simulation's miss | Misses only: compare with SM1 by measuring on a flat spot of the same map. Ours: each round ends 0.6-1.4 m beside the target's chest, 0.4 m high or… | ☐ |
+| `R-9C04D7F6` | Caps | at most **48** Orks at once (the nearest the camera) and **24** rounds a frame; then the guns' own effect caps (row "Effect rates over the crowd") | kind: ours; notes: estimate | ours | Caps: compare with SM1 by feel or video. Ours: at most 48 Orks at once (the nearest the camera) and 24 rounds a… | ☐ |
 
 *Spec section: Commander status marker (Musou Mode; client only)*
 
@@ -3157,10 +3166,10 @@ The Orks are an addition the owner keeps (the original multiplayer had Space Mar
 | `R-3ED9FDD2` | Gun mount | the wargear's wield entry on the boy rig's `RIG_Prop_M_Chest` (`OrkWeaponMounts.Shoota`), joined to the look as one rigid piece, so the skinned and the vertex-animation tiers both draw it | kind: interpretation; confidence: medium | wargear + rig (supported by evidence) | Gun mount: compare with SM1 by feel or video. Ours: the wargear's wield entry on the boy rig's RIG_Prop_M_Chest… | ☐ |
 | `R-AA01B545` | Muzzle flash | `fire_fx` of `ability_ranged_primary`: `shoota_muzzle` at `fx_muzzle`, along the shot | kind: interpretation; confidence: medium | data | Muzzle flash: compare with SM1 by feel or video. Ours: fire_fx of ability_ranged_primary: shoota_muzzle at fx_muzzle, along… | ☐ |
 | `R-E1697736` | Tracer effect | `hit_fx`: `shoota_tracer` from the muzzle to the end point; head at the effect's own speed, crossing in at most 0.1 s (`MaxTracerFlight`, as the marines') | kind: interpretation; confidence: medium | data; the speed rule is the M31 one | Tracer effect: compare with SM1 by feel or video. Ours: hit_fx: shoota_tracer from the muzzle to the end point; head at the… | ☐ |
-| `R-D522A02F` | Tracer cadence | every 3rd round of each Ork (the data draws one on every round), from a start of his own (rounds) | kind: estimate; confidence: low | owner: "occasional tracer" | Tracer cadence: compare with SM1 by feel or video. Ours: every 3rd round of each Ork (the data draws one on every round), from… | ☐ |
+| `R-D522A02F` | Tracer cadence | every **2nd** round of each Ork (every 3rd until musou-net-budget, 2026-11-09; the data draws one on every round), from a start of his own (rounds) | kind: estimate; confidence: low | owner: "occasional tracer", then (2026-11-09) "a ton of tracers" | Tracer cadence: compare with SM1 by feel or video. Ours: every 2nd round of each Ork (every 3rd until musou-net-budget… | ☐ |
 | `R-3554A581` | Impact | `hit_fx`'s container `shoota_coop` by surface; on a hit the player's surface (armour up); on a miss the round flies 30 m on past the simulation's end to the first wall or floor, none in the open | kind: ours; confidence: medium | data for the container; the miss's flight ours | Impact: compare with SM1 by feel or video. Ours: hit_fx's container shoota_coop by surface; on a hit the player's… | ☐ |
-| `R-B4A8CBDB` | Distance culls | flash within 45 m, tracer within 70 m, impact within 35 m of the camera (m) | kind: ours; confidence: medium | ours | Distance culls: compare with SM1 by measuring on a flat spot of the same map. Ours: flash within 45 m, tracer within 70 m, impact within 35 m of the… | ☐ |
-| `R-A29A5A88` | Effect rates over the crowd | flashes 40/s (burst 8), tracers 16/s (burst 4), impacts 14/s (burst 4); nearest rounds first (effects/s) | kind: ours; confidence: medium | ours: bounded cost for hundreds of Orks (the effect player keeps 160) | Effect rates over the crowd: compare with SM1 by feel or video. Ours: flashes 40/s (burst 8), tracers 16/s (burst 4), impacts 14/s (burst… | ☐ |
+| `R-B4A8CBDB` | Distance culls | flash within **70** m, tracer within **120** m, impact within **45** m of the camera (45 / 70 / 35 until musou-net-budget, 2026-11-09) (m) | kind: ours; confidence: medium | ours | Distance culls: compare with SM1 by measuring on a flat spot of the same map. Ours: flash within 70 m, tracer within 120 m, impact within 45 m of the… | ☐ |
+| `R-A29A5A88` | Effect rates over the crowd | flashes **120**/s (burst 24), tracers **60**/s (burst 12), impacts **40**/s (burst 10) since musou-net-budget (2026-11-09; 40/8, 16/4, 14/4 before); nearest rounds first (effects/s) | kind: ours; confidence: medium | ours: bounded cost for hundreds of Orks (the effect player keeps 160) | Effect rates over the crowd: compare with SM1 by feel or video. Ours: flashes 120/s (burst 24), tracers 60/s (burst 12), impacts 40/s… | ☐ |
 | `R-3D5A3179` | Aiming stance while firing | for 0.6 s after a round a Shoota Boy in "seek" plays his look's idle (`BOY_2HR_NAV_Idle_S_01`, the two-handed aim) instead of running on the spot (s) | kind: ours; confidence: medium | ours: the simulation's shooter stands still through a burst | Aiming stance while firing: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: for 0.6 s after a round a Shoota Boy in "seek" plays his look's idle… | ☐ |
 | `R-9C863FA4` | Fire sound | `play_or_shoota_fire` (the wargear's `fire_audio`), under the crowd's Gun budget (50 m, 6/s, burst 4) and the data's instance limits | kind: ours; confidence: medium | data; the budget ours (row "Musou sounds") | Fire sound: compare with SM1 by listening A/B at the same distance and state. Ours: play_or_shoota_fire (the wargear's fire_audio), under the crowd's Gun… | ☐ |
 | `R-D75B94CD` | Boss Shoota Boy's gun (2026-11-09 audit) | the roaming Boss Shoota Boy carries the Shoota Boy's gun and effects (his rounds are tracer events like his base kind's); the gun scales with his 3x body, the effects stay at normal size | kind: ours; confidence: medium | owner's report on the Big Shoota led to the audit; pairing ours | Boss Shoota Boy's gun (2026-11-09 audit): compare with SM1 by feel or video. Ours: the roaming Boss Shoota Boy carries the Shoota Boy's gun and effects… | ☐ |
@@ -4058,6 +4067,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-7CEF99F4` | Musou: Orks face their target (musou/ork-facing, owner 2026-11-08; `MusouSim.Version` 22, `TfwRules.Version` 44) | No Musou Mode in the original | Ours (added content; the owner: "orks should try to face the player more"): a gunner turns to its target (720 degrees a second) and fires only within 30 degrees of it; engaged Orks back off, strafe and close in with the body on the target (480 degrees a second) | Musou Mode only. Spec "Musou Mode: Orks face their target". | Musou: Orks face their target (musou/ork-facing, owner…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-F803125D` | Musou: core messages counted in the send budget (musou/perf-pass, owner 2026-11-08) | No Musou Mode in the original | Ours (added content; the owner: "count it"): a Musou client's snapshots and other core messages come out of its Musou send budget, so its whole stream stays near 60 KB/s; far Orks are updated less often. Classic PvP unchanged | Musou performance pass and the owner's battle decisions | Musou: core messages counted in the send budget…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-C94FF50F` | Musou: a 120 KB/s stream per client (musou-net-budget, owner 2026-11-09) | No Musou Mode in the original | Ours (added content; the owner: "option 2 plus a 120 KB/s budget"): Musou 110 KB/s in up to 6 messages a tick, the war 35 KB/s (floor 15) in up to 3, the client's whole stream about 120 KB/s (55 / 20 / 8 / 58 KB/s before). Costs a remote player about 1 Mbit/s and a server about 1 MB/s with 8 players… | The owner's visual showcase brief (more action on screen) | Musou: a 120 KB/s stream per client (musou-net-budget…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-670D82F9` | Musou: the client's own volleys and raised gun caps (musou-net-budget, owner 2026-11-09) | No Musou Mode in the original | Ours (added content; the owner: "maximize client sided rendering/drawing effects"): gun Orks the simulation gave no shooter token fire cosmetic bursts (misses only) on each client; Ork tracers every 2nd round, effects out to 70/120/45 m and 120 flashes, 60 tracers, 40 impacts a second; the Guardsmen's shot effects out… | The owner's visual showcase brief | Musou: the client's own volleys and raised gun caps…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-82FCC980` | Ashfall grime FAST option (musou/perf-pass, owner 2026-11-08) | No Musou Mode in the original | Ours (added content; the owner: "option in Graphics"): Options > Graphics > Ashfall grime, EXACT (the overlay, default) or FAST (folded into derived kit materials for weak GPUs; close, not exact) | Musou performance pass and the owner's battle decisions | Ashfall grime FAST option (musou/perf-pass, owner…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-2EB2F140` | FSR 2 upscaling setting (musou/perf-pass; every mode, default off) | SM1 (2011) had no upscaler | Ours (the owner's brief): Options > Graphics > Upscaling, Godot's built-in AMD FSR 2.2 (Native AA, Quality 0.67, Balanced 0.59, Performance 0.5), Forward+ only; off by default, so Classic PvP looks as before | Musou performance pass and the owner's battle decisions | FSR 2 upscaling setting (musou/perf-pass; every mode…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-5B468C45` | Plasma release, plasma gun arms, hit-confirm distance, regen glow (night/weapon-fx, 2026-11-06; its stuck hit effects were reverted 2026-11-08) | Own charged plasma ball drawn without the 100 ms interpolation delay; no body recoil clip for the plasma gun; the shooter's hit confirmation falls from 0 dB at 2 m to -18 dB at 40 m and beyond; the armour-regeneration glow is the break glow in yellow | Original behaviour of these four is unknown (owner's requests); the 2 m / 40 m / -18 dB numbers and the yellow are ours | Spec "Plasma release, plasma gun arms, stuck hit effects, hit-confirm distance, regen glow (night/weapon-fx ...)" | Plasma release, plasma gun arms, hit-confirm distance…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |

@@ -21,9 +21,9 @@ namespace SmClient;
 public partial class NetworkView
 {
     /// <summary>Metres from the camera within which a shot plays its muzzle flash, and its tracer (ours: a crowd's fire beyond that is not worth its effects).</summary>
-    const float GuardMuzzleMetres = 45f, GuardTracerMetres = 90f;
+    const float GuardMuzzleMetres = 70f, GuardTracerMetres = 120f;   // 45 / 90 until musou-net-budget (2026-11-09)
     /// <summary>Shots given effects in one frame (ours: <see cref="FxPlayer"/> keeps at most 160 effects).</summary>
-    const int GuardFxPerFrame = 12;
+    const int GuardFxPerFrame = 24;   // 12 until musou-net-budget (2026-11-09)
 
     readonly TfwClientState _tfwState = new();
     GuardLooks? _guardLooks;
@@ -53,6 +53,7 @@ public partial class NetworkView
             renderTick = demo.RenderTick;
         }
         var shown = _tfwState.Sample(renderTick, now);
+        MusouVolleyGuards(shown);   // musou-net-budget: the Guardsmen are targets for the client's own volleys (NetworkView.MusouVolleys.cs)
         // musou/perf-pass: the Guardsmen's look, crowd and effects are made from the war's first frame (in the Stormbird), not when the first men come into sight at the landing (part of the landing's 430 ms frame).
         if (!_musouNoDraw && _gameSpace is not null && (shown.Count > 0 || _guardLooks is not null || _tfwState.Armies.Count > 0 || _tfwState.War is not null))
         {

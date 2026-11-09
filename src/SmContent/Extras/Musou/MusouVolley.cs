@@ -20,8 +20,8 @@ public static class MusouVolleyRules
     /// <summary>Kinds that join the volleys (the Big Shoota Nob always fires on the server; the Rokkit Boy's rockets are real projectiles).</summary>
     public static bool Fires(MusouEnemyType type) => type is MusouEnemyType.ShootaBoy or MusouEnemyType.BossShootaBoy;
 
-    /// <summary>Metres from the camera within which an Ork joins (past that the gun effects are not drawn anyway).</summary>
-    public const float CameraMetres = 100f;
+    /// <summary>Metres from the camera within which an Ork joins: the guns' tracer reach (past that no effect of his round is drawn).</summary>
+    public const float CameraMetres = MusouOrkGunRules.TracerMetres;
     /// <summary>The target band (m, flat): a little wider than the Shoota's 12-20 m, so the crowd behind the shooters joins in.</summary>
     public const float MinMetres = 8f, MaxMetres = 30f;
     /// <summary>Most height between the Ork and his target (m).</summary>

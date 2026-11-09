@@ -237,7 +237,7 @@ public class MusouOrkGunTests
         Assert.Equal(MusouGunFx.Flash | MusouGunFx.Tracer, Plan(new MusouGunFxPlanner(), new MusouGunShot(tracerRound, 1, 140f, false, Elite: true))[0]);
         Assert.Equal(MusouGunFx.Tracer, Plan(new MusouGunFxPlanner(), new MusouGunShot(tracerRound, 1, 190f, false, Elite: true))[0]);
         Assert.Equal(MusouGunFx.None, Plan(new MusouGunFxPlanner(), new MusouGunShot(tracerRound, 1, 205f, false, Elite: true))[0]);
-        Assert.Equal(MusouGunFx.None, Plan(new MusouGunFxPlanner(), new MusouGunShot(tracerRound, 1, 100f, false))[0]);
+        Assert.Equal(MusouGunFx.None, Plan(new MusouGunFxPlanner(), new MusouGunShot(tracerRound, 1, MusouOrkGunRules.TracerMetres + 5f, false))[0]);
         // A crowd of near Shoota Boyz draining the shared buckets leaves his far tracer alone.
         var planner = new MusouGunFxPlanner();
         var shots = new List<MusouGunShot>();
