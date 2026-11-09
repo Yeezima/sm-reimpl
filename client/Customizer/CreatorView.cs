@@ -527,7 +527,7 @@ public sealed partial class CreatorView : Control
         {
             var section = LoadoutRows.Equipment(_catalog, Role, _previewRace, OpenClass, _services.Policy);
             AddSection(section, rowButtons, Heading, Note);
-            if (!IsOrkOpen) Note("Combat stimulants are listed but not simulated yet: the server gives you the default grenade.");
+            // Combat stimulants are simulated since perks/inert-2 (SmSim/Stims.cs; Musou Mode too): the old "not simulated yet" note is gone. An item that is not simulated says so on its own row.
         }
         else if (_step == Step.Look && IsOrkOpen) AddOrkLooks(rowButtons, Heading, Note);
         else AddPerks(rowButtons, Heading, Note);
