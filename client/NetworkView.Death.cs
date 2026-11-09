@@ -382,7 +382,7 @@ public partial class NetworkView
     bool CorpseHeld(Ragdoll rd, Vector3? aliveAt = null)
     {
         bool hold = false;
-        ExtrasCorpseHold(rd, aliveAt, ref hold);
+        ExtrasCorpseHold(rd, aliveAt, ref hold);   // EXTRAS-HOOK: Musou Mode holds a Marine corpse 10 s (NetworkView.MusouCorpses.cs)
         return hold;
     }
 

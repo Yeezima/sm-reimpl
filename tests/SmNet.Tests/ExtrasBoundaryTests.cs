@@ -73,6 +73,7 @@ public class ExtrasBoundaryTests
         // Musou Mode co-op (2026-11-06): up to 4 players.
         ("src/SmServer/GameServer.cs", "ExtrasPlayerCap"),         // GameServer.ExtrasPlayerCap(ref int), in PlayerCap when Extras is not None (Musou: at most 4 players)
         ("client/NetworkView.cs", "ExtrasBotInput"),               // NetworkView.ExtrasBotInput(PlayerState, uint, ref PlayerInput?), in BotInput after the countdown (Musou Mode: the co-op bot fights the Orks)
+        ("client/NetworkView.Death.cs", "ExtrasCorpseHold"),      // NetworkView.ExtrasCorpseHold(Ragdoll, Vector3?, ref bool), before a Marine ragdoll is dropped (Musou Mode: the corpse floor holds it 10 s)
     ];
 
     /// <summary>
