@@ -318,7 +318,7 @@ public class TfwArmyTests
         var (sim, guards, battle, layout) = Frozen();
         var anchor = new Vector3(80f, -60f, 0f);
         var orks = battle.AddArmyForTests(TfwArmySide.Ork, TfwArmyOrder.Hold, 0, 120, anchor, 0.3f, eliteShare: 0.1f)!;
-        Vector3[] far = [new(-100f, 100f, 0f)], near = [anchor + new Vector3(0f, 60f, 0f)];
+        Vector3[] far = [new(-400f, 400f, 0f)], near = [anchor + new Vector3(0f, 60f, 0f)];   // far: beyond FarMetres (330 m since 2026-11-09)
         battle.Step(far);
         Assert.Equal((0, 120), (orks.Real, orks.Count));
         int ticks = 0;
@@ -338,7 +338,7 @@ public class TfwArmyTests
             Assert.True(Vector3.Distance(e.Position, slot) < 0.01f, $"slot {orks.OrkSlots[j]} at {e.Position}, impostor at {slot}");
         }
         Assert.InRange(orks.RealElites, 10, 14);                            // its 12 leaders came real with it
-        Vector3[] between = [anchor + new Vector3(0f, 100f + orks.Radius, 0f)];   // inside the hysteresis band: it stays real
+        Vector3[] between = [anchor + new Vector3(0f, (TfwArmyRules.NearMetres + TfwArmyRules.FarMetres) / 2f + orks.Radius, 0f)];   // inside the hysteresis band: it stays real
         for (int t = 0; t < 10; t++) battle.Step(between);
         Assert.Equal(120, orks.Real);
         ticks = 0;
@@ -353,7 +353,7 @@ public class TfwArmyTests
         var (_, _, battle, _) = Frozen();
         var anchor = new Vector3(80f, -60f, 0f);
         var orks = battle.AddArmyForTests(TfwArmySide.Ork, TfwArmyOrder.Hold, 0, 50, anchor)!;
-        Vector3[] near = [anchor + new Vector3(0f, 40f, 0f)], far = [new(-100f, 100f, 0f)];
+        Vector3[] near = [anchor + new Vector3(0f, 40f, 0f)], far = [new(-400f, 400f, 0f)];   // far: beyond FarMetres (330 m since 2026-11-09)
         for (int cycle = 0; cycle < 4; cycle++)
         {
             for (int t = 0; t < 8; t++) battle.Step(near);
@@ -381,13 +381,13 @@ public class TfwArmyTests
     {
         var (_, _, battle, _) = Frozen();
         var a = battle.AddArmyForTests(TfwArmySide.Ork, TfwArmyOrder.Hold, 0, 30, new Vector3(-90f, -90f, 0f))!;
-        var b = battle.AddArmyForTests(TfwArmySide.Guard, TfwArmyOrder.Hold, 1, 30, new Vector3(90f, 90f, 0f))!;
+        var b = battle.AddArmyForTests(TfwArmySide.Guard, TfwArmyOrder.Hold, 1, 30, new Vector3(400f, 400f, 0f))!;   // over 330 m from the first human (the levels' reach since 2026-11-09)
         battle.SetPlayerIds([1, 2, TfwContracts.PuppetIdFirst]);
-        Vector3[] feet = [new(-90f, -40f, 0f), new(90f, 40f, 0f), new(-90f, -90f, 0f)];
+        Vector3[] feet = [new(-90f, -40f, 0f), new(400f, 350f, 0f), new(-90f, -90f, 0f)];
         for (int t = 0; t < 40; t++) battle.Step(feet);
         Assert.Equal((30, 30), (a.Real, b.Real));
         Assert.Equal(2, battle.Humans.Count);                               // the puppet is no human
-        feet = [new(-90f, -40f, 0f), new(-90f, 40f, 0f), new(90f, 90f, 0f)];   // the second human walks off; an AI Marine stands on b
+        feet = [new(-90f, -40f, 0f), new(-90f, 40f, 0f), new(400f, 400f, 0f)];   // the second human walks off; an AI Marine stands on b
         for (int t = 0; t < 40; t++) battle.Step(feet);
         Assert.Equal((30, 0, 30), (a.Real, b.Real, b.Count));
     }

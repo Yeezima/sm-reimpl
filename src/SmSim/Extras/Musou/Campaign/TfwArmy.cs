@@ -8,8 +8,18 @@ namespace SmSim.Extras.Musou.Campaign;
 /// </summary>
 public static class TfwArmyRules
 {
-    // Levels (the brief): real within 90 m of any human, aggregate again past 120 m.
-    public const float NearMetres = 90f, FarMetres = 120f;
+    // Levels: the brief's real within 90 m of any human, aggregate again past 120 m; since 2026-11-09 (owner: "increase the distance for active ork behavior and rendering - 300m") real within 300 m,
+    // aggregate past 330 m (ours: the brief's 30 m margin). The server's SM_TFW_OLD_ARMY_RANGE=1 restores 90 / 120 (test aid, the before of a measurement).
+    public static readonly bool OldRange = Environment.GetEnvironmentVariable("SM_TFW_OLD_ARMY_RANGE") == "1";
+    public static float NearMetres => OldRange ? CoreMetres : 300f;
+    public static float FarMetres => OldRange ? CoreFarMetres : 330f;
+    /// <summary>
+    /// The brief's levels (90 / 120 m), kept for two things: real units nearer any human than <see cref="CoreFarMetres"/> are never folded back to make room for a nearer army (<see cref="NearOrksMost"/> is
+    /// unchanged, so at 300 m the cap is full more often: the nearest armies get the real units), and the client leaves a far death's body only within <see cref="CoreMetres"/> (the owner, 2026-11-08).
+    /// </summary>
+    public const float CoreMetres = 90f, CoreFarMetres = 120f;
+    /// <summary>A farther army gives up real units to a nearer one only when it is this much farther (ours: no swap to and fro between armies at about the same distance).</summary>
+    public const float RoomMargin = 30f;
     /// <summary>Real units made from the aggregates a tick, over all armies (Orks; Guard squads), and folded back a tick: no frame spawns or removes hundreds.</summary>
     public const int PromotePerTick = 16, PromoteSquadsPerTick = 1, DemotePerTick = 32, DemoteSquadsPerTick = 2;
     /// <summary>Most real Orks and Guard squads the armies hold at once (the pool's new 512 slots less a margin; GuardSim's 40 squads less the field's 12).</summary>

@@ -350,7 +350,14 @@ public sealed partial class TfwBattle
         foreach (ushort id in s.Members) { if (_enemies.Engaged(id)) fighter = fighter == 0 ? id : fighter; if (_enemies.IsAirborne(id)) anyAir = true; }
         if (fighter != 0 && _enemies.TryGet(fighter, out var f))
         {
-            foreach (ushort id in s.Members) if (id != fighter && !_enemies.Engaged(id) && !_enemies.IsAirborne(id)) _enemies.Order(id, f.Position);
+            // 2026-11-09 (MusouMoveRules): each to his own place round the fighter, not all to the fighter's feet (they piled on one point and pushed each other to and fro).
+            float round = YawTo(centre, f.Position);
+            for (int k = 0; k < s.Members.Count; k++)
+            {
+                ushort id = s.Members[k];
+                if (id == fighter || _enemies.Engaged(id) || _enemies.IsAirborne(id)) continue;
+                _enemies.Order(id, MusouSim.OldOrkMovement ? f.Position : Ground(f.Position + Offset(k == 0 ? s.Members.Count : k, round), f.Position));
+            }
             return;
         }
         float distance = Vector2.Distance(Flat(centre), Flat(goal.At));
@@ -361,6 +368,7 @@ public sealed partial class TfwBattle
             return;
         }
         if (s.HopTicks > 0) s.HopTicks--;   // 3 s from take-off to take-off (the flight counts)
+        if (!MusouSim.OldOrkMovement && s.HopTicks > 0) RunOn(s, Vector2.Normalize(Flat(goal.At) - Flat(centre)));   // 2026-11-09: between hops they run on, not stand
         if (anyAir || s.HopTicks > 0) return;
         s.HopTicks = Ticks(TfwStormboyRules.HopSeconds);
         var heading = Vector2.Normalize(Flat(goal.At) - Flat(centre));
@@ -384,6 +392,28 @@ public sealed partial class TfwBattle
                 across = Flat(want) - Flat(e.Position);
             }
             if (across.Length() < 2f || !_enemies.Hop(id, want, node)) { _enemies.Order(id, want); continue; }
+            _enemies.Order(id, want);
+        }
+    }
+
+    /// <summary>
+    /// Between hops (2026-11-09, <see cref="MusouMoveRules.RunOnMetres"/>): each Stormboy on the ground and not fighting runs on toward the squad's goal, his place <see cref="MusouMoveRules.RunOnMetres"/> ahead
+    /// of him again every tick (on the graph; with none there he stands), so the squad flows on from landing to take-off.
+    /// </summary>
+    void RunOn(StormSquad s, Vector2 heading)
+    {
+        if (!float.IsFinite(heading.X) || !float.IsFinite(heading.Y)) return;
+        var ahead = new Vector3(heading.X, heading.Y, 0f) * MusouMoveRules.RunOnMetres;
+        foreach (ushort id in s.Members)
+        {
+            if (!_enemies.TryGet(id, out var e) || e.State != MusouEnemyState.Seek || _enemies.Engaged(id)) continue;
+            var want = e.Position + ahead;
+            if (_enemies.Nav is { } nav)
+            {
+                int node = nav.Nearest(want, 1.5f, 2.5f);
+                if (node < 0) continue;   // a wall ahead: he keeps his last place
+                want = nav.Position(node);
+            }
             _enemies.Order(id, want);
         }
     }

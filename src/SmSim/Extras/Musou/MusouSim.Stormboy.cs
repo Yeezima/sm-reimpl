@@ -128,6 +128,7 @@ public sealed partial class MusouSim
     {
         int i = id - 1;
         if (i < 0 || i >= Capacity || !_used[i] || _type[i] != MusouEnemyType.Stormboy || _state[i] == MusouEnemyState.Dying || !float.IsFinite(at.X) || !float.IsFinite(at.Y) || !float.IsFinite(at.Z)) return false;
+        if (!_ordered[i] || Vector2.Distance(new(_orderAt[i].X, _orderAt[i].Y), new(at.X, at.Y)) > MusouMoveRules.OrderLeave) _orderSettled[i] = false;   // a new place: he goes again (MusouSim.Movement.cs)
         _ordered[i] = true; _orderAt[i] = at;
         return true;
     }
@@ -230,8 +231,7 @@ public sealed partial class MusouSim
         if (close || _state[i] != MusouEnemyState.Seek) return false;
         _target[i] = 0; _token[i] = 0; _burst[i] = 0; _aim[i] = -1;
         var way = new Vector2(_orderAt[i].X - p.X, _orderAt[i].Y - p.Y);
-        float distance = way.Length();
-        Move(i, spec, distance > 0.8f ? way / distance * spec.Speed : Vector2.Zero, targets, near);
+        Move(i, spec, OrderedWay(i, way, spec.Speed), targets, near);   // MusouSim.Movement.cs: he stands at his place until pushed well off it
         _headwayTick[i] = Tick; _anchor[i] = _position[i];
         return true;
     }

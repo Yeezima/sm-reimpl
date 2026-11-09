@@ -25,17 +25,21 @@ public class MusouFarMotionTests(ITestOutputHelper output)
     public sealed record Result(IReadOnlyList<Band> Bands, double BytesPerSecond, double RecordsPerSecond, string Gaps, double SampleMs);
 
     /// <summary>Runs <paramref name="seconds"/> of a crowd of <paramref name="orks"/> (8 on each ring, the rest filler between 15 and 120 m; <paramref name="clustered"/>: 90 % of it within 15 to 40 m, as the stress test's ring). <paramref name="old"/>: both switches of the old behaviour (the client's motion and the server's send order).</summary>
-    public static Result Measure(int orks, bool old, bool zigzag = false, bool clustered = false, double seconds = 12.0, double fps = 60.0)
+    public static Result Measure(int orks, bool old, bool zigzag = false, bool clustered = false, double seconds = 12.0, double fps = 60.0, float[]? probeRings = null, int extraFar = 0)
     {
+        // 2026-11-09 (the 300 m levels): extraFar more Orks between 120 and 300 m (the army Orks made real out there now), probes on probeRings, in a box that holds them.
+        var Rings = probeRings ?? MusouFarMotionTests.Rings;
+        var Box = extraFar > 0 || Rings.Max() > 150f ? new MusouBox(new Vector3(-400f, -400f, -10f), new Vector3(400f, 400f, 30f)) : MusouFarMotionTests.Box;
+        var Director = Box == MusouFarMotionTests.Box ? MusouFarMotionTests.Director : MusouWire.WriteDirector(new MusouDirectorView(1, 5, MusouPhase.Wave, 0, 80, 80, 0, 0f, 0f, 3, Box));
         var rng = new Random(7);
         const int perRing = 8;
-        int n = Math.Max(orks, perRing * Rings.Length);
+        int n = Math.Max(orks, perRing * Rings.Length) + extraFar;
         var radius = new float[n];
         var phase = new float[n];
         var dir = new float[n];
         for (int i = 0; i < n; i++)
         {
-            radius[i] = i < perRing * Rings.Length ? Rings[i / perRing] : clustered && rng.NextDouble() < 0.9 ? 15f + (float)rng.NextDouble() * 25f : 15f + (float)rng.NextDouble() * 105f;
+            radius[i] = i < perRing * Rings.Length ? Rings[i / perRing] : i >= n - extraFar ? 120f + (float)rng.NextDouble() * 180f : clustered && rng.NextDouble() < 0.9 ? 15f + (float)rng.NextDouble() * 25f : 15f + (float)rng.NextDouble() * 105f;
             phase[i] = (float)(rng.NextDouble() * Math.PI * 2);
             dir[i] = rng.Next(2) == 0 ? 1f : -1f;
         }
@@ -169,4 +173,21 @@ public class MusouFarMotionTests(ITestOutputHelper output)
         }
         Assert.True(now.BytesPerSecond <= old.BytesPerSecond * 1.02 + 500, "the bandwidth stays where it was");
     }
+
+    /// <summary>
+    /// 2026-11-09 (the armies real within 300 m): 1,800 Orks clustered as the stress ring plus the 480 army Orks the levels may now make real between 120 and 300 m, through the unchanged 55 KB/s budget.
+    /// Prints the bytes and the far rings' record gaps and stalls; holds that the near rings keep their records and the budget holds.
+    /// </summary>
+    [Fact]
+    public void The_army_orks_made_real_out_to_300_m_fit_the_budget()
+    {
+        float[] rings = [10f, 30f, 60f, 100f, 200f, 290f];
+        var before = Measure(1800, false, clustered: true, probeRings: rings);
+        var after = Measure(1800, false, clustered: true, probeRings: rings, extraFar: 480);
+        Print("FARMOTION 1800 clustered", before);
+        Print("FARMOTION 1800 clustered + 480 at 120-300 m", after);
+        Assert.True(after.BytesPerSecond < 62_000, $"{after.BytesPerSecond / 1000:F1} KB/s");
+        foreach (var b in after.Bands.Where(b => b.Metres <= 30f)) Assert.True(b.StallShare < 0.05, $"{b.Metres} m stalls {b.StallShare:P1}");
+    }
+
 }

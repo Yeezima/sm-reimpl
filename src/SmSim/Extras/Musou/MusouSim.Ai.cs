@@ -104,6 +104,7 @@ public sealed partial class MusouSim
         SpawnedSquig(i);   // MusouSim.Squig.cs: the fuse, the kick
         SpawnedStormboy(i); SpawnedBigShoota(i);   // expansion S3 (MusouSim.Stormboy.cs, MusouSim.BigShoota.cs)
         SpawnedMek(i);   // expansion S4 (MusouSim.Mek.cs)
+        SpawnedMovement(i);   // MusouSim.Movement.cs: the eased heading and push, a Stormboy's stand at his place
         _prefer[i] = false;
         _relocations[i] = 0;
         _ring[i] = Rules.CircleMin + (Rules.CircleMax - Rules.CircleMin) * Unit(Mix((uint)i * 2654435761u, 0x9E3779B9u));
@@ -472,7 +473,7 @@ public sealed partial class MusouSim
                         _position[i] + new Vector3(Forward(_yaw[i]) * spec.MeleeRange, 0f)));
                     return Vector2.Zero;
                 }
-                if (reach <= spec.MeleeRange * 0.8f && level) { Face(i, toward); return Vector2.Zero; }   // in reach: wait for the cooldown
+                if (reach <= MeleeHold(i, spec, target) && level) { Face(i, toward); return Vector2.Zero; }   // in reach: wait for the cooldown (MusouSim.Movement.cs: past the player's ring)
                 return Approach(i, t, d, spec.Speed);
             }
             if (reach <= Rules.MeleeTokenDistance && MathF.Abs(d.Z) <= (swarm is null ? 2.5f : 1.5f) && reach < _meleeWantD[t]) { _meleeWantD[t] = reach; _meleeWant[t] = i; }
@@ -645,11 +646,12 @@ public sealed partial class MusouSim
             var dir = dist > 1e-4f ? away / dist : Forward(i * 2.399963f);
             push += dir * (gap - dist) * Rules.SeparationStrength * 2f;
         }
+        push = EasePush(i, push);   // MusouSim.Movement.cs (2026-11-09): the push apart eased, so it does not flip the move tick to tick
         var v = desired + push;
         float max = spec.Speed * 1.5f * SpeedScale(i), len = v.Length();
         if (len > max) v *= max / len;
         v += Driven(i);   // MU3: a knockback or the boss's charge, over the clamp
-        bool boss = MusouBossOrks.Is(_type[i]);
+        bool boss = MusouBossOrks.Is(_type[i]), faceMove = false;
         if (boss && Walk is { } nav && _node[i] >= 0 && _state[i] == MusouEnemyState.Seek)
         {
             // A Boss Ork's body is 3x wide but the graph keeps only a normal Ork's margin off the walls: lean away from a wall nearer than its radius, so it does not grind along it (ours).
@@ -659,7 +661,8 @@ public sealed partial class MusouSim
         if (!boss && desired.LengthSquared() > 0.01f && _state[i] == MusouEnemyState.Seek)
         {
             if (_faceWant[i] != Vector2.Zero) TurnTo(i, _faceWant[i], MusouFacingRules.EngageTurnDegrees);   // MusouSim.Facing.cs: engaged, it moves facing its target
-            else Face(i, Vector2.Normalize(desired));
+            else if (OldOrkMovement || Swarm is null) Face(i, Vector2.Normalize(desired));   // the 5-wave run (no Swarm) as pinned
+            else faceMove = true;   // MusouSim.Movement.cs (2026-11-09): after the move it faces the way it actually goes
             _lookSet[i] = false;
         }
         if (v.LengthSquared() < 1e-6f) { _velocity[i] = Vector2.Zero; return; }
@@ -699,6 +702,7 @@ public sealed partial class MusouSim
         _velocity[i] = new Vector2(moved.X - p.X, moved.Y - p.Y) / Dt;
         _position[i] = moved;
         if (boss && _state[i] == MusouEnemyState.Seek) TurnToVelocity(i);
+        else if (faceMove) FaceMove(i, desired);
     }
 
     /// <summary>A Boss Ork's turn rate while it runs (rad/s, ours): about a third of a turn a second, so a 3x body swings round instead of snapping.</summary>
