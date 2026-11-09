@@ -18,8 +18,8 @@ public static class MusouHudLayout
     public const float Left = 40f, BottomMargin = 48f;
 
     /// <summary>
-    /// The own armour and health bar (the match HUD's, <see cref="Hud.Frame.VitalsCorner"/>; owner 2026-11-10 "Bottom left, approve"): its box's left edge at <see cref="Left"/>, its bottom 228 above
-    /// the screen's bottom (clear of the commander's bar and three Boss Ork bars, whose top reaches about 213), at 0.65 of its size (about 385 wide, the commander's bar's 380).
+    /// The own armour and health bar (the match HUD's, <see cref="Hud.Frame.VitalsCorner"/>; owner 2026-11-10 "Bottom left, approve", then "put your player armor and health in the bottom left, then
+    /// the boss health bars above that"): its box's left edge at <see cref="Left"/>, its bottom 40 above the screen's bottom, at 0.65 of its size (about 385 wide); the boss column stands over it.
     /// </summary>
-    public static readonly Godot.Vector3 VitalsCorner = new(Left - 6f, 228f, 0.65f);
+    public static readonly Godot.Vector3 VitalsCorner = new(Left - 6f, 40f, 0.65f);
 }

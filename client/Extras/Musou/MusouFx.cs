@@ -133,6 +133,7 @@ public partial class NetworkView
             switch (e.Kind)
             {
                 case MusouEventKind.Hit:
+                    if (e.Player == ownId && e.Player != 0 && _musouHud is { } own) own.Data.HitAt[e.Enemy] = now;   // the boss column's priority: the own player's hits (MusouHud.BossColumn.cs)
                     if (!present) break;
                     if (e.Player == ownId) { _hudView?.ShowHitMarker(false, e.Value == 2); _musouHitMarkers++; }
                     if (MusouWeirdboyShieldHit(e, shown)) break;   // the Weirdboy's shield took it: its pulse, no blood (NetworkView.MusouWeirdboy.cs)
@@ -163,6 +164,7 @@ public partial class NetworkView
 
         // The HUD's frame.
         var f = _musouHud.Data;
+        f.Now = now;
         f.Director = d;
         f.Alive = me.Alive;
         float rate = Math.Max(1, _config.TickRate);

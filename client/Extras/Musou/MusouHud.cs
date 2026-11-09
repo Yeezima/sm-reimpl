@@ -47,6 +47,10 @@ public sealed partial class MusouHud : Control
         public string BossName = "ORK WARBOSS";
         /// <summary>The roaming Boss Orks' bars (2026-11-06; MusouHud.BossOrks.cs), under the boss bar.</summary>
         public readonly List<SmNet.Extras.Musou.Campaign.TfwBossOrkBar> BossOrks = new();
+        /// <summary>The boss column's priority (owner, 2026-11-10; MusouHud.BossColumn.cs): when the own player last hit each enemy (seconds on <see cref="Now"/>'s clock) and each boss's distance from the player (m).</summary>
+        public readonly Dictionary<ushort, double> HitAt = new();
+        public readonly Dictionary<ushort, float> Distance = new();
+        public double Now;
     }
 
     public Frame Data = new();
@@ -146,6 +150,7 @@ public sealed partial class MusouHud : Control
             else _bossTrail = Math.Max(_bossShown, _bossTrail - (float)delta * 0.25f);
         }
         else { _bossShown = _bossTrail = -1f; _bossId = 0; }
+        if (!MusouHudLayout.Old) OrderBosses(d);   // the boss column's order (MusouHud.BossColumn.cs)
         bool ended = d is { Phase: MusouPhase.Won or MusouPhase.Lost };
         if (ended && _endSeenAt < 0) _endSeenAt = _time;
         else if (!ended) _endSeenAt = -1;
@@ -193,8 +198,8 @@ public sealed partial class MusouHud : Control
         DrawFlash(vs);
         if (Data.Director is not { } d) return;
         if (d.Phase != MusouPhase.Campaign) DrawRunPanel(d);
-        DrawBossBar(vs, d);
-        DrawBossOrkBars(vs, d);   // MusouHud.BossOrks.cs
+        if (MusouHudLayout.Old) { DrawBossBar(vs, d); DrawBossOrkBars(vs, d); }   // MusouHud.BossOrks.cs
+        else DrawBossColumn(vs, d);   // the column over the own bar, bottom left (MusouHud.BossColumn.cs)
         if (d.Phase is not (MusouPhase.Won or MusouPhase.Lost)) DrawChain(vs);
         DrawBreak(vs, d);
         DrawCallOuts(vs);
@@ -244,32 +249,17 @@ public sealed partial class MusouHud : Control
         Txt(_points.Of(Data.Points, Thousands), rx, y + 150f, 26, Gold, 1, 3, true);
     }
 
-    /// <summary>The bottom-left bars' layout (<see cref="MusouHudLayout"/>): the commander's bar's height and its top edge.</summary>
-    const float CornerBossW = 380f, CornerBossH = 16f;
-    static float CornerBossTop(Vector2 vs) => vs.Y - MusouHudLayout.BottomMargin - CornerBossH;
-
-    /// <summary>The Warboss's (Musou Mode: the battle commander's) bar while it lives: bottom left (the old layout: top centre above the armour bar).</summary>
+    /// <summary>The Warboss's (Musou Mode: the battle commander's) bar while it lives, top centre above the armour bar: the layout <c>--musou-old-hud</c> keeps (the column replaces it, MusouHud.BossColumn.cs).</summary>
     void DrawBossBar(Vector2 vs, MusouDirectorView d)
     {
         if (d.BossId == 0 || d.BossMaxHealth <= 0f || _bossShown < 0f || d.Phase is MusouPhase.Won or MusouPhase.Lost) return;
-        bool old = MusouHudLayout.Old;
-        float cx = vs.X / 2f, w = old ? Math.Min(720f, vs.X - 760f) : CornerBossW, x = old ? cx - w / 2f : MusouHudLayout.Left, y = old ? 52f : CornerBossTop(vs), h = old ? 22f : CornerBossH;
+        float cx = vs.X / 2f, w = Math.Min(720f, vs.X - 760f), x = cx - w / 2f, y = 52f, h = 22f;
         bool rage = Data.BossEnraged;
         float pulse = rage ? 0.75f + 0.25f * MathF.Sin((float)_time * 8f) : 1f;
+        Txt(Data.BossName, cx, y - 10f, 24, rage ? RedText : Gold, 0, 4, true);
+        if (rage) Txt("ENRAGED", x + w, y - 10f, 20, new Color(RedText, pulse), 1, 3, true);
         long pct = (long)MathF.Ceiling(Math.Clamp(d.BossHealth / d.BossMaxHealth, 0f, 1f) * 100f);
-        if (old)
-        {
-            Txt(Data.BossName, cx, y - 10f, 24, rage ? RedText : Gold, 0, 4, true);
-            if (rage) Txt("ENRAGED", x + w, y - 10f, 20, new Color(RedText, pulse), 1, 3, true);
-            Txt(_bossPct.Of(pct, static k => $"{k}%"), x, y - 10f, 20, White, -1, 3, true);
-        }
-        else
-        {
-            // The corner: the name over the bar's left end, ENRAGED over its right end, the per cent after the bar.
-            Txt(Data.BossName, x, y - 9f, 20, rage ? RedText : Gold, -1, 4, true);
-            if (rage) Txt("ENRAGED", x + w, y - 9f, 18, new Color(RedText, pulse), 1, 3, true);
-            Txt(_bossPct.Of(pct, static k => $"{k}%"), x + w + 12f, y + h - 1f, 18, White, -1, 3, true);
-        }
+        Txt(_bossPct.Of(pct, static k => $"{k}%"), x, y - 10f, 20, White, -1, 3, true);
         DrawRect(new Rect2(x - 3f, y - 3f, w + 6f, h + 6f), PanelFill);
         if (_bossTrail > _bossShown) DrawRect(new Rect2(x + w * _bossShown, y, w * (_bossTrail - _bossShown), h), new Color(1f, 0.85f, 0.6f, 0.85f));
         var fill = rage ? new Color(1f * pulse, 0.12f, 0.04f) : RedFill;
