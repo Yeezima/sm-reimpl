@@ -49,6 +49,11 @@ public sealed class SoundEmitter
     /// actions, and through a reverb tail (<see cref="SoundSystem.TailBusOf"/>) so they ring out longer. False everywhere else.
     /// </summary>
     public bool Tail;
+    /// <summary>
+    /// musou/audio-pass (Musou Mode only): the extra layers of the player's own bolter shot sit on an emitter of their own with this set: not stolen at the voice cap, not cut by a Stop action,
+    /// not ducked by the data's Set/Reset actions, no instance limit. Same bus as any sound. False everywhere else.
+    /// </summary>
+    public bool ProtectGun;
 
     public Vector3 Current => Follow?.Invoke() ?? Position;
 }
@@ -459,7 +464,7 @@ public partial class SoundSystem : Node
         bool limited = force || Limits == InstanceLimits.All || (Limits == InstanceLimits.Footsteps && footstep);
         UnsupportedActions += play.UnsupportedActions;
         MissingMedia += play.MissingMedia;
-        if (!emitter.Tail) foreach (var (target, delay) in play.Stops) _stops.Add((target, emitter, _now + extraDelay + delay));   // musou/audio-pass: a melee hit's own Stop actions never cut it
+        if (!emitter.Tail && !emitter.ProtectGun) foreach (var (target, delay) in play.Stops) _stops.Add((target, emitter, _now + extraDelay + delay));   // musou/audio-pass: a melee hit's own Stop actions never cut it
         foreach (var a in play.Properties) _properties.Add((_now + extraDelay + a.Delay, a, emitter.Id));
         SwitchActions += play.SwitchSets.Count;
         ApplyStops();   // stops due now act before this event's own voices start
@@ -804,7 +809,7 @@ public partial class SoundSystem : Node
     }
 
     /// <summary>Whether a voice is protected (musou/audio-pass): a melee hit's of a <see cref="SoundEmitter.Tail"/> emitter, or the own character's line of a <see cref="SoundEmitter.ProtectSpeech"/> one.</summary>
-    static bool Shielded(Active a) => a.Emitter.Tail || FullVoice(a);
+    static bool Shielded(Active a) => a.Emitter.Tail || a.Emitter.ProtectGun || FullVoice(a);
 
     /// <summary>The own character's line (musou/audio-pass).</summary>
     static bool FullVoice(Active a) => a.Emitter.ProtectSpeech && IsSpeech(a.Event);

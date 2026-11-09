@@ -29,18 +29,31 @@ public static class MusouAudioRules
     }
 
     /// <summary>The fire sound's deep copy: the weapon's own fire event again, a low copy under the shot (pitch cents, level dB, extra low-pass units so only the body of it stays). Ours.</summary>
-    public const float DeepPitchCents = -800f, DeepGainDb = -1f, DeepLpf = 22f;
+    public const float DeepPitchCents = -800f, DeepLpf = 22f;
 
-    /// <summary>The thump under every shot: a one-voice blast pitched an octave down (event, cents, dB). Ours.</summary>
+    /// <summary>
+    /// Others' bolters (owner 2026-11-09 follow-up: "the bolter shoot sound that plays from the gun ... deeper, more powerful"): the deep copy stays lighter than the player's own, to save voices (dB). Ours.
+    /// </summary>
+    public const float DeepGainDb = -3f, ThumpGainDb = 3f;
+
+    /// <summary>The thump under every shot: a one-voice blast pitched an octave down (event, cents). Ours.</summary>
     public const string ThumpEvent = "play_reactive_blast";
-    public const float ThumpPitchCents = -1200f, ThumpGainDb = 6f;
+    public const float ThumpPitchCents = -1200f;
+
+    /// <summary>
+    /// The player's own gun (follow-up 2026-11-09): heavier. The deep copy louder (+2 dB), a second sub copy another 700 cents down under it (-1500 cents, 0 dB, low-pass +30: only the boom
+    /// stays), and a louder thump (+9 dB). The layers sit on an emitter of their own (<c>SoundEmitter.ProtectGun</c>): never stolen at the voice cap, never cut by a Stop action of another
+    /// event, never ducked by an explosion's Set/Reset. Ours.
+    /// </summary>
+    public const float OwnDeepGainDb = 2f, OwnSubPitchCents = -1500f, OwnSubGainDb = 0f, OwnSubLpf = 30f, OwnThumpGainDb = 9f;
 
     /// <summary>
     /// The first Ork a shot hits: the data's wet smack (<c>play_bolter_smack</c>, the bolter's own hit confirmation), then <see cref="BlastDelaySeconds"/> later the explosion
     /// (<see cref="BlastEvent"/> at <see cref="BlastGainDb"/> dB, its tail faded to <see cref="BlastTailDb"/> dB after the hold of <c>SoundMixPass.JumpTailHoldSeconds</c>, so it is a crack, not a grenade). Ours.
     /// </summary>
     public const string SmackEvent = "play_bolter_smack", BlastEvent = "play_sm_grenade_explode_mp";
-    public const float SmackGainDb = 8f, BlastDelaySeconds = 0.07f, BlastGainDb = -9f, BlastTailDb = -30f;
+    /// <remarks>Owner 2026-11-09 follow-up: "lower the bolter damage on hit sound by 50%": half amplitude = -6 dB (smack +8 to +2, blast -9 to -15); the timing is unchanged.</remarks>
+    public const float SmackGainDb = 2f, BlastDelaySeconds = 0.07f, BlastGainDb = -15f, BlastTailDb = -30f;
 
     // ---- the melee hit's tail ----
 

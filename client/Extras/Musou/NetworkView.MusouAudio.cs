@@ -43,10 +43,28 @@ public partial class NetworkView
     {
         if (!MusouAudioOn || _sound is null || _soundTriggers is null || !MusouAudioRules.IsBolterRifle(spec.Name) || _soundTriggers.File(spec.Name) is not { } file) return;
         _musouBolterShots++;
-        var deep = new VoiceOffset(MusouAudioRules.DeepGainDb, MusouAudioRules.DeepPitchCents, MusouAudioRules.DeepLpf).Plus(SoundMixPass.Fire(SoundSystem.MixClassic));
-        foreach (var b in file.Fire(null)) PostBinding(b, e, own, own ? "fire own deep" : "fire other deep", extra: deep);
-        _sound.Post(MusouAudioRules.ThumpEvent, e, offset: new VoiceOffset(MusouAudioRules.ThumpGainDb, MusouAudioRules.ThumpPitchCents).Plus(SoundMixPass.Fire(SoundSystem.MixClassic)));
+        var fire = SoundMixPass.Fire(SoundSystem.MixClassic);
+        if (!own)
+        {
+            // Others' bolters: the lighter deep copy and thump on the shooter's emitter (voices are shared with the crowd).
+            var deep = new VoiceOffset(MusouAudioRules.DeepGainDb, MusouAudioRules.DeepPitchCents, MusouAudioRules.DeepLpf).Plus(fire);
+            foreach (var b in file.Fire(null)) PostBinding(b, e, own, "fire other deep", extra: deep);
+            _sound.Post(MusouAudioRules.ThumpEvent, e, offset: new VoiceOffset(MusouAudioRules.ThumpGainDb, MusouAudioRules.ThumpPitchCents).Plus(fire));
+            CountSound("musou bolter thump");
+            return;
+        }
+        // The player's own gun (owner follow-up 2026-11-09: "deeper, more powerful"): a protected emitter of its own at the muzzle (never stolen, cut or ducked): a louder deep copy, a sub copy under it, a louder thump.
+        var gun = new SoundEmitter { Position = e.Position, Follow = e.Follow, Switches = e.Switches, Own = true, OneShot = true, ProtectGun = true, Label = "musou bolter own layers" };
+        var body = new VoiceOffset(MusouAudioRules.OwnDeepGainDb, MusouAudioRules.DeepPitchCents, MusouAudioRules.DeepLpf).Plus(fire);
+        var sub = new VoiceOffset(MusouAudioRules.OwnSubGainDb, MusouAudioRules.OwnSubPitchCents, MusouAudioRules.OwnSubLpf).Plus(fire);
+        foreach (var b in file.Fire(null))
+        {
+            PostBinding(b, gun, own, "fire own deep", extra: body);
+            PostBinding(b, gun, own, "fire own sub", extra: sub);
+        }
+        _sound.Post(MusouAudioRules.ThumpEvent, gun, offset: new VoiceOffset(MusouAudioRules.OwnThumpGainDb, MusouAudioRules.ThumpPitchCents).Plus(fire));
         CountSound("musou bolter thump");
+        if (LogSound("musou-audio")) GD.Print($"MUSOU AUDIO t {_connectedFor:F3} {spec.Name}: own gun layers deep {MusouAudioRules.OwnDeepGainDb:+0;-0} dB {MusouAudioRules.DeepPitchCents:F0} c, sub {MusouAudioRules.OwnSubGainDb:+0;-0} dB {MusouAudioRules.OwnSubPitchCents:F0} c, thump {MusouAudioRules.OwnThumpGainDb:+0;-0} dB");
     }
 
     /// <summary>The first Ork a bolter rifle's shot hits (<paramref name="at"/>, Godot space): the wet smack, then the explosion.</summary>
