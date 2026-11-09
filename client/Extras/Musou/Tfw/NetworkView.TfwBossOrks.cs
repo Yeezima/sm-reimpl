@@ -25,5 +25,13 @@ public partial class NetworkView
         else if (slain > 0) hud.BossOrkSlain();
         hud.Data.BossOrks.Clear();
         hud.Data.BossOrks.AddRange(_tfwBossOrks.Bars);
+        if (MusouHudDemoCampaign && hud.Data.BossOrks.Count == 0)   // --musou-hud-demo campaign: two made-up Boss Orks (the edge layout's screenshots)
+        {
+            hud.Data.BossOrks.Add(new TfwBossOrkBar(60001, "BOSS NOB", 0.72f));
+            hud.Data.BossOrks.Add(new TfwBossOrkBar(60002, "BOSS BIG MEK", 0.35f));
+        }
     }
+
+    /// <summary>Test aid <c>--musou-hud-demo campaign</c>: Musou Mode's HUD with every element on, in a real battle (MusouFx.cs MusouDemo).</summary>
+    bool MusouHudDemoCampaign => _musouDemo == "campaign";
 }

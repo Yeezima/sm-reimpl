@@ -113,16 +113,22 @@ public sealed partial class TfwHud : Control
         DrawCapture(Size / scale);   // TfwHud.Capture.cs
     }
 
+    /// <summary>
+    /// KILLED where the match HUD's own death line stands (it is not moved: the dead see no fight), and the prompts: a strip along the bottom edge, under the weapon box's band
+    /// (<see cref="MusouHudLayout"/>; the old layout: the middle of the screen, y 640 to 690).
+    /// </summary>
     void DrawPrompts(Vector2 vs)
     {
         float cx = vs.X / 2f;
+        bool old = MusouHudLayout.Old;
+        float promptY = old ? 640f : vs.Y - 52f, redeployY = old ? 690f : vs.Y - 22f;
         if (!Data.Alive && Data.War is { } war && TfwHudModel.RunHoldsRespawn(war)) Txt("KILLED", cx, 330f, 52, RedText, 0, 6, true);
-        if (Data.Station.Length > 0) Txt(Data.Station, cx, 640f, 30, Gold, 0, 4, true);
-        else Txt(_prompt, cx, 640f, 34, _prompt.StartsWith("THE WAR IS LOST", StringComparison.Ordinal) ? RedText : Gold, 0, 5, true);
-        Txt(_redeployText, cx, 690f, 26, White, 0, 4, true);   // a fallen player's deploy for a supply (late batch 2026-11-06)
+        if (Data.Station.Length > 0) Txt(Data.Station, cx, promptY, old ? 30 : 26, Gold, 0, 4, true);
+        else Txt(_prompt, cx, promptY, old ? 34 : 28, _prompt.StartsWith("THE WAR IS LOST", StringComparison.Ordinal) ? RedText : Gold, 0, old ? 5 : 4, true);
+        Txt(_redeployText, cx, redeployY, old ? 26 : 20, White, 0, 4, true);   // a fallen player's deploy for a supply (late batch 2026-11-06)
         if (Data.PickupHold <= 0f) return;
-        const float w = 260f, y = 672f;
-        Txt(_pickupText, cx, y - 6f, 18, White, 0, 3, true);
+        float w = 260f, y = old ? 672f : vs.Y - 90f;
+        Txt(_pickupText, cx, y - 6f, old ? 18 : 16, White, 0, 3, true);
         DrawRect(new Rect2(cx - w / 2f, y, w, 8f), PipOff);
         DrawRect(new Rect2(cx - w / 2f, y, w * Math.Clamp(Data.PickupHold, 0f, 1f), 8f), Gold);
     }

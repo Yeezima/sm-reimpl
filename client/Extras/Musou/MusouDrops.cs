@@ -162,11 +162,14 @@ public partial class NetworkView
         if (_musouDropPrompt is null)
         {
             var layer = new CanvasLayer { Name = "MusouDropPrompt", Layer = 3 };
+            // The bottom edge's strip (MusouHudLayout, 2026-11-10: over the war's prompts, under the weapon box's top); --musou-old-hud: 62 % down the middle.
+            float at = MusouHudLayout.Old ? 0.62f : 0.865f;
             _musouDropPrompt = new Label
             {
                 Name = "Prompt", HorizontalAlignment = HorizontalAlignment.Center, MouseFilter = Control.MouseFilterEnum.Ignore,
-                AnchorLeft = 0.5f, AnchorRight = 0.5f, AnchorTop = 0.62f, AnchorBottom = 0.62f, OffsetLeft = -320, OffsetRight = 320,
+                AnchorLeft = 0.5f, AnchorRight = 0.5f, AnchorTop = at, AnchorBottom = at, OffsetLeft = -320, OffsetRight = 320,
             };
+            if (!MusouHudLayout.Old) _musouDropPrompt.GrowVertical = Control.GrowDirection.Begin;   // its bottom on the line, the text above it: clear of the pickup line at any height
             _musouDropPrompt.AddThemeFontSizeOverride("font_size", 24);
             _musouDropPrompt.AddThemeColorOverride("font_color", new Color(1f, 0.82f, 0.35f));
             _musouDropPrompt.AddThemeColorOverride("font_outline_color", new Color(0f, 0f, 0f, 0.9f));

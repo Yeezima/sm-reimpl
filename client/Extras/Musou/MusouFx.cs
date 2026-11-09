@@ -409,6 +409,16 @@ public partial class NetworkView
         _musouDemoPhase = phase;
         _musouDemoCycle = cycle;
         var box = f.Director?.Box ?? new MusouBox(new Num.Vector3(-100f), new Num.Vector3(100f));
+        if (phase == "campaign")
+        {
+            // Musou Mode's battle with every element of its HUD on (2026-11-10, the edge layout's screenshots): the real director with a made-up commander, the chain and a
+            // call-out every 4 s; the Boss Orks, the on-point bar and the drop prompt are the war's (MusouHudDemoCampaign, Tfw/NetworkView.Tfw.cs).
+            if (f.Director is { } real) f.Director = real with { BossId = 77, BossHealth = 2480f, BossMaxHealth = 4000f };
+            f.Kos = 214; f.Points = 3120;
+            f.Chain = 6; f.Multiplier = MathF.Min(rules.ChainMax, 1f + rules.ChainStep * 6); f.ChainLeft = 0.65f;
+            if (fresh) _musouHud?.CallOut(cycle % 2 == 0 ? "BOSS ORK INCOMING" : "WAAAGH!", new Color(1f, 0.45f, 0.05f), 3.8);
+            return;
+        }
         f.Director = phase switch
         {
             "break" => new MusouDirectorView(2, 5, MusouPhase.Break, (ushort)(12 * _config!.TickRate), 0, 0, 0, 0f, 0f, 5, box),
