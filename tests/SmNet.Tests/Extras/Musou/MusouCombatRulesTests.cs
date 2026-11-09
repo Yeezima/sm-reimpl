@@ -162,24 +162,29 @@ public class MusouCombatRulesTests
     }
 
     [Fact]
-    public void The_slash_strokes_live_a_second_longer_and_fade_out_smoothly()
+    public void The_slash_strokes_live_a_second_longer_and_open_and_close_like_a_tear_without_popping()
     {
         foreach (float old in new[] { MusouSlashRules.Seconds, 0.18f })
         {
-            Assert.Equal(old + 1f, MusouSlashRules.Lifetime(old), 4);
-            Assert.Equal(1f, MusouSlashRules.Fade(0f, old), 4);
-            Assert.Equal(1f, MusouSlashRules.Fade(old * 0.45f, old), 4);   // bright through the old hold
-            Assert.Equal(0f, MusouSlashRules.Fade(old + 1f, old), 4);      // gone exactly at the new end
-            float last = 1f, step = 0f;
-            for (float age = old * 0.45f; age <= old + 1f; age += 0.01f)
+            float life = MusouSlashRules.Lifetime(old);
+            Assert.Equal(old + 1f, life, 4);
+            Assert.Equal(0f, MusouSlashRules.TearWidth(0f, old), 4);          // starts as a line
+            Assert.Equal(0f, MusouSlashRules.Fade(0f, old), 4);           // and unseen
+            Assert.Equal(1f, MusouSlashRules.TearWidth(MusouSlashRules.OpenSeconds, old), 4);   // fully open after the opening
+            Assert.Equal(1f, MusouSlashRules.Fade(MusouSlashRules.OpenSeconds, old), 4);
+            Assert.Equal(1f, MusouSlashRules.TearWidth(life - MusouSlashRules.CloseSeconds, old), 4);   // holds until the closing begins
+            Assert.Equal(0f, MusouSlashRules.TearWidth(life, old), 4);        // shut and gone exactly at the end
+            Assert.Equal(0f, MusouSlashRules.Fade(life, old), 4);
+            Assert.True(MusouSlashRules.Fade(life - MusouSlashRules.CloseSeconds * 0.5f, old) > 0.9f);   // it narrows before it fades
+            float lastW = 0f, lastF = 0f, step = 0f;
+            for (float age = 0f; age <= life; age += 0.01f)
             {
-                float f = MusouSlashRules.Fade(age, old);
-                Assert.True(f <= last + 1e-6f);   // never brighter again
-                step = MathF.Max(step, last - f);
-                last = f;
+                float w = MusouSlashRules.TearWidth(age, old), f = MusouSlashRules.Fade(age, old);
+                step = MathF.Max(step, MathF.Max(MathF.Abs(w - lastW), MathF.Abs(f - lastF)));
+                lastW = w; lastF = f;
             }
-            Assert.True(step < 0.06f, $"the fade never jumps (largest 10 ms step {step})");
-            Assert.True(MusouSlashRules.Fade(old, old) > 0.9f);   // at the old end of life it is still nearly bright: the stroke persists
+            Assert.True(step < 0.2f, $"nothing jumps (largest 10 ms step {step})");
+            Assert.Equal(1.15f, MusouSlashRules.Reveal(life * 0.5f, old), 4);   // the head has swept the whole cut by the hold
         }
     }
 }
