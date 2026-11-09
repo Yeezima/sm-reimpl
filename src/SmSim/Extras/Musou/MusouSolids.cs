@@ -31,7 +31,18 @@ public static class MusouSolids
     /// <summary>Ours: a client's record of a big Ork older than this many ticks before the body tick is not met (1 s; a far one is sent at about 15 Hz).</summary>
     public const uint MaxRecordAgeTicks = 30;
 
-    /// <summary>Whether enemies of <paramref name="type"/> are solid to the players and offered to the melee lock.</summary>
+    /// <summary>
+    /// Pass-through (the owner, 2026-11-09: "only upsized 'boss' ork should collide with players. players should passthrough everything but the big boss enemies and the warboss"; spec "Musou Mode: who
+    /// is solid"): a player's body meets only the kinds of <see cref="Blocks"/> (the Warboss and the four 3x Boss Orks) and no other character, the other players and the allied Marines included; the level
+    /// stays solid. Every kind of <see cref="Is"/> is still offered to the melee lock. The server's and the client's <c>SM_MUSOU_OLD_BODIES=1</c> restores the bodies before (every kind of <see cref="Is"/>
+    /// solid, and the players to each other).
+    /// </summary>
+    public static bool OldBodies { get; set; } = Environment.GetEnvironmentVariable("SM_MUSOU_OLD_BODIES") == "1";
+
+    /// <summary>Whether a player's body meets enemies of <paramref name="type"/> (the Warboss and the Boss Orks; before the pass-through every kind of <see cref="Is"/>).</summary>
+    public static bool Blocks(MusouEnemyType type) => OldBodies ? Is(type) : type == MusouEnemyType.Warboss || MusouBossOrks.Is(type);
+
+    /// <summary>Whether enemies of <paramref name="type"/> are offered to the melee lock (and, before the pass-through, solid to the players: now <see cref="Blocks"/>).</summary>
     public static bool Is(MusouEnemyType type) => type is MusouEnemyType.Warboss or MusouEnemyType.Nob or MusouEnemyType.BigShootaNob or MusouEnemyType.Weirdboy
         or MusouEnemyType.ScrapMek || MusouBossOrks.Is(type);
 
@@ -72,18 +83,21 @@ public static class MusouSolids
 
     static float Q(float v, float min, float max) => Dequantise(Quantise(v, min, max), min, max);
 
-    /// <summary><paramref name="view"/> with the big Orks of <paramref name="solids"/> as fixed bodies of their size (null stays null: no player collision).</summary>
+    /// <summary>
+    /// <paramref name="view"/> in Musou Mode: the big Orks of <paramref name="solids"/> that block (<see cref="Blocks"/>) as fixed bodies of their size, and no player's body (the pass-through, 2026-11-09:
+    /// the others and the allied Marines are walked through; <see cref="BodyView.Self"/> is kept). Null stays null: no player collision. Before (<see cref="OldBodies"/>): the players' bodies and every big Ork.
+    /// </summary>
     public static void AddBodies(ref BodyView? view, IReadOnlyList<MusouSolid> solids, MusouRules rules)
     {
-        if (view is null || solids.Count == 0) return;
-        var bodies = new PlayerBody[solids.Count];
-        for (int k = 0; k < solids.Count; k++)
+        if (view is null) return;
+        var bodies = new List<PlayerBody>(solids.Count);
+        foreach (var s in solids)
         {
-            var s = solids[k];
+            if (!Blocks(s.Type)) continue;
             var (radius, height) = Body(rules, s.Type);
-            bodies[k] = new PlayerBody(LockId(s.Id), s.Position, s.Position, radius, height, Fixed: true);
+            bodies.Add(new PlayerBody(LockId(s.Id), s.Position, s.Position, radius, height, Fixed: true));
         }
-        view = view.With(bodies);
+        view = OldBodies ? view.With(bodies) : BodyView.Of(bodies, view.Self);
     }
 
     /// <summary>

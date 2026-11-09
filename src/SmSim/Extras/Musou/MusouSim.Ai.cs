@@ -476,6 +476,7 @@ public sealed partial class MusouSim
                 if (reach <= MeleeHold(i, spec, target) && level) { Face(i, toward); return Vector2.Zero; }   // in reach: wait for the cooldown (MusouSim.Movement.cs: past the player's ring)
                 return Approach(i, t, d, spec.Speed);
             }
+            if (TakeOwnToken(i, reach, level)) return Approach(i, t, d, spec.Speed);   // MusouSim.Elites.cs: a Nob or a Boss Ork takes a token of his own
             if (reach <= Rules.MeleeTokenDistance && MathF.Abs(d.Z) <= (swarm is null ? 2.5f : 1.5f) && reach < _meleeWantD[t]) { _meleeWantD[t] = reach; _meleeWant[t] = i; }
             return swarm is null ? Circle(i, t, d, spec.Speed) : SwarmWay(i, t, target, d, spec.Speed, slot: true, hold: true, swarm);
         }
@@ -635,7 +636,7 @@ public sealed partial class MusouSim
             var away = new Vector2(p.X - o.X, p.Y - o.Y);
             float gap = (Rules.Of(_type[j]).Radius + spec.Radius) * spread, dist = keptDist[k];
             var dir = dist > 1e-4f ? away / dist : Forward((i - j) * 2.399963f);
-            push += dir * (gap - dist) * Rules.SeparationStrength;
+            push += dir * (gap - dist) * Rules.SeparationStrength * PushShareOf(Body(_type[i]).Radius, Body(_type[j]).Radius);   // MusouSim.Elites.cs: a big body wades through small ones (the drawn bodies: the Warboss's is scaled)
         }
         foreach (var target in targets)
         {
@@ -701,7 +702,7 @@ public sealed partial class MusouSim
         if (_flowTicks[i] > 0) _flowTicks[i]--;
         _velocity[i] = new Vector2(moved.X - p.X, moved.Y - p.Y) / Dt;
         _position[i] = moved;
-        if (boss && _state[i] == MusouEnemyState.Seek) TurnToVelocity(i);
+        if (boss && _state[i] == MusouEnemyState.Seek) FaceBoss(i, desired);   // MusouSim.Elites.cs: engaged, he faces his target
         else if (faceMove) FaceMove(i, desired);
     }
 

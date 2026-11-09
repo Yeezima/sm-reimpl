@@ -51,11 +51,11 @@ public class MusouSolidsTests(ITestOutputHelper output)
     [InlineData(MusouEnemyType.Warboss)]
     [InlineData(MusouEnemyType.BossNob)]
     [InlineData(MusouEnemyType.BossBoy)]
-    [InlineData(MusouEnemyType.Nob)]
-    [InlineData(MusouEnemyType.BigShootaNob)]
-    [InlineData(MusouEnemyType.ScrapMek)]   // (the Weirdboy is solid too, but teleports away from anyone who closes in: his own rule)
+    [InlineData(MusouEnemyType.BossShootaBoy)]
+    [InlineData(MusouEnemyType.BossArdBoy)]
     public void A_player_cannot_walk_through_a_big_ork_on_the_server(MusouEnemyType type)
     {
+        Assert.True(MusouSolids.Blocks(type));
         var w = NewWorld();
         var (radius, _) = MusouSolids.Body(Still, type);
         var axis = w.Players[1].Position + new Vector3(0f, radius + 3f, 0f);
@@ -68,13 +68,21 @@ public class MusouSolidsTests(ITestOutputHelper output)
         Assert.True(w.Players[1].Position.Y < axis.Y);   // never past him
     }
 
+    /// <summary>The pass-through (the owner, 2026-11-09: "players should passthrough everything but the big boss enemies and the warboss"): every other kind is walked through, the elites too.</summary>
     [Theory]
     [InlineData(MusouEnemyType.Boy)]
     [InlineData(MusouEnemyType.ShootaBoy)]
+    [InlineData(MusouEnemyType.ArdBoy)]
     [InlineData(MusouEnemyType.Gretchin)]
+    [InlineData(MusouEnemyType.Nob)]
+    [InlineData(MusouEnemyType.BigShootaNob)]
+    [InlineData(MusouEnemyType.ScrapMek)]
+    [InlineData(MusouEnemyType.ChaosMarine)]
+    [InlineData(MusouEnemyType.RokkitBoy)]
+    [InlineData(MusouEnemyType.Stormboy)]
     public void The_crowds_boyz_stay_walk_through(MusouEnemyType type)
     {
-        Assert.False(MusouSolids.Is(type));
+        Assert.False(MusouSolids.Blocks(type));
         var w = NewWorld();
         var axis = w.Players[1].Position + new Vector3(0f, 3f, 0f);
         w.Musou!.Spawn(type, axis, MathF.PI, 50000f);
@@ -184,5 +192,32 @@ public class MusouSolidsTests(ITestOutputHelper output)
         using (PlayerCollision.Use(BodyView.Of([body])))
             for (int k = 0; k < 60; k++) { s = Combat.StepPlayer(s, new PlayerInput((uint)k + 1, 0f, 1f, 0f, InputButtons.Sprint), c, out _); closest = MathF.Min(closest, Flat(s.Position, body.Feet)); }
         Assert.InRange(closest, 2f * c.CapsuleRadius - 2e-3f, 2f * c.CapsuleRadius + 0.05f);
+    }
+
+    [Fact]
+    public void Only_the_warboss_and_the_boss_orks_block_while_every_big_ork_stays_lockable()
+    {
+        var blocking = Enum.GetValues<MusouEnemyType>().Where(MusouSolids.Blocks).ToHashSet();
+        Assert.Equal(new HashSet<MusouEnemyType> { MusouEnemyType.Warboss, MusouEnemyType.BossBoy, MusouEnemyType.BossShootaBoy, MusouEnemyType.BossArdBoy, MusouEnemyType.BossNob }, blocking);
+        foreach (var t in new[] { MusouEnemyType.Nob, MusouEnemyType.BigShootaNob, MusouEnemyType.Weirdboy, MusouEnemyType.ScrapMek }) Assert.True(MusouSolids.Is(t));   // still offered to the melee lock
+    }
+
+    [Fact]
+    public void Players_and_allied_marines_leave_the_musou_view_and_the_old_switch_brings_them_back()
+    {
+        MusouSolids.OldBodies = true;
+        try
+        {
+            Assert.True(MusouSolids.Blocks(MusouEnemyType.Nob));
+            var view = BodyView.Of([new PlayerBody(2, Vector3.Zero, Vector3.Zero)], Vector3.One);
+            BodyView? v = view;
+            MusouSolids.AddBodies(ref v, [new MusouSolid(1, MusouEnemyType.Nob, Vector3.UnitY)], Still);
+            Assert.Equal(2, v!.Bodies.Count);
+        }
+        finally { MusouSolids.OldBodies = false; }
+        BodyView? now = BodyView.Of([new PlayerBody(2, Vector3.Zero, Vector3.Zero)], Vector3.One);
+        MusouSolids.AddBodies(ref now, [new MusouSolid(1, MusouEnemyType.Nob, Vector3.UnitY), new MusouSolid(2, MusouEnemyType.BossBoy, Vector3.UnitX)], Still);
+        Assert.Equal(MusouSolids.LockId(2), Assert.Single(now!.Bodies).Id);   // the Boss Boy alone: no player, no Nob
+        Assert.Equal(Vector3.One, now.Self);
     }
 }

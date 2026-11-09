@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2683 spec table rows: **1982 tagged**, 488 not tagged (read from data with high confidence), 213 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 597 rows of the changes document.
+Scanned 2688 spec table rows: **1987 tagged**, 488 not tagged (read from data with high confidence), 213 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 599 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -52,19 +52,19 @@ Scanned 2683 spec table rows: **1982 tagged**, 488 not tagged (read from data wi
 | Networking and render smoothing | 19 | 10 | 10 | 10 | 7 |
 | Core simulation (provisional values) | 483 | 459 | 332 | 126 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 208 | 198 | 109 | 54 | 0 |
-| **All areas** | **1982** | 1736 | 1471 | 625 | 38 |
+| Ork faction | 213 | 203 | 113 | 55 | 0 |
+| **All areas** | **1987** | 1741 | 1475 | 626 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1078 |
+| kind: ours | 1083 |
 | confidence: low | 703 |
-| confidence: medium | 639 |
+| confidence: medium | 643 |
 | kind: interpretation | 360 |
 | notes: ours | 358 |
-| notes: estimate | 154 |
+| notes: estimate | 155 |
 | confidence: none (low) | 129 |
 | kind: estimate | 126 |
 | kind: provisional | 99 |
@@ -3337,6 +3337,21 @@ The Orks are an addition the owner keeps (the original multiplayer had Space Mar
 | `R-4BE7BB54` | Ragdolls retaken (Musou) | a new throw takes a lying Ork ragdoll only once it is **10** s past its throw; with none, the crowd throws a tumbling body (s) | kind: ours; confidence: medium | owner 2026-11-09 | Ragdolls retaken (Musou): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a new throw takes a lying Ork ragdoll only once it is 10 s past its… | ☐ |
 | `R-BBE9B329` | Marine corpses (Musou) | a Marine's ragdoll younger than **10** s stays although its player respawned elsewhere or left the snapshot; a Marine alive again within **4** m of it (revived on it) takes it with him; a full cap of 16 grows while a physics slot is free (s, m) | kind: ours; confidence: medium | owner 2026-11-09 | Marine corpses (Musou): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a Marine's ragdoll younger than 10 s stays although its player… | ☐ |
 
+*Spec section: Musou Mode: elite and Boss Orks in the fight (musou-ork-movement, 2026-11-09; Musou Mode only, a war's pool; `MusouSim.Version` 29, to be renumbered at integration; no protocol or wire change; a melee Boss Ork faces his target only while his way is within 45 degrees of it, so round a wall he faces where he goes)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-D045AA8F` | Leaders' own melee token (Musou war) | a Nob, a melee Boss Ork (Boy, 'Ard Boy, Nob) or the Warboss between his abilities, level with his target and within the token distance (**8** m), takes a melee token of his own past the target's count (6 a player, 12 a squad), so a crowd at the target never… (m) | kind: ours; confidence: medium | owner 2026-11-09 | Leaders' own melee token (Musou war): compare with SM1 by measuring on a flat spot of the same map. Ours: a Nob, a melee Boss Ork (Boy, 'Ard Boy, Nob) or the Warboss between… | ☐ |
+| `R-58A806B9` | Big bodies wade (Musou war) | the push apart between two Orks moves each by twice the other's weight (drawn radius squared) over both: two of a size as before (**1**), a Boss Ork beside a Boy **0.2**, the Boy **1.8** (share) | kind: ours; notes: estimate | owner 2026-11-09 | Big bodies wade (Musou war): compare with SM1 by feel or video. Ours: the push apart between two Orks moves each by twice the other's… | ☐ |
+| `R-D5151C3D` | Boss Orks face their target (Musou war) | an engaged Boss Ork (a melee one closing in within the engage range, a shooter in his band or backing off) turns to his target at his own **6** rad/s as he moves; otherwise to his smoothed velocity as before (rad/s) | kind: ours; confidence: medium | owner 2026-11-09 | Boss Orks face their target (Musou war): compare with SM1 by feel or video. Ours: an engaged Boss Ork (a melee one closing in within the engage range… | ☐ |
+
+*Spec section: Musou Mode: who is solid (musou-ork-movement, 2026-11-09; Musou Mode only; `MusouSim.Version` 30, to be renumbered at integration; no wire change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-BCC35844` | Solid to the players (Musou) | a player's body meets only the Warboss and the four 3x Boss Orks (Boy, Shoota Boy, 'Ard Boy, Nob), fixed bodies of their drawn size; it passes through every other character: Boys, Shoota Boys, 'Ard Boys, Gretchin, Nobs, Big Shoota Nobs, Rokkit Boys… | kind: ours; confidence: medium | owner 2026-11-09 | Solid to the players (Musou): compare with SM1 by feel or video. Ours: a player's body meets only the Warboss and the four 3x Boss Orks… | ☐ |
+| `R-F533CD26` | Lockable big Orks (Musou) | unchanged: the Warboss, the Nobs, the Boss Orks, the Big Shoota Nob, the Weirdboy and the Scrap Mek are offered to the melee lock at their body's front | kind: ours; confidence: medium | owner 2026-11-08 | Lockable big Orks (Musou): compare with SM1 by feel or video. Ours: unchanged: the Warboss, the Nobs, the Boss Orks, the Big Shoota Nob… | ☐ |
+
 ## Part C: Deliberate changes (keep or revert after playtest)
 
 Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our choices where the original is unknown, and what is not reproduced yet. Nothing is classified here; every row is listed. The prompt says what to ask after the playtest.
@@ -4086,6 +4101,8 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-5B468C45` | Plasma release, plasma gun arms, hit-confirm distance, regen glow (night/weapon-fx, 2026-11-06; its stuck hit effects were reverted 2026-11-08) | Own charged plasma ball drawn without the 100 ms interpolation delay; no body recoil clip for the plasma gun; the shooter's hit confirmation falls from 0 dB at 2 m to -18 dB at 40 m and beyond; the armour-regeneration glow is the break glow in yellow | Original behaviour of these four is unknown (owner's requests); the 2 m / 40 m / -18 dB numbers and the yellow are ours | Spec "Plasma release, plasma gun arms, stuck hit effects, hit-confirm distance, regen glow (night/weapon-fx ...)" | Plasma release, plasma gun arms, hit-confirm distance…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-0BF3718D` | Musou: Ork movement feel and the 300 m active range (musou-ork-movement, owner 2026-11-09) | No Musou Mode in the original | Ours (added content; the owner: "storm boys do a lot of walking in place ... reduce their movement floatiness ... fan out more ... increase the distance for active ork behavior and rendering - 300m"): the crowd's run clip follows each Ork's drawn speed (idle when he stands, played at his stride's rate); a running Ork… | Musou Mode: Ork movement feel | Musou: Ork movement feel and the 300 m active range…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-2AC08975` | Musou: the corpse floor (musou-ork-movement, owner 2026-11-09) | No Musou Mode in the original (the SM1 blueprint's own `death_time` is 5 s) | Ours (added content; the owner: "ork corpses should never immediately disappear, same as guardsmen and allied space marines. they should always leave a corpse for at least 10 seconds before disappearing"): every Ork, Guardsman, aggregate loss and Marine leaves a body lying whole at least 10 s at any distance (was 3 s… | Musou Mode: the corpse floor | Musou: the corpse floor (musou-ork-movement, owner…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-2FC12A2D` | Musou: elite and Boss Orks in the fight (musou-ork-movement, owner 2026-11-09) | No Musou Mode in the original | Ours (added content; the owner: "boss ork shootas just run away instead of backpedaling and shooting / boss ork boys dont take melee swings"): Nobs, melee Boss Orks and the Warboss take a melee token of their own, a big body pushes small ones aside by size, an engaged Boss Ork faces his target while he moves (backs… | Musou Mode: elite and Boss Orks in the fight | Musou: elite and Boss Orks in the fight…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-9F016E75` | Musou: who is solid (musou-ork-movement, owner 2026-11-09) | No Musou Mode in the original; SM1's players collide with one another | Ours (added content; the owner: "only upsized 'boss' ork should collide with players. players should passthrough everything but the big boss enemies and the warboss"): in Musou Mode a player meets only the Warboss and the four Boss Orks; every other character, the other players and the allied Marines included, is… | Musou Mode: who is solid | Musou: who is solid (musou-ork-movement, owner 2026-11-09): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-6A97EA66` | Musou: smooth crowd motion (crowd-smooth, owner 2026-11-08) | No Musou Mode in the original | Ours (added content; the owner: "stormboyz look extremely choppy ... do the same for all guardsmen, orks"): the client draws a Stormboy's hop on its exact arc from the hop cue (which now carries the flight's ticks), glides every Ork and Guardsman between sparse records (place and facing) and carries marching Guardsmen… | Musou Mode: smooth crowd motion | Musou: smooth crowd motion (crowd-smooth, owner 2026-11-08): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-AB5C38E6` | Plasma release, plasma gun arms, stuck hit effects, hit-confirm distance, regen glow (night/weapon-fx, 2026-11-06) | Own charged plasma ball drawn without the 100 ms interpolation delay; no body recoil clip for the plasma gun; player-hit effects ride on the struck model; the shooter's hit confirmation falls from 0 dB at 2 m to -18 dB at 40 m and beyond; the armour-regeneration glow is the break glow in yellow | Original behaviour of these five is unknown (owner's requests); the 2 m / 40 m / -18 dB numbers, the yellow, and the model-root frame of stuck effects are ours | Spec "Plasma release, plasma gun arms, stuck hit effects, hit-confirm distance, regen glow (night/weapon-fx ...)" | Plasma release, plasma gun arms, stuck hit effects…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-C4387F6C` | Jump escape, hop-cancel momentum, descent recharge (sim/jump-escape, sim/hop-cancel-momentum, sim/descent-recharge; protocol 62; owner 2026-11-06) | The Assault Marine / Raptor's Jump press ends any hit reaction (stun, stagger, interrupt), any melee attack, a throw, any phase of the charge, the landing's locks and the pound or slash recovery at once, in every mode (the data's own Jump branches open later or never; the owner's request); a hop cancelled by melee… | Which states the original lets the pack classes jump out of (the owner's word is "any animation"; ours: the list in spec); the carried fraction 0.4 is an estimate; when the original recharges (the data has only the rate; the descent is our reading of the owner's "two jumps, a third shortly after") | Spec "Jump escape, hop-cancel momentum and descent recharge (protocol 62)" | Jump escape, hop-cancel momentum, descent recharge…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
