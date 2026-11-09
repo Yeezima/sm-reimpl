@@ -108,6 +108,7 @@ public partial class NetworkView
         }
         LibrarianSoundsGone();
         LibrarianCastsGone();
+        if (!Lean) LibrarianLayersFrame((float)delta);
         LibrarianClipCamFrame();   // --librarian-clip --librarian-cam side: the third-person capture view
         if (Lean || _hudView is null) return;
         if (_librarianHud is null) { _librarianHud = new LibrarianHud(); _hudView.AddChild(_librarianHud); }
@@ -281,8 +282,9 @@ public partial class NetworkView
         s.Seen = true;
         if (at is { } p) s.Emitter.Position = ToGodot(p.Position) + Vector3.Up * 1.4f;
         if (!changed || _sound is null || Lean) return;
-        if (casting && !s.Casting) _sound.Post(LibrarianSounds.Loop, s.Emitter);
-        else if (!casting && s.Casting) _sound.Post(LibrarianSounds.Tail, s.Emitter);
+        bool layers = LibrarianLayers;   // the real-world layers (NetworkView.LibrarianAudio.cs), else the original events
+        if (casting && !s.Casting) { if (layers) LibrarianLayerStart(player, own, s.Emitter.Position); else _sound.Post(LibrarianSounds.Loop, s.Emitter); }
+        else if (!casting && s.Casting) { if (layers) LibrarianLayerStop(player, own, s.Emitter.Position); else _sound.Post(LibrarianSounds.Tail, s.Emitter); }
         if (locked && !s.Locked) _sound.Post(LibrarianSounds.Locked, s.Emitter);
         if (casting)
         {
@@ -292,7 +294,8 @@ public partial class NetworkView
             {
                 if (!_librarianZaps.Take(now)) break;
                 var to = links[hits[k]].To;
-                _sound.Post(LibrarianSounds.Zap, new SoundEmitter { Position = ToGodot(to), OneShot = true, Label = "librarian zap" });
+                if (layers) LibrarianLayerSnap(ToGodot(to));
+                else _sound.Post(LibrarianSounds.Zap, new SoundEmitter { Position = ToGodot(to), OneShot = true, Label = "librarian zap" });
                 _librarianZapsPlayed++;
             }
         }
@@ -309,7 +312,8 @@ public partial class NetworkView
         foreach (var (id, s) in _librarianSounds) if (!s.Seen) _librarianGone.Add(id);
         foreach (var id in _librarianGone)
         {
-            if (_librarianSounds[id].Casting && _sound is not null) _sound.Post(LibrarianSounds.Tail, _librarianSounds[id].Emitter);
+            if (_librarianSounds[id].Casting && _sound is not null && !LibrarianLayers) _sound.Post(LibrarianSounds.Tail, _librarianSounds[id].Emitter);
+            LibrarianLayersGone(id);
             _librarianSounds.Remove(id);
             _librarianCasts.Remove(id);
         }
@@ -321,7 +325,11 @@ public partial class NetworkView
 
     void LibrarianShockwaveFx(PlayerState p)
     {
-        if (_sound is not null && LibrarianEmitter(p) is { } e) _sound.Post(LibrarianSounds.Shockwave, e);
+        if (_sound is not null && LibrarianEmitter(p) is { } e)
+        {
+            _sound.Post(LibrarianSounds.Shockwave, e);
+            if (LibrarianLayers) LibrarianLayerShockwave((ushort)p.PlayerId, p.PlayerId == (_client?.PlayerId ?? 0), e.Position);   // the thunderclap under it
+        }
         if (_gameSpace is not null && !Lean && DisplayServer.GetName() != "headless")
         {
             if (!_librarianRings.TryGetValue(p.PlayerId, out var ring)) { ring = new LibrarianShockwaveRing(); _gameSpace.AddChild(ring); _librarianRings[p.PlayerId] = ring; }

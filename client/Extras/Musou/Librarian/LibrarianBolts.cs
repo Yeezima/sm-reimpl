@@ -265,8 +265,7 @@ void fragment() {
         if (alive > 0f) { BuildBolts(_bolts, alive); _bolts.Commit(_boltMesh); LinksDrawn = _count; }
         else { _boltMesh.ClearSurfaces(); _bolts.LastIdx = 0; LinksDrawn = 0; }
         if ((now - _ghostAt) > GhostSeconds) { _ghostMesh.ClearSurfaces(); _ghost.LastIdx = 0; }
-        BuildArcs(alive, handsOn, now);
-        _arcs.Commit(_arcMesh);
+        if (BuildArcs(alive, handsOn, now)) _arcs.Commit(_arcMesh);   // re-rolled every 30 ms, not every frame
         UpdateFlares(alive, after, handsOn, now);
         UpdateLights(alive, handsOn, flicker);
     }
@@ -435,9 +434,9 @@ void fragment() {
     readonly float[] _aw = new float[10];
 
     /// <summary>The hand arcs (over and between the palms) and the impact bursts on the struck chests, re-rolled every 30 ms.</summary>
-    void BuildArcs(float alive, bool handsOn, double now)
+    bool BuildArcs(float alive, bool handsOn, double now)
     {
-        if (now - _arcsAt < 0.03 && _arcs.Idx > 0) return;
+        if (now - _arcsAt < 0.03 && _arcs.Idx > 0) return false;
         _arcsAt = now;
         _arcs.Begin();
         if (handsOn || (alive > 0f && _hands))
@@ -472,6 +471,7 @@ void fragment() {
                 }
             }
         }
+        return true;
     }
 
     void Jagged(Vector3 a, Vector3 b, int points, float jag, float width, Color colour)
