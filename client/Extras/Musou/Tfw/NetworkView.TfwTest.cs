@@ -579,6 +579,7 @@ public partial class NetworkView
         if (CmdFlag("tfw-test-fight")) { await TfwTestFight(); return; }
         if (CmdFlag("tfw-test-melee")) { await TfwTestMelee(); return; }
         if (CmdFlag("tfw-feel-capture")) { await TfwFeelCapture(); return; }   // combat feel (2026-11-09): a short fight for the before / after captures (Tfw/NetworkView.TfwMelee.cs)
+        if (CmdFlag("tfw-sound-capture")) { await TfwSoundCapture(); return; }   // musou/sound-ab (2026-11-10): the same short fight for each clip of the sound A/B (Tfw/NetworkView.TfwSoundCapture.cs)
         if (CmdFlag("tfw-test-capture")) { await TfwTestCapture(); return; }
         var start = TfwNow;
         TfwCheck("the reserves are the run's", start.Transport == TfwBattleRules.StartTransport && start.Supplies == TfwBattleRules.StartSupplies, $"{start.Transport}, {start.Supplies}");

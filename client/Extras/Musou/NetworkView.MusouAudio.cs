@@ -73,7 +73,8 @@ public partial class NetworkView
         float mixDb = SoundSystem.MixClassic ? 0f : SoundMixPass.HitGainDb;   // the mix pass's on-hit gain, without its high-pass (the smack is a low body)
         _sound.Post(MusouAudioRules.SmackEvent, smack, offset: new VoiceOffset(MusouAudioRules.SmackGainDb + mixDb, MusouAudioRules.SmackPitchCents, MusouAudioRules.SmackLpf));
         var blast = new SoundEmitter { Position = at, OneShot = true, Label = "musou bolter blast" };
-        _sound.Post(MusouAudioRules.BlastEvent, blast, MusouAudioRules.BlastDelaySeconds, once: true, offset: new VoiceOffset(MusouAudioRules.BlastGainDb, TailDb: MusouAudioRules.BlastTailDb));
+        if (!MusouSoundIsOff(MusouSoundOff.Blast))   // musou/sound-ab: blast off
+            _sound.Post(MusouAudioRules.BlastEvent, blast, MusouAudioRules.BlastDelaySeconds, once: true, offset: new VoiceOffset(MusouAudioRules.BlastGainDb, TailDb: MusouAudioRules.BlastTailDb));
         CountSound("musou bolter hit");
         if (LogSound("musou-audio")) GD.Print($"MUSOU AUDIO t {_connectedFor:F3} {weapon}: smack + blast at {at.X:F1},{at.Y:F1},{at.Z:F1} (shots {_musouBolterShots}, hits {_musouBolterHits})");
     }
