@@ -51,7 +51,7 @@ public sealed partial class OptionsView : UiKit.MenuPage
         Rows.AddChild(_page);
         Rows.AddChild(UiKit.MenuGap(0.5f));
         Rows.AddChild(UiKit.MenuButton("Back", () => _onBack()));
-        if (foot is not null) { Rows.AddChild(UiKit.MenuGap()); Rows.AddChild(foot); }
+        Foot = foot;   // under the rows, outside their scroll list (MenuPage.Foot): GRAPHICS's 17 rows fill the list
     }
 
     /// <summary>Opens the page of a tab (null keeps the last one) and puts the focus on its tab.</summary>
