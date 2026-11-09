@@ -278,6 +278,7 @@ public sealed partial class GameClient
     public void Update(Func<uint, PlayerInput> sampleInput, bool tickNow = false)
     {
         MarkUpdated();   // fix/stall-keepalive: the main thread is alive
+        NoteUpdateGap(_clock.Now);   // net/responsive: a stall of this client is not the link's jitter
         // net/responsive: the drawn own position's course before this update's snapshots and ticks (ahead drawing; GameClient.Responsive.cs).
         var drawnBefore = Status == ClientStatus.Connected ? DrawnOnCourse(_clock.Now) : null;
         uint tickBefore = Tick;

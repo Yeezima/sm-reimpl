@@ -13,7 +13,7 @@ namespace SmNet;
 /// up to a lead of 1 (at most <see cref="MaxLeadJump"/>), a filtered lead at or above target + 3 pauses toward the target (at most <see cref="MaxLeadPause"/> ticks a time), then waits for their feedback for the round trip measured from
 /// snapshot echoes (<see cref="EchoRoundTripMs"/>) rather than the handshake's, which a map load can inflate. Before: one whole tick per handshake round trip,
 /// only below target − 1 or above target + 3, so the lead sat at 3 to 5. A jitter guard (<see cref="JitterGuard"/>) raises the target by a tick after a report of
-/// 0 or less (an input that arrived just in time or late), up to two, and lowers it a tick for every <see cref="JitterGuardSeconds"/> without one: a jittery link keeps
+/// 0 or less (an input that arrived just in time or late; not within a feedback wait of this client's own stall, <see cref="StallGap"/>), up to two, and lowers it a tick for every <see cref="JitterGuardSeconds"/> without one: a jittery link keeps
 /// the margin it needs, a clean one stays at the target.</item>
 /// <item><b>Own marine ahead</b> (<see cref="ClientOptions.DrawOwnAhead"/>): <see cref="DrawPair"/> draws the newest predicted tick carried forward through the
 /// current tick toward a speculative next tick (<see cref="Ahead"/>: the last input stepped once more, as the server repeats an input it lacks), instead of between
@@ -54,6 +54,16 @@ public sealed partial class GameClient
     /// <summary>Seconds without a report at or below 0 before the jitter guard lowers the target by a tick (ours).</summary>
     public const double JitterGuardSeconds = 10;
     TimeSpan _jitterRaisedAt = TimeSpan.MinValue / 2, _jitterSeenAt = TimeSpan.MinValue / 2;
+    /// <summary>An update gap longer than this is this client's own stall (ours: 3 ticks).</summary>
+    public static readonly TimeSpan StallGap = TimeSpan.FromSeconds(0.1);
+    TimeSpan _lastUpdateAt = TimeSpan.MinValue, _stallQuietUntil = TimeSpan.MinValue;
+
+    /// <summary>From <see cref="Update"/>: notes a stall of this client (the jitter guard ignores the reports it causes).</summary>
+    void NoteUpdateGap(TimeSpan now)
+    {
+        if (_lastUpdateAt != TimeSpan.MinValue && now - _lastUpdateAt > StallGap) _stallQuietUntil = now + FeedbackWait();
+        _lastUpdateAt = now;
+    }
 
     /// <summary>The length of the client's tick now (seconds): the simulation's, stretched or shortened by the lead slew.</summary>
     public double CurrentTickSeconds => _config.TickSeconds * (1.0 + _leadSlew * _options.LeadSlew);
@@ -81,7 +91,8 @@ public sealed partial class GameClient
         // in all; each JitterGuardSeconds without either lowers it again by a tick.
         bool missed = s.LastInputTick != 0 && s.LastInputTick < s.ServerTick && _history.Count > 0 && s.ServerTick > _firstInputTick + 2;
         if (missed) MissedInputs++;
-        if (lead <= 0 || missed)
+        // A report soon after this client's own stall (an update gap: a hitch, a load) says nothing about the link: it raises nothing (the catch-up below still runs).
+        if ((lead <= 0 || missed) && now >= _stallQuietUntil)
         {
             if (JitterGuard < JitterGuardTicks && now - _jitterRaisedAt >= TimeSpan.FromSeconds(1)) { JitterGuard++; _jitterRaisedAt = now; }
             _jitterSeenAt = now;
