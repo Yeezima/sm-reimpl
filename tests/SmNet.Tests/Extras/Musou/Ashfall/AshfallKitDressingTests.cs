@@ -39,7 +39,7 @@ public class AshfallKitDressingTests(ITestOutputHelper output)
     [Fact]
     public void The_level_is_the_draft_6_level_and_the_dressing_is_deterministic()
     {
-        Assert.Equal(16u, AshfallMap.Version);
+        Assert.Equal(17u, AshfallMap.Version);
         Assert.Equal(5u, AshfallMap.GrayboxVersion);
         Assert.Equal(AshfallDraft5Tests.PinnedLevelHash, Level.Hash);
         Assert.Equal(AshfallMap.Build().Hash, Level.Hash);
@@ -52,7 +52,7 @@ public class AshfallKitDressingTests(ITestOutputHelper output)
         Assert.Equal(Dressing.ItemParts, fresh.Dressing.ItemParts);
         Assert.Equal(Dressing.Flags, fresh.Dressing.Flags);
         Assert.Equal(AshfallMap.DressVersion, Dressing.Version);
-        Assert.Equal(12u, AshfallMap.DressVersion);
+        Assert.Equal(13u, AshfallMap.DressVersion);
         long tris = Dressing.Items.Sum(i => (long)AshfallKit.Get(i.Asset).Triangles);
         output.WriteLine($"{Dressing.Items.Count} items, {tris:N0} model triangles at full detail, {Dressing.HiddenParts.Count} hidden parts, {Dressing.Structures!.Count} structures, {Level.Parts.Count} parts, hash {Level.Hash:X16}");
         foreach (var g in Dressing.Items.GroupBy(i => i.Role).OrderBy(g => g.Key)) output.WriteLine($"{g.Key,-10} {g.Count(),5} items, {g.Sum(i => (long)AshfallKit.Get(i.Asset).Triangles),12:N0} model triangles");
@@ -102,7 +102,7 @@ public class AshfallKitDressingTests(ITestOutputHelper output)
         var surfaces = all.Where(i => i.Asset != "AC-076").ToList();
         Assert.InRange(surfaces.Count, 150, 400);   // the ground tiles are draw-call heavy: a few hundred at most
         var tops = Level.Parts.Where(p => p.Kind is AshfallKind.Road or AshfallKind.Paving).Select(p => (Box: AshfallBox.Of(p)!.Value, p)).ToList();
-        Assert.Equal(4, tops.Count);
+        Assert.Equal(4 + AshfallLanes.Connectors.Length, tops.Count);   // draft 10: and the lanes' connectors
         foreach (var it in surfaces)
         {
             // The surface it lies on: the tile's walk level (the first library's tiles: their top; the expansion's slabs: the median of their up-facing surface) is lifted 3 cm above it (AshfallDress.Surfaces Lift).

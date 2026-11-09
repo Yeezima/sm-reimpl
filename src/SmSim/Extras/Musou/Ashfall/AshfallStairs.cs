@@ -13,6 +13,15 @@ public static class AshfallStairs
     /// <summary>The depth of the clear approach in front of a stair's foot and of the landing beyond its top (ours: a stride and a half at run speed, more than the capsule's 0.9 m).</summary>
     public const float Approach = 1.5f;
 
+    /// <summary>
+    /// Draft 10 (owner, 2026-11-09: "strengthen the rule that clears space at the bottom of stairs"; ours): the depth of the zone in front of a stair's foot that no other item may enter (twice the draft-9
+    /// <see cref="Approach"/>: two strides at run speed, room to turn onto the flight), and the margin beside the stair on each side of its foot and landing zones.
+    /// </summary>
+    public const float FootApproach = 3.0f, SideMargin = 0.5f;
+
+    /// <summary>Draft 10: the headroom a stair's carved corridor keeps over its ramp (the capsule's 1.9 m plus 0.3 m: no lintel or tread above catches the head on the way up).</summary>
+    public const float CorridorHeadroom = 2.2f;
+
     /// <summary>The narrowest clear run across a stair's foot or top that counts as an opening (ours: the capsule's 0.9 m plus 0.1 m, the narrowest stair the level keeps).</summary>
     public const float MinClear = 1.0f;
 
@@ -114,8 +123,16 @@ public static class AshfallStairs
         public bool Open => ClearRun >= Need - 1e-3f;
     }
 
-    /// <summary>The foot (<paramref name="top"/> false: in front of the low end) or the landing (beyond the high end) of a stair.</summary>
-    public static End Measure(Ramp r, Solids solids, bool top)
+    /// <summary>Draft 10: the landing depth measured on every solid (the walk back down starts this far beyond the top; a stair tower's landing turns at its wall after 1 to 1.5 m). Other items keep out of <see cref="Approach"/>.</summary>
+    public const float LandingDepth = 1.0f;
+
+    /// <summary>
+    /// The foot (<paramref name="top"/> false: in front of the low end, over <see cref="Approach"/>; other items keep out of <see cref="FootApproach"/> since draft 10) or the landing (beyond the high end, over <see cref="LandingDepth"/>) of a stair.
+    /// </summary>
+    public static End Measure(Ramp r, Solids solids, bool top) => Measure(r, solids, top, top ? LandingDepth : Approach);
+
+    /// <summary>One end of a stair measured over <paramref name="depth"/> metres.</summary>
+    public static End Measure(Ramp r, Solids solids, bool top, float depth)
     {
         var origin = top ? r.High : r.Low;
         var outward = top ? r.Dir : -r.Dir;
@@ -127,17 +144,16 @@ public static class AshfallStairs
         {
             float t = -w / 2f + w * i / n;
             bool clear = true;
-            foreach (float a in new[] { 0.15f, Approach / 2f, Approach })
+            foreach (float a in new[] { 0.15f, depth / 4f, depth / 2f, 3f * depth / 4f, depth - 0.05f })   // draft 10: the last sample 5 cm short of the depth (a wall standing exactly there leaves the depth clear)
             {
                 var p = origin + outward * a + r.Across * t;
                 float floor = solids.FloorUnder(p, z + Step);
                 if (MathF.Abs(floor - z) > Step + 0.05f || solids.Blocked(p, z + Step + 0.05f, z + Headroom)) { clear = false; break; }
             }
-            run = clear ? run + (i == 0 ? 0f : w / n) : 0f;
-            if (clear && i == 0) run = 1e-3f;
+            run = clear ? run + w / n : 0f;   // draft 10: each clear sample column stands for its cell (w / n), so k columns are k cells (draft 9 counted k - 1)
             best = MathF.Max(best, run);
         }
-        var mid = origin + outward * (Approach / 2f);
-        return new End(best, solids.FloorUnder(mid, z + Step), mid, MathF.Min(MinClear, 0.8f * w));
+        var mid = origin + outward * (depth / 2f);
+        return new End(MathF.Min(best, w), solids.FloorUnder(mid, z + Step), mid, MathF.Min(MinClear, 0.8f * w));
     }
 }

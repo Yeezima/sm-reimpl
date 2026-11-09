@@ -80,7 +80,7 @@ public static class AshfallAtmosphere
         return MathF.Abs(Vector2.Dot(d, b.AxisX)) <= b.Length / 2f + grow && MathF.Abs(Vector2.Dot(d, b.AxisY)) <= b.Depth / 2f + grow;
     }
 
-    /// <summary>Outside the capture zones (plus <see cref="ZoneClear"/>), the start areas, the lanes and the paved road, and 8 m inside the boundary.</summary>
+    /// <summary>Outside the capture zones (plus <see cref="ZoneClear"/>), the start areas, the lanes (draft 10: and <see cref="AshfallLanes"/>' connectors plus 1 m) and the paved road, and 8 m inside the boundary.</summary>
     public static bool Clear(AshfallLevel level, Vector3 at)
     {
         if (MathF.Abs(at.X) > AshfallMap.Half - 8f || MathF.Abs(at.Y) > AshfallMap.Half - 8f) return false;
@@ -93,6 +93,7 @@ public static class AshfallAtmosphere
             if (MathF.Abs(at.X - v) < lane || MathF.Abs(at.Y - v) < lane) return false;
         if (MathF.Abs(at.X) < 6f && at.Y > -160f && at.Y < 80f) return false;
         if (MathF.Abs(at.Y) < 6f && MathF.Abs(at.X) < 80f) return false;
+        if (AshfallLanes.On(new Vector2(at.X, at.Y), 1f)) return false;   // draft 10: the lanes to the points and the gate
         return true;
     }
 }

@@ -23,7 +23,7 @@ public class AshfallDraft5Tests(ITestOutputHelper output)
     /// The level's hash (version 11, draft 6 with the Meshy expansion placed; version 10, draft 6 before it, was 0xC1D1D8A1118A55AF; draft 5's version 9 was 0x6A803A7703280536). A change of the pass, the pools, the fitted boxes or the generator without a new version fails here, not at a client's handshake.
     /// The one level pin: after a refit of the collision (<c>AshfallKitCollision.g.cs</c>) take the new value from this test's failure.
     /// </summary>
-    public const ulong PinnedLevelHash = 0xA22539A7248E21E1UL;   // version 16: draft 9, late batch F (stairs from the meshes, clear stair feet and landings, no stacked models, the urban rules; 0x058B350D285DE351 before); version 15: the openings pass (opening-aware merge for debris with openings, 0x2BB88406D096C7EF before); version 14: draft 8 (roadways, 0xB2335BB6CF43E872 alone) with the window pass (0x2D90FDEF0587A5AA alone); draft 7 was 0x29D435A1D94CD3CF
+    public const ulong PinnedLevelHash = 0xD20B0CBDD8445C42UL;   // version 17: draft 10 (lanes to every point, a 3 m clear zone at every stair's foot, 143 walkable stairs; 0xA22539A7248E21E1 before); version 16: draft 9, late batch F (stairs from the meshes, clear stair feet and landings, no stacked models, the urban rules; 0x058B350D285DE351 before); version 15: the openings pass (opening-aware merge for debris with openings, 0x2BB88406D096C7EF before); version 14: draft 8 (roadways, 0xB2335BB6CF43E872 alone) with the window pass (0x2D90FDEF0587A5AA alone); draft 7 was 0x29D435A1D94CD3CF
 
     /// <summary>The v5 graybox's hash (pinned since pass 3, and again by the draft 3 and 5 work).</summary>
     const ulong PinnedGrayboxHash = 0xAE096E323BB5A4D3UL;
@@ -40,14 +40,17 @@ public class AshfallDraft5Tests(ITestOutputHelper output)
         var gb = AshfallMap.BuildGraybox();
         Assert.Equal(PinnedGrayboxHash, gb.Hash);
         Assert.Equal(5u, AshfallMap.GrayboxVersion);
-        Assert.Equal(16u, AshfallMap.Version);
+        Assert.Equal(17u, AshfallMap.Version);
         Assert.NotEqual(gb.Hash, Level.Hash);
         Assert.Equal(PinnedLevelHash, Level.Hash);
         Assert.Equal(AshfallContent.ToMapContent(Level).Hash, Level.Hash);
         // The ground kinds and the boundary are v5's, bit for bit and in order.
         var ground = gb.Parts.Where(p => IsGround(p.Kind)).ToList();
         for (int i = 0; i < ground.Count; i++) { Assert.Equal(ground[i].Kind, Level.Parts[i].Kind); Assert.Equal(ground[i].Corners, Level.Parts[i].Corners); }
-        Assert.All(Level.Parts.Skip(ground.Count), p => Assert.False(IsGround(p.Kind)));
+        // draft 10: then the lanes' Road parts (AshfallLanes), then nothing of the ground's kinds
+        var lanes = Level.Parts.Skip(ground.Count).Take(AshfallLanes.Connectors.Length).ToList();
+        Assert.All(lanes, p => Assert.Equal(AshfallKind.Road, p.Kind));
+        Assert.All(Level.Parts.Skip(ground.Count + lanes.Count), p => Assert.False(IsGround(p.Kind)));
         Assert.Equal(1u, AshfallMap.VariationSeed);
     }
 

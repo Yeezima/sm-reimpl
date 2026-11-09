@@ -20,17 +20,27 @@ internal static partial class AshfallDraft5Pass
     /// <summary>Least width and least rise of a stair after the placement's scale (ours: the capsule's 0.9 m plus 0.1 m; under 0.8 m the steps are a kerb the motor steps anyway).</summary>
     const float StairMinWidth = 1.0f, StairMinRise = 0.8f;
 
-    /// <summary>Steepest kept stair after the scale (ours: the motor walks 60 degrees; a margin).</summary>
-    const float StairMaxDegrees = 50f;
+    /// <summary>
+    /// Draft 10 (owner, 2026-11-09: "there are still stairs that cannot be walked up"; ours): a drawn flight narrower than <see cref="StairWalkWidth"/> but at least <see cref="StairWidenFrom"/> wide gets a ramp
+    /// <see cref="StairWalkWidth"/> wide about its middle (the capsule's 0.9 m plus 0.3 m), the model's boxes cut under the wider footprint; a narrower run stays a few steps (a kerb, a broken tread).
+    /// </summary>
+    const float StairWidenFrom = 0.4f, StairWalkWidth = 1.2f;
+
+    /// <summary>Steepest kept stair after the scale (ours: the motor walks 60 degrees; draft 10 keeps a 5 degree margin, draft 9 kept 10).</summary>
+    const float StairMaxDegrees = 55f;
 
     /// <summary>Longest slice a cut box keeps under a ramp (ours: so shots still meet stepped stone under the movement-only ramp, within the triangle budget).</summary>
     const float CutSlice = 2f;
 
-    /// <summary>Most slices one cut box makes (the level's 220 k collision-triangle budget).</summary>
+    /// <summary>Most slices one cut box makes (the level's collision-triangle budget, 225 k since draft 10).</summary>
     const int MaxSlices = 3;
 
     /// <summary>A placed stair, item-local before the translation: its ramp corners, the boxes after the cut, and its foot and landing zones (boxes in the item's yaw).</summary>
-    sealed record StairPlan(List<Vector3[]> Ramps, List<WBox> Boxes, List<WBox> Zones, List<string> Notes, int Kept, int Dropped);
+    sealed record StairPlan(List<Vector3[]> Ramps, List<WBox> Boxes, List<WBox> Zones, List<string> Notes, int Kept, int Dropped)
+    {
+        /// <summary>Draft 10: kept stairs whose corridor was carved through the model's own boxes (<see cref="Carve"/>).</summary>
+        public int Carved { get; init; }
+    }
 
     static readonly Dictionary<(AshfallDressItem, int, bool), StairPlan> PlanCache = [];
     static readonly Lock PlanLock = new();
@@ -56,19 +66,45 @@ internal static partial class AshfallDraft5Pass
     /// <param name="walk">false: the geometric rules only (the placement rules' zones while an item is still being settled: a stair the walk will drop later still keeps its zones clear there)</param>
     static StairPlan PlanStairs(AshfallDressItem item, int yaw, string id, List<WBox> boxes, bool walk)
     {
+        // draft 10: once planned, every kept flight is walked again with all the model's other kept ramps present (a later flight may cross an earlier one's landing); one that fails is left out and the
+        // model planned again without it, until every kept flight walks (at most a few rounds: each round leaves one out or ends)
+        var skip = new HashSet<int>();
+        var extra = new List<string>();
+        while (true)
+        {
+            var (plan, idx) = PlanStairsOnce(item, yaw, id, boxes, walk, skip);
+            if (!walk || plan.Kept < 2) return extra.Count == 0 ? plan : plan with { Notes = [.. plan.Notes, .. extra], Dropped = plan.Dropped + extra.Count };
+            int bad = -1;
+            for (int k = 0; k < plan.Ramps.Count && bad < 0; k++)
+            {
+                if (AshfallStairs.Of(new AshfallPart(AshfallKind.Stair, plan.Ramps[k]), 0, 0) is not { } r) continue;
+                var others = plan.Ramps.Where((_, j) => j != k).ToList();
+                if (Check(item, plan.Boxes, plan.Ramps[k], r, others) is { } why) { bad = idx[k]; extra.Add($"{why} (with the model's other flights)"); }
+            }
+            if (bad < 0) return extra.Count == 0 ? plan : plan with { Notes = [.. plan.Notes, .. extra], Dropped = plan.Dropped + extra.Count };
+            skip.Add(bad);
+        }
+    }
+
+    static (StairPlan Plan, List<int> Index) PlanStairsOnce(AshfallDressItem item, int yaw, string id, List<WBox> boxes, bool walk, HashSet<int> skip)
+    {
+        var index = new List<int>();
         var notes = new List<string>();
         var ramps = new List<Vector3[]>();
         var zones = new List<WBox>();
         var cur = boxes;
-        int kept = 0, dropped = 0;
+        int kept = 0, dropped = 0, carvedCount = 0;
         var taken = new List<Vector4>();   // local footprints of kept stairs (a stair found twice keeps its first copy: the detector lists the widest first)
         var (s, co) = AshfallBuilder.Trig(yaw);   // the exact turn table (the same bits on every machine)
         Vector3 Loc(Vector3 v) { float dx = v.X - item.Position.X, dy = v.Y - item.Position.Y; return new Vector3(co * dx + s * dy, -s * dx + co * dy, v.Z); }
         Vector3 Wor(Vector3 l) => new(item.Position.X + co * l.X - s * l.Y, item.Position.Y + s * l.X + co * l.Y, l.Z);
         var m = AshfallKit.Get(id);
-        foreach (var rp0 in AshfallKitCollision.Stairs(id))
+        var found = AshfallKitCollision.Stairs(id);
+        for (int si = 0; si < found.Count; si++)
         {
-            var rp = FootToFloor(item, yaw, id, rp0, cur, m);
+            if (skip.Contains(si)) continue;
+            var rp0 = found[si];
+            var rp = FootToFloor(item, yaw, id, Widen(item, rp0, m), cur, m);
             var corners = RampCorners(item, yaw, rp, out bool ok);
             if (!ok) { dropped++; notes.Add("not rising after the scale"); continue; }
             var r = AshfallStairs.Of(new AshfallPart(AshfallKind.Stair, corners), 0, 0);
@@ -85,23 +121,177 @@ internal static partial class AshfallDraft5Pass
             float a0 = alongX ? lLow.X : lLow.Y, a1 = alongX ? lHigh.X : lHigh.Y;
             float PlaneAt(float a) => ramp.LowZ + (ramp.HighZ - ramp.LowZ) * Math.Clamp((a - a0) / (a1 - a0), 0f, 1f);
             var cut = Cut(cur, item, yaw, fp, alongX, a0, a1, PlaneAt);
-            // zones: foot and landing (local), in the item's yaw
-            float A = AshfallStairs.Approach, w = ramp.Width;
+            // zones: foot and landing (local), in the item's yaw; draft 10: the foot's zone is FootApproach deep, both are the stair's width plus SideMargin a side
+            float w = ramp.Width + 2f * AshfallStairs.SideMargin;
             float sign = MathF.Sign(a1 - a0);
-            WBox Zone(float along, float z)
+            WBox Zone(float along, float A, float z)
             {
                 float cx = alongX ? along : (fp.X + fp.Z) / 2f, cy = alongX ? (fp.Y + fp.W) / 2f : along;
                 var wc = Wor(new Vector3(cx, cy, 0f));
                 float z0 = z + AshfallStairs.Step + 0.05f, z1 = z + AshfallStairs.Headroom;
                 return new WBox(new Vector3(wc.X, wc.Y, (z0 + z1) / 2f), alongX ? new Vector3(A / 2f, w / 2f, (z1 - z0) / 2f) : new Vector3(w / 2f, A / 2f, (z1 - z0) / 2f), yaw);
             }
-            var foot = Zone(a0 - sign * A / 2f, ramp.LowZ);
-            var land = Zone(a1 + sign * A / 2f, ramp.HighZ);
-            string? why = walk ? WalkCheck(item, cut, corners, ramp) : null;
+            var foot = Zone(a0 - sign * AshfallStairs.FootApproach / 2f, AshfallStairs.FootApproach, ramp.LowZ);
+            var land = Zone(a1 + sign * AshfallStairs.Approach / 2f, AshfallStairs.Approach, ramp.HighZ);
+            // draft 10: the space at the foot is cleared of the model's own boxes too (Approach deep, the flight's width, from a step over the foot to head height; other items keep out of FootApproach and SideMargin a side)
+            {
+                float depth = AshfallStairs.Approach;   // the model's own wall standing at the depth or beyond stays (the measure stops 5 cm short of it)
+                float f0 = MathF.Min(a0, a0 - sign * depth), f1 = MathF.Max(a0, a0 - sign * depth);
+                var rect = alongX ? new Vector4(f0, fp.Y, f1, fp.W) : new Vector4(fp.X, f0, fp.Z, f1);   // the flight's width only (a wall it runs along keeps its face)
+                cut = ClearBand(cut, item, yaw, rect, ramp.LowZ + AshfallStairs.Step, ramp.LowZ + AshfallStairs.CorridorHeadroom);
+            }
+            string? why = walk ? Check(item, cut, corners, ramp, ramps) : null;
+            if (why is not null)
+            {
+                // draft 10: the model's own boxes in the stair's corridor (its width, from the foot's approach to the landing's) carved from the ramp to head height, then walked again
+                var carved = Carve(cut, item, yaw, fp, alongX, a0, a1, PlaneAt);
+                if (Check(item, carved, corners, ramp, ramps) is null) { cut = carved; why = null; carvedCount++; }
+            }
             if (why is not null) { dropped++; notes.Add(why); continue; }
-            cur = cut; ramps.Add(corners); zones.Add(foot); zones.Add(land); taken.Add(fp); kept++;
+            cur = cut; ramps.Add(corners); zones.Add(foot); zones.Add(land); taken.Add(fp); kept++; index.Add(si);
         }
-        return new StairPlan(ramps, cur, zones, notes, kept, dropped);
+        if (kept > 0) cur = Merge(cur, item, yaw);
+        return (new StairPlan(ramps, cur, zones, notes, kept, dropped) { Carved = carvedCount }, index);
+    }
+
+    /// <summary>
+    /// Draft 10: the item's boxes after the cuts with exact neighbours fused (the triangle budget): two boxes in the item's yaw that share their extent on two axes and touch or overlap on the third become one.
+    /// The union is exact (no volume added or lost). Order-stable: the list is scanned in its order and a merged box takes the first one's place.
+    /// </summary>
+    static List<WBox> Merge(List<WBox> boxes, AshfallDressItem item, int yaw)
+    {
+        var (s, co) = AshfallBuilder.Trig(yaw);
+        const float eps = 1e-4f;
+        var loc = new List<(float X0, float X1, float Y0, float Y1, float Z0, float Z1)?>();
+        var other = new List<WBox>();
+        foreach (var b in boxes)
+        {
+            if (b.YawStep != yaw) { other.Add(b); continue; }
+            float dx = b.Centre.X - item.Position.X, dy = b.Centre.Y - item.Position.Y;
+            float lx = co * dx + s * dy, ly = -s * dx + co * dy;
+            loc.Add((lx - b.Half.X, lx + b.Half.X, ly - b.Half.Y, ly + b.Half.Y, b.Centre.Z - b.Half.Z, b.Centre.Z + b.Half.Z));
+        }
+        static bool Eq(float a, float b) => MathF.Abs(a - b) <= eps;
+        static bool Join(float a0, float a1, float b0, float b1) => a0 <= b1 + eps && b0 <= a1 + eps;
+        bool changed = true;
+        while (changed)
+        {
+            changed = false;
+            for (int i = 0; i < loc.Count; i++)
+            {
+                if (loc[i] is not { } a) continue;
+                for (int j = i + 1; j < loc.Count; j++)
+                {
+                    if (loc[j] is not { } b) continue;
+                    bool sx = Eq(a.X0, b.X0) && Eq(a.X1, b.X1), sy = Eq(a.Y0, b.Y0) && Eq(a.Y1, b.Y1), sz = Eq(a.Z0, b.Z0) && Eq(a.Z1, b.Z1);
+                    bool ok = (sx && sy && Join(a.Z0, a.Z1, b.Z0, b.Z1)) || (sx && sz && Join(a.Y0, a.Y1, b.Y0, b.Y1)) || (sy && sz && Join(a.X0, a.X1, b.X0, b.X1));
+                    if (!ok) continue;
+                    a = (MathF.Min(a.X0, b.X0), MathF.Max(a.X1, b.X1), MathF.Min(a.Y0, b.Y0), MathF.Max(a.Y1, b.Y1), MathF.Min(a.Z0, b.Z0), MathF.Max(a.Z1, b.Z1));
+                    loc[i] = a; loc[j] = null; changed = true;
+                }
+            }
+        }
+        var res = new List<WBox>();
+        foreach (var l in loc)
+        {
+            if (l is not { } a) continue;
+            float cx = (a.X0 + a.X1) / 2f, cy = (a.Y0 + a.Y1) / 2f;
+            res.Add(new WBox(new Vector3(item.Position.X + co * cx - s * cy, item.Position.Y + s * cx + co * cy, (a.Z0 + a.Z1) / 2f), new Vector3((a.X1 - a.X0) / 2f, (a.Y1 - a.Y0) / 2f, (a.Z1 - a.Z0) / 2f), yaw));
+        }
+        res.AddRange(other);
+        return res;
+    }
+
+    /// <summary>Draft 10: the item's boxes with the band [<paramref name="zLo"/>, <paramref name="zHi"/>] cleared inside a local plan rectangle (x0, y0, x1, y1); a crossing box keeps its parts outside the rectangle, under and over the band.</summary>
+    static List<WBox> ClearBand(List<WBox> boxes, AshfallDressItem item, int yaw, Vector4 rect, float zLo, float zHi)
+    {
+        var (s, co) = AshfallBuilder.Trig(yaw);   // the exact turn table (the same bits on every machine)
+        var res = new List<WBox>();
+        foreach (var b in boxes)
+        {
+            float dx = b.Centre.X - item.Position.X, dy = b.Centre.Y - item.Position.Y;
+            float lx = co * dx + s * dy, ly = -s * dx + co * dy;
+            float x0 = lx - b.Half.X, x1 = lx + b.Half.X, y0 = ly - b.Half.Y, y1 = ly + b.Half.Y, z0 = b.Centre.Z - b.Half.Z, z1 = b.Centre.Z + b.Half.Z;
+            float ix0 = MathF.Max(x0, rect.X), ix1 = MathF.Min(x1, rect.Z), iy0 = MathF.Max(y0, rect.Y), iy1 = MathF.Min(y1, rect.W);
+            if (b.YawStep != yaw || ix1 - ix0 < 0.01f || iy1 - iy0 < 0.01f || z1 <= zLo + 0.01f || z0 >= zHi - 0.01f) { res.Add(b); continue; }
+            void Add(float ax0, float ax1, float ay0, float ay1, float bz0, float bz1)
+            {
+                if (ax1 - ax0 < 0.01f || ay1 - ay0 < 0.01f || bz1 - bz0 < 0.01f) return;
+                float cx = (ax0 + ax1) / 2f, cy = (ay0 + ay1) / 2f;
+                res.Add(new WBox(new Vector3(item.Position.X + co * cx - s * cy, item.Position.Y + s * cx + co * cy, (bz0 + bz1) / 2f), new Vector3((ax1 - ax0) / 2f, (ay1 - ay0) / 2f, (bz1 - bz0) / 2f), yaw));
+            }
+            const float sliver = 0.05f;
+            if (ix0 - x0 > sliver) Add(x0, ix0, y0, y1, z0, z1);
+            if (x1 - ix1 > sliver) Add(ix1, x1, y0, y1, z0, z1);
+            if (iy0 - y0 > sliver) Add(ix0, ix1, y0, iy0, z0, z1);
+            if (y1 - iy1 > sliver) Add(ix0, ix1, iy1, y1, z0, z1);
+            if (z0 < zLo) Add(ix0, ix1, iy0, iy1, z0, MathF.Min(z1, zLo));
+            if (z1 > zHi) Add(ix0, ix1, iy0, iy1, MathF.Max(z0, zHi), z1);
+        }
+        return res;
+    }
+
+    /// <summary>Draft 10: a flight narrower than <see cref="StairWalkWidth"/> (and at least <see cref="StairWidenFrom"/>) widened to it about its middle, in the raw frame (raw X: item X; raw Z: item -Y).</summary>
+    static AshfallRamp Widen(AshfallDressItem item, AshfallRamp rp, AshfallKitModel m)
+    {
+        bool alongX = rp.Dir < 2;
+        float perRaw = alongX ? item.Size.Y / m.RawSize.Z : item.Size.X / m.RawSize.X;   // metres a raw unit across the climb
+        if (perRaw <= 1e-6f) return rp;
+        float w = (alongX ? rp.Max.Z - rp.Min.Z : rp.Max.X - rp.Min.X) * perRaw;
+        if (w >= StairWalkWidth || w < StairWidenFrom) return rp;
+        float e = (StairWalkWidth - w) / 2f / perRaw;
+        var mn = rp.Min; var mx = rp.Max;
+        if (alongX) { mn.Z -= e; mx.Z += e; } else { mn.X -= e; mx.X += e; }
+        return new AshfallRamp(mn, mx, rp.Dir, rp.YLow, rp.YHigh);
+    }
+
+    /// <summary>
+    /// Draft 10: the stair's corridor cleared through the item's own boxes. In the footprint (the flight's width) lengthened in front of the foot and beyond the landing
+    /// (draft 10: <see cref="AshfallStairs.Approach"/> at both ends), nothing stands from the ramp's plane (the foot's height in front, the landing's beyond) to <see cref="AshfallStairs.CorridorHeadroom"/> over it. A box crossing that band
+    /// keeps its parts under the plane and over the band (in slices along the climb, at most <see cref="MaxSlices"/>); its parts outside the corridor keep their height.
+    /// </summary>
+    static List<WBox> Carve(List<WBox> boxes, AshfallDressItem item, int yaw, Vector4 fp, bool alongX, float a0, float a1, Func<float, float> planeAt)
+    {
+        var (s, co) = AshfallBuilder.Trig(yaw);   // the exact turn table (the same bits on every machine)
+        float sign = MathF.Sign(a1 - a0), H = AshfallStairs.CorridorHeadroom;
+        float e0 = a0 - sign * AshfallStairs.Approach, e1 = a1 + sign * AshfallStairs.Approach;
+        float lo = MathF.Min(e0, e1), hi = MathF.Max(e0, e1);
+        var cor = alongX ? new Vector4(lo, fp.Y, hi, fp.W) : new Vector4(fp.X, lo, fp.Z, hi);   // the flight's width only: a wall it runs along keeps its face (no slot through it)
+        var res = new List<WBox>();
+        foreach (var b in boxes)
+        {
+            float dx = b.Centre.X - item.Position.X, dy = b.Centre.Y - item.Position.Y;
+            float lx = co * dx + s * dy, ly = -s * dx + co * dy;
+            float x0 = lx - b.Half.X, x1 = lx + b.Half.X, y0 = ly - b.Half.Y, y1 = ly + b.Half.Y, z0 = b.Centre.Z - b.Half.Z, z1 = b.Centre.Z + b.Half.Z;
+            float ix0 = MathF.Max(x0, cor.X), ix1 = MathF.Min(x1, cor.Z), iy0 = MathF.Max(y0, cor.Y), iy1 = MathF.Min(y1, cor.W);
+            if (ix1 - ix0 < 0.01f || iy1 - iy0 < 0.01f) { res.Add(b); continue; }
+            float blo = alongX ? ix0 : iy0, bhi = alongX ? ix1 : iy1;
+            float pMin = MathF.Min(planeAt(blo), planeAt(bhi)), pMax = MathF.Max(planeAt(blo), planeAt(bhi));
+            if (z1 <= pMin + 0.01f || z0 >= pMax + H - 0.01f) { res.Add(b); continue; }
+            void Add(float ax0, float ax1, float ay0, float ay1, float bz0, float bz1)
+            {
+                if (ax1 - ax0 < 0.01f || ay1 - ay0 < 0.01f || bz1 - bz0 < 0.01f) return;
+                float cx = (ax0 + ax1) / 2f, cy = (ay0 + ay1) / 2f;
+                res.Add(new WBox(new Vector3(item.Position.X + co * cx - s * cy, item.Position.Y + s * cx + co * cy, (bz0 + bz1) / 2f), new Vector3((ax1 - ax0) / 2f, (ay1 - ay0) / 2f, (bz1 - bz0) / 2f), yaw));
+            }
+            const float sliver = 0.05f;   // an outside piece thinner than this is dropped (a fit cell's overlap)
+            if (ix0 - x0 > sliver) Add(x0, ix0, y0, y1, z0, z1);
+            if (x1 - ix1 > sliver) Add(ix1, x1, y0, y1, z0, z1);
+            if (iy0 - y0 > sliver) Add(ix0, ix1, y0, iy0, z0, z1);
+            if (y1 - iy1 > sliver) Add(ix0, ix1, iy1, y1, z0, z1);
+            // inside: under the band, one piece in front of the foot, one under the flight (its top the plane at the flight's low end: the ramp carries walkers, the triangle budget) and one under the landing;
+            // over the band, one piece
+            float rLo = MathF.Min(a0, a1), rHi = MathF.Max(a0, a1);
+            foreach (var (t0, t1) in new[] { (blo, MathF.Min(bhi, rLo)), (MathF.Max(blo, rLo), MathF.Min(bhi, rHi)), (MathF.Max(blo, rHi), bhi) })
+            {
+                if (t1 - t0 < 0.01f) continue;
+                float under = MathF.Min(planeAt(t0), planeAt(t1));
+                if (z0 >= under) continue;
+                if (alongX) Add(t0, t1, iy0, iy1, z0, MathF.Min(z1, under)); else Add(ix0, ix1, t0, t1, z0, MathF.Min(z1, under));
+            }
+            if (z1 > pMax + H) Add(ix0, ix1, iy0, iy1, MathF.Max(z0, pMax + H), z1);
+        }
+        return res;
     }
 
     /// <summary>The farthest a stair's foot is carried down to the floor in front of it (ours: a tall first riser of a ruin's stair, half a metre in the expansion's two-storey ruin).</summary>
@@ -117,7 +307,8 @@ internal static partial class AshfallDraft5Pass
         var corners = RampCorners(item, yaw, rp, out bool ok);
         if (!ok || AshfallStairs.Of(new AshfallPart(AshfallKind.Stair, corners), 0, 0) is not { } r) return rp;
         var solids = new AshfallStairs.Solids(boxes.Select(AsBox)) { Ground = (_, _) => item.Position.Z };
-        float floor = solids.FloorUnder(r.Low - r.Dir * 0.3f, r.LowZ);
+        // draft 10: the lower of the floor just in front and the floor where the walker starts (a plinth's lip in front of a platform's stair is not its floor)
+        float floor = MathF.Min(solids.FloorUnder(r.Low - r.Dir * 0.3f, r.LowZ), solids.FloorUnder(r.Low - r.Dir * AshfallStairs.Approach, r.LowZ));
         float drop = r.LowZ - floor;
         if (drop <= 0.1f || drop > FootDrop) return rp;
         float tan = (r.HighZ - r.LowZ) / MathF.Max(r.Run, 1e-3f);
@@ -184,10 +375,24 @@ internal static partial class AshfallDraft5Pass
     }
 
     /// <summary>
+    /// Draft 10: the keep test of a stair on the item alone: its foot (<see cref="AshfallStairs.Approach"/>) and landing (<see cref="AshfallStairs.LandingDepth"/>) open on the item's own boxes (<see cref="AshfallStairs.Measure"/>,
+    /// what the level's check measures; other items keep out of the zones), then the walk up and down (<see cref="WalkCheck"/>). Null when kept, else why not.
+    /// </summary>
+    static string? Check(AshfallDressItem item, List<WBox> boxes, Vector3[] ramp, AshfallStairs.Ramp r, List<Vector3[]> kept)
+    {
+        var solids = new AshfallStairs.Solids(boxes.Select(AsBox)) { Ground = (_, _) => item.Position.Z };
+        var foot = AshfallStairs.Measure(r, solids, top: false);
+        if (!foot.Open) return $"its foot is open {foot.ClearRun:0.0} m of {foot.Need:0.0}";
+        var top = AshfallStairs.Measure(r, solids, top: true);
+        if (!top.Open) return $"its landing is open {top.ClearRun:0.0} m of {top.Need:0.0}";
+        return WalkCheck(item, boxes, ramp, r, kept);
+    }
+
+    /// <summary>
     /// Walks the stair on the item alone (its boxes, this ramp, the ground under it): from <see cref="AshfallStairs.Approach"/> in front of the foot up onto the landing, then back down past the foot, at run speed;
     /// null when both walks arrive without a stall, else why not.
     /// </summary>
-    static string? WalkCheck(AshfallDressItem item, List<WBox> boxes, Vector3[] ramp, AshfallStairs.Ramp r)
+    static string? WalkCheck(AshfallDressItem item, List<WBox> boxes, Vector3[] ramp, AshfallStairs.Ramp r, List<Vector3[]> kept)
     {
         var tris = new List<Vector3>();
         foreach (var b in boxes)
@@ -196,6 +401,7 @@ internal static partial class AshfallDraft5Pass
             tris.AddRange(AshfallBuilder.Frame(b.Centre, new Vector3(cs, sn, 0f), new Vector3(-sn, cs, 0f), Vector3.UnitZ, b.Half.X, b.Half.Y, b.Half.Z));
         }
         tris.AddRange(ramp);
+        foreach (var k in kept) tris.AddRange(k);   // draft 10: the item's stairs kept before this one (a flight walked from the last one's landing meets its ramp, as in the level)
         float g = item.Position.Z, ext = MathF.Max(item.Size.X, item.Size.Y) / 2f + 8f;
         tris.AddRange(AshfallBuilder.Frame(new Vector3(item.Position.X, item.Position.Y, g - 0.5f), Vector3.UnitX, Vector3.UnitY, Vector3.UnitZ, ext, ext, 0.5f));
         var corners = tris.ToArray();
@@ -222,6 +428,8 @@ internal static partial class AshfallDraft5Pass
                 st = Movement.Step(st, new PlayerInput(t, 0f, 1f, yawr, InputButtons.None), cfg, world);
                 if (arrived(st)) return null;
                 if (t > 12 && Vector2.Distance(new(prev.X, prev.Y), new(st.Position.X, st.Position.Y)) < 0.4f * speed && ++slow > 2) return $"the walk {what} stalls at ({st.Position.X - item.Position.X:0.0}, {st.Position.Y - item.Position.Y:0.0}, {st.Position.Z - g:0.0}) on the item";
+                // draft 10: smooth, as the level's check walks it: no lift of more than a step in one tick
+                if (st.Position.Z - prev.Z > AshfallStairs.Step + 0.05f) return $"the walk {what} lifts {st.Position.Z - prev.Z:0.00} m in one tick at ({st.Position.X - item.Position.X:0.0}, {st.Position.Y - item.Position.Y:0.0}) on the item";
             }
             return $"the walk {what} does not arrive";
         }
@@ -255,7 +463,7 @@ internal static partial class AshfallDraft5Pass
 
     /// <summary>Fewest metres between two rubble props, and the most placed (ours: a pile every few houses, not a carpet).</summary>
     const float RubbleSpacing = 10f;
-    const int RubbleTarget = 60;   // the level's 220 k collision-triangle budget: three slabs a pile
+    const int RubbleTarget = 60;   // the level's collision-triangle budget, 225 k since draft 10: three slabs a pile
 
     /// <summary>
     /// Draft 9 (late batch F): scatters the rubble props as low cover and dressing at the feet of the standing walls and buildings (the stronghold's legs included, so beside its breaches) and along the
