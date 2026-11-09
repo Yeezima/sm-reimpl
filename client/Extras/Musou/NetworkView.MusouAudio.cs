@@ -37,7 +37,7 @@ public partial class NetworkView
     void MusouMeleeHitEmitter(SoundEmitter hit, string? wargear, ref float extraGainDb)
     {
         if (!MusouAudioOn) return;
-        if (MusouAudioRules.IsPowerSword(wargear)) { hit.NoSteal = true; extraGainDb = MusouAudioRules.PowerSwordHitGainDb; }   // owner 2026-11-09: the original's sound, just louder; not cut by the crowd's pool
+        if (MusouAudioRules.IsPowerSword(wargear)) { hit.NoSteal = true; extraGainDb = MusouAudioRules.PowerSwordHitGainDb; if (_sound is not null) hit.AttenuationOverride = _musouSmackCurve ??= _sound.AttenuationOf(MusouAudioRules.SmackCurveEvent); }   // owner: the bolter impact's curve   // owner 2026-11-09: the original's sound, just louder; not cut by the crowd's pool
         else hit.Tail = true;
     }
 
