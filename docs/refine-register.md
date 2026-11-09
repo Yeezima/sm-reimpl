@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2759 spec table rows: **2054 tagged**, 489 not tagged (read from data with high confidence), 216 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 613 rows of the changes document.
+Scanned 2764 spec table rows: **2055 tagged**, 492 not tagged (read from data with high confidence), 217 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 614 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -52,8 +52,8 @@ Scanned 2759 spec table rows: **2054 tagged**, 489 not tagged (read from data wi
 | Networking and render smoothing | 19 | 10 | 10 | 10 | 7 |
 | Core simulation (provisional values) | 529 | 505 | 368 | 145 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 231 | 221 | 123 | 62 | 0 |
-| **All areas** | **2054** | 1808 | 1522 | 652 | 38 |
+| Ork faction | 232 | 221 | 124 | 63 | 0 |
+| **All areas** | **2055** | 1808 | 1523 | 653 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -61,8 +61,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---:|
 | kind: ours | 1139 |
 | confidence: low | 728 |
-| confidence: medium | 665 |
-| notes: ours | 369 |
+| confidence: medium | 666 |
+| notes: ours | 370 |
 | kind: interpretation | 360 |
 | notes: estimate | 170 |
 | kind: estimate | 136 |
@@ -3455,8 +3455,8 @@ The Orks are an addition the owner keeps (the original multiplayer had Space Mar
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-CA8A7F03` | Ork armies (Musou) | an Ork army is real Orks alone: a wave's muster brings real Orks at its stronghold (about one a tick), each army's men are made real in its slots wherever it stands (at most **16** a tick over all armies), never folded back at any distance, and what finds no… | kind: ours; confidence: medium | owner 2026-11-09 | Ork armies (Musou): compare with SM1 by feel or video. Ours: an Ork army is real Orks alone: a wave's muster brings real Orks at… | ☐ |
-| `R-C85C0F75` | Armies' real Orks (Musou) | at most **384** at once (was 480) over all Ork armies, outside the crowds' cap and pool as before (Orks) | kind: ours; notes: estimate | owner 2026-11-09 ("80% of current") | Armies' real Orks (Musou): compare with SM1 by feel or video. Ours: at most 384 at once (was 480) over all Ork armies, outside the… | ☐ |
-| `R-EC633428` | Waves: size (Musou) | **160** (70 %), **400** (25 %), **800 to 960** (5 %) by the dice (was 200, 500, 1,000 to 1,200), and with no aggregate a wave is what the armies' real cap leaves room for (Orks) | kind: ours; notes: estimate | owner 2026-11-09 | Waves: size (Musou): compare with SM1 by measuring on a flat spot of the same map. Ours: 160 (70 %), 400 (25 %), 800 to 960 (5 %) by the dice (was 200, 500… | ☐ |
+| `R-C85C0F75` | Armies' real Orks (Musou) | at most **384** at once (was 480) over all Ork armies, outside the crowds' cap and pool as before (superseded 2026-11-10: back to 100 %, spec "Musou Mode: the Orks back at 100 %, twice the big Orks") (Orks) | kind: ours; notes: estimate | owner 2026-11-09 ("80% of current") | Armies' real Orks (Musou): compare with SM1 by feel or video. Ours: at most 384 at once (was 480) over all Ork armies, outside the… | ☐ |
+| `R-EC633428` | Waves: size (Musou) | **160** (70 %), **400** (25 %), **800 to 960** (5 %) by the dice (was 200, 500, 1,000 to 1,200), and with no aggregate a wave is what the armies' real cap leaves room for (superseded 2026-11-10: back to 100 %, spec "Musou Mode: the Orks back at 100 %, twice… (Orks) | kind: ours; notes: estimate | owner 2026-11-09 | Waves: size (Musou): compare with SM1 by measuring on a flat spot of the same map. Ours: 160 (70 %), 400 (25 %), 800 to 960 (5 %) by the dice (was 200, 500… | ☐ |
 | `R-CCEF4870` | Garrison, crowd and caps (Musou) | garrison **77** a point (was 96); crowd **320** (was 400) filling one every **5** ticks (was 4: a crowd still in 53 s); alive cap **960** solo plus **512** a further human, at most **1344** (was 1200, 640, 1680); the trickle **1280** in all (was 1600); route… (Orks) | kind: ours; notes: estimate | owner 2026-11-09 | Garrison, crowd and caps (Musou): compare with SM1 by feel or video. Ours: garrison 77 a point (was 96); crowd 320 (was 400) filling one every 5… | ☐ |
 
 *Spec section: Musou Mode: the big Orks' deaths and gait (musou-big-ork-deaths, 2026-11-09; Musou Mode only; the deaths and gait client presentation; the bodies against the map in the simulation, `MusouSim.Version` 34, to be renumbered at integration; no protocol change)*
@@ -3483,6 +3483,12 @@ The Orks are an addition the owner keeps (the original multiplayer had Space Mar
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-E8BF37C8` | Volley into a charge (Musou, Guardsmen) | a Guardsman's hit on an Ork that is charging (`MusouSim.Charging`: a melee-first Ork sprinting at an enemy within 30 m) does **1.5x** the shot's damage (`GuardRules.Damage` times the squad's strength); hit chance, fire rate and range unchanged; a gun Ork, the… (x) | kind: ours; notes: estimate | owner 2026-11-10 ("Rebalance Guards"); value fitted to TF3's box and the hold trial | Volley into a charge (Musou, Guardsmen): compare with SM1 by feel or video. Ours: a Guardsman's hit on an Ork that is charging (MusouSim.Charging: a… | ☐ |
+
+*Spec section: Musou Mode: the Orks back at 100 %, twice the big Orks (musou-big-ork-deaths, 2026-11-10; Musou Mode's war only; `TfwRules.Version` 59, to be renumbered at integration; no protocol, wire or `MusouSim.Version` change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-32CEC47F` | Big Orks twice (Musou) | every Nob and Big Shoota Nob comes **2** times where one came before: a crowd's elite squad's Nobs (the twin 1.5 m aside, in the crowd's group, swarming with it), a Boss Ork's retinue's Nobs, the commander's escort (**2** Nobs, the 5 'Ard Boyz as before), an… (x) | confidence: medium; notes: ours | owner 2026-11-10 ("2x of them spawn compared to before"); the twin's and the second post's places ours | Big Orks twice (Musou): compare with SM1 by feel or video. Ours: every Nob and Big Shoota Nob comes 2 times where one came before: a… | ☐ |
 
 ## Part C: Deliberate changes (keep or revert after playtest)
 
@@ -4259,6 +4265,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-FEB84D7D` | Musou: the big Orks against the map (musou-big-ork-deaths, owner 2026-11-09) | No Musou Mode in the original | Ours (the owner: "boss enemies are getting stuck along objects and moving in slow motion"): a big body's vertical reach and shooting eye grow with its height (up to 3x: 4.5 m), a Boss Ork's lean off a wall no longer slows him, a big body's blocked step slides along the wall. `SM_MUSOU_OLD_BIG_BODIES=1` restores them | Musou Mode only. spec "Musou Mode: the big Orks' deaths and gait" | Musou: the big Orks against the map (musou-big-ork-deaths…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-42BA83D8` | Musou: the Orks' pace and charge (musou-big-ork-deaths, owner 2026-11-09) | No Musou Mode in the original | Ours (the owner: "make orks run 20% faster, and sprint to 'charge' the enemy when they reach within 30m of an enemy"): every Ork on foot 1.2x his speed (elites, bosses and the Warboss included); a melee-first Ork within 30 m of an enemy sprints at the original sprint clip's ratio over the run (at most 9.9 m/s) and… | Musou Mode's war only. spec "Musou Mode: the Orks' pace and charge" | Musou: the Orks' pace and charge (musou-big-ork-deaths…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-07DF5820` | Musou: the Guardsmen meet a charge (musou-big-ork-deaths, owner 2026-11-10; `TfwRules.Version` 58) | No Musou Mode in the original | Ours (the owner: "Rebalance Guards" after the Orks' pace and charge): a Guardsman's hit on a charging Ork does 1.5x damage, so six squads beat sixty charging Boyz again in about the old time while the mixed counterattack and the near army trial stay near their balance; server `SM_MUSOU_GUARD_BRACE=1` restores it | Musou Mode's war only. spec "Musou Mode: the Guardsmen meet a charge" | Musou: the Guardsmen meet a charge (musou-big-ork-deaths…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-AFDFDD67` | Musou: the Orks back at 100 %, twice the big Orks (musou-big-ork-deaths, owner 2026-11-10; `TfwRules.Version` 59) | No Musou Mode in the original | The owner's: "roll back the 20% less orks change" (every bulk Ork count back to before 2026-11-09; the Ork armies stay real Orks alone), "double the amount of scaled up in size orks ... let them exist independent of the cap" (every Nob and Big Shoota Nob twice where one came, off the crowds' and armies' caps) and "up… | Musou Mode's war only. spec "Musou Mode: the Orks back at 100 %, twice the big Orks" | Musou: the Orks back at 100 %, twice the big Orks…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 
 ## Appendix: not gameplay
 
@@ -4482,4 +4489,5 @@ Test aids, probes, demo and capture tooling, and engineering decisions (protocol
 | `R-BE72EE96` | Core messages counted in the Musou budget (Musou) | Musou performance pass and the owner's battle decisions (musou/perf-pass, 2026-11-08; Musou Mode only but FSR 2 and the off-screen effects, which are shared client settings; `TfwRules.Version` 38, no protocol or wire change) |
 | `R-A9655E6C` | Stormboy hop cue's flight (Musou wire) | Musou Mode: smooth crowd motion (crowd-smooth, 2026-11-08; Musou Mode only; `MusouSim.Version` 22, no core protocol bump: `Protocol.Version` stays 64) |
 | `R-476D600F` | Test aid: `--musou-crowd-test` | Musou Mode: the big Orks' deaths and gait (musou-big-ork-deaths, 2026-11-09; Musou Mode only; the deaths and gait client presentation; the bodies against the map in the simulation, `MusouSim.Version` 34, to be renumbered at integration; no protocol change) |
+| `R-F137D8B4` | Test aid: old big spawns | Musou Mode: the Orks back at 100 %, twice the big Orks (musou-big-ork-deaths, 2026-11-10; Musou Mode's war only; `TfwRules.Version` 59, to be renumbered at integration; no protocol, wire or `MusouSim.Version` change) |
 

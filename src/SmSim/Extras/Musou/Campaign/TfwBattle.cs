@@ -39,12 +39,12 @@ public static class TfwBattleRules
     public const float DefenderAggro = 30f;
 
     // The garrison of one position (owner, 2026-11-01: "there is always a consistent ork garrison waiting on each point that never respawns. they defend each point"): it stands leashed on the point from the landing and is never rebuilt.
-    public const int Garrison = 77;   // the owner, 2026-11-02, 2026-11-03 and 2026-11-06: double the Orks of the battle, three times (12, 24, then 48); 96 until 2026-11-09, then 80 % ("reduce the total amount of orks on the map to 80% of current")
+    public const int Garrison = 96;   // 77 (80 %) on 2026-11-09; back to 100 % on 2026-11-10 (the owner: "roll back the 20% less orks change").   // the owner, 2026-11-02, 2026-11-03 and 2026-11-06: double the Orks of the battle, three times (12, 24, then 48); 96 until 2026-11-09, then 80 % ("reduce the total amount of orks on the map to 80% of current")
 
     // The crowds (owner, 2026-11-01): "the orks should pool up at their spawn point until they reach a crowd of 50 orks, then swarm at the player. there should be 3 major spawn points across the map doing this";
     // "pools replace the tide"; "50 per point, 150 total. Each point swarms on its own."
     /// <summary>The crowd of one spawn point: it stands there leashed, one more every <see cref="CrowdFillSeconds"/>, and at this many all of it swarms at once. The owner's number.</summary>
-    public const int CrowdSize = 320;   // the owner, 2026-11-02, 2026-11-03 and 2026-11-06: double, three times (50, 100, then 200; the fill keeps a crowd at about 53 s); 400 until 2026-11-09, then 80 % (the same fill: a crowd in about 43 s)
+    public const int CrowdSize = 400;   // 320 (80 %) on 2026-11-09; back to 100 % on 2026-11-10 (the owner: "roll back the 20% less orks change").   // the owner, 2026-11-02, 2026-11-03 and 2026-11-06: double, three times (50, 100, then 200; the fill keeps a crowd at about 53 s); 400 until 2026-11-09, then 80 % (the same fill: a crowd in about 43 s)
     /// <summary>A crowd's Orks notice a target this near their own places (a crowd wakes as one when any of it does, or is hurt). Ours: a player at the ring (13.5 to 15 m out) wakes a fresh small crowd on the far side of the disc (about 30 m).</summary>
     public const float CrowdAggro = 30f;
 
@@ -52,7 +52,7 @@ public static class TfwBattleRules
     /// A held point adds one Ork to its crowd every this many seconds (the owner's tide of 1 s, now the crowd's fill: 50 s for a crowd). The owner, 2026-11-01: "you have to fully capture a point to disable the spawning
     /// from that point. But it's temporarily paused while the point is being actively captured"; "Orks should begin spawning again immediately".
     /// </summary>
-    public const float CrowdFillSeconds = 5f / 30f;   // 5 ticks: 6 a second, a crowd of 320 in 53 s (2026-11-09, 80 % of the Orks at the same pace; 4 ticks for 400 since 2026-11-06, 8 ticks for 200 before)
+    public const float CrowdFillSeconds = 4f / 30f;   // 4 ticks: 7.5 a second, a crowd of 400 in 53 s again (2026-11-10); back to 100 % on 2026-11-10 (the owner: "roll back the 20% less orks change").   // 5 ticks: 6 a second, a crowd of 320 in 53 s (2026-11-09, 80 % of the Orks at the same pace; 4 ticks for 400 since 2026-11-06, 8 ticks for 200 before)
     /// <summary>
     /// The owner, 2026-11-02: "the reinforcements that spawn at all points pool and then swarm the player even if far away". The alive cap counts the swarms still fighting, so a far crowd could stall under
     /// <see cref="CrowdSize"/> and stand for good: a crowd goes with what it has this long after the point's last swarm (ours; a crowd under no cap fills in 50 s).
@@ -73,7 +73,7 @@ public static class TfwBattleRules
     /// The owner, 2026-11-01: "50 per point, 150 total": the Orks of the crowds and the swarms alive at once, a garrison not counted (it never respawns, 12 a point); 80 more a further human; never over
     /// <see cref="AliveCapMost"/>, which leaves the pool's 2048 slots room for the garrisons and those dying.
     /// </summary>
-    public const int AliveCapSolo = 960, AliveCapPerExtraHuman = 512, AliveCapMost = 1344;   // 1200, 640 and 1680 until 2026-11-09, then 80 % (the owner: "reduce the total amount of orks on the map to 80% of current");   // the owner, 2026-11-02, 2026-11-03 and 2026-11-06: double, three times (150 and 80, 300 and 160, then 600 and 320); the most leaves the pool's 2048 room for the 288 of the garrisons and the reserve
+    public const int AliveCapSolo = 1200, AliveCapPerExtraHuman = 640, AliveCapMost = 1680;   // 960, 512, 1344 (80 %) on 2026-11-09; back to 100 % on 2026-11-10 (the owner: "roll back the 20% less orks change").   // 1200, 640 and 1680 until 2026-11-09, then 80 % (the owner: "reduce the total amount of orks on the map to 80% of current");   // the owner, 2026-11-02, 2026-11-03 and 2026-11-06: double, three times (150 and 80, 300 and 160, then 600 and 320); the most leaves the pool's 2048 room for the 288 of the garrisons and the reserve
     public const int ReleasesPerTick = 6;
 
     // The trickle (owner, 2026-11-01: "re add in the trickling enemies resulting in roughly 2x the current ork enemy count on the map"; every value ours, spec "the trickle"): beside the pools and swarms, each source that sends
@@ -81,7 +81,7 @@ public static class TfwBattleRules
     /// <summary>Seconds between two trickled Orks from one sending source (ours; three held points send two a second together).</summary>
     public const float TrickleSeconds = 0.75f;   // 1.5 s before the owner's third doubling (2026-11-06)
     /// <summary>Most Orks alive (garrisons not counted) while a trickled one is added: the pool's 2048 slots less the garrisons (288), those dying and a margin; so the trickle adds 400 to the crowds' 1200 for one human (the pool's reserve ends it).</summary>
-    public const int TrickleTotalMax = 1280;   // 800 in a pool of 1024 (2026-11-06); 1600 until 2026-11-09, then 80 %
+    public const int TrickleTotalMax = 1600;   // 1280 (80 %) on 2026-11-09; back to 100 % on 2026-11-10 (the owner: "roll back the 20% less orks change").   // 800 in a pool of 1024 (2026-11-06); 1600 until 2026-11-09, then 80 %
     /// <summary>Most trickled Orks alive at once with <paramref name="humans"/> humans: the crowds' cap again, so the map holds about twice <see cref="AliveCap"/>.</summary>
     public static int TrickleCap(int humans) => AliveCap(humans);
 
@@ -122,6 +122,19 @@ public static class TfwBattleRules
 
     /// <summary>The share of elites at <paramref name="progress"/> through the run (0 to 1): 10 % to 60 %.</summary>
     public static float EliteShare(float progress) => EliteBase + EliteSlope * Math.Clamp(progress, 0f, 1f);
+
+    /// <summary>
+    /// The Orks drawn bigger than a Boy (the owner, 2026-11-10: "double boss and elite enemy spawns", then "double the amount of scaled up in size orks ... let them exist independent of the cap"): the Nob and the Big Shoota Nob (the Nob's 3.0 m model for the Boy's 2.15 m) and the four Boss Orks (3x); not the 'Ard Boy (a Boy's size) or the Warboss
+    /// (one a battle, the owner's "None" for the specials). Each Nob and Big Shoota Nob comes <see cref="BigTwins"/> times where one came before (the copy beside him, in his group, crowd, army or post),
+    /// the Boss Orks by their own rules (<see cref="TfwBossOrkRules.MostAlive"/>), and none of them counts against the crowds' cap or the armies' real cap (only the pool), so plain Boyz keep their counts.
+    /// </summary>
+    public static bool Big(MusouEnemyType type) => type is MusouEnemyType.Nob or MusouEnemyType.BigShootaNob || MusouBossOrks.Is(type);
+    /// <summary>Test aid: server <c>SM_TFW_OLD_BIG_SPAWNS=1</c> restores the big Orks' spawns and their place under the caps before 2026-11-10 (the 100 % counts stay).</summary>
+    public static readonly bool OldBigSpawns = Environment.GetEnvironmentVariable("SM_TFW_OLD_BIG_SPAWNS") == "1";
+    /// <summary>How many of each Nob and Big Shoota Nob come where one came before (2; 1 with <see cref="OldBigSpawns"/>).</summary>
+    public static int BigTwins => OldBigSpawns ? 1 : 2;
+    /// <summary>Whether a big Ork stands outside the caps (false with <see cref="OldBigSpawns"/>).</summary>
+    public static bool BigOutsideCaps => !OldBigSpawns;
 
     /// <summary>The run's progress: wins so far of the wins needed; the final assault is 1.</summary>
     public static float RunProgress(int wins, int needed, bool final) => final ? 1f : Math.Clamp(wins / (float)Math.Max(1, needed), 0f, 1f);
@@ -398,7 +411,7 @@ public sealed partial class TfwBattle
     {
         int garrison = 0;
         foreach (var g in _garrisons) garrison += g.Count;
-        return _enemies.Alive - garrison - ArmyOrksAlive;   // the armies' real Orks are the far layer's (expansion S6), outside the crowds' cap
+        return _enemies.Alive - garrison - ArmyOrksAlive - BigsAlive;   // the armies' real Orks are the far layer's (expansion S6), outside the crowds' cap; so are the big Orks (2026-11-10)
     }
 
     /// <summary>The pool's slots the spawners other than the armies use (expansion S6: the armies' real Orks are in their own slots).</summary>
@@ -432,7 +445,9 @@ public sealed partial class TfwBattle
             var type = n * 0.7548776662466927 % 1.0 < TfwBattleRules.EliteArds ? MusouEnemyType.ArdBoy : MusouEnemyType.Nob;
             var at = DiscSpot(CrowdAnchor(point));
             ushort id = _enemies.SpawnLeashed(type, at, FaceCentre(at), Health(type), CrowdGroup(point), TfwBattleRules.CrowdAggro);
-            if (id != 0) _crowds[point].Add(id);
+            if (id == 0) continue;
+            _crowds[point].Add(id);
+            if (TfwBattleRules.Big(type)) { TrackBig(id); SpawnTwins(type, at, FaceCentre(at), Health(type), CrowdGroup(point), TfwBattleRules.CrowdAggro); }   // a Nob twice since 2026-11-10, off the cap and the crowd's head count
         }
         _tideTicks[point] = Ticks(TfwBattleRules.CrowdFillSeconds) * squad;
         _lastTide[point] = _now + Ticks(TfwBattleRules.CrowdFillSeconds) * (squad - 1);   // SendAgain keeps the wait too
@@ -462,6 +477,7 @@ public sealed partial class TfwBattle
     /// </summary>
     void TidyCrowds()
     {
+        TidyBigs();
         foreach (var garrison in _garrisons) garrison.RemoveAll(_notAtPost);   // the garrison is those still at their post
         for (int point = 0; point <= Positions; point++)
         {
@@ -492,12 +508,13 @@ public sealed partial class TfwBattle
     void SpawnCommander()
     {
         SpawnBoss(MusouEnemyType.Warboss, _enemies.Rules.BossHealth * _scale, leashed: true);   // the owner, 2026-11-06: "replace him with the warboss" (was a Nob of CommanderHealth)
-        int escorts = TfwBattleRules.CommanderNobs + TfwBattleRules.CommanderArds;
+        int nobs = TfwBattleRules.CommanderNobs * TfwBattleRules.BigTwins, escorts = nobs + TfwBattleRules.CommanderArds;   // the Nob twice since 2026-11-10 (a big Ork), the 'Ard Boyz as before
         for (int k = 0; k < escorts; k++)
         {
-            var type = k < TfwBattleRules.CommanderNobs ? MusouEnemyType.Nob : MusouEnemyType.ArdBoy;
+            var type = k < nobs ? MusouEnemyType.Nob : MusouEnemyType.ArdBoy;
             float angle = k * MathF.Tau / escorts;
-            _enemies.SpawnLeashed(type, Ground(_layout.Hq + new Vector3(MathF.Cos(angle) * 3f, MathF.Sin(angle) * 3f, 0f), _layout.Hq), angle, Health(type), CommanderGroup, TfwBattleRules.DefenderAggro);
+            ushort escort = _enemies.SpawnLeashed(type, Ground(_layout.Hq + new Vector3(MathF.Cos(angle) * 3f, MathF.Sin(angle) * 3f, 0f), _layout.Hq), angle, Health(type), CommanderGroup, TfwBattleRules.DefenderAggro);
+            if (TfwBattleRules.Big(type)) TrackBig(escort);
         }
         _commander = true;
         _tideTicks[Positions] = Ticks(TfwBattleRules.CrowdFillSeconds);
