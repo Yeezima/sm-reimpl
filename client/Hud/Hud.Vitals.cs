@@ -201,6 +201,8 @@ public sealed partial class Hud
         var bg = _movieArt.Get("vit:bg", (m, s) => m.Hud?.RenderAt($"{Vitals}/background_mc", Vitals, s));
         string armKey = $"vit:a{v}:{aframe}";
         var arm = armourEmpty ? null : _movieArt.Get(armKey, (m, s) => m.Hud?.RenderAt(armourPath, Vitals, s, aframe, halo ? null : PlainArmourFrameOf), "vit:a", 24);
+        VitalsDrawnFor = (halo, d.Shield, d.Health);
+        VitalsArmourCurrent = armourEmpty || arm is not null;
         // A frame's picture is rendered in the background the first time it is asked for: until it is ready the layer keeps the last picture it drew (same variant only; held so that the
         // group's eviction never frees it), so the bar never blanks while the armour or health moves through new frames (regen, damage). A freed picture is never drawn.
         if (arm is not null) { _lastArm = arm; _lastArmVariant = v; _movieArt.Hold("vit:a", armKey); }
@@ -216,6 +218,7 @@ public sealed partial class Hud
             try { return m.Hud?.Render(health.Placement.Character, hframe, s, healthLocal, null, colour: halo ? HealthTint : PlainHealthTint, add: health.Placement.Blend == 8); }
             finally { GfxRaster.Hidden = null; GfxRaster.Swap = null; }
         }, "vit:h", 24);
+        VitalsHealthCurrent = hp is not null;
         if (hp is not null) { _lastHp = hp; _lastHpVariant = v; _movieArt.Hold("vit:h", hpKey); }
         else if (_lastHpVariant == v && Usable(_lastHp)) hp = _lastHp;
         if (bg is not null) DrawAtom(bg, xf, White, false);
@@ -231,6 +234,14 @@ public sealed partial class Hud
 
     HudMovieArt.Pic? _lastArm, _lastHp;
     string? _lastArmVariant, _lastHpVariant;
+
+    /// <summary>
+    /// ui-selftest: the state (Iron Halo, armour, health) the last movie bar was drawn for, and whether its armour and health layers were that state's own pictures: false while one is
+    /// still rendered in the background and the kept picture of an earlier frame stands in (or nothing, after a change of kind). The colour shares above describe the picture drawn.
+    /// </summary>
+    public (bool Halo, float Shield, float Health) VitalsDrawnFor { get; private set; } = (false, float.NaN, float.NaN);
+    public bool VitalsArmourCurrent { get; private set; }
+    public bool VitalsHealthCurrent { get; private set; }
 
     static bool Usable(HudMovieArt.Pic? p) => p is not null && GodotObject.IsInstanceValid(p.Normal) && (p.Add is null || GodotObject.IsInstanceValid(p.Add));
 

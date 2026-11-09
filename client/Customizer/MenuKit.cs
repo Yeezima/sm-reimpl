@@ -151,6 +151,28 @@ public static partial class UiKit
 
         public string Heading { get => _heading.Text; set { _heading.Text = value.ToUpperInvariant(); _heading.Visible = value.Length > 0; } }
 
+        Control? _foot;
+
+        /// <summary>
+        /// A note under the rows that is not one of them (the main menu's OPTIONS: where the game was found, the builds' address). It sits one row under the last row shown, outside the
+        /// scroll list, so it never makes the rows scroll, and stays <see cref="FootMargin"/> inside the window, the list stopping above it when the rows are too many. ui-selftest fix
+        /// (2026-11-10): as the column's last rows it pushed OPTIONS, GRAPHICS past the window once that tab had 17 rows (2026-11-09), so the page scrolled and the note was hidden.
+        /// </summary>
+        public Control? Foot
+        {
+            get => _foot;
+            set
+            {
+                if (_foot is not null) { _foot.MinimumSizeChanged -= Place; RemoveChild(_foot); }
+                _foot = value;
+                if (value is not null) { AddChild(value); value.MinimumSizeChanged += Place; }
+                Place();
+            }
+        }
+
+        /// <summary>The least room under a <see cref="Foot"/>, in the 1080-high UI space.</summary>
+        public const float FootMargin = 12f;
+
         public MenuPage(string name, string heading = "")
         {
             Name = name;
@@ -171,6 +193,7 @@ public static partial class UiKit
             AddChild(_scroll);
             Resized += Place;
             VisibilityChanged += Place;
+            Rows.MinimumSizeChanged += Place;   // a tab's rows changed: the foot follows them
         }
 
         public override void _Ready()
@@ -196,7 +219,19 @@ public static partial class UiKit
             _heading.Position = new Vector2(MenuLeft + 1f, rowsTop - MenuRowHeight * 1.2f);
             _heading.Size = new Vector2(MenuWidth, MenuRowHeight);
             _scroll.Position = new Vector2(MenuLeft + 1f, rowsTop);
-            _scroll.Size = new Vector2(Mathf.Clamp(Size.X - MenuLeft * 2f, 200f, MenuWidth), Mathf.Max(MenuRowHeight * 4f, Size.Y - rowsTop - 56f));
+            float width = Mathf.Clamp(Size.X - MenuLeft * 2f, 200f, MenuWidth);
+            float listHeight = Mathf.Max(MenuRowHeight * 4f, Size.Y - rowsTop - 56f);
+            if (_foot is { } foot)
+            {
+                // One row under the last row shown (where it stood as the column's last rows), never past the window's bottom; the list ends half a row above it.
+                float footHeight = foot.GetCombinedMinimumSize().Y;
+                float shown = Mathf.Min(Rows.GetCombinedMinimumSize().Y, listHeight);
+                float footTop = Mathf.Min(rowsTop + shown + MenuRowHeight, Size.Y - FootMargin - footHeight);
+                listHeight = Mathf.Clamp(footTop - MenuRowHeight * 0.5f - rowsTop, MenuRowHeight * 4f, listHeight);
+                foot.Position = new Vector2(MenuLeft + 1f, footTop);
+                foot.Size = new Vector2(width, footHeight);
+            }
+            _scroll.Size = new Vector2(width, listHeight);
         }
     }
 
