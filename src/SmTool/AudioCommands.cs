@@ -328,6 +328,8 @@ static class AudioCommands
                     var leaves = catalog.DialogueLeaves(evt, prefix);
                     var lengths = leaves.Select(n => catalog.PostNode(n, new SoundSwitches())).Select(p => p.Voices.Count == 0 ? "-" : $"{p.Voices.Max(v => catalog.Duration(v.WemId)):0.0}s");
                     Console.WriteLine($"{character} {evt:x8}/{string.Join("/", prefix.Skip(1).Select(k => k.ToString("x8")))}: {leaves.Count} lines [{string.Join(" ", leaves.Zip(lengths, (n, l) => $"{n:x8}:{l}"))}]");
+                    if (rest.Contains("--wems"))
+                        foreach (var n in leaves) Console.WriteLine($"    {n:x8}: wems {string.Join(",", catalog.PostNode(n, new SoundSwitches()).Voices.Select(v => v.WemId).Distinct())}");
                 }
             return 0;
         }

@@ -71,8 +71,9 @@ public partial class NetworkView
         foreach (var evt in events)
         {
             var emitter = new SoundEmitter { Position = at, Label = $"melee hit on {target}", OneShot = true };
-            ExtrasMeleeHitEmitter(emitter);   // EXTRAS-HOOK: an added mode protects the hit's voices and gives them a tail (Musou Mode, musou/audio-pass)
-            PostPlayerHitSound(evt, emitter, LoudnessArg.MeleeHit, armoured);   // sound/louder-farther: melee hits x2
+            float extraDb = 0f;
+            ExtrasMeleeHitEmitter(emitter, wargear, ref extraDb);   // EXTRAS-HOOK: an added mode protects the hit's voices and gives them a tail; the power sword's stays as the data has it, louder (Musou Mode, musou/audio-pass)
+            PostPlayerHitSound(evt, emitter, extraDb == 0f ? LoudnessArg.MeleeHit : LoudnessArg.MeleeHit.Plus(new VoiceOffset(extraDb)), armoured);   // sound/louder-farther: melee hits x2
         }
         CountSound(secondary ? "melee hit secondary" : "melee hit");
         _meleeHitPosts++;
@@ -100,7 +101,7 @@ public partial class NetworkView
     partial void ExtrasMeleeTarget(PlayerState me, MeleeStep step, ref System.Numerics.Vector3? at, ref bool? armoured);
 
     /// <summary>An added mode's treatment of a melee hit's emitter (Musou Mode: the voices play to their end and ring out, musou/audio-pass); none leaves the emitter as it is.</summary>
-    partial void ExtrasMeleeHitEmitter(SoundEmitter hit);
+    partial void ExtrasMeleeHitEmitter(SoundEmitter hit, string? wargear, ref float extraGainDb);
 
     /// <summary>An added mode's contact feedback for the own strike at its predicted hit (Musou Mode: the slash, flash and shake on the Orks in reach; combat feel 2026-11-09).</summary>
     partial void ExtrasOwnStrikeContact(PlayerState me, MeleeStep step);

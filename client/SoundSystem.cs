@@ -49,6 +49,17 @@ public sealed class SoundEmitter
     /// actions, and through a reverb tail (<see cref="SoundSystem.TailBusOf"/>) so they ring out longer. False everywhere else.
     /// </summary>
     public bool Tail;
+    /// <summary>
+    /// musou/audio-pass (Musou Mode only): the extra layers of the player's own bolter shot sit on an emitter of their own with this set: not stolen at the voice cap, not cut by a Stop action,
+    /// not ducked by the data's Set/Reset actions, no instance limit. Same bus as any sound. False everywhere else.
+    /// </summary>
+    public bool ProtectGun;
+    /// <summary>musou/audio-pass (Musou Mode only): the power sword's hit voices are never stolen at the voice cap; nothing else of them changes (events, Stop actions, buses and limits as the data and the mix pass define). False everywhere else.</summary>
+    public bool NoSteal;
+    /// <summary>musou/audio-pass (Musou Mode only): the listener distance this emitter's voices read their curves at is multiplied by this (1.2 = the curves end at 1/1.2 of their distance: 20 % more falloff). 1 everywhere else.</summary>
+    public float DistanceScale = 1f;
+    /// <summary>musou/audio-pass (Musou Mode only): the emitter's voices are positioned even when the event's own are not (a 2D confirm sound), reading <see cref="AttenuationOverride"/>. False everywhere else.</summary>
+    public bool Positioned;
 
     public Vector3 Current => Follow?.Invoke() ?? Position;
 }
@@ -459,7 +470,7 @@ public partial class SoundSystem : Node
         bool limited = force || Limits == InstanceLimits.All || (Limits == InstanceLimits.Footsteps && footstep);
         UnsupportedActions += play.UnsupportedActions;
         MissingMedia += play.MissingMedia;
-        if (!emitter.Tail) foreach (var (target, delay) in play.Stops) _stops.Add((target, emitter, _now + extraDelay + delay));   // musou/audio-pass: a melee hit's own Stop actions never cut it
+        if (!emitter.Tail && !emitter.ProtectGun) foreach (var (target, delay) in play.Stops) _stops.Add((target, emitter, _now + extraDelay + delay));   // musou/audio-pass: a melee hit's own Stop actions never cut it
         foreach (var a in play.Properties) _properties.Add((_now + extraDelay + a.Delay, a, emitter.Id));
         SwitchActions += play.SwitchSets.Count;
         ApplyStops();   // stops due now act before this event's own voices start
@@ -610,7 +621,7 @@ public partial class SoundSystem : Node
     void Start(Pending p, AudioStreamOggVorbis stream)
     {
         var v = p.Voice;
-        if (v.Is3D && v.Attenuation is not null && p.Emitter.AttenuationOverride is { } curve) v = v with { Attenuation = curve };
+        if (p.Emitter.AttenuationOverride is { } curve && ((v.Is3D && v.Attenuation is not null) || p.Emitter.Positioned)) v = v with { Attenuation = curve, Is3D = true };
         if (v.LoopCount == 0)
         {
             stream = (AudioStreamOggVorbis)stream.Duplicate();   // the cached stream stays one-shot
@@ -651,7 +662,6 @@ public partial class SoundSystem : Node
     bool Audible(Active a)
     {
         var v = a.Voice;
-        if (Shielded(a) && v.LoopCount != 0) return true;   // musou/audio-pass: a protected one-shot is never culled for its level or distance
         float? distance = null;
         if (v.Is3D && v.Attenuation is not null && Distance(a.Emitter) is var (_, d)) distance = Loudness.CurveDistance(d);   // the curve's end read as the mix reads it
         return VoiceAudibility.IsAudible(v.Is3D, v.Attenuation is not null, Loudness.MaxDistanceOf(v.Attenuation), distance, MixOf(a).VolumeDb, _masterDb,
@@ -693,9 +703,9 @@ public partial class SoundSystem : Node
         if (_active.Count(x => x.Player is not null && x.Voice.Is3D == positioned) >= (positioned ? Max3D : Max2D))
         {
             // A crowd's voice (SoundEmitter.Group) takes a player only from its own crowd: it never cuts a player's sounds.
-            var victim = _active.Where(x => x.Player is not null && x.Voice.Is3D == positioned && !Shielded(x) && (a.Emitter.Group is null || x.Emitter.Group == a.Emitter.Group))
+            var victim = _active.Where(x => x.Player is not null && x.Voice.Is3D == positioned && !Unstealable(x) && (a.Emitter.Group is null || x.Emitter.Group == a.Emitter.Group))
                 .OrderBy(x => x.Voice.Priority).ThenBy(x => x.Effective).ThenBy(x => x.Started).FirstOrDefault();
-            if (victim is null || victim.Voice.Priority > a.Voice.Priority && !Shielded(a)) return false;   // musou/audio-pass: a protected voice takes a player whatever the priority
+            if (victim is null || victim.Voice.Priority > a.Voice.Priority && !Unstealable(a)) return false;   // musou/audio-pass: a protected voice takes a player whatever the priority
             // A waiting loop takes over only from a voice at least 6 dB quieter than it would be (no swapping back and forth).
             if (revive && (victim.Voice.Priority == a.Voice.Priority && victim.Effective > EffectiveNow(a) - 6f)) return false;
             Steals++;
@@ -755,14 +765,13 @@ public partial class SoundSystem : Node
         if (camera is null) return (pos, 0f);
         float d = camera.GlobalPosition.DistanceTo(pos);
         if (e.Own) d = Math.Min(d, OwnMinDistance);
-        return (pos, d);
+        return (pos, d * e.DistanceScale);
     }
 
     /// <summary>The voice's live mix: parent chain, buses, RTPCs (distance now, the emitter's parameters as at the start), attenuation, modifiers, and the loudness rule (<see cref="Loudness"/>).</summary>
     VoiceMix MixOf(Active a)
     {
         float? distance = Distance(a.Emitter) is var (_, d) ? d : null;
-        if (FullVoice(a)) distance = 0f;   // musou/audio-pass: the own character's line sits at the loudest point of its curve
         return Loudness.Evaluate(a.Voice, Shielded(a) ? null : _mods, a.Emitter.Id, _now, distance, a.Params, RtpcCap);   // protected voices ignore the data's Set/Reset ducking   // the data's mix with the loudness rule (gain included)
     }
 
@@ -804,9 +813,11 @@ public partial class SoundSystem : Node
     }
 
     /// <summary>Whether a voice is protected (musou/audio-pass): a melee hit's of a <see cref="SoundEmitter.Tail"/> emitter, or the own character's line of a <see cref="SoundEmitter.ProtectSpeech"/> one.</summary>
-    static bool Shielded(Active a) => a.Emitter.Tail || FullVoice(a);
+    static bool Shielded(Active a) => a.Emitter.Tail || a.Emitter.ProtectGun || FullVoice(a);
 
     /// <summary>The own character's line (musou/audio-pass).</summary>
+    static bool Unstealable(Active a) => Shielded(a) || a.Emitter.NoSteal;
+
     static bool FullVoice(Active a) => a.Emitter.ProtectSpeech && IsSpeech(a.Event);
 
     /// <summary>The bus of a voice at a low-pass level: the protected voices' own (only when asked for), else as before.</summary>
