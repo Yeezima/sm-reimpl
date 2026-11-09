@@ -1,6 +1,6 @@
 # New weapons and equipment for Musou Mode: lightning claw, power spear, autocannon, demolition charge (design, 2026-11-10)
 
-**Status:** design, round 5: every owner answer recorded (D1 to D24); ready for his approval. No product code yet. Branch `claude/new-weapons-design`.
+**Status:** approved by the owner as written (2026-11-10); implementer briefs in section 11. No product code yet. Branch `claude/new-weapons-design`.
 
 **Owner's request (2026-11-10, verbatim):** "What cool new gameplay content can we add? Lightning claws for assault marine, Autocannon for devastator
 class ranged weapon that functions like the one in the campaign, new equipments. Start work on lightning claws, power spear for assault marine, auto
@@ -478,7 +478,7 @@ No tripod milestone (D10).
 1. `MpClasses.ExtrasMeleeMap(string wargear, ref WeaponMap?)`: the graph map of an added melee name; the client's `MeleeMapFor` uses it too.
 2. `Loadouts.WieldsHammer` → `ExtrasWieldsHammer(..., ref bool)`: the spear takes the hammer's jump-pack rules.
 3. `PerkCatalog.ExtrasItems(ref list)`: the customizer rows. They appear in Musou's own loadout slots (claude/musou-loadout-slots stores names checked against the catalogue); W0 keeps them out of Classic's slots and lists.
-4. Client `WeaponModels` / `WeaponRig`: `ExtrasWeaponModel(string wargear, ref model)`, a model built in code or loaded from another package.
+4. Client `WeaponModels` / `WeaponRig`: `ExtrasWeaponModel(string wargear, ref model)`, a model built in code or loaded from another package, with an always-worn flag (the claw is never put away; the rig's "always holds its melee weapon" rule applied to one weapon).
 5. Client `ExtrasAnimationAlias(ref string wargear)`: maps an added name to the family it borrows (autocannon → heavy bolter, claw → power sword, spear → thunder hammer). It is applied in the name rules of `HipFireAnimations`, `LocomotionAnimations`, `ReloadAnimations`, `FallAnimations` and the flinch rule.
 6. A clip-speed factor (claw 1.25, spear 0.85) that both the simulation's steps and the client's clip playback read, like the Fast Stomp perk's clip speed (`MeleeTuning.ReadSpeedUpgrades`); W0 checks how the client applies that today.
 
@@ -529,3 +529,100 @@ None left for the approval of this design: every question is decided (D1 to D24)
 - the spear's 0.85× tempo, 12 m reach, 240° width, 12-Ork cap and 150 damage;
 - the impale's 600;
 - the charge's ring (24 m, 16 spots, 1.1 s), its fit to the owner's 600 and 40 m, and the 5 s fallback for a charge that sticks to nothing.
+
+---
+
+## 11. Implementer briefs (W1 to W4; to hand out once W0 is in main)
+
+**Approved** by the owner, 2026-11-10: "i approve the design as written - don't use a fable agent yet until i actually approvate creating the custom animations".
+- The claw uses the sword's moves at 1.25× and the spear the hammer's at 0.85×.
+- No custom animations and no Fable agent until he approves them separately.
+- No downloaded or generated models: models are built in code from the reference descriptions in section 5 (Look) and section 6.3.
+
+**Rules for every implementer:**
+- Never open `config/local.json`.
+- The install is read-only; no original bytes in the repository.
+- Start Godot only through `godot.cmd` (headless; `--windowed` only for a needed still).
+- Servers use `--bind 127.0.0.1`.
+- Kill only your own processes.
+- No full `dotnet test` without the lead's word; targeted tests are fine.
+- Touch only the files your brief lists. W0's call sites and hooks are the way into core and Musou code; a missing hook goes back to the lead, not into a core file.
+- Musou Mode only: Annihilation and Seize Ground unchanged. W0's config-hash pin and the MusouIsolation tests must keep passing.
+- Every number gets a `spec/behavior.md` row (value, units, timing basis, source, kind: data / owner's / estimate / ours). Every "ours" rule gets a `docs/changes-from-original.md` row under section 0. Write only under your milestone's heading, which W0 makes, and add a paragraph to `docs/milestones.md`. Run `smtool refine-register --check`.
+- New visuals pass the UI screenshot gate: player view and third person, in the media previews folder.
+- Each milestone gets an independent review. Report the branch tip to the lead.
+
+The hook names below are W0's proposals; use the names W0 lands with.
+
+### W1: Autocannon (section 4)
+
+- **Branch:** `claude/arsenal-w1-autocannon` from main.
+- **Files you own:**
+  - `src/SmContent/Extras/Musou/Arsenal/Autocannon.cs`: the loyalist twin of `csm_mp_exotic_auto_cannon`, built in code with the numbers of section 4, and its registry entry (a Devastator primary, Musou only).
+  - `src/SmSim/Extras/Musou/Arsenal/AutocannonBlast.cs`: its blast, 2.5 m at every Ork a round strikes, with the bolt blast's rules.
+  - `client/Extras/Musou/Arsenal/Autocannon/*`: model, stow, recoil, effects, sound, HUD.
+  - `tests/SmFormats.Tests/Extras/Musou/Arsenal/Autocannon*.cs` and, for the simulation, `tests/SmNet.Tests/Extras/Musou/Arsenal/Autocannon*.cs`.
+- **Hooks used:** the registry (`Arsenal.cs`); `PerkCatalog.ExtrasItems` (the customizer row: 104314, 104315); `ExtrasWeaponModel` (`turret_aa` at `rig_prop_m_chest`, stowed at `mkr_stow_bolter`); `ExtrasAnimationAlias` (→ heavy bolter); the weapon-blast call site.
+- **Done when:**
+  - The Devastator picks it in a Musou loadout and the Musou customizer, and a Musou slot stores it.
+  - It fires full auto at 0.4 s, 50 a round, and overheats after 15 rounds.
+  - A 2.5 m blast (full to 1.0 m, 30 % at the edge, 15) goes off at every Ork struck, through 5 pierced.
+  - Kills are torn apart, hurt fodder knocked down, others staggered, and there is no frag sound.
+  - Stills check the grip, clipping and the campaign recoil (fallback: the heavy bolter's fire).
+  - Tests cover the spec values, the blast and the Musou-only loadout; builds show 0 errors.
+
+### W2: Lightning claw (section 5)
+
+- **Branch:** `claude/arsenal-w2-claw` from main.
+- **Files you own:**
+  - `src/SmContent/Extras/Musou/Arsenal/LightningClaw.cs`: the `MeleeCombo` from the power sword's map at clip speed 1.25 (every step timing ÷1.25) with every damage ×0.8, appended to the Assault's melee choices in Musou, and its registry entry.
+  - `client/Extras/Musou/Arsenal/Claw/*`: the gauntlet and four talons built in code (section 5's look), always worn on the right hand, the blue crackle on strikes, hit effects and sounds.
+  - `tests/*/Extras/Musou/Arsenal/Claw*.cs`.
+- **Hooks used:** `MpClasses.ExtrasMeleeMap`; the clip-speed factor; `ExtrasWeaponModel` (with its always-worn flag); `ExtrasAnimationAlias` (→ power sword); `PerkCatalog.ExtrasItems` ("Lightning Claw"); the cleave call site (none needed beyond the sword's).
+- **Done when:**
+  - **First:** a player-view and a third-person still of the claw goes to the lead for the owner. Nothing else is built until he answers.
+  - Then: the string X1..X4, the heavies, the stomp, the charge, the dash attack, the ground pound and the air slash with the claw at 1.25×.
+  - A clip compares the simulated hit tick with the clip's contact.
+  - Damage is the sword's ×0.8, with no edge; the pistol stays in the left hand.
+  - Tests; builds show 0 errors.
+
+### W3: Power spear (section 6)
+
+- **Branch:** `claude/arsenal-w3-spear` from main.
+- **Files you own:**
+  - `src/SmContent/Extras/Musou/Arsenal/PowerSpear.cs`: the `MeleeCombo` from the hammer's map at clip speed 0.85, with section 6's damage, its cleave numbers (12 m, 240°, 12 Orks), the impale rule and its registry entry.
+  - `src/SmSim/Extras/Musou/Arsenal/SpearImpale.cs`: the impale on the pound impact, 600 to the enemy nearest within 2 m, a Boss Ork pinned 1 s.
+  - `client/Extras/Musou/Arsenal/Spear/*`: the shaft, fitting and blade built in code (section 6's look; the force staff's shaft only if a still shows it matches), and the spear point-down during the dive.
+  - `tests/*/Extras/Musou/Arsenal/Spear*.cs`.
+- **Hooks used:** `MpClasses.ExtrasMeleeMap`; the clip-speed factor; `ExtrasWieldsHammer` (the hammer's jump-pack rules); the cleave call site (reach, width, target cap, damage); the pound-impact call site (`ExtrasJump`, Impact); `ExtrasWeaponModel`; `ExtrasAnimationAlias` (→ thunder hammer); `PerkCatalog.ExtrasItems` ("Power Spear").
+- **Done when:**
+  - **First:** a still of the spear goes to the lead for the owner, as W2.
+  - Then: the sweeps at 0.85× reach 12 m over 240° and hit at most 12 Orks; the heavies and the slam work.
+  - The impaling dive kills a Nob outright and pins a Boss Ork.
+  - The hop swing and no pound delay work.
+  - A clip compares the hit tick with the contact, and a clip shows the sweep against a crowd.
+  - Tests; builds show 0 errors.
+
+### W4: Remote Detonators (section 7)
+
+- **Branch:** `claude/arsenal-w4-charge` from main.
+- **Files you own:**
+  - `src/SmContent/Extras/Musou/Arsenal/DemolitionCharge.cs`: the `ThrownSpec` from `sm_mp_eq_demolition_charge` with section 7's numbers, appended to every Musou class's equipment, the customizer row ("Remote Detonators", 105800 / 105801), and its registry entry.
+  - `src/SmSim/Extras/Musou/Arsenal/DemolitionChargeRules.cs` and `World.Charge.cs` (a partial in the same folder):
+    - sticking to and riding on Orks, Bosses and contraptions;
+    - the 5 s fuse after it sticks (5 s after the throw for one that never sticks);
+    - the centre blast and the 16 stacking spots on their schedule;
+    - Bosses ×2, up to 80 thrown corpses, the 10 m knockback;
+    - the 30 s refill period.
+  - `client/Extras/Musou/Arsenal/Charge/*`: the melta bomb model, the fuse effect, and the ring drawn from the detonation record (spot placement, effects, a sound on every fourth spot).
+  - `tests/*/Extras/Musou/Arsenal/Charge*.cs`.
+- **Hooks used:** the registry; `PerkCatalog.ExtrasItems`; `ExtrasWeaponModel` (its thrown model); and these call sites: a sticky projectile meeting an Ork or a contraption; a thrown item's own detonation; the per-item refill period.
+- **Coordinate:** the Librarian's equipment list belongs to his session (local_0217dfc2). Agree on the charge's place in it before touching anything of his.
+- **Done when:**
+  - It is thrown and sticks to the level, a contraption, an Ork, a Boss Ork and the Warboss, riding along; the fuse is 5 s.
+  - The damage follows section 7's table at the centre, 20 m and 40 m (a test); spots stack; the centre blast comes first.
+  - Up to 80 corpses fly, survivors are thrown back up to 10 m, and Bosses take ×2.
+  - 1 carried (2 with Favor of the Armory), one back every 30 s.
+  - The client's ring matches the server's spots.
+  - **The measurement:** frame time, tick time, snapshot bytes and event counts with a charge in a 1,000+ Ork crowd, reported to the lead before anything is cut.
+  - Stills and a clip; tests; builds show 0 errors.
