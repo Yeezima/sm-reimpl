@@ -28,8 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2806 spec table rows: **2090 tagged**, 495 not tagged (read from data with high confidence), 221 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 625 rows of the changes document.
-Scanned 2764 spec table rows: **2055 tagged**, 492 not tagged (read from data with high confidence), 217 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 614 rows of the changes document.
+Scanned 2811 spec table rows: **2091 tagged**, 498 not tagged (read from data with high confidence), 222 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 626 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -53,10 +52,8 @@ Scanned 2764 spec table rows: **2055 tagged**, 492 not tagged (read from data wi
 | Networking and render smoothing | 22 | 13 | 13 | 12 | 7 |
 | Core simulation (provisional values) | 556 | 532 | 389 | 156 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 232 | 222 | 124 | 62 | 0 |
-| **All areas** | **2090** | 1844 | 1551 | 668 | 38 |
-| Ork faction | 232 | 221 | 124 | 63 | 0 |
-| **All areas** | **2055** | 1808 | 1523 | 653 | 38 |
+| Ork faction | 233 | 222 | 125 | 63 | 0 |
+| **All areas** | **2091** | 1844 | 1552 | 669 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -64,18 +61,11 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---:|
 | kind: ours | 1162 |
 | confidence: low | 740 |
-| confidence: medium | 682 |
-| notes: ours | 383 |
+| confidence: medium | 683 |
+| notes: ours | 384 |
 | kind: interpretation | 363 |
 | notes: estimate | 172 |
 | kind: estimate | 144 |
-| kind: ours | 1139 |
-| confidence: low | 728 |
-| confidence: medium | 666 |
-| notes: ours | 370 |
-| kind: interpretation | 360 |
-| notes: estimate | 170 |
-| kind: estimate | 136 |
 | confidence: none (low) | 129 |
 | kind: provisional | 99 |
 | kind: user's knowledge | 55 |
