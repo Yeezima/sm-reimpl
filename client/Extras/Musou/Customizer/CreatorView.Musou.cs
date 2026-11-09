@@ -115,6 +115,11 @@ public sealed partial class CreatorView
         label = LoadoutRows.ClassName(_catalog, role, CustomizationCatalog.SpaceMarine);   // the Space Marine side alone
     }
 
+    partial void ExtrasOwnPage(ref bool own)
+    {
+        if (MusouOwnPage) own = true;   // the Librarian's and the Heretic's pages: no slot actions, step keys on the page's own steps
+    }
+
     partial void ExtrasStepCount(ref int count)
     {
         if (!MusouOwnPage) return;

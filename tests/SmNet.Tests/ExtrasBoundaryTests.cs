@@ -78,6 +78,7 @@ public class ExtrasBoundaryTests
         ("client/Customizer/CreatorView.cs", "ExtrasTopLevel"),     // CreatorView.ExtrasTopLevel(ref bool), in BuildSideToggle: the Musou entries instead of the faction buttons
         ("client/Customizer/CreatorView.cs", "ExtrasRefresh"),      // CreatorView.ExtrasRefresh(bool, ref bool), at the start of Refresh: the Librarian's and the Heretic's pages
         ("client/Customizer/CreatorView.cs", "ExtrasRoleLabel"),    // CreatorView.ExtrasRoleLabel(string, ref string), the class tabs and rows: the Space Marine name alone
+        ("client/Customizer/CreatorView.cs", "ExtrasOwnPage"),      // CreatorView.ExtrasOwnPage(ref bool), AddedPage: the Librarian's / Heretic's page hides the slot (no rename, copy, reset, clear; step keys work)
         ("client/Customizer/CreatorView.cs", "ExtrasStepCount"),    // CreatorView.ExtrasStepCount(ref int), the Librarian's five steps
         ("client/Customizer/CreatorView.cs", "ExtrasOpenAppearance"),   // CreatorView.ExtrasOpenAppearance(ref bool), APPEARANCE...: the look the Librarian wears
         ("client/Customizer/CreatorView.cs", "ExtrasDeploy"),       // CreatorView.ExtrasDeploy(ref bool), DEPLOY: PLAY AS LIBRARIAN on his page

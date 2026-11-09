@@ -855,7 +855,7 @@ public sealed partial class CreatorView : Control
 
     void RenameSlot()
     {
-        if (OpenClass is not { } c || !_rename!.Visible) return;   // a page without the slot buttons (Musou Mode's Librarian) renames nothing
+        if (AddedPage || OpenClass is not { } c) return;   // an added page (Musou Mode's Librarian, Heretic) hides the slot: nothing to rename
         int slot = _open.Slot;
         UiKit.Dialog.Prompt(this, Host, "Rename loadout", $"Up to {LoadoutEdits.MaxNameLength} characters. Empty goes back to \"{LoadoutEdits.DefaultName(slot)}\".", c.Name, ["Rename", "Cancel"], (i, text) =>
         {
@@ -867,7 +867,7 @@ public sealed partial class CreatorView : Control
 
     void CopySlot()
     {
-        if (IsEmpty || !_copy!.Visible) return;
+        if (AddedPage || IsEmpty) return;
         int from = _open.Slot;
         bool fromDefaults = IsDefaults;
         string role = Role;
@@ -896,7 +896,7 @@ public sealed partial class CreatorView : Control
 
     void ResetSlot()
     {
-        if (OpenClass is null) return;
+        if (AddedPage || OpenClass is null) return;
         int slot = _open.Slot;
         UiKit.Dialog.Open(this, Host, "Reset this loadout?", "Weapons, equipment and perks go back to the class defaults. The name, class and look stay.", ["Reset", "Cancel"], i =>
         {
@@ -908,7 +908,7 @@ public sealed partial class CreatorView : Control
 
     void ClearSlot()
     {
-        if (OpenClass is not { } c) return;
+        if (AddedPage || OpenClass is not { } c) return;
         int slot = _open.Slot;
         UiKit.Dialog.Open(this, Host, "Clear this loadout?", $"\"{c.Name}\" in slot {slot} is removed.", ["Clear", "Cancel"], i =>
         {
@@ -987,7 +987,7 @@ public sealed partial class CreatorView : Control
         switch (key.PhysicalKeycode)
         {
             case Key.S when ctrl: Save(); break;
-            case Key.F2: RenameSlot(); break;
+            case Key.F2 when !AddedPage: RenameSlot(); break;   // an added page has no slot to rename: the key is not taken
             case Key.Pagedown: MoveStep(1); break;
             case Key.Pageup: MoveStep(-1); break;
             case Key.Tab when ctrl: MoveStep(key.ShiftPressed ? -1 : 1); break;
@@ -1006,8 +1006,8 @@ public sealed partial class CreatorView : Control
             {
                 case JoyButton.LeftShoulder: MoveStep(-1); break;
                 case JoyButton.RightShoulder: MoveStep(1); break;
-                case JoyButton.X: CopySlot(); break;
-                case JoyButton.Y: RenameSlot(); break;
+                case JoyButton.X when !AddedPage: CopySlot(); break;   // copy and rename act on the open slot, which an added page hides
+                case JoyButton.Y when !AddedPage: RenameSlot(); break;
                 case JoyButton.Start: Save(); break;
                 default: return;
             }
@@ -1017,13 +1017,27 @@ public sealed partial class CreatorView : Control
 
     void MoveStep(int delta)
     {
-        if (IsEmpty) return;
+        if (IsEmpty && !AddedPage) return;   // an empty slot has only its class list; an added page has steps of its own whatever the hidden slot holds
         _step = (Step)(((int)_step + delta + StepCount) % StepCount);
         Refresh(focusList: false);
     }
 
     /// <summary>Focuses the first control (screens and tests).</summary>
     public void FocusList() => Refresh(true);
+
+    /// <summary>
+    /// An added page is drawn in this frame instead of the creator's own (Musou Mode's Librarian and Heretic): the open slot is hidden there, so the slot actions (rename, copy, reset, clear,
+    /// with their keys F2, pad Y and pad X) do nothing and leave the keys alone, and the step keys move through the page's own steps whatever the slot holds.
+    /// </summary>
+    bool AddedPage
+    {
+        get
+        {
+            bool own = false;
+            ExtrasOwnPage(ref own);   // EXTRAS-HOOK: Musou Mode's Librarian and Heretic pages
+            return own;
+        }
+    }
 
     /// <summary>The class tab's and class row's label: both sides' class names ("Tactical Marine / Chaos Space Marine"), unless an added mode names its own.</summary>
     string RoleLabel(string role)
@@ -1051,6 +1065,9 @@ public sealed partial class CreatorView : Control
 
     /// <summary>A class tab's or class row's label (<see cref="RoleLabel"/>).</summary>
     partial void ExtrasRoleLabel(string role, ref string label);
+
+    /// <summary>Whether added content draws its own page now (<see cref="AddedPage"/>).</summary>
+    partial void ExtrasOwnPage(ref bool own);
 
     /// <summary>The number of steps (the step buttons, PageUp/PageDown).</summary>
     partial void ExtrasStepCount(ref int count);

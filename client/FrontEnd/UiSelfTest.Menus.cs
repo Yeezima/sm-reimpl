@@ -131,6 +131,24 @@ public sealed partial class UiSelfTest
                     Check("musou customizer: Standard Marines, Librarian and Heretic in place of the factions",
                         musouCreator.FindChild("MusouStandardMarines", true, false) is not null && musouCreator.FindChild("MusouLibrarian", true, false) is not null
                         && musouCreator.FindChild("MusouHeretic", true, false) is not null && musouCreator.FindChild("FactionChaos", true, false) is null);
+                    // The Librarian's page hides the open slot (review 2026-11-10): F2 and pad X / Y act on nothing there, and the step keys work even when the hidden slot is empty.
+                    if (musouCreator.FindChild("MusouLibrarian", true, false) is Button librarianEntry && musouCreator.FindChild("MusouStandardMarines", true, false) is Button marinesEntry)
+                    {
+                        var emptySlot = Enumerable.Range(1, SmContent.Customization.CustomizationProfile.MaxCustomClasses).FirstOrDefault(n => _services.Session!.Working.ClassAt(n) is null);
+                        if (emptySlot > 0) musouCreator.OpenSelection(SmContent.Customization.Selection.CustomSlot(emptySlot));
+                        librarianEntry.ButtonPressed = true;
+                        await Frames(3);
+                        string before = musouCreator.CurrentStep;
+                        await SendKey(Key.Pagedown);
+                        Check("musou customizer: PageDown moves the Librarian's step with an empty slot behind it", emptySlot > 0 && musouCreator.CurrentStep != before, $"{before} -> {musouCreator.CurrentStep} (slot {emptySlot})");
+                        await SendKey(Key.F2);
+                        await SendPad(JoyButton.Y);
+                        await SendPad(JoyButton.X);
+                        Check("musou customizer: F2, pad Y and pad X open no rename or copy prompt on the Librarian's page", OpenDialog() is null && !_services.Session!.Dirty);
+                        OpenDialog()?.QueueFree();
+                        marinesEntry.ButtonPressed = true;
+                        await Frames(3);
+                    }
                     await SendKey(Key.Escape);
                     await Frames(2);
                     Check("musou customizer: BACK returns to the Musou page", musouPage.Visible && !musouCreator.Visible && _services.Content == ContentExtras.Musou, _services.Content.ToString());
