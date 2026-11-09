@@ -178,8 +178,11 @@ public sealed record Leave(uint Session) : Message;
 /// <see cref="Protocol.MaxSnapshotShots"/>, and only while the snapshot stays within <see cref="Protocol.SnapshotBudget"/>
 /// bytes; at least <see cref="Protocol.MinSnapshotShots"/> always fit), and leaves out any whose shooter has no record in
 /// <paramref name="Players"/>. Null reads as none.
+/// <paramref name="InputSlack"/> (protocol 65, net/responsive): for the recipient's inputs of the ticks run since the previous snapshot, the least time in ms from an
+/// input's first arrival to the run of its tick (negative: a tick ran without it, the server repeated the last one), or <see cref="Protocol.NoSlack"/>. Lead and slack
+/// travel as 16-bit values (±32767, clamped).
 public sealed record Snapshot(uint ServerTick, uint LastInputTick, int InputLead, PlayerState[] Players, int Self = 0, ProjectileView[]? Projectiles = null,
-    MatchView? Match = null, KillView[]? Kills = null, ControlPointView[]? Points = null, HitView? Hits = null, ShotView[]? Shots = null) : Message;
+    MatchView? Match = null, KillView[]? Kills = null, ControlPointView[]? Points = null, HitView? Hits = null, ShotView[]? Shots = null, int InputSlack = Protocol.NoSlack) : Message;
 
 /// <summary>
 /// A shot for effects (protocol 16, 9 bytes): who fired (<paramref name="Shooter"/>, a player id that has a record in the same
@@ -491,7 +494,10 @@ public static partial class Protocol
     // 64 (headshot medal and scoreboard; the owner 2026-11-07: "add a +50 points to score as well as a headshot medal icon"): a kill-feed entry's cause code 6 is a weapon
     //     kill on the head (KillView.Headshot; the entry stays 9 bytes, snapshots unchanged); each scoreboard row carries the player's headshot kills and assists (u8 each, after
     //     the flags byte; fullest scoreboard 1161 -> 1193 bytes). The score (50 a kill, 50 more a headshot: ScoreRules) follows from the counts.
-    public const ushort Version = 64;
+    // 65 (net/responsive; the owner 2026-11-09: "buffering as low as it can go while still playing well"): the snapshot's 4-byte input lead becomes a 2-byte lead and a
+    //     2-byte input slack (Snapshot.InputSlack: ms between the arrival of the recipient's input for each tick and that tick's run, the least since the previous snapshot;
+    //     negative: a tick ran without it), so the client steers its lead to a tick plus the measured jitter. Snapshot size unchanged.
+    public const ushort Version = 65;
     /// <summary>The kill-feed cause code of a weapon kill on the head (protocol 64; <see cref="KillView.Headshot"/>).</summary>
     public const int HeadshotCauseCode = 6;
     /// <summary>Most spectators a server admits and a Scoreboard lists (protocol 46), so the Scoreboard stays within one packet.</summary>
@@ -592,6 +598,10 @@ public static partial class Protocol
     public const int MaxMapName = 24;
     public const int MaxInputsPerBatch = 16;
     public const int NoLead = int.MinValue;
+    /// <summary>A snapshot's input slack when no input of the recipient's was due since the previous snapshot (protocol 65).</summary>
+    public const int NoSlack = int.MinValue;
+    static short ToWire16(int value, int none) => value == none ? short.MinValue : (short)Math.Clamp(value, -short.MaxValue, short.MaxValue);
+    static int FromWire16(short value, int none) => value == short.MinValue ? none : value;
 
     enum Kind : byte
     {
@@ -706,7 +716,7 @@ public static partial class Protocol
                 }
                 break;
             case Snapshot s:
-                w.U8((byte)Kind.Snapshot); w.U32(s.ServerTick); w.U32(s.LastInputTick); w.I32(s.InputLead);
+                w.U8((byte)Kind.Snapshot); w.U32(s.ServerTick); w.U32(s.LastInputTick); w.I16(ToWire16(s.InputLead, NoLead)); w.I16(ToWire16(s.InputSlack, NoSlack));   // protocol 65
                 // Projectiles (14 bytes each): id u16, weapon u8, stage u8, flags u8, position 3 × i24 (1/64 m).
                 var projectiles = s.Projectiles ?? [];
                 int count = Math.Min(projectiles.Length, MaxSnapshotProjectiles);
@@ -1004,7 +1014,7 @@ public static partial class Protocol
 
     static Snapshot? ReadSnapshot(ref Reader r)
     {
-        uint tick = r.U32(), last = r.U32(); int lead = r.I32();
+        uint tick = r.U32(), last = r.U32(); int lead = FromWire16(r.I16(), NoLead), slack = FromWire16(r.I16(), NoSlack);   // protocol 65
         int m = r.U8();
         if (m > MaxSnapshotProjectiles) return null;
         var projectiles = new ProjectileView[m];
@@ -1179,7 +1189,7 @@ public static partial class Protocol
             if (armoured && (ShotHit)hit is not (ShotHit.Body or ShotHit.Head)) return null;       // only player hits strike armour
             shots[k] = new ShotView(players[index].PlayerId, weapon, stage, (ShotHit)hit, surface == UnknownSurface ? -1 : surface, players[index].Position + offset, age, armoured);
         }
-        return new Snapshot(tick, last, lead, players, self, projectiles, match, kills, points, hits, shots);
+        return new Snapshot(tick, last, lead, players, self, projectiles, match, kills, points, hits, shots, slack);
     }
 
     /// <summary>Whether a shot can travel: a weapon index 0..254, a stage 0..7, a known hit kind and a finite end point.</summary>

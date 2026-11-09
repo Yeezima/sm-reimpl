@@ -1,5 +1,6 @@
 using System.Threading.Tasks;
 using Godot;
+using SmNet.Extras.Musou.Campaign;
 using SmSim.Extras.Musou.Campaign;
 using Num = System.Numerics;
 
@@ -37,6 +38,12 @@ public partial class NetworkView
     async Task TfwSwarmShots(int shot)
     {
         if (!CmdFlag("tfw-swarm-shots") || _client is not { } client) return;
+        if (CmdFlag("tfw-fight-capture"))   // capture banners (2026-11-10): above the point being captured only, its banner and circle in the middle
+        {
+            int near = TfwMarkerRules.OnPosition(_tfwState.Objectives, client.Predicted.Position);
+            if (near >= 0) await TfwOverhead($"capture-{shot:00}", _tfwState.Objectives[near].Position);
+            return;
+        }
         await TfwOverhead($"swarm-{shot:00}", client.Predicted.Position);
         for (int k = 0; k < TfwBattle.CommanderObjective && k < _tfwState.Objectives.Count; k++)
             if (_tfwState.Objectives[k].State == TfwPositionState.Held) await TfwOverhead($"pool-{(char)('A' + k)}-{shot:00}", _tfwState.Objectives[k].Position);

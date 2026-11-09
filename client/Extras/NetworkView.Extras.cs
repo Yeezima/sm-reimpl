@@ -35,6 +35,7 @@ public partial class NetworkView
                 else ExtrasUnknownSections++;
             }
         LoyalistBarksFrame(me, others, delta, _barkSections);
+        MusouSoundAbFrame();   // musou/sound-ab: the A/B sound switches (Musou Mode only; every other mode puts them back as they were)
         MusouFrame(me, others, delta, _musouSections);
         Ph("tfw: guards, armies");   // musou/perf-pass: --frame-profile's phase
         TfwFrame(me, others, delta, _tfwSections);

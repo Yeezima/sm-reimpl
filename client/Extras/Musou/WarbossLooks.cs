@@ -55,9 +55,10 @@ public sealed class WarbossLooks
         Find(MusouLooks.Idle, WarbossRig.Idle);
         Find(MusouLooks.Attack, WarbossRig.Attack);
         Find(MusouLooks.Stagger, WarbossRig.Stagger);
-        Find(MusouLooks.Death, WarbossRig.Death);
+        Find(MusouLooks.Death, MusouCrowd.OldBigOrks ? WarbossRig.OldDeath : WarbossRig.Death);
         var any = clips[MusouLooks.Idle] ?? clips[MusouLooks.Run];
         if (any is null && rig.Rig.AnimationNames.FirstOrDefault() is { } first) any = rig.Animation(first);   // a still pose rather than none
+        clips[MusouLooks.Sprint] ??= clips[MusouLooks.Run];   // no sprint of its own: the run (2026-11-09)
         for (int i = 0; i < clips.Length; i++) clips[i] ??= any;
         notes.Add($"warboss: rig {WarbossRig.Entry}: {rig.Rig.Skeleton.BoneNames.Count} bones, {rig.Rig.AnimationNames.Count} clips; run {names[MusouLooks.Run] ?? "none"}, idle {names[MusouLooks.Idle] ?? "none"}, " +
                   $"attack {names[MusouLooks.Attack] ?? "none"}, stagger {names[MusouLooks.Stagger] ?? "none"}, death {names[MusouLooks.Death] ?? "none"}");
@@ -119,7 +120,12 @@ public sealed class WarbossLooks
             }
             if (list.Count == 0 || read.Clips.All(c => c is null)) { Failed = true; Notes.Add("warboss: no mesh or no clip to draw; the Nob body is drawn instead"); return null; }
             Height = top > bottom ? top - bottom : 0f;
-            return Look = new MusouLooks.Look { Name = "Warboss:" + WarbossRig.BodyVisual, Assets = new MarineAssets(read.Rig, list, textured, surfaces, pieces.Notes), Scale = 1f, Clips = read.Clips };
+            return Look = new MusouLooks.Look
+            {
+                Name = "Warboss:" + WarbossRig.BodyVisual, Assets = new MarineAssets(read.Rig, list, textured, surfaces, pieces.Notes), Scale = 1f, Clips = read.Clips,
+                // musou-big-ork-deaths (2026-11-09): the get-up backwards is his death (WarbossRig.DeathReversed), only when that clip was found
+                ReversedClip = WarbossRig.DeathReversed && !MusouCrowd.OldBigOrks && read.Clips[MusouLooks.Death]?.Name.Contains("Get_Up", StringComparison.OrdinalIgnoreCase) == true ? MusouLooks.Death : -1,
+            };
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {

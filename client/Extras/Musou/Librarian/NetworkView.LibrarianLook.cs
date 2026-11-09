@@ -57,6 +57,32 @@ public partial class NetworkView
         menu.AddRow(LibrarianRowText, () => PickLibrarian("the Esc menu"));
     }
 
+    /// <summary>
+    /// The customizer's Librarian page in this match's picker (Musou Mode's customizer, owner 2026-11-10; client/Extras/Musou/Customizer/CreatorView.Musou.cs): its PLAY AS LIBRARIAN takes the Esc menu row's
+    /// path with the look the page shows (the active loadout's, saved first as DEPLOY saves), and a Librarian's picker opens on his page. Called when the Esc menu is built (<see cref="ExtrasMatchMenu"/>).
+    /// </summary>
+    void LibrarianCustomizer()
+    {
+        if (_pickerCreator is not { } creator || !MusouActive) return;
+        creator.MusouLibrarianDeploy = LibrarianFromCustomizer;
+        if (_config is not null && _client is { } client && LibrarianRules.IsLibrarian(_config, client.Predicted.Class) && creator.MusouLayout)
+            creator.MusouOpen(SmContent.Extras.Musou.MusouCustomizerEntry.Librarian);
+    }
+
+    /// <summary>PLAY AS LIBRARIAN on the customizer's page: null when he was picked, else why not.</summary>
+    string? LibrarianFromCustomizer()
+    {
+        if (_client is not { Status: ClientStatus.Connected } client || !LibrarianOffered(client.Predicted, out _))
+            return "The Librarian is picked in the Stormbird, alive, while the war runs" + (_client is { } c && _config is not null && LibrarianRules.IsLibrarian(_config, c.Predicted.Class) ? " (you are one now)." : ".");
+        AppearanceCode? sm = null, chaos = null;
+        if (_pickerServices is { Session: { } session } services)
+        {
+            if (session.Dirty && session.Save() is { } error) return "Could not save your looks: " + error;
+            if (services.PlanFor() is { } plan) { sm = plan.SpaceMarineLook; chaos = plan.ChaosLook; }
+        }
+        return PickLibrarian("the customizer", sm, chaos) ? null : "The Librarian is not on offer now.";
+    }
+
     double _coopLibrarianCycle = -1;
 
     /// <summary>The position of <paramref name="item"/> in a class's choice list (equipment or perks), or -1.</summary>
@@ -85,7 +111,8 @@ public partial class NetworkView
     /// Sends the Librarian's class as the loadout (his sword is the first melee choice; he carries nothing else) with the player's current looks, as DEPLOY would, and lets <see cref="TfwClassFrame"/> send the
     /// class change once the server has the Setup. Returns false when he is not on offer now.
     /// </summary>
-    bool PickLibrarian(string from)
+    /// <param name="spaceMarine">The look to wear (the customizer's Librarian page: the active loadout's, as it shows him); null: the look in effect now.</param>
+    bool PickLibrarian(string from, AppearanceCode? spaceMarine = null, AppearanceCode? chaosLook = null)
     {
         if (_client is not { Status: ClientStatus.Connected } client || !LibrarianOffered(client.Predicted, out int index)) return false;
         var me = client.Predicted;
@@ -95,8 +122,8 @@ public partial class NetworkView
         int equipment = IndexOfEquipment(Loadouts.EquipmentChoices(cfg, index), me.Equipment);
         int perk1 = IndexOfEquipment(Loadouts.PerkChoices(cfg, index), me.Perk1), perk2 = IndexOfEquipment(Loadouts.PerkChoices(cfg, index), me.Perk2);
         var choice = new LoadoutChoice(Class: index, Melee: 0, Equipment: Math.Max(0, equipment), Perk1: perk1, Perk2: perk2 == perk1 ? -1 : perk2);
-        var sm = _ownLooks.Active(Team.SpaceMarines);
-        var chaos = _ownLooks.Active(Team.Chaos);
+        var sm = spaceMarine ?? _ownLooks.Active(Team.SpaceMarines);
+        var chaos = chaosLook ?? _ownLooks.Active(Team.Chaos);
         _lastSetupSequence = client.ChangeSetup(choice, sm, chaos, _ownOrkLook);
         _setupSent = true; _setupSentAt = _connectedFor; _ackShownUntil = double.MaxValue;
         _sentClass = index; _ackLogged = 0;

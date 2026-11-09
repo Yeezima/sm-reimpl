@@ -237,8 +237,9 @@ public class SpreadTests
             Weapons = [Bolter with { Damage = 0f }, Stalker with { Damage = 0f, Variants = [new([Burst], Stalker.Variants[0].Spec with { Damage = 0f })] }] };
         var link = new LinkConditions(TimeSpan.FromMilliseconds(75), TimeSpan.FromMilliseconds(40), 0.08);
         var h = new Harness(link, seed, 0, config, new SmServer.ServerOptions { PeerTimeout = TimeSpan.FromMinutes(5) });
-        h.AddClient(nonce: 100, options: new ClientOptions { RequestedClass = 0, RequestedPrimary = 0 });
-        h.AddClient(nonce: 101, options: new ClientOptions { RequestedClass = 1, RequestedPrimary = 1, RequestedPerk1 = 1 });
+        // net/responsive: the old lead steering (a lead of about 5): this checks determinism through 8 % loss and 40 ms jitter, which needs inputs that survive several losses in a row
+        h.AddClient(nonce: 100, options: new ClientOptions { RequestedClass = 0, RequestedPrimary = 0, SmoothInputLead = false });
+        h.AddClient(nonce: 101, options: new ClientOptions { RequestedClass = 1, RequestedPrimary = 1, RequestedPerk1 = 1, SmoothInputLead = false });
         PlayerInput Input(int i, uint t)
         {
             var move = Harness.Scripted(i, t);

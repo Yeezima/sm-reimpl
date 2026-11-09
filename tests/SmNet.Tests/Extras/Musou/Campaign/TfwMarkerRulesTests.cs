@@ -64,4 +64,26 @@ public class TfwMarkerRulesTests
         Assert.Equal("CLEARING A  45%  ·  12 ORKS", TfwMarkerRules.OnPointLine(securing with { State = TfwPositionState.Clearing }, 0, 12));
         Assert.Equal("HQ", TfwMarkerRules.TileName(WarRules.Positions));
     }
+
+    [Fact]
+    public void CaptureBannerAndCircle()
+    {
+        var o = new TfwObjective(0, TfwPositionState.Held, 0f, Point, Radius);
+        // the Orks hold it: red banner, complete circle
+        Assert.False(TfwMarkerRules.BannerImperial(o));
+        Assert.Equal(1f, TfwMarkerRules.CircleFill(o), 3);
+        Assert.Equal(1f, TfwMarkerRules.CircleFill(o with { State = TfwPositionState.Locked, Progress = 0.4f }), 3);
+        // the players capture it: the circle unwinds to nothing half way, then draws itself complete; the banner stays red until secured
+        var securing = o with { State = TfwPositionState.Securing, Progress = 0.25f };
+        Assert.Equal(0.5f, TfwMarkerRules.CircleFill(securing), 3);
+        Assert.Equal(0f, TfwMarkerRules.CircleFill(securing with { Progress = 0.5f }), 3);
+        Assert.Equal(0.5f, TfwMarkerRules.CircleFill(securing with { State = TfwPositionState.Clearing, Progress = 0.75f }), 3);
+        Assert.False(TfwMarkerRules.BannerImperial(securing with { Progress = 0.99f }));
+        // secured: blue banner, complete circle; the Orks retaking it (its hold falling) unwind and redraw it the same way
+        var secured = o with { State = TfwPositionState.Secured, Progress = 1f };
+        Assert.True(TfwMarkerRules.BannerImperial(secured));
+        Assert.Equal(1f, TfwMarkerRules.CircleFill(secured), 3);
+        Assert.Equal(0f, TfwMarkerRules.CircleFill(secured with { Progress = 0.5f }), 3);
+        Assert.Equal(0.6f, TfwMarkerRules.CircleFill(secured with { Progress = 0.2f }), 3);
+    }
 }

@@ -477,9 +477,12 @@ public sealed partial class PreviewStage : SubViewportContainer
         var look = subject.Look is { } own && own.Race == subject.Race ? own : AppearanceProfile.Empty("", subject.Race, "Default look");
         var c = subject.Custom;   // carried weapons and perks pick class pieces too (e.g. the Havoc's Iron Halo), so they are part of the key
         string key = options.Key + "|" + ProfileWire.ToCode(look, catalog) + "|" + string.Join(",", c?.Primary, c?.Pistol, c?.Perk(0), c?.Perk(1));
+        Func<ResolvedAppearance, ResolvedAppearance>? dress = null;
+        ExtrasDress(ref dress, ref key);   // EXTRAS-HOOK: an added class's pieces over the look, as the match puts them on (Musou Mode: the Librarian's armour)
         if (key == _shownKey && _character is not null) return true;
         var resolved = AppearanceEdits.Resolve(catalog, look, subject.Role, subject.Custom, assets.ResolveOptions().PadTakesDecal);
         if (resolved is null) { _status.Text = "No class data for this preview."; _dirty = false; return false; }
+        if (dress is not null) resolved = dress(resolved);
         assets.Prefetch(resolved);
         var model = assets.TryBuild(resolved);
         if (model is null)
@@ -591,11 +594,13 @@ public sealed partial class PreviewStage : SubViewportContainer
             string? melee = loadout is null || loadout.MeleeChoices.Count == 0 ? null
                 : choice.Melee >= 0 && choice.Melee < loadout.MeleeChoices.Count ? loadout.MeleeChoices[choice.Melee].Wargear : loadout.MeleeChoices[0].Wargear;
             var jump = Loadouts.JumpPack(config, cls);
-            string key = $"{cls}|{primary}|{pistol}|{melee}|{jump?.Name}";
+            bool meleeInHand = jump is not null;   // a jump-pack class holds its melee weapon (the match's rule)
+            ExtrasWeapons(ref primary, ref pistol, ref melee, ref meleeInHand);   // EXTRAS-HOOK: an added class's own weapons (Musou Mode: the Librarian's force sword in hand, no gun)
+            string key = $"{cls}|{primary}|{pistol}|{melee}|{jump?.Name}|{meleeInHand}";
             if (key == _weaponKey) return;
             _weaponKey = key;
             _rig.Configure((cls, primary?.GetHashCode() ?? 0, pistol?.GetHashCode() ?? 0, melee, key), primary, pistol, melee,
-                jump is null ? Array.Empty<string?>() : new string?[] { jump.Name }, jump is not null);
+                jump is null ? Array.Empty<string?>() : new string?[] { jump.Name }, meleeInHand);
             _holdPistol = HoldsPistol(primary, pistol);
             _deployed = DeployedWargear(primary, pistol, melee);
         }
@@ -605,6 +610,15 @@ public sealed partial class PreviewStage : SubViewportContainer
             lock (_services.Notes) _services.Notes.Add($"preview weapons: {ex.GetType().Name}: {ex.Message}");
         }
     }
+
+    /// <summary>
+    /// Hook for added content (docs/added-content.md; client/Extras/Musou/Customizer/PreviewStage.Musou.cs): <paramref name="dress"/> set to put pieces on over the resolved look, and
+    /// <paramref name="key"/> extended so the dressed model is cached apart. Returns at once unless its content profile is on.
+    /// </summary>
+    partial void ExtrasDress(ref Func<ResolvedAppearance, ResolvedAppearance>? dress, ref string key);
+
+    /// <summary>Hook for added content: the wargear in the preview's hands and on its back (null: none), after the class's own.</summary>
+    partial void ExtrasWeapons(ref string? primary, ref string? pistol, ref string? melee, ref bool meleeInHand);
 
     /// <summary>The idle clip the shown character plays (test aid and log): the bolt pistol's relaxed idle for every marine class, the boy's own idle for the Ork.</summary>
     public string? IdleClip { get; private set; }

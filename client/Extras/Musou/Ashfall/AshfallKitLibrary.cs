@@ -105,6 +105,11 @@ public sealed class AshfallKitLibrary
     public int TextureMax { get; set; } = 1024;
     /// <summary>Whether LODs are generated at load. <c>--ashfall-lods off</c> turns it off.</summary>
     public bool GenerateLods { get; set; } = true;
+    /// <summary>The models drawn inside the battle arena (kit-hi-res, owner 2026-11-09: "all the 3d assets used in the main play map are high res"): their textures keep <see cref="HighTextureMax"/>.
+    /// Fill before <see cref="Request"/>; empty, every model gets <see cref="TextureMax"/>.</summary>
+    public HashSet<string> HighDetail { get; } = [];
+    /// <summary>Largest texture side kept for <see cref="HighDetail"/> models (ours: the source files' 2048).</summary>
+    public int HighTextureMax { get; set; } = AshfallKitDetail.ArenaTextureMax;
 
     readonly ConcurrentDictionary<string, Asset> _done = new();
     readonly ConcurrentQueue<string> _ready = new();
@@ -126,6 +131,7 @@ public sealed class AshfallKitLibrary
     /// <summary>Ids that finished since the last call (loaded or failed), oldest first.</summary>
     public List<string> TakeReady()
     {
+        while (_toFree.TryDequeue(out var t)) t.Dispose();   // the files' full-size textures, released on the main thread (LoadOne)
         if (_ready.IsEmpty) return NoneReady;   // no allocation on the frames with nothing new (review)
         var list = new List<string>();
         while (_ready.TryDequeue(out var id)) list.Add(id);
@@ -198,7 +204,13 @@ public sealed class AshfallKitLibrary
             }
             if (pieces.Count == 0) return Fail(id, "no mesh in the file", watch);
             float luma = MeasureLuma(pieces);
-            var (bytes, note) = ShrinkTextures(pieces);
+            var (bytes, note) = ShrinkTextures(pieces, HighDetail.Contains(id) ? HighTextureMax : TextureMax);
+            // kit-hi-res: the file's own textures were uploaded at their full size when the glTF was read; once the materials hold the shrunk copies, let them go (the state's list and
+            // our wrappers), or a 2048 px file keeps its full-size textures in video memory beside the 1024 px copies (measured in old-GPU mode: docs/musou-ashfall-graybox.md)
+            // (freed on the main thread: TakeReady; a GL texture freed on a loader thread crashed the Compatibility renderer)
+            state.SetImages([]);
+            foreach (var t in _released) _toFree.Enqueue(t);
+            _released.Clear();
             return new Asset { Id = id, Pieces = [.. pieces], Ms = watch.Elapsed.TotalMilliseconds, Triangles = triangles, LodSurfaces = lodSurfaces, TextureBytes = bytes, TextureNote = note, Luma = luma };
         }
         catch (Exception e) when (e is not (StackOverflowException or AccessViolationException or OutOfMemoryException))
@@ -265,8 +277,12 @@ public sealed class AshfallKitLibrary
         return n == 0 ? 0f : (float)(sum / n);
     }
 
-    /// <summary>Resizes each material's textures to <see cref="TextureMax"/> and block-compresses them; returns the VRAM estimate and a note.</summary>
-    (long Bytes, string Note) ShrinkTextures(List<Piece> pieces)
+    /// <summary>Resizes each material's textures to <paramref name="textureMax"/> and block-compresses them; returns the VRAM estimate and a note.</summary>
+    readonly ConcurrentQueue<Texture2D> _toFree = new();
+    [ThreadStatic] static List<Texture2D>? _releasedList;
+    static List<Texture2D> _released => _releasedList ??= [];
+
+    (long Bytes, string Note) ShrinkTextures(List<Piece> pieces, int textureMax)
     {
         long bytes = 0;
         var replaced = new Dictionary<Texture2D, Texture2D>();
@@ -288,13 +304,13 @@ public sealed class AshfallKitLibrary
                     {
                         other = tex;
                         var img = tex.GetImage();
-                        if (img is not null && TextureMax > 0)
+                        if (img is not null && textureMax > 0)
                         {
                             string before = $"{img.GetWidth()}x{img.GetHeight()}";
                             bool normal = slot == BaseMaterial3D.TextureParam.Normal;
                             int max = Math.Max(img.GetWidth(), img.GetHeight());
                             if (img.IsCompressed()) img.Decompress();   // Resize fails on a compressed image
-                            if (max > TextureMax) { float k = (float)TextureMax / max; img.Resize(Math.Max(1, (int)(img.GetWidth() * k)), Math.Max(1, (int)(img.GetHeight() * k)), Image.Interpolation.Lanczos); }
+                            if (max > textureMax) { float k = (float)textureMax / max; img.Resize(Math.Max(1, (int)(img.GetWidth() * k)), Math.Max(1, (int)(img.GetHeight() * k)), Image.Interpolation.Lanczos); }
                             if (img.IsCompressed()) img.Decompress();
                             img.GenerateMipmaps(normal);
                             img.Compress(Image.CompressMode.S3Tc, normal ? Image.CompressSource.Normal : Image.CompressSource.Generic);
@@ -303,6 +319,7 @@ public sealed class AshfallKitLibrary
                             bytes += img.GetData().Length;
                         }
                         replaced[tex] = other;
+                        if (!ReferenceEquals(other, tex)) _released.Add(tex);
                     }
                     if (!ReferenceEquals(other, tex)) m.SetTexture(slot, other);
                 }

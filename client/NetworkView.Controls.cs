@@ -129,7 +129,7 @@ public partial class NetworkView
         var (kind, key, target, length) = ClipTargetOf(me);
         if (kind == ClipKind.None) { _ownClip.Stop(); NoteShownAttack(me.PlayerId, kind, 0f); return null; }
         if (NoOwnClipSmoothing) { if (kind == ClipKind.Attack) _ownClipShown = target; _ownClip.Stop(); NoteShownAttack(me.PlayerId, ClipKind.None, 0f); return null; }
-        float shown = _ownClip.Step(key, target, _client.ClipFraction, _config.TickSeconds, length);
+        float shown = _ownClip.Step(key, target, _client.ClipFraction, _config.TickSeconds, length, _client.ClipLead);   // net/responsive: a tick ahead with the drawn position
         NoteShownAttack(me.PlayerId, kind, shown);
         if (kind == ClipKind.Attack) _ownClipShown = shown;   // --latency-probe: the drawn attack time
         return new SmoothClip(kind, shown);
@@ -140,6 +140,6 @@ public partial class NetworkView
     {
         if (!me.Alive || !me.Throwing) { _ownThrow.Stop(); return null; }
         if (NoOwnClipSmoothing || _client is null || _config is null) return me.ThrowTime;
-        return _ownThrow.Step(1, me.ThrowTime, _client.ClipFraction, _config.TickSeconds);
+        return _ownThrow.Step(1, me.ThrowTime, _client.ClipFraction, _config.TickSeconds, lead: _client.ClipLead);
     }
 }

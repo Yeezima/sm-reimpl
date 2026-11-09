@@ -116,7 +116,7 @@ public class TfwArmyTests
         for (int k = 0; k < 10000; k++)
         {
             int size = TfwArmyRules.WaveSize((k + 0.5f) / 10000f, (k * 0.618f) % 1f);
-            if (size == 160) small++; else if (size == 400) medium++; else { Assert.InRange(size, 800, 960); large++; }   // 200, 500, 1000 to 1200 until 2026-11-09 (80 % since)
+            if (size == 200) small++; else if (size == 500) medium++; else { Assert.InRange(size, 1000, 1200); large++; }   // 160, 400, 800 to 960 on 2026-11-09 (80 %); back to 100 % since 2026-11-10
         }
         Assert.Equal((7000, 2500, 500), (small, medium, large));
     }
@@ -327,7 +327,7 @@ public class TfwArmyTests
         {
             battle.Step(near);
             ticks++;
-            Assert.Equal(120, orks.Count);
+            Assert.Equal(120, orks.Count);   // the old aggregates make no twin (2026-11-10)
             Assert.True(orks.Real <= TfwArmyRules.PromotePerTick * ticks);
         }
         Assert.Equal(0, orks.FarCount);

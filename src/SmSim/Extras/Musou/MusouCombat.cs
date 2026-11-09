@@ -86,7 +86,7 @@ public sealed partial class MusouSim
         _scripted[i] = false; _drive[i] = Vector2.Zero; _driveTicks[i] = 0;
     }
 
-    float SpeedScale(int i) => _frenzyTicks > 0 && _type[i] != MusouEnemyType.Warboss ? _frenzyScale : 1f;
+    float SpeedScale(int i) => (_frenzyTicks > 0 && _type[i] != MusouEnemyType.Warboss ? _frenzyScale : 1f) * PaceOf(i);   // MusouSim.Charge.cs: the Orks' pace and charge (2026-11-09)
 
     /// <summary>The drive of this tick (and one tick less of it).</summary>
     Vector2 Driven(int i)

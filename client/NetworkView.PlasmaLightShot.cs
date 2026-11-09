@@ -27,7 +27,7 @@ public partial class NetworkView
 
     /// <summary>Whether this shot of this weapon is drawn as a small charged shot.</summary>
     bool LightBallApplies(WeaponEffects w, WeaponSpec spec, int stage, bool projectileShot) =>
-        !OldLightBolt && PlasmaBoltOn && stage == 0 && !projectileShot && PlasmaLightShot.Applies(w.Wargear) && PlasmaLightShot.ChargedStage(spec) > 0;
+        OldPlasmaLook && !OldLightBolt && PlasmaBoltOn && stage == 0 && !projectileShot && PlasmaLightShot.Applies(w.Wargear) && PlasmaLightShot.ChargedStage(spec) > 0;
 
     sealed class LightBall
     {
@@ -40,6 +40,8 @@ public partial class NetworkView
         public int Frames;
         public Vector3 Pos, Dir = Vector3.Down;
         public MeshInstance3D? Node;
+        /// <summary>The trail effects' follow, made once per ball (review minor: it was a new closure per trail effect).</summary>
+        public Func<(Vector3 Position, Basis Axes)?>? Follow;
     }
 
     readonly List<LightBall> _lightBalls = new();
@@ -52,6 +54,8 @@ public partial class NetworkView
         if (size < 1f && CmdFlag("bolt-fx-charged")) return 0.083f;   // capture aid: the demo draws the charged reference only
         int stage = PlasmaLightShot.ChargedStage(spec);
         float distance = from.DistanceTo(end);
+        // Review minor (plasma-original-fx): a ball that cannot be drawn (no effect player or projectile root yet, or a shot too short for StartLightBall) is not launched, and its impact does not wait for it.
+        if (_fx is null || _projectileRoot is null || _config is null || _catalogue is null || distance < 0.4f) return 0f;
         float chargedSpeed = Shots.ProjectileOf(spec, stage)?.Speed ?? 0f;
         float speed = size >= 1f ? MathF.Max(chargedSpeed, 1f) : PlasmaLightShot.FlightSpeed(chargedSpeed);   // size 1: the --bolt-fx-charged capture reference, at the charged ball's own speed
         float wait = PistolRaiseWait(shooter, spec);   // fx/visuals-2: a pistol still coming up releases the ball from the raised muzzle
@@ -109,7 +113,7 @@ public partial class NetworkView
         var node = _lightBallPool.Count > 0 ? _lightBallPool.Pop() : NewProjectileNode();
         node.Mesh = mesh; node.MaterialOverride = material;
         node.Scale = Vector3.One * b.Size;
-        node.Position = _projectileRoot.ToLocal(from); node.Visible = true;   // the projectile root is in game space, the ball's place is in world space
+        node.Position = _projectileRoot.ToLocal(from); node.Visible = PlasmaBallMeshShown;   // the projectile root is in game space, the ball's place is in world space; plasma-original-fx: no mesh in the original look (the --bolt-fx-charged reference)
         b.Node = node; b.Live = true;
         // The charged projectile's trail effects (FxProjectile), at 0.75 of their size, following the ball.
         var spec = _config.Weapons[b.Index];
@@ -118,9 +122,9 @@ public partial class NetworkView
             foreach (var p in trail)
             {
                 var e = _fx.Play(p.Name, from, AxesFromY(Vector3.Down), (p.Scale <= 0f ? 1f : p.Scale) * b.Size, null,
-                    () => b.Live ? (b.Pos, AxesFromY(-b.Dir)) : null,
+                    b.Follow ??= () => b.Live ? (b.Pos, AxesFromY(-b.Dir)) : null,
                     p.Lifetime > 0f ? p.Lifetime : 8f, 0.0, false, 1, tint: RaceTint(b.W.Wargear, p.Name));
-                if (e is not null) { e.StopOnLost = true; e.SoftHead = !OldTrailSlab; _lightBallTrails++; }
+                if (e is not null) { e.StopOnLost = true; e.SoftHead = !OldTrailSlab && OldPlasmaLook; e.WidthAlongTrail = OriginalPlasmaLook; _lightBallTrails++; }
             }
         return true;
     }

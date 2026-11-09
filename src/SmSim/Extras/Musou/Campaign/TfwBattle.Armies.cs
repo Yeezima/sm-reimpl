@@ -41,6 +41,12 @@ public sealed partial class TfwBattle
     public IReadOnlyList<TfwArmy> ArmyList => _armies;
     /// <summary>The armies' real Orks alive now (outside the crowds' pool and cap).</summary>
     public int ArmyOrksAlive { get; private set; }
+    /// <summary>Of <see cref="ArmyOrksAlive"/>, the big Orks (<see cref="TfwBattleRules.Big"/>), left out of the armies' real cap since 2026-11-10 (the owner: "let them exist independent of the cap").</summary>
+    public int ArmyBigAlive { get; private set; }
+    /// <summary>The armies' real Orks the real cap counts.</summary>
+    int ArmyCapped => ArmyOrksAlive - ArmyBigAlive;
+    /// <summary>The pool's slots that are the armies' (expansion S6: the last 512; every other spawner keeps to <see cref="TfwBattleRules.CrowdPool"/>): their bodies, twins included, never pass it.</summary>
+    public const int ArmySlots = MusouSim.Capacity - TfwBattleRules.CrowdPool;
     /// <summary>Guard squads the armies own now.</summary>
     public int ArmySquads { get; private set; }
     /// <summary>Guardsmen of the aggregates lost in far clashes (the war's count of the battle's losses adds them to the real ones).</summary>
@@ -153,13 +159,13 @@ public sealed partial class TfwBattle
     /// <summary>Every army's dead are forgotten and counted; its real men and elites are counted.</summary>
     void TidyArmies()
     {
-        int orks = 0, squads = 0;
+        int orks = 0, squads = 0, bigs = 0;
         foreach (var a in _armies)
         {
             int real = 0, elites = 0;
             for (int j = a.Orks.Count - 1; j >= 0; j--)
             {
-                if (_enemies.TryGet(a.Orks[j], out var e) && e.Alive) { real++; if (Leader(e.Type)) elites++; continue; }
+                if (_enemies.TryGet(a.Orks[j], out var e) && e.Alive) { real++; if (Leader(e.Type)) elites++; if (TfwBattleRules.BigOutsideCaps && TfwBattleRules.Big(e.Type)) bigs++; continue; }
                 a.Orks.RemoveAt(j); a.OrkSlots.RemoveAt(j);
                 a.Lost++;
             }
@@ -178,6 +184,7 @@ public sealed partial class TfwBattle
             if (a.Orks.Count == 0 && a.Squads.Count == 0 && !a.Near) a.SlotBase = 0;   // all aggregate again, far from everyone: its slots start at the front
         }
         ArmyOrksAlive = orks;
+        ArmyBigAlive = bigs;
         ArmySquads = squads;
     }
 
@@ -299,9 +306,23 @@ public sealed partial class TfwBattle
     {
         PromoteOrks(a, ref budget);
         if (a.Far < 1f) return;
-        int room = Math.Max(0, Math.Min(TfwArmyRules.NearOrksMost - ArmyOrksAlive, MusouSim.Capacity - TfwBattleRules.PoolReserve - _enemies.Alive));
+        int pool = Math.Max(0, Math.Min(ArmySlots - ArmyOrksAlive, MusouSim.Capacity - TfwBattleRules.PoolReserve - _enemies.Alive));   // the armies' own slots (review fix 2026-11-10)
+        int room = Math.Max(0, Math.Min(TfwArmyRules.NearOrksMost - ArmyCapped, pool));
         if (a.FarCount <= room) return;
-        int drop = a.FarCount - room;
+        int keep = room;
+        if (TfwBattleRules.BigOutsideCaps)   // 2026-11-10: the queue's big Orks take no room under the real cap (only the pool's, twice over); it keeps men down its slots until the room's worth of the others
+        {
+            int capped = 0, bodies = 0;
+            room = Math.Max(0, TfwArmyRules.NearOrksMost - ArmyCapped);
+            for (keep = 0; keep < a.FarCount && capped < room && bodies < pool; keep++)
+            {
+                bool big = TfwBattleRules.Big(TfwArmyLayout.OrkType(a.SlotBase + keep, a.FarEliteShare));
+                if (!big) capped++;
+                bodies += big ? TfwBattleRules.BigTwins : 1;
+            }
+        }
+        if (a.FarCount <= keep) return;
+        int drop = a.FarCount - keep;
         OrksNeverMade += drop;
         if (a.Far > 0f) a.FarElites = MathF.Max(0f, a.FarElites * (1f - drop / a.Far));
         a.Far = MathF.Max(0f, a.Far - drop);
@@ -318,7 +339,7 @@ public sealed partial class TfwBattle
         foreach (var (d, a) in _byDistance)
         {
             if (!a.Near || a.FarCount < 1) continue;
-            if (a.Side == TfwArmySide.Ork && OrkAggregates && float.IsNaN(orkWant) && ArmyOrksAlive > TfwArmyRules.NearOrksMost - TfwArmyRules.PromotePerTick) orkWant = d;
+            if (a.Side == TfwArmySide.Ork && OrkAggregates && float.IsNaN(orkWant) && ArmyCapped > TfwArmyRules.NearOrksMost - TfwArmyRules.PromotePerTick) orkWant = d;
             if (a.Side == TfwArmySide.Guard && float.IsNaN(squadWant) && ArmySquads >= TfwArmyRules.NearSquadsMost) squadWant = d;
         }
         if (float.IsNaN(orkWant) && float.IsNaN(squadWant)) return;
@@ -336,10 +357,12 @@ public sealed partial class TfwBattle
     void PromoteOrks(TfwArmy a, ref int budget)
     {
         float aggro = a.Order is TfwArmyOrder.March or TfwArmyOrder.Retreat ? TfwArmyRules.MarchAggro : TfwArmyRules.AttackAggro;
-        while (budget > 0 && a.FarCount >= 1 && ArmyOrksAlive < TfwArmyRules.NearOrksMost && _enemies.Alive < MusouSim.Capacity - TfwBattleRules.PoolReserve)
+        while (budget > 0 && a.FarCount >= 1 && ArmyCapped < TfwArmyRules.NearOrksMost && _enemies.Alive < MusouSim.Capacity - TfwBattleRules.PoolReserve)
         {
             int slot = a.SlotBase;
             var type = TfwArmyLayout.OrkType(slot, a.FarEliteShare);
+            int bodies = TfwBattleRules.Big(type) && !OrkAggregates ? TfwBattleRules.BigTwins : 1;
+            if (ArmyOrksAlive + bodies > ArmySlots) break;   // review fix 2026-11-10: the armies keep to their own slots, twins and all, so the crowds' pool and its reserve (the commander) stay theirs
             var spot = TfwArmyLayout.Slot(a.Side, a.Width, a.Anchor, a.Yaw, slot);   // where the client's impostor of this slot stood
             var at = Ground(spot, a.Order is TfwArmyOrder.March or TfwArmyOrder.Retreat && a.Way is not null ? WaySlot(a, slot).Home : a.Anchor);
             ushort id = _enemies.SpawnLeashed(type, at, a.Yaw, Health(type), a.Group, aggro, keepYaw: true);   // an army made real keeps its march facing (a fresh spawn faces the centre: owner 2026-11-09)
@@ -352,6 +375,13 @@ public sealed partial class TfwBattle
             ArmyOrksAlive++;
             Promoted++;
             budget--;
+            if (TfwBattleRules.Big(type) && TfwBattleRules.BigOutsideCaps) ArmyBigAlive++;
+            if (TfwBattleRules.Big(type) && !OrkAggregates)   // 2026-11-10: a Nob twice over (his twin beside his slot, a man of the army), and off the real cap; not with the old aggregates (a test aid: they fold back by slot)
+            {
+                var twins = new List<ushort>(1);
+                SpawnTwins(type, at, a.Yaw, Health(type), a.Group, aggro, twins, track: false);
+                foreach (ushort twin in twins) { a.Orks.Add(twin); a.OrkSlots.Add(slot); a.Real++; a.RealElites++; a.Twins++; a.Start++; ArmyOrksAlive++; if (TfwBattleRules.BigOutsideCaps) ArmyBigAlive++; }
+            }
         }
     }
 

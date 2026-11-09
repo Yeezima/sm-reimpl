@@ -51,6 +51,7 @@ public sealed class SquigLooks
         Find(MusouLooks.Death, SquigRig.Death);
         var any = clips[MusouLooks.Idle] ?? clips[MusouLooks.Run];
         if (any is null && rig.Rig.AnimationNames.FirstOrDefault() is { } first) any = rig.Animation(first);
+        clips[MusouLooks.Sprint] ??= clips[MusouLooks.Run];   // no sprint of its own: the run (2026-11-09)
         for (int i = 0; i < clips.Length; i++) clips[i] ??= any;
         notes.Add($"squig: rig {SquigRig.Entry}: {rig.Rig.Skeleton.BoneNames.Count} bones, {rig.Rig.AnimationNames.Count} clips; run {names[MusouLooks.Run] ?? "none"}, idle {names[MusouLooks.Idle] ?? "none"}, " +
                   $"attack {names[MusouLooks.Attack] ?? "none"}, stagger {names[MusouLooks.Stagger] ?? "none"}, death {names[MusouLooks.Death] ?? "none"}");

@@ -28,6 +28,11 @@ public partial class NetworkView
     readonly HashSet<ushort> _weirdboySeen = new();
     readonly List<ushort> _weirdboyGone = new();
     readonly Dictionary<ushort, Num.Vector3> _weirdboyAt = new();
+    /// <summary>His bolt (muzzle, trail, hit) and his shield draw at priority 1 (ours, 2026-11-09): in a war's crowd the 160 live effects are full of gunfire, and at the default 0 the cap's eviction of
+    /// the oldest lowest one took his shield bubble and could take a bolt in flight, as the Stormboy's jets and the Meks' sparks are kept.</summary>
+    const int WeirdboyFxPriority = 1;
+    /// <summary>His bolts drawn since the start (a capture's check).</summary>
+    public int WeirdboyBoltsDrawn { get; private set; }
 
     /// <summary>A cue of his (<see cref="MusouEventKind.Telegraph"/> with a value of <see cref="MusouWeirdboy"/>'s): its effects. False for any other value.</summary>
     bool MusouWeirdboyCue(in MusouEvent e, IReadOnlyList<MusouShown> shown)
@@ -47,16 +52,17 @@ public partial class NetworkView
                 var a = ToGodot(from); var b = ToGodot(to);
                 var along = (b - a).LengthSquared() > 1e-6f ? (b - a).Normalized() : Vector3.Up;
                 var axes = AxesAlong(along);
-                _fx.Play("weirdboy_staff_muzzle", a, axes, 1f);
+                _fx.Play("weirdboy_staff_muzzle", a, axes, 1f, priority: WeirdboyFxPriority);
                 ulong start = Time.GetTicksMsec();
                 var bolt = _fx.Play("weirdboy_staff_trail", a, axes, 1f, follow: () =>
                 {
                     float t = Math.Clamp((Time.GetTicksMsec() - start) / 1000f / MathF.Max(0.01f, flight), 0f, 1f);
                     return t >= 1f ? null : (a.Lerp(b, t), axes);
-                }, lifetime: flight + 0.5f);
+                }, lifetime: flight + 0.5f, priority: WeirdboyFxPriority);
+                WeirdboyBoltsDrawn++;
                 if (bolt is not null) bolt.StopOnLost = true;
                 if (_catalogue?.Resolve(new FxMaterialTrigger(WeirdboyBoltHits, "hit_material"), SmSim.ShotHit.World, 0) is { Count: > 0 } hits)
-                    foreach (var p in hits) _fx.Play(p.Name, b, up, p.Scale <= 0f ? 1f : p.Scale, delay: flight);
+                    foreach (var p in hits) _fx.Play(p.Name, b, up, p.Scale <= 0f ? 1f : p.Scale, delay: flight, priority: WeirdboyFxPriority);
                 break;
             }
             case MusouWeirdboy.ShieldBreakCue:
@@ -113,7 +119,7 @@ public partial class NetworkView
             if (up && !has)
             {
                 ushort id = s.Id;
-                var shield = _fx.Play("weirdboy_shield", ToGodot(s.Position + new Num.Vector3(0f, 0f, WeirdboyChest)), Basis.Identity, 1f, repeat: true, follow: () =>
+                var shield = _fx.Play("weirdboy_shield", ToGodot(s.Position + new Num.Vector3(0f, 0f, WeirdboyChest)), Basis.Identity, 1f, repeat: true, priority: WeirdboyFxPriority, follow: () =>
                     _weirdboyAt.TryGetValue(id, out var at) ? (ToGodot(at + new Num.Vector3(0f, 0f, WeirdboyChest)), Basis.Identity) : null);
                 if (shield is not null) { shield.StopOnLost = true; _weirdboyShields[id] = shield; }
             }
@@ -126,6 +132,20 @@ public partial class NetworkView
             _weirdboyAt.Remove(id);
             if (_weirdboyShields.Remove(id, out var fx)) fx.Life = Math.Min(fx.Life, fx.Age + 0.2);
         }
+    }
+
+    /// <summary>Capture aid <c>--tfw-fight-weirdboy</c> (the Weirdboy bolt capture, 2026-11-09): the nearest Weirdboy shown within 80 m, for the scripted fighter to look at; null without the flag or one.</summary>
+    Num.Vector3? WeirdboyLook(Num.Vector3 me)
+    {
+        if (!CmdFlag("tfw-fight-weirdboy")) return null;
+        Num.Vector3? best = null;
+        float bestD = 80f;
+        foreach (var at in _weirdboyAt.Values)
+        {
+            float d = Num.Vector3.Distance(at, me);
+            if (d < bestD) { bestD = d; best = at; }
+        }
+        return best;
     }
 
     /// <summary>An effect's axes with its Y column along <paramref name="along"/> (the player's convention).</summary>

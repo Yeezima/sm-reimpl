@@ -27,7 +27,8 @@ public static class GuardHoldTrial
     public static float Elite => TfwBattleRules.EliteShare(0.5f);
 
     /// <summary>One counterattack, seeded: the crowd's bearing, its distance (35 to 55 m), its disc and the tick it starts on vary; the rest is the simulation's.</summary>
-    public static Outcome Run(int seed, GuardRules? rules = null, int crowd = TfwBattleRules.CrowdSize, float elite = -1f)
+    /// <param name="twins">How many of each Nob come (the battle's <see cref="TfwBattleRules.BigTwins"/> by default; 1: as before 2026-11-10).</param>
+    public static Outcome Run(int seed, GuardRules? rules = null, int crowd = TfwBattleRules.CrowdSize, float elite = -1f, int twins = -1)
     {
         if (elite < 0f) elite = Elite;
         const float half = 90f;
@@ -57,6 +58,8 @@ public static class GuardHoldTrial
             float a = (n + s) * 2.399963f, r = TfwBattleRules.SpawnDisc * MathF.Sqrt(Unit(Mix((uint)n + s * 7919u, 0x7469646Bu)));
             var at = from + new Vector3(MathF.Cos(a) * r, MathF.Sin(a) * r, 0f);
             Assert.NotEqual((ushort)0, sim.Spawn(type, at, facing + MathF.PI, sim.Rules.Of(type).Health));
+            for (int t = 1; TfwBattleRules.Big(type) && t < (twins < 1 ? TfwBattleRules.BigTwins : twins); t++)   // a Nob twice since 2026-11-10, as the battle's crowds bring him (TfwBattle.SpawnTwins)
+                Assert.NotEqual((ushort)0, sim.Spawn(type, at + new Vector3(1.5f, 0f, 0f), facing + MathF.PI, sim.Rules.Of(type).Health));
         }
 
         var targets = new MusouTarget[GuardSim.MaxSquads + 1];
@@ -89,11 +92,11 @@ public static class GuardHoldTrial
 
     static float Unit(uint h) => (h >> 8) / 16777216f;
 
-    public static Outcome[] RunSeeds(int seeds, GuardRules? rules = null, int crowd = TfwBattleRules.CrowdSize, float elite = -1f)
+    public static Outcome[] RunSeeds(int seeds, GuardRules? rules = null, int crowd = TfwBattleRules.CrowdSize, float elite = -1f, int twins = -1)
     {
         var all = new Outcome[seeds];
-        all[0] = Run(1, rules, crowd, elite);   // builds the shared floor and graph before the threads read them
-        Parallel.For(1, seeds, k => all[k] = Run(k + 1, rules, crowd, elite));
+        all[0] = Run(1, rules, crowd, elite, twins);   // builds the shared floor and graph before the threads read them
+        Parallel.For(1, seeds, k => all[k] = Run(k + 1, rules, crowd, elite, twins));
         return all;
     }
 }
@@ -102,12 +105,14 @@ public class GuardHoldTrialTests(ITestOutputHelper output)
 {
     /// <summary>
     /// The owner's target (2026-11-08: "near clash balance should match far clash balance", the far clash being even man for man): about half (40 to 60 %) of 20 seeded counterattacks of as many
-    /// Orks as the field has men (60) held (10 of 20 at <see cref="GuardRules.Strength"/> 0.875; about a minute on 8 cores).
+    /// Orks as the field has men (60) held (10 of 20 at <see cref="GuardRules.Strength"/> 0.875; at the Orks' pace and charge of 2026-11-09 8, with the volley into a charge of 2026-11-10, <see cref="GuardRules.ChargeDamageScale"/> 1.5, 12; with every Nob twice (2026-11-10) 1, and at the strength of 1.1 that followed the same day 10; about a minute on 6 cores).
     /// </summary>
     [Fact]
     [Trait("Speed", "Slow")]
     public void The_guard_hold_wins_about_half_of_twenty_seeded_counterattacks_of_its_own_size()
     {
+        // The crowd as the battle brings it: every Nob twice (2026-11-10's twice the big Orks). At 0.875 the field held 1 of 20 with the twins (12 with one of each); the owner raised the
+        // Guardsmen's strength to 1.1 the same day ("Raise the guards to 1.1"), which brings it back to 10 (spec "Musou Mode: the Orks back at 100 %, twice the big Orks").
         var all = GuardHoldTrial.RunSeeds(20, crowd: GuardHoldTrial.Men);
         foreach (var o in all) output.WriteLine(o.ToString());
         int held = all.Count(o => o.Held);

@@ -137,6 +137,9 @@ public sealed partial class AppearanceView : Control
     /// <summary>Opens the look of a custom loadout (its slot number) on a race; <paramref name="section"/> picks the section ("chapter", "armour", "colours", "badges", "eyes").</summary>
     public void Open(int slot, string race, string? section = null)
     {
+        // A race the screens offer (Classic offers both sides; Musou Mode's players are Space Marines only, so a Chaos side choice of the lobby opens their side).
+        var offered = _services.Factions().Where(f => _catalog.Race(f.Race) is not null).ToList();
+        if (offered.Count > 0 && !offered.Any(f => f.Race == race)) race = offered[0].Race;
         _slot = slot; _race = race;
         _armourSlot = null; _part = null; _channel = PaintChannel.Primary; _slotPage = 0;
         _undo.Clear();

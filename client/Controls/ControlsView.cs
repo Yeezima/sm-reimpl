@@ -35,6 +35,12 @@ public sealed partial class ControlsView : Control
     public string Status => _status.Text;
     /// <summary>Whether a new binding is being waited for.</summary>
     public bool Capturing => _capture is not null;
+    /// <summary>The time after a capture starts in which inputs are ignored (the press that opened the entry), seconds.</summary>
+    public const double CaptureGuardSeconds = 0.15;
+    /// <summary>Test aid (ui-selftest): a capture is waiting and past <see cref="CaptureGuardSeconds"/>, so the next input binds.</summary>
+    public bool CaptureReady => _capture is not null && Time.GetTicksMsec() / 1000.0 - _captureAt >= CaptureGuardSeconds;
+    /// <summary>Test aid (ui-selftest): a Swap / Replace / Cancel or reset prompt is open (a capture cannot start).</summary>
+    public bool DialogOpen => _dialogOpen;
     /// <summary>The bindings being edited (a copy; every change is already saved and in use).</summary>
     public BindingSet Working => _set;
     public Button TabKeyboard => _tabKeyboard;
@@ -249,7 +255,7 @@ public sealed partial class ControlsView : Control
     {
         bool bindable = e is InputEventKey or InputEventMouseButton or InputEventJoypadButton;
         if (bindable) Accept();   // nothing under the screen sees what is being bound (releases included)
-        if (Time.GetTicksMsec() / 1000.0 - _captureAt < 0.15) return;   // the press that opened the entry
+        if (Time.GetTicksMsec() / 1000.0 - _captureAt < CaptureGuardSeconds) return;   // the press that opened the entry
         if (e is InputEventKey { Pressed: true, PhysicalKeycode: Key.Escape } || e is InputEventJoypadButton { Pressed: true, ButtonIndex: JoyButton.Start } && capture.Device == BindDevice.Controller
             || e is InputEventJoypadButton { Pressed: true, ButtonIndex: JoyButton.B } && capture.Device == BindDevice.Keyboard)   // B is bindable on the controller tab only; on the keyboard tab it cancels like Esc
         {

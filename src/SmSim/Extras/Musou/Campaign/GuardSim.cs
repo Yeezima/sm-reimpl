@@ -1050,7 +1050,8 @@ public sealed class GuardSim
         ShotsHit++;
         AddEvent(new GuardEvent(GuardEventKind.Shot, Tick, (ushort)(i + 1), id, chest));
         var direction = distance > 1e-3f ? flat / distance : Vector2.Zero;
-        _enemies.Damage(id, 0, Rules.Damage * _strength[i / SquadSize], new Vector3(direction, 0f), out _);
+        float brace = Rules.ChargeDamageScale != 1f && _enemies.Charging(id) ? Rules.ChargeDamageScale : 1f;   // the volley into a charge (2026-11-10)
+        _enemies.Damage(id, 0, Rules.Damage * _strength[i / SquadSize] * brace, new Vector3(direction, 0f), out _);
     }
 
     void AddEvent(GuardEvent e)

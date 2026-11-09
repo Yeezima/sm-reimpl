@@ -194,6 +194,7 @@ public sealed partial class MusouSim
             }
             int t = Target(i, targets);
             Vector2 desired = Vector2.Zero;
+            _charging[i] = false;   // MusouSim.Charge.cs: Behave decides it again
             if (_scripted[i]) { }   // MU3: the boss's ability drives it (MusouBoss)
             else if (t < 0)
             {
@@ -426,7 +427,7 @@ public sealed partial class MusouSim
                     SetState(i, MusouEnemyState.Strike);
                     // The strike lands only on a target still in reach and in front (a step back or aside dodges it).
                     bool inCone = distance <= 1e-4f || Vector2.Dot(toward, Forward(_yaw[i])) >= MathF.Cos(spec.MeleeConeDegrees * MathF.PI / 180f);
-                    if (fight && reach <= spec.MeleeRange + 0.3f && MathF.Abs(d.Z) <= 1.5f && inCone)
+                    if (fight && reach <= spec.MeleeRange + 0.3f && MathF.Abs(d.Z) <= LevelReachOf(i) && inCone)   // MusouSim.BigBodies.cs: a big body reaches higher
                     {
                         attacks.Add(new MusouAttack((ushort)(i + 1), target.Id, spec.MeleeDamage, true, spec.MeleeStaggers, _position[i]));
                         AddEvent(new MusouEvent(MusouEventKind.Strike, Tick, (ushort)(i + 1), (ushort)Math.Clamp(target.Id, 0, ushort.MaxValue), 0, target.Position));
@@ -456,8 +457,10 @@ public sealed partial class MusouSim
         if (_type[i] == MusouEnemyType.Weirdboy && fight && WeirdboyActs(i, target, distance, toward)) return Vector2.Zero;   // a teleport or a summons (MusouSim.Weirdboy.cs)
         bool melee = spec.Melee && (!spec.Hybrid || distance <= spec.HybridMeleeDistance);
         bool ranged = spec.Ranged && !melee;
+        if (ranged && _type[i] == MusouEnemyType.Weirdboy && !OldWeirdboyBolt) return WeirdboyRanged(i, t, target, d, distance, toward, spec, fight, collision);   // his bolt, outside the crowd's shooter tokens (MusouSim.Weirdboy.cs)
+        if (melee) DecideCharge(i, target, reach);   // MusouSim.Charge.cs: within 30 m a melee Ork sprints at his enemy
         if ((_token[i] == ShooterToken && !ranged) || (_token[i] == MeleeToken && !melee)) { _token[i] = 0; _burst[i] = 0; }
-        bool level = MathF.Abs(d.Z) <= 1.5f;
+        bool level = MathF.Abs(d.Z) <= LevelReachOf(i);   // MusouSim.BigBodies.cs (2026-11-09): 1.5 m for a Boy, up to 4.5 m for a big body
         if (melee && distance <= MusouFacingRules.MeleeEngageRange) _faceWant[i] = toward;   // a close melee Ork faces its target while it closes in
         if (melee)
         {
@@ -477,7 +480,7 @@ public sealed partial class MusouSim
                 return Approach(i, t, d, spec.Speed);
             }
             if (TakeOwnToken(i, reach, level)) return Approach(i, t, d, spec.Speed);   // MusouSim.Elites.cs: a Nob or a Boss Ork takes a token of his own
-            if (reach <= Rules.MeleeTokenDistance && MathF.Abs(d.Z) <= (swarm is null ? 2.5f : 1.5f) && reach < _meleeWantD[t]) { _meleeWantD[t] = reach; _meleeWant[t] = i; }
+            if (reach <= Rules.MeleeTokenDistance && MathF.Abs(d.Z) <= (swarm is null ? 2.5f : LevelReachOf(i)) && reach < _meleeWantD[t]) { _meleeWantD[t] = reach; _meleeWant[t] = i; }
             return swarm is null ? Circle(i, t, d, spec.Speed) : SwarmWay(i, t, target, d, spec.Speed, slot: true, hold: true, swarm);
         }
         if (!ranged) return swarm is null ? Approach(i, t, d, spec.Speed) : SwarmWay(i, t, target, d, spec.Speed, slot: true, hold: false, swarm);
@@ -641,7 +644,7 @@ public sealed partial class MusouSim
         }
         foreach (var target in targets)
         {
-            if (!target.Alive || target.Goal || target.Radius > 0f || MathF.Abs(target.Position.Z - p.Z) > 1.5f) continue;
+            if (!target.Alive || target.Goal || target.Radius > 0f || MathF.Abs(target.Position.Z - p.Z) > LevelReachOf(i)) continue;
             var away = new Vector2(p.X - target.Position.X, p.Y - target.Position.Y);
             float gap = Rules.PlayerRing + Body(_type[i]).Radius, dist = away.Length();   // the Warboss's scaled body (late batch 2026-11-06); every other type's is its own radius
             if (dist >= gap) continue;
@@ -658,7 +661,7 @@ public sealed partial class MusouSim
         {
             // A Boss Ork's body is 3x wide but the graph keeps only a normal Ork's margin off the walls: lean away from a wall nearer than its radius, so it does not grind along it (ours).
             float room = nav.EdgeDistance(_node[i]), want = BossWallRoom(spec.Radius);
-            if (room < want) v += nav.EdgeGradient(_node[i]) * (want - room) / want * spec.Speed * BossWallPush;
+            if (room < want) v = LeanAdded(v, desired, nav.EdgeGradient(_node[i]) * (want - room) / want * spec.Speed * BossWallPush);   // MusouSim.BigBodies.cs: the lean never slows his way
         }
         if (!boss && desired.LengthSquared() > 0.01f && _state[i] == MusouEnemyState.Seek)
         {
@@ -680,6 +683,7 @@ public sealed partial class MusouSim
             {
                 int node = Walk.MoveTo(_node[i], p.X + step.X, p.Y + step.Y, _aim[i]);
                 var at = new Vector2(p.X + step.X, p.Y + step.Y);
+                if (node < 0 && SlideAlongWall(i, p, step, out var slid) is var along and >= 0) { node = along; at = slid; }   // MusouSim.BigBodies.cs: a big body slides along the wall at full speed
                 if (node < 0) { node = Walk.MoveTo(_node[i], p.X + step.X, p.Y); at = new Vector2(p.X + step.X, p.Y); }
                 if (node < 0) { node = Walk.MoveTo(_node[i], p.X, p.Y + step.Y); at = new Vector2(p.X, p.Y + step.Y); }
                 if (node < 0 && push != Vector2.Zero)
@@ -754,7 +758,7 @@ public sealed partial class MusouSim
             if (t < 0) continue;
             checks++;
             _losTick[i] = Math.Max(1u, Tick);
-            var eye = _position[i] + new Vector3(0f, 0f, 1.5f);
+            var eye = _position[i] + new Vector3(0f, 0f, EyeOf(i));   // MusouSim.BigBodies.cs: a big shooter looks out from his own height
             var chest = targets[t].Position + new Vector3(0f, 0f, 1.2f);
             var ray = chest - eye;
             float length = ray.Length();

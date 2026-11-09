@@ -332,6 +332,7 @@ public partial class NetworkView : Node3D
             if (_demoPlayback is null) clientOptions = SmClient.FrontEnd.FrontEndLaunch.WithProfile(clientOptions);
             if (_demoPlayback is null) clientOptions = WithPerkArgs(clientOptions);   // perks/inert-2 test aid: --perks a,b
             SetOwnLooks(clientOptions);   // customizer T7
+            clientOptions = WithNetFeelArgs(clientOptions);   // net/responsive: the latency switches and the readout (NetworkView.Responsive.cs)
             _client = new GameClient(_config, fingerprint, clientTransport, clientClock, clientOptions, nonce: clientNonce);
             DemoPrerollInReady();   // M40 T0: a replayed demo takes the Challenge (loads the map) and waits for the background loads before the first frame
             if (RequestedSide != Team.None) GD.Print($"--side: requesting the {SideName(RequestedSide)} side (the server may balance onto the other side)");
@@ -452,6 +453,7 @@ public partial class NetworkView : Node3D
         }
         else if (!_bot && OwnDead && !PickerBusy && _demoPlayback is null) PadLook(delta, deathOrbit: true);   // late-g: dead, the right stick orbits the death camera
 
+        if (LoadingWaitsForBlink()) { UpdateOverlay(); return; }   // ui/loading-blink: the handshake (and the map load) starts once the blink has opened on the loading screen (NetworkView.Loading.cs)
         Ph("client update (input, network)");
         DemoBeforeUpdate(delta);   // M40 T0: a replayed demo advances its clock by this frame and sets the recorded view
         LatencyProbeBeforeUpdate();   // feel/controls test aid (--latency-probe)
@@ -1088,7 +1090,7 @@ public partial class NetworkView : Node3D
             bool trail = FxProjectile(q, ToGodot(drawn));
             Ph("projectiles and blasts");
             string label = q.Thrown ? "grenade" : q.Weapon >= 0 && q.Weapon < _config.Weapons.Count ? _config.Weapons[q.Weapon].Name : "";
-            node.Visible = !(trail && !(q.Thrown || (label.Contains("grenade", StringComparison.OrdinalIgnoreCase) && !label.Contains("plasma", StringComparison.OrdinalIgnoreCase)))) || (trail && IsPlasmaShot(q.Weapon, q.Thrown) && !OldPlasmaBall);   // wfx: a plasma shot's solid ball shows with the data's trail around it
+            node.Visible = !(trail && !(q.Thrown || (label.Contains("grenade", StringComparison.OrdinalIgnoreCase) && !label.Contains("plasma", StringComparison.OrdinalIgnoreCase)))) || (trail && IsPlasmaShot(q.Weapon, q.Thrown) && PlasmaBallMeshShownFor(q.Weapon));   // plasma-original-fx: the original charged shot has no mesh (invisible_projectile), only its data trail   // wfx: a plasma shot's solid ball shows with the data's trail around it
         }
         _goneProjectiles.Clear();
         foreach (var id in _projectileNodes.Keys) if (!live.Contains(id)) _goneProjectiles.Add(id);
@@ -1271,9 +1273,9 @@ public partial class NetworkView : Node3D
             material = new StandardMaterial3D { AlbedoColor = new Color(0.12f, 0.13f, 0.12f), Metallic = 0.4f, Roughness = 0.5f,
                                                 EmissionEnabled = true, Emission = new Color(0.9f, 0.3f, 0.1f), EmissionEnergyMultiplier = 0.12f };
         }
-        else if (IsPlasmaShot(weaponIndex, false) && !OldPlasmaBall) material = PlasmaBallMaterial(ProjectileColour(weapon, stage), radius);   // wfx (owner's item 25): a solid-ish roiling ball
+        else if (IsPlasmaShot(weaponIndex, false) && PlasmaBallMeshShownFor(weaponIndex)) material = PlasmaBallMaterial(ProjectileColour(weapon, stage), radius);   // wfx (owner's item 25): a solid-ish roiling ball
         else material = GlowMaterial(ProjectileColour(weapon, stage), stage > 0 ? 4f : 2.5f);
-        bool plasmaBall = IsPlasmaShot(weaponIndex, false) && !OldPlasmaBall;
+        bool plasmaBall = IsPlasmaShot(weaponIndex, false) && PlasmaBallMeshShownFor(weaponIndex);
         look = (new SphereMesh { Radius = radius, Height = 2f * radius, RadialSegments = plasmaBall ? 32 : 12, Rings = plasmaBall ? 16 : 6 }, material);
         _projectileLooks[key] = look;
         return look;

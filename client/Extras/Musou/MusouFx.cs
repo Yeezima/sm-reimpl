@@ -133,6 +133,7 @@ public partial class NetworkView
             switch (e.Kind)
             {
                 case MusouEventKind.Hit:
+                    if (e.Player == ownId && e.Player != 0 && _musouHud is { } own && own.IsBoss(e.Enemy)) own.Data.HitAt[e.Enemy] = now;   // the boss column's priority: the own player's hits on bosses only (MusouHud.BossColumn.cs)
                     if (!present) break;
                     if (e.Player == ownId) { _hudView?.ShowHitMarker(false, e.Value == 2); _musouHitMarkers++; }
                     if (MusouWeirdboyShieldHit(e, shown)) break;   // the Weirdboy's shield took it: its pulse, no blood (NetworkView.MusouWeirdboy.cs)
@@ -158,9 +159,12 @@ public partial class NetworkView
 
         // The match HUD's score box: Musou has no team scores (the owner, 2026-11-01: removed; the KOs and points are in the run panel).
         if (_hudView is not null) _hudView.Data.NoScorePanel = true;
+        // The owner, 2026-11-10 ("Bottom left, approve"): the own armour and health bar bottom left, over the Boss Ork bars (MusouHudLayout); --musou-old-hud: the original's top centre.
+        if (_hudView is not null) _hudView.Data.VitalsCorner = MusouHudLayout.Old ? null : MusouHudLayout.VitalsCorner;
 
         // The HUD's frame.
         var f = _musouHud.Data;
+        f.Now = now;
         f.Director = d;
         f.Alive = me.Alive;
         float rate = Math.Max(1, _config.TickRate);
@@ -249,6 +253,7 @@ public partial class NetworkView
             var emitter = new SoundEmitter { Position = ToGodot(at), Label = "musou enemy hit", OneShot = true };
             PostPlayerHitSound(gunHit, emitter, ImpactSounds.ImpactOffset(ImpactTreatmentArg, gunHit, hitScan: true), material);
             CountSound("body hit");
+            MusouStalkerConfirm(gun.Name, material == true);   // sound/stalker-hit-confirm: the stalker's confirm on the shooter
             MusouBolterFirstHit(gun.Name, emitter.Position);   // musou/audio-pass: a bolter rifle's wet smack, then the explosion, on the first Ork the shot hits (once a shot, as the hit sound)
         }
         if (predicted && e.Value is 1 or 2) return;   // the shot's impact was drawn at the shot (a kill's gore is the death's, elsewhere)
@@ -409,6 +414,16 @@ public partial class NetworkView
         _musouDemoPhase = phase;
         _musouDemoCycle = cycle;
         var box = f.Director?.Box ?? new MusouBox(new Num.Vector3(-100f), new Num.Vector3(100f));
+        if (phase == "campaign")
+        {
+            // Musou Mode's battle with every element of its HUD on (2026-11-10, the edge layout's screenshots): the real director with a made-up commander, the chain and a
+            // call-out every 4 s; the Boss Orks, the on-point bar and the drop prompt are the war's (MusouHudDemoCampaign, Tfw/NetworkView.Tfw.cs).
+            if (f.Director is { } real) f.Director = real with { BossId = 77, BossHealth = 2480f, BossMaxHealth = 4000f };
+            f.Kos = 214; f.Points = 3120;
+            f.Chain = 6; f.Multiplier = MathF.Min(rules.ChainMax, 1f + rules.ChainStep * 6); f.ChainLeft = 0.65f;
+            if (fresh) _musouHud?.CallOut(cycle % 2 == 0 ? "BOSS ORK INCOMING" : "WAAAGH!", new Color(1f, 0.45f, 0.05f), 3.8);
+            return;
+        }
         f.Director = phase switch
         {
             "break" => new MusouDirectorView(2, 5, MusouPhase.Break, (ushort)(12 * _config!.TickRate), 0, 0, 0, 0f, 0f, 5, box),

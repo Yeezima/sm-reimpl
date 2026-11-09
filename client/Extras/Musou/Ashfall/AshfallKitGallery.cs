@@ -76,7 +76,8 @@ public partial class AshfallKitGallery : Node3D
         if (!_headless) DisplayServer.WindowSetVsyncMode(DisplayServer.VSyncMode.Disabled);
         _loadStart = (long)Time.GetTicksMsec();
         _map = _args.ContainsKey("ashfall-dense") || _args.ContainsKey("ashfall-dress");
-        if (_map) BuildMap(); else BuildGallery();
+        if (_args.ContainsKey("ashfall-closeup")) BuildCloseup();   // kit-hi-res: each arena model alone at its arena size (AshfallKitGallery.Closeup.cs)
+        else if (_map) BuildMap(); else BuildGallery();
     }
 
     // ---- the gallery of 40 boxes -------------------------------------------------------------------------------------------------------------------------
@@ -150,7 +151,7 @@ public partial class AshfallKitGallery : Node3D
         {
             var asset = _library.Get(m.Id);
             if (asset is not { Ok: true }) continue;
-            foreach (var piece in asset.Pieces) _game.AddChild(new MeshInstance3D { Name = m.Id, Mesh = piece.Mesh, Transform = AshfallKitView.DrawOf(item, m, piece.Local) });
+            foreach (var piece in asset.Pieces) _game.AddChild(new MeshInstance3D { Name = m.Id, Mesh = piece.Mesh, Transform = AshfallKitView.DrawOf(item, m, piece.Local), LodBias = _closeup ? AshfallKitDetail.LodBiasOf(item) : 1f });
         }
     }
 
@@ -414,7 +415,8 @@ public partial class AshfallKitGallery : Node3D
             long calls = (long)RenderingServer.GetRenderingInfo(RenderingServer.RenderingInfo.TotalDrawCallsInFrame);
             long prims = (long)RenderingServer.GetRenderingInfo(RenderingServer.RenderingInfo.TotalPrimitivesInFrame);
             long objs = (long)RenderingServer.GetRenderingInfo(RenderingServer.RenderingInfo.TotalObjectsInFrame);
-            _perfLines.Add($"KITPERF {s.Name,-8} {(kit ? "kit    " : "graybox")} frame {_sumDelta / 90 * 1000:F2} ms ({90 / _sumDelta:F0} fps), render cpu {cpu:F2} ms gpu {gpu:F2} ms, draw calls {calls:N0}, primitives {prims:N0}, objects {objs:N0}, lod threshold {GetViewport().MeshLodThreshold:F1}");
+            long vram = (long)RenderingServer.GetRenderingInfo(RenderingServer.RenderingInfo.VideoMemUsed), texmem = (long)RenderingServer.GetRenderingInfo(RenderingServer.RenderingInfo.TextureMemUsed);   // kit-hi-res: the memory the kit's textures take
+            _perfLines.Add($"KITPERF {s.Name,-8} {(kit ? "kit    " : "graybox")} frame {_sumDelta / 90 * 1000:F2} ms ({90 / _sumDelta:F0} fps), render cpu {cpu:F2} ms gpu {gpu:F2} ms, draw calls {calls:N0}, primitives {prims:N0}, objects {objs:N0}, lod threshold {GetViewport().MeshLodThreshold:F1}, video memory {vram / 1048576.0:F0} MiB (textures {texmem / 1048576.0:F0} MiB), renderer {RenderingServer.GetCurrentRenderingMethod()}");
             _step++; _sample = 0;
         }
     }

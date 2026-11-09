@@ -413,7 +413,7 @@ public partial class NetworkView
     /// <summary>The war round the walls: a far sound every moment or so, muffled, from a bearing of its own; more muffled inside the Stormbird.</summary>
     void TfwWarSoundFrame(in TfwWarView war)
     {
-        if (_sound is null || !_tfwBanksLoaded || _camera is not { } camera || _connectedFor < _tfwWarNext) return;
+        if (_sound is null || !_tfwBanksLoaded || _camera is not { } camera || _connectedFor < _tfwWarNext || MusouSoundIsOff(MusouSoundOff.Ambience)) return;   // musou/sound-ab: ambience off (the war bed too)
         _tfwWarNext = _connectedFor + WarGapMin + _tfwRoll.NextSingle() * (WarGapMax - WarGapMin);
         bool inside = war.Phase is TfwRunPhase.Hub or TfwRunPhase.Travel;
         float total = WarEvents.Sum(e => e.Weight), roll = _tfwRoll.NextSingle() * total;

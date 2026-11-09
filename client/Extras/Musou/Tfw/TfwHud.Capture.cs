@@ -27,10 +27,13 @@ public sealed partial class TfwHud
 
     void DrawCapture(Vector2 vs)
     {
+        // Capture banners (owner, 2026-11-10: "the banners and the letters A, B, C high in the air above the center of each point are the only indicators"): no tracker on the HUD; --musou-old-capture-ui brings it back.
+        if (!TfwBanners.Old) return;
         if (_noCaptureHud || Data.Objectives.Count == 0 || Data.War is not { } war || !TfwHudModel.InBattle(war.Phase)) return;
         _clock = Time.GetTicksMsec() / 1000.0;
         float pulse = 0.65f + 0.35f * MathF.Sin((float)_clock * 6f);
-        const float x0 = 40f, y0 = 40f, tile = 56f, gap = 10f, barH = 7f;
+        bool old = MusouHudLayout.Old;   // the corner layout (2026-11-10): smaller tiles, the on-point bar under them
+        float x0 = 40f, y0 = 40f, tile = old ? 56f : 46f, gap = old ? 10f : 8f, barH = old ? 7f : 6f;
         for (int k = 0; k < Data.Objectives.Count; k++)
         {
             var o = Data.Objectives[k];
@@ -39,8 +42,9 @@ public sealed partial class TfwHud
             bool here = k == Data.OnPosition;
             DrawRect(new Rect2(x, y0, tile, tile), PanelFill);
             DrawRect(new Rect2(x, y0, tile, tile), here ? Gold : FrameGold, false, here ? 3f : 2f);
-            Txt(TfwMarkerRules.TileName(k), x + tile / 2f, y0 + tile / 2f + (k < WarRules.Positions ? 14f : 9f), k < WarRules.Positions ? 38 : 24, c, 0, 4, true);
-            float by = y0 + tile + 5f;
+            float letter = old ? 1f : tile / 56f;
+            Txt(TfwMarkerRules.TileName(k), x + tile / 2f, y0 + tile / 2f + (k < WarRules.Positions ? 14f : 9f) * letter, (int)((k < WarRules.Positions ? 38 : 24) * letter), c, 0, 4, true);
+            float by = y0 + tile + (old ? 5f : 4f);
             DrawRect(new Rect2(x - 1f, by - 1f, tile + 2f, barH + 2f), PanelFill);
             DrawRect(new Rect2(x, by, tile, barH), PipOff);
             float fill = TfwMarkerRules.BarFill(o);
@@ -51,13 +55,16 @@ public sealed partial class TfwHud
         if (Data.OnPosition < 0 || Data.OnPosition >= Data.Objectives.Count) return;
         var on = Data.Objectives[Data.OnPosition];
         var col = StateColour(on.State);
-        float cx = vs.X / 2f, w = 440f, h = 12f, y = 760f;
         int orks = Data.OnPosition < Data.OrksOn.Length ? Data.OrksOn[Data.OnPosition] : 0;
-        Txt(TfwMarkerRules.OnPointLine(on, Data.OnPosition, orks), cx, y - 10f, 24, col, 0, 4, true);
-        DrawRect(new Rect2(cx - w / 2f - 3f, y - 3f, w + 6f, h + 6f), PanelFill);
-        DrawRect(new Rect2(cx - w / 2f, y, w, h), PipOff);
+        // The old layout: a wide bar in the middle (y 760); the corner layout: the line and a bar as wide as the tiles, under them.
+        int n = Data.Objectives.Count;
+        float w = old ? 440f : n * tile + (n - 1) * gap, h = old ? 12f : 9f, y = old ? 760f : y0 + tile + 4f + barH + 34f;
+        float left = old ? vs.X / 2f - w / 2f : x0;
+        Txt(TfwMarkerRules.OnPointLine(on, Data.OnPosition, orks), old ? vs.X / 2f : x0, y - (old ? 10f : 8f), old ? 24 : 18, col, old ? 0 : -1, old ? 4 : 3, true);
+        DrawRect(new Rect2(left - 3f, y - 3f, w + 6f, h + 6f), PanelFill);
+        DrawRect(new Rect2(left, y, w, h), PipOff);
         float f = TfwMarkerRules.BarFill(on);
-        if (f > 0f) DrawRect(new Rect2(cx - w / 2f, y, w * f, h), on.State == TfwPositionState.Clearing ? new Color(col, pulse) : col);
-        DrawRect(new Rect2(cx - w / 2f - 3f, y - 3f, w + 6f, h + 6f), FrameGold, false, 2f);
+        if (f > 0f) DrawRect(new Rect2(left, y, w * f, h), on.State == TfwPositionState.Clearing ? new Color(col, pulse) : col);
+        DrawRect(new Rect2(left - 3f, y - 3f, w + 6f, h + 6f), FrameGold, false, 2f);
     }
 }
