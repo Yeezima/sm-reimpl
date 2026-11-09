@@ -35,17 +35,19 @@ public class OrkArmyAggregateTests
         var (sim, _, battle, _) = Frozen();
         var wave = battle.SendWaveForTests(TfwArmyRules.LargeWave)!;   // no human anywhere: before 2026-11-09 all of it stayed an aggregate
         battle.Step([]);
-        Assert.True(OrkAggregate(battle) <= TfwArmyRules.NearOrksMost - TfwArmyRules.PromotePerTick, "past the room: never queued");   // only spawns the next ticks make wait
+        int queuedCapped = Enumerable.Range(wave.SlotBase, wave.FarCount).Count(s => !TfwBattleRules.Big(TfwArmyLayout.OrkType(s, wave.FarEliteShare)));   // the big Orks need no room (2026-11-10)
+        Assert.True(queuedCapped <= TfwArmyRules.NearOrksMost - (wave.Real - battle.ArmyBigAlive), "past the room: never queued");   // only spawns the next ticks make wait   // only spawns the next ticks make wait
         int aggregateMost = 0;
         for (int t = 0; t < 3 * Tick; t++) { battle.Step([]); if (t >= TfwArmyRules.LargeWave / TfwArmyRules.PromotePerTick + 1) aggregateMost = Math.Max(aggregateMost, OrkAggregate(battle)); }
         Assert.Equal(0, OrkAggregate(battle));
         Assert.Equal(0, aggregateMost);                                            // once made, never a count again
-        Assert.Equal(TfwArmyRules.NearOrksMost, wave.Real);                        // the cap's worth made real
-        Assert.Equal(TfwArmyRules.LargeWave - TfwArmyRules.NearOrksMost, battle.OrksNeverMade);
-        Assert.Equal(TfwArmyRules.NearOrksMost, battle.ArmyOrksAlive);             // every one of them a unit of the pool
+        int bigs = battle.ArmyBigAlive;                                            // the Nobs and their twins, off the real cap (2026-11-10)
+        Assert.Equal(TfwArmyRules.NearOrksMost, wave.Real - bigs);                 // the cap's worth made real
+        Assert.Equal(TfwArmyRules.LargeWave - (wave.Real - wave.Twins), battle.OrksNeverMade);
+        Assert.Equal(wave.Real, battle.ArmyOrksAlive);                             // every one of them a unit of the pool
         Assert.All(wave.Orks, id => Assert.True(sim.TryGet(id, out var e) && e.Alive));
         for (int t = 0; t < 20 * Tick; t++) battle.Step([]);                       // still nobody near: nothing folds back
-        Assert.Equal((TfwArmyRules.NearOrksMost, 0, 0), (wave.Real, wave.FarCount, battle.Demoted));
+        Assert.Equal((TfwArmyRules.NearOrksMost + bigs, 0, 0), (wave.Real, wave.FarCount, battle.Demoted));
     }
 
     [Fact]
@@ -134,27 +136,36 @@ public class OrkArmyAggregateTests
         Assert.Equal(300, list.Count(i => i.Side == TfwArmySide.Ork));
     }
 
-    /// <summary>Every bulk count of Orks at 80 % of its value before 2026-11-09 (rounded); the Warboss, the Boss Orks, the Weirdboyz, the Stormboy squads and the Scrap Meks as they were.</summary>
+    /// <summary>
+    /// Every bulk count of Orks back at its value before 2026-11-09's 80 % (the owner, 2026-11-10: "roll back the 20% less orks change"; the real Orks alone kept), and twice the boss and elite spawns
+    /// ("double boss and elite enemy spawns": the big Orks twice and off the caps, up to 8 Boss Orks): the Weirdboyz as they were.
+    /// </summary>
     [Fact]
-    public void The_orks_totals_are_80_percent_of_before()
+    public void The_orks_totals_are_back_at_100_percent_with_twice_the_boss_and_elite_spawns()
     {
-        static int Eighty(int before) => (int)MathF.Round(before * 0.8f);
-        Assert.Equal(Eighty(1000), TfwArmyRules.LargeWave);
-        Assert.Equal(Eighty(500), TfwArmyRules.MediumWave);
-        Assert.Equal(Eighty(200), TfwArmyRules.SmallWave);
-        Assert.Equal(Eighty(200), TfwArmyRules.LargeExtraMost);
-        Assert.Equal(Eighty(480), TfwArmyRules.NearOrksMost);
-        Assert.Equal(Eighty(96), TfwBattleRules.Garrison);
-        Assert.Equal(Eighty(400), TfwBattleRules.CrowdSize);
-        Assert.Equal(Eighty(1200), TfwBattleRules.AliveCapSolo);
-        Assert.Equal(Eighty(640), TfwBattleRules.AliveCapPerExtraHuman);
-        Assert.Equal(Eighty(1680), TfwBattleRules.AliveCapMost);
-        Assert.Equal(Eighty(1600), TfwBattleRules.TrickleTotalMax);
-        Assert.Equal(Eighty(40), TfwPatrolRules.Size);
-        Assert.Equal(Eighty(20), TfwBossOrkRules.Retinue);
-        Assert.Equal(Eighty(10), TfwBigShootaRules.Squad);
-        Assert.Equal(Eighty(500), VictoryWaveRules.Size);
-        Assert.Equal(2, TfwBossOrkRules.MaxAlive);
+        Assert.Equal(1000, TfwArmyRules.LargeWave);
+        Assert.Equal(500, TfwArmyRules.MediumWave);
+        Assert.Equal(200, TfwArmyRules.SmallWave);
+        Assert.Equal(200, TfwArmyRules.LargeExtraMost);
+        Assert.Equal(480, TfwArmyRules.NearOrksMost);
+        Assert.Equal(96, TfwBattleRules.Garrison);
+        Assert.Equal(400, TfwBattleRules.CrowdSize);
+        Assert.Equal(4f / 30f, TfwBattleRules.CrowdFillSeconds);
+        Assert.Equal(1200, TfwBattleRules.AliveCapSolo);
+        Assert.Equal(640, TfwBattleRules.AliveCapPerExtraHuman);
+        Assert.Equal(1680, TfwBattleRules.AliveCapMost);
+        Assert.Equal(1600, TfwBattleRules.TrickleTotalMax);
+        Assert.Equal(40, TfwPatrolRules.Size);
+        Assert.Equal(20, TfwBossOrkRules.Retinue);
+        Assert.Equal(10, TfwBigShootaRules.Squad);
+        Assert.Equal(500, VictoryWaveRules.Size);
         Assert.Equal(2, TfwWeirdboyRules.MaxAlive);
+        Assert.Equal(2, TfwBattleRules.BigTwins);
+        Assert.Equal(8, TfwBossOrkRules.MostAlive);
+        Assert.Equal(0.5f, TfwBossOrkRules.Interval);
+        Assert.Equal(0.10f, TfwBattleRules.EliteShare(0f), 4);   // the elite share as before: the big Orks come twice beside it
+        Assert.Equal(0.60f, TfwBattleRules.EliteShare(1f), 4);
+        Assert.True(TfwBattleRules.Big(MusouEnemyType.Nob) && TfwBattleRules.Big(MusouEnemyType.BigShootaNob) && TfwBattleRules.Big(MusouEnemyType.BossNob) && TfwBattleRules.Big(MusouEnemyType.BossShootaBoy));
+        Assert.False(TfwBattleRules.Big(MusouEnemyType.ArdBoy) || TfwBattleRules.Big(MusouEnemyType.Warboss) || TfwBattleRules.Big(MusouEnemyType.Weirdboy) || TfwBattleRules.Big(MusouEnemyType.Boy));
     }
 }

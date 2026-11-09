@@ -23,10 +23,10 @@ public static class TfwArmyRules
     /// <summary>Real units made from the aggregates a tick, over all armies (Orks; Guard squads), and folded back a tick: no frame spawns or removes hundreds.</summary>
     public const int PromotePerTick = 16, PromoteSquadsPerTick = 1, DemotePerTick = 32, DemoteSquadsPerTick = 2;
     /// <summary>
-    /// Most real Orks and Guard squads the armies hold at once (the pool's new 512 slots less a margin; GuardSim's 40 squads less the field's 12). The Orks' 480 is 384 since 2026-11-09 (the owner: "reduce the
+    /// Most real Orks and Guard squads the armies hold at once (the pool's new 512 slots less a margin; GuardSim's 40 squads less the field's 12). The Orks' 480 was 384 on 2026-11-09 and is 480 again since 2026-11-10 (the owner: "roll back the 20% less orks change"; before: "reduce the
     /// total amount of orks on the map to 80% of current"; with no aggregate it is also the most Orks all the armies have together).
     /// </summary>
-    public const int NearOrksMost = 384, NearSquadsMost = 28;
+    public const int NearOrksMost = 480, NearSquadsMost = 28;   // 384 on 2026-11-09 (80 %); 480 again since 2026-11-10 (the owner: "roll back the 20% less orks change")
     /// <summary>
     /// The owner, 2026-11-09: "there are currently on occasion large rectangular formations of orks that move from their points to imperial captured points. they walk through objects, don't interact with the
     /// world or fight. completely remove those orks from musou mode." Those were the Ork armies' aggregates drawn as impostors (900 at most on a client). Since then an Ork army is made of real Orks alone: a
@@ -62,7 +62,7 @@ public static class TfwArmyRules
     public const float MusterSeconds = 30f;
     /// <summary>With no Imperial position to attack a mustered wave waits, looking again this often.</summary>
     public const float WaitRecheck = 5f;
-    public const int SmallWave = 160, MediumWave = 400, LargeWave = 800, LargeExtraMost = 160;   // 200, 500, 1000, 200 before 2026-11-09
+    public const int SmallWave = 200, MediumWave = 500, LargeWave = 1000, LargeExtraMost = 200;   // 160, 400, 800, 160 on 2026-11-09 (80 %); back to 100 % on 2026-11-10 (the owner: "roll back the 20% less orks change")
     public const float SmallShare = 0.70f, MediumShare = 0.25f;
     /// <summary>The two farthest Imperial positions are drawn between (the brief: "random among the two farthest").</summary>
     public const int FarthestDraw = 2;
@@ -271,6 +271,8 @@ public sealed class TfwArmy
     public int SlotBase { get; set; }
     /// <summary>Its strength at its start (a wave's departure, a reinforcement's leaving, a garrison's last fill or rally): losses are counted of it.</summary>
     public int Start { get; set; }
+    /// <summary>The big Orks' twins made in this army (2026-11-10): men of it beyond its planned count (its <see cref="Start"/> grows by each, so its losses keep their share).</summary>
+    public int Twins { get; set; }
     public float Cohesion { get; set; } = 1f;
     /// <summary>Whether any human is near it (the hysteresis' state).</summary>
     public bool Near { get; set; }

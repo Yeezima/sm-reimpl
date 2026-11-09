@@ -86,13 +86,14 @@ public class TfwBossOrkTests
         int tick = 0;
         while (arrivals.Count == 0 && tick < Ticks(130f)) { battle.Step(FarPlayer); tick++; }
         Assert.Single(arrivals);
-        Assert.InRange(tick, Ticks(60f), Ticks(120f) + 1);
+        Assert.InRange(tick, Ticks(60f * TfwBossOrkRules.Interval), Ticks(120f * TfwBossOrkRules.Interval) + 1);   // 30 to 60 s since 2026-11-10 (half the waits)
         var a = arrivals[0];
         Assert.True(MusouBossOrks.Is(a.Type));
         Assert.Equal(sim.Rules.Of(a.Type).Health, a.MaxHealth);
         Assert.Equal(a.MaxHealth, battle.BossOrkMaxHealth(a.Id));
         Assert.Equal([a.Id], battle.BossOrks);
-        Assert.Equal(TfwBossOrkRules.Retinue, a.Retinue.Length);
+        int nobs = a.Retinue.Count(id => sim.TryGet(id, out var g) && g.Type == MusouEnemyType.Nob);
+        Assert.Equal(TfwBossOrkRules.Retinue + nobs / TfwBattleRules.BigTwins * (TfwBattleRules.BigTwins - 1), a.Retinue.Length);   // and a twin of each Nob since 2026-11-10
         foreach (ushort id in a.Retinue)
         {
             Assert.True(sim.TryGet(id, out var e) && e.Alive);
@@ -129,8 +130,8 @@ public class TfwBossOrkTests
         var two = Run();
         Assert.True(one.Count >= 2);
         Assert.Equal(one.Select(x => (x.Tick, x.A.Id, x.A.Type, x.A.Point, x.A.Position)), two.Select(x => (x.Tick, x.A.Id, x.A.Type, x.A.Point, x.A.Position)));
-        // The next one 1.5 to 3 min after the last came.
-        Assert.InRange(one[1].Tick - one[0].Tick, Ticks(90f), Ticks(180f) + 1);
+        // The next one 1.5 to 3 min after the last came (45 to 90 s since 2026-11-10).
+        Assert.InRange(one[1].Tick - one[0].Tick, Ticks(90f * TfwBossOrkRules.Interval), Ticks(180f * TfwBossOrkRules.Interval) + 1);
     }
 
     [Fact]
@@ -141,15 +142,16 @@ public class TfwBossOrkTests
         for (int t = 0; t < Ticks(12f * 60f); t++)
         {
             battle.Step(FarPlayer);
-            Assert.True(battle.BossOrks.Count <= TfwBossOrkRules.MaxAlive);
+            Assert.True(battle.BossOrks.Count <= TfwBossOrkRules.MostAlive);
         }
-        Assert.Equal(2, arrivals.Count);   // 12 min with none killed: two came, the third waits
+        int most = TfwBossOrkRules.MostAlive;   // 4 since 2026-11-10 (2 before)
+        Assert.Equal(most, arrivals.Count);   // 12 min with none killed: the most came, the next waits
         Assert.True(battle.BossOrkDueTick <= battle.BattleTicks);
         sim.Damage(arrivals[0].Id, 1, 1e7f, Vector3.Zero, out _);
         battle.Step(FarPlayer);
         battle.Step(FarPlayer);
-        Assert.Equal(3, arrivals.Count);   // the waiting one comes once there is room
-        Assert.Equal(2, battle.BossOrks.Count);
+        Assert.Equal(most + 1, arrivals.Count);   // the waiting one comes once there is room
+        Assert.Equal(most, battle.BossOrks.Count);
     }
 
     [Fact]

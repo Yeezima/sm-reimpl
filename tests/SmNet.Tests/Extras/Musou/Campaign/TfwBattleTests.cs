@@ -206,6 +206,7 @@ public class TfwBattleTests
     {
         var w = TfwRig.War();
         var battle = TfwRig.Deploy(w);
+        battle.BossOrksOn = false; battle.WeirdboyzOn = false;   // the roaming bosses come sooner since 2026-11-10 (half the waits): only the commander's own here
         for (int k = 0; k < 3; k++) TfwRig.Secure(w, battle, k);
         Assert.NotEqual((ushort)0, battle.BossId);
         Assert.Equal(w.Musou!.Rules.BossHealth, battle.BossMaxHealth);   // the commander is the Warboss (owner, 2026-11-06)
@@ -215,7 +216,8 @@ public class TfwBattleTests
         Assert.Equal(MusouPhase.Campaign, w.Musou.Director.Phase);
         Assert.Equal(battle.BossId, w.Musou.Director.BossId);
         Assert.Equal(w.Musou.Rules.BossHealth, w.Musou.Director.BossMaxHealth);
-        Assert.Equal(7, w.Musou.Alive);                                    // him, a Nob and five 'Ard Boyz
+        int escort = TfwBattleRules.CommanderNobs * TfwBattleRules.BigTwins + TfwBattleRules.CommanderArds;   // two Nobs since 2026-11-10 (a big Ork twice), five 'Ard Boyz
+        Assert.Equal(1 + escort, w.Musou.Alive);                           // him and his escort
     }
 
     [Fact]
@@ -223,19 +225,20 @@ public class TfwBattleTests
     {
         var w = TfwRig.War();
         var battle = TfwRig.Deploy(w);
+        battle.BossOrksOn = false; battle.WeirdboyzOn = false;   // as above: the commander alone against the squad
         for (int k = 0; k < 3; k++) TfwRig.Secure(w, battle, k);
         var guards = w.TfwGuards!;
         int squad = guards.SpawnSquad(battle.Layout.Hq + new Vector3(0f, -3f, 0f));
         Assert.True(squad >= 0);
         int before = guards.Lost;
         bool slam = false, hurt = false;
-        for (int t = 0; t < 20 * 30 && !(slam && hurt); t++)
+        for (int t = 0; t < 30 * 30 && !(slam && hurt); t++)   // 20 s until 2026-11-10: with the crowds back at 100 % (a crowd Ork every 4 ticks) he first takes a field squad, the slam lands at about 23 s
         {
             w.Step(_ => default);
             slam |= w.Musou!.Events.Any(e => e.Kind == MusouEventKind.Strike && e.Enemy == battle.BossId && e.Value == (byte)MusouBossAbility.GroundSlam);
             hurt |= guards.Events.Any(e => e.Kind is GuardEventKind.Hurt or GuardEventKind.Death);
         }
-        Assert.True(slam, $"the slam met a squad (men {guards.AliveIn(squad)}, lost {guards.Lost - before}; it lands at about 12 s)");
+        Assert.True(slam, $"the slam met a squad (men {guards.AliveIn(squad)}, lost {guards.Lost - before}; it lands at about 23 s)");
         Assert.True(hurt, "and hurt a man");
     }
 
@@ -289,6 +292,6 @@ public class TfwBattleTests
         var battle = new TfwBattle(sim, new GuardSim(sim), TfwTestArena.Layout(TfwLane.A, 1), 100.0, 1) { Trickle = false, Patrols = false };
         battle.Start();
         for (int k = 0; k < 400 * 30; k++) battle.Step([]);
-        Assert.Equal(TfwBattleRules.AliveCapSolo + 3 * TfwBattleRules.Garrison, sim.Alive - battle.ArmyOrksAlive);   // the crowds and swarms are the cap; the garrisons and the armies' real Orks stand beside it
+        Assert.Equal(TfwBattleRules.AliveCapSolo + 3 * TfwBattleRules.Garrison, sim.Alive - battle.ArmyOrksAlive - battle.BigsAlive);   // the crowds and swarms are the cap; the garrisons and the armies' real Orks stand beside it
     }
 }

@@ -431,7 +431,7 @@ public class MusouExpansionS3Tests(Xunit.Abstractions.ITestOutputHelper output)
     {
         var sim = War(Floor());
         var battle = Battle(sim, bigShootas: true);
-        Assert.Equal(3, battle.BigShootas.Count);
+        Assert.Equal(3 * TfwBattleRules.BigTwins, battle.BigShootas.Count);   // two a position since 2026-11-10 ("double boss and elite enemy spawns"): each position's first in BigShootas[k]
         for (int k = 0; k < 3; k++)
         {
             ushort id = battle.BigShootas[k];
@@ -443,6 +443,14 @@ public class MusouExpansionS3Tests(Xunit.Abstractions.ITestOutputHelper output)
             var squad = new ushort[64];
             int n = sim.Query(post.Value, TfwBigShootaRules.RingMax + 0.5f, squad);
             Assert.True(squad.Take(n).Count(s => s != id && sim.Leashed(s)) >= TfwBigShootaRules.Squad, $"{n} round post {k}");
+        }
+        for (int k = 3; k < battle.BigShootas.Count; k++)   // the seconds: Big Shoota Nobs on posts of their own outside the ring, beside their position's first
+        {
+            Assert.True(sim.TryGet(battle.BigShootas[k], out var e) && e.Type == MusouEnemyType.BigShootaNob);
+            var post = sim.PostOf(battle.BigShootas[k])!.Value;
+            int p = k % 3;
+            Assert.True(Vector2.Distance(new(post.X, post.Y), new(Places.Positions[p].X, Places.Positions[p].Y)) > Places.Radius(p));
+            Assert.True(Vector3.Distance(post, sim.PostOf(battle.BigShootas[p])!.Value) > 3f, $"second {k} on the first's post");
         }
         var none = Battle(War(Floor()), bigShootas: false);
         Assert.Empty(none.BigShootas);

@@ -15,13 +15,20 @@ public static class TfwBossOrkRules
     /// <summary>Most Boss Orks alive at once (the owner: "up to 2"); one that is due waits for a free place.</summary>
     public const int MaxAlive = 2;
     /// <summary>The elites that come with each (the owner: 20, "fight on" after the boss dies): 'Ard Boyz and Nobs in the battle's mix (<see cref="TfwBattleRules.EliteArds"/>).</summary>
-    public const int Retinue = 16;   // 20 until 2026-11-09, then 80 % (the owner: "reduce the total amount of orks on the map to 80% of current"); the Boss Orks themselves unchanged
+    public const int Retinue = 20;   // 16 (80 %) on 2026-11-09; back to 100 % on 2026-11-10 (the owner: "roll back the 20% less orks change"); the 80 % was (the owner: "reduce the total amount of orks on the map to 80% of current"); the Boss Orks themselves unchanged
     /// <summary>The retinue stands on a ring this far round its boss at the spawn (ours; the boss's body is 1.2 to 1.8 m wide).</summary>
     public const float RingMin = 3f, RingMax = 6f;
     /// <summary>A Boss Ork spawns only at a spawn point at least this far from every living player (ours); with none that far it tries again a second later.</summary>
     public const float MinPlayerDistance = 40f;
     /// <summary>Seconds between two tries when one is due and nowhere is far enough, or the pool is full.</summary>
     public const float RetrySeconds = 1f;
+
+    /// <summary>
+    /// Most alive at once and the share of the waits since 2026-11-10 (the owner: "double boss and elite enemy spawns", then "let there be up to 8 boss orks alive at the same time and make them spawn more
+    /// often"): 8, and half the waits (first 30 to 60 s, next 45 to 90 s); <see cref="TfwBattleRules.OldBigSpawns"/>: <see cref="MaxAlive"/> and the full waits.
+    /// </summary>
+    public static int MostAlive => TfwBattleRules.OldBigSpawns ? MaxAlive : 8;
+    public static float Interval => TfwBattleRules.OldBigSpawns ? 1f : 0.5f;
 }
 
 /// <summary>One Boss Ork that came (<see cref="TfwBattle.OnBossOrk"/>, the server's log): its id, kind, full health, where, and its retinue.</summary>
@@ -69,14 +76,14 @@ public sealed partial class TfwBattle
         for (int k = _bossOrks.Count - 1; k >= 0; k--)
             if (!_enemies.TryGet(_bossOrks[k], out var e) || !e.Alive || !MusouBossOrks.Is(e.Type)) { _bossOrkMax.Remove(_bossOrks[k]); _bossOrks.RemoveAt(k); }
         if (_final || !BossOrksOn) return;
-        if (_bossOrkDue < 0) _bossOrkDue = _now + Ticks(TfwBossOrkRules.FirstSeconds + TfwBossOrkRules.FirstSpread * Roll(0xB055_0001u));
-        if (_now < _bossOrkDue || _bossOrks.Count >= TfwBossOrkRules.MaxAlive || players.IsEmpty) return;   // none while nobody is in the field (ours): one due comes when someone is
+        if (_bossOrkDue < 0) _bossOrkDue = _now + Ticks((TfwBossOrkRules.FirstSeconds + TfwBossOrkRules.FirstSpread * Roll(0xB055_0001u)) * TfwBossOrkRules.Interval);
+        if (_now < _bossOrkDue || _bossOrks.Count >= TfwBossOrkRules.MostAlive || players.IsEmpty) return;   // none while nobody is in the field (ours): one due comes when someone is
         if (PoolUsed + 1 + TfwBossOrkRules.Retinue > TfwBattleRules.CrowdPoolRoom || !SpawnBossOrk(players))
         {
             _bossOrkDue = _now + Ticks(TfwBossOrkRules.RetrySeconds);
             return;
         }
-        _bossOrkDue = _now + Ticks(TfwBossOrkRules.NextSeconds + TfwBossOrkRules.NextSpread * Roll(0xB055_1000u + (uint)_bossOrkCount));
+        _bossOrkDue = _now + Ticks((TfwBossOrkRules.NextSeconds + TfwBossOrkRules.NextSpread * Roll(0xB055_1000u + (uint)_bossOrkCount)) * TfwBossOrkRules.Interval);
     }
 
     /// <summary>The spawn point a Boss Ork comes at: of the points that send (<see cref="SourceActive"/>), those at least <see cref="TfwBossOrkRules.MinPlayerDistance"/> from every player, one by a roll; -1 when none is.</summary>
@@ -109,6 +116,7 @@ public sealed partial class TfwBattle
         ushort id = _enemies.Spawn(type, at, yaw, health);
         if (id == 0) return false;
         _bossOrks.Add(id);
+        TrackBig(id);   // off the crowds' cap since 2026-11-10
         _bossOrkMax[id] = health;
         _bossOrkCount++;
         var retinue = new List<ushort>(TfwBossOrkRules.Retinue);
@@ -119,7 +127,9 @@ public sealed partial class TfwBattle
             float angle = k * 2.399963f, radius = TfwBossOrkRules.RingMin + (TfwBossOrkRules.RingMax - TfwBossOrkRules.RingMin) * MusouSim.Unit(MusouSim.Mix((uint)n, 0x7265746Eu));
             var spot = Ground(at + new Vector3(MathF.Cos(angle) * radius, MathF.Sin(angle) * radius, 0f), at);
             ushort guard = _enemies.Spawn(kind, spot, yaw, Health(kind));
-            if (guard != 0) retinue.Add(guard);
+            if (guard == 0) continue;
+            retinue.Add(guard);
+            if (TfwBattleRules.Big(kind)) { TrackBig(guard); SpawnTwins(kind, spot, yaw, Health(kind), -1, 0f, retinue); }   // a Nob twice since 2026-11-10
         }
         OnBossOrk?.Invoke(new TfwBossOrkArrival(id, type, health, at, point, retinue.ToArray()));
         return true;
