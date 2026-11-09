@@ -35,7 +35,7 @@ public partial class NetworkView
     /// <summary>The frame (from <c>TfwFireFrame</c>).</summary>
     void TfwBattleAmbienceFrame(in TfwWarView war)
     {
-        if (NoBattleAmbience || Lean || _sound is null || _camera is not { } camera) return;
+        if (NoBattleAmbience || MusouSoundIsOff(MusouSoundOff.Ambience) || Lean || _sound is null || _camera is not { } camera) return;   // musou/sound-ab: ambience off
         bool battle = war.Phase is TfwRunPhase.Battle or TfwRunPhase.FinalAssault;
         if (!battle) { _tfwAmbienceOn = false; _tfwAmbienceDue.Clear(); return; }
         if (!_tfwAmbienceOn) { _tfwAmbienceOn = true; _tfwAmbience.Reset(_connectedFor); }

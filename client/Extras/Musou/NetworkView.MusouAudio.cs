@@ -40,6 +40,7 @@ public partial class NetworkView
         var fire = SoundMixPass.Fire(SoundSystem.MixClassic);
         if (!own)
         {
+            if (MusouSoundIsOff(MusouSoundOff.AllyLayers)) return;   // musou/sound-ab: allylayers off
             // Others' bolters: the lighter deep copy and thump on the shooter's emitter (voices are shared with the crowd).
             var deep = new VoiceOffset(MusouAudioRules.DeepGainDb, MusouAudioRules.DeepPitchCents, MusouAudioRules.DeepLpf).Plus(fire);
             foreach (var b in file.Fire(null)) PostBinding(b, e, own, "fire other deep", extra: deep);
@@ -47,6 +48,7 @@ public partial class NetworkView
             CountSound("musou bolter thump");
             return;
         }
+        if (MusouSoundIsOff(MusouSoundOff.OwnLayers)) return;   // musou/sound-ab: ownlayers off
         // The player's own gun (owner follow-up 2026-11-09: "deeper, more powerful"): a protected emitter of its own at the muzzle (never stolen, cut or ducked): a louder deep copy, a sub copy under it, a louder thump.
         var gun = new SoundEmitter { Position = e.Position, Follow = e.Follow, Switches = e.Switches, Own = true, OneShot = true, ProtectGun = true, Label = "musou bolter own layers" };
         var body = new VoiceOffset(MusouAudioRules.OwnDeepGainDb, MusouAudioRules.DeepPitchCents, MusouAudioRules.DeepLpf).Plus(fire);
@@ -72,7 +74,8 @@ public partial class NetworkView
         bool stalker = !OldStalkerHitConfirm && StalkerHitConfirm.ReplacesMusouSmack(weapon);
         if (!stalker) MusouBolterSmack(at);
         var blast = new SoundEmitter { Position = at, OneShot = true, Label = "musou bolter blast" };
-        _sound.Post(MusouAudioRules.BlastEvent, blast, MusouAudioRules.BlastDelaySeconds, once: true, offset: new VoiceOffset(MusouAudioRules.BlastGainDb, TailDb: MusouAudioRules.BlastTailDb));
+        if (!MusouSoundIsOff(MusouSoundOff.Blast))   // musou/sound-ab: blast off
+            _sound.Post(MusouAudioRules.BlastEvent, blast, MusouAudioRules.BlastDelaySeconds, once: true, offset: new VoiceOffset(MusouAudioRules.BlastGainDb, TailDb: MusouAudioRules.BlastTailDb));
         CountSound("musou bolter hit");
         if (LogSound("musou-audio")) GD.Print($"MUSOU AUDIO t {_connectedFor:F3} {weapon}: {(stalker ? "blast (stalker: no smack)" : "smack + blast")} at {at.X:F1},{at.Y:F1},{at.Z:F1} (shots {_musouBolterShots}, hits {_musouBolterHits})");
     }

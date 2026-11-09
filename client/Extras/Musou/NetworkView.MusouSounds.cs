@@ -357,7 +357,11 @@ public partial class NetworkView
     bool MusouCue(MusouSoundCue cue, MusouSoundSet set, SoundEmitter emitter, MusouSoundGroup group, float distance, string what)
     {
         if (cue.Empty || _sound is null) return false;
-        if (MusouVoiceGroup(group, cue, set)) emitter = MusouMouthOf(emitter);
+        if (MusouVoiceGroup(group, cue, set))
+        {
+            if (MusouSoundIsOff(MusouSoundOff.CrowdVoices)) return false;   // musou/sound-ab: crowdvoices off
+            emitter = MusouMouthOf(emitter);
+        }
         var option = cue.Pick(_musouSoundRoll);
         if (option.Events.Count == 0 && _sound.SpeechBusy(emitter)) return false;
         if (_musouBudget.Take(group, distance, _musouLiveVoices, _musouLiveSpeech) != MusouSoundVerdict.Post) return false;

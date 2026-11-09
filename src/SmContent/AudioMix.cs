@@ -90,6 +90,10 @@ public sealed class SoundModifiers
         return e.Offset ? own + w * v : own + w * (v - own);
     }
 
+    /// <summary>The live entries (a test aid's log, musou/sound-ab): property, target, scope, the value now and its blend weight now (0..1).</summary>
+    public IEnumerable<(SoundProperty Property, uint Target, ulong Scope, float Value, float Weight)> Live(double now) =>
+        _entries.Select(kv => (kv.Key.Property, kv.Key.Target, kv.Key.Scope, ValueOf(kv.Value, now), WeightOf(kv.Value, now)));
+
     /// <summary>Drops every entry scoped to one emitter (it is gone: a finished one-shot place, a player who left).</summary>
     public void ForgetEmitter(ulong emitter)
     {

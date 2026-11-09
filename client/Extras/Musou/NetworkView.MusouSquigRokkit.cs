@@ -126,7 +126,7 @@ public partial class NetworkView
         if (frag < 0) return;
         var view = new SmNet.ProjectileView(-1, frag, 0, at, SmNet.ProjectileFlags.Thrown | SmNet.ProjectileFlags.Detonated);
         if (effects) FxDetonation(view);
-        SoundDetonation(view);
+        SoundDetonation(view, "squig");
     }
 
     void S2Post(string name, Vector3 at, float gainDb)
