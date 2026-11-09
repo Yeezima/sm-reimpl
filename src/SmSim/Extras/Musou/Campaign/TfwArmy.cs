@@ -46,6 +46,14 @@ public static class TfwArmyRules
     /// <summary>The routes between the battle's places are searched off the tick from the start and taken this long after it (deterministic, as the patrols').</summary>
     public const float RouteSeconds = 5f;
     public const int RouteExpansions = 200_000;
+    /// <summary>
+    /// The owner, 2026-11-09 ("Yes, route on avenues"): an army's route keeps <see cref="RouteHalfWidth"/> from walls either side (a 20 m front, the owner's army width) where it can: the search raises a link's cost by
+    /// <see cref="RoutePenalty"/> times its shortfall's share (<c>NavGraph.FindPathWide</c>), so formations march the avenues and take a narrow way only where none wider is near (a gate). Single bodies (a patrol, an Ork
+    /// chasing a target) keep the shortest walk. Every value ours, an estimate.
+    /// </summary>
+    public const float RouteHalfWidth = 10f, RoutePenalty = 20f;
+    /// <summary>Most nodes a wide route search expands (it searches round the narrow ways, so more than a single body's).</summary>
+    public const int WideRouteExpansions = 600_000;
 
     // Waves (the brief): peaks every 3-5 min, lulls of 90-150 s; 200 (70 %), 500 (25 %), 1,000 or more (5 %). Since 2026-11-09 80 % of each (the owner: "reduce the total amount of orks on the map to
     // 80% of current"): 160, 400, 800 and up to 160 more; and with no aggregate a wave is what the armies' real cap leaves room for.

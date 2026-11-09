@@ -98,7 +98,7 @@ public sealed record NavPath(IReadOnlyList<NavWaypoint> Waypoints, float Length,
 /// paths from there to the rest of the map are partial; kill volumes themselves are never cells. <see cref="FindPath"/> runs A* and pulls the
 /// string through straight walkable lines. Thread-safe for reading once built.
 /// </summary>
-public sealed class NavGraph
+public sealed partial class NavGraph
 {
     // ************************************************************************************************************
     // Bump FormatVersion on ANY change to how the graph is built or written that the constants below do not capture

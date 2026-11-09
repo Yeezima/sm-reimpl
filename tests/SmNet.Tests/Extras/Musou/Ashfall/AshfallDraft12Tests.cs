@@ -189,9 +189,9 @@ public class AshfallDraft12Tests(ITestOutputHelper output)
             output.WriteLine(AshfallClash.Result.Header); output.WriteLine(r.Row);
             Assert.True(r.FirstContact > 0f, p);
             Assert.False(r.SingleFile, p);
-            // at B the army layer's anchor walks the central avenue; at A it takes one body's shortest walk, which cuts through the blocks' alleys (2.3 m; the routing finding of drafts 11 and 12, the owner's call)
-            if (p == "B") Assert.True(r.NarrowestOnRoute >= 20f, $"{p}: narrowest {r.NarrowestOnRoute:0.0} m");
-            Assert.True(r.FrontageSteady >= 15f, $"{p}: frontage {r.FrontageSteady:0.0} m");
+            // since 2026-11-09 the armies route on the avenues (TfwArmyRules.RouteHalfWidth): the way is army-wide at both points; at A the two armies meet in a 22 m avenue, so the front is the avenue's
+            Assert.True(r.NarrowestOnRoute >= 20f, $"{p}: narrowest {r.NarrowestOnRoute:0.0} m");
+            Assert.True(r.FrontageSteady >= (p == "B" ? 15f : 10f), $"{p}: frontage {r.FrontageSteady:0.0} m");
         }
     }
 

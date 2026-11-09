@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2758 spec table rows: **2054 tagged**, 489 not tagged (read from data with high confidence), 215 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 610 rows of the changes document.
+Scanned 2759 spec table rows: **2055 tagged**, 489 not tagged (read from data with high confidence), 215 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 610 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -52,20 +52,20 @@ Scanned 2758 spec table rows: **2054 tagged**, 489 not tagged (read from data wi
 | Networking and render smoothing | 19 | 10 | 10 | 10 | 7 |
 | Core simulation (provisional values) | 539 | 515 | 377 | 155 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 221 | 211 | 118 | 58 | 0 |
-| **All areas** | **2054** | 1808 | 1526 | 658 | 38 |
+| Ork faction | 222 | 212 | 119 | 59 | 0 |
+| **All areas** | **2055** | 1809 | 1527 | 659 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
 | kind: ours | 1129 |
-| confidence: low | 736 |
+| confidence: low | 737 |
 | confidence: medium | 661 |
-| notes: ours | 379 |
+| notes: ours | 380 |
 | kind: interpretation | 360 |
 | notes: estimate | 166 |
-| kind: estimate | 144 |
+| kind: estimate | 145 |
 | confidence: none (low) | 129 |
 | kind: provisional | 99 |
 | kind: user's knowledge | 55 |
@@ -3431,6 +3431,7 @@ The Orks are an addition the owner keeps (the original multiplayer had Space Mar
 | `R-9EE0952B` | Stormboys round a fighter | while one member fights, the others go each to his own place on the squad's ring (3 m, 3.75 m alternately) round the fighter, not all to his feet (m) | kind: ours; confidence: medium | owner 2026-11-09 | Stormboys round a fighter: compare with SM1 by measuring on a flat spot of the same map. Ours: while one member fights, the others go each to his own place on the… | ☐ |
 | `R-DF3C489F` | Fan-out (Musou, a war's Orks) | bearing off the flow up to **50** degrees (was 35), wander **10** degrees (was 25), a pack's disc **5** m² an Ork (was 2), **40 %** flank to the second-nearest target (was 30 %); the spacing far out stays 1.6 x the radius (2.0 doubled the heading jitter: p95… (degrees, m², share) | kind: ours; notes: estimate | owner 2026-11-09 | Fan-out (Musou, a war's Orks): compare with SM1 with an overlaid screenshot taken from the same position. Ours: bearing off the flow up to 50 degrees (was 35), wander 10 degrees… | ☐ |
 | `R-2682BD43` | Active range: the armies' levels (Musou battle flow) | an army is real (its Orks and Guard squads simulated, thinking and fighting) within **300** m of any human, aggregate past **330** m (the brief's 90 / 120 m before; `SM_TFW_OLD_ARMY_RANGE=1`); the caps (480 real army Orks, 28 squads) are unchanged: with a cap… (m) | kind: ours; confidence: medium | owner 2026-11-09 | Active range: the armies' levels (Musou battle flow): compare with SM1 by measuring on a flat spot of the same map. Ours: an army is real (its Orks and Guard squads simulated, thinking and… | ☐ |
+| `R-F4EFD1EA` | Army routes keep to the wide ways (Musou battle flow) | an army's route between the battle's places (the landing zone, the Ork HQ, the points) is searched on the walking graph with each link's cost raised where the narrower of its two cells has less than **10** m clearance (a 20 m front): cost x (1 + **20** x the… (m) | kind: estimate; confidence: low; notes: ours | owner 2026-11-09 ("Yes, route on avenues"); values ours | Army routes keep to the wide ways (Musou battle flow): compare with SM1 by measuring on a flat spot of the same map. Ours: an army's route between the battle's places (the landing zone, the… | ☐ |
 | `R-DD0D0864` | Rendering range (Musou, client) | unchanged and already unbounded by distance: the nearest 1,800 crowd members are drawn (40 skinned within 25 m, the rest by vertex animation), the armies' impostors at any distance (900 at most); the 300 m levels make the army Orks within 300 m real, so they… (m) | kind: ours; confidence: medium | owner 2026-11-09 | Rendering range (Musou, client): compare with SM1 by measuring on a flat spot of the same map. Ours: unchanged and already unbounded by distance: the nearest 1,800 crowd… | ☐ |
 
 *Spec section: Musou Mode: the corpse floor (musou-ork-movement, 2026-11-09; Musou Mode only; client rules only: no simulation, wire or protocol change, so `MusouSim.Version` and `TfwRules.Version` stay)*

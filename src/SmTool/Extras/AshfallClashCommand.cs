@@ -6,7 +6,7 @@ using SmSim.Extras.Musou.Ashfall;
 namespace SmTool;
 
 /// <summary>
-/// <c>smtool ashfall-clash [--layouts city,field,draft10] [--points B,A] [--sizes 200,500,1000] [--ai shipped,adaptive] [--table file.md] [--clips dir]</c> (draft 11): the clash bench
+/// <c>smtool ashfall-clash [--layouts city,field,draft10] [--points B,A] [--sizes 200,500,1000] [--ai shipped,single,adaptive] [--table file.md] [--clips dir]</c> (draft 11): the clash bench
 /// (<see cref="AshfallClash"/>) over a matrix of layouts, points, sizes and army AIs; prints the Markdown table (frontage, queue length, stuck units, arrival spread, throughput, retreat). <c>--clips</c> writes each run's
 /// top-down frames (PNG, 2 a second, the action's box) under <c>dir/&lt;run&gt;/</c> for ffmpeg. A movement model only (docs/musou-ashfall-graybox.md "Draft 11 battlefield layout": nobody is hurt).
 /// </summary>
@@ -42,7 +42,7 @@ static class AshfallClashCommand
                     foreach (var ai in ais)
                     {
                         var layout = AshfallLayouts.Parse(l);
-                        var setup = new AshfallClash.Setup(layout, p, n, ai == "adaptive" ? AshfallClash.ClashAi.Adaptive : AshfallClash.ClashAi.Shipped);
+                        var setup = new AshfallClash.Setup(layout, p, n, ai switch { "adaptive" => AshfallClash.ClashAi.Adaptive, "single" => AshfallClash.ClashAi.SingleBody, _ => AshfallClash.ClashAi.Shipped });
                         Action<AshfallClash.Snapshot>? frame = null;
                         string? dir = null; int f = 0;
                         if (clips is not null)

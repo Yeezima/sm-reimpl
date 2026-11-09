@@ -988,3 +988,38 @@ Field version 2 (hash `0x42DC676411C2038C`, was `0x94488BF0597BA823`). City vers
 | AC-007, AC-010, AC-037, AC-047, AC-076 | not placed on either map (AC-076 is the visual dais at A); reported at their catalogue size |
 
 **In the levels:** every stair outside the stronghold is reached and walked on both maps. That is 210 stairs in the city and 101 in the field. Only the keep tower's authored top flight fails.
+
+### Army routing on the avenues (the owner's decision, 2026-11-09)
+The owner answered "Yes, route on avenues" when asked whether the army AI should keep its formations to the avenues. The armies' routes between the battle's places used to be one body's shortest walk on the walking graph (`NavGraph.FindPath`). On the city that walk cut diagonally through the blocks' 2 to 4 m alleys to A and C.
+
+They are now searched with `NavGraph.FindPathWide` (`TfwRules.Version` 58):
+- **Clearance.** Each node's clearance is the walk to the nearest node at a wall or an edge, built once per graph.
+- **Cost.** A link whose narrower node has less than `TfwArmyRules.RouteHalfWidth` (10 m, a 20 m front) costs up to 21 times more.
+- **Shortcuts.** The string pulling keeps a shortcut only where the line stays as wide as the cells it replaces.
+- **Who uses it.** Formations (Ork waves, Guard armies and reinforcements) march the avenues and take a narrow way only where none wider is near: the stronghold's gate and its breaches, which are authored. Single bodies keep the shortest walk.
+- **What is untouched.** Classic PvP's pathing, the graph's build and its cache.
+
+The routes the war takes, measured on each map's own walking graph (`smtool musou-army-routes`, `army-routes.md`). The figure is the width at the narrowest point outside the bases, before → after:
+
+| Route | City (`tfw_war`) | Field (`tfw_war_field`) | Draft 10 (`tfw_war_draft10`) |
+|---|---|---|---|
+| landing zone to A | 0.0 → 25.3 m (91 → 103 s) | 9.8 → 41.5 m (87 → 91 s) | 2.5 → 15.3 m (112 → 136 s) |
+| landing zone to B | 27.8 → 27.8 m (52 s) | 69.0 → 69.0 m (47 s) | 13.8 → 14.0 m (52 → 53 s) |
+| landing zone to C | 0.0 → 26.3 m (92 → 104 s) | 26.8 → 22.5 m (87 → 90 s) | 0.0 → 16.8 m (110 → 133 s) |
+| Ork HQ to A | 0.0 → 31.8 m (57 → 61 s) | 49.0 → 38.0 m (55 → 59 s) | 13.3 → 15.3 m (56 → 89 s) |
+| Ork HQ to C | 5.3 → 8.3 m (57 → 65 s; the east-leg breach) | 57.8 → 9.3 m (55 → 59 s; the breach) | 2.8 → 20.3 m (64 → 85 s) |
+| A to B, B to C | 0.0 → 26.3 m (52 → 60 to 63 s) | 0.0 → 31.0 and 63.3 m (50 → 51 s) | 0.0 → 13.8 m (67 to 106 → 86 to 131 s) |
+
+The march times are at the army's pace: 3.6 m/s for the Guard from the landing zone, 3 m/s for the Orks from the HQ.
+
+The clash bench at 1,000 a side, with the shipped rule against the rule before (`--ai single`):
+
+| | Narrowest point on route | First contact | Front 20 s after contact |
+|---|---|---|---|
+| City A | 4.3 → 25.5 m | 78 → 77 s | 37 → 15 m |
+| City C | 2.3 → 26.3 m | 85 → 76 s | 39 → 17 m |
+| City B | unchanged: 26.3 m, 48 s, 35 m | | |
+
+- **Why the front is smaller.** On an avenue the front is the avenue's width (22 m): a 36-file army (about 50 m) does not fit it. Before, its men spilled through the blocks, which measured wider.
+- **Field.** Unchanged in kind: wide ways on both rules.
+- **Draft 10.** Its streets are at most 14 to 20 m, so it stays single file at A and C on both rules.
