@@ -43,13 +43,64 @@ public class MusouCustomizerTests
         Assert.True(MusouCustomizer.Info(MusouCustomizerEntry.Librarian).Available);
     }
 
+    // A small config: the Tactical (bolter and plasma gun, bolt pistol, knife, frag and blind grenades), the Assault (the power sword), a Chaos Tactical. The Librarian is appended by MusouLoadout.Prepare.
+    static readonly MeleeStep Light = new(1f, 0.2f, 0.4f, 0.6f, 0.5f, 0.7f, 25f, 10f, 3.5f);
+    static WeaponSpec Gun(string name, WeaponSlot slot) => new(name, slot, TriggerKind.SemiAuto, 20f, 0.3f, 10, 40, 1.2f, 120f, 30f, 60f, 0.5f, 3f, 1f, 0.6f, 0.6f);
+    static readonly ProjectileSpec Ball = new("ball", 10f, 2f, "sphere", 0.1f, [], true, true, false, 0, 0f, 0f, 4, null, null);
+    static readonly SimConfig Raw = new()
+    {
+        Weapons = [Gun("sm_mp_bolter", WeaponSlot.Ranged), Gun("sm_mp_plasma_gun", WeaponSlot.Ranged), Gun("sm_mp_bolt_pistol", WeaponSlot.Pistol)],
+        Thrown = [new ThrownSpec("sm_mp_eq_frag_grenade", 2, 2, 1f, 30f, Ball), new ThrownSpec("sm_mp_eq_krak_grenade", 2, 2, 1f, 30f, Ball)],
+        Classes =
+        [
+            new("sm - tactical", 0, 2, [Light]) { PrimaryChoices = [0, 1], PistolChoices = [2], EquipmentChoices = [0, 1], MeleeChoices = [new("sm_mp_melee_combat_knife", [Light])], Side = Team.SpaceMarines, Role = "tactical" },
+            new("sm - assault marine", -1, 2, [Light]) { PistolChoices = [2], MeleeChoices = [new("sm_mp_melee_chainsword", [Light]), new(LibrarianRules.PowerSwordWargear, [Light])], Side = Team.SpaceMarines, Role = "assault" },
+            new("csm - tactical", 0, 2, [Light]) { PrimaryChoices = [0], Side = Team.Chaos, Role = "tactical" },
+        ],
+    };
+
+    static string Name(string wargear) => "<" + wargear + ">";
+
+    static LibrarianLoadout Librarian => LibrarianLoadout.Of(Raw, Name);
+
+    [Fact]
+    public void The_librarians_loadout_is_read_from_his_class_as_musou_loadout_makes_it()
+    {
+        var expected = MusouLoadout.Prepare(Raw with { Extras = ContentExtras.Musou }).Classes.Single(c => c.Name == LibrarianRules.ClassName);
+        var shown = Librarian;
+        Assert.Equal(Name(expected.MeleeChoices[0].Wargear), shown.Melee);
+        Assert.Equal(Name(LibrarianRules.PowerSwordWargear), shown.Melee);   // his starting melee: the power sword (the force sword)
+        Assert.Equal(expected.EquipmentChoices.Select(i => Name(Raw.Thrown[i].Name)), shown.Equipment);   // whatever his class carries: none today, the Marines' equipment once that lands
+        Assert.Equal(expected.PrimaryChoices.Count + expected.PistolChoices.Count + (expected.Primary >= 0 ? 1 : 0) + (expected.Pistol >= 0 ? 1 : 0) > 0, shown.Guns.Count > 0);
+        Assert.Equal(expected.MeleeChoices.Skip(1).Select(m => Name(m.Wargear)).Distinct(), shown.OtherMelee);
+    }
+
+    [Fact]
+    public void A_config_without_a_tactical_has_no_librarian() =>
+        Assert.Same(LibrarianLoadout.None, LibrarianLoadout.Of(Raw with { Classes = [Raw.Classes[2]] }, Name));
+
+    [Fact]
+    public void The_page_and_summary_follow_the_equipment_his_class_lists()
+    {
+        var none = new LibrarianLoadout("Force sword", [], [], []);
+        var some = new LibrarianLoadout("Force sword", [], [], ["Frag Grenades", "Blind Grenades", "Combat Stimulants"]);
+        var gearNone = MusouCustomizer.LibrarianStep(2, "x", none).SelectMany(s => s.Rows).ToList();
+        Assert.Contains(gearNone, r => r.Title == "None" && r.Kind == MusouRowKind.Fixed);
+        Assert.Contains("no grenades", MusouCustomizer.LibrarianSummary("x", none));
+        var gearSome = MusouCustomizer.LibrarianStep(2, "x", some).SelectMany(s => s.Rows).ToList();
+        Assert.Contains(gearSome, r => r.Title == "Frag Grenades" && r.Kind == MusouRowKind.Fixed);   // the default: the first
+        Assert.Contains(gearSome, r => r.Title == "Blind Grenades" && r.Kind == MusouRowKind.NotYet);   // a choice needs a Librarian loadout
+        Assert.Contains("Frag Grenades or Blind Grenades or Combat Stimulants", MusouCustomizer.LibrarianSummary("x", some));
+        Assert.Contains("frag grenades", MusouCustomizer.LibrarianStep(0, "x", some).Single().Rows.Single().Description);
+    }
+
     [Fact]
     public void The_librarian_page_has_five_steps_each_with_rows()
     {
         Assert.Equal(["CLASS", "WEAPONS", "POWERS", "PERKS", "LOOK"], MusouCustomizer.LibrarianSteps);
         for (int step = 0; step < MusouCustomizer.LibrarianSteps.Count; step++)
         {
-            var sections = MusouCustomizer.LibrarianStep(step, "CUSTOM 1 \"Bolter line\"");
+            var sections = MusouCustomizer.LibrarianStep(step, "CUSTOM 1 \"Bolter line\"", Librarian);
             Assert.NotEmpty(sections);
             Assert.All(sections, s => { Assert.False(string.IsNullOrWhiteSpace(s.Heading)); Assert.NotEmpty(s.Rows); });
             Assert.All(sections.SelectMany(s => s.Rows), r => { Assert.False(string.IsNullOrWhiteSpace(r.Title)); Assert.False(string.IsNullOrWhiteSpace(r.Description)); });
@@ -59,35 +110,44 @@ public class MusouCustomizerTests
     [Fact]
     public void What_does_not_exist_yet_is_marked_not_yet_and_what_is_real_is_not()
     {
-        var rows = Enumerable.Range(0, MusouCustomizer.LibrarianSteps.Count).SelectMany(s => MusouCustomizer.LibrarianStep(s, "x")).SelectMany(s => s.Rows).ToList();
+        var rows = Enumerable.Range(0, MusouCustomizer.LibrarianSteps.Count).SelectMany(s => MusouCustomizer.LibrarianStep(s, "x", Librarian)).SelectMany(s => s.Rows).ToList();
         Assert.All(rows.Where(r => r.Kind == MusouRowKind.NotYet), r => Assert.Equal(["NOT YET"], r.Tags));
         Assert.All(rows.Where(r => r.Kind != MusouRowKind.NotYet), r => Assert.DoesNotContain("NOT YET", r.Tags));
-        // The customizations the Librarian lacks today: his own perks, other melee weapons, a choice of powers, a look of his own.
-        Assert.Equal(4, rows.Count(r => r.Kind == MusouRowKind.NotYet));
+        // The customizations the Librarian lacks: his own perks, a choice of powers, a look of his own (and other melee weapons while his class lists some).
+        foreach (var title in new[] { "His own perks", "Choice of powers", "A look of his own", "Other melee weapons" })
+            Assert.Contains(rows, r => r.Title == title && r.Kind == MusouRowKind.NotYet);
     }
 
     [Fact]
     public void The_look_step_carries_the_active_loadouts_look_over()
     {
-        var look = MusouCustomizer.LibrarianStep(MusouCustomizer.LookStep, "CUSTOM 2 \"Paint\"").SelectMany(s => s.Rows).ToList();
+        var look = MusouCustomizer.LibrarianStep(MusouCustomizer.LookStep, "CUSTOM 2 \"Paint\"", Librarian).SelectMany(s => s.Rows).ToList();
         var carried = Assert.Single(look, r => r.Kind == MusouRowKind.CarriedOver);
         Assert.Contains("CUSTOM 2 \"Paint\"", carried.Description);
         Assert.Contains("FROM YOUR LOADOUT", carried.Tags);
-        Assert.Contains("CUSTOM 2", MusouCustomizer.LibrarianSummary("CUSTOM 2 \"Paint\""));
+        Assert.Contains("CUSTOM 2", MusouCustomizer.LibrarianSummary("CUSTOM 2 \"Paint\"", Librarian));
     }
 
     [Fact]
-    public void The_powers_text_follows_the_librarian_rules()
+    public void The_powers_are_the_ones_whose_numbers_the_librarian_rules_hold()
     {
-        string powers = string.Join("\n", MusouCustomizer.LibrarianStep(2, "x").SelectMany(s => s.Rows).Select(r => r.Description));
-        Assert.Contains($"{LibrarianRules.LightningRange:0} m", powers);
-        Assert.Contains($"{LibrarianRules.MaxTargets} targets", powers);
-        Assert.Contains($"{LibrarianRules.PullRange:0} m", powers);
-        Assert.Contains($"{LibrarianRules.ShockwaveRadius:0} m", powers);
-        Assert.Contains($"{LibrarianRules.PullCooldown:0} s cooldown", powers);
-        Assert.Contains($"{LibrarianRules.ShockwaveCooldown:0} s cooldown", powers);
-        Assert.Contains("12.5", powers);   // the cooling rate, invariant culture
+        var powers = LibrarianPowers.Present();
+        // Each power shows exactly while its key number exists in LibrarianRules (looked up by name: a power taken out there drops from the page by itself).
+        Assert.Equal(LibrarianPowers.Value("LightningRange") is not null, powers.Any(p => p.Name == "Chain lightning"));
+        Assert.Equal(LibrarianPowers.Value("PullRange") is not null, powers.Any(p => p.Name == "Warp Pull"));
+        Assert.Equal(LibrarianPowers.Value("ShockwaveRadius") is not null, powers.Any(p => p.Name == "Psychic Shockwave"));
+        Assert.Contains(powers, p => p.IsPower);
+        Assert.Null(LibrarianPowers.Value("NoSuchNumber"));
+        string text = string.Join("\n", MusouCustomizer.LibrarianStep(2, "x", Librarian).SelectMany(s => s.Rows).Select(r => r.Description));
+        Assert.Contains(LibrarianPowers.Value("ShockwaveRadius")!.Value.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) + " m", text);   // the number the rules hold now
+        Assert.Contains($"{LibrarianRules.MaxTargets} targets", text);
+        string summary = MusouCustomizer.LibrarianSummary("x", Librarian);
+        Assert.All(powers.Where(p => p.IsPower), p => Assert.Contains(p.Name, summary));
     }
+
+    [Fact]
+    public void A_share_is_shown_as_a_percentage() =>
+        Assert.Equal(LibrarianPowers.Value("CoolPerSecond") * 100, LibrarianPowers.Value("CoolPerSecond*100"));
 
     [Fact]
     public void The_restore_switch_is_the_documented_flag() => Assert.Equal("musou-old-customizer", MusouCustomizer.OldCustomizerFlag);

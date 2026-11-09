@@ -150,6 +150,29 @@ public sealed partial class CreatorView
     int? LibrarianLookSlot(CustomizationProfile profile, Selection active) =>
         active.Kind == SelectionKind.Custom && profile.ClassAt(active.Slot) is not null ? active.Slot : null;
 
+    LibrarianLoadout? _librarianData;
+
+    /// <summary>
+    /// The Librarian's loadout from the data (<see cref="LibrarianLoadout.Of"/>: his class as MusouLoadout appends it to this run's configuration), named as the catalogue names wargear; read once. So the
+    /// page follows his class (weapons, melee, equipment) and LibrarianRules' powers without an edit here.
+    /// </summary>
+    LibrarianLoadout LibrarianData => _librarianData ??= _services.Config is { } config ? LibrarianLoadout.Of(config, WargearTitle) : LibrarianLoadout.None;
+
+    /// <summary>A wargear name's display name: the catalogue's item of that name on any Space Marine class, else a readable form of the name.</summary>
+    string WargearTitle(string wargear)
+    {
+        string neutral = ProfileWire.Neutral(wargear);
+        foreach (var role in ProfileStore.Roles(_catalog))
+        {
+            if (LoadoutRows.Options(_catalog, role, CustomizationCatalog.SpaceMarine) is not { } options) continue;
+            foreach (var key in new[] { "primary", "pistol", "melee", "equipment" })
+                if (options.For(key).Items.FirstOrDefault(i => ProfileWire.Neutral(i.Name).Equals(neutral, StringComparison.OrdinalIgnoreCase)) is { } item)
+                    return key == "equipment" ? LoadoutRows.EquipmentTitle(item) : item.DisplayName;
+        }
+        string tail = wargear[(wargear.LastIndexOf('_') + 1)..];
+        return tail.Length == 0 ? wargear : char.ToUpperInvariant(tail[0]) + tail[1..];
+    }
+
     /// <summary>The Librarian's body is the Tactical Marine's (MusouLoadout.AppendLibrarian).</summary>
     string TacticalRole => ProfileStore.Roles(_catalog).FirstOrDefault(r => r.Equals("tactical", StringComparison.OrdinalIgnoreCase)) ?? ProfileStore.FirstRole(_catalog);
 
@@ -157,7 +180,7 @@ public sealed partial class CreatorView
     {
         string activeName = ActiveName(profile, active);
         _summary.Visible = true;
-        _summary.Text = MusouCustomizer.LibrarianSummary(activeName);
+        _summary.Text = MusouCustomizer.LibrarianSummary(activeName, LibrarianData);
         _summary.TooltipText = _summary.Text;
 
         int count = MusouCustomizer.LibrarianSteps.Count;
@@ -186,7 +209,7 @@ public sealed partial class CreatorView
         _deployButton.Disabled = MusouLibrarianDeploy is null;
         _deployButton.TooltipText = MusouLibrarianDeploy is null ? "Pick him in the Stormbird: Esc, PLAY AS LIBRARIAN" : "Become the Librarian now (in the Stormbird)";
 
-        MusouList(MusouCustomizer.LibrarianStep((int)_step, activeName), focusList, MusouCustomizer.LibrarianNote);
+        MusouList(MusouCustomizer.LibrarianStep((int)_step, activeName, LibrarianData), focusList, MusouCustomizer.LibrarianNote);
 
         _preview.MusouLibrarian = true;
         var look = lookSlot is { } slot && profile.ClassAt(slot) is { } c ? profile.Appearance(c.Appearance.For(CustomizationCatalog.SpaceMarine)) : null;
