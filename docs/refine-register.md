@@ -30,6 +30,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 Scanned 2811 spec table rows: **2091 tagged**, 498 not tagged (read from data with high confidence), 222 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 626 rows of the changes document.
 Scanned 2760 spec table rows: **2056 tagged**, 489 not tagged (read from data with high confidence), 215 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 612 rows of the changes document.
+Scanned 2765 spec table rows: **2061 tagged**, 489 not tagged (read from data with high confidence), 215 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 614 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -44,6 +45,9 @@ Scanned 2760 spec table rows: **2056 tagged**, 489 not tagged (read from data wi
 | HUD and hit feedback (critical) | 68 | 63 | 50 | 11 | 0 |
 | Sound mix (critical) | 69 | 63 | 61 | 11 | 0 |
 | Effects (critical) | 89 | 79 | 74 | 40 | 0 |
+| HUD and hit feedback (critical) | 69 | 64 | 50 | 11 | 0 |
+| Sound mix (critical) | 67 | 61 | 59 | 10 | 0 |
+| Effects (critical) | 87 | 77 | 72 | 39 | 0 |
 | Game modes | 42 | 39 | 38 | 19 | 1 |
 | Perks | 59 | 48 | 31 | 25 | 0 |
 | Death and ragdoll | 14 | 10 | 12 | 10 | 0 |
@@ -55,6 +59,11 @@ Scanned 2760 spec table rows: **2056 tagged**, 489 not tagged (read from data wi
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 233 | 222 | 125 | 63 | 0 |
 | **All areas** | **2091** | 1844 | 1552 | 669 | 38 |
+| Networking and render smoothing | 19 | 10 | 10 | 10 | 7 |
+| Core simulation (provisional values) | 543 | 519 | 380 | 155 | 1 |
+| General game design | 7 | 7 | 6 | 0 | 0 |
+| Ork faction | 222 | 212 | 119 | 59 | 0 |
+| **All areas** | **2061** | 1815 | 1530 | 660 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -67,6 +76,13 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | kind: interpretation | 363 |
 | notes: estimate | 172 |
 | kind: estimate | 144 |
+| kind: ours | 1135 |
+| confidence: low | 740 |
+| confidence: medium | 661 |
+| notes: ours | 380 |
+| kind: interpretation | 360 |
+| notes: estimate | 167 |
+| kind: estimate | 145 |
 | confidence: none (low) | 129 |
 | kind: provisional | 99 |
 | kind: user's knowledge | 55 |
@@ -1469,7 +1485,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-C9703C8F` | Strike and reaction entry floor | a melee strike's and a hit reaction's entry fade has a floor of **0.125** s instead of 0.1875 s, so the graphs' 0.1 s and 0.167 s are nearer met; not the charge, the roll, the stomp (a Devastator's or Havoc's heavy strike) or any exit (s) | kind: ours; confidence: low | ours | Strike and reaction entry floor: compare with SM1 by watching the reaction and timing it frame by frame. Ours: a melee strike's and a hit reaction's entry fade has a floor of 0.125… | ☐ |
 | `R-79ECC932` | Heavy footfall | a moving Devastator's or Havoc's own footfall dips the camera **0.05** degrees (**0.09** above 7 m/s); the sound is the data's; the data has no camera footfall (degrees) | kind: ours; confidence: low | ours | Heavy footfall: compare with SM1 with an overlaid screenshot taken from the same position. Ours: a moving Devastator's or Havoc's own footfall dips the camera 0.05… | ☐ |
 
-### HUD and hit feedback (gameplay-critical) (68)
+### HUD and hit feedback (gameplay-critical) (69)
 
 *Spec section: Scoreboard ping on the HUD scoreboard (net/scoreboard-ping; protocol 50; ours)*
 
@@ -1556,6 +1572,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-9A804443` | Musou HUD | a run panel (wave n / 5, enemies left, lives as pips, own KOs and points), a Warboss bar at the top centre with ticks at 75/50/25 % and ENRAGED, a KO chain counter, a break countdown, WAAAGH! and ENRAGED call-outs (2.2–2.4 s, 0.7 s flashes), a victory or… | kind: ours; confidence: low | the lead's design; layout and values ours | Musou HUD: compare with SM1 with side-by-side screenshots in the same spot. Ours: a run panel (wave n / 5, enemies left, lives as pips, own KOs and… | ☐ |
+
+*Spec section: Added content: Musou Mode (TF0 contracts, TF1 map, TF3 Guardsmen and leashed defenders; no protocol change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-1CF0E83E` | Musou HUD layout (client; owner 2026-11-10) | Musou only (`--musou-old-hud`: the layout before): the own armour and health bar (the match HUD's) bottom left at 0.65 of its size, its box's bottom 40 above the screen's bottom; the capture tiles top left (46 + 8 gap) with the on-point line and bar under… (1080-high virtual units, px) | kind: ours | owner 2026-11-10 ("move all musou mode specific UI elements to the edges of the screen, prioritizing the corners"; "Bottom left, approve"; "put your player… | Musou HUD layout (client; owner 2026-11-10): compare with SM1 with side-by-side screenshots in the same spot. Ours: Musou only (--musou-old-hud: the layout before): the own armour and… | ☐ |
 
 *Spec section: Added content: Musou Mode: the HUD, the war map and the orders (TF7b; no protocol change, `TfwRules.Version` 5 since the deployed flag)*
 
@@ -2194,6 +2216,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
 ### Core simulation (provisional values) (556)
+### Core simulation (provisional values) (543)
 
 *Spec section: Provisional values in use*
 
@@ -2349,6 +2372,10 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-70C7C784` | Ashfall concept light pass (client) | Musou Mode's Ashfall only, on the concept pass (the owner, 2026-11-06: "Musou currently feels too dark"; his concept art as the target): a break sky (charcoal clouds (0.030, 0.032, 0.036) to grey (0.115, 0.118, 0.126), cover 0.44, heavy overhead, a grey haze… | kind: ours; confidence: low; notes: estimate | owner 2026-11-06 (concept art; "too dark", "brighten the playable battlefield", "don't solve the palette by permanently recoloring the original 3D assets")… | Ashfall concept light pass (client): compare with SM1 by feel or video. Ours: Musou Mode's Ashfall only, on the concept pass (the owner… | ☐ |
 | `R-A59E81C5` | Ashfall concept look, fable passes (client) | Musou Mode's Ashfall only, on the concept light pass (the owner's concept art, 2026-11-06, and his round-2 notes: sky "pale and blown out", floor "cream and too bright", no golden shafts, "almost none" fires, ash and sparks, "the 3d asset buildings are too… | kind: ours; confidence: low | owner 2026-11-06 (concept art; round-2 notes; skybox via OpenArt; Blender bake approved); every value ours, tuned by eye and by measured luminance against the… | Ashfall concept look, fable passes (client): compare with SM1 by feel or video. Ours: Musou Mode's Ashfall only, on the concept light pass (the owner's… | ☐ |
 | `R-CAAE90AA` | Battle markers and capture tracker (concept pass, client) | each position's ring a black decal 0.22 m wide at its radius, projected 5 m down and 2 m up (players, Orks and pickups skip it: render layer 2), a flat black band on Compatibility; the letter 24 m over its point (was 9), shown while the view's heading is… (m, degrees, px) | kind: ours; confidence: low | owner 2026-11-06 ("thin, opaque black ground rings", letters "much higher", "only when the player is looking toward its point", a capture-progress indicator)… | Battle markers and capture tracker (concept pass, client): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: each position's ring a black decal 0.22 m wide at its radius… | ☐ |
+| `R-34C2AE49` | Musou boss column (client; owner 2026-11-10) | over the own bar, bottom left: a 340 x 12 bar per living boss (the commander red with its Waaagh! ticks, a Boss Ork orange), 42 apart; order per viewer: the bosses the own player hit within 5 s (most recent first, nearest the own bar; bright frame, white… (s, m, px) | kind: ours; confidence: low | owner 2026-11-10 ("prioritize showing the health of bosses being actively damaged by the local player viewing their own ui"); the own hits are the Musou hit… | Musou boss column (client; owner 2026-11-10): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: over the own bar, bottom left: a 340 x 12 bar per living boss (the… | ☐ |
+| `R-2160104F` | Musou capture banners (client; owner 2026-11-10) | a banner at the centre of each position and the commander's: the multiplayer set's `waaaghbanner` (red-brown, the Orks') until it is secured, `sm_banner` (blue, the Space Marines') once secured (`TfwMarkerRules.BannerImperial`), both drawn 8 m tall on the… (m, s) | kind: ours; confidence: low | owner 2026-11-10 ("a banner is red when ork held, is covered by smoke, then when the smoke ... completely dissipates the banner is now blue"; "Original… | Musou capture banners (client; owner 2026-11-10): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a banner at the centre of each position and the commander's: the… | ☐ |
+| `R-6DAE3ADE` | Musou capture circle (client; owner 2026-11-10) | a flat black band 0.7 m wide at the position's radius, 6 cm over its ground (render layer 2), drawn clockwise from its +Y point over `TfwMarkerRules.CircleFill` of the turn = abs(1 - 2 x progress) (locked: 1): complete while either side holds the position… (m, fraction) | kind: ours; confidence: low | owner 2026-11-10 ("a black circle around it on the floor that is drawn and completed as the point is progressing from 0% capture to 100% captured by the player… | Musou capture circle (client; owner 2026-11-10): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a flat black band 0.7 m wide at the position's radius, 6 cm over its… | ☐ |
+| `R-7A1067A2` | Musou capture indicators (client; owner 2026-11-10) | Musou Mode shows a position's state only by its banner, its circle and its letter: no capture tiles, line or bar on the HUD; the letter (24 m up, shown from afar while looked toward, faded out near the point as before) in the banner's colour, red (0.9, 0.12… | kind: ours | owner 2026-11-10 ("the banners and the letters A, B, C high in the air above the center of each point are the only indicators"; letters "keep, far only the… | Musou capture indicators (client; owner 2026-11-10): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: Musou Mode shows a position's state only by its banner, its circle… | ☐ |
 | `R-20236BCE` | War walking graph | the battlefield alone, 0.5 m cells, seeded from the map's own spawn markers, points and start areas with the bots' 30 m margin, so no node in the Stormbird and the spawn rooms open; cached as `tfw_war-musou-<key>.nav`; one node in four checked for 4 m of room… (m) | kind: ours | ours | War walking graph: compare with SM1 by measuring on a flat spot of the same map. Ours: the battlefield alone, 0.5 m cells, seeded from the map's own spawn… | ☐ |
 | `R-D0FB7BED` | War map look | the battlefield: the map's own meshes, lighting, effects and sounds (original asset loaded). The Stormbird: the original `thunderhawk_interior` from the singleplayer chunk `part_01__s_002_r001_new_greybox_1` (original asset loaded: 15 blocks, 28 surfaces with… | kind: ours; confidence: low | the look ours, checked in windowed captures against the owner's two references | War map look: compare with SM1 by feel or video. Ours: the battlefield: the map's own meshes, lighting, effects and sounds… | ☐ |
 | `R-756A7A26` | War camera in the room | the follow camera in the 5 m room, `--camera-probe`, an Assault bot's `--jump-test` for 35 s: no frame with the near plane in collision, nearest surface 0.20 m, 5 of 4,820 frames flagged as a jump over 0.5 m at 60 fps (0.55 to 0.77 m, at most 0.33 m of it… (m) | kind: ours | measured | War camera in the room: compare with SM1 by measuring on a flat spot of the same map. Ours: the follow camera in the 5 m room, --camera-probe, an Assault bot's… | ☐ |
@@ -4347,6 +4374,10 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-07DF5820` | Musou: the Guardsmen meet a charge (musou-big-ork-deaths, owner 2026-11-10; `TfwRules.Version` 58) | No Musou Mode in the original | Ours (the owner: "Rebalance Guards" after the Orks' pace and charge): a Guardsman's hit on a charging Ork does 1.5x damage, so six squads beat sixty charging Boyz again in about the old time while the mixed counterattack and the near army trial stay near their balance; server `SM_MUSOU_GUARD_BRACE=1` restores it | Musou Mode's war only. spec "Musou Mode: the Guardsmen meet a charge" | Musou: the Guardsmen meet a charge (musou-big-ork-deaths…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-1DFF2AE3` | Musou: HUD at the screen edges (musou/ui-edges, owner 2026-11-10; client only, no rules or wire change) | No Musou Mode in the original | Ours (the owner's request, verbatim: "move all musou mode specific UI elements to the edges of the screen, prioritizing the corners nd minimizing impact on free screen space to view the game world."): the commander's and the Boss Orks' bars bottom left (the score panel's corner, empty in Musou), the capture tiles… | Musou Mode and the old 5-wave run only; the match HUD (Classic PvP) is unchanged. docs/milestones.md "Musou HUD at the screen edges" | Musou: HUD at the screen edges (musou/ui-edges, owner…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-AFDFDD67` | Musou: the Orks back at 100 %, twice the big Orks (musou-big-ork-deaths, owner 2026-11-10; `TfwRules.Version` 59) | No Musou Mode in the original | The owner's: "roll back the 20% less orks change" (every bulk Ork count back to before 2026-11-09; the Ork armies stay real Orks alone), "double the amount of scaled up in size orks ... let them exist independent of the cap" (every Nob and Big Shoota Nob twice where one came, off the crowds' and armies' caps) and "up… | Musou Mode's war only. spec "Musou Mode: the Orks back at 100 %, twice the big Orks" | Musou: the Orks back at 100 %, twice the big Orks…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-F52025D9` | Musou: cleave volume and cap (musou/combat-rules, 2026-11-09; `TfwRules.Version` 53) | No Musou Mode in the original | Ours (the owner's request, verbatim: "extend the melee hitbox outward and forward of the player in a flat cone - they should reach out further for cleaving purposes. raise the cleave cap up to 40 orks in one swing."): the war's cleave reaches 1.3x further (1.5x until the owner's 2026-11-09 "reduce the latest melee… | Musou Mode's war only; the skirmish, Classic PvP and the original are unchanged. spec "Musou combat: cleave volume" | Musou: cleave volume and cap (musou/combat-rules…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-6202225B` | Musou: HUD at the screen edges (musou/ui-edges, owner 2026-11-10; client only, no rules or wire change) | No Musou Mode in the original | Ours (the owner's request, verbatim: "move all musou mode specific UI elements to the edges of the screen, prioritizing the corners nd minimizing impact on free screen space to view the game world."): the boss bars bottom left (the score panel's corner, empty in Musou), the capture tiles (smaller) with the on-point… | Musou Mode and the old 5-wave run only; the match HUD (Classic PvP) is unchanged. docs/milestones.md "Musou HUD at the screen edges" | Musou: HUD at the screen edges (musou/ui-edges, owner…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-6202225B-2` | Musou: HUD at the screen edges (musou/ui-edges, owner 2026-11-10; client only, no rules or wire change) | No Musou Mode in the original | Ours (the owner's request, verbatim: "move all musou mode specific UI elements to the edges of the screen, prioritizing the corners nd minimizing impact on free screen space to view the game world."): the commander's and the Boss Orks' bars bottom left (the score panel's corner, empty in Musou), the capture tiles… | Musou Mode and the old 5-wave run only; the match HUD (Classic PvP) is unchanged. docs/milestones.md "Musou HUD at the screen edges" | Musou: HUD at the screen edges (musou/ui-edges, owner…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-BC561D40` | Musou: capture banners in the world, no capture HUD (musou/capture-banners, owner 2026-11-10; client only, no rules, wire or protocol change) | No Musou Mode in the original (Seize Ground's points are the original's own and unchanged) | Ours (the owner's request, verbatim: "remove the text and status bar for the capture point ui elements in musou mode. add a banner is red when ork held, is covered by smoke, then when the smoke obscuring the banner completely dissipates the banner is now blue when captured by the player and his team. the end result is… | Musou Mode only; Classic Seize Ground unchanged. spec "Musou capture banners", "Musou capture circle", "Musou capture indicators" | Musou: capture banners in the world, no capture HUD…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 
 ## Appendix: not gameplay
 

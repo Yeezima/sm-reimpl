@@ -2437,3 +2437,13 @@ Musou Mode's Scrap Meks and contraptions use SM1 props read at run time (`client
 | Beacon drop | `ork_rok` | `cp_maps__cp_arena_desert_b` | Exterminatus arena |
 Other candidates rendered for the choice (`model viewer --archive data/chunks/<chunk>.oppc --mesh <name>`): `Ork_Turret_LODH`, `Ork_turrel_Base_A`, `kill_kroozer_turret`, `ork_elektrik_tower_set_healthy`, `ig_generator`, `ork_tower_healthy`, `Geo_ork_spawn`, `ork_junkpile_a_healthy`, `Ork_Spike_lg_A`, `Defence_tanktrap_LODH`, `gretchin_melee`, `boy_melee_pro`, `DropPod`, `ork_fighta`; `ork_flag_a` does not load (a type-2 block layout we do not read yet).
 
+
+## Musou capture banners (owner, 2026-11-10)
+Searched `data/chunks/ebp_sets__mp_versus_set.oppc` (`smtool list --csv`) for banner, flag, standard and capture models: the multiplayer set holds the original's capture-point props. Rendered with the model viewer (`--archive data/chunks/ebp_sets__mp_versus_set.oppc --mesh <name>`), all *original asset loaded*:
+| Mesh | Vertices, surfaces | Look | Use |
+|---|---|---|---|
+| `sm_banner` | 832, 2 (diffuse `sm_banner_dif`) | blue Space Marine banner on a pole under a winged skull; a havok cloth file `havok_sm_banner__hkxx` beside it (not simulated: the cloth stands still) | Musou Mode: a position secured by the players |
+| `waaaghbanner` | 2011, 1 (diffuse `waaagh_banner_dif`) | red-brown Ork totem with the WAAAGH! glyph (already Musou's Scrap Mek beacon) | Musou Mode: a position the Orks hold |
+| `csm_banner` | 728, 2 | Chaos banner | not used |
+| `wc_capture_point` | 248, 1 (`capture_point_disk_dif`) | a round spiked floor disk (the point entity's visual, see "Point entity" above) | not used |
+Readers: `StaticModel.Load` through `MekModels` (`client/Extras/Musou/Tfw/TfwBanners.cs`). Previews: `<media folder>\previews\musou-capture-banners\models\` (outside the repository). Also found: the capture circle's old decal ring (`TfwMarkers.RingDecal`) does not show on Ashfall's city ground (seen 2026-11-10 with `--musou-old-capture-ui`); the cause is not established (the decal's cull mask 1 against the city's layers is a guess).

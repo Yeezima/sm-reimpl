@@ -32,13 +32,21 @@ public partial class TfwSmoke : Node3D
     readonly MeshInstance3D[] _puffs = new MeshInstance3D[Puffs];
     readonly Vector3[] _from = new Vector3[Puffs], _drift = new Vector3[Puffs];
     readonly float[] _size = new float[Puffs], _tone = new float[Puffs];
-    float _age;
+    float _age, _opaque, _total;
 
     /// <summary>The cloud for a record (<paramref name="seed"/>: the player and the tick), <paramref name="age"/> seconds in already (a record that arrived late).</summary>
-    public TfwSmoke(uint seed, float age = 0f)
+    public TfwSmoke(uint seed, float age = 0f) : this(seed, age, OpaqueSeconds, TotalSeconds, true) { }
+
+    /// <summary>
+    /// A cloud with its own timing (<paramref name="opaque"/>, <paramref name="total"/> seconds; the capture banners' flip, Tfw/TfwBanners.cs) and, with <paramref name="throughWalls"/> false, hidden behind walls like
+    /// any object (a cloud in the field; the class change's is drawn over the room). Its size is the node's scale.
+    /// </summary>
+    public TfwSmoke(uint seed, float age, float opaque, float total, bool throughWalls)
     {
         Name = "TfwSmoke";
         _age = age;
+        _opaque = opaque;
+        _total = MathF.Max(total, opaque + 0.01f);
         uint state = seed * 2654435761u + 0x9E3779B9u;
         float Next() { state ^= state << 13; state ^= state >> 17; state ^= state << 5; return (state & 0xFFFFFF) / (float)0x1000000; }
         var mesh = new QuadMesh { Size = Vector2.One };
@@ -56,7 +64,7 @@ public partial class TfwSmoke : Node3D
             {
                 ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded, Transparency = BaseMaterial3D.TransparencyEnum.Alpha, CullMode = BaseMaterial3D.CullModeEnum.Disabled,
                 BillboardMode = BaseMaterial3D.BillboardModeEnum.Enabled, BillboardKeepScale = true, AlbedoTexture = PuffTexture(), AlbedoColor = new Color(_tone[i], _tone[i], _tone[i] * 0.98f, 1f),
-                DisableReceiveShadows = true, NoDepthTest = true,   // drawn over the model and the room: nothing of the body shows through while it is opaque
+                DisableReceiveShadows = true, NoDepthTest = throughWalls,   // drawn over the model and the room: nothing of the body shows through while it is opaque
             };
             _puffs[i] = new MeshInstance3D { Mesh = mesh, MaterialOverride = _paint[i], CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
             AddChild(_puffs[i]);
@@ -65,11 +73,14 @@ public partial class TfwSmoke : Node3D
     }
 
     /// <summary>The cloud's opacity at <paramref name="age"/> seconds: 1 until <see cref="OpaqueSeconds"/>, then down to 0 at <see cref="TotalSeconds"/> (smooth).</summary>
-    public static float OpacityAt(float age)
+    public static float OpacityAt(float age) => OpacityAt(age, OpaqueSeconds, TotalSeconds);
+
+    /// <summary>The same for a cloud opaque until <paramref name="opaque"/> and gone at <paramref name="total"/>.</summary>
+    public static float OpacityAt(float age, float opaque, float total)
     {
-        if (age <= OpaqueSeconds) return 1f;
-        if (age >= TotalSeconds) return 0f;
-        float x = (age - OpaqueSeconds) / (TotalSeconds - OpaqueSeconds);
+        if (age <= opaque) return 1f;
+        if (age >= total) return 0f;
+        float x = (age - opaque) / (total - opaque);
         return 1f - x * x * (3f - 2f * x);
     }
 
@@ -85,13 +96,13 @@ public partial class TfwSmoke : Node3D
     public override void _Process(double delta)
     {
         _age += (float)delta;
-        if (_age >= TotalSeconds) { QueueFree(); return; }
+        if (_age >= _total) { QueueFree(); return; }
         Apply();
     }
 
     void Apply()
     {
-        float alpha = PuffAlpha(OpacityAt(_age)), swell = 1f + 0.22f * Math.Min(_age / TotalSeconds, 1f);
+        float alpha = PuffAlpha(OpacityAt(_age, _opaque, _total)), swell = 1f + 0.22f * Math.Min(_age / _total, 1f);
         for (int i = 0; i < Puffs; i++)
         {
             _puffs[i].Position = _from[i] + _drift[i] * _age;

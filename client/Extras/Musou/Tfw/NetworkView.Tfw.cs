@@ -93,7 +93,7 @@ public partial class NetworkView
         if (Lean || _gameSpace is null || DisplayServer.GetName() == "headless") return;
         if (_tfwMarkers is null)
         {
-            _tfwMarkers = new TfwMarkers { Name = "TfwMarkers" };
+            _tfwMarkers = new TfwMarkers { Name = "TfwMarkers", GameDir = _gameDir };   // the capture banners read their models from the install (TfwBanners.cs)
             _gameSpace.AddChild(_tfwMarkers);
         }
         _tfwMarkers.Show(war, _tfwState.Objectives, _tfwState.Sites, _client?.Predicted.Position ?? default);
