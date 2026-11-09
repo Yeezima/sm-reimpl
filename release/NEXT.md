@@ -9,3 +9,36 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Leave out changes a tester cannot notice (tooling, docs, refactors). Optional "### " headings group long lists.
 - Add your bullets in the same pull request as the change, when it merges.
 -->
+
+### Before you play
+- Every change is in Musou Mode only; Annihilation and Seize Ground play and sound as before.
+- Everyone must update: Musou Mode does not play with the previous build.
+
+### Musou Mode: combat
+- Wider melee reach: swings cleave in a longer, wider flat arc in front of you and can hit up to 40 Orks at once.
+- Every melee hit gives back a little armour; landing an air slash heals a quarter of your health and some armour.
+- Combat stimulants last three times as long, double your melee damage, speed up your swings and shots, heal you and restore armour on every melee hit, and your gun spends no ammunition while they last.
+- Frag grenade blasts are twice as big.
+- The blue and red slash marks now open along the cut and close again smoothly, last a second longer, and show over every body except your own.
+- Gore favours your own hits, then your allies', so your kills show blood even in the biggest fights.
+
+### Musou Mode: Orks and allies
+- Orks move with more purpose: Stormboys no longer walk on the spot, Orks face where they go, spread out wider and stop floating.
+- Orks fight and show up to 300 m away; the marching blocks of Orks that walked through walls are gone, and there are a fifth fewer Orks overall.
+- Elite and boss Orks now swing in melee, face their target and back off while shooting.
+- You only bump into the boss Orks and the Warboss; you pass through every other Ork, Guardsman and Marine.
+- Bodies of Orks, Guardsmen and Marines stay on the ground for at least 10 seconds.
+- Every unit spawns facing the centre of the map.
+- Small squads of Guardsmen climb to high ground near the points you hold (or in front of the base) and fire from there.
+- Far more Ork gunfire: more Orks visibly shoot, with more tracers reaching further; the Big Shoota Nob's muzzle and tracers show from much further away, and the boss Shoota Boy now carries his gun.
+- Distant Orks move more smoothly.
+
+### Musou Mode: sound
+- Bolter rifles fire with a deeper, heavier bang; the first Ork a bolt hits gives a soft wet thud and a small blast.
+- Far-off Ork crowds sound distant; your own character's voice is never drowned out by explosions or gunfire, and waits a moment after you swing.
+- Your Marine no longer shouts lines about Chaos, the warp or daemons.
+- Melee hits use the original game's sounds.
+
+### Musou Mode: Ashfall
+- Clear paved lanes link the stronghold and every point, and the points with each other.
+- Many more stairs can be climbed, with clear space at their foot; buildings whose stairs led nowhere were replaced.
