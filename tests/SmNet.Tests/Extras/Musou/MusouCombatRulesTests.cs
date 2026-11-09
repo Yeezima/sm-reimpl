@@ -187,4 +187,21 @@ public class MusouCombatRulesTests
             Assert.Equal(1.15f, MusouSlashRules.Reveal(life * 0.5f, old), 4);   // the head has swept the whole cut by the hold
         }
     }
+
+    [Fact]
+    public void The_five_wave_skirmish_keeps_the_old_cleave_volume()
+    {
+        var w = NewWorld();   // not the war: no TfwCombatRules volume
+        var me = w.Players[1].Position;
+        ushort far = w.Musou!.Spawn(MusouEnemyType.Boy, me + new Vector3(0f, 8f, 0f), 0f, 1000f);   // old reach 4.5 m: out
+        ushort wide = w.Musou.Spawn(MusouEnemyType.Boy, me + new Vector3(-3f * MathF.Sin(1.83f), 3f * MathF.Cos(1.83f), 0f), 0f, 1000f);   // 105 degrees off: out of the old 90
+        var hit = new HashSet<int>();
+        for (int t = 0; t < 12; t++)
+        {
+            w.Step(_ => new PlayerInput(0, 0f, 0f, 0f, t == 0 ? InputButtons.Melee : 0));
+            foreach (var e in w.Musou.Events) if (e.Kind == MusouEventKind.Hit && e.Value == 3) hit.Add(e.Enemy);
+        }
+        Assert.DoesNotContain((int)far, hit);
+        Assert.DoesNotContain((int)wide, hit);
+    }
 }

@@ -272,14 +272,14 @@ public class TfwMeleeTests
     [Theory]
     [InlineData(InputButtons.Melee)]
     [InlineData(InputButtons.MeleeHeavy)]
-    public void A_swing_reaches_twenty_enemies_and_draws_each_a_slash(InputButtons press)
+    public void A_swing_reaches_forty_enemies_and_draws_each_a_slash(InputButtons press)
     {
         var w = War();
         w.Musou!.Frozen = true;
         var me = w.Players[Human].Position;
-        for (int k = 0; k < 30; k++)
+        for (int k = 0; k < 50; k++)
         {
-            float angle = (k - 14.5f) * 0.06f, ring = 1.6f + k % 3 * 0.25f;
+            float angle = (k - 24.5f) * 0.06f, ring = 1.6f + k % 3 * 0.25f;
             Boy(w, me + new Vector3(MathF.Sin(angle) * ring, MathF.Cos(angle) * ring, 0f), k % 5 == 0 ? MusouEnemyType.ArdBoy : MusouEnemyType.Boy);
         }
         int slashes = 0;
@@ -289,7 +289,42 @@ public class TfwMeleeTests
             slashes = Math.Max(slashes, w.Musou.Events.Count(e => e.Kind == MusouEventKind.Hit && e.Value == 3));
         }
         Assert.Equal(TfwCombatRules.Default.CleaveTargets, slashes);
-        Assert.Equal(20, w.TfwBestCleave);
+        Assert.Equal(40, w.TfwBestCleave);
+    }
+
+    static HashSet<int> StruckBySwing(World w, params ushort[] ids)
+    {
+        var hit = new HashSet<int>();
+        for (int t = 0; t < 12; t++)
+        {
+            Tick(w, buttons: t < 3 ? InputButtons.Melee : InputButtons.None);
+            foreach (var e in w.Musou!.Events) if (e.Kind == MusouEventKind.Hit && e.Value == 3) hit.Add(e.Enemy);
+        }
+        return hit;
+    }
+
+    /// <summary>owner 2026-11-09: the players' melee volume in the war is a longer, wider, flat cone (reach x1.5, 120 degrees to each side, the core's 1.5 m height band).</summary>
+    [Fact]
+    public void The_war_cleave_is_a_longer_wider_flat_cone()
+    {
+        var w = War();
+        w.Musou!.Frozen = true;
+        var me = w.Players[Human].Position;   // yaw 0: forward is +Y
+        Vector3 Polar(float degrees, float metres, float up = 0f) => me + new Vector3(-MathF.Sin(degrees * MathF.PI / 180f) * metres, MathF.Cos(degrees * MathF.PI / 180f) * metres, up);
+        ushort far = Boy(w, Polar(0f, 9.5f));          // old reach 6.75 (8.25 with a track-to-hit step): now 10.1+
+        ushort tooFar = Boy(w, Polar(0f, 14f));
+        ushort wide = Boy(w, Polar(105f, 3f));         // outside the old 90 degrees
+        ushort behind = Boy(w, Polar(150f, 3f));       // outside the new 120
+        ushort high = Boy(w, Polar(20f, 4f, 2.0f));    // above the 1.5 m height band
+        var hit = StruckBySwing(w);
+        Assert.Contains((int)far, hit);
+        Assert.Contains((int)wide, hit);
+        Assert.DoesNotContain((int)tooFar, hit);
+        Assert.DoesNotContain((int)behind, hit);
+        Assert.DoesNotContain((int)high, hit);
+        Assert.Equal(1.5f, TfwCombatRules.Default.CleaveReachScale);
+        Assert.Equal(120f, TfwCombatRules.Default.CleaveHalfAngleDegrees);
+        Assert.Equal(40, TfwCombatRules.Default.CleaveTargets);
     }
 
     [Fact]

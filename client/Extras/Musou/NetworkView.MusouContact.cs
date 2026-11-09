@@ -87,8 +87,9 @@ public partial class NetworkView
         var rules = (_config!.MusouRules ?? MusouRules.Default).Combat;
         bool war = _tfwState.War is not null;
         float reach = rules.CleaveRange(_config.MeleeRange, step.TrackToHit, war);   // the server's reach (World.MusouCombat: x1.5 in the war)
-        int most = Math.Min(MusouContactRules.MaxTargets, war ? SmSim.Extras.Musou.Campaign.TfwCombatRules.Default.CleaveTargets : rules.CleaveTargets);   // and its count: 20 in the war, 8 in the skirmish
+        int most = Math.Min(MusouContactRules.MaxTargets, war ? SmSim.Extras.Musou.Campaign.TfwCombatRules.Default.CleaveTargets : rules.CleaveTargets);   // and its count: 40 in the war, 8 in the skirmish
         float minCos = MathF.Cos(MathF.Min(180f, _config.MeleeConeDegrees * rules.CleaveConeScale) * MathF.PI / 180f);
+        if (_tfwState.War is not null) { reach *= SmSim.Extras.Musou.Campaign.TfwCombatRules.Default.CleaveReachScale; minCos = SmSim.Extras.Musou.Campaign.TfwCombatRules.Default.CleaveMinCos; }   // the server's longer, wider cone (owner 2026-11-09)
         var forward = new Num.Vector2(-MathF.Sin(me.Yaw), MathF.Cos(me.Yaw));
         var eye = me.Position + new Num.Vector3(0f, 0f, _config.EyeHeight);
         for (int i = 0; i < _tfwShown.Count; i++)

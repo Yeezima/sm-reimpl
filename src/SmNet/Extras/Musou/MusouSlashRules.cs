@@ -50,8 +50,8 @@ public static class MusouSlashRules
     /// <summary>The head of the sweep along the cut (0 to 1.15: a little past the end so the whole cut is lit once open).</summary>
     public static float Reveal(float age, float baseSeconds) => Opened(age) * 1.15f;
 
-    /// <summary>The slashes drawn in one frame at most (a cleave strikes up to 20 enemies; the pool is <see cref="Pool"/>).</summary>
-    public const int PerFrame = 24, Pool = 160;   // 160 (was 64): the strokes live a second longer, so more are alive at once
+    /// <summary>The slashes drawn in one frame at most (a cleave strikes up to 40 enemies; the pool is <see cref="Pool"/>).</summary>
+    public const int PerFrame = 40, Pool = 320;   // 40 (was 24): a cleave strikes up to 40 (owner 2026-11-09), every one drawn; 320 (was 64, 160): the strokes live a second longer and a swing can strike 40
 
     /// <summary>Farther than this from the camera no slash is drawn (metres).</summary>
     public const float Metres = 60f;

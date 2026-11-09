@@ -248,6 +248,7 @@ public sealed partial class World
         if (!(damage > 0f) && !heavy) return;
         float range = rules.CleaveRange(Config.MeleeRange, step.TrackToHit, war: musou.War is not null);   // x1.5 (owner 2026-11-08)
         float minCos = MathF.Cos(MathF.Min(180f, Config.MeleeConeDegrees * rules.CleaveConeScale) * MathF.PI / 180f);
+        if (musou.War is { } volume) { range *= volume.CleaveReachScale; minCos = volume.CleaveMinCos; }   // owner 2026-11-09: a longer, wider flat cone in the war
         var forward = new Vector2(-MathF.Sin(state.Yaw), MathF.Cos(state.Yaw));
         var eye = state.Position + new Vector3(0, 0, Config.EyeHeight);
         int n = musou.Query(state.Position, range, _musouNear, Config.MeleeVerticalReach);
