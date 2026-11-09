@@ -144,8 +144,12 @@ public partial class NetworkView
     /// <summary>
     /// A Musou death with the original blood on: plays its point (within the budget) and says whether the body goes whole (then no corpse is drawn). False when no point plays.
     /// </summary>
-    bool OrkBloodDeath(in MusouDeathShown d, Vector3 camera)
+    bool OrkBloodDeath(in MusouDeathShown d, Vector3 camera) => OrkBloodDeath(d, camera, out _);
+
+    /// <summary>As above; <paramref name="played"/>: whether the point was played (the corpse floor, 2026-11-09: a whole-body point too far or over the frame's budget plays nothing, so the body stays).</summary>
+    bool OrkBloodDeath(in MusouDeathShown d, Vector3 camera, out bool played)
     {
+        played = false;
         if (OrkBloodData() is not { } data || _fx is null || _gameSpace is null) return false;
         if (d.Type == MusouEnemyType.ChaosMarine) return false;   // no Ork: the Ork's table and blood are not his (the marine's death binds none, docs "Death effects")
         if (Engine.GetProcessFrames() is var frame && (uint)frame != _orkBloodFrame) { _orkBloodFrame = (uint)frame; _orkBloodFrameKills = 0; }
@@ -166,6 +170,7 @@ public partial class NetworkView
         if (metres > OrkBloodMetres || _orkBloodFrameKills >= OrkBloodKillsPerFrame) return kill.WholeBody;
         _orkBloodFrameKills++;
         _orkBloodPoints++;
+        played = true;
         float size = GoreChestHeight(d.Type) / 1.1f;
         var chest = new Num.Vector3(d.Position.X, d.Position.Y, d.Position.Z + GoreChestHeight(d.Type));
         // The hit's way: the death's push, else from the killer, else from the camera (game space).

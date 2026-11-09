@@ -50,7 +50,7 @@ public partial class GuardCrowd : CrowdView
     static HavokTransform[] _sample = [], _reference = [];
 
     public GuardCrowd(GuardLooks looks, int visible = DefaultVisible)
-        : base(new CrowdLimits(SkinnedNear, 500, MusouCrowd.FallbackSkinned / 2, NearDistance, HalfRateDistance, MusouCrowd.SinkAfter, MusouCrowd.SinkSeconds, MusouCrowd.SinkDepth, MaxBodyCount), visible)
+        : base(new CrowdLimits(SkinnedNear, 500, MusouCrowd.FallbackSkinned / 2, NearDistance, HalfRateDistance, MusouCrowd.SinkAfter, MusouCrowd.SinkSeconds, MusouCrowd.SinkDepth, MaxBodyCount, SmNet.Extras.Musou.MusouCorpseRules.GuardHardBodies), visible)
     {
         _looks = looks; Name = "GuardCrowd";
     }
@@ -88,6 +88,9 @@ public partial class GuardCrowd : CrowdView
     {
         if (_deaths.Died(id, tick)) AddBody(at, yaw, 0, GuardRig.DeathClip(id, clipTick));
     }
+
+    /// <summary>A body where an aggregate army's Guardsman went (the corpse floor, 2026-11-09: a far clash's losses leave Guard bodies too, as the Orks'; no event or record behind it).</summary>
+    public void AddImpostorBody(Vector3 at, float yaw, int key) => AddBody(at, yaw, 0, GuardRig.DeathClip((ushort)key, (uint)key));
 
     /// <summary>Where a man's muzzle is now (game space); null for a man not shown.</summary>
     public Vector3? MuzzleOf(ushort id)

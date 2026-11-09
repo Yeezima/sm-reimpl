@@ -17,7 +17,7 @@ namespace SmClient;
 /// </summary>
 public partial class NetworkView
 {
-    readonly TfwArmyImpostors _armyImpostors = new();
+    readonly TfwArmyImpostors _armyImpostors = new() { OldCorpses = CrowdView.OldCorpses };
     readonly WaaaghBarkPlanner _waaagh = new();
     readonly List<TfwImpostor> _armyImpostorList = new();
     readonly List<MusouShown> _armyOrksShown = new();
@@ -50,10 +50,17 @@ public partial class NetworkView
         TfwArmiesFrame(new Num.Vector3(camera.X, camera.Y, camera.Z), delta);   // the camera in game space
         // The owner, 2026-11-08: "All far battles corpses should instantly vanish. If a player cannot see it, it doesn't ever get drawn. Unless the player is close by." An aggregate's loss leaves a body only
         // within the brief's near distance (TfwArmyRules.CoreMetres, 90 m; the real units reach 300 m since 2026-11-09) of this view; farther its impostor just goes (--army-far-bodies, test aid: bodies at any distance, as expansion S6 had).
-        float bodiesWithin = ArmyFarBodies ? float.PositiveInfinity : TfwArmyRules.CoreMetres;
+        // The corpse floor (the owner, 2026-11-09: "they should always leave a corpse for at least 10 seconds before disappearing"): the new floor wins, so a loss leaves a body at any distance, the
+        // Guardsmen's too (before: the Orks' alone); --musou-old-corpses restores the 90 m.
+        float bodiesWithin = ArmyFarBodies ? float.PositiveInfinity : SmNet.Extras.Musou.MusouCorpseRules.ImpostorBodiesWithin(TfwArmyRules.CoreMetres, CrowdView.OldCorpses);
         foreach (var d in _armyImpostors.Deaths)
-            if (d.Side == TfwArmySide.Ork && !ArmyImpostorsOff && new Vector3(d.Position.X, d.Position.Y, d.Position.Z).DistanceTo(camera) <= bodiesWithin)
+        {
+            if (ArmyImpostorsOff || new Vector3(d.Position.X, d.Position.Y, d.Position.Z).DistanceTo(camera) > bodiesWithin) continue;
+            if (d.Side == TfwArmySide.Ork)
                 _musouCrowd?.AddBody(new MusouDeathShown(ImpostorId(d.Key, MusouSim.Capacity), d.Type, d.Position, d.Yaw, Num.Vector3.Zero, MusouDeathKind.Shot, 0, _tfwState.ArmiesTick));
+            else if (!CrowdView.OldCorpses)
+                _guardCrowd?.AddImpostorBody(new Vector3(d.Position.X, d.Position.Y, d.Position.Z), d.Yaw, d.Key);
+        }
         _armyImpostors.Deaths.Clear();
         if (_armyImpostorList.Count == 0) return shown;
         _armyOrksShown.Clear();

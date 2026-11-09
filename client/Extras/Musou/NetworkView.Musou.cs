@@ -132,11 +132,13 @@ public partial class NetworkView
             float metres = new Vector3(d.Position.X, d.Position.Y, d.Position.Z).DistanceTo(camera);
             // The owner, 2026-11-08 ("if a player cannot see it, it doesn't ever get drawn, unless the player is close by"; ours as to the distance): a death beyond the battle flow's near distance and
             // outside the view leaves no body, gore or ragdoll (its yell still plays). --army-far-bodies (test aid) keeps them all.
-            if (metres > SmSim.Extras.Musou.Campaign.TfwArmyRules.CoreMetres && !ArmyFarBodies && _camera is { } eye
+            // The corpse floor (the owner, 2026-11-09: "they should always leave a corpse for at least 10 seconds before disappearing"; the new floor wins over 2026-11-08's): every death is handled at
+            // any distance, seen or not; a body out of the view costs a few floats a frame and is drawn once the view turns to it. --musou-old-corpses restores the rule above.
+            if (!MusouCorpseRules.HandlesUnseenFar(CrowdView.OldCorpses) && metres > SmSim.Extras.Musou.Campaign.TfwArmyRules.CoreMetres && !ArmyFarBodies && _camera is { } eye
                 && !eye.IsPositionInFrustum(_gameSpace!.Transform * new Vector3(d.Position.X, d.Position.Y, d.Position.Z + 1f))) { _musouUnseenDeaths++; continue; }
-            bool gibbed = MusouGoreRegister(d, camera);   // M10: a gibbed body leaves no corpse
+            bool gibbed = MusouGoreRegister(d, camera, out bool burstDrawn);   // M10: a gibbed body leaves no corpse (its pieces instead); the corpse floor: only when its burst is drawn
             if (MusouGoreRules.Thrown(d.Cause)) MusouThrow(d, metres);   // a blast or barrage death always leaves a body, thrown through the gore's burst: a ragdoll near, else a tumbling body
-            else if (!gibbed) _musouCrowd!.AddBody(d, MusouDeathWaited(d.Id), keepSkeleton: !_musouOldDeaths);
+            else if (MusouCorpseRules.LeavesBody(gibbed, burstDrawn, farUnseen: false, CrowdView.OldCorpses)) _musouCrowd!.AddBody(d, MusouDeathWaited(d.Id), keepSkeleton: !_musouOldDeaths);
             var at = new Vector3(d.Position.X, d.Position.Y, d.Position.Z + 1.1f);
             if (GoreOff && at.DistanceTo(camera) <= MusouCrowd.NearMetres)   // the dark gore draws the death blood; the red glow only with --no-musou-gore
                 BloodSplashAt(_gameSpace!.Transform * at, -(_gameSpace.Transform.Basis * new Vector3(d.Push.X, d.Push.Y, d.Push.Z)), 0.0);
@@ -219,7 +221,7 @@ public partial class NetworkView
         double fps = sorted.Length / (sorted.Sum() / 1000.0);
         var c = _musouCrowd;
         GD.Print($"musou: t {_connectedFor:F0} s: {sorted.Length} frames, {fps:F1} fps, frame p50 {P(0.5):F1} ms p99 {P(0.99):F1} ms max {sorted[^1]:F1} ms; " +
-                 $"enemies known {known}, drawn {(c is null ? "-" : $"{c.ShownSkinned} skinned + {c.ShownVat} vat, {c.LeftOut} left out, {c.Bodies} bodies ({c.Flung} flung), {_musouRagdolls?.Active ?? 0} ragdolls ({_musouRagdolls?.Thrown ?? 0} thrown of {_musouRagdolls?.Built ?? 0} built, highest {_musouRagdolls?.Highest ?? 0f:F1} m)")}; " +
+                 $"enemies known {known}, drawn {(c is null ? "-" : $"{c.ShownSkinned} skinned + {c.ShownVat} vat, {c.LeftOut} left out, {c.Bodies} bodies ({c.Flung} flung, most {c.BodiesMost}, under the floor dropped {c.FloorBroken}), {_musouRagdolls?.Active ?? 0} ragdolls ({_musouRagdolls?.Thrown ?? 0} thrown of {_musouRagdolls?.Built ?? 0} built, highest {_musouRagdolls?.Highest ?? 0f:F1} m)")}; " +
                  $"sections {_musouState.SectionsRead} ({_musouState.SectionsMalformed} malformed), events {_musouState.EventsPlayed} (+{_musouState.EventCopies} copies), " +
                  $"silent drops {_musouState.DroppedSilent}; {MusouPresentNote()}; director {(_musouState.Director is { } d ? $"wave {d.Wave}/{d.Waves} {d.Phase}" : "none")}");
         _musouFrames.Clear();

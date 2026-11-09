@@ -103,16 +103,20 @@ public partial class NetworkView
     /// A death the crowd is about to draw as a body: queues its burst and says whether the body is gibbed (an explosion, or a gore death rolled to leave nothing): then no
     /// corpse is drawn. False when this death makes no gore (nothing queued, the body stays).
     /// </summary>
-    bool MusouGoreRegister(in MusouDeathShown d, Vector3 camera)
+    bool MusouGoreRegister(in MusouDeathShown d, Vector3 camera) => MusouGoreRegister(d, camera, out _);
+
+    /// <summary>As above; <paramref name="burstDrawn"/>: whether its burst (or the original's point) will be drawn (the corpse floor, 2026-11-09: a gibbed death with nothing drawn keeps its body).</summary>
+    bool MusouGoreRegister(in MusouDeathShown d, Vector3 camera, out bool burstDrawn)
     {
+        burstDrawn = false;
         if (GoreOff || _gameSpace is null) return false;
-        if (OrkBloodOn) return OrkBloodDeath(d, camera);   // gore-original: the original's own Ork blood (NetworkView.OrkBlood.cs)
+        if (OrkBloodOn) return OrkBloodDeath(d, camera, out burstDrawn);   // gore-original: the original's own Ork blood (NetworkView.OrkBlood.cs)
         bool lascannon = MusouKillerHasLascannon(d.Killer);
         float metres = Num.Vector3.Distance(d.Position, new Num.Vector3(camera.X, camera.Y, camera.Z));
         var plan = MusouGoreRules.Plan(d.Cause, d.Type, d.Killer, lascannon, metres, 1f, d.Id, d.Tick);
         if (plan.Class == GoreClass.None) return false;
         GoreView();
-        if (plan.Lod != GoreLod.None) _goreQueue.Add(new GoreWork(d, lascannon, metres));
+        if (plan.Lod != GoreLod.None) { _goreQueue.Add(new GoreWork(d, lascannon, metres)); burstDrawn = true; }
         if (plan.Gibbed) _goreGibbed++;
         return plan.Gibbed;
     }

@@ -227,6 +227,10 @@ public sealed partial class Ragdoll : Node3D
     /// <summary>Seconds simulated before the pose was baked (-1 while simulating).</summary>
     public double SettledAfter { get; private set; } = -1;
     public bool Own { get; init; }
+    /// <summary>The view's clock (s) when the body started (the corpse floor's age: <see cref="Age"/> stops once the pose is baked).</summary>
+    public double StartedAt { get; init; }
+    /// <summary>A corpse kept past its player's respawn or leaving (added content's corpse floor, Musou Mode): no longer the player's, removed by its own age.</summary>
+    public bool Orphan { get; set; }
 
     RagdollDef? _def;
     Skeleton3D? _skeleton;

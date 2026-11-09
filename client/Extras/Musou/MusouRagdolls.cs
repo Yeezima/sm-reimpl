@@ -19,7 +19,9 @@ public sealed partial class MusouRagdolls : Node3D
 {
     /// <summary>Dolls in the pool, the distance from the camera within which one is used, and the seconds of physics, stillness and lying (ours).</summary>
     public const int Dolls = 20;
-    public const float Metres = 45f, MaxPhysicsSeconds = 6f, StillSeconds = 0.6f, LieSeconds = 3f;
+    public const float Metres = 45f, MaxPhysicsSeconds = 6f, StillSeconds = 0.6f;
+    /// <summary>Seconds a settled doll lies before it sinks: the corpse floor's 10 s (the owner, 2026-11-09), 3 s before it (<c>--musou-old-corpses</c>).</summary>
+    public static float LieSeconds => SmNet.Extras.Musou.MusouCorpseRules.LieSeconds(CrowdView.OldCorpses);
     const float StillLinear = 0.4f, StillAngular = 2.5f, JointFrictionDamping = 1f;
     /// <summary>Corpse arcs (the owner, 2026-11-08: no corkscrew): the angular damping every part shares in the flight (the same for all, so the doll turns as one), and the extra seconds after the arc's own before the parts take their own damping and gravity back (ours).</summary>
     const float FlightAngularDamp = 0.5f, FlightSlack = 0.15f;
@@ -51,7 +53,10 @@ public sealed partial class MusouRagdolls : Node3D
     public int Built => _dolls.Count;
     public int Active { get { int n = 0; foreach (var d in _dolls) if (d.InUse) n++; return n; } }
     /// <summary>Dolls <see cref="Throw"/> could take now: free, or lying still (the one lying longest makes way).</summary>
-    public int Available { get { int n = 0; foreach (var d in _dolls) if (!d.InUse || d.Frozen) n++; return n; } }
+    public int Available { get { int n = 0; foreach (var d in _dolls) if (!d.InUse || Retakable(d)) n++; return n; } }
+
+    /// <summary>A lying doll a new throw may take (the corpse floor, 2026-11-09: only once it has lain past the floor since its throw; before it any lying one, the longest first).</summary>
+    static bool Retakable(Doll d) => d.Frozen && SmNet.Extras.Musou.MusouCorpseRules.MayRetake(d.Age, CrowdView.OldCorpses);
 
     public MusouRagdolls(RagdollDef def, MarineAssets rig, HavokBoundAnimation startClip)
     {
@@ -180,7 +185,7 @@ public sealed partial class MusouRagdolls : Node3D
         foreach (var c in _dolls)
         {
             if (!c.InUse) { doll = c; break; }
-            if (c.Frozen && (doll is null || c.Serial < doll.Serial)) doll = c;   // all busy: the one lying longest makes way
+            if (Retakable(c) && (doll is null || c.Serial < doll.Serial)) doll = c;   // all busy: the one lying longest makes way (once past the corpse floor; else the crowd throws a tumbling body)
         }
         if (doll is null) return false;
 

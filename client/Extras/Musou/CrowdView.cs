@@ -6,8 +6,11 @@ using SmFormats.Havok;
 
 namespace SmClient;
 
-/// <summary>A crowd's budgets: skinned near, vertex-animation per look, skinned without a bake, the near and half-rate distances (m), and how the dead go (s, s, m, how many are kept).</summary>
-public sealed record CrowdLimits(int MaxSkinned, int MaxVat, int FallbackSkinned, float NearMetres, float HalfRateMetres, float SinkAfter, float SinkSeconds, float SinkDepth, int MaxBodies);
+/// <summary>
+/// A crowd's budgets: skinned near, vertex-animation per look, skinned without a bake, the near and half-rate distances (m), and how the dead go (s, s, m, how many are kept; the corpse floor,
+/// 2026-11-09: past <c>MaxBodies</c> only bodies past <see cref="SmNet.Extras.Musou.MusouCorpseRules.FloorSeconds"/> go, and the pool grows up to <c>HardBodies</c>).
+/// </summary>
+public sealed record CrowdLimits(int MaxSkinned, int MaxVat, int FallbackSkinned, float NearMetres, float HalfRateMetres, float SinkAfter, float SinkSeconds, float SinkDepth, int MaxBodies, int HardBodies = 0);
 
 /// <summary>
 /// What a crowd of many characters shares (TF7a, out of <see cref="MusouCrowd"/>; design sections D and E), a node in the networked view's game space (Z up). A crowd says what to draw this
@@ -72,7 +75,7 @@ public abstract partial class CrowdView : Node3D
         public long Cell; public float Low = float.MaxValue, High = float.MinValue; public bool Boxed;
     }
     readonly Dictionary<(MusouLooks.Look Look, long Cell), Far> _far = new();
-    readonly Dictionary<MusouLooks.Look, int> _farPerLook = new(ReferenceEqualityComparer.Instance);
+    readonly Dictionary<MusouLooks.Look, int> _farPerLook = new(ReferenceEqualityComparer.Instance), _farBodiesPerLook = new(ReferenceEqualityComparer.Instance);
     /// <summary>The side of a far batch's cell (m, ours) and the margin round it a member may reach (a body's size, a big look's scale).</summary>
     public const float CellMetres = 32f, CellMargin = 4f;
     /// <summary>
@@ -94,6 +97,14 @@ public abstract partial class CrowdView : Node3D
     public int ShownVat { get; private set; }
     public int LeftOut { get; private set; }
     public int Bodies => _bodies.Count;
+    /// <summary>The most bodies kept at once, and the bodies dropped younger than the corpse floor (the hard ceiling was full), since the start.</summary>
+    public int BodiesMost { get; private set; }
+    public int FloorBroken { get; private set; }
+    /// <summary>
+    /// Test aid: <c>--musou-old-corpses</c>, the bodies before the corpse floor (the owner, 2026-11-09): the oldest first out once <see cref="CrowdLimits.MaxBodies"/> are kept, and drawn within
+    /// <see cref="Visible"/> and the look's vertex-animation cap like any member. Now a body is drawn past both (its own room) and none goes before the floor.
+    /// </summary>
+    public static bool OldCorpses { get; } = Array.IndexOf(OS.GetCmdlineUserArgs(), "--musou-old-corpses") >= 0;
 
     /// <summary>Test aid (<c>--musou-death-spike-test</c>): the worst ms since the last <see cref="Timing"/> of the bodies' step, the drawing, and skinned members built.</summary>
     double _stepWorst, _drawWorst; int _builtSince;
@@ -120,7 +131,7 @@ public abstract partial class CrowdView : Node3D
     /// </summary>
     protected void AddBody(Vector3 position, float yaw, int type, int clip, float age = 0f, int from = 0)
     {
-        if (_bodies.Count >= Limits.MaxBodies) _bodies.RemoveAt(0);
+        MakeBodyRoom();
         _bodies.Add(new Body { Position = position, Yaw = yaw, Type = type, Clip = clip, Serial = ++_bodySerial, Age = age });
         KeepSkinned(from);
     }
@@ -128,10 +139,20 @@ public abstract partial class CrowdView : Node3D
     /// <summary>A body thrown by a blast: it leaves with <paramref name="velocity"/> (m/s, game space) tipping over about the one axis of <paramref name="spin"/> (rad/s, game space; <see cref="SmNet.Extras.Musou.MusouFling.Tumble"/>), plays its clip in the air, falls under gravity in one arc, stops at the walls (<see cref="SolidBetween"/>), lands without a bounce, rolls out of its tumble and slides to rest. It starts to sink only once it rests.</summary>
     protected void AddFlungBody(Vector3 position, float yaw, int type, int clip, Vector3 velocity, Vector3 spin, int from = 0)
     {
-        if (_bodies.Count >= Limits.MaxBodies) _bodies.RemoveAt(0);
+        MakeBodyRoom();
         _bodies.Add(new Body { Position = position, Yaw = yaw, Type = type, Clip = clip, Serial = ++_bodySerial, Flung = true, Velocity = velocity, Spin = spin, Ground = position.Z });
         KeepSkinned(from);
     }
+
+    /// <summary>Room for one more body (the corpse floor, <see cref="SmNet.Extras.Musou.MusouCorpseRules.MakeRoom"/>): a body past the floor goes, or none and the pool grows.</summary>
+    void MakeBodyRoom()
+    {
+        int drop = SmNet.Extras.Musou.MusouCorpseRules.MakeRoom(_bodies.Count, _ageOf ??= i => _bodies[i].Age + _bodies[i].Flight, Limits.MaxBodies, Limits.HardBodies, OldCorpses, out bool broken);
+        if (drop >= 0) _bodies.RemoveAt(drop);
+        if (broken) FloorBroken++;
+        BodiesMost = Math.Max(BodiesMost, _bodies.Count + 1);
+    }
+    Func<int, float>? _ageOf;
 
     /// <summary>The skeleton drawing <paramref name="from"/> (0: none) passes to the body just added.</summary>
     void KeepSkinned(int from)
@@ -238,18 +259,20 @@ public abstract partial class CrowdView : Node3D
 
         foreach (var s in _skinned) s.Used = false;
         foreach (var f in _far.Values) f.Count = 0;
-        _farPerLook.Clear();
-        int skinned = 0, vat = 0, left = 0;
+        _farPerLook.Clear(); _farBodiesPerLook.Clear();
+        int skinned = 0, vat = 0, left = 0, members = 0;
         for (int i = 0; i < Items.Count; i++)
         {
             var it = Items[i];
             var look = LookOf(it.Type);
-            if (i >= visible || look is null) { left++; continue; }
+            // The corpse floor (2026-11-09): a body (a negative key) is drawn whatever the members' count; Visible counts the living (and the dying) alone. --musou-old-corpses: every item counts.
+            bool body = it.Key < 0 && !OldCorpses;
+            if (look is null || (body ? false : (OldCorpses ? i : members++) >= visible)) { left++; continue; }
             // A look without a bake (failed, or not done yet) draws skinned at any distance, up to the fallback's cap.
             bool unbaked = look.Vat?.Mesh is null;
             bool near = it.Distance <= Limits.NearMetres || !OldTierSwitch && it.Distance <= Limits.NearMetres + SkinnedHoldMetres && _skinnedByKey.ContainsKey(it.Key);
             if (skinned < (unbaked ? Limits.FallbackSkinned : skinnedCap) && (near || unbaked) && TakeSkinned(it, look)) { skinned++; continue; }
-            if (look.Vat?.Mesh is not null && AddFar(look, it)) { vat++; continue; }
+            if (look.Vat?.Mesh is not null && AddFar(look, it, body)) { vat++; continue; }
             left++;
         }
         // Free the skinned members not used this frame (kept in the pool, hidden).
@@ -375,10 +398,12 @@ public abstract partial class CrowdView : Node3D
         f.Node.Multimesh.CustomAabb = new Aabb(new Vector3(x0 - CellMargin, y0 - CellMargin, f.Low - CellMargin), new Vector3(CellMetres + 2f * CellMargin, CellMetres + 2f * CellMargin, f.High - f.Low + 2f * CellMargin));
     }
 
-    bool AddFar(MusouLooks.Look look, in Item it)
+    bool AddFar(MusouLooks.Look look, in Item it, bool body = false)
     {
-        int perLook = _farPerLook.GetValueOrDefault(look);
-        if (perLook >= Limits.MaxVat) return false;
+        // The corpse floor (2026-11-09): the bodies have a count (and room) of their own beside the members' cap, so neither crowds the other out.
+        var counts = body ? _farBodiesPerLook : _farPerLook;
+        int perLook = counts.GetValueOrDefault(look);
+        if (perLook >= (body ? Limits.HardBodies : Limits.MaxVat)) return false;
         long cell = OneBatch ? long.MinValue : CellOf(it.Position);   // one batch: a key no cell has
         if (!_far.TryGetValue((look, cell), out var f))
         {
@@ -390,14 +415,15 @@ public abstract partial class CrowdView : Node3D
         if (f.Count >= f.Capacity)
         {
             // Grown by doubling (one batch per look: its whole cap at once, as before); a new instance count clears the buffer, which is written again below and uploaded whole.
-            int capacity = OneBatch ? Limits.MaxVat : Math.Min(Limits.MaxVat, Math.Max(32, f.Capacity * 2));
+            int most = Limits.MaxVat + (OldCorpses ? 0 : Limits.HardBodies);
+            int capacity = OneBatch ? most : Math.Min(most, Math.Max(32, f.Capacity * 2));
             var buffer = new float[capacity * 16];
             Array.Copy(f.Buffer, buffer, f.Count * 16);
             f.Buffer = buffer; f.Capacity = capacity;
             f.Node.Multimesh.InstanceCount = capacity;
         }
         if (!OneBatch && (it.Position.Z < f.Low || it.Position.Z > f.High)) { f.Low = MathF.Min(f.Low, it.Position.Z); f.High = MathF.Max(f.High, it.Position.Z); f.Boxed = false; }
-        _farPerLook[look] = perLook + 1;
+        counts[look] = perLook + 1;
         var vat = look.Vat!;
         var (r0, r1, blend) = MusouVat.FramesAt(vat.Clips[it.Clip], it.Time);
         var basis = BasisOf(it).Scaled(Vector3.One * look.Scale);

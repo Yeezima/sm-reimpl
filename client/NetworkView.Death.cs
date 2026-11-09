@@ -83,7 +83,7 @@ public partial class NetworkView
     /// <summary>The own player is dead (connected, no control until the respawn).</summary>
     bool OwnDead => _client is { Status: ClientStatus.Connected } c && !c.Predicted.Alive && Spectate is null;
 
-    Ragdoll? OwnRagdoll => _client is null ? null : _ragdolls.LastOrDefault(r => r.Own && IsInstanceValid(r));
+    Ragdoll? OwnRagdoll => _client is null ? null : _ragdolls.LastOrDefault(r => r.Own && !r.Orphan && IsInstanceValid(r));
 
     const string VignetteShader = """
         shader_type canvas_item;
@@ -146,8 +146,8 @@ public partial class NetworkView
         if (state.Alive)
         {
             if (!wasAlive) UpperReset(id);   // pass 2: a respawn (or the first sight) starts afresh
-            RemoveRagdolls(id);   // also drops a death still queued for this id
             var pos = new Vector3(state.Position.X, state.Position.Y, state.Position.Z);
+            RemoveRagdolls(id, aliveAt: pos);   // also drops a death still queued for this id
             Vector3 vel;
             if (own) vel = new Vector3(state.Velocity.X, state.Velocity.Y, state.Velocity.Z);
             else if (_motion.TryGetValue(id, out var prev) && delta > 1e-4f)
@@ -211,12 +211,14 @@ public partial class NetworkView
                 // Make room: the cap counts ragdolls simulating or lying; the oldest goes (lying ones and other players' first, the own last).
                 while (_ragdolls.Count >= RagdollCap)
                 {
-                    var oldest = _ragdolls.FirstOrDefault(r => !r.Simulating && !r.Own) ?? _ragdolls.FirstOrDefault(r => !r.Own) ?? _ragdolls[0];
+                    var oldest = _ragdolls.FirstOrDefault(r => !r.Simulating && !r.Own && !CorpseHeld(r)) ?? _ragdolls.FirstOrDefault(r => !r.Simulating && !r.Own) ?? _ragdolls.FirstOrDefault(r => !r.Own) ?? _ragdolls[0];
+                    if (CorpseHeld(oldest) && RagdollSlotFree()) break;   // EXTRAS-HOOK (via CorpseHeld): added content keeps a young corpse and lets the count grow while a physics slot is free
                     RemoveRagdoll(oldest);
                 }
-                int slot = Enumerable.Range(0, Ragdoll.MaxSlots).First(s => !_ragdolls.Any(r => r.Simulating && r.Slot == s));
+                int slot = Enumerable.Range(0, Ragdoll.MaxSlots).FirstOrDefault(s => !_ragdolls.Any(r => r.Simulating && r.Slot == s), -1);
+                if (slot < 0) continue;   // every physics slot simulating (only when added content keeps more corpses than the cap): this death gets no ragdoll
                 EnsureRagdollWorld();
-                rd = new Ragdoll { Name = $"Ragdoll{id}", PlayerId = id, Own = own };
+                rd = new Ragdoll { Name = $"Ragdoll{id}", PlayerId = id, Own = own, StartedAt = _connectedFor };
                 _gameSpace.AddChild(rd);
                 var spawnWatch = System.Diagnostics.Stopwatch.StartNew();
                 rd.Start(def, character, slot, _gameSpace.Basis * start, _gameSpace.Basis * kick);
@@ -363,13 +365,40 @@ public partial class NetworkView
 
     // ---- bookkeeping ----
 
-    void RemoveRagdolls(int playerId, bool keepDeathState = false)
+    void RemoveRagdolls(int playerId, bool keepDeathState = false, Vector3? aliveAt = null)
     {
         if (_pendingDeaths.Count > 0) _pendingDeaths.RemoveAll(d => d.Id == playerId);   // a death still queued for a player who is alive again or gone (M40-T9)
         OrkDeathForget(playerId);   // Ork O7c: a death clip under way is over
         if (!keepDeathState) MarineDeathForget(playerId);   // pass 2: so is a marine's (ProcessDeaths keeps it until the ragdoll exists: the slide's velocity and the death's seen time are read from it)
         for (int i = _ragdolls.Count - 1; i >= 0; i--)
-            if (_ragdolls[i].PlayerId == playerId) RemoveRagdoll(_ragdolls[i]);
+            if (_ragdolls[i].PlayerId == playerId && !_ragdolls[i].Orphan)
+            {
+                if (CorpseHeld(_ragdolls[i], aliveAt)) _ragdolls[i].Orphan = true;   // EXTRAS-HOOK (via CorpseHeld): added content keeps the corpse until its own age frees it
+                else RemoveRagdoll(_ragdolls[i]);
+            }
+    }
+
+    /// <summary>Whether added content keeps this corpse a while yet (Musou Mode's corpse floor); false without added content, so the faithful game removes it as before.</summary>
+    bool CorpseHeld(Ragdoll rd, Vector3? aliveAt = null)
+    {
+        bool hold = false;
+        ExtrasCorpseHold(rd, aliveAt, ref hold);
+        return hold;
+    }
+
+    /// <summary>
+    /// Added content's corpse floor (Musou Mode): <paramref name="hold"/> true keeps <paramref name="rd"/> although its player respawned or left, or the cap is full. <paramref name="aliveAt"/>: where
+    /// its player stands alive again (game space; null: he left, or the cap asks).
+    /// </summary>
+    partial void ExtrasCorpseHold(Ragdoll rd, Vector3? aliveAt, ref bool hold);
+
+    bool RagdollSlotFree() => Enumerable.Range(0, Ragdoll.MaxSlots).Any(s => !_ragdolls.Any(r => r.Simulating && r.Slot == s));
+
+    /// <summary>The orphaned corpses (kept by added content past their player) whose hold is over go.</summary>
+    void ReleaseOrphanRagdolls()
+    {
+        for (int i = _ragdolls.Count - 1; i >= 0; i--)
+            if (_ragdolls[i].Orphan && !CorpseHeld(_ragdolls[i])) RemoveRagdoll(_ragdolls[i]);
     }
 
     void RemoveRagdoll(Ragdoll rd)
@@ -382,6 +411,7 @@ public partial class NetworkView
     /// <summary>Frame bookkeeping: settled ragdolls, frame-time statistics and (bots) a periodic log line.</summary>
     void UpdateRagdolls(double delta)
     {
+        ReleaseOrphanRagdolls();
         PrewarmFrame();   // M40-T9: the weapon models and one hidden ragdoll a little after joining, so the first real death and the first weapon rig are not the first builds
         bool simulating = false;
         foreach (var rd in _ragdolls)
