@@ -45,6 +45,8 @@ public sealed partial class TfwBattle
     public int ArmyBigAlive { get; private set; }
     /// <summary>The armies' real Orks the real cap counts.</summary>
     int ArmyCapped => ArmyOrksAlive - ArmyBigAlive;
+    /// <summary>The pool's slots that are the armies' (expansion S6: the last 512; every other spawner keeps to <see cref="TfwBattleRules.CrowdPool"/>): their bodies, twins included, never pass it.</summary>
+    public const int ArmySlots = MusouSim.Capacity - TfwBattleRules.CrowdPool;
     /// <summary>Guard squads the armies own now.</summary>
     public int ArmySquads { get; private set; }
     /// <summary>Guardsmen of the aggregates lost in far clashes (the war's count of the battle's losses adds them to the real ones).</summary>
@@ -304,7 +306,7 @@ public sealed partial class TfwBattle
     {
         PromoteOrks(a, ref budget);
         if (a.Far < 1f) return;
-        int pool = Math.Max(0, MusouSim.Capacity - TfwBattleRules.PoolReserve - _enemies.Alive);
+        int pool = Math.Max(0, Math.Min(ArmySlots - ArmyOrksAlive, MusouSim.Capacity - TfwBattleRules.PoolReserve - _enemies.Alive));   // the armies' own slots (review fix 2026-11-10)
         int room = Math.Max(0, Math.Min(TfwArmyRules.NearOrksMost - ArmyCapped, pool));
         if (a.FarCount <= room) return;
         int keep = room;
@@ -359,6 +361,8 @@ public sealed partial class TfwBattle
         {
             int slot = a.SlotBase;
             var type = TfwArmyLayout.OrkType(slot, a.FarEliteShare);
+            int bodies = TfwBattleRules.Big(type) && !OrkAggregates ? TfwBattleRules.BigTwins : 1;
+            if (ArmyOrksAlive + bodies > ArmySlots) break;   // review fix 2026-11-10: the armies keep to their own slots, twins and all, so the crowds' pool and its reserve (the commander) stay theirs
             var spot = TfwArmyLayout.Slot(a.Side, a.Width, a.Anchor, a.Yaw, slot);   // where the client's impostor of this slot stood
             var at = Ground(spot, a.Order is TfwArmyOrder.March or TfwArmyOrder.Retreat && a.Way is not null ? WaySlot(a, slot).Home : a.Anchor);
             ushort id = _enemies.SpawnLeashed(type, at, a.Yaw, Health(type), a.Group, aggro, keepYaw: true);   // an army made real keeps its march facing (a fresh spawn faces the centre: owner 2026-11-09)

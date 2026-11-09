@@ -144,7 +144,7 @@ public class TfwBossOrkTests
             battle.Step(FarPlayer);
             Assert.True(battle.BossOrks.Count <= TfwBossOrkRules.MostAlive);
         }
-        int most = TfwBossOrkRules.MostAlive;   // 4 since 2026-11-10 (2 before)
+        int most = TfwBossOrkRules.MostAlive;   // 8 since 2026-11-10 (2 before)
         Assert.Equal(most, arrivals.Count);   // 12 min with none killed: the most came, the next waits
         Assert.True(battle.BossOrkDueTick <= battle.BattleTicks);
         sim.Damage(arrivals[0].Id, 1, 1e7f, Vector3.Zero, out _);
