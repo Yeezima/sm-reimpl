@@ -72,6 +72,7 @@ public partial class NetworkView
 
     void TfwLibrarianFrame(PlayerState me, IReadOnlyList<PlayerState> others, double delta)
     {
+        LibrarianClock.Advance(delta);   // the effects' frame clock (LibrarianBolts.cs)
         LibrarianDemoFrame();   // NetworkView.LibrarianDemo.cs: the capture aid, nothing without --librarian-demo
         LibrarianClipFrame();   // NetworkView.LibrarianClip.cs: the clip script, nothing without --librarian-clip
         LibrarianDemoAimFrame();
@@ -81,7 +82,7 @@ public partial class NetworkView
         bool fresh = !ReferenceEquals(views, _librarianShown);
         _librarianShown = views;
         LibrarianView? own = null;
-        double now = Time.GetTicksMsec() / 1000.0;
+        double now = LibrarianClock.Now;
         foreach (var s in _librarianSounds.Values) s.Seen = false;
         foreach (var v in views)
         {

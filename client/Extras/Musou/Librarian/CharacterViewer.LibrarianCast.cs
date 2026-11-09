@@ -149,7 +149,7 @@ public partial class CharacterViewer
     void ApplyCast(CastBones b, LibrarianCastState cast, float w)
     {
         var s = _skeleton!;
-        float t = (float)(Time.GetTicksUsec() * 1e-6 % 1000.0);
+        float t = (float)(LibrarianClock.Now % 1000.0);
         float shake = Math.Clamp(cast.Intensity, 0f, 1.5f);
         var toSkeleton = s.GlobalTransform.AffineInverse();
         var target = toSkeleton * cast.Target;

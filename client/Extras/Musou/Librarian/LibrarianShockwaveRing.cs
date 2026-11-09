@@ -60,14 +60,14 @@ void fragment() {
     public void Play(Vector3 feet)
     {
         Position = feet + new Vector3(0f, 0f, 0.15f);
-        _startedAt = Time.GetTicksMsec() / 1000.0;
+        _startedAt = LibrarianClock.Now;
         _ring.Visible = _wall.Visible = _flash.Visible = true;
     }
 
     public override void _Process(double delta)
     {
         if (!_ring.Visible) return;
-        float t = (float)(Time.GetTicksMsec() / 1000.0 - _startedAt);
+        float t = (float)(LibrarianClock.Now - _startedAt);
         float u = Math.Clamp(t / Seconds, 0f, 1f);
         if (t > Seconds + 0.25f) { _ring.Visible = _wall.Visible = _flash.Visible = false; return; }
         float eased = 1f - MathF.Pow(1f - u, 2.2f);   // fast out of the hands, slowing at the edge

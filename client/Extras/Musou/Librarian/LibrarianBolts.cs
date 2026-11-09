@@ -5,6 +5,16 @@ using SmSim.Extras.Musou;
 namespace SmClient;
 
 /// <summary>
+/// The clock of the Librarian's effects (bolts, ring, cast pose): the frames' own time, advanced once a frame by the networked view, so the effects keep their pace in a Movie Maker recording (fixed frame
+/// time, slower than the wall clock) as in play.
+/// </summary>
+public static class LibrarianClock
+{
+    public static double Now { get; private set; } = 1000.0;
+    public static void Advance(double delta) => Now += Math.Clamp(delta, 0.0, 0.25);
+}
+
+/// <summary>
 /// The Librarian's chain lightning, drawn procedurally (librarian-lightning, owner 2026-11-10: "improve the visual fidelity and quality of the chain lighting visual effects on cast. make it feel powerful and look good
 /// and powerful"; **ours**: no third-party file and no original effect). Per caster:
 /// <list type="bullet">
@@ -24,6 +34,9 @@ namespace SmClient;
 /// </summary>
 public sealed partial class LibrarianBolts : Node3D
 {
+    /// <summary>The frame clock the Librarian's effects run on (seconds of frame time: <see cref="LibrarianClock"/>).</summary>
+    static double Now => LibrarianClock.Now;
+
     public const int MaxLinks = LibrarianRules.MaxDrawnLinks;
     /// <summary>Re-roll interval (s, random in the range) and the afterglow's fade (ours).</summary>
     public const float RejagMin = 0.035f, RejagMax = 0.065f, GhostSeconds = 0.12f;
@@ -218,7 +231,7 @@ void fragment() {
 
     public override void _Process(double delta)
     {
-        double now = Time.GetTicksMsec() / 1000.0;
+        double now = Now;
         float since = (float)(now - _fedAt);
         float alive = Math.Clamp(1f - since / FadeSeconds, 0f, 1f);
         float after = Math.Clamp(1f - since / AfterglowSeconds, 0f, 1f);

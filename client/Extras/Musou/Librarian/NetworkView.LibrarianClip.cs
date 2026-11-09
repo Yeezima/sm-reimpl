@@ -87,29 +87,30 @@ public partial class NetworkView
         _librarianDemoAim = true;
         await TfwFrames(3);
 
-        GD.Print("LIBCLIP tap");
+        GD.Print($"LIBCLIP tap (wall {Time.GetTicksMsec() / 1000.0:F2} s, frame {Engine.GetProcessFrames()})");
         await Hold(InputButtons.Fire, 0.25, [(0.0, "1_tap_00"), (0.1, "1_tap_01")]);
         await TfwWait(0.9);
 
-        GD.Print("LIBCLIP hold 3 s");
+        GD.Print($"LIBCLIP hold 3 s (wall {Time.GetTicksMsec() / 1000.0:F2} s, frame {Engine.GetProcessFrames()})");
         await Hold(InputButtons.Fire, 3.0, [(0.03, "2_hold_00"), (0.15, "2_hold_01"), (0.6, "2_hold_02"), (1.4, "2_hold_03"), (2.4, "2_hold_04")]);
         await TfwShot("2_release_00");
         await TfwWait(0.15);
         await TfwShot("2_release_01");
         await TfwWait(1.0);
 
-        GD.Print("LIBCLIP shockwave");
+        GD.Print($"LIBCLIP shockwave (wall {Time.GetTicksMsec() / 1000.0:F2} s, frame {Engine.GetProcessFrames()})");
         _tfwTestButtons = InputButtons.Reload; await TfwFrames(3); _tfwTestButtons = InputButtons.None;
         await TfwWait(0.08); await TfwShot("3_shockwave_00");
         await TfwWait(0.15); await TfwShot("3_shockwave_01");
         await TfwWait(0.2); await TfwShot("3_shockwave_02");
         await TfwWait(1.5);
 
-        GD.Print("LIBCLIP hold 2 s");
+        GD.Print($"LIBCLIP hold 2 s (wall {Time.GetTicksMsec() / 1000.0:F2} s, frame {Engine.GetProcessFrames()})");
         if (_musouState.NearestTo(client.Predicted.Position, 30f) is null) await TfwUntil("Orks back within 30 m", () => _musouState.NearestTo(client.Predicted.Position, 30f) is not null, 15.0);
         await Hold(InputButtons.Fire, 2.0, [(0.5, "4_hold_00"), (1.5, "4_hold_01")]);
         await TfwWait(1.0);
         _librarianDemoAim = false;
+        GD.Print($"LIBCLIP end (wall {Time.GetTicksMsec() / 1000.0:F2} s, frame {Engine.GetProcessFrames()})");
         return true;
     }
 }
