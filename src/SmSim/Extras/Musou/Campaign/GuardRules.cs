@@ -50,6 +50,14 @@ public sealed record GuardRules
     public int SightTries { get; init; } = 3;
     /// <summary>A shot's damage: the design's 5 x <see cref="Strength"/>.</summary>
     public float Damage { get; init; } = 5f * Strength;
+    /// <summary>
+    /// A hit on a charging Ork (<see cref="MusouSim.Charging"/>: a melee Ork sprinting in within 30 m) does this many times <see cref="Damage"/>: the line's volley into a charge (the owner, 2026-11-10: "Rebalance
+    /// Guards" after the Orks' 1.2x pace and charge). Only the charge is met harder, so a mixed counterattack's balance (<c>GuardHoldTrialTests</c>, the far clash's even match) stays near where it was while six
+    /// squads beat sixty charging Boyz again in about the old time (<c>GuardSimTests</c>). An estimate (ours); 1 is the rule before (server <c>SM_MUSOU_GUARD_BRACE=1</c>, also a tuning aid for other values).
+    /// </summary>
+    public float ChargeDamageScale { get; init; } = DefaultChargeDamageScale;
+    public static readonly float DefaultChargeDamageScale =
+        float.TryParse(Environment.GetEnvironmentVariable("SM_MUSOU_GUARD_BRACE"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var v) && v > 0f ? v : 1.5f;
     /// <summary>Seconds a dead man's slot is kept for the client's death.</summary>
     public float DyingSeconds { get; init; } = 2f;
 

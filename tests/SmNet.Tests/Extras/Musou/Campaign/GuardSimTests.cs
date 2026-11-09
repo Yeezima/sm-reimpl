@@ -45,14 +45,14 @@ public class GuardSimTests(ITestOutputHelper output)
         return ids;
     }
 
-    readonly record struct Battle(int Ticks, int Lost, int SquadsLeft, int Shots, int ShotsHit, int Strikes, int Tracers);
+    internal readonly record struct Battle(int Ticks, int Lost, int SquadsLeft, int Shots, int ShotsHit, int Strikes, int Tracers);
 
-    static Battle SixSquadsAgainstSixtyBoyz(Action<string>? Log = null, bool oldPace = true)
+    internal static Battle SixSquadsAgainstSixtyBoyz(Action<string>? Log = null, bool oldPace = false, float strength = 1f)
     {
         var w = Box();
-        w.Musou!.OldOrkPace = oldPace;   // TF3's balance as pinned: the Orks' speed before their pace and charge (2026-11-09; the new outcome in Six_squads_against_sixty_charging_boyz)
+        w.Musou!.OldOrkPace = oldPace;   // the Orks' pace and charge of 2026-11-09 (true: the speed before), met by the Guardsmen's volley into a charge (GuardRules.ChargeDamageScale, 2026-11-10)
         var guards = w.TfwGuards!;
-        for (int s = 0; s < 6; s++) Assert.Equal(s, guards.SpawnSquad(new Vector3(-20f + s * 8f, -10f, 0f)));
+        for (int s = 0; s < 6; s++) Assert.Equal(s, guards.SpawnSquad(new Vector3(-20f + s * 8f, -10f, 0f), 0f, GuardSim.SquadSize, strength));
         Boyz(w, 60, new Vector3(-7f, 30f, 0f), health: 85f * GuardRules.Strength);   // as tough as the Guardsmen's scale (night batch 2026-11-06), so TF3's fight still comes to blows
         int strikes = 0, tick = 0;
         for (; tick < 90 * 30 && w.Musou!.Alive > 0; tick++)
@@ -65,20 +65,11 @@ public class GuardSimTests(ITestOutputHelper output)
         return new Battle(tick, guards.Lost, guards.SquadsAlive, guards.Shots, guards.ShotsHit, strikes, w.Musou!.Alive);
     }
 
-    /// <summary>The Orks' pace and charge (the owner, 2026-11-09): 1.2x and a sprint within 30 m tip TF3's box the Orks' way (measured: the six squads gone by 60 s, 21 Boyz left). Recorded, not a goal.</summary>
-    [Fact]
-    public void Six_squads_against_sixty_charging_boyz()
-    {
-        var a = SixSquadsAgainstSixtyBoyz(output.WriteLine, oldPace: false);
-        output.WriteLine($"charging: {a} = {a.Ticks / 30f:0.0} s");
-        Assert.True(a.Strikes > 0);
-        Assert.Equal(a, SixSquadsAgainstSixtyBoyz(oldPace: false));   // deterministic
-        Assert.True(a.Tracers > 0 && a.SquadsLeft == 0, $"the balance moved again: {a}");   // the Orks win the box now
-    }
-
     [Fact]
     public void Six_squads_beat_sixty_boyz_in_the_box_within_90_s_with_deterministic_losses()
     {
+        // At the Orks' pace and charge (2026-11-09) with the volley into a charge (1.5x, 2026-11-10): measured 34.3 s, 31 men lost, 5 squads left; before the pace 44.1 s, 34 lost, 4 left;
+        // at the pace without the volley the Orks won (every squad gone by 60 s, 21 Boyz left).
         var a = SixSquadsAgainstSixtyBoyz(output.WriteLine);
         output.WriteLine($"{a} = {a.Ticks / 30f:0.0} s");
         Assert.Equal(0, a.Tracers);                 // no Boy left
@@ -86,6 +77,47 @@ public class GuardSimTests(ITestOutputHelper output)
         Assert.True(a.Strikes > 0, "the Orks struck");
         Assert.True(a.Lost is > 0 and < 60, a.ToString());
         Assert.Equal(a, SixSquadsAgainstSixtyBoyz());
+    }
+
+    /// <summary>The damage one squad does in 2 s to a lone Ork of <paramref name="type"/> coming at it from 28 m (it lives through it), and how many of those ticks he charged.</summary>
+    static (float Damage, int Charging) VolleyAt(MusouEnemyType type, float brace)
+    {
+        var sim = new MusouSim(null) { TickRate = 30, Swarm = MusouSwarmRules.Default, War = TfwCombatRules.Default };
+        var guards = new GuardSim(sim, new GuardRules { ChargeDamageScale = brace });
+        Assert.Equal(0, guards.SpawnSquad(Vector3.Zero, 0f));
+        ushort id = sim.Spawn(type, new Vector3(0f, 28f, 0f), MathF.PI, 1e6f);
+        var targets = new MusouTarget[GuardSim.MaxSquads];
+        var attacks = new List<MusouAttack>();
+        int charging = 0;
+        for (uint k = 1; k <= 60; k++)
+        {
+            sim.BeginTick(k);
+            guards.BeginTick(k);
+            int n = guards.AppendTargets(targets);
+            attacks.Clear();
+            sim.Step(targets.AsSpan(0, n), null, true, attacks);
+            if (sim.Charging(id)) charging++;
+            guards.Step(true);
+        }
+        Assert.True(sim.TryGet(id, out var e));
+        return (1e6f - e.Health, charging);
+    }
+
+    /// <summary>The volley into a charge (2026-11-10): a charging Boy takes the scale's share more from the same hits; a Shoota Boy, who never charges, the same as before.</summary>
+    [Fact]
+    public void A_charging_ork_takes_the_volleys_extra_damage_and_a_shooter_does_not()
+    {
+        Assert.Equal(1.5f, GuardRules.Default.ChargeDamageScale);
+        var (before, charged) = VolleyAt(MusouEnemyType.Boy, 1f);
+        var (after, _) = VolleyAt(MusouEnemyType.Boy, 1.5f);
+        output.WriteLine($"Boy: {before} -> {after} over 2 s, charging {charged} ticks");
+        Assert.True(charged > 0 && before > 0f);
+        Assert.True(after > before * 1.2f, $"{before} -> {after}");
+        var (shootaBefore, shootaCharged) = VolleyAt(MusouEnemyType.ShootaBoy, 1f);
+        var (shootaAfter, _) = VolleyAt(MusouEnemyType.ShootaBoy, 1.5f);
+        Assert.Equal(0, shootaCharged);
+        Assert.True(shootaBefore > 0f);
+        Assert.Equal(shootaBefore, shootaAfter);
     }
 
     [Fact]

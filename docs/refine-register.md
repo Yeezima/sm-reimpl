@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2758 spec table rows: **2053 tagged**, 489 not tagged (read from data with high confidence), 216 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 612 rows of the changes document.
+Scanned 2759 spec table rows: **2054 tagged**, 489 not tagged (read from data with high confidence), 216 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 613 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -52,19 +52,19 @@ Scanned 2758 spec table rows: **2053 tagged**, 489 not tagged (read from data wi
 | Networking and render smoothing | 19 | 10 | 10 | 10 | 7 |
 | Core simulation (provisional values) | 529 | 505 | 368 | 145 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 230 | 220 | 123 | 61 | 0 |
-| **All areas** | **2053** | 1807 | 1522 | 651 | 38 |
+| Ork faction | 231 | 221 | 123 | 62 | 0 |
+| **All areas** | **2054** | 1808 | 1522 | 652 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1138 |
+| kind: ours | 1139 |
 | confidence: low | 728 |
 | confidence: medium | 665 |
 | notes: ours | 369 |
 | kind: interpretation | 360 |
-| notes: estimate | 169 |
+| notes: estimate | 170 |
 | kind: estimate | 136 |
 | confidence: none (low) | 129 |
 | kind: provisional | 99 |
@@ -3478,6 +3478,12 @@ The Orks are an addition the owner keeps (the original multiplayer had Space Mar
 | `R-E2A806F3` | Orks' charge (Musou) | a melee-first Ork (Boy, 'Ard Boy, Gretchin, Nob, Stormboy, Boss Boy, Boss 'Ard Boy, Boss Nob) whose enemy (a player, a retainer or AI Marine, a Guard squad; not a place to retake) is within **30** m of him (from its edge), seeking, sprints until his blow (his… (m, m/s) | kind: ours; confidence: medium | owner 2026-11-09 (30 m, the charge); measured clips (the ratio); ours (the cap, the kinds) | Orks' charge (Musou): compare with SM1 by timing a run over a known distance. Ours: a melee-first Ork (Boy, 'Ard Boy, Gretchin, Nob, Stormboy, Boss Boy… | ☐ |
 | `R-B3B38FA9` | The charge as drawn (Musou, client) | a charging kind's look plays the boy rig's `BOY_1HM_NAV_Sprint_F_01` (the melee looks on the boy rig; the gun looks and the Warboss, Weirdboy, Squig and Stormboy's own rigs keep the run) once his drawn speed passes **0.5** of the way from his paced run to his… (x) | kind: ours; confidence: medium | owner 2026-11-09 | The charge as drawn (Musou, client): compare with SM1 by feel or video. Ours: a charging kind's look plays the boy rig's BOY_1HM_NAV_Sprint_F_01… | ☐ |
 
+*Spec section: Musou Mode: the Guardsmen meet a charge (musou-big-ork-deaths, 2026-11-10; Musou Mode's war only; `TfwRules.Version` 58, to be renumbered at integration; no protocol, wire or `MusouSim.Version` change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-E8BF37C8` | Volley into a charge (Musou, Guardsmen) | a Guardsman's hit on an Ork that is charging (`MusouSim.Charging`: a melee-first Ork sprinting at an enemy within 30 m) does **1.5x** the shot's damage (`GuardRules.Damage` times the squad's strength); hit chance, fire rate and range unchanged; a gun Ork, the… (x) | kind: ours; notes: estimate | owner 2026-11-10 ("Rebalance Guards"); value fitted to TF3's box and the hold trial | Volley into a charge (Musou, Guardsmen): compare with SM1 by feel or video. Ours: a Guardsman's hit on an Ork that is charging (MusouSim.Charging: a… | ☐ |
+
 ## Part C: Deliberate changes (keep or revert after playtest)
 
 Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our choices where the original is unknown, and what is not reproduced yet. Nothing is classified here; every row is listed. The prompt says what to ask after the playtest.
@@ -4252,6 +4258,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-1DD14181` | Musou: the big Orks' deaths and gait (musou-big-ork-deaths, owner 2026-11-09) | No Musou Mode in the original | Ours (the owner: "the elite and boss orks and the warboss need to have death animations. they also look like they move in slow motion because of the way they're scaled up"): an elite or boss Ork is never torn apart by the gore (the burst plays, the body falls with its death clip and lies); the Warboss dies by his own… | Musou Mode only, client presentation. spec "Musou Mode: the big Orks' deaths and gait" | Musou: the big Orks' deaths and gait (musou-big-ork-deaths…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-FEB84D7D` | Musou: the big Orks against the map (musou-big-ork-deaths, owner 2026-11-09) | No Musou Mode in the original | Ours (the owner: "boss enemies are getting stuck along objects and moving in slow motion"): a big body's vertical reach and shooting eye grow with its height (up to 3x: 4.5 m), a Boss Ork's lean off a wall no longer slows him, a big body's blocked step slides along the wall. `SM_MUSOU_OLD_BIG_BODIES=1` restores them | Musou Mode only. spec "Musou Mode: the big Orks' deaths and gait" | Musou: the big Orks against the map (musou-big-ork-deaths…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-42BA83D8` | Musou: the Orks' pace and charge (musou-big-ork-deaths, owner 2026-11-09) | No Musou Mode in the original | Ours (the owner: "make orks run 20% faster, and sprint to 'charge' the enemy when they reach within 30m of an enemy"): every Ork on foot 1.2x his speed (elites, bosses and the Warboss included); a melee-first Ork within 30 m of an enemy sprints at the original sprint clip's ratio over the run (at most 9.9 m/s) and… | Musou Mode's war only. spec "Musou Mode: the Orks' pace and charge" | Musou: the Orks' pace and charge (musou-big-ork-deaths…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-07DF5820` | Musou: the Guardsmen meet a charge (musou-big-ork-deaths, owner 2026-11-10; `TfwRules.Version` 58) | No Musou Mode in the original | Ours (the owner: "Rebalance Guards" after the Orks' pace and charge): a Guardsman's hit on a charging Ork does 1.5x damage, so six squads beat sixty charging Boyz again in about the old time while the mixed counterattack and the near army trial stay near their balance; server `SM_MUSOU_GUARD_BRACE=1` restores it | Musou Mode's war only. spec "Musou Mode: the Guardsmen meet a charge" | Musou: the Guardsmen meet a charge (musou-big-ork-deaths…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 
 ## Appendix: not gameplay
 

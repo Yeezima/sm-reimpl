@@ -102,7 +102,7 @@ public class GuardHoldTrialTests(ITestOutputHelper output)
 {
     /// <summary>
     /// The owner's target (2026-11-08: "near clash balance should match far clash balance", the far clash being even man for man): about half (40 to 60 %) of 20 seeded counterattacks of as many
-    /// Orks as the field has men (60) held (10 of 20 at <see cref="GuardRules.Strength"/> 0.875; about a minute on 8 cores).
+    /// Orks as the field has men (60) held (10 of 20 at <see cref="GuardRules.Strength"/> 0.875; at the Orks' pace and charge of 2026-11-09 8, with the volley into a charge of 2026-11-10, <see cref="GuardRules.ChargeDamageScale"/> 1.5, 12; about a minute on 6 cores).
     /// </summary>
     [Fact]
     [Trait("Speed", "Slow")]
