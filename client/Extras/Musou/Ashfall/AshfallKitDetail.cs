@@ -14,7 +14,7 @@ namespace SmClient;
 public static class AshfallKitDetail
 {
     /// <summary>Largest texture side kept for a model placed inside the arena (the source files' size).</summary>
-    public const int ArenaTextureMax = 2048;
+    public const int ArenaTextureMax = AshfallKitDetailRule.ArenaTextureMax;
     /// <summary>LOD bias of an instance inside the arena: the map's 4 px threshold (<see cref="AshfallKitView.LodThreshold"/>) divided by this is the error allowed on screen, so 4 is the engine's 1 px.</summary>
     public const float ArenaLodBias = 4f;
 
@@ -28,17 +28,23 @@ public static class AshfallKitDetail
         return i >= 0 && i + 1 < args.Length && args[i + 1] == "old";
     }
 
+    /// <summary>Whether the arena models draw in high detail: not with <see cref="Old"/>, and not in old-GPU mode (<see cref="SafeMode.Active"/>: the Compatibility renderer, picked on a weak GPU or by the
+    /// player's toggle in OPTIONS, or <c>--safe-mode</c>); owner 2026-11-10: "Use low detail ashfall textures for old gpu mode users" (<see cref="AshfallKitDetailRule"/>).</summary>
+    public static bool High => AshfallKitDetailRule.HighDetail(Old, SafeMode.Active);
+
     /// <summary>Whether an item stands inside the battle arena (its position within the boundary square).</summary>
     public static bool InsideArena(AshfallDressItem item) => MathF.Abs(item.Position.X) <= AshfallMap.Half && MathF.Abs(item.Position.Y) <= AshfallMap.Half;
 
-    /// <summary>Marks every model with an item inside the arena as high detail in <paramref name="library"/> (nothing with <see cref="Old"/>).</summary>
+    /// <summary>Marks every model with an item inside the arena as high detail in <paramref name="library"/> (nothing unless <see cref="High"/>).</summary>
     public static void Mark(AshfallKitLibrary library, IEnumerable<AshfallDressItem> items)
     {
-        if (Old) return;
+        if (!_logged) { _logged = true; GD.Print($"ashfall kit: detail {(High ? "high (arena models 2048 px, finer LODs)" : Old ? "low (--ashfall-kit-detail old)" : "low (old-GPU mode: 1024 px textures, plain LODs)")}"); }
+        if (!High) return;
         foreach (var it in items) if (InsideArena(it)) library.HighDetail.Add(it.Asset);
     }
 
     /// <summary>The LOD bias for an instance of <paramref name="item"/>: <see cref="ArenaLodBias"/> inside the arena, except in safe mode (the Compatibility renderer of older GPUs), where the finer LODs
     /// roughly doubled the primitives drawn (measured on the city: docs/musou-ashfall-graybox.md "Kit detail inside the arena") and the 2048 px textures carry the detail alone.</summary>
-    public static float LodBiasOf(AshfallDressItem item) => !Old && !SafeMode.Active && InsideArena(item) ? ArenaLodBias : 1f;
+    public static float LodBiasOf(AshfallDressItem item) => High && InsideArena(item) ? ArenaLodBias : 1f;
+    static bool _logged;
 }

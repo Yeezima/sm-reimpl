@@ -131,6 +131,7 @@ public sealed class AshfallKitLibrary
     /// <summary>Ids that finished since the last call (loaded or failed), oldest first.</summary>
     public List<string> TakeReady()
     {
+        while (_toFree.TryDequeue(out var t)) t.Dispose();   // the files' full-size textures, released on the main thread (LoadOne)
         if (_ready.IsEmpty) return NoneReady;   // no allocation on the frames with nothing new (review)
         var list = new List<string>();
         while (_ready.TryDequeue(out var id)) list.Add(id);
@@ -204,6 +205,12 @@ public sealed class AshfallKitLibrary
             if (pieces.Count == 0) return Fail(id, "no mesh in the file", watch);
             float luma = MeasureLuma(pieces);
             var (bytes, note) = ShrinkTextures(pieces, HighDetail.Contains(id) ? HighTextureMax : TextureMax);
+            // kit-hi-res: the file's own textures were uploaded at their full size when the glTF was read; once the materials hold the shrunk copies, let them go (the state's list and
+            // our wrappers), or a 2048 px file keeps its full-size textures in video memory beside the 1024 px copies (measured in old-GPU mode: docs/musou-ashfall-graybox.md)
+            // (freed on the main thread: TakeReady; a GL texture freed on a loader thread crashed the Compatibility renderer)
+            state.SetImages([]);
+            foreach (var t in _released) _toFree.Enqueue(t);
+            _released.Clear();
             return new Asset { Id = id, Pieces = [.. pieces], Ms = watch.Elapsed.TotalMilliseconds, Triangles = triangles, LodSurfaces = lodSurfaces, TextureBytes = bytes, TextureNote = note, Luma = luma };
         }
         catch (Exception e) when (e is not (StackOverflowException or AccessViolationException or OutOfMemoryException))
@@ -271,6 +278,10 @@ public sealed class AshfallKitLibrary
     }
 
     /// <summary>Resizes each material's textures to <paramref name="textureMax"/> and block-compresses them; returns the VRAM estimate and a note.</summary>
+    readonly ConcurrentQueue<Texture2D> _toFree = new();
+    [ThreadStatic] static List<Texture2D>? _releasedList;
+    static List<Texture2D> _released => _releasedList ??= [];
+
     (long Bytes, string Note) ShrinkTextures(List<Piece> pieces, int textureMax)
     {
         long bytes = 0;
@@ -308,6 +319,7 @@ public sealed class AshfallKitLibrary
                             bytes += img.GetData().Length;
                         }
                         replaced[tex] = other;
+                        if (!ReferenceEquals(other, tex)) _released.Add(tex);
                     }
                     if (!ReferenceEquals(other, tex)) m.SetTexture(slot, other);
                 }
