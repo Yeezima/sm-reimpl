@@ -871,9 +871,9 @@ public partial class NetworkView
         GD.Print($"t {_connectedFor:F0} s: effects: update avg {_fx.CostSum / _fx.CostFrames:F2} ms, max {_fx.CostMax:F2} ms over {_fx.CostFrames} frames; live {_fx.Live}, quads {_fx.LastQuads} ({_fx.AdditiveQuads} additive, {_fx.AlphaQuads} alpha, dropped {_fx.DroppedTotal}), lights {_fx.LastLights}, decals {_fx.LiveDecals}; " +
                  $"quads a frame avg {(double)_fx.QuadSum / _fx.CostFrames:F0} ({(double)_fx.AlphaQuadSum / _fx.CostFrames:F0} alpha), max {_fx.QuadMax}, smoke {(FxPlayer.ShowSmoke ? "on" : "off")}; " +
                  $"own shots {_fxOwnShots}, remote shots {_fxRemoteShots}, tracers {_fxTracers} ({BulletStats()}; {BarrelStats()}), impacts {_fxImpacts} (on players {_fxBodyImpacts}), detonations {_fxDetonations}, trails {_fxTrails}; {JumpFxLog()}; {MeleeFxLog()}; {PlasmaFxLog()}; spawned {_fx.Spawned}, culled {_fx.Culled}, off-screen skips {_fx.OffScreenSkips}; " +
-                 (_fx.ExtraStats is { Length: > 0 } gpu ? gpu + "; " : "") +
                  (_fx.Missing.Count > 0 ? $"missing: {string.Join(", ", _fx.Missing.Take(6))}" : "nothing missing"));
         _fx.CostSum = 0; _fx.CostMax = 0; _fx.CostFrames = 0; _fx.QuadSum = 0; _fx.AlphaQuadSum = 0; _fx.QuadMax = 0;
+        if (_fx.ExtraStats is { Length: > 0 } gpu) GD.Print($"t {_connectedFor:F0} s: effects gpu: {gpu}");   // musou/gpu-particles: the GPU sprays' counts
     }
 
     /// <summary>The F1 line on the effects: what is original and what is provisional.</summary>
