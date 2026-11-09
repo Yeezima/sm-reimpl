@@ -177,10 +177,10 @@ public static class AshfallCity
         // 1. Landmarks at the ends of the avenues' vistas and in the corners (wayfinding): seen down the roads.
         (string District, string Name, string Family, Vector2 At, Vector3 Size)[] landmarks =
         [
-            ("cathedral quarter", "cathedral spire", "tower", new(-206f, 124f), new(16f, 16f, 34f)),       // beyond the north avenue's west end, over A
-            ("manufactorum district", "manufactorum chimney tower", "tower", new(206f, 124f), new(16f, 16f, 34f)),
-            ("hab-block ruins", "hab tower", "tower", new(-200f, 0f), new(14f, 14f, 26f)),                  // the middle avenue's west vista from B
-            ("hab-block ruins", "hab tower east", "tower", new(200f, 0f), new(14f, 14f, 26f)),
+            ("cathedral quarter", "cathedral spire", "spire", new(-206f, 124f), new(16f, 16f, 34f)),       // beyond the north avenue's west end, over A
+            ("manufactorum district", "manufactorum chimney tower", "spire", new(206f, 124f), new(16f, 16f, 34f)),
+            ("hab-block ruins", "hab tower", "spire", new(-200f, 0f), new(14f, 14f, 26f)),                  // the middle avenue's west vista from B
+            ("hab-block ruins", "hab tower east", "spire", new(200f, 0f), new(14f, 14f, 26f)),
         ];
         foreach (var (d, name, fam, at, size) in landmarks)
         {

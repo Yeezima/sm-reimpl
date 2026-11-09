@@ -88,6 +88,70 @@ internal static partial class AshfallDraft5Pass
         return (corners, cut, foot, land, $"draft 12: an entry ramp onto its {rise:0.0} m plinth ({run:0.0} m, {EntryDegrees:0} degrees)");
     }
 
+    /// <summary>
+    /// Draft 12: a landing slab for a flight whose top ends over no floor (the kit's broken upper floors: AC-005's flights end 2 m over the floor beyond them): a slab of the model's own collision, the flight's width plus
+    /// 0.2 m, 1.5 m deep beyond the top, 0.3 m thick, its top level with the flight's top. Null when the landing already has its floor.
+    /// </summary>
+    static List<WBox>? LandingPad(AshfallDressItem item, int yaw, List<WBox> boxes, AshfallStairs.Ramp r)
+    {
+        var solids = new AshfallStairs.Solids(boxes.Select(AsBox)) { Ground = (_, _) => item.Position.Z };
+        var at = r.High + r.Dir * 0.75f;
+        if (solids.FloorUnder(at, r.HighZ + AshfallStairs.Step) >= r.HighZ - AshfallStairs.Step) return null;
+        var (s, co) = AshfallBuilder.Trig(yaw);
+        var localDir = new Vector2(co * r.Dir.X + s * r.Dir.Y, -s * r.Dir.X + co * r.Dir.Y);
+        bool alongX = MathF.Abs(localDir.X) >= MathF.Abs(localDir.Y);
+        float w = r.Width + 0.2f;
+        var half = alongX ? new Vector3(0.75f, w / 2f, 0.15f) : new Vector3(w / 2f, 0.75f, 0.15f);
+        return [.. boxes, new WBox(new Vector3(at.X, at.Y, r.HighZ - 0.15f), half, yaw)];
+    }
+
+    /// <summary>The slope of a steepened flight's ramp (degrees; ours: the motor walks 60, the flights' rule keeps 55).</summary>
+    const float SteepDegrees = 45f;
+
+    /// <summary>
+    /// Draft 12 (owner, 2026-11-09: "fix the greybox collision for the rest of the 3d models that have stairs - you can't walk up all the stairs currently"): a flight that the placement's scale made steeper than 55 degrees
+    /// (a tall, short model squashed in plan: its risers over the 0.4 m step) keeps its landing and gets a ramp at <see cref="SteepDegrees"/>, its foot run out along the climb in the raw frame. Null for a flight that does not rise.
+    /// </summary>
+    static AshfallRamp? Steepened(AshfallDressItem item, int yaw, string id, AshfallRamp rp, List<WBox> boxes, AshfallKitModel m)
+    {
+        float sy = item.Size.Z / m.RawSize.Y;
+        bool alongX = rp.Dir < 2;
+        float perRaw = alongX ? item.Size.X / m.RawSize.X : item.Size.Y / m.RawSize.Z;
+        float rise = (rp.YHigh - rp.YLow) * sy, run = (alongX ? rp.Max.X - rp.Min.X : rp.Max.Z - rp.Min.Z) * perRaw;
+        if (rise <= 0.05f || perRaw <= 1e-6f) return null;
+        float need = rise / MathF.Tan(SteepDegrees * MathF.PI / 180f);
+        if (need <= run) return null;
+        float e = (need - run) / perRaw;
+        var mn = rp.Min; var mx = rp.Max;
+        switch (rp.Dir)
+        {
+            case 0: mn.X -= e; break;   // rises toward +X: the foot is at Min.X
+            case 1: mx.X += e; break;
+            case 2: mn.Z -= e; break;
+            default: mx.Z += e; break;
+        }
+        var steep = new AshfallRamp(mn, mx, rp.Dir, rp.YLow, rp.YHigh);
+        return FootToFloor(item, yaw, id, steep, boxes, m);
+    }
+
+    /// <summary>
+    /// Draft 12's per-model stair check (test aid): model <paramref name="id"/> placed alone at <paramref name="size"/> and <paramref name="yawStep"/> on flat ground, its stairs planned under the planned layouts' rules
+    /// (ramps, the 0.4 m rise, entry ramps, steepened flights) and walked up and down on the item alone; the flights found in its mesh, the ones kept, the notes, and the kept flights no ground or flight leads to.
+    /// </summary>
+    internal static (int Found, int Kept, IReadOnlyList<string> Notes, IReadOnlyList<string> Unreached) KitStairPlan(string id, Vector3 size, int yawStep, string family)
+    {
+        bool was = t_city; var wasRoads = t_cityRoads;
+        t_city = true; t_cityRoads = null;
+        try
+        {
+            var item = new AshfallDressItem(id, new Vector3(0f, 0f, AshfallMap.BlockTop), yawStep * (MathF.PI / 12f), size, false, AshfallDressRole.Prop, -1);
+            var spec = new Spec("stair check", family, Vector3.Zero, size, null, []);
+            var plan = PlanStairs(item, yawStep, id, CoarseBoxes(spec, item, yawStep, id), walk: true);
+            return (AshfallKitCollision.Stairs(id).Count, plan.Kept, plan.Notes, Unreached(plan, item.Position.Z));
+        }
+        finally { t_city = was; t_cityRoads = wasRoads; }
+    }
+
     /// <summary>The most rounds of the stair-access enforcement (each round leaves out what blocks or holds an unreachable stair; ours).</summary>
     const int AccessRounds = 6;
 
@@ -159,4 +223,11 @@ internal static partial class AshfallDraft5Pass
         c.Structures.Clear(); c.Structures.AddRange(structures);
         c.Placed.Clear(); c.Placed.AddRange(items.Where(it => it.Role == AshfallDressRole.Prop).Select(it => (it.Asset, new Vector2(it.Position.X, it.Position.Y))));
     }
+}
+
+public static partial class AshfallMap
+{
+    /// <summary>Draft 12's per-model stair check (test aid; <c>AshfallDraft5Pass.KitStairPlan</c>): a kit model alone at a size and turn, its stairs planned and walked under the planned layouts' rules.</summary>
+    public static (int Found, int Kept, IReadOnlyList<string> Notes, IReadOnlyList<string> Unreached) KitStairPlan(string id, Vector3 size, int yawStep, string family = "shell") =>
+        AshfallDraft5Pass.KitStairPlan(id, size, yawStep, family);
 }

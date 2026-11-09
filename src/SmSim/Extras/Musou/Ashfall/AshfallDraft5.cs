@@ -107,7 +107,7 @@ internal static partial class AshfallDraft5Pass
     {
         var draft10 = field is null ? null : AshfallMap.BuildDraft5();   // draft 11: the fortress comes from draft 10 (built first, on draft 10's own ground)
         using var ground = new AshfallMap.FieldScope(field is not null);
-        bool wasCity = t_city; t_city = field?.Layout == AshfallLayout.City;   // draft 12: the city's stair rule (CityStairMinRise)
+        bool wasCity = t_city; t_city = field is not null;   // draft 12: the planned layouts' stair rules (the city and, since the owner's stair pass of 2026-11-09, the field; draft 10 stays the rollback)
         var wasRoads = t_cityRoads;
         try { return RunPass(overlapRule, roadwayRule, draft9, field, draft10); } finally { t_city = wasCity; t_cityRoads = wasRoads; }
     }
@@ -214,7 +214,7 @@ internal static partial class AshfallDraft5Pass
         foreach (var (id, n) in c.DroppedBoxes.OrderBy(k => k.Key, StringComparer.Ordinal))
             c.Flags.Add($"{id}: {n} collision boxes under {MinBox} m dropped as dust across its placements");
 
-        if (field?.Layout == AshfallLayout.City) EnforceStairAccess(c, g5, field);   // draft 12: every stair reachable at both ends on the final collision
+        if (field is not null) EnforceStairAccess(c, g5, field);   // draft 12: every stair reachable at both ends on the final collision
 
         var spawns = g5.Spawns.Select(s => s == g5.Points[0].Center ? points[0].Center : s).ToList();
         var level = new AshfallLevel(c.Parts, points, g5.Areas, spawns, AshfallMap.HashOf(c.Parts, field is null ? AshfallMap.Version : field.HashVersion)) { Layout = field is null ? AshfallLayout.Draft10 : field.Layout };
@@ -360,6 +360,7 @@ internal static partial class AshfallDraft5Pass
         "facade" => Facade,
         "wall" => height <= LowWallHeight ? LowWall : Facade,
         "tower" => Tower,
+        "spire" => ["AC-030", "AC-029", "AC-028"],   // draft 12: the city's landmark towers (no stairs: a wayfinding mass, drawn full height; a stair model there is capped to its walkable height or refused)
         "platform" => Platform,
         "cover" => height > HighCoverHeight ? HighCover : Cover,
         "wallrun" => ["AC-041", "AC-001", "AC-017", "AC-014"],
@@ -575,7 +576,7 @@ internal static partial class AshfallDraft5Pass
         }
         // Draft 10 (owner, 2026-11-09: "don't use asset buildings that have stairs with no access point. replace them with properly scaled ones that do."): a model with a visible flight that cannot be
         // reached or walked where it stands gives way to the pool's next model (scaled by the same fit); the last one left out. The stronghold's pieces are authored (the owner keeps the keep as it is).
-        if (c.Draft9 && !s.NoCollision && !s.Family.StartsWith("stronghold") && s.Family is not ("terrace" or "outerwall" or "rubble" or "wallpiece" or "cover") && AshfallKitCollision.Stairs(id).Count > 0)
+        if (c.Draft9 && !s.NoCollision && !s.Family.StartsWith("stronghold") && s.Family is not ("terrace" or "outerwall") && (c.Field is not null || s.Family is not ("rubble" or "wallpiece" or "cover")) && AshfallKitCollision.Stairs(id).Count > 0)   // draft 12: on the planned layouts a walkable rubble mound's flights count too
         {
             var at = Item(size);
             var plan = Stairs(at, cand.Yaw, id, CoarseBoxes(s, at, cand.Yaw, id));

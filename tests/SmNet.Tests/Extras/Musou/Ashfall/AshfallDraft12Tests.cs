@@ -17,7 +17,7 @@ namespace SmNet.Tests.Extras.Musou.Ashfall;
 public class AshfallDraft12Tests(ITestOutputHelper output)
 {
     /// <summary>The city level's pin (city version 1, default parameters). After a refit of the kit's collision, take the new value from this test's failure.</summary>
-    public const ulong PinnedCityHash = 0x401F29A0BB9A1E49UL;
+    public const ulong PinnedCityHash = 0x1E3B60672DF1809BUL;
 
     static readonly AshfallDraft5 C = AshfallMap.BuildDraft5(AshfallLayout.City);
     static readonly Lazy<AshfallBattlefield> City = new(() => AshfallBattlefield.Measure(AshfallLayout.City));

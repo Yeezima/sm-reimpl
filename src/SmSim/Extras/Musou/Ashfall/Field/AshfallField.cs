@@ -169,7 +169,7 @@ public sealed record AshfallFieldPlan(
 public static class AshfallField
 {
     /// <summary>The field layout's version (salts its level hash; raised with any change of its geometry, points, areas or spawns).</summary>
-    public const uint Version = 1;
+    public const uint Version = 2;   // 2: the owner's stair pass (draft 12's stair rules: entry ramps, steepened flights, landing slabs, 1.6 m flights, the stair-access check enforced)
 
     /// <summary>The version term the field level's hash is salted with ("F" in the high byte, so it never equals a draft's version).</summary>
     public const uint HashVersion = 0x46000000u | Version;

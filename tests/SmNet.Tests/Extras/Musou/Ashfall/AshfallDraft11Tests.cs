@@ -15,7 +15,7 @@ namespace SmNet.Tests.Extras.Musou.Ashfall;
 public class AshfallDraft11Tests(ITestOutputHelper output)
 {
     /// <summary>The field level's pin (field version 1, default parameters). After a refit of the kit's collision, take the new value from this test's failure.</summary>
-    public const ulong PinnedFieldHash = 0x94488BF0597BA823UL;
+    public const ulong PinnedFieldHash = 0x42DC676411C2038CUL;   // field version 2 (the owner's stair pass, 2026-11-09); field version 1: 0x94488BF0597BA823
 
     static readonly AshfallDraft5 F = AshfallMap.BuildDraft5(AshfallLayout.Field);
     static readonly Lazy<AshfallBattlefield> Field = new(() => AshfallBattlefield.Measure(AshfallLayout.Field));

@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2756 spec table rows: **2052 tagged**, 489 not tagged (read from data with high confidence), 215 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 610 rows of the changes document.
+Scanned 2758 spec table rows: **2054 tagged**, 489 not tagged (read from data with high confidence), 215 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 610 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,28 +50,28 @@ Scanned 2756 spec table rows: **2052 tagged**, 489 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 19 | 10 | 10 | 10 | 7 |
-| Core simulation (provisional values) | 537 | 513 | 375 | 153 | 1 |
+| Core simulation (provisional values) | 539 | 515 | 377 | 155 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 221 | 211 | 118 | 58 | 0 |
-| **All areas** | **2052** | 1806 | 1524 | 656 | 38 |
+| **All areas** | **2054** | 1808 | 1526 | 658 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
 | kind: ours | 1129 |
-| confidence: low | 734 |
+| confidence: low | 736 |
 | confidence: medium | 661 |
-| notes: ours | 377 |
+| notes: ours | 379 |
 | kind: interpretation | 360 |
 | notes: estimate | 166 |
-| kind: estimate | 143 |
+| kind: estimate | 144 |
 | confidence: none (low) | 129 |
 | kind: provisional | 99 |
 | kind: user's knowledge | 55 |
+| kind: choice | 38 |
 | notes: provisional | 38 |
 | section: provisional | 38 |
-| kind: choice | 37 |
 | section: placeholder | 35 |
 | notes: user's knowledge | 25 |
 | notes: interpretation | 24 |
@@ -2174,7 +2174,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (537)
+### Core simulation (provisional values) (539)
 
 *Spec section: Provisional values in use*
 
@@ -2304,6 +2304,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-E251A5C9` | Ashfall stair access check (draft 12) | every stair of the level, on its final collision: foot (1.5 m) and landing (1.0 m) open; a ground foot reached from the streets (the 0.5 m grid's ground with 0.3 m clearance joined to the Imperial assembly area, then the player's capsule walked with the… (m) | kind: estimate; confidence: medium; notes: ours | owner 2026-11-09 ("no stairs inaccessible or blocked by walls or other objects"); every threshold ours | Ashfall stair access check (draft 12): compare with SM1 by measuring on a flat spot of the same map. Ours: every stair of the level, on its final collision: foot (1.5 m) and… | ☐ |
 | `R-CD73CDCB` | Ashfall city landmarks and high ground (draft 12) | a cathedral spire (-206, 124) and a manufactorum chimney tower (206, 124), 34 m, over A and C; hab towers (-200, 0) and (200, 0), 26 m, at the middle avenue's ends; a structure in a landmark's 8 m sight band to its two nearest points is refused only where it… (m, count) | kind: estimate; confidence: low; notes: ours | owner's brief (wayfinding, "avoid one position dominating every objective"); values ours | Ashfall city landmarks and high ground (draft 12): compare with SM1 by feel or video. Ours: a cathedral spire (-206, 124) and a manufactorum chimney tower (206… | ☐ |
 | `R-1377E178` | Ashfall city seeds (draft 12) | layout 12 (the rows' widths, gaps, families, the yards), dressing 1, surface 1 (visual only, the level's hash unchanged) | kind: choice; notes: ours | ours | Ashfall city seeds (draft 12): compare with SM1 by feel or video. Ours: layout 12 (the rows' widths, gaps, families, the yards), dressing 1… | ☐ |
+| `R-F7EE02D2` | Ashfall kit stairs, planned layouts (draft 12) | on the city and the field (draft 10 keeps its rules): a run of steps rising over the 0.4 m step gets a ramp (draft 10: 0.8 m); a flight the scale made steeper than 55 degrees gets a ramp of 45 degrees run out at its foot; a flight ending over a broken floor… (degrees, m) | kind: estimate; confidence: low; notes: ours | owner 2026-11-09 ("fix the greybox collision for the rest of the 3d models that have stairs - you can't walk up all the stairs currently"); every value ours | Ashfall kit stairs, planned layouts (draft 12): compare with SM1 with an overlaid screenshot taken from the same position. Ours: on the city and the field (draft 10 keeps its rules): a run of steps… | ☐ |
+| `R-6232F109` | Ashfall city landmark towers (draft 12) | the city's four landmark towers draw from the stairless landmark models (AC-030, AC-029, AC-028), drawn to their full height (a stair model there was capped to its walkable height or refused by the stair rules) | kind: choice; confidence: low; notes: ours | ours | Ashfall city landmark towers (draft 12): compare with SM1 by feel or video. Ours: the city's four landmark towers draw from the stairless landmark… | ☐ |
 | `R-39BE64FA` | Ashfall drawn-box rule (draft 9) | no two placed models' drawn boxes (the whole model's bounds as placed) meet deeper than 0.3 m (the overlap rule's tolerance and moves: the later one moves, shrinks, takes the pool's next model, else is left out); bridges on their supports and the stronghold's… (m) | kind: ours; confidence: low | owner's late batch 2026-11-06 (stream F: "no stacked 3D objects; scale one object instead"); the tolerance and exemptions ours | Ashfall drawn-box rule (draft 9): compare with SM1 by measuring on a flat spot of the same map. Ours: no two placed models' drawn boxes (the whole model's bounds as… | ☐ |
 | `R-40B787AC` | Ashfall rubble props (draft 9) | AR-001..003 (separate small rubble piles, metre scale) placed at the feet of standing walls and buildings and along the plaza's edge and the avenues' kerbs: candidates every 6 m (8 m on the edges) in a seeded order, at most 60, 10 m apart, each leaning on its… (m) | kind: ours; confidence: low | the look lead's request (2026-11-06), the owner's "rubble as separate small props, not fused into buildings"; counts, spacing and pushes ours | Ashfall rubble props (draft 9): compare with SM1 by measuring on a flat spot of the same map. Ours: AR-001..003 (separate small rubble piles, metre scale) placed at the… | ☐ |
 | `R-829BC3E0` | Ashfall urban rules (draft 9) | loose debris (rubble, collapsed wall pieces; not the ring's breach rubble) is placed after the buildings, only within 8 m of a standing building's drawn box (ruin shells and corners, facades, towers, the bunker, walls over 2.5 m); built pieces (cover, walls… (m) | kind: ours; confidence: low | owner's late batch 2026-11-06 (stream F: "the layout follows real urban-design logic"); the 8 m reach and the rules ours | Ashfall urban rules (draft 9): compare with SM1 by measuring on a flat spot of the same map. Ours: loose debris (rubble, collapsed wall pieces; not the ring's breach… | ☐ |
