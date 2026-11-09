@@ -14,8 +14,8 @@ public enum MusouGoreSource : byte
 /// <summary>
 /// Who gets gore first in heavy fighting (musou-net-budget, the owner 2026-11-09: "ensure that all player attacks in particular - then allied space marine attacks have high
 /// priority for generating gore effects during heavy fighting"; added content, all values ours). The client's own hits and kills first, the allied Marines' second, the rest last,
-/// at every client stage: the hit effects' rate, the kills' blood a frame, and the effect player's priority (when its 160 effects are full the lowest priority goes first, and the
-/// crowd's tracers and muzzle flashes are lowest of all, <see cref="CrowdFirePriority"/>). <see cref="Old"/> restores the single shared budget of before (a test aid).
+/// at every client stage: the hit effects' rate and reach, the kills' blood a frame, and the effect player's priority (when its 160 effects are full a new effect replaces the oldest
+/// one at or below its own priority, so the crowd's tracers, lowest of all (<see cref="CrowdFirePriority"/>), can never push out allied or own blood, and allied blood never own blood). <see cref="Old"/> restores the single shared budget of before (a test aid).
 /// </summary>
 public static class MusouGorePriority
 {
@@ -40,7 +40,7 @@ public static class MusouGorePriority
     /// <summary>Kills a frame that play their blood, by source (8 shared before; the rest play none).</summary>
     public static int KillsPerFrame(MusouGoreSource s) => s switch { MusouGoreSource.Own => 16, MusouGoreSource.Ally => 8, _ => 4 };
 
-    /// <summary>The effect player's priority of a blood or hit effect by source: the own above the allies above the rest (the effect player drops the oldest of the lowest first).</summary>
+    /// <summary>The effect player's priority of a blood or hit effect by source: the own above the allies above the rest (a full effect player replaces the oldest effect at or below the new one's priority).</summary>
     public static int FxPriority(MusouGoreSource s) => s switch { MusouGoreSource.Own => 2, MusouGoreSource.Ally => 1, _ => 0 };
 
     /// <summary>The priority of the crowd's fire (Ork and Guardsmen tracers and muzzle flashes): the first to go when the effects are full (1 for the tracers before).</summary>

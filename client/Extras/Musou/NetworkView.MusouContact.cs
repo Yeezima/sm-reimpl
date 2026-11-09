@@ -153,8 +153,11 @@ public partial class NetworkView
             PostPlayerHitSound(gunHit, emitter, ImpactSounds.ImpactOffset(ImpactTreatmentArg, gunHit, hitScan: true), material);
             CountSound("body hit");
         }
-        if (_camera is null || _musouFxTokens < 1f || Num.Vector3.DistanceSquared(end, ToGame(_camera.GlobalPosition)) > FxRange * FxRange) return;
-        _musouFxTokens -= 1f;
+        if (_camera is null) return;
+        _musouGoreHits[(int)MusouGoreSource.Own]++;
+        float reach = MusouOldGoreBudget ? FxRange : MusouGorePriority.HitMetres(MusouGoreSource.Own);   // musou-net-budget: the own budget and reach (the shared bucket with --musou-old-gore-budget)
+        if (Num.Vector3.DistanceSquared(end, ToGame(_camera.GlobalPosition)) > reach * reach) { _musouGoreHitsFar[(int)MusouGoreSource.Own]++; return; }
+        if (!_musouGore.TakeHit(MusouGoreSource.Own)) return;
         _musouHitFx++;
         var endG = ToGodot(end);
         var dirG = DirToGodot(dir).Normalized();

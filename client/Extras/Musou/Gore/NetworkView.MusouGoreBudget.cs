@@ -7,7 +7,7 @@ namespace SmClient;
 /// Who gets gore first in heavy fighting (musou-net-budget; the owner 2026-11-09: "ensure that all player attacks in particular - then allied space marine attacks have high
 /// priority for generating gore effects during heavy fighting"): the own hits and kills, then the allied Marines' (humans and AI), then the rest (<see cref="MusouGoreBudget"/>,
 /// <see cref="MusouGorePriority"/>). Each source has its own hit-effect rate and kills-a-frame cap, own blood plays above the allies', and the crowd's tracers sit below every gore
-/// effect, so a full effect player drops them first. <c>--musou-old-gore-budget</c>: one shared budget, all blood at priority 0 and the tracers at 1, as before.
+/// effect, so in a full effect player they can never push blood out (it replaces the oldest effect at or below a new one's priority). <c>--musou-old-gore-budget</c>: one shared budget, all blood at priority 0 and the tracers at 1, as before.
 /// Every 10 s a <c>musou gore budget:</c> line by source (own / ally / other): hits seen, too far, given an effect, refused by the rate; kills seen, unseen, too far, given blood, refused
 /// by the frame cap; then the effect player's drops and refusals by priority.
 /// </summary>

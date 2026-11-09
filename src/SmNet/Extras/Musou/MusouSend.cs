@@ -25,8 +25,9 @@ public sealed class MusouEventWindow
     /// <summary>Test aid (server env <c>SM_MUSOU_OLD_NEAR_SEND=1</c>): the order before the night batch of 2026-11-06, without <see cref="MusouSendRules.TelegraphFirst"/>.</summary>
     public bool OldOrder { get; init; }
     /// <summary>
-    /// Test aid (server env <c>SM_MUSOU_OLD_HIT_RANK=1</c>): every hit after the tracers, as before musou-net-budget. Since then (the owner, 2026-11-09: the players' attacks, then the allied
-    /// Marines', first for gore) a human player's hit goes right after the telegraphs, an AI Marine's after it, both before the Orks' strikes and tracers; fire support's last.
+    /// Test aid (server env <c>SM_MUSOU_OLD_HIT_RANK=1</c>): every hit after the tracers, as before musou-net-budget (the server then also sends no client its own events first). Since then
+    /// (the owner, 2026-11-09: the players' attacks, then the allied Marines', first for gore) a human player's hit goes right after the strikes, an AI Marine's after it, both before the
+    /// tracers; fire support's last.
     /// </summary>
     public bool OldHitRank { get; init; }
 
@@ -71,14 +72,17 @@ public sealed class MusouEventWindow
 
     static bool First(Entry e) => e.Copies == 0 && e.Event.Kind == MusouEventKind.Telegraph;
 
-    /// <summary>The rank of <paramref name="e"/> (lower first): deaths, telegraphs, a human's hit, an AI Marine's hit, strikes, tracers, fire support's hits (player 0).</summary>
+    /// <summary>
+    /// The rank of <paramref name="e"/> (lower first): deaths, telegraphs, strikes (an Ork's blow on a player: gameplay feedback), a human's hit, an AI Marine's hit, tracers, fire support's
+    /// hits (player 0).
+    /// </summary>
     public static int Rank(in MusouEvent e) => e.Kind switch
     {
         MusouEventKind.Death => 0,
         MusouEventKind.Telegraph => 1,
-        MusouEventKind.Hit when e.Player > 0 && !SmSim.Extras.Musou.Campaign.TfwContracts.IsPuppet(e.Player) => 2,
-        MusouEventKind.Hit when e.Player > 0 => 3,
-        MusouEventKind.Strike => 4,
+        MusouEventKind.Strike => 2,
+        MusouEventKind.Hit when e.Player > 0 && !SmSim.Extras.Musou.Campaign.TfwContracts.IsPuppet(e.Player) => 3,
+        MusouEventKind.Hit when e.Player > 0 => 4,
         MusouEventKind.Tracer => 5,
         _ => 6,
     };
@@ -339,20 +343,24 @@ public sealed class MusouInterest
     readonly List<MusouEvent> _ownFirst = new();
 
     /// <summary>
-    /// musou-net-budget: the client's own hits and kills (<paramref name="own"/>, its player) before the window's other copies in its stream, the rest in the window's order: what the
-    /// events' share or the message cap leaves out is never the client's own (0: the order as given).
+    /// musou-net-budget: the client's own kills first, then every other death, telegraph and strike (gameplay comes before gore), then the client's own hits, then the rest, each part in
+    /// the window's order: what the events' share or the message cap leaves out is never the client's own hit before another's (0: the order as given).
     /// </summary>
     IReadOnlyList<MusouEvent> OwnFirst(IReadOnlyList<MusouEvent> events, int own)
     {
         if (own <= 0) return events;
         _ownFirst.Clear();
-        for (int i = 0; i < events.Count; i++) if (Own(events[i], own)) _ownFirst.Add(events[i]);
-        if (_ownFirst.Count == 0 || _ownFirst.Count == events.Count) return events;
-        for (int i = 0; i < events.Count; i++) if (!Own(events[i], own)) _ownFirst.Add(events[i]);
+        for (int part = 0; part < 4; part++)
+            for (int i = 0; i < events.Count; i++)
+                if (Part(events[i], own) == part) _ownFirst.Add(events[i]);
         return _ownFirst;
     }
 
-    static bool Own(in MusouEvent e, int own) => e.Player == own && e.Kind is MusouEventKind.Hit or MusouEventKind.Death;
+    static int Part(in MusouEvent e, int own) =>
+        e.Kind == MusouEventKind.Death && e.Player == own ? 0
+        : e.Kind is MusouEventKind.Death or MusouEventKind.Telegraph or MusouEventKind.Strike ? 1
+        : e.Kind == MusouEventKind.Hit && e.Player == own ? 2
+        : 3;
 
     /// <summary>Forgets every enemy (a new round, a cleared pool): each is sent again as new.</summary>
     public void Reset()

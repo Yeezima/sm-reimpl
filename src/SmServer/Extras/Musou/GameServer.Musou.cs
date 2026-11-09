@@ -76,7 +76,8 @@ public sealed partial class GameServer
     }
 
     readonly Dictionary<int, MusouInterest> _musouInterest = new();
-    readonly MusouEventWindow _musouEvents = new() { OldOrder = MusouOldNearSend, OldHitRank = Environment.GetEnvironmentVariable("SM_MUSOU_OLD_HIT_RANK") == "1" };   // musou-net-budget: the players' hits before the crowd's tracers
+    static readonly bool MusouOldHitRank = Environment.GetEnvironmentVariable("SM_MUSOU_OLD_HIT_RANK") == "1";
+    readonly MusouEventWindow _musouEvents = new() { OldOrder = MusouOldNearSend, OldHitRank = MusouOldHitRank };   // musou-net-budget: the players' hits before the crowd's tracers
     readonly MusouEnemy[] _musouEnemies = new MusouEnemy[MusouSim.Capacity];
     /// <summary>Test aid: <c>SM_MUSOU_OLD_FAR_SEND=1</c> sends the crowd in the order before 2026-11-06 (no <see cref="MusouSendRules.MaxWaitTicks"/>).</summary>
     static readonly bool MusouOldFarSend = Environment.GetEnvironmentVariable("SM_MUSOU_OLD_FAR_SEND") == "1";
@@ -141,7 +142,7 @@ public sealed partial class GameServer
             if (!MusouOldCoreBudget) interest.CoreBytes += TakeCoreBytes(connection);   // += since crowd-smooth: the war's overdraw of the last tick is in it already   // the owner's "count it" (GameServer.MusouCoreBytes.cs); SM_MUSOU_OLD_CORE_BUDGET=1: not counted
             // The client's player, else (a spectator) the first living player: the crowd near the action stays fresh.
             Vector3? viewer = World.Players.TryGetValue(peer.PlayerId, out var me) ? me.Position : anyone;
-            var planned = interest.Plan(tick, World.Config.TickRate, enemies, viewer, box, director, events, peer.PlayerId);   // musou-net-budget: the client's own hits and kills first in its stream
+            var planned = interest.Plan(tick, World.Config.TickRate, enemies, viewer, box, director, events, MusouOldHitRank ? 0 : peer.PlayerId);   // musou-net-budget: the client's own hits and kills first in its stream
             MusouDropSection(peer.PlayerId, tick, box, planned);   // MU-D: the client's own drops (tag 6), into the tick's messages
             foreach (var sections in planned)
                 SendExtras(new ExtrasUpdate(tick, sections), peer.PlayerId);

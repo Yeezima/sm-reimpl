@@ -86,15 +86,15 @@ public class MusouGoreBudgetTests
         List<MusouEvent> Order(bool old)
         {
             var window = new MusouEventWindow { OldHitRank = old };
-            return window.Step(1, [Tracer(9), Hit(0, 8), Hit(Puppet, 7), Hit(Ally, 6), new MusouEvent(MusouEventKind.Strike, 1, 5, Own, 0, Vector3.Zero)], cap: 3).ToList();
+            return window.Step(1, [Tracer(9), Hit(0, 8), Hit(Puppet, 7), Hit(Ally, 6), new MusouEvent(MusouEventKind.Strike, 1, 5, Own, 0, Vector3.Zero),
+                new MusouEvent(MusouEventKind.Telegraph, 1, 4, Own, 0, Vector3.Zero)], cap: 5).ToList();
         }
         var now = Order(old: false);
-        Assert.Equal([Ally, Puppet], now.Take(2).Select(e => e.Player).ToArray());
-        Assert.Equal(MusouEventKind.Strike, now[2].Kind);
+        Assert.Equal([MusouEventKind.Telegraph, MusouEventKind.Strike], now.Take(2).Select(e => e.Kind).ToArray());   // gameplay first
+        Assert.Equal([Ally, Puppet], now.Skip(2).Take(2).Select(e => e.Player).ToArray());
+        Assert.Equal(MusouEventKind.Tracer, now[4].Kind);
         var before = Order(old: true);
-        Assert.Equal(MusouEventKind.Strike, before[0].Kind);   // before: strikes, tracers, then hits
-        Assert.Equal(MusouEventKind.Tracer, before[1].Kind);
-        Assert.Equal(MusouEventKind.Hit, before[2].Kind);
+        Assert.Equal([MusouEventKind.Telegraph, MusouEventKind.Strike, MusouEventKind.Tracer, MusouEventKind.Hit], before.Take(4).Select(e => e.Kind).ToArray());   // before: hits after the tracers
         Assert.Equal(0, MusouEventWindow.Rank(new MusouEvent(MusouEventKind.Death, 1, 1, 0, 0, Vector3.Zero)));   // deaths stay first
     }
 
@@ -118,5 +118,21 @@ public class MusouGoreBudgetTests
         Assert.Contains(mine, e => e.Enemy == 901 && e.Kind == MusouEventKind.Death);
         var someoneElse = Sent(0);
         Assert.DoesNotContain(someoneElse, e => e.Enemy is 900 or 901);   // in the window's order they fell past the share
+    }
+
+    [Fact]
+    public void Own_first_never_puts_an_own_hit_before_a_death_a_telegraph_or_a_strike_and_drops_nothing()
+    {
+        var box = new MusouBox(new Vector3(-100f, -100f, -10f), new Vector3(100f, 100f, 30f));
+        var events = new List<MusouEvent>
+        {
+            Hit(Ally, 1), new MusouEvent(MusouEventKind.Death, 1, 2, Ally, 0, Vector3.Zero), Hit(Own, 3), new MusouEvent(MusouEventKind.Telegraph, 1, 4, Own, 0, Vector3.Zero),
+            Tracer(5), new MusouEvent(MusouEventKind.Death, 1, 6, Own, 0, Vector3.Zero), new MusouEvent(MusouEventKind.Strike, 1, 7, Own, 0, Vector3.Zero), Hit(Own, 8),
+        };
+        var plan = new MusouInterest().Plan(1, 30, [], Vector3.Zero, box, null, events, Own);
+        var sent = plan.SelectMany(m => m).Where(s => s.Tag == MusouWire.EventsTag).SelectMany(s => MusouWire.ReadEvents(s.Payload, box)!).Select(e => e.Enemy).ToArray();
+        Assert.Equal(new ushort[] { 6, 2, 4, 7, 3, 8, 1, 5 }, sent);   // own kill; other deaths, telegraphs, strikes; own hits; the rest, each in the window's order
+        var asGiven = new MusouInterest().Plan(1, 30, [], Vector3.Zero, box, null, events, 0);
+        Assert.Equal(events.Select(e => e.Enemy).ToArray(), asGiven.SelectMany(m => m).Where(s => s.Tag == MusouWire.EventsTag).SelectMany(s => MusouWire.ReadEvents(s.Payload, box)!).Select(e => e.Enemy).ToArray());
     }
 }
