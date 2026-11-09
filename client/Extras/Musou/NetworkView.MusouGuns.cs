@@ -179,7 +179,7 @@ public partial class NetworkView
         if (TracerHeadSpeed(w.Tracer?.Name ?? "") is > 1f and var head) travel = total / MathF.Max(head, total / MaxTracerFlight);
         if ((plan & MusouGunFx.Tracer) != 0 && w.Tracer is { } tracer && total >= 0.4f)
         {
-            var t = fx.Play(tracer.Name, fromG, axes, tracer.Scale <= 0f ? 1f : tracer.Scale, target: endG, priority: 1, smokeRein: SmokeRein);
+            var t = fx.Play(tracer.Name, fromG, axes, tracer.Scale <= 0f ? 1f : tracer.Scale, target: endG, priority: MusouCrowdFirePriority, smokeRein: SmokeRein);
             if (t is not null && travel > 0f) t.HeadSpeed = total / travel;
             if (t is not null && MusouGunCam && (_musouGunCamShot is not { } last || _connectedFor - last.At > 1.0)) _musouGunCamShot = (_connectedFor, fromG - dirG * 2f, fromG + dirG * 8f);   // framed on the shooter and the first metres of the tracer
         }

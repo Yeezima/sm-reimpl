@@ -105,6 +105,8 @@ public partial class NetworkView
         int ownId = client.PlayerId;
         var camera = _camera is null ? Num.Vector3.Zero : new Num.Vector3(_camera.GlobalPosition.X, -_camera.GlobalPosition.Z, _camera.GlobalPosition.Y);   // Godot to game space
         _musouFxTokens = MathF.Min(FxBurst, _musouFxTokens + FxPerSecond * delta);
+        _musouGore.Refill((float)delta);   // musou-net-budget: the gore budget by source (NetworkView.MusouGoreBudget.cs)
+        MusouGoreBudgetLog();
         MusouContactFrame(delta);   // combat feel: budgets, expiry, the log (NetworkView.MusouContact.cs)
         bool present = _musouHud is not null && _musouTelegraphs is not null;
 
@@ -253,8 +255,11 @@ public partial class NetworkView
             CountSound("body hit");
         }
         if (predicted && e.Value is 1 or 2) return;   // the shot's impact was drawn at the shot (a kill's gore is the death's, elsewhere)
-        if (_musouFxTokens < 1f || Num.Vector3.DistanceSquared(at, camera) > FxRange * FxRange) return;
-        _musouFxTokens -= 1f;
+        var source = MusouGoreSourceOf(e.Player);
+        _musouGoreHits[(int)source]++;
+        float reach = MusouOldGoreBudget ? FxRange : MusouGorePriority.HitMetres(source);   // musou-net-budget: the own hits reach 60 m, the allies' 40 (30 for all before)
+        if (Num.Vector3.DistanceSquared(at, camera) > reach * reach) { _musouGoreHitsFar[(int)source]++; return; }
+        if (!_musouGore.TakeHit(source)) return;   // musou-net-budget: the own hits first, then the allies', then the rest (one shared bucket of 16 a second before)
         _musouHitFx++;
         var end = ToGodot(at);
         var from = _camera?.GlobalPosition ?? end + Vector3.Up;
@@ -262,7 +267,7 @@ public partial class NetworkView
         if (GoreOff) BloodSplashAt(end, dir, 0.0);   // the gore draws the blood (dark, from the same hit); the faithful red glow only when the gore is off
         if (OrkBloodOn)   // gore-original: every shooter's hit plays its weapon's own impact for the Ork's flesh (NetworkView.OrkBlood.cs)
         {
-            if (e.Value is 1 or 2 && e.Player != 0) OrkBloodHit(own ? me : MusouPlayerState(e.Player), e.Value == 2, _musouTypeOf.TryGetValue(e.Enemy, out var shotType) && shotType == MusouEnemyType.ChaosMarine, end, dir, at);
+            if (e.Value is 1 or 2 && e.Player != 0) OrkBloodHit(own ? me : MusouPlayerState(e.Player), e.Value == 2, _musouTypeOf.TryGetValue(e.Enemy, out var shotType) && shotType == MusouEnemyType.ChaosMarine, end, dir, at, MusouGoreFxPriority(source));
             return;
         }
         if (!own || e.Value == 3 || _fx is null || _catalogue is null || Loadouts.InHand(_config!, me) is not { } weapon) return;

@@ -4152,6 +4152,19 @@ The owner (2026-11-09): "maximize client sided rendering/drawing effects to make
 | Misses only | each round ends **0.6-1.4** m beside the target's chest, 0.4 m high or low (the simulation's miss), then flies on to a wall or floor as a server miss does | m | per round | `MusouVolleyPlanner` | the simulation's miss | ours | medium |
 | Caps | at most **48** Orks at once (the nearest the camera) and **24** rounds a frame; then the guns' own effect caps (row "Effect rates over the crowd") | - | client frame | `MusouVolleyRules.MaxShooters`, `MaxRoundsPerFrame` | ours | ours | estimate |
 
+### Added content: gore by source (musou-net-budget; client budgets and the server's event order, no protocol or wire change)
+
+The owner (2026-11-09): "i'm not consistently seeing gore effects from both ranged and melee attacks ... ensure that all player attacks in particular - then allied space marine attacks have high priority for generating gore effects during heavy fighting." Measured with a fighting co-op bot (3 AI Marines, up to 2,200 Orks shown): one shared hit-effect bucket refused 30 % of the own near hits, 40 % of the own hits fell beyond the 30 m reach, and the full effect player (160) refused new blood 1,361 times because the crowd's tracers held a higher priority. `--musou-old-gore-budget` (client) and `SM_MUSOU_OLD_HIT_RANK=1` (server) restore the old behaviour.
+
+| Parameter (Musou gore by source) | Value | Units | Timing basis | Where | Source | Kind | Confidence |
+|---|---|---|---|---|---|---|---|
+| Sources | own (this client's player), ally (another human or an AI Marine), other (fire support, player 0) | - | per hit or kill | `MusouGorePriority.SourceOf` | the owner's order | ours | high |
+| Hit effects a second | own **40** (16 saved), ally **20** (8), other **10** (4); one shared bucket of 16 (8) before | effects/s | client frame | `MusouGoreBudget`, `MusouGorePriority.HitRate` | ours | ours | estimate |
+| Hit effect reach | own **60** m, ally **40** m, other **30** m from the camera (30 for all before) | m | per hit | `MusouGorePriority.HitMetres` | ours | ours | estimate |
+| Kills' blood a frame | own **16**, ally **8**, other **4** (8 shared, first come, before); kills over the cap play no blood | kills | client frame | `MusouGorePriority.KillsPerFrame` | ours | ours | estimate |
+| Effect priority | own blood **2**, allied blood **1**, other blood **0**; the crowd's tracers (Ork and Guardsmen) **0** (1 before); a full effect player drops the oldest of the lowest first | - | per effect | `MusouGorePriority.FxPriority`, `CrowdFirePriority` | ours | ours | medium |
+| Server event order | deaths, telegraphs, a human's hit, an AI Marine's hit, strikes, tracers, fire support's hits (before: hits after the tracers); each client's own hits and kills first in its own stream | - | per tick | `MusouEventWindow.Rank`, `MusouInterest.OwnFirst` | ours | ours | medium |
+
 ### Melee reliability, the sooner step and the stalker crater (feel/melee-reliability; used by the simulation, config hash, no wire change)
 
 | Parameter | Value | Units | Timing basis | Where | Source | Kind | Confidence |

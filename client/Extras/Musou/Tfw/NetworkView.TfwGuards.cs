@@ -167,7 +167,7 @@ public partial class NetworkView
         if (length < 0.4f) return false;
         var axes = AxesFromY(line / length);
         if (distance <= GuardMuzzleMetres) fx.Play(GuardRig.MuzzleEffect, from, axes, GuardRig.MuzzleEffectScale, priority: 0, smokeRein: SmokeRein);
-        var tracer = fx.Play(GuardRig.TracerEffect, from, axes, 1f, target: end, priority: 1, smokeRein: SmokeRein);
+        var tracer = fx.Play(GuardRig.TracerEffect, from, axes, 1f, target: end, priority: MusouCrowdFirePriority, smokeRein: SmokeRein);   // musou-net-budget: below the own and allied gore (1 before)
         if (tracer is not null && TracerHeadSpeed(GuardRig.TracerEffect) is > 1f and var head) tracer.HeadSpeed = MathF.Max(head, length / MaxTracerFlight);
         _guardFxPlayed++;
         return true;

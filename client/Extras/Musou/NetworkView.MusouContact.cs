@@ -159,7 +159,7 @@ public partial class NetworkView
         var endG = ToGodot(end);
         var dirG = DirToGodot(dir).Normalized();
         if (GoreOff) BloodSplashAt(endG, dirG, 0.0);
-        if (OrkBloodOn) { OrkBloodHit(me, hit.Head, hit.Type == MusouEnemyType.ChaosMarine, endG, dirG, end); return; }
+        if (OrkBloodOn) { OrkBloodHit(me, hit.Head, hit.Type == MusouEnemyType.ChaosMarine, endG, dirG, end, MusouGoreFxPriority(MusouGoreSource.Own)); return; }
         if (_fx is null || _catalogue is null) return;
         var plays = _catalogue.Impact(weapon.Name, hit.Head ? ShotHit.Head : ShotHit.Body, 0, armourUp: false);
         for (int k = 0; k < plays.Count; k++)

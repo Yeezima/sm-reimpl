@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2673 spec table rows: **1972 tagged**, 488 not tagged (read from data with high confidence), 213 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 597 rows of the changes document.
+Scanned 2679 spec table rows: **1978 tagged**, 488 not tagged (read from data with high confidence), 213 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 598 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,21 +50,21 @@ Scanned 2673 spec table rows: **1972 tagged**, 488 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 19 | 10 | 10 | 10 | 7 |
-| Core simulation (provisional values) | 488 | 464 | 333 | 130 | 1 |
+| Core simulation (provisional values) | 494 | 470 | 335 | 133 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 193 | 183 | 95 | 53 | 0 |
-| **All areas** | **1972** | 1726 | 1458 | 628 | 38 |
+| **All areas** | **1978** | 1732 | 1460 | 631 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1069 |
+| kind: ours | 1075 |
 | confidence: low | 703 |
-| confidence: medium | 626 |
+| confidence: medium | 628 |
 | kind: interpretation | 359 |
 | notes: ours | 358 |
-| notes: estimate | 157 |
+| notes: estimate | 160 |
 | confidence: none (low) | 129 |
 | kind: estimate | 126 |
 | kind: provisional | 99 |
@@ -2156,7 +2156,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (488)
+### Core simulation (provisional values) (494)
 
 *Spec section: Provisional values in use*
 
@@ -2611,6 +2611,17 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-E1B57309` | Rhythm | the Ork's own rounds a burst and round interval (Shoota: 3 rounds, 0.12 s); a burst every period x 1 to **1.4** (Shoota 1.6 s), from a phase of his own (rounds, s) | kind: ours; notes: estimate | the simulation's Shoota; the spread ours | Rhythm: compare with SM1 by feel or video. Ours: the Ork's own rounds a burst and round interval (Shoota: 3 rounds… | ☐ |
 | `R-31EA28B3` | Misses only | each round ends **0.6-1.4** m beside the target's chest, 0.4 m high or low (the simulation's miss), then flies on to a wall or floor as a server miss does (m) | kind: ours; confidence: medium | the simulation's miss | Misses only: compare with SM1 by measuring on a flat spot of the same map. Ours: each round ends 0.6-1.4 m beside the target's chest, 0.4 m high or… | ☐ |
 | `R-9C04D7F6` | Caps | at most **48** Orks at once (the nearest the camera) and **24** rounds a frame; then the guns' own effect caps (row "Effect rates over the crowd") | kind: ours; notes: estimate | ours | Caps: compare with SM1 by feel or video. Ours: at most 48 Orks at once (the nearest the camera) and 24 rounds a… | ☐ |
+
+*Spec section: Added content: gore by source (musou-net-budget; client budgets and the server's event order, no protocol or wire change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-F8E3C3A4` | Sources | own (this client's player), ally (another human or an AI Marine), other (fire support, player 0) | kind: ours | the owner's order | Sources: compare with SM1 by feel or video. Ours: own (this client's player), ally (another human or an AI Marine)… | ☐ |
+| `R-CBBBD376` | Hit effects a second | own **40** (16 saved), ally **20** (8), other **10** (4); one shared bucket of 16 (8) before (effects/s) | kind: ours; notes: estimate | ours | Hit effects a second: compare with SM1 by feel or video. Ours: own 40 (16 saved), ally 20 (8), other 10 (4); one shared bucket of 16… | ☐ |
+| `R-8C01D3C5` | Hit effect reach | own **60** m, ally **40** m, other **30** m from the camera (30 for all before) (m) | kind: ours; notes: estimate | ours | Hit effect reach: compare with SM1 by measuring on a flat spot of the same map. Ours: own 60 m, ally 40 m, other 30 m from the camera (30 for all before). | ☐ |
+| `R-86D1E321` | Kills' blood a frame | own **16**, ally **8**, other **4** (8 shared, first come, before); kills over the cap play no blood (kills) | kind: ours; notes: estimate | ours | Kills' blood a frame: compare with SM1 by feel or video. Ours: own 16, ally 8, other 4 (8 shared, first come, before); kills over… | ☐ |
+| `R-D51F7160` | Effect priority | own blood **2**, allied blood **1**, other blood **0**; the crowd's tracers (Ork and Guardsmen) **0** (1 before); a full effect player drops the oldest of the lowest first | kind: ours; confidence: medium | ours | Effect priority: compare with SM1 by feel or video. Ours: own blood 2, allied blood 1, other blood 0; the crowd's tracers (Ork… | ☐ |
+| `R-7EABA9D1` | Server event order | deaths, telegraphs, a human's hit, an AI Marine's hit, strikes, tracers, fire support's hits (before: hits after the tracers); each client's own hits and kills first in its own stream | kind: ours; confidence: medium | ours | Server event order: compare with SM1 by feel or video. Ours: deaths, telegraphs, a human's hit, an AI Marine's hit, strikes… | ☐ |
 
 *Spec section: Commander status marker (Musou Mode; client only)*
 
@@ -4068,6 +4079,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-F803125D` | Musou: core messages counted in the send budget (musou/perf-pass, owner 2026-11-08) | No Musou Mode in the original | Ours (added content; the owner: "count it"): a Musou client's snapshots and other core messages come out of its Musou send budget, so its whole stream stays near 60 KB/s; far Orks are updated less often. Classic PvP unchanged | Musou performance pass and the owner's battle decisions | Musou: core messages counted in the send budget…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-C94FF50F` | Musou: a 120 KB/s stream per client (musou-net-budget, owner 2026-11-09) | No Musou Mode in the original | Ours (added content; the owner: "option 2 plus a 120 KB/s budget"): Musou 110 KB/s in up to 6 messages a tick, the war 35 KB/s (floor 15) in up to 3, the client's whole stream about 120 KB/s (55 / 20 / 8 / 58 KB/s before). Costs a remote player about 1 Mbit/s and a server about 1 MB/s with 8 players… | The owner's visual showcase brief (more action on screen) | Musou: a 120 KB/s stream per client (musou-net-budget…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-670D82F9` | Musou: the client's own volleys and raised gun caps (musou-net-budget, owner 2026-11-09) | No Musou Mode in the original | Ours (added content; the owner: "maximize client sided rendering/drawing effects"): gun Orks the simulation gave no shooter token fire cosmetic bursts (misses only) on each client; Ork tracers every 2nd round, effects out to 70/120/45 m and 120 flashes, 60 tracers, 40 impacts a second; the Guardsmen's shot effects out… | The owner's visual showcase brief | Musou: the client's own volleys and raised gun caps…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-2C77448D` | Musou: gore by source (musou-net-budget, owner 2026-11-09) | No Musou Mode in the original | Ours (added content; the owner: the players' attacks, then the allied Marines', first for gore): own hits and kills get their own effect rate, reach and blood cap, then the allies', then the rest; own blood above allied blood above the crowd's tracers when the effects are full; the server sends the players' hits… | The owner's gore report | Musou: gore by source (musou-net-budget, owner 2026-11-09): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-82FCC980` | Ashfall grime FAST option (musou/perf-pass, owner 2026-11-08) | No Musou Mode in the original | Ours (added content; the owner: "option in Graphics"): Options > Graphics > Ashfall grime, EXACT (the overlay, default) or FAST (folded into derived kit materials for weak GPUs; close, not exact) | Musou performance pass and the owner's battle decisions | Ashfall grime FAST option (musou/perf-pass, owner…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-2EB2F140` | FSR 2 upscaling setting (musou/perf-pass; every mode, default off) | SM1 (2011) had no upscaler | Ours (the owner's brief): Options > Graphics > Upscaling, Godot's built-in AMD FSR 2.2 (Native AA, Quality 0.67, Balanced 0.59, Performance 0.5), Forward+ only; off by default, so Classic PvP looks as before | Musou performance pass and the owner's battle decisions | FSR 2 upscaling setting (musou/perf-pass; every mode…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-5B468C45` | Plasma release, plasma gun arms, hit-confirm distance, regen glow (night/weapon-fx, 2026-11-06; its stuck hit effects were reverted 2026-11-08) | Own charged plasma ball drawn without the 100 ms interpolation delay; no body recoil clip for the plasma gun; the shooter's hit confirmation falls from 0 dB at 2 m to -18 dB at 40 m and beyond; the armour-regeneration glow is the break glow in yellow | Original behaviour of these four is unknown (owner's requests); the 2 m / 40 m / -18 dB numbers and the yellow are ours | Spec "Plasma release, plasma gun arms, stuck hit effects, hit-confirm distance, regen glow (night/weapon-fx ...)" | Plasma release, plasma gun arms, hit-confirm distance…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |

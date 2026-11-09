@@ -132,10 +132,11 @@ public partial class NetworkView
         foreach (var d in _musouDeaths)
         {
             float metres = new Vector3(d.Position.X, d.Position.Y, d.Position.Z).DistanceTo(camera);
+            _musouGoreKills[(int)MusouGoreSourceOf(d.Killer)]++;   // musou-net-budget: the gore log's kills by source
             // The owner, 2026-11-08 ("if a player cannot see it, it doesn't ever get drawn, unless the player is close by"; ours as to the distance): a death beyond the battle flow's near distance and
             // outside the view leaves no body, gore or ragdoll (its yell still plays). --army-far-bodies (test aid) keeps them all.
             if (metres > SmSim.Extras.Musou.Campaign.TfwArmyRules.NearMetres && !ArmyFarBodies && _camera is { } eye
-                && !eye.IsPositionInFrustum(_gameSpace!.Transform * new Vector3(d.Position.X, d.Position.Y, d.Position.Z + 1f))) { _musouUnseenDeaths++; continue; }
+                && !eye.IsPositionInFrustum(_gameSpace!.Transform * new Vector3(d.Position.X, d.Position.Y, d.Position.Z + 1f))) { _musouUnseenDeaths++; _musouGoreKillsUnseen[(int)MusouGoreSourceOf(d.Killer)]++; continue; }
             bool gibbed = MusouGoreRegister(d, camera);   // M10: a gibbed body leaves no corpse
             if (MusouGoreRules.Thrown(d.Cause)) MusouThrow(d, metres);   // a blast or barrage death always leaves a body, thrown through the gore's burst: a ragdoll near, else a tumbling body
             else if (!gibbed) _musouCrowd!.AddBody(d, MusouDeathWaited(d.Id), keepSkeleton: !_musouOldDeaths);

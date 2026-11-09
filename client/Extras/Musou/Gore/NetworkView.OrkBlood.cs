@@ -163,7 +163,10 @@ public partial class NetworkView
         if (LogOrkBlood) GD.Print($"ORK BLOOD t {_connectedFor:F2} enemy {d.Id} cause {d.Cause} killer {d.Killer} type '{kill.Type}' zone {kill.Zone} point '{kill.Point}' whole {kill.WholeBody}");
         if (kill.Point.Length == 0) return false;
         float metres = new Vector3(d.Position.X, d.Position.Y, d.Position.Z).DistanceTo(camera);
-        if (metres > OrkBloodMetres || _orkBloodFrameKills >= OrkBloodKillsPerFrame) return kill.WholeBody;
+        var source = MusouGoreSourceOf(d.Killer);
+        if (metres > OrkBloodMetres) { _musouGoreKillsFar[(int)source]++; return kill.WholeBody; }
+        if (!_musouGore.TakeKill(source)) return kill.WholeBody;   // musou-net-budget: the own kills first, then the allies', then the rest (8 a frame shared before)
+        int priority = MusouGoreFxPriority(source);
         _orkBloodFrameKills++;
         _orkBloodPoints++;
         float size = GoreChestHeight(d.Type) / 1.1f;
@@ -185,27 +188,27 @@ public partial class NetworkView
             var off = OrkBloodRules.MarkerOffset(p.Marker) * size;
             var at = chest + right * off.X + forward * off.Y + new Num.Vector3(0f, 0f, off.Z);
             var axis = p.Direction switch { "negative_hit_direction" => Dir(-push), "hit_direction" => Dir(push), _ => Dir(Num.Vector3.UnitZ) };
-            OrkBloodPlay(p.Name, ToGodot(at), axis, (p.Scale <= 0f ? 1f : p.Scale) * size, at);
+            OrkBloodPlay(p.Name, ToGodot(at), axis, (p.Scale <= 0f ? 1f : p.Scale) * size, at, priority);
         }
         return kill.WholeBody;
     }
 
     /// <summary>Plays one blood effect at <paramref name="where"/> (Godot space) along <paramref name="axis"/>, scaled and thickened by the Musou factor; its ground decal on the floor under <paramref name="game"/>.</summary>
-    void OrkBloodPlay(string name, Vector3 where, Vector3 axis, float scale, Num.Vector3 game)
+    void OrkBloodPlay(string name, Vector3 where, Vector3 axis, float scale, Num.Vector3 game, int priority = 0)
     {
         if (_fx is null) return;
-        if (_fx.Play(name, where, AxesFromY(axis), scale * OrkBloodScale) is { } e) { e.Amount = OrkBloodScale; e.KeepSmoke = true; e.GammaColours = !OldBloodColours; _orkBloodPlays++; }
+        if (_fx.Play(name, where, AxesFromY(axis), scale * OrkBloodScale, priority: priority) is { } e) { e.Amount = OrkBloodScale; e.KeepSmoke = true; e.GammaColours = !OldBloodColours; _orkBloodPlays++; MusouGorePlayed(priority); }
         // The effect's dropper on the floor (the M41 rule: a dropper lands where it starts, so its copy is placed on the ground): the data's blood decal.
         if (!_orkBloodDroppers.Contains(name) || GoreGround(game) is not { } floor) return;
         var ground = ToGodot(new Num.Vector3(game.X, game.Y, floor + 0.02f));
-        if (_fx.Play(name, ground, AxesFromY(Vector3.Up), scale * OrkBloodScale) is { } g) { g.Collisions = true; g.GroundOnly = true; g.Amount = OrkBloodScale; g.KeepSmoke = true; g.GammaColours = !OldBloodColours; }
+        if (_fx.Play(name, ground, AxesFromY(Vector3.Up), scale * OrkBloodScale, priority: priority) is { } g) { g.Collisions = true; g.GroundOnly = true; g.Amount = OrkBloodScale; g.KeepSmoke = true; g.GammaColours = !OldBloodColours; }
     }
 
     /// <summary>
     /// A shot's hit on a Musou enemy with the original blood on: the shooter's weapon's own impact for the Ork's surface (<c>flesh</c>; <c>tough_head</c> for a head shot, else
     /// <c>tough_body</c>), played at the hit along the shot (Godot space). The Chaos Marine of Musou keeps the marine's surface (<c>broken_ceramite</c>).
     /// </summary>
-    void OrkBloodHit(PlayerState? shooter, bool head, bool chaosMarine, Vector3 end, Vector3 dir, Num.Vector3 game)
+    void OrkBloodHit(PlayerState? shooter, bool head, bool chaosMarine, Vector3 end, Vector3 dir, Num.Vector3 game, int priority = 0)
     {
         if (_catalogue is null || _fx is null || OrkBloodData() is null) return;
         string gun = OrkBloodGun(shooter);
@@ -218,7 +221,7 @@ public partial class NetworkView
             var p = plays[k];
             var axis = p.Direction is "reflect_hit_direction" or "negative_hit_direction" or "hitpoint_normal" ? -dir : p.TriggerPoint == "exit_wound" ? dir : -dir;
             var pos = p.TriggerPoint == "exit_wound" ? end + dir * 0.35f : end - dir * 0.05f;
-            OrkBloodPlay(p.Name, pos, axis, p.Scale <= 0f ? 1f : p.Scale, game);
+            OrkBloodPlay(p.Name, pos, axis, p.Scale <= 0f ? 1f : p.Scale, game, priority);
         }
     }
 
