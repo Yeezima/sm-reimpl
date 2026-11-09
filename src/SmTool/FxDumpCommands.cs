@@ -58,6 +58,8 @@ static class FxDumpCommands
 
     static string C(FxCurve c) => c.IsEmpty ? "-" : c.Constant is { } k ? $"{k:0.###}" : $"{c.Keys[0].Value:0.###}..{c.Keys[^1].Value:0.###} [{c.Min:0.###},{c.Max:0.###}]";
 
+    static string K(FxCurve c) => c.IsEmpty ? "-" : string.Join(" ", c.Keys.Select(k => $"{k.Time:0.###}:{k.Value:0.###}"));
+
     static void Dump(FxElement e, int depth, bool fields, string prefix)
     {
         string pad = new(' ', depth * 2);
@@ -66,7 +68,8 @@ static class FxDumpCommands
         {
             FxRing r => $" mat {r.Material.Name} add {r.Material.AdditiveBlend} r {C(r.Radius)} bb {r.Billboard} off {C(r.OffsetY)} colour {string.Join(" ", r.Colour.Keys.Select(k => $"{k.Time:0.##}:{k.Colour.R},{k.Colour.G},{k.Colour.B},{k.Colour.A}"))}",
             FxBeam b => $" mat {b.Material.Name} add {b.Material.AdditiveBlend} len {C(b.Length)} w {C(b.Width)} bb {b.Billboard} mpu {b.MeterPerU:0.###} uspd {b.USpeed:0.###} god {b.GodRayFade} colour {string.Join(" ", b.Colour.Keys.Select(k => $"{k.Time:0.##}:{k.Colour.R},{k.Colour.G},{k.Colour.B},{k.Colour.A}"))}",
-            FxStreamer s => $" mat {s.Material.Name} add {s.Material.AdditiveBlend} len {C(s.Length)}{(s.LengthAsSeconds ? " s" : " m")} w {C(s.Width)}",
+            FxStreamer s => $" mat {s.Material.Name} add {s.Material.AdditiveBlend} len {C(s.Length)}{(s.LengthAsSeconds ? " s" : " m")} w {C(s.Width)}" +
+                            (fields ? $" wkeys {K(s.Width)} lenkeys {K(s.Length)} mpu {s.MeterPerU:0.###} uspd {s.USpeed:0.###} bb {s.Billboard} fade {s.FadeOutOnDeath:0.###} step {s.Step:0.###} colour {string.Join(" ", s.Colour.Keys.Select(k => $"{k.Time:0.##}:{k.Colour.R},{k.Colour.G},{k.Colour.B},{k.Colour.A}"))} master {string.Join(" ", s.MasterColour.Keys.Select(k => $"{k.Time:0.##}:{k.Colour.R},{k.Colour.G},{k.Colour.B},{k.Colour.A}"))}" : ""),   // plasma-original-fx: --fields prints the streamer's keys
             FxSpray p => $" rate {C(p.Rate)} dev {C(p.Deviation)} spd {C(p.InitialSpeed)} pscale {C(p.ParticleScale)} vol {C(p.VolumeX)}/{C(p.VolumeY)}/{C(p.VolumeZ)} inherit {p.InheritVelocity:0.##} point {p.EmitFromPoint} dropper {p.IsDropper}",
             FxCombo c => $" scale {C(c.Scale)} off {C(c.OffsetX)}/{C(c.OffsetY)}/{C(c.OffsetZ)}{(c.OneAtRandom ? " one-at-random" : "")}",
             FxDecal d => $" diffuse {d.DiffuseMap} {d.Width:0.##}x{d.Height:0.##}x{d.Depth:0.##} scale {C(d.Scale)} add {d.AdditiveBlend}",

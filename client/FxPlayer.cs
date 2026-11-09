@@ -48,6 +48,8 @@ public sealed class FxEffect
     /// <summary>fix/plasma-trail-slab (owner, 2026-11-09: "too blocky"; then "the original data look, softened"): this effect's streamers keep the data's look but their head is rounded and faded in over its first <see cref="SoftHeadShare"/> of the length instead of starting as a hard-edged rectangle (a plasma ball's trail).</summary>
     public bool SoftHead;
     public const float SoftHeadShare = 0.4f;
+    /// <summary>plasma-original-fx (interpretation): this effect's streamers read their width keys along the ribbon, head to tail, like their colour keys (<see cref="SmClient.Bullets.PlasmaOriginalLook.StreamerWidth"/>), instead of over the element's loop time with our 0.3 taper.</summary>
+    public bool WidthAlongTrail;
     /// <summary>M41: run the collision descriptions (<see cref="CNode.OnCollision"/>): a "dropper" particle touches the level where it starts and starts what it holds (the ground pound's impact). The effect must be placed on the ground, its +Y along the surface normal.</summary>
     public bool Collisions;
     /// <summary>
@@ -140,7 +142,7 @@ public sealed partial class FxPlayer : Node3D
     readonly OmniLight3D[] _lightNodes = new OmniLight3D[MaxLights];
     readonly Dictionary<string, Texture2D?> _decalTextures = new(StringComparer.OrdinalIgnoreCase);
     readonly HashSet<string> _missing = new(StringComparer.Ordinal);
-    readonly Vector3[] _scratch = new Vector3[16];
+    readonly Vector3[] _scratch = new Vector3[32];   // plasma-original-fx: 31 segments for a ribbon whose width runs along it
     int _frameQuads;
 
     /// <summary>
@@ -773,7 +775,7 @@ public sealed partial class FxPlayer : Node3D
     {
         if (n.Distortion || _batch is null || !_batch.HasRoom) return;
         if (!LeafTime(n, age, seed, out float t, out float dur)) return;
-        int N = e.SoftHead ? 14 : 8;   // fix/plasma-trail-slab: a finer ribbon for the rounded, faded head
+        int N = e.WidthAlongTrail ? 30 : e.SoftHead ? 14 : 8;   // fix/plasma-trail-slab: a finer ribbon for the rounded, faded head; plasma-original-fx: for the widening along the ribbon (each quad is one width and one colour: 30 keeps the steps small)
         float trail = At(n.Length, t, 0.3f);
         if (trail <= 0.001f) return;
         float seconds = n.LengthAsSeconds ? trail : trail / MathF.Max(2f, c.InParticle ? MathF.Abs(c.Speed) : 4f);
@@ -802,8 +804,9 @@ public sealed partial class FxPlayer : Node3D
             else pts[j] = c.Pos;
         }
         float master = n.MasterColour.IsEmpty ? 1f : n.MasterColour.Evaluate(t).W;
-        float width0 = At(n.Width, t, 0.1f) * c.S;
-        if (e.SmokeRein < 1f && IsSmoke(n)) width0 *= e.SmokeRein;   // feel/muzzle-smoke
+        float widthScale = c.S;
+        if (e.SmokeRein < 1f && IsSmoke(n)) widthScale *= e.SmokeRein;   // feel/muzzle-smoke
+        float width0 = At(n.Width, t, 0.1f) * widthScale;
         float u = 0f;
         for (int j = 0; j < N; j++)
         {
@@ -816,7 +819,7 @@ public sealed partial class FxPlayer : Node3D
             var side = ax.Cross(_camPos - mid);
             side = side.LengthSquared() < 1e-8f ? _camBasis.X : side.Normalized();
             float f = (j + 0.5f) / N;
-            float width = width0 * (1f - 0.7f * f);
+            float width = e.WidthAlongTrail ? MathF.Max(0f, At(n.Width, f, 0.1f)) * widthScale : width0 * (1f - 0.7f * f);   // plasma-original-fx: the width keys along the ribbon (PlasmaOriginalLook.StreamerWidth)
             var col = Shade(n.Colour.IsEmpty ? Colors.White : Tint(n.Colour, f, master), e);
             if (e.SoftHead && f < FxEffect.SoftHeadShare)
             {
@@ -843,7 +846,7 @@ public sealed partial class FxPlayer : Node3D
         for (int j = 0; j <= count; j++) pts[j] = new Vector3(points[j].X, points[j].Y, points[j].Z) + offset;
     }
 
-    readonly System.Numerics.Vector3[] _trailScratch = new System.Numerics.Vector3[16];
+    readonly System.Numerics.Vector3[] _trailScratch = new System.Numerics.Vector3[32];
 
     void DrawLight(FxEffect e, CLight n, in Ctx c, double age, uint seed)
     {
