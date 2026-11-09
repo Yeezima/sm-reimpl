@@ -122,6 +122,16 @@ public partial class MusouCrowd : CrowdView
     float KnockedTime(in MusouShown e) =>
         SmSim.Extras.Musou.Campaign.TfwCombatRules.Default.FallClipTime(e.StateSeconds, _looks.For(e.Type)?.Clips[MusouLooks.Death]?.Animation.Duration ?? 1f);
 
+    /// <summary>Test aid (<c>--musou-old-big-orks</c>): the big Orks as before 2026-11-09's deaths and gait (torn apart by a blast, the Warboss's blast reaction for a death, the full scale's stride; <see cref="SmNet.Extras.Musou.MusouBigOrkRules"/>).</summary>
+    public static bool OldBigOrks { get; set; } = Array.IndexOf(OS.GetCmdlineUserArgs(), "--musou-old-big-orks") >= 0;
+    /// <summary>The power of a look's scale its run's stride grows by (<see cref="SmNet.Extras.Musou.MusouBigOrkRules.StrideExponent"/>; 1 with <c>--musou-old-big-orks</c>; <c>--musou-stride-exponent f</c> to try another).</summary>
+    public static float StrideExponent { get; set; } = OldBigOrks ? 1f : CmdFloat("--musou-stride-exponent") ?? SmNet.Extras.Musou.MusouBigOrkRules.StrideExponent;
+    static float? CmdFloat(string flag)
+    {
+        var a = OS.GetCmdlineUserArgs();
+        int i = Array.IndexOf(a, flag);
+        return i >= 0 && i + 1 < a.Length && float.TryParse(a[i + 1], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var v) ? v : null;
+    }
     /// <summary>Test aid (<c>--musou-old-gait</c>): every seeking Ork plays the run at its own rate, as before 2026-11-09.</summary>
     public static bool OldGait { get; set; } = Array.IndexOf(OS.GetCmdlineUserArgs(), "--musou-old-gait") >= 0;
     readonly Dictionary<int, MusouGaitTrack> _gait = new();
@@ -150,9 +160,11 @@ public partial class MusouCrowd : CrowdView
             if (look.Clips[MusouLooks.Run] is { } run)
             {
                 var skeleton = look.Assets.Model.Rig.Skeleton;
-                var gait = SmContent.ClipGait.Analyze(skeleton, run, feet: SmContent.FootBones.OrkBoy) ?? SmContent.ClipGait.Analyze(skeleton, run, feet: SmContent.FootBones.Marine);
-                if (gait is { } g && g.Speed > 0.5f && g.Speed < 20f) speed = g.Speed * look.Scale;
-                if (GaitLog) GD.Print($"MUSOUGAIT {look.Name}: run {run.Animation.Duration:F3} s, stride {(gait is { } h ? h.Stride.Length() : 0f):F2} m, speed {(gait?.Speed ?? 0f):F2} m/s at scale 1, {speed:F2} m/s at {look.Scale:F2}");
+                var gait = SmContent.ClipGait.Analyze(skeleton, run, feet: SmContent.FootBones.OrkBoy) ?? SmContent.ClipGait.Analyze(skeleton, run, feet: SmContent.FootBones.Warboss) ?? SmContent.ClipGait.Analyze(skeleton, run, feet: SmContent.FootBones.Marine);
+                // musou-big-ork-deaths (2026-11-09): the stride grows with the scale to StrideExponent's power (the square root), not the whole scale, so a big body does not step in slow motion
+                float stride = SmNet.Extras.Musou.MusouBigOrkRules.StrideScale(look.Scale, StrideExponent);
+                if (gait is { } g && g.Speed > 0.5f && g.Speed < 20f) speed = g.Speed * stride;
+                if (GaitLog) GD.Print($"MUSOUGAIT {look.Name}: run {run.Animation.Duration:F3} s, stride {(gait is { } h ? h.Stride.Length() : 0f):F2} m, speed {(gait?.Speed ?? 0f):F2} m/s at scale 1, {speed:F2} m/s matched at {look.Scale:F2} (stride x{stride:F2})");
             }
         }
         catch (Exception ex) { GD.PushWarning($"MUSOUGAIT {look.Name}: no stride ({ex.Message})"); }

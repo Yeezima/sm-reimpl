@@ -34,6 +34,10 @@ public sealed class MusouLooks
         public required MarineAssets Assets;
         public required float Scale;
         public required HavokBoundAnimation?[] Clips;
+        /// <summary>A clip played backwards (its last frame first), or -1: the Warboss's death is his get-up run in reverse (musou-big-ork-deaths, 2026-11-09; <see cref="WarbossRig.DeathReversed"/>).</summary>
+        public int ReversedClip = -1;
+        /// <summary>The time to sample <paramref name="clip"/> at, <paramref name="time"/> s into it (already held at its end): backwards for <see cref="ReversedClip"/>.</summary>
+        public float SampleTime(int clip, float time) => clip == ReversedClip && Clips[clip] is { } c ? MathF.Max(0f, c.Animation.Duration - MathF.Min(time, c.Animation.Duration)) : time;
         public MusouVat.Baked? Vat;
         public Task<MusouVat.Baked?>? Baking;
         /// <summary>The bake failed or had nothing to bake: skinned only, never tried again.</summary>

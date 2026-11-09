@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2748 spec table rows: **2044 tagged**, 489 not tagged (read from data with high confidence), 215 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 609 rows of the changes document.
+Scanned 2752 spec table rows: **2047 tagged**, 489 not tagged (read from data with high confidence), 216 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 610 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -52,19 +52,19 @@ Scanned 2748 spec table rows: **2044 tagged**, 489 not tagged (read from data wi
 | Networking and render smoothing | 19 | 10 | 10 | 10 | 7 |
 | Core simulation (provisional values) | 529 | 505 | 368 | 145 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 221 | 211 | 118 | 58 | 0 |
-| **All areas** | **2044** | 1798 | 1517 | 648 | 38 |
+| Ork faction | 224 | 214 | 120 | 59 | 0 |
+| **All areas** | **2047** | 1801 | 1519 | 649 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1129 |
+| kind: ours | 1132 |
 | confidence: low | 728 |
-| confidence: medium | 660 |
+| confidence: medium | 662 |
 | notes: ours | 369 |
 | kind: interpretation | 360 |
-| notes: estimate | 166 |
+| notes: estimate | 167 |
 | kind: estimate | 136 |
 | confidence: none (low) | 129 |
 | kind: provisional | 99 |
@@ -3412,7 +3412,7 @@ The Orks are an addition the owner keeps (the original multiplayer had Space Mar
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-37F26F78` | Drawn run follows speed (Musou, client) | a seeking Ork plays the run only while the speed he is drawn at (eased, time constant **0.08** s; a step over **3** m in a frame is a snap, not a speed) is at least **0.9** m/s, and keeps it down to **0.5** m/s; slower he plays the idle (m/s, s) | kind: ours; confidence: medium | owner 2026-11-09 | Drawn run follows speed (Musou, client): compare with SM1 by timing a run over a known distance. Ours: a seeking Ork plays the run only while the speed he is drawn at… | ☐ |
-| `R-447ADFB4` | Run rate matched to the stride (Musou, client) | the run plays at the drawn speed over the run clip's planted-foot speed at the look's scale (`ClipGait.Analyze` on the clip with the Ork boy's toe bones, else the Marine's; **6** m/s when it cannot be measured), clamped **0.15** to **1.6** (x clip rate) | kind: ours; confidence: medium | owner 2026-11-09 | Run rate matched to the stride (Musou, client): compare with SM1 by timing a run over a known distance. Ours: the run plays at the drawn speed over the run clip's planted-foot… | ☐ |
+| `R-447ADFB4` | Run rate matched to the stride (Musou, client) | the run plays at the drawn speed over the run clip's planted-foot speed at the look's scale (`ClipGait.Analyze` on the clip with the Ork boy's toe bones, else the Marine's; **6** m/s when it cannot be measured), clamped **0.15** to **1.6** (superseded… (x clip rate) | kind: ours; confidence: medium | owner 2026-11-09 | Run rate matched to the stride (Musou, client): compare with SM1 by timing a run over a known distance. Ours: the run plays at the drawn speed over the run clip's planted-foot… | ☐ |
 | `R-4B3BE70D` | Facing the move (Musou, a war's Orks) | an ordinary Ork in Seek, not engaged, faces his velocity smoothed by **0.35** a tick once faster than **1.2** m/s, else turns toward where he wants to go; at most **540** degrees a second either way (the Boss Orks keep their own 6 rad/s rule; an engaged Ork… (m/s, deg/s) | kind: ours; confidence: medium | owner 2026-11-09 | Facing the move (Musou, a war's Orks): compare with SM1 by timing a run over a known distance. Ours: an ordinary Ork in Seek, not engaged, faces his velocity smoothed by… | ☐ |
 | `R-CD2D00DF` | Push apart eased (Musou, a war's Orks) | the crowd's separation push is eased by **0.5** of its change a tick (about two ticks); the Ork's own way is never eased (no acceleration lag) (share a tick) | kind: ours; confidence: medium | owner 2026-11-09 | Push apart eased (Musou, a war's Orks): compare with SM1 by feel or video. Ours: the crowd's separation push is eased by 0.5 of its change a tick… | ☐ |
 | `R-C0986ECB` | Melee wait outside the ring (Musou, a war's Orks) | a melee Ork holding a token stands to wait for his blow within the larger of 0.8 of his reach and the player's ring (0.9 m) plus his radius plus **0.15** m, never beyond his reach less 0.05 m (Boy: 1.45 m, was 1.28); squads and goals as before (m) | kind: ours; confidence: medium | owner 2026-11-09 | Melee wait outside the ring (Musou, a war's Orks): compare with SM1 by measuring on a flat spot of the same map. Ours: a melee Ork holding a token stands to wait for his blow within the… | ☐ |
@@ -3458,6 +3458,14 @@ The Orks are an addition the owner keeps (the original multiplayer had Space Mar
 | `R-C85C0F75` | Armies' real Orks (Musou) | at most **384** at once (was 480) over all Ork armies, outside the crowds' cap and pool as before (Orks) | kind: ours; notes: estimate | owner 2026-11-09 ("80% of current") | Armies' real Orks (Musou): compare with SM1 by feel or video. Ours: at most 384 at once (was 480) over all Ork armies, outside the… | ☐ |
 | `R-EC633428` | Waves: size (Musou) | **160** (70 %), **400** (25 %), **800 to 960** (5 %) by the dice (was 200, 500, 1,000 to 1,200), and with no aggregate a wave is what the armies' real cap leaves room for (Orks) | kind: ours; notes: estimate | owner 2026-11-09 | Waves: size (Musou): compare with SM1 by measuring on a flat spot of the same map. Ours: 160 (70 %), 400 (25 %), 800 to 960 (5 %) by the dice (was 200, 500… | ☐ |
 | `R-CCEF4870` | Garrison, crowd and caps (Musou) | garrison **77** a point (was 96); crowd **320** (was 400) filling one every **5** ticks (was 4: a crowd still in 53 s); alive cap **960** solo plus **512** a further human, at most **1344** (was 1200, 640, 1680); the trickle **1280** in all (was 1600); route… (Orks) | kind: ours; notes: estimate | owner 2026-11-09 | Garrison, crowd and caps (Musou): compare with SM1 by feel or video. Ours: garrison 77 a point (was 96); crowd 320 (was 400) filling one every 5… | ☐ |
+
+*Spec section: Musou Mode: the big Orks' deaths and gait (musou-big-ork-deaths, 2026-11-09; Musou Mode only, client presentation; no protocol, wire, config-hash or rules-version change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-242300A3` | Big Orks keep their bodies (Musou, client) | the elites and bosses of `MusouTargetRules.ClassOf` (Nob, 'Ard Boy, Big Shoota Nob, the Warboss, the four Boss Orks) are never torn apart by the gore: the burst still plays, and the body plays its death clip and lies under the corpse floor like any Ork's; a… | kind: ours; confidence: medium | owner 2026-11-09 | Big Orks keep their bodies (Musou, client): compare with SM1 by feel or video. Ours: the elites and bosses of MusouTargetRules.ClassOf (Nob, 'Ard Boy, Big… | ☐ |
+| `R-E348541F` | The Warboss's death (Musou, client) | his own `WB_Get_Up` (1.33 s) played backwards: from standing he drops to his knees and falls on his back, then lies at its first frame (the rig has no death that ends lying; his campaign death is scripted). `--musou-old-big-orks`: `WB_REC_Explode` as before (s) | kind: ours; confidence: medium | owner 2026-11-09 | The Warboss's death (Musou, client): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: his own WB_Get_Up (1.33 s) played backwards: from standing he drops… | ☐ |
+| `R-9001198C` | Big bodies' stride (Musou, client) | the run (the Warboss's walk) plays at the drawn speed over the clip's planted-foot speed at scale 1 times the look's scale to the power **0.5** (was 1): a 3x Boss Ork 0.46x (was 0.27x), a Boss Shoota Boy 0.42x (0.25x), the Warboss x2.19 0.78x measured on his… (power) | kind: ours; notes: estimate | owner 2026-11-09 | Big bodies' stride (Musou, client): compare with SM1 by feel or video. Ours: the run (the Warboss's walk) plays at the drawn speed over the clip's… | ☐ |
 
 ## Part C: Deliberate changes (keep or revert after playtest)
 
@@ -4230,6 +4238,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-3CAA83D0` | Musou: combat rules (musou/combat-rules, 2026-11-09; `MusouSim.Version` 28, `TfwRules.Version` 52) | No Musou Mode in the original | Ours (added content; the owner's request, verbatim: "make the blue and red slash strokes persist for a bit longer before more smoothly disappearing. add 1 second to their lifetime before they expire." / "make the air slash landing for all assault melee weapons heal 25% health and restore 10% armor." / "make all melee… | Musou Mode only (the Musou content flag); Classic PvP's stims, frags and melee are unchanged (`MusouCombatRulesTests`). spec "Musou combat rules" | Musou: combat rules (musou/combat-rules, 2026-11-09…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-F26174DD` | Musou: every spawn faces the map's centre (musou/spawn-facing, owner 2026-11-09; `MusouSim.Version` 28, `TfwRules.Version` 52) | No Musou Mode in the original | Ours (added content; the owner's request): in a battle every unit faces the middle capture point (B, the depot) the moment it spawns: humans, retainers and allied Marines, Guardsmen, every Ork type; an army made real mid-march keeps its march facing; the Stormbird and the Range keep their facing | Musou Mode only; Classic PvP unchanged | Musou: every spawn faces the map's centre…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-F52025D9` | Musou: cleave volume and cap (musou/combat-rules, 2026-11-09; `TfwRules.Version` 53) | No Musou Mode in the original | Ours (the owner's request, verbatim: "extend the melee hitbox outward and forward of the player in a flat cone - they should reach out further for cleaving purposes. raise the cleave cap up to 40 orks in one swing."): the war's cleave reaches 1.5x further in a 120 degree half angle (was 90), up to 40 Orks a swing (was… | Musou Mode's war only; the skirmish, Classic PvP and the original are unchanged. spec "Musou combat: cleave volume" | Musou: cleave volume and cap (musou/combat-rules…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-1DD14181` | Musou: the big Orks' deaths and gait (musou-big-ork-deaths, owner 2026-11-09) | No Musou Mode in the original | Ours (the owner: "the elite and boss orks and the warboss need to have death animations. they also look like they move in slow motion because of the way they're scaled up"): an elite or boss Ork is never torn apart by the gore (the burst plays, the body falls with its death clip and lies); the Warboss dies by his own… | Musou Mode only, client presentation. spec "Musou Mode: the big Orks' deaths and gait" | Musou: the big Orks' deaths and gait (musou-big-ork-deaths…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 
 ## Appendix: not gameplay
 
@@ -4452,4 +4461,5 @@ Test aids, probes, demo and capture tooling, and engineering decisions (protocol
 | `R-4B7E3D1D` | Loading screen | Loading screen (2026-11-07, client only) |
 | `R-BE72EE96` | Core messages counted in the Musou budget (Musou) | Musou performance pass and the owner's battle decisions (musou/perf-pass, 2026-11-08; Musou Mode only but FSR 2 and the off-screen effects, which are shared client settings; `TfwRules.Version` 38, no protocol or wire change) |
 | `R-A9655E6C` | Stormboy hop cue's flight (Musou wire) | Musou Mode: smooth crowd motion (crowd-smooth, 2026-11-08; Musou Mode only; `MusouSim.Version` 22, no core protocol bump: `Protocol.Version` stays 64) |
+| `R-476D600F` | Test aid: `--musou-crowd-test` | Musou Mode: the big Orks' deaths and gait (musou-big-ork-deaths, 2026-11-09; Musou Mode only, client presentation; no protocol, wire, config-hash or rules-version change) |
 

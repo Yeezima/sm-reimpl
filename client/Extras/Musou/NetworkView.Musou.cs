@@ -140,6 +140,7 @@ public partial class NetworkView
             if (!MusouCorpseRules.HandlesUnseenFar(CrowdView.OldCorpses) && metres > SmSim.Extras.Musou.Campaign.TfwArmyRules.CoreMetres && !ArmyFarBodies && _camera is { } eye
                 && !eye.IsPositionInFrustum(_gameSpace!.Transform * new Vector3(d.Position.X, d.Position.Y, d.Position.Z + 1f))) { _musouUnseenDeaths++; _musouGoreKillsUnseen[(int)MusouGoreSourceOf(d.Killer)]++; continue; }
             bool gibbed = MusouGoreRegister(d, camera, out bool burstDrawn);   // M10: a gibbed body leaves no corpse (its pieces instead); the corpse floor: only when its burst is drawn
+            if (MusouBigOrkRules.KeepsBody(d.Type, MusouCrowd.OldBigOrks)) gibbed = false;   // musou-big-ork-deaths (2026-11-09): an elite or boss is never torn apart; it falls with its death clip
             if (MusouGoreRules.Thrown(d.Cause)) MusouThrow(d, metres);   // a blast or barrage death always leaves a body, thrown through the gore's burst: a ragdoll near, else a tumbling body
             else if (MusouCorpseRules.LeavesBody(gibbed, burstDrawn, farUnseen: false, CrowdView.OldCorpses)) _musouCrowd!.AddBody(d, MusouDeathWaited(d.Id), keepSkeleton: !_musouOldDeaths);
             var at = new Vector3(d.Position.X, d.Position.Y, d.Position.Z + 1.1f);
