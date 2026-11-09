@@ -58,6 +58,16 @@ public class MusouAudioRulesTests
         Assert.True(MusouAudioRules.DeepPitchCents < 0f);
     }
     [Fact]
+    public void The_power_sword_is_found_by_wargear_and_louder()
+    {
+        Assert.True(MusouAudioRules.IsPowerSword("sm_mp_melee_powersword"));
+        Assert.True(MusouAudioRules.IsPowerSword("csm_mp_melee_powersword"));
+        Assert.False(MusouAudioRules.IsPowerSword("sm_mp_melee_chainsword"));
+        Assert.False(MusouAudioRules.IsPowerSword(null));
+        Assert.Equal(6f, MusouAudioRules.PowerSwordHitGainDb);
+    }
+
+    [Fact]
     public void The_hit_pair_is_half_the_first_passes_level_and_the_own_gun_is_heavier_than_others()
     {
         Assert.Equal(2f, MusouAudioRules.SmackGainDb);     // was +8: 6 dB = half amplitude (owner follow-up 2026-11-09)

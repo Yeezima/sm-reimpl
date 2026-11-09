@@ -45,7 +45,7 @@ public partial class NetworkView
 
     partial void ExtrasShotMaterial(ShotView shot, int victim, ref bool? armoured) { MusouShotMaterial(shot, victim, ref armoured); MusouBolterOthersHit(shot, victim); }
 
-    partial void ExtrasMeleeHitEmitter(SoundEmitter hit) => MusouMeleeHitEmitter(hit);
+    partial void ExtrasMeleeHitEmitter(SoundEmitter hit, string? wargear, ref float extraGainDb) => MusouMeleeHitEmitter(hit, wargear, ref extraGainDb);
 
     partial void ExtrasTrackEmitter(SoundEmitter emitter, bool own) => MusouTrackEmitter(emitter, own);
 

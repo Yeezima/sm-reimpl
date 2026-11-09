@@ -33,9 +33,11 @@ public partial class NetworkView
         if (own && MusouAudioOn) emitter.ProtectSpeech = true;
     }
 
-    void MusouMeleeHitEmitter(SoundEmitter hit)
+    void MusouMeleeHitEmitter(SoundEmitter hit, string? wargear, ref float extraGainDb)
     {
-        if (MusouAudioOn) hit.Tail = true;
+        if (!MusouAudioOn) return;
+        if (MusouAudioRules.IsPowerSword(wargear)) { hit.NoSteal = true; extraGainDb = MusouAudioRules.PowerSwordHitGainDb; }   // owner 2026-11-09: the original's sound, just louder; not cut by the crowd's pool
+        else hit.Tail = true;
     }
 
     /// <summary>A bolter rifle's shot: its fire sound again, deep, and the thump (voices: the copy's, one more).</summary>

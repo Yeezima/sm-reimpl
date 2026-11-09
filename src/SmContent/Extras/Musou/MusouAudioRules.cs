@@ -60,6 +60,14 @@ public static class MusouAudioRules
     /// <summary>The ring-out of a melee hit: a reverb bus (room size, damping, wet level) the hit voices pass through, after their high-pass. Ours (the data's hits last 0.2 to 0.7 s).</summary>
     public const float TailRoomSize = 0.82f, TailDamping = 0.4f, TailWet = 0.5f, TailPredelayMs = 18f;
 
+    /// <summary>
+    /// The power sword's hit (owner follow-up 2026-11-09: "revert ... exactly like the original game's power sword on hit sound effect, just louder"): no tail, no added length, the data's events and
+    /// playback; only kept from being stolen at the voice cap, and +6 dB (ours, to refine by ear) on top of the mix pass's on-hit gain.
+    /// </summary>
+    public const float PowerSwordHitGainDb = 6f;
+
+    public static bool IsPowerSword(string? wargear) => !string.IsNullOrEmpty(wargear) && wargear.Contains("powersword", StringComparison.OrdinalIgnoreCase);
+
     // ---- the far Orks (MusouAmbienceRules.Specs holds the numbers) ----
 
     /// <summary>Whether an ambience kind is a far Ork voice: it takes the distance treatment.</summary>

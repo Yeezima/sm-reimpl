@@ -54,6 +54,8 @@ public sealed class SoundEmitter
     /// not ducked by the data's Set/Reset actions, no instance limit. Same bus as any sound. False everywhere else.
     /// </summary>
     public bool ProtectGun;
+    /// <summary>musou/audio-pass (Musou Mode only): the power sword's hit voices are never stolen at the voice cap; nothing else of them changes (events, Stop actions, buses and limits as the data and the mix pass define). False everywhere else.</summary>
+    public bool NoSteal;
 
     public Vector3 Current => Follow?.Invoke() ?? Position;
 }
@@ -698,9 +700,9 @@ public partial class SoundSystem : Node
         if (_active.Count(x => x.Player is not null && x.Voice.Is3D == positioned) >= (positioned ? Max3D : Max2D))
         {
             // A crowd's voice (SoundEmitter.Group) takes a player only from its own crowd: it never cuts a player's sounds.
-            var victim = _active.Where(x => x.Player is not null && x.Voice.Is3D == positioned && !Shielded(x) && (a.Emitter.Group is null || x.Emitter.Group == a.Emitter.Group))
+            var victim = _active.Where(x => x.Player is not null && x.Voice.Is3D == positioned && !Unstealable(x) && (a.Emitter.Group is null || x.Emitter.Group == a.Emitter.Group))
                 .OrderBy(x => x.Voice.Priority).ThenBy(x => x.Effective).ThenBy(x => x.Started).FirstOrDefault();
-            if (victim is null || victim.Voice.Priority > a.Voice.Priority && !Shielded(a)) return false;   // musou/audio-pass: a protected voice takes a player whatever the priority
+            if (victim is null || victim.Voice.Priority > a.Voice.Priority && !Unstealable(a)) return false;   // musou/audio-pass: a protected voice takes a player whatever the priority
             // A waiting loop takes over only from a voice at least 6 dB quieter than it would be (no swapping back and forth).
             if (revive && (victim.Voice.Priority == a.Voice.Priority && victim.Effective > EffectiveNow(a) - 6f)) return false;
             Steals++;
@@ -812,6 +814,8 @@ public partial class SoundSystem : Node
     static bool Shielded(Active a) => a.Emitter.Tail || a.Emitter.ProtectGun || FullVoice(a);
 
     /// <summary>The own character's line (musou/audio-pass).</summary>
+    static bool Unstealable(Active a) => Shielded(a) || a.Emitter.NoSteal;
+
     static bool FullVoice(Active a) => a.Emitter.ProtectSpeech && IsSpeech(a.Event);
 
     /// <summary>The bus of a voice at a low-pass level: the protected voices' own (only when asked for), else as before.</summary>

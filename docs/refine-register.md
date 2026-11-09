@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2672 spec table rows: **1970 tagged**, 488 not tagged (read from data with high confidence), 214 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 596 rows of the changes document.
+Scanned 2673 spec table rows: **1971 tagged**, 488 not tagged (read from data with high confidence), 214 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 596 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,17 +50,17 @@ Scanned 2672 spec table rows: **1970 tagged**, 488 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 19 | 10 | 10 | 10 | 7 |
-| Core simulation (provisional values) | 487 | 463 | 336 | 126 | 1 |
+| Core simulation (provisional values) | 488 | 464 | 337 | 126 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 191 | 181 | 93 | 53 | 0 |
-| **All areas** | **1970** | 1724 | 1460 | 624 | 38 |
+| **All areas** | **1971** | 1725 | 1461 | 624 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1067 |
-| confidence: low | 707 |
+| kind: ours | 1068 |
+| confidence: low | 708 |
 | confidence: medium | 624 |
 | kind: interpretation | 359 |
 | notes: ours | 358 |
@@ -1072,7 +1072,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
-| `R-82648569` | Melee hit tail | a melee hit's voices (every Musou weapon) are never stolen at the voice cap, never cut by the event's Stop actions (the power axe and thunder hammer hits carry two) or instance limits, ignore the data's Set/Reset ducking, and pass the on-hit high-pass into a… (s) | kind: ours; confidence: low | owner 2026-11-09; cause found by reading the voice code (the pool of 48 is full in a Musou crowd; stealing releases one-shot voices); not yet heard by a human | Melee hit tail: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a melee hit's voices (every Musou weapon) are never stolen at the… | ☐ |
+| `R-82648569` | Melee hit tail | every other Musou melee weapon's hit voices are never stolen at the voice cap, never cut by the event's Stop actions (the power axe and thunder hammer hits carry two) or instance limits, ignore the data's Set/Reset ducking, and pass the on-hit high-pass into… (s) | kind: ours; confidence: low | owner 2026-11-09; cause found by reading the voice code (the pool of 48 is full in a Musou crowd; stealing releases one-shot voices); not yet heard by a human | Melee hit tail: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: every other Musou melee weapon's hit voices are never stolen at the… | ☐ |
 
 *Spec section: Melee reliability, the sooner step and the stalker crater (feel/melee-reliability; used by the simulation, config hash, no wire change)*
 
@@ -2162,7 +2162,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (487)
+### Core simulation (provisional values) (488)
 
 *Spec section: Provisional values in use*
 
@@ -2616,6 +2616,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-263892F0` | Bolter rifles | bolter, storm bolter, stalker bolter (sniper rifle wargear), heavy bolter, either side's; not the bolt pistols | kind: ours; confidence: medium | owner ("bolter rifle weapons") | Bolter rifles: compare with SM1 by feel or video. Ours: bolter, storm bolter, stalker bolter (sniper rifle wargear), heavy… | ☐ |
 | `R-840E5E4A` | Deeper fire (follow-up 2026-11-09: the gun's own 'bang bang' deeper and more powerful) | **Own gun:** its fire event posted again on an emitter of its own (`ProtectGun`: never stolen at the voice cap, never cut by another event's Stop actions, never ducked by Set/Reset, no instance limit) as a body copy at -800 cents, +2 dB, low-pass +22, a sub… (cents, dB) | kind: ours; confidence: low | owner 2026-11-09; numbers ours | Deeper fire (follow-up 2026-11-09: the gun's own 'bang…: compare with SM1 by feel or video. Ours: Own gun: its fire event posted again on an emitter of its own… | ☐ |
 | `R-392C93BD` | First-hit smack and blast | on the first Ork a shot hits (once a shot: the hit-sound dedup of combat feel, others' shots by the shot record): `play_bolter_smack` (the data's flesh smack) at +2 dB (was +8), 0.07 s later `play_sm_grenade_explode_mp` at -15 dB (was -9); both 6 dB lower =… (dB, s) | kind: ours; confidence: low | owner 2026-11-09; events and numbers ours | First-hit smack and blast: compare with SM1 by measuring on a flat spot of the same map. Ours: on the first Ork a shot hits (once a shot: the hit-sound dedup of… | ☐ |
+| `R-7DFF899C` | Power sword hit (follow-up 2026-11-09: "revert ... exactly like the original ... just louder") | the power sword's hit (`sm_mp_melee_powersword` / `csm_`) has **no** tail, no reverb bus, no added length: the data's events and playback as before this pass (mix pass included); only kept from being stolen at the voice cap (`SoundEmitter.NoSteal`), and +6 dB… (dB) | kind: ours; confidence: low | owner 2026-11-09; the +6 dB is ours | Power sword hit (follow-up 2026-11-09: "revert ... exactly…: compare with SM1 by feel or video. Ours: the power sword's hit (sm_mp_melee_powersword / csm_) has no tail, no… | ☐ |
 
 *Spec section: Commander status marker (Musou Mode; client only)*
 
