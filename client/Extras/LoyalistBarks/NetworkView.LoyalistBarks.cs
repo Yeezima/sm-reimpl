@@ -23,7 +23,8 @@ namespace SmClient;
 /// <item>T: FOR THE EMPEROR for a living loyalist, at any time, at most every 2 s (in ticks, as the server counts). The key's bit
 /// (<see cref="InputButtons.ExtraAction"/>, held <see cref="LoyalistShoutWire.HoldTicks"/> ticks) is never read by the simulation: no action is
 /// interrupted, no animation plays. The own player hears the take at once; the server tells every client (<see cref="LoyalistShoutWire"/>) with the
-/// player's shout sequence, from which every client picks the same take (<see cref="LoyalistBarkRules.KeyTake"/>).</item>
+/// player's shout sequence, from which every client picks the same take (<see cref="LoyalistBarkRules.KeyTake"/>). In Musou Mode (musou/hotkey-lines, 2026-11-10) the sequence steps through
+/// a rotation of FOR THE EMPEROR and six campaign lines instead (<see cref="MusouKeyLines"/>, NetworkView.MusouKeyLines.cs); Classic PvP keeps the takes alone.</item>
 /// <item>Others are heard in 3D from their characters, the own player without position, on the sound bus (the master and <c>--sound-gain</c> apply).
 /// Nothing is decided while the sound system or the takes are not ready (no cooldown is spent on a silent bark).</item>
 /// </list>
@@ -255,6 +256,7 @@ public partial class NetworkView
         }
         if (moment == BarkMoment.Key && _sound is not null && _soundTracks.TryGetValue(id, out var t)) _sound.StopSpeech(t.Emitter);   // the key cuts SM1's line
         BarkStop(id, null);
+        if (moment == BarkMoment.Key && MusouKeyLine(id, (byte)seed, own, who)) return;   // Musou Mode: the key's rotation said a campaign line (musou/hotkey-lines); Classic PvP never
         double length = BarkPlay(id, sp, clip, own);
         sp.Until = _connectedFor + (length > 0 ? length : clip.Seconds);
         sp.Key = moment == BarkMoment.Key;

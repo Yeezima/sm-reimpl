@@ -13,11 +13,14 @@ namespace SmClient;
 /// musou/battle-ambience (owner, 2026-11-08: "add random barks for space marines, the player, allied space marines, retainers in musou mode. use intense voice lines from the campaign"): every
 /// living Space Marine of a Musou match (the own player as Titus; the allied pair and the other players as Sidonus or Leandros, <see cref="MusouMarineBarkRules"/>) says a random campaign combat
 /// line now and then, more often with an Ork near (<see cref="MusouBarkClock"/>), from his own voice emitter (one line at a time with his other speech). Musou Mode only; Classic PvP is untouched.
-/// Test aids: <c>--no-musou-marine-barks</c>; <c>--musou-bark-skip id,id</c> (hex line ids, as the log prints them) leaves lines out; <c>--log-sound musou-barks</c>.
+/// Off since musou/hotkey-lines (owner, 2026-11-10: "remove the voice barks feature we added previously. we'll stick to the hotkey"): the lines are said on the T key instead
+/// (<see cref="MusouKeyLines"/>, NetworkView.MusouKeyLines.cs). Restore switch <c>--musou-auto-barks</c> (<see cref="MusouKeyLines.AutoBarks"/>).
+/// Test aids (with the restore switch): <c>--no-musou-marine-barks</c>; <c>--musou-bark-skip id,id</c> (hex line ids, as the log prints them) leaves lines out; <c>--log-sound musou-barks</c>.
 /// </summary>
 public partial class NetworkView
 {
-    static readonly bool NoMusouMarineBarks = CmdFlag("no-musou-marine-barks");
+    /// <summary>musou/hotkey-lines: the automatic barks run only with <c>--musou-auto-barks</c> (and not with <c>--no-musou-marine-barks</c>).</summary>
+    static readonly bool MusouAutoBarks = MusouKeyLines.AutoBarks(OS.GetCmdlineUserArgs());
     static readonly HashSet<uint> MusouBarkSkip = (CmdArg("musou-bark-skip") ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
         .Select(x => uint.TryParse(x.StartsWith("0x") ? x[2..] : x, System.Globalization.NumberStyles.HexNumber, null, out uint v) ? v : 0u).Where(v => v != 0).ToHashSet();
 
@@ -44,7 +47,7 @@ public partial class NetworkView
     void MusouMarineBarksFrame(PlayerState me, IReadOnlyList<MusouShown> shown, Num.Vector3 camera, double now)
     {
         if (me.Alive && me.MeleeStep > 0) _musouOwnMeleeAt = now;   // owner 2026-11-09: the own bark waits for a quiet melee hand (every frame, before the 0.5 s look)
-        if (NoMusouMarineBarks || _sound is null || _audio is null || _client is null || !_audio.HasSpeech || now < _musouBarkLookAt) return;
+        if (!MusouAutoBarks || _sound is null || _audio is null || _client is null || !_audio.HasSpeech || now < _musouBarkLookAt) return;
         _musouBarkLookAt = now + 0.5;
         if (me.Alive && !OwnDead && MusouBarkSpeaks(me)) MusouMarineBark(me, own: true, shown, now);
         int marines = 0, heard = 0;
