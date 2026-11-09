@@ -12,7 +12,7 @@ namespace SmServer;
 /// <list type="bullet">
 /// <item>at once, on the tick it happens, when a cast starts or stops, a lock sets or clears, a Shockwave is cast or a Librarian comes or goes (<see cref="EdgeKey"/>): it used to wait for the next 10 Hz slot,
 /// up to 100 ms on top of the network;</item>
-/// <item>while any Librarian casts, the changing links at most <see cref="CastingSendsPerSecond"/> times a second; any other change at most 10 times a second;</item>
+/// <item>while any Librarian casts, the changing links <see cref="CastingSendsPerSecond"/> times a second (a send credit, <see cref="LibrarianSendPacer"/>: every 1 or 2 ticks at 30 Hz); any other change at most 10 times a second;</item>
 /// <item>once a second while any Librarian lives, so a lost datagram costs at most a second.</item>
 /// </list>
 /// Nothing is sent while there is none (one empty section when the last one goes, so the clients clear). A few hundred bytes for four casting Librarians (557 at 40 links each): inside the war's send budget.
@@ -24,8 +24,7 @@ public sealed partial class GameServer
     public const int CastingSendsPerSecond = 20;
 
     byte[]? _librarianSent;
-    uint _librarianTick;
-    ulong _librarianEdges = ulong.MaxValue;
+    readonly LibrarianSendPacer _librarianPacer = new();
     readonly List<LibrarianView> _librarianViews = new();
 
     void SendTfwLibrarian(uint tick, int tickRate)
@@ -43,16 +42,12 @@ public sealed partial class GameServer
         bool empty = _librarianViews.Count == 0;
         if (empty && (_librarianSent is null || _librarianSent.Length == 1)) return;
         bool old = World.Config.LibrarianVariant.OldSend;   // restore switch send: everything at most 10 a second, nothing at once
-        ulong edges = old ? _librarianEdges : EdgeKey(_librarianViews);
-        uint every = (uint)Math.Max(1, tickRate / (casting && !old ? CastingSendsPerSecond : 10)), second = (uint)Math.Max(1, tickRate);
         bool changed = _librarianSent is null || !_librarianSent.AsSpan().SequenceEqual(bytes);
-        bool due = edges != _librarianEdges || tick < _librarianTick
-            || (changed ? tick - _librarianTick >= every : tick - _librarianTick >= second);
-        if (!due) return;
+        ulong edges = EdgeKey(_librarianViews);
+        if (!_librarianPacer.Due(tick, tickRate, changed, edges, casting, old)) return;
         SendExtras(new ExtrasUpdate(tick, [(TfwWire.LibrarianTag, bytes)]));
         _librarianSent = bytes;
-        _librarianTick = tick;
-        _librarianEdges = edges;
+        _librarianPacer.Sent(tick, edges);
     }
 
     /// <summary>The cast command (<see cref="LibrarianWire.CastCommandTag"/>): the Librarian's lightning begins on the next tick (<see cref="World.LibrarianCastEarly"/>). False for another tag.</summary>
@@ -81,5 +76,37 @@ public sealed partial class GameServer
             h = (h ^ x) * 1099511628211UL;
         }
         return h ^ (ulong)views.Count;
+    }
+}
+
+/// <summary>
+/// When tag 16 goes out (<see cref="GameServer"/>'s Librarian section; separate so the tests can count sends). At once on a new <see cref="GameServer.EdgeKey"/>; while a Librarian casts and the section
+/// changed, <see cref="GameServer.CastingSendsPerSecond"/> a second by a send credit (each tick earns rate / tick rate, a send spends 1, at most one tick's worth banked over 1: at 30 Hz every 1 or 2 ticks,
+/// a true 20 a second); any other change every tick rate / 10 ticks; unchanged, once a second. The restore switch <c>send</c>: no edge sends and every change every tick rate / 10 ticks, as before pass 3.
+/// </summary>
+internal sealed class LibrarianSendPacer
+{
+    double _credit;
+    uint _last;
+    bool _any;
+    ulong _edges;
+
+    /// <summary>Whether this tick's section goes out.</summary>
+    public bool Due(uint tick, int tickRate, bool changed, ulong edges, bool casting, bool old)
+    {
+        int rate = Math.Max(1, tickRate);
+        double step = GameServer.CastingSendsPerSecond / (double)rate;
+        _credit = Math.Min(1.0 + step, _credit + step);
+        if (!_any || tick < _last || (!old && edges != _edges)) return true;
+        if (!changed) return tick - _last >= (uint)rate;
+        if (casting && !old) return _credit >= 1.0 - 1e-9;
+        return tick - _last >= (uint)Math.Max(1, rate / 10);
+    }
+
+    /// <summary>The section went out on <paramref name="tick"/> with these edges.</summary>
+    public void Sent(uint tick, ulong edges)
+    {
+        _credit = Math.Max(0.0, _credit - 1.0);
+        _last = tick; _any = true; _edges = edges;
     }
 }

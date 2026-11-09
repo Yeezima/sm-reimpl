@@ -2811,7 +2811,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-35BB5591` | Target preference: elites and bosses | Nob, 'Ard Boy, Big Shoota Nob and the bosses (Warboss, Boss Orks): AI Marine **1**, human player **0.8**, Guard squad **3**, objective **3** (the objective weight is our reading: the brief names none) (weights) | kind: ours; notes: estimate | owner brief 2026-11-07 (objective ours) | Target preference: elites and bosses: compare with SM1 by feel or video. Ours: Nob, 'Ard Boy, Big Shoota Nob and the bosses (Warboss, Boss Orks): AI… | ☐ |
 | `R-356769A9` | Friendly fire | Ork bullets (rolled hits, no projectile) and Ork melee never hurt Orks; Ork explosions hurt players, AI Marines, Guards and Orks (elites and bosses too). The Weirdboy's burst and bolts keep their older rule | kind: ours; notes: estimate | owner brief 2026-11-07 | Friendly fire: compare with SM1 by feel or video. Ours: Ork bullets (rolled hits, no projectile) and Ork melee never hurt… | ☐ |
 
-*Spec section: Musou Mode: the Librarian (musou/exp-s5, 2026-11-07; `MusouSim.Version` 14, second pass 15, third pass 34 (librarian-lightning, 2026-11-10); no protocol change)*
+*Spec section: Musou Mode: the Librarian (musou/exp-s5, 2026-11-07; `MusouSim.Version` 14, second pass 15, third pass 37 (librarian-lightning, 2026-11-10; 34 renumbered at integration); no protocol change)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
@@ -4609,8 +4609,8 @@ Test aids, probes, demo and capture tooling, and engineering decisions (protocol
 | `R-FA999C4E` | Test aid: `--fx-tint r,g,b` | Musou Mode: the Weirdboy (2026-11-07; `MusouSim.Version` 12, `TfwRules.Version` 31, no protocol or wire format change) |
 | `R-A5D771E7` | Test aid: `--warboss-test --model weirdboy` | Musou Mode: the Weirdboy (2026-11-07; `MusouSim.Version` 12, `TfwRules.Version` 31, no protocol or wire format change) |
 | `R-3FDFA812` | Wire: entity type byte | Musou Mode: expansion S1, the foundation (musou/exp-s1, 2026-11-07; `MusouSim.Version` 13, no core protocol bump: `Protocol.Version` stays 63) |
-| `R-A16BD61A` | Musou: the Librarian's wire | Musou Mode: the Librarian (musou/exp-s5, 2026-11-07; `MusouSim.Version` 14, second pass 15, third pass 34 (librarian-lightning, 2026-11-10); no protocol change) |
-| `R-E056191E` | Musou: the Librarian's restore switches | Musou Mode: the Librarian (musou/exp-s5, 2026-11-07; `MusouSim.Version` 14, second pass 15, third pass 34 (librarian-lightning, 2026-11-10); no protocol change) |
+| `R-A16BD61A` | Musou: the Librarian's wire | Musou Mode: the Librarian (musou/exp-s5, 2026-11-07; `MusouSim.Version` 14, second pass 15, third pass 37 (librarian-lightning, 2026-11-10; 34 renumbered at integration); no protocol change) |
+| `R-E056191E` | Musou: the Librarian's restore switches | Musou Mode: the Librarian (musou/exp-s5, 2026-11-07; `MusouSim.Version` 14, second pass 15, third pass 37 (librarian-lightning, 2026-11-10; 34 renumbered at integration); no protocol change) |
 | `R-3E27C9EB` | Wire (S2) | Musou Mode: expansion S2, the Bomb Squig and the Rokkit Boy (musou/exp-s2, 2026-11-07; `MusouSim.Version` 14, `TfwRules.Version` 34, no core protocol bump: `Protocol.Version` stays 63) |
 | `R-6FB25F32` | Stormboy state on the wire | Musou Mode: expansion S3, Stormboy squads and the Big Shoota Nob (musou/exp-s3, 2026-11-07; `MusouSim.Version` 14, `TfwRules.Version` 34, no core protocol bump: `Protocol.Version` stays 63) |
 | `R-21B899DB` | Wire (S4) | Musou Mode: expansion S4, the Scrap Meks and their contraptions (musou/exp-s4, 2026-11-08; `MusouSim.Version` 18, `TfwRules.Version` 36, wire tag 17, no core protocol bump: `Protocol.Version` stays 63) |
