@@ -416,13 +416,15 @@ public partial class NetworkView
     /// <summary>Per hit report of the local player (<see cref="GameClient.TakeHits"/>): the hit marker and the target's health for the bar.</summary>
     void UpdateHits()
     {
+        PredictedHitsLife();   // net/responsive: the predictions are forgotten on a respawn or a new connection
         if (_client?.TakeHits() is not { } hits || _config is null) return;
-        // net/responsive: hits a prediction already showed (NetworkView.Responsive.cs) show no second marker and play no second confirmation.
-        bool adds = ReportAddsFeedback(hits);
-        if (adds) { _hudView?.ShowHitMarker(hits.Kills > 0 || hits.LastKilled, hits.LastHead); _client.NoteHitMarker(predicted: false); }
+        // net/responsive: hits a prediction already showed (NetworkView.Responsive.cs) show no second marker and play no second confirmation; a kill or an
+        // unpredicted headshot still shows its marker but plays no second confirmation (review M1).
+        var feedback = ReportFeedbackOf(hits);
+        if (feedback.Marker) { _hudView?.ShowHitMarker(hits.Kills > 0 || hits.LastKilled, hits.LastHead); _client.NoteHitMarker(predicted: false); }
         BotNoteHits(hits);   // M44a: the bot's hit statistics
         FlinchNoteOwnHit(hits);   // animation pass 2: the victim flinches
-        SoundHits(hits, rangedConfirm: adds);   // M26b
+        SoundHits(hits, rangedConfirm: feedback.Sound);   // M26b
         if (hits.ShieldDamage > 0f && hits.VictimShield <= 0f && !hits.LastKilled) CharacterFlashBroke(hits.LastVictim);   // the armour just went: its red ring at once
         _lastVictim = hits.LastVictim; _lastVictimHealth = hits.VictimHealth; _lastVictimShield = hits.VictimShield;
         _lastHitAt = _connectedFor;
