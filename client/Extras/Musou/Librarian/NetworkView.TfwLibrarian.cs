@@ -22,7 +22,7 @@ namespace SmClient;
 /// <item>The gauge (<see cref="LibrarianHud"/>) for the own Librarian, in the weapon box's place and style (he carries no gun).</item>
 /// </list>
 /// Restore switches: <c>--old-librarian-lightning</c> (the bolts as before 2026-11-10, drawn on each section, no foreseen chain), <c>--no-librarian-predict</c> (the new bolts, the server's links only),
-/// <c>--old-librarian-cast</c> (no cast pose). Test aid <c>--tfw-librarian</c>: once in the Stormbird and alive, the client takes the Librarian's class itself (the Esc menu row's own path, <see cref="PickLibrarian"/>).
+/// <c>--old-librarian-cast</c> (no cast pose); neither of the first two stops the cast command (<c>--no-librarian-early</c> or <c>SM_LIBRARIAN_OLD=early</c> does). Test aid <c>--tfw-librarian</c>: once in the Stormbird and alive, the client takes the Librarian's class itself (the Esc menu row's own path, <see cref="PickLibrarian"/>).
 /// </summary>
 public partial class NetworkView
 {
@@ -100,7 +100,8 @@ public partial class NetworkView
             // The own chain is foreseen from the press; everyone else's (and the own with the restore switches) is the server's latest.
             bool casting = v.Casting;
             IReadOnlyList<LibrarianLink> links = v.Links;
-            bool foreseen = isOwn && !NoLibrarianPredict && ForeseeOwnChain(me, v);
+            bool held = isOwn && OwnCastHeld(me, v);   // the press: the latency clock and the cast command, with or without the foresight
+            bool foreseen = held && !NoLibrarianPredict && ForeseeOwnChain(me);
             if (foreseen) { casting = true; links = _librarianForeseen; }
             if (isOwn && v.Casting && _librarianPressAt >= 0 && !_librarianServerHeard)
             {
@@ -141,16 +142,31 @@ public partial class NetworkView
     }
 
     /// <summary>
-    /// The own chain as the server will strike it (<see cref="LibrarianPrediction"/>, on the Orks as they are drawn), into <see cref="_librarianForeseen"/>, while Fire is held and the server would cast
-    /// (alive, not locked, not striking). False when it would not.
+    /// Whether the own Librarian holds the lightning while the server would cast (alive, not locked, not striking). On the press's first frame: the latency clock (LIBLAT) starts and the cast command goes out
+    /// (<see cref="SendLibrarianCast"/>), whether the chain is foreseen or not (<c>--no-librarian-predict</c>, <c>--old-librarian-lightning</c> keep the early cast: their comparison is the drawing alone).
     /// </summary>
-    bool ForeseeOwnChain(PlayerState me, in LibrarianView v)
+    bool OwnCastHeld(PlayerState me, in LibrarianView v)
     {
         if (_config is not { } config || !me.Alive || v.Locked || me.MeleeStep > 0 || !LibrarianRules.IsLibrarian(config, me.Class) || !OwnLightningHeld())
         {
             _librarianPressAt = -1;
             return false;
         }
+        if (_librarianPressAt < 0)
+        {
+            _librarianPressAt = Time.GetTicksUsec() / 1e6; _librarianFirstBoltMs = -1; _librarianServerHeard = false;
+            SendLibrarianCast();
+            _librarianFramesLogged = 1;
+        }
+        return true;
+    }
+
+    /// <summary>
+    /// The own chain as the server will strike it (<see cref="LibrarianPrediction"/>, on the Orks as they are drawn), into <see cref="_librarianForeseen"/>; called while <see cref="OwnCastHeld"/> holds.
+    /// </summary>
+    bool ForeseeOwnChain(PlayerState me)
+    {
+        if (_config is not { } config) return false;
         var shown = _tfwShown;
         if (_librarianCandidates.Length < shown.Count) { _librarianCandidates = new LibrarianCandidate[shown.Count * 2]; _librarianStruck = new bool[shown.Count * 2]; }
         var rules = config.MusouRules ?? MusouRules.Default;
@@ -161,12 +177,6 @@ public partial class NetworkView
         var eye = me.Position + new Num.Vector3(0f, 0f, config.EyeHeight);
         LibrarianPrediction.Chain(me.Position, eye, _yaw, _pitch, _librarianCandidates.AsSpan(0, n), _client?.Collision is null ? null : _librarianBlocked, _librarianForeseen, _librarianStruck);
         _librarianForeseenFrames++;
-        if (_librarianPressAt < 0)
-        {
-            _librarianPressAt = Time.GetTicksUsec() / 1e6; _librarianFirstBoltMs = -1; _librarianServerHeard = false;
-            SendLibrarianCast();
-            _librarianFramesLogged = 1;
-        }
         return true;
     }
 
@@ -254,7 +264,7 @@ public partial class NetworkView
         if (own && _librarianPressAt >= 0 && _librarianFirstBoltMs < 0)
         {
             _librarianFirstBoltMs = (Time.GetTicksUsec() / 1e6 - _librarianPressAt) * 1000.0;
-            if (_bot || LibrarianDemoOn || LibrarianClipDir is not null) GD.Print($"LIBLAT own bolt drawn {_librarianFirstBoltMs:F0} ms after the press (foreseen {_librarianForeseen.Count} links)");
+            if (_bot || LibrarianDemoOn || LibrarianClipDir is not null) GD.Print($"LIBLAT own bolt drawn {_librarianFirstBoltMs:F0} ms after the press ({(NoLibrarianPredict ? $"the server's {links.Count}" : $"foreseen {_librarianForeseen.Count}")} links)");
         }
     }
 

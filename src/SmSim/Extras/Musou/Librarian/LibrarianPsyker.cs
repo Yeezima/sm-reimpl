@@ -46,7 +46,7 @@ public sealed class LibrarianPsyker
     readonly List<LibrarianLink> _links = new();
     readonly ushort[] _near = new ushort[96];
     readonly HashSet<ushort> _struck = new();
-    readonly ushort[] _scan = new ushort[4096];   // a 60 m Shockwave may take a whole war's pool
+    readonly ushort[] _scan = new ushort[MusouSim.Capacity];   // a 60 m Shockwave may take the whole pool; no larger than Query's scratch (MusouSim._queryDistance), or Query allocates
     bool _prevShockwave, _prevPull;
 
     /// <summary>A new life (or a leave): everything back to rest.</summary>
