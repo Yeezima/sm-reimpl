@@ -28,6 +28,7 @@ return args switch
     ["ork-sounds", var gameDir, .. var rest] => SmTool.OrkSoundCommands.Run(gameDir, rest),
     ["melee-hit-sounds", .. var rest] => SmTool.MeleeHitSoundsCommand.Run(rest),
     ["ranged-hit-confirms", .. var rest] => SmTool.RangedConfirmsCommand.Run(rest),
+    ["stalker-confirm-preview", .. var rest] => SmTool.StalkerConfirmPreviewCommand.Run(rest),
     ["listen-page", .. var rest] => SmTool.ListenPageCommand.Run(rest),
 #if SM_EXTRAS
     ["musou-sounds", var musouDir, .. var musouRest] => SmTool.MusouSoundCommands.Run(musouDir, musouRest),
@@ -36,6 +37,7 @@ return args switch
     ["ashfall-clash", .. var clashRest] => SmTool.AshfallClashCommand.Run(clashRest),
     ["ashfall-kit-collision", .. var kitRest] => SmTool.AshfallKitCollisionCommand.Run(kitRest),
     ["ashfall-kit-files"] => SmTool.AshfallKitFilesCommand.Run(),
+    ["ashfall-kit-bake-scales", .. var bakeRest] => SmTool.AshfallKitBakeScalesCommand.Run(bakeRest),
     ["ashfall-kit-stairs", .. var stairRest] => SmTool.AshfallKitStairsCommand.Run(stairRest),
     ["musou-guard-route", .. var routeRest] => SmTool.MusouGuardRouteCommand.Run(routeRest),
     ["musou-army-routes", .. var armyRest] => SmTool.MusouArmyRoutesCommand.Run(armyRest),
@@ -132,6 +134,7 @@ static int Usage()
           smtool audio-verify <streamingaudio-dir>  parse every package and bank, report HIRC decoding coverage
           smtool melee-hit-sounds [--game <dir>] [--out <dir>] [--render] [--count k]   what the data plays on every melee hit (table.txt; --render: WAV previews + index.html in the private cache)
           smtool ranged-hit-confirms [--game <dir>] [--out <dir>] [--count k]   the shooter hit-confirm event of every MP gun, now (soft) and planned (data) as WAV previews
+          smtool stalker-confirm-preview [--game <dir>] [--out <dir>] [--count k]   the Stalker / Daemon Eye Bolter's hit confirm before and after sound/stalker-hit-confirm (Classic, Musou) as WAV previews
           smtool listen-page [--game <dir>] [--out <dir>] [--count k]   curated listen.html: per weapon, NOW and PLANNED players
           smtool audio-render <event> [--out <dir>] [--seed n] [--count k] [--material armour|flesh] [--local] [--mono]   offline WAV preview of one post (no 3D attenuation, no bus effects)
           smtool audio-coverage [--map <name>]       M26b: sound triggers of the MP files and the map, resolved against the banks

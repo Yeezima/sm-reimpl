@@ -99,6 +99,8 @@ public partial class ModelViewer : Node3D
     bool _musouRetried;          // this join was already retried once after stopping the own Musou server (MusouJoinRetry)
     CanvasLayer? _backLayer;
     Label? _backHint;
+    ScreenBlink? _blink;          // the blink between screens (ScreenBlink.cs); null for bots and with --no-screen-blink
+    bool _blinkChangePending;     // a screen change waits for the blink's black: a second one (a double Join, a repeated Esc) is dropped
     string _gameDir = "";
     Dictionary<string, string?> _launchArgs = new();
 
@@ -136,6 +138,8 @@ public partial class ModelViewer : Node3D
         _screenshotEvery = args.GetValueOrDefault("screenshot-every") is { } se && double.TryParse(se, System.Globalization.CultureInfo.InvariantCulture, out var every) && every > 0 ? every : null;
         _quitAfter = args.GetValueOrDefault("quit-after") is { } qa && double.TryParse(qa, System.Globalization.CultureInfo.InvariantCulture, out var after) ? after : null;
         string repoRoot = System.IO.Path.GetFullPath(System.IO.Path.Combine(ProjectSettings.GlobalizePath("res://"), ".."));
+        // The owner, 2026-11-10: menu, loading screen and match change with a blink (ScreenBlink.cs); bots draw nothing, --no-screen-blink changes at once as before.
+        if (!args.ContainsKey("bot") && !args.ContainsKey(ScreenBlink.OffSwitch)) AddChild(_blink = new ScreenBlink());
 
         // Added content E2: an invalid --content is refused the same way on every path (front end and --connect): a message, no start.
         if (args.ContainsKey("content") && !SmSim.ContentProfiles.TryParse(args["content"], out _, out string contentError))
@@ -271,7 +275,7 @@ public partial class ModelViewer : Node3D
     string _lookRepoRoot = "";
 
     /// <summary>Test views that need the install before they start (they keep the synchronous lookup).</summary>
-    static readonly string[] FrontEndExcluded = ["fx", "pound-test", "stomp-test", "reload-test", "switch-test", "appearance-test", "guard-test", "ashfall-kit-gallery", "warboss-test", "mek-gallery"];
+    static readonly string[] FrontEndExcluded = ["fx", "pound-test", "stomp-test", "reload-test", "switch-test", "appearance-test", "guard-test", "ashfall-kit-gallery", "warboss-test", "musou-crowd-test", "mek-gallery"];
 
     void BeginLocate(Dictionary<string, string?> args, string repoRoot)
     {
@@ -324,7 +328,7 @@ public partial class ModelViewer : Node3D
         GD.Print(_foundNote);
         PadHost.Ensure(this);   // controller: the device node (client/Gamepad)
         UiSounds.Ensure(this, gameDir, args.ContainsKey("no-sound"));   // the menus' sounds (fidelity gap 9); one node for the app, handed to the match when one starts
-        _frontEnd = new FrontEndView(() => MakeServices(args, gameDir), OnJoin, args.ContainsKey("appearance") ? StartScreen.Appearance : args.ContainsKey("customizer") ? StartScreen.Creator : StartScreen.Join, args) { Name = "FrontEnd", GameFoundNote = _foundNote };
+        _frontEnd = new FrontEndView(() => MakeServices(args, gameDir), JoinAtBlink, args.ContainsKey("appearance") ? StartScreen.Appearance : args.ContainsKey("customizer") ? StartScreen.Creator : StartScreen.Join, args) { Name = "FrontEnd", GameFoundNote = _foundNote };
         var layer = new CanvasLayer { Name = "FrontEndLayer" };
         layer.AddChild(_frontEnd);
         AddChild(layer);
@@ -392,8 +396,10 @@ public partial class ModelViewer : Node3D
             AddChild(_network);
     }
 
-    /// <summary>"Leave match" in the in-match menu: back to the front end's main menu with a short note (deferred: it frees the view that asked).</summary>
-    void LeaveMatch()
+    /// <summary>"Leave match" in the in-match menu: back to the front end's main menu with a short note (deferred: it frees the view that asked), at the blink's black.</summary>
+    void LeaveMatch() => AtBlink(LeaveMatchNow, MenuBuilt);
+
+    void LeaveMatchNow()
     {
         if (_network is null) return;   // already leaving
         foreach (var key in LoadoutArguments.Append("loadout")) _launchArgs.Remove(key);   // a stale --class / --loadout must not override the saved choice on the next Join
@@ -483,7 +489,7 @@ public partial class ModelViewer : Node3D
         _musouRetried = false;   // the next join from the menu is a new one
         FrontEndLaunch.Current = null;
         Input.MouseMode = Input.MouseModeEnum.Visible;
-        _frontEnd = new FrontEndView(() => MakeServices(_launchArgs, _gameDir), OnJoin, StartScreen.Join, _launchArgs, reason) { Name = "FrontEnd", GameFoundNote = _foundNote };
+        _frontEnd = new FrontEndView(() => MakeServices(_launchArgs, _gameDir), JoinAtBlink, StartScreen.Join, _launchArgs, reason) { Name = "FrontEnd", GameFoundNote = _foundNote };
         var layer = new CanvasLayer { Name = "FrontEndLayer" };
         layer.AddChild(_frontEnd);
         AddChild(layer);
@@ -528,9 +534,30 @@ public partial class ModelViewer : Node3D
         if (_fromFrontEnd && _network is { } n && (n.ConnectionFailed || n.StillConnecting) && (e is InputEventKey { Pressed: true, Echo: false, PhysicalKeycode: Key.Escape } || e is InputEventJoypadButton { Pressed: true, ButtonIndex: JoyButton.B }))
         {
             GetViewport().SetInputAsHandled();
-            BackToFrontEnd();
+            BackAtBlink();
         }
     }
+
+    /// <summary>
+    /// Runs a screen change at the blink's full black (ScreenBlink.cs), at once without the blink. While one waits for the black, another is dropped (a double Join, Esc pressed
+    /// twice): the first decides.
+    /// </summary>
+    void AtBlink(Action change, Func<bool>? ready = null)
+    {
+        if (_blink is null || !_blink.IsInsideTree()) { change(); return; }
+        if (_blinkChangePending) return;
+        _blinkChangePending = true;
+        _blink.Run(() => { _blinkChangePending = false; change(); }, ready);
+    }
+
+    /// <summary>The blink back to the menu opens once the menu's rows are up (the front end reads the install again first), within the blink's longest hold.</summary>
+    bool MenuBuilt() => _frontEnd is not { } front || front.Built;
+
+    /// <summary>The front end's Join: the menu blinks into the loading screen (the join itself, with its synchronous load, runs at full black).</summary>
+    void JoinAtBlink(JoinRequest request) => AtBlink(() => OnJoin(request));
+
+    /// <summary>Esc (or <c>--auto-back</c>) on a join still connecting or failed: back to the menu at the blink's black, if the join has not got through in the meantime.</summary>
+    void BackAtBlink() => AtBlink(() => { if (_fromFrontEnd && _network is { } n && (n.ConnectionFailed || n.StillConnecting)) BackToFrontEnd(); }, MenuBuilt);
 
     static readonly string[] ScriptedArguments = ["test-window", "screenshot", "quit-after", "spectate", "observe", "hud-demo", "aim-test"];
 
@@ -593,8 +620,9 @@ public partial class ModelViewer : Node3D
         if (TryMusouRetry()) return;   // a Classic PvP join refused because of the own Musou server: stopped, joined again (no message)
         // --auto-back <seconds> (test aid): the Esc of a join that goes nowhere, pressed after that long.
         if (_fromFrontEnd && _launchArgs.GetValueOrDefault("auto-back") is { } autoBack && double.TryParse(autoBack, System.Globalization.CultureInfo.InvariantCulture, out var backAfter)
-            && _network is { } stuck && (stuck.ConnectionFailed || stuck.StillConnecting) && _elapsed > backAfter) BackToFrontEnd();
+            && _network is { } stuck && (stuck.ConnectionFailed || stuck.StillConnecting) && _elapsed > backAfter) BackAtBlink();
         if (_screenshot is null) return;
+        if (_blink is { Busy: true }) return;   // no capture of a half-black frame
         if (_network is not null ? !_network.ReadyForScreenshot : _frontEnd is not null ? !_frontEnd.ReadyForScreenshot : ++_frames != 10) return;
         // --screenshot-every (showcase aid): a numbered series from the first ready frame until --quit-after.
         if (_screenshotEvery is not null && (_elapsed < _nextSeriesShot || (_onEffect && _network is { EffectInView: false }))) return;

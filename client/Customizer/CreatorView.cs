@@ -20,7 +20,15 @@ public sealed partial class CreatorView : Control
     // ui/customizer-ork: LOOK is the Ork Boy's fifth step (his look instead of the armour and colour editors); a marine's look is the appearance editor.
     enum Step { Class, Weapons, Equipment, Perks, Look }
     static readonly string[] StepNames = ["CLASS", "WEAPONS", "EQUIPMENT", "PERKS", "LOOK"];
-    int StepCount => IsOrkOpen ? StepNames.Length : StepNames.Length - 1;
+    int StepCount
+    {
+        get
+        {
+            int count = IsOrkOpen ? StepNames.Length : StepNames.Length - 1;
+            ExtrasStepCount(ref count);   // EXTRAS-HOOK: an added page's own steps (Musou Mode: the Librarian's five)
+            return count;
+        }
+    }
 
     readonly CustomizerServices _services;
     readonly ProfileSession _session;
@@ -173,7 +181,7 @@ public sealed partial class CreatorView : Control
         bar.AddChild(_look);
         bar.AddChild(_save);
         bar.AddChild(_setActive);
-        _deployButton = UiKit.Button("DEPLOY", () => Deploy?.Invoke(_open), 210);
+        _deployButton = UiKit.Button("DEPLOY", PressDeploy, 210);
         _deployButton.Visible = false;
         bar.AddChild(_deployButton);
         root.AddChild(bar);
@@ -295,6 +303,9 @@ public sealed partial class CreatorView : Control
         foreach (var c in _sideToggle.GetChildren()) { _sideToggle.RemoveChild(c); c.QueueFree(); }
         _factionButtons.Clear();
         if (_sideCaption is not null) _sideCaption.Text = _services.OffersOrks ? "Faction:" : "Preview side:";
+        bool built = false;
+        ExtrasTopLevel(ref built);   // EXTRAS-HOOK: an added mode's own top level in place of the factions (Musou Mode: Standard Marines, Librarian, Heretic)
+        if (built) return;
         foreach (var (race, text) in _services.Factions())   // added content E2: the profile's factions (no Ork in the faithful profile)
         {
             string r = race;
@@ -348,7 +359,7 @@ public sealed partial class CreatorView : Control
         foreach (var role in _tabRoles)
         {
             string r = role;
-            var b = new Button { Text = LoadoutRows.RoleLabel(_catalog, role), ToggleMode = true, FocusMode = FocusModeEnum.All, CustomMinimumSize = new Vector2(minimum, UiKit.MinHit), ClipText = true, SizeFlagsHorizontal = SizeFlags.ExpandFill };
+            var b = new Button { Text = RoleLabel(role), ToggleMode = true, FocusMode = FocusModeEnum.All, CustomMinimumSize = new Vector2(minimum, UiKit.MinHit), ClipText = true, SizeFlagsHorizontal = SizeFlags.ExpandFill };
             b.TooltipText = b.Text;
             b.Pressed += () => ChooseRole(r);
             b.Name = "ClassTab" + _tabButtons.Count;   // the self-test's fit check reads the whole label of these
@@ -386,6 +397,9 @@ public sealed partial class CreatorView : Control
 
     void Refresh(bool focusList)
     {
+        bool handled = false;
+        ExtrasRefresh(focusList, ref handled);   // EXTRAS-HOOK: an added page drawn in this frame instead (Musou Mode: the Librarian and the Heretic)
+        if (handled) return;
         var profile = _session.Working;
         var active = LoadoutEdits.Active(profile, _catalog, out _);
         string role = Role;
@@ -483,7 +497,7 @@ public sealed partial class CreatorView : Control
             foreach (var role in _tabRoles)
             {
                 string r = role;
-                var row = new UiKit.Row(LoadoutRows.RoleLabel(_catalog, role), [], false, true) { Focused = () => ShowClassCard(r) };
+                var row = new UiKit.Row(RoleLabel(role), [], false, true) { Focused = () => ShowClassCard(r) };
                 row.Pressed += () => ChooseRole(r);
                 _list.AddChild(row);
                 rowButtons.Add(row);
@@ -497,7 +511,7 @@ public sealed partial class CreatorView : Control
             {
                 string r = role;
                 bool selected = r.Equals(Role, StringComparison.OrdinalIgnoreCase);
-                var row = new UiKit.Row(LoadoutRows.RoleLabel(_catalog, role), selected ? ["SELECTED"] : [], selected, true, selected ? UiKit.Glyph.Kind.Check : null) { Focused = () => ShowClassCard(r) };
+                var row = new UiKit.Row(RoleLabel(role), selected ? ["SELECTED"] : [], selected, true, selected ? UiKit.Glyph.Kind.Check : null) { Focused = () => ShowClassCard(r) };
                 row.Pressed += () => ChooseRole(r);
                 _list.AddChild(row);
                 rowButtons.Add(row);
@@ -513,7 +527,7 @@ public sealed partial class CreatorView : Control
         {
             var section = LoadoutRows.Equipment(_catalog, Role, _previewRace, OpenClass, _services.Policy);
             AddSection(section, rowButtons, Heading, Note);
-            if (!IsOrkOpen) Note("Combat stimulants are listed but not simulated yet: the server gives you the default grenade.");
+            // Combat stimulants are simulated since perks/inert-2 (SmSim/Stims.cs; Musou Mode too): the old "not simulated yet" note is gone. An item that is not simulated says so on its own row.
         }
         else if (_step == Step.Look && IsOrkOpen) AddOrkLooks(rowButtons, Heading, Note);
         else AddPerks(rowButtons, Heading, Note);
@@ -718,7 +732,7 @@ public sealed partial class CreatorView : Control
     void ShowClassCard(string role)
     {
         var options = LoadoutRows.Options(_catalog, role, _previewRace);
-        ShowTextCard(LoadoutRows.RoleLabel(_catalog, role), options?.Description ?? "", options is null ? "" : "Default: " + LoadoutRows.DefaultSummary(_catalog, role, _previewRace));
+        ShowTextCard(RoleLabel(role), options?.Description ?? "", options is null ? "" : "Default: " + LoadoutRows.DefaultSummary(_catalog, role, _previewRace));
     }
 
     void ShowItemCard(OptionSection section, OptionRow row)
@@ -841,7 +855,7 @@ public sealed partial class CreatorView : Control
 
     void RenameSlot()
     {
-        if (OpenClass is not { } c) return;
+        if (AddedPage || OpenClass is not { } c) return;   // an added page (Musou Mode's Librarian, Heretic) hides the slot: nothing to rename
         int slot = _open.Slot;
         UiKit.Dialog.Prompt(this, Host, "Rename loadout", $"Up to {LoadoutEdits.MaxNameLength} characters. Empty goes back to \"{LoadoutEdits.DefaultName(slot)}\".", c.Name, ["Rename", "Cancel"], (i, text) =>
         {
@@ -853,7 +867,7 @@ public sealed partial class CreatorView : Control
 
     void CopySlot()
     {
-        if (IsEmpty) return;
+        if (AddedPage || IsEmpty) return;
         int from = _open.Slot;
         bool fromDefaults = IsDefaults;
         string role = Role;
@@ -882,7 +896,7 @@ public sealed partial class CreatorView : Control
 
     void ResetSlot()
     {
-        if (OpenClass is null) return;
+        if (AddedPage || OpenClass is null) return;
         int slot = _open.Slot;
         UiKit.Dialog.Open(this, Host, "Reset this loadout?", "Weapons, equipment and perks go back to the class defaults. The name, class and look stay.", ["Reset", "Cancel"], i =>
         {
@@ -894,7 +908,7 @@ public sealed partial class CreatorView : Control
 
     void ClearSlot()
     {
-        if (OpenClass is not { } c) return;
+        if (AddedPage || OpenClass is not { } c) return;
         int slot = _open.Slot;
         UiKit.Dialog.Open(this, Host, "Clear this loadout?", $"\"{c.Name}\" in slot {slot} is removed.", ["Clear", "Cancel"], i =>
         {
@@ -944,6 +958,9 @@ public sealed partial class CreatorView : Control
 
     void OpenAppearance()
     {
+        bool handled = false;
+        ExtrasOpenAppearance(ref handled);   // EXTRAS-HOOK: an added page's own look (Musou Mode: the Librarian wears the active loadout's look)
+        if (handled) return;
         // The Ork Boy has no armour or colours (ui/customizer-ork): his look choice instead of the appearance editor.
         if (IsOrkOpen) { _step = Step.Look; Refresh(focusList: true); return; }
         if (OpenClass is null) { Say("Create a custom loadout first; the look belongs to a custom loadout."); return; }
@@ -970,7 +987,7 @@ public sealed partial class CreatorView : Control
         switch (key.PhysicalKeycode)
         {
             case Key.S when ctrl: Save(); break;
-            case Key.F2: RenameSlot(); break;
+            case Key.F2 when !AddedPage: RenameSlot(); break;   // an added page has no slot to rename: the key is not taken
             case Key.Pagedown: MoveStep(1); break;
             case Key.Pageup: MoveStep(-1); break;
             case Key.Tab when ctrl: MoveStep(key.ShiftPressed ? -1 : 1); break;
@@ -989,8 +1006,8 @@ public sealed partial class CreatorView : Control
             {
                 case JoyButton.LeftShoulder: MoveStep(-1); break;
                 case JoyButton.RightShoulder: MoveStep(1); break;
-                case JoyButton.X: CopySlot(); break;
-                case JoyButton.Y: RenameSlot(); break;
+                case JoyButton.X when !AddedPage: CopySlot(); break;   // copy and rename act on the open slot, which an added page hides
+                case JoyButton.Y when !AddedPage: RenameSlot(); break;
                 case JoyButton.Start: Save(); break;
                 default: return;
             }
@@ -1000,13 +1017,66 @@ public sealed partial class CreatorView : Control
 
     void MoveStep(int delta)
     {
-        if (IsEmpty) return;
+        if (IsEmpty && !AddedPage) return;   // an empty slot has only its class list; an added page has steps of its own whatever the hidden slot holds
         _step = (Step)(((int)_step + delta + StepCount) % StepCount);
         Refresh(focusList: false);
     }
 
     /// <summary>Focuses the first control (screens and tests).</summary>
     public void FocusList() => Refresh(true);
+
+    /// <summary>
+    /// An added page is drawn in this frame instead of the creator's own (Musou Mode's Librarian and Heretic): the open slot is hidden there, so the slot actions (rename, copy, reset, clear,
+    /// with their keys F2, pad Y and pad X) do nothing and leave the keys alone, and the step keys move through the page's own steps whatever the slot holds.
+    /// </summary>
+    bool AddedPage
+    {
+        get
+        {
+            bool own = false;
+            ExtrasOwnPage(ref own);   // EXTRAS-HOOK: Musou Mode's Librarian and Heretic pages
+            return own;
+        }
+    }
+
+    /// <summary>The class tab's and class row's label: both sides' class names ("Tactical Marine / Chaos Space Marine"), unless an added mode names its own.</summary>
+    string RoleLabel(string role)
+    {
+        string label = LoadoutRows.RoleLabel(_catalog, role);
+        ExtrasRoleLabel(role, ref label);   // EXTRAS-HOOK: Musou Mode's players are Space Marines: their class name alone
+        return label;
+    }
+
+    /// <summary>DEPLOY: the open loadout to the match (<see cref="Deploy"/>), unless an added page deploys something of its own.</summary>
+    void PressDeploy()
+    {
+        bool handled = false;
+        ExtrasDeploy(ref handled);   // EXTRAS-HOOK: Musou Mode's Librarian page: PLAY AS LIBRARIAN
+        if (!handled) Deploy?.Invoke(_open);
+    }
+
+    // ---- hooks for added content (docs/added-content.md; client/Extras/Musou/Customizer/CreatorView.Musou.cs). Each returns at once unless its content profile is on. ----
+
+    /// <summary>The top level in the header (<see cref="BuildSideToggle"/>, after the old buttons are gone): <paramref name="built"/> true when added content put its own buttons there instead of the factions.</summary>
+    partial void ExtrasTopLevel(ref bool built);
+
+    /// <summary>At the start of every refresh: <paramref name="handled"/> true when added content drew its own page (the creator's own refresh is then skipped).</summary>
+    partial void ExtrasRefresh(bool focusList, ref bool handled);
+
+    /// <summary>A class tab's or class row's label (<see cref="RoleLabel"/>).</summary>
+    partial void ExtrasRoleLabel(string role, ref string label);
+
+    /// <summary>Whether added content draws its own page now (<see cref="AddedPage"/>).</summary>
+    partial void ExtrasOwnPage(ref bool own);
+
+    /// <summary>The number of steps (the step buttons, PageUp/PageDown).</summary>
+    partial void ExtrasStepCount(ref int count);
+
+    /// <summary>APPEARANCE...: <paramref name="handled"/> true when added content opened a look of its own.</summary>
+    partial void ExtrasOpenAppearance(ref bool handled);
+
+    /// <summary>DEPLOY: <paramref name="handled"/> true when added content deployed instead.</summary>
+    partial void ExtrasDeploy(ref bool handled);
 }
 
 static class ControlExtensions

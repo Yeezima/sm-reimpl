@@ -712,6 +712,21 @@ public sealed class MusouMeks
         return best;
     }
 
+    /// <summary>
+    /// Whether a ray from <paramref name="origin"/> along <paramref name="direction"/> (unit) meets a built shield generator's body from outside that generator's dome: a projectile that will strike the
+    /// generator passes its dome's shell (the dome lets every attack through to its own generator; review 2026-11-09).
+    /// </summary>
+    public bool GeneratorOnRay(Vector3 origin, Vector3 direction)
+    {
+        foreach (var s in _structures)
+        {
+            if (s.Kind != MusouContraptionKind.ShieldGenerator || s.State != MusouContraptionState.Active) continue;
+            var (radius, height) = MusouMekRules.Body(s.Kind);
+            if (RayCylinder(origin, direction, s.Position, radius, height) is { } t && t <= 2f * MusouMekRules.ShieldRadius + radius) return true;
+        }
+        return false;
+    }
+
     /// <summary>Whether any built dome stands now (a quick skip for the shot hooks).</summary>
     public bool AnyDome
     {
@@ -735,7 +750,7 @@ public sealed class MusouMeks
         var m = new Vector2(o.X - foot.X, o.Y - foot.Y);
         var dd = new Vector2(d.X, d.Y);
         float a = Vector2.Dot(dd, dd), b = Vector2.Dot(m, dd), c = Vector2.Dot(m, m) - radius * radius;
-        if (c <= 0f && o.Z >= foot.Z && o.Z <= foot.Z + height) return 0f;   // starts inside
+        if (c <= 0f && o.Z >= foot.Z && o.Z <= foot.Z + height) return null;   // starts inside: not struck (a player standing in one does not set his own shot off at the muzzle)
         if (a > 1e-8f)
         {
             float disc = b * b - a * c;

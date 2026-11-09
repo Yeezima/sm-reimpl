@@ -74,7 +74,15 @@ public static class WarbossRig
         Idle = (["WB_Nav_Floor_Idle", "WB_Nav_Death_Idle"], "Idle"),
         Attack = (["WB_Att_Shove", "WB_Att_Ground_Pound"], "_Att_"),
         Stagger = (["WB_Att_Charge_wall_hit_exit", "WB_Get_Up"], "_REC_"),
-        Death = (["WB_REC_Explode"], "Death");
+        Death = (["WB_Get_Up"], "Get_Up"),
+        /// <summary>The death before 2026-11-09 (<c>--musou-old-big-orks</c>): the blast reaction, which stands him up again.</summary>
+        OldDeath = (["WB_REC_Explode"], "Death");
+
+    /// <summary>
+    /// The death clip is played backwards (musou-big-ork-deaths, the owner 2026-11-09: "the elite and boss orks and the warboss need to have death animations"; ours): the rig's only clip that ends with him
+    /// lying is the get-up, which starts on his back; run in reverse he drops to his knees and falls on his back, then lies at its first frame.
+    /// </summary>
+    public const bool DeathReversed = true;
 
     /// <summary>The rig as a profile: only the data sits here; no marine or Ork graph map fits it, so nothing may read those through this profile.</summary>
     public static readonly RigProfile Profile = new("warboss", Archive, Entry, BodyVisual);

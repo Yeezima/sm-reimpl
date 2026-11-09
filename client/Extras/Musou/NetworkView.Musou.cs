@@ -37,6 +37,9 @@ public partial class NetworkView
 
     bool MusouActive => _config is { } c && c.Extras.HasFlag(ContentExtras.Musou);
 
+    /// <summary>net/responsive: the interpolation delay's floor in Musou Mode (the 100 ms before the adaptive delay; its crowd's far records come every 5th tick).</summary>
+    static readonly System.TimeSpan MusouCrowdInterpolationFloor = System.TimeSpan.FromMilliseconds(100);
+
     /// <summary>The latest director the server sent (null: none yet, or not a Musou match).</summary>
     public MusouDirectorView? MusouDirector => _musouState.Director;
     /// <summary>The crowd state (test aids and the HUD of MU3).</summary>
@@ -46,7 +49,8 @@ public partial class NetworkView
     void MusouFrame(PlayerState me, IReadOnlyList<PlayerState> others, double delta, IReadOnlyList<ExtrasSection> sections)
     {
         if (!MusouActive || _client is not { } client) { if (_musouHud is not null) _musouHud.Visible = false; return; }
-        if (client.ExtrasSolids is null && _config is { } solidConfig) client.ExtrasSolids = new MusouSolidView(_musouState, solidConfig);   // musou/boss-collision: the big Orks are solid and lockable in the own prediction
+        if (client.ExtrasSolids is null && _config is { } solidConfig) client.ExtrasSolids = new MusouSolidView(_musouState, solidConfig);
+        client.InterpolationFloor ??= MusouCrowdInterpolationFloor;   // net/responsive: the crowd is drawn at the render tick; it keeps the 100 ms of before   // musou/boss-collision: the big Orks are solid and lockable in the own prediction
         MusouDeathSpikeStart();   // --musou-death-spike-test (NetworkView.MusouDeathSpike.cs)
         Ph("musou: state");   // musou/perf-pass: --frame-profile's Musou phases
         double now = Time.GetTicksUsec() / 1e6;
@@ -141,6 +145,7 @@ public partial class NetworkView
             if (!MusouCorpseRules.HandlesUnseenFar(CrowdView.OldCorpses) && metres > SmSim.Extras.Musou.Campaign.TfwArmyRules.CoreMetres && !ArmyFarBodies && _camera is { } eye
                 && !eye.IsPositionInFrustum(_gameSpace!.Transform * new Vector3(d.Position.X, d.Position.Y, d.Position.Z + 1f))) { _musouUnseenDeaths++; _musouGoreKillsUnseen[(int)MusouGoreSourceOf(d.Killer)]++; continue; }
             bool gibbed = MusouGoreRegister(d, camera, out bool burstDrawn);   // M10: a gibbed body leaves no corpse (its pieces instead); the corpse floor: only when its burst is drawn
+            if (MusouBigOrkRules.KeepsBody(d.Type, MusouCrowd.OldBigOrks)) gibbed = false;   // musou-big-ork-deaths (2026-11-09): an elite or boss is never torn apart; it falls with its death clip
             if (MusouGoreRules.Thrown(d.Cause)) MusouThrow(d, metres);   // a blast or barrage death always leaves a body, thrown through the gore's burst: a ragdoll near, else a tumbling body
             else if (MusouCorpseRules.LeavesBody(gibbed, burstDrawn, farUnseen: false, CrowdView.OldCorpses)) _musouCrowd!.AddBody(d, MusouDeathWaited(d.Id), keepSkeleton: !_musouOldDeaths);
             var at = new Vector3(d.Position.X, d.Position.Y, d.Position.Z + 1.1f);

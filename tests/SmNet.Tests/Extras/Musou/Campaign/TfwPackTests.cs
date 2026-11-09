@@ -101,7 +101,7 @@ public class TfwPackTests
                 Run(sim, [target], 30, ref tick);
                 var now = Shape(sim, ids);
                 trace += $" {s + 1}s {now.Along:F1}x{now.Across:F1}";
-                if (s >= 2 && s < 11) open = MathF.Max(open, now.Ratio);   // the open ground before the gap
+                if (s >= 2 && s < 9) open = MathF.Max(open, now.Ratio);   // the open ground before the gap (11 s before the Orks' 1.2x pace of 2026-11-09)
                 worst = MathF.Max(worst, now.Ratio);
                 if (s >= 2) least = MathF.Min(least, now.Across);
             }
@@ -202,14 +202,14 @@ public class TfwPackTests
     {
         Assert.Equal(2048, TfwBattleRules.CrowdPool);   // every spawner's pool; expansion S6 grew MusouSim's for the armies alone
         Assert.True(MusouSim.Capacity >= TfwBattleRules.CrowdPool + TfwArmyRules.NearOrksMost);
-        Assert.Equal(77, TfwBattleRules.Garrison);        // 96, 400, 1200, 1680 and 1600 until 2026-11-09 (80 % since: OrkArmyAggregateTests)
-        Assert.Equal(320, TfwBattleRules.CrowdSize);
-        Assert.Equal(960, TfwBattleRules.AliveCap(1));
-        Assert.Equal(1344, TfwBattleRules.AliveCap(4));
-        Assert.Equal(1280, TfwBattleRules.TrickleTotalMax);
+        Assert.Equal(96, TfwBattleRules.Garrison);        // 77, 320, 960, 1344 and 1280 on 2026-11-09 (80 %); back to 100 % since 2026-11-10 (OrkArmyAggregateTests)
+        Assert.Equal(400, TfwBattleRules.CrowdSize);
+        Assert.Equal(1200, TfwBattleRules.AliveCap(1));
+        Assert.Equal(1680, TfwBattleRules.AliveCap(4));
+        Assert.Equal(1600, TfwBattleRules.TrickleTotalMax);
         Assert.True(3 * TfwBattleRules.Garrison + TfwBattleRules.AliveCapMost + TfwBattleRules.PoolReserve <= TfwBattleRules.CrowdPool);
         Assert.True(TfwBattleRules.TrickleTotalMax <= TfwBattleRules.CrowdPool - 3 * TfwBattleRules.Garrison - TfwBattleRules.PoolReserve);
-        // A crowd still fills in about the same time: 320 at one every 5 ticks (400 at 4 before 2026-11-09).
+        // A crowd still fills in about the same time: 400 at one every 4 ticks (320 at 5 on 2026-11-09).
         Assert.InRange(TfwBattleRules.CrowdSize * TfwBattleRules.CrowdFillSeconds, 50f, 56f);
     }
 }

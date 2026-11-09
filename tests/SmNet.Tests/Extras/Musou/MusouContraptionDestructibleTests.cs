@@ -149,4 +149,54 @@ public class MusouContraptionDestructibleTests
         Assert.True(nearest >= MusouMekRules.Body(MusouContraptionKind.Turret).Radius - 0.2f, $"it never passed into the turret's body (nearest {nearest:F2} m) ");
         Assert.False(meks.TryGet(turret.Id, out _), "its blast against the turret destroyed it");
     }
+    /// <summary>The class's pistol slot as a projectile launcher (a straight dart at 30 m/s, 30 direct damage, bursting on contact).</summary>
+    static SimConfig Launcher()
+    {
+        var dart = new ProjectileSpec("ebps/test/dart", 30f, 0f, "raycast", 0f, [new(0f, 0f)], true, true, false, 0, 0f, 0f, 0, null,
+            new SplashSpec(1f, new DamageSpec(1f, 0f, 1f, 1f, 0f, 0f, false), [new(0f, 1f)], true, false, "target_all"));
+        var launcher = new WeaponSpec("test_launcher", WeaponSlot.Pistol, TriggerKind.SemiAuto, 30f, 0.2f, 10, 20, 0.6f, 150f, 150f, 150f, 1f, 1f, 1f, 0f, 0f)
+            { Delivery = DeliveryKind.Projectile, Projectile = dart };
+        var weapons = TfwRig.Config.Weapons.ToArray();
+        weapons[1] = launcher;
+        return TfwRig.Config with { Weapons = weapons };
+    }
+
+    [Fact]
+    public void A_projectile_fired_from_outside_the_dome_reaches_its_generator()
+    {
+        var (w, meks) = Battle(Launcher());
+        var shield = meks.PlaceBuilt(3, MusouContraptionKind.ShieldGenerator, Spot)!.Value;
+        const float range = 16f;   // 6 m outside the 10 m dome
+        Assert.True(w.TfwRespawnAt(Human, Spot + new Vector3(0f, -range, 0f), 0f));
+        w.Step(pid => new PlayerInput(w.Tick, 0f, 0f, 0f, InputButtons.None));
+        float pitch = -MathF.Atan2(w.Config.EyeHeight - MusouMekRules.Body(MusouContraptionKind.ShieldGenerator).Height * 0.5f, range);
+        bool destroyed = false;
+        for (int k = 0; k < 6 * Rate && !destroyed; k++)
+        {
+            var trigger = k % 8 == 0 ? InputButtons.Fire : InputButtons.None;
+            w.Step(pid => new PlayerInput(w.Tick, 0f, 0f, 0f, pid == Human ? trigger : InputButtons.None, Pitch: pitch));
+            destroyed = Cues(w, MusouMekRules.DestroyedCue).Any(e => e.Player == shield.Id);
+        }
+        Assert.True(destroyed, "the darts passed the dome's shell and destroyed its generator");
+        AssertInactive(w, meks, MusouContraptionKind.ShieldGenerator, shield.Id);
+    }
+
+    [Fact]
+    public void A_projectile_fired_from_inside_a_contraptions_body_does_not_go_off_at_the_muzzle()
+    {
+        var (w, meks) = Battle(Launcher());
+        var beacon = meks.PlaceBuilt(0, MusouContraptionKind.Beacon, Spot)!.Value;
+        Assert.Equal(0, meks.Raycast(Spot + new Vector3(0.1f, 0f, 1.5f), Vector3.UnitY, 50f, out _));   // a ray starting inside a body does not strike it
+        Assert.True(w.TfwRespawnAt(Human, Spot, 0f));   // standing in the beacon's cylinder
+        w.Step(pid => new PlayerInput(w.Tick, 0f, 0f, 0f, InputButtons.None));
+        float farthest = 0f;
+        for (int k = 0; k < Rate; k++)
+        {
+            var trigger = k == 0 ? InputButtons.Fire : InputButtons.None;
+            w.Step(pid => new PlayerInput(w.Tick, 0f, 0f, 0f, pid == Human ? trigger : InputButtons.None));
+            foreach (var p in w.Projectiles.Where(p => p.Owner == Human)) farthest = MathF.Max(farthest, Vector3.Distance(p.Position, Spot));
+        }
+        Assert.True(farthest > 5f, $"the dart flew on (farthest {farthest:F1} m)");
+        Assert.True(meks.TryGet(beacon.Id, out var after) && after.Health == MusouMekRules.BeaconHealth, "the beacon he stands in is not struck");
+    }
 }

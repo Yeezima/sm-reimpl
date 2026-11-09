@@ -312,7 +312,9 @@ var server = new GameServer(config, fingerprint, transport, clock, new ServerOpt
     BotDamageScale = cli.BotDamageScale,   // test aid (fix/hitboxes-grenades-bots)
     NameSeed = cli.NameSeed,               // names/bot-lore
     MaxSpectators = cli.MaxSpectators,     // protocol 46 (observer tooling)
+    SnapshotRate = cli.SnapshotRate ?? new ServerOptions().SnapshotRate,   // net/responsive: 30 Hz (--snapshot-rate 20: before)
 }, map: map);
+Console.WriteLine($"snapshots: {server.SnapshotRate} a second{(cli.SnapshotRate is null ? "" : " (--snapshot-rate)")}");
 server.Log += line => Console.WriteLine("note: " + line);
 if (contentExtras.HasFlag(ContentExtras.Musou)) Console.WriteLine($"musou: co-op, at most {server.PlayerCap} players on one side against the Orks");   // the owner, 2026-11-06
 Console.WriteLine($"names: test bots are named from per-race pools (ours), seed {server.NameSeed}{(cli.NameSeed is null ? " (random; --name-seed fixes it)" : " (--name-seed)")}; other players show as P<id>");

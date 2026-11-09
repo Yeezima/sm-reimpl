@@ -92,8 +92,12 @@ public static class MusouVat
         int rowsPerFrame = (vertices + Width - 1) / Width;
         var rows = new ClipRows[clips.Length];
         int frames = 0;
+        var same = new int[clips.Length];   // a clip filling two slots (the sprint falling back to the run, 2026-11-09) is baked once: its rows shared
         for (int c = 0; c < clips.Length; c++)
         {
+            same[c] = -1;
+            for (int e = 0; e < c && clips[c] is not null; e++) if (ReferenceEquals(clips[e], clips[c]) && loops(e) == loops(c)) { same[c] = e; break; }
+            if (same[c] >= 0) { rows[c] = rows[same[c]]; continue; }
             float duration = clips[c]?.Animation.Duration ?? 0f;
             int n = Math.Max(2, (int)MathF.Ceiling(duration * Fps));
             rows[c] = new ClipRows(frames, n, MathF.Max(duration, 1e-3f), loops(c));
@@ -111,6 +115,7 @@ public static class MusouVat
         for (int s = 0; s < surfaces.Length; s++) skinning[s] = new Transform3D[bindBones[s].Length];
         for (int c = 0; c < clips.Length; c++)
         {
+            if (same[c] >= 0) continue;
             var clip = clips[c];
             var r = rows[c];
             for (int f = 0; f < r.Frames; f++)

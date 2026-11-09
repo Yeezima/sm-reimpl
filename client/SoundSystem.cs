@@ -122,6 +122,157 @@ public partial class SoundSystem : Node
     /// <summary>Test aid: called with a line for every voice an instance limit kills or drops (<c>--log-sound footstep</c>).</summary>
     public Action<string>? LimitLog { get; set; }
 
+    // ---- musou/sound-ab (test aid, owner 2026-11-10): A/B switches the Musou hook sets (NetworkView.MusouSoundAb.cs, Musou Mode only); every default is the behaviour as it was. ----
+
+    /// <summary>The data's Set/Reset actions aimed at a bus (the explosions' "deafening" low-pass and volume cuts on every sound) are dropped. False: as before.</summary>
+    public bool IgnoreBusActions { get; set; }
+    /// <summary>No low-pass is rendered (every voice on the unfiltered buses). False: as before.</summary>
+    public bool NoLowPass { get; set; }
+    /// <summary>The on-hit high-pass buses are not used (hits play on the plain buses). False: as before.</summary>
+    public bool NoHitFilter { get; set; }
+    /// <summary>The data's instance limits are not applied to any post. False: as before.</summary>
+    public bool NoInstanceLimits { get; set; }
+    /// <summary>The voice cap (positioned, flat) at which a new voice steals one. Default: <see cref="Max3D"/>, <see cref="Max2D"/>.</summary>
+    public int Cap3D { get; set; } = Max3D;
+    public int Cap2D { get; set; } = Max2D;
+    /// <summary>Test aid: called with a line for each bus Set/Reset action, voice steal and instance-limit kill (<c>--log-sound mixab</c>).</summary>
+    public Action<string>? MixLog { get; set; }
+    /// <summary>Bus Set/Reset actions applied and dropped (<see cref="IgnoreBusActions"/>).</summary>
+    public int BusActions, BusActionsDropped;
+    /// <summary>Test aid (<c>--log-sound mixab</c>): the stolen voices are tallied for <see cref="MixLine"/> (by event, loud ones, cut young).</summary>
+    public bool MixStats { get; set; }
+    readonly Dictionary<string, int> _stolen = new();
+    int _stolenLoud, _stolenLoudYoung;
+    bool _limitersBypassed;
+    readonly Dictionary<uint, bool> _isBus = new();
+
+    /// <summary>Whether a Set/Reset target is a bus (every sound routed through it, not the event's own sound).</summary>
+    bool IsBus(uint target)
+    {
+        if (_catalog is null) return false;
+        if (!_isBus.TryGetValue(target, out bool bus)) _isBus[target] = bus = _catalog.Library.Find(target)?.Type == SmFormats.Audio.HircType.Bus;
+        return bus;
+    }
+
+    /// <summary>Bypasses (true) or restores the hard limiters on <see cref="BusName"/> and Master (musou/sound-ab). The buses outlive this node, so <see cref="_ExitTree"/> restores them.</summary>
+    public void SetLimitersBypassed(bool bypass)
+    {
+        if (bypass == _limitersBypassed) return;
+        _limitersBypassed = bypass;
+        foreach (int bus in new[] { AudioServer.GetBusIndex(BusName), 0 })
+            if (bus >= 0)
+                for (int i = 0; i < AudioServer.GetBusEffectCount(bus); i++)
+                    if (AudioServer.GetBusEffect(bus, i) is AudioEffectHardLimiter) AudioServer.SetBusEffectEnabled(bus, i, !bypass);
+    }
+
+    public override void _ExitTree()
+    {
+        SetLimitersBypassed(false);
+        RemoveMeters();
+    }
+
+    // ---- musou/sound-ab measurement (test aid): taps before the limiters measure the peaks they would cut ----
+
+    sealed class Meter
+    {
+        public required string Bus;
+        public required AudioEffectCapture Tap;
+        public float Ceiling;
+        public float PeakDb = -200f, MaxReduction;
+        public long Frames, Over, Over3;
+    }
+    readonly List<Meter> _meters = new();
+
+    /// <summary>Puts a capture tap just before the hard limiter of <see cref="BusName"/> and of Master (or last when none), so <see cref="MeterLine"/> can say how far the mix goes over each ceiling.</summary>
+    public void AddMeters()
+    {
+        if (_meters.Count > 0) return;
+        foreach (var (name, fallback) in new[] { (BusName, -0.5f), ("Master", SoundMixPass.MasterCeilingDb) })
+        {
+            float ceiling = fallback;
+            int bus = AudioServer.GetBusIndex(name);
+            if (bus < 0) continue;
+            int at = AudioServer.GetBusEffectCount(bus);
+            for (int i = 0; i < AudioServer.GetBusEffectCount(bus); i++)
+                if (AudioServer.GetBusEffect(bus, i) is AudioEffectHardLimiter limiter) { at = i; ceiling = limiter.CeilingDb; break; }
+            var tap = new AudioEffectCapture { BufferLength = 1f };
+            AudioServer.AddBusEffect(bus, tap, at);
+            _meters.Add(new Meter { Bus = name, Tap = tap, Ceiling = ceiling });
+        }
+    }
+
+    void RemoveMeters()
+    {
+        foreach (var m in _meters)
+        {
+            int bus = AudioServer.GetBusIndex(m.Bus);
+            if (bus < 0) continue;
+            for (int i = AudioServer.GetBusEffectCount(bus) - 1; i >= 0; i--)
+                if (AudioServer.GetBusEffect(bus, i) == m.Tap) AudioServer.RemoveBusEffect(bus, i);
+        }
+        _meters.Clear();
+    }
+
+    void ReadMeters()
+    {
+        foreach (var m in _meters)
+        {
+            int n = m.Tap.GetFramesAvailable();
+            if (n <= 0) continue;
+            var frames = m.Tap.GetBuffer(n);
+            foreach (var f in frames)
+            {
+                float peak = MathF.Max(MathF.Abs(f.X), MathF.Abs(f.Y));
+                float db = peak > 1e-9f ? 20f * MathF.Log10(peak) : -200f;
+                m.Frames++;
+                if (db > m.PeakDb) m.PeakDb = db;
+                float over = db - m.Ceiling;
+                if (over > 0f) { m.Over++; if (over > 3f) m.Over3++; if (over > m.MaxReduction) m.MaxReduction = over; }
+            }
+        }
+    }
+
+    /// <summary>
+    /// The window since the last call, per tapped bus: the peak before the limiter (dBFS), the most the limiter had to take off (dB: the peak over its ceiling; a hard limiter takes
+    /// that much at once and lets go over its release), and the share of samples over the ceiling and over it by more than 3 dB. Resets the window.
+    /// </summary>
+    public string MeterLine()
+    {
+        if (_meters.Count == 0) return "meters off";
+        var parts = new List<string>();
+        foreach (var m in _meters)
+        {
+            parts.Add($"{m.Bus} peak {m.PeakDb:0.0} dBFS limiter {(m.MaxReduction > 0f ? $"-{m.MaxReduction:0.0}" : "0")} dB over {100.0 * m.Over / Math.Max(1, m.Frames):0.0}% over3 {100.0 * m.Over3 / Math.Max(1, m.Frames):0.0}%");
+            m.PeakDb = -200f; m.MaxReduction = 0f; m.Frames = m.Over = m.Over3 = 0;
+        }
+        return string.Join("; ", parts) + (_limitersBypassed ? " (limiters bypassed)" : "");
+    }
+
+    /// <summary>
+    /// The mix now (musou/sound-ab log): voices playing (positioned, flat, of the caps), on a low-pass bus (and the highest level), on the hit buses; the live bus Set/Reset changes
+    /// (target, property, value x weight); and the playing voices by source (group, else the emitter's label without digits) with their summed level (dB, voices' own levels added as amplitudes).
+    /// </summary>
+    public string MixLine()
+    {
+        int p3 = 0, p2 = 0, filtered = 0, top = 0, hit = 0;
+        var bySource = new Dictionary<string, (int Voices, double Amp)>();
+        foreach (var a in _active)
+        {
+            if (a.Player is null) continue;
+            if (a.Voice.Is3D) p3++; else p2++;
+            if (a.LpfLevel > 0) { filtered++; top = Math.Max(top, a.LpfLevel); }
+            if (a.Offset.HighPass && !NoHitFilter) hit++;
+            string source = a.Emitter.Group ?? new string(a.Emitter.Label.Where(ch => !char.IsDigit(ch)).ToArray()).Trim();
+            var (v, amp) = bySource.GetValueOrDefault(source);
+            bySource[source] = (v + 1, amp + Math.Pow(10, a.Effective / 20.0));
+        }
+        var live = _mods.Live(_now).Where(e => IsBus(e.Target)).Select(e => $"{e.Target:x8} {e.Property} {e.Value:0.#}x{e.Weight:0.00}");
+        string sources = string.Join(", ", bySource.OrderByDescending(kv => kv.Value.Amp).Take(6).Select(kv => $"{kv.Key} {kv.Value.Voices} ({20 * Math.Log10(Math.Max(1e-9, kv.Value.Amp)):0} dB)"));
+        string stolen = $"stolen loud (>= -20 dB) {_stolenLoud} (cut under 0.3 s old {_stolenLoudYoung}), top stolen: {(_stolen.Count == 0 ? "none" : string.Join(", ", _stolen.OrderByDescending(kv => kv.Value).Take(4).Select(kv => $"{kv.Key} {kv.Value}")))}";
+        _stolen.Clear(); _stolenLoud = _stolenLoudYoung = 0;
+        return $"voices {p3}/{Cap3D}+{p2}/{Cap2D} virtual {_active.Count - p3 - p2}, low-passed {filtered} (top level {top} = {CutoffHz(top * LpfStep):0} Hz), hit-filtered {hit}; bus changes live: {(live.Any() ? string.Join(", ", live) : "none")}; by source: {sources}; {stolen}";
+    }
+
     /// <summary>One filter bus per this many LPF units (0 = no filter, the bus <see cref="BusName"/>): 20 buses; ours.</summary>
     public const float LpfStep = 5f;
     public const int LpfBuses = 20;
@@ -172,7 +323,7 @@ public partial class SoundSystem : Node
     readonly List<(uint Target, SoundEmitter Emitter, double Due)> _stops = new();
     readonly HashSet<SoundEmitter> _oneShots = new();
     readonly SoundModifiers _mods = new();
-    readonly List<(double Due, SoundPropertyAction Action, ulong Emitter)> _properties = new();
+    readonly List<(double Due, SoundPropertyAction Action, ulong Emitter, string Event)> _properties = new();
     /// <summary>Emitter → time its current character voice ends: a new bark before then is dropped (the speech containers allow one instance).</summary>
     readonly Dictionary<ulong, double> _speechUntil = new();
     double _pruneAt;
@@ -442,7 +593,11 @@ public partial class SoundSystem : Node
         UnsupportedActions += play.UnsupportedActions;
         MissingMedia += play.MissingMedia;
         if (!emitter.ProtectGun) foreach (var (target, delay) in play.Stops) _stops.Add((target, emitter, _now + extraDelay + delay));   // musou/audio-pass: the own gun's layers are never cut by a Stop action
-        foreach (var a in play.Properties) _properties.Add((_now + extraDelay + a.Delay, a, emitter.Id));
+        foreach (var a in play.Properties)
+        {
+            if (IgnoreBusActions && IsBus(a.Target)) { BusActionsDropped++; MixLog?.Invoke($"DUCK t {_now:F3} dropped {evt} '{emitter.Label}': {(a.Reset ? "Reset" : "Set")}{a.Property} bus {a.Target:x8}"); continue; }   // musou/sound-ab: duck off
+            _properties.Add((_now + extraDelay + a.Delay, a, emitter.Id, evt));
+        }
         SwitchActions += play.SwitchSets.Count;
         ApplyStops();   // stops due now act before this event's own voices start
         foreach (var voice in play.Voices)
@@ -509,11 +664,16 @@ public partial class SoundSystem : Node
     {
         for (int i = 0; i < _properties.Count; i++)
         {
-            var (due, action, emitter) = _properties[i];
+            var (due, action, emitter, evt) = _properties[i];
             if (due > _now + 1e-6) continue;
             _properties.RemoveAt(i--);
             _mods.Apply(action, emitter, due);                 // a late frame does not shorten a fade
             PropertyActions++;
+            if (IsBus(action.Target))
+            {
+                BusActions++;
+                MixLog?.Invoke($"DUCK t {_now:F3} {evt}: {(action.Reset ? "Reset" : "Set")}{action.Property} bus {action.Target:x8}{(action.Reset ? "" : $" {action.Value:0.#}{(action.Offset ? " (offset)" : "")}")} fade {action.Fade:0.##} s{(action.EmitterScope ? " (emitter)" : "")}");
+            }
         }
     }
 
@@ -550,6 +710,7 @@ public partial class SoundSystem : Node
         }
         ApplyStops();
         ApplyProperties();
+        if (_meters.Count > 0) ReadMeters();   // musou/sound-ab: --log-sound mixab
         if (_now >= _pruneAt)
         {
             _pruneAt = _now + 1.0;
@@ -610,7 +771,7 @@ public partial class SoundSystem : Node
             return;
         }
         // Only a voice that will really start takes part in the instance limits (an inaudible one must not evict an audible one).
-        if (p.Limited && !ApplyInstanceLimits(a)) { FreeSpeech(p.Event, p.Emitter); return; }
+        if (p.Limited && !NoInstanceLimits && !ApplyInstanceLimits(a)) { FreeSpeech(p.Event, p.Emitter); return; }   // musou/sound-ab: instlimit off
         if (!Acquire(a))
         {
             if (v.LoopCount == 0) { _active.Add(a); Virtual++; } else { Culled++; FreeSpeech(p.Event, p.Emitter); }
@@ -654,6 +815,7 @@ public partial class SoundSystem : Node
                 victim.FadeUntil = _now + KillFade;
                 LimitKills++;
                 LimitLog?.Invoke($"LIMIT t {_now:F3} {a.Emitter.Label}: {decision.Reason}: wem {victim.Voice.WemId} (post {victim.PostId}, {_now - victim.Started:F2}s old) fades out; new wem {a.Voice.WemId} (post {a.PostId})");
+                MixLog?.Invoke($"LIMIT t {_now:F3} kill {victim.Event} '{victim.Emitter.Label}' {_now - victim.Started:F2}s old for {a.Event}");
             }
         // The killed instances' delayed voices (not started yet) are cancelled too.
         foreach (var (post, node) in decision.Instances)
@@ -662,6 +824,7 @@ public partial class SoundSystem : Node
         {
             LimitDrops++;
             LimitLog?.Invoke($"LIMIT t {_now:F3} {a.Emitter.Label}: {decision.Reason}: wem {a.Voice.WemId} (post {a.PostId})");
+            MixLog?.Invoke($"LIMIT t {_now:F3} drop {a.Event} '{a.Emitter.Label}'");
             return false;
         }
         return true;
@@ -671,7 +834,7 @@ public partial class SoundSystem : Node
     bool Acquire(Active a, bool revive = false)
     {
         bool positioned = a.Voice.Is3D;
-        if (_active.Count(x => x.Player is not null && x.Voice.Is3D == positioned) >= (positioned ? Max3D : Max2D))
+        if (_active.Count(x => x.Player is not null && x.Voice.Is3D == positioned) >= (positioned ? Cap3D : Cap2D))   // musou/sound-ab: steal off lifts the cap
         {
             // A crowd's voice (SoundEmitter.Group) takes a player only from its own crowd: it never cuts a player's sounds.
             var victim = _active.Where(x => x.Player is not null && x.Voice.Is3D == positioned && !Unstealable(x) && (a.Emitter.Group is null || x.Emitter.Group == a.Emitter.Group))
@@ -680,6 +843,12 @@ public partial class SoundSystem : Node
             // A waiting loop takes over only from a voice at least 6 dB quieter than it would be (no swapping back and forth).
             if (revive && (victim.Voice.Priority == a.Voice.Priority && victim.Effective > EffectiveNow(a) - 6f)) return false;
             Steals++;
+            if (MixStats)
+            {
+                _stolen[victim.Event] = _stolen.GetValueOrDefault(victim.Event) + 1;
+                if (victim.Effective >= -20f) { _stolenLoud++; if (_now - victim.Started < 0.3) _stolenLoudYoung++; }
+            }
+            MixLog?.Invoke($"STEAL t {_now:F3} {(victim.Voice.LoopCount == 0 ? "demote loop" : "cut")} {victim.Event} '{victim.Emitter.Label}' {_now - victim.Started:F2}s old at {victim.Effective:0} dB for {a.Event} '{a.Emitter.Label}'");
             if (victim.Voice.LoopCount == 0) Demote(victim); else Release(victim);
         }
         if (positioned)
@@ -759,7 +928,7 @@ public partial class SoundSystem : Node
         a.Effective = db;
         float clamped = Math.Clamp(db, -80f, 24f);
         float pitch = Math.Clamp(mix.PitchScale, 0.05f, 16f);
-        int level = Math.Clamp((int)MathF.Round(mix.Lpf / LpfStep), 0, LpfBuses);
+        int level = NoLowPass ? 0 : Math.Clamp((int)MathF.Round(mix.Lpf / LpfStep), 0, LpfBuses);   // musou/sound-ab: lowpass off
         bool pitchChanged = MathF.Abs(pitch - a.AppliedPitch) > 1e-3f, busChanged = level != a.LpfLevel;
         if (pitchChanged) a.AppliedPitch = pitch;
         if (busChanged)
@@ -768,7 +937,7 @@ public partial class SoundSystem : Node
             else FilterChanges++;
             a.LpfLevel = level;
         }
-        StringName? bus = busChanged ? new StringName(BusOf(a, level)) : null;
+        StringName? bus = busChanged ? new StringName(BusOf(a, level, NoHitFilter)) : null;
         if (a.Player is AudioStreamPlayer3D q)
         {
             q.VolumeDb = clamped;
@@ -792,10 +961,10 @@ public partial class SoundSystem : Node
     static bool FullVoice(Active a) => a.Emitter.ProtectSpeech && IsSpeech(a.Event);
 
     /// <summary>The bus of a voice at a low-pass level: the protected voices' own (only when asked for), else as before.</summary>
-    static string BusOf(Active a, int level)
+    static string BusOf(Active a, int level, bool noHitFilter)
     {
         if (FullVoice(a) && level == 0) return VoiceBusName;
-        return a.Offset.HighPass ? HitBusOf(level) : level == 0 ? BusName : LpfBusName(level);
+        return a.Offset.HighPass && !noHitFilter ? HitBusOf(level) : level == 0 ? BusName : LpfBusName(level);   // musou/sound-ab: hitfilter off
     }
 
     void UpdateActive(float delta)

@@ -357,6 +357,7 @@ public partial class NetworkView
         FxShot(_client!.PlayerId, weapon, w, index, stage, endG, hit, surface, normalG, dirG, Combat.EyePosition(me, _config!), own: true, victim, ArmourUpForHit(hit, victim, own: true, OwnHitArmoured(victim)),   // protocol 22: the last hit report on this victim
                hitScan ? ToGodot(start) : null, hitScan ? dirG : null);
         ExtrasOwnShotContact(me, weapon, start, dir, end);   // EXTRAS-HOOK: the contact on an added mode's enemy (Musou Mode: the flesh impact and the hit sound on the shot frame)
+        if (hitScan) PredictOwnHit(me, weapon, victim, hit);   // net/responsive: the hit marker and confirmation on the shot frame (NetworkView.Responsive.cs)
     }
 
     /// <summary>An added mode's own enemies on the own shot's ray: <paramref name="distance"/> shortened to the nearest one before it, <paramref name="enemy"/> set (Musou Mode, combat feel 2026-11-09).</summary>
@@ -669,7 +670,12 @@ public partial class NetworkView
                 var e = _fx!.Play(p.Name, position, AxesFromY(Vector3.Down), p.Scale <= 0f ? 1f : p.Scale, null,
                     () => _fxProjectilePos.TryGetValue(id, out var pos) ? (pos, AxesFromY(_fxProjectileDir.TryGetValue(id, out var d) ? -d : Vector3.Down)) : null,
                     p.Lifetime > 0f ? p.Lifetime : 8f, 0.0, false, 1, tint: RaceTint(ProjectileWargear(q), p.Name));
-                if (e is not null) { e.StopOnLost = true; _fxTrails++; if (IsPlasmaShot(q.Weapon, q.Thrown) && !ProjectileWargear(q).Contains("cannon", StringComparison.OrdinalIgnoreCase) && !OldTrailSlab) e.SoftHead = true; }   // fix/plasma-trail-slab
+                if (e is not null)
+                {
+                    e.StopOnLost = true; _fxTrails++;
+                    if (IsPlasmaShot(q.Weapon, q.Thrown) && !ProjectileWargear(q).Contains("cannon", StringComparison.OrdinalIgnoreCase) && !OldTrailSlab && OldPlasmaLook) e.SoftHead = true;   // fix/plasma-trail-slab (old look)
+                    if (!q.Thrown && PlasmaOriginalLook.WidthAlongTrail(ProjectileWargear(q), OriginalPlasmaLook)) { e.WidthAlongTrail = true; _plasmaOriginalTrails++; }   // plasma-original-fx
+                }
             }
             if (_fxTrailed.Count > 4096) _fxTrailed.Clear();
         }
@@ -870,7 +876,7 @@ public partial class NetworkView
         _fxLogAt = _connectedFor;
         GD.Print($"t {_connectedFor:F0} s: effects: update avg {_fx.CostSum / _fx.CostFrames:F2} ms, max {_fx.CostMax:F2} ms over {_fx.CostFrames} frames; live {_fx.Live}, quads {_fx.LastQuads} ({_fx.AdditiveQuads} additive, {_fx.AlphaQuads} alpha, dropped {_fx.DroppedTotal}), lights {_fx.LastLights}, decals {_fx.LiveDecals}; " +
                  $"quads a frame avg {(double)_fx.QuadSum / _fx.CostFrames:F0} ({(double)_fx.AlphaQuadSum / _fx.CostFrames:F0} alpha), max {_fx.QuadMax}, smoke {(FxPlayer.ShowSmoke ? "on" : "off")}; " +
-                 $"own shots {_fxOwnShots}, remote shots {_fxRemoteShots}, tracers {_fxTracers} ({BulletStats()}; {BarrelStats()}), impacts {_fxImpacts} (on players {_fxBodyImpacts}), detonations {_fxDetonations}, trails {_fxTrails}; {JumpFxLog()}; {MeleeFxLog()}; {PlasmaFxLog()}; spawned {_fx.Spawned}, culled {_fx.Culled}, off-screen skips {_fx.OffScreenSkips}; " +
+                 $"own shots {_fxOwnShots}, remote shots {_fxRemoteShots}, tracers {_fxTracers} ({BulletStats()}; {BarrelStats()}), impacts {_fxImpacts} (on players {_fxBodyImpacts}), detonations {_fxDetonations}, trails {_fxTrails}; {JumpFxLog()}; {MeleeFxLog()}; {PlasmaFxLog()}; {PlasmaLookLog()}; {LightBallLog()}; spawned {_fx.Spawned}, culled {_fx.Culled}, off-screen skips {_fx.OffScreenSkips}; " +
                  (_fx.Missing.Count > 0 ? $"missing: {string.Join(", ", _fx.Missing.Take(6))}" : "nothing missing"));
         _fx.CostSum = 0; _fx.CostMax = 0; _fx.CostFrames = 0; _fx.QuadSum = 0; _fx.AlphaQuadSum = 0; _fx.QuadMax = 0;
         if (_fx.ExtraStats is { Length: > 0 } gpu) GD.Print($"t {_connectedFor:F0} s: effects gpu: {gpu}");   // musou/gpu-particles: the GPU sprays' counts

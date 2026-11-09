@@ -312,7 +312,7 @@ public sealed partial class World
         }
         float stop = float.PositiveInfinity;
         ExtrasProjectileStop(p, direction, MathF.Min(best, length), ref stop);   // EXTRAS-HOOK added content (Musou Mode): a shield dome or a contraption stops it
-        if (stop <= length && stop < best)
+        if (stop <= length && stop <= best)   // a tie with a player: the contraption (already struck by the hook) stops it
         {
             var at = p.Position + direction * MathF.Max(0f, stop - 0.05f);
             _projectiles[i] = p with { Velocity = velocity, Position = at, Travelled = p.Travelled + stop };

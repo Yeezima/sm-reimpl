@@ -190,7 +190,7 @@ public sealed partial class Hud
         float hf = Math.Clamp(d.Health / MathF.Max(d.HealthMax, 1f), 0f, 1f);
         float sf = Math.Clamp(d.Shield / MathF.Max(d.ShieldMax, 1f), 0f, 1f);
         // The movie's own place (463.05, 65.75, 0.9 turned upside down: its y axis is flipped, as its band's) is the footage's: cyan lines 434 to 814 and 78 to 114 of the 1280 x 720 stage.
-        var xf = Stage(vs, 0) * ToXf(unified.ToStage);
+        var xf = VitalsPlace(vs) * Stage(vs, 0) * ToXf(unified.ToStage);
         int hframe = VitalsRules.HealthFrame(hf, d.Alive);
         // Iron Halo: the cyan ironhalo_mc with its starburst; everyone else: the movie's own plain clip lightdamagebar_mc in its own colours (ui/hud-bar-colours).
         int aframe = halo ? VitalsRules.ArmourFrame(sf, d.Alive) : VitalsRules.PlainArmourFrame(sf, d.Alive);
@@ -201,6 +201,8 @@ public sealed partial class Hud
         var bg = _movieArt.Get("vit:bg", (m, s) => m.Hud?.RenderAt($"{Vitals}/background_mc", Vitals, s));
         string armKey = $"vit:a{v}:{aframe}";
         var arm = armourEmpty ? null : _movieArt.Get(armKey, (m, s) => m.Hud?.RenderAt(armourPath, Vitals, s, aframe, halo ? null : PlainArmourFrameOf), "vit:a", 24);
+        VitalsDrawnFor = (halo, d.Shield, d.Health);
+        VitalsArmourCurrent = armourEmpty || arm is not null;
         // A frame's picture is rendered in the background the first time it is asked for: until it is ready the layer keeps the last picture it drew (same variant only; held so that the
         // group's eviction never frees it), so the bar never blanks while the armour or health moves through new frames (regen, damage). A freed picture is never drawn.
         if (arm is not null) { _lastArm = arm; _lastArmVariant = v; _movieArt.Hold("vit:a", armKey); }
@@ -216,6 +218,7 @@ public sealed partial class Hud
             try { return m.Hud?.Render(health.Placement.Character, hframe, s, healthLocal, null, colour: halo ? HealthTint : PlainHealthTint, add: health.Placement.Blend == 8); }
             finally { GfxRaster.Hidden = null; GfxRaster.Swap = null; }
         }, "vit:h", 24);
+        VitalsHealthCurrent = hp is not null;
         if (hp is not null) { _lastHp = hp; _lastHpVariant = v; _movieArt.Hold("vit:h", hpKey); }
         else if (_lastHpVariant == v && Usable(_lastHp)) hp = _lastHp;
         if (bg is not null) DrawAtom(bg, xf, White, false);
@@ -229,8 +232,30 @@ public sealed partial class Hud
         return true;
     }
 
+    /// <summary>The bar's box on the 1280 x 720 stage (the medallion's left tip to the band's right end, the lines' top to the band's bottom, with a small margin).</summary>
+    static readonly Rect2 VitalsStageBox = new(425f, 75f, 395f, 40f);
+
+    /// <summary>
+    /// Identity for the original's place; with <see cref="Frame.VitalsCorner"/> (added content: Musou's corner layout) the move and scale that put the bar's box at that corner,
+    /// its left edge at X and its bottom edge Y above the screen's bottom.
+    /// </summary>
+    Transform2D VitalsPlace(Vector2 vs)
+    {
+        if (Data.VitalsCorner is not { } c || c.Z <= 0f) return Transform2D.Identity;
+        var corner = Stage(vs, 0) * new Vector2(VitalsStageBox.Position.X, VitalsStageBox.End.Y);   // the box's left bottom corner in virtual units
+        return new Transform2D(0f, new Vector2(c.Z, c.Z), 0f, new Vector2(c.X, vs.Y - c.Y)) * new Transform2D(0f, -corner);
+    }
+
     HudMovieArt.Pic? _lastArm, _lastHp;
     string? _lastArmVariant, _lastHpVariant;
+
+    /// <summary>
+    /// ui-selftest: the state (Iron Halo, armour, health) the last movie bar was drawn for, and whether its armour and health layers were that state's own pictures: false while one is
+    /// still rendered in the background and the kept picture of an earlier frame stands in (or nothing, after a change of kind). The colour shares above describe the picture drawn.
+    /// </summary>
+    public (bool Halo, float Shield, float Health) VitalsDrawnFor { get; private set; } = (false, float.NaN, float.NaN);
+    public bool VitalsArmourCurrent { get; private set; }
+    public bool VitalsHealthCurrent { get; private set; }
 
     static bool Usable(HudMovieArt.Pic? p) => p is not null && GodotObject.IsInstanceValid(p.Normal) && (p.Add is null || GodotObject.IsInstanceValid(p.Add));
 

@@ -820,7 +820,7 @@ Measured on the final collision of either layout: a 0.5 m grid of the walking ba
 - Level: 8,904 parts, **106,812 collision triangles** (draft 10: 221,012), 234 props (draft 10: 597), 60 kept stairs (57 with a carved corridor; the fortress's pieces keep none, as in draft 10), 24 shooting platforms (draft 10: 48), built in about 10 s (draft 10 about 9 s).
 
 ### Clash bench (`AshfallClash`, `smtool ashfall-clash`)
-A movement model on the final collision, not the game's fight: two armies march from their assembly areas to one point with the army layer's own formations (`TfwArmyLayout`, files fixed for the army's life: 17 for 200 Orks, 27 for 500, 36 for 1,000), its march speeds and its wait-and-creep rule; each man walks to his slot, or down the flow to the point when his slot stands in a wall; contact stops both men; 40 s after first contact the Guard army retreats. Nobody is hurt: near and far combat and the wave rules are neither modelled nor changed. Full table: `D:\sm-reimpl\media\previews\ashfall-battlefield\clash-table.md` (24 runs).
+A movement model on the final collision, not the game's fight: two armies march from their assembly areas to one point with the army layer's own formations (`TfwArmyLayout`, files fixed for the army's life: 17 for 200 Orks, 27 for 500, 36 for 1,000), its march speeds and its wait-and-creep rule; each man walks to his slot, or down the flow to the point when his slot stands in a wall; contact stops both men; 40 s after first contact the Guard army retreats. Nobody is hurt: near and far combat and the wave rules are neither modelled nor changed. Full table: `<media folder>\previews\ashfall-battlefield\clash-table.md` (24 runs).
 
 | Layout | Point | A side | Frontage at contact / +20 s (m) | Ork queue / planned depth (m) | Guard queue / planned (m) | Stuck | Arrival spread Ork / Guard (s) | Mean throughput Ork / Guard (men/s) | Retreat (s) | Slot-ticks in walls | Single file |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|
@@ -842,7 +842,7 @@ On the field the armies keep their formation depth (queue about the planned dept
 **Formation and routing AI (investigated, not changed).** Two findings from the bench, both outside the map: (1) the army layer's anchor follows the shortest walk of one body, so a formation cuts corners and threads gaps between islands a single Ork fits through; at A that is most of the "slot-ticks in walls" (43,104 at 1,000 a side) and the zero frontage at first contact (the head of the column touches first). (2) An army's width is fixed at muster (up to 36 files, 49 m), wider than any corridor. The alternative in the bench (`--ai adaptive`: the route keeps half the army's width from walls where it can, the files narrow to the ground's width) cuts the slot-ticks in walls at A by a quarter on the field (33,185) and is no help on draft 10 (narrow files on 12 m lanes make longer columns: single file at B). Neither is in the game: changing the army layer's route search or slots is a wave-flow change (`TfwRules.Version`, the client's impostor slots) for the owner to decide.
 
 ### Views and clips (never in the repository)
-`D:\sm-reimpl\media\previews\ashfall-battlefield\`: `plan-field.svg` and `plan-draft10.svg` (the plan with the overlays), `report-field.txt` and `report-draft10.txt` (every constraint and the travel table), `views\field-` and `draft10-` `topdown.png`, `clearance.png` (black blocked; red not one body; amber a body, not a 20 m front; green a 20 m front), `height-sightlines.png` (ground any point sees in blue), `clash-table.md`, `shots-field\` and `shots-draft10\` (in-engine kit look on the hidden desktop: overview, the three points, straight down, ground level at A and B, the assembly area), `clips\field-B-500-shipped.mp4`, `clips\draft10-B-500-shipped.mp4`, `clips\field-A-1000-shipped.mp4` (the bench, top down, 2 frames a second played at 10: assembling, advancing, clashing, retreating; a movement model drawn as dots, not the game's rendering).
+`<media folder>\previews\ashfall-battlefield\`: `plan-field.svg` and `plan-draft10.svg` (the plan with the overlays), `report-field.txt` and `report-draft10.txt` (every constraint and the travel table), `views\field-` and `draft10-` `topdown.png`, `clearance.png` (black blocked; red not one body; amber a body, not a 20 m front; green a 20 m front), `height-sightlines.png` (ground any point sees in blue), `clash-table.md`, `shots-field\` and `shots-draft10\` (in-engine kit look on the hidden desktop: overview, the three points, straight down, ground level at A and B, the assembly area), `clips\field-B-500-shipped.mp4`, `clips\draft10-B-500-shipped.mp4`, `clips\field-A-1000-shipped.mp4` (the bench, top down, 2 frames a second played at 10: assembling, advancing, clashing, retreating; a movement model drawn as dots, not the game's rendering).
 
 ### Tradeoffs
 - **Openness vs city.** The field reads as a ruined battlefield of islands on open ash (a third of draft 10's props and half its collision triangles); draft 10's dense city with its streets is gone on this map. The districts stay below their density targets because the 14 m island gap (the "no accidental clutter" rule) fills them first; lowering `IslandGap` or raising the targets makes it denser.
@@ -1023,3 +1023,35 @@ The clash bench at 1,000 a side, with the shipped rule against the rule before (
 - **Why the front is smaller.** On an avenue the front is the avenue's width (22 m): a 36-file army (about 50 m) does not fit it. Before, its men spilled through the blocks, which measured wider.
 - **Field.** Unchanged in kind: wide ways on both rules.
 - **Draft 10.** Its streets are at most 14 to 20 m, so it stays single file at A and C on both rules.
+
+### Kit detail inside the arena (kit-hi-res, the owner's request, 2026-11-09)
+The owner: "some of the 3d asset buildings appear very low poly after the texture and other blender work. can you make a pass to ensure all the 3d assets used in the main play map are high res? its ok if the buildings outside the main batte arena (map boundary) are low poly."
+
+**What was lost.** On the city, 32 kit models stand inside the arena (|x|, |y| <= 240 m); AC-043 and AC-048 stand only outside it. No model was decimated anywhere: the processed files keep the source's 8,000 to 31,000 triangles, and LODs are made at load. The detail was lost in the Blender bake (`tools/blender/ashfall_bake.py`) and the load:
+- **Texture size.** The bake wrote 1024 px base colours and normal maps (the source has 2048), and the loader capped every texture at 1024.
+- **Weathering at the wrong scale.** The recipe's numbers are metres, but a Meshy file is normalised to about 2 m and the city draws it 8 to 33 times larger (the keep AC-044 at 63 m). The grit, stone tones, streaks, foot band and AO soot came out as building-sized smears and stains over the source's masonry, so its large flat faces read as low poly. A close-up of the untouched source (`--ashfall-kit-files source --ashfall-lods off --ashfall-tex 0`) shows the masonry the bake hid.
+- **No normal map.** The Meshy expansion's 23 models have a base colour only.
+- **LODs.** These were not the main cause: the close-ups at 5 to 14 m draw the full mesh either way. At 35 m the 4 px threshold picks coarser LODs.
+
+**The fix** (29 models re-baked; the three rubble props are already in metres and stay):
+- **Bake at arena scale.** `smtool ashfall-kit-bake-scales` writes each arena model's scale (its largest arena item, along the file's axes). The bake scales the object to that size for the bake only; the mesh is exported as read, so the collision and the stair pass are unchanged. The bake now runs at 2048 px.
+- **What the texture can hold.** Weathering patterns finer than 6 texels at the model's texel density are faded (grit, stone tones, thin streaks), and noise octaves above that are dropped. Stains fade on thinly textured models: full strength from 80 texels/m, at least 15 %. The models land at 12 (the keep) to 297 texels/m.
+- **Relief normal maps.** A model without a normal map gets a tangent-space one, baked from its source colour's relief (luminance as height, strength 1, 0.12 m).
+- **At load** (`AshfallKitDetail`): a model with an item inside the arena keeps 2048 px textures. Its instances inside the arena draw finer LODs: LOD bias 4 against the map's 4 px threshold, the engine's 1 px. That is in Forward+ only; safe mode (the Compatibility renderer) keeps the plain LODs.
+- **Old-GPU mode** (owner, 2026-11-10: "Use low detail ashfall textures for old gpu mode users"): in safe mode (the Compatibility renderer, automatic on a weak GPU or the OPTIONS toggle, or `--safe-mode`) every model loads at 1024 px with the plain LODs, as with `--ashfall-kit-detail old` (`AshfallKitDetailRule`; the 2048 px files are shrunk at load, so the bundled kit is unchanged). The loader now also frees each file's full-size textures once the shrunk copies replace them (on the main thread), which they had kept in video memory. City, peak video memory: Compatibility 519 MiB with 2048 px -> 173 MiB in low detail (322 before the pass); Forward+ 979 -> about 810 to 840 MiB.
+- **Unchanged.** Models placed only outside the arena keep the 1024 px file-scale bake. `--ashfall-kit-detail old` draws as before. Values are ours, tuned by looking at close-ups.
+
+**Cost** (RTX 4070 Ti SUPER, eight city views, `--ashfall-perf`):
+
+| Renderer | Frame time, old -> new | Primitives drawn | Peak video memory |
+|---|---|---|---|
+| Forward+ | 2.6 to 3.9 ms -> 3.0 to 4.9 ms | about 1.4 to 2 times | 634 -> 979 MiB |
+| Compatibility | 0.7 to 1.2 ms -> 0.7 to 1.3 ms | unchanged | 322 -> 519 MiB |
+
+The bundled kit (the release's `ashfall-kit\`, 81 files) grows from 80.8 to 141.9 MiB.
+
+**Media** (never in the repository): `<media folder>\previews\ashfall-kit-hi-res\` holds:
+- `inventory.md`: each arena model's triangles, textures before and after, texel density, what was lost and the fix.
+- `perf.md`: the frame-time check.
+- `before\`, `after\` and `compare\`: one sheet per model, near and mid, before beside after.
+- Probe stills from the investigation.

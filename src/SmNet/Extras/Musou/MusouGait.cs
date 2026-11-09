@@ -34,6 +34,16 @@ public static class MusouGaitRules
         return Math.Clamp(speed / clip, RateMin, RateMax);
     }
 
+    /// <summary>
+    /// The charge's sprint as drawn (the owner, 2026-11-09: "sprint to 'charge' the enemy"; client only, no byte on the wire): a charging Ork plays the sprint clip once his drawn speed passes
+    /// <see cref="SprintEnter"/> of the way from his paced run to his sprint, and back to the run below <see cref="SprintLeave"/> of it.
+    /// </summary>
+    public const float SprintEnter = 0.5f, SprintLeave = 0.3f;
+
+    /// <summary>Whether he plays the sprint at <paramref name="speed"/> m/s between his <paramref name="run"/> and <paramref name="sprint"/> speeds, having played it the frame before (<paramref name="was"/>).</summary>
+    public static bool Sprinting(float speed, float run, float sprint, bool was) =>
+        sprint > run + 0.1f && speed >= run + (was ? SprintLeave : SprintEnter) * (sprint - run);
+
     /// <summary>The foot slide this leaves (m/s): the speed the feet are drawn at, against the body's.</summary>
     public static float Slide(float speed, float clipSpeed, bool running) => running ? MathF.Abs(speed - Rate(speed, clipSpeed) * (clipSpeed > 0.1f ? clipSpeed : FallbackClipSpeed)) : speed;
 }
@@ -43,7 +53,7 @@ public struct MusouGaitTrack
 {
     public System.Numerics.Vector2 Last;
     public float Speed;
-    public bool Running, Seen;
+    public bool Running, Seen, Sprinting;
 
     /// <summary>A frame: the member drawn at <paramref name="at"/> (flat), <paramref name="delta"/> s after the last; whether he runs now.</summary>
     public bool Step(System.Numerics.Vector2 at, float delta)

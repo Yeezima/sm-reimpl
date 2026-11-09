@@ -770,7 +770,7 @@ public partial class NetworkView
     }
 
     /// <summary>Own hit reports (from <see cref="UpdateHits"/>): the weapon's hit confirmation, a melee hit.</summary>
-    void SoundHits(HitReport hits)
+    void SoundHits(HitReport hits, bool rangedConfirm = true)
     {
         if (_client is null || _config is null || _soundTriggers is null || _sound is null) return;
         var me = _client.Predicted;
@@ -812,13 +812,15 @@ public partial class NetworkView
                 else if (LogSound("melee")) GD.Print($"MELEE HIT SOUND t {_connectedFor:F3} P{me.PlayerId} report on P{hits.LastVictim}: already sounded at the strike");
             }
         }
-        else if (!hits.LastSplash && Loadouts.InHand(_config, me) is { } w && _soundTriggers.File(w.Name) is { } wf && wf.Of("player_hit_something_action").FirstOrDefault() is { } confirm)
-            HitConfirmSound(confirm, hits);
+        else if (rangedConfirm && !hits.LastSplash && Loadouts.InHand(_config, me) is { } w && _soundTriggers.File(w.Name) is { } wf && wf.Of("player_hit_something_action").FirstOrDefault() is { } confirm)
+            HitConfirmSound(confirm, hits, w.Name);
     }
 
     readonly HitConfirmGate _hitConfirmGate = new();
     /// <summary><c>--old-hit-confirm-distance</c>: the hit confirmation plays at the same volume at any distance.</summary>
     static readonly bool OldHitConfirmDistance = OS.GetCmdlineUserArgs().Contains("--old-hit-confirm-distance");
+    /// <summary><c>--old-stalker-hit-confirm</c>: the Stalker / Daemon Eye Bolter's confirm takes the distance falloff and mix pass again, and Musou plays the bolter smack for it (before sound/stalker-hit-confirm).</summary>
+    static readonly bool OldStalkerHitConfirm = OS.GetCmdlineUserArgs().Contains("--old-stalker-hit-confirm");
 
     /// <summary>
     /// The shooter's hit confirmation for a ranged hit on a player (sound/impacts). The data binds the weapon's <c>player_hit_something_action</c> (bolters:
@@ -828,9 +830,12 @@ public partial class NetworkView
     /// change; the default until sound/original-hits, now `--hit-confirm soft`) plays only the smack layer (no material) pitched down, low-passed and 10 dB quieter, once per <see cref="ImpactSounds.HitConfirmCooldown"/>, and on a
     /// kill the data's kill layer as well (the death state set as the data's own <c>play_set_state_death_*</c> events do).
     /// </summary>
-    void HitConfirmSound(SoundBinding confirm, HitReport hits)
+    void HitConfirmSound(SoundBinding confirm, HitReport hits, string? wargear = null)
     {
         if (_client is null || _audio is null || _sound is null || HitConfirmArg == HitConfirmMode.Off || confirm.StartEvent.Length == 0) return;
+        // sound/stalker-hit-confirm (owner 2026-11-09): the Stalker / Daemon Eye Bolter's confirm is the data's play_stalker_smack at the data's level, on the shooter.
+        bool stalker = !OldStalkerHitConfirm && HitConfirmArg == HitConfirmMode.Data && StalkerHitConfirm.Is(wargear);
+        string confirmEvent = stalker ? StalkerHitConfirm.EventFor(wargear, confirm.StartEvent)! : confirm.StartEvent;
         bool kill = hits.LastKilled || hits.Kills > 0, armoured = hits.LastArmoured;
         int ownId = _client.PlayerId;
         var at = new SoundEmitter { Own = true, Follow = () => PlayerSoundPoint(ownId), Label = "hit confirm", OneShot = true };
@@ -847,16 +852,20 @@ public partial class NetworkView
             if (!_hitConfirmGate.Admit(_connectedFor, kill)) { if (LogSound("hitconfirm")) GD.Print($"HIT CONFIRM t {_connectedFor:F3} held back (cooldown {ImpactSounds.HitConfirmCooldown:F2} s)"); return; }
             offset = ImpactSounds.HitConfirmOffset(armoured, kill);
         }
-        if (distanceDb < 0f) offset = offset.Plus(new VoiceOffset(distanceDb));
-        offset = offset.Plus(SoundMixPass.Hit(SoundSystem.MixClassic));   // sound/mix-and-reloads: on-hit sounds louder, no bass
+        if (stalker) offset = StalkerHitConfirm.Offset;   // no distance falloff, no mix-pass gain or high-pass: the data's 2D smack as it is
+        else
+        {
+            if (distanceDb < 0f) offset = offset.Plus(new VoiceOffset(distanceDb));
+            offset = offset.Plus(SoundMixPass.Hit(SoundSystem.MixClassic));   // sound/mix-and-reloads: on-hit sounds louder, no bass
+        }
         // The death state (group 0x47e2171c) is global: set for this post only and put back after it (review fix), so no smack event without the reset and no Ork death leaves a death_* state behind.
         uint? stateBefore = _audio.State(ImpactSounds.DeathStateGroup);
         _audio.SetState(ImpactSounds.DeathStateGroup, ImpactSounds.StateBeforeConfirm(HitConfirmArg, stateBefore, kill, armoured));
-        var play = _sound.Post(confirm.StartEvent, at, offset: offset);
+        var play = _sound.Post(confirmEvent, at, offset: offset);
         _audio.SetState(ImpactSounds.DeathStateGroup, ImpactSounds.StateAfterConfirm(HitConfirmArg, stateBefore, _audio.State(ImpactSounds.DeathStateGroup)));
         CountSound("hit confirm");
         if (LogSound("hitconfirm"))
-            GD.Print($"HIT CONFIRM t {_connectedFor:F3} mode {HitConfirmArg} event {confirm.StartEvent} victim P{hits.LastVictim} {(armoured ? "armour" : "flesh")}{(kill ? " kill" : "")} offset {offset} | {VoiceMixText(play, at, offset)}");
+            GD.Print($"HIT CONFIRM t {_connectedFor:F3} mode {HitConfirmArg} event {confirmEvent}{(stalker ? " (stalker rule)" : "")} victim P{hits.LastVictim} {(armoured ? "armour" : "flesh")}{(kill ? " kill" : "")} offset {offset} | {VoiceMixText(play, at, offset)}");
     }
 
     string? ProjectileFile(int weapon, int stage, bool thrown)
@@ -901,13 +910,23 @@ public partial class NetworkView
         }
     }
 
-    /// <summary>A detonation (from <see cref="UpdateProjectiles"/>): the projectile blueprint's detonate sounds and its impact container's.</summary>
-    void SoundDetonation(ProjectileView d)
+    /// <summary>Detonation sounds posted, by source (<c>projectile</c>: a real projectile's; an added mode names its own, e.g. Musou's <c>bolt blast</c>): a test aid's count (musou/sound-ab).</summary>
+    internal readonly Dictionary<string, int> DetonationSounds = new(StringComparer.Ordinal);
+    readonly HashSet<string> _detonationsLogged = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// A detonation (from <see cref="UpdateProjectiles"/>): the projectile blueprint's detonate sounds and its impact container's. <paramref name="source"/> names who asked (counted, and the emitter's
+    /// label when it is not a real projectile's: <c>projectile</c> keeps the label <c>detonation</c>, as before).
+    /// </summary>
+    void SoundDetonation(ProjectileView d, string source = "projectile")
     {
         if (_soundTriggers is null || _sound is null) return;
         var name = ProjectileFile(d.Weapon, d.Stage, d.Thrown);
         var file = name is null ? null : _soundTriggers.File(name);
-        var at = new SoundEmitter { Position = ToGodot(d.Position), Label = "detonation", OneShot = true };
+        DetonationSounds[source] = DetonationSounds.GetValueOrDefault(source) + 1;
+        if ((LogSound("detonation") || LogSound("mixab")) && _detonationsLogged.Add(source + "|" + name))
+            GD.Print($"DETONATION source {source}: projectile file {name ?? "none"}, detonate_action events {string.Join(", ", file?.Of("detonate_action").Select(b => b.StartEvent).Where(e => e.Length > 0) ?? [])}, hit sound {(name is null ? "none" : _soundTriggers.HitSound(name) ?? "none")}");
+        var at = new SoundEmitter { Position = ToGodot(d.Position), Label = source == "projectile" ? "detonation" : source + " detonation", OneShot = true };
         string surface = MaterialEffectTable.DefaultKey;
         if (_client?.Collision is { } world && world.Weapons.Raycast(d.Position + new System.Numerics.Vector3(0, 0, 0.5f), new System.Numerics.Vector3(0, 0, -1), 3f) is { } hit)
             surface = Surfaces.NameOf(world.Weapons.MaterialOf(hit.Triangle));

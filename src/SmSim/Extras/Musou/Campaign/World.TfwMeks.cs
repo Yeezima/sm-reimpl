@@ -141,8 +141,10 @@ public sealed partial class World
     /// </summary>
     partial void ExtrasProjectileStop(in ProjectileState p, Vector3 direction, float max, ref float stop)
     {
-        if (TfwMeks is not { Count: > 0 } meks) return;
+        if (TfwMeks is not { Count: > 0 } meks || _musou is null) return;
+        MusouBeginTick();   // the projectiles step before the Musou step: begin the tick so a destroyed cue raised here reaches this tick's events (review 2026-11-09)
         float dome = meks.AnyDome ? meks.DomeEntry(p.Position, direction, max) : float.PositiveInfinity;
+        if (float.IsFinite(dome) && meks.GeneratorOnRay(p.Position, direction)) dome = float.PositiveInfinity;   // aimed at the generator: its dome lets it in (it strikes on a later step)
         byte hit = meks.Raycast(p.Position, direction, max, out float distance);
         if (hit != 0 && (distance <= dome || meks.IsGenerator(hit)))
         {
@@ -159,7 +161,8 @@ public sealed partial class World
     /// <summary>A player's blast on the contraptions in its radius (not through a dome from outside, nor through a wall when it needs a line).</summary>
     void TfwMekBlast(int owner, Vector3 point, SplashSpec splash)
     {
-        if (_state != MatchState.Playing || splash.BlindOnly || !(splash.Radius > 0f) || TfwMeks is not { Count: > 0 } meks) return;
+        if (_state != MatchState.Playing || splash.BlindOnly || !(splash.Radius > 0f) || TfwMeks is not { Count: > 0 } meks || _musou is null) return;
+        MusouBeginTick();   // as the projectiles: the cues of this tick
         meks.Near(point, splash.Radius, _mekNear);
         foreach (var (id, distance) in _mekNear)
         {
@@ -176,6 +179,7 @@ public sealed partial class World
     void TfwMekMelee(int attacker, PlayerState state, MeleeStep step)
     {
         if (_state != MatchState.Playing || TfwMeks is not { Count: > 0 } meks || _musou is not { } musou) return;
+        MusouBeginTick();   // as the projectiles: the cues of this tick
         float damage = step.Damage * step.HealthMultiplier * Stims.MeleeDealt(Config, state);
         if (!(damage > 0f)) return;
         float range = musou.Rules.Combat.CleaveRange(Config.MeleeRange);

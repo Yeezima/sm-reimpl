@@ -1364,6 +1364,34 @@ values: spec/behavior.md "Weapon effects and shot events".
   EventGroupID, LightGroup, Disabled, ChildObjects }` in the region's layers (Manufactorum: `l_lights`, `e_fx`,
   `e_adm_dressing`, `d_mission_objects`; 163 in all; `d_navmesh_a` does not parse, type `FF`).
 
+### Plasma projectile visuals: the gun's and pistol's light and charged shots — **supported by evidence for the bindings; the streamer width reading is an interpretation** (plasma-original-fx, 2026-11-09)
+Read-only on the install (app 55150) with `smtool baf-dump data/packages/wargear.oppc --entry '^(sm|csm)_mp_(ranged_plasma_gun|pistol_plasma_pistol)$' --grep 'fx_name|ebp|marker'`,
+`smtool baf-dump data/packages/ebps.oppc --entry '^plasma_(pistol_)?altfire(_chaos)?_mp$' --grep 'fx|visual'` and `smtool fx-dump auto <effect> --fields` (the streamer keys print with `--fields` since this pass).
+- **Light (uncharged) shot.** The plasma gun's basic shot is `ability_ranged_primary`, the pistol's `ability_ranged_secondary` (its primary is the charge ability). Both deliveries are
+  `raycast` and bind, in `delivery/hit_fx`, `play_fx` `master_fx` / `plasma_gun_tracer` at marker `fx_muzzle` (`attach_to_marker` True); the Chaos files (`csm_mp_ranged_plasma_gun`,
+  `csm_mp_pistol_plasma_pistol`) bind `chaos_plasma_gun_tracer`. Fire effect: `plasma_gun_muzzle` (Chaos `chaos_plasma_gun_muzzle`). So the pistol's light shot has the same tracer as the gun.
+- **The tracer effect** (`plasma_gun_tracer`, lifetime 1.4 s): a 0.1 s spray holding a combo of two `tracer` beams (`plasma_tracer`, additive, full span, 0.3 m wide, billboard, 60 m per U,
+  `USpeed` 800, keys (255, 246, 139)), a `soft smoke` beam (`alpha_trail_soft`, blended, 0.32 to 0.61 m, (113, 255, 255) to (69, 123, 254) at alpha 0) and a 1 s `linger` beam
+  (`alpha_trail_curvy`, 0 to 0.72 m, (79, 149, 255) half alpha to clear). The `plasma_tracer` sprite (atlas page, rotated) is four teal wisps, a bright head and a long ragged tail: the
+  bolt is that texture crossing the span at 800 m/s, tinted pale yellow. `chaos_plasma_gun_tracer` is the same with purple smoke ((224, 101, 255)) and linger ((199, 122, 255)); its core
+  streak is the same teal texture and pale yellow keys as the loyalist one.
+- **Charged shot.** The firing stage `4.charge_heavy` of both weapons is a `projectile` delivery: `ebps\projectiles\plasma_altfire_mp` (gun), `plasma_pistol_altfire_mp` (pistol), Chaos
+  `plasma_altfire_chaos_mp`, `plasma_pistol_altfire_chaos_mp` (speed 90, lifetime 1.5 s; the pistol's blast radius 6). Each projectile's `renderable_ext` is `invisible_projectile` (no mesh) with
+  `dynamic_visuals` True; its whole look is `entity_actions_ext/lifetime_action` `play_fx` at marker `fx_trail`, scale 1, `scale_if_from_player` False: `plasma_gun_charged_trail` for both
+  loyalist weapons, `chaos_plasma_gun_trail` for both Chaos ones.
+- **`plasma_gun_charged_trail`** (looping), in a combo `Scale`: `ball` ring (`add_volume_soft_cool`, a cloudy cyan sprite, radius 0.335, billboard, (122, 246, 254)); `ball distort` ring
+  (`distortion_magnify_ball`, 0.33 to 0.44); `bright` ring (hidden); a looping light (attenuation 8, (118, 251, 224)); a `spark trail` spray (100/s, one-at-random `flare` rings,
+  `add_flare_cool`, 0.26 to 1.28 m, 0.2 s); two streamers: `short trail` (`beam_gradient`, a soft band across the width; length 0.052 s; width keys 0: 3.93, 1: 1.97 m; colour keys
+  0: (40, 79, 253), 0.51: same, 1: black; 12 m per U) and `blue trail` (`add_trail_soft`, wispy, soft across the width; length 0.25 s; width keys 0: 1, 1: 6 m; colour keys 0: (48, 209, 255),
+  0.75: (8, 6, 81), 1: black; 12 m per U; `FadeOutOnDeath` 0.3). **`chaos_plasma_gun_trail`**: `sparks` ring (`add_flare_warm`, 0.25, (179, 76, 254)), `bright projectile` ring
+  (`add_point_cool`, 0.47, (254, 69, 180)), streamers `short trail` (`add_trail_soft`, 20 m, width 2.5 to 0, (255, 68, 57) to (85, 39, 127) to black), `green trail` (`plasma_trail`,
+  20 m, 1.5 to 0.5, (140, 89, 255) to black), `blue trail` (`add_trail_soft`, 40 m, 1 to 4, black to (15, 13, 74) to black) and a light ((254, 134, 206), attenuation 3).
+- **Interpretation: a streamer's width keys run along the ribbon.** A streamer's colour and width keys share one 0..1 track. The colour keys are clearly head (0) to tail (1): every
+  plasma streamer is bright at 0 and black, which is invisible in additive blending, at 1. So the width keys are read on the same track: the loyalist `blue trail` is 1 m wide at the ball
+  and widens to 6 m where it has faded out. Read over the element's loop time (our reading before), the whole ribbon swelled to 6 m once a second: the "slab" of fix/plasma-trail-slab.
+  The client applies the along-the-ribbon reading to the plasma gun's and pistol's trails only (`FxEffect.WidthAlongTrail`); whether it holds for every streamer, the plasma cannon's
+  trail among them, is not checked.
+
 ### BOD binary object data — **supported by evidence for materials** (M2)
 
 Reader: `src/SmFormats/Bod/BodDocument.cs`; material view: `BmatMaterial`. Verified on 1,688 of 1,688 `.bmat` files in the
@@ -1819,6 +1847,22 @@ Read-only investigation (`smtool audio-event|audio-mix|audio-decode`, a throw-aw
 - **Owner's changes (ours, docs/changes-from-original.md):** a soft confirm by default (only action 1, −10 dB, −500 cents armour / −700 flesh, low-pass +45, 0.15 s
   cooldown; a kill −7 dB with the data's kill layer) and the bolter family's and the stalker's impacts 400 cents lower with a low-pass +40 at the same level.
   The Call of Duty: World at War reference is only the inspiration for the character (a soft, dull thud); no CoD audio is used.
+
+## Stalker hit confirm (sound/stalker-hit-confirm, 2026-11-09)
+
+The owner: the Stalker Bolter "isn't playing the right sound when shooting an enemy target. If a shot lands the shooter hears a sound." Read-only investigation
+(`smtool baf-dump wargear.oppc --entry sniper_rifle`, `baf-dump material_effect_container.oppc`, `audio-event`, `audio-list --all`; a headless Classic run with `--log-sound hitconfirm`):
+
+- **The original's sound to the shooter** (supported by evidence): both rifles (`sm_mp_ranged_sniper_rifle` = Stalker Bolter, `csm_mp_ranged_sniper_rifle` = Daemon Eye Bolter) bind
+  `ability_ranged_primary/delivery/player_hit_something_action/commands/post_sound_event` `start_event_name = "play_stalker_smack"` (trigger point self, delay 0); no upgrade gate, no other
+  ability. The same command list plays the material effect `hit_from_player_highlight` (fx only, its `sfx` empty). `play_stalker_smack` (0x7ee62178, In_Game_Default, 4 actions) is
+  `play_bolter_smack` with its smack layer at -5 dB instead of -8 (the same 12 samples), the same material switch `14c316bf` and kill layer `3cc61118`; actions 1-2 non-positioned.
+- **Other stalker sounds ruled out:** `play_stalker_hits` is the impact at the hit point (`stalker_pattern_bolter` container, `hit_fx`; also `_blocked`), heard by everyone; `play_stalker_penetrating_hit`
+  (`stalker_pattern_bolter_enter`, the penetration entry) plays only on metal (every other material case is empty), so not on a player; `play_stalker_zoom_filter` is the scope's low-pass. No other
+  event name with stalker, sniper, confirm or marker is in the bank's known names.
+- **Why it sounded wrong:** Classic posted `play_stalker_smack` already, but under the hit-confirm distance falloff (-18 dB from 40 m: the Stalker's usual range) plus the mix pass's +4 dB and 250 Hz
+  high-pass: the live log read -34 / -29 dB at the voice, a thin tick (the smack's energy is two thirds under 150 Hz). Musou never posts a confirm (Ork hits make no hit report); its audio pass
+  played the bolter family's `play_bolter_smack` at the Ork, 600 cents down. Fixed: the two rifles' confirm plays at the data's level on the shooter in both modes (spec "Stalker hit confirm").
 
 ## Shield sounds (sound/shield-regen, 2026-10-29)
 
@@ -2393,3 +2437,13 @@ Musou Mode's Scrap Meks and contraptions use SM1 props read at run time (`client
 | Beacon drop | `ork_rok` | `cp_maps__cp_arena_desert_b` | Exterminatus arena |
 Other candidates rendered for the choice (`model viewer --archive data/chunks/<chunk>.oppc --mesh <name>`): `Ork_Turret_LODH`, `Ork_turrel_Base_A`, `kill_kroozer_turret`, `ork_elektrik_tower_set_healthy`, `ig_generator`, `ork_tower_healthy`, `Geo_ork_spawn`, `ork_junkpile_a_healthy`, `Ork_Spike_lg_A`, `Defence_tanktrap_LODH`, `gretchin_melee`, `boy_melee_pro`, `DropPod`, `ork_fighta`; `ork_flag_a` does not load (a type-2 block layout we do not read yet).
 
+
+## Musou capture banners (owner, 2026-11-10)
+Searched `data/chunks/ebp_sets__mp_versus_set.oppc` (`smtool list --csv`) for banner, flag, standard and capture models: the multiplayer set holds the original's capture-point props. Rendered with the model viewer (`--archive data/chunks/ebp_sets__mp_versus_set.oppc --mesh <name>`), all *original asset loaded*:
+| Mesh | Vertices, surfaces | Look | Use |
+|---|---|---|---|
+| `sm_banner` | 832, 2 (diffuse `sm_banner_dif`) | blue Space Marine banner on a pole under a winged skull; a havok cloth file `havok_sm_banner__hkxx` beside it (not simulated: the cloth stands still) | Musou Mode: a position secured by the players |
+| `waaaghbanner` | 2011, 1 (diffuse `waaagh_banner_dif`) | red-brown Ork totem with the WAAAGH! glyph (already Musou's Scrap Mek beacon) | Musou Mode: a position the Orks hold |
+| `csm_banner` | 728, 2 | Chaos banner | not used |
+| `wc_capture_point` | 248, 1 (`capture_point_disk_dif`) | a round spiked floor disk (the point entity's visual, see "Point entity" above) | not used |
+Readers: `StaticModel.Load` through `MekModels` (`client/Extras/Musou/Tfw/TfwBanners.cs`). Previews: `<media folder>\previews\musou-capture-banners\models\` (outside the repository). Also found: the capture circle's old decal ring (`TfwMarkers.RingDecal`) does not show on Ashfall's city ground (seen 2026-11-10 with `--musou-old-capture-ui`); the cause is not established (the decal's cull mask 1 against the city's layers is a guess).

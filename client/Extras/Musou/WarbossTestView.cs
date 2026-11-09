@@ -94,7 +94,7 @@ public partial class WarbossTestView : Node3D
         {
             "run" => MusouLooks.Run, "attack" => MusouLooks.Attack, "stagger" => MusouLooks.Stagger, "death" => MusouLooks.Death, _ => MusouLooks.Idle,
         };
-        string? clipName = look.Clips[clip]?.Name;
+        string? clipName = _args.GetValueOrDefault("clip-name") is { Length: > 0 } named && look.Assets.FindAnimation([named], named) is { } found ? found : look.Clips[clip]?.Name;   // --clip-name: any clip of the rig by name
         float scale = float.TryParse(_args.GetValueOrDefault("scale"), NumberStyles.Float, CultureInfo.InvariantCulture, out var s) && s > 0.01f ? s : 1f;
         var viewer = new CharacterViewer(look.Assets, clipName, gameSpaceRoot: true) { Name = "Warboss" };
         _turntable = new Node3D { Name = "Turntable", Scale = Vector3.One * scale };

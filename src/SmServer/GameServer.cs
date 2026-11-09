@@ -9,7 +9,11 @@ namespace SmServer;
 /// <summary>Server tuning. Provisional prototype defaults (docs/architecture.md), not original values.</summary>
 public sealed partial record ServerOptions
 {
-    public int SnapshotRate { get; init; } = 20;
+    /// <summary>
+    /// Snapshots a second to every client (net/responsive, ours: 30, one every tick; 20 before, <c>--snapshot-rate 20</c>). The clients' adaptive interpolation delay
+    /// follows it (two snapshot intervals: 67 ms at 30 Hz, the old 100 ms at 20 Hz).
+    /// </summary>
+    public int SnapshotRate { get; init; } = 30;
     /// <summary>
     /// Test aid (<c>--bot-damage-scale</c>; owner, 2026-10-29): every hit dealt by a client whose Hello marks it a test bot (<see cref="Hello.Bot"/>,
     /// protocol 37) is scaled by this (<see cref="World.SetDamageScale"/>); 1 (default): off.
@@ -113,6 +117,9 @@ public sealed partial class GameServer
         public uint Nonce { get; } = nonce;
         public uint Session { get; } = session;
         public SortedDictionary<uint, PlayerInput> Inputs { get; } = new();
+        /// <summary>Protocol 65: when each buffered input first arrived, and the least slack (ms) of the ticks run since the last snapshot (int.MaxValue: none).</summary>
+        public Dictionary<uint, TimeSpan> ArrivedAt { get; } = new();
+        public int SlackMs = int.MaxValue;
         public PlayerInput LastApplied;
         public uint LastAppliedFromClient;
         public uint NewestReceived;
@@ -533,6 +540,7 @@ public sealed partial class GameServer
             if ((World.Config.Extras & ContentExtras.ActionKeyUsers) == 0) clean = clean with { Buttons = clean.Buttons & ~InputButtons.ExtraAction };
             peer.Inputs[input.Tick] = clean;
             peer.AckAt.TryAdd(input.Tick, peer.AckedSnapshot);
+            peer.ArrivedAt.TryAdd(input.Tick, _clock.Now);   // protocol 65: the input slack
             peer.NewestReceived = Math.Max(peer.NewestReceived, input.Tick);
         }
     }
@@ -546,6 +554,7 @@ public sealed partial class GameServer
             var peer = byPlayer[id];
             if (peer.Inputs.Remove(tick, out var input))
             {
+                if (peer.ArrivedAt.Remove(tick, out var arrived)) peer.SlackMs = Math.Min(peer.SlackMs, (int)Math.Round((_clock.Now - arrived).TotalMilliseconds));   // protocol 65
                 peer.LastApplied = input; peer.LastAppliedFromClient = tick;
                 peer.LastAppliedAck = peer.AckAt.Remove(tick, out uint ack) ? ack : peer.AckedSnapshot;
             }
@@ -553,6 +562,7 @@ public sealed partial class GameServer
                 peer.LastApplied = new PlayerInput(tick, 0, 0, peer.LastApplied.Yaw, InputButtons.None);
             else
             {
+                peer.SlackMs = Math.Min(peer.SlackMs, -(int)Math.Round(World.Config.TickSeconds * 1000));   // protocol 65: this tick ran without the input
                 // A repeated input keeps its view relative to its own tick, so the rewind does not grow while packets are lost.
                 var last = peer.LastApplied;
                 peer.LastApplied = last with { Tick = tick, ViewTick = last.ViewTick == 0 ? 0 : last.ViewTick + (tick - last.Tick),
@@ -564,6 +574,7 @@ public sealed partial class GameServer
         {
             foreach (var stale in peer.Inputs.Keys.TakeWhile(t => t <= World.Tick).ToList()) peer.Inputs.Remove(stale);
             foreach (var stale in peer.AckAt.Keys.Where(t => t <= World.Tick).ToList()) peer.AckAt.Remove(stale);
+            foreach (var stale in peer.ArrivedAt.Keys.Where(t => t <= World.Tick).ToList()) peer.ArrivedAt.Remove(stale);
         }
         CountHits(byPlayer);
         PromoteAppearances();   // protocol 22: respawned players take their pending appearance
@@ -717,9 +728,11 @@ public sealed partial class GameServer
         if (kills.Length > 0) peer.SentKills[World.Tick] = kills[^1].Sequence;
         while (peer.SentKills.Count > 256) peer.SentKills.Remove(peer.SentKills.Keys.Min());
         NoteSnapshotSent(peer, World.Tick);   // protocol 50: the ping's send time
+        int slack = peer.SlackMs == int.MaxValue ? Protocol.NoSlack : peer.SlackMs;   // protocol 65
+        peer.SlackMs = int.MaxValue;
         _transport.Send(connection, Protocol.Write(new Snapshot(World.Tick, peer.LastAppliedFromClient, lead, players, Self: peer.PlayerId,
             Projectiles: ProjectilesFor(World, viewer), Match: match, Kills: kills, Points: points, Hits: peer.Spectator ? null : peer.Hits,
-            Shots: ShotsFor(_pendingShots, peer.PlayerId, viewer, World.Tick))));
+            Shots: ShotsFor(_pendingShots, peer.PlayerId, viewer, World.Tick), InputSlack: slack)));
     }
 
     /// <summary>The match block every snapshot carries.</summary>
@@ -767,6 +780,9 @@ public sealed partial class GameServer
     /// The most players (spectators aside) this match admits: <see cref="ServerOptions.MaxPlayers"/>, which added content may lower (<see cref="ExtrasPlayerCap"/>; Musou Mode: 4, the owner's
     /// co-op of 2026-11-06). A faithful or Extended match keeps <see cref="ServerOptions.MaxPlayers"/>.
     /// </summary>
+    /// <summary>Snapshots a second to every client (net/responsive: <see cref="ServerOptions.SnapshotRate"/>).</summary>
+    public int SnapshotRate => _options.SnapshotRate;
+
     public int PlayerCap
     {
         get

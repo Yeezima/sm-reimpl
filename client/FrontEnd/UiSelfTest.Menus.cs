@@ -122,12 +122,52 @@ public sealed partial class UiSelfTest
                 Check("menu: ... and CONNECT joins that address on the Musou profile", joined is { Host: "127.0.0.1:27199", Content: var joinedContent } && joinedContent == ContentExtras.Musou, joined?.Host);
                 await SendKey(Key.Escape);
                 Check("menu: Esc there goes back to the Musou page", musouPage.Visible);
+                // Musou Mode's customizer (owner 2026-11-10): the Musou page's CUSTOMIZER shows Standard Marines, Librarian and Heretic in place of the factions; BACK returns to the page.
+                if (_front.Creator is { } musouCreator && _services.Session is { Dirty: false })
+                {
+                    await PressRow("CUSTOMIZER", musouPage);
+                    await Frames(3);
+                    Check("musou customizer: the Musou page's CUSTOMIZER opens the creator on the Musou profile", musouCreator.Visible && _services.Content == ContentExtras.Musou, _services.Content.ToString());
+                    Check("musou customizer: Standard Marines, Librarian and Heretic in place of the factions",
+                        musouCreator.FindChild("MusouStandardMarines", true, false) is not null && musouCreator.FindChild("MusouLibrarian", true, false) is not null
+                        && musouCreator.FindChild("MusouHeretic", true, false) is not null && musouCreator.FindChild("FactionChaos", true, false) is null);
+                    // The Librarian's page hides the open slot (review 2026-11-10): F2 and pad X / Y act on nothing there, and the step keys work even when the hidden slot is empty.
+                    if (musouCreator.FindChild("MusouLibrarian", true, false) is Button librarianEntry && musouCreator.FindChild("MusouStandardMarines", true, false) is Button marinesEntry)
+                    {
+                        var emptySlot = Enumerable.Range(1, SmContent.Customization.CustomizationProfile.MaxCustomClasses).FirstOrDefault(n => _services.Session!.Working.ClassAt(n) is null);
+                        if (emptySlot > 0) musouCreator.OpenSelection(SmContent.Customization.Selection.CustomSlot(emptySlot));
+                        librarianEntry.ButtonPressed = true;
+                        await Frames(3);
+                        string before = musouCreator.CurrentStep;
+                        await SendKey(Key.Pagedown);
+                        Check("musou customizer: PageDown moves the Librarian's step with an empty slot behind it", emptySlot > 0 && musouCreator.CurrentStep != before, $"{before} -> {musouCreator.CurrentStep} (slot {emptySlot})");
+                        await SendKey(Key.F2);
+                        await SendPad(JoyButton.Y);
+                        await SendPad(JoyButton.X);
+                        Check("musou customizer: F2, pad Y and pad X open no rename or copy prompt on the Librarian's page", OpenDialog() is null && !_services.Session!.Dirty);
+                        OpenDialog()?.QueueFree();
+                        marinesEntry.ButtonPressed = true;
+                        await Frames(3);
+                    }
+                    await SendKey(Key.Escape);
+                    await Frames(2);
+                    Check("musou customizer: BACK returns to the Musou page", musouPage.Visible && !musouCreator.Visible && _services.Content == ContentExtras.Musou, _services.Content.ToString());
+                }
                 await SendKey(Key.Escape);
                 Check("menu: Esc on the Musou page goes to the main menu", _front.ShowsMainMenu);
                 joined = null;
                 _front.ShowMainMenu();
                 await Frames(3);
                 Check("menu: back on the main menu the lobby's profile is in use", !_services.Content.HasFlag(ContentExtras.Musou), _services.Content.ToString());
+                if (_front.Creator is { } classicCreator)
+                {
+                    _front.ShowCreator();
+                    await Frames(3);
+                    Check("musou customizer: the main menu's CUSTOMIZER keeps Classic's faction row", classicCreator.FindChild("FactionSpaceMarines", true, false) is not null
+                        && classicCreator.FindChild("FactionChaos", true, false) is not null && classicCreator.FindChild("MusouLibrarian", true, false) is null);
+                    _front.ShowMainMenu();
+                    await Frames(3);
+                }
 
                 // fix/musou-local-server: STOP MUSOU SERVER under MUSOU MODE, only while a Musou server of this client runs; a press while it starts waits.
                 Check("menu: no server, no STOP MUSOU SERVER row", FindButton(main, b => b.Text == "STOP MUSOU SERVER") is null);
@@ -258,7 +298,8 @@ public sealed partial class UiSelfTest
             ((HSlider)options.FindChild("VoiceVolumeSlider", true, false)!).Value = 0.25;
             ((HSlider)options.FindChild("MusicVolumeSlider", true, false)!).Value = 0.0;
             await Frames(2);
-            Check("options: Master moves the Master bus", Mathf.Abs(AudioServer.GetBusVolumeDb(0) - GameOptions.VolumeDb(0.5f)) < 0.01f, AudioServer.GetBusVolumeDb(0).ToString());
+            // sound/mix-and-reloads (ac78dcbb): the master bus carries the mix pass's 10 % boost over the slider's level (SoundSystem.ApplyMasterVolume), so 50 % is -5.19 dB, not -6.02.
+            Check("options: Master moves the Master bus", Mathf.Abs(AudioServer.GetBusVolumeDb(0) - SoundMixPass.MasterBusDb(0.5f, SoundSystem.MixClassic)) < 0.01f, AudioServer.GetBusVolumeDb(0).ToString());
             Check("options: Voice and Music reach their sounds' gain", Mathf.IsEqualApprox(LiveOptions.GainDb(GameOptions.CategoryOf("speech/x/y")), GameOptions.VolumeDb(0.25f)) && LiveOptions.GainDb(GameOptions.CategoryOf("play_mp_sm_victory")) == -80f
                   && LiveOptions.GainDb(GameOptions.CategoryOf("play_bolter_fire")) == 0f);
 
@@ -324,7 +365,9 @@ public sealed partial class UiSelfTest
         {
             _services.UpdateSettings(_ => kept);
             await Frames(3);
-            Check("options: restored to the defaults", Engine.MaxFps == 0 && GetTree().Root.Scaling3DScale == 1f && !OptionsHost.BrightnessActive && AudioServer.GetBusVolumeDb(0) == 0f, $"fps {Engine.MaxFps} scale {GetTree().Root.Scaling3DScale} db {AudioServer.GetBusVolumeDb(0)}");
+            // The default master level (100 %) is +0.83 dB on the bus since the mix pass's 10 % boost (sound/mix-and-reloads), 0 dB with --sound-mix-classic.
+            Check("options: restored to the defaults", Engine.MaxFps == 0 && GetTree().Root.Scaling3DScale == 1f && !OptionsHost.BrightnessActive
+                  && Mathf.Abs(AudioServer.GetBusVolumeDb(0) - SoundMixPass.MasterBusDb(new GameOptions().MasterVolume, SoundSystem.MixClassic)) < 0.01f, $"fps {Engine.MaxFps} scale {GetTree().Root.Scaling3DScale} db {AudioServer.GetBusVolumeDb(0)}");
             _front.ShowMainMenu();
             await Frames(2);
         }
@@ -391,6 +434,13 @@ public sealed partial class UiSelfTest
         Check($"{name}: all text fits", cut.Count == 0, string.Join("; ", cut.Take(5)));
         var bottom = page.Rows.GetGlobalRect().End.Y;
         Check($"{name}: the rows end in the window", page.List.GetGlobalRect().End.Y <= view.End.Y + 0.5f && (bottom <= page.List.GetGlobalRect().End.Y + 0.5f), $"rows end {bottom:F0} list end {page.List.GetGlobalRect().End.Y:F0}");
+        // The main menu's OPTIONS note (where the game was found, the builds' address) is the page's foot: under the list, whole in the window.
+        if (page.Foot is { } foot && foot.IsVisibleInTree())
+        {
+            var f = foot.GetGlobalRect();
+            Check($"{name}: the foot is under the rows and in the window", f.Position.Y >= page.List.GetGlobalRect().End.Y - 0.5f && f.Position.Y >= bottom - 0.5f && f.End.Y <= view.End.Y + 0.5f,
+                $"foot {f.Position.Y:F0} to {f.End.Y:F0}, rows end {bottom:F0}, list end {page.List.GetGlobalRect().End.Y:F0}, window end {view.End.Y:F0}");
+        }
     }
 
     static IEnumerable<Button> AllButtons(Node root)

@@ -21,9 +21,40 @@ public sealed record HitReport(int Hits, float ShieldDamage, float HealthDamage,
 /// <summary>Client tuning. All values are provisional prototype defaults (docs/architecture.md), not original values.</summary>
 public sealed record ClientOptions
 {
+    /// <summary>
+    /// The remote players' interpolation delay: fixed with <see cref="AdaptiveInterpolation"/> off (the old 100 ms), else the start value until the adaptive estimate has
+    /// enough snapshots.
+    /// </summary>
     public TimeSpan InterpolationDelay { get; init; } = TimeSpan.FromMilliseconds(100);
     /// <summary>Ticks the newest input should reach the server ahead of the tick that applies it (absorbs jitter).</summary>
     public int TargetInputLead { get; init; } = 2;
+
+    // ---- net/responsive (ours; GameClient.Responsive.cs) ----
+    /// <summary>The input lead kept by a smooth clock slew in a tight band (false: the old whole-tick steps; Godot <c>--old-input-lead</c>).</summary>
+    public bool SmoothInputLead { get; init; } = true;
+    /// <summary>The slew acts when the filtered lead is this many ticks off the target (ours: 0.75, a steady report one tick off).</summary>
+    public double LeadBand { get; init; } = 0.75;
+    /// <summary>How much slower or faster the client's ticks run while the lead is steered (ours: 4 %, a tick of lead in about 0.8 s).</summary>
+    public double LeadSlew { get; init; } = 0.04;
+    /// <summary>Protocol 65: the lead steered on the server's input slack to a tick plus the measured jitter (false: the integer lead at <see cref="TargetInputLead"/>; Godot <c>--lead-ticks</c>).</summary>
+    public bool PreciseLead { get; init; } = true;
+    /// <summary>Ticks of slack kept for lost packets in the precise steering (ours: 1, one lost input batch survived; inputs repeat in every batch).</summary>
+    public double LeadLossTicks { get; init; } = 1;
+    /// <summary>ms added to the precise steering's target (ours).</summary>
+    public double LeadMarginMs { get; init; } = 5;
+    /// <summary>The own marine drawn from the newest predicted tick toward a speculative next one (false: between the previous tick and the newest; Godot <c>--old-own-draw</c>).</summary>
+    public bool DrawOwnAhead { get; init; } = true;
+    /// <summary>The interpolation delay follows the snapshots (<see cref="InterpolationDelayEstimator"/>; false: <see cref="InterpolationDelay"/> fixed; Godot <c>--interp-delay</c>).</summary>
+    public bool AdaptiveInterpolation { get; init; } = true;
+    /// <summary>The adaptive delay's floor (ours: 1.5 30 Hz ticks, 50 ms; the owner 2026-11-09: as low as it plays well).</summary>
+    public TimeSpan MinInterpolationDelay { get; init; } = TimeSpan.FromSeconds(1.5 / 30.0);
+    /// <summary>
+    /// net/responsive: how far past the newest snapshot remote players are carried on (ticks, along their last two snapshots' motion) when the render tick outruns it (a late
+    /// snapshot); 0: they wait at the newest, as before (Godot <c>--no-extrapolation</c>). Ours: 1 tick.
+    /// </summary>
+    public double MaxExtrapolationTicks { get; init; } = 1;
+    /// <summary>The adaptive delay's ceiling: the server's lag-compensation bound (<c>ServerOptions.MaxInterpolationDelay</c>, 100 ms).</summary>
+    public TimeSpan MaxInterpolationDelay { get; init; } = TimeSpan.FromMilliseconds(100);
     /// <summary>Inputs repeated in every packet, so a few lost packets lose no input.</summary>
     public int InputRedundancy { get; init; } = 8;
     public TimeSpan HelloInterval { get; init; } = TimeSpan.FromMilliseconds(250);
@@ -113,6 +144,12 @@ public sealed record ClientOptions
     public TimeSpan KeepAliveInterval { get; init; } = TimeSpan.FromSeconds(0.5);
     /// <summary>A stall longer than this gets no more keep-alives, so a client that is truly hung still times out on the server.</summary>
     public TimeSpan KeepAliveBound { get; init; } = TimeSpan.FromSeconds(30);
+
+    // ---- net/responsive (ours; GameClient.Latency.cs) ----
+    /// <summary>The latency readout (<see cref="NetLatencyReadout"/>): seconds between two <c>NETLAT</c> lines; 0 (default): off unless <c>SM_NET_LATENCY</c> is set.</summary>
+    public double LatencyReadout { get; init; }
+    /// <summary>Where the readout's lines go (null: the console).</summary>
+    public Action<string>? LatencyLog { get; init; }
 }
 
 /// <summary>
@@ -183,7 +220,7 @@ public sealed partial class GameClient
     /// <see cref="DrawPair"/>'s states, never with <see cref="PreviousPredicted"/> and <see cref="Predicted"/> (after an early tick those are one
     /// tick ahead of it); clip times use <see cref="ClipFraction"/>.
     /// </summary>
-    public float TickFraction => DrawPair().Fraction;
+    public float TickFraction => DrawFraction();
     /// <summary>feel/controls: the newest tick ran early (<see cref="Update(Func{uint, PlayerInput}, bool)"/>) and no scheduled tick has run since; the time it ran.</summary>
     TimeSpan? _earlyRanAt;
     /// <summary>feel/controls: ticks run early on an input edge since the client started (diagnostics, test aids).</summary>
@@ -197,8 +234,14 @@ public sealed partial class GameClient
     /// </summary>
     public (PlayerState From, PlayerState To, float Fraction) DrawPair()
     {
-        double now = _clock.Now.TotalSeconds, next = _nextTickAt.TotalSeconds, tick = _config.TickSeconds;
-        return EarlyTick.DrawsBehind(_earlyRanAt is not null, now, next, tick)
+        double now = _clock.Now.TotalSeconds, next = _nextTickAt.TotalSeconds, tick = ScheduledTickSeconds;
+        bool behind = EarlyTick.DrawsBehind(_earlyRanAt is not null, now, next, tick);
+        // net/responsive: a tick later on the same timeline: the newest tick toward the speculative next (after an early tick, the tick before it toward it).
+        if (_options.DrawOwnAhead)
+            return behind
+                ? (PreviousPredicted, Predicted, ViewSmoothing.TickFraction(now, next - tick, tick))
+                : (Predicted, Ahead(), ViewSmoothing.TickFraction(now, next, tick));
+        return behind
             ? (_prePrevious, PreviousPredicted, ViewSmoothing.TickFraction(now, next - tick, tick))
             : (PreviousPredicted, Predicted, ViewSmoothing.TickFraction(now, next, tick));
     }
@@ -208,9 +251,19 @@ public sealed partial class GameClient
     /// <see cref="TickFraction"/>, but after an early tick the time since it ran over the time until the next scheduled tick
     /// (<see cref="EarlyTick.ClipFraction"/>), so a clip it started begins at once and runs on without a stop.
     /// </summary>
-    public float ClipFraction => _earlyRanAt is { } ran
+    /// <remarks>net/responsive: with <see cref="ClientOptions.DrawOwnAhead"/> the clips follow the drawn position's own fraction (<see cref="DrawPair"/>), with
+    /// <see cref="ClipLead"/> one tick ahead outside the early tick's wait.</remarks>
+    public float ClipFraction => _options.DrawOwnAhead ? DrawFraction()
+        : _earlyRanAt is { } ran
         ? EarlyTick.ClipFraction(_clock.Now.TotalSeconds, ran.TotalSeconds, _nextTickAt.TotalSeconds)
         : ViewSmoothing.TickFraction(_clock.Now.TotalSeconds, _nextTickAt.TotalSeconds, _config.TickSeconds);
+
+    /// <summary><see cref="DrawPair"/>'s fraction without its states.</summary>
+    float DrawFraction()
+    {
+        double now = _clock.Now.TotalSeconds, next = _nextTickAt.TotalSeconds, tick = ScheduledTickSeconds;
+        return EarlyTick.DrawsBehind(_earlyRanAt is not null, now, next, tick) ? ViewSmoothing.TickFraction(now, next - tick, tick) : ViewSmoothing.TickFraction(now, next, tick);
+    }
     /// <summary>Counts reconciliations that replaced the prediction; <see cref="LastCorrection"/> is the last one's move of the predicted position (new minus old).</summary>
     public int CorrectionSerial { get; private set; }
     public Vector3 LastCorrection { get; private set; }
@@ -224,6 +277,7 @@ public sealed partial class GameClient
         _config = config; _contentFingerprint = contentFingerprint; _transport = transport; _clock = clock;
         _options = options ?? new ClientOptions(); _nonce = nonce;
         RememberOwnEmblems(_options.SpaceMarineAppearance, _options.ChaosAppearance, replace: true);
+        StartLatency();   // net/responsive: the readout, when asked for
     }
 
     /// <summary>
@@ -235,6 +289,12 @@ public sealed partial class GameClient
     public void Update(Func<uint, PlayerInput> sampleInput, bool tickNow = false)
     {
         MarkUpdated();   // fix/stall-keepalive: the main thread is alive
+        NoteUpdateGap(_clock.Now);   // net/responsive: a stall of this client is not the link's jitter
+        // net/responsive: the drawn own position's course before this update's snapshots and ticks (ahead drawing; GameClient.Responsive.cs).
+        var drawnBefore = Status == ClientStatus.Connected ? DrawnOnCourse(_clock.Now) : null;
+        uint tickBefore = Tick;
+        int correctionBefore = CorrectionSerial;
+        var scheduleBefore = _nextTickAt;   // a lead jump moves it (net/responsive)
         while (_transport.TryReceive(out var packet))
         {
             var message = Protocol.Read(packet);
@@ -287,25 +347,27 @@ public sealed partial class GameClient
         if (now - _latestSnapshotAt > _options.ServerTimeout) { Status = ClientStatus.Disconnected; return; }
         StepAppearance();
         StepRenderClock(now);
+        StepLatency(now, tickNow);   // net/responsive: the readout (nothing without it)
 
-        var tickLength = TimeSpan.FromSeconds(_config.TickSeconds);
+        var tickLength = TimeSpan.FromSeconds(CurrentTickSeconds);   // net/responsive: stretched or shortened while the lead is slewed
         bool ticked = false;
         while (now >= _nextTickAt)
         {
             _earlyRanAt = null;
             StepTick(sampleInput);
-            _nextTickAt += tickLength;
+            _nextTickAt += tickLength; _scheduledTick = tickLength;
             ticked = true;
         }
         // feel/controls: an input edge runs the next tick now (EarlyTick). Its number, its one tick of simulation and the schedule are unchanged.
         // A scheduled tick that ran in this update already sampled the edge: no second tick (it would only use up the one-tick allowance).
-        if (tickNow && !ticked && EarlyTick.Allowed(now.TotalSeconds, _nextTickAt.TotalSeconds, _config.TickSeconds))
+        if (tickNow && !ticked && EarlyTick.Allowed(now.TotalSeconds, _nextTickAt.TotalSeconds, CurrentTickSeconds))
         {
             StepTick(sampleInput);
-            _nextTickAt += tickLength;
+            _nextTickAt += tickLength; _scheduledTick = tickLength;
             _earlyRanAt = now;
             EarlyTicks++;
         }
+        if (Tick != tickBefore || _nextTickAt != scheduleBefore + tickLength * (Tick - tickBefore)) BlendDrawnStep(drawnBefore, now, correctionBefore);   // net/responsive: no jump in the drawn own position at a tick or a lead jump
     }
 
     /// <summary>Samples, predicts and sends the next tick's input.</summary>
@@ -367,6 +429,7 @@ public sealed partial class GameClient
         var batch = new InputBatch(recent, _session, _latestSnapshotTick);
         _lastBatch = batch;   // fix/stall-keepalive: what the keep-alive repeats
         _transport.Send(Protocol.Write(batch));
+        NoteSent(Tick, events.Fired);   // net/responsive: the echo round trip and the readout's shots
     }
 
     /// <summary>The map the server named in its Challenge ("" for flat ground) and its collision, loaded from this install.</summary>
@@ -424,6 +487,7 @@ public sealed partial class GameClient
         PreviousPredicted = default;
         _prePrevious = default;
         _earlyRanAt = null;
+        _tickStretch = 0; _leadFiltered = double.NaN; _slackFiltered = double.NaN; _slackWindow.Clear(); _lossWindow.Clear(); LossTicks = 1; MeasuredLoss = 0; _interpolation.Reset(); JitterGuard = 0; _firstInputTick = Tick + 1;   // net/responsive
         StartKeepAlive();   // fix/stall-keepalive
     }
 
@@ -460,8 +524,11 @@ public sealed partial class GameClient
         var projectiles = s.Projectiles ?? [];
         if (!projectiles.All(Plausible)) { RefuseSnapshot(); return; }
         RefusedSinceSnapshot = 0;
+        NoteSnapshotLatency(s);   // net/responsive: before the arrival is stored (the gap to the previous)
         _latestSnapshotTick = s.ServerTick;
         _latestSnapshotAt = _clock.Now;
+        NoteInterpolation(s.ServerTick, _latestSnapshotAt);   // net/responsive: the adaptive interpolation delay
+        NoteSnapshotLoss(s.ServerTick, _latestSnapshotAt);   // net/responsive: the lead's loss term
         _snapshots.Add((s.ServerTick, s.Players.ToDictionary(p => p.PlayerId), projectiles.ToDictionary(q => q.Id)));
         if (_snapshots.Count > 64) _snapshots.RemoveAt(0);
         var matchBefore = Match;
@@ -495,7 +562,7 @@ public sealed partial class GameClient
 
         // Only the full record of this client's own player can be replayed from (a slim one lacks ammunition and timers).
         if (s.Self != PlayerId) return;
-        if (s.Hits is { } hits) OnHits(hits);
+        if (s.Hits is { } hits) OnHits(hits, s.ServerTick);
         var mine = s.Players.FirstOrDefault(p => p.PlayerId == PlayerId);
         if (mine.PlayerId != PlayerId) return;
 
@@ -523,7 +590,18 @@ public sealed partial class GameClient
         foreach (var old in _history.Keys.Where(t => t <= s.ServerTick).ToList()) _history.Remove(old);
         // After a client stall the snapshot can be ahead of the client's own tick: inputs for the ticks it already
         // contains can never be applied, so resume sampling after it instead of replaying them on top of it (overshoot).
-        if (s.ServerTick > Tick) Tick = s.ServerTick;
+        if (s.ServerTick > Tick)
+        {
+            // net/responsive: the skipped ticks are spent, so the schedule moves past them too (at most to now); before, the loop then ran them all on top and every stall of
+            // the client (a hitch, a load) added its length to the lead.
+            if (_options.SmoothInputLead)
+            {
+                var skipped = _nextTickAt + TimeSpan.FromSeconds(_config.TickSeconds) * (s.ServerTick - Tick);
+                _nextTickAt = skipped < _clock.Now ? skipped : _clock.Now;
+                StallSkips++;
+            }
+            Tick = s.ServerTick;
+        }
         var state = mine;
         var beforeLast = mine;
         var twoBefore = mine;   // feel/controls: the state before beforeLast (DrawPair after an early tick)
@@ -545,21 +623,16 @@ public sealed partial class GameClient
         PreviousPredicted = beforeLast;
         Predicted = state;
 
-        // Steer the lead without skipping tick numbers: run one extra tick now if inputs arrive late, pause one tick if
-        // they arrive far too early. A change shows up in the feedback one round trip later, so wait that long between
-        // changes; and there is no feedback until the server has received an input.
-        var now = _clock.Now;
-        if (s.InputLead == Protocol.NoLead || now < _leadHoldUntil) return;
-        var tickLength = TimeSpan.FromSeconds(_config.TickSeconds);
-        if (s.InputLead < _options.TargetInputLead - 1) { _nextTickAt -= tickLength; _leadHoldUntil = now + HandshakeRoundTrip; }
-        else if (s.InputLead > _options.TargetInputLead + 3) { _nextTickAt += tickLength; _leadHoldUntil = now + HandshakeRoundTrip; }
+        // Steer the lead without skipping tick numbers (net/responsive: a smooth slew in a tight band; GameClient.Responsive.cs). There is no feedback until
+        // the server has received an input.
+        SteerLead(s, _clock.Now);
     }
 
     HitView _hitTotals;   // the server's totals start at zero when the player joins
     HitReport? _pendingHits;
 
     /// <summary>The change in the server's running hit totals since the previous snapshot, added to the pending report.</summary>
-    void OnHits(HitView h)
+    void OnHits(HitView h, uint serverTick)
     {
         int count = (h.Hits - _hitTotals.Hits) & 0xFFFF;
         // More than half the counter's range at once can only be totals going backwards (a server that restarted them):
@@ -573,6 +646,7 @@ public sealed partial class GameClient
             _pendingHits = new HitReport((p?.Hits ?? 0) + count, (p?.ShieldDamage ?? 0f) + shield, (p?.HealthDamage ?? 0f) + health, (p?.Kills ?? 0) + kills,
                 h.LastVictim, (h.LastFlags & HitFlags.Head) != 0, (h.LastFlags & HitFlags.Killed) != 0, (h.LastFlags & HitFlags.Melee) != 0, (h.LastFlags & HitFlags.Splash) != 0,
                 h.VictimHealth * body.HealthMax, h.VictimShield * body.ShieldMax, (h.LastFlags & HitFlags.Armoured) != 0);
+            NoteHitsLatency(serverTick, (h.LastFlags & (HitFlags.Melee | HitFlags.Splash)) == 0);   // net/responsive: the readout's shot-hit
         }
         _hitTotals = h;
     }
@@ -675,11 +749,18 @@ public sealed partial class GameClient
     readonly RenderClock _renderClock = new();
     TimeSpan _renderClockAt;
 
+    /// <summary>Snapshots that found this client behind the server after a stall (its tick moved up, the schedule with it; net/responsive; diagnostics).</summary>
+    public int StallSkips { get; private set; }
+
+    /// <summary>The remote players' interpolation delay in use now.</summary>
+    public TimeSpan CurrentInterpolationDelay =>
+        _options.AdaptiveInterpolation && double.IsFinite(_interpolation.DelaySeconds) ? TimeSpan.FromSeconds(_interpolation.DelaySeconds) : _options.InterpolationDelay;
+
     /// <summary>The raw estimate of the server tick to show: the newest snapshot's tick plus the time since it was processed, minus the interpolation delay.</summary>
     double RawRenderTick()
     {
         double serverTickNow = _latestSnapshotTick + (_clock.Now - _latestSnapshotAt).TotalSeconds * _config.TickRate;
-        return serverTickNow - _options.InterpolationDelay.TotalSeconds * _config.TickRate;
+        return serverTickNow - CurrentInterpolationDelay.TotalSeconds * _config.TickRate;
     }
 
     /// <summary>Once per update: advances the smoothed render clock by the time since the last update toward <see cref="RawRenderTick"/> (M40 T2).</summary>
@@ -720,11 +801,13 @@ public sealed partial class GameClient
         if (_snapshots.Count == 0) return (0, []);
         double renderTick = RenderTick();
         int after = _snapshots.FindIndex(x => x.Tick >= renderTick);
+        if (after < 0 && _options.MaxExtrapolationTicks > 0 && _snapshots.Count >= 2) return (renderTick, Extrapolated(renderTick));
         if (after <= 0)
             return (renderTick, Others(_snapshots[after < 0 ? ^1 : 0].Players).ToList());
         var (t0, p0, _) = _snapshots[after - 1];
         var (t1, p1, _) = _snapshots[after];
         float alpha = (float)((renderTick - t0) / (t1 - t0));
+        ExtrapolatedTicks = 0;
         var result = new List<PlayerState>();
         foreach (var (id, a) in p0)
         {
@@ -736,6 +819,30 @@ public sealed partial class GameClient
         return (renderTick, result);
 
         IEnumerable<PlayerState> Others(Dictionary<int, PlayerState> players) => players.Values.Where(p => p.PlayerId != PlayerId);
+    }
+
+    /// <summary>Ticks remote players were last carried past the newest snapshot (net/responsive; 0 when interpolated; diagnostics and the readout).</summary>
+    public double ExtrapolatedTicks { get; private set; }
+
+    /// <summary>
+    /// net/responsive: the render tick is past the newest snapshot (it is late): every other player carried on along its motion between the last two snapshots for at most
+    /// <see cref="ClientOptions.MaxExtrapolationTicks"/> past the newest, then held; a teleport (a respawn) or a player missing from the one before stays where the newest has it.
+    /// </summary>
+    List<PlayerState> Extrapolated(double renderTick)
+    {
+        var (t0, p0, _) = _snapshots[^2];
+        var (t1, p1, _) = _snapshots[^1];
+        double ahead = Math.Clamp(renderTick - t1, 0, _options.MaxExtrapolationTicks);
+        ExtrapolatedTicks = ahead;
+        float k = t1 > t0 ? (float)(ahead / (t1 - t0)) : 0f;
+        var result = new List<PlayerState>();
+        foreach (var (id, b) in p1)
+        {
+            if (id == PlayerId) continue;
+            if (!b.Alive || !p0.TryGetValue(id, out var a) || !a.Alive || Vector3.Distance(a.Position, b.Position) > ViewSmoothing.TeleportDistance * Math.Max(1.0, t1 - t0)) { result.Add(b); continue; }
+            result.Add(b with { Position = b.Position + (b.Position - a.Position) * k });
+        }
+        return result;
     }
 
     /// <summary>feel/melee-lock: the melee lock sent with the newest input (a player id; 0 none). Presentation (camera nudge, distance clips) reads it.</summary>

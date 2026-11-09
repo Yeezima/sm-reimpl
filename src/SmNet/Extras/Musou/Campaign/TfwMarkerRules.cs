@@ -60,6 +60,19 @@ public static class TfwMarkerRules
         _ => 0f,
     };
 
+    /// <summary>
+    /// Capture banners (owner, 2026-11-10): whether a position's banner is the players' side's (blue): only once it is secured; locked, held, being cleared or being secured it is still the Orks' (red).
+    /// </summary>
+    public static bool BannerImperial(in TfwObjective o) => o.State == TfwPositionState.Secured;
+
+    /// <summary>
+    /// How much of the black circle round a position's banner is drawn (0..1; owner 2026-11-10: "drawn and completed as the point is progressing from 0% capture to 100% captured by the player or the orks").
+    /// The war has no neutral state, so a capture of a held position reads as a neutralise and then a capture: the circle is complete while either side holds the position, unwinds to nothing as the
+    /// capture reaches half way, and draws itself complete again as it reaches 100 % (players: securing or clearing a held position, progress 0 to 1; Orks: retaking a secured one, its hold 1 to 0).
+    /// A capture that falls back (the players left; Imperials back on a contested secured position) winds the other way. Locked: the Orks' and complete. Ours (lead's assumptions, to check in a playtest).
+    /// </summary>
+    public static float CircleFill(in TfwObjective o) => o.State == TfwPositionState.Locked ? 1f : MathF.Abs(1f - 2f * Math.Clamp(o.Progress, 0f, 1f));
+
     /// <summary>The tile's name: A, B, C, then HQ for the commander's position.</summary>
     public static string TileName(int k) => k < WarRules.Positions ? ((char)('A' + k)).ToString() : "HQ";
 

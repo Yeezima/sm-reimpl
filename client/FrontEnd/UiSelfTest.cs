@@ -30,6 +30,21 @@ public sealed partial class UiSelfTest : Node
 
     async Task Frames(int count = 3) { for (int i = 0; i < count; i++) await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame); }
 
+    /// <summary>
+    /// Waits frames until <paramref name="ready"/> holds (at least <paramref name="minFrames"/>), at most <paramref name="seconds"/> of wall time; true when it held. A frame count is no
+    /// measure of time: a loaded machine draws few frames while a background thread builds art, a headless run with nothing to draw a thousand a second.
+    /// </summary>
+    async Task<bool> Until(Func<bool> ready, double seconds = 10, int minFrames = 1)
+    {
+        ulong start = Time.GetTicksMsec();
+        for (int frame = 0; ; frame++)
+        {
+            if (frame >= minFrames && ready()) return true;
+            if ((Time.GetTicksMsec() - start) / 1000.0 > seconds) return ready();
+            await Frames(1);
+        }
+    }
+
     void Check(string name, bool ok, string detail = "")
     {
         if (ok) _passed++; else _failed++;
@@ -304,6 +319,7 @@ public sealed partial class UiSelfTest : Node
         await ArmourBarChecks();   // ui/armour-bar-fix: one armour bar layer (UiSelfTest.ArmourBar.cs)
         await HeadshotMedalChecks();
         await ScoreBoxChecks();   // ui/score-box-center: the HUD score box holds its block (UiSelfTest.ScoreBox.cs)
+        ScreenBlinkChecks();   // ui/loading-blink: the blink's timing and the loading picture's file (UiSelfTest.ScreenBlink.cs)
     }
 
     /// <summary>

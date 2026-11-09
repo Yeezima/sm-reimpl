@@ -41,12 +41,13 @@ public sealed class MekModels
     /// <summary>Every model built or given up.</summary>
     public bool Done { get; private set; }
 
-    public MekModels(string gameDir)
+    /// <param name="parts">The models to read (default: the Scrap Meks' set); the capture banners pass their own (Tfw/TfwBanners.cs).</param>
+    public MekModels(string gameDir, IReadOnlyList<Part>? parts = null)
     {
         _reads = Task.Run(() =>
         {
             var list = new List<(Part, StaticModel?, string?)>();
-            foreach (var part in All)
+            foreach (var part in parts ?? All)
             {
                 string archive = Path.Combine(gameDir, "data", "chunks", part.Chunk + ".oppc");
                 try { list.Add((part, File.Exists(archive) ? StaticModel.Load(archive, part.Mesh, new List<string>()) : null, File.Exists(archive) ? null : "no " + part.Chunk)); }

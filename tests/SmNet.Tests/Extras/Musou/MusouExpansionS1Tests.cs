@@ -28,7 +28,7 @@ public class MusouExpansionS1Tests
         Assert.Equal(600f, rules.Of(MusouEnemyType.BigShootaNob).Health);
         Assert.Equal(250f, rules.Of(MusouEnemyType.ScrapMek).Health);
         foreach (var t in Enum.GetValues<MusouEnemyType>()) Assert.Equal(t, rules.Of(t).Type);
-        Assert.Equal(64u, Protocol.Version);   // main's protocol (headshots raised it to 64 at integration); the Musou expansion does not raise it
+        Assert.Equal(65u, Protocol.Version);   // main's protocol (headshots raised it to 64 at integration, net/responsive to 65); the Musou expansion does not raise it
     }
 
     [Fact]

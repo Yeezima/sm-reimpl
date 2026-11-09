@@ -71,8 +71,9 @@ public partial class NetworkView
         // feel/controls: after an early tick the pair before it is drawn until its scheduled time (GameClient.DrawPair), so the position keeps its timeline.
         var (previous, current, fraction) = _client.DrawPair();
         var position = previous.Alive && previous.PlayerId == me.PlayerId && current.Alive && current.PlayerId == me.PlayerId
-            ? ViewSmoothing.Interpolate(previous.Position, current.Position, fraction) : me.Position;
+            ? ViewSmoothing.Interpolate(previous.Position, current.Position, fraction) + _client.DrawBlendOffset() : me.Position;   // net/responsive: the tick's step blended out (ahead drawing)
         position += _correction.Step((float)delta);
+        _client.NoteOwnDrawn(position);   // net/responsive: the latency readout's edge-draw (nothing without it)
         return me with { Position = position, Pitch = ViewSmoothing.FollowAngle(me.Pitch, _sampledPitch, _pitch) };
     }
 

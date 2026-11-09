@@ -206,6 +206,7 @@ public class TfwBattleTests
     {
         var w = TfwRig.War();
         var battle = TfwRig.Deploy(w);
+        battle.BossOrksOn = false; battle.WeirdboyzOn = false;   // the roaming bosses come sooner since 2026-11-10 (half the waits): only the commander's own here
         for (int k = 0; k < 3; k++) TfwRig.Secure(w, battle, k);
         Assert.NotEqual((ushort)0, battle.BossId);
         Assert.Equal(w.Musou!.Rules.BossHealth, battle.BossMaxHealth);   // the commander is the Warboss (owner, 2026-11-06)
@@ -215,7 +216,40 @@ public class TfwBattleTests
         Assert.Equal(MusouPhase.Campaign, w.Musou.Director.Phase);
         Assert.Equal(battle.BossId, w.Musou.Director.BossId);
         Assert.Equal(w.Musou.Rules.BossHealth, w.Musou.Director.BossMaxHealth);
-        Assert.Equal(7, w.Musou.Alive);                                    // him, a Nob and five 'Ard Boyz
+        int escort = TfwBattleRules.CommanderNobs * TfwBattleRules.BigTwins + TfwBattleRules.CommanderArds;   // two Nobs since 2026-11-10 (a big Ork twice), five 'Ard Boyz
+        Assert.Equal(1 + escort, w.Musou.Alive);                           // him and his escort
+    }
+
+    /// <summary>
+    /// Review fix 2026-11-10: with every slot of the pool taken (the armies' twins, refilled crowds, the dying keeping theirs) the last position's capture still brings the commander: room is made for him
+    /// (the ordinary Ork farthest from the HQ goes) and he is tried again each tick, so the battle can always be won.
+    /// </summary>
+    [Fact]
+    public void A_full_pool_still_brings_the_commander_when_the_last_position_falls()
+    {
+        var w = TfwRig.War();
+        var battle = TfwRig.Deploy(w);
+        battle.BossOrksOn = false; battle.WeirdboyzOn = false;
+        for (int k = 0; k < 2; k++) TfwRig.Secure(w, battle, k);
+        var point = battle.Layout.Positions[2];
+        TfwRig.Teleport(w, point);
+        var filler = battle.Layout.Sources[0];
+        var near = new ushort[MusouSim.Capacity];
+        bool fullAtCapture = false;
+        for (int t = 0; t < 120 * 30 && battle.Objectives[2].State != TfwPositionState.Secured; t++)
+        {
+            int n = w.Musou!.Query(point, battle.Layout.Radius(2) + 6f, near);
+            for (int i = 0; i < n; i++) w.Musou.Damage(near[i], TfwRig.Human, 1e6f, Vector3.Zero, out _);   // the point kept clear
+            while (w.Musou.SpawnLeashed(MusouEnemyType.Boy, filler, 0f, 85f, 250, 0.01f) != 0) { }    // every other slot taken, far off
+            fullAtCapture = w.Musou.Count == MusouSim.Capacity;
+            w.Step(_ => default);
+        }
+        Assert.Equal(TfwPositionState.Secured, battle.Objectives[2].State);
+        Assert.True(fullAtCapture, "the pool was full when the last position fell");
+        for (int t = 0; t < 3 && battle.BossId == 0; t++) w.Step(_ => default);
+        Assert.NotEqual((ushort)0, battle.BossId);
+        Assert.True(w.Musou!.TryGet(battle.BossId, out var boss) && boss.Alive && boss.Type == MusouEnemyType.Warboss);
+        Assert.True(battle.RoomMade > 0, "room was made for him");
     }
 
     [Fact]
@@ -223,19 +257,20 @@ public class TfwBattleTests
     {
         var w = TfwRig.War();
         var battle = TfwRig.Deploy(w);
+        battle.BossOrksOn = false; battle.WeirdboyzOn = false;   // as above: the commander alone against the squad
         for (int k = 0; k < 3; k++) TfwRig.Secure(w, battle, k);
         var guards = w.TfwGuards!;
         int squad = guards.SpawnSquad(battle.Layout.Hq + new Vector3(0f, -3f, 0f));
         Assert.True(squad >= 0);
         int before = guards.Lost;
         bool slam = false, hurt = false;
-        for (int t = 0; t < 20 * 30 && !(slam && hurt); t++)
+        for (int t = 0; t < 30 * 30 && !(slam && hurt); t++)   // 20 s until 2026-11-10: with the crowds back at 100 % (a crowd Ork every 4 ticks) he first takes a field squad, the slam lands at about 23 s
         {
             w.Step(_ => default);
             slam |= w.Musou!.Events.Any(e => e.Kind == MusouEventKind.Strike && e.Enemy == battle.BossId && e.Value == (byte)MusouBossAbility.GroundSlam);
             hurt |= guards.Events.Any(e => e.Kind is GuardEventKind.Hurt or GuardEventKind.Death);
         }
-        Assert.True(slam, $"the slam met a squad (men {guards.AliveIn(squad)}, lost {guards.Lost - before}; it lands at about 12 s)");
+        Assert.True(slam, $"the slam met a squad (men {guards.AliveIn(squad)}, lost {guards.Lost - before}; it lands at about 23 s)");
         Assert.True(hurt, "and hurt a man");
     }
 
@@ -289,6 +324,6 @@ public class TfwBattleTests
         var battle = new TfwBattle(sim, new GuardSim(sim), TfwTestArena.Layout(TfwLane.A, 1), 100.0, 1) { Trickle = false, Patrols = false };
         battle.Start();
         for (int k = 0; k < 400 * 30; k++) battle.Step([]);
-        Assert.Equal(TfwBattleRules.AliveCapSolo + 3 * TfwBattleRules.Garrison, sim.Alive - battle.ArmyOrksAlive);   // the crowds and swarms are the cap; the garrisons and the armies' real Orks stand beside it
+        Assert.Equal(TfwBattleRules.AliveCapSolo + 3 * TfwBattleRules.Garrison, sim.Alive - battle.ArmyOrksAlive - battle.BigsAlive);   // the crowds and swarms are the cap; the garrisons and the armies' real Orks stand beside it
     }
 }

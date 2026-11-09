@@ -96,7 +96,7 @@ public class MusouIsolationTests(ITestOutputHelper output)
     [Fact]
     public void Musou_changes_neither_the_protocol_version_nor_the_extended_profile()
     {
-        Assert.Equal(64u, (uint)Protocol.Version);   // 64: headshot kill flag, scoreboard headshots and assists (every mode; no gameplay change); 63: stream B (holstered cooldowns, every mode; the hammer string reset); 62: sim/jump-escape, sim/hop-cancel-momentum (every mode) and sim/descent-recharge (Classic only); 61: night batch classic jump-pack capacity (Classic only, Musou keeps 300); 60: feel/charge-clash (classic PvP charges); 59: sim/swing-step, sim/lock-reach (every mode) and sim/air-jumps (Classic loses the air jump, Musou keeps it); 58: fix/pvp-deploy-spawn (classic PvP only); 57: fix/charge-player-collision; 56: sim/reload-keeps; 55: the hammer needs no pound delay; 54: feel/melee-cancels; 53: feel/melee-cooldown (the melee lock); 52: sim/light-melee-flinch (the flinch byte); 51: sim/no-fire-while-sprinting and sim/movement-fixes (50: the scoreboard's ping), not Musou
+        Assert.Equal(65u, (uint)Protocol.Version);   // 65: net/responsive input slack in the snapshot header (every mode; no gameplay change); 64: headshot kill flag, scoreboard headshots and assists (every mode; no gameplay change); 63: stream B (holstered cooldowns, every mode; the hammer string reset); 62: sim/jump-escape, sim/hop-cancel-momentum (every mode) and sim/descent-recharge (Classic only); 61: night batch classic jump-pack capacity (Classic only, Musou keeps 300); 60: feel/charge-clash (classic PvP charges); 59: sim/swing-step, sim/lock-reach (every mode) and sim/air-jumps (Classic loses the air jump, Musou keeps it); 58: fix/pvp-deploy-spawn (classic PvP only); 57: fix/charge-player-collision; 56: sim/reload-keeps; 55: the hammer needs no pound delay; 54: feel/melee-cancels; 53: feel/melee-cooldown (the melee lock); 52: sim/light-melee-flinch (the flinch byte); 51: sim/no-fire-while-sprinting and sim/movement-fixes (50: the scoreboard's ping), not Musou
         Assert.Equal(2u, ContentExtras.WireVersion);
         Assert.False(ContentExtras.All.HasFlag(ContentExtras.Musou));
         Assert.Equal(ContentExtras.Orks | ContentExtras.Gore | ContentExtras.LoyalistBarks, ContentExtras.All);
@@ -159,7 +159,7 @@ public class MusouIsolationTests(ITestOutputHelper output)
             var now = w.Players;
             w.Step(id => Script(k, id, now) with { ViewTick = view, BodyTick = body });
             var players = w.Players.Values.OrderBy(p => p.PlayerId).ToArray();
-            foreach (var p in players) sha.AppendData(Protocol.Write(new Snapshot(w.Tick, 0, 0, players, Self: p.PlayerId)));
+            foreach (var p in players) sha.AppendData(Protocol.Write(new Snapshot(w.Tick, 0, 0, players, Self: p.PlayerId, InputSlack: 0)));   // protocol 65: lead 0 and slack 0 are the old 4-byte lead 0, so the golden hashes stand
             BitConverter.TryWriteBytes(tail.AsSpan(0), (int)w.State);
             BitConverter.TryWriteBytes(tail.AsSpan(4), w.TicksLeft);
             BitConverter.TryWriteBytes(tail.AsSpan(8), w.ScoreOf(Team.SpaceMarines));

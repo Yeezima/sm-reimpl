@@ -274,7 +274,7 @@ public class SolidBodiesTests(ITestOutputHelper output)
         Assert.True(new SimConfig().SolidBodies);
         Assert.Equal(new SimConfig().Hash(), (new SimConfig() with { SolidBodies = true }).Hash());
         Assert.NotEqual(new SimConfig().Hash(), (new SimConfig() with { SolidBodies = false }).Hash());
-        Assert.Equal(64, Protocol.Version);
+        Assert.Equal(65, Protocol.Version);
     }
 
     // ---------------------------------------------------------------- clash, stun and recoil states
@@ -319,8 +319,8 @@ public class SolidBodiesTests(ITestOutputHelper output)
         // (the predicted collision stop), the victim's own client shows its stun, and each one's remote view of the other shows the other's (the clips play from these states).
         var link = new LinkConditions(TimeSpan.FromMilliseconds(75), TimeSpan.FromMilliseconds(10), 0.05);
         var h = new Harness(link, seed, 0, Config, new ServerOptions { PeerTimeout = TimeSpan.FromMinutes(5), Match = new MatchRules { TimeLimit = 0f, CountdownTime = 0f } });
-        h.AddClient(nonce: 100, options: new ClientOptions { RequestedClass = Marine, RequestedSide = Team.SpaceMarines });
-        h.AddClient(nonce: 101, options: new ClientOptions { RequestedClass = Chaos, RequestedSide = Team.Chaos });
+        h.AddClient(nonce: 100, options: new ClientOptions { RequestedClass = Marine, RequestedSide = Team.SpaceMarines, SmoothInputLead = false });   // net/responsive: the old lead (about 5 ticks): the script's connect count was set with its timing through 5 % loss
+        h.AddClient(nonce: 101, options: new ClientOptions { RequestedClass = Chaos, RequestedSide = Team.Chaos, SmoothInputLead = false });
         var connects = new List<uint>();
         var ownRecoil = new HashSet<uint>(); var ownStun = new HashSet<uint>(); var seenRecoil = new HashSet<uint>(); var seenStun = new HashSet<uint>();
         uint lastServer = 0;

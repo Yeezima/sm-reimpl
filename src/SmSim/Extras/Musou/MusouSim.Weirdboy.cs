@@ -29,6 +29,9 @@ public static class MusouWeirdboy
     public const int SummonReserve = 80;
     /// <summary>A bolt's burst reaches this far up and down (ours).</summary>
     public const float BoltVerticalReach = 2.5f;
+    /// <summary>He casts a bolt this long before it leaves the staff (ours, 2026-11-09: the cast clip <c>WIB_WIB_MEL_Cast_Magic_01</c> plays in <see cref="MusouEnemyState.Casting"/>);
+    /// it is thrown at the target's feet as they stand when the cast ends. A stagger cuts the cast short and the bolt is lost.</summary>
+    public const float BoltCastSeconds = 0.5f;
     /// <summary>When his shield breaks, every Ork within this (flat; ours, the owner 2026-11-07: "ragdoll all orks within 20m") but the Warboss, the Boss Orks and other Weirdboyz is thrown down
     /// (<see cref="MusouEnemyState.Knocked"/>, the fall Musou Mode's shove uses) <see cref="BreakKnockback"/> away from him (ours: the charge's push).</summary>
     public const float BreakRadius = 20f, BreakKnockback = 4f;
@@ -62,7 +65,11 @@ public sealed partial class MusouSim
     readonly ushort[] _summonCd = new ushort[Capacity];
     readonly Vector3[] _blink = new Vector3[Capacity];
     readonly int[] _blinkNode = new int[Capacity];
+    readonly bool[] _boltCast = new bool[Capacity];   // his Casting is a bolt's cast, not a summons
     readonly List<Bolt> _bolts = new();
+
+    /// <summary>Test aid (server <c>SM_MUSOU_OLD_WEIRDBOY=1</c>): his bolt before 2026-11-09 (through the crowd's shooter tokens, no cast, only from 16 m: in a war he never threw).</summary>
+    public static bool OldWeirdboyBolt { get; set; } = Environment.GetEnvironmentVariable("SM_MUSOU_OLD_WEIRDBOY") == "1";
 
     /// <summary>A bolt in flight: who threw it, where and when it bursts, its damage and radius.</summary>
     readonly record struct Bolt(ushort Enemy, Vector3 From, Vector3 Point, uint Lands, float Damage, float Radius);
@@ -80,6 +87,7 @@ public sealed partial class MusouSim
         _teleportCd[i] = 0;
         _summonCd[i] = _type[i] == MusouEnemyType.Weirdboy ? Ticks(MusouWeirdboy.SummonFirst) : (ushort)0;
         _blinkNode[i] = -1;
+        _boltCast[i] = false;
     }
 
     /// <summary>
@@ -172,6 +180,20 @@ public sealed partial class MusouSim
                     AddEvent(new MusouEvent(MusouEventKind.Telegraph, Tick, (ushort)(i + 1), 0, MusouWeirdboy.ShieldBackCue, _position[i]));
                 }
                 break;
+            case MusouEnemyState.Casting when _boltCast[i]:
+                if (_stateTicks[i] >= Ticks(MusouWeirdboy.BoltCastSeconds))
+                {
+                    _boltCast[i] = false;
+                    int t = IndexOf(targets, _target[i]);
+                    if (t >= 0 && targets[t].Alive && !targets[t].Goal) ThrowBolt(i, targets[t], spec, fight);   // where the target stands now
+                    SetState(i, MusouEnemyState.Seek);
+                }
+                else if (IndexOf(targets, _target[i]) is int aim and >= 0)
+                {
+                    var to = new Vector2(targets[aim].Position.X - _position[i].X, targets[aim].Position.Y - _position[i].Y);
+                    if (to.LengthSquared() > 1e-6f) TurnTo(i, Vector2.Normalize(to), MusouFacingRules.ShooterTurnDegrees);   // he tracks it while he casts
+                }
+                break;
             case MusouEnemyState.Casting:
                 if (_stateTicks[i] >= Ticks(MusouWeirdboy.SummonSeconds))
                 {
@@ -216,12 +238,51 @@ public sealed partial class MusouSim
         {
             _summonCd[i] = Ticks(MusouWeirdboy.SummonCooldown);
             _token[i] = 0; _burst[i] = 0;
+            _boltCast[i] = false;
             SetState(i, MusouEnemyState.Casting);
             Face(i, toward);
             AddEvent(new MusouEvent(MusouEventKind.Telegraph, Tick, (ushort)(i + 1), 0, MusouWeirdboy.SummonCue, _position[i]));
             return true;
         }
         return false;
+    }
+
+    /// <summary>
+    /// His bolts and his band (from <see cref="Behave"/>, beyond his staff's reach). His bolt is his own: it never asks the crowd for a shooter token (in a war the Shoota Boyz nearer the
+    /// target always held them and he never threw; the owner's clip 2026-11-09, "the weird boy currently does nothing"). With his cooldown over, the target within
+    /// <see cref="MusouTypeSpec.RangedMax"/> and in his sight, he starts a cast (<see cref="MusouEnemyState.Casting"/>, <see cref="MusouWeirdboy.BoltCastSeconds"/>) that ends in the bolt; he throws from
+    /// beyond his staff's reach, and keeps to his band (<see cref="MusouTypeSpec.RangedMin"/> to <see cref="MusouTypeSpec.RangedMax"/>) as before.
+    /// </summary>
+    Vector2 WeirdboyRanged(int i, int t, MusouTarget target, Vector3 d, float distance, Vector2 toward, MusouTypeSpec spec, bool fight, CollisionWorld? collision)
+    {
+        _token[i] = 0; _burst[i] = 0;
+        bool sight = WeirdboySees(i, target, collision);
+        if (fight && sight && _cooldown[i] == 0 && distance <= spec.RangedMax)
+        {
+            _cooldown[i] = Ticks(spec.RangedPeriod);
+            _boltCast[i] = true;
+            SetState(i, MusouEnemyState.Casting);
+            TurnTo(i, toward, MusouFacingRules.ShooterTurnDegrees);
+            return Vector2.Zero;
+        }
+        var swarm = Swarm;
+        if (distance <= spec.RangedMax * MusouFacingRules.ShooterEngageScale) _faceWant[i] = toward;
+        if (distance > spec.RangedMax || !sight) return swarm is null ? Approach(i, t, d, spec.Speed) : SwarmWay(i, t, target, d, spec.Speed, slot: false, hold: false, swarm);
+        if (distance < spec.RangedMin) { _faceWant[i] = toward; return -toward * spec.Speed * 0.6f; }   // backs off to his band still facing the target
+        TurnTo(i, toward, MusouFacingRules.ShooterTurnDegrees);
+        return KeepOutWay(i, spec.Speed);
+    }
+
+    /// <summary>His own line of sight to <paramref name="target"/> (eye 1.5 m to chest 1.2 m against the weapons' world), kept for <see cref="MusouRules.LosValidTicks"/>; a new target looks again.</summary>
+    bool WeirdboySees(int i, MusouTarget target, CollisionWorld? collision)
+    {
+        if (_losTick[i] != 0 && Tick - _losTick[i] <= (uint)Rules.LosValidTicks) return _los[i];
+        _losTick[i] = Math.Max(1u, Tick);
+        var eye = _position[i] + new Vector3(0f, 0f, 1.5f);
+        var ray = target.Position + new Vector3(0f, 0f, 1.2f) - eye;
+        float length = ray.Length();
+        _los[i] = collision is null || length < 1e-3f || !(collision.Weapons.Raycast(eye, ray / length, length) is { } wall && wall.Distance < length - 0.1f);
+        return _los[i];
     }
 
     /// <summary>

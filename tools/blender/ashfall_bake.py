@@ -2,7 +2,7 @@
 #
 # Run headless, never with a window:
 #   blender.exe --background --factory-startup --python tools/blender/ashfall_bake.py -- \
-#       --src <kit source root> --out <processed root> [--only AC-001,AC-002] [--size 1024] [--samples 16] [--preview <dir>]
+#       --src <kit source root> --out <processed root> [--only AC-001,AC-002] [--size 1024] [--samples 16] [--preview <dir>] [--scales <file.json>]
 #
 # For every glb under --src that has a base colour texture (the textureless ashfall-ground models are skipped) it bakes a new
 # base colour image on the model's own UV map: the original colour made cooler, greyer and darker, with cavity/AO soot,
@@ -50,11 +50,56 @@ LUMA_LOW, LUMA_HIGH = 0.85, 1.08
 TARGET_R_OVER_B = 0.95  # mean red / blue of the median model; copies warmer than MAX_R_OVER_B are cooled to it
 MAX_R_OVER_B = 1.0  
 MATTE_ROUGHNESS = 1.0                # glTF roughness factor of the processed copies; metallic 0, no specular sheen
+# ---- kit-hi-res (2026-11-09): what the texture can hold ----
+TEXEL_PERIOD_MIN = 6.0               # texels: a weathering pattern finer than this is faded out (grit, block tones) or made coarser (streaks), and noise octaves above it are dropped,
+                                     # so the weathering never aliases into smears over the source's own masonry detail; needs the model's texel density (--scales)
+DENSITY = None                       # texels per metre of the model being baked (set per model; None: no limit, as before)
+STAIN_FULL_DENSITY = 80.0            # texels/m at which the stains (blotches, patches) keep full strength; below it they fade in proportion, to at least STAIN_MIN
+STAIN_MIN = 0.15                     # (a 60 m keep spreads one 2048 texture to about 12 texels/m: full-strength stains read as camouflage over its coarse masonry)
+
+RELIEF_STRENGTH = 1.0                # kit-hi-res: a model with no normal map gets one baked from its source colour's relief (height = luminance, Bump node), at this strength ...
+RELIEF_DISTANCE = 0.12               # ... and this depth in metres for a full black-to-white step (the model at its arena scale); ours, tuned by looking at close-ups
+
+
+def stain_weight():
+    return 1.0 if DENSITY is None else max(STAIN_MIN, min(1.0, DENSITY / STAIN_FULL_DENSITY))
+
+
+def fmax_texture():
+    return None if DENSITY is None else DENSITY / TEXEL_PERIOD_MIN
+
+
+def keep_amp(f):
+    """Amplitude kept for a pattern of f cycles per metre: 1 up to half the finest pattern the texture holds, 0 at it."""
+    fm = fmax_texture()
+    return 1.0 if fm is None else max(0.0, min(1.0, (fm - f) / (0.5 * fm)))
+
+
+def octaves(f, detail):
+    """Noise octaves (each doubles the frequency) a pattern of f cycles per metre keeps below the finest the texture holds."""
+    fm = fmax_texture()
+    return detail if fm is None else max(0.0, min(detail, math.log2(max(fm / f, 1.0))))
+
+
+def texel_density(ob, size):
+    """Texels per metre over the model: the image side times the square root of (UV area / world area), on its active UV map."""
+    me = ob.data; mw = ob.matrix_world
+    uv = me.uv_layers.active.data
+    world = 0.0; uva = 0.0
+    for poly in me.polygons:
+        idx = list(poly.loop_indices)
+        p0 = mw @ me.vertices[me.loops[idx[0]].vertex_index].co; u0 = uv[idx[0]].uv
+        for k in range(1, len(idx) - 1):
+            p1 = mw @ me.vertices[me.loops[idx[k]].vertex_index].co; p2 = mw @ me.vertices[me.loops[idx[k + 1]].vertex_index].co
+            world += (p1 - p0).cross(p2 - p0).length * 0.5
+            u1 = uv[idx[k]].uv; u2 = uv[idx[k + 1]].uv
+            uva += abs((u1.x - u0.x) * (u2.y - u0.y) - (u2.x - u0.x) * (u1.y - u0.y)) * 0.5
+    return size * math.sqrt(uva / world) if world > 0 and uva > 0 else None
 
 
 def args_after_dashes():
     a = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
-    d = {'src': None, 'out': None, 'only': None, 'size': 1024, 'samples': 16, 'preview': None}
+    d = {'src': None, 'out': None, 'only': None, 'size': 1024, 'samples': 16, 'preview': None, 'scales': None}
     i = 0
     while i < len(a):
         k = a[i].lstrip('-')
@@ -192,7 +237,7 @@ class Rig:
         m = self.nodes.new('ShaderNodeMapping'); m.vector_type = 'POINT'
         self.put(m.inputs['Vector'], vec); m.inputs['Scale'].default_value = scale_xyz
         n = self.nodes.new('ShaderNodeTexNoise'); n.noise_dimensions = '4D'
-        n.inputs['Scale'].default_value = 1.0; n.inputs['Detail'].default_value = detail
+        n.inputs['Scale'].default_value = 1.0; n.inputs['Detail'].default_value = octaves(max(scale_xyz), detail)
         n.inputs['Roughness'].default_value = rough; n.inputs['W'].default_value = w
         self.links.new(m.outputs[0], n.inputs['Vector'])
         return n.outputs['Fac']
@@ -236,13 +281,13 @@ def build_recipe(rig, base_color, min_z, max_z, size, seed_w, tone, ao_scale_siz
     vor = rig.nodes.new('ShaderNodeTexVoronoi'); vor.feature = 'F1'; vor.voronoi_dimensions = '3D'
     rig.links.new(mp.outputs[0], vor.inputs['Vector'])
     bw = rig.nodes.new('ShaderNodeRGBToBW'); rig.links.new(vor.outputs['Color'], bw.inputs[0])
-    block = rig.math('ADD', 1.0, rig.math('MULTIPLY', rig.math('SUBTRACT', bw.outputs[0], 0.5), 2.0 * BLOCK_TONE))
+    block = rig.math('ADD', 1.0, rig.math('MULTIPLY', rig.math('SUBTRACT', bw.outputs[0], 0.5), 2.0 * BLOCK_TONE * keep_amp(BLOCK_SCALE)))
     edge_break = rig.maprange(rig.noise(geo.outputs['Position'], (3.0,) * 3, seed_w + 53.0, detail=4.0), 0.35, 0.6)
 
     soot = rig.math('ADD', rig.math('MULTIPLY', cavity, SOOT_CAVITY), rig.math('MULTIPLY', base_mask, SOOT_BASE))
-    soot = rig.math('ADD', soot, rig.math('MULTIPLY', streak, SOOT_STREAK))
-    soot = rig.math('ADD', soot, rig.math('MULTIPLY', blotch, SOOT_BLOTCH))
-    soot = rig.math('ADD', soot, rig.math('MULTIPLY', patch, SOOT_PATCH))
+    soot = rig.math('ADD', soot, rig.math('MULTIPLY', streak, SOOT_STREAK * keep_amp(STREAK_THIN)))   # kit-hi-res: thin streaks fade where the texture cannot hold them (widened, they read as blotches)
+    soot = rig.math('ADD', soot, rig.math('MULTIPLY', blotch, SOOT_BLOTCH * stain_weight()))
+    soot = rig.math('ADD', soot, rig.math('MULTIPLY', patch, SOOT_PATCH * stain_weight()))
     soot = rig.math('MINIMUM', soot, SOOT_MAX)
 
     # colour
@@ -252,11 +297,36 @@ def build_recipe(rig, base_color, min_z, max_z, size, seed_w, tone, ao_scale_siz
     tint = (COOL_GREY[0] * t, COOL_GREY[1] * t, COOL_GREY[2] * t)
     col = rig.mix('MULTIPLY', 1.0, hs.outputs['Color'], tint)
     col = rig.mix('MULTIPLY', 1.0, col, block)
-    grit = rig.math('ADD', 1.0, rig.math('MULTIPLY', rig.math('SUBTRACT', grit_n, 0.5), 2.0 * GRIT_AMOUNT))
+    grit = rig.math('ADD', 1.0, rig.math('MULTIPLY', rig.math('SUBTRACT', grit_n, 0.5), 2.0 * GRIT_AMOUNT * keep_amp(GRIT_SCALE)))
     col = rig.mix('MULTIPLY', 1.0, col, grit)
     col = rig.mix('MIX', soot, col, SOOT_COLOR)
     col = rig.mix('MIX', rig.math('MULTIPLY', rig.math('MULTIPLY', convex, edge_break), WORN_EDGE), col, WORN_COLOR)
     return col
+
+
+def bake_relief(ob, src_img, stem, size):
+    """kit-hi-res: a tangent-space normal map from the source colour's relief (luminance as height through a Bump node), baked on the model's own UVs at its arena scale."""
+    mat = bpy.data.materials.new('relief'); mat.use_nodes = True
+    nt = mat.node_tree; nt.nodes.clear()
+    tex = nt.nodes.new('ShaderNodeTexImage'); tex.image = src_img; tex.interpolation = 'Cubic'
+    bw = nt.nodes.new('ShaderNodeRGBToBW'); nt.links.new(tex.outputs['Color'], bw.inputs[0])
+    bump = nt.nodes.new('ShaderNodeBump'); bump.inputs['Strength'].default_value = RELIEF_STRENGTH; bump.inputs['Distance'].default_value = RELIEF_DISTANCE
+    nt.links.new(bw.outputs[0], bump.inputs['Height'])
+    bsdf = nt.nodes.new('ShaderNodeBsdfPrincipled'); nt.links.new(bump.outputs['Normal'], bsdf.inputs['Normal'])
+    out = nt.nodes.new('ShaderNodeOutputMaterial'); nt.links.new(bsdf.outputs[0], out.inputs['Surface'])
+    img = bpy.data.images.new(stem + '_normal', size, size, alpha=False)
+    img.colorspace_settings.name = 'Non-Color'
+    target = nt.nodes.new('ShaderNodeTexImage'); target.image = img
+    nt.nodes.active = target; target.select = True
+    keep = [s.material for s in ob.material_slots]
+    for s in ob.material_slots:
+        s.material = mat
+    bpy.ops.object.select_all(action='DESELECT'); ob.select_set(True); bpy.context.view_layer.objects.active = ob
+    bpy.ops.object.bake(type='NORMAL', normal_space='TANGENT', margin=BAKE_MARGIN, use_clear=True)
+    for s, m in zip(ob.material_slots, keep):
+        s.material = m
+    bpy.data.materials.remove(mat)
+    return img
 
 
 def choose_device(scene, log):
@@ -291,11 +361,20 @@ def shrink(img, size):
         img.scale(max(1, int(w * k)), max(1, int(h * k)))
 
 
-def process_one(src, dst, size, samples, log):
+def process_one(src, dst, size, samples, log, scale=None):
     t0 = time.time()
     reset_scene()
     objs = import_glb(src)
     ob = join_meshes(objs)
+    # kit-hi-res (2026-11-09): the recipe's numbers are metres, but a Meshy file is normalised to about 2 m. With --scales the model is baked at the size the map draws it
+    # (glTF X, Y, Z factors of its largest arena item; Blender's axes are glTF X, -Z, Y), so grit, stone tones, streaks, the foot band and the AO distance land at their real size
+    # instead of being stretched 8 to 33 times. Only the object's scale changes: the mesh and its normals are exported as read.
+    global DENSITY
+    DENSITY = None
+    if scale:
+        ob.scale = (scale[0], scale[2], scale[1])
+        bpy.context.view_layer.update()
+        DENSITY = texel_density(ob, size)
     if not ob.data.uv_layers:
         raise RuntimeError('no UV map')
     mats = [s.material for s in ob.material_slots]
@@ -342,12 +421,26 @@ def process_one(src, dst, size, samples, log):
     bpy.ops.object.select_all(action='DESELECT'); ob.select_set(True); bpy.context.view_layer.objects.active = ob
     bpy.ops.object.bake(type='EMIT', margin=BAKE_MARGIN, use_clear=True)
     luma_after = correct_tone(baked)
+    relief = None
+    if scale and not any(n.type == 'NORMAL_MAP' for m in mats if m for n in m.node_tree.nodes):
+        relief = bake_relief(ob, orig_img, stem, size)
 
     # back to the original materials, base colour now the baked image
     for s, m in zip(ob.material_slots, mats):
         s.material = m
     for n in tex_nodes:
         n.image = baked
+    if relief is not None:                # the baked relief as the material's tangent-space normal map (exported as the glTF normalTexture)
+        for m in mats:
+            if m is None:
+                continue
+            for b in [n for n in m.node_tree.nodes if n.type == 'BSDF_PRINCIPLED']:
+                if b.inputs['Normal'].links:
+                    continue
+                t = m.node_tree.nodes.new('ShaderNodeTexImage'); t.image = relief
+                nm = m.node_tree.nodes.new('ShaderNodeNormalMap'); nm.space = 'TANGENT'
+                m.node_tree.links.new(t.outputs['Color'], nm.inputs['Color'])
+                m.node_tree.links.new(nm.outputs['Normal'], b.inputs['Normal'])
     for m in mats:
         if m is None:
             continue
@@ -372,11 +465,12 @@ def process_one(src, dst, size, samples, log):
                 m.node_tree.nodes.remove(n)
 
     os.makedirs(os.path.dirname(dst), exist_ok=True)
+    ob.scale = (1.0, 1.0, 1.0); bpy.context.view_layer.update()   # back to the file's own size: the client fits the raw bounds
     bpy.ops.object.select_all(action='DESELECT'); ob.select_set(True); bpy.context.view_layer.objects.active = ob
     bpy.ops.export_scene.gltf(filepath=dst, export_format='GLB', use_selection=True, export_image_format='JPEG',
-                              export_jpeg_quality=90, export_yup=True)
+                              export_jpeg_quality=90, export_yup=True, export_tangents=relief is not None)
     dt = time.time() - t0
-    log(f'{stem}: {dt:.1f}s luma {luma_before:.3f} -> {luma_after:.3f} ({luma_after / max(luma_before, 1e-6) * 100:.0f}%) size {sizes[0]:.1f}x{sizes[1]:.1f}x{sizes[2]:.1f}')
+    log(f'{stem}: {dt:.1f}s{" + relief normal map" if relief is not None else ""}{" at arena scale %.1f x %.1f x %.1f, %.0f texels/m (patterns above %.1f/m faded)" % (tuple(scale) + (DENSITY or 0, fmax_texture() or 0)) if scale else ""} luma {luma_before:.3f} -> {luma_after:.3f} ({luma_after / max(luma_before, 1e-6) * 100:.0f}%) size {sizes[0]:.1f}x{sizes[1]:.1f}x{sizes[2]:.1f}')
     return luma_before, luma_after
 
 
@@ -447,12 +541,17 @@ def render_glb(path, png, res=512):
 def main():
     a = args_after_dashes()
     if not a['src'] or not a['out']:
-        print('usage: --src <dir> --out <dir> [--only A,B] [--size N] [--samples N] [--preview dir]'); return
+        print('usage: --src <dir> --out <dir> [--only A,B] [--size N] [--samples N] [--preview dir] [--scales file.json]'); return
     src_root = os.path.abspath(a['src']); out_root = os.path.abspath(a['out'])
     # the owner's originals are read only: refuse an output folder that is the source or inside it (review)
     if os.path.commonpath([os.path.normcase(src_root), os.path.normcase(out_root)]) == os.path.normcase(src_root):
         sys.exit('--out must not be the source folder or inside it: ' + out_root)
     only = [s.strip().lower() for s in a['only'].split(',')] if a['only'] else None
+    scales = {}
+    if a['scales']:   # smtool ashfall-kit-bake-scales: {"<file stem>": [x, y, z]} in the glTF frame
+        import json
+        with open(a['scales'], encoding='utf-8') as f:
+            scales = {k.lower(): v for k, v in json.load(f).items()}
     files = []
     for root, _, names in os.walk(src_root):
         for n in sorted(names):
@@ -473,7 +572,7 @@ def main():
             log(f'{rel}: no base colour texture, skipped'); continue
         dstp = os.path.join(out_root, rel)
         try:
-            sums.append(process_one(srcp, dstp, a['size'], a['samples'], log))
+            sums.append(process_one(srcp, dstp, a['size'], a['samples'], log, scales.get(os.path.splitext(os.path.basename(rel))[0].lower())))
             if a['preview']:
                 stem = os.path.splitext(os.path.basename(rel))[0]
                 render_glb(srcp, os.path.join(a['preview'], stem + '_before.png'))

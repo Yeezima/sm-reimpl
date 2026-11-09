@@ -18,6 +18,8 @@ namespace SmClient;
 /// <item>under the reward lines, the break's countdown to the next wave; call-outs ("WAAAGH!", "ENRAGED") with a short screen flash;</item>
 /// <item>the end-of-run panel for a victory or a defeat (the wave reached, the KOs and points, the next run's start) during the match end splash.</item>
 /// </list>
+/// Since 2026-11-10 (<see cref="MusouHudLayout"/>, the owner's request) the boss bars stand bottom left, the KO chain bottom right over the weapon box, the call-outs in a strip
+/// along the top edge and the break's lines under the run panel; the list above is the layout <c>--musou-old-hud</c> restores.
 /// In Musou Mode (<see cref="MusouPhase.Campaign"/>) there are no waves or shared lives: the run panel goes (its figures are on the M map, <see cref="TfwBattlePanel"/>) and the boss bar shows the battle's commander.
 /// Layout, sizes and colours are ours (kind: ours; the original has no such mode). <see cref="NetworkView"/> fills <see cref="Data"/> every frame and calls
 /// <see cref="Fed"/>; without that call for two frames (the view stops its added content while it is not connected) the HUD hides itself. No allocation per
@@ -45,6 +47,10 @@ public sealed partial class MusouHud : Control
         public string BossName = "ORK WARBOSS";
         /// <summary>The roaming Boss Orks' bars (2026-11-06; MusouHud.BossOrks.cs), under the boss bar.</summary>
         public readonly List<SmNet.Extras.Musou.Campaign.TfwBossOrkBar> BossOrks = new();
+        /// <summary>The boss column's priority (owner, 2026-11-10; MusouHud.BossColumn.cs): when the own player last hit each enemy (seconds on <see cref="Now"/>'s clock) and each boss's distance from the player (m).</summary>
+        public readonly Dictionary<ushort, double> HitAt = new();
+        public readonly Dictionary<ushort, float> Distance = new();
+        public double Now;
     }
 
     public Frame Data = new();
@@ -144,6 +150,7 @@ public sealed partial class MusouHud : Control
             else _bossTrail = Math.Max(_bossShown, _bossTrail - (float)delta * 0.25f);
         }
         else { _bossShown = _bossTrail = -1f; _bossId = 0; }
+        if (!MusouHudLayout.Old) OrderBosses(d);   // the boss column's order (MusouHud.BossColumn.cs)
         bool ended = d is { Phase: MusouPhase.Won or MusouPhase.Lost };
         if (ended && _endSeenAt < 0) _endSeenAt = _time;
         else if (!ended) _endSeenAt = -1;
@@ -191,8 +198,8 @@ public sealed partial class MusouHud : Control
         DrawFlash(vs);
         if (Data.Director is not { } d) return;
         if (d.Phase != MusouPhase.Campaign) DrawRunPanel(d);
-        DrawBossBar(vs, d);
-        DrawBossOrkBars(vs, d);   // MusouHud.BossOrks.cs
+        if (MusouHudLayout.Old) { DrawBossBar(vs, d); DrawBossOrkBars(vs, d); }   // MusouHud.BossOrks.cs
+        else DrawBossColumn(vs, d);   // the column over the own bar, bottom left (MusouHud.BossColumn.cs)
         if (d.Phase is not (MusouPhase.Won or MusouPhase.Lost)) DrawChain(vs);
         DrawBreak(vs, d);
         DrawCallOuts(vs);
@@ -242,7 +249,7 @@ public sealed partial class MusouHud : Control
         Txt(_points.Of(Data.Points, Thousands), rx, y + 150f, 26, Gold, 1, 3, true);
     }
 
-    /// <summary>The Warboss's bar, top centre above the armour bar, while it lives.</summary>
+    /// <summary>The Warboss's (Musou Mode: the battle commander's) bar while it lives, top centre above the armour bar: the layout <c>--musou-old-hud</c> keeps (the column replaces it, MusouHud.BossColumn.cs).</summary>
     void DrawBossBar(Vector2 vs, MusouDirectorView d)
     {
         if (d.BossId == 0 || d.BossMaxHealth <= 0f || _bossShown < 0f || d.Phase is MusouPhase.Won or MusouPhase.Lost) return;
@@ -266,35 +273,47 @@ public sealed partial class MusouHud : Control
     void DrawChain(Vector2 vs)
     {
         if (Data.Chain <= 0 || Data.ChainLeft <= 0f || !Data.Alive) return;
-        float rx = vs.X - 64f, y = 470f;
+        bool old = MusouHudLayout.Old;
+        // The corner: bottom right, over the weapon box's winged skull (its top edge at vs.Y - 248); the old layout: right of the crosshair.
+        float rx = vs.X - 64f, y = old ? 470f : vs.Y - 306f;
         float a = Math.Clamp(Data.ChainLeft * 4f, 0f, 1f);
-        Txt(_chainX.Of((long)MathF.Round(Data.Multiplier * 10f), static k => $"x{k / 10}.{k % 10}"), rx, y, 56, new Color(Gold, a), 1, 5, true);
-        Txt(_chainN.Of(Data.Chain + 1, static k => $"CHAIN {k}"), rx, y + 32f, 22, new Color(White, a), 1, 3, true);
-        const float bw = 170f;
-        DrawRect(new Rect2(rx - bw, y + 44f, bw, 6f), new Color(0f, 0f, 0f, 0.6f * a));
-        DrawRect(new Rect2(rx - bw * Data.ChainLeft, y + 44f, bw * Data.ChainLeft, 6f), new Color(Gold, a));
+        Txt(_chainX.Of((long)MathF.Round(Data.Multiplier * 10f), static k => $"x{k / 10}.{k % 10}"), rx, y, old ? 56 : 40, new Color(Gold, a), 1, 5, true);
+        Txt(_chainN.Of(Data.Chain + 1, static k => $"CHAIN {k}"), rx, y + (old ? 32f : 24f), old ? 22 : 18, new Color(White, a), 1, 3, true);
+        float bw = old ? 170f : 140f, by = y + (old ? 44f : 33f);
+        DrawRect(new Rect2(rx - bw, by, bw, old ? 6f : 5f), new Color(0f, 0f, 0f, 0.6f * a));
+        DrawRect(new Rect2(rx - bw * Data.ChainLeft, by, bw * Data.ChainLeft, old ? 6f : 5f), new Color(Gold, a));
     }
 
     /// <summary>Between waves: the wave cleared and the countdown to the next.</summary>
     void DrawBreak(Vector2 vs, MusouDirectorView d)
     {
         if (d.Phase != MusouPhase.Break) return;
+        if (!MusouHudLayout.Old)
+        {
+            // The corner: under the run panel, top left (the panel ends at y 228).
+            float lx = 56f;
+            Txt(_breakWave.Of(d.Wave, static k => $"WAVE {k} CLEARED"), lx, 262f, 22, Gold, -1, 4, true);
+            Txt(_breakIn.Of((long)MathF.Ceiling(Math.Max(0f, Data.BreakLeft)), static k => $"NEXT WAVE IN {k}"), lx, 298f, 30, White, -1, 4, true);
+            return;
+        }
         float cx = vs.X / 2f, y = Data.Alive ? 300f : 470f;
         Txt(_breakWave.Of(d.Wave, static k => $"WAVE {k} CLEARED"), cx, y, 26, Gold, 0, 4, true);
         Txt(_breakIn.Of((long)MathF.Ceiling(Math.Max(0f, Data.BreakLeft)), static k => $"NEXT WAVE IN {k}"), cx, y + 44f, 36, White, 0, 5, true);
     }
 
+    /// <summary>The call-outs: a strip along the top edge, above the armour bar (y 116); the old layout: the screen's middle, 70 px.</summary>
     void DrawCallOuts(Vector2 vs)
     {
-        float cx = vs.X / 2f, y = Data.Alive ? 300f : 590f;   // dead: under the match HUD's KILLED and respawn lines and the break's lines (470 to 514)
+        bool old = MusouHudLayout.Old;
+        float cx = vs.X / 2f, y = old ? (Data.Alive ? 300f : 590f) : 62f;   // old, dead: under the match HUD's KILLED and respawn lines and the break's lines (470 to 514)
         foreach (var c in _callOuts)
         {
             double since = _time - c.At;
-            float pop = since < 0.15 ? 1.35f - (float)(since / 0.15) * 0.35f : 1f;
+            float pop = since < 0.15 ? (old ? 1.35f - (float)(since / 0.15) * 0.35f : 1.15f - (float)(since / 0.15) * 0.15f) : 1f;
             float a = (float)Math.Clamp((c.Seconds - since) / 0.5, 0.0, 1.0);
-            int size = (int)(70f * pop);
-            Txt(c.Text, cx, y, size, new Color(c.Colour, a), 0, 7, true);
-            y += 76f;
+            int size = (int)((old ? 70f : 38f) * pop);
+            Txt(c.Text, cx, y, size, new Color(c.Colour, a), 0, old ? 7 : 5, true);
+            y += old ? 76f : 40f;
         }
     }
 

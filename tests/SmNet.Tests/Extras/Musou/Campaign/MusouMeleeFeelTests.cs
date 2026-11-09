@@ -77,6 +77,10 @@ public class MusouMeleeFeelTests
     public void The_slash_is_red_for_chain_weapons_and_the_knife_and_blue_for_power_weapons(string? wargear, MusouSlashColour colour) =>
         Assert.Equal(colour, MusouSlashRules.ColourOf(wargear));
 
+    /// <summary>The owner, 2026-11-10, Musou only: "make it so that blue and red slashes don't appear beyond 30m" (was 60 m).</summary>
+    [Fact]
+    public void No_red_or_blue_slash_is_drawn_beyond_30_metres() => Assert.Equal(30f, MusouSlashRules.Metres);
+
     [Fact]
     public void The_own_hit_shake_is_small_and_a_swing_of_many_hits_is_capped()
     {
