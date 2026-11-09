@@ -145,8 +145,8 @@ public sealed partial class FxPlayer
 
     partial void ExtrasSpray(FxEffect e, CSpray n, in Ctx c, double age, int depth, uint seed, ref int gpu)
     {
-        // A soft-headed effect (a plasma ball's trail) draws its streamers its own way: the CPU path keeps it.
-        if (_gpu is null || n.Looping || e.Repeat || e.SoftHead || (e.Collisions && n.Collides)) return;
+        // A soft-headed effect or one widening along its trail (plasma-original-fx) draws its streamers its own way: the CPU path keeps it.
+        if (_gpu is null || n.Looping || e.Repeat || e.SoftHead || e.WidthAlongTrail || (e.Collisions && n.Collides)) return;
         if (!_gpuSprays.TryGetValue(e, out var list)) _gpuSprays[e] = list = _gpuListPool.Count > 0 ? _gpuListPool.Pop() : new List<GpuSpray>();
         GpuSpray? s = null;
         foreach (var known in list) if (known.Seed == seed && ReferenceEquals(known.Node, n)) { s = known; break; }

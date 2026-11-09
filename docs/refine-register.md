@@ -28,8 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2764 spec table rows: **2060 tagged**, 489 not tagged (read from data with high confidence), 215 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 612 rows of the changes document.
-Scanned 2818 spec table rows: **2097 tagged**, 499 not tagged (read from data with high confidence), 222 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 633 rows of the changes document.
+Scanned 2825 spec table rows: **2104 tagged**, 499 not tagged (read from data with high confidence), 222 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 634 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,35 +49,23 @@ Scanned 2818 spec table rows: **2097 tagged**, 499 not tagged (read from data wi
 | Customizer and paint | 48 | 45 | 26 | 15 | 0 |
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
-| Networking and render smoothing | 19 | 10 | 10 | 10 | 7 |
-| Core simulation (provisional values) | 543 | 519 | 379 | 157 | 1 |
-| General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 222 | 212 | 119 | 59 | 0 |
-| **All areas** | **2060** | 1814 | 1529 | 662 | 38 |
 | Networking and render smoothing | 22 | 13 | 13 | 12 | 7 |
-| Core simulation (provisional values) | 560 | 536 | 392 | 156 | 1 |
+| Core simulation (provisional values) | 566 | 542 | 394 | 160 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 234 | 223 | 125 | 63 | 0 |
-| **All areas** | **2097** | 1850 | 1555 | 669 | 38 |
+| Ork faction | 235 | 224 | 125 | 64 | 0 |
+| **All areas** | **2104** | 1857 | 1557 | 674 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1132 |
-| confidence: low | 738 |
-| confidence: medium | 662 |
-| notes: ours | 382 |
-| kind: interpretation | 360 |
-| notes: estimate | 167 |
-| kind: estimate | 146 |
-| kind: ours | 1168 |
-| confidence: low | 743 |
-| confidence: medium | 683 |
-| notes: ours | 384 |
+| kind: ours | 1173 |
+| confidence: low | 744 |
+| confidence: medium | 684 |
+| notes: ours | 386 |
 | kind: interpretation | 363 |
-| notes: estimate | 172 |
-| kind: estimate | 144 |
+| notes: estimate | 175 |
+| kind: estimate | 145 |
 | confidence: none (low) | 129 |
 | kind: provisional | 100 |
 | kind: user's knowledge | 55 |
@@ -2211,8 +2198,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (543)
-### Core simulation (provisional values) (560)
+### Core simulation (provisional values) (566)
 
 *Spec section: Provisional values in use*
 
@@ -3112,6 +3098,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-FFCC7211` | Live-effect cap with the GPU sprays (Musou) | **1,200** shot, hit and blast effects (CPU path: 160); `--fx-cap N` overrides (count) | kind: estimate; confidence: medium; notes: ours | ours (measured, see the milestone) | Live-effect cap with the GPU sprays (Musou): compare with SM1 by feel or video. Ours: 1,200 shot, hit and blast effects (CPU path: 160); --fx-cap N… | ☐ |
 | `R-37A5A2B6` | GPU pools (Musou) | **131,072** records per blend (additive, alpha: 256 layers of 512 records; a layer is uploaded when a record in it changes), **8,192** live sprays; blocks are handed out in powers of two (a freed block is reused by the next of its size; the pool starts over… (count) | kind: ours | ours | GPU pools (Musou): compare with SM1 by feel or video. Ours: 131,072 records per blend (additive, alpha: 256 layers of 512… | ☐ |
 | `R-4202F822` | Draw order of the GPU sprays' alpha sprites (Musou) | not sorted back to front: drawn before the CPU path's sorted alpha cards, in spawn order (the CPU path sorts every alpha quad by its centre's distance) | kind: provisional; confidence: low; notes: ours | ours (a GPU pass cannot sort without per-frame CPU work) | Draw order of the GPU sprays' alpha sprites (Musou): compare with SM1 by feel or video. Ours: not sorted back to front: drawn before the CPU path's sorted alpha… | ☐ |
+| `R-A46FC9E4` | Waves: size (Musou) | **160** (70 %), **400** (25 %), **800 to 960** (5 %) by the dice (was 200, 500, 1,000 to 1,200), and with no aggregate a wave is what the armies' real cap leaves room for (superseded 2026-11-10: back to 100 %, spec "Musou Mode: the Orks back at 100 %, twice… (Orks) | kind: ours; notes: estimate | owner 2026-11-09 | Waves: size (Musou): compare with SM1 by measuring on a flat spot of the same map. Ours: 160 (70 %), 400 (25 %), 800 to 960 (5 %) by the dice (was 200, 500… | ☐ |
+| `R-2594594B` | Garrison, crowd and caps (Musou) | garrison **77** a point (was 96); crowd **320** (was 400) filling one every **5** ticks (was 4: a crowd still in 53 s); alive cap **960** solo plus **512** a further human, at most **1344** (was 1200, 640, 1680); the trickle **1280** in all (was 1600); route… (Orks) | kind: ours; notes: estimate | owner 2026-11-09 | Garrison, crowd and caps (Musou): compare with SM1 by feel or video. Ours: garrison 77 a point (was 96); crowd 320 (was 400) filling one every 5… | ☐ |
 
 ### General game design (7)
 
@@ -3549,9 +3537,15 @@ The Orks are an addition the owner keeps (the original multiplayer had Space Mar
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-CA8A7F03` | Ork armies (Musou) | an Ork army is real Orks alone: a wave's muster brings real Orks at its stronghold (about one a tick), each army's men are made real in its slots wherever it stands (at most **16** a tick over all armies), never folded back at any distance, and what finds no… | kind: ours; confidence: medium | owner 2026-11-09 | Ork armies (Musou): compare with SM1 by feel or video. Ours: an Ork army is real Orks alone: a wave's muster brings real Orks at… | ☐ |
-| `R-C85C0F75` | Armies' real Orks (Musou) | at most **384** at once (was 480) over all Ork armies, outside the crowds' cap and pool as before (superseded 2026-11-10: back to 100 %, spec "Musou Mode: the Orks back at 100 %, twice the big Orks") (Orks) | kind: ours; notes: estimate | owner 2026-11-09 ("80% of current") | Armies' real Orks (Musou): compare with SM1 by feel or video. Ours: at most 384 at once (was 480) over all Ork armies, outside the… | ☐ |
-| `R-EC633428` | Waves: size (Musou) | **160** (70 %), **400** (25 %), **800 to 960** (5 %) by the dice (was 200, 500, 1,000 to 1,200), and with no aggregate a wave is what the armies' real cap leaves room for (superseded 2026-11-10: back to 100 %, spec "Musou Mode: the Orks back at 100 %, twice… (Orks) | kind: ours; notes: estimate | owner 2026-11-09 | Waves: size (Musou): compare with SM1 by measuring on a flat spot of the same map. Ours: 160 (70 %), 400 (25 %), 800 to 960 (5 %) by the dice (was 200, 500… | ☐ |
+| `R-C85C0F75` | Armies' real Orks (Musou) | at most **384** at once (was 480) over all Ork armies, outside the crowds' cap and pool as before (Orks) | kind: ours; notes: estimate | owner 2026-11-09 ("80% of current") | Armies' real Orks (Musou): compare with SM1 by feel or video. Ours: at most 384 at once (was 480) over all Ork armies, outside the… | ☐ |
+| `R-EC633428` | Waves: size (Musou) | **160** (70 %), **400** (25 %), **800 to 960** (5 %) by the dice (was 200, 500, 1,000 to 1,200), and with no aggregate a wave is what the armies' real cap leaves room for (Orks) | kind: ours; notes: estimate | owner 2026-11-09 | Waves: size (Musou): compare with SM1 by measuring on a flat spot of the same map. Ours: 160 (70 %), 400 (25 %), 800 to 960 (5 %) by the dice (was 200, 500… | ☐ |
 | `R-CCEF4870` | Garrison, crowd and caps (Musou) | garrison **77** a point (was 96); crowd **320** (was 400) filling one every **5** ticks (was 4: a crowd still in 53 s); alive cap **960** solo plus **512** a further human, at most **1344** (was 1200, 640, 1680); the trickle **1280** in all (was 1600); route… (Orks) | kind: ours; notes: estimate | owner 2026-11-09 | Garrison, crowd and caps (Musou): compare with SM1 by feel or video. Ours: garrison 77 a point (was 96); crowd 320 (was 400) filling one every 5… | ☐ |
+
+*Spec section: Musou Mode: GPU spray particles (musou/gpu-particles, 2026-11-10; client only, Musou Mode only; no simulation, wire, protocol, config-hash or rules-version change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-4AD25D27` | Armies' real Orks (Musou) | at most **384** at once (was 480) over all Ork armies, outside the crowds' cap and pool as before (superseded 2026-11-10: back to 100 %, spec "Musou Mode: the Orks back at 100 %, twice the big Orks") (Orks) | kind: ours; notes: estimate | owner 2026-11-09 ("80% of current") | Armies' real Orks (Musou): compare with SM1 by feel or video. Ours: at most 384 at once (was 480) over all Ork armies, outside the… | ☐ |
 
 *Spec section: Musou Mode: the big Orks' deaths and gait (musou-big-ork-deaths, 2026-11-09; Musou Mode only; the deaths and gait client presentation; the bodies against the map in the simulation, `MusouSim.Version` 34, to be renumbered at integration; no protocol change)*
 
@@ -4373,9 +4367,8 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-78DDAB2E` | Musou: solid big Orks and the melee lock on them (musou/boss-collision, 2026-11-08; `MusouSim.Version` 24, `TfwRules.Version` 49) | No Musou Mode in the original | Ours (added content; the owner's request): the Warboss, Nobs, Boss Orks, the Big Shoota Nob, the Weirdboy and the Scrap Mek block the players' movement at their body's size (a fixed cylinder; the player takes the whole push) on the server and in the own prediction, and the melee lock takes them like a player (same… | Musou Mode only; Classic PvP's bodies and lock unchanged. spec "Musou: solid big Orks and the melee lock on them" | Musou: solid big Orks and the melee lock on them…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-3CAA83D0` | Musou: combat rules (musou/combat-rules, 2026-11-09; `MusouSim.Version` 28, `TfwRules.Version` 52) | No Musou Mode in the original | Ours (added content; the owner's request, verbatim: "make the blue and red slash strokes persist for a bit longer before more smoothly disappearing. add 1 second to their lifetime before they expire." / "make the air slash landing for all assault melee weapons heal 25% health and restore 10% armor." / "make all melee… | Musou Mode only (the Musou content flag); Classic PvP's stims, frags and melee are unchanged (`MusouCombatRulesTests`). spec "Musou combat rules" | Musou: combat rules (musou/combat-rules, 2026-11-09…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-F26174DD` | Musou: every spawn faces the map's centre (musou/spawn-facing, owner 2026-11-09; `MusouSim.Version` 28, `TfwRules.Version` 52) | No Musou Mode in the original | Ours (added content; the owner's request): in a battle every unit faces the middle capture point (B, the depot) the moment it spawns: humans, retainers and allied Marines, Guardsmen, every Ork type; an army made real mid-march keeps its march facing; the Stormbird and the Range keep their facing | Musou Mode only; Classic PvP unchanged | Musou: every spawn faces the map's centre…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
-| `C-F52025D9` | Musou: cleave volume and cap (musou/combat-rules, 2026-11-09; `TfwRules.Version` 53) | No Musou Mode in the original | Ours (the owner's request, verbatim: "extend the melee hitbox outward and forward of the player in a flat cone - they should reach out further for cleaving purposes. raise the cleave cap up to 40 orks in one swing."): the war's cleave reaches 1.3x further (1.5x until the owner's 2026-11-09 "reduce the latest melee… | Musou Mode's war only; the skirmish, Classic PvP and the original are unchanged. spec "Musou combat: cleave volume" | Musou: cleave volume and cap (musou/combat-rules…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
-| `C-958FF4DB` | Musou: GPU spray particles (musou/gpu-particles, owner 2026-11-09: GPU particles as the first step to many more effects) | No Musou Mode in the original; SM1 drew its sprays with its own renderer | Ours (added content, Musou Mode only; Classic PvP keeps the CPU path): a one-shot spray's ring sprites and streamers (sparks, debris, blood drops and streaks) are drawn by a shader from spawn records written once (same curves, sizes, colours, cells, atlas rects and fades as the CPU path; stills match within a few… | spec "Musou Mode: GPU spray particles" | Musou: GPU spray particles (musou/gpu-particles, owner…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-C9E9D8CD` | Musou: cleave volume and cap (musou/combat-rules, 2026-11-09; `TfwRules.Version` 53) | No Musou Mode in the original | Ours (the owner's request, verbatim: "extend the melee hitbox outward and forward of the player in a flat cone - they should reach out further for cleaving purposes. raise the cleave cap up to 40 orks in one swing."): the war's cleave reaches 1.3x further (1.5x until the owner's 2026-11-09 "reduce the latest melee… | Musou Mode's war only; the skirmish, Classic PvP and the original are unchanged. spec "Musou combat: cleave volume" | Musou: cleave volume and cap (musou/combat-rules…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-958FF4DB` | Musou: GPU spray particles (musou/gpu-particles, owner 2026-11-09: GPU particles as the first step to many more effects) | No Musou Mode in the original; SM1 drew its sprays with its own renderer | Ours (added content, Musou Mode only; Classic PvP keeps the CPU path): a one-shot spray's ring sprites and streamers (sparks, debris, blood drops and streaks) are drawn by a shader from spawn records written once (same curves, sizes, colours, cells, atlas rects and fades as the CPU path; stills match within a few… | spec "Musou Mode: GPU spray particles" | Musou: GPU spray particles (musou/gpu-particles, owner…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-C9E9D8CD-2` | Musou: cleave volume and cap (musou/combat-rules, 2026-11-09; `TfwRules.Version` 53) | No Musou Mode in the original | Ours (the owner's request, verbatim: "extend the melee hitbox outward and forward of the player in a flat cone - they should reach out further for cleaving purposes. raise the cleave cap up to 40 orks in one swing."): the war's cleave reaches 1.5x further in a 120 degree half angle (was 90), up to 40 Orks a swing (was… | Musou Mode's war only; the skirmish, Classic PvP and the original are unchanged. spec "Musou combat: cleave volume" | Musou: cleave volume and cap (musou/combat-rules…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-1DD14181` | Musou: the big Orks' deaths and gait (musou-big-ork-deaths, owner 2026-11-09) | No Musou Mode in the original | Ours (the owner: "the elite and boss orks and the warboss need to have death animations. they also look like they move in slow motion because of the way they're scaled up"): an elite or boss Ork is never torn apart by the gore (the burst plays, the body falls with its death clip and lies); the Warboss dies by his own… | Musou Mode only, client presentation. spec "Musou Mode: the big Orks' deaths and gait" | Musou: the big Orks' deaths and gait (musou-big-ork-deaths…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-FEB84D7D` | Musou: the big Orks against the map (musou-big-ork-deaths, owner 2026-11-09) | No Musou Mode in the original | Ours (the owner: "boss enemies are getting stuck along objects and moving in slow motion"): a big body's vertical reach and shooting eye grow with its height (up to 3x: 4.5 m), a Boss Ork's lean off a wall no longer slows him, a big body's blocked step slides along the wall. `SM_MUSOU_OLD_BIG_BODIES=1` restores them | Musou Mode only. spec "Musou Mode: the big Orks' deaths and gait" | Musou: the big Orks against the map (musou-big-ork-deaths…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
