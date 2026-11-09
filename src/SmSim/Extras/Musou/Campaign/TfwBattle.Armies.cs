@@ -536,7 +536,7 @@ public sealed partial class TfwBattle
     /// <summary>The field's squads alive (the armies' not counted).</summary>
     int FieldSquadsAlive
     {
-        get { int n = 0; for (int s = 0; s < GuardSim.MaxSquads; s++) if (_guards.AliveIn(s) > 0 && !ArmySquad(s)) n++; return n; }
+        get { int n = 0; for (int s = 0; s < GuardSim.MaxSquads; s++) if (_guards.AliveIn(s) > 0 && !ArmySquad(s) && !VantageSquad(s)) n++; return n; }   // a vantage team is part of its squad (TfwBattle.Vantage.cs)
     }
 
     /// <summary>

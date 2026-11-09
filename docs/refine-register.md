@@ -32,6 +32,7 @@ Scanned 2714 spec table rows: **2011 tagged**, 489 not tagged (read from data wi
 Scanned 2665 spec table rows: **1964 tagged**, 488 not tagged (read from data with high confidence), 213 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 597 rows of the changes document.
 Scanned 2692 spec table rows: **1991 tagged**, 488 not tagged (read from data with high confidence), 213 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 600 rows of the changes document.
 Scanned 2679 spec table rows: **1978 tagged**, 488 not tagged (read from data with high confidence), 213 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 598 rows of the changes document.
+Scanned 2677 spec table rows: **1976 tagged**, 488 not tagged (read from data with high confidence), 213 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 596 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -63,6 +64,10 @@ Scanned 2679 spec table rows: **1978 tagged**, 488 not tagged (read from data wi
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 193 | 183 | 95 | 53 | 0 |
 | **All areas** | **1978** | 1732 | 1460 | 631 | 38 |
+| Core simulation (provisional values) | 495 | 471 | 344 | 126 | 1 |
+| General game design | 7 | 7 | 6 | 0 | 0 |
+| Ork faction | 190 | 180 | 92 | 53 | 0 |
+| **All areas** | **1976** | 1730 | 1466 | 624 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -83,6 +88,9 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | kind: ours | 1075 |
 | confidence: low | 703 |
 | confidence: medium | 628 |
+| kind: ours | 1073 |
+| confidence: low | 713 |
+| confidence: medium | 624 |
 | kind: interpretation | 359 |
 | notes: ours | 358 |
 | notes: estimate | 160 |
@@ -2197,6 +2205,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 ### Core simulation (provisional values) (500)
 ### Core simulation (provisional values) (494)
+### Core simulation (provisional values) (495)
 
 *Spec section: Provisional values in use*
 
@@ -2858,6 +2867,23 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-A80106A6` | Fire teams round a held point | a squad sent to a point (`TfwBattle.Send`: a secured position, or the landing zone with none, each squad to its own spot within 0.7 of the radius) splits on arrival into **3** fire teams (3, 3 and 4 men) spread over an arc of **120** degrees centred on its… (m, degrees) | kind: estimate; confidence: low; notes: ours | the owner (2026-11-08): "after its captured they splinter and spread out around the point to defend it"; the numbers ours | Fire teams round a held point: compare with SM1 with an overlaid screenshot taken from the same position. Ours: a squad sent to a point (TfwBattle.Send: a secured position, or the… | ☐ |
 | `R-B56895C3` | Armies' squads | an army's squads (expansion S6) walk in the open order and lanes too; a held army keeps its block layout (`TfwArmyLayout`), no fire teams | kind: ours; confidence: low | ours (the block layout is the far layer's) | Armies' squads: compare with SM1 by feel or video. Ours: an army's squads (expansion S6) walk in the open order and lanes too… | ☐ |
 
+*Spec section: Musou Mode: Guard vantage teams (musou/guard-vantage, 2026-11-09; `TfwRules.Version` 52, the lead renumbers; no protocol or wire change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-78818FF6` | Vantage height | a spot stands at least **3** m (a storey) over the median of the lowest floors of the columns sampled in **16** directions at **4, 8, 12 and 16** m (columns with no floor left out, at least **16** samples needed), so a pit's rim or a wide plateau's middle is… (m) | kind: ours; confidence: low | the owner: "high ground vantage points"; the test ours | Vantage height: compare with SM1 by measuring on a flat spot of the same map. Ours: a spot stands at least 3 m (a storey) over the median of the lowest… | ☐ |
+| `R-DF874344` | Vantage reach | a spot must be walked to from the base (the landing zone's node) and back, over the walking graph's walk and drop links (its real stairs and ramps; no jump packs) | kind: ours; confidence: medium | ours | Vantage reach: compare with SM1 by measuring on a flat spot of the same map. Ours: a spot must be walked to from the base (the landing zone's node) and… | ☐ |
+| `R-C2A9AF4B` | Candidates | one node per **3** m bin and storey: the highest over its ground, then the one whose wall/ledge distance is nearest **1** m (a roof's or balcony's edge, not its middle) (m) | kind: ours; confidence: low | ours | Candidates: compare with SM1 by measuring on a flat spot of the same map. Ours: one node per 3 m bin and storey: the highest over its ground, then… | ☐ |
+| `R-2C6FB767` | Room | at least **3** posts (of up to **6**) on the spot's own floor (within 0.5 m) at it and 16 places round it (half of and the whole **2.5** m), **1.1** m apart, each walkable in a straight line from the spot (m) | kind: ours; confidence: low | ours | Room: compare with SM1 by measuring on a flat spot of the same map. Ours: at least 3 posts (of up to 6) on the spot's own floor (within 0.5 m)… | ☐ |
+| `R-A7AAC303` | Lines of fire | from a man's eye (**1.5** m) to the chest (**1.2** m) of one standing on the ground in **16** directions at **10, 20 and 30** m, raycast on the weapons mesh (a ray stopped 0.3 m short of its end is blocked; no ground there counts blocked); at least **30 %**… (m, share) | kind: ours; confidence: low | the owner: "good lines of fire around them"; the numbers ours | Lines of fire: compare with SM1 by feel or video. Ours: from a man's eye (1.5 m) to the chest (1.2 m) of one standing on the… | ☐ |
+| `R-D5D4D912` | Score and spacing | score = clear share x (0.5 + 0.5 x min(height, **12** m) / 12 m); the best kept first, each at least **8** m (flat) from those kept (m) | kind: ours; confidence: low | ours | Score and spacing: compare with SM1 by measuring on a flat spot of the same map. Ours: score = clear share x (0.5 + 0.5 x min(height, 12 m) / 12 m); the… | ☐ |
+| `R-F81749DA` | Where a team may go | within **50** m (flat) of a friendly-captured (secured) position; with none secured, within **50** m of the base and in front of it (towards the Ork HQ: at most 90 degrees off the base's line to the HQ), or out to **100** m on a level with no such spot within… (m) | kind: ours; confidence: low | the owner's 50 m and "in front of their home base"; the 100 m fallback and the front's angle ours | Where a team may go: compare with SM1 by measuring on a flat spot of the same map. Ours: within 50 m (flat) of a friendly-captured (secured) position; with… | ☐ |
+| `R-EA6696BB` | How often | a team leaves every **20** to **45** s (a fixed roll each time; the first a whole interval after the landing), at most **4** teams out at once, one team a spot; the spot by a roll weighted by its score among those that may be taken, the field squad nearest it… (s) | kind: ours; confidence: low | the owner: "randomly at times"; the numbers ours | How often: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a team leaves every 20 to 45 s (a fixed roll each time; the first a… | ☐ |
+| `R-3548F487` | Team size | **3** to **6** men (a roll) of one field squad, which keeps at least **4**; armies' squads never send one (men) | kind: ours; confidence: low | the owner: "small squads"; the numbers ours | Team size: compare with SM1 by measuring on a flat spot of the same map. Ours: 3 to 6 men (a roll) of one field squad, which keeps at least 4… | ☐ |
+| `R-32067AD0` | The way up and the hold | the team walks the walking graph's way to the spot (the Guardsmen's open order, its men by the way when their straight line is blocked; never put there), takes the spot's posts and faces its open side, fires from there as any squad (range 40 m, line of… (s, m) | kind: ours; confidence: low | ours | The way up and the hold: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the team walks the walking graph's way to the spot (the Guardsmen's… | ☐ |
+| `R-ED307B07` | A spot no longer counts | its point fell, or a base-front spot once a point is secured: the team takes the nearest free spot that counts, else goes back; a wiped team frees its spot; a team whose squad is gone stays a field squad | kind: ours; confidence: low | the owner: "within 50m of a friendly captured point"; the rest ours | A spot no longer counts: compare with SM1 by feel or video. Ours: its point fell, or a base-front spot once a point is secured: the… | ☐ |
+| `R-2A71E1D7` | Slots | a team's men change slots when they leave and when they rejoin (the client sees them go and come again in one place) | kind: ours; confidence: medium | ours (the wire is unchanged) | Slots: compare with SM1 by feel or video. Ours: a team's men change slots when they leave and when they rejoin (the… | ☐ |
+
 *Spec section: Musou Mode: the Guardsmen's strength, endless ammunition, the grenade refill, the AI Marines' damage (night/musou-rules, 2026-11-06; `TfwRules.Version` 30, no protocol or wire change)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
@@ -3517,6 +3543,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-38A58728` | AI Marines in the war | the owner's decisions (2026-11-01) and ours | server-side puppets: a retainer per player who follows orders and revives, three lords with retainers who act alone; ammunition without end, placeholder names | Retainer orders | AI Marines in the war: compare with SM1 by feel or video. Ours: the owner's decisions (2026-11-01) and ours. | ☐ |
 | `C-A5D8C2C2` | Guard squads fight beside the players; leashed Ork defenders | the design of the war (2026-11-01); SM1 has no such allies (the Guardsman is the Exterminatus co-op blueprint) | squads of 10 shoot and are struck server-side; defenders hold until a target is within 30 m or their group is hurt | War Guard squads, Leashed defenders | Guard squads fight beside the players; leashed Ork defenders: compare with SM1 by feel or video. Ours: the design of the war (2026-11-01); SM1 has no such allies (the… | ☐ |
 | `C-8DF0F6BD` | Musou Guardsmen spread out on the way and round a held point (musou/guard-spread, 2026-11-08; `TfwRules.Version` 44) | the owner's request (2026-11-08); added content, no SM1 counterpart | Ours (the numbers estimates): squads walk in open order (3.5 m abreast, two ranks 3 m apart, each man shifted up to 0.75 m) in three lanes 6 m apart, their places kept 1 m off walls, their way chosen for clearance (up to 2 m) among the steps that get nearer, a stuck man detours for 2 s; on a point they hold each squad… | spec "Musou Mode: the Guardsmen spread out on the way and round a held point" | Musou Guardsmen spread out on the way and round a held…: compare with SM1 by feel or video. Ours: the owner's request (2026-11-08); added content, no SM1 counterpart. | ☐ |
+| `C-4C725922` | Musou Guard vantage teams (musou/guard-vantage, 2026-11-09; `TfwRules.Version` 52) | the owner's request (2026-11-09); added content, no SM1 counterpart | Ours (the owner's 50 m; the rest estimates): vantage points found from the level (3 m over the median ground round them, reachable from the base and back on the walking graph, room for 3 to 6 posts, 30 % of 48 lines of fire to the ground clear); every 20 to 45 s a team of 3 to 6 men from a field squad at its post… | spec "Musou Mode: Guard vantage teams" | Musou Guard vantage teams (musou/guard-vantage, 2026-11-09…: compare with SM1 by feel or video. Ours: the owner's request (2026-11-09); added content, no SM1 counterpart. | ☐ |
 | `C-5493CF9D` | Musou Mode's hub is the inside of the campaign Thunderhawk | the owner's pass 2 item 29 (2026-11-01) | the Stormbird is the model `thunderhawk_interior` of the singleplayer chunk (a singleplayer-content dependency, read from the install at run time), its ramp open on black space and a planet; generated collision (the chunk has none); stations at the monitor and a tech panel; warm work lights ours | War map, War map look | Musou Mode's hub is the inside of the campaign Thunderhawk: compare with SM1 by feel or video. Ours: the owner's pass 2 item 29 (2026-11-01). | ☐ |
 | `C-7A2FCDE6` | Musou Mode's rewards and slots | the owner's items 3, 9, 11, 25, 26, 27 (2026-11-01); the numbers ours | full loadout from the start, enemies drop the core's boxes (fodder 8%, elites 40%), 6 class crates a battle, 3 reward cards after a won map, found weapons in keys 3, 4, 5 that never replace the primary, keyboard only | Boxes from enemies, Box chance, Weapon crates, Reward offer, Extra primary slots | Musou Mode's rewards and slots: compare with SM1 by feel or video. Ours: the owner's items 3, 9, 11, 25, 26, 27 (2026-11-01); the numbers ours. | ☐ |
 | `C-89AFC966` | Musou Mode's score | the owner's item 17 (2026-11-01); the addendum's rules | chain points as the 5-wave run's, map and run totals, end-of-map and end-of-run panels, a local best and COPY RESULT; no online leaderboard | Score: a KO, Score: map and run totals, Local best | Musou Mode's score: compare with SM1 by feel or video. Ours: the owner's item 17 (2026-11-01); the addendum's rules. | ☐ |

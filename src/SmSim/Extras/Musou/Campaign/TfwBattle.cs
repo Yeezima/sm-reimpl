@@ -324,6 +324,7 @@ public sealed partial class TfwBattle
         PlanStormboys();   // TfwBattle.Stormboys.cs: the Stormboy squads (expansion S3, in place of the hunters)
         PlaceBigShootas();   // TfwBattle.BigShootas.cs: a Big Shoota Nob and his squad at each position (expansion S3)
         PlanArmyRoutes();   // TfwBattle.Armies.cs: the battle flow's routes (expansion S6)
+        PlanVantage();   // TfwBattle.Vantage.cs: the Guardsmen's vantage points (owner, 2026-11-09), found off the tick
         for (int s = 0; s < field; s++) _guards.SpawnSquad(Ground(_layout.LandingZone + SquadOffset(s), _layout.LandingZone), FaceCentre(_layout.LandingZone));
         if (_final)
         {
@@ -550,6 +551,7 @@ public sealed partial class TfwBattle
                 if (_objectives[k].State is TfwPositionState.Clearing or TfwPositionState.Securing) _enemies.KeepOut.Add((_layout.Positions[k], _layout.Radius(k), _layout.Reach(k)));
         }
         StepSquads();
+        StepVantage();   // TfwBattle.Vantage.cs: small teams up to vantage points (owner, 2026-11-09)
         StepReserves();
         StepColumns(players);   // TfwBattle.Patrols.cs: before the arrivals, so the crowds see the cap the columns take
         StepStormboys(players);   // TfwBattle.Stormboys.cs (expansion S3)
@@ -707,7 +709,7 @@ public sealed partial class TfwBattle
         _squadTicks = Ticks(TfwBattleRules.SquadOrderSeconds);
         int alive = 0, owned = 0;
         for (int s = 0; s < GuardSim.MaxSquads; s++)
-            if (_guards.AliveIn(s) > 0 && !ArmySquad(s)) alive++;   // an army's squads take its orders (expansion S6)
+            if (_guards.AliveIn(s) > 0 && !ArmySquad(s) && !VantageSquad(s)) alive++;   // an army's squads take its orders (expansion S6), a vantage team its own (TfwBattle.Vantage.cs)
             else _squadGoal[s] = -1;
         if (alive == 0) return;
         Span<float> threat = stackalloc float[Positions];
@@ -722,7 +724,7 @@ public sealed partial class TfwBattle
         }
         if (owned == 0)
         {
-            for (int s = 0; s < GuardSim.MaxSquads; s++) if (_guards.AliveIn(s) > 0 && !ArmySquad(s)) Keep(s, LandingGoal);
+            for (int s = 0; s < GuardSim.MaxSquads; s++) if (_guards.AliveIn(s) > 0 && !ArmySquad(s) && !VantageSquad(s)) Keep(s, LandingGoal);
             return;
         }
         for (int n = 0; n < alive; n++)
@@ -741,14 +743,14 @@ public sealed partial class TfwBattle
         for (int s = 0; s < GuardSim.MaxSquads; s++)
         {
             int g = _squadGoal[s];
-            if (_guards.AliveIn(s) == 0 || ArmySquad(s) || g is < 0 or >= Positions || _have[g] >= _want[g]) continue;
+            if (_guards.AliveIn(s) == 0 || ArmySquad(s) || VantageSquad(s) || g is < 0 or >= Positions || _have[g] >= _want[g]) continue;
             _have[g]++;
             placed[s] = true;
             Keep(s, g);
         }
         for (int s = 0; s < GuardSim.MaxSquads; s++)
         {
-            if (_guards.AliveIn(s) == 0 || ArmySquad(s) || placed[s]) continue;
+            if (_guards.AliveIn(s) == 0 || ArmySquad(s) || VantageSquad(s) || placed[s]) continue;
             int best = -1;
             float bestD = float.PositiveInfinity;
             for (int k = 0; k < Positions; k++)
