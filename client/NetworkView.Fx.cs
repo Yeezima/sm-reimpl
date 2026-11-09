@@ -669,7 +669,12 @@ public partial class NetworkView
                 var e = _fx!.Play(p.Name, position, AxesFromY(Vector3.Down), p.Scale <= 0f ? 1f : p.Scale, null,
                     () => _fxProjectilePos.TryGetValue(id, out var pos) ? (pos, AxesFromY(_fxProjectileDir.TryGetValue(id, out var d) ? -d : Vector3.Down)) : null,
                     p.Lifetime > 0f ? p.Lifetime : 8f, 0.0, false, 1, tint: RaceTint(ProjectileWargear(q), p.Name));
-                if (e is not null) { e.StopOnLost = true; _fxTrails++; if (IsPlasmaShot(q.Weapon, q.Thrown) && !ProjectileWargear(q).Contains("cannon", StringComparison.OrdinalIgnoreCase) && !OldTrailSlab) e.SoftHead = true; }   // fix/plasma-trail-slab
+                if (e is not null)
+                {
+                    e.StopOnLost = true; _fxTrails++;
+                    if (IsPlasmaShot(q.Weapon, q.Thrown) && !ProjectileWargear(q).Contains("cannon", StringComparison.OrdinalIgnoreCase) && !OldTrailSlab && OldPlasmaLook) e.SoftHead = true;   // fix/plasma-trail-slab (old look)
+                    if (!q.Thrown && PlasmaOriginalLook.WidthAlongTrail(ProjectileWargear(q), OriginalPlasmaLook)) { e.WidthAlongTrail = true; _plasmaOriginalTrails++; }   // plasma-original-fx
+                }
             }
             if (_fxTrailed.Count > 4096) _fxTrailed.Clear();
         }
@@ -870,7 +875,7 @@ public partial class NetworkView
         _fxLogAt = _connectedFor;
         GD.Print($"t {_connectedFor:F0} s: effects: update avg {_fx.CostSum / _fx.CostFrames:F2} ms, max {_fx.CostMax:F2} ms over {_fx.CostFrames} frames; live {_fx.Live}, quads {_fx.LastQuads} ({_fx.AdditiveQuads} additive, {_fx.AlphaQuads} alpha, dropped {_fx.DroppedTotal}), lights {_fx.LastLights}, decals {_fx.LiveDecals}; " +
                  $"quads a frame avg {(double)_fx.QuadSum / _fx.CostFrames:F0} ({(double)_fx.AlphaQuadSum / _fx.CostFrames:F0} alpha), max {_fx.QuadMax}, smoke {(FxPlayer.ShowSmoke ? "on" : "off")}; " +
-                 $"own shots {_fxOwnShots}, remote shots {_fxRemoteShots}, tracers {_fxTracers} ({BulletStats()}; {BarrelStats()}), impacts {_fxImpacts} (on players {_fxBodyImpacts}), detonations {_fxDetonations}, trails {_fxTrails}; {JumpFxLog()}; {MeleeFxLog()}; {PlasmaFxLog()}; spawned {_fx.Spawned}, culled {_fx.Culled}, off-screen skips {_fx.OffScreenSkips}; " +
+                 $"own shots {_fxOwnShots}, remote shots {_fxRemoteShots}, tracers {_fxTracers} ({BulletStats()}; {BarrelStats()}), impacts {_fxImpacts} (on players {_fxBodyImpacts}), detonations {_fxDetonations}, trails {_fxTrails}; {JumpFxLog()}; {MeleeFxLog()}; {PlasmaFxLog()}; {PlasmaLookLog()}; {LightBallLog()}; spawned {_fx.Spawned}, culled {_fx.Culled}, off-screen skips {_fx.OffScreenSkips}; " +
                  (_fx.Missing.Count > 0 ? $"missing: {string.Join(", ", _fx.Missing.Take(6))}" : "nothing missing"));
         _fx.CostSum = 0; _fx.CostMax = 0; _fx.CostFrames = 0; _fx.QuadSum = 0; _fx.AlphaQuadSum = 0; _fx.QuadMax = 0;
     }

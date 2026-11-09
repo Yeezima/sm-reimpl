@@ -1364,6 +1364,34 @@ values: spec/behavior.md "Weapon effects and shot events".
   EventGroupID, LightGroup, Disabled, ChildObjects }` in the region's layers (Manufactorum: `l_lights`, `e_fx`,
   `e_adm_dressing`, `d_mission_objects`; 163 in all; `d_navmesh_a` does not parse, type `FF`).
 
+### Plasma projectile visuals: the gun's and pistol's light and charged shots — **supported by evidence for the bindings; the streamer width reading is an interpretation** (plasma-original-fx, 2026-11-09)
+Read-only on the install (app 55150) with `smtool baf-dump data/packages/wargear.oppc --entry '^(sm|csm)_mp_(ranged_plasma_gun|pistol_plasma_pistol)$' --grep 'fx_name|ebp|marker'`,
+`smtool baf-dump data/packages/ebps.oppc --entry '^plasma_(pistol_)?altfire(_chaos)?_mp$' --grep 'fx|visual'` and `smtool fx-dump auto <effect> --fields` (the streamer keys print with `--fields` since this pass).
+- **Light (uncharged) shot.** The plasma gun's basic shot is `ability_ranged_primary`, the pistol's `ability_ranged_secondary` (its primary is the charge ability). Both deliveries are
+  `raycast` and bind, in `delivery/hit_fx`, `play_fx` `master_fx` / `plasma_gun_tracer` at marker `fx_muzzle` (`attach_to_marker` True); the Chaos files (`csm_mp_ranged_plasma_gun`,
+  `csm_mp_pistol_plasma_pistol`) bind `chaos_plasma_gun_tracer`. Fire effect: `plasma_gun_muzzle` (Chaos `chaos_plasma_gun_muzzle`). So the pistol's light shot has the same tracer as the gun.
+- **The tracer effect** (`plasma_gun_tracer`, lifetime 1.4 s): a 0.1 s spray holding a combo of two `tracer` beams (`plasma_tracer`, additive, full span, 0.3 m wide, billboard, 60 m per U,
+  `USpeed` 800, keys (255, 246, 139)), a `soft smoke` beam (`alpha_trail_soft`, blended, 0.32 to 0.61 m, (113, 255, 255) to (69, 123, 254) at alpha 0) and a 1 s `linger` beam
+  (`alpha_trail_curvy`, 0 to 0.72 m, (79, 149, 255) half alpha to clear). The `plasma_tracer` sprite (atlas page, rotated) is four teal wisps, a bright head and a long ragged tail: the
+  bolt is that texture crossing the span at 800 m/s, tinted pale yellow. `chaos_plasma_gun_tracer` is the same with purple smoke ((224, 101, 255)) and linger ((199, 122, 255)); its core
+  streak is the same teal texture and pale yellow keys as the loyalist one.
+- **Charged shot.** The firing stage `4.charge_heavy` of both weapons is a `projectile` delivery: `ebps\projectiles\plasma_altfire_mp` (gun), `plasma_pistol_altfire_mp` (pistol), Chaos
+  `plasma_altfire_chaos_mp`, `plasma_pistol_altfire_chaos_mp` (speed 90, lifetime 1.5 s; the pistol's blast radius 6). Each projectile's `renderable_ext` is `invisible_projectile` (no mesh) with
+  `dynamic_visuals` True; its whole look is `entity_actions_ext/lifetime_action` `play_fx` at marker `fx_trail`, scale 1, `scale_if_from_player` False: `plasma_gun_charged_trail` for both
+  loyalist weapons, `chaos_plasma_gun_trail` for both Chaos ones.
+- **`plasma_gun_charged_trail`** (looping), in a combo `Scale`: `ball` ring (`add_volume_soft_cool`, a cloudy cyan sprite, radius 0.335, billboard, (122, 246, 254)); `ball distort` ring
+  (`distortion_magnify_ball`, 0.33 to 0.44); `bright` ring (hidden); a looping light (attenuation 8, (118, 251, 224)); a `spark trail` spray (100/s, one-at-random `flare` rings,
+  `add_flare_cool`, 0.26 to 1.28 m, 0.2 s); two streamers: `short trail` (`beam_gradient`, a soft band across the width; length 0.052 s; width keys 0: 3.93, 1: 1.97 m; colour keys
+  0: (40, 79, 253), 0.51: same, 1: black; 12 m per U) and `blue trail` (`add_trail_soft`, wispy, soft across the width; length 0.25 s; width keys 0: 1, 1: 6 m; colour keys 0: (48, 209, 255),
+  0.75: (8, 6, 81), 1: black; 12 m per U; `FadeOutOnDeath` 0.3). **`chaos_plasma_gun_trail`**: `sparks` ring (`add_flare_warm`, 0.25, (179, 76, 254)), `bright projectile` ring
+  (`add_point_cool`, 0.47, (254, 69, 180)), streamers `short trail` (`add_trail_soft`, 20 m, width 2.5 to 0, (255, 68, 57) to (85, 39, 127) to black), `green trail` (`plasma_trail`,
+  20 m, 1.5 to 0.5, (140, 89, 255) to black), `blue trail` (`add_trail_soft`, 40 m, 1 to 4, black to (15, 13, 74) to black) and a light ((254, 134, 206), attenuation 3).
+- **Interpretation: a streamer's width keys run along the ribbon.** A streamer's colour and width keys share one 0..1 track. The colour keys are clearly head (0) to tail (1): every
+  plasma streamer is bright at 0 and black, which is invisible in additive blending, at 1. So the width keys are read on the same track: the loyalist `blue trail` is 1 m wide at the ball
+  and widens to 6 m where it has faded out. Read over the element's loop time (our reading before), the whole ribbon swelled to 6 m once a second: the "slab" of fix/plasma-trail-slab.
+  The client applies the along-the-ribbon reading to the plasma gun's and pistol's trails only (`FxEffect.WidthAlongTrail`); whether it holds for every streamer, the plasma cannon's
+  trail among them, is not checked.
+
 ### BOD binary object data — **supported by evidence for materials** (M2)
 
 Reader: `src/SmFormats/Bod/BodDocument.cs`; material view: `BmatMaterial`. Verified on 1,688 of 1,688 `.bmat` files in the

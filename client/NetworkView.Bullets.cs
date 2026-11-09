@@ -199,8 +199,9 @@ public partial class NetworkView
             BulletDebugAdd(own, rayOrigin, end, start, join);
             return 0f;
         }
-        bool bolt = PlasmaBoltOn && PlasmaBolt.IsBoltWeapon(w.Wargear);
+        bool bolt = PlasmaBoltOn && OldPlasmaLook && PlasmaBolt.IsBoltWeapon(w.Wargear);
         if (bolt) tint = PlasmaBoltTint(w.Wargear);
+        bool original = OriginalPlasmaLook && PlasmaBolt.IsBoltWeapon(w.Wargear);   // plasma-original-fx: the data tracer as bound, its own colours and sizes
         var straight = fx.Play(p.Name, from, AxesFromY((end - from).Normalized()), scale, target: end, lifetime: p.Lifetime, priority: 1, tint: tint, smokeRein: bolt ? PlasmaBolt.SmokeWidth : SmokeRein);
         if (straight is not null)
         {
@@ -208,6 +209,12 @@ public partial class NetworkView
             if (speed > 0f) straight.HeadSpeed = speed;
             // fx/plasma-tracers-safe-mode: in the Compatibility renderer the bolt is also drawn as a pooled streak (plain unshaded mesh, no sprite shader), the path the bolter's muzzle leg uses.
             if (bolt && PlasmaBolt.UsesPooledStreak(SafeMode.Compatibility)) StreakAdd(from, end, end, speed > 0f ? speed : FallbackStreakSpeed, new Color(tint!.Value.R, tint.Value.G, tint.Value.B, 1f), bolt: true);
+            if (original)
+            {
+                _plasmaOriginalTracers++;
+                // fx/plasma-tracers-safe-mode's mitigation kept (ours): in the Compatibility renderer a thin pooled streak in the data tracer's smoke colour under the data tracer.
+                if (PlasmaBolt.UsesPooledStreak(SafeMode.Compatibility)) { var (r, g, b) = PlasmaOriginalLook.SafeStreakColour(PlasmaColour.IsChaosPlasma(w.Wargear)); StreakAdd(from, end, end, speed > 0f ? speed : FallbackStreakSpeed, new Color(r, g, b, 1f), bolt: true); }
+            }
             ThinBoltTracer(straight, p.Name);
             if (bolt) { straight.TracerWidthScale = PlasmaBolt.WidthScale; straight.TracerTrailScale = PlasmaBolt.TrailScale; _plasmaBolts++; }
         }
