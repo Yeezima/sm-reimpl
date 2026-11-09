@@ -11,15 +11,17 @@ namespace SmClient;
 /// <summary>
 /// The Musou crowd as drawn (design section D): each frame the enemies shown (<see cref="MusouClientState"/>) and the bodies of the dead go to <see cref="CrowdView"/>, which draws the nearest
 /// <see cref="CrowdView.Visible"/>, the nearest within <see cref="NearMetres"/>, at most <see cref="MaxSkinned"/>, skinned, the rest by each look's vertex-animation tier (at most <see cref="MaxVat"/>
-/// per look); skinned only, at most <see cref="FallbackSkinned"/>, without a baked look. A dead enemy plays its death clip where it fell and sinks after <see cref="SinkAfter"/> s.
+/// per look); skinned only, at most <see cref="FallbackSkinned"/>, without a baked look. A dead enemy plays its death clip where it fell and sinks after <see cref="SinkAfter"/> s (10 s since the corpse floor, 2026-11-09).
 /// Every number here is ours (design section E's budgets).
 /// </summary>
 public partial class MusouCrowd : CrowdView
 {
     public const int DefaultVisible = 1800, MaxSkinned = 40, MaxVat = 1000, FallbackSkinned = 80;   // 900 and 500 before the owner's third doubling (2026-11-06)
-    public const float NearMetres = 25f, HalfRateMetres = 12f, SinkAfter = 3f, SinkSeconds = 1.5f, SinkDepth = 1.2f;
-    /// <summary>Bodies kept at once (ours); the oldest go first.</summary>
-    public const int MaxBodies = 100;
+    public const float NearMetres = 25f, HalfRateMetres = 12f, SinkSeconds = 1.5f, SinkDepth = 1.2f;
+    /// <summary>Seconds a body lies whole before it sinks: the corpse floor's 10 s (the owner, 2026-11-09; <see cref="SmNet.Extras.Musou.MusouCorpseRules"/>), 3 s before it (<c>--musou-old-corpses</c>).</summary>
+    public static float SinkAfter => SmNet.Extras.Musou.MusouCorpseRules.LieSeconds(OldCorpses);
+    /// <summary>Bodies kept at once (ours): past this the oldest past the corpse floor go (before it: the oldest), and with none past it the pool grows up to <see cref="HardBodies"/>.</summary>
+    public const int MaxBodies = 100, HardBodies = SmNet.Extras.Musou.MusouCorpseRules.OrkHardBodies;
 
     static readonly int[] TypeIds = Enum.GetValues<MusouEnemyType>().Select(t => (int)t).ToArray();
 
@@ -28,7 +30,7 @@ public partial class MusouCrowd : CrowdView
     readonly HashSet<int> _seen = new();
     readonly List<int> _gone = new();
 
-    public MusouCrowd(MusouLooks looks) : base(new CrowdLimits(MaxSkinned, MaxVat, FallbackSkinned, NearMetres, HalfRateMetres, SinkAfter, SinkSeconds, SinkDepth, MaxBodies), DefaultVisible)
+    public MusouCrowd(MusouLooks looks) : base(new CrowdLimits(MaxSkinned, MaxVat, FallbackSkinned, NearMetres, HalfRateMetres, SinkAfter, SinkSeconds, SinkDepth, MaxBodies, HardBodies), DefaultVisible)
     {
         _looks = looks; Name = "MusouCrowd";
     }

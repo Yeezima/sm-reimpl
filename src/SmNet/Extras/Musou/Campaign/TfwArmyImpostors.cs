@@ -17,8 +17,8 @@ public static class TfwImpostorRules
     public const int OrksMost = 900, GuardsMost = 400;
     /// <summary>How fast a drawn army closes on where the server says it is (a share a second), and how far off it is put there at once.</summary>
     public const float CatchUp = 3f, SnapMetres = 25f;
-    /// <summary>Bodies drawn for an aggregate's losses, at most this many a section per army.</summary>
-    public const int DeathsPerSection = 6;
+    /// <summary>Bodies drawn for an aggregate's losses, at most this many a section per army, before the corpse floor (2026-11-09: every slot that went; <see cref="MusouCorpseRules.ImpostorBodies"/>).</summary>
+    public const int DeathsPerSection = MusouCorpseRules.OldImpostorDeathsPerSection;
 }
 
 /// <summary>
@@ -44,6 +44,8 @@ public sealed class TfwArmyImpostors
 
     /// <summary>The aggregate losses heard since the last <see cref="TakeDeaths"/>.</summary>
     public List<TfwImpostorDeath> Deaths { get; } = new();
+    /// <summary>The rules before the corpse floor (client <c>--musou-old-corpses</c>): at most <see cref="TfwImpostorRules.DeathsPerSection"/> bodies a section.</summary>
+    public bool OldCorpses { get; init; }
     public int Armies => _armies.Count;
 
     /// <summary>A stable key for slot <paramref name="slot"/> of army <paramref name="id"/>.</summary>
@@ -67,7 +69,7 @@ public sealed class TfwArmyImpostors
             d.Velocity = seconds > 0.05 && v.Order is TfwArmyOrder.March or TfwArmyOrder.Retreat ? (v.Anchor - d.View.Anchor) / (float)seconds : Vector3.Zero;
             if (v.SlotBase == d.View.SlotBase && v.Far < d.View.Far)   // the aggregate lost men: bodies where its last slots stood
             {
-                int lost = Math.Min(d.View.Far - v.Far, TfwImpostorRules.DeathsPerSection);
+                int lost = MusouCorpseRules.ImpostorBodies(d.View.Far - v.Far, OldCorpses);
                 for (int k = 0; k < lost; k++)
                 {
                     int slot = v.SlotBase + v.Far + k;

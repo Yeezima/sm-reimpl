@@ -47,8 +47,11 @@ public partial class NetworkView
         _musouDeathNow = now;
         if (_musouOldDeaths) foreach (var d in deaths) _musouDeaths.Add(d);
         else foreach (var d in deaths) _musouDeathQueue.Add(new WaitingDeath(d, now));
-        if (_musouDeaths.Count > MusouCrowd.MaxBodies) _musouDeaths.RemoveRange(0, _musouDeaths.Count - MusouCrowd.MaxBodies);
-        if (_musouDeathQueue.Count > MusouCrowd.MaxBodies) _musouDeathQueue.RemoveRange(0, _musouDeathQueue.Count - MusouCrowd.MaxBodies);
+        // The corpse floor (2026-11-09): the deaths waiting are bounded by the crowd's hard ceiling, not its 100 bodies (a grenade's 280 deaths lost all but the last 100: no body at all);
+        // the queue hands out at least 48 a frame, so it drains within a few frames. --musou-old-corpses: the 100.
+        int most = CrowdView.OldCorpses ? MusouCrowd.MaxBodies : MusouCrowd.HardBodies;
+        if (_musouDeaths.Count > most) _musouDeaths.RemoveRange(0, _musouDeaths.Count - most);
+        if (_musouDeathQueue.Count > most) _musouDeathQueue.RemoveRange(0, _musouDeathQueue.Count - most);
     }
 
     /// <summary>Whether this death would be thrown as a ragdoll (<see cref="MusouThrow"/>'s test): the costly kind, a pool doll woken into the physics.</summary>

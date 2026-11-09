@@ -64,8 +64,8 @@ public class TfwArmyClientTests
         Assert.Equal(100, list.Count);
         Assert.All(list, i => Assert.Equal(before[i.Key], i.Position));
         Assert.Empty(impostors.Deaths);
-        impostors.Apply([v with { Far = 90, SlotBase = 20 }], 40, 1.0);    // a far clash took 10: bodies where the last slots stood
-        Assert.Equal(TfwImpostorRules.DeathsPerSection, impostors.Deaths.Count);
+        impostors.Apply([v with { Far = 90, SlotBase = 20 }], 40, 1.0);    // a far clash took 10: bodies where the last slots stood (all 10 since the corpse floor, 2026-11-09; 6 before)
+        Assert.Equal(10, impostors.Deaths.Count);
         Assert.Equal(TfwArmyImpostors.Key(3, 110), impostors.Deaths[0].Key);
     }
 
