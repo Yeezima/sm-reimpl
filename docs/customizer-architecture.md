@@ -60,6 +60,20 @@ content, never in the repo.
       "decals": { "leftshoulder": { "badge": "..." }, "rightshoulder": { "emblem": "<hex>", "fallback": "sm_blank_badge" } },
       "lens": null } ] }
 ```
+Further loadout sets and added content's data (musou/loadout-slots, 2026-11-10; optional, schema 1 stays, written only when
+present, so a profile without them reads and writes byte for byte as before):
+```json
+  "sets": { "musou": { "selected": { "kind": "default", "role": "tactical" }, "classes": [ { "slot": 1, "...": "as above" } ] } },
+  "extras": { "musou": { "librarian": { "melee": "mp_melee_powersword", "equipment": null, "perks": ["mp_perk_a", null], "look": "sm-2" } } }
+```
+`sets` (`CustomizationProfile.Sets`, `LoadoutSet`): named sets of custom-class slots, each with its own selection, read and repaired
+by the same rules as the profile's own `classes` (repair paths `sets.<name>.classes[i]`); at most 8, names of lower-case letters,
+digits and '-'. `extras` (`CustomizationProfile.Extras`): one JSON object per name, kept as read (a build without that content
+writes it back unchanged); the content reads and repairs its own. Musou Mode uses set `musou` (its Standard Marines' ten slots)
+and `extras.musou.librarian` (the Librarian's loadout; `SmContent.Extras.Musou.MusouSlots`). The client's `ProfileSession` shows
+the screens a view of the profile (`IProfileView`, chosen by `CustomizerServices.ExtrasProfileView` for the content profile):
+Musou's pages edit set `musou` as if it were the profile's own slots; the profile's own `classes` and `selected` stay Classic
+PvP's. Note: a build older than musou/loadout-slots drops `sets` and `extras` when it saves the profile (it keeps Classic's).
 Records (engine-free, `src/SmContent/Customization/`): `CustomizationProfile`, `CustomClass`, `AppearanceProfile`,
 `SlotPaint`, `ShoulderDecal`, `Selection`. `ProfileStore.Load(path, catalog) → (profile, repairs)`: unknown/wrong-race/
 not-offered names → defaults with repair notes; duplicate perk → null; > 10 trimmed; missing emblem → fallback badge;

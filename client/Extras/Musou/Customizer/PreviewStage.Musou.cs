@@ -24,6 +24,17 @@ public sealed partial class PreviewStage
 
     bool DrawsLibrarian => _musouLibrarian && _services.Content.HasFlag(ContentExtras.Musou);
 
+    string? _musouLibrarianMelee;
+
+    /// <summary>
+    /// The melee weapon his own loadout chose (musou/loadout-slots; a Space Marine wargear name), or null: the force sword (his default). Set by the creator's Librarian page.
+    /// </summary>
+    public string? MusouLibrarianMelee
+    {
+        get => _musouLibrarianMelee;
+        set { if (_musouLibrarianMelee == value) return; _musouLibrarianMelee = value; _dirty = true; }
+    }
+
     /// <summary>The model on stage wears the Librarian's pieces (test aid).</summary>
     public bool ShowsLibrarian => DrawsLibrarian && _shownKey.EndsWith("|librarian", StringComparison.Ordinal);
 
@@ -40,7 +51,7 @@ public sealed partial class PreviewStage
         // His class carries no gun and no pistol; the force sword is the power sword (MusouLoadout.AppendLibrarian), in hand as on a jump-pack class.
         primary = null;
         pistol = null;
-        melee = LibrarianRules.PowerSwordWargear;
+        melee = _musouLibrarianMelee ?? LibrarianRules.PowerSwordWargear;
         meleeInHand = true;
     }
 }

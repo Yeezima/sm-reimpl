@@ -138,6 +138,8 @@ public sealed partial class UiSelfTest
                         if (emptySlot > 0) musouCreator.OpenSelection(SmContent.Customization.Selection.CustomSlot(emptySlot));
                         librarianEntry.ButtonPressed = true;
                         await Frames(3);
+                        Check("musou customizer: the Librarian's page shows his own loadout (musou/loadout-slots)",
+                            _services.Session!.Working.ClassAt(SmContent.Customization.CustomizationProfile.MaxCustomClasses + 1) is { Role: "tactical" } && !_services.Session.Dirty);
                         string before = musouCreator.CurrentStep;
                         await SendKey(Key.Pagedown);
                         Check("musou customizer: PageDown moves the Librarian's step with an empty slot behind it", emptySlot > 0 && musouCreator.CurrentStep != before, $"{before} -> {musouCreator.CurrentStep} (slot {emptySlot})");
@@ -148,6 +150,21 @@ public sealed partial class UiSelfTest
                         OpenDialog()?.QueueFree();
                         marinesEntry.ButtonPressed = true;
                         await Frames(3);
+                        // musou/loadout-slots: the Standard Marines edit Musou's own slots (the profile's set "musou"; the Librarian shows in slot 11, past the ten, while his page is open):
+                        // a loadout made here is not one of Classic's (the edit is reverted).
+                        var session = _services.Session!;
+                        int free = SmClient.Customizer.Model.LoadoutEdits.FirstEmptySlot(session.Working);
+                        bool apart = false;
+                        if (free > 0 && _services.Catalog is { } musouCatalog)
+                        {
+                            bool classicHadIt = session.Stored.ClassAt(free) is not null;
+                            session.Edit(p => SmClient.Customizer.Model.LoadoutEdits.Create(p, free, "tactical", musouCatalog).Profile);
+                            apart = session.Working.ClassAt(free) is not null && (session.Stored.ClassAt(free) is not null) == classicHadIt
+                                && session.Stored.Set("musou")?.ClassAt(free) is not null;
+                            session.Revert();
+                        }
+                        Check("musou customizer: a loadout made on the Musou page goes into Musou's slots, not Classic's", apart && !session.Dirty
+                            && session.Working.ClassAt(SmContent.Customization.CustomizationProfile.MaxCustomClasses + 1) is null, $"slot {free}");
                     }
                     await SendKey(Key.Escape);
                     await Frames(2);
