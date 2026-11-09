@@ -6,7 +6,7 @@ namespace SmContent;
 /// <list type="bullet">
 /// <item>The far Ork voices of the battle ambience read as far away (<see cref="MusouAmbienceRules"/>: lower gain, high low-pass, farther ring).</item>
 /// <item>The player's own character barks are never ducked, muffled, stolen or limited, and play at full volume (<c>SoundEmitter.ProtectSpeech</c>).</item>
-/// <item>The bolter family's rifles fire deeper and punchier, and the first Ork a shot hits gets a wet smack followed by an explosion.</item>
+/// <item>The bolter family's rifles fire deeper and punchier, and the first Ork a shot hits gets an explosion (the wet smack of the first pass was removed again, owner 2026-11-09).</item>
 /// <item>A melee hit's sound plays through to its end and rings out longer (<c>SoundEmitter.Tail</c>).</item>
 /// </list>
 /// </summary>
@@ -48,12 +48,12 @@ public static class MusouAudioRules
     public const float OwnDeepGainDb = 2f, OwnSubPitchCents = -1500f, OwnSubGainDb = 0f, OwnSubLpf = 30f, OwnThumpGainDb = 9f;
 
     /// <summary>
-    /// The first Ork a shot hits: the data's wet smack (<c>play_bolter_smack</c>, the bolter's own hit confirmation), then <see cref="BlastDelaySeconds"/> later the explosion
+    /// The first Ork a shot hits: <see cref="BlastDelaySeconds"/> after the original hit sound, the explosion
     /// (<see cref="BlastEvent"/> at <see cref="BlastGainDb"/> dB, its tail faded to <see cref="BlastTailDb"/> dB after the hold of <c>SoundMixPass.JumpTailHoldSeconds</c>, so it is a crack, not a grenade). Ours.
     /// </summary>
-    public const string SmackEvent = "play_bolter_smack", BlastEvent = "play_sm_grenade_explode_mp";
+    public const string BlastEvent = "play_sm_grenade_explode_mp";
     /// <remarks>Owner 2026-11-09 follow-up: "lower the bolter damage on hit sound by 50%": half amplitude = -6 dB (smack +8 to +2, blast -9 to -15); the timing is unchanged.</remarks>
-    public const float SmackGainDb = 2f, BlastDelaySeconds = 0.07f, BlastGainDb = -15f, BlastTailDb = -30f;
+    public const float BlastDelaySeconds = 0.07f, BlastGainDb = -15f, BlastTailDb = -30f;
 
     // ---- the melee hit's tail ----
 

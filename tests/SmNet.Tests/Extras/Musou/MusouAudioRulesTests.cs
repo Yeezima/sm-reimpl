@@ -53,7 +53,6 @@ public class MusouAudioRulesTests
     [Fact]
     public void The_bolter_hit_is_a_smack_then_an_explosion()
     {
-        Assert.Equal("play_bolter_smack", MusouAudioRules.SmackEvent);
         Assert.True(MusouAudioRules.BlastDelaySeconds > 0f);
         Assert.True(MusouAudioRules.DeepPitchCents < 0f);
     }
@@ -70,7 +69,6 @@ public class MusouAudioRulesTests
     [Fact]
     public void The_hit_pair_is_half_the_first_passes_level_and_the_own_gun_is_heavier_than_others()
     {
-        Assert.Equal(2f, MusouAudioRules.SmackGainDb);     // was +8: 6 dB = half amplitude (owner follow-up 2026-11-09)
         Assert.Equal(-15f, MusouAudioRules.BlastGainDb);   // was -9
         Assert.True(MusouAudioRules.OwnDeepGainDb > MusouAudioRules.DeepGainDb);
         Assert.True(MusouAudioRules.OwnThumpGainDb > MusouAudioRules.ThumpGainDb);
