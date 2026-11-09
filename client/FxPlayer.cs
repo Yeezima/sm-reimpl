@@ -179,6 +179,8 @@ public sealed partial class FxPlayer : Node3D
     public FxLibrary? Library => _library;
     public string Status { get; private set; } = "not loaded";
     public int Live => _effects.Count;
+    /// <summary>Effects dropped from a full player by their priority (0 to 3, higher counted as 3), and new effects refused by theirs (nothing lower or as low to drop); since the start.</summary>
+    public readonly long[] Evicted = new long[4], Refused = new long[4];
     public long Spawned { get; private set; }
     public long Culled { get; private set; }
     public int LastQuads => _frameQuads;
@@ -284,7 +286,8 @@ public sealed partial class FxPlayer : Node3D
             int victim = -1;
             for (int i = 0; i < _effects.Count; i++)
                 if (!_effects[i].Ambient && _effects[i].Priority <= priority && (victim < 0 || _effects[i].Priority < _effects[victim].Priority || _effects[i].Age > _effects[victim].Age)) victim = i;
-            if (victim < 0) { Culled++; return null; }
+            if (victim < 0) { Culled++; Refused[Math.Clamp(priority, 0, Refused.Length - 1)]++; return null; }
+            Evicted[Math.Clamp(_effects[victim].Priority, 0, Evicted.Length - 1)]++;
             Release(_effects[victim]); _effects.RemoveAt(victim); Culled++;
         }
         var e = new FxEffect

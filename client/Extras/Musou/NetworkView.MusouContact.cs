@@ -155,13 +155,16 @@ public partial class NetworkView
             CountSound("body hit");
             MusouBolterFirstHit(weapon.Name, emitter.Position);   // musou/audio-pass (bolter rifles only: the pilot gun is the pistol)
         }
-        if (_camera is null || _musouFxTokens < 1f || Num.Vector3.DistanceSquared(end, ToGame(_camera.GlobalPosition)) > FxRange * FxRange) return;
-        _musouFxTokens -= 1f;
+        if (_camera is null) return;
+        _musouGoreHits[(int)MusouGoreSource.Own]++;
+        float reach = MusouOldGoreBudget ? FxRange : MusouGorePriority.HitMetres(MusouGoreSource.Own);   // musou-net-budget: the own budget and reach (the shared bucket with --musou-old-gore-budget)
+        if (Num.Vector3.DistanceSquared(end, ToGame(_camera.GlobalPosition)) > reach * reach) { _musouGoreHitsFar[(int)MusouGoreSource.Own]++; return; }
+        if (!_musouGore.TakeHit(MusouGoreSource.Own)) return;
         _musouHitFx++;
         var endG = ToGodot(end);
         var dirG = DirToGodot(dir).Normalized();
         if (GoreOff) BloodSplashAt(endG, dirG, 0.0);
-        if (OrkBloodOn) { OrkBloodHit(me, hit.Head, hit.Type == MusouEnemyType.ChaosMarine, endG, dirG, end); return; }
+        if (OrkBloodOn) { OrkBloodHit(me, hit.Head, hit.Type == MusouEnemyType.ChaosMarine, endG, dirG, end, MusouGoreFxPriority(MusouGoreSource.Own)); return; }
         if (_fx is null || _catalogue is null) return;
         var plays = _catalogue.Impact(weapon.Name, hit.Head ? ShotHit.Head : ShotHit.Body, 0, armourUp: false);
         for (int k = 0; k < plays.Count; k++)

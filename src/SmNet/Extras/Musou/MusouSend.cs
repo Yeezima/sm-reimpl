@@ -24,6 +24,12 @@ public sealed class MusouEventWindow
     public int Waiting => _window.Count;
     /// <summary>Test aid (server env <c>SM_MUSOU_OLD_NEAR_SEND=1</c>): the order before the night batch of 2026-11-06, without <see cref="MusouSendRules.TelegraphFirst"/>.</summary>
     public bool OldOrder { get; init; }
+    /// <summary>
+    /// Test aid (server env <c>SM_MUSOU_OLD_HIT_RANK=1</c>): every hit after the tracers, as before musou-net-budget (the server then also sends no client its own events first). Since then
+    /// (the owner, 2026-11-09: the players' attacks, then the allied Marines', first for gore) a human player's hit goes right after the strikes, an AI Marine's after it, both before the
+    /// tracers; fire support's last.
+    /// </summary>
+    public bool OldHitRank { get; init; }
 
     /// <summary>
     /// This tick's events (<paramref name="events"/>, of <paramref name="tick"/>) join the window and the copies to send now come back (at most
@@ -48,7 +54,7 @@ public sealed class MusouEventWindow
         {
             int c = telegraphFirst ? First(b).CompareTo(First(a)) : 0;   // a telegraph's first copy before everything: a grenade's 60 deaths held a near wind-up's back up to 4 ticks
             if (c != 0) return c;
-            c = Rank(a.Event.Kind).CompareTo(Rank(b.Event.Kind));
+            c = (OldHitRank ? Rank(a.Event.Kind) : Rank(a.Event)).CompareTo(OldHitRank ? Rank(b.Event.Kind) : Rank(b.Event));
             if (c != 0) return c;
             c = a.Copies.CompareTo(b.Copies);
             if (c != 0) return c;
@@ -65,6 +71,21 @@ public sealed class MusouEventWindow
     public void Clear() => _window.Clear();
 
     static bool First(Entry e) => e.Copies == 0 && e.Event.Kind == MusouEventKind.Telegraph;
+
+    /// <summary>
+    /// The rank of <paramref name="e"/> (lower first): deaths, telegraphs, strikes (an Ork's blow on a player: gameplay feedback), a human's hit, an AI Marine's hit, tracers, fire support's
+    /// hits (player 0).
+    /// </summary>
+    public static int Rank(in MusouEvent e) => e.Kind switch
+    {
+        MusouEventKind.Death => 0,
+        MusouEventKind.Telegraph => 1,
+        MusouEventKind.Strike => 2,
+        MusouEventKind.Hit when e.Player > 0 && !SmSim.Extras.Musou.Campaign.TfwContracts.IsPuppet(e.Player) => 3,
+        MusouEventKind.Hit when e.Player > 0 => 4,
+        MusouEventKind.Tracer => 5,
+        _ => 6,
+    };
 
     static int Rank(MusouEventKind kind) => kind switch
     {
@@ -206,8 +227,9 @@ public sealed class MusouInterest
     public float CoreBytes { get; set; }
 
     public List<(byte Tag, byte[] Payload)[]> Plan(uint tick, int tickRate, ReadOnlySpan<MusouEnemy> enemies, Vector3? viewer, MusouBox box,
-        byte[]? director, IReadOnlyList<MusouEvent> events)
+        byte[]? director, IReadOnlyList<MusouEvent> events, int own = 0)
     {
+        events = OwnFirst(events, own);
         // musou/perf-pass, the owner's "count it" (2026-11-08): the core messages this client was sent since the last plan come out of this tick's refill (at most down to CoreFloor of it), so
         // the client's whole stream stays near the budget; the war's bucket then sees them as Musou's spending (TfwGuardInterest.MusouBytes) and keeps the total under its own.
         float refill = MusouSendRules.BudgetBytesPerSecond / (float)Math.Max(1, tickRate);
@@ -317,6 +339,28 @@ public sealed class MusouInterest
         _tokens = MathF.Max(0f, _tokens - sizes.Sum());   // a floor: a debt never starves the entities of later ticks (the director and the events fit a tick's refill)
         return messages.Where(m => m.Count > 0).Select(m => m.ToArray()).ToList();
     }
+
+    readonly List<MusouEvent> _ownFirst = new();
+
+    /// <summary>
+    /// musou-net-budget: the client's own kills first, then every other death, telegraph and strike (gameplay comes before gore), then the client's own hits, then the rest, each part in
+    /// the window's order: what the events' share or the message cap leaves out is never the client's own hit before another's (0: the order as given).
+    /// </summary>
+    IReadOnlyList<MusouEvent> OwnFirst(IReadOnlyList<MusouEvent> events, int own)
+    {
+        if (own <= 0) return events;
+        _ownFirst.Clear();
+        for (int part = 0; part < 4; part++)
+            for (int i = 0; i < events.Count; i++)
+                if (Part(events[i], own) == part) _ownFirst.Add(events[i]);
+        return _ownFirst;
+    }
+
+    static int Part(in MusouEvent e, int own) =>
+        e.Kind == MusouEventKind.Death && e.Player == own ? 0
+        : e.Kind is MusouEventKind.Death or MusouEventKind.Telegraph or MusouEventKind.Strike ? 1
+        : e.Kind == MusouEventKind.Hit && e.Player == own ? 2
+        : 3;
 
     /// <summary>Forgets every enemy (a new round, a cleared pool): each is sent again as new.</summary>
     public void Reset()

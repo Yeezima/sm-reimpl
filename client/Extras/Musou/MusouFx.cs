@@ -16,7 +16,7 @@ namespace SmClient;
 /// <list type="bullet">
 /// <item>Hit feedback: the match HUD's hit marker for the own hits on enemies (a head hit in its warm colour) and the kill marker for an own KO; at enemy hits
 /// within <see cref="FxRange"/> the red splash of a body hit (<see cref="BloodSplashAt"/>) and, for an own shot, the weapon's own impact on broken armour (the
-/// flesh-penetrating variant, <see cref="EffectCatalogue.Impact"/>), at most <see cref="FxPerSecond"/> a second.</item>
+/// flesh-penetrating variant, <see cref="EffectCatalogue.Impact"/>), within the gore budget by source (<see cref="MusouGoreBudget"/>, NetworkView.MusouGoreBudget.cs; 16 a second shared before musou-net-budget).</item>
 /// <item>Telegraphs (<see cref="MusouTelegraphs"/>): a faint wedge on the ground in front of an enemy winding up a melee blow (its reach and cone, filling over the
 /// wind-up); the Warboss's Ground Slam as a ring of its radius filling over its wind-up, its Charge as a lane of its width to its end point; Waaagh! and the
 /// enrage as call-outs with a screen flash. Their sounds are <c>NetworkView.MusouSounds.cs</c>.</item>
@@ -32,8 +32,6 @@ public partial class NetworkView
 {
     /// <summary>Enemy hits farther than this from the camera get no blood or impact (m, ours).</summary>
     const float FxRange = 30f;
-    /// <summary>Most hit effects a second (a token bucket of <see cref="FxBurst"/>; ours).</summary>
-    const float FxPerSecond = 16f, FxBurst = 8f;
     MusouHud? _musouHud;
     int _musouLivesMax;
     uint _musouRunTick;
@@ -42,7 +40,6 @@ public partial class NetworkView
     double _musouDirectorAt;
     bool _musouEnraged;
     ushort _musouBossId;
-    float _musouFxTokens = FxBurst;
     int _musouHitFx, _musouHitMarkers;
     readonly MusouScoreTracker _musouScore = new();
     string? _musouDemo;
@@ -104,7 +101,8 @@ public partial class NetworkView
         var boss = rules.Boss;
         int ownId = client.PlayerId;
         var camera = _camera is null ? Num.Vector3.Zero : new Num.Vector3(_camera.GlobalPosition.X, -_camera.GlobalPosition.Z, _camera.GlobalPosition.Y);   // Godot to game space
-        _musouFxTokens = MathF.Min(FxBurst, _musouFxTokens + FxPerSecond * delta);
+        _musouGore.Refill((float)delta);   // musou-net-budget: the gore budget by source (NetworkView.MusouGoreBudget.cs)
+        MusouGoreBudgetLog();
         MusouContactFrame(delta);   // combat feel: budgets, expiry, the log (NetworkView.MusouContact.cs)
         bool present = _musouHud is not null && _musouTelegraphs is not null;
 
@@ -254,8 +252,11 @@ public partial class NetworkView
             MusouBolterFirstHit(gun.Name, emitter.Position);   // musou/audio-pass: a bolter rifle's wet smack, then the explosion, on the first Ork the shot hits (once a shot, as the hit sound)
         }
         if (predicted && e.Value is 1 or 2) return;   // the shot's impact was drawn at the shot (a kill's gore is the death's, elsewhere)
-        if (_musouFxTokens < 1f || Num.Vector3.DistanceSquared(at, camera) > FxRange * FxRange) return;
-        _musouFxTokens -= 1f;
+        var source = MusouGoreSourceOf(e.Player);
+        _musouGoreHits[(int)source]++;
+        float reach = MusouOldGoreBudget ? FxRange : MusouGorePriority.HitMetres(source);   // musou-net-budget: the own hits reach 60 m, the allies' 40 (30 for all before)
+        if (Num.Vector3.DistanceSquared(at, camera) > reach * reach) { _musouGoreHitsFar[(int)source]++; return; }
+        if (!_musouGore.TakeHit(source)) return;   // musou-net-budget: the own hits first, then the allies', then the rest (one shared bucket of 16 a second before)
         _musouHitFx++;
         var end = ToGodot(at);
         var from = _camera?.GlobalPosition ?? end + Vector3.Up;
@@ -263,7 +264,7 @@ public partial class NetworkView
         if (GoreOff) BloodSplashAt(end, dir, 0.0);   // the gore draws the blood (dark, from the same hit); the faithful red glow only when the gore is off
         if (OrkBloodOn)   // gore-original: every shooter's hit plays its weapon's own impact for the Ork's flesh (NetworkView.OrkBlood.cs)
         {
-            if (e.Value is 1 or 2 && e.Player != 0) OrkBloodHit(own ? me : MusouPlayerState(e.Player), e.Value == 2, _musouTypeOf.TryGetValue(e.Enemy, out var shotType) && shotType == MusouEnemyType.ChaosMarine, end, dir, at);
+            if (e.Value is 1 or 2 && e.Player != 0) OrkBloodHit(own ? me : MusouPlayerState(e.Player), e.Value == 2, _musouTypeOf.TryGetValue(e.Enemy, out var shotType) && shotType == MusouEnemyType.ChaosMarine, end, dir, at, MusouGoreFxPriority(source));
             return;
         }
         if (!own || e.Value == 3 || _fx is null || _catalogue is null || Loadouts.InHand(_config!, me) is not { } weapon) return;
