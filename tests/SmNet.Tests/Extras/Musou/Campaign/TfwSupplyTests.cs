@@ -129,6 +129,40 @@ public class TfwSupplyTests
         Assert.Equal(GrenadeTests.Frag.Count, w.Players[Human].Grenades);
     }
 
+    // ---------------------------------------------------------------- the stimulant refill (owner, 2026-11-09: "stimulants need to regenerate the same way grenades do")
+
+    static readonly ThrownSpec StimItem = new("sm_mp_eq_stimpack", 3, -1, 6f, 0f, ThrownSpec.NoProjectile) { Stim = new StimSpec(5f, 0.3f, 0.9f) };
+    static SimConfig WithStims(SimConfig c) => c with { Thrown = [StimItem], Classes = [.. c.Classes.Select(k => k with { EquipmentChoices = [0] })] };
+
+    [Fact]
+    public void A_stim_charge_comes_back_on_the_grenade_period_up_to_the_most_in_musou()
+    {
+        var w = TfwRig.War(config: WithStims(Musou));
+        Assert.NotNull(Loadouts.Equipment(w.Config, w.Players[Human])!.Stim);
+        int period = (int)MathF.Round(TfwSupplyRules.GrenadeRefillSeconds * Musou.TickRate);
+        SetPlayer(w, Human, w.Players[Human] with { Grenades = 0 });
+        TfwRig.Steps(w, period - 1);
+        Assert.Equal(0, w.Players[Human].Grenades);
+        TfwRig.Steps(w, 1);
+        Assert.Equal(1, w.Players[Human].Grenades);
+        TfwRig.Steps(w, period * 5);
+        Assert.Equal(StimItem.Count, w.Players[Human].Grenades);   // never past the most
+        Assert.Equal(0, w.TfwGrenadeWait(Human));
+    }
+
+    [Fact]
+    public void Classic_pvp_never_gives_a_stim_charge_back()
+    {
+        var map = TfwTestArena.Build();
+        var cfg = WithStims(Classic);
+        var w = new World(cfg, map.Collision, TfwTestArena.Spawns) { Rules = new MatchRules { CountdownTime = 0.1f, TimeLimit = 0f, ScoreLimit = int.MaxValue / 2 } };
+        w.Spawn(1, 0);
+        TfwRig.Steps(w, 30);
+        SetPlayer(w, 1, w.Players[1] with { Grenades = 0 });
+        TfwRig.Seconds(w, TfwSupplyRules.GrenadeRefillSeconds + 1f);
+        Assert.Equal(0, w.Players[1].Grenades);
+    }
+
     // ---------------------------------------------------------------- the AI Marines' damage
 
     [Fact]
