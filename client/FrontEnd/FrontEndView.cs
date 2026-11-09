@@ -61,11 +61,11 @@ public sealed partial class FrontEndView : Control
     static bool _autoJoined;   // --auto-join (test aid) joins once per run: a join that fails returns to this screen and must not retry
     int _scriptFrame;
 
-    /// <summary>A screenshot may be taken: the install is read, the screen is built and its preview (if any) has drawn.</summary>
     /// <summary>The menus are built (the install has been read) or the read failed and says so: what the blink back to the menu waits for (ui/loading-blink).</summary>
     public bool Built => _built || (_services.Failed && _frames > 2);
 
-    public bool ReadyForScreenshot => _services.Failed ? _frames > 30 : _built && _scripted && _frames > _scriptFrame + 25 && (CurrentPreview?.Loaded ?? true)
+    /// <summary>A screenshot may be taken: the install is read, the screen is built and its preview (if any) has drawn.</summary>
+    public bool ReadyForScreenshot => _services.Failed ? _frames > 30 : _built && _scripted && _frames > _scriptFrame + 25 && (CurrentPreview is not { } preview || !preview.Visible || preview.Loaded)
         && (!_args.ContainsKey("preview-switch-to") || _switchChecked);
     int _switchedAt, _switchPhase;
     bool _switchChecked;
@@ -197,7 +197,7 @@ public sealed partial class FrontEndView : Control
         _loading?.QueueFree();
         _loading = null;
         BuildPages();
-        _creator = new CreatorView(_services, ShowMainMenu, ShowAppearance) { Visible = false };
+        _creator = new CreatorView(_services, CreatorBack, ShowAppearance) { Visible = false };
         _appearance = new AppearanceView(_services, ShowCreatorAgain) { Visible = false };
         AddChild(_creator);
         AddChild(_appearance);
@@ -305,6 +305,10 @@ public sealed partial class FrontEndView : Control
             if (serverExe is null) { musouHost.Disabled = true; musouHost.TooltipText = "No server was found next to the game."; }
             musouPage.Rows.AddChild(musouHost);
             musouPage.Rows.AddChild(UiKit.MenuButton("Join local lobby", () => ShowPage(_joinLocalPage!), "A Musou lobby hosted on another PC: type its address"));
+            // Musou Mode's customizer (owner 2026-11-10): the creator on the Musou profile shows Standard Marines, Librarian and Heretic in place of the factions; BACK returns here.
+            // The main menu's CUSTOMIZER stays Classic's. --musou-old-customizer (restore switch) leaves the row out, as before.
+            if (!_args.ContainsKey("musou-old-customizer"))
+                musouPage.Rows.AddChild(UiKit.MenuButton("Customizer", ShowCreator, "Your Musou loadouts: Standard Marines, the Librarian, the Heretic (not yet)"));
             musouPage.Rows.AddChild(UiKit.MenuGap(0.5f));
             musouPage.Rows.AddChild(UiKit.MenuText(MusouLocal.CoopNote.ToUpperInvariant(), UiKit.Grey).With(l => l.TooltipText = MusouLocal.CoopNote));
             musouPage.Rows.AddChild(UiKit.MenuGap(0.5f));
@@ -472,6 +476,13 @@ public sealed partial class FrontEndView : Control
         _creator!.Visible = true;
         _creator.Reenter();
         _creator.FocusList();
+    }
+
+    /// <summary>The creator's BACK: to MUSOU MODE's page when it was opened from there (the session stays Musou), else the main menu.</summary>
+    void CreatorBack()
+    {
+        if (_inMusou && _musouPage is not null) ShowMusouPage();
+        else ShowMainMenu();
     }
 
     void ShowCreatorAgain()

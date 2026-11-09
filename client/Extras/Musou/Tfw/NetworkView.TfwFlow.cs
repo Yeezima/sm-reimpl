@@ -32,6 +32,7 @@ public partial class NetworkView
     partial void ExtrasMatchMenu(MatchMenu menu)
     {
         LibrarianMatchMenu(menu);   // Librarian/NetworkView.LibrarianLook.cs: PLAY AS LIBRARIAN in the Stormbird
+        LibrarianCustomizer();      // the same: the customizer's Librarian page (PLAY AS LIBRARIAN there; a Librarian opens on it)
         if (!MusouActive || _client is not { } client || _tfwState.War is not { } war || !TfwHudModel.InBattle(war.Phase) || !war.Own.Deployed) return;
         if (client.Scoreboard is not { } board || !TfwHudModel.IsHost(client.PlayerId, board.Players.Select(r => r.PlayerId))) return;
         menu.AddRow(TfwHudModel.ReturnToShipText, () =>

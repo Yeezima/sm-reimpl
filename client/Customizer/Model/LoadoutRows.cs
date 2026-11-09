@@ -126,7 +126,7 @@ public static class LoadoutRows
         return sections;
     }
 
-    /// <summary>The equipment step: grenades (frag, blind) and the stims (shown, not simulated yet).</summary>
+    /// <summary>The equipment step: grenades (frag, blind) and the combat stims (simulated since perks/inert-2); an item the simulation does not run is tagged NOT SIMULATED YET.</summary>
     public static OptionSection Equipment(CustomizationCatalog catalog, string role, string race, CustomClass? custom, UnlockPolicy policy)
     {
         if (Options(catalog, role, race) is not { } options) return new OptionSection("equipment", "EQUIPMENT", false, [], null);

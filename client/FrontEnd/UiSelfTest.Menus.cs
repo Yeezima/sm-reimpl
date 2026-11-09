@@ -122,12 +122,34 @@ public sealed partial class UiSelfTest
                 Check("menu: ... and CONNECT joins that address on the Musou profile", joined is { Host: "127.0.0.1:27199", Content: var joinedContent } && joinedContent == ContentExtras.Musou, joined?.Host);
                 await SendKey(Key.Escape);
                 Check("menu: Esc there goes back to the Musou page", musouPage.Visible);
+                // Musou Mode's customizer (owner 2026-11-10): the Musou page's CUSTOMIZER shows Standard Marines, Librarian and Heretic in place of the factions; BACK returns to the page.
+                if (_front.Creator is { } musouCreator && _services.Session is { Dirty: false })
+                {
+                    await PressRow("CUSTOMIZER", musouPage);
+                    await Frames(3);
+                    Check("musou customizer: the Musou page's CUSTOMIZER opens the creator on the Musou profile", musouCreator.Visible && _services.Content == ContentExtras.Musou, _services.Content.ToString());
+                    Check("musou customizer: Standard Marines, Librarian and Heretic in place of the factions",
+                        musouCreator.FindChild("MusouStandardMarines", true, false) is not null && musouCreator.FindChild("MusouLibrarian", true, false) is not null
+                        && musouCreator.FindChild("MusouHeretic", true, false) is not null && musouCreator.FindChild("FactionChaos", true, false) is null);
+                    await SendKey(Key.Escape);
+                    await Frames(2);
+                    Check("musou customizer: BACK returns to the Musou page", musouPage.Visible && !musouCreator.Visible && _services.Content == ContentExtras.Musou, _services.Content.ToString());
+                }
                 await SendKey(Key.Escape);
                 Check("menu: Esc on the Musou page goes to the main menu", _front.ShowsMainMenu);
                 joined = null;
                 _front.ShowMainMenu();
                 await Frames(3);
                 Check("menu: back on the main menu the lobby's profile is in use", !_services.Content.HasFlag(ContentExtras.Musou), _services.Content.ToString());
+                if (_front.Creator is { } classicCreator)
+                {
+                    _front.ShowCreator();
+                    await Frames(3);
+                    Check("musou customizer: the main menu's CUSTOMIZER keeps Classic's faction row", classicCreator.FindChild("FactionSpaceMarines", true, false) is not null
+                        && classicCreator.FindChild("FactionChaos", true, false) is not null && classicCreator.FindChild("MusouLibrarian", true, false) is null);
+                    _front.ShowMainMenu();
+                    await Frames(3);
+                }
 
                 // fix/musou-local-server: STOP MUSOU SERVER under MUSOU MODE, only while a Musou server of this client runs; a press while it starts waits.
                 Check("menu: no server, no STOP MUSOU SERVER row", FindButton(main, b => b.Text == "STOP MUSOU SERVER") is null);
