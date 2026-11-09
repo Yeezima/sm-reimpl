@@ -9,8 +9,8 @@ namespace SmSim.Extras.Musou.Campaign;
 /// </summary>
 public static class VictoryWaveRules
 {
-    /// <summary>Orks in the wave: more than a full crowd (400), less than the pool's room after a battle's garrisons and crowds (ours).</summary>
-    public const int Size = 500;
+    /// <summary>Orks in the wave: more than a full crowd (320), less than the pool's room after a battle's garrisons and crowds (ours). 500 until 2026-11-09, then 80 % (the owner: "reduce the total amount of orks on the map to 80% of current").</summary>
+    public const int Size = 400;
     /// <summary>Orks added a tick: 500 in about 1.4 s at 30 Hz, so no tick builds a crowd at once (ours).</summary>
     public const int PerTick = 12;
     /// <summary>The ring's radius round the players' centre (m), and how far in a spot that falls in a wall or off the walking graph is tried again (ours: out of a frag's 20 m, inside sight).</summary>

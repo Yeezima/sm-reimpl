@@ -139,12 +139,12 @@ public class MusouCorpseFloorTests(ITestOutputHelper output)
         {
             var at = new Vector3(280f, 60f, 0f);   // 287 m off: past the old 90 m
             var v = new TfwArmyView(3, side, TfwArmyOrder.Hold, true, 120, 120, 0, 12, at, 0.4f, 1f, 13);
-            var now = new TfwArmyImpostors();
+            var now = new TfwArmyImpostors { OrkAggregates = true };   // an Ork aggregate only under the old armies (2026-11-09); OrkArmyAggregateTests of none
             now.Apply([v], 10, 0.0);
             now.Apply([v with { Far = 80 }], 25, 0.5);   // a far clash took 40 in one section
             Assert.Equal(40, now.Deaths.Count);
             Assert.All(now.Deaths, d => Assert.Equal(side, d.Side));
-            var before = new TfwArmyImpostors { OldCorpses = true };
+            var before = new TfwArmyImpostors { OldCorpses = true, OrkAggregates = true };
             before.Apply([v], 10, 0.0);
             before.Apply([v with { Far = 80 }], 25, 0.5);
             Assert.Equal(TfwImpostorRules.DeathsPerSection, before.Deaths.Count);

@@ -15,13 +15,14 @@ public class TfwArmyTests
 {
     const int Tick = 30;
 
-    static (MusouSim Sim, GuardSim Guards, TfwBattle Battle, TfwLayout Layout) Frozen()
+    /// <summary><paramref name="orkAggregates"/>: the Ork armies' aggregates of before 2026-11-09 (the tests of the far layer's Ork side; OrkArmyAggregateTests of none).</summary>
+    static (MusouSim Sim, GuardSim Guards, TfwBattle Battle, TfwLayout Layout) Frozen(bool orkAggregates = false)
     {
         var sim = new MusouSim(null) { Frozen = true };
         var guards = new GuardSim(sim);
         var layout = TfwTestArena.Layout();
         var battle = new TfwBattle(sim, guards, layout, 100.0, 1, false, default, TfwBattleRules.EliteBase, guardsmen: true)
-        { Trickle = false, Patrols = false, BossOrksOn = false, StormboysOn = false, BigShootasOn = false, WeirdboyzOn = false, RokkitsOn = false };
+        { Trickle = false, Patrols = false, BossOrksOn = false, StormboysOn = false, BigShootasOn = false, WeirdboyzOn = false, RokkitsOn = false, OrkAggregates = orkAggregates };
         battle.Start();
         return (sim, guards, battle, layout);
     }
@@ -91,7 +92,7 @@ public class TfwArmyTests
     [Fact]
     public void A_near_armys_remainder_wears_the_real_front_down_and_the_real_men_only_take_its_fire()
     {
-        var (sim, guards, battle, layout) = Frozen();
+        var (sim, guards, battle, layout) = Frozen(orkAggregates: true);
         Capture(sim, battle, layout, 1);
         var point = layout.Positions[1];
         var garrison = battle.AddArmyForTests(TfwArmySide.Guard, TfwArmyOrder.Hold, 1, 100, point)!;
@@ -115,7 +116,7 @@ public class TfwArmyTests
         for (int k = 0; k < 10000; k++)
         {
             int size = TfwArmyRules.WaveSize((k + 0.5f) / 10000f, (k * 0.618f) % 1f);
-            if (size == 200) small++; else if (size == 500) medium++; else { Assert.InRange(size, 1000, 1200); large++; }
+            if (size == 160) small++; else if (size == 400) medium++; else { Assert.InRange(size, 800, 960); large++; }   // 200, 500, 1000 to 1200 until 2026-11-09 (80 % since)
         }
         Assert.Equal((7000, 2500, 500), (small, medium, large));
     }
@@ -315,7 +316,7 @@ public class TfwArmyTests
     [Fact]
     public void Promotion_spawns_in_the_impostors_slots_and_neither_level_change_moves_the_count()
     {
-        var (sim, guards, battle, layout) = Frozen();
+        var (sim, guards, battle, layout) = Frozen(orkAggregates: true);
         var anchor = new Vector3(80f, -60f, 0f);
         var orks = battle.AddArmyForTests(TfwArmySide.Ork, TfwArmyOrder.Hold, 0, 120, anchor, 0.3f, eliteShare: 0.1f)!;
         Vector3[] far = [new(-400f, 400f, 0f)], near = [anchor + new Vector3(0f, 60f, 0f)];   // far: beyond FarMetres (330 m since 2026-11-09)
@@ -350,7 +351,7 @@ public class TfwArmyTests
     [Fact]
     public void Promote_and_demote_cycles_never_push_the_slots_back()
     {
-        var (_, _, battle, _) = Frozen();
+        var (_, _, battle, _) = Frozen(orkAggregates: true);
         var anchor = new Vector3(80f, -60f, 0f);
         var orks = battle.AddArmyForTests(TfwArmySide.Ork, TfwArmyOrder.Hold, 0, 50, anchor)!;
         Vector3[] near = [anchor + new Vector3(0f, 40f, 0f)], far = [new(-400f, 400f, 0f)];   // far: beyond FarMetres (330 m since 2026-11-09)
@@ -406,7 +407,7 @@ public class TfwArmyTests
     [Fact]
     public void A_far_wave_and_a_far_garrison_clash_until_one_breaks_and_the_point_falls_only_with_the_imperials_gone()
     {
-        var (sim, guards, battle, layout) = Frozen();
+        var (sim, guards, battle, layout) = Frozen(orkAggregates: true);
         Capture(sim, battle, layout, 1);
         var garrison = battle.AddArmyForTests(TfwArmySide.Guard, TfwArmyOrder.Hold, 1, 40, layout.Positions[1])!;   // with the field's 60 real men, 100 (a Guardsman worth an Ork)
         var wave = battle.AddArmyForTests(TfwArmySide.Ork, TfwArmyOrder.Attack, 1, 200, layout.Positions[1])!;

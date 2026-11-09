@@ -17,7 +17,9 @@ namespace SmClient;
 /// </summary>
 public partial class NetworkView
 {
-    readonly TfwArmyImpostors _armyImpostors = new() { OldCorpses = CrowdView.OldCorpses };
+    readonly TfwArmyImpostors _armyImpostors = new() { OldCorpses = CrowdView.OldCorpses, OrkAggregates = OldOrkArmies };
+    /// <summary>Test aid <c>--musou-old-ork-armies</c> (with the server's <c>SM_TFW_OLD_ORK_ARMIES=1</c>): the Ork armies' aggregates drawn as impostors again (before 2026-11-09).</summary>
+    static readonly bool OldOrkArmies = Array.IndexOf(OS.GetCmdlineUserArgs(), "--musou-old-ork-armies") >= 0;
     readonly WaaaghBarkPlanner _waaagh = new();
     readonly List<TfwImpostor> _armyImpostorList = new();
     readonly List<MusouShown> _armyOrksShown = new();

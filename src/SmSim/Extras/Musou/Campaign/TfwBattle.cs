@@ -39,12 +39,12 @@ public static class TfwBattleRules
     public const float DefenderAggro = 30f;
 
     // The garrison of one position (owner, 2026-11-01: "there is always a consistent ork garrison waiting on each point that never respawns. they defend each point"): it stands leashed on the point from the landing and is never rebuilt.
-    public const int Garrison = 96;   // the owner, 2026-11-02, 2026-11-03 and 2026-11-06: double the Orks of the battle, three times (12, 24, then 48)
+    public const int Garrison = 77;   // the owner, 2026-11-02, 2026-11-03 and 2026-11-06: double the Orks of the battle, three times (12, 24, then 48); 96 until 2026-11-09, then 80 % ("reduce the total amount of orks on the map to 80% of current")
 
     // The crowds (owner, 2026-11-01): "the orks should pool up at their spawn point until they reach a crowd of 50 orks, then swarm at the player. there should be 3 major spawn points across the map doing this";
     // "pools replace the tide"; "50 per point, 150 total. Each point swarms on its own."
     /// <summary>The crowd of one spawn point: it stands there leashed, one more every <see cref="CrowdFillSeconds"/>, and at this many all of it swarms at once. The owner's number.</summary>
-    public const int CrowdSize = 400;   // the owner, 2026-11-02, 2026-11-03 and 2026-11-06: double, three times (50, 100, then 200; the fill keeps a crowd at about 53 s)
+    public const int CrowdSize = 320;   // the owner, 2026-11-02, 2026-11-03 and 2026-11-06: double, three times (50, 100, then 200; the fill keeps a crowd at about 53 s); 400 until 2026-11-09, then 80 % (the same fill: a crowd in about 43 s)
     /// <summary>A crowd's Orks notice a target this near their own places (a crowd wakes as one when any of it does, or is hurt). Ours: a player at the ring (13.5 to 15 m out) wakes a fresh small crowd on the far side of the disc (about 30 m).</summary>
     public const float CrowdAggro = 30f;
 
@@ -52,7 +52,7 @@ public static class TfwBattleRules
     /// A held point adds one Ork to its crowd every this many seconds (the owner's tide of 1 s, now the crowd's fill: 50 s for a crowd). The owner, 2026-11-01: "you have to fully capture a point to disable the spawning
     /// from that point. But it's temporarily paused while the point is being actively captured"; "Orks should begin spawning again immediately".
     /// </summary>
-    public const float CrowdFillSeconds = 4f / 30f;   // 4 ticks: 7.5 a second, a crowd of 400 in 53 s (2026-11-06; was 8 ticks for 200)
+    public const float CrowdFillSeconds = 5f / 30f;   // 5 ticks: 6 a second, a crowd of 320 in 53 s (2026-11-09, 80 % of the Orks at the same pace; 4 ticks for 400 since 2026-11-06, 8 ticks for 200 before)
     /// <summary>
     /// The owner, 2026-11-02: "the reinforcements that spawn at all points pool and then swarm the player even if far away". The alive cap counts the swarms still fighting, so a far crowd could stall under
     /// <see cref="CrowdSize"/> and stand for good: a crowd goes with what it has this long after the point's last swarm (ours; a crowd under no cap fills in 50 s).
@@ -73,7 +73,7 @@ public static class TfwBattleRules
     /// The owner, 2026-11-01: "50 per point, 150 total": the Orks of the crowds and the swarms alive at once, a garrison not counted (it never respawns, 12 a point); 80 more a further human; never over
     /// <see cref="AliveCapMost"/>, which leaves the pool's 2048 slots room for the garrisons and those dying.
     /// </summary>
-    public const int AliveCapSolo = 1200, AliveCapPerExtraHuman = 640, AliveCapMost = 1680;   // the owner, 2026-11-02, 2026-11-03 and 2026-11-06: double, three times (150 and 80, 300 and 160, then 600 and 320); the most leaves the pool's 2048 room for the 288 of the garrisons and the reserve
+    public const int AliveCapSolo = 960, AliveCapPerExtraHuman = 512, AliveCapMost = 1344;   // 1200, 640 and 1680 until 2026-11-09, then 80 % (the owner: "reduce the total amount of orks on the map to 80% of current");   // the owner, 2026-11-02, 2026-11-03 and 2026-11-06: double, three times (150 and 80, 300 and 160, then 600 and 320); the most leaves the pool's 2048 room for the 288 of the garrisons and the reserve
     public const int ReleasesPerTick = 6;
 
     // The trickle (owner, 2026-11-01: "re add in the trickling enemies resulting in roughly 2x the current ork enemy count on the map"; every value ours, spec "the trickle"): beside the pools and swarms, each source that sends
@@ -81,7 +81,7 @@ public static class TfwBattleRules
     /// <summary>Seconds between two trickled Orks from one sending source (ours; three held points send two a second together).</summary>
     public const float TrickleSeconds = 0.75f;   // 1.5 s before the owner's third doubling (2026-11-06)
     /// <summary>Most Orks alive (garrisons not counted) while a trickled one is added: the pool's 2048 slots less the garrisons (288), those dying and a margin; so the trickle adds 400 to the crowds' 1200 for one human (the pool's reserve ends it).</summary>
-    public const int TrickleTotalMax = 1600;   // 800 in a pool of 1024 (2026-11-06)
+    public const int TrickleTotalMax = 1280;   // 800 in a pool of 1024 (2026-11-06); 1600 until 2026-11-09, then 80 %
     /// <summary>Most trickled Orks alive at once with <paramref name="humans"/> humans: the crowds' cap again, so the map holds about twice <see cref="AliveCap"/>.</summary>
     public static int TrickleCap(int humans) => AliveCap(humans);
 

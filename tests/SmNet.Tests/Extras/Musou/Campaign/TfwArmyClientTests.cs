@@ -50,7 +50,7 @@ public class TfwArmyClientTests
     [Fact]
     public void Impostors_stand_in_the_servers_slots_and_a_promotion_leaves_the_rest_in_place()
     {
-        var impostors = new TfwArmyImpostors();
+        var impostors = new TfwArmyImpostors { OrkAggregates = true };   // the Ork armies' aggregates of before 2026-11-09 (OrkArmyAggregateTests: none drawn now)
         var at = new Vector3(100f, 50f, 0f);
         var v = new TfwArmyView(3, TfwArmySide.Ork, TfwArmyOrder.Hold, true, 120, 120, 0, 12, at, 0.4f, 1f, 13);
         impostors.Apply([v], 10, 0.0);
@@ -72,7 +72,7 @@ public class TfwArmyClientTests
     [Fact]
     public void Impostors_are_capped_nearest_armies_first()
     {
-        var impostors = new TfwArmyImpostors();
+        var impostors = new TfwArmyImpostors { OrkAggregates = true };   // the Ork armies' aggregates of before 2026-11-09 (OrkArmyAggregateTests: none drawn now)
         impostors.Apply([Wave(1, new Vector3(500f, 0f, 0f), far: 800), Wave(2, new Vector3(50f, 0f, 0f), far: 800)], 1, 0.0);
         var list = new List<TfwImpostor>();
         impostors.Write(Vector3.Zero, list);

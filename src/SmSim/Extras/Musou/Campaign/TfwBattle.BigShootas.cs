@@ -9,7 +9,7 @@ namespace SmSim.Extras.Musou.Campaign;
 public static class TfwBigShootaRules
 {
     /// <summary>One Big Shoota Nob holds a spot at each position the Orks hold at the landing (ours), never replaced (as the garrisons), with his own squad (owner brief: 10).</summary>
-    public const int Squad = 10;
+    public const int Squad = 8;   // 10 until 2026-11-09, then 80 % (the owner: "reduce the total amount of orks on the map to 80% of current")
     /// <summary>His spot: on the side of the point facing the landing zone, this far beyond its capture ring (ours: he covers the point without standing in it, so a capture never waits on him).</summary>
     public const float PostOut = 3f;
     /// <summary>His squad stands on a ring this far round him (ours), leashed: a target within <see cref="TfwBattleRules.DefenderAggro"/> wakes it.</summary>

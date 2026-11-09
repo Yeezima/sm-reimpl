@@ -46,6 +46,11 @@ public sealed class TfwArmyImpostors
     public List<TfwImpostorDeath> Deaths { get; } = new();
     /// <summary>The rules before the corpse floor (client <c>--musou-old-corpses</c>): at most <see cref="TfwImpostorRules.DeathsPerSection"/> bodies a section.</summary>
     public bool OldCorpses { get; init; }
+    /// <summary>
+    /// Whether the Ork armies' aggregates are drawn (the rules before 2026-11-09; client <c>--musou-old-ork-armies</c>, with the server's <c>SM_TFW_OLD_ORK_ARMIES=1</c>). Off: no Ork impostor and no Ork impostor
+    /// death, whatever a section says (the owner: "completely remove those orks from musou mode"); the Guard armies' are drawn as before.
+    /// </summary>
+    public bool OrkAggregates { get; init; }
     public int Armies => _armies.Count;
 
     /// <summary>A stable key for slot <paramref name="slot"/> of army <paramref name="id"/>.</summary>
@@ -67,7 +72,7 @@ public sealed class TfwArmyImpostors
             }
             double seconds = now - d.HeardAt;
             d.Velocity = seconds > 0.05 && v.Order is TfwArmyOrder.March or TfwArmyOrder.Retreat ? (v.Anchor - d.View.Anchor) / (float)seconds : Vector3.Zero;
-            if (v.SlotBase == d.View.SlotBase && v.Far < d.View.Far)   // the aggregate lost men: bodies where its last slots stood
+            if (v.SlotBase == d.View.SlotBase && v.Far < d.View.Far && (v.Side == TfwArmySide.Guard || OrkAggregates))   // the aggregate lost men: bodies where its last slots stood
             {
                 int lost = MusouCorpseRules.ImpostorBodies(d.View.Far - v.Far, OldCorpses);
                 for (int k = 0; k < lost; k++)
@@ -101,13 +106,14 @@ public sealed class TfwArmyImpostors
     static MusouEnemyType TypeOf(in TfwArmyView v, int slot) => v.Side == TfwArmySide.Ork ? TfwArmyLayout.OrkType(slot, v.EliteShare) : MusouEnemyType.Boy;
 
     /// <summary>
-    /// The impostors to draw, nearest armies first, at most <paramref name="orksMost"/> Orks and <paramref name="guardsMost"/> Guardsmen: each army's aggregate slots <c>[SlotBase, SlotBase + Far)</c> from the front.
+    /// The impostors to draw, nearest armies first, at most <paramref name="orksMost"/> Orks and <paramref name="guardsMost"/> Guardsmen: each army's aggregate slots <c>[SlotBase, SlotBase + Far)</c> from the front
+    /// (the Orks' only with <see cref="OrkAggregates"/>).
     /// </summary>
     public void Write(Vector3 camera, List<TfwImpostor> into, int orksMost = TfwImpostorRules.OrksMost, int guardsMost = TfwImpostorRules.GuardsMost)
     {
         into.Clear();
         _order.Clear();
-        foreach (var d in _armies.Values) if (d.View.Far > 0) _order.Add((Vector3.DistanceSquared(d.Anchor, camera), d));
+        foreach (var d in _armies.Values) if (d.View.Far > 0 && (d.View.Side == TfwArmySide.Guard || OrkAggregates)) _order.Add((Vector3.DistanceSquared(d.Anchor, camera), d));
         _order.Sort((x, y) => x.D.CompareTo(y.D));
         int orks = 0, guards = 0;
         foreach (var (_, d) in _order)

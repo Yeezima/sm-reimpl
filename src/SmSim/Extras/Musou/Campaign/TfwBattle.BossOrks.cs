@@ -15,7 +15,7 @@ public static class TfwBossOrkRules
     /// <summary>Most Boss Orks alive at once (the owner: "up to 2"); one that is due waits for a free place.</summary>
     public const int MaxAlive = 2;
     /// <summary>The elites that come with each (the owner: 20, "fight on" after the boss dies): 'Ard Boyz and Nobs in the battle's mix (<see cref="TfwBattleRules.EliteArds"/>).</summary>
-    public const int Retinue = 20;
+    public const int Retinue = 16;   // 20 until 2026-11-09, then 80 % (the owner: "reduce the total amount of orks on the map to 80% of current"); the Boss Orks themselves unchanged
     /// <summary>The retinue stands on a ring this far round its boss at the spawn (ours; the boss's body is 1.2 to 1.8 m wide).</summary>
     public const float RingMin = 3f, RingMax = 6f;
     /// <summary>A Boss Ork spawns only at a spawn point at least this far from every living player (ours); with none that far it tries again a second later.</summary>
