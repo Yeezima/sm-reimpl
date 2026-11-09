@@ -28,10 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2708 spec table rows: **2006 tagged**, 488 not tagged (read from data with high confidence), 214 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 602 rows of the changes document.
-Scanned 2674 spec table rows: **1971 tagged**, 489 not tagged (read from data with high confidence), 214 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 596 rows of the changes document.
-Scanned 2673 spec table rows: **1972 tagged**, 488 not tagged (read from data with high confidence), 213 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 597 rows of the changes document.
-Scanned 2669 spec table rows: **1968 tagged**, 488 not tagged (read from data with high confidence), 213 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 595 rows of the changes document.
+Scanned 2714 spec table rows: **2011 tagged**, 489 not tagged (read from data with high confidence), 214 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 604 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -53,46 +50,21 @@ Scanned 2669 spec table rows: **1968 tagged**, 488 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 19 | 10 | 10 | 10 | 7 |
-| Core simulation (provisional values) | 495 | 471 | 343 | 127 | 1 |
+| Core simulation (provisional values) | 500 | 476 | 344 | 131 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 217 | 207 | 117 | 55 | 0 |
-| **All areas** | **2006** | 1760 | 1492 | 627 | 38 |
-| Core simulation (provisional values) | 487 | 463 | 335 | 126 | 1 |
-| General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 191 | 181 | 93 | 53 | 0 |
-| **All areas** | **1971** | 1725 | 1459 | 624 | 38 |
-| Core simulation (provisional values) | 488 | 464 | 333 | 130 | 1 |
-| General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 193 | 183 | 95 | 53 | 0 |
-| **All areas** | **1972** | 1726 | 1458 | 628 | 38 |
-| Core simulation (provisional values) | 487 | 463 | 336 | 127 | 1 |
-| General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 190 | 180 | 92 | 53 | 0 |
-| **All areas** | **1968** | 1722 | 1458 | 625 | 38 |
+| **All areas** | **2011** | 1765 | 1492 | 631 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1102 |
-| confidence: low | 710 |
-| confidence: medium | 653 |
+| kind: ours | 1107 |
+| confidence: low | 709 |
+| confidence: medium | 654 |
 | kind: interpretation | 360 |
-| kind: ours | 1068 |
-| confidence: low | 705 |
-| confidence: medium | 625 |
-| kind: ours | 1065 |
-| confidence: low | 707 |
-| confidence: medium | 622 |
-| kind: interpretation | 359 |
 | notes: ours | 358 |
-| notes: estimate | 156 |
-| kind: ours | 1069 |
-| confidence: low | 703 |
-| confidence: medium | 626 |
-| kind: interpretation | 359 |
-| notes: ours | 358 |
-| notes: estimate | 157 |
+| notes: estimate | 160 |
 | confidence: none (low) | 129 |
 | kind: estimate | 126 |
 | kind: provisional | 99 |
@@ -2202,10 +2174,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (495)
-### Core simulation (provisional values) (487)
-### Core simulation (provisional values) (488)
-### Core simulation (provisional values) (487)
+### Core simulation (provisional values) (500)
 
 *Spec section: Provisional values in use*
 
@@ -2663,6 +2632,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-263892F0` | Bolter rifles | bolter, storm bolter, stalker bolter (sniper rifle wargear), heavy bolter, either side's; not the bolt pistols | kind: ours; confidence: medium | owner ("bolter rifle weapons") | Bolter rifles: compare with SM1 by feel or video. Ours: bolter, storm bolter, stalker bolter (sniper rifle wargear), heavy… | ☐ |
 | `R-840E5E4A` | Deeper fire (follow-up 2026-11-09: the gun's own 'bang bang' deeper and more powerful) | **Own gun:** its fire event posted again on an emitter of its own (`ProtectGun`: never stolen at the voice cap, never cut by another event's Stop actions, never ducked by Set/Reset, no instance limit) as a body copy at -800 cents, +2 dB, low-pass +22, a sub… (cents, dB) | kind: ours; confidence: low | owner 2026-11-09; numbers ours | Deeper fire (follow-up 2026-11-09: the gun's own 'bang…: compare with SM1 by feel or video. Ours: Own gun: its fire event posted again on an emitter of its own… | ☐ |
 | `R-B359E0A5` | Bark theme filter (fourth follow-up 2026-11-09: "none of the bark voice lines should be about… | **Not wired: blocked.** `MusouAudioRules.IsOffThemeLine` (case-insensitive word-start match of chaos, warp, daemon, demon, traitor, heretic, renegade, nurgle, khorne, tzeentch, slaanesh, possessed, cultist, dark god, ruinous, corrupt; heretic and traitor are… | kind: ours | owner 2026-11-09 | Bark theme filter (fourth follow-up 2026-11-09: "none of…: compare with SM1 by listening A/B at the same distance and state. Ours: Not wired: blocked. MusouAudioRules.IsOffThemeLine (case-insensitive… | ☐ |
+
 *Spec section: Added content: the client's own volleys (musou-net-budget; client only, no protocol change)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
