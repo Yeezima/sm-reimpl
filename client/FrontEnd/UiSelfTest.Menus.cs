@@ -148,8 +148,14 @@ public sealed partial class UiSelfTest
                         await SendPad(JoyButton.X);
                         Check("musou customizer: F2, pad Y and pad X open no rename or copy prompt on the Librarian's page", OpenDialog() is null && !_services.Session!.Dirty);
                         OpenDialog()?.QueueFree();
+                        // musou/loadout-slots review: his look's EDIT LOOK opens his slot (past the ten); back on the Standard Marines the creator must not stay on it.
+                        musouCreator.OpenSelection(SmContent.Customization.Selection.CustomSlot(SmContent.Customization.CustomizationProfile.MaxCustomClasses + 1));
+                        bool openedHis = musouCreator.Open.Slot == SmContent.Customization.CustomizationProfile.MaxCustomClasses + 1;
                         marinesEntry.ButtonPressed = true;
                         await Frames(3);
+                        Check("musou customizer: back on the Standard Marines the open loadout is not the Librarian's slot", openedHis
+                            && (musouCreator.Open.Kind != SmContent.Customization.SelectionKind.Custom || musouCreator.Open.Slot <= SmContent.Customization.CustomizationProfile.MaxCustomClasses),
+                            $"{musouCreator.Open.Kind} {musouCreator.Open.Slot}");
                         // musou/loadout-slots: the Standard Marines edit Musou's own slots (the profile's set "musou"; the Librarian shows in slot 11, past the ten, while his page is open):
                         // a loadout made here is not one of Classic's (the edit is reverted).
                         var session = _services.Session!;

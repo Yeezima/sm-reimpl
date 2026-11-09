@@ -9,3 +9,4 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Leave out changes a tester cannot notice (tooling, docs, refactors). Optional "### " headings group long lists.
 - Add your bullets in the same pull request as the change, when it merges.
 -->
+- Musou Mode has loadouts of its own now, kept apart from your Classic loadouts: the first time you open Musou's customizer they start as a copy of your Classic ones. The Librarian gets his own loadout too: melee weapon, equipment, two perks and a look. Opening an older build of the game can reset your Musou loadouts.

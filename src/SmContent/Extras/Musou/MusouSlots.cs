@@ -90,15 +90,19 @@ public static class MusouSlots
             if (look is not null && profile.Appearance(look) is not { Race: CustomizationCatalog.SpaceMarine }) look = null;   // a look that is gone, or not a Space Marine one: the active loadout's
             return new MusouLibrarianLoadout(Name(lib["melee"]), Name(lib["equipment"]), perk1, perk2, look);
         }
-        catch (Exception e) when (e is System.Text.Json.JsonException or InvalidOperationException or FormatException) { return MusouLibrarianLoadout.Default; }
+        catch (Exception e) when (e is System.Text.Json.JsonException or InvalidOperationException or FormatException or ArgumentException) { return MusouLibrarianLoadout.Default; }   // ArgumentException: a duplicate key in a hand-edited entry
     }
 
     /// <summary>The profile with the Librarian's loadout <paramref name="loadout"/> (the defaults remove it; anything else in the Musou extras entry is kept).</summary>
     public static CustomizationProfile WithLibrarian(CustomizationProfile profile, MusouLibrarianLoadout loadout)
     {
         JsonObject root;
-        try { root = profile.Extras.TryGetValue(ExtrasKey, out var text) && JsonNode.Parse(text) is JsonObject o ? o : new JsonObject(); }
-        catch (System.Text.Json.JsonException) { root = new JsonObject(); }
+        try
+        {
+            root = profile.Extras.TryGetValue(ExtrasKey, out var text) && JsonNode.Parse(text) is JsonObject o ? o : new JsonObject();
+            _ = root.Count;   // reads the properties now: a duplicate key throws here, not at the edit below
+        }
+        catch (Exception e) when (e is System.Text.Json.JsonException or ArgumentException) { root = new JsonObject(); }   // unreadable: his entry starts again
         if (loadout.IsDefault) root.Remove("librarian");
         else
             root["librarian"] = new JsonObject
@@ -108,6 +112,23 @@ public static class MusouSlots
         string? json = root.Count == 0 ? null : root.ToJsonString();
         if (profile.Extras.TryGetValue(ExtrasKey, out var old) ? old == json : json is null) return profile;
         return profile.WithExtra(ExtrasKey, json);
+    }
+
+    /// <summary>
+    /// The profile with the Librarian's look cleared when it is <paramref name="id"/> (the look was removed: <c>ProfileViews.RemoveLook</c>'s added-content part), so a new look that takes the id
+    /// later is not put on him unasked. The profile itself when he does not wear it.
+    /// </summary>
+    public static CustomizationProfile LookRemoved(CustomizationProfile profile, string id)
+    {
+        if (!profile.Extras.ContainsKey(ExtrasKey)) return profile;
+        string? look = null;
+        try
+        {
+            if (JsonNode.Parse(profile.Extras[ExtrasKey]) is JsonObject root && root["librarian"] is JsonObject lib && lib["look"] is JsonValue v && v.TryGetValue<string>(out var s)) look = s.Trim();
+        }
+        catch (Exception e) when (e is System.Text.Json.JsonException or InvalidOperationException or ArgumentException) { return profile; }
+        if (look != id) return profile;
+        return WithLibrarian(profile, LibrarianOf(profile) with { Look = null });   // the look is gone from the profile already: the rest of his loadout as stored
     }
 
     /// <summary>The Librarian as the custom class his page edits (<see cref="LibrarianSlot"/>, the Tactical's role; his look as its Space Marine look).</summary>

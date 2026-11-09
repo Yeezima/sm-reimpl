@@ -103,7 +103,18 @@ public sealed partial class CreatorView
         else if (_musouEntry == MusouCustomizerEntry.Librarian) _musouLibrarianStep = _step;
         _musouEntry = entry;
         _step = entry == MusouCustomizerEntry.StandardMarines ? _musouMarineStep : entry == MusouCustomizerEntry.Librarian ? _musouLibrarianStep : Step.Class;
+        if (entry != MusouCustomizerEntry.Librarian) LeaveLibrarianSlot();
         SyncLibrarianView();
+    }
+
+    /// <summary>
+    /// Outside his page the open loadout is never the Librarian's slot (<see cref="MusouSlots.LibrarianSlot"/>; review of musou/loadout-slots: after his look's EDIT LOOK, back on the
+    /// Standard Marines the creator showed "CUSTOM 11 - empty", a class chosen there was dropped and DEPLOY said the slot was empty): the active loadout opens instead.
+    /// </summary>
+    void LeaveLibrarianSlot()
+    {
+        if (_open.Kind == SelectionKind.Custom && _open.Slot > CustomizationProfile.MaxCustomClasses)
+            _open = LoadoutEdits.Active(_session.Working, _catalog, out _);
     }
 
     void SyncMusouButtons()
@@ -147,6 +158,7 @@ public sealed partial class CreatorView
         SyncLibrarianView();
         if (!MusouOwnPage)
         {
+            LeaveLibrarianSlot();
             MusouShowChrome();
             _preview.MusouLibrarian = false;
             return;

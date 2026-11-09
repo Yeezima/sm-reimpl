@@ -135,6 +135,33 @@ public class MusouSlotsTests
     }
 
     [Fact]
+    public void A_removed_look_is_taken_off_the_librarian_and_his_other_choices_stay()
+    {
+        var withHim = MusouSlots.WithLibrarian(OldProfile(), new MusouLibrarianLoadout("mp_melee_combat_knife", null, "mp_perk_x", null, "sm-1"));
+        var removed = ProfileViews.RemoveLook(withHim, "sm-1");
+        Assert.Equal(new MusouLibrarianLoadout("mp_melee_combat_knife", null, "mp_perk_x", null, null), MusouSlots.LibrarianOf(removed));
+        // A new look taking the id sm-1 is not put on him: the stored entry names no look.
+        var reused = removed with { Appearances = [.. removed.Appearances, AppearanceProfile.Empty("sm-1", CustomizationCatalog.SpaceMarine, "New")] };
+        Assert.Null(MusouSlots.LibrarianOf(reused).Look);
+        Assert.Same(withHim, MusouSlots.LookRemoved(withHim, "sm-2"));   // a look he does not wear: nothing changes
+    }
+
+    [Fact]
+    public void A_hand_edited_entry_with_a_key_used_twice_reads_as_his_defaults_and_does_not_block_edits()
+    {
+        var broken = OldProfile().WithExtra(MusouSlots.ExtrasKey, """{ "librarian": { "melee": "a", "melee": "b" } }""");
+        Assert.Equal(MusouLibrarianLoadout.Default, MusouSlots.LibrarianOf(broken));
+        var rootDup = OldProfile().WithExtra(MusouSlots.ExtrasKey, """{ "librarian": { "melee": "a" }, "librarian": { "melee": "b" } }""");
+        Assert.Equal(MusouLibrarianLoadout.Default, MusouSlots.LibrarianOf(rootDup));
+        var edited = MusouSlots.WithLibrarian(rootDup, new MusouLibrarianLoadout("mp_melee_combat_knife", null, null, null, null));   // no throw: his entry starts again
+        Assert.Equal("mp_melee_combat_knife", MusouSlots.LibrarianOf(edited).Melee);
+        var view = MusouProfileView.WithLibrarian;
+        var stored = view.Open(rootDup);
+        Assert.NotNull(view.Keep(stored, view.Show(stored)));   // every Musou edit goes through Keep
+        Assert.Same(rootDup, MusouSlots.LookRemoved(rootDup, "sm-1"));
+    }
+
+    [Fact]
     public void His_page_offers_his_own_choices_with_the_chosen_ones_selected()
     {
         var data = new LibrarianLoadout("Power Sword", ["Combat Knife"], [], ["Frag", "Blind"])

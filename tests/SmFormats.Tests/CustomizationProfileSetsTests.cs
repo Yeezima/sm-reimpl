@@ -107,6 +107,40 @@ public partial class CustomizationProfileTests
         Assert.True(JsonNode.DeepEquals(JsonNode.Parse(loaded.Extras["musou"]), JsonNode.Parse(again.Extras["musou"])));
     }
 
+    [Fact]
+    public void Removing_a_look_clears_it_from_every_set_so_a_new_look_never_takes_its_place_unasked()
+    {
+        var look = AppearanceProfile.Empty("sm-1", CustomizationCatalog.SpaceMarine, "Blue");
+        var profile = new CustomizationProfile(1, Selection.CustomSlot(1), [Tactical(1, "Classic", "sm-1")], [look])
+            .WithSet("mode", new LoadoutSet(Selection.CustomSlot(2), [Tactical(2, "Mode", "sm-1"), Tactical(3, "Other")]));
+        var removed = AppearanceEdits.RemoveAppearance(profile, "sm-1");
+        Assert.Empty(removed.Appearances);
+        Assert.Null(removed.ClassAt(1)!.Appearance.SpaceMarine);
+        Assert.Null(removed.Set("mode")!.ClassAt(2)!.Appearance.SpaceMarine);   // the set's slot too (review: it kept the id)
+        var (again, id) = AppearanceEdits.AddAppearance(removed, CustomizationCatalog.SpaceMarine);
+        Assert.Equal("sm-1", id);   // the lowest free id is reused ...
+        Assert.Null(again.Set("mode")!.ClassAt(2)!.Appearance.SpaceMarine);   // ... and nobody wears the new look unasked
+
+        // Saved and read back: no repair notice for a set that named the removed look.
+        var store = NewStore();
+        store.Save(removed);
+        Assert.Empty(NewStore().Load(Catalog).Repairs);
+    }
+
+    [Fact]
+    public void An_extras_entry_with_a_key_used_twice_is_dropped_alone()
+    {
+        Directory.CreateDirectory(_profileDir);
+        File.WriteAllText(Path.Combine(_profileDir, ProfileStore.FileName), """
+            { "schema": 1, "selected": { "kind": "default", "role": "tactical" }, "classes": [], "appearances": [],
+              "extras": { "musou": { "librarian": { "melee": "a", "melee": "b" } }, "other": { "list": [ { "x": 1 } ] } } }
+            """);
+        var result = NewStore().Load(Catalog);
+        Assert.Equal(ProfileLoadStatus.Loaded, result.Status);   // not the whole profile
+        Assert.Equal(["other"], result.Profile.Extras.Keys);
+        Assert.Contains(result.Repairs, r => r.Path == "extras.musou");
+    }
+
     /// <summary>A view of one set's slots, for the session tests (no added content needed).</summary>
     sealed class SetView(string name) : IProfileView
     {

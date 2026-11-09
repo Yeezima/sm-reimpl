@@ -451,9 +451,30 @@ public sealed class ProfileStore
                 if (!CustomizationProfile.IsSetName(name)) { Fix(path, "not a usable name; dropped"); continue; }
                 if (value is not JsonObject entry) { Fix(path, "not an object; dropped"); continue; }
                 if (result.Count >= CustomizationProfile.MaxSets) { Fix(path, $"more than {CustomizationProfile.MaxSets} entries; dropped"); continue; }
+                if (HasDuplicateKeys(entry)) { Fix(path, "a key is used twice inside it; dropped"); continue; }   // review: a hand-edited duplicate would make every later read of it throw
                 result[name] = entry.ToJsonString();
             }
             return result;
+        }
+
+        /// <summary>Whether any object inside <paramref name="node"/> names a key twice (reading its properties throws then; the entry is checked whole once, here).</summary>
+        static bool HasDuplicateKeys(JsonNode? node)
+        {
+            try
+            {
+                switch (node)
+                {
+                    case JsonObject o:
+                        foreach (var (_, child) in o) if (HasDuplicateKeys(child)) return true;
+                        return false;
+                    case JsonArray a:
+                        foreach (var child in a) if (HasDuplicateKeys(child)) return true;
+                        return false;
+                    default:
+                        return false;
+                }
+            }
+            catch (ArgumentException) { return true; }
         }
 
         /// <summary>The Ork look (ui/customizer-ork): absent or null = automatic; a look index 0..<see cref="Races.OrkLooks"/>-1; anything else is repaired to automatic.</summary>

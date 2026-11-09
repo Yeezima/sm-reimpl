@@ -22,8 +22,30 @@ public interface IProfileView
 }
 
 /// <summary>Helpers the views share.</summary>
-public static class ProfileViews
+public static partial class ProfileViews
 {
+    /// <summary>
+    /// <paramref name="profile"/> without the look <paramref name="id"/>: every class that wore it, in the profile's own slots and in every loadout set (<see cref="CustomizationProfile.Sets"/>),
+    /// falls back to the race's default look, and added content clears its own references (<see cref="ExtrasLookRemoved"/>: the Musou Librarian's look). So no reference is left to a look a
+    /// later new look could take the id of (review of musou/loadout-slots: the lowest free id is reused).
+    /// </summary>
+    public static CustomizationProfile RemoveLook(CustomizationProfile profile, string id)
+    {
+        var appearances = profile.Appearances.Where(a => a.Id != id).ToList();
+        var result = profile with { Appearances = appearances, Classes = DropMissingLooks(profile.Classes, appearances) };
+        foreach (var (name, set) in profile.Sets)
+            if (DropMissingLooks(set.Classes, appearances) is var cleared && !ReferenceEquals(cleared, set.Classes))
+                result = result.WithSet(name, set with { Classes = cleared });
+        ExtrasLookRemoved(ref result, id);   // EXTRAS-HOOK: added content's own references to the look
+        return result;
+    }
+
+    /// <summary>
+    /// Hook for added content (docs/added-content.md; src/SmContent/Extras/ProfileViews.Extras.cs): clears the content's own references to the look <paramref name="id"/> in
+    /// <see cref="CustomizationProfile.Extras"/> (the Musou Librarian's look). Leaves the profile as it is without added content.
+    /// </summary>
+    static partial void ExtrasLookRemoved(ref CustomizationProfile profile, string id);
+
     /// <summary>
     /// <paramref name="classes"/> with every look reference that <paramref name="appearances"/> no longer holds cleared (the default look), the same list when none is: the screens deleted a look
     /// that classes outside their view still named.
