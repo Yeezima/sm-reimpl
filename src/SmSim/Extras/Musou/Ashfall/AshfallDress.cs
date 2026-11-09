@@ -4,8 +4,8 @@ namespace SmSim.Extras.Musou.Ashfall;
 
 public static partial class AshfallMap
 {
-    /// <summary>The dressing pass's version (raised with any change of the items). 12: draft 9 (no stacked models, clear stair feet and landings, the urban rules, AC-049 out of the platform pools); 11: draft 8 (no item in a roadway); 10: draft 7 (no two items overlap; the storm look is the client's); 9: draft 6 with the Meshy expansion placed (AC-041..076 in the pools, the new road and plaza slabs, objective A on AC-076); 8: draft 6 (every placed object 1.5x its draft-5 size, more AC-008 platforms, bridges only on supports; docs/musou-ashfall-graybox.md "Draft 6"); 7: draft 5, one asset per graybox structure with collision from the assets (docs/musou-ashfall-graybox.md "Draft 5"); 5 was draft 3's scaled replacements, 1..4 drafts 1 and 2.</summary>
-    public const uint DressVersion = 12;
+    /// <summary>The dressing pass's version (raised with any change of the items). 13: draft 10 (the lanes' road tiles, items off the lanes, the stairs' cut, carved and merged boxes); 12: draft 9 (no stacked models, clear stair feet and landings, the urban rules, AC-049 out of the platform pools); 11: draft 8 (no item in a roadway); 10: draft 7 (no two items overlap; the storm look is the client's); 9: draft 6 with the Meshy expansion placed (AC-041..076 in the pools, the new road and plaza slabs, objective A on AC-076); 8: draft 6 (every placed object 1.5x its draft-5 size, more AC-008 platforms, bridges only on supports; docs/musou-ashfall-graybox.md "Draft 6"); 7: draft 5, one asset per graybox structure with collision from the assets (docs/musou-ashfall-graybox.md "Draft 5"); 5 was draft 3's scaled replacements, 1..4 drafts 1 and 2.</summary>
+    public const uint DressVersion = 13;
 
     /// <summary>Draft 6: every placed object's size against its draft-5 size, all three axes (owner, 2026-11-06: "scale to 1.5x the current size"; ours: placeholder demonstration).</summary>
     public const float Draft6Scale = 1.5f;

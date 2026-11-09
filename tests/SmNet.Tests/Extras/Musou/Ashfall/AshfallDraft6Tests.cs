@@ -103,7 +103,7 @@ public class AshfallDraft6Tests(ITestOutputHelper output)
     [Fact]
     public void Every_items_collision_is_its_models_fitted_boxes_under_the_draw_transform_except_the_merged_families()
     {
-        int exact = 0;
+        int exact = 0, cutForStairs = 0;
         double mergedParts = 0, mergedFitted = 0;
         var merged = new HashSet<string> { "cover", "rubble", "wallpiece", "rubble prop" };   // draft 9: the rubble props merge into three slabs
         for (int i = 0; i < Dressing.Items.Count; i++)
@@ -122,7 +122,8 @@ public class AshfallDraft6Tests(ITestOutputHelper output)
             }
             var parts = Enumerable.Range(first, count).Where(p => Level.Parts[p].Kind != AshfallKind.Stair).Select(p => Bounds(Level.Parts[p])).ToList();
             static double Vol((Vector3 Min, Vector3 Max) b) { var e = b.Max - b.Min; return (double)e.X * e.Y * e.Z; }
-            if (merged.Contains(family))
+            bool keptStair = Enumerable.Range(first, count).Any(p => Level.Parts[p].Kind == AshfallKind.Stair);
+            if (merged.Contains(family) && !keptStair)   // draft 10: a merged piece with a kept stair (a rubble heap's flight) is cut like any stair model (below)
             {
                 // a model with through-openings is merged around them (AshfallOpeningMerge, the openings pass of 2026-11-06): it keeps more boxes where a merge would fill an opening
                 int cap = AshfallKitCollision.Openings(it.Asset).Count > 0 ? AshfallOpeningMerge.Reduced(it.Asset).Count : 6;
@@ -130,12 +131,13 @@ public class AshfallDraft6Tests(ITestOutputHelper output)
                 mergedParts += parts.Sum(Vol); mergedFitted += expected.Sum(Vol);
                 continue;
             }
-            if (Enumerable.Range(first, count).Any(p => Level.Parts[p].Kind == AshfallKind.Stair))
+            if (keptStair)
             {
                 // draft 9: a model with a kept stair has its boxes cut under the stair's ramp (pieces outside the footprint and slices under it): at least as many parts, none outside the item's fitted boxes' bounds
                 var all = expected.Aggregate((a, b) => (Vector3.Min(a.Min, b.Min), Vector3.Max(a.Max, b.Max)));
-                Assert.True(parts.Count >= expected.Count / 2, $"item {i} ({it.Asset}): {parts.Count} parts for {expected.Count} fitted boxes");
+                Assert.True(parts.Count >= Math.Min(expected.Count / 2, 3), $"item {i} ({it.Asset}): {parts.Count} parts for {expected.Count} fitted boxes");   // draft 10: exact neighbours merged after the cuts
                 Assert.All(parts, b => Assert.True(b.Min.X >= all.Min.X - 0.05f && b.Max.X <= all.Max.X + 0.05f && b.Min.Y >= all.Min.Y - 0.05f && b.Max.Y <= all.Max.Y + 0.05f && b.Max.Z <= all.Max.Z + 0.05f, $"item {i} ({it.Asset}): a cut part outside its boxes"));
+                cutForStairs++;
                 continue;
             }
             var m = AshfallKit.Get(it.Asset);
@@ -145,7 +147,8 @@ public class AshfallDraft6Tests(ITestOutputHelper output)
                 Assert.True(expected.Any(e => Vector3.Distance(e.Min, p.Min) < 0.02f && Vector3.Distance(e.Max, p.Max) < 0.02f), $"item {i} ({it.Asset}, {family}): a collision part {p.Min}..{p.Max} is not one of its fitted boxes under the draw transform");
             exact++;
         }
-        Assert.True(exact > 200, $"{exact} items checked");
+        // draft 10: three times the kept stairs, so more items are checked as cut (above) and fewer exactly
+        Assert.True(exact > 120 && exact + cutForStairs > 200, $"{exact} items checked exactly, {cutForStairs} cut for their stairs");
         output.WriteLine($"{exact} items: collision = fitted boxes under the draw transform; merged families: slab volume {mergedParts:N0} m3 against {mergedFitted:N0} m3 of fitted boxes (sum, overlaps counted twice): {mergedParts / Math.Max(mergedFitted, 1):0.00}x");
     }
 
@@ -160,7 +163,9 @@ public class AshfallDraft6Tests(ITestOutputHelper output)
         foreach (var l in D.Placements.Where(l => l.Outcome.StartsWith("dropped: grown"))) Assert.Contains(l.Group, growth);
         foreach (var l in D.Placements.Where(l => l.Outcome.Contains("moved"))) output.WriteLine($"{l.Group} ({l.Family}): {l.Asset} {l.Outcome}");
         // The surface tiles do not grow (the ground, roads and plaza keep their size): draft 5's 220 tiles plus, since phase 2, 16 ash slabs on the perimeter road's four bare corners; first in the item list.
-        Assert.Equal(236, Dressing.Items.Count(i => i.Role == AshfallDressRole.Surface));
+        // Draft 10: plus the lanes' road tiles (one per about 14 m of each connector).
+        int laneTiles = AshfallLanes.Connectors.Sum(c => Math.Max(1, (int)MathF.Round(MathF.Max(c.Rect.Z - c.Rect.X, c.Rect.W - c.Rect.Y) / 14f)));
+        Assert.Equal(236 + laneTiles, Dressing.Items.Count(i => i.Role == AshfallDressRole.Surface));
         // The stronghold's leg walls and gate keep their length along the leg (a breach never closes): never longer than their v5 segment.
         var structureOf = new Dictionary<int, AshfallStructure>();
         int k = 0;

@@ -68,11 +68,12 @@ public class AshfallDraft8Tests(ITestOutputHelper output)
         var strips = AshfallRoadway.Strips(D.Level, 0f);
         // the four road lines both ways (avenues 24 m, the perimeter road 16 m) and the paved road's three Road parts
         Assert.Equal(8 + D.Level.Parts.Count(p => p.Kind == AshfallKind.Road), strips.Count);
-        Assert.Equal(3, D.Level.Parts.Count(p => p.Kind == AshfallKind.Road));
+        Assert.Equal(3 + AshfallLanes.Connectors.Length, D.Level.Parts.Count(p => p.Kind == AshfallKind.Road));   // draft 10: and the lanes' connectors
         // a point in the middle of an avenue, on the paved road, and in the middle of a block
         static bool In(AshfallBox b, float x, float y) => AshfallAtmosphere.Inside(b, new(x, y), 0f);
         Assert.Contains(strips, b => In(b, 92f, 30f));
         Assert.Contains(strips, b => In(b, 0f, -120f));
+        Assert.Contains(strips, b => In(b, -164f, 120f));   // draft 10: A's south lane
         Assert.DoesNotContain(strips, b => In(b, 160f, 160f));
         Assert.DoesNotContain(strips, b => In(b, 30f, 30f));   // the plaza is not a road
     }

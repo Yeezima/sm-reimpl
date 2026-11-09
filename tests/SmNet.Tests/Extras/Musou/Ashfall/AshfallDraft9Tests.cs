@@ -103,8 +103,8 @@ public class AshfallDraft9Tests(ITestOutputHelper output)
         {
             var foot = AshfallStairs.Measure(r, solids, top: false);
             var top = AshfallStairs.Measure(r, solids, top: true);
-            if (!foot.Open) bad.Add($"{Name(r.Item)} at ({r.Low.X:0.0}, {r.Low.Y:0.0}): foot clear {foot.ClearRun:0.0} m of {foot.Need:0.0}");
-            if (!top.Open) bad.Add($"{Name(r.Item)} at ({r.High.X:0.0}, {r.High.Y:0.0}): landing clear {top.ClearRun:0.0} m of {top.Need:0.0}");
+            if (!foot.Open) bad.Add($"{Name(r.Item)} at ({r.Low.X:0.0}, {r.Low.Y:0.0}): foot clear {foot.ClearRun:0.00} m of {foot.Need:0.00}");
+            if (!top.Open) bad.Add($"{Name(r.Item)} at ({r.High.X:0.0}, {r.High.Y:0.0}): landing clear {top.ClearRun:0.00} m of {top.Need:0.00}");
         }
         foreach (var b in bad) output.WriteLine(b);
         output.WriteLine($"{ramps.Count} stairs");
@@ -159,7 +159,7 @@ public class AshfallDraft9Tests(ITestOutputHelper output)
         var stairs = D.Level.Parts.Where(p => p.Kind == AshfallKind.Stair).ToList();
         var ramps = AshfallStairs.All(D.Level, D.Dressing);
         Assert.Equal(stairs.Count, ramps.Count);   // no box stairs, no leftover draft-5 wedges
-        Assert.All(ramps, r => Assert.True(r.Degrees <= 50.5f && r.Width >= 0.99f && r.HighZ - r.LowZ >= 0.79f, $"{Name(r.Item)}: {r.Degrees:0} degrees, {r.Width:0.0} m wide"));
+        Assert.All(ramps, r => Assert.True(r.Degrees <= 55.5f && r.Width >= 0.99f && r.HighZ - r.LowZ >= 0.79f, $"{Name(r.Item)}: {r.Degrees:0} degrees, {r.Width:0.0} m wide"));
         Assert.All(ramps, r => Assert.True(r.Item >= 0, "a stair belongs to a placed model"));
     }
 

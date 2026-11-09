@@ -238,6 +238,9 @@ public partial class AshfallStorm : Node3D
         // ---- light shafts out of the cloud gaps (soft beams, every renderer).
         int shafts = light ? AddBreakShafts(az) : AddShafts(toSun);
 
+        // ---- draft 10: the lanes' kerb bands (AshfallStorm.Lanes.cs).
+        int laneMarks = AddLaneMarks(level);
+
         // ---- light pass: a cool fill from the attackers' side (no shadows, not in the sky) and the boundary's ruined top.
         string lightNote;
         if (light)
@@ -280,7 +283,7 @@ public partial class AshfallStorm : Node3D
             _follow.AddChild(AshField("Dust", dust, new Vector3(95, 6, 95), DustMaterial(), new QuadMesh { Size = new Vector2(14f, 7f) }, 0.7f, 1.5f, 18f, rise: 0.05f, spin: 12f));
 
         int grimed = concept ? AshfallGrime.Apply(GetParent()?.GetParent(), _quality, compat) : 0;
-        Report = $"{spots.Count(s => s.Plume)} smoke plumes, {spots.Count(s => !s.Plume)} fires ({_lights.Count} fire lights), {shafts} light shafts, ash {ash} + flakes {rocks} + embers {sparks} + debris {debris} + dust banks {dust} + floor dust {floorDust} around the camera; grime on {grimed} ground materials{(AshfallGrime.Overlay(_quality, compat) ? " and every kit model (overlay)" : "")}; concept pass {(concept ? "on" : "off")}, {lightNote}; "
+        Report = $"{spots.Count(s => s.Plume)} smoke plumes, {spots.Count(s => !s.Plume)} fires ({_lights.Count} fire lights), {shafts} light shafts, {laneMarks} lane kerb bands{(LaneMarksOff ? " (--ashfall-lane-marks off)" : "")}, ash {ash} + flakes {rocks} + embers {sparks} + debris {debris} + dust banks {dust} + floor dust {floorDust} around the camera; grime on {grimed} ground materials{(AshfallGrime.Overlay(_quality, compat) ? " and every kit model (overlay)" : "")}; concept pass {(concept ? "on" : "off")}, {lightNote}; "
                + $"quality x{_quality:0.##} ({(compat ? "Compatibility renderer: no volumetric fog, no glow" : $"lighting {MapLightingView.Preset}, volumetric shafts {(volumetric ? "on" : "off")}")}); built in {watch.ElapsedMilliseconds} ms";
     }
 

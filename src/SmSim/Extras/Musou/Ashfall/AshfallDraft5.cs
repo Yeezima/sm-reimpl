@@ -67,7 +67,7 @@ internal static partial class AshfallDraft5Pass
         public bool Draft9 = true;
         public readonly Dictionary<(int, int), List<(int Item, WBox Box, bool Ring)>> DrawnBoxes = [];
         public readonly Dictionary<(int, int), List<(int Item, WBox Box)>> Zones = [];
-        public int StairsKept, StairsDropped, Draft9Settled, Draft9Dropped;
+        public int StairsKept, StairsDropped, StairsCarved, Draft9Settled, Draft9Dropped;
         public readonly List<string> StairNotes = [];
         public readonly List<string> Draft9DroppedNames = [];
         /// <summary>Draft 9's urban rules: the buildings' graybox footprints, the debris left out away from them, the pieces turned onto the street grid.</summary>
@@ -103,12 +103,17 @@ internal static partial class AshfallDraft5Pass
         c.Roads = AshfallRoadway.Strips(g5);
         foreach (var p in g5.Parts)
             if (p.Kind is AshfallKind.Ground or AshfallKind.Road or AshfallKind.Paving or AshfallKind.Curb or AshfallKind.Boundary or AshfallKind.Objective) c.Parts.Add(p);
+        // Draft 10's lanes (AshfallLanes): paved connectors to the points and the gate, roadways for the draft-8 rule, drawn as road.
+        var lanes = draft9 ? AshfallLanes.Parts() : [];
+        c.Parts.AddRange(lanes);
+        foreach (var p in lanes)
+            if (AshfallBox.Of(p) is { } lb) c.Roads.Add(lb with { Z0 = -2f, Z1 = 1000f, Length = lb.Length + 2f * AshfallRoadway.Margin, Depth = lb.Depth + 2f * AshfallRoadway.Margin });
         int groundCount = c.Parts.Count;
 
         BuildBanned(c, g5);
 
         var items = new List<AshfallDressItem>();
-        AshfallDressPass.SurfaceItems(g5.Parts, items);
+        AshfallDressPass.SurfaceItems([.. g5.Parts, .. lanes], items);
         foreach (var it in items) { c.Items.Add(it); c.ItemParts.Add((0, 0)); }
 
         // Objective A: capture point on the ground; draft 6: the expansion's round objective dais (AC-076, made for it) as a walk-over dais (visual), in place of draft 5's squashed plaza centre tile (AC-037).
@@ -177,7 +182,7 @@ internal static partial class AshfallDraft5Pass
             c.Flags.Add($"{c.Dropped.Count} structures dropped: they stood in a lane, a start area, a capture zone's 6 m ring, on a spawn marker or within 2 m of the boundary (the boundary-foot walls all); first: {string.Join(", ", c.Dropped.Take(6))}");
         if (draft9)
         {
-            c.Flags.Add($"draft 9 stairs (found in the walkable models' meshes, a ramp over the nosings, the model's boxes cut under it, walked up and down on the item alone): {c.StairsKept} kept, {c.StairsDropped} dropped" + (c.StairNotes.Count > 0 ? ": " + string.Join("; ", c.StairNotes.GroupBy(n => n).OrderByDescending(g => g.Count()).ThenBy(g => g.Key, StringComparer.Ordinal).Take(16).Select(g => $"{g.Key} x{g.Count()}")) : ""));
+            c.Flags.Add($"draft 9 stairs (found in the walkable models' meshes, a ramp over the nosings, the model's boxes cut under it, walked up and down on the item alone; draft 10: narrow flights widened, a corridor carved where the walk stalled): {c.StairsKept} kept ({c.StairsCarved} carved), {c.StairsDropped} dropped" + (c.StairNotes.Count > 0 ? ": " + string.Join("; ", c.StairNotes.GroupBy(n => n).OrderByDescending(g => g.Count()).ThenBy(g => g.Key, StringComparer.Ordinal).Take(80).Select(g => $"{g.Key} x{g.Count()}")) : ""));
             c.Flags.Add($"draft 9 urban rules: {c.Buildings.Count} buildings face their nearest street; {c.Snapped} built pieces (cover, walls, facades) turned onto the street grid; {c.DebrisAlone} loose debris pieces left out (more than {DebrisReach:0} m from any building)");
             c.Flags.Add($"draft 9 placement (no drawn models meet deeper than {AshfallOverlap.Tolerance} m, nothing in a stair's foot or landing): {c.Draft9Settled} items moved or shrunk for it, {c.Draft9Dropped} left out{(c.Draft9Dropped > 0 ? ": " + string.Join(", ", c.Draft9DroppedNames.Take(12)) : "")}");
         }
@@ -502,7 +507,7 @@ internal static partial class AshfallDraft5Pass
         {
             stairs = Stairs(item, yaw, id, boxes);
             boxes = stairs.Boxes;
-            c.StairsKept += stairs.Kept; c.StairsDropped += stairs.Dropped;
+            c.StairsKept += stairs.Kept; c.StairsDropped += stairs.Dropped; c.StairsCarved += stairs.Carved;
             foreach (var n in stairs.Notes) c.StairNotes.Add($"{id} {n}");
             if (stairs.Kept + stairs.Notes.Count > 0) outcome += $", stairs: {stairs.Kept} kept" + (stairs.Notes.Count > 0 ? $", {string.Join("; ", stairs.Notes)}" : "");
         }
