@@ -17,7 +17,7 @@ namespace SmClient.Customizer;
 /// the screens wait for <see cref="Ready"/>. The profile lives in Godot's user directory (<c>%APPDATA%\sm-reimpl</c>; project setting) unless <c>--profile</c>
 /// names a file: then the profile, its emblems and the front-end settings stay next to that file. Never the repository, never the game install.
 /// </summary>
-public sealed class CustomizerServices
+public sealed partial class CustomizerServices
 {
     public string GameDir { get; }
     public string SettingsDirectory { get; }
@@ -159,7 +159,7 @@ public sealed class CustomizerServices
     /// </summary>
     public IReadOnlyList<(string Race, string Label)> Factions()
     {
-        var list = new List<(string, string)>();
+        var list = new List<(string Race, string Label)>();
         foreach (var race in ContentGate.Factions(Content))
         {
             if (ProfileWire.RaceName(race) is not { } name) continue;
@@ -167,8 +167,15 @@ public sealed class CustomizerServices
             if (race == Race.Orks ? !HasOrkClass : Catalog?.Race(name) is null) continue;
             list.Add((name, race switch { Race.Chaos => "Chaos", Race.Orks => "Orks", _ => "Space Marines" }));
         }
+        ExtrasFactions(ref list);   // EXTRAS-HOOK: an added mode that plays one side only (Musou Mode: the Space Marines)
         return list;
     }
+
+    /// <summary>
+    /// Hook for added content (docs/added-content.md; client/Extras/Musou/Customizer/CustomizerServices.Musou.cs): the factions the customizer's screens offer, after the profile's own. Returns at once
+    /// unless its content profile is on.
+    /// </summary>
+    partial void ExtrasFactions(ref List<(string Race, string Label)> factions);
 
     /// <summary>The configuration this run read has the Ork Boy's class (a build with added content whose Ork read worked).</summary>
     public bool HasOrkClass => Config?.Classes.Any(c => c.Race == Race.Orks) == true;
