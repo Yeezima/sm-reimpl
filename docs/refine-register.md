@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2760 spec table rows: **2056 tagged**, 489 not tagged (read from data with high confidence), 215 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 611 rows of the changes document.
+Scanned 2764 spec table rows: **2060 tagged**, 489 not tagged (read from data with high confidence), 215 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 612 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,24 +50,24 @@ Scanned 2760 spec table rows: **2056 tagged**, 489 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 19 | 10 | 10 | 10 | 7 |
-| Core simulation (provisional values) | 539 | 515 | 377 | 155 | 1 |
+| Core simulation (provisional values) | 543 | 519 | 379 | 157 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 222 | 212 | 119 | 59 | 0 |
-| **All areas** | **2056** | 1810 | 1527 | 660 | 38 |
+| **All areas** | **2060** | 1814 | 1529 | 662 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1130 |
-| confidence: low | 737 |
-| confidence: medium | 661 |
-| notes: ours | 380 |
+| kind: ours | 1132 |
+| confidence: low | 738 |
+| confidence: medium | 662 |
+| notes: ours | 382 |
 | kind: interpretation | 360 |
 | notes: estimate | 167 |
-| kind: estimate | 145 |
+| kind: estimate | 146 |
 | confidence: none (low) | 129 |
-| kind: provisional | 99 |
+| kind: provisional | 100 |
 | kind: user's knowledge | 55 |
 | kind: choice | 38 |
 | notes: provisional | 38 |
@@ -2175,7 +2175,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (539)
+### Core simulation (provisional values) (543)
 
 *Spec section: Provisional values in use*
 
@@ -3030,6 +3030,15 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-C1D08066` | Army made real | keeps the march facing (not a fresh spawn: `keepYaw`); the army itself spawned facing the centre | kind: ours; confidence: medium | ours (the owner said "spawning") | Army made real: compare with SM1 by feel or video. Ours: keeps the march facing (not a fresh spawn: keepYaw); the army itself… | ☐ |
 | `R-B5790B4B` | Not covered | the Stormbird and the Firing Range spawns keep their own facing | kind: ours; confidence: medium | ours | Not covered: compare with SM1 by feel or video. Ours: the Stormbird and the Firing Range spawns keep their own facing. | ☐ |
 | `R-468A6F29` | Client view | the view takes the server's yaw on a respawn (as before) and on a landing or redeploy of a living player (a jump of 15 m or more in one frame), so nothing turns on the first frame (m) | kind: ours; confidence: medium | ours | Client view: compare with SM1 by measuring on a flat spot of the same map. Ours: the view takes the server's yaw on a respawn (as before) and on a… | ☐ |
+
+*Spec section: Musou Mode: GPU spray particles (musou/gpu-particles, 2026-11-10; client only, Musou Mode only; no simulation, wire, protocol, config-hash or rules-version change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-A8370751` | What the GPU draws (Musou) | the ring sprites and streamers a spray's particles carry, directly or under one combo there, when the spray does not loop, its effect does not repeat and has no soft-headed streamers, and it is not a dropper of an effect that runs collisions (a spray inside… | kind: ours | ours (implementation; the look is the CPU path's) | What the GPU draws (Musou): compare with SM1 by feel or video. Ours: the ring sprites and streamers a spray's particles carry, directly or… | ☐ |
+| `R-FFCC7211` | Live-effect cap with the GPU sprays (Musou) | **1,200** shot, hit and blast effects (CPU path: 160); `--fx-cap N` overrides (count) | kind: estimate; confidence: medium; notes: ours | ours (measured, see the milestone) | Live-effect cap with the GPU sprays (Musou): compare with SM1 by feel or video. Ours: 1,200 shot, hit and blast effects (CPU path: 160); --fx-cap N… | ☐ |
+| `R-37A5A2B6` | GPU pools (Musou) | **131,072** records per blend (additive, alpha: 256 layers of 512 records; a layer is uploaded when a record in it changes), **8,192** live sprays; blocks are handed out in powers of two (a freed block is reused by the next of its size; the pool starts over… (count) | kind: ours | ours | GPU pools (Musou): compare with SM1 by feel or video. Ours: 131,072 records per blend (additive, alpha: 256 layers of 512… | ☐ |
+| `R-4202F822` | Draw order of the GPU sprays' alpha sprites (Musou) | not sorted back to front: drawn before the CPU path's sorted alpha cards, in spawn order (the CPU path sorts every alpha quad by its centre's distance) | kind: provisional; confidence: low; notes: ours | ours (a GPU pass cannot sort without per-frame CPU work) | Draw order of the GPU sprays' alpha sprites (Musou): compare with SM1 by feel or video. Ours: not sorted back to front: drawn before the CPU path's sorted alpha… | ☐ |
 
 ### General game design (7)
 
@@ -4244,6 +4253,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-3CAA83D0` | Musou: combat rules (musou/combat-rules, 2026-11-09; `MusouSim.Version` 28, `TfwRules.Version` 52) | No Musou Mode in the original | Ours (added content; the owner's request, verbatim: "make the blue and red slash strokes persist for a bit longer before more smoothly disappearing. add 1 second to their lifetime before they expire." / "make the air slash landing for all assault melee weapons heal 25% health and restore 10% armor." / "make all melee… | Musou Mode only (the Musou content flag); Classic PvP's stims, frags and melee are unchanged (`MusouCombatRulesTests`). spec "Musou combat rules" | Musou: combat rules (musou/combat-rules, 2026-11-09…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-F26174DD` | Musou: every spawn faces the map's centre (musou/spawn-facing, owner 2026-11-09; `MusouSim.Version` 28, `TfwRules.Version` 52) | No Musou Mode in the original | Ours (added content; the owner's request): in a battle every unit faces the middle capture point (B, the depot) the moment it spawns: humans, retainers and allied Marines, Guardsmen, every Ork type; an army made real mid-march keeps its march facing; the Stormbird and the Range keep their facing | Musou Mode only; Classic PvP unchanged | Musou: every spawn faces the map's centre…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-F52025D9` | Musou: cleave volume and cap (musou/combat-rules, 2026-11-09; `TfwRules.Version` 53) | No Musou Mode in the original | Ours (the owner's request, verbatim: "extend the melee hitbox outward and forward of the player in a flat cone - they should reach out further for cleaving purposes. raise the cleave cap up to 40 orks in one swing."): the war's cleave reaches 1.3x further (1.5x until the owner's 2026-11-09 "reduce the latest melee… | Musou Mode's war only; the skirmish, Classic PvP and the original are unchanged. spec "Musou combat: cleave volume" | Musou: cleave volume and cap (musou/combat-rules…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-958FF4DB` | Musou: GPU spray particles (musou/gpu-particles, owner 2026-11-09: GPU particles as the first step to many more effects) | No Musou Mode in the original; SM1 drew its sprays with its own renderer | Ours (added content, Musou Mode only; Classic PvP keeps the CPU path): a one-shot spray's ring sprites and streamers (sparks, debris, blood drops and streaks) are drawn by a shader from spawn records written once (same curves, sizes, colours, cells, atlas rects and fades as the CPU path; stills match within a few… | spec "Musou Mode: GPU spray particles" | Musou: GPU spray particles (musou/gpu-particles, owner…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 
 ## Appendix: not gameplay
 

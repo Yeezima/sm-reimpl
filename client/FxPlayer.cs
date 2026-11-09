@@ -285,8 +285,9 @@ public sealed partial class FxPlayer : Node3D
     {
         if (!IsReady || System(name) is not { } system) return null;
         if (!float.IsFinite(origin.X + origin.Y + origin.Z) || !float.IsFinite(scale)) return null;
-        int ambientCount = _ambientCount;
-        if (ambient ? ambientCount >= MaxAmbient : _effects.Count - ambientCount >= MaxEffects)
+        int ambientCount = _ambientCount, cap = MaxEffects;
+        ExtrasFxCap(ref cap);   // EXTRAS-HOOK: Musou Mode's GPU sprays raise the cap (musou/gpu-particles)
+        if (ambient ? ambientCount >= MaxAmbient : _effects.Count - ambientCount >= cap)
         {
             if (ambient) { Culled++; return null; }
             // Drop the oldest of the lowest priority.
@@ -331,6 +332,7 @@ public sealed partial class FxPlayer : Node3D
         _camBasis = camera.GlobalBasis;
         _frustum = CullOffScreen ? camera.GetFrustum() : null;
         _batch.Begin(_camPos);
+        ExtrasFxBegin(dt);   // EXTRAS-HOOK: Musou Mode's GPU sprays advance their clock (musou/gpu-particles)
         _lights.Clear();
         _frameQuads = 0;
         BeginMeshes();
@@ -355,6 +357,7 @@ public sealed partial class FxPlayer : Node3D
         }
         DebugDraw?.Invoke(_batch);
         _batch.End();
+        ExtrasFxEnd();   // EXTRAS-HOOK: Musou Mode's GPU sprays upload what changed (musou/gpu-particles)
         QuadSum += _batch.AdditiveLastFrame + _batch.AlphaLastFrame; AlphaQuadSum += _batch.AlphaLastFrame;
         QuadMax = Math.Max(QuadMax, _batch.AdditiveLastFrame + _batch.AlphaLastFrame);
         FlushMeshes();
@@ -370,7 +373,29 @@ public sealed partial class FxPlayer : Node3D
     {
         e.PlacedDecals = null;   // M38: its decals stay (they have their own clocks)
         e.Dead = true;           // M40-T13: owners of long-lived effects (the eye glow) see an evicted or cleared effect
+        ExtrasFxRelease(e);      // EXTRAS-HOOK: Musou Mode's GPU sprays free the effect's records (musou/gpu-particles)
     }
+
+    // musou/gpu-particles (Musou Mode, added content): hooks of the GPU spray path (client/Extras/Musou/FxPlayer.MusouGpu.cs); without it they compile away and
+    // every effect plays on the CPU path as before.
+    /// <summary>The live-effect cap for a new effect (<c>MaxEffects</c>, or the GPU path's own).</summary>
+    partial void ExtrasFxCap(ref int cap);
+    /// <summary>A frame starts (after the batch's Begin): the GPU clock advances by <paramref name="dt"/>.</summary>
+    partial void ExtrasFxBegin(double dt);
+    /// <summary>A frame ends (after the batch's End): the GPU path hides the sprays not drawn this frame and uploads what changed.</summary>
+    partial void ExtrasFxEnd();
+    /// <summary>An effect is gone (dead, evicted or cleared): the GPU path frees its records.</summary>
+    partial void ExtrasFxRelease(FxEffect e);
+    /// <summary>
+    /// A spray is drawn: <paramref name="gpu"/> 1 when the GPU path draws its ring children (the CPU draws the rest), 2 when it draws all of it (nothing left for
+    /// the CPU), 0 (unchanged) when the CPU draws it all.
+    /// </summary>
+    partial void ExtrasSpray(FxEffect e, CSpray n, in Ctx c, double age, int depth, uint seed, ref int gpu);
+    /// <summary>The GPU path's counts for the effects log line (empty without it).</summary>
+    partial void ExtrasFxStats(ref string text);
+
+    /// <summary>musou/gpu-particles: the GPU spray path's counts for the log ("" when it is off).</summary>
+    public string ExtraStats { get { string text = ""; ExtrasFxStats(ref text); return text; } }   // EXTRAS-HOOK
 
     // ------------------------------------------------------------------------------------------------ evaluation
 
@@ -581,15 +606,35 @@ public sealed partial class FxPlayer : Node3D
         if (n.OneAtRandom && n.Children.Length > 0)
         {
             int pick = Math.Min(n.Children.Length - 1, (int)(R(seed, 4) * n.Children.Length));
+            if (depth + 1 == _gpuLeafDepth && GpuLeaf(n.Children[pick])) return;   // musou/gpu-particles
             DrawNode(e, n.Children[pick], cc, age, depth + 1, Mix(seed, pick + 11));
             return;
         }
-        for (int i = 0; i < n.Children.Length; i++) DrawNode(e, n.Children[i], cc, age, depth + 1, Mix(seed, i + 11));
+        for (int i = 0; i < n.Children.Length; i++)
+            if (depth + 1 != _gpuLeafDepth || !GpuLeaf(n.Children[i])) DrawNode(e, n.Children[i], cc, age, depth + 1, Mix(seed, i + 11));   // musou/gpu-particles: the GPU's leaves left out
     }
 
     void DrawSpray(FxEffect e, CSpray n, in Ctx c, double age, int depth, uint seed)
     {
         if (n.Spawns.Length == 0 || n.Children.Length == 0) return;
+        int gpu = 0;
+        ExtrasSpray(e, n, c, age, depth, seed, ref gpu);   // EXTRAS-HOOK: Musou Mode's GPU sprays draw the ring and streamer particles (musou/gpu-particles)
+        if (gpu == 2) return;
+        // musou/gpu-particles: while this spray's particles are drawn, the rings and streamers the GPU drew (its children, and the children of a combo child) are left out here.
+        int savedLeafSkip = _gpuLeafDepth;
+        _gpuLeafDepth = gpu != 0 ? depth + 2 : -1;
+        try { DrawSprayParticles(e, n, c, age, depth, seed, gpu); }
+        finally { _gpuLeafDepth = savedLeafSkip; }
+    }
+
+    /// <summary>musou/gpu-particles: the depth at which a combo's ring and streamer children are drawn by the GPU sprays (-1: none; set by <see cref="DrawSpray"/>).</summary>
+    int _gpuLeafDepth = -1;
+
+    /// <summary>Whether a node at <paramref name="depth"/> (a spray particle's leaf, or a combo's leaf under one) is drawn by the GPU sprays instead.</summary>
+    static bool GpuLeaf(CNode n) => n is CRing or CStreamer;
+
+    void DrawSprayParticles(FxEffect e, CSpray n, in Ctx c, double age, int depth, uint seed, int gpu)
+    {
         float duration = MathF.Max(n.Duration, 0.001f);
         float life = MathF.Max(n.ChildLife, 0.02f);
         int cycleMin = 0, cycleMax = 0;
@@ -642,7 +687,8 @@ public sealed partial class FxPlayer : Node3D
                 var pos = ParticlePos(pc, tau);
                 float scale = c.S * At(n.ParticleScale, Math.Clamp(tau / life, 0f, 1f), 1f);
                 var kid = new Ctx(pos, pc.B, scale, ps, origin, moveDir, speed, n.Drag, g, tau);
-                for (int k = 0; k < n.Children.Length; k++) DrawNode(e, n.Children[k], kid, tau, depth + 1, Mix(ps, k + 5));
+                for (int k = 0; k < n.Children.Length; k++)
+                    if (gpu == 0 || !GpuLeaf(n.Children[k])) DrawNode(e, n.Children[k], kid, tau, depth + 1, Mix(ps, k + 5));
             }
         }
     }

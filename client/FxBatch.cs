@@ -128,7 +128,12 @@ public sealed partial class FxBatch : Node3D
     public int DroppedTotal { get; private set; }
     int _dropped;
 
-    const string ShaderBody = @"
+    /// <summary>
+    /// The batch's shader in parts (musou/gpu-particles): the header (uniforms, varyings), the vertex prelude that reads a quad from the instance data
+    /// (<see cref="CpuVertexPrelude"/>; the GPU sprays' shader has its own, which computes the quad from a spawn record), the vertex tail and the fragment that both share.
+    /// <see cref="ShaderBody"/> is the CPU path's whole shader, the same code as before the split.
+    /// </summary>
+    internal const string ShaderHeader = @"
 shader_type spatial;
 render_mode unshaded, depth_draw_never, cull_disabled, fog_disabled, skip_vertex_transform, BLENDMODE;
 uniform sampler2D atlas : source_color, filter_linear_mipmap, repeat_disable;
@@ -150,21 +155,27 @@ varying flat vec3 v_normal;
 varying flat float v_size;
 // fx/no-smoke: the view depth of the card where it really is (before the pull); the near-camera fade reads it, so a pulled card fades as before.
 varying float v_orig_d;
+";
+    /// <summary>The CPU path's vertex prelude: the quad's centre, axes, U range and code (Z column), colour and atlas rect from the instance data.</summary>
+    internal const string CpuVertexPrelude = @"
 void vertex() {
     v_rect = INSTANCE_CUSTOM;
     v_info = MODEL_MATRIX[2].xyz;
     vec3 ax = MODEL_MATRIX[0].xyz;
     vec3 ay = MODEL_MATRIX[1].xyz;
+    // The quad's centre in the world (the Z column is data and the quad's z is 0, so it adds nothing).
+    vec3 centre = MODEL_MATRIX[3].xyz;
+";
+    /// <summary>The shared vertex tail: needs <c>ax</c>, <c>ay</c>, <c>centre</c> and <c>v_info</c> set; turns the quad into view space with the fade size and the pull.</summary>
+    internal const string VertexTail = @"
     vec3 c = cross(ax, ay);
     v_normal = dot(c, c) > 1e-12 ? normalize(c) : vec3(0.0);
     float la = length(ax), lb = length(ay);
     // Fade size: the short side of a long thin quad (tracers, beams), else the long side. God rays (kind 4, 5) keep the long side, as reviewed.
-    float vcode = floor(MODEL_MATRIX[2].z + 0.5);
+    float vcode = floor(v_info.z + 0.5);
     if (vcode > 31.5) vcode -= 32.0;   // feel/jump-pack: the ground-soft flag (below)
     bool god_ray = floor(vcode / 4.0 + 0.01) > 3.5;
     v_size = !god_ray && max(la, lb) > 3.0 * min(la, lb) ? min(la, lb) : max(la, lb);
-    // The quad's vertex in the world (the Z column is data and the quad's z is 0, so it adds nothing).
-    vec3 centre = MODEL_MATRIX[3].xyz;
     vec3 wp = centre + ax * VERTEX.x + ay * VERTEX.y;
     v_orig_d = -(VIEW_MATRIX * vec4(wp, 1.0)).z;
     // fx/no-smoke (ours): a camera-facing card is a flat plane through its centre, so the floor and its decals between the camera and that plane were drawn over
@@ -179,6 +190,9 @@ void vertex() {
     VERTEX = (VIEW_MATRIX * vec4(wp, 1.0)).xyz;
     NORMAL = vec3(0.0, 0.0, 1.0);
 }
+";
+    /// <summary>The shared fragment: the atlas lookup, U addressing and the M42 fades.</summary>
+    internal const string Fragment = @"
 vec2 sprite_to_atlas(vec2 s, vec4 r) {
     if (r.z >= 0.0) return r.xy + s * r.zw;
     vec2 q = rot_cw ? vec2(1.0 - s.y, s.x) : vec2(s.y, 1.0 - s.x);
@@ -235,6 +249,8 @@ void fragment() {
 }
 ";
 
+    const string ShaderBody = ShaderHeader + CpuVertexPrelude + VertexTail + Fragment;
+
     /// <summary>Loads the atlas texture (raw DDS bytes) and builds both multimeshes. Returns false (and says why) when the atlas cannot be decoded.</summary>
     public bool Initialize(FxTexturePage page, byte[]? atlasDds, Image? decoded, out string error)
     {
@@ -261,9 +277,12 @@ void fragment() {
         return true;
     }
 
-    ShaderMaterial Material(string blend)
+    ShaderMaterial Material(string blend) => Material(ShaderBody, blend);
+
+    /// <summary>A material of <paramref name="body"/> (a shader made of the parts above) with the batch's atlas and fade parameters (musou/gpu-particles: the GPU sprays' materials too).</summary>
+    internal ShaderMaterial Material(string body, string blend)
     {
-        var shader = new Shader { Code = ShaderBody.Replace("BLENDMODE", blend) };
+        var shader = new Shader { Code = body.Replace("BLENDMODE", blend) };
         var m = new ShaderMaterial { Shader = shader };
         m.SetShaderParameter("atlas", Atlas!);
         m.SetShaderParameter("rot_cw", RotatedClockwise);
@@ -309,6 +328,19 @@ void fragment() {
             rect = new Vector4(r.X + r.Width * (1f - (cy + 1f) / ty), r.Y + r.Height * cx / tx, -(r.Width / ty), r.Height / tx);
         else                          // sprite (u, v) -> atlas (v, 1 - u)
             rect = new Vector4(r.X + r.Width * cy / ty, r.Y + r.Height * (1f - (cx + 1f) / tx), -(r.Width / ty), r.Height / tx);
+        return true;
+    }
+
+    /// <summary>
+    /// musou/gpu-particles: the material's whole atlas rect (x, y, width, height, as the page stores it) and its sheet (cells across, cells down, 1 when stored rotated,
+    /// 1 for a random cell): what <see cref="Sprite"/> computes a cell's rect from, for the GPU sprays' shader. False when the page has no such sprite.
+    /// </summary>
+    internal bool BaseRect(FxMaterial material, out Vector4 rect, out Vector4 sheet)
+    {
+        rect = sheet = default;
+        if (_page?.Find(material) is not { } r) return false;
+        rect = new Vector4(r.X, r.Y, r.Width, r.Height);
+        sheet = new Vector4(Math.Max(1, (int)MathF.Round(material.TileX)), Math.Max(1, (int)MathF.Round(material.TileY)), r.Rotated ? 1f : 0f, material.RandomTile ? 1f : 0f);
         return true;
     }
 
