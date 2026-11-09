@@ -1121,14 +1121,15 @@ public partial class NetworkView : Node3D
             var position = new Vector3(d.Position.X, d.Position.Y, d.Position.Z);
             // M25b: the original explosion replaces the placeholder blast spheres (lingering areas stay; --placeholder-fx keeps the spheres).
             Ph("blasts: effects");
-            bool original = FxDetonation(d);
+            float reach = d.Thrown && d.Weapon >= 0 && d.Weapon < _config.Thrown.Count ? _config.ThrownBlastScale(_config.Thrown[d.Weapon]) : 1f;   // Musou Mode's frag: 2x (owner 2026-11-09), the effect as large as the blast
+            bool original = FxDetonation(d, reach);
             Ph("projectiles and blasts");
             // Without a splash (none read), a small flash so the detonation is still visible.
             if (splashes.Count == 0 && !original) AddBlast(position, colour, 0.5f);
             foreach (var splash in splashes)
             {
                 if (splash.Lifetime > 0f && splash.Period > 0f) AddArea(position, colour, splash.Radius, splash.Lifetime);
-                else if (!original) AddBlast(position, colour, splash.Radius > 0f ? splash.Radius : 0.5f);
+                else if (!original) AddBlast(position, colour, splash.Radius > 0f ? splash.Radius * reach : 0.5f);
             }
         }
     }

@@ -65,5 +65,9 @@ public sealed partial class World
         var dealt = _hits.Skip(first).ToList();
         _jumps.Add(new JumpEvent(Tick, player, kind, state.Position, drop, dealt.Select(h => h.Target).Distinct().Count(),
             dealt.Sum(h => h.ShieldDamage), dealt.Sum(h => h.HealthDamage), dealt.Count(h => h.Killed)));
+        ExtrasJump(player, kind);   // EXTRAS-HOOK
     }
+
+    /// <summary>Hook for added content (docs/added-content.md): after a jump-pack event was resolved (Musou Mode: the air slash's landing heals).</summary>
+    partial void ExtrasJump(int player, JumpEventKind kind);
 }

@@ -34,4 +34,15 @@ public sealed partial record SimConfig
     {
         if (Extras.HasFlag(ContentExtras.Musou)) owner = true;
     }
+
+    // musou/combat-rules (owner, 2026-11-09): Musou Mode's combat stims last 3x, hit 2x, swing and fire 20 % faster, and spend no ammunition; its frag blasts reach 2x.
+    partial void ExtrasStimBoost(ref StimBoost boost)
+    {
+        if (Extras.HasFlag(ContentExtras.Musou)) boost = new StimBoost(MusouCombatRules.StimLifetimeScale, MusouCombatRules.StimMeleeDamage, MusouCombatRules.StimAttackSpeed, true);
+    }
+
+    partial void ExtrasThrownBlastScale(ThrownSpec? item, ref float scale)
+    {
+        if (Extras.HasFlag(ContentExtras.Musou) && item is not null && SmSim.Extras.Musou.Campaign.TfwCombatRules.IsFrag(item)) scale = MusouCombatRules.FragReachScale;
+    }
 }

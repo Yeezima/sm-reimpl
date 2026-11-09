@@ -13,8 +13,31 @@ public static class MusouSlashRules
     /// <summary>Seconds a slash lasts (the dark gore's slash lasted 0.26 s) and the stroke's length and thickness range (metres).</summary>
     public const float Seconds = 0.3f, LengthMin = 1.5f, LengthMax = 2.2f, Width = 0.34f;
 
+    /// <summary>
+    /// Seconds added to every stroke's lifetime (owner, 2026-11-09, Musou Mode: "make the blue and red slash strokes persist for a bit longer before more smoothly disappearing. add 1 second to
+    /// their lifetime before they expire"). The sweep-in and the bright hold keep the old timing; the extra second is the fade-out's tail, eased (<see cref="Fade"/>) so it never pops.
+    /// </summary>
+    public const float ExtraSeconds = 1f;
+
+    /// <summary>Where the fade starts, as a share of the stroke's old lifetime (the old fade began at 0.45 of it).</summary>
+    public const float FadeStart = 0.45f;
+
+    /// <summary>The stroke's total lifetime for a style whose old lifetime was <paramref name="baseSeconds"/>.</summary>
+    public static float Lifetime(float baseSeconds) => baseSeconds + ExtraSeconds;
+
+    /// <summary>The stroke's brightness at <paramref name="age"/> seconds: 1 until <see cref="FadeStart"/> of the old lifetime, then a smootherstep down to 0 at the new end (no pop, zero slope at both ends).</summary>
+    public static float Fade(float age, float baseSeconds)
+    {
+        float from = baseSeconds * FadeStart, to = Lifetime(baseSeconds);
+        float t = System.Math.Clamp((age - from) / (to - from), 0f, 1f);
+        return 1f - t * t * t * (t * (t * 6f - 15f) + 10f);
+    }
+
+    /// <summary>The sweep-in's progress at <paramref name="age"/>: over 0.4 of the old lifetime, as before the extra second.</summary>
+    public static float Reveal(float age, float baseSeconds) => System.Math.Clamp(age / (baseSeconds * 0.4f), 0.05f, 1f) * 1.15f;
+
     /// <summary>The slashes drawn in one frame at most (a cleave strikes up to 20 enemies; the pool is <see cref="Pool"/>).</summary>
-    public const int PerFrame = 24, Pool = 64;
+    public const int PerFrame = 24, Pool = 160;   // 160 (was 64): the strokes live a second longer, so more are alive at once
 
     /// <summary>Farther than this from the camera no slash is drawn (metres).</summary>
     public const float Metres = 60f;

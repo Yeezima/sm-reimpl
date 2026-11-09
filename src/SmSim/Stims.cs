@@ -65,7 +65,16 @@ public static class Stims
     public static float HealthTaken(SimConfig c, PlayerState victim, DamageType type) => Active(c, victim)?.Received(type) ?? 1f;
 
     /// <summary>The multiplier on the melee damage <paramref name="attacker"/> deals (1 without a stim).</summary>
-    public static float MeleeDealt(SimConfig c, PlayerState attacker) => Active(c, attacker)?.MeleeDamage ?? 1f;
+    public static float MeleeDealt(SimConfig c, PlayerState attacker) => Active(c, attacker) is { } stim ? MathF.Max(stim.MeleeDamage, c.StimBoost.Melee) : 1f;
+
+    /// <summary>Seconds a use of <paramref name="stim"/> works: its lifetime times Musou Mode's <see cref="StimBoost.Lifetime"/> (owner 2026-11-09: x3; 1 elsewhere).</summary>
+    public static float LifetimeOf(SimConfig c, StimSpec stim) => stim.Lifetime * c.StimBoost.Lifetime;
+
+    /// <summary>The speed of melee swings and the fire rate of <paramref name="s"/> now (1 without a stim, or outside Musou Mode).</summary>
+    public static float AttackSpeed(SimConfig c, PlayerState s) => s.StimLeft > 0f && Active(c, s) is not null ? c.StimBoost.Speed : 1f;
+
+    /// <summary>Whether firing a gun spends no ammunition now (Musou Mode's stims).</summary>
+    public static bool FreeAmmo(SimConfig c, PlayerState s) => s.StimLeft > 0f && Active(c, s) is not null && c.StimBoost.FreeAmmo;
 
     /// <summary>Whether a stim keeps <paramref name="s"/> out of hit reactions now.</summary>
     public static bool ReactionImmune(SimConfig c, PlayerState s) => Active(c, s)?.ReactionImmune == true;
@@ -83,12 +92,50 @@ public static class Stims
         if (!record.Alive || Loadouts.Equipment(c, record) is not { Stim: { } stim } item) return record with { StimLeft = 0f };
         if (record.GrenadeCooldown > 0f)
         {
-            float left = stim.Lifetime - (item.Cooldown - record.GrenadeCooldown);
-            return record with { StimLeft = left > 1e-4f ? MathF.Min(left, stim.Lifetime) : 0f };
+            float life = LifetimeOf(c, stim), left = life - (item.Cooldown - record.GrenadeCooldown);
+            return record with { StimLeft = left > 1e-4f ? MathF.Min(left, life) : 0f };
         }
         bool agrees = predicted is { } p && p.Alive && p.Class == record.Class && p.Equipment == record.Equipment
             && p.Grenades == record.Grenades && p.GrenadeCooldown <= 0f;
-        float tail = MathF.Max(0f, stim.Lifetime - item.Cooldown);
+        float tail = MathF.Max(0f, LifetimeOf(c, stim) - item.Cooldown);
         return record with { StimLeft = agrees ? Math.Clamp(predicted!.Value.StimLeft, 0f, tail) : 0f };
     }
+}
+
+/// <summary>
+/// What added content changes about combat stims (<see cref="SimConfig.StimBoost"/>; Musou Mode only, owner 2026-11-09). <see cref="None"/> is the faithful game's.
+/// </summary>
+/// <param name="Lifetime">Times the stim's lifetime.</param>
+/// <param name="Melee">The melee damage multiplier while it works (the larger of this and the data's).</param>
+/// <param name="Speed">Times the speed of melee swings and the fire rate.</param>
+/// <param name="FreeAmmo">Whether firing spends no ammunition.</param>
+public readonly record struct StimBoost(float Lifetime, float Melee, float Speed, bool FreeAmmo)
+{
+    public static StimBoost None => new(1f, 1f, 1f, false);
+}
+
+public sealed partial record SimConfig
+{
+    /// <summary>The added content's changes to combat stims (<see cref="StimBoost.None"/> in the faithful game and Classic PvP). Not hashed itself: Musou's block covers it.</summary>
+    public StimBoost StimBoost
+    {
+        get
+        {
+            var boost = StimBoost.None;
+            ExtrasStimBoost(ref boost);   // EXTRAS-HOOK
+            return boost;
+        }
+    }
+
+    partial void ExtrasStimBoost(ref StimBoost boost);
+
+    /// <summary>The scale on the reach of the blasts of thrown <paramref name="item"/> (1 in the faithful game; Musou Mode doubles the frag's, owner 2026-11-09).</summary>
+    public float ThrownBlastScale(ThrownSpec? item)
+    {
+        float scale = 1f;
+        ExtrasThrownBlastScale(item, ref scale);   // EXTRAS-HOOK
+        return scale;
+    }
+
+    partial void ExtrasThrownBlastScale(ThrownSpec? item, ref float scale);
 }

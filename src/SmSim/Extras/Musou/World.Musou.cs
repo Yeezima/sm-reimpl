@@ -254,6 +254,12 @@ public sealed partial class World
         LibrarianMeleeEnd(attacker, librarian);
     }
 
+    partial void ExtrasJump(int player, JumpEventKind kind)
+    {
+        if (_musou is null || kind != JumpEventKind.SlashLand) return;
+        MusouSlashLandHeal(player);   // World.MusouCombat.cs
+    }
+
     partial void ExtrasBlast(int owner, Vector3 point, SplashSpec splash, bool melee)
     {
         if (_musou is null) return;

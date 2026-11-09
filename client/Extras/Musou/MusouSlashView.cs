@@ -37,7 +37,7 @@ void fragment() {
     {
         public bool Live;
         public Vector3 Pos, Axis, Up, Normal;
-        public float Length, Age, Bow, Seconds, Width;
+        public float Length, Age, Bow, Seconds, Base, Width;
         public Color Colour;
     }
 
@@ -81,7 +81,7 @@ void fragment() {
         _slashes[_next] = new Slash
         {
             Live = true, Pos = at + view * 0.45f, Axis = axis, Up = view.Cross(axis).Normalized(), Normal = view,
-            Length = rng.RandfRange(style.LengthMin, style.LengthMax), Seconds = style.Seconds > 0f ? style.Seconds : MusouSlashRules.Seconds, Width = style.Width > 0f ? style.Width : MusouSlashRules.Width, Bow = rng.Randf() < 0.5f ? 1f : -1f, Colour = new Color(r, g, b, 1f),
+            Length = rng.RandfRange(style.LengthMin, style.LengthMax), Base = style.Seconds > 0f ? style.Seconds : MusouSlashRules.Seconds, Seconds = MusouSlashRules.Lifetime(style.Seconds > 0f ? style.Seconds : MusouSlashRules.Seconds), Width = style.Width > 0f ? style.Width : MusouSlashRules.Width, Bow = rng.Randf() < 0.5f ? 1f : -1f, Colour = new Color(r, g, b, 1f),
         };
         _next = (_next + 1) % _slashes.Length;
         Started++;
@@ -95,10 +95,9 @@ void fragment() {
             ref var s = ref _slashes[i];
             if (!s.Live) continue;
             s.Age += (float)delta;
-            float t = s.Age / s.Seconds;
-            if (t >= 1f) { s.Live = false; continue; }
-            float reveal = Math.Clamp(t / 0.4f, 0.05f, 1f) * 1.15f;   // the head runs a little past the end, so the whole stroke is lit before it fades
-            float fade = 1f - Math.Clamp((t - 0.45f) / 0.55f, 0f, 1f);
+            if (s.Age >= s.Seconds) { s.Live = false; continue; }
+            float reveal = MusouSlashRules.Reveal(s.Age, s.Base);   // the head runs a little past the end, so the whole stroke is lit before it fades
+            float fade = MusouSlashRules.Fade(s.Age, s.Base);       // owner 2026-11-09: one second longer, the tail eased out
             var basis = new Basis(s.Axis * s.Length, s.Up * s.Width * (s.Length / 1.8f) * 2.2f, s.Normal);
             _mm.SetInstanceTransform(n, new Transform3D(basis, s.Pos));
             _mm.SetInstanceColor(n, s.Colour);
