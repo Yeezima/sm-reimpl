@@ -105,17 +105,17 @@ public sealed class PackageScanner
     public static readonly string[] AllowedBareNames = ["LICENSE", "SmServer", "createdump", "COPYRIGHT", "smbots"];
 
 
-    static readonly Regex UserPath = new(@"[A-Za-z]:[\\/]+Users[\\/]+(?<name>[^\\/\s""'<>|*?:\x00-\x1f]{1,64})", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-    static readonly Regex HomePath = new(@"(?<![\w.])/(?:home|Users)/(?<name>[A-Za-z_][A-Za-z0-9_.-]{0,31})/", RegexOptions.Compiled);
+    internal static readonly Regex UserPath = new(@"[A-Za-z]:[\\/]+Users[\\/]+(?<name>[^\\/\s""'<>|*?:\x00-\x1f]{1,64})", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    internal static readonly Regex HomePath = new(@"(?<![\w.])/(?:home|Users)/(?<name>[A-Za-z_][A-Za-z0-9_.-]{0,31})/", RegexOptions.Compiled);
     // A webhook is a snowflake id and a 60+ character token in reality; the shortest shape accepted here is 17 digits and 30 characters,
     // so test fixtures such as "webhooks/123/abc" are not flagged.
-    static readonly Regex Webhook = new(@"discord(?:app)?\.com/api(?:/v\d+)?/webhooks/(?<id>\d{17,20})/(?<token>[A-Za-z0-9_-]{30,})", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-    static readonly Regex BotToken = new(@"(?<![A-Za-z0-9_-])[MNO][A-Za-z0-9_-]{23,25}\.[A-Za-z0-9_-]{6}\.[A-Za-z0-9_-]{27,}", RegexOptions.Compiled);
+    internal static readonly Regex Webhook = new(@"discord(?:app)?\.com/api(?:/v\d+)?/webhooks/(?<id>\d{17,20})/(?<token>[A-Za-z0-9_-]{30,})", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    internal static readonly Regex BotToken = new(@"(?<![A-Za-z0-9_-])[MNO][A-Za-z0-9_-]{23,25}\.[A-Za-z0-9_-]{6}\.[A-Za-z0-9_-]{27,}", RegexOptions.Compiled);
 
-    static readonly Regex Email = new(@"(?<![A-Za-z0-9._%+-])[A-Za-z0-9._%+-]+@(?<domain>[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,})", RegexOptions.Compiled);
+    internal static readonly Regex Email = new(@"(?<![A-Za-z0-9._%+-])[A-Za-z0-9._%+-]+@(?<domain>[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,})", RegexOptions.Compiled);
 
     /// <summary>Addresses that may appear in a public package: GitHub's noreply addresses, the commit trailer's noreply@anthropic.com, reserved example domains.</summary>
-    static bool IsPublicEmailDomain(string domain) =>
+    internal static bool IsPublicEmailDomain(string domain) =>
         domain.Equals("users.noreply.github.com", StringComparison.OrdinalIgnoreCase) || domain.Equals("noreply.github.com", StringComparison.OrdinalIgnoreCase) ||
         domain.Equals("anthropic.com", StringComparison.OrdinalIgnoreCase) || domain.EndsWith(".invalid", StringComparison.OrdinalIgnoreCase) ||
         domain.Equals("example.com", StringComparison.OrdinalIgnoreCase) || domain.Equals("example.org", StringComparison.OrdinalIgnoreCase) || domain.Equals("example.net", StringComparison.OrdinalIgnoreCase);
@@ -579,7 +579,7 @@ public sealed class PackageScanner
         var secretHit = new HashSet<int>();
         bool binary = BinaryExtensions.Contains(ext);
         // A glTF binary (.glb, the owner's Ashfall kit models): e-mail addresses are looked for in its JSON chunk only (where metadata lives); its binary
-        // chunk is compressed image and mesh data, in which random bytes read as "x@xH.Fp" (2026-11-06: 20 false findings). Every other rule scans the whole file.
+        // chunk is compressed image and mesh data, in which random bytes read as an address (a letter, an at sign, a short made-up domain; 2026-11-06: 20 false findings). Every other rule scans the whole file.
         if (ext.Equals(".glb", StringComparison.OrdinalIgnoreCase) && !licenceText)
         {
             email = GlbJsonHasEmail(open);
@@ -642,6 +642,6 @@ public sealed class PackageScanner
         if (secretHit.Count > 0) add("local-secret-value", $"contains {secretHit.Count} value(s) read from the local config (not printed)");
     }
 
-    static bool IsPlaceholderUser(string name) =>
+    internal static bool IsPlaceholderUser(string name) =>
         PlaceholderUsers.Contains(name) || name.StartsWith('<') || name.StartsWith('%') || name.StartsWith('{') || name.StartsWith('$') || name.StartsWith('[') || name.StartsWith('*') || name.StartsWith("...", StringComparison.Ordinal);
 }
