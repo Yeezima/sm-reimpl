@@ -24,6 +24,18 @@ public static class FxGpuLayout
     /// <summary>Texels per row of the curve table.</summary>
     public const int CurveRow = 1024;
 
+    /// <summary>The live-effect cap of the CPU path and of the GPU spray path.</summary>
+    public const int CpuMaxEffects = 160, GpuMaxEffects = 1200;
+
+    /// <summary>
+    /// Whether Musou Mode uses the GPU spray path: not with <c>--fx-cpu</c>, and not in safe mode (the Compatibility renderer or <c>--safe-mode</c>: an old GPU
+    /// keeps the CPU path and its 160-effect cap, as a weak machine's CPU cannot walk 1,200 effects either).
+    /// </summary>
+    public static bool UseGpu(bool fxCpuFlag, bool safeMode) => !fxCpuFlag && !safeMode;
+
+    /// <summary>The live-effect cap: <c>--fx-cap N</c> when given, else the path's own.</summary>
+    public static int EffectCap(bool gpu, int? fxCapArg) => fxCapArg ?? (gpu ? GpuMaxEffects : CpuMaxEffects);
+
     /// <summary>The two 16-bit halves of a seed, each exact as a float (the shader rebuilds the seed from them).</summary>
     public static (float Low, float High) SplitSeed(uint seed) => (seed & 0xFFFF, seed >> 16);
 

@@ -65,6 +65,11 @@ public sealed partial class FxGpuSprays : Node3D
     }
 
     public readonly Pool Additive = new(), Alpha = new();
+    readonly Pool[] _pools;
+    readonly byte[] _typeBytes = new byte[MaxTypes * FxGpuLayout.TypeTexels * 16];
+    readonly byte[] _curveBytes = new byte[CurveCapacity * 16];
+
+    public FxGpuSprays() { _pools = [Additive, Alpha]; }
     readonly byte[][] _slots = new byte[SlotLayers][];
     readonly bool[] _slotDirty = new bool[SlotLayers];
     public readonly FxGpuBlocks SlotBlocks = new(SlotCapacity);
@@ -85,6 +90,7 @@ public sealed partial class FxGpuSprays : Node3D
     {
         for (int i = 0; i < SlotLayers; i++) _slots[i] = new byte[FxGpuLayout.SlotsPerLayer * FxGpuLayout.SlotTexels * 16];
         _slotTexture = Array(SlotLayers, FxGpuLayout.SlotsPerLayer * FxGpuLayout.SlotTexels, 1, _slots);
+        if (_slotTexture is null) return false;
         _typeTexture = ImageTexture.CreateFromImage(Image.CreateFromData(FxGpuLayout.TypesPerRow * FxGpuLayout.TypeTexels, TypeRows, false, Image.Format.Rgbaf, new byte[FxGpuLayout.TypesPerRow * FxGpuLayout.TypeTexels * TypeRows * 16]));
         _curveTexture = ImageTexture.CreateFromImage(Image.CreateFromData(FxGpuLayout.CurveRow, CurveRows, false, Image.Format.Rgbaf, new byte[FxGpuLayout.CurveRow * CurveRows * 16]));
         var quad = new QuadMesh { Size = Vector2.One };
@@ -92,6 +98,7 @@ public sealed partial class FxGpuSprays : Node3D
         foreach (var (pool, blend, name) in new[] { (Alpha, "blend_mix", "GpuAlphaSprites"), (Additive, "blend_add", "GpuAdditiveSprites") })
         {
             pool.Texture = Array(Layers, FxGpuLayout.RecordsPerLayer, FxGpuLayout.RecordTexels, pool.Data);
+            if (pool.Texture is null) return false;
             pool.Material = batch.Material(FxBatch.ShaderHeader + GpuUniforms + GpuVertex + FxBatch.VertexTail + GpuVertexClose + FxBatch.Fragment, blend);
             pool.Material.RenderPriority = -1;   // before the CPU batch's sorted alpha quads
             pool.Material.SetShaderParameter("recs", pool.Texture);
@@ -106,12 +113,13 @@ public sealed partial class FxGpuSprays : Node3D
         return true;
     }
 
-    static Texture2DArray Array(int layers, int width, int height, byte[][] data)
+    /// <summary>A texture array of <paramref name="layers"/> RGBA float layers, or null when the renderer could not make it (an old GL / ANGLE driver).</summary>
+    static Texture2DArray? Array(int layers, int width, int height, byte[][] data)
     {
         var images = new Godot.Collections.Array<Image>();
         for (int i = 0; i < layers; i++) images.Add(Image.CreateFromData(width, height, false, Image.Format.Rgbaf, data[i]));
         var t = new Texture2DArray();
-        t.CreateFromImages(images);
+        if (t.CreateFromImages(images) != Error.Ok || t.GetLayers() != layers) { GD.PushWarning($"effects: a {layers}-layer {width}x{height} float texture array could not be made"); return null; }
         return t;
     }
 
@@ -196,20 +204,19 @@ public sealed partial class FxGpuSprays : Node3D
         {
             _typesDirty = false;
             // The type table is laid out as rows of TypesPerRow types; _types is in type order, which is the same order row by row.
-            var bytes = MemoryMarshal.AsBytes(_types.AsSpan()).ToArray();
-            _typeTexture!.Update(Image.CreateFromData(FxGpuLayout.TypesPerRow * FxGpuLayout.TypeTexels, TypeRows, false, Image.Format.Rgbaf, bytes));
-            TableUploadBytes += bytes.Length;
+            MemoryMarshal.AsBytes(_types.AsSpan()).CopyTo(_typeBytes);
+            _typeTexture!.Update(Image.CreateFromData(FxGpuLayout.TypesPerRow * FxGpuLayout.TypeTexels, TypeRows, false, Image.Format.Rgbaf, _typeBytes));
+            TableUploadBytes += _typeBytes.Length;
         }
         if (_curvesDirty)
         {
             _curvesDirty = false;
-            var all = new float[FxGpuLayout.CurveRow * CurveRows * 4];
-            _curves.CopyTo(all);
-            var bytes = MemoryMarshal.AsBytes(all.AsSpan()).ToArray();
-            _curveTexture!.Update(Image.CreateFromData(FxGpuLayout.CurveRow, CurveRows, false, Image.Format.Rgbaf, bytes));
-            TableUploadBytes += bytes.Length;
+            // The table only grows (curves are never removed), so the rest of the reused buffer stays zero.
+            MemoryMarshal.AsBytes(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(_curves)).CopyTo(_curveBytes);
+            _curveTexture!.Update(Image.CreateFromData(FxGpuLayout.CurveRow, CurveRows, false, Image.Format.Rgbaf, _curveBytes));
+            TableUploadBytes += _curveBytes.Length;
         }
-        foreach (var pool in new[] { Additive, Alpha })
+        foreach (var pool in _pools)
         {
             for (int i = 0; i < Layers; i++)
                 if (pool.Dirty[i]) { pool.Dirty[i] = false; pool.Texture!.UpdateLayer(Image.CreateFromData(FxGpuLayout.RecordsPerLayer, FxGpuLayout.RecordTexels, false, Image.Format.Rgbaf, pool.Data[i]), i); pool.UploadedBytes += pool.Data[i].Length; }
