@@ -21,10 +21,10 @@ public static class AshfallRoadway
     public static List<AshfallBox> Strips(AshfallLevel level, float margin = Margin, float top = 1000f)
     {
         var list = new List<AshfallBox>();
-        if (level.Layout == AshfallLayout.Field)
+        if (level.Layout.PlanOf() is { } plan)
         {
-            // draft 11: the army corridors and the fortresses' aprons are the roadways (the default plan's: the game loads only that one)
-            return FieldStrips(AshfallField.Default, margin, top);
+            // draft 11 and 12: the army corridors and the fortresses' aprons are the roadways (the default plan's: the game loads only that one)
+            return FieldStrips(plan, margin, top);
         }
         float len = 2f * AshfallMap.Half;
         foreach (var (c, w) in AshfallDressPass.RoadLines)

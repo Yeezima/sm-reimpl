@@ -49,7 +49,7 @@ public sealed class AshfallBattlefield
     public AshfallFieldPlan? Plan { get; }
 
     /// <summary>Measures a layout (the game's default parameters for the field).</summary>
-    public static AshfallBattlefield Measure(AshfallLayout layout) { var d = AshfallMap.BuildDraft5(layout); return new AshfallBattlefield(layout, d.Level, d.Dressing, layout == AshfallLayout.Field ? AshfallField.Default : null); }
+    public static AshfallBattlefield Measure(AshfallLayout layout) { var d = AshfallMap.BuildDraft5(layout); return new AshfallBattlefield(layout, d.Level, d.Dressing, layout.PlanOf()); }
 
     public AshfallBattlefield(AshfallLayout layout, AshfallLevel level, AshfallDressing dressing, AshfallFieldPlan? plan)
     {

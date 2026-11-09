@@ -79,7 +79,7 @@ public sealed partial class TfwBattle
                 ends.Add(((a, b), Ground(PlacePos(a), PlacePos(a)), Ground(PlacePos(b), PlacePos(b))));
         var nav = _enemies.Nav;
         var array = ends.ToArray();
-        _armyRouteTask = nav is null ? Task.FromResult(SearchAll(null, array)) : Task.Run(() => SearchAll(nav, array));
+        _armyRouteTask = nav is null ? Task.FromResult(SearchAll(null, array)) : Task.Run(() => SearchAll(nav, array, TfwArmyRules.RouteHalfWidth));
     }
 
     void StepArmyRoutes()

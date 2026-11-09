@@ -91,7 +91,22 @@ public sealed class AshfallGrid
     static readonly (int Dx, int Dy, float Cost)[] Steps = [(1, 0, 1f), (-1, 0, 1f), (0, 1, 1f), (0, -1, 1f), (1, 1, 1.41421356f), (1, -1, 1.41421356f), (-1, 1, 1.41421356f), (-1, -1, 1.41421356f)];
 
     /// <summary>The shortest walk (m) from <paramref name="a"/> to <paramref name="b"/> over cells with at least <paramref name="clearance"/> m (a body of that radius, or an army of twice that width), or null; with the cells.</summary>
-    public (float Length, List<int> Path)? Shortest(Vector2 a, Vector2 b, float clearance, Func<int, bool>? forbid = null)
+    public (float Length, List<int> Path)? Shortest(Vector2 a, Vector2 b, float clearance, Func<int, bool>? forbid = null) => Shortest(a, b, clearance, forbid, 0f, 0f);
+
+    /// <summary>
+    /// The war's army route rule on this grid (owner, 2026-11-09, "route on avenues"; as <c>NavGraph.FindPathWide</c>): the shortest walk for a body of <paramref name="clearance"/> with each step's cost raised where
+    /// the narrower of its two cells has less clearance than <paramref name="halfWidth"/> (cost times 1 + <paramref name="penalty"/> times the shortfall's share). The length is the walked metres.
+    /// </summary>
+    public (float Length, List<int> Path)? ShortestWide(Vector2 a, Vector2 b, float clearance, float halfWidth, float penalty)
+    {
+        var r = Shortest(a, b, clearance, null, halfWidth, penalty);
+        if (r is not { } p) return null;
+        float len = 0f;
+        for (int i = 1; i < p.Path.Count; i++) len += Vector2.Distance(At(p.Path[i - 1]), At(p.Path[i]));
+        return (len, p.Path);
+    }
+
+    (float Length, List<int> Path)? Shortest(Vector2 a, Vector2 b, float clearance, Func<int, bool>? forbid, float halfWidth, float penalty)
     {
         int s = Snap(a, clearance), t = Snap(b, clearance);
         if (s < 0 || t < 0) return null;
@@ -112,7 +127,7 @@ public sealed class AshfallGrid
                 if (nx < 0 || ny < 0 || nx >= N || ny >= N) continue;
                 int m = ny * N + nx;
                 if (Clearance[m] < clearance || (forbid is not null && forbid(m))) continue;
-                float ng = g[k] + cost;
+                float ng = g[k] + (penalty > 0f ? cost * (1f + penalty * MathF.Max(0f, halfWidth - MathF.Min(Clearance[k], Clearance[m])) / halfWidth) : cost);
                 if (ng >= g[m]) continue;
                 g[m] = ng; from[m] = k; open.Enqueue(m, ng + Octile(nx, ny, tx, ty));
             }

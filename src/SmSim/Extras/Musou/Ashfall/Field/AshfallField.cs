@@ -6,7 +6,22 @@ namespace SmSim.Extras.Musou.Ashfall;
 /// Which generator builds Ashfall (owner, 2026-11-09: "full redesign - but keep the current version as a path to easily roll back to"). <see cref="Draft10"/> is the shipped layout (map <c>tfw_war</c>, hash pinned);
 /// <see cref="Field"/> is the battlefield ruleset of docs/ashfall-layout-brief.md (map <c>tfw_war_field</c>; docs/musou-ashfall-graybox.md "Draft 11 battlefield layout").
 /// </summary>
-public enum AshfallLayout : byte { Draft10 = 0, Field = 1 }
+public enum AshfallLayout : byte { Draft10 = 0, Field = 1, City = 2 }
+
+/// <summary>Draft 12: what the layouts share.</summary>
+public static class AshfallLayouts
+{
+    /// <summary>Whether the layout is built from a plan (draft 11's field, draft 12's city): one flat ground, the fortress taken from draft 10, the plan's corridors as roadways.</summary>
+    public static bool Planned(this AshfallLayout layout) => layout != AshfallLayout.Draft10;
+
+    /// <summary>The default plan of a planned layout (null for draft 10).</summary>
+    public static AshfallFieldPlan? PlanOf(this AshfallLayout layout) => layout switch { AshfallLayout.Field => AshfallField.Default, AshfallLayout.City => AshfallCity.Default, _ => null };
+
+    /// <summary>The layout's name in the tools' and the client's switches (<c>--layout</c>, <c>--ashfall-layout</c>).</summary>
+    public static AshfallLayout Parse(string? name) => name switch { "field" => AshfallLayout.Field, "draft10" => AshfallLayout.Draft10, "city" => AshfallLayout.City, _ => AshfallLayout.City };
+
+    public static string Key(this AshfallLayout layout) => layout switch { AshfallLayout.Field => "field", AshfallLayout.City => "city", _ => "draft10" };
+}
 
 /// <summary>
 /// The battlefield ruleset's tunable parameters (docs/ashfall-layout-brief.md "Generator controls"; spec "Ashfall battlefield layout (draft 11)"). Every value is ours, an estimate derived from the game's
@@ -131,6 +146,13 @@ public sealed record AshfallFieldPlan(
     IReadOnlyList<string> Notes,
     IReadOnlyList<(string Name, Vector4 Rect)> Aprons)
 {
+    /// <summary>Which layout the plan builds (draft 11: the field; draft 12: the city).</summary>
+    public AshfallLayout Layout { get; init; } = AshfallLayout.Field;
+    /// <summary>The version term the level's hash is salted with.</summary>
+    public uint HashVersion { get; init; } = AshfallField.HashVersion;
+    /// <summary>Draft 12: the city's blocks (name, buildable rectangle inside its roads), for the overlays; empty for the field.</summary>
+    public IReadOnlyList<(string Name, Vector4 Rect)> Blocks { get; init; } = [];
+
     /// <summary>The open ring kept round each point (centre, radius).</summary>
     public IEnumerable<(string Name, Vector2 Centre, float Radius)> ClearZones => Points.Select(p => (p.Name, new Vector2(p.Center.X, p.Center.Y), p.Radius + Params.ObjectiveClear));
 
@@ -147,7 +169,7 @@ public sealed record AshfallFieldPlan(
 public static class AshfallField
 {
     /// <summary>The field layout's version (salts its level hash; raised with any change of its geometry, points, areas or spawns).</summary>
-    public const uint Version = 1;
+    public const uint Version = 2;   // 2: the owner's stair pass (draft 12's stair rules: entry ramps, steepened flights, landing slabs, 1.6 m flights, the stair-access check enforced)
 
     /// <summary>The version term the field level's hash is salted with ("F" in the high byte, so it never equals a draft's version).</summary>
     public const uint HashVersion = 0x46000000u | Version;
@@ -388,7 +410,7 @@ public static class AshfallField
     }
 
     /// <summary>A structure's axis bounds (final size) at a yaw of 0 or a quarter turn.</summary>
-    internal static Vector4 Footprint(Vector2 c, Vector3 size, int yawStep)
+    public static Vector4 Footprint(Vector2 c, Vector3 size, int yawStep)
     {
         var (s, co) = AshfallBuilder.Trig(yawStep);
         float ex = MathF.Abs(co) * size.X / 2f + MathF.Abs(s) * size.Y / 2f, ey = MathF.Abs(s) * size.X / 2f + MathF.Abs(co) * size.Y / 2f;

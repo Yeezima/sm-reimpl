@@ -782,7 +782,7 @@ The owner's map-layout ruleset (docs/ashfall-layout-brief.md, his brief verbatim
 
 ### Selection and rollback
 - Map **`tfw_war_field`** is the battlefield layout (`AshfallLayout.Field`); **`tfw_war`** stays draft 10, bit for bit (`AshfallMap.Version` 17, hash `0xA47761F67B43DC1C`, its tests unchanged and passing). Server: `--content musou --map tfw_war_field`. The client builds whatever layout the server's map name says (the name travels in the Challenge); a client hosting Musou passes it with `client.cmd --ashfall-layout field`; the kit gallery shows it with `--ashfall-dress --ashfall-layout field`.
-- The field level's hash is salted with `AshfallField.HashVersion` (`0x46000001`, field version 1): **`0x94488BF0597BA823`**, pinned in `AshfallDraft11Tests.PinnedFieldHash`. It goes into the composed map hash, so a client on the other layout or another build is told apart at the handshake.
+- The field level's hash is salted with `AshfallField.HashVersion` (`0x46000001`, field version 1): **`0x94488BF0597BA823`** (field version 2 since draft 12's stair pass: `0x42DC676411C2038C`), pinned in `AshfallDraft11Tests.PinnedFieldHash`. It goes into the composed map hash, so a client on the other layout or another build is told apart at the handshake.
 - Rolling back is choosing the map: nothing else changes. Removing the draft entirely is deleting `Extras/Musou/Ashfall/Field/` and the `c.Field` branches in the kit pass.
 
 ### How it is built (`Extras/Musou/Ashfall/Field/`)
@@ -851,3 +851,175 @@ On the field the armies keep their formation depth (queue about the planned dept
 - **Point A's two approaches** are the fewest (B has 6, C 5): its north is the cathedral quarter's islands; a third would mean a corridor through the cathedral quarter.
 - **The fortress is copied, not re-placed**: identical to draft 10, but it is no longer generated on this layout; any change to it would be done on draft 10 and copied.
 - **Not seen in a match**: only the bench, the checks and the stills. The war's walking graph is built from the level as for draft 10 (no change); the waves were not run on the field layout.
+
+## Draft 12 city layout (2026-11-09)
+The owner's request (the lead chat, 2026-11-09): "use the new mapmaking and map layout references and context i gave you earlier to redo the layout of the ashfall draft 10 map. no stairs inaccessible or blocked by walls or other objects. lined up buildings and walls. a logical layout that allows the flow of the battle, with roads placed properly to facilitate movement of armies."
+
+Draft 10 redone on draft 11's plan path (`AshfallLayout.City`, `Extras/Musou/Ashfall/Field/AshfallCity.cs`). It keeps draft 10's dense urban character (buildings, walls, platforms) instead of draft 11's ruin islands, and uses draft 11's routing and checks. Every place, size and threshold is ours: placeholder demonstration, estimates for the owner's playtest.
+
+### Selection and rollback
+- **`tfw_war`** (Musou's default map) now builds the city.
+  - City version 1. Its hash is salted with `AshfallCity.HashVersion` (`0x43000001`).
+  - Level hash **`0x1E3B60672DF1809B`** (after the stair pass below; `0x401F29A0BB9A1E49` before it), pinned in `AshfallDraft12Tests.PinnedCityHash`.
+- **Rollback: `tfw_war_draft10`** builds draft 10 bit for bit (`AshfallMap.Version` 17, hash `0xA47761F67B43DC1C`).
+  - Server: `--content musou --map tfw_war_draft10`.
+  - A client hosting Musou passes that map with `client.cmd --ashfall-layout draft10`.
+  - The kit gallery shows it with `--ashfall-layout draft10`.
+- **`tfw_war_field`** stays draft 11 (field version 2 since the stair pass below, hash `0x42DC676411C2038C`; version 1 `0x94488BF0597BA823`).
+- The client builds whatever map the server names. The level's hash is part of the map hash, so a client on another layout is told apart at the handshake.
+
+### The plan (`AshfallCity.Plan`)
+- **Roads come first.**
+  - Kept from draft 10: the avenues at x = ±92 and y = ±92, the central cross through B, and the stronghold's front.
+  - Every road is an army avenue **22 m wide**. Each is a draft-8 roadway: nothing stands in it or within 0.5 m of it.
+  - Added: **edge avenues** at x = ±160, a **middle avenue** through B, and a **north loop** round the twin towers to the inner avenues. That makes twelve avenues in all.
+  - Side streets 12 m wide separate blocks where no avenue runs.
+- **Points.**
+  - B stays at draft 10's (0, 0), at the central crossing.
+  - A moves to **(-160, 92)** and C to **(160, 92)**, where the north avenue meets the edge avenues. Draft 10 had A at (-164, 164) inside a block and C at (164, 150).
+  - Formation-capable approaches, measured on the final collision: A 3, B 5, C 3. Draft 10: 0, 0, 0.
+- **The base and the stronghold** are draft 10's, copied item for item, as in draft 11:
+  - the stronghold, with the keep AC-044 as authored, its towers and bridges, the terraces and the outer walls;
+  - the Imperial compound's walls.
+- **Assembly areas.**
+  - Imperial: north of the compound's gate (y -150 to -110).
+  - Ork: on the north avenue, in front of the stronghold's gate.
+- **Blocks and rows.** There are 28 blocks.
+  - **Rows.** Each long side of a block carries one row of buildings on a single frontage line along its road. The short sides' rows fit between them, with a corner alley at each end.
+  - **Buildings** are square to the grid with their fronts to the street. Their depths vary behind the frontage line.
+  - **Kerb walls**, after draft 10's dashed block walls, sit on the frontage line wherever no building stands. They come in 10 m segments with 2.5 m breaks and a 4 m opening at each end. The yard behind is always reachable through the alleys and openings.
+  - **Yards** hold at most one structure.
+  - **District styles.**
+    - Cathedral quarter: north-west.
+    - Manufactorum district: north-east.
+    - Hab-block ruins: south and the flanks.
+    - No-man's-land: the four blocks round B, with lower ruins and more gaps.
+- **Landmarks** stand at the ends of the avenues' vistas.
+  - A cathedral spire over A and a manufactorum chimney tower over C.
+  - Two hab towers, one at each end of the middle avenue.
+  - Each landmark is seen from at least two points. A building in a landmark's sight band is refused only if it would rise into the line from the point's eye to the landmark's top.
+- **High ground.** 40 shooting platforms.
+  - None is added where all three points lie within 250 m.
+  - No platform outside the stronghold sees all three points.
+
+### Stairs (the owner's first rule)
+- **The defect in draft 10.** The two-storey ruin AC-051 stands on a 1.1 m plinth, and its flight to the upper floor starts on that plinth.
+  - After the scale, its door steps rise 0.29 m and then 0.57 m, more than the player's 0.4 m step.
+  - The stair finder treated those steps as "a few steps, no ramp".
+  - Draft 10's access rule counted any foot within 2 m of the base as ground.
+  - Result: on draft 10, **26 flights outside the stronghold cannot be reached on foot**, and no player can get into the ruin at all.
+- **Entry ramps (city only).** A flight whose foot stands on a raised floor gets an entry ramp at 25 degrees from its door down to the street (`EntryRamp` in `AshfallDraft12.cs`).
+  - It is built as one of the model's stairs: the model's boxes are cut under it, its foot is cleared and zoned, and it is walked on the item.
+  - The ramp must stay off the roadways.
+  - Where no entry ramp fits, the flight gets a "foot stands" note. Draft 10's stair-access rule then replaces the model with the next one in its pool, as the owner asked on 2026-11-09.
+  - After the stair pass below, 15 model choices were replaced, and every kept AC-051 has its entry ramp.
+- **The final check** (`AshfallStairAccess`) runs on the final collision of the whole level, for any layout. For every stair:
+  - its foot and its landing are open;
+  - a ground foot is reached from the streets: the grid's walkable ground joined to the Imperial assembly area, then the player's capsule walked with the game's movement from the last open ground (1 m clearance) to the foot;
+  - a raised foot is reached by walking from the ground floor behind it, or from a reached flight's landing;
+  - the flight itself is walked up and down.
+- **Enforcement.** The city's pass enforces the check (`EnforceStairAccess`), round after round: for each failing stair it removes the item in the way, or else the item that holds the stair. This run needed no removals.
+- **Authored pieces** (the stronghold, the compound, the bridges) are checked and reported, never changed. The keep tower's top flight fails, as it does on drafts 10 and 11.
+
+### Numbers (city version 1, default parameters; draft 10 measured the same way)
+| | City (draft 12) | Draft 10 |
+|---|---|---|
+| Battlefield constraints | all 66 pass | 27 of 31 fail |
+| Army route width at its narrowest (bases and points, every pair) | 24.6 to 27.4 m | 14.5 to 19.5 m (no army route) |
+| Formation-capable approaches A / B / C | 3 / 5 / 3 | 0 / 0 / 0 |
+| Stairs / unreachable outside the stronghold | 210 / 0 | 141 / 26 |
+| Props / collision triangles | 356 / 224,052 | 597 / 222,572 |
+| Shooting platforms | 40 | 48 |
+| Guard reinforcement, base to A / B / C | 92 / 36 / 93 s | no army route |
+| Ork wave, stronghold to A / B / C | 56 / 25 / 56 s | no army route |
+| Player run, base to A / B / C | 58 / 26 / 58 s | 77 / 30 / 74 s |
+
+Clash bench: a movement model only, nobody is hurt (`smtool ashfall-clash`, the shipped army AI). Front width 20 s after first contact:
+
+| | B 200 / 500 / 1,000 | A 200 / 500 / 1,000 | C 200 / 500 / 1,000 |
+|---|---|---|---|
+| City | 20 / 33 / 35 m | 17 / 25 / 37 m | 18 / 28 / 39 m |
+| Draft 10 | 20 / 26 / 18 m | 3 / 4 / 10 m, single file | 4 / 10 / 9 m, single file |
+
+**Routing at A and C.**
+- The army layer's anchor takes the shortest walk for a single soldier. In a grid, that walk cuts diagonally through the blocks' alleys, 2.3 to 4.3 m at the narrowest, instead of following the 22 m avenues. The armies never go single file there, but they squeeze.
+- The bench's width-aware routing (`--ai adaptive`) keeps the armies on the avenues (25.5 to 26.3 m at the narrowest). Their fronts come out smaller (11 to 25 m), and two of the six runs go single file.
+- Changing the army layer's routing is the owner's call; draft 11 found the same. A layout alternative is to close each block's yards to through traffic.
+
+### Tradeoffs
+- **Fewer props than draft 10:** 356 against 597.
+  - The avenues and their 2.5 m setbacks take land: building fronts stand 27 m apart across an avenue.
+  - Block land is about 10 ha. Its drawn cover is 23 to 39 % by district.
+- **Lighter blocks round B:** no-man's-land ruins, with the assembly areas and B's ring cutting into them.
+- **Replaced ruins:** 16 two-storey ruins whose door faced an avenue too closely were replaced by other models from their pool.
+- **The twin towers' block** keeps only its north strip.
+
+### Tools and media
+- `smtool ashfall-plan --layout city` (the default) draws the plan with the battlefield overlays and lists every failed constraint.
+- `smtool ashfall-clash --layouts city,draft10` runs the clash bench.
+- Media: the owner's media folder, `previews/ashfall-draft10-redo/` (outside the repository).
+
+### Kit stairs (the owner's stair pass, 2026-11-09)
+The owner, the same day: "fix the greybox collision for the rest of the 3d models that have stairs - you can't walk up all the stairs currently."
+
+The planned layouts (the city `tfw_war` and the field `tfw_war_field`) now use draft 12's stair rules. Draft 10 (`tfw_war_draft10`) is the frozen rollback and keeps its own.
+- **Entry ramps.** A flight that starts on a raised floor gets an entry ramp from its door (AC-051, the two-storey ruin, on its 1.1 m plinth).
+- **Short runs.** A run of steps rising more than the 0.4 m step gets a ramp; draft 10 only ramped runs of 0.8 m or more.
+- **Steepened flights.** A flight the placement's scale made steeper than 55 degrees gets a 45-degree ramp, run out at its foot (`Steepened`).
+- **Landing slabs.** A flight whose top ends over a broken floor gets a 0.3 m slab of collision at its top, 1.5 m deep (`LandingPad`). AC-005's upper flights end 2 to 2.6 m over the floor beyond them; AC-008 and AC-046 have one at some scales.
+- **Wider flights.** A narrow flight is widened to 1.6 m instead of 1.2 m.
+- **Rubble mounds count.** Their flights fall under the stair-access rule too.
+- **Landmark towers.** The city's landmark towers draw from the stairless landmark mass (AC-030). A stair model there was capped at its walkable height or refused.
+- **The check is enforced on both maps.** The stair-access check runs on the final collision of both maps (`EnforceStairAccess`).
+- **Any flight that still cannot be walked** makes the stair-access rule replace its model with the next one in the pool.
+
+Field version 2 (hash `0x42DC676411C2038C`, was `0x94488BF0597BA823`). City version 1 (hash `0x1E3B60672DF1809B`).
+
+**Results**, by model, on the city and field (`AshfallKitStairTests`: every placed stair model walked up and down every flight with the game's movement at its size, alone and in the level):
+
+| Models | Result |
+|---|---|
+| AC-051 (two-storey ruin) | walkable: entry ramps onto its plinth (73 in the city, 27 in the field; draft 10 had 26 flights no one could reach) |
+| AC-005 (two-storey defensive ruin) | walkable where placed: landing slabs on its broken upper floor, entry ramps; at sizes where a flight still fails, the model is replaced |
+| AC-008 (elevated firing perch), AC-046 (freestanding stair), AC-050 (medium firing platform) | walkable: landing slabs where the deck stops short |
+| AC-049 (low firing platform) | walkable alone (not in the pools since draft 9) |
+| AC-006 (fortified gate segment), AC-010 (tower lookout stump), AC-052 (two-storey tower), AC-053 (rubble ramp mound) | not made walkable. The fixes leave a blocked foot, a flight from a floor nothing reaches, or feet and landings under 1 m clear. They are refused outside the stronghold and replaced by models from their pools. |
+| AC-044 (the keep), the stronghold's AC-052 (keep tower), its AC-053 (west-leg breach rubble) and AC-005/AC-006 (ring walls) | unchanged: authored, copied from draft 10. The keep's three dead flights stay drawn as the owner decided. The others are the owner's call. |
+| AC-007, AC-010, AC-037, AC-047, AC-076 | not placed on either map (AC-076 is the visual dais at A); reported at their catalogue size |
+
+**In the levels:** every stair outside the stronghold is reached and walked on both maps. That is 210 stairs in the city and 101 in the field. Only the keep tower's authored top flight fails.
+
+### Army routing on the avenues (the owner's decision, 2026-11-09)
+The owner answered "Yes, route on avenues" when asked whether the army AI should keep its formations to the avenues. The armies' routes between the battle's places used to be one body's shortest walk on the walking graph (`NavGraph.FindPath`). On the city that walk cut diagonally through the blocks' 2 to 4 m alleys to A and C.
+
+They are now searched with `NavGraph.FindPathWide` (`TfwRules.Version` 58):
+- **Clearance.** Each node's clearance is the walk to the nearest node at a wall or an edge, built once per graph.
+- **Cost.** A link whose narrower node has less than `TfwArmyRules.RouteHalfWidth` (10 m, a 20 m front) costs up to 21 times more.
+- **Shortcuts.** The string pulling keeps a shortcut only where the line stays as wide as the cells it replaces.
+- **Who uses it.** Formations (Ork waves, Guard armies and reinforcements) march the avenues and take a narrow way only where none wider is near: the stronghold's gate and its breaches, which are authored. Single bodies keep the shortest walk.
+- **What is untouched.** Classic PvP's pathing, the graph's build and its cache.
+
+The routes the war takes, measured on each map's own walking graph (`smtool musou-army-routes`, `army-routes.md`). The figure is the width at the narrowest point outside the bases, before → after:
+
+| Route | City (`tfw_war`) | Field (`tfw_war_field`) | Draft 10 (`tfw_war_draft10`) |
+|---|---|---|---|
+| landing zone to A | 0.0 → 25.3 m (91 → 103 s) | 9.8 → 41.5 m (87 → 91 s) | 2.5 → 15.3 m (112 → 136 s) |
+| landing zone to B | 27.8 → 27.8 m (52 s) | 69.0 → 69.0 m (47 s) | 13.8 → 14.0 m (52 → 53 s) |
+| landing zone to C | 0.0 → 26.3 m (92 → 104 s) | 26.8 → 22.5 m (87 → 90 s) | 0.0 → 16.8 m (110 → 133 s) |
+| Ork HQ to A | 0.0 → 31.8 m (57 → 61 s) | 49.0 → 38.0 m (55 → 59 s) | 13.3 → 15.3 m (56 → 89 s) |
+| Ork HQ to C | 5.3 → 8.3 m (57 → 65 s; the east-leg breach) | 57.8 → 9.3 m (55 → 59 s; the breach) | 2.8 → 20.3 m (64 → 85 s) |
+| A to B, B to C | 0.0 → 26.3 m (52 → 60 to 63 s) | 0.0 → 31.0 and 63.3 m (50 → 51 s) | 0.0 → 13.8 m (67 to 106 → 86 to 131 s) |
+
+The march times are at the army's pace: 3.6 m/s for the Guard from the landing zone, 3 m/s for the Orks from the HQ.
+
+The clash bench at 1,000 a side, with the shipped rule against the rule before (`--ai single`):
+
+| | Narrowest point on route | First contact | Front 20 s after contact |
+|---|---|---|---|
+| City A | 4.3 → 25.5 m | 78 → 77 s | 37 → 15 m |
+| City C | 2.3 → 26.3 m | 85 → 76 s | 39 → 17 m |
+| City B | unchanged: 26.3 m, 48 s, 35 m | | |
+
+- **Why the front is smaller.** On an avenue the front is the avenue's width (22 m): a 36-file army (about 50 m) does not fit it. Before, its men spilled through the blocks, which measured wider.
+- **Field.** Unchanged in kind: wide ways on both rules.
+- **Draft 10.** Its streets are at most 14 to 20 m, so it stays single file at A and C on both rules.

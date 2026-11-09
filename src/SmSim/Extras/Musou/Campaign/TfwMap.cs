@@ -215,12 +215,17 @@ public static class TfwMap
     /// draft-10 layout (the rollback path). The name travels in the Challenge, so a client builds the level the server runs, and the level's hash is in the map hash: mismatched builds are told apart.
     /// </summary>
     public const string FieldName = "tfw_war_field";
-    /// <summary>Whether <paramref name="name"/> is one of the war's maps (<see cref="Name"/>, <see cref="FieldName"/> or <see cref="ManufactorumName"/>).</summary>
-    public static bool IsWarMap(string? name) => name is Name or FieldName or ManufactorumName;
-    /// <summary>Whether <paramref name="name"/> is an Ashfall Citadel map (generated in code: <see cref="Name"/> or <see cref="FieldName"/>).</summary>
-    public static bool IsAshfall(string? name) => name is Name or FieldName;
-    /// <summary>The Ashfall layout of a map name (<see cref="FieldName"/>: the field; anything else: draft 10).</summary>
-    public static SmSim.Extras.Musou.Ashfall.AshfallLayout LayoutOf(string? name) => name == FieldName ? SmSim.Extras.Musou.Ashfall.AshfallLayout.Field : SmSim.Extras.Musou.Ashfall.AshfallLayout.Draft10;
+    /// <summary>
+    /// Draft 12's rollback switch (owner, 2026-11-09: the draft-10 redo keeps the current version as a path to roll back to): the shipped draft-10 level (hash <c>0xA47761F67B43DC1C</c>). Since draft 12, <see cref="Name"/>
+    /// builds the city layout (<c>AshfallLayout.City</c>, docs/musou-ashfall-graybox.md "Draft 12 city layout").
+    /// </summary>
+    public const string Draft10Name = "tfw_war_draft10";
+    /// <summary>Whether <paramref name="name"/> is one of the war's maps (<see cref="Name"/>, <see cref="FieldName"/>, <see cref="Draft10Name"/> or <see cref="ManufactorumName"/>).</summary>
+    public static bool IsWarMap(string? name) => name is Name or FieldName or Draft10Name or ManufactorumName;
+    /// <summary>Whether <paramref name="name"/> is an Ashfall Citadel map (generated in code: <see cref="Name"/>, <see cref="FieldName"/> or <see cref="Draft10Name"/>).</summary>
+    public static bool IsAshfall(string? name) => name is Name or FieldName or Draft10Name;
+    /// <summary>The Ashfall layout of a map name (<see cref="FieldName"/>: the field; <see cref="Draft10Name"/>: draft 10; anything else: the city, draft 12).</summary>
+    public static SmSim.Extras.Musou.Ashfall.AshfallLayout LayoutOf(string? name) => name switch { FieldName => SmSim.Extras.Musou.Ashfall.AshfallLayout.Field, Draft10Name => SmSim.Extras.Musou.Ashfall.AshfallLayout.Draft10, _ => SmSim.Extras.Musou.Ashfall.AshfallLayout.City };
     /// <summary>The install's map every battle is fought on.</summary>
     public const string Battlefield = "mp_tdm_09";   // Manufactorum: the 5-wave test aid's map and the battlefield of ManufactorumName
     /// <summary>Raised with any change of how the world is composed (hashed into <see cref="TfwMapData.Hash"/>; 2: TF1's arena and Stormbird replace TF0's flat slab; 3: Manufactorum replaces the empty arena; 4: the Thunderhawk's interior replaces the Stormbird's box; 8: Ashfall Citadel replaces Manufactorum under <see cref="Name"/>; the Manufactorum composition keeps <see cref="ManufactorumVersion"/>).</summary>

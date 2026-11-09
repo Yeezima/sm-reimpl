@@ -179,7 +179,7 @@ public partial class AshfallKitGallery : Node3D
         }
         else
         {
-            var layout = _args.TryGetValue("ashfall-layout", out var lay) && lay == "field" ? AshfallLayout.Field : AshfallLayout.Draft10;   // draft 11: --ashfall-layout field shows the battlefield layout
+            var layout = AshfallLayouts.Parse(_args.TryGetValue("ashfall-layout", out var lay) ? lay : null);   // draft 12: the city by default; --ashfall-layout field | draft10 shows the battlefield layout or the rollback
             (level, dressing) = AshfallMap.BuildWithDressing(layout);
             GD.Print($"ashfall gallery: {layout} layout, dressing version {dressing.Version}: {dressing.Items.Count} items, {dressing.HiddenParts.Count} hidden parts");
         }

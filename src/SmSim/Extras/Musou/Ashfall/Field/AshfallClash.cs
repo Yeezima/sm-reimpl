@@ -8,13 +8,13 @@ namespace SmSim.Extras.Musou.Ashfall;
 /// route on the final collision, meet, hold the clash and one side retreats; frontage, queue length, stuck units, arrival spread and throughput are measured. A movement model only: no unit is hurt (near and far combat
 /// are not modelled or changed), and the wave rules are not used. Every number of the model is the game's where one exists (the army layer's slots and march speeds, <see cref="TfwArmyLayout"/> and <see cref="TfwArmyRules"/>;
 /// an Ork's 0.4 m body and 5.2 m/s run, a Nob's 0.6 m; a Guardsman's 0.4 m and 4.5 m/s), the rest ours.
-/// <para>The army AI as shipped (<see cref="ClashAi.Shipped"/>): the formation's width is fixed for its life (<see cref="TfwArmyLayout.Width"/>, up to 36 files), its anchor follows the shortest walk a single body can take
-/// (the war's route search on the walking graph), and each man walks to his slot, or down the flow to the point when his slot stands in a wall. <see cref="ClashAi.Adaptive"/> is the investigation's alternative, not in
+/// <para>The army AI as shipped (<see cref="ClashAi.Shipped"/>): the formation's width is fixed for its life (<see cref="TfwArmyLayout.Width"/>, up to 36 files), its anchor follows the war's wide route (since 2026-11-09:
+/// the walk that keeps <see cref="TfwArmyRules.RouteHalfWidth"/> from walls where it can; <see cref="ClashAi.SingleBody"/> is the rule before, the shortest walk a single body can take), and each man walks to his slot, or down the flow to the point when his slot stands in a wall. <see cref="ClashAi.Adaptive"/> is the investigation's alternative, not in
 /// the game: the route keeps the army's half width from walls where it can and the files narrow to the ground's width (the slots reflow).</para>
 /// </summary>
 public static class AshfallClash
 {
-    public enum ClashAi : byte { Shipped, Adaptive }
+    public enum ClashAi : byte { Shipped, Adaptive, SingleBody }
 
     public sealed record Setup(AshfallLayout Layout, string Point, int PerSide, ClashAi Ai, float HoldSeconds = 40f, float Tick = 0.2f, float LimitSeconds = 360f);
 
@@ -49,7 +49,7 @@ public static class AshfallClash
         var grid = Grids.GetOrAdd(s.Layout, _ => new AshfallGrid(d.Level));
         var pt = d.Level.Points.First(p => p.Name == s.Point);
         var goal = new Vector2(pt.Center.X, pt.Center.Y);
-        var plan = s.Layout == AshfallLayout.Field ? AshfallField.Default : null;
+        var plan = s.Layout.PlanOf();
         Vector2 baseNode = plan is null ? new(0f, -150f) : Mid(plan.Assembly[0].Rect), shNode = plan is null ? new(0f, 98f) : Mid(plan.Assembly[1].Rect);
         var orks = MakeArmy(TfwArmySide.Ork, s.PerSide, shNode, goal, grid, s.Ai);
         var guards = MakeArmy(TfwArmySide.Guard, s.PerSide, baseNode, goal, grid, s.Ai);
@@ -199,9 +199,11 @@ public static class AshfallClash
     static Army MakeArmy(TfwArmySide side, int n, Vector2 from, Vector2 goal, AshfallGrid grid, ClashAi ai)
     {
         var a = new Army { Side = side, Width = TfwArmyLayout.Width(side, n), Speed = side == TfwArmySide.Ork ? TfwArmyRules.OrkSpeed : TfwArmyRules.GuardSpeed };
-        // the way: the shortest walk of one body (as shipped: the war searches its routes on the single-body walking graph); the alternative keeps half the army's width from walls where it can
+        // the way: as shipped since 2026-11-09 (owner: "route on avenues"), the war's wide route rule (TfwArmyRules.RouteHalfWidth, the cost of narrow ways raised); SingleBody: the shortest walk of one body (the rule before);
+        // the investigation's alternative keeps half the army's width from walls where it can
         float r = side == TfwArmySide.Ork ? OrkRadius : GuardRadius;
         (float Length, List<int> Path)? path = null;
+        if (ai == ClashAi.Shipped) path = grid.ShortestWide(from, goal, r, TfwArmyRules.RouteHalfWidth, TfwArmyRules.RoutePenalty);
         if (ai == ClashAi.Adaptive)
             foreach (float c in new[] { 12f, 10f, 8f, 6f, 4f, 2f }) { path = grid.Shortest(from, goal, c); if (path is not null) break; }
         path ??= grid.Shortest(from, goal, r) ?? throw new InvalidOperationException($"no walk from ({from.X}, {from.Y}) to ({goal.X}, {goal.Y})");

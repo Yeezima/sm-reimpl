@@ -37,7 +37,7 @@ public static partial class AshfallMap
         }
         foreach (var p in plan.Points) b.Disc(p.Center.X, p.Center.Y, BlockTop + 0.05f, p.Radius);
         var features = new AshfallFeatures(placer.Platforms, placer.Towers, placer.Ruins, 0, 0f, 0, placer.Points);
-        var level = new AshfallLevel(b.Parts, plan.Points, plan.Areas, plan.Spawns, HashOf(b.Parts, AshfallField.HashVersion)) { Layout = AshfallLayout.Field };
+        var level = new AshfallLevel(b.Parts, plan.Points, plan.Areas, plan.Spawns, HashOf(b.Parts, plan.HashVersion)) { Layout = plan.Layout };
         return new AshfallBuild(level, features, b.PartGroups(), b.Groups);
     }
 
@@ -52,8 +52,8 @@ public static partial class AshfallMap
     }
 
     /// <summary>The ground's height at a plan point of <paramref name="level"/>'s layout (the field: <see cref="BlockTop"/> everywhere; draft 10: <see cref="SurfaceAt(float, float)"/>).</summary>
-    public static float SurfaceAt(AshfallLevel level, float x, float y) => level.Layout == AshfallLayout.Field ? BlockTop : SurfaceAtV5(x, y);
+    public static float SurfaceAt(AshfallLevel level, float x, float y) => level.Layout.Planned() ? BlockTop : SurfaceAtV5(x, y);
 
     /// <summary>The ground function of a layout.</summary>
-    public static Func<float, float, float> GroundOf(AshfallLayout layout) => layout == AshfallLayout.Field ? (_, _) => BlockTop : SurfaceAtV5;
+    public static Func<float, float, float> GroundOf(AshfallLayout layout) => layout.Planned() ? (_, _) => BlockTop : SurfaceAtV5;
 }

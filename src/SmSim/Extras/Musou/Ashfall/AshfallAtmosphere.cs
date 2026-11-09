@@ -88,8 +88,8 @@ public static class AshfallAtmosphere
             if (Vector2.Distance(new(p.Center.X, p.Center.Y), new(at.X, at.Y)) < p.Radius + ZoneClear) return false;
         foreach (var a in level.Areas)
             if (MathF.Abs(at.X - a.Center.X) < a.Size.X / 2f && MathF.Abs(at.Y - a.Center.Y) < a.Size.Y / 2f) return false;
-        if (level.Layout == AshfallLayout.Field)
-            return !AshfallField.Default.Corridors.Any(k => k.Contains(new Vector2(at.X, at.Y), 1f));   // draft 11: fires keep off the army corridors
+        if (level.Layout.PlanOf() is { } plan)
+            return !plan.Corridors.Any(k => k.Contains(new Vector2(at.X, at.Y), 1f));   // draft 11: fires keep off the army corridors
         const float lane = 4.2f;
         foreach (float v in new[] { -92f, 92f, -232f, 232f })
             if (MathF.Abs(at.X - v) < lane || MathF.Abs(at.Y - v) < lane) return false;
