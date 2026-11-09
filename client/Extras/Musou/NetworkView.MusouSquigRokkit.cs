@@ -291,7 +291,24 @@ public partial class MusouIncomingEdge : Control
         float a = _angle - MathF.PI / 2f;   // Godot's 0 is to the right; ours ahead (up)
         float t = _left / MathF.Max(0.01f, _total);
         float alpha = 0.55f * MathF.Min(1f, t * 2.5f);
+        if (MusouHudLayout.Old)
+        {
+            for (int k = 0; k < 4; k++)
+                DrawArc(centre, radius + k * 6f, a - 0.32f, a + 0.32f, 24, new Color(1f, 0.35f, 0.1f, alpha * (1f - k * 0.22f)), 5f, true);
+            return;
+        }
+        // The edge layout (2026-11-10): an ellipse hugging the screen's edges, so on a wide screen the side arcs stand at the sides, not in the view.
+        float rx = size.X * 0.47f, ry = size.Y * 0.46f;
         for (int k = 0; k < 4; k++)
-            DrawArc(centre, radius + k * 6f, a - 0.32f, a + 0.32f, 24, new Color(1f, 0.35f, 0.1f, alpha * (1f - k * 0.22f)), 5f, true);
+        {
+            for (int i = 0; i < _arc.Length; i++)
+            {
+                float u = a - 0.32f + 0.64f * i / (_arc.Length - 1);
+                _arc[i] = centre + new Vector2(MathF.Cos(u) * (rx + k * 6f), MathF.Sin(u) * (ry + k * 6f));
+            }
+            DrawPolyline(_arc, new Color(1f, 0.35f, 0.1f, alpha * (1f - k * 0.22f)), 5f, true);
+        }
     }
+
+    readonly Vector2[] _arc = new Vector2[25];
 }

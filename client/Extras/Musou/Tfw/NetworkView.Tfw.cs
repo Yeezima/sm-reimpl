@@ -69,6 +69,12 @@ public partial class NetworkView
         f.RunTotal = _tfwState.ScoreOwn?.RunTotal ?? 0;
         f.Slots = TfwSlotsLine(me);
         f.OnPosition = me.Alive ? TfwMarkerRules.OnPosition(_tfwState.Objectives, me.Position) : -1;   // the capture tracker's wide bar (TfwHud.Capture.cs)
+        if (MusouHudDemoCampaign && TfwHudModel.InBattle(war.Phase))   // --musou-hud-demo campaign: the on-point bar, a pickup hold and the drop prompt on (the edge layout's screenshots)
+        {
+            if (f.OnPosition < 0 && f.Objectives.Count > 0) f.OnPosition = 0;
+            f.PickupHold = 0.4f;
+            MusouDropPromptShow("[E] PICK UP PLASMA PISTOL");
+        }
         _tfwHud.Fed();
         if (_tfwMapHeld) _tfwPeek?.Battle?.Feed(f);
         _tfwHud.Visible = _endPhase == MatchEndPhase.Splash && !_tfwMapHeld;

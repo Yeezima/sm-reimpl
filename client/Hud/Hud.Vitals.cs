@@ -190,7 +190,7 @@ public sealed partial class Hud
         float hf = Math.Clamp(d.Health / MathF.Max(d.HealthMax, 1f), 0f, 1f);
         float sf = Math.Clamp(d.Shield / MathF.Max(d.ShieldMax, 1f), 0f, 1f);
         // The movie's own place (463.05, 65.75, 0.9 turned upside down: its y axis is flipped, as its band's) is the footage's: cyan lines 434 to 814 and 78 to 114 of the 1280 x 720 stage.
-        var xf = Stage(vs, 0) * ToXf(unified.ToStage);
+        var xf = VitalsPlace(vs) * Stage(vs, 0) * ToXf(unified.ToStage);
         int hframe = VitalsRules.HealthFrame(hf, d.Alive);
         // Iron Halo: the cyan ironhalo_mc with its starburst; everyone else: the movie's own plain clip lightdamagebar_mc in its own colours (ui/hud-bar-colours).
         int aframe = halo ? VitalsRules.ArmourFrame(sf, d.Alive) : VitalsRules.PlainArmourFrame(sf, d.Alive);
@@ -227,6 +227,20 @@ public sealed partial class Hud
         if (hp is not null) { MeasureHealthShare(hp); DrawAtom(hp, xf, White, false); }
         else VitalsHealthBlankFrames++;
         return true;
+    }
+
+    /// <summary>The bar's box on the 1280 x 720 stage (the medallion's left tip to the band's right end, the lines' top to the band's bottom, with a small margin).</summary>
+    static readonly Rect2 VitalsStageBox = new(425f, 75f, 395f, 40f);
+
+    /// <summary>
+    /// Identity for the original's place; with <see cref="Frame.VitalsCorner"/> (added content: Musou's corner layout) the move and scale that put the bar's box at that corner,
+    /// its left edge at X and its bottom edge Y above the screen's bottom.
+    /// </summary>
+    Transform2D VitalsPlace(Vector2 vs)
+    {
+        if (Data.VitalsCorner is not { } c || c.Z <= 0f) return Transform2D.Identity;
+        var corner = Stage(vs, 0) * new Vector2(VitalsStageBox.Position.X, VitalsStageBox.End.Y);   // the box's left bottom corner in virtual units
+        return new Transform2D(0f, new Vector2(c.Z, c.Z), 0f, new Vector2(c.X, vs.Y - c.Y)) * new Transform2D(0f, -corner);
     }
 
     HudMovieArt.Pic? _lastArm, _lastHp;
