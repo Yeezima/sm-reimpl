@@ -6,13 +6,13 @@ using SmSim.Extras.Musou;
 namespace SmClient;
 
 /// <summary>
-/// The Librarian's chain lightning, drawn procedurally (**ours**; no third-party file or audio is used, and no original effect either): per link a jagged polyline from the caster's hand to the primary enemy and on to
+/// The Librarian's chain lightning as drawn until 2026-11-10 (kept for the restore switch <c>--old-librarian-lightning</c>; the new look is <see cref="LibrarianBolts"/>), drawn procedurally (**ours**; no third-party file or audio is used, and no original effect either): per link a jagged polyline from the caster's hand to the primary enemy and on to
 /// each chained one, re-rolled every <see cref="CrackleSeconds"/> so it crackles, with a short side fork, drawn as two crossed ribbons in two layers (a near-white core, an electric-blue <c>#5aa0ff</c> outer glow) in
 /// an additive unshaded material. The first links are thicker and brighter and the width falls along the chain as the damage does (x0.85 a link). A bright spark flares on every struck chest, a soft blue glow sits at the
 /// hand, and everything fades over <see cref="FadeSeconds"/> after the last section that fed it. Pooled: at most <see cref="MaxLinks"/> meshes, built once, rebuilt in place on each re-roll (no node or material per frame).
 /// The positions are Godot world space (the caller converts).
 /// </summary>
-public sealed partial class LibrarianBolts : Node3D
+public sealed partial class LibrarianBoltsOld : Node3D
 {
     public const int MaxLinks = LibrarianRules.MaxDrawnLinks;
     public const double CrackleSeconds = 0.06, FadeSeconds = 0.15;
@@ -32,9 +32,9 @@ public sealed partial class LibrarianBolts : Node3D
     int _count;
     double _fedAt = double.NegativeInfinity, _builtAt = double.NegativeInfinity;
 
-    public LibrarianBolts()
+    public LibrarianBoltsOld()
     {
-        Name = "LibrarianBolts";
+        Name = "LibrarianBoltsOld";
         _material = new StandardMaterial3D
         {
             ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded, Transparency = BaseMaterial3D.TransparencyEnum.Alpha, BlendMode = BaseMaterial3D.BlendModeEnum.Add,
