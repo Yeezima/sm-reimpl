@@ -34,6 +34,17 @@ public enum PoseChannelKind : byte
     /// means the same over any stance.
     /// </summary>
     Aim,
+    /// <summary>
+    /// A shift of the bone's origin in the body's frame (the key's fields as metres: forward, right, up; the pelvis drops, shifts and sways), as far as the key's weight. The legs follow the
+    /// pelvis, so the planted feet are put back where the stance had them by the leg solve (<see cref="Foot"/>).
+    /// </summary>
+    Move,
+    /// <summary>
+    /// A foot's place against the ground: an offset (metres forward, right, up in the body's frame) from where the stance plants it, reached by a two-bone leg solve; zero holds the foot
+    /// planted on its spot, an up offset lifts it (a step), a new forward / right offset with up 0 replants it there. A foot with no channel is held on its spot whenever the clip moves the
+    /// pelvis, so a planted foot never slides.
+    /// </summary>
+    Foot,
 }
 
 /// <summary>
@@ -50,6 +61,12 @@ public readonly record struct PoseKey(float T, float Yaw, float Pitch, float Rol
     public static PoseKey Turn(float t, float yaw, float pitch, float roll, PoseEase ease = PoseEase.Smooth) => new(t, yaw, pitch, roll, ease, 1f);
     /// <summary>An aim key: the segment toward <paramref name="elevation"/> degrees above the horizontal and <paramref name="azimuth"/> degrees from the front toward the right.</summary>
     public static PoseKey Aim(float t, float elevation, float azimuth, PoseEase ease = PoseEase.Smooth, float weight = 1f) => new(t, azimuth, elevation, 0f, ease, weight);
+    /// <summary>A move or foot key: an offset in metres in the body's frame (<see cref="PoseChannelKind.Move"/>, <see cref="PoseChannelKind.Foot"/>).</summary>
+    public static PoseKey Move(float t, float forward, float right, float up, PoseEase ease = PoseEase.Smooth, float weight = 1f) => new(t, forward, right, up, ease, weight);
+    /// <summary>A move or foot key's offset (metres).</summary>
+    public float Forward => Yaw;
+    public float Right => Pitch;
+    public float Up => Roll;
     /// <summary>This key's turn scaled (a recovery part-way back toward the base pose); for an aim key the weight is scaled.</summary>
     public PoseKey Scaled(float t, float factor, PoseEase ease = PoseEase.Smooth) => new(t, Yaw * factor, Pitch * factor, Roll * factor, ease, Weight * factor);
     /// <summary>An aim key's elevation and azimuth.</summary>
@@ -62,10 +79,14 @@ public readonly record struct PoseSample(float Yaw, float Pitch, float Roll, flo
 {
     public float Elevation => Pitch;
     public float Azimuth => Yaw;
+    /// <summary>A move or foot sample's offset (metres).</summary>
+    public float Forward => Yaw;
+    public float Right => Pitch;
+    public float Up => Roll;
     public bool IsZero => MathF.Abs(Yaw) + MathF.Abs(Pitch) + MathF.Abs(Roll) < 1e-3f;
 }
 
-/// <summary>A bone's keys, in time order. An <see cref="PoseChannelKind.Aim"/> channel names the child bone the segment runs toward.</summary>
+/// <summary>A bone's keys, in time order. An <see cref="PoseChannelKind.Aim"/> channel names the child bone the segment runs toward; a <see cref="PoseChannelKind.Foot"/> channel names the foot bone.</summary>
 public sealed record PoseChannel(string Bone, PoseKey[] Keys, PoseChannelKind Kind = PoseChannelKind.Turn, string? Toward = null)
 {
     /// <summary>The value at <paramref name="t"/> seconds, held at the first key before it and at the last key after it. An aim's azimuth is interpolated the short way round.</summary>
@@ -82,6 +103,7 @@ public sealed record PoseChannel(string Bone, PoseKey[] Keys, PoseChannelKind Ki
             float u = span <= 1e-6f ? 1f : (t - a.T) / span;
             float e = Ease(b.Ease, u);
             float yaw = Kind == PoseChannelKind.Aim ? a.Yaw + ShortWay(b.Yaw - a.Yaw) * e : a.Yaw + (b.Yaw - a.Yaw) * e;
+            if (Kind == PoseChannelKind.Foot && b.Ease == PoseEase.Snap && e > 1f) e = 1f;   // a replanting foot never overshoots into the ground
             return new(yaw, a.Pitch + (b.Pitch - a.Pitch) * e, a.Roll + (b.Roll - a.Roll) * e, a.Weight + (b.Weight - a.Weight) * e);
         }
         var last = k[^1];

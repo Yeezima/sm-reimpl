@@ -5,6 +5,9 @@
 **Owner's review of the first previews (2026-11-10):** spear approved as the base, with the rest pose "upright at his side" (done: section 3) and
 the impale's release kept at 0.5 s; claws "redo: too stiff / small motions, reads like a sword; keep the diagonal rake" (done: the second pass of
 section 3, every claw strike re-authored with the whole upper body driving it, the off hand bracing, and claw moves: rake, gut, stab, rip, overhead rake).
+**Second review (2026-11-10):** "no part of the character's body should remain still through this.. he should be putting his entire body into the
+strokes", "still too stiff / small", "add pelvis now", "keep the stab-and-rip pair" (done: the third pass, section 1's Move and Foot channels and the
+leg solve, section 3: the pelvis turns, drops and shifts on every strike, a lead foot steps and replants, planted feet pinned by the solve).
 **Label:** ours (keyframes authored by us), laid over original clips read at run time; stand-in weapon models are placeholder demonstrations.
 
 Previews: `<media folder>\previews\claw-spear-anims\` (stills per view and moment, one clip per weapon and view, a README with the table below).
@@ -31,8 +34,9 @@ How a clip is defined (`WeaponPoseClip`):
 | Aim channel | where a limb segment points (elevation above the horizontal, azimuth from the front toward the right), reached from the base pose by the shortest turn, as far as the key's weight (0 = base, 1 = aimed): the upper arms and forearms. Absolute, so a pose means the same over any stance; the numbers were read off the base poses with the stage's `--pose-log`. |
 | Keys and easing | each key eases in from the one before: `In` (the wind-up gathers), `Hold` (the claw's cocked apex sits 0.035 s, two frames, so it reads before the arc), `Snap` (97 % of the travel in the first half of the segment: the strike), `Linear` (a blade passing the front of a sweep without pausing), `Out`, `Over` (a follow-through that passes by a tenth and comes back), `Smooth` (settles). |
 | Spear rest | `spear_rest`, a held pose over the hammer's idle: the spear upright at the right side, butt by the foot and blade above the head, the right hand on the shaft at the hip, the left gripping it at the chest (the owner's reference). Every sweep starts from it and returns to it; the stage shows it in every spear idle. |
-| Hand-over | a chained strike fades from the previous clip's last pose over 0.14 s (`WeaponPoseState.From`), so the overlay never pops at a combo step. |
-| Feet | no clip names the root, pelvis or a leg bone (pinned by `ClawSpearClipsTests`), so the feet stay where the stance puts them and the body's weight shift is carried by the spine. |
+| Move channel | a shift of a bone's origin in the stance's frame (metres forward, right, up): the pelvis drops, drives forward and shifts its weight (third pass). Applied in the parent's frame after the bone's turn. |
+| Foot channel and the leg solve | a foot's offset from where the stance plants it (metres; up > 0 lifts it for a step, a new forward / right offset with up 0 replants it there). Whenever a clip is laid, each leg is solved (two bones: the thigh aims at the new knee, the calf at the foot, the knee bending the way the stance bends it, the foot keeping the stance's orientation) so the foot stands at its planted spot plus the offset; a foot with no channel is held on its spot. So the pelvis and spine move freely and a planted foot never slides; the thighs, calves and toes are never keyed, and the root never moves (the simulation's position; `ClawSpearClipsTests` pin all of this). Chained strikes start with the feet where the one before planted them. |
+| Hand-over | a chained strike fades from the previous clip's last pose over 0.14 s (`WeaponPoseState.From`), turns, shifts and foot offsets alike, so the overlay never pops at a combo step. |
 | Stand-ins | `ClawSpearStandIns.cs`: the claw follows the right forearm and hand (gauntlet, pistons, brass bands, four talons 1.2 forearms long curving toward the palm); the spear follows the line through both hands (2.8 m black shaft, bronze collar, crossguard and ring, 0.9 m single-edged blade glowing blue, deeper at the base; the right hand is the rear hand 0.5 m from the butt, the blade beyond the left hand). The glow rises round the hit. |
 
 **The hit time is the data's.** Every clip's length and hit time is the borrowed strike's divided by the design's tempo (`ClawTempo` 1.25,
@@ -60,18 +64,21 @@ The design's hit times (section 5: the sword's ÷ 1.25; section 6.1: 0.71 / 0.67
 `ClawSpearClipsTests` pins them. The spin's blade passes the front at the hit on a constant rate and runs on for 0.18 s; the chest winds about
 50 degrees and the arms carry the rest, about 250 degrees of blade travel in all, the feet planted.
 
-## 3. What each strike does (second pass of the claw, 2026-11-10)
+## 3. What each strike does (third pass of the claw, 2026-11-10)
 
-The claw's first pass was judged too stiff and sword-like. In the second pass the lower spine stands in for the hips (the pelvis and legs stay
-unkeyed so the feet never slide), the chest and shoulder drive every strike (spine yaw up to about 70 degrees across the two spine bones,
-lean up to 40), the arm arcs reach far behind the body and far past the target, the cocked apex is held two frames, and the off hand (the
-pistol) braces, shoves or counter-swings. The five moves are a claw's, not a sword's:
+The claw's first pass was judged too stiff and sword-like, the second still too stiff and small, with the body below the waist still. In the
+third pass the whole body is in every stroke: the pelvis turns (to about 20 degrees), drops (to 0.26 m) and shifts its weight; the spine and
+shoulder add their turn (chest yaw to about 90 degrees in all, lean to 40); a lead foot lifts, steps and replants into the strike while the rear
+leg drives, the legs solved onto the feet so a planted foot never slides; the arm arcs reach far behind the body and far past the target, the
+cocked apex is held two frames, and the off hand (the pistol) braces, shoves or counter-swings; the head follows the target throughout. The five
+moves are a claw's, not a sword's; the string's steps carry the feet forward (X1 the left foot 0.40 m, X2 the right 0.35 m, X3 the left lunging to
+0.75 m, X4 the right stamping back) and X4's long recovery brings them back under him. The root never moves: the simulation's lunge moves the body.
 
-- **Claw X1, diagonal rake** (kept, as the owner asked): hips and chest coil hard right, the claw drawn up behind the right shoulder; the body whips left and down and the talons rake across to past the left hip; the pistol arm swings back as a counterweight.
-- **Claw X2, gutting rake**: from X1's end the body crouches further left over the low claw, then uncoils up and right as the talons tear upward through the belly to above the right shoulder; the pistol arm shoves forward low as a brace.
-- **Claw X3, punching stab**: the chest coils far right with the claw drawn back beside the ribs, talons forward, the pistol arm out as a guard; hips and shoulder drive the arm straight out and the talons punch into the chest. The claw stays buried, the body leaning in, until the next strike (the combo opens at 0.586 s).
-- **Claw X4, tearing rip** (string end): with the talons buried, the body leans in and twists the claw deeper and the pistol hand is planted on the target; then hips and chest wrench back and right and the talons tear out and up past the right shoulder while the off hand shoves the target away. A long recovery.
-- **Claw heavy, overhead downward rake**: the body rears back with the claw raised straight up and cocked behind the head, the pistol arm thrown back; hips, chest and shoulder fold forward together and the talons rake down through the target to the ground.
+- **Claw X1, diagonal rake** (kept, as the owner asked): hips and chest coil hard right over the rear leg, the claw drawn up behind the right shoulder, the left foot lifting; the left foot stamps down ahead and the body whips left and down over it as the talons rake across to past the left hip; the pistol arm swings back as a counterweight.
+- **Claw X2, gutting rake**: from X1's end the body sinks further left over the bent lead leg with the claw low, then the right foot steps through and the hips and chest uncoil up and right as the talons tear upward through the belly to above the right shoulder; the pistol arm shoves forward low as a brace.
+- **Claw X3, punching stab**: the weight sinks onto the rear leg, the chest coils far right with the claw drawn back beside the ribs, talons forward, the pistol arm out as a guard; the left foot lunges a long step ahead and the hips drive the whole body forward behind the arm as the talons punch into the chest. The claw stays buried, the body leaning in, until the next strike (the combo opens at 0.586 s; alone, it pulls out by 1.0 s).
+- **Claw X4, tearing rip** (string end): with the talons buried, the body leans in further and twists the claw deeper, the pistol hand planted on the target, the rear foot lifting; the right foot stamps back, the hips wrench back and right and the talons tear out and up past the right shoulder while the off hand shoves the target away. A long recovery as the feet come back under him.
+- **Claw heavy, overhead downward rake**: the body rears back onto the rear leg with the claw raised straight up and cocked behind the head, the pistol arm thrown back, the left foot lifting; the left foot stamps down ahead and hips, chest and shoulder fold forward over it together as the talons rake down through the target to the ground.
 - **Spear rest**: upright at the right side, butt by the foot, blade above the head (the owner's reference); the right hand on the shaft at the hip, the left gripping it at the chest.
 - **Spear forehand**: from the rest the spear is levelled and drawn back over the right hip, blade forward-right; a flat two-handed sweep across the front to the left, the rear hand swinging behind the right hip.
 - **Spear backhand**: from the forehand's end the blade is gathered left-back and swept across the front to the right.
@@ -98,8 +105,8 @@ implementation in the Librarian file then drops its one call.
 
 ## 5. Open points for the owner
 
-Answered 2026-11-10: keep X1's diagonal rake; the spear rests upright at the side; the impale releases at 0.5 s.
+Answered 2026-11-10: keep X1's diagonal rake; the spear rests upright at the side; the impale releases at 0.5 s; keep the stab-and-rip pair; key the pelvis (done, with the leg solve).
 
-1. X3 and X4 now form a stab-and-rip pair: the claw stays buried in the target between them (0.35 to 0.59 s of X3). If X4 is not pressed, X3 pulls the claw out on its own by 1.0 s. Keep the pair, or make every strike stand alone?
-2. The "hips" are the lower spine: the pelvis and legs are never keyed, so the feet never slide, at the cost of no real hip turn. Key the pelvis later (with foot pinning), or is the spine enough?
+1. The steps are presentation: the feet move 0.35 to 0.75 m ahead of the root while the simulation's own lunge moves the body. In a match the two add up (the body lunges and the lead foot reaches further still); if that reads as too much ground covered, the step lengths are one number each (`X1LeftF` ...).
+2. The spear's sweeps were left as approved; the pelvis and foot channels would let them step into the sweeps too (a light touch, on request).
 3. Stand-in sizes: the talons are 1.2 forearms (about 0.45 m); the blade 0.9 m on a 2.8 m spear. The real models replace them in W2 / W3.

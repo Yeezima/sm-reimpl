@@ -54,11 +54,52 @@ public class ClawSpearClipsTests
     }
 
     [Fact]
-    public void No_clip_moves_the_legs_or_the_root()
+    public void The_legs_are_only_ever_placed_by_their_feet_and_the_root_is_never_moved()
     {
-        string[] planted = ["RIG_Root", "RIG_Pelvis", "RIG_L_Thigh", "RIG_R_Thigh", "RIG_L_Calf", "RIG_R_Calf", "RIG_L_Foot", "RIG_R_Foot", "RIG_L_Toe", "RIG_R_Toe"];
+        // Third pass: the pelvis may turn and move and a foot may step (a Foot channel on the foot bone); the thighs, calves and toes are solved, never keyed; the root stays the simulation's.
+        string[] solved = ["RIG_L_Thigh", "RIG_R_Thigh", "RIG_L_Calf", "RIG_R_Calf", "RIG_L_Toe", "RIG_R_Toe"];
         foreach (var clip in ClawSpearClips.All)
-            Assert.Empty(clip.Bones.Intersect(planted, StringComparer.OrdinalIgnoreCase));
+            foreach (var ch in clip.Channels)
+            {
+                Assert.NotEqual("RIG_Root", ch.Bone);
+                Assert.DoesNotContain(ch.Bone, solved);
+                if (ch.Bone is "RIG_L_Foot" or "RIG_R_Foot") Assert.Equal(PoseChannelKind.Foot, ch.Kind);
+                if (ch.Kind == PoseChannelKind.Foot) Assert.True(ch.Bone is "RIG_L_Foot" or "RIG_R_Foot", $"{clip.Name}: a foot channel on {ch.Bone}");
+                if (ch.Kind == PoseChannelKind.Move) Assert.Equal("RIG_Pelvis", ch.Bone);
+            }
+    }
+
+    [Fact]
+    public void Feet_never_go_below_the_ground_and_every_step_comes_back_to_the_stance()
+    {
+        foreach (var clip in ClawSpearClips.All)
+            foreach (var ch in clip.Channels.Where(c => c.Kind == PoseChannelKind.Foot))
+            {
+                foreach (var k in ch.Keys) Assert.True(k.Up >= 0f, $"{clip.Name} {ch.Bone}: a foot key below the ground at {k.T}");
+                for (float t = 0f; t <= clip.Duration; t += 0.01f) Assert.True(ch.Sample(t).Up >= -1e-3f, $"{clip.Name} {ch.Bone}: the foot dips below the ground at {t:0.00}");
+                var end = ch.Sample(clip.Duration);
+                Assert.True(MathF.Abs(end.Forward) + MathF.Abs(end.Right) + MathF.Abs(end.Up) < 1e-3f, $"{clip.Name} {ch.Bone}: the foot is not back on its spot at the end");
+            }
+        foreach (var clip in ClawSpearClips.All.Where(c => c.Weapon == "claw"))
+        {
+            var pelvis = clip.Channels.Single(c => c.Kind == PoseChannelKind.Move);
+            var end = pelvis.Sample(clip.Duration);
+            Assert.True(MathF.Abs(end.Forward) + MathF.Abs(end.Right) + MathF.Abs(end.Up) < 1e-3f, $"{clip.Name}: the pelvis is not back at the end");
+            Assert.Contains(clip.Channels, c => c.Kind == PoseChannelKind.Foot);   // every claw strike steps
+        }
+    }
+
+    [Fact]
+    public void Chained_claw_strikes_start_with_the_feet_where_the_one_before_planted_them()
+    {
+        var pairs = new[] { (ClawSpearClips.ClawX1, ClawSpearClips.ClawX2), (ClawSpearClips.ClawX2, ClawSpearClips.ClawX3), (ClawSpearClips.ClawX3, ClawSpearClips.ClawX4) };
+        foreach (var (first, next) in pairs)
+            foreach (string foot in new[] { "RIG_L_Foot", "RIG_R_Foot" })
+            {
+                var a = first.Channels.FirstOrDefault(c => c.Bone == foot)?.Sample(first.NextAt) ?? default;
+                var b = next.Channels.FirstOrDefault(c => c.Bone == foot)?.Sample(0f) ?? default;
+                Assert.True(MathF.Abs(a.Forward - b.Forward) < 1e-3f && MathF.Abs(a.Right - b.Right) < 1e-3f && MathF.Abs(a.Up - b.Up) < 1e-3f, $"{first.Name} -> {next.Name}: {foot} jumps at the chain");
+            }
     }
 
     [Fact]
@@ -68,7 +109,7 @@ public class ClawSpearClipsTests
             foreach (var ch in clip.Channels)
             {
                 var end = ch.Sample(clip.Duration);
-                if (ch.Kind == PoseChannelKind.Turn) Assert.True(end.IsZero, $"{clip.Name} {ch.Bone}: a turn left at the end");
+                if (ch.Kind is PoseChannelKind.Turn or PoseChannelKind.Move or PoseChannelKind.Foot) Assert.True(end.IsZero, $"{clip.Name} {ch.Bone}: a {ch.Kind} left at the end");
                 else Assert.True(end.Weight <= 1e-4f, $"{clip.Name} {ch.Bone}: an aim still weighted at the end");
             }
     }

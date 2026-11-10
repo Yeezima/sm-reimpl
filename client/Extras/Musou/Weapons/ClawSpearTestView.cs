@@ -217,13 +217,8 @@ public partial class ClawSpearTestView : Node3D
     /// </summary>
     void FaceCamera()
     {
-        var s = _marine!.Skeleton!;
-        int lt = s.FindBone("RIG_L_Thigh"), rt = s.FindBone("RIG_R_Thigh");
-        if (lt < 0 || rt < 0) return;
-        var across = s.GetBoneGlobalPose(rt).Origin - s.GetBoneGlobalPose(lt).Origin;
-        across.Z = 0f;
-        if (across.LengthSquared() < 1e-6f) return;
-        var front = new Vector3(0f, 0f, 1f).Cross(across.Normalized());   // skeleton space (Z up); the game-space root maps skeleton (x, y, z) to Godot (x, -z, y)... the yaw is the same about the up axis
+        // The stance's front as the overlay read it from the hips before it moved the pelvis (third pass: the pelvis turns with the strike; the stage must not turn the marine with it).
+        var front = _marine!.WeaponPoseBaseFront;   // skeleton space (Z up); the yaw about the up axis is the same under the game-space root
         float yaw = MathF.Atan2(front.Y, front.X);   // the front's angle from skeleton +X toward +Y (Godot -Z under the game-space root)
         _marine.Rotation = new Vector3(0f, -yaw, 0f);   // Godot's Y rotation: positive turns +X toward -Z, so the opposite turn brings the front back to +X
     }

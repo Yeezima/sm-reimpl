@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -54,29 +54,47 @@ public static class ClawSpearClips
 
     // ---- the lightning claw (right hand; the pistol stays in the left) ----
     // The claw idle's right arm hangs low and back (upper arm el -54 az 150, forearm el -57 az 92: --pose-log), so an aim key's weight 0 is that hanging arm.
+    // Third pass (owner, 2026-11-10: "no part of the character's body should remain still through this.. he should be putting his entire body into the strokes", "add pelvis now"):
+    // the pelvis turns, drops and shifts its weight on every strike (Turn and Move channels on RIG_Pelvis), a lead foot steps into the strike and replants (Foot channels: offsets from the
+    // stance's spot, up > 0 lifts), the rear leg drives; the legs are solved onto the feet, so a planted foot never slides. Chained strikes start with the feet where the one before planted them.
 
-    /// <summary>X1: the diagonal rake, from high behind the right shoulder down across to past the left hip (the sword's X1 at 1.25x: 1.28 s, hit 0.256 s).</summary>
+    const string Pelvis = "RIG_Pelvis", LFoot = "RIG_L_Foot", RFoot = "RIG_R_Foot";
+    /// <summary>A move or foot key: metres forward, right, up in the stance's frame.</summary>
+    static PoseKey M(float t, float forward, float right, float up, PoseEase ease = PoseEase.Smooth) => PoseKey.Move(t, forward, right, up, ease);
+    static PoseChannel PelvisMove(params PoseKey[] keys) => new(Pelvis, keys, PoseChannelKind.Move);
+    static PoseChannel Foot(string side, params PoseKey[] keys) => new($"RIG_{side}_Foot", keys, PoseChannelKind.Foot);
+    /// <summary>Where the string's steps leave the feet (metres forward, right from the stance's spots): after X1 the left foot, after X2 the right, after X3 the left lunged, after X4's rip the right stepped back.</summary>
+    const float X1LeftF = 0.40f, X1LeftR = -0.12f, X2RightF = 0.35f, X2RightR = 0.18f, X3LeftF = 0.75f, X4RightF = -0.05f, X4RightR = 0.22f;
+
+    /// <summary>X1: the diagonal rake, from high behind the right shoulder down across to past the left hip, the left foot stepping into it (the sword's X1 at 1.25x: 1.28 s, hit 0.256 s).</summary>
     public static readonly WeaponPoseClip ClawX1 = Claw("claw_x1", 1.600f, 0.320f, 0.867f, "the sword's X1 (SM_MEL_CS_ATK_F_01_D_3.5m 1.600 s, hit 0.320 s)",
-        "diagonal rake: the hips and chest coil hard right with the claw drawn up behind the right shoulder, then the whole body whips left and down as the talons rake across the target to past the left hip; the pistol arm swings back as a counterweight",
+        "diagonal rake: the hips and chest coil hard right over the rear leg with the claw drawn up behind the right shoulder and the left foot lifting, then the left foot stamps down ahead and the whole body whips left and down over it as the talons rake across the target to past the left hip; the pistol arm swings back as a counterweight",
         antic: 0.086f, follow: 0.125f, recover: 0.80f, (a, h, f, r, end) =>
         [
+            Turn(Pelvis, Z(0f), T(a, -18, 4, -6, PoseEase.In), T(h, 20, -10, 6, PoseEase.Snap), T(f, 24, -12, 8, PoseEase.Over), T(r, 8, -4, 2), Z(end)),
+            PelvisMove(M(0f, 0, 0, 0), M(a, -0.06f, 0.05f, -0.06f, PoseEase.In), M(h, 0.18f, -0.06f, -0.14f, PoseEase.Snap), M(f, 0.22f, -0.08f, -0.16f, PoseEase.Over), M(r, 0.10f, -0.03f, -0.06f), M(end, 0, 0, 0)),
+            Foot("L", M(0f, 0, 0, 0), M(a, 0.15f, -0.05f, 0.12f, PoseEase.In), M(h, X1LeftF, X1LeftR, 0, PoseEase.Snap), M(r, X1LeftF, X1LeftR, 0), M(r + 0.2f, X1LeftF * 0.5f, X1LeftR * 0.5f, 0.08f), M(end, 0, 0, 0)),
             Turn(SpineA, Z(0f), T(a, -28, 8, -8, PoseEase.In), T(h, 30, -16, 8, PoseEase.Snap), T(f, 38, -20, 10, PoseEase.Over), T(r, 10, -5, 2), Z(end)),
             Turn(SpineD, Z(0f), T(a, -34, 10, -8, PoseEase.In), T(h, 38, -20, 10, PoseEase.Snap), T(f, 46, -24, 12, PoseEase.Over), T(r, 12, -6, 3), Z(end)),
             Turn(Head, Z(0f), T(a, 30, -6, 0, PoseEase.In), T(h, -14, 8, 0, PoseEase.Snap), T(f, -18, 10, 0, PoseEase.Over), T(r, -4, 2, 0), Z(end)),
             Turn(RClav, Z(0f), T(a, -14, 18, -10, PoseEase.In), T(h, 14, 10, 10, PoseEase.Snap), T(f, 18, 6, 12, PoseEase.Over), T(r, 4, 1, 3), Z(end)),
             Turn(LClav, Z(0f), T(a, -8, -4, 4, PoseEase.In), T(h, 10, -8, -6, PoseEase.Snap), T(f, 12, -8, -8, PoseEase.Over), T(r, 3, -2, -2), Z(end)),
-            Upper("R", A(0f, 45, 110, w: 0f), A(a, 45, 110, PoseEase.In), A(h, -20, -30, PoseEase.Snap), A(f, -40, -55, PoseEase.Over), A(r, -40, -55, w: 0.3f), A(end, -40, -55, w: 0f)),
-            Fore("R", A(0f, 60, 20, w: 0f), A(a, 60, 20, PoseEase.In), A(h, -50, -60, PoseEase.Snap), A(f, -65, -100, PoseEase.Over), A(r, -65, -100, w: 0.3f), A(end, -65, -100, w: 0f)),
-            Turn(RHand, Z(0f), T(0f, 0, 0, 0), T(a, 0, 30, 0, PoseEase.In), T(h, 0, -20, 15, PoseEase.Snap), T(f, 0, -16, 20, PoseEase.Over), T(r, 0, -5, 6), Z(end)),
-            Upper("L", A(0f, -20, -110, w: 0f), A(a, -10, -80, PoseEase.In, 0.7f), A(h, -25, -150, PoseEase.Snap, 0.8f), A(f, -20, -160, PoseEase.Over, 0.8f), A(r, -20, -160, w: 0.25f), A(end, -20, -160, w: 0f)),
-            Fore("L", A(0f, -40, -100, w: 0f), A(a, -30, -60, PoseEase.In, 0.7f), A(h, -40, -170, PoseEase.Snap, 0.8f), A(f, -30, 180, PoseEase.Over, 0.8f), A(r, -30, 180, w: 0.25f), A(end, -30, 180, w: 0f)),
+            Upper("R", A(0f, 45, 110, w: 0f), A(a, 50, 115, PoseEase.In), A(h, -20, -30, PoseEase.Snap), A(f, -40, -55, PoseEase.Over), A(r, -40, -55, w: 0.3f), A(end, -40, -55, w: 0f)),
+            Fore("R", A(0f, 60, 20, w: 0f), A(a, 65, 10, PoseEase.In), A(h, -50, -60, PoseEase.Snap), A(f, -65, -100, PoseEase.Over), A(r, -65, -100, w: 0.3f), A(end, -65, -100, w: 0f)),
+            Turn(RHand, Z(0f), T(a, 0, 30, 0, PoseEase.In), T(h, 0, -20, 15, PoseEase.Snap), T(f, 0, -16, 20, PoseEase.Over), T(r, 0, -5, 6), Z(end)),
+            Upper("L", A(0f, -20, -110, w: 0f), A(a, -5, -70, PoseEase.In, 0.8f), A(h, -25, -150, PoseEase.Snap, 0.9f), A(f, -15, -165, PoseEase.Over, 0.9f), A(r, -15, -165, w: 0.3f), A(end, -15, -165, w: 0f)),
+            Fore("L", A(0f, -40, -100, w: 0f), A(a, -25, -50, PoseEase.In, 0.8f), A(h, -40, -170, PoseEase.Snap, 0.9f), A(f, -25, 175, PoseEase.Over, 0.9f), A(r, -25, 175, w: 0.3f), A(end, -25, 175, w: 0f)),
         ]);
 
-    /// <summary>X2: the low gutting rake, from past the left hip up and across to above the right shoulder (the sword's X2 at 1.25x: 1.146 s, hit 0.230 s).</summary>
+    /// <summary>X2: the low gutting rake, from past the left hip up and across to above the right shoulder, the right foot stepping through (the sword's X2 at 1.25x: 1.146 s, hit 0.230 s).</summary>
     public static readonly WeaponPoseClip ClawX2 = Claw("claw_x2", 1.433f, 0.287f, 0.767f, "the sword's X2 (SM_MEL_PA_XATK_Combo2MsA_3.5m 1.433 s, hit 0.287 s)",
-        "gutting rake: from the diagonal rake's end the body crouches further left over the low claw, then the hips and chest uncoil up and to the right as the talons tear upward through the belly to above the right shoulder; the pistol arm shoves forward low as a brace",
+        "gutting rake: from the diagonal rake's end the body sinks further left over the bent lead leg with the claw low, then the right foot steps through and the hips and chest uncoil up and to the right as the talons tear upward through the belly to above the right shoulder; the pistol arm shoves forward low as a brace",
         antic: 0.08f, follow: 0.12f, recover: 0.75f, (a, h, f, r, end) =>
         [
+            Turn(Pelvis, T(0f, 14, -6, 3), T(a, 18, -10, 4, PoseEase.In), T(h, -18, 6, -8, PoseEase.Snap), T(f, -22, 8, -10, PoseEase.Over), T(r, -6, 2, -3), Z(end)),
+            PelvisMove(M(0f, 0.10f, -0.03f, -0.06f), M(a, 0.06f, -0.10f, -0.18f, PoseEase.In), M(h, 0.16f, 0.10f, -0.04f, PoseEase.Snap), M(f, 0.18f, 0.12f, 0.0f, PoseEase.Over), M(r, 0.10f, 0.05f, -0.05f), M(end, 0, 0, 0)),
+            Foot("L", M(0f, X1LeftF, X1LeftR, 0), M(r, X1LeftF, X1LeftR, 0), M(r + 0.2f, X1LeftF * 0.5f, X1LeftR * 0.5f, 0.08f), M(end, 0, 0, 0)),
+            Foot("R", M(0f, 0, 0, 0), M(a, 0.12f, 0.10f, 0.12f, PoseEase.In), M(h, X2RightF, X2RightR, 0, PoseEase.Snap), M(r, X2RightF, X2RightR, 0), M(r + 0.2f, X2RightF * 0.5f, X2RightR * 0.5f, 0.08f), M(end, 0, 0, 0)),
             Turn(SpineA, T(0f, 24, -12, 4), T(a, 30, -18, 6, PoseEase.In), T(h, -28, 10, -10, PoseEase.Snap), T(f, -36, 14, -12, PoseEase.Over), T(r, -10, 4, -3), Z(end)),
             Turn(SpineD, T(0f, 28, -14, 6), T(a, 36, -22, 8, PoseEase.In), T(h, -34, 12, -12, PoseEase.Snap), T(f, -44, 16, -14, PoseEase.Over), T(r, -12, 4, -4), Z(end)),
             Turn(Head, T(0f, -12, 6, 0), T(a, -20, 14, 0, PoseEase.In), T(h, 16, -10, 0, PoseEase.Snap), T(f, 20, -12, 0, PoseEase.Over), T(r, 5, -3, 0), Z(end)),
@@ -85,15 +103,19 @@ public static class ClawSpearClips
             Upper("R", A(0f, -40, -55, w: 0.85f), A(a, -55, -45, PoseEase.In), A(h, 25, 50, PoseEase.Snap), A(f, 55, 85, PoseEase.Over), A(r, 55, 85, w: 0.3f), A(end, 55, 85, w: 0f)),
             Fore("R", A(0f, -65, -100, w: 0.85f), A(a, -60, -90, PoseEase.In), A(h, 45, 70, PoseEase.Snap), A(f, 70, 110, PoseEase.Over), A(r, 70, 110, w: 0.3f), A(end, 70, 110, w: 0f)),
             Turn(RHand, T(0f, 0, -16, 20), T(a, 0, -25, 25, PoseEase.In), T(h, 0, 20, -15, PoseEase.Snap), T(f, 0, 25, -20, PoseEase.Over), T(r, 0, 6, -6), Z(end)),
-            Upper("L", A(0f, -20, -160, w: 0.6f), A(a, -30, -150, PoseEase.In, 0.7f), A(h, -30, -15, PoseEase.Snap, 0.9f), A(f, -25, -5, PoseEase.Over, 0.9f), A(r, -25, -5, w: 0.25f), A(end, -25, -5, w: 0f)),
-            Fore("L", A(0f, -30, 180, w: 0.6f), A(a, -40, -170, PoseEase.In, 0.7f), A(h, -5, 0, PoseEase.Snap, 0.9f), A(f, 0, 0, PoseEase.Over, 0.9f), A(r, 0, 0, w: 0.25f), A(end, 0, 0, w: 0f)),
+            Upper("L", A(0f, -15, -165, w: 0.7f), A(a, -30, -150, PoseEase.In, 0.8f), A(h, -30, -15, PoseEase.Snap, 0.9f), A(f, -25, -5, PoseEase.Over, 0.9f), A(r, -25, -5, w: 0.3f), A(end, -25, -5, w: 0f)),
+            Fore("L", A(0f, -25, 175, w: 0.7f), A(a, -40, -170, PoseEase.In, 0.8f), A(h, -5, 0, PoseEase.Snap, 0.9f), A(f, 0, 0, PoseEase.Over, 0.9f), A(r, 0, 0, w: 0.3f), A(end, 0, 0, w: 0f)),
         ]);
 
-    /// <summary>X3: the punching stab, the talons driven straight into the target's chest from the ribs (the sword's X3 at 1.25x: 1.414 s, hit 0.346 s); the claw stays in until the next strike rips it out.</summary>
+    /// <summary>X3: the punching stab, the talons driven straight into the target's chest from the ribs with a long lunge of the left foot (the sword's X3 at 1.25x: 1.414 s, hit 0.346 s); the claw stays in until the rip.</summary>
     public static readonly WeaponPoseClip ClawX3 = Claw("claw_x3", 1.767f, 0.433f, 0.733f, "the sword's X3 (SM_MEL_CS_XATK_Combo3_3.5 1.767 s, hit 0.433 s)",
-        "punching stab: the chest coils far right with the claw drawn back beside the ribs, talons forward, and the pistol arm out as a guard, then the hips and shoulder drive the arm straight out and the talons punch into the target's chest; the claw stays buried, the body leaning in, until the rip",
+        "punching stab: the weight sinks onto the rear leg, the chest coils far right with the claw drawn back beside the ribs, talons forward, the pistol arm out as a guard; then the left foot lunges a long step ahead and the hips drive the whole body forward behind the arm as the talons punch into the target's chest; the claw stays buried, the body leaning in, until the rip",
         antic: 0.14f, follow: 0.115f, recover: 1.0f, (a, h, f, r, end) =>
         [
+            Turn(Pelvis, T(0f, -6, 2, -2), T(a, -22, 6, -6, PoseEase.In), T(h, 18, -12, 4, PoseEase.Snap), T(f, 22, -14, 5, PoseEase.Over), T(0.62f, 22, -14, 5), T(r, 6, -4, 1), Z(end)),
+            PelvisMove(M(0f, 0.10f, 0.05f, -0.05f), M(a, -0.08f, 0.08f, -0.10f, PoseEase.In), M(h, 0.30f, -0.02f, -0.18f, PoseEase.Snap), M(f, 0.34f, -0.03f, -0.20f, PoseEase.Over), M(0.62f, 0.34f, -0.03f, -0.20f), M(r, 0.10f, 0, -0.06f), M(end, 0, 0, 0)),
+            Foot("L", M(0f, X1LeftF, X1LeftR, 0), M(a, X1LeftF + 0.10f, X1LeftR, 0.14f, PoseEase.In), M(h, X3LeftF, X1LeftR, 0, PoseEase.Snap), M(r, X3LeftF, X1LeftR, 0), M(r + 0.2f, X3LeftF * 0.5f, X1LeftR * 0.5f, 0.10f), M(end, 0, 0, 0)),
+            Foot("R", M(0f, X2RightF, X2RightR, 0), M(r, X2RightF, X2RightR, 0), M(r + 0.25f, X2RightF * 0.5f, X2RightR * 0.5f, 0.08f), M(end, 0, 0, 0)),
             Turn(SpineA, T(0f, -10, 4, -3), T(a, -34, 8, -8, PoseEase.In), T(h, 24, -18, 6, PoseEase.Snap), T(f, 30, -22, 8, PoseEase.Over), T(0.62f, 30, -22, 8), T(r, 8, -6, 2), Z(end)),
             Turn(SpineD, T(0f, -12, 4, -4), T(a, -40, 10, -10, PoseEase.In), T(h, 30, -22, 8, PoseEase.Snap), T(f, 36, -26, 10, PoseEase.Over), T(0.62f, 36, -26, 10), T(r, 10, -7, 3), Z(end)),
             Turn(Head, T(0f, 6, 0, 0), T(a, 34, -4, 0, PoseEase.In), T(h, -14, 6, 0, PoseEase.Snap), T(f, -18, 8, 0, PoseEase.Over), T(0.62f, -18, 8, 0), T(r, -5, 2, 0), Z(end)),
@@ -102,15 +124,19 @@ public static class ClawSpearClips
             Upper("R", A(0f, 55, 85, w: 0.7f), A(a, -25, 165, PoseEase.In), A(h, 0, 5, PoseEase.Snap), A(f, -5, 0, PoseEase.Over), A(0.62f, -5, 0), A(r, -5, 0, w: 0.3f), A(end, -5, 0, w: 0f)),
             Fore("R", A(0f, 70, 110, w: 0.7f), A(a, 10, 60, PoseEase.In), A(h, 0, 0, PoseEase.Snap), A(f, -5, -5, PoseEase.Over), A(0.62f, -5, -5), A(r, -5, -5, w: 0.3f), A(end, -5, -5, w: 0f)),
             Turn(RHand, T(0f, 0, 25, -20), T(a, 0, 10, 0, PoseEase.In), T(h, 0, 0, 0, PoseEase.Snap), T(f, 0, -5, 0, PoseEase.Over), T(0.62f, 0, -5, 0), T(r, 0, -2, 0), Z(end)),
-            Upper("L", A(0f, -25, -5, w: 0.6f), A(a, -10, -15, PoseEase.In, 0.9f), A(h, -35, -120, PoseEase.Snap, 0.9f), A(f, -30, -150, PoseEase.Over, 0.9f), A(0.62f, -30, -150, w: 0.9f), A(r, -30, -150, w: 0.25f), A(end, -30, -150, w: 0f)),
-            Fore("L", A(0f, 0, 0, w: 0.6f), A(a, 10, -5, PoseEase.In, 0.9f), A(h, -40, -160, PoseEase.Snap, 0.9f), A(f, -35, 170, PoseEase.Over, 0.9f), A(0.62f, -35, 170, w: 0.9f), A(r, -35, 170, w: 0.25f), A(end, -35, 170, w: 0f)),
+            Upper("L", A(0f, -25, -5, w: 0.6f), A(a, -10, -15, PoseEase.In, 0.9f), A(h, -35, -120, PoseEase.Snap, 0.9f), A(f, -30, -150, PoseEase.Over, 0.9f), A(0.62f, -30, -150, w: 0.9f), A(r, -30, -150, w: 0.3f), A(end, -30, -150, w: 0f)),
+            Fore("L", A(0f, 0, 0, w: 0.6f), A(a, 10, -5, PoseEase.In, 0.9f), A(h, -40, -160, PoseEase.Snap, 0.9f), A(f, -35, 170, PoseEase.Over, 0.9f), A(0.62f, -35, 170, w: 0.9f), A(r, -35, 170, w: 0.3f), A(end, -35, 170, w: 0f)),
         ]);
 
-    /// <summary>X4: the tearing rip that ends the string: the buried talons twisted, then torn back and up past the right shoulder, the off hand shoving the target away (the sword's X4 at 1.25x: 1.334 s, hit 0.426 s).</summary>
+    /// <summary>X4: the tearing rip that ends the string: the buried talons twisted, then torn back and up past the right shoulder as the right foot steps back and the off hand shoves the target away (the sword's X4 at 1.25x: 1.334 s, hit 0.426 s).</summary>
     public static readonly WeaponPoseClip ClawX4 = Claw("claw_x4", 1.667f, 0.533f, float.NaN, "the sword's X4 (SM_MEL_CS_XATK_Combo4_3.5m 1.667 s, hit 0.533 s; the string ends)",
-        "tearing rip: with the talons buried, the body leans in and twists the claw deeper, the pistol hand planted on the target, then the hips and chest wrench back and right and the talons tear out and up past the right shoulder while the off hand shoves the target away; a long recovery",
+        "tearing rip: with the talons buried, the body leans in further and twists the claw deeper, the pistol hand planted on the target, the rear foot lifting; then the right foot stamps back, the hips wrench back and right and the talons tear out and up past the right shoulder while the off hand shoves the target away; a long recovery as the feet come back under him",
         antic: 0.16f, follow: 0.14f, recover: 0.90f, (a, h, f, r, end) =>
         [
+            Turn(Pelvis, T(0f, 20, -12, 4), T(a, 24, -16, 5, PoseEase.In), T(h, -22, 10, -8, PoseEase.Snap), T(f, -28, 12, -10, PoseEase.Over), T(r, -10, 4, -4), Z(end)),
+            PelvisMove(M(0f, 0.34f, -0.03f, -0.20f), M(a, 0.40f, -0.02f, -0.22f, PoseEase.In), M(h, -0.05f, 0.06f, -0.06f, PoseEase.Snap), M(f, -0.12f, 0.08f, -0.04f, PoseEase.Over), M(r, -0.02f, 0.02f, -0.03f), M(end, 0, 0, 0)),
+            Foot("L", M(0f, X3LeftF, X1LeftR, 0), M(r, X3LeftF, X1LeftR, 0), M(r + 0.2f, X3LeftF * 0.5f, X1LeftR * 0.5f, 0.10f), M(end, 0, 0, 0)),
+            Foot("R", M(0f, X2RightF, X2RightR, 0), M(a, 0.20f, 0.22f, 0.12f, PoseEase.In), M(h, X4RightF, X4RightR, 0, PoseEase.Snap), M(r, X4RightF, X4RightR, 0), M(r + 0.2f, X4RightF * 0.5f, X4RightR * 0.5f, 0.08f), M(end, 0, 0, 0)),
             Turn(SpineA, T(0f, 28, -20, 7), T(a, 32, -28, 8, PoseEase.In), T(h, -30, 14, -10, PoseEase.Snap), T(f, -38, 18, -12, PoseEase.Over), T(r, -16, 8, -5), Z(end)),
             Turn(SpineD, T(0f, 34, -24, 9), T(a, 38, -32, 10, PoseEase.In), T(h, -38, 18, -12, PoseEase.Snap), T(f, -48, 22, -14, PoseEase.Over), T(r, -20, 10, -6), Z(end)),
             Turn(Head, T(0f, -16, 8, 0), T(a, -18, 10, 0, PoseEase.In), T(h, 18, -10, 0, PoseEase.Snap), T(f, 22, -12, 0, PoseEase.Over), T(r, 8, -4, 0), Z(end)),
@@ -123,27 +149,26 @@ public static class ClawSpearClips
             Fore("L", A(0f, -35, 170, w: 0.9f), A(a, 5, 0, PoseEase.In, 0.95f), A(h, 10, 0, PoseEase.Snap, 0.95f), A(f, 10, 0, PoseEase.Over, 0.95f), A(r, 10, 0, w: 0.4f), A(end, 10, 0, w: 0f)),
         ]);
 
-    /// <summary>Y: the heavy, an overhead downward rake, the claw raised straight up behind the head and brought down through the target with the whole body folding over it (the sword's Y backhand at 1.25x: 1.2 s, hit 0.264 s).</summary>
+    /// <summary>Y: the heavy, an overhead downward rake, the claw raised straight up behind the head and brought down through the target with the whole body folding over a stamping lead foot (the sword's Y backhand at 1.25x: 1.2 s, hit 0.264 s).</summary>
     public static readonly WeaponPoseClip ClawHeavy = Claw("claw_heavy", 1.5f, 0.33f, float.NaN, "the sword's Y backhand (SM_MEL_CS_XATK_Draw2_3.5m 1.5 s, hit 0.33 s)",
-        "overhead downward rake: the body rears back with the claw raised straight up and cocked behind the head and the pistol arm thrown back, then hips, chest and shoulder fold forward together and the talons rake down through the target to the ground; a heavy settle",
+        "overhead downward rake: the body rears back onto the rear leg with the claw raised straight up and cocked behind the head, the pistol arm thrown back and the left foot lifting, then the left foot stamps down ahead and hips, chest and shoulder fold forward over it together as the talons rake down through the target to the ground; a heavy settle",
         antic: 0.10f, follow: 0.16f, recover: 0.85f, (a, h, f, r, end) =>
         [
+            Turn(Pelvis, Z(0f), T(a, -8, 12, -3, PoseEase.In), T(h, 8, -18, 3, PoseEase.Snap), T(f, 10, -24, 3, PoseEase.Over), T(r, 3, -8, 0), Z(end)),
+            PelvisMove(M(0f, 0, 0, 0), M(a, -0.10f, 0.03f, -0.04f, PoseEase.In), M(h, 0.20f, -0.04f, -0.22f, PoseEase.Snap), M(f, 0.24f, -0.05f, -0.26f, PoseEase.Over), M(r, 0.10f, -0.02f, -0.10f), M(end, 0, 0, 0)),
+            Foot("L", M(0f, 0, 0, 0), M(a, 0.10f, -0.05f, 0.15f, PoseEase.In), M(h, 0.45f, -0.10f, 0, PoseEase.Snap), M(r, 0.45f, -0.10f, 0), M(r + 0.2f, 0.22f, -0.05f, 0.08f), M(end, 0, 0, 0)),
             Turn(SpineA, Z(0f), T(a, -10, 16, -4, PoseEase.In), T(h, 8, -26, 2, PoseEase.Snap), T(f, 10, -34, 2, PoseEase.Over), T(r, 3, -10, 0), Z(end)),
             Turn(SpineD, Z(0f), T(a, -12, 20, -4, PoseEase.In), T(h, 10, -32, 2, PoseEase.Snap), T(f, 12, -40, 2, PoseEase.Over), T(r, 4, -12, 0), Z(end)),
             Turn(Head, Z(0f), T(a, 10, 10, 0, PoseEase.In), T(h, -6, -10, 0, PoseEase.Snap), T(f, -8, -8, 0, PoseEase.Over), T(r, -2, -2, 0), Z(end)),
             Turn(RClav, Z(0f), T(a, -6, 24, -8, PoseEase.In), T(h, 8, 14, 8, PoseEase.Snap), T(f, 10, 10, 10, PoseEase.Over), T(r, 3, 3, 3), Z(end)),
             Turn(LClav, Z(0f), T(a, 6, 10, 6, PoseEase.In), T(h, -6, -10, -6, PoseEase.Snap), T(f, -8, -12, -8, PoseEase.Over), T(r, -2, -4, -2), Z(end)),
-            Upper("R", A(0f, 80, 60, w: 0f), A(a, 80, 60, PoseEase.In), A(h, -40, 10, PoseEase.Snap), A(f, -55, 5, PoseEase.Over), A(r, -55, 5, w: 0.3f), A(end, -55, 5, w: 0f)),
-            Fore("R", A(0f, 55, 175, w: 0f), A(a, 55, 175, PoseEase.In), A(h, -65, 0, PoseEase.Snap), A(f, -80, -10, PoseEase.Over), A(r, -80, -10, w: 0.3f), A(end, -80, -10, w: 0f)),
+            Upper("R", A(0f, 80, 60, w: 0f), A(a, 82, 60, PoseEase.In), A(h, -40, 10, PoseEase.Snap), A(f, -55, 5, PoseEase.Over), A(r, -55, 5, w: 0.3f), A(end, -55, 5, w: 0f)),
+            Fore("R", A(0f, 55, 175, w: 0f), A(a, 50, 175, PoseEase.In), A(h, -65, 0, PoseEase.Snap), A(f, -80, -10, PoseEase.Over), A(r, -80, -10, w: 0.3f), A(end, -80, -10, w: 0f)),
             Turn(RHand, Z(0f), T(a, 0, 35, 0, PoseEase.In), T(h, 0, -35, 0, PoseEase.Snap), T(f, 0, -40, 0, PoseEase.Over), T(r, 0, -12, 0), Z(end)),
-            Upper("L", A(0f, -20, -110, w: 0f), A(a, 10, -140, PoseEase.In, 0.8f), A(h, -40, -60, PoseEase.Snap, 0.8f), A(f, -50, -40, PoseEase.Over, 0.8f), A(r, -50, -40, w: 0.25f), A(end, -50, -40, w: 0f)),
-            Fore("L", A(0f, -40, -100, w: 0f), A(a, 20, -170, PoseEase.In, 0.8f), A(h, -50, -70, PoseEase.Snap, 0.8f), A(f, -60, -60, PoseEase.Over, 0.8f), A(r, -60, -60, w: 0.25f), A(end, -60, -60, w: 0f)),
+            Upper("L", A(0f, -20, -110, w: 0f), A(a, 15, -145, PoseEase.In, 0.9f), A(h, -40, -60, PoseEase.Snap, 0.9f), A(f, -50, -40, PoseEase.Over, 0.9f), A(r, -50, -40, w: 0.3f), A(end, -50, -40, w: 0f)),
+            Fore("L", A(0f, -40, -100, w: 0f), A(a, 25, -175, PoseEase.In, 0.9f), A(h, -50, -70, PoseEase.Snap, 0.9f), A(f, -60, -60, PoseEase.Over, 0.9f), A(r, -60, -60, w: 0.3f), A(end, -60, -60, w: 0f)),
         ]);
 
-    /// <summary>
-    /// A claw clip from the sword strike's length, hit and combo opening (s, the sword's) at the claw's tempo; <paramref name="antic"/> and <paramref name="follow"/> are seconds before and after
-    /// the hit, <paramref name="recover"/> the recovery key's time. The builder gets (anticipation, hit, follow-through, recovery, end) in seconds.
-    /// </summary>
     static WeaponPoseClip Claw(string name, float swordLength, float swordHit, float swordCombo, string source, string description, float antic, float follow, float recover, Func<float, float, float, float, float, PoseChannel[]> build)
     {
         float d = swordLength / ClawTempo, h = swordHit / ClawTempo;
