@@ -579,6 +579,7 @@ public sealed partial class PreviewStage : SubViewportContainer
         if (assets is null || _services.Previews.Weapons(assets) is not { } weaponAssets) return;
         _rig ??= _character.Weapons ??= new WeaponRig(_character.Skeleton, weaponAssets);
         if (_rig.Faulted) return;
+        _rig.Content = _services.Content;   // added content's own weapon models only on its own pages (Musou's arsenal)
         try
         {
             var team = ProfileWire.SideOf(s.Race);

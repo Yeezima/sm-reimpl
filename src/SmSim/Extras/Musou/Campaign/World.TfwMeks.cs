@@ -149,6 +149,7 @@ public sealed partial class World
         if (hit != 0 && (distance <= dome || meks.IsGenerator(hit)))
         {
             stop = MathF.Min(stop, distance);
+            ArsenalProjectileMeets(p.Id, 0, hit, p.Position + direction * distance);   // Arsenal/World.Arsenal.cs: a projectile of the arsenal meeting a contraption (W4); a no-op until then
             if (!p.Thrown && Shots.DirectDamageOf(WeaponOf(p), p.Stage) is { } direct) meks.Damage(hit, p.Owner, direct.Damage * direct.BodyMultiplier, out _);
             return;
         }

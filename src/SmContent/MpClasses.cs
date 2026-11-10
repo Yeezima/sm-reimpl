@@ -21,7 +21,7 @@ public sealed record MpClass(string Key, string Role, string Race, IReadOnlyList
 /// front end's default selection and the unlock levels are not applied. Projectile weapons are read and offered only when
 /// asked (<see cref="OfferProjectileWeaponsByDefault"/>); thrown grenades are read into <see cref="Thrown"/>.
 /// </summary>
-public sealed record MpClasses(IReadOnlyList<MpClass> Classes, IReadOnlyList<WeaponSpec> Weapons, IReadOnlyList<ClassLoadout> Loadouts,
+public sealed partial record MpClasses(IReadOnlyList<MpClass> Classes, IReadOnlyList<WeaponSpec> Weapons, IReadOnlyList<ClassLoadout> Loadouts,
     IReadOnlyList<IReadOnlyList<string>> MeleeAnimations, IReadOnlyList<string> Notes)
 {
     /// <summary>The clips each supported melee weapon's combo plays, by wargear name (for loadout choices).</summary>
@@ -168,8 +168,19 @@ public sealed record MpClasses(IReadOnlyList<MpClass> Classes, IReadOnlyList<Wea
     static Func<string, MeleeTuning.WeaponMap>? MeleeMapOf(string name) =>
         MeleeMaps.Concat(CoreMeleeMaps).FirstOrDefault(m => name.EndsWith(m.Suffix, StringComparison.OrdinalIgnoreCase)).Map;
 
-    /// <summary>anim/melee-flow (client presentation): the graph and sequencers the simulation reads a melee wargear's combo from, or null (read only; the same maps as the loader).</summary>
-    public static MeleeTuning.WeaponMap? MeleeMapFor(string wargear) => MeleeMapOf(wargear)?.Invoke(wargear);
+    /// <summary>
+    /// anim/melee-flow (client presentation): the graph and sequencers the simulation reads a melee wargear's combo from, or null (read only; the same maps as the loader).
+    /// Added content's own melee weapons (Musou's arsenal: the claw on the power sword's map, the spear on the thunder hammer's, at their clip speeds) through <see cref="ExtrasMeleeMap"/>.
+    /// </summary>
+    public static MeleeTuning.WeaponMap? MeleeMapFor(string wargear)
+    {
+        var map = MeleeMapOf(wargear)?.Invoke(wargear);
+        if (map is null) ExtrasMeleeMap(wargear, ref map);   // EXTRAS-HOOK added content (Musou's arsenal): a melee weapon of its own on a data weapon's map
+        return map;
+    }
+
+    /// <summary>Added content: the map of a melee weapon none of the data's maps names (its own name, never one of the install's); nothing without added content.</summary>
+    static partial void ExtrasMeleeMap(string wargear, ref MeleeTuning.WeaponMap? map);
 
     /// <summary>Weapons C: the base wargear of a class without a melee weapon that brings melee of its own (its core ability), in data order.</summary>
     static IEnumerable<string> CoreMelee(MpClass c) =>

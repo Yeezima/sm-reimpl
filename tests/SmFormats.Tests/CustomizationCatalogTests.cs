@@ -13,7 +13,7 @@ namespace SmFormats.Tests;
 /// <see cref="CustomizationCatalog"/> and <see cref="PerkCatalog"/> on a synthetic install shaped like the real one (names, tables and counts are made up;
 /// no original data). Passing proves the readers agree with our documented layout, not compatibility with the install.
 /// </summary>
-public class CustomizationCatalogTests : IDisposable
+public partial class CustomizationCatalogTests : IDisposable
 {
     readonly string _dir = Path.Combine(Path.GetTempPath(), "sm-cust-" + Guid.NewGuid().ToString("N"));
     string Packages => Path.Combine(_dir, "data", "packages");
@@ -520,6 +520,27 @@ public class CustomizationCatalogTests : IDisposable
         Assert.True(assault.Pistol.Selectable);
         Assert.Equal([null, PerkCatalog.BolterPistolPerk, PerkCatalog.BolterPistolPerk], assault.Pistol.Items.Select(i => i.RequiredPerk));
         Assert.Equal("sm_mp_pistol_bolt_pistol", assault.Pistol.Default!.Name);
+    }
+
+    [Fact]
+    public void Every_profile_without_added_items_gets_the_datas_catalogue_itself()
+    {
+        // W0, Musou's arsenal (docs/new-weapons-design.md section 8, hook 3): PerkCatalog.For is the only way added items reach the customizer; the faithful and extended profiles get the
+        // data's catalogue, the same object, so their slots and lists cannot show them.
+        var global = BafDocument.Read(GlobalBaf());
+        var perks = PerkCatalog.Build(global, name => name.StartsWith("mp_perk") ? BafDocument.Read(Gear("perk")) : BafDocument.Read(Gear(name.Contains("pistol") ? "pistol" : "melee")), null, []);
+        Assert.Same(perks, perks.For(ContentExtras.None));
+        Assert.Same(perks, perks.For(ContentExtras.All));
+        Assert.Same(perks, perks.For(ContentExtras.Orks | ContentExtras.Gore));
+        Assert.Same(perks, perks.WithClasses(c => c));
+        // A change makes a copy; the rest is kept.
+        var item = new LoadoutItem("sm_mp_added", "melee", "Added", "", 1, true, null, null);
+        var changed = perks.WithClasses(c => c.Key == "sm - tactical" ? c with { Melee = c.Melee with { Items = [.. c.Melee.Items, item] } } : c);
+        Assert.NotSame(perks, changed);
+        Assert.Contains(item, changed.Class("sm - tactical")!.Melee.Items);
+        Assert.DoesNotContain(item, perks.Class("sm - tactical")!.Melee.Items);
+        Assert.Same(perks.Class("sm - assault marine"), changed.Class("sm - assault marine"));
+        Assert.Equal(perks.All, changed.All);
     }
 
     [Fact]

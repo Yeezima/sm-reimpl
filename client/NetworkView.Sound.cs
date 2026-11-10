@@ -291,6 +291,9 @@ public partial class NetworkView
     /// <summary>An added mode's treatment of a player's sound emitter (Musou Mode: the own character's lines are never ducked, stolen or muffled, musou/audio-pass); none leaves it as it is.</summary>
     partial void ExtrasTrackEmitter(SoundEmitter emitter, bool own);
 
+    /// <summary>An added mode's use of a clip tag the sound's tag pass admitted (Musou Mode's weight pass: the foot tags' ground contacts); none ignores it.</summary>
+    partial void ExtrasFootfall(string tag, PlayerState s, bool own, string? clip);
+
     /// <summary>An added mode's extra layers under a weapon's fire sound (Musou Mode: the bolter rifles' deep copy and thump, musou/audio-pass).</summary>
     partial void ExtrasFireLayers(WeaponSpec spec, SoundEmitter e, bool own);
 
@@ -500,6 +503,7 @@ public partial class NetworkView
             if (LogFootsteps) GD.Print($"TAG P{s.PlayerId} t {_connectedFor:F3} {tag} dropped: the same foot posted under {FootstepLevel.SameFootMinSeconds:F2} s ago");
             return;
         }
+        ExtrasFootfall(tag, s, own, t.Clip);   // EXTRAS-HOOK: added content's ground contacts from the foot tags (Musou weight pass: the dust and debris puffs)
         bool any = false;
         foreach (var file in PlayerFiles(s))
         {

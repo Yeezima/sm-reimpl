@@ -62,6 +62,7 @@ public partial class NetworkView
         if (assets is null || _config is null || character.Skeleton is null || state.PlayerId <= 0) return;   // id 0: the state before the first snapshot
         var rig = character.Weapons ??= new WeaponRig(character.Skeleton, assets);
         if (rig.Faulted) return;
+        rig.Content = _config.Extras;   // added content's own weapon models only under its content (Musou's arsenal)
         try
         {
             int primary = Loadouts.WeaponIndex(_config, state, WeaponSlot.Ranged), pistol = Loadouts.WeaponIndex(_config, state, WeaponSlot.Pistol);

@@ -41,6 +41,12 @@ public static class MusouSlots
     /// <summary>The loadout set of Musou's Standard Marines (<see cref="CustomizationProfile.Sets"/>).</summary>
     public const string SetName = "musou";
 
+    /// <summary>
+    /// The catalogue Musou's set (<see cref="SetName"/>) is read and repaired with: Musou's (<see cref="CustomizationCatalog.For"/>: the arsenal's items, docs/new-weapons-design.md), so a Musou slot
+    /// keeps an item only Musou offers; any other set's is <paramref name="catalog"/>.
+    /// </summary>
+    public static CustomizationCatalog SetCatalog(string set, CustomizationCatalog catalog) => set == SetName ? catalog.For(ContentExtras.Musou) : catalog;
+
     /// <summary>The profile extras entry of Musou's own data (<see cref="CustomizationProfile.Extras"/>): <c>{ "librarian": { ... } }</c>.</summary>
     public const string ExtrasKey = "musou";
 
@@ -120,15 +126,18 @@ public static class MusouSlots
     /// </summary>
     public static CustomizationProfile LookRemoved(CustomizationProfile profile, string id)
     {
-        if (!profile.Extras.ContainsKey(ExtrasKey)) return profile;
-        string? look = null;
+        if (!profile.Extras.TryGetValue(ExtrasKey, out var text)) return profile;
+        string? json;
         try
         {
-            if (JsonNode.Parse(profile.Extras[ExtrasKey]) is JsonObject root && root["librarian"] is JsonObject lib && lib["look"] is JsonValue v && v.TryGetValue<string>(out var s)) look = s.Trim();
+            if (JsonNode.Parse(text) is not JsonObject root || root["librarian"] is not JsonObject lib || lib["look"] is not JsonValue v || !v.TryGetValue<string>(out var s) || s.Trim() != id) return profile;
+            // Only the "look" key goes (re-review 2026-11-10): every other key of his entry and of Musou's entry stays as written, a field this build does not know included.
+            lib.Remove("look");
+            if (lib.Count == 0) root.Remove("librarian");
+            json = root.Count == 0 ? null : root.ToJsonString();
         }
         catch (Exception e) when (e is System.Text.Json.JsonException or InvalidOperationException or ArgumentException) { return profile; }
-        if (look != id) return profile;
-        return WithLibrarian(profile, LibrarianOf(profile) with { Look = null });   // the look is gone from the profile already: the rest of his loadout as stored
+        return profile.WithExtra(ExtrasKey, json);
     }
 
     /// <summary>The Librarian as the custom class his page edits (<see cref="LibrarianSlot"/>, the Tactical's role; his look as its Space Marine look).</summary>

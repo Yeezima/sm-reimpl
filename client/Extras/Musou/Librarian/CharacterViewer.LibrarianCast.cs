@@ -81,6 +81,12 @@ public partial class CharacterViewer
 
     partial void ExtrasPoseOverlay()
     {
+        LibrarianPoseOverlay();
+        MusouWeightPoseOverlay();   // the Musou weight pass's settle (Weight/CharacterViewer.MusouWeight.cs); nothing unless a contact started one
+    }
+
+    void LibrarianPoseOverlay()
+    {
         if (LibrarianCast is not { } cast) return;   // not a Librarian: nothing (every character outside Musou Mode)
         cast.PalmsValid = false;
         if (_skeleton is null || OldCast) return;

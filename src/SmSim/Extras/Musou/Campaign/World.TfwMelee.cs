@@ -105,7 +105,9 @@ public sealed partial class World
             if (!plasma) keep *= war.PierceKeep;
         }
         if (struck == 0) return;
-        if (war.BoltBlasts && TfwCombatRules.IsBolt(weapon)) TfwBoltBlasts(shot.Shooter, shot.Origin, direction, at[..struck], war);
+        SplashSpec? own = null;
+        ArsenalShotBlast(weapon, ref own);   // Arsenal/World.Arsenal.cs: a weapon's own blast (W1, the autocannon); none until then
+        if (war.BoltBlasts && (own is not null || TfwCombatRules.IsBolt(weapon))) TfwBoltBlasts(shot.Shooter, shot.Origin, direction, at[..struck], war, own);
         TfwBestPierce = Math.Max(TfwBestPierce, struck);
         _shots[k] = shot with { End = shot.Origin + direction * last, Hit = firstHead ? ShotHit.Head : ShotHit.Body, Surface = -1, Target = 0, Armoured = false };
     }
@@ -118,9 +120,10 @@ public sealed partial class World
     /// (<see cref="MusouBlast"/>: enemies only, so no player, Guardsman or AI Marine is hurt), and a record on tag 11 (<see cref="TfwFireKind.BoltBlast"/>) for the clients' effect and sound.
     /// After the pierce has dealt its hits, so a blast does not change which enemies the shot went through.
     /// </summary>
-    void TfwBoltBlasts(int shooter, Vector3 origin, Vector3 direction, ReadOnlySpan<float> distances, TfwCombatRules war)
+    /// <param name="own">The weapon's own blast (Musou's arsenal: <c>ArsenalShotBlast</c>), else null: the bolt blast.</param>
+    void TfwBoltBlasts(int shooter, Vector3 origin, Vector3 direction, ReadOnlySpan<float> distances, TfwCombatRules war, SplashSpec? own = null)
     {
-        var splash = war.BoltBlast();
+        var splash = own ?? war.BoltBlast();
         int frag = -1;
         for (int i = 0; i < Config.Thrown.Count && frag < 0; i++) if (TfwCombatRules.IsFrag(Config.Thrown[i])) frag = i;
         foreach (float distance in distances)
