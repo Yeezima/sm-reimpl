@@ -314,6 +314,49 @@ public sealed partial class SoundTriggers
 
     public SoundFile? File(string name) => Files.GetValueOrDefault(name);
 
+    /// <summary>
+    /// W0b: the triggers in which each name of <paramref name="sources"/> sounds as the first of its candidates whose file was read with any sound command: that file's entry, its hit,
+    /// shot-hit, melee-hit and charge-hit containers and its melee abilities' hit containers are copied under the name, replacing the name's own (Musou's arsenal: the claw sounds as the
+    /// power sword, the spear as the thunder hammer, the autocannon as its install twin, then the heavy bolter). A copied <see cref="SoundFile"/> keeps its own <see cref="SoundFile.Name"/>.
+    /// The triggers themselves when the map is empty or no candidate was read, so triggers without sources are the same object.
+    /// </summary>
+    public SoundTriggers WithSources(IReadOnlyDictionary<string, IReadOnlyList<string>> sources)
+    {
+        if (sources.Count == 0) return this;
+        var picked = new List<(string Name, string Source)>();
+        var notes = new List<string>();
+        foreach (var (name, candidates) in sources.OrderBy(kv => kv.Key, StringComparer.Ordinal))
+        {
+            if (candidates.FirstOrDefault(c => Files.TryGetValue(c, out var f) && f.Bindings.Count > 0) is { } source) { picked.Add((name, source)); notes.Add($"{name}: the sounds of {source}"); }
+            else notes.Add($"{name}: none of {string.Join(", ", candidates)} was read with sounds; none posted");
+        }
+        if (picked.Count == 0) return this;
+        var files = new Dictionary<string, SoundFile>(Files, StringComparer.OrdinalIgnoreCase);
+        Dictionary<string, string> Copy(IReadOnlyDictionary<string, string> from)
+        {
+            var to = new Dictionary<string, string>(from, StringComparer.OrdinalIgnoreCase);
+            foreach (var (name, source) in picked)
+                if (from.TryGetValue(source, out var v)) to[name] = v;
+                else to.Remove(name);
+            return to;
+        }
+        var abilities = new Dictionary<(string, string, bool), IReadOnlyList<string>>(AbilityKeyComparer.Instance);
+        var named = picked.Select(p => p.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var (key, value) in MeleeAbilityContainers) if (!named.Contains(key.Wargear)) abilities[key] = value;
+        foreach (var (name, source) in picked)
+        {
+            files[name] = Files[source];
+            foreach (var (key, value) in MeleeAbilityContainers)
+                if (string.Equals(key.Wargear, source, StringComparison.OrdinalIgnoreCase)) abilities[(name, key.Ability, key.Secondary)] = value;
+        }
+        return new SoundTriggers
+        {
+            Files = files, ContainerSounds = ContainerSounds, HitContainers = Copy(HitContainers), ShotHitContainers = Copy(ShotHitContainers), MeleeHitContainers = Copy(MeleeHitContainers),
+            ChargeHitContainers = Copy(ChargeHitContainers), MeleeAbilityContainers = abilities, ContainerEventChoices = ContainerEventChoices, ClipTags = ClipTags, Notes = [.. Notes, .. notes],
+            OrkOnlyClips = OrkOnlyClips, BlueprintCharacters = BlueprintCharacters, SpeechCharacters = SpeechCharacters,
+        };
+    }
+
     /// <summary>The player blueprints of both sides and the Ork Boy's (their sounds: footsteps, death, spawn, armour, landing; the Ork's: Ork O8, <see cref="OrkSounds"/>).</summary>
     public static readonly IReadOnlyList<string> PlayerBlueprints = [GameplayTuning.MarineBlueprint, GameplayTuning.ChaosBlueprint, OrkSounds.Blueprint];
 

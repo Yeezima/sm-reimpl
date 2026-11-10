@@ -468,13 +468,18 @@ public sealed class EffectCatalogue
     /// The catalogue for every wargear file the MP classes name (both sides), with the projectile blueprints, containers,
     /// surface order and the player blueprint from the install.
     /// </summary>
-    public static EffectCatalogue Load(string gameDir)
+    /// <param name="extraWargear">
+    /// W0b: more wargear files to read beside the classes' (null or empty: none, the catalogue as before). Musou's arsenal passes the install files its items take their
+    /// presentation from (the autocannon's twin <c>csm_mp_exotic_auto_cannon</c>, which no class names); a name the install lacks is left out.
+    /// </param>
+    public static EffectCatalogue Load(string gameDir, IEnumerable<string>? extraWargear = null)
     {
         BafDocument? global = null;
         using (var archive = ObpkArchive.Open(Path.Combine(gameDir, MpClasses.GlobalPackage)))
             archive.ReadEntries(e => archive.GroupName(e) == "attr_pc" && e.FileName == "global", (_, d) => global = BafDocument.Read(d));
         if (global is null) throw new FileNotFoundException($"global not found in {MpClasses.GlobalPackage}.");
         var names = MpClasses.ReadClasses(global).SelectMany(c => c.BaseWargear.Concat(c.StartupWargear)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (extraWargear is not null) foreach (var n in extraWargear) if (n.Length > 0) names.Add(n);
         var wargear = new Dictionary<string, BafDocument>(StringComparer.OrdinalIgnoreCase);
         using (var archive = ObpkArchive.Open(Path.Combine(gameDir, GameplayTuning.WargearPackage)))
             archive.ReadEntries(e => archive.GroupName(e) == "attr_pc" && names.Contains(e.FileName), (e, d) => wargear[e.FileName] = BafDocument.Read(d));
@@ -547,6 +552,42 @@ public sealed class EffectCatalogue
         {
             Weapons = weapons, Thrown = thrown, Containers = tables, SurfaceOrder = order ?? Surfaces.Default, Player = surface ?? CharacterSurface.Unknown, Notes = notes,
             JumpPacks = jumpPacks, Dashes = dashes, FinishFalling = player is null ? FallLanding.None : FallLanding.Read(player),
+        };
+    }
+
+    /// <summary>
+    /// W0b: the catalogue in which each name of <paramref name="sources"/> shows the effects of the first of its candidates that has any (a weapon file with bindings, else a thrown
+    /// item's): that entry is copied under the name, replacing the name's own (Musou's arsenal: the claw takes the power sword's, the autocannon its install twin's, then the heavy
+    /// bolter's). A copied entry keeps its own <see cref="WeaponEffects.Wargear"/>, the file the effects come from. The catalogue itself when the map is empty or no candidate has any,
+    /// so a catalogue without sources is the same object.
+    /// </summary>
+    public EffectCatalogue WithSources(IReadOnlyDictionary<string, IReadOnlyList<string>> sources)
+    {
+        if (sources.Count == 0) return this;
+        Dictionary<string, WeaponEffects>? weapons = null;
+        Dictionary<string, ThrownEffects>? thrown = null;
+        var notes = new List<string>();
+        foreach (var (name, candidates) in sources.OrderBy(kv => kv.Key, StringComparer.Ordinal))
+        {
+            if (candidates.FirstOrDefault(c => Weapons.TryGetValue(c, out var w) && w.Bindings.Count > 0) is { } weapon)
+            {
+                weapons ??= new Dictionary<string, WeaponEffects>(Weapons, StringComparer.OrdinalIgnoreCase);
+                weapons[name] = Weapons[weapon];
+                notes.Add($"{name}: the effects of {weapon}");
+            }
+            else if (candidates.FirstOrDefault(c => Thrown.TryGetValue(c, out var t) && t.Bindings.Count > 0) is { } item)
+            {
+                thrown ??= new Dictionary<string, ThrownEffects>(Thrown, StringComparer.OrdinalIgnoreCase);
+                thrown[name] = Thrown[item];
+                notes.Add($"{name}: the effects of {item}");
+            }
+            else notes.Add($"{name}: none of {string.Join(", ", candidates)} has effects; none shown");
+        }
+        if (weapons is null && thrown is null) return this;
+        return new EffectCatalogue
+        {
+            Weapons = weapons ?? Weapons, Thrown = thrown ?? Thrown, Containers = Containers, SurfaceOrder = SurfaceOrder, Player = Player, Notes = [.. Notes, .. notes],
+            JumpPacks = JumpPacks, Dashes = Dashes, FinishFalling = FinishFalling,
         };
     }
 

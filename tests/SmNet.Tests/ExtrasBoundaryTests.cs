@@ -111,6 +111,11 @@ public class ExtrasBoundaryTests
         ("src/SmContent/AnimationAlias.cs", "ExtrasAnimationAlias"),   // static AnimationAlias.ExtrasAnimationAlias(ref string), in Of: the data weapon an added one borrows its animations from
         ("src/SmContent/Customization/ProfileView.cs", "ExtrasSetCatalog"),   // static ProfileViews.ExtrasSetCatalog(string, ref CustomizationCatalog), in SetCatalog: Musou's set is read with Musou's catalogue
         ("client/NetworkView.MeleeLock.cs", "ExtrasMeleeClip"),   // NetworkView.ExtrasMeleeClip(string, bool, int, ref string?, ref float), in OwnStrikeClip: the animation seam, a strike's custom clip (the claw's and the spear's, once approved)
+        // W0b (lead 2026-11-10): presentation by source and the pack moves' clip speed; each asks the match's content (Musou) as well as the name.
+        ("client/NetworkView.Presentation.cs", "ExtrasPresentationSources"),   // NetworkView.ExtrasPresentationSources(string, ref IReadOnlyList<string>?), in PresentationSources: the install files an added weapon shows (catalogues and name rules)
+        ("client/NetworkView.Presentation.cs", "ExtrasMoveClipSpeed"),   // NetworkView.ExtrasMoveClipSpeed(string, ref float), in MoveClipSpeed: the charge's and the pack's moves at the claw's / spear's clip speed
+        ("client/Hud/Hud.Movie.cs", "ExtrasReticle"),               // Hud.ExtrasReticle(string, ref ReticleSpec?), in DrawMovieReticle: the autocannon's own movie reticle (Hud.Content = Musou)
+        ("client/Hud/Hud.Fidelity.cs", "ExtrasWeaponBox"),          // Hud.ExtrasWeaponBox(string, bool, ref WeaponBoxSpec?), in DrawMovieWeaponBox: the autocannon's ammunition display (Hud.Content = Musou)
     ];
 
     /// <summary>
@@ -138,6 +143,17 @@ public class ExtrasBoundaryTests
         ("src/SmContent/UpperBodyAnimations.cs", "AnimationAlias.Of("),
         ("client/NetworkView.MeleeFlow.cs", "AnimationAlias.Of("),
         ("client/Customizer/CustomizerServices.cs", "data.For(content)"),
+        // W0b: the catalogues read with the sources, the name rules by the source's name, the hammer's air slash, charge and grip by the alias, the pack moves' clip speed.
+        ("client/NetworkView.Fx.cs", ".WithSources(sources)"),
+        ("client/NetworkView.Sound.cs", ".WithSources(sources)"),
+        ("client/NetworkView.MeleeFx.cs", "PresentedAs(MeleeWargear(s))"),
+        ("client/NetworkView.Sound.Melee.cs", "PresentedAs(wargear)"),
+        ("client/NetworkView.MeleeHitSound.cs", "PresentedAs(MeleeWargear(attacker))"),
+        ("client/NetworkView.HammerSwing.cs", "HammerSlashPose.IsHammer(AnimationAlias.Of(w))"),
+        ("client/NetworkView.cs", "MoveClipSpeed(state)"),
+        ("client/NetworkView.Jump.cs", "MoveClipSpeed(s)"),
+        ("client/NetworkView.Feel.cs", "MoveClipSpeed(s)"),
+        ("client/NetworkView.cs", "_hudView.Content = "),
     ];
 
     /// <summary>
