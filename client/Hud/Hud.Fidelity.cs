@@ -324,6 +324,9 @@ public sealed partial class Hud
     /// <summary><c>--hud-launcher-demo</c> (screenshot aid): the launcher display counts its rounds down and up (two a second) instead of showing the rounds left.</summary>
     static readonly bool LauncherDemo = Array.IndexOf(OS.GetCmdlineUserArgs(), "--hud-launcher-demo") >= 0;
 
+    /// <summary>W0b, added content: the weapon box of a weapon only it carries (<paramref name="spec"/> left as the rules gave it without added content or for a weapon of the data).</summary>
+    partial void ExtrasWeaponBox(string wargear, bool chaos, ref WeaponBoxSpec? spec);
+
     // The box's path sets, built once (not every frame).
     static readonly HashSet<string> OptionalPaths = new(WeaponBoxRules.Optional, StringComparer.Ordinal), NoPaths = new(StringComparer.Ordinal);
     static readonly Dictionary<IReadOnlyList<string>, HashSet<string>> ShowSets = new(ReferenceEqualityComparer.Instance);
@@ -343,6 +346,7 @@ public sealed partial class Hud
         if (hud.Find(Box, id => id == slideSprite ? slideEnd : null) is not { } box) return false;
         bool chaos = d.OwnTeam == Team.Chaos;
         var spec = WeaponBoxRules.For(d.WeaponWargear, _art?.Art?.WeaponType(d.WeaponWargear), chaos);
+        ExtrasWeaponBox(d.WeaponWargear, chaos, ref spec);   // EXTRAS-HOOK added content (Musou's autocannon): the weapon box of a weapon only it carries
         var root = Stage(vs, 1) * ToXf(box.ToStage);
         // Turned and enlarged about the frame's top-left corner (box pixels 28, 18): the footage's box is 1.12 times the movie's, its top-left corner where the movie puts it.
         root *= new Transform2D(Mathf.DegToRad(BoxTilt), new Vector2(BoxScale, BoxScale), 0f, new Vector2(28f, 18f)) * new Transform2D(0f, new Vector2(-28f, -18f));

@@ -66,6 +66,11 @@ public class ExtrasBoundaryTests
         ("client/NetworkView.Loadout.cs", "ExtrasMatchMenu"),      // NetworkView.ExtrasMatchMenu(MatchMenu), when the Esc menu is built: an added mode's own rows (Musou Mode: the host's BACK TO STORMBIRD during a battle)
         ("client/NetworkView.Sound.cs", "ExtrasTrackEmitter"),   // NetworkView.ExtrasTrackEmitter(SoundEmitter, bool), in Track: Musou protects the own character's voice lines (musou/audio-pass)
         ("client/NetworkView.Sound.cs", "ExtrasFireLayers"),   // NetworkView.ExtrasFireLayers(WeaponSpec, SoundEmitter, bool), in PostFire: Musou's bolter rifles fire deeper (musou/audio-pass)
+        ("client/CharacterViewer.cs", "ExtrasBlendSeconds"),       // CharacterViewer.ExtrasBlendSeconds(ref float, bool), in SelectLayer: Musou's stance cross-fade floor (nothing unless the viewer carries it)
+        ("client/NetworkView.cs", "ExtrasAttackTime"),             // NetworkView.ExtrasAttackTime(PlayerState, bool, ref float), the attack pose's clip time: Musou's weight pass retimes the strike (hit and end kept) and holds the own pose
+        ("client/NetworkView.Fx.cs", "ExtrasBlastFeel"),            // NetworkView.ExtrasBlastFeel(ProjectileView?, float, ref bool), in FxDetonation: Musou's weight pass keeps the jolts of blasts within 12 m (the strongest a 0.25 s window) and of the own grenades
+        ("client/NetworkView.Fx.cs", "ExtrasCameraOffset"),         // NetworkView.ExtrasCameraOffset(double, ref Vector3), in FxApplyShake: Musou's camera push along the own heavy swing (camera space, times the Camera shake option)
+        ("client/NetworkView.Sound.cs", "ExtrasFootfall"),         // NetworkView.ExtrasFootfall(string, PlayerState, bool, string?), in TagSound after a tag is admitted: Musou's weight pass reads the foot tags (ground contacts)
         ("client/NetworkView.Sound.cs", "ExtrasShotMaterial"),     // NetworkView.ExtrasShotMaterial(ShotView, int, ref bool?), in SoundShot: the material of another player's ranged hit (Musou: armoured Orks armour and flesh)
         // musou/gpu-particles: the effect player's GPU spray path (client/Extras/Musou/FxPlayer.MusouGpu.cs); each returns at once unless MusouGpuEnable ran (Musou Mode, or the --fx-gpu test aid).
         ("client/FxPlayer.cs", "ExtrasFxCap"),                     // FxPlayer.ExtrasFxCap(ref int), in Play: the live-effect cap with the GPU path
@@ -94,8 +99,67 @@ public class ExtrasBoundaryTests
         ("client/Customizer/CreatorView.cs", "ExtrasDeploy"),       // CreatorView.ExtrasDeploy(ref bool), DEPLOY: PLAY AS LIBRARIAN on his page
         ("client/Customizer/CustomizerServices.cs", "ExtrasFactions"),   // CustomizerServices.ExtrasFactions(ref List<(string, string)>), the factions offered: the Space Marines alone in Musou
         ("client/Customizer/CustomizerServices.cs", "ExtrasProfileView"),   // CustomizerServices.ExtrasProfileView(ref IProfileView?), the profile view: Musou's own loadout slots (musou/loadout-slots)
+        ("client/Customizer/CustomizerServices.cs", "ExtrasLoaded"),   // CustomizerServices.ExtrasLoaded(), the end of the services' load: Musou's own configuration is read before LoadTask completes (W1)
+        ("client/Customizer/CustomizerServices.cs", "ExtrasConfig"),   // CustomizerServices.ExtrasConfig(ref SimConfig?), the configuration a Join is planned with: Musou's own, which lists its arsenal (W1, the autocannon)
         ("client/Customizer/PreviewStage.cs", "ExtrasDress"),       // PreviewStage.ExtrasDress(ref Func<ResolvedAppearance, ResolvedAppearance>?, ref string), in CreateModel: the Librarian's armour
         ("client/Customizer/PreviewStage.cs", "ExtrasWeapons"),     // PreviewStage.ExtrasWeapons(ref string?, ref string?, ref string?, ref bool), in ConfigureWeapons: his force sword in hand, no gun
+        // W0, Musou's arsenal (docs/new-weapons-design.md section 8: the autocannon, lightning claw, power spear and Remote Detonators, Musou only); each does nothing without Musou's content
+        // (the Remote Detonators' sm_mp_eq_demolition_charge is an install name, so the name alone never decides).
+        ("src/SmContent/MpClasses.cs", "ExtrasMeleeMap"),           // static MpClasses.ExtrasMeleeMap(string, ref WeaponMap?), in MeleeMapFor when no data map matches: an added melee weapon on a data weapon's map
+        ("src/SmSim/Loadout.cs", "ExtrasWieldsHammer"),             // static Loadouts.ExtrasWieldsHammer(SimConfig, string, ref bool), in WieldsHammer when no data hammer matches: the spear takes the hammer's rules
+        ("src/SmContent/PerkCatalog.cs", "ExtrasItems"),            // PerkCatalog.ExtrasItems(ContentExtras, ref PerkCatalog), in For: the customizer rows of a content profile (Musou only)
+        ("client/WeaponRig.cs", "ExtrasWeaponModel"),               // WeaponRig.ExtrasWeaponModel(HandRole, string, WeaponAssets, ref attachment, ref asset, ref bool), in AddItem when the catalogue has no held model
+        ("client/NetworkView.Grenades.cs", "ExtrasThrownVisual"),   // NetworkView.ExtrasThrownVisual(ThrownSpec, ref ProjectileVisual?), in GrenadeModel: a thrown item drawn with another package's model
+        ("src/SmContent/AnimationAlias.cs", "ExtrasAnimationAlias"),   // static AnimationAlias.ExtrasAnimationAlias(ref string), in Of: the data weapon an added one borrows its animations from
+        ("src/SmContent/Customization/ProfileView.cs", "ExtrasSetCatalog"),   // static ProfileViews.ExtrasSetCatalog(string, ref CustomizationCatalog), in SetCatalog: Musou's set is read with Musou's catalogue
+        ("client/NetworkView.MeleeLock.cs", "ExtrasMeleeClip"),   // NetworkView.ExtrasMeleeClip(string, bool, int, ref string?, ref float), in OwnStrikeClip: the animation seam, a strike's custom clip (the claw's and the spear's, once approved)
+        // W0b (lead 2026-11-10): presentation by source and the pack moves' clip speed; each asks the match's content (Musou) as well as the name.
+        ("client/NetworkView.Presentation.cs", "ExtrasPresentationSources"),   // NetworkView.ExtrasPresentationSources(string, ref IReadOnlyList<string>?), in PresentationSources: the install files an added weapon shows (catalogues and name rules)
+        ("client/NetworkView.Presentation.cs", "ExtrasMoveClipSpeed"),   // NetworkView.ExtrasMoveClipSpeed(string, ref float), in MoveClipSpeed: the charge's and the pack's moves at the claw's / spear's clip speed
+        ("client/Hud/Hud.Movie.cs", "ExtrasReticle"),               // Hud.ExtrasReticle(string, ref ReticleSpec?), in DrawMovieReticle: the autocannon's own movie reticle (Hud.Content = Musou)
+        ("client/Hud/Hud.Fidelity.cs", "ExtrasWeaponBox"),          // Hud.ExtrasWeaponBox(string, bool, ref WeaponBoxSpec?), in DrawMovieWeaponBox: the autocannon's ammunition display (Hud.Content = Musou)
+    ];
+
+    /// <summary>
+    /// W0, Musou's arsenal (docs/new-weapons-design.md section 8): the call sites W1 to W4 rely on, pinned so a change that drops one fails here (file, text of a non-comment line). The Musou ones
+    /// call the no-op partial methods of <c>src/SmSim/Extras/Musou/Arsenal/World.Arsenal.cs</c>; the core ones read the clip-speed factor, the animation alias and the content's catalogue.
+    /// </summary>
+    static readonly (string File, string Call)[] ArsenalCallSites =
+    [
+        ("src/SmContent/Extras/GameplayTuning.Extras.cs", "Arsenal.Append("),
+        ("src/SmSim/Extras/Musou/World.MusouCombat.cs", "ArsenalCleave("),
+        ("src/SmSim/Extras/Musou/World.MusouCombat.cs", "ArsenalProjectileMeets("),
+        ("src/SmSim/Extras/Musou/Campaign/World.TfwMeks.cs", "ArsenalProjectileMeets("),
+        ("src/SmSim/Extras/Musou/Campaign/World.TfwMelee.cs", "ArsenalShotBlast("),
+        ("src/SmSim/Extras/Musou/World.Musou.cs", "ArsenalJump("),
+        ("src/SmSim/Extras/Musou/World.Musou.cs", "ArsenalStep("),
+        ("src/SmSim/Extras/Musou/Campaign/World.TfwSupply.cs", "ArsenalRefillSeconds("),
+        ("src/SmContent/MeleeTuning.cs", "speed *= weapon.ClipSpeed"),
+        ("client/NetworkView.MeleeLock.cs", "time * MeleeClipSpeed(s)"),
+        ("client/NetworkView.MeleeLock.cs", "OwnStrikeClip(s, time)"),
+        ("client/NetworkView.cs", "AnimationAlias.Of(combo.Wargear)"),
+        ("client/NetworkView.Reactions.cs", "AnimationAlias.Of(combo.Wargear)"),
+        ("src/SmContent/HipFireAnimations.cs", "AnimationAlias.Of("),
+        ("src/SmContent/LocomotionAnimations.cs", "AnimationAlias.Of("),
+        ("src/SmContent/ReloadAnimations.cs", "AnimationAlias.Of("),
+        ("src/SmContent/UpperBodyAnimations.cs", "AnimationAlias.Of("),
+        ("client/NetworkView.MeleeFlow.cs", "AnimationAlias.Of("),
+        ("client/Customizer/CustomizerServices.cs", "data.For(content)"),
+        // W0b: the catalogues read with the sources, the name rules by the source's name, the hammer's air slash, charge and grip by the alias, the pack moves' clip speed.
+        ("client/NetworkView.Fx.cs", ".WithSources(sources)"),
+        ("client/NetworkView.Sound.cs", ".WithSources(sources)"),
+        ("client/NetworkView.MeleeFx.cs", "PresentedAs(MeleeWargear(s))"),
+        ("client/NetworkView.Sound.Melee.cs", "PresentedAs(wargear)"),
+        ("client/NetworkView.MeleeHitSound.cs", "PresentedAs(MeleeWargear(attacker))"),
+        ("client/NetworkView.HammerSwing.cs", "HammerSlashPose.IsHammer(AnimationAlias.Of(w))"),   // HammerSlash: the spear's air slash is the hammer's own clip
+        ("client/NetworkView.HammerSwing.cs", "string named = AnimationAlias.Of(wargear);"),   // HammerStrideScale (--old-strike-legs): the spear strides as the hammer
+        ("client/NetworkView.MeleeFlow.cs", "!AnimationAlias.Of(w).Contains(\"_2hand_\", StringComparison.OrdinalIgnoreCase) || !clip.StartsWith(\"SM_BUL_Hit_M_\""),   // HammerRush: the spear's charge is the hammer's sprint attack
+        ("client/NetworkView.MeleeFlow.cs", "!AnimationAlias.Of(w).Contains(\"_2hand_\", StringComparison.OrdinalIgnoreCase)) return false;"),   // HammerHoldsBothHands: the spear holsters the pistol (W3)
+        ("client/NetworkView.cs", "AnimationAlias.Of(twoHand).Contains(\"_2hand_\""),   // the transition probe's two-handed flag
+        ("client/NetworkView.cs", "MoveClipSpeed(state)"),
+        ("client/NetworkView.Jump.cs", "MoveClipSpeed(s)"),
+        ("client/NetworkView.Feel.cs", "MoveClipSpeed(s)"),
+        ("client/NetworkView.cs", "_hudView.Content = "),
     ];
 
     /// <summary>
@@ -209,6 +273,20 @@ public class ExtrasBoundaryTests
             .Where(x => !IsComment(x.Text) && !HookDeclaration.IsMatch(x.Text) && HookCall.IsMatch(x.Text) && !x.Text.Contains("// EXTRAS-HOOK", StringComparison.Ordinal))
             .Select(x => $"{x.Path}({x.Line}): {x.Text.Trim()}").ToList();
         Assert.True(unmarked.Count == 0, "Extras* hook calls without the // EXTRAS-HOOK marker:\n" + string.Join("\n", unmarked));
+    }
+
+    [Fact]
+    public void The_arsenals_call_sites_are_in_place()
+    {
+        var sources = Sources().ToDictionary(s => s.Path, s => s.Lines);
+        var missing = ArsenalCallSites.Where(c => !sources.TryGetValue(c.File, out var lines) || !lines.Any(l => !IsComment(l) && l.Contains(c.Call, StringComparison.Ordinal)))
+            .Select(c => $"{c.File}: {c.Call}").ToList();
+        Assert.True(missing.Count == 0, "the arsenal's call sites are gone (W1 to W4 rely on them; update ArsenalCallSites only with the design):\n" + string.Join("\n", missing));
+        // Every no-op partial of World.Arsenal.cs is called from one of the pinned sites.
+        var declared = sources["src/SmSim/Extras/Musou/Arsenal/World.Arsenal.cs"].Select(l => System.Text.RegularExpressions.Regex.Match(l, @"^\s*partial\s+void\s+(Arsenal\w+)\s*\("))
+            .Where(m => m.Success).Select(m => m.Groups[1].Value + "(").ToList();
+        Assert.Equal(6, declared.Count);
+        foreach (var call in declared) Assert.Contains(ArsenalCallSites, c => c.Call == call);
     }
 
     [Fact]

@@ -25,6 +25,12 @@ namespace SmClient;
 /// </summary>
 public sealed partial class Hud : Control
 {
+    /// <summary>
+    /// W0b: the match's content profile (<see cref="NetworkView"/> sets it each frame from the match's config; None outside a match). Added content's HUD hooks (the reticle and the weapon box
+    /// of a weapon only it carries) act only under it.
+    /// </summary>
+    public ContentExtras Content { get; set; }
+
     /// <summary>A player's or point's relation to the viewer: none (no teams / neutral), own side (gold) or enemy (red).</summary>
     public enum Rel { None, Own, Enemy }
 

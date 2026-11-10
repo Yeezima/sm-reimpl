@@ -380,6 +380,7 @@ public partial class CharacterViewer : Node3D
         if (selected)
         {
             float seconds = float.IsFinite(fadeSeconds) ? Math.Clamp(fadeSeconds, NoP3 ? 0.02f : SmoothMinStanceFadeSeconds, 2f) : StanceFadeSeconds;
+            ExtrasBlendSeconds(ref seconds, stance: true);   // EXTRAS-HOOK: added content's blend floor (Musou weight pass: longer stance cross-fades)
             foreach (var l in _layers) l.FadeSeconds = seconds;
         }
     }
@@ -831,6 +832,9 @@ public partial class CharacterViewer : Node3D
     /// that carries no such pose (every character outside Musou Mode).
     /// </summary>
     partial void ExtrasPoseOverlay();
+
+    /// <summary>An added mode's cross-fade length (s) for a stance change (Musou Mode's weight pass: a floor so stance changes do not snap); none leaves it.</summary>
+    partial void ExtrasBlendSeconds(ref float seconds, bool stance);
 
     void ApplyPose()
     {

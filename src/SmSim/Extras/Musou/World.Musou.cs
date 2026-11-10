@@ -51,6 +51,7 @@ public sealed partial class World
     {
         if (_musou is null || _musouDirector is null) return;
         LibrarianStep();   // Librarian/World.Librarian.cs: a Librarian's powers (nobody else has any)
+        ArsenalStep();   // Arsenal/World.Arsenal.cs: the arsenal's own timers (W4, the charge's fuse and ring); a no-op until then
         if (_tfw is not null) { long whole = SimProfile.Begin(); TfwStep(); SimProfile.End("tfw: whole step", whole); return; }   // Campaign/World.Tfw.cs: the war, not the 5-wave run (musou/perf-pass: SM_TICK_STATS section)
         long started = System.Diagnostics.Stopwatch.GetTimestamp();
         var director = _musouDirector;
@@ -256,7 +257,9 @@ public sealed partial class World
 
     partial void ExtrasJump(int player, JumpEventKind kind)
     {
-        if (_musou is null || kind != JumpEventKind.SlashLand) return;
+        if (_musou is null) return;
+        ArsenalJump(player, kind);   // Arsenal/World.Arsenal.cs: the arsenal's jump rules (W3, the impaling dive on Impact); a no-op until then
+        if (kind != JumpEventKind.SlashLand) return;
         MusouSlashLandHeal(player);   // World.MusouCombat.cs
     }
 

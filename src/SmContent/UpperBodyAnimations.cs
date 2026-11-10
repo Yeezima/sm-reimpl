@@ -278,7 +278,7 @@ public static class FlinchRules
     /// <summary>The set (the graph's weapon state name) a weapon in hand uses; null for a weapon with none (the Bolter's set is the default). **Interpretation** of the names.</summary>
     public static string SetFor(string weaponName, bool charging)
     {
-        string n = weaponName.ToLowerInvariant();
+        string n = AnimationAlias.Of(weaponName).ToLowerInvariant();   // AnimationAlias: an added weapon's borrowed name (Musou's arsenal)
         if (n.Contains("heavy_bolter")) return "Heavy Bolter Flinch";
         if (n.Contains("las_cannon") || n.Contains("lascannon")) return "Lascannon Flinch";
         if (n.Contains("plasma_cannon")) return charging ? "Plasma Cannon Strong Flinch" : "Plasma Cannon Weak Flinch";

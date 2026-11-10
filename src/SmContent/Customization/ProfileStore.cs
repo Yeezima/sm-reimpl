@@ -433,10 +433,18 @@ public sealed class ProfileStore
                 if (!CustomizationProfile.IsSetName(name)) { Fix(path, "not a usable set name; dropped"); continue; }
                 if (value is not JsonObject set) { Fix(path, "not an object; dropped"); continue; }
                 if (result.Count >= CustomizationProfile.MaxSets) { Fix(path, $"more than {CustomizationProfile.MaxSets} loadout sets; dropped"); continue; }
-                var classes = ReadClasses(set["classes"] as JsonArray, appearances, path + ".classes");
-                result[name] = new LoadoutSet(ReadSelection(set["selected"] as JsonObject, classes, path + ".selected"), classes);
+                var reader = SetReader(name);   // the set's own content's catalogue (ProfileViews.SetCatalog: Musou's set keeps Musou's arsenal items)
+                var classes = reader.ReadClasses(set["classes"] as JsonArray, appearances, path + ".classes");
+                result[name] = new LoadoutSet(reader.ReadSelection(set["selected"] as JsonObject, classes, path + ".selected"), classes);
             }
             return result;
+        }
+
+        /// <summary>The reader of loadout set <paramref name="set"/>: this one, or one on the catalogue of the content that owns the set (<see cref="ProfileViews.SetCatalog"/>).</summary>
+        Reader SetReader(string set)
+        {
+            var own = ProfileViews.SetCatalog(set, catalog);
+            return ReferenceEquals(own, catalog) ? this : new Reader(own, repairs, emblemExists);
         }
 
         /// <summary>musou/loadout-slots: added content's own data (absent: none), each entry a JSON object kept as its text; the content reads and repairs it.</summary>

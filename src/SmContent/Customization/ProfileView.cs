@@ -47,6 +47,20 @@ public static partial class ProfileViews
     static partial void ExtrasLookRemoved(ref CustomizationProfile profile, string id);
 
     /// <summary>
+    /// The catalogue loadout set <paramref name="set"/> is read and repaired with (<see cref="ProfileStore"/>): the content's own that owns the set (Musou's set lists Musou's arsenal,
+    /// docs/new-weapons-design.md section 8, hook 3), else <paramref name="catalog"/> itself. The profile's own slots (Classic PvP's) are always read with the data's.
+    /// </summary>
+    public static CustomizationCatalog SetCatalog(string set, CustomizationCatalog catalog)
+    {
+        var result = catalog;
+        ExtrasSetCatalog(set, ref result);   // EXTRAS-HOOK added content (Musou's arsenal): its set keeps its own items
+        return result;
+    }
+
+    /// <summary>Hook for added content: the catalogue of the content that owns loadout set <paramref name="set"/>; the data's without added content.</summary>
+    static partial void ExtrasSetCatalog(string set, ref CustomizationCatalog catalog);
+
+    /// <summary>
     /// <paramref name="classes"/> with every look reference that <paramref name="appearances"/> no longer holds cleared (the default look), the same list when none is: the screens deleted a look
     /// that classes outside their view still named.
     /// </summary>

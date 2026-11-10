@@ -63,13 +63,15 @@ namespace SmSim
         /// </summary>
         void TfwGrenadeRefill()
         {
-            int period = Math.Max(1, (int)MathF.Round(TfwSupplyRules.GrenadeRefillSeconds * Config.TickRate));
             _tfwSupplyIds.Clear();
             foreach (int id in _players.Keys) _tfwSupplyIds.Add(id);
             foreach (int id in _tfwSupplyIds)
             {
                 var p = _players[id];
                 if (!p.Alive || Loadouts.Equipment(Config, p) is not { } item || p.Grenades >= item.Count) { _tfwGrenadeTicks.Remove(id); continue; }
+                float seconds = TfwSupplyRules.GrenadeRefillSeconds;
+                ArsenalRefillSeconds(item, ref seconds);   // Arsenal/World.Arsenal.cs: an item's own period (W4, the charge's 30 s); 15 s for every item until then
+                int period = Math.Max(1, (int)MathF.Round(seconds * Config.TickRate));
                 int ticks = _tfwGrenadeTicks.GetValueOrDefault(id) + 1;
                 if (ticks >= period)
                 {

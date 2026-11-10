@@ -92,6 +92,8 @@ public partial class NetworkView
         MusouDeathsSeen += _musouState.NewDeaths.Count;   // the Firing Range script counts the strike's kills
         _musouState.TakeNew();
         MusouDropsFrame(me, (float)delta);   // MU-D: the own weapon drops (MusouDrops.cs)
+        Ph("musou: weight");
+        MusouWeightFrame(me, others);   // the weight pass: ground contacts (Weight/NetworkView.MusouWeight.cs)
         MusouLog(delta, shown.Count);
     }
 

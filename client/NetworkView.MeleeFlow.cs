@@ -234,7 +234,7 @@ public partial class NetworkView
     /// </summary>
     bool HammerStance(PlayerState s) =>
         !NoMeleeFlow && s.Alive && !PistolUp(s) && _config is not null
-        && MeleeWargear(s) is { } w && w.Contains("_2hand_", StringComparison.OrdinalIgnoreCase) && Loadouts.ClassOf(_config, s.Class)?.Race != Race.Orks;
+        && MeleeWargear(s) is { } w && AnimationAlias.Of(w).Contains("_2hand_", StringComparison.OrdinalIgnoreCase) && Loadouts.ClassOf(_config, s.Class)?.Race != Race.Orks;   // AnimationAlias: Musou's spear holds as the hammer
 
     /// <summary>
     /// The pistol is up: aim mode, or the simulation holding the weapon ready after a shot, raising it, charging or with a shot pending. Not <see cref="HipReady"/>, which is also false
@@ -290,7 +290,7 @@ public partial class NetworkView
     /// </summary>
     (string Clip, float Time) HammerRush(PlayerState s, string clip, float time)
     {
-        if (NoMeleeFlow || !s.Alive || MeleeWargear(s) is not { } w || !w.Contains("_2hand_", StringComparison.OrdinalIgnoreCase) || !clip.StartsWith("SM_BUL_Hit_M_", StringComparison.OrdinalIgnoreCase)) return (clip, time);
+        if (NoMeleeFlow || !s.Alive || MeleeWargear(s) is not { } w || !AnimationAlias.Of(w).Contains("_2hand_", StringComparison.OrdinalIgnoreCase) || !clip.StartsWith("SM_BUL_Hit_M_", StringComparison.OrdinalIgnoreCase)) return (clip, time);   // AnimationAlias (W0b): Musou's spear charges as the hammer
         string hammer = clip.EndsWith("2.5m", StringComparison.OrdinalIgnoreCase) ? "SM_TH_BUL_Hit_M_2.5" : "SM_TH_BUL_Hit_M_5";
         float from = ClipLength(clip, 0f), to = ClipLength(hammer, 0f);
         return from > 1e-3f && to > 1e-3f ? (hammer, time * to / from) : (clip, time);
@@ -299,7 +299,7 @@ public partial class NetworkView
     /// <summary>Whether the pistol goes to its holster: the hammer stance (from the draw clip's stow point on while it plays), or a strike with the hammer (both hands on it).</summary>
     bool HammerHoldsBothHands(PlayerState s)
     {
-        if (NoMeleeFlow || !s.Alive || MeleeWargear(s) is not { } w || !w.Contains("_2hand_", StringComparison.OrdinalIgnoreCase)) return false;
+        if (NoMeleeFlow || !s.Alive || MeleeWargear(s) is not { } w || !AnimationAlias.Of(w).Contains("_2hand_", StringComparison.OrdinalIgnoreCase)) return false;   // AnimationAlias (W0b): both hands on the spear
         if (s.MeleeStep > 0) return true;
         if (!HammerStance(s)) return false;
         if (_hammerDraw.TryGetValue(s.PlayerId, out var draw) && double.IsFinite(draw.Since))

@@ -108,6 +108,8 @@ public partial class NetworkView
         {
             var graphs = HavokBehavior.Read(_assets.Model.Rig.Pack);
             var wargear = SoundTriggers.WargearNames(_config);
+            var sources = PresentationSourceMap();   // W0b: an added weapon sounds as install files (Musou's arsenal); empty without added content: the triggers as before
+            if (sources.Count > 0) wargear = [.. wargear.Where(n => !sources.ContainsKey(n)).Concat(sources.Values.SelectMany(v => v)).Distinct(StringComparer.OrdinalIgnoreCase)];
             bool orkClass = Enumerable.Range(0, _config.Classes.Count).Any(i => Races.Of(_config, i, Team.None) == Race.Orks);   // Ork O8: the Ork rig's clip tags too
             string gameDir = _gameDir;
             string repo = System.IO.Path.GetFullPath(System.IO.Path.Combine(ProjectSettings.GlobalizePath("res://"), ".."));
@@ -117,7 +119,7 @@ public partial class NetworkView
                 var sw = Stopwatch.StartNew();
                 var catalog = AudioCatalog.Open(gameDir, null, repoRoot: repo);
                 var orkGraphs = orkClass ? OrkGraphsOrNull(gameDir) : null;   // read here, on the worker: its own rig object
-                var triggers = SoundTriggers.Load(gameDir, wargear, SoundTriggers.PlayerBlueprints, graphs, orkGraphs);
+                var triggers = SoundTriggers.Load(gameDir, wargear, SoundTriggers.PlayerBlueprints, graphs, orkGraphs).WithSources(sources);
                 return (catalog, triggers, sw.Elapsed.TotalMilliseconds);
             });
         }
@@ -290,6 +292,9 @@ public partial class NetworkView
 
     /// <summary>An added mode's treatment of a player's sound emitter (Musou Mode: the own character's lines are never ducked, stolen or muffled, musou/audio-pass); none leaves it as it is.</summary>
     partial void ExtrasTrackEmitter(SoundEmitter emitter, bool own);
+
+    /// <summary>An added mode's use of a clip tag the sound's tag pass admitted (Musou Mode's weight pass: the foot tags' ground contacts); none ignores it.</summary>
+    partial void ExtrasFootfall(string tag, PlayerState s, bool own, string? clip);
 
     /// <summary>An added mode's extra layers under a weapon's fire sound (Musou Mode: the bolter rifles' deep copy and thump, musou/audio-pass).</summary>
     partial void ExtrasFireLayers(WeaponSpec spec, SoundEmitter e, bool own);
@@ -500,6 +505,7 @@ public partial class NetworkView
             if (LogFootsteps) GD.Print($"TAG P{s.PlayerId} t {_connectedFor:F3} {tag} dropped: the same foot posted under {FootstepLevel.SameFootMinSeconds:F2} s ago");
             return;
         }
+        ExtrasFootfall(tag, s, own, t.Clip);   // EXTRAS-HOOK: added content's ground contacts from the foot tags (Musou weight pass: the dust and debris puffs)
         bool any = false;
         foreach (var file in PlayerFiles(s))
         {

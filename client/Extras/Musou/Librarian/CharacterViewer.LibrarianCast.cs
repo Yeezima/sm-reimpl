@@ -79,10 +79,11 @@ public partial class CharacterViewer
 
     static readonly bool OldCast = OS.GetCmdlineUserArgs().Contains("--old-librarian-cast");
 
-    /// <summary>Added content's procedural poses, in order: the Librarian's cast, then a Musou weapon's keyframed strike (<c>Weapons/CharacterViewer.WeaponPose.cs</c>); each returns at once for a character that carries none.</summary>
+    /// <summary>Added content's procedural poses, in order: the Librarian's cast, the Musou weight pass's settle, then a Musou weapon's keyframed strike (<c>Weapons/CharacterViewer.WeaponPose.cs</c>); each returns at once for a character that carries none.</summary>
     partial void ExtrasPoseOverlay()
     {
         LibrarianPoseOverlay();
+        MusouWeightPoseOverlay();   // the Musou weight pass's settle (Weight/CharacterViewer.MusouWeight.cs); nothing unless a contact started one
         WeaponPoseOverlay();
     }
 

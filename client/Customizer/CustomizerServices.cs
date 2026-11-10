@@ -63,9 +63,43 @@ public sealed partial class CustomizerServices
     /// </summary>
     partial void ExtrasProfileView(ref IProfileView? view);
 
-    public CustomizationCatalog? Catalog { get; private set; }
+    CustomizationCatalog? _catalog;
+    (ContentExtras Content, CustomizationCatalog Data, CustomizationCatalog Shown)? _contentCatalog;
+
+    /// <summary>
+    /// The catalogue as the content profile in effect (<see cref="Content"/>) offers it: <see cref="CustomizationCatalog.For"/>, so Musou's profile lists its arsenal's items (W0, docs/new-weapons-design.md
+    /// section 8, hook 3) and every other profile the data's catalogue itself. The profile is read and repaired with the data's (<see cref="ProfileSession.Catalog"/>). Kept per content profile.
+    /// </summary>
+    public CustomizationCatalog? Catalog
+    {
+        get
+        {
+            if (_catalog is not { } data) return null;
+            var content = Content;
+            if (_contentCatalog is { } known && known.Content == content && ReferenceEquals(known.Data, data)) return known.Shown;
+            var shown = data.For(content);
+            _contentCatalog = (content, data, shown);
+            return shown;
+        }
+        private set => _catalog = value;
+    }
     public ProfileSession? Session { get; private set; }
-    public SimConfig? Config { get; private set; }
+    SimConfig? _config;
+    /// <summary>
+    /// The configuration the customizer plans a Join with: the data's, or (added content, <see cref="ExtrasConfig"/>) the one of the content profile in effect, so a name its arsenal adds (Musou's autocannon)
+    /// resolves to an index. Null while that configuration is still being read, so <see cref="Ready"/> waits for it.
+    /// </summary>
+    public SimConfig? Config
+    {
+        get { var config = _config; ExtrasConfig(ref config); return config; }   // EXTRAS-HOOK: Musou's own config for a Musou profile (client/Extras/Musou/Arsenal/CustomizerServices.Arsenal.cs)
+        private set => _config = value;
+    }
+
+    /// <summary>Hook for added content: replaces <paramref name="config"/> (the data's) by the one its content profile plays with; null while that is read. Leaves it alone unless its content profile is on.</summary>
+    partial void ExtrasConfig(ref SimConfig? config);
+
+    /// <summary>Hook for added content: runs at the end of the load, on its worker, so what the content profile needs beyond the data's configuration is read before <see cref="LoadTask"/> completes (a caller that waits on it then finds <see cref="Ready"/> true).</summary>
+    partial void ExtrasLoaded();
     /// <summary>Whether each perk does anything in the simulation (the creator's NOT ACTIVE YET / PARTLY ACTIVE words); read once with the config.</summary>
     public IReadOnlyDictionary<string, PerkStatus>? PerkActivities { get; private set; }
     public string? Error { get; private set; }
@@ -76,6 +110,9 @@ public sealed partial class CustomizerServices
 
     /// <summary>The services are used by the in-match picker (<c>C</c>): the 3D preview then draws no eye glow, since the match has its own effects and a second library would load beside it.</summary>
     public bool InMatch { get; set; }
+
+    /// <summary>These services were made for a match's picker (<c>NetworkView.OfMatch</c>) and stay so: unlike <see cref="InMatch"/> it is never reset, so what only the front end needs (Musou's own configuration for a Join, <see cref="ExtrasConfig"/>) is never read for a match.</summary>
+    public bool MadeForMatch { get; set; }
 
     public PreviewAssets Previews { get; }
 
@@ -139,6 +176,7 @@ public sealed partial class CustomizerServices
                 ApplyProfileView(session);   // before any screen listens: the content profile's view from the start
             }
             Catalog = catalog;
+            ExtrasLoaded();   // EXTRAS-HOOK: the added content's own reads finish before LoadTask does (Musou's own configuration)
         }
         catch (Exception ex) when (ex is not (OutOfMemoryException or StackOverflowException or AccessViolationException))
         {
