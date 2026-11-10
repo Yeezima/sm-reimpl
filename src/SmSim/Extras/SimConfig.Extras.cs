@@ -45,6 +45,6 @@ public sealed partial record SimConfig
     {
         if (Extras.HasFlag(ContentExtras.Musou) && item is not null && SmSim.Extras.Musou.Campaign.TfwCombatRules.IsFrag(item)) scale = MusouCombatRules.FragReachScale;
         else if (Extras.HasFlag(ContentExtras.Musou) && item is not null && item.Name.Equals(SmSim.Extras.Musou.Arsenal.ArsenalRules.RemoteDetonators, StringComparison.OrdinalIgnoreCase))
-            scale = SmSim.Extras.Musou.Arsenal.DemolitionChargeRules.CentreStretch;   // W4: the client's one centre effect at the 16 m blast (x1.6 of the data's 10 m); the item has no splash, so the server's blasts are untouched
+            scale = SmSim.Extras.Musou.Arsenal.DemolitionChargeRules.CentreStretch;   // a "blast reach" contract: the charge has no splash today; one added later would be scaled x1.6 on the server too   // W4: the client's one centre effect at the 16 m blast (x1.6 of the data's 10 m); the item has no splash, so the server's blasts are untouched
     }
 }

@@ -24,13 +24,10 @@ public static partial class ArsenalRules
     /// <summary>The four names, in milestone order.</summary>
     public static readonly IReadOnlyList<string> Names = [Autocannon, LightningClaw, PowerSpear, RemoteDetonators];
 
-    /// <summary>Whether <paramref name="wargear"/> is one of the arsenal's items (case ignored).</summary>
-    public static bool IsArsenal(string? wargear)
-    {
-        if (wargear is null) return false;
-        foreach (var name in Names) if (name.Equals(wargear, StringComparison.OrdinalIgnoreCase)) return true;
-        return false;
-    }
+    static readonly HashSet<string> NameSet = new(Names, StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Whether <paramref name="wargear"/> is one of the arsenal's items (case ignored). Allocation-free: the client asks it every frame in Musou (W0b review).</summary>
+    public static bool IsArsenal(string? wargear) => wargear is not null && NameSet.Contains(wargear);
 
     /// <summary>
     /// Whether an arsenal melee weapon takes the thunder hammer's jump-pack rules (<c>Loadouts.WieldsHammer</c>: no pound delay, the hop swing, the steered slam), through the

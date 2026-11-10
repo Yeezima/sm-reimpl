@@ -158,7 +158,7 @@ public sealed partial class World
         if (float.IsFinite(dome) && dome <= max)
         {
             bool stays = false;
-            ArsenalProjectileMeets(p.Id, 0, 0, p.Position + direction * dome, ref stays);   // a shield dome from outside: W4's charge sticks to its surface (no detonation at the stop)
+            ArsenalProjectileMeets(p.Id, 0, 0, p.Position + direction * MathF.Max(0f, dome - 0.05f), ref stays);   // a shield dome from outside: W4's charge sticks to its surface, 0.05 m outside it on the thrower's side as the core's own stop does (a pin on the sphere could round to inside, where the blast reaches in)
             if (stays) return;
         }
         stop = MathF.Min(stop, dome);

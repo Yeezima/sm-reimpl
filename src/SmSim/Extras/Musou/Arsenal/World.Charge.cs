@@ -177,7 +177,7 @@ public sealed partial class World
             {
                 var at = DemolitionChargeRules.SpotAt(run.Centre, run.Projectile, run.Next, DemolitionChargeRules.Ring(run.Master),
                     Collision is null ? null : (o, dir, len) => RaycastLevel(o, dir, len) is { } hit ? hit.Distance : null);
-                ChargeBlast(run, at, DemolitionChargeRules.Spot(run.Master));
+                if (!TfwShielded(run.Centre, at)) ChargeBlast(run, at, DemolitionChargeRules.Spot(run.Master));   // a spot inside a dome the charge stands outside of goes off against its shell: nothing reaches in
                 ChargeSpots++;
                 run.Next++;
             }

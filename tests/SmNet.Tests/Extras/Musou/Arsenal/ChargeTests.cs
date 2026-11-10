@@ -364,6 +364,7 @@ public class ChargeTests
         w.TfwMeksOn = true;
         w.Tfw!.Guardsmen = false;
         w.TfwSquigDropsOn = false;
+        w.Tfw.PuppetBrain = (_, p) => new PlayerInput(w.Tick, 0f, 0f, p.Yaw, InputButtons.None);   // the AI Marines shoot nobody
         var battle = TfwRig.Deploy(w);
         battle.WeirdboyzOn = false;
         TfwRig.Steps(w, 3);
@@ -384,10 +385,18 @@ public class ChargeTests
         Assert.Equal(ProjectileMotion.Stuck, w.Projectiles[0].Motion);
         Assert.Equal(0, w.ChargeCentres);   // the core's stop at the dome would have set it off
         float to = Vector3.Distance(w.Projectiles[0].Position, centre);
-        Assert.InRange(to, MusouMekRules.ShieldRadius - 2.5f, MusouMekRules.ShieldRadius + 1.5f);   // on the dome's surface
+        Assert.InRange(to, MusouMekRules.ShieldRadius, MusouMekRules.ShieldRadius + 1.5f);   // on the dome's surface, outside it (never inside, where its blast would reach in)
+        ushort inside = Ork(w, centre + new Vector3(0f, 0f, 0.1f));
+        float insideHealth = Health(w, inside);
+        var mek = w.TfwMeks!;
+        Assert.True(mek.TryGet(generator!.Value.Id, out var gen));
+        float generatorHealth = gen.Health;
         uint stuckAt = w.Tick;
         while (w.ChargeCentres == 0 && w.Tick < stuckAt + 300) Tick(w);
         Assert.Equal(1, w.ChargeCentres);
         Assert.InRange(w.Tick - stuckAt, 140u, 160u);
+        // The dome keeps the centre blast out: an Ork inside is unhurt by it. (The generator itself takes the blast, as it takes every blast, and once it is destroyed the dome is gone, so the ring's later spots are not tested here.)
+        Assert.Equal(insideHealth, Health(w, inside));
+        Assert.True(mek.TryGet(generator.Value.Id, out var after) ? after.Health < generatorHealth : true, "the generator takes the blast or is destroyed by it");
     }
 }
