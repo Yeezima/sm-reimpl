@@ -91,7 +91,8 @@ public sealed partial class World
     /// <summary>
     /// The scale on <paramref name="attacker"/>'s ranged damage on the enemies (owner, 2026-11-11: "increase all ranged attack damage by 20%"): <see cref="Extras.Musou.Campaign.TfwCombatRules.PlayerRangedDamageScale"/>
     /// in Musou Mode's war for a human player's character (<see cref="Extras.Musou.Campaign.TfwCombatRules.ScalesPlayer"/>: an AI Marine keeps his damage), 1 in the 5-wave run and for anyone else.
-    /// Every such gun, projectile, splash and charge hit on the enemies and the contraptions multiplies by it; the Librarian's spells, the fire support and the Orks' own explosions do not.
+    /// Every such gun, projectile, splash and charge hit on the enemies and the contraptions multiplies by it, and since 2026-11-11 the shells of the orbital strike a player called (the owner: "Add it to orbital
+    /// strikes"; <c>TfwShellLands</c>, by <see cref="Extras.Musou.Campaign.TfwShell.Caller"/>); the Librarian's spells and the Orks' own explosions do not.
     /// </summary>
     float MusouRangedDealt(int attacker) =>
         _musou?.War is { } war && _players.ContainsKey(attacker) && Extras.Musou.Campaign.TfwCombatRules.ScalesPlayer(attacker) ? war.PlayerRangedDamageScale : 1f;

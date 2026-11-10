@@ -67,8 +67,11 @@ public static class TfwFireRules
     public const int MaxEvents = 256;
 }
 
-/// <summary>A shell on its way: the landing tick, its number in the barrage, the impact, whether its record has gone out.</summary>
-public readonly record struct TfwShell(uint Tick, ushort Subject, Vector3 At, bool Sent);
+/// <summary>
+/// A shell on its way: the landing tick, its number in the barrage, the impact, whether its record has gone out, and the player whose orbital strike it is (0: none, a test aid's barrage). The caller
+/// scales its damage on the enemies (<c>World.MusouRangedDealt</c>: x1.2 for a human, owner 2026-11-11) and nothing else: the kills still carry no player.
+/// </summary>
+public readonly record struct TfwShell(uint Tick, ushort Subject, Vector3 At, bool Sent, int Caller = 0);
 
 /// <summary>A Thunderhawk run under way: its number, the first tick, the path.</summary>
 public readonly record struct TfwStrafe(ushort Subject, uint Start, Vector3 From, Vector3 To, Vector3 Direction, Vector3 Side, float Length);

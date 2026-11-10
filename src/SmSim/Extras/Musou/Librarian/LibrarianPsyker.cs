@@ -126,16 +126,16 @@ public sealed class LibrarianPsyker
 
     /// <summary>
     /// The chain (<see cref="LibrarianChain"/>, the client's foresight's own rule) on <paramref name="sight"/>, the enemies as the caster's client drew them, or on the pool now; then each enemy of the chain that is
-    /// alive now takes its share (the first <see cref="LibrarianRules.PrimaryDps"/> a second, each jump <see cref="LibrarianRules.JumpFalloff"/> of the one before). One the caster saw alive that has died since
+    /// alive now takes <see cref="LibrarianRules.PrimaryDps"/> a second, the last as the first (no fall-off down the chain since 2026-11-11). One the caster saw alive that has died since
     /// stays a link of the chain (the jump goes on from it, as drawn) and takes nothing. The links are where the caster saw them.
     /// </summary>
     void Lightning(MusouSim sim, in LibrarianCaster c, float dt, Func<Vector3, Vector3, bool>? blocked, LibrarianSight? sight)
     {
         ReadOnlySpan<LibrarianCandidate> candidates = sight is not null ? sight.Candidates : Present(sim);
         int count = LibrarianChain.Run(c.Feet, c.Eye, c.Yaw, c.Pitch, candidates, blocked, _links, _chained, _chain, _chainScratch);   // nothing in the sights: the one link that crackles out
-        float damage = LibrarianRules.PrimaryDps * dt;
+        float damage = LibrarianRules.PrimaryDps * dt;   // every link the same (owner 2026-11-11: "it always stays constant")
         for (int k = 0; k < count; k++) _chainIds.Add(candidates[_chain[k]].Id);
-        for (int k = 0; k < count; k++, damage *= LibrarianRules.JumpFalloff)
+        for (int k = 0; k < count; k++)
         {
             ushort id = _chainIds[k];
             if (!sim.AliveNow(id) || (sight is not null && !sight.Same(_chain[k], sim))) continue;   // died since he saw it (or its slot is another enemy's now): a link, no damage

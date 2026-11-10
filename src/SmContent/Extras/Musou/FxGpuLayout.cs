@@ -24,12 +24,15 @@ public static class FxGpuLayout
     /// <summary>Texels per row of the curve table.</summary>
     public const int CurveRow = 1024;
 
-    /// <summary>The live-effect cap of the CPU path and of the GPU spray path.</summary>
-    public const int CpuMaxEffects = 160, GpuMaxEffects = 1200;
+    /// <summary>
+    /// The live-effect cap of the CPU path and of the GPU spray path (600 since the owner's "Drop to 600 blood spray cap" of 2026-11-11, was 1,200: the polish pass P3 measured the 200-death burst frame
+    /// at 38.8 ms with 1,200 and 32.4 ms with 400).
+    /// </summary>
+    public const int CpuMaxEffects = 160, GpuMaxEffects = 600;
 
     /// <summary>
     /// Whether Musou Mode uses the GPU spray path: not with <c>--fx-cpu</c>, and not in safe mode (the Compatibility renderer or <c>--safe-mode</c>: an old GPU
-    /// keeps the CPU path and its 160-effect cap, as a weak machine's CPU cannot walk 1,200 effects either).
+    /// keeps the CPU path and its 160-effect cap, as a weak machine's CPU cannot walk the GPU path's 600 effects either).
     /// </summary>
     public static bool UseGpu(bool fxCpuFlag, bool safeMode) => !fxCpuFlag && !safeMode;
 

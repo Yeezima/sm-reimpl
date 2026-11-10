@@ -35,11 +35,17 @@ public static class LibrarianRules
     /// the jump radius is not part of it, our reading of "range").
     /// </summary>
     public const float LightningRange = 37.5f, AimConeDegrees = 12f;
-    /// <summary>It jumps to the nearest enemy not yet struck within this of the last one, up to <see cref="MaxTargets"/> struck in all.</summary>
-    public const float JumpRadius = 8f;
+    /// <summary>
+    /// It jumps to the nearest enemy not yet struck within this (flat) of the last one, up to <see cref="MaxTargets"/> struck in all (16 m since the owner's "Widen the 8m jump", answer "16 m (double)",
+    /// of 2026-11-11; was 8 m). The tag 16 jumps are bytes of 0.2 m for it (<c>LibrarianWire</c>: 25.4 m).
+    /// </summary>
+    public const float JumpRadius = 16f;
     public const int MaxTargets = 40;
-    /// <summary>The first enemy takes this a second (112.5 since the owner's "+25% range and damage" of 2026-11-11, was 90); each jump takes <see cref="JumpFalloff"/> of the one before.</summary>
-    public const float PrimaryDps = 112.5f, JumpFalloff = 0.85f;
+    /// <summary>
+    /// Every enemy of the chain takes this a second (112.5 since the owner's "+25% range and damage" of 2026-11-11, was 90). No fall-off down the chain since the owner's "make the damage not falloff
+    /// anymore - it always stays constant" (2026-11-11): the 20th and the 40th take what the first takes (each jump took 0.85 of the one before until then).
+    /// </summary>
+    public const float PrimaryDps = 112.5f;
     /// <summary>Enemies this far above or below the flat circle are out of reach of a jump (ours).</summary>
     public const float VerticalReach = 4f;
     /// <summary>Most links the wire carries a tick: every target struck since MusouSim 14 (the wire's 3-byte jumps, <c>LibrarianWire</c>; it was 16 at 12 bytes a link).</summary>
