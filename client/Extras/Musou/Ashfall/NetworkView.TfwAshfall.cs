@@ -14,14 +14,19 @@ public partial class NetworkView
 {
     AshfallLevel? _ashfallLevel;
     AshfallDressing? _ashfallDressing;
+    static readonly bool NoAshfallCache = CmdFlag("no-ashfall-cache");
 
     void TfwAshfallContent(string name, ref MapContent? map)
     {
         if (!TfwMap.IsAshfall(name)) return;
         var watch = System.Diagnostics.Stopwatch.StartNew();
-        (_ashfallLevel, _ashfallDressing) = AshfallMap.BuildWithDressing(TfwMap.LayoutOf(name));   // draft 11: the server's map name picks the layout (tfw_war_field: the battlefield layout)   // one build: the collision and the drawing share the level (Build() is BuildWithDressing().Level)
+        var layout = TfwMap.LayoutOf(name);   // draft 11: the server's map name picks the layout (tfw_war_field: the battlefield layout)
+        // polish pass P2: the generated layout from the private cache (AshfallLayoutCache; --no-ashfall-cache / SM_NO_ASHFALL_CACHE=1 generates as before, 23 s measured).
+        if (NoAshfallCache) AshfallLayoutCache.Disabled = true;
+        SetLoadingCaption(AshfallLayoutCache.IsCached(layout) ? "READING ASHFALL CITADEL" : "GENERATING ASHFALL CITADEL (ONCE PER BUILD)");
+        (_ashfallLevel, _ashfallDressing) = AshfallLayoutCache.BuildWithDressing(layout, out string cacheNote);   // one build: the collision and the drawing share the level (Build() is BuildWithDressing().Level)
         map = AshfallContent.ToMapContent(_ashfallLevel);
-        GD.Print($"ashfall: {_ashfallLevel.Layout} layout generated in {watch.ElapsedMilliseconds} ms, hash {_ashfallLevel.Hash:X16}; nothing read from the install");
+        GD.Print($"ashfall: {cacheNote}; content in {watch.ElapsedMilliseconds} ms, hash {_ashfallLevel.Hash:X16}; nothing read from the install");
     }
 
     void TfwAshfallVisuals(string name, ref bool drawn)

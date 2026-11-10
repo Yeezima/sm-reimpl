@@ -146,6 +146,12 @@ public sealed record GameMap(string Name, CollisionWorld Collision, IReadOnlyLis
 }
 /// <summary>What a client's map loader returns: the collision to predict with and the hash the server checks.</summary>
 public sealed record LoadedMap(CollisionWorld Collision, ulong Hash);
+
+/// <summary>Polish pass P2: a map load in progress (<see cref="ClientOptions.BeginLoadMap"/>). <see cref="Poll"/> returns false while it runs; true with the map, or with the error, once it is done.</summary>
+public interface IMapLoad
+{
+    bool Poll(out LoadedMap? loaded, out string? error);
+}
 /// <summary>
 /// Server → client. <paramref name="EchoSentMs"/> echoes the Hello's send time, so the client measures the round trip of
 /// the Hello actually answered. <paramref name="Session"/> must accompany every input batch.
