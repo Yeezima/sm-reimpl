@@ -11,8 +11,8 @@ namespace SmClient;
 /// <summary>
 /// The power spear's model (W3; docs/new-weapons-design.md section 6.3; **ours**, *placeholder*, built in code from the owner's reference description: a black shaft about 1.3 times a marine's height,
 /// near the top an ornate bronze collar with a ring and a small crossguard, and a long single-edged blade, about a third of the whole length, with an angled chisel tip, glowing with a translucent
-/// blue power field, deeper at the base and lighter toward the edge). It is drawn through the thunder hammer's attachment: the hammer's mount (the chest prop of the two-handed weapons) and root space, with the
-/// shaft along +X (the hammer's own axis) and the grip about a third of the way up the shaft, so the spear is held where the hammer is. Musou Mode only (<see cref="ExtrasWeaponModel"/> asks only for a Musou
+/// blue power field, deeper at the base and lighter toward the edge). It is authored in the thunder hammer's root space (the shaft along +X, the two-handed grip at the origin, 1.05 m from the butt) and drawn through the hammer's
+/// attachment: the hammer's chest-prop mount for a swing (both hands), and a mount on the power sword's hand bone for the carry (the right hand alone, the fist 0.6 m from the butt). Musou Mode only (<see cref="ExtrasWeaponModel"/> asks only for a Musou
 /// rig); every size and colour is ours, to refine against the owner's picture.
 /// </summary>
 public sealed partial class WeaponRig

@@ -57,3 +57,28 @@ public class PowerSpearContentTests
         Assert.Null(MpClasses.MeleeMapFor("sm_mp_melee_powersword") is { ClipSpeed: not 1f } ? "x" : null);
     }
 }
+
+public partial class CustomizationCatalogTests
+{
+    [Fact]
+    public void The_spear_row_follows_the_hammer_in_the_marine_assaults_melee_row_in_musous_catalogue_only()
+    {
+        var global = SmFormats.Baf.BafDocument.Read(GlobalBaf());
+        var data = PerkCatalog.Build(global, name => name.StartsWith("mp_perk") ? SmFormats.Baf.BafDocument.Read(Gear("perk")) : SmFormats.Baf.BafDocument.Read(Gear(name.Contains("pistol") ? "pistol" : "melee")), null, []);
+        // The fixture's Assault carries no hammer: give it one, as the install's does.
+        var hammer = new LoadoutItem("sm_mp_melee_2hand_thunder_hammer", "melee", "Thunder Hammer", "", 1, true, null, null);
+        var withHammer = data.WithClasses(c => c.Role == "assault" ? c with { Melee = c.Melee with { Items = [.. c.Melee.Items, hammer] } } : c);
+
+        var musou = withHammer.For(ContentExtras.Musou);
+        var assault = musou.Classes.First(c => c.Role == "assault");
+        Assert.Equal(["sm_mp_melee_2hand_thunder_hammer", "sm_mp_melee_power_spear"], assault.Melee.Items.Select(i => i.Name).Skip(assault.Melee.Items.Count - 2));
+        Assert.True(assault.Melee.Items[^1].Simulated);
+        Assert.Equal("Power Spear", assault.Melee.Items[^1].DisplayName);
+        Assert.DoesNotContain(musou.Classes.Where(c => c.Role != "assault").SelectMany(c => c.Melee.Items), i => i.Name == "sm_mp_melee_power_spear");   // no other class
+
+        foreach (var profile in new[] { ContentExtras.None, ContentExtras.Orks })
+            Assert.DoesNotContain(withHammer.For(profile).Classes.SelectMany(c => c.Melee.Items), i => i.Name == "sm_mp_melee_power_spear");   // no other profile
+        Assert.Equal(1, assault.Melee.Items.Count(i => i.Name == "sm_mp_melee_power_spear"));
+        Assert.Equal(1, musou.For(ContentExtras.Musou).Classes.First(c => c.Role == "assault").Melee.Items.Count(i => i.Name == "sm_mp_melee_power_spear"));   // asking again adds no second row
+    }
+}

@@ -23,6 +23,8 @@ public sealed partial class World
     partial void ArsenalJump(int player, JumpEventKind kind)
     {
         if (kind != JumpEventKind.Impact || _musou is not { } musou || !_players.TryGetValue(player, out var state) || !SpearRules.Wields(Config, state)) return;
+        if (_state != MatchState.Playing) return;   // as the cleave: no kill outside play
+        MusouBeginTick();                            // its events belong to this tick's buffer, which ExtrasStep clears at the start of the next
         Span<ushort> near = stackalloc ushort[4];
         int n = musou.Query(state.Position, SpearRules.ImpaleReach, near, Config.MeleeVerticalReach);
         for (int k = 0; k < n; k++)

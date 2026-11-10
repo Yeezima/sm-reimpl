@@ -39,10 +39,10 @@ public class SpearTests
         players[Human] = players[Human] with { MeleeChoice = melee };
     }
 
-    static World War(int melee)
+    static World War(int melee, SimConfig? config = null)
     {
         var map = TfwTestArena.Build();
-        var w = new World(Config(), map.Collision, map.Spawns) { Rules = new MatchRules { CountdownTime = 0.1f, TimeLimit = 0f, ScoreLimit = int.MaxValue / 2 } };
+        var w = new World(config ?? Config(), map.Collision, map.Spawns) { Rules = new MatchRules { CountdownTime = 0.1f, TimeLimit = 0f, ScoreLimit = int.MaxValue / 2 } };
         Assert.True(w.StartTfw(null, TfwTestArena.Field));
         w.Tfw!.Idle = true;
         w.Spawn(Human, 0);
@@ -238,5 +238,77 @@ public class SpearTests
         Impact(w);
         w.Musou!.TryGet(ork, out var e);
         Assert.Equal(1000f, e.Health, 1);
+    }
+
+    // ---------------------------------------------------------------- a real pound
+
+    /// <summary>The Assault with the M14 pack (a pound that lands where it began, straight down) and both melee weapons.</summary>
+    static SimConfig PackConfig()
+    {
+        var c = new ClassLoadout("sm - assault", 0, -1, [HammerLight]) { PrimaryChoices = [0], MeleeChoices = [HammerCombo, SpearCombo], Side = Team.SpaceMarines, Role = "assault", JumpPack = 0 };
+        return Config() with { Classes = [c, c with { Name = "csm - assault", Side = Team.Chaos }], JumpPacks = [JumpPackTests.Pack] };
+    }
+
+    /// <summary>The player jumps and pounds straight down at the hang until the landing's Impact; the Musou events of every step are collected (what a client would be sent). Returns where it landed.</summary>
+    static Vector3 Pound(World w, List<MusouEvent> events)
+    {
+        bool pounded = false;
+        for (int k = 0; k < 300; k++)
+        {
+            var p = w.Players[Human];
+            var b = k == 0 ? InputButtons.Jump : !pounded && p.Jump == JumpPhase.Hang ? InputButtons.Melee : InputButtons.None;
+            if (b == InputButtons.Melee) pounded = true;
+            w.Step(id => new PlayerInput(w.Tick, 0f, 0f, 0f, b, -1.4f));
+            events.AddRange(w.Musou!.Events);
+            if (w.LastJumps.FirstOrDefault(j => j.Kind == JumpEventKind.Impact) is { Player: Human } impact) return impact.Position;
+        }
+        throw new Xunit.Sdk.XunitException("no impact");
+    }
+
+    [Fact]
+    public void A_real_pound_with_the_spear_impales_and_its_event_reaches_the_client_the_hammer_does_not()
+    {
+        var probe = War(1, PackConfig());
+        var landing = Pound(probe, []);
+
+        var spear = War(1, PackConfig());
+        ushort nob = Ork(spear, landing + new Vector3(0.6f, 0f, 0f), health: 600f, type: MusouEnemyType.Nob);
+        var events = new List<MusouEvent>();
+        Pound(spear, events);
+        spear.Musou!.TryGet(nob, out var dead);
+        Assert.Equal(MusouEnemyState.Dying, dead.State);
+        Assert.Contains(events, e => e.Kind == MusouEventKind.Death && e.Enemy == nob);   // the kill is in the tick's buffer the server sends
+
+        var hammer = War(0, PackConfig());
+        ushort other = Ork(hammer, landing + new Vector3(0.6f, 0f, 0f), health: 600f, type: MusouEnemyType.Nob);
+        Pound(hammer, []);
+        hammer.Musou!.TryGet(other, out var alive);
+        Assert.True(alive.Health > 450f);   // the pack's own blast only
+    }
+
+    // ---------------------------------------------------------------- not dropped, and the cost
+
+    [Fact]
+    public void The_arsenals_items_are_not_dropped_to_a_player()
+    {
+        var w = War(1);
+        var pool = MusouDropRules.Pool(w.Config, w.Players[Human]);
+        Assert.DoesNotContain(MusouDropItem.Melee(2), pool);   // the spear is the class's third melee choice
+        var plain = Config() with { Classes = [Config().Classes[0] with { MeleeChoices = [HammerCombo, new MeleeCombo("sm_mp_melee_powersword", [HammerLight]), SpearCombo] }, Config().Classes[1]] };
+        var pool2 = MusouDropRules.Pool(plain, new PlayerState { Class = 0 });
+        Assert.Contains(MusouDropItem.Melee(1), pool2);          // a data weapon is
+        Assert.DoesNotContain(MusouDropItem.Melee(2), pool2);    // the spear is not
+    }
+
+    [Fact]
+    public void A_sweep_among_a_thousand_orks_costs_little()
+    {
+        var w = War(1);
+        for (int k = 0; k < 1000; k++) Ork(w, Polar(w, (k % 300) - 150f, 1.5f + (k % 40) * 0.33f));
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        var hit = StruckBySwing(w);
+        watch.Stop();
+        Assert.Equal(SpearRules.MostOrks, hit.Count);
+        Assert.True(watch.ElapsedMilliseconds < 3000, $"140 ticks with 1000 Orks in reach took {watch.ElapsedMilliseconds} ms");
     }
 }

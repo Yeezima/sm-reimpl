@@ -696,7 +696,7 @@ public sealed partial class WeaponRig
         if (!_alive || Faulted || MeleeInHand() is not { } i || i.Asset.Model.Locator(name) is not { } locator) return false;
         int bone = _skeleton.FindBone(i.Bone!);
         if (bone < 0) return false;
-        world = _skeleton.GlobalTransform * _skeleton.GetBoneGlobalPose(bone) * i.Wield * MarineAssets.ToGodot(locator.ToRoot);
+        world = _skeleton.GlobalTransform * _skeleton.GetBoneGlobalPose(bone) * i.Holder.Transform * MarineAssets.ToGodot(locator.ToRoot);
         world.Basis = world.Basis.Orthonormalized();
         return true;
     }
