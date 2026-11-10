@@ -38,7 +38,7 @@ public partial class NetworkView
                 var goal = _musouState.MiddleNear(client.Predicted.Position, 30f) ?? point;
                 await TfwPathTo(goal, $"arc: into the crowd ({run + 1})", 8.0, () => TfwNearCount(7f) >= 5);
             }
-            for (double until = _connectedFor + 8.0; TfwNearCount(6f) < 12 && _connectedFor < until;) await TfwWait(0.1);   // let the crowd close in: every swing of the chain lands
+            for (double until = _connectedFor + 20.0; TfwNearCount(6f) < 8 && _connectedFor < until;) await TfwWait(0.1);   // let the crowd close in: every swing of the chain lands
             GD.Print($"TFWARC t {_connectedFor:F2} {view} view, {weapon}, Orks within 7 m: {TfwNearCount(7f)}");
             for (int k = 0; k < 4; k++)
             {
