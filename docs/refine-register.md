@@ -28,14 +28,11 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2856 spec table rows: **2130 tagged**, 502 not tagged (read from data with high confidence), 224 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 637 rows of the changes document.
-Scanned 2864 spec table rows: **2133 tagged**, 507 not tagged (read from data with high confidence), 224 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 637 rows of the changes document.
-Scanned 2861 spec table rows: **2135 tagged**, 502 not tagged (read from data with high confidence), 224 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 637 rows of the changes document.
+Scanned 2879 spec table rows: **2148 tagged**, 507 not tagged (read from data with high confidence), 224 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 637 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
-| Movement (critical) | 387 | 329 | 328 | 114 | 12 |
-| Combat core (critical) | 14 | 5 | 12 | 12 | 9 |
+| Movement (critical) | 388 | 330 | 329 | 114 | 12 |
 | Combat core (critical) | 15 | 6 | 13 | 13 | 9 |
 | Weapons (critical) | 121 | 73 | 106 | 54 | 3 |
 | Melee (critical) | 120 | 105 | 94 | 38 | 5 |
@@ -53,37 +50,20 @@ Scanned 2861 spec table rows: **2135 tagged**, 502 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 22 | 13 | 13 | 12 | 7 |
-| Core simulation (provisional values) | 590 | 564 | 415 | 164 | 1 |
+| Core simulation (provisional values) | 606 | 577 | 430 | 166 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 235 | 224 | 126 | 63 | 0 |
-| **All areas** | **2130** | 1881 | 1581 | 677 | 38 |
-| Core simulation (provisional values) | 595 | 566 | 419 | 163 | 1 |
-| General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 235 | 224 | 126 | 63 | 0 |
-| **All areas** | **2133** | 1881 | 1583 | 676 | 38 |
-| Core simulation (provisional values) | 595 | 569 | 420 | 165 | 1 |
-| General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 235 | 224 | 126 | 63 | 0 |
-| **All areas** | **2135** | 1886 | 1586 | 679 | 38 |
+| **All areas** | **2148** | 1896 | 1598 | 680 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1195 |
-| confidence: low | 760 |
-| confidence: medium | 692 |
-| notes: ours | 388 |
+| kind: ours | 1204 |
+| confidence: low | 770 |
+| confidence: medium | 699 |
+| notes: ours | 391 |
 | kind: interpretation | 365 |
-| kind: ours | 1197 |
-| confidence: low | 762 |
-| confidence: medium | 692 |
-| notes: ours | 387 |
-| kind: ours | 1196 |
-| confidence: low | 766 |
-| confidence: medium | 691 |
-| notes: ours | 390 |
-| kind: interpretation | 363 |
 | notes: estimate | 176 |
 | kind: estimate | 151 |
 | confidence: none (low) | 129 |
@@ -111,7 +91,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 ## Part A: gameplay areas, critical first
 
-### Movement (gameplay-critical) (387)
+### Movement (gameplay-critical) (388)
 
 *Spec section: Extracted parameters*
 
@@ -745,7 +725,6 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-8D12069B` | Musou arsenal: the pack moves' clip speed | the melee weapon's map clip speed (the claw 1.25, the spear 0.85; 1 for every weapon of the data) on: the charge and the dash attack (the clip at the phase's time x it, held at the clip's end); the ground pound's impact and get-up and the air slash's strike… (factor) | kind: ours; confidence: low | lead 2026-11-10 ("presentation only") | Musou arsenal: the pack moves' clip speed: compare with SM1 by feel or video. Ours: the melee weapon's map clip speed (the claw 1.25, the spear 0.85; 1… | ☐ |
 
-### Combat core (gameplay-critical) (14)
 *Spec section: Musou's arsenal: W3, the power spear (docs/new-weapons-design.md section 6)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
@@ -2243,8 +2222,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (590)
-### Core simulation (provisional values) (595)
+### Core simulation (provisional values) (606)
 
 *Spec section: Provisional values in use*
 
@@ -3180,6 +3158,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-21E51C9F` | Musou arsenal: presentation sources | the lightning claw shows and sounds as the power sword (`sm_mp_melee_powersword`); the power spear as the thunder hammer (`sm_mp_melee_2hand_thunder_hammer`); the autocannon as its install twin `csm_mp_exotic_auto_cannon`, then the heavy bolter… (file) | kind: ours; confidence: medium | lead 2026-11-10 (the design's section 5: the sword's sounds for the claw; section 6 named the power axe's swing and hit sounds for the spear, the lead's brief… | Musou arsenal: presentation sources: compare with SM1 by feel or video. Ours: the lightning claw shows and sounds as the power sword… | ☐ |
 | `R-FD2792ED` | Musou arsenal: what a source gives | the first candidate with any: its weapon (or thrown) effects; its sound commands and its hit, shot-hit, melee-hit, charge-hit and melee-ability hit containers; its name for the power flash, the sword's glow, flare and deployed effects, the hum and the… | kind: ours; confidence: medium | ours | Musou arsenal: what a source gives: compare with SM1 by feel or video. Ours: the first candidate with any: its weapon (or thrown) effects; its… | ☐ |
 | `R-B393270C` | Musou arsenal: the autocannon's weapon box | the heavy bolter family's display: `ammo_autocannon_mc` with its heat bar, the rounds left in `ammo_mc/ammo_txt` | kind: interpretation; confidence: medium; notes: ours | data names (`Hud.gfx`); the choice ours | Musou arsenal: the autocannon's weapon box: compare with SM1 by feel or video. Ours: the heavy bolter family's display: ammo_autocannon_mc with its heat… | ☐ |
+
 *Spec section: Musou's arsenal: W1, the autocannon (docs/new-weapons-design.md section 4)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
@@ -3192,6 +3171,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-A42BF5F7` | Autocannon: blast | a blast at the point **every Ork a round strikes** (the bolt blasts' path), radius **2.5 m** (twice the bolt blast's 1.25 m), full to 1.0 m, 30 % at the edge, **15** at the centre; the campaign's 4 m hit-scan splash is dropped (m, damage) | kind: ours; confidence: low | owner D12 (the size); the damage and the shape are the bolt blast's | Autocannon: blast: compare with SM1 by measuring on a flat spot of the same map. Ours: a blast at the point every Ork a round strikes (the bolt blasts'… | ☐ |
 | `R-B4298678` | Autocannon: animations | the heavy bolter's (walk, sprint, hop, fall, hip fire, flinch: the campaign's carry graph uses the same navigation graph); the model is the install's `turret_aa` (1,883 triangles), held and stowed as the heavy bolter's | confidence: medium | design section 4 | Autocannon: animations: compare with SM1 by feel or video. Ours: the heavy bolter's (walk, sprint, hop, fall, hip fire, flinch: the… | ☐ |
 | `R-EF126E40` | Autocannon: customizer config | under a Musou content profile the customizer plans a Join with the configuration the match tuning builds for that profile (it lists the autocannon), read once on a worker; PLAY and JOIN wait for it | kind: ours | design section 11 | Autocannon: customizer config: compare with SM1 by feel or video. Ours: under a Musou content profile the customizer plans a Join with the… | ☐ |
+
 *Spec section: Musou's arsenal: W3, the power spear (docs/new-weapons-design.md section 6)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
