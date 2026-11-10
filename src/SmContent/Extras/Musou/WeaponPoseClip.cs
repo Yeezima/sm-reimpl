@@ -159,6 +159,16 @@ public sealed record WeaponPoseClip(string Name, string Weapon, float Duration, 
     public IEnumerable<string> Bones => Channels.Select(c => c.Bone);
 
     /// <summary>
+    /// The frame the clip's keys (turns, aims, shifts, foot offsets) and its spear placement are read in: false (the default) the stance's, from the hips as the pose under the keys stands; true
+    /// the way the player faces (the skeleton's +Y, his right +X), so the pose keeps its place against the camera whichever stance is under it (2026-11-11: the spear's carry, whose blade must
+    /// stay out of the crosshair's column standing, walking, running and sprinting, while the hammer stance's hips turn from 71 degrees right of the facing at idle to nearly ahead in the run).
+    /// </summary>
+    public bool FacingFrame { get; init; }
+
+    /// <summary>The facing frame's front and right in skeleton space (<see cref="FacingFrame"/>): +Y and +X.</summary>
+    public static readonly System.Numerics.Vector3 FacingFront = new(0f, 1f, 0f), FacingRight = new(1f, 0f, 0f);
+
+    /// <summary>
     /// For a two-handed weapon carried in one hand (the spear; owner 2026-11-10: "right hand carries, both swing"): how far the off (left) hand is on the shaft over time, the keys' weights
     /// 0 (off, the shaft stands upright from the carrying hand) to 1 (both hands, the shaft on the line through them). Null: both hands throughout.
     /// </summary>

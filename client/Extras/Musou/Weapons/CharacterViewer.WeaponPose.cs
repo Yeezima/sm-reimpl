@@ -169,6 +169,9 @@ public partial class CharacterViewer
         float fromShare = state.FromShare;
         Dictionary<int, List<PoseChannel>>? before = null;
         if (state.From is { } from && fromShare > 1e-3f) before = ChannelsOf(s, from); else fromShare = 0f;
+        // Each clip's own frame (WeaponPoseClip.FacingFrame: the way the player faces, the skeleton's +Y; else the stance's from the hips).
+        var (nowRight, nowFront) = state.Clip?.FacingFrame == true ? (FacingRight, FacingFront) : (right, front);
+        var (fromRight, fromFront) = state.From?.FacingFrame == true ? (FacingRight, FacingFront) : (right, front);
         int footL = legs?[0].Foot ?? -1, footR = legs?[1].Foot ?? -1;
 
         bool anyLaid = false;
@@ -180,14 +183,14 @@ public partial class CharacterViewer
             if (b == footL || b == footR) continue;   // the feet are placed by the leg solve below
             anyLaid = true;
             // The turn, then the shift, each blended from the previous clip's.
-            var turn = nowList is not null ? TurnOf(s, b, nowList, state.Time, right, front, up) : Quaternion.Identity;
-            var shift = nowList is not null ? ShiftOf(nowList, state.Time, right, front, up) : Vector3.Zero;
+            var turn = nowList is not null ? TurnOf(s, b, nowList, state.Time, nowRight, nowFront, up) : Quaternion.Identity;
+            var shift = nowList is not null ? ShiftOf(nowList, state.Time, nowRight, nowFront, up) : Vector3.Zero;
             if (beforeList is not null && fromShare > 0f)
             {
-                var old = TurnOf(s, b, beforeList, state.FromTime, right, front, up);
+                var old = TurnOf(s, b, beforeList, state.FromTime, fromRight, fromFront, up);
                 if (old.Dot(turn) < 0f) old = -old;
                 turn = turn.Slerp(old, fromShare).Normalized();
-                shift = shift.Lerp(ShiftOf(beforeList, state.FromTime, right, front, up), fromShare);
+                shift = shift.Lerp(ShiftOf(beforeList, state.FromTime, fromRight, fromFront, up), fromShare);
             }
             var pivot = s.GetBoneGlobalPose(b).Origin;
             MoveBone(s, b, turn, shift, pivot, w);
@@ -202,8 +205,8 @@ public partial class CharacterViewer
             {
                 int foot = legs[i].Foot;
                 var offset = Vector3.Zero;
-                if (now is not null && now.TryGetValue(foot, out var footNow)) offset = ShiftOf(footNow, state.Time, right, front, up);
-                if (before is not null && fromShare > 0f && before.TryGetValue(foot, out var footBefore)) offset = offset.Lerp(ShiftOf(footBefore, state.FromTime, right, front, up), fromShare);
+                if (now is not null && now.TryGetValue(foot, out var footNow)) offset = ShiftOf(footNow, state.Time, nowRight, nowFront, up);
+                if (before is not null && fromShare > 0f && before.TryGetValue(foot, out var footBefore)) offset = offset.Lerp(ShiftOf(footBefore, state.FromTime, fromRight, fromFront, up), fromShare);
                 SolveWeaponLeg(s, legs[i], _weaponPlantedAt![i] + offset * w, _weaponPlantedRot![i], front);
             }
         _layersDirty = true;   // a held stance is applied again next frame, so the strike moves on
@@ -262,6 +265,15 @@ public partial class CharacterViewer
     /// The flat front of the body now (skeleton space), from the thighs as the pose stands at the call (after the overlay, so a pelvis turn turns it): the spear's carry and blade edge
     /// (<see cref="SpearHold.Place"/>). The skeleton's +X when the rig has no legs.
     /// </summary>
+    /// <summary>The facing frame of <see cref="WeaponPoseClip.FacingFrame"/> in skeleton space (+Y front, +X right).</summary>
+    static readonly Vector3 FacingFront = new(0f, 1f, 0f), FacingRight = new(1f, 0f, 0f);
+
+    /// <summary>
+    /// The front the spear is placed against (<see cref="SpearHold.Place"/>): the way the player faces, the skeleton's +Y (second follow-up pass, 2026-11-11: the carry's lean and the edge are read
+    /// against the facing in every clip, so a strike begun from the carry starts with the shaft where the carry holds it, and the swung edge faces the target ahead; before, the hips' front).
+    /// </summary>
+    public Vector3 WeaponPoseSpearFront() => FacingFront;
+
     public Vector3 WeaponPoseFrontNow()
     {
         if (_skeleton is null) return new Vector3(1f, 0f, 0f);
@@ -272,12 +284,20 @@ public partial class CharacterViewer
         return across.LengthSquared() > 1e-6f ? new Vector3(0f, 0f, 1f).Cross(across.Normalized()).Normalized() : new Vector3(1f, 0f, 0f);
     }
 
-    /// <summary>The hands' origins (skeleton space, <c>RIG_R_Hand</c> and <c>RIG_L_Hand</c>) as posed now; false when the rig lacks them.</summary>
+    /// <summary>
+    /// Where the hands grip (skeleton space) as posed now: the rig's own grip sockets, <c>RIG_Prop_RHand</c> and <c>RIG_Prop_LHand</c> (the hands' children every held weapon's handle sits on,
+    /// in the palm), else the hands' origins (<c>RIG_R_Hand</c>, <c>RIG_L_Hand</c>, the wrists); false when the rig lacks them. The spear's shaft runs through these points
+    /// (<see cref="SpearHold.Place"/>; owner, 2026-11-11: "the spear is always attached to the inside palm of the hand"; before, through the wrists, about 0.1 m off the palm).
+    /// </summary>
     public bool WeaponPoseHands(out Vector3 rightHand, out Vector3 leftHand)
     {
         rightHand = leftHand = default;
         if (_skeleton is null) return false;
-        if (_weaponHandR == -2) { _weaponHandR = _skeleton.FindBone("RIG_R_Hand"); _weaponHandL = _skeleton.FindBone("RIG_L_Hand"); }
+        if (_weaponHandR == -2)
+        {
+            _weaponHandR = _skeleton.FindBone(SpearHold.RightGripBone); _weaponHandL = _skeleton.FindBone(SpearHold.LeftGripBone);
+            if (_weaponHandR < 0 || _weaponHandL < 0) { _weaponHandR = _skeleton.FindBone("RIG_R_Hand"); _weaponHandL = _skeleton.FindBone("RIG_L_Hand"); }
+        }
         if (_weaponHandR < 0 || _weaponHandL < 0) return false;
         rightHand = _skeleton.GetBoneGlobalPose(_weaponHandR).Origin;
         leftHand = _skeleton.GetBoneGlobalPose(_weaponHandL).Origin;

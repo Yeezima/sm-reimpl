@@ -49,7 +49,9 @@ sealed class WeaponPoseMirror
         _order = order.ToArray();
         _lThigh = Bone("RIG_L_Thigh"); _lCalf = Bone("RIG_L_Calf"); _lFoot = Bone("RIG_L_Foot");
         _rThigh = Bone("RIG_R_Thigh"); _rCalf = Bone("RIG_R_Calf"); _rFoot = Bone("RIG_R_Foot");
-        _lHand = Bone("RIG_L_Hand"); _rHand = Bone("RIG_R_Hand");
+        // The hands' grip sockets (SpearHold.RightGripBone / LeftGripBone, in the palms: the client's WeaponPoseHands), else the hands' origins.
+        _lHand = Bone(SpearHold.LeftGripBone); _rHand = Bone(SpearHold.RightGripBone);
+        if (_lHand < 0 || _rHand < 0) { _lHand = Bone("RIG_L_Hand"); _rHand = Bone("RIG_R_Hand"); }
     }
 
     public int Bone(string name) => _index.TryGetValue(name, out int b) ? b : -1;
@@ -95,6 +97,9 @@ sealed class WeaponPoseMirror
     public Vector3 RightHand => Origin(_rHand);
     public Vector3 LeftHand => Origin(_lHand);
 
+    /// <summary>The front the spear is placed against with <paramref name="clip"/> shown (<c>WeaponPoseSpearFront</c>): the facing for a clip read in it (the carry), else <see cref="FrontNow"/>.</summary>
+    public Vector3 SpearFront(WeaponPoseClip clip) => WeaponPoseClip.FacingFront;
+
     /// <summary>The flat front from the thighs as the pose stands now (<c>WeaponPoseFrontNow</c>, the stage's <c>CarryFront</c>).</summary>
     public Vector3 FrontNow()
     {
@@ -118,6 +123,9 @@ sealed class WeaponPoseMirror
         var now = clip is null ? null : ChannelsOf(clip);
         Dictionary<int, List<PoseChannel>>? before = from is not null && fromShare > 1e-3f ? ChannelsOf(from) : null;
         if (before is null) fromShare = 0f;
+        // Each clip's own frame (WeaponPoseClip.FacingFrame: the skeleton's +Y and +X; else the stance's).
+        var (nowRight, nowFront) = clip?.FacingFrame == true ? (WeaponPoseClip.FacingRight, WeaponPoseClip.FacingFront) : (right, front);
+        var (fromRight, fromFront) = from?.FacingFrame == true ? (WeaponPoseClip.FacingRight, WeaponPoseClip.FacingFront) : (right, front);
         bool anyLaid = false;
         foreach (int b in _order)
         {
@@ -126,14 +134,14 @@ sealed class WeaponPoseMirror
             if (!any) continue;
             if (b == _lFoot || b == _rFoot) continue;
             anyLaid = true;
-            var turn = nowList is not null ? TurnOf(b, nowList, time, right, front, up) : Quaternion.Identity;
-            var shift = nowList is not null ? ShiftOf(nowList, time, right, front, up) : Vector3.Zero;
+            var turn = nowList is not null ? TurnOf(b, nowList, time, nowRight, nowFront, up) : Quaternion.Identity;
+            var shift = nowList is not null ? ShiftOf(nowList, time, nowRight, nowFront, up) : Vector3.Zero;
             if (beforeList is not null && fromShare > 0f)
             {
-                var old = TurnOf(b, beforeList, fromTime, right, front, up);
+                var old = TurnOf(b, beforeList, fromTime, fromRight, fromFront, up);
                 if (Quaternion.Dot(old, turn) < 0f) old = -old;
                 turn = Quaternion.Normalize(SlerpGodot(turn, old, fromShare));
-                shift = Vector3.Lerp(shift, ShiftOf(beforeList, fromTime, right, front, up), fromShare);
+                shift = Vector3.Lerp(shift, ShiftOf(beforeList, fromTime, fromRight, fromFront, up), fromShare);
             }
             var pivot = Origin(b);
             MoveBone(b, turn, shift, pivot, w);
@@ -145,8 +153,8 @@ sealed class WeaponPoseMirror
         for (int i = 0; i < 2; i++)
         {
             var offset = Vector3.Zero;
-            if (now is not null && now.TryGetValue(feet[i], out var footNow)) offset = ShiftOf(footNow, time, right, front, up);
-            if (before is not null && fromShare > 0f && before.TryGetValue(feet[i], out var footBefore)) offset = Vector3.Lerp(offset, ShiftOf(footBefore, fromTime, right, front, up), fromShare);
+            if (now is not null && now.TryGetValue(feet[i], out var footNow)) offset = ShiftOf(footNow, time, nowRight, nowFront, up);
+            if (before is not null && fromShare > 0f && before.TryGetValue(feet[i], out var footBefore)) offset = Vector3.Lerp(offset, ShiftOf(footBefore, fromTime, fromRight, fromFront, up), fromShare);
             SolveLeg(legs[i], plantedAt[i] + offset * w, plantedRot[i], front);
         }
     }

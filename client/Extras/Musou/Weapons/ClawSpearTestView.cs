@@ -193,6 +193,7 @@ public partial class ClawSpearTestView : Node3D
                 if (_pose.From is { } from && _pose.FromShare is var share and > 0f) { grip += (from.GripAt(_pose.FromTime) - grip) * share; point += (from.GripPointAt(_pose.FromTime) - point) * share; }
                 spear.LeftGrip = grip;
                 spear.RightHandFromButt = point;
+                spear.FacingCarry = _pose.Clip?.FacingFrame == true;   // the carry is placed against the facing (2026-11-11), as in a match
                 spear.Follow(_marine.Skeleton!);
                 if (_clearance && seg.Clip is { } measured) MeasureClearance(measured, (float)local, spear);
             }
@@ -270,7 +271,7 @@ public partial class ClawSpearTestView : Node3D
             return (N(g.Origin), new System.Numerics.Quaternion(q.X, q.Y, q.Z, q.W));
         }
         if (!_marine.WeaponPoseHands(out var right, out var left)) return;
-        var (butt, shaft, edge) = SpearHold.Place(N(right), N(left), spear.LeftGrip, spear.RightHandFromButt, N(_marine.WeaponPoseFrontNow()), new System.Numerics.Vector3(0f, 0f, 1f));
+        var (butt, shaft, edge) = SpearHold.Place(N(right), N(left), spear.LeftGrip, spear.RightHandFromButt, N(_marine.WeaponPoseSpearFront()), new System.Numerics.Vector3(0f, 0f, 1f));
         var r = SpearClearance.Measure(Bone, butt, shaft, edge);
         if (!_clearanceWorst.TryGetValue(clip.Name, out var worst) || r.Clearance < worst.Result.Clearance)
             _clearanceWorst[clip.Name] = (local, r, string.Create(CultureInfo.InvariantCulture, $"stage t {_t:0.000}, grip {spear.LeftGrip:0.00} at {spear.RightHandFromButt:0.00} m, fading from {_pose.From?.Name ?? "-"} ({_pose.FromShare:0.00})"));

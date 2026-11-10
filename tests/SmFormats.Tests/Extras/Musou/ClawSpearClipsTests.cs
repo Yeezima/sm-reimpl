@@ -9,7 +9,7 @@ namespace SmFormats.Tests;
 /// The lightning claw's and the power spear's strike animations (docs/claw-spear-animations.md): every clip's length and hit time is the borrowed strike's at the design's tempo
 /// (the sword's at 1.25x, the hammer's at 0.85x), the keys are in time order within each clip, no clip names a leg bone (the feet stay planted), and the easing curves land on their keys.
 /// </summary>
-public class ClawSpearClipsTests
+public class ClawSpearClipsTests(Xunit.Abstractions.ITestOutputHelper output)
 {
     // Spec "Power sword X1..X4" and "Thunder hammer X1..X3" (lengths and hits, s) and smtool melee-steps for the sword's Y backhand.
     [Theory]
@@ -75,6 +75,32 @@ public class ClawSpearClipsTests
             Assert.Equal(touch.Azimuth, ch.Sample(ClawSpearClips.ImpaleDrive).Azimuth, 3);
         }
     }
+
+    [Fact]
+    public void The_jump_packs_flight_with_the_spear_is_left_as_it_was()
+    {
+        // Owner, 2026-11-11: "The flying when holding w (after holding space bar jump long) animation is the only piece that I don't want touched". In flight no spear clip shows (the client's
+        // NetworkView.SpearPoseOf shows the dive only for the pound's dive loop): the flight clips are posed by the vertical angle (JumpFlightPose) and the spear rides W3's own mount. Pinned
+        // here as on main (2026-11-11): the flight pose's numbers, W3's mount points, and no spear clip laid over a flight clip.
+        foreach (var clip in ClawSpearClips.All) Assert.DoesNotContain("SM_JMP_Zero", clip.BaseClip, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(ClawSpearClips.SpearDiveLoop, ClawSpearClips.SpearDive.BaseClip);
+        Assert.Equal(1.34f, SpearHold.MountHighFromButt);
+        Assert.Equal(0.45f, SpearHold.MountLowFromButt);
+        Assert.Equal(1.05f, SpearHold.AxisFromButt);
+        float[] got =
+        [
+            SmContent.JumpFlightPose.Target(8f, 6f), SmContent.JumpFlightPose.Target(0f, 6f), SmContent.JumpFlightPose.Target(-10f, 4f), SmContent.JumpFlightPose.Target(3f, 0f),
+            SmContent.JumpFlightPose.Damp(0.2f, 0.8f, 0.05f), SmContent.JumpFlightPose.Time(0.5f, 2f), SmContent.JumpFlightPose.Time(1f, 1.5f),
+        ];
+        output.WriteLine(string.Join(", ", got.Select(v => v.ToString("R", System.Globalization.CultureInfo.InvariantCulture))));
+        float[] main = FlightPins;
+        for (int i = 0; i < main.Length; i++) Assert.Equal(main[i], got[i], 5);
+        Assert.True(SmContent.JumpFlightPose.Low(5f, false) == FlightLowPins[0] && SmContent.JumpFlightPose.Low(30f, true) == FlightLowPins[1]);
+    }
+
+    /// <summary>The flight pose's numbers on main (2026-11-11), for <see cref="The_jump_packs_flight_with_the_spear_is_left_as_it_was"/>.</summary>
+    static readonly float[] FlightPins = [0.20483276f, 0.5f, 0.8788811f, 0f, 0.3700812f, 1f, 1.5f];
+    static readonly bool[] FlightLowPins = [true, false];   // within about 13.5 m of the ground the low set; far above it, not
 
     [Fact]
     public void Keys_are_in_time_order_and_within_the_clip()
@@ -155,7 +181,10 @@ public class ClawSpearClipsTests
     {
         // The impale too since the no-clipping pass (2026-11-10): the carry follows the pound, so the clip ends on its arms with the left hand off (at the low grip: the landing still crouches him)
         // rather than on the landing's arms.
-        var rest = ClawSpearClips.SpearRest.Channels.Where(c => c.Kind == PoseChannelKind.Aim).ToDictionary(c => c.Bone, c => c.Sample(0f));
+        // Since the second follow-up pass (2026-11-11) the carry is read in the facing frame and the strikes over the hammer idle in its stance frame, 71 degrees right of the facing: the same
+        // arms are the carry's azimuths less ClawSpearClips.IdleHipsTurn.
+        Assert.True(ClawSpearClips.SpearRest.FacingFrame);
+        var rest = ClawSpearClips.SpearRest.Channels.Where(c => c.Kind == PoseChannelKind.Aim).ToDictionary(c => c.Bone, c => { var s = c.Sample(0f); return s with { Yaw = s.Yaw - ClawSpearClips.IdleHipsTurn }; });
         Assert.Equal(4, rest.Count);
         Assert.Equal(0f, ClawSpearClips.SpearImpale.GripAt(ClawSpearClips.SpearImpale.Duration), 3);
         Assert.Equal(WeaponPoseClip.LowGrip, ClawSpearClips.SpearImpale.GripPointAt(ClawSpearClips.SpearImpale.Duration), 3);
@@ -350,7 +379,7 @@ public class ClawSpearClipsTests
         Assert.Equal(Vector3.UnitX, bodyRight);
         Assert.Equal(SpearHold.CarryElevation, MathF.Asin(Vector3.Dot(carry, up)) * 180f / MathF.PI, 1);
         Assert.Equal(SpearHold.CarryAzimuth, MathF.Atan2(Vector3.Dot(carry, bodyRight), Vector3.Dot(carry, front)) * 180f / MathF.PI, 1);
-        Assert.True(Vector3.Dot(carry, front) > 0.5f, "the carried spear leans forward, the blade ahead of the shoulder pad");
+        Assert.True(Vector3.Dot(carry, front) > 0.2f && carry.Z > 0.85f, "the carried spear leans forward from nearly upright, the blade ahead of the shoulder pad");
         Assert.Equal(WeaponPoseClip.CarryGrip, Vector3.Distance(carryButt, right), 3);
         Assert.True(carryButt.Z < right.Z && Vector3.Dot(carryButt - right, front) < 0f && Vector3.Dot(carryButt - right, bodyRight) >= 0f, "the butt hangs behind and below the hand, not in toward the legs");
         Assert.Equal(0f, Vector3.Dot(carryEdge, carry), 3);

@@ -51,6 +51,8 @@ public class SpearClearanceTests(ITestOutputHelper output)
     sealed class Run(WeaponPoseMirror mirror)
     {
         public readonly Dictionary<string, Worst> ByClip = new();
+        /// <summary>Per clip, the farthest a holding hand's grip socket is from the shaft's axis (m) and where.</summary>
+        public readonly Dictionary<string, (float Off, string At)> Palm = new();
         public float LowestButt = float.PositiveInfinity, LowestLandingButt = float.PositiveInfinity;
         public string LowestButtAt = "", LowestLandingButtAt = "";
 
@@ -60,10 +62,18 @@ public class SpearClearanceTests(ITestOutputHelper output)
             mirror.Overlay(clip, clipTime, from, fromTime, share);
             float grip = clip.GripAt(clipTime), point = clip.GripPointAt(clipTime);
             if (from is not null && share > 0f) { grip += (from.GripAt(fromTime) - grip) * share; point += (from.GripPointAt(fromTime) - point) * share; }
-            var (butt, shaft, edge) = SpearHold.Place(mirror.RightHand, mirror.LeftHand, grip, point, mirror.FrontNow(), Vector3.UnitZ);
+            var (butt, shaft, edge) = SpearHold.Place(mirror.RightHand, mirror.LeftHand, grip, point, mirror.SpearFront(clip), Vector3.UnitZ);
             var r = SpearClearance.Measure(mirror.Pose, butt, shaft, edge);
             if (!float.IsFinite(r.Clearance)) throw new InvalidOperationException($"a clearance that is not a finite number: {key} at {clipTime:0.000} s");   // a NaN would never count as the worst
             if (!ByClip.TryGetValue(key, out var worst) || r.Clearance < worst.Result.Clearance) ByClip[key] = new Worst(scenario, time, r);
+            // The grip (owner, 2026-11-11: "the spear is always attached to the inside palm of the hand"): the shaft's axis through the right hand's grip socket on every frame, and through the
+            // left's whenever the left hand holds the shaft (its grip track at 1); the sockets read here by name, apart from the placement.
+            foreach (var (socket, holds) in new[] { (SpearHold.RightGripBone, true), (SpearHold.LeftGripBone, grip >= 0.999f) })
+            {
+                if (!holds || mirror.Pose(socket) is not { } palm) continue;
+                float off = SpearClearance.SegmentDistance(palm.Item1, palm.Item1, butt, butt + shaft * SpearHold.TipFromButt);
+                if (!Palm.TryGetValue(key, out var p) || off > p.Off) Palm[key] = (off, $"{socket} {scenario} t {time:0.000}");
+            }
             if (carry)
             {
                 float h = SpearClearance.ButtHeight(butt, shaft);
@@ -334,7 +344,7 @@ public class SpearClearanceTests(ITestOutputHelper output)
             {
                 mirror.Lay(clip, t);
                 mirror.Overlay(ClawSpearClips.SpearRest, t % ClawSpearClips.SpearIdleLength);
-                var (butt, shaft, edge) = SpearHold.Place(mirror.RightHand, mirror.LeftHand, 0f, WeaponPoseClip.CarryGrip, mirror.FrontNow(), Vector3.UnitZ);
+                var (butt, shaft, edge) = SpearHold.Place(mirror.RightHand, mirror.LeftHand, 0f, WeaponPoseClip.CarryGrip, mirror.SpearFront(ClawSpearClips.SpearRest), Vector3.UnitZ);
                 float a = SpearClearance.HeadColumnAngle(butt, shaft, edge, camera, pitch);
                 if (MathF.Abs(a) < MathF.Abs(least)) least = a;
             }
@@ -354,6 +364,69 @@ public class SpearClearanceTests(ITestOutputHelper output)
         Assert.True(MathF.Abs(atIdle) >= SpearClearance.CrosshairColumnDegrees, $"the carried blade comes within {MathF.Abs(atIdle):0.0} degrees of the crosshair's column at idle (at least {SpearClearance.CrosshairColumnDegrees} wanted)");
     }
 
+    /// <summary>How far a planted foot may stand from its spot (m; ours): the leg reaches it, so the foot does not float.</summary>
+    const float FootReach = 0.02f;
+    /// <summary>How far a planted foot may drift in a frame beyond the stance's own (m; ours): it does not slide.</summary>
+    const float FootSlide = 0.004f;
+
+    /// <summary>
+    /// The spear's steps plant the feet (owner, 2026-11-11: "Ensure the step forward has proper leg movement to match it with no floating"): over every strike and the landings, sampled every
+    /// 1/60 s on the install's rig, a foot whose step key is on the ground (its lift 0) stands on its spot (the stance's plus the step's offset, within <see cref="FootReach"/>: the leg reaches
+    /// it), does not move while its offset holds (within <see cref="FootSlide"/> a frame beyond the stance's own motion), and no foot ever goes below the stance's ground.
+    /// </summary>
+    [InstallFact]
+    public void The_spears_steps_plant_the_feet_without_floating_or_sliding()
+    {
+        var (rig, _) = Data.Value;
+        var mirror = new WeaponPoseMirror(rig.Skeleton);
+        var idle = rig.LoadAnimation(ClawSpearClips.SpearIdle);
+        var impact = rig.LoadAnimation(ClawSpearClips.SpearDiveImpact);
+        string[] feet = ["RIG_L_Foot", "RIG_R_Foot"];
+        var failures = new List<string>();
+        foreach (var clip in ClawSpearClips.SpearStrikes.Append(ClawSpearClips.SpearImpale).Append(ClawSpearClips.SpearLand))
+        {
+            var under = clip.BaseClip == ClawSpearClips.SpearDiveImpact ? impact : idle;
+            float worstReach = 0f, worstSlide = 0f, worstDip = 0f; string reachAt = "", slideAt = "", dipAt = "";
+            var last = new (Vector3 Actual, Vector3 Base, Vector3 Offset, bool Planted)[2];
+            bool have = false;
+            for (float t = 0f; t <= clip.Duration + 1e-4f; t += Step)
+            {
+                mirror.Lay(under, under == idle ? t % ClawSpearClips.SpearIdleLength : t);
+                var across = mirror.Pose("RIG_R_Thigh")!.Value.Item1 - mirror.Pose("RIG_L_Thigh")!.Value.Item1; across.Z = 0f;
+                var right = Vector3.Normalize(across); var front = Vector3.Normalize(Vector3.Cross(Vector3.UnitZ, right));
+                var bases = feet.Select(f => mirror.Pose(f)!.Value.Item1).ToArray();
+                mirror.Overlay(clip, t);
+                for (int i = 0; i < 2; i++)
+                {
+                    var ch = clip.Channels.FirstOrDefault(c => c.Bone == feet[i] && c.Kind == PoseChannelKind.Foot);
+                    var k = ch?.Sample(t) ?? default;
+                    var offset = ch is null ? Vector3.Zero : front * k.Forward + right * k.Right + Vector3.UnitZ * k.Up;
+                    bool planted = ch is null || k.Up < 1e-3f;
+                    var actual = mirror.Pose(feet[i])!.Value.Item1;
+                    float dip = bases[i].Z - actual.Z;
+                    if (dip > worstDip) { worstDip = dip; dipAt = $"{feet[i]} t {t:0.000}"; }
+                    if (planted)
+                    {
+                        float off = Vector3.Distance(actual, bases[i] + offset);
+                        if (off > worstReach) { worstReach = off; reachAt = $"{feet[i]} t {t:0.000}"; }
+                        if (have && last[i].Planted && Vector3.Distance(offset, last[i].Offset) < 1e-4f)
+                        {
+                            float slide = Vector3.Distance(actual - last[i].Actual, bases[i] - last[i].Base);
+                            if (slide > worstSlide) { worstSlide = slide; slideAt = $"{feet[i]} t {t:0.000}"; }
+                        }
+                    }
+                    last[i] = (actual, bases[i], offset, planted);
+                }
+                have = true;
+            }
+            output.WriteLine(string.Format(I, "{0,-14} planted feet off their spots {1:0.000} m ({2}), sliding {3:0.0000} m a frame ({4}), below the ground {5:0.000} m ({6})", clip.Name, worstReach, reachAt, worstSlide, slideAt, worstDip, dipAt));
+            if (worstReach > FootReach) failures.Add($"{clip.Name}: a planted foot floats {worstReach:0.000} m off its spot ({reachAt})");
+            if (worstSlide > FootSlide) failures.Add($"{clip.Name}: a planted foot slides {worstSlide:0.0000} m in a frame ({slideAt})");
+            if (worstDip > 0.01f) failures.Add($"{clip.Name}: a foot goes {worstDip:0.000} m below the ground ({dipAt})");
+        }
+        Assert.True(failures.Count == 0, string.Join("\n", failures));
+    }
+
     [InstallFact]
     public void The_spear_never_passes_into_the_body_in_any_clip_or_hand_over()
     {
@@ -365,6 +438,10 @@ public class SpearClearanceTests(ITestOutputHelper output)
         Assert.True(clipping.Count == 0, "the spear passes into the body:\n" + string.Join("\n", clipping));
         Assert.True(run.LowestButt >= ButtMinHeight, $"the carried butt drags: {run.LowestButt:0.000} m at {run.LowestButtAt}");
         Assert.True(run.LowestLandingButt >= 0f, $"the plain landing drives the butt into the ground: {run.LowestLandingButt:0.000} m at {run.LowestLandingButtAt}");
+        var offPalm = run.Palm.Where(k => k.Value.Off > SpearHold.PalmTolerance).Select(k => $"{k.Key}: {k.Value.Off:0.000} m from the palm ({k.Value.At})").ToList();
+        output.WriteLine(string.Format(I, "the shaft's farthest from a holding palm: {0:0.0000} m", run.Palm.Values.Max(p => p.Off)));
+        Assert.True(offPalm.Count == 0, "the shaft leaves the palm:\n" + string.Join("\n", offPalm));
+        Assert.Contains(run.Palm.Keys, k => k.StartsWith("spear_rest", StringComparison.Ordinal));
         Assert.Contains(run.ByClip.Keys, k => k.StartsWith("spear_rest", StringComparison.Ordinal));
         foreach (var clip in ClawSpearClips.All.Where(c => c.Weapon == "spear")) Assert.Contains(run.ByClip.Keys, k => k.StartsWith(clip.Name, StringComparison.Ordinal));
     }

@@ -10,6 +10,18 @@ namespace SmContent.Extras.Musou;
 /// </summary>
 public static class SpearHold
 {
+    /// <summary>
+    /// The hands' grip sockets on the marine rig: the children of <c>RIG_R_Hand</c> and <c>RIG_L_Hand</c> that every held weapon's handle sits on (the install's wield mounts: the power sword's
+    /// handle at <c>RIG_Prop_RHand</c>'s origin, the pistols' at <c>RIG_Prop_LHand</c>'s), in the palm. The shaft runs through them (owner, 2026-11-11: "the spear is always attached to the
+    /// inside palm of the hand"); before, through the hand bones' origins at the wrists.
+    /// </summary>
+    public const string RightGripBone = "RIG_Prop_RHand", LeftGripBone = "RIG_Prop_LHand";
+    /// <summary>
+    /// How far the shaft's axis may pass from a holding hand's grip socket (m; ours, from the hand model: the gauntlet's fist is about 0.16 m across its palm side and 0.2 m thick, the shaft's
+    /// radius is 0.021 m, so within this the shaft stays inside the closed fist). <c>SpearClearanceTests</c> holds every spear clip to it on every frame.
+    /// </summary>
+    public const float PalmTolerance = 0.03f;
+
     /// <summary>W3's model's own origin (the thunder hammer's two-handed grip point, 0 on its shaft axis), metres from the butt; W3's <c>WeaponRig.SpearButt</c> is its negative.</summary>
     public const float AxisFromButt = 1.05f;
     /// <summary>W3's collar (the top of the shaft, where the blade's fittings begin), metres from the butt: the highest a hand can hold.</summary>
@@ -32,11 +44,12 @@ public static class SpearHold
     /// slight lean in at the top keeps the butt out of the trailing leg's kick when he strafes and sprints. Ours, chosen with the clearance check (<c>SpearClearanceTests</c>: every hammer stance
     /// clip, the least clearance 0.10 m). At the low grip with the left hand off the shaft stands upright from the hand. Before the owner's review of 2026-11-10 the carry leaned 80 degrees
     /// toward the way the player faces, so the shaft rose beside the head and through the pad.
-    /// <para>Crosshair pass (2026-11-11: the carried blade crossed the crosshair's column in the own view at idle): 48 degrees at -5 (was 55 at -15), with the hand further out
-    /// (<c>ClawSpearClips.SpearRest</c>), so the shaft crosses the column below the blade and the blade stands at least <see cref="SpearClearance.CrosshairColumnDegrees"/> right of it at idle in
-    /// the default view; still in a little at the top, the butt behind and outside the leg (clearance over every stance clip 0.08 m at the least, the left sprint strafe).</para>
+    /// <para>Second follow-up pass (2026-11-11: the carry closer in to the body, the blade out of the crosshair's column): read in the facing frame (the carry clip's
+    /// <see cref="WeaponPoseClip.FacingFrame"/>: <c>front</c> is the way the player faces), 65 degrees above the horizontal at -50 (forward and in at the top), from the fist held close at the
+    /// right of the chest (<c>ClawSpearClips.SpearRest</c>): the blade above and forward of the right shoulder, left of the crosshair's column by 5.5 degrees at idle, the butt behind and outside
+    /// the right leg (clearance over every stance clip 0.086 m at the least, the butt at least 0.65 m up). Before: 55 at -15 in the stance's frame from a fist held out wide (pass 2).</para>
     /// </summary>
-    public const float CarryElevation = 48f, CarryAzimuth = -5f;
+    public const float CarryElevation = 65f, CarryAzimuth = -50f;
     /// <summary>
     /// The way the carried blade's edge faces, as an azimuth from the front toward the body's right (degrees; flat, then squared to the shaft): forward and out, away from the body (owner,
     /// 2026-11-10: "the blade is facing away from the character model at idle and when running"; ours). Once both hands swing it the edge faces the front, as the strikes were approved.
