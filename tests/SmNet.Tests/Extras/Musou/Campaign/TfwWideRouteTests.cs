@@ -73,7 +73,10 @@ public class TfwWideRouteTests(ITestOutputHelper output)
     public void The_war_s_army_routes_from_the_landing_zone_keep_to_the_wide_ways(string map, float least)
     {
         var data = TfwWorld.Load("", out var problem, map) ?? throw new InvalidOperationException(problem);
-        var nav = TfwWorld.Nav(data.Collision, data.Field, new SimConfig(), out _);
+        string dir = Path.Combine(Path.GetTempPath(), "sm-wide-route-nav-" + Guid.NewGuid().ToString("N"));   // a folder of its own: never the private cache's nav folder
+        NavGraph nav;
+        try { nav = TfwWorld.Nav(data.Collision, data.Field, new SimConfig(), out _, dir); }
+        finally { if (Directory.Exists(dir)) Directory.Delete(dir, recursive: true); }
         var grid = new AshfallGrid(AshfallMap.Build(TfwMap.LayoutOf(map)));
         foreach (var p in data.Field.Points)
         {
