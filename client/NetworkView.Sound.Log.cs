@@ -31,7 +31,7 @@ public partial class NetworkView
     static bool LogSound(string kind) => LogSoundKinds.Count > 0 && LogSoundKinds.Contains(kind);
 
     /// <summary>
-    /// <c>--sound-limits none|footsteps|all</c> (footsteps fix): which posts get the banks' "limit sound instances" and the 2D volume threshold: none = exactly the behaviour before the fix, footsteps (default) = footstep and landing posts only, all = every post (see <see cref="SoundSystem.Limits"/>).
+    /// <c>--sound-limits none|footsteps|all</c> (footsteps fix): which posts get the banks' "limit sound instances" and the 2D volume threshold: none = exactly the behaviour before the fix, footsteps = footstep and landing posts only (the default until the polish pass P1), all (default since P1, 2026-11-10) = every post (see <see cref="SoundSystem.Limits"/>).
     /// </summary>
     static readonly InstanceLimits SoundLimitsMode = ParseSoundLimits();
 
@@ -110,9 +110,9 @@ public partial class NetworkView
                 // Names only: Enum.TryParse would take "1" or "2" too.
                 var name = Enum.GetNames<InstanceLimits>().FirstOrDefault(n => n.Equals(args[i + 1], StringComparison.OrdinalIgnoreCase));
                 if (name is not null) return Enum.Parse<InstanceLimits>(name);
-                GD.PrintErr($"--sound-limits {args[i + 1]}: not one of none, footsteps, all; using footsteps");
+                GD.PrintErr($"--sound-limits {args[i + 1]}: not one of none, footsteps, all; using all");
             }
-        return InstanceLimits.Footsteps;
+        return InstanceLimits.All;   // polish pass P1 (2026-11-10): every post, the banks' own limits; footsteps was the default from the footsteps fix to P1
     }
 
     /// <summary>The name of a surface switch value (the surfaces' hashes), or its hex.</summary>

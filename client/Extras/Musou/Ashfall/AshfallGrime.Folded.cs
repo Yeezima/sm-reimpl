@@ -12,7 +12,7 @@ namespace SmClient;
 /// </summary>
 public static partial class AshfallGrime
 {
-    static bool _folded = Array.IndexOf(OS.GetCmdlineUserArgs(), "--ashfall-grime-folded") >= 0;
+    static bool _folded = Array.IndexOf(OS.GetCmdlineUserArgs(), "--ashfall-grime-folded") >= 0 || FoldedForSafeMode;   // P1: folded from the start in safe mode
     static readonly Dictionary<ulong, Shader> FoldedShaders = new();                                    // the material's feature set -> derived shader
     static readonly Dictionary<Material, ShaderMaterial> FoldedMaterials = new(ReferenceEqualityComparer.Instance);
     static readonly Dictionary<MeshInstance3D, Material?[]> Originals = new(ReferenceEqualityComparer.Instance);
@@ -21,7 +21,7 @@ public static partial class AshfallGrime
     public static bool Folded => _folded;
 
     /// <summary>The Graphics option's choice (FAST); <see cref="Folded"/> is also true while FSR 2 upscales.</summary>
-    static bool _foldChoice = _folded;
+    static bool _foldChoice = Array.IndexOf(OS.GetCmdlineUserArgs(), "--ashfall-grime-folded") >= 0;
     static bool _foldForFsr;
 
     /// <summary>The Graphics option: folds the grime into the kit's materials, or puts the overlay back; applies at once to the kit loaded now and to models that load later.</summary>
@@ -33,9 +33,16 @@ public static partial class AshfallGrime
     /// </summary>
     static void SetFoldForFsr(bool fsr) { if (_foldForFsr == fsr) return; _foldForFsr = fsr; ApplyFold(); }
 
+    /// <summary>
+    /// polish pass P1 (2026-11-10, the owner's "Compatibility mode must stay smooth on GTX 9xx"): in safe mode (the Compatibility renderer or <c>--safe-mode</c>) the grime is folded
+    /// whatever the Graphics option says (the overlay pass cost 0.5 to 1.2 ms of GPU and up to 580 draw calls in the perf pass's A/B, the part that renderer pays most for);
+    /// <c>--ashfall-grime-exact-safe</c> keeps the option's choice in safe mode (the behaviour before P1).
+    /// </summary>
+    public static bool FoldedForSafeMode => SafeMode.Active && Array.IndexOf(OS.GetCmdlineUserArgs(), "--ashfall-grime-exact-safe") < 0;
+
     static void ApplyFold()
     {
-        bool folded = _foldChoice || _foldForFsr;
+        bool folded = _foldChoice || _foldForFsr || FoldedForSafeMode;
         if (_folded == folded) return;
         _folded = folded;
         if (_items is null || !GodotObject.IsInstanceValid(_items) || _top is null) return;

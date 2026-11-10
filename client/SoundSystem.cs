@@ -94,9 +94,10 @@ public partial class SoundSystem : Node
 
     /// <summary>
     /// <c>--sound-limits none|footsteps|all</c> (<see cref="InstanceLimits"/>): which posts get the instance limits and the 2D volume threshold. The footsteps' layers hold limits of 1 to
-    /// 4 (a footstep cuts the tail of the last one); other sounds' nodes set them too (bolter shots 1 and 2) but that is not checked by listening. Default: the footstep posts only.
+    /// 4 (a footstep cuts the tail of the last one); 2,945 other nodes set them too (bolter shots 1 and 2, blasts, melee hits). Default since the polish pass P1 (2026-11-10, the owner's
+    /// "less clutter in big fights"; the banks' own rule): every post (<c>all</c>); <c>--sound-limits footsteps</c> restores the footstep posts only (the default from the footsteps fix to P1).
     /// </summary>
-    public InstanceLimits Limits { get; set; } = InstanceLimits.Footsteps;
+    public InstanceLimits Limits { get; set; } = InstanceLimits.All;
 
     /// <summary>
     /// <c>--footstep-gain &lt;dB&gt;</c> (ours; 0 by default): added to every footstep and landing voice, a listening aid on top of the owner's footstep level (<see cref="FootstepLevel"/>) and

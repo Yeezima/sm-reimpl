@@ -63,6 +63,7 @@ public sealed partial class OptionsHost : CanvasLayer
         else if (options.RenderScale != before.RenderScale) RenderQuality.ApplyScaling(root, options.RenderScale);
         if (options.Shadows != before.Shadows) MapLightingView.ApplyShadowChoice(options.Shadows);
         if (options.GrimeFast != before.GrimeFast) AshfallGrime.SetFolded(options.GrimeFast);   // musou/perf-pass, the owner's "option in Graphics" (AshfallGrime.Folded.cs)
+        HudReadout.Choice = options.Readout;   // polish pass P1: the match's performance readout, saved by F3 (HudReadout.cs; --readout wins)
         if (options.MasterVolume != before.MasterVolume) SoundSystem.ApplyMasterVolume(options.MasterVolume);   // sound/mix-and-reloads: with the 10 % master boost
         if (options.Brightness != 1f && _current is null) Ensure(root);
         _current?.ShowBrightness(options.Brightness);

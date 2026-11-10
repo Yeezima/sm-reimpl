@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2831 spec table rows: **2107 tagged**, 501 not tagged (read from data with high confidence), 223 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 636 rows of the changes document.
+Scanned 2838 spec table rows: **2112 tagged**, 501 not tagged (read from data with high confidence), 225 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 637 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,18 +50,18 @@ Scanned 2831 spec table rows: **2107 tagged**, 501 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 22 | 13 | 13 | 12 | 7 |
-| Core simulation (provisional values) | 570 | 546 | 396 | 162 | 1 |
+| Core simulation (provisional values) | 575 | 550 | 400 | 162 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 234 | 223 | 125 | 63 | 0 |
-| **All areas** | **2107** | 1860 | 1559 | 675 | 38 |
+| **All areas** | **2112** | 1864 | 1563 | 675 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1176 |
-| confidence: low | 745 |
-| confidence: medium | 685 |
+| kind: ours | 1180 |
+| confidence: low | 746 |
+| confidence: medium | 688 |
 | notes: ours | 386 |
 | kind: interpretation | 363 |
 | notes: estimate | 176 |
@@ -2198,7 +2198,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (570)
+### Core simulation (provisional values) (575)
 
 *Spec section: Provisional values in use*
 
@@ -3093,6 +3093,16 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-C1D08066` | Army made real | keeps the march facing (not a fresh spawn: `keepYaw`); the army itself spawned facing the centre | kind: ours; confidence: medium | ours (the owner said "spawning") | Army made real: compare with SM1 by feel or video. Ours: keeps the march facing (not a fresh spawn: keepYaw); the army itself… | ☐ |
 | `R-B5790B4B` | Not covered | the Stormbird and the Firing Range spawns keep their own facing | kind: ours; confidence: medium | ours | Not covered: compare with SM1 by feel or video. Ours: the Stormbird and the Firing Range spawns keep their own facing. | ☐ |
 | `R-468A6F29` | Client view | the view takes the server's yaw on a respawn (as before) and on a landing or redeploy of a living player (a jump of 15 m or more in one frame), so nothing turns on the first frame (m) | kind: ours; confidence: medium | ours | Client view: compare with SM1 by measuring on a flat spot of the same map. Ours: the view takes the server's yaw on a respawn (as before) and on a… | ☐ |
+
+*Spec section: Polish pass P1 (claude/polish-p1, 2026-11-10; client, server runtime and options; no simulation, wire, protocol or config-hash change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-396397F0` | Sound instance limits, every post | `--sound-limits all` is the default: the banks' per-node "limit sound instances" (2,945 nodes beyond the footsteps' carry one) and the below-threshold culling of non-positioned voices apply to every post in both modes; `footsteps` (the default before) restores | confidence: medium | the banks' own rule (Verified-local); the choice to apply it everywhere the owner's "less clutter" | Sound instance limits, every post: compare with SM1 by listening A/B at the same distance and state. Ours: --sound-limits all is the default: the banks' per-node "limit sound… | ☐ |
+| `R-F660BE9D` | Performance readout | **F3** cycles OFF (default), FPS (frames a second over the last second, the mean and worst frame of that second), FPS + NETWORK (plus the ping from the snapshot echoes, the snapshot loss over 3 s, the interpolation delay and the input slack the server… (s) | kind: ours | ours (a tester aid; the original had no such readout) | Performance readout: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: F3 cycles OFF (default), FPS (frames a second over the last second… | ☐ |
+| `R-900DB710` | Server GC latency mode | `GCLatencyMode.SustainedLowLatency` for the dedicated server (as the human client's since perf/pass-1; before: the runtime's Interactive mode); `SM_OLD_SERVER_RUNTIME=1` keeps the default | kind: ours; confidence: medium | ours | Server GC latency mode: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: GCLatencyMode.SustainedLowLatency for the dedicated server (as the… | ☐ |
+| `R-54E913E5` | Server ReadyToRun | a server published with a runtime identifier (the release zips, `tools/release`) is compiled ahead of time (`PublishReadyToRun`); `dotnet build` / `server.cmd` unaffected; `-p:SmReadyToRun=false` publishes JIT-only | kind: ours; confidence: low | ours (measured before: a 65 ms first-join tick, 47 ms of it the world step's first run) | Server ReadyToRun: compare with SM1 by feel or video. Ours: a server published with a runtime identifier (the release zips… | ☐ |
+| `R-9875635A` | Ashfall grime in safe mode | folded (FAST) whatever the Graphics option says while safe mode is on; `--ashfall-grime-exact-safe` restores the option's choice | kind: ours; confidence: medium | ours (the perf pass measured the overlay at 0.5 to 1.2 ms GPU and up to 580 draw calls) | Ashfall grime in safe mode: compare with SM1 by feel or video. Ours: folded (FAST) whatever the Graphics option says while safe mode is… | ☐ |
 
 *Spec section: Musou Mode: GPU spray particles (musou/gpu-particles, 2026-11-10; client only, Musou Mode only; no simulation, wire, protocol, config-hash or rules-version change)*
 
@@ -4157,6 +4167,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-B5695902` | Field-of-view slider (ui/fov-slider, owner 2026-10-31) | Ours, an added option: a slider in OPTIONS, GRAPHICS (main menu and Esc menu), horizontal degrees at the window's aspect from the data's look (about 66 at 16:9) to 120, saved in the front-end settings, applied live to the exploration and aim cameras proportionally; scopes keep the data's zoom levels. The original's PC… | default = the data's look (nothing changes unless the slider moves) | spec "Zoom levels of the scoped weapons" (row "Field-of-view option") | Field-of-view slider (ui/fov-slider, owner 2026-10-31): compare with SM1 with an overlaid screenshot taken from the same position. Ours: Ours, an added option: a slider in OPTIONS, GRAPHICS (main menu and… | ☐ |
 | `C-2BE9585F` | Crosshair scales with the field of view (ui/crosshair-fov-scale, owner 2026-11-07) | Ours: the original has no FOV slider, so its crosshair had one size | At the default FOV the crosshair (reticle, spread frames, plasma gauges, hit marker, old-style circle) keeps its size; at any other it is scaled by `tan(reference/2) / tan(live/2)` of the camera's vertical angle (reference: the same camera state at the default setting, so aiming alone never resizes it), so it covers… | playtesters: "Scale crosshair with FOV. When FOV is high, the crosshair is too big"; spec "Zoom levels of the scoped weapons" (row "Field-of-view option") | Crosshair scales with the field of view…: compare with SM1 with an overlaid screenshot taken from the same position. Ours: Ours: the original has no FOV slider, so its crosshair had one size. | ☐ |
 | `C-D361EE57` | Mouse sensitivity slider (ui/mouse-sensitivity, owner 2026-11-01) | Ours, a client convenience: a slider (0.10x to 3.00x, step 0.05, default 1.00x) in OPTIONS, CONTROLS (main menu and Esc menu) (every mode: Annihilation, Seize Ground, added content), saved as `mouseSensitivity` in `frontend.json` and applied live. It multiplies the camera tuning's mouse look scale (`speed_mouse`) the… | default 1.00x = today's feel (nothing changes unless the slider moves) | tag: client convenience, no spec parameter | Mouse sensitivity slider (ui/mouse-sensitivity, owner…: compare with SM1 by turning the view at full speed with the same input settings and timing a half turn. Ours: Ours, a client convenience: a slider (0.10x to 3.00x, step 0.05… | ☐ |
+| `C-19F23FEC` | Performance readout (polish pass P1, 2026-11-10) | Ours, a tester aid, no option row (the owner keeps the original's options): F3 cycles OFF (default), FPS, FPS + NETWORK, a few lines of small text in the match's top right corner (frames a second, frame time, ping, snapshot loss, interpolation delay, input slack); the original had no such readout. Also since P1: in… | nothing the original shows | spec "Polish pass P1" | Performance readout (polish pass P1, 2026-11-10): compare with SM1 by feel or video. Ours: Ours, a tester aid, no option row (the owner keeps the original's… | ☐ |
 | `C-4A30D832` | The front end's menus (ui/menu-rebuild, owner 2026-11-01) | Ours: the owner's Half-Life 2 style layout replaces the Join screen and SM1's front end. Title "SM - REIMPL" and a column of small white capitals at the reference's positions, transparent text buttons, DejaVu Sans Bold in one colour everywhere; main menu PLAYER VERSUS PLAYER (HOST LOCAL LOBBY, JOIN SERVER, JOIN LOCAL… | The options' defaults keep the old behaviour | tag: client convenience, no spec parameter; every value in `GameOptions` is ours | The front end's menus (ui/menu-rebuild, owner 2026-11-01): compare with SM1 by feel or video. Ours: Ours: the owner's Half-Life 2 style layout replaces the Join screen… | ☐ |
 | `C-7EA9E63E` | Lighting presets (ui/lighting-presets, owner 2026-11-06) | Ours, an added option: LIGHTING PRESET in OPTIONS, GRAPHICS (main menu and Esc menu) with the owner's ten names: Faithful Remaster (default: today's look, nothing touched), Natural Cinema, Pale Ashfall, Golden Epic, Blue-Hour Steel, Stormbreak, Gothic Chiaroscuro, Forge Amber, Bleach-Bypass Warfilm, Ash + Color… | Whether each look reads as its name; whether any preset makes players harder to see in a real match | tag: client option, no spec parameter | Lighting presets (ui/lighting-presets, owner 2026-11-06): compare with SM1 by feel or video. Ours: Ours, an added option: LIGHTING PRESET in OPTIONS, GRAPHICS (main… | ☐ |
 | `C-2A746CD2` | Focus glow (ui/focus-glow, owner 2026-11-06) | Ours, an added UI cue: the control that A or a left click would activate (focused button, choice row, tab, list row, slider) shows a soft white halo, drawn once for every menu (`FocusGlow`, a canvas layer over the menus; additive, 14 px feather, 0.24 strength, 0.08 s fade-in, sized to a row's words); moving the mouse… | Strength and size of the halo by eye | tag: client UI, no spec parameter | Focus glow (ui/focus-glow, owner 2026-11-06): compare with SM1 by feel or video. Ours: Ours, an added UI cue: the control that A or a left click would… | ☐ |
@@ -4608,6 +4619,8 @@ Test aids, probes, demo and capture tooling, and engineering decisions (protocol
 | `R-E6DE77A1` | Handshake after the blink | Screen blink (ui/loading-blink, 2026-11-10, client only) |
 | `R-BE72EE96` | Core messages counted in the Musou budget (Musou) | Musou performance pass and the owner's battle decisions (musou/perf-pass, 2026-11-08; Musou Mode only but FSR 2 and the off-screen effects, which are shared client settings; `TfwRules.Version` 38, no protocol or wire change) |
 | `R-A9655E6C` | Stormboy hop cue's flight (Musou wire) | Musou Mode: smooth crowd motion (crowd-smooth, 2026-11-08; Musou Mode only; `MusouSim.Version` 22, no core protocol bump: `Protocol.Version` stays 64) |
+| `R-866FC7E6` | `LOADTIME` line | Polish pass P1 (claude/polish-p1, 2026-11-10; client, server runtime and options; no simulation, wire, protocol or config-hash change) |
+| `R-3D34462F` | Physics steps aid | Polish pass P1 (claude/polish-p1, 2026-11-10; client, server runtime and options; no simulation, wire, protocol or config-hash change) |
 | `R-476D600F` | Test aid: `--musou-crowd-test` | Musou Mode: the big Orks' deaths and gait (musou-big-ork-deaths, 2026-11-09; Musou Mode only; the deaths and gait client presentation; the bodies against the map in the simulation, `MusouSim.Version` 34, to be renumbered at integration; no protocol change) |
 | `R-F137D8B4` | Test aid: old big spawns | Musou Mode: the Orks back at 100 %, twice the big Orks (musou-big-ork-deaths, 2026-11-10; Musou Mode's war only; `TfwRules.Version` 59, to be renumbered at integration; no protocol, wire or `MusouSim.Version` change) |
 

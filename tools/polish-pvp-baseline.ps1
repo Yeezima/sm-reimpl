@@ -2,7 +2,8 @@
 .SYNOPSIS
   Polish pass baseline harness, Classic PvP (docs/polish-pass-plan.md, 2026-11-10). Test aid, never shipped.
 .DESCRIPTION
-  polish-pvp-baseline.ps1 [-Tag t] [-Port p] [-Marines 6] [-Chaos 6] [-Seconds 120] [-SafeSeconds 60]
+  polish-pvp-baseline.ps1 [-Tag t] [-Port p] [-Marines 6] [-Chaos 6] [-Seconds 120] [-SafeSeconds 60] [-ClientArgs '...'] [-Sound]
+  -SafeSeconds 0 skips the Compatibility client; -ClientArgs adds client arguments to the measuring clients; -Sound plays sound and logs the instance limits' kills.
 
   One Release server on 127.0.0.1 (build it first: dotnet build src/SmServer -c Release; SM_TICK_STATS=5), N + M headless bots started here
   through tools\godot.ps1 --background (their PIDs kept in pids.txt; only those are stopped), then one windowed measuring client on Forward+
@@ -11,7 +12,7 @@
   The Musou scenes are tools\musou-perf.ps1 (clash1000, burst). Note: godot.ps1's "--" separator must be passed by splatting an array
   (as below); a literal -- on a PowerShell command line is eaten by PowerShell and every client argument then becomes an engine argument.
 #>
-param([int]$Port = 27411, [int]$Marines = 6, [int]$Chaos = 6, [int]$Seconds = 120, [int]$SafeSeconds = 60, [string]$Tag = 'polish-base')
+param([int]$Port = 27411, [int]$Marines = 6, [int]$Chaos = 6, [int]$Seconds = 120, [int]$SafeSeconds = 60, [string]$Tag = 'polish-base', [string]$ClientArgs = '', [switch]$Sound)
 $ErrorActionPreference = 'Stop'
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 . (Join-Path $RepoRoot 'tools\quiet-launch.ps1')
@@ -39,7 +40,7 @@ try {
             $cls = $classes[$i % 3]
             $log = Join-Path $out ("bot-{0}-{1}.log" -f $side[0], $i)
             $ga = @('--background', '--log', $log, '--'); $ca = @('--connect', "127.0.0.1:$Port", '--bot', '--no-sound', '--content', 'extended', '--side', $side[0], '--class', $cls, '--quit-after', "$total")
-            $txt = & (Join-Path $RepoRoot 'tools\godot.ps1') @ga @ca 2>&1 | Out-String
+            $txt = & (Join-Path $RepoRoot 'tools\godot.ps1') @ga @ca *>&1 | Out-String
             if ($txt -match 'started pid (\d+)') { $pids += [int]$Matches[1]; "bot $($Matches[1])" | Add-Content (Join-Path $out 'pids.txt') }
             $n++
             Start-Sleep -Milliseconds 1500
@@ -49,14 +50,19 @@ try {
     Start-Sleep -Seconds 15
     # Forward+ measuring client (a full-load bot: it fights, so its frames carry the fight's effects and sounds off).
     $clientLog = Join-Path $out 'client-forward.log'
-    $ga = @('--windowed', '--disable-vsync', '--log', $clientLog, '--'); $ca = @('--connect', "127.0.0.1:$Port", '--no-sound', '--content', 'extended', '--bot', '--bot-full-load', '--side', 'marines', '--class', 'tactical', '--frame-profile', '--frame-profile-warmup', '20', '--perf-probe', '--net-latency', '5', '--quit-after', "$Seconds")
+    # -Sound: the measuring client plays sound and logs the instance limits' kills (LIMIT lines); -ClientArgs adds more client arguments to both measuring clients.
+    $extra = @(); if ($ClientArgs) { $extra = @($ClientArgs -split ' ' | Where-Object { $_ }) }
+    $soundArgs = @(if ($Sound) { '--log-sound', 'footstep' } else { '--no-sound' })
+    $ga = @('--windowed', '--disable-vsync', '--log', $clientLog, '--'); $ca = @('--connect', "127.0.0.1:$Port") + $soundArgs + @('--content', 'extended', '--bot', '--bot-full-load', '--side', 'marines', '--class', 'tactical', '--frame-profile', '--frame-profile-warmup', '20', '--perf-probe', '--net-latency', '5', '--quit-after', "$Seconds") + $extra
     & (Join-Path $RepoRoot 'tools\godot.ps1') @ga @ca *> $null
     Write-Host "forward client exited $LASTEXITCODE"
     # Compatibility renderer (safe mode) client.
     $safeLog = Join-Path $out 'client-safe.log'
-    $ga = @('--windowed', '--disable-vsync', '--rendering-method', 'gl_compatibility', '--rendering-driver', 'opengl3', '--log', $safeLog, '--'); $ca = @('--connect', "127.0.0.1:$Port", '--no-sound', '--content', 'extended', '--bot', '--bot-full-load', '--side', 'marines', '--class', 'tactical', '--safe-mode', '--frame-profile', '--frame-profile-warmup', '20', '--perf-probe', '--net-latency', '5', '--quit-after', "$SafeSeconds")
+    if ($SafeSeconds -gt 0) {
+    $ga = @('--windowed', '--disable-vsync', '--rendering-method', 'gl_compatibility', '--rendering-driver', 'opengl3', '--log', $safeLog, '--'); $ca = @('--connect', "127.0.0.1:$Port") + $soundArgs + @('--content', 'extended', '--bot', '--bot-full-load', '--side', 'marines', '--class', 'tactical', '--safe-mode', '--frame-profile', '--frame-profile-warmup', '20', '--perf-probe', '--net-latency', '5', '--quit-after', "$SafeSeconds") + $extra
     & (Join-Path $RepoRoot 'tools\godot.ps1') @ga @ca *> $null
     Write-Host "safe client exited $LASTEXITCODE"
+    }
 }
 finally {
     foreach ($p in $pids) { & taskkill.exe /PID $p /T /F 2>$null | Out-Null }
@@ -67,7 +73,10 @@ $sum = @("pvp baseline tag $Tag at $(Get-Date -Format s): $Marines v $Chaos bots
 $sum += (Get-Content -LiteralPath (Join-Path $out 'server.log') | Select-String -Pattern 'TICKSTATS|TICKPACE|TICKBYTES|TICKSPIKE' | ForEach-Object { $_.Line })
 foreach ($f in @('client-forward.log', 'client-safe.log')) {
     $sum += "---- $f"
-    $sum += (Get-Content -LiteralPath (Join-Path $out $f) | Select-String -Pattern '^perf:|profile .*SUMMARY|profile .*hitch|NETLAT|renderer:|warmed|read in|loaded|jit prewarm' | ForEach-Object { $_.Line })
+    if (-not (Test-Path -LiteralPath (Join-Path $out $f))) { continue }
+    $sum += (Get-Content -LiteralPath (Join-Path $out $f) | Select-String -Pattern '^perf:|profile .*SUMMARY|profile .*hitch|NETLAT|renderer:|warmed|read in|loaded|jit prewarm|LOADTIME|physics:' | ForEach-Object { $_.Line })
+    $limits = @(Get-Content -LiteralPath (Join-Path $out $f) | Select-String -Pattern '^LIMIT ').Count
+    $sum += "LIMIT lines (voices killed or dropped by an instance limit): $limits"
 }
 $sum | Set-Content -LiteralPath (Join-Path $out 'summary.txt') -Encoding utf8
 Write-Host "summary: $(Join-Path $out 'summary.txt')"

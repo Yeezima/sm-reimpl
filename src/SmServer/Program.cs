@@ -483,6 +483,14 @@ var lastReport = TimeSpan.Zero;
 // runs above normal priority; pacing only (LoopPacing.cs; SM_OLD_LOOP_PACING=1 restores the old loop for tests).
 LoopPacing.Start();
 Console.WriteLine($"loop pacing: {LoopPacing.Describe}");
+// polish pass P1 (2026-11-10): the server's GC runs its full collections in the background (SustainedLowLatency: no blocking gen2 unless memory runs low), as the human
+// client's does since perf/pass-1; before, the default Interactive mode (a blocking gen2 could sit inside a tick). SM_OLD_SERVER_RUNTIME=1 keeps the runtime's default.
+if (Environment.GetEnvironmentVariable("SM_OLD_SERVER_RUNTIME") != "1")
+{
+    try { System.Runtime.GCSettings.LatencyMode = System.Runtime.GCLatencyMode.SustainedLowLatency; }
+    catch (Exception e) when (e is ArgumentOutOfRangeException or NotSupportedException or InvalidOperationException) { Console.WriteLine($"gc: latency mode not set ({e.Message}); the runtime's default stays"); }
+}
+Console.WriteLine($"runtime: {(System.Runtime.GCSettings.IsServerGC ? "server" : "workstation")} GC, {System.Runtime.GCSettings.LatencyMode}; {System.Runtime.JitInfo.GetCompiledMethodCount()} methods jitted so far");
 // GameServer.Update isolates packet handlers and ticks itself (hardening M3); a fault anywhere else in the loop is logged and the
 // loop goes on. A crash of the process is for a restart supervisor (docs/dedicated-server.md).
 while (true)
