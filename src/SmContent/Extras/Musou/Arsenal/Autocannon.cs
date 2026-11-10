@@ -60,8 +60,8 @@ public static partial class Arsenal
 
     /// <summary>
     /// The effects <paramref name="wargear"/> plays in place of its presentation source's (from → to, <see cref="EffectCatalogue.WithEffectNames"/>), else null: the autocannon shows the twin's
-    /// effect commands (markers, scales, the impacts' surfaces, the smoke) with the loyalist muzzle flash, tracer and impact burst instead of the purple Chaos ones. Its sounds (the Stalker's; the
-    /// impact's hit sound is the container's, kept), reticle and ammo box are untouched.
+    /// effect commands (markers, scales, the impacts' surfaces, the smoke) with the loyalist muzzle flash, tracer and impact burst instead of the purple Chaos ones. Its sounds (the Stalker's, the
+    /// impact's hit sound too: the client plays SoundTriggers.HitSound, which W1b sources from the Stalker; the copied container's own sound field is not played), reticle and ammo box are untouched.
     /// </summary>
     public static IReadOnlyDictionary<string, string>? EffectNames(string wargear) =>
         string.Equals(wargear, ArsenalRules.Autocannon, StringComparison.OrdinalIgnoreCase) ? AutocannonEffectNames : null;

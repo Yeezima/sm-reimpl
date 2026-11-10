@@ -94,7 +94,7 @@ public class ArsenalPresentationTests
         Assert.Contains("chaos", twin.HitMaterial.Container, StringComparison.OrdinalIgnoreCase);
         var twinTable = catalogue.Container(twin.HitMaterial)!;
         var ourTable = catalogue.Container(ours.HitMaterial)!;
-        Assert.Equal(twinTable.SoundEvent, ourTable.SoundEvent);   // the hit sound kept
+        Assert.Equal(twinTable.SoundEvent, ourTable.SoundEvent);   // the copied table's sound field is the twin's; the client does not play it (the impact sounds as the Stalker's, W1b's SoundTriggers.WithSources)
         for (int surface = 0; surface < Surfaces.Default.Count; surface++)
         {
             var theirs = catalogue.Impact(Arsenal.AutocannonTwinFile, ShotHit.World, surface);

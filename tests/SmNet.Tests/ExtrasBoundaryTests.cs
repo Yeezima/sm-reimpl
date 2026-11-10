@@ -148,6 +148,9 @@ public class ExtrasBoundaryTests
         ("src/SmContent/UpperBodyAnimations.cs", "AnimationAlias.Of("),
         ("client/NetworkView.MeleeFlow.cs", "AnimationAlias.Of("),
         ("client/Customizer/CustomizerServices.cs", "data.For(content)"),
+        ("client/NetworkView.Sound.cs", "SoundSourceMap()"),        // W1b: the sound triggers loaded with an added weapon's sound source (the autocannon as the Stalker Bolter)
+        ("client/NetworkView.Sound.cs", "SoundNameOf(wargear)"),    // W1b: the hit confirm by the sound source's name
+        ("client/NetworkView.Fx.cs", "EffectNameMap()"),            // W1c: the effect catalogue loaded with an added weapon's effect renames (the loyalist flash, tracer and impact)
         // W0b: the catalogues read with the sources, the name rules by the source's name, the hammer's air slash, charge and grip by the alias, the pack moves' clip speed.
         ("client/NetworkView.Fx.cs", ".WithSources(sources)"),
         ("client/NetworkView.Fx.cs", ".WithEffectNames(effectNames)"),   // W1c: the effect catalogue with the added weapons' renamed effects
