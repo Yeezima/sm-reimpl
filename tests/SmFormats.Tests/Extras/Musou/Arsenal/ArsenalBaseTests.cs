@@ -31,8 +31,11 @@ public class ArsenalBaseTests
     {
         var config = new SimConfig { Extras = ContentExtras.Musou };
         var notes = new List<string>();
-        Assert.Same(config, Arsenal.Append(config, "", notes));
-        Assert.Empty(notes);
+        // W4 landed: the Remote Detonators are the one item appended (W1 to W3 are still stubs).
+        var appended = Arsenal.Append(config, "", notes);
+        Assert.Equal([ArsenalRules.RemoteDetonators], appended.Thrown.Select(t => t.Name).Where(ArsenalRules.IsArsenal));
+        Assert.Equal(config.Weapons, appended.Weapons);
+        Assert.All(notes, n => Assert.StartsWith("musou arsenal: Remote Detonators", n));
         foreach (var name in ArsenalRules.Names)
         {
             Assert.Null(Arsenal.MeleeMap(name));
@@ -53,8 +56,20 @@ public partial class CustomizationCatalogTests
     {
         var global = BafDocument.Read(GlobalBaf());
         var perks = PerkCatalog.Build(global, name => name.StartsWith("mp_perk") ? BafDocument.Read(Gear("perk")) : BafDocument.Read(Gear(name.Contains("pistol") ? "pistol" : "melee")), null, []);
-        Assert.Same(perks, perks.For(ContentExtras.Musou));
-        Assert.Same(perks, Arsenal.Catalog(perks));
+        // W4 landed: Musou's Space Marine classes list the Remote Detonators last in their equipment; every other profile gets the data's catalogue itself (W1 to W3 are still stubs).
+        var musou = perks.For(ContentExtras.Musou);
+        Assert.Same(perks, perks.For(ContentExtras.None));
+        Assert.Same(perks, perks.For(ContentExtras.Orks));
+        Assert.NotSame(perks, musou);
+        foreach (var c in musou.Classes)
+        {
+            bool marine = c.Key.StartsWith("sm ", StringComparison.OrdinalIgnoreCase);
+            Assert.Equal(marine, c.Equipment.Items.Any(i => i.Name == ArsenalRules.RemoteDetonators));
+            if (marine) Assert.Equal(ArsenalRules.RemoteDetonators, c.Equipment.Items[^1].Name);
+            Assert.Equal(perks.Class(c.Key)!.Primary, c.Primary);
+            Assert.Equal(perks.Class(c.Key)!.Melee, c.Melee);
+        }
+        Assert.Same(musou.Classes.First(c => !c.Key.StartsWith("sm ", StringComparison.OrdinalIgnoreCase)), musou.Classes.First(c => !c.Key.StartsWith("sm ", StringComparison.OrdinalIgnoreCase)));
     }
 }
 
@@ -64,10 +79,14 @@ public partial class CustomizationProfileTests
     public void Musous_set_is_read_with_Musous_catalogue_and_every_other_with_the_datas()
     {
         // W0 (hook 3's set part): a Musou slot keeps an item only Musou's catalogue offers; Classic's own slots and any other set use the data's.
-        Assert.Same(Catalog.For(ContentExtras.Musou), ProfileViews.SetCatalog(MusouSlots.SetName, Catalog));
+        // (W4 landed: Musou's catalogue is built afresh each time, so the two are compared by the rows they offer.)
+        var rows = (CustomizationCatalog c) => c.Perks.Classes.Select(k => string.Join(",", k.Equipment.Items.Select(i => i.Name))).ToList();
+        Assert.Equal(rows(Catalog.For(ContentExtras.Musou)), rows(ProfileViews.SetCatalog(MusouSlots.SetName, Catalog)));
+        Assert.NotEqual(rows(Catalog), rows(ProfileViews.SetCatalog(MusouSlots.SetName, Catalog)));
         Assert.Same(Catalog, ProfileViews.SetCatalog("other", Catalog));
         Assert.Same(Catalog, MusouSlots.SetCatalog("other", Catalog));
-        // While every arsenal entry is a stub, Musou's catalogue is the data's itself, so a profile reads exactly as before.
-        Assert.Same(Catalog, Catalog.For(ContentExtras.Musou));
+        // W4 landed: Musou's catalogue is the data's plus the Remote Detonators row; no other profile's changes.
+        Assert.NotSame(Catalog, Catalog.For(ContentExtras.Musou));
+        Assert.Same(Catalog, Catalog.For(ContentExtras.None));
     }
 }
