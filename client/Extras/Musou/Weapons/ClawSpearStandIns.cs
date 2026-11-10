@@ -147,7 +147,7 @@ public partial class SpearStandIn : WeaponStandIn
     /// The one-handed carry's tilt: at the low grip the shaft stands upright from the hand; at the carry grip (0.95 m from the butt) it leans forward to this elevation (degrees above the horizontal),
     /// so with the hand hanging about 0.97 m up the butt rides a few centimetres off the ground behind the hand and the blade forward-up over the shoulder (ours, from the owner's rule).
     /// </summary>
-    public const float CarryTilt = 70f;
+    public const float CarryTilt = 80f;
 
     public override void _Ready() { AddChild(_root); }
 
@@ -171,7 +171,12 @@ public partial class SpearStandIn : WeaponStandIn
             d = carry.Lerp(d, grip).Normalized();
         }
         var butt = r - d * RightHandFromButt;
-        _root.Transform = new Transform3D(Frame(d, new Vector3(0f, 0f, 1f)), butt);
+        // The blade's edge (the stand-in's +X) faces the way he faces (owner, 2026-11-10: "the blade needs to face forward at rest"); when the shaft itself points near the front, the edge turns up.
+        var frontNow = CarryFront(s);
+        var edge = frontNow - d * frontNow.Dot(d);
+        var hint = edge.LengthSquared() > 0.09f ? edge.Normalized() : (new Vector3(0f, 0f, 1f) - d * d.Z).Normalized();
+        var z = hint.Cross(d).Normalized();   // right-handed: x = edge, y = shaft, z = x cross y
+        _root.Transform = new Transform3D(new Basis(hint, d, z), butt);
         if (_field is not null)
         {
             float e = 0.8f + 2.2f * Glow;

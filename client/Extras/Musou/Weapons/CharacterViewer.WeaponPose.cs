@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Godot;
 using SmContent.Extras.Musou;
 
@@ -89,16 +90,23 @@ public partial class CharacterViewer
         if (w <= 1e-3f) return;
         var s = _skeleton;
         int n = s.GetBoneCount();
+        _weaponPoseBones ??= new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         if (_weaponOrder.Length != n)
         {
-            _weaponOrder = new int[n];
-            // Parents before children: the skeleton's bones are stored with parents first (docs/discovery.md), but sort by depth to be sure.
+            // Parents before children (the skeleton's bones are stored with parents first, docs/discovery.md, but sort by depth to be sure), bones of one depth in index order, so a
+            // bone that carries another (the pelvis the spine) is always handled before it.
             var depth = new int[n];
             for (int b = 0; b < n; b++) { int d = 0; for (int p = s.GetBoneParent(b); p >= 0; p = s.GetBoneParent(p)) d++; depth[b] = d; }
-            for (int b = 0; b < n; b++) _weaponOrder[b] = b;
-            Array.Sort(depth, _weaponOrder);
+            _weaponOrder = Enumerable.Range(0, n).OrderBy(b => depth[b]).ThenBy(b => b).ToArray();
+            _weaponCarried = new int[n];
+            Array.Fill(_weaponCarried, -1);
+            foreach (var (carrier, carried) in RigidWith)
+            {
+                int c = Bone(s, carrier), f = Bone(s, carried);
+                if (c >= 0 && f >= 0 && s.GetBoneParent(c) == s.GetBoneParent(f)) _weaponCarried[c] = f;
+                else if (c >= 0 && f >= 0) GD.Print($"weapon pose: {carried} is not a sibling of {carrier}; it is not carried with it");
+            }
         }
-        _weaponPoseBones ??= new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         if (!_weaponLegsResolved)
         {
             _weaponLegsResolved = true;
@@ -152,22 +160,13 @@ public partial class CharacterViewer
                 turn = turn.Slerp(old, fromShare).Normalized();
                 shift = shift.Lerp(ShiftOf(beforeList, state.FromTime, right, front, up), fromShare);
             }
-            int parent = s.GetBoneParent(b);
-            var parentRot = parent >= 0 ? s.GetBoneGlobalPose(parent).Basis.Orthonormalized().GetRotationQuaternion() : Quaternion.Identity;
-            if (MathF.Abs(turn.W) <= 0.9999995f)
-            {
-                var local = s.GetBonePoseRotation(b);
-                var target = (parentRot.Inverse() * turn * parentRot * local).Normalized();
-                if (local.Dot(target) < 0f) target = -target;
-                s.SetBonePoseRotation(b, w >= 0.999f ? target : local.Slerp(target, w).Normalized());
-            }
-            if (shift.LengthSquared() > 1e-10f)
-            {
-                var parentScale = parent >= 0 ? s.GetBoneGlobalPose(parent).Basis.Scale : Vector3.One;
-                var localShift = parentRot.Inverse() * shift;
-                localShift = new Vector3(localShift.X / MathF.Max(parentScale.X, 1e-4f), localShift.Y / MathF.Max(parentScale.Y, 1e-4f), localShift.Z / MathF.Max(parentScale.Z, 1e-4f));
-                s.SetBonePosePosition(b, s.GetBonePosePosition(b) + localShift * w);
-            }
+            var pivot = s.GetBoneGlobalPose(b).Origin;
+            MoveBone(s, b, turn, shift, pivot, w);
+            // The marine rig hangs the spine beside the pelvis under the root, not under it, so a pelvis moved or turned on its own left the torso behind and the legs came away from the body
+            // (the owner's review of 2026-11-10). The carried bone takes the same turn about the carrier's origin and the same shift, as one rigid piece; its own channels are laid on top when
+            // its turn comes.
+            int carried = _weaponCarried[b];
+            if (carried >= 0) MoveBone(s, carried, turn, shift, pivot, w);
         }
         if (anyLaid)
             foreach (var leg in new[] { _legL, _legR })
@@ -179,6 +178,42 @@ public partial class CharacterViewer
                 SolveLeg(s, leg, leg.PlantedAt + offset * w, front);
             }
         _layersDirty = true;   // a held stance is applied again next frame, so the strike moves on
+    }
+
+    /// <summary>
+    /// Bones that move as one rigid piece with another bone that is not their parent: the marine's <c>RIG_SpineA</c> hangs under <c>RIG_Root</c> beside <c>RIG_Pelvis</c>, so the torso must be
+    /// carried along whenever the pelvis is turned or shifted, or the legs come away from the body.
+    /// </summary>
+    static readonly (string Carrier, string Carried)[] RigidWith = [("RIG_Pelvis", "RIG_SpineA")];
+    int[] _weaponCarried = Array.Empty<int>();
+
+    /// <summary>
+    /// Turns <paramref name="bone"/> by the skeleton-space rotation <paramref name="turn"/> about <paramref name="pivot"/> and shifts it by <paramref name="shift"/>, as far as <paramref name="w"/>; a
+    /// pivot at the bone's own origin leaves its origin where it was (its own turn), another pivot carries it round that point.
+    /// </summary>
+    static void MoveBone(Skeleton3D s, int bone, Quaternion turn, Vector3 shift, Vector3 pivot, float w)
+    {
+        int parent = s.GetBoneParent(bone);
+        var parentPose = parent >= 0 ? s.GetBoneGlobalPose(parent) : Transform3D.Identity;
+        var parentRot = parentPose.Basis.Orthonormalized().GetRotationQuaternion();
+        var origin = s.GetBoneGlobalPose(bone).Origin;
+        bool turns = MathF.Abs(turn.W) <= 0.9999995f;
+        if (turns)
+        {
+            var local = s.GetBonePoseRotation(bone);
+            var target = (parentRot.Inverse() * turn * parentRot * local).Normalized();
+            if (local.Dot(target) < 0f) target = -target;
+            s.SetBonePoseRotation(bone, w >= 0.999f ? target : local.Slerp(target, w).Normalized());
+        }
+        var moved = (turns ? pivot + turn * (origin - pivot) : origin) + shift;
+        if (moved.DistanceSquaredTo(origin) > 1e-12f)
+        {
+            var delta = (moved - origin) * w;
+            var parentScale = parentPose.Basis.Scale;
+            var localShift = parentRot.Inverse() * delta;
+            localShift = new Vector3(localShift.X / MathF.Max(parentScale.X, 1e-4f), localShift.Y / MathF.Max(parentScale.Y, 1e-4f), localShift.Z / MathF.Max(parentScale.Z, 1e-4f));
+            s.SetBonePosePosition(bone, s.GetBonePosePosition(bone) + localShift);
+        }
     }
 
     /// <summary>

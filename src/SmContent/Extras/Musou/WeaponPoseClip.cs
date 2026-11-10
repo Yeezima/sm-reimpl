@@ -176,7 +176,7 @@ public sealed record WeaponPoseClip(string Name, string Weapon, float Duration, 
     public const float LowGrip = 0.5f;
     /// <summary>
     /// The carry (m from the butt): the hand higher than the melee grip, at the point where the butt hangs just above the ground as he runs (owner, 2026-11-10: "right at the point where the butt
-    /// of the spear is just above the ground"): the hanging hand is about 0.97 m up, the carry tilts 70 degrees, so the butt rides about 0.08 m off the ground. W3's high-grip constant matches this.
+    /// of the spear is just above the ground"): the hanging hand is about 0.97 m up, the carry leans 80 degrees, so the butt rides about 0.04 m off the ground. W3's high-grip constant matches this.
     /// </summary>
     public const float CarryGrip = 0.95f;
 

@@ -160,6 +160,29 @@ public class ClawSpearClipsTests
     }
 
     [Fact]
+    public void The_spear_keeps_a_straight_back_and_leans_and_turns_from_the_hips()
+    {
+        // Owner 2026-11-10: "the torso should remain intact and not bend much - straight back the entire time". The spine's own keys stay small; the pelvis carries the lean and the turn.
+        foreach (var clip in ClawSpearClips.All.Where(c => c.Weapon == "spear"))
+        {
+            foreach (var ch in clip.Channels.Where(c => c.Bone is "RIG_SpineA" or "RIG_SpineD"))
+                foreach (var k in ch.Keys)
+                {
+                    Assert.True(MathF.Abs(k.Pitch) <= ClawSpearClips.SpineLimitPitch, $"{clip.Name} {ch.Bone}: spine pitch {k.Pitch} at {k.T}");
+                    Assert.True(MathF.Abs(k.Roll) <= ClawSpearClips.SpineLimitRoll, $"{clip.Name} {ch.Bone}: spine roll {k.Roll} at {k.T}");
+                    Assert.True(MathF.Abs(k.Yaw) <= ClawSpearClips.SpineLimitYaw, $"{clip.Name} {ch.Bone}: spine yaw {k.Yaw} at {k.T}");
+                }
+            if (!float.IsNaN(clip.HitTime) && clip.HitTime > 0f)
+            {
+                var pelvis = clip.Channels.Single(c => c.Kind == PoseChannelKind.Turn && c.Bone == "RIG_Pelvis");
+                Assert.True(pelvis.Keys.Max(k => MathF.Abs(k.Yaw)) >= 25f, $"{clip.Name}: the hips barely turn");
+                var drop = clip.Channels.Single(c => c.Kind == PoseChannelKind.Move);
+                Assert.True(drop.Keys.Min(k => k.Up) <= (clip.Name == "spear_stun" ? -0.15f : -0.25f), $"{clip.Name}: no deep stance");   // the stun is a quick snap cut; the hews and the stab sink deep
+            }
+        }
+    }
+
+    [Fact]
     public void The_shaft_slides_from_the_high_carry_to_the_low_melee_grip_and_back()
     {
         // Owner 2026-11-10: gripped high toward the blade when running, slid low toward the butt for melee.
