@@ -32,7 +32,36 @@ public sealed partial class CustomizerServices
     /// <see cref="ContentProfiles.DefaultName"/>, extended: the owner's decision of 2026-10-29). The lobby menu's CONTENT row changes it (<see cref="SetContent"/>); the
     /// in-match picker sets it to the match's own flags. The customizer offers only the factions it allows (<see cref="Factions"/>), and a Join never asks for more.
     /// </summary>
-    public ContentExtras Content { get; set; }
+    public ContentExtras Content
+    {
+        get => _content;
+        set { _content = value; ApplyProfileView(); }
+    }
+    ContentExtras _content;
+    readonly object _viewLock = new();
+
+    /// <summary>
+    /// Puts the profile view of the content profile into the session (musou/loadout-slots, 2026-11-10): an added mode's own loadout slots (<see cref="ExtrasProfileView"/>), or none (the profile's own
+    /// slots, Classic PvP). Called when the content profile changes, when the profile is loaded, and by a screen that changes what its view shows.
+    /// </summary>
+    public void ApplyProfileView() => ApplyProfileView(Session);
+
+    void ApplyProfileView(ProfileSession? session)
+    {
+        if (session is null) return;
+        lock (_viewLock)
+        {
+            IProfileView? view = null;
+            ExtrasProfileView(ref view);   // EXTRAS-HOOK: Musou Mode's own loadout slots
+            session.UseView(view);
+        }
+    }
+
+    /// <summary>
+    /// Hook for added content (docs/added-content.md; client/Extras/Musou/Customizer/CustomizerServices.Musou.cs): the view of the profile the screens edit for this content profile. Leaves it null (the
+    /// profile's own slots) unless its content profile is on.
+    /// </summary>
+    partial void ExtrasProfileView(ref IProfileView? view);
 
     public CustomizationCatalog? Catalog { get; private set; }
     public ProfileSession? Session { get; private set; }
@@ -104,7 +133,11 @@ public sealed partial class CustomizerServices
             lock (Notes) { Notes.AddRange(notes); Notes.AddRange(tuning.Notes); }
             PerkActivities = PerkStatuses.Of(tuning.Config);
             Config = tuning.Config;
-            Session = session;
+            lock (_viewLock)
+            {
+                Session = session;
+                ApplyProfileView(session);   // before any screen listens: the content profile's view from the start
+            }
             Catalog = catalog;
         }
         catch (Exception ex) when (ex is not (OutOfMemoryException or StackOverflowException or AccessViolationException))

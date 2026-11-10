@@ -26,6 +26,7 @@ public class ExtrasBoundaryTests
         ("src/SmSim/ContentExtras.cs", "ExtrasJumpPackOwnerCapacity"),   // SimConfig.JumpPackOwnerCapacity: Musou keeps the 300 jump-pack capacity
         ("src/SmSim/ContentExtras.cs", "ExtrasNoBulletSpread"),    // SimConfig.ExtrasNoBulletSpread(ref bool), read by SimConfig.NoBulletSpread (musou/no-spread: Musou Mode's shots have no spread)          // SimConfig.ExtrasAirJumps(ref bool), read by SimConfig.JumpPackAirJumps (sim/air-jumps: Musou Mode keeps the jump-pack air jump)
         ("src/SmContent/GameplayTuning.cs", "ExtrasLoad"),         // GameplayTuning.ExtrasLoad(ref SimConfig, string, List<string>), called in LoadForMatch
+        ("src/SmContent/Customization/ProfileView.cs", "ExtrasLookRemoved"),   // ProfileViews.ExtrasLookRemoved(ref CustomizationProfile, string), in RemoveLook: the Musou Librarian's look (musou/loadout-slots review)
         ("src/SmServer/GameServer.Envelope.cs", "ExtrasSend"),     // GameServer.ExtrasSend(), called once a tick after SendPickups (E3's envelope), only with added content
         ("client/NetworkView.cs", "ExtrasInput"),                  // NetworkView.ExtrasInput(ref PlayerInput), on every sampled live input (loyalist barks: the FOR THE EMPEROR key)
         ("client/NetworkView.cs", "ExtrasFrame"),                  // NetworkView.ExtrasFrame(PlayerState, IReadOnlyList<PlayerState>, double), once a frame after the sound (loyalist barks: barks and the key's shouts)
@@ -92,6 +93,7 @@ public class ExtrasBoundaryTests
         ("client/Customizer/CreatorView.cs", "ExtrasOpenAppearance"),   // CreatorView.ExtrasOpenAppearance(ref bool), APPEARANCE...: the look the Librarian wears
         ("client/Customizer/CreatorView.cs", "ExtrasDeploy"),       // CreatorView.ExtrasDeploy(ref bool), DEPLOY: PLAY AS LIBRARIAN on his page
         ("client/Customizer/CustomizerServices.cs", "ExtrasFactions"),   // CustomizerServices.ExtrasFactions(ref List<(string, string)>), the factions offered: the Space Marines alone in Musou
+        ("client/Customizer/CustomizerServices.cs", "ExtrasProfileView"),   // CustomizerServices.ExtrasProfileView(ref IProfileView?), the profile view: Musou's own loadout slots (musou/loadout-slots)
         ("client/Customizer/PreviewStage.cs", "ExtrasDress"),       // PreviewStage.ExtrasDress(ref Func<ResolvedAppearance, ResolvedAppearance>?, ref string), in CreateModel: the Librarian's armour
         ("client/Customizer/PreviewStage.cs", "ExtrasWeapons"),     // PreviewStage.ExtrasWeapons(ref string?, ref string?, ref string?, ref bool), in ConfigureWeapons: his force sword in hand, no gun
     ];

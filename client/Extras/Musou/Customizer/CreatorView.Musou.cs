@@ -14,10 +14,11 @@ namespace SmClient.Customizer;
 /// STANDARD MARINES | LIBRARIAN | HERETIC (NOT YET):
 /// <list type="bullet">
 /// <item><b>Standard Marines</b>: the creator as Classic has it, on the Space Marine side alone (the class tabs with the Space Marine names, no Chaos preview; the appearance editor edits the
-/// Space Marine look, <see cref="CustomizerServices.MusouLayout"/>). The loadout slots are the profile's own, shared with Classic.</item>
-/// <item><b>Librarian</b>: a page of his own in the same frame (he has no loadout slots): CLASS, WEAPONS, POWERS, PERKS and LOOK with his fixed loadout, what he takes from the active loadout (its
-/// look: EDIT LOOK opens it) and what does not exist yet (NOT YET); the preview shows him dressed (<see cref="PreviewStage.MusouLibrarian"/>). In a match PLAY AS LIBRARIAN takes the Esc menu row's path
-/// (<see cref="MusouLibrarianDeploy"/>).</item>
+/// Space Marine look, <see cref="CustomizerServices.MusouLayout"/>). Since musou/loadout-slots the loadout slots are Musou's own (<see cref="MusouSlots"/>, through the session's view), apart from
+/// Classic's; <c>--musou-shared-slots</c> shares them again.</item>
+/// <item><b>Librarian</b>: a page of his own in the same frame: CLASS, WEAPONS, POWERS, PERKS and LOOK. Since musou/loadout-slots he has a loadout of his own (<see cref="MusouLibrarianLoadout"/>):
+/// melee weapon, equipment, two perks and a look (the active loadout's, a saved one or a new one), chosen on the rows and saved with SAVE; EDIT LOOK opens the look he wears. The preview shows
+/// him dressed (<see cref="PreviewStage.MusouLibrarian"/>). In a match PLAY AS LIBRARIAN takes the Esc menu row's path (<see cref="MusouLibrarianDeploy"/>).</item>
 /// <item><b>Heretic</b>: a placeholder marked not yet available: no class, preview or gameplay.</item>
 /// </list>
 /// Nothing here acts unless the customizer serves the Musou profile (a Musou match's picker, MUSOU MODE's pages); <c>--musou-old-customizer</c> restores the shared layout. Test aid:
@@ -102,6 +103,18 @@ public sealed partial class CreatorView
         else if (_musouEntry == MusouCustomizerEntry.Librarian) _musouLibrarianStep = _step;
         _musouEntry = entry;
         _step = entry == MusouCustomizerEntry.StandardMarines ? _musouMarineStep : entry == MusouCustomizerEntry.Librarian ? _musouLibrarianStep : Step.Class;
+        if (entry != MusouCustomizerEntry.Librarian) LeaveLibrarianSlot();
+        SyncLibrarianView();
+    }
+
+    /// <summary>
+    /// Outside his page the open loadout is never the Librarian's slot (<see cref="MusouSlots.LibrarianSlot"/>; review of musou/loadout-slots: after his look's EDIT LOOK, back on the
+    /// Standard Marines the creator showed "CUSTOM 11 - empty", a class chosen there was dropped and DEPLOY said the slot was empty): the active loadout opens instead.
+    /// </summary>
+    void LeaveLibrarianSlot()
+    {
+        if (_open.Kind == SelectionKind.Custom && _open.Slot > CustomizationProfile.MaxCustomClasses)
+            _open = LoadoutEdits.Active(_session.Working, _catalog, out _);
     }
 
     void SyncMusouButtons()
@@ -128,10 +141,24 @@ public sealed partial class CreatorView
 
     // ---- the pages ----
 
+    /// <summary>Whether the Librarian's page is the one open, and so whether the session's view shows his loadout as a class (<see cref="MusouSlots.LibrarianSlot"/>).</summary>
+    void SyncLibrarianView()
+    {
+        bool shown = MusouLayout && _musouEntry == MusouCustomizerEntry.Librarian;
+        if (_services.MusouLibrarianShown == shown) return;
+        _services.MusouLibrarianShown = shown;
+        _services.ApplyProfileView();
+    }
+
+    /// <summary>He has his own loadout here: Musou's own slots are in use (not <c>--musou-shared-slots</c>) and the view shows him.</summary>
+    bool LibrarianOwnLoadout => _services.MusouOwnSlots && _session.Working.ClassAt(MusouSlots.LibrarianSlot) is not null;
+
     partial void ExtrasRefresh(bool focusList, ref bool handled)
     {
+        SyncLibrarianView();
         if (!MusouOwnPage)
         {
+            LeaveLibrarianSlot();
             MusouShowChrome();
             _preview.MusouLibrarian = false;
             return;
@@ -151,9 +178,31 @@ public sealed partial class CreatorView
         else RefreshHeretic(focusList);
     }
 
-    /// <summary>The look slot the Librarian wears: the active loadout's when it is a custom one (a DEFAULTS loadout wears the default look, which cannot be edited).</summary>
-    int? LibrarianLookSlot(CustomizationProfile profile, Selection active) =>
-        active.Kind == SelectionKind.Custom && profile.ClassAt(active.Slot) is not null ? active.Slot : null;
+    /// <summary>
+    /// The look slot the Librarian wears: his own (<see cref="MusouSlots.LibrarianSlot"/>) when his loadout names a look, else the active loadout's when it is a custom one (a DEFAULTS loadout wears the
+    /// default look, which cannot be edited).
+    /// </summary>
+    int? LibrarianLookSlot(CustomizationProfile profile, Selection active)
+    {
+        if (profile.ClassAt(MusouSlots.LibrarianSlot) is { Appearance.SpaceMarine: { } own } && profile.Appearance(own) is not null) return MusouSlots.LibrarianSlot;
+        return active.Kind == SelectionKind.Custom && profile.ClassAt(active.Slot) is not null ? active.Slot : null;
+    }
+
+    /// <summary>His own loadout as the page offers it (null when he has none here: <c>--musou-shared-slots</c>).</summary>
+    MusouLibrarianPicks? LibrarianPicks(CustomizationProfile profile)
+    {
+        if (!LibrarianOwnLoadout || profile.ClassAt(MusouSlots.LibrarianSlot) is not { } c) return null;
+        var data = LibrarianData;
+        var options = LoadoutRows.Options(_catalog, MusouSlots.LibrarianRole, CustomizationCatalog.SpaceMarine);
+        var rows = LoadoutRows.Perks(_catalog, MusouSlots.LibrarianRole, CustomizationCatalog.SpaceMarine, c, _services.Policy, _services.PerkActivities);
+        // His class's perks (the simulation's list), in the creator's order and words; without the data's list, the Tactical's from the catalogue. A weapon perk shows only for a weapon he can
+        // carry (he has no gun: the Tactical's bolter, melta and plasma perks would do nothing for him).
+        bool Carried(PerkRow r) => !r.WeaponPerk || PerkWeapons.Needs(r.Name) is { } needs && needs.Any(n => data.MeleeOptions.Any(m => m.Name.Equals(n, StringComparison.OrdinalIgnoreCase)));
+        var perks = rows.Where(r => (data.PerkNames.Count == 0 || data.PerkNames.Contains(r.Name, StringComparer.OrdinalIgnoreCase)) && Carried(r))
+            .Select(r => (r.Name, r.Title, r.Description)).ToList();
+        var looks = profile.AppearancesFor(CustomizationCatalog.SpaceMarine).Select(a => (a.Id, a.Name)).ToList();
+        return new MusouLibrarianPicks(MusouSlots.LibrarianLoadoutOf(c), perks, options?.DefaultPerk?.Name, looks);
+    }
 
     LibrarianLoadout? _librarianData;
 
@@ -184,8 +233,9 @@ public sealed partial class CreatorView
     void RefreshLibrarian(CustomizationProfile profile, Selection active, bool focusList)
     {
         string activeName = ActiveName(profile, active);
+        var picks = LibrarianPicks(profile);
         _summary.Visible = true;
-        _summary.Text = MusouCustomizer.LibrarianSummary(activeName, LibrarianData);
+        _summary.Text = MusouCustomizer.LibrarianSummary(activeName, LibrarianData, picks);
         _summary.TooltipText = _summary.Text;
 
         int count = MusouCustomizer.LibrarianSteps.Count;
@@ -208,16 +258,18 @@ public sealed partial class CreatorView
         _look!.Visible = true;
         _look.Text = "EDIT LOOK...";
         _look.Disabled = lookSlot is null;
-        _look.TooltipText = lookSlot is null ? MusouCustomizer.DefaultsLookNote : "The look of your active loadout: the Librarian wears it";
+        _look.TooltipText = lookSlot is null ? MusouCustomizer.DefaultsLookNote
+            : lookSlot == MusouSlots.LibrarianSlot ? "The look he wears (his loadout's)" : "The look of your active loadout: the Librarian wears it";
         _deployButton!.Visible = Deploy is not null;   // in a match only
         _deployButton.Text = "PLAY AS LIBRARIAN";
         _deployButton.Disabled = MusouLibrarianDeploy is null;
         _deployButton.TooltipText = MusouLibrarianDeploy is null ? "Pick him in the Stormbird: Esc, PLAY AS LIBRARIAN" : "Become the Librarian now (in the Stormbird)";
 
-        MusouList(MusouCustomizer.LibrarianStep((int)_step, activeName, LibrarianData), focusList, MusouCustomizer.LibrarianNote);
+        MusouList(MusouCustomizer.LibrarianStep((int)_step, activeName, LibrarianData, picks), focusList, picks is null ? MusouCustomizer.LibrarianNote : MusouCustomizer.LibrarianOwnNote);
 
         _preview.MusouLibrarian = true;
-        var look = lookSlot is { } slot && profile.ClassAt(slot) is { } c ? profile.Appearance(c.Appearance.For(CustomizationCatalog.SpaceMarine)) : null;
+        _preview.MusouLibrarianMelee = picks?.Chosen.Melee is { } melee ? "sm_" + melee : null;   // his own melee choice (stored without the side prefix), else the force sword
+        var look = lookSlot is { } slot && profile.ClassAt(slot) is { } c ? profile.Appearance(c.Appearance.For(CustomizationCatalog.SpaceMarine)) : null;   // his own look, else the active loadout's
         _preview.SetSubject(new PreviewSubject(CustomizationCatalog.SpaceMarine, TacticalRole, null, look));
         _preview.SetFraming(Framing.Body);
     }
@@ -272,8 +324,13 @@ public sealed partial class CreatorView
             {
                 var item = r;
                 bool real = item.Kind != MusouRowKind.NotYet;
-                UiKit.Glyph.Kind glyph = item.Kind switch { MusouRowKind.Fixed => UiKit.Glyph.Kind.Fixed, MusouRowKind.CarriedOver => UiKit.Glyph.Kind.Check, _ => UiKit.Glyph.Kind.Lock };
-                var row = new UiKit.Row(item.Title, item.Tags, real, real, glyph, real ? null : UiKit.LightRed) { Focused = () => MusouCard(item) };
+                UiKit.Glyph.Kind? glyph = item.Kind switch
+                {
+                    MusouRowKind.Fixed => UiKit.Glyph.Kind.Fixed, MusouRowKind.CarriedOver => UiKit.Glyph.Kind.Check,
+                    MusouRowKind.Choice => item.Selected ? UiKit.Glyph.Kind.Check : null, _ => UiKit.Glyph.Kind.Lock,
+                };
+                bool selected = item.Kind == MusouRowKind.Choice ? item.Selected : real;
+                var row = new UiKit.Row(item.Title, item.Tags, selected, real, glyph, real ? null : UiKit.LightRed) { Focused = () => MusouCard(item) };
                 row.Pressed += () => MusouRowPressed(item);
                 _list.AddChild(row);
                 rows.Add(row);
@@ -301,6 +358,7 @@ public sealed partial class CreatorView
         {
             MusouRowKind.Fixed => "",   // the row says FIXED
             MusouRowKind.CarriedOver => "From your Standard Marines loadout: EDIT LOOK opens that look (shared with the loadout).",
+            MusouRowKind.Choice => row.Selected ? "Chosen for the Librarian. SAVE keeps it." : "Choose it for the Librarian.",
             _ => "Not available yet.",
         };
         ShowTextCard(row.Title, row.Description, extra, row.Kind == MusouRowKind.NotYet ? UiKit.LightRed : UiKit.Grey);
@@ -310,9 +368,52 @@ public sealed partial class CreatorView
     {
         switch (row.Kind)
         {
+            case MusouRowKind.Choice: LibrarianChoose(row); break;
             case MusouRowKind.CarriedOver: OpenAppearance(); break;
             case MusouRowKind.NotYet: Say($"{row.Title}: not available yet.", 4.0); break;
             default: Say($"{row.Title} is fixed for this class."); break;
+        }
+    }
+
+    /// <summary>A choice row of the Librarian's own loadout pressed: the edit of his class in <see cref="MusouSlots.LibrarianSlot"/> (the session folds it back into his loadout).</summary>
+    void LibrarianChoose(MusouRow row)
+    {
+        if (row.Action is not { } action || action.IndexOf(':') is not (> 0 and var colon)) return;
+        string what = action[..colon], arg = action[(colon + 1)..];
+        string? name = arg.Length == 0 ? null : arg;
+        const int slot = MusouSlots.LibrarianSlot;
+        if (_session.Working.ClassAt(slot) is not { } current) return;
+        CustomizationProfile Put(CustomizationProfile p, CustomClass next) =>
+            p with { Classes = p.Classes.Where(x => x.Slot != slot).Append(next).OrderBy(x => x.Slot).ToList() };
+        switch (what)
+        {
+            case "melee": _session.Edit(p => Put(p, current with { Melee = name })); break;
+            case "equipment": _session.Edit(p => Put(p, current with { Equipment = name })); break;
+            case "perk1" or "perk2":
+            {
+                var result = LoadoutEdits.SetPerk(_session.Working, slot, what == "perk1" ? 0 : 1, name, _catalog);
+                if (!result.Changed) { if (result.Notice is { Length: > 0 } n) Say(n); return; }
+                _session.Edit(_ => result.Profile);
+                if (result.Notice is { Length: > 0 } notice) Say(notice);
+                break;
+            }
+            case "look" when name == "new":
+            {
+                // A new look of his own, starting as a copy of the one he wears now (his own or the active loadout's), named after him.
+                var profile = _session.Working;
+                var worn = LibrarianLookSlot(profile, LoadoutEdits.Active(profile, _catalog, out _)) is { } wornSlot && profile.ClassAt(wornSlot) is { } wearer
+                    ? profile.Appearance(wearer.Appearance.For(CustomizationCatalog.SpaceMarine)) : null;
+                var (added, id) = AppearanceEdits.AddAppearance(profile, CustomizationCatalog.SpaceMarine);
+                if (id is null) { Say($"You can keep {CustomizationProfile.MaxAppearancesPerRace} looks per side. Delete one first."); return; }
+                string lookName = MusouSlots.LibrarianName;
+                for (int n = 2; added.AppearancesFor(CustomizationCatalog.SpaceMarine).Any(a => a.Id != id && a.Name.Equals(lookName, StringComparison.OrdinalIgnoreCase)); n++) lookName = $"{MusouSlots.LibrarianName} {n}";
+                var look = (worn ?? added.Appearance(id)!) with { Id = id, Name = lookName };
+                var withLook = AppearanceEdits.Assign(AppearanceEdits.ReplaceAppearance(added, look), slot, CustomizationCatalog.SpaceMarine, id);
+                _session.Edit(_ => withLook);
+                Say($"New look \"{lookName}\" for the Librarian: EDIT LOOK paints it; SAVE keeps it.", 5.0);
+                break;
+            }
+            case "look": _session.Edit(p => Put(p, current with { Appearance = new AppearanceRefs(name, null) })); break;
         }
     }
 

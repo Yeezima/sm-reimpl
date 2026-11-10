@@ -231,16 +231,11 @@ public static class AppearanceEdits
     public static CustomizationProfile ReplaceAppearance(CustomizationProfile profile, AppearanceProfile look) =>
         profile with { Appearances = profile.Appearances.Select(a => a.Id == look.Id ? look : a).ToList() };
 
-    /// <summary>Removes an appearance; classes that wore it fall back to the race's default look.</summary>
-    public static CustomizationProfile RemoveAppearance(CustomizationProfile profile, string id) =>
-        profile with
-        {
-            Appearances = profile.Appearances.Where(a => a.Id != id).ToList(),
-            Classes = profile.Classes.Select(c => c with
-            {
-                Appearance = new AppearanceRefs(c.Appearance.SpaceMarine == id ? null : c.Appearance.SpaceMarine, c.Appearance.Chaos == id ? null : c.Appearance.Chaos),
-            }).ToList(),
-        };
+    /// <summary>
+    /// Removes an appearance; classes that wore it fall back to the race's default look, in the profile's own slots, in every loadout set and in added content's data
+    /// (<see cref="ProfileViews.RemoveLook"/>, musou/loadout-slots review).
+    /// </summary>
+    public static CustomizationProfile RemoveAppearance(CustomizationProfile profile, string id) => ProfileViews.RemoveLook(profile, id);
 
     /// <summary>Makes a custom class wear an appearance of a race (null: the default look).</summary>
     public static CustomizationProfile Assign(CustomizationProfile profile, int slot, string race, string? id) =>

@@ -277,10 +277,7 @@ public sealed class ProfileStore
         {
             w.WriteStartObject();
             w.WriteNumber("schema", profile.Schema);
-            w.WriteStartObject("selected");
-            if (profile.Selected.Kind == SelectionKind.Custom) { w.WriteString("kind", "custom"); w.WriteNumber("slot", profile.Selected.Slot); }
-            else { w.WriteString("kind", "default"); w.WriteString("role", profile.Selected.Role); }
-            w.WriteEndObject();
+            WriteSelection(w, profile.Selected);
             w.WriteStartArray("classes");
             foreach (var c in profile.Classes.OrderBy(c => c.Slot)) WriteClass(w, c);
             w.WriteEndArray();
@@ -288,9 +285,41 @@ public sealed class ProfileStore
             foreach (var a in profile.Appearances) WriteAppearance(w, a);
             w.WriteEndArray();
             if (profile.OrkLook is { } orkLook) w.WriteNumber("orkLook", orkLook);   // ui/customizer-ork: only when chosen (a file without it reads as automatic)
+            if (profile.Sets.Count > 0)   // musou/loadout-slots: only when there is one (a file without it reads as none)
+            {
+                w.WriteStartObject("sets");
+                foreach (var (name, set) in profile.Sets.OrderBy(kv => kv.Key, StringComparer.Ordinal))
+                {
+                    w.WriteStartObject(name);
+                    WriteSelection(w, set.Selected);
+                    w.WriteStartArray("classes");
+                    foreach (var c in set.Classes.OrderBy(c => c.Slot)) WriteClass(w, c);
+                    w.WriteEndArray();
+                    w.WriteEndObject();
+                }
+                w.WriteEndObject();
+            }
+            if (profile.Extras.Count > 0)   // musou/loadout-slots: added content's own data, as it was read
+            {
+                w.WriteStartObject("extras");
+                foreach (var (name, json) in profile.Extras.OrderBy(kv => kv.Key, StringComparer.Ordinal))
+                {
+                    w.WritePropertyName(name);
+                    (JsonNode.Parse(json) as JsonObject ?? new JsonObject()).WriteTo(w);
+                }
+                w.WriteEndObject();
+            }
             w.WriteEndObject();
         }
         return Encoding.UTF8.GetString(stream.ToArray());
+    }
+
+    static void WriteSelection(Utf8JsonWriter w, Selection selected)
+    {
+        w.WriteStartObject("selected");
+        if (selected.Kind == SelectionKind.Custom) { w.WriteString("kind", "custom"); w.WriteNumber("slot", selected.Slot); }
+        else { w.WriteString("kind", "default"); w.WriteString("role", selected.Role); }
+        w.WriteEndObject();
     }
 
     static void WriteClass(Utf8JsonWriter w, CustomClass c)
@@ -384,7 +413,68 @@ public sealed class ProfileStore
             return new CustomizationProfile(schema > CustomizationProfile.CurrentSchema ? schema : CustomizationProfile.CurrentSchema, selected, classes, appearances)
             {
                 OrkLook = ReadOrkLook(root["orkLook"]),
+                Sets = ReadSets(root["sets"], appearances),
+                Extras = ReadExtras(root["extras"]),
             };
+        }
+
+        /// <summary>
+        /// musou/loadout-slots: the further loadout sets (absent: none). Each is an object of a valid name (<see cref="CustomizationProfile.IsSetName"/>) with its own selection and classes, read and
+        /// repaired by the same rules as the profile's own; at most <see cref="CustomizationProfile.MaxSets"/>.
+        /// </summary>
+        Dictionary<string, LoadoutSet> ReadSets(JsonNode? node, IReadOnlyList<AppearanceProfile> appearances)
+        {
+            var result = new Dictionary<string, LoadoutSet>(StringComparer.Ordinal);
+            if (node is null) return result;
+            if (node is not JsonObject sets) { Fix("sets", "not an object; no loadout sets"); return result; }
+            foreach (var (name, value) in sets)
+            {
+                string path = $"sets.{name}";
+                if (!CustomizationProfile.IsSetName(name)) { Fix(path, "not a usable set name; dropped"); continue; }
+                if (value is not JsonObject set) { Fix(path, "not an object; dropped"); continue; }
+                if (result.Count >= CustomizationProfile.MaxSets) { Fix(path, $"more than {CustomizationProfile.MaxSets} loadout sets; dropped"); continue; }
+                var classes = ReadClasses(set["classes"] as JsonArray, appearances, path + ".classes");
+                result[name] = new LoadoutSet(ReadSelection(set["selected"] as JsonObject, classes, path + ".selected"), classes);
+            }
+            return result;
+        }
+
+        /// <summary>musou/loadout-slots: added content's own data (absent: none), each entry a JSON object kept as its text; the content reads and repairs it.</summary>
+        Dictionary<string, string> ReadExtras(JsonNode? node)
+        {
+            var result = new Dictionary<string, string>(StringComparer.Ordinal);
+            if (node is null) return result;
+            if (node is not JsonObject extras) { Fix("extras", "not an object; dropped"); return result; }
+            foreach (var (name, value) in extras)
+            {
+                string path = $"extras.{name}";
+                if (!CustomizationProfile.IsSetName(name)) { Fix(path, "not a usable name; dropped"); continue; }
+                if (value is not JsonObject entry) { Fix(path, "not an object; dropped"); continue; }
+                if (result.Count >= CustomizationProfile.MaxSets) { Fix(path, $"more than {CustomizationProfile.MaxSets} entries; dropped"); continue; }
+                if (HasDuplicateKeys(entry)) { Fix(path, "a key is used twice inside it; dropped"); continue; }   // review: a hand-edited duplicate would make every later read of it throw
+                result[name] = entry.ToJsonString();
+            }
+            return result;
+        }
+
+        /// <summary>Whether any object inside <paramref name="node"/> names a key twice (reading its properties throws then; the entry is checked whole once, here).</summary>
+        static bool HasDuplicateKeys(JsonNode? node)
+        {
+            try
+            {
+                switch (node)
+                {
+                    case JsonObject o:
+                        foreach (var (_, child) in o) if (HasDuplicateKeys(child)) return true;
+                        return false;
+                    case JsonArray a:
+                        foreach (var child in a) if (HasDuplicateKeys(child)) return true;
+                        return false;
+                    default:
+                        return false;
+                }
+            }
+            catch (ArgumentException) { return true; }
         }
 
         /// <summary>The Ork look (ui/customizer-ork): absent or null = automatic; a look index 0..<see cref="Races.OrkLooks"/>-1; anything else is repaired to automatic.</summary>
@@ -398,7 +488,7 @@ public sealed class ProfileStore
 
         // ---- selection ----
 
-        Selection ReadSelection(JsonObject? node, List<CustomClass> classes)
+        Selection ReadSelection(JsonObject? node, List<CustomClass> classes, string at = "selected")
         {
             var fallback = Selection.DefaultFor(FirstRole(catalog));
             if (node is null) return fallback;
@@ -406,29 +496,29 @@ public sealed class ProfileStore
             if (kind == "custom" && TryInt(node["slot"], out int slot))
             {
                 if (classes.Any(c => c.Slot == slot)) return Selection.CustomSlot(slot);
-                Fix("selected", $"custom slot {slot} has no class; the default loadout is selected");
+                Fix(at, $"custom slot {slot} has no class; the default loadout is selected");
                 return fallback;
             }
             if (kind == "default" && Str(node["role"])?.Trim() is { Length: > 0 } role)
             {
                 if (_roles.FirstOrDefault(r => r.Equals(role, StringComparison.OrdinalIgnoreCase)) is { } known) return Selection.DefaultFor(known);
-                Fix("selected.role", $"unknown role '{role}'; the default loadout is selected");
+                Fix(at + ".role", $"unknown role '{role}'; the default loadout is selected");
                 return fallback;
             }
-            Fix("selected", "the selection is not understood; the default loadout is selected");
+            Fix(at, "the selection is not understood; the default loadout is selected");
             return fallback;
         }
 
         // ---- custom classes ----
 
-        List<CustomClass> ReadClasses(JsonArray? array, IReadOnlyList<AppearanceProfile> appearances)
+        List<CustomClass> ReadClasses(JsonArray? array, IReadOnlyList<AppearanceProfile> appearances, string at = "classes")
         {
             var result = new List<CustomClass>();
             if (array is null) return result;
             var slots = new HashSet<int>();
             for (int i = 0; i < array.Count; i++)
             {
-                string path = $"classes[{i}]";
+                string path = $"{at}[{i}]";
                 if (array[i] is not JsonObject node) { Fix(path, "not an object; dropped"); continue; }
                 if (!TryInt(node["slot"], out int slot) || slot < 1 || slot > CustomizationProfile.MaxCustomClasses)
                 { Fix(path, $"slot must be 1..{CustomizationProfile.MaxCustomClasses}; dropped"); continue; }

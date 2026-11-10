@@ -11,17 +11,25 @@ namespace SmClient.Customizer.Model;
 /// dirty flag (the working copy differs from what is on disk, compared through <see cref="ProfileStore.Serialize"/>) and Save / Revert. The creator and the
 /// appearance editor share one session, so "unsaved" covers both. Nothing here touches Godot types; tests use a temp directory.
 /// </summary>
+/// <remarks>
+/// musou/loadout-slots (2026-11-10): a <see cref="IProfileView"/> (an added mode's own loadout slots, set by the services for the content profile) makes <see cref="Working"/> and <see cref="Saved"/>
+/// that view of the stored profile; edits are folded back into it (<see cref="IProfileView.Keep"/>), and Save writes the stored profile whole. Without a view (Classic PvP) the screens edit the stored
+/// profile itself, as before. The shown profile is cached per stored profile, so an untouched <see cref="Working"/> is the same object between reads.
+/// </remarks>
 public sealed class ProfileSession
 {
     string _savedText;
+    CustomizationProfile _stored, _savedStored;
+    IProfileView? _view;
+    (CustomizationProfile Stored, CustomizationProfile Shown)? _workingShown, _savedShown;
 
     public ProfileSession(CustomizationCatalog catalog, ProfileStore store, ProfileLoadResult load)
     {
         Catalog = catalog; Store = store;
-        Saved = Working = load.Profile;
+        _savedStored = _stored = load.Profile;
         Status = load.Status;
         Repairs = load.Repairs;
-        _savedText = ProfileStore.Serialize(Saved);
+        _savedText = ProfileStore.Serialize(_savedStored);
     }
 
     /// <summary>Loads (and repairs) the profile from the store. A repaired profile is not written until the player saves.</summary>
@@ -29,38 +37,88 @@ public sealed class ProfileSession
 
     public CustomizationCatalog Catalog { get; }
     public ProfileStore Store { get; }
-    public CustomizationProfile Saved { get; private set; }
-    public CustomizationProfile Working { get; private set; }
+
+    /// <summary>The saved profile as the screens see it (the view's, when there is one).</summary>
+    public CustomizationProfile Saved => Shown(_savedStored, ref _savedShown);
+
+    /// <summary>The working profile as the screens see it (the view's, when there is one).</summary>
+    public CustomizationProfile Working => Shown(_stored, ref _workingShown);
+
+    /// <summary>The whole working profile as it is written (every loadout set, whatever the view shows).</summary>
+    public CustomizationProfile Stored => _stored;
+
+    /// <summary>The view in use, or null (the screens edit the stored profile).</summary>
+    public IProfileView? View => _view;
+
     public ProfileLoadStatus Status { get; }
     /// <summary>What loading repaired or noted (shown once as a notice: design F8).</summary>
     public IReadOnlyList<ProfileRepair> Repairs { get; }
 
     /// <summary>The working copy differs from the saved profile.</summary>
-    public bool Dirty => ProfileStore.Serialize(Working) != _savedText;
+    public bool Dirty => ProfileStore.Serialize(_stored) != _savedText;
     /// <summary>The file is of a newer schema or unreadable: edits cannot be saved.</summary>
-    public bool ReadOnly => Working.ReadOnly;
+    public bool ReadOnly => _stored.ReadOnly;
 
-    /// <summary>Raised after every edit, revert and save.</summary>
+    /// <summary>Raised after every edit, revert, save and change of view.</summary>
     public event Action? Changed;
 
-    public void Edit(Func<CustomizationProfile, CustomizationProfile> change)
+    CustomizationProfile Shown(CustomizationProfile stored, ref (CustomizationProfile Stored, CustomizationProfile Shown)? cache)
     {
-        Working = change(Working);
+        if (_view is null) return stored;
+        if (cache is { } c && ReferenceEquals(c.Stored, stored)) return c.Shown;
+        var shown = _view.Show(stored);
+        cache = (stored, shown);
+        return shown;
+    }
+
+    /// <summary>
+    /// Shows the screens <paramref name="view"/> of the profile from now on (null: the stored profile itself). A new view first makes what it needs in the stored profile
+    /// (<see cref="IProfileView.Open"/>) in the saved and the working copy alike, so nothing reads as unsaved.
+    /// </summary>
+    public void UseView(IProfileView? view)
+    {
+        if (ReferenceEquals(view, _view)) return;
+        _view = view;
+        _workingShown = _savedShown = null;
+        if (view is not null)
+        {
+            bool clean = !Dirty;
+            var opened = view.Open(_savedStored);
+            if (!ReferenceEquals(opened, _savedStored))
+            {
+                _savedStored = opened;
+                _savedText = ProfileStore.Serialize(_savedStored);
+            }
+            _stored = clean ? _savedStored : view.Open(_stored);   // the same making on both sides: a clean profile stays clean
+        }
         Changed?.Invoke();
     }
 
-    /// <summary>Makes <paramref name="profile"/> both the saved and the working copy without writing it (demo data for screenshots and tests).</summary>
+    public void Edit(Func<CustomizationProfile, CustomizationProfile> change)
+    {
+        if (_view is null) _stored = change(_stored);
+        else
+        {
+            var shown = Working;
+            var next = change(shown);
+            if (!ReferenceEquals(next, shown)) _stored = _view.Keep(_stored, next);
+        }
+        Changed?.Invoke();
+    }
+
+    /// <summary>Makes <paramref name="profile"/> (a whole stored profile) both the saved and the working copy without writing it (demo data for screenshots and tests).</summary>
     public void Seed(CustomizationProfile profile)
     {
-        Saved = Working = profile;
-        _savedText = ProfileStore.Serialize(Saved);
+        _savedStored = _stored = _view?.Open(profile) ?? profile;
+        _workingShown = _savedShown = null;
+        _savedText = ProfileStore.Serialize(_savedStored);
         Changed?.Invoke();
     }
 
     /// <summary>Drops the unsaved edits.</summary>
     public void Revert()
     {
-        Working = Saved;
+        _stored = _savedStored;
         Changed?.Invoke();
     }
 
@@ -69,9 +127,9 @@ public sealed class ProfileSession
     {
         try
         {
-            Store.Save(Working);
-            Saved = Working;
-            _savedText = ProfileStore.Serialize(Saved);
+            Store.Save(_stored);
+            _savedStored = _stored;
+            _savedText = ProfileStore.Serialize(_savedStored);
             Changed?.Invoke();
             return null;
         }
