@@ -17,7 +17,7 @@ public sealed partial class WeaponRig
     partial void AutocannonModel(HandRole role, string wargear, WeaponAssets assets, ref WeaponAttachment? attachment, ref WeaponAsset? asset)
     {
         if (!wargear.Equals(ArsenalRules.Autocannon, System.StringComparison.OrdinalIgnoreCase)) return;
-        attachment = AutocannonAttachment(assets.Catalogue.Held(SmContent.Extras.Musou.Arsenal.Arsenal.AutocannonHeavyBolter) ?? assets.Catalogue.Held("csm_mp_exotic_heavy_bolter"));
+        attachment = AutocannonAttachment(assets.Catalogue.Held(SmContent.Extras.Musou.Arsenal.Arsenal.HeavyBolterFile) ?? assets.Catalogue.Held("csm_mp_exotic_heavy_bolter"));
     }
 
     /// <summary>The heavy bolter's attachment with the autocannon's model, without the heavy bolter's visual upgrades; null without a heavy bolter.</summary>

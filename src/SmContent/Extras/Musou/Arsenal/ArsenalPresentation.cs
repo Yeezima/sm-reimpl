@@ -29,13 +29,13 @@ public static partial class Arsenal
 
     static readonly IReadOnlyList<string> ClawSources = [PowerSwordFile];
     static readonly IReadOnlyList<string> SpearSources = [ThunderHammerFile];
-    static readonly IReadOnlyList<string> AutocannonSources = [AutocannonTwinFile, HeavyBolterFile];
+    static readonly IReadOnlyList<string> AutocannonTwinFiles = [AutocannonTwinFile, HeavyBolterFile];
 
     /// <summary>The install files <paramref name="wargear"/> takes its presentation from, in order, or null (every name but the claw's, the spear's and the autocannon's).</summary>
     public static IReadOnlyList<string>? PresentationSources(string wargear) =>
         string.Equals(wargear, ArsenalRules.LightningClaw, StringComparison.OrdinalIgnoreCase) ? ClawSources
         : string.Equals(wargear, ArsenalRules.PowerSpear, StringComparison.OrdinalIgnoreCase) ? SpearSources
-        : string.Equals(wargear, ArsenalRules.Autocannon, StringComparison.OrdinalIgnoreCase) ? AutocannonSources
+        : string.Equals(wargear, ArsenalRules.Autocannon, StringComparison.OrdinalIgnoreCase) ? AutocannonTwinFiles
         : null;
 
     /// <summary>

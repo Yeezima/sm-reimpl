@@ -16,10 +16,6 @@ namespace SmContent.Extras.Musou.Arsenal;
 /// </summary>
 public static partial class Arsenal
 {
-    /// <summary>The install's Chaos file this twin is built from.</summary>
-    public const string AutocannonSource = "csm_mp_exotic_auto_cannon";
-    /// <summary>The heavy bolter the autocannon borrows its handling from (and the Devastator's list it joins).</summary>
-    public const string AutocannonHeavyBolter = "sm_mp_exotic_heavy_bolter";
     /// <summary>The customizer row's text (ours: the install's own text 104314 "Autocannon" and 104315, which the catalogue hook cannot read; the description is our wording of the file's).</summary>
     public const string AutocannonTitle = "Autocannon", AutocannonDescription = "A heavy gun that fires slow, enormously damaging explosive shells through several enemies at once. It overheats easily.";
 
@@ -37,10 +33,10 @@ public static partial class Arsenal
         if (!File.Exists(path)) { notes.Add($"musou arsenal: {GameplayTuning.WargearPackage} not found; no autocannon"); return null; }
         BafDocument? doc = null;
         using (var archive = ObpkArchive.Open(path))
-            archive.ReadEntries(e => archive.GroupName(e) == "attr_pc" && e.FileName.Equals(AutocannonSource, StringComparison.OrdinalIgnoreCase), (_, data) => doc = BafDocument.Read(data));
-        if (doc is null) { notes.Add($"musou arsenal: {AutocannonSource} not found in {GameplayTuning.WargearPackage}; no autocannon"); return null; }
-        var spec = WeaponTuning.Read(AutocannonSource, doc, notes);
-        if (spec is null) notes.Add($"musou arsenal: {AutocannonSource} could not be read; no autocannon");
+            archive.ReadEntries(e => archive.GroupName(e) == "attr_pc" && e.FileName.Equals(AutocannonTwinFile, StringComparison.OrdinalIgnoreCase), (_, data) => doc = BafDocument.Read(data));
+        if (doc is null) { notes.Add($"musou arsenal: {AutocannonTwinFile} not found in {GameplayTuning.WargearPackage}; no autocannon"); return null; }
+        var spec = WeaponTuning.Read(AutocannonTwinFile, doc, notes);
+        if (spec is null) notes.Add($"musou arsenal: {AutocannonTwinFile} could not be read; no autocannon");
         return spec;
     }
 
@@ -50,8 +46,8 @@ public static partial class Arsenal
     /// </summary>
     public static SimConfig WithAutocannon(SimConfig config, WeaponSpec source, List<string> notes)
     {
-        int heavy = config.Weapons.ToList().FindIndex(w => w.Name.Equals(AutocannonHeavyBolter, StringComparison.OrdinalIgnoreCase));
-        if (heavy < 0) { notes.Add($"musou arsenal: {AutocannonHeavyBolter} not in the config; no autocannon"); return config; }
+        int heavy = config.Weapons.ToList().FindIndex(w => w.Name.Equals(HeavyBolterFile, StringComparison.OrdinalIgnoreCase));
+        if (heavy < 0) { notes.Add($"musou arsenal: {HeavyBolterFile} not in the config; no autocannon"); return config; }
         int index = config.Weapons.Count;
         var weapons = new List<WeaponSpec>(config.Weapons) { Twin(source, config.Weapons[heavy]) };
         var classes = config.Classes.Select(c => c.Side == Team.SpaceMarines && c.PrimaryChoices.Contains(heavy) ? c with { PrimaryChoices = [.. c.PrimaryChoices, index] } : c).ToList();
@@ -82,6 +78,6 @@ public static partial class Arsenal
     /// <summary>The animations the autocannon plays: the heavy bolter's (walk, sprint, hop, fall, hip fire, flinch): the campaign's autocannon carry uses the same navigation graph.</summary>
     static partial void AutocannonAlias(ref string wargear)
     {
-        if (wargear.Equals(ArsenalRules.Autocannon, StringComparison.OrdinalIgnoreCase)) wargear = AutocannonHeavyBolter;
+        if (wargear.Equals(ArsenalRules.Autocannon, StringComparison.OrdinalIgnoreCase)) wargear = HeavyBolterFile;
     }
 }

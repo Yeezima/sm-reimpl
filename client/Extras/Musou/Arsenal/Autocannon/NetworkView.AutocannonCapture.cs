@@ -25,10 +25,10 @@ public partial class NetworkView
     async Task TfwAutocannonCapture()
     {
         var client = _client!;
-        if (!await TfwTestDeploy(TfwLane.B)) return;
+        if (!await AutocannonDeploy()) return;
         await TfwWait(1.0);
         var point = _tfwState.Objectives[0].Position;
-        await TfwPathTo(point, "walked towards the Orks", 45.0, () => _musouState.MiddleNear(client.Predicted.Position, 26f) is not null);
+        await TfwPathTo(point, "walked towards the Orks", 150.0, () => _musouState.MiddleNear(client.Predicted.Position, 26f) is not null);
         string held = _config is { } c && Loadouts.InHand(c, client.Predicted) is { } w ? w.Name : "?";
         GD.Print($"ACCAPTURE t {_connectedFor:F2} in hand: {held}");
         TfwCheck("the autocannon is in hand", held == SmSim.Extras.Musou.Arsenal.ArsenalRules.Autocannon, held);
@@ -58,6 +58,23 @@ public partial class NetworkView
         TfwCheck("blasts came back", _tfwBoltBlastsShown > blasts, (_tfwBoltBlastsShown - blasts).ToString());
         await TfwWait(1.0);
         GetTree().Quit(0);
+    }
+
+    /// <summary>
+    /// <c>TfwTestDeploy</c> for a Movie Maker run: the same steps, but the Stormbird's landing is waited for 90 s, not 10 (a recording renders slower than the server's clock and the blink between the screens costs frames).
+    /// </summary>
+    async Task<bool> AutocannonDeploy()
+    {
+        await TfwTestPanelsAway();
+        if (!await TfwWalkTo(TfwHub!.DestinationStation, "walked to Destination")) return false;
+        await TfwTap(Key.E);
+        if (!await TfwUntil("E at Destination opens the war map", () => _tfwPanel is not null, 6.0)) return false;
+        await TfwFrames(4);
+        _tfwPanel!.DeployButton(TfwLane.B)!.GrabFocus();
+        await TfwFrames(2);
+        await TfwTap(Key.Enter);
+        if (!await TfwUntil("the server echoes it: travel", () => TfwNow.Phase == TfwRunPhase.Travel, 10.0)) return false;
+        return await TfwUntil("the Stormbird lands: Battle", () => TfwNow.Phase == TfwRunPhase.Battle && _tfwState.Objectives.Count == TfwBattle.CommanderObjective + 1, 90.0);
     }
 
     /// <summary>
