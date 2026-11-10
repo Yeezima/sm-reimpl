@@ -1,7 +1,9 @@
 # Polish pass P3 measurement harness (docs/polish-pass-plan.md; test aid, never shipped). Everything through tools\godot.ps1 --windowed (the hidden desktop) or --background (headless); servers 127.0.0.1; own PIDs only.
 # P3 measurements (before and after): Musou human join cold + warm with a deploy (the landing), Classic human join on the Compatibility renderer (first-use shader frames),
 # Classic 13 players with sound (the sound-phase stalls). Bounded; 127.0.0.1 only; own PIDs only.
-param([string]$Tag = 'p3-before')
+# -Before adds P3's restore switches to every measuring client (--sound-stream-main --no-shader-sweep): the numbers before P3.
+param([string]$Tag = 'p3-before', [switch]$Before)
+$restore = if ($Before) { @('--sound-stream-main', '--no-shader-sweep') } else { @() }
 $ErrorActionPreference = 'Continue'
 $sp = Join-Path $env:LOCALAPPDATA 'sm-reimpl\perf\polish-pass\logs'; New-Item -ItemType Directory -Force -Path $sp | Out-Null
 $repo = Split-Path -Parent $PSScriptRoot
@@ -24,7 +26,7 @@ function Run-Join([string]$label, [string]$port, [string[]]$serverMore, [string[
         $txt = & "$repo\tools\godot.ps1" @ga @ca *>&1 | Out-String; if ($txt -match 'started pid (\d+)') { $botPid = [int]$Matches[1] }; Start-Sleep 5
     }
     $ga = @('--windowed', '--disable-vsync') + $engineMore + @('--log', "$out\$label-client.log", '--')
-    $ca = @('--connect', "127.0.0.1:$port", '--no-sound', '--frame-profile', '--frame-profile-warmup', '30', '--quit-after', "$seconds") + $clientMore
+    $ca = @('--connect', "127.0.0.1:$port", '--no-sound', '--frame-profile', '--frame-profile-warmup', '30', '--quit-after', "$seconds") + $clientMore + $restore
     & "$repo\tools\godot.ps1" @ga @ca *> $null
     "client $label exited $LASTEXITCODE at $(Get-Date -Format s)"
     if ($botPid) { & taskkill.exe /PID $botPid /T /F | Out-Null }
@@ -36,7 +38,7 @@ Run-Join 'musou-cold' '27485' @('--content', 'musou') @() @('--content', 'musou'
 Run-Join 'musou-warm-deploy' '27484' @('--content', 'musou') @() @('--content', 'musou', '--tfw-deploy', 'b') 75
 Run-Join 'classic-compat' '27483' @('--mode', 'annihilation') @('--rendering-method', 'gl_compatibility', '--rendering-driver', 'opengl3') @('--content', 'extended', '--class', 'tactical', '--side', 'marines', '--safe-mode') 40
 Run-Join 'classic-forward' '27482' @('--mode', 'annihilation') @() @('--content', 'extended', '--class', 'tactical', '--side', 'marines') 40
-& "$repo\tools\polish-pvp-baseline.ps1" -Tag "$Tag-sound" -Seconds 90 -SafeSeconds 0 -Sound *>> "$out\sound-run.log"
+& "$repo\tools\polish-pvp-baseline.ps1" -Tag "$Tag-sound" -Seconds 90 -SafeSeconds 0 -Sound -ClientArgs ($restore -join ' ') *>> "$out\sound-run.log"
 Remove-Item Env:SM_TICK_STATS -ErrorAction SilentlyContinue
 foreach ($f in 'musou-cold-client.log', 'musou-warm-deploy-client.log', 'classic-compat-client.log', 'classic-forward-client.log') {
     "==== $f"

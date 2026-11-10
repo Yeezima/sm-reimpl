@@ -153,13 +153,13 @@ void fragment() {
         float length = MeltaMaxLength;   // fx/melta-fuzzy: always the data's reach; walls hide the part behind them (depth test), the depth fade softens the meeting
         var dir = axis.Normalized();
         _meltaMesh ??= BuildMeltaMesh();
-        _meltaMaterial ??= new ShaderMaterial { Shader = new Shader { Code = ShaderCompat.Code(MeltaShader) } };   // P3: plain uniforms on the Compatibility renderer
+        _meltaMaterial ??= new ShaderMaterial { Shader = new Shader { Code = MeltaShader } };
         _meltaMaterial.SetShaderParameter("half_angle", Mathf.Atan(MeltaGrowth));
         ref var c = ref _meltaCones[_meltaNext];
         _meltaNext = (_meltaNext + 1) % _meltaCones.Length;
         if (c.Node is null)
         {
-            c.Node = new MeshInstance3D { Name = "MeltaCone", Mesh = _meltaMesh, MaterialOverride = ShaderCompat.Own(_meltaMaterial), CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, ExtraCullMargin = 64f, TopLevel = true };
+            c.Node = new MeshInstance3D { Name = "MeltaCone", Mesh = _meltaMesh, MaterialOverride = _meltaMaterial, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, ExtraCullMargin = 64f, TopLevel = true };
             AddChild(c.Node);
         }
         float radius = MeltaMuzzleRadius + MeltaGrowth * length;
@@ -168,8 +168,8 @@ void fragment() {
         var axes = AxesFromY(-dir);
         var basis = new Basis(axes.X * radius, axes.Y * length, axes.Z * radius);
         c.Node.GlobalTransform = new Transform3D(basis, from + dir * (length * 0.5f));
-        ShaderCompat.SetInstanceParam(c.Node, "life", 0f);
-        ShaderCompat.SetInstanceParam(c.Node, "dims", new Vector2(radius, length));
+        c.Node.SetInstanceShaderParameter("life", 0f);
+        c.Node.SetInstanceShaderParameter("dims", new Vector2(radius, length));
         c.Node.Visible = true;
         c.Start = _connectedFor;
         c.Live = true;
@@ -185,7 +185,7 @@ void fragment() {
             if (!c.Live) continue;
             float age = (float)(_connectedFor - c.Start) / MeltaSeconds;
             if (age >= 1f) { c.Live = false; c.Node.Visible = false; continue; }
-            ShaderCompat.SetInstanceParam(c.Node, "life", age);
+            c.Node.SetInstanceShaderParameter("life", age);
         }
     }
 

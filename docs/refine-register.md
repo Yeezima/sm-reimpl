@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2970 spec table rows: **2218 tagged**, 522 not tagged (read from data with high confidence), 230 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 660 rows of the changes document.
+Scanned 2971 spec table rows: **2219 tagged**, 522 not tagged (read from data with high confidence), 230 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 660 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,10 +50,10 @@ Scanned 2970 spec table rows: **2218 tagged**, 522 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 22 | 13 | 13 | 12 | 7 |
-| Core simulation (provisional values) | 658 | 623 | 472 | 171 | 1 |
+| Core simulation (provisional values) | 659 | 623 | 473 | 171 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 235 | 224 | 126 | 63 | 0 |
-| **All areas** | **2218** | 1958 | 1656 | 694 | 38 |
+| **All areas** | **2219** | 1958 | 1657 | 694 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -61,7 +61,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---:|
 | kind: ours | 1252 |
 | confidence: low | 799 |
-| confidence: medium | 728 |
+| confidence: medium | 729 |
 | notes: ours | 403 |
 | kind: interpretation | 372 |
 | notes: estimate | 176 |
@@ -2255,7 +2255,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (658)
+### Core simulation (provisional values) (659)
 
 *Spec section: Provisional values in use*
 
@@ -3169,7 +3169,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-66631DC4` | Sound streams made off the main thread (both modes) | the worker that decodes a sound's file to Ogg also makes its stream object (`AudioStreamOggVorbis.LoadFromBuffer`, which parses the whole file); the frame only takes the finished stream. The same sounds at the same moments. `--sound-stream-main` makes the… | kind: ours | ours (engine work, not the original's) | Sound streams made off the main thread (both modes): compare with SM1 by listening A/B at the same distance and state. Ours: the worker that decodes a sound's file to Ogg also makes its stream… | ☐ |
-| `R-52695FE6` | Per-instance values on the Compatibility renderer (both modes, old-GPU / safe mode) | Godot's Compatibility renderer does not read per-instance shader values, so there every drawn instance of the power sword's glow, the Librarian's force sword's glow (Musou), the melta cone and Musou's slash cone gets its own copy of its material with the… | kind: ours; confidence: medium | ours (a rendering fix) | Per-instance values on the Compatibility renderer (both…: compare with SM1 by feel or video. Ours: Godot's Compatibility renderer does not read per-instance shader… | ☐ |
+| `R-E0D7C562` | No 3D drawn while the load builds and warms (both modes, a human client; a crash fix for P2's… | from the frame that builds the map's nodes until the last of the **6** warm-ups (one a frame: looks, the Ork, weapon models, grenades, pickups, the crosshair's ray) the viewport draws no 3D; the loading screen covers the view in those frames anyway. Reason:… (frames) | kind: ours; confidence: medium | ours (engine work) | No 3D drawn while the load builds and warms (both modes, a…: compare with SM1 by feel or video. Ours: from the frame that builds the map's nodes until the last of the 6… | ☐ |
+| `R-955FB827` | Per-instance shader values on the Compatibility renderer (checked, no change) | the power sword's glow and flare, the force sword's, the melta cone and the slash cone keep their shared materials with per-instance values on both renderers: stills on the Compatibility renderer (Godot 4.7.2, OpenGL 3.3, the development PC) show the blade's… | confidence: medium | measured (stills, 2026-11-11) | Per-instance shader values on the Compatibility renderer…: compare with SM1 by feel or video. Ours: the power sword's glow and flare, the force sword's, the melta cone… | ☐ |
 
 *Spec section: Polish pass P2 (claude/polish-p2, 2026-11-10; client, content, server; load time only: no simulation, wire, protocol or config-hash change)*
 

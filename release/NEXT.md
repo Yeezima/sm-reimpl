@@ -18,3 +18,5 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - The fall flows into the ragdoll instead of freezing for a moment: the body keeps the motion of its last frame.
 - Getting shot jolts the body according to the weapon that hit you and where it hit (head, chest, legs, front or back).
 - Light melee hits, the combat knife's included, now show a small flinch on the victim for everyone watching, not only for the attacker. They still never stagger or interrupt anything.
+### Loading
+- Old-GPU (safe mode) players: joining a Musou match often closed the game during the loading screen. That is fixed for nearly every join; if the game still closes while LOADING, start it again and tell us.

@@ -60,7 +60,7 @@ void fragment() {
             var axis = new Vector3(tip.Position.X, tip.Position.Y, tip.Position.Z) - g;
             if (axis.LengthSquared() > 1e-6f)
             {
-                _shader ??= new Shader { Code = ShaderCompat.Code(Code) };
+                _shader ??= new Shader { Code = Code };
                 material = new ShaderMaterial { Shader = _shader };
                 material.SetShaderParameter("grip", g);
                 material.SetShaderParameter("axis", axis.Normalized());

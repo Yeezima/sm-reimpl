@@ -1,13 +1,13 @@
-# Polish pass P3: Compatibility-renderer stills of the power sword's hit flare and the melta cone (the instance-uniform fix). Through tools\godot.ps1 --windowed only.
+# Polish pass P3: Compatibility-renderer stills of the power sword's hit flare and the melta cone (the check of per-instance shader values). Through tools\godot.ps1 --windowed only.
 # P3: stills on the Compatibility renderer (--safe-mode) of the power sword's hit flare in a Musou fight and the melta cone in a Classic match. Hidden desktop only (godot.ps1 --windowed).
-# -Before adds --instance-uniforms (the behaviour before P3). -Out: the stills' folder (default under %LOCALAPPDATA%\sm-reimpl\perf\polish-pass; pass a folder of the media drive for the owner).
+# -Out: the stills' folder (default under %LOCALAPPDATA%\sm-reimpl\perf\polish-pass; pass a folder of the media drive for the owner).
 # -Only musou|classic|sword|librarian runs one part (none: all four); -More 'a b' adds client arguments (a restore switch to tell a fault apart).
-param([string]$Tag = 'before', [switch]$Before, [string]$Out = '', [string]$Only = '', [string]$More = '')
+param([string]$Tag = 'stills', [string]$Out = '', [string]$Only = '', [string]$More = '')
 $ErrorActionPreference = 'Continue'
 $sp = Join-Path $env:LOCALAPPDATA 'sm-reimpl\perf\polish-pass\logs'; New-Item -ItemType Directory -Force -Path $sp | Out-Null
 $repo = Split-Path -Parent $PSScriptRoot
 $media = if ($Out) { $Out } else { Join-Path $env:LOCALAPPDATA "sm-reimpl\perf\polish-pass\compat-uniforms\$Tag" }
-$more = if ($Before) { @('--instance-uniforms') } else { @() }
+$more = @()
 if ($More) { $more += $More -split ' ' }
 New-Item -ItemType Directory -Force -Path $media | Out-Null
 Set-Location $repo
