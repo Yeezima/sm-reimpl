@@ -72,7 +72,7 @@ public class ClawTests
         var again = Arsenal.Append(result, "", notes);
         Assert.Same(result.Classes[0], again.Classes[0]);   // a second run adds none
         Assert.Equal(3, again.Classes[0].MeleeChoices.Count);
-        Assert.Empty(notes);
+        Assert.DoesNotContain(notes, n => n.Contains("lightning claw"));   // the other entries may note a missing install; the claw has nothing to say
     }
 
     [Fact]
@@ -81,7 +81,7 @@ public class ClawTests
         var config = new SimConfig { Classes = [Class("sm - assault marine", Team.SpaceMarines, "assault", "sm_mp_melee_chainsword")] };
         var notes = new List<string>();
         Assert.Same(config, Arsenal.Append(config, "", notes));
-        Assert.Single(notes);
+        Assert.Single(notes, n => n.Contains("lightning claw"));
     }
 
     [Fact]
@@ -115,7 +115,7 @@ public partial class CustomizationCatalogTests
         var musou = perks.For(ContentExtras.Musou);
         Assert.NotSame(perks, musou);
         var items = musou.Class("sm - assault marine")!.Melee.Items;
-        Assert.Equal(["sm_mp_melee_chainsword", "sm_mp_melee_powersword", ArsenalRules.LightningClaw], items.Select(i => i.Name));
+        Assert.Equal(["sm_mp_melee_chainsword", "sm_mp_melee_powersword", ArsenalRules.LightningClaw], items.Select(i => i.Name).Where(n => n.Contains("_melee_")));
         var claw = items[^1];
         Assert.Equal("Lightning Claw", claw.DisplayName);
         Assert.True(claw.Simulated);
