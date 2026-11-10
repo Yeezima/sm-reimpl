@@ -289,9 +289,16 @@ static class GraphDump
             foreach (var (name, c) in new[] { ("to a rifle", upper.Switch.ToRifle), ("to a pistol", upper.Switch.ToPistol) })
                 o.WriteLine(c is null ? $"== switch {name}: none" : $"== switch {name}: {c.Clip} ({c.Length:0.###}s), weapon swapped at {c.SwapAt:0.###}s, BranchIn {c.BranchIn:0.###}s, upper body (leg bones at 0: {string.Join(", ", c.Mask.Where(kv => kv.Value == 0f).Select(kv => kv.Key))})");
             foreach (var set in upper.Flinch.Sets.Values)
-                o.WriteLine($"== flinch {set.Weapon}: " + string.Join(", ", set.Slots.Select((s, i) => s is null ? null : $"{i}={s.Clip}").Where(x => x is not null)));
+                o.WriteLine($"== flinch {set.Weapon}: " + string.Join(", ", set.Slots.Select((s, i) => s is null ? null : $"{i}={s.Clip}{(s.DeathBranches is { } b ? " [" + string.Join(" ", b) + "]" : "")}").Where(x => x is not null)));
             o.WriteLine($"== flinch: min_hit_reaction_time {upper.Flinch.MinHitReactionTime:0.###}s");
-            foreach (var (kind, d) in upper.Death.Clips) o.WriteLine($"== death {kind}: {d.Clip} ({d.Length:0.###}s), ragdoll at {d.RagdollAt:0.###}s");
+            // Hit reactions (2026-11-11): which set a reaction type plays, the random flinches, and each weapon's reaction type.
+            o.WriteLine("== flinch ports: " + string.Join(", ", upper.Flinch.Ports.Select(kv => $"{kv.Key} -> {kv.Value}")));
+            o.WriteLine("== flinch random (Hit_Flinch): " + string.Join(", ", upper.Flinch.Random.Select(r => $"{r.Clip.Clip} {r.Clip.Length:0.###}s x{r.Weight:0.##}")));
+            foreach (var (weapon, type) in WeaponReactions.Load(gameDir).OrderBy(kv => kv.Key, StringComparer.Ordinal))
+                o.WriteLine($"== weapon reaction {weapon}: {type} -> {upper.Flinch.SetOfReaction(type) ?? "(no port: by name " + FlinchRules.SetFor(weapon, false) + ")"}");
+            foreach (var (kind, d) in upper.Death.Clips) o.WriteLine($"== death {kind}: {d.Clip} ({d.Length:0.###}s), ragdoll at {d.RagdollAt:0.###}s, blend {d.Blend:0.###}s");
+            foreach (var r in upper.Death.Routes.OrderByDescending(r => r.Priority)) o.WriteLine($"== death route {r.Priority}: {r.Branch ?? "-"} if {r.Condition ?? "-"} -> {r.Target ?? "(conduit)"} blend {r.Blend:0.###}s");
+            foreach (var r in upper.Death.EntryRoutes.OrderByDescending(r => r.Priority)) o.WriteLine($"== death conduit {r.Priority}: {r.Branch ?? "-"} if {r.Condition ?? "-"} -> {r.Target} blend {r.Blend:0.###}s");
             var jp = upper.JumpPack;
             o.WriteLine($"== jump pack: get-up run {jp.RunClip} ({jp.RunLength:0.###}s) from {jp.FromImpact:0.###}s into the impact at speed >= {jp.MinSpeed:0.##}, blend {jp.Blend:0.###}s, ends at {jp.RunEnd:0.###}s; flight noise {jp.NoiseClip} ({jp.NoiseLength:0.###}s)");
             foreach (var n in upper.Switch.Notes.Concat(upper.Flinch.Notes).Concat(upper.Death.Notes).Concat(jp.Notes)) o.WriteLine($"  note: {n}");

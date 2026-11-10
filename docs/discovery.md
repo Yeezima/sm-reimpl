@@ -2252,6 +2252,49 @@ is a dropper whose collision content holds a crack and a crater decal, smoke and
 
 **Left open.** Whether the plasma and melta deaths visibly removed a limb or the body in the original (the graph's death clips are short and the corpse is a powered ragdoll); `remove_wargear` suggests the corpse's gun vanished. The sprint, headshot, lascannon and bullrush deaths bind no effect.
 
+## Hit reactions: how the marine's death clip and flinch are chosen (2026-11-11)
+
+Question: which death clip the original's multiplayer marine plays for which kill, when the ragdoll takes it, and which flinch a hit plays (the playtest list called both missing; both were drawn since
+animation pass 2 with guessed rules). Read with `smtool graph-dump --upper` (prints everything below), `graph-dump SM_Base_MP`, `graph-dump MP_SM_Reactions` and scratch probes of the raw
+transition and chooser bytes (`havok_sm_base_mp__hkxx`; read-only). Values in spec/behavior.md "Hit reactions: the death clip by the graph's routes ...".
+
+- **Nested transitions.** `hkbStateMachineTransitionInfo` (44 bytes) holds the to-nested-state id @20 and the flags (int16) @28: 0x2000 (Havok's `FLAG_TO_NESTED_STATE_ID_IS_VALID`) on every ROOT-to-DEATH
+  transition with a branch or a condition, 0x100 (`FLAG_DISABLE_CONDITION`) on the conduits'. So `SM_Base Behavior`'s ROOT enters DEATH straight into one of "Behavior Death"'s states: priority 10 `BOOL_JumpIsActive`
+  "Jumppack Death" (15), 9 `BRANCH_Headshot` "Headshot Death" (7), 8 `BRANCH_Las_Death` "Lascannon Deaths" (16), 7 `BRANCH_Melta_Death` "Melta Death" (17), 6 `BOOL_SprintIsActive` "Sprinting Death" (5),
+  5 `BRANCH_Plasma_Death` "Plasma Death" (14), 4 / 3 / 2 `BRANCH_Death_Ranged_Left` / `_Right` / `_Back` "Death Ranged Left" (12) / "Right" (11) / "Back" (13); priority 1 (no branch, no flag) enters the
+  machine's start state, the conduit "ENTRY - Death State", whose transitions go to "Bullrush Death" (`BRANCH_Bullrush_Death`, 6), "Sprinting Death" (`BOOL_SprintIsActive & BOOL_IsDead`, 5), "Lascannon Deaths"
+  (4), "Melta Death" (3), "Plasma Death" (2) and "Death - Default" (1, 'Long Blend00' 0.5 s; a chooser of front / back by wedge); 4, 3 and 2 carry no decoded trigger at all.
+- **The branches live on the flinches.** Every slot sequencer of "Ranged Flinch Behavior"'s thirteen sets carries one death branch over its whole clip (0 to 1) besides `BRANCH_Reaction_End`: the
+  bolter-like sets' head slots `BRANCH_Headshot`, their front slots `BRANCH_Death_Ranged_Left` / `_Right` by side, the back slots none (only "Ranged Light"'s back right slots `BRANCH_Death_Ranged_Back`),
+  every lascannon slot `BRANCH_Las_Death`, the plasma sets `BRANCH_Plasma_Death` (the weak ones together with the side's), the melta's `BRANCH_Melta_Death`; "Plasma Cannon Strong" none. With "Flinch States
+  --if !BOOL_IsDead branch BRANCH_Reaction_End--> Default" the flinch the killing hit starts is the one whose branch the death takes (our reading). `BRANCH_Bullrush_Death` sits on the charger's own bull-rush
+  attack clip (`MP_SM_Bolter_NuSprint`'s `SM_BUL_Hit_M_2.5m`, 0 to 1).
+- **New death states.** "Death Ranged Right" plays `SM_REC_ChaosDeath_01` (0.467 s, `Powered Ragdoll Controls Modifier19` at 0.8571), "Left" `SM_REC_MP_BolterDeath_F_01` (tag 0.7273), "Back"
+  `SM_REC_MP_BolterDeath_B_01` (0.85). "Jumppack Death" (wrapped in a modifier generator with "Apply Gravity"): `SM_REC_MP_MidAirDeath_Hit_01` (0.6 s, `BRANCH_Jump_Death_Start` 0.9412, `StartAction` 0.0333),
+  `SM_REC_MP_MidAirDeath_Fall_01` (1.467 s at speed 0.65, looping, `FloorCollisionTest` 0 to 1, `ACTN_JumpDeath_Fall`) until `BOOL_IsSupported` / `BOOL_Floor_Hit`, `SM_REC_MP_MidAirImpact_01` (0.833 s,
+  ragdoll tag 0.44, `StartAction` 0.04). The headshot clips also carry an action tag `ragdoll_force` at 0.9333.
+- **Blast deaths.** `MP_SM_Reactions`'s grenade reactions `SM_MP_REC_Grenade_F/R/B/L_01` (1 s) carry the modifier tags "Set Reaction Death Bool" (0 to 1) and "Death Powered Ragdoll Controls" (0.3 to 1);
+  the staggers `SM_REC_Stagger_F_01` / `_B_01` (1.433 s) the same with the ragdoll at 0.2326 / 0.2093; no light or heavy interrupt carries them. Read as: a player killed in such a reaction dies in it
+  (the death state held off, `!BOOL_Death_State_Disabled` on every ROOT route but the melta's), its powered ragdoll from 0.3 (interpretation; the modifier's variable was not read).
+- **Flinch slots.** Each set machine's start-state chooser is an `hkbReactionStateChooser` (3 in the graph, 12 `hkbReactionStateChooserReactionState` each: state id @8, a direction string @12, a flag @16):
+  ids 0 to 3 `front_high_left`, `front_high_right`, `back_high_left`, `back_high_right` with the flag 1 (the head), 4 to 11 `front_high_left`, `front_high_right`, `front_low_left`, `front_low_right`,
+  `back_high_left`, `back_high_right`, `back_low_left`, `back_low_right`. How the engine measures high and low is not in the files.
+- **Flinch sets by port.** The event list holds thirteen ports (events 86 to 98) `PORT_rng_bolter`, `PORT_reaction_ranged_light`, `PORT_rng_bolt_pistol`, `PORT_rng_sniperrifle`, `PORT_rng_lascannon`,
+  `PORT_rng_plasma_gun_weak`, `_strong`, `PORT_rng_plasma_pistol_weak`, `_strong`, `PORT_rng_heavybolter`, `PORT_rng_plasma_cannon_strong`, `_weak`, `PORT_rng_melta`, in exactly the order of the set states'
+  ids 1 to 13 (Bolter, Ranged Light, Bolt Pistol, Stalker Pattern, Lascannon, Plasma Weak, Plasma Strong, Plasma Pistol Weak, Plasma Pistol Strong, Heavy Bolter, Plasma Cannon Strong, Plasma Cannon Weak,
+  Melta); the entry's transitions to them carry no decoded event, condition or branch. Read as: port k selects set k, the port named by the hit's reaction type. The MP wargear's ranged `trigger_reaction`
+  (`ability_ranged_*` ... `delivery/hit_sim`, the primary ability first, penetration exits aside): bolter `rng_bolter`, bolt pistol `rng_bolt_pistol`, True Grit bolter (`*_pistol_bolter`) `reaction_ranged_light`,
+  plasma gun `rng_plasma_gun_weak`, plasma pistol `rng_plasma_pistol_weak` (on its secondary ability), melta `rng_melta` (and `rng_melta_short` / `_med` in delayed actions), stalker bolter `rng_sniperrifle`,
+  heavy bolter `rng_heavybolter`, lascannon `rng_lascannon`, storm bolter `rng_stormbolter` and grenade launcher `rng_autocannon` (no port), the AI lasguns `reaction_flinch`; the plasma cannon's file names
+  none (its types sit on its projectile). Melee wargear names ranged types only on secondary targets (`rng_venglaunch_*`, `reaction_ranged_light` on the 180 attacks, the power axe's `rng_plasma_gun_weak`
+  and `rng_melta` on x1 / x2 cleave targets).
+- **Random flinches.** "Upper Body Flinch Behavior"'s "Random Flinches" (entered from "Default - No Reaction" on `Hit_Flinch`) is an `hkbWeightedRandomSelector` "WeightedRandomSelectorGenerator02" (name @32,
+  weighted generators @40, each an `hkbWeightedRandomSelectorWeightedGenerator`: weight @0, generator @4): `SM_REC_Flinch_L_High_01`, `_L_Mid_01`, `_M_High_01`, `_M_Mid_01`, `_R_High_01`, `_R_Mid_01`
+  (0.2 s, additive, `BRANCH_Reaction_End` at 1) at weight 1 each. The reader now takes it as a node (the marine rig has the only one; the Ork and Guardsman rigs have none). Which hits send `Hit_Flinch`
+  is not in the files (`reaction_flinch`, the jump pack's landing and the AI lasguns' type, is the likely sender).
+- **Left open.** Whether the original applies the blueprint's ragdoll force (`ragdoll_force` tags, `DeathTuning`) on top of the clip's motion; what the conduit's untriggered transitions are for; how an
+  unported reaction type (storm bolter, grenade launcher) flinches; whether the killing hit's flinch is gated by `min_hit_reaction_time` before its branch counts.
+
 ## The Ork's own blood (gore-original, 2026-11-07)
 
 Question: what does the original play when an Ork is hit or killed (Musou Mode's blood, the owner's reference recording of Exterminatus)? Read with `smtool baf-dump` and the new `smtool ork-blood auto` (read-only; Verified-local, this install).

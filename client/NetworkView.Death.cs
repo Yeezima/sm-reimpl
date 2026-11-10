@@ -221,7 +221,8 @@ public partial class NetworkView
                 rd = new Ragdoll { Name = $"Ragdoll{id}", PlayerId = id, Own = own, StartedAt = _connectedFor };
                 _gameSpace.AddChild(rd);
                 var spawnWatch = System.Diagnostics.Stopwatch.StartNew();
-                rd.Start(def, character, slot, _gameSpace.Basis * start, _gameSpace.Basis * kick);
+                var motion = IsOrkCharacter(character) ? null : DeathClipMotion(id);   // hit reactions: the death clip's motion carries on into the ragdoll
+                rd.Start(def, character, slot, _gameSpace.Basis * start, _gameSpace.Basis * kick, motion?.From, motion?.Seconds ?? 0f);
                 spawnWatch.Stop();
                 if (spawnWatch.Elapsed.TotalMilliseconds > 30) GD.Print($"t {_connectedFor:F1} s: slow ragdoll start for P{id}: {spawnWatch.Elapsed.TotalMilliseconds:F0} ms ({Ragdoll.LastSplits})");
                 if (character.Overlay is { } overlay) rd.Character?.SetOverlay(overlay);
@@ -233,7 +234,7 @@ public partial class NetworkView
                 MarineDeathForget(id);   // pass 2: the hold is over, its state was used above
                 if (own) _cameraPlaced = false;
                 if (_bot || own || FrameProfileOn) GD.Print($"t {_connectedFor:F1} s: id {_client.PlayerId} ragdoll for P{id}{(own ? " (own)" : "")} at {state.Position.X:F1},{state.Position.Y:F1},{state.Position.Z:F1}: " +
-                                          $"body velocity {start.X:F1},{start.Y:F1},{start.Z:F1} m/s (raw {rawVelocity.X:F1},{rawVelocity.Y:F1},{rawVelocity.Z:F1}; death seen {deathSeenAgo:F2} s ago), push {kick.X:F1},{kick.Y:F1},{kick.Z:F1} m/s ({why}); slot {slot}, {_ragdolls.Count} ragdoll(s); corpse weapons {rd.Character?.Weapons?.WeaponCount ?? 0} ({string.Join(", ", rd.Character?.Weapons?.Description ?? [])}); built in {spawnWatch.Elapsed.TotalMilliseconds:F1} ms");
+                                          $"body velocity {start.X:F1},{start.Y:F1},{start.Z:F1} m/s (raw {rawVelocity.X:F1},{rawVelocity.Y:F1},{rawVelocity.Z:F1}; death seen {deathSeenAgo:F2} s ago), push {kick.X:F1},{kick.Y:F1},{kick.Z:F1} m/s ({why}); slot {slot}, {_ragdolls.Count} ragdoll(s); corpse weapons {rd.Character?.Weapons?.WeaponCount ?? 0} ({string.Join(", ", rd.Character?.Weapons?.Description ?? [])}); death clip's motion {(motion is { } mo ? $"over {mo.Seconds * 1000f:F0} ms" : "none")}; built in {spawnWatch.Elapsed.TotalMilliseconds:F1} ms");
             }
             catch (Exception ex) when (ex is not (StackOverflowException or AccessViolationException or OutOfMemoryException))
             {
