@@ -133,8 +133,14 @@ public sealed partial class OptionsView : UiKit.MenuPage
         Add(aaRow);
         Rest();
         // musou/perf-pass, the owner's "option in Graphics" (2026-11-08): Ashfall's grime as an overlay pass (exact, the default) or folded into the kit's materials (faster on weak GPUs, close but not exact).
-        Choice("Ashfall grime", ["EXACT (OVERLAY)", "FAST (FOLDED, WEAK GPUS)"], O.GrimeFast ? 1 : 0, i => Set(x => x with { GrimeFast = i == 1 }),
-            "Musou Mode's Ashfall only. EXACT draws the dirt and soot as an extra pass over the ruins. FAST works it into the ruins' own materials: the ruins are drawn once instead of three times, the look is close but not exact. Takes effect at once.");
+        // polish pass P1 (2026-11-10): in safe mode (the Compatibility renderer) the grime is always FAST (SafeMode.GrimeFoldedInSafeMode, a core flag: nothing from Extras/ here); the row shows it and rests.
+        bool grimeForced = SafeMode.GrimeFoldedInSafeMode;
+        var grimeRow = new UiKit.MenuChoice("Ashfall grime", ["EXACT (OVERLAY)", "FAST (FOLDED, WEAK GPUS)"], grimeForced || O.GrimeFast ? 1 : 0, i => Set(x => x with { GrimeFast = i == 1 }),
+            grimeForced ? "Musou Mode's Ashfall only. In old GPU / safe mode the grime is always FAST (worked into the ruins' own materials): the extra overlay pass is what the Compatibility renderer pays most for."
+                        : "Musou Mode's Ashfall only. EXACT draws the dirt and soot as an extra pass over the ruins. FAST works it into the ruins' own materials: the ruins are drawn once instead of three times, the look is close but not exact. Takes effect at once.");
+        grimeRow.Name = "AshfallGrimeRow";
+        grimeRow.SetDisabled(grimeForced);
+        Add(grimeRow);
         Add(UiKit.FovRow(_services.Settings.FovDegrees, f => _services.UpdateSettings(x => x with { FovDegrees = f })));   // ui/fov-slider (ours)
         Add(new UiKit.MenuSlider("Brightness", GameOptions.MinBrightness, GameOptions.MaxBrightness, GameOptions.BrightnessStep, O.Brightness, Percent, v => Set(x => x with { Brightness = (float)v }), "BrightnessSlider", "A gamma curve over the whole picture. 100% leaves it untouched."));
         // ui/lighting-presets (the owner's request of 2026-11-06; ours, cosmetic): ten looks over the map's lighting, applied live (LightingGradeView); Faithful Remaster is today's look.

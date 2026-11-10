@@ -20,8 +20,8 @@ public sealed partial class WeaponRig
     /// <summary>Metres, along the shaft (+X, the hammer's own axis) from the grip: the butt, the collar, the blade's base and its tip. The whole spear is 2.85 m.</summary>
     public const float SpearButt = -1.05f, SpearCollar = 0.84f, SpearBladeBase = 0.93f, SpearTip = 1.80f;
 
-    /// <summary>Where along the shaft (the spear's own X, metres from the two-handed grip point; the butt at -1.05, the collar at 0.84) the right hand closes when the spear is carried one-handed: high, just below the collar, for running and rest, and low, 0.45 m from the butt, for melee; the fist slides between them (<see cref="WeaponRig.GripSlide"/>).</summary>
-    public const float SpearGripHigh = 0.62f, SpearGripLow = -0.60f;
+    /// <summary>Where along the shaft (the spear's own X, metres from the two-handed grip point; the butt at -1.05, the collar at 0.84) the right hand closes when the spear is carried one-handed: high, 1.34 m from the butt, for running and rest: the fist at the point where the butt clears the ground by 4 cm at the run clip's lowest, measured with `ModelViewer --spear-probe` over SM_NAV_Run_F_01 (the butt 0.04 m up at 0.4 s, higher elsewhere; at the idle 0.33 m); owner 2026-11-10: "put the marine's hand a bit lower on the handle when he's running", and low, 0.45 m from the butt, for melee; the fist slides between them (<see cref="WeaponRig.GripSlide"/>).</summary>
+    public const float SpearGripHigh = 0.29f, SpearGripLow = -0.60f;
 
     const string BladeShader = """
 shader_type spatial;

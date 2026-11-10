@@ -28,12 +28,12 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2879 spec table rows: **2148 tagged**, 507 not tagged (read from data with high confidence), 224 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 637 rows of the changes document.
+Scanned 2908 spec table rows: **2168 tagged**, 514 not tagged (read from data with high confidence), 226 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 648 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
 | Movement (critical) | 388 | 330 | 329 | 114 | 12 |
-| Combat core (critical) | 15 | 6 | 13 | 13 | 9 |
+| Combat core (critical) | 16 | 7 | 14 | 13 | 9 |
 | Weapons (critical) | 121 | 73 | 106 | 54 | 3 |
 | Melee (critical) | 120 | 105 | 94 | 38 | 5 |
 | Jump pack (critical) | 79 | 71 | 63 | 19 | 0 |
@@ -50,22 +50,22 @@ Scanned 2879 spec table rows: **2148 tagged**, 507 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 22 | 13 | 13 | 12 | 7 |
-| Core simulation (provisional values) | 606 | 577 | 430 | 166 | 1 |
+| Core simulation (provisional values) | 625 | 591 | 445 | 168 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 235 | 224 | 126 | 63 | 0 |
-| **All areas** | **2148** | 1896 | 1598 | 680 | 38 |
+| **All areas** | **2168** | 1911 | 1614 | 682 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1204 |
-| confidence: low | 770 |
-| confidence: medium | 699 |
-| notes: ours | 391 |
+| kind: ours | 1216 |
+| confidence: low | 775 |
+| confidence: medium | 710 |
+| notes: ours | 392 |
 | kind: interpretation | 365 |
 | notes: estimate | 176 |
-| kind: estimate | 151 |
+| kind: estimate | 154 |
 | confidence: none (low) | 129 |
 | kind: provisional | 100 |
 | kind: user's knowledge | 55 |
@@ -73,8 +73,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | notes: provisional | 38 |
 | section: provisional | 38 |
 | section: placeholder | 35 |
+| notes: interpretation | 25 |
 | notes: user's knowledge | 25 |
-| notes: interpretation | 24 |
 | kind: approximation | 22 |
 | kind: placeholder | 22 |
 | notes: placeholder | 20 |
@@ -87,7 +87,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | kind: inferred | 3 |
 | notes: guess | 3 |
 | section: approximation | 3 |
-| notes: unverified | 1 |
+| notes: unverified | 2 |
 
 ## Part A: gameplay areas, critical first
 
@@ -731,7 +731,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-640BBD78` | Spear: jump-pack rules | the hammer's: no pound delay, the hop swing, the steered slam (`Loadouts.WieldsHammer` through `ArsenalRules.WieldsHammer`) | kind: ours; confidence: medium | owner D17 (default) | Spear: jump-pack rules: compare with SM1 by feel or video. Ours: the hammer's: no pound delay, the hop swing, the steered slam… | ☐ |
 
-### Combat core (gameplay-critical) (15)
+### Combat core (gameplay-critical) (16)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -777,6 +777,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-62C831CA` | Spear: damage | a light swing **150** to the primary target (the hammer's 200 x 0.75), the secondary, shield and the heavy sweeps (interrupt and the two sweeping attacks) times **0.75** too; the Y,Y slam (the strikes that set off a blast) keeps the hammer's damage and its 7… (health) | kind: estimate; confidence: low; notes: ours | ours (design 6.1) | Spear: damage: compare with SM1 by counting hits to kill and by video of the health bar. Ours: a light swing 150 to the primary target (the hammer's 200 x 0.75)… | ☐ |
+
+*Spec section: Musou's arsenal: W4, the Remote Detonators (docs/new-weapons-design.md section 7)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-0D9D6A50` | A contraption or a shield dome in the way | the charge sticks to a contraption like to an Ork and rides on it, and to a shield dome's surface (from outside) like to a wall, held at that point 0.05 m outside the surface on the thrower's side, as the core's own stop (a ring spot that falls inside the… | kind: ours; confidence: medium | design section 7 | A contraption or a shield dome in the way: compare with SM1 by counting hits to kill and by video of the health bar. Ours: the charge sticks to a contraption like to an Ork and rides on it… | ☐ |
 
 ### Weapons (gameplay-critical) (121)
 
@@ -2222,7 +2228,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (606)
+### Core simulation (provisional values) (625)
 
 *Spec section: Provisional values in use*
 
@@ -3118,6 +3124,17 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-B5790B4B` | Not covered | the Stormbird and the Firing Range spawns keep their own facing | kind: ours; confidence: medium | ours | Not covered: compare with SM1 by feel or video. Ours: the Stormbird and the Firing Range spawns keep their own facing. | ☐ |
 | `R-468A6F29` | Client view | the view takes the server's yaw on a respawn (as before) and on a landing or redeploy of a living player (a jump of 15 m or more in one frame), so nothing turns on the first frame (m) | kind: ours; confidence: medium | ours | Client view: compare with SM1 by measuring on a flat spot of the same map. Ours: the view takes the server's yaw on a respawn (as before) and on a… | ☐ |
 
+*Spec section: Polish pass P1 (claude/polish-p1, 2026-11-10; client, server runtime and options; no simulation, wire, protocol or config-hash change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-A6224793` | Sound instance limits, the flags read | the advanced-settings bytes are read as kill newest, virtual behaviour, ignore the parents' limit (`SoundBank.cs`); the all-parents rule (every limiting node of the chain counts) and the -60 dB below-threshold cut are ours; a misread would reach hit confirms… | kind: estimate; confidence: low; notes: interpretation; notes: unverified | interpretation of the v56 bank layout, unverified by listening | Sound instance limits, the flags read: compare with SM1 by listening A/B at the same distance and state. Ours: the advanced-settings bytes are read as kill newest, virtual… | ☐ |
+| `R-70ACA5F0` | Revived loops resume | a looping non-positioned voice demoted under the -60 dB threshold (a virtual voice) goes on from its running position when it is revived ((now - started) modulo the stream's length), not from its start as before (s) | kind: ours; confidence: medium | ours (review of 2026-11-10) | Revived loops resume: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a looping non-positioned voice demoted under the -60 dB threshold (a… | ☐ |
+| `R-F660BE9D` | Performance readout | **F3** cycles OFF (default), FPS (frames a second over the last second, the mean and worst frame of that second), FPS + NETWORK (plus the ping from the snapshot echoes, the snapshot loss over 3 s, the interpolation delay and the input slack the server… (s) | kind: ours | ours (a tester aid; the original had no such readout) | Performance readout: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: F3 cycles OFF (default), FPS (frames a second over the last second… | ☐ |
+| `R-900DB710` | Server GC latency mode | `GCLatencyMode.SustainedLowLatency` for the dedicated server (as the human client's since perf/pass-1; before: the runtime's Interactive mode); `SM_OLD_SERVER_RUNTIME=1` keeps the default | kind: ours; confidence: medium | ours | Server GC latency mode: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: GCLatencyMode.SustainedLowLatency for the dedicated server (as the… | ☐ |
+| `R-54E913E5` | Server ReadyToRun | a server published with a runtime identifier (the release zips, `tools/release`) is compiled ahead of time (`PublishReadyToRun`); `dotnet build` / `server.cmd` unaffected; `-p:SmReadyToRun=false` publishes JIT-only | kind: ours; confidence: low | ours (measured before: a 65 ms first-join tick, 47 ms of it the world step's first run) | Server ReadyToRun: compare with SM1 by feel or video. Ours: a server published with a runtime identifier (the release zips… | ☐ |
+| `R-9875635A` | Ashfall grime in safe mode | folded (FAST) whatever the Graphics option says while safe mode is on; `--ashfall-grime-exact-safe` restores the option's choice | kind: ours; confidence: medium | ours (the perf pass measured the overlay at 0.5 to 1.2 ms GPU and up to 580 draw calls) | Ashfall grime in safe mode: compare with SM1 by feel or video. Ours: folded (FAST) whatever the Graphics option says while safe mode is… | ☐ |
+
 *Spec section: Musou Mode: GPU spray particles (musou/gpu-particles, 2026-11-10; client only, Musou Mode only; no simulation, wire, protocol, config-hash or rules-version change)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
@@ -3182,8 +3199,26 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-77758F95` | Spear: sweep cap | at most **12** Orks, nearest first (the hammer's war cleave: 40); kept at 12 for the 300 degrees at 15 m (owner 2026-11-10) (Orks) | kind: estimate; confidence: low; notes: ours | ours (a crowd cap) | Spear: sweep cap: compare with SM1 by feel or video. Ours: at most 12 Orks, nearest first (the hammer's war cleave: 40); kept at… | ☐ |
 | `R-E48FE621` | Spear: impale | when the spear's player lands a jump-pack ground pound (the pound's Impact), the Ork nearest the landing within **2 m** (the nearest alive after the pack's own blast) takes **600** (a Nob's whole health), times the stims' melee factor, with the melee heal… (health, m) | kind: estimate; confidence: low | owner D18 (the proposed rule) | Spear: impale: compare with SM1 by feel or video. Ours: when the spear's player lands a jump-pack ground pound (the pound's… | ☐ |
 | `R-A061A276` | Spear: where offered | appended at the end of the Space Marine Assault's melee choices (no index moves) and to the Musou customizer's melee row, when the class carries the thunder hammer; no other class and no other profile; never dropped by an Ork or offered on a reward card… | kind: ours; confidence: medium | owner D1, D3 | Spear: where offered: compare with SM1 by feel or video. Ours: appended at the end of the Space Marine Assault's melee choices (no… | ☐ |
-| `R-8478B02C` | Spear: carry | idle and running: the spear is held in the **right hand alone** (the power sword's hand mount, the shaft where a sword's blade points) with the fist **high**, just below the collar (0.62 m on the shaft's own axis, the butt at -1.05 and the collar at 0.84)… (m, s) | kind: ours; confidence: medium | owner, 2026-11-10 | Spear: carry: compare with SM1 by feel or video. Ours: idle and running: the spear is held in the right hand alone (the… | ☐ |
+| `R-8478B02C` | Spear: carry | idle and running: the spear is held in the **right hand alone** (the power sword's hand mount, the shaft where a sword's blade points) with the fist **high** at 1.34 m from the butt (0.29 m on the shaft's own axis, the butt at -1.05 and the collar at 0.84)… (m, s) | kind: ours; confidence: medium | owner, 2026-11-10 | Spear: carry: compare with SM1 by feel or video. Ours: idle and running: the spear is held in the right hand alone (the… | ☐ |
 | `R-18174400` | Spear: look | built in code (placeholder): a black shaft, **2.85 m** in all (the butt 1.05 m behind the two-handed grip, the tip 1.8 m in front of it), a bronze collar, ring, bands and a small crossguard near the top, and a long single-edged blade (0.87 m, angled chisel… (m) | kind: ours; confidence: low | owner D15 (his reference, as described) | Spear: look: compare with SM1 by measuring on a flat spot of the same map. Ours: built in code (placeholder): a black shaft, 2.85 m in all (the butt… | ☐ |
+
+*Spec section: Musou's arsenal: W4, the Remote Detonators (docs/new-weapons-design.md section 7)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-D48DDCE5` | Model | drawn with the install's melta bomb model (`pp_grenade_meltabomb_multiplayer`), not the blueprint's Ork stikkbomb | kind: ours | owner D21 | Model: compare with SM1 by feel or video. Ours: drawn with the install's melta bomb model… | ☐ |
+| `R-460E6418` | Sticking | to the level (the floor, a wall) where it lands; to the Ork it struck (Boss Orks and the Warboss included) and rides on him from the next tick (the offset turns with his facing, so a turning Boss carries it with him); it passes marines (a marine struck lets… | kind: ours; confidence: medium | owner D7; passing marines ours | Sticking: compare with SM1 by feel or video. Ours: to the level (the floor, a wall) where it lands; to the Ork it struck… | ☐ |
+| `R-17E9BA0F` | A carrier that dies | it drops where he was and the fuse runs on; a carrier thrown by another blast carries it along | kind: ours; confidence: medium | design section 7 | A carrier that dies: compare with SM1 by feel or video. Ours: it drops where he was and the fuse runs on; a carrier thrown by… | ☐ |
+| `R-09D321DE` | Fuse | 5 s after it sticks; 5 s after the throw for one that never sticks (s) | notes: ours | owner D19 (5 s after it sticks); the fallback ours | Fuse: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 5 s after it sticks; 5 s after the throw for one that never sticks. | ☐ |
+| `R-62D1C0CC` | Centre blast | at the charge when it goes off: 600, r 16 m, the data's curve (0 to 4 m 1, 6 m 0.75, 10 m 0.3) stretched x1.6 (6.4 m 1, 9.6 m 0.75, 16 m 0.3); line of sight; players (the thrower too, the data's `ignore_self` false), Orks and contraptions (damage, m) | kind: estimate; confidence: low | fitted to D19; curve data | Centre blast: compare with SM1 by measuring on a flat spot of the same map. Ours: at the charge when it goes off: 600, r 16 m, the data's curve (0 to 4… | ☐ |
+| `R-6AA143CE` | The ring | 16 spots on a circle of 24 m round the point it went off (22.5 degrees apart), clockwise from a start bearing id x 137.5 degrees; the first spot 3 ticks after the centre blast, then one every 2 ticks (the 16th at 33 ticks, 1.1 s); each 180, r 16 m, the same… (m, ticks) | kind: estimate; confidence: low | fitted to D19, D22, D23 | The ring: compare with SM1 by feel or video. Ours: 16 spots on a circle of 24 m round the point it went off (22.5… | ☐ |
+| `R-D2385601` | Where a spot sits | the ring point at the charge's height, stopped at a wall's face (0.3 m short) when the level stands between, dropped to the ground below it (a ray down, at most 6 m, 0.3 m above), else in the air; the client places its spots with the same function and its own… (m) | kind: ours; confidence: medium | design section 7 | Where a spot sits: compare with SM1 by measuring on a flat spot of the same map. Ours: the ring point at the charge's height, stopped at a wall's face (0.3… | ☐ |
+| `R-97FC86F6` | Round reset | a cleared field or a round's start forgets every charge's fuse, ride and unfinished ring (`ArsenalReset`, from `TfwClearField` and the two countdown ends) | kind: ours | review 2026-11-10 | Round reset: compare with SM1 by feel or video. Ours: a cleared field or a round's start forgets every charge's fuse, ride… | ☐ |
+| `R-565F0DEC` | Death events past the cap | `MusouSim.AddEvent` keeps at most 1,024 events a tick; a Death over it waits in a queue (at most 4,096) and comes out over the next ticks, up to 512 a tick on top of the tick's own 1,024 (never in place of a Telegraph, Strike or Hit), stamped with the tick it… (events, ticks) | confidence: medium | owner 2026-11-10 | Death events past the cap: compare with SM1 by feel or video. Ours: MusouSim.AddEvent keeps at most 1,024 events a tick; a Death over it… | ☐ |
+| `R-F0AB8569` | Survivors | a survivor taking at least 0.25 of a blast is thrown back up to 10 m (a fodder Ork falls, others stagger; Boss Orks and the Warboss stagger-immune), scaled by that first hit's share, once per charge (m) | confidence: medium | owner D19 | Survivors: compare with SM1 by measuring on a flat spot of the same map. Ours: a survivor taking at least 0.25 of a blast is thrown back up to 10 m… | ☐ |
+| `R-4143CA04` | Master-Crafted Wargear | the data's ratio on the owner's numbers: damage x1.25, reach x1.5 (centre 750 within 24 m, ring 36 m, spots 225 within 24 m: 60 m in all); fixed at the throw. The client draws the larger ring when a player it knows carries the charge with the perk (the… | confidence: medium | owner D24 | Master-Crafted Wargear: compare with SM1 by feel or video. Ours: the data's ratio on the owner's numbers: damage x1.25, reach x1.5… | ☐ |
+| `R-D681C21A` | The ring as drawn | the original frag explosion at each spot on the server's schedule, a sound on every fourth spot, 30 % of a blast's camera shake each; the centre blast is the core's detonation effect at the data's size at x1.6 (the config's thrown blast scale for the charge… | kind: ours; confidence: low | design section 7 | The ring as drawn: compare with SM1 by feel or video. Ours: the original frag explosion at each spot on the server's schedule, a… | ☐ |
+| `R-33D56EEC` | Measurement | 1,000 Orks round the charge, 40 corpses, the death queue: killed 977, 40 flown; server tick 2.8 ms at the centre (0.3 ms quiet), ring worst 1.0 ms; 1,500 Orks: killed 1,465, centre tick 4.3 to 4.9 ms, ring worst 1.5 ms; death events seen equal the kills… | confidence: medium | measured | Measurement: compare with SM1 by feel or video. Ours: 1,000 Orks round the charge, 40 corpses, the death queue: killed 977… | ☐ |
 
 ### General game design (7)
 
@@ -3770,6 +3805,21 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-547993D2` | Musou melee feel: red / blue slash, own-hit shake, wider cleave (musou/melee-feel; `TfwRules.Version` 44) | the owner's request (2026-11-08): "bring back the slashing visual effect... red for chain weapons and the combat knife, blue for power weapons. add a bit of screen shake. increase the aoe cleave radius of all melee weapons"; the shapes, amounts and the 1.5x ours (no number given), low confidence | a glowing slash across each enemy hit by a player's or retainer's melee, whatever the gore setting (it had vanished when the original Ork blood replaced the dark gore); red for chain weapons and the knife, blue for power weapons; the own melee hit shakes the camera 0.008 rad (0.014 most a swing); the cleave's reach… | spec "Musou cleave radius", "Melee slash, red / blue", "Melee hit shake, own" | Musou melee feel: red / blue slash, own-hit shake, wider…: compare with SM1 by feel or video. Ours: the owner's request (2026-11-08): "bring back the slashing visual… | ☐ |
 | `C-AC2CAADD` | Musou combat feel: contact at contact (claude/combat-feel, 2026-11-09) | the owner's combat-feel brief and approvals (2026-11-09); every number ours, low confidence | the own power sword strike's slash, flash, shake and hit sounds and the own bolt pistol's impact and hit sound play at the predicted contact instead of the server's report about 186 ms later (no second copy from the report; no kill, death or gore predicted); the power sword's own faster, thinner, brighter stroke; own… | spec "Musou combat feel: contact at contact" | Musou combat feel: contact at contact (claude/combat-feel…: compare with SM1 by feel or video. Ours: the owner's combat-feel brief and approvals (2026-11-09); every… | ☐ |
 
+#### Musou's arsenal (`Musou`; docs/new-weapons-design.md, approved by the owner 2026-11-10)
+
+| ID | Rule | Ours / the owner's | Why | Compare in a playtest | Result |
+|---|---|---|---|---|---|
+| `C-9CE49D84` | Offered to every Space Marine class and the Librarian | owner's (D20) | The install lists it for no class. | Offered to every Space Marine class and the Librarian: compare with SM1 by feel or video. Ours: owner's (D20). | ☐ |
+| `C-6FF4040B` | A 5 s fuse after it sticks, no second press | owner's (D6, D19) | The data's remote trigger is dropped. | A 5 s fuse after it sticks, no second press: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: owner's (D6, D19). | ☐ |
+| `C-E7510318` | Sticks to Orks and rides on them; it passes marines | ours (marines) | The data's sticky rule held for the level and players. | Sticks to Orks and rides on them; it passes marines: compare with SM1 by feel or video. Ours: ours (marines). | ☐ |
+| `C-D6EC9722` | A centre blast of 600 (r 16 m) then 16 stacking spots of 180 round a 24 m ring, one every 2 ticks | ours, fitted to the owner's "600 damage at the centre, 40m reach" | An estimate to check in a playtest (refine register). | A centre blast of 600 (r 16 m) then 16 stacking spots of…: compare with SM1 by measuring on a flat spot of the same map. Ours: ours, fitted to the owner's "600 damage at the centre, 40m reach". | ☐ |
+| `C-A2A7A184` | Bosses x2, up to 40 flying corpses (80 in D19, lowered by the owner 2026-11-10), survivors thrown back up to 10 m | owner's | The frag's cap is 20 and its knock-back 2 m. | Bosses x2, up to 40 flying corpses (80 in D19, lowered by…: compare with SM1 by timing a run over a known distance. Ours: owner's. | ☐ |
+| `C-8F7BF077` | The thrower is not spared (throw and run) | owner's (2026-11-10) | The data's `ignore_self` false. | The thrower is not spared (throw and run): compare with SM1 by timing a run over a known distance. Ours: owner's (2026-11-10). | ☐ |
+| `C-AD48F190` | Deaths past the 1,024 events a tick wait and play out over the next ticks (Musou's event path, not the charge alone) | owner's (2026-11-10) | A charge in a 1,500-Ork crowd lost 523 death events to the cap. | Deaths past the 1,024 events a tick wait and play out over…: compare with SM1 by feel or video. Ours: owner's (2026-11-10). | ☐ |
+| `C-B101E8C1` | One back every 30 s; Favor of the Armory: 2 | owner's (D9); data (Favor) | Grenades come back every 15 s. | One back every 30 s; Favor of the Armory: 2: compare with SM1 by timing a run over a known distance. Ours: owner's (D9); data (Favor). | ☐ |
+| `C-C68717FE` | The melta bomb's model | owner's (D21) | The data's model is the Ork stikkbomb. | The melta bomb's model: compare with SM1 by feel or video. Ours: owner's (D21). | ☐ |
+| `C-2DA54F6D` | It sticks to a contraption (riding on it) and to a shield dome's surface from outside | ours | The core would set it off at the contraption or the dome. | It sticks to a contraption (riding on it) and to a shield…: compare with SM1 by counting hits to kill and by video of the health bar. Ours: ours. | ☐ |
+
 ### Deliberate changes (owner's decisions)
 
 | ID | Change | Original | Here | Decision / record | Compare in a playtest | Result |
@@ -4243,6 +4293,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-B5695902` | Field-of-view slider (ui/fov-slider, owner 2026-10-31) | Ours, an added option: a slider in OPTIONS, GRAPHICS (main menu and Esc menu), horizontal degrees at the window's aspect from the data's look (about 66 at 16:9) to 120, saved in the front-end settings, applied live to the exploration and aim cameras proportionally; scopes keep the data's zoom levels. The original's PC… | default = the data's look (nothing changes unless the slider moves) | spec "Zoom levels of the scoped weapons" (row "Field-of-view option") | Field-of-view slider (ui/fov-slider, owner 2026-10-31): compare with SM1 with an overlaid screenshot taken from the same position. Ours: Ours, an added option: a slider in OPTIONS, GRAPHICS (main menu and… | ☐ |
 | `C-2BE9585F` | Crosshair scales with the field of view (ui/crosshair-fov-scale, owner 2026-11-07) | Ours: the original has no FOV slider, so its crosshair had one size | At the default FOV the crosshair (reticle, spread frames, plasma gauges, hit marker, old-style circle) keeps its size; at any other it is scaled by `tan(reference/2) / tan(live/2)` of the camera's vertical angle (reference: the same camera state at the default setting, so aiming alone never resizes it), so it covers… | playtesters: "Scale crosshair with FOV. When FOV is high, the crosshair is too big"; spec "Zoom levels of the scoped weapons" (row "Field-of-view option") | Crosshair scales with the field of view…: compare with SM1 with an overlaid screenshot taken from the same position. Ours: Ours: the original has no FOV slider, so its crosshair had one size. | ☐ |
 | `C-D361EE57` | Mouse sensitivity slider (ui/mouse-sensitivity, owner 2026-11-01) | Ours, a client convenience: a slider (0.10x to 3.00x, step 0.05, default 1.00x) in OPTIONS, CONTROLS (main menu and Esc menu) (every mode: Annihilation, Seize Ground, added content), saved as `mouseSensitivity` in `frontend.json` and applied live. It multiplies the camera tuning's mouse look scale (`speed_mouse`) the… | default 1.00x = today's feel (nothing changes unless the slider moves) | tag: client convenience, no spec parameter | Mouse sensitivity slider (ui/mouse-sensitivity, owner…: compare with SM1 by turning the view at full speed with the same input settings and timing a half turn. Ours: Ours, a client convenience: a slider (0.10x to 3.00x, step 0.05… | ☐ |
+| `C-19F23FEC` | Performance readout (polish pass P1, 2026-11-10) | Ours, a tester aid, no option row (the owner keeps the original's options): F3 cycles OFF (default), FPS, FPS + NETWORK, a few lines of small text in the match's top right corner (frames a second, frame time, ping, snapshot loss, interpolation delay, input slack); the original had no such readout. Also since P1: in… | nothing the original shows | spec "Polish pass P1" | Performance readout (polish pass P1, 2026-11-10): compare with SM1 by feel or video. Ours: Ours, a tester aid, no option row (the owner keeps the original's… | ☐ |
 | `C-4A30D832` | The front end's menus (ui/menu-rebuild, owner 2026-11-01) | Ours: the owner's Half-Life 2 style layout replaces the Join screen and SM1's front end. Title "SM - REIMPL" and a column of small white capitals at the reference's positions, transparent text buttons, DejaVu Sans Bold in one colour everywhere; main menu PLAYER VERSUS PLAYER (HOST LOCAL LOBBY, JOIN SERVER, JOIN LOCAL… | The options' defaults keep the old behaviour | tag: client convenience, no spec parameter; every value in `GameOptions` is ours | The front end's menus (ui/menu-rebuild, owner 2026-11-01): compare with SM1 by feel or video. Ours: Ours: the owner's Half-Life 2 style layout replaces the Join screen… | ☐ |
 | `C-7EA9E63E` | Lighting presets (ui/lighting-presets, owner 2026-11-06) | Ours, an added option: LIGHTING PRESET in OPTIONS, GRAPHICS (main menu and Esc menu) with the owner's ten names: Faithful Remaster (default: today's look, nothing touched), Natural Cinema, Pale Ashfall, Golden Epic, Blue-Hour Steel, Stormbreak, Gothic Chiaroscuro, Forge Amber, Bleach-Bypass Warfilm, Ash + Color… | Whether each look reads as its name; whether any preset makes players harder to see in a real match | tag: client option, no spec parameter | Lighting presets (ui/lighting-presets, owner 2026-11-06): compare with SM1 by feel or video. Ours: Ours, an added option: LIGHTING PRESET in OPTIONS, GRAPHICS (main… | ☐ |
 | `C-2A746CD2` | Focus glow (ui/focus-glow, owner 2026-11-06) | Ours, an added UI cue: the control that A or a left click would activate (focused button, choice row, tab, list row, slider) shows a soft white halo, drawn once for every menu (`FocusGlow`, a canvas layer over the menus; additive, 14 px feather, 0.24 strength, 0.08 s fade-in, sized to a row's words); moving the mouse… | Strength and size of the halo by eye | tag: client UI, no spec parameter | Focus glow (ui/focus-glow, owner 2026-11-06): compare with SM1 by feel or video. Ours: Ours, an added UI cue: the control that A or a left click would… | ☐ |
@@ -4695,6 +4746,8 @@ Test aids, probes, demo and capture tooling, and engineering decisions (protocol
 | `R-E6DE77A1` | Handshake after the blink | Screen blink (ui/loading-blink, 2026-11-10, client only) |
 | `R-BE72EE96` | Core messages counted in the Musou budget (Musou) | Musou performance pass and the owner's battle decisions (musou/perf-pass, 2026-11-08; Musou Mode only but FSR 2 and the off-screen effects, which are shared client settings; `TfwRules.Version` 38, no protocol or wire change) |
 | `R-A9655E6C` | Stormboy hop cue's flight (Musou wire) | Musou Mode: smooth crowd motion (crowd-smooth, 2026-11-08; Musou Mode only; `MusouSim.Version` 22, no core protocol bump: `Protocol.Version` stays 64) |
+| `R-866FC7E6` | `LOADTIME` line | Polish pass P1 (claude/polish-p1, 2026-11-10; client, server runtime and options; no simulation, wire, protocol or config-hash change) |
+| `R-3D34462F` | Physics steps aid | Polish pass P1 (claude/polish-p1, 2026-11-10; client, server runtime and options; no simulation, wire, protocol or config-hash change) |
 | `R-476D600F` | Test aid: `--musou-crowd-test` | Musou Mode: the big Orks' deaths and gait (musou-big-ork-deaths, 2026-11-09; Musou Mode only; the deaths and gait client presentation; the bodies against the map in the simulation, `MusouSim.Version` 34, to be renumbered at integration; no protocol change) |
 | `R-F137D8B4` | Test aid: old big spawns | Musou Mode: the Orks back at 100 %, twice the big Orks (musou-big-ork-deaths, 2026-11-10; Musou Mode's war only; `TfwRules.Version` 59, to be renumbered at integration; no protocol, wire or `MusouSim.Version` change) |
 | `R-060A8DDF` | Musou weight: puff budget | Musou weight and impact pass (claude/musou-weight, 2026-11-10; client only, no simulation, wire, protocol, config-hash or rules-version change; Musou Mode only) |
