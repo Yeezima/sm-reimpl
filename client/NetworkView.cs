@@ -2172,6 +2172,9 @@ public partial class NetworkView : Node3D
     /// <summary>Hook for added content, in <see cref="LoadMap"/> after the level's collision: replaces <paramref name="world"/> and <paramref name="hash"/> for a map it composes. Implemented in an <c>Extras/</c> folder.</summary>
     partial void ExtrasMapCollision(string name, ref SmSim.CollisionWorld world, ref ulong hash);
 
+    /// <summary>Hook for added content (polish pass P2): the nodes of what <see cref="ExtrasMapCollision"/> composed, built on the main thread in the load's second stage. Implemented in an <c>Extras/</c> folder.</summary>
+    partial void ExtrasMapCollisionVisuals();
+
     void AddGroundCameraAndLights()
     {
         // Placeholder ground: a checker plane at game z = 0 (the simulation's flat floor), 1 m squares.

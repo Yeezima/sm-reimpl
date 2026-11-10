@@ -686,7 +686,7 @@ the hit is engine code, so these rules are ours (spec "Melee interaction pass").
 
 | Area | What we do | What is unknown | Spec |
 |---|---|---|---|
-| Loading screen picture | The owner's earlier menu picture behind LOADING, dimmed toward the corners (not SM1's per-map loading art and tips) | SM1's loading screens (map art and tips) | Loading screen: "Loading screen picture" |
+| Loading screen picture | The owner's earlier menu picture behind LOADING, dimmed toward the corners (not SM1's per-map loading art and tips); since the polish pass P2 a caption under LOADING names the load's stage (ours) | SM1's loading screens (map art and tips) | Loading screen: "Loading screen picture" |
 | Screen blink | A short fade to black and back (0.18 s close, a hold until the new screen has settled, 0.26 s open) between the menu, the loading screen and the match; `--no-screen-blink` turns it off | How SM1's front end changed screens | Screen blink |
 
 ## 3. Not yet reproduced

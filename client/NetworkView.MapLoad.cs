@@ -37,14 +37,19 @@ public partial class NetworkView
         public required bool Generated;
         public MapScene? Scene;
         public string? SceneError;
-        public long ContentMs, WorldMs, SceneMs, WorkerMs;
+        public List<Vector3>? RagdollFaces;
+        public long ContentMs, WorldMs, SceneMs, WorkerMs, VisualsDoneMs;
+        public int WarmupStep;
         public required System.Diagnostics.Stopwatch Watch;
     }
 
-    /// <summary>The job <see cref="GameClient"/> polls: the worker's task, then one frame for the caption, then the main thread's stage.</summary>
+    /// <summary>
+    /// The job <see cref="GameClient"/> polls: the worker's task, then one frame for the caption, then the main thread's build of the map (one frame), then the looks and
+    /// weapon warm-ups one a frame (each a few tens of ms), then the loaded map.
+    /// </summary>
     sealed class MapLoadJob(NetworkView view, Task<MapStage1> task) : IMapLoad
     {
-        bool _armed;
+        bool _armed, _built;
 
         public bool Poll(out LoadedMap? loaded, out string? error)
         {
@@ -56,6 +61,7 @@ public partial class NetworkView
                 error = $"{e.GetType().Name}: {e.Message}";
                 return true;
             }
+            var s = task.Result;
             if (!_armed)
             {
                 // One frame with the caption drawn before the main thread's stage holds the frame.
@@ -63,7 +69,16 @@ public partial class NetworkView
                 view.SetLoadingCaption("DRAWING THE MAP");
                 return false;
             }
-            loaded = view.Stage2(task.Result);
+            if (!_built)
+            {
+                _built = true;
+                if (view.Lean) { loaded = view.Stage2Visuals(s); return true; }
+                view.Stage2Visuals(s);
+                view.SetLoadingCaption("PREPARING LOOKS AND WEAPONS");
+                return false;
+            }
+            if (view.WarmupStep(s)) return false;   // one warm-up a frame
+            loaded = view.Finish(s);
             view.SetLoadingCaption("JOINING");
             return true;
         }
@@ -77,8 +92,14 @@ public partial class NetworkView
         return new MapLoadJob(this, Task.Run(() => Stage1(name, onMainThread: false)));
     }
 
-    /// <summary>The whole load on the calling thread (bots, replays, <c>--sync-map-load</c>): the two stages one after the other.</summary>
-    LoadedMap? LoadMap(string name) => Stage2(Stage1(name, onMainThread: true));
+    /// <summary>The whole load on the calling thread (bots, replays, <c>--sync-map-load</c>): the stages one after the other.</summary>
+    LoadedMap? LoadMap(string name)
+    {
+        var s = Stage1(name, onMainThread: true);
+        if (Stage2Visuals(s) is { } lean) return lean;
+        while (WarmupStep(s)) { }
+        return Finish(s);
+    }
 
     /// <summary>
     /// Reads and computes (any thread; nothing of Godot's scene tree): the install's map content (or added content's generated level), the collision world (with added content's
@@ -100,6 +121,7 @@ public partial class NetworkView
         ExtrasMapCollision(name, ref world, ref hash);   // EXTRAS-HOOK: added content's solids beside the level, and the hash of the whole (Musou Mode's Stormbird)
         long worldMs = watch.ElapsedMilliseconds;
         var stage = new MapStage1 { Name = name, File = file, Map = map, World = world, Hash = hash, Generated = generated is not null, ContentMs = contentMs, WorldMs = worldMs, Watch = watch };
+        if (!Lean) stage.RagdollFaces = RagdollWorldFaces(map);   // P2: the ragdoll world's triangles gathered here, its body made on the main thread
         if (generated is null && !Lean)
         {
             // The map's look: the original meshes and textures read here (MapScene.Load is engine-free); MapView.Build draws them on the main thread in Stage2.
@@ -112,25 +134,29 @@ public partial class NetworkView
         return stage;
     }
 
+    long _stage2StartMs, _ragdollMs, _collisionMs;
+
     /// <summary>
-    /// Builds what needs Godot (main thread): the ragdoll world, the navigation's start, the map view with its lights (or added content's drawn map), the collision debug mesh, the
-    /// blockers and props, the looks and the warm-ups; prints the map note and the LOADTIME line; returns the loaded map (collision and hash) for the handshake.
+    /// Builds what needs Godot (main thread, one frame): the ragdoll world's body, the navigation's start, added content's hub nodes, the map view with its lights (or added content's drawn
+    /// map), the collision debug mesh, the blockers and props; prints the map note. Returns the loaded map at once for a lean bot (nothing more to build), else null: the warm-ups
+    /// (<see cref="WarmupStep"/>) and <see cref="Finish"/> follow.
     /// </summary>
-    LoadedMap Stage2(MapStage1 s)
+    LoadedMap? Stage2Visuals(MapStage1 s)
     {
         var watch = s.Watch;
         string name = s.Name;
         var map = s.Map; var world = s.World; ulong hash = s.Hash;
         Ph("map load: collision and content");
-        long stage2Start = watch.ElapsedMilliseconds;
-        if (!Lean) BuildRagdollWorld(map);
-        long ragdollMs = watch.ElapsedMilliseconds;
+        _stage2StartMs = watch.ElapsedMilliseconds;
+        if (!Lean) BuildRagdollWorld(s.RagdollFaces ?? RagdollWorldFaces(map));
+        _ragdollMs = watch.ElapsedMilliseconds;
         PrepareNavigation(map, world); MemStep("navigation");
         _mapCentre = map.Spawns.Count > 0 ? new Vector2(map.Spawns.Average(sp => sp.Position.X), map.Spawns.Average(sp => sp.Position.Y)) : null;
-        long collisionMs = watch.ElapsedMilliseconds;
+        long collisionMs = _collisionMs = watch.ElapsedMilliseconds;
         if (Lean) return LeanMapLoaded(name, hash, world, collisionMs, watch);   // perf/lean-bots: collision, navigation and the jump ground only (NetworkView.Lean.cs)
         _gameSpace?.GetNodeOrNull("MapCollision")?.QueueFree();
         _gameSpace?.GetNodeOrNull("MapVisuals")?.QueueFree();
+        ExtrasMapCollisionVisuals();   // EXTRAS-HOOK (P2): the nodes of what the collision hook composed on the worker (Musou Mode's Stormbird and Firing Range)
 
         // The map's look: original meshes and diffuse textures (MapView). Failure falls back to the grey collision.
         string? visualsError = s.SceneError;
@@ -207,20 +233,39 @@ public partial class NetworkView
             : $"map {name}: collision geometry only, placeholder grey (visuals failed: {visualsError})";
         GD.Print($"{_mapNote}; collision {collisionMs} ms, total {watch.ElapsedMilliseconds} ms");
         if (VisualOverhaul.ApplyWorld(_camera, _environment) is { } overhaulNote) GD.Print(overhaulNote);   // visual-overhaul proposal (--visual-overhaul on; default off)
-        long visualsEndMs = watch.ElapsedMilliseconds;
-        // The default look of every class and the own look, built now so no player's first look stalls a frame (customizer T7).
+        s.VisualsDoneMs = watch.ElapsedMilliseconds;
+        return null;
+    }
+
+    /// <summary>
+    /// One warm-up a call (the default look of every class and the own look, the Ork's, the default loadouts' weapon models, the grenades, the pickups, the crosshair's first ray),
+    /// so no player's first look or shot stalls a frame (customizer T7, M40-T9); the asynchronous load runs one a frame while the loading screen is up, the synchronous load all at once.
+    /// True while steps remain.
+    /// </summary>
+    bool WarmupStep(MapStage1 s)
+    {
         Ph("map load: looks");
-        _warmClock = System.Diagnostics.Stopwatch.StartNew();   // Ork O7a: one deadline for the marines' and the Ork's warm-up
-        WarmLooks();
-        WarmOrk();   // Ork O7a: an Ork player's own look and weapons (NetworkView.Ork.cs)
-        PrewarmWeaponDefaults();   // M40-T9: the weapon models of every class's default loadout
-        PrewarmGrenades();   // feel/grenades-quickdraw: the grenade models, so the first throw does not stall a frame
-        PrewarmPickups();   // perf/pass-1: the drops' models (the first drop cost a 100 ms frame); a lean bot returned above (LeanMapLoaded) and warms none
-        PrewarmCollision(world);   // M40-T9: the crosshair's first ray
-        _jumpGround = world;   // M45: the flight pose's height above the ground
-        // polish pass P1 (2026-11-10): one line with the load's stages, for testers' logs and the baseline harness (every number is wall time, ms; P2: the worker's stages apart from the main thread's).
+        switch (s.WarmupStep++)
+        {
+            case 0: _warmClock = System.Diagnostics.Stopwatch.StartNew(); WarmLooks(); return true;   // Ork O7a: one deadline for the marines' and the Ork's warm-up
+            case 1: WarmOrk(); return true;   // Ork O7a: an Ork player's own look and weapons (NetworkView.Ork.cs)
+            case 2: PrewarmWeaponDefaults(); return true;   // M40-T9: the weapon models of every class's default loadout
+            case 3: PrewarmGrenades(); return true;   // feel/grenades-quickdraw: the grenade models, so the first throw does not stall a frame
+            case 4: PrewarmPickups(); return true;   // perf/pass-1: the drops' models (the first drop cost a 100 ms frame); a lean bot never gets here (LeanMapLoaded) and warms none
+            case 5: PrewarmCollision(s.World); return true;   // M40-T9: the crosshair's first ray
+            default: return false;
+        }
+    }
+
+    /// <summary>The LOADTIME line and the loaded map (collision and hash) for the handshake.</summary>
+    LoadedMap Finish(MapStage1 s)
+    {
+        var watch = s.Watch;
+        _jumpGround = s.World;   // M45: the flight pose's height above the ground
+        // polish pass P1 (2026-11-10): one line with the load's stages, for testers' logs and the baseline harness (every number is wall time, ms; P2: the worker's stages apart from the main
+        // thread's; asynchronous, the warm-ups span frames and their wall time includes the frames between).
         long totalMs = watch.ElapsedMilliseconds;
-        GD.Print($"LOADTIME map {name}: worker {s.WorkerMs} ms (content {s.ContentMs}, collision world {s.WorldMs - s.ContentMs}, scene {s.SceneMs - s.WorldMs}), main thread {totalMs - stage2Start} ms (ragdoll world {ragdollMs - stage2Start}, navigation {collisionMs - ragdollMs}, visuals {visualsEndMs - collisionMs}, looks and warm-ups {totalMs - visualsEndMs}), total {totalMs} ms{(SyncMapLoad || _bot ? " (synchronous)" : "")}");
-        return new LoadedMap(world, hash);
+        GD.Print($"LOADTIME map {s.Name}: worker {s.WorkerMs} ms (content {s.ContentMs}, collision world {s.WorldMs - s.ContentMs}, scene {s.SceneMs - s.WorldMs}), main thread {s.VisualsDoneMs - _stage2StartMs} ms in one frame (ragdoll world {_ragdollMs - _stage2StartMs}, navigation {_collisionMs - _ragdollMs}, visuals {s.VisualsDoneMs - _collisionMs}), looks and warm-ups {totalMs - s.VisualsDoneMs} ms{(SyncMapLoad || _bot ? " in the same frame" : " over frames")}, total {totalMs} ms{(SyncMapLoad || _bot ? " (synchronous)" : "")}");
+        return new LoadedMap(s.World, s.Hash);
     }
 }

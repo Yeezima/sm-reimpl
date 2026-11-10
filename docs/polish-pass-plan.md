@@ -236,7 +236,7 @@ weight items (MW1 to MW7), a 60 Hz tick (question 4), FSR 2 as a default (questi
 |---|---|---|---|
 | **P1 quick wins** | 3 (LOADTIME, loading captions, FPS / net readout), 4 (instance limits all), 11 (server runtime), 12 (physics tick), 23 (safe-mode defaults) | low cost, no shared files, every later milestone measures through 3 | `polish-pvp-baseline.ps1` and `musou-perf.ps1 clash1000` rerun; the readout visible in a windowed capture |
 | **P2 loads** | 1 (Ashfall cache), 2 (map load off the main thread) | the largest tester-facing numbers (28 s and 3.5 s); 1 and 2 touch different files | Musou join under 5 s; Classic warm-up worst under 100 ms |
-| **P3 first frames and the landing** | 16 (prewarm, Compatibility shader warm-up), 29 (sound-phase stalls), 8 (landing spread) | after P2 the join is the only hitch left | first 3 s after join / landing: no frame over 50 ms |
+| **P3 first frames and the landing** | 16 (prewarm, Compatibility shader warm-up), 29 (sound-phase stalls), 2's remainder (the ragdoll shape and the Ashfall view off the main thread; the 668 ms engine hitch at 2 s of a Classic join), 8 (landing spread) | after P2 the join is the only hitch left | first 3 s after join / landing: no frame over 50 ms |
 | **P4 Classic animation toward the data** | 9, then 10 (after owner question 2) | one owner for `SprintEdges.cs` and `Transitions.cs`; sequence around MW4 (section 5) | `--transition-probe` before / after; captures in `<media folder>\previews\polish-pass\blends\` |
 | **P5 Musou effects** | 7 (GPU sprays), 6 (governor), 20 (camera casts) | 7 before 6 (the governor reads the pool state 7 defines); the autocannon's blasts (W2) should land on top of the governor | `burst` worst under 35 ms, 0 dropped sprays; `clash1000` frames over 16.7 ms under 20 |
 | **P6 sound** | 5, 21, 25 (if the owner says so) | after 4 settled the default; one owner for `SoundSystem.cs` | mix captures A/B; the owner's listen |
@@ -304,6 +304,9 @@ before the governor's tiers rely on the CPU path in safe mode.
   flag lives in the core; the physics aid inconclusive (noise), default 60 kept; new item 29 (sound-phase stalls up to 416 ms). ReadyToRun: a published server is
   compiled ahead; note that the VM's `vm-build-server.sh` publishes on the live server box, so it downloads the crossgen2 package there once and compiles there (a
   minute or two of CPU at update time, `-p:SmReadyToRun=false` skips it). Numbers and switches: `docs/milestones.md`, "Polish pass P1".
+- **P2** (branch `claude/polish-p2`, 2026-11-10): items 1 (the Ashfall layout cache, `AshfallLayoutCache`, keyed by the generator versions and the build) and 2 (the map load off
+  the main thread: `BeginLoadMap` / `IMapLoad` in the client, `Stage1` on a worker, the Godot build in one frame, the warm-ups one a frame, loading captions). Measured (human client): Classic's frozen frame 3.5 s -> 0.80 s (the reading on a worker behind the moving loading screen, the warm-ups one a frame); Musou's join 28 s -> 6.8 s warm (one frame of 2.75 s left: the ragdoll body's shape 1.2 s and the Ashfall view 1.6 s, for P3), the cache read in under 0.2 s; `--sync-map-load` and `SM_NO_ASHFALL_CACHE=1` / `--no-ashfall-cache` restore.
+  Numbers and switches: `docs/milestones.md`, "Polish pass P2".
 
 ## 7. Things the owner may be missing
 
