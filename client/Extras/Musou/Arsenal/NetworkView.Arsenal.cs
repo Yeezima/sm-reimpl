@@ -1,4 +1,7 @@
+using System;
+using System.Collections.Generic;
 using SmContent;
+using SmContent.Extras.Musou.Arsenal;
 using SmSim;
 using SmSim.Extras.Musou.Arsenal;
 
@@ -40,4 +43,30 @@ public partial class NetworkView
 
     /// <summary>W3 (<c>Arsenal/Spear/</c>): the spear's custom clip of a strike, once approved; none: the hammer's clip at 0.85.</summary>
     partial void PowerSpearClip(string wargear, bool heavy, int step, ref string? clip, ref float rate);
+
+    // ---- W0b: presentation by source, and the clip speed of the charge and the pack's moves (lead 2026-11-10)
+
+    /// <summary>
+    /// The arsenal's presentation sources (<c>Arsenal.PresentationSources</c>: the claw the power sword, the spear the thunder hammer, the autocannon its install twin then the heavy bolter), in
+    /// a Musou match only (<see cref="ContentExtras.Musou"/> in the match's config) and only for the arsenal's names.
+    /// </summary>
+    partial void ExtrasPresentationSources(string wargear, ref IReadOnlyList<string>? sources)
+    {
+        if (_config is null || !_config.Extras.HasFlag(ContentExtras.Musou) || !ArsenalRules.IsArsenal(wargear)) return;
+        sources = Arsenal.PresentationSources(wargear);
+    }
+
+    readonly Dictionary<string, float> _arsenalMoveSpeed = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// The clip speed of the arsenal's melee weapons (<see cref="MeleeTuning.WeaponMap.ClipSpeed"/> of their maps: the claw's 1.25, the spear's 0.85) on the charge and the jump pack's moves, in
+    /// a Musou match only; 1 (unchanged) for every other weapon and for an arsenal item with no map. Read once per weapon.
+    /// </summary>
+    partial void ExtrasMoveClipSpeed(string wargear, ref float rate)
+    {
+        if (_config is null || !_config.Extras.HasFlag(ContentExtras.Musou) || !ArsenalRules.IsArsenal(wargear)) return;
+        if (!_arsenalMoveSpeed.TryGetValue(wargear, out float speed))
+            _arsenalMoveSpeed[wargear] = speed = MpClasses.MeleeMapFor(wargear) is { ClipSpeed: var k } && float.IsFinite(k) && k > 0f ? k : 1f;
+        rate = speed;
+    }
 }

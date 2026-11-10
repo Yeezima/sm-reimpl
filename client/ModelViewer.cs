@@ -223,13 +223,16 @@ public partial class ModelViewer : Node3D
                     string? Given(int i) => i < given.Length && given[i].Trim().Length > 0 ? given[i].Trim() : null;
                     var worn = (args.GetValueOrDefault("worn") ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries);
                     var weaponNotes = new List<string>();
-                    var all = given.Concat(worn).Where(n => n.Trim().Length > 0).Select(n => n.Trim());
+                    var all = given.Concat(worn).Where(n => n.Trim().Length > 0).Select(n => n.Trim()).Concat(args.ContainsKey("content") ? ["sm_mp_melee_2hand_thunder_hammer", "sm_mp_melee_powersword"] : []);   // --content: the thunder hammer's and the power sword's models are loaded too (Musou's power spear is drawn through them)
                     var weaponAssets = WeaponAssets.Load(gameDir, character.Assets!, all, weaponNotes);
                     var rig = new WeaponRig(character.Skeleton!, weaponAssets);
-                    rig.Configure((0, 0, 0, "viewer", null), Given(0), Given(1), Given(2), worn, worn.Length > 0, second: Given(3));   // --weapons primary,pistol,melee,second (the fourth: Weapon Versatility's second primary; with --hand melee the selected primary hangs on the left thigh)
+                    if (args.GetValueOrDefault("content") is { } viewerContent && SmSim.ContentProfiles.TryParse(viewerContent, out var viewerExtras, out _)) rig.Content = viewerExtras;   // --content musou: added content's own weapon models (Musou's arsenal) in this view
+                    rig.Configure((0, 0, 0, "viewer", null), Given(0), Given(1), Given(2), worn, worn.Length > 0 || args.ContainsKey("always-melee"), second: Given(3));   // --always-melee: the melee weapon in hand at rest (the jump-pack classes' carry; a --hand melee strike shows it swung)   // --weapons primary,pistol,melee,second (the fourth: Weapon Versatility's second primary; with --hand melee the selected primary hangs on the left thigh)
                     string hand = args.GetValueOrDefault("hand") ?? "primary";
+                    if (args.GetValueOrDefault("grip") is { } grip && float.TryParse(grip, System.Globalization.CultureInfo.InvariantCulture, out var slide)) { rig.GripSlide = slide; rig.GripSlideDriven = true; }   // --grip 0..1: Musou's power spear carried with the fist high (0) or low (1) on the shaft
                     rig.Update(hand == "pistol" ? SmSim.WeaponSlot.Pistol : SmSim.WeaponSlot.Ranged, hand == "melee", true, 0f, 0.6f);
                     character.Weapons = rig;
+                    if (args.ContainsKey("spear-probe")) GetTree().CreateTimer(1.0).Timeout += () => { if (rig.MeleeAxisPoints(-1.05f, 0.29f, 1.8f) is { } p) { float low = float.MaxValue; var sk = character.Skeleton!; for (int b = 0; b < sk.GetBoneCount(); b++) low = Math.Min(low, (sk.GlobalTransform * sk.GetBoneGlobalPose(b)).Origin.Y); GD.Print($"SPEARPROBE lowest_bone_y {low:F3} root_y {character.GlobalPosition.Y:F3} butt {p[0].X:F3} {p[0].Y:F3} {p[0].Z:F3} hand {p[1].X:F3} {p[1].Y:F3} {p[1].Z:F3} tip {p[2].X:F3} {p[2].Y:F3} {p[2].Z:F3}"); } };   // test aid: the spear's butt (-1.05), high grip (0.29, PowerSpearModel.SpearGripHigh) and tip (1.8) in world space (the carry grip's measurement)
                     if (worn.Length > 0) character.SetBackpackHidden(args.GetValueOrDefault("keep-backpack") is null && rig.WornCount > 0);
                     notes.AddRange(weaponNotes);
                     GD.Print("weapons: " + string.Join(", ", rig.Description) + $"; {rig.WornCount} worn nodes; {weaponAssets.ModelsLoaded} models in {weaponAssets.LoadMilliseconds:F0} ms");

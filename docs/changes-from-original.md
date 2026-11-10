@@ -117,17 +117,33 @@ and gore are listed in their own design documents for now (the rest of section 0
 
 Four items SM1's multiplayer never offered, Musou Mode only: the autocannon, the lightning claw, the power spear and the Remote Detonators. W0 (claude/arsenal-w0) adds only the base: the registry, the hooks and the Musou call sites, with every entry a stub, so nothing changes yet (spec "Musou's arsenal: the base"). Each milestone adds its rows under its own heading.
 
+W0b (claude/arsenal-w0b, ours, the lead's brief): each item shows and sounds as install files (the claw the power sword, the spear the thunder hammer, the autocannon its Chaos twin, else the heavy bolter), the autocannon wears the HUD movie's own autocannon reticle and ammunition display, and the claw's and spear's clip speed also plays the charge, the dash attack and the pound's and air slash's impact and get-up faster or slower (presentation only). Nothing changes outside a Musou match (spec "Musou's arsenal: W0b").
+
 #### W1: the autocannon
-Nothing yet.
+Musou Mode only: a Space Marine Devastator loadout primary on the install's cut multiplayer autocannon data (the Chaos file's numbers: 50 a round, 0.4 s between rounds, 15 rounds to overheat, built as `sm_mp_exotic_auto_cannon` in code), fired full auto like the campaign's, piercing 5 Orks, with a 2.5 m bolt-style blast at every Ork a round strikes (the owner: twice the bolt blast's size). The blast's damage (the bolt blast's 15), the heavy bolter's handling and the customizer description are ours; the hit-scan splash the campaign gun had is dropped. Classic PvP, the faithful and extended profiles never list it. The customizer plans a Musou Join with Musou's own configuration.
 
 #### W2: the lightning claw
 Nothing yet.
 
 #### W3: the power spear
-Nothing yet.
+| Power spear (Musou only, 2026-11-10, owner: "slower than hammer but much wider reach", "impaling dive plus wide sweeping swings") | No such weapon in SM1 | An Assault melee weapon on the thunder hammer's combo at 0.85x, swings at 0.75 of the hammer's damage, a 15 m sweep (150 degrees each side, at most 12 Orks), carried in the right hand alone and swung in both, the hammer's jump-pack rules, and an impale of 600 to the Ork nearest a ground pound's landing; a model built in code | spec "Musou's arsenal: W3" |
 
 #### W4: the Remote Detonators
-Nothing yet.
+
+Added content, Musou Mode only; every rule below is ours or the owner's (docs/new-weapons-design.md section 7, D4 to D9, D19 to D24). The item is the install's own unused `sm_mp_eq_demolition_charge`.
+
+| Rule | Ours / the owner's | Why |
+|---|---|---|
+| Offered to every Space Marine class and the Librarian | owner's (D20) | The install lists it for no class. |
+| A 5 s fuse after it sticks, no second press | owner's (D6, D19) | The data's remote trigger is dropped. |
+| Sticks to Orks and rides on them; it passes marines | ours (marines) | The data's sticky rule held for the level and players. |
+| A centre blast of 600 (r 16 m) then 16 stacking spots of 180 round a 24 m ring, one every 2 ticks | ours, fitted to the owner's "600 damage at the centre, 40m reach" | An estimate to check in a playtest (refine register). |
+| Bosses x2, up to 40 flying corpses (80 in D19, lowered by the owner 2026-11-10), survivors thrown back up to 10 m | owner's | The frag's cap is 20 and its knock-back 2 m. |
+| The thrower is not spared (throw and run) | owner's (2026-11-10) | The data's `ignore_self` false. |
+| Deaths past the 1,024 events a tick wait and play out over the next ticks (Musou's event path, not the charge alone) | owner's (2026-11-10) | A charge in a 1,500-Ork crowd lost 523 death events to the cap. |
+| One back every 30 s; Favor of the Armory: 2 | owner's (D9); data (Favor) | Grenades come back every 15 s. |
+| The melta bomb's model | owner's (D21) | The data's model is the Ork stikkbomb. |
+| It sticks to a contraption (riding on it) and to a shield dome's surface from outside | ours | The core would set it off at the contraption or the dome. |
 
 ## 1. Deliberate changes (owner's decisions)
 

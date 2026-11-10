@@ -110,10 +110,11 @@ public partial class NetworkView
         if (NoFx || PlaceholderFx || Lean) { _fxNote = Lean ? "not loaded (lean bot)" : NoFx ? "switched off (--no-fx)" : "placeholder spheres (--placeholder-fx)"; return; }   // perf/lean-bots
         string dir = _gameDir;
         bool loadDeath = !NoDeathFx;   // read on the main thread (it asks the engine for the command line)
+        var sources = PresentationSourceMap();   // W0b: an added weapon shown with install files' effects (Musou's arsenal); empty without added content: the catalogue as before
         _fxLoad = Task.Run(() =>
         {
             var watch = System.Diagnostics.Stopwatch.StartNew();
-            var catalogue = EffectCatalogue.Load(dir);
+            var catalogue = sources.Count == 0 ? EffectCatalogue.Load(dir) : EffectCatalogue.Load(dir, sources.Values.SelectMany(v => v)).WithSources(sources);
             var library = FxLibrary.Load(dir);
             var names = new HashSet<string>(StringComparer.Ordinal);
             void Add(IEnumerable<FxBinding> bindings) { foreach (var b in bindings) if (b.Play is { Name.Length: > 0 } p) names.Add(p.Name); }
