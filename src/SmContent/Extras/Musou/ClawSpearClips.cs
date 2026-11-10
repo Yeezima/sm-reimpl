@@ -207,7 +207,7 @@ public static class ClawSpearClips
     /// <summary>How long the shaft takes to slide through the hand to the melee grip at a string's start, and back to the carry at its end (s; ours: quick and visible).</summary>
     public const float GripSlide = 0.25f, GripSlideBack = 0.4f;
 
-    /// <summary>The carry: the right arm hanging with the shaft at the right side (the stand-in leans the shaft forward-up from this hand at the carry grip, the blade's edge forward); the left arm hangs free (aims, el / az).</summary>
+    /// <summary>The carry: the right arm hanging with the shaft at the right side (the shaft leans forward-up from this hand at the carry grip, <see cref="SpearHold.Place"/>, the blade's edge forward); the left arm hangs free (aims, el / az).</summary>
     const float RestRUpperEl = -75f, RestRUpperAz = 60f, RestRForeEl = -70f, RestRForeAz = 40f, RestLUpperEl = -70f, RestLUpperAz = -20f, RestLForeEl = -50f, RestLForeAz = -25f;
     static PoseKey RestRUpper(float t, PoseEase ease = PoseEase.Smooth) => A(t, RestRUpperEl, RestRUpperAz, ease);
     static PoseKey RestRFore(float t, PoseEase ease = PoseEase.Smooth) => A(t, RestRForeEl, RestRForeAz, ease);
@@ -347,7 +347,7 @@ public static class ClawSpearClips
             Fore("L", A(0f, 0, -160), A(0.6f, 0, 30), A(a, 0, 25, PoseEase.In), A(h, 0, 0, PoseEase.Snap), A(f, 0, 0, PoseEase.Over), A(1.9f, 0, 0), RecLFore(r), RestLFore(end)),
         ],
         grip: (a, h, f, r, end) => [G(0f, 1f), G(r, 1f), G(r + GripSlideBack, 0f), G(end, 0f)],
-        gripPoint: (a, h, f, r, end) => [P(0f, WeaponPoseClip.LowGrip), P(0.6f, 0.3f), P(r, 0.3f), P(r + GripSlideBack, WeaponPoseClip.CarryGrip), P(end, WeaponPoseClip.CarryGrip)]);
+        gripPoint: (a, h, f, r, end) => [P(0f, WeaponPoseClip.LowGrip), P(0.6f, WeaponPoseClip.StabGrip), P(r, WeaponPoseClip.StabGrip), P(r + GripSlideBack, WeaponPoseClip.CarryGrip), P(end, WeaponPoseClip.CarryGrip)]);
 
     /// <summary>The dive: both hands high on the shaft over the head, the left (blade) hand lower, so the spear hangs point-down and forward (held for the whole of the hammer's dive loop).</summary>
     public static readonly WeaponPoseClip SpearDive = new("spear_dive", "spear", SpearDiveLoopLength, float.NaN, SpearDiveLoop, 0f, 0f, 0f, float.NaN,
@@ -399,6 +399,16 @@ public static class ClawSpearClips
 
     /// <summary>The spear's strikes on the ground (the light hews and the F, F chain): each starts from <see cref="SpearRest"/> or the strike before it and ends back at the rest.</summary>
     public static readonly IReadOnlyList<WeaponPoseClip> SpearStrikes = [SpearHew1, SpearHew2, SpearHew3, SpearStun, SpearStab];
+
+    /// <summary>
+    /// The spear's clip for a simulated strike (W3: the thunder hammer's combo at 0.85, <c>SpearRules.FromHammer</c>, so its steps are the hammer's): light strikes 1..3 the three hews (each
+    /// authored on that strike's timing); the heavy list is the hammer's (<c>MeleeTuning.ThunderHammer</c>: 1 the Y interrupt, 2 and 3 the X,Y and X,X,Y sweeping attacks, 4 and 5 the Y,Y slam
+    /// after the interrupt or the X,Y sweep and after the X,X,Y sweep): the interrupt is the snap cut, the two sweeping attacks the snap cut as well (no clip of their own, ours; shown on
+    /// their own hit, <see cref="WeaponPoseClip.TimeAt"/>), both slams the massive stab. Null for any other step (the hammer's clip stays as the stand-in).
+    /// </summary>
+    public static WeaponPoseClip? SpearStrike(bool heavy, int step) => heavy
+        ? step switch { 1 or 2 or 3 => SpearStun, 4 or 5 => SpearStab, _ => null }
+        : step switch { 1 => SpearHew1, 2 => SpearHew2, 3 => SpearHew3, _ => null };
 
     /// <summary>A clip by name (any case), or null.</summary>
     public static WeaponPoseClip? ByName(string name) => All.FirstOrDefault(c => string.Equals(c.Name, name, StringComparison.OrdinalIgnoreCase));

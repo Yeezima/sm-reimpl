@@ -139,15 +139,10 @@ public partial class SpearStandIn : WeaponStandIn
     /// <summary>How far the left hand is on the shaft (0 to 1; <see cref="SmContent.Extras.Musou.WeaponPoseClip.GripAt"/>): at 0 the spear is carried in the right hand alone, at 1 it lies on the line through both hands.</summary>
     public float LeftGrip { get; set; } = 1f;
     /// <summary>
-    /// Where the right hand holds the shaft (m from the butt; <see cref="SmContent.Extras.Musou.WeaponPoseClip.GripPointAt"/>): the low melee grip, or the high carry toward the blade. A model built for W3 needs the
-    /// same two parameters on its mount: the grip point along the shaft and, for the one-handed carry, the shaft's tilt (<see cref="CarryTilt"/>), both driven by the animation.
+    /// Where the right hand holds the shaft (m from the butt; <see cref="SmContent.Extras.Musou.WeaponPoseClip.GripPointAt"/>): the low melee grip, or the high carry toward the blade. The placement is
+    /// <see cref="SmContent.Extras.Musou.SpearHold.Place"/>, which W3's model uses in a match too (<c>WeaponRig.PlaceSpearOnHands</c>), so the match shows what this stage shows.
     /// </summary>
     public float RightHandFromButt { get; set; } = RearHandFromButt;
-    /// <summary>
-    /// The one-handed carry's tilt: at the low grip the shaft stands upright from the hand; at the carry grip (0.95 m from the butt) it leans forward to this elevation (degrees above the horizontal),
-    /// so with the hand hanging about 0.97 m up the butt rides a few centimetres off the ground behind the hand and the blade forward-up over the shoulder (ours, from the owner's rule).
-    /// </summary>
-    public const float CarryTilt = 80f;
 
     public override void _Ready() { AddChild(_root); }
 
@@ -157,32 +152,22 @@ public partial class SpearStandIn : WeaponStandIn
         if (_lHand < 0 || _rHand < 0) return;
         if (!_built) { _built = true; Build(); }
         var l = s.GetBoneGlobalPose(_lHand).Origin; var r = s.GetBoneGlobalPose(_rHand).Origin;
-        var d = l - r;   // the shaft from the rear (right) hand toward the forward (left) hand and the blade
-        if (d.LengthSquared() < 1e-4f) d = new Vector3(1f, 0f, 0f);
-        d = d.Normalized();
-        float grip = Math.Clamp(LeftGrip, 0f, 1f);
-        if (grip < 1f)
-        {
-            // Carried in the right hand alone: upright at the low grip, tilted forward-up at the high carry grip (the body's front read from the hips); the left hand's hold brings it onto the two-hand line.
-            float high = Math.Clamp((RightHandFromButt - RearHandFromButt) / (SmContent.Extras.Musou.WeaponPoseClip.CarryGrip - RearHandFromButt), 0f, 1f);
-            float el = Mathf.DegToRad(Mathf.Lerp(90f, CarryTilt, high));
-            var front = CarryFront(s);
-            var carry = (front * MathF.Cos(el) + new Vector3(0f, 0f, 1f) * MathF.Sin(el)).Normalized();
-            d = carry.Lerp(d, grip).Normalized();
-        }
-        var butt = r - d * RightHandFromButt;
-        // The blade's edge (the stand-in's +X) faces the way he faces (owner, 2026-11-10: "the blade needs to face forward at rest"); when the shaft itself points near the front, the edge turns up.
-        var frontNow = CarryFront(s);
-        var edge = frontNow - d * frontNow.Dot(d);
-        var hint = edge.LengthSquared() > 0.09f ? edge.Normalized() : (new Vector3(0f, 0f, 1f) - d * d.Z).Normalized();
-        var z = hint.Cross(d).Normalized();   // right-handed: x = edge, y = shaft, z = x cross y
-        _root.Transform = new Transform3D(new Basis(hint, d, z), butt);
+        // The shaft from the rear (right) hand toward the forward (left) hand and the blade; carried in the right hand alone it leans from the hand by the grip (SpearHold.Place). The blade's
+        // edge (the stand-in's +X) faces the way he faces (owner, 2026-11-10: "the blade needs to face forward at rest").
+        var front = CarryFront(s);
+        var (butt, d, hint) = SmContent.Extras.Musou.SpearHold.Place(ToN(r), ToN(l), LeftGrip, RightHandFromButt, ToN(front), new System.Numerics.Vector3(0f, 0f, 1f));
+        var y = ToG(d); var x = ToG(hint);
+        var z = x.Cross(y).Normalized();   // right-handed: x = edge, y = shaft, z = x cross y
+        _root.Transform = new Transform3D(new Basis(x, y, z), ToG(butt));
         if (_field is not null)
         {
             float e = 0.8f + 2.2f * Glow;
             _field.EmissionEnergyMultiplier = e; if (_fieldBase is not null) _fieldBase.EmissionEnergyMultiplier = e * 1.3f;
         }
     }
+
+    static System.Numerics.Vector3 ToN(Vector3 v) => new(v.X, v.Y, v.Z);
+    static Vector3 ToG(System.Numerics.Vector3 v) => new(v.X, v.Y, v.Z);
 
     int _lThigh = -2, _rThigh = -2;
 

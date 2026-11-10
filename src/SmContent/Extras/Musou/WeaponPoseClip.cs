@@ -90,9 +90,11 @@ public readonly record struct PoseSample(float Yaw, float Pitch, float Roll, flo
 public sealed record PoseChannel(string Bone, PoseKey[] Keys, PoseChannelKind Kind = PoseChannelKind.Turn, string? Toward = null)
 {
     /// <summary>The value at <paramref name="t"/> seconds, held at the first key before it and at the last key after it. An aim's azimuth is interpolated the short way round.</summary>
-    public PoseSample Sample(float t)
+    public PoseSample Sample(float t) => Sample(Keys, Kind, t);
+
+    /// <summary>The value of <paramref name="k"/> (keys of a <paramref name="kind"/> channel) at <paramref name="t"/>, without a channel (no allocation: the grip tracks are sampled each frame).</summary>
+    public static PoseSample Sample(PoseKey[] k, PoseChannelKind kind, float t)
     {
-        var k = Keys;
         if (k.Length == 0) return default;
         if (t <= k[0].T) return new(k[0].Yaw, k[0].Pitch, k[0].Roll, k[0].Weight);
         for (int i = 1; i < k.Length; i++)
@@ -102,8 +104,7 @@ public sealed record PoseChannel(string Bone, PoseKey[] Keys, PoseChannelKind Ki
             float span = b.T - a.T;
             float u = span <= 1e-6f ? 1f : (t - a.T) / span;
             float e = Ease(b.Ease, u);
-            float yaw = Kind == PoseChannelKind.Aim ? a.Yaw + ShortWay(b.Yaw - a.Yaw) * e : a.Yaw + (b.Yaw - a.Yaw) * e;
-            if (Kind == PoseChannelKind.Foot && b.Ease == PoseEase.Snap && e > 1f) e = 1f;   // a replanting foot never overshoots into the ground
+            float yaw = kind == PoseChannelKind.Aim ? a.Yaw + ShortWay(b.Yaw - a.Yaw) * e : a.Yaw + (b.Yaw - a.Yaw) * e;
             return new(yaw, a.Pitch + (b.Pitch - a.Pitch) * e, a.Roll + (b.Roll - a.Roll) * e, a.Weight + (b.Weight - a.Weight) * e);
         }
         var last = k[^1];
@@ -164,7 +165,7 @@ public sealed record WeaponPoseClip(string Name, string Weapon, float Duration, 
     public PoseKey[]? Grip { get; init; }
 
     /// <summary>The off hand's hold on the shaft at <paramref name="t"/> (0 to 1; 1 when the clip has no grip track).</summary>
-    public float GripAt(float t) => Grip is { Length: > 0 } g ? Math.Clamp(new PoseChannel("grip", g).Sample(t).Weight, 0f, 1f) : 1f;
+    public float GripAt(float t) => Grip is { Length: > 0 } g ? Math.Clamp(PoseChannel.Sample(g, PoseChannelKind.Turn, t).Weight, 0f, 1f) : 1f;
 
     /// <summary>
     /// Where the carrying (right) hand holds the shaft, metres from the butt, over time (the keys' first field; owner 2026-11-10: "grip higher up on the spear shaft towards the blade" when
@@ -172,20 +173,34 @@ public sealed record WeaponPoseClip(string Name, string Weapon, float Duration, 
     /// </summary>
     public PoseKey[]? GripPoint { get; init; }
 
-    /// <summary>The melee grip (m from the butt): the hands low on the shaft for the full reach of the hews and the stab.</summary>
+    /// <summary>The melee grip (m from the butt): the hands low on the shaft for the full reach of the hews.</summary>
     public const float LowGrip = 0.5f;
     /// <summary>
     /// The carry (m from the butt): the hand higher than the melee grip, at the point where the butt hangs just above the ground as he runs (owner, 2026-11-10: "right at the point where the butt
-    /// of the spear is just above the ground"): the hanging hand is about 0.97 m up, the carry leans 80 degrees, so the butt rides about 0.04 m off the ground. W3's high-grip constant matches this.
+    /// of the spear is just above the ground"); the carry leans <see cref="SpearHold.CarryTilt"/> degrees. Measured in a match the hand hangs about 1.28 m up standing and 1.08 m running, so the
+    /// butt rides about 0.34 m and 0.14 m off the ground (a refinement for the owner).
     /// </summary>
     public const float CarryGrip = 0.95f;
-
-    /// <summary>The carrying hand's place on the shaft at <paramref name="t"/> (m from the butt).</summary>
-    public float GripPointAt(float t) => GripPoint is { Length: > 0 } g ? new PoseChannel("grip point", g).Sample(t).Yaw : LowGrip;
+    /// <summary>The stab's grip (m from the butt): both hands back at the butt for the lunge's reach.</summary>
+    public const float StabGrip = 0.3f;
 
     /// <summary>
-    /// The grip slide for the weapon rig (W3's <c>WeaponRig.GripSlide</c>, 0 = the high carry grip just below the collar, 1 = the low melee grip near the butt), from
-    /// <see cref="GripPointAt"/>: the match sets <c>WeaponRig.GripSlideDriven</c> and feeds this each frame at the strike's time, so the slide is the one authored with the hews and the stab.
+    /// The grip contract (review of 2026-11-10): the carrying hand's place on the shaft at <paramref name="t"/>, **metres from the butt** (<see cref="CarryGrip"/>, <see cref="LowGrip"/>,
+    /// <see cref="StabGrip"/>). A model puts the hand at exactly this point of its own shaft (<see cref="SpearHold.Place"/>; W3's model through <see cref="SpearHold.AxisAt"/>), so the meaning
+    /// does not change when a model's own grip constants do.
     /// </summary>
-    public float GripSlideAt(float t) => Math.Clamp((CarryGrip - GripPointAt(t)) / (CarryGrip - LowGrip), 0f, 1f);
+    public float GripPointAt(float t) => GripPoint is { Length: > 0 } g ? PoseChannel.Sample(g, PoseChannelKind.Turn, t).Yaw : LowGrip;
+
+    /// <summary>
+    /// The clip's time for a strike shown <paramref name="strikeTime"/> s into a simulated step whose hit is at <paramref name="strikeHit"/> s: the clip as authored when its hit is the step's
+    /// (every spear clip on the strike it was authored for), else its wind-up stretched or squeezed so its hit lands on the step's and the follow-through at its own rate (a strike shown with
+    /// another strike's clip). Never below 0 or past the clip's end.
+    /// </summary>
+    public float TimeAt(float strikeTime, float strikeHit)
+    {
+        float t = MathF.Max(0f, strikeTime);
+        if (float.IsNaN(HitTime) || !float.IsFinite(strikeHit) || strikeHit <= 1e-4f || MathF.Abs(strikeHit - HitTime) < 1e-3f) return MathF.Min(t, Duration);
+        float shown = t <= strikeHit ? t * HitTime / strikeHit : HitTime + (t - strikeHit);
+        return MathF.Min(shown, Duration);
+    }
 }

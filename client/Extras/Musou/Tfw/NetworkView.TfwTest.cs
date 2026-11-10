@@ -594,6 +594,7 @@ public partial class NetworkView
         if (CmdFlag("tfw-test-melee")) { await TfwTestMelee(); return; }
         if (CmdFlag("tfw-test-charge")) { await TfwTestCharge(); return; }   // W4, the Remote Detonators (Arsenal/Charge/NetworkView.ChargeTest.cs)
         if (CmdFlag("tfw-autocannon-capture")) { await TfwAutocannonCapture(); return; }   // W1 (2026-11-10): the autocannon's screenshot gate (Arsenal/Autocannon/NetworkView.AutocannonCapture.cs)
+        if (CmdFlag("tfw-spear-capture")) { await TfwSpearCapture(); return; }   // the power spear's approved clips in a match (Arsenal/Spear/NetworkView.SpearCapture.cs)
         if (CmdFlag("tfw-feel-capture")) { await TfwFeelCapture(); return; }   // combat feel (2026-11-09): a short fight for the before / after captures (Tfw/NetworkView.TfwMelee.cs)
         if (CmdFlag("tfw-weight-capture")) { await TfwWeightCapture(); return; }   // musou weight pass (2026-11-10): the baseline moves (Tfw/NetworkView.TfwWeightCapture.cs)
         if (CmdFlag("tfw-sound-capture")) { await TfwSoundCapture(); return; }   // musou/sound-ab (2026-11-10): the same short fight for each clip of the sound A/B (Tfw/NetworkView.TfwSoundCapture.cs)

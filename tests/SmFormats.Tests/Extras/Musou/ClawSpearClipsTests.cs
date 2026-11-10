@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Numerics;
 using SmContent.Extras.Musou;
 
 namespace SmFormats.Tests;
@@ -260,5 +261,81 @@ public class ClawSpearClipsTests
         var ch = new PoseChannel("RIG_R_UpperArm", [PoseKey.Aim(0f, 0f, 170f), PoseKey.Aim(1f, 0f, -170f, PoseEase.Linear)], PoseChannelKind.Aim, "RIG_R_Forearm");
         var mid = ch.Sample(0.5f);
         Assert.True(MathF.Abs(MathF.Abs(mid.Azimuth) - 180f) < 1e-3f, $"azimuth {mid.Azimuth} should pass through 180");
+    }
+    [Fact]
+    public void The_grip_points_are_metres_from_the_butt_and_map_onto_W3s_shaft()
+    {
+        // The grip contract (review of 2026-11-10): a clip says where the right hand holds the shaft in metres from the butt; W3's model puts the hand at that point of its own shaft.
+        Assert.Equal(0.95f, WeaponPoseClip.CarryGrip);
+        Assert.Equal(0.5f, WeaponPoseClip.LowGrip);
+        Assert.Equal(0.3f, WeaponPoseClip.StabGrip);
+        Assert.Equal(WeaponPoseClip.CarryGrip, ClawSpearClips.SpearRest.GripPointAt(0.7f), 3);
+        Assert.Equal(WeaponPoseClip.LowGrip, ClawSpearClips.SpearHew1.GripPointAt(ClawSpearClips.SpearHew1.HitTime), 3);
+        Assert.Equal(WeaponPoseClip.StabGrip, ClawSpearClips.SpearStab.GripPointAt(ClawSpearClips.SpearStab.HitTime), 3);
+        foreach (var clip in ClawSpearClips.All.Where(c => c.Weapon == "spear"))
+            for (float t = 0f; t <= clip.Duration; t += 0.05f)
+                Assert.InRange(clip.GripPointAt(t), 0.05f, SpearHold.CollarFromButt);   // always on the shaft, between the butt and the collar
+        // W3's axis (its model's origin 1.05 m up the shaft): the clips' points, and its own mount's run and melee grips (WeaponRig.SpearGripHigh 0.29, SpearGripLow -0.60).
+        Assert.Equal(-0.10f, SpearHold.AxisAt(WeaponPoseClip.CarryGrip), 3);
+        Assert.Equal(-0.55f, SpearHold.AxisAt(WeaponPoseClip.LowGrip), 3);
+        Assert.Equal(-0.75f, SpearHold.AxisAt(WeaponPoseClip.StabGrip), 3);
+        Assert.Equal(0.29f, SpearHold.AxisAt(SpearHold.MountHighFromButt), 3);
+        Assert.Equal(-0.60f, SpearHold.AxisAt(SpearHold.MountLowFromButt), 3);
+        // W3's own slide (0 its run grip, 1 its low grip) for a point: where the mount takes over when a clip stops holding the hand.
+        Assert.Equal(0f, SpearHold.SlideAt(SpearHold.MountHighFromButt), 3);
+        Assert.Equal(1f, SpearHold.SlideAt(SpearHold.MountLowFromButt), 3);
+        Assert.Equal((1.34f - 0.95f) / (1.34f - 0.45f), SpearHold.SlideAt(WeaponPoseClip.CarryGrip), 3);
+        Assert.Equal(1f, SpearHold.SlideAt(WeaponPoseClip.StabGrip));   // past the low grip: clamped
+    }
+
+    [Fact]
+    public void The_spear_sits_on_the_hands_with_the_right_hand_at_the_grip_point_and_the_edge_forward()
+    {
+        var up = Vector3.UnitZ; var front = Vector3.UnitY;
+        var right = new Vector3(0.3f, 0.1f, 0.97f); var left = new Vector3(0.1f, 0.6f, 1.25f);
+        // Both hands on: the shaft on the line through them toward the left hand (the blade beyond it), the right hand the grip point from the butt, the edge square to the shaft and forward.
+        var (butt, shaft, edge) = SpearHold.Place(right, left, 1f, WeaponPoseClip.LowGrip, front, up);
+        Assert.Equal(WeaponPoseClip.LowGrip, Vector3.Distance(butt, right), 3);
+        Assert.True(Vector3.Dot(shaft, Vector3.Normalize(left - right)) > 0.9999f);
+        Assert.Equal(0f, Vector3.Dot(edge, shaft), 3);
+        Assert.True(Vector3.Dot(edge, front) > 0f);
+        // Carried in the right hand alone at the carry grip: CarryTilt above the horizontal toward the front, the butt 0.95 m down the shaft (just above the ground for this example hand 0.97 m up), the edge forward.
+        var (carryButt, carry, carryEdge) = SpearHold.Place(right, left, 0f, WeaponPoseClip.CarryGrip, front, up);
+        Assert.Equal(SpearHold.CarryTilt, MathF.Asin(Vector3.Dot(carry, up)) * 180f / MathF.PI, 1);
+        Assert.True(Vector3.Dot(carry, front) > 0f);
+        Assert.InRange(carryButt.Z, 0.0f, 0.08f);
+        Assert.True(Vector3.Dot(carryEdge, front) > 0.9f, "the blade faces forward at rest");
+        // At the low grip with the left hand off, the shaft stands upright; half on, it lies between the carry and the two-hand line.
+        var (_, upright, _) = SpearHold.Place(right, left, 0f, WeaponPoseClip.LowGrip, front, up);
+        Assert.True(Vector3.Dot(upright, up) > 0.9999f);
+        var (_, half, _) = SpearHold.Place(right, left, 0.5f, WeaponPoseClip.LowGrip, front, up);
+        Assert.True(Vector3.Dot(half, up) < 0.9999f && Vector3.Dot(half, Vector3.Normalize(left - right)) < 0.9999f);
+    }
+
+    [Fact]
+    public void Every_strike_of_the_hammer_combo_has_a_spear_clip_shown_on_its_own_hit()
+    {
+        // W3's combo is the hammer's: light X1..X3, heavies Y, X,Y, X,X,Y, then the Y,Y slam's two sides (MeleeTuning.ThunderHammer).
+        Assert.Same(ClawSpearClips.SpearHew1, ClawSpearClips.SpearStrike(false, 1));
+        Assert.Same(ClawSpearClips.SpearHew2, ClawSpearClips.SpearStrike(false, 2));
+        Assert.Same(ClawSpearClips.SpearHew3, ClawSpearClips.SpearStrike(false, 3));
+        Assert.Null(ClawSpearClips.SpearStrike(false, 0));
+        Assert.Null(ClawSpearClips.SpearStrike(false, 4));
+        foreach (int heavy in new[] { 1, 2, 3 }) Assert.Same(ClawSpearClips.SpearStun, ClawSpearClips.SpearStrike(true, heavy));
+        foreach (int slam in new[] { 4, 5 }) Assert.Same(ClawSpearClips.SpearStab, ClawSpearClips.SpearStrike(true, slam));
+        Assert.Null(ClawSpearClips.SpearStrike(true, 6));
+        // A clip on the strike it was authored for shows at the strike's own time.
+        var hew = ClawSpearClips.SpearHew1;
+        Assert.Equal(0.4f, hew.TimeAt(0.4f, hew.HitTime), 4);
+        Assert.Equal(hew.HitTime, hew.TimeAt(hew.HitTime, hew.HitTime), 4);
+        Assert.Equal(hew.Duration, hew.TimeAt(hew.Duration + 2f, hew.HitTime), 4);
+        // On another strike's hit (the sweeping attacks with the snap cut): the wind-up fitted so the hits meet, the follow-through at the clip's own rate, never before 0 or past the end.
+        var stun = ClawSpearClips.SpearStun;
+        const float other = 0.8f;
+        Assert.Equal(stun.HitTime, stun.TimeAt(other, other), 4);
+        Assert.Equal(stun.HitTime * 0.5f, stun.TimeAt(other * 0.5f, other), 4);
+        Assert.Equal(stun.HitTime + 0.3f, stun.TimeAt(other + 0.3f, other), 4);
+        Assert.Equal(stun.Duration, stun.TimeAt(100f, other), 4);
+        Assert.Equal(0f, stun.TimeAt(-1f, other));
     }
 }
