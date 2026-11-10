@@ -1453,8 +1453,9 @@ on the install.
     12 × f32 (volume, LFE, pitch in cents, LPF; each value/min/max)`, positioning `u8 override; if set: s32 centre %,
     f32 panRL, f32 panFR, u8 is3D; 2D: u8 pannerEnabled; 3D: u32 positionType, u32 attenuationId, u8 spatialized, then
     for type 2 a path block (u32 mode, u8 loop, s32 transition, u8 followOrientation, u32 n × 16-byte vertices,
-    u32 m × 8-byte items, m × 8-byte ranges), for type 3 u8 dynamic`, advanced settings (9 bytes: virtual queue, kill
-    newest, use virtual, u16 max instances, global limit, below threshold, 2 override flags), state groups
+    u32 m × 8-byte items, m × 8-byte ranges), for type 3 u8 dynamic`, advanced settings (9 bytes, read by `SoundBank.cs` as: kill
+    newest, virtual behaviour, ignore the parents' max instances, u16 max instances, global limit, below threshold, 2 override flags; the
+    first three names are an interpretation of the v56 layout, unverified by listening: review of the polish pass P1, 2026-11-10), state groups
     `u32 n, {u32 group, u8 sync, u16 m, m × 8 bytes}`, RTPCs `u16 n, {u32 rtpc, u32 param, u32 curve, u8 scaling,
     u16 points, points × 12 bytes}`, and when BKHD's feedback flag is set `u32 feedbackBus [+ 6 × f32 if non-zero]`.
   - Random/Sequence: node base, `u16 loop, 3 × f32 transition time, u16 avoidRepeat, u8 transitionMode,

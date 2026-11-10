@@ -776,6 +776,7 @@ public sealed partial class FrontEndView : Control
         p = LoadoutEdits.Rename(p, 2, "Heavy support").Profile;
         p = LoadoutEdits.Create(p, 3, roles.Contains("assault") ? "assault" : roles[0], catalog).Profile;
         p = LoadoutEdits.Rename(p, 3, "Jump trooper").Profile;
+        if (_args.GetValueOrDefault("demo-melee") is { Length: > 0 } demoMelee) p = LoadoutEdits.SetItem(p, 3, "melee", demoMelee, catalog).Profile;   // --demo-melee <neutral name>: slot 3's melee weapon (a screenshot aid for added content's items)
         p = LoadoutEdits.Select(p, Selection.CustomSlot(1));
         session.Seed(p);
         RefreshSummary();
