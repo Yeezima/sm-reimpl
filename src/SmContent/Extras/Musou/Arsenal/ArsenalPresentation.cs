@@ -55,6 +55,6 @@ public static partial class Arsenal
     public static WeaponBoxSpec? WeaponBox(string wargear, bool chaos) =>
         string.Equals(wargear, ArsenalRules.Autocannon, StringComparison.OrdinalIgnoreCase) ? chaos ? AutocannonBoxChaos : AutocannonBox : null;
 
-    // Built once (the HUD asks every frame, and its box cache keys on the display list's identity).
+    // Built once (the HUD asks every frame; its show-set cache keys on the display's paths, and the rules' own specs are built once too).
     static readonly WeaponBoxSpec? AutocannonBox = WeaponBoxRules.For(ArsenalRules.Autocannon, "heavy_bolter", false), AutocannonBoxChaos = WeaponBoxRules.For(ArsenalRules.Autocannon, "heavy_bolter", true);
 }

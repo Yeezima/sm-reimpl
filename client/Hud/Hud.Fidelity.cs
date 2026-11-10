@@ -329,7 +329,8 @@ public sealed partial class Hud
 
     // The box's path sets, built once (not every frame).
     static readonly HashSet<string> OptionalPaths = new(WeaponBoxRules.Optional, StringComparer.Ordinal), NoPaths = new(StringComparer.Ordinal);
-    static readonly Dictionary<IReadOnlyList<string>, HashSet<string>> ShowSets = new(ReferenceEqualityComparer.Instance);
+    // fix/fx-hud-leaks (polish item 30): keyed by the paths, not the list's identity (one set per display; keyed by identity it gained a set a frame).
+    static readonly WeaponBoxShowSets ShowSets = new();
 
     /// <summary>
     /// The weapon box from <c>Hud.gfx</c> (<c>weaponInfo_Slide</c> at the end of its slide-in, bottom right): the frame with the winged skull (with or without the grenade column),
@@ -369,7 +370,7 @@ public sealed partial class Hud
         bool reserve = d.ReserveMax > 0 || d.Reserve > 0;
         int count = reserve ? d.Reserve : d.Clip;
         bool empty = count == 0 && d.Clip == 0;
-        var show = spec is null ? NoPaths : ShowSets.TryGetValue(spec.Show, out var known) ? known : ShowSets[spec.Show] = new HashSet<string>(spec.Show, StringComparer.Ordinal);
+        IReadOnlySet<string> show = spec is null ? NoPaths : ShowSets.Get(spec.Show);
         var optional = OptionalPaths;
         string equipment = d.GrenadeWargear.Contains("krak", StringComparison.OrdinalIgnoreCase) || d.GrenadeWargear.Contains("blind", StringComparison.OrdinalIgnoreCase) ? "blind_grenade_mc"
             : d.GrenadeWargear.Contains("stim", StringComparison.OrdinalIgnoreCase) ? "stimpack_mc" : "grenade_mc";

@@ -27,29 +27,53 @@ public static class WeaponBoxRules
         "ammo_plasmagun_mc/ammo_plasmagun_mc", "ammo_plasmagun_mc/ammo_plasmagun_chaos_mc", "ammo_plasmapistol_mc/ammo_plasmagun_chaos_mc",
     ];
 
-    /// <summary>The display of a weapon by its <c>ui_data/weapon_type</c> (the wargear name when missing) and race (the Chaos plasma bar is the movie's purple one); null: none.</summary>
+    /// <summary>
+    /// The display of a weapon by its <c>ui_data/weapon_type</c> (the wargear name when missing) and race (the Chaos plasma bar is the movie's purple one); null: none.
+    /// The same spec, and so the same <see cref="WeaponBoxSpec.Show"/> list, on every call for one display (fix/fx-hud-leaks, polish item 30: the HUD asks every frame, and a
+    /// new spec a call was a new list a frame for its show-set cache).
+    /// </summary>
     public static WeaponBoxSpec? For(string wargear, string? weaponType, bool chaos)
     {
         string type = (weaponType is { Length: > 0 } ? weaponType : HudRules.TypeFromName(wargear)).ToLowerInvariant();
         return type switch
         {
-            "bolter" => new("bolter", ["ammo_mc", "ammo_mc/ammo_count_mc", "ammo_mc/ammo_txt"], "ammo_mc/ammo_count_mc", WeaponBoxBar.Spent, "ammo_mc/ammo_txt"),
-            "bolt_pistol" => new("bolt_pistol", ["ammo_mc", "ammo_mc/ammo_count_bolt_pistol_mc", "ammo_mc/ammo_txt"], "ammo_mc/ammo_count_bolt_pistol_mc", WeaponBoxBar.Spent, "ammo_mc/ammo_txt"),
-            "storm_bolter" => new("storm_bolter", ["ammo_stormbolter_mc", "ammo_mc", "ammo_mc/ammo_txt"], "ammo_stormbolter_mc/ammo_bar", WeaponBoxBar.Spent, "ammo_mc/ammo_txt"),
-            // fix/pvp-deploy-spawn (the owner, 2026-11-06: "heavy bolter currently has infinite ammo. It should cap at 400"): the rounds left in the bolter's count field instead of the
-            // movie's endless sign (infinity_mc), which read as unlimited ammunition; the simulation always spent the data's 400 a life (no reserve).
-            "heavy_bolter" => new("heavy_bolter", ["ammo_autocannon_mc", "ammo_mc", "ammo_mc/ammo_txt"], "ammo_autocannon_mc/ammo_bar", WeaponBoxBar.Heat, "ammo_mc/ammo_txt"),
-            "plasma_gun" or "plasma_cannon" => new(type, chaos ? ["ammo_plasmagun_mc", "ammo_plasmagun_mc/ammo_plasmagun_chaos_mc"] : ["ammo_plasmagun_mc", "ammo_plasmagun_mc/ammo_plasmagun_mc"],
-                chaos ? "ammo_plasmagun_mc/ammo_plasmagun_chaos_mc" : "ammo_plasmagun_mc/ammo_plasmagun_mc", WeaponBoxBar.Heat, "ammo_plasmagun_mc/ammo_count"),
-            "plasma_pistol" => new("plasma_pistol", chaos ? ["ammo_plasmapistol_mc", "ammo_plasmapistol_mc/ammo_plasmagun_chaos_mc"] : ["ammo_plasmapistol_mc"],
-                chaos ? "ammo_plasmapistol_mc/ammo_plasmagun_chaos_mc" : "ammo_plasmapistol_mc/ammo_bar", WeaponBoxBar.Heat, "ammo_plasmapistol_mc/ammo_count"),
-            "laz_cannon" or "lascannon" => new("lascannon", ["ammo_lascannon_mc"], "ammo_lascannon_mc/ammo_bar", WeaponBoxBar.Spent, "ammo_lascannon_mc/ammo_count"),
-            "melta" => new("melta", ["ammo_meltagun_mc"], "ammo_meltagun_mc/ammo_bar", WeaponBoxBar.Spent, "ammo_meltagun_mc/ammo_count"),
-            "stalker" => new("stalker", ["Ammo_Stalker_mc"], null, WeaponBoxBar.None, "Ammo_Stalker_mc/ammo_count"),
-            "grenade_launcher" => new("grenade_launcher", ["loadout_grenaderounddisplay_mc", "ammo_mc", "ammo_mc/ammo_txt"], null, WeaponBoxBar.None, "ammo_mc/ammo_txt"),
+            "bolter" => Bolter,
+            "bolt_pistol" => BoltPistol,
+            "storm_bolter" => StormBolter,
+            "heavy_bolter" => HeavyBolter,
+            "plasma_gun" => chaos ? PlasmaGunChaos : PlasmaGun,
+            "plasma_cannon" => chaos ? PlasmaCannonChaos : PlasmaCannon,
+            "plasma_pistol" => chaos ? PlasmaPistolChaos : PlasmaPistol,
+            "laz_cannon" or "lascannon" => Lascannon,
+            "melta" => Melta,
+            "stalker" => Stalker,
+            "grenade_launcher" => GrenadeLauncher,
             _ => null,
         };
     }
+
+    // The displays, built once (fix/fx-hud-leaks; the paths and bars as before).
+    static readonly WeaponBoxSpec
+        Bolter = new("bolter", ["ammo_mc", "ammo_mc/ammo_count_mc", "ammo_mc/ammo_txt"], "ammo_mc/ammo_count_mc", WeaponBoxBar.Spent, "ammo_mc/ammo_txt"),
+        BoltPistol = new("bolt_pistol", ["ammo_mc", "ammo_mc/ammo_count_bolt_pistol_mc", "ammo_mc/ammo_txt"], "ammo_mc/ammo_count_bolt_pistol_mc", WeaponBoxBar.Spent, "ammo_mc/ammo_txt"),
+        StormBolter = new("storm_bolter", ["ammo_stormbolter_mc", "ammo_mc", "ammo_mc/ammo_txt"], "ammo_stormbolter_mc/ammo_bar", WeaponBoxBar.Spent, "ammo_mc/ammo_txt"),
+        // fix/pvp-deploy-spawn (the owner, 2026-11-06: "heavy bolter currently has infinite ammo. It should cap at 400"): the rounds left in the bolter's count field instead of the
+        // movie's endless sign (infinity_mc), which read as unlimited ammunition; the simulation always spent the data's 400 a life (no reserve).
+        HeavyBolter = new("heavy_bolter", ["ammo_autocannon_mc", "ammo_mc", "ammo_mc/ammo_txt"], "ammo_autocannon_mc/ammo_bar", WeaponBoxBar.Heat, "ammo_mc/ammo_txt"),
+        PlasmaGun = Plasma("plasma_gun", chaos: false), PlasmaGunChaos = Plasma("plasma_gun", chaos: true),
+        PlasmaCannon = Plasma("plasma_cannon", chaos: false), PlasmaCannonChaos = Plasma("plasma_cannon", chaos: true),
+        PlasmaPistol = new("plasma_pistol", ["ammo_plasmapistol_mc"], "ammo_plasmapistol_mc/ammo_bar", WeaponBoxBar.Heat, "ammo_plasmapistol_mc/ammo_count"),
+        PlasmaPistolChaos = new("plasma_pistol", ["ammo_plasmapistol_mc", "ammo_plasmapistol_mc/ammo_plasmagun_chaos_mc"], "ammo_plasmapistol_mc/ammo_plasmagun_chaos_mc", WeaponBoxBar.Heat,
+            "ammo_plasmapistol_mc/ammo_count"),
+        Lascannon = new("lascannon", ["ammo_lascannon_mc"], "ammo_lascannon_mc/ammo_bar", WeaponBoxBar.Spent, "ammo_lascannon_mc/ammo_count"),
+        Melta = new("melta", ["ammo_meltagun_mc"], "ammo_meltagun_mc/ammo_bar", WeaponBoxBar.Spent, "ammo_meltagun_mc/ammo_count"),
+        Stalker = new("stalker", ["Ammo_Stalker_mc"], null, WeaponBoxBar.None, "Ammo_Stalker_mc/ammo_count"),
+        GrenadeLauncher = new("grenade_launcher", ["loadout_grenaderounddisplay_mc", "ammo_mc", "ammo_mc/ammo_txt"], null, WeaponBoxBar.None, "ammo_mc/ammo_txt");
+
+    /// <summary>The plasma gun's and plasma cannon's display (the movie's plasma gun bar, purple for Chaos).</summary>
+    static WeaponBoxSpec Plasma(string family, bool chaos) =>
+        new(family, chaos ? ["ammo_plasmagun_mc", "ammo_plasmagun_mc/ammo_plasmagun_chaos_mc"] : ["ammo_plasmagun_mc", "ammo_plasmagun_mc/ammo_plasmagun_mc"],
+            chaos ? "ammo_plasmagun_mc/ammo_plasmagun_chaos_mc" : "ammo_plasmagun_mc/ammo_plasmagun_mc", WeaponBoxBar.Heat, "ammo_plasmagun_mc/ammo_count");
 
     /// <summary>A bar clip's frame for a fill (0 empty .. 1 full) over <paramref name="frames"/> frames: frame 0 full, frame <paramref name="frames"/> - 2 empty (the last one is the empty flash).</summary>
     public static int BarFrame(float full, int frames)
@@ -103,5 +127,48 @@ public static class WeaponBoxRules
         int slots = Math.Min(10, clipMax);
         int loaded = clipMax <= 10 ? clip : (int)Math.Ceiling(clip * 10.0 / clipMax);
         return index < slots && index < loaded;
+    }
+}
+
+/// <summary>
+/// The HUD's weapon box show sets: a display's <see cref="WeaponBoxSpec.Show"/> paths as a set (the per-path skip test of every frame), built once per distinct list of paths and
+/// keyed by the paths' values, not by the list's identity (fix/fx-hud-leaks, polish item 30: keyed by identity, a spec built anew each frame added one set a frame for the whole
+/// match). The lookup allocates nothing; a new set is made only for paths not seen before. Engine-free so the bound is tested; not thread-safe (the HUD's thread only).
+/// </summary>
+public sealed class WeaponBoxShowSets
+{
+    readonly Dictionary<IReadOnlyList<string>, HashSet<string>> _sets = new(PathsComparer.Instance);
+
+    /// <summary>The sets made so far (one per distinct list of paths).</summary>
+    public int Count => _sets.Count;
+
+    /// <summary>The set of <paramref name="show"/>'s paths (ordinal), the same instance for any list of the same paths in the same order.</summary>
+    public IReadOnlySet<string> Get(IReadOnlyList<string> show)
+    {
+        if (_sets.TryGetValue(show, out var set)) return set;
+        set = new HashSet<string>(show, StringComparer.Ordinal);
+        _sets[show.ToArray()] = set;   // keyed by a copy: a caller's list changed later cannot move the key
+        return set;
+    }
+
+    /// <summary>Two path lists are equal when they hold the same paths in the same order (ordinal).</summary>
+    sealed class PathsComparer : IEqualityComparer<IReadOnlyList<string>>
+    {
+        public static readonly PathsComparer Instance = new();
+
+        public bool Equals(IReadOnlyList<string>? a, IReadOnlyList<string>? b)
+        {
+            if (ReferenceEquals(a, b)) return true;
+            if (a is null || b is null || a.Count != b.Count) return false;
+            for (int i = 0; i < a.Count; i++) if (!string.Equals(a[i], b[i], StringComparison.Ordinal)) return false;
+            return true;
+        }
+
+        public int GetHashCode(IReadOnlyList<string> list)
+        {
+            var hash = new HashCode();
+            for (int i = 0; i < list.Count; i++) hash.Add(list[i], StringComparer.Ordinal);
+            return hash.ToHashCode();
+        }
     }
 }
