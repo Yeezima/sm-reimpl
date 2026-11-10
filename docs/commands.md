@@ -192,7 +192,7 @@ Each milestone lists its own test aids under its own heading. W0 (the base) and 
 None yet.
 
 ### W2: the lightning claw
-None yet.
+client.cmd ... --content musou --class 0 --melee "lightning claw" [--claw-crackle-demo] [--claw-glow-test] [--claw-flip] :: the Assault Marine's claw (a Musou melee choice, so it needs a Musou server: `server.cmd --content musou --bind 127.0.0.1 --port <p>`; the war's hub shows it); `--claw-crackle-demo` shows the blue crackle half of every second whatever the strikes (stills); `--claw-glow-test` pulses the own claw's own glow level without a strike (stills under any renderer); `--claw-flip` curls the talons the other way. Stills: `godot.cmd --windowed -- --connect 127.0.0.1:<p> --content musou --class 0 --melee "lightning claw" --bot --wait-players 1 --no-hud --no-sound --spectate cam:0.2,-373.6,1.2,0.2,-372,1.1 --screenshot f.png --screenshot-every 0.25 --screenshot-at 6 --quit-after 10` (the hub's player stands at 0,-372).
 
 ### W3: the power spear
 None yet.
