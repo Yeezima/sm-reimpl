@@ -17,6 +17,8 @@ public static class PackageScanCommand
     [
         ".exe", ".x86_64", ".dll", ".so", ".json", ".cmd", ".ps1", ".sh", ".txt", ".md",
         ".jpg",   // the owner's menu background and hub planet, copied beside the exe by release.ps1
+        ".ogv",   // the main menu's video loop (game\assets\menu\menu-loop.ogv): our own media, the owner's cinematic of the Ashfall map (2026-11-10), copied by release.ps1;
+                  // the game itself has no Ogg video, and the content rules still scan it
         ".glb",   // the owner's generated Ashfall kit models (game\ashfall-kit\), copied by release.ps1 (owner, 2026-11-06); the content rules still scan them
         ".pck",   // the client's Godot pack beside the exe (tools/release-parts): only a Godot pack passes (any other .pck is a forbidden game extension),
                   // and its directory is checked like an embedded one

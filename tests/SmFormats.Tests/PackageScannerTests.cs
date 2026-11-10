@@ -187,6 +187,70 @@ public sealed class PackageScannerTests : IDisposable
         Assert.Contains(Scan(Zip(("game/ashfall-kit/m.glb", tagged))), f => f.Rule == "personal-email");
     }
 
+    /// <summary>A synthetic Ogg page of one stream (no CRC: the guard does not check it); packets of 255 bytes or more are laced over several segments.</summary>
+    static byte[] OggPage(uint serial, uint sequence, byte flags, params byte[][] packets)
+    {
+        var lacing = new List<byte>();
+        var body = new List<byte>();
+        foreach (var p in packets)
+        {
+            int n = p.Length;
+            while (n >= 255) { lacing.Add(255); n -= 255; }
+            lacing.Add((byte)n);
+            body.AddRange(p);
+        }
+        var page = new List<byte>();
+        page.AddRange("OggS"u8.ToArray());
+        page.Add(0); page.Add(flags);
+        page.AddRange(new byte[8]);
+        page.AddRange(BitConverter.GetBytes(serial)); page.AddRange(BitConverter.GetBytes(sequence));
+        page.AddRange(new byte[4]);
+        page.Add((byte)lacing.Count); page.AddRange(lacing); page.AddRange(body);
+        return page.ToArray();
+    }
+
+    /// <summary>A synthetic Ogg Theora file: the three headers (the comment header holding <paramref name="comment"/>), then the given frame packets (high bit clear) on their own page.</summary>
+    static byte[] TheoraOgg(string comment, params byte[][] frames) =>
+    [
+        .. OggPage(7, 0, 0x02, [0x80, .. "theora"u8, 3, 2, 1]),
+        .. OggPage(7, 1, 0x00, [0x81, .. "theora"u8, .. Encoding.ASCII.GetBytes(comment)], [0x82, .. "theora"u8, .. Filler(300, 0x11)]),
+        .. OggPage(7, 2, 0x04, frames),
+    ];
+
+    [Fact]
+    public void An_ogv_is_checked_for_email_and_home_paths_in_its_header_packets_only()
+    {
+        // Compressed frame bytes that read as an address or a home path (the main menu's video loop: three false findings, 2026-11-10) are not a finding...
+        var noisy = TheoraOgg("Lavf62", [0x00, .. Text(Fix("\u0001ab4euX%AT%T.uU\u0002 /%H%/jdoe/x"))], [0x00, .. Filler(600, 0x22)]);
+        Assert.Empty(Scan(Zip(("game/assets/menu/menu-loop.ogv", noisy))));
+        Assert.NotNull(PackageScanner.OggHeaderBytes(() => new MemoryStream(noisy)));
+        // ...an address or a home path in its comment header still is.
+        Assert.Contains(Scan(Zip(("game/assets/menu/menu-loop.ogv", TheoraOgg(Fix("ARTIST=jane.doe%AT%gmail.com"), [0x00, 1, 2])))), f => f.Rule == "personal-email");
+        Assert.Contains(Scan(Zip(("game/assets/menu/menu-loop.ogv", TheoraOgg(Fix("SOURCE=/%H%/jdoe/clip.mp4"), [0x00, 1, 2])))), f => f.Rule == "absolute-user-path");
+        // Every other rule still reads the whole file: a C:\Users path in a frame packet is a finding.
+        Assert.Contains(Scan(Zip(("game/assets/menu/menu-loop.ogv", TheoraOgg("Lavf62", [0x00, .. Text(Fix(@"C:\%U%\jdoe\clip"))])))), f => f.Rule == "absolute-user-path");
+    }
+
+    [Fact]
+    public void An_ogv_that_is_not_plain_well_formed_ogg_is_scanned_whole()
+    {
+        byte[] frame = [0x00, .. Text(Fix("x4euX%AT%T.uU and more"))];   // the cut-off case below drops the last 3 bytes
+        var good = TheoraOgg("Lavf62", frame);
+        // Not Ogg at all, bytes after the last page, a cut-off page, a header packet after a data packet, an unknown codec: the e-mail rule reads everything.
+        byte[] notOgg = [.. Text("RIFF...."), .. frame];
+        byte[] trailing = [.. good, .. Text("tail")];
+        byte[] cut = good[..^3];
+        byte[] lateHeader = [.. good, .. OggPage(7, 3, 0x00, [0x81, .. "theora"u8, .. Text("x")])];
+        byte[] unknown = [.. OggPage(9, 0, 0x02, [.. "fishead\0"u8]), .. OggPage(9, 1, 0x04, frame)];
+        foreach (var bytes in new[] { notOgg, trailing, cut, lateHeader, unknown })
+        {
+            Assert.Null(PackageScanner.OggHeaderBytes(() => new MemoryStream(bytes)));
+            Assert.Contains(Scan(Zip(("game/assets/menu/menu-loop.ogv", bytes))), f => f.Rule == "personal-email");
+        }
+        // Another type keeps the whole-file scan whatever its bytes (the rule is for .ogv only).
+        Assert.Contains(Scan(Zip(("game/assets/menu/clip.ogg", good))), f => f.Rule == "personal-email");
+    }
+
     [Fact]
     public void ShortTestFixtureWebhooksAreNotFlagged()
     {
@@ -270,7 +334,9 @@ public sealed class PackageScannerTests : IDisposable
     public void ExtensionsOutsideTheAllowlistAreRefusedInTheBinaryProfile()
     {
         void Profile(PackageScanner s) => s.AllowedExtensions = new HashSet<string>(PackageScanCommand.BinaryProfileExtensions, StringComparer.OrdinalIgnoreCase);
-        var findings = Scan(Zip(("a/x.dll", Filler(100)), ("a/run.sh", Text("echo")), ("a/LICENSE", Text("x")), ("a/SmServer", Filler(100)), ("a/odd.xyz", Filler(100)), ("a/noext", Filler(100))), Profile);
+        // game/assets/menu/menu-loop.ogv: the main menu's video loop (our own media, 2026-11-10) is a type the client package holds.
+        var findings = Scan(Zip(("a/x.dll", Filler(100)), ("a/run.sh", Text("echo")), ("a/LICENSE", Text("x")), ("a/SmServer", Filler(100)), ("a/odd.xyz", Filler(100)), ("a/noext", Filler(100)),
+            ("game/assets/menu/menu-loop.ogv", [0x4F, 0x67, 0x67, 0x53, 0, 2, 0, 0])), Profile);
         Assert.Equal(2, findings.Count(f => f.Rule == "unexpected-type"));
         Assert.Contains(findings, f => f.Entry == "a/odd.xyz");
         Assert.Contains(findings, f => f.Entry == "a/noext");
@@ -621,7 +687,7 @@ public sealed class PackageScannerTests : IDisposable
         Assert.Contains(Scan(Zip(("source/s.zip", withZip)), Source), f => f.Rule == "archive-in-source" && f.Entry == "source/s.zip!/s/more.zip");
         byte[] withDll = ZipBytes(("s/tool.cs", [0x4D, 0x5A, 0x90, 0, 3, 0, 0, 0]));
         Assert.Contains(Scan(Zip(("source/s.zip", withDll)), Source), f => f.Rule == "binary-in-source");
-        byte[] withOgg = ZipBytes(("s/assets/bark.ogg", [0x4F, 0x67, 0x67, 0x53, 0, 2, 0, 0]), ("s/a.cs", Text("class A {}")));
+        byte[] withOgg = ZipBytes(("s/assets/bark.ogg", [0x4F, 0x67, 0x67, 0x53, 0, 2, 0, 0]), ("s/client/assets/menu/menu-loop.ogv", [0x4F, 0x67, 0x67, 0x53, 0, 2, 0, 0]), ("s/a.cs", Text("class A {}")));
         Assert.Empty(Scan(Zip(("source/s.zip", withOgg)), Source));
         // Outside the source offer the binary rule does not apply (a package's own .dll files are fine).
         Assert.Empty(Scan(Zip(("game/x.dll", [0x4D, 0x5A, 0x90, 0, 3, 0, 0, 0]))));

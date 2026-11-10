@@ -313,6 +313,7 @@ public sealed partial class UiSelfTest : Node
         await ControlsChecks();   // ui/keybinds (UiSelfTest.Controls.cs)
         await PadBackChecks();   // ui/pad-b-back: B on the controller backs out of menus (UiSelfTest.PadBack.cs)
         await MenuChecks();   // ui/menu-rebuild: the tree, JOIN SERVER, the bot buttons (UiSelfTest.Menus.cs)
+        await MenuVideoChecks();   // the main menu's video loop (UiSelfTest.MenuVideo.cs)
         await OptionsChecks();   // ui/menu-rebuild: the options' rows, effects and persistence
         await PresetsGlowChecks();   // ui/lighting-presets, ui/focus-glow (UiSelfTest.PresetsGlow.cs)
         await FitChecks();

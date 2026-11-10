@@ -119,7 +119,7 @@ public sealed partial class UiSelfTest
                 Check("menu: the Musou page's JOIN LOCAL LOBBY opens the address page", _front.JoinLocalPage!.Visible);
                 joined = null;
                 if (FindEdit(_front.JoinLocalPage!) is { } musouAddress) { musouAddress.Text = "127.0.0.1:27199"; await PressRow("CONNECT", _front.JoinLocalPage!); }
-                Check("menu: ... and CONNECT joins that address on the Musou profile", joined is { Host: "127.0.0.1:27199", Content: var joinedContent } && joinedContent == ContentExtras.Musou, joined?.Host);
+                Check("menu: ... and CONNECT joins that address on the Musou profile", joined is { Host: "127.0.0.1:27199", Content: var joinedContent } && joinedContent == ContentExtras.Musou, joined?.Host ?? "no join");
                 await SendKey(Key.Escape);
                 Check("menu: Esc there goes back to the Musou page", musouPage.Visible);
                 // Musou Mode's customizer (owner 2026-11-10): the Musou page's CUSTOMIZER shows Standard Marines, Librarian and Heretic in place of the factions; BACK returns to the page.
@@ -223,7 +223,7 @@ public sealed partial class UiSelfTest
                 await Frames(2);
                 await PressRow("MUSOU MODE", main);
                 await PressRow("PLAY ON THIS PC", _front.MusouPage!);
-                Check("menu: a press on a ready Musou server joins it on this PC, Musou", !musouStarted && joined is { Host: var h } && h.StartsWith("127.0.0.1", StringComparison.Ordinal) && _services.Content == ContentExtras.Musou, joined?.Host);
+                Check("menu: a press on a ready Musou server joins it on this PC, Musou", !musouStarted && joined is { Host: var h } && h.StartsWith("127.0.0.1", StringComparison.Ordinal) && _services.Content == ContentExtras.Musou, joined?.Host ?? "no join");
                 _front.ShowMainMenu();
                 await Frames(3);
                 await PressRow("STOP MUSOU SERVER", main);
