@@ -7,8 +7,13 @@ namespace SmNet.Tests;
 /// <summary>
 /// The match configs of the player's install, by config hash, for the faithful and the extended profiles (W0, Musou's arsenal base, docs/new-weapons-design.md section 8: the lead's
 /// "Classic and the faithful build byte-for-byte unchanged"). Goldens captured on main 61c152b7, before W0's hooks; a Musou-only change must never move them. Core folder, so it also runs
-/// in <c>faithful-build.cmd</c> (the extended profile only where added content is compiled). Skipped without the install (never in CI). Musou's own hash moves with every Musou rules
-/// version, so it is not pinned here; <c>ArsenalConfigTests</c> checks the arsenal adds nothing to it yet.
+/// in <c>faithful-build.cmd</c> (the extended profile only where added content is compiled).
+/// <para>
+/// An install fact: the real match configs come from the player's install, so it is skipped without one (never in CI). The same pins without the install, as plain facts that run in CI,
+/// are <c>MusouIsolationTests</c>' (a synthetic config and the default config, faithful and extended, captured before any Musou hook) and <c>ContentProfileTests</c>' (a synthetic golden
+/// config); this test adds the install's own configs, which only a machine with the install can build. Musou's own hash moves with every Musou rules version, so it is not pinned here;
+/// <c>ArsenalBaseTests</c> (SmFormats.Tests) checks that <c>Arsenal.Append</c> returns a Musou config itself while every arsenal entry is a stub.
+/// </para>
 /// </summary>
 public class ConfigHashPinTests(ITestOutputHelper output)
 {

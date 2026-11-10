@@ -3,7 +3,8 @@ namespace SmSim.Extras.Musou.Arsenal;
 /// <summary>
 /// Musou's arsenal (W0, the base; docs/new-weapons-design.md section 8): the four items Musou Mode adds, by wargear name, and the simulation's rules that are not the
 /// <c>World</c>'s (those are <c>World.Arsenal.cs</c>). Musou Mode only: the names reach a config only through <c>SmContent.Extras.Musou.Arsenal.Arsenal.Append</c>, which runs under
-/// <see cref="ContentExtras.Musou"/>, so no other profile ever carries them. Each item's rules are partial methods its own milestone implements in its own file (W1 to W4);
+/// <see cref="ContentExtras.Musou"/>, so no other profile's lists carry them. Three are our own names; the Remote Detonators' is an install name (<see cref="RemoteDetonators"/>), so every hook
+/// that acts on a name also checks the Musou flag (the client's model hooks too), never the name alone. Each item's rules are partial methods its own milestone implements in its own file (W1 to W4);
 /// until then every one is a no-op and nothing changes.
 /// </summary>
 public static partial class ArsenalRules

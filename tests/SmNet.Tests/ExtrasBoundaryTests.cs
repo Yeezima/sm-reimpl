@@ -96,7 +96,8 @@ public class ExtrasBoundaryTests
         ("client/Customizer/CustomizerServices.cs", "ExtrasProfileView"),   // CustomizerServices.ExtrasProfileView(ref IProfileView?), the profile view: Musou's own loadout slots (musou/loadout-slots)
         ("client/Customizer/PreviewStage.cs", "ExtrasDress"),       // PreviewStage.ExtrasDress(ref Func<ResolvedAppearance, ResolvedAppearance>?, ref string), in CreateModel: the Librarian's armour
         ("client/Customizer/PreviewStage.cs", "ExtrasWeapons"),     // PreviewStage.ExtrasWeapons(ref string?, ref string?, ref string?, ref bool), in ConfigureWeapons: his force sword in hand, no gun
-        // W0, Musou's arsenal (docs/new-weapons-design.md section 8: the autocannon, lightning claw, power spear and Remote Detonators, Musou only); each does nothing for a name of the install.
+        // W0, Musou's arsenal (docs/new-weapons-design.md section 8: the autocannon, lightning claw, power spear and Remote Detonators, Musou only); each does nothing without Musou's content
+        // (the Remote Detonators' sm_mp_eq_demolition_charge is an install name, so the name alone never decides).
         ("src/SmContent/MpClasses.cs", "ExtrasMeleeMap"),           // static MpClasses.ExtrasMeleeMap(string, ref WeaponMap?), in MeleeMapFor when no data map matches: an added melee weapon on a data weapon's map
         ("src/SmSim/Loadout.cs", "ExtrasWieldsHammer"),             // static Loadouts.ExtrasWieldsHammer(SimConfig, string, ref bool), in WieldsHammer when no data hammer matches: the spear takes the hammer's rules
         ("src/SmContent/PerkCatalog.cs", "ExtrasItems"),            // PerkCatalog.ExtrasItems(ContentExtras, ref PerkCatalog), in For: the customizer rows of a content profile (Musou only)

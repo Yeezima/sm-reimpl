@@ -6,14 +6,15 @@ namespace SmClient;
 
 /// <summary>
 /// Musou's arsenal in the networked view (W0, the base; docs/new-weapons-design.md section 8, hook 4, and the animation seam): the one implementation of <see cref="ExtrasThrownVisual"/>, a dispatcher to the thrown
-/// item's own model, which W4 implements in its own file (<c>Arsenal/Charge/</c>: the Remote Detonators drawn as the melta bomb, not the blueprint's Ork stikkbomb). Only the arsenal's names are
-/// asked, and only Musou's config carries them. Until then the item is drawn with its blueprint's model, as before.
+/// item's own model, which W4 implements in its own file (<c>Arsenal/Charge/</c>: the Remote Detonators drawn as the melta bomb, not the blueprint's Ork stikkbomb). Asked only in a Musou match
+/// (<see cref="ContentExtras.Musou"/> in the match's config: the charge is an install name, <c>sm_mp_eq_demolition_charge</c>) and only for the arsenal's names. Until then the item is drawn with
+/// its blueprint's model, as before.
 /// </summary>
 public partial class NetworkView
 {
     partial void ExtrasThrownVisual(ThrownSpec item, ref ProjectileVisual? visual)
     {
-        if (!ArsenalRules.IsArsenal(item.Name)) return;
+        if (_config is null || !_config.Extras.HasFlag(ContentExtras.Musou) || !ArsenalRules.IsArsenal(item.Name)) return;
         RemoteDetonatorsVisual(item, ref visual);
     }
 
@@ -29,7 +30,7 @@ public partial class NetworkView
     /// </summary>
     partial void ExtrasMeleeClip(string wargear, bool heavy, int step, ref string? clip, ref float rate)
     {
-        if (!ArsenalRules.IsArsenal(wargear)) return;
+        if (_config is null || !_config.Extras.HasFlag(ContentExtras.Musou) || !ArsenalRules.IsArsenal(wargear)) return;
         LightningClawClip(wargear, heavy, step, ref clip, ref rate);
         PowerSpearClip(wargear, heavy, step, ref clip, ref rate);
     }

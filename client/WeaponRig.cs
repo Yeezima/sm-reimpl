@@ -355,6 +355,12 @@ public sealed partial class WeaponRig
     WeaponSlot _lastPrimary = WeaponSlot.Ranged;
 
     public bool AlwaysMelee { get; private set; }
+
+    /// <summary>
+    /// The content profile of the character's match or of the customizer page (set by the view before <see cref="Configure"/>): added content's own weapon models (Musou's arsenal,
+    /// <see cref="ExtrasWeaponModel"/>) are drawn only under their content. None (the default): only the data's models.
+    /// </summary>
+    public ContentExtras Content { get; set; }
     /// <summary>The thrown item's wargear the rig was configured with (Ork O6), or null.</summary>
     public string? GrenadeWargear { get; private set; }
     bool _grenadeHeld;
@@ -771,7 +777,7 @@ public sealed partial class WeaponRig
     /// <summary>A rig for another character of the same skeleton (the corpse) with the same loadout and the weapons where they are now.</summary>
     public WeaponRig CloneTo(Skeleton3D skeleton)
     {
-        var copy = new WeaponRig(skeleton, _assets);
+        var copy = new WeaponRig(skeleton, _assets) { Content = Content };
         copy.Configure(_key, Names.Primary, Names.Pistol, Names.Melee, Names.Worn, AlwaysMelee, GrenadeWargear, _second);
         copy._grenadeHeld = _grenadeHeld;
         copy.SetPackPaint(_packPaint);   // the corpse keeps the pack's paint
