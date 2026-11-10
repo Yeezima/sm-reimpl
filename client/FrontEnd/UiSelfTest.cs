@@ -45,10 +45,10 @@ public sealed partial class UiSelfTest : Node
         }
     }
 
-    void Check(string name, bool ok, string detail = "")
+    void Check(string name, bool ok, string? detail = "")
     {
         if (ok) _passed++; else _failed++;
-        GD.Print($"SELFTEST {(ok ? "PASS" : "FAIL")} {name}{(detail.Length > 0 && !ok ? " - " + detail : "")}");
+        GD.Print($"SELFTEST {(ok ? "PASS" : "FAIL")} {name}{(detail is { Length: > 0 } && !ok ? " - " + detail : "")}");
     }
 
     static Button? FindButton(Node root, Func<Button, bool> match)

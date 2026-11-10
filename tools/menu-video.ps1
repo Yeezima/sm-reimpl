@@ -67,7 +67,7 @@ if ($fade -gt 0) {
 }
 New-Item -ItemType Directory -Force -Path (Split-Path -Parent ([IO.Path]::GetFullPath($Out))) | Out-Null
 Write-Host "encoding $Out (Theora q $Quality, no audio)..."
-$null = Invoke-FFmpeg @('-hide_banner', '-nostats', '-y', '-i', $Source, '-filter_complex', $graph, '-map', '[v]', '-an', '-c:v', 'libtheora', '-pix_fmt', 'yuv420p', '-q:v', "$Quality", $Out)
+$null = Invoke-FFmpeg @('-hide_banner', '-nostats', '-y', '-i', $Source, '-filter_complex', $graph, '-map', '[v]', '-map_metadata', '-1', '-an', '-c:v', 'libtheora', '-pix_fmt', 'yuv420p', '-q:v', "$Quality", $Out)
 
 $outFrames = Get-FrameCount $Out 'null'
 $last = $outFrames - 1
