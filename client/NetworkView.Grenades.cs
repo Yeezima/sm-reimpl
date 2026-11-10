@@ -73,7 +73,9 @@ public partial class NetworkView
         var item = _config.Thrown[index];
         string leaf = item.Projectile.Blueprint.Split('\\', '/')[^1];
         (Mesh, Material?)? result = null;
-        if (visuals.TryGetValue(leaf, out var v))
+        ProjectileVisual? v = visuals.TryGetValue(leaf, out var found) ? found : null;
+        ExtrasThrownVisual(item, ref v);   // EXTRAS-HOOK added content (Musou's arsenal): an item of its own drawn with another package's model (W4: the melta bomb)
+        if (v is not null)
         {
             var attachment = new WeaponAttachment(item.Name, leaf, "thrown", v.VisualPackage, v.VisualName, null, null, false, [], []) { IsWorn = false };
             if (_weaponAssets.Get(attachment)?.Mesh is { } mesh) result = (mesh, null);
@@ -82,6 +84,9 @@ public partial class NetworkView
         GD.Print($"grenade models: {item.PlayerName ?? item.Name} ({leaf}) drawn {(result is null ? "as the placeholder sphere" : $"with its original model {v!.VisualPackage}/{v.VisualName}")}");
         return result;
     }
+
+    /// <summary>Added content: the model a thrown item of its own is drawn with in flight and at rest (null: its blueprint's, or the sphere); nothing without added content.</summary>
+    partial void ExtrasThrownVisual(SmSim.ThrownSpec item, ref ProjectileVisual? visual);
 
     /// <summary>Builds every thrown item's model during the map load (waits at most <paramref name="waitMs"/> for the blueprint read).</summary>
     void PrewarmGrenades(int waitMs = 1500)

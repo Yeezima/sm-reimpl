@@ -5197,3 +5197,28 @@ Source: the owner, 2026-11-10 (relayed by the lead, verbatim): "roll back the 20
 | Boss Orks' spawns (Musou) | at most **8** alive (was 2), the waits halved: the first **30 to 60** s after the landing (was 60 to 120), the next **45 to 90** s after the last (was 90 to 180); the Warboss unchanged | - , s | per battle | `TfwBossOrkRules.MostAlive`, `Interval` | owner 2026-11-10 ("up to 8 boss orks alive at the same time and make them spawn more often") | owner | high |
 | The pool kept for the commander (Musou) | the armies' bodies, twins included, stay within their own **512** slots (`TfwBattle.ArmySlots`), and every pool check counts a Nob's twins; a boss (the commander, the final assault's Warboss) that finds no free slot (the dying keep theirs) is tried again each tick, and before each try the ordinary Orks farthest from his spot that are no man of an army are taken off the map, as many as he needs: the last position's fall always brings the commander, so a battle can always be won (review of 2026-11-10: a full pool left the battle unwinnable) | - | per tick | `TfwBattle.PromoteOrks`, `MakeOrks`, `SpawnBoss`, `RetryBoss`, `MakeRoom`, `EliteBodies` | review 2026-11-10 | ours | high |
 | Test aid: old big spawns | server `SM_TFW_OLD_BIG_SPAWNS=1`: one of each big Ork, under the caps, 2 Boss Orks at most and the full waits, as before 2026-11-10 (the 100 % counts stay); `OrkTotalsProfileTests` takes `SM_ARMY_PROFILE_SECONDS` (at most 900) and `SM_ARMY_PROFILE_BOSSES` (at most 8) | - | - | `TfwBattleRules.OldBigSpawns` | ours | ours | - |
+
+### Musou's arsenal: the base (W0, claude/arsenal-w0, 2026-11-10; Musou Mode only; no simulation, wire, protocol, config-hash or rules-version change)
+
+The owner approved docs/new-weapons-design.md as written (2026-11-10). W0 adds the base the four items are built on and no item yet: nothing a player meets changes, in Musou Mode or anywhere else.
+- **The registry.** Four names, appended at the ends of Musou's lists by their milestones (no existing index moves): `sm_mp_exotic_auto_cannon` (W1, ours: the loyalist twin of the install's Chaos file), `sm_mp_melee_lightning_claw` (W2, ours), `sm_mp_melee_power_spear` (W3, ours), `sm_mp_eq_demolition_charge` (W4, the install's own file, which no class lists). `ArsenalRules` (SmSim) and `Arsenal` (SmContent) in `Extras/Musou/Arsenal/`; `Arsenal.Append` runs in the match tuning's load dispatcher before `MusouLoadout.Prepare`, under `ContentExtras.Musou` only.
+- **Core hooks** (pinned in `ExtrasBoundaryTests`, each a no-op for every install name): `MpClasses.ExtrasMeleeMap` (an added melee weapon on a data weapon's map), `Loadouts.ExtrasWieldsHammer` (the hammer's jump-pack rules), `PerkCatalog.ExtrasItems` (the customizer's rows, only for a content profile with Musou: `PerkCatalog.For`, `CustomizationCatalog.For`, `CustomizerServices.Catalog`) with `ProfileViews.ExtrasSetCatalog` (Musou's loadout set read and repaired with Musou's catalogue, so a Musou slot keeps an arsenal item; Classic's slots with the data's), `WeaponRig.ExtrasWeaponModel` (a model of another package or built in code, and the always-held flag), `NetworkView.ExtrasThrownVisual` (a thrown item's model), `AnimationAlias.ExtrasAnimationAlias` (the data weapon whose animations an added one plays: read by the hip-fire, sprint, reload and flinch name rules, the falls through the hip-fire family, and the client's hammer stance).
+- **The clip-speed factor** (`MeleeTuning.WeaponMap.ClipSpeed`): an added map's strikes play that many times faster than their clips (every step's duration, hit and windows divided by it); 1 for every map of the data, whose reads stay byte-identical. The client poses a single-clip strike at the same rate (`NetworkView.MeleeClipSpeed`); a strike with distance variants is scaled to the step's duration already. The values (the claw 1.25, the spear 0.85) come with W2 and W3.
+- **Musou call sites** (no-op partial methods of `World.Arsenal.cs`, one implementer each): the cleave (`ArsenalCleave`), a weapon's own blast at every enemy a round strikes (`ArsenalShotBlast`, the bolt blasts' path), the jump pack's events (`ArsenalJump`), a projectile meeting an enemy or a contraption (`ArsenalProjectileMeets`), once a tick (`ArsenalStep`), and the per-item refill period (`ArsenalRefillSeconds`; 15 s for every item until W4).
+- **Not yet hooked** (for W2 and W3 to raise with the lead): the jump pack's own moves (the dash attack, the ground pound, the air slash) are the pack's, not the weapon's, so the clip-speed factor does not reach them; the presentation name rules other than the five above (hit sounds, the power flash, the power sword's glow and idle sound) read the names as they are.
+
+### Musou's arsenal: W1, the autocannon (docs/new-weapons-design.md section 4)
+
+Nothing yet: W1 adds its rows here.
+
+### Musou's arsenal: W2, the lightning claw (docs/new-weapons-design.md section 5)
+
+Nothing yet: W2 adds its rows here.
+
+### Musou's arsenal: W3, the power spear (docs/new-weapons-design.md section 6)
+
+Nothing yet: W3 adds its rows here.
+
+### Musou's arsenal: W4, the Remote Detonators (docs/new-weapons-design.md section 7)
+
+Nothing yet: W4 adds its rows here.

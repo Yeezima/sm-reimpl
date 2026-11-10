@@ -234,7 +234,7 @@ public partial class NetworkView
     /// </summary>
     bool HammerStance(PlayerState s) =>
         !NoMeleeFlow && s.Alive && !PistolUp(s) && _config is not null
-        && MeleeWargear(s) is { } w && w.Contains("_2hand_", StringComparison.OrdinalIgnoreCase) && Loadouts.ClassOf(_config, s.Class)?.Race != Race.Orks;
+        && MeleeWargear(s) is { } w && AnimationAlias.Of(w).Contains("_2hand_", StringComparison.OrdinalIgnoreCase) && Loadouts.ClassOf(_config, s.Class)?.Race != Race.Orks;   // AnimationAlias: Musou's spear holds as the hammer
 
     /// <summary>
     /// The pistol is up: aim mode, or the simulation holding the weapon ready after a shot, raising it, charging or with a shot pending. Not <see cref="HipReady"/>, which is also false

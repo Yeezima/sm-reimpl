@@ -315,7 +315,7 @@ public sealed class WeaponAsset
 /// ranged weapon away while it is out.
 /// </para>
 /// </summary>
-public sealed class WeaponRig
+public sealed partial class WeaponRig
 {
     // Roles are SmContent.HandRole; Grenade (Ork O6) is a thrown item held in hand only while SetGrenadeHeld says so (hidden otherwise), not a ranged weapon (no muzzle or magazine queries).
 
@@ -460,7 +460,15 @@ public sealed class WeaponRig
 
     void AddItem(Role role, string? wargear)
     {
-        if (wargear is null || _assets.Catalogue.Held(wargear) is not { } attachment || _assets.Get(attachment) is not { Mesh: { } mesh } asset) return;
+        if (wargear is null) return;
+        var attachment = _assets.Catalogue.Held(wargear);
+        WeaponAsset? asset = null;
+        bool alwaysHeld = false;
+        if (attachment is null) ExtrasWeaponModel(role, wargear, _assets, ref attachment, ref asset, ref alwaysHeld);   // EXTRAS-HOOK added content (Musou's arsenal): a weapon of its own
+        if (attachment is null) return;
+        asset ??= _assets.Get(attachment);
+        if (asset is not { Mesh: { } mesh }) return;
+        if (alwaysHeld && role == Role.Melee) AlwaysMelee = true;   // Musou's lightning claw: never put away (the jump-pack classes' rule, for this one weapon)
         var item = new Item { Role = role, Attachment = attachment, Asset = asset };
         if (attachment.Wield is { Bone: not null } wield) item.Wield = MarineAssets.ToGodot(asset.Model.RootToBone(wield));
         item.StowMount = WeaponStowSpots.For(attachment);
@@ -481,6 +489,12 @@ public sealed class WeaponRig
         item.Node.AddChild(item.Holder);
         _items.Add(item);
     }
+
+    /// <summary>
+    /// Added content: the model of a weapon of its own (<paramref name="wargear"/>, which the data's catalogue has no held model for): its attachment (where it hangs, another package's model)
+    /// and, for a model built in code, its asset; <paramref name="alwaysHeld"/> keeps a melee weapon in hand at all times. Nothing without added content.
+    /// </summary>
+    partial void ExtrasWeaponModel(SmContent.HandRole role, string wargear, WeaponAssets assets, ref WeaponAttachment? attachment, ref WeaponAsset? asset, ref bool alwaysHeld);
 
     void Clear()
     {

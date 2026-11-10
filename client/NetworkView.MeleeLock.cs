@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Godot;
+using SmContent;
 using SmNet;
 using SmSim;
 using V2 = System.Numerics.Vector2;
@@ -96,11 +97,13 @@ public partial class NetworkView
     /// The attack's clips to pose at <paramref name="time"/>: the variant below the start distance (posed) and the one above with its weight (laid over it),
     /// each at its own time: the simulation spreads every variant's root motion over the attack's duration, so a clip of another length is posed at the
     /// same fraction of itself (the chainsword's third attack has variants of different lengths). Or the single clip <paramref name="fallback"/> at
-    /// <paramref name="time"/> (no reach data, a variant the rig cannot decode, <c>--no-melee-variants</c>). Notes the start distance when a new attack begins.
+    /// <paramref name="time"/> (no reach data, a variant the rig cannot decode, <c>--no-melee-variants</c>), times the weapon's clip speed (<see cref="MeleeClipSpeed"/>: 1 but for Musou's
+    /// arsenal, whose steps are that much shorter than their clips). Notes the start distance when a new attack begins.
     /// </summary>
     (string Base, float BaseTime, string? Over, float OverTime, float Weight) AttackVariants(PlayerState s, bool own, string fallback, float time)
     {
-        if (NoMeleeVariants || _config is null || _assets is null || Combat.MeleeStepOf(_config, s) is not { Reach: { Variants.Count: > 1 } reach } step) return (fallback, time, null, 0f, 0f);
+        float single = time * MeleeClipSpeed(s);   // the single clip's time: the variants below are scaled to the step's duration already
+        if (NoMeleeVariants || _config is null || _assets is null || Combat.MeleeStepOf(_config, s) is not { Reach: { Variants.Count: > 1 } reach } step) return (fallback, single, null, 0f, 0f);
         var show = ShowOf(s.PlayerId);
         if (show.Step != s.MeleeStep || show.Heavy != s.MeleeHeavy || s.MeleeTime + 1e-4f < show.Time)
         {
@@ -110,13 +113,27 @@ public partial class NetworkView
         }
         show.Time = s.MeleeTime;
         var (low, high, w) = reach.Blend(show.StartDistance);
-        if (low is null || ClipLength(low.Clip) is not float lowLength) return (fallback, time, null, 0f, 0f);
+        if (low is null || ClipLength(low.Clip) is not float lowLength) return (fallback, single, null, 0f, 0f);
         float Scaled(float length) => step.Duration > 1e-4f ? time * length / step.Duration : time;
         if (high is null || w < 0.02f || ClipLength(high.Clip) is not float highLength) return (low.Clip, Scaled(lowLength), null, 0f, 0f);
         if (w > 0.98f) return (high.Clip, Scaled(highLength), null, 0f, 0f);
         return (low.Clip, Scaled(lowLength), high.Clip, Scaled(highLength), w);
 
         float? ClipLength(string clip) => clip.Length > 0 && _assets.Animation(clip) is { } anim ? anim.Animation.Duration : null;
+    }
+
+    readonly Dictionary<string, float> _meleeClipSpeed = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// W0, Musou's arsenal (docs/new-weapons-design.md section 8, hook 6): how many times faster than its clip the player's melee weapon strikes (<see cref="MeleeTuning.WeaponMap.ClipSpeed"/>:
+    /// the claw 1.25, the spear 0.85); 1 for every weapon of the data, so their strikes are posed exactly as before. Read once per weapon.
+    /// </summary>
+    float MeleeClipSpeed(PlayerState s)
+    {
+        if (_config is null || MeleeWargear(s) is not { } wargear) return 1f;
+        if (_meleeClipSpeed.TryGetValue(wargear, out float known)) return known;
+        float speed = MpClasses.MeleeMapFor(wargear) is { ClipSpeed: var k } && float.IsFinite(k) && k > 0f ? k : 1f;
+        return _meleeClipSpeed[wargear] = speed;
     }
 
     /// <summary>The flat distance to the target an attack began on: own, the lock the client sent; others, the enemy the lock search takes along their heading; null: none.</summary>

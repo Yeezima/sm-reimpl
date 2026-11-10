@@ -63,7 +63,26 @@ public sealed partial class CustomizerServices
     /// </summary>
     partial void ExtrasProfileView(ref IProfileView? view);
 
-    public CustomizationCatalog? Catalog { get; private set; }
+    CustomizationCatalog? _catalog;
+    (ContentExtras Content, CustomizationCatalog Data, CustomizationCatalog Shown)? _contentCatalog;
+
+    /// <summary>
+    /// The catalogue as the content profile in effect (<see cref="Content"/>) offers it: <see cref="CustomizationCatalog.For"/>, so Musou's profile lists its arsenal's items (W0, docs/new-weapons-design.md
+    /// section 8, hook 3) and every other profile the data's catalogue itself. The profile is read and repaired with the data's (<see cref="ProfileSession.Catalog"/>). Kept per content profile.
+    /// </summary>
+    public CustomizationCatalog? Catalog
+    {
+        get
+        {
+            if (_catalog is not { } data) return null;
+            var content = Content;
+            if (_contentCatalog is { } known && known.Content == content && ReferenceEquals(known.Data, data)) return known.Shown;
+            var shown = data.For(content);
+            _contentCatalog = (content, data, shown);
+            return shown;
+        }
+        private set => _catalog = value;
+    }
     public ProfileSession? Session { get; private set; }
     public SimConfig? Config { get; private set; }
     /// <summary>Whether each perk does anything in the simulation (the creator's NOT ACTIVE YET / PARTLY ACTIVE words); read once with the config.</summary>
