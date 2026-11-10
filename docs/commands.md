@@ -183,7 +183,7 @@ client.cmd ... --old-armoury-racks :: fix/manufactorum-fluorescent (owner's requ
 
 ## Musou's arsenal (docs/new-weapons-design.md; Musou Mode only)
 
-Each milestone lists its own test aids under its own heading. W0 (the base) adds none.
+Each milestone lists its own test aids under its own heading. W0 (the base) and W0b (presentation by source) add none; W0b's install check is `dotnet test tests/SmFormats.Tests --filter ArsenalPresentationTests` (the twin's effects and sounds; skipped without the install).
 
 ### W1: the autocannon
 None yet.
