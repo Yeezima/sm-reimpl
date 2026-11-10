@@ -165,4 +165,27 @@ public sealed record WeaponPoseClip(string Name, string Weapon, float Duration, 
 
     /// <summary>The off hand's hold on the shaft at <paramref name="t"/> (0 to 1; 1 when the clip has no grip track).</summary>
     public float GripAt(float t) => Grip is { Length: > 0 } g ? Math.Clamp(new PoseChannel("grip", g).Sample(t).Weight, 0f, 1f) : 1f;
+
+    /// <summary>
+    /// Where the carrying (right) hand holds the shaft, metres from the butt, over time (the keys' first field; owner 2026-11-10: "grip higher up on the spear shaft towards the blade" when
+    /// running, "slide the spear inside his hand to hold it lower towards the butt end" for melee). Null: the low melee grip throughout (<see cref="LowGrip"/>).
+    /// </summary>
+    public PoseKey[]? GripPoint { get; init; }
+
+    /// <summary>The melee grip (m from the butt): the hands low on the shaft for the full reach of the hews and the stab.</summary>
+    public const float LowGrip = 0.5f;
+    /// <summary>
+    /// The carry (m from the butt): the hand higher than the melee grip, at the point where the butt hangs just above the ground as he runs (owner, 2026-11-10: "right at the point where the butt
+    /// of the spear is just above the ground"): the hanging hand is about 0.97 m up, the carry tilts 70 degrees, so the butt rides about 0.08 m off the ground. W3's high-grip constant matches this.
+    /// </summary>
+    public const float CarryGrip = 0.95f;
+
+    /// <summary>The carrying hand's place on the shaft at <paramref name="t"/> (m from the butt).</summary>
+    public float GripPointAt(float t) => GripPoint is { Length: > 0 } g ? new PoseChannel("grip point", g).Sample(t).Yaw : LowGrip;
+
+    /// <summary>
+    /// The grip slide for the weapon rig (W3's <c>WeaponRig.GripSlide</c>, 0 = the high carry grip just below the collar, 1 = the low melee grip near the butt), from
+    /// <see cref="GripPointAt"/>: the match sets <c>WeaponRig.GripSlideDriven</c> and feeds this each frame at the strike's time, so the slide is the one authored with the hews and the stab.
+    /// </summary>
+    public float GripSlideAt(float t) => Math.Clamp((CarryGrip - GripPointAt(t)) / (CarryGrip - LowGrip), 0f, 1f);
 }

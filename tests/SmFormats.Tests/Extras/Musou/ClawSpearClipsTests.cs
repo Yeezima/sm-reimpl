@@ -17,9 +17,11 @@ public class ClawSpearClipsTests
     [InlineData("claw_x3", 1.767f, 0.433f, 1.25f)]
     [InlineData("claw_x4", 1.667f, 0.533f, 1.25f)]
     [InlineData("claw_heavy", 1.5f, 0.33f, 1.25f)]
-    [InlineData("spear_forehand", 2.667f, 0.604f, 0.85f)]
-    [InlineData("spear_backhand", 2.333f, 0.567f, 0.85f)]
-    [InlineData("spear_spin", 2.333f, 0.700f, 0.85f)]
+    [InlineData("spear_hew1", 2.667f, 0.604f, 0.85f)]
+    [InlineData("spear_hew2", 2.333f, 0.567f, 0.85f)]
+    [InlineData("spear_hew3", 2.333f, 0.700f, 0.85f)]
+    [InlineData("spear_stun", 1.667f, 0.433f, 0.85f)]   // the hammer's Y interrupt SM_MEL_TH_Ytap_ATK
+    [InlineData("spear_stab", 3.0f, 1.1f, 0.85f)]       // the hammer's Y,Y slam SM_MEL_TH_YATK_Displace2
     public void Each_strike_keeps_the_borrowed_timing_at_the_design_tempo(string name, float length, float hit, float tempo)
     {
         var clip = ClawSpearClips.ByName(name) ?? throw new Xunit.Sdk.XunitException($"no clip {name}");
@@ -105,7 +107,7 @@ public class ClawSpearClipsTests
     [Fact]
     public void Claw_strikes_and_the_impale_return_to_the_stance_at_their_end()
     {
-        foreach (var clip in ClawSpearClips.All.Where(c => !float.IsNaN(c.HitTime) && !ClawSpearClips.SpearSweeps.Contains(c)))
+        foreach (var clip in ClawSpearClips.All.Where(c => !float.IsNaN(c.HitTime) && !ClawSpearClips.SpearStrikes.Contains(c)))
             foreach (var ch in clip.Channels)
             {
                 var end = ch.Sample(clip.Duration);
@@ -119,7 +121,7 @@ public class ClawSpearClipsTests
     {
         var rest = ClawSpearClips.SpearRest.Channels.Where(c => c.Kind == PoseChannelKind.Aim).ToDictionary(c => c.Bone, c => c.Sample(0f));
         Assert.Equal(4, rest.Count);
-        foreach (var clip in ClawSpearClips.SpearSweeps)
+        foreach (var clip in ClawSpearClips.SpearStrikes)
             foreach (var ch in clip.Channels)
             {
                 var end = ch.Sample(clip.Duration);
@@ -130,7 +132,7 @@ public class ClawSpearClipsTests
                 Assert.Equal(1f, end.Weight, 3);
             }
         // The forehand starts from the rest too (the backhand and spin start from the sweep before them).
-        foreach (var ch in ClawSpearClips.SpearForehand.Channels.Where(c => c.Kind == PoseChannelKind.Aim))
+        foreach (var ch in ClawSpearClips.SpearHew1.Channels.Where(c => c.Kind == PoseChannelKind.Aim))
         {
             var start = ch.Sample(0f); var want = rest[ch.Bone];
             Assert.Equal(want.Elevation, start.Elevation, 3);
@@ -146,7 +148,7 @@ public class ClawSpearClipsTests
         Assert.True(rest["RIG_R_UpperArm"].Elevation < -60f && rest["RIG_R_Forearm"].Elevation < -60f);
         Assert.True(rest["RIG_L_UpperArm"].Elevation < -45f && rest["RIG_L_Forearm"].Elevation < -30f);
         Assert.Equal(0f, ClawSpearClips.SpearRest.GripAt(0.7f));
-        foreach (var sweep in ClawSpearClips.SpearSweeps)
+        foreach (var sweep in ClawSpearClips.SpearStrikes)
         {
             Assert.Equal(1f, sweep.GripAt(sweep.HitTime), 3);          // both hands on the shaft through the hit
             Assert.Equal(1f, sweep.GripAt(sweep.Anticipation), 3);     // the left hand is on by the wind-up's apex
@@ -158,17 +160,40 @@ public class ClawSpearClipsTests
     }
 
     [Fact]
+    public void The_shaft_slides_from_the_high_carry_to_the_low_melee_grip_and_back()
+    {
+        // Owner 2026-11-10: gripped high toward the blade when running, slid low toward the butt for melee.
+        Assert.Equal(WeaponPoseClip.CarryGrip, ClawSpearClips.SpearRest.GripPointAt(0.5f));
+        foreach (var first in new[] { ClawSpearClips.SpearHew1, ClawSpearClips.SpearStun })   // the strikes begun from the carry
+        {
+            Assert.Equal(WeaponPoseClip.CarryGrip, first.GripPointAt(0f));
+            Assert.Equal(WeaponPoseClip.LowGrip, first.GripPointAt(ClawSpearClips.GripSlide), 3);
+            Assert.Equal(WeaponPoseClip.LowGrip, first.GripPointAt(first.HitTime), 3);
+            Assert.Equal(WeaponPoseClip.CarryGrip, first.GripPointAt(first.Duration), 3);
+            if (!float.IsNaN(first.NextAt)) Assert.Equal(WeaponPoseClip.LowGrip, first.GripPointAt(first.NextAt), 3);   // a chained strike takes over the low grip
+        }
+        foreach (var chained in new[] { ClawSpearClips.SpearHew2, ClawSpearClips.SpearHew3 })
+        {
+            Assert.Equal(WeaponPoseClip.LowGrip, chained.GripPointAt(0f), 3);
+            Assert.Equal(WeaponPoseClip.CarryGrip, chained.GripPointAt(chained.Duration), 3);
+        }
+        Assert.True(ClawSpearClips.SpearStab.GripPointAt(ClawSpearClips.SpearStab.HitTime) < WeaponPoseClip.LowGrip, "the stab holds the shaft at the butt for the reach");
+        Assert.Equal(WeaponPoseClip.LowGrip, ClawSpearClips.SpearDive.GripPointAt(0.5f));   // no track: the melee grip
+        Assert.Equal(0.627f, ClawSpearClips.SpearStun.NextAt, 3);   // F, F: the hammer's BRANCH_To_Slam window opens at 0.533 s, at the spear's tempo
+    }
+
+    [Fact]
     public void Every_spear_sweep_steps_and_moves_the_pelvis_and_the_feet_come_back()
     {
-        foreach (var sweep in ClawSpearClips.SpearSweeps)
+        foreach (var sweep in ClawSpearClips.SpearStrikes)
         {
             Assert.Contains(sweep.Channels, c => c.Kind == PoseChannelKind.Move && c.Bone == "RIG_Pelvis");
             Assert.Contains(sweep.Channels, c => c.Kind == PoseChannelKind.Foot);
             Assert.Contains(sweep.Channels, c => c.Kind == PoseChannelKind.Turn && c.Bone == "RIG_Pelvis");
         }
         // The spin ends the string: both feet are back on their spots at its end.
-        foreach (var foot in ClawSpearClips.SpearSpin.Channels.Where(c => c.Kind == PoseChannelKind.Foot))
-            Assert.True(foot.Sample(ClawSpearClips.SpearSpin.Duration).IsZero);
+        foreach (var foot in ClawSpearClips.SpearHew3.Channels.Where(c => c.Kind == PoseChannelKind.Foot))
+            Assert.True(foot.Sample(ClawSpearClips.SpearHew3.Duration).IsZero);
     }
 
     [Fact]

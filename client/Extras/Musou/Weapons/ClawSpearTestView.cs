@@ -102,7 +102,8 @@ public partial class ClawSpearTestView : Node3D
             return;
         }
         var clawString = new[] { ClawSpearClips.ClawX1, ClawSpearClips.ClawX2, ClawSpearClips.ClawX3, ClawSpearClips.ClawX4 };
-        var spearString = new[] { ClawSpearClips.SpearForehand, ClawSpearClips.SpearBackhand, ClawSpearClips.SpearSpin };
+        var spearString = new[] { ClawSpearClips.SpearHew1, ClawSpearClips.SpearHew2, ClawSpearClips.SpearHew3 };
+        var spearStunChain = new[] { ClawSpearClips.SpearStun, ClawSpearClips.SpearStab };
         double t = 0.0;
         // The spear's idle carries its upright rest pose (owner, 2026-11-10); the claw's idle is the stance alone.
         void Idle(string baseClip, double seconds, string weapon) { _segments.Add(new Segment(weapon == "spear" ? ClawSpearClips.SpearRest : null, baseClip, true, t, seconds, weapon)); t += seconds; }
@@ -127,6 +128,8 @@ public partial class ClawSpearTestView : Node3D
         {
             Idle(ClawSpearClips.SpearIdle, 0.8, "spear");
             Chain(spearString, ClawSpearClips.SpearIdle, "spear");
+            Idle(ClawSpearClips.SpearIdle, 1.0, "spear");
+            Chain(spearStunChain, ClawSpearClips.SpearIdle, "spear");   // F, F: the stun strike chains to the stab
             Idle(ClawSpearClips.SpearIdle, 1.0, "spear");
             _segments.Add(new Segment(ClawSpearClips.SpearDive, ClawSpearClips.SpearDiveLoop, false, t, 1.1, "spear")); t += 1.1;
             _segments.Add(new Segment(ClawSpearClips.SpearImpale, ClawSpearClips.SpearDiveImpact, false, t, ClawSpearClips.SpearImpale.Duration, "spear")); t += ClawSpearClips.SpearImpale.Duration;
@@ -177,7 +180,16 @@ public partial class ClawSpearTestView : Node3D
         if (_poseLog && (_logEvery <= 0 || (_logFrames++ % _logEvery) == 0)) LogPose(seg, (float)local);
         bool claw = seg.Weapon == "claw";
         if (_claw is not null) { _claw.Visible = claw; if (claw) _claw.Follow(_marine.Skeleton!); }
-        if (_spear is SpearStandIn spear) { spear.Visible = !claw; if (!claw) { spear.LeftGrip = seg.Clip?.GripAt((float)local) ?? 1f; spear.Follow(_marine.Skeleton!); } }
+        if (_spear is SpearStandIn spear)
+        {
+            spear.Visible = !claw;
+            if (!claw)
+            {
+                spear.LeftGrip = seg.Clip?.GripAt((float)local) ?? 1f;
+                spear.RightHandFromButt = seg.Clip?.GripPointAt((float)local) ?? WeaponPoseClip.LowGrip;
+                spear.Follow(_marine.Skeleton!);
+            }
+        }
         float glow = 0f;
         if (seg.Clip is { } c && !float.IsNaN(c.HitTime))
         {

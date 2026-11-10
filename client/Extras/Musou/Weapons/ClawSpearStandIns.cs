@@ -136,8 +136,18 @@ public partial class SpearStandIn : WeaponStandIn
     readonly Node3D _root = new() { Name = "SpearRoot" };
     /// <summary>The shaft's and the blade's lengths (m) and where the rear (right) hand sits from the butt; the forward (left) hand is wherever the pose puts it along the shaft.</summary>
     public const float Shaft = 1.9f, Blade = 0.9f, RearHandFromButt = 0.5f;
-    /// <summary>How far the left hand is on the shaft (0 to 1; <see cref="SmContent.Extras.Musou.WeaponPoseClip.GripAt"/>): at 0 the spear stands upright from the right hand, at 1 it lies on the line through both hands.</summary>
+    /// <summary>How far the left hand is on the shaft (0 to 1; <see cref="SmContent.Extras.Musou.WeaponPoseClip.GripAt"/>): at 0 the spear is carried in the right hand alone, at 1 it lies on the line through both hands.</summary>
     public float LeftGrip { get; set; } = 1f;
+    /// <summary>
+    /// Where the right hand holds the shaft (m from the butt; <see cref="SmContent.Extras.Musou.WeaponPoseClip.GripPointAt"/>): the low melee grip, or the high carry toward the blade. A model built for W3 needs the
+    /// same two parameters on its mount: the grip point along the shaft and, for the one-handed carry, the shaft's tilt (<see cref="CarryTilt"/>), both driven by the animation.
+    /// </summary>
+    public float RightHandFromButt { get; set; } = RearHandFromButt;
+    /// <summary>
+    /// The one-handed carry's tilt: at the low grip the shaft stands upright from the hand; at the carry grip (0.95 m from the butt) it leans forward to this elevation (degrees above the horizontal),
+    /// so with the hand hanging about 0.97 m up the butt rides a few centimetres off the ground behind the hand and the blade forward-up over the shoulder (ours, from the owner's rule).
+    /// </summary>
+    public const float CarryTilt = 70f;
 
     public override void _Ready() { AddChild(_root); }
 
@@ -151,14 +161,34 @@ public partial class SpearStandIn : WeaponStandIn
         if (d.LengthSquared() < 1e-4f) d = new Vector3(1f, 0f, 0f);
         d = d.Normalized();
         float grip = Math.Clamp(LeftGrip, 0f, 1f);
-        if (grip < 1f) d = (new Vector3(0f, 0f, 1f).Lerp(d, grip)).Normalized();   // carried in the right hand alone: upright; the left hand's hold brings it onto the two-hand line
-        var butt = r - d * RearHandFromButt;
+        if (grip < 1f)
+        {
+            // Carried in the right hand alone: upright at the low grip, tilted forward-up at the high carry grip (the body's front read from the hips); the left hand's hold brings it onto the two-hand line.
+            float high = Math.Clamp((RightHandFromButt - RearHandFromButt) / (SmContent.Extras.Musou.WeaponPoseClip.CarryGrip - RearHandFromButt), 0f, 1f);
+            float el = Mathf.DegToRad(Mathf.Lerp(90f, CarryTilt, high));
+            var front = CarryFront(s);
+            var carry = (front * MathF.Cos(el) + new Vector3(0f, 0f, 1f) * MathF.Sin(el)).Normalized();
+            d = carry.Lerp(d, grip).Normalized();
+        }
+        var butt = r - d * RightHandFromButt;
         _root.Transform = new Transform3D(Frame(d, new Vector3(0f, 0f, 1f)), butt);
         if (_field is not null)
         {
             float e = 0.8f + 2.2f * Glow;
             _field.EmissionEnergyMultiplier = e; if (_fieldBase is not null) _fieldBase.EmissionEnergyMultiplier = e * 1.3f;
         }
+    }
+
+    int _lThigh = -2, _rThigh = -2;
+
+    /// <summary>The body's flat front from the hips (skeleton space), for the carry's tilt.</summary>
+    Vector3 CarryFront(Skeleton3D s)
+    {
+        if (_lThigh == -2) { _lThigh = s.FindBone("RIG_L_Thigh"); _rThigh = s.FindBone("RIG_R_Thigh"); }
+        if (_lThigh < 0 || _rThigh < 0) return new Vector3(1f, 0f, 0f);
+        var across = s.GetBoneGlobalPose(_rThigh).Origin - s.GetBoneGlobalPose(_lThigh).Origin;
+        across.Z = 0f;
+        return across.LengthSquared() > 1e-6f ? new Vector3(0f, 0f, 1f).Cross(across.Normalized()).Normalized() : new Vector3(1f, 0f, 0f);
     }
 
     void Build()
