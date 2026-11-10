@@ -12,10 +12,12 @@ public readonly record struct LibrarianView(ushort Player, float Stress, bool Lo
 /// The Librarian on the wire (Musou Mode only; envelope tag <see cref="Tag"/> = 16 with the war's tags 7 to 15; no protocol bump, other profiles never hear it). One section for every living Librarian, to every
 /// client: <c>[u8 count]</c> then per Librarian <c>[u16 player][u16 stress in tenths][u8 flags: 1 locked, 2 casting][u8 pull cooldown in tenths][u8 shockwave cooldown in tenths][u8 pulls cast][u8 shockwaves cast]
 /// [u8 links]</c> and, with at least one link, the chain: <c>[i16 x][i16 y][i16 z]</c> twice (the first link's from and to, decimetres), then per further link <c>[i8 dx][i8 dy][i8 dz]</c>, its end less the
-/// one before in decimetres (MusouSim 14, the Librarian's second pass: 3 bytes a jump instead of 12, so all <see cref="LibrarianRules.MaxDrawnLinks"/> = 40 fit: 4 x (10 + 12 + 39 x 3) = 556 bytes, one section).
+/// one before in steps of <see cref="JumpStep"/> = 0.2 m (MusouSim 14, the Librarian's second pass: 3 bytes a jump instead of 12, so all <see cref="LibrarianRules.MaxDrawnLinks"/> = 40 fit: 4 x (10 + 12 + 39 x 3) = 556 bytes,
+/// one section; decimetres until MusouSim 42, when the jump grew from 8 m to 16 m: a decimetre byte reaches 12.7 m, a 0.2 m byte 25.4 m).
 /// The chain is a line (each jump starts where the last one ended, <c>LibrarianPsyker.Lightning</c>), and a jump is at most <see cref="LibrarianRules.JumpRadius"/> across and a body's chest up or down, well
-/// inside the 12.7 m a signed byte reaches; a link that does not continue the line or reaches further ends the drawing there (it is never sent wrong). The deltas are taken between the quantised points, so the
-/// rounding never adds up along the chain. A client plays a Pull or a Shockwave when its count changes (a lost copy is repeated by the next section), and draws the links while they keep coming.
+/// inside the 25.4 m a signed byte reaches; a link that does not continue the line or reaches further ends the drawing there (it is never sent wrong). Each jump is taken from the point the reader rebuilt
+/// for the one before, so the rounding (at most 0.1 m an axis) never adds up along the chain. A client plays a Pull or a Shockwave when its count changes (a lost copy is repeated by the next section), and
+/// draws the links while they keep coming.
 /// </summary>
 public static class LibrarianWire
 {
@@ -43,6 +45,9 @@ public static class LibrarianWire
     /// <summary>The largest payload: four Librarians with every link drawn (557 bytes with the count; one section takes up to <c>Protocol.MaxExtrasPayloadBytes</c>).</summary>
     public const int MaxPayloadBytes = 1 + MaxLibrarians * (RecordBytes + FirstLinkBytes + (LibrarianRules.MaxDrawnLinks - 1) * JumpBytes);
     const float Step = 0.1f;
+    /// <summary>A further link's step: the jump bytes count in 0.2 m (two of the points' decimetres; MusouSim 42, for the 16 m jump).</summary>
+    public const float JumpStep = Step * JumpDecimetres;
+    const int JumpDecimetres = 2;
 
     /// <summary>The bytes of a chain of <paramref name="links"/> links.</summary>
     public static int ChainBytes(int links) => links <= 0 ? 0 : FirstLinkBytes + (links - 1) * JumpBytes;
@@ -55,13 +60,26 @@ public static class LibrarianWire
         var last = Quantise(links[0].To);
         for (int k = 1; k < n; k++)
         {
-            if (Quantise(links[k].From) != last) return k;
-            var to = Quantise(links[k].To);
-            if (!Fits(to.X - last.X) || !Fits(to.Y - last.Y) || !Fits(to.Z - last.Z)) return k;
-            last = to;
+            if (Quantise(links[k].From) != Quantise(links[k - 1].To)) return k;
+            if (!Jump(last, links[k].To, out var step)) return k;
+            last = Land(last, step);
         }
         return n;
     }
+
+    /// <summary>The jump from <paramref name="last"/> (the point the reader rebuilt for the link before) to <paramref name="to"/> in <see cref="JumpStep"/>s; false when it is not a finite point or a byte cannot carry it.</summary>
+    static bool Jump(Q last, Vector3 to, out Q step)
+    {
+        step = default;
+        if (!float.IsFinite(to.X) || !float.IsFinite(to.Y) || !float.IsFinite(to.Z)) return false;
+        float x = (to.X / Step - last.X) / JumpDecimetres, y = (to.Y / Step - last.Y) / JumpDecimetres, z = (to.Z / Step - last.Z) / JumpDecimetres;
+        if (MathF.Abs(x) > 1000f || MathF.Abs(y) > 1000f || MathF.Abs(z) > 1000f) return false;
+        step = new Q((int)MathF.Round(x), (int)MathF.Round(y), (int)MathF.Round(z));
+        return Fits(step.X) && Fits(step.Y) && Fits(step.Z);
+    }
+
+    /// <summary>Where a jump of <paramref name="step"/> from <paramref name="last"/> lands, in decimetres (the writer and the reader the same).</summary>
+    static Q Land(Q last, Q step) => new(last.X + step.X * JumpDecimetres, last.Y + step.Y * JumpDecimetres, last.Z + step.Z * JumpDecimetres);
 
     public static byte[] Write(IReadOnlyList<LibrarianView> views)
     {
@@ -92,11 +110,11 @@ public static class LibrarianWire
             at += FirstLinkBytes;
             for (int l = 1; l < links; l++)
             {
-                var to = Quantise(v.Links[l].To);
-                bytes[at] = (byte)(sbyte)(to.X - last.X);
-                bytes[at + 1] = (byte)(sbyte)(to.Y - last.Y);
-                bytes[at + 2] = (byte)(sbyte)(to.Z - last.Z);
-                last = to;
+                Jump(last, v.Links[l].To, out var step);   // fits: Drawable checked every link up to here
+                bytes[at] = (byte)(sbyte)step.X;
+                bytes[at + 1] = (byte)(sbyte)step.Y;
+                bytes[at + 2] = (byte)(sbyte)step.Z;
+                last = Land(last, step);
                 at += JumpBytes;
             }
         }
@@ -125,7 +143,7 @@ public static class LibrarianWire
                 p += FirstLinkBytes;
                 for (int l = 1; l < links; l++, p += JumpBytes)
                 {
-                    var to = new Q(last.X + (sbyte)s[p], last.Y + (sbyte)s[p + 1], last.Z + (sbyte)s[p + 2]);
+                    var to = Land(last, new Q((sbyte)s[p], (sbyte)s[p + 1], (sbyte)s[p + 2]));
                     drawn.Add(new LibrarianLink(Metres(last), Metres(to)));
                     last = to;
                 }

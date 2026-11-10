@@ -167,14 +167,14 @@ public class MusouLibrarianReliabilityTests(ITestOutputHelper output)
     {
         var (w, me, forward, side, pitch) = Scene(15f);
         var musou = w.Musou!;
-        // Two Boys 15 m out: A on the aim, B 8.5 m to the side (out of the 12 degree cone and out of A's 8 m jump).
+        // Two Boys 15 m out: A on the aim, B 17 m to the side (out of the 12 degree cone and out of A's 16 m jump; 8.5 m when the jump was 8 m, until 2026-11-11).
         ushort a = musou.Spawn(MusouEnemyType.Boy, me.Position + forward * 15f, 0f, 1e6f);
-        ushort b = musou.Spawn(MusouEnemyType.Boy, me.Position + forward * 15f + side * 8.5f, 0f, 1e6f);
+        ushort b = musou.Spawn(MusouEnemyType.Boy, me.Position + forward * 15f + side * 17f, 0f, 1e6f);
         for (int t = 0; t < 3; t++) w.Step(_ => default);
         uint view = w.Tick;   // the client draws this tick
-        // Then they swap places on the server (within the slack, 3 m a tick since the view: 9 m two ticks on): A off the aim, B on it.
+        // Then they swap places on the server (within the slack, 3 m a tick since the view: 21 m six ticks on): A off the aim, B on it.
         Swap(musou, a, b);
-        w.Step(_ => default);
+        for (int t = 0; t < 5; t++) w.Step(_ => default);
         Assert.NotNull(w.LibrarianHistory);
 
         var before = (Health(musou, a), Health(musou, b));
@@ -228,7 +228,7 @@ public class MusouLibrarianReliabilityTests(ITestOutputHelper output)
         var (w, me, forward, side, pitch) = Scene(15f, LibrarianVariant.Parse("rewind"));
         var musou = w.Musou!;
         ushort a = musou.Spawn(MusouEnemyType.Boy, me.Position + forward * 15f, 0f, 1e6f);
-        ushort b = musou.Spawn(MusouEnemyType.Boy, me.Position + forward * 15f + side * 10f, 0f, 1e6f);
+        ushort b = musou.Spawn(MusouEnemyType.Boy, me.Position + forward * 15f + side * 17f, 0f, 1e6f);   // out of A's 16 m jump (10 m when it was 8 m)
         for (int t = 0; t < 3; t++) w.Step(_ => default);
         uint view = w.Tick;
         Swap(musou, a, b);
@@ -256,7 +256,7 @@ public class MusouLibrarianReliabilityTests(ITestOutputHelper output)
         var psyker = w.LibrarianOf(1)!;
         Assert.Equal(2, psyker.Links.Count);   // hand to A, A to B: as drawn
         Assert.Equal(1, psyker.LastStruck);    // only B is alive to take it
-        Assert.Equal(LibrarianRules.PrimaryDps * Dt * LibrarianRules.JumpFalloff, hb - Health(musou, b), 2);   // B's share is the second link's
+        Assert.Equal(LibrarianRules.PrimaryDps * Dt, hb - Health(musou, b), 2);   // B's share is the second link's: the first's (no fall-off since 2026-11-11)
     }
 
     [Fact]
@@ -285,8 +285,7 @@ public class MusouLibrarianReliabilityTests(ITestOutputHelper output)
         Assert.Equal(112.5f, LibrarianRules.PrimaryDps);
         Assert.Equal(30f * 1.25f, LibrarianRules.LightningRange);
         Assert.Equal(90f * 1.25f, LibrarianRules.PrimaryDps);
-        Assert.Equal(8f, LibrarianRules.JumpRadius);   // not the range: our reading
-        Assert.Equal(0.85f, LibrarianRules.JumpFalloff);
+        Assert.Equal(16f, LibrarianRules.JumpRadius);   // not the range (our reading); doubled on its own by the owner's "16 m (double)" of 2026-11-11 (MusouTuning1111bTests)
 
         foreach (var (distance, reached) in new[] { (35f, true), (37f, true), (39f, false) })
         {

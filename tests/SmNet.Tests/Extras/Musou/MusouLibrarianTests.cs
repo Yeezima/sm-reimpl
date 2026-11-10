@@ -167,7 +167,7 @@ public class MusouLibrarianTests
     // ---------------------------------------------------------------- chain lightning
 
     [Fact]
-    public void The_chain_strikes_forty_at_most_and_each_jump_takes_85_percent_of_the_one_before()
+    public void The_chain_strikes_forty_at_most_and_every_link_takes_the_same()
     {
         var r = new Rig();
         r.Eye = MusouSim.Chest(Vector3.Zero, r.Sim.Body(MusouEnemyType.Boy).Height);
@@ -179,7 +179,7 @@ public class MusouLibrarianTests
         for (int k = 0; k < 50; k++)
         {
             float lost = 10000f - r.Get(ids[k]).Health;
-            if (k < LibrarianRules.MaxTargets) Assert.Equal(primary * MathF.Pow(LibrarianRules.JumpFalloff, k), lost, 0.001f);
+            if (k < LibrarianRules.MaxTargets) Assert.Equal(primary, lost, 0.001f);   // no fall-off since the owner's 2026-11-11 "it always stays constant" (each jump x0.85 before)
             else Assert.Equal(0f, lost);
         }
         Assert.Equal(LibrarianRules.MaxDrawnLinks, r.Psyker.Links.Count);   // the drawing is capped, the damage is not
@@ -192,9 +192,9 @@ public class MusouLibrarianTests
         var r = new Rig();
         r.Eye = MusouSim.Chest(Vector3.Zero, r.Sim.Body(MusouEnemyType.Boy).Height);
         var near = r.Add(MusouEnemyType.Boy, 0f, 10f, 1000f);
-        var second = r.Add(MusouEnemyType.Boy, 0f, 17f, 1000f);   // 7 m on: in reach
-        var third = r.Add(MusouEnemyType.Boy, 0f, 26f, 1000f);    // 9 m on: past the 8 m jump
-        var far = r.Add(MusouEnemyType.Boy, 0f, 45f, 1000f);      // beyond 30 m from him
+        var second = r.Add(MusouEnemyType.Boy, 0f, 25f, 1000f);   // 15 m on: in reach of the 16 m jump (owner 2026-11-11; 8 m before)
+        var third = r.Add(MusouEnemyType.Boy, 0f, 42f, 1000f);    // 17 m on: past it
+        var far = r.Add(MusouEnemyType.Boy, 0f, 80f, 1000f);      // beyond 37.5 m from him
         r.Cast(Hold);
         Assert.Equal(2, r.Psyker.LastStruck);
         Assert.True(r.Get(near).Health < 1000f && r.Get(second).Health < 1000f);
@@ -459,7 +459,7 @@ public class MusouLibrarianTests
         Assert.Equal((4, 9), (read[0].PullCount, read[0].ShockwaveCount));
         Assert.Equal(2, read[0].Links.Count);
         Assert.Equal(links[0].From.X, read[0].Links[0].From.X, 0.06f);
-        Assert.Equal(links[1].To.Z, read[0].Links[1].To.Z, 0.06f);
+        Assert.Equal(links[1].To.Z, read[0].Links[1].To.Z, 0.11f);   // a jump's end: within half a 0.2 m step (MusouSim 42; half a decimetre before)
         Assert.True(read[1].Locked);
         Assert.Equal(11.9f, read[1].ShockwaveCooldown, 0.001f);
         Assert.Equal((byte)255, read[1].PullCount);

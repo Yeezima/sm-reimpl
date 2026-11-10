@@ -343,7 +343,7 @@ public static class LibrarianPowers
         new("Chain lightning", "Fire, hold", "LightningRange", true,
         [
             new("lightning arcs up to {0} m", "LightningRange"), new("jumps up to {0} m from Ork to Ork", "JumpRadius"), new("at most {0} targets", "MaxTargets"),
-            new("{0} damage a second, x{1} each jump", "PrimaryDps", "JumpFalloff"), new("adds {0} stress a second", "LightningStressPerSecond"),
+            new("{0} damage a second to every Ork in the chain", "PrimaryDps"), new("adds {0} stress a second", "LightningStressPerSecond"),
         ]),
         new("Warp Pull", "Grenade", "PullRange", true,
         [

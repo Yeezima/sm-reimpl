@@ -33,7 +33,7 @@ public class MusouLibrarianPass2Tests
         var at = new Vector3(120.37f, -48.91f, 3.13f);
         for (int k = 0; k < LibrarianRules.MaxTargets; k++)
         {
-            at += new Vector3(rng.NextSingle() * 15f - 7.5f, rng.NextSingle() * 15f - 7.5f, rng.NextSingle() * 6f - 3f);   // within the jump radius and the vertical reach
+            at += new Vector3(rng.NextSingle() * 30f - 15f, rng.NextSingle() * 30f - 15f, rng.NextSingle() * 6f - 3f);   // within the 16 m jump (an axis up to 15 m: past a decimetre byte's 12.7) and the vertical reach
             targets.Add(at);
         }
         var links = Chain(new Vector3(100.04f, -60.06f, 1.77f), targets);
@@ -45,7 +45,7 @@ public class MusouLibrarianPass2Tests
         Assert.Equal(40, got.Count);
         for (int k = 0; k < 40; k++)
         {
-            Assert.True(Vector3.Distance(got[k].To, links[k].To) <= 0.0867f, $"link {k}: {links[k].To} -> {got[k].To}");   // half a decimetre per axis at most, at the 40th as at the first
+            Assert.True(Vector3.Distance(got[k].To, links[k].To) <= (k == 0 ? 0.0867f : 0.1733f), $"link {k}: {links[k].To} -> {got[k].To}");   // half a decimetre per axis for the first link's two points, a jump step's half (0.1 m) after: at the 40th as at the second
             if (k > 0) Assert.Equal(got[k - 1].To, got[k].From);   // the drawn chain is a line
         }
         Assert.True(Vector3.Distance(got[0].From, links[0].From) <= 0.0867f);
@@ -69,7 +69,7 @@ public class MusouLibrarianPass2Tests
         var broken = Chain(Vector3.Zero, [new(0f, 5f, 1f), new(0f, 10f, 1f), new(0f, 15f, 1f)]);
         broken[2] = new LibrarianLink(new Vector3(9f, 9f, 9f), broken[2].To);   // does not start where the last one ended
         Assert.Equal(2, LibrarianWire.Drawable(broken));
-        var far = Chain(Vector3.Zero, [new(0f, 5f, 1f), new(0f, 18f, 1f)]);   // 13 m: more than a byte's 12.7
+        var far = Chain(Vector3.Zero, [new(0f, 5f, 1f), new(0f, 31f, 1f)]);   // 26 m: more than a byte's 25.4 (0.2 m steps since MusouSim 42; 13 m before, past a decimetre byte's 12.7)
         Assert.Equal(1, LibrarianWire.Drawable(far));
         var read = LibrarianWire.Read(LibrarianWire.Write([View(1, far)]))!;
         Assert.Single(read[0].Links);

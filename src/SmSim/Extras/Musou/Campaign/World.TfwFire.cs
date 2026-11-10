@@ -34,7 +34,7 @@ public sealed partial class World
         fire.SendDue(Tick, rate);
         _fireLanding.Clear();
         fire.Landing(Tick, _fireLanding);
-        foreach (var shell in _fireLanding) TfwShellLands(shell.At);
+        foreach (var shell in _fireLanding) TfwShellLands(shell.At, shell.Caller);
         TfwRunStep(rate);
     }
 
@@ -55,7 +55,7 @@ public sealed partial class World
         int rate = Math.Max(1, Config.TickRate);
         point = atRange ? Vector3.Clamp(point, box.Min, box.Max) : run.Field.Clamp(point);
         point.Z = TfwGroundBelow(point, point.Z);
-        TfwBarrage(point, TfwFireTestHeading(player, point), rate);
+        TfwBarrage(point, TfwFireTestHeading(player, point), rate, player);
         if (!atRange) run.Fire.OrbitalCalled(player, Tick, rate);
         return true;
     }
@@ -101,8 +101,11 @@ public sealed partial class World
         return Collision.Weapons.Raycast(new Vector3(at.X, at.Y, top), -Vector3.UnitZ, top - Collision.Weapons.Min.Z + 1f) is { } hit ? hit.Point.Z : z;
     }
 
-    /// <summary>A barrage walks along a line through <paramref name="aim"/> on <paramref name="heading"/> (radians); the shells are laid at once and the records go out as each one's telegraph falls due.</summary>
-    void TfwBarrage(Vector3 aim, float heading, int rate)
+    /// <summary>
+    /// A barrage walks along a line through <paramref name="aim"/> on <paramref name="heading"/> (radians); the shells are laid at once and the records go out as each one's telegraph falls due.
+    /// <paramref name="caller"/>: the player whose orbital strike it is (0: none), carried by every shell (<see cref="TfwShell.Caller"/>).
+    /// </summary>
+    void TfwBarrage(Vector3 aim, float heading, int rate, int caller = 0)
     {
         var fire = _tfw!.Fire;
         uint t = Tick;
@@ -118,17 +121,21 @@ public sealed partial class World
             var at = aim + way * along + scatter;
             at = new Vector3(Math.Clamp(at.X, box.Min.X, box.Max.X), Math.Clamp(at.Y, box.Min.Y, box.Max.Y), 0f);
             at.Z = TfwGroundBelow(at, aim.Z);
-            fire.AddShell(new TfwShell(first + (uint)MathF.Round(k * TfwFireRules.ShellStep * rate), (ushort)k, at, false));
+            fire.AddShell(new TfwShell(first + (uint)MathF.Round(k * TfwFireRules.ShellStep * rate), (ushort)k, at, false, caller));
         }
         fire.Started(t);
     }
 
-    /// <summary>A shell lands: see the class summary.</summary>
-    void TfwShellLands(Vector3 at)
+    /// <summary>
+    /// A shell lands: see the class summary. Its damage on the enemies is x1.2 when <paramref name="caller"/> is a human player (owner, 2026-11-11: "Add it to orbital strikes";
+    /// <see cref="MusouRangedDealt"/>, 1 for an AI Marine, for no caller and for one who has left); a kill still carries no player, the players and the Guardsmen take what they took.
+    /// </summary>
+    void TfwShellLands(Vector3 at, int caller = 0)
     {
         var fire = _tfw!.Fire;
         var musou = _musou!;
         MusouBeginTick();
+        float ranged = MusouRangedDealt(caller);
         int n = musou.Query(at, TfwFireRules.BlastRadius, _fireNear, TfwFireRules.BlastRadius);
         for (int k = 0; k < n; k++)
         {
@@ -137,7 +144,7 @@ public sealed partial class World
             var away = new Vector2(e.Position.X - at.X, e.Position.Y - at.Y);
             float distance = away.Length();
             var push = distance > 1e-3f ? away / distance : new Vector2(-MathF.Sin(e.Yaw), MathF.Cos(e.Yaw));
-            float damage = e.Id == _tfw.Battle?.BossId || MusouBossOrks.Is(e.Type) ? TfwFireRules.BossDamage : MathF.Max(e.Health, 1f);   // a Boss Ork is only scratched too (owner, 2026-11-06)
+            float damage = (e.Id == _tfw.Battle?.BossId || MusouBossOrks.Is(e.Type) ? TfwFireRules.BossDamage : MathF.Max(e.Health, 1f)) * ranged;   // a Boss Ork is only scratched too (owner, 2026-11-06); x1.2 for a human's strike (owner, 2026-11-11)
             musou.Damage(e.Id, 0, damage, new Vector3(push, 0.8f), out bool killed, marker: 0, cause: MusouDeathKind.Barrage);
             if (killed) fire.ShellKills++;
         }
@@ -234,8 +241,8 @@ public sealed partial class World
         }
     }
 
-    /// <summary>Test aid: one shell lands at <paramref name="at"/> now.</summary>
-    public void TfwShellForTests(Vector3 at) => TfwShellLands(at);
+    /// <summary>Test aid: one shell lands at <paramref name="at"/> now, called by <paramref name="caller"/> (0: nobody).</summary>
+    public void TfwShellForTests(Vector3 at, int caller = 0) => TfwShellLands(at, caller);
 
     /// <summary>The heading across <paramref name="player"/>'s view of <paramref name="at"/>, so a barrage walks across the screen and not onto its caller.</summary>
     internal float TfwFireTestHeading(int player, Vector3 at)

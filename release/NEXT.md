@@ -13,6 +13,9 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Melee swings reach 40 % less far for every weapon, the power spear's sweep too; the swing line you see shows the new reach.
 - Every ranged attack does 20 % more damage to the Orks: guns, launchers, explosions, grenades and the Remote Detonators.
 - The Librarian's chain lightning now damages exactly the Orks you see it strike, reaches 25 % farther and deals 25 % more damage.
+- The Librarian's chain lightning now leaps twice as far from Ork to Ork (up to 16 m) and no longer weakens down the chain: every Ork it strikes, the last as the first, takes the full damage.
+- Orbital strikes you call now do 20 % more damage to the Orks too, which bosses feel most (ordinary Orks die in the blast either way).
+- Fewer blood sprays and hit effects stay on screen at once in big fights, so a mass of deaths at once should stutter less.
 - Power spear: the jump-pack dive now ends in the point-down impale only when it actually lands on an Ork; a dive that hits nothing lands, dips the spear and brings it straight back up. The carried spear sits closer in at the chest with the blade clear of the crosshair, both hands now hold the shaft in their palms, and the feet stay planted through the steps of the swings.
 - Power spear: the light attacks now swing the spear out in wide sweeps around the marine, his hips turning into each cut and his feet stepping toward the target. While running, the spear and arm stay close in at the chest with the blade clear of the crosshair, and the feet no longer slide along the ground during the lunging swings.
 - Musou Mode in this build does not play with earlier builds: everyone in a Musou match, and the server, needs this update.

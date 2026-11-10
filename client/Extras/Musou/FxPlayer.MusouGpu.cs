@@ -29,7 +29,7 @@ public sealed partial class FxPlayer
 {
     /// <summary>The live-effect cap with the GPU spray path (**ours**: <c>--fx-cap N</c> overrides it; 160 on the CPU path).</summary>
     public const int GpuMaxEffects = FxGpuLayout.GpuMaxEffects;
-    /// <summary>The GPU path's live-effect cap (read once: <c>--fx-cap N</c> or 1,200).</summary>
+    /// <summary>The GPU path's live-effect cap (read once: <c>--fx-cap N</c> or 600, 1,200 until the owner's 2026-11-11 "Drop to 600 blood spray cap").</summary>
     static readonly int GpuCap = FxGpuLayout.EffectCap(gpu: true, FxCapArg());
 
     /// <summary>Segments of a streamer ribbon on the GPU (<see cref="DrawStreamer"/>'s N without a soft head).</summary>

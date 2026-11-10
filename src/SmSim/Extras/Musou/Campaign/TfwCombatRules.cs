@@ -40,8 +40,9 @@ public sealed record TfwCombatRules
     /// <summary>
     /// The players' ranged damage on the enemies in the war (owner, 2026-11-11: "increase all ranged attack damage by 20%"; scope "Musou, players only"): every hit of a human player's gun (<see cref="ScalesPlayer"/>: not an AI Marine's),
     /// launcher and projectile, every splash of theirs (a launcher's or a plasma round's burst, the bolt and autocannon blasts, frag grenades, melta bombs) and the Remote Detonators' blasts times this, on
-    /// the Orks and their contraptions; a plasma burn follows its hit. Our reading of "all ranged": the grenades and charges are in; not the Librarian's spells (their own numbers, LibrarianRules), not the
-    /// fire support the players call (orbital strikes, no player's weapon), not an Ork's own explosion, never the Orks' damage. 1 restores the damage before; the 5-wave run keeps its damage (pinned replay).
+    /// the Orks and their contraptions; a plasma burn follows its hit. Our reading of "all ranged": the grenades and charges are in; not the Librarian's spells (their own numbers, LibrarianRules), not an
+    /// Ork's own explosion, never the Orks' damage. The orbital strike a human player calls is in since the owner's "Add it to orbital strikes" (2026-11-11; on the enemies only, the shells' kills still
+    /// credit nobody). 1 restores the damage before; the 5-wave run keeps its damage (pinned replay).
     /// </summary>
     public float PlayerRangedDamageScale { get; init; } = 1.2f;
 
