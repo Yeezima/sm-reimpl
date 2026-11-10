@@ -701,6 +701,9 @@ public partial class NetworkView : Node3D
     /// <summary>Hook for added content: once a frame after the sound (<see cref="UpdateSound"/>), with the own and the other players' shown states.</summary>
     partial void ExtrasFrame(PlayerState me, IReadOnlyList<PlayerState> others, double delta);
 
+    /// <summary>An added mode's clip time for a marine's strike (Musou Mode's weight pass: the hit and end kept, the wind-up and strike retimed); none leaves it.</summary>
+    partial void ExtrasAttackTime(PlayerState state, bool own, ref float attackTime);
+
     PlayerInput SampleInput(uint tick)
     {
         Ph("input sampling");
@@ -1522,7 +1525,9 @@ public partial class NetworkView : Node3D
         if (AttackClip(state) is { } clip)
         {
             float attackTime = MathF.Max(0f, (smooth is { Kind: ClipKind.Attack } sa ? sa.Time : state.MeleeTime) - HitStopHold(state.PlayerId));
-            var (baseClip, baseTime, overClip, overTime, overWeight) = AttackVariants(state, own, clip, attackTime);
+            float drawnTime = attackTime;   // the clip time drawn; attackTime stays the simulation's for the hand-over and foot-lock gates
+            ExtrasAttackTime(state, own, ref drawnTime);   // EXTRAS-HOOK: added content's drawn strike time (Musou weight pass: the wind-up and strike retimed, the own pose hold)
+            var (baseClip, baseTime, overClip, overTime, overWeight) = AttackVariants(state, own, clip, drawnTime);
             character.ClipRootSpeed = NoMeleeFlow ? float.NaN : MeleeRootSpeed(state, attackTime, ClipLength(baseClip, 0f));   // anim/melee-flow: the clip foot lock's still-foot test
             // anim/melee-flow (NetworkView.MeleeFlow.cs): the blend into the strike from its graph (entry or chain); noted every frame the strike shows, handed over or not.
             float entryBlend = NoMeleeFlow ? ClipBlends.Melee(state.MeleeStep) : MeleeEntryBlend(state);

@@ -29,6 +29,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 ## Summary
 
 Scanned 2831 spec table rows: **2107 tagged**, 501 not tagged (read from data with high confidence), 223 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 636 rows of the changes document.
+Scanned 2849 spec table rows: **2123 tagged**, 502 not tagged (read from data with high confidence), 224 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 636 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -54,6 +55,10 @@ Scanned 2831 spec table rows: **2107 tagged**, 501 not tagged (read from data wi
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 234 | 223 | 125 | 63 | 0 |
 | **All areas** | **2107** | 1860 | 1559 | 675 | 38 |
+| Core simulation (provisional values) | 585 | 559 | 412 | 161 | 1 |
+| General game design | 7 | 7 | 6 | 0 | 0 |
+| Ork faction | 235 | 224 | 126 | 63 | 0 |
+| **All areas** | **2123** | 1874 | 1576 | 674 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -63,6 +68,10 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | confidence: low | 745 |
 | confidence: medium | 685 |
 | notes: ours | 386 |
+| kind: ours | 1190 |
+| confidence: low | 759 |
+| confidence: medium | 688 |
+| notes: ours | 387 |
 | kind: interpretation | 363 |
 | notes: estimate | 176 |
 | kind: estimate | 145 |
@@ -2199,6 +2208,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
 ### Core simulation (provisional values) (570)
+### Core simulation (provisional values) (585)
 
 *Spec section: Provisional values in use*
 
@@ -3105,6 +3115,28 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-3B45C8AA` | GPU sprays on old GPUs (Musou) | safe mode (the Compatibility renderer or `--safe-mode`) keeps the CPU path and its 160-effect cap; a texture array the renderer cannot make falls back to the CPU path | kind: ours; confidence: medium | ours (review of 2026-11-10) | GPU sprays on old GPUs (Musou): compare with SM1 by feel or video. Ours: safe mode (the Compatibility renderer or --safe-mode) keeps the CPU… | ☐ |
 | `R-4202F822` | Draw order of the GPU sprays' alpha sprites (Musou) | not sorted back to front: drawn before the CPU path's sorted alpha cards, in spawn order (the CPU path sorts every alpha quad by its centre's distance) | kind: provisional; confidence: low; notes: ours | ours (a GPU pass cannot sort without per-frame CPU work) | Draw order of the GPU sprays' alpha sprites (Musou): compare with SM1 by feel or video. Ours: not sorted back to front: drawn before the CPU path's sorted alpha… | ☐ |
 
+*Spec section: Musou weight and impact pass (claude/musou-weight, 2026-11-10; client only, no simulation, wire, protocol, config-hash or rules-version change; Musou Mode only)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-3D73DBA5` | Musou weight: contact sources | the clips' foot tags (`EVT_Left_Foot`, `EVT_Right_Foot`, the `_Rush` forms, `EVT_Bullrush_Stop_*`) as the sound's tag pass admits them (so with `--no-sound` or no audio device the steps make no contacts and no puffs; the bones' touches, skids and landings… | kind: ours; confidence: medium | the owner's brief | Musou weight: contact sources: compare with SM1 by feel or video. Ours: the clips' foot tags (EVT_Left_Foot, EVT_Right_Foot, the _Rush forms… | ☐ |
+| `R-955E97D1` | Musou weight: who is tracked | the own marine and the **7** nearest other marines within **45** m of the camera; never an Ork (count, m) | kind: ours; confidence: medium | owner 2026-11-10 ("every marine, allies half"; never Orks) | Musou weight: who is tracked: compare with SM1 by feel or video. Ours: the own marine and the 7 nearest other marines within 45 m of the… | ☐ |
+| `R-BC5D6E4A` | Musou weight: a bone touches | when a bone comes within **0.06** m of its resting height (toe 0.03, knee 0.10, hand 0.06, pelvis 0.18, shoulder 0.16 m above the ground) moving down at least **0.25** m/s; again only after it rose **0.12** m above it, at most once per **0.12** s a part (m, m/s, s) | kind: ours; confidence: low | ours | Musou weight: a bone touches: compare with SM1 by timing a run over a known distance. Ours: when a bone comes within 0.06 m of its resting height (toe 0.03, knee… | ☐ |
+| `R-07E7B0FF` | Musou weight: skids | a touching part moving along the ground faster than **2** m/s leaves a skid every **0.08** s (m/s, s) | kind: ours; confidence: low | the plan | Musou weight: skids: compare with SM1 by timing a run over a known distance. Ours: a touching part moving along the ground faster than 2 m/s leaves a… | ☐ |
+| `R-B1CDCEA5` | Musou weight: landings | coming to the ground after at least **0.15** s in the air: a landing at both feet, strength the fall speed / **14** m/s (at least 0.25, at most 1); the bones stay quiet **0.25** s after it (s, m/s) | kind: ours; confidence: low | ours (the pack's full jump lands at 30.6 m/s, its dash at 9.8) | Musou weight: landings: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: coming to the ground after at least 0.15 s in the air: a landing at… | ☐ |
+| `R-58E3DF9C` | Musou weight: contact strengths | run step **0.35**, sprint step **0.55**, melee step (a plant) **0.6**, sprint stop (a plant) **0.8**; a body touch its downward speed / 4 m/s (0.2 to 0.8; pelvis and shoulders x1.2); a skid 0.1 + 0.25 x speed / 6 m/s (0 to 1) | kind: ours; confidence: low | ours | Musou weight: contact strengths: compare with SM1 by feel or video. Ours: run step 0.35, sprint step 0.55, melee step (a plant) 0.6, sprint… | ☐ |
+| `R-35B641FE` | Musou weight: ground puffs | each contact plays the install's `knockback_kick_footslide` (its light and dark `smoke_puff2` foot dust) at scale **0.2 + 0.25 x strength** (step), **0.12 + 0.2 x** (skid), **0.25 + 0.3 x** (plant), **0.2 + 0.3 x** (body touch), **0.3 + 0.25 x** (landing)… (scale) | kind: ours; confidence: low | the owner's dust, dirt and debris (2026-11-10) | Musou weight: ground puffs: compare with SM1 by feel or video. Ours: each contact plays the install's knockback_kick_footslide (its light… | ☐ |
+| `R-85EA819E` | Musou weight: dust by surface | dirt, sand, gravel and the level default x**1**, stone x**0.8**, metal x**0.4**, bodies, shields and air none (the grit stays) (factor) | kind: ours; confidence: low | ours | Musou weight: dust by surface: compare with SM1 by feel or video. Ours: dirt, sand, gravel and the level default x1, stone x0.8, metal x0.4… | ☐ |
+| `R-503EC63C` | Musou weight: the settle | a landing lowers the pelvis **0.06 + 0.08 x strength** m (6 to 14 cm) over **0.06** s and back over **0.25** s; a sprint stop's plant **0.05** m with a **7**-degree lean back (0.08 s, 0.3 s); a melee step's plant **0.03** m and **3** degrees forward (0.05 s… (m, degrees, s) | kind: ours; confidence: low | the plan (6 to 14 cm, 0.06 s down, 0.25 s back); ours | Musou weight: the settle: compare with SM1 with an overlaid screenshot taken from the same position. Ours: a landing lowers the pelvis 0.06 + 0.08 x strength m (6 to 14 cm)… | ☐ |
+| `R-20D30D2B` | Musou weight: strike retiming | every marine's strike is drawn with the wind-up at **0.85x** (heavy **0.8x**) and the clip's last **0.15** s (heavy **0.18** s) before the hit played faster, so the hit lands at the strike's own hit time and the clip ends at its end; at least **0.04** s of… (rate, s) | kind: ours; confidence: low | owner 2026-11-10 ("Yes, retime"; no gameplay change) | Musou weight: strike retiming: compare with SM1 by feel or video. Ours: every marine's strike is drawn with the wind-up at 0.85x (heavy 0.8x)… | ☐ |
+| `R-42CA2C4D` | Musou weight: pose hold | the own marine's heavy strike that meets an Ork holds his pose **0.05** s at the hit (the Orks move on; no freeze, no shake), the recovery then a little faster to end on time (s) | confidence: medium | owner 2026-11-10 ("Pose hold + camera push" on heavy strikes and kills: 40 to 60 ms) | Musou weight: pose hold: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the own marine's heavy strike that meets an Ork holds his pose 0.05 s… | ☐ |
+| `R-A1F83380` | Musou weight: pose hold on combo finishers | the same hold on the own combo's last strike that meets an Ork, in place of the owner's kills: kills are not known at the strike (the server reports them about 0.19 s later), so they get none (s) | kind: ours; confidence: low | ours (stand-in for the owner's "kills") | Musou weight: pose hold on combo finishers: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the same hold on the own combo's last strike that meets an Ork, in… | ☐ |
+| `R-72FD2090` | Musou weight: camera push | with the hold the camera moves **4.5** cm forward (heavy **7** cm) and **2.5** cm to the swing's side (alternating by combo step), up over **0.04** s and back over **0.18** s; times the Camera shake option (m, s) | kind: ours; confidence: low | as above | Musou weight: camera push: compare with SM1 with an overlaid screenshot taken from the same position. Ours: with the hold the camera moves 4.5 cm forward (heavy 7 cm) and 2.5 cm… | ☐ |
+| `R-BF90F9EF` | Musou weight: stance cross-fade floor | a marine's stance change (ready, idle, the locomotion blends) cross-fades over at least **0.25** s (the core's 0.15); clip entries keep theirs; an instant change stays instant (s) | kind: ours; confidence: low | measured 2026-11-10 (`--transition-probe`, pooled headless runs): move to ready's body turn 107 to 47 degrees a frame (median), ready to idle jerk p90 78 to 52… | Musou weight: stance cross-fade floor: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a marine's stance change (ready, idle, the locomotion blends)… | ☐ |
+| `R-ABD84A62` | Musou weight: blast jolts thinned | a detonation shakes and jolts the own camera only within **12** m (was 25), and in each **0.25** s window only its strongest: a window opens at a kept jolt, and a later blast in it jolts too only when at least **1** m closer than the closest kept so far; the… (m, s) | notes: ours | owner 2026-11-10 ("Thin the jolts"; the plan with the own-grenade exception); the 1 m margin and the own-grenade test ours | Musou weight: blast jolts thinned: compare with SM1 by measuring on a flat spot of the same map. Ours: a detonation shakes and jolts the own camera only within 12 m (was… | ☐ |
+| `R-CB5D9334` | Musou weight: roll end dip | the own roll's end dips the camera **0.4** degrees (a small landing's) (degrees) | kind: ours; confidence: low | ours | Musou weight: roll end dip: compare with SM1 with an overlaid screenshot taken from the same position. Ours: the own roll's end dips the camera 0.4 degrees (a small landing's). | ☐ |
+| `R-B86E5FB3` | Musou weight: contact sounds | a knee, hand, pelvis or shoulder meeting the ground at strength **0.35** or more plays the class's heavy footstep command (`EVT_Left_Foot_Rush` / `EVT_Right_Foot_Rush`, the surface switch under it, the owner's footstep level); a jump-pack dash's landing the… (- , s, m) | kind: ours; confidence: low | the plan (install sounds only) | Musou weight: contact sounds: compare with SM1 by feel or video. Ours: a knee, hand, pelvis or shoulder meeting the ground at strength 0.35… | ☐ |
+
 ### General game design (7)
 
 *Spec section: Known behavior (public, unverified)*
@@ -3576,6 +3608,12 @@ The Orks are an addition the owner keeps (the original multiplayer had Space Mar
 |---|---|---|---|---|---|---|
 | `R-32CEC47F` | Big Orks twice (Musou) | every Nob and Big Shoota Nob comes **2** times where one came before: a crowd's elite squad's Nobs (the twin 1.5 m aside, in the crowd's group, swarming with it), a Boss Ork's retinue's Nobs, the commander's escort (**2** Nobs, the 5 'Ard Boyz as before), an… (x) | confidence: medium; notes: ours | owner 2026-11-10 ("2x of them spawn compared to before"); the twin's and the second post's places ours | Big Orks twice (Musou): compare with SM1 by feel or video. Ours: every Nob and Big Shoota Nob comes 2 times where one came before: a… | ☐ |
 | `R-F62CDEEA` | The pool kept for the commander (Musou) | the armies' bodies, twins included, stay within their own **512** slots (`TfwBattle.ArmySlots`), and every pool check counts a Nob's twins; a boss (the commander, the final assault's Warboss) that finds no free slot (the dying keep theirs) is tried again each… | kind: ours | review 2026-11-10 | The pool kept for the commander (Musou): compare with SM1 by feel or video. Ours: the armies' bodies, twins included, stay within their own 512 slots… | ☐ |
+
+*Spec section: Musou weight and impact pass (claude/musou-weight, 2026-11-10; client only, no simulation, wire, protocol, config-hash or rules-version change; Musou Mode only)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-F56BB73A` | Musou weight: Ork push by weapon | a hit Ork of the rank and file is pushed back **0.35** m by a hammer, maul or mace, **0.28** by an axe, **0.12** by a knife, **0.2** by the rest (the combat-feel pilot's 0.2 for all before) (m) | kind: ours; confidence: low | the plan | Musou weight: Ork push by weapon: compare with SM1 by measuring on a flat spot of the same map. Ours: a hit Ork of the rank and file is pushed back 0.35 m by a hammer… | ☐ |
 
 ## Part C: Deliberate changes (keep or revert after playtest)
 
@@ -4380,6 +4418,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-6202225B-3` | Musou: HUD at the screen edges (musou/ui-edges, owner 2026-11-10; client only, no rules or wire change) | No Musou Mode in the original | Ours (the owner's request, verbatim: "move all musou mode specific UI elements to the edges of the screen, prioritizing the corners nd minimizing impact on free screen space to view the game world."): the commander's and the Boss Orks' bars bottom left (the score panel's corner, empty in Musou), the capture tiles… | Musou Mode and the old 5-wave run only; the match HUD (Classic PvP) is unchanged. docs/milestones.md "Musou HUD at the screen edges" | Musou: HUD at the screen edges (musou/ui-edges, owner…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-BC561D40` | Musou: capture banners in the world, no capture HUD (musou/capture-banners, owner 2026-11-10; client only, no rules, wire or protocol change) | No Musou Mode in the original (Seize Ground's points are the original's own and unchanged) | Ours (the owner's request, verbatim: "remove the text and status bar for the capture point ui elements in musou mode. add a banner is red when ork held, is covered by smoke, then when the smoke obscuring the banner completely dissipates the banner is now blue when captured by the player and his team. the end result is… | Musou Mode only; Classic Seize Ground unchanged. spec "Musou capture banners", "Musou capture circle", "Musou capture indicators" | Musou: capture banners in the world, no capture HUD…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-EA78DB46` | Musou: Guardsmen 1.1x (release integration, owner 2026-11-10; `TfwRules.Version` 64) | No Musou Mode in the original | The owner's: "Raise the guards to 1.1" (was 0.875x): the Guardsmen's health and shot damage 1.1x the install's 85 and the design's 5, so with every Nob twice the field holds a counterattack of its own size about half the time (our trial: 10 of 20) | Balance after twice the big Orks | Musou: Guardsmen 1.1x (release integration, owner…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-DA4B60BB` | Musou weight and impact pass (claude/musou-weight, 2026-11-10) | No Musou Mode in the original | The owner's brief of 2026-11-10 and his answers: the marines' ground contacts (foot tags and bones) drive dust and debris puffs, contact sounds and camera; more weight in landings, stops and rolls; melee retimed with its hit and end times kept, a short pose hold and camera push on the own heavy strikes and combo… | spec "Musou weight and impact pass" | Musou weight and impact pass (claude/musou-weight…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 
 ## Appendix: not gameplay
 
@@ -4610,4 +4649,5 @@ Test aids, probes, demo and capture tooling, and engineering decisions (protocol
 | `R-A9655E6C` | Stormboy hop cue's flight (Musou wire) | Musou Mode: smooth crowd motion (crowd-smooth, 2026-11-08; Musou Mode only; `MusouSim.Version` 22, no core protocol bump: `Protocol.Version` stays 64) |
 | `R-476D600F` | Test aid: `--musou-crowd-test` | Musou Mode: the big Orks' deaths and gait (musou-big-ork-deaths, 2026-11-09; Musou Mode only; the deaths and gait client presentation; the bodies against the map in the simulation, `MusouSim.Version` 34, to be renumbered at integration; no protocol change) |
 | `R-F137D8B4` | Test aid: old big spawns | Musou Mode: the Orks back at 100 %, twice the big Orks (musou-big-ork-deaths, 2026-11-10; Musou Mode's war only; `TfwRules.Version` 59, to be renumbered at integration; no protocol, wire or `MusouSim.Version` change) |
+| `R-060A8DDF` | Musou weight: puff budget | Musou weight and impact pass (claude/musou-weight, 2026-11-10; client only, no simulation, wire, protocol, config-hash or rules-version change; Musou Mode only) |
 

@@ -369,6 +369,12 @@ public partial class NetworkView
     /// <summary>An added mode's rule for adding a camera shake: <paramref name="total"/> starts as the sum (Musou Mode: the strongest source plus a share of the rest, capped).</summary>
     partial void ExtrasShakeTotal(float current, float amount, ref float total);
 
+    /// <summary>Whether a detonation <paramref name="distance"/> m from the own player shakes and jolts the camera (Musou Mode's weight pass thins them); none leaves it true.</summary>
+    partial void ExtrasBlastFeel(ProjectileView? blast, float distance, ref bool feel);
+
+    /// <summary>An added mode's camera offset this frame (camera space: X right, Y up, Z back; before the Camera shake option's factor). Musou's weight pass: the push along the own heavy swing.</summary>
+    partial void ExtrasCameraOffset(double delta, ref Vector3 offset);
+
     /// <summary>The origin of the last <see cref="TraceOwn"/> (game space).</summary>
     Num.Vector3 _traceOwnStart;
 
@@ -718,8 +724,10 @@ public partial class NetworkView
         {
             float distance = ToGodot(client.Predicted.Position).DistanceTo(pos);
             float radius = d.Thrown ? 4f : 6f;
-            if (distance < 25f) FxShake(Math.Clamp(1f - distance / 25f, 0f, 1f) * (radius > 5f ? 0.9f : 0.6f) * 0.012f * 3f);
-            CameraKick(WeightFeel.BlastJoltDegrees(distance), "blast");   // feel/weight-impact
+            bool feel = true;
+            ExtrasBlastFeel(d, distance, ref feel);   // EXTRAS-HOOK: added content's thinning of blast jolts (Musou weight pass: within 12 m, the strongest a 0.25 s window, the own grenades always)
+            if (feel && distance < 25f) FxShake(Math.Clamp(1f - distance / 25f, 0f, 1f) * (radius > 5f ? 0.9f : 0.6f) * 0.012f * 3f);
+            if (feel) CameraKick(WeightFeel.BlastJoltDegrees(distance), "blast");   // feel/weight-impact
             string name = d.Thrown && d.Weapon >= 0 && d.Weapon < _config.Thrown.Count ? _config.Thrown[d.Weapon].Name : "";
             if (name.Contains("krak", StringComparison.OrdinalIgnoreCase) && client.Predicted.Alive && distance < 7f)
             {
@@ -791,7 +799,10 @@ public partial class NetworkView
         bool rotate = amount >= 0.0004f;
         if (!rotate) _shake = Vector3.Zero;
         float punch = (PunchNow() + CameraImpulseNow(delta)) * accessibility;   // feel/weight-impact: the impulses (NetworkView.CameraImpulse.cs); anim/melee-interaction: the charge connect's camera kick (NetworkView.MeleeInteraction.cs)
-        if (!rotate && bob == Vector3.Zero && punch == 0f) return;
+        var push = Vector3.Zero;
+        ExtrasCameraOffset(delta, ref push);   // EXTRAS-HOOK: added content's camera push (Musou weight pass: along the own heavy swing), camera space
+        push *= accessibility;
+        if (!rotate && bob == Vector3.Zero && punch == 0f && push == Vector3.Zero) return;
         _unshaken = _camera.GlobalTransform;
         var t = _unshaken;
         if (punch != 0f) t.Basis = t.Basis * new Basis(Vector3.Right, -punch) * new Basis(Vector3.Forward, punch * 0.35f);
@@ -804,6 +815,7 @@ public partial class NetworkView
             _shake *= decay;
         }
         if (bob != Vector3.Zero) t.Origin += _unshaken.Basis.X * bob.X + _unshaken.Basis.Y * bob.Y;
+        if (push != Vector3.Zero) t.Origin += _unshaken.Basis.X * push.X + _unshaken.Basis.Y * push.Y + _unshaken.Basis.Z * push.Z;
         _camera.GlobalTransform = t;
         _shakeApplied = true;
     }
