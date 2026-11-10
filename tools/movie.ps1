@@ -87,17 +87,15 @@ try {
 
     Write-Host "Recording ${w}x${h} @ $fps FPS -> $out" -ForegroundColor Yellow
     $positionArgs = if ($position) { @('--position', $position) } else { @() }
-    if ($rest -contains '--test-window') {
-        # tools/no-focus-steal: a test recording runs on the private test desktop (never on the owner's screen, never takes the focus).
-        . (Join-Path $PSScriptRoot 'quiet-launch.ps1')
-        $mlog = Join-Path $runDir 'movie.log'
-        $mp = Start-QuietProcess -FilePath $Godot -ArgumentList (@('--path', $shadow, '--write-movie', $out, '--fixed-fps', "$fps") + $positionArgs + @('--') + $rest) `
-            -WorkingDirectory $RepoRoot -StdOut $mlog -Desktop 'sm-reimpl-test'
-        $exit = Wait-QuietProcess $mp -Log $mlog
-    } else {
-        & $Godot --path $shadow --write-movie $out --fixed-fps $fps @positionArgs '--' @rest
-        $exit = $LASTEXITCODE
-    }
+    # tools/no-focus-steal: EVERY recording runs on the private test desktop (never on the owner's screen, never takes the focus or the
+    # mouse). It used to do so only when the caller passed --test-window, and a capture that left it out opened a window on the owner's
+    # desktop and locked his mouse (2026-11-10); --test-window is now added when missing, as godot.ps1 does for --windowed.
+    if (-not ($rest -contains '--test-window')) { $rest = @($rest) + @('--test-window') }
+    . (Join-Path $PSScriptRoot 'quiet-launch.ps1')
+    $mlog = Join-Path $runDir 'movie.log'
+    $mp = Start-QuietProcess -FilePath $Godot -ArgumentList (@('--path', $shadow, '--write-movie', $out, '--fixed-fps', "$fps") + $positionArgs + @('--') + $rest) `
+        -WorkingDirectory $RepoRoot -StdOut $mlog -Desktop 'sm-reimpl-test'
+    $exit = Wait-QuietProcess $mp -Log $mlog
 }
 finally {
     # Remove the link itself first (non-recursive), and prove it is gone before any recursive delete: Remove-Item -Recurse on

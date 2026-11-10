@@ -123,7 +123,9 @@ W0b (claude/arsenal-w0b, ours, the lead's brief): each item shows and sounds as 
 Musou Mode only: a Space Marine Devastator loadout primary on the install's cut multiplayer autocannon data (the Chaos file's numbers: 50 a round, 0.4 s between rounds, 15 rounds to overheat, built as `sm_mp_exotic_auto_cannon` in code), fired full auto like the campaign's, piercing 5 Orks, with a 2.5 m bolt-style blast at every Ork a round strikes (the owner: twice the bolt blast's size). The blast's damage (the bolt blast's 15), the heavy bolter's handling and the customizer description are ours; the hit-scan splash the campaign gun had is dropped. Classic PvP, the faithful and extended profiles never list it. The customizer plans a Musou Join with Musou's own configuration.
 
 #### W2: the lightning claw
-Nothing yet.
+| What | Ours / the owner's | Value | Spec row |
+|---|---|---|---|
+| Lightning claw (Assault Marine melee choice, Musou only) | the owner's request (D2 one claw plus the pistol, D13 about 25% faster, D16 no extra edge, D15 the look); the sword's moves and install animations at 1.25x (the owner's choice: "for now just make the power claw use the sword animations"), every hit x0.8, the model (laid along the forearm, long talons) and glow built in code, an English name and text, always worn: ours | no claw in the install; same damage a second as the power sword | spec "Lightning claw: the weapon", "tempo", "damage", "cleave", "animations", "model", "glow", "not yet reached" |
 
 #### W3: the power spear
 | Power spear (Musou only, 2026-11-10, owner: "slower than hammer but much wider reach", "impaling dive plus wide sweeping swings") | No such weapon in SM1 | An Assault melee weapon on the thunder hammer's combo at 0.85x, swings at 0.75 of the hammer's damage, a 15 m sweep (150 degrees each side, at most 12 Orks), carried in the right hand alone and swung in both, the hammer's jump-pack rules, and an impale of 600 to the Ork nearest a ground pound's landing; a model built in code | spec "Musou's arsenal: W3" |
