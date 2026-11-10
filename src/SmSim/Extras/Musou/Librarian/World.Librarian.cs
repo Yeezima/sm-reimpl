@@ -15,7 +15,7 @@ public sealed partial class World
     readonly List<int> _librarianGone = new();
     readonly Dictionary<int, uint> _librarianEarly = new();
     readonly Dictionary<int, float> _librarianPitch = new();   // the last pitch heard, for a cast command's ticks without an input
-    readonly Dictionary<int, (uint Tick, float Fraction)> _librarianSeen = new();   // the last view tick heard (musou-balance 2026-11-11: the chain is picked on the crowd as he saw it)
+    readonly Dictionary<int, (uint Tick, float Fraction, uint At)> _librarianSeen = new();   // the last view tick heard and the tick of its input (musou-balance 2026-11-11: the chain is picked on the crowd as he saw it)
     LibrarianHistory? _librarianHistory;
     readonly LibrarianSight _librarianSight = new();
 
@@ -29,7 +29,7 @@ public sealed partial class World
     void LibrarianRecord()
     {
         if (_musou is null) return;
-        if (_librarians.Count == 0) { _librarianHistory?.Clear(); return; }
+        if (_librarians.Count == 0) { _librarianHistory = null; return; }   // none left: nothing kept, nothing spent (review 2026-11-11)
         _librarianHistory ??= new LibrarianHistory(Math.Max(1, Config.MaxRewindTicks) + 2);
         _librarianHistory.Record(Tick, _musou);
     }
@@ -42,8 +42,9 @@ public sealed partial class World
     {
         if (Config.LibrarianVariant.NoRewind || _librarianHistory is not { Newest: > 0 } history || !_librarianSeen.TryGetValue(id, out var seen) || seen.Tick == 0) return null;
         uint newest = history.Newest, oldest = newest > (uint)Config.MaxRewindTicks ? newest - (uint)Config.MaxRewindTicks : 1;
-        uint tick = Math.Clamp(seen.Tick, oldest, newest);
-        float fraction = tick == seen.Tick ? seen.Fraction : 0f;
+        uint view = Tick > seen.At ? seen.Tick + (Tick - seen.At) : seen.Tick;   // a tick without his input (a cast command's early ticks): his view moved on as the ticks did (as GameServer's repeated input)
+        uint tick = Math.Clamp(view, oldest, newest);
+        float fraction = tick == view ? seen.Fraction : 0f;
         float slack = LibrarianHistory.TeleportDistance * (Tick - tick + 1);   // how far one could have run since: farther, it is another enemy in a reused slot
         return history.SightAt(tick, fraction, _musou!, _librarianSight, slack) ? _librarianSight : null;
     }
@@ -97,7 +98,7 @@ public sealed partial class World
             if (_state == MatchState.Playing && _librarianInputs.TryGetValue(id, out var input) && input.Tick == Tick)
             {
                 _librarianPitch[id] = input.Pitch;
-                _librarianSeen[id] = (input.ViewTick, input.ViewFraction);   // the render tick his client drew the crowd at when it sampled this input
+                _librarianSeen[id] = (input.ViewTick, input.ViewFraction, Tick);   // the render tick his client drew the crowd at when it sampled this input
                 press = new LibrarianPress(input.Buttons.HasFlag(InputButtons.Fire), input.Buttons.HasFlag(InputButtons.Reload),
                     Config.LibrarianVariant.WarpPull && input.Buttons.HasFlag(InputButtons.Grenade));   // Grenade is his equipment's (the Warp Pull was removed, owner 2026-11-10; restore switch pull)
                 pitch = input.Pitch;

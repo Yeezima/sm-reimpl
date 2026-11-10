@@ -10,6 +10,7 @@ namespace SmSim.Extras.Musou;
 public sealed class LibrarianSight
 {
     readonly LibrarianCandidate[] _candidates = new LibrarianCandidate[MusouSim.Capacity];
+    readonly MusouEnemyType[] _types = new MusouEnemyType[MusouSim.Capacity];   // the type seen (a reused slot holds another type: not the same enemy; review 2026-11-11)
     int _count;
     float _slack2;
 
@@ -22,16 +23,18 @@ public sealed class LibrarianSight
         _slack2 = slack * slack;
     }
 
-    internal void Add(in LibrarianCandidate c) => _candidates[_count++] = c;
+    internal void Add(in LibrarianCandidate c, MusouEnemyType type) { _types[_count] = type; _candidates[_count++] = c; }
 
     /// <summary>
-    /// Whether the enemy of candidate <paramref name="index"/> alive now is still the one seen: within the slack of where it was seen (a slot the pool freed and filled again since, with a new enemy
-    /// elsewhere, is not).
+    /// Whether the enemy of candidate <paramref name="index"/> alive now is still the one seen: the same type, within the slack of where it was seen (a slot the pool freed and filled again since,
+    /// with a new enemy of another type or elsewhere, is not).
     /// </summary>
     internal bool Same(int index, MusouSim sim)
     {
+        ushort id = _candidates[index].Id;
+        if (sim.TypeNow(id) != _types[index]) return false;
         var then = _candidates[index].Feet;
-        var now = sim.FeetNow(_candidates[index].Id);
+        var now = sim.FeetNow(id);
         return Vector3.DistanceSquared(now, then) <= _slack2;
     }
 }
@@ -108,7 +111,7 @@ public sealed class LibrarianHistory
             if (!aliveA[i]) continue;
             var feet = feetA[i];
             if (between && aliveB[i] && Vector3.DistanceSquared(feetB[i], feet) <= TeleportDistance * TeleportDistance) feet = Vector3.Lerp(feet, feetB[i], fraction);
-            into.Add(new LibrarianCandidate((ushort)(i + 1), feet, sim.Body(types[i]).Height));
+            into.Add(new LibrarianCandidate((ushort)(i + 1), feet, sim.Body(types[i]).Height), types[i]);
         }
         return true;
     }

@@ -30,4 +30,7 @@ public sealed partial class MusouSim
 
     /// <summary>The feet of slot <paramref name="id"/> now (only meaningful while <see cref="AliveNow"/>).</summary>
     internal Vector3 FeetNow(ushort id) => _position[id - 1];
+
+    /// <summary>The type of slot <paramref name="id"/> now (only meaningful while <see cref="AliveNow"/>).</summary>
+    internal MusouEnemyType TypeNow(ushort id) => _type[id - 1];
 }
