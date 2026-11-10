@@ -359,6 +359,7 @@ public partial class NetworkView : Node3D
 
     public override void _ExitTree()
     {
+        LoadDraws3D(true);   // polish P3 review: a map load left between its build and its last warm-up never leaves the window's 3D off
         // Tell the server right away (best effort); otherwise it would drop this player only after its timeout.
         PadTeardown();
         _watchdog?.Dispose();
