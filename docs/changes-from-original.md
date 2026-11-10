@@ -127,7 +127,19 @@ Nothing yet.
 Nothing yet.
 
 #### W4: the Remote Detonators
-Nothing yet.
+
+Added content, Musou Mode only; every rule below is ours or the owner's (docs/new-weapons-design.md section 7, D4 to D9, D19 to D24). The item is the install's own unused `sm_mp_eq_demolition_charge`.
+
+| Rule | Ours / the owner's | Why |
+|---|---|---|
+| Offered to every Space Marine class and the Librarian | owner's (D20) | The install lists it for no class. |
+| A 5 s fuse after it sticks, no second press | owner's (D6, D19) | The data's remote trigger is dropped. |
+| Sticks to Orks and rides on them; it passes marines | ours (marines) | The data's sticky rule held for the level and players. |
+| A centre blast of 600 (r 16 m) then 16 stacking spots of 180 round a 24 m ring, one every 2 ticks | ours, fitted to the owner's "600 damage at the centre, 40m reach" | An estimate to check in a playtest (refine register). |
+| Bosses x2, up to 80 flying corpses, survivors thrown back up to 10 m | owner's (D19) | The frag's cap is 20 and its knock-back 2 m. |
+| One back every 30 s; Favor of the Armory: 2 | owner's (D9); data (Favor) | Grenades come back every 15 s. |
+| The melta bomb's model | owner's (D21) | The data's model is the Ork stikkbomb. |
+| A contraption in the way sets it off at once | ours (a limit) | The arsenal has no hook to stop the core's contraption stop. |
 
 ## 1. Deliberate changes (owner's decisions)
 

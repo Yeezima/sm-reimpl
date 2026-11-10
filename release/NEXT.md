@@ -10,3 +10,4 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Add your bullets in the same pull request as the change, when it merges.
 -->
 - Musou Mode has loadouts of its own now, kept apart from your Classic loadouts: the first time you open Musou's customizer they start as a copy of your Classic ones. The Librarian gets his own loadout too: melee weapon, equipment, two perks and a look. Opening an older build of the game can reset your Musou loadouts.
+- Musou Mode: a new piece of equipment, the Remote Detonators (pick them in the customizer's equipment row, press the grenade key to throw). A charge sticks to walls, the floor and Orks, even big ones, and goes off five seconds later: a huge blast, then a ring of explosions rolling round it that throws Orks into the air. You get one, and a new one every 30 seconds. This build does not play with earlier ones.
