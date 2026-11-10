@@ -64,6 +64,32 @@ public sealed class LibrarianZapBudget
 }
 
 /// <summary>
+/// The own Librarian's press on the client (Musou Mode only): it begins on the first frame Fire is held while he may cast (the cast command goes out and the latency clock starts) and ends when that no
+/// longer holds, or when he is missing from the server's section: the server leaves dead Librarians out, so a release while dead is never seen. Without that end, a Librarian who died holding Fire and let
+/// go while dead kept his press, and his first press after respawning sent no cast command (the input path's lead instead, about 230 ms).
+/// </summary>
+public sealed class LibrarianOwnPress
+{
+    /// <summary>When the press began (seconds), or -1 while none is held.</summary>
+    public double At { get; private set; } = -1;
+
+    /// <summary>Whether a press is held.</summary>
+    public bool Held => At >= 0;
+
+    /// <summary>This frame, with the own Librarian in the section: <paramref name="canCast"/> is Fire held while he may cast. True on the press's first frame only.</summary>
+    public bool Hold(bool canCast, double now)
+    {
+        if (!canCast) { At = -1; return false; }
+        if (At >= 0) return false;
+        At = now;
+        return true;
+    }
+
+    /// <summary>This frame's section has no own Librarian (dead, or not one): no press outlives it.</summary>
+    public void Absent() => At = -1;
+}
+
+/// <summary>
 /// The Librarian's gauge in the HUD (Musou Mode only), laid out as the weapon box's heat bar (he carries no gun, so the box is his): the Psychic Stress fills the bar as heat does, and while every power is
 /// locked it blinks as an overheated weapon's bar (the same 14 rad/s pulse between 0.55 and 1); the Shockwave is the cell beside it, its cooldown as a draining bar (the Warp Pull's cell went with the power, owner 2026-11-10).
 /// Layout and words are ours.

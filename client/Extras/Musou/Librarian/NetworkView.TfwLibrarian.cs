@@ -67,7 +67,8 @@ public partial class NetworkView
     bool _librarianPicked;
     /// <summary>Frames the own chain was foreseen, and the time from the press to the first drawn bolt (test aids: the LIBLAT line).</summary>
     int _librarianForeseenFrames;
-    double _librarianPressAt = -1, _librarianFirstBoltMs = -1;
+    readonly LibrarianOwnPress _librarianPress = new();
+    double _librarianFirstBoltMs = -1;
     bool _librarianServerHeard;
     int _librarianFramesLogged;
     bool LibrarianTestPick => _librarianTestPick ??= CmdFlag("tfw-librarian");
@@ -103,10 +104,10 @@ public partial class NetworkView
             bool held = isOwn && OwnCastHeld(me, v);   // the press: the latency clock and the cast command, with or without the foresight
             bool foreseen = held && !NoLibrarianPredict && ForeseeOwnChain(me);
             if (foreseen) { casting = true; links = _librarianForeseen; }
-            if (isOwn && v.Casting && _librarianPressAt >= 0 && !_librarianServerHeard)
+            if (isOwn && v.Casting && _librarianPress.Held && !_librarianServerHeard)
             {
                 _librarianServerHeard = true;
-                if (_bot || LibrarianDemoOn || LibrarianClipDir is not null) GD.Print($"LIBLAT the server's own links arrived {(Time.GetTicksUsec() / 1e6 - _librarianPressAt) * 1000.0:F0} ms after the press");
+                if (_bot || LibrarianDemoOn || LibrarianClipDir is not null) GD.Print($"LIBLAT the server's own links arrived {(Time.GetTicksUsec() / 1e6 - _librarianPress.At) * 1000.0:F0} ms after the press");
             }
             LibrarianSoundFrame(v.Player, at, isOwn, fresh || foreseen, casting, v.Locked, links, now);
             bool known = _librarianCasts.TryGetValue(v.Player, out var casts);
@@ -116,6 +117,7 @@ public partial class NetworkView
             if (OldLibrarianLightning) { if (fresh && v.Casting) LibrarianBoltsFeedOld(v); }
             else LibrarianCastFrame(v.Player, isOwn ? _local : _remotes.GetValueOrDefault(v.Player), at, casting, links, v.Stress, isOwn, (float)delta, now);
         }
+        if (own is null) _librarianPress.Absent();   // dead (the server leaves dead Librarians out, so a release while dead is never seen): the first press after respawning sends the cast command
         LibrarianSoundsGone();
         LibrarianCastsGone();
         if (!Lean) LibrarianLayersFrame((float)delta);
@@ -147,18 +149,14 @@ public partial class NetworkView
     /// </summary>
     bool OwnCastHeld(PlayerState me, in LibrarianView v)
     {
-        if (_config is not { } config || !me.Alive || v.Locked || me.MeleeStep > 0 || !LibrarianRules.IsLibrarian(config, me.Class) || !OwnLightningHeld())
+        bool can = _config is { } config && me.Alive && !v.Locked && me.MeleeStep <= 0 && LibrarianRules.IsLibrarian(config, me.Class) && OwnLightningHeld();
+        if (_librarianPress.Hold(can, Time.GetTicksUsec() / 1e6))
         {
-            _librarianPressAt = -1;
-            return false;
-        }
-        if (_librarianPressAt < 0)
-        {
-            _librarianPressAt = Time.GetTicksUsec() / 1e6; _librarianFirstBoltMs = -1; _librarianServerHeard = false;
+            _librarianFirstBoltMs = -1; _librarianServerHeard = false;
             SendLibrarianCast();
             _librarianFramesLogged = 1;
         }
-        return true;
+        return _librarianPress.Held;
     }
 
     /// <summary>
@@ -261,9 +259,9 @@ public partial class NetworkView
         int n = Math.Min(links.Count, _librarianLinks.Length);
         for (int i = 0; i < n; i++) _librarianLinks[i] = (G(links[i].From), G(links[i].To));
         bolts.Feed(_librarianLinks.AsSpan(0, n), now, delta);
-        if (own && _librarianPressAt >= 0 && _librarianFirstBoltMs < 0)
+        if (own && _librarianPress.Held && _librarianFirstBoltMs < 0)
         {
-            _librarianFirstBoltMs = (Time.GetTicksUsec() / 1e6 - _librarianPressAt) * 1000.0;
+            _librarianFirstBoltMs = (Time.GetTicksUsec() / 1e6 - _librarianPress.At) * 1000.0;
             if (_bot || LibrarianDemoOn || LibrarianClipDir is not null) GD.Print($"LIBLAT own bolt drawn {_librarianFirstBoltMs:F0} ms after the press ({(NoLibrarianPredict ? $"the server's {links.Count}" : $"foreseen {_librarianForeseen.Count}")} links)");
         }
     }
