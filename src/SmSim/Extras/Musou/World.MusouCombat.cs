@@ -90,10 +90,11 @@ public sealed partial class World
 
     /// <summary>
     /// The scale on <paramref name="attacker"/>'s ranged damage on the enemies (owner, 2026-11-11: "increase all ranged attack damage by 20%"): <see cref="Extras.Musou.Campaign.TfwCombatRules.PlayerRangedDamageScale"/>
-    /// in Musou Mode's war for a player (an AI Marine too: the same weapons), 1 in the 5-wave run and for anyone else. Every player gun, projectile, splash and charge hit on the enemies and the
-    /// contraptions multiplies by it; the Librarian's spells, the fire support and the Orks' own explosions do not.
+    /// in Musou Mode's war for a human player's character (<see cref="Extras.Musou.Campaign.TfwCombatRules.ScalesPlayer"/>: an AI Marine keeps his damage), 1 in the 5-wave run and for anyone else.
+    /// Every such gun, projectile, splash and charge hit on the enemies and the contraptions multiplies by it; the Librarian's spells, the fire support and the Orks' own explosions do not.
     /// </summary>
-    float MusouRangedDealt(int attacker) => _musou?.War is { } war && _players.ContainsKey(attacker) ? war.PlayerRangedDamageScale : 1f;
+    float MusouRangedDealt(int attacker) =>
+        _musou?.War is { } war && _players.ContainsKey(attacker) && Extras.Musou.Campaign.TfwCombatRules.ScalesPlayer(attacker) ? war.PlayerRangedDamageScale : 1f;
 
     /// <summary>The weapon a shot left as its shooter carries it (the perk variant the core fired, <see cref="Loadouts.InHand"/>), else the config's.</summary>
     WeaponSpec MusouWeaponOf(in ShotEvent shot) =>
@@ -259,7 +260,7 @@ public sealed partial class World
         if (musou.War is { } volume) { range *= volume.CleaveReachScale; minCos = volume.CleaveMinCos; }   // owner 2026-11-09: a longer, wider flat cone in the war
         int most = musou.War?.CleaveTargets ?? rules.CleaveTargets;
         ArsenalCleave(attacker, state, step, ref range, ref minCos, ref most, ref damage);   // Arsenal/World.Arsenal.cs: a weapon's own cleave (W3: the power spear's sweeps, Arsenal/World.Spear.cs)
-        if (musou.War is { } trim) range *= trim.PlayerCleaveReachScale;   // owner 2026-11-11: "reduce melee attack cleave range by 40%" (after each weapon's shape; MusouCleaveShape draws the same)
+        if (musou.War is { } trim && Extras.Musou.Campaign.TfwCombatRules.ScalesPlayer(attacker)) range *= trim.PlayerCleaveReachScale;   // owner 2026-11-11: "reduce melee attack cleave range by 40%", humans only (after each weapon's shape; MusouCleaveShape draws the same)
         MusouSuperchargedCleave(attacker, ref range, ref minCos);   // the Supercharged Melee powerup: a wider, longer cleave (World.MusouPowerups.cs)
         var forward = new Vector2(-MathF.Sin(state.Yaw), MathF.Cos(state.Yaw));
         var eye = state.Position + new Vector3(0, 0, Config.EyeHeight);

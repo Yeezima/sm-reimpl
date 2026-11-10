@@ -197,7 +197,7 @@ public sealed partial class World
         if (!(damage > 0f)) return;
         float range = musou.Rules.Combat.CleaveRange(Config.MeleeRange);
         float minCos = MathF.Cos(MathF.Min(180f, Config.MeleeConeDegrees * musou.Rules.Combat.CleaveConeScale) * MathF.PI / 180f);
-        if (musou.War is { } volume) { range *= volume.CleaveReachScale * volume.PlayerCleaveReachScale; minCos = volume.CleaveMinCos; }   // as the Orks' cleave (owner 2026-11-09; x0.6, owner 2026-11-11)
+        if (musou.War is { } volume) { range *= volume.CleaveReachScale * (TfwCombatRules.ScalesPlayer(attacker) ? volume.PlayerCleaveReachScale : 1f); minCos = volume.CleaveMinCos; }   // as the Orks' cleave (owner 2026-11-09; x0.6 for a human, owner 2026-11-11)
         var forward = new Vector2(-MathF.Sin(state.Yaw), MathF.Cos(state.Yaw));
         meks.Near(state.Position, range + 2f, _mekNear);
         foreach (var (id, _) in _mekNear)

@@ -260,6 +260,86 @@ public class MusouBalanceTests
         for (int k = 0; k < 3; k++) Assert.Equal(lost[1][k] * 1.2f, lost[0][k], 0);
     }
 
+    // ---------------------------------------------------------------- AI Marines keep theirs (the lead, 2026-11-11: "Musou, players only")
+
+    const int Marine = TfwContracts.PuppetIdFirst;
+
+    /// <summary>An AI Marine at (20, -60) facing +Y in the war <paramref name="w"/>, pressing what <paramref name="press"/> says for the tick (the human idles).</summary>
+    static void AddMarine(World w, Func<uint, InputButtons> press)
+    {
+        w.Tfw!.PuppetBrain = (_, p) => new PlayerInput(w.Tick, 0f, 0f, 0f, press(w.Tick));
+        w.Spawn(Marine, 0);
+        Tick(w);
+        w.TfwRespawnAt(Marine, new Vector3(20f, -60f, 0f), 0f);
+        Tick(w);
+        Assert.True(w.Players[Marine].Alive);
+        Assert.False(TfwCombatRules.ScalesPlayer(Marine));
+        Assert.True(TfwCombatRules.ScalesPlayer(Human));
+    }
+
+    static Vector3 AheadOf(World w, int id, float metres, float degrees = 0f)
+    {
+        var p = w.Players[id];
+        float a = p.Yaw + degrees * MathF.PI / 180f;
+        return p.Position + new Vector3(-MathF.Sin(a) * metres, MathF.Cos(a) * metres, 0f);
+    }
+
+    [Theory]
+    [MemberData(nameof(Swung))]
+    public void An_AI_Marines_cleave_keeps_the_reach_before_this_pass(string? wargear)
+    {
+        var config = Config(Light, wargear);
+        float oldReach = wargear == ArsenalRules.PowerSpear ? SpearRules.ReachMetres : MusouCombatRules.Default.CleaveRange(config.MeleeRange, false, war: true) * TfwCombatRules.Default.CleaveReachScale;
+        // The drawn arc's shape for him: the old reach; a human's: x0.6.
+        Assert.Equal(oldReach, MusouCleaveShape.Of(config, Light, war: true, wargear, human: false).Reach, 3);
+        Assert.Equal(oldReach * 0.6f, MusouCleaveShape.Of(config, Light, war: true, wargear).Reach, 3);
+
+        var w = War(config);
+        uint swingFrom = 0;
+        AddMarine(w, t => swingFrom != 0 && t < swingFrom + 3 ? InputButtons.Melee : InputButtons.None);
+        if (wargear is not null) Choose(w, Marine);
+        ushort near = Boy(w, AheadOf(w, Marine, oldReach * 0.6f - 0.4f, 10f)), oldInside = Boy(w, AheadOf(w, Marine, oldReach - 0.4f, -5f)), past = Boy(w, AheadOf(w, Marine, oldReach + 0.4f));
+        swingFrom = w.Tick + 1;
+        var struck = new HashSet<int>();
+        for (int t = 0; t < 14; t++)
+        {
+            Tick(w);   // the human idles
+            foreach (var e in w.Musou!.Events) if (e.Kind == MusouEventKind.Hit && e.Value == 3 && e.Player == Marine) struck.Add(e.Enemy);
+        }
+        Assert.Contains((int)near, struck);
+        Assert.Contains((int)oldInside, struck);   // inside his old reach, past a human's x0.6
+        Assert.DoesNotContain((int)past, struck);
+    }
+
+    /// <summary>The AI Marine's melee choice: the class's first (the one combo of these tests' configs).</summary>
+    static void Choose(World w, int id)
+    {
+        var field = typeof(World).GetField("_players", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
+        var players = (Dictionary<int, PlayerState>)field.GetValue(w)!;
+        players[id] = players[id] with { MeleeChoice = 0 };
+    }
+
+    [Fact]
+    public void An_AI_Marines_shot_keeps_its_damage()
+    {
+        var lost = new float[2][];
+        foreach (bool old in new[] { false, true })
+        {
+            var w = War(Config(Light, null), old);
+            bool fire = false;
+            AddMarine(w, _ => fire ? InputButtons.Fire : InputButtons.None);
+            var ids = new[] { Boy(w, AheadOf(w, Marine, 6f)), Boy(w, AheadOf(w, Marine, 10f)), Boy(w, AheadOf(w, Marine, 6f) + new Vector3(0.75f, -0.6f, 0f)) };
+            fire = true;
+            for (int k = 0; k < 12 && w.LastShots.Count == 0; k++) Tick(w);
+            Assert.NotEmpty(w.LastShots);
+            fire = false;
+            Tick(w);
+            lost[old ? 1 : 0] = ids.Select(id => Lost(w, id)).ToArray();
+        }
+        Assert.True(lost[1][0] > 0f && lost[1][2] > 0f, string.Join(", ", lost[1]));   // the shot and its bolt blast
+        for (int k = 0; k < 3; k++) Assert.Equal(lost[1][k], lost[0][k], 3);   // the same with this pass's rules: x1 for him
+    }
+
     [Fact]
     public void Melee_the_orks_and_the_five_wave_run_keep_their_damage()
     {

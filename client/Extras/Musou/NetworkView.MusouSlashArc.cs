@@ -149,7 +149,7 @@ public partial class NetworkView
     {
         if (_camera is null || _gameSpace is null || _config is null || _client is null) return;
         if (Num.Vector3.Distance(feet, ToGame(_camera.GlobalPosition)) > MusouSlashRules.Metres) return;   // the strokes' 30 m limit (owner, 2026-11-10), from the swinger
-        var shape = MusouCleaveShape.Of(_config, step, _tfwState.War is not null, wargear);
+        var shape = MusouCleaveShape.Of(_config, step, _tfwState.War is not null, wargear, human: SmSim.Extras.Musou.Campaign.TfwCombatRules.ScalesPlayer(attacker));   // an AI Marine's arc keeps the reach before the owner's x0.6 (2026-11-11)
         float radius = MusouSlashArcRules.Radius(shape, struck, MusouSlashArcReachShare);
         if (!float.IsFinite(height) || height < 0.3f || height > 2.5f) height = MusouSlashArcRules.DefaultHeight;
         var centre = feet + new Num.Vector3(0f, 0f, height);
