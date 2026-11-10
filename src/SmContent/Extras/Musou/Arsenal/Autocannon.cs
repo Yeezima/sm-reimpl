@@ -19,6 +19,15 @@ public static partial class Arsenal
     /// <summary>The customizer row's text (ours: the install's own text 104314 "Autocannon" and 104315, which the catalogue hook cannot read; the description is our wording of the file's).</summary>
     public const string AutocannonTitle = "Autocannon", AutocannonDescription = "A heavy gun that fires slow, enormously damaging explosive shells through several enemies at once. It overheats easily.";
 
+    /// <summary>The Stalker Bolter's files (the sniper rifle of each side): the autocannon's sound source (the owner, 2026-11-10: "make the autocannon use stalker bolter sounds").</summary>
+    public const string StalkerBolterFile = "sm_mp_ranged_sniper_rifle", StalkerBolterFileChaos = "csm_mp_ranged_sniper_rifle";
+
+    static readonly IReadOnlyList<string> AutocannonSoundFiles = [StalkerBolterFile, StalkerBolterFileChaos];
+
+    /// <summary>The install files <paramref name="wargear"/> takes its SOUNDS from when they are not its effects' files (the autocannon: the Stalker Bolter's, fire, reload, overheat, vent and the hit confirm), else null.</summary>
+    public static IReadOnlyList<string>? SoundSources(string wargear) =>
+        string.Equals(wargear, ArsenalRules.Autocannon, StringComparison.OrdinalIgnoreCase) ? AutocannonSoundFiles : null;
+
     static partial void AppendAutocannon(ref SimConfig config, string gameDir, List<string> notes)
     {
         if (config.Weapons.Any(w => w.Name.Equals(ArsenalRules.Autocannon, StringComparison.OrdinalIgnoreCase))) return;   // already appended

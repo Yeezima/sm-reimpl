@@ -56,6 +56,13 @@ public partial class NetworkView
         sources = Arsenal.PresentationSources(wargear);
     }
 
+    /// <summary>The arsenal's sound sources where they are not the effects' (<c>Arsenal.SoundSources</c>: the autocannon's are the Stalker Bolter's, the owner's choice), in a Musou match only.</summary>
+    partial void ExtrasSoundSources(string wargear, ref IReadOnlyList<string>? sources)
+    {
+        if (_config is null || !_config.Extras.HasFlag(ContentExtras.Musou) || !ArsenalRules.IsArsenal(wargear)) return;
+        sources = Arsenal.SoundSources(wargear);
+    }
+
     readonly Dictionary<string, float> _arsenalMoveSpeed = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>

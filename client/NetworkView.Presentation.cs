@@ -26,6 +26,33 @@ public partial class NetworkView
         return sources is { Count: > 0 } ? sources : null;
     }
 
+    /// <summary>
+    /// The install files <paramref name="wargear"/> takes its SOUNDS from, in order: the added content's own sound sources (<see cref="ExtrasSoundSources"/>: the owner's autocannon sounds as the Stalker Bolter,
+    /// its effects still the twin's), else <see cref="PresentationSources"/> (one source for both), or null: its own.
+    /// </summary>
+    IReadOnlyList<string>? SoundSources(string wargear)
+    {
+        IReadOnlyList<string>? sources = null;
+        ExtrasSoundSources(wargear, ref sources);   // EXTRAS-HOOK added content (Musou's arsenal): sounds from another file than the effects
+        return sources is { Count: > 0 } ? sources : PresentationSources(wargear);
+    }
+
+    /// <summary>The name the sound rules read for <paramref name="wargear"/>: its first sound source, or the name itself (the Stalker's hit confirm for the autocannon).</summary>
+    string? SoundNameOf(string? wargear) => wargear is not null && SoundSources(wargear) is { } sources ? sources[0] : wargear;
+
+    /// <summary>The sound sources of every wargear file the match's config uses that has any (<see cref="SoundSources"/>), for the trigger load; empty without added content.</summary>
+    Dictionary<string, IReadOnlyList<string>> SoundSourceMap()
+    {
+        var map = new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase);
+        if (_config is null) return map;
+        foreach (var name in SoundTriggers.WargearNames(_config))
+            if (SoundSources(name) is { } sources) map[name] = sources;
+        return map;
+    }
+
+    /// <summary>Added content: the install files whose sounds an added weapon plays when they are not its effects' files (null: <see cref="PresentationSources"/> serves both); asked from the main thread.</summary>
+    partial void ExtrasSoundSources(string wargear, ref IReadOnlyList<string>? sources);
+
     /// <summary>The name the presentation's name rules read for <paramref name="wargear"/>: its first source, or the name itself (every name of the install).</summary>
     string? PresentedAs(string? wargear) => wargear is not null && PresentationSources(wargear) is { } sources ? sources[0] : wargear;
 

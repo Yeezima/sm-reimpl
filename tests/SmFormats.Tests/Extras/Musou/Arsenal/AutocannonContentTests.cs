@@ -45,6 +45,17 @@ public class AutocannonContentTests
     }
 
     [Fact]
+    public void The_autocannons_sounds_are_the_Stalker_Bolters_and_its_effects_stay_the_twins()
+    {
+        // The owner (2026-11-10): "make the autocannon use stalker bolter sounds". Sounds: the Stalker's files (the hit confirm rule keys on their names); effects, reticle and ammo box: the twin's (W0b).
+        Assert.Equal(["sm_mp_ranged_sniper_rifle", "csm_mp_ranged_sniper_rifle"], Arsenal.SoundSources(ArsenalRules.Autocannon));
+        Assert.All(Arsenal.SoundSources(ArsenalRules.Autocannon)!, f => Assert.True(StalkerHitConfirm.Is(f)));
+        Assert.Equal([Arsenal.AutocannonTwinFile, Arsenal.HeavyBolterFile], Arsenal.PresentationSources(ArsenalRules.Autocannon));
+        Assert.Null(Arsenal.SoundSources(ArsenalRules.LightningClaw));   // the others' sounds are their effects' sources
+        Assert.Null(Arsenal.SoundSources("sm_mp_exotic_heavy_bolter"));
+    }
+
+    [Fact]
     public void Nothing_but_the_Space_Marine_Devastators_list_and_the_weapon_list_change()
     {
         var data = Data();
