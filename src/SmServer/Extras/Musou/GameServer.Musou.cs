@@ -161,7 +161,15 @@ public sealed partial class GameServer
     /// <summary>Test aid (MU-D): with this set to 1 the server lays a drop 3 m in front of every living player that has none (to see and take one at once).</summary>
     public const string MusouDropTestVariable = "SM_MUSOU_DROP_TEST";
     bool? _musouDropTest;
+    /// <summary>
+    /// Capture aid <c>SM_MUSOU_POWERUP_TEST=&lt;s&gt;</c> (the powerups, 2026-11-10): every s seconds of play each living human gets the next powerup's buff in turn (Double Damage, Fear, Supercharged,
+    /// Rapid Fire) and a drop of the one after it lies 1.2 m ahead and to the right (in reach: its prompt shows). Off in every match.
+    /// </summary>
+    public const string MusouPowerupTestVariable = "SM_MUSOU_POWERUP_TEST";
+    float? _musouPowerupTest;
+    readonly Dictionary<int, (uint At, int Step)> _musouPowerupTestNext = new();
     readonly Dictionary<int, (uint Version, uint Tick)> _musouDropSent = new();
+    readonly List<MusouBuffRecord> _musouBuffRecords = new();
     readonly List<MusouDrop> _musouDropList = new();
     readonly List<MusouDropRecord> _musouDropRecords = new();
     /// <summary>Drop sections (tag 6) sent, and their records (all clients; tests).</summary>
@@ -197,19 +205,44 @@ public sealed partial class GameServer
         if (_musouDropTest ??= Environment.GetEnvironmentVariable(MusouDropTestVariable) == "1")
             if (World.State == MatchState.Playing && World.Players.TryGetValue(playerId, out var p) && p.Alive && World.MusouDropsOf(playerId, _musouDropList) == 0 && World.MusouSpawnTestDrop(playerId, 4f) is { } test)
                 Log?.Invoke($"musou: test aid {MusouDropTestVariable}: drop {test.Id} for player {playerId} at {test.Position.X:F1},{test.Position.Y:F1},{test.Position.Z:F1}, item {test.Item}");
-        uint version = World.MusouDropVersion(playerId);
+        // The powerups (owner 2026-11-10): the player's buffs travel after its drops; a change of either sends the section, and it is refreshed while either is there.
+        MusouPowerupTestStep(playerId);
+        uint version = World.MusouDropVersion(playerId) * 65599u + World.MusouBuffVersion(playerId);
         int n = World.MusouDropsOf(playerId, _musouDropList);
+        var buffs = World.MusouBuffsOf(playerId);
+        bool any = n > 0 || buffs.Any(World.Tick);
         bool known = _musouDropSent.TryGetValue(playerId, out var sent);
-        bool changed = known ? sent.Version != version : n > 0;
-        bool refresh = n > 0 && known && (tick - sent.Tick >= MusouDropRefreshTicks || tick < sent.Tick);
+        bool changed = known ? sent.Version != version : any;
+        bool refresh = any && known && (tick - sent.Tick >= MusouDropRefreshTicks || tick < sent.Tick);
         if (!changed && !refresh) return;
         _musouDropRecords.Clear();
         foreach (var d in _musouDropList) _musouDropRecords.Add(new MusouDropRecord(d.Id, d.Position, d.Item, d.State, d.Crate));
-        (byte, byte[]) section = (MusouWire.DropsTag, MusouWire.WriteDrops(_musouDropRecords, box));
+        _musouBuffRecords.Clear();
+        foreach (var kind in MusouPowerupRules.All)
+            if (buffs.Active(kind, World.Tick)) _musouBuffRecords.Add(new MusouBuffRecord(kind, (ushort)Math.Min(ushort.MaxValue, buffs.EndOf(kind) - World.Tick)));
+        (byte, byte[]) section = (MusouWire.DropsTag, MusouWire.WriteDrops(_musouDropRecords, box, _musouBuffRecords));
         if (!AppendMusouSection(messages, section, tick)) return;   // no room this tick: sent the next
         _musouDropSent[playerId] = (version, tick);
         MusouDropSections++;
         MusouDropRecordsSent += _musouDropRecords.Count;
+    }
+
+    void MusouPowerupTestStep(int playerId)
+    {
+        _musouPowerupTest ??= float.TryParse(Environment.GetEnvironmentVariable(MusouPowerupTestVariable), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float s) && s > 0f ? s : 0f;
+        if (_musouPowerupTest is not > 0f || World.State != MatchState.Playing || !World.Players.TryGetValue(playerId, out var p) || !p.Alive) return;
+        if (SmSim.Extras.Musou.Campaign.TfwContracts.IsPuppet(playerId)) return;
+        var next = _musouPowerupTestNext.GetValueOrDefault(playerId);
+        if (World.Tick < next.At) return;
+        var all = MusouPowerupRules.All;
+        var give = all[next.Step % all.Length];
+        var lay = all[(next.Step + 1) % all.Length];
+        World.MusouGiveBuff(playerId, give);
+        var forward = new System.Numerics.Vector3(-MathF.Sin(p.Yaw), MathF.Cos(p.Yaw), 0f);
+        var right = new System.Numerics.Vector3(MathF.Cos(p.Yaw), MathF.Sin(p.Yaw), 0f);
+        var drop = World.MusouSpawnDrop(playerId, p.Position + forward * 1.1f + right * 0.5f, MusouPowerupRules.Item(lay));
+        _musouPowerupTestNext[playerId] = (World.Tick + (uint)MathF.Max(1f, MathF.Round(_musouPowerupTest.Value * World.Config.TickRate)), next.Step + 1);
+        Log?.Invoke($"musou: test aid {MusouPowerupTestVariable}: player {playerId} buff {give}, drop {drop?.Id} {lay}");
     }
 
     MusouDirectorView _musouLoggedDirector;

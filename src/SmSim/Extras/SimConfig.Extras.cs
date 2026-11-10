@@ -41,6 +41,11 @@ public sealed partial record SimConfig
         if (Extras.HasFlag(ContentExtras.Musou)) boost = new StimBoost(MusouCombatRules.StimLifetimeScale, MusouCombatRules.StimMeleeDamage, MusouCombatRules.StimAttackSpeed, true);
     }
 
+    partial void ExtrasFireBoost(ref float rate)
+    {
+        if (Extras.HasFlag(ContentExtras.Musou)) rate = SmSim.Extras.Musou.MusouPowerupRules.FireRate;   // the Rapid Fire powerup (owner 2026-11-10)
+    }
+
     partial void ExtrasThrownBlastScale(ThrownSpec? item, ref float scale)
     {
         if (Extras.HasFlag(ContentExtras.Musou) && item is not null && SmSim.Extras.Musou.Campaign.TfwCombatRules.IsFrag(item)) scale = MusouCombatRules.FragReachScale;

@@ -39,6 +39,7 @@ public class ExtrasBoundaryTests
         ("src/SmSim/Projectiles.cs", "ExtrasBlast"),               // World.ExtrasBlast(int, Vector3, SplashSpec, bool), at the end of ApplyBlast (Musou: blasts on enemies)
         ("src/SmSim/JumpWorld.cs", "ExtrasJump"),                  // World.ExtrasJump(int, JumpEventKind), at the end of ResolveJump (Musou: the air slash's landing heals; owner 2026-11-09)
         ("src/SmSim/Stims.cs", "ExtrasStimBoost"),                 // SimConfig.ExtrasStimBoost(ref StimBoost), Musou Mode's combat stims (x3 lifetime, x2 melee, +20 % speed, no ammunition; owner 2026-11-09)
+        ("src/SmSim/Stims.cs", "ExtrasFireBoost"),                 // SimConfig.ExtrasFireBoost(ref float), Musou Mode's Rapid Fire powerup (2x fire rate while PlayerState.FireBoostLeft runs; owner 2026-11-10)
         ("src/SmSim/Stims.cs", "ExtrasThrownBlastScale"),          // SimConfig.ExtrasThrownBlastScale(ThrownSpec?, ref float), Musou Mode's frag blast x2 (owner 2026-11-09)
         ("src/SmSim/Projectiles.cs", "ExtrasProjectileStop"),      // World.ExtrasProjectileStop(in ProjectileState, Vector3, float, ref float), in Fly before a hit is taken (Musou S4: a shield dome or a contraption stops a projectile)
         ("src/SmSim/DamageScale.cs", "ExtrasDamageTaken"),         // World.ExtrasDamageTaken(int target, ref float scale), in DamageTakenScale at every player-damage site (Musou: AI Marines take a tenth)

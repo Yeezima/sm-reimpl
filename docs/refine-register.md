@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2851 spec table rows: **2125 tagged**, 502 not tagged (read from data with high confidence), 224 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 637 rows of the changes document.
+Scanned 2854 spec table rows: **2127 tagged**, 503 not tagged (read from data with high confidence), 224 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 638 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,17 +50,17 @@ Scanned 2851 spec table rows: **2125 tagged**, 502 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 22 | 13 | 13 | 12 | 7 |
-| Core simulation (provisional values) | 587 | 561 | 412 | 163 | 1 |
+| Core simulation (provisional values) | 589 | 563 | 414 | 163 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 235 | 224 | 126 | 63 | 0 |
-| **All areas** | **2125** | 1876 | 1576 | 676 | 38 |
+| **All areas** | **2127** | 1878 | 1578 | 676 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1192 |
-| confidence: low | 759 |
+| kind: ours | 1194 |
+| confidence: low | 761 |
 | confidence: medium | 688 |
 | notes: ours | 387 |
 | kind: interpretation | 363 |
@@ -2198,7 +2198,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (587)
+### Core simulation (provisional values) (589)
 
 *Spec section: Provisional values in use*
 
@@ -2310,6 +2310,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-EC00F273` | Musou telegraphs | a faint ground wedge for each melee wind-up within 25 m (at most 24, the type's reach and cone, filling over the wind-up); the Warboss's slam a 6 m ring filling over 0.8 s, his charge a 1.5 m lane to its end filling over 1 s; started when the event arrives… (m, s) | kind: ours; confidence: low | the boss values from the design; the rest ours | Musou telegraphs: compare with SM1 by feel or video. Ours: a faint ground wedge for each melee wind-up within 25 m (at most 24… | ☐ |
 | `R-F64DD798` | Musou weapon drops | the owner (2026-10-31): "each player sees weapons when 'boss' enemies die ... only one drops. When picking the weapon up the player equips the item ... glow golden"; a credited KO of a Nob or (the owner, 2026-10-31: "Make Chaos Marines drop weapons too.") a… (m, s) | kind: ours; confidence: low | the owner's request; "boss" = Nobs and Chaos Marines (the owner), the rest ours | Musou weapon drops: compare with SM1 by feel or video. Ours: the owner (2026-10-31): "each player sees weapons when 'boss' enemies… | ☐ |
 | `R-4DCA9897` | Musou drop look | the weapon's own held model recoloured gold and emissive (a gold bar if it cannot be read), 1.4 ×, 0.9 m above the floor, spinning 1.2 rad/s and bobbing 0.08 m at 0.5 Hz; a 16 m additive light beam fading within 2–9 m of the camera, a 2.6 m floor glow, an… (m) | kind: ours; confidence: low | the owner ("glow golden ... easy to see"); the values ours | Musou drop look: compare with SM1 by measuring on a flat spot of the same map. Ours: the weapon's own held model recoloured gold and emissive (a gold bar… | ☐ |
+| `R-59691005` | Musou powerups: our parts | which types are elites (Nob, Big Shoota Nob, Weirdboy, the 5-wave run's Chaos Marine); every living player (not the AI Marines) gets a drop of its own from the KO, its kind rolled per player (uniform over the four, a hash of tick, enemy and player); the same… (m, s, x) | kind: ours; confidence: low | ours; the owner's "Double damage + wider cleave" and "twice as fast and consume no ammunition similar to a stim" | Musou powerups: our parts: compare with SM1 by feel or video. Ours: which types are elites (Nob, Big Shoota Nob, Weirdboy, the 5-wave… | ☐ |
+| `R-B45E5F45` | Musou powerups: look (client) | the drop: a 0.62 m black tile facing the camera with a thin white frame and the powerup's white line icon, its name above in small white capitals, a thin white floor ring 0.75 m round, a faint white line 7 m up (fading out within 12 m); no light, no turn; the… (m, px) | kind: ours; confidence: low | the owner ("much more minimalistic and match the black and white theme"); the lead's "icon and timer, near your own bar"; the values ours | Musou powerups: look (client): compare with SM1 by feel or video. Ours: the drop: a 0.62 m black tile facing the camera with a thin white… | ☐ |
 
 *Spec section: Added content: Musou Mode (TF0 contracts, TF1 map, TF3 Guardsmen and leashed defenders; no protocol change)*
 
@@ -4409,6 +4411,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-BC561D40` | Musou: capture banners in the world, no capture HUD (musou/capture-banners, owner 2026-11-10; client only, no rules, wire or protocol change) | No Musou Mode in the original (Seize Ground's points are the original's own and unchanged) | Ours (the owner's request, verbatim: "remove the text and status bar for the capture point ui elements in musou mode. add a banner is red when ork held, is covered by smoke, then when the smoke obscuring the banner completely dissipates the banner is now blue when captured by the player and his team. the end result is… | Musou Mode only; Classic Seize Ground unchanged. spec "Musou capture banners", "Musou capture circle", "Musou capture indicators" | Musou: capture banners in the world, no capture HUD…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-EA78DB46` | Musou: Guardsmen 1.1x (release integration, owner 2026-11-10; `TfwRules.Version` 64) | No Musou Mode in the original | The owner's: "Raise the guards to 1.1" (was 0.875x): the Guardsmen's health and shot damage 1.1x the install's 85 and the design's 5, so with every Nob twice the field holds a counterattack of its own size about half the time (our trial: 10 of 20) | Balance after twice the big Orks | Musou: Guardsmen 1.1x (release integration, owner…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-DA4B60BB` | Musou weight and impact pass (claude/musou-weight, 2026-11-10) | No Musou Mode in the original | The owner's brief of 2026-11-10 and his answers: the marines' ground contacts (foot tags and bones) drive dust and debris puffs, contact sounds and camera; more weight in landings, stops and rolls; melee retimed with its hit and end times kept, a short pose hold and camera push on the own heavy strikes and combo… | spec "Musou weight and impact pass" | Musou weight and impact pass (claude/musou-weight…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-0782C01D` | Musou: powerups instead of weapon drops (musou/powerups, owner 2026-11-10; `MusouSim.Version` 38, wire tag 6 extended; Musou only) | No Musou Mode in the original | Ours (the owner's request, verbatim: "change the drop cards UI elements to be much more minimalistic and match the black and white theme. they don't drop weapons anymore but powerups, and more rarely. they should drop a 2x damage buff that lasts 30s, a buff that makes all orks run away from you for 15s, a buff that… | Musou Mode and the 5-wave run only; Classic PvP unchanged. spec "Musou powerups: drops and durations", "Musou powerups: our parts", "Musou powerups: look (client)" | Musou: powerups instead of weapon drops (musou/powerups…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 
 ## Appendix: not gameplay
 

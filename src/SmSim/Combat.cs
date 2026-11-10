@@ -53,7 +53,7 @@ public static class Combat
             MeleeStep = 0, MeleeTime = 0, MeleeQueued = false, MeleeDirection = EvadeDirection.Forward, MeleeLock = 0f,
             Heat = 0, Overheated = false, SinceHeat = 0, OtherHeat = 0, OtherOverheated = false, OtherSinceHeat = 0,
             Charging = false, ChargeTime = 0, PendingShot = 0, PendingLeft = 0,
-            Grenades = Loadouts.Equipment(c, s)?.SpawnCount ?? 0, GrenadeCooldown = 0, Throwing = false, ThrowTime = 0, StimLeft = 0,
+            Grenades = Loadouts.Equipment(c, s)?.SpawnCount ?? 0, GrenadeCooldown = 0, Throwing = false, ThrowTime = 0, StimLeft = 0, FireBoostLeft = 0,
             Jump = JumpPhase.None, JumpTicks = 0, JumpMark = 0, JumpHolding = false, JumpLandMoving = false, JumpCut = false, JumpSmall = false, JumpSlash = false, Aiming = false,
             JumpPower = Loadouts.JumpPack(c, s)?.MaxPower ?? 0f,
             EvadeTicks = 0, EvadeDirection = EvadeDirection.Forward, EvadeLock = 0, EvadeLanded = false, JumpDashDirection = EvadeDirection.Forward,
@@ -117,7 +117,7 @@ public static class Combat
         Rush = RushPhase.None, RushTicks = 0, RushLock = 0,
         Alive = false, Health = 0f, Shield = 0f, RespawnLeft = Loadouts.RespawnTime(c, s), Velocity = Vector3.Zero, ReloadLeft = 0f, OtherReloadLeft = 0f, ThirdReloadLeft = 0f, SwitchLeft = 0f,
         MeleeStep = 0, MeleeTime = 0f, MeleeQueued = false, MeleeDirection = EvadeDirection.Forward, MeleeLock = 0f,   // fix/dead-melee-direction: it outlived the attack and the reader refuses that
-        Charging = false, ChargeTime = 0f, PendingShot = 0, PendingLeft = 0f, Throwing = false, ThrowTime = 0f, StimLeft = 0f,
+        Charging = false, ChargeTime = 0f, PendingShot = 0, PendingLeft = 0f, Throwing = false, ThrowTime = 0f, StimLeft = 0f, FireBoostLeft = 0f,
         Jump = JumpPhase.None, JumpTicks = 0, JumpMark = 0, JumpHolding = false, JumpLandMoving = false, JumpCut = false, JumpSmall = false, JumpSlash = false, Aiming = false,
         EvadeTicks = 0, EvadeDirection = EvadeDirection.Forward, EvadeLock = 0, EvadeLanded = false, JumpDashDirection = EvadeDirection.Forward,
         Brace = BracePhase.None, BraceTicks = 0, Venting = false,
@@ -367,6 +367,9 @@ public static class Combat
         float dt = c.TickSeconds;
         float attackSpeed = Stims.AttackSpeed(c, s);   // Musou Mode's combat stims (owner 2026-11-09): 1.2 while they work, 1 everywhere else
         bool freeAmmo = Stims.FreeAmmo(c, s);          // … and no round leaves the magazine
+        // Added content's fire boost (Musou Mode's Rapid Fire powerup, owner 2026-11-10; PlayerState.FireBoostLeft): the guns fire SimConfig.FireBoost times as fast and spend nothing. 1 and never set in Classic PvP.
+        float fireBoost = s.Alive && s.FireBoostLeft > 0f ? c.FireBoost : 1f;
+        if (fireBoost > 1f) freeAmmo = true;
         var realButtons = input.Buttons;
         // The heavy bolter's braced stance (Brace; fidelity gap 7): its transition this tick, and the input as the stance lets it act
         // (the presses it takes are lost, as in a reaction; the held flags follow the real buttons, below).
@@ -409,7 +412,7 @@ public static class Combat
                 RespawnLeft = MathF.Max(0f, s.RespawnLeft - dt), Velocity = Vector3.Zero, MeleeHeld = meleeDown, MeleeStep = 0, MeleeTime = 0f, MeleeQueued = false, MeleeLock = 0f,
                 FireHeld = fireDown, SwitchHeld = switchDown, SlotPistolHeld = slotPistolDown, SlotPrimaryHeld = slotPrimaryDown, SlotSecondHeld = slotSecondDown, SwitchLeft = 0f,
                 ReloadHeld = reloadDown, Charging = false, ChargeTime = 0f, PendingShot = 0, PendingLeft = 0f, ReadyTicks = 0, RaiseTicks = 0,
-                DetonateHeld = reloadBlocked, GrenadeHeld = grenadeDown, Throwing = false, ThrowTime = 0f, StimLeft = 0f, JumpHeld = jumpDown,
+                DetonateHeld = reloadBlocked, GrenadeHeld = grenadeDown, Throwing = false, ThrowTime = 0f, StimLeft = 0f, FireBoostLeft = 0f, JumpHeld = jumpDown,
                 GrenadeCooldown = MathF.Max(0f, s.GrenadeCooldown - dt), Aiming = false,
                 MeleeHeavyHeld = heavyDown, MeleeHeavy = false, MeleeQueuedHeavy = false,
             };
@@ -639,7 +642,7 @@ public static class Combat
         float reloadLeft = s.ReloadLeft;
         float otherReloadLeft = s.OtherReloadLeft, thirdReloadLeft = s.ThirdReloadLeft;   // sim/combat-pass: reloads of the holstered weapons
         // sim/holstered-cooldown (protocol 62): each weapon's shot cooldown runs down in or out of hand and follows its weapon through a switch (below).
-        float fireDt = dt * attackSpeed;   // Musou Mode's combat stims: the fire rate rises with the attack speed
+        float fireDt = dt * attackSpeed * fireBoost;   // Musou Mode's combat stims: the fire rate rises with the attack speed (and with the Rapid Fire powerup)
         float cooldown = MathF.Max(0f, s.Cooldown - fireDt), otherCooldown = MathF.Max(0f, s.OtherCooldown - fireDt), thirdCooldown = MathF.Max(0f, s.ThirdCooldown - fireDt);
         bool charging = s.Charging && charge is not null;
         float chargeTime = charging ? s.ChargeTime : 0f;
@@ -709,6 +712,7 @@ public static class Combat
         float throwTime = throwing ? s.ThrowTime : 0f;
         float releaseAt = item?.ReleaseAt(c) ?? c.ThrowRelease, useEnd = item?.DurationOf(c) ?? c.ThrowDuration;   // perks/inert-2: a stim's use has its own times
         float stimLeft = s.StimLeft > dt + TimeEpsilon ? s.StimLeft - dt : 0f;   // perks/inert-2: the stim's modifiers wear off
+        float fireBoostLeft = s.FireBoostLeft > dt + TimeEpsilon ? s.FireBoostLeft - dt : 0f;   // added content's fire boost wears off the same way
         if (throwing)
         {
             float before = throwTime;
@@ -1052,7 +1056,7 @@ public static class Combat
             ReadyTicks = readyTicks, RaiseTicks = raise, BurstLeft = burstLeft,
             DetonateHeld = (detonate || reloadBlocked) && reloadDown,
             ProjectilesOut = projectilesOut,
-            Grenades = grenades, GrenadeCooldown = grenadeCooldown, Throwing = throwing, ThrowTime = throwTime, GrenadeHeld = grenadeDown, StimLeft = stimLeft,
+            Grenades = grenades, GrenadeCooldown = grenadeCooldown, Throwing = throwing, ThrowTime = throwTime, GrenadeHeld = grenadeDown, StimLeft = stimLeft, FireBoostLeft = fireBoostLeft,
             JumpHeld = jumpDown,
             EvadeTicks = evadeTicks, EvadeDirection = evadeDirection, EvadeLock = evade.Lock, EvadeLanded = evadeLanded,
             JumpDashDirection = dashAt is not null && s.Jump == JumpPhase.TakeOff ? dashDirection : EvadeDirection.Forward,

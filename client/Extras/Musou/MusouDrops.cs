@@ -57,8 +57,9 @@ public partial class NetworkView
         if (_musouDropDirty && _musouDropPayload is not null && _musouState.Director is { } director)
         {
             _musouDropDirty = false;
-            if (MusouWire.ReadDrops(_musouDropPayload, director.Box.Sane()) is { } list)
+            if (MusouWire.ReadDrops(_musouDropPayload, director.Box.Sane(), out var buffs) is { } list)
             {
+                MusouBuffsReceived(buffs, _musouDropTick);   // the powerups (MusouPowerups.cs): the own buffs after the drops
                 _musouDropLive.Clear();
                 foreach (var d in list)
                 {
@@ -71,6 +72,7 @@ public partial class NetworkView
                 foreach (var id in _musouDropScratch) _musouDropTaken.Remove(id);
             }
         }
+        MusouPowerupsFrame(me);   // the own buffs: the HUD's chips and the Supercharged glow (NetworkView.MusouPowerups.cs)
         if (_musouNoDraw || _gameSpace is null) return;
 
         // The drops to draw: live, not taken by a press just now, the nearest MaxDrawn (the nearest MaxLit with a light).
@@ -94,8 +96,12 @@ public partial class NetworkView
             if (!_musouDropViews.TryGetValue(id, out var view) || view.Item != d.Item)
             {
                 MusouRemoveDropView(id);
-                string? wargear = _config is null ? null : MusouDropItem.Wargear(_config, me.Class, d.Item);
-                view = MusouDropView.Create(id, d.Item, MusouDropMesh(wargear), MusouDropName(wargear), d.Crate, d.Crate ? PickupModel(0) : null);
+                if (MusouPowerupRules.IsPowerup(d.Item)) view = MusouDropView.CreatePowerup(id, d.Item, MusouPowerupRules.KindOf(d.Item));   // owner 2026-11-10: minimal, black and white (MusouDropView.Powerup.cs)
+                else
+                {
+                    string? wargear = _config is null ? null : MusouDropItem.Wargear(_config, me.Class, d.Item);
+                    view = MusouDropView.Create(id, d.Item, MusouDropMesh(wargear), MusouDropName(wargear), d.Crate, d.Crate ? PickupModel(0) : null);
+                }
                 _gameSpace.AddChild(view);
                 _musouDropViews[id] = view;
                 _musouDropsSeen++;
@@ -135,7 +141,9 @@ public partial class NetworkView
         else if (near.Id != _musouDropPromptFor || _musouDropPromptText is null)
         {
             _musouDropPromptFor = near.Id;
-            _musouDropPromptText = $"{ControlsInput.Prompt(GameAction.Use)}: {(near.Crate ? "OPEN CRATE" : "PICK UP")} {near.Title.ToUpperInvariant()}";
+            _musouDropPromptText = near.Minimal
+                ? $"{ControlsInput.Prompt(GameAction.Use)}   {near.Title}"   // a powerup's prompt: the key and the name, nothing more (owner 2026-11-10)
+                : $"{ControlsInput.Prompt(GameAction.Use)}: {(near.Crate ? "OPEN CRATE" : "PICK UP")} {near.Title.ToUpperInvariant()}";
         }
         MusouDropPromptShow(near is null ? null : _musouDropPromptText);
     }
@@ -170,10 +178,11 @@ public partial class NetworkView
                 AnchorLeft = 0.5f, AnchorRight = 0.5f, AnchorTop = at, AnchorBottom = at, OffsetLeft = -320, OffsetRight = 320,
             };
             if (!MusouHudLayout.Old) _musouDropPrompt.GrowVertical = Control.GrowDirection.Begin;   // its bottom on the line, the text above it: clear of the pickup line at any height
-            _musouDropPrompt.AddThemeFontSizeOverride("font_size", 24);
-            _musouDropPrompt.AddThemeColorOverride("font_color", new Color(1f, 0.82f, 0.35f));
-            _musouDropPrompt.AddThemeColorOverride("font_outline_color", new Color(0f, 0f, 0f, 0.9f));
-            _musouDropPrompt.AddThemeConstantOverride("outline_size", 6);
+            // The black and white theme (owner 2026-11-10): the menus' small bold white capitals, a thin dark outline (the gold 24 px line before).
+            _musouDropPrompt.AddThemeFontSizeOverride("font_size", 18);
+            _musouDropPrompt.AddThemeColorOverride("font_color", new Color(0.93f, 0.93f, 0.93f));
+            _musouDropPrompt.AddThemeColorOverride("font_outline_color", new Color(0f, 0f, 0f, 0.85f));
+            _musouDropPrompt.AddThemeConstantOverride("outline_size", 4);
             layer.AddChild(_musouDropPrompt);
             AddChild(layer);
         }
@@ -236,7 +245,7 @@ public sealed partial class MusouDropView : Node3D
         get => _light is not null;
         set
         {
-            if (value == (_light is not null)) return;
+            if (Minimal || value == (_light is not null)) return;   // a powerup carries no light
             if (value)
             {
                 _light = new OmniLight3D { LightColor = new Color(1f, 0.74f, 0.3f), LightEnergy = 2.2f, OmniRange = 5f, Position = new Vector3(0f, 0f, Lift + 0.3f), ShadowEnabled = false };
@@ -337,6 +346,7 @@ public sealed partial class MusouDropView : Node3D
     {
         _age += delta;
         if (_spin is null) return;
+        if (Minimal) { _spin.Position = new Vector3(0f, 0f, TileLift + BobMetres * Mathf.Sin(_age * Mathf.Tau * BobHz)); return; }   // a powerup bobs, does not turn
         _spin.Rotation = new Vector3(0f, 0f, (_age * SpinRate + Id * 2.39996323f) % Mathf.Tau);
         _spin.Position = new Vector3(0f, 0f, Lift + BobMetres * Mathf.Sin(_age * Mathf.Tau * BobHz));
     }

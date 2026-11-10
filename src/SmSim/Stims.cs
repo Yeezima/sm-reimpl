@@ -129,6 +129,19 @@ public sealed partial record SimConfig
 
     partial void ExtrasStimBoost(ref StimBoost boost);
 
+    /// <summary>How much faster the guns fire while <see cref="PlayerState.FireBoostLeft"/> runs (added content's Rapid Fire; 1 in the faithful game and Classic PvP). Not hashed itself: Musou's block covers it.</summary>
+    public float FireBoost
+    {
+        get
+        {
+            float rate = 1f;
+            ExtrasFireBoost(ref rate);   // EXTRAS-HOOK
+            return rate;
+        }
+    }
+
+    partial void ExtrasFireBoost(ref float rate);
+
     /// <summary>The scale on the reach of the blasts of thrown <paramref name="item"/> (1 in the faithful game; Musou Mode doubles the frag's, owner 2026-11-09).</summary>
     public float ThrownBlastScale(ThrownSpec? item)
     {

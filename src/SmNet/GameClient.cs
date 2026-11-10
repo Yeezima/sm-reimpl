@@ -585,6 +585,7 @@ public sealed partial class GameClient
         SpreadOutcomes[(int)spreadOutcome]++;
         // perks/inert-2: the combat stims' time left is not on the wire either: derived from the record's item cooldown, past it the prediction's (Stims.Carry).
         mine = Stims.Carry(_config, mine, spreadOutcome is SpreadReconcile.Outcome.Carried or SpreadReconcile.Outcome.Mismatch ? predictedSpread.State : null);
+        if (ExtrasCarry is { } carry) mine = carry(mine, s.ServerTick);   // EXTRAS-HOOK: added content's own timers not on the wire (Musou: the Rapid Fire powerup's PlayerState.FireBoostLeft)
 
         // Reconcile: take the authoritative state and replay every input the server has not applied yet.
         foreach (var old in _history.Keys.Where(t => t <= s.ServerTick).ToList()) _history.Remove(old);

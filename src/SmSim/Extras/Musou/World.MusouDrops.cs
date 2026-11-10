@@ -93,15 +93,19 @@ public sealed partial class World
     /// <summary>Whether weapons drop here (<see cref="MusouDropRules.WeaponDrops"/>; tests of the drops turn it on).</summary>
     public bool MusouWeaponDrops { get; set; } = MusouDropRules.WeaponDrops;
 
-    /// <summary>A KO (from <see cref="MusouCreditKills"/>, in play): one drop for every living player when the enemy is one that drops.</summary>
+    /// <summary>A KO (from <see cref="MusouCreditKills"/>, in play): the powerups' drops (World.MusouPowerups.cs), and with the weapon drops on one drop for every living player when the enemy is one that drops.</summary>
     void MusouDropFor(MusouKill kill)
     {
-        if (!MusouWeaponDrops || !MusouDropRules.Drops(kill.Type) || kill.Cause == MusouDeathKind.World) return;   // a stranded enemy removed by the failsafe drops nothing
+        if (kill.Cause == MusouDeathKind.World) return;   // a stranded enemy removed by the failsafe drops nothing
+        bool weapons = MusouWeaponDrops && MusouDropRules.Drops(kill.Type);
+        if (!weapons && !(MusouPowerupDrops && (MusouPowerupRules.Boss(kill.Type) || MusouPowerupRules.Elite(kill.Type)))) return;
         if (!_musou!.TryGet(kill.Enemy, out var enemy)) return;
         var at = enemy.Position;
         // On the floor: the height of the enemy's walking-graph node (the flat ground without a graph).
         if (_musou.Walk is { } walk && enemy.Node >= 0 && enemy.Node < walk.NodeCount) at.Z = walk.Z(enemy.Node);
         else if (_musou.Walk is null) at.Z = 0f;
+        MusouPowerupFor(kill, at);   // owner 2026-11-10: powerups, not weapons
+        if (!weapons) return;
         _musouDropPlayers.Clear();
         foreach (int id in _players.Keys) _musouDropPlayers.Add(id);
         _musouDropPlayers.Sort();
@@ -127,6 +131,7 @@ public sealed partial class World
             foreach (int id in _musouDropVersions.Keys) if (!_players.ContainsKey(id) && !MusouHasDrops(id)) _musouDropPlayers.Add(id);
             foreach (int id in _musouDropPlayers) _musouDropVersions.Remove(id);
         }
+        MusouPowerupsStep();   // World.MusouPowerups.cs: the buffs' upkeep, the fear list and the damage scales
         if (_musouDrops.Count == 0) return;
         if (_state == MatchState.Playing && _interactPresses.Count > 0)
         {
@@ -145,7 +150,9 @@ public sealed partial class World
                     float d2 = Vector3.DistanceSquared(d.Position, p.Position);
                     if (d2 < bestD) { bestD = d2; best = i; }
                 }
-                if (best < 0 || !MusouGiveItem(id, _musouDrops[best].Item)) continue;
+                if (best < 0) continue;
+                ushort item = _musouDrops[best].Item;
+                if (MusouPowerupRules.IsPowerup(item) ? !MusouGiveBuff(id, MusouPowerupRules.KindOf(item)) : !MusouGiveItem(id, item)) continue;
                 MusouEndDrop(best, MusouDropState.Picked);
                 for (int k = _interactPresses.Count - 1; k >= 0; k--)   // the drop went first: this press collects no ammunition box (Pickups.cs)
                     if (_interactPresses[k] == id) _interactPresses.RemoveAt(k);
@@ -178,6 +185,7 @@ public sealed partial class World
     /// <summary>A new round: every drop goes (each player's list changes to empty).</summary>
     void MusouClearDrops()
     {
+        MusouClearBuffs();   // World.MusouPowerups.cs: the buffs go with the round
         foreach (var d in _musouDrops) MusouDropChanged(d.Player);
         _musouDrops.Clear();
     }

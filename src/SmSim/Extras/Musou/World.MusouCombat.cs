@@ -251,7 +251,8 @@ public sealed partial class World
         float minCos = MathF.Cos(MathF.Min(180f, Config.MeleeConeDegrees * rules.CleaveConeScale) * MathF.PI / 180f);
         if (musou.War is { } volume) { range *= volume.CleaveReachScale; minCos = volume.CleaveMinCos; }   // owner 2026-11-09: a longer, wider flat cone in the war
         int most = musou.War?.CleaveTargets ?? rules.CleaveTargets;
-        ArsenalCleave(attacker, state, step, ref range, ref minCos, ref most, ref damage);   // Arsenal/World.Arsenal.cs: a weapon's own cleave (W3, the spear); a no-op until then
+        ArsenalCleave(attacker, state, step, ref range, ref minCos, ref most, ref damage);
+        MusouSuperchargedCleave(attacker, ref range, ref minCos);   // the Supercharged Melee powerup: a wider, longer cleave (World.MusouPowerups.cs)   // Arsenal/World.Arsenal.cs: a weapon's own cleave (W3, the spear); a no-op until then
         var forward = new Vector2(-MathF.Sin(state.Yaw), MathF.Cos(state.Yaw));
         var eye = state.Position + new Vector3(0, 0, Config.EyeHeight);
         int n = musou.Query(state.Position, range, _musouNear, Config.MeleeVerticalReach);

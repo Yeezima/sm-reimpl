@@ -403,7 +403,7 @@ public partial class NetworkView
 
     /// <summary>The note for the 10 s log line.</summary>
     string MusouPresentNote() => (_musouHud is null ? "hud none" : $"hud on, hit markers {_musouHitMarkers}, hit fx {_musouHitFx}, " +
-                                                                  $"telegraphs {_musouTelegraphs?.Shown ?? 0}, KOs {_musouScore.Kos} pts {_musouScore.Points}") + "; " + MusouStormboyNote() + "; " + MusouMekNote();
+                                                                  $"telegraphs {_musouTelegraphs?.Shown ?? 0}, KOs {_musouScore.Kos} pts {_musouScore.Points}") + "; " + MusouStormboyNote() + "; " + MusouMekNote() + "; " + MusouPowerupsInfoLine();
 
     /// <summary><c>--musou-hud-demo</c>: made-up values for screenshots (the phase held, or wave, break, boss, won, lost in turn every 4 s).</summary>
     void MusouDemo(MusouHud.Frame f, PlayerState me, MusouRules rules, double now)
