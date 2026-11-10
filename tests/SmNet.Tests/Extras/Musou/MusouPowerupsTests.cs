@@ -2,6 +2,7 @@ using System.Numerics;
 using SmNet.Extras.Musou;
 using SmSim;
 using SmSim.Extras.Musou;
+using SmSim.Extras.Musou.Arsenal;
 using SmSim.Extras.Musou.Campaign;
 
 namespace SmNet.Tests.Extras.Musou;
@@ -169,6 +170,50 @@ public class MusouPowerupsTests
     }
 
     [Fact]
+    public void A_death_mid_hold_ends_it_and_takes_nothing()
+    {
+        var w = NewWorld();
+        w.Spawn(1, w.AssignClass(0));
+        w.Step(_ => default);
+        int need = HoldTicks(w);
+        w.MusouSpawnDrop(1, w.Players[1].Position + new Vector3(0.6f, 0f, 0f), MusouPowerupRules.Item(MusouPowerup.DoubleDamage));
+        Hold(w, 1, need / 2);
+        Assert.NotNull(w.MusouHoldOf(1));
+        Set(w, 1, p => Combat.Killed(p, w.Config));   // killed with the key still down (the state a death leaves)
+        Hold(w, 1, 1);
+        Assert.False(w.Players[1].Alive);
+        Assert.Null(w.MusouHoldOf(1));
+        Assert.Equal(MusouDropState.Expired, Assert.Single(DropsOf(w, 1)).State);   // the drop goes with the life, not picked
+        Hold(w, 1, need);   // the key held on past where the hold would have ended
+        Assert.Null(w.MusouHoldOf(1));
+        Assert.NotEqual(MusouDropState.Picked, Assert.Single(DropsOf(w, 1)).State);
+        Assert.False(w.MusouBuffsOf(1).Any(w.Tick));
+        Assert.Equal(0, w.MusouPowerupsTaken);
+    }
+
+    [Fact]
+    public void The_drop_expiring_mid_hold_ends_it_and_takes_nothing()
+    {
+        var w = NewWorld();
+        w.Spawn(1, w.AssignClass(0));
+        w.Step(_ => default);
+        int need = HoldTicks(w);
+        var drop = w.MusouSpawnDrop(1, w.Players[1].Position + new Vector3(0.6f, 0f, 0f), MusouPowerupRules.Item(MusouPowerup.Fear))!.Value;
+        Assert.Equal(w.Tick + (uint)MathF.Round(MusouDropRules.LifetimeSeconds * w.Config.TickRate), drop.EndTick);
+        while (w.Tick + need / 2 < drop.EndTick) w.Step(_ => default);   // the drop's last half-hold of life
+        Hold(w, 1, 2);
+        Assert.NotNull(w.MusouHoldOf(1));
+        Assert.Equal(MusouDropState.Live, Assert.Single(DropsOf(w, 1)).State);
+        Hold(w, 1, need);   // held on through the drop's end, past where the hold would have finished
+        Assert.True(w.Tick > drop.EndTick);
+        Assert.True(w.Players[1].Alive);
+        Assert.Null(w.MusouHoldOf(1));
+        Assert.Equal(MusouDropState.Expired, Assert.Single(DropsOf(w, 1)).State);
+        Assert.False(w.MusouBuffActive(1, MusouPowerup.Fear));
+        Assert.Equal(0, w.MusouPowerupsTaken);
+    }
+
+    [Fact]
     public void A_weapon_drop_still_goes_at_the_press()
     {
         var w = NewWorld();
@@ -263,9 +308,9 @@ public class MusouPowerupsTests
         MusouRules = MusouRules.Default with { PlayerDamageScale = 0f, Types = [.. MusouRules.Default.Types.Select(t => t with { Speed = 0f })] },
     };
 
-    static World CombatWorld()
+    static World CombatWorld(SimConfig? config = null)
     {
-        var w = new World(CombatConfig()) { Rules = MusouSimTests.Endless };
+        var w = new World(config ?? CombatConfig()) { Rules = MusouSimTests.Endless };
         Assert.True(w.StartMusou(null));
         w.MusouDirector!.Hold = true;
         w.Spawn(1, w.AssignClass(0), equipmentChoice: 0);
@@ -274,14 +319,20 @@ public class MusouPowerupsTests
         return w;
     }
 
-    /// <summary>The damage one light swing of player 1 (facing +Y) deals a sturdy Boy at <paramref name="offset"/> from it, with <paramref name="buffs"/> running and, if <paramref name="stim"/>, a stim.</summary>
-    static float SwingDamage(Vector3 offset, bool stim, params MusouPowerup[] buffs)
+    /// <summary>Player 1 gets a stim if <paramref name="stim"/> and <paramref name="buffs"/>; one tick on, the scales are in the pool.</summary>
+    static void Prime(World w, bool stim, MusouPowerup[] buffs)
     {
-        var w = CombatWorld();
         if (stim) Set(w, 1, p => p with { StimLeft = 30f, Equipment = 0 });
         Assert.Equal(stim, Stims.Active(w.Config, w.Players[1]) is not null);
         foreach (var b in buffs) Assert.True(w.MusouGiveBuff(1, b));
         w.Step(_ => default);   // the scales reach the pool once a tick
+    }
+
+    /// <summary>The damage one light swing of player 1 (facing +Y) deals a sturdy Boy at <paramref name="offset"/> from it, with <paramref name="buffs"/> running and, if <paramref name="stim"/>, a stim.</summary>
+    static float SwingDamage(Vector3 offset, bool stim, params MusouPowerup[] buffs)
+    {
+        var w = CombatWorld();
+        Prime(w, stim, buffs);
         ushort boy = w.Musou!.Spawn(MusouEnemyType.Boy, w.Players[1].Position + offset, 0f, 1e5f);
         Health(w, boy, out float before);
         for (int t = 0; t < 20; t++) w.Step(_ => new PlayerInput(0, 0f, 0f, 0f, t == 0 ? InputButtons.Melee : 0));
@@ -315,6 +366,84 @@ public class MusouPowerupsTests
         w.Musou.Damage(boy, 1, 10f, Vector3.Zero, out _);
         Health(w, boy, out float h1);
         Assert.Equal(20f, h0 - h1, 3);
+    }
+
+    static readonly DamageSpec Plain = new(0f, 0f, 1f, 1f, 1f, 1f, false);
+    static readonly MeleeStep HeavySwing = new(1.2f, 0.3f, 0f, 0f, 0.8f, 0.9f, 45f, 10f, 3.5f) { PrimaryReaction = new(0f, ReactionKind.Stun) };
+    static Vector2[] Line(float metres, int samples) => [.. Enumerable.Range(0, samples + 1).Select(k => new Vector2(0f, metres * k / samples))];
+    /// <summary>The bull rush of <see cref="MusouCombatTests"/>: 12 m straight ahead, 40 to each enemy on its path.</summary>
+    static readonly RushSpec BullRush = new("bullrush", new RushMove("rush", Line(12f, 12), 1.2f, 1.0f, 0.6f, 0.5f, 1.0f), new RushMove("rush_stop", Line(0.5f, 10), 1.0f, 0.9f, 0.9f, 0.6f, 0.3f),
+        Plain with { Damage = 40f }, new ReactionEntry(0f, ReactionKind.Stun), Plain with { Damage = 30f }, new ReactionEntry(0f, ReactionKind.Interrupt), 4f, 1f)
+        { ContactUntil = 0.6f, WallFrom = 0.3f, HyperArmourUntil = 0.3f };
+
+    /// <summary>The combat world's class with the bull rush (Sprint, then the heavy attack).</summary>
+    static SimConfig ChargeConfig()
+    {
+        var c = CombatConfig();
+        return c with { Classes = [c.Classes[0] with { MeleeHeavy = [HeavySwing], MeleeRush = BullRush }] };
+    }
+
+    /// <summary>The combat world's class with the power spear as its one melee choice (the impale: <c>World.ArsenalJump</c>, Arsenal/World.Spear.cs).</summary>
+    static SimConfig SpearConfig()
+    {
+        var c = CombatConfig();
+        return c with { Classes = [c.Classes[0] with { MeleeChoices = [new MeleeCombo(ArsenalRules.PowerSpear, [Swing])] }] };
+    }
+
+    /// <summary>The damage player 1's charge (straight ahead, +Y) deals a sturdy Boy 3 m out on its path, with <paramref name="buffs"/> running and, if <paramref name="stim"/>, a stim.</summary>
+    static float ChargeDamage(bool stim, params MusouPowerup[] buffs)
+    {
+        var w = CombatWorld(ChargeConfig());
+        Prime(w, stim, buffs);
+        ushort boy = w.Musou!.Spawn(MusouEnemyType.Boy, w.Players[1].Position + new Vector3(0.3f, 3f, 0f), 0f, 1e5f);
+        Health(w, boy, out float before);
+        bool charged = false;
+        for (int t = 0; t < 45; t++)
+        {
+            bool held = t < 2;
+            w.Step(_ => new PlayerInput(0, 0f, held ? 1f : 0f, 0f, held ? InputButtons.Sprint | (t == 1 ? InputButtons.MeleeHeavy : 0) : 0));
+            charged |= w.Players[1].Rush != RushPhase.None;
+        }
+        Assert.True(charged, "the charge ran");
+        Health(w, boy, out float after);
+        return before - after;
+    }
+
+    /// <summary>The damage the spear's impale (the dive's landing, called as the jump's Impact event) deals a sturdy Boy 1.2 m ahead of player 1, with <paramref name="buffs"/> running and, if <paramref name="stim"/>, a stim.</summary>
+    static float ImpaleDamage(bool stim, params MusouPowerup[] buffs)
+    {
+        var w = CombatWorld(SpearConfig());
+        Assert.True(SpearRules.Wields(w.Config, w.Players[1]));
+        Prime(w, stim, buffs);
+        ushort boy = w.Musou!.Spawn(MusouEnemyType.Boy, w.Players[1].Position + new Vector3(0f, 1.2f, 0f), 0f, 1e5f);
+        Health(w, boy, out float before);
+        typeof(World).GetMethod("ArsenalJump", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.Invoke(w, [1, JumpEventKind.Impact]);
+        Health(w, boy, out float after);
+        return before - after;
+    }
+
+    [Fact]
+    public void The_x2_melee_cap_holds_at_the_charge_with_supercharged_double_damage_and_a_stim()
+    {
+        float plain = ChargeDamage(false);
+        Assert.Equal(40f, plain, 2);   // the rush's own 40, once
+        Assert.Equal(2f * plain, ChargeDamage(false, MusouPowerup.Supercharged), 2);
+        Assert.Equal(2f * plain, ChargeDamage(false, MusouPowerup.DoubleDamage), 2);
+        Assert.Equal(2f * plain, ChargeDamage(false, MusouPowerup.Supercharged, MusouPowerup.DoubleDamage), 2);   // x2, not x4
+        Assert.Equal(2f * plain, ChargeDamage(true), 2);                                                          // Musou's stim alone: x2
+        Assert.Equal(2f * plain, ChargeDamage(true, MusouPowerup.Supercharged, MusouPowerup.DoubleDamage), 2);    // all three: x2, not x8
+    }
+
+    [Fact]
+    public void The_x2_melee_cap_holds_at_the_spears_impale_with_supercharged_double_damage_and_a_stim()
+    {
+        float plain = ImpaleDamage(false);
+        Assert.Equal(SpearRules.ImpaleDamage, plain, 2);   // the impale's own 600
+        Assert.Equal(2f * plain, ImpaleDamage(false, MusouPowerup.Supercharged), 2);
+        Assert.Equal(2f * plain, ImpaleDamage(false, MusouPowerup.DoubleDamage), 2);
+        Assert.Equal(2f * plain, ImpaleDamage(false, MusouPowerup.Supercharged, MusouPowerup.DoubleDamage), 2);   // x2, not x4
+        Assert.Equal(2f * plain, ImpaleDamage(true), 2);                                                          // Musou's stim alone: x2
+        Assert.Equal(2f * plain, ImpaleDamage(true, MusouPowerup.Supercharged, MusouPowerup.DoubleDamage), 2);    // all three: x2, not x8
     }
 
     [Fact]
