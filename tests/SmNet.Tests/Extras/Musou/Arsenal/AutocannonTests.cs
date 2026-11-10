@@ -207,6 +207,26 @@ public class AutocannonTests
         Assert.Equal(0f, Combat.SplashIntensity(AutocannonRules.BlastFallOff, 2.6f));
     }
 
+    [Fact]
+    public void The_blasts_radius_crosses_the_wire_to_a_decimetre_and_is_drawn_at_the_right_size()
+    {
+        // The wire rounds the radius to a decimetre (banker's rounding): the bolt blast's 1.25 m arrives as 1.2, the autocannon's 2.5 m exactly.
+        float Through(float radius)
+        {
+            var back = TfwWire.ReadFire(TfwWire.WriteFire([new TfwFireEvent(TfwFireKind.BoltBlast, 7, 1, new Vector3(1f, 2f, 3f), new Vector3(0f, radius, 0f))]));
+            return Assert.Single(back!).To.Y;
+        }
+        float bolt = Through(1.25f), auto = Through(2.5f);
+        Assert.InRange(bolt, 1.15f, 1.25f);
+        Assert.Equal(2.5f, auto, 2);
+        Assert.Equal(1f, AutocannonRules.BlastDrawScale(bolt));   // every bolt blast is drawn as it was
+        Assert.Equal(1f, AutocannonRules.BlastDrawScale(1.25f));
+        Assert.Equal(2f, AutocannonRules.BlastDrawScale(auto));   // the autocannon's at twice the size
+        Assert.Equal(1f, AutocannonRules.BlastDrawScale(0f));     // a record with no radius
+        Assert.Equal(1f, AutocannonRules.BlastDrawScale(float.NaN));
+        Assert.Equal(1f, AutocannonRules.BlastDrawScale(-3f));
+    }
+
     // ---------------------------------------------------------------- Musou only
 
     [Fact]

@@ -97,6 +97,9 @@ public sealed partial class CustomizerServices
 
     /// <summary>Hook for added content: replaces <paramref name="config"/> (the data's) by the one its content profile plays with; null while that is read. Leaves it alone unless its content profile is on.</summary>
     partial void ExtrasConfig(ref SimConfig? config);
+
+    /// <summary>Hook for added content: runs at the end of the load, on its worker, so what the content profile needs beyond the data's configuration is read before <see cref="LoadTask"/> completes (a caller that waits on it then finds <see cref="Ready"/> true).</summary>
+    partial void ExtrasLoaded();
     /// <summary>Whether each perk does anything in the simulation (the creator's NOT ACTIVE YET / PARTLY ACTIVE words); read once with the config.</summary>
     public IReadOnlyDictionary<string, PerkStatus>? PerkActivities { get; private set; }
     public string? Error { get; private set; }
@@ -170,6 +173,7 @@ public sealed partial class CustomizerServices
                 ApplyProfileView(session);   // before any screen listens: the content profile's view from the start
             }
             Catalog = catalog;
+            ExtrasLoaded();   // EXTRAS-HOOK: the added content's own reads finish before LoadTask does (Musou's own configuration)
         }
         catch (Exception ex) when (ex is not (OutOfMemoryException or StackOverflowException or AccessViolationException))
         {

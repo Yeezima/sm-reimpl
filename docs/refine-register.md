@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2863 spec table rows: **2132 tagged**, 507 not tagged (read from data with high confidence), 224 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 637 rows of the changes document.
+Scanned 2864 spec table rows: **2133 tagged**, 507 not tagged (read from data with high confidence), 224 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 637 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,17 +50,17 @@ Scanned 2863 spec table rows: **2132 tagged**, 507 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 22 | 13 | 13 | 12 | 7 |
-| Core simulation (provisional values) | 594 | 565 | 418 | 163 | 1 |
+| Core simulation (provisional values) | 595 | 566 | 419 | 163 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 235 | 224 | 126 | 63 | 0 |
-| **All areas** | **2132** | 1880 | 1582 | 676 | 38 |
+| **All areas** | **2133** | 1881 | 1583 | 676 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1196 |
-| confidence: low | 761 |
+| kind: ours | 1197 |
+| confidence: low | 762 |
 | confidence: medium | 692 |
 | notes: ours | 387 |
 | kind: interpretation | 363 |
@@ -2198,7 +2198,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (594)
+### Core simulation (provisional values) (595)
 
 *Spec section: Provisional values in use*
 
@@ -3134,6 +3134,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-784C2EA3` | Autocannon: trigger | full auto (the file fires a semi-auto 2-round burst 0.2 s apart; the campaign gun fires full auto; the owner D5/Q9: full auto) | confidence: medium | campaign `auto_cannon` | Autocannon: trigger: compare with SM1 by feel or video. Ours: full auto (the file fires a semi-auto 2-round burst 0.2 s apart; the… | ☐ |
 | `R-3959E0A1` | Autocannon: clip | 400, no reserve (the campaign gun's; Musou's ammunition is endless anyway); reload R does nothing (rounds) | confidence: medium | campaign `auto_cannon` | Autocannon: clip: compare with SM1 by feel or video. Ours: 400, no reserve (the campaign gun's; Musou's ammunition is endless… | ☐ |
 | `R-F74732A8` | Autocannon: handling | the heavy bolter's raise delay (0.333 s), always-ready stance, spread and reload time; no brace; the file's own scatter sets are not read | kind: ours; confidence: low | design section 4 | Autocannon: handling: compare with SM1 by feel or video. Ours: the heavy bolter's raise delay (0.333 s), always-ready stance, spread… | ☐ |
+| `R-89DE4DD1` | Autocannon: blasts per round (playtest check) | a round can set off up to 6 blasts (the 5 pierced and the one that stops it, `TfwCombatRules.Pierced`), each with no per-blast cap, so Orks beside the ray can take up to 6 x 15 from one round; a balance and performance item to check in a playtest (the bolt… (blasts, damage) | kind: ours; confidence: low | review 2026-11-10 | Autocannon: blasts per round (playtest check): compare with SM1 by feel or video. Ours: a round can set off up to 6 blasts (the 5 pierced and the one that… | ☐ |
 | `R-7625389D` | Autocannon: pierce | through **5** Orks and the sixth that stops it (`TfwCombatRules.Pierced` names `auto_cannon`) (enemies) | kind: ours; confidence: medium | Musou's existing rule | Autocannon: pierce: compare with SM1 by shooting through a crate or a line of players and counting who is hit. Ours: through 5 Orks and the sixth that stops it (TfwCombatRules.Pierced… | ☐ |
 | `R-A42BF5F7` | Autocannon: blast | a blast at the point **every Ork a round strikes** (the bolt blasts' path), radius **2.5 m** (twice the bolt blast's 1.25 m), full to 1.0 m, 30 % at the edge, **15** at the centre; the campaign's 4 m hit-scan splash is dropped (m, damage) | kind: ours; confidence: low | owner D12 (the size); the damage and the shape are the bolt blast's | Autocannon: blast: compare with SM1 by measuring on a flat spot of the same map. Ours: a blast at the point every Ork a round strikes (the bolt blasts'… | ☐ |
 | `R-B4298678` | Autocannon: animations | the heavy bolter's (walk, sprint, hop, fall, hip fire, flinch: the campaign's carry graph uses the same navigation graph); the model is the install's `turret_aa` (1,883 triangles), held and stowed as the heavy bolter's | confidence: medium | design section 4 | Autocannon: animations: compare with SM1 by feel or video. Ours: the heavy bolter's (walk, sprint, hop, fall, hip fire, flinch: the… | ☐ |

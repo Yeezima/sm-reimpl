@@ -43,7 +43,7 @@ public partial class NetworkView
     /// How large a blast of <paramref name="radius"/> metres is drawn against the bolt blast's (W1, the autocannon: its 2.5 m blast shows twice the size; the owner: "2x the HE explosion size"). The bolt blast's own
     /// radius, a record with none (0 or less) and anything not finite give 1, so the bolt blast is drawn as it was.
     /// </summary>
-    internal static float BoltBlastSizeOf(float radius) => float.IsFinite(radius) && radius > 0f ? radius / BoltBlastReach : 1f;
+    internal static float BoltBlastSizeOf(float radius) => SmSim.AutocannonRules.BlastDrawScale(radius);   // the wire rounds the radius to a decimetre: 1.25 arrives as 1.2, still the bolt blast's size
 
     /// <summary>Tag 11's bolt blast records of this frame's sections (as <see cref="TfwFragFrame"/>), each (tick, count) once.</summary>
     void TfwBoltBlastFrame()
