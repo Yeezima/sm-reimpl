@@ -166,7 +166,7 @@ public sealed partial class CustomizerServices
             // ui/customizer-ork: a build with added content reads the Ork Boy too (appended as the last class, so the six classes' indices and values are the
             // same), so the creator and a Join can name his class; the content profile decides whether he is offered (ContentGate, JoinPlan.Build).
             var tuning = ContentExtras.Compiled ? GameplayTuning.LoadForMatch(GameDir, ContentExtras.Orks) : GameplayTuning.Load(GameDir);
-            var session = ProfileSession.Open(catalog, Store);
+            var session = ProfileSession.Open(catalog, Store, ContentExtras.Compiled ? catalog.For(ContentExtras.Musou) : null);   // a saved loadout keeps Musou's arsenal items (the spear, the autocannon): the file is repaired against the catalogue that lists them, whatever profile plays now
             lock (Notes) { Notes.AddRange(notes); Notes.AddRange(tuning.Notes); }
             PerkActivities = PerkStatuses.Of(tuning.Config);
             Config = tuning.Config;

@@ -33,7 +33,8 @@ public sealed class ProfileSession
     }
 
     /// <summary>Loads (and repairs) the profile from the store. A repaired profile is not written until the player saves.</summary>
-    public static ProfileSession Open(CustomizationCatalog catalog, ProfileStore store) => new(catalog, store, store.Load(catalog));
+    /// <param name="repairWith">The catalogue the saved file is read and repaired against, when it knows more than <paramref name="catalog"/> (Musou's arsenal items, which a data-only repair would reset on every start); null: <paramref name="catalog"/>.</param>
+    public static ProfileSession Open(CustomizationCatalog catalog, ProfileStore store, CustomizationCatalog? repairWith = null) => new(catalog, store, store.Load(repairWith ?? catalog));
 
     public CustomizationCatalog Catalog { get; }
     public ProfileStore Store { get; }
