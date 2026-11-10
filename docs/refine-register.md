@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2838 spec table rows: **2112 tagged**, 501 not tagged (read from data with high confidence), 225 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 637 rows of the changes document.
+Scanned 2839 spec table rows: **2113 tagged**, 501 not tagged (read from data with high confidence), 225 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 637 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,22 +50,22 @@ Scanned 2838 spec table rows: **2112 tagged**, 501 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 22 | 13 | 13 | 12 | 7 |
-| Core simulation (provisional values) | 575 | 550 | 400 | 162 | 1 |
+| Core simulation (provisional values) | 576 | 552 | 401 | 163 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 234 | 223 | 125 | 63 | 0 |
-| **All areas** | **2112** | 1864 | 1563 | 675 | 38 |
+| **All areas** | **2113** | 1866 | 1564 | 676 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1180 |
-| confidence: low | 746 |
+| kind: ours | 1181 |
+| confidence: low | 747 |
 | confidence: medium | 688 |
 | notes: ours | 386 |
 | kind: interpretation | 363 |
 | notes: estimate | 176 |
-| kind: estimate | 145 |
+| kind: estimate | 146 |
 | confidence: none (low) | 129 |
 | kind: provisional | 100 |
 | kind: user's knowledge | 55 |
@@ -73,8 +73,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | notes: provisional | 38 |
 | section: provisional | 38 |
 | section: placeholder | 35 |
+| notes: interpretation | 25 |
 | notes: user's knowledge | 25 |
-| notes: interpretation | 24 |
 | kind: approximation | 22 |
 | kind: placeholder | 22 |
 | notes: placeholder | 20 |
@@ -2198,7 +2198,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (575)
+### Core simulation (provisional values) (576)
 
 *Spec section: Provisional values in use*
 
@@ -3098,7 +3098,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
-| `R-396397F0` | Sound instance limits, every post | `--sound-limits all` is the default: the banks' per-node "limit sound instances" (2,945 nodes beyond the footsteps' carry one) and the below-threshold culling of non-positioned voices apply to every post in both modes; `footsteps` (the default before) restores | confidence: medium | the banks' own rule (Verified-local); the choice to apply it everywhere the owner's "less clutter" | Sound instance limits, every post: compare with SM1 by listening A/B at the same distance and state. Ours: --sound-limits all is the default: the banks' per-node "limit sound… | ☐ |
+| `R-D29DA629` | Sound instance limits, every post (opt-in) | `--sound-limits all`: the banks' per-node "limit sound instances" (2,945 nodes carry one, the footsteps' among them) and the below-threshold culling of non-positioned voices apply to every post in both modes; **the default stays `footsteps`** until the owner… | kind: estimate; confidence: low; notes: interpretation | the banks' own limits as read (interpretation); the choice to apply them everywhere the owner's "less clutter" | Sound instance limits, every post (opt-in): compare with SM1 by listening A/B at the same distance and state. Ours: --sound-limits all: the banks' per-node "limit sound instances"… | ☐ |
+| `R-70ACA5F0` | Revived loops resume | a looping non-positioned voice demoted under the -60 dB threshold (a virtual voice) goes on from its running position when it is revived ((now - started) modulo the stream's length), not from its start as before (s) | kind: ours; confidence: medium | ours (review of 2026-11-10) | Revived loops resume: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a looping non-positioned voice demoted under the -60 dB threshold (a… | ☐ |
 | `R-F660BE9D` | Performance readout | **F3** cycles OFF (default), FPS (frames a second over the last second, the mean and worst frame of that second), FPS + NETWORK (plus the ping from the snapshot echoes, the snapshot loss over 3 s, the interpolation delay and the input slack the server… (s) | kind: ours | ours (a tester aid; the original had no such readout) | Performance readout: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: F3 cycles OFF (default), FPS (frames a second over the last second… | ☐ |
 | `R-900DB710` | Server GC latency mode | `GCLatencyMode.SustainedLowLatency` for the dedicated server (as the human client's since perf/pass-1; before: the runtime's Interactive mode); `SM_OLD_SERVER_RUNTIME=1` keeps the default | kind: ours; confidence: medium | ours | Server GC latency mode: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: GCLatencyMode.SustainedLowLatency for the dedicated server (as the… | ☐ |
 | `R-54E913E5` | Server ReadyToRun | a server published with a runtime identifier (the release zips, `tools/release`) is compiled ahead of time (`PublishReadyToRun`); `dotnet build` / `server.cmd` unaffected; `-p:SmReadyToRun=false` publishes JIT-only | kind: ours; confidence: low | ours (measured before: a 65 ms first-join tick, 47 ms of it the world step's first run) | Server ReadyToRun: compare with SM1 by feel or video. Ours: a server published with a runtime identifier (the release zips… | ☐ |

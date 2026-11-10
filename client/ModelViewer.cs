@@ -534,7 +534,7 @@ public partial class ModelViewer : Node3D
     /// </summary>
     void CycleReadout()
     {
-        var next = (Customizer.Model.ReadoutChoice)(((int)HudReadout.Effective + 1) % 3);
+        var next = (Customizer.Model.ReadoutChoice)(((int)HudReadout.Choice + 1) % 3);   // the saved choice cycles even while --readout pins what is shown
         HudReadout.Choice = next;
         try { CustomizerServices.Latest?.UpdateSettings(x => x with { Options = x.Options with { Readout = next } }); }
         catch (Exception ex) when (ex is not (OutOfMemoryException or StackOverflowException or AccessViolationException)) { GD.PrintErr("F3: the readout choice was not saved: " + ex.Message); }

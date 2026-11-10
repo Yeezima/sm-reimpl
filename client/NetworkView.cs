@@ -364,6 +364,7 @@ public partial class NetworkView : Node3D
         _watchdog?.Dispose();
         _watchdog?.Profile?.PrintSummary();   // M40-T9
         _perfProbe?.PrintSummary();   // perf/pass-1 (--perf-probe)
+        if (_sound is not null && LogSound("footstep")) { GD.Print($"sound at exit: {_sound.Summary()}"); if (_sound.LimitNodesReport() is { Length: > 0 } nodes) GD.Print(nodes); }   // polish pass P1: the A/B's numbers
         if (_watchdog?.Profile is not null) GD.Print($"profile: {HeavyReport()}; {_jit?.Report ?? "jit prewarm off"}");
         _jit?.Stop(); _animationCancel.Cancel();
         LooksExit();   // customizer T7: the shared assets must not keep asking this view for emblems

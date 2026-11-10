@@ -38,7 +38,7 @@ public static partial class AshfallGrime
     /// whatever the Graphics option says (the overlay pass cost 0.5 to 1.2 ms of GPU and up to 580 draw calls in the perf pass's A/B, the part that renderer pays most for);
     /// <c>--ashfall-grime-exact-safe</c> keeps the option's choice in safe mode (the behaviour before P1).
     /// </summary>
-    public static bool FoldedForSafeMode => SafeMode.Active && Array.IndexOf(OS.GetCmdlineUserArgs(), "--ashfall-grime-exact-safe") < 0;
+    public static bool FoldedForSafeMode => SafeMode.GrimeFoldedInSafeMode;
 
     static void ApplyFold()
     {
