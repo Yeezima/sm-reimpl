@@ -6,14 +6,15 @@ using SmSim.Extras.Musou;
 namespace SmNet.Tests.Extras.Musou;
 
 /// <summary>
-/// The Librarian (Musou Mode only; owner's brief 2026-11-07, docs/musou-expansion.md S5): the class exists only under Musou, the Psychic Stress ratios (20 s of lightning = a Pull = a Shockwave twice over), the lock and
-/// its release, the melee relief, the cooldowns, the chain lightning's cap and falloff, and what the Pull and the Shockwave do to an ordinary, an elite and a boss Ork.
+/// The Librarian (Musou Mode only; owner's brief 2026-11-07, docs/musou-expansion.md S5; pass 3 2026-11-10): the class exists only under Musou, the Psychic Stress ratios (20 s of lightning = a Shockwave twice over),
+/// the lock and its release, the melee relief, the cooldown, the chain lightning's cap and falloff, what the 60 m Shockwave does to an ordinary, an elite and a boss Ork, and that the Warp Pull is gone: Grenade is his
+/// equipment's, every Space Marine item.
 /// </summary>
 public class MusouLibrarianTests
 {
     const int Rate = 30;
     const float Dt = 1f / Rate;
-    static readonly LibrarianPress None = default, Hold = new(true, false, false), PullKey = new(false, true, false), ShockKey = new(false, false, true);
+    static readonly LibrarianPress None = default, Hold = new(true, false), ShockKey = new(false, true);
 
     /// <summary>A Librarian at the origin looking along +Y, a pool of enemies, and a clock.</summary>
     sealed class Rig
@@ -55,7 +56,7 @@ public class MusouLibrarianTests
     // ---------------------------------------------------------------- stress
 
     [Fact]
-    public void Twenty_seconds_of_lightning_fill_the_scale_and_a_pull_or_a_shockwave_is_ten_seconds_of_it()
+    public void Twenty_seconds_of_lightning_fill_the_scale_and_a_shockwave_is_ten_seconds_of_it()
     {
         var r = new Rig();
         r.Cast(Hold, 10 * Rate);
@@ -65,23 +66,18 @@ public class MusouLibrarianTests
         Assert.Equal(LibrarianRules.StressMax, r.Psyker.Stress);
         Assert.True(r.Psyker.Locked);
 
-        var pull = new Rig();
-        pull.Cast(PullKey);
-        Assert.Equal(50f, pull.Psyker.Stress);
         var shock = new Rig();
         shock.Cast(ShockKey);
         Assert.Equal(50f, shock.Psyker.Stress);
-        Assert.Equal(LibrarianRules.PullStress, LibrarianRules.LightningStressPerSecond * 10f);
         Assert.Equal(LibrarianRules.ShockwaveStress, LibrarianRules.LightningStressPerSecond * 10f);
     }
 
     [Fact]
-    public void A_pull_and_a_shockwave_together_lock_him_and_lightning_then_does_nothing()
+    public void Ten_seconds_of_lightning_and_a_shockwave_lock_him_and_lightning_then_does_nothing()
     {
         var r = new Rig();
-        r.Add(MusouEnemyType.Boy, 0f, 10f, 5000f);
-        r.Cast(PullKey);
-        r.Cast(None);
+        r.Add(MusouEnemyType.Boy, 0f, 70f, 5000f);   // out of every reach: the lightning strikes nothing, the Shockwave spares it
+        r.Cast(Hold, 10 * Rate);
         r.Cast(ShockKey);
         Assert.Equal(100f, r.Psyker.Stress);
         Assert.True(r.Psyker.Locked);
@@ -101,16 +97,17 @@ public class MusouLibrarianTests
         Assert.Equal(100f, r.Psyker.Stress);
         r.Cast(None, Rate / 2 + 1);   // past the second: it begins
         Assert.True(r.Psyker.Stress < 100f);
-        r.Cast(PullKey);   // locked: a press does nothing
-        Assert.Equal(0, r.Psyker.PullCount);
+        r.Cast(ShockKey);   // locked: a press does nothing
+        Assert.Equal(0, r.Psyker.ShockwaveCount);
         // 8 s of cooling from full at 12.5 a second; at 7 s it is not yet unlocked.
         r.Cast(None, 7 * Rate);
         Assert.True(r.Psyker.Stress > 0f && r.Psyker.Locked);
         r.Cast(None, 2 * Rate);
         Assert.Equal(0f, r.Psyker.Stress);
         Assert.False(r.Psyker.Locked);
-        r.Cast(PullKey);
-        Assert.Equal(1, r.Psyker.PullCount);
+        r.Cast(None);
+        r.Cast(ShockKey);
+        Assert.Equal(1, r.Psyker.ShockwaveCount);
     }
 
     [Fact]
@@ -147,21 +144,8 @@ public class MusouLibrarianTests
     }
 
     [Fact]
-    public void The_pull_waits_eight_seconds_and_the_shockwave_twelve()
+    public void The_shockwave_waits_twelve_seconds_and_a_held_key_casts_it_once()
     {
-        var r = new Rig();
-        r.Cast(PullKey);
-        Assert.Equal(1, r.Psyker.PullCount);
-        r.Cast(None);
-        r.Cast(PullKey);   // inside the cooldown
-        Assert.Equal(1, r.Psyker.PullCount);
-        r.Cast(None, 7 * Rate);
-        r.Cast(PullKey);
-        Assert.Equal(1, r.Psyker.PullCount);   // still under 8 s
-        r.Cast(None, 2 * Rate);
-        r.Cast(PullKey);
-        Assert.Equal(2, r.Psyker.PullCount);
-
         var s = new Rig();
         s.Cast(ShockKey);
         s.Cast(None, 11 * Rate);
@@ -171,17 +155,13 @@ public class MusouLibrarianTests
         s.Cast(ShockKey);
         Assert.Equal(2, s.Psyker.ShockwaveCount);
         Assert.Equal(LibrarianRules.ShockwaveCooldown, s.Psyker.ShockwaveCooldown, 0.001f);
-    }
 
-    [Fact]
-    public void A_held_pull_key_casts_once_and_a_new_press_casts_again()
-    {
-        var r = new Rig();
-        r.Cast(PullKey, 3);
-        Assert.Equal(1, r.Psyker.PullCount);
-        r.Cast(None, 9 * Rate);
-        r.Cast(PullKey);
-        Assert.Equal(2, r.Psyker.PullCount);
+        var held = new Rig();
+        held.Cast(ShockKey, 3);
+        Assert.Equal(1, held.Psyker.ShockwaveCount);
+        held.Cast(None, 13 * Rate);   // the stress of 50 cools away; the cooldown ends
+        held.Cast(ShockKey);
+        Assert.Equal(2, held.Psyker.ShockwaveCount);
     }
 
     // ---------------------------------------------------------------- chain lightning
@@ -255,86 +235,65 @@ public class MusouLibrarianTests
         Assert.True(w.Sim.ShieldOf(wb) < shield);   // not stopped whole as a bullet is
     }
 
-    // ---------------------------------------------------------------- warp pull
+    // ---------------------------------------------------------------- psychic shockwave (pass 3: 60 m, 300 damage; owner 2026-11-10)
 
     [Fact]
-    public void The_pull_brings_an_ordinary_ork_to_two_metres_an_elite_a_third_of_the_way_and_leaves_a_boss()
-    {
-        var r = new Rig();
-        var boy = r.Add(MusouEnemyType.Boy, 0f, 20f);
-        var nob = r.Add(MusouEnemyType.Nob, 3f, 20f);
-        var ard = r.Add(MusouEnemyType.ArdBoy, -3f, 20f);
-        var boss = r.Add(MusouEnemyType.Warboss, 0f, 12f * 0f + 24f);
-        var bossStart = r.Get(boss).Position;
-        float nobStart = r.Distance(nob), ardStart = r.Distance(ard);
-        r.Run(PullKey, (int)(LibrarianRules.PullSeconds * Rate) + 2);
-        Assert.Equal(LibrarianRules.PullStopDistance, r.Distance(boy), 0.6f);
-        Assert.Equal(nobStart * (1f - LibrarianRules.ElitePullShare), r.Distance(nob), 1.2f);
-        Assert.Equal(ardStart * (1f - LibrarianRules.ElitePullShare), r.Distance(ard), 1.2f);
-        Assert.True(Vector3.Distance(r.Get(boss).Position, bossStart) < 0.5f);
-        Assert.Equal(LibrarianRules.Tier.Boss, LibrarianRules.TierOf(MusouEnemyType.Warboss));
-    }
-
-    [Fact]
-    public void The_pull_takes_only_what_is_inside_its_cone_and_range_and_never_pushes_one_already_close_out()
-    {
-        var r = new Rig();
-        var side = r.Add(MusouEnemyType.Boy, 15f, 10f);      // 56 degrees off the aim: outside 30
-        var far = r.Add(MusouEnemyType.Boy, 0f, 28f);        // past 25 m
-        var close = r.Add(MusouEnemyType.Boy, 0f, 1.5f);     // inside 2 m already
-        var inside = r.Add(MusouEnemyType.Boy, 4f, 15f);     // 15 degrees off: in
-        var start = (side: r.Get(side).Position, far: r.Get(far).Position);
-        float closeStart = r.Distance(close);
-        r.Cast(PullKey);
-        r.Run(None, (int)(LibrarianRules.PullSeconds * Rate) + 2);
-        Assert.Equal(LibrarianRules.PullStopDistance, r.Distance(inside), 0.6f);
-        Assert.True(r.Distance(close) <= closeStart + 0.01f || r.Distance(close) < LibrarianRules.PullStopDistance + 0.6f);
-    }
-
-    // ---------------------------------------------------------------- psychic shockwave
-
-    [Fact]
-    public void The_shockwave_does_40_kills_only_a_gretchin_and_throws_the_ordinary_ones_twenty_to_twenty_five_metres()
+    public void The_shockwave_does_300_within_60_metres_and_kills_every_ordinary_ork_and_chaos_marine()
     {
         var r = new Rig();
         var gretchin = r.Add(MusouEnemyType.Gretchin, 2f, 3f);
-        var boy = r.Add(MusouEnemyType.Boy, -3f, 4f);
-        var shoota = r.Add(MusouEnemyType.ShootaBoy, 0f, -5f);
-        var start = new Dictionary<ushort, Vector3> { [boy] = r.Get(boy).Position, [shoota] = r.Get(shoota).Position };
+        var boy = r.Add(MusouEnemyType.Boy, -30f, 20f);
+        var ard = r.Add(MusouEnemyType.ArdBoy, 0f, -45f);
+        var chaos = r.Add(MusouEnemyType.ChaosMarine, 40f, 40f);   // 56.6 m: inside
+        var edge = r.Add(MusouEnemyType.Boy, 0f, 59f);
+        var outside = r.Add(MusouEnemyType.Boy, 0f, 62f);
         r.Cast(ShockKey);
-        Assert.False(r.Get(gretchin).Alive);
-        float peak = 0f, peakShoota = 0f;
-        for (int k = 0; k < Rate + 5; k++)
-        {
-            r.Run(None, 1);
-            peak = MathF.Max(peak, Vector3.Distance(r.Get(boy).Position, start[boy]));
-            peakShoota = MathF.Max(peakShoota, Vector3.Distance(r.Get(shoota).Position, start[shoota]));
-        }
-        Assert.Equal(85f - LibrarianRules.ShockwaveDamage, r.Get(boy).Health, 0.01f);
-        Assert.InRange(peak, LibrarianRules.ThrowMin - 2f, LibrarianRules.ThrowMax + 2f);
-        Assert.InRange(peakShoota, LibrarianRules.ThrowMin - 2f, LibrarianRules.ThrowMax + 2f);
-        Assert.True(r.Get(boy).Position.X < start[boy].X + 0.01f);   // thrown away from him, not towards
+        foreach (var id in new[] { gretchin, boy, ard, chaos, edge }) Assert.False(r.Get(id).Alive, $"enemy {id} lived");
+        Assert.Equal(MusouRules.Default.Of(MusouEnemyType.Boy).Health, r.Get(outside).Health);
         Assert.Equal(1, r.Psyker.ShockwaveCount);
+        var kills = new List<MusouKill>();
+        r.Sim.TakeKills(kills);
+        Assert.Contains(kills, k => k.Enemy == chaos && k.Player == 1);
+        Assert.Equal(60f, LibrarianRules.ShockwaveRadius);
+        Assert.Equal(300f, LibrarianRules.ShockwaveDamage);
     }
 
     [Fact]
-    public void The_shockwave_hurts_elites_and_bosses_but_does_not_move_them_and_spares_what_is_outside_nine_metres()
+    public void The_shockwave_throws_ordinary_orks_forty_to_fifty_metres_and_elites_fifteen_to_twenty()
     {
         var r = new Rig();
-        var nob = r.Add(MusouEnemyType.Nob, 4f, 4f);
-        var ard = r.Add(MusouEnemyType.ArdBoy, -4f, 4f);
-        var warboss = r.Add(MusouEnemyType.Warboss, 0f, 7f);
-        var bossOrk = r.Add(MusouEnemyType.BossNob, 0f, -7f);
-        var outside = r.Add(MusouEnemyType.Boy, 0f, 12f);
-        var nobHealth = r.Get(nob).Health; var ardHealth = r.Get(ard).Health;
-        var warbossHealth = r.Get(warboss).Health; var bossOrkHealth = r.Get(bossOrk).Health;
-        var at = new[] { nob, ard, warboss, bossOrk }.ToDictionary(i => i, i => r.Get(i).Position);
+        var boy = r.Add(MusouEnemyType.Boy, -3f, 4f, 5000f);
+        var shoota = r.Add(MusouEnemyType.ShootaBoy, 0f, -20f, 5000f);
+        var nob = r.Add(MusouEnemyType.Nob, 6f, 6f, 5000f);
+        var ard = r.Add(MusouEnemyType.ArdBoy, -10f, -10f, 5000f);
+        var ids = new[] { boy, shoota, nob, ard };
+        var start = ids.ToDictionary(i => i, i => r.Get(i).Position);
+        var peak = ids.ToDictionary(i => i, _ => 0f);
         r.Cast(ShockKey);
-        Assert.Equal(nobHealth - 40f, r.Get(nob).Health, 0.01f);
-        Assert.Equal(ardHealth - 40f, r.Get(ard).Health, 0.01f);
-        Assert.Equal(warbossHealth - 40f, r.Get(warboss).Health, 0.01f);
-        Assert.Equal(bossOrkHealth - 40f, r.Get(bossOrk).Health, 0.01f);
-        Assert.Equal(MusouRules.Default.Of(MusouEnemyType.Boy).Health, r.Get(outside).Health);
+        Assert.Equal(5000f - LibrarianRules.ShockwaveDamage, r.Get(boy).Health, 0.01f);
+        for (int k = 0; k < (int)(LibrarianRules.ThrowSeconds * Rate) + 8; k++)
+        {
+            r.Run(None, 1);
+            foreach (var id in ids) peak[id] = MathF.Max(peak[id], Vector3.Distance(r.Get(id).Position, start[id]));
+        }
+        Assert.InRange(peak[boy], LibrarianRules.ThrowMin - 3f, LibrarianRules.ThrowMax + 3f);
+        Assert.InRange(peak[shoota], LibrarianRules.ThrowMin - 3f, LibrarianRules.ThrowMax + 3f);
+        Assert.InRange(peak[nob], LibrarianRules.EliteThrowMin - 3f, LibrarianRules.EliteThrowMax + 3f);
+        Assert.InRange(peak[ard], LibrarianRules.EliteThrowMin - 3f, LibrarianRules.EliteThrowMax + 3f);
+        Assert.True(r.Get(boy).Position.X < start[boy].X + 0.01f && r.Get(shoota).Position.Y < start[shoota].Y + 0.01f);   // thrown away from him, not towards
+    }
+
+    [Fact]
+    public void The_shockwave_hurts_bosses_but_does_not_move_them()
+    {
+        var r = new Rig();
+        var warboss = r.Add(MusouEnemyType.Warboss, 0f, 7f);
+        var bossOrk = r.Add(MusouEnemyType.BossNob, 0f, -30f);
+        var warbossHealth = r.Get(warboss).Health; var bossOrkHealth = r.Get(bossOrk).Health;
+        var at = new[] { warboss, bossOrk }.ToDictionary(i => i, i => r.Get(i).Position);
+        r.Cast(ShockKey);
+        Assert.Equal(warbossHealth - 300f, r.Get(warboss).Health, 0.01f);
+        Assert.Equal(bossOrkHealth - 300f, r.Get(bossOrk).Health, 0.01f);
         r.Cast(None, Rate);
         foreach (var (id, position) in at) Assert.True(Vector3.Distance(r.Get(id).Position, position) < 0.3f, $"enemy {id} was moved");
     }
@@ -359,18 +318,20 @@ public class MusouLibrarianTests
     static readonly MeleeStep SwordHit = new(1f, 0.2f, 0.4f, 0.6f, 0.5f, 0.7f, 60f, 10f, 3.5f);
     static readonly ProjectileSpec FragBall = new("ebps\\musou\\frag", 20f, 30f, "rigidbody", 0f, [new(5f, 0f), new(10f, 1f)], false, true, false, 1, 1f, 1.5f, 0, null, null);
     static readonly ThrownSpec Frag = new("frag", 3, 3, 1f, 10f, FragBall);
+    static readonly ThrownSpec Blind = new("blind", 3, 3, 1f, 10f, FragBall);
+    static readonly ThrownSpec ChaosFrag = new("chaos frag", 3, 3, 1f, 10f, FragBall);
     static readonly MeleeCombo Chain = new("sm_mp_melee_chainsword", [Light]);
     static readonly MeleeCombo Sword = new(LibrarianRules.PowerSwordWargear, [SwordHit]);
 
-    static SimConfig Raw(ContentExtras extras) => new()
+    internal static SimConfig Raw(ContentExtras extras) => new()
     {
         Weapons = [Bolter, BoltPistol],
-        Thrown = [Frag],
+        Thrown = [Frag, Blind, ChaosFrag],
         Classes =
         [
             new("sm - tactical", 0, 1, [Light]) { PrimaryChoices = [0], PistolChoices = [1], EquipmentChoices = [0], MeleeChoices = [Chain], Side = Team.SpaceMarines, Role = "tactical" },
-            new("sm - assault", -1, 1, [SwordHit]) { PistolChoices = [1], MeleeChoices = [Sword, Chain], Side = Team.SpaceMarines, Role = "assault" },
-            new("csm - tactical", 0, 1, [Light]) { PrimaryChoices = [0], Side = Team.Chaos, Role = "tactical" },
+            new("sm - assault", -1, 1, [SwordHit]) { PistolChoices = [1], EquipmentChoices = [1, 0], MeleeChoices = [Sword, Chain], Side = Team.SpaceMarines, Role = "assault" },
+            new("csm - tactical", 0, 1, [Light]) { PrimaryChoices = [0], EquipmentChoices = [2], Side = Team.Chaos, Role = "tactical" },
         ],
         Extras = extras,
     };
@@ -398,12 +359,13 @@ public class MusouLibrarianTests
     }
 
     [Fact]
-    public void The_librarian_is_a_marine_with_no_gun_no_pistol_no_grenade_and_the_power_sword_as_his_melee()
+    public void The_librarian_is_a_marine_with_no_gun_no_pistol_every_marine_equipment_item_and_the_power_sword_as_his_melee()
     {
         var c = MusouLoadout.Prepare(Raw(ContentExtras.Musou)).Classes[3];
         Assert.Equal(Team.SpaceMarines, c.Side);
         Assert.Equal((-1, -1), (c.Primary, c.Pistol));
-        Assert.Empty(c.PrimaryChoices); Assert.Empty(c.PistolChoices); Assert.Empty(c.EquipmentChoices);
+        Assert.Empty(c.PrimaryChoices); Assert.Empty(c.PistolChoices);
+        Assert.Equal([0, 1], c.EquipmentChoices);   // the Tactical's frag first, then the Assault's blind; never the Chaos item (2)
         Assert.Equal(LibrarianRules.PowerSwordWargear, c.MeleeChoices[0].Wargear);
         Assert.Equal(SwordHit, c.Melee[0]);
         Assert.Contains(c.MeleeChoices, m => m.Wargear == "sm_mp_melee_chainsword");
@@ -417,7 +379,7 @@ public class MusouLibrarianTests
 
     // ---------------------------------------------------------------- in the world
 
-    static World NewWorld(out int librarianClass)
+    internal static World NewWorld(out int librarianClass)
     {
         var config = MusouLoadout.Prepare(Raw(ContentExtras.Musou) with { MusouRules = MusouRules.Default with { PlayerDamageScale = 0f } });
         librarianClass = config.Classes.Count - 1;
@@ -428,14 +390,14 @@ public class MusouLibrarianTests
     }
 
     [Fact]
-    public void In_the_world_fire_casts_lightning_grenade_pulls_reload_shocks_and_he_throws_and_shoots_nothing()
+    public void In_the_world_fire_casts_lightning_reload_shocks_grenade_is_his_equipment_and_he_shoots_nothing()
     {
         var w = NewWorld(out int cls);
         w.Spawn(1, cls);
         w.Step(_ => default);
         Assert.Contains(1, w.Librarians.Keys);
         var me = w.Players[1];
-        Assert.Equal(0, me.Grenades);
+        Assert.Contains(me.Equipment, w.Config.Classes[cls].EquipmentChoices);   // he carries a marine's equipment (the Warp Pull is gone)
         Assert.Null(Loadouts.InHand(w.Config, me));
         float yaw = me.Yaw;
         var forward = new Vector3(-MathF.Sin(yaw), MathF.Cos(yaw), 0f);
@@ -451,13 +413,14 @@ public class MusouLibrarianTests
         Assert.True(e1.Health < e0.Health);
         Assert.True(e0.Health - e1.Health >= LibrarianRules.PrimaryDps * 0.5f);
 
+        float before = psyker.Stress;
         w.Step(_ => Input(InputButtons.Grenade));
-        Assert.Equal(1, psyker.PullCount);
-        Assert.Equal(0, w.Players[1].Grenades);
-        w.Step(_ => default);
+        Assert.Equal(0, psyker.ShockwaveCount);   // Grenade casts no power
+        Assert.True(psyker.Stress <= before + 0.01f);
+        for (int t = 0; t < 3 * Rate; t++) w.Step(_ => default);
         w.Step(_ => Input(InputButtons.Reload));
         Assert.Equal(1, psyker.ShockwaveCount);
-        Assert.True(psyker.Stress > 100f - 1f - 0.01f || psyker.Locked || psyker.Stress >= 100f - 10f);
+        Assert.True(psyker.Stress >= LibrarianRules.ShockwaveStress - 1f);
     }
 
     [Fact]
@@ -517,7 +480,6 @@ public class MusouLibrarianTests
     {
         Assert.Equal(20f, LibrarianRules.StressMax / LibrarianRules.LightningStressPerSecond);
         Assert.Equal(8f, LibrarianRules.StressMax / LibrarianRules.CoolPerSecond);
-        Assert.Equal(10f, LibrarianRules.PullStress / LibrarianRules.LightningStressPerSecond);
         Assert.Equal(10f, LibrarianRules.ShockwaveStress / LibrarianRules.LightningStressPerSecond);
     }
 }

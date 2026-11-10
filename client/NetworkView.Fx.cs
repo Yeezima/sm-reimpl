@@ -879,6 +879,7 @@ public partial class NetworkView
                  $"own shots {_fxOwnShots}, remote shots {_fxRemoteShots}, tracers {_fxTracers} ({BulletStats()}; {BarrelStats()}), impacts {_fxImpacts} (on players {_fxBodyImpacts}), detonations {_fxDetonations}, trails {_fxTrails}; {JumpFxLog()}; {MeleeFxLog()}; {PlasmaFxLog()}; {PlasmaLookLog()}; {LightBallLog()}; spawned {_fx.Spawned}, culled {_fx.Culled}, off-screen skips {_fx.OffScreenSkips}; " +
                  (_fx.Missing.Count > 0 ? $"missing: {string.Join(", ", _fx.Missing.Take(6))}" : "nothing missing"));
         _fx.CostSum = 0; _fx.CostMax = 0; _fx.CostFrames = 0; _fx.QuadSum = 0; _fx.AlphaQuadSum = 0; _fx.QuadMax = 0;
+        if (_fx.ExtraStats is { Length: > 0 } gpu) GD.Print($"t {_connectedFor:F0} s: effects gpu: {gpu}");   // musou/gpu-particles: the GPU sprays' counts
     }
 
     /// <summary>The F1 line on the effects: what is original and what is provisional.</summary>

@@ -15,6 +15,11 @@ public sealed partial record GameplayTuning
     static partial void ExtrasLoad(ref SimConfig config, string gameDir, List<string> notes)
     {
         if (config.Extras.HasFlag(ContentExtras.Musou))
-            config = MusouLoadout.Prepare(config with { MusouRules = MusouTuning.Load(gameDir, notes) });
+        {
+            // The Librarian's restore switches (LibrarianVariant, SM_LIBRARIAN_OLD): read here, on the server and the clients alike, so a class change stays in the config hash.
+            var librarian = LibrarianVariant.Parse(Environment.GetEnvironmentVariable(LibrarianVariant.EnvironmentVariable));
+            if (librarian.Any) notes.Add($"musou: the Librarian's restore switches {librarian} ({LibrarianVariant.EnvironmentVariable})");
+            config = MusouLoadout.Prepare(config with { MusouRules = MusouTuning.Load(gameDir, notes), LibrarianVariant = librarian });
+        }
     }
 }
