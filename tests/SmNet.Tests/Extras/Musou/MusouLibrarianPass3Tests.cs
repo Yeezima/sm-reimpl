@@ -193,4 +193,20 @@ public class MusouLibrarianPass3Tests
         Assert.All(kills, k => Assert.Equal(1, k.Player));
         Assert.True(sim.EventsDropped > 0, "a whole pool's deaths overflow MaxEventsPerTick (the spec names this: some death events are not sent)");
     }
+
+    [Fact]
+    public void A_librarian_who_dies_holding_fire_casts_early_again_on_his_first_press_after_respawning()
+    {
+        var press = new LibrarianOwnPress();
+        Assert.True(press.Hold(canCast: true, now: 1.0));   // the press: the cast command goes out
+        Assert.False(press.Hold(true, 1.1));                // held: nothing new
+        Assert.True(press.Held);
+        press.Absent();                                     // he dies holding Fire: the server leaves him out of the section, so his release is never seen
+        Assert.False(press.Held);
+        Assert.True(press.Hold(true, 5.0));                 // respawned, Fire pressed: the cast command goes out again (it used to wait the input lead, about 230 ms)
+        Assert.Equal(5.0, press.At);
+        Assert.False(press.Hold(canCast: false, now: 5.2)); // let go (or locked, striking, dead)
+        Assert.False(press.Held);
+        Assert.True(press.Hold(true, 5.3));
+    }
 }
