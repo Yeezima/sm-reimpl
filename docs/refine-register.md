@@ -28,8 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2818 spec table rows: **2097 tagged**, 499 not tagged (read from data with high confidence), 222 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 634 rows of the changes document.
-Scanned 2829 spec table rows: **2105 tagged**, 501 not tagged (read from data with high confidence), 223 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 635 rows of the changes document.
+Scanned 2831 spec table rows: **2107 tagged**, 501 not tagged (read from data with high confidence), 223 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 636 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -51,21 +50,21 @@ Scanned 2829 spec table rows: **2105 tagged**, 501 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 22 | 13 | 13 | 12 | 7 |
-| Core simulation (provisional values) | 568 | 544 | 396 | 160 | 1 |
+| Core simulation (provisional values) | 570 | 546 | 396 | 162 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 234 | 223 | 125 | 63 | 0 |
-| **All areas** | **2105** | 1858 | 1559 | 673 | 38 |
+| **All areas** | **2107** | 1860 | 1559 | 675 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1174 |
+| kind: ours | 1176 |
 | confidence: low | 745 |
 | confidence: medium | 685 |
 | notes: ours | 386 |
 | kind: interpretation | 363 |
-| notes: estimate | 174 |
+| notes: estimate | 176 |
 | kind: estimate | 145 |
 | confidence: none (low) | 129 |
 | kind: provisional | 100 |
@@ -2199,7 +2198,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (568)
+### Core simulation (provisional values) (570)
 
 *Spec section: Provisional values in use*
 
@@ -2809,7 +2808,9 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-AF172235` | Musou: the Librarian's effects | pass 3 (`LibrarianBolts`): each link a fractal main bolt (midpoint displacement, 9 to 33 points by length, the push 0.11 of the link's length within 0.15 to 2.2 m) with 1 to 4 forks (more on the first links and long links) and sub-forks, leaning along the… (m, s) | kind: ours; notes: estimate | original effects borrowed by name for the Shockwave (*original asset loaded*); bolts, ring, recolour and glow ours | Musou: the Librarian's effects: compare with SM1 by feel or video. Ours: pass 3 (LibrarianBolts): each link a fractal main bolt (midpoint… | ☐ |
 | `R-FEF73290` | Musou: the Librarian's sounds | pass 3 (owner 2026-11-10: no downloaded recordings; the game's own audio at run time plus synthesis): the install's events as in pass 2 (the crackle loop `play_power_conduit_elec` while held, its discharge `stop_power_conduit_elec` at the release… (dB, s, m) | kind: ours; notes: estimate | install events (*original asset loaded*); their choice, pitches and the synthesized layers ours; the psyker events are the campaign Chaos psyker's (a… | Musou: the Librarian's sounds: compare with SM1 by feel or video. Ours: pass 3 (owner 2026-11-10: no downloaded recordings; the game's own… | ☐ |
 | `R-AB89D9C9` | Musou: the Librarian's gauge | for the own Librarian, the weapon box's place, size, tilt and style (he carries no gun): the stress in the reserve's digits, PSYCHIC STRESS (PSYCHIC OVERLOAD while locked) beside them, the stress as the heat bar's red bar along the bottom, blinking as an… | kind: ours; notes: estimate | match HUD colours; layout ours, waiting for the owner's screenshot approval | Musou: the Librarian's gauge: compare with SM1 by feel or video. Ours: for the own Librarian, the weapon box's place, size, tilt and style… | ☐ |
-| `R-6FB32235` | Musou: the Librarian in the class choice | the Esc menu in the Stormbird (match Playing, alive, a Space Marine, not one already) has PLAY AS LIBRARIAN: it sends the DEPLOY button's Setup with his class (his sword the first melee choice) and the current looks, then the class change at once with its… | kind: ours; notes: estimate | ours (the customizer's loadouts are by role; he has none) | Musou: the Librarian in the class choice: compare with SM1 by feel or video. Ours: the Esc menu in the Stormbird (match Playing, alive, a Space Marine… | ☐ |
+| `R-6FB32235` | Musou: the Librarian in the class choice | the Esc menu in the Stormbird (match Playing, alive, a Space Marine, not one already) has PLAY AS LIBRARIAN: it sends the DEPLOY button's Setup with his class and, with Musou's own slots, his saved loadout and look (the two rows below); with… | kind: ours; notes: estimate | ours (the customizer's loadouts are by role; he has none) | Musou: the Librarian in the class choice: compare with SM1 by feel or video. Ours: the Esc menu in the Stormbird (match Playing, alive, a Space Marine… | ☐ |
+| `R-04BC7F5F` | Musou: own loadout slots | Musou's customizer pages edit a set of their own in the profile (`sets.musou`: a selection and up to **10** custom classes under Classic's class rules), not Classic PvP's slots, which are never changed through them; the first time Musou's pages open the set… (slots) | kind: ours; notes: estimate | the owner's approval (2026-11-10: "Musou own loadout spans approved"); the seeding, the count and the rules ours | Musou: own loadout slots: compare with SM1 by feel or video. Ours: Musou's customizer pages edit a set of their own in the profile… | ☐ |
+| `R-463E7885` | Musou: the Librarian's own loadout | his customizer page's choices, saved in the profile's `extras.musou.librarian` (only what differs from his defaults is written): melee one of his class's melee choices (default the first, the power sword), equipment one of his equipment items (default the… | kind: ours; notes: estimate | ours (the original has no Librarian class to customize) | Musou: the Librarian's own loadout: compare with SM1 by feel or video. Ours: his customizer page's choices, saved in the profile's… | ☐ |
 | `R-84DB1CA6` | Musou: the Librarian's cast pose | while he casts the lightning (pass 3, owner 2026-11-10: "holds his hands up in an aggressive pose - hands pointed palms forward towards his target - and shudders with power as he casts"), procedural over his stances, clips and pose layers on the upper body:… (m, degrees, s) | kind: ours; notes: estimate | the install's MP marine rig has no psyker, force or push clip (docs/discovery.md "Librarian cast pose"); every number ours | Musou: the Librarian's cast pose: compare with SM1 with an overlaid screenshot taken from the same position. Ours: while he casts the lightning (pass 3, owner 2026-11-10: "holds his… | ☐ |
 | `R-6E424CD2` | Musou: the own lightning, foreseen | the own Librarian's chain drawn the frame Fire is pressed and every frame it is held (pass 3): the server's rules (`LibrarianPrediction`, tested against `LibrarianPsyker` on the same pool) on the Orks as the client draws them, the level's line of sight as the… (ms) | kind: ours; notes: estimate | the owner's 0.1 s; ours | Musou: the own lightning, foreseen: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the own Librarian's chain drawn the frame Fire is pressed and every… | ☐ |
 | `R-A8DAF282` | Musou: the Librarian's cast command | at the press, the client sends message kind 17, tag **16** (its own command namespace), `[u32 press tick]`: the tick of the input that carries the press; the server casts from its next tick until that tick, where his inputs take over… (ticks, ms) | kind: ours; notes: estimate | the owner's 0.1 s; ours | Musou: the Librarian's cast command: compare with SM1 by feel or video. Ours: at the press, the client sends message kind 17, tag 16 (its own… | ☐ |

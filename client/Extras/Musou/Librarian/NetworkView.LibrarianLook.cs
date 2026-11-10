@@ -59,7 +59,7 @@ public partial class NetworkView
 
     /// <summary>
     /// The customizer's Librarian page in this match's picker (Musou Mode's customizer, owner 2026-11-10; client/Extras/Musou/Customizer/CreatorView.Musou.cs): its PLAY AS LIBRARIAN takes the Esc menu row's
-    /// path with the look the page shows (the active loadout's, saved first as DEPLOY saves), and a Librarian's picker opens on his page. Called when the Esc menu is built (<see cref="ExtrasMatchMenu"/>).
+    /// path with the loadout and look the page shows (saved first as DEPLOY saves; his own look, else the active loadout's), and a Librarian's picker opens on his page. Called when the Esc menu is built (<see cref="ExtrasMatchMenu"/>).
     /// </summary>
     void LibrarianCustomizer()
     {
@@ -108,10 +108,11 @@ public partial class NetworkView
     }
 
     /// <summary>
-    /// Sends the Librarian's class as the loadout (his sword is the first melee choice; he carries nothing else) with the player's current looks, as DEPLOY would, and lets <see cref="TfwClassFrame"/> send the
-    /// class change once the server has the Setup. Returns false when he is not on offer now.
+    /// Sends the Librarian's class as the loadout with the player's looks, as DEPLOY would, and lets <see cref="TfwClassFrame"/> send the class change once the server has the Setup. With Musou's own
+    /// slots (musou/loadout-slots) his melee weapon, equipment, perks and look are his saved loadout's (<see cref="MusouSlots.LibrarianChoice"/>, <see cref="MusouSlots.LibrarianLook"/>; a choice not
+    /// saved is his default, no look of his own is <paramref name="spaceMarine"/>'s); without them his sword and the player's current equipment and perks. Returns false when he is not on offer now.
     /// </summary>
-    /// <param name="spaceMarine">The look to wear (the customizer's Librarian page: the active loadout's, as it shows him); null: the look in effect now.</param>
+    /// <param name="spaceMarine">The look to wear when he has none of his own (the customizer's Librarian page: the active loadout's, as it shows him); null: the look in effect now.</param>
     bool PickLibrarian(string from, AppearanceCode? spaceMarine = null, AppearanceCode? chaosLook = null)
     {
         if (_client is not { Status: ClientStatus.Connected } client || !LibrarianOffered(client.Predicted, out int index)) return false;
@@ -119,10 +120,22 @@ public partial class NetworkView
         // His equipment (pass 3: every marine item) and perks: the player's current ones when the Librarian may have them, as positions in HIS lists (the choice indexes the class's lists:
         // the player's perk numbers used to be sent as positions, so from an Assault or a Devastator he got other perks than the player had; lead 2026-11-10), else his defaults.
         var cfg = _config!;
-        int equipment = IndexOfEquipment(Loadouts.EquipmentChoices(cfg, index), me.Equipment);
-        int perk1 = IndexOfEquipment(Loadouts.PerkChoices(cfg, index), me.Perk1), perk2 = IndexOfEquipment(Loadouts.PerkChoices(cfg, index), me.Perk2);
-        var choice = new LoadoutChoice(Class: index, Melee: 0, Equipment: Math.Max(0, equipment), Perk1: perk1, Perk2: perk2 == perk1 ? -1 : perk2);
-        var sm = spaceMarine ?? _ownLooks.Active(Team.SpaceMarines);
+        LoadoutChoice choice;
+        AppearanceCode? ownLook = null;
+        if (_pickerServices is { MusouOwnSlots: true, Session: { } session, Catalog: { } catalog })
+        {
+            // musou/loadout-slots (review fix 1): his own loadout as his customizer page shows and saves it (MusouSlots), and his own look when he has one.
+            choice = MusouSlots.LibrarianChoice(MusouSlots.LibrarianOf(session.Stored), cfg, index);
+            ownLook = MusouSlots.LibrarianLook(session.Stored, catalog);
+        }
+        else
+        {
+            // No own loadout (--musou-shared-slots, --musou-old-customizer, or no profile loaded): the player's current equipment and perks, as before.
+            int equipment = IndexOfEquipment(Loadouts.EquipmentChoices(cfg, index), me.Equipment);
+            int perk1 = IndexOfEquipment(Loadouts.PerkChoices(cfg, index), me.Perk1), perk2 = IndexOfEquipment(Loadouts.PerkChoices(cfg, index), me.Perk2);
+            choice = new LoadoutChoice(Class: index, Melee: 0, Equipment: Math.Max(0, equipment), Perk1: perk1, Perk2: perk2 == perk1 ? -1 : perk2);
+        }
+        var sm = ownLook ?? spaceMarine ?? _ownLooks.Active(Team.SpaceMarines);
         var chaos = chaosLook ?? _ownLooks.Active(Team.Chaos);
         _lastSetupSequence = client.ChangeSetup(choice, sm, chaos, _ownOrkLook);
         _setupSent = true; _setupSentAt = _connectedFor; _ackShownUntil = double.MaxValue;
