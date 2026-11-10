@@ -325,12 +325,11 @@ public partial class NetworkView
     // ---- the world the ragdolls lie on ----
 
     /// <summary>Called from <see cref="LoadMap"/>: the map's character collision (layers "2" and "8") as one static trimesh for the ragdolls.</summary>
-    void BuildRagdollWorld(MapContent map)
+    void BuildRagdollWorld(MapContent map) => BuildRagdollWorld(RagdollWorldFaces(map));
+
+    /// <summary>polish pass P2: the ragdoll world's triangles from the map's character layers (any thread; the heavy half of the build), for <see cref="BuildRagdollWorld(List{Vector3})"/>.</summary>
+    static List<Vector3> RagdollWorldFaces(MapContent map)
     {
-        _ragdollWorld?.QueueFree();
-        _ragdollWorld = null;
-        if (_gameSpace is null) return;
-        var watch = System.Diagnostics.Stopwatch.StartNew();
         var faces = new List<Vector3>();
         foreach (var name in MapContent.CharacterLayers)
         {
@@ -341,6 +340,16 @@ public partial class NetworkView
                 faces.Add(new Vector3(a.X, a.Y, a.Z)); faces.Add(new Vector3(b.X, b.Y, b.Z)); faces.Add(new Vector3(c.X, c.Y, c.Z));
             }
         }
+        return faces;
+    }
+
+    /// <summary>Main thread: the static body of the ragdoll world from its gathered triangles.</summary>
+    void BuildRagdollWorld(List<Vector3> faces)
+    {
+        _ragdollWorld?.QueueFree();
+        _ragdollWorld = null;
+        if (_gameSpace is null) return;
+        var watch = System.Diagnostics.Stopwatch.StartNew();
         if (faces.Count == 0) { _ragdollWorldNote = "map has no character collision; flat floor"; return; }
         float lowest = faces.Min(f => f.Z);   // game z up = Godot Y
         Ragdoll.LostBelowY = (_gameSpace.Transform * new Vector3(0, 0, lowest - 50f)).Y;

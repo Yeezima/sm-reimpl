@@ -17,6 +17,7 @@ public partial class NetworkView
 {
     CanvasLayer? _loadingLayer;
     Label? _loadingLabel;
+    Label? _loadingCaptionLabel;   // polish pass P2: the load's stage under LOADING (SetLoadingCaption, NetworkView.MapLoad.cs)
     TextureRect? _loadingPicture;
     bool _loadingBlinkAsked, _loadingBlinkClosed;
     double _loadingUpFor;   // seconds the loading screen has been up and clear (each frame counts at most 0.1 s)
@@ -77,6 +78,16 @@ public partial class NetworkView
         _loadingLabel.AddThemeColorOverride("font_color", Colors.White);
         _loadingLabel.AddThemeColorOverride("font_shadow_color", new Color(0f, 0f, 0f, 0.6f));   // keeps the white text apart from the picture's light haze
         _loadingLayer.AddChild(_loadingLabel);
+        // polish pass P2 (ours): the load's stage in small capitals under LOADING (READING THE MAP, BUILDING COLLISION, DRAWING THE MAP, JOINING ...), fed by the worker.
+        _loadingCaptionLabel = new Label
+        {
+            Name = "Caption", Text = "", HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, MouseFilter = Control.MouseFilterEnum.Ignore,
+        };
+        _loadingCaptionLabel.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        _loadingCaptionLabel.AddThemeFontOverride("font", font);
+        _loadingCaptionLabel.AddThemeColorOverride("font_color", new Color(0.82f, 0.82f, 0.82f));
+        _loadingCaptionLabel.AddThemeColorOverride("font_shadow_color", new Color(0f, 0f, 0f, 0.6f));
+        _loadingLayer.AddChild(_loadingCaptionLabel);
         AddChild(_loadingLayer);
         _loadingSizeFor = -1f;
         UpdateLoadingScreen();
@@ -119,12 +130,19 @@ public partial class NetworkView
             if (!show && _loadingBlinkAsked && _loadingPicture is not null) { _loadingPicture.Texture = null; _loadingPicture = null; }   // never shown again after a connect: the picture's memory goes
         }
         if (!show) return;
+        if (_loadingCaptionLabel is not null && _loadingCaptionLabel.Text != _loadingCaption) _loadingCaptionLabel.Text = _loadingCaption;   // P2: the worker's stage
         float height = GetViewport().GetVisibleRect().Size.Y;
         if (height == _loadingSizeFor || _loadingLabel is null) return;
         _loadingSizeFor = height;
         _loadingLabel.AddThemeFontSizeOverride("font_size", Mathf.Max(18, Mathf.RoundToInt(height / 1080f * 40f)));
         _loadingLabel.AddThemeConstantOverride("shadow_outline_size", Mathf.Max(4, Mathf.RoundToInt(height / 1080f * 10f)));
         _loadingLabel.AddThemeConstantOverride("shadow_offset_y", Mathf.Max(1, Mathf.RoundToInt(height / 1080f * 2f)));
+        if (_loadingCaptionLabel is not null)
+        {
+            _loadingCaptionLabel.AddThemeFontSizeOverride("font_size", Mathf.Max(11, Mathf.RoundToInt(height / 1080f * 16f)));
+            _loadingCaptionLabel.AddThemeConstantOverride("shadow_outline_size", Mathf.Max(2, Mathf.RoundToInt(height / 1080f * 6f)));
+            _loadingCaptionLabel.OffsetTop = Mathf.RoundToInt(height / 1080f * 70f);   // under LOADING (both labels are centred in the whole window)
+        }
     }
 
     /// <summary>

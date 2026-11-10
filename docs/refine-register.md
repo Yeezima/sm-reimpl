@@ -29,13 +29,14 @@ Rows read from the install with high confidence and no such wording are not tagg
 ## Summary
 
 Scanned 2918 spec table rows: **2178 tagged**, 514 not tagged (read from data with high confidence), 226 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 648 rows of the changes document.
+Scanned 2921 spec table rows: **2180 tagged**, 513 not tagged (read from data with high confidence), 228 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 650 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
 | Movement (critical) | 388 | 330 | 329 | 114 | 12 |
-| Combat core (critical) | 16 | 7 | 14 | 13 | 9 |
+| Combat core (critical) | 17 | 7 | 15 | 14 | 9 |
 | Weapons (critical) | 121 | 73 | 106 | 54 | 3 |
-| Melee (critical) | 120 | 105 | 94 | 38 | 5 |
+| Melee (critical) | 123 | 108 | 97 | 38 | 5 |
 | Jump pack (critical) | 79 | 71 | 63 | 19 | 0 |
 | Charge (critical) | 56 | 47 | 47 | 22 | 0 |
 | Reactions (critical) | 15 | 13 | 14 | 6 | 0 |
@@ -54,6 +55,10 @@ Scanned 2918 spec table rows: **2178 tagged**, 514 not tagged (read from data wi
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 235 | 224 | 126 | 63 | 0 |
 | **All areas** | **2178** | 1921 | 1622 | 684 | 38 |
+| Core simulation (provisional values) | 633 | 599 | 452 | 168 | 1 |
+| General game design | 7 | 7 | 6 | 0 | 0 |
+| Ork faction | 235 | 224 | 126 | 63 | 0 |
+| **All areas** | **2180** | 1922 | 1625 | 683 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -63,6 +68,10 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | confidence: low | 778 |
 | confidence: medium | 715 |
 | notes: ours | 394 |
+| kind: ours | 1227 |
+| confidence: low | 786 |
+| confidence: medium | 710 |
+| notes: ours | 393 |
 | kind: interpretation | 365 |
 | notes: estimate | 176 |
 | kind: estimate | 156 |
@@ -731,7 +740,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-640BBD78` | Spear: jump-pack rules | the hammer's: no pound delay, the hop swing, the steered slam (`Loadouts.WieldsHammer` through `ArsenalRules.WieldsHammer`) | kind: ours; confidence: medium | owner D17 (default) | Spear: jump-pack rules: compare with SM1 by feel or video. Ours: the hammer's: no pound delay, the hop swing, the steered slam… | ☐ |
 
-### Combat core (gameplay-critical) (16)
+### Combat core (gameplay-critical) (17)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -771,6 +780,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-C5F90938` | Shield generator | **75** hp (was 800; see "Contraption health"); a dome of radius **10** m round it (a sphere at its foot): a player's hit-scan shot that enters it from outside ends where it enters (nothing behind it is struck); a cone or a blast from outside does not reach… (hp, m) | kind: ours; notes: estimate | owner brief 2026-11-07 (800, 10 m, outside only); owner 2026-11-08 (Guardsmen's fire, Ork blasts, grenades; not movement or melee); a projectile going off at… | Shield generator: compare with SM1 by counting hits to kill and by video of the health bar. Ours: 75 hp (was 800; see "Contraption health"); a dome of radius 10 m… | ☐ |
 | `R-167CA37E` | Contraption health (owner, 2026-11-09) | every kind **75** hp (three standard bolter rounds of 25.4; was 800 / 400 / 500 / 150); at zero it is destroyed: removed from the sim (its dome, drops, rockets or trigger stop at once; a destroyed cue, its effect and sound and a wreck on the client); any… (hp) | kind: ours; notes: estimate | owner 2026-11-09 ("ensure they have hitboxes and have a low health value"); the 75, the one-blow rule and the generator through its dome ours | Contraption health (owner, 2026-11-09): compare with SM1 by counting hits to kill and by video of the health bar. Ours: every kind 75 hp (three standard bolter rounds of 25.4; was 800 / 400… | ☐ |
+
+*Spec section: Musou's arsenal: W2, the lightning claw (docs/new-weapons-design.md section 5)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-86C458CA` | Lightning claw: damage | every hit of the sword's x0.8 (light and heavy steps, the stomp's blast, the charge, shield damage too): the same damage a second as the sword; no extra edge (no bonus against big Orks, no arcs) (x) | confidence: low; notes: ours | the owner (D13, D16); 0.8 = 1 / 1.25 ours | Lightning claw: damage: compare with SM1 by counting hits to kill and by video of the health bar. Ours: every hit of the sword's x0.8 (light and heavy steps, the stomp's… | ☐ |
 
 *Spec section: Musou's arsenal: W3, the power spear (docs/new-weapons-design.md section 6)*
 
@@ -942,7 +957,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-63D5DA0C` | Magazine returns | at the load tag or when the left hand is back at the weapon, whichever is later (never before the magazine left): bolter tag 0.30, hand 0.35 (`RIG_L_Hand` 0.15 m from the magazine at its closest, 1.13 m at its furthest, away from 0.11 to 0.35) → 0.35; stalker… (fraction of the clip) | kind: interpretation; confidence: medium | clip, skeleton, weapon mount | Magazine returns: compare with SM1 by feel or video. Ours: at the load tag or when the left hand is back at the weapon… | ☐ |
 | `R-125B93CF` | Dropped magazine physics | a `RigidBody3D` (layer none, mask: the level) with a box the size of the mesh, mass 0.4 kg, friction 0.7, bounce 0.3, linear damping 0.05, angular 0.6; initial velocity = the carrier's velocity + up to 0.6 m/s sideways (0.12 up) + up to 5 rad/s spin… (kg, m/s, rad/s, s) | kind: placeholder; confidence: none (low); notes: ours | ours | Dropped magazine physics: compare with SM1 by timing a run over a known distance. Ours: a RigidBody3D (layer none, mask: the level) with a box the size of… | ☐ |
 
-### Melee (gameplay-critical) (120)
+### Melee (gameplay-critical) (123)
 
 *Spec section: Melee flow, the hammer in both hands and the transitions pass (anim/melee-flow; client only, not simulated, no protocol change)*
 
@@ -1041,7 +1056,10 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
-| `R-D3825FC0` | Melee slash, red / blue (musou/melee-feel, owner 2026-11-08) | Musou Mode (whatever the gore setting; replaces the dark gore's ink slash, which the original Ork blood had hidden since 2026-11-07): a glowing curved stroke across each enemy hit by a melee blow of a player or retainer (Hit event, marker 3) within 30 m of… (s, m) | kind: ours; confidence: low | the owner (colours, "bring back"); the shape and sizes ours | Melee slash, red / blue (musou/melee-feel, owner 2026-11-08): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: Musou Mode (whatever the gore setting; replaces the dark gore's ink… | ☐ |
+| `R-D3825FC0` | Melee slash, red / blue (musou/melee-feel, owner 2026-11-08) | Musou Mode (since 2026-11-10 only for a melee hit with no swing behind it, and with `--musou-old-slashes`: a swing draws one arc, "Melee slash arc" rows; whatever the gore setting; replaces the dark gore's ink slash, which the original Ork blood had hidden… (s, m) | kind: ours; confidence: low | the owner (colours, "bring back"); the shape and sizes ours | Melee slash, red / blue (musou/melee-feel, owner 2026-11-08): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: Musou Mode (since 2026-11-10 only for a melee hit with no swing… | ☐ |
+| `R-F438B783` | Melee slash, red / blue: drawing distance | no red or blue stroke is drawn on an enemy farther than **30 m** from the camera (was 60 m, ours); both paths that draw one gate on it: the server's melee hit (`NetworkView.MusouMeleeSlash`) and the own strike's predicted contact (`MusouOwnStrikeContact`).… (m) | kind: ours; confidence: low | owner 2026-11-10: "make it so that blue and red slashes don't appear beyond 30m" / "musou mode only"; the arc's measuring point ours | Melee slash, red / blue: drawing distance: compare with SM1 by measuring on a flat spot of the same map. Ours: no red or blue stroke is drawn on an enemy farther than 30 m from the… | ☐ |
+| `R-7644D681` | Melee slash arc: one per swing (owner 2026-11-10) | Musou Mode: a melee swing that strikes an enemy draws **one** thin glowing line along its cleave in place of a stroke on each enemy struck (the owner: "a flat curved line that matches the cleave of the weapon swings hitbox? so it visually overlaps cleave… (m, degrees) | kind: ours; confidence: low | the owner (one line along the swing's cleave, overlapping its targets); the width is the cleave's rules (`MusouSlashArcTests` pins it to the server's cleave in… | Melee slash arc: one per swing (owner 2026-11-10): compare with SM1 with an overlaid screenshot taken from the same position. Ours: Musou Mode: a melee swing that strikes an enemy draws one thin… | ☐ |
+| `R-C73BC882` | Melee slash arc: sweep, fade, thickness | the line sweeps from one end of the arc to the other in **0.12 s** in the swing's direction (the light chain alternates, its first step from the swinger's right to the left; a heavy strike from the right; no swing direction is known per step), holds **0.05… (s, m) | kind: ours; confidence: low | ours | Melee slash arc: sweep, fade, thickness: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the line sweeps from one end of the arc to the other in 0.12 s in the… | ☐ |
 | `R-49628C10` | Melee hit shake, own (musou/melee-feel, owner 2026-11-08) | Musou Mode: "add a bit of screen shake": the own player's melee hit on an enemy shakes the camera by 0.008 rad for the first enemy of a swing and 0.001 rad for each further one, a swing capped at 0.014 rad in all (under half of the pound's 0.03 rad; a swing… (rad, s) | kind: ours; confidence: low | the owner ("a bit"); the numbers ours | Melee hit shake, own (musou/melee-feel, owner 2026-11-08): compare with SM1 by feel or video. Ours: Musou Mode: "add a bit of screen shake": the own player's melee hit… | ☐ |
 
 *Spec section: Added content: Musou Mode: the original blood (gore-original, 2026-11-07; client only, no protocol change)*
@@ -2229,6 +2247,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
 ### Core simulation (provisional values) (635)
+### Core simulation (provisional values) (633)
 
 *Spec section: Provisional values in use*
 
@@ -3124,6 +3143,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-B5790B4B` | Not covered | the Stormbird and the Firing Range spawns keep their own facing | kind: ours; confidence: medium | ours | Not covered: compare with SM1 by feel or video. Ours: the Stormbird and the Firing Range spawns keep their own facing. | ☐ |
 | `R-468A6F29` | Client view | the view takes the server's yaw on a respawn (as before) and on a landing or redeploy of a living player (a jump of 15 m or more in one frame), so nothing turns on the first frame (m) | kind: ours; confidence: medium | ours | Client view: compare with SM1 by measuring on a flat spot of the same map. Ours: the view takes the server's yaw on a respawn (as before) and on a… | ☐ |
 
+*Spec section: Polish pass P2 (claude/polish-p2, 2026-11-10; client, content, server; load time only: no simulation, wire, protocol or config-hash change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-EDECAEC7` | Map load off the main thread (both modes, a human client) | the handshake's Challenge starts the load on a worker (`ClientOptions.BeginLoadMap`, `IMapLoad`; the client polls it each update and sends its Hello with the map hash once it is done; the connect timeout waits meanwhile): the install's map content (or the… | kind: ours | ours (the plan's item 2) | Map load off the main thread (both modes, a human client): compare with SM1 by feel or video. Ours: the handshake's Challenge starts the load on a worker… | ☐ |
+
 *Spec section: Polish pass P1 (claude/polish-p1, 2026-11-10; client, server runtime and options; no simulation, wire, protocol or config-hash change)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
@@ -3188,6 +3213,18 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-A42BF5F7` | Autocannon: blast | a blast at the point **every Ork a round strikes** (the bolt blasts' path), radius **2.5 m** (twice the bolt blast's 1.25 m), full to 1.0 m, 30 % at the edge, **15** at the centre; the campaign's 4 m hit-scan splash is dropped (m, damage) | kind: ours; confidence: low | owner D12 (the size); the damage and the shape are the bolt blast's | Autocannon: blast: compare with SM1 by measuring on a flat spot of the same map. Ours: a blast at the point every Ork a round strikes (the bolt blasts'… | ☐ |
 | `R-B4298678` | Autocannon: animations | the heavy bolter's (walk, sprint, hop, fall, hip fire, flinch: the campaign's carry graph uses the same navigation graph); the model is the install's `turret_aa` (1,883 triangles), held and stowed as the heavy bolter's | confidence: medium | design section 4 | Autocannon: animations: compare with SM1 by feel or video. Ours: the heavy bolter's (walk, sprint, hop, fall, hip fire, flinch: the… | ☐ |
 | `R-EF126E40` | Autocannon: customizer config | under a Musou content profile the customizer plans a Join with the configuration the match tuning builds for that profile (it lists the autocannon), read once on a worker; PLAY and JOIN wait for it | kind: ours | design section 11 | Autocannon: customizer config: compare with SM1 by feel or video. Ours: under a Musou content profile the customizer plans a Join with the… | ☐ |
+
+*Spec section: Musou's arsenal: W2, the lightning claw (docs/new-weapons-design.md section 5)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-4C012A3B` | Lightning claw: the weapon | one claw on the right hand and the bolt pistol in the left; an Assault Marine (Space Marines) melee choice appended after the power sword's, in Musou Mode only; always worn (never put away); no wargear file in the install, name `sm_mp_melee_lightning_claw`… | kind: ours; confidence: low | the owner (D2) | Lightning claw: the weapon: compare with SM1 by feel or video. Ours: one claw on the right hand and the bolt pistol in the left; an… | ☐ |
+| `R-7F6F3A85` | Lightning claw: tempo | the power sword's moves at 1.25x: every step's duration, hit time, combo window, Y window, no-react window, string reset, evade, alignment window and steered turn divided by 1.25, the charge's clip and windows too; the strikes' lunge distance and root-motion… (x) | kind: ours; confidence: low | the owner (D13 "about 25% faster"); 1.25 ours | Lightning claw: tempo: compare with SM1 by feel or video. Ours: the power sword's moves at 1.25x: every step's duration, hit time… | ☐ |
+| `R-00D8B4AE` | Lightning claw: cleave | the sword's, with Musou's cleave rules for every weapon (x1.5 reach since musou/melee-feel) | kind: ours; confidence: low | Musou's rules | Lightning claw: cleave: compare with SM1 by feel or video. Ours: the sword's, with Musou's cleave rules for every weapon (x1.5 reach… | ☐ |
+| `R-59EE7104` | Lightning claw: animations | the power sword's install clips and clip lists (alias to `sm_mp_melee_powersword`) at 1.25x, **by the owner's choice** (2026-11-10: "for now just make the power claw use the sword animations"); the custom claw clips (branch claude/claw-spear-anims) exist but… | kind: ours; confidence: low | W0's seam | Lightning claw: animations: compare with SM1 by feel or video. Ours: the power sword's install clips and clip lists (alias to… | ☐ |
+| `R-8800FD36` | Lightning claw: model | built in code on the power sword's grip and laid along the armour's own forearm (the rig's rest pose gives the elbow-to-hand direction): a steel cuff 0.30 m over the lower forearm, a little wider than the bracer (radius 0.10 to 0.08 m), a knuckle block, three… (m) | kind: ours; confidence: low | the owner (D15, the images; his second look 2026-11-10); the shape ours | Lightning claw: model: compare with SM1 by measuring on a flat spot of the same map. Ours: built in code on the power sword's grip and laid along the armour's… | ☐ |
+| `R-565BA063` | Lightning claw: glow | a blue power sheen along each talon, always faintly there (alpha 0.06) and brighter with a jagged crackle (alpha up to 0.46 plus the bolts) while a claw strike is posed, faded out in 0.18 s; `--claw-crackle-demo` (test aid) shows the strike half of every… (s) | kind: ours; confidence: low | the owner (default; his "materials and glow"); look ours | Lightning claw: glow: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a blue power sheen along each talon, always faintly there (alpha… | ☐ |
+| `R-1B9BFF40` | Lightning claw: not yet reached | the Musou customizer's claw row and a JOIN from it (the customizer loads an Orks-only config until W1's `ExtrasConfig` hooks land; recheck after merging main); the jump pack's dash attack, ground pound and air slash stay the pack's (the sword's speed and… | kind: ours; confidence: low | W0's list of unhooked rules | Lightning claw: not yet reached: compare with SM1 by feel or video. Ours: the Musou customizer's claw row and a JOIN from it (the customizer… | ☐ |
 
 *Spec section: Musou's arsenal: W3, the power spear (docs/new-weapons-design.md section 6)*
 
@@ -3818,7 +3855,14 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-0FECB0BB` | Ashfall concept light pass (client, Musou Mode only) | the owner's concept art and his note of 2026-11-06 ("Musou currently feels too dark"); every value ours | a brighter, cooler grade with a fill light for what the sun leaves in shade, a storm sky with a warm break low behind the keep and far ruins in the haze, the boundary drawn to a ruined top (collision unchanged), cool grey ground tints and a floor wash; `--ashfall-concept v1`, `--ashfall-concept off`; never on Classic… | Ashfall concept light pass (client) | Ashfall concept light pass (client, Musou Mode only): compare with SM1 by feel or video. Ours: the owner's concept art and his note of 2026-11-06 ("Musou currently… | ☐ |
 | `C-C1F8181D` | Ashfall concept look, fable passes (client, Musou Mode only) | the owner's concept art and round-2 notes (2026-11-06); every value ours | our generated storm panorama sky with the warm break behind the keep; the kit drawn from Blender-baked, grimier, darker, matte copies of the owner's models (originals untouched, `--ashfall-kit-files source` draws them) plus a runtime multiply grime on every renderer; a cooler grade with lifted shade; camera-facing… | Ashfall concept look, fable passes (client) | Ashfall concept look, fable passes (client, Musou Mode only): compare with SM1 by feel or video. Ours: the owner's concept art and round-2 notes (2026-11-06); every value… | ☐ |
 | `C-547993D2` | Musou melee feel: red / blue slash, own-hit shake, wider cleave (musou/melee-feel; `TfwRules.Version` 44) | the owner's request (2026-11-08): "bring back the slashing visual effect... red for chain weapons and the combat knife, blue for power weapons. add a bit of screen shake. increase the aoe cleave radius of all melee weapons"; the shapes, amounts and the 1.5x ours (no number given), low confidence | a glowing slash across each enemy hit by a player's or retainer's melee, whatever the gore setting (it had vanished when the original Ork blood replaced the dark gore); red for chain weapons and the knife, blue for power weapons; the own melee hit shakes the camera 0.008 rad (0.014 most a swing); the cleave's reach… | spec "Musou cleave radius", "Melee slash, red / blue", "Melee hit shake, own" | Musou melee feel: red / blue slash, own-hit shake, wider…: compare with SM1 by feel or video. Ours: the owner's request (2026-11-08): "bring back the slashing visual… | ☐ |
+| `C-EF572976` | Musou swing arc: one slash line per swing (claude/musou-slash-arc; client only, no rules, wire or hash change) | the owner's request (2026-11-10): "can we make slash strokes appear as a flat curved line that matches the cleave of the weapon swings hitbox? so it visually overlaps cleave targets in one cohesive tear line as opposed to many random small lines that don't line up"; the radius (through the enemies struck), sweep… | one thin glowing arc per swing, as wide as its cleave (the cleave's own rules) and through the enemies it struck, in place of a stroke on every enemy struck; hits with no swing (charges, the spear's impale, the air slash's landing) keep the stroke; the spear's arc is its own 15 m, 300-degree sweep; the 30 m limit is… | spec "Melee slash arc: one per swing", "Melee slash arc: sweep, fade, thickness" | Musou swing arc: one slash line per swing…: compare with SM1 by feel or video. Ours: the owner's request (2026-11-10): "can we make slash strokes appear… | ☐ |
 | `C-AC2CAADD` | Musou combat feel: contact at contact (claude/combat-feel, 2026-11-09) | the owner's combat-feel brief and approvals (2026-11-09); every number ours, low confidence | the own power sword strike's slash, flash, shake and hit sounds and the own bolt pistol's impact and hit sound play at the predicted contact instead of the server's report about 186 ms later (no second copy from the report; no kill, death or gore predicted); the power sword's own faster, thinner, brighter stroke; own… | spec "Musou combat feel: contact at contact" | Musou combat feel: contact at contact (claude/combat-feel…: compare with SM1 by feel or video. Ours: the owner's combat-feel brief and approvals (2026-11-09); every… | ☐ |
+
+#### Musou's arsenal (`Musou`; docs/new-weapons-design.md, approved by the owner 2026-11-10)
+
+| ID | What | Ours / the owner's | Value | Spec row | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `C-1E1E16A6` | Lightning claw (Assault Marine melee choice, Musou only) | the owner's request (D2 one claw plus the pistol, D13 about 25% faster, D16 no extra edge, D15 the look); the sword's moves and install animations at 1.25x (the owner's choice: "for now just make the power claw use the sword animations"), every hit x0.8, the model (laid along the forearm, long talons) and glow built… | no claw in the install; same damage a second as the power sword | spec "Lightning claw: the weapon", "tempo", "damage", "cleave", "animations", "model", "glow", "not yet reached" | Lightning claw (Assault Marine melee choice, Musou only): compare with SM1 by feel or video. Ours: the owner's request (D2 one claw plus the pistol, D13 about 25%… | ☐ |
 
 #### Musou's arsenal (`Musou`; docs/new-weapons-design.md, approved by the owner 2026-11-10)
 
@@ -4374,7 +4418,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 
 | ID | Area | What we do | What is unknown | Spec | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
-| `C-56DF6FC5` | Loading screen picture | The owner's earlier menu picture behind LOADING, dimmed toward the corners (not SM1's per-map loading art and tips) | SM1's loading screens (map art and tips) | Loading screen: "Loading screen picture" | Loading screen picture: compare with SM1 by feel or video. Ours: The owner's earlier menu picture behind LOADING, dimmed toward the… | ☐ |
+| `C-56DF6FC5` | Loading screen picture | The owner's earlier menu picture behind LOADING, dimmed toward the corners (not SM1's per-map loading art and tips); since the polish pass P2 a caption under LOADING names the load's stage (ours) | SM1's loading screens (map art and tips) | Loading screen: "Loading screen picture" | Loading screen picture: compare with SM1 by feel or video. Ours: The owner's earlier menu picture behind LOADING, dimmed toward the… | ☐ |
 | `C-CC5659E8` | Screen blink | A short fade to black and back (0.18 s close, a hold until the new screen has settled, 0.26 s open) between the menu, the loading screen and the match; `--no-screen-blink` turns it off | How SM1's front end changed screens | Screen blink | Screen blink: compare with SM1 by feel or video. Ours: A short fade to black and back (0.18 s close, a hold until the new… | ☐ |
 
 ### Not yet reproduced
@@ -4761,6 +4805,8 @@ Test aids, probes, demo and capture tooling, and engineering decisions (protocol
 | `R-E6DE77A1` | Handshake after the blink | Screen blink (ui/loading-blink, 2026-11-10, client only) |
 | `R-BE72EE96` | Core messages counted in the Musou budget (Musou) | Musou performance pass and the owner's battle decisions (musou/perf-pass, 2026-11-08; Musou Mode only but FSR 2 and the off-screen effects, which are shared client settings; `TfwRules.Version` 38, no protocol or wire change) |
 | `R-A9655E6C` | Stormboy hop cue's flight (Musou wire) | Musou Mode: smooth crowd motion (crowd-smooth, 2026-11-08; Musou Mode only; `MusouSim.Version` 22, no core protocol bump: `Protocol.Version` stays 64) |
+| `R-4EEFB531` | Ashfall layout cache (Musou, added content) | Polish pass P2 (claude/polish-p2, 2026-11-10; client, content, server; load time only: no simulation, wire, protocol or config-hash change) |
+| `R-5F9027EA` | Loading captions | Polish pass P2 (claude/polish-p2, 2026-11-10; client, content, server; load time only: no simulation, wire, protocol or config-hash change) |
 | `R-866FC7E6` | `LOADTIME` line | Polish pass P1 (claude/polish-p1, 2026-11-10; client, server runtime and options; no simulation, wire, protocol or config-hash change) |
 | `R-3D34462F` | Physics steps aid | Polish pass P1 (claude/polish-p1, 2026-11-10; client, server runtime and options; no simulation, wire, protocol or config-hash change) |
 | `R-476D600F` | Test aid: `--musou-crowd-test` | Musou Mode: the big Orks' deaths and gait (musou-big-ork-deaths, 2026-11-09; Musou Mode only; the deaths and gait client presentation; the bodies against the map in the simulation, `MusouSim.Version` 34, to be renumbered at integration; no protocol change) |

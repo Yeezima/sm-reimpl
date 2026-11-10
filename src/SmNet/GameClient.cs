@@ -72,6 +72,11 @@ public sealed record ClientOptions
     /// <summary>Loads the map a server names (from this machine's install). Null: flat ground only.</summary>
     public Func<string, LoadedMap?>? LoadMap { get; init; }
     /// <summary>
+    /// Polish pass P2 (ours): starts the map load off the caller's thread and returns the job the client polls each update (<see cref="IMapLoad"/>); the Hello with the map
+    /// hash goes out once the job is complete, and the connect timeout waits meanwhile, as it did for the synchronous load. Null, or a null return: <see cref="LoadMap"/> as before.
+    /// </summary>
+    public Func<string, IMapLoad?>? BeginLoadMap { get; init; }
+    /// <summary>
     /// Bot loadouts (2026-11-07, ours): called once the Challenge has named the map and it is loaded, before the Hello that joins; returns the options to join with
     /// (the request fields of the Hello). Lets a test bot choose its Classic PvP loadout only on a Classic map. Null: the options stay. No wire change.
     /// </summary>
@@ -309,7 +314,7 @@ public sealed partial class GameClient
                     if (!_mapAttempted)
                     {
                         _mapAttempted = true;
-                        LoadMap(c.Map);
+                        if (!BeginMapLoad(c.Map)) LoadMap(c.Map);   // polish pass P2: off the main thread when the client offers it
                         // Loading (and the host drawing the map for the first time) can stall; answer on the next update
                         // so the stall does not count as round-trip time.
                         _deferHello = true;
@@ -330,6 +335,8 @@ public sealed partial class GameClient
         var now = _clock.Now;
         if (Status == ClientStatus.Connecting)
         {
+            // polish pass P2: a map load running off the main thread: no Hello and no timeout until it is complete (as the synchronous load blocked both).
+            if (_mapLoad is not null) { _waitingSince = now; if (!PollMapLoad()) return; }
             // The map load and the host's first draw of it can stall for seconds: the wait for the Welcome starts again after them.
             if (_deferHello) { _deferHello = false; _waitingSince = now; return; }
             if (_waitingSince == TimeSpan.MinValue) _waitingSince = now;
@@ -439,6 +446,36 @@ public sealed partial class GameClient
     public CollisionWorld? Collision { get; private set; }
     /// <summary>Why the named map could not be loaded (the server will then refuse the map hash), or null.</summary>
     public string? MapError { get; private set; }
+
+    IMapLoad? _mapLoad;
+
+    /// <summary>A map load running off the main thread (polish pass P2); the Hello waits for it.</summary>
+    public bool MapLoading => _mapLoad is not null;
+
+    /// <summary>Starts the asynchronous load when the options offer one; false when the synchronous <see cref="LoadMap"/> is to run instead.</summary>
+    bool BeginMapLoad(string map)
+    {
+        if (_options.BeginLoadMap is null || map.Length == 0) return false;
+        MapName = map; Collision = null; MapError = null; _mapHash = 0;
+        try { _mapLoad = _options.BeginLoadMap(map); }
+        catch (Exception e) when (e is not (StackOverflowException or AccessViolationException)) { MapError = $"{e.GetType().Name}: {e.Message}"; return true; }
+        return _mapLoad is not null;
+    }
+
+    /// <summary>Polls the asynchronous load; true once it is complete (the map taken, or the error kept), false while it runs.</summary>
+    bool PollMapLoad()
+    {
+        if (_mapLoad is null) return true;
+        LoadedMap? loaded; string? error;
+        try { if (!_mapLoad.Poll(out loaded, out error)) return false; }
+        catch (Exception e) when (e is not (StackOverflowException or AccessViolationException)) { loaded = null; error = $"{e.GetType().Name}: {e.Message}"; }
+        _mapLoad = null;
+        if (error is not null) { MapError = error; return true; }
+        if (loaded is null) { MapError = $"map '{MapName}' is not installed"; return true; }
+        Collision = loaded.Collision; _mapHash = loaded.Hash;
+        if (_options.ReviseOnMap is { } revise) _options = revise(MapName, _options) ?? _options;
+        return true;
+    }
 
     void LoadMap(string map)
     {

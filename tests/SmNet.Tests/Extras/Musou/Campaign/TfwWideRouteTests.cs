@@ -73,7 +73,10 @@ public class TfwWideRouteTests(ITestOutputHelper output)
     public void The_war_s_army_routes_from_the_landing_zone_keep_to_the_wide_ways(string map, float least)
     {
         var data = TfwWorld.Load("", out var problem, map) ?? throw new InvalidOperationException(problem);
-        var nav = TfwWorld.Nav(data.Collision, data.Field, new SimConfig(), out _);
+        // A test-only nav folder in the temp directory, never the private cache's nav folder; kept between runs (the nav file is keyed like the real
+        // cache's), so only the first run pays the ~6 min walking-graph build.
+        string dir = Path.Combine(Path.GetTempPath(), "sm-reimpl-tests", "nav");
+        var nav = TfwWorld.Nav(data.Collision, data.Field, new SimConfig(), out _, dir);
         var grid = new AshfallGrid(AshfallMap.Build(TfwMap.LayoutOf(map)));
         foreach (var p in data.Field.Points)
         {

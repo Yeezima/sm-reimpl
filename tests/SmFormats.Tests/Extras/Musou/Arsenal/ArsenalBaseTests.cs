@@ -31,12 +31,12 @@ public class ArsenalBaseTests
     {
         var config = new SimConfig { Extras = ContentExtras.Musou };
         var notes = new List<string>();
-        // W4 landed: the Remote Detonators are appended even without the install (the data's values stand in); W1 says why it appends nothing without the install; W2 is a stub.
+        // W4 landed: the Remote Detonators are appended even without the install (the data's values stand in); W1 says why it appends nothing without the install; W2 (the claw) appends nothing without it either.
         var appended = Arsenal.Append(config, "", notes);
         Assert.Equal([ArsenalRules.RemoteDetonators], appended.Thrown.Select(t => t.Name).Where(ArsenalRules.IsArsenal));
         Assert.Equal(config.Weapons, appended.Weapons);
         Assert.All(notes, n => Assert.True(n.Contains("autocannon") || n.StartsWith("musou arsenal: Remote Detonators"), n));
-        foreach (var name in ArsenalRules.Names.Where(n => n != ArsenalRules.PowerSpear))   // W3 has landed: the spear's own tests are PowerSpearContentTests and SpearTests
+        foreach (var name in ArsenalRules.Names.Where(n => n != ArsenalRules.PowerSpear && n != ArsenalRules.LightningClaw))   // W3 and W2 have landed: their own tests are the spear's and ClawTests
         {
             Assert.Null(Arsenal.MeleeMap(name));
             Assert.Null(MpClasses.MeleeMapFor(name));
