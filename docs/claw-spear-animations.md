@@ -172,7 +172,7 @@ is the impale's keys without the hold: the point dips toward the ground by 0.14 
   idle; a wider field of view moves the camera right, away from it). The strikes over the hammer idle read the same arms in the idle's stance frame (`IdleHipsTurn`, 71 degrees), and the
   spear is placed against the facing in every clip (`WeaponPoseSpearFront`).
 - **The steps.** Planted feet reach their spots: the hips stay 0.20 to 0.22 m down at each hew's and the stab's recovery key until the stepped foot is back, and hew 3 starts low over
-  hew 2's step (before, the forward foot floated up to 0.11 m). In a match the simulation's lunge still carries the planted feet with the body (open: a world-space foot pin).
+  hew 2's step (before, the forward foot floated up to 0.11 m). In a match the planted feet are now held in the world by the foot pin (pass 3, section 3f).
 - **The flight** (W held after a long jump) is untouched and pinned against main (`ClawSpearClipsTests.The_jump_packs_flight_with_the_spear_is_left_as_it_was`).
 
 ## 3e. Reference note: long spears and polearms in melee games (study only, 2026-11-11)

@@ -19,8 +19,8 @@ public sealed class FootPin
     public const float StepTime = 0.18f;
     /// <summary>How high a catch-up step lifts the foot at its middle (m; ours).</summary>
     public const float StepLift = 0.10f;
-    /// <summary>A pinned foot further than this from its keyed spot is put straight onto it (m; a teleport or a respawn, not a step).</summary>
-    public const float SnapBeyond = 2.0f;
+    /// <summary>A pinned foot further than this from its keyed spot is put straight onto it (m; about the leg's reach: a teleport, a respawn or a big correction, not a step; review 2026-11-11, was 2.0).</summary>
+    public const float SnapBeyond = 1.0f;
     /// <summary>A foot whose keyed lift is below this is on the ground (m; the clips' planted keys have lift 0).</summary>
     public const float PlantedBelow = 1e-3f;
 

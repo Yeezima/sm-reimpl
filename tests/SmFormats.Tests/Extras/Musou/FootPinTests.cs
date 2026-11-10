@@ -32,6 +32,17 @@ public class FootPinTests
     }
 
     [Fact]
+    public void A_body_jump_past_the_snap_distance_puts_the_foot_straight_on_its_keys()
+    {
+        var pin = new FootPin();
+        var keyed = new Vector3(0f, -0.45f, 0.2f);
+        for (int f = 0; f < 5; f++) pin.Place(1, keyed, true, true, At(0f), Dt);
+        Assert.True(pin.IsPinned(1));
+        Near(keyed, pin.Place(1, keyed, true, true, At(1.2f), Dt));   // a 1.2 m correction in one frame: no 0.18 s dash across it
+        Assert.False(pin.IsStepping(1));
+    }
+
+    [Fact]
     public void With_the_body_still_the_keys_are_left_alone()
     {
         var pin = new FootPin();
