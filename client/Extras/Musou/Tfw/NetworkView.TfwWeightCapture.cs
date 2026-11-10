@@ -20,7 +20,11 @@ public partial class NetworkView
 {
     bool _tfwWeightDone;
 
-    void TfwWeightMark(string part) => GD.Print($"TFWWEIGHT mark {part} t {_connectedFor:F3} frame {Engine.GetProcessFrames()}");
+    void TfwWeightMark(string part)
+    {
+        if (LogMusouWeight) GD.Print($"TFWWEIGHT contacts before {part}: {MusouContactCountsText()}");   // MW1: the contacts of the part that just ended
+        GD.Print($"TFWWEIGHT mark {part} t {_connectedFor:F3} frame {Engine.GetProcessFrames()}");
+    }
 
     async Task TfwWeightSampler()
     {

@@ -65,6 +65,7 @@ public class ExtrasBoundaryTests
         ("client/NetworkView.Loadout.cs", "ExtrasMatchMenu"),      // NetworkView.ExtrasMatchMenu(MatchMenu), when the Esc menu is built: an added mode's own rows (Musou Mode: the host's BACK TO STORMBIRD during a battle)
         ("client/NetworkView.Sound.cs", "ExtrasTrackEmitter"),   // NetworkView.ExtrasTrackEmitter(SoundEmitter, bool), in Track: Musou protects the own character's voice lines (musou/audio-pass)
         ("client/NetworkView.Sound.cs", "ExtrasFireLayers"),   // NetworkView.ExtrasFireLayers(WeaponSpec, SoundEmitter, bool), in PostFire: Musou's bolter rifles fire deeper (musou/audio-pass)
+        ("client/NetworkView.Sound.cs", "ExtrasFootfall"),         // NetworkView.ExtrasFootfall(string, PlayerState, bool, string?), in TagSound after a tag is admitted: Musou's weight pass reads the foot tags (ground contacts)
         ("client/NetworkView.Sound.cs", "ExtrasShotMaterial"),     // NetworkView.ExtrasShotMaterial(ShotView, int, ref bool?), in SoundShot: the material of another player's ranged hit (Musou: armoured Orks armour and flesh)
         // musou/gpu-particles: the effect player's GPU spray path (client/Extras/Musou/FxPlayer.MusouGpu.cs); each returns at once unless MusouGpuEnable ran (Musou Mode, or the --fx-gpu test aid).
         ("client/FxPlayer.cs", "ExtrasFxCap"),                     // FxPlayer.ExtrasFxCap(ref int), in Play: the live-effect cap with the GPU path

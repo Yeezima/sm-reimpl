@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2829 spec table rows: **2105 tagged**, 501 not tagged (read from data with high confidence), 223 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 635 rows of the changes document.
+Scanned 2835 spec table rows: **2111 tagged**, 501 not tagged (read from data with high confidence), 223 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 636 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,18 +50,18 @@ Scanned 2829 spec table rows: **2105 tagged**, 501 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 22 | 13 | 13 | 12 | 7 |
-| Core simulation (provisional values) | 568 | 544 | 396 | 160 | 1 |
+| Core simulation (provisional values) | 574 | 550 | 402 | 160 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 234 | 223 | 125 | 63 | 0 |
-| **All areas** | **2105** | 1858 | 1559 | 673 | 38 |
+| **All areas** | **2111** | 1864 | 1565 | 673 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1174 |
-| confidence: low | 745 |
-| confidence: medium | 685 |
+| kind: ours | 1180 |
+| confidence: low | 749 |
+| confidence: medium | 687 |
 | notes: ours | 386 |
 | kind: interpretation | 363 |
 | notes: estimate | 174 |
@@ -2198,7 +2198,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (568)
+### Core simulation (provisional values) (574)
 
 *Spec section: Provisional values in use*
 
@@ -3102,6 +3102,17 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-9142E6C0` | Burst hitch and dropped sprays (Musou, playtest check) | in the burst stress (200 Orks killed by one blast every 4 s) the GPU path's worst burst frame is **63.6 ms** median (CPU path 53.4 ms; p99 54.7 against 41.7 ms) and **34,192** sprays were dropped by the full alpha pool (a dropped spray draws none of its GPU… (ms, count) | kind: ours; confidence: low | measured (`tools\musou-perf.ps1 burst`, see the milestone) | Burst hitch and dropped sprays (Musou, playtest check): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: in the burst stress (200 Orks killed by one blast every 4 s) the GPU… | ☐ |
 | `R-3B45C8AA` | GPU sprays on old GPUs (Musou) | safe mode (the Compatibility renderer or `--safe-mode`) keeps the CPU path and its 160-effect cap; a texture array the renderer cannot make falls back to the CPU path | kind: ours; confidence: medium | ours (review of 2026-11-10) | GPU sprays on old GPUs (Musou): compare with SM1 by feel or video. Ours: safe mode (the Compatibility renderer or --safe-mode) keeps the CPU… | ☐ |
 | `R-4202F822` | Draw order of the GPU sprays' alpha sprites (Musou) | not sorted back to front: drawn before the CPU path's sorted alpha cards, in spawn order (the CPU path sorts every alpha quad by its centre's distance) | kind: provisional; confidence: low; notes: ours | ours (a GPU pass cannot sort without per-frame CPU work) | Draw order of the GPU sprays' alpha sprites (Musou): compare with SM1 by feel or video. Ours: not sorted back to front: drawn before the CPU path's sorted alpha… | ☐ |
+
+*Spec section: Musou weight and impact pass (claude/musou-weight, 2026-11-10; client only, no simulation, wire, protocol, config-hash or rules-version change; Musou Mode only)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-3D73DBA5` | Musou weight: contact sources | the clips' foot tags (`EVT_Left_Foot`, `EVT_Right_Foot`, the `_Rush` forms, `EVT_Bullrush_Stop_*`) as the sound's tag pass admits them; for poses without foot tags (rolls, landings, knockdowns, get-ups) the bones (toes, knees, hands, pelvis, shoulders)… | kind: ours; confidence: medium | the owner's brief | Musou weight: contact sources: compare with SM1 by feel or video. Ours: the clips' foot tags (EVT_Left_Foot, EVT_Right_Foot, the _Rush forms… | ☐ |
+| `R-955E97D1` | Musou weight: who is tracked | the own marine and the **7** nearest other marines within **45** m of the camera; never an Ork (count, m) | kind: ours; confidence: medium | owner 2026-11-10 ("every marine, allies half"; never Orks) | Musou weight: who is tracked: compare with SM1 by feel or video. Ours: the own marine and the 7 nearest other marines within 45 m of the… | ☐ |
+| `R-BC5D6E4A` | Musou weight: a bone touches | when a bone comes within **0.06** m of its resting height (toe 0.03, knee 0.10, hand 0.06, pelvis 0.18, shoulder 0.16 m above the ground) moving down at least **0.25** m/s; again only after it rose **0.12** m above it, at most once per **0.12** s a part (m, m/s, s) | kind: ours; confidence: low | ours | Musou weight: a bone touches: compare with SM1 by timing a run over a known distance. Ours: when a bone comes within 0.06 m of its resting height (toe 0.03, knee… | ☐ |
+| `R-07E7B0FF` | Musou weight: skids | a touching part moving along the ground faster than **2** m/s leaves a skid every **0.08** s (m/s, s) | kind: ours; confidence: low | the plan | Musou weight: skids: compare with SM1 by timing a run over a known distance. Ours: a touching part moving along the ground faster than 2 m/s leaves a… | ☐ |
+| `R-B1CDCEA5` | Musou weight: landings | coming to the ground after at least **0.15** s in the air: a landing at both feet, strength the fall speed / **14** m/s (at least 0.25, at most 1); the bones stay quiet **0.25** s after it (s, m/s) | kind: ours; confidence: low | ours (the pack's full jump lands at 30.6 m/s, its dash at 9.8) | Musou weight: landings: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: coming to the ground after at least 0.15 s in the air: a landing at… | ☐ |
+| `R-58E3DF9C` | Musou weight: contact strengths | run step **0.35**, sprint step **0.55**, melee step (a plant) **0.6**, sprint stop (a plant) **0.8**; a body touch its downward speed / 4 m/s (0.2 to 0.8; pelvis and shoulders x1.2); a skid 0.1 + 0.25 x speed / 6 m/s (0 to 1) | kind: ours; confidence: low | ours | Musou weight: contact strengths: compare with SM1 by feel or video. Ours: run step 0.35, sprint step 0.55, melee step (a plant) 0.6, sprint… | ☐ |
 
 ### General game design (7)
 
@@ -4377,6 +4388,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-6202225B-3` | Musou: HUD at the screen edges (musou/ui-edges, owner 2026-11-10; client only, no rules or wire change) | No Musou Mode in the original | Ours (the owner's request, verbatim: "move all musou mode specific UI elements to the edges of the screen, prioritizing the corners nd minimizing impact on free screen space to view the game world."): the commander's and the Boss Orks' bars bottom left (the score panel's corner, empty in Musou), the capture tiles… | Musou Mode and the old 5-wave run only; the match HUD (Classic PvP) is unchanged. docs/milestones.md "Musou HUD at the screen edges" | Musou: HUD at the screen edges (musou/ui-edges, owner…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-BC561D40` | Musou: capture banners in the world, no capture HUD (musou/capture-banners, owner 2026-11-10; client only, no rules, wire or protocol change) | No Musou Mode in the original (Seize Ground's points are the original's own and unchanged) | Ours (the owner's request, verbatim: "remove the text and status bar for the capture point ui elements in musou mode. add a banner is red when ork held, is covered by smoke, then when the smoke obscuring the banner completely dissipates the banner is now blue when captured by the player and his team. the end result is… | Musou Mode only; Classic Seize Ground unchanged. spec "Musou capture banners", "Musou capture circle", "Musou capture indicators" | Musou: capture banners in the world, no capture HUD…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-EA78DB46` | Musou: Guardsmen 1.1x (release integration, owner 2026-11-10; `TfwRules.Version` 64) | No Musou Mode in the original | The owner's: "Raise the guards to 1.1" (was 0.875x): the Guardsmen's health and shot damage 1.1x the install's 85 and the design's 5, so with every Nob twice the field holds a counterattack of its own size about half the time (our trial: 10 of 20) | Balance after twice the big Orks | Musou: Guardsmen 1.1x (release integration, owner…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-DA4B60BB` | Musou weight and impact pass (claude/musou-weight, 2026-11-10) | No Musou Mode in the original | The owner's brief of 2026-11-10 and his answers: the marines' ground contacts (foot tags and bones) drive dust and debris puffs, contact sounds and camera; more weight in landings, stops and rolls; melee retimed with its hit and end times kept, a short pose hold and camera push on heavy strikes and kills; transitions… | spec "Musou weight and impact pass" | Musou weight and impact pass (claude/musou-weight…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 
 ## Appendix: not gameplay
 
