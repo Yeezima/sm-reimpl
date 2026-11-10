@@ -11,31 +11,34 @@ namespace SmClient;
 
 /// <summary>
 /// W2, the lightning claw's model, built in code (docs/new-weapons-design.md section 5, "Look"; the owner's reference images, described by the lead: a bulky armoured steel gauntlet on the
-/// right forearm with pistons and brass bands on the back of the hand and the wrist, and four long curved steel talons from the knuckles, each about 1.2 times the forearm, tapering to
+/// right forearm with pistons and brass bands on the back of the hand and the wrist, and four long curved steel talons from the knuckles, each 1.9 times the forearm, tapering to
 /// points). Nothing is loaded for it but the power sword's own grip (its handle node and mount are the claw's: the claw is held where the sword is), so it is **ours** (a placeholder shape
 /// from words, to be corrected against the owner's pictures). The geometry is made once per sword model in the handle's own frame and baked into the model's root space, as every weapon's
 /// meshes are. A faint blue crackle (<see cref="ClawCrackle"/>) plays along the talons while a claw strike is shown.
 /// </summary>
 public static class ClawModel
 {
-    /// <summary>Metres (the model's own scale): the forearm's length the talons are sized from, and the talons' share of it (the design: about 1.2).</summary>
-    public const float Forearm = 0.30f, TalonShare = 1.2f;
+    /// <summary>Metres (the model's own scale): the forearm's length the talons are sized from, and the talons' share of it (the owner: longer, bigger).</summary>
+    public const float Forearm = 0.30f, TalonShare = 1.9f;
 
     /// <summary>Which side of the grip's blade axis the talons curl to: +1 or -1 along the sword's thin axis (a flip for the look; the first still decides it).</summary>
     public const float CurlSide = 1f;
 
+    /// <summary>Test aid <c>--claw-flip</c>: the talons curl the other way.</summary>
+    static readonly bool Flip = Array.IndexOf(OS.GetCmdlineUserArgs(), "--claw-flip") >= 0;
+
     static readonly Dictionary<WeaponAsset, WeaponAsset> Cache = new();
 
     /// <summary>The claw's asset on the grip of <paramref name="sword"/> (the power sword's held attachment and its asset); null when the sword's mesh cannot be measured.</summary>
-    public static WeaponAsset? For(WeaponAsset sword, WeaponAttachment attachment)
+    public static WeaponAsset? For(WeaponAsset sword, WeaponAttachment attachment, Num.Vector3? forearmRoot = null)
     {
         if (Cache.TryGetValue(sword, out var known)) return known;
-        var built = Build(sword, attachment);
+        var built = Build(sword, attachment, forearmRoot);
         if (built is not null) Cache[sword] = built;
         return built;
     }
 
-    static WeaponAsset? Build(WeaponAsset sword, WeaponAttachment attachment)
+    static WeaponAsset? Build(WeaponAsset sword, WeaponAttachment attachment, Num.Vector3? forearmRoot)
     {
         if (sword.Mesh is not { } swordMesh || attachment.Wield is not { } wield || !sword.Model.Tree.Contains(wield.HandleNode)) return null;
         var handle = sword.Model.Tree.ModelSpace(wield.HandleNode);
@@ -54,14 +57,24 @@ public static class ClawModel
         int bladeAxis = order[0], flatAxis = order[1], thinAxis = order[2];
         float bladeSign = Math.Abs(high[bladeAxis]) >= Math.Abs(low[bladeAxis]) ? 1f : -1f;
         Num.Vector3 Axis(int a, float sign) => a switch { 0 => Num.Vector3.UnitX * sign, 1 => Num.Vector3.UnitY * sign, _ => Num.Vector3.UnitZ * sign };
-        var b = Axis(bladeAxis, bladeSign);   // toward the fingers
+        var b = Axis(bladeAxis, bladeSign);   // toward the fingers (the sword's blade, until the forearm is known)
         var w = Axis(flatAxis, 1f);           // across the hand
         var c = Axis(thinAxis, CurlSide);     // the way the talons curl
+        if (forearmRoot is { } fa && fa.LengthSquared() > 1e-8f)
+        {
+            // The forearm's own direction (elbow to hand) in the grip's frame: the gauntlet wears it and the talons continue it.
+            b = Num.Vector3.Normalize(Num.Vector3.TransformNormal(fa, inverse));
+            var thin = Axis(thinAxis, CurlSide);
+            c = thin - Num.Vector3.Dot(thin, b) * b;
+            if (c.LengthSquared() < 1e-4f) { thin = Axis(flatAxis, 1f); c = thin - Num.Vector3.Dot(thin, b) * b; }
+            c = Num.Vector3.Normalize(c) * (Flip ? -1f : 1f);
+            w = Num.Vector3.Normalize(Num.Vector3.Cross(b, c));
+        }
         GD.Print($"lightning claw: sword grip frame blade axis {bladeAxis}{(bladeSign > 0 ? "+" : "-")}, flat {flatAxis}, thin {thinAxis}; extent {high - low}");
 
-        var steel = Standard(new Color(0.66f, 0.68f, 0.72f), 0.9f, 0.32f);
-        var dark = Standard(new Color(0.20f, 0.21f, 0.24f), 0.75f, 0.45f);
-        var brass = Standard(new Color(0.80f, 0.56f, 0.20f), 0.92f, 0.38f);
+        var steel = Standard(new Color(0.70f, 0.73f, 0.80f), 0.8f, 0.30f);
+        var dark = Standard(new Color(0.26f, 0.28f, 0.33f), 0.6f, 0.4f);
+        var brass = Standard(new Color(1.0f, 0.74f, 0.26f), 0.7f, 0.3f);
         var parts = new List<(Material Material, SurfaceTool Tool)>();
         SurfaceTool Tool(Material m)
         {
@@ -102,38 +115,38 @@ public static class ClawModel
             }
         }
 
-        // The gauntlet: a tapering forearm cuff, the knuckle block, brass bands at the wrist and the cuff, and two pistons on the back of the hand.
-        Tube(Tool(steel), -0.34f, -0.04f, 0.066f, 0.052f, 0f, 0f, 14);
-        Tube(Tool(dark), -0.30f, -0.06f, 0.058f, 0.045f, 0f, 0f, 14);
-        Box(Tool(steel), -0.05f, 0.10f, -0.062f, 0.062f, -0.048f, 0.055f);
-        Box(Tool(dark), 0.0f, 0.12f, -0.056f, 0.056f, -0.036f, -0.030f);
-        foreach (float x in new[] { -0.31f, -0.20f, -0.08f })
-            Tube(Tool(brass), x, x + 0.028f, 0.072f - 0.004f * (x + 0.31f) / 0.1f, 0.072f - 0.004f * (x + 0.31f) / 0.1f, 0f, 0f, 16);
-        foreach (float y in new[] { -0.034f, 0.034f })
+        // The gauntlet wears the armour's forearm (the axis x runs along it, the hand at 0): a cuff over the lower forearm that is a little wider than the armour's bracer, a knuckle block over the
+        // hand, three brass bands and two pistons on the back of the hand.
+        Tube(Tool(steel), -0.30f, -0.03f, 0.100f, 0.082f, 0f, 0f, 16);
+        Tube(Tool(dark), -0.27f, -0.05f, 0.090f, 0.072f, 0f, 0f, 16);
+        Box(Tool(steel), -0.06f, 0.11f, -0.075f, 0.075f, -0.058f, 0.068f);
+        Box(Tool(dark), -0.02f, 0.13f, -0.068f, 0.068f, -0.046f, -0.038f);
+        foreach (float x in new[] { -0.28f, -0.17f, -0.07f })
+            Tube(Tool(brass), x, x + 0.034f, 0.104f - 0.12f * (x + 0.28f) * 0.5f, 0.104f - 0.12f * (x + 0.28f) * 0.5f, 0f, 0f, 18);
+        foreach (float y in new[] { -0.042f, 0.042f })
         {
-            Tube(Tool(brass), -0.24f, -0.02f, 0.011f, 0.011f, y, 0.074f, 8);
-            Tube(Tool(steel), -0.02f, 0.08f, 0.017f, 0.017f, y, 0.074f, 8);
+            Tube(Tool(brass), -0.22f, -0.02f, 0.014f, 0.014f, y, 0.100f, 8);
+            Tube(Tool(steel), -0.02f, 0.10f, 0.022f, 0.022f, y, 0.092f, 8);
         }
-        Box(Tool(brass), -0.03f, 0.03f, -0.045f, 0.045f, 0.050f, 0.064f);
+        Box(Tool(brass), -0.04f, 0.04f, -0.06f, 0.06f, 0.066f, 0.082f);
 
-        // Four curved steel talons from the knuckles: a flat blade whose width and thickness taper to a point, curling toward the thin axis.
+        // Four long curved steel talons from the knuckles, each over the forearm's length (the owner: "longer, bigger"): a broad flat blade whose width and thickness taper to a point, curling toward the thin axis.
         float length = Forearm * TalonShare;
-        const int segments = 9;
-        foreach (float y in new[] { -0.045f, -0.015f, 0.015f, 0.045f })
+        const int segments = 12;
+        float[] rows = [-0.066f, -0.022f, 0.022f, 0.066f];
+        float Curl(float t) => 0.012f - 0.26f * t * t;
+        foreach (float y in rows)
         {
             var tool = Tool(steel);
             var centres = new Vector3[segments + 1];
             var sideDir = new Vector3[segments + 1];
             var thickDir = new Vector3[segments + 1];
-            float spread = y * 0.55f;   // the outer talons splay a little
+            float spread = y * 0.5f;   // the outer talons splay a little
             for (int i = 0; i <= segments; i++)
             {
                 float t = i / (float)segments;
-                float x = 0.10f + length * t;
-                float z = 0.012f - 0.11f * t * t;
-                float yy = y + spread * t;
-                centres[i] = At(x, yy, z);
-                float dx = length, dz = -0.22f * t;
+                centres[i] = At(0.12f + length * t, y + spread * t, Curl(t));
+                float dx = length, dz = -0.52f * t;
                 var tangent = (b * dx + c * dz) / MathF.Sqrt(dx * dx + dz * dz);
                 var tan = new Vector3(tangent.X, tangent.Y, tangent.Z);
                 var side = Num.Vector3.TransformNormal(w, handle); var sideV = new Vector3(side.X, side.Y, side.Z).Normalized();
@@ -143,27 +156,27 @@ public static class ClawModel
             for (int i = 0; i < segments; i++)
             {
                 float t0 = i / (float)segments, t1 = (i + 1) / (float)segments;
-                float w0 = 0.017f * MathF.Pow(1f - t0, 0.75f) + 0.0008f, w1 = 0.017f * MathF.Pow(1f - t1, 0.75f) + 0.0004f;
-                float h0 = 0.0065f * (1f - t0) + 0.0006f, h1 = 0.0065f * (1f - t1) + 0.0003f;
+                float w0 = 0.021f * MathF.Pow(1f - t0, 0.7f) + 0.0010f, w1 = 0.021f * MathF.Pow(1f - t1, 0.7f) + 0.0004f;
+                float h0 = 0.0085f * (1f - t0) + 0.0008f, h1 = 0.0085f * (1f - t1) + 0.0003f;
                 Vector3 A(int k, float ws, float hs, float cw, float ch) => centres[k] + sideDir[k] * (ws * cw) + thickDir[k] * (hs * ch);
-                // a rhombus section: tips on the width, ridges on the thickness
                 var s0 = new[] { A(i, w0, h0, 1, 0), A(i, w0, h0, 0, 1), A(i, w0, h0, -1, 0), A(i, w0, h0, 0, -1) };
                 var s1 = new[] { A(i + 1, w1, h1, 1, 0), A(i + 1, w1, h1, 0, 1), A(i + 1, w1, h1, -1, 0), A(i + 1, w1, h1, 0, -1) };
                 for (int k = 0; k < 4; k++) Quad(tool, s0[k], s1[k], s1[(k + 1) % 4], s0[(k + 1) % 4]);
             }
         }
 
-        // The crackle: thin quads along each talon in two planes, drawn additively with a jagged line that only shows while a claw strike is on (ClawCrackle).
+        // The glow: along each talon a soft blue sheen that is always faintly there and brightens with a jagged crackle while a claw strike is on (ClawCrackle), in two planes.
         var crackle = new SurfaceTool();
         crackle.Begin(Mesh.PrimitiveType.Triangles);
-        foreach (float y in new[] { -0.045f, -0.015f, 0.015f, 0.045f })
+        foreach (float y in rows)
             for (int plane = 0; plane < 2; plane++)
             {
-                const float span = 0.03f;
-                var p0 = plane == 0 ? At(0.10f, y - span, 0.012f) : At(0.10f, y, 0.012f - span);
-                var p1 = plane == 0 ? At(0.10f, y + span, 0.012f) : At(0.10f, y, 0.012f + span);
-                var p2 = plane == 0 ? At(0.10f + length, y + span + y * 0.55f, 0.012f - 0.11f) : At(0.10f + length, y + y * 0.55f, 0.012f - 0.11f + span);
-                var p3 = plane == 0 ? At(0.10f + length, y - span + y * 0.55f, 0.012f - 0.11f) : At(0.10f + length, y + y * 0.55f, 0.012f - 0.11f - span);
+                const float span = 0.032f;
+                float ye = y + y * 0.5f, ze = Curl(1f);
+                var p0 = plane == 0 ? At(0.12f, y - span, Curl(0f)) : At(0.12f, y, Curl(0f) - span);
+                var p1 = plane == 0 ? At(0.12f, y + span, Curl(0f)) : At(0.12f, y, Curl(0f) + span);
+                var p2 = plane == 0 ? At(0.12f + length, ye + span, ze) : At(0.12f + length, ye, ze + span);
+                var p3 = plane == 0 ? At(0.12f + length, ye - span, ze) : At(0.12f + length, ye, ze - span);
                 crackle.SetUV(new Vector2(0f, 0f)); crackle.AddVertex(p0); crackle.SetUV(new Vector2(0f, 1f)); crackle.AddVertex(p1); crackle.SetUV(new Vector2(1f, 1f)); crackle.AddVertex(p2);
                 crackle.SetUV(new Vector2(0f, 0f)); crackle.AddVertex(p0); crackle.SetUV(new Vector2(1f, 1f)); crackle.AddVertex(p2); crackle.SetUV(new Vector2(1f, 0f)); crackle.AddVertex(p3);
             }

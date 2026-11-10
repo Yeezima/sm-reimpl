@@ -20,10 +20,12 @@ void fragment() {
     float jag = (hash(floor(UV.x * 14.0) + step_t * 3.7) - 0.5) * 0.7;
     float line = 0.5 + jag * 0.5 * smoothstep(0.0, 0.2, UV.x);
     float d = abs(UV.y - line);
-    float bolt = smoothstep(0.09, 0.0, d);
+    float bolt = smoothstep(0.10, 0.0, d);
     float tip = smoothstep(0.55, 1.0, UV.x);
-    ALBEDO = tint * (0.8 + tip);
-    ALPHA = clamp(bolt * strike * (0.55 + 0.45 * hash(step_t + UV.x)), 0.0, 1.0);
+    float sheen = smoothstep(0.5, 0.0, abs(UV.y - 0.5)) * (0.55 + 0.45 * tip);   // the always-there glow of the power field
+    float flick = 0.85 + 0.15 * sin(TIME * 9.0 + UV.x * 6.0);
+    ALBEDO = tint * (0.9 + tip);
+    ALPHA = clamp(sheen * (0.06 + 0.40 * strike) * flick + bolt * strike * (0.65 + 0.35 * hash(step_t + UV.x)), 0.0, 1.0);
 }
 """;
 
