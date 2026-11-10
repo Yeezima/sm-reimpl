@@ -1482,7 +1482,7 @@ public partial class NetworkView : Node3D
         if (LegProbe.Enabled) LegProbeMeta(character, state);   // --leg-probe (client/LegProbe.cs)
         if (TransitionProbe.Enabled)
         {
-            character.SetMeta(TransitionProbe.TwoHandedMeta, IsOrkCharacter(character) || MeleeWargear(state)?.Contains("_2hand_", StringComparison.OrdinalIgnoreCase) == true);
+            character.SetMeta(TransitionProbe.TwoHandedMeta, IsOrkCharacter(character) || (MeleeWargear(state) is { } twoHand && AnimationAlias.Of(twoHand).Contains("_2hand_", StringComparison.OrdinalIgnoreCase)));   // AnimationAlias (W0b): Musou's spear is two-handed
             character.SetMeta(TransitionProbe.OwnMeta, own);   // anim/strafe-blend: the direction events say own / remote
         }
         if (IsOrkCharacter(character)) { PlaceOrk(character, state, throwTime, own, smooth); return; }   // Ork O7a (NetworkView.Ork.cs): the boy's rig has its own clips

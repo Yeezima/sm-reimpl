@@ -150,6 +150,7 @@ public class ExtrasBoundaryTests
         ("client/NetworkView.Sound.Melee.cs", "PresentedAs(wargear)"),
         ("client/NetworkView.MeleeHitSound.cs", "PresentedAs(MeleeWargear(attacker))"),
         ("client/NetworkView.HammerSwing.cs", "HammerSlashPose.IsHammer(AnimationAlias.Of(w))"),
+        ("client/NetworkView.MeleeFlow.cs", "!AnimationAlias.Of(w).Contains(\"_2hand_\", StringComparison.OrdinalIgnoreCase)) return false;"),   // HammerHoldsBothHands: the spear holsters the pistol (W3)
         ("client/NetworkView.cs", "MoveClipSpeed(state)"),
         ("client/NetworkView.Jump.cs", "MoveClipSpeed(s)"),
         ("client/NetworkView.Feel.cs", "MoveClipSpeed(s)"),
