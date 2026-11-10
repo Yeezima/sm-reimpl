@@ -63,6 +63,16 @@ public partial class NetworkView
         sources = Arsenal.SoundSources(wargear);
     }
 
+    /// <summary>Test aid <c>--old-autocannon-fx</c>: the twin's own purple muzzle flash and tracer (W1b's look, before W1c).</summary>
+    static readonly bool OldAutocannonFx = CmdFlag("old-autocannon-fx");
+
+    /// <summary>W1c: the arsenal's effects in place of its sources' (<c>Arsenal.EffectNames</c>: the autocannon's loyalist muzzle flash and tracer for the twin's purple ones, the owner's choice), in a Musou match only.</summary>
+    partial void ExtrasEffectNames(string wargear, ref IReadOnlyDictionary<string, string>? names)
+    {
+        if (OldAutocannonFx || _config is null || !_config.Extras.HasFlag(ContentExtras.Musou) || !ArsenalRules.IsArsenal(wargear)) return;
+        names = Arsenal.EffectNames(wargear);
+    }
+
     readonly Dictionary<string, float> _arsenalMoveSpeed = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>

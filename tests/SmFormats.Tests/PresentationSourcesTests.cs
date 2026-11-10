@@ -35,6 +35,51 @@ public partial class EffectCatalogueTests
         foreach (var p in typeof(EffectCatalogue).GetProperties(BindingFlags.Public | BindingFlags.Instance).Where(p => p.Name is not (nameof(EffectCatalogue.Weapons) or nameof(EffectCatalogue.Notes))))
             Assert.True(ReferenceEquals(p.GetValue(c), p.GetValue(sourced)) || Equals(p.GetValue(c), p.GetValue(sourced)), $"EffectCatalogue.{p.Name} is not carried over by WithSources");
     }
+
+    // ---- W1c: WithEffectNames (the autocannon's loyalist muzzle flash and tracer in place of its Chaos twin's)
+
+    static Dictionary<string, IReadOnlyDictionary<string, string>> Names(string wargear, params (string From, string To)[] pairs) =>
+        new(StringComparer.OrdinalIgnoreCase) { [wargear] = pairs.ToDictionary(p => p.From, p => p.To, StringComparer.OrdinalIgnoreCase) };
+
+    [Fact]
+    public void Without_effect_names_or_with_none_played_the_catalogue_is_the_same_object()
+    {
+        var c = Catalogue();
+        Assert.Same(c, c.WithEffectNames(new Dictionary<string, IReadOnlyDictionary<string, string>>()));
+        Assert.Same(c, c.WithEffectNames(Names("test_rifle", ("not_played", "other"))));            // no command plays the name
+        Assert.Same(c, c.WithEffectNames(Names("not_a_weapon", ("test_muzzle", "other"))));         // no such entry
+        Assert.Same(c, c.WithEffectNames(Names("test_rifle", ("test_muzzle", "test_muzzle"))));     // renamed to itself
+    }
+
+    [Fact]
+    public void Named_effects_of_the_named_entry_play_other_effects_and_everything_else_is_kept()
+    {
+        var c = Catalogue();
+        var sourced = c.WithSources(new Dictionary<string, IReadOnlyList<string>> { ["ours_gun"] = ["csm_test_rifle"] });
+        var named = sourced.WithEffectNames(Names("OURS_GUN", ("test_muzzle", "loyal_muzzle"), ("TEST_TRACER", "loyal_tracer"), ("test_trail", "loyal_trail")));
+        Assert.NotSame(sourced, named);
+        var twin = sourced.Weapon("csm_test_rifle")!;
+        var ours = named.Weapon("ours_gun")!;
+        // The basic shot's flash and tracer are the new effects with the source's marker, scale, target and attachment; the casing, the smoke and the impacts are the source's.
+        Assert.Equal("loyal_muzzle", ours.Muzzle!.Name);
+        Assert.Equal(twin.Muzzle! with { Name = "loyal_muzzle" }, ours.Muzzle);
+        Assert.Equal("loyal_tracer", ours.Tracer!.Name);
+        Assert.Equal(twin.Tracer! with { Name = "loyal_tracer" }, ours.Tracer);
+        Assert.Equal(twin.ShellEject, ours.ShellEject);
+        Assert.Equal(twin.StopFire, ours.StopFire);
+        Assert.Equal(twin.HitMaterial, ours.HitMaterial);
+        Assert.Equal(["test_led", "shell_casing", "test_perk_muzzle", "loyal_muzzle", "test_perk_trail", "", "loyal_tracer", "", "test_smoke", "test_charging", "test_heavy_muzzle"],
+            ours.Bindings.Select(b => b.Play?.Name ?? ""));   // an upgrade's own flash (test_perk_muzzle) is another name: kept
+        Assert.Equal("loyal_trail", ours.Projectiles.Single().Trail.Single().Name);   // the projectiles' commands too
+        Assert.Equal("csm_test_rifle", ours.Wargear);                                // still the file the commands came from
+        // Only the named entry changes: the source file and the class weapon show their own.
+        Assert.Same(twin, named.Weapon("csm_test_rifle"));
+        Assert.Equal("test_muzzle", named.Weapon("csm_test_rifle")!.Muzzle!.Name);
+        Assert.Same(sourced.Weapon("test_rifle"), named.Weapon("test_rifle"));
+        Assert.Contains(named.Notes, n => n.StartsWith("OURS_GUN: 3 effect command(s) renamed", StringComparison.Ordinal));
+        foreach (var p in typeof(EffectCatalogue).GetProperties(BindingFlags.Public | BindingFlags.Instance).Where(p => p.Name is not (nameof(EffectCatalogue.Weapons) or nameof(EffectCatalogue.Notes))))
+            Assert.True(ReferenceEquals(p.GetValue(sourced), p.GetValue(named)) || Equals(p.GetValue(sourced), p.GetValue(named)), $"EffectCatalogue.{p.Name} is not carried over by WithEffectNames");
+    }
 }
 
 public class SoundSourcesTests

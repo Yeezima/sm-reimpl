@@ -591,6 +591,83 @@ public sealed class EffectCatalogue
         };
     }
 
+    /// <summary>
+    /// W1c: the catalogue in which each weapon or thrown item named in <paramref name="names"/> plays other effects of the effects package in place of some of its own: every effect command of
+    /// its entry and of its projectiles whose effect name is a key of its map plays the mapped name instead; everything else of the command (marker, scale, length, target, rotation) and the
+    /// entry's hit containers stay as they are (a container is shared by every weapon naming it). Musou's arsenal: the autocannon shows its Chaos twin's commands with the loyalist muzzle flash and
+    /// tracer (the owner's choice of 2026-11-10). Only the named entries change; the file the effects came from keeps its own under its own name. The catalogue itself when the map is empty or no
+    /// command is renamed, so a catalogue without names is the same object.
+    /// </summary>
+    public EffectCatalogue WithEffectNames(IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> names)
+    {
+        if (names.Count == 0) return this;
+        Dictionary<string, WeaponEffects>? weapons = null;
+        Dictionary<string, ThrownEffects>? thrown = null;
+        var notes = new List<string>();
+        foreach (var (name, map) in names.OrderBy(kv => kv.Key, StringComparer.Ordinal))
+        {
+            if (map.Count == 0) continue;
+            int count = 0;
+            if (Weapons.TryGetValue(name, out var w) && Renamed(w, map, ref count) is var renamedWeapon && !ReferenceEquals(renamedWeapon, w))
+            {
+                weapons ??= new Dictionary<string, WeaponEffects>(Weapons, StringComparer.OrdinalIgnoreCase);
+                weapons[name] = renamedWeapon;
+            }
+            if (Thrown.TryGetValue(name, out var t) && Renamed(t, map, ref count) is var renamedItem && !ReferenceEquals(renamedItem, t))
+            {
+                thrown ??= new Dictionary<string, ThrownEffects>(Thrown, StringComparer.OrdinalIgnoreCase);
+                thrown[name] = renamedItem;
+            }
+            string pairs = string.Join(", ", map.OrderBy(kv => kv.Key, StringComparer.Ordinal).Select(kv => $"{kv.Key} -> {kv.Value}"));
+            notes.Add(count > 0 ? $"{name}: {count} effect command(s) renamed ({pairs})" : $"{name}: no command plays {string.Join(", ", map.Keys)}; nothing renamed");
+        }
+        if (weapons is null && thrown is null) return this;
+        return new EffectCatalogue
+        {
+            Weapons = weapons ?? Weapons, Thrown = thrown ?? Thrown, Containers = Containers, SurfaceOrder = SurfaceOrder, Player = Player, Notes = [.. Notes, .. notes],
+            JumpPacks = JumpPacks, Dashes = Dashes, FinishFalling = FinishFalling,
+        };
+    }
+
+    /// <summary>The bindings with each play whose effect name <paramref name="map"/> names renamed (counted); the same list when none is.</summary>
+    static IReadOnlyList<FxBinding> Renamed(IReadOnlyList<FxBinding> bindings, IReadOnlyDictionary<string, string> map, ref int count)
+    {
+        List<FxBinding>? list = null;
+        for (int i = 0; i < bindings.Count; i++)
+        {
+            if (bindings[i].Play is not { } play || !map.TryGetValue(play.Name, out var to) || to.Length == 0 || to.Equals(play.Name, StringComparison.Ordinal)) continue;
+            list ??= [.. bindings];
+            list[i] = bindings[i] with { Play = play with { Name = to } };
+            count++;
+        }
+        return list ?? bindings;
+    }
+
+    static ProjectileEffects Renamed(ProjectileEffects p, IReadOnlyDictionary<string, string> map, ref int count) =>
+        Renamed(p.Bindings, map, ref count) is var b && !ReferenceEquals(b, p.Bindings) ? p with { Bindings = b } : p;
+
+    static WeaponEffects Renamed(WeaponEffects w, IReadOnlyDictionary<string, string> map, ref int count)
+    {
+        int before = count;
+        var bindings = Renamed(w.Bindings, map, ref count);
+        var projectiles = new List<ProjectileEffects>(w.Projectiles.Count);
+        foreach (var p in w.Projectiles) projectiles.Add(Renamed(p, map, ref count));
+        int basic = -1;
+        for (int i = 0; i < w.Projectiles.Count && w.Projectile is not null; i++) if (ReferenceEquals(w.Projectiles[i], w.Projectile)) { basic = i; break; }
+        int scratch = 0;
+        var projectile = w.Projectile is null ? null : basic >= 0 ? projectiles[basic] : Renamed(w.Projectile, map, ref scratch);
+        count += scratch;
+        return count == before ? w : w with { Bindings = bindings, Projectile = projectile, Projectiles = projectiles };
+    }
+
+    static ThrownEffects Renamed(ThrownEffects t, IReadOnlyDictionary<string, string> map, ref int count)
+    {
+        int before = count;
+        var bindings = Renamed(t.Bindings, map, ref count);
+        var projectile = t.Projectile is null ? null : Renamed(t.Projectile, map, ref count);
+        return count == before ? t : t with { Bindings = bindings, Projectile = projectile };
+    }
+
     static string Leaf(string path) => path.Split('\\', '/')[^1];
 
     internal static IEnumerable<string> Strings(BafTable table, string name, int depth = 0)

@@ -28,6 +28,29 @@ public static partial class Arsenal
     public static IReadOnlyList<string>? SoundSources(string wargear) =>
         string.Equals(wargear, ArsenalRules.Autocannon, StringComparison.OrdinalIgnoreCase) ? AutocannonSoundFiles : null;
 
+    /// <summary>The twin's Chaos muzzle flash and tracer (purple), as its file names them (<c>smtool baf-dump data/packages/wargear.oppc --entry csm_mp_exotic_auto_cannon</c>).</summary>
+    public const string ChaosMuzzleEffect = "chaos_autocannon_muzzle", ChaosTracerEffect = "chaos_autocannon_tracer";
+
+    /// <summary>
+    /// W1c, the loyalist muzzle flash and tracer (the owner, 2026-11-10: "Loyalist effects"): the effects package's <c>autocannon_muzzle</c> (the loyalist autocannon's flash: the campaign's
+    /// <c>auto_cannon</c> and the install's <c>test_assault_cannon</c> fire it with the twin's scale 1.5 and length 1.5) and <c>heavy_bolter_tracer</c> (the multiplayer heavy bolter's tracer, which
+    /// its file binds with the twin's scale 1.5, length 1 and marker). Both are in <c>master_fx</c> (<c>smtool fx-dump auto autocannon tracer --list</c>).
+    /// </summary>
+    public const string LoyalistMuzzleEffect = "autocannon_muzzle", LoyalistTracerEffect = "heavy_bolter_tracer";
+
+    static readonly IReadOnlyDictionary<string, string> AutocannonEffectNames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    {
+        [ChaosMuzzleEffect] = LoyalistMuzzleEffect,
+        [ChaosTracerEffect] = LoyalistTracerEffect,
+    };
+
+    /// <summary>
+    /// The effects <paramref name="wargear"/> plays in place of its presentation source's (from → to, <see cref="EffectCatalogue.WithEffectNames"/>), else null: the autocannon shows the twin's
+    /// effect commands (markers, scales, the impacts, the smoke) with the loyalist muzzle flash and tracer instead of the purple Chaos ones. Its sounds (the Stalker's), reticle and ammo box are untouched.
+    /// </summary>
+    public static IReadOnlyDictionary<string, string>? EffectNames(string wargear) =>
+        string.Equals(wargear, ArsenalRules.Autocannon, StringComparison.OrdinalIgnoreCase) ? AutocannonEffectNames : null;
+
     static partial void AppendAutocannon(ref SimConfig config, string gameDir, List<string> notes)
     {
         if (config.Weapons.Any(w => w.Name.Equals(ArsenalRules.Autocannon, StringComparison.OrdinalIgnoreCase))) return;   // already appended

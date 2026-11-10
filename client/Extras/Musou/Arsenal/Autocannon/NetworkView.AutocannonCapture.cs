@@ -12,7 +12,8 @@ namespace SmClient;
 /// W1 test aid <c>--tfw-autocannon-capture</c> (with <c>--class "sm - devastator" --primary sm_mp_exotic_auto_cannon --content musou</c>, before <c>--tfw-test &lt;dir&gt;</c>, a <c>--windowed</c> run for the PNGs; server
 /// <c>SM_TFW_KEEP_HUMAN=1</c>): the screenshot gate of the Musou autocannon (docs/new-weapons-design.md section 11). The player deploys on lane B, walks into the crowd, and fires the autocannon at the nearest
 /// Ork through the real actions for <see cref="CaptureSeconds"/> s; PNGs of the player's own view (<c>ac-player-*</c>), and of a third-person view (<c>ac-third-side-*</c> from beside him, <c>ac-third-rear-*</c>
-/// from behind and above: the camera stands off the player for those frames only, <see cref="AutocannonCamFrame"/>). <c>ACCAPTURE</c> lines carry the marks (cut a Movie Maker clip at them) and the weapon in hand. Quits 0.
+/// from behind and above: the camera stands off the player for those views only, <see cref="AutocannonCamFrame"/>): each view once with the gun up before the fire (<c>-ready</c>, <c>-idle</c>) and
+/// twice in it, each held for a sixth of the fire with its still on the frame after a round leaves (W1c). <c>ACCAPTURE</c> lines carry the marks (cut a Movie Maker clip at them) and the weapon in hand. Quits 0.
 /// </summary>
 public partial class NetworkView
 {
@@ -31,33 +32,78 @@ public partial class NetworkView
         await TfwPathTo(point, "walked towards the Orks", 150.0, () => _musouState.MiddleNear(client.Predicted.Position, 26f) is not null);
         string held = _config is { } c && Loadouts.InHand(c, client.Predicted) is { } w ? w.Name : "?";
         GD.Print($"ACCAPTURE t {_connectedFor:F2} in hand: {held}");
+        var shown = _catalogue?.Weapon(SmSim.Extras.Musou.Arsenal.ArsenalRules.Autocannon);   // W1c: the effects as the client loaded them (the loyalist flash and tracer, the twin's impacts)
+        GD.Print($"ACCAPTURE effects: from {shown?.Wargear ?? "none"}: muzzle {shown?.Muzzle?.Name ?? "none"} at {shown?.Muzzle?.Marker ?? "-"}, tracer {shown?.Tracer?.Name ?? "none"}, impacts {shown?.HitMaterial?.Container ?? "none"}; muzzle locator {(MuzzleWorld(client.PlayerId) is not null ? "found" : "none")}");
         TfwCheck("the autocannon is in hand", held == SmSim.Extras.Musou.Arsenal.ArsenalRules.Autocannon, held);
-        for (int run = 0; run < 3 && !TfwAimNearest(30f); run++) await TfwWait(0.5);
+        for (int run = 0; run < 3 && !AutocannonAim(); run++) await TfwWait(0.5);
+        // W1c: the gun up and not firing, from each view (the owner's stills of the shorter barrel).
         await TfwShot("ac-player-00-ready");
+        await AutocannonStill(1, "ac-third-side-idle");
+        await AutocannonStill(2, "ac-third-rear-idle");
         GD.Print($"ACCAPTURE mark fire t {_connectedFor:F3} frame {Engine.GetProcessFrames()}");
         int blasts = _tfwBoltBlastsShown;
         TfwAction(GameAction.Fire, true);
         double begun = _connectedFor;
-        var stills = new (double At, string Name, int Cam)[] { (0.6, "ac-player-01-fire", 0), (1.4, "ac-third-side-00", 1), (2.2, "ac-third-rear-00", 2), (3.0, "ac-player-02-fire", 0), (3.8, "ac-third-side-01", 1), (4.6, "ac-third-rear-01", 2) };
-        int next = 0;
-        while (_connectedFor < begun + CaptureSeconds)
+        // Each view holds the camera for its share of the fire (a recording shows several rounds from it); its still is the frame after a round leaves, so the muzzle flash and the tracer's
+        // start are in it (W1c; before, a still at a fixed time mostly fell between rounds).
+        var views = new (string Name, int Cam)[] { ("ac-player-01-fire", 0), ("ac-third-side-00", 1), ("ac-third-rear-00", 2), ("ac-player-02-fire", 0), ("ac-third-side-01", 1), ("ac-third-rear-01", 2) };
+        double window = CaptureSeconds / views.Length;
+        for (int v = 0; v < views.Length; v++)
         {
-            TfwAimNearest(30f);
-            await TfwWait(0.1);
-            if (next < stills.Length && _connectedFor - begun >= stills[next].At)
-            {
-                _acCam = stills[next].Cam;
-                await TfwFrames(3);
-                await TfwShot(stills[next].Name);
-                _acCam = 0;
-                next++;
-            }
+            double until = begun + window * (v + 1);
+            _acCam = views[v].Cam;
+            await TfwFrames(3);
+            int shots = _fxOwnShots;
+            while (_fxOwnShots == shots && _connectedFor < until - 0.1) { AutocannonAim(); await TfwFrames(); }
+            bool fresh = _fxOwnShots != shots;
+            await TfwFrames(1);
+            await TfwShot(views[v].Name);
+            GD.Print($"ACCAPTURE still {views[v].Name} t {_connectedFor:F3}: {(fresh ? "a frame after a round" : "no round in its window")}");
+            while (_connectedFor < until) { AutocannonAim(); await TfwFrames(); }
         }
+        _acCam = 0;
         TfwAction(GameAction.Fire, false);
         GD.Print($"ACCAPTURE mark done t {_connectedFor:F3} frame {Engine.GetProcessFrames()}; blasts seen {_tfwBoltBlastsShown - blasts}, drawn this run {_tfwBoltBlastsDrawn}, burst of the heat {client.Predicted.Heat:F1} overheated {client.Predicted.Overheated}");
         TfwCheck("blasts came back", _tfwBoltBlastsShown > blasts, (_tfwBoltBlastsShown - blasts).ToString());
         await TfwWait(1.0);
         GetTree().Quit(0);
+    }
+
+    /// <summary>A still from a third-person view (<see cref="_acCam"/>), the camera back on the player after it.</summary>
+    async Task AutocannonStill(int cam, string name)
+    {
+        _acCam = cam;
+        await TfwFrames(3);
+        await TfwShot(name);
+        _acCam = 0;
+    }
+
+    bool _acAimLogged;
+
+    /// <summary>
+    /// The capture's aim (W1c): the nearest Ork within 45 m that the eye sees (no level geometry on the line, <c>Collision.Weapons</c>), so the rounds and their tracers cross open ground; else the
+    /// nearest within 30 m as before (W1b's run stood at a wall with the nearest Ork behind it: every round burst on the wall 8 m away and its tracer was hardly drawn).
+    /// </summary>
+    bool AutocannonAim()
+    {
+        var me = _client!.Predicted.Position;
+        var eye = me + new Num.Vector3(0f, 0f, 1.6f);
+        var world = _client.Collision;
+        bool Seen(Num.Vector3 at)
+        {
+            var to = at + new Num.Vector3(0f, 0f, 1.0f) - eye;
+            float length = to.Length();
+            return world is null || length < 1f || world.Weapons.Raycast(eye, to / length, length - 0.5f) is null;
+        }
+        if (_musouState.NearestTo(me, 45f, Seen) is not { } at)
+        {
+            if (!_acAimLogged) { _acAimLogged = true; GD.Print("ACCAPTURE aim: no Ork in sight within 45 m; the nearest within 30 m"); }
+            return TfwAimNearest(30f);
+        }
+        if (!_acAimLogged) { _acAimLogged = true; GD.Print($"ACCAPTURE aim: an Ork in sight {TfwFlat(at, me):F1} m away"); }
+        _yaw = MathF.Atan2(-(at.X - me.X), at.Y - me.Y);
+        _pitch = MathF.Atan2(at.Z + 1.0f - (me.Z + 1.6f), MathF.Max(0.5f, TfwFlat(at, me)));
+        return true;
     }
 
     /// <summary>

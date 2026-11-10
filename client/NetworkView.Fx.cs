@@ -111,10 +111,12 @@ public partial class NetworkView
         string dir = _gameDir;
         bool loadDeath = !NoDeathFx;   // read on the main thread (it asks the engine for the command line)
         var sources = PresentationSourceMap();   // W0b: an added weapon shown with install files' effects (Musou's arsenal); empty without added content: the catalogue as before
+        var effectNames = EffectNameMap();   // W1c: and with other effects in place of some of the source's (the autocannon's loyalist flash and tracer); empty without added content
         _fxLoad = Task.Run(() =>
         {
             var watch = System.Diagnostics.Stopwatch.StartNew();
-            var catalogue = sources.Count == 0 ? EffectCatalogue.Load(dir) : EffectCatalogue.Load(dir, sources.Values.SelectMany(v => v)).WithSources(sources);
+            var catalogue = sources.Count == 0 && effectNames.Count == 0 ? EffectCatalogue.Load(dir)
+                : EffectCatalogue.Load(dir, sources.Values.SelectMany(v => v)).WithSources(sources).WithEffectNames(effectNames);
             var library = FxLibrary.Load(dir);
             var names = new HashSet<string>(StringComparer.Ordinal);
             void Add(IEnumerable<FxBinding> bindings) { foreach (var b in bindings) if (b.Play is { Name.Length: > 0 } p) names.Add(p.Name); }

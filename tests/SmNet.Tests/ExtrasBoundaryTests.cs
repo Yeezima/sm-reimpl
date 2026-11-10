@@ -117,6 +117,7 @@ public class ExtrasBoundaryTests
         // W0b (lead 2026-11-10): presentation by source and the pack moves' clip speed; each asks the match's content (Musou) as well as the name.
         ("client/NetworkView.Presentation.cs", "ExtrasPresentationSources"),   // NetworkView.ExtrasPresentationSources(string, ref IReadOnlyList<string>?), in PresentationSources: the install files an added weapon shows (catalogues and name rules)
         ("client/NetworkView.Presentation.cs", "ExtrasSoundSources"),   // NetworkView.ExtrasSoundSources(string, ref IReadOnlyList<string>?), in SoundSources: the install files an added weapon SOUNDS as when they are not its effects' files (the autocannon: the Stalker Bolter, owner 2026-11-10)
+        ("client/NetworkView.Presentation.cs", "ExtrasEffectNames"),   // NetworkView.ExtrasEffectNames(string, ref IReadOnlyDictionary<string, string>?), in EffectNames: other effects in place of an added weapon's source's (the autocannon's loyalist flash and tracer, owner 2026-11-10)
         ("client/NetworkView.Presentation.cs", "ExtrasMoveClipSpeed"),   // NetworkView.ExtrasMoveClipSpeed(string, ref float), in MoveClipSpeed: the charge's and the pack's moves at the claw's / spear's clip speed
         ("client/Hud/Hud.Movie.cs", "ExtrasReticle"),               // Hud.ExtrasReticle(string, ref ReticleSpec?), in DrawMovieReticle: the autocannon's own movie reticle (Hud.Content = Musou)
         ("client/Hud/Hud.Fidelity.cs", "ExtrasWeaponBox"),          // Hud.ExtrasWeaponBox(string, bool, ref WeaponBoxSpec?), in DrawMovieWeaponBox: the autocannon's ammunition display (Hud.Content = Musou)
@@ -149,6 +150,7 @@ public class ExtrasBoundaryTests
         ("client/Customizer/CustomizerServices.cs", "data.For(content)"),
         // W0b: the catalogues read with the sources, the name rules by the source's name, the hammer's air slash, charge and grip by the alias, the pack moves' clip speed.
         ("client/NetworkView.Fx.cs", ".WithSources(sources)"),
+        ("client/NetworkView.Fx.cs", ".WithEffectNames(effectNames)"),   // W1c: the effect catalogue with the added weapons' renamed effects
         ("client/NetworkView.Sound.cs", ".WithSources(sources)"),
         ("client/NetworkView.MeleeFx.cs", "PresentedAs(MeleeWargear(s))"),
         ("client/NetworkView.Sound.Melee.cs", "PresentedAs(wargear)"),

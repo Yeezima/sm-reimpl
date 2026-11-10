@@ -72,4 +72,28 @@ public class ArsenalPresentationTests
         Assert.Same(triggers.File(Arsenal.AutocannonTwinFile), triggers.File(ArsenalRules.Autocannon));
         Assert.Contains(triggers.File(ArsenalRules.Autocannon)!.Bindings, b => b.StartEvent.Length > 0);
     }
+
+    [InstallFact]
+    public void The_autocannon_fires_the_loyalist_flash_and_tracer_with_the_twins_commands()
+    {
+        // W1c (owner 2026-11-10, "Loyalist effects"): the client's load (NetworkView.Fx.cs) with the arsenal's sources and effect names.
+        var sources = new Dictionary<string, IReadOnlyList<string>> { [ArsenalRules.Autocannon] = Arsenal.PresentationSources(ArsenalRules.Autocannon)! };
+        var names = new Dictionary<string, IReadOnlyDictionary<string, string>> { [ArsenalRules.Autocannon] = Arsenal.EffectNames(ArsenalRules.Autocannon)! };
+        var catalogue = EffectCatalogue.Load(Game.Value!, sources.Values.SelectMany(v => v)).WithSources(sources).WithEffectNames(names);
+        var twin = catalogue.Weapon(Arsenal.AutocannonTwinFile)!;
+        var ours = catalogue.Weapon(ArsenalRules.Autocannon)!;
+        Assert.Equal((Arsenal.ChaosMuzzleEffect, Arsenal.ChaosTracerEffect), (twin.Muzzle!.Name, twin.Tracer!.Name));   // the install's file as read: purple
+        Assert.Equal(("autocannon_muzzle", "heavy_bolter_tracer"), (ours.Muzzle!.Name, ours.Tracer!.Name));
+        Assert.Equal(twin.Muzzle with { Name = "autocannon_muzzle" }, ours.Muzzle);   // the twin's marker, scale 1.5 and length
+        Assert.Equal(twin.Tracer with { Name = "heavy_bolter_tracer" }, ours.Tracer);
+        Assert.Equal(twin.HitMaterial, ours.HitMaterial);
+        Assert.DoesNotContain(ours.Bindings, b => b.Play is { } p && (p.Name == Arsenal.ChaosMuzzleEffect || p.Name == Arsenal.ChaosTracerEffect));
+        // The heavy bolter's own tracer command has the very parameters the renamed one keeps (its file: scale 1.5, length 1, marker fx_muzzleflash).
+        var heavy = catalogue.Weapon(Arsenal.HeavyBolterFile)!.Tracer!;
+        Assert.Equal((heavy.Name, heavy.Scale, heavy.Length, heavy.Marker), (ours.Tracer.Name, ours.Tracer.Scale, ours.Tracer.Length, ours.Tracer.Marker));
+        // Both effects are in the effects package.
+        using var library = FxLibrary.Load(Game.Value!);
+        Assert.Contains("autocannon_muzzle", library.SystemNames);
+        Assert.Contains("heavy_bolter_tracer", library.SystemNames);
+    }
 }
