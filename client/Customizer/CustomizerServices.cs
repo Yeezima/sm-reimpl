@@ -84,7 +84,19 @@ public sealed partial class CustomizerServices
         private set => _catalog = value;
     }
     public ProfileSession? Session { get; private set; }
-    public SimConfig? Config { get; private set; }
+    SimConfig? _config;
+    /// <summary>
+    /// The configuration the customizer plans a Join with: the data's, or (added content, <see cref="ExtrasConfig"/>) the one of the content profile in effect, so a name its arsenal adds (Musou's autocannon)
+    /// resolves to an index. Null while that configuration is still being read, so <see cref="Ready"/> waits for it.
+    /// </summary>
+    public SimConfig? Config
+    {
+        get { var config = _config; ExtrasConfig(ref config); return config; }   // EXTRAS-HOOK: Musou's own config for a Musou profile (client/Extras/Musou/Arsenal/CustomizerServices.Arsenal.cs)
+        private set => _config = value;
+    }
+
+    /// <summary>Hook for added content: replaces <paramref name="config"/> (the data's) by the one its content profile plays with; null while that is read. Leaves it alone unless its content profile is on.</summary>
+    partial void ExtrasConfig(ref SimConfig? config);
     /// <summary>Whether each perk does anything in the simulation (the creator's NOT ACTIVE YET / PARTLY ACTIVE words); read once with the config.</summary>
     public IReadOnlyDictionary<string, PerkStatus>? PerkActivities { get; private set; }
     public string? Error { get; private set; }
