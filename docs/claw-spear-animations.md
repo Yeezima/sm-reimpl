@@ -27,6 +27,9 @@ passed through (section 3b), the impale point-down and held (section 3).
 "right hand carries, both swing"; sweeps "wider and longer" (300 degrees, 15 m); "the pelvis and legs should be greatly active in facilitating a
 powerful swing animation" (done: the Grip track, section 1; the sweeps of section 3 re-authored with the claw's full-body treatment, 300 degrees of
 blade travel and a step into each; the impale's release stays at 0.5 s).
+**Spear follow-ups (2026-11-11, claude/spear-followups):** the impale only on a hit and the plain landing (section 3c), the shaft through the palms, the carry closer
+in and in the facing frame, planted steps, the flight untouched (section 3d), and a reference note on long-spear animation (section 3e). The owner's "swinging out wide" for the light
+attacks is not done yet (section 3e's last paragraph).
 **Label:** ours (keyframes authored by us), laid over original clips read at run time; stand-in weapon models are placeholder demonstrations.
 
 Previews: `<media folder>\previews\claw-spear-anims\` (stills per view and moment, one clip per weapon and view, a README with the table below).
@@ -146,6 +149,50 @@ metre down in 0.07 s, meets the right arm and leg for one frame (0.085 m at 0.03
 through the viewer, whose loop wrap of the hammer idle cross-fades the pose (hew 2 and hew 3 read 0.06 to 0.09 m right after a wrap; held at the same clip time they read clear), and its
 dive lasts 1.1 s before the impale. The grip tracks now fade from the clip before on the stage as in a match.
 
+## 3c. The impale only on a hit (2026-11-11)
+
+Owner via the lead: the point-down impale "only when the landing actually impaled/hit an Ork". No new message: the server's impale is already a Musou `Hit` event with the melee
+marker (3) and, on a kill, a `Death` with the melee cause, both at the landing's tick and with the spear player as the attacker; the pack's own blast marks its hits as body hits and
+its kills as blasts, and no strike can run from the dive to the end of the recovery. So the client (`NetworkView.SpearLandingOf`) shows `SpearImpale` when such an event lies within
+`SpearRules.ImpaleWindowTicks` (6) of the landing's tick (the own landing: the predicted tick; another player's: the render tick), and `SpearLand` otherwise. The own landing is
+ahead of the server, so until the snapshots reach `ImpaleConfirmTicks` (4) past it the client guesses (an Ork alive within the impale's 2 m as it draws them); the choice is fixed at
+0.25 s into the landing (`SpearLandingLock`). The two clips share their touch-down to 0.14 s, so a change of mind before then does not show. The plain landing (`ClawSpearClips.LandFrom`)
+is the impale's keys without the hold: the point dips toward the ground by 0.14 s, the release pose by 0.30 s, the carry's arms by 0.42 s, the hips out of the lean first by 0.40 s.
+
+## 3d. Palms, the carry, the steps, the flight (owner, 2026-11-11)
+
+- **The grip.** The shaft runs through the rig's grip sockets, `RIG_Prop_RHand` and `RIG_Prop_LHand` (the hands' children every held weapon's handle sits on, in the palm), not the
+  wrists (about 0.1 m off). Every arm key of the strikes, the dive and the impale was re-solved numerically (a test-only solver: the four aims per key moved until the sockets lie on the
+  approved shaft line, with a penalty for any spear-to-body clearance under 0.035 m on every frame between the keys at all six idle phases, the carry fading in, the dive's hand-over and
+  the plain landing built from the trial keys). `SpearClearanceTests` holds the axis within 0.03 m of a holding socket on every frame (measured 0.000 m).
+- **The carry.** Read in the facing frame (`WeaponPoseClip.FacingFrame`, overlay and mirror alike), so it keeps its place against the camera in every stance: the fist close at the
+  right of the chest (0.43 m from the spine at idle, 0.77 m before), the shaft 65 degrees up at -50 (forward and in at the top), the blade left of the crosshair's column (5.9 degrees at
+  idle; a wider field of view moves the camera right, away from it). The strikes over the hammer idle read the same arms in the idle's stance frame (`IdleHipsTurn`, 71 degrees), and the
+  spear is placed against the facing in every clip (`WeaponPoseSpearFront`).
+- **The steps.** Planted feet reach their spots: the hips stay 0.20 to 0.22 m down at each hew's and the stab's recovery key until the stepped foot is back, and hew 3 starts low over
+  hew 2's step (before, the forward foot floated up to 0.11 m). In a match the simulation's lunge still carries the planted feet with the body (open: a world-space foot pin).
+- **The flight** (W held after a long jump) is untouched and pinned against main (`ClawSpearClipsTests.The_jump_packs_flight_with_the_spear_is_left_as_it_was`).
+
+## 3e. Reference note: long spears and polearms in melee games (study only, 2026-11-11)
+
+Studied from public move lists and descriptions (no animation data, art or text copied; web breakdowns of the hip and foot mechanics were thin): Dynasty Warriors' spear users
+(wide horizontal sweeps with the hands far apart near the butt, the whole body spinning through them, the blade at full reach), For Honor's polearm heroes (Nobushi, Kensei,
+Valkyrie: attacks from the left, the right and above; side attacks are wide horizontal arcs with both hands, the lead foot stepping toward the target), Nioh's spear (stance-based
+thrusts and sweeps), Elden Ring and Dark Souls spears and halberds (the halberd's light chain alternates wide horizontal sweeps with a step, the spear's thrusts lunge on the lead foot),
+Chivalry 2's polearms (overheads and horizontal slashes with the hands apart and a step), Monster Hunter's lance (thrusts behind a shield). The key poses they share for a long
+two-handed weapon:
+1. **Wind-up:** the shaft drawn back past the rear shoulder or hip, the hips and shoulders coiled away from the target, the weight on the rear foot, the rear hand near the butt.
+2. **The arc:** a wide horizontal (or diagonal) sweep driven by the hips first, then the shoulders, both hands driving the shaft; the blade travels well out from the body, the rear hand
+   passing in front of the belly so the butt end stays beside the body, never through it.
+3. **Follow-through:** the blade carries on past the target to the far side, the hips turned past square, the arms long; then a recovery to guard.
+4. **Footwork:** the lead foot steps toward the target as the hips turn (a passing step for the backhand), planted through the contact, the rear foot pivoting; no sliding.
+
+**Applied in this pass:** the grip (both palms on the shaft, the rear hand in front of the belly), the planted footwork and the recovery. **Not yet applied:** the wide arc. The hews'
+blade travels 125, 142 and 163 degrees round him from the wind-up to the follow-through (pass 2: 130, 145, 150), with the tip 2.0 to 2.5 m out. Every widening tried (the follow-throughs
+and wind-ups turned 30 to 60 degrees further out, the shaft aimed through the target ahead) passed through the torso, the waist or the thighs under the clearance check, because the
+strikes keep the hammer idle's side-on stance, its front 71 degrees right of the target: the hips do not turn toward the target and the steps go toward that front. A real wide pass needs
+the hips' turn and the steps re-authored toward the target together with the arms, then the solver above to keep it clear: a pass of its own.
+
 ## 4. Preview stage and restore
 
 ```powershell
@@ -190,4 +237,4 @@ Answered 2026-11-10: keep X1's diagonal rake; the spear rests upright at the sid
 2. The reference's hand release and regrip is implied, not shown: the stand-in's left hand stays on the shaft through the overhead swing of hew 1 and hew 3 (the `Grip` track at 1), while the real technique lets the leading hand go and regrips lower. Showing it needs a per-hand grip-point track on the model (W3) and is a refinement.
 3. No side-by-side stills against the reference were made: the reference is third-party material kept out of every published folder. The README names the reference frames (4, 12, 19, 30, 36) that hew 1's moments correspond to.
 4. Stand-in sizes: the talons are 1.2 forearms (about 0.45 m); the blade 0.9 m on a 2.8 m spear. The real models replace them in W2 / W3.
-5. Answered by the no-clipping pass (2026-11-10): the carry and the impale (sections 1 and 3). New: the carried butt now rides at least 0.56 m off the ground (it was 0.14 m running), the price of clearing the legs' kick; the carried blade crosses the third-person crosshair's column in the idle and the run (as the W3b carry did beside it); the landing's one-frame allowance (section 3b). For the owner's next review.
+5. Answered by the no-clipping pass (2026-11-10): the carry and the impale (sections 1 and 3). New: the carried butt now rides at least 0.56 m off the ground (it was 0.14 m running), the price of clearing the legs' kick; the carried blade crosses the third-person crosshair's column in the idle and the run (as the W3b carry did beside it; the idle resolved 2026-11-11, section 3d, the run not); the landing's one-frame allowance (section 3b). For the owner's next review.

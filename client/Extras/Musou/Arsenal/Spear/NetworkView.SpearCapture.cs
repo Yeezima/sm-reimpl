@@ -104,11 +104,11 @@ public partial class NetworkView
     async Task SpearHitLanding()
     {
         var client = _client!;
-        foreach (var (cam, view) in new[] { (0, "player"), (2, "side") })
+        foreach (var (cam, view) in new[] { (0, "player"), (0, "player-again") })   // the game's camera twice (the stage's side view stands in the pound's debris)
         {
             _spearCam = 0;
             bool near = false;
-            for (int k = 0; k < 120 && !near; k++)   // up to 12 s of walking toward the nearest Ork
+            for (int k = 0; k < 450 && !near; k++)   // up to 45 s of walking toward the nearest Ork
             {
                 var me = client.Predicted.Position;
                 if (_musouState.NearestTo(me, 60f) is not { } ork) { await TfwWait(0.1); continue; }
@@ -121,10 +121,10 @@ public partial class NetworkView
             TfwKey(Key.W, false);
             GD.Print($"SPEARLAND capture: {(near ? "beside an Ork" : "no Ork reached")} for the {view} view");
             _spearCam = cam;
-            TfwAction(GameAction.Jump, true);
-            await TfwWait(0.3);
+            TfwAction(GameAction.Jump, true);   // the same pound as the views' (a held jump, then melee in the air)
+            await TfwWait(0.55);
             TfwAction(GameAction.Jump, false);
-            await TfwWait(0.05);
+            await TfwWait(0.15);
             await SpearPress(GameAction.Melee);
             if (await TfwUntil("spear: the hit landing shows", () => _local?.PosedClip is { } p && _jmpImpact is not null && p == _jmpImpact && _local.PosedClipTime >= ClawSpearClips.ImpaleDrive + 0.03f, 6.0))
                 await SpearStill($"spear-{view}-9-impale", cam);

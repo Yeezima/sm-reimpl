@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2947 spec table rows: **2202 tagged**, 517 not tagged (read from data with high confidence), 228 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 652 rows of the changes document.
+Scanned 2953 spec table rows: **2207 tagged**, 518 not tagged (read from data with high confidence), 228 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 652 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -40,7 +40,7 @@ Scanned 2947 spec table rows: **2202 tagged**, 517 not tagged (read from data wi
 | Charge (critical) | 56 | 47 | 47 | 22 | 0 |
 | Reactions (critical) | 15 | 13 | 14 | 6 | 0 |
 | Camera (critical) | 55 | 53 | 44 | 22 | 0 |
-| HUD and hit feedback (critical) | 70 | 65 | 51 | 11 | 0 |
+| HUD and hit feedback (critical) | 71 | 66 | 52 | 11 | 0 |
 | Sound mix (critical) | 69 | 63 | 61 | 11 | 0 |
 | Effects (critical) | 89 | 79 | 74 | 40 | 0 |
 | Game modes | 42 | 39 | 38 | 19 | 1 |
@@ -50,18 +50,18 @@ Scanned 2947 spec table rows: **2202 tagged**, 517 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 22 | 13 | 13 | 12 | 7 |
-| Core simulation (provisional values) | 655 | 620 | 470 | 171 | 1 |
+| Core simulation (provisional values) | 659 | 624 | 474 | 171 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 235 | 224 | 126 | 63 | 0 |
-| **All areas** | **2202** | 1943 | 1643 | 686 | 38 |
+| **All areas** | **2207** | 1948 | 1648 | 686 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1246 |
-| confidence: low | 795 |
-| confidence: medium | 719 |
+| kind: ours | 1251 |
+| confidence: low | 799 |
+| confidence: medium | 720 |
 | notes: ours | 396 |
 | kind: interpretation | 365 |
 | notes: estimate | 176 |
@@ -1501,7 +1501,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-C9703C8F` | Strike and reaction entry floor | a melee strike's and a hit reaction's entry fade has a floor of **0.125** s instead of 0.1875 s, so the graphs' 0.1 s and 0.167 s are nearer met; not the charge, the roll, the stomp (a Devastator's or Havoc's heavy strike) or any exit (s) | kind: ours; confidence: low | ours | Strike and reaction entry floor: compare with SM1 by watching the reaction and timing it frame by frame. Ours: a melee strike's and a hit reaction's entry fade has a floor of 0.125… | ☐ |
 | `R-79ECC932` | Heavy footfall | a moving Devastator's or Havoc's own footfall dips the camera **0.05** degrees (**0.09** above 7 m/s); the sound is the data's; the data has no camera footfall (degrees) | kind: ours; confidence: low | ours | Heavy footfall: compare with SM1 with an overlaid screenshot taken from the same position. Ours: a moving Devastator's or Havoc's own footfall dips the camera 0.05… | ☐ |
 
-### HUD and hit feedback (gameplay-critical) (70)
+### HUD and hit feedback (gameplay-critical) (71)
 
 *Spec section: Scoreboard ping on the HUD scoreboard (net/scoreboard-ping; protocol 50; ours)*
 
@@ -1632,6 +1632,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-757CB5A2` | Musou arsenal: the autocannon's reticle | the HUD movie's `autocannon_mc`, with an enemy under it `autocannon_active_mc`; no spread ticks | kind: interpretation; confidence: medium | data names (`Hud.gfx`, `smtool gfx-dump auto --grep autocannon`; the twin's `reticule_type` "autocannon"); no spread ticks ours | Musou arsenal: the autocannon's reticle: compare with SM1 with side-by-side screenshots in the same spot. Ours: the HUD movie's autocannon_mc, with an enemy under it… | ☐ |
+
+*Spec section: Musou's arsenal: the power spear's animations in a match (docs/claw-spear-animations.md section 4b)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-C2C74997` | Spear animations: the crosshair column | 2026-11-11 (lead: the carried blade crossed the crosshair's column in the own view at idle): the blade's head (collar, crossguard, blade) stays at least **3** degrees of the horizontal view to one side of the screen's centre column at idle in the default… (degrees) | kind: ours; confidence: low | ours (the reticle at rest is about 2 degrees across its half at the data's 40-degree view in the 1600 x 900 window) | Spear animations: the crosshair column: compare with SM1 with an overlaid screenshot taken from the same position. Ours: 2026-11-11 (lead: the carried blade crossed the crosshair's column in… | ☐ |
 
 ### Sound mix (gameplay-critical) (69)
 
@@ -2237,7 +2243,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (655)
+### Core simulation (provisional values) (659)
 
 *Spec section: Provisional values in use*
 
@@ -3247,18 +3253,22 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
-| `R-34CAF6DB` | Spear animations: which clip | light X1, X2, X3: hew 1, 2, 3; the Y interrupt: the snap cut; the X,Y and X,X,Y sweeping attacks: the snap cut too (no clip of their own); the Y,Y slam (both sides): the massive stab; the jump pack's pound: the point-down dive while its dive loop shows, the… | kind: ours; confidence: medium | owner approved the clips 2026-11-10; the sweeps' snap cut and the carry while running ours | Spear animations: which clip: compare with SM1 by feel or video. Ours: light X1, X2, X3: hew 1, 2, 3; the Y interrupt: the snap cut; the X,Y… | ☐ |
+| `R-34CAF6DB` | Spear animations: which clip | light X1, X2, X3: hew 1, 2, 3; the Y interrupt: the snap cut; the X,Y and X,X,Y sweeping attacks: the snap cut too (no clip of their own); the Y,Y slam (both sides): the massive stab; the jump pack's pound: the point-down dive while its dive loop shows, then… | kind: ours; confidence: medium | owner approved the clips 2026-11-10; the sweeps' snap cut and the carry while running ours | Spear animations: which clip: compare with SM1 by feel or video. Ours: light X1, X2, X3: hew 1, 2, 3; the Y interrupt: the snap cut; the X,Y… | ☐ |
 | `R-B435D995` | Spear animations: strike time | the clip at the strike's drawn time (the simulation's attack time: predicted for the own player, from the snapshots for the others; after the weight pass's retime): exactly as authored where the clip's hit is the strike's (the hews, the interrupt, the slam)… (s) | kind: ours; confidence: medium | ours (the hits are the simulation's) | Spear animations: strike time: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the clip at the strike's drawn time (the simulation's attack time:… | ☐ |
 | `R-6174B019` | Spear animations: the pose under the keys | a strike's and the pound's keys lie over the clip they were authored on (the hammer's idle `SM_2HM_NAV_TH_IdleL_S_01` looping under a strike, its dive loop `SM_JMP_TH_GP_Loop_01` and landing `SM_JMP_TH_GP_Impact_01` under the pound), laid over the posed clip… | kind: ours; confidence: medium | ours | Spear animations: the pose under the keys: compare with SM1 by feel or video. Ours: a strike's and the pound's keys lie over the clip they were authored… | ☐ |
 | `R-A1DE6573` | Spear animations: fades | the spear's pose comes in and goes out over **0.15 s** where it starts or stops showing; a change of clip (a chained strike, rest to strike, strike to rest) fades from the clip before over 0.14 s (s) | kind: estimate; confidence: low; notes: ours | ours (about the stances' cross-fade) | Spear animations: fades: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the spear's pose comes in and goes out over 0.15 s where it starts or… | ☐ |
 | `R-A3749DA6` | Spear animations: the feet | the clip foot lock is off for a spear strike: the clip's leg solve plants the feet in the body's frame and steps them (0.6 to 0.85 m), so the planted feet travel with the simulation's lunge (m) | kind: ours; confidence: low | ours (docs/claw-spear-animations.md open point 1) | Spear animations: the feet: compare with SM1 by measuring on a flat spot of the same map. Ours: the clip foot lock is off for a spear strike: the clip's leg solve… | ☐ |
 | `R-4DBF6D15` | Spear animations: the grip contract | a clip gives the right hand's place on the shaft in metres from the butt: **0.95** carried (running and at rest), **0.5** in the hews, **0.3** in the stab, **1.5** while the impale is held; the left hand's hold 0 to 1; W3's model is put with the right hand at… (m) | kind: ours; confidence: medium | owner, 2026-11-10 ("just above the ground", "slide ... lower ... for melee") | Spear animations: the grip contract: compare with SM1 by measuring on a flat spot of the same map. Ours: a clip gives the right hand's place on the shaft in metres from the… | ☐ |
-| `R-32203F17` | Spear animations: the carry | owner's review of the wired stills, 2026-11-10: "the blade is facing away from the character model at idle and when running", "the spear should be held out away from the body". Carried in the right hand alone the hand is held out wide of the hip (the right… (degrees, m) | kind: ours; confidence: low | owner's review; the angles ours, chosen with the clearance check | Spear animations: the carry: compare with SM1 with an overlaid screenshot taken from the same position. Ours: owner's review of the wired stills, 2026-11-10: "the blade is facing… | ☐ |
+| `R-32203F17` | Spear animations: the carry | second follow-up pass (owner, 2026-11-11: "for the running and idle animation pull the spear and arm closer in to the body", and (lead) the carried blade out of the crosshair's column in the own view). Carried in the right hand alone, read in the facing frame… (degrees, m) | kind: ours; confidence: low | owner's requests; the angles ours, chosen with the clearance, column and closeness checks | Spear animations: the carry: compare with SM1 with an overlaid screenshot taken from the same position. Ours: second follow-up pass (owner, 2026-11-11: "for the running and idle… | ☐ |
 | `R-4CFFB697` | Spear animations: no clipping | owner, 2026-11-10: "ensure the spear isn't going through the player models body at any time". The marine's body as capsules on its bones, fitted to the install's basic multiplayer armour and the Assault's jump pack in the bind pose (the vertices skinned… (m) | kind: ours; confidence: medium | owner's review; the capsules measured from the install, the tolerance ours | Spear animations: no clipping: compare with SM1 by measuring on a flat spot of the same map. Ours: owner, 2026-11-10: "ensure the spear isn't going through the player… | ☐ |
 | `R-E5F0A7F1` | Spear animations: the strikes re-posed for the check | the hews' wind-ups, cuts and follow-throughs, the snap cut and the stab keep their key times, hits, eases, hips, steps and grip tracks (the timing and the weight pass's retime as approved); only the arms' keys moved: where the hips' turn carries the chest 40… | kind: ours; confidence: low | owner's review; ours | Spear animations: the strikes re-posed for the check: compare with SM1 by feel or video. Ours: the hews' wind-ups, cuts and follow-throughs, the snap cut and the… | ☐ |
-| `R-F75EC18B` | Spear animations: the impale | owner, 2026-11-10: "Point-down". After the dive the blade is driven point-down into the impaled Ork at his feet, home by **0.14 s** of the landing (the hand-over from the dive; 0.08 s before), and held there until **0.85 s**, free by **0.95 s**; the hands… (s, m, degrees) | kind: ours; confidence: low | owner's review; the times and the grip ours | Spear animations: the impale: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: owner, 2026-11-10: "Point-down". After the dive the blade is driven… | ☐ |
+| `R-F75EC18B` | Spear animations: the impale | owner, 2026-11-10: "Point-down"; since 2026-11-11 only when the landing impaled an Ork (next row). After the dive the blade is driven point-down into the impaled Ork at his feet, home by **0.14 s** of the landing (the hand-over from the dive; 0.08 s before)… (s, m, degrees) | kind: ours; confidence: low | owner's review; the times and the grip ours | Spear animations: the impale: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: owner, 2026-11-10: "Point-down"; since 2026-11-11 only when the… | ☐ |
 | `R-E5068C00` | Spear animations: W3's slide while a clip holds the hand | W3's own grip slide waits at the clip's point (`SpearHold.SlideAt`: 0 at W3's run grip 1.34 m, 1 at its low grip 0.45 m, so the carry's 0.95 m is 0.44) and goes on from there when the clip stops (0..1) | kind: ours; confidence: low | ours | Spear animations: W3's slide while a clip holds the hand: compare with SM1 by feel or video. Ours: W3's own grip slide waits at the clip's point (SpearHold.SlideAt: 0… | ☐ |
 | `R-F49B3D1E` | Spear animations: the stand-in switch | `--musou-spear-stand-in`: the hammer's clips and W3's mounts alone (before); `--no-weapon-pose` (every keyframed weapon clip off) turns the spear's in-match posing fully off as well, its strike's foot-lock override and the spear's placement on the hands… | kind: ours | - | Spear animations: the stand-in switch: compare with SM1 by feel or video. Ours: --musou-spear-stand-in: the hammer's clips and W3's mounts alone… | ☐ |
+| `R-5FDBDD4C` | Spear animations: the impale only on a hit | owner via the lead, 2026-11-11: the point-down impale "only when the landing actually impaled/hit an Ork". The landing shows the impale when the server's Musou events show it: the spear player's melee-marker hit (marker **3**) or melee kill within **6**… (ticks, s) | kind: ours; confidence: low | owner's request; the windows and the lock ours | Spear animations: the impale only on a hit: compare with SM1 by feel or video. Ours: owner via the lead, 2026-11-11: the point-down impale "only when the… | ☐ |
+| `R-D973E16D` | Spear animations: the plain landing | ours (2026-11-11), built from the impale's keys (`ClawSpearClips.LandFrom`): the same touch-down (the dive's hands, the point dipping toward the ground by **0.14 s** with the hands up the shaft, the tip above the ground), then no hold: the impale's release… (s) | kind: ours; confidence: low | ours (the owner asked for "the normal landing/recovery" without a hit; no install clip holds a spear) | Spear animations: the plain landing: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: ours (2026-11-11), built from the impale's keys… | ☐ |
+| `R-5AAD2693` | Spear animations: the grip | owner, 2026-11-11: "ensure the hands are properly gripping the shaft in such a way that the spear is always attached to the inside palm of the hand". The shaft's axis runs through the hands' grip sockets, `RIG_Prop_RHand` and `RIG_Prop_LHand` (the rig's own:… (m) | kind: ours; confidence: medium | owner's request; the sockets the install's; the limit ours | Spear animations: the grip: compare with SM1 by measuring on a flat spot of the same map. Ours: owner, 2026-11-11: "ensure the hands are properly gripping the shaft… | ☐ |
+| `R-8167BDA7` | Spear animations: the steps | owner, 2026-11-11: "Ensure the step forward has proper leg movement to match it with no floating". A foot whose step key is on the ground stands on its spot (the stance's plus the step's offset) within **0.02 m** and moves at most **0.004 m** a frame beyond… (m) | kind: ours; confidence: low | owner's request; the limits ours | Spear animations: the steps: compare with SM1 by measuring on a flat spot of the same map. Ours: owner, 2026-11-11: "Ensure the step forward has proper leg movement… | ☐ |
 | `R-C96F8DA1` | Musou settle: the torso drops with the pelvis | the weight pass's settle (MW3: landings, stops, plants, a roll's end) lowers the torso with the pelvis as one piece (the rig hangs `RIG_SpineA` beside the pelvis under the root; before, only the hips and legs dropped) (m) | kind: ours | review, 2026-11-10 | Musou settle: the torso drops with the pelvis: compare with SM1 by measuring on a flat spot of the same map. Ours: the weight pass's settle (MW3: landings, stops, plants, a roll's end)… | ☐ |
 
 *Spec section: Musou's arsenal: W4, the Remote Detonators (docs/new-weapons-design.md section 7)*
