@@ -74,6 +74,10 @@ public sealed partial class FxPlayer
     readonly System.Diagnostics.Stopwatch _gpuStartWatch = new();
     double _gpuStartFrameMs, _gpuStartSumMs, _gpuStartMaxMs;
     int _gpuStartFrames;
+    // polish pass P3 (measurement): where a frame's GPU spray work goes: finding each spray, writing its frame, the uploads; the worst frame of each between two stats lines.
+    long _gpuFindTicks, _gpuSlotTicks;
+    int _gpuCalls, _gpuCallsMax, _gpuListMax;
+    double _gpuFindMaxMs, _gpuSlotMaxMs, _gpuEndMaxMs;
     readonly Dictionary<(CSpray, CCombo?, CNode), int> _gpuTypes = new();
     readonly HashSet<int> _gpuStreamerTypes = new(), _gpuAdditiveTypes = new();
     readonly List<GpuSpray> _gpuLive = new();
@@ -131,7 +135,12 @@ public sealed partial class FxPlayer
         // A spray not drawn this frame (its effect hidden, too far, its parent particle gone) shows nothing, as on the CPU path.
         foreach (var s in _gpuLive)
             if (s.Visited != _gpuFrame) GpuHide(s);
+        long endFrom = global::System.Diagnostics.Stopwatch.GetTimestamp();
         _gpu.EndFrame();
+        double toMs = 1000.0 / global::System.Diagnostics.Stopwatch.Frequency;
+        _gpuEndMaxMs = Math.Max(_gpuEndMaxMs, (global::System.Diagnostics.Stopwatch.GetTimestamp() - endFrom) * toMs);
+        _gpuFindMaxMs = Math.Max(_gpuFindMaxMs, _gpuFindTicks * toMs); _gpuSlotMaxMs = Math.Max(_gpuSlotMaxMs, _gpuSlotTicks * toMs); _gpuCallsMax = Math.Max(_gpuCallsMax, _gpuCalls);
+        _gpuFindTicks = 0; _gpuSlotTicks = 0; _gpuCalls = 0;
         _gpuStartSumMs += _gpuStartFrameMs; _gpuStartMaxMs = Math.Max(_gpuStartMaxMs, _gpuStartFrameMs); _gpuStartFrames++;
         _gpuStartFrameMs = 0;
     }
@@ -149,8 +158,10 @@ public sealed partial class FxPlayer
         if (_gpu is null) return;
         text = $"gpu sprays {_gpuLive.Count} live ({_gpuStarted} started, {_gpuFallbacks} left to the CPU by a full table, {_gpuDropped} dropped by a full pool: {_gpuNoSlot} frames, {_gpuNoAdd} additive, {_gpuNoAlpha} alpha), records {_gpu.Additive.Blocks.Used} additive + {_gpu.Alpha.Blocks.Used} alpha " +
                $"(drawn up to {_gpu.Additive.Blocks.HighWater} + {_gpu.Alpha.Blocks.HighWater}; {_gpuRecords} written), uploads {(_gpu.Additive.UploadedBytes + _gpu.Alpha.UploadedBytes) / 1024} KiB records, " +
-               $"{_gpu.SlotUploadBytes / 1024} KiB frames, {_gpu.TableUploadBytes / 1024} KiB tables, {_gpu.TypeCount} types; spray starts {(_gpuStartFrames > 0 ? _gpuStartSumMs / _gpuStartFrames : 0):F2} ms a frame avg, {_gpuStartMaxMs:F2} max";
+               $"{_gpu.SlotUploadBytes / 1024} KiB frames, {_gpu.TableUploadBytes / 1024} KiB tables, {_gpu.TypeCount} types; spray starts {(_gpuStartFrames > 0 ? _gpuStartSumMs / _gpuStartFrames : 0):F2} ms a frame avg, {_gpuStartMaxMs:F2} max; " +
+               $"worst frame: {_gpuCallsMax} sprays walked (longest list {_gpuListMax}), finding them {_gpuFindMaxMs:F2} ms, their frames {_gpuSlotMaxMs:F2} ms, uploads {_gpuEndMaxMs:F2} ms";
         _gpuStartSumMs = 0; _gpuStartMaxMs = 0; _gpuStartFrames = 0;
+        _gpuCallsMax = 0; _gpuListMax = 0; _gpuFindMaxMs = 0; _gpuSlotMaxMs = 0; _gpuEndMaxMs = 0;
     }
 
     partial void ExtrasSpray(FxEffect e, CSpray n, in Ctx c, double age, int depth, uint seed, ref int gpu)
@@ -159,7 +170,10 @@ public sealed partial class FxPlayer
         if (_gpu is null || n.Looping || e.Repeat || e.SoftHead || e.WidthAlongTrail || (e.Collisions && n.Collides)) return;
         if (!_gpuSprays.TryGetValue(e, out var list)) _gpuSprays[e] = list = _gpuListPool.Count > 0 ? _gpuListPool.Pop() : new List<GpuSpray>();
         GpuSpray? s = null;
+        long findFrom = global::System.Diagnostics.Stopwatch.GetTimestamp();
         foreach (var known in list) if (known.Seed == seed && ReferenceEquals(known.Node, n)) { s = known; break; }
+        _gpuFindTicks += global::System.Diagnostics.Stopwatch.GetTimestamp() - findFrom; _gpuCalls++;
+        if (list.Count > _gpuListMax) _gpuListMax = list.Count;
         if (s is null)
         {
             _gpuStartWatch.Restart();
@@ -172,6 +186,7 @@ public sealed partial class FxPlayer
         gpu = s.AllGpu ? 2 : 1;
         if (s.Done) return;
         if (age > s.End) { GpuFree(s); s.Done = true; return; }
+        long slotFrom = global::System.Diagnostics.Stopwatch.GetTimestamp();
         // The spray's frame this frame: what its parents (combos, a parent particle, an attached effect) do to it, and the effect's opacity, smoke rein, tint and ground-soft flag.
         var v = _gpuFrameValues;
         var b = c.B;
@@ -184,6 +199,7 @@ public sealed partial class FxPlayer
         v[19] = (e.Tint is not null ? 1 : 0) + (e.GammaColours ? 2 : 0) + (e.SoftGround && FxBatch.Fades && !FxBatch.NoGroundSoft ? 4 : 0);
         _gpu.WriteSlot(s.Slot, v);
         s.Visited = _gpuFrame;
+        _gpuSlotTicks += global::System.Diagnostics.Stopwatch.GetTimestamp() - slotFrom;
     }
 
     /// <summary>Whether <see cref="DrawNode"/> would draw <paramref name="node"/> at <paramref name="depth"/> for this effect (the filters that do not change while it plays).</summary>

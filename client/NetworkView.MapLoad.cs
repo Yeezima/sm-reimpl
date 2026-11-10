@@ -41,6 +41,8 @@ public partial class NetworkView
         public long ContentMs, WorldMs, SceneMs, WorkerMs, VisualsDoneMs;
         public int WarmupStep;
         public bool Async;
+        public MapAudio? Audio;
+        public List<string>? AudioNotes;
         public required System.Diagnostics.Stopwatch Watch;
     }
 
@@ -126,6 +128,14 @@ public partial class NetworkView
         long worldMs = watch.ElapsedMilliseconds;
         var stage = new MapStage1 { Name = name, File = file, Map = map, World = world, Hash = hash, Generated = generated is not null, ContentMs = contentMs, WorldMs = worldMs, Watch = watch, Async = !onMainThread };
         if (!Lean) stage.RagdollFaces = RagdollWorldFaces(map);   // P2: the ragdoll world's triangles gathered here, its body and shape made on the main thread (P3: a shape made on this worker crashed the Compatibility renderer's load)
+        if (!Lean && !NoSound && !MapAudioInPlay && file != "none")
+        {
+            // P3: the map's sound emitters and regions read here (engine-free), not in the first frame of play (measured: 145 ms of that frame, in every join with sound).
+            // A failure is left to SetUpMapSound, which reads again and reports it as before.
+            var notes = new List<string>();
+            try { stage.Audio = MapAudio.Load(_gameDir, file, notes); stage.AudioNotes = notes; }
+            catch (Exception e) when (e is System.IO.IOException or System.IO.InvalidDataException or ArgumentException or NotSupportedException) { }
+        }
         if (generated is null && !Lean && (onMainThread || !SceneOnMain))
         {
             // The map's look: the original meshes and textures read here (MapScene.Load is engine-free); MapView.Build draws them on the main thread in Stage2.
@@ -138,6 +148,9 @@ public partial class NetworkView
     }
 
     long _stage2StartMs, _ragdollMs, _collisionMs;
+
+    /// <summary>polish pass P3: <c>--map-audio-in-play</c> reads the map's sound emitters and regions in the first frame of play, as before P3.</summary>
+    static readonly bool MapAudioInPlay = CmdFlag("map-audio-in-play");
 
     /// <summary>polish pass P3 (measurement aid): <c>--scene-on-main</c> reads the map scene in the main thread's stage instead of on the worker (to tell whether the worker's read is what holds a frame).</summary>
     static readonly bool SceneOnMain = CmdFlag("scene-on-main");
@@ -160,6 +173,7 @@ public partial class NetworkView
         var map = s.Map; var world = s.World; ulong hash = s.Hash;
         Ph("map load: collision and content");
         _stage2StartMs = watch.ElapsedMilliseconds;
+        _mapAudioAhead = s.Audio is null ? null : (s.File, s.Audio, s.AudioNotes ?? []);   // P3: for SetUpMapSound (NetworkView.Sound.cs)
         if (!Lean) BuildRagdollWorld(s.RagdollFaces ?? RagdollWorldFaces(map));
         _ragdollMs = watch.ElapsedMilliseconds;
         PrepareNavigation(map, world); MemStep("navigation");
@@ -259,7 +273,7 @@ public partial class NetworkView
     /// <summary>
     /// polish pass P3 (a crash fix for P2's asynchronous load): while the map's nodes are built and the warm-ups make and free their models, one a frame, the viewport draws no 3D
     /// (the loading screen covers it anyway). Measured on the Compatibility renderer, Musou joins, the development PC: with 3D drawn in those frames the client crashed during the
-    /// warm-up frames (signal 11 between frames) in 28 of 55 joins and with none drawn in 1 of 35 (still one: the cause inside the engine is not known, and running the warm-ups
+    /// warm-up frames (signal 11 between frames) in 28 of 55 joins and with none drawn in 1 of 57 (still one: the cause inside the engine is not known, and running the warm-ups
     /// in the build's frame there did no better, 1 of 40); the synchronous load, which finishes no frame until the join, in 0 of 15; Forward+ in 0 of 12.
     /// <c>--load-draws-3d</c> restores P2's behaviour.
     /// </summary>
@@ -270,6 +284,7 @@ public partial class NetworkView
     }
 
     const int WarmupSteps = 6, SweepSteps = 6;
+
 
     /// <summary>
     /// polish pass P3: after the warm-ups, still behind the loading screen, the camera stands over the map's centre and looks round, a sixth of a turn a frame for six frames, so the

@@ -61,6 +61,8 @@ public partial class NetworkView
         _gameSpace.AddChild(_tfwHubView);
         _gameSpace.GetNodeOrNull("TfwRange")?.QueueFree();
         _gameSpace.AddChild(TfwMapView.BuildRange(TfwRangeArea, _groundMaterial));
+        // polish pass P3: the hub's sky is made here, behind the loading screen, not in the first frame aboard (measured: `tfw: hub` 139 to 166 ms of that frame). --hub-sky-in-play restores.
+        if (!CmdFlag("hub-sky-in-play")) _tfwHubEnvironment ??= TfwHubSky.Build();
     }
 
     Godot.Environment? _tfwHubEnvironment;

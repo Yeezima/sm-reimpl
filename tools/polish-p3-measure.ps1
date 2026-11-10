@@ -1,9 +1,9 @@
 # Polish pass P3 measurement harness (docs/polish-pass-plan.md; test aid, never shipped). Everything through tools\godot.ps1 --windowed (the hidden desktop) or --background (headless); servers 127.0.0.1; own PIDs only.
 # P3 measurements (before and after): Musou human join cold + warm with a deploy (the landing), Classic human join on the Compatibility renderer (first-use shader frames),
 # Classic 13 players with sound (the sound-phase stalls). Bounded; 127.0.0.1 only; own PIDs only.
-# -Before adds P3's restore switches to every measuring client (--sound-stream-main --no-shader-sweep): the numbers before P3.
+# -Before adds P3's restore switch to every measuring client (--no-shader-sweep): the numbers before P3.
 param([string]$Tag = 'p3-before', [switch]$Before)
-$restore = if ($Before) { @('--sound-stream-main', '--no-shader-sweep') } else { @() }
+$restore = if ($Before) { @('--no-shader-sweep') } else { @() }
 $ErrorActionPreference = 'Continue'
 $sp = Join-Path $env:LOCALAPPDATA 'sm-reimpl\perf\polish-pass\logs'; New-Item -ItemType Directory -Force -Path $sp | Out-Null
 $repo = Split-Path -Parent $PSScriptRoot

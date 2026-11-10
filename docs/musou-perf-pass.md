@@ -221,3 +221,52 @@ call whether that is wanted. Base target: the first wave left at 144 s and reach
 
   (The before and after runs were separate battles, so their views differ; each comparison is EXACT against FAST in the same view.) Perf kept: 500 v 500 A/B after the tune, GPU 4.18 -> 4.06 ms, draw calls 1,742 -> 1,319, primitives 25.7 M -> 17.8 M (the first run's GPU saving was 0.34 ms; this one 0.12 ms: different views). New pair: `%LOCALAPPDATA%\sm-reimpl\shots\musou-perf\ashfall-grime-EXACT.png` and `ashfall-grime-FAST2.png`; all pairs in `grime-fold2\`.
 - The full `dotnet test` was skipped this once at the owner's request; the lead runs it after merging.
+
+## Re-check on 2026-11-11 (polish pass P3, branch `claude/polish-p3` on main d9908c58)
+
+The same harness, scenes, camera, workload and settings as above (`tools\musou-perf.ps1`, Debug client 1600 x 900 on the private
+desktop, vsync off, MSAA 4x + SMAA, Release server on 127.0.0.1), on a quiet PC, one run a scene. "2026-11-08" is this document's
+"after" row, read again from its logs (`after\<scene>`); "2026-11-11" is `p3b\<scene>`. Since then landed, among others: the
+Orks back at 100 %, the 120 KB/s stream, the GPU sprays (live-effect cap 1,200), the weight pass, the arsenal, the powerups, the
+Ashfall drafts, the landing's HUD fix.
+
+| Scene | | Client frame mean / p99 / p99.9 (ms) | Client code only: p99 / p99.9 / worst (ms) | Renderer CPU / GPU (ms) | Draw calls | Server tick mean / worst window p99 / worst (ms) | KB/s a client |
+|---|---|---|---|---|---|---|---|
+| 200 v 200 | 2026-11-08 | 9.1 / 13.8 / 20.5 | 9.4 / 13.0 / 435 | 0.92 / 1.97 | 919 | 4.0-8.5 / 49 / 73 | 32-79 |
+| | 2026-11-11 | 7.7 / 11.8 / 14.8 | 8.3 / 11.2 / 34.7 | 0.80 / 3.30 | 1,116 | 4.1-6.0 / 12 / 20 | 65-129 |
+| 500 v 500 | 2026-11-08 | 10.4 / 16.5 / 21.4 | 10.7 / 13.4 / 455 | 1.34 / 4.19 | 1,816 | 4.7-8.2 / 64 / 110 | 40-79 |
+| | 2026-11-11 | 8.1 / 12.6 / 16.3 | 8.9 / 12.1 / 37.2 | 0.82 / 3.62 | 1,124 | 4.3-6.0 / 13 / 23 | 78-119 |
+| 1,000 v 1,000 | 2026-11-08 | 10.4 / 19.0 / 23.2 | 12.8 / 15.6 / 446 | 1.33 / 4.56 | 1,947 | 4.5-6.2 / 37 / 119 | 36-79 |
+| | 2026-11-11 | 8.3 / 13.4 / 18.5 | 9.5 / 12.7 / 35.1 | 0.86 / 3.52 | 1,131 | 4.1-6.2 / 30 / 59 | 60-119 |
+| Burst (200 deaths, 15x) | 2026-11-08 | 9.5 / 21.6 / 25.0 | 15.2 / 19.1 / 22.6 | 1.51 / 4.65 | 2,616 | - | - |
+| | 2026-11-11 | 9.3 / 32.1 / 40.9 | 26.7 / 36.1 / 40.9 | 0.89 / 4.18 | 887 | - | - |
+
+The whole frame's worst is left out: in every clash run, then and now, it is the harness's own screenshot every 30 s (318 to 385 ms
+between frames, at 48 / 78 / 108 / 138 / 169 s), not the game.
+
+**Read:**
+- **The clashes are faster than on 2026-11-08** at every size: frame mean 8 ms against 9 to 10, p99 12 to 13 against 14 to 19, the
+  landing's 435 to 455 ms frame gone (worst client frame 35 to 37 ms), the server's worst tick 20 to 59 ms against 73 to 119.
+  The bandwidth is higher by design (the 120 KB/s stream of 2026-11-09).
+- **The mass-death burst is the one regression: worst burst frame (main thread CPU, median of 14 warm bursts) 23.5 -> 38.8 ms**,
+  p99 21.6 -> 32.1 ms, frames over 33 ms 0 -> 47 of 5,263. It is the GPU sprays' higher live-effect cap, not a fault: the same
+  build with `--fx-cpu` (the CPU path, cap 160, about 27 effects live in a burst) gives 25.3 ms / p99 22.2, level with
+  2026-11-08; the GPU path keeps about 148 effects live and walks 13,000 to 15,400 sprays in the burst's worst frame. That frame's
+  `effects` phase is 34.6 ms against 17.1 on the CPU path; of it the GPU path's own parts are small (finding the sprays 1.0 ms,
+  writing their frames 1.0 to 1.2 ms, uploads 0.8 to 7.5 ms, starting sprays up to 8 to 12 ms): the rest is the effect player's
+  walk of five times as many effects. A data point for the owner: `--fx-cap 400` gives 32.4 ms / p99 26.5 with 57 to 66 effects
+  live. Not changed here: the cap trades blood on screen for the burst frame, the owner's choice of 2026-11-09 (spec "Musou Mode:
+  GPU spray particles", its playtest check).
+- **Tried, not kept:** a battle's first powerup drop costs one 29 to 30 ms frame (its frame texture, icon and label built on
+  first use; in every clash run at 79 to 95 s). Making the four kinds ahead aboard the Stormbird removed it (worst client frame
+  in a 200 v 200 run 34.7 -> 18.3 ms) but cost more there than it saved: 149 ms in one frame, or 117 ms and three times 28 ms
+  spread over four (what a drop shares with later labels and sprites is not warm yet that early). Left as it was; open.
+- **Remaining costs, by size (not changed here):**
+  1. The Musou join: one main-thread frame of **1.6 s** behind the loading screen (the ragdoll world's shape 0.69 s, the Ashfall
+     visuals 0.92 s of which the storm 0.48 s), then two frames of **320 to 510 ms** as the player appears in the Stormbird
+     (`musou: crowd, deaths, ragdolls` 110 to 160 ms, `tfw: hub` 140 to 165 ms, effects 60 to 120 ms, own model 20 to 50 ms) and
+     several of 40 to 115 ms after (`musou: crowd, deaths, ragdolls`: the first crowds' looks).
+  2. The burst frame above (the effect walk at the 1,200 cap).
+  2a. A battle's first powerup drop: one 29 to 30 ms frame (above).
+  3. GPU: 3.3 to 3.6 ms in a clash (2.0 to 4.6 on 2026-11-08, another camera share), the frame still bound by the main thread
+     on this PC; a GTX 1060 / RX 580 is not measured (no such card here).

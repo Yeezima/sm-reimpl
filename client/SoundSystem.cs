@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Concurrent;
-using System.Diagnostics;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -319,12 +318,7 @@ public partial class SoundSystem : Node
     readonly AudioCatalog _catalog;
     readonly Dictionary<uint, AudioStreamOggVorbis?> _streams = new();
     readonly HashSet<uint> _decoding = new();
-    readonly ConcurrentQueue<(uint Wem, byte[]? Ogg, double Ms, AudioStreamOggVorbis? Stream)> _decoded = new();
-    /// <summary>
-    /// polish pass P3 (item 29): <c>--sound-stream-main</c> makes the Ogg stream objects on the main thread as before (measured: the `sound` phase held frames 174 to 416 ms when several decodes
-    /// landed in one frame, each <c>AudioStreamOggVorbis.LoadFromBuffer</c> parsing its whole file); by default the decode worker makes the stream (a resource, allowed off the main thread).
-    /// </summary>
-    static readonly bool StreamOnMain = Array.IndexOf(OS.GetCmdlineUserArgs(), "--sound-stream-main") >= 0;
+    readonly ConcurrentQueue<(uint Wem, byte[]? Ogg, double Ms)> _decoded = new();
     readonly SemaphoreSlim _workers = new(2, 2);
     readonly List<Pending> _pending = new();
     readonly List<Active> _active = new();
@@ -486,13 +480,11 @@ public partial class SoundSystem : Node
             try
             {
                 var ogg = _catalog.Ogg(wem, out double ms);
-                AudioStreamOggVorbis? stream = null;
-                if (ogg is not null && !StreamOnMain) { var sw = Stopwatch.StartNew(); stream = AudioStreamOggVorbis.LoadFromBuffer(ogg); ms += sw.Elapsed.TotalMilliseconds; }   // P3: the stream parsed here, not in the frame
-                _decoded.Enqueue((wem, ogg, ms, stream));
+                _decoded.Enqueue((wem, ogg, ms));
             }
             catch (Exception ex) when (ex is not OutOfMemoryException)
             {
-                _decoded.Enqueue((wem, null, 0, null));
+                _decoded.Enqueue((wem, null, 0));
             }
             finally { _workers.Release(); }
         });
@@ -711,10 +703,10 @@ public partial class SoundSystem : Node
         while (_decoded.TryDequeue(out var d))
         {
             _decoding.Remove(d.Wem);
-            AudioStreamOggVorbis? stream = d.Stream;
+            AudioStreamOggVorbis? stream = null;
             if (d.Ogg is not null)
             {
-                if (stream is null && StreamOnMain) stream = AudioStreamOggVorbis.LoadFromBuffer(d.Ogg);
+                stream = AudioStreamOggVorbis.LoadFromBuffer(d.Ogg);
                 if (stream is not null) StreamsLoaded++;
                 else _catalog.Discard(d.Wem);   // a bad cached file is decoded again next session
             }

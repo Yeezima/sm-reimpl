@@ -20,3 +20,5 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Light melee hits, the combat knife's included, now show a small flinch on the victim for everyone watching, not only for the attacker. They still never stagger or interrupt anything.
 ### Loading
 - Old-GPU (safe mode) players: joining a Musou match often closed the game during the loading screen. That is fixed for nearly every join; if the game still closes while LOADING, start it again and tell us.
+- The stutter in the first moment after you join a match is shorter, most of all with sound on, and in Musou Mode as you appear aboard the ship.
+- Old-GPU (safe mode) players: one long stutter right after joining a match is gone; loading takes a fraction of a second longer instead.

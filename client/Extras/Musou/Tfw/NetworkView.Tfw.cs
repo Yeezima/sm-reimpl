@@ -102,6 +102,7 @@ public partial class NetworkView
             _gameSpace.AddChild(_tfwMarkers);
         }
         _tfwMarkers.Show(war, _tfwState.Objectives, _tfwState.Sites, _client?.Predicted.Position ?? default);
+        Ph("tfw: hub");   // polish pass P3: the hub apart from the markers in the frame profile
         TfwHubFrame(war);
     }
 }
