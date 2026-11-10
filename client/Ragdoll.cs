@@ -315,7 +315,7 @@ public sealed partial class Ragdoll : Node3D
             if (clipLinear is not null && clipAngular is not null)
             {
                 // The clip keeps moving the body (the skeleton's own slide is in velocity already).
-                body.LinearVelocity += clipLinear[i];
+                body.LinearVelocity += clipLinear[i].LimitLength(SmContent.DeathHandover.MaxSpeed);   // review 2026-11-11: each body's share capped again after the whole-body sum
                 body.AngularVelocity = clipAngular[i];
                 ClipMotionBodies++;
             }
