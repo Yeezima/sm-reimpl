@@ -95,7 +95,7 @@ public sealed partial class World
             ushort enemy = musou.Raycast(shot.Origin, direction, length, out float distance, out bool head, passed[..struck]);
             if (enemy == 0) break;
             var spec = Shots.ChargeShotOf(weapon, shot.Stage)?.Damage ?? weapon.DirectDamage with { Damage = Combat.DamageAt(distance, weapon) };
-            float damage = spec.Damage * (head ? spec.HeadMultiplier : spec.BodyMultiplier) * keep;
+            float damage = spec.Damage * (head ? spec.HeadMultiplier : spec.BodyMultiplier) * keep * MusouRangedDealt(shot.Shooter);   // x1.2 (owner 2026-11-11); a plasma burn follows the hit
             musou.Damage(enemy, shot.Shooter, damage, direction, out _, marker: head ? (byte)2 : (byte)1, cause: MusouDeathKind.Shot);
             if (plasma) TfwPlasmaBurn(enemy, shot.Shooter, damage, war);
             if (struck == 0) firstHead = head;
@@ -155,7 +155,7 @@ public sealed partial class World
             var direct = Shots.DirectDamageOf(weapon, p.Stage) ?? (plasma ? SpecOf(p).DetonateDamage : null);
             if (direct is { } hit)
             {
-                float damage = hit.Damage * (head ? hit.HeadMultiplier : hit.BodyMultiplier);
+                float damage = hit.Damage * (head ? hit.HeadMultiplier : hit.BodyMultiplier) * MusouRangedDealt(p.Owner);   // x1.2 (owner 2026-11-11)
                 musou.Damage(enemy, p.Owner, damage, direction, out _, marker: head ? (byte)2 : (byte)1, cause: MusouDeathKind.Shot);
                 if (plasma) TfwPlasmaBurn(enemy, p.Owner, damage, war);
             }

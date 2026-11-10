@@ -42,8 +42,8 @@ public class MusouLibrarianSwitchTests
         Assert.False(LibrarianVariant.Parse(" ").Any);
         Assert.Equal(new LibrarianVariant(true, false, false, false), LibrarianVariant.Parse("shockwave"));
         Assert.Equal(new LibrarianVariant(false, true, true, false), LibrarianVariant.Parse("Pull, SEND, nonsense"));
-        Assert.Equal(new LibrarianVariant(true, true, true, true), LibrarianVariant.Parse("all"));
-        Assert.Equal("shockwave,pull,send,early", Old.ToString());
+        Assert.Equal(new LibrarianVariant(true, true, true, true, true), LibrarianVariant.Parse("all"));   // rewind since musou-balance 2026-11-11
+        Assert.Equal("shockwave,pull,send,early,rewind", Old.ToString());
         Assert.Equal("SM_LIBRARIAN_OLD", LibrarianVariant.EnvironmentVariable);
     }
 

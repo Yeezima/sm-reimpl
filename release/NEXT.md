@@ -9,3 +9,8 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Leave out changes a tester cannot notice (tooling, docs, refactors). Optional "### " headings group long lists.
 - Add your bullets in the same pull request as the change, when it merges.
 -->
+### Musou Mode
+- Melee swings reach 40 % less far for every weapon, the power spear's sweep too; the swing line you see shows the new reach.
+- Every ranged attack does 20 % more damage to the Orks: guns, launchers, explosions, grenades and the Remote Detonators.
+- The Librarian's chain lightning now damages exactly the Orks you see it strike, reaches 25 % farther and deals 25 % more damage.
+- Musou Mode in this build does not play with earlier builds: everyone in a Musou match, and the server, needs this update.

@@ -348,7 +348,7 @@ public partial class NetworkView
         var rules = MusouCombatRules.Default;
         float reach = rules.CleaveRange(_config.MeleeRange, step.TrackToHit);
         float minCos = MathF.Cos(MathF.Min(180f, _config.MeleeConeDegrees * rules.CleaveConeScale) * MathF.PI / 180f);
-        if (_tfwState.War is not null) { reach *= SmSim.Extras.Musou.Campaign.TfwCombatRules.Default.CleaveReachScale; minCos = SmSim.Extras.Musou.Campaign.TfwCombatRules.Default.CleaveMinCos; }   // owner 2026-11-09
+        if (_tfwState.War is not null) { reach *= SmSim.Extras.Musou.Campaign.TfwCombatRules.Default.CleaveReachScale * SmSim.Extras.Musou.Campaign.TfwCombatRules.Default.PlayerCleaveReachScale; minCos = SmSim.Extras.Musou.Campaign.TfwCombatRules.Default.CleaveMinCos; }   // owner 2026-11-09; x0.6, owner 2026-11-11
         var forward = new Num.Vector2(-MathF.Sin(me.Yaw), MathF.Cos(me.Yaw));
         float best = float.PositiveInfinity;
         for (int i = 0; i < _tfwShown.Count; i++)

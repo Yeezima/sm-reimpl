@@ -56,7 +56,7 @@ public class MusouMeleeFeelTests
     public void A_swing_now_strikes_an_Ork_past_the_old_reach_and_the_old_scale_does_not()
     {
         float oldReach = War(1f).Config.MeleeRange + MusouCombatRules.Default.CleaveExtraRange;
-        float d = oldReach * 1.8f;   // beyond the scale-1 reach (the war volume itself is x1.5 since 2026-11-09), inside the 1.5 scale
+        float d = oldReach * 1.1f;   // beyond the scale-1 reach (the war volume is x1.3 since 2026-11-09, and x0.6 since 2026-11-11: 0.78 of it), inside the 1.5 scale (1.17 of it)
         Assert.False(Reaches(1f, d));
         Assert.True(Reaches(1.5f, d));
     }

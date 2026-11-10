@@ -18,6 +18,7 @@ public sealed partial class World
         _musou.Solids(_musouSolidScratch);
         _musouSolids[Tick] = _musouSolidScratch.Count == 0 ? [] : _musouSolidScratch.ToArray();
         if (Tick >= BodyHistoryTicks) _musouSolids.Remove(Tick - BodyHistoryTicks);
+        LibrarianRecord();   // Librarian/World.Librarian.cs: the pool's places of this tick, for the chain lightning's rewind (musou-balance 2026-11-11)
     }
 
     /// <summary>The solid big Orks at the end of tick <paramref name="tick"/> as the wire carried them (quantised over <see cref="MusouSim.WireBox"/>; raw before the first send); empty when not kept.</summary>

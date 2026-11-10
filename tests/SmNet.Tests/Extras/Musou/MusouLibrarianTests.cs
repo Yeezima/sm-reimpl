@@ -183,7 +183,7 @@ public class MusouLibrarianTests
             else Assert.Equal(0f, lost);
         }
         Assert.Equal(LibrarianRules.MaxDrawnLinks, r.Psyker.Links.Count);   // the drawing is capped, the damage is not
-        Assert.Equal(90f, LibrarianRules.PrimaryDps);
+        Assert.Equal(112.5f, LibrarianRules.PrimaryDps);   // 90 until the owner's "+25% range and damage" (2026-11-11)
     }
 
     [Fact]
@@ -379,9 +379,9 @@ public class MusouLibrarianTests
 
     // ---------------------------------------------------------------- in the world
 
-    internal static World NewWorld(out int librarianClass)
+    internal static World NewWorld(out int librarianClass, LibrarianVariant variant = default)
     {
-        var config = MusouLoadout.Prepare(Raw(ContentExtras.Musou) with { MusouRules = MusouRules.Default with { PlayerDamageScale = 0f } });
+        var config = MusouLoadout.Prepare(Raw(ContentExtras.Musou) with { MusouRules = MusouRules.Default with { PlayerDamageScale = 0f }, LibrarianVariant = variant });
         librarianClass = config.Classes.Count - 1;
         var w = new World(config) { Rules = MusouSimTests.Endless, StartAreas = MusouDirectorTests.Rooms };
         Assert.True(w.StartMusou(null));
