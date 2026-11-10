@@ -235,7 +235,7 @@ public partial class NetworkView
             swing = (ImpactRules.SwordSwing.Next(swing.Value, s.Alive && s.MeleeStep > 0 && !NoSwordSwing, (float)dt), _connectedFor);
             _swordSwing[s.PlayerId] = swing;
             flare = Math.Max(flare, swing.Value);
-            if (overlay is not null) ShaderCompat.SetInstanceParam(h.Mesh, PowerBlade.FlareParameter, flare);
+            if (overlay is not null) ShaderCompat.SetInstanceParam(h.Mesh, overlay, PowerBlade.FlareParameter, flare);
         }
         // The data's deployed effects at their markers, attached, while the weapon is in hand (fx/melee-presentation: the hammer's and the axe's too, not only the sword's).
         bool wanted = !(isSword && !SwordIdleFx) && ImpactRules.MeleeIdleGuard.Allows(IsOrkVoice(s)) && s.Alive && character is not null && wargear is not null && (isSword ? !NoSwordFx : !NoMeleeIdleFx) && character.Weapons?.MeleeMeshInHand is not null;

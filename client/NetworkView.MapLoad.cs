@@ -38,7 +38,6 @@ public partial class NetworkView
         public MapScene? Scene;
         public string? SceneError;
         public List<Vector3>? RagdollFaces;
-        public ConcavePolygonShape3D? RagdollShape;
         public long ContentMs, WorldMs, SceneMs, WorkerMs, VisualsDoneMs;
         public int WarmupStep;
         public required System.Diagnostics.Stopwatch Watch;
@@ -122,11 +121,7 @@ public partial class NetworkView
         ExtrasMapCollision(name, ref world, ref hash);   // EXTRAS-HOOK: added content's solids beside the level, and the hash of the whole (Musou Mode's Stormbird)
         long worldMs = watch.ElapsedMilliseconds;
         var stage = new MapStage1 { Name = name, File = file, Map = map, World = world, Hash = hash, Generated = generated is not null, ContentMs = contentMs, WorldMs = worldMs, Watch = watch };
-        if (!Lean)
-        {
-            stage.RagdollFaces = RagdollWorldFaces(map);   // P2: the ragdoll world's triangles gathered here, its body made on the main thread
-            if (!onMainThread && !RagdollShapeOnMain) { SetLoadingCaption("BUILDING THE RAGDOLL WORLD"); stage.RagdollShape = RagdollWorldShape(stage.RagdollFaces); }   // P3: the concave shape too (1.2 s on Ashfall)
-        }
+        if (!Lean) stage.RagdollFaces = RagdollWorldFaces(map);   // P2: the ragdoll world's triangles gathered here, its body and shape made on the main thread (P3: a shape made on this worker crashed the Compatibility renderer's load)
         if (generated is null && !Lean && (onMainThread || !SceneOnMain))
         {
             // The map's look: the original meshes and textures read here (MapScene.Load is engine-free); MapView.Build draws them on the main thread in Stage2.
@@ -161,7 +156,7 @@ public partial class NetworkView
         var map = s.Map; var world = s.World; ulong hash = s.Hash;
         Ph("map load: collision and content");
         _stage2StartMs = watch.ElapsedMilliseconds;
-        if (!Lean) BuildRagdollWorld(s.RagdollFaces ?? RagdollWorldFaces(map), s.RagdollShape);
+        if (!Lean) BuildRagdollWorld(s.RagdollFaces ?? RagdollWorldFaces(map));
         _ragdollMs = watch.ElapsedMilliseconds;
         PrepareNavigation(map, world); MemStep("navigation");
         _mapCentre = map.Spawns.Count > 0 ? new Vector2(map.Spawns.Average(sp => sp.Position.X), map.Spawns.Average(sp => sp.Position.Y)) : null;

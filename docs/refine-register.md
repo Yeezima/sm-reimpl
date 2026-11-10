@@ -28,9 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2863 spec table rows: **2132 tagged**, 503 not tagged (read from data with high confidence), 228 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 638 rows of the changes document.
-Scanned 2879 spec table rows: **2148 tagged**, 507 not tagged (read from data with high confidence), 224 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 637 rows of the changes document.
-Scanned 2966 spec table rows: **2216 tagged**, 522 not tagged (read from data with high confidence), 228 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 660 rows of the changes document.
+Scanned 2970 spec table rows: **2218 tagged**, 522 not tagged (read from data with high confidence), 230 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 660 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -52,40 +50,18 @@ Scanned 2966 spec table rows: **2216 tagged**, 522 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 22 | 13 | 13 | 12 | 7 |
-| Core simulation (provisional values) | 594 | 568 | 417 | 164 | 1 |
+| Core simulation (provisional values) | 658 | 623 | 472 | 171 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 235 | 224 | 126 | 63 | 0 |
-| **All areas** | **2132** | 1883 | 1581 | 677 | 38 |
-| Core simulation (provisional values) | 606 | 577 | 430 | 166 | 1 |
-| General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 235 | 224 | 126 | 63 | 0 |
-| **All areas** | **2148** | 1896 | 1598 | 680 | 38 |
-| Core simulation (provisional values) | 656 | 621 | 471 | 171 | 1 |
-| General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 235 | 224 | 126 | 63 | 0 |
-| **All areas** | **2216** | 1956 | 1655 | 694 | 38 |
+| **All areas** | **2218** | 1958 | 1656 | 694 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1198 |
-| confidence: low | 761 |
-| confidence: medium | 691 |
-| notes: ours | 387 |
-| kind: interpretation | 363 |
-| notes: estimate | 176 |
-| kind: estimate | 146 |
-| kind: ours | 1204 |
-| confidence: low | 770 |
-| confidence: medium | 699 |
-| notes: ours | 391 |
-| kind: interpretation | 365 |
-| notes: estimate | 176 |
-| kind: estimate | 151 |
-| kind: ours | 1250 |
+| kind: ours | 1252 |
 | confidence: low | 799 |
-| confidence: medium | 727 |
+| confidence: medium | 728 |
 | notes: ours | 403 |
 | kind: interpretation | 372 |
 | notes: estimate | 176 |
@@ -2279,9 +2255,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (594)
-### Core simulation (provisional values) (606)
-### Core simulation (provisional values) (656)
+### Core simulation (provisional values) (658)
 
 *Spec section: Provisional values in use*
 
@@ -3189,6 +3163,13 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-C1D08066` | Army made real | keeps the march facing (not a fresh spawn: `keepYaw`); the army itself spawned facing the centre | kind: ours; confidence: medium | ours (the owner said "spawning") | Army made real: compare with SM1 by feel or video. Ours: keeps the march facing (not a fresh spawn: keepYaw); the army itself… | ☐ |
 | `R-B5790B4B` | Not covered | the Stormbird and the Firing Range spawns keep their own facing | kind: ours; confidence: medium | ours | Not covered: compare with SM1 by feel or video. Ours: the Stormbird and the Firing Range spawns keep their own facing. | ☐ |
 | `R-468A6F29` | Client view | the view takes the server's yaw on a respawn (as before) and on a landing or redeploy of a living player (a jump of 15 m or more in one frame), so nothing turns on the first frame (m) | kind: ours; confidence: medium | ours | Client view: compare with SM1 by measuring on a flat spot of the same map. Ours: the view takes the server's yaw on a respawn (as before) and on a… | ☐ |
+
+*Spec section: Polish pass P3 (claude/polish-p3, 2026-11-11; client only; first frames and loads: no simulation, wire, protocol or config-hash change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-66631DC4` | Sound streams made off the main thread (both modes) | the worker that decodes a sound's file to Ogg also makes its stream object (`AudioStreamOggVorbis.LoadFromBuffer`, which parses the whole file); the frame only takes the finished stream. The same sounds at the same moments. `--sound-stream-main` makes the… | kind: ours | ours (engine work, not the original's) | Sound streams made off the main thread (both modes): compare with SM1 by listening A/B at the same distance and state. Ours: the worker that decodes a sound's file to Ogg also makes its stream… | ☐ |
+| `R-52695FE6` | Per-instance values on the Compatibility renderer (both modes, old-GPU / safe mode) | Godot's Compatibility renderer does not read per-instance shader values, so there every drawn instance of the power sword's glow, the Librarian's force sword's glow (Musou), the melta cone and Musou's slash cone gets its own copy of its material with the… | kind: ours; confidence: medium | ours (a rendering fix) | Per-instance values on the Compatibility renderer (both…: compare with SM1 by feel or video. Ours: Godot's Compatibility renderer does not read per-instance shader… | ☐ |
 
 *Spec section: Polish pass P2 (claude/polish-p2, 2026-11-10; client, content, server; load time only: no simulation, wire, protocol or config-hash change)*
 
@@ -4872,6 +4853,8 @@ Test aids, probes, demo and capture tooling, and engineering decisions (protocol
 | `R-E6DE77A1` | Handshake after the blink | Screen blink (ui/loading-blink, 2026-11-10, client only) |
 | `R-BE72EE96` | Core messages counted in the Musou budget (Musou) | Musou performance pass and the owner's battle decisions (musou/perf-pass, 2026-11-08; Musou Mode only but FSR 2 and the off-screen effects, which are shared client settings; `TfwRules.Version` 38, no protocol or wire change) |
 | `R-A9655E6C` | Stormboy hop cue's flight (Musou wire) | Musou Mode: smooth crowd motion (crowd-smooth, 2026-11-08; Musou Mode only; `MusouSim.Version` 22, no core protocol bump: `Protocol.Version` stays 64) |
+| `R-D3537240` | Shader sweep behind the loading screen (both modes, a human client) | Polish pass P3 (claude/polish-p3, 2026-11-11; client only; first frames and loads: no simulation, wire, protocol or config-hash change) |
+| `R-CAE9BEEA` | Measurement aids (no change of behaviour) | Polish pass P3 (claude/polish-p3, 2026-11-11; client only; first frames and loads: no simulation, wire, protocol or config-hash change) |
 | `R-4EEFB531` | Ashfall layout cache (Musou, added content) | Polish pass P2 (claude/polish-p2, 2026-11-10; client, content, server; load time only: no simulation, wire, protocol or config-hash change) |
 | `R-5F9027EA` | Loading captions | Polish pass P2 (claude/polish-p2, 2026-11-10; client, content, server; load time only: no simulation, wire, protocol or config-hash change) |
 | `R-866FC7E6` | `LOADTIME` line | Polish pass P1 (claude/polish-p1, 2026-11-10; client, server runtime and options; no simulation, wire, protocol or config-hash change) |

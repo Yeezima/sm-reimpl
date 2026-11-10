@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.CompilerServices;
 using Godot;
 
 namespace SmClient;
@@ -19,7 +20,10 @@ public static class ShaderCompat
     /// <summary>True on the Compatibility renderer (unless <c>--instance-uniforms</c>): per-instance materials with plain uniforms stand in for instance uniforms.</summary>
     public static bool PerInstanceMaterials => SafeMode.Compatibility && !Keep;
 
-    const string SourceMeta = "sm_overlay_source";
+    /// <summary>Each mesh's own overlay copy with the shared material it was copied from (weak keys: an entry goes with its mesh).</summary>
+    static readonly ConditionalWeakTable<GeometryInstance3D, OwnOverlay> Overlays = new();
+
+    sealed class OwnOverlay { public ShaderMaterial? Source, Copy; }
 
     /// <summary>The shader code for this renderer: on the Compatibility renderer every <c>instance uniform</c> becomes a plain <c>uniform</c>.</summary>
     public static string Code(string shaderCode) => PerInstanceMaterials ? shaderCode.Replace("instance uniform ", "uniform ", StringComparison.Ordinal) : shaderCode;
@@ -29,15 +33,15 @@ public static class ShaderCompat
 
     /// <summary>
     /// The overlay a mesh wears for a shared blade material: the shared one on Forward+; on the Compatibility renderer this mesh's own copy of it, made once per source
-    /// material (a weapon switch brings another source: a new copy) and kept on the mesh's current overlay.
+    /// material (a weapon switch brings another source: a new copy) and remembered for the mesh, whatever overlay the mesh wears meanwhile (Musou's Supercharged glow
+    /// takes the overlay for a while: no new copy each frame).
     /// </summary>
     public static ShaderMaterial OverlayFor(GeometryInstance3D mesh, ShaderMaterial shared)
     {
         if (!PerInstanceMaterials) return shared;
-        if (mesh.MaterialOverlay is ShaderMaterial current && mesh.HasMeta(SourceMeta) && (ulong)mesh.GetMeta(SourceMeta) == shared.GetInstanceId()) return current;
-        var copy = (ShaderMaterial)shared.Duplicate();
-        mesh.SetMeta(SourceMeta, shared.GetInstanceId());
-        return copy;
+        var own = Overlays.GetOrCreateValue(mesh);
+        if (own.Copy is null || !ReferenceEquals(own.Source, shared)) { own.Source = shared; own.Copy = (ShaderMaterial)shared.Duplicate(); }
+        return own.Copy;
     }
 
     /// <summary>Sets a per-instance parameter: the instance uniform on Forward+; on the Compatibility renderer the uniform of the instance's own material (override first, else overlay).</summary>
@@ -46,5 +50,12 @@ public static class ShaderCompat
         if (!PerInstanceMaterials) { node.SetInstanceShaderParameter(name, value); return; }
         if (node.MaterialOverride is ShaderMaterial o) o.SetShaderParameter(name, value);
         else if (node.MaterialOverlay is ShaderMaterial ov) ov.SetShaderParameter(name, value);
+    }
+
+    /// <summary>The same for a material from <see cref="Own"/> or <see cref="OverlayFor"/>: on the Compatibility renderer that copy takes the value, whatever the node wears now.</summary>
+    public static void SetInstanceParam(GeometryInstance3D node, ShaderMaterial own, StringName name, Variant value)
+    {
+        if (!PerInstanceMaterials) node.SetInstanceShaderParameter(name, value);
+        else own.SetShaderParameter(name, value);
     }
 }

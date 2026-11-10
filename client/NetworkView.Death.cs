@@ -344,14 +344,12 @@ public partial class NetworkView
         return faces;
     }
 
-    /// <summary>polish pass P3: <c>--ragdoll-shape-main</c> builds the concave shape on the main thread as before P3 (measured: 1.2 s on Ashfall, 0.3 s on Manufactorum, in the join's frame).</summary>
-    static readonly bool RagdollShapeOnMain = CmdFlag("ragdoll-shape-main");
-
-    /// <summary>The ragdoll world's concave shape from its triangles (any thread: a resource, no scene tree); null for no faces.</summary>
-    static ConcavePolygonShape3D? RagdollWorldShape(List<Vector3> faces) => faces.Count == 0 ? null : new ConcavePolygonShape3D { Data = faces.ToArray(), BackfaceCollision = true };
-
-    /// <summary>Main thread: the static body of the ragdoll world from its gathered triangles (and the shape made ahead, else made here).</summary>
-    void BuildRagdollWorld(List<Vector3> faces, ConcavePolygonShape3D? shape = null)
+    /// <summary>
+    /// Main thread: the static body of the ragdoll world from its gathered triangles. The concave shape is made here, never on the load's worker: polish pass P3 tried that and
+    /// the client then crashed during the load on the Compatibility renderer in about half of the Musou joins (signal 11 between frames: 10 of 18 joins, none of 6 with the shape
+    /// made here), so the shape's 1.2 s on Ashfall (0.3 s on Manufactorum) stays in the load's main-thread frame.
+    /// </summary>
+    void BuildRagdollWorld(List<Vector3> faces)
     {
         _ragdollWorld?.QueueFree();
         _ragdollWorld = null;
@@ -361,7 +359,7 @@ public partial class NetworkView
         float lowest = faces.Min(f => f.Z);   // game z up = Godot Y
         Ragdoll.LostBelowY = (_gameSpace.Transform * new Vector3(0, 0, lowest - 50f)).Y;
         var body = new StaticBody3D { Name = "RagdollWorld", CollisionLayer = Ragdoll.WorldLayer, CollisionMask = 0 };
-        body.AddChild(new CollisionShape3D { Shape = shape ?? RagdollWorldShape(faces) });
+        body.AddChild(new CollisionShape3D { Shape = new ConcavePolygonShape3D { Data = faces.ToArray(), BackfaceCollision = true } });
         _gameSpace.AddChild(body);
         _ragdollWorld = body;
         _ragdollWorldNote = $"map character collision, {faces.Count / 3:N0} triangles ({watch.ElapsedMilliseconds} ms)";
