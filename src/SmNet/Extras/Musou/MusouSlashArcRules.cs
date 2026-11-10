@@ -38,6 +38,13 @@ public static class MusouSlashArcRules
     /// <summary>The most arcs alive at once (the oldest is replaced).</summary>
     public const int Pool = 32;
 
+    /// <summary>
+    /// The Compatibility renderer (no stencil, so no model can be cut out of an arc that has no depth test): the own player's arcs are drawn depth tested instead, every vertex this many metres
+    /// nearer the eye along its sight line (its place on the screen unchanged). The Orks the line runs through (about 0.6 m round) do not hide it; the own model, at least 1.5 m in front of the
+    /// part of the line behind it, does; a wall or a model farther than this in front of the line hides it too. Ours.
+    /// </summary>
+    public const float CompatPullMetres = 1f;
+
     /// <summary>Degrees of arc per segment of the line, and the fewest and most segments an arc has.</summary>
     public const float DegreesPerSegment = 5f;
     public const int SegmentsMin = 12, SegmentsMax = 72;

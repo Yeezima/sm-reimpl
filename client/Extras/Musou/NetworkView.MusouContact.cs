@@ -53,7 +53,7 @@ public partial class NetworkView
         string? wargear = MeleeWargear(me);
         MusouOwnSwingArc(me, step, wargear);   // owner 2026-11-10: the swing's one arc, every melee weapon (NetworkView.MusouSlashArc.cs)
         if (!MusouContactRules.PredictsMelee(wargear)) { if (LogMusouContact) GD.Print($"MUSOU CONTACT t {_connectedFor:F3} strike {wargear ?? "-"}: not a pilot weapon"); return; }
-        MusouStrikeTargets(me, step);
+        MusouStrikeTargets(me, step, wargear);   // the arc's pick of this strike when it made one (the same frame and strike: not counted twice)
         if (_musouStrikeTargets.Count == 0) { if (LogMusouContact) GD.Print($"MUSOU CONTACT t {_connectedFor:F3} strike {wargear}: no Ork in reach of {_tfwShown.Count} shown"); return; }
         var camera = ToGame(_camera.GlobalPosition);
         var style = MusouContactRules.SlashOf(wargear);
@@ -81,25 +81,32 @@ public partial class NetworkView
         if (LogMusouContact) GD.Print($"MUSOU CONTACT t {_connectedFor:F3} strike {wargear} step {me.MeleeStep}{(me.MeleeHeavy ? " heavy" : "")}: {_musouStrikeTargets.Count} Orks in reach, nearest {_musouStrikeTargets[0].Distance:F2} m");
     }
 
-    /// <summary>The Orks the client sees in the own strike's reach, nearest first, as the server's cleave picks them (<c>World.MusouCombat</c>: its reach, cone, height, no wall between, and its count).</summary>
-    void MusouStrikeTargets(PlayerState me, MeleeStep step)
+    /// <summary>The last pick's frame and strike (<see cref="MusouStrikeTargets"/>): the swing's arc, its contact and its punch ask on the same frame and share one pick.</summary>
+    (ulong Frame, int Player, int Step, bool Heavy, float Yaw, Num.Vector3 Feet, string? Wargear)? _musouStrikeTargetsOf;
+
+    /// <summary>
+    /// The Orks the client sees in the own strike's reach, nearest first, as the server's cleave picks them (<c>World.MusouCleave</c>: <see cref="MusouCleaveShape"/>'s reach, cone and count, the
+    /// spear's sweep among them; the core's height band, no wall between). Asked again on the same frame for the same strike, the list is kept as it is.
+    /// </summary>
+    void MusouStrikeTargets(PlayerState me, MeleeStep step, string? wargear)
     {
+        var of = (Engine.GetProcessFrames(), me.PlayerId, me.MeleeStep, me.MeleeHeavy, me.Yaw, me.Position, wargear);
+        if (_musouStrikeTargetsOf == of) return;
+        _musouStrikeTargetsOf = of;
         _musouStrikeTargets.Clear();
-        var rules = (_config!.MusouRules ?? MusouRules.Default).Combat;
-        bool war = _tfwState.War is not null;
-        float reach = rules.CleaveRange(_config.MeleeRange, step.TrackToHit, war);   // the server's reach (World.MusouCombat: x1.5 in the war)
-        int most = Math.Min(MusouContactRules.MaxTargets, war ? SmSim.Extras.Musou.Campaign.TfwCombatRules.Default.CleaveTargets : rules.CleaveTargets);   // and its count: 40 in the war, 8 in the skirmish
-        float minCos = MathF.Cos(MathF.Min(180f, _config.MeleeConeDegrees * rules.CleaveConeScale) * MathF.PI / 180f);
-        if (_tfwState.War is not null) { reach *= SmSim.Extras.Musou.Campaign.TfwCombatRules.Default.CleaveReachScale; minCos = SmSim.Extras.Musou.Campaign.TfwCombatRules.Default.CleaveMinCos; }   // the server's longer, wider cone (owner 2026-11-09)
+        var config = _config!;
+        var shape = MusouCleaveShape.Of(config, step, _tfwState.War is not null, wargear);   // the server's volume: x1.5 x1.3 and 120 degrees each side in the war, the spear's 15 m and 150
+        float reach = shape.Reach, minCos = shape.MinCos;
+        int most = Math.Min(MusouContactRules.MaxTargets, shape.Most);   // and its count: 40 in the war, 8 in the skirmish, 12 for the spear
         var forward = new Num.Vector2(-MathF.Sin(me.Yaw), MathF.Cos(me.Yaw));
-        var eye = me.Position + new Num.Vector3(0f, 0f, _config.EyeHeight);
+        var eye = me.Position + new Num.Vector3(0f, 0f, config.EyeHeight);
         for (int i = 0; i < _tfwShown.Count; i++)
         {
             var e = _tfwShown[i];
             if (e.State == MusouEnemyState.Dying || e.Type == MusouEnemyType.Weirdboy) continue;   // review: the Weirdboy's shield may take the blow (its pulse, no flesh): his are the server's
             var offset = e.Position - me.Position;
             float distance = new Num.Vector2(offset.X, offset.Y).Length();
-            if (distance > reach || MathF.Abs(offset.Z) > _config.MeleeVerticalReach) continue;
+            if (distance > reach || MathF.Abs(offset.Z) > config.MeleeVerticalReach) continue;
             if (distance > 1e-4f && Num.Vector2.Dot(new Num.Vector2(offset.X, offset.Y) / distance, forward) < minCos) continue;
             var chest = new Num.Vector3(e.Position.X, e.Position.Y, e.Position.Z + GoreChestHeight(e.Type));
             if (_client?.Collision is { } world)

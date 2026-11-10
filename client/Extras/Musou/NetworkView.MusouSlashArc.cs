@@ -12,11 +12,14 @@ namespace SmClient;
 /// Musou Mode's swing arc (owner, 2026-11-10; <see cref="MusouSlashArcRules"/>): one flat curved line per melee swing, as wide as its cleave and through the enemies it struck, in place of a stroke
 /// on every enemy struck.
 /// <list type="bullet">
-/// <item>The own swing: drawn at the predicted strike (<see cref="MusouOwnStrikeContact"/>, every melee weapon) when the client sees an enemy in the cleave, from the strike's pose, through the
-/// enemies it sees. The server's report of that swing adds no second arc. If the client saw no enemy but the server struck one, the arc comes with the report, still from the strike's pose.</item>
+/// <item>The own swing: drawn at the predicted strike (<see cref="MusouOwnStrikeContact"/>, every melee weapon) when the client sees an enemy in the cleave (<see cref="MusouStrikeTargets"/>, the
+/// cleave's shape, the spear's sweep too), from the strike's pose, through the enemies it sees. The server's report of that swing adds no second arc. If the client saw no enemy but the server
+/// struck one, the arc comes with the report, still from the strike's pose. A report counts as the swing's only within <see cref="MusouContactRules.MatchSeconds"/> of the strike, while a melee
+/// step is still in progress and no charge is.</item>
 /// <item>Another player's swing (an AI Marine's too): drawn once the frame's reported melee hits (marker 3) are all in. All hits of one cleave share a server tick: one arc per player and tick,
-/// from that player's newest state (position, heading, step), through the enemies reported struck.</item>
-/// <item>A melee hit with no swing behind it (a charge's contact, the air slash's landing, anyone the client has no state for) keeps the old stroke on that enemy.</item>
+/// from that player's newest state (position, heading, step), through the enemies reported struck. A player's arc still waiting from an earlier tick when a later tick's hit comes (a backlog
+/// of reports after a hitch) is drawn first, never dropped.</item>
+/// <item>A melee hit with no swing behind it (a charge's contact, the spear's impale, the air slash's landing, anyone the client has no state for) keeps the old stroke on that enemy.</item>
 /// </list>
 /// The arc's width is the cleave's (<see cref="MusouCleaveShape"/>); its colour, the 30 m draw limit (from the swinger) and <c>--no-musou-slash</c> are the strokes'. Switches:
 /// <c>--musou-old-slashes</c> (the strokes on every enemy struck, as before), test aids <c>--musou-slash-arc-radius f</c> (the line at f times the cleave's reach instead of through the enemies
@@ -57,7 +60,7 @@ public partial class NetworkView
         _musouLastStrikeAt = _connectedFor;   // the capture aid's clock (Tfw/NetworkView.TfwArcCapture.cs)
         if (!MusouArcsOn || _client is null || _camera is null || _gameSpace is null || _config is null) return;
         _musouOwnSwing = (_connectedFor, me.Position, me.Yaw, step, me.MeleeHeavy, me.MeleeStep, wargear, false);
-        MusouStrikeTargets(me, step);
+        MusouStrikeTargets(me, step, wargear);   // the cleave's shape (the spear's sweep too); the contact below reuses this pick
         if (_musouStrikeTargets.Count == 0) return;
         float distance = 0f, height = 0f;
         foreach (var t in _musouStrikeTargets) { distance += t.Distance; height += t.Chest.Z - me.Position.Z; }
@@ -75,10 +78,17 @@ public partial class NetworkView
     bool MusouHitArc(in MusouEvent e, Num.Vector3 at, Num.Vector3 camera, bool own, PlayerState me)
     {
         if (!MusouArcsOn || _config is null) return false;
-        if (_musouPendingArcs.TryGetValue(e.Player, out var pending) && pending.Tick == e.Tick) { MusouArcAdd(pending, at); return true; }
+        if (_musouPendingArcs.TryGetValue(e.Player, out var pending))
+        {
+            if (pending.Tick == e.Tick) { MusouArcAdd(pending, at); return true; }
+            // Review: an arc of this player still waiting from an earlier tick (a backlog of reports after a hitch) is drawn now, not replaced: its swing keeps its line.
+            _musouPendingArcs.Remove(e.Player);
+            MusouDrawPending(e.Player, pending, "reported, backlog");
+        }
         if (_musouArcLast.TryGetValue(e.Player, out var last) && last.Tick == e.Tick) return true;   // this swing's arc is drawn
         PendingArc? swing = null;
-        if (own && _musouOwnSwing is { } mine && _connectedFor - mine.At < MusouContactRules.MatchSeconds)
+        // The own swing's report: a melee step still in progress and no charge (review: a charge's contact or the spear's impale within the window is no swing's, and keeps its stroke).
+        if (own && me.Alive && me.MeleeStep > 0 && me.Rush == RushPhase.None && _musouOwnSwing is { } mine && _connectedFor - mine.At < MusouContactRules.MatchSeconds)
         {
             if (mine.Drawn) { _musouArcLast[e.Player] = (e.Tick, mine.StepIndex, mine.Heavy, _connectedFor); return true; }   // drawn at the predicted strike
             swing = new PendingArc { Feet = mine.Feet, Yaw = mine.Yaw, Step = mine.Step, Heavy = mine.Heavy, StepIndex = mine.StepIndex, Wargear = mine.Wargear };
@@ -87,7 +97,7 @@ public partial class NetworkView
         else
         {
             PlayerState? who = own ? me : MusouPlayerState(e.Player);
-            if (who is not { } s || !s.Alive || s.MeleeStep <= 0 || Combat.MeleeStepOf(_config, s) is not { } step) return false;   // a charge, the air slash's landing, no state
+            if (who is not { } s || !s.Alive || s.MeleeStep <= 0 || s.Rush != RushPhase.None || Combat.MeleeStepOf(_config, s) is not { } step) return false;   // a charge, the air slash's landing, no state
             // The same step reported again within a moment is the same swing (its cleave reported over two server ticks).
             if (_musouArcLast.TryGetValue(e.Player, out last) && last.StepIndex == s.MeleeStep && last.Heavy == s.MeleeHeavy && _connectedFor - last.At < MusouSlashArcRules.SameSwingSeconds)
             { _musouArcLast[e.Player] = last with { Tick = e.Tick }; return true; }
@@ -112,13 +122,16 @@ public partial class NetworkView
     {
         _musouArcFlushQueued = false;
         if (_musouPendingArcs.Count == 0) return;
-        foreach (var (player, a) in _musouPendingArcs)
-        {
-            int n = Math.Max(1, a.Hits);
-            MusouDrawArc(a.Feet, a.Yaw, a.Step, a.Heavy, a.StepIndex, a.Wargear, a.Distance / n, a.Height / n, player, a.Hits, "reported");
-            _musouArcLast[player] = (a.Tick, a.StepIndex, a.Heavy, _connectedFor);
-        }
+        foreach (var (player, a) in _musouPendingArcs) MusouDrawPending(player, a, "reported");
         _musouPendingArcs.Clear();
+    }
+
+    /// <summary>Draws one gathered swing of <paramref name="player"/> and notes it as that player's last drawn swing.</summary>
+    void MusouDrawPending(ushort player, PendingArc a, string source)
+    {
+        int n = Math.Max(1, a.Hits);
+        MusouDrawArc(a.Feet, a.Yaw, a.Step, a.Heavy, a.StepIndex, a.Wargear, a.Distance / n, a.Height / n, player, a.Hits, source);
+        _musouArcLast[player] = (a.Tick, a.StepIndex, a.Heavy, _connectedFor);
     }
 
     /// <summary>
@@ -148,7 +161,7 @@ public partial class NetworkView
             AddChild(_musouArcView);
         }
         int direction = MusouSlashArcRules.Direction(heavy, stepIndex);
-        _musouArcView.Add(origin, gForward, gLeft, shape, radius, MusouSlashArcRules.Width(heavy, stepIndex), direction, colour, style.Brightness, attacker, model);
+        _musouArcView.Add(origin, gForward, gLeft, shape, radius, MusouSlashArcRules.Width(heavy, stepIndex), direction, colour, style.Brightness, attacker, model, own: attacker == _client.PlayerId);
         _musouArcs++;
         if (LogMusouArcs)
             GD.Print($"MUSOU ARC t {_connectedFor:F3} player {attacker} step {stepIndex}{(heavy ? " heavy" : "")} {look ?? "-"}: reach {shape.Reach:F2} m, span {shape.SpanDegrees:F0} deg, " +
