@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2851 spec table rows: **2125 tagged**, 502 not tagged (read from data with high confidence), 224 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 637 rows of the changes document.
+Scanned 2863 spec table rows: **2132 tagged**, 507 not tagged (read from data with high confidence), 224 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 637 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,18 +50,18 @@ Scanned 2851 spec table rows: **2125 tagged**, 502 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 22 | 13 | 13 | 12 | 7 |
-| Core simulation (provisional values) | 587 | 561 | 412 | 163 | 1 |
+| Core simulation (provisional values) | 594 | 565 | 418 | 163 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 235 | 224 | 126 | 63 | 0 |
-| **All areas** | **2125** | 1876 | 1576 | 676 | 38 |
+| **All areas** | **2132** | 1880 | 1582 | 676 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1192 |
-| confidence: low | 759 |
-| confidence: medium | 688 |
+| kind: ours | 1196 |
+| confidence: low | 761 |
+| confidence: medium | 692 |
 | notes: ours | 387 |
 | kind: interpretation | 363 |
 | notes: estimate | 176 |
@@ -2198,7 +2198,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (587)
+### Core simulation (provisional values) (594)
 
 *Spec section: Provisional values in use*
 
@@ -3126,6 +3126,18 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-ABD84A62` | Musou weight: blast jolts thinned | a detonation shakes and jolts the own camera only within **12** m (was 25), and in each **0.25** s window only its strongest: a window opens at a kept jolt, and a later blast in it jolts too only when at least **1** m closer than the closest kept so far; the… (m, s) | notes: ours | owner 2026-11-10 ("Thin the jolts"; the plan with the own-grenade exception); the 1 m margin and the own-grenade test ours | Musou weight: blast jolts thinned: compare with SM1 by measuring on a flat spot of the same map. Ours: a detonation shakes and jolts the own camera only within 12 m (was… | ☐ |
 | `R-CB5D9334` | Musou weight: roll end dip | the own roll's end dips the camera **0.4** degrees (a small landing's) (degrees) | kind: ours; confidence: low | ours | Musou weight: roll end dip: compare with SM1 with an overlaid screenshot taken from the same position. Ours: the own roll's end dips the camera 0.4 degrees (a small landing's). | ☐ |
 | `R-B86E5FB3` | Musou weight: contact sounds | a knee, hand, pelvis or shoulder meeting the ground at strength **0.35** or more plays the class's heavy footstep command (`EVT_Left_Foot_Rush` / `EVT_Right_Foot_Rush`, the surface switch under it, the owner's footstep level); a jump-pack dash's landing the… (- , s, m) | kind: ours; confidence: low | the plan (install sounds only) | Musou weight: contact sounds: compare with SM1 by feel or video. Ours: a knee, hand, pelvis or shoulder meeting the ground at strength 0.35… | ☐ |
+
+*Spec section: Musou's arsenal: W1, the autocannon (docs/new-weapons-design.md section 4)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-784C2EA3` | Autocannon: trigger | full auto (the file fires a semi-auto 2-round burst 0.2 s apart; the campaign gun fires full auto; the owner D5/Q9: full auto) | confidence: medium | campaign `auto_cannon` | Autocannon: trigger: compare with SM1 by feel or video. Ours: full auto (the file fires a semi-auto 2-round burst 0.2 s apart; the… | ☐ |
+| `R-3959E0A1` | Autocannon: clip | 400, no reserve (the campaign gun's; Musou's ammunition is endless anyway); reload R does nothing (rounds) | confidence: medium | campaign `auto_cannon` | Autocannon: clip: compare with SM1 by feel or video. Ours: 400, no reserve (the campaign gun's; Musou's ammunition is endless… | ☐ |
+| `R-F74732A8` | Autocannon: handling | the heavy bolter's raise delay (0.333 s), always-ready stance, spread and reload time; no brace; the file's own scatter sets are not read | kind: ours; confidence: low | design section 4 | Autocannon: handling: compare with SM1 by feel or video. Ours: the heavy bolter's raise delay (0.333 s), always-ready stance, spread… | ☐ |
+| `R-7625389D` | Autocannon: pierce | through **5** Orks and the sixth that stops it (`TfwCombatRules.Pierced` names `auto_cannon`) (enemies) | kind: ours; confidence: medium | Musou's existing rule | Autocannon: pierce: compare with SM1 by shooting through a crate or a line of players and counting who is hit. Ours: through 5 Orks and the sixth that stops it (TfwCombatRules.Pierced… | ☐ |
+| `R-A42BF5F7` | Autocannon: blast | a blast at the point **every Ork a round strikes** (the bolt blasts' path), radius **2.5 m** (twice the bolt blast's 1.25 m), full to 1.0 m, 30 % at the edge, **15** at the centre; the campaign's 4 m hit-scan splash is dropped (m, damage) | kind: ours; confidence: low | owner D12 (the size); the damage and the shape are the bolt blast's | Autocannon: blast: compare with SM1 by measuring on a flat spot of the same map. Ours: a blast at the point every Ork a round strikes (the bolt blasts'… | ☐ |
+| `R-B4298678` | Autocannon: animations | the heavy bolter's (walk, sprint, hop, fall, hip fire, flinch: the campaign's carry graph uses the same navigation graph); the model is the install's `turret_aa` (1,883 triangles), held and stowed as the heavy bolter's | confidence: medium | design section 4 | Autocannon: animations: compare with SM1 by feel or video. Ours: the heavy bolter's (walk, sprint, hop, fall, hip fire, flinch: the… | ☐ |
+| `R-EF126E40` | Autocannon: customizer config | under a Musou content profile the customizer plans a Join with the configuration the match tuning builds for that profile (it lists the autocannon), read once on a worker; PLAY and JOIN wait for it | kind: ours | design section 11 | Autocannon: customizer config: compare with SM1 by feel or video. Ours: under a Musou content profile the customizer plans a Join with the… | ☐ |
 
 ### General game design (7)
 

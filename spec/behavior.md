@@ -5238,7 +5238,22 @@ The owner approved docs/new-weapons-design.md as written (2026-11-10). W0 adds t
 
 ### Musou's arsenal: W1, the autocannon (docs/new-weapons-design.md section 4)
 
-Nothing yet: W1 adds its rows here.
+The Musou Devastator's autocannon (the owner, 2026-11-10: "the autocannon should fire slower but do more damage than the heavy bolter and have 2x the HE explosion size of the bolter and bolt pistol"; a loadout primary, no tripod, no brace). Read from the install's Chaos file `csm_mp_exotic_auto_cannon` (`WeaponTuning.Read`; no class names it, the multiplayer autocannon was cut) and built as the Space Marines' twin `sm_mp_exotic_auto_cannon` in code, never on disk (`Arsenal.Twin`).
+
+| Parameter | Value | Units | Timing basis | Where | Source | Kind | Confidence |
+|---|---|---|---|---|---|---|---|
+| Autocannon: availability | appended to the primary list of every Space Marine class that lists the heavy bolter (the Devastator), as the last choice, in Musou's configuration only; Classic PvP, the faithful and extended profiles, the Chaos Havoc and the Tactical never list it; the customizer row is "Autocannon" (the install's text 104314; the description is our wording of the file's 104315) | - | per loadout | `Arsenal.WithAutocannon`, `Arsenal.AutocannonItems` | owner D10 | owner's value | high |
+| Autocannon: trigger | full auto (the file fires a semi-auto 2-round burst 0.2 s apart; the campaign gun fires full auto; the owner D5/Q9: full auto) | - | while held | `Arsenal.Twin` | campaign `auto_cannon` | data | medium |
+| Autocannon: rate | one round every **0.4 s** (2.5 a second), the file's shot cooldown used between single rounds; the heavy bolter 0.233 s | s | per round | `AutocannonRules.SecondsPerRound` | file `csm_mp_exotic_auto_cannon` | data | high |
+| Autocannon: damage | **50** a round, head and body x1, shield x1 (the heavy bolter 35); fall-off x0.75 from 45 to 70 m; 150 m | damage, m | per round | the file's `hit_sim` | file | data | high |
+| Autocannon: heat | 1 a round; overheat at 15 (so **15 rounds, 6 s of fire**); high at 9; recovery at 1; cools 4.5 a second after 0.41 s without a shot, with no extra delay after an overheat (3.3 s to cool from full) | heat | per round | the file's heat | file | data | high |
+| Autocannon: clip | 400, no reserve (the campaign gun's; Musou's ammunition is endless anyway); reload R does nothing | rounds | per life | `AutocannonRules.Clip` | campaign `auto_cannon` | data | medium |
+| Autocannon: handling | the heavy bolter's raise delay (0.333 s), always-ready stance, spread and reload time; no brace; the file's own scatter sets are not read | - | - | `Arsenal.Twin` | design section 4 | ours | low |
+| Autocannon: pierce | through **5** Orks and the sixth that stops it (`TfwCombatRules.Pierced` names `auto_cannon`) | enemies | per round | `TfwCombatRules.Pierced` | Musou's existing rule | ours | medium |
+| Autocannon: blast | a blast at the point **every Ork a round strikes** (the bolt blasts' path), radius **2.5 m** (twice the bolt blast's 1.25 m), full to 1.0 m, 30 % at the edge, **15** at the centre; the campaign's 4 m hit-scan splash is dropped | m, damage | per Ork struck | `AutocannonRules.Blast`, `World.ArsenalShotBlast` | owner D12 (the size); the damage and the shape are the bolt blast's | owner's value (size), ours (damage, shape) | medium (size), low (damage) |
+| Autocannon: blast rules | the bolt blast's: a kill is torn apart where he stands (`MusouDeathKind.BoltBlast`, never thrown); a hurt fodder Ork falls where he stands; any other staggers with no knockback; enemies only; the client plays the original frag detonation at the record's radius | - | per blast | `TfwCombatRules.BoltBlastKnocksDown`, tag 11 BoltBlast | owner 2026-11-08 | owner's value | high |
+| Autocannon: animations | the heavy bolter's (walk, sprint, hop, fall, hip fire, flinch: the campaign's carry graph uses the same navigation graph); the model is the install's `turret_aa` (1,883 triangles), held and stowed as the heavy bolter's | - | - | `AnimationAlias`, `WeaponRig.AutocannonAttachment` | design section 4 | data | medium |
+| Autocannon: customizer config | under a Musou content profile the customizer plans a Join with the configuration the match tuning builds for that profile (it lists the autocannon), read once on a worker; PLAY and JOIN wait for it | - | per profile | `CustomizerServices.ExtrasConfig` | design section 11 | ours | high |
 
 ### Musou's arsenal: W2, the lightning claw (docs/new-weapons-design.md section 5)
 
