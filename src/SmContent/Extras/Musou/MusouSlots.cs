@@ -41,6 +41,12 @@ public static class MusouSlots
     /// <summary>The loadout set of Musou's Standard Marines (<see cref="CustomizationProfile.Sets"/>).</summary>
     public const string SetName = "musou";
 
+    /// <summary>
+    /// The catalogue Musou's set (<see cref="SetName"/>) is read and repaired with: Musou's (<see cref="CustomizationCatalog.For"/>: the arsenal's items, docs/new-weapons-design.md), so a Musou slot
+    /// keeps an item only Musou offers; any other set's is <paramref name="catalog"/>.
+    /// </summary>
+    public static CustomizationCatalog SetCatalog(string set, CustomizationCatalog catalog) => set == SetName ? catalog.For(ContentExtras.Musou) : catalog;
+
     /// <summary>The profile extras entry of Musou's own data (<see cref="CustomizationProfile.Extras"/>): <c>{ "librarian": { ... } }</c>.</summary>
     public const string ExtrasKey = "musou";
 

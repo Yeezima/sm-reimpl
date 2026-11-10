@@ -315,7 +315,7 @@ public sealed class WeaponAsset
 /// ranged weapon away while it is out.
 /// </para>
 /// </summary>
-public sealed class WeaponRig
+public sealed partial class WeaponRig
 {
     // Roles are SmContent.HandRole; Grenade (Ork O6) is a thrown item held in hand only while SetGrenadeHeld says so (hidden otherwise), not a ranged weapon (no muzzle or magazine queries).
 
@@ -355,6 +355,12 @@ public sealed class WeaponRig
     WeaponSlot _lastPrimary = WeaponSlot.Ranged;
 
     public bool AlwaysMelee { get; private set; }
+
+    /// <summary>
+    /// The content profile of the character's match or of the customizer page (set by the view before <see cref="Configure"/>): added content's own weapon models (Musou's arsenal,
+    /// <see cref="ExtrasWeaponModel"/>) are drawn only under their content. None (the default): only the data's models.
+    /// </summary>
+    public ContentExtras Content { get; set; }
     /// <summary>The thrown item's wargear the rig was configured with (Ork O6), or null.</summary>
     public string? GrenadeWargear { get; private set; }
     bool _grenadeHeld;
@@ -460,7 +466,15 @@ public sealed class WeaponRig
 
     void AddItem(Role role, string? wargear)
     {
-        if (wargear is null || _assets.Catalogue.Held(wargear) is not { } attachment || _assets.Get(attachment) is not { Mesh: { } mesh } asset) return;
+        if (wargear is null) return;
+        var attachment = _assets.Catalogue.Held(wargear);
+        WeaponAsset? asset = null;
+        bool alwaysHeld = false;
+        if (attachment is null) ExtrasWeaponModel(role, wargear, _assets, ref attachment, ref asset, ref alwaysHeld);   // EXTRAS-HOOK added content (Musou's arsenal): a weapon of its own
+        if (attachment is null) return;
+        asset ??= _assets.Get(attachment);
+        if (asset is not { Mesh: { } mesh }) return;
+        if (alwaysHeld && role == Role.Melee) AlwaysMelee = true;   // Musou's lightning claw: never put away (the jump-pack classes' rule, for this one weapon)
         var item = new Item { Role = role, Attachment = attachment, Asset = asset };
         if (attachment.Wield is { Bone: not null } wield) item.Wield = MarineAssets.ToGodot(asset.Model.RootToBone(wield));
         item.StowMount = WeaponStowSpots.For(attachment);
@@ -481,6 +495,12 @@ public sealed class WeaponRig
         item.Node.AddChild(item.Holder);
         _items.Add(item);
     }
+
+    /// <summary>
+    /// Added content: the model of a weapon of its own (<paramref name="wargear"/>, which the data's catalogue has no held model for): its attachment (where it hangs, another package's model)
+    /// and, for a model built in code, its asset; <paramref name="alwaysHeld"/> keeps a melee weapon in hand at all times. Nothing without added content.
+    /// </summary>
+    partial void ExtrasWeaponModel(SmContent.HandRole role, string wargear, WeaponAssets assets, ref WeaponAttachment? attachment, ref WeaponAsset? asset, ref bool alwaysHeld);
 
     void Clear()
     {
@@ -757,7 +777,7 @@ public sealed class WeaponRig
     /// <summary>A rig for another character of the same skeleton (the corpse) with the same loadout and the weapons where they are now.</summary>
     public WeaponRig CloneTo(Skeleton3D skeleton)
     {
-        var copy = new WeaponRig(skeleton, _assets);
+        var copy = new WeaponRig(skeleton, _assets) { Content = Content };
         copy.Configure(_key, Names.Primary, Names.Pistol, Names.Melee, Names.Worn, AlwaysMelee, GrenadeWargear, _second);
         copy._grenadeHeld = _grenadeHeld;
         copy.SetPackPaint(_packPaint);   // the corpse keeps the pack's paint

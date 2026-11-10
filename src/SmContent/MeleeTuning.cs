@@ -26,6 +26,12 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
     /// </summary>
     public sealed record WeaponMap(string Wargear, string Graph, string[] Sequencers, string[] Abilities)
     {
+        /// <summary>
+        /// Musou's arsenal (W0; docs/new-weapons-design.md section 8, hook 6): every strike's clip plays this many times faster (the claw 1.25 on the sword's map, the spear 0.85 on the hammer's),
+        /// so each step's duration, hit and windows are the graph's divided by it; the client poses a strike's clip at the same rate (<c>NetworkView.MeleeClipSpeed</c>). 1 for every map of the
+        /// data, whose reads stay byte-identical; only added content's maps (<c>MpClasses.ExtrasMeleeMap</c>) set it. Applied over the graph's own speed and a perk's (Fast Stomp).
+        /// </summary>
+        public float ClipSpeed { get; init; } = 1f;
         public string[] HeavySequencers { get; init; } = [];
         public string[] HeavyAbilities { get; init; } = [];
         /// <summary>The branches after which the attacker moves again (the earliest present); the Ork's combos have <c>BRANCH_Run</c>.</summary>
@@ -472,6 +478,7 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
             if (speedUpgrades?.FirstOrDefault(u => u.Graph.Equals(weapon.Graph, StringComparison.OrdinalIgnoreCase) && u.Animation.Equals(animation, StringComparison.OrdinalIgnoreCase)
                     && UpgradeScope.Current.Contains(u.Upgrade, StringComparer.OrdinalIgnoreCase)) is { } faster && float.IsFinite(faster.Speed) && faster.Speed > 0f)
                 speed = faster.Speed;
+            if (weapon.ClipSpeed != 1f && float.IsFinite(weapon.ClipSpeed) && weapon.ClipSpeed > 0f) speed *= weapon.ClipSpeed;   // Musou's arsenal: an added map's clip speed (1 for the data's: untouched)
             float duration = animationLength(animation) / speed;
             if (!float.IsFinite(duration) || duration <= 0f) throw new InvalidDataException($"{seq.Name}: animation '{animation}' has no usable length.");
             if (seq.Animations.Select(animationLength).Distinct().Count() > 1) notes.Add($"{seq.Name}: blended clips differ in length; using {animation}");

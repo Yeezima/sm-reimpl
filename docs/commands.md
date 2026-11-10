@@ -180,3 +180,19 @@ client.cmd ... --old-armoury-racks :: fix/manufactorum-fluorescent (owner's requ
                                      ::  Musou performance pass aids (musou/perf-pass): powershell tools\musou-perf.ps1 -Scene clash200|clash500|clash1000|burst|pvp [-Tag t] [-Seconds s] [-ClientArgs "..."] (one 127.0.0.1 server and one windowed client, same scene, camera and workload each time; logs and summary under %LOCALAPPDATA%\sm-reimpl\perf\musou-perf\<tag>\<scene>); server SM_TICK_STATS now also prints TICKSECTIONS (named sections of the tick, mean and worst ms), TICKBYTES (KB/s per client by message kind and envelope tag) and a TICKSPIKE line for a tick of 25 ms or more; client --perf-ab cells|grime|grimefold|fxcull|fsr|fsr-native (with --perf-probe: one change on and off every 5 s window, a summary per state), --fsr off|native|quality|balanced|performance (FSR 2, wins over the Options menu), --fx-cull (effects wholly off-screen not evaluated: a trial, off by default), --musou-crowd-one-batch (one far crowd batch per look), --army-far-bodies (far and unseen deaths keep their bodies), --ashfall-grime-folded (the grime folded into the kit materials, the Graphics option FAST); server SM_MUSOU_OLD_CORE_BUDGET=1 (the core messages not counted in the Musou send budget); SM_ARMY_BALANCE=1 [SM_ARMY_BALANCE_STRENGTHS=a,b] dotnet test tests/SmNet.Tests -c Release --filter NearFarBalanceTests (near v far trials)
 ::  Musou Mode, the Librarian (second pass): `godot.cmd --windowed -- --connect 127.0.0.1:<p> --content musou --no-sound --librarian-demo <dir>` (a scripted player takes the Librarian in the Stormbird, swings the sword, goes to the Firing Range and casts lightning, Warp Pull and Shockwave with the real buttons, saving frame sequences into <dir>; LIBDEMO lines, exit 0 or 1); `--tfw-librarian` (the client takes the Librarian once in the Stormbird, the Esc menu row's path); a co-op `--bot` playing `--class librarian` holds Fire at Orks and casts Pull and Shockwave on a 12 s cycle
 ::  Musou Mode, the Librarian (third pass, librarian-lightning 2026-11-10): `godot.cmd --windowed [--write-movie x.avi --fixed-fps 27] -- --connect 127.0.0.1:<p> --content musou --librarian-clip <dir> [--librarian-cam player|side|front] [--librarian-cast-log]` (a scripted player takes the Librarian, goes to the Firing Range and, at a crowd: a lightning tap, a 3 s hold, a Shockwave, a 2 s hold; stills into <dir>; LIBCLIP lines with wall time and frame, LIBLAT lines: the own bolt and the server's links after the press, and the three frames after it; `--librarian-clip-no-stills` takes no stills (each costs about 130 ms of frame time: measure latency with it); on the server `SM_LIBRARIAN_LOG=1` prints a line per cast command; `--librarian-cast-log`: LIBCAST lines with the cast pose's shoulders, elbows, wrists, bend and palm direction twice a second); restore switches `--old-librarian-lightning` (the pass 2 bolts, no foreseen chain), `--old-librarian-cast` (no cast pose), `--no-librarian-predict` (the new bolts on the server's links only; the cast command still goes out), `--no-librarian-early` (no cast command: the input path alone), `--old-librarian-sound` (the install's events alone, no decoded or synthesized layers); on the server and the clients alike the environment variable `SM_LIBRARIAN_OLD=shockwave,pull,send,early` (or `all`: the pass 2 Shockwave, the Warp Pull back without equipment (config hash: both sides), tag 16 at 10 Hz with no sends at once, the cast command refused). Recording at 1280x720 keeps up with a live server only near 27 fps: a slower capture fast-forwards the server's Orks
+
+## Musou's arsenal (docs/new-weapons-design.md; Musou Mode only)
+
+Each milestone lists its own test aids under its own heading. W0 (the base) adds none.
+
+### W1: the autocannon
+None yet.
+
+### W2: the lightning claw
+None yet.
+
+### W3: the power spear
+None yet.
+
+### W4: the Remote Detonators
+None yet.

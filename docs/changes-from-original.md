@@ -113,6 +113,22 @@ and gore are listed in their own design documents for now (the rest of section 0
 | Musou melee feel: red / blue slash, own-hit shake, wider cleave (musou/melee-feel; `TfwRules.Version` 44) | the owner's request (2026-11-08): "bring back the slashing visual effect... red for chain weapons and the combat knife, blue for power weapons. add a bit of screen shake. increase the aoe cleave radius of all melee weapons"; the shapes, amounts and the 1.5x ours (no number given), low confidence | a glowing slash across each enemy hit by a player's or retainer's melee, whatever the gore setting (it had vanished when the original Ork blood replaced the dark gore); red for chain weapons and the knife, blue for power weapons; the own melee hit shakes the camera 0.008 rad (0.014 most a swing); the cleave's reach x1.5 for every melee weapon in the war. Musou Mode only; Classic PvP untouched | spec "Musou cleave radius", "Melee slash, red / blue", "Melee hit shake, own" |
 | Musou combat feel: contact at contact (claude/combat-feel, 2026-11-09) | the owner's combat-feel brief and approvals (2026-11-09); every number ours, low confidence | the own power sword strike's slash, flash, shake and hit sounds and the own bolt pistol's impact and hit sound play at the predicted contact instead of the server's report about 186 ms later (no second copy from the report; no kill, death or gore predicted); the power sword's own faster, thinner, brighter stroke; own gun hit sounds one a shot, 10 a second; Musou's camera shakes no longer stack (strongest + 25 %, cap 0.04 rad); the rank and file are drawn pushed back from blows; new Options rows Camera shake and Screen flashes (all modes, default 100 % = as before). Classic PvP behaviour unchanged at the defaults | spec "Musou combat feel: contact at contact" |
 
+### Musou's arsenal (`Musou`; docs/new-weapons-design.md, approved by the owner 2026-11-10)
+
+Four items SM1's multiplayer never offered, Musou Mode only: the autocannon, the lightning claw, the power spear and the Remote Detonators. W0 (claude/arsenal-w0) adds only the base: the registry, the hooks and the Musou call sites, with every entry a stub, so nothing changes yet (spec "Musou's arsenal: the base"). Each milestone adds its rows under its own heading.
+
+#### W1: the autocannon
+Nothing yet.
+
+#### W2: the lightning claw
+Nothing yet.
+
+#### W3: the power spear
+Nothing yet.
+
+#### W4: the Remote Detonators
+Nothing yet.
+
 ## 1. Deliberate changes (owner's decisions)
 
 The original's behaviour is known (or believed known) and we chose to differ.

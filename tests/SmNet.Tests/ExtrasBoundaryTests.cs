@@ -101,6 +101,43 @@ public class ExtrasBoundaryTests
         ("client/Customizer/CustomizerServices.cs", "ExtrasProfileView"),   // CustomizerServices.ExtrasProfileView(ref IProfileView?), the profile view: Musou's own loadout slots (musou/loadout-slots)
         ("client/Customizer/PreviewStage.cs", "ExtrasDress"),       // PreviewStage.ExtrasDress(ref Func<ResolvedAppearance, ResolvedAppearance>?, ref string), in CreateModel: the Librarian's armour
         ("client/Customizer/PreviewStage.cs", "ExtrasWeapons"),     // PreviewStage.ExtrasWeapons(ref string?, ref string?, ref string?, ref bool), in ConfigureWeapons: his force sword in hand, no gun
+        // W0, Musou's arsenal (docs/new-weapons-design.md section 8: the autocannon, lightning claw, power spear and Remote Detonators, Musou only); each does nothing without Musou's content
+        // (the Remote Detonators' sm_mp_eq_demolition_charge is an install name, so the name alone never decides).
+        ("src/SmContent/MpClasses.cs", "ExtrasMeleeMap"),           // static MpClasses.ExtrasMeleeMap(string, ref WeaponMap?), in MeleeMapFor when no data map matches: an added melee weapon on a data weapon's map
+        ("src/SmSim/Loadout.cs", "ExtrasWieldsHammer"),             // static Loadouts.ExtrasWieldsHammer(SimConfig, string, ref bool), in WieldsHammer when no data hammer matches: the spear takes the hammer's rules
+        ("src/SmContent/PerkCatalog.cs", "ExtrasItems"),            // PerkCatalog.ExtrasItems(ContentExtras, ref PerkCatalog), in For: the customizer rows of a content profile (Musou only)
+        ("client/WeaponRig.cs", "ExtrasWeaponModel"),               // WeaponRig.ExtrasWeaponModel(HandRole, string, WeaponAssets, ref attachment, ref asset, ref bool), in AddItem when the catalogue has no held model
+        ("client/NetworkView.Grenades.cs", "ExtrasThrownVisual"),   // NetworkView.ExtrasThrownVisual(ThrownSpec, ref ProjectileVisual?), in GrenadeModel: a thrown item drawn with another package's model
+        ("src/SmContent/AnimationAlias.cs", "ExtrasAnimationAlias"),   // static AnimationAlias.ExtrasAnimationAlias(ref string), in Of: the data weapon an added one borrows its animations from
+        ("src/SmContent/Customization/ProfileView.cs", "ExtrasSetCatalog"),   // static ProfileViews.ExtrasSetCatalog(string, ref CustomizationCatalog), in SetCatalog: Musou's set is read with Musou's catalogue
+        ("client/NetworkView.MeleeLock.cs", "ExtrasMeleeClip"),   // NetworkView.ExtrasMeleeClip(string, bool, int, ref string?, ref float), in OwnStrikeClip: the animation seam, a strike's custom clip (the claw's and the spear's, once approved)
+    ];
+
+    /// <summary>
+    /// W0, Musou's arsenal (docs/new-weapons-design.md section 8): the call sites W1 to W4 rely on, pinned so a change that drops one fails here (file, text of a non-comment line). The Musou ones
+    /// call the no-op partial methods of <c>src/SmSim/Extras/Musou/Arsenal/World.Arsenal.cs</c>; the core ones read the clip-speed factor, the animation alias and the content's catalogue.
+    /// </summary>
+    static readonly (string File, string Call)[] ArsenalCallSites =
+    [
+        ("src/SmContent/Extras/GameplayTuning.Extras.cs", "Arsenal.Append("),
+        ("src/SmSim/Extras/Musou/World.MusouCombat.cs", "ArsenalCleave("),
+        ("src/SmSim/Extras/Musou/World.MusouCombat.cs", "ArsenalProjectileMeets("),
+        ("src/SmSim/Extras/Musou/Campaign/World.TfwMeks.cs", "ArsenalProjectileMeets("),
+        ("src/SmSim/Extras/Musou/Campaign/World.TfwMelee.cs", "ArsenalShotBlast("),
+        ("src/SmSim/Extras/Musou/World.Musou.cs", "ArsenalJump("),
+        ("src/SmSim/Extras/Musou/World.Musou.cs", "ArsenalStep("),
+        ("src/SmSim/Extras/Musou/Campaign/World.TfwSupply.cs", "ArsenalRefillSeconds("),
+        ("src/SmContent/MeleeTuning.cs", "speed *= weapon.ClipSpeed"),
+        ("client/NetworkView.MeleeLock.cs", "time * MeleeClipSpeed(s)"),
+        ("client/NetworkView.MeleeLock.cs", "OwnStrikeClip(s, time)"),
+        ("client/NetworkView.cs", "AnimationAlias.Of(combo.Wargear)"),
+        ("client/NetworkView.Reactions.cs", "AnimationAlias.Of(combo.Wargear)"),
+        ("src/SmContent/HipFireAnimations.cs", "AnimationAlias.Of("),
+        ("src/SmContent/LocomotionAnimations.cs", "AnimationAlias.Of("),
+        ("src/SmContent/ReloadAnimations.cs", "AnimationAlias.Of("),
+        ("src/SmContent/UpperBodyAnimations.cs", "AnimationAlias.Of("),
+        ("client/NetworkView.MeleeFlow.cs", "AnimationAlias.Of("),
+        ("client/Customizer/CustomizerServices.cs", "data.For(content)"),
     ];
 
     /// <summary>
@@ -214,6 +251,20 @@ public class ExtrasBoundaryTests
             .Where(x => !IsComment(x.Text) && !HookDeclaration.IsMatch(x.Text) && HookCall.IsMatch(x.Text) && !x.Text.Contains("// EXTRAS-HOOK", StringComparison.Ordinal))
             .Select(x => $"{x.Path}({x.Line}): {x.Text.Trim()}").ToList();
         Assert.True(unmarked.Count == 0, "Extras* hook calls without the // EXTRAS-HOOK marker:\n" + string.Join("\n", unmarked));
+    }
+
+    [Fact]
+    public void The_arsenals_call_sites_are_in_place()
+    {
+        var sources = Sources().ToDictionary(s => s.Path, s => s.Lines);
+        var missing = ArsenalCallSites.Where(c => !sources.TryGetValue(c.File, out var lines) || !lines.Any(l => !IsComment(l) && l.Contains(c.Call, StringComparison.Ordinal)))
+            .Select(c => $"{c.File}: {c.Call}").ToList();
+        Assert.True(missing.Count == 0, "the arsenal's call sites are gone (W1 to W4 rely on them; update ArsenalCallSites only with the design):\n" + string.Join("\n", missing));
+        // Every no-op partial of World.Arsenal.cs is called from one of the pinned sites.
+        var declared = sources["src/SmSim/Extras/Musou/Arsenal/World.Arsenal.cs"].Select(l => System.Text.RegularExpressions.Regex.Match(l, @"^\s*partial\s+void\s+(Arsenal\w+)\s*\("))
+            .Where(m => m.Success).Select(m => m.Groups[1].Value + "(").ToList();
+        Assert.Equal(6, declared.Count);
+        foreach (var call in declared) Assert.Contains(ArsenalCallSites, c => c.Call == call);
     }
 
     [Fact]
