@@ -44,16 +44,23 @@ public sealed class LibrarianPsyker
     public int LastStruck { get; private set; }
 
     readonly List<LibrarianLink> _links = new();
-    readonly ushort[] _near = new ushort[96];
-    readonly HashSet<ushort> _struck = new();
     readonly ushort[] _scan = new ushort[MusouSim.Capacity];   // a 60 m Shockwave may take the whole pool; no larger than Query's scratch (MusouSim._queryDistance), or Query allocates
+    // The chain lightning's buffers (musou-balance 2026-11-11: the chain is LibrarianChain's, on the caster's sight or the pool now): no allocation per tick.
+    readonly LibrarianCandidate[] _present = new LibrarianCandidate[MusouSim.Capacity];
+    readonly bool[] _chained = new bool[MusouSim.Capacity];
+    readonly int[] _chain = new int[LibrarianRules.MaxTargets];
+    readonly List<ushort> _chainIds = new(LibrarianRules.MaxTargets);
+    readonly LibrarianChain.Scratch _chainScratch = new();
+
+    /// <summary>The enemies of this tick's chain lightning in chain order (the primary first; empty when not casting or nothing was in the sights), alive now or not: the tests and the logs.</summary>
+    public IReadOnlyList<ushort> Chained => _chainIds;
     bool _prevShockwave, _prevPull;
 
     /// <summary>A new life (or a leave): everything back to rest.</summary>
     public void Reset()
     {
         Stress = 0f; Locked = false; SinceCast = 0f; ShockwaveCooldown = PullCooldown = 0f;
-        Casting = false; _links.Clear(); LastStruck = 0; _prevShockwave = _prevPull = false;
+        Casting = false; _links.Clear(); _chainIds.Clear(); LastStruck = 0; _prevShockwave = _prevPull = false;
     }
 
     /// <summary>A melee swing struck at least one enemy: stress falls by <see cref="LibrarianRules.MeleeRelief"/> (an unlock at 0 follows).</summary>
@@ -66,12 +73,15 @@ public sealed class LibrarianPsyker
     /// <summary>
     /// One tick: <paramref name="dt"/> seconds, the presses (a Shockwave acts on the press edge), the damage credited to <paramref name="caster"/>. <paramref name="blocked"/> says whether level geometry lies between two
     /// points (null: nothing blocks). The order of a tick: the cooldown runs, the powers cast (Shockwave, lightning), stress rises or cools, the lock sets or clears.
+    /// <paramref name="sight"/>: the enemies as the caster's client drew them (the World's rewind to his input's view tick, <c>World.Librarian.cs</c>); the chain lightning is picked on them and strikes each
+    /// of them alive now. Null: on the pool as it is now.
     /// </summary>
-    public void Step(MusouSim sim, in LibrarianCaster caster, LibrarianPress press, float dt, Func<Vector3, Vector3, bool>? blocked = null, LibrarianVariant variant = default)
+    public void Step(MusouSim sim, in LibrarianCaster caster, LibrarianPress press, float dt, Func<Vector3, Vector3, bool>? blocked = null, LibrarianVariant variant = default, LibrarianSight? sight = null)
     {
         ShockwaveCooldown = MathF.Max(0f, ShockwaveCooldown - dt);
         PullCooldown = MathF.Max(0f, PullCooldown - dt);
         _links.Clear();
+        _chainIds.Clear();
         Casting = false;
         LastStruck = 0;
         bool shockEdge = press.Shockwave && !_prevShockwave, pullEdge = variant.WarpPull && press.Pull && !_prevPull;
@@ -96,7 +106,7 @@ public sealed class LibrarianPsyker
         }
         if (!Locked && press.Lightning && Stress < LibrarianRules.StressMax - LockEpsilon)
         {
-            Lightning(sim, caster, dt, blocked);
+            Lightning(sim, caster, dt, blocked, sight);
             Casting = true;
             Stress += LibrarianRules.LightningStressPerSecond * dt;
             cast = true;
@@ -114,64 +124,37 @@ public sealed class LibrarianPsyker
 
     // ------------------------------------------------------------------ chain lightning
 
-    void Lightning(MusouSim sim, in LibrarianCaster c, float dt, Func<Vector3, Vector3, bool>? blocked)
+    /// <summary>
+    /// The chain (<see cref="LibrarianChain"/>, the client's foresight's own rule) on <paramref name="sight"/>, the enemies as the caster's client drew them, or on the pool now; then each enemy of the chain that is
+    /// alive now takes its share (the first <see cref="LibrarianRules.PrimaryDps"/> a second, each jump <see cref="LibrarianRules.JumpFalloff"/> of the one before). One the caster saw alive that has died since
+    /// stays a link of the chain (the jump goes on from it, as drawn) and takes nothing. The links are where the caster saw them.
+    /// </summary>
+    void Lightning(MusouSim sim, in LibrarianCaster c, float dt, Func<Vector3, Vector3, bool>? blocked, LibrarianSight? sight)
     {
-        var aim = Aim(c.Yaw, c.Pitch);
-        _struck.Clear();
-        int primary = PickPrimary(sim, c, aim, blocked);
-        if (primary < 0)
-        {
-            _links.Add(new LibrarianLink(Hand(c), c.Eye + aim * LibrarianRules.LightningRange));   // nothing in the sights: the bolt crackles out and ends
-            return;
-        }
-        ushort id = (ushort)primary;
-        var from = Hand(c);
+        ReadOnlySpan<LibrarianCandidate> candidates = sight is not null ? sight.Candidates : Present(sim);
+        int count = LibrarianChain.Run(c.Feet, c.Eye, c.Yaw, c.Pitch, candidates, blocked, _links, _chained, _chain, _chainScratch);   // nothing in the sights: the one link that crackles out
         float damage = LibrarianRules.PrimaryDps * dt;
-        for (int k = 0; k < LibrarianRules.MaxTargets; k++)
+        for (int k = 0; k < count; k++) _chainIds.Add(candidates[_chain[k]].Id);
+        for (int k = 0; k < count; k++, damage *= LibrarianRules.JumpFalloff)
         {
-            if (!sim.TryGet(id, out var e)) break;
-            var chest = MusouSim.Chest(e.Position, sim.Body(e.Type).Height);
-            if (_links.Count < LibrarianRules.MaxDrawnLinks) _links.Add(new LibrarianLink(from, chest));
-            _struck.Add(id);
-            var push = new Vector3(Flat(e.Position - c.Feet), 0.2f);
-            sim.Damage(id, c.PlayerId, damage, push, out _, marker: 1, cause: MusouDeathKind.Blast);   // a blast so the Weirdboy's shield wears down (a shot would be stopped whole)
-            LastStruck++;
-            damage *= LibrarianRules.JumpFalloff;
-            from = chest;
-            int next = NextJump(sim, e.Position);
-            if (next < 0) break;
-            id = (ushort)next;
+            ushort id = _chainIds[k];
+            if (!sim.AliveNow(id) || (sight is not null && !sight.Same(_chain[k], sim))) continue;   // died since he saw it (or its slot is another enemy's now): a link, no damage
+            var push = new Vector3(Flat(sim.FeetNow(id) - c.Feet), 0.2f);
+            if (sim.Damage(id, c.PlayerId, damage, push, out _, marker: 1, cause: MusouDeathKind.Blast)) LastStruck++;   // a blast so the Weirdboy's shield wears down (a shot would be stopped whole)
         }
     }
 
-    /// <summary>The enemy best lined up with the aim within the aim cone and range, in sight; -1 for none.</summary>
-    int PickPrimary(MusouSim sim, in LibrarianCaster c, Vector3 aim, Func<Vector3, Vector3, bool>? blocked)
+    /// <summary>Every enemy alive in the pool now, as chain candidates (into the psyker's own buffer).</summary>
+    ReadOnlySpan<LibrarianCandidate> Present(MusouSim sim)
     {
-        int n = sim.Query(c.Feet, LibrarianRules.LightningRange, _scan, 8f);
-        float minCos = MathF.Cos(LibrarianRules.AimConeDegrees * MathF.PI / 180f), best = minCos;
-        int pick = -1;
-        for (int k = 0; k < n; k++)
+        int n = 0;
+        for (int i = 0; i < MusouSim.Capacity; i++)
         {
-            if (!sim.TryGet(_scan[k], out var e) || !e.Alive) continue;
-            var chest = MusouSim.Chest(e.Position, sim.Body(e.Type).Height);
-            var to = chest - c.Eye;
-            float len = to.Length();
-            if (len > LibrarianRules.LightningRange + 1f) continue;
-            float cos = len < 1e-3f ? 1f : Vector3.Dot(to / len, aim);
-            if (pick < 0 ? cos <= best : cos <= best + 0.0005f) continue;   // the nearest of the well-lined-up ones, unless another is clearly truer
-            if (blocked is not null && blocked(c.Eye, chest)) continue;
-            best = cos; pick = e.Id;
+            ushort id = (ushort)(i + 1);
+            if (!sim.AliveNow(id) || !sim.TryGet(id, out var e)) continue;
+            _present[n++] = new LibrarianCandidate(id, e.Position, sim.Body(e.Type).Height);
         }
-        return pick;
-    }
-
-    /// <summary>The nearest enemy not yet struck within the jump radius of <paramref name="at"/>; -1 for none.</summary>
-    int NextJump(MusouSim sim, Vector3 at)
-    {
-        int n = sim.Query(at, LibrarianRules.JumpRadius, _near, LibrarianRules.VerticalReach);
-        for (int k = 0; k < n; k++)
-            if (!_struck.Contains(_near[k]) && sim.TryGet(_near[k], out var e) && e.Alive) return _near[k];
-        return -1;
+        return _present.AsSpan(0, n);
     }
 
     // ------------------------------------------------------------------ psychic shockwave
@@ -261,9 +244,6 @@ public sealed class LibrarianPsyker
         float cp = MathF.Cos(pitch);
         return new Vector3(-MathF.Sin(yaw) * cp, MathF.Cos(yaw) * cp, MathF.Sin(pitch));
     }
-
-    /// <summary>Where the lightning leaves: a hand's height below the eye, a little ahead (ours, cosmetic).</summary>
-    static Vector3 Hand(in LibrarianCaster c) => c.Eye + Aim(c.Yaw, 0f) * 0.5f - new Vector3(0f, 0f, 0.35f);
 
     static Vector2 Flat(Vector3 v)
     {

@@ -15,6 +15,38 @@ public sealed partial class World
     readonly List<int> _librarianGone = new();
     readonly Dictionary<int, uint> _librarianEarly = new();
     readonly Dictionary<int, float> _librarianPitch = new();   // the last pitch heard, for a cast command's ticks without an input
+    readonly Dictionary<int, (uint Tick, float Fraction)> _librarianSeen = new();   // the last view tick heard (musou-balance 2026-11-11: the chain is picked on the crowd as he saw it)
+    LibrarianHistory? _librarianHistory;
+    readonly LibrarianSight _librarianSight = new();
+
+    /// <summary>The pool's last ticks the chain lightning is picked on (null until a Librarian is in the match).</summary>
+    public LibrarianHistory? LibrarianHistory => _librarianHistory;
+
+    /// <summary>
+    /// Each tick's end (from <c>ExtrasRecordBodies</c>, as the snapshot after the tick carries it): the pool's places into <see cref="LibrarianHistory"/>, while a Librarian is in the match (none: nothing kept,
+    /// nothing spent).
+    /// </summary>
+    void LibrarianRecord()
+    {
+        if (_musou is null) return;
+        if (_librarians.Count == 0) { _librarianHistory?.Clear(); return; }
+        _librarianHistory ??= new LibrarianHistory(Math.Max(1, Config.MaxRewindTicks) + 2);
+        _librarianHistory.Record(Tick, _musou);
+    }
+
+    /// <summary>
+    /// The enemies as Librarian <paramref name="id"/>'s client drew them for this tick's input: the history at its view tick and fraction (capped at <see cref="SimConfig.MaxRewindTicks"/> back, never past the
+    /// newest end of a tick); null (the pool now) for a view tick of 0 (no client: an AI Marine, a test), a tick no longer kept, or the restore switch <c>rewind</c>.
+    /// </summary>
+    LibrarianSight? LibrarianSightOf(int id)
+    {
+        if (Config.LibrarianVariant.NoRewind || _librarianHistory is not { Newest: > 0 } history || !_librarianSeen.TryGetValue(id, out var seen) || seen.Tick == 0) return null;
+        uint newest = history.Newest, oldest = newest > (uint)Config.MaxRewindTicks ? newest - (uint)Config.MaxRewindTicks : 1;
+        uint tick = Math.Clamp(seen.Tick, oldest, newest);
+        float fraction = tick == seen.Tick ? seen.Fraction : 0f;
+        float slack = LibrarianHistory.TeleportDistance * (Tick - tick + 1);   // how far one could have run since: farther, it is another enemy in a reused slot
+        return history.SightAt(tick, fraction, _musou!, _librarianSight, slack) ? _librarianSight : null;
+    }
 
     /// <summary>How far ahead of the present tick a cast command's press tick may lie (ticks, ours: the input lead is 2 to 5 ticks; 0.5 s at 30 Hz).</summary>
     public const uint MaxEarlyTicks = 15;
@@ -52,7 +84,7 @@ public sealed partial class World
         float dt = 1f / Math.Max(1, Config.TickRate);
         _librarianGone.Clear();
         foreach (var id in _librarians.Keys) if (!_players.TryGetValue(id, out var q) || !LibrarianRules.IsLibrarian(Config, q.Class)) _librarianGone.Add(id);
-        foreach (int id in _librarianGone) { _librarians.Remove(id); _librarianEarly.Remove(id); _librarianPitch.Remove(id); }
+        foreach (int id in _librarianGone) { _librarians.Remove(id); _librarianEarly.Remove(id); _librarianPitch.Remove(id); _librarianSeen.Remove(id); }
         foreach (var (id, p) in _players)
         {
             if (!LibrarianRules.IsLibrarian(Config, p.Class)) continue;
@@ -65,6 +97,7 @@ public sealed partial class World
             if (_state == MatchState.Playing && _librarianInputs.TryGetValue(id, out var input) && input.Tick == Tick)
             {
                 _librarianPitch[id] = input.Pitch;
+                _librarianSeen[id] = (input.ViewTick, input.ViewFraction);   // the render tick his client drew the crowd at when it sampled this input
                 press = new LibrarianPress(input.Buttons.HasFlag(InputButtons.Fire), input.Buttons.HasFlag(InputButtons.Reload),
                     Config.LibrarianVariant.WarpPull && input.Buttons.HasFlag(InputButtons.Grenade));   // Grenade is his equipment's (the Warp Pull was removed, owner 2026-11-10; restore switch pull)
                 pitch = input.Pitch;
@@ -75,7 +108,8 @@ public sealed partial class World
                 if (!press.Lightning && !(_librarianInputs.TryGetValue(id, out var heard) && heard.Tick == Tick)) pitch = _librarianPitch.GetValueOrDefault(id);
                 press = press with { Lightning = true };
             }
-            psyker.Step(musou, new LibrarianCaster(id, p.Position, eye, p.Yaw, pitch), press, dt, Blocked, Config.LibrarianVariant);
+            var sight = press.Lightning ? LibrarianSightOf(id) : null;   // musou-balance 2026-11-11: the chain on the crowd as his client drew it (the foreseen chain's view), struck where alive now
+            psyker.Step(musou, new LibrarianCaster(id, p.Position, eye, p.Yaw, pitch), press, dt, Blocked, Config.LibrarianVariant, sight);
         }
         _librarianInputs.Clear();
     }
