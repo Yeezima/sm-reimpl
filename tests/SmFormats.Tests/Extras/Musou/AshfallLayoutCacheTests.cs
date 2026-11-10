@@ -63,6 +63,11 @@ public class AshfallLayoutCacheTests
         Assert.Null(AshfallLayoutCache.Read(stream, AshfallLayout.Field));   // the file names City: a Field join must generate
         var cut = new MemoryStream(stream.ToArray(), 0, (int)stream.Length - 7);
         Assert.ThrowsAny<Exception>(() => AshfallLayoutCache.Read(cut, AshfallLayout.City));   // a cut file throws (the caller generates and rewrites)
+        // P2 review: a damaged file that keeps its length and end mark fails the checksum (one corner's byte flipped in the middle of the payload).
+        var damaged = stream.ToArray();
+        damaged[damaged.Length / 2] ^= 0x55;
+        var ex = Assert.Throws<InvalidDataException>(() => AshfallLayoutCache.Read(new MemoryStream(damaged), AshfallLayout.City));
+        Assert.Contains("checksum", ex.Message);
     }
 
     [Fact]
@@ -70,7 +75,10 @@ public class AshfallLayoutCacheTests
     {
         string key = AshfallLayoutCache.Key;
         Assert.StartsWith($"v{AshfallMap.Version}-g{AshfallMap.GrayboxVersion}-d{AshfallMap.DressVersion}-", key);
-        Assert.Equal(16, key.Split('-')[^1].Length);   // 8 bytes of the module version id
-        Assert.EndsWith($"city-{key}.bin", AshfallLayoutCache.PathOf(AshfallLayout.City));
+        var tail = key.Split('-');
+        Assert.Equal(16, tail[^1].Length);   // 8 bytes of this assembly's module version id (the reader)
+        Assert.Equal(16, tail[^2].Length);   // 8 bytes of the simulation assembly's (the generator)
+        Assert.EndsWith($"city-{key}-{AshfallLayoutCache.ProcessKind}.bin", AshfallLayoutCache.PathOf(AshfallLayout.City));
+        Assert.True(AshfallLayoutCache.Disabled);   // the test process never writes the real cache (TestProcessSetup)
     }
 }
