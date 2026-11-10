@@ -28,19 +28,12 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2908 spec table rows: **2168 tagged**, 514 not tagged (read from data with high confidence), 226 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 648 rows of the changes document.
-Scanned 2859 spec table rows: **2133 tagged**, 502 not tagged (read from data with high confidence), 224 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 638 rows of the changes document.
-
-| Area | Tagged rows | by kind | by confidence | by notes | by section text |
-|---|---:|---:|---:|---:|---:|
-| Movement (critical) | 386 | 328 | 327 | 114 | 12 |
-| Combat core (critical) | 15 | 5 | 13 | 13 | 9 |
-Scanned 2879 spec table rows: **2148 tagged**, 507 not tagged (read from data with high confidence), 224 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 637 rows of the changes document.
+Scanned 2916 spec table rows: **2176 tagged**, 514 not tagged (read from data with high confidence), 226 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 649 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
 | Movement (critical) | 388 | 330 | 329 | 114 | 12 |
-| Combat core (critical) | 16 | 7 | 14 | 13 | 9 |
+| Combat core (critical) | 17 | 7 | 15 | 14 | 9 |
 | Weapons (critical) | 121 | 73 | 106 | 54 | 3 |
 | Melee (critical) | 120 | 105 | 94 | 38 | 5 |
 | Jump pack (critical) | 79 | 71 | 63 | 19 | 0 |
@@ -57,33 +50,19 @@ Scanned 2879 spec table rows: **2148 tagged**, 507 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 22 | 13 | 13 | 12 | 7 |
-| Core simulation (provisional values) | 625 | 591 | 445 | 168 | 1 |
-| Core simulation (provisional values) | 594 | 568 | 419 | 163 | 1 |
+| Core simulation (provisional values) | 632 | 598 | 452 | 168 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 235 | 224 | 126 | 63 | 0 |
-| **All areas** | **2133** | 1883 | 1584 | 677 | 38 |
-| Core simulation (provisional values) | 606 | 577 | 430 | 166 | 1 |
-| General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 235 | 224 | 126 | 63 | 0 |
-| **All areas** | **2168** | 1911 | 1614 | 682 | 38 |
+| **All areas** | **2176** | 1918 | 1622 | 683 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1216 |
-| confidence: low | 775 |
+| kind: ours | 1223 |
+| confidence: low | 783 |
 | confidence: medium | 710 |
-| notes: ours | 392 |
-| kind: ours | 1199 |
-| confidence: low | 767 |
-| confidence: medium | 688 |
-| notes: ours | 388 |
-| kind: interpretation | 363 |
-| kind: ours | 1204 |
-| confidence: low | 770 |
-| confidence: medium | 699 |
-| notes: ours | 391 |
+| notes: ours | 393 |
 | kind: interpretation | 365 |
 | notes: estimate | 176 |
 | kind: estimate | 154 |
@@ -752,7 +731,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-640BBD78` | Spear: jump-pack rules | the hammer's: no pound delay, the hop swing, the steered slam (`Loadouts.WieldsHammer` through `ArsenalRules.WieldsHammer`) | kind: ours; confidence: medium | owner D17 (default) | Spear: jump-pack rules: compare with SM1 by feel or video. Ours: the hammer's: no pound delay, the hop swing, the steered slam… | ☐ |
 
-### Combat core (gameplay-critical) (16)
+### Combat core (gameplay-critical) (17)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -798,6 +777,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-86C458CA` | Lightning claw: damage | every hit of the sword's x0.8 (light and heavy steps, the stomp's blast, the charge, shield damage too): the same damage a second as the sword; no extra edge (no bonus against big Orks, no arcs) (x) | confidence: low; notes: ours | the owner (D13, D16); 0.8 = 1 / 1.25 ours | Lightning claw: damage: compare with SM1 by counting hits to kill and by video of the health bar. Ours: every hit of the sword's x0.8 (light and heavy steps, the stomp's… | ☐ |
+
 *Spec section: Musou's arsenal: W3, the power spear (docs/new-weapons-design.md section 6)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
@@ -2254,9 +2234,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (625)
-### Core simulation (provisional values) (594)
-### Core simulation (provisional values) (606)
+### Core simulation (provisional values) (632)
 
 *Spec section: Provisional values in use*
 
@@ -3196,17 +3174,6 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-CB5D9334` | Musou weight: roll end dip | the own roll's end dips the camera **0.4** degrees (a small landing's) (degrees) | kind: ours; confidence: low | ours | Musou weight: roll end dip: compare with SM1 with an overlaid screenshot taken from the same position. Ours: the own roll's end dips the camera 0.4 degrees (a small landing's). | ☐ |
 | `R-B86E5FB3` | Musou weight: contact sounds | a knee, hand, pelvis or shoulder meeting the ground at strength **0.35** or more plays the class's heavy footstep command (`EVT_Left_Foot_Rush` / `EVT_Right_Foot_Rush`, the surface switch under it, the owner's footstep level); a jump-pack dash's landing the… (- , s, m) | kind: ours; confidence: low | the plan (install sounds only) | Musou weight: contact sounds: compare with SM1 by feel or video. Ours: a knee, hand, pelvis or shoulder meeting the ground at strength 0.35… | ☐ |
 
-*Spec section: Musou's arsenal: W2, the lightning claw (docs/new-weapons-design.md section 5)*
-
-| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
-|---|---|---|---|---|---|---|
-| `R-4C012A3B` | Lightning claw: the weapon | one claw on the right hand and the bolt pistol in the left; an Assault Marine (Space Marines) melee choice appended after the power sword's, in Musou Mode only; always worn (never put away); no wargear file in the install, name `sm_mp_melee_lightning_claw`… | kind: ours; confidence: low | the owner (D2) | Lightning claw: the weapon: compare with SM1 by feel or video. Ours: one claw on the right hand and the bolt pistol in the left; an… | ☐ |
-| `R-7F6F3A85` | Lightning claw: tempo | the power sword's moves at 1.25x: every step's duration, hit time, combo window, Y window, no-react window, string reset, evade, alignment window and steered turn divided by 1.25, the charge's clip and windows too; the strikes' lunge distance and root-motion… (x) | kind: ours; confidence: low | the owner (D13 "about 25% faster"); 1.25 ours | Lightning claw: tempo: compare with SM1 by feel or video. Ours: the power sword's moves at 1.25x: every step's duration, hit time… | ☐ |
-| `R-00D8B4AE` | Lightning claw: cleave | the sword's, with Musou's cleave rules for every weapon (x1.5 reach since musou/melee-feel) | kind: ours; confidence: low | Musou's rules | Lightning claw: cleave: compare with SM1 by feel or video. Ours: the sword's, with Musou's cleave rules for every weapon (x1.5 reach… | ☐ |
-| `R-59EE7104` | Lightning claw: animations | the power sword's clips and clip lists as stand-ins (alias to `sm_mp_melee_powersword`), at 1.25x; `NetworkView.LightningClawClip` (the animation seam) is empty until the owner approves custom clips | kind: ours; confidence: low | W0's seam | Lightning claw: animations: compare with SM1 by feel or video. Ours: the power sword's clips and clip lists as stand-ins (alias to… | ☐ |
-| `R-8800FD36` | Lightning claw: model | built in code on the power sword's grip and laid along the armour's own forearm (the rig's rest pose gives the elbow-to-hand direction): a steel cuff 0.30 m over the lower forearm, a little wider than the bracer (radius 0.10 to 0.08 m), a knuckle block, three… (m) | kind: ours; confidence: low | the owner (D15, the images; his second look 2026-11-10); the shape ours | Lightning claw: model: compare with SM1 by measuring on a flat spot of the same map. Ours: built in code on the power sword's grip and laid along the armour's… | ☐ |
-| `R-565BA063` | Lightning claw: glow | a blue power sheen along each talon, always faintly there (alpha 0.06) and brighter with a jagged crackle (alpha up to 0.46 plus the bolts) while a claw strike is posed, faded out in 0.18 s; `--claw-crackle-demo` (test aid) shows the strike half of every… (s) | kind: ours; confidence: low | the owner (default; his "materials and glow"); look ours | Lightning claw: glow: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a blue power sheen along each talon, always faintly there (alpha… | ☐ |
-| `R-1B9BFF40` | Lightning claw: not yet reached | the Musou customizer's claw row and a JOIN from it (the customizer loads an Orks-only config until W1's `ExtrasConfig` hooks land; recheck after merging main); the jump pack's dash attack, ground pound and air slash stay the pack's (the sword's speed and… | kind: ours; confidence: low | W0's list of unhooked rules | Lightning claw: not yet reached: compare with SM1 by feel or video. Ours: the Musou customizer's claw row and a JOIN from it (the customizer… | ☐ |
 *Spec section: Musou's arsenal: W0b, presentation by source and the pack moves' clip speed (claude/arsenal-w0b, 2026-11-10; client presentation only, Musou Mode only; no simulation, wire, protocol, config-hash or rules-version change)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
@@ -3227,6 +3194,18 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-A42BF5F7` | Autocannon: blast | a blast at the point **every Ork a round strikes** (the bolt blasts' path), radius **2.5 m** (twice the bolt blast's 1.25 m), full to 1.0 m, 30 % at the edge, **15** at the centre; the campaign's 4 m hit-scan splash is dropped (m, damage) | kind: ours; confidence: low | owner D12 (the size); the damage and the shape are the bolt blast's | Autocannon: blast: compare with SM1 by measuring on a flat spot of the same map. Ours: a blast at the point every Ork a round strikes (the bolt blasts'… | ☐ |
 | `R-B4298678` | Autocannon: animations | the heavy bolter's (walk, sprint, hop, fall, hip fire, flinch: the campaign's carry graph uses the same navigation graph); the model is the install's `turret_aa` (1,883 triangles), held and stowed as the heavy bolter's | confidence: medium | design section 4 | Autocannon: animations: compare with SM1 by feel or video. Ours: the heavy bolter's (walk, sprint, hop, fall, hip fire, flinch: the… | ☐ |
 | `R-EF126E40` | Autocannon: customizer config | under a Musou content profile the customizer plans a Join with the configuration the match tuning builds for that profile (it lists the autocannon), read once on a worker; PLAY and JOIN wait for it | kind: ours | design section 11 | Autocannon: customizer config: compare with SM1 by feel or video. Ours: under a Musou content profile the customizer plans a Join with the… | ☐ |
+
+*Spec section: Musou's arsenal: W2, the lightning claw (docs/new-weapons-design.md section 5)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-4C012A3B` | Lightning claw: the weapon | one claw on the right hand and the bolt pistol in the left; an Assault Marine (Space Marines) melee choice appended after the power sword's, in Musou Mode only; always worn (never put away); no wargear file in the install, name `sm_mp_melee_lightning_claw`… | kind: ours; confidence: low | the owner (D2) | Lightning claw: the weapon: compare with SM1 by feel or video. Ours: one claw on the right hand and the bolt pistol in the left; an… | ☐ |
+| `R-7F6F3A85` | Lightning claw: tempo | the power sword's moves at 1.25x: every step's duration, hit time, combo window, Y window, no-react window, string reset, evade, alignment window and steered turn divided by 1.25, the charge's clip and windows too; the strikes' lunge distance and root-motion… (x) | kind: ours; confidence: low | the owner (D13 "about 25% faster"); 1.25 ours | Lightning claw: tempo: compare with SM1 by feel or video. Ours: the power sword's moves at 1.25x: every step's duration, hit time… | ☐ |
+| `R-00D8B4AE` | Lightning claw: cleave | the sword's, with Musou's cleave rules for every weapon (x1.5 reach since musou/melee-feel) | kind: ours; confidence: low | Musou's rules | Lightning claw: cleave: compare with SM1 by feel or video. Ours: the sword's, with Musou's cleave rules for every weapon (x1.5 reach… | ☐ |
+| `R-59EE7104` | Lightning claw: animations | the power sword's install clips and clip lists (alias to `sm_mp_melee_powersword`) at 1.25x, **by the owner's choice** (2026-11-10: "for now just make the power claw use the sword animations"); the custom claw clips (branch claude/claw-spear-anims) exist but… | kind: ours; confidence: low | W0's seam | Lightning claw: animations: compare with SM1 by feel or video. Ours: the power sword's install clips and clip lists (alias to… | ☐ |
+| `R-8800FD36` | Lightning claw: model | built in code on the power sword's grip and laid along the armour's own forearm (the rig's rest pose gives the elbow-to-hand direction): a steel cuff 0.30 m over the lower forearm, a little wider than the bracer (radius 0.10 to 0.08 m), a knuckle block, three… (m) | kind: ours; confidence: low | the owner (D15, the images; his second look 2026-11-10); the shape ours | Lightning claw: model: compare with SM1 by measuring on a flat spot of the same map. Ours: built in code on the power sword's grip and laid along the armour's… | ☐ |
+| `R-565BA063` | Lightning claw: glow | a blue power sheen along each talon, always faintly there (alpha 0.06) and brighter with a jagged crackle (alpha up to 0.46 plus the bolts) while a claw strike is posed, faded out in 0.18 s; `--claw-crackle-demo` (test aid) shows the strike half of every… (s) | kind: ours; confidence: low | the owner (default; his "materials and glow"); look ours | Lightning claw: glow: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a blue power sheen along each talon, always faintly there (alpha… | ☐ |
+| `R-1B9BFF40` | Lightning claw: not yet reached | the Musou customizer's claw row and a JOIN from it (the customizer loads an Orks-only config until W1's `ExtrasConfig` hooks land; recheck after merging main); the jump pack's dash attack, ground pound and air slash stay the pack's (the sword's speed and… | kind: ours; confidence: low | W0's list of unhooked rules | Lightning claw: not yet reached: compare with SM1 by feel or video. Ours: the Musou customizer's claw row and a JOIN from it (the customizer… | ☐ |
 
 *Spec section: Musou's arsenal: W3, the power spear (docs/new-weapons-design.md section 6)*
 
@@ -3846,6 +3825,12 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 
 #### Musou's arsenal (`Musou`; docs/new-weapons-design.md, approved by the owner 2026-11-10)
 
+| ID | What | Ours / the owner's | Value | Spec row | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `C-1E1E16A6` | Lightning claw (Assault Marine melee choice, Musou only) | the owner's request (D2 one claw plus the pistol, D13 about 25% faster, D16 no extra edge, D15 the look); the sword's moves and install animations at 1.25x (the owner's choice: "for now just make the power claw use the sword animations"), every hit x0.8, the model (laid along the forearm, long talons) and glow built… | no claw in the install; same damage a second as the power sword | spec "Lightning claw: the weapon", "tempo", "damage", "cleave", "animations", "model", "glow", "not yet reached" | Lightning claw (Assault Marine melee choice, Musou only): compare with SM1 by feel or video. Ours: the owner's request (D2 one claw plus the pistol, D13 about 25%… | ☐ |
+
+#### Musou's arsenal (`Musou`; docs/new-weapons-design.md, approved by the owner 2026-11-10)
+
 | ID | Rule | Ours / the owner's | Why | Compare in a playtest | Result |
 |---|---|---|---|---|---|
 | `C-9CE49D84` | Offered to every Space Marine class and the Librarian | owner's (D20) | The install lists it for no class. | Offered to every Space Marine class and the Librarian: compare with SM1 by feel or video. Ours: owner's (D20). | ☐ |
@@ -3858,9 +3843,6 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-B101E8C1` | One back every 30 s; Favor of the Armory: 2 | owner's (D9); data (Favor) | Grenades come back every 15 s. | One back every 30 s; Favor of the Armory: 2: compare with SM1 by timing a run over a known distance. Ours: owner's (D9); data (Favor). | ☐ |
 | `C-C68717FE` | The melta bomb's model | owner's (D21) | The data's model is the Ork stikkbomb. | The melta bomb's model: compare with SM1 by feel or video. Ours: owner's (D21). | ☐ |
 | `C-2DA54F6D` | It sticks to a contraption (riding on it) and to a shield dome's surface from outside | ours | The core would set it off at the contraption or the dome. | It sticks to a contraption (riding on it) and to a shield…: compare with SM1 by counting hits to kill and by video of the health bar. Ours: ours. | ☐ |
-| ID | What | Ours / the owner's | Value | Spec row | Compare in a playtest | Result |
-|---|---|---|---|---|---|---|
-| `C-1E1E16A6` | Lightning claw (Assault Marine melee choice, Musou only) | the owner's request (D2 one claw plus the pistol, D13 about 25% faster, D16 no extra edge, D15 the look); the sword's moves at 1.25x, every hit x0.8, the model (laid along the forearm, long talons) and glow built in code, an English name and text, always worn: ours | no claw in the install; same damage a second as the power sword | spec "Lightning claw: the weapon", "tempo", "damage", "cleave", "animations", "model", "glow", "not yet reached" | Lightning claw (Assault Marine melee choice, Musou only): compare with SM1 by feel or video. Ours: the owner's request (D2 one claw plus the pistol, D13 about 25%… | ☐ |
 
 ### Deliberate changes (owner's decisions)
 
