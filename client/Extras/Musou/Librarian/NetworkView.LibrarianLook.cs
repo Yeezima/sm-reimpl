@@ -124,9 +124,11 @@ public partial class NetworkView
         AppearanceCode? ownLook = null;
         if (_pickerServices is { MusouOwnSlots: true, Session: { } session, Catalog: { } catalog })
         {
-            // musou/loadout-slots (review fix 1): his own loadout as his customizer page shows and saves it (MusouSlots), and his own look when he has one.
-            choice = MusouSlots.LibrarianChoice(MusouSlots.LibrarianOf(session.Stored), cfg, index);
-            ownLook = MusouSlots.LibrarianLook(session.Stored, catalog);
+            // musou/loadout-slots (review fix 1): his own loadout as his customizer page saves it (MusouSlots), and his own look when he has one. The saved profile, not the working copy
+            // (re-review 2026-11-10): the Esc menu's row must not send choices the player never saved, as closing the picker sends the saved active loadout (ClosePicker); the customizer's
+            // PLAY AS LIBRARIAN saves first (LibrarianFromCustomizer), so there the two are the same.
+            choice = MusouSlots.LibrarianChoice(MusouSlots.LibrarianOf(session.Saved), cfg, index);
+            ownLook = MusouSlots.LibrarianLook(session.Saved, catalog);
         }
         else
         {
