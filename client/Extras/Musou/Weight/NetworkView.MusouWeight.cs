@@ -47,6 +47,7 @@ public partial class NetworkView
     void MusouWeightFrame(PlayerState me, IReadOnlyList<PlayerState> others)
     {
         _musouContacts.Clear();
+        MusouOwnThrownFrame(me);   // MW6: the own grenades always shake (Weight/NetworkView.MusouImpact.cs)
         if (!MusouContactsOn || _client is null || _camera is null) { _musouFootTags.Clear(); return; }
         var camera = _camera.GlobalPosition;
         _musouMarines.Clear();
@@ -78,17 +79,18 @@ public partial class NetworkView
         }
         _musouFootTags.Clear();
         // A marine no longer tracked (gone, dead, out of range) starts again from its next frame.
-        foreach (var (id, tracker) in _musouTrackers) if (!_musouTrackedNow.Contains(id)) tracker.Reset();
+        // Its roll state goes too: dying mid-roll gave a roll-end settle and camera dip at the respawn.
+        foreach (var (id, tracker) in _musouTrackers) if (!_musouTrackedNow.Contains(id)) { tracker.Reset(); _musouWasRolling.Remove(id); }
         MusouPuffsFrame();   // MW2: the dust and grit (Weight/NetworkView.MusouPuffs.cs)
         MusouSettleFrame();   // MW3: the body's settle (Weight/NetworkView.MusouBody.cs)
         MusouTransitionsFrame();   // MW5: the cross-fade floors (Weight/NetworkView.MusouTransitions.cs)
         MusouContactSoundsFrame();   // MW6: the contacts' sounds (Weight/NetworkView.MusouImpact.cs)
+        if (!LogMusouWeight) return;   // the counts and lines are the test aid's only (no per-frame strings without it)
         foreach (var c in _musouContacts)
         {
             string key = $"{c.Kind} {(c.Own ? "own" : "ally")}";
             _musouContactCounts[key] = _musouContactCounts.GetValueOrDefault(key) + 1;
-            if (LogMusouWeight)
-                GD.Print($"MUSOU WEIGHT contact t {now:F3} frame {Engine.GetProcessFrames()} P{c.PlayerId} {(c.Own ? "own" : "ally")} {c.Part} {c.Kind} strength {c.Strength:F2} along {c.GroundSpeed:F1} m/s surface {MusouSurfaceAt(c.At)} clip {ClipOf(c.PlayerId) ?? "-"}");
+            GD.Print($"MUSOU WEIGHT contact t {now:F3} frame {Engine.GetProcessFrames()} P{c.PlayerId} {(c.Own ? "own" : "ally")} {c.Part} {c.Kind} strength {c.Strength:F2} along {c.GroundSpeed:F1} m/s surface {MusouSurfaceAt(c.At)} clip {ClipOf(c.PlayerId) ?? "-"}");
         }
     }
 

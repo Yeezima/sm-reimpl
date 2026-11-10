@@ -225,7 +225,7 @@ public sealed class MusouContactTracker
     }
 }
 
-/// <summary>One install effect a contact plays (MW2): its name, scale and cull priority (0 is dropped first).</summary>
+/// <summary>One install effect a contact plays (MW2): its name, scale and cull priority (the lowest is dropped first: -1 below everything else the effect player plays, 0 its default).</summary>
 public readonly record struct MusouPuff(string Effect, float Scale, int Priority);
 
 /// <summary>
@@ -242,6 +242,10 @@ public static class MusouPuffRules
     public const float AllyScale = 0.5f;
     /// <summary>The same marine's skids make a puff at most this often (s): a roll reports about 18 a second.</summary>
     public const float SkidPuffEvery = 0.1f;
+    /// <summary>The cull priority of the steps', skids', plants' and touches' puffs: below every other effect (shots' impacts, hit feedback and sparks play at 0), so a full CPU player drops them first.</summary>
+    public const int LightPriority = -1;
+    /// <summary>A landing's puffs: the effect player's default, below tracers (1) and blasts (2).</summary>
+    public const int LandingPriority = 0;
 
     /// <summary>How much dust a surface throws (0 to 1): dirt, sand, gravel and the level's default in full, stone 0.8, metal 0.4, none off bodies, shields and air.</summary>
     public static float SurfaceDust(string surface) => surface switch
@@ -269,23 +273,23 @@ public static class MusouPuffRules
         switch (c.Kind)
         {
             case MusouContactKind.Step:
-                into[n++] = new MusouPuff(Dust, (0.2f + 0.25f * s) * dust * size, 0);
+                into[n++] = new MusouPuff(Dust, (0.2f + 0.25f * s) * dust * size, LightPriority);
                 break;
             case MusouContactKind.Skid:
-                into[n++] = new MusouPuff(Dust, (0.12f + 0.2f * s) * dust * size, 0);
+                into[n++] = new MusouPuff(Dust, (0.12f + 0.2f * s) * dust * size, LightPriority);
                 break;
             case MusouContactKind.Plant:
-                into[n++] = new MusouPuff(Dust, (0.25f + 0.3f * s) * dust * size, 0);
-                into[n++] = new MusouPuff(Grit, (0.06f + 0.08f * s) * size, 0);
+                into[n++] = new MusouPuff(Dust, (0.25f + 0.3f * s) * dust * size, LightPriority);
+                into[n++] = new MusouPuff(Grit, (0.06f + 0.08f * s) * size, LightPriority);
                 break;
             case MusouContactKind.Touch:
-                into[n++] = new MusouPuff(Dust, (0.2f + 0.3f * s) * dust * size, 0);
+                into[n++] = new MusouPuff(Dust, (0.2f + 0.3f * s) * dust * size, LightPriority);
                 if (c.Part is MusouContactPart.Pelvis or MusouContactPart.LeftShoulder or MusouContactPart.RightShoulder)
-                    into[n++] = new MusouPuff(Grit, (0.05f + 0.08f * s) * size, 0);
+                    into[n++] = new MusouPuff(Grit, (0.05f + 0.08f * s) * size, LightPriority);
                 break;
             case MusouContactKind.Landing:
-                into[n++] = new MusouPuff(Dust, (0.3f + 0.25f * s) * dust * size, 1);
-                if (c.Part == MusouContactPart.LeftFoot) into[n++] = new MusouPuff(Grit, (0.1f + 0.3f * s) * size, 1);   // one grit burst a landing (both feet report it)
+                into[n++] = new MusouPuff(Dust, (0.3f + 0.25f * s) * dust * size, LandingPriority);
+                if (c.Part == MusouContactPart.LeftFoot) into[n++] = new MusouPuff(Grit, (0.1f + 0.3f * s) * size, LandingPriority);   // one grit burst a landing (both feet report it)
                 break;
         }
         return n;
@@ -383,11 +387,27 @@ public static class MusouImpactRules
     /// <summary>The landing entry a jump-pack dash's landing plays (a drop of this many metres: the pack's lightest landing sound).</summary>
     public const float DashLandingDrop = 2f;
 
-    /// <summary>Whether a blast <paramref name="distance"/> m away jolts the camera, given the last jolt's time; updates it when it does.</summary>
-    public static bool BlastFeels(float distance, double now, ref double lastJolt)
+    /// <summary>A later blast in the same window jolts too when it is at least this much closer than the strongest one kept so far (m), so the window keeps its strongest blast.</summary>
+    public const float StrongerBy = 1f;
+
+    /// <summary>
+    /// Whether a blast <paramref name="distance"/> m away jolts the camera. A window of <see cref="BlastEvery"/> opens at a kept jolt; inside it only a clearly stronger (closer) blast
+    /// jolts as well, so the strongest one of the window is felt, not merely the first. The own grenades always jolt (the plan's exception, approved with it), at any distance
+    /// the core's shake reaches. Updates the window's start and strongest distance when it jolts.
+    /// </summary>
+    public static bool BlastFeels(float distance, double now, bool ownGrenade, ref double windowAt, ref float windowBest)
     {
-        if (!(distance <= BlastRange) || now - lastJolt < BlastEvery) return false;
-        lastJolt = now;
+        bool open = now - windowAt >= BlastEvery;
+        if (ownGrenade)
+        {
+            if (open) windowAt = now;
+            windowBest = open ? distance : Math.Min(windowBest, distance);
+            return true;
+        }
+        if (!(distance <= BlastRange)) return false;
+        if (open) { windowAt = now; windowBest = distance; return true; }
+        if (distance > windowBest - StrongerBy) return false;
+        windowBest = distance;
         return true;
     }
 }

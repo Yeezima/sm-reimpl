@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Godot;
 using SmContent;
+using SmNet;
 using SmNet.Extras.Musou;
 using SmSim;
 
@@ -9,8 +10,9 @@ namespace SmClient;
 /// <summary>
 /// Musou weight pass MW6, camera and sound at contacts (owner 2026-11-10: "Thin the jolts").
 /// <list type="bullet">
-/// <item>Camera: a detonation shakes and jolts the own camera only within 12 m and at most once in 0.25 s (<see cref="MusouImpactRules.BlastFeels"/>; the baseline measured up to 16 jolts
-/// a second from the bolters' blasts within 25 m), so the own impacts stand out; the own roll's end dips the camera 0.4 degrees like a small landing. Switch <c>--no-musou-impact-camera</c>.</item>
+/// <item>Camera: a detonation shakes and jolts the own camera only within 12 m, and in each 0.25 s window only its strongest (<see cref="MusouImpactRules.BlastFeels"/>; the baseline
+/// measured up to 16 jolts a second from the bolters' blasts within 25 m), so the own impacts stand out; the own grenades always shake (a thrown item first seen within 3 m of the
+/// own marine within 0.6 s of his throw); the own roll's end dips the camera 0.4 degrees like a small landing. Switch <c>--no-musou-impact-camera</c>.</item>
 /// <item>Sound (install sounds only): a knee, hand, pelvis or shoulder meeting the ground plays the class's heavy footstep (the data's <c>EVT_Left_Foot_Rush</c> / <c>_Right_</c> command, on
 /// the surface under it, at the owner's footstep level), so a roll and a fall are heard; a jump-pack dash's landing plays the pack's lightest landing entry (the data's dash lands
 /// silently in our build). At most one a marine every 0.15 s, within 25 m, through the sound system's own limits. No gear rattle (2026-10-28 rule). Switch
@@ -20,17 +22,34 @@ namespace SmClient;
 public partial class NetworkView
 {
     static readonly bool NoMusouImpactCamera = CmdFlag("no-musou-impact-camera"), NoMusouContactSound = CmdFlag("no-musou-contact-sound");
-    double _musouLastJolt = double.NegativeInfinity;
+    double _musouJoltWindowAt = double.NegativeInfinity, _musouOwnThrowAt = double.NegativeInfinity;
+    float _musouJoltBest = float.PositiveInfinity;
+    readonly HashSet<int> _musouThrownSeen = new(), _musouOwnThrown = new();
     int _musouJoltsKept, _musouJoltsThinned, _musouContactSounds;
     readonly Dictionary<int, double> _musouContactSoundAt = new();
 
     bool MusouImpactCameraOn => MusouWeightOn && !NoMusouImpactCamera;
 
-    partial void ExtrasBlastFeel(float distance, ref bool feel)
+    partial void ExtrasBlastFeel(ProjectileView? blast, float distance, ref bool feel)
     {
         if (!MusouImpactCameraOn) return;
-        feel = MusouImpactRules.BlastFeels(distance, _connectedFor, ref _musouLastJolt);
+        bool ownGrenade = blast is { Thrown: true } b && b.Id > 0 && _musouOwnThrown.Remove(b.Id);
+        feel = MusouImpactRules.BlastFeels(distance, _connectedFor, ownGrenade, ref _musouJoltWindowAt, ref _musouJoltBest);
         if (feel) _musouJoltsKept++; else if (distance < 25f) _musouJoltsThinned++;
+    }
+
+    /// <summary>The own grenades in flight: a thrown item first seen within 3 m of the own marine within 0.6 s of his throw (snapshots name no thrower).</summary>
+    void MusouOwnThrownFrame(PlayerState me)
+    {
+        if (!MusouImpactCameraOn) return;
+        if (me.Alive && me.Throwing) _musouOwnThrowAt = _connectedFor;
+        foreach (var q in _frameProjectiles)
+        {
+            if (!q.Thrown || !_musouThrownSeen.Add(q.Id)) continue;
+            if (_connectedFor - _musouOwnThrowAt < 0.6 && System.Numerics.Vector3.Distance(q.Position, me.Position) < 3f) _musouOwnThrown.Add(q.Id);
+        }
+        if (_musouThrownSeen.Count > 512) _musouThrownSeen.Clear();   // ids wrap at 65536
+        if (_musouOwnThrown.Count > 32) _musouOwnThrown.Clear();
     }
 
     /// <summary>The own roll's end: a small camera dip (from the settle's roll-end detection).</summary>

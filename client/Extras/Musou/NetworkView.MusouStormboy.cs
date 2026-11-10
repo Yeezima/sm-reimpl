@@ -119,7 +119,7 @@ public partial class NetworkView
         {
             float distance = ToGodot(client.Predicted.Position).DistanceTo(pos);
             bool feel = true;
-            ExtrasBlastFeel(distance, ref feel);   // the weight pass's thinning (Weight/NetworkView.MusouImpact.cs)
+            ExtrasBlastFeel(null, distance, ref feel);   // the weight pass's thinning (Weight/NetworkView.MusouImpact.cs)
             if (feel && distance < 25f) FxShake(Math.Clamp(1f - distance / 25f, 0f, 1f) * 0.9f * 0.012f * 3f);
         }
     }

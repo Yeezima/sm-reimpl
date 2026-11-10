@@ -370,7 +370,7 @@ public partial class NetworkView
     partial void ExtrasShakeTotal(float current, float amount, ref float total);
 
     /// <summary>Whether a detonation <paramref name="distance"/> m from the own player shakes and jolts the camera (Musou Mode's weight pass thins them); none leaves it true.</summary>
-    partial void ExtrasBlastFeel(float distance, ref bool feel);
+    partial void ExtrasBlastFeel(ProjectileView? blast, float distance, ref bool feel);
 
     /// <summary>An added mode's camera offset this frame (camera space: X right, Y up, Z back; before the Camera shake option's factor). Musou's weight pass: the push along the own heavy swing.</summary>
     partial void ExtrasCameraOffset(double delta, ref Vector3 offset);
@@ -725,7 +725,7 @@ public partial class NetworkView
             float distance = ToGodot(client.Predicted.Position).DistanceTo(pos);
             float radius = d.Thrown ? 4f : 6f;
             bool feel = true;
-            ExtrasBlastFeel(distance, ref feel);   // EXTRAS-HOOK: added content's thinning of blast jolts (Musou weight pass: within 12 m, one per 0.25 s)
+            ExtrasBlastFeel(d, distance, ref feel);   // EXTRAS-HOOK: added content's thinning of blast jolts (Musou weight pass: within 12 m, the strongest a 0.25 s window, the own grenades always)
             if (feel && distance < 25f) FxShake(Math.Clamp(1f - distance / 25f, 0f, 1f) * (radius > 5f ? 0.9f : 0.6f) * 0.012f * 3f);
             if (feel) CameraKick(WeightFeel.BlastJoltDegrees(distance), "blast");   // feel/weight-impact
             string name = d.Thrown && d.Weapon >= 0 && d.Weapon < _config.Thrown.Count ? _config.Thrown[d.Weapon].Name : "";

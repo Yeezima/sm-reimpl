@@ -132,7 +132,10 @@ public class MusouWeightContactTests
         Assert.Equal(MusouPuffRules.Grit, into[1].Effect);
         Assert.Equal(2, MusouPuffRules.Of(Contact(MusouContactKind.Landing, strength: 1f), "dirt", gpu: true, 0, into));
         Assert.Equal(1, MusouPuffRules.Of(Contact(MusouContactKind.Landing, strength: 1f, part: MusouContactPart.RightFoot), "dirt", gpu: true, 0, into));   // one grit burst a landing
-        Assert.True(into[0].Priority >= 1);
+        Assert.Equal(MusouPuffRules.LandingPriority, into[0].Priority);   // review: the effect player's default, below tracers (1)
+        Assert.Equal(1, MusouPuffRules.Of(Contact(MusouContactKind.Step, strength: 0.35f), "dirt", gpu: true, 1, into));
+        Assert.Equal(MusouPuffRules.LightPriority, into[0].Priority);   // below shot impacts, hit feedback and sparks (0)
+        Assert.True(MusouPuffRules.LightPriority < 0 && MusouPuffRules.LandingPriority == 0);
     }
 
     [Fact]
@@ -225,5 +228,18 @@ public class MusouWeightContactTests
         Assert.Equal(0.4f, MusouTransitionRules.Blend(0.4f, stance: true));
         Assert.Equal(0f, MusouTransitionRules.Blend(0f, stance: true));   // an instant change stays instant
         Assert.Equal(0.1f, MusouTransitionRules.Blend(0.1f, stance: false));   // clip entries keep theirs
+    }
+    [Fact]
+    public void BlastJoltsKeepTheStrongestOfTheWindowAndTheOwnGrenades()
+    {
+        double at = double.NegativeInfinity; float best = float.PositiveInfinity;
+        Assert.False(MusouImpactRules.BlastFeels(13f, 0.0, ownGrenade: false, ref at, ref best));   // beyond 12 m
+        Assert.True(MusouImpactRules.BlastFeels(11f, 0.0, ownGrenade: false, ref at, ref best));    // opens a window
+        Assert.False(MusouImpactRules.BlastFeels(10.5f, 0.05, ownGrenade: false, ref at, ref best)); // not clearly stronger
+        Assert.True(MusouImpactRules.BlastFeels(2f, 0.1, ownGrenade: false, ref at, ref best));     // the strongest of the window is felt
+        Assert.False(MusouImpactRules.BlastFeels(3f, 0.15, ownGrenade: false, ref at, ref best));
+        Assert.True(MusouImpactRules.BlastFeels(11f, 0.26, ownGrenade: false, ref at, ref best));   // a new window
+        Assert.True(MusouImpactRules.BlastFeels(20f, 0.3, ownGrenade: true, ref at, ref best));     // the own grenades always
+        Assert.True(MusouImpactRules.BlastFeels(5f, 0.31, ownGrenade: true, ref at, ref best));
     }
 }

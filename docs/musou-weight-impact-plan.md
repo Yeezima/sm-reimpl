@@ -28,7 +28,7 @@ estimate for the refine register.
 - Clips: Godot Movie Maker through `godot.cmd --windowed` (the private desktop), 24 fps, 1600 x 900, FSR 2 performance (to keep
   the recording near real time), no sound. Measurements: the same aid with `--transition-probe` (pose jerk at state switches),
   `--anim-probe` (planted-foot slide), `--log-weight-feel` (every camera impulse).
-- Media (`<media folder>` = the owner's D: media folder): `<media folder>\previews\musou-weight\baseline\`
+- Media (`<media folder>` = the owner's media folder): `<media folder>\previews\musou-weight\baseline\`
   `tactical-player.avi`, `tactical-third.avi` (Tactical: run, sprint, stop, rolls, bolter, knife, hits taken), `assault-player.avi`,
   `assault-third.avi` (Assault with power sword: pack dash, jump and landing, pound, dash attack, pistol, sword, hits taken).
 

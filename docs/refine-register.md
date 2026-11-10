@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2848 spec table rows: **2121 tagged**, 503 not tagged (read from data with high confidence), 224 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 636 rows of the changes document.
+Scanned 2849 spec table rows: **2123 tagged**, 502 not tagged (read from data with high confidence), 224 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 636 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,19 +50,19 @@ Scanned 2848 spec table rows: **2121 tagged**, 503 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 22 | 13 | 13 | 12 | 7 |
-| Core simulation (provisional values) | 583 | 558 | 411 | 160 | 1 |
+| Core simulation (provisional values) | 585 | 559 | 412 | 161 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 235 | 224 | 126 | 63 | 0 |
-| **All areas** | **2121** | 1873 | 1575 | 673 | 38 |
+| **All areas** | **2123** | 1874 | 1576 | 674 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1189 |
-| confidence: low | 758 |
+| kind: ours | 1190 |
+| confidence: low | 759 |
 | confidence: medium | 688 |
-| notes: ours | 386 |
+| notes: ours | 387 |
 | kind: interpretation | 363 |
 | notes: estimate | 174 |
 | kind: estimate | 145 |
@@ -2198,7 +2198,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (583)
+### Core simulation (provisional values) (585)
 
 *Spec section: Provisional values in use*
 
@@ -3107,7 +3107,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
-| `R-3D73DBA5` | Musou weight: contact sources | the clips' foot tags (`EVT_Left_Foot`, `EVT_Right_Foot`, the `_Rush` forms, `EVT_Bullrush_Stop_*`) as the sound's tag pass admits them; for poses without foot tags (rolls, landings, knockdowns, get-ups) the bones (toes, knees, hands, pelvis, shoulders)… | kind: ours; confidence: medium | the owner's brief | Musou weight: contact sources: compare with SM1 by feel or video. Ours: the clips' foot tags (EVT_Left_Foot, EVT_Right_Foot, the _Rush forms… | ☐ |
+| `R-3D73DBA5` | Musou weight: contact sources | the clips' foot tags (`EVT_Left_Foot`, `EVT_Right_Foot`, the `_Rush` forms, `EVT_Bullrush_Stop_*`) as the sound's tag pass admits them (so with `--no-sound` or no audio device the steps make no contacts and no puffs; the bones' touches, skids and landings… | kind: ours; confidence: medium | the owner's brief | Musou weight: contact sources: compare with SM1 by feel or video. Ours: the clips' foot tags (EVT_Left_Foot, EVT_Right_Foot, the _Rush forms… | ☐ |
 | `R-955E97D1` | Musou weight: who is tracked | the own marine and the **7** nearest other marines within **45** m of the camera; never an Ork (count, m) | kind: ours; confidence: medium | owner 2026-11-10 ("every marine, allies half"; never Orks) | Musou weight: who is tracked: compare with SM1 by feel or video. Ours: the own marine and the 7 nearest other marines within 45 m of the… | ☐ |
 | `R-BC5D6E4A` | Musou weight: a bone touches | when a bone comes within **0.06** m of its resting height (toe 0.03, knee 0.10, hand 0.06, pelvis 0.18, shoulder 0.16 m above the ground) moving down at least **0.25** m/s; again only after it rose **0.12** m above it, at most once per **0.12** s a part (m, m/s, s) | kind: ours; confidence: low | ours | Musou weight: a bone touches: compare with SM1 by timing a run over a known distance. Ours: when a bone comes within 0.06 m of its resting height (toe 0.03, knee… | ☐ |
 | `R-07E7B0FF` | Musou weight: skids | a touching part moving along the ground faster than **2** m/s leaves a skid every **0.08** s (m/s, s) | kind: ours; confidence: low | the plan | Musou weight: skids: compare with SM1 by timing a run over a known distance. Ours: a touching part moving along the ground faster than 2 m/s leaves a… | ☐ |
@@ -3117,9 +3117,11 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-85EA819E` | Musou weight: dust by surface | dirt, sand, gravel and the level default x**1**, stone x**0.8**, metal x**0.4**, bodies, shields and air none (the grit stays) (factor) | kind: ours; confidence: low | ours | Musou weight: dust by surface: compare with SM1 by feel or video. Ours: dirt, sand, gravel and the level default x1, stone x0.8, metal x0.4… | ☐ |
 | `R-503EC63C` | Musou weight: the settle | a landing lowers the pelvis **0.06 + 0.08 x strength** m (6 to 14 cm) over **0.06** s and back over **0.25** s; a sprint stop's plant **0.05** m with a **7**-degree lean back (0.08 s, 0.3 s); a melee step's plant **0.03** m and **3** degrees forward (0.05 s… (m, degrees, s) | kind: ours; confidence: low | the plan (6 to 14 cm, 0.06 s down, 0.25 s back); ours | Musou weight: the settle: compare with SM1 with an overlaid screenshot taken from the same position. Ours: a landing lowers the pelvis 0.06 + 0.08 x strength m (6 to 14 cm)… | ☐ |
 | `R-20D30D2B` | Musou weight: strike retiming | every marine's strike is drawn with the wind-up at **0.85x** (heavy **0.8x**) and the clip's last **0.15** s (heavy **0.18** s) before the hit played faster, so the hit lands at the strike's own hit time and the clip ends at its end; at least **0.04** s of… (rate, s) | kind: ours; confidence: low | owner 2026-11-10 ("Yes, retime"; no gameplay change) | Musou weight: strike retiming: compare with SM1 by feel or video. Ours: every marine's strike is drawn with the wind-up at 0.85x (heavy 0.8x)… | ☐ |
-| `R-42CA2C4D` | Musou weight: pose hold | the own marine's heavy strike or combo finisher that meets an Ork holds his pose **0.05** s at the hit (the Orks move on; no freeze, no shake), the recovery then a little faster to end on time; kills are not known at the strike, so they get none (s) | confidence: medium | owner 2026-11-10 ("Pose hold + camera push": 40 to 60 ms) | Musou weight: pose hold: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the own marine's heavy strike or combo finisher that meets an Ork… | ☐ |
+| `R-42CA2C4D` | Musou weight: pose hold | the own marine's heavy strike that meets an Ork holds his pose **0.05** s at the hit (the Orks move on; no freeze, no shake), the recovery then a little faster to end on time (s) | confidence: medium | owner 2026-11-10 ("Pose hold + camera push" on heavy strikes and kills: 40 to 60 ms) | Musou weight: pose hold: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the own marine's heavy strike that meets an Ork holds his pose 0.05 s… | ☐ |
+| `R-A1F83380` | Musou weight: pose hold on combo finishers | the same hold on the own combo's last strike that meets an Ork, in place of the owner's kills: kills are not known at the strike (the server reports them about 0.19 s later), so they get none (s) | kind: ours; confidence: low | ours (stand-in for the owner's "kills") | Musou weight: pose hold on combo finishers: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the same hold on the own combo's last strike that meets an Ork, in… | ☐ |
 | `R-72FD2090` | Musou weight: camera push | with the hold the camera moves **4.5** cm forward (heavy **7** cm) and **2.5** cm to the swing's side (alternating by combo step), up over **0.04** s and back over **0.18** s; times the Camera shake option (m, s) | kind: ours; confidence: low | as above | Musou weight: camera push: compare with SM1 with an overlaid screenshot taken from the same position. Ours: with the hold the camera moves 4.5 cm forward (heavy 7 cm) and 2.5 cm… | ☐ |
 | `R-BF90F9EF` | Musou weight: stance cross-fade floor | a marine's stance change (ready, idle, the locomotion blends) cross-fades over at least **0.25** s (the core's 0.15); clip entries keep theirs; an instant change stays instant (s) | kind: ours; confidence: low | measured 2026-11-10 (`--transition-probe`, pooled headless runs): move to ready's body turn 107 to 47 degrees a frame (median), ready to idle jerk p90 78 to 52… | Musou weight: stance cross-fade floor: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a marine's stance change (ready, idle, the locomotion blends)… | ☐ |
+| `R-ABD84A62` | Musou weight: blast jolts thinned | a detonation shakes and jolts the own camera only within **12** m (was 25), and in each **0.25** s window only its strongest: a window opens at a kept jolt, and a later blast in it jolts too only when at least **1** m closer than the closest kept so far; the… (m, s) | notes: ours | owner 2026-11-10 ("Thin the jolts"; the plan with the own-grenade exception); the 1 m margin and the own-grenade test ours | Musou weight: blast jolts thinned: compare with SM1 by measuring on a flat spot of the same map. Ours: a detonation shakes and jolts the own camera only within 12 m (was… | ☐ |
 | `R-CB5D9334` | Musou weight: roll end dip | the own roll's end dips the camera **0.4** degrees (a small landing's) (degrees) | kind: ours; confidence: low | ours | Musou weight: roll end dip: compare with SM1 with an overlaid screenshot taken from the same position. Ours: the own roll's end dips the camera 0.4 degrees (a small landing's). | ☐ |
 | `R-B86E5FB3` | Musou weight: contact sounds | a knee, hand, pelvis or shoulder meeting the ground at strength **0.35** or more plays the class's heavy footstep command (`EVT_Left_Foot_Rush` / `EVT_Right_Foot_Rush`, the surface switch under it, the owner's footstep level); a jump-pack dash's landing the… (- , s, m) | kind: ours; confidence: low | the plan (install sounds only) | Musou weight: contact sounds: compare with SM1 by feel or video. Ours: a knee, hand, pelvis or shoulder meeting the ground at strength 0.35… | ☐ |
 
