@@ -51,6 +51,7 @@ public partial class NetworkView
     {
         if (!MusouContactOn || _client is null || _camera is null || _gameSpace is null) return;
         string? wargear = MeleeWargear(me);
+        MusouOwnSwingArc(me, step, wargear);   // owner 2026-11-10: the swing's one arc, every melee weapon (NetworkView.MusouSlashArc.cs)
         if (!MusouContactRules.PredictsMelee(wargear)) { if (LogMusouContact) GD.Print($"MUSOU CONTACT t {_connectedFor:F3} strike {wargear ?? "-"}: not a pilot weapon"); return; }
         MusouStrikeTargets(me, step);
         if (_musouStrikeTargets.Count == 0) { if (LogMusouContact) GD.Print($"MUSOU CONTACT t {_connectedFor:F3} strike {wargear}: no Ork in reach of {_tfwShown.Count} shown"); return; }
@@ -63,7 +64,7 @@ public partial class NetworkView
             _musouContact.Predict(id, _connectedFor, melee: true);
             _musouContactAt[id] = _connectedFor;
             MusouMeleeShake();   // the swing's cap holds however many
-            if (!NoMusouSlash && Num.Vector3.Distance(chest, camera) <= MusouSlashRules.Metres) MusouSlashAt(chest, me.Position, colour, style, _client.PlayerId);
+            if (!MusouArcsOn && !NoMusouSlash && Num.Vector3.Distance(chest, camera) <= MusouSlashRules.Metres) MusouSlashAt(chest, me.Position, colour, style, _client.PlayerId);   // the arc in place (owner 2026-11-10)
             var contact = ToGodot(chest);
             if (k == 0)
             {
