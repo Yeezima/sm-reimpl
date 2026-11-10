@@ -554,6 +554,22 @@ None left for the approval of this design: every question is decided (D1 to D24)
 
 The hook names below are W0's proposals; use the names W0 lands with.
 
+**W0 as landed** (branch `claude/arsenal-w0`). Each item implements only its own partial methods, in its own files; nothing in a W0 file needs an edit.
+
+| | Content (`Arsenal`, SmContent) | Simulation | Client |
+|---|---|---|---|
+| W1 autocannon | `AppendAutocannon`, `AutocannonItems`, `AutocannonAlias` | `World.ArsenalShotBlast` | `WeaponRig.AutocannonModel` |
+| W2 claw | `AppendLightningClaw`, `LightningClawMap` (with `WeaponMap.ClipSpeed`), `LightningClawItems`, `LightningClawAlias` | none (the sword's cleave) | `WeaponRig.LightningClawModel` (sets `alwaysHeld`) |
+| W3 spear | `AppendPowerSpear`, `PowerSpearMap`, `PowerSpearItems`, `PowerSpearAlias` | `ArsenalRules.SpearWieldsHammer`, `World.ArsenalCleave`, `World.ArsenalJump` (Impact) | `WeaponRig.PowerSpearModel` |
+| W4 charge | `AppendRemoteDetonators`, `RemoteDetonatorsItems` | `World.ArsenalProjectileMeets`, `World.ArsenalStep` (the fuse, and the detonation and ring from the tick's detonations), `World.ArsenalRefillSeconds` | `NetworkView.RemoteDetonatorsVisual` (the thrown model: hook `ExtrasThrownVisual`, not `ExtrasWeaponModel`) |
+
+Changed from the proposals:
+- The charge's model in flight is its own hook, `ExtrasThrownVisual`.
+- The catalogue hook comes with `ProfileViews.ExtrasSetCatalog`, so Musou's loadout set is read with Musou's catalogue.
+- The clip-speed factor is the `WeaponMap.ClipSpeed` field, not a hook; the client's single-clip strikes read it (`NetworkView.MeleeClipSpeed`).
+- The animation alias is read by the hip-fire, sprint, reload and flinch rules and the hammer stance (`AnimationAlias.Of`).
+- Not reached by W0: the jump pack's own moves (dash attack, ground pound, air slash), which the clip-speed factor does not touch; and the other name-based presentation rules (hit sounds, power flash, the sword's glow and idle sound). Raise either with the lead if needed.
+
 ### W1: Autocannon (section 4)
 
 - **Branch:** `claude/arsenal-w1-autocannon` from main.
