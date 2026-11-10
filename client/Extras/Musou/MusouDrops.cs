@@ -16,7 +16,8 @@ namespace SmClient;
 /// under a gold emissive override, turning slowly and bobbing, with a warm light, a tall soft gold beam and a glow on the floor (all ours: the look is the
 /// owner's request, not the original's). In reach (1.5 m, the sim's rule) a prompt "E: PICK UP name" shows; an E press hides the drop at once and plays the
 /// ammunition pickup's take sound (the core pickup's, when the install has one); the server's list confirms (a refused pickup shows again after 1.5 s).
-/// Headless and lean clients keep nothing drawn.
+/// A powerup (owner 2026-11-10) is taken by holding E for <see cref="MusouPowerupRules.HoldSeconds"/> instead: its prompt "HOLD E name" carries a thin bar that fills over the hold, and the drop
+/// hides when the hold completes (predicted as the press was; the server checks the hold itself). Headless and lean clients keep nothing drawn.
 /// </summary>
 public partial class NetworkView
 {
@@ -57,8 +58,9 @@ public partial class NetworkView
         if (_musouDropDirty && _musouDropPayload is not null && _musouState.Director is { } director)
         {
             _musouDropDirty = false;
-            if (MusouWire.ReadDrops(_musouDropPayload, director.Box.Sane()) is { } list)
+            if (MusouWire.ReadDrops(_musouDropPayload, director.Box.Sane(), out var buffs) is { } list)
             {
+                MusouBuffsReceived(buffs, _musouDropTick);   // the powerups (MusouPowerups.cs): the own buffs after the drops
                 _musouDropLive.Clear();
                 foreach (var d in list)
                 {
@@ -71,6 +73,7 @@ public partial class NetworkView
                 foreach (var id in _musouDropScratch) _musouDropTaken.Remove(id);
             }
         }
+        MusouPowerupsFrame(me);   // the own buffs: the HUD's chips and the Supercharged glow (NetworkView.MusouPowerups.cs)
         if (_musouNoDraw || _gameSpace is null) return;
 
         // The drops to draw: live, not taken by a press just now, the nearest MaxDrawn (the nearest MaxLit with a light).
@@ -94,8 +97,12 @@ public partial class NetworkView
             if (!_musouDropViews.TryGetValue(id, out var view) || view.Item != d.Item)
             {
                 MusouRemoveDropView(id);
-                string? wargear = _config is null ? null : MusouDropItem.Wargear(_config, me.Class, d.Item);
-                view = MusouDropView.Create(id, d.Item, MusouDropMesh(wargear), MusouDropName(wargear), d.Crate, d.Crate ? PickupModel(0) : null);
+                if (MusouPowerupRules.IsPowerup(d.Item)) view = MusouDropView.CreatePowerup(id, d.Item, MusouPowerupRules.KindOf(d.Item));   // owner 2026-11-10: minimal, black and white (MusouDropView.Powerup.cs)
+                else
+                {
+                    string? wargear = _config is null ? null : MusouDropItem.Wargear(_config, me.Class, d.Item);
+                    view = MusouDropView.Create(id, d.Item, MusouDropMesh(wargear), MusouDropName(wargear), d.Crate, d.Crate ? PickupModel(0) : null);
+                }
                 _gameSpace.AddChild(view);
                 _musouDropViews[id] = view;
                 _musouDropsSeen++;
@@ -119,15 +126,32 @@ public partial class NetworkView
         // Use as the input sends it: the key held or its latched tap while the mouse is captured, or the pad's Use held or latched; nothing with --no-pickups.
         bool held = !NoPickups && ((Input.MouseMode == Input.MouseModeEnum.Captured && (ControlsInput.Held(GameAction.Use) || _interactLatched))
                                    || (_pad is not null && PadHost.Active && (ControlsInput.PadHeld(_pad, GameAction.Use) || _padInteractLatched)));
-        if (held && !_musouDropUseHeld && near is not null && _musouDropLive.TryGetValue(near.Id, out var taken))
+        bool press = held && !_musouDropUseHeld;
+        // A powerup is taken by holding Use (owner 2026-11-10: "Hold the use key"; MusouPowerupRules.HoldSeconds, the server checks it): the press on the nearest begins the hold, which goes
+        // on while Use stays down and that drop stays in reach (as the server's); the prompt shows it filling. A weapon or a crate goes at the press, as before.
+        if (press && near is not null && near.Minimal) { _musouHoldFor = near.Id; _musouHoldAt = now; }
+        float hold = -1f;
+        if (_musouHoldFor != 0)
         {
-            // At once on the picker's own client: hidden and heard now; the server's next list confirms.
+            if (held && me.Alive && !NoHud && !PickerBusy && _musouDropViews.TryGetValue(_musouHoldFor, out var holding) && _musouDropLive.TryGetValue(_musouHoldFor, out var d) && World.MusouInReach(d.Position, me.Position))
+            {
+                near = holding;   // the prompt stays on the drop being taken
+                hold = (float)Math.Clamp((now - _musouHoldAt) / MusouPowerupRules.HoldSeconds, 0.0, 1.0);
+            }
+            else _musouHoldFor = 0;
+        }
+        bool take = hold >= 1f || (press && near is not null && !near.Minimal);
+        if (take && near is not null && _musouDropLive.TryGetValue(near.Id, out var taken))
+        {
+            // At once on the picker's own client: hidden and heard now; the server's next list confirms (a refused one shows again after MusouDropPredictSeconds).
             _musouDropTaken[near.Id] = now;
             _musouDropsTaken++;
             MusouDropSound(taken.Position, me);
-            GD.Print($"musou: drop {near.Id} ({near.Title}) taken");
+            GD.Print($"musou: drop {near.Id} ({near.Title}) taken{(near.Minimal ? " (held)" : "")}");
             MusouRemoveDropView(near.Id);
             near = null;
+            _musouHoldFor = 0;
+            hold = -1f;
         }
         _musouDropUseHeld = held;
         // The prompt's text is made only when the drop in reach changes (no string a frame).
@@ -135,10 +159,19 @@ public partial class NetworkView
         else if (near.Id != _musouDropPromptFor || _musouDropPromptText is null)
         {
             _musouDropPromptFor = near.Id;
-            _musouDropPromptText = $"{ControlsInput.Prompt(GameAction.Use)}: {(near.Crate ? "OPEN CRATE" : "PICK UP")} {near.Title.ToUpperInvariant()}";
+            _musouDropPromptText = near.Minimal
+                ? $"HOLD {ControlsInput.Prompt(GameAction.Use)}   {near.Title}"   // a powerup's prompt: hold the key, and the name (owner 2026-11-10)
+                : $"{ControlsInput.Prompt(GameAction.Use)}: {(near.Crate ? "OPEN CRATE" : "PICK UP")} {near.Title.ToUpperInvariant()}";
         }
-        MusouDropPromptShow(near is null ? null : _musouDropPromptText);
+        MusouDropPromptShow(near is null ? null : _musouDropPromptText, near is { Minimal: true } ? MathF.Max(0f, hold) : -1f);
     }
+
+    /// <summary>The powerup drop the own Use is held on (0: none), and when the hold began (seconds, the frame clock).</summary>
+    ushort _musouHoldFor;
+    double _musouHoldAt;
+    ColorRect? _musouHoldTrack, _musouHoldFill;
+    /// <summary>The hold bar under a powerup's prompt (ours): a thin white line filling over the hold, on a faint track.</summary>
+    const float MusouHoldBarWidth = 180f, MusouHoldBarHeight = 3f;
 
     void MusouRemoveDropView(ushort id)
     {
@@ -156,9 +189,15 @@ public partial class NetworkView
         CountSound("pickup");
     }
 
-    void MusouDropPromptShow(string? text)
+    /// <summary>The prompt line, and under a powerup's (<paramref name="hold"/> 0 to 1; below 0: none) the hold bar: its faint track, and the white fill as far as the hold has run.</summary>
+    void MusouDropPromptShow(string? text, float hold = -1f)
     {
-        if (text is null) { if (_musouDropPrompt is not null) _musouDropPrompt.Visible = false; return; }
+        if (text is null)
+        {
+            if (_musouDropPrompt is not null) _musouDropPrompt.Visible = false;
+            if (_musouHoldTrack is not null) _musouHoldTrack.Visible = _musouHoldFill!.Visible = false;
+            return;
+        }
         if (_musouDropPrompt is null)
         {
             var layer = new CanvasLayer { Name = "MusouDropPrompt", Layer = 3 };
@@ -170,15 +209,31 @@ public partial class NetworkView
                 AnchorLeft = 0.5f, AnchorRight = 0.5f, AnchorTop = at, AnchorBottom = at, OffsetLeft = -320, OffsetRight = 320,
             };
             if (!MusouHudLayout.Old) _musouDropPrompt.GrowVertical = Control.GrowDirection.Begin;   // its bottom on the line, the text above it: clear of the pickup line at any height
-            _musouDropPrompt.AddThemeFontSizeOverride("font_size", 24);
-            _musouDropPrompt.AddThemeColorOverride("font_color", new Color(1f, 0.82f, 0.35f));
-            _musouDropPrompt.AddThemeColorOverride("font_outline_color", new Color(0f, 0f, 0f, 0.9f));
-            _musouDropPrompt.AddThemeConstantOverride("outline_size", 6);
+            // The black and white theme (owner 2026-11-10): the menus' small bold white capitals, a thin dark outline (the gold 24 px line before).
+            _musouDropPrompt.AddThemeFontSizeOverride("font_size", 18);
+            _musouDropPrompt.AddThemeColorOverride("font_color", new Color(0.93f, 0.93f, 0.93f));
+            _musouDropPrompt.AddThemeColorOverride("font_outline_color", new Color(0f, 0f, 0f, 0.85f));
+            _musouDropPrompt.AddThemeConstantOverride("outline_size", 4);
             layer.AddChild(_musouDropPrompt);
+            // The hold bar (owner 2026-11-10: "Hold the use key"): just under the line (the new layout: the text sits above it; the old: the text hangs from it, so under the text).
+            float top = MusouHudLayout.Old ? 30f : 5f;
+            ColorRect Bar(string name, Color colour) => new()
+            {
+                Name = name, Color = colour, MouseFilter = Control.MouseFilterEnum.Ignore, AnchorLeft = 0.5f, AnchorRight = 0.5f, AnchorTop = at, AnchorBottom = at,
+                OffsetLeft = -MusouHoldBarWidth / 2f, OffsetRight = MusouHoldBarWidth / 2f, OffsetTop = top, OffsetBottom = top + MusouHoldBarHeight, Visible = false,
+            };
+            _musouHoldTrack = Bar("HoldTrack", new Color(0.93f, 0.93f, 0.93f, 0.22f));
+            _musouHoldFill = Bar("HoldFill", new Color(0.97f, 0.97f, 0.97f, 0.95f));
+            layer.AddChild(_musouHoldTrack);
+            layer.AddChild(_musouHoldFill);
             AddChild(layer);
         }
         if (!ReferenceEquals(text, _musouDropPromptShown)) { _musouDropPrompt.Text = text; _musouDropPromptShown = text; }
         _musouDropPrompt.Visible = true;
+        bool bar = hold >= 0f;
+        _musouHoldTrack!.Visible = bar;
+        _musouHoldFill!.Visible = bar && hold > 0f;
+        if (bar && hold > 0f) _musouHoldFill.OffsetRight = -MusouHoldBarWidth / 2f + MusouHoldBarWidth * Math.Clamp(hold, 0f, 1f);
     }
 
     string? _musouDropPromptShown;
@@ -236,7 +291,7 @@ public sealed partial class MusouDropView : Node3D
         get => _light is not null;
         set
         {
-            if (value == (_light is not null)) return;
+            if (Minimal || value == (_light is not null)) return;   // a powerup carries no light
             if (value)
             {
                 _light = new OmniLight3D { LightColor = new Color(1f, 0.74f, 0.3f), LightEnergy = 2.2f, OmniRange = 5f, Position = new Vector3(0f, 0f, Lift + 0.3f), ShadowEnabled = false };
@@ -337,6 +392,7 @@ public sealed partial class MusouDropView : Node3D
     {
         _age += delta;
         if (_spin is null) return;
+        if (Minimal) { _spin.Position = new Vector3(0f, 0f, TileLift + BobMetres * Mathf.Sin(_age * Mathf.Tau * BobHz)); return; }   // a powerup bobs, does not turn
         _spin.Rotation = new Vector3(0f, 0f, (_age * SpinRate + Id * 2.39996323f) % Mathf.Tau);
         _spin.Position = new Vector3(0f, 0f, Lift + BobMetres * Mathf.Sin(_age * Mathf.Tau * BobHz));
     }

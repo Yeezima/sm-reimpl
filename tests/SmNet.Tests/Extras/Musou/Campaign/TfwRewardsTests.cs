@@ -39,7 +39,7 @@ public class TfwRewardsTests
     static World War()
     {
         var w = TfwRig.War(null, Config);
-        w.MusouWeaponDrops = true; w.Tfw!.Rewards.Offering = true;   // the cards are switched off by default (TfwRewardRules.Enabled); these tests are of the cards
+        w.MusouWeaponDrops = true; w.MusouPowerupDrops = false; w.Tfw!.Rewards.Offering = true;   // the cards are switched off; no powerups among the counted drops by default (TfwRewardRules.Enabled); these tests are of the cards
         return w;
     }
 

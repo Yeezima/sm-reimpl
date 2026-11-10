@@ -222,7 +222,7 @@ public sealed partial class World
                 hit.Add(e.Id);
                 var side = new Vector2(e.Position.X - p.Position.X, e.Position.Y - p.Position.Y);
                 var push = forward + (side.LengthSquared() > 1e-8f ? Vector2.Normalize(side) * 0.5f : Vector2.Zero);
-                float damage = spec.Primary.Damage * spec.Primary.BodyMultiplier * Stims.MeleeDealt(Config, p);
+                float damage = spec.Primary.Damage * spec.Primary.BodyMultiplier * MusouMeleeDealt(id, p);   // a stim's melee, held with the powerups' under x2 (World.MusouPowerups.cs)
                 musou.Damage(e.Id, id, damage, new Vector3(push, 0f), out bool killed, marker: 3, cause: MusouDeathKind.Melee);
                 if (killed) continue;
                 if (musou.War is { } war && MusouSim.Fodder(e.Type)) musou.KnockDown(e.Id, push, war.ChargePush, id, war.ChargeDeath);   // Musou Mode's fodder falls
@@ -245,13 +245,14 @@ public sealed partial class World
         var musou = _musou!;
         var rules = musou.Rules.Combat;
         bool heavy = MusouSim.Heavy(state, step);
-        float damage = step.Damage * step.HealthMultiplier * Stims.MeleeDealt(Config, state);
+        float damage = step.Damage * step.HealthMultiplier * MusouMeleeDealt(attacker, state);   // a stim's melee, held with the powerups' under x2 (World.MusouPowerups.cs)
         if (!(damage > 0f) && !heavy) return;
         float range = rules.CleaveRange(Config.MeleeRange, step.TrackToHit, war: musou.War is not null);   // x1.5 (owner 2026-11-08)
         float minCos = MathF.Cos(MathF.Min(180f, Config.MeleeConeDegrees * rules.CleaveConeScale) * MathF.PI / 180f);
         if (musou.War is { } volume) { range *= volume.CleaveReachScale; minCos = volume.CleaveMinCos; }   // owner 2026-11-09: a longer, wider flat cone in the war
         int most = musou.War?.CleaveTargets ?? rules.CleaveTargets;
-        ArsenalCleave(attacker, state, step, ref range, ref minCos, ref most, ref damage);   // Arsenal/World.Arsenal.cs: a weapon's own cleave (W3, the spear); a no-op until then
+        ArsenalCleave(attacker, state, step, ref range, ref minCos, ref most, ref damage);   // Arsenal/World.Arsenal.cs: a weapon's own cleave (W3: the power spear's sweeps, Arsenal/World.Spear.cs)
+        MusouSuperchargedCleave(attacker, ref range, ref minCos);   // the Supercharged Melee powerup: a wider, longer cleave (World.MusouPowerups.cs)
         var forward = new Vector2(-MathF.Sin(state.Yaw), MathF.Cos(state.Yaw));
         var eye = state.Position + new Vector3(0, 0, Config.EyeHeight);
         int n = musou.Query(state.Position, range, _musouNear, Config.MeleeVerticalReach);
