@@ -14,9 +14,9 @@ namespace SmContent.Extras.Musou;
 /// whole upper body drives every strike (the lower spine as the hips, the chest, the shoulder), the arcs reach far behind and far past the target, the off hand braces and shoves, and
 /// the moves are a claw's: a diagonal rake, a low gutting rake, a punching stab, a tearing rip back toward the body, an overhead downward rake.</item>
 /// <item>Spear: the thunder hammer's at 0.85x, so each is the hammer's divided by <see cref="SpearTempo"/> (spec "Thunder hammer X1..X3": hits 0.604 / 0.567 / 0.700 s, lengths 2.667 / 2.333 / 2.333 s).
-/// Laid over the hammer's two-handed idle (<see cref="SpearIdle"/>); at rest the spear stands upright at the marine's right side, butt down and blade up (<see cref="SpearRest"/>, the owner's
-/// reference and his answer of 2026-11-10), and every sweep starts from and returns to that rest. The dive over the hammer's dive loop and landing (<see cref="SpearDiveLoop"/>,
-/// <see cref="SpearDiveImpact"/>), whose impale lands with the landing (0 s of the impact clip) and releases at 0.5 s (owner, 2026-11-10).</item>
+/// Laid over the hammer's two-handed idle (<see cref="SpearIdle"/>); at rest the spear is carried in the right hand held out wide of the hip, the shaft leaning forward and the blade's edge facing out and
+/// forward (<see cref="SpearRest"/>; the owner's notes of 2026-11-10, pass 2), and every sweep starts from and returns to that carry. The dive over the hammer's dive loop and landing (<see cref="SpearDiveLoop"/>,
+/// <see cref="SpearDiveImpact"/>), whose impale drives the blade point-down into the Ork at his feet by 0.14 s, holds to 0.85 s and is free by 0.95 s (owner, 2026-11-10: "Point-down").</item>
 /// </list>
 /// The arms are keyed as directions (<see cref="PoseChannelKind.Aim"/>: where the upper arm and the forearm point, elevation and azimuth), so a pose means the same over any stance; the spine,
 /// head, clavicles and hands as turns. Every strike has a clear anticipation (the body coils, <see cref="PoseEase.In"/>), a snap on the strike (<see cref="PoseEase.Snap"/>, or
@@ -207,7 +207,7 @@ public static class ClawSpearClips
     /// <summary>How long the shaft takes to slide through the hand to the melee grip at a string's start, and back to the carry at its end (s; ours: quick and visible).</summary>
     public const float GripSlide = 0.25f, GripSlideBack = 0.4f;
 
-    /// <summary>The carry: the right arm hanging with the shaft at the right side (the shaft leans forward-up from this hand at the carry grip, <see cref="SpearHold.Place"/>, the blade's edge forward); the left arm hangs free (aims, el / az).</summary>
+    /// <summary>The carry: the right arm hanging with the shaft at the right side (the shaft leans forward-up from this hand at the carry grip, <see cref="SpearHold.Place"/>, the blade's edge facing out and forward, from the hips' facing); the left arm hangs free (aims, el / az).</summary>
     const float RestRUpperEl = -30f, RestRUpperAz = 85f, RestRForeEl = -15f, RestRForeAz = 55f, RestLUpperEl = -70f, RestLUpperAz = -20f, RestLForeEl = -50f, RestLForeAz = -25f;
     static PoseKey RestRUpper(float t, PoseEase ease = PoseEase.Smooth) => A(t, RestRUpperEl, RestRUpperAz, ease);
     static PoseKey RestRFore(float t, PoseEase ease = PoseEase.Smooth) => A(t, RestRForeEl, RestRForeAz, ease);
@@ -228,7 +228,7 @@ public static class ClawSpearClips
     /// <summary>The spear's carry (owner, 2026-11-10: "carried 1 handed in the right hand when running or idling", the hand where the butt is just above the ground), held over the hammer's idle while the spear is not swung; every strike starts from it and the string's last returns to it.</summary>
     public static readonly WeaponPoseClip SpearRest = new("spear_rest", "spear", SpearIdleLength, float.NaN, SpearIdle, 0f, 0f, 0f, float.NaN,
         "the hammer's idle (SM_2HM_NAV_TH_IdleL_S_01 1.5 s; the pose is held while it loops)",
-        "the carry: the spear in the right hand alone at the right side, the butt just above the ground and the blade up and forward over the shoulder, its edge facing the way he faces; the left arm hanging free",
+        "the carry: the spear in the right hand alone at the right side, the butt just above the ground and the blade up and forward over the shoulder, its edge facing out and forward from the hips; the left arm hanging free",
         [
             Turn(SpineD, T(0f, 4, 0, 0), T(SpearIdleLength, 4, 0, 0)),
             Turn(Head, T(0f, -4, 0, 0), T(SpearIdleLength, -4, 0, 0)),

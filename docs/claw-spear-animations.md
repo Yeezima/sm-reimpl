@@ -125,7 +125,8 @@ spine and edge). `SpearClearanceTests` (install only; skipped in CI) samples eve
 System.Numerics (the strikes over the hammer idle at six loop phases, the carry over all twenty hammer stance clips, the pound over its dive loop and landing) and the hand-overs between them
 (the carry into each strike, the chains, each strike and the impale back to the carry, the dive into the impale), and allows no pose 0.02 m into a capsule (one allowance, below). The
 fitted capsules are pinned to the fit (`Body_capsules_fit_the_armour`). The mirror was compared with the client's own overlay on the preview stage (`--claw-spear-test --clearance`): 0.01 to
-0.02 m apart on every strike of the clips before the pass.
+0.02 m apart on every strike of the clips before the pass. Not covered by the comparison (lead review, 2026-11-10): the carry over walk, run and sprint (checked by the mirror alone, on single raw
+clips), the direction blends, the weight pass's settle, the foot pins and the 0.15 s fade-ins; the client's `--clearance` was not re-run on the final clips.
 
 **Before**: up to 0.34 m (hew 3's overhead loop through the jump pack); every strike 0.18 to 0.34 m (the snap cut and the stab through the chest and the pads, the hews through the waist and
 the pack); the carry 0.23 m into the shins; the impale 0.18 m into the pack. **After**: every clip and hand-over within the 0.02 m, the carry 0.107 m clear.

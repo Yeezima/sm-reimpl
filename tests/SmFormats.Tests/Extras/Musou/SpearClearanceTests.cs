@@ -62,6 +62,7 @@ public class SpearClearanceTests(ITestOutputHelper output)
             if (from is not null && share > 0f) { grip += (from.GripAt(fromTime) - grip) * share; point += (from.GripPointAt(fromTime) - point) * share; }
             var (butt, shaft, edge) = SpearHold.Place(mirror.RightHand, mirror.LeftHand, grip, point, mirror.FrontNow(), Vector3.UnitZ);
             var r = SpearClearance.Measure(mirror.Pose, butt, shaft, edge);
+            if (!float.IsFinite(r.Clearance)) throw new InvalidOperationException($"a clearance that is not a finite number: {key} at {clipTime:0.000} s");   // a NaN would never count as the worst
             if (!ByClip.TryGetValue(key, out var worst) || r.Clearance < worst.Result.Clearance) ByClip[key] = new Worst(scenario, time, r);
             if (carry)
             {
@@ -82,7 +83,7 @@ public class SpearClearanceTests(ITestOutputHelper output)
         var stances = new List<string> { loco.HammerIdle ?? ClawSpearClips.SpearIdle };
         foreach (var d in loco.Hammer?.Directions ?? []) { if (d.Walk is { } w) stances.Add(w.Clip); if (d.Run is { } r) stances.Add(r.Clip); }
         foreach (var c in loco.SprintFor(SprintFamily.Hammer)?.Clips ?? []) stances.Add(c.Clip);
-        Assert.True(stances.Count >= 17, $"the hammer stance's clips not found ({stances.Count})");
+        Assert.True(stances.Count >= 20, $"the hammer stance's clips not found ({stances.Count}; the install has twenty: the idle, the walk and run directions and the sprint)");
         foreach (var name in stances)
         {
             var stance = rig.LoadAnimation(name);
@@ -131,7 +132,7 @@ public class SpearClearanceTests(ITestOutputHelper output)
     /// The one allowance: the dive's pose fading into the impale over the landing's first frames, while the landing clip slams the body about a metre down in 0.07 s; the dive's held hands meet
     /// the landing body's right arm and leg for one frame (0.07 to 0.09 m at 0.033 s for every dive pose tried; the impale alone and the rest of the hand-over are clear). Open, for a refinement.
     /// </summary>
-    const float LandingHandOverBudget = 0.10f;
+    const float LandingHandOverBudget = 0.10f;   // for the whole dive -> impale hand-over (0.14 s), not one frame: its worst frame measured 0.085 m (lead review, 2026-11-10)
 
     /// <summary>The client's <c>WeaponPoseState.BlendSeconds</c> (client code, not referenced here).</summary>
     const float WeaponPoseState_BlendSeconds = 0.14f;
