@@ -94,12 +94,12 @@ public partial class SoundSystem : Node
 
     /// <summary>
     /// <c>--sound-limits none|footsteps|all</c> (<see cref="InstanceLimits"/>): which posts get the instance limits and the 2D volume threshold. The footsteps' layers hold limits of 1 to
-    /// 4 (a footstep cuts the tail of the last one); 2,945 nodes in all set them (the footsteps' among them; bolter shots 1 and 2, blasts, melee hits). Default: the footstep posts only.
-    /// <c>all</c> (the polish pass P1's candidate for the owner's "less clutter in big fights") stays opt-in until the owner has heard the A/B (review of 2026-11-10: the flag bytes' order is an
-    /// interpretation, the all-parents rule is low confidence and the -60 dB cut is ours, so a misread would reach hit confirms, speech and the match-end stingers); <see cref="LimitNodesReport"/>
-    /// lists the nodes that fired with their flags.
+    /// 4 (a footstep cuts the tail of the last one); 2,945 nodes in all set them (the footsteps' among them; bolter shots 1 and 2, blasts, melee hits). Default since the polish pass P1:
+    /// every post (<c>all</c>; the owner, 2026-11-10, after the A/B clips: "yes lets apply the cap to all for sound A/B"); <c>--sound-limits footsteps</c> restores the footstep posts only (the
+    /// default from the footsteps fix to P1). The flag bytes' order stays an interpretation (low confidence) and the -60 dB cut ours, so a misread would reach hit confirms, speech and the
+    /// match-end stingers: testers are asked to report any hit, kill or voice sound that goes missing; <see cref="LimitNodesReport"/> lists the nodes that fired with their flags.
     /// </summary>
-    public InstanceLimits Limits { get; set; } = InstanceLimits.Footsteps;
+    public InstanceLimits Limits { get; set; } = InstanceLimits.All;
 
     /// <summary>
     /// <c>--footstep-gain &lt;dB&gt;</c> (ours; 0 by default): added to every footstep and landing voice, a listening aid on top of the owner's footstep level (<see cref="FootstepLevel"/>) and

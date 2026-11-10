@@ -30,6 +30,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 Scanned 2839 spec table rows: **2113 tagged**, 501 not tagged (read from data with high confidence), 225 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 637 rows of the changes document.
 Scanned 2851 spec table rows: **2125 tagged**, 502 not tagged (read from data with high confidence), 224 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 637 rows of the changes document.
+Scanned 2840 spec table rows: **2113 tagged**, 502 not tagged (read from data with high confidence), 225 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 637 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -96,7 +97,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | kind: inferred | 3 |
 | notes: guess | 3 |
 | section: approximation | 3 |
-| notes: unverified | 1 |
+| notes: unverified | 2 |
 
 ## Part A: gameplay areas, critical first
 
@@ -3108,7 +3109,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
-| `R-D29DA629` | Sound instance limits, every post (opt-in) | `--sound-limits all`: the banks' per-node "limit sound instances" (2,945 nodes carry one, the footsteps' among them) and the below-threshold culling of non-positioned voices apply to every post in both modes; **the default stays `footsteps`** until the owner… | kind: estimate; confidence: low; notes: interpretation | the banks' own limits as read (interpretation); the choice to apply them everywhere the owner's "less clutter" | Sound instance limits, every post (opt-in): compare with SM1 by listening A/B at the same distance and state. Ours: --sound-limits all: the banks' per-node "limit sound instances"… | ☐ |
+| `R-A6224793` | Sound instance limits, the flags read | the advanced-settings bytes are read as kill newest, virtual behaviour, ignore the parents' limit (`SoundBank.cs`); the all-parents rule (every limiting node of the chain counts) and the -60 dB below-threshold cut are ours; a misread would reach hit confirms… | kind: estimate; confidence: low; notes: interpretation; notes: unverified | interpretation of the v56 bank layout, unverified by listening | Sound instance limits, the flags read: compare with SM1 by listening A/B at the same distance and state. Ours: the advanced-settings bytes are read as kill newest, virtual… | ☐ |
 | `R-70ACA5F0` | Revived loops resume | a looping non-positioned voice demoted under the -60 dB threshold (a virtual voice) goes on from its running position when it is revived ((now - started) modulo the stream's length), not from its start as before (s) | kind: ours; confidence: medium | ours (review of 2026-11-10) | Revived loops resume: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a looping non-positioned voice demoted under the -60 dB threshold (a… | ☐ |
 | `R-F660BE9D` | Performance readout | **F3** cycles OFF (default), FPS (frames a second over the last second, the mean and worst frame of that second), FPS + NETWORK (plus the ping from the snapshot echoes, the snapshot loss over 3 s, the interpolation delay and the input slack the server… (s) | kind: ours | ours (a tester aid; the original had no such readout) | Performance readout: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: F3 cycles OFF (default), FPS (frames a second over the last second… | ☐ |
 | `R-900DB710` | Server GC latency mode | `GCLatencyMode.SustainedLowLatency` for the dedicated server (as the human client's since perf/pass-1; before: the runtime's Interactive mode); `SM_OLD_SERVER_RUNTIME=1` keeps the default | kind: ours; confidence: medium | ours | Server GC latency mode: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: GCLatencyMode.SustainedLowLatency for the dedicated server (as the… | ☐ |
