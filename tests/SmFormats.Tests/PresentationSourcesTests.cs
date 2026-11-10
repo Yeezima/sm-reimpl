@@ -1,6 +1,7 @@
 using System.Reflection;
 using SmContent;
 using SmFormats.Baf;
+using SmSim;
 
 namespace SmFormats.Tests;
 
@@ -79,6 +80,46 @@ public partial class EffectCatalogueTests
         Assert.Contains(named.Notes, n => n.StartsWith("OURS_GUN: 3 effect command(s) renamed", StringComparison.Ordinal));
         foreach (var p in typeof(EffectCatalogue).GetProperties(BindingFlags.Public | BindingFlags.Instance).Where(p => p.Name is not (nameof(EffectCatalogue.Weapons) or nameof(EffectCatalogue.Notes))))
             Assert.True(ReferenceEquals(p.GetValue(sourced), p.GetValue(named)) || Equals(p.GetValue(sourced), p.GetValue(named)), $"EffectCatalogue.{p.Name} is not carried over by WithEffectNames");
+    }
+
+    [Fact]
+    public void A_named_impact_effect_plays_from_the_entrys_own_copy_of_the_shared_container()
+    {
+        // W1c "Loyalist impact": the twin's container is shared (the Chaos file names it too), so the named entry's impacts come from a copy of its own; every other weapon's are untouched.
+        var c = Catalogue();
+        var sourced = c.WithSources(new Dictionary<string, IReadOnlyList<string>> { ["ours_gun"] = ["csm_test_rifle"] });
+        var named = sourced.WithEffectNames(Names("ours_gun", ("chaos_test_dmg_stone", "test_dmg_stone"), ("chaos_test_sparks", "loyal_sparks")));
+        Assert.NotSame(sourced, named);
+        var twin = sourced.Weapon("csm_test_rifle")!;
+        var ours = named.Weapon("ours_gun")!;
+        // The commands name the copy (the file name still last), and the copy plays the new names with the source command's scale and direction; the rest of the table and its sound as read.
+        Assert.Equal(EffectCatalogue.CopyKey("ours_gun", ChaosContainer), ours.HitMaterial!.Container);
+        Assert.Equal("test_rifle", ours.HitMaterial.ContainerName);
+        Assert.Equal(twin.HitMaterial! with { Container = EffectCatalogue.CopyKey("ours_gun", ChaosContainer) }, ours.HitMaterial);
+        var stone = sourced.Impact("csm_test_rifle", ShotHit.World, 3).Single();
+        Assert.Equal([stone with { Name = "test_dmg_stone" }], named.Impact("ours_gun", ShotHit.World, 3));            // stone falls back to default/default
+        Assert.Equal(["chaos_test_dmg_metal", "loyal_sparks"], named.Impact("ours_gun", ShotHit.World, 4).Select(p => p.Name));   // only the named one of a surface's two
+        Assert.Equal(["chaos_test_dmg_body"], named.Impact("ours_gun", ShotHit.Body, -1).Select(p => p.Name));         // a surface of its own, not named: kept
+        Assert.Equal(["chaos_test_dmg_head"], named.Impact("ours_gun", ShotHit.Head, -1).Select(p => p.Name));
+        Assert.Equal("play_test_hits", named.Container(ours.HitMaterial)!.SoundEvent);
+        Assert.Equal(twin.Muzzle, ours.Muzzle);                                         // the commands not named are kept
+        Assert.Equal(twin.Tracer, ours.Tracer);
+        // The shared tables and every other weapon's impacts are as read: the twin, the class weapon, the projectile's container.
+        Assert.Same(twin, named.Weapon("csm_test_rifle"));
+        Assert.Equal(["chaos_test_dmg_stone"], named.Impact("csm_test_rifle", ShotHit.World, 3).Select(p => p.Name));
+        Assert.Equal(["test_dmg_metal", "test_sparks"], named.Impact("test_rifle", ShotHit.World, 4).Select(p => p.Name));
+        foreach (var (key, table) in sourced.Containers) Assert.Same(table, named.Containers[key]);
+        Assert.Equal([EffectCatalogue.CopyKey("ours_gun", ChaosContainer)], named.Containers.Keys.Except(sourced.Containers.Keys));
+        Assert.Contains(named.Notes, n => n.StartsWith("ours_gun: 0 effect command(s) renamed, 2 impact effect(s) in its own copy of ours_gun#", StringComparison.Ordinal));
+        foreach (var p in typeof(EffectCatalogue).GetProperties(BindingFlags.Public | BindingFlags.Instance)
+            .Where(p => p.Name is not (nameof(EffectCatalogue.Weapons) or nameof(EffectCatalogue.Containers) or nameof(EffectCatalogue.Notes))))
+            Assert.True(ReferenceEquals(p.GetValue(sourced), p.GetValue(named)) || Equals(p.GetValue(sourced), p.GetValue(named)), $"EffectCatalogue.{p.Name} is not carried over by WithEffectNames");
+        // A projectile's container is copied the same way (the bolt's detonation), each container once however many commands name it.
+        var blasted = sourced.WithEffectNames(Names("ours_gun", ("test_dmg_stone", "loyal_blast_hit"), ("chaos_test_dmg_stone", "loyal_hit")));
+        var bolt = blasted.ProjectileFor("ours_gun", "test_bolt")!;
+        Assert.Equal(["loyal_blast_hit"], blasted.Resolve(bolt.DetonationMaterial, ShotHit.World, 2).Select(p => p.Name));
+        Assert.Equal(["test_dmg_stone"], blasted.Resolve(sourced.ProjectileFor("csm_test_rifle", "test_bolt")!.DetonationMaterial, ShotHit.World, 2).Select(p => p.Name));
+        Assert.Equal(2, blasted.Containers.Count - sourced.Containers.Count);
     }
 }
 

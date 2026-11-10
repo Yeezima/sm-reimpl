@@ -60,9 +60,12 @@ public class AutocannonContentTests
     {
         // The owner (2026-11-10, after W1b's clip): "Loyalist effects": the twin's chaos_autocannon_muzzle / chaos_autocannon_tracer become the effects package's autocannon_muzzle / heavy_bolter_tracer.
         var names = Arsenal.EffectNames(ArsenalRules.Autocannon.ToUpperInvariant())!;
-        Assert.Equal(2, names.Count);
+        Assert.Equal(3, names.Count);
         Assert.Equal("autocannon_muzzle", names["chaos_autocannon_muzzle"]);
         Assert.Equal("heavy_bolter_tracer", names["CHAOS_AUTOCANNON_TRACER"]);
+        // And "Loyalist impact" (the owner, the same day): the twin container's world hit becomes the Space Marine autocannon container's (in the autocannon's own copy of the container).
+        Assert.Equal("autocannon_dmg", names["chaos_autocannon_dmg"]);
+        Assert.All(names.Values, to => Assert.DoesNotContain("chaos", to, StringComparison.OrdinalIgnoreCase));
         // The twin stays the effects' source (its markers, scales and impacts), the Stalker the sounds' (reticle and ammo box: ArsenalPresentationTests).
         Assert.Equal([Arsenal.AutocannonTwinFile, Arsenal.HeavyBolterFile], Arsenal.PresentationSources(ArsenalRules.Autocannon));
         Assert.Equal(["sm_mp_ranged_sniper_rifle", "csm_mp_ranged_sniper_rifle"], Arsenal.SoundSources(ArsenalRules.Autocannon));

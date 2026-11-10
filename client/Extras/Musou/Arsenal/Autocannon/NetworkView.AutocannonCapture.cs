@@ -32,8 +32,7 @@ public partial class NetworkView
         await TfwPathTo(point, "walked towards the Orks", 150.0, () => _musouState.MiddleNear(client.Predicted.Position, 26f) is not null);
         string held = _config is { } c && Loadouts.InHand(c, client.Predicted) is { } w ? w.Name : "?";
         GD.Print($"ACCAPTURE t {_connectedFor:F2} in hand: {held}");
-        var shown = _catalogue?.Weapon(SmSim.Extras.Musou.Arsenal.ArsenalRules.Autocannon);   // W1c: the effects as the client loaded them (the loyalist flash and tracer, the twin's impacts)
-        GD.Print($"ACCAPTURE effects: from {shown?.Wargear ?? "none"}: muzzle {shown?.Muzzle?.Name ?? "none"} at {shown?.Muzzle?.Marker ?? "-"}, tracer {shown?.Tracer?.Name ?? "none"}, impacts {shown?.HitMaterial?.Container ?? "none"}; muzzle locator {(MuzzleWorld(client.PlayerId) is not null ? "found" : "none")}");
+        AutocannonEffectsLine();   // W1c: the effects as the client loaded them (the loyalist flash, tracer and impact; NetworkView.AutocannonImpactCapture.cs)
         TfwCheck("the autocannon is in hand", held == SmSim.Extras.Musou.Arsenal.ArsenalRules.Autocannon, held);
         for (int run = 0; run < 3 && !AutocannonAim(); run++) await TfwWait(0.5);
         // W1c: the gun up and not firing, from each view (the owner's stills of the shorter barrel).

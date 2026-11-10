@@ -38,15 +38,30 @@ public static partial class Arsenal
     /// </summary>
     public const string LoyalistMuzzleEffect = "autocannon_muzzle", LoyalistTracerEffect = "heavy_bolter_tracer";
 
+    /// <summary>
+    /// The twin's impact container (<c>weapon_hits\chaos\ranged_weapons\autocannon</c>, the Chaos one of the install's two <c>autocannon</c> containers) plays <c>chaos_autocannon_dmg</c> (scale 0.3) for
+    /// every hit no surface of its own names: the walls and the ground of every map, and the body hits that fall back to it. Its flashes, sparks, hot crater and smoke are purple and lavender.
+    /// </summary>
+    public const string ChaosImpactEffect = "chaos_autocannon_dmg";
+
+    /// <summary>
+    /// W1c, the loyalist impact (the owner, 2026-11-10: "Loyalist impact"): <c>autocannon_dmg</c>, the world hit of the install's Space Marine <c>autocannon</c> container (its <c>default/default</c>, at
+    /// the twin's very scale 0.3): the same effect element for element (crater, flash, debris and smoke columns, the fire, the light) in warm colours, so the twin's twin as the muzzle flash is.
+    /// In <c>master_fx</c> (<c>smtool fx-dump auto autocannon_dmg chaos_autocannon_dmg</c>).
+    /// </summary>
+    public const string LoyalistImpactEffect = "autocannon_dmg";
+
     static readonly IReadOnlyDictionary<string, string> AutocannonEffectNames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
     {
         [ChaosMuzzleEffect] = LoyalistMuzzleEffect,
         [ChaosTracerEffect] = LoyalistTracerEffect,
+        [ChaosImpactEffect] = LoyalistImpactEffect,   // in the autocannon's own copy of the twin's container (the container itself is shared)
     };
 
     /// <summary>
     /// The effects <paramref name="wargear"/> plays in place of its presentation source's (from → to, <see cref="EffectCatalogue.WithEffectNames"/>), else null: the autocannon shows the twin's
-    /// effect commands (markers, scales, the impacts, the smoke) with the loyalist muzzle flash and tracer instead of the purple Chaos ones. Its sounds (the Stalker's), reticle and ammo box are untouched.
+    /// effect commands (markers, scales, the impacts' surfaces, the smoke) with the loyalist muzzle flash, tracer and impact burst instead of the purple Chaos ones. Its sounds (the Stalker's; the
+    /// impact's hit sound is the container's, kept), reticle and ammo box are untouched.
     /// </summary>
     public static IReadOnlyDictionary<string, string>? EffectNames(string wargear) =>
         string.Equals(wargear, ArsenalRules.Autocannon, StringComparison.OrdinalIgnoreCase) ? AutocannonEffectNames : null;
