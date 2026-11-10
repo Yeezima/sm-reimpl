@@ -720,6 +720,14 @@ public sealed partial class WeaponRig
         return true;
     }
 
+    /// <summary>Test aid (the spear's carry grip): points of the melee weapon's own X axis (<paramref name="xs"/>, metres in its model space) in Godot world space, while it is in hand; null otherwise.</summary>
+    public Vector3[]? MeleeAxisPoints(params float[] xs)
+    {
+        if (!_alive || Faulted || MeleeInHand() is not { } i) return null;
+        var holder = i.Holder.GlobalTransform;
+        return xs.Select(x => holder * new Vector3(x, 0f, 0f)).ToArray();
+    }
+
     /// <summary>fx/impact-pass: the melee weapon's drawn mesh and its model while it is in hand (null otherwise: stowed, hidden, dead, no melee weapon).</summary>
     public (MeshInstance3D Mesh, WeaponModel Model)? MeleeMeshInHand =>
         _alive && !Faulted && MeleeInHand() is { } i && i.Holder.GetNodeOrNull<MeshInstance3D>("Mesh") is { } mesh ? (mesh, i.Asset.Model) : null;

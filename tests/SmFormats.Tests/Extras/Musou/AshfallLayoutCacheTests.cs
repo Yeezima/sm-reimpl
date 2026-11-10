@@ -8,7 +8,7 @@ namespace SmFormats.Tests.Extras.Musou;
 /// <summary>Polish pass P2: the Ashfall layout cache's file format (a synthetic level: the real one takes 23 s to generate and is not what these check).</summary>
 public class AshfallLayoutCacheTests
 {
-    static (AshfallLevel, AshfallDressing) Synthetic()
+    internal static (AshfallLevel Level, AshfallDressing Dressing) Synthetic()
     {
         var parts = new[]
         {

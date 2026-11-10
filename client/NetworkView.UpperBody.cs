@@ -122,15 +122,23 @@ public partial class NetworkView
     /// </summary>
     void UpperObserve(CharacterViewer character, PlayerState s, LocoTrack t, bool own)
     {
-        if (!s.Alive || _config is null) { t.SwSeen = false; t.Switch = null; t.Flinch = null; return; }
+        if (!s.Alive || _config is null) { t.SwSeen = false; t.Switch = null; t.Flinch = null; t.FlinchTicksSeen = 0; return; }
         t.WasSprint = t.Sprint;
         t.WasCharging = s.Rush != RushPhase.None;
+        t.WasRush = s.Rush;
         // The death hold needs it: a victim in the air goes straight to the ragdoll. The debounced fall (not the raw Grounded flag, which blips on a stair or ramp crest and is snapshot-granular for
-        // remote players) or a jump-pack flight or dive (the take-off still stands on the ground).
-        t.WasAirborne = t.Fall.Falling || (s.Jump != JumpPhase.TakeOff && (JumpPack.Jumping(s.Jump) || JumpPack.Pounding(s.Jump)) && !s.Grounded);
+        // remote players) or a jump-pack flight or dive (the take-off still stands on the ground; the graph's BOOL_JumpIsActive).
+        t.WasJumpActive = s.Jump != JumpPhase.TakeOff && (JumpPack.Jumping(s.Jump) || JumpPack.Pounding(s.Jump)) && !s.Grounded;
+        t.WasAirborne = t.Fall.Falling || t.WasJumpActive;
         t.WeaponName = Loadouts.InHand(_config, s)?.Name;
         if (t.SwSeen && s.Slot != t.SwSlot) BeginSwitch(s, t, own);
         t.SwSlot = s.Slot; t.SwSeen = true;
+        // Hit reactions: a light melee hit taken restarts the own record's flinch counter (sim/light-melee-flinch, 0.5 s); the own marine shows the graph's random flinch for it.
+        if (own)
+        {
+            if (s.FlinchTicks > t.FlinchTicksSeen) RandomFlinch(s.PlayerId, "light melee hit taken (own record)");
+            t.FlinchTicksSeen = s.FlinchTicks;
+        }
         FlinchLayer(character, s, t);
     }
 
@@ -220,14 +228,20 @@ public partial class NetworkView
 
     // ------------------------------------------------------------------------------------------------------------------------------------------ hit flinch
 
-    readonly List<(int Victim, int Shooter, bool Head)> _flinchOwn = new();
+    readonly List<(int Victim, int Shooter, bool Head, string? Weapon)> _flinchOwn = new();
+
+    /// <summary>
+    /// Hit reactions test aid and before / after switch: <c>--old-hit-reactions</c> gives animation pass 2's rules (the flinch set of the victim's own weapon, always a high slot, no flinch for light melee
+    /// hits seen on others or taken, the earlier death choice, no clip motion at the ragdoll's start).
+    /// </summary>
+    internal static readonly bool OldHitReactions = OS.GetCmdlineUserArgs().Contains("--old-hit-reactions");
 
     /// <summary>Own hit reports (from <see cref="UpdateHits"/>): a non-lethal ranged hit on another player flinches it on the next frame.</summary>
     void FlinchNoteOwnHit(HitReport hits)
     {
         if (NoFlinch || hits.Hits <= 0 || hits.LastVictim <= 0 || hits.LastMelee || hits.LastSplash || _client is null) return;
         if (hits.LastKilled) { if (hits.LastHead) LocoOf(hits.LastVictim).HeadHitAt = _connectedFor; return; }   // a killing hit: the head note counts for the death clip, no flinch (the death takes the body)
-        _flinchOwn.Add((hits.LastVictim, _client.PlayerId, hits.LastHead));
+        _flinchOwn.Add((hits.LastVictim, _client.PlayerId, hits.LastHead, _config is null ? null : Loadouts.InHand(_config, _client.Predicted)?.Name));
     }
 
     /// <summary>Once per frame after the shots are drained (<c>HipFireBegin</c>): turns this frame's hits into flinches.</summary>
@@ -238,13 +252,25 @@ public partial class NetworkView
         {
             if (shot.Hit is not (ShotHit.Body or ShotHit.Head)) continue;
             int victim = VictimAt(shot.End, shot.Shooter);
-            if (victim > 0) FlinchHit(victim, shot.Shooter, shot.Hit == ShotHit.Head, me);
+            string? weapon = shot.Weapon >= 0 && shot.Weapon < _config.Weapons.Count ? _config.Weapons[shot.Weapon].Name : null;
+            if (victim > 0) FlinchHit(victim, shot.Shooter, shot.Hit == ShotHit.Head, me, weapon, shot.End.Z);
         }
         if (_flinchOwn.Count > 0)
         {
-            foreach (var (victim, shooter, head) in _flinchOwn) FlinchHit(victim, shooter, head, me);
+            foreach (var (victim, shooter, head, weapon) in _flinchOwn) FlinchHit(victim, shooter, head, me, weapon);
             _flinchOwn.Clear();
         }
+    }
+
+    /// <summary>
+    /// The flinch set a hit by <paramref name="weapon"/> plays (hit reactions): the set of the weapon's reaction type through the graph's ports (<see cref="FlinchAnimations.Ports"/>; <paramref name="byPort"/>),
+    /// else by the weapon's name (ours for the storm bolter's and the grenade launcher's types, which have no port).
+    /// </summary>
+    static string FlinchSetOf(UpperBodyBundle data, string? weapon, out bool byPort)
+    {
+        var set = data.Flinch.SetOfReaction(data.ReactionOf(weapon));
+        byPort = set is not null && data.Flinch.For(set) is not null;
+        return byPort ? set! : FlinchRules.SetFor(weapon ?? "", false);
     }
 
     PlayerState? StateOfPlayer(int id, PlayerState me)
@@ -254,7 +280,9 @@ public partial class NetworkView
         return null;
     }
 
-    void FlinchHit(int victimId, int shooterId, bool head, PlayerState me)
+    /// <param name="weapon">The shooter's weapon (the shot record's; null: the one in the shooter's hand).</param>
+    /// <param name="hitZ">The hit point's height (game z), for the low slots; null: a high slot.</param>
+    void FlinchHit(int victimId, int shooterId, bool head, PlayerState me, string? weapon = null, float? hitZ = null)
     {
         if (victimId == shooterId) return;
         var t = LocoOf(victimId);
@@ -266,18 +294,55 @@ public partial class NetworkView
         if (_connectedFor - t.FlinchLast < data.Flinch.MinHitReactionTime) { _flinchSkippedGap++; return; }
         var shooter = StateOfPlayer(shooterId, me);
         var (behind, left) = shooter is { } sh ? FlinchRules.Side(victim.Position.X, victim.Position.Y, victim.Yaw, sh.Position.X, sh.Position.Y) : (false, false);
-        // anim/relic-bolter-idle: the True Grit bolter flinches as the bolt pistol (its animation_set "pistol", AnimationFamilyOf).
-        string setName = t.WeaponName is { } held && AnimationFamilyOf(held) == HipFireWeaponClass.Pistol && Loadouts.IsPistolBolterName(held) ? "Bolt Pistol Flinch" : FlinchRules.SetFor(t.WeaponName ?? "", victim.Charging);
+        string setName;
+        bool low = false, byPort = false;
+        if (OldHitReactions)
+            // anim/relic-bolter-idle: the True Grit bolter flinches as the bolt pistol (its animation_set "pistol", AnimationFamilyOf).
+            setName = t.WeaponName is { } held && AnimationFamilyOf(held) == HipFireWeaponClass.Pistol && Loadouts.IsPistolBolterName(held) ? "Bolt Pistol Flinch" : FlinchRules.SetFor(t.WeaponName ?? "", victim.Charging);
+        else
+        {
+            // Hit reactions (2026-11-11): the set of the attacker's weapon's reaction type (the graph's ports), the slot by where on the body the hit landed.
+            setName = FlinchSetOf(data, weapon ?? (shooter is { } s2 ? Loadouts.InHand(_config, s2)?.Name : null), out byPort);
+            low = !head && hitZ is { } z && FlinchRules.IsLow(z, victim.Position.Z);
+        }
         var set = data.Flinch.For(setName) ?? data.Flinch.For("Bolter Flinch") ?? data.Flinch.Sets.Values.FirstOrDefault();
         if (set is null) return;
-        int slot = FlinchRules.Choose(set, head, behind, left);
+        int slot = FlinchRules.Choose(set, head, behind, left, low);
         if (set.Slot(slot) is not { } clip) return;
         t.Flinch = clip; t.FlinchAt = t.FlinchLast = _connectedFor;
         t.FlinchPeak = OldFlinchWeight ? 1f : WeightFeel.FlinchRangedPeak;   // feel/weight-impact
         FeelShotTrigger("flinch");
         _flinches++;
-        if (UpperLog) GD.Print($"t {_connectedFor:F2} s: P{victimId} FLINCH {clip.Clip} ({setName} slot {slot}: {(head ? "head" : "body")} hit from {(behind ? "behind" : "the front")}, {(left ? "left" : "right")}; {clip.Length:F2} s)");
+        if (UpperLog) GD.Print($"t {_connectedFor:F2} s: P{victimId} FLINCH {clip.Clip} ({setName}{(OldHitReactions ? ", victim's weapon" : byPort ? " by the hit's reaction port" : " by the weapon's name")} slot {slot}: {(head ? "head" : "body")} hit from {(behind ? "behind" : "the front")}, {(left ? "left" : "right")}{(low ? ", low" : "")}; {clip.Length:F2} s)");
     }
+
+    /// <summary>
+    /// Hit reactions (2026-11-11): the graph's random flinch (<see cref="FlinchAnimations.Random"/>: "Random Flinches", six additive 0.2 s clips at equal weight, entered on <c>Hit_Flinch</c>) on a light
+    /// melee hit. The owner's rule: a light hit only throws off the victim's aim and interrupts nothing, so it shows this additive upper-body flinch over whatever the victim does (which hits send
+    /// <c>Hit_Flinch</c> in the original is not in the files: ours). Shown for the own hit on its hit frame, a hit taken (the own record's flinch counter) and others' hits inferred from the snapshots; at most
+    /// one per <c>min_hit_reaction_time</c>, never over a stun or stagger. Returns whether it started.
+    /// </summary>
+    bool RandomFlinch(int victimId, string why)
+    {
+        if (NoFlinch || OldHitReactions || _client is null || _config is null || UpperData() is not { } data || data.Flinch.Random.Count == 0) return false;
+        if (StateOfPlayer(victimId, _client.Predicted) is not { Alive: true } victim) return false;
+        if (victim.Class >= 0 && victim.Class < _config.Classes.Count && _config.Classes[victim.Class].Race == Race.Orks) return false;
+        var t = LocoOf(victimId);
+        _flinchesNoted++;
+        if (victim.Reaction != ReactionKind.None) { _flinchSkippedReaction++; return false; }
+        if (_connectedFor - t.FlinchLast < data.Flinch.MinHitReactionTime) { _flinchSkippedGap++; return false; }
+        int pick = FlinchRules.PickRandom(data.Flinch.Random, (uint)victimId * 73856093u ^ (uint)_client.LatestSnapshotTick);
+        if (pick < 0) return false;
+        var clip = data.Flinch.Random[pick].Clip;
+        t.Flinch = clip; t.FlinchAt = t.FlinchLast = _connectedFor;
+        t.FlinchPeak = OldFlinchWeight ? 1f : WeightFeel.FlinchMeleePeak;   // feel/weight-impact: the melee flinch's strength
+        FeelShotTrigger("flinch");
+        _flinches++; _randomFlinches++;
+        if (UpperLog) GD.Print($"t {_connectedFor:F2} s: P{victimId} FLINCH {clip.Clip} (Random Flinches {pick + 1} of {data.Flinch.Random.Count}: {why}; {clip.Length:F2} s)");
+        return true;
+    }
+
+    int _randomFlinches;
 
     /// <summary>
     /// anim/reaction-blend (owner's item 49, 2026-10-30: "the animation that plays when getting shot is too snappy. when it ends he instantly returns to the standing still animation ... it should be
@@ -326,9 +391,17 @@ public partial class NetworkView
         public DeathClip? Clip;
         public MarineDeathKind Kind;
         public bool Declined;   // no clip for this death: straight to the ragdoll
+        // Hit reactions: the bones' skeleton-space poses of the last two held frames and when they were shown, for the ragdoll to carry the clip's motion on.
+        public Transform3D[]? PosePrev, PoseLast;
+        public double PosePrevAt = double.NaN, PoseLastAt = double.NaN;
     }
 
     readonly Dictionary<int, MarineDeath> _marineDeaths = new();
+    readonly Dictionary<MarineDeathKind, int> _deathKinds = new();
+
+    /// <summary>The cross-fade into a death clip: the graph's blend of the transition that enters it (0.1 s "Default 3 Frame Transition"; the default pair's 0.5 s "Long Blend00" from the conduit), or
+    /// animation pass 2's 0.167 s with <c>--old-hit-reactions</c>. The character lengthens anything under its entry floor (0.125 s).</summary>
+    static float DeathBlend(DeathClip clip) => OldHitReactions ? 0.167f : clip.Blend;
 
     /// <summary>Forgets a death clip under way (the player is alive again or gone).</summary>
     void MarineDeathForget(int id) => _marineDeaths.Remove(id);
@@ -344,8 +417,70 @@ public partial class NetworkView
     {
         if (death.Get(kind) is { } exact) return exact;
         // A missing special clip falls back to the default pair of the same side.
-        bool back = kind is MarineDeathKind.HeadshotBack or MarineDeathKind.LasBack or MarineDeathKind.MeltaBack;
+        bool back = kind is MarineDeathKind.HeadshotBack or MarineDeathKind.LasBack or MarineDeathKind.MeltaBack or MarineDeathKind.RangedBack or MarineDeathKind.BlastBack;
         return death.Get(back ? MarineDeathKind.DefaultBack : MarineDeathKind.DefaultFront) ?? death.Get(MarineDeathKind.DefaultFront);
+    }
+
+    /// <summary>
+    /// The clip's motion for the ragdoll's start (hit reactions): the pose of the held frame before the one shown and the seconds between them, when the death was held two frames or more; null otherwise
+    /// (or with <c>--old-hit-reactions</c>).
+    /// </summary>
+    (Transform3D[] From, float Seconds)? DeathClipMotion(int id)
+    {
+        if (OldHitReactions || !_marineDeaths.TryGetValue(id, out var d) || d.PosePrev is null || d.PoseLast is null) return null;
+        float seconds = (float)(d.PoseLastAt - d.PosePrevAt);
+        return seconds is > 1e-3f and < 0.25f ? (d.PosePrev, seconds) : null;
+    }
+
+    /// <summary>After the held frame is posed: keeps its bones' poses (the last two frames) for <see cref="DeathClipMotion"/>.</summary>
+    void NoteDeathPose(MarineDeath d, CharacterViewer character)
+    {
+        if (character.Skeleton is not { } skeleton) return;
+        int bones = skeleton.GetBoneCount();
+        var spare = d.PosePrev is { } p && p.Length == bones ? p : new Transform3D[bones];
+        d.PosePrev = d.PoseLast; d.PosePrevAt = d.PoseLastAt;
+        for (int b = 0; b < bones; b++) spare[b] = skeleton.GetBoneGlobalPose(b);
+        d.PoseLast = spare; d.PoseLastAt = _connectedFor;
+    }
+
+    /// <summary>
+    /// What decides the death clip (hit reactions, 2026-11-11; <see cref="DeathContext"/>): the last living frame's jump, sprint and bull rush, a blast cause (a grenade, a jump-pack pound or landing, a
+    /// perk's blast, a splash weapon whose reaction type has no flinch port: the grenade launcher), and for a weapon kill the death branches of the flinch the killing hit plays (the set of the weapon's reaction type, the
+    /// slot by head shot and the side the blow came from).
+    /// </summary>
+    DeathContext DeathContextFor(PlayerState state, KillView? kill, LocoTrack t, UpperBodyBundle data, bool hasDirection, float along, float right, out string detail)
+    {
+        bool bullRush = t.WasRush == RushPhase.Rush;   // the bull rush attack clip (SM_BUL_Hit_M_2.5m) raises BRANCH_Bullrush_Death over its whole length
+        bool sprinting = t.WasSprint && !bullRush;
+        bool blast = false;
+        IReadOnlyList<string> branches = [];
+        detail = "";
+        if (kill is { } k && _config is not null)
+        {
+            if (k.Cause is KillCause.Thrown or KillCause.JumpPack or KillCause.Perk) { blast = true; detail = "blast"; }
+            else if (k.Cause == KillCause.Weapon && k.Index >= 0 && k.Index < _config.Weapons.Count)
+            {
+                var weapon = _config.Weapons[k.Index];
+                string setName = FlinchSetOf(data, weapon.Name, out _);
+                // A splash weapon whose reaction type has no flinch port (the grenade launcher's rng_autocannon) kills as a blast; one whose file names no type (the plasma cannon: its types sit
+                // on its projectile) takes the set of its name (Plasma Cannon Weak: the plasma death, as its death effects).
+                bool unported = data.ReactionOf(weapon.Name) is { } type && data.Flinch.SetOfReaction(type) is null;
+                if (unported && Shots.ProjectileOf(weapon, 0)?.Splash is not null) { blast = true; detail = "splash weapon whose reaction type has no flinch port: blast"; }
+                else if (data.Flinch.For(setName) is { } set)
+                {
+                    bool head = k.Headshot || _connectedFor - t.HeadHitAt < 0.5;
+                    bool behind, left;
+                    if (hasDirection) { behind = along > 0f; left = right > 0f; }   // the blow travels along the facing from behind; to the right from the victim's left
+                    else if (k.Killer != 0 && StateOfPlayer(k.Killer, _client!.Predicted) is { } killer) (behind, left) = FlinchRules.Side(state.Position.X, state.Position.Y, state.Yaw, killer.Position.X, killer.Position.Y);
+                    else (behind, left) = (false, false);
+                    int slot = FlinchRules.Choose(set, head, behind, left);
+                    branches = set.Slot(slot)?.DeathBranches ?? [];
+                    detail = $"killing hit's flinch {setName} slot {slot}{(head ? " (head)" : "")}: {(branches.Count > 0 ? string.Join(" ", branches) : "no branch")}";
+                }
+            }
+            else if (k.Cause == KillCause.Melee) detail = "melee: no flinch branch";
+        }
+        return new DeathContext(t.WasJumpActive, sprinting, bullRush, blast, branches, hasDirection, along, right);
     }
 
     /// <summary>
@@ -378,25 +513,42 @@ public partial class NetworkView
                 along = d.X * -MathF.Sin(state.Yaw) + d.Y * MathF.Cos(state.Yaw);
                 right = d.X * MathF.Cos(state.Yaw) + d.Y * MathF.Sin(state.Yaw);
             }
-            var weapon = kill is { Cause: KillCause.Weapon } k && k.Index >= 0 && k.Index < _config.Weapons.Count ? DeathRules.WeaponOf(_config.Weapons[k.Index].Name) : WeaponDeath.Bolter;
-            bool head = kill is { Cause: KillCause.Weapon } && _connectedFor - t.HeadHitAt < 0.5;
-            var kind = DeathRules.Choose(t.WasSprint, t.WasCharging, head, weapon, has, along, right);
+            bool head = kill is { Cause: KillCause.Weapon } kh && (kh.Headshot || _connectedFor - t.HeadHitAt < 0.5);
+            MarineDeathKind? chosen;
+            string detail;
+            if (OldHitReactions)
+            {
+                var weapon = kill is { Cause: KillCause.Weapon } k && k.Index >= 0 && k.Index < _config.Weapons.Count ? DeathRules.WeaponOf(_config.Weapons[k.Index].Name) : WeaponDeath.Bolter;
+                chosen = DeathRules.ChoosePass2(t.WasSprint, t.WasCharging, head, weapon, has, along, right);
+                detail = "pass 2 rules";
+            }
+            else chosen = DeathRules.Choose(DeathContextFor(state, kill, t, data, has, along, right, out detail), data.Death);
+            if (chosen is not { } kind || kind is MarineDeathKind.JumpStart or MarineDeathKind.JumpFall or MarineDeathKind.JumpImpact)
+            {
+                // The graph's jump-pack death (SM_REC_MP_MidAirDeath_Hit_01, the falling loop, SM_REC_MP_MidAirImpact_01 at the floor) is not played: the body is not placed while dead and the jump death's
+                // effects belong to the ragdoll (NetworkView.DeathFx.cs), so it falls as a ragdoll from the death on, as before.
+                entry.Declined = true;
+                if (UpperLog) GD.Print($"t {_connectedFor:F2} s: P{id} dies in a jump-pack jump: the data's mid-air death is not played, straight to the ragdoll{(own ? " (own)" : "")}");
+                return false;
+            }
             if (ResolveDeath(data.Death, kind) is not { } clip || _assets?.Animation(clip.Clip) is null) { entry.Declined = true; return false; }
             entry.Clip = clip; entry.Kind = kind; entry.Start = entry.Last = _connectedFor;
             character.ClearPoseLayers();   // the placed frame's layers (recoil, fall, switch ...) are not part of the death
             _deathsHeld++;
-            if (UpperLog || own) GD.Print($"t {_connectedFor:F2} s: P{id} dies: {clip.Clip} ({kind}{(head ? ", head shot" : "")}{(t.WasSprint ? ", sprinting" : "")}{(t.WasCharging ? ", charging" : "")}) for {Math.Min(clip.RagdollAt, DeathHoldCap):F2} s, then the ragdoll ({(kill is { } kv ? kv.Cause.ToString() : "cause unknown")}{(own ? ", own" : "")}; seen {_connectedFor - entry.Seen:F2} s ago)");
+            _deathKinds[kind] = _deathKinds.GetValueOrDefault(kind) + 1;
+            if (UpperLog || own) GD.Print($"t {_connectedFor:F2} s: P{id} dies: {clip.Clip} ({kind}{(head ? ", head shot" : "")}{(t.WasSprint ? ", sprinting" : "")}{(t.WasRush == RushPhase.Rush ? ", in its bull rush" : t.WasCharging ? ", charging" : "")}; {detail}) for {DeathRules.HoldSeconds(clip, DeathHoldCap):F2} s, blend in {DeathBlend(clip):F2} s, then the ragdoll ({(kill is { } kv ? kv.Cause.ToString() : "cause unknown")}{(own ? ", own" : "")}; seen {_connectedFor - entry.Seen:F2} s ago)");
         }
         var held = entry.Clip!;
         float age = (float)(_connectedFor - entry.Start);
-        if (age >= Math.Min(held.RagdollAt, DeathHoldCap)) return false;
+        if (age >= DeathRules.HoldSeconds(held, DeathHoldCap)) return false;
         character.Visible = !own || age > 0.12f;
         SlideDeadBody(id, character, state.Team, (float)(_connectedFor - entry.Last));
         entry.Last = _connectedFor;
         float rate = held.Length > 1e-3f ? ClipLength(held.Clip, held.Length) / held.Length : 1f;
-        character.Pose(held.Clip, age * rate, 0.167f);   // "Fast Blend" of the graph's transitions
+        character.Pose(held.Clip, age * rate, DeathBlend(held));
+        NoteDeathPose(entry, character);
         _deathHolds++;
-        if (LogUpper && _connectedFor - _deathTraceAt >= 0.1) { _deathTraceAt = _connectedFor; GD.Print($"t {_connectedFor:F2} s: death trace P{id} {age:F2}/{Math.Min(held.RagdollAt, DeathHoldCap):F2} s: {BoneTrace(character, "RIG_Head", "RIG_Prop_Rhand")}"); }
+        if (LogUpper && _connectedFor - _deathTraceAt >= 0.1) { _deathTraceAt = _connectedFor; GD.Print($"t {_connectedFor:F2} s: death trace P{id} {age:F2}/{DeathRules.HoldSeconds(held, DeathHoldCap):F2} s: {BoneTrace(character, "RIG_Head", "RIG_Prop_Rhand")}"); }
         return true;
     }
 
@@ -532,7 +684,8 @@ public partial class NetworkView
 
     /// <summary>The bot log's pass-2 counters.</summary>
     string UpperStats() =>
-        $"upper body: switches {_switchAnims}, flinches {_flinches} of {_flinchesNoted} hits (skipped: {_flinchSkippedGap} too soon, {_flinchSkippedReaction} reacting), deaths held {_deathsHeld} ({_deathHolds} frames), pound run get-ups {_getupRuns}, wobble layers {_wobbleLayers}, flight action layers {_jumpActionLayers}";
+        $"upper body: switches {_switchAnims}, flinches {_flinches} of {_flinchesNoted} hits (random {_randomFlinches}; skipped: {_flinchSkippedGap} too soon, {_flinchSkippedReaction} reacting), deaths held {_deathsHeld} ({_deathHolds} frames; " +
+        $"{string.Join(", ", _deathKinds.Select(kv => $"{kv.Key} {kv.Value}"))}), ragdoll bodies started with the clip's motion {Ragdoll.ClipMotionBodies}, pound run get-ups {_getupRuns}, wobble layers {_wobbleLayers}, flight action layers {_jumpActionLayers}";
 
     /// <summary>The F1 line about animation pass 2.</summary>
     string UpperInfoLine() =>

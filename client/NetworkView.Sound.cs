@@ -108,7 +108,7 @@ public partial class NetworkView
         {
             var graphs = HavokBehavior.Read(_assets.Model.Rig.Pack);
             var wargear = SoundTriggers.WargearNames(_config);
-            var sources = PresentationSourceMap();   // W0b: an added weapon sounds as install files (Musou's arsenal); empty without added content: the triggers as before
+            var sources = SoundSourceMap();   // W0b: an added weapon sounds as install files (Musou's arsenal; the autocannon as the Stalker Bolter); empty without added content: the triggers as before
             if (sources.Count > 0) wargear = [.. wargear.Where(n => !sources.ContainsKey(n)).Concat(sources.Values.SelectMany(v => v)).Distinct(StringComparer.OrdinalIgnoreCase)];
             bool orkClass = Enumerable.Range(0, _config.Classes.Count).Any(i => Races.Of(_config, i, Team.None) == Race.Orks);   // Ork O8: the Ork rig's clip tags too
             string gameDir = _gameDir;
@@ -260,7 +260,8 @@ public partial class NetworkView
     /// <summary>Called once per frame after the characters are placed.</summary>
     void UpdateSound(PlayerState me, IReadOnlyList<PlayerState> others, double delta)
     {
-        if (_client is null || _config is null || !SoundReady() || _sound is null || _soundTriggers is null) return;
+        if (_client is null || _config is null) return;
+        if (!SoundReady() || _sound is null || _soundTriggers is null) { SoundMeleeOthers(me, others); return; }   // hit reactions: others' inferred melee hits still flinch their victims without sound
         int ownId = _client.PlayerId;
         foreach (var (_, ev) in _frameOwnEvents) OwnSoundEvents(me, ev);   // drained once per frame in HipFireBegin (M27)
         foreach (var shot in _frameShots) SoundShot(shot);
@@ -840,6 +841,7 @@ public partial class NetworkView
     {
         if (_client is null || _audio is null || _sound is null || HitConfirmArg == HitConfirmMode.Off || confirm.StartEvent.Length == 0) return;
         // sound/stalker-hit-confirm (owner 2026-11-09): the Stalker / Daemon Eye Bolter's confirm is the data's play_stalker_smack at the data's level, on the shooter.
+        wargear = SoundNameOf(wargear);   // an added weapon by its sound source's name (the autocannon: the Stalker's confirm)
         bool stalker = !OldStalkerHitConfirm && HitConfirmArg == HitConfirmMode.Data && StalkerHitConfirm.Is(wargear);
         string confirmEvent = stalker ? StalkerHitConfirm.EventFor(wargear, confirm.StartEvent)! : confirm.StartEvent;
         bool kill = hits.LastKilled || hits.Kills > 0, armoured = hits.LastArmoured;

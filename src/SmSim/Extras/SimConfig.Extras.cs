@@ -41,8 +41,17 @@ public sealed partial record SimConfig
         if (Extras.HasFlag(ContentExtras.Musou)) boost = new StimBoost(MusouCombatRules.StimLifetimeScale, MusouCombatRules.StimMeleeDamage, MusouCombatRules.StimAttackSpeed, true);
     }
 
+    partial void ExtrasFireBoost(ref float rate, ref float cap)
+    {
+        if (!Extras.HasFlag(ContentExtras.Musou)) return;
+        rate = SmSim.Extras.Musou.MusouPowerupRules.FireRate;   // the Rapid Fire powerup (owner 2026-11-10)
+        cap = SmSim.Extras.Musou.MusouPowerupRules.Cap;         // with a stim's speed never above x2 (owner 2026-11-10: "Cap at x2")
+    }
+
     partial void ExtrasThrownBlastScale(ThrownSpec? item, ref float scale)
     {
         if (Extras.HasFlag(ContentExtras.Musou) && item is not null && SmSim.Extras.Musou.Campaign.TfwCombatRules.IsFrag(item)) scale = MusouCombatRules.FragReachScale;
+        else if (Extras.HasFlag(ContentExtras.Musou) && item is not null && item.Name.Equals(SmSim.Extras.Musou.Arsenal.ArsenalRules.RemoteDetonators, StringComparison.OrdinalIgnoreCase))
+            scale = SmSim.Extras.Musou.Arsenal.DemolitionChargeRules.CentreStretch;   // a "blast reach" contract: the charge has no splash today; one added later would be scaled x1.6 on the server too   // W4: the client's one centre effect at the 16 m blast (x1.6 of the data's 10 m); the item has no splash, so the server's blasts are untouched
     }
 }

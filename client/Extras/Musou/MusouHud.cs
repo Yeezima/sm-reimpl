@@ -51,6 +51,8 @@ public sealed partial class MusouHud : Control
         public readonly Dictionary<ushort, double> HitAt = new();
         public readonly Dictionary<ushort, float> Distance = new();
         public double Now;
+        /// <summary>The own active powerups (owner, 2026-11-10; MusouHud.Buffs.cs): kind, seconds left, seconds in all.</summary>
+        public readonly List<(SmSim.Extras.Musou.MusouPowerup Kind, float Left, float Total)> Buffs = new();
     }
 
     public Frame Data = new();
@@ -203,6 +205,7 @@ public sealed partial class MusouHud : Control
         if (d.Phase is not (MusouPhase.Won or MusouPhase.Lost)) DrawChain(vs);
         DrawBreak(vs, d);
         DrawCallOuts(vs);
+        DrawBuffs(vs);   // the own powerups beside the own bar (MusouHud.Buffs.cs)
         DrawEndPanel(vs, d);
     }
 

@@ -591,6 +591,154 @@ public sealed class EffectCatalogue
         };
     }
 
+    /// <summary>
+    /// W1c: the catalogue in which each weapon or thrown item named in <paramref name="names"/> plays other effects of the effects package in place of some of its own: every effect command of
+    /// its entry and of its projectiles whose effect name is a key of its map plays the mapped name instead; everything else of the command (marker, scale, length, target, rotation) stays as it is.
+    /// The hit containers its commands name are shared tables (every weapon naming one plays it), so they are never changed: when one plays a mapped name, the entry gets its own copy with those
+    /// effects renamed (<see cref="CopyKey"/>, every other surface, class, command and the hit sound kept) and its commands name the copy. Musou's arsenal: the autocannon shows its Chaos twin's
+    /// commands with the loyalist muzzle flash, tracer and world impact (the owner's choices of 2026-11-10). Only the named entries change; the file the effects came from keeps its own, and its
+    /// containers, under its own name. The catalogue itself when the map is empty or nothing is renamed, so a catalogue without names is the same object.
+    /// </summary>
+    public EffectCatalogue WithEffectNames(IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> names)
+    {
+        if (names.Count == 0) return this;
+        Dictionary<string, WeaponEffects>? weapons = null;
+        Dictionary<string, ThrownEffects>? thrown = null;
+        Dictionary<string, MaterialEffectTable>? containers = null;
+        var notes = new List<string>();
+        foreach (var (name, map) in names.OrderBy(kv => kv.Key, StringComparer.Ordinal))
+        {
+            if (map.Count == 0) continue;
+            var renamer = new EffectRenamer(name, map, Containers);
+            if (Weapons.TryGetValue(name, out var w) && renamer.Weapon(w) is var renamedWeapon && !ReferenceEquals(renamedWeapon, w))
+            {
+                weapons ??= new Dictionary<string, WeaponEffects>(Weapons, StringComparer.OrdinalIgnoreCase);
+                weapons[name] = renamedWeapon;
+            }
+            if (Thrown.TryGetValue(name, out var t) && renamer.Thrown(t) is var renamedItem && !ReferenceEquals(renamedItem, t))
+            {
+                thrown ??= new Dictionary<string, ThrownEffects>(Thrown, StringComparer.OrdinalIgnoreCase);
+                thrown[name] = renamedItem;
+            }
+            foreach (var (key, copy) in renamer.Copies)
+            {
+                containers ??= new Dictionary<string, MaterialEffectTable>(Containers, StringComparer.OrdinalIgnoreCase);
+                containers[key] = copy;
+            }
+            string pairs = string.Join(", ", map.OrderBy(kv => kv.Key, StringComparer.Ordinal).Select(kv => $"{kv.Key} -> {kv.Value}"));
+            string impacts = renamer.Impacts > 0 ? $", {renamer.Impacts} impact effect(s) in its own copy of {string.Join(", ", renamer.Copies.Keys.Order(StringComparer.Ordinal))}" : "";
+            notes.Add(renamer.Commands + renamer.Impacts > 0 ? $"{name}: {renamer.Commands} effect command(s) renamed{impacts} ({pairs})"
+                : $"{name}: no command plays {string.Join(", ", map.Keys)}; nothing renamed");
+        }
+        if (weapons is null && thrown is null) return this;
+        return new EffectCatalogue
+        {
+            Weapons = weapons ?? Weapons, Thrown = thrown ?? Thrown, Containers = containers ?? Containers, SurfaceOrder = SurfaceOrder, Player = Player, Notes = [.. Notes, .. notes],
+            JumpPacks = JumpPacks, Dashes = Dashes, FinishFalling = FinishFalling,
+        };
+    }
+
+    /// <summary>
+    /// The key under which <see cref="WithEffectNames"/> keeps <paramref name="entry"/>'s own copy of the container at <paramref name="path"/>: the entry's name and <c>#</c> before the path, so the
+    /// key's last part is still the container's file name (<see cref="FxMaterialTrigger.ContainerName"/>) and no path of the install can be one (its paths hold no <c>#</c>).
+    /// </summary>
+    public static string CopyKey(string entry, string path) => $"{entry}#{path}";
+
+    /// <summary>One entry's renaming for <see cref="WithEffectNames"/>: its commands' plays and, through copies of their own, the hit containers those commands name (each copied once).</summary>
+    sealed class EffectRenamer(string entry, IReadOnlyDictionary<string, string> map, IReadOnlyDictionary<string, MaterialEffectTable> containers)
+    {
+        /// <summary>The effect commands renamed, and the commands of copied containers renamed.</summary>
+        public int Commands, Impacts;
+        /// <summary>Material commands moved to a copy of their container.</summary>
+        int _retargeted;
+        /// <summary>The entry's container copies by key (<see cref="CopyKey"/>).</summary>
+        public Dictionary<string, MaterialEffectTable> Copies { get; } = new(StringComparer.OrdinalIgnoreCase);
+        /// <summary>Each container path met: the key its commands name now (the path itself when nothing in it is renamed).</summary>
+        readonly Dictionary<string, string> _keys = new(StringComparer.OrdinalIgnoreCase);
+
+        int Changes => Commands + _retargeted;
+
+        string? To(string name) => map.TryGetValue(name, out var to) && to.Length > 0 && !to.Equals(name, StringComparison.Ordinal) ? to : null;
+
+        /// <summary>The bindings with each mapped play renamed and each material command on a renamed copy of its container; the same list when none changes.</summary>
+        IReadOnlyList<FxBinding> Bindings(IReadOnlyList<FxBinding> bindings)
+        {
+            List<FxBinding>? list = null;
+            for (int i = 0; i < bindings.Count; i++)
+            {
+                var b = bindings[i];
+                FxBinding? changed = null;
+                if (b.Play is { } play && To(play.Name) is { } to) { changed = b with { Play = play with { Name = to } }; Commands++; }
+                else if (b.Material is { } trigger && Material(trigger) is var moved && !ReferenceEquals(moved, trigger)) { changed = b with { Material = moved }; _retargeted++; }
+                if (changed is null) continue;
+                list ??= [.. bindings];
+                list[i] = changed;
+            }
+            return list ?? bindings;
+        }
+
+        /// <summary>The trigger on the entry's copy of its container when that container plays a mapped name, else the trigger itself.</summary>
+        FxMaterialTrigger Material(FxMaterialTrigger trigger)
+        {
+            if (!_keys.TryGetValue(trigger.Container, out var key))
+            {
+                key = trigger.Container;
+                if (containers.TryGetValue(trigger.Container, out var table) && Renamed(table) is { } copy)
+                {
+                    key = CopyKey(entry, trigger.Container);
+                    Copies[key] = copy;
+                }
+                _keys[trigger.Container] = key;
+            }
+            return key.Equals(trigger.Container, StringComparison.Ordinal) ? trigger : trigger with { Container = key };
+        }
+
+        /// <summary>A copy of <paramref name="table"/> with each mapped play renamed (counted), every other part kept; null when it plays none.</summary>
+        MaterialEffectTable? Renamed(MaterialEffectTable table)
+        {
+            int before = Impacts;
+            var effects = new Dictionary<string, IReadOnlyDictionary<string, IReadOnlyList<FxPlay>>>(StringComparer.Ordinal);
+            foreach (var (surface, classes) in table.Effects)
+            {
+                var copied = new Dictionary<string, IReadOnlyList<FxPlay>>(StringComparer.Ordinal);
+                foreach (var (cls, plays) in classes)
+                {
+                    var list = new List<FxPlay>(plays.Count);
+                    foreach (var p in plays)
+                    {
+                        if (To(p.Name) is { } to) { list.Add(p with { Name = to }); Impacts++; }
+                        else list.Add(p);
+                    }
+                    copied[cls] = list;
+                }
+                effects[surface] = copied;
+            }
+            return Impacts == before ? null : table with { Effects = effects };
+        }
+
+        ProjectileEffects Projectile(ProjectileEffects p) => Bindings(p.Bindings) is var b && !ReferenceEquals(b, p.Bindings) ? p with { Bindings = b } : p;
+
+        public WeaponEffects Weapon(WeaponEffects w)
+        {
+            int before = Changes;
+            var bindings = Bindings(w.Bindings);
+            var projectiles = new List<ProjectileEffects>(w.Projectiles.Count);
+            foreach (var p in w.Projectiles) projectiles.Add(Projectile(p));
+            int basic = -1;
+            for (int i = 0; i < w.Projectiles.Count && w.Projectile is not null; i++) if (ReferenceEquals(w.Projectiles[i], w.Projectile)) { basic = i; break; }
+            var projectile = w.Projectile is null ? null : basic >= 0 ? projectiles[basic] : Projectile(w.Projectile);
+            return Changes == before ? w : w with { Bindings = bindings, Projectile = projectile, Projectiles = projectiles };
+        }
+
+        public ThrownEffects Thrown(ThrownEffects t)
+        {
+            int before = Changes;
+            var bindings = Bindings(t.Bindings);
+            var projectile = t.Projectile is null ? null : Projectile(t.Projectile);
+            return Changes == before ? t : t with { Bindings = bindings, Projectile = projectile };
+        }
+    }
+
     static string Leaf(string path) => path.Split('\\', '/')[^1];
 
     internal static IEnumerable<string> Strings(BafTable table, string name, int depth = 0)

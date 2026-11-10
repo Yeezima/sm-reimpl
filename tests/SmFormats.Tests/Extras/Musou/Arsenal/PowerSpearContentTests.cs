@@ -26,9 +26,11 @@ public class PowerSpearContentTests
         var notes = new List<string>();
         var config = Arsenal.Append(Config(), "", notes);
         var assault = config.Classes[1];
-        Assert.Equal([Sword.Wargear, Hammer, ArsenalRules.PowerSpear], assault.MeleeChoices.Select(m => m.Wargear));   // no existing index moves
-        Assert.Equal(150f, assault.MeleeChoices[2].Steps[0].Damage, 3);
-        Assert.Equal(2.33f / SpearRules.Tempo, assault.MeleeChoices[2].Steps[0].Duration, 3);
+        var names = assault.MeleeChoices.Select(m => m.Wargear).ToList();
+        Assert.Equal([Sword.Wargear, Hammer], names.Take(2));   // no existing index moves
+        Assert.Equal(ArsenalRules.PowerSpear, names[^1]);   // the spear comes last (W2's claw, which follows the power sword, may come before it)
+        Assert.Equal(150f, assault.MeleeChoices[^1].Steps[0].Damage, 3);
+        Assert.Equal(2.33f / SpearRules.Tempo, assault.MeleeChoices[^1].Steps[0].Duration, 3);
         Assert.Single(config.Classes[0].MeleeChoices);   // the Tactical
         Assert.Equal(2, config.Classes[2].MeleeChoices.Count);   // the Chaos twin
         Assert.Single(notes, n => n.Contains("power spear"));   // the spear's own note (W1 adds the autocannon's when the install is missing)
@@ -38,9 +40,11 @@ public class PowerSpearContentTests
     public void Appending_twice_adds_nothing_and_a_config_without_a_hammer_is_untouched()
     {
         var once = Arsenal.Append(Config(), "", []);
-        Assert.Equal(3, Arsenal.Append(once, "", []).Classes[1].MeleeChoices.Count);
+        var twice = Arsenal.Append(once, "", []).Classes[1].MeleeChoices;
+        Assert.Equal(once.Classes[1].MeleeChoices.Select(m => m.Wargear), twice.Select(m => m.Wargear));
+        Assert.Single(twice, m => m.Wargear == ArsenalRules.PowerSpear);
         var bare = new SimConfig { Extras = ContentExtras.Musou, Classes = [Class("sm - assault", "assault", Team.SpaceMarines, Sword)] };
-        Assert.Same(bare, Arsenal.Append(bare, "", []));
+        Assert.DoesNotContain(ArsenalRules.PowerSpear, Arsenal.Append(bare, "", []).Classes[0].MeleeChoices.Select(m => m.Wargear));   // no hammer, no spear (W2 may add its claw after the sword; W4 adds only equipment)
     }
 
     [Fact]

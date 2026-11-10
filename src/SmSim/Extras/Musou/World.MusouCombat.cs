@@ -79,7 +79,7 @@ public sealed partial class World
             ushort enemy = musou.Raycast(shot.Origin, direction, length, out float distance, out bool head);
             if (enemy == 0) continue;
             var spec = Shots.ChargeShotOf(weapon, shot.Stage)?.Damage ?? weapon.DirectDamage with { Damage = Combat.DamageAt(distance, weapon) };
-            float damage = spec.Damage * (head ? spec.HeadMultiplier : spec.BodyMultiplier);
+            float damage = spec.Damage * (head ? spec.HeadMultiplier : spec.BodyMultiplier) * MusouRangedDealt(shot.Shooter);
             musou.Damage(enemy, shot.Shooter, damage, direction, out _, marker: head ? (byte)2 : (byte)1, cause: MusouDeathKind.Shot);
             // The tracer ends on the enemy (the wire carries the end and the hit kind; no player is named).
             _shots[k] = shot with { End = shot.Origin + direction * distance, Hit = head ? ShotHit.Head : ShotHit.Body, Surface = -1, Target = 0, Armoured = false };
@@ -87,6 +87,14 @@ public sealed partial class World
         MusouProjectiles();
         MusouCharges();
     }
+
+    /// <summary>
+    /// The scale on <paramref name="attacker"/>'s ranged damage on the enemies (owner, 2026-11-11: "increase all ranged attack damage by 20%"): <see cref="Extras.Musou.Campaign.TfwCombatRules.PlayerRangedDamageScale"/>
+    /// in Musou Mode's war for a human player's character (<see cref="Extras.Musou.Campaign.TfwCombatRules.ScalesPlayer"/>: an AI Marine keeps his damage), 1 in the 5-wave run and for anyone else.
+    /// Every such gun, projectile, splash and charge hit on the enemies and the contraptions multiplies by it; the Librarian's spells, the fire support and the Orks' own explosions do not.
+    /// </summary>
+    float MusouRangedDealt(int attacker) =>
+        _musou?.War is { } war && _players.ContainsKey(attacker) && Extras.Musou.Campaign.TfwCombatRules.ScalesPlayer(attacker) ? war.PlayerRangedDamageScale : 1f;
 
     /// <summary>The weapon a shot left as its shooter carries it (the perk variant the core fired, <see cref="Loadouts.InHand"/>), else the config's.</summary>
     WeaponSpec MusouWeaponOf(in ShotEvent shot) =>
@@ -113,7 +121,7 @@ public sealed partial class World
             float multiplier = Cones.Multiplier(cone, distance, coverage);
             if (multiplier <= 0f) continue;
             covered++;
-            if (musou.Damage(e.Id, shooter, cone.Damage.Damage * multiplier * cone.Damage.BodyMultiplier, chest - origin, out _, marker: 1, cause: MusouDeathKind.Shot)) any = true;
+            if (musou.Damage(e.Id, shooter, cone.Damage.Damage * multiplier * cone.Damage.BodyMultiplier * MusouRangedDealt(shooter), chest - origin, out _, marker: 1, cause: MusouDeathKind.Shot)) any = true;
         }
         return any;
     }
@@ -144,13 +152,13 @@ public sealed partial class World
             ushort enemy = musou.War is not null && !p.Thrown ? TfwPierceProjectile(p, from, direction, length, out distance, out head) : musou.Raycast(from, direction, length, out distance, out head);
             if (enemy == 0 || (_musouProjectileStruck.TryGetValue(id, out var struck) && struck == enemy)) continue;
             var point = from + direction * distance;
-            ArsenalProjectileMeets(id, enemy, 0, point);   // Arsenal/World.Arsenal.cs: a projectile of the arsenal meeting an enemy (W4, the sticking charge); a no-op until then
+            bool stays = false; ArsenalProjectileMeets(id, enemy, 0, point, ref stays);   // Arsenal/World.Arsenal.cs: a projectile of the arsenal meeting an enemy (W4, the sticking charge); a no-op until then
             var spec = SpecOf(p);
             if (!p.Thrown && Shots.DirectDamageOf(WeaponOf(p), p.Stage) is { } direct)
-                musou.Damage(enemy, p.Owner, direct.Damage * (head ? direct.HeadMultiplier : direct.BodyMultiplier), direction, out _, marker: head ? (byte)2 : (byte)1, cause: spec.DetonateOnCollision ? MusouDeathKind.Blast : MusouDeathKind.Shot);   // a launcher's or plasma round that bursts on him kills as a blast
+                musou.Damage(enemy, p.Owner, direct.Damage * (head ? direct.HeadMultiplier : direct.BodyMultiplier) * MusouRangedDealt(p.Owner), direction, out _, marker: head ? (byte)2 : (byte)1, cause: spec.DetonateOnCollision ? MusouDeathKind.Blast : MusouDeathKind.Shot);   // a launcher's or plasma round that bursts on him kills as a blast
             if (spec.DetonateOnCollision)
             {
-                if (spec.DetonateDamage is { } blast) musou.Damage(enemy, p.Owner, blast.Damage * blast.BodyMultiplier, direction, out _, cause: MusouDeathKind.Blast);
+                if (spec.DetonateDamage is { } blast) musou.Damage(enemy, p.Owner, blast.Damage * blast.BodyMultiplier * MusouRangedDealt(p.Owner), direction, out _, cause: MusouDeathKind.Blast);
                 Detonate(id, point, -1, HitZone.None);   // its splash reaches the enemies through ExtrasBlast
                 continue;
             }
@@ -222,7 +230,7 @@ public sealed partial class World
                 hit.Add(e.Id);
                 var side = new Vector2(e.Position.X - p.Position.X, e.Position.Y - p.Position.Y);
                 var push = forward + (side.LengthSquared() > 1e-8f ? Vector2.Normalize(side) * 0.5f : Vector2.Zero);
-                float damage = spec.Primary.Damage * spec.Primary.BodyMultiplier * Stims.MeleeDealt(Config, p);
+                float damage = spec.Primary.Damage * spec.Primary.BodyMultiplier * MusouMeleeDealt(id, p);   // a stim's melee, held with the powerups' under x2 (World.MusouPowerups.cs)
                 musou.Damage(e.Id, id, damage, new Vector3(push, 0f), out bool killed, marker: 3, cause: MusouDeathKind.Melee);
                 if (killed) continue;
                 if (musou.War is { } war && MusouSim.Fodder(e.Type)) musou.KnockDown(e.Id, push, war.ChargePush, id, war.ChargeDeath);   // Musou Mode's fodder falls
@@ -245,13 +253,15 @@ public sealed partial class World
         var musou = _musou!;
         var rules = musou.Rules.Combat;
         bool heavy = MusouSim.Heavy(state, step);
-        float damage = step.Damage * step.HealthMultiplier * Stims.MeleeDealt(Config, state);
+        float damage = step.Damage * step.HealthMultiplier * MusouMeleeDealt(attacker, state);   // a stim's melee, held with the powerups' under x2 (World.MusouPowerups.cs)
         if (!(damage > 0f) && !heavy) return;
         float range = rules.CleaveRange(Config.MeleeRange, step.TrackToHit, war: musou.War is not null);   // x1.5 (owner 2026-11-08)
         float minCos = MathF.Cos(MathF.Min(180f, Config.MeleeConeDegrees * rules.CleaveConeScale) * MathF.PI / 180f);
         if (musou.War is { } volume) { range *= volume.CleaveReachScale; minCos = volume.CleaveMinCos; }   // owner 2026-11-09: a longer, wider flat cone in the war
         int most = musou.War?.CleaveTargets ?? rules.CleaveTargets;
-        ArsenalCleave(attacker, state, step, ref range, ref minCos, ref most, ref damage);   // Arsenal/World.Arsenal.cs: a weapon's own cleave (W3, the spear); a no-op until then
+        ArsenalCleave(attacker, state, step, ref range, ref minCos, ref most, ref damage);   // Arsenal/World.Arsenal.cs: a weapon's own cleave (W3: the power spear's sweeps, Arsenal/World.Spear.cs)
+        if (musou.War is { } trim && Extras.Musou.Campaign.TfwCombatRules.ScalesPlayer(attacker)) range *= trim.PlayerCleaveReachScale;   // owner 2026-11-11: "reduce melee attack cleave range by 40%", humans only (after each weapon's shape; MusouCleaveShape draws the same)
+        MusouSuperchargedCleave(attacker, ref range, ref minCos);   // the Supercharged Melee powerup: a wider, longer cleave (World.MusouPowerups.cs)
         var forward = new Vector2(-MathF.Sin(state.Yaw), MathF.Cos(state.Yaw));
         var eye = state.Position + new Vector3(0, 0, Config.EyeHeight);
         int n = musou.Query(state.Position, range, _musouNear, Config.MeleeVerticalReach);
@@ -328,6 +338,7 @@ public sealed partial class World
         bool capped = !melee && !bolt;
         if (capped) SortNearest(musou, point, n);
         int thrownLeft = capped ? ThrownLeft(owner, rules) : 0;
+        float ranged = melee ? 1f : MusouRangedDealt(owner);   // a player's splash (a burst, a frag, a bolt or autocannon blast) x1.2 in the war; a stomp is melee
         for (int k = 0; k < n; k++)
         {
             if (!musou.TryGet(_musouNear[k], out var e) || !e.Alive) continue;   // !Alive: one a Weirdboy's burst killed earlier in this loop
@@ -340,7 +351,7 @@ public sealed partial class World
             if (!(intensity > 0f)) continue;
             var away = new Vector2(e.Position.X - point.X, e.Position.Y - point.Y);
             var push = away.LengthSquared() > 1e-8f ? Vector2.Normalize(away) : new Vector2(-MathF.Sin(e.Yaw), MathF.Cos(e.Yaw));
-            float damage = splash.Damage.Damage * intensity * splash.Damage.BodyMultiplier;
+            float damage = splash.Damage.Damage * intensity * splash.Damage.BodyMultiplier * ranged;
             bool killed = false;
             if (damage > 0f) musou.Damage(e.Id, owner, damage, new Vector3(push, 0.3f), out killed, cause: melee ? MusouDeathKind.Melee : bolt || thrownLeft <= 0 ? MusouDeathKind.BoltBlast : MusouDeathKind.Blast);
             if (killed && capped && thrownLeft > 0) thrownLeft--;

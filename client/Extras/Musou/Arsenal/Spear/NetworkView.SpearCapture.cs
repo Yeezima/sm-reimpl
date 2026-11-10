@@ -1,0 +1,192 @@
+using System;
+using System.IO;
+using System.Threading.Tasks;
+using Godot;
+using SmContent.Extras.Musou;
+using SmSim;
+using SmSim.Extras.Musou;
+using SmSim.Extras.Musou.Arsenal;
+using SmSim.Extras.Musou.Campaign;
+
+namespace SmClient;
+
+/// <summary>
+/// Test aid <c>--tfw-spear-capture</c> (with <c>--class assault --melee sm_mp_melee_power_spear --content musou</c>, before <c>--tfw-test &lt;dir&gt;</c>, a <c>--windowed</c> run for the PNGs; server
+/// <c>SM_TFW_KEEP_HUMAN=1</c>): the power spear's approved clips in a real Musou match (<c>NetworkView.SpearPose.cs</c>). The player deploys on lane B and, away from the Orks, stands, runs, strikes a
+/// light hew, the stun (F), the F, F stab and a jump-pack pound, each through the real actions, three times: for the game's own camera (<c>spear-player-*</c>) and for the preview stage's
+/// front and side views (<c>spear-front-*</c>, <c>spear-side-*</c>: the camera set by the stance's front read from the hips, as the stage sets it, so the stills compare with the approved
+/// previews), each still cropped round the marine and the spear (the bones and the spear's ends on screen). A <c>SPEARPOSE</c> line per still: the clip, its time, the overlay's weight,
+/// the grip and the hips' turn from the body's forward. Quits 0.
+/// </summary>
+public partial class NetworkView
+{
+    /// <summary>The capture's third-person view this frame: 0 none (the game's camera), 1 the stage's front view, 2 its right side view.</summary>
+    int _spearCam;
+
+    async Task TfwSpearCapture()
+    {
+        var client = _client!;
+        if (!await TfwTestDeploy(TfwLane.B)) return;
+        await TfwWait(2.0);
+        TfwCheck("the power spear is the melee weapon", _config is not null && SpearRules.Wields(_config, client.Predicted), MeleeWargear(client.Predicted) ?? "none");
+        TfwCheck("the spear's clips drive the pose (no --musou-spear-stand-in)", SpearPosesOn);
+        // Away from the landing's Guardsmen first (they stand in the game camera's view of a strike).
+        TfwKey(Key.W, true);
+        await TfwWait(3.0);
+        TfwKey(Key.W, false);
+        await TfwWait(1.0);
+        float facing = _yaw;
+        string views = CmdArg("tfw-spear-views") is { Length: > 0 } v ? v : "player,front";
+        foreach (var (cam, view) in new[] { (0, "player"), (1, "front"), (2, "side") })
+        {
+            if (!views.Contains(view, StringComparison.OrdinalIgnoreCase)) continue;
+            _yaw = facing;
+            _spearCam = cam;
+            await TfwWait(1.0);
+            await SpearStill($"spear-{view}-1-idle", cam);
+            // A run: W held for 1.2 s, the still in its stride.
+            TfwKey(Key.W, true);
+            await TfwWait(1.2);
+            await SpearStill($"spear-{view}-2-run", cam);
+            TfwKey(Key.W, false);
+            await TfwWait(0.6);
+            TfwKey(Key.S, true);   // back to where he stood, so the passes do not drift into the buildings
+            await TfwWait(1.2);
+            TfwKey(Key.S, false);
+            await TfwWait(1.0);
+            // The light hew at its hit; then the stun strike (F) at its hit; then F, F: the stab at its hit.
+            await SpearPress(GameAction.Melee);
+            await SpearAtHit(false, -1, $"spear-{view}-3-hew", cam);   // Musou picks a random swing of the light chain (MeleeChain.MusouSwing): any hew
+            await TfwWait(3.0);
+            await SpearPress(GameAction.StunStrike);
+            await SpearAtHit(true, 1, $"spear-{view}-4-stun", cam);
+            await TfwWait(2.5);
+            await SpearPress(GameAction.StunStrike);
+            await TfwUntil("spear: the stun shows", () => client.Predicted.MeleeStep == 1 && client.Predicted.MeleeHeavy, 2.0);
+            await TfwUntil("spear: the stun's slam window", () => client.Predicted.MeleeTime >= 0.70f, 2.0);
+            await SpearPress(GameAction.StunStrike);
+            await SpearAtHit(true, 0, $"spear-{view}-5-stab", cam, lead: 0.06f);   // just before the slam's blast hides him (the lunge is all but home: the snap's last 0.06 s)
+            await TfwWait(3.5);
+            // The pound: a held jump, then melee in the air: the dive, and the impale on landing.
+            TfwAction(GameAction.Jump, true);
+            await TfwWait(0.55);
+            TfwAction(GameAction.Jump, false);
+            await TfwWait(0.15);
+            await SpearPress(GameAction.Melee);
+            if (await TfwUntil("spear: the dive shows", () => _local?.PosedClip is { } p && _jmpDive is not null && p == _jmpDive, 3.0))
+            {
+                await TfwFrames(6);
+                await SpearStill($"spear-{view}-6-dive", cam);
+            }
+            // The impale just driven home (ClawSpearClips.ImpaleDrive 0.14 s) and held point-down in the Ork (to ImpaleHeld 0.85 s).
+            if (await TfwUntil("spear: the impale shows", () => _local?.PosedClip is { } p && _jmpImpact is not null && p == _jmpImpact && _local.PosedClipTime >= ClawSpearClips.ImpaleDrive + 0.03f, 6.0))
+                await SpearStill($"spear-{view}-7-impale", cam);
+            if (await TfwUntil("spear: the impale holds", () => _local?.PosedClip is { } p && _jmpImpact is not null && p == _jmpImpact && _local.PosedClipTime >= 0.6f, 2.0))
+                await SpearStill($"spear-{view}-8-impale-held", cam);
+            await TfwWait(2.0);
+            _yaw = facing;
+            TfwKey(Key.S, true);   // back from the pound's leap
+            await TfwWait(2.0);
+            TfwKey(Key.S, false);
+            await TfwWait(1.0);
+        }
+        _spearCam = 0;
+        await TfwWait(0.5);
+        GetTree().Quit(0);
+    }
+
+    /// <summary>A press of <paramref name="action"/> held 0.12 s (a few ticks at 30 Hz, whatever the frame rate).</summary>
+    async Task SpearPress(GameAction action) { TfwAction(action, true); await TfwWait(0.12); TfwAction(action, false); await TfwFrames(2); }
+
+    /// <summary>Waits for the own strike (light or heavy step <paramref name="step"/>; 0: any heavy step from 4, the slam's; -1: any step) to reach its hit, then takes the still.</summary>
+    async Task SpearAtHit(bool heavy, int step, string name, int cam, float lead = 0.02f)
+    {
+        var client = _client!;
+        string seen = "";
+        bool Mine()
+        {
+            var p = client.Predicted;
+            string now = $"step {p.MeleeStep}{(p.MeleeHeavy ? " heavy" : "")} rush {p.Rush} jump {p.Jump} evade {p.EvadeTicks}";
+            if (!seen.EndsWith(now, StringComparison.Ordinal)) seen += (seen.Length > 0 ? " > " : "") + now;
+            return p.MeleeHeavy == heavy && (step > 0 ? p.MeleeStep == step : step < 0 ? p.MeleeStep > 0 : p.MeleeStep >= 4);
+        }
+        if (!await TfwUntil($"spear: {name} begins", Mine, 3.0)) { GD.Print($"SPEARPOSE {name}: the strike did not begin; seen {seen}"); return; }
+        var hit = _config is not null && Combat.MeleeStepOf(_config, client.Predicted) is { } s ? s.HitTime : 0.7f;
+        if (!await TfwUntil($"spear: {name} reaches its hit", () => Mine() && client.Predicted.MeleeTime >= hit - lead, 4.0)) return;
+        await SpearStill(name, cam);
+    }
+
+    /// <summary>One still in view <paramref name="cam"/>, cropped round the own marine and the spear, with a SPEARPOSE line.</summary>
+    async Task SpearStill(string name, int cam)
+    {
+        _spearCam = cam;
+        if (_local?.WeaponPose is { } pose)
+        {
+            var hips = _local.WeaponPoseBaseFront;
+            float turn = MathF.Atan2(hips.Y, hips.X) * 180f / MathF.PI;   // from the skeleton's +X
+            float view = 0f;
+            if (_camera is { } viewCam && _local.Skeleton is { } skel)
+            {
+                var toSkeleton = skel.GlobalTransform.AffineInverse().Basis;
+                var look = toSkeleton * -viewCam.GlobalBasis.Z; view = MathF.Atan2(look.Y, look.X) * 180f / MathF.PI;
+            }
+            GD.Print($"SPEARPOSE {name} t {_connectedFor:F3} clip {pose.Clip?.Name ?? "none"} time {pose.Time:F3} weight {pose.Weight:F2} base {pose.Base ?? "-"} posed {_local.PosedClip ?? "stances"} grip {pose.Clip?.GripAt(pose.Time) ?? 1f:F2} point {pose.Clip?.GripPointAt(pose.Time) ?? WeaponPoseClip.LowGrip:F2} m hips {turn:F0} deg camera {view:F0} laid {_local.WeaponPoseBaseLaid ?? "-"} hands z {(_local.WeaponPoseHands(out var rh, out var lh) ? $"{rh.Z:F2} {lh.Z:F2}" : "-")} {SpearHeights()}; {_local.Weapons?.SpearPoseText() ?? "no rig"}; melee step {_client!.Predicted.MeleeStep}{(_client.Predicted.MeleeHeavy ? " heavy" : "")} at {_client.Predicted.MeleeTime:F3} s");
+        }
+        else GD.Print($"SPEARPOSE {name}: no weapon pose on the own marine");
+        if (_tfwShots is null || DisplayServer.GetName() == "headless") return;
+        await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
+        var image = GetViewport().GetTexture().GetImage();
+        var crop = SpearCrop(image.GetSize());
+        if (crop is { } rect) image = image.GetRegion(rect);
+        string path = Path.Combine(_tfwShots, name + ".png");
+        GD.Print(image.SavePng(path) == Error.Ok ? $"tfw shot -> {path}" : $"tfw shot failed: {path}");
+    }
+
+    /// <summary>Test aid: the lowest bone's height and the spear's butt and tip heights in the own skeleton's space (the feet stand near the lowest bone).</summary>
+    string SpearHeights()
+    {
+        if (_local?.Skeleton is not { } sk) return "";
+        float low = float.MaxValue;
+        for (int b = 0; b < sk.GetBoneCount(); b++) low = MathF.Min(low, sk.GetBoneGlobalPose(b).Origin.Z);
+        string ends = _local.Weapons?.SpearEnds(out var butt, out var tip) == true ? $" butt {(sk.GlobalTransform.AffineInverse() * butt).Z:F2} tip {(sk.GlobalTransform.AffineInverse() * tip).Z:F2}" : "";
+        return $"lowest bone {low:F2}{ends}";
+    }
+
+    /// <summary>The screen rectangle round the own marine's bones and the spear's ends (padded), or null when they are not on screen.</summary>
+    Rect2I? SpearCrop(Vector2I size)
+    {
+        if (_camera is not { } camera || _local?.Skeleton is not { } sk) return null;
+        float minX = float.MaxValue, minY = float.MaxValue, maxX = float.MinValue, maxY = float.MinValue;
+        void Add(Vector3 world)
+        {
+            if (camera.IsPositionBehind(world)) return;
+            var p = camera.UnprojectPosition(world);
+            minX = MathF.Min(minX, p.X); minY = MathF.Min(minY, p.Y); maxX = MathF.Max(maxX, p.X); maxY = MathF.Max(maxY, p.Y);
+        }
+        for (int b = 0; b < sk.GetBoneCount(); b++) Add(sk.GlobalTransform * sk.GetBoneGlobalPose(b).Origin);
+        if (_local.Weapons?.SpearEnds(out var butt, out var tip) == true) { Add(butt); Add(tip); }
+        if (minX > maxX) return null;
+        float pad = MathF.Max(maxX - minX, maxY - minY) * 0.18f + 24f;
+        int x0 = Math.Clamp((int)(minX - pad), 0, size.X - 1), y0 = Math.Clamp((int)(minY - pad), 0, size.Y - 1);
+        int x1 = Math.Clamp((int)(maxX + pad), x0 + 1, size.X), y1 = Math.Clamp((int)(maxY + pad), y0 + 1, size.Y);
+        return new Rect2I(x0, y0, x1 - x0, y1 - y0);
+    }
+
+    /// <summary>
+    /// Puts the camera off the player for the capture's stage views (<see cref="_spearCam"/>), after the game's camera; nothing without the aid. As the preview stage frames its marine: the
+    /// stance's front read from the hips before the overlay moved them (<see cref="CharacterViewer.WeaponPoseBaseFront"/>), the front view 4.5 m ahead and 1.5 m up, the side view 4.5 m to his right.
+    /// </summary>
+    void SpearCamFrame()
+    {
+        if (_spearCam == 0 || _camera is not { } camera || _local?.Skeleton is not { } sk) return;
+        var front = sk.GlobalBasis * _local.WeaponPoseBaseFront;
+        front.Y = 0f;
+        if (front.LengthSquared() < 1e-6f) return;
+        front = front.Normalized();
+        var right = front.Cross(Vector3.Up).Normalized();
+        var feet = _local.GlobalPosition;
+        var eye = _spearCam == 1 ? feet + front * 4.5f + Vector3.Up * 1.5f - right * 0.3f : feet + right * 4.5f + Vector3.Up * 1.5f + front * 0.3f;   // the stage's 6.4 m at its 45 degree lens; closer here for the game's wider one
+        var look = feet + Vector3.Up * 1.2f + (_spearCam == 2 ? front * 0.3f : Vector3.Zero);
+        camera.GlobalTransform = Transform3D.Identity.Translated(eye).LookingAt(look, Vector3.Up);
+    }
+}

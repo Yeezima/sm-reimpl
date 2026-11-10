@@ -123,6 +123,7 @@ public sealed partial class MusouSim
         for (int i = 0; i < Capacity; i++) if (_used[i]) _trail[i * TrailLength + (int)(Tick % TrailLength)] = _position[i];
         if (_bolts.Count > 0) LandBolts(targets, fight, attacks);   // the Weirdboy's bolts (MusouSim.Weirdboy.cs)
         if (_rockets.Count > 0) StepRockets(targets, collision);   // the Rokkit Boyz' rockets (MusouSim.Rokkit.cs)
+        EndFearCount();   // MusouSim.Powerups.cs: the last step's fleeing count
         if (Frozen) { LastLosChecks = 0; return; }
         int nt = targets.Length;
         if (_targetNode.Length < nt) Grow(nt);
@@ -175,6 +176,7 @@ public sealed partial class MusouSim
             if (_type[i] == MusouEnemyType.ScrapMek) { StepMek(i, targets, near); continue; }   // he runs, hides and builds (MusouSim.Mek.cs)
             if (_type[i] == MusouEnemyType.Weirdboy && StepWeirdboy(i, targets, near, fight)) { if (_cooldown[i] > 0) _cooldown[i]--; continue; }   // his stun, cast and fade (MusouSim.Weirdboy.cs)
             if (_cooldown[i] > 0) _cooldown[i]--;
+            if (StepFeared(i, targets, near)) continue;   // the Fear powerup: it runs from a feared player (MusouSim.Powerups.cs)
             _faceWant[i] = Vector2.Zero;   // MusouSim.Facing.cs: Behave sets it while the Ork engages
             var spec = Rules.Of(_type[i]);
             if (_type[i] == MusouEnemyType.Stormboy && StepOrdered(i, targets, near, spec)) continue;   // under his squad's orders (MusouSim.Stormboy.cs)

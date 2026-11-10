@@ -127,7 +127,7 @@ public sealed partial class World
         if (hit != 0)
         {
             var spec = Shots.ChargeShotOf(weapon, shot.Stage)?.Damage ?? weapon.DirectDamage with { Damage = Combat.DamageAt(distance, weapon) };
-            meks.Damage(hit, shot.Shooter, spec.Damage * spec.BodyMultiplier, out _);
+            meks.Damage(hit, shot.Shooter, spec.Damage * spec.BodyMultiplier * MusouRangedDealt(shot.Shooter), out _);   // x1.2 (owner 2026-11-11)
             length = distance; ended = true;
         }
         if (!ended) return;
@@ -148,10 +148,18 @@ public sealed partial class World
         byte hit = meks.Raycast(p.Position, direction, max, out float distance);
         if (hit != 0 && (distance <= dome || meks.IsGenerator(hit)))
         {
+            bool stays = false;
+            ArsenalProjectileMeets(p.Id, 0, hit, p.Position + direction * distance, ref stays);
+            if (stays) return;   // W4's charge sticks to it: no stop, no detonation (the arsenal holds it there)
             stop = MathF.Min(stop, distance);
-            ArsenalProjectileMeets(p.Id, 0, hit, p.Position + direction * distance);   // Arsenal/World.Arsenal.cs: a projectile of the arsenal meeting a contraption (W4); a no-op until then
-            if (!p.Thrown && Shots.DirectDamageOf(WeaponOf(p), p.Stage) is { } direct) meks.Damage(hit, p.Owner, direct.Damage * direct.BodyMultiplier, out _);
+            if (!p.Thrown && Shots.DirectDamageOf(WeaponOf(p), p.Stage) is { } direct) meks.Damage(hit, p.Owner, direct.Damage * direct.BodyMultiplier * MusouRangedDealt(p.Owner), out _);   // x1.2 (owner 2026-11-11)
             return;
+        }
+        if (float.IsFinite(dome) && dome <= max)
+        {
+            bool stays = false;
+            ArsenalProjectileMeets(p.Id, 0, 0, p.Position + direction * MathF.Max(0f, dome - 0.05f), ref stays);   // a shield dome from outside: W4's charge sticks to its surface, 0.05 m outside it on the thrower's side as the core's own stop does (a pin on the sphere could round to inside, where the blast reaches in)
+            if (stays) return;
         }
         stop = MathF.Min(stop, dome);
     }
@@ -159,18 +167,22 @@ public sealed partial class World
     /// <summary>Whether a dome stops what goes from <paramref name="from"/> (outside it) to <paramref name="to"/> (inside it): a blast or a cone from outside.</summary>
     bool TfwShielded(Vector3 from, Vector3 to) => TfwMeks is { AnyDome: true } meks && meks.Shielded(from, to);
 
-    /// <summary>A player's blast on the contraptions in its radius (not through a dome from outside, nor through a wall when it needs a line).</summary>
-    void TfwMekBlast(int owner, Vector3 point, SplashSpec splash)
+    /// <summary>
+    /// A player's blast on the contraptions in its radius (not through a dome from outside, nor through a wall when it needs a line). <paramref name="melee"/>: a stomp (not scaled as a ranged hit;
+    /// any other blast of a player's is, <see cref="MusouRangedDealt"/>).
+    /// </summary>
+    void TfwMekBlast(int owner, Vector3 point, SplashSpec splash, bool melee = false)
     {
         if (_state != MatchState.Playing || splash.BlindOnly || !(splash.Radius > 0f) || TfwMeks is not { Count: > 0 } meks || _musou is null) return;
         MusouBeginTick();   // as the projectiles: the cues of this tick
         meks.Near(point, splash.Radius, _mekNear);
+        float ranged = melee ? 1f : MusouRangedDealt(owner);   // x1.2 (owner 2026-11-11)
         foreach (var (id, distance) in _mekNear)
         {
             if (!meks.TryGet(id, out var c)) continue;
             var centre = MusouMeks.Centre(c);
             if ((c.Kind != MusouContraptionKind.ShieldGenerator && TfwShielded(point, centre)) || (splash.LineOfSight && Blocked(point, centre))) continue;   // the dome never keeps it off its own generator
-            float damage = splash.Damage.Damage * Combat.SplashIntensity(splash.FallOff, distance) * splash.Damage.BodyMultiplier;
+            float damage = splash.Damage.Damage * Combat.SplashIntensity(splash.FallOff, distance) * splash.Damage.BodyMultiplier * ranged;
             if (damage > 0f) meks.Damage(id, owner, damage, out _);
         }
         TfwMekBlasts();
@@ -185,7 +197,7 @@ public sealed partial class World
         if (!(damage > 0f)) return;
         float range = musou.Rules.Combat.CleaveRange(Config.MeleeRange);
         float minCos = MathF.Cos(MathF.Min(180f, Config.MeleeConeDegrees * musou.Rules.Combat.CleaveConeScale) * MathF.PI / 180f);
-        if (musou.War is { } volume) { range *= volume.CleaveReachScale; minCos = volume.CleaveMinCos; }   // as the Orks' cleave (owner 2026-11-09)
+        if (musou.War is { } volume) { range *= volume.CleaveReachScale * (TfwCombatRules.ScalesPlayer(attacker) ? volume.PlayerCleaveReachScale : 1f); minCos = volume.CleaveMinCos; }   // as the Orks' cleave (owner 2026-11-09; x0.6 for a human, owner 2026-11-11)
         var forward = new Vector2(-MathF.Sin(state.Yaw), MathF.Cos(state.Yaw));
         meks.Near(state.Position, range + 2f, _mekNear);
         foreach (var (id, _) in _mekNear)

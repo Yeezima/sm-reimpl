@@ -346,8 +346,11 @@ public static class SyntheticHavokWriter
         (int StateId, ConditionFixture? Condition)[]? Chooser = null) : GraphNode(Name);
     public sealed record StateFixture(int Id, string Name, GraphNode Generator, TransitionFixture[]? Transitions = null);
     /// <param name="BlendDuration">Writes an <c>hkbBlendingTransitionEffect</c> with this duration (seconds); null: no effect.</param>
+    /// <param name="ToNestedStateId">Hit reactions: a state of the target state's own machine the transition enters directly (written @20 with the flag 0x2000 @28); -1 none.</param>
     public sealed record TransitionFixture(int ToStateId, int EventId = -1, short BranchEventId = -1, short Priority = 0, float? BlendDuration = null,
-        string EffectName = "Blend", ConditionFixture? Condition = null);
+        string EffectName = "Blend", ConditionFixture? Condition = null, int ToNestedStateId = -1);
+    /// <summary>Hit reactions: an <c>hkbWeightedRandomSelector</c> (Relic) picking one of its generators at random by weight.</summary>
+    public sealed record WeightedRandomNode(string Name, (float Weight, GraphNode Generator)[] Children) : GraphNode(Name);
     public abstract record ConditionFixture;
     public sealed record ExpressionFixture(string Expression) : ConditionFixture;
     public sealed record ThresholdFixture(int Variable, float Min, float Max) : ConditionFixture;
@@ -451,6 +454,20 @@ public static class SyntheticHavokWriter
                         at = Obj("hkbBehaviorReferenceGenerator", 64);
                         d.String(at + 40, r.File);
                         break;
+                    case WeightedRandomNode wr:
+                    {
+                        at = Obj("hkbWeightedRandomSelector", 144);
+                        written[node] = at;
+                        var weighted = wr.Children.Select(ch =>
+                        {
+                            int w = Obj("hkbWeightedRandomSelectorWeightedGenerator", 48);   // 16 bytes on the install; padded so the reader's name probe @32 stays inside it
+                            d.F32(w, ch.Weight);
+                            d.Pointer(w + 4, Node(ch.Generator));
+                            return w;
+                        }).ToList();
+                        d.Array(at + 40, weighted.Count, 4, 4, (p, i) => d.Pointer(p, weighted[i]));
+                        break;
+                    }
                     case StateMachineNode sm:
                     {
                         at = Obj("hkbStateMachine", 256);
@@ -520,6 +537,7 @@ public static class SyntheticHavokWriter
                     d.I32(p + 12, t.ToStateId);
                     d.I16(p + 24, t.Priority);
                     d.I16(p + 26, t.BranchEventId);
+                    if (t.ToNestedStateId >= 0) { d.I32(p + 20, t.ToNestedStateId); d.I16(p + 28, BehaviorTransition.ToNestedValid); }
                 });
                 return array;
             }

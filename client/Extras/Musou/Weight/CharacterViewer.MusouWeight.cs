@@ -38,7 +38,7 @@ public partial class CharacterViewer
     readonly record struct MusouSettleState(double Start, float Depth, float LeanDegrees, float Down, float Back);
     MusouSettleState? _musouSettle;
     int _musouSpineBone = -2;
-    readonly Vector3[] _musouAnkles = new Vector3[2];
+    Vector3[]? _musouAnkles;   // lazy: only a viewer that settles carries it
 
     /// <summary>MW3: starts a settle (a landing, a stop's plant, a melee step's plant, a roll's end); a stronger one replaces a weaker one under way.</summary>
     public void MusouSettle(float depth, float leanDegrees, float down, float back)
@@ -55,7 +55,8 @@ public partial class CharacterViewer
 
     /// <summary>
     /// MW3 (from the pose overlay, before the foot pins): the pelvis lowered in skeleton space by the settle's depth with both ankles held where the pose put them (the knees bend
-    /// through <see cref="SolveLeg"/>), and the spine leant back against the stop. Nothing without a settle under way.
+    /// through <see cref="SolveLeg"/>), and the spine leant back against the stop. The torso drops with the pelvis as one piece (review, 2026-11-10: the marine rig hangs <c>RIG_SpineA</c> beside
+    /// the pelvis under the root, so the drop alone lowered the hips and legs and left the torso where it was; <c>RigidWith</c> of the weapon pose carries it). Nothing without a settle under way.
     /// </summary>
     void MusouWeightPoseOverlay()
     {
@@ -67,13 +68,13 @@ public partial class CharacterViewer
         if (w <= 1e-3f) return;
         if (_legs is null) ResolveLegs();
         if (_legs is not { Length: 2 } legs) return;
-        for (int i = 0; i < 2; i++) _musouAnkles[i] = _skeleton.GetBoneGlobalPose(legs[i].Foot).Origin;
+        var ankles = _musouAnkles ??= new Vector3[2];
+        for (int i = 0; i < 2; i++) ankles[i] = _skeleton.GetBoneGlobalPose(legs[i].Foot).Origin;
         int pelvis = legs[0].Pelvis;
-        // Skeleton space has Z up (the feet's plane at 0): the pelvis's own position moves by the drop turned into its parent's frame.
-        int parent = _skeleton.GetBoneParent(pelvis);
+        // Skeleton space has Z up (the feet's plane at 0): the pelvis's own position moves by the drop turned into its parent's frame, and so does the bone carried with it (the torso).
         var drop = new Vector3(0f, 0f, -st.Depth * w);
-        var local = parent >= 0 ? _skeleton.GetBoneGlobalPose(parent).Basis.Inverse() * drop : drop;
-        _skeleton.SetBonePosePosition(pelvis, _skeleton.GetBonePosePosition(pelvis) + local);
+        DropBone(pelvis, drop);
+        if (RigidCarriedWith(_skeleton, pelvis) is var torso and >= 0) DropBone(torso, drop);
         if (MathF.Abs(st.LeanDegrees) > 0.01f)
         {
             if (_musouSpineBone == -2) _musouSpineBone = _skeleton.FindBone("RIG_SpineA");
@@ -82,7 +83,7 @@ public partial class CharacterViewer
             {
                 // Forward: from the ankles to the toes, flat; leaning back turns the spine's up toward the back.
                 var toes = (_skeleton.GetBoneGlobalPose(cb[0]).Origin + _skeleton.GetBoneGlobalPose(cb[1]).Origin) * 0.5f;
-                var forward = toes - (_musouAnkles[0] + _musouAnkles[1]) * 0.5f;
+                var forward = toes - (ankles[0] + ankles[1]) * 0.5f;
                 forward.Z = 0f;
                 if (forward.LengthSquared() > 1e-6f)
                 {
@@ -96,7 +97,15 @@ public partial class CharacterViewer
                 }
             }
         }
-        for (int i = 0; i < 2; i++) SolveLeg(legs[i], _musouAnkles[i]);
+        for (int i = 0; i < 2; i++) SolveLeg(legs[i], ankles[i]);
+    }
+
+    /// <summary>Moves a bone's origin by <paramref name="drop"/> (skeleton space), turned into its parent's frame.</summary>
+    void DropBone(int bone, Vector3 drop)
+    {
+        int parent = _skeleton!.GetBoneParent(bone);
+        var local = parent >= 0 ? _skeleton.GetBoneGlobalPose(parent).Basis.Inverse() * drop : drop;
+        _skeleton.SetBonePosePosition(bone, _skeleton.GetBonePosePosition(bone) + local);
     }
 
     // ------------------------------------------------------------------ MW5: cross-fade floors

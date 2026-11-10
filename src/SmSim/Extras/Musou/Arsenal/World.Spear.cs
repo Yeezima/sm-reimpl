@@ -13,10 +13,10 @@ public sealed partial class World
 {
     partial void ArsenalCleave(int attacker, in PlayerState state, MeleeStep step, ref float range, ref float minCos, ref int most, ref float damage)
     {
-        if (!SpearRules.Wields(Config, state)) return;
-        range = SpearRules.ReachMetres;       // from the feet, the war cleave's own scale not applied on top (the 15 m is the whole reach)
-        minCos = SpearRules.MinCos;
-        most = SpearRules.MostOrks;
+        // The 15 m from the feet (the war cleave's own scale not applied on top), 150 degrees each side, 12 Orks: SpearRules.Sweep, which the client's swing arc reads too (MusouCleaveShape).
+        float half = 0f;
+        if (!SpearRules.Sweep(SpearRules.MeleeWargearOf(Config, state), ref range, ref half, ref most)) return;
+        minCos = MathF.Cos(half * MathF.PI / 180f);   // SpearRules.MinCos, MusouCleaveShape.Shape.MinCos
         // The damage is the step's own: the combo was built at the spear's damage (SpearRules.FromHammer).
     }
 
@@ -32,7 +32,7 @@ public sealed partial class World
             if (!musou.TryGet(near[k], out var e) || !e.Alive) continue;   // the pack's blast may have killed the nearest already: the next one is the nearest alive
             var away = new Vector2(e.Position.X - state.Position.X, e.Position.Y - state.Position.Y);
             var push = away.LengthSquared() > 1e-6f ? Vector2.Normalize(away) : new Vector2(-MathF.Sin(state.Yaw), MathF.Cos(state.Yaw));
-            musou.Damage(e.Id, player, SpearRules.ImpaleDamage * Stims.MeleeDealt(Config, state), new Vector3(push, 0f), out _, marker: 3, cause: MusouDeathKind.Melee);
+            musou.Damage(e.Id, player, SpearRules.ImpaleDamage * MusouMeleeDealt(player, state), new Vector3(push, 0f), out _, marker: 3, cause: MusouDeathKind.Melee);   // the powerups' x2 cap (World.MusouPowerups.cs)
             MusouMeleeHeal(player, e.Id);   // a melee strike like the rest: the heal and the armour back
             break;
         }

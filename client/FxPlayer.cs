@@ -188,8 +188,11 @@ public sealed partial class FxPlayer : Node3D
     public FxLibrary? Library => _library;
     public string Status { get; private set; } = "not loaded";
     public int Live => _effects.Count;
-    /// <summary>Effects dropped from a full player by their priority (0 to 3, higher counted as 3), and new effects refused by theirs (nothing lower or as low to drop); since the start.</summary>
-    public readonly long[] Evicted = new long[4], Refused = new long[4];
+    /// <summary>
+    /// Effects dropped from a full player by their priority, and new effects refused by theirs (nothing lower or as low to drop); since the start. Slots by <see cref="FxEviction.Slot"/>:
+    /// priority -1 to 3, lower counted as -1 and higher as 3 (fix/fx-hud-leaks: 0 to 3 before, the weight pass's -1 puffs counted as 0).
+    /// </summary>
+    public readonly long[] Evicted = new long[FxEviction.Slots], Refused = new long[FxEviction.Slots];
     public long Spawned { get; private set; }
     public long Culled { get; private set; }
     public int LastQuads => _frameQuads;
@@ -292,12 +295,10 @@ public sealed partial class FxPlayer : Node3D
         if (ambient ? ambientCount >= MaxAmbient : _effects.Count - ambientCount >= cap)
         {
             if (ambient) { Culled++; return null; }
-            // Drop the oldest of the lowest priority.
-            int victim = -1;
-            for (int i = 0; i < _effects.Count; i++)
-                if (!_effects[i].Ambient && _effects[i].Priority <= priority && (victim < 0 || _effects[i].Priority < _effects[victim].Priority || _effects[i].Age > _effects[victim].Age)) victim = i;
-            if (victim < 0) { Culled++; Refused[Math.Clamp(priority, 0, Refused.Length - 1)]++; return null; }
-            Evicted[Math.Clamp(_effects[victim].Priority, 0, Evicted.Length - 1)]++;
+            // Drop the lowest priority at or below the new one's, the oldest of that priority (fix/fx-hud-leaks, polish item 27: "lower or older" dropped an older 0 before a younger -1).
+            int victim = FxEviction.Victim(_effects, priority, static e => (e.Ambient, e.Priority, e.Age));
+            if (victim < 0) { Culled++; Refused[FxEviction.Slot(priority)]++; return null; }
+            Evicted[FxEviction.Slot(_effects[victim].Priority)]++;
             Release(_effects[victim]); _effects.RemoveAt(victim); Culled++;
         }
         var e = new FxEffect

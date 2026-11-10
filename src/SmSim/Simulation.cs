@@ -308,6 +308,11 @@ public readonly record struct PlayerState(int PlayerId, Vector3 Position, Vector
     /// down each tick, 0 at death and respawn). Not on the wire: the client keeps its prediction (<see cref="Stims.Carry"/>).
     /// </summary>
     public float StimLeft { get; init; }
+    /// <summary>
+    /// Added content's fire boost (Musou Mode's Rapid Fire powerup, owner 2026-11-10): seconds the guns still fire <see cref="SimConfig.FireBoost"/> times as fast and spend no round; counted down each tick,
+    /// 0 at death and respawn, set only by added content (always 0 in Classic PvP). Not on the wire: the client sets it from its own powerup state at a reconcile (<c>GameClient.ExtrasCarry</c>).
+    /// </summary>
+    public float FireBoostLeft { get; init; }
 
     // ---- jump pack (see JumpPack; protocol 9). Canonical zeros for players without a pack. ----
     /// <summary>Where the player is in a jump-pack jump.</summary>

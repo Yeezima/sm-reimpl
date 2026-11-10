@@ -49,8 +49,8 @@ Also not reproduced:
 - Aim assist.
 - Crouch. Speeds are recorded but there is no crouch state.
 - Character turn-rate limits and the flip-around turn.
-- Flinches, 180-degree attacks and some follow-up attacks; the thunder hammer's own dash-attack clips (it uses the sword's).
-- The death animations before the ragdoll.
+- 180-degree attacks and some follow-up attacks; the thunder hammer's own dash-attack clips (it uses the sword's).
+- The jump-pack death in mid-air: a player killed during a jump-pack jump falls as a ragdoll straight away instead of playing the original's mid-air death animation.
 - Class and rank badges on the shoulder pads (no mapping found).
 - Distortion materials, mesh effects and the original's shaders. Materials use a close approximation of the original.
 

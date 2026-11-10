@@ -73,8 +73,8 @@ public sealed class PackageScanner
     /// </summary>
     public List<string> SourceArchivePrefixes { get; } = [];
 
-    /// <summary>Binary files the source offer may hold (the added content's own sounds and images); every other non-text file in it is refused.</summary>
-    public static readonly string[] SourceMediaExtensions = [".ogg", ".png", ".jpg", ".jpeg", ".webp", ".ttf", ".otf", ".ico"];
+    /// <summary>Binary files the source offer may hold (the added content's own sounds and images, the main menu's video loop: our own media, 2026-11-10); every other non-text file in it is refused.</summary>
+    public static readonly string[] SourceMediaExtensions = [".ogg", ".ogv", ".png", ".jpg", ".jpeg", ".webp", ".ttf", ".otf", ".ico"];
 
     /// <summary>Nested zips are opened at most this deep (a zip in a zip in the package); deeper is refused.</summary>
     const int MaxNestDepth = 2;
@@ -573,11 +573,101 @@ public sealed class PackageScanner
         return false;
     }
 
+    /// <summary>
+    /// The header packets of an Ogg file (the main menu's video loop, .ogv, 2026-11-10): each stream's identification, comment and setup headers (Theora, Vorbis) or head and
+    /// tags (Opus), where an Ogg file keeps its metadata (the comment header's vendor string and tags). Null, so that every rule scans the whole file, unless the file is
+    /// nothing but whole Ogg pages, each stream of a known codec, every header packet complete and no header packet after a stream's first data packet.
+    /// </summary>
+    internal static byte[]? OggHeaderBytes(Func<Stream> open, int maxHeaderBytes = 4 * 1024 * 1024)
+    {
+        using var stream = open();
+        static int Fill(Stream s, byte[] b, int count)
+        {
+            int got = 0;
+            while (got < count) { int n = s.Read(b, got, count - got); if (n <= 0) break; got += n; }
+            return got;
+        }
+        var page = new byte[27];
+        var lacing = new byte[255];
+        var segment = new byte[255];
+        var codec = new Dictionary<uint, char>();              // 't' Theora, 'v' Vorbis, 'o' Opus
+        var pending = new Dictionary<uint, MemoryStream>();    // a stream's header packet being assembled (still in its headers)
+        var done = new HashSet<uint>();                        // streams past their headers
+        var atStart = new Dictionary<uint, bool>();            // the next segment starts a packet
+        var opusHeaders = new Dictionary<uint, int>();
+        var headers = new MemoryStream();
+        bool anyPage = false;
+        while (true)
+        {
+            int got = Fill(stream, page, 27);
+            if (got == 0) break;
+            if (got < 27 || page[0] != (byte)'O' || page[1] != (byte)'g' || page[2] != (byte)'g' || page[3] != (byte)'S' || page[4] != 0) return null;
+            anyPage = true;
+            uint serial = BitConverter.ToUInt32(page, 14);
+            bool bos = (page[5] & 0x02) != 0;
+            if (bos == (codec.ContainsKey(serial) || pending.ContainsKey(serial))) return null;   // a stream starts once, on its first page
+            if (bos) { pending[serial] = new MemoryStream(); atStart[serial] = true; }
+            int count = page[26];
+            if (Fill(stream, lacing, count) < count) return null;
+            for (int i = 0; i < count; i++)
+            {
+                int length = lacing[i];
+                if (Fill(stream, segment, length) < length) return null;
+                bool ends = length < 255;
+                if (done.Contains(serial))
+                {
+                    // Past the headers: a Theora or Vorbis packet that reads as a header is a malformed stream.
+                    if (atStart[serial] && length > 0 && codec[serial] is var c && (c == 't' && (segment[0] & 0x80) != 0 || c == 'v' && (segment[0] & 0x01) != 0)) return null;
+                    atStart[serial] = ends;
+                    continue;
+                }
+                var packet = pending[serial];
+                packet.Write(segment, 0, length);
+                if (headers.Length + packet.Length > maxHeaderBytes) return null;
+                atStart[serial] = ends;
+                if (!ends) continue;
+                byte[] p = packet.ToArray();
+                packet.SetLength(0);
+                if (!codec.ContainsKey(serial))
+                {
+                    if (p.Length >= 7 && p[0] == 0x80 && System.Text.Encoding.ASCII.GetString(p, 1, 6) == "theora") codec[serial] = 't';
+                    else if (p.Length >= 7 && p[0] == 0x01 && System.Text.Encoding.ASCII.GetString(p, 1, 6) == "vorbis") codec[serial] = 'v';
+                    else if (p.Length >= 8 && System.Text.Encoding.ASCII.GetString(p, 0, 8) == "OpusHead") codec[serial] = 'o';
+                    else return null;   // a codec this rule does not know
+                }
+                bool header = codec[serial] switch
+                {
+                    't' => p.Length > 0 && (p[0] & 0x80) != 0,
+                    'v' => p.Length > 0 && (p[0] & 0x01) != 0,
+                    _ => (opusHeaders[serial] = opusHeaders.GetValueOrDefault(serial) + 1) <= 2,
+                };
+                if (header) headers.Write(p, 0, p.Length);
+                else { done.Add(serial); pending.Remove(serial); }
+            }
+        }
+        if (!anyPage || pending.Values.Any(p => p.Length > 0)) return null;   // nothing, or a header packet cut off at the end
+        return headers.ToArray();
+    }
+
     void ScanContent(string name, string ext, bool licenceText, Func<Stream> open, Action<string, string> add)
     {
         bool userPath = false, homePath = false, webhook = false, token = false, email = false;
         var secretHit = new HashSet<int>();
         bool binary = BinaryExtensions.Contains(ext);
+        // An Ogg video (the main menu's video loop, our own media, 2026-11-10): its metadata sits in its streams' header packets, before the compressed frames, in which random
+        // bytes read as an address (the 20 MB loop: three false findings); the e-mail and /home/ path rules look at the header packets only (OggHeaderBytes), and at the whole
+        // file when it is not plain, well-formed Ogg. Every other rule scans the whole file.
+        if (ext.Equals(".ogv", StringComparison.OrdinalIgnoreCase) && !licenceText && OggHeaderBytes(open) is { } oggHeaders)
+        {
+            var bytes = new List<byte>(oggHeaders.Length);
+            foreach (byte b in oggHeaders) if (b != 0) bytes.Add(b);   // as the loop below reads text: Latin-1, the zero bytes dropped
+            var ht = System.Text.Encoding.Latin1.GetString(bytes.ToArray());
+            foreach (Match m in Email.Matches(ht))
+                if (!IsPublicEmailDomain(m.Groups["domain"].Value)) { email = true; break; }
+            foreach (Match m in HomePath.Matches(ht))
+                if (!IsPlaceholderUser(m.Groups["name"].Value)) { homePath = true; break; }
+            binary = true;
+        }
         // A glTF binary (.glb, the owner's Ashfall kit models): e-mail addresses are looked for in its JSON chunk only (where metadata lives); its binary
         // chunk is compressed image and mesh data, in which random bytes read as an address (a letter, an at sign, a short made-up domain; 2026-11-06: 20 false findings). Every other rule scans the whole file.
         if (ext.Equals(".glb", StringComparison.OrdinalIgnoreCase) && !licenceText)

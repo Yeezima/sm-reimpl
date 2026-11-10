@@ -40,8 +40,8 @@ public static class LeanBot
         "anim-probe", "tracer-probe", "log-melta-follow", "hip-probe", "yaw-probe", "pan-rate", "transition-probe", "transition-sweep", "camera-probe", "camera-selftest", "camera-back", "motion-probe",
         "frame-profile", "frame-stats", "look-churn", "look-log", "look-closeup", "picker-demo", "picker-on-death", "picker-deploy", "bot-change-loadout",
         "bot-gait", "gait-sweep", "action-sweep", "bot-turn-sweep", "turn-sweep-fire", "latency-probe", "bullet-probe", "show-shot-rays", "camera-hide-log",
-        "slash-trace", "run-start-log", "log-sound", "log-footsteps", "reload-capture", "reload-probe", "ork-capture", "screenshot", "screenshot-every",
-        "record-demo", "spectate", "ragdoll-debug", "death-orbit-test", "damage-demo", "aim-test", "hud-demo", "hud-rewards-demo", "hud-headshot-demo", "hud-score-demo", "hud-vitals-demo", "hud-clip-demo", "hud-plasma-demo", "hud-switch-demo", "hud-launcher-demo", "scope-spread-demo", "pound-marker-demo",
+        "slash-trace", "claw-crackle-demo", "claw-glow-test", "run-start-log", "log-sound", "log-footsteps", "reload-capture", "reload-probe", "ork-capture", "screenshot", "screenshot-every",
+        "record-demo", "spectate", "ragdoll-debug", "death-orbit-test", "hit-reaction-test", "damage-demo", "aim-test", "hud-demo", "hud-rewards-demo", "hud-headshot-demo", "hud-score-demo", "hud-vitals-demo", "hud-clip-demo", "hud-plasma-demo", "hud-switch-demo", "hud-launcher-demo", "scope-spread-demo", "pound-marker-demo",
         "power-flash-demo", "log-power-flash", "power-flash-at",   // fx/power-flash: the hit flash demo and its log
         "pvp-hit-fx-demo", "pvp-hit-fx-every", "log-hit-fx",   // pvp-hit-fx: the shot-look demo on the nearest other player and its log
         "musou-hud-demo",   // added content Musou (MU3): the Musou HUD and telegraphs with made-up values
@@ -49,10 +49,13 @@ public static class LeanBot
         "musou-death-spike-test",   // added content Musou (night batch 2026-11-06): the whole scripted crowd dies at once, the frame times measured
         "log-ork-blood",   // added content Musou (gore-original): the original blood's per-kill log
         "feel-probe", "log-musou-contact",   // added content Musou (combat feel 2026-11-09): the contact timing and the predicted contacts, read where the crowd is drawn
-        "tfw-autocannon-capture",   // added content Musou (arsenal W1, 2026-11-10): the autocannon's screenshot gate, a scripted fight
+        "spear-probe", "demo-melee",   // added content Musou (arsenal W3, 2026-11-10): the spear's carry-grip measurement (--viewer) and the demo profile's melee weapon (--customizer)
+        "tfw-autocannon-capture", "tfw-autocannon-impact-capture",   // added content Musou (arsenal W1, W1c, 2026-11-10): the autocannon's screenshot gate, a scripted fight; its impacts on a wall and the ground
         "tfw-feel-capture",   // added content Musou (combat feel): a short scripted fight for the before / after captures
         "tfw-weight-capture", "tfw-weight-pack", "tfw-weight-log", "log-musou-weight",   // added content Musou (weight pass 2026-11-10): the scripted baseline moves and their frame log
         "tfw-fight-capture", "tfw-sound-capture",   // added content Musou (capture banners, sound A/B 2026-11-10): the banner flip and the mix captures
+        "tfw-arc-capture", "log-musou-arcs",   // added content Musou (swing arc 2026-11-10): the arc stills' scripted swings and the arc log
+        "tfw-spear-capture", "claw-spear-test",   // added content Musou (arsenal W3b, 2026-11-10): the spear's in-match stills and the claw / spear preview stage
         "shimmer-probe", "shimmer-trace",   // added content Musou (ashfall/no-flicker): the kit gallery's shimmer measure
         "guard-demo", "guard-demo-at", "guard-no-vat", "tfw-deploy", "tfw-test", "tfw-test-downs", "tfw-test-win", "tfw-test-fight", "tfw-fight-seconds", "tfw-test-capture", "tfw-capture-seconds", "tfw-capture-weak", "tfw-fire-test", "tfw-fire-at", "tfw-fire-cam", "tfw-fire-cam-run", "tfw-reduce-motion", "tfw-orbital-test", "tfw-librarian", "librarian-demo",   // added content Musou (TF7a; the Librarian pass 2: the Stormbird pick, the capture script): the scripted Guardsmen, the skinned crowd only, a scripted Deploy
         // review round (L2): the remaining probes, logs, captures and sweeps of the client

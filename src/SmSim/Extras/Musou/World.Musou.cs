@@ -267,7 +267,7 @@ public sealed partial class World
     {
         if (_musou is null) return;
         MusouBlast(owner, point, splash, melee);   // World.MusouCombat.cs
-        TfwMekBlast(owner, point, splash);   // Campaign/World.TfwMeks.cs: the contraptions (expansion S4)
+        TfwMekBlast(owner, point, splash, melee);   // Campaign/World.TfwMeks.cs: the contraptions (expansion S4)
     }
 
     partial void ExtrasDamageTaken(int target, ref float scale)
@@ -305,6 +305,7 @@ public sealed partial class World
                 else if (--TicksLeft == 0)
                 {
                     _projectiles.Clear(); _areas.Clear(); _perkBlasts.Clear();
+                    ArsenalReset();   // Arsenal/World.Charge.cs
                     CountProjectilesOut();
                     StartRound(respawn: false);
                 }

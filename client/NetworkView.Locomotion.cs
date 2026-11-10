@@ -117,6 +117,10 @@ public partial class NetworkView
         public float SettleWeight;   // feel/weight-impact: the share of the landing crouch a softer landing shows (0: none)
         public double FlinchAt = double.NegativeInfinity, FlinchLast = double.NegativeInfinity, HeadHitAt = double.NegativeInfinity;
         public bool WasSprint, WasCharging, WasAirborne;
+        // Hit reactions (2026-11-11): the last living frame's rush phase and jump-pack jump, the own record's light-melee flinch counter.
+        public RushPhase WasRush;
+        public bool WasJumpActive;
+        public int FlinchTicksSeen;
         public float SprintBlend; public double SprintBlendAt = double.NegativeInfinity;   // animation pass 3: the damped strafe blend of the sprint
         public string? WeaponName;
     }

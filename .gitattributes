@@ -5,3 +5,4 @@
 *.sh text eol=lf
 Dockerfile text eol=lf
 tools/release/package/smbots text eol=lf
+*.ogv binary

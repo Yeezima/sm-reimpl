@@ -18,10 +18,11 @@ namespace SmClient;
 public sealed partial class WeaponRig
 {
     /// <summary>Metres, along the shaft (+X, the hammer's own axis) from the grip: the butt, the collar, the blade's base and its tip. The whole spear is 2.85 m.</summary>
-    public const float SpearButt = -1.05f, SpearCollar = 0.84f, SpearBladeBase = 0.93f, SpearTip = 1.80f;
+    public const float SpearButt = -SmContent.Extras.Musou.SpearHold.AxisFromButt, SpearCollar = 0.84f, SpearBladeBase = 0.93f, SpearTip = 1.80f;
 
-    /// <summary>Where along the shaft (the spear's own X, metres from the two-handed grip point; the butt at -1.05, the collar at 0.84) the right hand closes when the spear is carried one-handed: high, just below the collar, for running and rest, and low, 0.45 m from the butt, for melee; the fist slides between them (<see cref="WeaponRig.GripSlide"/>).</summary>
-    public const float SpearGripHigh = 0.62f, SpearGripLow = -0.60f;
+    /// <summary>Where along the shaft (the spear's own X, metres from the two-handed grip point; the butt at -1.05, the collar at 0.84) the right hand closes when the spear is carried one-handed: high, 1.34 m from the butt, for running and rest: the fist at the point where the butt clears the ground by 4 cm at the run clip's lowest, measured with `ModelViewer --spear-probe` over SM_NAV_Run_F_01 (the butt 0.04 m up at 0.4 s, higher elsewhere; at the idle 0.33 m); owner 2026-11-10: "put the marine's hand a bit lower on the handle when he's running", and low, 0.45 m from the butt, for melee; the fist slides between them (<see cref="WeaponRig.GripSlide"/>).</summary>
+    public const float SpearGripHigh = SmContent.Extras.Musou.SpearHold.MountHighFromButt - SmContent.Extras.Musou.SpearHold.AxisFromButt,
+        SpearGripLow = SmContent.Extras.Musou.SpearHold.MountLowFromButt - SmContent.Extras.Musou.SpearHold.AxisFromButt;   // 0.29 and -0.60: SpearHold's metres from the butt on this axis
 
     const string BladeShader = """
 shader_type spatial;
@@ -40,6 +41,10 @@ void fragment() {
 """;
 
     static readonly ConditionalWeakTable<WeaponAsset, WeaponAsset> SpearAssets = new();
+    /// <summary>The spear's assets (for <see cref="PlaceSpearOnHands"/>: which held item is the spear).</summary>
+    static readonly ConditionalWeakTable<WeaponAsset, object> SpearMarks = new();
+    static readonly object SpearMark = new();
+    static bool IsSpear(WeaponAsset asset) => SpearMarks.TryGetValue(asset, out _);
 
     /// <summary>
     /// W3: the spear's model. Carried in the right hand alone (the power sword's hand mount: the shaft where a sword's blade points, the grip at the hand) and swung in both hands (the thunder hammer's
@@ -53,7 +58,12 @@ void fragment() {
         Func<float, Transform3D>? slide = null;
         if (assets.Catalogue.Held("sm_mp_melee_powersword") is { Wield: { Bone: not null } swordMount } sword && assets.Get(sword) is { } swordAsset) (hand, slide) = HandMount(swordMount, swordAsset.Model);
         attachment = hand is null ? hammer : hammer with { Wield = hand };
-        asset = SpearAssets.GetValue(hammerAsset, h => new WeaponAsset(h.Model, BuildSpear(), new Dictionary<string, ArrayMesh>(), 0, 0, 0, 0) { SwingWield = hand is null ? null : hammer.Wield, OneHandGrip = slide, SwingGrip = hand is null ? null : SwingGrip(h.Model, hammer.Wield) });
+        asset = SpearAssets.GetValue(hammerAsset, h =>
+        {
+            var spear = new WeaponAsset(h.Model, BuildSpear(), new Dictionary<string, ArrayMesh>(), 0, 0, 0, 0) { SwingWield = hand is null ? null : hammer.Wield, OneHandGrip = slide, SwingGrip = hand is null ? null : SwingGrip(h.Model, hammer.Wield) };
+            SpearMarks.AddOrUpdate(spear, SpearMark);
+            return spear;
+        });
     }
 
     /// <summary>

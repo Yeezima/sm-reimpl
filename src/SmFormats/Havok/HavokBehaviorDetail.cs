@@ -39,8 +39,16 @@ public sealed record BehaviorBoneWeights(int Offset, IReadOnlyList<float> Weight
 /// <param name="BranchEvent">int16 @26 resolved through the event names: the sequencer branch whose open window takes this
 /// transition (Relic; e.g. "BRANCH_Idle_To_Run_End" on the idle-to-run start, "BRANCH_to_Fire" in the rifle recoil); null when -1.</param>
 /// <param name="ConditionText">The condition in readable form (<see cref="HavokBehaviorDetailReader"/> lists the condition layouts), or null.</param>
+/// <param name="Flags">int16 @28 (hit reactions, 2026-11-11; Havok's transition flags: 0x2000 <c>FLAG_TO_NESTED_STATE_ID_IS_VALID</c>, 0x100 <c>FLAG_DISABLE_CONDITION</c>; the
+/// marine's ROOT-to-DEATH transitions carry 0x2000 and a nested state id, its conduits 0x100).</param>
+/// <param name="ToNestedStateId">int32 @20 when <paramref name="Flags"/> has 0x2000: the state inside the target state's own machine the transition enters directly (the
+/// DEATH state's "Headshot Death", "Death Ranged Left", ...); -1 otherwise (the target machine's start state).</param>
 public sealed record BehaviorTransition(string? Event, int EventId, int ToStateId, int? Transition, int? Condition, short Priority, string? BranchEvent,
-    string? ConditionText);
+    string? ConditionText, short Flags = 0, int ToNestedStateId = -1)
+{
+    /// <summary>Havok's <c>FLAG_TO_NESTED_STATE_ID_IS_VALID</c>.</summary>
+    public const short ToNestedValid = 0x2000;
+}
 
 public sealed record BehaviorState(int Offset, int Id, string Name, int? Generator, float Probability, bool Enable, IReadOnlyList<BehaviorTransition> Transitions);
 
@@ -100,7 +108,9 @@ public sealed record BehaviorGraphDetail(string Name, int Start, int End, int? R
 /// <item><c>hkbStateMachine</c>: start state chooser @52, start state id @56, states (pointer array) @92, wildcard
 /// transitions @104. <c>hkbStateMachineStateInfo</c>: transitions @48, generator @52, name @56, id @60, probability @64,
 /// enable (byte) @68. <c>hkbStateMachineTransitionInfoArray</c>: entries @8, 44 bytes each: transition effect @0, condition
-/// @4, event id @8, to-state id @12, priority (int16) @24, branch event (int16) @26.</item>
+/// @4, event id @8, to-state id @12, to-nested-state id @20, priority (int16) @24, branch event (int16) @26, flags (int16) @28.</item>
+/// <item><c>hkbWeightedRandomSelector</c> (Relic; hit reactions): name @32, weighted generators (pointer array) @40, each an
+/// <c>hkbWeightedRandomSelectorWeightedGenerator</c> with weight (float) @0 and generator @4: a child is picked at random by weight (the marine's "Random Flinches").</item>
 /// <item><c>hkbClipGenerator</c>: animation @40, playback speed @60, mode (byte) @74. <c>hkbModifierGenerator</c>: modifier
 /// @40, generator @44. <c>hkbBehaviorReferenceGenerator</c>: behaviour file @40. <c>hkbSequencerGenerator</c>: generator @52.
 /// <c>hkbBlendingTransitionEffect</c>: duration @64, flags (int16) @72.</item>
@@ -162,8 +172,10 @@ public static class HavokBehaviorDetailReader
                 int t = at!.Value + 44 * i;
                 int eventId = pack.ReadInt32(t + 8);
                 int? condition = pack.Pointer(t + 4);
+                short flags = pack.ReadInt16(t + 28);
                 list.Add(new BehaviorTransition(EventName(eventId), eventId, pack.ReadInt32(t + 12), pack.Pointer(t), condition, pack.ReadInt16(t + 24),
-                    EventName(pack.ReadInt16(t + 26)), condition is int c ? Condition(pack, classes, c, variables, 0) : null));
+                    EventName(pack.ReadInt16(t + 26)), condition is int c ? Condition(pack, classes, c, variables, 0) : null,
+                    flags, (flags & BehaviorTransition.ToNestedValid) != 0 ? pack.ReadInt32(t + 20) : -1));
             }
             return list;
         }
@@ -249,6 +261,15 @@ public static class HavokBehaviorDetailReader
                 case "hkbBehaviorReferenceGenerator":
                     name = $"{name} -> {pack.String(o + 40)}";
                     break;
+                case "hkbWeightedRandomSelector":
+                    foreach (var w in PointerArray(o + 40, "weighted generators"))
+                        if (w is int weighted && Class(weighted) == "hkbWeightedRandomSelectorWeightedGenerator")
+                            links.Add(new BehaviorLink(pack.Pointer(weighted + 4), $"random weight {pack.ReadSingle(weighted):0.###}"));
+                    break;
+                case "hkbWeightedRandomSelectorWeightedGenerator":
+                    name = "";   // a 16-byte wrapper (weight @0, generator @4): no name field
+                    links.Add(new BehaviorLink(pack.Pointer(o + 4), $"random weight {pack.ReadSingle(o):0.###}"));
+                    break;
                 case "hkbBlendingTransitionEffect":
                     effects.Add(new BehaviorBlendEffect(o, name, pack.ReadSingle(o + 64), pack.ReadInt16(o + 72)));
                     break;
@@ -321,7 +342,7 @@ public static class HavokBehaviorDetailReader
 
     static bool IsNode(string cls) => cls.StartsWith("hkb", StringComparison.Ordinal) &&
         (cls.EndsWith("Generator", StringComparison.Ordinal) || cls.EndsWith("Modifier", StringComparison.Ordinal) ||
-         cls.EndsWith("TransitionEffect", StringComparison.Ordinal) || cls is "hkbStateMachine" or "hkbBehaviorGraph" or "hkbModifierList");
+         cls.EndsWith("TransitionEffect", StringComparison.Ordinal) || cls is "hkbStateMachine" or "hkbBehaviorGraph" or "hkbModifierList" or "hkbWeightedRandomSelector");
 
     static void Check(int count, string what)
     {

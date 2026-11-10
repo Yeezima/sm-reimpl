@@ -134,7 +134,8 @@ public class AutocannonTests
         Assert.InRange(ticks.Count, 6, 8);   // 2.5 a second over three seconds, give or take the first shot's wait
         for (int k = 1; k < ticks.Count; k++)
             Assert.InRange((ticks[k] - ticks[k - 1]) / (float)w.Config.TickRate, 0.4f - 1.5f / w.Config.TickRate, 0.4f + 1.5f / w.Config.TickRate);
-        Assert.Contains(drops, d => MathF.Abs(d - 50f) < 0.5f || MathF.Abs(d - 65f) < 0.5f);   // a round is 50 (plus the blast's 15 on the Ork it strikes, in the same tick)
+        float ranged = TfwCombatRules.Default.PlayerRangedDamageScale;   // x1.2 in the war (owner 2026-11-11: "increase all ranged attack damage by 20%")
+        Assert.Contains(drops, d => MathF.Abs(d - 50f * ranged) < 0.5f || MathF.Abs(d - 65f * ranged) < 0.5f);   // a round is 50 (plus the blast's 15 on the Ork it strikes, in the same tick)
     }
 
     [Fact]
@@ -237,7 +238,9 @@ public class AutocannonTests
         // The content layer is reached only through the Musou dispatcher; a Musou config with no install adds nothing and says so.
         var notes = new List<string>();
         var musou = MusouSimTests.Base with { Extras = ContentExtras.Musou };
-        Assert.Same(musou, ContentArsenal.Append(musou, "", notes));
+        var appended = ContentArsenal.Append(musou, "", notes);   // W4 appends the Remote Detonators from the data's stand-in values: no weapon, only that thrown item
+        Assert.Equal(musou.Weapons, appended.Weapons);
+        Assert.Equal([ArsenalRules.RemoteDetonators], appended.Thrown.Select(t => t.Name).Where(ArsenalRules.IsArsenal));
         Assert.Contains(notes, n => n.Contains("autocannon"));
     }
 }

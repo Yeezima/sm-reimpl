@@ -36,6 +36,12 @@ public sealed partial class GameClient
     public IExtrasSolids? ExtrasSolids { get; set; }
 
     /// <summary>
+    /// Added content's part of a reconcile (Musou: the Rapid Fire powerup): the own record as the snapshot of <c>tick</c> had it, returned with what added content knows and the wire leaves out
+    /// (<see cref="PlayerState.FireBoostLeft"/>); null (the default, and always in Classic PvP) changes nothing.
+    /// </summary>
+    public Func<PlayerState, uint, PlayerState>? ExtrasCarry { get; set; }
+
+    /// <summary>
     /// The others a melee lock is chosen and checked against at view tick <paramref name="tick"/> for a player standing as <paramref name="self"/>: <see cref="ViewAt"/>, plus
     /// added content's lock targets (<see cref="ExtrasSolids"/>); null without a view. Only the lock reads it (the charge's contact keeps <see cref="ViewAt"/>, as the server).
     /// </summary>

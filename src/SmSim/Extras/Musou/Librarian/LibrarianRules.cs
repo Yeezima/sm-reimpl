@@ -30,13 +30,16 @@ public static class LibrarianRules
     public const float ShockwaveCooldown = 12f;
 
     // ---- Chain lightning ----
-    /// <summary>It reaches this far from the eye, to the enemy best lined up with the aim within <see cref="AimConeDegrees"/> (ours).</summary>
-    public const float LightningRange = 30f, AimConeDegrees = 12f;
+    /// <summary>
+    /// It reaches this far from the eye, to the enemy best lined up with the aim within <see cref="AimConeDegrees"/> (ours; 37.5 m since the owner's "+25% range and damage" of 2026-11-11, was 30 m;
+    /// the jump radius is not part of it, our reading of "range").
+    /// </summary>
+    public const float LightningRange = 37.5f, AimConeDegrees = 12f;
     /// <summary>It jumps to the nearest enemy not yet struck within this of the last one, up to <see cref="MaxTargets"/> struck in all.</summary>
     public const float JumpRadius = 8f;
     public const int MaxTargets = 40;
-    /// <summary>The first enemy takes this a second; each jump takes <see cref="JumpFalloff"/> of the one before.</summary>
-    public const float PrimaryDps = 90f, JumpFalloff = 0.85f;
+    /// <summary>The first enemy takes this a second (112.5 since the owner's "+25% range and damage" of 2026-11-11, was 90); each jump takes <see cref="JumpFalloff"/> of the one before.</summary>
+    public const float PrimaryDps = 112.5f, JumpFalloff = 0.85f;
     /// <summary>Enemies this far above or below the flat circle are out of reach of a jump (ours).</summary>
     public const float VerticalReach = 4f;
     /// <summary>Most links the wire carries a tick: every target struck since MusouSim 14 (the wire's 3-byte jumps, <c>LibrarianWire</c>; it was 16 at 12 bytes a link).</summary>

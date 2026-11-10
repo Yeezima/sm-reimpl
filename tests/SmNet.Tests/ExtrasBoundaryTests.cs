@@ -39,6 +39,7 @@ public class ExtrasBoundaryTests
         ("src/SmSim/Projectiles.cs", "ExtrasBlast"),               // World.ExtrasBlast(int, Vector3, SplashSpec, bool), at the end of ApplyBlast (Musou: blasts on enemies)
         ("src/SmSim/JumpWorld.cs", "ExtrasJump"),                  // World.ExtrasJump(int, JumpEventKind), at the end of ResolveJump (Musou: the air slash's landing heals; owner 2026-11-09)
         ("src/SmSim/Stims.cs", "ExtrasStimBoost"),                 // SimConfig.ExtrasStimBoost(ref StimBoost), Musou Mode's combat stims (x3 lifetime, x2 melee, +20 % speed, no ammunition; owner 2026-11-09)
+        ("src/SmSim/Stims.cs", "ExtrasFireBoost"),                 // SimConfig.ExtrasFireBoost(ref float rate, ref float cap), Musou Mode's Rapid Fire powerup (2x fire rate while PlayerState.FireBoostLeft runs, with a stim's speed never above 2x; owner 2026-11-10)
         ("src/SmSim/Stims.cs", "ExtrasThrownBlastScale"),          // SimConfig.ExtrasThrownBlastScale(ThrownSpec?, ref float), Musou Mode's frag blast x2 (owner 2026-11-09)
         ("src/SmSim/Projectiles.cs", "ExtrasProjectileStop"),      // World.ExtrasProjectileStop(in ProjectileState, Vector3, float, ref float), in Fly before a hit is taken (Musou S4: a shield dome or a contraption stops a projectile)
         ("src/SmSim/DamageScale.cs", "ExtrasDamageTaken"),         // World.ExtrasDamageTaken(int target, ref float scale), in DamageTakenScale at every player-damage site (Musou: AI Marines take a tenth)
@@ -67,7 +68,7 @@ public class ExtrasBoundaryTests
         ("client/NetworkView.Sound.cs", "ExtrasTrackEmitter"),   // NetworkView.ExtrasTrackEmitter(SoundEmitter, bool), in Track: Musou protects the own character's voice lines (musou/audio-pass)
         ("client/NetworkView.Sound.cs", "ExtrasFireLayers"),   // NetworkView.ExtrasFireLayers(WeaponSpec, SoundEmitter, bool), in PostFire: Musou's bolter rifles fire deeper (musou/audio-pass)
         ("client/CharacterViewer.cs", "ExtrasBlendSeconds"),       // CharacterViewer.ExtrasBlendSeconds(ref float, bool), in SelectLayer: Musou's stance cross-fade floor (nothing unless the viewer carries it)
-        ("client/NetworkView.cs", "ExtrasAttackTime"),             // NetworkView.ExtrasAttackTime(PlayerState, bool, ref float), the attack pose's clip time: Musou's weight pass retimes the strike (hit and end kept) and holds the own pose
+        ("client/NetworkView.cs", "ExtrasAttackTime"),             // NetworkView.ExtrasAttackTime(PlayerState, bool, ref float), the attack pose's drawn clip time: Musou's weight pass retimes the strike (hit and end kept) and holds the own pose, then Musou's power spear shows its strike's clip at that time (W3b)
         ("client/NetworkView.Fx.cs", "ExtrasBlastFeel"),            // NetworkView.ExtrasBlastFeel(ProjectileView?, float, ref bool), in FxDetonation: Musou's weight pass keeps the jolts of blasts within 12 m (the strongest a 0.25 s window) and of the own grenades
         ("client/NetworkView.Fx.cs", "ExtrasCameraOffset"),         // NetworkView.ExtrasCameraOffset(double, ref Vector3), in FxApplyShake: Musou's camera push along the own heavy swing (camera space, times the Camera shake option)
         ("client/NetworkView.Sound.cs", "ExtrasFootfall"),         // NetworkView.ExtrasFootfall(string, PlayerState, bool, string?), in TagSound after a tag is admitted: Musou's weight pass reads the foot tags (ground contacts)
@@ -111,11 +112,14 @@ public class ExtrasBoundaryTests
         ("src/SmContent/PerkCatalog.cs", "ExtrasItems"),            // PerkCatalog.ExtrasItems(ContentExtras, ref PerkCatalog), in For: the customizer rows of a content profile (Musou only)
         ("client/WeaponRig.cs", "ExtrasWeaponModel"),               // WeaponRig.ExtrasWeaponModel(HandRole, string, WeaponAssets, ref attachment, ref asset, ref bool), in AddItem when the catalogue has no held model
         ("client/NetworkView.Grenades.cs", "ExtrasThrownVisual"),   // NetworkView.ExtrasThrownVisual(ThrownSpec, ref ProjectileVisual?), in GrenadeModel: a thrown item drawn with another package's model
+        ("client/NetworkView.Grenades.cs", "ExtrasThrownDetonated"),   // NetworkView.ExtrasThrownDetonated(ProjectileView), called in NetworkView.cs for every thrown detonation: W4 starts the Remote Detonators' ring (Musou only)
         ("src/SmContent/AnimationAlias.cs", "ExtrasAnimationAlias"),   // static AnimationAlias.ExtrasAnimationAlias(ref string), in Of: the data weapon an added one borrows its animations from
         ("src/SmContent/Customization/ProfileView.cs", "ExtrasSetCatalog"),   // static ProfileViews.ExtrasSetCatalog(string, ref CustomizationCatalog), in SetCatalog: Musou's set is read with Musou's catalogue
         ("client/NetworkView.MeleeLock.cs", "ExtrasMeleeClip"),   // NetworkView.ExtrasMeleeClip(string, bool, int, ref string?, ref float), in OwnStrikeClip: the animation seam, a strike's custom clip (the claw's and the spear's, once approved)
         // W0b (lead 2026-11-10): presentation by source and the pack moves' clip speed; each asks the match's content (Musou) as well as the name.
         ("client/NetworkView.Presentation.cs", "ExtrasPresentationSources"),   // NetworkView.ExtrasPresentationSources(string, ref IReadOnlyList<string>?), in PresentationSources: the install files an added weapon shows (catalogues and name rules)
+        ("client/NetworkView.Presentation.cs", "ExtrasSoundSources"),   // NetworkView.ExtrasSoundSources(string, ref IReadOnlyList<string>?), in SoundSources: the install files an added weapon SOUNDS as when they are not its effects' files (the autocannon: the Stalker Bolter, owner 2026-11-10)
+        ("client/NetworkView.Presentation.cs", "ExtrasEffectNames"),   // NetworkView.ExtrasEffectNames(string, ref IReadOnlyDictionary<string, string>?), in EffectNames: other effects in place of an added weapon's source's (the autocannon's loyalist flash and tracer, owner 2026-11-10)
         ("client/NetworkView.Presentation.cs", "ExtrasMoveClipSpeed"),   // NetworkView.ExtrasMoveClipSpeed(string, ref float), in MoveClipSpeed: the charge's and the pack's moves at the claw's / spear's clip speed
         ("client/Hud/Hud.Movie.cs", "ExtrasReticle"),               // Hud.ExtrasReticle(string, ref ReticleSpec?), in DrawMovieReticle: the autocannon's own movie reticle (Hud.Content = Musou)
         ("client/Hud/Hud.Fidelity.cs", "ExtrasWeaponBox"),          // Hud.ExtrasWeaponBox(string, bool, ref WeaponBoxSpec?), in DrawMovieWeaponBox: the autocannon's ammunition display (Hud.Content = Musou)
@@ -146,8 +150,12 @@ public class ExtrasBoundaryTests
         ("src/SmContent/UpperBodyAnimations.cs", "AnimationAlias.Of("),
         ("client/NetworkView.MeleeFlow.cs", "AnimationAlias.Of("),
         ("client/Customizer/CustomizerServices.cs", "data.For(content)"),
+        ("client/NetworkView.Sound.cs", "SoundSourceMap()"),        // W1b: the sound triggers loaded with an added weapon's sound source (the autocannon as the Stalker Bolter)
+        ("client/NetworkView.Sound.cs", "SoundNameOf(wargear)"),    // W1b: the hit confirm by the sound source's name
+        ("client/NetworkView.Fx.cs", "EffectNameMap()"),            // W1c: the effect catalogue loaded with an added weapon's effect renames (the loyalist flash, tracer and impact)
         // W0b: the catalogues read with the sources, the name rules by the source's name, the hammer's air slash, charge and grip by the alias, the pack moves' clip speed.
         ("client/NetworkView.Fx.cs", ".WithSources(sources)"),
+        ("client/NetworkView.Fx.cs", ".WithEffectNames(effectNames)"),   // W1c: the effect catalogue with the added weapons' renamed effects
         ("client/NetworkView.Sound.cs", ".WithSources(sources)"),
         ("client/NetworkView.MeleeFx.cs", "PresentedAs(MeleeWargear(s))"),
         ("client/NetworkView.Sound.Melee.cs", "PresentedAs(wargear)"),
@@ -161,6 +169,16 @@ public class ExtrasBoundaryTests
         ("client/NetworkView.Jump.cs", "MoveClipSpeed(s)"),
         ("client/NetworkView.Feel.cs", "MoveClipSpeed(s)"),
         ("client/NetworkView.cs", "_hudView.Content = "),
+    ];
+
+    /// <summary>
+    /// Hooks that are delegate properties rather than partial methods (added content sets them; null, the default, changes nothing): (file, text of the declaration or the marked call). A pinned one
+    /// that is gone fails here; a call must carry the <c>// EXTRAS-HOOK</c> marker.
+    /// </summary>
+    static readonly (string File, string Text, bool Call)[] PropertyHooks =
+    [
+        ("src/SmNet/GameClient.Bodies.cs", "public Func<PlayerState, uint, PlayerState>? ExtrasCarry { get; set; }", false),   // the Musou powerups (2026-11-10): Rapid Fire's PlayerState.FireBoostLeft at a reconcile
+        ("src/SmNet/GameClient.cs", "if (ExtrasCarry is { } carry) mine = carry(mine, s.ServerTick);", true),                   // in the reconcile, after Stims.Carry, before the replay
     ];
 
     /// <summary>
@@ -288,6 +306,25 @@ public class ExtrasBoundaryTests
             .Where(m => m.Success).Select(m => m.Groups[1].Value + "(").ToList();
         Assert.Equal(6, declared.Count);
         foreach (var call in declared) Assert.Contains(ArsenalCallSites, c => c.Call == call);
+    }
+
+    [Fact]
+    public void The_property_hooks_are_in_place_and_their_calls_marked()
+    {
+        var sources = Sources().ToDictionary(s => s.Path, s => s.Lines);
+        foreach (var (file, text, call) in PropertyHooks)
+        {
+            Assert.True(sources.TryGetValue(file, out var lines), $"{file} is gone");
+            var found = lines!.Where(l => !IsComment(l) && l.Contains(text, StringComparison.Ordinal)).ToList();
+            Assert.True(found.Count == 1, $"{file}: {text} found {found.Count} times (update PropertyHooks only with the hook)");
+            if (call) Assert.Contains("// EXTRAS-HOOK", found[0], StringComparison.Ordinal);
+        }
+        // ExtrasCarry is read nowhere else in core code, and set only by added content.
+        var others = Sources().Where(s => !InExtras(s.Path) && !s.Path.StartsWith("tests/", StringComparison.Ordinal))
+            .SelectMany(s => s.Lines.Select((l, i) => (s.Path, Line: i + 1, Text: l)))
+            .Where(x => !IsComment(x.Text) && x.Text.Contains("ExtrasCarry", StringComparison.Ordinal) && !PropertyHooks.Any(h => h.File == x.Path && x.Text.Contains(h.Text, StringComparison.Ordinal)))
+            .Select(x => $"{x.Path}({x.Line}): {x.Text.Trim()}").ToList();
+        Assert.True(others.Count == 0, "ExtrasCarry used in core code outside its pinned lines:\n" + string.Join("\n", others));
     }
 
     [Fact]

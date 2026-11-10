@@ -592,9 +592,13 @@ public partial class NetworkView
         if (!await TfwUntil("the war is on, in the hub", () => client.Match.State == MatchState.Playing && _tfwState.War is { Phase: TfwRunPhase.Hub } && client.Predicted.Alive, 60.0)) return;
         if (CmdFlag("tfw-test-fight")) { await TfwTestFight(); return; }
         if (CmdFlag("tfw-test-melee")) { await TfwTestMelee(); return; }
+        if (CmdFlag("tfw-test-charge")) { await TfwTestCharge(); return; }   // W4, the Remote Detonators (Arsenal/Charge/NetworkView.ChargeTest.cs)
         if (CmdFlag("tfw-autocannon-capture")) { await TfwAutocannonCapture(); return; }   // W1 (2026-11-10): the autocannon's screenshot gate (Arsenal/Autocannon/NetworkView.AutocannonCapture.cs)
+        if (CmdFlag("tfw-autocannon-impact-capture")) { await TfwAutocannonImpactCapture(); return; }   // W1c: the autocannon's impacts on a wall and the ground (Arsenal/Autocannon/NetworkView.AutocannonImpactCapture.cs)
+        if (CmdFlag("tfw-spear-capture")) { await TfwSpearCapture(); return; }   // the power spear's approved clips in a match (Arsenal/Spear/NetworkView.SpearCapture.cs)
         if (CmdFlag("tfw-feel-capture")) { await TfwFeelCapture(); return; }   // combat feel (2026-11-09): a short fight for the before / after captures (Tfw/NetworkView.TfwMelee.cs)
         if (CmdFlag("tfw-weight-capture")) { await TfwWeightCapture(); return; }   // musou weight pass (2026-11-10): the baseline moves (Tfw/NetworkView.TfwWeightCapture.cs)
+        if (CmdFlag("tfw-arc-capture")) { await TfwArcCapture(); return; }   // musou swing arc (2026-11-10): before / after stills (Tfw/NetworkView.TfwArcCapture.cs)
         if (CmdFlag("tfw-sound-capture")) { await TfwSoundCapture(); return; }   // musou/sound-ab (2026-11-10): the same short fight for each clip of the sound A/B (Tfw/NetworkView.TfwSoundCapture.cs)
         if (CmdFlag("tfw-test-capture")) { await TfwTestCapture(); return; }
         var start = TfwNow;

@@ -177,6 +177,7 @@ public partial class ModelViewer : Node3D
             }
             if (args.ContainsKey("reload-test")) { AddChild(new ReloadTestView(gameDir, args) { Name = "ReloadTest" }); return; }   // M35 test aid
             if (args.ContainsKey("switch-test")) { AddChild(new SwitchTestView(gameDir, args) { Name = "SwitchTest" }); return; }   // fix/stow-right test aid
+            if (args.ContainsKey("hit-reaction-test")) { AddChild(new HitReactionTestView(gameDir, args) { Name = "HitReactionTest" }); return; }   // hit reactions test aid (deaths, flinches)
             if (args.ContainsKey("appearance-test")) { AddChild(new AppearanceTestView(gameDir, args) { Name = "AppearanceTest" }); return; }   // customizer T6 test aid
             if (args.ContainsKey("ork-test")) { AddChild(new OrkTestView(gameDir, args) { Name = "OrkTest" }); return; }   // Ork O3 test aid
             if (args.ContainsKey("guard-test")) { AddChild(new GuardsmanTestView(gameDir, args) { Name = "GuardsmanTest" }); return; }   // Guardsman asset check (Musou Mode dependency)
@@ -232,6 +233,7 @@ public partial class ModelViewer : Node3D
                     if (args.GetValueOrDefault("grip") is { } grip && float.TryParse(grip, System.Globalization.CultureInfo.InvariantCulture, out var slide)) { rig.GripSlide = slide; rig.GripSlideDriven = true; }   // --grip 0..1: Musou's power spear carried with the fist high (0) or low (1) on the shaft
                     rig.Update(hand == "pistol" ? SmSim.WeaponSlot.Pistol : SmSim.WeaponSlot.Ranged, hand == "melee", true, 0f, 0.6f);
                     character.Weapons = rig;
+                    if (args.ContainsKey("spear-probe")) GetTree().CreateTimer(1.0).Timeout += () => { if (rig.MeleeAxisPoints(-1.05f, 0.29f, 1.8f) is { } p) { float low = float.MaxValue; var sk = character.Skeleton!; for (int b = 0; b < sk.GetBoneCount(); b++) low = Math.Min(low, (sk.GlobalTransform * sk.GetBoneGlobalPose(b)).Origin.Y); GD.Print($"SPEARPROBE lowest_bone_y {low:F3} root_y {character.GlobalPosition.Y:F3} butt {p[0].X:F3} {p[0].Y:F3} {p[0].Z:F3} hand {p[1].X:F3} {p[1].Y:F3} {p[1].Z:F3} tip {p[2].X:F3} {p[2].Y:F3} {p[2].Z:F3}"); } };   // test aid: the spear's butt (-1.05), high grip (0.29, PowerSpearModel.SpearGripHigh) and tip (1.8) in world space (the carry grip's measurement)
                     if (worn.Length > 0) character.SetBackpackHidden(args.GetValueOrDefault("keep-backpack") is null && rig.WornCount > 0);
                     notes.AddRange(weaponNotes);
                     GD.Print("weapons: " + string.Join(", ", rig.Description) + $"; {rig.WornCount} worn nodes; {weaponAssets.ModelsLoaded} models in {weaponAssets.LoadMilliseconds:F0} ms");
@@ -277,7 +279,7 @@ public partial class ModelViewer : Node3D
     string _lookRepoRoot = "";
 
     /// <summary>Test views that need the install before they start (they keep the synchronous lookup).</summary>
-    static readonly string[] FrontEndExcluded = ["fx", "pound-test", "stomp-test", "reload-test", "switch-test", "appearance-test", "guard-test", "ashfall-kit-gallery", "warboss-test", "musou-crowd-test", "mek-gallery"];
+    static readonly string[] FrontEndExcluded = ["fx", "pound-test", "stomp-test", "reload-test", "switch-test", "hit-reaction-test", "appearance-test", "guard-test", "ashfall-kit-gallery", "warboss-test", "musou-crowd-test", "mek-gallery", "claw-spear-test"];
 
     void BeginLocate(Dictionary<string, string?> args, string repoRoot)
     {

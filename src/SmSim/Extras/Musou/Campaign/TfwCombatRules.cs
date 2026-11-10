@@ -26,6 +26,32 @@ public sealed record TfwCombatRules
     public float CleaveReachScale { get; init; } = 1.3f;   // owner 2026-11-09: "reduce the latest melee cleave range to be 1.3x, not 1.5x"
     public float CleaveHalfAngleDegrees { get; init; } = 120f;
 
+    /// <summary>
+    /// The players' cleave reach in the war, on top of everything else (owner, 2026-11-11: "reduce melee attack cleave range by 40%"; scope "Musou, players only"): the whole flat reach of every
+    /// human player's melee cleave (<see cref="ScalesPlayer"/>: not an AI Marine's; every melee weapon, Musou's arsenal included: the power spear's own 15 m sweep becomes 9 m) times this, applied after each weapon's own shape and before the Supercharged
+    /// powerup's scale. The arc's angles, the target cap and the height band are unchanged; the Orks' melee (the Boss Orks' cleave on the Guardsmen) never reads it. 1 restores the reach before.
+    /// Read by the server's cleave (<c>World.MusouCleave</c>), the cleave on the contraptions (<c>World.TfwMekMelee</c>) and the client's drawn swing arc and predicted pick
+    /// (<see cref="MusouCleaveShape"/>), so the line and the hitbox stay together. The 5-wave run keeps its reach (pinned replay).
+    /// </summary>
+    public float PlayerCleaveReachScale { get; init; } = 0.6f;
+
+    // ---- the players' ranged damage (owner, 2026-11-11)
+
+    /// <summary>
+    /// The players' ranged damage on the enemies in the war (owner, 2026-11-11: "increase all ranged attack damage by 20%"; scope "Musou, players only"): every hit of a human player's gun (<see cref="ScalesPlayer"/>: not an AI Marine's),
+    /// launcher and projectile, every splash of theirs (a launcher's or a plasma round's burst, the bolt and autocannon blasts, frag grenades, melta bombs) and the Remote Detonators' blasts times this, on
+    /// the Orks and their contraptions; a plasma burn follows its hit. Our reading of "all ranged": the grenades and charges are in; not the Librarian's spells (their own numbers, LibrarianRules), not the
+    /// fire support the players call (orbital strikes, no player's weapon), not an Ork's own explosion, never the Orks' damage. 1 restores the damage before; the 5-wave run keeps its damage (pinned replay).
+    /// </summary>
+    public float PlayerRangedDamageScale { get; init; } = 1.2f;
+
+    /// <summary>
+    /// Whether <see cref="PlayerCleaveReachScale"/> and <see cref="PlayerRangedDamageScale"/> apply to the attacks of player <paramref name="playerId"/> in the war: a human's character (the Librarian
+    /// too when a human plays him), never an AI Marine (owner's scope, 2026-11-11: "Musou, players only"; the lead: AI allies keep their old reach and damage). The Guard squads never reach the
+    /// players' paths. Only meaningful in a war, where the AI Marines hold <see cref="TfwContracts.IsPuppet"/>'s ids.
+    /// </summary>
+    public static bool ScalesPlayer(int playerId) => !TfwContracts.IsPuppet(playerId);
+
     /// <summary>The cosine of the cleave's half angle (<see cref="CleaveHalfAngleDegrees"/>).</summary>
     public float CleaveMinCos => MathF.Cos(MathF.Min(180f, CleaveHalfAngleDegrees) * MathF.PI / 180f);
 
