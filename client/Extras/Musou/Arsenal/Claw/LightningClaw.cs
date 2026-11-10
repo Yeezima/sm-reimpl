@@ -58,12 +58,21 @@ public partial class NetworkView
     /// </summary>
     partial void LightningClawClip(string wargear, bool heavy, int step, ref string? clip, ref float rate)
     {
-        if (!wargear.Equals(ArsenalRules.LightningClaw, System.StringComparison.OrdinalIgnoreCase) || ClawCrackle.Frame is not null) return;
+        if (!wargear.Equals(ArsenalRules.LightningClaw, System.StringComparison.OrdinalIgnoreCase)) return;
+        ClawGlowRegister();
+    }
+
+    /// <summary>This view drives the claws' glow (a new view after a rejoin takes over from the freed one: the driver drops a freed owner).</summary>
+    internal void ClawGlowRegister()
+    {
+        if (ReferenceEquals(ClawCrackle.Owner, this)) return;
+        ClawCrackle.Owner = this;   // a new view after a rejoin takes over from the freed one (the driver drops a freed owner)
         ClawCrackle.Frame = ClawGlowFrame;
         ClawCrackle.Ensure();
     }
 
-    readonly System.Collections.Generic.Dictionary<int, float> _clawGlow = new();
+    readonly Dictionary<int, float> _clawGlow = new();
+    readonly Dictionary<int, (Godot.MeshInstance3D Mesh, Godot.ShaderMaterial Material)> _clawMesh = new();
 
     /// <summary>Each claw's strike level (1 while its wearer's strike is shown, then faded out in 0.18 s), written to that claw's own mesh instance.</summary>
     void ClawGlowFrame(float delta)
@@ -75,13 +84,24 @@ public partial class NetworkView
 
     void ClawGlowOf(int id, CharacterViewer? character, PlayerState state, float delta)
     {
-        if (character?.Skeleton is not { } skeleton || id <= 0 || MeleeWargear(state) is not { } wargear || !wargear.Equals(ArsenalRules.LightningClaw, System.StringComparison.OrdinalIgnoreCase)) return;
+        if (character is null || !Godot.GodotObject.IsInstanceValid(character) || id <= 0 || MeleeWargear(state) is not { } wargear || !wargear.Equals(ArsenalRules.LightningClaw, System.StringComparison.OrdinalIgnoreCase)) return;
         float before = _clawGlow.GetValueOrDefault(id);
-        float level = state.MeleeStep > 0 && state.Alive ? 1f : Godot.Mathf.Max(0f, before - delta / 0.18f);
+        float level = ClawCrackle.GlowTest && id == _client!.PlayerId ? (Godot.Mathf.Sin(Godot.Time.GetTicksMsec() / 1000f * Godot.Mathf.Tau * 0.5f) > -0.2f ? 1f : 0f) : state.MeleeStep > 0 && state.Alive ? 1f : Godot.Mathf.Max(0f, before - delta / 0.18f);
         if (level == 0f && before == 0f) return;
         _clawGlow[id] = level;
-        foreach (var child in skeleton.GetChildren())
-            if (child is Godot.BoneAttachment3D holder && holder.Name.ToString().StartsWith("Weapon_Melee_", System.StringComparison.Ordinal) && holder.GetNodeOrNull<Godot.MeshInstance3D>("Holder/Mesh") is { } mesh)
-                mesh.SetInstanceShaderParameter(ClawCrackle.StrikeName, level);
+        // The claw's mesh instance of this player, found once and kept while it lives (a rig rebuild frees it: then it is looked for again). Its glow surface (the mesh's last) gets a copy of the
+        // material of its own, so only this claw's strike lights it.
+        if (!_clawMesh.TryGetValue(id, out var found) || !Godot.GodotObject.IsInstanceValid(found.Mesh) || !found.Mesh.IsInsideTree())
+        {
+            Godot.MeshInstance3D? mesh = null;
+            if (character.Skeleton is { } skeleton && Godot.GodotObject.IsInstanceValid(skeleton))
+                foreach (var child in skeleton.GetChildren())
+                    if (child is Godot.BoneAttachment3D holder && holder.Name.ToString().StartsWith("Weapon_Melee_", System.StringComparison.Ordinal) && holder.GetNodeOrNull<Godot.MeshInstance3D>("Holder/Mesh") is { } m) { mesh = m; break; }
+            if (mesh?.Mesh is not { } shape || shape.GetSurfaceCount() == 0) { _clawMesh.Remove(id); return; }
+            var own = (Godot.ShaderMaterial)ClawCrackle.Material.Duplicate();
+            mesh.SetSurfaceOverrideMaterial(shape.GetSurfaceCount() - 1, own);
+            _clawMesh[id] = found = (mesh, own);
+        }
+        found.Material.SetShaderParameter(ClawCrackle.StrikeName, level);
     }
 }

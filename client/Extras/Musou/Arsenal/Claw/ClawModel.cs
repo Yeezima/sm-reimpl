@@ -192,7 +192,7 @@ public static class ClawModel
             tool.SetMaterial(material);
             tool.Commit(mesh);
         }
-        if (ClawCrackle.Demo) ClawCrackle.Ensure();
+        if (ClawCrackle.Demo || ClawCrackle.GlowTest) ClawCrackle.Ensure();
         crackle.SetMaterial(ClawCrackle.Material);
         crackle.Commit(mesh);
         for (int s = 0; s < mesh.GetSurfaceCount(); s++) triangles += mesh.SurfaceGetArrayLen(s) / 3;

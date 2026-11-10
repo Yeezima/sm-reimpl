@@ -5,7 +5,7 @@ namespace SmClient;
 
 /// <summary>
 /// W2: the claw's blue power glow (design section 5, "Glow": ours, none in the owner's references): a soft sheen along each talon that is always faintly there, and a jagged crackle that
-/// shows while that character's claw strike is on. One shared material; the strike level is an <c>instance uniform</c>, set per rig by <c>NetworkView.ClawGlowFrame</c> (from the
+/// shows while that character's claw strike is on. One shared material; the strike level is a uniform of a per-rig copy of the material (an instance uniform is not drawn by the Compatibility renderer), set per rig by <c>NetworkView.ClawGlowFrame</c> (from the
 /// character's own strike state, so an ally's strike lights only the ally's claw) and faded out in 0.18 s, ticked by <see cref="ClawCrackleDriver"/>. Test aid <c>--claw-crackle-demo</c>
 /// (<see cref="Demo"/>): every claw shows the strike half of every second.
 /// </summary>
@@ -14,7 +14,7 @@ public static class ClawCrackle
     const string Code = """
 shader_type spatial;
 render_mode blend_add, unshaded, cull_disabled, depth_draw_never;
-instance uniform float strike = 0.0;
+uniform float strike = 0.0;
 uniform float demo = 0.0;
 uniform vec3 tint = vec3(0.25, 0.6, 1.6);
 float hash(float n) { return fract(sin(n * 91.345) * 47453.5453); }
@@ -45,8 +45,25 @@ void fragment() {
     /// <summary>Test aid <c>--claw-crackle-demo</c>: every claw shows the strike half of every second whatever the strikes (for stills).</summary>
     public static readonly bool Demo = Array.IndexOf(OS.GetCmdlineUserArgs(), "--claw-crackle-demo") >= 0;
 
+    /// <summary>Test aid <c>--claw-glow-test</c>: the own claw's per-claw strike level (the instance uniform, as a real strike sets it) pulses half of every second, with no strike needed (for stills under any renderer).</summary>
+    public static readonly bool GlowTest = Array.IndexOf(OS.GetCmdlineUserArgs(), "--claw-glow-test") >= 0;
+
     /// <summary>The per-frame call (a view's <c>ClawGlowFrame</c>), set by the first claw strike a view sees; the driver ticks it.</summary>
     public static Action<float>? Frame;
+
+    /// <summary>The view <see cref="Frame"/> belongs to; the driver drops both when it leaves the tree or is freed (leaving a match frees its view, a rejoin makes a new one).</summary>
+    public static Node? Owner;
+
+    /// <summary>Test aid: finds the networked view in the tree and registers its glow (a real strike does this from <c>LightningClawClip</c>).</summary>
+    public static void Register(Node node, int depth)
+    {
+        if (depth > 4) return;
+        foreach (var child in node.GetChildren())
+        {
+            if (child is NetworkView view) { view.ClawGlowRegister(); return; }
+            Register(child, depth + 1);
+        }
+    }
 
     /// <summary>The driver node (made once, in the scene root).</summary>
     public static ClawCrackleDriver Ensure()
@@ -71,6 +88,8 @@ public partial class ClawCrackleDriver : Node
             _t += delta;
             ClawCrackle.Material.SetShaderParameter(ClawCrackle.DemoName, Mathf.Sin((float)_t * Mathf.Tau * 0.5f) > -0.2f ? 1f : 0f);
         }
+        if (ClawCrackle.GlowTest && ClawCrackle.Frame is null && GetTree()?.Root is { } root) ClawCrackle.Register(root, 0);
+        if (ClawCrackle.Owner is { } owner && (!GodotObject.IsInstanceValid(owner) || !owner.IsInsideTree())) { ClawCrackle.Frame = null; ClawCrackle.Owner = null; }
         ClawCrackle.Frame?.Invoke((float)delta);
     }
 }
