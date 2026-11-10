@@ -49,6 +49,12 @@ public partial class NetworkView
     readonly Dictionary<ushort, PendingArc> _musouPendingArcs = new();
     readonly Dictionary<ushort, (uint Tick, int StepIndex, bool Heavy, double At)> _musouArcLast = new();   // each player's last drawn swing
     (double At, Num.Vector3 Feet, float Yaw, MeleeStep Step, bool Heavy, int StepIndex, string? Wargear, bool Drawn)? _musouOwnSwing;
+
+    /// <summary>When the own player was last seen in a charge or a landing (its rush phase set); -1 before any.</summary>
+    double _musouOwnRushAt = -1;
+
+    /// <summary>Each frame: notes the own charge or landing, so a hit the server reports after it is never taken for the swing before it.</summary>
+    void MusouArcOwnFrame(PlayerState me) { if (me.Rush != RushPhase.None) _musouOwnRushAt = _connectedFor; }
     bool _musouArcFlushQueued;
     int _musouArcs;
 
@@ -87,8 +93,9 @@ public partial class NetworkView
         }
         if (_musouArcLast.TryGetValue(e.Player, out var last) && last.Tick == e.Tick) return true;   // this swing's arc is drawn
         PendingArc? swing = null;
-        // The own swing's report: a melee step still in progress and no charge (review: a charge's contact or the spear's impale within the window is no swing's, and keeps its stroke).
-        if (own && me.Alive && me.MeleeStep > 0 && me.Rush == RushPhase.None && _musouOwnSwing is { } mine && _connectedFor - mine.At < MusouContactRules.MatchSeconds)
+        // The own swing's report: no charge or landing now or since the swing's strike (review: a charge's contact or the spear's impale within the window is no swing's, and keeps
+        // its stroke). The step itself may have ended: the report comes a round trip after the predicted strike, often after a short step's tail or an evade (re-review).
+        if (own && me.Alive && me.Rush == RushPhase.None && _musouOwnSwing is { } mine && _musouOwnRushAt < mine.At && _connectedFor - mine.At < MusouContactRules.MatchSeconds)
         {
             if (mine.Drawn) { _musouArcLast[e.Player] = (e.Tick, mine.StepIndex, mine.Heavy, _connectedFor); return true; }   // drawn at the predicted strike
             swing = new PendingArc { Feet = mine.Feet, Yaw = mine.Yaw, Step = mine.Step, Heavy = mine.Heavy, StepIndex = mine.StepIndex, Wargear = mine.Wargear };

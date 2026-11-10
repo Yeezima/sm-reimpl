@@ -52,6 +52,7 @@ public partial class NetworkView
         if (client.ExtrasSolids is null && _config is { } solidConfig) client.ExtrasSolids = new MusouSolidView(_musouState, solidConfig);
         client.InterpolationFloor ??= MusouCrowdInterpolationFloor;   // net/responsive: the crowd is drawn at the render tick; it keeps the 100 ms of before   // musou/boss-collision: the big Orks are solid and lockable in the own prediction
         MusouDeathSpikeStart();   // --musou-death-spike-test (NetworkView.MusouDeathSpike.cs)
+        MusouArcOwnFrame(me);   // the swing arc: when the own player last started a charge or a landing (NetworkView.MusouSlashArc.cs)
         Ph("musou: state");   // musou/perf-pass: --frame-profile's Musou phases
         double now = Time.GetTicksUsec() / 1e6;
         MusouMotionSections(sections);   // NetworkView.MusouMotion.cs: --musou-old-far-motion, and the measure's bytes
