@@ -99,6 +99,8 @@ public class ExtrasBoundaryTests
         ("client/Customizer/CreatorView.cs", "ExtrasDeploy"),       // CreatorView.ExtrasDeploy(ref bool), DEPLOY: PLAY AS LIBRARIAN on his page
         ("client/Customizer/CustomizerServices.cs", "ExtrasFactions"),   // CustomizerServices.ExtrasFactions(ref List<(string, string)>), the factions offered: the Space Marines alone in Musou
         ("client/Customizer/CustomizerServices.cs", "ExtrasProfileView"),   // CustomizerServices.ExtrasProfileView(ref IProfileView?), the profile view: Musou's own loadout slots (musou/loadout-slots)
+        ("client/Customizer/CustomizerServices.cs", "ExtrasLoaded"),   // CustomizerServices.ExtrasLoaded(), the end of the services' load: Musou's own configuration is read before LoadTask completes (W1)
+        ("client/Customizer/CustomizerServices.cs", "ExtrasConfig"),   // CustomizerServices.ExtrasConfig(ref SimConfig?), the configuration a Join is planned with: Musou's own, which lists its arsenal (W1, the autocannon)
         ("client/Customizer/PreviewStage.cs", "ExtrasDress"),       // PreviewStage.ExtrasDress(ref Func<ResolvedAppearance, ResolvedAppearance>?, ref string), in CreateModel: the Librarian's armour
         ("client/Customizer/PreviewStage.cs", "ExtrasWeapons"),     // PreviewStage.ExtrasWeapons(ref string?, ref string?, ref string?, ref bool), in ConfigureWeapons: his force sword in hand, no gun
         // W0, Musou's arsenal (docs/new-weapons-design.md section 8: the autocannon, lightning claw, power spear and Remote Detonators, Musou only); each does nothing without Musou's content
@@ -111,6 +113,11 @@ public class ExtrasBoundaryTests
         ("src/SmContent/AnimationAlias.cs", "ExtrasAnimationAlias"),   // static AnimationAlias.ExtrasAnimationAlias(ref string), in Of: the data weapon an added one borrows its animations from
         ("src/SmContent/Customization/ProfileView.cs", "ExtrasSetCatalog"),   // static ProfileViews.ExtrasSetCatalog(string, ref CustomizationCatalog), in SetCatalog: Musou's set is read with Musou's catalogue
         ("client/NetworkView.MeleeLock.cs", "ExtrasMeleeClip"),   // NetworkView.ExtrasMeleeClip(string, bool, int, ref string?, ref float), in OwnStrikeClip: the animation seam, a strike's custom clip (the claw's and the spear's, once approved)
+        // W0b (lead 2026-11-10): presentation by source and the pack moves' clip speed; each asks the match's content (Musou) as well as the name.
+        ("client/NetworkView.Presentation.cs", "ExtrasPresentationSources"),   // NetworkView.ExtrasPresentationSources(string, ref IReadOnlyList<string>?), in PresentationSources: the install files an added weapon shows (catalogues and name rules)
+        ("client/NetworkView.Presentation.cs", "ExtrasMoveClipSpeed"),   // NetworkView.ExtrasMoveClipSpeed(string, ref float), in MoveClipSpeed: the charge's and the pack's moves at the claw's / spear's clip speed
+        ("client/Hud/Hud.Movie.cs", "ExtrasReticle"),               // Hud.ExtrasReticle(string, ref ReticleSpec?), in DrawMovieReticle: the autocannon's own movie reticle (Hud.Content = Musou)
+        ("client/Hud/Hud.Fidelity.cs", "ExtrasWeaponBox"),          // Hud.ExtrasWeaponBox(string, bool, ref WeaponBoxSpec?), in DrawMovieWeaponBox: the autocannon's ammunition display (Hud.Content = Musou)
     ];
 
     /// <summary>
@@ -138,6 +145,21 @@ public class ExtrasBoundaryTests
         ("src/SmContent/UpperBodyAnimations.cs", "AnimationAlias.Of("),
         ("client/NetworkView.MeleeFlow.cs", "AnimationAlias.Of("),
         ("client/Customizer/CustomizerServices.cs", "data.For(content)"),
+        // W0b: the catalogues read with the sources, the name rules by the source's name, the hammer's air slash, charge and grip by the alias, the pack moves' clip speed.
+        ("client/NetworkView.Fx.cs", ".WithSources(sources)"),
+        ("client/NetworkView.Sound.cs", ".WithSources(sources)"),
+        ("client/NetworkView.MeleeFx.cs", "PresentedAs(MeleeWargear(s))"),
+        ("client/NetworkView.Sound.Melee.cs", "PresentedAs(wargear)"),
+        ("client/NetworkView.MeleeHitSound.cs", "PresentedAs(MeleeWargear(attacker))"),
+        ("client/NetworkView.HammerSwing.cs", "HammerSlashPose.IsHammer(AnimationAlias.Of(w))"),   // HammerSlash: the spear's air slash is the hammer's own clip
+        ("client/NetworkView.HammerSwing.cs", "string named = AnimationAlias.Of(wargear);"),   // HammerStrideScale (--old-strike-legs): the spear strides as the hammer
+        ("client/NetworkView.MeleeFlow.cs", "!AnimationAlias.Of(w).Contains(\"_2hand_\", StringComparison.OrdinalIgnoreCase) || !clip.StartsWith(\"SM_BUL_Hit_M_\""),   // HammerRush: the spear's charge is the hammer's sprint attack
+        ("client/NetworkView.MeleeFlow.cs", "!AnimationAlias.Of(w).Contains(\"_2hand_\", StringComparison.OrdinalIgnoreCase)) return false;"),   // HammerHoldsBothHands: the spear holsters the pistol (W3)
+        ("client/NetworkView.cs", "AnimationAlias.Of(twoHand).Contains(\"_2hand_\""),   // the transition probe's two-handed flag
+        ("client/NetworkView.cs", "MoveClipSpeed(state)"),
+        ("client/NetworkView.Jump.cs", "MoveClipSpeed(s)"),
+        ("client/NetworkView.Feel.cs", "MoveClipSpeed(s)"),
+        ("client/NetworkView.cs", "_hudView.Content = "),
     ];
 
     /// <summary>

@@ -117,8 +117,10 @@ and gore are listed in their own design documents for now (the rest of section 0
 
 Four items SM1's multiplayer never offered, Musou Mode only: the autocannon, the lightning claw, the power spear and the Remote Detonators. W0 (claude/arsenal-w0) adds only the base: the registry, the hooks and the Musou call sites, with every entry a stub, so nothing changes yet (spec "Musou's arsenal: the base"). Each milestone adds its rows under its own heading.
 
+W0b (claude/arsenal-w0b, ours, the lead's brief): each item shows and sounds as install files (the claw the power sword, the spear the thunder hammer, the autocannon its Chaos twin, else the heavy bolter), the autocannon wears the HUD movie's own autocannon reticle and ammunition display, and the claw's and spear's clip speed also plays the charge, the dash attack and the pound's and air slash's impact and get-up faster or slower (presentation only). Nothing changes outside a Musou match (spec "Musou's arsenal: W0b").
+
 #### W1: the autocannon
-Nothing yet.
+Musou Mode only: a Space Marine Devastator loadout primary on the install's cut multiplayer autocannon data (the Chaos file's numbers: 50 a round, 0.4 s between rounds, 15 rounds to overheat, built as `sm_mp_exotic_auto_cannon` in code), fired full auto like the campaign's, piercing 5 Orks, with a 2.5 m bolt-style blast at every Ork a round strikes (the owner: twice the bolt blast's size). The blast's damage (the bolt blast's 15), the heavy bolter's handling and the customizer description are ours; the hit-scan splash the campaign gun had is dropped. Classic PvP, the faithful and extended profiles never list it. The customizer plans a Musou Join with Musou's own configuration.
 
 #### W2: the lightning claw
 Nothing yet.

@@ -31,7 +31,7 @@ public class PowerSpearContentTests
         Assert.Equal(2.33f / SpearRules.Tempo, assault.MeleeChoices[2].Steps[0].Duration, 3);
         Assert.Single(config.Classes[0].MeleeChoices);   // the Tactical
         Assert.Equal(2, config.Classes[2].MeleeChoices.Count);   // the Chaos twin
-        Assert.Single(notes);
+        Assert.Single(notes, n => n.Contains("power spear"));   // the spear's own note (W1 adds the autocannon's when the install is missing)
     }
 
     [Fact]

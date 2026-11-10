@@ -28,11 +28,11 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2861 spec table rows: **2135 tagged**, 502 not tagged (read from data with high confidence), 224 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 637 rows of the changes document.
+Scanned 2879 spec table rows: **2148 tagged**, 507 not tagged (read from data with high confidence), 224 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 637 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
-| Movement (critical) | 387 | 329 | 328 | 114 | 12 |
+| Movement (critical) | 388 | 330 | 329 | 114 | 12 |
 | Combat core (critical) | 15 | 6 | 13 | 13 | 9 |
 | Weapons (critical) | 121 | 73 | 106 | 54 | 3 |
 | Melee (critical) | 120 | 105 | 94 | 38 | 5 |
@@ -40,7 +40,7 @@ Scanned 2861 spec table rows: **2135 tagged**, 502 not tagged (read from data wi
 | Charge (critical) | 56 | 47 | 47 | 22 | 0 |
 | Reactions (critical) | 15 | 13 | 14 | 6 | 0 |
 | Camera (critical) | 55 | 53 | 44 | 22 | 0 |
-| HUD and hit feedback (critical) | 69 | 64 | 50 | 11 | 0 |
+| HUD and hit feedback (critical) | 70 | 65 | 51 | 11 | 0 |
 | Sound mix (critical) | 69 | 63 | 61 | 11 | 0 |
 | Effects (critical) | 89 | 79 | 74 | 40 | 0 |
 | Game modes | 42 | 39 | 38 | 19 | 1 |
@@ -50,20 +50,20 @@ Scanned 2861 spec table rows: **2135 tagged**, 502 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 22 | 13 | 13 | 12 | 7 |
-| Core simulation (provisional values) | 595 | 569 | 420 | 165 | 1 |
+| Core simulation (provisional values) | 606 | 577 | 430 | 166 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 235 | 224 | 126 | 63 | 0 |
-| **All areas** | **2135** | 1886 | 1586 | 679 | 38 |
+| **All areas** | **2148** | 1896 | 1598 | 680 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1196 |
-| confidence: low | 766 |
-| confidence: medium | 691 |
-| notes: ours | 390 |
-| kind: interpretation | 363 |
+| kind: ours | 1204 |
+| confidence: low | 770 |
+| confidence: medium | 699 |
+| notes: ours | 391 |
+| kind: interpretation | 365 |
 | notes: estimate | 176 |
 | kind: estimate | 151 |
 | confidence: none (low) | 129 |
@@ -91,7 +91,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 ## Part A: gameplay areas, critical first
 
-### Movement (gameplay-critical) (387)
+### Movement (gameplay-critical) (388)
 
 *Spec section: Extracted parameters*
 
@@ -718,6 +718,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-DCC22DDE` | Musou: the rank and file pushed back | a Boy, Shoota Boy, Gretchin, Rokkit Boy, Stormboy, Mek or Squig hit by a player (server report) is drawn pushed away from the attacker by **0.12** m (shot) or **0.2** m (melee) over **0.15** s, clip, facing and run kept; 'Ard Boyz, Nobz, the Chaos Marine… (m, s) | kind: ours; confidence: low | the brief: directional reactions, no 180-degree turn (the old flinch swapped in the stagger clip and pushed along the Ork's own facing; it stays off) | Musou: the rank and file pushed back: compare with SM1 by timing a run over a known distance. Ours: a Boy, Shoota Boy, Gretchin, Rokkit Boy, Stormboy, Mek or Squig hit… | ☐ |
+
+*Spec section: Musou's arsenal: W0b, presentation by source and the pack moves' clip speed (claude/arsenal-w0b, 2026-11-10; client presentation only, Musou Mode only; no simulation, wire, protocol, config-hash or rules-version change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-8D12069B` | Musou arsenal: the pack moves' clip speed | the melee weapon's map clip speed (the claw 1.25, the spear 0.85; 1 for every weapon of the data) on: the charge and the dash attack (the clip at the phase's time x it, held at the clip's end); the ground pound's impact and get-up and the air slash's strike… (factor) | kind: ours; confidence: low | lead 2026-11-10 ("presentation only") | Musou arsenal: the pack moves' clip speed: compare with SM1 by feel or video. Ours: the melee weapon's map clip speed (the claw 1.25, the spear 0.85; 1… | ☐ |
 
 *Spec section: Musou's arsenal: W3, the power spear (docs/new-weapons-design.md section 6)*
 
@@ -1480,7 +1486,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-C9703C8F` | Strike and reaction entry floor | a melee strike's and a hit reaction's entry fade has a floor of **0.125** s instead of 0.1875 s, so the graphs' 0.1 s and 0.167 s are nearer met; not the charge, the roll, the stomp (a Devastator's or Havoc's heavy strike) or any exit (s) | kind: ours; confidence: low | ours | Strike and reaction entry floor: compare with SM1 by watching the reaction and timing it frame by frame. Ours: a melee strike's and a hit reaction's entry fade has a floor of 0.125… | ☐ |
 | `R-79ECC932` | Heavy footfall | a moving Devastator's or Havoc's own footfall dips the camera **0.05** degrees (**0.09** above 7 m/s); the sound is the data's; the data has no camera footfall (degrees) | kind: ours; confidence: low | ours | Heavy footfall: compare with SM1 with an overlaid screenshot taken from the same position. Ours: a moving Devastator's or Havoc's own footfall dips the camera 0.05… | ☐ |
 
-### HUD and hit feedback (gameplay-critical) (69)
+### HUD and hit feedback (gameplay-critical) (70)
 
 *Spec section: Scoreboard ping on the HUD scoreboard (net/scoreboard-ping; protocol 50; ours)*
 
@@ -1605,6 +1611,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-9D0EF360` | HUD line (Musou) | superseded on 2026-11-08 by the restored retainer's line (section "Musou Mode: the retainers back, no Ork ammunition boxes"); before: ALLIED MARINES: ROAMING / REVIVING YOU / BACK IN m:ss (both down: the first back) / STANDING BY; the revive prompt THE ALLIED… | kind: ours | ours | HUD line (Musou): compare with SM1 with side-by-side screenshots in the same spot. Ours: superseded on 2026-11-08 by the restored retainer's line (section… | ☐ |
+
+*Spec section: Musou's arsenal: W0b, presentation by source and the pack moves' clip speed (claude/arsenal-w0b, 2026-11-10; client presentation only, Musou Mode only; no simulation, wire, protocol, config-hash or rules-version change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-757CB5A2` | Musou arsenal: the autocannon's reticle | the HUD movie's `autocannon_mc`, with an enemy under it `autocannon_active_mc`; no spread ticks | kind: interpretation; confidence: medium | data names (`Hud.gfx`, `smtool gfx-dump auto --grep autocannon`; the twin's `reticule_type` "autocannon"); no spread ticks ours | Musou arsenal: the autocannon's reticle: compare with SM1 with side-by-side screenshots in the same spot. Ours: the HUD movie's autocannon_mc, with an enemy under it… | ☐ |
 
 ### Sound mix (gameplay-critical) (69)
 
@@ -2210,7 +2222,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (595)
+### Core simulation (provisional values) (606)
 
 *Spec section: Provisional values in use*
 
@@ -3138,6 +3150,27 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-ABD84A62` | Musou weight: blast jolts thinned | a detonation shakes and jolts the own camera only within **12** m (was 25), and in each **0.25** s window only its strongest: a window opens at a kept jolt, and a later blast in it jolts too only when at least **1** m closer than the closest kept so far; the… (m, s) | notes: ours | owner 2026-11-10 ("Thin the jolts"; the plan with the own-grenade exception); the 1 m margin and the own-grenade test ours | Musou weight: blast jolts thinned: compare with SM1 by measuring on a flat spot of the same map. Ours: a detonation shakes and jolts the own camera only within 12 m (was… | ☐ |
 | `R-CB5D9334` | Musou weight: roll end dip | the own roll's end dips the camera **0.4** degrees (a small landing's) (degrees) | kind: ours; confidence: low | ours | Musou weight: roll end dip: compare with SM1 with an overlaid screenshot taken from the same position. Ours: the own roll's end dips the camera 0.4 degrees (a small landing's). | ☐ |
 | `R-B86E5FB3` | Musou weight: contact sounds | a knee, hand, pelvis or shoulder meeting the ground at strength **0.35** or more plays the class's heavy footstep command (`EVT_Left_Foot_Rush` / `EVT_Right_Foot_Rush`, the surface switch under it, the owner's footstep level); a jump-pack dash's landing the… (- , s, m) | kind: ours; confidence: low | the plan (install sounds only) | Musou weight: contact sounds: compare with SM1 by feel or video. Ours: a knee, hand, pelvis or shoulder meeting the ground at strength 0.35… | ☐ |
+
+*Spec section: Musou's arsenal: W0b, presentation by source and the pack moves' clip speed (claude/arsenal-w0b, 2026-11-10; client presentation only, Musou Mode only; no simulation, wire, protocol, config-hash or rules-version change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-21E51C9F` | Musou arsenal: presentation sources | the lightning claw shows and sounds as the power sword (`sm_mp_melee_powersword`); the power spear as the thunder hammer (`sm_mp_melee_2hand_thunder_hammer`); the autocannon as its install twin `csm_mp_exotic_auto_cannon`, then the heavy bolter… (file) | kind: ours; confidence: medium | lead 2026-11-10 (the design's section 5: the sword's sounds for the claw; section 6 named the power axe's swing and hit sounds for the spear, the lead's brief… | Musou arsenal: presentation sources: compare with SM1 by feel or video. Ours: the lightning claw shows and sounds as the power sword… | ☐ |
+| `R-FD2792ED` | Musou arsenal: what a source gives | the first candidate with any: its weapon (or thrown) effects; its sound commands and its hit, shot-hit, melee-hit, charge-hit and melee-ability hit containers; its name for the power flash, the sword's glow, flare and deployed effects, the hum and the… | kind: ours; confidence: medium | ours | Musou arsenal: what a source gives: compare with SM1 by feel or video. Ours: the first candidate with any: its weapon (or thrown) effects; its… | ☐ |
+| `R-B393270C` | Musou arsenal: the autocannon's weapon box | the heavy bolter family's display: `ammo_autocannon_mc` with its heat bar, the rounds left in `ammo_mc/ammo_txt` | kind: interpretation; confidence: medium; notes: ours | data names (`Hud.gfx`); the choice ours | Musou arsenal: the autocannon's weapon box: compare with SM1 by feel or video. Ours: the heavy bolter family's display: ammo_autocannon_mc with its heat… | ☐ |
+
+*Spec section: Musou's arsenal: W1, the autocannon (docs/new-weapons-design.md section 4)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-784C2EA3` | Autocannon: trigger | full auto (the file fires a semi-auto 2-round burst 0.2 s apart; the campaign gun fires full auto; the owner D5/Q9: full auto) | confidence: medium | campaign `auto_cannon` | Autocannon: trigger: compare with SM1 by feel or video. Ours: full auto (the file fires a semi-auto 2-round burst 0.2 s apart; the… | ☐ |
+| `R-3959E0A1` | Autocannon: clip | 400, no reserve (the campaign gun's; Musou's ammunition is endless anyway); reload R does nothing (rounds) | confidence: medium | campaign `auto_cannon` | Autocannon: clip: compare with SM1 by feel or video. Ours: 400, no reserve (the campaign gun's; Musou's ammunition is endless… | ☐ |
+| `R-F74732A8` | Autocannon: handling | the heavy bolter's raise delay (0.333 s), always-ready stance, spread and reload time; no brace; the file's own scatter sets are not read | kind: ours; confidence: low | design section 4 | Autocannon: handling: compare with SM1 by feel or video. Ours: the heavy bolter's raise delay (0.333 s), always-ready stance, spread… | ☐ |
+| `R-89DE4DD1` | Autocannon: blasts per round (playtest check) | a round can set off up to 6 blasts (the 5 pierced and the one that stops it, `TfwCombatRules.Pierced`), each with no per-blast cap, so Orks beside the ray can take up to 6 x 15 from one round; a balance and performance item to check in a playtest (the bolt… (blasts, damage) | kind: ours; confidence: low | review 2026-11-10 | Autocannon: blasts per round (playtest check): compare with SM1 by feel or video. Ours: a round can set off up to 6 blasts (the 5 pierced and the one that… | ☐ |
+| `R-7625389D` | Autocannon: pierce | through **5** Orks and the sixth that stops it (`TfwCombatRules.Pierced` names `auto_cannon`) (enemies) | kind: ours; confidence: medium | Musou's existing rule | Autocannon: pierce: compare with SM1 by shooting through a crate or a line of players and counting who is hit. Ours: through 5 Orks and the sixth that stops it (TfwCombatRules.Pierced… | ☐ |
+| `R-A42BF5F7` | Autocannon: blast | a blast at the point **every Ork a round strikes** (the bolt blasts' path), radius **2.5 m** (twice the bolt blast's 1.25 m), full to 1.0 m, 30 % at the edge, **15** at the centre; the campaign's 4 m hit-scan splash is dropped (m, damage) | kind: ours; confidence: low | owner D12 (the size); the damage and the shape are the bolt blast's | Autocannon: blast: compare with SM1 by measuring on a flat spot of the same map. Ours: a blast at the point every Ork a round strikes (the bolt blasts'… | ☐ |
+| `R-B4298678` | Autocannon: animations | the heavy bolter's (walk, sprint, hop, fall, hip fire, flinch: the campaign's carry graph uses the same navigation graph); the model is the install's `turret_aa` (1,883 triangles), held and stowed as the heavy bolter's | confidence: medium | design section 4 | Autocannon: animations: compare with SM1 by feel or video. Ours: the heavy bolter's (walk, sprint, hop, fall, hip fire, flinch: the… | ☐ |
+| `R-EF126E40` | Autocannon: customizer config | under a Musou content profile the customizer plans a Join with the configuration the match tuning builds for that profile (it lists the autocannon), read once on a worker; PLAY and JOIN wait for it | kind: ours | design section 11 | Autocannon: customizer config: compare with SM1 by feel or video. Ours: under a Musou content profile the customizer plans a Join with the… | ☐ |
 
 *Spec section: Musou's arsenal: W3, the power spear (docs/new-weapons-design.md section 6)*
 

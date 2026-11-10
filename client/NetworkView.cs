@@ -1482,7 +1482,7 @@ public partial class NetworkView : Node3D
         if (LegProbe.Enabled) LegProbeMeta(character, state);   // --leg-probe (client/LegProbe.cs)
         if (TransitionProbe.Enabled)
         {
-            character.SetMeta(TransitionProbe.TwoHandedMeta, IsOrkCharacter(character) || MeleeWargear(state)?.Contains("_2hand_", StringComparison.OrdinalIgnoreCase) == true);
+            character.SetMeta(TransitionProbe.TwoHandedMeta, IsOrkCharacter(character) || (MeleeWargear(state) is { } twoHand && AnimationAlias.Of(twoHand).Contains("_2hand_", StringComparison.OrdinalIgnoreCase)));   // AnimationAlias (W0b): Musou's spear is two-handed
             character.SetMeta(TransitionProbe.OwnMeta, own);   // anim/strafe-blend: the direction events say own / remote
         }
         if (IsOrkCharacter(character)) { PlaceOrk(character, state, throwTime, own, smooth); return; }   // Ork O7a (NetworkView.Ork.cs): the boy's rig has its own clips
@@ -1512,7 +1512,10 @@ public partial class NetworkView : Node3D
         character.ClipRootSpeed = float.NaN;
         if (!(ChargeHeldInAir(state) && fallTrack.ChargeFall) && !rebashHeld && RushPose(state) is { } rush)   // sim/combat-pass: the held charge keeps its clip until FallRules.ChargeFallDelay
         {
-            var (rushClip, rushTime) = HammerRush(state, rush.Clip, smooth is { Kind: ClipKind.Rush } sh ? sh.Time : rush.Time);   // anim/melee-flow: the hammer's own sprint attack
+            float rushShown = smooth is { Kind: ClipKind.Rush } sh ? sh.Time : rush.Time;
+            float rushRate = MoveClipSpeed(state);   // W0b: the charge's and the dash attack's clip at the weapon's clip speed (1 but for Musou's claw and spear); the smoothing stays in the simulation's time
+            if (rushRate != 1f) rushShown = MathF.Min(rushShown * rushRate, ClipLength(rush.Clip, rushShown * rushRate));
+            var (rushClip, rushTime) = HammerRush(state, rush.Clip, rushShown);   // anim/melee-flow: the hammer's own sprint attack
             rushTime = MathF.Max(0f, rushTime - HitStopHold(state.PlayerId));   // anim/melee-interaction: the charge connect's hit-stop holds the collision stop too
             if (character.Pose(rushClip, rushTime, ClipBlends.RushFor(rush.Clip))) return;
         }
@@ -1941,6 +1944,7 @@ public partial class NetworkView : Node3D
         _hudView.ShowHint = !_showInfo && !_bot && Spectate is null && !NoOverlay;
         _hudView.Data = f;
         _hudView.RewardDescriptions = MusouActive;   // the headshot medal's description line: Musou Mode only, never in Classic PvP (owner, 2026-11-08)
+        _hudView.Content = _config?.Extras ?? ContentExtras.None;   // W0b: added content's HUD hooks act only under the match's content (Musou's autocannon reticle and box)
         if (_client?.Status != ClientStatus.Connected || _config is null) { _scopeView?.Hide(); _scopeSince = -1; return; }   // feel/scope-lascannon: no overlay without a match
         var me = _client.Predicted;
         var c = _config;
