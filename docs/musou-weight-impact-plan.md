@@ -112,7 +112,7 @@ switch and the Camera shake / Screen flashes options keep applying.
   puff ring.
 - **Sprint stop and hard turns**: a short lean back against the momentum and a planted foot (the stop clip's tag) with its puff;
   the body turn eased over 0.1 s instead of snapping (the 106 degrees a frame at move to ready).
-- **Rolls**: the clip's playback rate fitted to the distance the simulation moves (9.3 to 10 m against 8 m) and its root speed to
+- **Rolls** (MW3 measured, 2026-11-10: dropped. The body follows the clip's own extracted path to within 0.1 m and the clips travel 8.9 to 9.6 m, not 8 m, so the rate is already right; the sliding is the clip's in-place pose against its extracted motion. The roll end settles; the rest stays as it is): the clip's playback rate fitted to the distance the simulation moves (9.3 to 10 m against 8 m) and its root speed to
   the simulation's speed curve, so the knees and feet stop skating (target: planted slide median under 1 m/s); the roll's end
   settles with a crouch and puff; the shoulder, hip and knee contacts make puffs and sound.
 

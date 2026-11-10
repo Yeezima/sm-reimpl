@@ -79,6 +79,10 @@ public partial class NetworkView
         _musouFootTags.Clear();
         // A marine no longer tracked (gone, dead, out of range) starts again from its next frame.
         foreach (var (id, tracker) in _musouTrackers) if (!_musouTrackedNow.Contains(id)) tracker.Reset();
+        MusouPuffsFrame();   // MW2: the dust and grit (Weight/NetworkView.MusouPuffs.cs)
+        MusouSettleFrame();   // MW3: the body's settle (Weight/NetworkView.MusouBody.cs)
+        MusouTransitionsFrame();   // MW5: the cross-fade floors (Weight/NetworkView.MusouTransitions.cs)
+        MusouContactSoundsFrame();   // MW6: the contacts' sounds (Weight/NetworkView.MusouImpact.cs)
         foreach (var c in _musouContacts)
         {
             string key = $"{c.Kind} {(c.Own ? "own" : "ally")}";
@@ -109,9 +113,10 @@ public partial class NetworkView
     /// <summary>The counts by kind since the last call, for the capture's marks (<c>--log-musou-weight</c>); empties them.</summary>
     string MusouContactCountsText()
     {
-        if (_musouContactCounts.Count == 0) return "none";
-        string text = string.Join(", ", _musouContactCounts.OrderBy(kv => kv.Key, StringComparer.Ordinal).Select(kv => $"{kv.Key} {kv.Value}"));
+        string text = _musouContactCounts.Count == 0 ? "none" : string.Join(", ", _musouContactCounts.OrderBy(kv => kv.Key, StringComparer.Ordinal).Select(kv => $"{kv.Key} {kv.Value}"));
+        text += $"; puffs {_musouPuffsPlayed} effects, {_musouPuffsSkipped} contacts without; contact sounds {_musouContactSounds}; blast jolts kept {_musouJoltsKept}, thinned {_musouJoltsThinned}";
         _musouContactCounts.Clear();
+        _musouPuffsPlayed = _musouPuffsSkipped = _musouContactSounds = _musouJoltsKept = _musouJoltsThinned = 0;
         return text;
     }
 }

@@ -226,7 +226,7 @@ public partial class NetworkView
         away.Z = 0f;
         if (away.LengthSquared() < 1e-6f) return;
         away = Num.Vector3.Normalize(away);
-        _musouCrowd.Recoil(e.Enemy, new Vector3(away.X, away.Y, 0f), e.Value == 3 ? MusouContactRules.RecoilMelee : MusouContactRules.RecoilShot);
+        _musouCrowd.Recoil(e.Enemy, new Vector3(away.X, away.Y, 0f), e.Value == 3 ? MusouMeleePush(who) : MusouContactRules.RecoilShot);   // MW4: by the weapon (Weight/NetworkView.MusouPunch.cs)
     }
 
     /// <summary>Musou's camera shakes: the strongest counts, the rest add a share, capped (none of it with <c>--musou-old-contact</c>).</summary>

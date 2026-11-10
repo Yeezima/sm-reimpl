@@ -116,6 +116,38 @@ public class MusouWeightContactTests
         Assert.DoesNotContain(into, c => c.Kind == MusouContactKind.Touch);
     }
 
+    static MusouGroundContact Contact(MusouContactKind kind, bool own = true, float strength = 0.5f, MusouContactPart part = MusouContactPart.LeftFoot) =>
+        new(1, own, part, kind, Num.Vector3.Zero, strength, 0f);
+
+    [Fact]
+    public void PuffsAreDustAndGritSizedByStrengthAndHalvedForAllies()
+    {
+        var into = new MusouPuff[2];
+        Assert.Equal(1, MusouPuffRules.Of(Contact(MusouContactKind.Step, strength: 0.35f), "dirt", gpu: true, 1, into));
+        Assert.Equal(MusouPuffRules.Dust, into[0].Effect);
+        float own = into[0].Scale;
+        Assert.Equal(1, MusouPuffRules.Of(Contact(MusouContactKind.Step, own: false, strength: 0.35f), "dirt", gpu: true, 2, into));
+        Assert.Equal(own * MusouPuffRules.AllyScale, into[0].Scale, 4);
+        Assert.Equal(2, MusouPuffRules.Of(Contact(MusouContactKind.Plant, strength: 0.8f), "stone", gpu: true, 0, into));
+        Assert.Equal(MusouPuffRules.Grit, into[1].Effect);
+        Assert.Equal(2, MusouPuffRules.Of(Contact(MusouContactKind.Landing, strength: 1f), "dirt", gpu: true, 0, into));
+        Assert.Equal(1, MusouPuffRules.Of(Contact(MusouContactKind.Landing, strength: 1f, part: MusouContactPart.RightFoot), "dirt", gpu: true, 0, into));   // one grit burst a landing
+        Assert.True(into[0].Priority >= 1);
+    }
+
+    [Fact]
+    public void AlliesAndTheCpuPathKeepEveryOtherStepAndNoPuffOffBodies()
+    {
+        var into = new MusouPuff[2];
+        Assert.Equal(0, MusouPuffRules.Of(Contact(MusouContactKind.Step, own: false), "dirt", gpu: true, 1, into));
+        Assert.Equal(1, MusouPuffRules.Of(Contact(MusouContactKind.Step, own: false), "dirt", gpu: true, 2, into));
+        Assert.Equal(0, MusouPuffRules.Of(Contact(MusouContactKind.Skid), "dirt", gpu: false, 3, into));
+        Assert.Equal(1, MusouPuffRules.Of(Contact(MusouContactKind.Skid), "dirt", gpu: true, 3, into));
+        Assert.Equal(2, MusouPuffRules.Of(Contact(MusouContactKind.Plant), "dirt", gpu: false, 3, into));   // plants and landings are never halved
+        Assert.Equal(0, MusouPuffRules.Of(Contact(MusouContactKind.Plant), "flesh", gpu: true, 0, into));
+        Assert.True(MusouPuffRules.SurfaceDust("metal") < MusouPuffRules.SurfaceDust("dirt"));
+    }
+
     [Fact]
     public void AHopShorterThanTheAirTimeIsNoLanding()
     {
@@ -129,5 +161,69 @@ public class MusouWeightContactTests
         Assert.DoesNotContain(into, c => c.Kind == MusouContactKind.Landing);
         Assert.Equal(0.25f, MusouWeightRules.LandingStrength(1f));
         Assert.Equal(0.7f, MusouWeightRules.LandingStrength(9.8f), 2);
+    }
+
+    [Theory]
+    [InlineData(false, 0f)]
+    [InlineData(true, 0f)]
+    [InlineData(true, 0.05f)]
+    public void TheRetimedStrikeKeepsItsHitAndEndAndNeverRunsBackward(bool heavy, float hold)
+    {
+        const float hit = 0.42f, end = 1.1f;
+        float last = -1f;
+        for (float t = 0f; t <= 1.3f; t += 0.002f)
+        {
+            float c = MusouPunchRules.ClipTime(t, hit, end, heavy, hold);
+            Assert.True(c >= last - 1e-5f, $"backward at {t}");
+            Assert.True(c - last < 0.02f || last < 0f, $"jump at {t}");   // continuous: no step larger than a frame's worth
+            last = c;
+        }
+        Assert.Equal(0f, MusouPunchRules.ClipTime(0f, hit, end, heavy, hold));
+        Assert.Equal(hit, MusouPunchRules.ClipTime(hit, hit, end, heavy, hold), 4);
+        Assert.Equal(end, MusouPunchRules.ClipTime(end, hit, end, heavy, hold), 4);
+        Assert.Equal(1.2f, MusouPunchRules.ClipTime(1.2f, hit, end, heavy, hold), 4);
+        // The wind-up runs slower than the clock, the strike faster.
+        float early = MusouPunchRules.ClipTime(0.1f, hit, end, heavy, hold);
+        Assert.InRange(early, 0.075f, 0.09f);
+        float late = MusouPunchRules.ClipTime(hit - 0.02f, hit, end, heavy, hold);
+        Assert.True(hit - late > 0.02f, "the strike's last 20 ms cover more clip than that");
+        if (hold > 0f) Assert.Equal(hit, MusouPunchRules.ClipTime(hit + hold * 0.9f, hit, end, heavy, hold), 4);
+    }
+
+    [Fact]
+    public void OnlyHeavyStrikesAndFinishersThatMeetOrksAreAccented()
+    {
+        Assert.True(MusouPunchRules.Accented(heavy: true, step: 1, steps: 3, orksMet: 2));
+        Assert.True(MusouPunchRules.Accented(heavy: false, step: 3, steps: 3, orksMet: 1));
+        Assert.False(MusouPunchRules.Accented(heavy: false, step: 2, steps: 3, orksMet: 5));
+        Assert.False(MusouPunchRules.Accented(heavy: true, step: 1, steps: 3, orksMet: 0));
+        Assert.InRange(MusouPunchRules.Hold, 0.04f, 0.06f);   // the owner's 40 to 60 ms
+        Assert.Equal(0f, MusouPunchRules.PushWeight(1f));
+        Assert.True(MusouPunchRules.OrkPush("sm_mp_thunder_hammer") > MusouPunchRules.OrkPush("sm_mp_power_sword"));
+        Assert.True(MusouPunchRules.OrkPush("sm_mp_combat_knife") < MusouPunchRules.OrkPush("sm_mp_chainsword"));
+    }
+
+    [Fact]
+    public void SettlesComeFromLandingsAndPlantsAndEaseInAndOut()
+    {
+        Assert.Equal(0.14f, MusouWeightRules.SettleOf(Contact(MusouContactKind.Landing, strength: 1f))!.Value.Depth, 3);
+        Assert.Null(MusouWeightRules.SettleOf(Contact(MusouContactKind.Landing, part: MusouContactPart.RightFoot)));   // one a landing
+        Assert.True(MusouWeightRules.SettleOf(Contact(MusouContactKind.Plant, strength: 0.8f))!.Value.LeanDegrees > 0f);   // the stop leans back
+        Assert.True(MusouWeightRules.SettleOf(Contact(MusouContactKind.Plant, strength: 0.6f))!.Value.LeanDegrees < 0f);   // a melee step leans into the blow
+        Assert.Equal(0.5f * MusouWeightRules.SettleOf(Contact(MusouContactKind.Landing, strength: 1f))!.Value.Depth,
+                     MusouWeightRules.SettleOf(Contact(MusouContactKind.Landing, own: false, strength: 1f))!.Value.Depth, 4);
+        Assert.Null(MusouWeightRules.SettleOf(Contact(MusouContactKind.Step)));
+        Assert.Equal(1f, MusouWeightRules.SettleWeight(0.06f, 0.06f, 0.25f), 3);
+        Assert.Equal(0f, MusouWeightRules.SettleWeight(0.31f, 0.06f, 0.25f), 3);
+        Assert.InRange(MusouWeightRules.SettleWeight(0.03f, 0.06f, 0.25f), 0.4f, 0.6f);
+    }
+
+    [Fact]
+    public void OnlyStanceChangesGetTheLongerCrossFade()
+    {
+        Assert.Equal(MusouTransitionRules.StanceFloor, MusouTransitionRules.Blend(0.15f, stance: true));
+        Assert.Equal(0.4f, MusouTransitionRules.Blend(0.4f, stance: true));
+        Assert.Equal(0f, MusouTransitionRules.Blend(0f, stance: true));   // an instant change stays instant
+        Assert.Equal(0.1f, MusouTransitionRules.Blend(0.1f, stance: false));   // clip entries keep theirs
     }
 }

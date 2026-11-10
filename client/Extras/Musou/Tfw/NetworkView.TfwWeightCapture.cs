@@ -20,6 +20,11 @@ public partial class NetworkView
 {
     bool _tfwWeightDone;
 
+    /// <summary>MW7: a still <paramref name="after"/> s from now, without holding the script (only with <c>--tfw-test &lt;dir&gt;</c> and a window: the Compatibility renderer's evidence).</summary>
+    void TfwWeightStill(string name, double after) => _ = TfwWeightStillLater(name, after);
+
+    async Task TfwWeightStillLater(string name, double after) { await TfwWait(after); await TfwShot("weight-" + name); }
+
     void TfwWeightMark(string part)
     {
         if (LogMusouWeight) GD.Print($"TFWWEIGHT contacts before {part}: {MusouContactCountsText()}");   // MW1: the contacts of the part that just ended
@@ -33,7 +38,12 @@ public partial class NetworkView
         {
             var p = client.Predicted;
             float flat = new Vector2(p.Velocity.X, p.Velocity.Y).Length();
-            GD.Print($"TFWWEIGHT f {_connectedFor:F3} {Engine.GetProcessFrames()} v {flat:F2} z {p.Position.Z:F3} vz {p.Velocity.Z:F2} g {(p.Grounded ? 1 : 0)} j {p.Jump} e {p.EvadeTicks}");
+            // MW3's roll fit: the evade clip's played time and the clip's own travel by then, beside the body's position.
+            var move = Evade.Move(p, _config!);
+            float et = move is null ? 0f : Evade.Time(p, _config!);
+            float ed = move is null ? 0f : move.At(et).Length();
+            float shown = move is not null && _evadeTracks.TryGetValue(p.PlayerId, out var track) ? track.Time : 0f;
+            GD.Print($"TFWWEIGHT f {_connectedFor:F3} {Engine.GetProcessFrames()} v {flat:F2} z {p.Position.Z:F3} vz {p.Velocity.Z:F2} g {(p.Grounded ? 1 : 0)} j {p.Jump} e {p.EvadeTicks} x {p.Position.X:F3} y {p.Position.Y:F3} et {et:F3} shown {shown:F3} ed {ed:F3} dur {(move?.Duration ?? 0f):F3} total {(move?.Distance.Length() ?? 0f):F2}");
             await TfwFrames();
         }
     }
@@ -58,11 +68,13 @@ public partial class NetworkView
         await TfwPathTo(point, "weight: sprinted", 4.0, () => _connectedFor > until || Crowd(18f));
         TfwAction(GameAction.Sprint, false);
         TfwWeightMark("stop");
+        TfwWeightStill("stop", 0.2);
         await TfwWait(1.5);
 
         if (!pack)
         {
             TfwWeightMark("roll forward");
+            TfwWeightStill("roll", 0.4);
             TfwKey(Key.W, true); await TfwActionTap(GameAction.Jump); TfwKey(Key.W, false);
             await TfwWait(1.4);
             TfwWeightMark("roll left");
@@ -84,12 +96,14 @@ public partial class NetworkView
             TfwWeightMark("pack dash");
             await TfwActionTap(GameAction.Jump);
             await Landed("pack dash");
+            TfwWeightStill("dash-landing", 0.04);
             await TfwWait(1.4);
             TfwWeightMark("pack jump");
             TfwAction(GameAction.Jump, true);
             await TfwWait(0.55);
             TfwAction(GameAction.Jump, false);
             await Landed("pack jump");
+            TfwWeightStill("jump-landing", 0.04);
             await TfwWait(1.6);
             TfwWeightMark("pack pound");
             TfwAction(GameAction.Jump, true);
@@ -127,6 +141,7 @@ public partial class NetworkView
             TfwAimNearest(8f);
             bool heavy = k % 3 == 2;
             TfwWeightMark(heavy ? "heavy" : "light");
+            if (heavy && k == 2) TfwWeightStill("heavy", 0.5);
             await TfwActionTap(heavy ? GameAction.StunStrike : GameAction.Melee);
             await TfwWait(heavy ? 1.1 : 0.55);
         }
