@@ -144,7 +144,7 @@ public sealed partial class World
             ushort enemy = musou.War is not null && !p.Thrown ? TfwPierceProjectile(p, from, direction, length, out distance, out head) : musou.Raycast(from, direction, length, out distance, out head);
             if (enemy == 0 || (_musouProjectileStruck.TryGetValue(id, out var struck) && struck == enemy)) continue;
             var point = from + direction * distance;
-            ArsenalProjectileMeets(id, enemy, 0, point);   // Arsenal/World.Arsenal.cs: a projectile of the arsenal meeting an enemy (W4, the sticking charge); a no-op until then
+            bool stays = false; ArsenalProjectileMeets(id, enemy, 0, point, ref stays);   // Arsenal/World.Arsenal.cs: a projectile of the arsenal meeting an enemy (W4, the sticking charge); a no-op until then
             var spec = SpecOf(p);
             if (!p.Thrown && Shots.DirectDamageOf(WeaponOf(p), p.Stage) is { } direct)
                 musou.Damage(enemy, p.Owner, direct.Damage * (head ? direct.HeadMultiplier : direct.BodyMultiplier), direction, out _, marker: head ? (byte)2 : (byte)1, cause: spec.DetonateOnCollision ? MusouDeathKind.Blast : MusouDeathKind.Shot);   // a launcher's or plasma round that bursts on him kills as a blast

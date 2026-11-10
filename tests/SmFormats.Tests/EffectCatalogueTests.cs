@@ -14,7 +14,7 @@ namespace SmFormats.Tests;
 /// material effect containers with their fall-backs and Space Marine / Chaos duplicates, surfaces, the player's surface,
 /// map fx objects and the effects library. Synthetic files shaped like the install's (names and values invented).
 /// </summary>
-public class EffectCatalogueTests
+public partial class EffectCatalogueTests
 {
     static (string, object)[] PlayFx(string name, float scale, string marker = "", bool attached = false, string target = "", string direction = "negative_hit_direction") =>
     [

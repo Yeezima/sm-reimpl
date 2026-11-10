@@ -44,6 +44,9 @@ public enum ShadowChoice { Default, Low, Medium, High }
 /// <summary>Which volume slider a sound follows.</summary>
 public enum SoundCategory { Effects, Music, Voice }
 
+/// <summary>polish pass P1 (2026-11-10, ours): the match's performance readout (F3 cycles it; saved, no Options row): off, frames a second and the frame time, or those plus the network's numbers.</summary>
+public enum ReadoutChoice { Off, Fps, Network }
+
 /// <summary>
 /// The Options menu's settings (ui/menu-rebuild, client only: ours; no simulation, protocol or config-hash meaning): saved in <c>frontend.json</c> under <c>"options"</c>. Every default is
 /// the behaviour the client had without the menu, so a player who changes nothing plays as before. Engine-free; <c>OptionsHost</c> applies them to Godot.
@@ -54,7 +57,7 @@ public sealed record GameOptions(
     float MasterVolume = 1f, float MusicVolume = 1f, float EffectsVolume = 1f, float VoiceVolume = 1f, bool MuteUnfocused = false,
     bool InvertY = false, float AimSensitivity = 1f, float PadLookSensitivity = 1f, bool InvertPadY = false, float PadAimSensitivity = 1f,
     LightingPresetChoice Lighting = LightingPresetChoice.FaithfulRemaster, UpscaleChoice Upscale = UpscaleChoice.Off, bool GrimeFast = false,
-    float CameraShake = 1f, float ScreenFlashes = 1f)
+    float CameraShake = 1f, float ScreenFlashes = 1f, ReadoutChoice Readout = ReadoutChoice.Off)
 {
     public static GameOptions Default => new();
 
@@ -97,6 +100,7 @@ public sealed record GameOptions(
         Lighting = Enum.IsDefined(Lighting) ? Lighting : LightingPresetChoice.FaithfulRemaster,
         Upscale = Enum.IsDefined(Upscale) ? Upscale : UpscaleChoice.Off,
         CameraShake = Snap(CameraShake, 0f, 1f, AccessibilityStep, 1f), ScreenFlashes = Snap(ScreenFlashes, 0f, 1f, AccessibilityStep, 1f),
+        Readout = Enum.IsDefined(Readout) ? Readout : ReadoutChoice.Off,
     };
 
     /// <summary>Reads the <c>"options"</c> object of <c>frontend.json</c>; missing or wrong values are their defaults.</summary>
@@ -111,7 +115,7 @@ public sealed record GameOptions(
             F("brightness", 1f), F("masterVolume", 1f), F("musicVolume", 1f), F("effectsVolume", 1f), F("voiceVolume", 1f), B("muteUnfocused", false),
             B("invertY", false), F("aimSensitivity", 1f), F("padLookSensitivity", 1f), B("invertPadY", false), F("padAimSensitivity", 1f),
             E("lightingPreset", LightingPresetChoice.FaithfulRemaster), E("upscaling", UpscaleChoice.Off), B("ashfallGrimeFast", false),
-            F("cameraShake", 1f), F("screenFlashes", 1f)).Clamped();
+            F("cameraShake", 1f), F("screenFlashes", 1f), E("performanceReadout", ReadoutChoice.Off)).Clamped();
     }
 
     /// <summary>The object saved in <c>frontend.json</c>.</summary>
@@ -122,7 +126,7 @@ public sealed record GameOptions(
         ["masterVolume"] = Math.Round(MasterVolume, 3), ["musicVolume"] = Math.Round(MusicVolume, 3), ["effectsVolume"] = Math.Round(EffectsVolume, 3), ["voiceVolume"] = Math.Round(VoiceVolume, 3), ["muteUnfocused"] = MuteUnfocused,
         ["invertY"] = InvertY, ["aimSensitivity"] = Math.Round(AimSensitivity, 3), ["padLookSensitivity"] = Math.Round(PadLookSensitivity, 3), ["invertPadY"] = InvertPadY, ["padAimSensitivity"] = Math.Round(PadAimSensitivity, 3),
         ["lightingPreset"] = Lighting.ToString(), ["upscaling"] = Upscale.ToString(), ["ashfallGrimeFast"] = GrimeFast,
-        ["cameraShake"] = Math.Round(CameraShake, 3), ["screenFlashes"] = Math.Round(ScreenFlashes, 3),
+        ["cameraShake"] = Math.Round(CameraShake, 3), ["screenFlashes"] = Math.Round(ScreenFlashes, 3), ["performanceReadout"] = Readout.ToString(),
     };
 
     /// <summary>A slider value (0 to 1) as decibels: 1 is 0 dB, 0 is silence (-80 dB).</summary>

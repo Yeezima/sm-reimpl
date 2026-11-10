@@ -29,9 +29,10 @@ public sealed partial class World
 
     /// <summary>
     /// W4: projectile <paramref name="projectile"/> (its id) met Musou enemy <paramref name="enemy"/> (0: none) or contraption <paramref name="contraption"/> (0: none) at <paramref name="point"/>,
-    /// before Musou applies its own rule (a sticky projectile stops where it struck).
+    /// before Musou applies its own rule (a sticky projectile stops where it struck). <paramref name="stays"/>: set by the arsenal for a contraption, so the core's stop (the detonation at it) does not
+    /// happen and the arsenal itself holds the projectile there (W4's charge sticks to it).
     /// </summary>
-    partial void ArsenalProjectileMeets(int projectile, ushort enemy, byte contraption, Vector3 point);
+    partial void ArsenalProjectileMeets(int projectile, ushort enemy, byte contraption, Vector3 point, ref bool stays);
 
     /// <summary>W4: once a tick in a Musou match, after the core's projectiles and detonations of the tick.</summary>
     partial void ArsenalStep();

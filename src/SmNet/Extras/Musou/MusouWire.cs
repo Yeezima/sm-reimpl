@@ -28,7 +28,7 @@ public readonly record struct MusouBuffRecord(MusouPowerup Kind, ushort TicksLef
 /// [f32 boss health][f32 boss max][u8 lives][f32 x6 box min, max]</c>.</item>
 /// <item>Tag 6, drops (MU-D; sent to the drops' own player only): <c>[u8 n]</c> then n records of 11 bytes <c>[u16 id][u16 x][u16 y][u16 z][u16 item][u8 state]</c>,
 /// the player's whole list (live drops, and ended ones for a second: picked or expired); a client drops what a newer list leaves out. Positions as tag 3;
-/// at most <see cref="MaxDrops"/>. Since Musou version 38 (the powerups) the drops may be followed by the player's active buffs: <c>[u8 m]</c> then m records of 3 bytes <c>[u8 kind][u16 ticks left]</c>
+/// at most <see cref="MaxDrops"/>. Since Musou version 40 (the powerups) the drops may be followed by the player's active buffs: <c>[u8 m]</c> then m records of 3 bytes <c>[u8 kind][u16 ticks left]</c>
 /// (at most <see cref="MaxBuffs"/>, each kind once); without any the section ends after the drops, as before.</item>
 /// </list>
 /// MU0 fixes the layouts and their round trips; the server's sends (interest, priorities, resends) come in MU2.

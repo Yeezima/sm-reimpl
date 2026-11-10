@@ -153,6 +153,7 @@ public sealed partial class World
         _musou!.Clear();   // the enemies fire no projectile: their rounds are rolled hits (MusouSim.Fire)
         TfwGuards!.Clear();
         _projectiles.Clear(); _areas.Clear(); _perkBlasts.Clear();   // the players' own: nothing of this battle lands in the next or in the Stormbird
+        ArsenalReset();   // Arsenal/World.Charge.cs: no charge, fuse or ring goes on into the next
         CountProjectilesOut();
         MusouClearDrops();
         ClearPickups();   // the boxes stay with their battle (no events: the clients drop what the next message no longer lists)
@@ -246,6 +247,7 @@ public sealed partial class World
                 else if (--TicksLeft == 0)
                 {
                     _projectiles.Clear(); _areas.Clear(); _perkBlasts.Clear();
+                    ArsenalReset();   // Arsenal/World.Charge.cs
                     CountProjectilesOut();
                     StartRound(respawn: false);
                 }

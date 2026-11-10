@@ -56,7 +56,7 @@ public static class TfwWire
     /// <summary>Bytes of a command's payload, and of one with a place (at most <see cref="Protocol.MaxExtrasCommandPayload"/>).</summary>
     public const int CommandBytes = 4, PointCommandBytes = CommandBytes + 6, OfferCommandBytes = CommandBytes + 2;
     /// <summary>The metres of one step of a command's point: 0.1 m, so a point reaches 3276.7 m from the origin on each axis.</summary>
-    public const float PointStep = 0.1f;
+    public const float PointStep = SmSim.AutocannonRules.WireStep;   // one constant with the autocannon's blast draw scale (it reads the radius back through this step)
 
     const int WarHeadBytes = 14, LaneBytes = 19, OwnBytes = 15, OwnWon = 1, OwnDeployed = 2;
     /// <summary>The fullest revive progress on the wire (<see cref="TfwOwnView.ReviveTenths"/>).</summary>
