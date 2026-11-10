@@ -177,7 +177,7 @@ public partial class ClawSpearTestView : Node3D
         if (_poseLog && (_logEvery <= 0 || (_logFrames++ % _logEvery) == 0)) LogPose(seg, (float)local);
         bool claw = seg.Weapon == "claw";
         if (_claw is not null) { _claw.Visible = claw; if (claw) _claw.Follow(_marine.Skeleton!); }
-        if (_spear is not null) { _spear.Visible = !claw; if (!claw) _spear.Follow(_marine.Skeleton!); }
+        if (_spear is SpearStandIn spear) { spear.Visible = !claw; if (!claw) { spear.LeftGrip = seg.Clip?.GripAt((float)local) ?? 1f; spear.Follow(_marine.Skeleton!); } }
         float glow = 0f;
         if (seg.Clip is { } c && !float.IsNaN(c.HitTime))
         {

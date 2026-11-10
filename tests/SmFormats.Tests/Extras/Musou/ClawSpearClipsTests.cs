@@ -123,7 +123,7 @@ public class ClawSpearClipsTests
             foreach (var ch in clip.Channels)
             {
                 var end = ch.Sample(clip.Duration);
-                if (ch.Kind == PoseChannelKind.Turn) { Assert.True(end.IsZero, $"{clip.Name} {ch.Bone}: a turn left at the end"); continue; }
+                if (ch.Kind is PoseChannelKind.Turn or PoseChannelKind.Move or PoseChannelKind.Foot) { Assert.True(end.IsZero, $"{clip.Name} {ch.Bone}: a {ch.Kind} left at the end"); continue; }
                 var want = rest[ch.Bone];
                 Assert.Equal(want.Elevation, end.Elevation, 3);
                 Assert.Equal(want.Azimuth, end.Azimuth, 3);
@@ -139,12 +139,36 @@ public class ClawSpearClipsTests
     }
 
     [Fact]
-    public void The_rest_stands_the_spear_upright_with_the_blade_hand_above_the_butt_hand()
+    public void The_rest_carries_the_spear_upright_in_the_right_hand_and_the_sweeps_take_the_left_hand_on_and_off()
     {
-        // The blade is beyond the left hand: at rest the left forearm points up (the hand above the elbow) and the right arm hangs (the hand at the hip), so the shaft stands up.
+        // Owner 2026-11-10: "right hand carries, both swing". At rest the right arm hangs with the shaft (the grip track 0: the stand-in stands the shaft upright from that hand) and the left arm hangs free.
         var rest = ClawSpearClips.SpearRest.Channels.Where(c => c.Kind == PoseChannelKind.Aim).ToDictionary(c => c.Bone, c => c.Sample(0f));
-        Assert.True(rest["RIG_L_Forearm"].Elevation > 45f);
         Assert.True(rest["RIG_R_UpperArm"].Elevation < -60f && rest["RIG_R_Forearm"].Elevation < -60f);
+        Assert.True(rest["RIG_L_UpperArm"].Elevation < -45f && rest["RIG_L_Forearm"].Elevation < -30f);
+        Assert.Equal(0f, ClawSpearClips.SpearRest.GripAt(0.7f));
+        foreach (var sweep in ClawSpearClips.SpearSweeps)
+        {
+            Assert.Equal(1f, sweep.GripAt(sweep.HitTime), 3);          // both hands on the shaft through the hit
+            Assert.Equal(1f, sweep.GripAt(sweep.Anticipation), 3);     // the left hand is on by the wind-up's apex
+            Assert.Equal(0f, sweep.GripAt(sweep.Duration), 3);         // and off again at the end
+            if (!float.IsNaN(sweep.NextAt)) Assert.Equal(1f, sweep.GripAt(sweep.NextAt), 3);   // a chained sweep starts two-handed
+        }
+        Assert.Equal(1f, ClawSpearClips.SpearDive.GripAt(0.5f));        // the dive and the impale are two-handed
+        Assert.Equal(1f, ClawSpearClips.ClawX1.GripAt(0.5f));           // the claw has no grip track
+    }
+
+    [Fact]
+    public void Every_spear_sweep_steps_and_moves_the_pelvis_and_the_feet_come_back()
+    {
+        foreach (var sweep in ClawSpearClips.SpearSweeps)
+        {
+            Assert.Contains(sweep.Channels, c => c.Kind == PoseChannelKind.Move && c.Bone == "RIG_Pelvis");
+            Assert.Contains(sweep.Channels, c => c.Kind == PoseChannelKind.Foot);
+            Assert.Contains(sweep.Channels, c => c.Kind == PoseChannelKind.Turn && c.Bone == "RIG_Pelvis");
+        }
+        // The spin ends the string: both feet are back on their spots at its end.
+        foreach (var foot in ClawSpearClips.SpearSpin.Channels.Where(c => c.Kind == PoseChannelKind.Foot))
+            Assert.True(foot.Sample(ClawSpearClips.SpearSpin.Duration).IsZero);
     }
 
     [Fact]

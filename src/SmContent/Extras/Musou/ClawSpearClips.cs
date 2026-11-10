@@ -189,19 +189,29 @@ public static class ClawSpearClips
         return channel with { Keys = [.. channel.Keys[..(i + 1)], held, .. channel.Keys[(i + 1)..]] };
     }
 
-    // ---- the power spear (two hands on the shaft: the right hand rear, the left hand forward; the stand-in's blade is beyond the left hand) ----
+    // ---- the power spear (carried upright in the right hand; both hands swing it: the right hand rear, the left forward; the stand-in's blade is beyond the left hand) ----
+    // Fourth pass (owner, 2026-11-10: "carried 1 handed in the right hand when running or idling" / "right hand carries, both swing"; sweeps "wider and longer": 300 degrees, 15 m; and "the
+    // pelvis and legs should be greatly active in facilitating a powerful swing animation"): the left hand reaches for the shaft in each wind-up (the Grip track) and lets go in the settle; the
+    // pelvis coils, drops and drives, a lead foot steps into every sweep and replants, the spin is a pivot with footwork; the blade travels about 300 degrees through each hit.
 
-    /// <summary>The rest: the spear upright at the right side, butt down and blade up (the right arm hanging with the shaft by the thigh, the left hand gripping it above at the chest; aims, el / az).</summary>
-    const float RestRUpperEl = -75f, RestRUpperAz = 60f, RestRForeEl = -70f, RestRForeAz = 40f, RestLUpperEl = -45f, RestLUpperAz = 70f, RestLForeEl = 75f, RestLForeAz = 65f;
+    /// <summary>A grip key: how far the left hand is on the shaft (0 off, 1 on).</summary>
+    static PoseKey G(float t, float on, PoseEase ease = PoseEase.Smooth) => new(t, 0f, 0f, 0f, ease, on);
+
+    /// <summary>The rest: the spear upright in the right hand at the right side, butt down and blade up (the right arm hanging with the shaft by the thigh); the left arm hangs free (aims, el / az).</summary>
+    const float RestRUpperEl = -75f, RestRUpperAz = 60f, RestRForeEl = -70f, RestRForeAz = 40f, RestLUpperEl = -70f, RestLUpperAz = -20f, RestLForeEl = -50f, RestLForeAz = -25f;
     static PoseKey RestRUpper(float t, PoseEase ease = PoseEase.Smooth) => A(t, RestRUpperEl, RestRUpperAz, ease);
     static PoseKey RestRFore(float t, PoseEase ease = PoseEase.Smooth) => A(t, RestRForeEl, RestRForeAz, ease);
     static PoseKey RestLUpper(float t, PoseEase ease = PoseEase.Smooth) => A(t, RestLUpperEl, RestLUpperAz, ease);
     static PoseKey RestLFore(float t, PoseEase ease = PoseEase.Smooth) => A(t, RestLForeEl, RestLForeAz, ease);
+    /// <summary>The hands on their way back to the rest after a sweep (the left hand leaving the shaft): the recovery key's aims.</summary>
+    static PoseKey RecRUpper(float t) => A(t, -45, 45); static PoseKey RecRFore(float t) => A(t, -40, 30); static PoseKey RecLUpper(float t) => A(t, -40, -30); static PoseKey RecLFore(float t) => A(t, -20, -40);
+    /// <summary>Where the sweeps' steps leave the feet (metres forward, right from the stance's spots): after the forehand the left foot, after the backhand the right, the spin's pivot step of the left.</summary>
+    const float FhLeftF = 0.50f, FhLeftR = -0.15f, BhRightF = 0.55f, BhRightR = 0.22f, SpLeftF = 0.65f, SpLeftR = -0.35f;
 
-    /// <summary>The spear's rest pose (owner, 2026-11-10: "upright at his side"), held over the hammer's idle for as long as the spear is carried and not swung; every sweep starts from it and returns to it.</summary>
+    /// <summary>The spear's rest pose (owner, 2026-11-10: "upright at his side", "carried 1 handed in the right hand"), held over the hammer's idle while the spear is carried and not swung; every sweep starts from it and returns to it.</summary>
     public static readonly WeaponPoseClip SpearRest = new("spear_rest", "spear", SpearIdleLength, float.NaN, SpearIdle, 0f, 0f, 0f, float.NaN,
         "the hammer's idle (SM_2HM_NAV_TH_IdleL_S_01 1.5 s; the pose is held while it loops)",
-        "the rest: the spear stands upright at the marine's right side, butt by the foot and blade above the head, the right hand on the shaft at the hip and the left gripping it at the chest",
+        "the rest: the spear stands upright in the right hand at the marine's right side, butt by the foot and blade above the head, the left arm hanging free",
         [
             Turn(SpineD, T(0f, 6, 0, 0), T(SpearIdleLength, 6, 0, 0)),
             Turn(Head, T(0f, -4, 0, 0), T(SpearIdleLength, -4, 0, 0)),
@@ -209,61 +219,74 @@ public static class ClawSpearClips
             Fore("R", RestRFore(0f), RestRFore(SpearIdleLength)),
             Upper("L", RestLUpper(0f), RestLUpper(SpearIdleLength)),
             Fore("L", RestLFore(0f), RestLFore(SpearIdleLength)),
-        ]);
+        ])
+    { Grip = [G(0f, 0f), G(SpearIdleLength, 0f)] };
 
-    /// <summary>Forehand sweep, right to left (the hammer's X1 at 0.85x: 3.138 s, hit 0.711 s).</summary>
+    /// <summary>Forehand sweep, right to left through 300 degrees (the hammer's X1 at 0.85x: 3.138 s, hit 0.711 s).</summary>
     public static readonly WeaponPoseClip SpearForehand = Spear("spear_forehand", 2.667f, 0.604f, 0.933f, SpearIdle, "the hammer's X1 (SM_MEL_TH_XATK_Combo2 2.667 s, hit 0.604 s)",
-        "forehand sweep: from the upright rest the spear is levelled and drawn back over the right hip, blade forward-right, then a flat two-handed sweep across the front from right to left; the rear hand swings behind the right hip",
+        "forehand sweep: from the upright carry the left hand reaches to the shaft as the whole body coils right and loads onto the rear leg, the blade levelled behind the right shoulder and the left foot lifting; then the left foot stamps down ahead and hips, chest and arms whip the blade 300 degrees flat across the front from right to left, the rear hand swinging behind the right hip; the left hand lets go in the settle",
         antic: 0.19f, follow: 0.29f, recover: 2.0f, (a, h, f, r, end) =>
         [
-            Turn(SpineA, Z(0f), T(a, -30, 4, -4, PoseEase.In), T(h, 30, -6, 4, PoseEase.Snap), T(f, 40, -9, 6, PoseEase.Over), T(r, 9, -2, 1), Z(end)),
-            Turn(SpineD, Z(0f), T(a, -40, 6, -6, PoseEase.In), T(h, 40, -10, 6, PoseEase.Snap), T(f, 52, -14, 8, PoseEase.Over), T(r, 12, -3, 2), Z(end)),
-            Turn(Head, Z(0f), T(a, 35, -2, 0, PoseEase.In), T(h, -20, 2, 0, PoseEase.Snap), T(f, -26, 3, 0, PoseEase.Over), T(r, -6, 0, 0), Z(end)),
-            Turn(LClav, Z(0f), T(a, -10, 4, 0, PoseEase.In), T(h, 12, 6, 0, PoseEase.Snap), T(f, 14, 6, 0, PoseEase.Over), T(r, 3, 1, 0), Z(end)),
-            Turn(RClav, Z(0f), T(a, -10, 4, 0, PoseEase.In), T(h, 12, 6, 0, PoseEase.Snap), T(f, 14, 6, 0, PoseEase.Over), T(r, 3, 1, 0), Z(end)),
-            // The rear (right) hand swings opposite to the blade: low at the left hip while the blade is wound forward-right, behind the right hip as the blade sweeps to the left.
-            Upper("R", RestRUpper(0f), A(a, -40, -20, PoseEase.In), A(h, -30, 100, PoseEase.Snap), A(f, -10, 40, PoseEase.Over), A(r, -45, 45), RestRUpper(end)),
-            Fore("R", RestRFore(0f), A(a, -20, -100, PoseEase.In), A(h, -10, 150, PoseEase.Snap), A(f, 0, 20, PoseEase.Over), A(r, -40, 30), RestRFore(end)),
-            Upper("L", RestLUpper(0f), A(a, -10, 40, PoseEase.In), A(h, -30, -20, PoseEase.Snap), A(f, -10, -90, PoseEase.Over), A(r, -25, 10), RestLUpper(end)),
-            Fore("L", RestLFore(0f), A(a, 10, 70, PoseEase.In), A(h, 0, -40, PoseEase.Snap), A(f, -10, -150, PoseEase.Over), A(r, 30, 30), RestLFore(end)),
-        ]);
+            Turn(Pelvis, Z(0f), T(a, -22, 6, -6, PoseEase.In), T(h, 22, -8, 6, PoseEase.Snap), T(f, 28, -10, 8, PoseEase.Over), T(r, 6, -2, 2), Z(end)),
+            PelvisMove(M(0f, 0, 0, 0), M(a, -0.10f, 0.08f, -0.10f, PoseEase.In), M(h, 0.22f, -0.08f, -0.16f, PoseEase.Snap), M(f, 0.26f, -0.10f, -0.14f, PoseEase.Over), M(r, 0.08f, -0.02f, -0.06f), M(end, 0, 0, 0)),
+            Foot("L", M(0f, 0, 0, 0), M(a, 0.15f, -0.08f, 0.14f, PoseEase.In), M(h, FhLeftF, FhLeftR, 0, PoseEase.Snap), M(r, FhLeftF, FhLeftR, 0), M(r + 0.3f, FhLeftF * 0.5f, FhLeftR * 0.5f, 0.08f), M(end, 0, 0, 0)),
+            Turn(SpineA, Z(0f), T(a, -40, 6, -8, PoseEase.In), T(h, 42, -10, 8, PoseEase.Snap), T(f, 52, -12, 10, PoseEase.Over), T(r, 10, -2, 2), Z(end)),
+            Turn(SpineD, Z(0f), T(a, -50, 8, -8, PoseEase.In), T(h, 52, -12, 8, PoseEase.Snap), T(f, 62, -14, 10, PoseEase.Over), T(r, 12, -3, 2), Z(end)),
+            Turn(Head, Z(0f), T(a, 45, -4, 0, PoseEase.In), T(h, -25, 4, 0, PoseEase.Snap), T(f, -30, 4, 0, PoseEase.Over), T(r, -6, 0, 0), Z(end)),
+            Turn(LClav, Z(0f), T(a, -14, 6, 0, PoseEase.In), T(h, 16, 8, 0, PoseEase.Snap), T(f, 18, 8, 0, PoseEase.Over), T(r, 4, 1, 0), Z(end)),
+            Turn(RClav, Z(0f), T(a, -14, 6, 0, PoseEase.In), T(h, 16, 8, 0, PoseEase.Snap), T(f, 18, 8, 0, PoseEase.Over), T(r, 4, 1, 0), Z(end)),
+            // The blade (beyond the left hand) from right-back (az +150) through forward-left at the hit to left-back (az -150); the rear (right) hand swings the opposite way.
+            Upper("R", RestRUpper(0f), A(a, -30, -60, PoseEase.In), A(h, -10, 100, PoseEase.Snap), A(f, -10, 60, PoseEase.Over), RecRUpper(r), RestRUpper(end)),
+            Fore("R", RestRFore(0f), A(a, -20, -130, PoseEase.In), A(h, 10, 150, PoseEase.Snap), A(f, 0, 30, PoseEase.Over), RecRFore(r), RestRFore(end)),
+            Upper("L", RestLUpper(0f), A(a, -15, 120, PoseEase.In), A(h, -40, -25, PoseEase.Snap), A(f, 0, -120, PoseEase.Over), RecLUpper(r), RestLUpper(end)),
+            Fore("L", RestLFore(0f), A(a, -10, 165, PoseEase.In), A(h, -10, -45, PoseEase.Snap), A(f, -10, -170, PoseEase.Over), RecLFore(r), RestLFore(end)),
+        ], grip: (a, h, f, r, end) => [G(0f, 0f), G(a, 1f, PoseEase.In), G(r, 1f), G(r + 0.4f, 0f), G(end, 0f)]);
 
-    /// <summary>Backhand sweep, left to right (the hammer's X2 at 0.85x: 2.745 s, hit 0.667 s).</summary>
+    /// <summary>Backhand sweep, left to right through 300 degrees (the hammer's X2 at 0.85x: 2.745 s, hit 0.667 s).</summary>
     public static readonly WeaponPoseClip SpearBackhand = Spear("spear_backhand", 2.333f, 0.567f, 0.967f, SpearIdle, "the hammer's X2 (SM_MEL_TH_XATK_Combo3 2.333 s, hit 0.567 s)",
-        "backhand sweep: from the forehand's end the spear is gathered over the left shoulder and swept back across the front from left to right",
+        "backhand sweep: from the forehand's end the body loads deep over the bent left leg with the blade gathered far behind the left shoulder, then the right foot steps through and hips, chest and arms whip the blade 300 degrees back across the front from left to right",
         antic: 0.18f, follow: 0.28f, recover: 1.9f, (a, h, f, r, end) =>
         [
-            Turn(SpineA, T(0f, 14, -3, 2), T(a, 26, 3, 4, PoseEase.In), T(h, -30, -6, -4, PoseEase.Snap), T(f, -38, -9, -6, PoseEase.Over), T(r, -9, -2, -1), Z(end)),
-            Turn(SpineD, T(0f, 18, -4, 3), T(a, 36, 4, 6, PoseEase.In), T(h, -40, -8, -6, PoseEase.Snap), T(f, -50, -12, -8, PoseEase.Over), T(r, -12, -3, -2), Z(end)),
-            Turn(Head, T(0f, -10, 0, 0), T(a, -30, -2, 0, PoseEase.In), T(h, 25, 2, 0, PoseEase.Snap), T(f, 30, 3, 0, PoseEase.Over), T(r, 7, 0, 0), Z(end)),
-            Turn(LClav, T(0f, 4, 2, 0), T(a, 10, 4, 0, PoseEase.In), T(h, -12, 6, 0, PoseEase.Snap), T(f, -14, 6, 0, PoseEase.Over), T(r, -3, 1, 0), Z(end)),
-            Turn(RClav, T(0f, 4, 2, 0), T(a, 10, 4, 0, PoseEase.In), T(h, -12, 6, 0, PoseEase.Snap), T(f, -14, 6, 0, PoseEase.Over), T(r, -3, 1, 0), Z(end)),
-            // From the forehand's end (blade left-back, the rear hand forward-right): the rear hand drops behind the left hip as the blade is gathered, then swings forward-left as the blade sweeps right.
-            Upper("R", A(0f, -10, 40, w: 0.6f), A(a, -10, 30, PoseEase.In), A(h, -40, -60, PoseEase.Snap), A(f, -10, -30, PoseEase.Over), A(r, -45, 45), RestRUpper(end)),
-            Fore("R", A(0f, 0, 20, w: 0.6f), A(a, 0, 10, PoseEase.In), A(h, -20, -150, PoseEase.Snap), A(f, 0, -20, PoseEase.Over), A(r, -40, 30), RestRFore(end)),
-            Upper("L", A(0f, 0, -90, w: 0.6f), A(a, 0, -80, PoseEase.In), A(h, 0, 20, PoseEase.Snap), A(f, -10, 90, PoseEase.Over), A(r, -25, 10), RestLUpper(end)),
-            Fore("L", A(0f, -10, -150, w: 0.6f), A(a, -10, -140, PoseEase.In), A(h, 10, 50, PoseEase.Snap), A(f, -10, 150, PoseEase.Over), A(r, 30, 30), RestLFore(end)),
-        ]);
+            Turn(Pelvis, T(0f, 22, -6, 6), T(a, 28, 4, 8, PoseEase.In), T(h, -24, -8, -8, PoseEase.Snap), T(f, -30, -10, -10, PoseEase.Over), T(r, -6, -2, -2), Z(end)),
+            PelvisMove(M(0f, 0.22f, -0.08f, -0.12f), M(a, 0.12f, -0.14f, -0.18f, PoseEase.In), M(h, 0.30f, 0.10f, -0.14f, PoseEase.Snap), M(f, 0.34f, 0.14f, -0.12f, PoseEase.Over), M(r, 0.10f, 0.03f, -0.06f), M(end, 0, 0, 0)),
+            Foot("L", M(0f, FhLeftF, FhLeftR, 0), M(r, FhLeftF, FhLeftR, 0), M(r + 0.3f, FhLeftF * 0.5f, FhLeftR * 0.5f, 0.08f), M(end, 0, 0, 0)),
+            Foot("R", M(0f, 0, 0, 0), M(a, 0.20f, 0.15f, 0.14f, PoseEase.In), M(h, BhRightF, BhRightR, 0, PoseEase.Snap), M(r, BhRightF, BhRightR, 0), M(r + 0.3f, BhRightF * 0.5f, BhRightR * 0.5f, 0.08f), M(end, 0, 0, 0)),
+            Turn(SpineA, T(0f, 30, -6, 4), T(a, 36, 4, 6, PoseEase.In), T(h, -40, -8, -8, PoseEase.Snap), T(f, -50, -10, -10, PoseEase.Over), T(r, -10, -2, -2), Z(end)),
+            Turn(SpineD, T(0f, 36, -8, 6), T(a, 44, 6, 8, PoseEase.In), T(h, -50, -10, -8, PoseEase.Snap), T(f, -60, -12, -10, PoseEase.Over), T(r, -12, -3, -2), Z(end)),
+            Turn(Head, T(0f, -14, 0, 0), T(a, -40, -2, 0, PoseEase.In), T(h, 28, 2, 0, PoseEase.Snap), T(f, 34, 3, 0, PoseEase.Over), T(r, 8, 0, 0), Z(end)),
+            Turn(LClav, T(0f, 6, 2, 0), T(a, 14, 6, 0, PoseEase.In), T(h, -16, 8, 0, PoseEase.Snap), T(f, -18, 8, 0, PoseEase.Over), T(r, -4, 1, 0), Z(end)),
+            Turn(RClav, T(0f, 6, 2, 0), T(a, 14, 6, 0, PoseEase.In), T(h, -16, 8, 0, PoseEase.Snap), T(f, -18, 8, 0, PoseEase.Over), T(r, -4, 1, 0), Z(end)),
+            // From the forehand's end (blade left-back): gathered a little further, then the blade through forward-right at the hit to right-back (az +150).
+            Upper("R", A(0f, -10, 60), A(a, -10, 50, PoseEase.In), A(h, -30, -100, PoseEase.Snap), A(f, -30, -60, PoseEase.Over), RecRUpper(r), RestRUpper(end)),
+            Fore("R", A(0f, 0, 30), A(a, 0, 20, PoseEase.In), A(h, -10, -150, PoseEase.Snap), A(f, -20, -130, PoseEase.Over), RecRFore(r), RestRFore(end)),
+            Upper("L", A(0f, 0, -120), A(a, 0, -130, PoseEase.In), A(h, -30, 25, PoseEase.Snap), A(f, -15, 120, PoseEase.Over), RecLUpper(r), RestLUpper(end)),
+            Fore("L", A(0f, -10, -170), A(a, -10, -175, PoseEase.In), A(h, 0, 45, PoseEase.Snap), A(f, -10, 165, PoseEase.Over), RecLFore(r), RestLFore(end)),
+        ], grip: (a, h, f, r, end) => [G(0f, 1f), G(r, 1f), G(r + 0.4f, 0f), G(end, 0f)]);
 
     /// <summary>
-    /// The 240 degree spin sweep that ends the string (the hammer's X3 at 0.85x: 2.745 s, hit 0.824 s). The feet stay planted, so the chest winds about 50 degrees right and the arms carry
-    /// the blade behind the right shoulder; the blade passes the front at the hit at a constant rate (<see cref="PoseEase.Linear"/>) and runs on past the left shoulder.
+    /// The 300 degree spin sweep that ends the string (the hammer's X3 at 0.85x: 2.745 s, hit 0.824 s): a pivot with footwork. The pelvis winds about 35 degrees right with the left foot lifted,
+    /// then swings 70 degrees through the hit as the left foot replants forward-left; the spine and arms carry the rest, the blade passing the front at the hit at a constant rate
+    /// (<see cref="PoseEase.Linear"/>) and running on to left-back; both feet come back under him in the long recovery.
     /// </summary>
     public static readonly WeaponPoseClip SpearSpin = Spear("spear_spin", 2.333f, 0.700f, float.NaN, SpearIdle, "the hammer's X3 (SM_MEL_TH_HeavyATK02 2.333 s, hit 0.700 s; the string ends)",
-        "spin sweep: the deepest wind-up, the blade behind the right shoulder and the eyes on the target, then one unbroken sweep through the front and on past the left shoulder, back to the upright rest",
+        "spin sweep: the deepest wind-up, the whole body coiled right over the rear leg with the blade behind the right shoulder, the left foot lifting and the eyes on the target; then the hips pivot and the left foot stamps down forward-left as one unbroken 300 degree sweep carries the blade through the front and on past the left shoulder; the feet come back under him and the left hand lets go",
         antic: 0.20f, follow: 0.18f, recover: 2.0f, (a, h, f, r, end) =>
         [
-            Turn(SpineA, Z(0f), T(a, -38, 6, -6, PoseEase.In), T(h, 0, -8, 0, PoseEase.Linear), T(f, 40, -8, 6, PoseEase.Out), T(f + 0.25f, 44, -6, 6, PoseEase.Over), T(r, 12, -2, 2), Z(end)),
-            Turn(SpineD, Z(0f), T(a, -48, 4, -8, PoseEase.In), T(h, 0, -10, 0, PoseEase.Linear), T(f, 52, -8, 8, PoseEase.Out), T(f + 0.25f, 56, -6, 8, PoseEase.Over), T(r, 15, -2, 2), Z(end)),
-            Turn(Head, Z(0f), T(a, 45, -2, 0, PoseEase.In), T(h, 0, 0, 0, PoseEase.Linear), T(f, -40, 2, 0, PoseEase.Out), T(f + 0.25f, -42, 2, 0, PoseEase.Over), T(r, -10, 0, 0), Z(end)),
-            Turn(LClav, Z(0f), T(a, -12, 4, 0, PoseEase.In), T(h, 0, 8, 0, PoseEase.Linear), T(f, 12, 6, 0, PoseEase.Out), T(f + 0.25f, 14, 6, 0, PoseEase.Over), T(r, 4, 1, 0), Z(end)),
-            Turn(RClav, Z(0f), T(a, -12, 4, 0, PoseEase.In), T(h, 0, 8, 0, PoseEase.Linear), T(f, 12, 6, 0, PoseEase.Out), T(f + 0.25f, 14, 6, 0, PoseEase.Over), T(r, 4, 1, 0), Z(end)),
-            // The blade behind the right shoulder (the forward hand reaching right-back, the rear hand forward-left), through the front (the rear hand drawn behind the hips, the forward hand straight ahead), on to left-back.
-            Upper("R", A(0f, -10, -30, w: 0.6f), A(a, -20, -20, PoseEase.In), A(h, -50, 150, PoseEase.Linear), A(f, -10, 40, PoseEase.Out), A(f + 0.25f, -10, 50, PoseEase.Over), A(r, -45, 45), RestRUpper(end)),
-            Fore("R", A(0f, 0, -20, w: 0.6f), A(a, 0, -40, PoseEase.In), A(h, -30, 180, PoseEase.Linear), A(f, 0, 30, PoseEase.Out), A(f + 0.25f, 0, 40, PoseEase.Over), A(r, -40, 30), RestRFore(end)),
-            Upper("L", A(0f, -10, 90, w: 0.6f), A(a, -10, 100, PoseEase.In), A(h, 0, 0, PoseEase.Linear), A(f, 0, -100, PoseEase.Out), A(f + 0.25f, 0, -110, PoseEase.Over), A(r, -25, 10), RestLUpper(end)),
-            Fore("L", A(0f, -10, 150, w: 0.6f), A(a, -10, 150, PoseEase.In), A(h, 10, 0, PoseEase.Linear), A(f, -10, -150, PoseEase.Out), A(f + 0.25f, -10, -160, PoseEase.Over), A(r, 30, 30), RestLFore(end)),
-        ]);
+            Turn(Pelvis, T(0f, -20, -4, -4), T(a, -35, 6, -8, PoseEase.In), T(h, 0, -8, 0, PoseEase.Linear), T(f, 35, -8, 8, PoseEase.Out), T(f + 0.25f, 38, -6, 8, PoseEase.Over), T(r, 8, -2, 2), Z(end)),
+            PelvisMove(M(0f, 0.30f, 0.10f, -0.12f), M(a, 0.15f, 0.15f, -0.20f, PoseEase.In), M(h, 0.35f, -0.05f, -0.16f, PoseEase.Linear), M(f, 0.40f, -0.15f, -0.14f, PoseEase.Out), M(f + 0.25f, 0.40f, -0.16f, -0.12f, PoseEase.Over), M(r, 0.10f, -0.03f, -0.06f), M(end, 0, 0, 0)),
+            Foot("L", M(0f, FhLeftF, FhLeftR, 0), M(a, FhLeftF + 0.05f, FhLeftR - 0.05f, 0.16f, PoseEase.In), M(h, SpLeftF, SpLeftR, 0, PoseEase.Linear), M(r, SpLeftF, SpLeftR, 0), M(r + 0.3f, SpLeftF * 0.5f, SpLeftR * 0.5f, 0.08f), M(end, 0, 0, 0)),
+            Foot("R", M(0f, BhRightF, BhRightR, 0), M(r, BhRightF, BhRightR, 0), M(r + 0.35f, BhRightF * 0.5f, BhRightR * 0.5f, 0.08f), M(end, 0, 0, 0)),
+            Turn(SpineA, T(0f, -20, 0, -3), T(a, -45, 6, -8, PoseEase.In), T(h, 0, -10, 0, PoseEase.Linear), T(f, 45, -8, 8, PoseEase.Out), T(f + 0.25f, 48, -6, 8, PoseEase.Over), T(r, 12, -2, 2), Z(end)),
+            Turn(SpineD, T(0f, -24, 0, -4), T(a, -55, 4, -8, PoseEase.In), T(h, 0, -10, 0, PoseEase.Linear), T(f, 55, -8, 8, PoseEase.Out), T(f + 0.25f, 58, -6, 8, PoseEase.Over), T(r, 14, -2, 2), Z(end)),
+            Turn(Head, T(0f, 10, 0, 0), T(a, 50, -2, 0, PoseEase.In), T(h, 0, 0, 0, PoseEase.Linear), T(f, -45, 2, 0, PoseEase.Out), T(f + 0.25f, -48, 2, 0, PoseEase.Over), T(r, -10, 0, 0), Z(end)),
+            Turn(LClav, T(0f, -4, 2, 0), T(a, -14, 4, 0, PoseEase.In), T(h, 0, 8, 0, PoseEase.Linear), T(f, 14, 6, 0, PoseEase.Out), T(f + 0.25f, 16, 6, 0, PoseEase.Over), T(r, 4, 1, 0), Z(end)),
+            Turn(RClav, T(0f, -4, 2, 0), T(a, -14, 4, 0, PoseEase.In), T(h, 0, 8, 0, PoseEase.Linear), T(f, 14, 6, 0, PoseEase.Out), T(f + 0.25f, 16, 6, 0, PoseEase.Over), T(r, 4, 1, 0), Z(end)),
+            // From the backhand's end (blade right-back): a little deeper, then the blade through the front (the rear hand behind the hips, the forward hand straight ahead) to left-back.
+            Upper("R", A(0f, -30, -60), A(a, -30, -70, PoseEase.In), A(h, -50, 150, PoseEase.Linear), A(f, -10, 60, PoseEase.Out), A(f + 0.25f, -10, 55, PoseEase.Over), RecRUpper(r), RestRUpper(end)),
+            Fore("R", A(0f, -20, -130), A(a, -20, -140, PoseEase.In), A(h, -30, 180, PoseEase.Linear), A(f, 0, 30, PoseEase.Out), A(f + 0.25f, 0, 25, PoseEase.Over), RecRFore(r), RestRFore(end)),
+            Upper("L", A(0f, -15, 120), A(a, -10, 130, PoseEase.In), A(h, 0, 0, PoseEase.Linear), A(f, 0, -120, PoseEase.Out), A(f + 0.25f, 0, -130, PoseEase.Over), RecLUpper(r), RestLUpper(end)),
+            Fore("L", A(0f, -10, 165), A(a, -10, 170, PoseEase.In), A(h, 10, 0, PoseEase.Linear), A(f, -10, -170, PoseEase.Out), A(f + 0.25f, -10, -175, PoseEase.Over), RecLFore(r), RestLFore(end)),
+        ], grip: (a, h, f, r, end) => [G(0f, 1f), G(r, 1f), G(r + 0.4f, 0f), G(end, 0f)]);
 
     /// <summary>The dive: both hands high on the shaft over the head, the left (blade) hand lower, so the spear hangs point-down and forward (held for the whole of the hammer's dive loop).</summary>
     public static readonly WeaponPoseClip SpearDive = new("spear_dive", "spear", SpearDiveLoopLength, float.NaN, SpearDiveLoop, 0f, 0f, 0f, float.NaN,
@@ -297,12 +320,13 @@ public static class ClawSpearClips
             Fore("L", A(0f, -10, 0), A(0.08f, -80, 0, PoseEase.Snap), A(0.5f, -82, 0), A(0.75f, -30, 0), A(SpearDiveImpactLength, -30, 0, w: 0f)),
         ]);
 
-    /// <summary>A spear clip from the hammer strike's length, hit and combo opening (s, the hammer's) at the spear's tempo.</summary>
-    static WeaponPoseClip Spear(string name, float hammerLength, float hammerHit, float hammerCombo, string baseClip, string source, string description, float antic, float follow, float recover, Func<float, float, float, float, float, PoseChannel[]> build)
+    /// <summary>A spear clip from the hammer strike's length, hit and combo opening (s, the hammer's) at the spear's tempo; <paramref name="grip"/> builds the left hand's hold on the shaft over the same moments.</summary>
+    static WeaponPoseClip Spear(string name, float hammerLength, float hammerHit, float hammerCombo, string baseClip, string source, string description, float antic, float follow, float recover, Func<float, float, float, float, float, PoseChannel[]> build, Func<float, float, float, float, float, PoseKey[]>? grip = null)
     {
         float d = hammerLength / SpearTempo, h = hammerHit / SpearTempo;
         float a = h - antic, f = h + follow;
-        return new WeaponPoseClip(name, "spear", d, h, baseClip, a, f, Math.Min(d, recover + 0.4f), float.IsNaN(hammerCombo) ? float.NaN : hammerCombo / SpearTempo, source, description, build(a, h, f, recover, d));
+        return new WeaponPoseClip(name, "spear", d, h, baseClip, a, f, Math.Min(d, recover + 0.4f), float.IsNaN(hammerCombo) ? float.NaN : hammerCombo / SpearTempo, source, description, build(a, h, f, recover, d))
+        { Grip = grip?.Invoke(a, h, f, recover, d) };
     }
 
     /// <summary>Every clip, in the preview's order.</summary>

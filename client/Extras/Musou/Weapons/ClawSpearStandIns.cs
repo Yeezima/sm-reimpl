@@ -136,6 +136,8 @@ public partial class SpearStandIn : WeaponStandIn
     readonly Node3D _root = new() { Name = "SpearRoot" };
     /// <summary>The shaft's and the blade's lengths (m) and where the rear (right) hand sits from the butt; the forward (left) hand is wherever the pose puts it along the shaft.</summary>
     public const float Shaft = 1.9f, Blade = 0.9f, RearHandFromButt = 0.5f;
+    /// <summary>How far the left hand is on the shaft (0 to 1; <see cref="SmContent.Extras.Musou.WeaponPoseClip.GripAt"/>): at 0 the spear stands upright from the right hand, at 1 it lies on the line through both hands.</summary>
+    public float LeftGrip { get; set; } = 1f;
 
     public override void _Ready() { AddChild(_root); }
 
@@ -148,6 +150,8 @@ public partial class SpearStandIn : WeaponStandIn
         var d = l - r;   // the shaft from the rear (right) hand toward the forward (left) hand and the blade
         if (d.LengthSquared() < 1e-4f) d = new Vector3(1f, 0f, 0f);
         d = d.Normalized();
+        float grip = Math.Clamp(LeftGrip, 0f, 1f);
+        if (grip < 1f) d = (new Vector3(0f, 0f, 1f).Lerp(d, grip)).Normalized();   // carried in the right hand alone: upright; the left hand's hold brings it onto the two-hand line
         var butt = r - d * RearHandFromButt;
         _root.Transform = new Transform3D(Frame(d, new Vector3(0f, 0f, 1f)), butt);
         if (_field is not null)

@@ -156,4 +156,13 @@ public sealed record WeaponPoseClip(string Name, string Weapon, float Duration, 
 {
     /// <summary>The bones this clip moves.</summary>
     public IEnumerable<string> Bones => Channels.Select(c => c.Bone);
+
+    /// <summary>
+    /// For a two-handed weapon carried in one hand (the spear; owner 2026-11-10: "right hand carries, both swing"): how far the off (left) hand is on the shaft over time, the keys' weights
+    /// 0 (off, the shaft stands upright from the carrying hand) to 1 (both hands, the shaft on the line through them). Null: both hands throughout.
+    /// </summary>
+    public PoseKey[]? Grip { get; init; }
+
+    /// <summary>The off hand's hold on the shaft at <paramref name="t"/> (0 to 1; 1 when the clip has no grip track).</summary>
+    public float GripAt(float t) => Grip is { Length: > 0 } g ? Math.Clamp(new PoseChannel("grip", g).Sample(t).Weight, 0f, 1f) : 1f;
 }
