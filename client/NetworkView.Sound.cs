@@ -260,7 +260,8 @@ public partial class NetworkView
     /// <summary>Called once per frame after the characters are placed.</summary>
     void UpdateSound(PlayerState me, IReadOnlyList<PlayerState> others, double delta)
     {
-        if (_client is null || _config is null || !SoundReady() || _sound is null || _soundTriggers is null) return;
+        if (_client is null || _config is null) return;
+        if (!SoundReady() || _sound is null || _soundTriggers is null) { SoundMeleeOthers(me, others); return; }   // hit reactions: others' inferred melee hits still flinch their victims without sound
         int ownId = _client.PlayerId;
         foreach (var (_, ev) in _frameOwnEvents) OwnSoundEvents(me, ev);   // drained once per frame in HipFireBegin (M27)
         foreach (var shot in _frameShots) SoundShot(shot);

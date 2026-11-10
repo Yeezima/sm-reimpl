@@ -177,6 +177,7 @@ public partial class ModelViewer : Node3D
             }
             if (args.ContainsKey("reload-test")) { AddChild(new ReloadTestView(gameDir, args) { Name = "ReloadTest" }); return; }   // M35 test aid
             if (args.ContainsKey("switch-test")) { AddChild(new SwitchTestView(gameDir, args) { Name = "SwitchTest" }); return; }   // fix/stow-right test aid
+            if (args.ContainsKey("hit-reaction-test")) { AddChild(new HitReactionTestView(gameDir, args) { Name = "HitReactionTest" }); return; }   // hit reactions test aid (deaths, flinches)
             if (args.ContainsKey("appearance-test")) { AddChild(new AppearanceTestView(gameDir, args) { Name = "AppearanceTest" }); return; }   // customizer T6 test aid
             if (args.ContainsKey("ork-test")) { AddChild(new OrkTestView(gameDir, args) { Name = "OrkTest" }); return; }   // Ork O3 test aid
             if (args.ContainsKey("guard-test")) { AddChild(new GuardsmanTestView(gameDir, args) { Name = "GuardsmanTest" }); return; }   // Guardsman asset check (Musou Mode dependency)
@@ -278,7 +279,7 @@ public partial class ModelViewer : Node3D
     string _lookRepoRoot = "";
 
     /// <summary>Test views that need the install before they start (they keep the synchronous lookup).</summary>
-    static readonly string[] FrontEndExcluded = ["fx", "pound-test", "stomp-test", "reload-test", "switch-test", "appearance-test", "guard-test", "ashfall-kit-gallery", "warboss-test", "musou-crowd-test", "mek-gallery", "claw-spear-test"];
+    static readonly string[] FrontEndExcluded = ["fx", "pound-test", "stomp-test", "reload-test", "switch-test", "hit-reaction-test", "appearance-test", "guard-test", "ashfall-kit-gallery", "warboss-test", "musou-crowd-test", "mek-gallery", "claw-spear-test"];
 
     void BeginLocate(Dictionary<string, string?> args, string repoRoot)
     {

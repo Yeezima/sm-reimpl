@@ -244,7 +244,9 @@ public sealed partial class Ragdoll : Node3D
     /// <summary>Builds the corpse from a living character's pose and starts the simulation.</summary>
     /// <param name="velocity">The body's velocity at death (Godot world space, m/s), given to every body.</param>
     /// <param name="kick">The push on top of it (Godot world space, m/s), given to every body; the chest gets half as much again.</param>
-    public void Start(RagdollDef def, CharacterViewer source, int slot, Vector3 velocity, Vector3 kick)
+    /// <param name="motionFrom">Hit reactions (2026-11-11): every bone's skeleton-space pose <paramref name="motionSeconds"/> before the source's current pose (the death clip's frame before
+    /// the hand-over); each body then also takes the motion its bone had over that time (<see cref="DeathHandover.Velocity"/>, capped) instead of a random spin. Null: the earlier start.</param>
+    public void Start(RagdollDef def, CharacterViewer source, int slot, Vector3 velocity, Vector3 kick, Transform3D[]? motionFrom = null, float motionSeconds = 0f)
     {
         _def = def;
         Slot = slot;
@@ -275,10 +277,28 @@ public sealed partial class Ragdoll : Node3D
         _deathBody = new Transform3D[n];
         var rng = new RandomNumberGenerator { Seed = (ulong)(PlayerId * 7919 + 17) };
         var skeletonToWorld = _skeleton.GlobalTransform;
+        for (int i = 0; i < n; i++) _deathBody[i] = _deathGlobal[def.Bodies[i].Bone] * def.Bodies[i].BoneLocal.AffineInverse();
+        // Hit reactions: the death clip's motion over its last frame, per body (world space), combined with the push so the two do not add up (DeathHandover.Contributions).
+        Vector3[]? clipLinear = null, clipAngular = null;
+        if (motionFrom is not null && motionSeconds > 1e-4f && def.Bodies.All(b => b.Bone < motionFrom.Length))
+        {
+            var linear = new Num.Vector3[n];
+            clipAngular = new Vector3[n];
+            for (int i = 0; i < n; i++)
+            {
+                var b = def.Bodies[i];
+                var before = motionFrom[b.Bone] * b.BoneLocal.AffineInverse();
+                var (lin, ang) = DeathHandover.Velocity(ToNum(before.Basis.GetRotationQuaternion()), ToNum(before.Origin),
+                    ToNum(_deathBody[i].Basis.GetRotationQuaternion()), ToNum(_deathBody[i].Origin), ToNum(b.CenterOfMass), motionSeconds);
+                linear[i] = ToNum(skeletonToWorld.Basis * new Vector3(lin.X, lin.Y, lin.Z));
+                clipAngular[i] = skeletonToWorld.Basis.Orthonormalized() * new Vector3(ang.X, ang.Y, ang.Z);
+            }
+            var added = DeathHandover.Contributions(linear, def.Bodies.Select(b => b.Mass).ToArray(), ToNum(kick), new Num.Vector3(0f, 1f, 0f));
+            clipLinear = added.Select(v => new Vector3(v.X, v.Y, v.Z)).ToArray();
+        }
         for (int i = 0; i < n; i++)
         {
             var b = def.Bodies[i];
-            _deathBody[i] = _deathGlobal[b.Bone] * b.BoneLocal.AffineInverse();
             var body = new RigidBody3D
             {
                 Name = b.Name, Mass = b.Mass, CollisionLayer = layer, CollisionMask = WorldLayer | layer,
@@ -292,7 +312,14 @@ public sealed partial class Ragdoll : Node3D
             body.GlobalTransform = skeletonToWorld * _deathBody[i];
             float scale = i == def.FocusBody ? 1.5f : 1f;
             body.LinearVelocity = velocity + kick * scale;
-            body.AngularVelocity = new Vector3(rng.RandfRange(-1f, 1f), rng.RandfRange(-1f, 1f), rng.RandfRange(-1f, 1f)) * (kick.Length() > 0.1f ? 1.5f : 0.3f);
+            if (clipLinear is not null && clipAngular is not null)
+            {
+                // The clip keeps moving the body (the skeleton's own slide is in velocity already).
+                body.LinearVelocity += clipLinear[i];
+                body.AngularVelocity = clipAngular[i];
+                ClipMotionBodies++;
+            }
+            else body.AngularVelocity = new Vector3(rng.RandfRange(-1f, 1f), rng.RandfRange(-1f, 1f), rng.RandfRange(-1f, 1f)) * (kick.Length() > 0.1f ? 1.5f : 0.3f);
             _bodies[i] = body;
         }
         for (int i = 0; i < n; i++)
@@ -340,6 +367,12 @@ public sealed partial class Ragdoll : Node3D
         _deathFocus = (skeletonToWorld * _deathGlobal[def.Bodies[def.FocusBody].Bone]).Origin;
         Sync();
     }
+
+    /// <summary>Test aid: bodies started with the death clip's motion (hit reactions).</summary>
+    public static int ClipMotionBodies;
+
+    static System.Numerics.Vector3 ToNum(Vector3 v) => new(v.X, v.Y, v.Z);
+    static System.Numerics.Quaternion ToNum(Quaternion q) => new(q.X, q.Y, q.Z, q.W);
 
     /// <summary>Limits (radians) shifted by the starting angle and widened to include it (the joint's zero is the pose at creation).</summary>
     static void SetAngular(Generic6DofJoint3D joint, int axis, float min, float max, float start)

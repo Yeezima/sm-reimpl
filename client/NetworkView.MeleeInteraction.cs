@@ -21,7 +21,7 @@ namespace SmClient;
 /// near it: a faint shake).</item>
 /// <item><b>Reactions turned to the attacker</b>: a body in a hit reaction turns so the clip's side points at whoever put it there (the charger, else the attacker nearest it), eased.</item>
 /// <item><b>The own hit lands on the hit frame</b>: an own melee hit predicted this frame starts the victim's data flinch at once (the server's reaction arrives a round trip later and
-/// takes over; <see cref="FlinchHit"/>).</item>
+/// takes over; since the hit reactions of 2026-11-11 the graph's random flinch, <see cref="RandomFlinch"/>; <c>--old-hit-reactions</c>: the ranged set, <see cref="FlinchHit"/>).</item>
 /// </list>
 /// Test aids: <c>--no-charge-impact</c> (no hit-stop, kick, impact effects or sound layer: the earlier 0.5 degree charge shake instead), <c>--no-reaction-facing</c>, <c>--no-hit-flinch</c>,
 /// <c>--log-charge-impact</c>; the simulation's lock: <c>--no-charge-lock</c> (server and client).
@@ -107,7 +107,8 @@ public partial class NetworkView
                 int victim = MeleePresentation.Victim(me, others, _config, _client.MeleeLockTarget);
                 if (victim <= 0) continue;
                 double flinchBefore = _loco.TryGetValue(victim, out var before) ? before.FlinchAt : double.NegativeInfinity;
-                FlinchHit(victim, me.PlayerId, false, me);
+                if (OldHitReactions) FlinchHit(victim, me.PlayerId, false, me);
+                else RandomFlinch(victim, "own melee hit, on its hit frame");   // hit reactions: a melee hit shows the graph's random flinch (the ranged sets are for shots)
                 FeelShotTrigger("melee");
                 if (!OldFlinchWeight && _loco.TryGetValue(victim, out var flinched) && flinched.FlinchAt != flinchBefore) flinched.FlinchPeak = WeightFeel.FlinchMeleePeak;   // feel/weight-impact
                 _reactionSource[victim] = (me.PlayerId, now, false);
