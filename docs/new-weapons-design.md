@@ -581,8 +581,17 @@ Changed from the proposals:
   - `client/Extras/Musou/Arsenal/Autocannon/*`: model, stow, recoil, effects, sound, HUD.
   - `tests/SmFormats.Tests/Extras/Musou/Arsenal/Autocannon*.cs` and, for the simulation, `tests/SmNet.Tests/Extras/Musou/Arsenal/Autocannon*.cs`.
 - **Hooks used:** the registry (`Arsenal.cs`); `PerkCatalog.ExtrasItems` (the customizer row: 104314, 104315); `ExtrasWeaponModel` (`turret_aa` at `rig_prop_m_chest`, stowed at `mkr_stow_bolter`); `ExtrasAnimationAlias` (→ heavy bolter); the weapon-blast call site.
+- **First, the customizer's config (W0 review, 2026-11-10).**
+  - The front end's customizer loads one config for every page: `CustomizerServices.Load` uses `GameplayTuning.LoadForMatch(GameDir, ContentExtras.Orks)`, which has no Musou and so no arsenal items.
+  - From W1 on, Musou's catalogue lists the autocannon, but the Join from the Musou page (`PlanFor` → `JoinPlan.Build`, then `ContentGate.ForJoin` in `JoinOptions`) resolves names against that config. It would send the default primary. The item statuses (`PerkActivities`) would not know the gun either.
+  - The in-match picker is fine: `SendLoadout` builds with the match's own config.
+  - **Fix:** make `CustomizerServices.Config` (and `PerkActivities`) the config of the content profile in effect, as W0 did for `Catalog`.
+    - Every profile but Musou: the data's config, unchanged.
+    - Musou: its own config, `LoadForMatch(GameDir, ContentExtras.Musou)`, which runs `Arsenal.Append`. Load it once on a worker the first time a Musou page needs it; until it is ready, the Musou page's PLAY and JOIN wait for it or say so.
+  - This is a core change outside W1's files: one new pinned hook (`CustomizerServices.ExtrasConfig(ContentExtras, ref SimConfig)`, its Musou dispatcher loading and caching). Agree with the lead who makes it (W1 with the lead's word, or a small W0 follow-up) before the Join criterion below.
+  - Test: the Musou page's `PlanFor` of a Devastator slot with the autocannon asks for its index in Musou's config; a Classic page's plan is unchanged.
 - **Done when:**
-  - The Devastator picks it in a Musou loadout and the Musou customizer, and a Musou slot stores it.
+  - The Devastator picks it in a Musou loadout and the Musou customizer, and a Musou slot stores it; a Join from the Musou page sends it.
   - It fires full auto at 0.4 s, 50 a round, and overheats after 15 rounds.
   - A 2.5 m blast (full to 1.0 m, 30 % at the edge, 15) goes off at every Ork struck, through 5 pierced.
   - Kills are torn apart, hurt fodder knocked down, others staggered, and there is no frag sound.
