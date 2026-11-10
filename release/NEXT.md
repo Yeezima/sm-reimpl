@@ -10,3 +10,4 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Add your bullets in the same pull request as the change, when it merges.
 -->
 - Musou Mode, power spear: the jump-pack dive now ends in the point-down impale only when it actually lands on an Ork; a dive that hits nothing lands, dips the spear and brings it straight back up. The carried spear sits closer in at the chest with the blade clear of the crosshair, both hands now hold the shaft in their palms, and the feet stay planted through the steps of the swings.
+- Musou Mode, power spear: the light attacks now swing the spear out in wide sweeps around the marine, his hips turning into each cut and his feet stepping toward the target. While running, the spear and arm stay close in at the chest with the blade clear of the crosshair, and the feet no longer slide along the ground during the lunging swings.

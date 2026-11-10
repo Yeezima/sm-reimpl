@@ -53,6 +53,8 @@ public class SpearClearanceTests(ITestOutputHelper output)
         public readonly Dictionary<string, Worst> ByClip = new();
         /// <summary>Per clip, the farthest a holding hand's grip socket is from the shaft's axis (m) and where.</summary>
         public readonly Dictionary<string, (float Off, string At)> Palm = new();
+        /// <summary>Per clip, while both hands hold the shaft: the closest the two grip sockets come (m), the farthest up the shaft the left one sits (m from the butt), and where.</summary>
+        public readonly Dictionary<string, (float Spacing, string SpacingAt, float LeftAt, string LeftAtWhere)> Hands = new();
         public float LowestButt = float.PositiveInfinity, LowestLandingButt = float.PositiveInfinity;
         public string LowestButtAt = "", LowestLandingButtAt = "";
 
@@ -68,6 +70,16 @@ public class SpearClearanceTests(ITestOutputHelper output)
             if (!ByClip.TryGetValue(key, out var worst) || r.Clearance < worst.Result.Clearance) ByClip[key] = new Worst(scenario, time, r);
             // The grip (owner, 2026-11-11: "the spear is always attached to the inside palm of the hand"): the shaft's axis through the right hand's grip socket on every frame, and through the
             // left's whenever the left hand holds the shaft (its grip track at 1); the sockets read here by name, apart from the placement.
+            // The palms are on the shaft by construction (SpearHold.Place builds the axis through the two sockets; review of 2026-11-11): what the arms decide is how far apart the hands are and
+            // where the left one sits on the shaft, so both are held here: the hands never closer than HandSpacingMin, the left on the spear (LeftHandMaxUp).
+            if (grip >= 0.999f)
+            {
+                float spacing = Vector3.Distance(mirror.RightHand, mirror.LeftHand), leftAt = point + spacing;
+                var h = Hands.TryGetValue(key, out var hv) ? hv : (float.PositiveInfinity, "", 0f, "");
+                if (spacing < h.Item1) h = (spacing, $"{scenario} t {time:0.000}", h.Item3, h.Item4);
+                if (leftAt > h.Item3) h = (h.Item1, h.Item2, leftAt, $"{scenario} t {time:0.000}");
+                Hands[key] = h;
+            }
             foreach (var (socket, holds) in new[] { (SpearHold.RightGripBone, true), (SpearHold.LeftGripBone, grip >= 0.999f) })
             {
                 if (!holds || mirror.Pose(socket) is not { } palm) continue;
@@ -102,12 +114,14 @@ public class SpearClearanceTests(ITestOutputHelper output)
         foreach (var name in stances)
         {
             var stance = rig.LoadAnimation(name);
+            mirror.FistWeight = name == stances[0] ? 0f : 1f;   // the carry's fist solve comes in with the speed (WeaponPoseState.FistWeight): off standing, on in the walk, run and sprint
             for (float t = 0f; t <= stance.Animation.Duration; t += Step)
             {
                 mirror.Lay(stance, t);
                 run.Measure("spear_rest (carry)", name, t, ClawSpearClips.SpearRest, t % ClawSpearClips.SpearIdleLength, carry: true);
             }
         }
+        mirror.FistWeight = 0f;
         // The strikes over the hammer's idle (in a match the idle's loop clock runs on under them, so a strike starts at any phase of its 1.5 s loop: six of them).
         foreach (float phase in IdlePhases)
             foreach (var clip in ClawSpearClips.SpearStrikes)
@@ -325,20 +339,23 @@ public class SpearClearanceTests(ITestOutputHelper output)
     }
 
     /// <summary>
-    /// The carried blade stays out of the crosshair's column in the own view at idle (owner via the lead, 2026-11-11: the blade crossed it): over the whole hammer idle the spear's head (collar,
-    /// crossguard, blade) stands at least <see cref="SpearClearance.CrosshairColumnDegrees"/> to one side of the screen's centre column, the view level; the walk, run and sprint are printed
-    /// (not held to it).
+    /// The carried blade stays out of the crosshair's column in the own view (owner via the lead, 2026-11-11: the blade crossed it): over the whole hammer idle and every walk and run direction
+    /// (pass 3, 2026-11-11: the run too, with the carry's fist solve laid as the speed lays it in a match) the spear's head (collar, crossguard, blade) stands at least
+    /// <see cref="SpearClearance.CrosshairColumnDegrees"/> to one side of the screen's centre column, the view level; the sprints are printed (the right strafe sprint's arm cannot reach in far
+    /// enough: open).
     /// </summary>
     [InstallFact]
-    public void The_carried_blade_stays_out_of_the_crosshair_column_at_idle()
+    public void The_carried_blade_stays_out_of_the_crosshair_column_standing_walking_and_running()
     {
         var (rig, loco) = Data.Value;
         var mirror = new WeaponPoseMirror(rig.Skeleton);
         var level = OwnCamera(0f);
         output.WriteLine(string.Format(I, "own camera (level): {0:0.00} right, {1:0.00} along the facing, {2:0.00} up", level.X, level.Y, level.Z));
+        string idleName = loco.HammerIdle ?? ClawSpearClips.SpearIdle;
         float Least(string stance, Vector3 camera, float pitch)
         {
             var clip = rig.LoadAnimation(stance);
+            mirror.FistWeight = stance == idleName ? 0f : 1f;
             float least = float.PositiveInfinity;
             for (float t = 0f; t <= clip.Animation.Duration; t += Step)
             {
@@ -357,11 +374,117 @@ public class SpearClearanceTests(ITestOutputHelper output)
             output.WriteLine(string.Format(I, "{0,-36} {1,6:0.0} deg at pitch {2:0.0}", idle, Least(idle, OwnCamera(pitch), pitch), pitch));
         foreach (float shift in new[] { 0.1f, 0.2f, 0.35f })   // a wider field of view moves the camera right (FovMath.CameraShift, up to 0.35 m)
             output.WriteLine(string.Format(I, "{0,-36} {1,6:0.0} deg with the camera {2:0.00} m further right", idle, Least(idle, level with { X = level.X + shift }, 0f), shift));
+        var failures = new List<string>();
+        if (MathF.Abs(atIdle) < SpearClearance.CrosshairColumnDegrees) failures.Add($"idle: {atIdle:0.0} deg");
+        int moving = 0;
         foreach (var d in loco.Hammer?.Directions ?? [])
             foreach (var s in new[] { d.Walk, d.Run })
-                if (s is { } moving) output.WriteLine(string.Format(I, "{0,-36} {1,6:0.0} deg", moving.Clip, Least(moving.Clip, level, 0f)));
-        foreach (var c in loco.SprintFor(SprintFamily.Hammer)?.Clips ?? []) output.WriteLine(string.Format(I, "{0,-36} {1,6:0.0} deg", c.Clip, Least(c.Clip, level, 0f)));
-        Assert.True(MathF.Abs(atIdle) >= SpearClearance.CrosshairColumnDegrees, $"the carried blade comes within {MathF.Abs(atIdle):0.0} degrees of the crosshair's column at idle (at least {SpearClearance.CrosshairColumnDegrees} wanted)");
+                if (s is { } m)
+                {
+                    float a = Least(m.Clip, level, 0f); moving++;
+                    output.WriteLine(string.Format(I, "{0,-36} {1,6:0.0} deg", m.Clip, a));
+                    if (MathF.Abs(a) < SpearClearance.CrosshairColumnDegrees) failures.Add($"{m.Clip}: {a:0.0} deg");
+                }
+        foreach (var c in loco.SprintFor(SprintFamily.Hammer)?.Clips ?? []) output.WriteLine(string.Format(I, "{0,-36} {1,6:0.0} deg (sprint: printed)", c.Clip, Least(c.Clip, level, 0f)));
+        Assert.True(moving >= 16, $"the hammer stance's walk and run directions not found ({moving})");
+        Assert.True(failures.Count == 0, $"the carried blade comes within {SpearClearance.CrosshairColumnDegrees} degrees of the crosshair's column:\n" + string.Join("\n", failures));
+    }
+
+    /// <summary>The least horizontal travel of a light hew's blade tip round him from its wind-up apex to its follow-through (degrees; pass 3, owner 2026-11-11: "the spear properly swinging out wide").</summary>
+    const float HewArcMin = 180f;
+
+    /// <summary>
+    /// The blade tip's horizontal travel round the pelvis's vertical line (degrees, unwrapped, the greatest less the least) from the clip's wind-up apex to 0.25 s past its follow-through, over the
+    /// hammer idle at phase 0, and the tip's least and greatest reach from that line (m).
+    /// </summary>
+    static (float Arc, float MinReach, float MaxReach) TipArc(WeaponPoseMirror mirror, HavokBoundAnimation idle, WeaponPoseClip clip)
+    {
+        float prev = float.NaN, u = 0f, lo = float.PositiveInfinity, hi = float.NegativeInfinity, minR = float.PositiveInfinity, maxR = 0f;
+        for (float t = clip.Anticipation; t <= clip.Follow + 0.25f + 1e-4f; t += 1f / 120f)
+        {
+            mirror.Lay(idle, t % ClawSpearClips.SpearIdleLength);
+            mirror.Overlay(clip, t);
+            var (butt, shaft, _) = SpearHold.Place(mirror.RightHand, mirror.LeftHand, clip.GripAt(t), clip.GripPointAt(t), mirror.SpearFront(clip), Vector3.UnitZ);
+            var tip = butt + shaft * SpearHold.TipFromButt;
+            var pelvis = mirror.Pose("RIG_Pelvis")!.Value.Item1;
+            var rel = new Vector2(tip.X - pelvis.X, tip.Y - pelvis.Y);
+            float az = MathF.Atan2(rel.X, rel.Y) * 180f / MathF.PI;
+            if (float.IsNaN(prev)) u = az; else { float d = az - prev; while (d > 180f) d -= 360f; while (d < -180f) d += 360f; u += d; }
+            prev = az; lo = MathF.Min(lo, u); hi = MathF.Max(hi, u); minR = MathF.Min(minR, rel.Length()); maxR = MathF.Max(maxR, rel.Length());
+        }
+        return (hi - lo, minR, maxR);
+    }
+
+    /// <summary>
+    /// Each light hew swings the blade out wide (owner, 2026-11-11: "most of the light attack swings don't feature the spear properly swinging out wide"; pass 3): its tip travels at least
+    /// <see cref="HewArcMin"/> degrees round him from the wind-up to the follow-through (before pass 3: 105, 140 and 176 degrees by this measure), at full reach.
+    /// </summary>
+    [InstallFact]
+    public void Each_light_hew_swings_the_blade_out_wide()
+    {
+        var (rig, _) = Data.Value;
+        var mirror = new WeaponPoseMirror(rig.Skeleton);
+        var idle = rig.LoadAnimation(ClawSpearClips.SpearIdle);
+        var failures = new List<string>();
+        foreach (var clip in new[] { ClawSpearClips.SpearHew1, ClawSpearClips.SpearHew2, ClawSpearClips.SpearHew3, ClawSpearClips.SpearStun, ClawSpearClips.SpearStab })
+        {
+            var (arc, minR, maxR) = TipArc(mirror, idle, clip);
+            output.WriteLine(string.Format(I, "{0,-12} the tip travels {1,6:0.0} deg round him, {2:0.00} to {3:0.00} m out", clip.Name, arc, minR, maxR));
+            if (clip.Name.StartsWith("spear_hew", StringComparison.Ordinal) && (arc < HewArcMin || minR < 1.8f)) failures.Add($"{clip.Name}: {arc:0.0} deg, the tip {minR:0.00} m out at the least");
+        }
+        Assert.True(failures.Count == 0, "a light hew does not swing out wide:\n" + string.Join("\n", failures));
+    }
+
+    /// <summary>How far the simulation's lunge carries the body in this test (m, along the facing, from the wind-up apex to 0.1 s past the hit; a stand-in for the step's root motion and lock-on lunge).</summary>
+    const float TestLunge = 0.8f;
+
+    /// <summary>
+    /// In a match the planted feet stay put while the lunge moves the body (pass 3, owner 2026-11-11: no sliding): each strike over the hammer idle with the body carried <see cref="TestLunge"/> along
+    /// the facing, the overlay's legs through the client's world-space foot pin (<see cref="FootPin"/>, the mirror as <c>WeaponPoseOverlay</c> runs it): a foot the clip has on the ground and the
+    /// pin holds moves at most <see cref="FootSlide"/> a frame in the world; without the pin the same foot slides with the body (printed: the test sees the slide).
+    /// </summary>
+    [InstallFact]
+    public void Planted_feet_hold_their_spots_in_the_world_while_the_lunge_moves_the_body()
+    {
+        var (rig, _) = Data.Value;
+        var mirror = new WeaponPoseMirror(rig.Skeleton);
+        var idle = rig.LoadAnimation(ClawSpearClips.SpearIdle);
+        string[] feet = ["RIG_L_Foot", "RIG_R_Foot"];
+        var failures = new List<string>();
+        foreach (var clip in ClawSpearClips.SpearStrikes)
+        {
+            float worstPinned = 0f, worstFree = 0f; string at = ""; int pinnedFrames = 0;
+            foreach (bool pinOn in new[] { true, false })
+            {
+                var pin = new FootPin();
+                var last = new Vector3?[2];
+                for (float t = 0f; t <= clip.Duration + 1e-4f; t += Step)
+                {
+                    float u = Math.Clamp((t - clip.Anticipation) / (clip.HitTime + 0.1f - clip.Anticipation), 0f, 1f);
+                    var toWorld = Matrix4x4.CreateTranslation(0f, TestLunge * u * u * (3f - 2f * u), 0f);
+                    mirror.Lay(idle, t % ClawSpearClips.SpearIdleLength);
+                    mirror.Overlay(clip, t, null, 0f, 0f, 1f, pinOn ? pin : null, toWorld, Step, pinActive: true);
+                    for (int i = 0; i < 2; i++)
+                    {
+                        var ch = clip.Channels.FirstOrDefault(c => c.Bone == feet[i] && c.Kind == PoseChannelKind.Foot);
+                        bool planted = ch is null || ch.Sample(t).Up < FootPin.PlantedBelow;
+                        bool held = pinOn ? pin.IsPinned(i) : planted;
+                        var world = Vector3.Transform(mirror.Pose(feet[i])!.Value.Item1, toWorld);
+                        if (held && planted && last[i] is { } before)
+                        {
+                            float moved = Vector3.Distance(world, before);
+                            if (pinOn) { pinnedFrames++; if (moved > worstPinned) { worstPinned = moved; at = $"{feet[i]} t {t:0.000}"; } }
+                            else worstFree = MathF.Max(worstFree, moved);
+                        }
+                        last[i] = held && planted ? world : null;
+                    }
+                }
+            }
+            output.WriteLine(string.Format(I, "{0,-12} a pinned planted foot moves at most {1:0.0000} m a frame in the world ({2}; {3} frames held); without the pin {4:0.000} m a frame", clip.Name, worstPinned, at, pinnedFrames, worstFree));
+            if (worstPinned > FootSlide) failures.Add($"{clip.Name}: a pinned foot slides {worstPinned:0.0000} m in a frame ({at})");
+            if (pinnedFrames < 30) failures.Add($"{clip.Name}: the pin held a planted foot for only {pinnedFrames} frames");
+        }
+        Assert.True(failures.Count == 0, string.Join("\n", failures));
     }
 
     /// <summary>How far a planted foot may stand from its spot (m; ours): the leg reaches it, so the foot does not float.</summary>
@@ -427,6 +550,17 @@ public class SpearClearanceTests(ITestOutputHelper output)
         Assert.True(failures.Count == 0, string.Join("\n", failures));
     }
 
+    /// <summary>
+    /// The least distance between the two grip sockets while both hands hold the shaft (m; ours: the sockets sit in the palms, so two gauntlets touching along the shaft keep them about this far
+    /// apart). Measured (pass 3): 0.07 m at the closest, between the hews' keys, where the left hand slides down the shaft to the right hand.
+    /// </summary>
+    const float HandSpacingMin = 0.06f;
+    /// <summary>
+    /// The farthest up the shaft the left hand may sit (m from the butt): on the spear, short of the blade's last 0.1 m. Measured (pass 3): 1.4 m in the hews; 2.67 m in the impale's drive and
+    /// the dive's hand-over into it, past the collar (1.89 m) onto the blade's fittings, as approved in pass 2 (open: docs/claw-spear-animations.md section 3f).
+    /// </summary>
+    const float LeftHandMaxUp = SpearHold.TipFromButt - 0.1f;
+
     [InstallFact]
     public void The_spear_never_passes_into_the_body_in_any_clip_or_hand_over()
     {
@@ -441,6 +575,11 @@ public class SpearClearanceTests(ITestOutputHelper output)
         var offPalm = run.Palm.Where(k => k.Value.Off > SpearHold.PalmTolerance).Select(k => $"{k.Key}: {k.Value.Off:0.000} m from the palm ({k.Value.At})").ToList();
         output.WriteLine(string.Format(I, "the shaft's farthest from a holding palm: {0:0.0000} m", run.Palm.Values.Max(p => p.Off)));
         Assert.True(offPalm.Count == 0, "the shaft leaves the palm:\n" + string.Join("\n", offPalm));
+        foreach (var (clip, h) in run.Hands.OrderBy(k => k.Key))
+            output.WriteLine(string.Format(I, "{0,-32} hands at least {1:0.00} m apart ({2}); the left hand at most {3:0.00} m up the shaft ({4})", clip, h.Spacing, h.SpacingAt, h.LeftAt, h.LeftAtWhere));
+        var badHands = run.Hands.Where(k => k.Value.Spacing < HandSpacingMin || k.Value.LeftAt > LeftHandMaxUp)
+            .Select(k => $"{k.Key}: hands {k.Value.Spacing:0.00} m apart ({k.Value.SpacingAt}), the left hand {k.Value.LeftAt:0.00} m up the shaft ({k.Value.LeftAtWhere})").ToList();
+        Assert.True(badHands.Count == 0, "a hand off the shaft's grip:\n" + string.Join("\n", badHands));
         Assert.Contains(run.Palm.Keys, k => k.StartsWith("spear_rest", StringComparison.Ordinal));
         Assert.Contains(run.ByClip.Keys, k => k.StartsWith("spear_rest", StringComparison.Ordinal));
         foreach (var clip in ClawSpearClips.All.Where(c => c.Weapon == "spear")) Assert.Contains(run.ByClip.Keys, k => k.StartsWith(clip.Name, StringComparison.Ordinal));

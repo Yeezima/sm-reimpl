@@ -32,6 +32,8 @@ public partial class NetworkView
 
     /// <summary>How long the spear's pose takes to come in and to go out where it starts or stops showing (s; ours, about the stances' cross-fade).</summary>
     const float SpearPoseFade = 0.15f;
+    /// <summary>The planar speed (m/s) from which the carry's fist solve is fully laid (ours: about a walk; WeaponPoseState.FistWeight).</summary>
+    const float SpearFistFullAt = 1.5f;
 
     sealed class SpearPoseTrack
     {
@@ -123,6 +125,7 @@ public partial class NetworkView
         if (character is null) return;
         var track = SpearTrackOf(s.PlayerId, character);
         track.State.Show(clip, clip.TimeAt(drawnTime, step.HitTime));
+        track.State.PinFeet = true;   // planted feet stay on their spots in the world while the lunge moves the body (FootPin, 2026-11-11)
         track.State.Base = clip.BaseClip;
         track.State.BaseTime = track.IdleClock % ClawSpearClips.SpearIdleLength;
         track.StrikeFrame = Engine.GetProcessFrames();
@@ -149,6 +152,11 @@ public partial class NetworkView
         foreach (var (id, track) in _spearPoses)
             if (track.Character is not { } c || !GodotObject.IsInstanceValid(c) || (c != _local && _remotes.GetValueOrDefault(id) != c)) _spearGone.Add(id);
         foreach (int id in _spearGone) _spearPoses.Remove(id);
+        // Nor any impale evidence (review of 2026-11-11): a player no longer drawn keeps none.
+        _spearGone.Clear();
+        foreach (int id in _spearImpaleSeen.Keys)
+            if (id != me.PlayerId && !_remotes.ContainsKey(id)) _spearGone.Add(id);
+        foreach (int id in _spearGone) _spearImpaleSeen.Remove(id);
     }
 
     void SpearPoseOf(PlayerState s, CharacterViewer character, float delta)
@@ -164,6 +172,7 @@ public partial class NetworkView
             if (track.StrikeFrame == Engine.GetProcessFrames()) show = true;   // the attack pose showed the strike (SpearStrikeShown)
             else
             {
+                state.PinFeet = false;
                 string? posed = character.PosedClip;
                 float at = character.PosedClipTime;
                 state.Base = null;
@@ -177,7 +186,11 @@ public partial class NetworkView
                 { state.Show(ClawSpearClips.SpearRest, track.IdleClock % ClawSpearClips.SpearIdleLength); show = true; }
             }
         }
-        if (!show) state.Base = null;
+        if (!show) { state.Base = null; state.PinFeet = false; }
+        // The carry's fist solve (WeaponPoseClip.FistTarget) comes in with the speed: off standing (the keys hold the fist there), full from a walk on (ours: SpearFistFullAt, eased).
+        float speed = MathF.Sqrt(s.Velocity.X * s.Velocity.X + s.Velocity.Y * s.Velocity.Y);
+        float fistWant = Math.Clamp(speed / SpearFistFullAt, 0f, 1f);
+        state.FistWeight += Math.Clamp(fistWant - state.FistWeight, -delta / SpearPoseFade, delta / SpearPoseFade);
         // The fades: in where a clip starts showing, out (the last clip held at its last time) where none does; the track goes once it is out and the spear is not wielded.
         float step = SpearPoseFade > 1e-4f ? delta / SpearPoseFade : 1f;
         state.Weight = show ? MathF.Min(1f, state.Weight + step) : MathF.Max(0f, state.Weight - step);

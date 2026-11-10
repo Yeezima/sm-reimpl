@@ -46,8 +46,8 @@ public static class SpearHold
     /// toward the way the player faces, so the shaft rose beside the head and through the pad.
     /// <para>Second follow-up pass (2026-11-11: the carry closer in to the body, the blade out of the crosshair's column): read in the facing frame (the carry clip's
     /// <see cref="WeaponPoseClip.FacingFrame"/>: <c>front</c> is the way the player faces), 65 degrees above the horizontal at -50 (forward and in at the top), from the fist held close at the
-    /// right of the chest (<c>ClawSpearClips.SpearRest</c>): the blade above and forward of the right shoulder, left of the crosshair's column by 5.5 degrees at idle, the butt behind and outside
-    /// the right leg (clearance over every stance clip 0.086 m at the least, the butt at least 0.65 m up). Before: 55 at -15 in the stance's frame from a fist held out wide (pass 2).</para>
+    /// right of the chest (<c>ClawSpearClips.SpearRest</c>): the blade above and forward of the right shoulder, left of the crosshair's column by 5.9 degrees at idle, the butt behind and outside
+    /// the right leg (clearance over every stance clip 0.086 m at the least, the butt at least 0.65 m up; since pass 3 the walk, run and sprint hold the fist against the shoulders by a solve, <c>WeaponPoseClip.FistTarget</c>). Before: 55 at -15 in the stance's frame from a fist held out wide (pass 2).</para>
     /// </summary>
     public const float CarryElevation = 65f, CarryAzimuth = -50f;
     /// <summary>

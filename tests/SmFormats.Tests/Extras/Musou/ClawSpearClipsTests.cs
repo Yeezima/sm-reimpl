@@ -79,11 +79,19 @@ public class ClawSpearClipsTests(Xunit.Abstractions.ITestOutputHelper output)
     [Fact]
     public void The_jump_packs_flight_with_the_spear_is_left_as_it_was()
     {
-        // Owner, 2026-11-11: "The flying when holding w (after holding space bar jump long) animation is the only piece that I don't want touched". In flight no spear clip shows (the client's
-        // NetworkView.SpearPoseOf shows the dive only for the pound's dive loop): the flight clips are posed by the vertical angle (JumpFlightPose) and the spear rides W3's own mount. Pinned
-        // here as on main (2026-11-11): the flight pose's numbers, W3's mount points, and no spear clip laid over a flight clip.
+        // Owner, 2026-11-11: "The flying when holding w (after holding space bar jump long) animation is the only piece that I don't want touched". No spear clip shows in that flight: the
+        // client (NetworkView.SpearPoseOf) lays a spear clip only over the stances (the carry, nothing posed), the pound's dive loop and landing (NetworkView.Jump's DiveClipNames, the
+        // SM_JMP_GP_Loop*Degrees clips, and the impact), and a strike; the flight is posed with the SM_JMP_Zero* clips by the vertical angle (JumpFlightPose) and the spear rides W3's own mount
+        // there. What the flight reads is pinned here as on main (2026-11-11): the flight pose's numbers, W3's mount points, no spear clip authored over a flight clip, the dive only over the
+        // pound's dive loop. The pound's dive itself is not the flight (review of 2026-11-11): its keys are pinned below at the values of the palms pass (they differ from main's by that pass).
         foreach (var clip in ClawSpearClips.All) Assert.DoesNotContain("SM_JMP_Zero", clip.BaseClip, StringComparison.OrdinalIgnoreCase);
+        foreach (var clip in ClawSpearClips.All) Assert.DoesNotContain("_Aim_", clip.BaseClip, StringComparison.OrdinalIgnoreCase);
         Assert.Equal(ClawSpearClips.SpearDiveLoop, ClawSpearClips.SpearDive.BaseClip);
+        Assert.Equal("SM_JMP_TH_GP_Loop_01", ClawSpearClips.SpearDiveLoop);
+        var dive = ClawSpearClips.SpearDive.Channels.Where(c => c.Kind == PoseChannelKind.Aim).ToDictionary(c => c.Bone, c => c.Sample(0.5f));
+        (string Bone, float El, float Az)[] pinnedDive = [("RIG_R_UpperArm", 9f, 14f), ("RIG_R_Forearm", 46f, -27f), ("RIG_L_UpperArm", -30f, 41f), ("RIG_L_Forearm", 33f, 76f)];
+        foreach (var (bone, el, az) in pinnedDive) { Assert.Equal(el, dive[bone].Elevation, 3); Assert.Equal(az, dive[bone].Azimuth, 3); }
+        Assert.Equal(-6f, ClawSpearClips.SpearDive.Channels.Single(c => c.Bone == "RIG_Pelvis").Sample(0.5f).Pitch, 3);
         Assert.Equal(1.34f, SpearHold.MountHighFromButt);
         Assert.Equal(0.45f, SpearHold.MountLowFromButt);
         Assert.Equal(1.05f, SpearHold.AxisFromButt);
@@ -260,17 +268,17 @@ public class ClawSpearClipsTests(Xunit.Abstractions.ITestOutputHelper output)
     {
         // Owner 2026-11-10: gripped high toward the blade when running, slid low toward the butt for melee.
         Assert.Equal(WeaponPoseClip.CarryGrip, ClawSpearClips.SpearRest.GripPointAt(0.5f));
-        foreach (var first in new[] { ClawSpearClips.SpearHew1, ClawSpearClips.SpearStun })   // the strikes begun from the carry
+        foreach (var (first, melee) in new[] { (ClawSpearClips.SpearHew1, WeaponPoseClip.HewGrip), (ClawSpearClips.SpearHew3, WeaponPoseClip.HewGrip), (ClawSpearClips.SpearStun, WeaponPoseClip.LowGrip) })   // the strikes begun from the carry (hew 3 too since pass 3)
         {
             Assert.Equal(WeaponPoseClip.CarryGrip, first.GripPointAt(0f));
-            Assert.Equal(WeaponPoseClip.LowGrip, first.GripPointAt(ClawSpearClips.GripSlide), 3);
-            Assert.Equal(WeaponPoseClip.LowGrip, first.GripPointAt(first.HitTime), 3);
+            Assert.Equal(melee, first.GripPointAt(ClawSpearClips.GripSlide), 3);
+            Assert.Equal(melee, first.GripPointAt(first.HitTime), 3);
             Assert.Equal(WeaponPoseClip.CarryGrip, first.GripPointAt(first.Duration), 3);
-            if (!float.IsNaN(first.NextAt)) Assert.Equal(WeaponPoseClip.LowGrip, first.GripPointAt(first.NextAt), 3);   // a chained strike takes over the low grip
+            if (!float.IsNaN(first.NextAt)) Assert.Equal(melee, first.GripPointAt(first.NextAt), 3);   // a chained strike takes over the melee grip
         }
-        foreach (var chained in new[] { ClawSpearClips.SpearHew2, ClawSpearClips.SpearHew3 })
+        foreach (var chained in new[] { ClawSpearClips.SpearHew2 })
         {
-            Assert.Equal(WeaponPoseClip.LowGrip, chained.GripPointAt(0f), 3);
+            Assert.Equal(WeaponPoseClip.HewGrip, chained.GripPointAt(0f), 3);
             Assert.Equal(WeaponPoseClip.CarryGrip, chained.GripPointAt(chained.Duration), 3);
         }
         Assert.True(ClawSpearClips.SpearStab.GripPointAt(ClawSpearClips.SpearStab.HitTime) < WeaponPoseClip.LowGrip, "the stab holds the shaft at the butt for the reach");
@@ -342,7 +350,7 @@ public class ClawSpearClipsTests(Xunit.Abstractions.ITestOutputHelper output)
         Assert.Equal(0.5f, WeaponPoseClip.LowGrip);
         Assert.Equal(0.3f, WeaponPoseClip.StabGrip);
         Assert.Equal(WeaponPoseClip.CarryGrip, ClawSpearClips.SpearRest.GripPointAt(0.7f), 3);
-        Assert.Equal(WeaponPoseClip.LowGrip, ClawSpearClips.SpearHew1.GripPointAt(ClawSpearClips.SpearHew1.HitTime), 3);
+        Assert.Equal(WeaponPoseClip.HewGrip, ClawSpearClips.SpearHew1.GripPointAt(ClawSpearClips.SpearHew1.HitTime), 3);   // pass 3: near the butt for the wide hews
         Assert.Equal(WeaponPoseClip.StabGrip, ClawSpearClips.SpearStab.GripPointAt(ClawSpearClips.SpearStab.HitTime), 3);
         foreach (var clip in ClawSpearClips.All.Where(c => c.Weapon == "spear"))
             for (float t = 0f; t <= clip.Duration; t += 0.05f)

@@ -193,7 +193,6 @@ public partial class ClawSpearTestView : Node3D
                 if (_pose.From is { } from && _pose.FromShare is var share and > 0f) { grip += (from.GripAt(_pose.FromTime) - grip) * share; point += (from.GripPointAt(_pose.FromTime) - point) * share; }
                 spear.LeftGrip = grip;
                 spear.RightHandFromButt = point;
-                spear.FacingCarry = _pose.Clip?.FacingFrame == true;   // the carry is placed against the facing (2026-11-11), as in a match
                 spear.Follow(_marine.Skeleton!);
                 if (_clearance && seg.Clip is { } measured) MeasureClearance(measured, (float)local, spear);
             }

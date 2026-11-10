@@ -146,9 +146,6 @@ public partial class SpearStandIn : WeaponStandIn
 
     public override void _Ready() { AddChild(_root); }
 
-    /// <summary>The clip shown is read in the facing frame (<see cref="SmContent.Extras.Musou.WeaponPoseClip.FacingFrame"/>, the carry): the spear is placed against the skeleton's +Y, not the hips.</summary>
-    public bool FacingCarry { get; set; }
-
     public override void Follow(Skeleton3D s)
     {
         if (!_resolved)
@@ -163,7 +160,6 @@ public partial class SpearStandIn : WeaponStandIn
         // The shaft from the rear (right) hand toward the forward (left) hand and the blade; carried in the right hand alone it leans from the hand by the grip (SpearHold.Place). The blade's
         // edge (the stand-in's +X) faces the way he faces (owner, 2026-11-10: "the blade needs to face forward at rest").
         var front = new Vector3(0f, 1f, 0f);   // the facing, in every clip (second follow-up pass, 2026-11-11; WeaponPoseSpearFront)
-        _ = FacingCarry;
         var (butt, d, hint) = SmContent.Extras.Musou.SpearHold.Place(ToN(r), ToN(l), LeftGrip, RightHandFromButt, ToN(front), new System.Numerics.Vector3(0f, 0f, 1f));
         var y = ToG(d); var x = ToG(hint);
         var z = x.Cross(y).Normalized();   // right-handed: x = edge, y = shaft, z = x cross y
