@@ -10,3 +10,6 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Add your bullets in the same pull request as the change, when it merges.
 -->
 - Musou Mode has loadouts of its own now, kept apart from your Classic loadouts: the first time you open Musou's customizer they start as a copy of your Classic ones. The Librarian gets his own loadout too: melee weapon, equipment, two perks and a look. Opening an older build of the game can reset your Musou loadouts.
+- Fewer stacked sounds in big fights: the game's own limits on how many copies of one sound play at once now apply to every sound (before, only to footsteps), so bolter fire, hits and blasts no longer pile up on themselves. Please report any hit, kill or voice sound that seems to go missing.
+- Press F3 in a match for a performance readout in the top right corner (off by default; F3 again adds the network: your ping, snapshot loss, interpolation delay and input slack; a third press hides it). Please have it on when you report stutter or lag.
+- In old GPU / safe mode Musou Mode's Ashfall always uses the FAST grime look (the Compatibility renderer paid most for the extra pass).

@@ -364,6 +364,7 @@ public partial class NetworkView : Node3D
         _watchdog?.Dispose();
         _watchdog?.Profile?.PrintSummary();   // M40-T9
         _perfProbe?.PrintSummary();   // perf/pass-1 (--perf-probe)
+        if (_sound is not null && LogSound("footstep")) { GD.Print($"sound at exit: {_sound.Summary()}"); if (_sound.LimitNodesReport() is { Length: > 0 } nodes) GD.Print(nodes); }   // polish pass P1: the A/B's numbers
         if (_watchdog?.Profile is not null) GD.Print($"profile: {HeavyReport()}; {_jit?.Report ?? "jit prewarm off"}");
         _jit?.Stop(); _animationCancel.Cancel();
         LooksExit();   // customizer T7: the shared assets must not keep asking this view for emblems
@@ -438,6 +439,7 @@ public partial class NetworkView : Node3D
         HeavyReset();   // M40-T9: this frame's budget for first builds (characters, weapon rigs, corpses)
         if (FrameStatsLog) (_frameStats ??= new MapLightingView.FrameStats(GetViewport())).Add(delta);
         if (PerfProbe.On) (_perfProbe ??= new PerfProbe(GetViewport())).Frame(delta, GetTree().Root);   // perf/pass-1 test aid (--perf-probe)
+        _readout?.Step(delta, _client, _client?.Status == ClientStatus.Connected && !LoadingShown);   // polish pass P1: the performance readout (HudReadout.cs)
         if (_blender is not null && _camera is not null) { var cp = _camera.GlobalPosition; _blender.Update(new System.Numerics.Vector3(cp.X, -cp.Z, cp.Y)); }   // Godot to game space
         _lightingGrade.Frame(_camera?.Environment ?? _environment, _sun);   // ui/lighting-presets: OPTIONS, GRAPHICS, LIGHTING PRESET on top of the map's look (LightingGradeView)
         if (_client is null || _config is null || _assets is null) { UpdateOverlay(); return; }
@@ -2148,7 +2150,10 @@ public partial class NetworkView : Node3D
         SetUpScope(layer);   // feel/scope-lascannon: under the HUD (NetworkView.Scope.cs)
         _hudView = new Hud { GameDir = Lean ? null : _gameDir };   // M44: the original HUD art is read from the install (perf/lean-bots: not by a lean bot)
         layer.AddChild(_hudView);
+        if (!_bot || HudReadout.Override is not null) layer.AddChild(_readout = new HudReadout());   // polish pass P1: the performance readout (F3 cycles it; --readout pins it, a bot too for screenshots), hidden unless chosen
     }
+
+    HudReadout? _readout;
 
     /// <summary>
     /// Called by <see cref="GameClient"/> when the server names its map: loads the collision from this install for
@@ -2164,10 +2169,13 @@ public partial class NetworkView : Node3D
         MemStep("before map"); MapContent? generated = null;
         ExtrasMapContent(name, ref generated);   // EXTRAS-HOOK: a map added content generates in code (Musou Mode's Ashfall Citadel): no install file is read
         var map = generated ?? MapContent.Load(_gameDir, file); MemStep("map content");
+        long contentMs = watch.ElapsedMilliseconds;   // polish pass P1: the LOADTIME line's stages
         var world = map.ToCollisionWorld(); MemStep("collision world");
         ulong hash = map.Hash;
         ExtrasMapCollision(name, ref world, ref hash);   // EXTRAS-HOOK: added content's solids beside the level, and the hash of the whole (Musou Mode's Stormbird)
+        long worldMs = watch.ElapsedMilliseconds;
         if (!Lean) BuildRagdollWorld(map);
+        long ragdollMs = watch.ElapsedMilliseconds;
         PrepareNavigation(map, world); MemStep("navigation");
         _mapCentre = map.Spawns.Count > 0 ? new Vector2(map.Spawns.Average(sp => sp.Position.X), map.Spawns.Average(sp => sp.Position.Y)) : null;
         long collisionMs = watch.ElapsedMilliseconds;
@@ -2250,6 +2258,7 @@ public partial class NetworkView : Node3D
               + (_showCollision ? "; collision shown in grey" : "")
             : $"map {name}: collision geometry only, placeholder grey (visuals failed: {visualsError})";
         GD.Print($"{_mapNote}; collision {collisionMs} ms, total {watch.ElapsedMilliseconds} ms");
+        long visualsEndMs = watch.ElapsedMilliseconds;
         if (VisualOverhaul.ApplyWorld(_camera, _environment) is { } overhaulNote) GD.Print(overhaulNote);   // visual-overhaul proposal (--visual-overhaul on; default off)
         // The default look of every class and the own look, built now so no player's first look stalls a frame (customizer T7).
         Ph("map load: looks");
@@ -2261,6 +2270,9 @@ public partial class NetworkView : Node3D
         PrewarmPickups();   // perf/pass-1: the drops' models (the first drop cost a 100 ms frame); a lean bot returned above (LeanMapLoaded) and warms none
         PrewarmCollision(world);   // M40-T9: the crosshair's first ray
         _jumpGround = world;   // M45: the flight pose's height above the ground
+        // polish pass P1 (2026-11-10): one line with the load's stages, for testers' logs and the baseline harness (every number is wall time on the main thread, ms).
+        long totalMs = watch.ElapsedMilliseconds;
+        GD.Print($"LOADTIME map {name}: content {contentMs} ms, collision world {worldMs - contentMs}, ragdoll world {ragdollMs - worldMs}, navigation {collisionMs - ragdollMs}, visuals {visualsEndMs - collisionMs}, looks and warm-ups {totalMs - visualsEndMs}, total {totalMs} ms");
         return new LoadedMap(world, hash);
     }
 

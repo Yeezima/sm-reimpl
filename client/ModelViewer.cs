@@ -374,6 +374,13 @@ public partial class ModelViewer : Node3D
                 try { System.Runtime.GCSettings.LatencyMode = System.Runtime.GCLatencyMode.SustainedLowLatency; }
                 catch (Exception e) when (e is ArgumentOutOfRangeException or NotSupportedException or InvalidOperationException) { GD.Print($"gc: latency mode not set ({e.Message}); the runtime's default stays"); }
             }
+            // polish pass P1 (2026-11-10, measurement aid): --physics-ticks <n> sets the engine's physics steps a second for a human client (Godot's default 60; a lean bot's 30 is
+            // BotLean's). The baseline measured a 1.65 ms physics step a frame on Manufactorum with no active body; this aid measures what a lower rate saves before any default changes.
+            if (!bot && args.GetValueOrDefault("physics-ticks") is { } pt && int.TryParse(pt, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out int physicsTicks) && physicsTicks is >= 10 and <= 240)
+            {
+                Engine.PhysicsTicksPerSecond = physicsTicks;
+                GD.Print($"physics: {physicsTicks} steps a second (--physics-ticks; the default is 60)");
+            }
             int wait = args.GetValueOrDefault("wait-players") is { } w && int.TryParse(w, out var n) ? n : bot ? 2 : 1;
             var side = NetworkView.ParseSide(args.GetValueOrDefault("side"));
             _network = new NetworkView(gameDir, args.GetValueOrDefault("connect") ?? "", bot, wait, args.ContainsKey("show-collision"), args.ContainsKey("wait-melee"), args.ContainsKey("bot-melee"),
@@ -503,6 +510,7 @@ public partial class ModelViewer : Node3D
     /// </summary>
     public override void _Input(InputEvent e)
     {
+        if (e is InputEventKey { Pressed: true, Echo: false, PhysicalKeycode: Key.F3 }) { GetViewport().SetInputAsHandled(); CycleReadout(); return; }
         if (e is not InputEventKey { Pressed: true, Echo: false, PhysicalKeycode: Key.F11 }) return;
         GetViewport().SetInputAsHandled();
         bool captured = Input.MouseMode == Input.MouseModeEnum.Captured;
@@ -520,6 +528,19 @@ public partial class ModelViewer : Node3D
             GD.PrintErr("F11: could not switch the window mode: " + ex.Message);
         }
         if (captured) CallDeferred(MethodName.RecaptureMouse, true);
+    }
+
+    /// <summary>
+    /// polish pass P1 (2026-11-10, ours; a tester aid, not an option row: the owner keeps the original's options): F3 cycles the match's performance readout OFF, FPS, FPS + NETWORK
+    /// (<see cref="HudReadout"/>) anywhere, and remembers it in the profile's options (<c>performanceReadout</c>) when a profile is in use. <c>--readout</c> pins it for a run.
+    /// </summary>
+    void CycleReadout()
+    {
+        var next = (Customizer.Model.ReadoutChoice)(((int)HudReadout.Choice + 1) % 3);   // the saved choice cycles even while --readout pins what is shown
+        HudReadout.Choice = next;
+        try { CustomizerServices.Latest?.UpdateSettings(x => x with { Options = x.Options with { Readout = next } }); }
+        catch (Exception ex) when (ex is not (OutOfMemoryException or StackOverflowException or AccessViolationException)) { GD.PrintErr("F3: the readout choice was not saved: " + ex.Message); }
+        GD.Print($"F3: performance readout {next}{(HudReadout.Override is { } pinned ? $" (pinned to {pinned} by --readout for this run)" : "")}");
     }
 
     /// <summary>A window mode change can drop the operating system's hold on the cursor: capture the mouse again (now, and once more when the new window has settled), unless the player has freed it since.</summary>
