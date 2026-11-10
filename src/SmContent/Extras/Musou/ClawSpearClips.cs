@@ -208,13 +208,15 @@ public static class ClawSpearClips
     public const float GripSlide = 0.25f, GripSlideBack = 0.4f;
 
     /// <summary>The carry: the right arm hanging with the shaft at the right side (the shaft leans forward-up from this hand at the carry grip, <see cref="SpearHold.Place"/>, the blade's edge forward); the left arm hangs free (aims, el / az).</summary>
-    const float RestRUpperEl = -75f, RestRUpperAz = 60f, RestRForeEl = -70f, RestRForeAz = 40f, RestLUpperEl = -70f, RestLUpperAz = -20f, RestLForeEl = -50f, RestLForeAz = -25f;
+    const float RestRUpperEl = -30f, RestRUpperAz = 85f, RestRForeEl = -15f, RestRForeAz = 55f, RestLUpperEl = -70f, RestLUpperAz = -20f, RestLForeEl = -50f, RestLForeAz = -25f;
     static PoseKey RestRUpper(float t, PoseEase ease = PoseEase.Smooth) => A(t, RestRUpperEl, RestRUpperAz, ease);
     static PoseKey RestRFore(float t, PoseEase ease = PoseEase.Smooth) => A(t, RestRForeEl, RestRForeAz, ease);
     static PoseKey RestLUpper(float t, PoseEase ease = PoseEase.Smooth) => A(t, RestLUpperEl, RestLUpperAz, ease);
     static PoseKey RestLFore(float t, PoseEase ease = PoseEase.Smooth) => A(t, RestLForeEl, RestLForeAz, ease);
     /// <summary>The hands on their way back to the carry after a strike (the left hand leaving the shaft): the recovery key's aims.</summary>
-    static PoseKey RecRUpper(float t) => A(t, -55, 50); static PoseKey RecRFore(float t) => A(t, -50, 35); static PoseKey RecLUpper(float t) => A(t, -45, -30); static PoseKey RecLFore(float t) => A(t, -25, -40);
+    /// <remarks>No-clipping pass (owner, 2026-11-10): the left hand comes forward and the right hand out toward the carry before the left hand lets go, so the shaft turns up to the carry in
+    /// front of the body (before, from the guard's hand line pointing left it rose through the left shoulder pad and the chest; <c>SpearClearanceTests</c>).</remarks>
+    static PoseKey RecRUpper(float t) => A(t, -45, 60); static PoseKey RecRFore(float t) => A(t, -35, 45); static PoseKey RecLUpper(float t) => A(t, -40, 5); static PoseKey RecLFore(float t) => A(t, -20, 15);
     /// <summary>The field guard the hews end in (the reference's stance: wide and deep, the right hand at the right hip, the left hand forward and low, the blade forward and a little down): the hands' aims.</summary>
     static PoseKey GuardRUpper(float t, PoseEase e = PoseEase.Smooth) => A(t, -55, 35, e); static PoseKey GuardRFore(float t, PoseEase e = PoseEase.Smooth) => A(t, -30, 15, e);
     static PoseKey GuardLUpper(float t, PoseEase e = PoseEase.Smooth) => A(t, -35, -10, e); static PoseKey GuardLFore(float t, PoseEase e = PoseEase.Smooth) => A(t, -20, -5, e);
@@ -253,8 +255,8 @@ public static class ClawSpearClips
             // The steer (a - 0.19: both hands straight up, the haft upright), the swing-around (a: the blade behind the right shoulder, high), the cut (h: high right to low left, arms long), the field guard (f, held to 1.6).
             Upper("R", RestRUpper(0f), A(a - 0.19f, 72, 35), A(a, 15, 95, PoseEase.In), A(h, -45, 25, PoseEase.Snap), GuardRUpper(f, PoseEase.Over), GuardRUpper(1.6f), RecRUpper(r), RestRUpper(end)),
             Fore("R", RestRFore(0f), A(a - 0.19f, 82, 0), A(a, 45, 150, PoseEase.In), A(h, -35, -10, PoseEase.Snap), GuardRFore(f, PoseEase.Over), GuardRFore(1.6f), RecRFore(r), RestRFore(end)),
-            Upper("L", RestLUpper(0f), A(a - 0.19f, 76, -20), A(a, 40, 140, PoseEase.In), A(h, -35, -45, PoseEase.Snap), GuardLUpper(f, PoseEase.Over), GuardLUpper(1.6f), RecLUpper(r), RestLUpper(end)),
-            Fore("L", RestLFore(0f), A(a - 0.19f, 86, 0), A(a, 40, 175, PoseEase.In), A(h, -35, -50, PoseEase.Snap), GuardLFore(f, PoseEase.Over), GuardLFore(1.6f), RecLFore(r), RestLFore(end)),
+            Upper("L", RestLUpper(0f), A(a - 0.19f, 76, -20), A(a, 40, 125, PoseEase.In), A(h, -35, -45, PoseEase.Snap), GuardLUpper(f, PoseEase.Over), GuardLUpper(1.6f), RecLUpper(r), RestLUpper(end)),
+            Fore("L", RestLFore(0f), A(a - 0.19f, 86, 0), A(a, 40, 115, PoseEase.In), A(h, -35, -50, PoseEase.Snap), GuardLFore(f, PoseEase.Over), GuardLFore(1.6f), RecLFore(r), RestLFore(end)),
         ],
         grip: (a, h, f, r, end) => [G(0f, 0f), G(GripSlide, 1f, PoseEase.In), G(r, 1f), G(r + GripSlideBack, 0f), G(end, 0f)],
         gripPoint: (a, h, f, r, end) => [P(0f, WeaponPoseClip.CarryGrip), P(GripSlide, WeaponPoseClip.LowGrip, PoseEase.Out), P(r, WeaponPoseClip.LowGrip), P(r + GripSlideBack, WeaponPoseClip.CarryGrip), P(end, WeaponPoseClip.CarryGrip)]);
@@ -273,11 +275,13 @@ public static class ClawSpearClips
             Turn(Head, T(0f, -14, 6, 0), T(a, -38, 8, 0, PoseEase.In), T(h, 30, -6, 0, PoseEase.Snap), T(f, 36, -10, 0, PoseEase.Over), T(r, 8, -2, 0), Z(end)),
             Turn(LClav, T(0f, 4, 0, 0), T(a, 12, -4, 0, PoseEase.In), T(h, -14, 14, 0, PoseEase.Snap), T(f, -16, 16, 0, PoseEase.Over), T(r, -4, 3, 0), Z(end)),
             Turn(RClav, T(0f, 4, 0, 0), T(a, 12, -4, 0, PoseEase.In), T(h, -14, 14, 0, PoseEase.Snap), T(f, -16, 16, 0, PoseEase.Over), T(r, -4, 3, 0), Z(end)),
-            // From the guard: the blade dropped low-left-back (a), the rising cut (h: the left hand high right, the right hand low left, the haft diagonal), ending high over the right shoulder (f).
-            Upper("R", GuardRUpper(0f), A(a, -30, 30, PoseEase.In), A(h, -40, -15, PoseEase.Snap), A(f, -10, -35, PoseEase.Over), RecRUpper(r), RestRUpper(end)),
-            Fore("R", GuardRFore(0f), A(a, -10, 0, PoseEase.In), A(h, -40, -45, PoseEase.Snap), A(f, -25, -65, PoseEase.Over), RecRFore(r), RestRFore(end)),
-            Upper("L", GuardLUpper(0f), A(a, -50, -75, PoseEase.In), A(h, 30, 40, PoseEase.Snap), A(f, 45, 90, PoseEase.Over), RecLUpper(r), RestLUpper(end)),
-            Fore("L", GuardLFore(0f), A(a, -45, -115, PoseEase.In), A(h, 50, 60, PoseEase.Snap), A(f, 55, 120, PoseEase.Over), RecLFore(r), RestLFore(end)),
+            // From the guard: the blade dropped low-left-back (a), the rising cut (h), ending high (f). No-clipping pass (owner, 2026-11-10): the hips' uncoil turns the chest about 60 degrees
+            // right of the stance, so the hands are placed in the chest's frame, both in front of it (the right hand before the right hip, the left hand rising before the chest), the shaft
+            // passing in front of the torso and the butt beside the right hip; before, the right hand fell behind the turned torso and the shaft ran through it (SpearClearanceTests).
+            Upper("R", GuardRUpper(0f), A(a, -51, -47, PoseEase.In), A(h, -51, 81, PoseEase.Snap), A(f, -61, 94, PoseEase.Over), RecRUpper(r), RestRUpper(end)),
+            Fore("R", GuardRFore(0f), A(a, -38, -55, PoseEase.In), A(h, -42, 64, PoseEase.Snap), A(f, -19, 83, PoseEase.Over), RecRFore(r), RestRFore(end)),
+            Upper("L", GuardLUpper(0f), A(a, -53, -78, PoseEase.In), A(h, -20, 101, PoseEase.Snap), A(f, -3, 128, PoseEase.Over), RecLUpper(r), RestLUpper(end)),
+            Fore("L", GuardLFore(0f), A(a, -8, -2, PoseEase.In), A(h, -6, 99, PoseEase.Snap), A(f, 10, 122, PoseEase.Over), RecLFore(r), RestLFore(end)),
         ],
         grip: (a, h, f, r, end) => [G(0f, 1f), G(r, 1f), G(r + GripSlideBack, 0f), G(end, 0f)],
         gripPoint: (a, h, f, r, end) => [P(0f, WeaponPoseClip.LowGrip), P(r, WeaponPoseClip.LowGrip), P(r + GripSlideBack, WeaponPoseClip.CarryGrip), P(end, WeaponPoseClip.CarryGrip)]);
@@ -296,11 +300,13 @@ public static class ClawSpearClips
             Turn(Head, T(0f, 10, -4, 0), T(a, -46, 0, 0, PoseEase.In), T(h, 12, 4, 0, PoseEase.Linear), T(f, 44, 6, 0, PoseEase.Out), T(f + 0.25f, 46, 6, 0, PoseEase.Over), T(1.6f, 14, 6, 0), T(r, 4, 2, 0), Z(end)),
             Turn(LClav, T(0f, -4, 6, 0), T(a, 14, 10, 0, PoseEase.In), T(h, -6, 4, 0, PoseEase.Linear), T(f, -16, 4, 0, PoseEase.Out), T(f + 0.25f, -18, 4, 0, PoseEase.Over), T(r, -4, 1, 0), Z(end)),
             Turn(RClav, T(0f, -4, 6, 0), T(a, 14, 10, 0, PoseEase.In), T(h, -6, 4, 0, PoseEase.Linear), T(f, -16, 4, 0, PoseEase.Out), T(f + 0.25f, -18, 4, 0, PoseEase.Over), T(r, -4, 1, 0), Z(end)),
-            // From high right (0): the overhead loop to the left (a: the blade left-back at shoulder height, the right hand up by the head), the waist-height hew through the front (h: both arms low and long, the blade forward-right), on to the right (f), the field guard (1.6).
-            Upper("R", A(0f, -10, -35), A(a, 10, 30, PoseEase.In), A(h, -50, -5, PoseEase.Linear), A(f, -40, -20, PoseEase.Out), A(f + 0.25f, -40, -15, PoseEase.Over), GuardRUpper(1.6f), RecRUpper(r), RestRUpper(end)),
-            Fore("R", A(0f, -25, -65), A(a, 30, 60, PoseEase.In), A(h, -30, -60, PoseEase.Linear), A(f, -20, -40, PoseEase.Out), A(f + 0.25f, -20, -35, PoseEase.Over), GuardRFore(1.6f), RecRFore(r), RestRFore(end)),
-            Upper("L", A(0f, 45, 90), A(a, 20, -120, PoseEase.In), A(h, -40, 10, PoseEase.Linear), A(f, -30, 100, PoseEase.Out), A(f + 0.25f, -30, 105, PoseEase.Over), GuardLUpper(1.6f), RecLUpper(r), RestLUpper(end)),
-            Fore("L", A(0f, 55, 120), A(a, 10, -150, PoseEase.In), A(h, -20, 20, PoseEase.Linear), A(f, -20, 140, PoseEase.Out), A(f + 0.25f, -20, 145, PoseEase.Over), GuardLFore(1.6f), RecLFore(r), RestLFore(end)),
+            // From high right (0, hew 2's end): the loop over the head to the left (a: the blade out to the left above the shoulders), the waist-height hew through the front (h), on to the right
+            // with the hips' pivot (f), the field guard (1.6). No-clipping pass (owner, 2026-11-10): the hands placed in the chest's frame, in front of it; the overhead loop stays in front of
+            // and above the jump pack instead of passing behind the head through it, and the follow-through's right hand stays before the right hip instead of falling behind the turned torso.
+            Upper("R", A(0f, -50, 56), A(a, 15, -27, PoseEase.In), A(h, -58, 53, PoseEase.Linear), A(f, -72, 91, PoseEase.Out), A(f + 0.25f, -65, 62, PoseEase.Over), GuardRUpper(1.6f), RecRUpper(r), RestRUpper(end)),
+            Fore("R", A(0f, -43, 38), A(a, 54, -105, PoseEase.In), A(h, -55, 27, PoseEase.Linear), A(f, -28, 89, PoseEase.Out), A(f + 0.25f, -30, 110, PoseEase.Over), GuardRFore(1.6f), RecRFore(r), RestRFore(end)),
+            Upper("L", A(0f, 4, 84), A(a, 58, -18, PoseEase.In), A(h, -40, 63, PoseEase.Linear), A(f, -36, 120, PoseEase.Out), A(f + 0.25f, -35, 125, PoseEase.Over), GuardLUpper(1.6f), RecLUpper(r), RestLUpper(end)),
+            Fore("L", A(0f, 19, 86), A(a, 66, 7, PoseEase.In), A(h, 1, 74, PoseEase.Linear), A(f, 15, 106, PoseEase.Out), A(f + 0.25f, 14, 109, PoseEase.Over), GuardLFore(1.6f), RecLFore(r), RestLFore(end)),
         ],
         grip: (a, h, f, r, end) => [G(0f, 1f), G(r, 1f), G(r + GripSlideBack, 0f), G(end, 0f)],
         gripPoint: (a, h, f, r, end) => [P(0f, WeaponPoseClip.LowGrip), P(r, WeaponPoseClip.LowGrip), P(r + GripSlideBack, WeaponPoseClip.CarryGrip), P(end, WeaponPoseClip.CarryGrip)]);
@@ -318,11 +324,12 @@ public static class ClawSpearClips
             Turn(Head, Z(0f), T(a, 40, -4, 0, PoseEase.In), T(h, -30, 4, 0, PoseEase.Snap), T(f, -36, 4, 0, PoseEase.Over), T(r, -8, 0, 0), Z(end)),
             Turn(LClav, Z(0f), T(a, -12, 10, 0, PoseEase.In), T(h, 14, 8, 0, PoseEase.Snap), T(f, 16, 8, 0, PoseEase.Over), T(r, 4, 2, 0), Z(end)),
             Turn(RClav, Z(0f), T(a, -12, 10, 0, PoseEase.In), T(h, 14, 8, 0, PoseEase.Snap), T(f, 16, 8, 0, PoseEase.Over), T(r, 4, 2, 0), Z(end)),
-            // The blade behind the right shoulder at head height (a), the flat cut through the front (h: the blade forward-left at head height), on to the left (f).
-            Upper("R", RestRUpper(0f), A(a, 20, -40, PoseEase.In), A(h, 0, 100, PoseEase.Snap), A(f, 10, 70, PoseEase.Over), RecRUpper(r), RestRUpper(end)),
-            Fore("R", RestRFore(0f), A(a, 30, -100, PoseEase.In), A(h, 10, 150, PoseEase.Snap), A(f, 20, 40, PoseEase.Over), RecRFore(r), RestRFore(end)),
-            Upper("L", RestLUpper(0f), A(a, 25, 115, PoseEase.In), A(h, 5, -20, PoseEase.Snap), A(f, 10, -110, PoseEase.Over), RecLUpper(r), RestLUpper(end)),
-            Fore("L", RestLFore(0f), A(a, 25, 165, PoseEase.In), A(h, 10, -40, PoseEase.Snap), A(f, 0, -160, PoseEase.Over), RecLFore(r), RestLFore(end)),
+            // The blade raised by the right shoulder (a), the flat cut through the front at shoulder height (h), on to the left (f). No-clipping pass (owner, 2026-11-10): the hands placed in the
+            // chest's frame, in front of it and below the shoulder pads; before, the arms spread to either side of the body and the shaft between the hands ran through the pads and the chest.
+            Upper("R", RestRUpper(0f), A(a, -50, 87, PoseEase.In), A(h, -51, -5, PoseEase.Snap), A(f, -53, -36, PoseEase.Over), RecRUpper(r), RestRUpper(end)),
+            Fore("R", RestRFore(0f), A(a, 24, 51, PoseEase.In), A(h, 14, -53, PoseEase.Snap), A(f, 15, -68, PoseEase.Over), RecRFore(r), RestRFore(end)),
+            Upper("L", RestLUpper(0f), A(a, 15, 125, PoseEase.In), A(h, 6, -5, PoseEase.Snap), A(f, -20, -45, PoseEase.Over), RecLUpper(r), RestLUpper(end)),
+            Fore("L", RestLFore(0f), A(a, 37, 111, PoseEase.In), A(h, 18, 4, PoseEase.Snap), A(f, 48, 14, PoseEase.Over), RecLFore(r), RestLFore(end)),
         ],
         grip: (a, h, f, r, end) => [G(0f, 0f), G(GripSlide, 1f, PoseEase.In), G(r, 1f), G(r + GripSlideBack, 0f), G(end, 0f)],
         gripPoint: (a, h, f, r, end) => [P(0f, WeaponPoseClip.CarryGrip), P(GripSlide, WeaponPoseClip.LowGrip, PoseEase.Out), P(r, WeaponPoseClip.LowGrip), P(r + GripSlideBack, WeaponPoseClip.CarryGrip), P(end, WeaponPoseClip.CarryGrip)]);
@@ -340,16 +347,22 @@ public static class ClawSpearClips
             Turn(Head, T(0f, -26, 4, 0), T(0.6f, 40, -4, 0), T(a, 50, -6, 0, PoseEase.In), T(h, 12, 8, 0, PoseEase.Snap), T(f, 10, 10, 0, PoseEase.Over), T(1.9f, 10, 10, 0), T(r, 3, 2, 0), Z(end)),
             Turn(LClav, T(0f, 14, 8, 0), T(0.6f, -14, 6, 0), T(a, -18, 8, 0, PoseEase.In), T(h, 16, 12, 0, PoseEase.Snap), T(f, 18, 14, 0, PoseEase.Over), T(1.9f, 18, 14, 0), T(r, 4, 4, 0), Z(end)),
             Turn(RClav, T(0f, 14, 8, 0), T(0.6f, -14, 6, 0), T(a, -18, 8, 0, PoseEase.In), T(h, 16, 12, 0, PoseEase.Snap), T(f, 18, 14, 0, PoseEase.Over), T(1.9f, 18, 14, 0), T(r, 4, 4, 0), Z(end)),
-            // From the stun's end: the spear drawn back along the right hip, blade forward (0.6, a), the thrust (h: the left arm straight ahead, the right hand at the chest, the haft level), held (1.9), out and back to the carry.
-            Upper("R", A(0f, 10, 70), A(0.6f, -30, 120), A(a, -35, 135, PoseEase.In), A(h, -35, 40, PoseEase.Snap), A(f, -30, 40, PoseEase.Over), A(1.9f, -30, 40), RecRUpper(r), RestRUpper(end)),
-            Fore("R", A(0f, 20, 40), A(0.6f, -10, 60), A(a, -10, 50, PoseEase.In), A(h, 5, -40, PoseEase.Snap), A(f, 5, -40, PoseEase.Over), A(1.9f, 5, -40), RecRFore(r), RestRFore(end)),
-            Upper("L", A(0f, 10, -110), A(0.6f, -20, 60), A(a, -25, 70, PoseEase.In), A(h, 0, 5, PoseEase.Snap), A(f, 0, 5, PoseEase.Over), A(1.9f, 0, 5), RecLUpper(r), RestLUpper(end)),
-            Fore("L", A(0f, 0, -160), A(0.6f, 0, 30), A(a, 0, 25, PoseEase.In), A(h, 0, 0, PoseEase.Snap), A(f, 0, 0, PoseEase.Over), A(1.9f, 0, 0), RecLFore(r), RestLFore(end)),
+            // From the stun's end: the spear drawn back along the right hip, blade forward (0.6, a), the thrust (h: the left arm straight ahead, the right hand before the belly), held (1.9), out and
+            // back to the carry. No-clipping pass (owner, 2026-11-10): the start, the drawn-back apex and the thrust placed in the chest's frame (IK); before, the butt end of the shaft held at the
+            // butt rose into the right shoulder pad through the hold, and the start drifted into the chest.
+            Upper("R", A(0f, -49, -15), A(0.6f, -30, 120), A(a, -43, 93, PoseEase.In), A(h, -43, 17, PoseEase.Snap), A(f, -43, 13, PoseEase.Over), A(1.9f, -43, 14), RecRUpper(r), RestRUpper(end)),
+            Fore("R", A(0f, 8, -53), A(0.6f, -10, 60), A(a, 1, 99, PoseEase.In), A(h, -13, -13, PoseEase.Snap), A(f, -13, -17, PoseEase.Over), A(1.9f, -13, -17), RecRFore(r), RestRFore(end)),
+            Upper("L", A(0f, -21, -31), A(0.6f, -20, 60), A(a, -42, 113, PoseEase.In), A(h, -16, 3, PoseEase.Snap), A(f, -18, -1, PoseEase.Over), A(1.9f, -18, 0), RecLUpper(r), RestLUpper(end)),
+            Fore("L", A(0f, 40, 24), A(0.6f, 0, 30), A(a, 8, 102, PoseEase.In), A(h, -4, 12, PoseEase.Snap), A(f, -6, 8, PoseEase.Over), A(1.9f, -6, 8), RecLFore(r), RestLFore(end)),
         ],
         grip: (a, h, f, r, end) => [G(0f, 1f), G(r, 1f), G(r + GripSlideBack, 0f), G(end, 0f)],
         gripPoint: (a, h, f, r, end) => [P(0f, WeaponPoseClip.LowGrip), P(0.6f, WeaponPoseClip.StabGrip), P(r, WeaponPoseClip.StabGrip), P(r + GripSlideBack, WeaponPoseClip.CarryGrip), P(end, WeaponPoseClip.CarryGrip)]);
 
-    /// <summary>The dive: both hands high on the shaft over the head, the left (blade) hand lower, so the spear hangs point-down and forward (held for the whole of the hammer's dive loop).</summary>
+    /// <summary>
+    /// The dive: both hands high on the shaft over the head, the left (blade) hand lower, so the spear hangs point-down and forward (held for the whole of the hammer's dive loop). No-clipping pass
+    /// (owner, 2026-11-10): the right hand before the face rather than straight overhead, the left lower and forward (IK in the chest's frame), so the shaft between the hands stays in front of
+    /// the jump pack's thrusters as the dive leans the body forward.
+    /// </summary>
     public static readonly WeaponPoseClip SpearDive = new("spear_dive", "spear", SpearDiveLoopLength, float.NaN, SpearDiveLoop, 0f, 0f, 0f, float.NaN,
         "the hammer's dive loop (SM_JMP_TH_GP_Loop_01 1.767 s; the pose is held while it plays)",
         "the dive: the spear is turned point-down over the head, both hands high on the shaft, the body leaning into the fall",
@@ -358,31 +371,51 @@ public static class ClawSpearClips
             Turn(SpineA, T(0f, 0, -3, 0), T(SpearDiveLoopLength, 0, -3, 0)),
             Turn(SpineD, T(0f, 0, -3, 0), T(SpearDiveLoopLength, 0, -3, 0)),
             Turn(Head, T(0f, 0, -10, 0), T(SpearDiveLoopLength, 0, -10, 0)),
-            Upper("R", A(0f, 60, 10), A(SpearDiveLoopLength, 60, 10)),
-            Fore("R", A(0f, 80, 0), A(SpearDiveLoopLength, 80, 0)),
-            Upper("L", A(0f, 20, -10), A(SpearDiveLoopLength, 20, -10)),
-            Fore("L", A(0f, -10, 0), A(SpearDiveLoopLength, -10, 0)),
+            Upper("R", DiveRUpper(0f), DiveRUpper(SpearDiveLoopLength)),
+            Fore("R", DiveRFore(0f), DiveRFore(SpearDiveLoopLength)),
+            Upper("L", DiveLUpper(0f), DiveLUpper(SpearDiveLoopLength)),
+            Fore("L", DiveLFore(0f), DiveLFore(SpearDiveLoopLength)),
         ]);
 
+    /// <summary>The dive's hands (aims, el / az): the right hand before the face, the left lower and forward, the shaft point-down between them.</summary>
+    static PoseKey DiveRUpper(float t) => A(t, 18, 3); static PoseKey DiveRFore(float t) => A(t, 48, -36); static PoseKey DiveLUpper(float t) => A(t, -1, 55); static PoseKey DiveLFore(float t) => A(t, 12, 60);
+
     /// <summary>
-    /// The impaling landing (the hammer's landing clip, 1.067 s): the impale lands with the landing (hit 0 s; design section 6.2), the drive-down snaps over the first 0.08 s, the spear pins
-    /// the target until 0.5 s (the owner kept the release at 0.5 s, 2026-11-10), is pulled out by 0.75 s and the pose is back on the get-up at the clip's end.
+    /// The impaling landing (the hammer's landing clip, 1.067 s): the impale lands with the landing (hit 0 s; design section 6.2) and the drive-down snaps home by <see cref="ImpaleDrive"/>. Owner's review of
+    /// 2026-11-10 ("Point-down"): the blade stays driven point-down into the impaled Ork, as at the end of the dive, until the pound ends (<see cref="ImpaleHeld"/>), then is wrenched free by
+    /// <see cref="ImpaleFree"/> and the pose is back on the get-up at the clip's end. The hands slide up the shaft as it is driven down (<see cref="ImpaleGrip"/>), so the blade sinks into the
+    /// Ork at the feet from the deep crouch of the landing while the butt end stays clear of the head and the jump pack; the landing's torso keeps moving under the held spear, so the hands
+    /// are keyed every 0.15 s in the chest's frame (IK; <c>SpearClearanceTests</c>). Before, the held keys laid the shaft flat at knee height toward his left (0.12 to 0.5 s) and released at 0.5 s.
     /// </summary>
-    public static readonly WeaponPoseClip SpearImpale = new("spear_impale", "spear", SpearDiveImpactLength, 0f, SpearDiveImpact, 0f, 0.08f, 1.0f, float.NaN,
+    public static readonly WeaponPoseClip SpearImpale = new("spear_impale", "spear", SpearDiveImpactLength, 0f, SpearDiveImpact, 0f, ImpaleDrive, 1.0f, float.NaN,
         "the hammer's landing (SM_JMP_TH_GP_Impact_01 1.067 s; the impale at the landing, 0 s)",
-        "impaling landing: the point-down spear is driven into the ground at the feet as the marine lands, held pinned, then wrenched free",
+        "impaling landing: the point-down spear is driven down into the impaled Ork at his feet as the marine lands, the hands sliding up the shaft, and held there, point-down, until the pound ends; then wrenched free",
         [
-            // The lean into the ground is the hips' (the whole torso as one piece, the back straight); the spine adds a little.
-            Turn(Pelvis, T(0f, 0, -4, 0), T(0.08f, 0, -26, 0, PoseEase.Snap), T(0.5f, 0, -28, 0), T(0.75f, 0, -8, 0), Z(SpearDiveImpactLength)),
-            Turn(SpineA, T(0f, 0, -2, 0), T(0.08f, 0, -6, 0, PoseEase.Snap), T(0.5f, 0, -7, 0), T(0.75f, 0, -3, 0), Z(SpearDiveImpactLength)),
-            Turn(SpineD, T(0f, 0, -2, 0), T(0.08f, 0, -6, 0, PoseEase.Snap), T(0.5f, 0, -7, 0), T(0.75f, 0, -3, 0), Z(SpearDiveImpactLength)),
-            Turn(Head, T(0f, 0, -10, 0), T(0.08f, 0, -12, 0, PoseEase.Snap), T(0.5f, 0, -8, 0), T(0.75f, 0, 2, 0), Z(SpearDiveImpactLength)),
-            // The rear (right) hand stays high by the chest, the forward (left) hand drives straight down to knee height, so the blade stands in the ground a little ahead of the feet.
-            Upper("R", A(0f, 60, 10), A(0.08f, -30, 60, PoseEase.Snap), A(0.5f, -35, 60), A(0.75f, -10, 60), A(SpearDiveImpactLength, -10, 60, w: 0f)),
-            Fore("R", A(0f, 80, 0), A(0.08f, 40, -30, PoseEase.Snap), A(0.5f, 35, -30), A(0.75f, 60, -20), A(SpearDiveImpactLength, 60, -20, w: 0f)),
-            Upper("L", A(0f, 20, -10), A(0.08f, -40, 10, PoseEase.Snap), A(0.5f, -45, 10), A(0.75f, 0, 10), A(SpearDiveImpactLength, 0, 10, w: 0f)),
-            Fore("L", A(0f, -10, 0), A(0.08f, -80, 0, PoseEase.Snap), A(0.5f, -82, 0), A(0.75f, -30, 0), A(SpearDiveImpactLength, -30, 0, w: 0f)),
-        ]);
+            // The landing clip folds the body far forward over the hammer (the spine about 80 degrees from upright, the jump pack on top); the hips lift the straight back to a lean of 35 to 45
+            // degrees over the impaled Ork, so the hands can drive the spear down in front of the chest. Held to ImpaleHeld.
+            Turn(Pelvis, T(0f, 0, -4, 0), T(ImpaleDrive, 0, 30, 0, PoseEase.Snap), T(ImpaleHeld, 0, 30, 0), T(ImpaleFree, 0, 10, 0), Z(SpearDiveImpactLength)),
+            Turn(SpineA, T(0f, 0, -2, 0), T(ImpaleDrive, 0, 0, 0, PoseEase.Snap), T(ImpaleHeld, 0, 0, 0), T(ImpaleFree, 0, -2, 0), Z(SpearDiveImpactLength)),
+            Turn(SpineD, T(0f, 0, -2, 0), T(ImpaleDrive, 0, 0, 0, PoseEase.Snap), T(ImpaleHeld, 0, 0, 0), T(ImpaleFree, 0, -2, 0), Z(SpearDiveImpactLength)),
+            Turn(Head, T(0f, 0, -10, 0), T(ImpaleDrive, 0, -12, 0, PoseEase.Snap), T(ImpaleHeld, 0, -12, 0), T(ImpaleFree, 0, 2, 0), Z(SpearDiveImpactLength)),
+            // Both hands high on the shaft over the impaled Ork, the right (upper) hand before the face, the left lower; keyed every 0.15 s while held (the landing's torso rises under them).
+            Upper("R", DiveRUpper(0f), A(ImpaleDrive, 31, -76, PoseEase.Snap), A(0.2f, 29, -77), A(0.35f, 24, -78), A(0.5f, 23, -77), A(0.65f, 23, -76), A(ImpaleHeld, 23, -76), A(ImpaleFree, 36, -58), RestRUpper(SpearDiveImpactLength)),
+            Fore("R", DiveRFore(0f), A(ImpaleDrive, 45, -83, PoseEase.Snap), A(0.2f, 43, -83), A(0.35f, 38, -82), A(0.5f, 36, -82), A(0.65f, 36, -81), A(ImpaleHeld, 37, -81), A(ImpaleFree, 46, -72), RestRFore(SpearDiveImpactLength)),
+            Upper("L", DiveLUpper(0f), A(ImpaleDrive, -27, -19, PoseEase.Snap), A(0.2f, -28, -18), A(0.35f, -24, -20), A(0.5f, -23, -19), A(0.65f, -23, -18), A(ImpaleHeld, -23, -17), A(ImpaleFree, -19, -8), RestLUpper(SpearDiveImpactLength)),
+            Fore("L", DiveLFore(0f), A(ImpaleDrive, -16, -9, PoseEase.Snap), A(0.2f, -17, -8), A(0.35f, -2, -2), A(0.5f, 0, -1), A(0.65f, -1, 0), A(ImpaleHeld, -1, 0), A(ImpaleFree, -8, 1), RestLFore(SpearDiveImpactLength)),
+        ])
+    {
+        // Both hands on the shaft through the dive and the hold; the left lets go as he rises and the clip ends on the carry's arms with the shaft upright from the right hand at the low grip
+        // (the landing still crouches him, too low for the carry's long butt end), so the carry that follows the pound takes over from it with the grip sliding up (the 0.14 s hand-over).
+        Grip = [G(0f, 1f), G(ImpaleFree, 1f), G(SpearDiveImpactLength, 0f)],
+        GripPoint = [P(0f, WeaponPoseClip.LowGrip), P(ImpaleDrive, ImpaleGrip, PoseEase.Snap), P(ImpaleHeld, ImpaleGrip), P(ImpaleFree, WeaponPoseClip.LowGrip), P(SpearDiveImpactLength, WeaponPoseClip.LowGrip)],
+    };
+
+    /// <summary>The impale's hold (s into the landing clip; owner, 2026-11-10: held point-down "until the pound ends") and when the spear is free of the Ork again (ours; the clip's last 0.12 s bring the hands back to the carry).</summary>
+    public const float ImpaleHeld = 0.85f, ImpaleFree = 0.95f;
+    /// <summary>When the drive-down is home (s; ours): the hand-over from the dive (<c>WeaponPoseState.BlendSeconds</c>, 0.14 s) and the snap end together, so the blend of the two never swings the blade into the legs (0.08 s before the no-clipping pass).</summary>
+    public const float ImpaleDrive = 0.14f;
+    /// <summary>Where the right hand holds the shaft while the impale is held (m from the butt; ours): high toward the blade, so the point reaches the Ork at his feet from the landing's deep crouch (the shoulders about 0.8 m up).</summary>
+    public const float ImpaleGrip = 1.5f;
 
     /// <summary>A spear clip from the hammer strike's length, hit and combo opening (s, the hammer's) at the spear's tempo; <paramref name="grip"/> builds the left hand's hold on the shaft over the same moments.</summary>
     static WeaponPoseClip Spear(string name, float hammerLength, float hammerHit, float hammerCombo, string baseClip, string source, string description, float antic, float follow, float recover,

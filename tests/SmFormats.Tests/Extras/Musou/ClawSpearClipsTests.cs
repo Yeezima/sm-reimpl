@@ -106,9 +106,9 @@ public class ClawSpearClipsTests
     }
 
     [Fact]
-    public void Claw_strikes_and_the_impale_return_to_the_stance_at_their_end()
+    public void Claw_strikes_return_to_the_stance_at_their_end()
     {
-        foreach (var clip in ClawSpearClips.All.Where(c => !float.IsNaN(c.HitTime) && !ClawSpearClips.SpearStrikes.Contains(c)))
+        foreach (var clip in ClawSpearClips.All.Where(c => !float.IsNaN(c.HitTime) && c.Weapon == "claw"))
             foreach (var ch in clip.Channels)
             {
                 var end = ch.Sample(clip.Duration);
@@ -118,11 +118,15 @@ public class ClawSpearClipsTests
     }
 
     [Fact]
-    public void Spear_sweeps_return_to_the_upright_rest_at_their_end()
+    public void Spear_sweeps_and_the_impale_return_to_the_carry_at_their_end()
     {
+        // The impale too since the no-clipping pass (2026-11-10): the carry follows the pound, so the clip ends on its arms with the left hand off (at the low grip: the landing still crouches him)
+        // rather than on the landing's arms.
         var rest = ClawSpearClips.SpearRest.Channels.Where(c => c.Kind == PoseChannelKind.Aim).ToDictionary(c => c.Bone, c => c.Sample(0f));
         Assert.Equal(4, rest.Count);
-        foreach (var clip in ClawSpearClips.SpearStrikes)
+        Assert.Equal(0f, ClawSpearClips.SpearImpale.GripAt(ClawSpearClips.SpearImpale.Duration), 3);
+        Assert.Equal(WeaponPoseClip.LowGrip, ClawSpearClips.SpearImpale.GripPointAt(ClawSpearClips.SpearImpale.Duration), 3);
+        foreach (var clip in ClawSpearClips.SpearStrikes.Append(ClawSpearClips.SpearImpale))
             foreach (var ch in clip.Channels)
             {
                 var end = ch.Sample(clip.Duration);
@@ -142,11 +146,15 @@ public class ClawSpearClipsTests
     }
 
     [Fact]
-    public void The_rest_carries_the_spear_upright_in_the_right_hand_and_the_sweeps_take_the_left_hand_on_and_off()
+    public void The_rest_carries_the_spear_held_out_in_the_right_hand_and_the_sweeps_take_the_left_hand_on_and_off()
     {
-        // Owner 2026-11-10: "right hand carries, both swing". At rest the right arm hangs with the shaft (the grip track 0: the stand-in stands the shaft upright from that hand) and the left arm hangs free.
+        // Owner 2026-11-10: "right hand carries, both swing", and (review of the wired stills) "the spear should be held out away from the body at idle and when running": at rest the right
+        // upper arm is held out to the side and the forearm forward and out, both below the horizontal (the grip track 0: the spear leans from that hand, SpearHold.Place); the left arm hangs free.
         var rest = ClawSpearClips.SpearRest.Channels.Where(c => c.Kind == PoseChannelKind.Aim).ToDictionary(c => c.Bone, c => c.Sample(0f));
-        Assert.True(rest["RIG_R_UpperArm"].Elevation < -60f && rest["RIG_R_Forearm"].Elevation < -60f);
+        Assert.InRange(rest["RIG_R_UpperArm"].Azimuth, 60f, 120f);
+        Assert.InRange(rest["RIG_R_UpperArm"].Elevation, -60f, -10f);
+        Assert.InRange(rest["RIG_R_Forearm"].Azimuth, 20f, 90f);
+        Assert.InRange(rest["RIG_R_Forearm"].Elevation, -45f, 0f);
         Assert.True(rest["RIG_L_UpperArm"].Elevation < -45f && rest["RIG_L_Forearm"].Elevation < -30f);
         Assert.Equal(0f, ClawSpearClips.SpearRest.GripAt(0.7f));
         foreach (var sweep in ClawSpearClips.SpearStrikes)
@@ -299,12 +307,19 @@ public class ClawSpearClipsTests
         Assert.True(Vector3.Dot(shaft, Vector3.Normalize(left - right)) > 0.9999f);
         Assert.Equal(0f, Vector3.Dot(edge, shaft), 3);
         Assert.True(Vector3.Dot(edge, front) > 0f);
-        // Carried in the right hand alone at the carry grip: CarryTilt above the horizontal toward the front, the butt 0.95 m down the shaft (just above the ground for this example hand 0.97 m up), the edge forward.
+        // Carried in the right hand alone at the carry grip (owner's review of 2026-11-10: "held out away from the body", "the blade is facing away from the character model"): the shaft
+        // CarryElevation above the horizontal and CarryAzimuth from the front toward the body's right (here front +Y, up +Z: the right is +X), the butt 0.95 m down the shaft, behind and below
+        // the hand and not inside it (toward the legs); the edge faces out and forward (EdgeAzimuth), square to the shaft.
         var (carryButt, carry, carryEdge) = SpearHold.Place(right, left, 0f, WeaponPoseClip.CarryGrip, front, up);
-        Assert.Equal(SpearHold.CarryTilt, MathF.Asin(Vector3.Dot(carry, up)) * 180f / MathF.PI, 1);
-        Assert.True(Vector3.Dot(carry, front) > 0f);
-        Assert.InRange(carryButt.Z, 0.0f, 0.08f);
-        Assert.True(Vector3.Dot(carryEdge, front) > 0.9f, "the blade faces forward at rest");
+        var bodyRight = Vector3.Cross(front, up);
+        Assert.Equal(Vector3.UnitX, bodyRight);
+        Assert.Equal(SpearHold.CarryElevation, MathF.Asin(Vector3.Dot(carry, up)) * 180f / MathF.PI, 1);
+        Assert.Equal(SpearHold.CarryAzimuth, MathF.Atan2(Vector3.Dot(carry, bodyRight), Vector3.Dot(carry, front)) * 180f / MathF.PI, 1);
+        Assert.True(Vector3.Dot(carry, front) > 0.5f, "the carried spear leans forward, the blade ahead of the shoulder pad");
+        Assert.Equal(WeaponPoseClip.CarryGrip, Vector3.Distance(carryButt, right), 3);
+        Assert.True(carryButt.Z < right.Z && Vector3.Dot(carryButt - right, front) < 0f && Vector3.Dot(carryButt - right, bodyRight) >= 0f, "the butt hangs behind and below the hand, not in toward the legs");
+        Assert.Equal(0f, Vector3.Dot(carryEdge, carry), 3);
+        Assert.True(Vector3.Dot(carryEdge, bodyRight) > 0.8f && Vector3.Dot(carryEdge, front) > 0f, "the carried blade faces away from the body: out and forward");
         // At the low grip with the left hand off, the shaft stands upright; half on, it lies between the carry and the two-hand line.
         var (_, upright, _) = SpearHold.Place(right, left, 0f, WeaponPoseClip.LowGrip, front, up);
         Assert.True(Vector3.Dot(upright, up) > 0.9999f);

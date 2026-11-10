@@ -32,9 +32,6 @@ public partial class NetworkView
     /// <summary>How long the spear's pose takes to come in and to go out where it starts or stops showing (s; ours, about the stances' cross-fade).</summary>
     const float SpearPoseFade = 0.15f;
 
-    /// <summary>The way a character faces in its skeleton's space (Z up): +Y, rotated by the body's yaw (the camera's view logged by <c>--tfw-spear-capture</c> is at 90 degrees from +X).</summary>
-    static readonly Vector3 SpearBodyForward = new(0f, 1f, 0f);
-
     sealed class SpearPoseTrack
     {
         public readonly WeaponPoseState State = new() { Weight = 0f };
@@ -48,7 +45,11 @@ public partial class NetworkView
     readonly Dictionary<int, SpearPoseTrack> _spearPoses = new();
     readonly List<int> _spearGone = new();
 
-    bool SpearPosesOn => !MusouSpearStandIn && _config is { } c && c.Extras.HasFlag(ContentExtras.Musou);
+    /// <summary>
+    /// The spear's clips are shown in this match: Musou's content, and neither <c>--musou-spear-stand-in</c> nor <c>--no-weapon-pose</c> (review, 2026-11-10: with the overlay off, the strike's
+    /// foot-lock override and the spear's placement on the hands acted still; now nothing of it does and W3's mounts and the hammer's clips show alone).
+    /// </summary>
+    bool SpearPosesOn => !MusouSpearStandIn && !CharacterViewer.NoWeaponPose && _config is { } c && c.Extras.HasFlag(ContentExtras.Musou);
 
     /// <summary>
     /// From the attack pose, before its clip is posed (<see cref="ExtrasAttackTime"/>): a spear player's strike shows the spear's clip of that step at <paramref name="drawnTime"/>, so the overlay is
@@ -124,13 +125,11 @@ public partial class NetworkView
         bool onHands = false;
         if (state.Weight > 1e-3f && state.Clip is not null && rig is not null && character.WeaponPoseHands(out var right, out var left))
         {
-            // The forward the carry leans to and the blade's edge faces: the body's while the spear is carried in one hand (the skeleton's +Y, the way the player and his camera face;
-            // measured with --tfw-spear-capture: the hammer stance's idle stands side-on, its hips 71 degrees right of it), the hips' once both hands are on it (the strikes as authored on
-            // the stage, whose cameras follow the hips). Ours, in a match only.
+            // The frame the carry leans in and the strikes' edge faces: the stance's, from the hips, as on the stage (owner's review of 2026-11-10: the carried blade "facing away from the
+            // character model", the spear "held out away from the body"; W3b leaned the carry toward the skeleton's +Y, the way the player faces, which across the hammer idle's side-on
+            // stance, its hips 71 degrees right of it, put the shaft and the edge across the body).
             float grip = SpearGripOf(state, out float point);
-            var front = SpearBodyForward.Lerp(character.WeaponPoseFrontNow(), grip);
-            if (front.LengthSquared() < 1e-6f) front = SpearBodyForward;
-            onHands = rig.PlaceSpearOnHands(right, left, grip, point, front.Normalized(), state.Weight);
+            onHands = rig.PlaceSpearOnHands(right, left, grip, point, character.WeaponPoseFrontNow(), state.Weight);
         }
         if (rig is not null)
         {

@@ -50,6 +50,7 @@ public partial class ClawSpearTestView : Node3D
         _view = (_args.GetValueOrDefault("view") ?? "tp").ToLowerInvariant();
         _stills = _args.ContainsKey("stills");
         _poseLog = _args.ContainsKey("pose-log");
+        _clearance = _args.ContainsKey("clearance");
         _logEvery = int.TryParse(_args.GetValueOrDefault("pose-log"), out var every) ? every : 0;
         _outDir = _args.GetValueOrDefault("out") ?? System.IO.Path.Combine(GameInstall.DataRoot, "tmp-build", "claw-spear-anims");
         var repoRoot = System.IO.Path.GetFullPath(System.IO.Path.Combine(ProjectSettings.GlobalizePath("res://"), ".."));
@@ -164,6 +165,8 @@ public partial class ClawSpearTestView : Node3D
         var seg = _segments.FirstOrDefault(s => _t >= s.Start && _t < s.End) ?? (_t < 0 ? _segments[0] : null);
         if (seg is null)
         {
+            foreach (var (name, worst) in _clearanceWorst.OrderBy(k => k.Value.Result.Clearance))
+                GD.Print(string.Create(CultureInfo.InvariantCulture, $"CLEARANCE {name,-14} least {worst.Result.Clearance,6:0.000} m ({worst.Result.Part} by the {worst.Result.SpearPiece}, t {worst.Time:0.000}; {worst.Where})"));
             GD.Print("CLAWSPEAR done");
             _quit = true;
             GetTree().Quit(0);
@@ -185,9 +188,13 @@ public partial class ClawSpearTestView : Node3D
             spear.Visible = !claw;
             if (!claw)
             {
-                spear.LeftGrip = seg.Clip?.GripAt((float)local) ?? 1f;
-                spear.RightHandFromButt = seg.Clip?.GripPointAt((float)local) ?? WeaponPoseClip.LowGrip;
+                // The grip tracks fade from the clip before like the pose (as the match does, NetworkView.SpearGripOf), so a hand-over never jumps the shaft onto the other hand.
+                float grip = seg.Clip?.GripAt((float)local) ?? 1f, point = seg.Clip?.GripPointAt((float)local) ?? WeaponPoseClip.LowGrip;
+                if (_pose.From is { } from && _pose.FromShare is var share and > 0f) { grip += (from.GripAt(_pose.FromTime) - grip) * share; point += (from.GripPointAt(_pose.FromTime) - point) * share; }
+                spear.LeftGrip = grip;
+                spear.RightHandFromButt = point;
                 spear.Follow(_marine.Skeleton!);
+                if (_clearance && seg.Clip is { } measured) MeasureClearance(measured, (float)local, spear);
             }
         }
         float glow = 0f;
@@ -242,8 +249,34 @@ public partial class ClawSpearTestView : Node3D
         GD.Print(err == Error.Ok ? $"screenshot -> {path} (t {local:0.000})" : $"screenshot failed: {err}");
     }
 
-    bool _poseLog;
-    int _logEvery, _logFrames;
+    bool _poseLog, _clearance;
+    int _logEvery, _logFrames, _clearanceFrames;
+    readonly Dictionary<string, (float Time, SpearClearanceResult Result, string Where)> _clearanceWorst = new();
+
+    /// <summary>
+    /// <c>--clearance</c>: the spear against the body's capsules with this stage's own overlay (<see cref="SpearClearance"/>, the measurement the clearance test makes over its mirror of the
+    /// overlay, <c>SpearClearanceTests</c>): the least clearance per clip at the run's end (<c>CLEARANCE</c> lines), and with <c>--hold</c> the held frame's clearance and the hands' places.
+    /// </summary>
+    void MeasureClearance(WeaponPoseClip clip, float local, SpearStandIn spear)
+    {
+        var s = _marine!.Skeleton!;
+        static System.Numerics.Vector3 N(Vector3 v) => new(v.X, v.Y, v.Z);
+        (System.Numerics.Vector3, System.Numerics.Quaternion)? Bone(string name)
+        {
+            int b = s.FindBone(name);
+            if (b < 0) return null;
+            var g = s.GetBoneGlobalPose(b);
+            var q = g.Basis.Orthonormalized().GetRotationQuaternion();
+            return (N(g.Origin), new System.Numerics.Quaternion(q.X, q.Y, q.Z, q.W));
+        }
+        if (!_marine.WeaponPoseHands(out var right, out var left)) return;
+        var (butt, shaft, edge) = SpearHold.Place(N(right), N(left), spear.LeftGrip, spear.RightHandFromButt, N(_marine.WeaponPoseFrontNow()), new System.Numerics.Vector3(0f, 0f, 1f));
+        var r = SpearClearance.Measure(Bone, butt, shaft, edge);
+        if (!_clearanceWorst.TryGetValue(clip.Name, out var worst) || r.Clearance < worst.Result.Clearance)
+            _clearanceWorst[clip.Name] = (local, r, string.Create(CultureInfo.InvariantCulture, $"stage t {_t:0.000}, grip {spear.LeftGrip:0.00} at {spear.RightHandFromButt:0.00} m, fading from {_pose.From?.Name ?? "-"} ({_pose.FromShare:0.00})"));
+        if (_holdAt is not null && _clearanceFrames++ == 3)
+            GD.Print(string.Create(CultureInfo.InvariantCulture, $"CLEARANCE hold {clip.Name} t {local:0.000}: {r.Clearance:0.000} m ({r.Part} by the {r.SpearPiece}) | R hand {right.X:0.000} {right.Y:0.000} {right.Z:0.000} | L hand {left.X:0.000} {left.Y:0.000} {left.Z:0.000} | butt {butt.X:0.000} {butt.Y:0.000} {butt.Z:0.000} | shaft {shaft.X:0.000} {shaft.Y:0.000} {shaft.Z:0.000}"));
+    }
 
     /// <summary>
     /// <c>--pose-log [every n frames]</c>: the right and left arm segments' directions in the stance's frame (elevation above the horizontal, azimuth from the front toward the character's right, degrees)

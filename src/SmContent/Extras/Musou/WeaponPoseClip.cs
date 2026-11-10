@@ -177,8 +177,8 @@ public sealed record WeaponPoseClip(string Name, string Weapon, float Duration, 
     public const float LowGrip = 0.5f;
     /// <summary>
     /// The carry (m from the butt): the hand higher than the melee grip, at the point where the butt hangs just above the ground as he runs (owner, 2026-11-10: "right at the point where the butt
-    /// of the spear is just above the ground"); the carry leans <see cref="SpearHold.CarryTilt"/> degrees. Measured in a match the hand hangs about 1.28 m up standing and 1.08 m running, so the
-    /// butt rides about 0.34 m and 0.14 m off the ground (a refinement for the owner).
+    /// of the spear is just above the ground"). Since the no-clipping pass (2026-11-10) the hand is held out wide and the shaft leans forward to <see cref="SpearHold.CarryElevation"/>, so the
+    /// butt rides at least 0.56 m off the ground over the hammer stance clips (0.14 m running before), clear of the legs' kick (a refinement for the owner).
     /// </summary>
     public const float CarryGrip = 0.95f;
     /// <summary>The stab's grip (m from the butt): both hands back at the butt for the lunge's reach.</summary>

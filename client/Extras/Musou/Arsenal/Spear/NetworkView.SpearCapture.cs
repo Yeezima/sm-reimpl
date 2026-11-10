@@ -78,9 +78,10 @@ public partial class NetworkView
                 await TfwFrames(6);
                 await SpearStill($"spear-{view}-6-dive", cam);
             }
-            if (await TfwUntil("spear: the impale shows", () => _local?.PosedClip is { } p && _jmpImpact is not null && p == _jmpImpact && _local.PosedClipTime >= 0.12f, 6.0))
+            // The impale just driven home (ClawSpearClips.ImpaleDrive 0.14 s) and held point-down in the Ork (to ImpaleHeld 0.85 s).
+            if (await TfwUntil("spear: the impale shows", () => _local?.PosedClip is { } p && _jmpImpact is not null && p == _jmpImpact && _local.PosedClipTime >= ClawSpearClips.ImpaleDrive + 0.03f, 6.0))
                 await SpearStill($"spear-{view}-7-impale", cam);
-            if (await TfwUntil("spear: the impale holds", () => _local?.PosedClip is { } p && _jmpImpact is not null && p == _jmpImpact && _local.PosedClipTime >= 0.42f, 2.0))
+            if (await TfwUntil("spear: the impale holds", () => _local?.PosedClip is { } p && _jmpImpact is not null && p == _jmpImpact && _local.PosedClipTime >= 0.6f, 2.0))
                 await SpearStill($"spear-{view}-8-impale-held", cam);
             await TfwWait(2.0);
             _yaw = facing;

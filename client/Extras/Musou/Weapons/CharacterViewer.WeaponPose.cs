@@ -80,7 +80,8 @@ public partial class CharacterViewer
     public Vector3 WeaponPoseBaseFront { get; private set; } = new(1f, 0f, 0f);
     public Vector3 WeaponPoseBaseRight { get; private set; } = new(0f, -1f, 0f);
 
-    static readonly bool NoWeaponPose = OS.GetCmdlineUserArgs().Contains("--no-weapon-pose");
+    /// <summary><c>--no-weapon-pose</c>: no keyframed weapon clip anywhere (the stances alone); the networked view's spear posing reads it too (<c>SpearPosesOn</c>), so a match then shows W3's mounts alone.</summary>
+    internal static readonly bool NoWeaponPose = OS.GetCmdlineUserArgs().Contains("--no-weapon-pose");
 
     // Lazy (review, 2026-11-10): made the first time this viewer lays a clip or is asked for a carry, so the viewers that never are (every Classic PvP character) carry none of it.
     Dictionary<string, int>? _weaponPoseBones;
