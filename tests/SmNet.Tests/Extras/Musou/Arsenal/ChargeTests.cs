@@ -4,12 +4,13 @@ using SmNet.Tests.Extras.Musou.Campaign;
 using SmSim;
 using SmSim.Extras.Musou;
 using SmSim.Extras.Musou.Arsenal;
+using SmSim.Extras.Musou.Campaign;
 
 namespace SmNet.Tests.Extras.Musou.Arsenal;
 
 /// <summary>
 /// W4, the Remote Detonators (docs/new-weapons-design.md section 7): the item appended to the Space Marine classes only, the owner's numbers (the damage table at the centre, 20 m and 40 m; stacking spots;
-/// Bosses x2; at most 80 flying corpses; survivors thrown back; a 5 s fuse after it sticks; it rides on an Ork; 1 carried, 2 with Favor, one back every 30 s) in a war on the synthetic arena.
+/// Bosses x2; at most 40 flying corpses; survivors thrown back; a 5 s fuse after it sticks; it rides on an Ork; 1 carried, 2 with Favor, one back every 30 s) in a war on the synthetic arena.
 /// </summary>
 public class ChargeTests
 {
@@ -205,7 +206,7 @@ public class ChargeTests
     }
 
     [Fact]
-    public void At_most_80_kills_of_one_charge_fly_as_corpses_the_rest_are_torn_apart_and_survivors_are_thrown_back()
+    public void At_most_40_kills_of_one_charge_fly_as_corpses_the_rest_are_torn_apart_and_survivors_are_thrown_back()
     {
         var w = War(out _);
         var at = ThrowAndStick(w);
@@ -221,7 +222,7 @@ public class ChargeTests
         for (int k = 0; k < 300 && w.ChargeSpots < 16; k++) Tick(w);
         int dead = boys.Count(id => Health(w, id) <= 0f);
         Assert.Equal(140, dead);
-        Assert.Equal(80, w.ChargeFlown);
+        Assert.Equal(40, w.ChargeFlown);
         Assert.True(w.Musou.TryGet(survivor, out var s1) && s1.Alive);
         Assert.True(Vector3.Distance(before, s1.Position) > 2f, "thrown back");
     }
@@ -267,5 +268,64 @@ public class ChargeTests
         Assert.InRange(w.Tick - from, 29u * 30u, 31u * 30u);   // 30 s, not the grenades' 15
         Assert.Equal(30f, DemolitionChargeRules.RefillSeconds);
         Assert.Single(config.Thrown);
+    }
+
+    [Fact]
+    public void It_sticks_to_a_contraption_and_does_not_go_off_at_it_and_a_destroyed_one_drops_it()
+    {
+        var w = TfwRig.War(config: Config());
+        w.TfwMeksOn = true;
+        w.Tfw!.Guardsmen = false;
+        w.TfwSquigDropsOn = false;
+        var battle = TfwRig.Deploy(w);
+        battle.WeirdboyzOn = false;
+        TfwRig.Steps(w, 3);
+        var meks = Assert.IsType<MusouMeks>(w.TfwMeks);
+        meks.Builds = false;
+        w.Musou!.Frozen = true;
+        w.Step(id => new PlayerInput(w.Tick, 0f, 0f, w.Players[id].Yaw, InputButtons.Grenade));
+        for (int k = 0; k < 6 && w.Projectiles.Count == 0; k++) Tick(w);
+        Assert.Single(w.Projectiles);
+        var flight = w.Projectiles[0];
+        var spot = flight.Position + flight.Velocity * 0.35f;
+        var trap = meks.PlaceBuilt(0, MusouContraptionKind.Trap, spot with { Z = spot.Z - 1.2f });
+        Assert.NotNull(trap);
+        for (int k = 0; k < 40 && w.Projectiles.Count == 1 && w.Projectiles[0].Motion != ProjectileMotion.Stuck; k++) Tick(w);
+        Assert.Single(w.Projectiles);
+        Assert.Equal(ProjectileMotion.Stuck, w.Projectiles[0].Motion);
+        Assert.Equal(0, w.ChargeCentres);   // the core's stop would have set it off here
+        Assert.True(Vector3.Distance(w.Projectiles[0].Position, spot) < 4f, "held at the contraption");
+        uint stuckAt = w.Tick;
+        for (int k = 0; k < 120; k++) Tick(w);
+        Assert.Equal(0, w.ChargeCentres);
+        while (w.ChargeCentres == 0 && w.Tick < stuckAt + 300) Tick(w);
+        Assert.Equal(1, w.ChargeCentres);
+        Assert.InRange(w.Tick - stuckAt, 140u, 160u);
+    }
+
+    [Fact]
+    public void The_Librarians_grenade_key_throws_the_charge_when_he_carries_it()
+    {
+        var config = MusouLoadout.Prepare(Config());
+        int librarian = config.Classes.ToList().FindIndex(c => c.Name == LibrarianRules.ClassName);
+        Assert.True(librarian >= 0, "the Librarian is in Musou's config");
+        int charge = config.Thrown.ToList().FindIndex(t => t.Name == ArsenalRules.RemoteDetonators);
+        Assert.Contains(charge, config.Classes[librarian].EquipmentChoices);
+        var map = TfwTestArena.Build();
+        var w = new World(config, map.Collision, map.Spawns) { Rules = new MatchRules { CountdownTime = 0.1f, TimeLimit = 0f, ScoreLimit = int.MaxValue / 2 } };
+        Assert.True(w.StartTfw(null, TfwTestArena.Field));
+        w.Tfw!.Idle = true;
+        w.Spawn(Human, librarian);
+        for (int k = 0; k < 90 && w.State != MatchState.Playing; k++) Tick(w);
+        w.TfwRespawnAt(Human, At, 0f);
+        for (int k = 0; k < 5; k++) Tick(w);
+        Assert.Equal(librarian, w.Players[Human].Class);
+        Assert.Equal(charge, config.Classes[librarian].EquipmentChoices.First(i => i == charge));
+        var item = Loadouts.Equipment(config, w.Players[Human]);
+        if (item?.Name != ArsenalRules.RemoteDetonators) return;   // his default is another item: the throw of the charge is then his choice, covered by the list test above
+        Tick(w, InputButtons.Grenade);
+        for (int k = 0; k < 40 && w.Projectiles.Count == 0; k++) Tick(w);
+        Assert.Single(w.Projectiles);
+        Assert.True(w.Projectiles[0].Thrown);
     }
 }

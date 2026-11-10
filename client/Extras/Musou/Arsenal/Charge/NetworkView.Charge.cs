@@ -43,7 +43,9 @@ public partial class NetworkView
         if (NoChargeRing || Lean || DisplayServer.GetName() == "headless" || _client is null) return;
         int frag = _config.Thrown.ToList().FindIndex(t => SmSim.Extras.Musou.Campaign.TfwCombatRules.IsFrag(t));
         if (frag < 0) return;
-        bool master = false;   // the thrower's perks are not on the wire: the ring is drawn at the base size (the server's spots reach farther with Master-Crafted Wargear)
+        bool master = ChargeMasterCrafted();
+        // The core played the centre effect at the data's size (r 10); the blast is 16 m (24 with Master-Crafted Wargear): a second centre effect adds the difference (x1.6 and x2.4 in all).
+        FxDetonation(d, master ? 1.4f : 0.6f);
         var world = _client.Collision;
         DemolitionChargeRules.Ray? ray = world is null ? null : (o, dir, len) => world.Weapons.Raycast(o, dir, len) is { } hit ? hit.Distance : null;
         float tick = 1f / _config.TickRate;
@@ -55,6 +57,20 @@ public partial class NetworkView
             double delay = DemolitionChargeRules.SpotTick(k) * tick;
             GetTree().CreateTimer(delay).Timeout += () => ChargeSpot(view, sound);
         }
+    }
+
+    /// <summary>
+    /// Whether the ring is drawn at Master-Crafted Wargear's size: a charge's thrower is not on the wire, so a player (this one or a remote one the client knows) who carries the Remote Detonators
+    /// with the perk decides it (several charge carriers who differ in the perk: the larger ring, ours).
+    /// </summary>
+    bool ChargeMasterCrafted()
+    {
+        if (_config is null || _client is null) return false;
+        bool Has(PlayerState p) => Loadouts.Equipment(_config, p) is { } item && item.Name.Equals(ArsenalRules.RemoteDetonators, StringComparison.OrdinalIgnoreCase)
+            && Loadouts.Upgrades(_config, p).Has(DemolitionChargeRules.MasterCrafted);
+        if (Has(_client.Predicted)) return true;
+        foreach (var p in _client.RemotePlayers().Players) if (Has(p)) return true;
+        return false;
     }
 
     void ChargeSpot(ProjectileView view, bool sound)

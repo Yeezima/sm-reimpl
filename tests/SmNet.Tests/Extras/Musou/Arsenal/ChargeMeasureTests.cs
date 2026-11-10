@@ -28,7 +28,7 @@ public class ChargeMeasureTests(ITestOutputHelper output)
     static void Tick(World w, InputButtons buttons = InputButtons.None) => w.Step(id => new PlayerInput(w.Tick, 0f, 0f, w.Players[id].Yaw, buttons));
 
     internal readonly record struct Result(int Orks, int Killed, int Flown, double QuietMs, double CentreMs, double RingWorstMs, double AfterWorstMs, int EventsCentre, int EventsRingWorst,
-        int EventsTotal, int BytesQuiet, int BytesCentre, int BytesRingWorst, int BytesTotal, int Ticks, int EventsDropped);
+        int EventsTotal, int BytesQuiet, int BytesCentre, int BytesRingWorst, int BytesTotal, int Ticks, int EventsDropped, int DeathEvents, int DeathsDeferred, int DeathsWaiting);
 
     internal static Result Measure(int orks)
     {
@@ -59,6 +59,7 @@ public class ChargeMeasureTests(ITestOutputHelper output)
         var director = MusouWire.WriteDirector(new MusouDirectorView(1, 5, MusouPhase.Wave, 0, 80, 80, 0, 0f, 0f, 3, Box));
 
         var rows = new List<(double Ms, int Events, int Bytes, int Centres, int Spots)>();
+        int deathEvents = 0;
         void Step(InputButtons b = InputButtons.None)
         {
             long t0 = Stopwatch.GetTimestamp();
@@ -67,20 +68,21 @@ public class ChargeMeasureTests(ITestOutputHelper output)
             int n = w.Musou.CopyTo(enemies);
             var events = w.Musou.Events.ToList();
             int bytes = interest.Plan(w.Tick, 30, enemies.AsSpan(0, n).ToArray(), at, Box, director, events).Sum(m => m.Sum(s => s.Payload.Length));
+            deathEvents += events.Count(e => e.Kind == MusouEventKind.Death);
             rows.Add((ms, events.Count, bytes, w.ChargeCentres, w.ChargeSpots));
         }
         for (int k = 0; k < 20; k++) Step();                         // quiet
         int quietEnd = rows.Count;
         while (w.ChargeCentres == 0 && rows.Count < quietEnd + 400) Step();
         int centreAt = rows.Count - 1;
-        for (int k = 0; k < 120; k++) Step();                        // the ring and a second after
+        for (int k = 0; k < 150; k++) Step();                        // the ring, a second after and the deferred deaths
         int ringEnd = centreAt + 1 + DemolitionChargeRules.SpotTick(15);
         var quiet = rows.Take(quietEnd).Skip(5).ToArray();
         var ring = rows.Skip(centreAt + 1).Take(ringEnd - centreAt).ToArray();
         var after = rows.Skip(ringEnd + 1).ToArray();
         return new Result(orks, alive0 - w.Musou.Alive, w.ChargeFlown, quiet.Select(r => r.Ms).Order().ElementAt(quiet.Length / 2), rows[centreAt].Ms,
             ring.Max(r => r.Ms), after.Max(r => r.Ms), rows[centreAt].Events, ring.Max(r => r.Events), rows.Skip(centreAt).Sum(r => r.Events),
-            (int)quiet.Average(r => r.Bytes), rows[centreAt].Bytes, ring.Max(r => r.Bytes), rows.Skip(centreAt).Sum(r => r.Bytes), rows.Count - centreAt, w.Musou.EventsDropped);
+            (int)quiet.Average(r => r.Bytes), rows[centreAt].Bytes, ring.Max(r => r.Bytes), rows.Skip(centreAt).Sum(r => r.Bytes), rows.Count - centreAt, w.Musou.EventsDropped, deathEvents, w.Musou.DeathsDeferred, w.Musou.DeathsWaiting);
     }
 
     [Theory]
@@ -94,11 +96,13 @@ public class ChargeMeasureTests(ITestOutputHelper output)
             var m = Measure(orks);
             runs.Add(m);
             output.WriteLine($"CHARGEMEASURE orks {m.Orks} run {r}: killed {m.Killed}, flown {m.Flown}; tick ms: quiet median {m.QuietMs:F2}, centre {m.CentreMs:F2}, ring worst {m.RingWorstMs:F2}, after worst {m.AfterWorstMs:F2}; " +
-                $"Musou events: centre tick {m.EventsCentre}, ring worst tick {m.EventsRingWorst}, whole charge {m.EventsTotal} (dropped by the {MusouSim.MaxEventsPerTick} a tick cap: {m.EventsDropped}); plan bytes: quiet avg {m.BytesQuiet}, centre tick {m.BytesCentre}, ring worst tick {m.BytesRingWorst}, " +
+                $"Musou events: centre tick {m.EventsCentre}, ring worst tick {m.EventsRingWorst}, whole charge {m.EventsTotal} (non-death events dropped over the {MusouSim.MaxEventsPerTick} a tick cap: {m.EventsDropped}; deaths deferred to later ticks: {m.DeathsDeferred}, still waiting {m.DeathsWaiting}; death events seen {m.DeathEvents} for {m.Killed} killed); plan bytes: quiet avg {m.BytesQuiet}, centre tick {m.BytesCentre}, ring worst tick {m.BytesRingWorst}, " +
                 $"total over {m.Ticks} ticks {m.BytesTotal}");
         }
         Assert.All(runs, m => Assert.True(m.Killed > 100, $"{m.Killed} killed"));
         Assert.All(runs, m => Assert.True(m.Flown <= DemolitionChargeRules.ThrownMax));
+        // The events dropped over the cap are hits and the like (never deaths: those wait and play out over the next ticks).
+        Assert.All(runs, m => Assert.Equal(m.Killed, m.DeathEvents));
         double median = runs.Select(m => Math.Max(m.CentreMs, m.RingWorstMs)).Order().ElementAt(1);
         Assert.True(median < 33.3, $"{median:F1} ms: a charge tick ran over a 30 Hz tick");
     }

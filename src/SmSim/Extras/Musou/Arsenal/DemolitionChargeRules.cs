@@ -26,8 +26,8 @@ public static class DemolitionChargeRules
     public const int Spots = 16, FirstSpotTicks = 3, SpotTicks = 2;
     /// <summary>Boss Orks and the Warboss take this much more from every part (D19).</summary>
     public const float BossFactor = 2f;
-    /// <summary>The most kills of one charge that die as flying corpses (D19); the rest are torn apart where they stand.</summary>
-    public const int ThrownMax = 80;
+    /// <summary>The most kills of one charge that die as flying corpses: 80 in the owner's D19, lowered to 40 by the owner (2026-11-10, "Lower to 40", after W4's measurement); the rest are torn apart where they stand.</summary>
+    public const int ThrownMax = 40;
     /// <summary>The farthest a survivor is thrown back, scaled by the share of the blast he took (D19), once per charge.</summary>
     public const float KnockbackMax = 10f;
     /// <summary>Master-Crafted Wargear (the upgrade string <see cref="MasterCrafted"/>): the data's ratio, damage x1.25 and reach x1.5 on every part (D24).</summary>

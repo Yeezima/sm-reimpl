@@ -10,7 +10,7 @@ namespace SmSim;
 /// level, or to the Ork it struck and rides on him (a Boss Ork and the Warboss too), and goes off <see cref="DemolitionChargeRules.FuseSeconds"/> after it sticks (after the throw for one that never
 /// sticks). The core never applies a blast for it (the item's projectile has none): its detonation, whatever set it off, starts a <see cref="ChargeRun"/> here, a centre blast of 600 and then 16 stacking
 /// spots of 180 round a ring, one every 2 ticks (<see cref="DemolitionChargeRules"/>). Bosses take x2, up to 80 kills of one charge fly as corpses, survivors are thrown back up to 10 m once.
-/// A contraption in the way still sets it off at once (the core's stop; a missing hook, reported).
+/// It sticks to a contraption too and rides on it (the core's stop at a contraption is skipped for it through the hook's <c>stays</c>); one destroyed under it drops it, the fuse running on.
 /// </summary>
 public sealed partial class World
 {
@@ -19,6 +19,8 @@ public sealed partial class World
         public uint StuckTick;          // 0: not stuck yet
         public ushort Enemy;            // the Ork it rides on, or 0
         public Vector3 Offset;          // from his feet
+        public byte Mek;                // the contraption it sticks to, or 0
+        public Vector3 MekOffset;       // from the contraption's position
         public bool Master;             // the thrower's Master-Crafted Wargear, as thrown
     }
 
@@ -35,6 +37,7 @@ public sealed partial class World
 
     readonly Dictionary<int, ChargeFuse> _chargeFuses = new();
     readonly Dictionary<int, (ushort Enemy, Vector3 Offset)> _chargeRides = new();
+    readonly Dictionary<int, (byte Mek, Vector3 Offset)> _chargeMeks = new();
     readonly List<ChargeRun> _chargeRuns = new();
     readonly List<int> _chargeDue = new();
     int _chargeItem = -2;
@@ -61,13 +64,22 @@ public sealed partial class World
         if (item.Name.Equals(ArsenalRules.RemoteDetonators, StringComparison.OrdinalIgnoreCase)) seconds = DemolitionChargeRules.RefillSeconds;
     }
 
-    partial void ArsenalProjectileMeets(int projectile, ushort enemy, byte contraption, Vector3 point)
+    partial void ArsenalProjectileMeets(int projectile, ushort enemy, byte contraption, Vector3 point, ref bool stays)
     {
-        if (enemy == 0 || _musou is null) return;
+        if (_musou is null || (enemy == 0 && contraption == 0)) return;
         int item = ChargeItem();
         if (item < 0) return;
         int at = IndexOf(projectile);
-        if (at < 0 || !_projectiles[at].Thrown || _projectiles[at].Weapon != item || !_musou.TryGet(enemy, out var e)) return;
+        if (at < 0 || !_projectiles[at].Thrown || _projectiles[at].Weapon != item) return;
+        if (contraption != 0)
+        {
+            // It sticks to the contraption (the owner's design; the core would set it off there): the core does not stop it, and the next step holds it at the point it struck.
+            if (TfwMeks is not { } meks || !meks.TryGet(contraption, out var c)) return;
+            _chargeMeks[projectile] = (contraption, point - c.Position);
+            stays = true;
+            return;
+        }
+        if (!_musou.TryGet(enemy, out var e)) return;
         _chargeRides[projectile] = (enemy, point - e.Position);   // it stuck to him: it rides from the next step on
     }
 
@@ -75,7 +87,7 @@ public sealed partial class World
     {
         int item = ChargeItem();
         if (item < 0 || _musou is null) return;
-        if (_projectiles.Count == 0 && _chargeRuns.Count == 0 && _chargeFuses.Count == 0) { if (_chargeRides.Count > 0) _chargeRides.Clear(); return; }
+        if (_projectiles.Count == 0 && _chargeRuns.Count == 0 && _chargeFuses.Count == 0) { if (_chargeRides.Count > 0) _chargeRides.Clear(); if (_chargeMeks.Count > 0) _chargeMeks.Clear(); return; }
         var musou = _musou;
         uint fuse = (uint)MathF.Round(DemolitionChargeRules.FuseSeconds * Config.TickRate);
         _chargeDue.Clear();
@@ -88,7 +100,17 @@ public sealed partial class World
             var q = p;
             if (p.Motion == ProjectileMotion.Attached)   // it passes marines (ours): off the one it struck, it falls from there
                 q = p with { Motion = ProjectileMotion.Flying, AttachedTo = -1, Velocity = Vector3.Zero, Struck = p.AttachedTo };
-            if (_chargeRides.Remove(p.Id, out var ride)) { f.Enemy = ride.Enemy; f.Offset = ride.Offset; }
+            if (_chargeRides.Remove(p.Id, out var ride)) { f.Enemy = ride.Enemy; f.Offset = ride.Offset; f.Mek = 0; }
+            if (_chargeMeks.Remove(p.Id, out var onMek)) { f.Mek = onMek.Mek; f.MekOffset = onMek.Offset; f.Enemy = 0; }
+            if (f.Mek != 0)
+            {
+                if (TfwMeks is { } meks && meks.TryGet(f.Mek, out var mek))
+                {
+                    q = q with { Position = mek.Position + f.MekOffset, Velocity = Vector3.Zero, Motion = ProjectileMotion.Stuck };   // held on the contraption
+                    if (f.StuckTick == 0) f.StuckTick = Tick;
+                }
+                else { f.Mek = 0; q = q with { Motion = ProjectileMotion.Flying, Velocity = Vector3.Zero }; }   // destroyed under it: it drops, the fuse runs on
+            }
             if (f.Enemy != 0)
             {
                 if (musou.TryGet(f.Enemy, out var host) && host.Alive)
@@ -115,6 +137,7 @@ public sealed partial class World
             if (!det.Thrown || det.Weapon != item) continue;
             _chargeFuses.Remove(det.Projectile, out var f);
             _chargeRides.Remove(det.Projectile);
+            _chargeMeks.Remove(det.Projectile);
             _chargeRuns.Add(new ChargeRun { Projectile = det.Projectile, Owner = det.Owner, Item = item, Centre = det.Position, Start = Tick, Master = f?.Master ?? false });
         }
         if (_chargeFuses.Count > 0)   // a charge gone some other way (off the map): forgotten

@@ -80,7 +80,20 @@ public sealed partial class MusouSim
     {
         Tick = tick;
         _events.Clear();
+        // Deaths that did not fit under the cap in an earlier tick come out now, up to DeathDrainPerTick of them, stamped with this tick (so the send window does not age them out); the rest wait.
+        for (int n = 0; n < DeathDrainPerTick && _deferredDeaths.Count > 0; n++) _events.Add(_deferredDeaths.Dequeue() with { Tick = tick });
     }
+
+    /// <summary>
+    /// Death events past <see cref="MaxEventsPerTick"/> wait here and play out over the next ticks (owner, 2026-11-10, "spread deaths over ticks": a charge killing 1,500 Orks used to lose 523 death events).
+    /// Only deaths wait; every other kind is dropped over the cap as before. The kill and its credit are the simulation's, immediate; only the event the clients play is later. No wire change.
+    /// </summary>
+    readonly Queue<MusouEvent> _deferredDeaths = new();
+    /// <summary>Most deferred deaths drained into one tick (half the tick's cap, ours, so the tick's own events still fit), and most kept waiting (the pool is 2,560).</summary>
+    public const int DeathDrainPerTick = 512, DeferredDeathsMax = 4096;
+    /// <summary>Death events deferred to a later tick since the start, and those still waiting (test aids).</summary>
+    public int DeathsDeferred { get; private set; }
+    public int DeathsWaiting => _deferredDeaths.Count;
 
     /// <summary>Musou Mode's battle (<c>TfwBattle</c>) sets the map's centre here: every enemy then spawns facing it, whatever yaw the caller gave (owner, 2026-11-09); null (the 5-wave run, the hub) leaves the caller's yaw.</summary>
     public Vector3? SpawnCentre { get; set; }
@@ -206,8 +219,10 @@ public sealed partial class MusouSim
         for (int i = 0; i < Capacity; i++) if (_used[i]) Remove((ushort)(i + 1));
         _frenzyTicks = 0;   // MU3: the Waaagh!'s speed ends with the round
         _events.Clear();
+        _deferredDeaths.Clear();
         _kills.Clear();
         EventsDropped = 0;
+        DeathsDeferred = 0;
         ResetAi();
     }
 
@@ -279,7 +294,12 @@ public sealed partial class MusouSim
     /// <summary>Records an event of this tick (dropped and counted over <see cref="MaxEventsPerTick"/>).</summary>
     public void AddEvent(MusouEvent e)
     {
-        if (_events.Count >= MaxEventsPerTick) { EventsDropped++; return; }
+        if (_events.Count >= MaxEventsPerTick)
+        {
+            if (e.Kind == MusouEventKind.Death && _deferredDeaths.Count < DeferredDeathsMax) { _deferredDeaths.Enqueue(e); DeathsDeferred++; return; }
+            EventsDropped++;
+            return;
+        }
         _events.Add(e);
     }
 }
