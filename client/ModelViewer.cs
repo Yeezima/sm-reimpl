@@ -229,6 +229,7 @@ public partial class ModelViewer : Node3D
                     if (args.GetValueOrDefault("content") is { } viewerContent && SmSim.ContentProfiles.TryParse(viewerContent, out var viewerExtras, out _)) rig.Content = viewerExtras;   // --content musou: added content's own weapon models (Musou's arsenal) in this view
                     rig.Configure((0, 0, 0, "viewer", null), Given(0), Given(1), Given(2), worn, worn.Length > 0 || args.ContainsKey("always-melee"), second: Given(3));   // --always-melee: the melee weapon in hand at rest (the jump-pack classes' carry; a --hand melee strike shows it swung)   // --weapons primary,pistol,melee,second (the fourth: Weapon Versatility's second primary; with --hand melee the selected primary hangs on the left thigh)
                     string hand = args.GetValueOrDefault("hand") ?? "primary";
+                    if (args.GetValueOrDefault("grip") is { } grip && float.TryParse(grip, System.Globalization.CultureInfo.InvariantCulture, out var slide)) { rig.GripSlide = slide; rig.GripSlideDriven = true; }   // --grip 0..1: Musou's power spear carried with the fist high (0) or low (1) on the shaft
                     rig.Update(hand == "pistol" ? SmSim.WeaponSlot.Pistol : SmSim.WeaponSlot.Ranged, hand == "melee", true, 0f, 0.6f);
                     character.Weapons = rig;
                     if (worn.Length > 0) character.SetBackpackHidden(args.GetValueOrDefault("keep-backpack") is null && rig.WornCount > 0);

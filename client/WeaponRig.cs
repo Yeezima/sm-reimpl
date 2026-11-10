@@ -297,6 +297,8 @@ public sealed class WeaponAsset
     public ArrayMesh? StowHidden { get; init; }
     /// <summary>Musou's power spear (W3): where a melee weapon is held while a strike is shown, when that differs from the attachment's own wield mount (carried in one hand, swung in two); null for every weapon of the data.</summary>
     public WeaponMount? SwingWield { get; init; }
+    /// <summary>Musou's power spear (W3): the one-handed carry's holder transform for a grip slid to <c>t</c> (0 the high grip, 1 the low), or null (the wield mount's fixed transform, for every weapon of the data).</summary>
+    public Func<float, Transform3D>? OneHandGrip { get; init; }
 
     public WeaponAsset(WeaponModel model, ArrayMesh? mesh, IReadOnlyDictionary<string, ArrayMesh> worn, int triangles, int parts, int hidden, int rigid, WeaponMagazine? magazine = null)
     {
@@ -333,6 +335,7 @@ public sealed partial class WeaponRig
         public WeaponMount? SwingMount;   // Musou's spear: the mount while a strike is shown (null: the wield mount always)
         public Transform3D SwingWield;
         public bool Swung;
+        public Func<float, Transform3D>? OneHandGrip;
         public Transform3D Wield, Stow, Thigh;   // Thigh: fix/versatility-knife-stow, the left thigh holster of a Weapon Versatility primary during melee
         public WeaponMount? ThighMount;
         public WeaponMount? StowMount;   // visual/lascannon-stow: the stow mount in effect (ours for the lascannon, else the data's): its bone and the Stow transform always agree
@@ -482,6 +485,7 @@ public sealed partial class WeaponRig
         if (alwaysHeld && role == Role.Melee) AlwaysMelee = true;   // Musou's lightning claw: never put away (the jump-pack classes' rule, for this one weapon)
         var item = new Item { Role = role, Attachment = attachment, Asset = asset };
         if (attachment.Wield is { Bone: not null } wield) item.Wield = MarineAssets.ToGodot(asset.Model.RootToBone(wield));
+        item.OneHandGrip = asset.OneHandGrip;
         if (asset.SwingWield is { Bone: not null } swing) { item.SwingMount = swing; item.SwingWield = MarineAssets.ToGodot(asset.Model.RootToBone(swing)); }
         item.StowMount = WeaponStowSpots.For(attachment);
         if (item.StowMount is { Bone: not null } stow) item.Stow = MarineAssets.ToGodot(asset.Model.RootToBone(stow));   // visual/lascannon-stow: ours for the lascannon
@@ -595,6 +599,7 @@ public sealed partial class WeaponRig
         var onBack = BackWeapon.Owner(_shown, hasSecond, _lastPrimary, _empty || StimStowed);
         bool melee = (AlwaysMelee || meleeOut) && !StimStowed;
         _swinging = meleeOut && !StimStowed;   // Musou's spear: both hands only while a strike is shown
+        if (!GripSlideDriven) GripSlide = Math.Clamp(GripSlide + (_swinging ? 1f : -1f) * delta / (_swinging ? GripSlideDownSeconds : GripSlideUpSeconds), 0f, 1f);
         string? meleeBone = null;
         foreach (var i in _items) if (i.Role == Role.Melee && melee) meleeBone = i.Attachment.Wield?.Bone;
         foreach (var i in _items)
@@ -607,8 +612,20 @@ public sealed partial class WeaponRig
             if (thigh) inHand = false;
             // With two primaries only the one swapped out last hangs on the back; the other is not drawn.
             Apply(i, inHand, !thigh && hasSecond && i.Role is Role.Primary or Role.Second && !inHand && i.Role != onBack, thigh);
+            if (i.OneHandGrip is { } grip && i.Mode == 1 && !i.Swung && GodotObject.IsInstanceValid(i.Holder)) i.Holder.Transform = grip(GripSlide);   // the spear's fist slides along the shaft
         }
     }
+
+    /// <summary>
+    /// Musou's power spear (W3; owner, 2026-11-10: "grip higher up on the spear shaft towards the blade [while running], then slide the spear inside his hand to hold it lower towards the butt end ... for melee"):
+    /// where the right hand holds a one-handed spear along its shaft, 0 the high grip near the blade (run and rest), 1 the low grip near the butt (melee). Nothing else reads it.
+    /// Unless <see cref="GripSlideDriven"/>, the rig moves it itself: toward 1 while a strike is shown (over <see cref="GripSlideDownSeconds"/>), back toward 0 after (over <see cref="GripSlideUpSeconds"/>).
+    /// </summary>
+    public float GripSlide { get; set; }
+    /// <summary>The animation drives <see cref="GripSlide"/> (the rig leaves it as set).</summary>
+    public bool GripSlideDriven { get; set; }
+    /// <summary>Seconds the slide takes to the low grip and back (ours, a placeholder until the animator's poses drive it).</summary>
+    public const float GripSlideDownSeconds = 0.15f, GripSlideUpSeconds = 0.35f;
 
     /// <summary>fix/stim-knife-visuals: a combat stim is being used; every ranged and melee weapon is on its stow marker (or hidden) for the use, not floating where the stim clip's hands left it.</summary>
     public bool StimStowed { get; set; }

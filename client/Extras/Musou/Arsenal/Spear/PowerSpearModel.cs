@@ -20,8 +20,8 @@ public sealed partial class WeaponRig
     /// <summary>Metres, along the shaft (+X, the hammer's own axis) from the grip: the butt, the collar, the blade's base and its tip. The whole spear is 2.85 m.</summary>
     public const float SpearButt = -1.05f, SpearCollar = 0.84f, SpearBladeBase = 0.93f, SpearTip = 1.80f;
 
-    /// <summary>Where along the shaft (metres from the two-handed grip point, the butt toward negative) the right hand closes when the spear is carried one-handed: 0.6 m from the butt.</summary>
-    const float OneHandGrip = -0.45f;
+    /// <summary>Where along the shaft (the spear's own X, metres from the two-handed grip point; the butt at -1.05, the collar at 0.84) the right hand closes when the spear is carried one-handed: high, just below the collar, for running and rest, and low, 0.45 m from the butt, for melee; the fist slides between them (<see cref="WeaponRig.GripSlide"/>).</summary>
+    public const float SpearGripHigh = 0.62f, SpearGripLow = -0.60f;
 
     const string BladeShader = """
 shader_type spatial;
@@ -50,30 +50,36 @@ void fragment() {
         if (!ArsenalRules.PowerSpear.Equals(wargear, StringComparison.OrdinalIgnoreCase)) return;
         if (assets.Catalogue.Held("sm_mp_melee_2hand_thunder_hammer") is not { } hammer || assets.Get(hammer) is not { } hammerAsset) return;   // no hammer model, no spear
         WeaponMount? hand = null;
-        if (assets.Catalogue.Held("sm_mp_melee_powersword") is { Wield: { Bone: not null } swordMount } sword && assets.Get(sword) is { } swordAsset) hand = HandMount(swordMount, swordAsset.Model);
+        Func<float, Transform3D>? slide = null;
+        if (assets.Catalogue.Held("sm_mp_melee_powersword") is { Wield: { Bone: not null } swordMount } sword && assets.Get(sword) is { } swordAsset) (hand, slide) = HandMount(swordMount, swordAsset.Model);
         attachment = hand is null ? hammer : hammer with { Wield = hand };
-        asset = SpearAssets.GetValue(hammerAsset, h => new WeaponAsset(h.Model, BuildSpear(), new Dictionary<string, ArrayMesh>(), 0, 0, 0, 0) { SwingWield = hand is null ? null : hammer.Wield });
+        asset = SpearAssets.GetValue(hammerAsset, h => new WeaponAsset(h.Model, BuildSpear(), new Dictionary<string, ArrayMesh>(), 0, 0, 0, 0) { SwingWield = hand is null ? null : hammer.Wield, OneHandGrip = slide });
     }
 
     /// <summary>
-    /// The one-handed carry: a mount on the power sword's hand bone that puts the spear's own frame (the hammer's root space: the shaft along +X, the grip at the origin) where the sword sits in the hand
-    /// (its blade axis the shaft's, its blade's flat side the spear's across axis). The handle node is left out on purpose, so the mesh is taken as already in that frame.
+    /// The one-handed carry: a mount on the power sword's hand bone that puts the spear's own frame (the hammer's root space: the shaft along +X, the two-handed grip at the origin) where the sword sits in the hand
+    /// (its blade axis the shaft's, its blade's flat side the spear's across axis), and the function that slides the fist along the shaft (<see cref="WeaponRig.GripSlide"/>: 0 the high grip, 1 the low). The handle node is left out
+    /// on purpose, so the mesh is taken as already in that frame.
     /// </summary>
-    static WeaponMount? HandMount(WeaponMount sword, WeaponModel model)
+    static (WeaponMount? Mount, Func<float, Transform3D>? Grip) HandMount(WeaponMount sword, WeaponModel model)
     {
-        if (model.Locator(sword.HandleNode) is not { } grip) return null;
+        if (model.Locator(sword.HandleNode) is not { } grip) return (null, null);
         var toBone = model.RootToBone(sword);
         var along = Num.Vector3.TransformNormal(Num.Vector3.UnitY, toBone);     // the sword's blade runs along its model's +Y
         var across = Num.Vector3.TransformNormal(Num.Vector3.UnitX, toBone);
-        if (along.LengthSquared() < 1e-8f) return null;
+        if (along.LengthSquared() < 1e-8f) return (null, null);
         var x = Num.Vector3.Normalize(along);
         across -= x * Num.Vector3.Dot(across, x);
         if (across.LengthSquared() < 1e-8f) across = Num.Vector3.Cross(x, Num.Vector3.UnitZ);
         var y = Num.Vector3.Normalize(across);
         var z = Num.Vector3.Cross(x, y);
-        var at = Num.Vector3.Transform(grip.Position, toBone) - x * OneHandGrip;   // the fist closes on the shaft this far (metres) along it from the spear's own grip point, so the butt hangs 0.6 m below the hand
-        var frame = new Num.Matrix4x4(x.X, x.Y, x.Z, 0f, y.X, y.Y, y.Z, 0f, z.X, z.Y, z.Z, 0f, at.X, at.Y, at.Z, 1f);
-        return new WeaponMount("", sword.BodyNode, sword.Bone, frame, 1f);
+        var hand = Num.Vector3.Transform(grip.Position, toBone);
+        Num.Matrix4x4 Frame(float t)
+        {
+            var at = hand - x * (SpearGripHigh + (SpearGripLow - SpearGripHigh) * Math.Clamp(t, 0f, 1f));   // the fist closes on the shaft at this x of the spear's own frame
+            return new Num.Matrix4x4(x.X, x.Y, x.Z, 0f, y.X, y.Y, y.Z, 0f, z.X, z.Y, z.Z, 0f, at.X, at.Y, at.Z, 1f);
+        }
+        return (new WeaponMount("", sword.BodyNode, sword.Bone, Frame(0f), 1f), t => MarineAssets.ToGodot(Frame(t)));
     }
 
     // ---------------------------------------------------------------- the mesh
