@@ -66,11 +66,12 @@ public class ClawTests
         var notes = new List<string>();
         var result = Arsenal.Append(config, "", notes);
         Assert.Equal(["sm_mp_melee_chainsword", "sm_mp_melee_powersword", ArsenalRules.LightningClaw], result.Classes[0].MeleeChoices.Select(m => m.Wargear));
-        Assert.Same(config.Classes[1], result.Classes[1]);
-        Assert.Same(config.Classes[2], result.Classes[2]);
+        static IEnumerable<string> Melee(ClassLoadout c) => c.MeleeChoices.Select(m => m.Wargear);
+        Assert.Equal(Melee(config.Classes[1]), Melee(result.Classes[1]));   // W4 may add equipment to every class; the claw goes to the Space Marine Assault only
+        Assert.Equal(Melee(config.Classes[2]), Melee(result.Classes[2]));
         Assert.Equal(config.Classes[0].Melee, result.Classes[0].Melee);   // the default combo is untouched
         var again = Arsenal.Append(result, "", notes);
-        Assert.Same(result.Classes[0], again.Classes[0]);   // a second run adds none
+        Assert.Equal(Melee(result.Classes[0]), Melee(again.Classes[0]));   // a second run adds none
         Assert.Equal(3, again.Classes[0].MeleeChoices.Count);
         Assert.DoesNotContain(notes, n => n.Contains("lightning claw"));   // the other entries may note a missing install; the claw has nothing to say
     }
@@ -80,7 +81,8 @@ public class ClawTests
     {
         var config = new SimConfig { Classes = [Class("sm - assault marine", Team.SpaceMarines, "assault", "sm_mp_melee_chainsword")] };
         var notes = new List<string>();
-        Assert.Same(config, Arsenal.Append(config, "", notes));
+        var result = Arsenal.Append(config, "", notes);
+        Assert.Equal(["sm_mp_melee_chainsword"], result.Classes[0].MeleeChoices.Select(m => m.Wargear));   // no claw (W4's equipment may still be added)
         Assert.Single(notes, n => n.Contains("lightning claw"));
     }
 
