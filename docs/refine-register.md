@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2860 spec table rows: **2134 tagged**, 502 not tagged (read from data with high confidence), 224 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 637 rows of the changes document.
+Scanned 2861 spec table rows: **2135 tagged**, 502 not tagged (read from data with high confidence), 224 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 637 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,19 +50,19 @@ Scanned 2860 spec table rows: **2134 tagged**, 502 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 22 | 13 | 13 | 12 | 7 |
-| Core simulation (provisional values) | 594 | 568 | 419 | 166 | 1 |
+| Core simulation (provisional values) | 595 | 569 | 420 | 165 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 235 | 224 | 126 | 63 | 0 |
-| **All areas** | **2134** | 1885 | 1585 | 680 | 38 |
+| **All areas** | **2135** | 1886 | 1586 | 679 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1195 |
+| kind: ours | 1196 |
 | confidence: low | 766 |
-| confidence: medium | 690 |
-| notes: ours | 391 |
+| confidence: medium | 691 |
+| notes: ours | 390 |
 | kind: interpretation | 363 |
 | notes: estimate | 176 |
 | kind: estimate | 151 |
@@ -2210,7 +2210,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (594)
+### Core simulation (provisional values) (595)
 
 *Spec section: Provisional values in use*
 
@@ -3144,11 +3144,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-73CE2C31` | Spear: tempo | the spear is the thunder hammer's combo with every step's timing (duration, hit, combo window, ranged-cancel, move, no-react window, string reset, evade, the slam's steering window) divided by **0.85**; the slam's turn is the same 185 degrees over the longer… (x the hammer's rate) | kind: estimate; confidence: low; notes: ours | owner D14 "slower than hammer"; 0.85 ours | Spear: tempo: compare with SM1 by feel or video. Ours: the spear is the thunder hammer's combo with every step's timing… | ☐ |
-| `R-DA640157` | Spear: sweep reach | **12 m** from the feet (the hammer's war cleave: 8.8 m, 10.7 m with a track-to-hit step), the cleave's own height band (1.5 m) and wall rule (m) | kind: estimate; confidence: low; notes: ours | owner D14 "much wider reach"; 12 m ours | Spear: sweep reach: compare with SM1 by measuring on a flat spot of the same map. Ours: 12 m from the feet (the hammer's war cleave: 8.8 m, 10.7 m with a… | ☐ |
-| `R-84D13CDE` | Spear: sweep width | **120 degrees** to each side (240 in all). The war's hammer cleave is also 120 each side since 2026-11-09, so the width is the hammer's; the design's table (180 degrees for the hammer) was written before that (degrees) | kind: estimate; confidence: low | design 6.1; owner D14 | Spear: sweep width: compare with SM1 by measuring on a flat spot of the same map. Ours: 120 degrees to each side (240 in all). The war's hammer cleave is… | ☐ |
-| `R-77758F95` | Spear: sweep cap | at most **12** Orks, nearest first (the hammer's war cleave: 40) (Orks) | kind: estimate; confidence: low; notes: ours | ours (a crowd cap) | Spear: sweep cap: compare with SM1 by feel or video. Ours: at most 12 Orks, nearest first (the hammer's war cleave: 40). | ☐ |
+| `R-DA640157` | Spear: sweep reach | **15 m** from the feet (the hammer's war cleave: 8.8 m, 10.7 m with a track-to-hit step), the cleave's own height band (1.5 m) and wall rule (m) | kind: estimate; confidence: low | owner D14 "much wider reach"; 2026-11-10 "Wider and longer": 15 m (12 m before) | Spear: sweep reach: compare with SM1 by measuring on a flat spot of the same map. Ours: 15 m from the feet (the hammer's war cleave: 8.8 m, 10.7 m with a… | ☐ |
+| `R-84D13CDE` | Spear: sweep width | **150 degrees** to each side (300 in all, nearly a full circle; owner 2026-11-10 "Wider and longer", 120 each side before). The war's hammer cleave is 120 each side since 2026-11-09 (degrees) | kind: estimate; confidence: low | owner, 2026-11-10 (question tool) | Spear: sweep width: compare with SM1 by measuring on a flat spot of the same map. Ours: 150 degrees to each side (300 in all, nearly a full circle; owner… | ☐ |
+| `R-77758F95` | Spear: sweep cap | at most **12** Orks, nearest first (the hammer's war cleave: 40); kept at 12 for the 300 degrees at 15 m (owner 2026-11-10) (Orks) | kind: estimate; confidence: low; notes: ours | ours (a crowd cap) | Spear: sweep cap: compare with SM1 by feel or video. Ours: at most 12 Orks, nearest first (the hammer's war cleave: 40); kept at… | ☐ |
 | `R-E48FE621` | Spear: impale | when the spear's player lands a jump-pack ground pound (the pound's Impact), the Ork nearest the landing within **2 m** (the nearest alive after the pack's own blast) takes **600** (a Nob's whole health), times the stims' melee factor, with the melee heal… (health, m) | kind: estimate; confidence: low | owner D18 (the proposed rule) | Spear: impale: compare with SM1 by feel or video. Ours: when the spear's player lands a jump-pack ground pound (the pound's… | ☐ |
 | `R-A061A276` | Spear: where offered | appended at the end of the Space Marine Assault's melee choices (no index moves) and to the Musou customizer's melee row, when the class carries the thunder hammer; no other class and no other profile; a config without the hammer is untouched | kind: ours; confidence: medium | owner D1, D3 | Spear: where offered: compare with SM1 by feel or video. Ours: appended at the end of the Space Marine Assault's melee choices (no… | ☐ |
+| `R-8478B02C` | Spear: carry | idle and running: the spear is held in the **right hand alone** (the power sword's hand mount, the shaft where a sword's blade points); a swing shows it in **both hands** (the hammer's chest-prop mount, left hand joining) and goes back to the right hand when… | kind: ours; confidence: medium | owner, 2026-11-10 | Spear: carry: compare with SM1 by feel or video. Ours: idle and running: the spear is held in the right hand alone (the… | ☐ |
 | `R-18174400` | Spear: look | built in code (placeholder): a black shaft **2.85 m** in all about a third of the way from the grip, a bronze collar, ring, bands and a small crossguard near the top, and a long single-edged blade (0.87 m, angled chisel tip) in a translucent blue power field… (m) | kind: ours; confidence: low | owner D15 (his reference, as described) | Spear: look: compare with SM1 by measuring on a flat spot of the same map. Ours: built in code (placeholder): a black shaft 2.85 m in all about a… | ☐ |
 
 ### General game design (7)

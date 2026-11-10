@@ -4,6 +4,7 @@ using System.Runtime.CompilerServices;
 using Godot;
 using SmContent;
 using SmSim.Extras.Musou.Arsenal;
+using Num = System.Numerics;
 
 namespace SmClient;
 
@@ -18,6 +19,9 @@ public sealed partial class WeaponRig
 {
     /// <summary>Metres, along the shaft (+X, the hammer's own axis) from the grip: the butt, the collar, the blade's base and its tip. The whole spear is 2.85 m.</summary>
     public const float SpearButt = -1.05f, SpearCollar = 0.84f, SpearBladeBase = 0.93f, SpearTip = 1.80f;
+
+    /// <summary>Where along the shaft (metres from the two-handed grip point, the butt toward negative) the right hand closes when the spear is carried one-handed: 0.6 m from the butt.</summary>
+    const float OneHandGrip = -0.45f;
 
     const string BladeShader = """
 shader_type spatial;
@@ -37,13 +41,39 @@ void fragment() {
 
     static readonly ConditionalWeakTable<WeaponAsset, WeaponAsset> SpearAssets = new();
 
-    /// <summary>W3: the spear's model (its attachment is the thunder hammer's, so it is held in the same place).</summary>
+    /// <summary>
+    /// W3: the spear's model. Carried in the right hand alone (the power sword's hand mount: the shaft where a sword's blade points, the grip at the hand) and swung in both hands (the thunder hammer's
+    /// chest-prop mount, <see cref="WeaponAsset.SwingWield"/>); the rig changes mount with the strike (owner, 2026-11-10: "Right hand carries, both swing"). Without the sword's model it is the hammer's mount always.
+    /// </summary>
     partial void PowerSpearModel(HandRole role, string wargear, WeaponAssets assets, ref WeaponAttachment? attachment, ref WeaponAsset? asset)
     {
         if (!ArsenalRules.PowerSpear.Equals(wargear, StringComparison.OrdinalIgnoreCase)) return;
         if (assets.Catalogue.Held("sm_mp_melee_2hand_thunder_hammer") is not { } hammer || assets.Get(hammer) is not { } hammerAsset) return;   // no hammer model, no spear
-        attachment = hammer;
-        asset = SpearAssets.GetValue(hammerAsset, h => new WeaponAsset(h.Model, BuildSpear(), new Dictionary<string, ArrayMesh>(), 0, 0, 0, 0));
+        WeaponMount? hand = null;
+        if (assets.Catalogue.Held("sm_mp_melee_powersword") is { Wield: { Bone: not null } swordMount } sword && assets.Get(sword) is { } swordAsset) hand = HandMount(swordMount, swordAsset.Model);
+        attachment = hand is null ? hammer : hammer with { Wield = hand };
+        asset = SpearAssets.GetValue(hammerAsset, h => new WeaponAsset(h.Model, BuildSpear(), new Dictionary<string, ArrayMesh>(), 0, 0, 0, 0) { SwingWield = hand is null ? null : hammer.Wield });
+    }
+
+    /// <summary>
+    /// The one-handed carry: a mount on the power sword's hand bone that puts the spear's own frame (the hammer's root space: the shaft along +X, the grip at the origin) where the sword sits in the hand
+    /// (its blade axis the shaft's, its blade's flat side the spear's across axis). The handle node is left out on purpose, so the mesh is taken as already in that frame.
+    /// </summary>
+    static WeaponMount? HandMount(WeaponMount sword, WeaponModel model)
+    {
+        if (model.Locator(sword.HandleNode) is not { } grip) return null;
+        var toBone = model.RootToBone(sword);
+        var along = Num.Vector3.TransformNormal(Num.Vector3.UnitY, toBone);     // the sword's blade runs along its model's +Y
+        var across = Num.Vector3.TransformNormal(Num.Vector3.UnitX, toBone);
+        if (along.LengthSquared() < 1e-8f) return null;
+        var x = Num.Vector3.Normalize(along);
+        across -= x * Num.Vector3.Dot(across, x);
+        if (across.LengthSquared() < 1e-8f) across = Num.Vector3.Cross(x, Num.Vector3.UnitZ);
+        var y = Num.Vector3.Normalize(across);
+        var z = Num.Vector3.Cross(x, y);
+        var at = Num.Vector3.Transform(grip.Position, toBone) - x * OneHandGrip;   // the fist closes on the shaft this far (metres) along it from the spear's own grip point, so the butt hangs 0.6 m below the hand
+        var frame = new Num.Matrix4x4(x.X, x.Y, x.Z, 0f, y.X, y.Y, y.Z, 0f, z.X, z.Y, z.Z, 0f, at.X, at.Y, at.Z, 1f);
+        return new WeaponMount("", sword.BodyNode, sword.Bone, frame, 1f);
     }
 
     // ---------------------------------------------------------------- the mesh

@@ -14,7 +14,7 @@ public sealed partial class World
     partial void ArsenalCleave(int attacker, in PlayerState state, MeleeStep step, ref float range, ref float minCos, ref int most, ref float damage)
     {
         if (!SpearRules.Wields(Config, state)) return;
-        range = SpearRules.ReachMetres;       // from the feet, the war cleave's own scale not applied on top (the design's 12 m is the whole reach)
+        range = SpearRules.ReachMetres;       // from the feet, the war cleave's own scale not applied on top (the 15 m is the whole reach)
         minCos = SpearRules.MinCos;
         most = SpearRules.MostOrks;
         // The damage is the step's own: the combo was built at the spear's damage (SpearRules.FromHammer).

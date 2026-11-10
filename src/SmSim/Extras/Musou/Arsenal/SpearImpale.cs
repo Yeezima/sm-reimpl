@@ -6,7 +6,7 @@ namespace SmSim.Extras.Musou.Arsenal;
 /// Musou's power spear (W3; docs/new-weapons-design.md section 6; the owner approved the design 2026-11-10: "slower than hammer but much wider reach", "impaling dive plus wide sweeping swings"). Added content,
 /// Musou only. Every number is ours (kind: estimate or ours, confidence low), to check in a playtest; they are in the refine register.
 /// <para>The spear is the thunder hammer's combo slowed to <see cref="Tempo"/> (<see cref="FromHammer"/>): every timing of a step divided by it, the damage of the swings times <see cref="DamageScale"/>, the slam
-/// and the charge as the hammer's. Its sweeps are a wide, long flat cone (<see cref="ReachMetres"/>, <see cref="HalfAngleDegrees"/>, at most <see cref="MostOrks"/> Orks, through <c>World.ArsenalCleave</c>), and its
+/// and the charge as the hammer's. Its sweeps are a wide, long flat cone (<see cref="ReachMetres"/>, <see cref="HalfAngleDegrees"/> each side, at most <see cref="MostOrks"/> Orks, through <c>World.ArsenalCleave</c>), and its
 /// jump-pack dive ends in an impale (<see cref="ImpaleDamage"/> to the enemy nearest the landing within <see cref="ImpaleReach"/>, <c>World.ArsenalJump</c>) on top of the pack's own blast. It takes the hammer's
 /// jump-pack rules (<see cref="ArsenalRules.WieldsHammer"/>).</para>
 /// </summary>
@@ -15,11 +15,11 @@ public static class SpearRules
     /// <summary>The hammer's clips at this rate (D14: slower than the hammer; 0.85 an estimate): every step's timing is the hammer's divided by it. Also the client's clip rate (<c>WeaponMap.ClipSpeed</c>).</summary>
     public const float Tempo = 0.85f;
 
-    /// <summary>Reach of a sweep, metres from the feet (D14: much wider reach; 12 an estimate; the hammer's war cleave is 8.25 m).</summary>
-    public const float ReachMetres = 12f;
+    /// <summary>Reach of a sweep, metres from the feet (D14: much wider reach; the owner 2026-11-10: "Wider and longer", 15 m, was 12; the hammer's war cleave is about 8.8 m).</summary>
+    public const float ReachMetres = 15f;
 
-    /// <summary>A sweep covers this many degrees either side of the facing (240 in all; the hammer's war cleave 90; estimate).</summary>
-    public const float HalfAngleDegrees = 120f;
+    /// <summary>A sweep covers this many degrees either side of the facing (300 in all, nearly a full circle; owner 2026-11-10: "Wider and longer", was 120 each side; the hammer's war cleave is 120 each side).</summary>
+    public const float HalfAngleDegrees = 150f;
 
     /// <summary>The most Orks one sweep strikes, nearest first (the hammer's is the war's 40; the spear's is a crowd cap of its own, estimate).</summary>
     public const int MostOrks = 12;

@@ -9,7 +9,7 @@ using SmNet.Tests.Extras.Musou.Campaign;
 namespace SmNet.Tests.Extras.Musou.Arsenal;
 
 /// <summary>
-/// W3, the power spear (docs/new-weapons-design.md section 6): the hammer's combo slowed to 0.85 and lightened, sweeps that reach 12 m over 240 degrees and strike at most 12 Orks, the hammer's jump-pack
+/// W3, the power spear (docs/new-weapons-design.md section 6): the hammer's combo slowed to 0.85 and lightened, sweeps that reach 15 m over 300 degrees and strike at most 12 Orks, the hammer's jump-pack
 /// rules, and the impale on the pound's landing (600 to the nearest enemy within 2 m). Musou only: a player without the spear, and every non-Musou match, keep the hammer's cleave and landing.
 /// </summary>
 public class SpearTests
@@ -123,13 +123,13 @@ public class SpearTests
     // ---------------------------------------------------------------- the sweep
 
     [Fact]
-    public void A_spear_sweep_reaches_12_m_over_240_degrees_and_a_hammer_swing_does_not()
+    public void A_spear_sweep_reaches_15_m_over_300_degrees_and_a_hammer_swing_does_not()
     {
         var spear = War(melee: 1);
-        ushort near = Ork(spear, Polar(spear, 0f, 11.5f));      // hammer reach: 8.8 m (10.7 with a track-to-hit step)
-        ushort far = Ork(spear, Polar(spear, 0f, 13f));
-        ushort wide = Ork(spear, Polar(spear, 115f, 5f));       // inside 120 (the war's hammer cleave is 120 each side too since 2026-11-09: the spear's width is the same, its reach is not)
-        ushort behind = Ork(spear, Polar(spear, 130f, 5f));     // outside 120
+        ushort near = Ork(spear, Polar(spear, 0f, 14.5f));      // hammer reach: 8.8 m (10.7 with a track-to-hit step)
+        ushort far = Ork(spear, Polar(spear, 0f, 16.5f));
+        ushort wide = Ork(spear, Polar(spear, 145f, 5f));       // past the war hammer's 120 each side
+        ushort behind = Ork(spear, Polar(spear, 160f, 5f));     // outside 150
         ushort high = Ork(spear, Polar(spear, 20f, 4f, 2.0f));  // the flat cone's 1.5 m height band
         var hit = StruckBySwing(spear);
         Assert.Contains((int)near, hit);
@@ -137,13 +137,17 @@ public class SpearTests
         Assert.DoesNotContain((int)far, hit);
         Assert.DoesNotContain((int)behind, hit);
         Assert.DoesNotContain((int)high, hit);
+        Assert.Equal(15f, SpearRules.ReachMetres);
+        Assert.Equal(150f, SpearRules.HalfAngleDegrees);
 
         var hammer = War(melee: 0);
-        ushort farForHammer = Ork(hammer, Polar(hammer, 0f, 11.5f));
-        ushort wideForHammer = Ork(hammer, Polar(hammer, 115f, 5f));
+        ushort farForHammer = Ork(hammer, Polar(hammer, 0f, 14.5f));
+        ushort wideForHammer = Ork(hammer, Polar(hammer, 145f, 5f));
+        ushort sideForHammer = Ork(hammer, Polar(hammer, 115f, 5f));
         var hammerHit = StruckBySwing(hammer);
-        Assert.DoesNotContain((int)farForHammer, hammerHit);   // 11.5 m is past the hammer's 8.8 m (10.7 m with a track-to-hit step)
-        Assert.Contains((int)wideForHammer, hammerHit);        // the same 240 degrees
+        Assert.DoesNotContain((int)farForHammer, hammerHit);    // past the hammer's 8.8 m (10.7 m with a track-to-hit step)
+        Assert.DoesNotContain((int)wideForHammer, hammerHit);   // past the hammer's 120 degrees each side
+        Assert.Contains((int)sideForHammer, hammerHit);
     }
 
     [Fact]
