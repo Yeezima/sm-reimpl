@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2966 spec table rows: **2216 tagged**, 522 not tagged (read from data with high confidence), 228 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 660 rows of the changes document.
+Scanned 2973 spec table rows: **2221 tagged**, 522 not tagged (read from data with high confidence), 230 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 660 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,18 +50,18 @@ Scanned 2966 spec table rows: **2216 tagged**, 522 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 22 | 13 | 13 | 12 | 7 |
-| Core simulation (provisional values) | 656 | 621 | 471 | 171 | 1 |
+| Core simulation (provisional values) | 661 | 624 | 474 | 171 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 235 | 224 | 126 | 63 | 0 |
-| **All areas** | **2216** | 1956 | 1655 | 694 | 38 |
+| **All areas** | **2221** | 1959 | 1658 | 694 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1250 |
+| kind: ours | 1253 |
 | confidence: low | 799 |
-| confidence: medium | 727 |
+| confidence: medium | 730 |
 | notes: ours | 403 |
 | kind: interpretation | 372 |
 | notes: estimate | 176 |
@@ -2255,7 +2255,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (656)
+### Core simulation (provisional values) (661)
 
 *Spec section: Provisional values in use*
 
@@ -3163,6 +3163,16 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-C1D08066` | Army made real | keeps the march facing (not a fresh spawn: `keepYaw`); the army itself spawned facing the centre | kind: ours; confidence: medium | ours (the owner said "spawning") | Army made real: compare with SM1 by feel or video. Ours: keeps the march facing (not a fresh spawn: keepYaw); the army itself… | ☐ |
 | `R-B5790B4B` | Not covered | the Stormbird and the Firing Range spawns keep their own facing | kind: ours; confidence: medium | ours | Not covered: compare with SM1 by feel or video. Ours: the Stormbird and the Firing Range spawns keep their own facing. | ☐ |
 | `R-468A6F29` | Client view | the view takes the server's yaw on a respawn (as before) and on a landing or redeploy of a living player (a jump of 15 m or more in one frame), so nothing turns on the first frame (m) | kind: ours; confidence: medium | ours | Client view: compare with SM1 by measuring on a flat spot of the same map. Ours: the view takes the server's yaw on a respawn (as before) and on a… | ☐ |
+
+*Spec section: Polish pass P3 (claude/polish-p3, 2026-11-11; client only; first frames and loads: no simulation, wire, protocol or config-hash change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-DF035E5F` | Map sound emitters and regions read by the map load (both modes, with sound) | the map's sound emitters and reverb regions (`MapAudio.Load`, an install read) are read by the map load (on its worker for a human client, inside the load's frame for a bot or `--sync-map-load`) and handed to the sound set-up; before P3 the first frame of… (ms) | kind: ours | measured 2026-11-11 | Map sound emitters and regions read by the map load (both…: compare with SM1 by listening A/B at the same distance and state. Ours: the map's sound emitters and reverb regions (MapAudio.Load, an… | ☐ |
+| `R-0C47964B` | Hub sky made by the map load (Musou, added content) | the Stormbird's sky (`TfwHubSky.Build`) is made in the map load's main-thread stage, behind the loading screen, not in the first frame aboard. The same sky. `--hub-sky-in-play` restores (ms) | kind: ours | measured 2026-11-11 (`docs/milestones.md`, "Polish pass P3") | Hub sky made by the map load (Musou, added content): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the Stormbird's sky (TfwHubSky.Build) is made in the map load's… | ☐ |
+| `R-AC4906B9` | Sound streams (checked, no change) | a sound's stream object (`AudioStreamOggVorbis.LoadFromBuffer`) is made in the frame that takes the decoded file, as before P3. P3 tried making it on the decode worker (plan item 29's guess): three 13-player runs with sound showed the `sound` phase's stalls… (ms) | confidence: medium | measured 2026-11-11 | Sound streams (checked, no change): compare with SM1 by listening A/B at the same distance and state. Ours: a sound's stream object (AudioStreamOggVorbis.LoadFromBuffer) is made… | ☐ |
+| `R-E0D7C562` | No 3D drawn while the load builds and warms (both modes, a human client; a crash fix for P2's… | from the frame that builds the map's nodes until the last of the **6** warm-ups (one a frame: looks, the Ork, weapon models, grenades, pickups, the crosshair's ray) the viewport draws no 3D; the loading screen covers the view in those frames anyway. Reason:… (frames) | kind: ours; confidence: medium | ours (engine work) | No 3D drawn while the load builds and warms (both modes, a…: compare with SM1 by feel or video. Ours: from the frame that builds the map's nodes until the last of the 6… | ☐ |
+| `R-955FB827` | Per-instance shader values on the Compatibility renderer (checked, no change) | the power sword's glow and flare, the force sword's, the melta cone and the slash cone keep their shared materials with per-instance values on both renderers: stills on the Compatibility renderer (Godot 4.7.2, OpenGL 3.3, the development PC) show the blade's… | confidence: medium | measured (stills, 2026-11-11) | Per-instance shader values on the Compatibility renderer…: compare with SM1 by feel or video. Ours: the power sword's glow and flare, the force sword's, the melta cone… | ☐ |
 
 *Spec section: Polish pass P2 (claude/polish-p2, 2026-11-10; client, content, server; load time only: no simulation, wire, protocol or config-hash change)*
 
@@ -4846,6 +4856,8 @@ Test aids, probes, demo and capture tooling, and engineering decisions (protocol
 | `R-E6DE77A1` | Handshake after the blink | Screen blink (ui/loading-blink, 2026-11-10, client only) |
 | `R-BE72EE96` | Core messages counted in the Musou budget (Musou) | Musou performance pass and the owner's battle decisions (musou/perf-pass, 2026-11-08; Musou Mode only but FSR 2 and the off-screen effects, which are shared client settings; `TfwRules.Version` 38, no protocol or wire change) |
 | `R-A9655E6C` | Stormboy hop cue's flight (Musou wire) | Musou Mode: smooth crowd motion (crowd-smooth, 2026-11-08; Musou Mode only; `MusouSim.Version` 22, no core protocol bump: `Protocol.Version` stays 64) |
+| `R-D3537240` | Shader sweep behind the loading screen (both modes, a human client) | Polish pass P3 (claude/polish-p3, 2026-11-11; client only; first frames and loads: no simulation, wire, protocol or config-hash change) |
+| `R-CAE9BEEA` | Measurement aids (no change of behaviour) | Polish pass P3 (claude/polish-p3, 2026-11-11; client only; first frames and loads: no simulation, wire, protocol or config-hash change) |
 | `R-4EEFB531` | Ashfall layout cache (Musou, added content) | Polish pass P2 (claude/polish-p2, 2026-11-10; client, content, server; load time only: no simulation, wire, protocol or config-hash change) |
 | `R-5F9027EA` | Loading captions | Polish pass P2 (claude/polish-p2, 2026-11-10; client, content, server; load time only: no simulation, wire, protocol or config-hash change) |
 | `R-866FC7E6` | `LOADTIME` line | Polish pass P1 (claude/polish-p1, 2026-11-10; client, server runtime and options; no simulation, wire, protocol or config-hash change) |

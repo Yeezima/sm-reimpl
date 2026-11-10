@@ -40,6 +40,9 @@ public partial class NetworkView
         public List<Vector3>? RagdollFaces;
         public long ContentMs, WorldMs, SceneMs, WorkerMs, VisualsDoneMs;
         public int WarmupStep;
+        public bool Async;
+        public MapAudio? Audio;
+        public List<string>? AudioNotes;
         public required System.Diagnostics.Stopwatch Watch;
     }
 
@@ -73,11 +76,14 @@ public partial class NetworkView
             {
                 _built = true;
                 if (view.Lean) { loaded = view.Stage2Visuals(s); return true; }
-                view.Stage2Visuals(s);
+                view.LoadDraws3D(false);   // P3: no 3D drawn between the build and the last warm-up (see LoadDraws3D)
+                try { view.Stage2Visuals(s); } catch { view.LoadDraws3D(true); throw; }
                 view.SetLoadingCaption("PREPARING LOOKS AND WEAPONS");
                 return false;
             }
-            if (view.WarmupStep(s)) return false;   // one warm-up a frame
+            try { if (view.WarmupStep(s)) return false; }   // one warm-up a frame, then the shader sweep's frames
+            catch { view.LoadDraws3D(true); throw; }
+            view.LoadDraws3D(true);
             loaded = view.Finish(s);
             view.SetLoadingCaption("JOINING");
             return true;
@@ -120,14 +126,21 @@ public partial class NetworkView
         ulong hash = map.Hash;
         ExtrasMapCollision(name, ref world, ref hash);   // EXTRAS-HOOK: added content's solids beside the level, and the hash of the whole (Musou Mode's Stormbird)
         long worldMs = watch.ElapsedMilliseconds;
-        var stage = new MapStage1 { Name = name, File = file, Map = map, World = world, Hash = hash, Generated = generated is not null, ContentMs = contentMs, WorldMs = worldMs, Watch = watch };
-        if (!Lean) stage.RagdollFaces = RagdollWorldFaces(map);   // P2: the ragdoll world's triangles gathered here, its body made on the main thread
-        if (generated is null && !Lean)
+        var stage = new MapStage1 { Name = name, File = file, Map = map, World = world, Hash = hash, Generated = generated is not null, ContentMs = contentMs, WorldMs = worldMs, Watch = watch, Async = !onMainThread };
+        if (!Lean) stage.RagdollFaces = RagdollWorldFaces(map);   // P2: the ragdoll world's triangles gathered here, its body and shape made on the main thread (P3: a shape made on this worker crashed the Compatibility renderer's load)
+        if (!Lean && !NoSound && !MapAudioInPlay && file != "none")
+        {
+            // P3: the map's sound emitters and regions read here (engine-free), not in the first frame of play (measured: 145 ms of that frame, in every join with sound).
+            // A failure is left to SetUpMapSound, which reads again and reports it as before.
+            var notes = new List<string>();
+            try { stage.Audio = MapAudio.Load(_gameDir, file, notes); stage.AudioNotes = notes; }
+            catch (Exception e) when (e is System.IO.IOException or System.IO.InvalidDataException or ArgumentException or NotSupportedException) { }
+        }
+        if (generated is null && !Lean && (onMainThread || !SceneOnMain))
         {
             // The map's look: the original meshes and textures read here (MapScene.Load is engine-free); MapView.Build draws them on the main thread in Stage2.
             SetLoadingCaption("READING THE MAP'S MESHES AND TEXTURES");
-            try { stage.Scene = MapScene.Load(_gameDir, file); }
-            catch (Exception e) when (e is not (StackOverflowException or AccessViolationException)) { stage.SceneError = $"{e.GetType().Name}: {e.Message}"; }
+            LoadScene(stage, file);
         }
         stage.SceneMs = watch.ElapsedMilliseconds;
         stage.WorkerMs = stage.SceneMs;
@@ -135,6 +148,18 @@ public partial class NetworkView
     }
 
     long _stage2StartMs, _ragdollMs, _collisionMs;
+
+    /// <summary>polish pass P3: <c>--map-audio-in-play</c> reads the map's sound emitters and regions in the first frame of play, as before P3.</summary>
+    static readonly bool MapAudioInPlay = CmdFlag("map-audio-in-play");
+
+    /// <summary>polish pass P3 (measurement aid): <c>--scene-on-main</c> reads the map scene in the main thread's stage instead of on the worker (to tell whether the worker's read is what holds a frame).</summary>
+    static readonly bool SceneOnMain = CmdFlag("scene-on-main");
+
+    void LoadScene(MapStage1 stage, string file)
+    {
+        try { stage.Scene = MapScene.Load(_gameDir, file); }
+        catch (Exception e) when (e is not (StackOverflowException or AccessViolationException)) { stage.SceneError = $"{e.GetType().Name}: {e.Message}"; }
+    }
 
     /// <summary>
     /// Builds what needs Godot (main thread, one frame): the ragdoll world's body, the navigation's start, added content's hub nodes, the map view with its lights (or added content's drawn
@@ -148,6 +173,7 @@ public partial class NetworkView
         var map = s.Map; var world = s.World; ulong hash = s.Hash;
         Ph("map load: collision and content");
         _stage2StartMs = watch.ElapsedMilliseconds;
+        _mapAudioAhead = s.Audio is null ? null : (s.File, s.Audio, s.AudioNotes ?? []);   // P3: for SetUpMapSound (NetworkView.Sound.cs)
         if (!Lean) BuildRagdollWorld(s.RagdollFaces ?? RagdollWorldFaces(map));
         _ragdollMs = watch.ElapsedMilliseconds;
         PrepareNavigation(map, world); MemStep("navigation");
@@ -156,6 +182,7 @@ public partial class NetworkView
         if (Lean) return LeanMapLoaded(name, hash, world, collisionMs, watch);   // perf/lean-bots: collision, navigation and the jump ground only (NetworkView.Lean.cs)
         _gameSpace?.GetNodeOrNull("MapCollision")?.QueueFree();
         _gameSpace?.GetNodeOrNull("MapVisuals")?.QueueFree();
+        if (!s.Generated && s.Scene is null && s.SceneError is null && SceneOnMain) LoadScene(s, s.File);   // --scene-on-main (P3 measurement aid)
         ExtrasMapCollisionVisuals();   // EXTRAS-HOOK (P2): the nodes of what the collision hook composed on the worker (Musou Mode's Stormbird and Firing Range)
 
         // The map's look: original meshes and diffuse textures (MapView). Failure falls back to the grey collision.
@@ -237,15 +264,52 @@ public partial class NetworkView
         return null;
     }
 
+    /// <summary>polish pass P3: <c>--no-shader-sweep</c> skips the sweep's frames (before P3 the camera looked at nothing during the load, so the map's shaders compiled at the first frames of play).</summary>
+    static readonly bool NoShaderSweep = CmdFlag("no-shader-sweep");
+
+    /// <summary>polish pass P3: <c>--load-draws-3d</c> lets the renderer draw the 3D world during the asynchronous load's build and warm-up frames, as P2 did (see <see cref="LoadDraws3D"/>).</summary>
+    static readonly bool LoadDraws3DAlways = CmdFlag("load-draws-3d");
+
+    /// <summary>
+    /// polish pass P3 (a crash fix for P2's asynchronous load): while the map's nodes are built and the warm-ups make and free their models, one a frame, the viewport draws no 3D
+    /// (the loading screen covers it anyway). Measured on the Compatibility renderer, Musou joins, the development PC: with 3D drawn in those frames the client crashed during the
+    /// warm-up frames (signal 11 between frames) in 28 of 55 joins and with none drawn in 1 of 57 (still one: the cause inside the engine is not known, and running the warm-ups
+    /// in the build's frame there did no better, 1 of 40); the synchronous load, which finishes no frame until the join, in 0 of 15; Forward+ in 0 of 12.
+    /// <c>--load-draws-3d</c> restores P2's behaviour.
+    /// </summary>
+    void LoadDraws3D(bool on)
+    {
+        if (LoadDraws3DAlways) return;
+        if (GetViewport() is { } viewport && viewport.Disable3D == on) viewport.Disable3D = !on;
+    }
+
+    const int WarmupSteps = 6, SweepSteps = 6;
+
+
+    /// <summary>
+    /// polish pass P3: after the warm-ups, still behind the loading screen, the camera stands over the map's centre and looks round, a sixth of a turn a frame for six frames, so the
+    /// renderer compiles the map's materials' shaders and pipelines now (measured before: the Compatibility renderer held two frames of 350 ms at the first sight of each material
+    /// after the join; Forward+ one of 58 ms). The join then places the camera as before.
+    /// </summary>
+    void ShaderSweepFrame(int step)
+    {
+        if (_camera is null || _gameSpace is null || _mapCentre3 is not { } centre) return;
+        var eye = _gameSpace.Transform * new Vector3(centre.X, centre.Y, centre.Z + 14f);
+        float yaw = step * Mathf.Tau / SweepSteps;
+        var target = _gameSpace.Transform * new Vector3(centre.X + 40f * Mathf.Cos(yaw), centre.Y + 40f * Mathf.Sin(yaw), centre.Z + 2f);
+        _camera.GlobalTransform = new Transform3D(Basis.LookingAt(target - eye, Vector3.Up), eye);
+    }
+
     /// <summary>
     /// One warm-up a call (the default look of every class and the own look, the Ork's, the default loadouts' weapon models, the grenades, the pickups, the crosshair's first ray),
-    /// so no player's first look or shot stalls a frame (customizer T7, M40-T9); the asynchronous load runs one a frame while the loading screen is up, the synchronous load all at once.
-    /// True while steps remain.
+    /// so no player's first look or shot stalls a frame (customizer T7, M40-T9); the asynchronous load runs one a frame while the loading screen is up, then the shader sweep's
+    /// frames with the 3D world drawn again; the synchronous load runs the warm-ups all at once and no sweep. True while steps remain.
     /// </summary>
     bool WarmupStep(MapStage1 s)
     {
         Ph("map load: looks");
-        switch (s.WarmupStep++)
+        int step = s.WarmupStep++;
+        switch (step)
         {
             case 0: _warmClock = System.Diagnostics.Stopwatch.StartNew(); WarmLooks(); return true;   // Ork O7a: one deadline for the marines' and the Ork's warm-up
             case 1: WarmOrk(); return true;   // Ork O7a: an Ork player's own look and weapons (NetworkView.Ork.cs)
@@ -253,8 +317,11 @@ public partial class NetworkView
             case 3: PrewarmGrenades(); return true;   // feel/grenades-quickdraw: the grenade models, so the first throw does not stall a frame
             case 4: PrewarmPickups(); return true;   // perf/pass-1: the drops' models (the first drop cost a 100 ms frame); a lean bot never gets here (LeanMapLoaded) and warms none
             case 5: PrewarmCollision(s.World); return true;   // M40-T9: the crosshair's first ray
-            default: return false;
         }
+        if (!s.Async || NoShaderSweep || step >= WarmupSteps + SweepSteps) return false;
+        LoadDraws3D(true);   // the warm-ups are done: the sweep's frames draw the map
+        ShaderSweepFrame(step - WarmupSteps);
+        return true;
     }
 
     /// <summary>The LOADTIME line and the loaded map (collision and hash) for the handshake.</summary>

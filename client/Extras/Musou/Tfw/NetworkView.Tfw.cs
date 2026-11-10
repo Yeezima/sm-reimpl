@@ -27,9 +27,12 @@ public partial class NetworkView
         TfwOrderKeysFree();
         TfwOrdersFrame(war, me, (float)delta);
         TfwRedeployFrame(war, me);   // NetworkView.TfwFlow.cs: a fallen player's deploy for a supply
+        Ph("tfw: stations");   // polish pass P3: the landing's first frame named by its part
         TfwStationsFrame(war, me);
+        Ph("tfw: hud");
         TfwHudFrame(war, me);
         TfwBossOrksFrame(war);   // the roaming Boss Orks' bars and call-outs (NetworkView.TfwBossOrks.cs)
+        Ph("tfw: markers");
         TfwMarkersFrame(war);
         Ph("tfw: fire, clouds");
         TfwFireFrame(war, delta);
@@ -99,6 +102,7 @@ public partial class NetworkView
             _gameSpace.AddChild(_tfwMarkers);
         }
         _tfwMarkers.Show(war, _tfwState.Objectives, _tfwState.Sites, _client?.Predicted.Position ?? default);
+        Ph("tfw: hub");   // polish pass P3: the hub apart from the markers in the frame profile
         TfwHubFrame(war);
     }
 }

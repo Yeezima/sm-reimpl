@@ -344,7 +344,11 @@ public partial class NetworkView
         return faces;
     }
 
-    /// <summary>Main thread: the static body of the ragdoll world from its gathered triangles.</summary>
+    /// <summary>
+    /// Main thread: the static body of the ragdoll world from its gathered triangles. The concave shape is made here, never on the load's worker: polish pass P3 tried that and
+    /// the client then crashed during the load on the Compatibility renderer in about half of the Musou joins (signal 11 between frames: 10 of 18 joins, none of 6 with the shape
+    /// made here), so the shape's 1.2 s on Ashfall (0.3 s on Manufactorum) stays in the load's main-thread frame.
+    /// </summary>
     void BuildRagdollWorld(List<Vector3> faces)
     {
         _ragdollWorld?.QueueFree();

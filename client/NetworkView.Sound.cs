@@ -56,6 +56,8 @@ public partial class NetworkView
     SoundTriggers? _soundTriggers;
     SoundSystem? _sound;
     MapAudio? _mapAudio;
+    /// <summary>polish pass P3: the map's audio the map load read ahead (its file, the audio, the read's notes); null: <see cref="SetUpMapSound"/> reads it.</summary>
+    (string File, MapAudio Audio, List<string> Notes)? _mapAudioAhead;
     string _soundNote = "not loaded";
     string? _soundMap;
     readonly Dictionary<int, SoundTrack> _soundTracks = new();
@@ -175,7 +177,9 @@ public partial class NetworkView
             if (map != "none")
             {
                 var notes = new List<string>();
-                _mapAudio = MapAudio.Load(_gameDir, map, notes);
+                if (_mapAudioAhead is { } ahead && ahead.File == map) { _mapAudio = ahead.Audio; notes.AddRange(ahead.Notes); }   // P3: read by the map load
+                else _mapAudio = MapAudio.Load(_gameDir, map, notes);
+                _mapAudioAhead = null;
                 foreach (var n in notes) GD.Print("  sound note: " + n);
                 foreach (var e in _mapAudio.Emitters)
                 {
@@ -191,7 +195,9 @@ public partial class NetworkView
         {
             GD.Print($"sound: map audio of {map} not read: {ex.Message}");
         }
+        long readMs = sw.ElapsedMilliseconds;
         PrefetchSounds();
+        GD.Print($"sound: map {map}: read in {readMs} ms, prefetch asked in {sw.ElapsedMilliseconds - readMs} ms (main thread; polish pass P3's timing)");
         if (!MapSounds) GD.Print($"sound: map {map}: the map's own sounds are off (M38; --map-sounds plays its {_mapAudio?.Emitters.Count ?? 0} emitters and trigger regions); {_mapAudio?.Regions.Count ?? 0} regions kept for reverb");
         else GD.Print($"sound: map {map}: region bank {(bank ? "added" : "not found")}, {started} emitters started, {missing} emitters name events not in the banks, " +
                  $"{_mapAudio?.Regions.Count ?? 0} regions; {sw.ElapsedMilliseconds} ms");
@@ -265,9 +271,12 @@ public partial class NetworkView
         int ownId = _client.PlayerId;
         foreach (var (_, ev) in _frameOwnEvents) OwnSoundEvents(me, ev);   // drained once per frame in HipFireBegin (M27)
         foreach (var shot in _frameShots) SoundShot(shot);
+        Ph("sound: own player");   // polish pass P3: the sound phase by its parts in the frame profile
         if (_local is not null) SoundPlayer(ownId, _local, me, own: true, (float)delta);
+        Ph("sound: other players");
         foreach (var s in others)
             if (_remotes.TryGetValue(s.PlayerId, out var c)) SoundPlayer(s.PlayerId, c, s, own: false, (float)delta);
+        Ph("sound: hits, projectiles, regions");
         SoundMeleeOthers(me, others);   // fx/melee-presentation: others' melee and charge hits
         ConnectUiSounds();
         SoundSeize(me);   // fidelity gap 9: the Seize Ground capture tick, objective noise and score tick
