@@ -159,6 +159,27 @@ public sealed record WeaponPoseClip(string Name, string Weapon, float Duration, 
     public IEnumerable<string> Bones => Channels.Select(c => c.Bone);
 
     /// <summary>
+    /// The frame the clip's keys (turns, aims, shifts, foot offsets) and its spear placement are read in: false (the default) the stance's, from the hips as the pose under the keys stands; true
+    /// the way the player faces (the skeleton's +Y, his right +X), so the pose keeps its place against the camera whichever stance is under it (2026-11-11: the spear's carry, whose blade must
+    /// stay out of the crosshair's column standing, walking, running and sprinting, while the hammer stance's hips turn from 71 degrees right of the facing at idle to nearly ahead in the run).
+    /// </summary>
+    public bool FacingFrame { get; init; }
+
+    /// <summary>
+    /// Where the right hand's grip socket goes, after the keys are laid, by a two-bone solve of the right arm (the upper arm and the forearm; the elbow down, out and a little back): metres right,
+    /// forward and up from the middle of the shoulders in the clip's frame. Null: the keys alone. The spear's carry (2026-11-11, pass 3: "for the running and idle animation pull the spear and arm
+    /// closer in to the body"): its absolute arm aims put the fist 0.34 m right of the skeleton's axis at idle but 0.7 to 1.0 m out in the walk, run and sprint, whose shoulders face the way he
+    /// runs; the solve holds the fist where the idle has it against the shoulders in every stance, so the carry stays close in and its blade out of the crosshair's column.
+    /// </summary>
+    public System.Numerics.Vector3? FistTarget { get; init; }
+
+    /// <summary>How the right elbow points in the fist's solve (<see cref="FistTarget"/>), in the clip's frame (right, forward, up): down, out to the right and a little back (ours).</summary>
+    public static readonly System.Numerics.Vector3 FistElbowHint = new(0.45f, -0.25f, -1f);
+
+    /// <summary>The facing frame's front and right in skeleton space (<see cref="FacingFrame"/>): +Y and +X.</summary>
+    public static readonly System.Numerics.Vector3 FacingFront = new(0f, 1f, 0f), FacingRight = new(1f, 0f, 0f);
+
+    /// <summary>
     /// For a two-handed weapon carried in one hand (the spear; owner 2026-11-10: "right hand carries, both swing"): how far the off (left) hand is on the shaft over time, the keys' weights
     /// 0 (off, the shaft stands upright from the carrying hand) to 1 (both hands, the shaft on the line through them). Null: both hands throughout.
     /// </summary>
@@ -183,6 +204,11 @@ public sealed record WeaponPoseClip(string Name, string Weapon, float Duration, 
     public const float CarryGrip = 0.95f;
     /// <summary>The stab's grip (m from the butt): both hands back at the butt for the lunge's reach.</summary>
     public const float StabGrip = 0.3f;
+    /// <summary>
+    /// The light hews' grip since pass 3 (m from the butt; 2026-11-11, the owner's "swinging out wide"): the right hand near the butt, as the stab holds it, so the blade sweeps at full reach and
+    /// the short butt end passes beside the body in the wide arcs (the reference note's wide sweeps with the hands near the butt; ours). Before: <see cref="LowGrip"/>.
+    /// </summary>
+    public const float HewGrip = 0.3f;
 
     /// <summary>
     /// The grip contract (review of 2026-11-10): the carrying hand's place on the shaft at <paramref name="t"/>, **metres from the butt** (<see cref="CarryGrip"/>, <see cref="LowGrip"/>,

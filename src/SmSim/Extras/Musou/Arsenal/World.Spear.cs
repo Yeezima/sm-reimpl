@@ -32,7 +32,7 @@ public sealed partial class World
             if (!musou.TryGet(near[k], out var e) || !e.Alive) continue;   // the pack's blast may have killed the nearest already: the next one is the nearest alive
             var away = new Vector2(e.Position.X - state.Position.X, e.Position.Y - state.Position.Y);
             var push = away.LengthSquared() > 1e-6f ? Vector2.Normalize(away) : new Vector2(-MathF.Sin(state.Yaw), MathF.Cos(state.Yaw));
-            musou.Damage(e.Id, player, SpearRules.ImpaleDamage * MusouMeleeDealt(player, state), new Vector3(push, 0f), out _, marker: 3, cause: MusouDeathKind.Melee);   // the powerups' x2 cap (World.MusouPowerups.cs)
+            musou.Damage(e.Id, player, SpearRules.ImpaleDamage * MusouMeleeDealt(player, state), new Vector3(push, 0f), out _, marker: SpearRules.ImpaleMarker, cause: MusouDeathKind.Melee);   // the powerups' x2 cap (World.MusouPowerups.cs)
             MusouMeleeHeal(player, e.Id);   // a melee strike like the rest: the heal and the armour back
             break;
         }

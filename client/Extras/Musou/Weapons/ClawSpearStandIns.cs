@@ -148,13 +148,18 @@ public partial class SpearStandIn : WeaponStandIn
 
     public override void Follow(Skeleton3D s)
     {
-        if (!_resolved) { _resolved = true; _lHand = s.FindBone("RIG_L_Hand"); _rHand = s.FindBone("RIG_R_Hand"); }
+        if (!_resolved)
+        {
+            // The hands' grip sockets in the palms (SpearHold.RightGripBone / LeftGripBone, as in a match), else the wrists.
+            _resolved = true; _lHand = s.FindBone(SmContent.Extras.Musou.SpearHold.LeftGripBone); _rHand = s.FindBone(SmContent.Extras.Musou.SpearHold.RightGripBone);
+            if (_lHand < 0 || _rHand < 0) { _lHand = s.FindBone("RIG_L_Hand"); _rHand = s.FindBone("RIG_R_Hand"); }
+        }
         if (_lHand < 0 || _rHand < 0) return;
         if (!_built) { _built = true; Build(); }
         var l = s.GetBoneGlobalPose(_lHand).Origin; var r = s.GetBoneGlobalPose(_rHand).Origin;
         // The shaft from the rear (right) hand toward the forward (left) hand and the blade; carried in the right hand alone it leans from the hand by the grip (SpearHold.Place). The blade's
         // edge (the stand-in's +X) faces the way he faces (owner, 2026-11-10: "the blade needs to face forward at rest").
-        var front = CarryFront(s);
+        var front = new Vector3(0f, 1f, 0f);   // the facing, in every clip (second follow-up pass, 2026-11-11; WeaponPoseSpearFront)
         var (butt, d, hint) = SmContent.Extras.Musou.SpearHold.Place(ToN(r), ToN(l), LeftGrip, RightHandFromButt, ToN(front), new System.Numerics.Vector3(0f, 0f, 1f));
         var y = ToG(d); var x = ToG(hint);
         var z = x.Cross(y).Normalized();   // right-handed: x = edge, y = shaft, z = x cross y

@@ -4,6 +4,7 @@ using Godot;
 using SmContent;
 using SmContent.Extras.Musou;
 using SmSim;
+using SmSim.Extras.Musou;
 using SmSim.Extras.Musou.Arsenal;
 
 namespace SmClient;
@@ -31,6 +32,8 @@ public partial class NetworkView
 
     /// <summary>How long the spear's pose takes to come in and to go out where it starts or stops showing (s; ours, about the stances' cross-fade).</summary>
     const float SpearPoseFade = 0.15f;
+    /// <summary>The planar speed (m/s) from which the carry's fist solve is fully laid (ours: about a walk; WeaponPoseState.FistWeight).</summary>
+    const float SpearFistFullAt = 1.5f;
 
     sealed class SpearPoseTrack
     {
@@ -40,10 +43,69 @@ public partial class NetworkView
         /// <summary>The loop clock of the hammer's idle under a strike and of the carry (s).</summary>
         public float IdleClock;
         public CharacterViewer? Character;
+        /// <summary>The pound's landing shown now (the impact clip posed), its server tick (own: the predicted tick; others: the render tick), the client's guess, and the choice once locked.</summary>
+        public bool Landing, Predicted, Locked, Impaled;
+        public uint LandingTick;
+        public float LandingAt;
     }
 
     readonly Dictionary<int, SpearPoseTrack> _spearPoses = new();
     readonly List<int> _spearGone = new();
+    /// <summary>Each player's newest impale evidence from the server (the server tick of his melee-marker hit or melee kill; <see cref="SpearRules.ImpaleEvidence"/>).</summary>
+    readonly Dictionary<int, uint> _spearImpaleSeen = new();
+
+    /// <summary>
+    /// After this long into the landing clip the impale or the plain landing stays as chosen (s; ours): a late answer from the server would otherwise drive the spear back down, or lift it
+    /// out of the Ork, in the middle of the landing. The two share their touch-down to <see cref="ClawSpearClips.ImpaleDrive"/>, so a change of mind before then does not show; the own
+    /// landing shows the client's guess until the server's events for its ticks are in (<see cref="SpearRules.ShowsImpale"/>), about the round trip and 4 ticks after it lands.
+    /// </summary>
+    const float SpearLandingLock = 0.25f;
+
+    /// <summary>From the Musou frame, before its events are taken: notes every player's impale evidence (Musou Mode only).</summary>
+    void SpearImpaleEvents(IReadOnlyList<MusouEvent> events)
+    {
+        if (!SpearPosesOn) return;
+        for (int i = 0; i < events.Count; i++)
+        {
+            var e = events[i];
+            if (!SpearRules.ImpaleEvidence(e, e.Player)) continue;
+            if (!_spearImpaleSeen.TryGetValue(e.Player, out uint seen) || e.Tick > seen) _spearImpaleSeen[e.Player] = e.Tick;
+        }
+    }
+
+    /// <summary>
+    /// The pound's landing clip for <paramref name="s"/> at <paramref name="at"/> s into it: the impale when the server's events show this landing impaled an Ork (or, until they can have come,
+    /// when the client sees one within the impale's reach), else the plain landing (owner via the lead, 2026-11-11).
+    /// </summary>
+    WeaponPoseClip SpearLandingOf(PlayerState s, SpearPoseTrack track, float at)
+    {
+        var client = _client!;
+        if (!track.Landing || at + 1e-3f < track.LandingAt)
+        {
+            bool own = ReferenceEquals(track.Character, _local);
+            track.Landing = true; track.Locked = false;
+            track.LandingTick = own ? client.Tick : (uint)Math.Max(0.0, Math.Floor(client.RemotePlayers().Tick));
+            track.Predicted = SpearRules.ImpaleLikely(s.Position, SpearEnemiesShown(), _config!.MeleeVerticalReach);
+        }
+        track.LandingAt = at;
+        if (!track.Locked)
+        {
+            bool seen = _spearImpaleSeen.TryGetValue(s.PlayerId, out uint tick) && SpearRules.NearLanding(tick, track.LandingTick);
+            track.Impaled = SpearRules.ShowsImpale(seen, track.Predicted, client.LatestSnapshotTick, track.LandingTick);
+            if (at >= SpearLandingLock)
+            {
+                track.Locked = true;
+                if (SpearCaptureLog) GD.Print($"SPEARLAND P{s.PlayerId} landing tick {track.LandingTick}: {(track.Impaled ? "impale" : "plain landing")} (server evidence {(seen ? $"at tick {tick}" : "none")}, client guess {(track.Predicted ? "an Ork in reach" : "none in reach")}, newest snapshot {client.LatestSnapshotTick}); frame {Engine.GetFramesDrawn()}");
+            }
+        }
+        return ClawSpearClips.SpearLanding(track.Impaled);
+    }
+
+    /// <summary>The places of the enemies alive as this client draws them (the client's guess at an impale).</summary>
+    IEnumerable<System.Numerics.Vector3> SpearEnemiesShown()
+    {
+        for (int i = 0; i < _tfwShown.Count; i++) if (_tfwShown[i].State != MusouEnemyState.Dying) yield return _tfwShown[i].Position;
+    }
 
     /// <summary>
     /// The spear's clips are shown in this match: Musou's content, and neither <c>--musou-spear-stand-in</c> nor <c>--no-weapon-pose</c> (review, 2026-11-10: with the overlay off, the strike's
@@ -63,6 +125,7 @@ public partial class NetworkView
         if (character is null) return;
         var track = SpearTrackOf(s.PlayerId, character);
         track.State.Show(clip, clip.TimeAt(drawnTime, step.HitTime));
+        track.State.PinFeet = true;   // planted feet stay on their spots in the world while the lunge moves the body (FootPin, 2026-11-11)
         track.State.Base = clip.BaseClip;
         track.State.BaseTime = track.IdleClock % ClawSpearClips.SpearIdleLength;
         track.StrikeFrame = Engine.GetProcessFrames();
@@ -89,6 +152,11 @@ public partial class NetworkView
         foreach (var (id, track) in _spearPoses)
             if (track.Character is not { } c || !GodotObject.IsInstanceValid(c) || (c != _local && _remotes.GetValueOrDefault(id) != c)) _spearGone.Add(id);
         foreach (int id in _spearGone) _spearPoses.Remove(id);
+        // Nor any impale evidence (review of 2026-11-11): a player no longer drawn keeps none.
+        _spearGone.Clear();
+        foreach (int id in _spearImpaleSeen.Keys)
+            if (id != me.PlayerId && !_remotes.ContainsKey(id)) _spearGone.Add(id);
+        foreach (int id in _spearGone) _spearImpaleSeen.Remove(id);
     }
 
     void SpearPoseOf(PlayerState s, CharacterViewer character, float delta)
@@ -104,18 +172,25 @@ public partial class NetworkView
             if (track.StrikeFrame == Engine.GetProcessFrames()) show = true;   // the attack pose showed the strike (SpearStrikeShown)
             else
             {
+                state.PinFeet = false;
                 string? posed = character.PosedClip;
                 float at = character.PosedClipTime;
                 state.Base = null;
+                bool landing = posed is not null && _jmpImpact is not null && string.Equals(posed, _jmpImpact, StringComparison.OrdinalIgnoreCase);
+                if (!landing) track.Landing = false;
                 if (posed is not null && _jmpDive is not null && string.Equals(posed, _jmpDive, StringComparison.OrdinalIgnoreCase))
                 { state.Show(ClawSpearClips.SpearDive, at); state.Base = ClawSpearClips.SpearDiveLoop; state.BaseTime = at % ClawSpearClips.SpearDiveLoopLength; show = true; }
-                else if (posed is not null && _jmpImpact is not null && string.Equals(posed, _jmpImpact, StringComparison.OrdinalIgnoreCase))
-                { state.Show(ClawSpearClips.SpearImpale, at); state.Base = ClawSpearClips.SpearDiveImpact; state.BaseTime = at; show = true; }
+                else if (landing)
+                { state.Show(SpearLandingOf(s, track, at), at); state.Base = ClawSpearClips.SpearDiveImpact; state.BaseTime = at; show = true; }   // the impale only on a hit (2026-11-11)
                 else if (posed is null && s.MeleeStep == 0 && s.Rush == RushPhase.None && HammerStance(s) && character.PoseLayerClip is null)
                 { state.Show(ClawSpearClips.SpearRest, track.IdleClock % ClawSpearClips.SpearIdleLength); show = true; }
             }
         }
-        if (!show) state.Base = null;
+        if (!show) { state.Base = null; state.PinFeet = false; }
+        // The carry's fist solve (WeaponPoseClip.FistTarget) comes in with the speed: off standing (the keys hold the fist there), full from a walk on (ours: SpearFistFullAt, eased).
+        float speed = MathF.Sqrt(s.Velocity.X * s.Velocity.X + s.Velocity.Y * s.Velocity.Y);
+        float fistWant = Math.Clamp(speed / SpearFistFullAt, 0f, 1f);
+        state.FistWeight += Math.Clamp(fistWant - state.FistWeight, -delta / SpearPoseFade, delta / SpearPoseFade);
         // The fades: in where a clip starts showing, out (the last clip held at its last time) where none does; the track goes once it is out and the spear is not wielded.
         float step = SpearPoseFade > 1e-4f ? delta / SpearPoseFade : 1f;
         state.Weight = show ? MathF.Min(1f, state.Weight + step) : MathF.Max(0f, state.Weight - step);
@@ -129,7 +204,7 @@ public partial class NetworkView
             // character model", the spear "held out away from the body"; W3b leaned the carry toward the skeleton's +Y, the way the player faces, which across the hammer idle's side-on
             // stance, its hips 71 degrees right of it, put the shaft and the edge across the body).
             float grip = SpearGripOf(state, out float point);
-            onHands = rig.PlaceSpearOnHands(right, left, grip, point, character.WeaponPoseFrontNow(), state.Weight);
+            onHands = rig.PlaceSpearOnHands(right, left, grip, point, character.WeaponPoseSpearFront(), state.Weight);   // the carry's: the facing (2026-11-11)
         }
         if (rig is not null)
         {

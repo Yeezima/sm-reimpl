@@ -270,7 +270,7 @@ public partial class ClawSpearTestView : Node3D
             return (N(g.Origin), new System.Numerics.Quaternion(q.X, q.Y, q.Z, q.W));
         }
         if (!_marine.WeaponPoseHands(out var right, out var left)) return;
-        var (butt, shaft, edge) = SpearHold.Place(N(right), N(left), spear.LeftGrip, spear.RightHandFromButt, N(_marine.WeaponPoseFrontNow()), new System.Numerics.Vector3(0f, 0f, 1f));
+        var (butt, shaft, edge) = SpearHold.Place(N(right), N(left), spear.LeftGrip, spear.RightHandFromButt, N(_marine.WeaponPoseSpearFront()), new System.Numerics.Vector3(0f, 0f, 1f));
         var r = SpearClearance.Measure(Bone, butt, shaft, edge);
         if (!_clearanceWorst.TryGetValue(clip.Name, out var worst) || r.Clearance < worst.Result.Clearance)
             _clearanceWorst[clip.Name] = (local, r, string.Create(CultureInfo.InvariantCulture, $"stage t {_t:0.000}, grip {spear.LeftGrip:0.00} at {spear.RightHandFromButt:0.00} m, fading from {_pose.From?.Name ?? "-"} ({_pose.FromShare:0.00})"));

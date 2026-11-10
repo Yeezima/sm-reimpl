@@ -33,6 +33,43 @@ public static class SpearRules
     /// <summary>The cone's least cosine (<see cref="HalfAngleDegrees"/>).</summary>
     public static float MinCos => MathF.Cos(HalfAngleDegrees * MathF.PI / 180f);
 
+    // ---- the impale as the clients learn of it (owner via the lead, 2026-11-11: the point-down impale pose only when the landing actually impaled an Ork) ----
+    // No new message: the server's impale is a melee hit on the Ork (a Musou Hit event with the melee marker, its player the spear's) at the landing's tick, and a kill also a melee Death; the
+    // pack's own blast marks its hits as a body hit (marker 1) and its kills as a blast, and nothing else of that player's is a melee hit within a pound's landing (no strike can run from the dive
+    // to the end of the recovery), so either event within ImpaleWindowTicks of the landing is the impale. The client predicts its own landing (an Ork alive within ImpaleReach as it sees them)
+    // until the server's events for the landing's ticks must have come, then follows them (Musou Mode only; presentation, never a rule).
+
+    /// <summary>The marker of the impale's Hit event: the melee hit's (<c>MusouEvent</c>: 1 body, 2 head, 3 melee).</summary>
+    public const byte ImpaleMarker = 3;
+    /// <summary>An impale event this many server ticks either side of the landing's tick is the landing's (ours: the own landing is predicted and may land a tick or two from the server's; a strike before the jump is 15 ticks and more away).</summary>
+    public const uint ImpaleWindowTicks = 6;
+    /// <summary>Once the client has the server's snapshot this many ticks past the landing's, the landing's events have come or never will (ours: an event goes out with its own tick's snapshot and twice after).</summary>
+    public const uint ImpaleConfirmTicks = 4;
+
+    /// <summary>Whether <paramref name="e"/> shows <paramref name="player"/>'s spear impaling an Ork: his melee-marker hit, or a melee kill of his (the impale's 600 kills most Orks).</summary>
+    public static bool ImpaleEvidence(in MusouEvent e, int player) =>
+        player > 0 && e.Player == player && (e.Kind == MusouEventKind.Hit && e.Value == ImpaleMarker || e.Kind == MusouEventKind.Death && e.Value == (byte)MusouDeathKind.Melee);
+
+    /// <summary>Whether an event of server tick <paramref name="eventTick"/> belongs to the landing at <paramref name="landingTick"/> (within <see cref="ImpaleWindowTicks"/> either side).</summary>
+    public static bool NearLanding(uint eventTick, uint landingTick) => eventTick + ImpaleWindowTicks >= landingTick && eventTick <= landingTick + ImpaleWindowTicks;
+
+    /// <summary>
+    /// Whether the landing at <paramref name="landingTick"/> shows the impale: the server's evidence <paramref name="seen"/>; without it, the client's <paramref name="predicted"/> until the
+    /// snapshots have reached <see cref="ImpaleConfirmTicks"/> past the landing (<paramref name="newestTick"/>), then not.
+    /// </summary>
+    public static bool ShowsImpale(bool seen, bool predicted, uint newestTick, uint landingTick) => seen || predicted && newestTick < landingTick + ImpaleConfirmTicks;
+
+    /// <summary>The client's guess at its own landing: an enemy alive within <see cref="ImpaleReach"/> of <paramref name="landing"/> (flat) and <paramref name="verticalReach"/> above or below, as the server's impale looks (before the pack's blast, which the client cannot foresee).</summary>
+    public static bool ImpaleLikely(Vector3 landing, IEnumerable<Vector3> enemies, float verticalReach)
+    {
+        foreach (var e in enemies)
+        {
+            var d = e - landing;
+            if (MathF.Abs(d.Z) <= verticalReach && d.X * d.X + d.Y * d.Y <= ImpaleReach * ImpaleReach) return true;
+        }
+        return false;
+    }
+
     /// <summary>Whether <paramref name="state"/> has the power spear chosen in its melee slot (<paramref name="config"/>'s class lists carry it only in a Musou match).</summary>
     public static bool Wields(SimConfig config, PlayerState state) => IsSpear(MeleeWargearOf(config, state));
 

@@ -49,10 +49,15 @@ sealed class WeaponPoseMirror
         _order = order.ToArray();
         _lThigh = Bone("RIG_L_Thigh"); _lCalf = Bone("RIG_L_Calf"); _lFoot = Bone("RIG_L_Foot");
         _rThigh = Bone("RIG_R_Thigh"); _rCalf = Bone("RIG_R_Calf"); _rFoot = Bone("RIG_R_Foot");
-        _lHand = Bone("RIG_L_Hand"); _rHand = Bone("RIG_R_Hand");
+        // The hands' grip sockets (SpearHold.RightGripBone / LeftGripBone, in the palms: the client's WeaponPoseHands), else the hands' origins.
+        _lHand = Bone(SpearHold.LeftGripBone); _rHand = Bone(SpearHold.RightGripBone);
+        if (_lHand < 0 || _rHand < 0) { _lHand = Bone("RIG_L_Hand"); _rHand = Bone("RIG_R_Hand"); }
     }
 
     public int Bone(string name) => _index.TryGetValue(name, out int b) ? b : -1;
+
+    /// <summary>The client's <c>WeaponPoseState.FistWeight</c>: how far the carry's fist solve is laid (0 standing, 1 walking, running, sprinting).</summary>
+    public float FistWeight;
 
     /// <summary>Sets every bone to its rest (the skeleton's reference pose).</summary>
     public void Rest()
@@ -95,7 +100,10 @@ sealed class WeaponPoseMirror
     public Vector3 RightHand => Origin(_rHand);
     public Vector3 LeftHand => Origin(_lHand);
 
-    /// <summary>The flat front from the thighs as the pose stands now (<c>WeaponPoseFrontNow</c>, the stage's <c>CarryFront</c>).</summary>
+    /// <summary>The front the spear is placed against with <paramref name="clip"/> shown (<c>WeaponPoseSpearFront</c>): the facing for a clip read in it (the carry), else <see cref="FrontNow"/>.</summary>
+    public Vector3 SpearFront(WeaponPoseClip clip) => WeaponPoseClip.FacingFront;
+
+    /// <summary>The flat front from the thighs as the pose stands now (the stance's frame, as the overlay reads it before it moves anything).</summary>
     public Vector3 FrontNow()
     {
         var across = Origin(_rThigh) - Origin(_lThigh); across.Z = 0f;
@@ -106,7 +114,13 @@ sealed class WeaponPoseMirror
     /// The overlay (<c>WeaponPoseOverlay</c>) over the pose as it stands: <paramref name="clip"/> at <paramref name="time"/>, faded from <paramref name="from"/> at <paramref name="fromTime"/> by
     /// <paramref name="fromShare"/> (1 at the hand-over, 0 after it), at weight <paramref name="weight"/>.
     /// </summary>
-    public void Overlay(WeaponPoseClip? clip, float time, WeaponPoseClip? from = null, float fromTime = 0f, float fromShare = 0f, float weight = 1f)
+    public void Overlay(WeaponPoseClip? clip, float time, WeaponPoseClip? from = null, float fromTime = 0f, float fromShare = 0f, float weight = 1f) => Overlay(clip, time, from, fromTime, fromShare, weight, null, Matrix4x4.Identity, 0f, false);
+
+    /// <summary>
+    /// The overlay with the client's world-space foot pin (<see cref="FootPin"/>, the networked view's spear strikes: <c>WeaponPoseState.PinFeet</c>): each leg's target goes through
+    /// <paramref name="pin"/> with the skeleton's <paramref name="toWorld"/> this frame, as <c>WeaponPoseOverlay</c> does.
+    /// </summary>
+    public void Overlay(WeaponPoseClip? clip, float time, WeaponPoseClip? from, float fromTime, float fromShare, float weight, FootPin? pin, Matrix4x4 toWorld, float dt, bool pinActive)
     {
         float w = Math.Clamp(weight, 0f, 1f);
         if (w <= 1e-3f || (clip is null && from is null)) return;
@@ -118,6 +132,9 @@ sealed class WeaponPoseMirror
         var now = clip is null ? null : ChannelsOf(clip);
         Dictionary<int, List<PoseChannel>>? before = from is not null && fromShare > 1e-3f ? ChannelsOf(from) : null;
         if (before is null) fromShare = 0f;
+        // Each clip's own frame (WeaponPoseClip.FacingFrame: the skeleton's +Y and +X; else the stance's).
+        var (nowRight, nowFront) = clip?.FacingFrame == true ? (WeaponPoseClip.FacingRight, WeaponPoseClip.FacingFront) : (right, front);
+        var (fromRight, fromFront) = from?.FacingFrame == true ? (WeaponPoseClip.FacingRight, WeaponPoseClip.FacingFront) : (right, front);
         bool anyLaid = false;
         foreach (int b in _order)
         {
@@ -126,28 +143,42 @@ sealed class WeaponPoseMirror
             if (!any) continue;
             if (b == _lFoot || b == _rFoot) continue;
             anyLaid = true;
-            var turn = nowList is not null ? TurnOf(b, nowList, time, right, front, up) : Quaternion.Identity;
-            var shift = nowList is not null ? ShiftOf(nowList, time, right, front, up) : Vector3.Zero;
+            var turn = nowList is not null ? TurnOf(b, nowList, time, nowRight, nowFront, up) : Quaternion.Identity;
+            var shift = nowList is not null ? ShiftOf(nowList, time, nowRight, nowFront, up) : Vector3.Zero;
             if (beforeList is not null && fromShare > 0f)
             {
-                var old = TurnOf(b, beforeList, fromTime, right, front, up);
+                var old = TurnOf(b, beforeList, fromTime, fromRight, fromFront, up);
                 if (Quaternion.Dot(old, turn) < 0f) old = -old;
                 turn = Quaternion.Normalize(SlerpGodot(turn, old, fromShare));
-                shift = Vector3.Lerp(shift, ShiftOf(beforeList, fromTime, right, front, up), fromShare);
+                shift = Vector3.Lerp(shift, ShiftOf(beforeList, fromTime, fromRight, fromFront, up), fromShare);
             }
             var pivot = Origin(b);
             MoveBone(b, turn, shift, pivot, w);
             if (_carried[b] >= 0) MoveBone(_carried[b], turn, shift, pivot, w);
         }
         if (!anyLaid) return;
+        // The carry's fist (WeaponPoseClip.FistTarget): the right arm solved so its grip socket stands there, faded with the clip that has it (WeaponPoseFist).
+        float fistShare = (clip?.FistTarget is not null ? 1f - fromShare : 0f) + (from?.FistTarget is not null ? fromShare : 0f);
+        if ((clip?.FistTarget ?? from?.FistTarget) is { } fist && fistShare * w * FistWeight > 1e-3f)
+        {
+            var (fr, ff) = clip?.FistTarget is not null ? (nowRight, nowFront) : (fromRight, fromFront);
+            SolveFist(fist, fr, ff, up, fistShare * w * FistWeight);
+        }
         int[] feet = [_lFoot, _rFoot];
         (int, int, int)[] legs = [(_lThigh, _lCalf, _lFoot), (_rThigh, _rCalf, _rFoot)];
         for (int i = 0; i < 2; i++)
         {
             var offset = Vector3.Zero;
-            if (now is not null && now.TryGetValue(feet[i], out var footNow)) offset = ShiftOf(footNow, time, right, front, up);
-            if (before is not null && fromShare > 0f && before.TryGetValue(feet[i], out var footBefore)) offset = Vector3.Lerp(offset, ShiftOf(footBefore, fromTime, right, front, up), fromShare);
-            SolveLeg(legs[i], plantedAt[i] + offset * w, plantedRot[i], front);
+            if (now is not null && now.TryGetValue(feet[i], out var footNow)) offset = ShiftOf(footNow, time, nowRight, nowFront, up);
+            if (before is not null && fromShare > 0f && before.TryGetValue(feet[i], out var footBefore)) offset = Vector3.Lerp(offset, ShiftOf(footBefore, fromTime, fromRight, fromFront, up), fromShare);
+            var target = plantedAt[i] + offset * w;
+            if (pin is not null)
+            {
+                var (th, ca, fo) = legs[i];
+                float reach = (Vector3.Distance(Origin(th), Origin(ca)) + Vector3.Distance(Origin(ca), Origin(fo))) * 0.99f;
+                target = Vector3.Lerp(target, pin.Place(i, target, offset.Z * w < FootPin.PlantedBelow, pinActive, toWorld, dt, Origin(th), reach), w);
+            }
+            SolveLeg(legs[i], target, plantedRot[i], front);
         }
     }
 
@@ -274,6 +305,44 @@ sealed class WeaponPoseMirror
         _rot[leg.Foot] = Quaternion.Normalize(Quaternion.Inverse(calfNew) * plantedRot);
         _ = footRot;
         _dirty = true;
+    }
+
+    /// <summary>
+    /// The two-bone solve of the right arm (<c>WeaponPoseFist</c>): the upper arm and the forearm turned so the right grip socket reaches the middle of the shoulders plus <paramref name="offset"/>
+    /// (right, forward, up in the clip's frame), the elbow toward <see cref="WeaponPoseClip.FistElbowHint"/>; three passes for the socket's offset from the hand; then each bone slerped from its
+    /// pose before the solve by <paramref name="weight"/>.
+    /// </summary>
+    void SolveFist(Vector3 offset, Vector3 right, Vector3 front, Vector3 up, float weight)
+    {
+        int sh = Bone("RIG_R_UpperArm"), lsh = Bone("RIG_L_UpperArm"), fore = Bone("RIG_R_Forearm"), hand = Bone("RIG_R_Hand");
+        if (sh < 0 || lsh < 0 || fore < 0 || hand < 0) return;
+        var before = (_rot[sh], _rot[fore]);
+        var mid = (Origin(sh) + Origin(lsh)) * 0.5f;
+        var target = mid + right * offset.X + front * offset.Y + up * offset.Z;
+        var h0 = WeaponPoseClip.FistElbowHint;
+        var hint = Vector3.Normalize(right * h0.X + front * h0.Y + up * h0.Z);
+        for (int it = 0; it < 3; it++)
+        {
+            var S = Origin(sh); var E = Origin(fore); var H = Origin(hand); var P = Origin(_rHand);
+            var ht = target - (P - H);
+            float a = Vector3.Distance(S, E), b = Vector3.Distance(E, H);
+            var toT = ht - S; float dist = toT.Length();
+            if (dist < 1e-4f || a < 1e-4f || b < 1e-4f) break;
+            var dir = toT / dist; float d = Math.Clamp(dist, MathF.Abs(a - b) + 1e-3f, (a + b) * 0.999f);
+            var pole = hint - dir * Vector3.Dot(hint, dir);
+            pole = pole.LengthSquared() > 1e-6f ? Vector3.Normalize(pole) : Vector3.Normalize(Vector3.Cross(dir, up));
+            float x = (a * a - b * b + d * d) / (2f * d), hh = MathF.Sqrt(MathF.Max(0f, a * a - x * x));
+            var elbow = S + dir * x + pole * hh;
+            MoveBone(sh, ArcBetween(Vector3.Normalize(E - S), Vector3.Normalize(elbow - S)), Vector3.Zero, S, 1f);
+            E = Origin(fore); H = Origin(hand);
+            MoveBone(fore, ArcBetween(Vector3.Normalize(H - E), Vector3.Normalize(S + dir * d - E)), Vector3.Zero, E, 1f);
+        }
+        if (weight < 0.999f)
+        {
+            _rot[sh] = Quaternion.Normalize(SlerpGodot(before.Item1, _rot[sh], weight));
+            _rot[fore] = Quaternion.Normalize(SlerpGodot(before.Item2, _rot[fore], weight));
+            _dirty = true;
+        }
     }
 
     static Quaternion Axis(Vector3 axis, float angle) => Quaternion.CreateFromAxisAngle(Vector3.Normalize(axis), angle);
