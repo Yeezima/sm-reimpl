@@ -28,12 +28,12 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2870 spec table rows: **2138 tagged**, 508 not tagged (read from data with high confidence), 224 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 647 rows of the changes document.
+Scanned 2871 spec table rows: **2139 tagged**, 508 not tagged (read from data with high confidence), 224 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 647 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
 | Movement (critical) | 386 | 328 | 327 | 114 | 12 |
-| Combat core (critical) | 14 | 5 | 12 | 12 | 9 |
+| Combat core (critical) | 15 | 6 | 13 | 12 | 9 |
 | Weapons (critical) | 121 | 73 | 106 | 54 | 3 |
 | Melee (critical) | 120 | 105 | 94 | 38 | 5 |
 | Jump pack (critical) | 79 | 71 | 63 | 19 | 0 |
@@ -50,16 +50,16 @@ Scanned 2870 spec table rows: **2138 tagged**, 508 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 22 | 13 | 13 | 12 | 7 |
-| Core simulation (provisional values) | 600 | 569 | 423 | 164 | 1 |
+| Core simulation (provisional values) | 600 | 569 | 422 | 164 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 235 | 224 | 126 | 63 | 0 |
-| **All areas** | **2138** | 1884 | 1587 | 677 | 38 |
+| **All areas** | **2139** | 1885 | 1587 | 677 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1198 |
+| kind: ours | 1199 |
 | confidence: low | 762 |
 | confidence: medium | 696 |
 | notes: ours | 388 |
@@ -719,7 +719,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-DCC22DDE` | Musou: the rank and file pushed back | a Boy, Shoota Boy, Gretchin, Rokkit Boy, Stormboy, Mek or Squig hit by a player (server report) is drawn pushed away from the attacker by **0.12** m (shot) or **0.2** m (melee) over **0.15** s, clip, facing and run kept; 'Ard Boyz, Nobz, the Chaos Marine… (m, s) | kind: ours; confidence: low | the brief: directional reactions, no 180-degree turn (the old flinch swapped in the stagger clip and pushed along the Ork's own facing; it stays off) | Musou: the rank and file pushed back: compare with SM1 by timing a run over a known distance. Ours: a Boy, Shoota Boy, Gretchin, Rokkit Boy, Stormboy, Mek or Squig hit… | ☐ |
 
-### Combat core (gameplay-critical) (14)
+### Combat core (gameplay-critical) (15)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -759,6 +759,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-C5F90938` | Shield generator | **75** hp (was 800; see "Contraption health"); a dome of radius **10** m round it (a sphere at its foot): a player's hit-scan shot that enters it from outside ends where it enters (nothing behind it is struck); a cone or a blast from outside does not reach… (hp, m) | kind: ours; notes: estimate | owner brief 2026-11-07 (800, 10 m, outside only); owner 2026-11-08 (Guardsmen's fire, Ork blasts, grenades; not movement or melee); a projectile going off at… | Shield generator: compare with SM1 by counting hits to kill and by video of the health bar. Ours: 75 hp (was 800; see "Contraption health"); a dome of radius 10 m… | ☐ |
 | `R-167CA37E` | Contraption health (owner, 2026-11-09) | every kind **75** hp (three standard bolter rounds of 25.4; was 800 / 400 / 500 / 150); at zero it is destroyed: removed from the sim (its dome, drops, rockets or trigger stop at once; a destroyed cue, its effect and sound and a wreck on the client); any… (hp) | kind: ours; notes: estimate | owner 2026-11-09 ("ensure they have hitboxes and have a low health value"); the 75, the one-blow rule and the generator through its dome ours | Contraption health (owner, 2026-11-09): compare with SM1 by counting hits to kill and by video of the health bar. Ours: every kind 75 hp (three standard bolter rounds of 25.4; was 800 / 400… | ☐ |
+
+*Spec section: Musou's arsenal: W4, the Remote Detonators (docs/new-weapons-design.md section 7)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-0D9D6A50` | A contraption or a shield dome in the way | the charge sticks to a contraption like to an Ork and rides on it, and to a shield dome's surface (from outside) like to a wall, held at that point (the core's stop and detonation there are skipped for it through the arsenal hook's `stays`); a contraption… | kind: ours; confidence: medium | design section 7 | A contraption or a shield dome in the way: compare with SM1 by counting hits to kill and by video of the health bar. Ours: the charge sticks to a contraption like to an Ork and rides on it… | ☐ |
 
 ### Weapons (gameplay-critical) (121)
 
@@ -3132,17 +3138,17 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-D48DDCE5` | Model | drawn with the install's melta bomb model (`pp_grenade_meltabomb_multiplayer`), not the blueprint's Ork stikkbomb | kind: ours | owner D21 | Model: compare with SM1 by feel or video. Ours: drawn with the install's melta bomb model… | ☐ |
-| `R-460E6418` | Sticking | to the level (the floor, a wall) where it lands; to the Ork it struck (Boss Orks and the Warboss included) and rides on him from the next tick; it passes marines (a marine struck lets it fall) | kind: ours; confidence: medium | owner D7; passing marines ours | Sticking: compare with SM1 by feel or video. Ours: to the level (the floor, a wall) where it lands; to the Ork it struck… | ☐ |
+| `R-460E6418` | Sticking | to the level (the floor, a wall) where it lands; to the Ork it struck (Boss Orks and the Warboss included) and rides on him from the next tick (the offset turns with his facing, so a turning Boss carries it with him); it passes marines (a marine struck lets… | kind: ours; confidence: medium | owner D7; passing marines ours | Sticking: compare with SM1 by feel or video. Ours: to the level (the floor, a wall) where it lands; to the Ork it struck… | ☐ |
 | `R-17E9BA0F` | A carrier that dies | it drops where he was and the fuse runs on; a carrier thrown by another blast carries it along | kind: ours; confidence: medium | design section 7 | A carrier that dies: compare with SM1 by feel or video. Ours: it drops where he was and the fuse runs on; a carrier thrown by… | ☐ |
-| `R-A1136893` | A contraption in the way | the charge sticks to it like to an Ork and rides on it (the core's stop at a contraption is skipped for it through the arsenal hook's `stays`); one destroyed under it drops it and the fuse runs on (owner decision through the lead, 2026-11-10) | kind: ours; confidence: medium | design section 7 | A contraption in the way: compare with SM1 by feel or video. Ours: the charge sticks to it like to an Ork and rides on it (the core's… | ☐ |
 | `R-09D321DE` | Fuse | 5 s after it sticks; 5 s after the throw for one that never sticks (s) | notes: ours | owner D19 (5 s after it sticks); the fallback ours | Fuse: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 5 s after it sticks; 5 s after the throw for one that never sticks. | ☐ |
 | `R-62D1C0CC` | Centre blast | at the charge when it goes off: 600, r 16 m, the data's curve (0 to 4 m 1, 6 m 0.75, 10 m 0.3) stretched x1.6 (6.4 m 1, 9.6 m 0.75, 16 m 0.3); line of sight; players (the thrower too, the data's `ignore_self` false), Orks and contraptions (damage, m) | kind: estimate; confidence: low | fitted to D19; curve data | Centre blast: compare with SM1 by measuring on a flat spot of the same map. Ours: at the charge when it goes off: 600, r 16 m, the data's curve (0 to 4… | ☐ |
 | `R-6AA143CE` | The ring | 16 spots on a circle of 24 m round the point it went off (22.5 degrees apart), clockwise from a start bearing id x 137.5 degrees; the first spot 3 ticks after the centre blast, then one every 2 ticks (the 16th at 33 ticks, 1.1 s); each 180, r 16 m, the same… (m, ticks) | kind: estimate; confidence: low | fitted to D19, D22, D23 | The ring: compare with SM1 by feel or video. Ours: 16 spots on a circle of 24 m round the point it went off (22.5… | ☐ |
 | `R-D2385601` | Where a spot sits | the ring point at the charge's height, stopped at a wall's face (0.3 m short) when the level stands between, dropped to the ground below it (a ray down, at most 6 m, 0.3 m above), else in the air; the client places its spots with the same function and its own… (m) | kind: ours; confidence: medium | design section 7 | Where a spot sits: compare with SM1 by measuring on a flat spot of the same map. Ours: the ring point at the charge's height, stopped at a wall's face (0.3… | ☐ |
-| `R-565F0DEC` | Death events past the cap | `MusouSim.AddEvent` keeps at most 1,024 events a tick; a Death over it waits in a queue (at most 4,096) and comes out over the next ticks, up to 512 a tick, stamped with the tick it goes out; every other kind is dropped over the cap as before. The kill and… (events, ticks) | confidence: medium | owner 2026-11-10 | Death events past the cap: compare with SM1 by feel or video. Ours: MusouSim.AddEvent keeps at most 1,024 events a tick; a Death over it… | ☐ |
+| `R-97FC86F6` | Round reset | a cleared field or a round's start forgets every charge's fuse, ride and unfinished ring (`ArsenalReset`, from `TfwClearField` and the two countdown ends) | kind: ours | review 2026-11-10 | Round reset: compare with SM1 by feel or video. Ours: a cleared field or a round's start forgets every charge's fuse, ride… | ☐ |
+| `R-565F0DEC` | Death events past the cap | `MusouSim.AddEvent` keeps at most 1,024 events a tick; a Death over it waits in a queue (at most 4,096) and comes out over the next ticks, up to 512 a tick on top of the tick's own 1,024 (never in place of a Telegraph, Strike or Hit), stamped with the tick it… (events, ticks) | confidence: medium | owner 2026-11-10 | Death events past the cap: compare with SM1 by feel or video. Ours: MusouSim.AddEvent keeps at most 1,024 events a tick; a Death over it… | ☐ |
 | `R-F0AB8569` | Survivors | a survivor taking at least 0.25 of a blast is thrown back up to 10 m (a fodder Ork falls, others stagger; Boss Orks and the Warboss stagger-immune), scaled by that first hit's share, once per charge (m) | confidence: medium | owner D19 | Survivors: compare with SM1 by measuring on a flat spot of the same map. Ours: a survivor taking at least 0.25 of a blast is thrown back up to 10 m… | ☐ |
 | `R-4143CA04` | Master-Crafted Wargear | the data's ratio on the owner's numbers: damage x1.25, reach x1.5 (centre 750 within 24 m, ring 36 m, spots 225 within 24 m: 60 m in all); fixed at the throw. The client draws the larger ring when a player it knows carries the charge with the perk (the… | confidence: medium | owner D24 | Master-Crafted Wargear: compare with SM1 by feel or video. Ours: the data's ratio on the owner's numbers: damage x1.25, reach x1.5… | ☐ |
-| `R-D681C21A` | The ring as drawn | the original frag explosion at each spot on the server's schedule, a sound on every fourth spot, 30 % of a blast's camera shake each; the centre blast is the core's detonation effect at the data's size plus a second centre effect that brings it to x1.6 (x2.4… | kind: ours; confidence: low | design section 7 | The ring as drawn: compare with SM1 by feel or video. Ours: the original frag explosion at each spot on the server's schedule, a… | ☐ |
+| `R-D681C21A` | The ring as drawn | the original frag explosion at each spot on the server's schedule, a sound on every fourth spot, 30 % of a blast's camera shake each; the centre blast is the core's detonation effect at the data's size at x1.6 (the config's thrown blast scale for the charge… | kind: ours; confidence: low | design section 7 | The ring as drawn: compare with SM1 by feel or video. Ours: the original frag explosion at each spot on the server's schedule, a… | ☐ |
 | `R-33D56EEC` | Measurement | 1,000 Orks round the charge, 40 corpses, the death queue: killed 977, 40 flown; server tick 2.8 ms at the centre (0.3 ms quiet), ring worst 1.0 ms; 1,500 Orks: killed 1,465, centre tick 4.3 to 4.9 ms, ring worst 1.5 ms; death events seen equal the kills… | confidence: medium | measured | Measurement: compare with SM1 by feel or video. Ours: 1,000 Orks round the charge, 40 corpses, the death queue: killed 977… | ☐ |
 
 ### General game design (7)
@@ -3743,7 +3749,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-AD48F190` | Deaths past the 1,024 events a tick wait and play out over the next ticks (Musou's event path, not the charge alone) | owner's (2026-11-10) | A charge in a 1,500-Ork crowd lost 523 death events to the cap. | Deaths past the 1,024 events a tick wait and play out over…: compare with SM1 by feel or video. Ours: owner's (2026-11-10). | ☐ |
 | `C-B101E8C1` | One back every 30 s; Favor of the Armory: 2 | owner's (D9); data (Favor) | Grenades come back every 15 s. | One back every 30 s; Favor of the Armory: 2: compare with SM1 by timing a run over a known distance. Ours: owner's (D9); data (Favor). | ☐ |
 | `C-C68717FE` | The melta bomb's model | owner's (D21) | The data's model is the Ork stikkbomb. | The melta bomb's model: compare with SM1 by feel or video. Ours: owner's (D21). | ☐ |
-| `C-857A2384` | It sticks to a contraption and rides on it | ours | The core would set it off at the contraption. | It sticks to a contraption and rides on it: compare with SM1 by feel or video. Ours: ours. | ☐ |
+| `C-2DA54F6D` | It sticks to a contraption (riding on it) and to a shield dome's surface from outside | ours | The core would set it off at the contraption or the dome. | It sticks to a contraption (riding on it) and to a shield…: compare with SM1 by counting hits to kill and by video of the health bar. Ours: ours. | ☐ |
 
 ### Deliberate changes (owner's decisions)
 

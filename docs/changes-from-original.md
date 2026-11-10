@@ -141,7 +141,7 @@ Added content, Musou Mode only; every rule below is ours or the owner's (docs/ne
 | Deaths past the 1,024 events a tick wait and play out over the next ticks (Musou's event path, not the charge alone) | owner's (2026-11-10) | A charge in a 1,500-Ork crowd lost 523 death events to the cap. |
 | One back every 30 s; Favor of the Armory: 2 | owner's (D9); data (Favor) | Grenades come back every 15 s. |
 | The melta bomb's model | owner's (D21) | The data's model is the Ork stikkbomb. |
-| It sticks to a contraption and rides on it | ours | The core would set it off at the contraption. |
+| It sticks to a contraption (riding on it) and to a shield dome's surface from outside | ours | The core would set it off at the contraption or the dome. |
 
 ## 1. Deliberate changes (owner's decisions)
 

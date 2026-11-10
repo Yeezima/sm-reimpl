@@ -287,16 +287,28 @@ public class ChargeTests
         for (int k = 0; k < 6 && w.Projectiles.Count == 0; k++) Tick(w);
         Assert.Single(w.Projectiles);
         var flight = w.Projectiles[0];
-        var spot = flight.Position + flight.Velocity * 0.35f;
-        var trap = meks.PlaceBuilt(0, MusouContraptionKind.Trap, spot with { Z = spot.Z - 1.2f });
+        var spot = flight.Position + flight.Velocity * 0.15f;
+        var trap = meks.PlaceBuilt(0, MusouContraptionKind.Trap, spot with { Z = spot.Z - 0.6f });
         Assert.NotNull(trap);
         for (int k = 0; k < 40 && w.Projectiles.Count == 1 && w.Projectiles[0].Motion != ProjectileMotion.Stuck; k++) Tick(w);
         Assert.Single(w.Projectiles);
         Assert.Equal(ProjectileMotion.Stuck, w.Projectiles[0].Motion);
         Assert.Equal(0, w.ChargeCentres);   // the core's stop would have set it off here
         Assert.True(Vector3.Distance(w.Projectiles[0].Position, spot) < 4f, "held at the contraption");
+        Assert.True(w.Projectiles[0].Position.Z > 0.3f, $"held on the contraption in the air, not on the floor ({w.Projectiles[0].Position.Z})");
         uint stuckAt = w.Tick;
-        for (int k = 0; k < 120; k++) Tick(w);
+        for (int k = 0; k < 30; k++) Tick(w);
+        Assert.Equal(ProjectileMotion.Stuck, w.Projectiles[0].Motion);
+        // The contraption is destroyed under it: the charge lets go (it falls and rests on the ground) and the fuse runs on, 5 s after it first stuck.
+        var held = w.Projectiles[0].Position;
+        Assert.True(meks.Damage(trap!.Value.Id, Human, 1e6f, out bool destroyed) && destroyed, "the contraption is destroyed");
+        bool let = false;
+        for (int k = 0; k < 90 && w.ChargeCentres == 0; k++)
+        {
+            Tick(w);
+            if (w.Projectiles.Count == 1 && w.Projectiles[0].Motion == ProjectileMotion.Flying) let = true;
+        }
+        Assert.True(let, "it dropped");
         Assert.Equal(0, w.ChargeCentres);
         while (w.ChargeCentres == 0 && w.Tick < stuckAt + 300) Tick(w);
         Assert.Equal(1, w.ChargeCentres);
@@ -322,10 +334,60 @@ public class ChargeTests
         Assert.Equal(librarian, w.Players[Human].Class);
         Assert.Equal(charge, config.Classes[librarian].EquipmentChoices.First(i => i == charge));
         var item = Loadouts.Equipment(config, w.Players[Human]);
-        if (item?.Name != ArsenalRules.RemoteDetonators) return;   // his default is another item: the throw of the charge is then his choice, covered by the list test above
+        Assert.Equal(ArsenalRules.RemoteDetonators, item?.Name);   // the only item of the test config: his default
         Tick(w, InputButtons.Grenade);
         for (int k = 0; k < 40 && w.Projectiles.Count == 0; k++) Tick(w);
         Assert.Single(w.Projectiles);
         Assert.True(w.Projectiles[0].Thrown);
+    }
+
+    [Fact]
+    public void A_cleared_field_forgets_the_charge_its_fuse_and_its_ring()
+    {
+        var w = War(out _);
+        ThrowAndStick(w);
+        uint from = w.Tick;
+        while (w.ChargeCentres == 0 && w.Tick < from + 400) Tick(w);
+        Assert.Equal(1, w.ChargeCentres);
+        Assert.True(w.ChargeRunsLive > 0, "the ring is running");
+        int spots = w.ChargeSpots;
+        typeof(World).GetMethod("TfwClearField", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.Invoke(w, null);
+        Assert.Equal(0, w.ChargeRunsLive);
+        for (int k = 0; k < 60; k++) Tick(w);
+        Assert.Equal(spots, w.ChargeSpots);   // no spot of the old ring goes off
+    }
+
+    [Fact]
+    public void It_sticks_to_the_surface_of_a_shield_dome_from_outside_and_does_not_go_off_at_it()
+    {
+        var w = TfwRig.War(config: Config());
+        w.TfwMeksOn = true;
+        w.Tfw!.Guardsmen = false;
+        w.TfwSquigDropsOn = false;
+        var battle = TfwRig.Deploy(w);
+        battle.WeirdboyzOn = false;
+        TfwRig.Steps(w, 3);
+        var meks = Assert.IsType<MusouMeks>(w.TfwMeks);
+        meks.Builds = false;
+        w.Musou!.Frozen = true;
+        w.Step(id => new PlayerInput(w.Tick, 0f, 0f, w.Players[id].Yaw, InputButtons.Grenade));
+        for (int k = 0; k < 6 && w.Projectiles.Count == 0; k++) Tick(w);
+        Assert.Single(w.Projectiles);
+        var flight = w.Projectiles[0];
+        var along = Vector3.Normalize(new Vector3(flight.Velocity.X, flight.Velocity.Y, 0f));
+        var centre = new Vector3(flight.Position.X, flight.Position.Y, 0f) + along * (MusouMekRules.ShieldRadius + 5f);
+        var generator = meks.PlaceBuilt(0, MusouContraptionKind.ShieldGenerator, centre);
+        Assert.NotNull(generator);
+        Assert.True(meks.AnyDome);
+        for (int k = 0; k < 60 && w.Projectiles.Count == 1 && w.Projectiles[0].Motion != ProjectileMotion.Stuck; k++) Tick(w);
+        Assert.Single(w.Projectiles);
+        Assert.Equal(ProjectileMotion.Stuck, w.Projectiles[0].Motion);
+        Assert.Equal(0, w.ChargeCentres);   // the core's stop at the dome would have set it off
+        float to = Vector3.Distance(w.Projectiles[0].Position, centre);
+        Assert.InRange(to, MusouMekRules.ShieldRadius - 2.5f, MusouMekRules.ShieldRadius + 1.5f);   // on the dome's surface
+        uint stuckAt = w.Tick;
+        while (w.ChargeCentres == 0 && w.Tick < stuckAt + 300) Tick(w);
+        Assert.Equal(1, w.ChargeCentres);
+        Assert.InRange(w.Tick - stuckAt, 140u, 160u);
     }
 }

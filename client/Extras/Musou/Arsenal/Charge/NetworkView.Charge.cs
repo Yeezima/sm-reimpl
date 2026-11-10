@@ -44,8 +44,7 @@ public partial class NetworkView
         int frag = _config.Thrown.ToList().FindIndex(t => SmSim.Extras.Musou.Campaign.TfwCombatRules.IsFrag(t));
         if (frag < 0) return;
         bool master = ChargeMasterCrafted();
-        // The core played the centre effect at the data's size (r 10); the blast is 16 m (24 with Master-Crafted Wargear): a second centre effect adds the difference (x1.6 and x2.4 in all).
-        FxDetonation(d, master ? 1.4f : 0.6f);
+        // The centre effect is the core's, one, at x1.6 (the config's thrown blast scale for the charge, SimConfig.Extras.cs): the 16 m blast against the data's 10 m. Master-Crafted's 24 m centre keeps that size.
         var world = _client.Collision;
         DemolitionChargeRules.Ray? ray = world is null ? null : (o, dir, len) => world.Weapons.Raycast(o, dir, len) is { } hit ? hit.Distance : null;
         float tick = 1f / _config.TickRate;
@@ -75,7 +74,7 @@ public partial class NetworkView
 
     void ChargeSpot(ProjectileView view, bool sound)
     {
-        if (!IsInsideTree()) return;
+        if (!IsInstanceValid(this) || !IsInsideTree()) return;
         if (sound) SoundDetonation(view, "charge ring");
         var shake = _shake;
         if (FxDetonation(view)) ChargeSpotsDrawn++;

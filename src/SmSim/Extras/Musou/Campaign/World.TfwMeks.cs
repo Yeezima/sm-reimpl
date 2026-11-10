@@ -151,9 +151,15 @@ public sealed partial class World
             bool stays = false;
             ArsenalProjectileMeets(p.Id, 0, hit, p.Position + direction * distance, ref stays);
             if (stays) return;   // W4's charge sticks to it: no stop, no detonation (the arsenal holds it there)
-            stop = MathF.Min(stop, distance);   // Arsenal/World.Arsenal.cs: a projectile of the arsenal meeting a contraption (W4); a no-op until then
+            stop = MathF.Min(stop, distance);
             if (!p.Thrown && Shots.DirectDamageOf(WeaponOf(p), p.Stage) is { } direct) meks.Damage(hit, p.Owner, direct.Damage * direct.BodyMultiplier, out _);
             return;
+        }
+        if (float.IsFinite(dome) && dome <= max)
+        {
+            bool stays = false;
+            ArsenalProjectileMeets(p.Id, 0, 0, p.Position + direction * dome, ref stays);   // a shield dome from outside: W4's charge sticks to its surface (no detonation at the stop)
+            if (stays) return;
         }
         stop = MathF.Min(stop, dome);
     }
