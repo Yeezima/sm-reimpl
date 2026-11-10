@@ -536,7 +536,7 @@ None left for the approval of this design: every question is decided (D1 to D24)
 
 **Approved** by the owner, 2026-11-10: "i approve the design as written - don't use a fable agent yet until i actually approvate creating the custom animations".
 - The claw uses the sword's moves at 1.25× and the spear the hammer's at 0.85×.
-- No custom animations and no Fable agent until he approves them separately.
+- No custom animations and no Fable agent until he approves them separately. **Changed 2026-11-10** (the owner, through the lead): "Just custom animations first for claw and spear - I'll approve of those". A Fable animator agent authors custom clips for the claw and the spear as preview clips for his approval, to the design's hit times exactly (claw: the sword's hit times ÷1.25; spear: the hammer's ÷0.85), so the simulation is unchanged. All other animation work is blending, timing and transitions only; no new clips.
 - No downloaded or generated models: models are built in code from the reference descriptions in section 5 (Look) and section 6.3.
 
 **Rules for every implementer:**
@@ -568,6 +568,8 @@ Changed from the proposals:
 - The catalogue hook comes with `ProfileViews.ExtrasSetCatalog`, so Musou's loadout set is read with Musou's catalogue.
 - The clip-speed factor is the `WeaponMap.ClipSpeed` field, not a hook; the client's single-clip strikes read it (`NetworkView.MeleeClipSpeed`).
 - The animation alias is read by the hip-fire, sprint, reload and flinch rules and the hammer stance (`AnimationAlias.Of`).
+- **The animation seam** (added for the custom clips): the claw and the spear play the sword's and the hammer's clips as stand-ins: the borrowed maps' clips, and their light and heavy clip lists through `AnimationAlias`. One client hook, `NetworkView.ExtrasMeleeClip`, gives a strike (weapon, light or heavy, step) a clip of its own and its rate (1: authored to the simulation's timing), posed alone. Each weapon's table is a partial in its own milestone's files: `LightningClawClip` (W2) and `PowerSpearClip` (W3). The simulation never reads it.
+- Not in W0: a source for clips that are not in the install. The rig's clips are read from its packfile only, and `HavokSplineAnimation` has no other constructor. That source comes with the approved clips (the lead decides where), and it changes no mechanics.
 - Not reached by W0: the jump pack's own moves (dash attack, ground pound, air slash), which the clip-speed factor does not touch; and the other name-based presentation rules (hit sounds, power flash, the sword's glow and idle sound). Raise either with the lead if needed.
 
 ### W1: Autocannon (section 4)
@@ -595,6 +597,10 @@ Changed from the proposals:
   - `client/Extras/Musou/Arsenal/Claw/*`: the gauntlet and four talons built in code (section 5's look), always worn on the right hand, the blue crackle on strikes, hit effects and sounds.
   - `tests/*/Extras/Musou/Arsenal/Claw*.cs`.
 - **Hooks used:** `MpClasses.ExtrasMeleeMap`; the clip-speed factor; `ExtrasWeaponModel` (with its always-worn flag); `ExtrasAnimationAlias` (→ power sword); `PerkCatalog.ExtrasItems` ("Lightning Claw"); the cleave call site (none needed beyond the sword's).
+- **Animations:**
+  - Build the claw on the sword's clips as stand-ins: the sword's map at clip speed 1.25, and the alias to the power sword (which gives the stand-in clip lists). Leave `LightningClawClip` (the animation seam) empty.
+  - The custom clips the owner approves drop in there later, one entry per strike (light or heavy, step) with its rate, without touching the combo, the timings or the tests of the mechanics.
+  - Make no clips yourself: the animator agent authors them. Your animation work is blending, timing and transitions only.
 - **Done when:**
   - **First:** a player-view and a third-person still of the claw goes to the lead for the owner. Nothing else is built until he answers.
   - Then: the string X1..X4, the heavies, the stomp, the charge, the dash attack, the ground pound and the air slash with the claw at 1.25×.
@@ -611,6 +617,10 @@ Changed from the proposals:
   - `client/Extras/Musou/Arsenal/Spear/*`: the shaft, fitting and blade built in code (section 6's look; the force staff's shaft only if a still shows it matches), and the spear point-down during the dive.
   - `tests/*/Extras/Musou/Arsenal/Spear*.cs`.
 - **Hooks used:** `MpClasses.ExtrasMeleeMap`; the clip-speed factor; `ExtrasWieldsHammer` (the hammer's jump-pack rules); the cleave call site (reach, width, target cap, damage); the pound-impact call site (`ExtrasJump`, Impact); `ExtrasWeaponModel`; `ExtrasAnimationAlias` (→ thunder hammer); `PerkCatalog.ExtrasItems` ("Power Spear").
+- **Animations:** as W2.
+  - The spear plays the hammer's clips as stand-ins (its map at 0.85, the alias to the thunder hammer). Leave `PowerSpearClip` (the animation seam) empty for the approved custom clips.
+  - The point-down turn during the dive is a pose on the stand-in, not a new clip.
+  - Your animation work is blending, timing and transitions only; no new clips.
 - **Done when:**
   - **First:** a still of the spear goes to the lead for the owner, as W2.
   - Then: the sweeps at 0.85× reach 12 m over 240° and hit at most 12 Orks; the heavies and the slam work.
