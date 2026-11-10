@@ -7,6 +7,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- Polish pass P2 re-review: the Ashfall layout cache's disk tests use its internal folder-and-kind entry points (a temporary folder, never the real cache). -->
+    <InternalsVisibleTo Include="SmFormats.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\SmFormats\SmFormats.csproj" />
     <ProjectReference Include="..\SmSim\SmSim.csproj" />
   </ItemGroup>

@@ -315,7 +315,7 @@ public partial class NetworkView : Node3D
             var (clientTransport, clientClock, clientNonce) = DemoNetwork(endpoint, fingerprint);   // M40 T0: live UDP (recording on request) or a replayed demo
             var clientOptions = new ClientOptions
             {
-                LoadMap = LoadMap, RequestedClass = _requestedClass,
+                LoadMap = LoadMap, BeginLoadMap = BeginLoadMap, RequestedClass = _requestedClass,
                 RequestedPrimary = _requestedPrimary, RequestedPistol = _requestedPistol, RequestedMelee = _requestedMelee,
                 RequestedEquipment = _requestedEquipment, RequestedSide = RequestedSide,
                 SmoothRenderClock = !OldRenderClock,
@@ -2156,126 +2156,7 @@ public partial class NetworkView : Node3D
 
     HudReadout? _readout;
 
-    /// <summary>
-    /// Called by <see cref="GameClient"/> when the server names its map: loads the collision from this install for
-    /// prediction and draws the map with its original meshes and diffuse textures (<see cref="MapView"/>), replacing the
-    /// flat checker ground. The grey character collision is drawn instead if the visuals fail or nothing could be drawn,
-    /// and in addition with --show-collision.
-    /// </summary>
-    LoadedMap? LoadMap(string name)
-    {
-        var watch = System.Diagnostics.Stopwatch.StartNew();
-        string file = MapFileOf(name);
-        Ph("map load: collision and content");
-        MemStep("before map"); MapContent? generated = null;
-        ExtrasMapContent(name, ref generated);   // EXTRAS-HOOK: a map added content generates in code (Musou Mode's Ashfall Citadel): no install file is read
-        var map = generated ?? MapContent.Load(_gameDir, file); MemStep("map content");
-        long contentMs = watch.ElapsedMilliseconds;   // polish pass P1: the LOADTIME line's stages
-        var world = map.ToCollisionWorld(); MemStep("collision world");
-        ulong hash = map.Hash;
-        ExtrasMapCollision(name, ref world, ref hash);   // EXTRAS-HOOK: added content's solids beside the level, and the hash of the whole (Musou Mode's Stormbird)
-        long worldMs = watch.ElapsedMilliseconds;
-        if (!Lean) BuildRagdollWorld(map);
-        long ragdollMs = watch.ElapsedMilliseconds;
-        PrepareNavigation(map, world); MemStep("navigation");
-        _mapCentre = map.Spawns.Count > 0 ? new Vector2(map.Spawns.Average(sp => sp.Position.X), map.Spawns.Average(sp => sp.Position.Y)) : null;
-        long collisionMs = watch.ElapsedMilliseconds;
-        if (Lean) return LeanMapLoaded(name, hash, world, collisionMs, watch);   // perf/lean-bots: collision, navigation and the jump ground only (NetworkView.Lean.cs)
-        _gameSpace?.GetNodeOrNull("MapCollision")?.QueueFree();
-        _gameSpace?.GetNodeOrNull("MapVisuals")?.QueueFree();
-
-        // The map's look: original meshes and diffuse textures (MapView). Failure falls back to the grey collision.
-        string? visualsError = null;
-        MapView? view = null;
-        bool extrasDrawn = false;
-        if (generated is not null) ExtrasMapVisuals(name, generated, ref extrasDrawn);   // EXTRAS-HOOK: draws the generated map (and its look) instead of MapScene.Load
-        string lightingNote = "lighting: provisional approximation (warm sun, fog, SSAO)";
-        var visualNotes = new List<string>();
-        if (!extrasDrawn) try
-        {
-            Ph("map load: visuals");
-            var scene = MapScene.Load(_gameDir, file);
-            visualNotes.AddRange(scene.Notes);
-            view = MapView.Build(scene, visualNotes);
-            if (view.Instances == 0)
-            {
-                visualsError = "no part of the map could be drawn";
-                view.Free();
-                view = null;
-            }
-            else
-            {
-                _gameSpace?.AddChild(view);
-                try
-                {
-                    if (_sun is not null && _environment is not null
-                        && MapLightingView.Apply(scene.Lighting, _sun, _environment, visualNotes, out lightingNote, out _blender) is { } placed)
-                        _gameSpace?.AddChild(placed);
-                }
-                catch (Exception e) when (e is not (StackOverflowException or AccessViolationException))
-                {
-                    // The map stays drawn with the provisional sun and fog; the half-built lights were freed by Apply.
-                    _blender = null;
-                    visualNotes.Add($"the map's lighting failed ({e.GetType().Name}: {e.Message}); the provisional look stays");
-                }
-            }
-        }
-        catch (Exception e) when (e is not (StackOverflowException or AccessViolationException))
-        {
-            visualsError = $"{e.GetType().Name}: {e.Message}";
-            view = null;   // MapView.Build frees a half-built view itself
-        }
-        foreach (var note in visualNotes) GD.Print("  map note: " + note);
-
-        if (((view is null && !extrasDrawn) || _showCollision) && map.Layer(MapContent.CharacterLayer) is { } layer && _gameSpace is not null)
-        {
-            var vertices = new Vector3[layer.Indices.Length];
-            var normals = new Vector3[layer.Indices.Length];
-            for (int t = 0; t < layer.Indices.Length; t += 3)
-            {
-                var a = layer.Vertices[layer.Indices[t]]; var b = layer.Vertices[layer.Indices[t + 1]]; var c = layer.Vertices[layer.Indices[t + 2]];
-                var n = System.Numerics.Vector3.Normalize(System.Numerics.Vector3.Cross(b - a, c - a));
-                if (!float.IsFinite(n.X)) n = System.Numerics.Vector3.UnitZ;
-                // Godot's front faces wind clockwise; the game's winding is not known, so both sides are drawn.
-                vertices[t] = new(a.X, a.Y, a.Z); vertices[t + 1] = new(c.X, c.Y, c.Z); vertices[t + 2] = new(b.X, b.Y, b.Z);
-                normals[t] = normals[t + 1] = normals[t + 2] = new(n.X, n.Y, n.Z);
-            }
-            var arrays = new Godot.Collections.Array();
-            arrays.Resize((int)Mesh.ArrayType.Max);
-            arrays[(int)Mesh.ArrayType.Vertex] = vertices;
-            arrays[(int)Mesh.ArrayType.Normal] = normals;
-            var mesh = new ArrayMesh();
-            mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, arrays);
-            var material = (StandardMaterial3D)_groundMaterial!.Duplicate();
-            material.CullMode = BaseMaterial3D.CullModeEnum.Disabled;
-            _gameSpace.AddChild(new MeshInstance3D { Name = "MapCollision", Mesh = mesh, MaterialOverride = material });
-        }
-        if (GetNodeOrNull<Node3D>("Ground") is { } ground) ground.Visible = false;
-        DrawBlockers(world);
-        DrawProps(world);
-        _mapNote = extrasDrawn ? $"map {name}: generated in code, drawn by added content (placeholder demonstration)"
-            : view is not null
-            ? $"map {name}: original meshes and textures from the install ({view.Objects:N0} objects, {view.Meshes} meshes, {view.TexturedSurfaces}/{view.Surfaces} surfaces textured, {view.Materials.NormalMapped} with normal maps, {view.Materials.Specular} with specular maps, {view.Materials.Emissive} emissive, {view.Materials.Layered} two-layer, {view.Materials.CutOut} cut-out, {view.Materials.Tinted} vertex-tinted); {lightingNote}, shaders: placeholder"
-              + (_showCollision ? "; collision shown in grey" : "")
-            : $"map {name}: collision geometry only, placeholder grey (visuals failed: {visualsError})";
-        GD.Print($"{_mapNote}; collision {collisionMs} ms, total {watch.ElapsedMilliseconds} ms");
-        long visualsEndMs = watch.ElapsedMilliseconds;
-        if (VisualOverhaul.ApplyWorld(_camera, _environment) is { } overhaulNote) GD.Print(overhaulNote);   // visual-overhaul proposal (--visual-overhaul on; default off)
-        // The default look of every class and the own look, built now so no player's first look stalls a frame (customizer T7).
-        Ph("map load: looks");
-        _warmClock = System.Diagnostics.Stopwatch.StartNew();   // Ork O7a: one deadline for the marines' and the Ork's warm-up
-        WarmLooks();
-        WarmOrk();   // Ork O7a: an Ork player's own look and weapons (NetworkView.Ork.cs)
-        PrewarmWeaponDefaults();   // M40-T9: the weapon models of every class's default loadout
-        PrewarmGrenades();   // feel/grenades-quickdraw: the grenade models, so the first throw does not stall a frame
-        PrewarmPickups();   // perf/pass-1: the drops' models (the first drop cost a 100 ms frame); a lean bot returned above (LeanMapLoaded) and warms none
-        PrewarmCollision(world);   // M40-T9: the crosshair's first ray
-        _jumpGround = world;   // M45: the flight pose's height above the ground
-        // polish pass P1 (2026-11-10): one line with the load's stages, for testers' logs and the baseline harness (every number is wall time on the main thread, ms).
-        long totalMs = watch.ElapsedMilliseconds;
-        GD.Print($"LOADTIME map {name}: content {contentMs} ms, collision world {worldMs - contentMs}, ragdoll world {ragdollMs - worldMs}, navigation {collisionMs - ragdollMs}, visuals {visualsEndMs - collisionMs}, looks and warm-ups {totalMs - visualsEndMs}, total {totalMs} ms");
-        return new LoadedMap(world, hash);
-    }
+    // The map load (LoadMap, Stage1, Stage2): NetworkView.MapLoad.cs (polish pass P2: the reading and computing off the main thread).
 
     /// <summary>The install's map behind the server's map name: the name itself, unless added content composes that map from another (every read of map files goes through this).</summary>
     string MapFileOf(string name)
@@ -2295,6 +2176,9 @@ public partial class NetworkView : Node3D
 
     /// <summary>Hook for added content, in <see cref="LoadMap"/> after the level's collision: replaces <paramref name="world"/> and <paramref name="hash"/> for a map it composes. Implemented in an <c>Extras/</c> folder.</summary>
     partial void ExtrasMapCollision(string name, ref SmSim.CollisionWorld world, ref ulong hash);
+
+    /// <summary>Hook for added content (polish pass P2): the nodes of what <see cref="ExtrasMapCollision"/> composed, built on the main thread in the load's second stage. Implemented in an <c>Extras/</c> folder.</summary>
+    partial void ExtrasMapCollisionVisuals();
 
     void AddGroundCameraAndLights()
     {

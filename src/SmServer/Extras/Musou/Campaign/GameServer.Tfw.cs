@@ -24,6 +24,7 @@ public sealed partial class GameServer
         name ??= TfwMap.Name;
         if (TfwWorld.Load(install, out string? problem, name) is { } data) map = TfwGameMap(data, name);
         else error = problem;
+        if (SmContent.Extras.Musou.AshfallLayoutCache.LastNote is { } cacheNote) Console.WriteLine($"ashfall: {cacheNote}");   // polish pass P2
     }
 
     /// <summary>The server's map of a composed war map: <see cref="GameMap.Spawns"/> are the Stormbird's, so a join lands there, and the battlefield goes along for <see cref="CreateTfw"/>.</summary>

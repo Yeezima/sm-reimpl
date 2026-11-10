@@ -29,6 +29,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 ## Summary
 
 Scanned 2916 spec table rows: **2176 tagged**, 514 not tagged (read from data with high confidence), 226 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 649 rows of the changes document.
+Scanned 2911 spec table rows: **2169 tagged**, 514 not tagged (read from data with high confidence), 228 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 648 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -54,6 +55,10 @@ Scanned 2916 spec table rows: **2176 tagged**, 514 not tagged (read from data wi
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 235 | 224 | 126 | 63 | 0 |
 | **All areas** | **2176** | 1918 | 1622 | 683 | 38 |
+| Core simulation (provisional values) | 626 | 592 | 445 | 168 | 1 |
+| General game design | 7 | 7 | 6 | 0 | 0 |
+| Ork faction | 235 | 224 | 126 | 63 | 0 |
+| **All areas** | **2169** | 1912 | 1614 | 682 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -61,6 +66,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---:|
 | kind: ours | 1223 |
 | confidence: low | 783 |
+| kind: ours | 1217 |
+| confidence: low | 775 |
 | confidence: medium | 710 |
 | notes: ours | 393 |
 | kind: interpretation | 365 |
@@ -2235,6 +2242,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
 ### Core simulation (provisional values) (632)
+### Core simulation (provisional values) (626)
 
 *Spec section: Provisional values in use*
 
@@ -3129,6 +3137,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-C1D08066` | Army made real | keeps the march facing (not a fresh spawn: `keepYaw`); the army itself spawned facing the centre | kind: ours; confidence: medium | ours (the owner said "spawning") | Army made real: compare with SM1 by feel or video. Ours: keeps the march facing (not a fresh spawn: keepYaw); the army itself… | ☐ |
 | `R-B5790B4B` | Not covered | the Stormbird and the Firing Range spawns keep their own facing | kind: ours; confidence: medium | ours | Not covered: compare with SM1 by feel or video. Ours: the Stormbird and the Firing Range spawns keep their own facing. | ☐ |
 | `R-468A6F29` | Client view | the view takes the server's yaw on a respawn (as before) and on a landing or redeploy of a living player (a jump of 15 m or more in one frame), so nothing turns on the first frame (m) | kind: ours; confidence: medium | ours | Client view: compare with SM1 by measuring on a flat spot of the same map. Ours: the view takes the server's yaw on a respawn (as before) and on a… | ☐ |
+
+*Spec section: Polish pass P2 (claude/polish-p2, 2026-11-10; client, content, server; load time only: no simulation, wire, protocol or config-hash change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-EDECAEC7` | Map load off the main thread (both modes, a human client) | the handshake's Challenge starts the load on a worker (`ClientOptions.BeginLoadMap`, `IMapLoad`; the client polls it each update and sends its Hello with the map hash once it is done; the connect timeout waits meanwhile): the install's map content (or the… | kind: ours | ours (the plan's item 2) | Map load off the main thread (both modes, a human client): compare with SM1 by feel or video. Ours: the handshake's Challenge starts the load on a worker… | ☐ |
 
 *Spec section: Polish pass P1 (claude/polish-p1, 2026-11-10; client, server runtime and options; no simulation, wire, protocol or config-hash change)*
 
@@ -4383,7 +4397,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 
 | ID | Area | What we do | What is unknown | Spec | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
-| `C-56DF6FC5` | Loading screen picture | The owner's earlier menu picture behind LOADING, dimmed toward the corners (not SM1's per-map loading art and tips) | SM1's loading screens (map art and tips) | Loading screen: "Loading screen picture" | Loading screen picture: compare with SM1 by feel or video. Ours: The owner's earlier menu picture behind LOADING, dimmed toward the… | ☐ |
+| `C-56DF6FC5` | Loading screen picture | The owner's earlier menu picture behind LOADING, dimmed toward the corners (not SM1's per-map loading art and tips); since the polish pass P2 a caption under LOADING names the load's stage (ours) | SM1's loading screens (map art and tips) | Loading screen: "Loading screen picture" | Loading screen picture: compare with SM1 by feel or video. Ours: The owner's earlier menu picture behind LOADING, dimmed toward the… | ☐ |
 | `C-CC5659E8` | Screen blink | A short fade to black and back (0.18 s close, a hold until the new screen has settled, 0.26 s open) between the menu, the loading screen and the match; `--no-screen-blink` turns it off | How SM1's front end changed screens | Screen blink | Screen blink: compare with SM1 by feel or video. Ours: A short fade to black and back (0.18 s close, a hold until the new… | ☐ |
 
 ### Not yet reproduced
@@ -4770,6 +4784,8 @@ Test aids, probes, demo and capture tooling, and engineering decisions (protocol
 | `R-E6DE77A1` | Handshake after the blink | Screen blink (ui/loading-blink, 2026-11-10, client only) |
 | `R-BE72EE96` | Core messages counted in the Musou budget (Musou) | Musou performance pass and the owner's battle decisions (musou/perf-pass, 2026-11-08; Musou Mode only but FSR 2 and the off-screen effects, which are shared client settings; `TfwRules.Version` 38, no protocol or wire change) |
 | `R-A9655E6C` | Stormboy hop cue's flight (Musou wire) | Musou Mode: smooth crowd motion (crowd-smooth, 2026-11-08; Musou Mode only; `MusouSim.Version` 22, no core protocol bump: `Protocol.Version` stays 64) |
+| `R-4EEFB531` | Ashfall layout cache (Musou, added content) | Polish pass P2 (claude/polish-p2, 2026-11-10; client, content, server; load time only: no simulation, wire, protocol or config-hash change) |
+| `R-5F9027EA` | Loading captions | Polish pass P2 (claude/polish-p2, 2026-11-10; client, content, server; load time only: no simulation, wire, protocol or config-hash change) |
 | `R-866FC7E6` | `LOADTIME` line | Polish pass P1 (claude/polish-p1, 2026-11-10; client, server runtime and options; no simulation, wire, protocol or config-hash change) |
 | `R-3D34462F` | Physics steps aid | Polish pass P1 (claude/polish-p1, 2026-11-10; client, server runtime and options; no simulation, wire, protocol or config-hash change) |
 | `R-476D600F` | Test aid: `--musou-crowd-test` | Musou Mode: the big Orks' deaths and gait (musou-big-ork-deaths, 2026-11-09; Musou Mode only; the deaths and gait client presentation; the bodies against the map in the simulation, `MusouSim.Version` 34, to be renumbered at integration; no protocol change) |
