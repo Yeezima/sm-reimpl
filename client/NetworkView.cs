@@ -1125,6 +1125,7 @@ public partial class NetworkView : Node3D
                                $"blast radius {(splashes.Count == 0 ? "none" : string.Join(" + ", splashes.Select(x => x.Radius.ToString("F1") + (x.Lifetime > 0f && x.Period > 0f ? $" lingering {x.Lifetime:F0} s" : ""))))} (detonations seen {_detonationsSeen}, thrown {_thrownDetonationsSeen})");
             Ph("blasts: sound");
             SoundDetonation(d);   // M26b
+            ExtrasThrownDetonated(d);   // EXTRAS-HOOK added content (Musou's Remote Detonators): the ring of a charge starts from its detonation
             var colour = d.Thrown ? ThrownBlastColour(d.Weapon) : ProjectileColour(weapon, d.Stage);
             var position = new Vector3(d.Position.X, d.Position.Y, d.Position.Z);
             // M25b: the original explosion replaces the placeholder blast spheres (lingering areas stay; --placeholder-fx keeps the spheres).

@@ -129,7 +129,21 @@ Nothing yet.
 | Power spear (Musou only, 2026-11-10, owner: "slower than hammer but much wider reach", "impaling dive plus wide sweeping swings") | No such weapon in SM1 | An Assault melee weapon on the thunder hammer's combo at 0.85x, swings at 0.75 of the hammer's damage, a 15 m sweep (150 degrees each side, at most 12 Orks), carried in the right hand alone and swung in both, the hammer's jump-pack rules, and an impale of 600 to the Ork nearest a ground pound's landing; a model built in code | spec "Musou's arsenal: W3" |
 
 #### W4: the Remote Detonators
-Nothing yet.
+
+Added content, Musou Mode only; every rule below is ours or the owner's (docs/new-weapons-design.md section 7, D4 to D9, D19 to D24). The item is the install's own unused `sm_mp_eq_demolition_charge`.
+
+| Rule | Ours / the owner's | Why |
+|---|---|---|
+| Offered to every Space Marine class and the Librarian | owner's (D20) | The install lists it for no class. |
+| A 5 s fuse after it sticks, no second press | owner's (D6, D19) | The data's remote trigger is dropped. |
+| Sticks to Orks and rides on them; it passes marines | ours (marines) | The data's sticky rule held for the level and players. |
+| A centre blast of 600 (r 16 m) then 16 stacking spots of 180 round a 24 m ring, one every 2 ticks | ours, fitted to the owner's "600 damage at the centre, 40m reach" | An estimate to check in a playtest (refine register). |
+| Bosses x2, up to 40 flying corpses (80 in D19, lowered by the owner 2026-11-10), survivors thrown back up to 10 m | owner's | The frag's cap is 20 and its knock-back 2 m. |
+| The thrower is not spared (throw and run) | owner's (2026-11-10) | The data's `ignore_self` false. |
+| Deaths past the 1,024 events a tick wait and play out over the next ticks (Musou's event path, not the charge alone) | owner's (2026-11-10) | A charge in a 1,500-Ork crowd lost 523 death events to the cap. |
+| One back every 30 s; Favor of the Armory: 2 | owner's (D9); data (Favor) | Grenades come back every 15 s. |
+| The melta bomb's model | owner's (D21) | The data's model is the Ork stikkbomb. |
+| It sticks to a contraption (riding on it) and to a shield dome's surface from outside | ours | The core would set it off at the contraption or the dome. |
 
 ## 1. Deliberate changes (owner's decisions)
 

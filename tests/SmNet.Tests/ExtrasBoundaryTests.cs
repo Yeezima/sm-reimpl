@@ -110,6 +110,7 @@ public class ExtrasBoundaryTests
         ("src/SmContent/PerkCatalog.cs", "ExtrasItems"),            // PerkCatalog.ExtrasItems(ContentExtras, ref PerkCatalog), in For: the customizer rows of a content profile (Musou only)
         ("client/WeaponRig.cs", "ExtrasWeaponModel"),               // WeaponRig.ExtrasWeaponModel(HandRole, string, WeaponAssets, ref attachment, ref asset, ref bool), in AddItem when the catalogue has no held model
         ("client/NetworkView.Grenades.cs", "ExtrasThrownVisual"),   // NetworkView.ExtrasThrownVisual(ThrownSpec, ref ProjectileVisual?), in GrenadeModel: a thrown item drawn with another package's model
+        ("client/NetworkView.Grenades.cs", "ExtrasThrownDetonated"),   // NetworkView.ExtrasThrownDetonated(ProjectileView), called in NetworkView.cs for every thrown detonation: W4 starts the Remote Detonators' ring (Musou only)
         ("src/SmContent/AnimationAlias.cs", "ExtrasAnimationAlias"),   // static AnimationAlias.ExtrasAnimationAlias(ref string), in Of: the data weapon an added one borrows its animations from
         ("src/SmContent/Customization/ProfileView.cs", "ExtrasSetCatalog"),   // static ProfileViews.ExtrasSetCatalog(string, ref CustomizationCatalog), in SetCatalog: Musou's set is read with Musou's catalogue
         ("client/NetworkView.MeleeLock.cs", "ExtrasMeleeClip"),   // NetworkView.ExtrasMeleeClip(string, bool, int, ref string?, ref float), in OwnStrikeClip: the animation seam, a strike's custom clip (the claw's and the spear's, once approved)
