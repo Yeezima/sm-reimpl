@@ -34,10 +34,30 @@ public static class SpearRules
     public static float MinCos => MathF.Cos(HalfAngleDegrees * MathF.PI / 180f);
 
     /// <summary>Whether <paramref name="state"/> has the power spear chosen in its melee slot (<paramref name="config"/>'s class lists carry it only in a Musou match).</summary>
-    public static bool Wields(SimConfig config, PlayerState state)
+    public static bool Wields(SimConfig config, PlayerState state) => IsSpear(MeleeWargearOf(config, state));
+
+    /// <summary>Whether <paramref name="wargear"/> names the power spear (case ignored; an arsenal name of ours, which no install file carries).</summary>
+    public static bool IsSpear(string? wargear) => wargear is not null && ArsenalRules.PowerSpear.Equals(wargear, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>The wargear name of the melee weapon <paramref name="state"/> has chosen (null: a class with no melee choices, or a combo with no name).</summary>
+    public static string? MeleeWargearOf(SimConfig config, PlayerState state)
     {
         int i = Loadouts.MeleeChoiceOf(config, state);
-        return i >= 0 && Loadouts.ClassOf(config, state.Class)!.MeleeChoices[i].Wargear is { } w && ArsenalRules.PowerSpear.Equals(w, StringComparison.OrdinalIgnoreCase);
+        return i >= 0 && Loadouts.ClassOf(config, state.Class) is { } loadout ? loadout.MeleeChoices[i].Wargear : null;
+    }
+
+    /// <summary>
+    /// The sweep's volume for a melee weapon named <paramref name="wargear"/>: for the spear the whole reach <see cref="ReachMetres"/> (from the feet; the war cleave's scale is not applied on top),
+    /// <see cref="HalfAngleDegrees"/> each side and at most <see cref="MostOrks"/> Orks, and true; any other weapon leaves the three as they are and gives false. The one function both the server's
+    /// cleave (<c>World.ArsenalCleave</c>) and the client's drawn swing arc (<c>MusouCleaveShape.ArsenalShape</c>, owner 2026-11-10: the line matches the hitbox) read, so they cannot drift apart.
+    /// </summary>
+    public static bool Sweep(string? wargear, ref float reach, ref float halfAngleDegrees, ref int most)
+    {
+        if (!IsSpear(wargear)) return false;
+        reach = ReachMetres;
+        halfAngleDegrees = HalfAngleDegrees;
+        most = MostOrks;
+        return true;
     }
 
     /// <summary>The spear's combo (named <paramref name="wargear"/>) from the hammer's: slowed to <see cref="Tempo"/>, the swings' damage times <see cref="DamageScale"/>. Perk variants follow.</summary>

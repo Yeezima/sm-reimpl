@@ -42,7 +42,16 @@ public partial class NetworkView
         TfwPagePanel.Battlefield = name == TfwMap.ManufactorumName ? "MANUFACTORUM" : "ASHFALL CITADEL";
         _tfwAboard = false;   // a new map (a new camera) gets the hub sky again
         GD.Print($"map {name}: {(manufactorum ? TfwMap.Battlefield + " from the install" : "Ashfall Citadel generated in code")} and the Stormbird at {hub.Centre}; map hash {hash:X16}");
-        if (Lean) return;
+        _tfwHubVisualsPending = !Lean;   // polish pass P2: this hook may run on the map load's worker; the nodes are built by TfwMapCollisionVisuals on the main thread
+    }
+
+    bool _tfwHubVisualsPending;
+
+    /// <summary>Main thread (the map load's second stage): the Stormbird's interior and the Firing Range drawn for the hub the collision hook composed.</summary>
+    void TfwMapCollisionVisuals()
+    {
+        if (!_tfwHubVisualsPending || TfwHub is not { } hub) return;
+        _tfwHubVisualsPending = false;
         _gameSpace?.GetNodeOrNull("TfwHub")?.QueueFree();
         if (_gameSpace is null || _groundMaterial is null) return;
         var notes = new System.Collections.Generic.List<string>();

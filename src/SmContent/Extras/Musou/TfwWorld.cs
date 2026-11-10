@@ -42,7 +42,7 @@ public static class TfwWorld
         {
             if (mapName != TfwMap.ManufactorumName)
             {
-                var level = AshfallMap.Build(TfwMap.LayoutOf(mapName));   // draft 11: tfw_war_field is the battlefield layout, tfw_war draft 10
+                var level = AshfallLayoutCache.Build(TfwMap.LayoutOf(mapName), out _);   // draft 11: tfw_war_field is the battlefield layout, tfw_war draft 10; P2: from the private cache (AshfallLayoutCache.LastNote says which)
                 return TfwMap.Compose(AshfallContent.ToMapContent(level).ToCollisionWorld(), level.Points, level.Areas, level.Spawns, manufactorum: false);
             }
             if (!MapContent.Available(gameDir).Contains(TfwMap.Battlefield)) { problem = Missing("the map is not in this install"); return null; }

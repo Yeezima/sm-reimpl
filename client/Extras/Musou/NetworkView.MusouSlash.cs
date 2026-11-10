@@ -36,6 +36,7 @@ public partial class NetworkView
     {
         if (e.Player == 0 || _gameSpace is null || _camera is null) return;
         if (own) MusouMeleeShake();
+        if (MusouHitArc(e, at, camera, own, me)) return;   // owner 2026-11-10: the swing's one arc stands for its hits (NetworkView.MusouSlashArc.cs); no swing behind it: the stroke below
         if (NoMusouSlash || Num.Vector3.Distance(at, camera) > MusouSlashRules.Metres) return;
         PlayerState? attacker = own ? me : MusouPlayerState(e.Player);
         string? wargear = MusouSlashWeaponArg ?? (attacker is { } who ? MeleeWargear(who) : null);   // a retainer (no state): the chainsword's red

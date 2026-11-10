@@ -45,7 +45,7 @@ public partial class NetworkView
         if (own && show.Last < step.HitTime && attackTime >= step.HitTime && show.Last >= 0f)
         {
             int steps = (s.MeleeHeavy ? Loadouts.MeleeHeavy(_config, s) : Loadouts.Melee(_config, s)).Count;
-            MusouStrikeTargets(s, step);
+            MusouStrikeTargets(s, step, MeleeWargear(s));
             if (LogMusouWeight) GD.Print($"MUSOU WEIGHT strike t {_connectedFor:F3} step {s.MeleeStep}/{steps}{(s.MeleeHeavy ? " heavy" : "")} hit {step.HitTime:F2} of {step.Duration:F2} s: {_musouStrikeTargets.Count} Orks in reach");
             if (MusouPunchRules.Accented(s.MeleeHeavy, s.MeleeStep, steps, _musouStrikeTargets.Count))
             {

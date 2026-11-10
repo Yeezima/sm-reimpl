@@ -84,6 +84,7 @@ public class ExtrasBoundaryTests
         ("client/NetworkView.cs", "ExtrasMapCollision"),           // NetworkView.ExtrasMapCollision(string, ref CollisionWorld, ref ulong), in LoadMap after the level's collision (tfw_war: the Stormbird and the composed hash)
         ("client/NetworkView.cs", "ExtrasMapContent"),             // NetworkView.ExtrasMapContent(string, ref MapContent?), in LoadMap before any file read (tfw_war: Ashfall Citadel, generated)
         ("client/NetworkView.cs", "ExtrasMapVisuals"),             // NetworkView.ExtrasMapVisuals(string, MapContent, ref bool), in LoadMap for a generated map (tfw_war: the graybox view)
+        ("client/NetworkView.cs", "ExtrasMapCollisionVisuals"),    // polish pass P2: NetworkView.ExtrasMapCollisionVisuals(), in the map load's main-thread stage (NetworkView.MapLoad.cs Stage2Visuals): the nodes of what ExtrasMapCollision composed on the worker (tfw_war: the Stormbird and the Firing Range)
         // Musou Mode co-op (2026-11-06): up to 4 players.
         ("src/SmServer/GameServer.cs", "ExtrasPlayerCap"),         // GameServer.ExtrasPlayerCap(ref int), in PlayerCap when Extras is not None (Musou: at most 4 players)
         ("client/NetworkView.cs", "ExtrasBotInput"),               // NetworkView.ExtrasBotInput(PlayerState, uint, ref PlayerInput?), in BotInput after the countdown (Musou Mode: the co-op bot fights the Orks)
