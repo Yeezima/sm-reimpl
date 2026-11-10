@@ -146,7 +146,10 @@ public sealed class MusouClientState
     }
 
     /// <summary>Test aid: the enemy known nearest to <paramref name="from"/> within <paramref name="within"/> (null: none), at its newest record.</summary>
-    public Vector3? NearestTo(Vector3 from, float within)
+    public Vector3? NearestTo(Vector3 from, float within) => NearestTo(from, within, null);
+
+    /// <summary>Test aid: as <see cref="NearestTo(Vector3, float)"/>, among the enemies <paramref name="accept"/> takes (null: all; a capture's line of sight, W1c).</summary>
+    public Vector3? NearestTo(Vector3 from, float within, Func<Vector3, bool>? accept)
     {
         Vector3? best = null;
         float bestD = within * within;
@@ -155,7 +158,7 @@ public sealed class MusouClientState
             if (track.Count == 0) continue;
             var p = track.Positions[(track.Count - 1) % History];
             float d = Vector3.DistanceSquared(p, from);
-            if (d <= bestD) { bestD = d; best = p; }
+            if (d <= bestD && (accept is null || accept(p))) { bestD = d; best = p; }
         }
         return best;
     }

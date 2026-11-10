@@ -71,7 +71,7 @@ public partial class NetworkView
         _musouBlastAt = _connectedFor;
         _musouBolterHits++;
         // sound/stalker-hit-confirm: the Stalker / Daemon Eye Bolter has its own confirm on the shooter (MusouStalkerConfirm) in place of the wet bolter smack; the explosion stays.
-        bool stalker = !OldStalkerHitConfirm && StalkerHitConfirm.ReplacesMusouSmack(weapon);
+        bool stalker = !OldStalkerHitConfirm && StalkerHitConfirm.ReplacesMusouSmack(SoundNameOf(weapon));
         if (!stalker) MusouBolterSmack(at);
         var blast = new SoundEmitter { Position = at, OneShot = true, Label = "musou bolter blast" };
         if (!MusouSoundIsOff(MusouSoundOff.Blast))   // musou/sound-ab: blast off
@@ -96,7 +96,7 @@ public partial class NetworkView
     /// </summary>
     void MusouStalkerConfirm(string weapon, bool armoured)
     {
-        if (OldStalkerHitConfirm || !MusouActive || _client is null || _audio is null || _sound is null || HitConfirmArg == HitConfirmMode.Off || !StalkerHitConfirm.Is(weapon)) return;
+        if (OldStalkerHitConfirm || !MusouActive || _client is null || _audio is null || _sound is null || HitConfirmArg == HitConfirmMode.Off || !StalkerHitConfirm.Is(SoundNameOf(weapon))) return;
         int ownId = _client.PlayerId;
         var at = new SoundEmitter { Own = true, Follow = () => PlayerSoundPoint(ownId), Label = "musou stalker confirm", OneShot = true };
         at.Switches.Set(AudioCatalog.PlayerGroup, AudioCatalog.LocalPlayerValue);

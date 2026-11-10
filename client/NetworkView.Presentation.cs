@@ -12,6 +12,8 @@ namespace SmClient;
 /// <item><see cref="PresentationSources"/> (<see cref="ExtrasPresentationSources"/>): the install files a weapon takes its effects, sounds and name rules from. The effect and sound catalogues are
 /// read with those files and copy their entries under the weapon's name (<see cref="PresentationSourceMap"/>; <see cref="EffectCatalogue.WithSources"/>, <see cref="SoundTriggers.WithSources"/>);
 /// the name rules (the power flash, the hit synth, the sword's glow and flare, the idle hum) read <see cref="PresentedAs"/>.</item>
+/// <item><see cref="SoundSources"/> (<see cref="ExtrasSoundSources"/>, W1b) and <see cref="EffectNames"/> (<see cref="ExtrasEffectNames"/>, W1c): sounds from other files than the effects, and
+/// other effects of the effects package in place of some of the source's (<see cref="EffectCatalogue.WithEffectNames"/>; the autocannon: the Stalker Bolter's sounds, the loyalist flash and tracer).</item>
 /// <item><see cref="MoveClipSpeed"/> (<see cref="ExtrasMoveClipSpeed"/>): how many times faster than their clips the charge, the dash attack, the ground pound's impact and get-up and the air
 /// slash's strike and get-up are posed for the player's melee weapon (the claw's 1.25, the spear's 0.85); presentation only, the simulation's timings stay as they are.</item>
 /// </list>
@@ -25,6 +27,57 @@ public partial class NetworkView
         ExtrasPresentationSources(wargear, ref sources);   // EXTRAS-HOOK added content (Musou's arsenal): the claw shows the power sword, the spear the hammer, the autocannon its install twin
         return sources is { Count: > 0 } ? sources : null;
     }
+
+    /// <summary>
+    /// The install files <paramref name="wargear"/> takes its SOUNDS from, in order: the added content's own sound sources (<see cref="ExtrasSoundSources"/>: the owner's autocannon sounds as the Stalker Bolter,
+    /// its effects still the twin's), else <see cref="PresentationSources"/> (one source for both), or null: its own.
+    /// </summary>
+    IReadOnlyList<string>? SoundSources(string wargear)
+    {
+        IReadOnlyList<string>? sources = null;
+        ExtrasSoundSources(wargear, ref sources);   // EXTRAS-HOOK added content (Musou's arsenal): sounds from another file than the effects
+        return sources is { Count: > 0 } ? sources : PresentationSources(wargear);
+    }
+
+    /// <summary>The name the sound rules read for <paramref name="wargear"/>: its first sound source, or the name itself (the Stalker's hit confirm for the autocannon).</summary>
+    string? SoundNameOf(string? wargear) => wargear is not null && SoundSources(wargear) is { } sources ? sources[0] : wargear;
+
+    /// <summary>The sound sources of every wargear file the match's config uses that has any (<see cref="SoundSources"/>), for the trigger load; empty without added content.</summary>
+    Dictionary<string, IReadOnlyList<string>> SoundSourceMap()
+    {
+        var map = new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase);
+        if (_config is null) return map;
+        foreach (var name in SoundTriggers.WargearNames(_config))
+            if (SoundSources(name) is { } sources) map[name] = sources;
+        return map;
+    }
+
+    /// <summary>Added content: the install files whose sounds an added weapon plays when they are not its effects' files (null: <see cref="PresentationSources"/> serves both); asked from the main thread.</summary>
+    partial void ExtrasSoundSources(string wargear, ref IReadOnlyList<string>? sources);
+
+    /// <summary>
+    /// W1c: the effects <paramref name="wargear"/> plays in place of its source's, from → to (<see cref="ExtrasEffectNames"/>: the owner's loyalist muzzle flash and tracer for the autocannon's
+    /// Chaos twin), or null: every effect as its file names it.
+    /// </summary>
+    IReadOnlyDictionary<string, string>? EffectNames(string wargear)
+    {
+        IReadOnlyDictionary<string, string>? names = null;
+        ExtrasEffectNames(wargear, ref names);   // EXTRAS-HOOK added content (Musou's arsenal): other effects of the effects package in place of the source's
+        return names is { Count: > 0 } ? names : null;
+    }
+
+    /// <summary>The effect names of every wargear file the match's config uses that has any (<see cref="EffectNames"/>), for the effect catalogue's load; empty without added content.</summary>
+    Dictionary<string, IReadOnlyDictionary<string, string>> EffectNameMap()
+    {
+        var map = new Dictionary<string, IReadOnlyDictionary<string, string>>(StringComparer.OrdinalIgnoreCase);
+        if (_config is null) return map;
+        foreach (var name in SoundTriggers.WargearNames(_config))
+            if (EffectNames(name) is { } names) map[name] = names;
+        return map;
+    }
+
+    /// <summary>Added content: the effects an added weapon plays in place of its presentation source's (null: none renamed); asked from the main thread before the catalogue loads.</summary>
+    partial void ExtrasEffectNames(string wargear, ref IReadOnlyDictionary<string, string>? names);
 
     /// <summary>The name the presentation's name rules read for <paramref name="wargear"/>: its first source, or the name itself (every name of the install).</summary>
     string? PresentedAs(string? wargear) => wargear is not null && PresentationSources(wargear) is { } sources ? sources[0] : wargear;

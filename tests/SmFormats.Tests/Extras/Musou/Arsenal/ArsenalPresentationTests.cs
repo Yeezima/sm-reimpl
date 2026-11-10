@@ -2,6 +2,7 @@ using SmContent;
 using SmContent.Extras.Musou.Arsenal;
 using SmFormats.Baf;
 using SmFormats.Obpk;
+using SmSim;
 using SmSim.Extras.Musou.Arsenal;
 
 namespace SmFormats.Tests;
@@ -71,5 +72,55 @@ public class ArsenalPresentationTests
         var triggers = SoundTriggers.Load(Game.Value!, sources.Values.SelectMany(v => v), [], (IReadOnlyList<SmFormats.Havok.BehaviorGraph>?)null).WithSources(sources);
         Assert.Same(triggers.File(Arsenal.AutocannonTwinFile), triggers.File(ArsenalRules.Autocannon));
         Assert.Contains(triggers.File(ArsenalRules.Autocannon)!.Bindings, b => b.StartEvent.Length > 0);
+    }
+
+    [InstallFact]
+    public void The_autocannon_fires_the_loyalist_flash_and_tracer_with_the_twins_commands()
+    {
+        // W1c (owner 2026-11-10, "Loyalist effects"): the client's load (NetworkView.Fx.cs) with the arsenal's sources and effect names.
+        var sources = new Dictionary<string, IReadOnlyList<string>> { [ArsenalRules.Autocannon] = Arsenal.PresentationSources(ArsenalRules.Autocannon)! };
+        var names = new Dictionary<string, IReadOnlyDictionary<string, string>> { [ArsenalRules.Autocannon] = Arsenal.EffectNames(ArsenalRules.Autocannon)! };
+        var catalogue = EffectCatalogue.Load(Game.Value!, sources.Values.SelectMany(v => v)).WithSources(sources).WithEffectNames(names);
+        var twin = catalogue.Weapon(Arsenal.AutocannonTwinFile)!;
+        var ours = catalogue.Weapon(ArsenalRules.Autocannon)!;
+        Assert.Equal((Arsenal.ChaosMuzzleEffect, Arsenal.ChaosTracerEffect), (twin.Muzzle!.Name, twin.Tracer!.Name));   // the install's file as read: purple
+        Assert.Equal(("autocannon_muzzle", "heavy_bolter_tracer"), (ours.Muzzle!.Name, ours.Tracer!.Name));
+        Assert.Equal(twin.Muzzle with { Name = "autocannon_muzzle" }, ours.Muzzle);   // the twin's marker, scale 1.5 and length
+        Assert.Equal(twin.Tracer with { Name = "heavy_bolter_tracer" }, ours.Tracer);
+        Assert.DoesNotContain(ours.Bindings, b => b.Play is { } p && (p.Name == Arsenal.ChaosMuzzleEffect || p.Name == Arsenal.ChaosTracerEffect));
+        // "Loyalist impact": the autocannon's impacts are its own copy of the twin's container, the world hit autocannon_dmg at the twin's scale; the twin's container itself is untouched.
+        Assert.Equal(EffectCatalogue.CopyKey(ArsenalRules.Autocannon, twin.HitMaterial!.Container), ours.HitMaterial!.Container);
+        Assert.Equal(twin.HitMaterial.ContainerName, ours.HitMaterial.ContainerName);
+        Assert.Contains("chaos", twin.HitMaterial.Container, StringComparison.OrdinalIgnoreCase);
+        var twinTable = catalogue.Container(twin.HitMaterial)!;
+        var ourTable = catalogue.Container(ours.HitMaterial)!;
+        Assert.Equal(twinTable.SoundEvent, ourTable.SoundEvent);   // the copied table's sound field is the twin's; the client does not play it (the impact sounds as the Stalker's, W1b's SoundTriggers.WithSources)
+        for (int surface = 0; surface < Surfaces.Default.Count; surface++)
+        {
+            var theirs = catalogue.Impact(Arsenal.AutocannonTwinFile, ShotHit.World, surface);
+            var mine = catalogue.Impact(ArsenalRules.Autocannon, ShotHit.World, surface);
+            Assert.Equal(theirs.Select(p => p.Name == Arsenal.ChaosImpactEffect ? p with { Name = Arsenal.LoyalistImpactEffect } : p), mine);
+            Assert.DoesNotContain(mine, p => p.Name.StartsWith("chaos_", StringComparison.OrdinalIgnoreCase));
+        }
+        Assert.Equal([Arsenal.ChaosImpactEffect], catalogue.Impact(Arsenal.AutocannonTwinFile, ShotHit.World, 3).Select(p => p.Name));   // stone: the twin's as read
+        Assert.Equal([Arsenal.LoyalistImpactEffect], catalogue.Impact(ArsenalRules.Autocannon, ShotHit.World, 3).Select(p => p.Name));
+        Assert.Equal(0.3f, catalogue.Impact(ArsenalRules.Autocannon, ShotHit.World, 3)[0].Scale);
+        foreach (var hit in new[] { ShotHit.Body, ShotHit.Head })   // body hits that fall back to the world hit (an Ork's shot hit asks the player's surface) are loyalist too
+            Assert.DoesNotContain(catalogue.Impact(ArsenalRules.Autocannon, hit, 0, armourUp: false), p => p.Name.StartsWith("chaos_", StringComparison.OrdinalIgnoreCase));
+        // The loyalist world hit is the Space Marine autocannon container's own: the other file of that name in the install, at the same scale.
+        var both = new List<MaterialEffectTable>();
+        using (var archive = ObpkArchive.Open(Path.Combine(Game.Value!, EffectCatalogue.MaterialEffectPackage)))
+            archive.ReadEntries(e => archive.GroupName(e) == "attr_pc" && e.FileName == twin.HitMaterial.ContainerName, (e, d) => both.Add(MaterialEffectTable.Read(e.FileName, BafDocument.Read(d))));
+        Assert.Equal(2, both.Count);
+        var loyal = both.Single(t => !ReferenceEquals(t, both[EffectCatalogue.ChooseContainer(twin.HitMaterial.Container, both)]));
+        Assert.Equal((Arsenal.LoyalistImpactEffect, 0.3f), (loyal.Resolve("stone", MaterialEffectTable.DefaultKey)[0].Name, loyal.Resolve("stone", MaterialEffectTable.DefaultKey)[0].Scale));
+        // The heavy bolter's own tracer command has the very parameters the renamed one keeps (its file: scale 1.5, length 1, marker fx_muzzleflash).
+        var heavy = catalogue.Weapon(Arsenal.HeavyBolterFile)!.Tracer!;
+        Assert.Equal((heavy.Name, heavy.Scale, heavy.Length, heavy.Marker), (ours.Tracer.Name, ours.Tracer.Scale, ours.Tracer.Length, ours.Tracer.Marker));
+        // Both effects are in the effects package.
+        using var library = FxLibrary.Load(Game.Value!);
+        Assert.Contains("autocannon_muzzle", library.SystemNames);
+        Assert.Contains("heavy_bolter_tracer", library.SystemNames);
+        Assert.Contains(Arsenal.LoyalistImpactEffect, library.SystemNames);
     }
 }
