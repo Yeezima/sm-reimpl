@@ -102,6 +102,7 @@ public partial class NetworkView
     /// </summary>
     (string Base, float BaseTime, string? Over, float OverTime, float Weight) AttackVariants(PlayerState s, bool own, string fallback, float time)
     {
+        if (OwnStrikeClip(s, time) is { } custom) return (custom.Clip, custom.Time, null, 0f, 0f);   // Musou's arsenal: a custom clip of this strike, posed alone at its own rate
         float single = time * MeleeClipSpeed(s);   // the single clip's time: the variants below are scaled to the step's duration already
         if (NoMeleeVariants || _config is null || _assets is null || Combat.MeleeStepOf(_config, s) is not { Reach: { Variants.Count: > 1 } reach } step) return (fallback, single, null, 0f, 0f);
         var show = ShowOf(s.PlayerId);
@@ -121,6 +122,27 @@ public partial class NetworkView
 
         float? ClipLength(string clip) => clip.Length > 0 && _assets.Animation(clip) is { } anim ? anim.Animation.Duration : null;
     }
+
+    /// <summary>
+    /// W0, Musou's arsenal: the animation seam (docs/new-weapons-design.md section 11). A strike of the player's weapon that added content gives a clip of its own (<see cref="ExtrasMeleeClip"/>:
+    /// the claw's and the spear's custom animations, once the owner approves them) is posed with that clip alone, at the attack's time times its rate (1: authored to the simulation's own
+    /// timing, the design's hit times); null for every other strike, which plays its weapon's clips as before (the claw and the spear: the sword's and the hammer's as stand-ins). Nothing of the
+    /// simulation reads it, so a custom clip changes no hit, window or duration.
+    /// </summary>
+    (string Clip, float Time)? OwnStrikeClip(PlayerState s, float time)
+    {
+        if (_config is null || s.MeleeStep <= 0 || MeleeWargear(s) is not { } wargear) return null;
+        string? clip = null;
+        float rate = 1f;
+        ExtrasMeleeClip(wargear, s.MeleeHeavy, s.MeleeStep, ref clip, ref rate);   // EXTRAS-HOOK added content (Musou's arsenal): a strike's custom clip
+        return clip is null || _assets?.Animation(clip) is null || !float.IsFinite(rate) || rate <= 0f ? null : (clip, time * rate);
+    }
+
+    /// <summary>
+    /// Added content: the clip strike <paramref name="step"/> (1-based; <paramref name="heavy"/>: of the heavy list) of <paramref name="wargear"/> is posed with instead of its weapon's, and the
+    /// rate of its time to the attack's; leaves <paramref name="clip"/> null without added content or a clip of its own.
+    /// </summary>
+    partial void ExtrasMeleeClip(string wargear, bool heavy, int step, ref string? clip, ref float rate);
 
     readonly Dictionary<string, float> _meleeClipSpeed = new(StringComparer.OrdinalIgnoreCase);
 

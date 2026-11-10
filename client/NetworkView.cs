@@ -1603,7 +1603,9 @@ public partial class NetworkView : Node3D
         foreach (var combo in config.Classes.Where(k => k.Race != Race.Orks).SelectMany(k => k.MeleeChoices))   // Ork O7c: the Ork's choppa is not a marine-rig clip set
         {
             if (_meleeAnimationsByWeapon.ContainsKey(combo.Wargear)) continue;
-            if (!_classes.MeleeAnimationsByWeapon.TryGetValue(combo.Wargear, out var clips))
+            // Musou's arsenal (W0, the animation seam): an added weapon with no clips of its own plays the clips of the data weapon it borrows from (AnimationAlias: the claw the power
+            // sword's, the spear the thunder hammer's) as stand-ins; a custom clip replaces one per strike (ExtrasMeleeClip, NetworkView.MeleeLock.cs). Every data name is its own.
+            if (!_classes.MeleeAnimationsByWeapon.TryGetValue(combo.Wargear, out var clips) && !_classes.MeleeAnimationsByWeapon.TryGetValue(AnimationAlias.Of(combo.Wargear), out clips))
             {
                 _notes.Add($"melee weapon {combo.Wargear}: no animations named; its attacks use its class's default clips");
                 continue;

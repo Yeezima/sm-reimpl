@@ -104,6 +104,7 @@ public class ExtrasBoundaryTests
         ("client/NetworkView.Grenades.cs", "ExtrasThrownVisual"),   // NetworkView.ExtrasThrownVisual(ThrownSpec, ref ProjectileVisual?), in GrenadeModel: a thrown item drawn with another package's model
         ("src/SmContent/AnimationAlias.cs", "ExtrasAnimationAlias"),   // static AnimationAlias.ExtrasAnimationAlias(ref string), in Of: the data weapon an added one borrows its animations from
         ("src/SmContent/Customization/ProfileView.cs", "ExtrasSetCatalog"),   // static ProfileViews.ExtrasSetCatalog(string, ref CustomizationCatalog), in SetCatalog: Musou's set is read with Musou's catalogue
+        ("client/NetworkView.MeleeLock.cs", "ExtrasMeleeClip"),   // NetworkView.ExtrasMeleeClip(string, bool, int, ref string?, ref float), in OwnStrikeClip: the animation seam, a strike's custom clip (the claw's and the spear's, once approved)
     ];
 
     /// <summary>
@@ -122,6 +123,9 @@ public class ExtrasBoundaryTests
         ("src/SmSim/Extras/Musou/Campaign/World.TfwSupply.cs", "ArsenalRefillSeconds("),
         ("src/SmContent/MeleeTuning.cs", "speed *= weapon.ClipSpeed"),
         ("client/NetworkView.MeleeLock.cs", "time * MeleeClipSpeed(s)"),
+        ("client/NetworkView.MeleeLock.cs", "OwnStrikeClip(s, time)"),
+        ("client/NetworkView.cs", "AnimationAlias.Of(combo.Wargear)"),
+        ("client/NetworkView.Reactions.cs", "AnimationAlias.Of(combo.Wargear)"),
         ("src/SmContent/HipFireAnimations.cs", "AnimationAlias.Of("),
         ("src/SmContent/LocomotionAnimations.cs", "AnimationAlias.Of("),
         ("src/SmContent/ReloadAnimations.cs", "AnimationAlias.Of("),

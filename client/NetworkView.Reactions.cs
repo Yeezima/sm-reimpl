@@ -61,7 +61,8 @@ public partial class NetworkView
         foreach (var combo in marineClasses.SelectMany(k => k.MeleeChoices))
         {
             if (_heavyAnimationsByWeapon.ContainsKey(combo.Wargear) || combo.Heavy.Count == 0) continue;
-            _classes.MeleeHeavyAnimationsByWeapon.TryGetValue(combo.Wargear, out var clips);
+            if (!_classes.MeleeHeavyAnimationsByWeapon.TryGetValue(combo.Wargear, out var clips))
+                _classes.MeleeHeavyAnimationsByWeapon.TryGetValue(AnimationAlias.Of(combo.Wargear), out clips);   // Musou's arsenal: the borrowed weapon's heavies as stand-ins (NetworkView.cs)
             var result = new string?[combo.Heavy.Count];
             for (int i = 0; i < result.Length; i++)
             {
