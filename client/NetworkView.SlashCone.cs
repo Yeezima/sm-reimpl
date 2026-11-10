@@ -58,17 +58,17 @@ void fragment() {
         float height = reach * MathF.Cos(half), radius = reach * MathF.Sin(half);
         var dir = heading.Normalized();
         _slashConeMesh ??= new CylinderMesh { TopRadius = 0f, BottomRadius = 1f, Height = 1f, RadialSegments = 36, Rings = 4, CapTop = false, CapBottom = false };
-        _slashConeMaterial ??= new ShaderMaterial { Shader = new Shader { Code = SlashConeShader } };
+        _slashConeMaterial ??= new ShaderMaterial { Shader = new Shader { Code = ShaderCompat.Code(SlashConeShader) } };   // P3: plain uniforms on the Compatibility renderer
         ref var c = ref _slashCones[_slashConeNext];
         _slashConeNext = (_slashConeNext + 1) % _slashCones.Length;
         if (c.Node is null || !IsInstanceValid(c.Node))
         {
-            c.Node = new MeshInstance3D { Name = "SlashCone", Mesh = _slashConeMesh, MaterialOverride = _slashConeMaterial, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, ExtraCullMargin = 16f, TopLevel = true };
+            c.Node = new MeshInstance3D { Name = "SlashCone", Mesh = _slashConeMesh, MaterialOverride = ShaderCompat.Own(_slashConeMaterial), CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, ExtraCullMargin = 16f, TopLevel = true };
             AddChild(c.Node);
         }
         c.Apex = apex; c.Heading = dir; c.Radius = radius; c.Height = height; c.Start = _connectedFor; c.Live = true;
         c.Node.Visible = true;
-        c.Node.SetInstanceShaderParameter("life", 0f);
+        ShaderCompat.SetInstanceParam(c.Node, "life", 0f);
         PlaceSlashCone(ref c, 0.35f);
     }
 
@@ -109,7 +109,7 @@ void fragment() {
             if (life >= 1f) { c.Live = false; c.Node.Visible = false; continue; }
             float swell = Math.Clamp((float)(age / 0.18), 0f, 1f);
             PlaceSlashCone(ref c, 0.35f + 0.65f * (1f - (1f - swell) * (1f - swell)));
-            c.Node.SetInstanceShaderParameter("life", life);
+            ShaderCompat.SetInstanceParam(c.Node, "life", life);
         }
     }
 }

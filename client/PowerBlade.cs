@@ -41,7 +41,7 @@ uniform float blade_to;
 uniform vec3 glow_colour : source_color;
 uniform float core = 0.55;
 uniform float rim = 1.6;
-instance uniform float flare = 0.0;
+instance uniform float flare = 0.0;   // P3: a plain uniform on the Compatibility renderer (ShaderCompat.Code)
 varying float along;
 
 void vertex() {
@@ -76,7 +76,7 @@ void fragment() {
             var axis = new Vector3(tip.Position.X, tip.Position.Y, tip.Position.Z) - g;
             if (axis.LengthSquared() > 1e-6f)
             {
-                _shader ??= new Shader { Code = Code };
+                _shader ??= new Shader { Code = ShaderCompat.Code(Code) };
                 material = new ShaderMaterial { Shader = _shader };
                 material.SetShaderParameter("grip", g);
                 material.SetShaderParameter("axis", axis.Normalized());

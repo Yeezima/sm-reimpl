@@ -226,6 +226,7 @@ public partial class NetworkView
             // The blade's glow and flare (ours).
             var overlay = PowerBlade.OverlayFor(h.Model);
             ExtrasSwordOverlay(s, h.Model, ref overlay);   // EXTRAS-HOOK: Musou's Librarian swaps in his force sword's glow (Extras/Musou/ForceBlade.cs)
+            if (overlay is not null) overlay = ShaderCompat.OverlayFor(h.Mesh, overlay);   // P3: the Compatibility renderer needs this hand's own copy (no instance uniforms there)
             if (!ReferenceEquals(h.Mesh.MaterialOverlay, overlay)) h.Mesh.MaterialOverlay = overlay;
             float flare = _swordFlareAt.TryGetValue(s.PlayerId, out double hitAt) ? PowerBlade.FlareAt((float)(_connectedFor - hitAt)) : 0f;
             // fx/character-visuals (owner, 2026-10-30): the blade flares up while it swings, in every attack shown (a hit's flare stays on top).
@@ -234,7 +235,7 @@ public partial class NetworkView
             swing = (ImpactRules.SwordSwing.Next(swing.Value, s.Alive && s.MeleeStep > 0 && !NoSwordSwing, (float)dt), _connectedFor);
             _swordSwing[s.PlayerId] = swing;
             flare = Math.Max(flare, swing.Value);
-            if (overlay is not null) h.Mesh.SetInstanceShaderParameter(PowerBlade.FlareParameter, flare);
+            if (overlay is not null) ShaderCompat.SetInstanceParam(h.Mesh, PowerBlade.FlareParameter, flare);
         }
         // The data's deployed effects at their markers, attached, while the weapon is in hand (fx/melee-presentation: the hammer's and the axe's too, not only the sword's).
         bool wanted = !(isSword && !SwordIdleFx) && ImpactRules.MeleeIdleGuard.Allows(IsOrkVoice(s)) && s.Alive && character is not null && wargear is not null && (isSword ? !NoSwordFx : !NoMeleeIdleFx) && character.Weapons?.MeleeMeshInHand is not null;
