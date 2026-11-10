@@ -23,6 +23,14 @@ public partial class ModelViewer
             handled = true;
             return;
         }
+        if (args.ContainsKey("claw-spear-test"))   // the lightning claw's and the power spear's strike animations on a stage (Weapons/ClawSpearTestView.cs; it needs the install)
+        {
+            var repoRoot = System.IO.Path.GetFullPath(System.IO.Path.Combine(Godot.ProjectSettings.GlobalizePath("res://"), ".."));
+            var found = SmContent.GameInstall.TryLocate(args.GetValueOrDefault("game-dir"), repoRoot) ?? throw new System.IO.DirectoryNotFoundException(SmContent.GameInstall.NotFoundMessage);
+            AddChild(new ClawSpearTestView(found.Dir, args) { Name = "ClawSpearTest" });
+            handled = true;
+            return;
+        }
         if (args.ContainsKey("mek-gallery"))   // expansion S4: the contraptions' SM1 models (Meks/MekGalleryView.cs; it needs the install)
         {
             var repoRoot = System.IO.Path.GetFullPath(System.IO.Path.Combine(Godot.ProjectSettings.GlobalizePath("res://"), ".."));

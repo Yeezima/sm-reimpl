@@ -32,8 +32,8 @@ public partial class NetworkView
 
     bool MusouPunchOn => MusouWeightOn && !NoMusouPunch;
 
-    /// <summary>The clip time drawn for a marine's strike (from the attack pose): the remap, and for the own marine the hold decided at the hit.</summary>
-    partial void ExtrasAttackTime(PlayerState s, bool own, ref float attackTime)
+    /// <summary>The clip time drawn for a marine's strike (from the attack pose, through <see cref="ExtrasAttackTime"/>): the remap, and for the own marine the hold decided at the hit.</summary>
+    void MusouPunchTime(PlayerState s, bool own, ref float attackTime)
     {
         if (!MusouPunchOn || _config is null || s.MeleeStep <= 0 || IsOrkVoice(s) || Combat.MeleeStepOf(_config, s) is not { } step) return;
         if (!_musouStrikes.TryGetValue(s.PlayerId, out var show)) _musouStrikes[s.PlayerId] = show = new MusouStrikeShow();

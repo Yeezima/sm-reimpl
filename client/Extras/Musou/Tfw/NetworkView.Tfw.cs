@@ -35,6 +35,7 @@ public partial class NetworkView
         TfwFireFrame(war, delta);
         TfwFireCamFrame();
         AutocannonCamFrame();   // Arsenal/Autocannon/NetworkView.AutocannonCapture.cs: the capture's third-person frames
+        SpearCamFrame();   // Arsenal/Spear/NetworkView.SpearCapture.cs: the same for the spear's stills
         TfwSwarmCamFrame();
         TfwCloudsFrame();
         Ph("tfw: class, librarian, score, tests");

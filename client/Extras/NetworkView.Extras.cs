@@ -39,6 +39,14 @@ public partial class NetworkView
         MusouFrame(me, others, delta, _musouSections);
         Ph("tfw: guards, armies");   // musou/perf-pass: --frame-profile's phase
         TfwFrame(me, others, delta, _tfwSections);
+        SpearPoseFrame(me, others, delta);   // Musou's power spear: its clips between strikes, the fades and the spear on the hands (Musou/Arsenal/Spear/NetworkView.SpearPose.cs)
+    }
+
+    /// <summary>The attack pose's drawn strike time: the Musou weight pass's retime (MW4), then Musou's power spear shows its strike's clip at the drawn time (both Musou Mode only).</summary>
+    partial void ExtrasAttackTime(PlayerState state, bool own, ref float attackTime)
+    {
+        MusouPunchTime(state, own, ref attackTime);
+        SpearStrikeShown(state, own, attackTime);
     }
 
     /// <summary>A map added content composes: Musou Mode's.</summary>
