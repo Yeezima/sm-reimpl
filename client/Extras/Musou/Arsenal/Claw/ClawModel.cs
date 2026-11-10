@@ -29,6 +29,9 @@ public static class ClawModel
 
     static readonly Dictionary<WeaponAsset, WeaponAsset> Cache = new();
 
+    /// <summary>Whether the claw's mesh was made on this sword model already (the forearm's direction, which only the rig's rest pose decides, is read once with it).</summary>
+    public static bool Known(WeaponAsset sword) => Cache.ContainsKey(sword);
+
     /// <summary>The claw's asset on the grip of <paramref name="sword"/> (the power sword's held attachment and its asset); null when the sword's mesh cannot be measured.</summary>
     public static WeaponAsset? For(WeaponAsset sword, WeaponAttachment attachment, Num.Vector3? forearmRoot = null)
     {

@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using SmSim;
 using SmContent;
 using SmSim.Extras.Musou.Arsenal;
 
@@ -10,8 +12,9 @@ public sealed partial class WeaponRig
     {
         if (role != HandRole.Melee || !wargear.Equals(ArsenalRules.LightningClaw, System.StringComparison.OrdinalIgnoreCase)) return;
         if (assets.Catalogue.Held(SmContent.Extras.Musou.Arsenal.Arsenal.ClawBase) is not { } sword || assets.Get(sword) is not { } swordAsset) return;   // the claw is held where the sword is
-        if (ClawModel.For(swordAsset, sword, ForearmInModelRoot(sword, swordAsset)) is not { } claw) return;
-        attachment = sword with { Wargear = wargear, Name = "lightning_claw" };
+        // The forearm's direction is the rig's (every marine's skeleton is the same): read once, when the claw's mesh is made.
+        if ((ClawModel.Known(swordAsset) ? ClawModel.For(swordAsset, sword) : ClawModel.For(swordAsset, sword, ForearmInModelRoot(sword, swordAsset))) is not { } claw) return;
+        attachment = sword with { Wargear = wargear, Name = "lightning_claw", HideOnStow = true };   // worn on the arm: a stim stows the sword on the hip, never the gauntlet
         asset = claw;
         alwaysHeld = true;   // a claw cannot be put away (design section 5, ours)
     }
@@ -49,10 +52,36 @@ public sealed partial class WeaponRig
 
 public partial class NetworkView
 {
-    /// <summary>W2: a claw strike is posed this frame: the blue crackle (the claw's own clips, once approved, drop in here as well: <c>ExtrasMeleeClip</c> leaves the sword's stand-in clip when this gives none).</summary>
+    /// <summary>
+    /// W2: a claw strike is posed: this view starts driving the claws' glow (<see cref="ClawGlowFrame"/>; the claw's own clips, once approved, drop in here as well: <c>ExtrasMeleeClip</c> leaves the
+    /// sword's stand-in clip when this gives none).
+    /// </summary>
     partial void LightningClawClip(string wargear, bool heavy, int step, ref string? clip, ref float rate)
     {
-        if (!wargear.Equals(ArsenalRules.LightningClaw, System.StringComparison.OrdinalIgnoreCase)) return;
-        ClawCrackle.Strike();
+        if (!wargear.Equals(ArsenalRules.LightningClaw, System.StringComparison.OrdinalIgnoreCase) || ClawCrackle.Frame is not null) return;
+        ClawCrackle.Frame = ClawGlowFrame;
+        ClawCrackle.Ensure();
+    }
+
+    readonly System.Collections.Generic.Dictionary<int, float> _clawGlow = new();
+
+    /// <summary>Each claw's strike level (1 while its wearer's strike is shown, then faded out in 0.18 s), written to that claw's own mesh instance.</summary>
+    void ClawGlowFrame(float delta)
+    {
+        if (_client is null || _config is null) return;
+        ClawGlowOf(_client.PlayerId, _local, _client.Predicted, delta);
+        foreach (var o in _lastOthers) ClawGlowOf(o.PlayerId, _remotes.GetValueOrDefault(o.PlayerId), o, delta);
+    }
+
+    void ClawGlowOf(int id, CharacterViewer? character, PlayerState state, float delta)
+    {
+        if (character?.Skeleton is not { } skeleton || id <= 0 || MeleeWargear(state) is not { } wargear || !wargear.Equals(ArsenalRules.LightningClaw, System.StringComparison.OrdinalIgnoreCase)) return;
+        float before = _clawGlow.GetValueOrDefault(id);
+        float level = state.MeleeStep > 0 && state.Alive ? 1f : Godot.Mathf.Max(0f, before - delta / 0.18f);
+        if (level == 0f && before == 0f) return;
+        _clawGlow[id] = level;
+        foreach (var child in skeleton.GetChildren())
+            if (child is Godot.BoneAttachment3D holder && holder.Name.ToString().StartsWith("Weapon_Melee_", System.StringComparison.Ordinal) && holder.GetNodeOrNull<Godot.MeshInstance3D>("Holder/Mesh") is { } mesh)
+                mesh.SetInstanceShaderParameter(ClawCrackle.StrikeName, level);
     }
 }

@@ -69,7 +69,9 @@ public class ClawTests
         Assert.Same(config.Classes[1], result.Classes[1]);
         Assert.Same(config.Classes[2], result.Classes[2]);
         Assert.Equal(config.Classes[0].Melee, result.Classes[0].Melee);   // the default combo is untouched
-        Assert.Same(result, Arsenal.Append(result, "", notes) is var again && again.Classes[0].MeleeChoices.Count == 3 ? result : null);   // a second run adds none
+        var again = Arsenal.Append(result, "", notes);
+        Assert.Same(result.Classes[0], again.Classes[0]);   // a second run adds none
+        Assert.Equal(3, again.Classes[0].MeleeChoices.Count);
         Assert.Empty(notes);
     }
 
@@ -101,11 +103,27 @@ public class ClawTests
 public partial class CustomizationCatalogTests
 {
     [Fact]
-    public void The_claw_row_needs_the_swords_row_and_no_other_profile_gets_it()
+    public void Musous_catalogue_puts_the_claw_row_beside_the_swords_in_the_Space_Marine_Assault_only()
     {
-        // The fixture's Assault Marine lists no power sword, so Musou's catalogue has nothing to put the claw beside and is the data's own; every other profile always is.
-        var perks = PerkCatalog.Build(BafDocument.Read(GlobalBaf()), name => name.StartsWith("mp_perk") ? BafDocument.Read(Gear("perk")) : BafDocument.Read(Gear(name.Contains("pistol") ? "pistol" : "melee")), null, []);
-        Assert.Same(perks, perks.For(ContentExtras.Musou));
+        // An Assault Marine with the power sword (its twin on the Raptor), a Tactical Marine without: only the Space Marine Assault gets the claw, in Musou's catalogue only.
+        var classes = T(
+            ("sm - assault marine", ClassTable("space_marine", "assault", 1010, ["sm_mp_abil_sprint"], ["sm_mp_pistol_bolt_pistol", "sm_mp_melee_chainsword", "sm_mp_melee_powersword"], ["mp_perk_a"], "mp_perk_a", "sm_default")),
+            ("sm - tactical", ClassTable("space_marine", "tactical", 1000, ["sm_mp_abil_sprint", "sm_mp_melee_combat_knife"], ["sm_mp_ranged_bolter"], ["mp_perk_a"], "mp_perk_a", "sm_default")),
+            ("csm - raptor", ClassTable("chaos", "assault", 1030, ["sm_mp_abil_sprint"], ["csm_mp_melee_chainsword", "csm_mp_melee_powersword"], ["mp_perk_a"], "mp_perk_a", "chaos_default")));
+        var global = Baf(("extensions", T(("multiplayer_settings", T(("ingame_progression", T(("classes", classes))), ("challenge_groups", T()))))));
+        var perks = PerkCatalog.Build(BafDocument.Read(global), name => name.StartsWith("mp_perk") ? BafDocument.Read(Gear("perk")) : BafDocument.Read(Gear(name.Contains("pistol") ? "pistol" : name.Contains("ranged") ? "ranged" : "melee")), null, []);
+        var musou = perks.For(ContentExtras.Musou);
+        Assert.NotSame(perks, musou);
+        var items = musou.Class("sm - assault marine")!.Melee.Items;
+        Assert.Equal(["sm_mp_melee_chainsword", "sm_mp_melee_powersword", ArsenalRules.LightningClaw], items.Select(i => i.Name));
+        var claw = items[^1];
+        Assert.Equal("Lightning Claw", claw.DisplayName);
+        Assert.True(claw.Simulated);
+        Assert.Equal(items[1].Level, claw.Level);
+        Assert.DoesNotContain(musou.Class("csm - raptor")!.Melee.Items, i => i.Name == ArsenalRules.LightningClaw);
+        Assert.DoesNotContain(musou.Class("sm - tactical")!.Melee.Items, i => i.Name == ArsenalRules.LightningClaw);
+        Assert.Same(musou, musou.For(ContentExtras.Musou));   // asking again adds nothing (the claw is listed already)
+        Assert.DoesNotContain(perks.Class("sm - assault marine")!.Melee.Items, i => i.Name == ArsenalRules.LightningClaw);   // the data's catalogue is untouched
         Assert.Same(perks, perks.For(ContentExtras.None));
         Assert.Same(perks, perks.For(ContentExtras.Orks));
     }

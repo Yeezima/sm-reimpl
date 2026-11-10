@@ -40,7 +40,7 @@ public static class LeanBot
         "anim-probe", "tracer-probe", "log-melta-follow", "hip-probe", "yaw-probe", "pan-rate", "transition-probe", "transition-sweep", "camera-probe", "camera-selftest", "camera-back", "motion-probe",
         "frame-profile", "frame-stats", "look-churn", "look-log", "look-closeup", "picker-demo", "picker-on-death", "picker-deploy", "bot-change-loadout",
         "bot-gait", "gait-sweep", "action-sweep", "bot-turn-sweep", "turn-sweep-fire", "latency-probe", "bullet-probe", "show-shot-rays", "camera-hide-log",
-        "slash-trace", "run-start-log", "log-sound", "log-footsteps", "reload-capture", "reload-probe", "ork-capture", "screenshot", "screenshot-every",
+        "slash-trace", "claw-crackle-demo", "run-start-log", "log-sound", "log-footsteps", "reload-capture", "reload-probe", "ork-capture", "screenshot", "screenshot-every",
         "record-demo", "spectate", "ragdoll-debug", "death-orbit-test", "damage-demo", "aim-test", "hud-demo", "hud-rewards-demo", "hud-headshot-demo", "hud-score-demo", "hud-vitals-demo", "hud-clip-demo", "hud-plasma-demo", "hud-switch-demo", "hud-launcher-demo", "scope-spread-demo", "pound-marker-demo",
         "power-flash-demo", "log-power-flash", "power-flash-at",   // fx/power-flash: the hit flash demo and its log
         "pvp-hit-fx-demo", "pvp-hit-fx-every", "log-hit-fx",   // pvp-hit-fx: the shot-look demo on the nearest other player and its log
