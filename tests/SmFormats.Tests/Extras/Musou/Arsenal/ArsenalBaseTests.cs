@@ -33,7 +33,7 @@ public class ArsenalBaseTests
         var notes = new List<string>();
         Assert.Same(config, Arsenal.Append(config, "", notes));
         Assert.Empty(notes);
-        foreach (var name in ArsenalRules.Names)
+        foreach (var name in ArsenalRules.Names.Where(n => n != ArsenalRules.LightningClaw))   // W2 (ClawTests) replaces these expectations for the claw
         {
             Assert.Null(Arsenal.MeleeMap(name));
             Assert.Null(MpClasses.MeleeMapFor(name));

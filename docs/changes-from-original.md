@@ -121,7 +121,9 @@ Four items SM1's multiplayer never offered, Musou Mode only: the autocannon, the
 Nothing yet.
 
 #### W2: the lightning claw
-Nothing yet.
+| What | Ours / the owner's | Value | Spec row |
+|---|---|---|---|
+| Lightning claw (Assault Marine melee choice, Musou only) | the owner's request (D2 one claw plus the pistol, D13 about 25% faster, D16 no extra edge, D15 the look); the sword's moves at 1.25x, every hit x0.8, the model and crackle built in code, an English name and text, always worn: ours | no claw in the install; same damage a second as the power sword | spec "Lightning claw: the weapon", "tempo", "damage", "cleave", "animations", "model", "crackle", "not yet reached" |
 
 #### W3: the power spear
 Nothing yet.

@@ -5242,7 +5242,16 @@ Nothing yet: W1 adds its rows here.
 
 ### Musou's arsenal: W2, the lightning claw (docs/new-weapons-design.md section 5)
 
-Nothing yet: W2 adds its rows here.
+| Parameter | Value | Units | Timing basis | Where | Source | Kind | Confidence |
+|---|---|---|---|---|---|---|---|
+| Lightning claw: the weapon | one claw on the right hand and the bolt pistol in the left; an Assault Marine (Space Marines) melee choice appended after the power sword's, in Musou Mode only; always worn (never put away); no wargear file in the install, name `sm_mp_melee_lightning_claw`; the Chaos Raptor is not offered it; no perks of the sword count for it | - | per life | `Arsenal.AppendLightningClaw`, `PerkCatalog.ExtrasItems` (title "Lightning Claw", description ours) | the owner (D2) | ours | low |
+| Lightning claw: tempo | the power sword's moves at 1.25x: every step's duration, hit time, combo window, Y window, no-react window, string reset, evade, alignment window and steered turn divided by 1.25, the charge's clip and windows too; the strikes' lunge distance and root-motion shape are the sword's | x | per step | `Arsenal.ClawCombo`, `MeleeTuning.WeaponMap.ClipSpeed` (the client poses the clips at the same rate) | the owner (D13 "about 25% faster"); 1.25 ours | ours | low |
+| Lightning claw: damage | every hit of the sword's x0.8 (light and heavy steps, the stomp's blast, the charge, shield damage too): the same damage a second as the sword; no extra edge (no bonus against big Orks, no arcs) | x | per hit | `Arsenal.ClawCombo` | the owner (D13, D16); 0.8 = 1 / 1.25 ours | data, scaled | low |
+| Lightning claw: cleave | the sword's, with Musou's cleave rules for every weapon (x1.5 reach since musou/melee-feel) | - | per step | `World.MusouCleave` | Musou's rules | ours | low |
+| Lightning claw: animations | the power sword's clips and clip lists as stand-ins (alias to `sm_mp_melee_powersword`), at 1.25x; `NetworkView.LightningClawClip` (the animation seam) is empty until the owner approves custom clips | - | per strike | `Arsenal.LightningClawAlias`, `ExtrasMeleeClip` | W0's seam | ours | low |
+| Lightning claw: model | a gauntlet (a tapering steel cuff 0.30 m, a knuckle block, three brass bands, two pistons on the back of the hand) and four curved steel talons from the knuckles, 0.36 m each (1.2 x a 0.30 m forearm), splayed a little, tapering to points; built in code on the power sword's grip, from the lead's description of the owner's reference images | m | - | `ClawModel` | the owner (D15, the images); the shape ours | ours | low |
+| Lightning claw: crackle | a faint blue jagged line along each talon (additive, `ClawCrackle`), lit while a claw strike is posed and faded out in 0.18 s; `--claw-crackle-demo` (test aid) shows it half of every second | s | during a claw strike | `ClawCrackle` | the owner (default); look ours | ours | low |
+| Lightning claw: not yet reached | the jump pack's dash attack, ground pound and air slash stay the pack's (the sword's speed and damage); the charge's clip plays at 1x on the client while the simulation runs it at 1.25x; the hit sounds, power flash and swing sounds read the wargear's name and find none (the claw is silent), the lightning snap on a hit and `power_claw_strike_00` / `power_blade_dmg_00` are not played | - | - | - | W0's list of unhooked rules | ours | low |
 
 ### Musou's arsenal: W3, the power spear (docs/new-weapons-design.md section 6)
 
