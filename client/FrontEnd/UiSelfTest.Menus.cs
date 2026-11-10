@@ -148,6 +148,17 @@ public sealed partial class UiSelfTest
                         await SendPad(JoyButton.X);
                         Check("musou customizer: F2, pad Y and pad X open no rename or copy prompt on the Librarian's page", OpenDialog() is null && !_services.Session!.Dirty);
                         OpenDialog()?.QueueFree();
+                        // Re-review 2026-11-10: PLAY AS LIBRARIAN reads the saved profile (session.Saved), so an unsaved choice on his page never goes into a match; the saved profile must not
+                        // carry a choice made on his page (his slot, 11) before SAVE. His entry is the profile's extras "musou"; the edit is reverted.
+                        const string Unsaved = "selftest_unsaved_perk";
+                        var hisSession = _services.Session!;
+                        int his = SmContent.Customization.CustomizationProfile.MaxCustomClasses + 1;
+                        hisSession.Edit(p => p with { Classes = p.Classes.Select(c => c.Slot == his ? c with { Perks = [Unsaved, null] } : c).ToList() });
+                        bool inWorking = hisSession.Stored.Extras.TryGetValue("musou", out var workingExtra) && workingExtra.Contains(Unsaved, StringComparison.Ordinal);
+                        bool inSaved = hisSession.Saved.Extras.TryGetValue("musou", out var savedExtra) && savedExtra.Contains(Unsaved, StringComparison.Ordinal);
+                        hisSession.Revert();
+                        Check("musou customizer: an unsaved Librarian choice is in the working copy but not in the saved profile PLAY AS LIBRARIAN sends", inWorking && !inSaved && !hisSession.Dirty,
+                            $"working {inWorking}, saved {inSaved}");
                         // musou/loadout-slots review: his look's EDIT LOOK opens his slot (past the ten); back on the Standard Marines the creator must not stay on it.
                         musouCreator.OpenSelection(SmContent.Customization.Selection.CustomSlot(SmContent.Customization.CustomizationProfile.MaxCustomClasses + 1));
                         bool openedHis = musouCreator.Open.Slot == SmContent.Customization.CustomizationProfile.MaxCustomClasses + 1;

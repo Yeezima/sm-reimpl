@@ -147,6 +147,23 @@ public class MusouSlotsTests
     }
 
     [Fact]
+    public void Removing_his_look_takes_only_the_look_key_and_keeps_fields_this_build_does_not_know()
+    {
+        // Re-review 2026-11-10: a newer build's fields inside his entry and beside it survive the look's removal.
+        var profile = OldProfile().WithExtra(MusouSlots.ExtrasKey, """{ "librarian": { "melee": "mp_melee_combat_knife", "look": "sm-1", "later": [1, 2] }, "other": true }""");
+        var removed = MusouSlots.LookRemoved(profile, "sm-1");
+        var root = System.Text.Json.Nodes.JsonNode.Parse(removed.Extras[MusouSlots.ExtrasKey])!.AsObject();
+        var lib = root["librarian"]!.AsObject();
+        Assert.False(lib.ContainsKey("look"));
+        Assert.Equal("mp_melee_combat_knife", (string?)lib["melee"]);
+        Assert.Equal("[1,2]", lib["later"]!.ToJsonString());
+        Assert.True((bool)root["other"]!);
+        // His only key the look: his entry goes, and Musou's entry with it when nothing else is left.
+        var lookOnly = OldProfile().WithExtra(MusouSlots.ExtrasKey, """{ "librarian": { "look": "sm-1" } }""");
+        Assert.False(MusouSlots.LookRemoved(lookOnly, "sm-1").Extras.ContainsKey(MusouSlots.ExtrasKey));
+    }
+
+    [Fact]
     public void A_hand_edited_entry_with_a_key_used_twice_reads_as_his_defaults_and_does_not_block_edits()
     {
         var broken = OldProfile().WithExtra(MusouSlots.ExtrasKey, """{ "librarian": { "melee": "a", "melee": "b" } }""");
