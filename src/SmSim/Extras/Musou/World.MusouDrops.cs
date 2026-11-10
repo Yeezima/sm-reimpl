@@ -182,6 +182,13 @@ public sealed partial class World
         return false;
     }
 
+    /// <summary>The server's capture aid (<c>SM_MUSOU_POWERUP_TEST</c>): every live drop of <paramref name="playerId"/> ends (sent as expired).</summary>
+    public void MusouExpireDrops(int playerId)
+    {
+        for (int i = 0; i < _musouDrops.Count; i++)
+            if (_musouDrops[i].Player == playerId && _musouDrops[i].State == MusouDropState.Live && !_musouDrops[i].Crate) MusouEndDrop(i, MusouDropState.Expired);
+    }
+
     /// <summary>A new round: every drop goes (each player's list changes to empty).</summary>
     void MusouClearDrops()
     {

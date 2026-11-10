@@ -5,8 +5,8 @@ namespace SmClient;
 
 /// <summary>
 /// A powerup drop in the world (owner, 2026-11-10: "change the drop cards UI elements to be much more minimalistic and match the black and white theme"): a small black tile facing the camera with the
-/// powerup's white icon (<see cref="MusouPowerupIcons"/>) and a thin white frame, its name above in small white capitals, a thin white ring on the floor and a faint thin white line up from it so it can
-/// be found across a fight; it bobs but does not turn, carries no light and no gold. Sizes ours.
+/// powerup's white icon (<see cref="MusouPowerupIcons"/>) and a thin white frame, its name above in small white capitals, a thin white ring on the floor and a faint thin white line up from it, seen only
+/// from 8 m out (full at 25 m), so it can be found across a fight without standing in the view up close; it bobs but does not turn, carries no light and no gold. Sizes ours.
 /// </summary>
 public sealed partial class MusouDropView
 {
@@ -14,7 +14,7 @@ public sealed partial class MusouDropView
     public bool Minimal { get; private set; }
     public MusouPowerup Powerup { get; private set; }
 
-    const float TileSize = 0.62f, TileLift = 1.15f, RingRadius = 0.75f, LineHeight = 7f;
+    const float TileSize = 0.45f, TileLift = 1.05f, RingRadius = 0.6f, LineHeight = 7f;
 
     static StandardMaterial3D? _tileBack, _ringWhite, _lineWhite;
 
@@ -42,7 +42,7 @@ public sealed partial class MusouDropView
         });
         view._spin.AddChild(new Label3D
         {
-            Text = view.Title, FontSize = 40, OutlineSize = 8, PixelSize = 0.0022f, Billboard = BaseMaterial3D.BillboardModeEnum.Enabled, Position = new Vector3(0f, 0f, TileSize * 0.5f + 0.18f),
+            Text = view.Title, FontSize = 32, OutlineSize = 6, PixelSize = 0.0019f, Billboard = BaseMaterial3D.BillboardModeEnum.Enabled, Position = new Vector3(0f, 0f, TileSize * 0.5f + 0.1f),
             Modulate = new Color(0.92f, 0.92f, 0.92f), OutlineModulate = new Color(0f, 0f, 0f, 0.85f), Shaded = false, Layers = 2, TextureFilter = BaseMaterial3D.TextureFilterEnum.LinearWithMipmaps,
         });
         // The floor ring and the faint line (seen across a fight; the line fades out close to the camera).
@@ -54,8 +54,8 @@ public sealed partial class MusouDropView
         });
         _lineWhite ??= new StandardMaterial3D
         {
-            ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded, AlbedoColor = new Color(1f, 1f, 1f, 0.35f), Transparency = BaseMaterial3D.TransparencyEnum.Alpha, CullMode = BaseMaterial3D.CullModeEnum.Disabled,
-            DistanceFadeMode = BaseMaterial3D.DistanceFadeModeEnum.PixelAlpha, DistanceFadeMinDistance = 3f, DistanceFadeMaxDistance = 12f, DisableReceiveShadows = true,
+            ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded, AlbedoColor = new Color(1f, 1f, 1f, 0.25f), Transparency = BaseMaterial3D.TransparencyEnum.Alpha, CullMode = BaseMaterial3D.CullModeEnum.Disabled,
+            DistanceFadeMode = BaseMaterial3D.DistanceFadeModeEnum.PixelAlpha, DistanceFadeMinDistance = 8f, DistanceFadeMaxDistance = 25f, DisableReceiveShadows = true,
         };
         view.AddChild(new MeshInstance3D
         {

@@ -29,13 +29,15 @@ public partial class NetworkView
     /// <summary>The own buffs from a tag 6 section of <paramref name="tick"/> (the newest list wins: a kind not listed has ended).</summary>
     void MusouBuffsReceived(MusouBuffRecord[] buffs, uint tick)
     {
+        Span<uint> was = stackalloc uint[5];
+        _musouBuffEnd.CopyTo(was);
         Array.Clear(_musouBuffEnd);
         foreach (var b in buffs)
         {
             int k = (int)b.Kind;
             if (k <= 0 || k >= _musouBuffEnd.Length) continue;
-            if (_musouBuffEnd[k] == 0) _musouBuffsSeen++;
             _musouBuffEnd[k] = tick + b.TicksLeft;
+            if (_musouBuffEnd[k] > was[k] + 2) _musouBuffsSeen++;   // a new or restarted buff (a refresh of the same end does not count)
         }
         if (!_musouCarrySet && _client is { } client)
         {

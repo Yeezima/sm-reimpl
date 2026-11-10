@@ -163,7 +163,7 @@ public sealed partial class GameServer
     bool? _musouDropTest;
     /// <summary>
     /// Capture aid <c>SM_MUSOU_POWERUP_TEST=&lt;s&gt;</c> (the powerups, 2026-11-10): every s seconds of play each living human gets the next powerup's buff in turn (Double Damage, Fear, Supercharged,
-    /// Rapid Fire) and a drop of the one after it lies 1.2 m ahead and to the right (in reach: its prompt shows). Off in every match.
+    /// Rapid Fire) and a drop of the one after it replaces the player's last, 4 m ahead and 2 m right, and 1.4 m ahead, in turn (in view; in reach, its prompt) (in reach: its prompt shows). Off in every match.
     /// </summary>
     public const string MusouPowerupTestVariable = "SM_MUSOU_POWERUP_TEST";
     float? _musouPowerupTest;
@@ -240,7 +240,9 @@ public sealed partial class GameServer
         World.MusouGiveBuff(playerId, give);
         var forward = new System.Numerics.Vector3(-MathF.Sin(p.Yaw), MathF.Cos(p.Yaw), 0f);
         var right = new System.Numerics.Vector3(MathF.Cos(p.Yaw), MathF.Sin(p.Yaw), 0f);
-        var drop = World.MusouSpawnDrop(playerId, p.Position + forward * 1.1f + right * 0.5f, MusouPowerupRules.Item(lay));
+        World.MusouExpireDrops(playerId);   // one at a time, laid where the player looks now
+        bool view = next.Step % 2 == 0;   // in turn: in clear view (beside the third-person camera's line past the player), and in reach (its prompt)
+        var drop = World.MusouSpawnDrop(playerId, p.Position + forward * (view ? 4f : 1.4f) + right * (view ? 2f : 0.3f), MusouPowerupRules.Item(lay));
         _musouPowerupTestNext[playerId] = (World.Tick + (uint)MathF.Max(1f, MathF.Round(_musouPowerupTest.Value * World.Config.TickRate)), next.Step + 1);
         Log?.Invoke($"musou: test aid {MusouPowerupTestVariable}: player {playerId} buff {give}, drop {drop?.Id} {lay}");
     }
