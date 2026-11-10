@@ -113,6 +113,19 @@ public sealed class GameOptionsTests
     }
 
     [Fact]
+    public void Performance_readout_is_off_by_default_saves_and_rejects_an_unknown_choice()
+    {
+        // polish pass P1: F3 cycles the readout (no Options row); the choice is saved as performanceReadout and a damaged file falls back to OFF.
+        Assert.Equal(ReadoutChoice.Off, GameOptions.Default.Readout);
+        Assert.Equal(ReadoutChoice.Off, GameOptions.Read(null).Readout);
+        var o = GameOptions.Default with { Readout = ReadoutChoice.Network };
+        Assert.Equal("Network", (string?)o.Write()["performanceReadout"]);
+        Assert.Equal(ReadoutChoice.Network, GameOptions.Read(o.Write()).Readout);
+        Assert.Equal(ReadoutChoice.Off, GameOptions.Read(new System.Text.Json.Nodes.JsonObject { ["performanceReadout"] = "Sideways" }).Readout);
+        Assert.Equal(ReadoutChoice.Off, (GameOptions.Default with { Readout = (ReadoutChoice)9 }).Clamped().Readout);
+    }
+
+    [Fact]
     public void Pad_aim_sensitivity_defaults_to_the_old_look_saves_clamps_and_applies_only_while_aiming()
     {
         Assert.Equal(1f, GameOptions.Default.PadAimSensitivity);

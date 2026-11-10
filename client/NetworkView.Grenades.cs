@@ -85,6 +85,9 @@ public partial class NetworkView
         return result;
     }
 
+    /// <summary>Added content (Musou's Remote Detonators): a thrown item's detonation reached the view, once; nothing without added content.</summary>
+    partial void ExtrasThrownDetonated(SmNet.ProjectileView detonation);
+
     /// <summary>Added content: the model a thrown item of its own is drawn with in flight and at rest (null: its blueprint's, or the sphere); nothing without added content.</summary>
     partial void ExtrasThrownVisual(SmSim.ThrownSpec item, ref ProjectileVisual? visual);
 

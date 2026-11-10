@@ -148,10 +148,18 @@ public sealed partial class World
         byte hit = meks.Raycast(p.Position, direction, max, out float distance);
         if (hit != 0 && (distance <= dome || meks.IsGenerator(hit)))
         {
+            bool stays = false;
+            ArsenalProjectileMeets(p.Id, 0, hit, p.Position + direction * distance, ref stays);
+            if (stays) return;   // W4's charge sticks to it: no stop, no detonation (the arsenal holds it there)
             stop = MathF.Min(stop, distance);
-            ArsenalProjectileMeets(p.Id, 0, hit, p.Position + direction * distance);   // Arsenal/World.Arsenal.cs: a projectile of the arsenal meeting a contraption (W4); a no-op until then
             if (!p.Thrown && Shots.DirectDamageOf(WeaponOf(p), p.Stage) is { } direct) meks.Damage(hit, p.Owner, direct.Damage * direct.BodyMultiplier, out _);
             return;
+        }
+        if (float.IsFinite(dome) && dome <= max)
+        {
+            bool stays = false;
+            ArsenalProjectileMeets(p.Id, 0, 0, p.Position + direction * MathF.Max(0f, dome - 0.05f), ref stays);   // a shield dome from outside: W4's charge sticks to its surface, 0.05 m outside it on the thrower's side as the core's own stop does (a pin on the sphere could round to inside, where the blast reaches in)
+            if (stays) return;
         }
         stop = MathF.Min(stop, dome);
     }

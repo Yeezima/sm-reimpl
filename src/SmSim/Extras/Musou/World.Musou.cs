@@ -305,6 +305,7 @@ public sealed partial class World
                 else if (--TicksLeft == 0)
                 {
                     _projectiles.Clear(); _areas.Clear(); _perkBlasts.Clear();
+                    ArsenalReset();   // Arsenal/World.Charge.cs
                     CountProjectilesOut();
                     StartRound(respawn: false);
                 }

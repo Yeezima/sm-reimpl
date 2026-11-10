@@ -94,9 +94,12 @@ public partial class SoundSystem : Node
 
     /// <summary>
     /// <c>--sound-limits none|footsteps|all</c> (<see cref="InstanceLimits"/>): which posts get the instance limits and the 2D volume threshold. The footsteps' layers hold limits of 1 to
-    /// 4 (a footstep cuts the tail of the last one); other sounds' nodes set them too (bolter shots 1 and 2) but that is not checked by listening. Default: the footstep posts only.
+    /// 4 (a footstep cuts the tail of the last one); 2,945 nodes in all set them (the footsteps' among them; bolter shots 1 and 2, blasts, melee hits). Default since the polish pass P1:
+    /// every post (<c>all</c>; the owner, 2026-11-10, after the A/B clips: "yes lets apply the cap to all for sound A/B"); <c>--sound-limits footsteps</c> restores the footstep posts only (the
+    /// default from the footsteps fix to P1). The flag bytes' order stays an interpretation (low confidence) and the -60 dB cut ours, so a misread would reach hit confirms, speech and the
+    /// match-end stingers: testers are asked to report any hit, kill or voice sound that goes missing; <see cref="LimitNodesReport"/> lists the nodes that fired with their flags.
     /// </summary>
-    public InstanceLimits Limits { get; set; } = InstanceLimits.Footsteps;
+    public InstanceLimits Limits { get; set; } = InstanceLimits.All;
 
     /// <summary>
     /// <c>--footstep-gain &lt;dB&gt;</c> (ours; 0 by default): added to every footstep and landing voice, a listening aid on top of the owner's footstep level (<see cref="FootstepLevel"/>) and
@@ -353,10 +356,14 @@ public partial class SoundSystem : Node
     public IEnumerable<string> CensusLines() => _census.OrderByDescending(kv => kv.Value.Started).Take(25).Concat(_census.Where(kv => ContByEvent.GetValueOrDefault(kv.Key) > 0)).Distinct().Select(kv =>
         $"CENSUS {kv.Key} posts {ByEvent.GetValueOrDefault(kv.Key).Posts} started {kv.Value.Started} 2D {kv.Value.TwoD} loopvoices {kv.Value.Loops} meandb {kv.Value.SumDb / Math.Max(1, kv.Value.Started):F1} cont {ContByEvent.GetValueOrDefault(kv.Key)} labels {string.Join('|', kv.Value.Labels)}");
     public int Posts, VoicesStarted, Steals, Late, PeakActive, Virtual, Culled, Revived, StreamsLoaded, UnsupportedActions, MissingMedia, Continuations;
+    /// <summary>polish pass P1: revived loops that went on from their running position instead of their start.</summary>
+    public int LoopsResumed;
     /// <summary>M33 counters: property actions applied, switch actions, bark posts, barks dropped (one at a time per character), barks with no line, voices started on a filter bus, bus changes.</summary>
     public int PropertyActions, SwitchActions, Barks, BarksDropped, BarksSilent, FilteredStarts, FilterChanges;
     /// <summary>Footsteps-fix counters: voices killed and dropped by instance limits, voices not started because they are under the volume threshold.</summary>
     public int LimitKills, LimitDrops, ThresholdCulls;
+    /// <summary>polish pass P1: per limiting node, its limit and flags as read from the bank and how often it killed an older instance or dropped the new voice (for the owner's A/B).</summary>
+    readonly Dictionary<uint, (InstanceLimit Limit, byte Below, int Kills, int Drops)> _limitNodes = new();
     public double DecodeMsTotal, DecodeMsMax;
     public int DecodesDone;
 
@@ -814,6 +821,7 @@ public partial class SoundSystem : Node
             {
                 victim.FadeUntil = _now + KillFade;
                 LimitKills++;
+                NoteLimitNode(a, decision.Reason, drop: false);
                 LimitLog?.Invoke($"LIMIT t {_now:F3} {a.Emitter.Label}: {decision.Reason}: wem {victim.Voice.WemId} (post {victim.PostId}, {_now - victim.Started:F2}s old) fades out; new wem {a.Voice.WemId} (post {a.PostId})");
                 MixLog?.Invoke($"LIMIT t {_now:F3} kill {victim.Event} '{victim.Emitter.Label}' {_now - victim.Started:F2}s old for {a.Event}");
             }
@@ -823,12 +831,31 @@ public partial class SoundSystem : Node
         if (decision.DropNew)
         {
             LimitDrops++;
+            NoteLimitNode(a, decision.Reason, drop: true);
             LimitLog?.Invoke($"LIMIT t {_now:F3} {a.Emitter.Label}: {decision.Reason}: wem {a.Voice.WemId} (post {a.PostId})");
             MixLog?.Invoke($"LIMIT t {_now:F3} drop {a.Event} '{a.Emitter.Label}'");
             return false;
         }
         return true;
     }
+
+    /// <summary>Counts the node a limit decision named (its id is in the reason) with the flags of that node in the new voice's chain.</summary>
+    void NoteLimitNode(Active a, string reason, bool drop)
+    {
+        int at = reason.IndexOf("of node ", StringComparison.Ordinal);
+        if (at < 0 || at + 16 > reason.Length || !uint.TryParse(reason.AsSpan(at + 8, 8), System.Globalization.NumberStyles.HexNumber, null, out uint id)) return;
+        var node = a.Voice.Chain.FirstOrDefault(n => n.Id == id);
+        if (node?.Limit is not { } limit) return;
+        (InstanceLimit Limit, byte Below, int Kills, int Drops) row = _limitNodes.TryGetValue(id, out var r) ? r : (limit, node.BelowThreshold, 0, 0);
+        _limitNodes[id] = drop ? (row.Limit, row.Below, row.Kills, row.Drops + 1) : (row.Limit, row.Below, row.Kills + 1, row.Drops);
+    }
+
+    /// <summary>
+    /// polish pass P1: one line per node that limited a voice this run: id, the limit and its flags as read from the bank (kill newest, global, ignore parent; the below-threshold byte),
+    /// kills and drops; most first. Empty when none fired.
+    /// </summary>
+    public string LimitNodesReport(int top = 40) => string.Join("\n", _limitNodes.OrderByDescending(kv => kv.Value.Kills + kv.Value.Drops).Take(top)
+        .Select(kv => $"LIMITNODE {kv.Key:x8}: limit {kv.Value.Limit.Max}{(kv.Value.Limit.KillNewest ? " kill-newest" : " kill-oldest")}{(kv.Value.Limit.Global ? " global" : " per-emitter")}{(kv.Value.Limit.IgnoreParent ? " ignore-parent" : "")} below-threshold {kv.Value.Below}: kills {kv.Value.Kills}, drops {kv.Value.Drops}"));
 
     /// <summary>Gives a voice a player (stealing the lowest priority, then quietest, then oldest one of its kind at the cap) and plays it.</summary>
     bool Acquire(Active a, bool revive = false)
@@ -866,7 +893,14 @@ public partial class SoundSystem : Node
         a.AppliedPitch = -1f;       // Volume sets the pitch and the filter bus of the pooled player
         a.LpfLevel = -1;
         Volume(a);
-        if (a.Player is AudioStreamPlayer3D a3) a3.Play(); else ((AudioStreamPlayer)a.Player).Play();
+        // polish pass P1 (review): a looping voice revived from its virtual wait goes on where it would be, not from its start (the loop's length from the stream; a non-loop starts at 0 as before).
+        float from = 0f;
+        if (revive && a.Voice.LoopCount == 0 && a.Stream.GetLength() is var length && length > 0.01)
+        {
+            from = (float)((_now - a.Started) % length);
+            LoopsResumed++;
+        }
+        if (a.Player is AudioStreamPlayer3D a3) a3.Play(from); else ((AudioStreamPlayer)a.Player).Play(from);
         return true;
     }
 
@@ -1016,6 +1050,6 @@ public partial class SoundSystem : Node
                $"continuations {Continuations} ({string.Join(", ", ContByEvent.OrderByDescending(kv => kv.Value).Take(4).Select(kv => kv.Key + " " + kv.Value))}), decodes {DecodesDone} (avg {(DecodesDone > 0 ? DecodeMsTotal / DecodesDone : 0):F1} ms, max {DecodeMsMax:F1} ms; converted {_catalog?.Decoded}, disk hits {_catalog?.DiskHits}, failures {_catalog?.DecodeFailures}), " +
                $"streams {StreamsLoaded}, unsupported actions {UnsupportedActions}, sounds without media {MissingMedia}; " +
                $"M33: property actions {PropertyActions} (live {_mods.Count}), switch actions {SwitchActions}, voices on a filter bus {FilteredStarts} (bus changes {FilterChanges}), master {_masterDb:0.#} dB, loudness {Loudness}, " +
-               $"barks {Barks} (dropped {BarksDropped}, no line {BarksSilent}), footsteps fix: instance-limit kills {LimitKills} drops {LimitDrops}, culled under the threshold (2D) {ThresholdCulls}; events (posts/voices): {events}; events not in the banks: {misses}";
+               $"barks {Barks} (dropped {BarksDropped}, no line {BarksSilent}), footsteps fix: instance-limit kills {LimitKills} drops {LimitDrops}, culled under the threshold (2D) {ThresholdCulls}, loops resumed {LoopsResumed}; events (posts/voices): {events}; events not in the banks: {misses}";
     }
 }

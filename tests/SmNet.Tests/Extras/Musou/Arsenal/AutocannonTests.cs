@@ -237,7 +237,9 @@ public class AutocannonTests
         // The content layer is reached only through the Musou dispatcher; a Musou config with no install adds nothing and says so.
         var notes = new List<string>();
         var musou = MusouSimTests.Base with { Extras = ContentExtras.Musou };
-        Assert.Same(musou, ContentArsenal.Append(musou, "", notes));
+        var appended = ContentArsenal.Append(musou, "", notes);   // W4 appends the Remote Detonators from the data's stand-in values: no weapon, only that thrown item
+        Assert.Equal(musou.Weapons, appended.Weapons);
+        Assert.Equal([ArsenalRules.RemoteDetonators], appended.Thrown.Select(t => t.Name).Where(ArsenalRules.IsArsenal));
         Assert.Contains(notes, n => n.Contains("autocannon"));
     }
 }

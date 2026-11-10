@@ -40,7 +40,7 @@ public class PowerSpearContentTests
         var once = Arsenal.Append(Config(), "", []);
         Assert.Equal(3, Arsenal.Append(once, "", []).Classes[1].MeleeChoices.Count);
         var bare = new SimConfig { Extras = ContentExtras.Musou, Classes = [Class("sm - assault", "assault", Team.SpaceMarines, Sword)] };
-        Assert.Same(bare, Arsenal.Append(bare, "", []));
+        Assert.Equal(bare.Classes[0].MeleeChoices, Arsenal.Append(bare, "", []).Classes[0].MeleeChoices);   // W4 adds the Remote Detonators to the equipment, never a melee choice
     }
 
     [Fact]
