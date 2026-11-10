@@ -30,11 +30,13 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 Scanned 2856 spec table rows: **2130 tagged**, 502 not tagged (read from data with high confidence), 224 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 637 rows of the changes document.
 Scanned 2864 spec table rows: **2133 tagged**, 507 not tagged (read from data with high confidence), 224 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 637 rows of the changes document.
+Scanned 2861 spec table rows: **2135 tagged**, 502 not tagged (read from data with high confidence), 224 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 637 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
 | Movement (critical) | 387 | 329 | 328 | 114 | 12 |
 | Combat core (critical) | 14 | 5 | 12 | 12 | 9 |
+| Combat core (critical) | 15 | 6 | 13 | 13 | 9 |
 | Weapons (critical) | 121 | 73 | 106 | 54 | 3 |
 | Melee (critical) | 120 | 105 | 94 | 38 | 5 |
 | Jump pack (critical) | 79 | 71 | 63 | 19 | 0 |
@@ -59,6 +61,10 @@ Scanned 2864 spec table rows: **2133 tagged**, 507 not tagged (read from data wi
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 235 | 224 | 126 | 63 | 0 |
 | **All areas** | **2133** | 1881 | 1583 | 676 | 38 |
+| Core simulation (provisional values) | 595 | 569 | 420 | 165 | 1 |
+| General game design | 7 | 7 | 6 | 0 | 0 |
+| Ork faction | 235 | 224 | 126 | 63 | 0 |
+| **All areas** | **2135** | 1886 | 1586 | 679 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -73,9 +79,13 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | confidence: low | 762 |
 | confidence: medium | 692 |
 | notes: ours | 387 |
+| kind: ours | 1196 |
+| confidence: low | 766 |
+| confidence: medium | 691 |
+| notes: ours | 390 |
 | kind: interpretation | 363 |
 | notes: estimate | 176 |
-| kind: estimate | 145 |
+| kind: estimate | 151 |
 | confidence: none (low) | 129 |
 | kind: provisional | 100 |
 | kind: user's knowledge | 55 |
@@ -736,6 +746,13 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-8D12069B` | Musou arsenal: the pack moves' clip speed | the melee weapon's map clip speed (the claw 1.25, the spear 0.85; 1 for every weapon of the data) on: the charge and the dash attack (the clip at the phase's time x it, held at the clip's end); the ground pound's impact and get-up and the air slash's strike… (factor) | kind: ours; confidence: low | lead 2026-11-10 ("presentation only") | Musou arsenal: the pack moves' clip speed: compare with SM1 by feel or video. Ours: the melee weapon's map clip speed (the claw 1.25, the spear 0.85; 1… | ☐ |
 
 ### Combat core (gameplay-critical) (14)
+*Spec section: Musou's arsenal: W3, the power spear (docs/new-weapons-design.md section 6)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-640BBD78` | Spear: jump-pack rules | the hammer's: no pound delay, the hop swing, the steered slam (`Loadouts.WieldsHammer` through `ArsenalRules.WieldsHammer`) | kind: ours; confidence: medium | owner D17 (default) | Spear: jump-pack rules: compare with SM1 by feel or video. Ours: the hammer's: no pound delay, the hop swing, the steered slam… | ☐ |
+
+### Combat core (gameplay-critical) (15)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -775,6 +792,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-C5F90938` | Shield generator | **75** hp (was 800; see "Contraption health"); a dome of radius **10** m round it (a sphere at its foot): a player's hit-scan shot that enters it from outside ends where it enters (nothing behind it is struck); a cone or a blast from outside does not reach… (hp, m) | kind: ours; notes: estimate | owner brief 2026-11-07 (800, 10 m, outside only); owner 2026-11-08 (Guardsmen's fire, Ork blasts, grenades; not movement or melee); a projectile going off at… | Shield generator: compare with SM1 by counting hits to kill and by video of the health bar. Ours: 75 hp (was 800; see "Contraption health"); a dome of radius 10 m… | ☐ |
 | `R-167CA37E` | Contraption health (owner, 2026-11-09) | every kind **75** hp (three standard bolter rounds of 25.4; was 800 / 400 / 500 / 150); at zero it is destroyed: removed from the sim (its dome, drops, rockets or trigger stop at once; a destroyed cue, its effect and sound and a wreck on the client); any… (hp) | kind: ours; notes: estimate | owner 2026-11-09 ("ensure they have hitboxes and have a low health value"); the 75, the one-blow rule and the generator through its dome ours | Contraption health (owner, 2026-11-09): compare with SM1 by counting hits to kill and by video of the health bar. Ours: every kind 75 hp (three standard bolter rounds of 25.4; was 800 / 400… | ☐ |
+
+*Spec section: Musou's arsenal: W3, the power spear (docs/new-weapons-design.md section 6)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-62C831CA` | Spear: damage | a light swing **150** to the primary target (the hammer's 200 x 0.75), the secondary, shield and the heavy sweeps (interrupt and the two sweeping attacks) times **0.75** too; the Y,Y slam (the strikes that set off a blast) keeps the hammer's damage and its 7… (health) | kind: estimate; confidence: low; notes: ours | ours (design 6.1) | Spear: damage: compare with SM1 by counting hits to kill and by video of the health bar. Ours: a light swing 150 to the primary target (the hammer's 200 x 0.75)… | ☐ |
 
 ### Weapons (gameplay-critical) (121)
 
@@ -3169,6 +3192,18 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-A42BF5F7` | Autocannon: blast | a blast at the point **every Ork a round strikes** (the bolt blasts' path), radius **2.5 m** (twice the bolt blast's 1.25 m), full to 1.0 m, 30 % at the edge, **15** at the centre; the campaign's 4 m hit-scan splash is dropped (m, damage) | kind: ours; confidence: low | owner D12 (the size); the damage and the shape are the bolt blast's | Autocannon: blast: compare with SM1 by measuring on a flat spot of the same map. Ours: a blast at the point every Ork a round strikes (the bolt blasts'… | ☐ |
 | `R-B4298678` | Autocannon: animations | the heavy bolter's (walk, sprint, hop, fall, hip fire, flinch: the campaign's carry graph uses the same navigation graph); the model is the install's `turret_aa` (1,883 triangles), held and stowed as the heavy bolter's | confidence: medium | design section 4 | Autocannon: animations: compare with SM1 by feel or video. Ours: the heavy bolter's (walk, sprint, hop, fall, hip fire, flinch: the… | ☐ |
 | `R-EF126E40` | Autocannon: customizer config | under a Musou content profile the customizer plans a Join with the configuration the match tuning builds for that profile (it lists the autocannon), read once on a worker; PLAY and JOIN wait for it | kind: ours | design section 11 | Autocannon: customizer config: compare with SM1 by feel or video. Ours: under a Musou content profile the customizer plans a Join with the… | ☐ |
+*Spec section: Musou's arsenal: W3, the power spear (docs/new-weapons-design.md section 6)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-73CE2C31` | Spear: tempo | the spear is the thunder hammer's combo with every step's timing (duration, hit, combo window, ranged-cancel, move, no-react window, string reset, evade, the slam's steering window) divided by **0.85**; the slam's turn is the same 185 degrees over the longer… (x the hammer's rate) | kind: estimate; confidence: low; notes: ours | owner D14 "slower than hammer"; 0.85 ours | Spear: tempo: compare with SM1 by feel or video. Ours: the spear is the thunder hammer's combo with every step's timing… | ☐ |
+| `R-DA640157` | Spear: sweep reach | **15 m** from the feet (the hammer's war cleave: 8.8 m, 10.7 m with a track-to-hit step), the cleave's own height band (1.5 m) and wall rule (m) | kind: estimate; confidence: low | owner D14 "much wider reach"; 2026-11-10 "Wider and longer": 15 m (12 m before) | Spear: sweep reach: compare with SM1 by measuring on a flat spot of the same map. Ours: 15 m from the feet (the hammer's war cleave: 8.8 m, 10.7 m with a… | ☐ |
+| `R-84D13CDE` | Spear: sweep width | **150 degrees** to each side (300 in all, nearly a full circle; owner 2026-11-10 "Wider and longer", 120 each side before). The war's hammer cleave is 120 each side since 2026-11-09 (degrees) | kind: estimate; confidence: low | owner, 2026-11-10 (question tool) | Spear: sweep width: compare with SM1 by measuring on a flat spot of the same map. Ours: 150 degrees to each side (300 in all, nearly a full circle; owner… | ☐ |
+| `R-77758F95` | Spear: sweep cap | at most **12** Orks, nearest first (the hammer's war cleave: 40); kept at 12 for the 300 degrees at 15 m (owner 2026-11-10) (Orks) | kind: estimate; confidence: low; notes: ours | ours (a crowd cap) | Spear: sweep cap: compare with SM1 by feel or video. Ours: at most 12 Orks, nearest first (the hammer's war cleave: 40); kept at… | ☐ |
+| `R-E48FE621` | Spear: impale | when the spear's player lands a jump-pack ground pound (the pound's Impact), the Ork nearest the landing within **2 m** (the nearest alive after the pack's own blast) takes **600** (a Nob's whole health), times the stims' melee factor, with the melee heal… (health, m) | kind: estimate; confidence: low | owner D18 (the proposed rule) | Spear: impale: compare with SM1 by feel or video. Ours: when the spear's player lands a jump-pack ground pound (the pound's… | ☐ |
+| `R-A061A276` | Spear: where offered | appended at the end of the Space Marine Assault's melee choices (no index moves) and to the Musou customizer's melee row, when the class carries the thunder hammer; no other class and no other profile; never dropped by an Ork or offered on a reward card… | kind: ours; confidence: medium | owner D1, D3 | Spear: where offered: compare with SM1 by feel or video. Ours: appended at the end of the Space Marine Assault's melee choices (no… | ☐ |
+| `R-8478B02C` | Spear: carry | idle and running: the spear is held in the **right hand alone** (the power sword's hand mount, the shaft where a sword's blade points) with the fist **high**, just below the collar (0.62 m on the shaft's own axis, the butt at -1.05 and the collar at 0.84)… (m, s) | kind: ours; confidence: medium | owner, 2026-11-10 | Spear: carry: compare with SM1 by feel or video. Ours: idle and running: the spear is held in the right hand alone (the… | ☐ |
+| `R-18174400` | Spear: look | built in code (placeholder): a black shaft, **2.85 m** in all (the butt 1.05 m behind the two-handed grip, the tip 1.8 m in front of it), a bronze collar, ring, bands and a small crossguard near the top, and a long single-edged blade (0.87 m, angled chisel… (m) | kind: ours; confidence: low | owner D15 (his reference, as described) | Spear: look: compare with SM1 by measuring on a flat spot of the same map. Ours: built in code (placeholder): a black shaft, 2.85 m in all (the butt… | ☐ |
 
 ### General game design (7)
 
