@@ -293,7 +293,8 @@ public class SpearTests
     {
         var w = War(1);
         var pool = MusouDropRules.Pool(w.Config, w.Players[Human]);
-        Assert.DoesNotContain(MusouDropItem.Melee(2), pool);   // the spear is the class's third melee choice
+        Assert.Equal(ArsenalRules.PowerSpear, w.Config.Classes[0].MeleeChoices[1].Wargear);
+        Assert.DoesNotContain(MusouDropItem.Melee(1), pool);   // the spear is this class's second melee choice (the hammer 0)
         var plain = Config() with { Classes = [Config().Classes[0] with { MeleeChoices = [HammerCombo, new MeleeCombo("sm_mp_melee_powersword", [HammerLight]), SpearCombo] }, Config().Classes[1]] };
         var pool2 = MusouDropRules.Pool(plain, new PlayerState { Class = 0 });
         Assert.Contains(MusouDropItem.Melee(1), pool2);          // a data weapon is

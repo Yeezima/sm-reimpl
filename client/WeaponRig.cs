@@ -299,6 +299,8 @@ public sealed class WeaponAsset
     public WeaponMount? SwingWield { get; init; }
     /// <summary>Musou's power spear (W3): the one-handed carry's holder transform for a grip slid to <c>t</c> (0 the high grip, 1 the low), or null (the wield mount's fixed transform, for every weapon of the data).</summary>
     public Func<float, Transform3D>? OneHandGrip { get; init; }
+    /// <summary>The same for the two-handed swing mount (<see cref="SwingWield"/>): the holder transform with the weapon slid along its shaft to <c>t</c>; null: the mount's fixed transform.</summary>
+    public Func<float, Transform3D>? SwingGrip { get; init; }
 
     public WeaponAsset(WeaponModel model, ArrayMesh? mesh, IReadOnlyDictionary<string, ArrayMesh> worn, int triangles, int parts, int hidden, int rigid, WeaponMagazine? magazine = null)
     {
@@ -335,7 +337,7 @@ public sealed partial class WeaponRig
         public WeaponMount? SwingMount;   // Musou's spear: the mount while a strike is shown (null: the wield mount always)
         public Transform3D SwingWield;
         public bool Swung;
-        public Func<float, Transform3D>? OneHandGrip;
+        public Func<float, Transform3D>? OneHandGrip, SwingGrip;
         public Transform3D Wield, Stow, Thigh;   // Thigh: fix/versatility-knife-stow, the left thigh holster of a Weapon Versatility primary during melee
         public WeaponMount? ThighMount;
         public WeaponMount? StowMount;   // visual/lascannon-stow: the stow mount in effect (ours for the lascannon, else the data's): its bone and the Stow transform always agree
@@ -485,7 +487,7 @@ public sealed partial class WeaponRig
         if (alwaysHeld && role == Role.Melee) AlwaysMelee = true;   // Musou's lightning claw: never put away (the jump-pack classes' rule, for this one weapon)
         var item = new Item { Role = role, Attachment = attachment, Asset = asset };
         if (attachment.Wield is { Bone: not null } wield) item.Wield = MarineAssets.ToGodot(asset.Model.RootToBone(wield));
-        item.OneHandGrip = asset.OneHandGrip;
+        item.OneHandGrip = asset.OneHandGrip; item.SwingGrip = asset.SwingGrip;
         if (asset.SwingWield is { Bone: not null } swing) { item.SwingMount = swing; item.SwingWield = MarineAssets.ToGodot(asset.Model.RootToBone(swing)); }
         item.StowMount = WeaponStowSpots.For(attachment);
         if (item.StowMount is { Bone: not null } stow) item.Stow = MarineAssets.ToGodot(asset.Model.RootToBone(stow));   // visual/lascannon-stow: ours for the lascannon
@@ -612,7 +614,7 @@ public sealed partial class WeaponRig
             if (thigh) inHand = false;
             // With two primaries only the one swapped out last hangs on the back; the other is not drawn.
             Apply(i, inHand, !thigh && hasSecond && i.Role is Role.Primary or Role.Second && !inHand && i.Role != onBack, thigh);
-            if (i.OneHandGrip is { } grip && i.Mode == 1 && !i.Swung && GodotObject.IsInstanceValid(i.Holder)) i.Holder.Transform = grip(GripSlide);   // the spear's fist slides along the shaft
+            if (i.Mode == 1 && GodotObject.IsInstanceValid(i.Holder) && (i.Swung ? i.SwingGrip : i.OneHandGrip) is { } grip) i.Holder.Transform = grip(GripSlide);   // the spear's fist slides along the shaft (one hand or two)
         }
     }
 
@@ -625,7 +627,7 @@ public sealed partial class WeaponRig
     /// <summary>The animation drives <see cref="GripSlide"/> (the rig leaves it as set).</summary>
     public bool GripSlideDriven { get; set; }
     /// <summary>Seconds the slide takes to the low grip and back (ours, a placeholder until the animator's poses drive it).</summary>
-    public const float GripSlideDownSeconds = 0.15f, GripSlideUpSeconds = 0.35f;
+    public const float GripSlideDownSeconds = 0.25f, GripSlideUpSeconds = 0.35f;
 
     /// <summary>fix/stim-knife-visuals: a combat stim is being used; every ranged and melee weapon is on its stow marker (or hidden) for the use, not floating where the stim clip's hands left it.</summary>
     public bool StimStowed { get; set; }

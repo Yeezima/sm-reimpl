@@ -53,7 +53,17 @@ void fragment() {
         Func<float, Transform3D>? slide = null;
         if (assets.Catalogue.Held("sm_mp_melee_powersword") is { Wield: { Bone: not null } swordMount } sword && assets.Get(sword) is { } swordAsset) (hand, slide) = HandMount(swordMount, swordAsset.Model);
         attachment = hand is null ? hammer : hammer with { Wield = hand };
-        asset = SpearAssets.GetValue(hammerAsset, h => new WeaponAsset(h.Model, BuildSpear(), new Dictionary<string, ArrayMesh>(), 0, 0, 0, 0) { SwingWield = hand is null ? null : hammer.Wield, OneHandGrip = slide });
+        asset = SpearAssets.GetValue(hammerAsset, h => new WeaponAsset(h.Model, BuildSpear(), new Dictionary<string, ArrayMesh>(), 0, 0, 0, 0) { SwingWield = hand is null ? null : hammer.Wield, OneHandGrip = slide, SwingGrip = hand is null ? null : SwingGrip(h.Model, hammer.Wield) });
+    }
+
+    /// <summary>
+    /// The two-handed swing's grip: the hammer's chest-prop mount with the spear slid along its shaft, so that as <see cref="WeaponRig.GripSlide"/> goes from 0 to 1 the point of the shaft at the hands moves from the
+    /// neutral two-handed grip (the spear's own origin) down to the low grip (<see cref="SpearGripLow"/>): the right hand sits low toward the butt with the left hand above it (owner, 2026-11-10).
+    /// </summary>
+    static Func<float, Transform3D> SwingGrip(WeaponModel model, WeaponMount swing)
+    {
+        var mount = MarineAssets.ToGodot(model.RootToBone(swing));
+        return t => mount * new Transform3D(Basis.Identity, new Vector3(-SpearGripLow * Math.Clamp(t, 0f, 1f), 0f, 0f));
     }
 
     /// <summary>
