@@ -104,7 +104,8 @@ public partial class ClawSpearTestView : Node3D
         var clawString = new[] { ClawSpearClips.ClawX1, ClawSpearClips.ClawX2, ClawSpearClips.ClawX3, ClawSpearClips.ClawX4 };
         var spearString = new[] { ClawSpearClips.SpearForehand, ClawSpearClips.SpearBackhand, ClawSpearClips.SpearSpin };
         double t = 0.0;
-        void Idle(string baseClip, double seconds, string weapon) { _segments.Add(new Segment(null, baseClip, true, t, seconds, weapon)); t += seconds; }
+        // The spear's idle carries its upright rest pose (owner, 2026-11-10); the claw's idle is the stance alone.
+        void Idle(string baseClip, double seconds, string weapon) { _segments.Add(new Segment(weapon == "spear" ? ClawSpearClips.SpearRest : null, baseClip, true, t, seconds, weapon)); t += seconds; }
         void Chain(IEnumerable<WeaponPoseClip> clips, string baseClip, string weapon)
         {
             foreach (var c in clips)
@@ -188,10 +189,11 @@ public partial class ClawSpearTestView : Node3D
         if (_label is not null)
         {
             string hit = seg.Clip is { } cc && !float.IsNaN(cc.HitTime) && local >= cc.HitTime && local < cc.HitTime + 0.1 ? "   HIT" : "";
-            _label.Text = seg.Clip is { } cl ? $"{cl.Name}   t = {local:0.000} s   (hit {cl.HitTime:0.000} s, length {cl.Duration:0.000} s){hit}" : $"{(claw ? "claw" : "spear")} stance";
+            _label.Text = seg.Clip is { } cl && !float.IsNaN(cl.HitTime) ? $"{cl.Name}   t = {local:0.000} s   (hit {cl.HitTime:0.000} s, length {cl.Duration:0.000} s){hit}"
+                : seg.Clip is { } held ? $"{held.Name}   t = {local:0.000} s   (held pose)" : $"{(claw ? "claw" : "spear")} stance";
             if (_bar is not null) _bar.Size = new Vector2(seg.Clip is { } cb ? 600f * (float)Math.Clamp(local / cb.Duration, 0, 1) : 0f, 6f);
         }
-        if (_stills && seg.Clip is { } clip) TakeStills(clip, (float)local);
+        if (_stills && seg.Clip is { } clip && (!ReferenceEquals(clip, ClawSpearClips.SpearRest) || local >= 0.5)) TakeStills(clip, (float)local);
     }
 
     void TakeStills(WeaponPoseClip clip, float local)

@@ -36,6 +36,8 @@ public class ClawSpearClipsTests
         Assert.Equal(ClawSpearClips.SpearDiveImpactLength, ClawSpearClips.SpearImpale.Duration);
         Assert.True(float.IsNaN(ClawSpearClips.SpearDive.HitTime));
         Assert.Equal(ClawSpearClips.SpearDiveLoop, ClawSpearClips.SpearDive.BaseClip);
+        Assert.True(float.IsNaN(ClawSpearClips.SpearRest.HitTime));
+        Assert.Equal(ClawSpearClips.SpearIdle, ClawSpearClips.SpearRest.BaseClip);
     }
 
     [Fact]
@@ -60,15 +62,48 @@ public class ClawSpearClipsTests
     }
 
     [Fact]
-    public void Strikes_return_to_the_stance_at_their_end()
+    public void Claw_strikes_and_the_impale_return_to_the_stance_at_their_end()
     {
-        foreach (var clip in ClawSpearClips.All.Where(c => !float.IsNaN(c.HitTime)))
+        foreach (var clip in ClawSpearClips.All.Where(c => !float.IsNaN(c.HitTime) && !ClawSpearClips.SpearSweeps.Contains(c)))
             foreach (var ch in clip.Channels)
             {
                 var end = ch.Sample(clip.Duration);
                 if (ch.Kind == PoseChannelKind.Turn) Assert.True(end.IsZero, $"{clip.Name} {ch.Bone}: a turn left at the end");
                 else Assert.True(end.Weight <= 1e-4f, $"{clip.Name} {ch.Bone}: an aim still weighted at the end");
             }
+    }
+
+    [Fact]
+    public void Spear_sweeps_return_to_the_upright_rest_at_their_end()
+    {
+        var rest = ClawSpearClips.SpearRest.Channels.Where(c => c.Kind == PoseChannelKind.Aim).ToDictionary(c => c.Bone, c => c.Sample(0f));
+        Assert.Equal(4, rest.Count);
+        foreach (var clip in ClawSpearClips.SpearSweeps)
+            foreach (var ch in clip.Channels)
+            {
+                var end = ch.Sample(clip.Duration);
+                if (ch.Kind == PoseChannelKind.Turn) { Assert.True(end.IsZero, $"{clip.Name} {ch.Bone}: a turn left at the end"); continue; }
+                var want = rest[ch.Bone];
+                Assert.Equal(want.Elevation, end.Elevation, 3);
+                Assert.Equal(want.Azimuth, end.Azimuth, 3);
+                Assert.Equal(1f, end.Weight, 3);
+            }
+        // The forehand starts from the rest too (the backhand and spin start from the sweep before them).
+        foreach (var ch in ClawSpearClips.SpearForehand.Channels.Where(c => c.Kind == PoseChannelKind.Aim))
+        {
+            var start = ch.Sample(0f); var want = rest[ch.Bone];
+            Assert.Equal(want.Elevation, start.Elevation, 3);
+            Assert.Equal(want.Azimuth, start.Azimuth, 3);
+        }
+    }
+
+    [Fact]
+    public void The_rest_stands_the_spear_upright_with_the_blade_hand_above_the_butt_hand()
+    {
+        // The blade is beyond the left hand: at rest the left forearm points up (the hand above the elbow) and the right arm hangs (the hand at the hip), so the shaft stands up.
+        var rest = ClawSpearClips.SpearRest.Channels.Where(c => c.Kind == PoseChannelKind.Aim).ToDictionary(c => c.Bone, c => c.Sample(0f));
+        Assert.True(rest["RIG_L_Forearm"].Elevation > 45f);
+        Assert.True(rest["RIG_R_UpperArm"].Elevation < -60f && rest["RIG_R_Forearm"].Elevation < -60f);
     }
 
     [Fact]
@@ -81,6 +116,12 @@ public class ClawSpearClipsTests
             Assert.Contains(arm.Keys, k => MathF.Abs(k.T - clip.Anticipation) < 1e-4f && k.Ease == PoseEase.In);   // the wind-up gathers
             var hitKey = arm.Keys.First(k => MathF.Abs(k.T - clip.HitTime) < 1e-4f);
             Assert.True(hitKey.Ease is PoseEase.Snap or PoseEase.Linear, $"{clip.Name}: the hit key eases {hitKey.Ease}");
+            if (clip.Weapon == "claw")   // the claw's apex is held two frames before the snap (owner's review: the cocked pose must read)
+            {
+                var held = arm.Keys.First(k => MathF.Abs(k.T - clip.Anticipation - ClawSpearClips.ClawApexHold) < 1e-4f);
+                Assert.Equal(PoseEase.Hold, held.Ease);
+                Assert.Equal(arm.Sample(clip.Anticipation), arm.Sample(clip.Anticipation + ClawSpearClips.ClawApexHold * 0.5f));
+            }
         }
     }
 
