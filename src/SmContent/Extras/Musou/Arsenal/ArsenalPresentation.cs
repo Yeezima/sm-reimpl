@@ -53,5 +53,8 @@ public static partial class Arsenal
     /// (<see cref="WeaponBoxRules.For"/> "heavy_bolter"). Null for every other name.
     /// </summary>
     public static WeaponBoxSpec? WeaponBox(string wargear, bool chaos) =>
-        string.Equals(wargear, ArsenalRules.Autocannon, StringComparison.OrdinalIgnoreCase) ? WeaponBoxRules.For(wargear, "heavy_bolter", chaos) : null;
+        string.Equals(wargear, ArsenalRules.Autocannon, StringComparison.OrdinalIgnoreCase) ? chaos ? AutocannonBoxChaos : AutocannonBox : null;
+
+    // Built once (the HUD asks every frame, and its box cache keys on the display list's identity).
+    static readonly WeaponBoxSpec? AutocannonBox = WeaponBoxRules.For(ArsenalRules.Autocannon, "heavy_bolter", false), AutocannonBoxChaos = WeaponBoxRules.For(ArsenalRules.Autocannon, "heavy_bolter", true);
 }

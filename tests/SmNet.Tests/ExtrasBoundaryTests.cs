@@ -149,8 +149,11 @@ public class ExtrasBoundaryTests
         ("client/NetworkView.MeleeFx.cs", "PresentedAs(MeleeWargear(s))"),
         ("client/NetworkView.Sound.Melee.cs", "PresentedAs(wargear)"),
         ("client/NetworkView.MeleeHitSound.cs", "PresentedAs(MeleeWargear(attacker))"),
-        ("client/NetworkView.HammerSwing.cs", "HammerSlashPose.IsHammer(AnimationAlias.Of(w))"),
+        ("client/NetworkView.HammerSwing.cs", "HammerSlashPose.IsHammer(AnimationAlias.Of(w))"),   // HammerSlash: the spear's air slash is the hammer's own clip
+        ("client/NetworkView.HammerSwing.cs", "string named = AnimationAlias.Of(wargear);"),   // HammerStrideScale (--old-strike-legs): the spear strides as the hammer
+        ("client/NetworkView.MeleeFlow.cs", "!AnimationAlias.Of(w).Contains(\"_2hand_\", StringComparison.OrdinalIgnoreCase) || !clip.StartsWith(\"SM_BUL_Hit_M_\""),   // HammerRush: the spear's charge is the hammer's sprint attack
         ("client/NetworkView.MeleeFlow.cs", "!AnimationAlias.Of(w).Contains(\"_2hand_\", StringComparison.OrdinalIgnoreCase)) return false;"),   // HammerHoldsBothHands: the spear holsters the pistol (W3)
+        ("client/NetworkView.cs", "AnimationAlias.Of(twoHand).Contains(\"_2hand_\""),   // the transition probe's two-handed flag
         ("client/NetworkView.cs", "MoveClipSpeed(state)"),
         ("client/NetworkView.Jump.cs", "MoveClipSpeed(s)"),
         ("client/NetworkView.Feel.cs", "MoveClipSpeed(s)"),
