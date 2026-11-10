@@ -29,6 +29,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 ## Summary
 
 Scanned 2930 spec table rows: **2185 tagged**, 517 not tagged (read from data with high confidence), 228 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 651 rows of the changes document.
+Scanned 2930 spec table rows: **2187 tagged**, 515 not tagged (read from data with high confidence), 228 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 652 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -54,6 +55,10 @@ Scanned 2930 spec table rows: **2185 tagged**, 517 not tagged (read from data wi
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 235 | 224 | 126 | 63 | 0 |
 | **All areas** | **2185** | 1927 | 1629 | 684 | 38 |
+| Core simulation (provisional values) | 640 | 605 | 458 | 170 | 1 |
+| General game design | 7 | 7 | 6 | 0 | 0 |
+| Ork faction | 235 | 224 | 126 | 63 | 0 |
+| **All areas** | **2187** | 1928 | 1631 | 685 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -63,6 +68,10 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | confidence: low | 789 |
 | confidence: medium | 711 |
 | notes: ours | 394 |
+| kind: ours | 1232 |
+| confidence: low | 789 |
+| confidence: medium | 713 |
+| notes: ours | 395 |
 | kind: interpretation | 365 |
 | notes: estimate | 176 |
 | kind: estimate | 155 |
@@ -2238,6 +2247,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
 ### Core simulation (provisional values) (638)
+### Core simulation (provisional values) (640)
 
 *Spec section: Provisional values in use*
 
@@ -3084,6 +3094,15 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-49B64CC5` | Where it blinks | the front end's Join (menu to loading screen), the connect (loading screen to match), LEAVE MATCH (match to menu) and Esc on a join still connecting or failed (loading screen to menu); Classic PvP and Musou Mode alike; not the silent Musou rejoin (the loading… | kind: ours | the owner ("transition between main menu and load screen and game to make it feel smoother. like blinking.") | Where it blinks: compare with SM1 by feel or video. Ours: the front end's Join (menu to loading screen), the connect (loading… | ☐ |
 | `R-8233E2A3` | Close, hold, open | a black layer over everything (layer 127) fades in over 0.18 s; 2 frames are drawn at full black, then the change runs (so the match's synchronous load freezes a black window, not a half-dimmed menu); the black holds at least 0.08 s and 3 frames, until a… (s, frames) | kind: ours; confidence: low | ours, by eye (the brief: 0.15 to 0.25 s close, a brief hold, 0.2 to 0.3 s open) | Close, hold, open: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a black layer over everything (layer 127) fades in over 0.18 s; 2… | ☐ |
 | `R-EE1A1048` | Input and errors under the blink | the black never takes mouse or key input (a match under it runs and takes input); a second change asked while one waits for the black is dropped (a double Join, a repeated Esc); a change asked while black runs at once, one asked while opening closes again… | kind: ours; confidence: medium | ours | Input and errors under the blink: compare with SM1 by turning the view at full speed with the same input settings and timing a half turn. Ours: the black never takes mouse or key input (a match under it runs and… | ☐ |
+
+*Spec section: Main menu video (2026-11-10, client only)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-9C0F0760` | Main menu video | `client/assets/menu/menu-loop.ogv` (committed; the release copies it beside the exe): Ogg Theora, 1920 x 1080, 4:2:0, a constant 30 fps, 939 frames (31.3 s), quality 7 of 10 (about 20 MB; SSIM 0.987 against the uncompressed loop), no audio; made from the… (px, fps, s) | notes: ours | the owner (the video and its use); fit and no dim: ours | Main menu video: compare with SM1 by feel or video. Ours: client/assets/menu/menu-loop.ogv (committed; the release copies it… | ☐ |
+| `R-5CD35826` | Menu video loop seam | the source's last frame does not meet its first (SSIM 0.94 where a frame step of its slow start is about 0.997, so debris and embers jump): its last 15 frames (0.5 s) fade into its first 15, its 16th plays unblended last and the loop starts on its 17th, so… (s, frames) | kind: ours; confidence: medium | ours | Menu video loop seam: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the source's last frame does not meet its first (SSIM 0.94 where a… | ☐ |
+| `R-4FAE2E57` | Menu video pause and fallback | paused while the customizer (its own dark background) covers it, going on where it was; not played under the headless display server; a video that shows no frame after 2.0 s of drawn frames (an unplayable file) gives way to the still picture; a missing file… (s) | kind: ours; confidence: medium | ours | Menu video pause and fallback: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: paused while the customizer (its own dark background) covers it… | ☐ |
+| `R-E5EA2A49` | Menu video cost | measured on the owner's PC (12 logical cores, a 60 fps cap, the menu idle, 30 s after warm-up): Forward+ 27 % of one core with the video, 9 % with the still; Compatibility (safe mode) 25 % and 7 %; no frame over 16.7 ms in either, the loop restart included… (% of one core, ms) | kind: ours; confidence: medium | measurement | Menu video cost: compare with SM1 by feel or video. Ours: measured on the owner's PC (12 logical cores, a 60 fps cap, the menu… | ☐ |
 
 *Spec section: Musou rejoin (2026-11-07, client only)*
 
@@ -4400,6 +4419,12 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 |---|---|---|---|---|---|---|
 | `C-56DF6FC5` | Loading screen picture | The owner's earlier menu picture behind LOADING, dimmed toward the corners (not SM1's per-map loading art and tips); since the polish pass P2 a caption under LOADING names the load's stage (ours) | SM1's loading screens (map art and tips) | Loading screen: "Loading screen picture" | Loading screen picture: compare with SM1 by feel or video. Ours: The owner's earlier menu picture behind LOADING, dimmed toward the… | ☐ |
 | `C-CC5659E8` | Screen blink | A short fade to black and back (0.18 s close, a hold until the new screen has settled, 0.26 s open) between the menu, the loading screen and the match; `--no-screen-blink` turns it off | How SM1's front end changed screens | Screen blink | Screen blink: compare with SM1 by feel or video. Ours: A short fade to black and back (0.18 s close, a hold until the new… | ☐ |
+
+#### Main menu video (owner 2026-11-10; client only)
+
+| ID | Area | What we do | What is unknown | Spec | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `C-12CF93EE` | Main menu video | Ours (the owner's request, "use this video loop as the main menu background in the next shipped release"): the main menu, its pages and the game folder setup play a looping 31.3 s video behind the menu (the owner's own cinematic of our Ashfall Citadel map, a Space Marine with a glowing power sword; owner-made… | — (ours: SM1's menu backgrounds are not reproduced) | Main menu video | Main menu video: compare with SM1 by feel or video. Ours: Ours (the owner's request, "use this video loop as the main menu… | ☐ |
 
 ### Not yet reproduced
 

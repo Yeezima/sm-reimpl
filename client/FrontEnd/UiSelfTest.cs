@@ -45,10 +45,10 @@ public sealed partial class UiSelfTest : Node
         }
     }
 
-    void Check(string name, bool ok, string detail = "")
+    void Check(string name, bool ok, string? detail = "")
     {
         if (ok) _passed++; else _failed++;
-        GD.Print($"SELFTEST {(ok ? "PASS" : "FAIL")} {name}{(detail.Length > 0 && !ok ? " - " + detail : "")}");
+        GD.Print($"SELFTEST {(ok ? "PASS" : "FAIL")} {name}{(detail is { Length: > 0 } && !ok ? " - " + detail : "")}");
     }
 
     static Button? FindButton(Node root, Func<Button, bool> match)
@@ -313,6 +313,7 @@ public sealed partial class UiSelfTest : Node
         await ControlsChecks();   // ui/keybinds (UiSelfTest.Controls.cs)
         await PadBackChecks();   // ui/pad-b-back: B on the controller backs out of menus (UiSelfTest.PadBack.cs)
         await MenuChecks();   // ui/menu-rebuild: the tree, JOIN SERVER, the bot buttons (UiSelfTest.Menus.cs)
+        await MenuVideoChecks();   // the main menu's video loop (UiSelfTest.MenuVideo.cs)
         await OptionsChecks();   // ui/menu-rebuild: the options' rows, effects and persistence
         await PresetsGlowChecks();   // ui/lighting-presets, ui/focus-glow (UiSelfTest.PresetsGlow.cs)
         await FitChecks();

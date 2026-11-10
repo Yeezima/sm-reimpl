@@ -90,11 +90,18 @@ public sealed partial class FrontEndView : Control
         Theme = UiKit.Theme;
     }
 
+    /// <summary>The screen's background: the looping video (2026-11-10) or, with <c>--menu-still</c>, the still picture.</summary>
+    public Control? MenuBackground => _background;
+    Control? _background;
+    PerfProbe? _perfProbe;
+
     public override void _Ready()
     {
         UiKit.EnterVirtualSpace(GetWindow());
-        AddChild(UiKit.MenuBackground().With(n => n.SetAnchorsPreset(LayoutPreset.FullRect)));
+        _background = UiKit.MenuBackground().With(n => n.SetAnchorsPreset(LayoutPreset.FullRect));
+        AddChild(_background);
         ShowLoading("Reading your Space Marine install...");
+        if (PerfProbe.On) TreeExiting += () => _perfProbe?.PrintSummary();
     }
 
     /// <summary>Gives the window back to the game (the match draws in real pixels).</summary>
@@ -140,6 +147,9 @@ public sealed partial class FrontEndView : Control
     public override void _Process(double delta)
     {
         _frames++;
+        if (PerfProbe.On) (_perfProbe ??= new PerfProbe(GetViewport())).Frame(delta, GetTree().Root);   // perf/pass-1 test aid (--perf-probe), the menu's frames too (menu video, 2026-11-10)
+        // The video pauses under the customizer, whose own dark background covers it.
+        if (_background is MenuVideoBackground video) video.Covered = _creator?.Visible == true || _appearance?.Visible == true;
         if (!_built)
         {
             if (_services.Failed && _loading is not null && _loadingText is not null) { ShowFailure(_services.Error ?? "unknown error"); _loadingText = null; }

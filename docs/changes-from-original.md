@@ -708,6 +708,12 @@ the hit is engine code, so these rules are ours (spec "Melee interaction pass").
 | Loading screen picture | The owner's earlier menu picture behind LOADING, dimmed toward the corners (not SM1's per-map loading art and tips); since the polish pass P2 a caption under LOADING names the load's stage (ours) | SM1's loading screens (map art and tips) | Loading screen: "Loading screen picture" |
 | Screen blink | A short fade to black and back (0.18 s close, a hold until the new screen has settled, 0.26 s open) between the menu, the loading screen and the match; `--no-screen-blink` turns it off | How SM1's front end changed screens | Screen blink |
 
+### Main menu video (owner 2026-11-10; client only)
+
+| Area | What we do | What is unknown | Spec |
+|---|---|---|---|
+| Main menu video | Ours (the owner's request, "use this video loop as the main menu background in the next shipped release"): the main menu, its pages and the game folder setup play a looping 31.3 s video behind the menu (the owner's own cinematic of our Ashfall Citadel map, a Space Marine with a glowing power sword; owner-made 2026-11-10, our own media, not an original file), covering the window at any aspect ratio, paused under the customizer; it replaces the still picture of 2026-11-09, which `--menu-still` (and a missing or unplayable file) brings back. SM1's front end had no such video | — (ours: SM1's menu backgrounds are not reproduced) | Main menu video |
+
 ## 3. Not yet reproduced
 
 Known original features missing from the alpha (alpha scope: Annihilation and Seize Ground on Manufactorum only).

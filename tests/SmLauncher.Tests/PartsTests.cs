@@ -73,6 +73,7 @@ public class PartsTests
     [InlineData("game/data_SmClient_windows_x86_64/SmClient.dll", "client")]
     [InlineData("game/data_SmClient_windows_x86_64/SmClient.deps.json", "client")]
     [InlineData("game/assets/menu/background.jpg", "media")]
+    [InlineData("game/assets/menu/menu-loop.ogv", "media")]
     [InlineData("game/ashfall-kit/models/wall.glb", "ashfall")]
     [InlineData("server/SmServer.exe", "server")]
     [InlineData("server/SmSim.dll", "server")]

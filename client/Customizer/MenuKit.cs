@@ -24,7 +24,8 @@ public static partial class UiKit
     public static readonly Color MenuIdle = new(0.9f, 0.9f, 0.9f);
     public const string MenuButtonType = "SmMenuButton", MenuLabelType = "SmMenuLabel";
 
-    /// <summary>Where the background image is read from (the file is optional: without it the menus are plain dark). Not imported by Godot: read as a file.</summary>
+    /// <summary>Where the still background image is read from (the file is optional: without it the menus are plain dark; behind the menus only with <c>--menu-still</c> or without the
+    /// video since 2026-11-10, see <see cref="MenuVideoPath"/>). Not imported by Godot: read as a file.</summary>
     public const string MenuBackgroundPath = "res://assets/menu/background.jpg";
 
     /// <summary>
@@ -74,13 +75,7 @@ public static partial class UiKit
         return null;
     }
 
-    /// <summary>The full-screen background of every menu but the customizer and the in-match menu: the image, covering the window without stretching, or the plain dark background.</summary>
-    public static Control MenuBackground()
-    {
-        if (MenuBackgroundImage() is not { } image) return Background();
-        var root = new TextureRect { Name = "MenuBackground", Texture = image, StretchMode = TextureRect.StretchModeEnum.KeepAspectCovered, ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, MouseFilter = Control.MouseFilterEnum.Ignore };
-        return root;
-    }
+    // The full-screen background of every menu but the customizer and the in-match menu (MenuBackground, the looping video since 2026-11-10, or the still picture): MenuVideo.cs.
 
     /// <summary>Keeps the rows' text readable: their size follows the window's scale on the virtual space, never under <see cref="MinMenuPixels"/> real pixels.</summary>
     public static void FitMenuText(Vector2 windowPixels)
