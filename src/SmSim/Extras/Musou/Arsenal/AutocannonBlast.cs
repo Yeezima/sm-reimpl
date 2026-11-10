@@ -37,7 +37,7 @@ public static class AutocannonRules
     /// <summary>The bolt blast's reach (<c>TfwCombatRules.BoltBlastRadius</c>), the size a blast is drawn at as it is.</summary>
     public const float BoltBlastReach = 1.25f;
     /// <summary>The wire's step for a point (<c>TfwWire.PointStep</c>, a decimetre): a blast's radius reaches the client rounded to it (1.25 m as 1.2, 2.5 m as 2.5).</summary>
-    const float WireStep = 0.1f;
+    public const float WireStep = 0.1f;   // TfwWire.PointStep is this constant, so the two cannot drift
 
     /// <summary>
     /// How large a blast whose record says <paramref name="radius"/> metres is drawn against the bolt blast's. The record's radius is rounded to a decimetre on the wire, so a radius within one step of the bolt

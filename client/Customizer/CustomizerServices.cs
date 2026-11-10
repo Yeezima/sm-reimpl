@@ -111,6 +111,9 @@ public sealed partial class CustomizerServices
     /// <summary>The services are used by the in-match picker (<c>C</c>): the 3D preview then draws no eye glow, since the match has its own effects and a second library would load beside it.</summary>
     public bool InMatch { get; set; }
 
+    /// <summary>These services were made for a match's picker (<c>NetworkView.OfMatch</c>) and stay so: unlike <see cref="InMatch"/> it is never reset, so what only the front end needs (Musou's own configuration for a Join, <see cref="ExtrasConfig"/>) is never read for a match.</summary>
+    public bool MadeForMatch { get; set; }
+
     public PreviewAssets Previews { get; }
 
     public CustomizerServices(string gameDir, string? profileFile, bool lockDemo, string? contentArg = null)

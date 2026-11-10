@@ -10,7 +10,7 @@ namespace SmClient.Customizer;
 /// planned from Musou's page would look the autocannon up in a list that does not have it and send the default primary. Under a Musou content profile <see cref="CustomizerServices.Config"/> is the
 /// configuration the match tuning builds for that profile (<see cref="GameplayTuning.LoadForMatch"/>, which appends the arsenal): read once per profile on a worker, started and awaited at the end of the services' own load (so <c>LoadTask</c> covers it for a launch that waits on it) and again the first time something asks after the profile changes, and null
 /// until it is ready, so <see cref="CustomizerServices.Ready"/> (and so PLAY and JOIN) wait for it; if the read fails the data's configuration is used and the failure noted. The in-match picker (it has the
-/// match's own configuration: its services are marked <see cref="CustomizerServices.InMatch"/> as they are made, before any Ready check) and every profile without Musou are untouched.
+/// match's own configuration: its services are marked <see cref="CustomizerServices.MadeForMatch"/> as they are made, for good) and every profile without Musou are untouched.
 /// </summary>
 public sealed partial class CustomizerServices
 {
@@ -20,7 +20,7 @@ public sealed partial class CustomizerServices
     Task<SimConfig?>? MusouConfigTask()
     {
         var content = Content;
-        if (InMatch || !content.HasFlag(ContentExtras.Musou)) return null;
+        if (InMatch || MadeForMatch || !content.HasFlag(ContentExtras.Musou)) return null;
         lock (_musouConfigLock)
         {
             if (_musouConfig is not { } known || known.Content != content) _musouConfig = known = (content, Task.Run(() => ReadMusouConfig(content)));
