@@ -36,6 +36,15 @@ public partial class NetworkView
     readonly List<(double At, Num.Vector3 Where)> _tfwBoltDrawn = new();
     int _tfwBoltBlastsShown, _tfwBoltBlastsDrawn;
 
+    /// <summary>The bolt blast's own reach in metres (<c>TfwCombatRules.BoltBlastRadius</c>): the size every blast was drawn at before an arsenal weapon set off bigger ones.</summary>
+    internal const float BoltBlastReach = 1.25f;
+
+    /// <summary>
+    /// How large a blast of <paramref name="radius"/> metres is drawn against the bolt blast's (W1, the autocannon: its 2.5 m blast shows twice the size; the owner: "2x the HE explosion size"). The bolt blast's own
+    /// radius, a record with none (0 or less) and anything not finite give 1, so the bolt blast is drawn as it was.
+    /// </summary>
+    internal static float BoltBlastSizeOf(float radius) => SmSim.AutocannonRules.BlastDrawScale(radius);   // the wire rounds the radius to a decimetre: 1.25 arrives as 1.2, still the bolt blast's size
+
     /// <summary>Tag 11's bolt blast records of this frame's sections (as <see cref="TfwFragFrame"/>), each (tick, count) once.</summary>
     void TfwBoltBlastFrame()
     {
@@ -59,7 +68,7 @@ public partial class NetworkView
                 }
                 if (Lean || DisplayServer.GetName() == "headless") { drawn++; _tfwBoltDrawn.Add((_connectedFor, fire.At)); continue; }
                 var shake = _shake;
-                if (FxDetonation(view, BoltBlastFxScale)) _tfwBoltBlastsDrawn++;
+                if (FxDetonation(view, BoltBlastFxScale * BoltBlastSizeOf(fire.To.Y))) _tfwBoltBlastsDrawn++;
                 _shake = shake + (_shake - shake) * BoltBlastShake;
                 drawn++;
                 _tfwBoltDrawn.Add((_connectedFor, fire.At));

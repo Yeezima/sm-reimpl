@@ -81,7 +81,7 @@ public partial class NetworkView
     {
         if (OldMeleeHitSound || !GeneratedMeleeHitSound || _config is null) return null;
         if (charge) return null;   // every charge keeps its original sound (hotfix 2026-11-01)
-        return MeleeHitSynth.Replaces(MeleeWargear(attacker));
+        return MeleeHitSynth.Replaces(PresentedAs(MeleeWargear(attacker)));   // W0b: an added weapon by its source's name
     }
 
     /// <summary>Seconds after the own strike's sound during which the server's reports of that swing stay silent: past a normal round trip, short of the next swing's hit (ours).</summary>

@@ -1,4 +1,5 @@
 using System;
+using SmContent;
 using SmNet;
 using SmSim;
 
@@ -32,7 +33,8 @@ public partial class NetworkView
         if (CharacterViewer.OldHammerLegs || NoMeleeFlow || _config is null || s.MeleeStep <= 0 || MeleeWargear(s) is not { } wargear) return 1f;
         // sim/instant-step (owner, 2026-11-06): every weapon's strikes, light and heavy, step further and sooner than their clips: their legs travel the body's lunge too (not the in-place stomp).
         // --old-strike-legs (test aid): only the hammer's light strikes, as anim/hammer-swing did.
-        bool hammer = wargear.Contains("thunder_hammer", StringComparison.OrdinalIgnoreCase) || wargear.Contains("power_mace", StringComparison.OrdinalIgnoreCase);
+        string named = AnimationAlias.Of(wargear);   // W0b: Musou's spear strides as the hammer
+        bool hammer = named.Contains("thunder_hammer", StringComparison.OrdinalIgnoreCase) || named.Contains("power_mace", StringComparison.OrdinalIgnoreCase);
         if (OldStrikeLegs && (!hammer || s.MeleeHeavy)) return 1f;
         if (Combat.MeleeStepOf(_config, s) is not { Reach.Variants.Count: > 0, InPlace: false } step) return 1f;
         float k = _config.LungeScale * step.LungeFactorApplied;
@@ -58,7 +60,7 @@ public partial class NetworkView
     /// <summary><c>--old-hammer-slash</c> (test aid): the hammer marine's air slash shows the sword's clip as before anim/hammer-swing.</summary>
     static readonly bool OldHammerSlash = Godot.OS.GetCmdlineUserArgs().Contains("--old-hammer-slash");
     /// <summary>Whether <paramref name="s"/>'s air slash shows the hammer's own clip (the thunder hammer or the daemon maul in hand).</summary>
-    bool HammerSlash(PlayerState s) => !OldHammerSlash && _hammerSlashClip is not null && HammerSlashPose.IsHammer(MeleeWargear(s));
+    bool HammerSlash(PlayerState s) => !OldHammerSlash && _hammerSlashClip is not null && MeleeWargear(s) is { } w && HammerSlashPose.IsHammer(AnimationAlias.Of(w));   // AnimationAlias (W0b): Musou's spear slashes as the hammer
     /// <summary>The clip <paramref name="s"/>'s air slash shows: the hammer's, or the sword's (null: none; the pound's clips).</summary>
     string? SlashClipOf(PlayerState s) => HammerSlash(s) ? _hammerSlashClip : _slashClip;
 }

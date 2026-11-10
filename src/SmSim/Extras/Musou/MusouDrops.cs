@@ -1,5 +1,7 @@
 using System.Numerics;
 
+using SmSim.Extras.Musou.Arsenal;
+
 namespace SmSim.Extras.Musou;
 
 /// <summary>How a Musou weapon drop ends (wire tag 6's state byte): it lies there, a player picked it up, or its time ran out.</summary>
@@ -56,7 +58,7 @@ public static class MusouDropRules
         int primary = Loadouts.WeaponIndex(c, s, WeaponSlot.Ranged);
         foreach (int w in Loadouts.Choices(c, s.Class, WeaponSlot.Ranged))
         {
-            if (w < 0 || w >= c.Weapons.Count || w >= MusouDropItem.MeleeFlag || !Loadouts.ValidWeapon(c, s.Class, WeaponSlot.Ranged, w)) continue;
+            if (w < 0 || w >= c.Weapons.Count || w >= MusouDropItem.MeleeFlag || !Loadouts.ValidWeapon(c, s.Class, WeaponSlot.Ranged, w) || ArsenalRules.IsArsenal(c.Weapons[w].Name)) continue;   // the arsenal's items are not dropped (lead, 2026-11-10: the drop shows a placeholder model)
             all.Add((ushort)w);
             if (w != primary) other.Add((ushort)w);
         }
@@ -64,7 +66,7 @@ public static class MusouDropRules
         int pistol = Loadouts.WeaponIndex(c, s, WeaponSlot.Pistol);
         foreach (int w in Loadouts.Choices(c, s.Class, WeaponSlot.Pistol))
         {
-            if (w < 0 || w >= c.Weapons.Count || w >= MusouDropItem.MeleeFlag || w == spawnPistol || !Loadouts.PistolPerkRule(c, s, w)) continue;
+            if (w < 0 || w >= c.Weapons.Count || w >= MusouDropItem.MeleeFlag || w == spawnPistol || !Loadouts.PistolPerkRule(c, s, w) || ArsenalRules.IsArsenal(c.Weapons[w].Name)) continue;
             all.Add((ushort)w);
             if (w != pistol) other.Add((ushort)w);
         }
@@ -73,6 +75,7 @@ public static class MusouDropRules
             int melee = Loadouts.MeleeChoiceOf(c, s);
             for (int k = 1; k < loadout.MeleeChoices.Count && k < MusouDropItem.MeleeFlag; k++)
             {
+                if (ArsenalRules.IsArsenal(loadout.MeleeChoices[k].Wargear)) continue;   // the power spear and the claw are not dropped
                 all.Add(MusouDropItem.Melee(k));
                 if (k != melee) other.Add(MusouDropItem.Melee(k));
             }

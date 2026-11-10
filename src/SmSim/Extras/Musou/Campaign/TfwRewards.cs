@@ -111,7 +111,7 @@ public sealed class TfwRewards
         TfwRewardCard Card(TfwRewardKind kind, ushort? item) => item is { } i ? new TfwRewardCard(kind, i) : default;
 
         var weapon = Card(TfwRewardKind.Weapon, Pick(Pool(c, home, kit), h & 0xFFFF));
-        var equipmentPool = Loadouts.EquipmentChoices(c, home.Class).Where(e => e != Loadouts.EquipmentIndex(c, home) && Loadouts.ValidEquipment(c, home.Class, e)).Select(e => (ushort)e).ToList();
+        var equipmentPool = Loadouts.EquipmentChoices(c, home.Class).Where(e => e != Loadouts.EquipmentIndex(c, home) && Loadouts.ValidEquipment(c, home.Class, e) && !(e >= 0 && e < c.Thrown.Count && SmSim.Extras.Musou.Arsenal.ArsenalRules.IsArsenal(c.Thrown[e].Name))).Select(e => (ushort)e).ToList();   // the arsenal's items are not offered (lead, 2026-11-10)
         var equipment = Card(TfwRewardKind.Equipment, Pick(equipmentPool, (h >> 16) & 0xFFFF));
         var perk = Card(TfwRewardKind.Perk, Pick(PerkPool(c, home).Select(p => (ushort)p).ToList(), (h >> 32) & 0xFFFF));
         _offers.Remove(player);

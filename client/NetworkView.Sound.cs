@@ -108,6 +108,8 @@ public partial class NetworkView
         {
             var graphs = HavokBehavior.Read(_assets.Model.Rig.Pack);
             var wargear = SoundTriggers.WargearNames(_config);
+            var sources = PresentationSourceMap();   // W0b: an added weapon sounds as install files (Musou's arsenal); empty without added content: the triggers as before
+            if (sources.Count > 0) wargear = [.. wargear.Where(n => !sources.ContainsKey(n)).Concat(sources.Values.SelectMany(v => v)).Distinct(StringComparer.OrdinalIgnoreCase)];
             bool orkClass = Enumerable.Range(0, _config.Classes.Count).Any(i => Races.Of(_config, i, Team.None) == Race.Orks);   // Ork O8: the Ork rig's clip tags too
             string gameDir = _gameDir;
             string repo = System.IO.Path.GetFullPath(System.IO.Path.Combine(ProjectSettings.GlobalizePath("res://"), ".."));
@@ -117,7 +119,7 @@ public partial class NetworkView
                 var sw = Stopwatch.StartNew();
                 var catalog = AudioCatalog.Open(gameDir, null, repoRoot: repo);
                 var orkGraphs = orkClass ? OrkGraphsOrNull(gameDir) : null;   // read here, on the worker: its own rig object
-                var triggers = SoundTriggers.Load(gameDir, wargear, SoundTriggers.PlayerBlueprints, graphs, orkGraphs);
+                var triggers = SoundTriggers.Load(gameDir, wargear, SoundTriggers.PlayerBlueprints, graphs, orkGraphs).WithSources(sources);
                 return (catalog, triggers, sw.Elapsed.TotalMilliseconds);
             });
         }

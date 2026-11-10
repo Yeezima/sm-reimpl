@@ -197,7 +197,7 @@ public partial class NetworkView
     {
         if (wargear is null || _soundTriggers is null || _audio is null) return null;
         if (_humCache.TryGetValue(wargear, out var known)) return known;
-        var hum = MeleeIdleSounds.For(wargear, _soundTriggers.File, _audio.HasEvent);
+        var hum = MeleeIdleSounds.For(PresentedAs(wargear), _soundTriggers.File, _audio.HasEvent);   // W0b: an added weapon's hum by its source's name (the claw: the sword's, quieter)
         _humCache[wargear] = hum;
         if (LogSound("melee"))
             GD.Print($"MELEE HUM {wargear}: {(hum is null ? "none (the file names no idle event that is in a bank: not reproducible)" : $"{hum.Start} / stop '{hum.Stop}', {hum.GainDb:+0.#;-0.#;0} dB{(hum.Substitute ? ", substitute (ours)" : "")}")}");
