@@ -168,7 +168,8 @@ public sealed partial class GameServer
     public const string MusouPowerupTestVariable = "SM_MUSOU_POWERUP_TEST";
     float? _musouPowerupTest;
     readonly Dictionary<int, (uint At, int Step)> _musouPowerupTestNext = new();
-    readonly Dictionary<int, (uint Version, uint Tick)> _musouDropSent = new();
+    /// <summary>What a client was last sent of its drops and buffs: the combined version, the tick, the buffs' own version, and the tick before which a buff change is still being resent.</summary>
+    readonly Dictionary<int, (uint Version, uint Tick, uint BuffVersion, uint SettleUntil)> _musouDropSent = new();
     readonly List<MusouBuffRecord> _musouBuffRecords = new();
     readonly List<MusouDrop> _musouDropList = new();
     readonly List<MusouDropRecord> _musouDropRecords = new();
@@ -194,11 +195,17 @@ public sealed partial class GameServer
 
     /// <summary>A client's drop list is sent again every this many ticks while it is not empty (ours: a lost message is mended within half a second).</summary>
     const uint MusouDropRefreshTicks = 15;
+    /// <summary>
+    /// After a change of the buffs (taken, or ended by a death or the round) the section is sent again every <see cref="MusouBuffResendTicks"/> ticks for <see cref="MusouBuffSettleSeconds"/>
+    /// (the review of 2026-11-10: the one empty list after a death or a round could be lost and the client kept the old buffs; ours: about six copies in that second).
+    /// </summary>
+    const uint MusouBuffResendTicks = 5;
+    const float MusouBuffSettleSeconds = 1f;
 
     /// <summary>
-    /// Player <paramref name="playerId"/>'s drops (only its own: the drops are per player) as one tag 6 section, when its list changed since the last one sent
-    /// or every <see cref="MusouDropRefreshTicks"/> ticks while not empty; added to the tick's last message when it has room, else as a new message within
-    /// the cap of <see cref="MusouSendRules.MaxMessagesPerTick"/>; with no room it waits for the next tick (the change is still unsent).
+    /// Player <paramref name="playerId"/>'s drops (only its own: the drops are per player) and its buffs as one tag 6 section, when either changed since the last one sent,
+    /// every <see cref="MusouDropRefreshTicks"/> ticks while not empty, and every <see cref="MusouBuffResendTicks"/> ticks for a second after a buff change; added to the tick's last message
+    /// when it has room, else as a new message within the cap of <see cref="MusouSendRules.MaxMessagesPerTick"/>; with no room it waits for the next tick (the change is still unsent).
     /// </summary>
     void MusouDropSection(int playerId, uint tick, MusouBox box, List<(byte Tag, byte[] Payload)[]> messages)
     {
@@ -207,13 +214,17 @@ public sealed partial class GameServer
                 Log?.Invoke($"musou: test aid {MusouDropTestVariable}: drop {test.Id} for player {playerId} at {test.Position.X:F1},{test.Position.Y:F1},{test.Position.Z:F1}, item {test.Item}");
         // The powerups (owner 2026-11-10): the player's buffs travel after its drops; a change of either sends the section, and it is refreshed while either is there.
         MusouPowerupTestStep(playerId);
-        uint version = World.MusouDropVersion(playerId) * 65599u + World.MusouBuffVersion(playerId);
+        uint buffVersion = World.MusouBuffVersion(playerId);
+        uint version = World.MusouDropVersion(playerId) * 65599u + buffVersion;
         int n = World.MusouDropsOf(playerId, _musouDropList);
         var buffs = World.MusouBuffsOf(playerId);
         bool any = n > 0 || buffs.Any(World.Tick);
         bool known = _musouDropSent.TryGetValue(playerId, out var sent);
         bool changed = known ? sent.Version != version : any;
-        bool refresh = any && known && (tick - sent.Tick >= MusouDropRefreshTicks || tick < sent.Tick);
+        bool buffChanged = known ? sent.BuffVersion != buffVersion : buffs.Any(World.Tick);
+        bool rewound = known && tick < sent.Tick;
+        bool settling = known && !rewound && tick < sent.SettleUntil;   // review item 1: a buff change is resent for a second
+        bool refresh = known && (rewound || (any && tick - sent.Tick >= MusouDropRefreshTicks) || (settling && tick - sent.Tick >= MusouBuffResendTicks));
         if (!changed && !refresh) return;
         _musouDropRecords.Clear();
         foreach (var d in _musouDropList) _musouDropRecords.Add(new MusouDropRecord(d.Id, d.Position, d.Item, d.State, d.Crate));
@@ -222,7 +233,8 @@ public sealed partial class GameServer
             if (buffs.Active(kind, World.Tick)) _musouBuffRecords.Add(new MusouBuffRecord(kind, (ushort)Math.Min(ushort.MaxValue, buffs.EndOf(kind) - World.Tick)));
         (byte, byte[]) section = (MusouWire.DropsTag, MusouWire.WriteDrops(_musouDropRecords, box, _musouBuffRecords));
         if (!AppendMusouSection(messages, section, tick)) return;   // no room this tick: sent the next
-        _musouDropSent[playerId] = (version, tick);
+        uint settleUntil = buffChanged ? tick + (uint)MathF.Max(1f, MathF.Round(MusouBuffSettleSeconds * World.Config.TickRate)) : rewound ? 0u : sent.SettleUntil;
+        _musouDropSent[playerId] = (version, tick, buffVersion, settleUntil);
         MusouDropSections++;
         MusouDropRecordsSent += _musouDropRecords.Count;
     }

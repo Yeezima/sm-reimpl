@@ -120,7 +120,8 @@ public sealed partial class World
 
     /// <summary>
     /// Once a tick (the end of the Musou step): in play, each living player whose interact press is this tick's takes its nearest own live drop in reach
-    /// (equipped; that press then collects no ammunition box); then expiry, the ended drops' listing time, and the drops of players who left.
+    /// (equipped; that press then collects no ammunition box), or begins to hold the key for it when it is a powerup (taken after the hold: <c>MusouHoldsStep</c>);
+    /// then the holds, expiry, the ended drops' listing time, and the drops of players who left.
     /// </summary>
     void MusouDropsStep()
     {
@@ -132,7 +133,7 @@ public sealed partial class World
             foreach (int id in _musouDropPlayers) _musouDropVersions.Remove(id);
         }
         MusouPowerupsStep();   // World.MusouPowerups.cs: the buffs' upkeep, the fear list and the damage scales
-        if (_musouDrops.Count == 0) return;
+        if (_musouDrops.Count == 0) { _musouHolds.Clear(); return; }
         if (_state == MatchState.Playing && _interactPresses.Count > 0)
         {
             _musouDropPlayers.Clear();
@@ -152,12 +153,15 @@ public sealed partial class World
                 }
                 if (best < 0) continue;
                 ushort item = _musouDrops[best].Item;
-                if (MusouPowerupRules.IsPowerup(item) ? !MusouGiveBuff(id, MusouPowerupRules.KindOf(item)) : !MusouGiveItem(id, item)) continue;
-                MusouEndDrop(best, MusouDropState.Picked);
+                // A powerup is taken by holding the key (owner 2026-11-10: "Hold the use key"; World.MusouPowerups.cs): the press begins the hold. A weapon or a crate goes at the press, as before.
+                if (MusouPowerupRules.IsPowerup(item)) MusouStartHold(id, _musouDrops[best].Id);
+                else if (!MusouGiveItem(id, item)) continue;
+                else MusouEndDrop(best, MusouDropState.Picked);
                 for (int k = _interactPresses.Count - 1; k >= 0; k--)   // the drop went first: this press collects no ammunition box (Pickups.cs)
                     if (_interactPresses[k] == id) _interactPresses.RemoveAt(k);
             }
         }
+        MusouHoldsStep();   // World.MusouPowerups.cs: the holds go on, end, or take their drop
         uint keep = (uint)MathF.Max(1f, MathF.Round(MusouDropRules.EndedListedSeconds * Config.TickRate));
         for (int i = _musouDrops.Count - 1; i >= 0; i--)
         {

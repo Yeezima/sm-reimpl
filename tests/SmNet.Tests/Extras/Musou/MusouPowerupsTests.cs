@@ -7,9 +7,10 @@ using SmSim.Extras.Musou.Campaign;
 namespace SmNet.Tests.Extras.Musou;
 
 /// <summary>
-/// The Musou powerups (owner, 2026-11-10): drops hold powerups, not weapons, from elites (about one in ten) and bosses (always); the use key takes one and starts its buff for its full time (again: the
-/// full time again, no stacking); Double Damage doubles the player's damage, Supercharged Melee its melee damage; Fear sends the Orks near the player running (never a boss); Rapid Fire sets
-/// <see cref="PlayerState.FireBoostLeft"/>, which only Musou turns into a fire boost; a death ends the buffs; wire tag 6 carries them after the drops.
+/// The Musou powerups (owner, 2026-11-10): drops hold powerups, not weapons, from elites (about one in ten) and bosses (always); holding the use key half a second takes one (the server checks the hold)
+/// and starts its buff for its full time (again: the full time again, no stacking); Double Damage doubles the player's damage, Supercharged Melee its melee damage and widens its cleave, and no
+/// multiplier stacks past x2 (the owner's caps: Supercharged x Double Damage x a stim on melee, Rapid Fire x a stim on the fire rate); Fear sends the Orks near the player running (never a boss);
+/// Rapid Fire sets <see cref="PlayerState.FireBoostLeft"/>, which only Musou turns into a fire boost; a death or a new round ends the buffs; wire tag 6 carries them after the drops.
 /// </summary>
 public class MusouPowerupsTests
 {
@@ -41,6 +42,21 @@ public class MusouPowerupsTests
         w.MusouDropsOf(id, list);
         return list;
     }
+
+    /// <summary>Changes player <paramref name="id"/>'s state in place (as <see cref="MusouCombatRulesTests"/> does).</summary>
+    static void Set(World w, int id, Func<PlayerState, PlayerState> change)
+    {
+        var players = (Dictionary<int, PlayerState>)typeof(World).GetField("_players", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.GetValue(w)!;
+        players[id] = change(players[id]);
+    }
+
+    /// <summary>Player <paramref name="id"/> holds the use key for <paramref name="ticks"/> ticks (the first a press), the others nothing.</summary>
+    static void Hold(World w, int id, int ticks)
+    {
+        for (int k = 0; k < ticks; k++) w.Step(p => p == id ? Press : default);
+    }
+
+    static int HoldTicks(World w) => MusouPowerupRules.HoldTicks(w.Config.TickRate);
 
     // ---------------------------------------------------------------- the rules
 
@@ -84,7 +100,7 @@ public class MusouPowerupsTests
     // ---------------------------------------------------------------- the world
 
     [Fact]
-    public void A_boss_kill_drops_a_powerup_for_every_living_player_and_the_use_key_starts_its_buff()
+    public void A_boss_kill_drops_a_powerup_for_every_living_player_and_holding_the_use_key_starts_its_buff()
     {
         var w = NewWorld();
         w.Spawn(1, w.AssignClass(0));
@@ -99,11 +115,69 @@ public class MusouPowerupsTests
         Assert.Single(DropsOf(w, 2));
         Assert.True(MusouPowerupRules.IsPowerup(mine[0].Item));
         var kind = MusouPowerupRules.KindOf(mine[0].Item);
-        w.Step(id => id == 1 ? Press : default);
+        Hold(w, 1, HoldTicks(w));
         Assert.Equal(MusouDropState.Picked, DropsOf(w, 1)[0].State);
         Assert.True(w.MusouBuffActive(1, kind));
         Assert.False(w.MusouBuffActive(2, kind));
         Assert.Equal(1, w.MusouPowerupsTaken);
+    }
+
+    [Fact]
+    public void A_powerup_takes_a_half_second_hold_that_a_release_or_leaving_its_reach_ends()
+    {
+        var w = NewWorld();
+        w.Spawn(1, w.AssignClass(0));
+        w.Step(_ => default);
+        int need = HoldTicks(w);
+        Assert.Equal(0.5f, MusouPowerupRules.HoldSeconds);
+        Assert.Equal(15, MusouPowerupRules.HoldTicks(30));
+        Assert.Equal(1, MusouPowerupRules.HoldTicks(1));
+        var drop = w.MusouSpawnDrop(1, w.Players[1].Position + new Vector3(0.6f, 0f, 0f), MusouPowerupRules.Item(MusouPowerup.Fear))!.Value;
+
+        // A tap, and a hold one tick short: nothing taken, the hold runs while the key is down and ends with the release.
+        Hold(w, 1, 1);
+        Assert.Equal(drop.Id, w.MusouHoldOf(1)!.Value.Drop);
+        w.Step(_ => default);
+        Assert.Null(w.MusouHoldOf(1));
+        Hold(w, 1, need - 1);
+        Assert.NotNull(w.MusouHoldOf(1));
+        Assert.Equal(MusouDropState.Live, DropsOf(w, 1)[0].State);
+        Assert.False(w.MusouBuffActive(1, MusouPowerup.Fear));
+        w.Step(_ => default);   // released one tick short
+        Assert.Null(w.MusouHoldOf(1));
+        Assert.Equal(MusouDropState.Live, DropsOf(w, 1)[0].State);
+        Assert.Equal(0, w.MusouPowerupsTaken);
+
+        // Leaving the drop's reach mid-hold ends it too; the key still down starts nothing (a new press does).
+        Hold(w, 1, need / 2);
+        var home = w.Players[1].Position;
+        Set(w, 1, p => p with { Position = home + new Vector3(10f, 0f, 0f) });
+        w.Step(p => p == 1 ? Press : default);
+        Assert.Null(w.MusouHoldOf(1));
+        Set(w, 1, p => p with { Position = home });
+        Hold(w, 1, need);
+        Assert.Null(w.MusouHoldOf(1));
+        Assert.Equal(MusouDropState.Live, DropsOf(w, 1)[0].State);   // held through, never pressed again
+
+        // A full hold from a fresh press: taken on its last tick.
+        w.Step(_ => default);
+        Hold(w, 1, need);
+        Assert.Equal(MusouDropState.Picked, DropsOf(w, 1)[0].State);
+        Assert.True(w.MusouBuffActive(1, MusouPowerup.Fear));
+        Assert.Null(w.MusouHoldOf(1));
+        Assert.Equal(1, w.MusouPowerupsTaken);
+    }
+
+    [Fact]
+    public void A_weapon_drop_still_goes_at_the_press()
+    {
+        var w = NewWorld();
+        w.Spawn(1, w.AssignClass(0));
+        w.Step(_ => default);
+        w.MusouSpawnDrop(1, w.Players[1].Position + new Vector3(0.6f, 0f, 0f), 0);   // the bolter (index 0)
+        w.Step(id => id == 1 ? Press : default);
+        Assert.Equal(MusouDropState.Picked, DropsOf(w, 1)[0].State);
+        Assert.Null(w.MusouHoldOf(1));
     }
 
     [Fact]
@@ -171,6 +245,156 @@ public class MusouPowerupsTests
 
     static void Health(World w, ushort id, out float health) { Assert.True(w.Musou!.TryGet(id, out var e)); health = e.Health; }
 
+    // ---------------------------------------------------------------- the owner's x2 caps (2026-11-10) and the wider cleave
+
+    static readonly StimSpec StimData = new(5f, 0.3f, 0.9f) { MeleeDamage = 1.35f };
+    static readonly ThrownSpec StimItem = new("sm_mp_eq_stimpack", 1, -1, 6f, 0f, ThrownSpec.NoProjectile) { Stim = StimData };
+    /// <summary>A slow automatic gun (0.3 s a shot): x1, x1.2, x2 and x2.4 fire 9, 8, 5 and 4 ticks apart, so the counts tell the caps apart.</summary>
+    static readonly WeaponSpec SlowGun = new("slow_rifle", WeaponSlot.Ranged, TriggerKind.FullAuto, 9f, 0.3f, 30, 270, 1.2f, 250f, 45f, 70f, 0.8f, 2.5f, 1f, 0.5f, 0.5f);
+    static readonly MeleeStep Swing = new(1f, 0.2f, 0.4f, 0.6f, 0.5f, 0.7f, 25f, 10f, 3.5f);
+
+    /// <summary>The Musou combat world of <see cref="MusouCombatRulesTests"/> (enemies that stand still and hurt nobody), with a stim as the class's equipment and the slow gun; <paramref name="extras"/> its profile.</summary>
+    static SimConfig CombatConfig(ContentExtras extras = ContentExtras.Musou) => new()
+    {
+        Weapons = [SlowGun],
+        Thrown = [StimItem],
+        Classes = [new("sm - tactical", 0, -1, [Swing]) { PrimaryChoices = [0], EquipmentChoices = [0], Side = Team.SpaceMarines, Role = "tactical" }],
+        Extras = extras,
+        MusouRules = MusouRules.Default with { PlayerDamageScale = 0f, Types = [.. MusouRules.Default.Types.Select(t => t with { Speed = 0f })] },
+    };
+
+    static World CombatWorld()
+    {
+        var w = new World(CombatConfig()) { Rules = MusouSimTests.Endless };
+        Assert.True(w.StartMusou(null));
+        w.MusouDirector!.Hold = true;
+        w.Spawn(1, w.AssignClass(0), equipmentChoice: 0);
+        w.Step(_ => default);
+        Assert.Equal(MatchState.Playing, w.State);
+        return w;
+    }
+
+    /// <summary>The damage one light swing of player 1 (facing +Y) deals a sturdy Boy at <paramref name="offset"/> from it, with <paramref name="buffs"/> running and, if <paramref name="stim"/>, a stim.</summary>
+    static float SwingDamage(Vector3 offset, bool stim, params MusouPowerup[] buffs)
+    {
+        var w = CombatWorld();
+        if (stim) Set(w, 1, p => p with { StimLeft = 30f, Equipment = 0 });
+        Assert.Equal(stim, Stims.Active(w.Config, w.Players[1]) is not null);
+        foreach (var b in buffs) Assert.True(w.MusouGiveBuff(1, b));
+        w.Step(_ => default);   // the scales reach the pool once a tick
+        ushort boy = w.Musou!.Spawn(MusouEnemyType.Boy, w.Players[1].Position + offset, 0f, 1e5f);
+        Health(w, boy, out float before);
+        for (int t = 0; t < 20; t++) w.Step(_ => new PlayerInput(0, 0f, 0f, 0f, t == 0 ? InputButtons.Melee : 0));
+        Health(w, boy, out float after);
+        return before - after;
+    }
+
+    [Fact]
+    public void Melee_never_passes_x2_with_supercharged_double_damage_and_a_stim_together()
+    {
+        var ahead = new Vector3(0f, 1.5f, 0f);
+        float plain = SwingDamage(ahead, false);
+        Assert.True(plain > 0f);
+        Assert.Equal(2f * plain, SwingDamage(ahead, false, MusouPowerup.Supercharged), 2);                              // Supercharged alone: x2
+        Assert.Equal(2f * plain, SwingDamage(ahead, false, MusouPowerup.DoubleDamage), 2);                              // Double Damage alone: x2
+        Assert.Equal(2f * plain, SwingDamage(ahead, false, MusouPowerup.Supercharged, MusouPowerup.DoubleDamage), 2);   // both: x2, not x4
+        Assert.Equal(2f * plain, SwingDamage(ahead, true), 2);                                                          // Musou's stim alone: x2, as before
+        Assert.Equal(2f * plain, SwingDamage(ahead, true, MusouPowerup.Supercharged, MusouPowerup.DoubleDamage), 2);    // all three: x2, not x8
+        Assert.Equal(2f, MusouPowerupRules.Cap);
+
+        var w = CombatWorld();
+        Set(w, 1, p => p with { StimLeft = 30f, Equipment = 0 });
+        w.MusouGiveBuff(1, MusouPowerup.Supercharged);
+        w.MusouGiveBuff(1, MusouPowerup.DoubleDamage);
+        w.Step(_ => default);
+        Assert.Equal(2f, w.MusouMeleeMultiplier(1), 4);
+        Assert.Equal(2f, w.Musou!.MeleeScaleOf(1), 4);
+        // Shots keep Double Damage's x2 (the cap is about stacking; a stim adds nothing to a shot).
+        ushort boy = w.Musou.Spawn(MusouEnemyType.Boy, new Vector3(300f, 300f, 0f), 0f, 1000f);
+        Health(w, boy, out float h0);
+        w.Musou.Damage(boy, 1, 10f, Vector3.Zero, out _);
+        Health(w, boy, out float h1);
+        Assert.Equal(20f, h0 - h1, 3);
+    }
+
+    [Fact]
+    public void Supercharged_melee_widens_the_cleave()
+    {
+        // At 101 degrees off the facing, 2 m out: outside the 5-wave run's cleave (half-angle 60 x 1.5 = 90 degrees), inside Supercharged's 135.
+        var beside = new Vector3(2f, -0.4f, 0f);
+        Assert.Equal(0f, SwingDamage(beside, false));
+        Assert.True(SwingDamage(beside, false, MusouPowerup.Supercharged) > 0f);
+        Assert.Equal(0f, SwingDamage(beside, false, MusouPowerup.DoubleDamage));   // Double Damage leaves the cleave as it is
+        Assert.Equal(1.5f, MusouPowerupRules.CleaveScale);
+        // And longer: 1.25 times the cleave's reach straight ahead.
+        var w = CombatWorld();
+        float reach = w.Musou!.Rules.Combat.CleaveRange(w.Config.MeleeRange, Swing.TrackToHit, war: false);
+        var far = new Vector3(0f, reach * 1.25f, 0f);
+        Assert.Equal(0f, SwingDamage(far, false));
+        Assert.True(SwingDamage(far, false, MusouPowerup.Supercharged) > 0f);
+    }
+
+    /// <summary>Shots and rounds spent in 90 ticks of held fire with <see cref="PlayerState.FireBoostLeft"/> and a stim's time set on player 1 (no Musou enemies: <see cref="Combat"/>'s own step).</summary>
+    static (int Shots, int Spent) Fire(SimConfig config, float boost, float stim)
+    {
+        var w = new World(config, null, [new SpawnPoint(Vector3.Zero, 0f)]) { Rules = MusouSimTests.Endless };
+        w.Spawn(1, 0, equipmentChoice: 0);
+        for (int t = 0; t < 30; t++) w.Step(_ => default);   // raised and ready
+        Set(w, 1, p => p with { FireBoostLeft = boost, StimLeft = stim, Equipment = 0 });
+        int clip = w.Players[1].Clip, shots = 0;
+        for (int t = 0; t < 90; t++) { w.Step(_ => new PlayerInput(0, 0f, 0f, 0f, InputButtons.Fire)); shots += w.LastShots.Count; }
+        return (shots, clip - w.Players[1].Clip);
+    }
+
+    [Fact]
+    public void A_set_fire_boost_doubles_the_shots_and_keeps_the_clip_in_Musou_and_does_nothing_in_Classic()
+    {
+        var musou = CombatConfig();
+        var plain = Fire(musou, 0f, 0f);
+        var boosted = Fire(musou, 10f, 0f);
+        Assert.True(plain.Shots >= 8 && plain.Spent == plain.Shots, $"plain {plain}");
+        Assert.True(boosted.Shots >= plain.Shots * 17 / 10, $"boosted {boosted} vs plain {plain}");   // 5 ticks apart instead of 9: x1.8 at 30 ticks a second
+        Assert.Equal(0, boosted.Spent);
+        // The owner's "Cap at x2": Rapid Fire with a stim's x1.2 fires exactly as Rapid Fire alone (2.4 would be 4 ticks apart), and the stim alone keeps its x1.2.
+        Assert.Equal(boosted, Fire(musou, 10f, 30f));
+        var stimmed = Fire(musou, 0f, 30f);
+        Assert.True(stimmed.Shots > plain.Shots && stimmed.Shots < boosted.Shots && stimmed.Spent == 0, $"stim {stimmed}");
+        Assert.Equal(2f, musou.FireBoostCap);
+
+        // Classic PvP: the field does nothing (FireBoost 1), the rounds are spent, the stim fires as it always did.
+        var classic = CombatConfig(ContentExtras.None);
+        Assert.Equal(1f, classic.FireBoost);
+        Assert.Equal(float.PositiveInfinity, classic.FireBoostCap);
+        var classicPlain = Fire(classic, 0f, 0f);
+        Assert.Equal(classicPlain, Fire(classic, 10f, 0f));
+        Assert.Equal(plain.Shots, classicPlain.Shots);
+        Assert.Equal(classicPlain.Shots, classicPlain.Spent);
+        Assert.Equal(Fire(classic, 0f, 30f), Fire(classic, 10f, 30f));
+    }
+
+    [Fact]
+    public void A_new_round_clears_every_buff_and_hold()
+    {
+        var w = NewWorld();
+        w.Spawn(1, w.AssignClass(0));
+        w.Step(_ => default);
+        foreach (var kind in MusouPowerupRules.All) Assert.True(w.MusouGiveBuff(1, kind));
+        w.MusouSpawnDrop(1, w.Players[1].Position + new Vector3(0.6f, 0f, 0f), MusouPowerupRules.Item(MusouPowerup.Fear));
+        Hold(w, 1, 2);
+        Assert.NotNull(w.MusouHoldOf(1));
+        Assert.True(w.Players[1].FireBoostLeft > 0f);
+        uint version = w.MusouBuffVersion(1);
+        typeof(World).GetMethod("MusouNewRound", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.Invoke(w, null);
+        foreach (var kind in MusouPowerupRules.All) Assert.False(w.MusouBuffActive(1, kind));
+        Assert.False(w.MusouBuffsOf(1).Any(w.Tick));
+        Assert.Equal(0f, w.Players[1].FireBoostLeft);
+        Assert.Null(w.MusouHoldOf(1));
+        Assert.NotEqual(version, w.MusouBuffVersion(1));   // the server sends the change
+        Assert.Empty(w.MusouDrops);
+        w.Step(_ => default);
+        Assert.Equal(1f, w.Musou!.MeleeScaleOf(1));   // no scale left in the pool
+    }
+
     [Fact]
     public void Fear_sends_the_orks_near_the_player_running_but_never_a_boss()
     {
@@ -205,6 +429,7 @@ public class MusouPowerupsTests
         for (int k = 0; k < w.Config.TickRate; k++) w.Step(_ => default);
         Assert.InRange(w.Players[1].FireBoostLeft, 18.8f, 19.2f);
         Assert.Equal(MusouPowerupRules.FireRate, w.Config.FireBoost);
+        Assert.Equal(MusouPowerupRules.Cap, w.Config.FireBoostCap);
         Assert.Equal(1f, (Raw with { Extras = ContentExtras.None }).FireBoost);   // Classic PvP: no boost whatever the field holds
     }
 

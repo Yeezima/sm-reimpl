@@ -31,6 +31,16 @@ public static class MusouPowerupRules
     public const float MeleeScale = 2f, CleaveScale = 1.5f;
     /// <summary>Rapid Fire: the fire rate (owner: "twice as fast"); no round spent.</summary>
     public const float FireRate = 2f;
+    /// <summary>
+    /// The most the multipliers together make of a player's melee damage on the enemies, and of its fire rate (owner, 2026-11-10: "x2 cap" for Supercharged Melee with Double Damage, "Cap at x2" for
+    /// Rapid Fire with a combat stim; "no multiplier stacks past x2, stims included"): Supercharged x Double Damage x a stim's melee x2 is x2 in all, Rapid Fire x a stim's x1.2 speed is x2.
+    /// </summary>
+    public const float Cap = 2f;
+    /// <summary>Seconds the use key is held to take a powerup (the owner's "Hold the use key"; the lead's "about half a second"; the value ours, an estimate to check in a playtest).</summary>
+    public const float HoldSeconds = 0.5f;
+
+    /// <summary>The hold in ticks at <paramref name="tickRate"/> (at least 1): the press's tick counts as the first held one.</summary>
+    public static int HoldTicks(int tickRate) => Math.Max(1, (int)MathF.Round(HoldSeconds * Math.Max(1, tickRate)));
     /// <summary>Fear: Orks within this many metres of the player run from it (ours), this much faster than they walk (ours, as the Scrap Mek's flight).</summary>
     public const float FearRadius = 30f, FearSpeedScale = 1.15f;
     /// <summary>The share of elite KOs that drop one (owner: "~10%").</summary>

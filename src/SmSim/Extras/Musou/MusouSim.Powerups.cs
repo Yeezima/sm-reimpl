@@ -8,7 +8,8 @@ namespace SmSim.Extras.Musou;
 /// <item>Fear: an Ork within <see cref="MusouPowerupRules.FearRadius"/> of a feared player drops its target and token and runs from the nearest such player, up the flow field where it leads away (as the
 /// Scrap Mek runs, <see cref="FleeWay"/>), <see cref="MusouPowerupRules.FearSpeedScale"/> times its speed. The Boss Orks and the Warboss stand their ground (ours: a boss fight stays a fight), and so do
 /// a Bomb Squig (it runs at you by nature), an Ork the boss's ability drives and one in the air.</item>
-/// <item>Damage: a player's damage to any enemy is scaled (<see cref="SetAttackerScale"/>): Double Damage on all of it, Supercharged Melee on its melee hits (both: 4x melee, ours: they multiply).</item>
+/// <item>Damage: a player's damage to any enemy is scaled (<see cref="SetAttackerScale"/>): Double Damage on all of it, Supercharged Melee on its melee hits (both together never above
+/// <see cref="MusouPowerupRules.Cap"/>, x2: the owner's "x2 cap"; the World also holds a stim's melee multiplier under it, <c>World.MusouMeleeDealt</c>).</item>
 /// </list>
 /// </summary>
 public sealed partial class MusouSim
@@ -39,6 +40,9 @@ public sealed partial class MusouSim
     /// <summary>The scale on <paramref name="attacker"/>'s damage of <paramref name="cause"/> (1: none).</summary>
     float AttackerScale(int attacker, MusouDeathKind cause) =>
         attacker > 0 && _attackerScale.TryGetValue(attacker, out var s) ? (cause == MusouDeathKind.Melee ? s.Melee : s.Other) : 1f;
+
+    /// <summary>The scale this step puts on <paramref name="attacker"/>'s melee hits (1: none); the World holds a stim's melee under <see cref="MusouPowerupRules.Cap"/> with it.</summary>
+    public float MeleeScaleOf(int attacker) => AttackerScale(attacker, MusouDeathKind.Melee);
 
     /// <summary>Whether Fear moves an enemy of <paramref name="type"/> at all (ours: never a boss, a Squig or the Scrap Mek, who runs anyway).</summary>
     public static bool Fears(MusouEnemyType type) => !MusouPowerupRules.Boss(type) && type is not (MusouEnemyType.BombSquig or MusouEnemyType.ScrapMek);

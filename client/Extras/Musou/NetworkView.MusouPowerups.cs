@@ -22,6 +22,9 @@ public partial class NetworkView
     readonly uint[] _musouBuffEnd = new uint[5];
     bool _musouCarrySet;
     int _musouBuffsSeen;
+    /// <summary>The newest snapshot tick at which the own player was seen dead or back alive after a death: a list of that tick or older lists no buff (they end with a life, as on the server).</summary>
+    uint _musouBuffFloor;
+    bool _musouSeenDead;
     MeshInstance3D? _musouChargedMesh;
     Material? _musouChargedWas;
     static StandardMaterial3D? _musouChargedGlow;
@@ -32,6 +35,8 @@ public partial class NetworkView
         Span<uint> was = stackalloc uint[5];
         _musouBuffEnd.CopyTo(was);
         Array.Clear(_musouBuffEnd);
+        if (_musouBuffFloor > tick + MusouClientState.RestartTicks) _musouBuffFloor = 0;   // the server started again (its ticks from 0): the old floor goes
+        if (tick <= _musouBuffFloor) buffs = [];   // a list from the life that ended (review item 1)
         foreach (var b in buffs)
         {
             int k = (int)b.Kind;
@@ -61,9 +66,17 @@ public partial class NetworkView
         return end > client.Tick ? (end - client.Tick) / (float)Math.Max(1, _config.TickRate) : 0f;
     }
 
-    /// <summary>Once a frame (after the drops): the HUD's chips and the Supercharged glow.</summary>
+    /// <summary>Once a frame (after the drops): the buffs' end with a life, the HUD's chips and the Supercharged glow.</summary>
     void MusouPowerupsFrame(PlayerState me)
     {
+        // Review item 1 (2026-11-10): the buffs end with a life, as the server ends them. Seen dead, or alive again after that, the own ends clear and lists up to now are not taken
+        // (the server's one empty list after a death could be lost; it is also resent for a second).
+        if (!me.Alive || _musouSeenDead)
+        {
+            Array.Clear(_musouBuffEnd);
+            if (_client is { } c) _musouBuffFloor = Math.Max(_musouBuffFloor, c.LatestSnapshotTick);
+            _musouSeenDead = !me.Alive;
+        }
         if (_musouHud is { } hud)
         {
             hud.Data.Buffs.Clear();

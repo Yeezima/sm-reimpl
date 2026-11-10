@@ -134,13 +134,27 @@ public sealed partial record SimConfig
     {
         get
         {
-            float rate = 1f;
-            ExtrasFireBoost(ref rate);   // EXTRAS-HOOK
+            float rate = 1f, cap = float.PositiveInfinity;
+            ExtrasFireBoost(ref rate, ref cap);   // EXTRAS-HOOK
             return rate;
         }
     }
 
-    partial void ExtrasFireBoost(ref float rate);
+    /// <summary>
+    /// The most the fire rate reaches while the boost runs, a stim's attack speed with it (added content: Musou's x2, the owner's "Cap at x2" of 2026-11-10; no bound elsewhere, where the boost never runs).
+    /// Not hashed itself: Musou's block covers it.
+    /// </summary>
+    public float FireBoostCap
+    {
+        get
+        {
+            float rate = 1f, cap = float.PositiveInfinity;
+            ExtrasFireBoost(ref rate, ref cap);   // EXTRAS-HOOK
+            return cap;
+        }
+    }
+
+    partial void ExtrasFireBoost(ref float rate, ref float cap);
 
     /// <summary>The scale on the reach of the blasts of thrown <paramref name="item"/> (1 in the faithful game; Musou Mode doubles the frag's, owner 2026-11-09).</summary>
     public float ThrownBlastScale(ThrownSpec? item)

@@ -642,7 +642,9 @@ public static class Combat
         float reloadLeft = s.ReloadLeft;
         float otherReloadLeft = s.OtherReloadLeft, thirdReloadLeft = s.ThirdReloadLeft;   // sim/combat-pass: reloads of the holstered weapons
         // sim/holstered-cooldown (protocol 62): each weapon's shot cooldown runs down in or out of hand and follows its weapon through a switch (below).
-        float fireDt = dt * attackSpeed * fireBoost;   // Musou Mode's combat stims: the fire rate rises with the attack speed (and with the Rapid Fire powerup)
+        // Musou Mode's combat stims: the fire rate rises with the attack speed. With added content's fire boost (Musou's Rapid Fire) the two together never pass SimConfig.FireBoostCap
+        // (owner 2026-11-10: "Cap at x2"); without it (always in Classic PvP) the stims' alone, the expression as before.
+        float fireDt = fireBoost > 1f ? dt * MathF.Min(attackSpeed * fireBoost, c.FireBoostCap) : dt * attackSpeed;
         float cooldown = MathF.Max(0f, s.Cooldown - fireDt), otherCooldown = MathF.Max(0f, s.OtherCooldown - fireDt), thirdCooldown = MathF.Max(0f, s.ThirdCooldown - fireDt);
         bool charging = s.Charging && charge is not null;
         float chargeTime = charging ? s.ChargeTime : 0f;
