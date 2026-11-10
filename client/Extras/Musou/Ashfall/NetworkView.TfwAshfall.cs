@@ -35,12 +35,16 @@ public partial class NetworkView
         try
         {
             var (level, dressing) = (_ashfallLevel, _ashfallDressing);   // the level the collision came from: its parts index the HiddenParts and the Skin items
+            var watch = System.Diagnostics.Stopwatch.StartNew();
             var view = AshfallView.Build(level);
             _gameSpace.AddChild(view);
             if (_sun is not null && _environment is not null) AshfallView.ApplyLook(_sun, _environment);
             drawn = true;
+            long viewMs = watch.ElapsedMilliseconds;
             TfwAshfallKit(level, dressing, view);
+            long kitMs = watch.ElapsedMilliseconds;
             TfwAshfallStorm(level, dressing, view);
+            GD.Print($"ashfall: view built in {viewMs} ms, kit {kitMs - viewMs} ms, storm {watch.ElapsedMilliseconds - kitMs} ms (main thread; polish pass P3's timing)");
             if (AshfallFrameBurst.FromArgs() is { } burst) view.AddChild(burst);   // test aid: consecutive frames of the match camera (hotfix/ashfall-floor-shimmer)
         }
         catch (System.Exception e) when (e is not (System.StackOverflowException or System.AccessViolationException))

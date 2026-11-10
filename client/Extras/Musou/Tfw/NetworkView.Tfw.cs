@@ -27,9 +27,12 @@ public partial class NetworkView
         TfwOrderKeysFree();
         TfwOrdersFrame(war, me, (float)delta);
         TfwRedeployFrame(war, me);   // NetworkView.TfwFlow.cs: a fallen player's deploy for a supply
+        Ph("tfw: stations");   // polish pass P3: the landing's first frame named by its part
         TfwStationsFrame(war, me);
+        Ph("tfw: hud");
         TfwHudFrame(war, me);
         TfwBossOrksFrame(war);   // the roaming Boss Orks' bars and call-outs (NetworkView.TfwBossOrks.cs)
+        Ph("tfw: markers");
         TfwMarkersFrame(war);
         Ph("tfw: fire, clouds");
         TfwFireFrame(war, delta);

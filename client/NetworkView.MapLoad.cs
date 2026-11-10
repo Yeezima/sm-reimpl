@@ -38,6 +38,7 @@ public partial class NetworkView
         public MapScene? Scene;
         public string? SceneError;
         public List<Vector3>? RagdollFaces;
+        public ConcavePolygonShape3D? RagdollShape;
         public long ContentMs, WorldMs, SceneMs, WorkerMs, VisualsDoneMs;
         public int WarmupStep;
         public required System.Diagnostics.Stopwatch Watch;
@@ -121,13 +122,16 @@ public partial class NetworkView
         ExtrasMapCollision(name, ref world, ref hash);   // EXTRAS-HOOK: added content's solids beside the level, and the hash of the whole (Musou Mode's Stormbird)
         long worldMs = watch.ElapsedMilliseconds;
         var stage = new MapStage1 { Name = name, File = file, Map = map, World = world, Hash = hash, Generated = generated is not null, ContentMs = contentMs, WorldMs = worldMs, Watch = watch };
-        if (!Lean) stage.RagdollFaces = RagdollWorldFaces(map);   // P2: the ragdoll world's triangles gathered here, its body made on the main thread
-        if (generated is null && !Lean)
+        if (!Lean)
+        {
+            stage.RagdollFaces = RagdollWorldFaces(map);   // P2: the ragdoll world's triangles gathered here, its body made on the main thread
+            if (!onMainThread && !RagdollShapeOnMain) { SetLoadingCaption("BUILDING THE RAGDOLL WORLD"); stage.RagdollShape = RagdollWorldShape(stage.RagdollFaces); }   // P3: the concave shape too (1.2 s on Ashfall)
+        }
+        if (generated is null && !Lean && (onMainThread || !SceneOnMain))
         {
             // The map's look: the original meshes and textures read here (MapScene.Load is engine-free); MapView.Build draws them on the main thread in Stage2.
             SetLoadingCaption("READING THE MAP'S MESHES AND TEXTURES");
-            try { stage.Scene = MapScene.Load(_gameDir, file); }
-            catch (Exception e) when (e is not (StackOverflowException or AccessViolationException)) { stage.SceneError = $"{e.GetType().Name}: {e.Message}"; }
+            LoadScene(stage, file);
         }
         stage.SceneMs = watch.ElapsedMilliseconds;
         stage.WorkerMs = stage.SceneMs;
@@ -135,6 +139,15 @@ public partial class NetworkView
     }
 
     long _stage2StartMs, _ragdollMs, _collisionMs;
+
+    /// <summary>polish pass P3 (measurement aid): <c>--scene-on-main</c> reads the map scene in the main thread's stage instead of on the worker (to tell whether the worker's read is what holds a frame).</summary>
+    static readonly bool SceneOnMain = CmdFlag("scene-on-main");
+
+    void LoadScene(MapStage1 stage, string file)
+    {
+        try { stage.Scene = MapScene.Load(_gameDir, file); }
+        catch (Exception e) when (e is not (StackOverflowException or AccessViolationException)) { stage.SceneError = $"{e.GetType().Name}: {e.Message}"; }
+    }
 
     /// <summary>
     /// Builds what needs Godot (main thread, one frame): the ragdoll world's body, the navigation's start, added content's hub nodes, the map view with its lights (or added content's drawn
@@ -148,7 +161,7 @@ public partial class NetworkView
         var map = s.Map; var world = s.World; ulong hash = s.Hash;
         Ph("map load: collision and content");
         _stage2StartMs = watch.ElapsedMilliseconds;
-        if (!Lean) BuildRagdollWorld(s.RagdollFaces ?? RagdollWorldFaces(map));
+        if (!Lean) BuildRagdollWorld(s.RagdollFaces ?? RagdollWorldFaces(map), s.RagdollShape);
         _ragdollMs = watch.ElapsedMilliseconds;
         PrepareNavigation(map, world); MemStep("navigation");
         _mapCentre = map.Spawns.Count > 0 ? new Vector2(map.Spawns.Average(sp => sp.Position.X), map.Spawns.Average(sp => sp.Position.Y)) : null;
@@ -156,6 +169,7 @@ public partial class NetworkView
         if (Lean) return LeanMapLoaded(name, hash, world, collisionMs, watch);   // perf/lean-bots: collision, navigation and the jump ground only (NetworkView.Lean.cs)
         _gameSpace?.GetNodeOrNull("MapCollision")?.QueueFree();
         _gameSpace?.GetNodeOrNull("MapVisuals")?.QueueFree();
+        if (!s.Generated && s.Scene is null && s.SceneError is null && SceneOnMain) LoadScene(s, s.File);   // --scene-on-main (P3 measurement aid)
         ExtrasMapCollisionVisuals();   // EXTRAS-HOOK (P2): the nodes of what the collision hook composed on the worker (Musou Mode's Stormbird and Firing Range)
 
         // The map's look: original meshes and diffuse textures (MapView). Failure falls back to the grey collision.
@@ -242,9 +256,27 @@ public partial class NetworkView
     /// so no player's first look or shot stalls a frame (customizer T7, M40-T9); the asynchronous load runs one a frame while the loading screen is up, the synchronous load all at once.
     /// True while steps remain.
     /// </summary>
+    /// <summary>polish pass P3: <c>--no-shader-sweep</c> leaves the camera where it is during the warm-up frames (before P3 it looked at nothing, so the map's shaders compiled at the first frames of play).</summary>
+    static readonly bool NoShaderSweep = CmdFlag("no-shader-sweep");
+
+    /// <summary>
+    /// polish pass P3: during the warm-up frames (the loading screen covers the view) the camera stands over the map's centre and looks round, a sixth of a turn a frame, so the
+    /// renderer compiles the map's materials' shaders and pipelines now (measured before: the Compatibility renderer held two frames of 350 ms at the first sight of each material
+    /// after the join; Forward+ one of 58 ms). The join then places the camera as before.
+    /// </summary>
+    void ShaderSweepFrame(int step)
+    {
+        if (NoShaderSweep || _camera is null || _gameSpace is null || _mapCentre3 is not { } centre) return;
+        var eye = _gameSpace.Transform * new Vector3(centre.X, centre.Y, centre.Z + 14f);
+        float yaw = step * Mathf.Tau / 6f;
+        var target = _gameSpace.Transform * new Vector3(centre.X + 40f * Mathf.Cos(yaw), centre.Y + 40f * Mathf.Sin(yaw), centre.Z + 2f);
+        _camera.GlobalTransform = new Transform3D(Basis.LookingAt(target - eye, Vector3.Up), eye);
+    }
+
     bool WarmupStep(MapStage1 s)
     {
         Ph("map load: looks");
+        if (!SyncMapLoad && !_bot) ShaderSweepFrame(s.WarmupStep);
         switch (s.WarmupStep++)
         {
             case 0: _warmClock = System.Diagnostics.Stopwatch.StartNew(); WarmLooks(); return true;   // Ork O7a: one deadline for the marines' and the Ork's warm-up
