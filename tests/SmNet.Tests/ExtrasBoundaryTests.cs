@@ -99,6 +99,8 @@ public class ExtrasBoundaryTests
         ("client/Customizer/CreatorView.cs", "ExtrasDeploy"),       // CreatorView.ExtrasDeploy(ref bool), DEPLOY: PLAY AS LIBRARIAN on his page
         ("client/Customizer/CustomizerServices.cs", "ExtrasFactions"),   // CustomizerServices.ExtrasFactions(ref List<(string, string)>), the factions offered: the Space Marines alone in Musou
         ("client/Customizer/CustomizerServices.cs", "ExtrasProfileView"),   // CustomizerServices.ExtrasProfileView(ref IProfileView?), the profile view: Musou's own loadout slots (musou/loadout-slots)
+        ("client/Customizer/CustomizerServices.cs", "ExtrasLoaded"),   // CustomizerServices.ExtrasLoaded(), the end of the services' load: Musou's own configuration is read before LoadTask completes (W1)
+        ("client/Customizer/CustomizerServices.cs", "ExtrasConfig"),   // CustomizerServices.ExtrasConfig(ref SimConfig?), the configuration a Join is planned with: Musou's own, which lists its arsenal (W1, the autocannon)
         ("client/Customizer/PreviewStage.cs", "ExtrasDress"),       // PreviewStage.ExtrasDress(ref Func<ResolvedAppearance, ResolvedAppearance>?, ref string), in CreateModel: the Librarian's armour
         ("client/Customizer/PreviewStage.cs", "ExtrasWeapons"),     // PreviewStage.ExtrasWeapons(ref string?, ref string?, ref string?, ref bool), in ConfigureWeapons: his force sword in hand, no gun
         // W0, Musou's arsenal (docs/new-weapons-design.md section 8: the autocannon, lightning claw, power spear and Remote Detonators, Musou only); each does nothing without Musou's content

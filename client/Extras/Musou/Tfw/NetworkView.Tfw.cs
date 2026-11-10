@@ -34,6 +34,7 @@ public partial class NetworkView
         Ph("tfw: fire, clouds");
         TfwFireFrame(war, delta);
         TfwFireCamFrame();
+        AutocannonCamFrame();   // Arsenal/Autocannon/NetworkView.AutocannonCapture.cs: the capture's third-person frames
         TfwSwarmCamFrame();
         TfwCloudsFrame();
         Ph("tfw: class, librarian, score, tests");
