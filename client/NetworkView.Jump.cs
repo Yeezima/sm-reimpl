@@ -298,7 +298,7 @@ public partial class NetworkView
         }
         else if (t.View == JumpView.Getup)
         {
-            double sinceImpact = now - t.ImpactAt;
+            double sinceImpact = (now - t.ImpactAt) * MoveClipSpeed(s);   // W0b: clip seconds since the impact (1 per second but for Musou's claw and spear, NetworkView.Presentation.cs)
             if (t.Slash)
             {
                 double slashEnds = SlashAfterImpact(s);   // feel/jump-pack-2: the clip from the impact's crop start to its end
@@ -326,7 +326,7 @@ public partial class NetworkView
     {
         if (!_jumpTracks.TryGetValue(s.PlayerId, out var t) || !s.Alive) return null;
         double now = _connectedFor;
-        float sincePress = (float)(now - t.PressAt), sinceImpact = (float)(now - t.ImpactAt);
+        float sincePress = (float)(now - t.PressAt), sinceImpact = (float)((now - t.ImpactAt) * MoveClipSpeed(s));   // W0b: the pound's and the slash's impact and get-up at the weapon's clip speed
         switch (t.View)
         {
             case JumpView.TakeOff when _jmpTakeOff is not null:

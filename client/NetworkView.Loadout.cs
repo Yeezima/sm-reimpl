@@ -116,6 +116,7 @@ public partial class NetworkView
     CustomizerServices OfMatch(CustomizerServices services)
     {
         if (_config is not null) services.Content = _config.Extras;
+        services.MadeForMatch = true;   // for good (ClosePicker resets InMatch, not this): the picker never plans a Join from the services' own config, so a Musou profile starts no read of Musou's own (CustomizerServices.Arsenal.cs)
         return services;
     }
 

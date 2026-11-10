@@ -148,7 +148,7 @@ public partial class NetworkView
     void MeleeFxFor(PlayerState s, bool own, List<PlayerState> all)
     {
         var character = own ? _local : _remotes.GetValueOrDefault(s.PlayerId);
-        string? wargear = MeleeWargear(s);
+        string? wargear = PresentedAs(MeleeWargear(s));   // W0b: an added weapon's effects by its source's name (the claw: the power sword's glow, flare and flash); the name itself for the data's
         SwordFrame(s, character, wargear);
         if (!s.Alive || s.MeleeStep <= 0 || Combat.MeleeStepOf(_config!, s) is not { } step) { _meleeFxGate.Idle(s.PlayerId); return; }
         // Once per attack (review): the attack is keyed on its start tick (own: the prediction's tick; others: the newest snapshot's), so a reconcile rewind of any size

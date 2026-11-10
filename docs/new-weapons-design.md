@@ -33,7 +33,7 @@ cannon for devastator. Ask me questions to help with the design"
 | D11 | Autocannon brace | default: no | No brace; R does nothing. |
 | D12 | Autocannon feel | "the autocannon should fire slower but do more damage than the heavy bolter and have 2x the HE explosion size of the bolter and bolt pistol" | 0.4 s between rounds, 50 a round, a 2.5 m bolt-style blast at every Ork struck (replaces the campaign's 4 m splash). |
 | D13 | Claw tempo | "About 25% faster" | The sword's swings at 1.25×, lighter hits (section 5). |
-| D14 | Spear tempo and reach | "slower than hammer but much wider reach" | The hammer's swings at 0.85×, a 12 m, 240° sweep, at most 12 Orks (section 6). |
+| D14 | Spear tempo and reach | "slower than hammer but much wider reach" | The hammer's swings at 0.85×, a 15 m, 300° sweep, at most 12 Orks (section 6; the owner widened it 2026-11-10). |
 | D15 | Models | "I'll send reference images" (three, described by the lead) | The claw (piston-backed gauntlet, four curved steel talons) and the spear (black shaft, bronze fitting, blue single-edged blade), built in code from them. |
 | D16 | Claw's edge | "No extra edge" | No bonus against big Orks, no arcs. |
 | D17 | Spear and the jump pack | default: yes | The hammer's jump-pack rules. |
@@ -298,15 +298,15 @@ The campaign's 4 m hit-scan splash is dropped: this blast replaces it (D12).
 
 **Role.** A two-handed polearm: slow, very long sweeps that clear the crowd around the player, and a dive that kills one big Ork from the air.
 
-**Grip.** Two-handed on the thunder hammer's set, the only two-handed set in the data; the pistol is kept, as with the hammer.
+**Grip.** Carried one-handed in the right hand when idling and running; swings take both hands (owner 2026-11-10: "Right hand carries, both swing"). The swings and the dive use the thunder hammer's clips (the only two-handed set in the data); the pistol is kept.
 
 ### 6.1 The sweeps
 
 | Parameter | Spear | Hammer in Musou (for scale) | Kind / source |
 |---|---|---|---|
 | Tempo | the hammer's clips at **0.85×**, every step timing ÷0.85 (X1..X3 2.67 / 2.33 / 2.33 s → 3.14 / 2.75 / 2.75 s; hits 0.60 / 0.57 / 0.70 s → 0.71 / 0.67 / 0.82 s; the owner's string reset and recovery cut stretched the same) | 1.0 | owner (D14: slower than the hammer); 0.85 an estimate |
-| Reach of a sweep (Musou's cleave) | **12 m** from the feet | 8.25 m: (4 + 0.5 + 1) × 1.5 | owner (D14: much wider reach); 12 m an estimate |
-| Width | **240°** (±120° of the facing) | 180° (the core's ±60° × 1.5) | estimate |
+| Reach of a sweep (Musou's cleave) | **15 m** from the feet (owner 2026-11-10, "Wider and longer"; 12 m before) | 8.25 m: (4 + 0.5 + 1) × 1.5 | owner (D14: much wider reach); 12 m an estimate |
+| Width | **300°** (±150° of the facing; owner 2026-11-10; 240° before) | 180° (the core's ±60° × 1.5) | estimate |
 | Orks one swing hits | at most **12**, nearest first | 8 | estimate (the crowd cap) |
 | Damage per light swing | **150** | 200 | estimate |
 | Heavy strikes | the hammer's interrupt and two sweeping attacks (stun) at 0.85×, the same reach, width and cap, damage ×0.75 | the hammer's | data, scaled |
@@ -325,7 +325,7 @@ So the wider sweep reaches more Orks without killing faster. Against one target 
 |---|---|---|
 | The dive | the pack's own: marker, steering, speed, the 7 m stun blast of 25 + 50 on landing | data and the owner's M44 rule |
 | The impale | on landing, the enemy nearest the impact point within 2 m takes **600** (a Nob's whole health: a Nob or anything smaller dies outright) | estimate |
-| A survivor | a Boss Ork takes the 600 and is pinned (staggered) for 1 s; the Warboss is stagger-immune and only takes the damage | estimate; the Warboss rule is Musou's |
+| A survivor | Bosses take the 600 like any Ork, with no pin (owner 2026-11-10: "Drop the pin (damage only)") | estimate; the Warboss rule is Musou's |
 | Nothing within 2 m | only the pack's blast | ours |
 | The air slash's landing | not an impale | ours |
 | Jump-pack rules | the hammer's: a hop swing, no pound delay | owner default (D17) |
@@ -510,7 +510,7 @@ Process:
 | Campaign clips on the MP marine (the autocannon recoil) | The skeletons are identical (checked). W1 plays the recoil in a still before relying on it; fallback the heavy bolter's fire. |
 | `turret_aa` is 2.8 m long and was made for a tripod and a carry | W1's first still: the grip at `RIG_Prop_M_Chest`, clipping, camera. |
 | Clips at other speeds (claw 1.25×, spear 0.85×) desynchronise the simulation and the client | W0 checks the Fast Stomp path; W2 and W3 compare the simulated hit tick with the clip's contact in a clip. |
-| A 12 m, 240° sweep reads as hitting Orks the spear never touches | W3's clip shows the sweep against a crowd; the reach and width are estimates for the playtest. |
+| A 15 m, 300° sweep reads as hitting Orks the spear never touches | W3's clip shows the sweep against a crowd; the reach and width are estimates for the playtest. |
 | The claw and spear built in code from descriptions of the owner's pictures | Each shown to the owner in a still before the rest of its milestone. |
 | The charge's 80 flying corpses and 17 explosions in about a second | W4's measurement in a 1,000+ Ork crowd, reported to the lead; nothing cut without the owner. |
 | The stacking ring overshoots the owner's target between spots (up to about +15 % at 24 m) or falls short at the very edge | The fit's table above; tuned in the playtest. |
@@ -526,7 +526,7 @@ Process:
 None left for the approval of this design: every question is decided (D1 to D24) or has the lead's default. Items to check in the playtest (all estimates, in the refine register once built):
 - the autocannon's blast damage (15, the bolt blast's: the owner asked for the size only);
 - the claw's ×0.8 damage;
-- the spear's 0.85× tempo, 12 m reach, 240° width, 12-Ork cap and 150 damage;
+- the spear's 0.85× tempo, 15 m reach, 300° width, 12-Ork cap and 150 damage;
 - the impale's 600;
 - the charge's ring (24 m, 16 spots, 1.1 s), its fit to the owner's 600 and 40 m, and the 5 s fallback for a charge that sticks to nothing.
 
@@ -632,7 +632,7 @@ Changed from the proposals:
   - Your animation work is blending, timing and transitions only; no new clips.
 - **Done when:**
   - **First:** a still of the spear goes to the lead for the owner, as W2.
-  - Then: the sweeps at 0.85× reach 12 m over 240° and hit at most 12 Orks; the heavies and the slam work.
+  - Then: the sweeps at 0.85× reach 15 m over 300° and hit at most 12 Orks; the heavies and the slam work.
   - The impaling dive kills a Nob outright and pins a Boss Ork.
   - The hop swing and no pound delay work.
   - A clip compares the hit tick with the contact, and a clip shows the sweep against a crowd.

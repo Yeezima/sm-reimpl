@@ -180,6 +180,9 @@ public sealed partial class Hud
     double _braceOnAt = double.NegativeInfinity, _braceOffAt = double.NegativeInfinity;
     bool _wasBraced;
 
+    /// <summary>W0b, added content: the movie reticle of a weapon only it carries (<paramref name="spec"/> left as the rules gave it without added content or for a weapon of the data).</summary>
+    partial void ExtrasReticle(string wargear, ref ReticleSpec? spec);
+
     /// <summary>
     /// The original reticle of the weapon in hand at the screen centre <paramref name="c"/>: its family's idle reticle, the active one with an enemy under the crosshair; the spread
     /// families' ticks at the frame of the current scatter (<see cref="ReticleRules"/>), the plasma weapons' charge clip by the charge, the heavy bolter's brace clip at 30 fps.
@@ -194,7 +197,9 @@ public sealed partial class Hud
         // The weapon in hand is always a ranged weapon (melee is a button, not a slot); a type the rules do not know shows no reticle (ReticleRules), and no weapon at all
         // shows the movie's small default_mc dot.
         if (!d.HasWeapon) return DrawDefaultReticle(hud, c);
-        if (ReticleRules.For(d.WeaponWargear, _art?.Art?.WeaponType(d.WeaponWargear)) is not { } spec) return true;
+        var reticle = ReticleRules.For(d.WeaponWargear, _art?.Art?.WeaponType(d.WeaponWargear));
+        ExtrasReticle(d.WeaponWargear, ref reticle);   // EXTRAS-HOOK added content (Musou's autocannon): the movie's reticle of a weapon only it carries
+        if (reticle is not { } spec) return true;
         string name = d.AimedAtEnemy && spec.Active is { } active ? active : spec.Idle;
         string path = $"{ReticleRules.Container}/{name}";
         int top = 0;
