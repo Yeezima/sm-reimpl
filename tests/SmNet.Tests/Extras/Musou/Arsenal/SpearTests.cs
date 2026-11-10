@@ -125,9 +125,10 @@ public class SpearTests
     [Fact]
     public void A_spear_sweep_reaches_15_m_over_300_degrees_and_a_hammer_swing_does_not()
     {
+        // In the war every cleave's reach is x0.6 (owner 2026-11-11: "reduce melee attack cleave range by 40%"): the spear's 15 m sweep reaches 9 m, the hammer's 8.8 m (10.7) 5.3 m (6.4).
         var spear = War(melee: 1);
-        ushort near = Ork(spear, Polar(spear, 0f, 14.5f));      // hammer reach: 8.8 m (10.7 with a track-to-hit step)
-        ushort far = Ork(spear, Polar(spear, 0f, 16.5f));
+        ushort near = Ork(spear, Polar(spear, 0f, 8.5f));       // past the hammer's 6.4 m
+        ushort far = Ork(spear, Polar(spear, 0f, 9.5f));
         ushort wide = Ork(spear, Polar(spear, 145f, 5f));       // past the war hammer's 120 each side
         ushort behind = Ork(spear, Polar(spear, 160f, 5f));     // outside 150
         ushort high = Ork(spear, Polar(spear, 20f, 4f, 2.0f));  // the flat cone's 1.5 m height band
@@ -141,11 +142,11 @@ public class SpearTests
         Assert.Equal(150f, SpearRules.HalfAngleDegrees);
 
         var hammer = War(melee: 0);
-        ushort farForHammer = Ork(hammer, Polar(hammer, 0f, 14.5f));
+        ushort farForHammer = Ork(hammer, Polar(hammer, 0f, 8.5f));
         ushort wideForHammer = Ork(hammer, Polar(hammer, 145f, 5f));
         ushort sideForHammer = Ork(hammer, Polar(hammer, 115f, 5f));
         var hammerHit = StruckBySwing(hammer);
-        Assert.DoesNotContain((int)farForHammer, hammerHit);    // past the hammer's 8.8 m (10.7 m with a track-to-hit step)
+        Assert.DoesNotContain((int)farForHammer, hammerHit);    // past the hammer's 5.3 m (6.4 m with a track-to-hit step)
         Assert.DoesNotContain((int)wideForHammer, hammerHit);   // past the hammer's 120 degrees each side
         Assert.Contains((int)sideForHammer, hammerHit);
     }

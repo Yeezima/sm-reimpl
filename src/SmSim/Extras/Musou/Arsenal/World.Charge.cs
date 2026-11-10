@@ -218,7 +218,7 @@ public sealed partial class World
             if (!(intensity > 0f)) continue;
             var away = new Vector2(e.Position.X - point.X, e.Position.Y - point.Y);
             var push = away.LengthSquared() > 1e-8f ? Vector2.Normalize(away) : new Vector2(-MathF.Sin(e.Yaw), MathF.Cos(e.Yaw));
-            float damage = splash.Damage.Damage * intensity * (TfwCombatRules.IsBoss(e.Type) ? DemolitionChargeRules.BossFactor : 1f);
+            float damage = splash.Damage.Damage * intensity * (TfwCombatRules.IsBoss(e.Type) ? DemolitionChargeRules.BossFactor : 1f) * MusouRangedDealt(run.Owner);   // x1.2 in the war (owner 2026-11-11: "all ranged")
             bool flies = run.ThrownLeft > 0;
             musou.Damage(e.Id, run.Owner, damage, new Vector3(push, 0.3f), out bool killed, cause: flies ? MusouDeathKind.Blast : MusouDeathKind.BoltBlast);
             if (killed) { if (flies) { run.ThrownLeft--; ChargeFlown++; } continue; }

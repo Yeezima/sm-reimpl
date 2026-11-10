@@ -10,7 +10,8 @@ namespace SmSim.Extras.Musou;
 /// core's melee cone times <see cref="MusouCombatRules.CleaveConeScale"/>, at most 180 degrees; the count <see cref="MusouCombatRules.CleaveTargets"/>. In Musou Mode's war (<see cref="TfwCombatRules"/>)
 /// the reach is also times <see cref="TfwCombatRules.CleaveReachScale"/>, the half angle is <see cref="TfwCombatRules.CleaveHalfAngleDegrees"/> and the count <see cref="TfwCombatRules.CleaveTargets"/>
 /// for every melee weapon. A weapon of Musou's arsenal may set its own (W3, the spear's sweeps: <see cref="ArsenalShape"/>, in <c>Arsenal/MusouCleaveShape.Arsenal.cs</c>, from the same function as the
-/// server's <c>World.ArsenalCleave</c>).</para>
+/// server's <c>World.ArsenalCleave</c>). Last, in the war, the whole reach times <see cref="TfwCombatRules.PlayerCleaveReachScale"/> (owner, 2026-11-11: "reduce melee attack cleave range by 40%"),
+/// every weapon's shape included, as the server's cleave applies it.</para>
 /// <para>The client draws each swing's slash arc from this (owner, 2026-11-10: one flat curved line that matches the swing's cleave) and picks the own strike's predicted targets with it, so the arc,
 /// the prediction and the hitbox use one formula. <c>MusouSlashArcTests</c> checks it against the server's own cleave in a real World. Presentation helper only: the server's cleave does not call it,
 /// so nothing here changes a rule, Musou's version or a config hash.</para>
@@ -42,6 +43,7 @@ public static partial class MusouCleaveShape
             most = volume.CleaveTargets;
         }
         if (config.Extras.HasFlag(ContentExtras.Musou)) ArsenalShape(wargear, ref reach, ref half, ref most);
+        if (war) reach *= TfwCombatRules.Default.PlayerCleaveReachScale;   // owner 2026-11-11: "reduce melee attack cleave range by 40%" (after each weapon's shape, as World.MusouCleave)
         return new Shape(reach, half, most);
     }
 

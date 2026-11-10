@@ -101,11 +101,11 @@ public class MusouSlashArcTests
         var config = Config(step, wargear);
         var shape = MusouCleaveShape.Of(config, step, war, wargear);
         // The numbers the line is drawn with (spec "Melee slash arc: one per swing"): the spear's sweep is its own everywhere; any other weapon the cleave's (the core's 4 m melee range + 0.5,
-        // + 1 m on a track-to-hit step; in the war x1.5 x1.3 and 120 degrees each side, in the 5-wave run the core's 60-degree cone x1.5).
-        if (wargear == ArsenalRules.PowerSpear) { Assert.Equal(15f, shape.Reach); Assert.Equal(150f, shape.HalfAngleDegrees); Assert.Equal(12, shape.Most); }
+        // + 1 m on a track-to-hit step; in the war x1.5 x1.3 and 120 degrees each side, in the 5-wave run the core's 60-degree cone x1.5). In the war every reach x0.6 last (owner 2026-11-11).
+        if (wargear == ArsenalRules.PowerSpear) { Assert.Equal(war ? 9f : 15f, shape.Reach, 3); Assert.Equal(150f, shape.HalfAngleDegrees); Assert.Equal(12, shape.Most); }
         else
         {
-            Assert.Equal((tracked ? 5.5f : 4.5f) * (war ? 1.5f * 1.3f : 1f), shape.Reach, 3);
+            Assert.Equal((tracked ? 5.5f : 4.5f) * (war ? 1.5f * 1.3f * 0.6f : 1f), shape.Reach, 3);
             Assert.Equal(war ? 120f : 90f, shape.HalfAngleDegrees, 3);
             Assert.Equal(war ? 40 : 8, shape.Most);
         }
@@ -196,7 +196,7 @@ public class MusouSlashArcTests
             Assert.Equal(0f, MusouSlashArcRules.AngleAt(0.5f, shape, -1), 4);
             Assert.InRange(MusouSlashArcRules.Segments(shape), MusouSlashArcRules.SegmentsMin, MusouSlashArcRules.SegmentsMax);
         }
-        Assert.Equal(12f, MusouSlashArcRules.Radius(MusouCleaveShape.Of(config, Light, war: true, ArsenalRules.PowerSpear), 12f), 4);   // the spear's line reaches its 15 m, not the war's 8.8
+        Assert.Equal(8f, MusouSlashArcRules.Radius(MusouCleaveShape.Of(config, Light, war: true, ArsenalRules.PowerSpear), 8f), 4);   // the spear's line reaches its 9 m (15 x0.6), not the war's 5.3
         Assert.True(MusouSlashArcRules.Segments(MusouCleaveShape.Of(config, Light, war: true)) >= 40);   // 240 degrees: smooth
         Assert.Equal(60, MusouSlashArcRules.Segments(MusouCleaveShape.Of(config, Light, war: true, ArsenalRules.PowerSpear)));   // 300 degrees at 5 a segment
     }

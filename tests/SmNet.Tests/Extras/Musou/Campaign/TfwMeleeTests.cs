@@ -303,7 +303,10 @@ public class TfwMeleeTests
         return hit;
     }
 
-    /// <summary>owner 2026-11-09: the players' melee volume in the war is a longer, wider, flat cone (reach x1.3 since the owner's 2026-11-09 reduction from x1.5, 120 degrees to each side, the core's 1.5 m height band).</summary>
+    /// <summary>
+    /// owner 2026-11-09: the players' melee volume in the war is a longer, wider, flat cone (reach x1.3 since the owner's 2026-11-09 reduction from x1.5, 120 degrees to each side, the core's 1.5 m height
+    /// band); owner 2026-11-11: the whole reach x0.6 ("reduce melee attack cleave range by 40%"), the angles as they were.
+    /// </summary>
     [Fact]
     public void The_war_cleave_is_a_longer_wider_flat_cone()
     {
@@ -311,8 +314,8 @@ public class TfwMeleeTests
         w.Musou!.Frozen = true;
         var me = w.Players[Human].Position;   // yaw 0: forward is +Y
         Vector3 Polar(float degrees, float metres, float up = 0f) => me + new Vector3(-MathF.Sin(degrees * MathF.PI / 180f) * metres, MathF.Cos(degrees * MathF.PI / 180f) * metres, up);
-        ushort far = Boy(w, Polar(0f, 8.3f));          // old reach 6.75 (8.25 with a track-to-hit step): now 8.8+ (x1.3, owner 2026-11-09)
-        ushort tooFar = Boy(w, Polar(0f, 12f));        // past 10.7 (the track-to-hit reach x1.3)
+        ushort far = Boy(w, Polar(0f, 5.0f));          // 6.75 x1.3 = 8.8 m before the owner's x0.6 (2026-11-11): 5.27 m now
+        ushort tooFar = Boy(w, Polar(0f, 7f));         // past 6.4 (the track-to-hit reach 10.7 x0.6)
         ushort wide = Boy(w, Polar(105f, 3f));         // outside the old 90 degrees
         ushort behind = Boy(w, Polar(150f, 3f));       // outside the new 120
         ushort high = Boy(w, Polar(20f, 4f, 2.0f));    // above the 1.5 m height band
@@ -323,6 +326,7 @@ public class TfwMeleeTests
         Assert.DoesNotContain((int)behind, hit);
         Assert.DoesNotContain((int)high, hit);
         Assert.Equal(1.3f, TfwCombatRules.Default.CleaveReachScale);
+        Assert.Equal(0.6f, TfwCombatRules.Default.PlayerCleaveReachScale);
         Assert.Equal(120f, TfwCombatRules.Default.CleaveHalfAngleDegrees);
         Assert.Equal(40, TfwCombatRules.Default.CleaveTargets);
     }
@@ -445,7 +449,7 @@ public class TfwMeleeTests
             Assert.True(MathF.Abs(records[k].At.Y - me.Y - (6f + k * 4f)) < 1f, $"blast {k} at {records[k].At}");
             Assert.Equal(war.BoltBlastRadius, records[k].To.Y);
             Assert.Equal(0f, records[k].To.X);   // the frag's effect: thrown item 0
-            Assert.InRange(1000f - HealthOf(w, beside[k]), war.BoltBlastDamage * 0.3f, war.BoltBlastDamage);   // a blast only: the shot's ray passes beside him
+            Assert.InRange(1000f - HealthOf(w, beside[k]), war.BoltBlastDamage * 0.3f * war.PlayerRangedDamageScale, war.BoltBlastDamage * war.PlayerRangedDamageScale);   // a blast only: the shot's ray passes beside him (x1.2, owner 2026-11-11)
             Assert.Equal(1000f, HealthOf(w, past[k]));   // past the halved reach
         }
         Assert.Equal(1000f, HealthOf(w, away));
