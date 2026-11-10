@@ -37,7 +37,8 @@ public partial class NetworkView
         if (_musouGoreHits[0] + _musouGoreHits[1] + _musouGoreHits[2] + _musouGoreKills[0] + _musouGoreKills[1] + _musouGoreKills[2] == 0) return;
         string S(int s) => $"{(MusouGoreSource)s}: hits {_musouGoreHits[s]} (far {_musouGoreHitsFar[s]}, fx {_musouGore.HitsTaken[s]}, rate {_musouGore.HitsRefused[s]}), " +
                            $"kills {_musouGoreKills[s]} (unseen {_musouGoreKillsUnseen[s]}, far {_musouGoreKillsFar[s]}, blood {_musouGore.KillsTaken[s]}, cap {_musouGore.KillsRefused[s]})";
-        string fx = _fx is { } f ? $"; effects live {f.Live}, dropped by priority {string.Join("/", f.Evicted)}, refused {string.Join("/", f.Refused)}" : "";
+        // fix/fx-hud-leaks: the effect player's counters are by priority -1 to 3 (the weight pass's -1 puffs were counted with 0 before).
+        string fx = _fx is { } f ? $"; effects live {f.Live}, dropped by priority -1..3 {string.Join("/", f.Evicted)}, refused {string.Join("/", f.Refused)}" : "";
         GD.Print($"musou gore budget{(MusouOldGoreBudget ? " (old)" : "")}: t {_connectedFor:F0} s: {S(0)}; {S(1)}; {S(2)}; blood effects played by priority {string.Join("/", _musouGorePlays)}{fx}");
     }
 }
