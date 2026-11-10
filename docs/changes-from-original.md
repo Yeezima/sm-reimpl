@@ -124,7 +124,7 @@ Nothing yet.
 Nothing yet.
 
 #### W3: the power spear
-Nothing yet.
+| Power spear (Musou only, 2026-11-10, owner: "slower than hammer but much wider reach", "impaling dive plus wide sweeping swings") | No such weapon in SM1 | An Assault melee weapon on the thunder hammer's combo at 0.85x, swings at 0.75 of the hammer's damage, a 12 m sweep (120 degrees each side, at most 12 Orks), the hammer's jump-pack rules, and an impale of 600 to the Ork nearest a ground pound's landing; a model built in code | spec "Musou's arsenal: W3" |
 
 #### W4: the Remote Detonators
 Nothing yet.

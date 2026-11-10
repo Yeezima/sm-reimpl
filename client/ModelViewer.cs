@@ -223,9 +223,10 @@ public partial class ModelViewer : Node3D
                     string? Given(int i) => i < given.Length && given[i].Trim().Length > 0 ? given[i].Trim() : null;
                     var worn = (args.GetValueOrDefault("worn") ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries);
                     var weaponNotes = new List<string>();
-                    var all = given.Concat(worn).Where(n => n.Trim().Length > 0).Select(n => n.Trim());
+                    var all = given.Concat(worn).Where(n => n.Trim().Length > 0).Select(n => n.Trim()).Concat(args.ContainsKey("content") ? ["sm_mp_melee_2hand_thunder_hammer"] : []);   // --content: the thunder hammer's model is loaded too (Musou's power spear is drawn through it)
                     var weaponAssets = WeaponAssets.Load(gameDir, character.Assets!, all, weaponNotes);
                     var rig = new WeaponRig(character.Skeleton!, weaponAssets);
+                    if (args.GetValueOrDefault("content") is { } viewerContent && SmSim.ContentProfiles.TryParse(viewerContent, out var viewerExtras, out _)) rig.Content = viewerExtras;   // --content musou: added content's own weapon models (Musou's arsenal) in this view
                     rig.Configure((0, 0, 0, "viewer", null), Given(0), Given(1), Given(2), worn, worn.Length > 0, second: Given(3));   // --weapons primary,pistol,melee,second (the fourth: Weapon Versatility's second primary; with --hand melee the selected primary hangs on the left thigh)
                     string hand = args.GetValueOrDefault("hand") ?? "primary";
                     rig.Update(hand == "pistol" ? SmSim.WeaponSlot.Pistol : SmSim.WeaponSlot.Ranged, hand == "melee", true, 0f, 0.6f);

@@ -28,12 +28,12 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2851 spec table rows: **2125 tagged**, 502 not tagged (read from data with high confidence), 224 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 637 rows of the changes document.
+Scanned 2860 spec table rows: **2134 tagged**, 502 not tagged (read from data with high confidence), 224 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 637 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
-| Movement (critical) | 386 | 328 | 327 | 114 | 12 |
-| Combat core (critical) | 14 | 5 | 12 | 12 | 9 |
+| Movement (critical) | 387 | 329 | 328 | 114 | 12 |
+| Combat core (critical) | 15 | 6 | 13 | 13 | 9 |
 | Weapons (critical) | 121 | 73 | 106 | 54 | 3 |
 | Melee (critical) | 120 | 105 | 94 | 38 | 5 |
 | Jump pack (critical) | 79 | 71 | 63 | 19 | 0 |
@@ -50,22 +50,22 @@ Scanned 2851 spec table rows: **2125 tagged**, 502 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 22 | 13 | 13 | 12 | 7 |
-| Core simulation (provisional values) | 587 | 561 | 412 | 163 | 1 |
+| Core simulation (provisional values) | 594 | 568 | 419 | 166 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 235 | 224 | 126 | 63 | 0 |
-| **All areas** | **2125** | 1876 | 1576 | 676 | 38 |
+| **All areas** | **2134** | 1885 | 1585 | 680 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1192 |
-| confidence: low | 759 |
-| confidence: medium | 688 |
-| notes: ours | 387 |
+| kind: ours | 1195 |
+| confidence: low | 766 |
+| confidence: medium | 690 |
+| notes: ours | 391 |
 | kind: interpretation | 363 |
 | notes: estimate | 176 |
-| kind: estimate | 145 |
+| kind: estimate | 151 |
 | confidence: none (low) | 129 |
 | kind: provisional | 100 |
 | kind: user's knowledge | 55 |
@@ -91,7 +91,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 ## Part A: gameplay areas, critical first
 
-### Movement (gameplay-critical) (386)
+### Movement (gameplay-critical) (387)
 
 *Spec section: Extracted parameters*
 
@@ -719,7 +719,13 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-DCC22DDE` | Musou: the rank and file pushed back | a Boy, Shoota Boy, Gretchin, Rokkit Boy, Stormboy, Mek or Squig hit by a player (server report) is drawn pushed away from the attacker by **0.12** m (shot) or **0.2** m (melee) over **0.15** s, clip, facing and run kept; 'Ard Boyz, Nobz, the Chaos Marine… (m, s) | kind: ours; confidence: low | the brief: directional reactions, no 180-degree turn (the old flinch swapped in the stagger clip and pushed along the Ork's own facing; it stays off) | Musou: the rank and file pushed back: compare with SM1 by timing a run over a known distance. Ours: a Boy, Shoota Boy, Gretchin, Rokkit Boy, Stormboy, Mek or Squig hit… | ☐ |
 
-### Combat core (gameplay-critical) (14)
+*Spec section: Musou's arsenal: W3, the power spear (docs/new-weapons-design.md section 6)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-640BBD78` | Spear: jump-pack rules | the hammer's: no pound delay, the hop swing, the steered slam (`Loadouts.WieldsHammer` through `ArsenalRules.WieldsHammer`) | kind: ours; confidence: medium | owner D17 (default) | Spear: jump-pack rules: compare with SM1 by feel or video. Ours: the hammer's: no pound delay, the hop swing, the steered slam… | ☐ |
+
+### Combat core (gameplay-critical) (15)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -759,6 +765,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-C5F90938` | Shield generator | **75** hp (was 800; see "Contraption health"); a dome of radius **10** m round it (a sphere at its foot): a player's hit-scan shot that enters it from outside ends where it enters (nothing behind it is struck); a cone or a blast from outside does not reach… (hp, m) | kind: ours; notes: estimate | owner brief 2026-11-07 (800, 10 m, outside only); owner 2026-11-08 (Guardsmen's fire, Ork blasts, grenades; not movement or melee); a projectile going off at… | Shield generator: compare with SM1 by counting hits to kill and by video of the health bar. Ours: 75 hp (was 800; see "Contraption health"); a dome of radius 10 m… | ☐ |
 | `R-167CA37E` | Contraption health (owner, 2026-11-09) | every kind **75** hp (three standard bolter rounds of 25.4; was 800 / 400 / 500 / 150); at zero it is destroyed: removed from the sim (its dome, drops, rockets or trigger stop at once; a destroyed cue, its effect and sound and a wreck on the client); any… (hp) | kind: ours; notes: estimate | owner 2026-11-09 ("ensure they have hitboxes and have a low health value"); the 75, the one-blow rule and the generator through its dome ours | Contraption health (owner, 2026-11-09): compare with SM1 by counting hits to kill and by video of the health bar. Ours: every kind 75 hp (three standard bolter rounds of 25.4; was 800 / 400… | ☐ |
+
+*Spec section: Musou's arsenal: W3, the power spear (docs/new-weapons-design.md section 6)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-62C831CA` | Spear: damage | a light swing **150** to the primary target (the hammer's 200 x 0.75), the secondary, shield and the heavy sweeps (interrupt and the two sweeping attacks) times **0.75** too; the Y,Y slam (the strikes that set off a blast) keeps the hammer's damage and its 7… (health) | kind: estimate; confidence: low; notes: ours | ours (design 6.1) | Spear: damage: compare with SM1 by counting hits to kill and by video of the health bar. Ours: a light swing 150 to the primary target (the hammer's 200 x 0.75)… | ☐ |
 
 ### Weapons (gameplay-critical) (121)
 
@@ -2198,7 +2210,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (587)
+### Core simulation (provisional values) (594)
 
 *Spec section: Provisional values in use*
 
@@ -3126,6 +3138,18 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-ABD84A62` | Musou weight: blast jolts thinned | a detonation shakes and jolts the own camera only within **12** m (was 25), and in each **0.25** s window only its strongest: a window opens at a kept jolt, and a later blast in it jolts too only when at least **1** m closer than the closest kept so far; the… (m, s) | notes: ours | owner 2026-11-10 ("Thin the jolts"; the plan with the own-grenade exception); the 1 m margin and the own-grenade test ours | Musou weight: blast jolts thinned: compare with SM1 by measuring on a flat spot of the same map. Ours: a detonation shakes and jolts the own camera only within 12 m (was… | ☐ |
 | `R-CB5D9334` | Musou weight: roll end dip | the own roll's end dips the camera **0.4** degrees (a small landing's) (degrees) | kind: ours; confidence: low | ours | Musou weight: roll end dip: compare with SM1 with an overlaid screenshot taken from the same position. Ours: the own roll's end dips the camera 0.4 degrees (a small landing's). | ☐ |
 | `R-B86E5FB3` | Musou weight: contact sounds | a knee, hand, pelvis or shoulder meeting the ground at strength **0.35** or more plays the class's heavy footstep command (`EVT_Left_Foot_Rush` / `EVT_Right_Foot_Rush`, the surface switch under it, the owner's footstep level); a jump-pack dash's landing the… (- , s, m) | kind: ours; confidence: low | the plan (install sounds only) | Musou weight: contact sounds: compare with SM1 by feel or video. Ours: a knee, hand, pelvis or shoulder meeting the ground at strength 0.35… | ☐ |
+
+*Spec section: Musou's arsenal: W3, the power spear (docs/new-weapons-design.md section 6)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-73CE2C31` | Spear: tempo | the spear is the thunder hammer's combo with every step's timing (duration, hit, combo window, ranged-cancel, move, no-react window, string reset, evade, the slam's steering window) divided by **0.85**; the slam's turn is the same 185 degrees over the longer… (x the hammer's rate) | kind: estimate; confidence: low; notes: ours | owner D14 "slower than hammer"; 0.85 ours | Spear: tempo: compare with SM1 by feel or video. Ours: the spear is the thunder hammer's combo with every step's timing… | ☐ |
+| `R-DA640157` | Spear: sweep reach | **12 m** from the feet (the hammer's war cleave: 8.8 m, 10.7 m with a track-to-hit step), the cleave's own height band (1.5 m) and wall rule (m) | kind: estimate; confidence: low; notes: ours | owner D14 "much wider reach"; 12 m ours | Spear: sweep reach: compare with SM1 by measuring on a flat spot of the same map. Ours: 12 m from the feet (the hammer's war cleave: 8.8 m, 10.7 m with a… | ☐ |
+| `R-84D13CDE` | Spear: sweep width | **120 degrees** to each side (240 in all). The war's hammer cleave is also 120 each side since 2026-11-09, so the width is the hammer's; the design's table (180 degrees for the hammer) was written before that (degrees) | kind: estimate; confidence: low | design 6.1; owner D14 | Spear: sweep width: compare with SM1 by measuring on a flat spot of the same map. Ours: 120 degrees to each side (240 in all). The war's hammer cleave is… | ☐ |
+| `R-77758F95` | Spear: sweep cap | at most **12** Orks, nearest first (the hammer's war cleave: 40) (Orks) | kind: estimate; confidence: low; notes: ours | ours (a crowd cap) | Spear: sweep cap: compare with SM1 by feel or video. Ours: at most 12 Orks, nearest first (the hammer's war cleave: 40). | ☐ |
+| `R-E48FE621` | Spear: impale | when the spear's player lands a jump-pack ground pound (the pound's Impact), the Ork nearest the landing within **2 m** (the nearest alive after the pack's own blast) takes **600** (a Nob's whole health), times the stims' melee factor, with the melee heal… (health, m) | kind: estimate; confidence: low | owner D18 (the proposed rule) | Spear: impale: compare with SM1 by feel or video. Ours: when the spear's player lands a jump-pack ground pound (the pound's… | ☐ |
+| `R-A061A276` | Spear: where offered | appended at the end of the Space Marine Assault's melee choices (no index moves) and to the Musou customizer's melee row, when the class carries the thunder hammer; no other class and no other profile; a config without the hammer is untouched | kind: ours; confidence: medium | owner D1, D3 | Spear: where offered: compare with SM1 by feel or video. Ours: appended at the end of the Space Marine Assault's melee choices (no… | ☐ |
+| `R-18174400` | Spear: look | built in code (placeholder): a black shaft **2.85 m** in all about a third of the way from the grip, a bronze collar, ring, bands and a small crossguard near the top, and a long single-edged blade (0.87 m, angled chisel tip) in a translucent blue power field… (m) | kind: ours; confidence: low | owner D15 (his reference, as described) | Spear: look: compare with SM1 by measuring on a flat spot of the same map. Ours: built in code (placeholder): a black shaft 2.85 m in all about a… | ☐ |
 
 ### General game design (7)
 
