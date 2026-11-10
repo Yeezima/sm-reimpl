@@ -95,7 +95,7 @@ public class MusouLibrarianPass2Tests
         var eye = MusouSim.Chest(Vector3.Zero, sim.Body(MusouEnemyType.Boy).Height);
         for (int k = 0; k < 50; k++) sim.Spawn(MusouEnemyType.Boy, new Vector3(0f, 6f + 2f * k, 0f), 0f, 10000f);
         sim.BeginTick(1);
-        psyker.Step(sim, new LibrarianCaster(1, Vector3.Zero, eye, 0f, 0f), new LibrarianPress(true, false, false), 1f / 30f);
+        psyker.Step(sim, new LibrarianCaster(1, Vector3.Zero, eye, 0f, 0f), new LibrarianPress(true, false), 1f / 30f);
         Assert.Equal(40, psyker.Links.Count);
         Assert.Equal(40, LibrarianWire.Drawable(psyker.Links));
     }
@@ -150,7 +150,7 @@ public class MusouLibrarianPass2Tests
     {
         Assert.Equal("play_power_conduit_elec", LibrarianSounds.Loop);
         Assert.Equal("stop_power_conduit_elec", LibrarianSounds.Tail);
-        Assert.All(new[] { LibrarianSounds.Zap, LibrarianSounds.Pull, LibrarianSounds.Shockwave, LibrarianSounds.Locked }, e => Assert.StartsWith("play_", e));
+        Assert.All(new[] { LibrarianSounds.Zap, LibrarianSounds.Shockwave, LibrarianSounds.Locked }, e => Assert.StartsWith("play_", e));
     }
 
     [Fact]

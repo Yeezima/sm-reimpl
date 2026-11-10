@@ -113,6 +113,7 @@ public partial class NetworkView
     void MusouDraw(IReadOnlyList<MusouShown> shown, float delta)
     {
         if (_fx is not null) _fx.LightFilter ??= MusouLightSeen;
+        _fx?.MusouGpuEnable();   // musou/gpu-particles: the sprays' particles on the GPU (--fx-cpu: the CPU path; FxPlayer.MusouGpu.cs)
         if (_musouStarted < 0) _musouStarted = _connectedFor;
         if (_musouLooks is null)
         {

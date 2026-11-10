@@ -4,8 +4,9 @@ namespace SmSim.Extras.Musou;
 /// The Librarian's numbers (Musou Mode only; the owner's brief of 2026-11-07, docs/musou-expansion.md "Librarian"; spec/behavior.md "Musou Mode: the Librarian"). Every value is **ours** (kind: ours / estimate): the
 /// original has no playable psyker. Times in seconds, distances in metres, angles in degrees. All of them sit here so a playtest retunes one file. Hashed into the config only through <see cref="MusouSim.Version"/>.
 /// <para>
-/// <b>Binding</b> (the existing buttons, no new input bit; the Librarian carries no gun and no grenade, so these are free): Fire (held) = chain lightning, Grenade (press) = Warp Pull,
-/// Reload (press) = Psychic Shockwave. Melee is the ordinary melee.
+/// <b>Binding</b> (the existing buttons, no new input bit; the Librarian carries no gun, so these are free): Fire (held) = chain lightning, Reload (press) = Psychic Shockwave. Melee is the
+/// ordinary melee; Grenade throws his equipment as any marine's (the owner, 2026-11-10: the Warp Pull is removed and "allow the librarian to use all equipment items that other classes can use
+/// (frag grenades, blind grenades, stims)").
 /// </para>
 /// <para><b>Psychic Ward</b> (a shield that soaks damage for stress): a future idea only. Nothing of it is built or reserved on the wire.</para>
 /// </summary>
@@ -19,14 +20,14 @@ public static class LibrarianRules
     public const float StressMax = 100f;
     /// <summary>Chain lightning adds this much a second while held (so 20 s fills the scale).</summary>
     public const float LightningStressPerSecond = 5f;
-    /// <summary>A Warp Pull and a Shockwave each add this much (each equals 10 s of lightning: keep the ratios if one changes).</summary>
-    public const float PullStress = 50f, ShockwaveStress = 50f;
+    /// <summary>A Shockwave adds this much (it equals 10 s of lightning: keep the ratio if one changes).</summary>
+    public const float ShockwaveStress = 50f;
     /// <summary>Stress falls this much a second once <see cref="CoolDelay"/> has passed without casting (8 s from full).</summary>
     public const float CoolPerSecond = 12.5f, CoolDelay = 1.0f;
     /// <summary>A melee swing that strikes at least one enemy takes this much off (once a swing, however many it hits).</summary>
     public const float MeleeRelief = 6f;
-    /// <summary>Seconds before the next Pull / Shockwave after a cast.</summary>
-    public const float PullCooldown = 8f, ShockwaveCooldown = 12f;
+    /// <summary>Seconds before the next Shockwave after a cast.</summary>
+    public const float ShockwaveCooldown = 12f;
 
     // ---- Chain lightning ----
     /// <summary>It reaches this far from the eye, to the enemy best lined up with the aim within <see cref="AimConeDegrees"/> (ours).</summary>
@@ -41,18 +42,27 @@ public static class LibrarianRules
     /// <summary>Most links the wire carries a tick: every target struck since MusouSim 14 (the wire's 3-byte jumps, <c>LibrarianWire</c>; it was 16 at 12 bytes a link).</summary>
     public const int MaxDrawnLinks = MaxTargets;
 
-    // ---- Warp Pull ----
-    /// <summary>A cone in front of the Librarian: half-angle <see cref="PullConeDegrees"/> (the melee cone's convention; the brief's "30 degrees" read as the half-angle, ours) and this far.</summary>
-    public const float PullConeDegrees = 30f, PullRange = 25f;
-    /// <summary>An ordinary Ork is pulled to this far from the Librarian, an elite this share of his distance; bosses are immune. The pull takes <see cref="PullSeconds"/> (ours).</summary>
-    public const float PullStopDistance = 2f, ElitePullShare = 0.35f, PullSeconds = 0.4f;
-
     // ---- Psychic Shockwave ----
-    /// <summary>Everything within this takes <see cref="ShockwaveDamage"/> (kills only a Gretchin, 30 hp; a Boy has 85). Ordinary Orks are thrown between the two distances over <see cref="ThrowSeconds"/> (ours); elites and bosses are not moved.</summary>
-    public const float ShockwaveRadius = 9f, ShockwaveDamage = 40f;
-    public const float ThrowMin = 20f, ThrowMax = 25f, ThrowSeconds = 1.0f;
+    /// <summary>
+    /// Everything within <see cref="ShockwaveRadius"/> (flat) and <see cref="ShockwaveVerticalReach"/> (up or down) takes <see cref="ShockwaveDamage"/> (the owner, 2026-11-10: "a range of 60m and massively
+    /// increased effect and damage", his pick of 300: it kills every ordinary Ork, 'Ard Boy, Stormboy and Chaos Marine; a Nob keeps half; it was 9 m and 40). Ordinary Orks still standing are thrown between
+    /// <see cref="ThrowMin"/> and <see cref="ThrowMax"/> over <see cref="ThrowSeconds"/>, elites between <see cref="EliteThrowMin"/> and <see cref="EliteThrowMax"/> (they were not moved), and a boss is
+    /// staggered where he stands (the Warboss and the Boss Orks are stagger-immune: hyper armour, so only the Weirdboy reels). Distances are the owner's picks; the vertical reach and the throw time are ours.
+    /// </summary>
+    public const float ShockwaveRadius = 60f, ShockwaveDamage = 300f, ShockwaveVerticalReach = 15f;
+    public const float ThrowMin = 40f, ThrowMax = 50f, EliteThrowMin = 15f, EliteThrowMax = 20f, ThrowSeconds = 1.2f;
 
-    /// <summary>How the powers treat an enemy: ordinary (pulled all the way, thrown), elite (pulled a part, not thrown) or boss (neither).</summary>
+    /// <summary>
+    /// The pass 2 numbers, for the restore switches (<see cref="LibrarianVariant"/>, <c>SM_LIBRARIAN_OLD=shockwave,pull</c>): the Shockwave of 9 m (4 m up or down), 40 damage, ordinary Orks thrown 20 to 25 m over
+    /// 1.0 s, elites and bosses not moved; the Warp Pull on Grenade: a cone of 30 degrees half-angle and 25 m, ordinary Orks to 2 m over 0.4 s, elites 35 % of the way, bosses immune, cooldown 8 s, stress 50.
+    /// </summary>
+    public static class Pass2
+    {
+        public const float ShockwaveRadius = 9f, ShockwaveDamage = 40f, ShockwaveVerticalReach = 4f, ThrowMin = 20f, ThrowMax = 25f, ThrowSeconds = 1.0f;
+        public const float PullConeDegrees = 30f, PullRange = 25f, PullStopDistance = 2f, ElitePullShare = 0.35f, PullSeconds = 0.4f, PullCooldown = 8f, PullStress = 50f;
+    }
+
+    /// <summary>How the Shockwave treats an enemy: ordinary (thrown far), elite (thrown a shorter way) or boss (staggered in place, when he can be).</summary>
     public enum Tier { Ordinary, Elite, Boss }
 
     /// <summary>The tier of an enemy type. Bosses: the Warboss, the Boss Orks, the Weirdboy. Elites: Nobz and 'Ard Boyz. Everything else is ordinary. A new kind of Ork goes in here.</summary>

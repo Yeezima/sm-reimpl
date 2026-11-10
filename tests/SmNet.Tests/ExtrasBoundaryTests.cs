@@ -67,6 +67,14 @@ public class ExtrasBoundaryTests
         ("client/NetworkView.Sound.cs", "ExtrasTrackEmitter"),   // NetworkView.ExtrasTrackEmitter(SoundEmitter, bool), in Track: Musou protects the own character's voice lines (musou/audio-pass)
         ("client/NetworkView.Sound.cs", "ExtrasFireLayers"),   // NetworkView.ExtrasFireLayers(WeaponSpec, SoundEmitter, bool), in PostFire: Musou's bolter rifles fire deeper (musou/audio-pass)
         ("client/NetworkView.Sound.cs", "ExtrasShotMaterial"),     // NetworkView.ExtrasShotMaterial(ShotView, int, ref bool?), in SoundShot: the material of another player's ranged hit (Musou: armoured Orks armour and flesh)
+        // musou/gpu-particles: the effect player's GPU spray path (client/Extras/Musou/FxPlayer.MusouGpu.cs); each returns at once unless MusouGpuEnable ran (Musou Mode, or the --fx-gpu test aid).
+        ("client/FxPlayer.cs", "ExtrasFxCap"),                     // FxPlayer.ExtrasFxCap(ref int), in Play: the live-effect cap with the GPU path
+        ("client/FxPlayer.cs", "ExtrasFxBegin"),                   // FxPlayer.ExtrasFxBegin(double), in Update after the batch's Begin: the GPU clock
+        ("client/FxPlayer.cs", "ExtrasFxEnd"),                     // FxPlayer.ExtrasFxEnd(), in Update after the batch's End: hide undrawn sprays, upload
+        ("client/FxPlayer.cs", "ExtrasFxRelease"),                 // FxPlayer.ExtrasFxRelease(FxEffect), in Release: free the effect's records
+        ("client/FxPlayer.cs", "ExtrasSpray"),                     // FxPlayer.ExtrasSpray(FxEffect, CSpray, in Ctx, double, int, uint, ref int), in DrawSpray: the GPU draws the ring particles
+        ("client/FxPlayer.cs", "ExtrasFxStats"),                   // FxPlayer.ExtrasFxStats(ref string), in ExtraStats: the GPU path's counts for the effects log line
+        ("client/FxTest.cs", "ExtrasTestEffect"),                  // FxTestView.ExtrasTestEffect(FxEffect), each effect the --fx test view starts (test aid: Musou's blood settings for the CPU / GPU stills)
         ("client/NetworkView.cs", "ExtrasMapCollision"),           // NetworkView.ExtrasMapCollision(string, ref CollisionWorld, ref ulong), in LoadMap after the level's collision (tfw_war: the Stormbird and the composed hash)
         ("client/NetworkView.cs", "ExtrasMapContent"),             // NetworkView.ExtrasMapContent(string, ref MapContent?), in LoadMap before any file read (tfw_war: Ashfall Citadel, generated)
         ("client/NetworkView.cs", "ExtrasMapVisuals"),             // NetworkView.ExtrasMapVisuals(string, MapContent, ref bool), in LoadMap for a generated map (tfw_war: the graybox view)
@@ -75,6 +83,7 @@ public class ExtrasBoundaryTests
         ("client/NetworkView.cs", "ExtrasBotInput"),               // NetworkView.ExtrasBotInput(PlayerState, uint, ref PlayerInput?), in BotInput after the countdown (Musou Mode: the co-op bot fights the Orks)
         ("client/NetworkView.Death.cs", "ExtrasCorpseHold"),      // NetworkView.ExtrasCorpseHold(Ragdoll, Vector3?, ref bool), before a Marine ragdoll is dropped (Musou Mode: the corpse floor holds it 10 s)
         ("client/FrontEnd/HostPanel.cs", "ExtrasHostMap"),         // HostPanel.ExtrasHostMap(ref string?), before HostOptions (Musou Mode: --ashfall-layout field picks draft 11, tfw_war_field)
+        ("client/CharacterViewer.cs", "ExtrasPoseOverlay"),        // CharacterViewer.ExtrasPoseOverlay(), after the pose layers in ApplyStances and ApplyPose (Musou: the Librarian's procedural cast pose; nothing unless the viewer carries one)
         // Musou Mode's customizer (owner 2026-11-10; client/Extras/Musou/Customizer/): the top level Standard Marines / Librarian / Heretic in place of the factions, Musou only.
         ("client/Customizer/CreatorView.cs", "ExtrasTopLevel"),     // CreatorView.ExtrasTopLevel(ref bool), in BuildSideToggle: the Musou entries instead of the faction buttons
         ("client/Customizer/CreatorView.cs", "ExtrasRefresh"),      // CreatorView.ExtrasRefresh(bool, ref bool), at the start of Refresh: the Librarian's and the Heretic's pages
