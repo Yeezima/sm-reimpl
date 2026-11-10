@@ -91,6 +91,7 @@ public partial class NetworkView
         MusouDeathSpikeFrame(_musouState.NewDeaths.Count);   // --musou-death-spike-test (NetworkView.MusouDeathSpike.cs)
         TfwCoopBotDeaths();   // Tfw/NetworkView.TfwCoopBot.cs: co-op's --bot counts its kills
         MusouDeathsSeen += _musouState.NewDeaths.Count;   // the Firing Range script counts the strike's kills
+        SpearImpaleEvents(_musouState.NewEvents);   // the power spear's impale evidence: the landing's impale only on a hit (Arsenal/Spear/NetworkView.SpearPose.cs)
         _musouState.TakeNew();
         MusouDropsFrame(me, (float)delta);   // MU-D: the own weapon drops (MusouDrops.cs)
         Ph("musou: weight");

@@ -32,8 +32,11 @@ public static class SpearHold
     /// slight lean in at the top keeps the butt out of the trailing leg's kick when he strafes and sprints. Ours, chosen with the clearance check (<c>SpearClearanceTests</c>: every hammer stance
     /// clip, the least clearance 0.10 m). At the low grip with the left hand off the shaft stands upright from the hand. Before the owner's review of 2026-11-10 the carry leaned 80 degrees
     /// toward the way the player faces, so the shaft rose beside the head and through the pad.
+    /// <para>Crosshair pass (2026-11-11: the carried blade crossed the crosshair's column in the own view at idle): 48 degrees at -5 (was 55 at -15), with the hand further out
+    /// (<c>ClawSpearClips.SpearRest</c>), so the shaft crosses the column below the blade and the blade stands at least <see cref="SpearClearance.CrosshairColumnDegrees"/> right of it at idle in
+    /// the default view; still in a little at the top, the butt behind and outside the leg (clearance over every stance clip 0.08 m at the least, the left sprint strafe).</para>
     /// </summary>
-    public const float CarryElevation = 55f, CarryAzimuth = -15f;
+    public const float CarryElevation = 48f, CarryAzimuth = -5f;
     /// <summary>
     /// The way the carried blade's edge faces, as an azimuth from the front toward the body's right (degrees; flat, then squared to the shaft): forward and out, away from the body (owner,
     /// 2026-11-10: "the blade is facing away from the character model at idle and when running"; ours). Once both hands swing it the edge faces the front, as the strikes were approved.

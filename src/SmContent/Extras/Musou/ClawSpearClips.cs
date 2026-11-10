@@ -208,7 +208,11 @@ public static class ClawSpearClips
     public const float GripSlide = 0.25f, GripSlideBack = 0.4f;
 
     /// <summary>The carry: the right arm hanging with the shaft at the right side (the shaft leans forward-up from this hand at the carry grip, <see cref="SpearHold.Place"/>, the blade's edge facing out and forward, from the hips' facing); the left arm hangs free (aims, el / az).</summary>
-    const float RestRUpperEl = -30f, RestRUpperAz = 85f, RestRForeEl = -15f, RestRForeAz = 55f, RestLUpperEl = -70f, RestLUpperAz = -20f, RestLForeEl = -50f, RestLForeAz = -25f;
+    /// <remarks>Crosshair pass (owner via the lead, 2026-11-11: the carried blade crossed the crosshair's column in the own view at idle): the right upper arm raised from -30 to -20 and brought
+    /// round from 85 to 45 degrees azimuth, the forearm from 55 to 45, so the hand sits further out to the player's right (the hammer idle's hips are turned 71 degrees right of the facing,
+    /// so 45 here is about 116 degrees right of the way he faces) and the shaft, leaning from it (<see cref="SpearHold.CarryElevation"/>), passes the crosshair's column below the blade
+    /// (<c>SpearClearanceTests</c>: at least <see cref="SpearClearance.CrosshairColumnDegrees"/> of the default third-person view at idle).</remarks>
+    const float RestRUpperEl = -20f, RestRUpperAz = 45f, RestRForeEl = -15f, RestRForeAz = 45f, RestLUpperEl = -70f, RestLUpperAz = -20f, RestLForeEl = -50f, RestLForeAz = -25f;
     static PoseKey RestRUpper(float t, PoseEase ease = PoseEase.Smooth) => A(t, RestRUpperEl, RestRUpperAz, ease);
     static PoseKey RestRFore(float t, PoseEase ease = PoseEase.Smooth) => A(t, RestRForeEl, RestRForeAz, ease);
     static PoseKey RestLUpper(float t, PoseEase ease = PoseEase.Smooth) => A(t, RestLUpperEl, RestLUpperAz, ease);
@@ -417,6 +421,46 @@ public static class ClawSpearClips
     /// <summary>Where the right hand holds the shaft while the impale is held (m from the butt; ours): high toward the blade, so the point reaches the Ork at his feet from the landing's deep crouch (the shoulders about 0.8 m up).</summary>
     public const float ImpaleGrip = 1.5f;
 
+    /// <summary>
+    /// The pound's landing when it impaled no Ork (owner via the lead, 2026-11-11: the point-down impale "only when the landing actually impaled/hit an Ork"; **ours**, composed of the impale's
+    /// own keys, no pose of its own): the same touch-down as the impale (the dive's hands, the point dipping toward the ground by <see cref="ImpaleDrive"/> as the hands slide up the shaft; nothing
+    /// is there, and the tip stays above the ground), but no hold: the impale's release pose by <see cref="LandFree"/>, the carry's arms with the left hand off the shaft by <see cref="LandRest"/>
+    /// (the impale's own 0.12 s release), the hips easing out of the landing's lean by <see cref="LandRelax"/> before the shaft turns up (with the lean held, the release swung the blade through the
+    /// knees: <c>SpearClearanceTests</c>), then the carry's arms held as the impale ends. Before 2026-11-11 every landing held the spear point-down in the ground to 0.85 s. Shown when the
+    /// landing impaled nothing (<see cref="SpearLanding"/>).
+    /// </summary>
+    public static readonly WeaponPoseClip SpearLand = SpearImpale with
+    {
+        Name = "spear_land",
+        HitTime = float.NaN,
+        Settle = LandRest,
+        Source = "the hammer's landing (SM_JMP_TH_GP_Impact_01 1.067 s; no impale: nothing was hit)",
+        Description = "landing with no Ork impaled: the point dips toward the ground as the marine lands, finds nothing and comes straight back up, the left hand letting go, the spear upright beside him in the right hand as he rises",
+        Channels = [.. SpearImpale.Channels.Select(LandChannel)],
+        Grip = [G(0f, 1f), G(LandFree, 1f), G(LandRest, 0f), G(SpearDiveImpactLength, 0f)],
+        GripPoint = [P(0f, WeaponPoseClip.LowGrip), P(ImpaleDrive, ImpaleGrip, PoseEase.Snap), P(LandFree, WeaponPoseClip.LowGrip), P(SpearDiveImpactLength, WeaponPoseClip.LowGrip)],
+    };
+
+    /// <summary>The plain landing: when the spear is free (the impale's release pose; s into the landing clip), when the carry's arms have it (the impale's own release length later), and when the hips are out of the lean (ours).</summary>
+    public const float LandFree = 0.30f, LandRest = LandFree + 0.12f, LandRelax = LandFree + 0.10f;
+
+    /// <summary>One of the impale's channels for the plain landing: the arms from its touch-down (its first two keys) to its release pose at <see cref="LandFree"/> and the carry's arms from <see cref="LandRest"/>; the pelvis's lean held to half way and eased to the release's by <see cref="LandRelax"/>; the back and head as they are.</summary>
+    static PoseChannel LandChannel(PoseChannel c)
+    {
+        static PoseKey At(PoseChannel ch, float t) => ch.Keys.First(k => MathF.Abs(k.T - t) < 1e-4f);
+        if (c.Kind == PoseChannelKind.Aim)
+        {
+            var rest = SpearRest.Channels.Single(r => r.Bone == c.Bone).Keys[0];
+            return c with { Keys = [c.Keys[0], At(c, ImpaleDrive), At(c, ImpaleFree) with { T = LandFree, Ease = PoseEase.Smooth }, rest with { T = LandRest }, rest with { T = SpearDiveImpactLength }] };
+        }
+        if (c.Bone != "RIG_Pelvis") return c;
+        var drive = At(c, ImpaleDrive);
+        return c with { Keys = [c.Keys[0], drive, drive with { T = LandRelax * 0.5f, Ease = PoseEase.Smooth }, At(c, ImpaleFree) with { T = LandRelax }, c.Keys[^1]] };
+    }
+
+    /// <summary>The pound's landing clip: <see cref="SpearImpale"/> when the landing impaled an Ork (the server's impale), else <see cref="SpearLand"/> (owner via the lead, 2026-11-11).</summary>
+    public static WeaponPoseClip SpearLanding(bool impaled) => impaled ? SpearImpale : SpearLand;
+
     /// <summary>A spear clip from the hammer strike's length, hit and combo opening (s, the hammer's) at the spear's tempo; <paramref name="grip"/> builds the left hand's hold on the shaft over the same moments.</summary>
     static WeaponPoseClip Spear(string name, float hammerLength, float hammerHit, float hammerCombo, string baseClip, string source, string description, float antic, float follow, float recover,
         Func<float, float, float, float, float, PoseChannel[]> build, Func<float, float, float, float, float, PoseKey[]>? grip = null, Func<float, float, float, float, float, PoseKey[]>? gripPoint = null)
@@ -428,7 +472,7 @@ public static class ClawSpearClips
     }
 
     /// <summary>Every clip, in the preview's order.</summary>
-    public static readonly IReadOnlyList<WeaponPoseClip> All = [ClawX1, ClawX2, ClawX3, ClawX4, ClawHeavy, SpearRest, SpearHew1, SpearHew2, SpearHew3, SpearStun, SpearStab, SpearDive, SpearImpale];
+    public static readonly IReadOnlyList<WeaponPoseClip> All = [ClawX1, ClawX2, ClawX3, ClawX4, ClawHeavy, SpearRest, SpearHew1, SpearHew2, SpearHew3, SpearStun, SpearStab, SpearDive, SpearImpale, SpearLand];
 
     /// <summary>The spear's strikes on the ground (the light hews and the F, F chain): each starts from <see cref="SpearRest"/> or the strike before it and ends back at the rest.</summary>
     public static readonly IReadOnlyList<WeaponPoseClip> SpearStrikes = [SpearHew1, SpearHew2, SpearHew3, SpearStun, SpearStab];

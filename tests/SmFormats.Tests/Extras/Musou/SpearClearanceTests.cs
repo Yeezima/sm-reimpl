@@ -51,11 +51,11 @@ public class SpearClearanceTests(ITestOutputHelper output)
     sealed class Run(WeaponPoseMirror mirror)
     {
         public readonly Dictionary<string, Worst> ByClip = new();
-        public float LowestButt = float.PositiveInfinity;
-        public string LowestButtAt = "";
+        public float LowestButt = float.PositiveInfinity, LowestLandingButt = float.PositiveInfinity;
+        public string LowestButtAt = "", LowestLandingButtAt = "";
 
         /// <summary>Lays <paramref name="clip"/> (faded from <paramref name="from"/>) over the pose the mirror holds and measures the spear placed on the hands.</summary>
-        public SpearClearanceResult Measure(string key, string scenario, float time, WeaponPoseClip clip, float clipTime, WeaponPoseClip? from = null, float fromTime = 0f, float share = 0f, bool carry = false)
+        public SpearClearanceResult Measure(string key, string scenario, float time, WeaponPoseClip clip, float clipTime, WeaponPoseClip? from = null, float fromTime = 0f, float share = 0f, bool carry = false, bool land = false)
         {
             mirror.Overlay(clip, clipTime, from, fromTime, share);
             float grip = clip.GripAt(clipTime), point = clip.GripPointAt(clipTime);
@@ -68,6 +68,11 @@ public class SpearClearanceTests(ITestOutputHelper output)
             {
                 float h = SpearClearance.ButtHeight(butt, shaft);
                 if (h < LowestButt) { LowestButt = h; LowestButtAt = $"{scenario} t {time:0.000}"; }
+            }
+            if (land)
+            {
+                float h = SpearClearance.ButtHeight(butt, shaft);   // the plain landing holds the spear butt down: never into the ground
+                if (h < LowestLandingButt) { LowestLandingButt = h; LowestLandingButtAt = $"{scenario} t {time:0.000}"; }
             }
             return r;
         }
@@ -106,6 +111,7 @@ public class SpearClearanceTests(ITestOutputHelper output)
         var impact = rig.LoadAnimation(ClawSpearClips.SpearDiveImpact);
         for (float t = 0f; t <= ClawSpearClips.SpearDiveLoopLength; t += Step) { mirror.Lay(dive, t); run.Measure("spear_dive", "over the dive loop", t, ClawSpearClips.SpearDive, t); }
         for (float t = 0f; t <= ClawSpearClips.SpearDiveImpactLength; t += Step) { mirror.Lay(impact, t); run.Measure("spear_impale", "over the landing", t, ClawSpearClips.SpearImpale, t); }
+        for (float t = 0f; t <= ClawSpearClips.SpearDiveImpactLength; t += Step) { mirror.Lay(impact, t); run.Measure("spear_land", "over the landing", t, ClawSpearClips.SpearLand, t, land: true); }
         // The hand-overs (WeaponPoseState.BlendSeconds): the carry into each strike (a Musou light press may start any hew), the chains at their windows, each strike's end back into the
         // carry, the dive into the impale; the new clip runs on from its start while the old one's pose fades.
         var handovers = new List<(string Key, HavokBoundAnimation Base, WeaponPoseClip From, float FromTime, WeaponPoseClip To, float ToStart, HavokBoundAnimation ToBase)>();
@@ -117,6 +123,14 @@ public class SpearClearanceTests(ITestOutputHelper output)
         foreach (var strike in ClawSpearClips.SpearStrikes) handovers.Add(($"{strike.Name} -> carry", idle, strike, strike.Duration, ClawSpearClips.SpearRest, 0f, idle));
         handovers.Add(("dive -> impale", impact, ClawSpearClips.SpearDive, 1.0f, ClawSpearClips.SpearImpale, 0f, impact));
         handovers.Add(("spear_impale -> carry", idle, ClawSpearClips.SpearImpale, ClawSpearClips.SpearImpale.Duration, ClawSpearClips.SpearRest, 0f, idle));
+        // The plain landing (2026-11-11: the impale only on a hit): from the dive, into the carry, and the client's change of mind while the choice is open (its guess, then the server's word).
+        handovers.Add(("dive -> land", impact, ClawSpearClips.SpearDive, 1.0f, ClawSpearClips.SpearLand, 0f, impact));
+        handovers.Add(("spear_land -> carry", idle, ClawSpearClips.SpearLand, ClawSpearClips.SpearLand.Duration, ClawSpearClips.SpearRest, 0f, idle));
+        foreach (float at in new[] { 0.1f, 0.2f, 0.25f })   // up to NetworkView.SpearLandingLock (0.25 s); the two share their touch-down to ClawSpearClips.ImpaleDrive
+        {
+            handovers.Add(($"impale -> land at {at:0.0}", impact, ClawSpearClips.SpearImpale, at, ClawSpearClips.SpearLand, at, impact));
+            handovers.Add(($"land -> impale at {at:0.0}", impact, ClawSpearClips.SpearLand, at, ClawSpearClips.SpearImpale, at, impact));
+        }
         foreach (var h in handovers)
             for (float e = 0f; e <= WeaponPoseState_BlendSeconds + 1e-4f; e += Step)
             {
@@ -287,16 +301,70 @@ public class SpearClearanceTests(ITestOutputHelper output)
         return best;
     }
 
+    /// <summary>The client's exploration camera distance factor (<c>NetworkView.CameraBackScale</c>, client code: the data's rig times 1.3, owner 2026-10-30).</summary>
+    const float CameraBackScale = 1.3f;
+
+    /// <summary>The own third-person camera at <paramref name="pitch"/> (radians) in the skeleton's space (the client's character frame: +X right, +Y the facing, Z up, the feet at 0): the install's exploration rig (the rifle's set, which every weapon but the scoped ones uses), at the default field of view (no shift to the right).</summary>
+    static Vector3 OwnCamera(float pitch)
+    {
+        var tuning = CameraTuning.Load(Game.Value!);
+        var rig = CameraRig.Load(Game.Value!);
+        var set = tuning.For("sm_mp_ranged_bolter")!.Exploration;
+        var at = rig.OffsetAtPitch(set.AnimationCurve, pitch)!.Value.Camera;
+        return at with { Y = at.Y * CameraBackScale };
+    }
+
+    /// <summary>
+    /// The carried blade stays out of the crosshair's column in the own view at idle (owner via the lead, 2026-11-11: the blade crossed it): over the whole hammer idle the spear's head (collar,
+    /// crossguard, blade) stands at least <see cref="SpearClearance.CrosshairColumnDegrees"/> to one side of the screen's centre column, the view level; the walk, run and sprint are printed
+    /// (not held to it).
+    /// </summary>
+    [InstallFact]
+    public void The_carried_blade_stays_out_of_the_crosshair_column_at_idle()
+    {
+        var (rig, loco) = Data.Value;
+        var mirror = new WeaponPoseMirror(rig.Skeleton);
+        var level = OwnCamera(0f);
+        output.WriteLine(string.Format(I, "own camera (level): {0:0.00} right, {1:0.00} along the facing, {2:0.00} up", level.X, level.Y, level.Z));
+        float Least(string stance, Vector3 camera, float pitch)
+        {
+            var clip = rig.LoadAnimation(stance);
+            float least = float.PositiveInfinity;
+            for (float t = 0f; t <= clip.Animation.Duration; t += Step)
+            {
+                mirror.Lay(clip, t);
+                mirror.Overlay(ClawSpearClips.SpearRest, t % ClawSpearClips.SpearIdleLength);
+                var (butt, shaft, edge) = SpearHold.Place(mirror.RightHand, mirror.LeftHand, 0f, WeaponPoseClip.CarryGrip, mirror.FrontNow(), Vector3.UnitZ);
+                float a = SpearClearance.HeadColumnAngle(butt, shaft, edge, camera, pitch);
+                if (MathF.Abs(a) < MathF.Abs(least)) least = a;
+            }
+            return least;
+        }
+        string idle = loco.HammerIdle ?? ClawSpearClips.SpearIdle;
+        float atIdle = Least(idle, level, 0f);
+        output.WriteLine(string.Format(I, "{0,-36} the head's least angle from the column {1,6:0.0} deg (level view)", idle, atIdle));
+        foreach (float pitch in new[] { -0.4f, 0.4f })
+            output.WriteLine(string.Format(I, "{0,-36} {1,6:0.0} deg at pitch {2:0.0}", idle, Least(idle, OwnCamera(pitch), pitch), pitch));
+        foreach (float shift in new[] { 0.1f, 0.2f, 0.35f })   // a wider field of view moves the camera right (FovMath.CameraShift, up to 0.35 m)
+            output.WriteLine(string.Format(I, "{0,-36} {1,6:0.0} deg with the camera {2:0.00} m further right", idle, Least(idle, level with { X = level.X + shift }, 0f), shift));
+        foreach (var d in loco.Hammer?.Directions ?? [])
+            foreach (var s in new[] { d.Walk, d.Run })
+                if (s is { } moving) output.WriteLine(string.Format(I, "{0,-36} {1,6:0.0} deg", moving.Clip, Least(moving.Clip, level, 0f)));
+        foreach (var c in loco.SprintFor(SprintFamily.Hammer)?.Clips ?? []) output.WriteLine(string.Format(I, "{0,-36} {1,6:0.0} deg", c.Clip, Least(c.Clip, level, 0f)));
+        Assert.True(MathF.Abs(atIdle) >= SpearClearance.CrosshairColumnDegrees, $"the carried blade comes within {MathF.Abs(atIdle):0.0} degrees of the crosshair's column at idle (at least {SpearClearance.CrosshairColumnDegrees} wanted)");
+    }
+
     [InstallFact]
     public void The_spear_never_passes_into_the_body_in_any_clip_or_hand_over()
     {
         var run = Sweep();
         foreach (var (clip, w) in run.ByClip.OrderBy(k => k.Value.Result.Clearance))
             output.WriteLine(string.Format(I, "{0,-32} least clearance {1,6:0.000} m  ({2} by the {3}, {4} t {5:0.000})", clip, w.Result.Clearance, w.Result.Part, w.Result.SpearPiece, w.Scenario, w.Time));
-        output.WriteLine(string.Format(I, "carried butt lowest {0:0.000} m ({1})", run.LowestButt, run.LowestButtAt));
-        var clipping = run.ByClip.Where(k => k.Value.Result.Clearance < -(k.Key == "hand-over dive -> impale" ? LandingHandOverBudget : SpearClearance.Tolerance)).Select(k => $"{k.Key}: {k.Value.Result.Clearance:0.000} m into the {k.Value.Result.Part} ({k.Value.Result.SpearPiece}, {k.Value.Scenario} t {k.Value.Time:0.000})").ToList();
+        output.WriteLine(string.Format(I, "carried butt lowest {0:0.000} m ({1}); the plain landing's butt lowest {2:0.000} m ({3})", run.LowestButt, run.LowestButtAt, run.LowestLandingButt, run.LowestLandingButtAt));
+        var clipping = run.ByClip.Where(k => k.Value.Result.Clearance < -(k.Key is "hand-over dive -> impale" or "hand-over dive -> land" ? LandingHandOverBudget : SpearClearance.Tolerance)).Select(k => $"{k.Key}: {k.Value.Result.Clearance:0.000} m into the {k.Value.Result.Part} ({k.Value.Result.SpearPiece}, {k.Value.Scenario} t {k.Value.Time:0.000})").ToList();
         Assert.True(clipping.Count == 0, "the spear passes into the body:\n" + string.Join("\n", clipping));
         Assert.True(run.LowestButt >= ButtMinHeight, $"the carried butt drags: {run.LowestButt:0.000} m at {run.LowestButtAt}");
+        Assert.True(run.LowestLandingButt >= 0f, $"the plain landing drives the butt into the ground: {run.LowestLandingButt:0.000} m at {run.LowestLandingButtAt}");
         Assert.Contains(run.ByClip.Keys, k => k.StartsWith("spear_rest", StringComparison.Ordinal));
         foreach (var clip in ClawSpearClips.All.Where(c => c.Weapon == "spear")) Assert.Contains(run.ByClip.Keys, k => k.StartsWith(clip.Name, StringComparison.Ordinal));
     }

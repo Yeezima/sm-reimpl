@@ -78,11 +78,11 @@ public partial class NetworkView
                 await TfwFrames(6);
                 await SpearStill($"spear-{view}-6-dive", cam);
             }
-            // The impale just driven home (ClawSpearClips.ImpaleDrive 0.14 s) and held point-down in the Ork (to ImpaleHeld 0.85 s).
-            if (await TfwUntil("spear: the impale shows", () => _local?.PosedClip is { } p && _jmpImpact is not null && p == _jmpImpact && _local.PosedClipTime >= ClawSpearClips.ImpaleDrive + 0.03f, 6.0))
-                await SpearStill($"spear-{view}-7-impale", cam);
-            if (await TfwUntil("spear: the impale holds", () => _local?.PosedClip is { } p && _jmpImpact is not null && p == _jmpImpact && _local.PosedClipTime >= 0.6f, 2.0))
-                await SpearStill($"spear-{view}-8-impale-held", cam);
+            // The landing away from the Orks (2026-11-11: the impale only on a hit): the plain landing, the spear up beside him, just after the drive-down's time and while he rises.
+            if (await TfwUntil("spear: the landing shows", () => _local?.PosedClip is { } p && _jmpImpact is not null && p == _jmpImpact && _local.PosedClipTime >= ClawSpearClips.ImpaleDrive + 0.03f, 6.0))
+                await SpearStill($"spear-{view}-7-landing", cam);
+            if (await TfwUntil("spear: the landing holds", () => _local?.PosedClip is { } p && _jmpImpact is not null && p == _jmpImpact && _local.PosedClipTime >= 0.6f, 2.0))
+                await SpearStill($"spear-{view}-8-landing-held", cam);
             await TfwWait(2.0);
             _yaw = facing;
             TfwKey(Key.S, true);   // back from the pound's leap
@@ -91,8 +91,67 @@ public partial class NetworkView
             await TfwWait(1.0);
         }
         _spearCam = 0;
+        if (!CmdFlag("tfw-spear-no-hit")) await SpearHitLanding();
+        _spearCam = 0;
         await TfwWait(0.5);
         GetTree().Quit(0);
+    }
+
+    /// <summary>
+    /// The impaling landing (2026-11-11: only on a hit): the player walks up to the nearest Ork the client sees and pounds on it from a short hop, in the game's camera and the stage's side view;
+    /// stills at the drive-down and the hold, and the landing's choice in a SPEARLAND line (<see cref="SpearLandingOf"/>).
+    /// </summary>
+    async Task SpearHitLanding()
+    {
+        var client = _client!;
+        foreach (var (cam, view) in new[] { (0, "player"), (2, "side") })
+        {
+            _spearCam = 0;
+            bool near = false;
+            for (int k = 0; k < 120 && !near; k++)   // up to 12 s of walking toward the nearest Ork
+            {
+                var me = client.Predicted.Position;
+                if (_musouState.NearestTo(me, 60f) is not { } ork) { await TfwWait(0.1); continue; }
+                var to = ork - me;
+                _yaw = MathF.Atan2(-to.X, to.Y);   // the game's yaw: 0 along +Y, positive toward -X
+                near = new System.Numerics.Vector2(to.X, to.Y).Length() < 1.6f;
+                TfwKey(Key.W, !near);
+                await TfwWait(0.1);
+            }
+            TfwKey(Key.W, false);
+            GD.Print($"SPEARLAND capture: {(near ? "beside an Ork" : "no Ork reached")} for the {view} view");
+            _spearCam = cam;
+            TfwAction(GameAction.Jump, true);
+            await TfwWait(0.3);
+            TfwAction(GameAction.Jump, false);
+            await TfwWait(0.05);
+            await SpearPress(GameAction.Melee);
+            if (await TfwUntil("spear: the hit landing shows", () => _local?.PosedClip is { } p && _jmpImpact is not null && p == _jmpImpact && _local.PosedClipTime >= ClawSpearClips.ImpaleDrive + 0.03f, 6.0))
+                await SpearStill($"spear-{view}-9-impale", cam);
+            if (await TfwUntil("spear: the hit landing holds", () => _local?.PosedClip is { } p && _jmpImpact is not null && p == _jmpImpact && _local.PosedClipTime >= 0.6f, 2.0))
+                await SpearStill($"spear-{view}-10-impale-held", cam);
+            await TfwWait(2.0);
+        }
+    }
+
+    /// <summary>Test aid: the landing's choice, once it locks (only with <c>--tfw-spear-capture</c>).</summary>
+    static readonly bool SpearCaptureLog = CmdFlag("tfw-spear-capture");
+
+    /// <summary>Test aid: how far the spear's head (collar to tip) stands from the screen's centre column, in pixels (positive: to its right; 0: across it), in the camera's view now.</summary>
+    string SpearHeadColumn()
+    {
+        if (_camera is not { } camera || _local?.Weapons?.SpearEnds(out var butt, out var tip) != true) return "head column -";
+        float centre = GetViewport().GetVisibleRect().Size.X * 0.5f, least = float.PositiveInfinity, most = float.NegativeInfinity;
+        for (int k = 0; k <= 8; k++)
+        {
+            float along = SpearHold.CollarFromButt - 0.11f + (SpearHold.TipFromButt - SpearHold.CollarFromButt + 0.11f) * k / 8f;
+            var p = butt + (tip - butt) * (along / SpearHold.TipFromButt);
+            if (camera.IsPositionBehind(p)) return "head column behind";
+            float x = camera.UnprojectPosition(p).X - centre;
+            least = MathF.Min(least, x); most = MathF.Max(most, x);
+        }
+        float px = least > 0f ? least : most < 0f ? most : 0f;
+        return $"head column {px:F0} px ({least:F0}..{most:F0})";
     }
 
     /// <summary>A press of <paramref name="action"/> held 0.12 s (a few ticks at 30 Hz, whatever the frame rate).</summary>
@@ -130,7 +189,7 @@ public partial class NetworkView
                 var toSkeleton = skel.GlobalTransform.AffineInverse().Basis;
                 var look = toSkeleton * -viewCam.GlobalBasis.Z; view = MathF.Atan2(look.Y, look.X) * 180f / MathF.PI;
             }
-            GD.Print($"SPEARPOSE {name} t {_connectedFor:F3} clip {pose.Clip?.Name ?? "none"} time {pose.Time:F3} weight {pose.Weight:F2} base {pose.Base ?? "-"} posed {_local.PosedClip ?? "stances"} grip {pose.Clip?.GripAt(pose.Time) ?? 1f:F2} point {pose.Clip?.GripPointAt(pose.Time) ?? WeaponPoseClip.LowGrip:F2} m hips {turn:F0} deg camera {view:F0} laid {_local.WeaponPoseBaseLaid ?? "-"} hands z {(_local.WeaponPoseHands(out var rh, out var lh) ? $"{rh.Z:F2} {lh.Z:F2}" : "-")} {SpearHeights()}; {_local.Weapons?.SpearPoseText() ?? "no rig"}; melee step {_client!.Predicted.MeleeStep}{(_client.Predicted.MeleeHeavy ? " heavy" : "")} at {_client.Predicted.MeleeTime:F3} s");
+            GD.Print($"SPEARPOSE {name} t {_connectedFor:F3} clip {pose.Clip?.Name ?? "none"} time {pose.Time:F3} weight {pose.Weight:F2} base {pose.Base ?? "-"} posed {_local.PosedClip ?? "stances"} grip {pose.Clip?.GripAt(pose.Time) ?? 1f:F2} point {pose.Clip?.GripPointAt(pose.Time) ?? WeaponPoseClip.LowGrip:F2} m hips {turn:F0} deg camera {view:F0} laid {_local.WeaponPoseBaseLaid ?? "-"} hands z {(_local.WeaponPoseHands(out var rh, out var lh) ? $"{rh.Z:F2} {lh.Z:F2}" : "-")} {SpearHeights()}; {SpearHeadColumn()}; frame {Engine.GetFramesDrawn()}; {_local.Weapons?.SpearPoseText() ?? "no rig"}; melee step {_client!.Predicted.MeleeStep}{(_client.Predicted.MeleeHeavy ? " heavy" : "")} at {_client.Predicted.MeleeTime:F3} s");
         }
         else GD.Print($"SPEARPOSE {name}: no weapon pose on the own marine");
         if (_tfwShots is null || DisplayServer.GetName() == "headless") return;

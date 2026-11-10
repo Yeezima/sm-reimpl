@@ -250,7 +250,10 @@ public class SpearTests
     }
 
     /// <summary>The player jumps and pounds straight down at the hang until the landing's Impact; the Musou events of every step are collected (what a client would be sent). Returns where it landed.</summary>
-    static Vector3 Pound(World w, List<MusouEvent> events)
+    static Vector3 Pound(World w, List<MusouEvent> events) => PoundImpact(w, events).Position;
+
+    /// <summary><see cref="Pound"/>, returning the landing's Impact event (its tick and place).</summary>
+    static JumpEvent PoundImpact(World w, List<MusouEvent> events)
     {
         bool pounded = false;
         for (int k = 0; k < 300; k++)
@@ -260,9 +263,95 @@ public class SpearTests
             if (b == InputButtons.Melee) pounded = true;
             w.Step(id => new PlayerInput(w.Tick, 0f, 0f, 0f, b, -1.4f));
             events.AddRange(w.Musou!.Events);
-            if (w.LastJumps.FirstOrDefault(j => j.Kind == JumpEventKind.Impact) is { Player: Human } impact) return impact.Position;
+            if (w.LastJumps.FirstOrDefault(j => j.Kind == JumpEventKind.Impact) is { Player: Human } impact) { events.AddRange(AfterLanding(w)); return impact; }
         }
         throw new Xunit.Sdk.XunitException("no impact");
+    }
+
+    /// <summary>A few more ticks after the landing (the recovery), their events: what else a client hears within the impale's window.</summary>
+    static List<MusouEvent> AfterLanding(World w)
+    {
+        var more = new List<MusouEvent>();
+        for (int k = 0; k < (int)SpearRules.ImpaleWindowTicks + 2; k++) { w.Step(id => new PlayerInput(w.Tick, 0f, 0f, 0f, InputButtons.None, -1.4f)); more.AddRange(w.Musou!.Events); }
+        return more;
+    }
+
+    /// <summary>What a client makes of a landing from the server's events (<see cref="SpearRules.ShowsImpale"/>), once the snapshots are past the confirmation: the impale pose or not.</summary>
+    static bool ClientShowsImpale(List<MusouEvent> events, JumpEvent impact, bool predicted = false) =>
+        SpearRules.ShowsImpale(events.Any(e => SpearRules.ImpaleEvidence(e, Human) && SpearRules.NearLanding(e.Tick, impact.Tick)), predicted, impact.Tick + SpearRules.ImpaleConfirmTicks, impact.Tick);
+
+    // ---------------------------------------------------------------- the impale on the clients (owner via the lead, 2026-11-11: the point-down pose only on a hit)
+
+    [Fact]
+    public void A_landing_that_impales_shows_the_impale_and_one_that_hits_nothing_does_not()
+    {
+        var probe = War(1, PackConfig());
+        var landing = Pound(probe, []);
+
+        // A hit: a sturdy Boy beside the landing survives the pack's blast and takes the impale; the client hears the melee-marker hit at the landing's tick.
+        var hit = War(1, PackConfig());
+        ushort boy = Ork(hit, landing + new Vector3(0.6f, 0f, 0f), health: 5000f);
+        var heard = new List<MusouEvent>();
+        var impact = PoundImpact(hit, heard);
+        Assert.Contains(heard, e => e.Kind == MusouEventKind.Hit && e.Enemy == boy && e.Value == SpearRules.ImpaleMarker && e.Tick == impact.Tick);
+        Assert.True(ClientShowsImpale(heard, impact));
+
+        // A kill: the Nob's death (a melee kill) is the evidence too, even with the hit itself left out (the send budget drops other players' hits before deaths).
+        var kill = War(1, PackConfig());
+        ushort nob = Ork(kill, landing + new Vector3(0.6f, 0f, 0f), health: 600f, type: MusouEnemyType.Nob);
+        var killed = new List<MusouEvent>();
+        var killImpact = PoundImpact(kill, killed);
+        Assert.Contains(killed, e => e.Kind == MusouEventKind.Death && e.Enemy == nob);
+        Assert.True(ClientShowsImpale(killed.Where(e => e.Kind != MusouEventKind.Hit).ToList(), killImpact));
+
+        // A miss: nothing within 2 m, only a Boy 4 m off whom the pack's blast strikes (a body-marker hit): no impale.
+        var miss = War(1, PackConfig());
+        ushort far = Ork(miss, landing + new Vector3(4f, 0f, 0f), health: 5000f);
+        var missed = new List<MusouEvent>();
+        var missImpact = PoundImpact(miss, missed);
+        Assert.Contains(missed, e => e.Kind == MusouEventKind.Hit && e.Enemy == far && e.Value != SpearRules.ImpaleMarker);   // the blast reached him
+        Assert.False(ClientShowsImpale(missed, missImpact));
+
+        // The blast kills the only Ork within 2 m before the impale looks: nothing is left to impale, and the client follows the server (its guess said an Ork was there).
+        var blasted = War(1, PackConfig());
+        ushort weak = Ork(blasted, landing + new Vector3(0.6f, 0f, 0f), health: 10f);
+        var gone = new List<MusouEvent>();
+        var blastImpact = PoundImpact(blasted, gone);
+        Assert.Contains(gone, e => e.Kind == MusouEventKind.Death && e.Enemy == weak && e.Value != (byte)MusouDeathKind.Melee);
+        Assert.False(ClientShowsImpale(gone, blastImpact, predicted: true));
+
+        // The hammer's pound beside the same sturdy Boy: no impale.
+        var hammer = War(0, PackConfig());
+        Ork(hammer, landing + new Vector3(0.6f, 0f, 0f), health: 5000f);
+        var hammered = new List<MusouEvent>();
+        var hammerImpact = PoundImpact(hammer, hammered);
+        Assert.False(ClientShowsImpale(hammered, hammerImpact));
+    }
+
+    [Fact]
+    public void The_client_guesses_its_own_landing_until_the_servers_events_must_have_come()
+    {
+        const uint landed = 1000;
+        // Its guess stands while the snapshots have not reached the confirmation; then only the server's evidence counts.
+        Assert.True(SpearRules.ShowsImpale(seen: false, predicted: true, newestTick: landed - 3, landingTick: landed));
+        Assert.True(SpearRules.ShowsImpale(false, true, landed + SpearRules.ImpaleConfirmTicks - 1, landed));
+        Assert.False(SpearRules.ShowsImpale(false, true, landed + SpearRules.ImpaleConfirmTicks, landed));
+        Assert.True(SpearRules.ShowsImpale(true, false, landed, landed));
+        Assert.False(SpearRules.ShowsImpale(false, false, landed, landed));
+        // The window: the landing's own ticks either side; a strike before the jump is far outside it.
+        Assert.True(SpearRules.NearLanding(landed + 2, landed) && SpearRules.NearLanding(landed - SpearRules.ImpaleWindowTicks, landed));
+        Assert.False(SpearRules.NearLanding(landed - 15, landed) || SpearRules.NearLanding(landed + SpearRules.ImpaleWindowTicks + 1, landed));
+        // The guess: an enemy within the impale's reach, flat, and the melee's vertical reach.
+        var at = new Vector3(10f, 20f, 0f);
+        Assert.True(SpearRules.ImpaleLikely(at, [at + new Vector3(1.9f, 0f, 0.5f)], 2.5f));
+        Assert.False(SpearRules.ImpaleLikely(at, [at + new Vector3(2.2f, 0f, 0f), at + new Vector3(0.5f, 0f, 3f)], 2.5f));
+        Assert.False(SpearRules.ImpaleLikely(at, [], 2.5f));
+        // Only the player's own melee hits and melee kills are evidence; a shot, a blast kill or another player's hit is not.
+        Assert.True(SpearRules.ImpaleEvidence(new MusouEvent(MusouEventKind.Hit, landed, 5, Human, SpearRules.ImpaleMarker, at), Human));
+        Assert.True(SpearRules.ImpaleEvidence(new MusouEvent(MusouEventKind.Death, landed, 5, Human, (byte)MusouDeathKind.Melee, at), Human));
+        Assert.False(SpearRules.ImpaleEvidence(new MusouEvent(MusouEventKind.Hit, landed, 5, Human, 1, at), Human));
+        Assert.False(SpearRules.ImpaleEvidence(new MusouEvent(MusouEventKind.Death, landed, 5, Human, (byte)MusouDeathKind.Blast, at), Human));
+        Assert.False(SpearRules.ImpaleEvidence(new MusouEvent(MusouEventKind.Hit, landed, 5, Human + 1, SpearRules.ImpaleMarker, at), Human));
     }
 
     [Fact]

@@ -115,6 +115,41 @@ public static class SpearClearance
         return best;
     }
 
+    /// <summary>
+    /// The crosshair's column in the own third-person view (owner via the lead, 2026-11-11: the carried blade crossed it at idle): how far either side of the screen's centre column the blade
+    /// must stay, in degrees of the horizontal view (ours: the reticle at rest is about 2 degrees across its half at the data's 40-degree view in the 1600 x 900 window, so about a degree of gap
+    /// is left beside it). The third-person view stays parallel to the facing and is never rolled (<c>NetworkView.RigCamera</c>), so the screen's centre column is the vertical plane through the
+    /// camera along the facing, whatever the pitch.
+    /// </summary>
+    public const float CrosshairColumnDegrees = 3f;
+
+    /// <summary>
+    /// The least horizontal angle (degrees) between the crosshair's column and the spear's head (its collar, crossguard and blade, thickness included) for the spear placed at
+    /// <paramref name="butt"/> along <paramref name="shaft"/> with its edge toward <paramref name="edge"/>, seen from a camera at <paramref name="camera"/> looking along the facing; skeleton space
+    /// (+Y the way the player faces, +X his right, Z up; the client's character frame). Positive: the whole head stands that far to the column's right; negative: to its left; 0: it crosses it
+    /// (or a point is not in front of the camera). A straight piece's image is a straight line, so its ends bound it.
+    /// </summary>
+    /// <param name="pitch">The view's pitch (radians, up positive): the depth is taken along the view, so the angle is the one on the screen.</param>
+    public static float HeadColumnAngle(Vector3 butt, Vector3 shaft, Vector3 edge, Vector3 camera, float pitch = 0f)
+    {
+        float left = float.PositiveInfinity, right = float.NegativeInfinity;   // the least angle of the head's left side and the greatest of its right side
+        float cos = MathF.Cos(pitch), sin = MathF.Sin(pitch);
+        foreach (var p in Pieces)
+        {
+            if (p.Piece == "shaft") continue;
+            for (int end = 0; end < 2; end++)
+            {
+                var at = butt + shaft * (end == 0 ? p.Along0 : p.Along1) + edge * (end == 0 ? p.Across0 : p.Across1) - camera;
+                float depth = at.Y * cos + at.Z * sin;
+                if (depth <= 0.05f) return 0f;
+                const float deg = 180f / MathF.PI;
+                left = MathF.Min(left, MathF.Atan2(at.X - p.Radius, depth) * deg);
+                right = MathF.Max(right, MathF.Atan2(at.X + p.Radius, depth) * deg);
+            }
+        }
+        return left > 0f ? left : right < 0f ? right : 0f;
+    }
+
     /// <summary>The butt's height above the ground (skeleton space: the ground is Z 0, where the stances plant the feet), the butt cap included (m).</summary>
     public static float ButtHeight(Vector3 butt, Vector3 shaft) => butt.Z - MathF.Max(0f, shaft.Z) * 0.025f - 0.027f * MathF.Sqrt(MathF.Max(0f, 1f - shaft.Z * shaft.Z));
 

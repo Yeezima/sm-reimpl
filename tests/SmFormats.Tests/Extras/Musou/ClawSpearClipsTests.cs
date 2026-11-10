@@ -44,6 +44,39 @@ public class ClawSpearClipsTests
     }
 
     [Fact]
+    public void The_landing_shows_the_impale_only_on_a_hit_and_otherwise_the_spear_comes_up_beside_him()
+    {
+        // Owner via the lead, 2026-11-11: the point-down impale only when the landing impaled an Ork; otherwise the plain landing (ours: the impale's own body and recovery hands).
+        Assert.Same(ClawSpearClips.SpearImpale, ClawSpearClips.SpearLanding(impaled: true));
+        Assert.Same(ClawSpearClips.SpearLand, ClawSpearClips.SpearLanding(impaled: false));
+        var land = ClawSpearClips.SpearLand; var impale = ClawSpearClips.SpearImpale;
+        Assert.Equal(impale.BaseClip, land.BaseClip);
+        Assert.Equal(impale.Duration, land.Duration);
+        Assert.True(float.IsNaN(land.HitTime));   // nothing is struck
+        // The same landing below the arms: the back and head are the impale's, the hips too until they ease out of the lean before the release.
+        foreach (var ch in impale.Channels.Where(c => c.Kind != PoseChannelKind.Aim && c.Bone != "RIG_Pelvis")) Assert.Contains(ch, land.Channels);
+        var hips = land.Channels.Single(c => c.Bone == "RIG_Pelvis"); var impaleHips = impale.Channels.Single(c => c.Bone == "RIG_Pelvis");
+        Assert.Equal(impaleHips.Sample(ClawSpearClips.ImpaleDrive), hips.Sample(ClawSpearClips.ImpaleDrive));
+        Assert.True(hips.Sample(ClawSpearClips.LandRelax).Pitch < impaleHips.Sample(ClawSpearClips.LandRelax).Pitch - 10f, "the plain landing comes out of the lean before the release");
+        // The same touch-down (the dive's hands, the hands up the shaft by the drive), but no hold: free by LandFree, the left hand off and the carry's arms by LandRest; the impale holds to 0.85 s.
+        Assert.Equal(ClawSpearClips.ImpaleGrip, land.GripPointAt(ClawSpearClips.ImpaleDrive), 3);
+        Assert.Equal(WeaponPoseClip.LowGrip, land.GripPointAt(ClawSpearClips.LandFree), 3);
+        Assert.Equal(ClawSpearClips.ImpaleGrip, impale.GripPointAt(0.5f), 3);
+        Assert.Equal(0f, land.GripAt(ClawSpearClips.LandRest), 3);
+        Assert.Equal(1f, impale.GripAt(0.5f), 3);
+        Assert.True(ClawSpearClips.LandRest < ClawSpearClips.ImpaleHeld);
+        foreach (var ch in land.Channels.Where(c => c.Kind == PoseChannelKind.Aim))
+        {
+            var dive = ClawSpearClips.SpearDive.Channels.Single(c => c.Bone == ch.Bone).Sample(0f);
+            var touch = impale.Channels.Single(c => c.Bone == ch.Bone).Sample(ClawSpearClips.ImpaleDrive);
+            Assert.Equal(dive.Elevation, ch.Sample(0f).Elevation, 3);
+            Assert.Equal(dive.Azimuth, ch.Sample(0f).Azimuth, 3);
+            Assert.Equal(touch.Elevation, ch.Sample(ClawSpearClips.ImpaleDrive).Elevation, 3);
+            Assert.Equal(touch.Azimuth, ch.Sample(ClawSpearClips.ImpaleDrive).Azimuth, 3);
+        }
+    }
+
+    [Fact]
     public void Keys_are_in_time_order_and_within_the_clip()
     {
         foreach (var clip in ClawSpearClips.All)
@@ -126,7 +159,9 @@ public class ClawSpearClipsTests
         Assert.Equal(4, rest.Count);
         Assert.Equal(0f, ClawSpearClips.SpearImpale.GripAt(ClawSpearClips.SpearImpale.Duration), 3);
         Assert.Equal(WeaponPoseClip.LowGrip, ClawSpearClips.SpearImpale.GripPointAt(ClawSpearClips.SpearImpale.Duration), 3);
-        foreach (var clip in ClawSpearClips.SpearStrikes.Append(ClawSpearClips.SpearImpale))
+        Assert.Equal(0f, ClawSpearClips.SpearLand.GripAt(ClawSpearClips.SpearLand.Duration), 3);
+        Assert.Equal(WeaponPoseClip.LowGrip, ClawSpearClips.SpearLand.GripPointAt(ClawSpearClips.SpearLand.Duration), 3);
+        foreach (var clip in ClawSpearClips.SpearStrikes.Append(ClawSpearClips.SpearImpale).Append(ClawSpearClips.SpearLand))
             foreach (var ch in clip.Channels)
             {
                 var end = ch.Sample(clip.Duration);
@@ -151,7 +186,7 @@ public class ClawSpearClipsTests
         // Owner 2026-11-10: "right hand carries, both swing", and (review of the wired stills) "the spear should be held out away from the body at idle and when running": at rest the right
         // upper arm is held out to the side and the forearm forward and out, both below the horizontal (the grip track 0: the spear leans from that hand, SpearHold.Place); the left arm hangs free.
         var rest = ClawSpearClips.SpearRest.Channels.Where(c => c.Kind == PoseChannelKind.Aim).ToDictionary(c => c.Bone, c => c.Sample(0f));
-        Assert.InRange(rest["RIG_R_UpperArm"].Azimuth, 60f, 120f);
+        Assert.InRange(rest["RIG_R_UpperArm"].Azimuth, 30f, 120f);   // 45 since the crosshair pass (2026-11-11): out to the player's right over the side-on hammer idle
         Assert.InRange(rest["RIG_R_UpperArm"].Elevation, -60f, -10f);
         Assert.InRange(rest["RIG_R_Forearm"].Azimuth, 20f, 90f);
         Assert.InRange(rest["RIG_R_Forearm"].Elevation, -45f, 0f);
