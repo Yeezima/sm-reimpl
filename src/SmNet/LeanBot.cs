@@ -92,7 +92,8 @@ public static class LeanBot
     /// </summary>
     /// <remarks>perf/pass-1's <c>--perf-probe</c> only reads the engine's and runtime's counters (frame times, renderer, memory, GC), so a lean bot keeps it: it
     /// measures the lean bot itself.</remarks>
-    public static readonly IReadOnlySet<string> LeanSafeAids = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase) { "tfw-no-capture-hud", "musou-old-capture-ui", "tfw-bot", "bot-trace", "test-window", "perf-probe" };
+    public static readonly IReadOnlySet<string> LeanSafeAids = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase) { "tfw-no-capture-hud", "musou-old-capture-ui", "tfw-bot", "bot-trace", "test-window", "perf-probe",
+        "old-bot-throws" };   // bot-grenade-safety (owner 2026-11-11): the Classic PvP bots' old throws and no holds (it steers the bot, it draws nothing)
 
     /// <summary>A flag name that reads like a test aid (a probe, log, trace, capture, sweep, test, screenshot, wait or demo): each must be classified (tested).</summary>
     public static bool LooksLikeAid(string name) =>

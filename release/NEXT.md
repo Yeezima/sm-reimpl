@@ -10,6 +10,7 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Add your bullets in the same pull request as the change, when it merges.
 -->
 ### Classic PvP
+- Bots no longer blow themselves up with their own grenades: they throw frag grenades only at enemies well outside the blast, aim them where the enemy will be, and no longer jump, charge or run into their own grenade before it goes off. They also stop firing plasma cannon and charged plasma shots at enemies (or walls) so close that the blast would catch them, and a heavy that is too close for its plasma cannon now draws its pistol instead of waiting.
 - Shooting another player no longer draws hit effects on him: no fiery burst and smoke cloud (the Stalker Bolter's was the biggest), no sparks, flashes or burning. You still see his armour flash and glow, hear the hit and get the hit marker; shots that miss still mark the walls and floor.
 - A bull rush (the charge) is no longer cut short by pressing the grenade key, with or without grenades left (a grenade pressed just before the charge ends is thrown as soon as it ends). To cut a charge short, tap or hold S (backwards, also S with A or D) once it has run about half a second.
 - Charging into a teammate no longer plays the recoil: your charge simply stops at him and you are free to move at once, and nothing happens to him. Charging into an enemy works as before.

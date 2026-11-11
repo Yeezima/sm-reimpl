@@ -473,6 +473,37 @@ public class NavJumpTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void A_take_off_held_back_by_the_caller_is_no_miss_and_the_link_is_flown_once_the_way_is_clear()
+    {
+        // bot-grenade-safety: the bot's own grenade in the way holds the take-off press back (NetworkView.BotGrenades.cs). Each hold is handed back to the agent: no miss, the
+        // link is not excluded, the press counts as one start, and the jump goes once the press is let through.
+        var (graph, take, goal, flight) = AtTakeOff();
+        var agent = new NavAgent(graph);
+        double t = 0;
+        for (int k = 0; k < 4; k++, t += 0.6)   // each wait longer than the 0.5 s after which a press that never takes is a miss
+        {
+            var press = agent.Steer(take, true, goal, t, Body(100f));
+            Assert.True(press.Jump && press.Flying, $"press {k}");
+            Assert.True(agent.CancelTakeOff(JumpPhase.None, true, take, t));
+        }
+        Assert.Equal(0, agent.JumpsMissed);
+        Assert.Equal(0, agent.ExcludedJumps);
+        Assert.Equal(0, agent.StuckCount);
+        Assert.Equal(1, agent.JumpsStarted);
+        Assert.Equal(4, agent.TakeOffsCancelled);
+        Assert.Contains(agent.Path!.Waypoints, w => w.Kind == NavLinkKind.Jump && w.Jump.From == flight.Jump.From && w.Node == flight.Node);
+        // The way is clear: the press goes through and the flight is under way; it cannot be called back once the body is in a jump or off the ground.
+        Assert.True(agent.Steer(take, true, goal, t, Body(100f)).Jump);
+        Assert.True(agent.JumpInProgress);
+        Assert.False(agent.CancelTakeOff(JumpPhase.TakeOff, true, take, t));
+        Assert.False(agent.CancelTakeOff(JumpPhase.None, false, take, t));
+        Assert.True(agent.JumpInProgress);
+        Assert.Equal(1, agent.JumpsStarted);
+        // Without a flight under way there is nothing to call back.
+        Assert.False(new NavAgent(graph).CancelTakeOff(JumpPhase.None, true, take, 0));
+    }
+
+    [Fact]
     public void A_background_plan_that_lands_after_the_lift_off_does_not_replace_the_path_of_the_flight()
     {
         var (graph, take, goal, flight) = AtTakeOff();
