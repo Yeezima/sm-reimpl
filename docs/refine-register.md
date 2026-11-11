@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3040 spec table rows: **2249 tagged**, 541 not tagged (read from data with high confidence), 250 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 678 rows of the changes document.
+Scanned 3044 spec table rows: **2252 tagged**, 542 not tagged (read from data with high confidence), 250 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 679 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -42,7 +42,7 @@ Scanned 3040 spec table rows: **2249 tagged**, 541 not tagged (read from data wi
 | Camera (critical) | 55 | 53 | 44 | 22 | 0 |
 | HUD and hit feedback (critical) | 71 | 66 | 52 | 11 | 0 |
 | Sound mix (critical) | 69 | 63 | 61 | 11 | 0 |
-| Effects (critical) | 90 | 80 | 75 | 40 | 0 |
+| Effects (critical) | 93 | 82 | 78 | 41 | 0 |
 | Game modes | 45 | 41 | 41 | 19 | 1 |
 | Perks | 59 | 48 | 31 | 25 | 0 |
 | Death and ragdoll | 14 | 10 | 12 | 10 | 0 |
@@ -53,16 +53,16 @@ Scanned 3040 spec table rows: **2249 tagged**, 541 not tagged (read from data wi
 | Core simulation (provisional values) | 674 | 635 | 480 | 179 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 235 | 224 | 126 | 63 | 0 |
-| **All areas** | **2249** | 1983 | 1679 | 705 | 38 |
+| **All areas** | **2252** | 1985 | 1682 | 706 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1275 |
+| kind: ours | 1277 |
 | confidence: low | 807 |
-| confidence: medium | 743 |
-| notes: ours | 409 |
+| confidence: medium | 746 |
+| notes: ours | 410 |
 | kind: interpretation | 376 |
 | notes: estimate | 181 |
 | kind: estimate | 156 |
@@ -1803,7 +1803,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-E206209F` | Stalker confirm level and placement | on the shooter, 2D, at the data's level: no distance falloff (`HitConfirmDistanceDb`, which took -18 dB from 40 m), no mix-pass +4 dB or 250 Hz high-pass (most of the smack's energy is under 150 Hz); the victim's material (ceramite_armour or flesh); with… (dB) | kind: interpretation; confidence: medium | the event's actions 1-2 are non-positioned with no distance curve | Stalker confirm level and placement: compare with SM1 by listening A/B at the same distance and state. Ours: on the shooter, 2D, at the data's level: no distance falloff… | ☐ |
 | `R-90DE024A` | Stalker confirm in Musou | an own Stalker / Daemon Eye Bolter hit on an Ork (predicted contact or server hit, one a shot through the gun-sound budget) posts `play_stalker_smack` on the shooter (flesh, ceramite_armour for an armoured Ork); the wet bolter smack at the Ork is not played… | kind: interpretation; confidence: medium; notes: ours | owner 2026-11-09; that Ork hits confirm as player hits do is ours | Stalker confirm in Musou: compare with SM1 by listening A/B at the same distance and state. Ours: an own Stalker / Daemon Eye Bolter hit on an Ork (predicted contact… | ☐ |
 
-### Effects (gameplay-critical) (90)
+### Effects (gameplay-critical) (93)
 
 *Spec section: Jump-pack feel: fuel, air control, the air slash and impact effects (feel/jump-pack; protocol 31, used by the simulation)*
 
@@ -1929,6 +1929,14 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-47A4E040` | What stays on a shot player (Classic PvP) | The victim model's own flash and glow are kept (the yellow hit spot, the engulfing red glow when the armour breaks, the regeneration glow: a shader on the model, not an effect, and the "shot look" of the owner's reference images of the original); the armour… | kind: ours; confidence: medium | our reading of the owner's request, to confirm with him | What stays on a shot player (Classic PvP): compare with SM1 with side-by-side video of the same action. Ours: The victim model's own flash and glow are kept (the yellow hit spot… | ☐ |
+
+*Spec section: Hit effects: the bare-armour flash and the break particles back, the melta burns kills, the pack's flash goes with its pilot (claude/hit-fx-answers, 2026-11-11; client only, not simulated, no protocol or config-hash change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-EF8750E6` | Bare-armour model flash (Classic PvP) | a hit on a body whose armour is already gone re-flashes the model's red glow for 0.2 s (`ArmourFlashTracker.ReflashSeconds`, the fx/red-glow-blood flash that pvp-hit-fx had switched off for its burst); back in Classic PvP only, where the burst stays off.… (s) | kind: ours; confidence: medium | the owner (2026-11-11); the 0.2 s and the curve are ours (fx/red-glow-blood) | Bare-armour model flash (Classic PvP): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a hit on a body whose armour is already gone re-flashes the model's… | ☐ |
+| `R-30810A91` | The melta's burn on a kill (Classic PvP and Musou Mode) | the whole-body burn (`meltagun_dmg_burn_limb_armor` on `MeltaBurnRules.Bones`, on the corpse's skeleton; at the corpse's focus for a rig with none of those bones) plays when a melta weapon's shot KILLS the target, from the kill feed's weapon, when the corpse… | confidence: medium; notes: ours | the owner (2026-11-11); the bone list and gap are ours (fix/melta-burn-onhit) | The melta's burn on a kill (Classic PvP and Musou Mode): compare with SM1 with side-by-side video of the same action. Ours: the whole-body burn (meltagun_dmg_burn_limb_armor on… | ☐ |
+| `R-B4D21421` | The jump pack's flashes with the pilot | when a pack's pilot dies (or leaves) the pack's launch / dive / dash flash is cut at once instead of staying where it was (it had followed the worn pack, which the corpse no longer carries); the death's own burst `jumppack_death_mp` (`actn_jumpdeath_start`… | kind: ours; confidence: medium | the owner (2026-11-11); riding the body is ours (the data fixes the burst in the world) | The jump pack's flashes with the pilot: compare with SM1 with side-by-side video of the same action. Ours: when a pack's pilot dies (or leaves) the pack's launch / dive / dash… | ☐ |
 
 ### Game modes (45)
 
@@ -4114,6 +4122,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-412DE228` | Sound mix pass: jump pack tail faded | `play_sm_jump_pack_launch` plays a burst and two thrust layers for 1.7 to 2.4 s | each voice of the launch and apex posts holds full level for 0.5 s, then fades over 0.3 s to -15 dB | the owner (2026-11-06): "the intial sound is fine, but any echoes/reverb or extra something after that should be deeply diminished"; times and depth ours; same spec section | Sound mix pass: jump pack tail faded: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-F25E317A` | Sound loudness: everything louder and heard farther (sound/louder-farther, 2026-11-08) | The data's mix as it is: a remote bolter shot -25.5 dB at the voice at 5 m, -60.9 dB at 60 m; each sound fades by its bank curve | every sound +9 dB and every bank distance curve read at the distance / 2.5 (a sound at 30 m has the data's level of 12 m); distance never takes a sound below 20 % of its amplitude up close (-14 dB) and nothing is cut at a curve's end; melee weapons' on-hit sounds a further 2x (+6 dB); both modes, the loyalist barks… | the owner (2026-11-08): "clearly hearable and relatively much louder from much further away", "make everything much louder", "sounds should scale down to 20% of their normal sound when turned down by distance" (read as amplitude, ours), "raise melee weapon on hit sounds by 2X ... the same treatment as we did for… | Sound loudness: everything louder and heard farther…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-548F13D7` | Plasma reticles stay still while charging (fix/plasma-reticle-still) | The plasma gun's, plasma pistol's and plasma cannon's reticle clips (`plasmaidle_mc`, `plasmapistol_mc`, `plasma_cannon_mc` and their active versions in `Hud.gfx`) have charge frames (`alt_fire_fade` .. `alt_fire`) that turn the reticle; we played them by the charge | the reticle stays on its first frame (no turning); only the charge arc and the heat arc move; `--old-plasma-spin` plays the charge frames again | **Owner's request 2026-11-06** ("there should be no spinning of crosshairs or reticule. it should stay still. only the charge meter/heat bar moves."); spec "Reticles: charge and brace" | Plasma reticles stay still while charging…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
+| `C-75ED899E` | Hit effects: bare-armour flash, break particles, melta burn on kills, the pack's flash (claude/hit-fx-answers; client only) | The original's flash on a bare-armour hit, the break effect on a break, the melta's burn on its victims (as we understand it) | Classic PvP: the model's brief red flash on a hit with no armour left and the break effect for a shot's break are back (the owner's answers of 2026-11-11 refine the row below); the melta's whole-body burn plays only on targets it kills, in Classic PvP and Musou Mode; a pack's flash is cut when its pilot dies and the… | **Owner's answers 2026-11-11**; spec "Hit effects: the bare-armour flash and the break particles back" | Hit effects: bare-armour flash, break particles, melta burn…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-A9F35B16` | No on-hit effects on shot players (claude/classic-no-player-hit-fx; Classic PvP only, client only) | A ranged hit on a player plays the weapon's hit container and the player blueprint's armour-hit effects at him (impact flashes, sparks, glows, the break effect `sm_armor_break_shoulders`) | In Classic PvP a ranged hit on a player draws none of them, nor our own additions (the spark fans, the health-hit burst that read as the "stalker bolter explosion cloud", the melta's whole-body burn); the victim model's own flash and glow, the sounds, the HUD, the tracer and the map's impacts stay; ours: the model's… | **Owner's request 2026-11-11** ("simply remove instances of weapon on hit visual effects like the stalker bolter explosion cloud on the player target you shot and hit - classic pvp only"); spec "No on-hit effects on shot players in Classic PvP" | No on-hit effects on shot players…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-6168DE91` | The charge's cancel: S, not a grenade (charge-cancel, 2026-11-11; protocol 66; every mode) | The rush's data branch `BRANCH_Attack2Idle` (0.667 s) lets the stick, Fire, Aim or a Grenade press end it; here, since protocols 48 and 53 took Fire, Aim and the stick off it, only a Grenade press did (also with no grenade left: the "dash cancel" with an empty grenade), and it ended the recoil and the dash attack's… | S held back (S, S + A, S + D; a pad's stick in the back three of eight sectors) ends the bull rush from the same branch (x the 0.7 lock scale: 0.467 s), tapped or held; a Grenade press ends no charge phase and waits in the input buffer (a throw follows the charge's end within 0.3 s); W, A and D still end nothing, the… | Owner 2026-11-11: "throwing a grenade no longer cancels a bull rush/charge animation. what should cancel a charge animation is tapping or holding the S key (backpedal)"; the branch time, the back sectors and an S tap before the branch doing nothing are ours. Spec "Charge cancel: S, not the grenade; the ally bump" | The charge's cancel: S, not a grenade (charge-cancel…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-5F99FEA1` | No recoil on an ally (charge-ally-bump, 2026-11-11; Classic PvP; protocol 66) | The owner's recollection of the original: "with an ally it just collides"; here the ally's contact put the charger into the collision stop (the wall-hit recoil), with the impact's hit-stop, effects and camera kick on both | A charge (the bull rush, the dash attack's lunge) that meets an ally it cannot harm ends there: no stop, no turn, the velocity zeroed, normal movement from the next tick; nothing on the ally. Enemies, friendly fire and Musou Mode as before. `--old-ally-bump` restores the stop | Owner 2026-11-11: "no animation should play when hitting an ally. that animation should only play when charging or clashing with an enemy"; stopping at the ally (not running on and sliding past) and keeping the contact's reach are ours. Same spec section | No recoil on an ally (charge-ally-bump, 2026-11-11; Classic…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |

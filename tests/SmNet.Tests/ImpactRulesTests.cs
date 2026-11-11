@@ -400,11 +400,33 @@ public class PlayerHitFxRulesTests
     }
 
     [Fact]
-    public void A_break_a_shot_caused_plays_no_break_effect_in_Classic_a_melee_break_does()
+    public void A_break_a_shot_caused_plays_its_break_effect_in_Classic_again_the_old_look_switch_drops_it()
     {
-        Assert.False(PlayerHitFxRules.DrawsBreakFx(melee: false, Faithful, restore: false));
-        Assert.False(PlayerHitFxRules.DrawsBreakFx(melee: false, Extended, restore: false));
-        Assert.True(PlayerHitFxRules.DrawsBreakFx(melee: true, Faithful, restore: false));
+        // owner's answers 2026-11-11: break particles appear when a shot breaks armour.
+        Assert.True(PlayerHitFxRules.DrawsBreakFx(melee: false, Faithful, restore: false));
+        Assert.True(PlayerHitFxRules.DrawsBreakFx(melee: false, Extended, restore: false));
+        Assert.Equal("old-classic-hit-fx", PlayerHitFxRules.OldLookFlag);
+        Assert.Contains(PlayerHitFxRules.OldLookFlag, SmNet.LeanBot.PresentationAids);
+        Assert.False(PlayerHitFxRules.DrawsBreakFx(melee: false, Faithful, restore: false, oldLook: true));
+        Assert.True(PlayerHitFxRules.DrawsBreakFx(melee: true, Faithful, restore: false, oldLook: true));
+    }
+
+    [Fact]
+    public void The_bare_armour_model_flash_is_back_in_Classic_not_with_the_old_look_or_the_burst_restore()
+    {
+        Assert.True(PlayerHitFxRules.BareHitFlash(Faithful, restore: false, oldLook: false, oldHealthHit: false));
+        Assert.True(PlayerHitFxRules.BareHitFlash(Extended, restore: false, oldLook: false, oldHealthHit: false));
+        Assert.False(PlayerHitFxRules.BareHitFlash(Musou, restore: false, oldLook: false, oldHealthHit: false));   // Musou keeps pvp-hit-fx's burst instead
+        Assert.False(PlayerHitFxRules.BareHitFlash(Faithful, restore: true, oldLook: false, oldHealthHit: false));
+        Assert.False(PlayerHitFxRules.BareHitFlash(Faithful, restore: false, oldLook: true, oldHealthHit: false));
+        Assert.True(PlayerHitFxRules.BareHitFlash(Musou, restore: false, oldLook: false, oldHealthHit: true));   // --old-health-hit: the old re-flash everywhere
+    }
+
+    [Fact]
+    public void The_new_presentation_switches_load_the_presentation_for_a_bot()
+    {
+        Assert.Contains("melta-burn-on-hit", SmNet.LeanBot.PresentationAids);
+        Assert.Contains("old-pack-death-flash", SmNet.LeanBot.PresentationAids);
     }
 
     [Fact]

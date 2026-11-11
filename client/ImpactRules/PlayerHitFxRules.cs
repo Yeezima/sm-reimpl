@@ -30,5 +30,14 @@ public static class PlayerHitFxRules
     /// Whether the armour's break effect (the player blueprint's <c>armourshield_broken</c>, <c>sm_armor_break_shoulders</c>) plays on a player whose armour just broke:
     /// in Classic PvP not when a ranged hit broke it (a melee break keeps it: the request is about shots); Musou Mode and <paramref name="restore"/> keep it always.
     /// </summary>
-    public static bool DrawsBreakFx(bool melee, ContentExtras extras, bool restore) => melee || !Classic(extras) || restore;
+    public static bool DrawsBreakFx(bool melee, ContentExtras extras, bool restore, bool oldLook = false) => !oldLook || melee || !Classic(extras) || restore;
+
+    /// <summary>The client flag that brings back the 2026-11-11 morning look of Classic PvP: no model flash on a bare-armour hit, no break effect for a break a shot caused (owner's answers, 2026-11-11, restored both).</summary>
+    public const string OldLookFlag = "old-classic-hit-fx";
+
+    /// <summary>
+    /// The brief red model flash on a hit that finds the armour already gone (<c>ArmourFlashTracker.Reflash</c>): back in Classic PvP (owner, 2026-11-11), where the health-hit burst stays off, unless
+    /// <paramref name="oldLook"/>; <paramref name="restore"/> (<c>--player-hit-fx</c>: the burst is on again, as before) keeps the burst alone, <paramref name="oldHealthHit"/> (<c>--old-health-hit</c>) always flashes.
+    /// </summary>
+    public static bool BareHitFlash(ContentExtras extras, bool restore, bool oldLook, bool oldHealthHit) => oldHealthHit || (Classic(extras) && !restore && !oldLook);
 }

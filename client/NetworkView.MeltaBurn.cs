@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Godot;
 using SmClient.ImpactRules;
+using SmNet;
 
 namespace SmClient;
 
@@ -23,6 +24,31 @@ public partial class NetworkView
     bool? _oldMeltaBurn;
     /// <summary><c>--old-melta-burn</c>: the burn only at the single hit point, and only on raised armour (as before).</summary>
     bool OldMeltaBurn => _oldMeltaBurn ??= CmdFlag("old-melta-burn");
+
+    bool? _meltaBurnOnHit;
+    /// <summary><c>--melta-burn-on-hit</c>: the whole-body burn on every melta hit again (as 2026-11-07 to 2026-11-11), not only on a kill.</summary>
+    bool MeltaBurnOnHit => _meltaBurnOnHit ??= CmdFlag("melta-burn-on-hit");
+
+    /// <summary>
+    /// Owner, 2026-11-11 ("the melta should burn the body in classic and in musou mode of targets it kills"): the whole-body burn plays when a melta weapon KILLS the target (the kill feed's cause is a weapon
+    /// whose name says melta), in Classic PvP and in Musou Mode (Orks, Guardsmen and the like), on the corpse's skeleton; a mere hit burns nothing. Called when the victim's corpse starts. A rig with none
+    /// of <see cref="MeltaBurnRules.Bones"/> (an Ork's) burns at the corpse's focus instead (ours).
+    /// </summary>
+    void MeltaKillBurn(int victim, KillView? kill, Ragdoll? corpse)
+    {
+        if (MeltaBurnOnHit || kill is not { Cause: SmSim.KillCause.Weapon } k || _config is null || k.Index < 0 || k.Index >= _config.Weapons.Count) return;
+        string wargear = _config.Weapons[k.Index].Name;
+        if (!MeltaBurnRules.IsMelta(wargear)) return;
+        int before = _meltaBurns;
+        MeltaBurnBody(victim, wargear, true, null);
+        if (_meltaBurns == before && corpse is not null && _fx is not null && IsInstanceValid(corpse) && _fx.System(MeltaBurnEffect) is not null)
+        {
+            _fx.Play(MeltaBurnEffect, corpse.FocusPoint, Basis.Identity, 1f, null, () => IsInstanceValid(corpse) ? (corpse.FocusPoint, Basis.Identity) : null, 0f, 0.0, false, 2);
+            _meltaBurns++;
+            if (LogHitFx) GD.Print($"HITFX melta-burn t {_connectedFor:F3} player {victim}: kill burn at the corpse's focus (no named bones on this rig)");
+        }
+        else if (LogHitFx) GD.Print($"HITFX melta-burn t {_connectedFor:F3} player {victim}: kill burn by {wargear}");
+    }
 
     readonly Dictionary<int, double> _meltaBurnAt = new();
     int _meltaBurns;

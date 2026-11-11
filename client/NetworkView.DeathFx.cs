@@ -78,6 +78,8 @@ public partial class NetworkView
         public required DeathFxRun Run;
         public Vector3? NegativeHit;
         public string Wargear = "";
+        /// <summary>The jump death's start action (the pack's burst): its effects follow the body whatever the data says (owner 2026-11-11).</summary>
+        public bool PackDeath;
     }
 
     /// <summary>
@@ -120,6 +122,8 @@ public partial class NetworkView
     {
         var body = hold is not null ? new DeathBody { PlayerId = id, Held = character, Hold = hold } : rd is not null ? new DeathBody { PlayerId = id, Ragdoll = rd } : null;
         if (body is null) return;
+        try { MeltaKillBurn(id, kill, rd); }   // owner 2026-11-11: a melta kill burns the body, Classic and Musou (NetworkView.MeltaBurn.cs)
+        catch (Exception ex) when (ex is not (StackOverflowException or AccessViolationException or OutOfMemoryException)) { if (_fxNoted.Add("meltakill-fault")) GD.PrintErr($"melta kill burn failed: {ex.Message}"); }
         if (hold is not null) hold.FxBody = body;   // scheduled here once: the ragdoll that takes this body over does not schedule again (JumpDeathHandOver)
         long began = System.Diagnostics.Stopwatch.GetTimestamp();
         double jit = Jit(), gc = GC.CollectionCount(0);
@@ -157,7 +161,7 @@ public partial class NetworkView
         if (DeathEffectRules.ActionOf(side, kind) is { } action)
         {
             double start = now + DeathEffectRules.StartOf(kind);
-            Enqueue(run, body, action, start, hit, kind == DeathKind.Jump ? "" : wargear);
+            Enqueue(run, body, action, start, hit, kind == DeathKind.Jump ? "" : wargear, packDeath: kind == DeathKind.Jump);
             if (kind == DeathKind.Jump)
             {
                 // A held jump death fires its impact from its floor clip (JumpDeathFrame); a ragdoll's waits for its chest to near the ground.
@@ -180,14 +184,14 @@ public partial class NetworkView
 
     void CountKind(string label) => _deathFxKinds[label] = _deathFxKinds.GetValueOrDefault(label) + 1;
 
-    void Enqueue(DeathFxRun run, DeathBody body, DeathAction action, double start, Vector3? negativeHit, string wargear, double minDelay = 0.0)
+    void Enqueue(DeathFxRun run, DeathBody body, DeathAction action, double start, Vector3? negativeHit, string wargear, double minDelay = 0.0, bool packDeath = false)
     {
         foreach (var step in action.Steps)
         {
             if (step.Kind == DeathStepKind.Effect && step.Fx is not { Name.Length: > 0 }) continue;
             if (step.Delay < minDelay) continue;
             if (_deathFxJobs.Count >= MaxDeathFxJobs) { var dropped = _deathFxJobs[0]; _deathFxJobs.RemoveAt(0); dropped.Run.Pending--; }   // the oldest goes; its death no longer waits for it
-            _deathFxJobs.Add(new DeathFxJob { Due = start + step.Delay - minDelay, Body = body, Step = step, Run = run, NegativeHit = negativeHit, Wargear = wargear });
+            _deathFxJobs.Add(new DeathFxJob { Due = start + step.Delay - minDelay, Body = body, Step = step, Run = run, NegativeHit = negativeHit, Wargear = wargear, PackDeath = packDeath });
             run.Pending++;
         }
     }
@@ -318,17 +322,25 @@ public partial class NetworkView
                 long began = System.Diagnostics.Stopwatch.GetTimestamp();
                 var axes = AxesForDeath(p, job.NegativeHit);
                 Func<(Vector3 Position, Basis Axes)?>? follow = null;
-                if (p.Attached && body.Ragdoll is { } rd)
+                FxEffect? self = null;
+                bool packFlash = job.PackDeath && !p.Attached && p.Marker.Length > 0 && !OldPackDeathFlash;   // owner 2026-11-11: the pack's burst is not left hanging where the pilot died; it rides the body and ends with it
+                if ((p.Attached || packFlash) && body.Ragdoll is { } rd)
                     follow = () => IsInstanceValid(rd) && skeleton is not null && IsInstanceValid(skeleton) && bone >= 0
                         ? ((skeleton.GlobalTransform * skeleton.GetBoneGlobalPose(bone)).Origin, axes) : IsInstanceValid(rd) ? (rd.FocusPoint, axes) : null;
-                else if (p.Attached)
+                else if (p.Attached || packFlash)
                 {
                     // A falling body's (jump death in mid-air): the bone of whichever body holds the death now, the falling one, then its ragdoll.
                     string marker = p.Marker;
                     follow = () => BodyThere(body) ? (DeathBone(body, marker).Position, axes) : null;
                 }
+                if (packFlash && follow is { } inner)
+                {
+                    var rides = inner;
+                    follow = () => { var place = rides(); if (place is null && self is not null) self.Life = Math.Min(self.Life, Math.Max(0.0, self.Age)); return place; };   // the body is gone: the burst goes with it
+                }
                 var tint = job.Wargear.Length > 0 ? RaceTint(job.Wargear, p.Name) : null;
                 var e = _fx.Play(p.Name, position, axes, p.Scale <= 0f ? 1f : p.Scale, null, follow, p.Lifetime, 0.0, false, DeathFxPriority, tint: tint);
+                self = e;
                 _dfxEffectMs = Math.Max(_dfxEffectMs, Since(began));
                 if (e is null) { run.Missing++; _deathFxMissing++; if (_fxNoted.Add("deathfx:" + p.Name)) GD.Print($"  effects: death effect '{p.Name}' is not available"); }
                 else { run.Effects++; _deathFxEffects++; run.Names[p.Name] = run.Names.GetValueOrDefault(p.Name) + 1; _fxLastShotAt = _connectedFor; _fxLastEnd = position; _fxLastFrom = position; }

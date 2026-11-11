@@ -79,7 +79,7 @@ public partial class NetworkView
         CharacterViewer.OldRegenGlow = OldRegenGlowFlag;
         CharacterViewer.SoftBreak = !OldBreakRingFlag && !OldHealthHitFlag;
         ArmourFlashTracker.Ring = OldBreakRingFlag;
-        ArmourFlashTracker.Reflash = OldHealthHitFlag;
+        ArmourFlashTracker.Reflash = BareHitFlashOn;   // owner 2026-11-11: back in Classic PvP (NetworkView.ClassicHitFx.cs)
         PvpHitFxDemo();
         while (_armourFlash.TryTakeBreak(out int broke)) ArmourBreakFxIfDrawn(broke);   // classic-no-player-hit-fx: not for a break a shot caused in Classic PvP (NetworkView.ClassicHitFx.cs)
         _meleeBreaks.Clear();

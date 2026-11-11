@@ -149,6 +149,7 @@ public partial class NetworkView
             case "melta":
             case "meltakill":
                 FxImpact(w, w.Basic, ShotHit.Body, 0, point, -dir, dir, 0.0, id, kind == "melta");
+                if (kind == "meltakill") MeltaBurnBody(id, w.Wargear, true, null);   // owner 2026-11-11: the burn comes with the kill (MeltaKillBurn), not with the hit
                 break;
             case "armour":
                 _armourFlash.Reset(id);

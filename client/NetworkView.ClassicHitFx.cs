@@ -21,6 +21,13 @@ public partial class NetworkView
     /// <summary>The match's content flags (none before the config is in, which reads as Classic).</summary>
     ContentExtras MatchExtras => _config?.Extras ?? ContentExtras.None;
 
+    bool? _oldClassicHitFx;
+    /// <summary><c>--old-classic-hit-fx</c>: Classic PvP without the bare-armour model flash and without the break effect for a shot's break (the look of the morning of 2026-11-11).</summary>
+    bool OldClassicHitFxFlag => _oldClassicHitFx ??= CmdFlag(PlayerHitFxRules.OldLookFlag);
+
+    /// <summary>The brief model flash on a hit with no armour left (owner, 2026-11-11: "the model flash should come back on for bare-armor hits"); see <see cref="PlayerHitFxRules.BareHitFlash"/>.</summary>
+    bool BareHitFlashOn => PlayerHitFxRules.BareHitFlash(MatchExtras, PlayerHitFxFlag, OldClassicHitFxFlag, OldHealthHitFlag);
+
     int _classicBareHits, _classicBareBreaks;
     /// <summary>Players whose armour an own melee strike broke this frame (the hit report says so; their break effect stays).</summary>
     readonly HashSet<int> _meleeBreaks = new();
@@ -40,7 +47,7 @@ public partial class NetworkView
     /// <summary>The armour's break effect on <paramref name="victim"/>, unless a shot broke it in Classic PvP.</summary>
     void ArmourBreakFxIfDrawn(int victim)
     {
-        if (PlayerHitFxRules.DrawsBreakFx(_meleeBreaks.Contains(victim), MatchExtras, PlayerHitFxFlag)) { ArmourBreakFx(victim); return; }
+        if (PlayerHitFxRules.DrawsBreakFx(_meleeBreaks.Contains(victim), MatchExtras, PlayerHitFxFlag, OldClassicHitFxFlag)) { ArmourBreakFx(victim); return; }
         _classicBareBreaks++;
         if (LogHitFx) GD.Print($"HITFX classic t {_connectedFor:F3}: no break effect on player {victim} (a shot broke the armour; total {_classicBareBreaks})");
     }
