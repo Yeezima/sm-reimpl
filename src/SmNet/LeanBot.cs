@@ -54,6 +54,7 @@ public static class LeanBot
         "spear-probe", "demo-melee",   // added content Musou (arsenal W3, 2026-11-10): the spear's carry-grip measurement (--viewer) and the demo profile's melee weapon (--customizer)
         "tfw-autocannon-capture", "tfw-autocannon-impact-capture",   // added content Musou (arsenal W1, W1c, 2026-11-10): the autocannon's screenshot gate, a scripted fight; its impacts on a wall and the ground
         "tfw-zoom-capture",   // added content Musou (2026-11-12): the Librarian's zoom stills next to a Tactical's
+        "tfw-pod-test",   // added content Musou (2026-11-12): the drop pod assault's scripted check (record, landing, marines, retreat) and its captures
         "tfw-feel-capture",   // added content Musou (combat feel): a short scripted fight for the before / after captures
         "tfw-weight-capture", "tfw-weight-pack", "tfw-weight-log", "log-musou-weight",   // added content Musou (weight pass 2026-11-10): the scripted baseline moves and their frame log
         "tfw-fight-capture", "tfw-sound-capture",   // added content Musou (capture banners, sound A/B 2026-11-10): the banner flip and the mix captures
