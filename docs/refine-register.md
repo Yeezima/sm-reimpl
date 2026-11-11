@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3040 spec table rows: **2249 tagged**, 541 not tagged (read from data with high confidence), 250 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 678 rows of the changes document.
+Scanned 3048 spec table rows: **2248 tagged**, 548 not tagged (read from data with high confidence), 252 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 678 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,21 +50,21 @@ Scanned 3040 spec table rows: **2249 tagged**, 541 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 22 | 13 | 13 | 12 | 7 |
-| Core simulation (provisional values) | 674 | 635 | 480 | 179 | 1 |
+| Core simulation (provisional values) | 673 | 634 | 480 | 177 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 235 | 224 | 126 | 63 | 0 |
-| **All areas** | **2249** | 1983 | 1679 | 705 | 38 |
+| **All areas** | **2248** | 1982 | 1679 | 703 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1275 |
+| kind: ours | 1274 |
 | confidence: low | 807 |
 | confidence: medium | 743 |
-| notes: ours | 409 |
+| notes: ours | 408 |
 | kind: interpretation | 376 |
-| notes: estimate | 181 |
+| notes: estimate | 180 |
 | kind: estimate | 156 |
 | confidence: none (low) | 129 |
 | kind: provisional | 100 |
@@ -2290,7 +2290,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (674)
+### Core simulation (provisional values) (673)
 
 *Spec section: Provisional values in use*
 
@@ -2841,9 +2841,13 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-73B243A5` | An S tap before the branch | does nothing: the stick is held, not pressed, and nothing keeps it (the input buffer keeps button presses only); S must be down at or after 0.467 s | kind: ours; notes: guess | ours (the grenade press it replaces was buffered 0.3 s) | An S tap before the branch: compare with SM1 by feel or video. Ours: does nothing: the stick is held, not pressed, and nothing keeps it… | ☐ |
 | `R-3AE5DB9E` | What the cancel does | the charge is over at once and the tick moves the body as normal movement from the rush's speed: no stop clip, no reaction, no attack or throw started; synthetic: 8.3 m/s along the view after the cancel's tick, -2.9 m/s (backwards) 10 ticks later with S held.… | kind: ours; confidence: medium | ours (as the rush's other early ends) | What the cancel does: compare with SM1 by feel or video. Ours: the charge is over at once and the tick moves the body as normal… | ☐ |
 | `R-08FC27AC` | Where the cancel applies | every mode that runs the shared charge: Classic PvP (the six classes, and the Ork Boy's charge in the extended content) and Musou Mode (its players' bull rush; the Musou enemies' contact is Musou's own and unchanged) | kind: ours; confidence: medium | the lead's brief (the shared charge) | Where the cancel applies: compare with SM1 by feel or video. Ours: every mode that runs the shared charge: Classic PvP (the six classes… | ☐ |
-| `R-4E5978C4` | Ally bump (Classic PvP) | a charge (the bull rush, the dash attack's lunge) whose contact is a player of its own side that it cannot harm (match rules without friendly fire) ends where it met him: no collision stop (the recoil), no turn to him, the horizontal velocity zeroed, normal… (m) | confidence: medium; notes: ours | owner 2026-11-11 ("no animation should play when hitting an ally"); the stop there ours | Ally bump (Classic PvP): compare with SM1 by measuring on a flat spot of the same map. Ours: a charge (the bull rush, the dash attack's lunge) whose contact is a… | ☐ |
-| `R-E003796A` | The bump's outcome | ours: the charge stops at the ally (today's movement outcome: the collision stop zeroed the velocity at the same point), rather than running on and letting the bodies' collision slide it past him; an open question for the owner's playtest | kind: ours; notes: estimate | ours | The bump's outcome: compare with SM1 by feel or video. Ours: ours: the charge stops at the ally (today's movement outcome: the… | ☐ |
-| `R-79F12026` | Not a bump | an enemy (the hit, stun, recoil and charge clash exactly as before); an ally with friendly fire on (hit, stunned, the recoil, as before); a charge a wall stopped in the same tick (the wall's recoil stays); a charge a landing ended that tick; Musou Mode (its… | kind: ours; confidence: medium | ours | Not a bump: compare with SM1 by feel or video. Ours: an enemy (the hit, stun, recoil and charge clash exactly as before)… | ☐ |
+
+*Spec section: Charge ally slide (charge-ally-slide; protocol 67, used by the simulation)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-D2895BA2` | The slide | what slides the charger past is the shared player collision (sim/player-collision, unchanged): the capsules block each other and the charger's move slides along the ally's capsule (up to four slides; the velocity loses what went into the body), with the push… (m) | kind: ours; confidence: medium | the collision rules: ours; the charge's slide: owner 2026-11-11 | The slide: compare with SM1 by measuring on a flat spot of the same map. Ours: what slides the charger past is the shared player collision… | ☐ |
+| `R-5C5635C6` | Where it applies | every mode: Classic PvP and Musou Mode alike (Musou has no rule of its own for it: its players are allies and passed each other's charge); protocol 66 limited the bump to Classic PvP and kept the recoil on an ally in Musou, which the slide replaces. Musou… | confidence: medium | owner 2026-11-11 | Where it applies: compare with SM1 by feel or video. Ours: every mode: Classic PvP and Musou Mode alike (Musou has no rule of… | ☐ |
 
 *Spec section: Musou Mode batch of 2026-11-02 and the hammer's pound (musou/batch-2026-11-02; protocol 55, `TfwRules.Version` 24, `TfwMap.Version` 7)*
 
@@ -4116,7 +4120,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-548F13D7` | Plasma reticles stay still while charging (fix/plasma-reticle-still) | The plasma gun's, plasma pistol's and plasma cannon's reticle clips (`plasmaidle_mc`, `plasmapistol_mc`, `plasma_cannon_mc` and their active versions in `Hud.gfx`) have charge frames (`alt_fire_fade` .. `alt_fire`) that turn the reticle; we played them by the charge | the reticle stays on its first frame (no turning); only the charge arc and the heat arc move; `--old-plasma-spin` plays the charge frames again | **Owner's request 2026-11-06** ("there should be no spinning of crosshairs or reticule. it should stay still. only the charge meter/heat bar moves."); spec "Reticles: charge and brace" | Plasma reticles stay still while charging…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-A9F35B16` | No on-hit effects on shot players (claude/classic-no-player-hit-fx; Classic PvP only, client only) | A ranged hit on a player plays the weapon's hit container and the player blueprint's armour-hit effects at him (impact flashes, sparks, glows, the break effect `sm_armor_break_shoulders`) | In Classic PvP a ranged hit on a player draws none of them, nor our own additions (the spark fans, the health-hit burst that read as the "stalker bolter explosion cloud", the melta's whole-body burn); the victim model's own flash and glow, the sounds, the HUD, the tracer and the map's impacts stay; ours: the model's… | **Owner's request 2026-11-11** ("simply remove instances of weapon on hit visual effects like the stalker bolter explosion cloud on the player target you shot and hit - classic pvp only"); spec "No on-hit effects on shot players in Classic PvP" | No on-hit effects on shot players…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-6168DE91` | The charge's cancel: S, not a grenade (charge-cancel, 2026-11-11; protocol 66; every mode) | The rush's data branch `BRANCH_Attack2Idle` (0.667 s) lets the stick, Fire, Aim or a Grenade press end it; here, since protocols 48 and 53 took Fire, Aim and the stick off it, only a Grenade press did (also with no grenade left: the "dash cancel" with an empty grenade), and it ended the recoil and the dash attack's… | S held back (S, S + A, S + D; a pad's stick in the back three of eight sectors) ends the bull rush from the same branch (x the 0.7 lock scale: 0.467 s), tapped or held; a Grenade press ends no charge phase and waits in the input buffer (a throw follows the charge's end within 0.3 s); W, A and D still end nothing, the… | Owner 2026-11-11: "throwing a grenade no longer cancels a bull rush/charge animation. what should cancel a charge animation is tapping or holding the S key (backpedal)"; the branch time, the back sectors and an S tap before the branch doing nothing are ours. Spec "Charge cancel: S, not the grenade; the ally bump" | The charge's cancel: S, not a grenade (charge-cancel…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
-| `C-5F99FEA1` | No recoil on an ally (charge-ally-bump, 2026-11-11; Classic PvP; protocol 66) | The owner's recollection of the original: "with an ally it just collides"; here the ally's contact put the charger into the collision stop (the wall-hit recoil), with the impact's hit-stop, effects and camera kick on both | A charge (the bull rush, the dash attack's lunge) that meets an ally it cannot harm ends there: no stop, no turn, the velocity zeroed, normal movement from the next tick; nothing on the ally. Enemies, friendly fire and Musou Mode as before. `--old-ally-bump` restores the stop | Owner 2026-11-11: "no animation should play when hitting an ally. that animation should only play when charging or clashing with an enemy"; stopping at the ally (not running on and sliding past) and keeping the contact's reach are ours. Same spec section | No recoil on an ally (charge-ally-bump, 2026-11-11; Classic…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
+| `C-5B69498D` | A charge slides past an ally (charge-ally-slide, 2026-11-11; every mode; protocol 67; replaces protocol 66's ally bump) | The owner's recollection of the original: "with an ally it just collides"; here the ally's contact put the charger into the collision stop (the wall-hit recoil), with the impact's hit-stop, effects and camera kick on both (protocol 66 ended the charge at the ally with no recoil) | A charge (the bull rush, the dash attack's lunge) passes an ally it cannot harm: no contact, no stop, no turn, the clip plays on; the shared player collision slides the charger along the ally's body and nothing happens to the ally. Enemies and friendly fire as before; Musou Mode too. `--old-ally-bump` restores the… | Owner 2026-11-11: "when a charge hits an ally it should slide past"; the slide itself is the capsule collision's (ours). An S tap before the stick branch is not remembered (owner: "early s tap should not be remembered"; already so, now tested). Spec "Charge ally slide" | A charge slides past an ally (charge-ally-slide…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 
 ### Our choices where the original is unknown
 
@@ -4936,6 +4940,8 @@ Test aids, probes, demo and capture tooling, and engineering decisions (protocol
 | `R-40690531` | Test aids | Added content: Musou audio pass (musou/audio-pass; 2026-11-09; client only, Musou Mode only, no protocol, wire or hash change) |
 | `R-5808DFC2` | Switches | Charge cancel: S, not the grenade; the ally bump (charge-cancel, charge-ally-bump; protocol 66, used by the simulation) |
 | `R-70C8B148` | Protocol 66 | Charge cancel: S, not the grenade; the ally bump (charge-cancel, charge-ally-bump; protocol 66, used by the simulation) |
+| `R-8D8D69FF` | Protocol 67 | Charge cancel: S, not the grenade; the ally bump (charge-cancel, charge-ally-bump; protocol 66, used by the simulation) |
+| `R-33309743` | Switch | Charge ally slide (charge-ally-slide; protocol 67, used by the simulation) |
 | `R-2F7F28A2` | Switch | Solid bodies: no passing through, the charge meets what it runs into (fix/charge-player-collision; protocol 57, no wire change) |
 | `R-FF7A7041` | Switches | Swing step, the lock-on's lunge and the air jump by mode (sim/swing-step, sim/lock-reach, sim/air-jumps; protocol 59, no wire change) |
 | `R-36C8F88E` | Switches | Jump pack: the launch flash, the ready jets and the legs in an air strike (fx/jumppack-jets; client only, no simulation, wire or protocol change) |

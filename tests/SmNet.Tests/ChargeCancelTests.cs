@@ -7,10 +7,10 @@ using Xunit.Abstractions;
 namespace SmNet.Tests;
 
 /// <summary>
-/// charge-cancel and charge-ally-bump (protocol 66; the owner 2026-11-11): a Grenade press (with or without a grenade left) ends no charge phase and starts no throw while the
+/// charge-cancel (protocol 66) and charge-ally-slide (protocol 67; the owner 2026-11-11): a Grenade press (with or without a grenade left) ends no charge phase and starts no throw while the
 /// charge plays; S held back (tapped or held) ends the bull rush from its stick branch; the restore switch <see cref="SimConfig.ChargeBackCancel"/> false brings back the protocol 65
-/// rule (the grenade cancel); in Classic PvP a charge that meets an ally it cannot harm ends there with no collision stop and nothing on the ally, while enemies are hit, stunned and
-/// stop it as before; <see cref="SimConfig.ChargeAllyBump"/> false restores the stop; prediction agrees with the server. Synthetic clips (<see cref="RushTests"/>): the rush moves
+/// rule (the grenade cancel); a charge passes an ally it cannot harm (no contact, no stop, nothing on the ally: it slides past), while enemies are hit, stunned and
+/// stop it as before; <see cref="SimConfig.ChargeAllyBump"/> false restores the stop; prediction agrees with the server; an S tap before the branch is not remembered. Synthetic clips (<see cref="RushTests"/>): the rush moves
 /// 10 m/s, ends at 1.0 s (30 ticks), its stick branch at 0.6 s (18 ticks); a frag (<see cref="GrenadeTests.Frag"/>) as the class's item.
 /// </summary>
 public class ChargeCancelTests(ITestOutputHelper output)
@@ -174,6 +174,23 @@ public class ChargeCancelTests(ITestOutputHelper output)
         Assert.Equal(StickBranchTicks, RushTicks(Run(0, Config, s => s.Rush == RushPhase.Rush && s.RushTicks >= 8 ? Stick(0f, -1f) : Idle).States));
     }
 
+    [Theory]
+    [InlineData(0.0f)]
+    [InlineData(0.3f)]
+    public void An_early_S_tap_is_not_remembered_even_with_the_input_buffer(float window)
+    {
+        // charge-ally-slide (the owner 2026-11-11: "early s tap should not be remembered"): an S press made before the rush's stick branch (tick 18) is not buffered and does not end the rush
+        // when the branch comes, whatever the input buffer's window (the stick is tested on the branch's own tick only); the control: S on the branch's tick ends it.
+        var c = Config with { InputBufferWindow = window };
+        for (int tapAt = 1; tapAt < StickBranchTicks; tapAt++)
+        {
+            int at = tapAt;
+            var (states, _) = Run(0, c, s => s.Rush == RushPhase.Rush && s.RushTicks >= at && s.RushTicks < Math.Min(at + 2, StickBranchTicks) ? Stick(0f, -1f) : Idle);   // a two-tick tap, let go before the branch
+            Assert.Equal(EndTicks, RushTicks(states));
+        }
+        Assert.Equal(StickBranchTicks, RushTicks(Run(0, c, s => s.Rush == RushPhase.Rush && s.RushTicks == StickBranchTicks ? Stick(0f, -1f) : Idle).States));
+    }
+
     [Fact]
     public void The_cancel_keeps_hyper_armour_and_fires_nothing_on_its_tick()
     {
@@ -208,7 +225,7 @@ public class ChargeCancelTests(ITestOutputHelper output)
         Assert.NotEqual(c.Hash(), (c with { ChargeBackCancel = false }).Hash());
         Assert.NotEqual(c.Hash(), (c with { ChargeAllyBump = false }).Hash());
         Assert.NotEqual((c with { ChargeBackCancel = false }).Hash(), (c with { ChargeAllyBump = false }).Hash());
-        Assert.Equal(66, Protocol.Version);
+        Assert.Equal(67, Protocol.Version);
         // The server's switches (the clients take the same words: client NetworkView.Bodies.cs).
         Assert.True(ServerCommandLine.TryParse(["--old-charge-cancel", "--old-ally-bump"], out var a, out var error), error);
         Assert.Equal((true, true), (a.OldChargeCancel, a.OldAllyBump));
@@ -246,21 +263,35 @@ public class ChargeCancelTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public void A_charge_into_an_ally_ends_there_with_no_stop_and_nothing_on_the_ally()
+    public void A_charge_into_an_ally_slides_past_it_and_goes_on_with_nothing_on_the_ally()
     {
         var (states, rushes) = Charge(Teams(Config, friendlyFire: false, Team.SpaceMarines));
-        var e = Assert.Single(rushes);
-        Assert.Equal((1, 2, false, true), (e.Player, e.Target, e.Harmed, e.Bump));
-        int at = (int)e.Tick - 1;   // the contact tick's states
-        var (charger, ally) = states[at];
-        output.WriteLine($"bump at tick {e.Tick}: charger at y {charger.Position.Y:F2}, rush {states[at - 1].Charger.Rush} {states[at - 1].Charger.RushTicks} before, {charger.Rush} after; ally at y {ally.Position.Y:F2}");
-        Assert.Equal(RushPhase.Rush, states[at - 1].Charger.Rush);
-        Assert.Equal((RushPhase.None, 0f, 0f), (charger.Rush, charger.Velocity.X, charger.Velocity.Y));   // ended there, the way blocked
+        Assert.Empty(rushes);   // no contact at all
+        var rush = states.Select(p => p.Charger).Where(p => p.Rush == RushPhase.Rush).ToList();
+        output.WriteLine($"rush ticks {rush.Count}, charger y {states[^1].Charger.Position.Y:F2}, ally y {states[^1].Met.Position.Y:F2}");
+        Assert.Equal(EndTicks, rush.Count);                                                            // the clip plays to its end, as with nobody there
         Assert.DoesNotContain(states, p => p.Charger.Rush == RushPhase.Collision);                      // never the recoil
         Assert.All(states, p => Assert.Equal(ReactionKind.None, p.Charger.Reaction));
         Assert.All(states, p => Assert.Equal((ReactionKind.None, 100f, 1000f), (p.Met.Reaction, p.Met.Shield, p.Met.Health)));   // nothing on the ally
-        Assert.True(charger.Position.Y < ally.Position.Y - 2f * Config.CapsuleRadius + 1e-3f, "the charger stopped short of the ally's body");
-        Assert.All(states.Skip(at), p => Assert.Equal(RushPhase.None, p.Charger.Rush));   // no rush resumes
+        Assert.All(states, p => Assert.Equal(new Vector3(0f, 6f, 0f), p.Met.Position));                // not shoved
+        Assert.True(states[^1].Charger.Position.Y > states[^1].Met.Position.Y + 1f, "the charger is past the ally");
+        // The same charge with nobody ahead: speed and direction within tolerance (the pass loses nothing).
+        var w = new World(Config, null, [new SpawnPoint(Vector3.Zero, 0f)]) { Rules = new MatchRules { TimeLimit = 0f, FriendlyFire = false } };
+        w.Spawn(1, 0);
+        var free = new List<PlayerState>();
+        for (int k = 0; k < 40; k++)
+        {
+            int tick = k; uint view = w.Tick;
+            w.Step(id => new PlayerInput(0, 0f, tick <= 10 ? 1f : 0f, 0f, (tick <= 10 ? InputButtons.Sprint : InputButtons.None) | (tick == 10 ? InputButtons.MeleeHeavy : InputButtons.None)) with { ViewTick = view });
+            free.Add(w.Players[1]);
+        }
+        for (int k = 0; k < states.Count; k++)
+        {
+            Assert.Equal(free[k].Rush, states[k].Charger.Rush);
+            Assert.Equal(free[k].Position.Y, states[k].Charger.Position.Y, 3);
+            Assert.Equal(free[k].Position.X, states[k].Charger.Position.X, 3);
+            Assert.Equal(free[k].Velocity.Y, states[k].Charger.Velocity.Y, 3);
+        }
     }
 
     [Fact]
@@ -269,18 +300,20 @@ public class ChargeCancelTests(ITestOutputHelper output)
         // Friendly fire: the ally is hit and stunned and the charger plays the stop (protocol 65, unchanged).
         var (ff, ffRushes) = Charge(Teams(Config, friendlyFire: true, Team.SpaceMarines));
         var e = Assert.Single(ffRushes);
-        Assert.Equal((true, false), (e.Harmed, e.Bump));
+        Assert.True(e.Harmed);
         Assert.Equal(RushPhase.Collision, ff[(int)e.Tick - 1].Charger.Rush);
         Assert.Equal(ReactionKind.Stun, ff[(int)e.Tick - 1].Met.Reaction);
         // --old-ally-bump: the stop, the ally untouched.
         var (old, oldRushes) = Charge(Teams(Config with { ChargeAllyBump = false }, friendlyFire: false, Team.SpaceMarines));
         e = Assert.Single(oldRushes);
-        Assert.Equal((false, false), (e.Harmed, e.Bump));
+        Assert.False(e.Harmed);
         Assert.Equal(RushPhase.Collision, old[(int)e.Tick - 1].Charger.Rush);
         Assert.Equal((ReactionKind.None, 100f), (old[(int)e.Tick - 1].Met.Reaction, old[(int)e.Tick - 1].Met.Shield));
-        // Musou Mode keeps the stop on an ally (the rule is Classic PvP's).
-        Assert.False(ChargeCancel.AllyBumps(Config with { Extras = ContentExtras.Musou }, friendlyFire: false));
-        Assert.True(ChargeCancel.AllyBumps(Config with { Extras = ContentExtras.Orks }, friendlyFire: false));
+        // The rule is every mode's (Musou Mode too: the owner 2026-11-11 gave no exception).
+        Assert.True(ChargeCancel.AllyPasses(Config with { Extras = ContentExtras.Musou }, friendlyFire: false));
+        Assert.True(ChargeCancel.AllyPasses(Config with { Extras = ContentExtras.Orks }, friendlyFire: false));
+        Assert.False(ChargeCancel.AllyPasses(Config, friendlyFire: true));
+        Assert.False(ChargeCancel.AllyPasses(Config with { ChargeAllyBump = false }, friendlyFire: false));
     }
 
     [Fact]
@@ -288,7 +321,7 @@ public class ChargeCancelTests(ITestOutputHelper output)
     {
         var (states, rushes) = Charge(Teams(Config, friendlyFire: false, Team.Chaos));
         var e = Assert.Single(rushes);
-        Assert.Equal((2, true, false), (e.Target, e.Harmed, e.Bump));
+        Assert.Equal((2, true), (e.Target, e.Harmed));
         var (charger, enemy) = states[(int)e.Tick - 1];
         Assert.Equal((RushPhase.Collision, ReactionKind.Stun), (charger.Rush, enemy.Reaction));
         Assert.Equal((0f, 1000f), (enemy.Shield, enemy.Health));   // 25 then 75 off the 100 shield
@@ -302,12 +335,12 @@ public class ChargeCancelTests(ITestOutputHelper output)
     public void The_own_prediction_of_an_ally_contact_is_the_worlds(bool friendlyFire)
     {
         // The own client's ChargeLock.Predict, stepped beside the world with the same input and the view the input names (no bodies: PlayerBodies off, so neither side
-        // collides with a lagged picture): on the contact tick it gives the world's state, a bump without friendly fire, the stop with it.
+        // collides with a lagged picture): it gives the world's state every tick: no contact (the pass) without friendly fire, the stop with it.
         var c = Config with { PlayerBodies = false };
         var w = Teams(c, friendlyFire, Team.SpaceMarines);
         ChargeContact? contact = null;
         PlayerState predicted = default;
-        for (int k = 0; k < 40 && contact is null; k++)
+        for (int k = 0; k < (friendlyFire ? 40 : 24) && (contact is null || !friendlyFire); k++)
         {
             int tick = k;
             var view = new Dictionary<int, PlayerState>(w.Players);
@@ -319,8 +352,8 @@ public class ChargeCancelTests(ITestOutputHelper output)
             w.Step(id => id == 1 ? input : new PlayerInput(0, 0f, 0f, MathF.PI, InputButtons.None) with { ViewTick = viewTick });
         }
         output.WriteLine($"friendly fire {friendlyFire}: contact {contact}; predicted {predicted.Rush}, server {w.Players[1].Rush}");
-        Assert.Equal(!friendlyFire, contact is { Bump: true, Target: 2 });
-        Assert.Equal(friendlyFire ? RushPhase.Collision : RushPhase.None, predicted.Rush);
+        Assert.Equal(friendlyFire, contact is { Target: 2 });
+        Assert.Equal(friendlyFire ? RushPhase.Collision : RushPhase.Rush, predicted.Rush);
         Assert.Equal(w.Players[1].Rush, predicted.Rush);
         Assert.Equal(w.Players[1].Position, predicted.Position);
         Assert.Equal(w.Players[1].Velocity, predicted.Velocity);
@@ -330,10 +363,10 @@ public class ChargeCancelTests(ITestOutputHelper output)
     [Theory]
     [InlineData(391)]
     [InlineData(392)]
-    public void Prediction_matches_the_server_through_S_cancels_grenade_presses_and_ally_bumps_under_150ms_rtt_and_5pct_loss(int seed)
+    public void Prediction_matches_the_server_through_S_cancels_grenade_presses_and_ally_passes_under_150ms_rtt_and_5pct_loss(int seed)
     {
         // Three marines of one side (side requests honoured, no friendly fire) run at each other in turn and charge; each charge is cancelled with S (held or tapped) or mashed
-        // with Grenade (a frag in hand or none); allies in the way bump. Every predicted tick of every client matches the server's, contacts included (nothing is excluded).
+        // with Grenade (a frag in hand or none); allies in the way are passed (bodies on: the shared collision slides the charger along them). Every predicted tick of every client matches the server's, contacts included (nothing is excluded).
         var config = Config with
         {
             Classes = [.. Config.Classes.Select(k => k with { Side = Team.None, Melee = [RushTestsLight], MeleeHeavy = [] })],
@@ -350,7 +383,7 @@ public class ChargeCancelTests(ITestOutputHelper output)
             h.AddClient(nonce: (uint)(100 + i), options: new ClientOptions { RequestedClass = 0, RequestedSide = Team.SpaceMarines, SmoothInputLead = false, RequestedEquipment = 0 });
         var truth = new SortedDictionary<uint, Dictionary<int, PlayerState>>();
         var predicted = Enumerable.Range(0, 3).Select(_ => new Dictionary<uint, PlayerState>()).ToArray();
-        int bumps = 0, cancels = 0;
+        int passes = 0, cancels = 0, contactsSeen = 0;
         PlayerInput Input(int i, uint t)
         {
             var me = h.Clients[i];
@@ -383,14 +416,15 @@ public class ChargeCancelTests(ITestOutputHelper output)
                 if (truth.TryGetValue(w.Tick - 1, out var last))
                     foreach (var (id, p) in w.Players)
                         if (last.TryGetValue(id, out var q) && q.Rush == RushPhase.Rush && p.Rush == RushPhase.None && !w.LastRushes.Any(r => r.Player == id) && q.RushTicks < EndTicks) cancels++;
-                bumps += w.LastRushes.Count(r => r.Bump);
+                contactsSeen += w.LastRushes.Count;
+                foreach (var (id, p) in w.Players)
+                    if (p.Rush == RushPhase.Rush && w.Players.Any(o => o.Key != id && o.Value.Alive && new Vector2(o.Value.Position.X - p.Position.X, o.Value.Position.Y - p.Position.Y).Length() < 1.4f)) passes++;
             }
             truth[w.Tick] = new Dictionary<int, PlayerState>(w.Players);
             for (int i = 0; i < 3; i++)
                 if (h.Clients[i].Status == ClientStatus.Connected) predicted[i][h.Clients[i].Tick] = h.Clients[i].Predicted;
         });
         Assert.All(h.Clients, c => Assert.Equal(Team.SpaceMarines, h.Server.World.Players[c.PlayerId].Team));
-        int predictedBumps = h.Clients.Sum(c => c.ChargeBumpsPredicted);
         for (int i = 0; i < 3; i++)
         {
             int id = h.Clients[i].PlayerId, compared = 0;
@@ -407,11 +441,11 @@ public class ChargeCancelTests(ITestOutputHelper output)
             Assert.True(compared > 600, $"client {i}: only {compared} compared");
             Assert.Empty(mismatches);
         }
-        output.WriteLine($"ally bumps {bumps} (predicted, replays included: {predictedBumps}); early ends without a contact (S cancels) {cancels}");
-        Assert.True(bumps >= 2, $"only {bumps} ally bumps");
+        output.WriteLine($"charging ticks within 1.4 m of an ally {passes}; contacts {contactsSeen}; early ends without a contact (S cancels) {cancels}");
+        Assert.True(passes >= 2, $"only {passes} ticks of a charge passing an ally");
+        Assert.Equal(0, contactsSeen);   // allies are never a contact (no enemy in this match)
         Assert.True(cancels >= 4, $"only {cancels} S cancels");
-        Assert.True(predictedBumps >= bumps, $"predicted bumps {predictedBumps}");
-        // A bump is no connect for the presentation: no client ever took one for a contact (impact, hit-stop, camera kick, lock spot).
+        // A pass is no connect for the presentation: no client ever took one for a contact (impact, hit-stop, camera kick, lock spot).
         Assert.All(h.Clients, c => Assert.Equal((0, 0u), (c.ChargeContactsPredicted, c.LastChargeContact.Tick)));
     }
 

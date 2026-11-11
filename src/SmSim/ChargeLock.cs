@@ -13,8 +13,7 @@ public sealed partial record SimConfig
 }
 
 /// <summary>A charge's contact this tick (<see cref="ChargeLock.Find"/>): the player reached, where it was met (its seen feet or its blocking body's) and how far along the move (0..1).</summary>
-/// <param name="Bump">charge-ally-bump (protocol 66): <see cref="ChargeLock.Predict"/> found an ally bump (the charge ended with no stop: <see cref="ChargeCancel.Bumped"/>), not a connect.</param>
-public readonly record struct ChargeContact(int Target, Vector3 Reference, float T, bool Bump = false);
+public readonly record struct ChargeContact(int Target, Vector3 Reference, float T);
 
 /// <summary>
 /// anim/melee-interaction: the charge connect made consistent (rules **ours**, spec/behavior.md "Charge connect: the lock"). The owner (2026-10-31): "when a player charges a
@@ -55,14 +54,16 @@ public static class ChargeLock
     /// charger's client saw. Null: not tested (the client's prediction, tests).</param>
     /// <param name="side">The charger's side: fix/charge-player-collision's swept contact applies to its opponents (<see cref="World.Hostile"/>); allies keep the protocol 56 contact
     /// (so the co-op of the added content, where every player is an ally, is unchanged).</param>
+    /// <param name="passAllies">charge-ally-slide (protocol 67): players of the charger's side (not <see cref="World.Hostile"/>) are no contact at all (<see cref="ChargeCancel.AllyPasses"/>): the charge slides past them.</param>
     public static ChargeContact? Find(int attacker, Vector3 from, Vector3 to, float yaw, RushSpec spec, SimConfig c, IReadOnlyDictionary<int, PlayerState> seen,
-        BodyView? bodies, CollisionWorld? world, Func<int, bool>? aliveNow = null, IReadOnlyDictionary<int, (Vector3 From, Vector3 To, int Class, Team Team)>? now = null, Team side = Team.None)
+        BodyView? bodies, CollisionWorld? world, Func<int, bool>? aliveNow = null, IReadOnlyDictionary<int, (Vector3 From, Vector3 To, int Class, Team Team)>? now = null, Team side = Team.None, bool passAllies = false)
     {
         var eye = to + new Vector3(0, 0, c.EyeHeight);
         int target = -1; float first = float.MaxValue; var reference = Vector3.Zero;
         foreach (var (id, then) in seen)
         {
             if (id == attacker || !then.Alive || (aliveNow is not null && !aliveNow(id))) continue;
+            if (passAllies && !World.Hostile(side, then.Team)) continue;   // charge-ally-slide: an ally is passed
             bool swept = c.SolidBodies && World.Hostile(side, then.Team);
             float? t = Rush.Contact(from, to, yaw, then.Position, spec, c, swept);
             var at = then.Position;
@@ -206,20 +207,14 @@ public static class ChargeLock
     /// tick's move reaches a player, else <paramref name="next"/> unchanged. Only with <see cref="SimConfig.ChargeLock"/>, a view (the rewound world the input names) and the bull rush (the
     /// dash attack is not predicted: its ticks name no exact view).
     /// </summary>
-    /// <param name="friendlyFire">charge-ally-bump (protocol 66): whether the match's rules let the charge harm an ally (the server's scoreboard says; true without match rules). Off, in
-    /// Classic PvP, a contact with an ally is a bump (<see cref="ChargeCancel.AllyBumps"/>): <paramref name="next"/> with the charge ended there (<see cref="ChargeCancel.Bumped"/>; a wall's
-    /// stop this tick kept), and <paramref name="contact"/> marked <see cref="ChargeContact.Bump"/>, as the server resolves it (<c>World.ResolveRush</c>).</param>
+    /// <param name="friendlyFire">charge-ally-slide (protocol 67): whether the match's rules let the charge harm an ally (the server's scoreboard says; true without match rules). Off, an ally is no contact
+    /// (<see cref="ChargeCancel.AllyPasses"/>): the charge slides past, as the server resolves it (<c>World.ResolveRush</c>).</param>
     public static PlayerState Predict(int self, PlayerState before, PlayerState next, SimConfig c, IReadOnlyDictionary<int, PlayerState>? view, BodyView? bodies, CollisionWorld? world,
         out ChargeContact? contact, bool friendlyFire = false)
     {
         contact = null;
         if (!c.ChargeLock || view is null || Charging(before, next, c) is not { Rush: RushPhase.Rush } charging || Rush.SpecOf(c, charging) is not { } spec) return next;
-        if (Find(self, before.Position, charging.Position, charging.Yaw, spec, c, view, bodies, world, side: before.Team) is not { } found) return next;
-        if (ChargeCancel.AllyBumps(c, friendlyFire) && view.TryGetValue(found.Target, out var ally) && !World.Hostile(before.Team, ally.Team))
-        {
-            contact = found with { Bump = true };
-            return ChargeCancel.Bumped(next);
-        }
+        if (Find(self, before.Position, charging.Position, charging.Yaw, spec, c, view, bodies, world, side: before.Team, passAllies: ChargeCancel.AllyPasses(c, friendlyFire)) is not { } found) return next;
         contact = found;
         // fix/charge-player-collision: stopped at the point of the move where it met an opponent (as the server: World.ResolveRush).
         var at = view.TryGetValue(found.Target, out var met) && World.Hostile(before.Team, met.Team) ? SolidBodies.AtContact(before, charging, found.T, c, world) : charging;

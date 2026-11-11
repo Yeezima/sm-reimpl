@@ -176,7 +176,7 @@ public class RushTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public void An_ally_stops_the_rush_without_harm_and_with_friendly_fire_it_is_hit()
+    public void An_ally_is_passed_by_the_rush_and_with_friendly_fire_it_is_hit()
     {
         foreach (bool friendlyFire in new[] { false, true })
         {
@@ -186,11 +186,17 @@ public class RushTests(ITestOutputHelper output)
             Assert.Equal(w.Players[1].Team, w.Players[2].Team);
             var rushes = new List<RushEvent>();
             Charge(w, 40, 10, _ => rushes.AddRange(w.LastRushes));
+            // charge-ally-slide (protocol 67; the owner 2026-11-11: "when a charge hits an ally it should slide past"): without friendly fire the ally is no contact at all.
+            if (!friendlyFire)
+            {
+                Assert.Empty(rushes);
+                Assert.True(w.Players[1].Position.Y > 6f, "the charger ran past the ally");
+                Assert.Equal((100f, ReactionKind.None, new Vector3(0, 6, 0)), (w.Players[2].Shield, w.Players[2].Reaction, w.Players[2].Position));
+                continue;
+            }
             var e = Assert.Single(rushes);
-            Assert.Equal((2, friendlyFire), (e.Target, e.Harmed));
-            Assert.Equal(RushPhase.Collision, w.Players[1].Rush is RushPhase.None ? RushPhase.Collision : w.Players[1].Rush);
-            if (friendlyFire) Assert.Equal(0f, w.Players[2].Shield);
-            else Assert.Equal((100f, ReactionKind.None), (w.Players[2].Shield, w.Players[2].Reaction));
+            Assert.Equal((2, true), (e.Target, e.Harmed));
+            Assert.Equal(0f, w.Players[2].Shield);
         }
     }
 
@@ -411,7 +417,7 @@ public class RushTests(ITestOutputHelper output)
     [Fact]
     public void Protocol_18_carries_the_rush_phase_in_every_record_and_refuses_malformed_ones()
     {
-        Assert.Equal(66, Protocol.Version);
+        Assert.Equal(67, Protocol.Version);
         var p = new PlayerState(4, Vector3.One, Vector3.Zero, 1f, true) { Alive = true, Rush = RushPhase.Collision, RushTicks = 17, RushLock = 9 };
         var back = Assert.IsType<Snapshot>(Protocol.Read(Protocol.Write(new Snapshot(9, 1, 1, [p, p with { PlayerId = 5 }], Self: 4))));
         Assert.Equal(p, back.Players[0]);
