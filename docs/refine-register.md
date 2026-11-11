@@ -28,8 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3085 spec table rows: **2271 tagged**, 560 not tagged (read from data with high confidence), 254 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 683 rows of the changes document.
-Scanned 3076 spec table rows: **2263 tagged**, 559 not tagged (read from data with high confidence), 254 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 685 rows of the changes document.
+Scanned 3092 spec table rows: **2276 tagged**, 561 not tagged (read from data with high confidence), 255 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 685 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -51,29 +50,20 @@ Scanned 3076 spec table rows: **2263 tagged**, 559 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 22 | 13 | 13 | 12 | 7 |
-| Core simulation (provisional values) | 686 | 646 | 492 | 179 | 1 |
+| Core simulation (provisional values) | 690 | 650 | 492 | 182 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 235 | 224 | 126 | 63 | 0 |
-| **All areas** | **2271** | 2002 | 1700 | 710 | 38 |
-| Core simulation (provisional values) | 677 | 638 | 480 | 180 | 1 |
-| General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 235 | 224 | 126 | 63 | 0 |
-| **All areas** | **2263** | 1995 | 1689 | 711 | 38 |
+| **All areas** | **2276** | 2007 | 1701 | 713 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1290 |
+| kind: ours | 1295 |
 | confidence: low | 815 |
-| confidence: medium | 756 |
+| confidence: medium | 757 |
 | notes: ours | 413 |
 | kind: interpretation | 380 |
-| kind: ours | 1284 |
-| confidence: low | 809 |
-| confidence: medium | 751 |
-| notes: ours | 412 |
-| kind: interpretation | 379 |
 | notes: estimate | 181 |
 | kind: estimate | 156 |
 | confidence: none (low) | 129 |
@@ -2321,8 +2311,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (686)
-### Core simulation (provisional values) (677)
+### Core simulation (provisional values) (690)
 
 *Spec section: Provisional values in use*
 
@@ -2657,7 +2646,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-26C2FF49` | Flyby (paused) | `play_thunderhawk_pass` from the campaign's bank `rgn_s27_r500` (loaded at run time only with the runs on; it resolved), 2.5 s into the run and stopped at its end, with `play_sm_thunderhawk_engine`; else `play_ig_valkyrie_flyby` (s) | kind: ours; confidence: medium | the blueprint's `flybysound`; the timing ours | Flyby (paused): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: play_thunderhawk_pass from the campaign's bank rgn_s27_r500 (loaded… | ☐ |
 | `R-1E92B5E4` | The war round the walls | a far sound every 0.5 to 2.2 s from a random bearing, 22 to 36 m from the listener: far explosions, a titan's step, heavy bolters (no flyby: the owner took the far Valkyries out, 2026-11-01); -22 dB and LPF 62 (about 900 Hz) on top of the data's mix in a… (dB, s, m) | kind: ours; confidence: low | the owner's item 10; the mix ours | The war round the walls: compare with SM1 by feel or video. Ours: a far sound every 0.5 to 2.2 s from a random bearing, 22 to 36 m from… | ☐ |
 
-*Spec section: Added content: Musou Mode: drop pod assault (`docs/drop-pod-assault.md`, `TfwDropPod.cs`, `World.TfwDropPod.cs`, `NetworkView.TfwDropPod.cs`; `TfwRules.Version` 70, `MusouSim.Version` and `Protocol.Version` unchanged)*
+*Spec section: Added content: Musou Mode: drop pod assault (`docs/drop-pod-assault.md`, `TfwDropPod.cs`, `World.TfwDropPod.cs`, `NetworkView.TfwDropPod.cs`; `TfwRules.Version` 71, `MusouSim.Version` and `Protocol.Version` unchanged)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
@@ -4986,7 +4975,7 @@ Test aids, probes, demo and capture tooling, and engineering decisions (protocol
 | `R-DBF9DB11` | Elite bars: beyond the budget | Added content: Musou Mode: retainer paint, the class change in the Stormbird and the elites' bars (pass 2, M7 and M11; no protocol change, `TfwRules.Version` 15) |
 | `R-2884CE4D` | Test aids | Added content: Musou Mode: retainer paint, the class change in the Stormbird and the elites' bars (pass 2, M7 and M11; no protocol change, `TfwRules.Version` 15) |
 | `R-6D0F2490` | Wire | Added content: Musou Mode: fire support (M8, M9: `TfwFire`, `World.TfwFire.cs`, `TfwFireView.cs`; no protocol change, `TfwRules.Version` 15) |
-| `R-A0A81B25` | Wire | Added content: Musou Mode: drop pod assault (`docs/drop-pod-assault.md`, `TfwDropPod.cs`, `World.TfwDropPod.cs`, `NetworkView.TfwDropPod.cs`; `TfwRules.Version` 70, `MusouSim.Version` and `Protocol.Version` unchanged) |
+| `R-A0A81B25` | Wire | Added content: Musou Mode: drop pod assault (`docs/drop-pod-assault.md`, `TfwDropPod.cs`, `World.TfwDropPod.cs`, `NetworkView.TfwDropPod.cs`; `TfwRules.Version` 71, `MusouSim.Version` and `Protocol.Version` unchanged) |
 | `R-3C893894` | Test aids | Death effects (F-D1; client only, not simulated, no protocol change) |
 | `R-54698497` | `--bot-damage-scale f` | Flying hitboxes, the view fraction, the grenade bounce and the bots' damage scale (fix/hitboxes-grenades-bots; protocol 37) |
 | `R-5601E474` | Protocol 37 (on top of main's 36) | Flying hitboxes, the view fraction, the grenade bounce and the bots' damage scale (fix/hitboxes-grenades-bots; protocol 37) |
