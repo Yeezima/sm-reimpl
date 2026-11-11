@@ -18,7 +18,7 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 ### Musou Mode
 - The Librarian's chain lightning now leaps twice as far from Ork to Ork (up to 16 m) and no longer weakens down the chain: every Ork it strikes, the last as the first, takes the full damage.
 - Orbital strikes you call now do 20 % more damage to the Orks too, which bosses feel most (ordinary Orks die in the blast either way).
-- The autocannon is much stronger: each round's explosion now kills any ordinary Ork (Boyz, Shoota Boyz, Gretchin, Rokkit Boyz, Stormboyz, Squigs) anywhere inside its blast, and the round itself hits even harder (30 more than the blast). Its ammunition never runs out (an infinity sign in the ammo box); it still overheats after 15 rounds.
+- The autocannon is much stronger: each round's explosion now kills any ordinary Ork (Boyz, Shoota Boyz, Gretchin, Rokkit Boyz, Stormboyz, Squigs) inside its blast that it reaches (not behind cover or a Mek's shield), and the round itself hits even harder (30 more than the blast). Its ammunition never runs out (an infinity sign in the ammo box); it still overheats after 15 rounds.
 - The Devastator now wears the heavy bolter's backpack when carrying the autocannon.
 - Musou Mode in this build does not play with earlier builds: everyone in a Musou match, and the server, needs this update.
 

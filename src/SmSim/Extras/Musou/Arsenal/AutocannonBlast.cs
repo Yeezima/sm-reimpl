@@ -12,7 +12,8 @@ public sealed partial class World
 {
     partial void ArsenalShotBlast(WeaponSpec weapon, ref SplashSpec? blast)
     {
-        if (weapon.Name.Equals(ArsenalRules.Autocannon, StringComparison.OrdinalIgnoreCase)) blast = AutocannonRules.Blast;
+        // Musou only (review 2026-11-11): Classic's autocannon has no blast; its hit-scan path never reaches this hook, and the _musou check keeps it so.
+        if (_musou is not null && weapon.Name.Equals(ArsenalRules.Autocannon, StringComparison.OrdinalIgnoreCase)) blast = AutocannonRules.Blast;
     }
 }
 
