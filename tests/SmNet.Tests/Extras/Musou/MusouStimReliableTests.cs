@@ -8,7 +8,7 @@ namespace SmNet.Tests;
 /// Owner 2026-11-12: "Pressing the equipment use hotkey with stims equipped doesn't always use the stims. Ensure it's more reliably working the first time you press the button."
 /// The cause (found with a scripted sweep of presses over every action of the sim): the use key is a bufferable press kept only 0.3 s (9 ticks), so a press made more than 0.3 s before a swing, a charge or a
 /// recovery ends is dropped unused; and a hit reaction that starts before the stim's release (0.3 s into the use) cancels the use ("before its release nothing is spent") with the press consumed. In Musou Mode
-/// (<see cref="StimBoost.Reliable"/>) the press is kept 0.5 s and no hit starts a reaction before the release; Classic PvP keeps both rules. Also the owner's "increase all melee attacks cleave distance by 20%"
+/// (<see cref="SimConfig.StimReliable"/>) the press is kept 0.5 s and no hit starts a reaction before the release; Classic PvP keeps both rules. Also the owner's "increase all melee attacks cleave distance by 20%"
 /// (<see cref="TfwCombatRules.PlayerCleaveReachScale"/> 0.6 to 0.72), pinned here against the old scale.
 /// </summary>
 public class MusouStimReliableTests
