@@ -557,7 +557,15 @@ public partial class NetworkView
             case JumpPhase.Ascent or JumpPhase.Hang or JumpPhase.Fall:
             {
                 float stick = horizontal > BotPoundDistance * 0.5f ? 1f : 0f;
-                if (pack.PoundEnabled && horizontal <= BotPoundDistance && above >= BotPoundMinHeight && !me.MeleeHeld)
+                // bot-grenade-safety (Classic PvP): over its own live grenade the bot steers out of the blast, a target inside it is not flown at or pounded (NetworkView.BotGrenades.cs).
+                if (BotAirStick(me, target) is { } away)
+                {
+                    var keep = BotWeaponButtons(me, tick, target) & ~(InputButtons.Melee | InputButtons.Switch);
+                    if (pack.PoundEnabled && horizontal <= BotPoundDistance && above >= BotPoundMinHeight) BotPoundIntoOwnBlast(target);   // counted and logged
+                    if (!BotOldTactics) { _botAimNow = true; _botAimTarget = target.PlayerId; BotNoteEngagement(horizontal); }
+                    return new PlayerInput(tick, away.X, away.Y, _yaw, jump | keep, _pitch);
+                }
+                if (pack.PoundEnabled && horizontal <= BotPoundDistance && above >= BotPoundMinHeight && !me.MeleeHeld && !BotPoundIntoOwnBlast(target))
                 {
                     // Stream C: some pounds are deliberately aimed beside the target (NetworkView.BotTactics.cs).
                     var (poundYaw, poundPitch) = BotPoundPress(me, target);
@@ -586,6 +594,7 @@ public partial class NetworkView
                 // whatever is in the way; a ceiling simply stops the rise), with BotFreeJumpHold s of hold.
                 bool free = !atTarget && _botJumpFree && _connectedFor - _botLastJump >= BotFreeJumpEvery;
                 if (!atTarget && !free) return null;
+                if (BotJumpIntoOwnBlast(target)) return null;   // bot-grenade-safety (Classic PvP): not onto a target inside its own live grenade's blast (NetworkView.BotGrenades.cs)
                 // M45: a release while rising cuts the rise, so the hold scales over the whole ascent (the full jump: JumpPack.FullRiseTicks).
                 float longest = pack.ReleaseCut ? JumpPack.FullRiseTicks(pack, c) * c.TickSeconds : pack.MaxHold;
                 float wanted = atTarget ? Math.Clamp((horizontal - BotJumpMin) / (BotJumpMax - BotJumpMin), 0f, 1f) * longest : BotFreeJumpHold;

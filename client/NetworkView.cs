@@ -168,11 +168,11 @@ public partial class NetworkView : Node3D
     // ---- M13: thrown equipment and the melta cone (placeholder demonstration) ----
     const string DefaultTossAnimation = "SM_RNG_GrenadeToss_01";   // the toss sequencer's clip on the install (docs/discovery.md)
     const double ConeFlashSeconds = 0.15;       // how long a melta cone shot is drawn (client-side, not an original value)
-    const float BotThrowMin = 6f;               // metres (horizontal) beyond which the bot throws (test script)
+    const float BotThrowMin = BotGrenadeSafety.OldThrowMin;   // metres (horizontal) beyond which the bot throws stims and blind grenades (all items with --old-bot-throws; test script)
     /// <summary>Metres (horizontal) within which the bot throws: 20, or <c>--bot-throw-max</c> (test aid for big maps).</summary>
     readonly float _botThrowMax;
     const double BotThrowEvery = 4.0;           // seconds between the bot's throw presses at most (test script)
-    const float BotThrowShort = 8f;             // metres short of the target the bot aims a throw at the ground (test script)
+    const float BotThrowShort = BotGrenadeSafety.OldThrowShort;   // metres short of the target the bot aimed a throw at the ground (blind grenades and --old-bot-throws; test script)
     /// <summary>The toss clip when the rig has it and it decodes, else null (throws keep the idle/run animation).</summary>
     string? _tossAnimation;
     /// <summary>Remote players' throws: connected time at which their slim Throwing flag rose (the clip is posed from there).</summary>
@@ -739,6 +739,7 @@ public partial class NetworkView : Node3D
             var scripted = BotPickupInput(BotApplyAim(BotInput(tick)), tick);   // M44a: aim error on ranged shots at enemies (NetworkView.BotAim.cs); fidelity gap 1: E in reach of a pickup; --bot-pickups walks to one
             scripted = BotBraceVentInput(scripted);   // fidelity gap 7 test aid (--bot-brace): brace and vent with Reload
             scripted = BotTurnLimit(scripted);   // anim/melee-flow test aid (--bot-turn-rate): the view turns like a hand on a mouse, not in one tick (NetworkView.MeleeFlow.cs)
+            scripted = BotGrenadeHold(scripted);   // bot-grenade-safety (Classic PvP): no move, jump or charge into its own live grenade; out of it when inside (NetworkView.BotGrenades.cs)
             if (AimTest) LogConvergence(scripted);
             // --bot-slot pistol|primary (test aid): one press of that slot key (protocol 14) a few seconds after joining.
             if (BotSlot is { Length: > 0 } && _connectedFor is >= 3.0 and < 3.2)
@@ -790,6 +791,8 @@ public partial class NetworkView : Node3D
         double t = tick * (double)_config!.TickSeconds + id * 3.7;
         double phase = t % 10.0;
         var me = _client!.Predicted;
+        _botExtrasTick = false;
+        BotHazards(me);   // bot-grenade-safety: the bot's own live grenades and waiting rounds this tick (NetworkView.BotGrenades.cs)
         if (JumpTest && JumpTestInput(me, tick) is { } jumpTest) return jumpTest;   // M44 test aid (NetworkView.JumpFx.cs)
         if (SlashTestInput(me, tick) is { } slashTest) return slashTest;   // feel/jump-pack test aid --slash-test (NetworkView.DashAttack.cs)
         if (SwingTestInput(me, tick) is { } swingTest) return swingTest;   // anim/hammer-swing test aid --swing-test (NetworkView.SwingTest.cs)
@@ -807,7 +810,7 @@ public partial class NetworkView : Node3D
         _botNote = "";
         PlayerInput? extrasBot = null;
         ExtrasBotInput(me, tick, ref extrasBot);   // EXTRAS-HOOK: added content's own bot (Musou Mode co-op: deploy with the team, fight the Orks)
-        if (extrasBot is { } extrasInput) return extrasInput;
+        if (extrasBot is { } extrasInput) { _botExtrasTick = true; return extrasInput; }   // bot-grenade-safety: the hold leaves added content's bot alone
         // 2026-11-08: at low health, cover first, then back into the fight (Classic PvP, both modes; NetworkView.BotCover.cs).
         if (BotRetreatInput(me, tick) is { } retreatInput) return retreatInput;
         if (BotSeizeInput(me, tick, phase) is { } seizeInput) { _botNote = _botSeizeNote; return seizeInput; }
@@ -829,7 +832,7 @@ public partial class NetworkView : Node3D
             if (BotPostOf(me) is null && BotEvadeInput(me, tick) is { } evadeInput) return evadeInput;   // 2026-11-08: no rolls off a post's edge
             bool hasMelee = Loadouts.Melee(_config, me).Count > 0;
             // perks/inert-2: a bot carrying combat stims uses them once it has a target within 20 m (melee bots too; ours, test script).
-            if (StimOf(me) is not null && BotThrow(me, MathF.Sqrt(dx * dx + dy * dy)) is var stimPress and not InputButtons.None)
+            if (StimOf(me) is not null && BotThrow(me, target, MathF.Sqrt(dx * dx + dy * dy)) is var stimPress and not InputButtons.None)
                 return new PlayerInput(tick, 0f, 1f, _yaw, stimPress, _pitch);
             // The charge (M29): sometimes, at 4-9 m, run at the target and press F once moving fast enough (NetworkView.Reactions.cs).
             // Same floor only: a target more than BotMeleeHeight above or below is not in reach (QA 2026-10-28: bots swung at an
@@ -838,12 +841,15 @@ public partial class NetworkView : Node3D
             // Night batch 2026-11-06: a reaction time before the first melee action or charge on an enemy in reach (NetworkView.BotAim.cs), also before answering its attack; an action under way goes on.
             bool meleeActive = me.MeleeStep > 0 || me.MeleeHeld || me.MeleeHeavyHeld || me.MeleeQueued;
             bool meleeReady = BotMeleeReady(target, sameFloor && dx * dx + dy * dy <= 81f, MathF.Sqrt(dx * dx + dy * dy));
-            if ((meleeReady || me.Rush != RushPhase.None || _botChargeRunSince >= 0) && BotRushInput(me, tick, dx * dx + dy * dy) is { } rushInput) return rushInput;
+            // bot-grenade-safety: no charge into the bot's own live grenade (the target inside its blast, or the run through it; NetworkView.BotGrenades.cs).
+            bool chargeHeld = me.Rush == RushPhase.None && BotChargeIntoOwnBlast(me, target);
+            if (!chargeHeld && (meleeReady || me.Rush != RushPhase.None || _botChargeRunSince >= 0) && BotRushInput(me, tick, dx * dx + dy * dy) is { } rushInput) return rushInput;
             if (hasMelee && sameFloor && dx * dx + dy * dy <= BotMeleeDistance * BotMeleeDistance)
             {
                 // Press on a released key unless a press is already buffered; the next tick releases it. During the second light
                 // attack the press is the heavy strike (M28: X X Y, the combo's third heavy strike), when the class has one.
-                bool press = !me.MeleeHeld && !me.MeleeHeavyHeld && !me.MeleeQueued && (meleeReady || meleeActive);
+                // bot-grenade-safety: no new swing (and its lunge) at a target inside the bot's own live grenade's blast; the hold backs the bot out.
+                bool press = !me.MeleeHeld && !me.MeleeHeavyHeld && !me.MeleeQueued && (meleeReady || meleeActive) && !BotMeleeIntoOwnBlast(me, target);
                 // Weapons C: a single-attack combo (the Devastator's kick) goes on to its heavy strike (the stomp), and a heavy strike with a
                 // Y,Y finisher chains into it.
                 int heavies = Loadouts.MeleeHeavy(_config, me).Count;
@@ -860,11 +866,14 @@ public partial class NetworkView : Node3D
             // Stream C: left and right in legs, toward a flank while an ally engages the same enemy (NetworkView.BotTactics.cs); --bot-old-tactics: one side, standing 2 s of every 10.
             float strafe = BotOldTactics ? BotWalkableStrafe(me, phase >= 8.0 ? 0f : id % 2 == 0 ? 1f : -1f) : BotStrafe(me, target);
             float horizontal = MathF.Sqrt(dx * dx + dy * dy);
-            var grenade = BotThrow(me, horizontal);
-            // Throwing (pressed now or under way until the release): aim at the ground BotThrowShort m short of the target,
-            // since a grenade keeps going after it lands (test script heuristic, not the original's aim).
+            var grenade = BotThrow(me, target, horizontal);
+            // Throwing (pressed now or under way until the release). bot-grenade-safety (Classic PvP, a damaging item): at the predicted landing point (NetworkView.BotGrenades.cs);
+            // else (--old-bot-throws, stims, the blind grenade) at the ground BotThrowShort m short of the target, from before the 2026-10-29 bounce rule (test script heuristic).
             if (grenade != InputButtons.None || (me.Throwing && me.ThrowTime <= _config.ThrowRelease + 0.05f))
-                _pitch = Math.Clamp(MathF.Atan2(target.Position.Z - (me.Position.Z + _config.EyeHeight), MathF.Max(2f, horizontal - BotThrowShort)), -MaxPitchDown, MaxPitchUp);
+            {
+                if (BotThrowLanding(me, target) is { } landing) { _botThrowAim = landing; BotAimThrow(me, landing); }
+                else _pitch = Math.Clamp(MathF.Atan2(target.Position.Z - (me.Position.Z + _config.EyeHeight), BotGrenadeSafety.OldAimDistance(horizontal)), -MaxPitchDown, MaxPitchUp);
+            }
             // The melta only reaches its cone length: beyond it, run at the target (no fire) instead of strafing.
             if (Loadouts.InHand(_config, me) is { Delivery: DeliveryKind.Cone, Cone: { } cone } && horizontal > cone.Length * 0.9f)
                 return BotOldTactics ? new PlayerInput(tick, 0f, 1f, _yaw, grenade, _pitch) : BotMoveInput(tick, BotWeave(me, new Vector2(-MathF.Sin(_yaw), MathF.Cos(_yaw)), horizontal), grenade);   // stream C: weaving
@@ -969,22 +978,54 @@ public partial class NetworkView : Node3D
 
     /// <summary>
     /// The bot's throw: a Grenade press (on a released key) when it carries one, the item's cooldown is over, nothing else
-    /// is under way (throw, melee, switch, charge or pending shot), the target is <see cref="BotThrowMin"/> to
-    /// <see cref="_botThrowMax"/> m away (horizontally) and its last throw press was <see cref="BotThrowEvery"/> s ago or more.
+    /// is under way (throw, melee, switch, charge or pending shot), its last throw press was <see cref="BotThrowEvery"/> s ago or more and the distance rule allows it:
+    /// bot-grenade-safety (Classic PvP, a damaging item, <see cref="BotGrenadeSafety"/>): the target's chest and the predicted landing point at least the item's blast radius
+    /// + margin from the bot's chest (3D) and the target within <see cref="_botThrowMax"/> m horizontally; else (stims, the blind grenade, <c>--old-bot-throws</c>)
+    /// <see cref="BotThrowMin"/> to <see cref="_botThrowMax"/> m away horizontally (stims at any distance).
     /// </summary>
-    InputButtons BotThrow(PlayerState me, float distance)
+    InputButtons BotThrow(PlayerState me, PlayerState target, float distance)
     {
         if (me.GrenadeHeld || me.Grenades <= 0 || me.GrenadeCooldown > 0f || me.Throwing || me.MeleeStep > 0 || me.SwitchLeft > 0f
-            || me.Charging || me.PendingShot > 0 || (distance < BotThrowMin && StimOf(me) is null) || distance > _botThrowMax || _connectedFor - _botLastThrow < BotThrowEvery)   // perks/inert-2: stims at any distance
+            || me.Charging || me.PendingShot > 0 || _connectedFor - _botLastThrow < BotThrowEvery)
             return InputButtons.None;
+        bool stim = StimOf(me) is not null;
+        if (!stim && BotThrowSafety(me) is { } safe)
+        {
+            var verdict = BotThrowCheck(me, target, safe.Item, safe.Safety, out var landing);
+            if (verdict != BotGrenadeSafety.ThrowVerdict.Throw)
+            {
+                // A refusal is counted when the old rule would have thrown (at most once per BotThrowEvery), so the count is the throws avoided.
+                if (verdict != BotGrenadeSafety.ThrowVerdict.OutOfRange && BotGrenadeSafety.OldThrowAllowed(distance, false, _botThrowMax) && _connectedFor - _botLastRefusal >= BotThrowEvery)
+                {
+                    _throwsRefused++; _botLastRefusal = _connectedFor;
+                    BotSafetyLog($"no throw at P{target.PlayerId} ({verdict}: target {V3Distance(BotChest(me), BotChest(target)):F1} m, landing {V3Distance(BotChest(me), landing):F1} m, safety {safe.Safety:F1} m)");
+                }
+                return InputButtons.None;
+            }
+            _botLastThrow = _connectedFor;
+            _botThrowAim = landing;
+            GD.Print($"t {_connectedFor:F1} s: id {_client!.PlayerId} bot presses throw at a target {distance:F1} m away ({ThrowText(me)} 3D {V3Distance(BotChest(me), BotChest(target)):F1} m, " +
+                     $"landing {V3Distance(BotChest(me), landing):F1} m from the chest; safety {safe.Safety:F1} m)");
+            return InputButtons.Grenade;
+        }
+        if (!BotGrenadeSafety.OldThrowAllowed(distance, stim, _botThrowMax)) return InputButtons.None;   // perks/inert-2: stims at any distance
         _botLastThrow = _connectedFor;
         GD.Print($"t {_connectedFor:F1} s: id {_client!.PlayerId} bot presses throw at a target {distance:F1} m away ({ThrowText(me)})");
         return InputButtons.Grenade;
     }
 
+    double _botLastRefusal = double.NegativeInfinity;
+    static float V3Distance(System.Numerics.Vector3 a, System.Numerics.Vector3 b) => System.Numerics.Vector3.Distance(a, b);
+
     /// <summary>Why the bot's grenades should go off now (see <see cref="BotWeaponButtons"/>), or null.</summary>
     string? BotWantsDetonation(PlayerState me, WeaponSpec weapon, PlayerState? target)
     {
+        // bot-grenade-safety: never with the bot's chest inside a waiting round's blast reach (NetworkView.BotGrenades.cs).
+        if (BotDetonationHeld(me, weapon) is { } near)
+        {
+            if (_connectedFor - _botLastDetonationHold >= 1.0) { _detonationsHeld++; _botLastDetonationHold = _connectedFor; BotSafetyLog($"no detonation: a waiting round {near:F1} m from the chest"); }
+            return null;
+        }
         if (target is { } t && _client is not null && GrenadeNear(me, weapon, t) is { } g)
             return $"grenade #{g.Id} at {g.Position.X:F1},{g.Position.Y:F1},{g.Position.Z:F1}{((g.Flags & ProjectileFlags.Stuck) != 0 ? " stuck" : (g.Flags & ProjectileFlags.Attached) != 0 ? " attached" : "")} near P{t.PlayerId} at {t.Position.X:F1},{t.Position.Y:F1},{t.Position.Z:F1}";
         return _grenadesOutFor >= BotDetonateAfter ? $"out for {_grenadesOutFor:F1} s" : null;
@@ -1337,6 +1378,7 @@ public partial class NetworkView : Node3D
         {
             _throwsReleased += p.Grenades - me.Grenades;
             if (_bot) GD.Print($"t {_connectedFor:F1} s: id {_client!.PlayerId} releases a grenade ({ThrowText(me)} released {_throwsReleased}; predicted)");
+            if (_bot) BotNoteOwnRelease(me);   // bot-grenade-safety: its grenade is a hazard until it goes off (NetworkView.BotGrenades.cs)
         }
         // A recharged round that arrives and is fired within one frame leaves the clip unchanged but the reserve lower.
         bool shot = me.Clip < p.Clip || (me.Reserve < p.Reserve && me.Clip <= p.Clip);
