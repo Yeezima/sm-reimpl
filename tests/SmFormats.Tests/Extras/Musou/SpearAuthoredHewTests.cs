@@ -30,7 +30,7 @@ public class SpearAuthoredHewTests(ITestOutputHelper output)
         Assert.Equal(Original.BaseClip, Authored.BaseClip);
         Assert.Equal(Original.Weapon, Authored.Weapon);
         Assert.Contains("authored in Blender", Authored.Description);
-        Assert.Equal(ClawSpearClips.OldHew1 ? Original : ClawSpearClips.OldPass2 ? Authored : ClawSpearClips.SpearHew1Pass2, ClawSpearClips.SpearHew1);   // the switches pick one of the three (--old-spear-hew: the original; --old-spear-pass2: this pilot clip)
+        Assert.Equal(ClawSpearClips.OldHew1 ? Original : ClawSpearClips.OldPass2 ? Authored : ClawSpearClips.OldPass4 ? ClawSpearClips.SpearHew1Pass2 : ClawSpearClips.SpearHew1Pass4, ClawSpearClips.SpearHew1);   // the switches pick one of the three (--old-spear-hew: the original; --old-spear-pass2: this pilot clip)
         Assert.Equal(WeaponPoseClip.HewGrip, Authored.GripPointAt(Authored.HitTime), 3);
         Assert.Equal(1f, Authored.GripAt(Authored.HitTime), 3);
         Assert.Equal(0f, Authored.GripAt(0f), 3);   // starts from the one-handed carry

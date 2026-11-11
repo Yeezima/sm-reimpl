@@ -31,12 +31,12 @@ public class SpearPass3Tests(ITestOutputHelper output)
     [Fact]
     public void The_switch_picks_between_the_pass_3_carry_and_pass_2s()
     {
-        bool oldP2 = ClawSpearClips.OldPass2, oldP3 = ClawSpearClips.OldPass3;
-        var expected = oldP2 ? ClawSpearClips.SpearRestOld : oldP3 ? ClawSpearClips.SpearRestPass2 : ClawSpearClips.SpearRestPass3;
+        bool oldP2 = ClawSpearClips.OldPass2, oldP3 = ClawSpearClips.OldPass3, oldP4 = ClawSpearClips.OldPass4;
+        var expected = oldP2 ? ClawSpearClips.SpearRestOld : oldP3 ? ClawSpearClips.SpearRestPass2 : oldP4 ? ClawSpearClips.SpearRestPass3 : ClawSpearClips.SpearRestPass4;
         Assert.Equal(expected, ClawSpearClips.SpearRest);
         Assert.Equal(!oldP2 && !oldP3, ClawSpearClips.Pass3);
-        // the strokes are pass 2's in both: the rollback changes the carry alone
-        Assert.Equal(oldP2 ? ClawSpearClips.SpearHew2Original : ClawSpearClips.SpearHew2Pass2, ClawSpearClips.SpearHew2);
+        // the strokes are pass 2's (or pass 4's) in both: the pass 3 rollback changes the carry alone
+        Assert.Equal(oldP2 ? ClawSpearClips.SpearHew2Original : oldP4 ? ClawSpearClips.SpearHew2Pass2 : ClawSpearClips.SpearHew2Pass4, ClawSpearClips.SpearHew2);
         // pass 3's rest is pass 2's rest plus the solves: no new keys, the same hand-over channels
         Assert.Equal(ClawSpearClips.SpearRestPass2.Channels.Length, ClawSpearClips.SpearRestPass3.Channels.Length);
         Assert.Null(ClawSpearClips.SpearRestPass2.LeftFistTarget);

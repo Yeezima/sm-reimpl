@@ -57,8 +57,10 @@ public static class AuthoredPoseClip
         // The grip tracks: the off hand's hold (weight) and where the right hand holds the shaft (metres from the butt, in Yaw: ClawSpearClips.G / P).
         var grip = root.GetProperty("grip").EnumerateArray().Select(k => new PoseKey((float)k[0].GetDouble(), 0f, 0f, 0f, PoseEase.Linear, (float)k[1].GetDouble())).ToArray();
         var point = root.GetProperty("grip_point").EnumerateArray().Select(k => new PoseKey((float)k[0].GetDouble(), (float)k[1].GetDouble(), 0f, 0f, PoseEase.Linear, 1f)).ToArray();
+        float apex = timing.TryGetProperty("wind_up_apex", out var apexProp) ? (float)apexProp.GetDouble() : template.Anticipation;   // pass 4 moves the coil's apex (the hit does not move)
         return template with
         {
+            Anticipation = apex > 0f && apex < hit ? apex : template.Anticipation,
             Channels = channels,
             Grip = grip,
             GripPoint = point,

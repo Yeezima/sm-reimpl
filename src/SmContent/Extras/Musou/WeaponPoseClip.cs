@@ -208,6 +208,27 @@ public sealed record WeaponPoseClip(string Name, string Weapon, float Duration, 
     /// <summary>The fist solves' weight for this clip given the movement share <paramref name="moving"/> (<see cref="FistAlways"/>: 1).</summary>
     public float FistWeightFor(float moving) => FistAlways ? 1f : Math.Clamp(moving, 0f, 1f);
 
+    /// <summary>
+    /// Spear pass 4 (owner, 2026-11-12: "when idling the left hand should match the bolt pistol idle animation"): the name of an install clip whose left arm, clavicle, fingers and
+    /// <c>RIG_SpineD</c> are laid under the keys while he stands (read at run time; weight 1 minus the movement share), so the idle's left arm is the bolt pistol's relaxed idle's own. Null: none.
+    /// </summary>
+    public string? PistolArmFrom { get; init; }
+
+    /// <summary>True: the left fist solve (<see cref="LeftFistTarget"/>) comes in with the movement share only (standing, <see cref="PistolArmFrom"/>'s arm shows); false: as <see cref="FistWeightFor"/>.</summary>
+    public bool LeftFistWithSpeed { get; init; }
+
+    /// <summary>The left fist solve's weight for the movement share <paramref name="moving"/>.</summary>
+    public float LeftFistWeightFor(float moving) => LeftFistWithSpeed ? Math.Clamp(moving, 0f, 1f) : FistWeightFor(moving);
+
+    /// <summary>
+    /// Metres each fist rises per metre it has swung forward (an elbow bent as a runner's: the hand comes up as it comes forward, drops as it goes back), the right and the left; with
+    /// <see cref="FistSwing"/> and <see cref="LeftFistSwing"/> (pass 4).
+    /// </summary>
+    public float SwingLift { get; init; }
+    public float LeftSwingLift { get; init; }
+    /// <summary>The fist's swing rise (m) for a swing offset <paramref name="forward"/> (m): up as it goes forward of its rest place, down as it goes behind.</summary>
+    public float SwingUp(float forward, bool left) => (left ? LeftSwingLift : SwingLift) * forward;
+
     /// <summary>The fist's swing offset forward (m) for feet <paramref name="footSplit"/> metres apart (the left foot's forward place minus the right's) at movement share <paramref name="moving"/>.</summary>
     public float SwingForward(float footSplit, float moving, bool left) => (left ? -LeftFistSwing : FistSwing) * Math.Clamp(footSplit, -1f, 1f) * Math.Clamp(moving, 0f, 1f);
 

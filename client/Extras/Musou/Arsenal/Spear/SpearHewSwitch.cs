@@ -17,6 +17,7 @@ static class SpearHewSwitch
         if (on) ClawSpearClips.OldHew1 = true;
         if (OS.GetCmdlineUserArgs().Contains("--old-spear-pass2")) ClawSpearClips.OldPass2 = true;
         if (OS.GetCmdlineUserArgs().Contains("--old-spear-pass3")) ClawSpearClips.OldPass3 = true;   // spear pass 3 (2026-11-12): the carry of pass 2 (hip fist standing, chest fist moving, the shaft leaning forward)
+        if (OS.GetCmdlineUserArgs().Contains("--old-spear-pass4")) ClawSpearClips.OldPass4 = true;   // spear pass 4 (2026-11-12): pass 3's carry and strokes
         return on;
     }
 }

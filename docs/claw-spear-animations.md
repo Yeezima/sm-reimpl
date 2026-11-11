@@ -348,6 +348,58 @@ Presentation only (client and SmContent); no simulation, wire, protocol, config-
   the blade grazing the right shoulder pad and the jump pack in many frames (accepted by the owner's note; a wider hand would lose the column margin).
 - **Evidence:** `<media folder>\spear-pass3\` (stage and real-game MP4s, key-pose sheets, the reference beside idle and run for his eyes only, `README.txt` naming what is stage and what is game).
 
+## 3j. Pass 4: the hands, the left arm from the bolt pistol's idle, the grip and the reworked strokes (2026-11-12, claude/spear-pass-4)
+
+Owner (2026-11-12), after pass 3's real-match clips: "Spear pass is much better, but the hands are not behaving as it should when running." / "When idling the left hand should match the bolt pistol idle
+animation." / "The right hand needs to grip the spear naturally as a person would. Find references and study them ..." / "Do a full pass ... No jank, ensure you match the references perfectly." /
+"The swing animations need to be reworked as well." / "Keep the slight tilt to avoid covering the crosshair" (the 13 degree side lean stays). Presentation only (client and SmContent); no simulation,
+wire, protocol, config-hash, timing or jump-pack-flight change. Label: *ours*, not approved.
+
+- **What the running hands did wrong in pass 3** (diagnosed from the stage's close-ups and the real match's clips, frame by frame): (1) the left arm was solved onto a fixed hip-height point and swung only
+  fore and aft along a straight line (0.38 m over a stride, constant height): an elbow held rigid at one bend, a hand that slid instead of pumping, and in the idle a hanging arm that had nothing to do with the
+  bolt pistol's relaxed idle; (2) the right hand swung 0.10 m on a straight line with the shaft, so the carry read as a bracket bolted to the hip; (3) the right hand was the stance's open mitt placed on the
+  shaft: the fingers were never closed (the gauntlet lay along the shaft), which is what made the grip look unnatural at every speed; (4) the left arm's solve came in at full weight standing too, so a hand-over
+  from the idle's arm had nothing natural to start from. Measured in the match (`SPEARCARRY`): the right arm's bone lengths stay 33.2 / 31.2 / 11.9 to 12.2 cm and the grip socket 0.0 cm off the shaft in every
+  phase, so there was no stretching hand and no jitter from the solve itself; the faults were the shape of the arms' motion.
+- **Left hand: the bolt pistol's relaxed idle.** The marine's bolt pistol relaxed idle is `SM_NAV_IdleL_CS_01` (`RigClipTable.PistolRelaxedIdle`; the customizer's pose for every class). While he
+  stands, `CharacterViewer.LayPistolArm` lays that clip's local rotations for the upper spine (`RIG_SpineA`, `RIG_SpineD`), the left clavicle, upper arm, forearm, hand and the three left fingers over the
+  stance, read from the install at run time (nothing copied: `WeaponPoseClip.PistolArmFrom` only names the clip), weighted by `1 - the movement share`; the carry's keys leave the left arm alone
+  (weight 0), so the arm is the pistol idle's own (compared on the stage against the claw's own idle, which is that clip: `evidence\pistol-idle-comparison.png`). As he speeds up the arm goes over to the pump below
+  (the layer's weight fades as the left fist solve's comes in: `LeftFistWithSpeed`).
+- **Running arms.** The left fist solve now targets `Pass4LeftFist` (0.44 m left, 0.04 forward, 0.06 up from the pelvis) with `Pass4LeftFistSwing` 0.30 m per metre of foot split (the hand travels about 0.57 m
+  from behind the hip to in front of the belt, the 40 to 65 cm the running-form sources give) and rises 0.5 m per metre swung forward (`LeftSwingLift`: up 0.14 m as it comes forward, down as it goes back: the
+  bent-elbow arc, the elbow near 90 degrees); the right fist swings 0.12 m with a 3 cm rise (it carries the shaft; the shaft's lean still follows the spine). The phase is the legs': the foot split is read from
+  the stance clip's planted feet each frame, so the arms counter-swing in step through every gait and direction change, and a strafe (no split along the facing) swings little. No new pop source: the solves
+  are weighted by the speed with the pass 3's 0.15 s ease.
+- **The right hand's grip.** `CharacterViewer.LayGripFingers`: for every spear clip the right hand's fingers close round the shaft (the left hand's as far as the clip's grip track has it on the shaft): each
+  finger bone turned from its rest pose about its local Z (found on the stage: X and Y bend it sideways or back, negative Z hyper-extends it) by thumb 30 and 45 degrees, index 70 and 80, the other fingers
+  75 and 80 (authored, original numbers); the rig has three fingers a hand (the thumb's two joints, two finger groups of two joints). Seen on the stage at close range: the fist wraps the shaft with the
+  knuckles toward the front, the shaft passing through the closed fist's centre (`hands.png`), before the fingers lay open along it. The wrist angle is the arm solve's: the forearm runs down and forward from the
+  elbow to the fist and the shaft crosses the palm diagonally (the shaft leans about 13 degrees in and with the spine), as in the reference, where the hand holds the shaft forward of the hip with the elbow bent
+  and the palm toward the thigh. **Not done:** a per-finger solve against the shaft's surface (the three fingers' curl is a fixed authored closure, not fitted), and the thumb does not wrap over the fingers
+  as a person's does (the rig's thumb has two joints and its closure is the same axis as the fingers').
+- **The strokes** (`tools/blender/spear_pass4_author.py` over pass 2's pipeline; `Authored/spear_*_p4.json`): the same techniques and palm geometry (named in section 3h), reworked for weight and readability:
+  a more compact coil (the apex 0.03 s nearer the hit, hew 1's lead-in 0.50 s instead of 0.52), a higher-power acceleration into the hit (progress grows as time to the power 2.4 to 2.7, pass 2's 1.6 to
+  1.9: slower out of the coil, the peak speed at the hit), and a carry-through: the hips keep turning 6 to 10 degrees past pass 2's finish (the stab: 5 cm further forward) 0.1 s after the follow-through
+  and settle into it by the finish hold, so the body goes through the blow instead of stopping with the blade. The recovery's order, the feet's steps, the hands on the shaft through every stroke (both hands on
+  the shaft in the hews and the stab; the grip slides at the start from the carry and back at the end) and the hand-overs are pass 2's. Every gameplay timing is the strike's own (the adapter refuses a
+  changed hit, length or base clip; `AuthoredPoseClip` now also reads the file's `wind_up_apex`). Pinned by `SpearPass4Tests`.
+- **References studied** (web, 2026-11-12; reading only, nothing copied or committed): the owner's reference photograph (a spear carried one-handed at the belt, the hand forward of the hip with the elbow bent
+  about 100 degrees, the shaft diagonal through the palm, the free arm hanging relaxed with a slight bend and the hand loose: matched by the hand-forward carry (0.20 m ahead of the pelvis), the bent
+  elbow, the shaft crossing the palm and the left arm taken from the pistol idle; the stock photo is kept private); reenactment and spear-handling discussions on carrying a spear grounded at the side or at a
+  45 degree angle with the hand near the balance point (a third of the way up; ours holds it 0.95 m from a 2.85 m butt end, the balance point, at the hip) (tastesofhistory.co.uk, romanarmytalk.com); running form
+  (about 90 degree elbow, hands passing the hips both ways, 40 to 65 cm front-to-back swing, the arm opposite the leading leg) (runningmagazine.ca, the movement-system and ctyeh biomechanics pages). The web searches
+  found nothing authoritative on a one-handed halberd carry's wrist angle; the wrist angle is judged against the owner's photograph. HEMA polearm literature was not found in a usable form this pass (the same
+  gap as section 3h's).
+- **Kept:** the 13 degree side lean (`SpearHold.Pass3CarryRoll`; the crosshair column gate, `The_carried_blade_stays_out_of_the_crosshair_column_standing_walking_and_running`, passes); the hand's place on the
+  pelvis; the carry's shaft parallel to the spine's fore-and-aft lean. Clipping is reported, not gated (section 3i).
+- **Rollback.** `--old-spear-pass4` / `SM_OLD_SPEAR_PASS4=1` (`ClawSpearClips.OldPass4`): pass 3's carry (the left arm solved on its straight line, the fingers open) and pass 2's strokes play; `--old-spear-pass3` and `--old-spear-pass2` still go further back. docs/commands.md.
+- **Test aids.** The stage's views `left`, `q` (front three-quarter from his right), `qleft` and `back`, `--look-height m` (the close-up's height); the films `--tfw-spear-carry-film` and `--tfw-spear-film` take
+  `--tfw-spear-spot x,y` (owner's rule, 2026-11-12: bot recordings in an open area of the Ashfall map, never against a wall): the player walks along the map's graph to the spot first (default the plaza's
+  centre (0, 0); the clips of this pass use (0, -75), the plaza's open south side, with the server's `SM_TFW_WIN_TEST=45` so the Orks do not crowd the camera) and logs `SPEARFILM open spot`.
+- **Checks (filtered):** see docs/milestones.md. New `SpearPass4Tests`; `SpearAuthoredHewTests`, `SpearPass2Tests`, `SpearPass3Tests` (the switches), `ClawSpearClipsTests`, `SpearClearanceTests`.
+- **Jank list and evidence:** `<media folder>\spear-pass4\` (README, `jank-list.txt`).
+
 ## 4. Preview stage and restore
 
 ```powershell

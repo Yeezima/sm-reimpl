@@ -348,9 +348,14 @@ public partial class ClawSpearTestView : Node3D
         {
             case "side": at = r * 6.4f + u * 1.5f + f * 0.3f; look = u * 1.2f + f * 0.3f; break;
             case "front": at = f * 6.4f + u * 1.5f - r * 0.3f; look = u * 1.2f; break;
+            case "left": at = -r * 6.4f + u * 1.5f + f * 0.3f; look = u * 1.2f + f * 0.3f; break;   // the character's left side (spear pass 4: the left arm)
+            case "q": at = f * 4.6f + r * 3.6f + u * 1.5f; look = u * 1.1f; break;   // front three-quarter from his right (the reference's angle)
+            case "qleft": at = f * 4.6f - r * 3.6f + u * 1.5f; look = u * 1.1f; break;
+            case "back": at = -f * 6.4f + u * 1.5f - r * 0.3f; look = u * 1.2f; break;
             default: at = -f * 4.4f + r * 1.4f + u * 2.3f; look = f * 1.2f + u * 1.2f + r * 0.2f; break;
         }
         if (float.TryParse(_args.GetValueOrDefault("dist"), NumberStyles.Float, CultureInfo.InvariantCulture, out var dist) && dist > 0.1f) at = look + (at - look) * dist;   // --dist 0.5: the camera at half the distance (close-ups of the arm and hand)
+        if (float.TryParse(_args.GetValueOrDefault("look-height"), NumberStyles.Float, CultureInfo.InvariantCulture, out var lh)) { at.Y += lh - look.Y; look.Y = lh; }   // --look-height m: aim the close-up at this height (the hand: about 0.9)
         camera.Position = at;
         camera.LookAt(look, Vector3.Up);
         AddChild(new DirectionalLight3D { LightEnergy = 1.2f, ShadowEnabled = true, RotationDegrees = new Vector3(-42f, 210f, 0f) });

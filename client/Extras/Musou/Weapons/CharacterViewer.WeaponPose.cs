@@ -187,6 +187,14 @@ public partial class CharacterViewer
         var (fromRight, fromFront) = state.From?.FacingFrame == true ? (FacingRight, FacingFront) : (right, front);
         int footL = legs?[0].Foot ?? -1, footR = legs?[1].Foot ?? -1;
 
+        // Spear pass 4: while he stands the left arm, clavicle, fingers and upper spine are the bolt pistol's relaxed idle's (read at run time), fading out as the arm pump comes in with the speed.
+        if ((state.Clip?.PistolArmFrom ?? state.From?.PistolArmFrom) is { } pistolClip)
+        {
+            float standing = 1f - Mathf.Clamp(state.FistWeight, 0f, 1f);
+            float pistolShare = ((state.Clip?.PistolArmFrom is not null ? 1f - fromShare : 0f) + (state.From?.PistolArmFrom is not null ? fromShare : 0f)) * standing * w;
+            LayPistolArm(s, pistolClip, state.Time, pistolShare);
+        }
+
         bool anyLaid = false;
         foreach (int b in _weaponOrder)
         {
@@ -226,13 +234,23 @@ public partial class CharacterViewer
             {
                 bool left = side == 1;
                 System.Numerics.Vector3? Of(WeaponPoseClip? c) => left ? c?.LeftFistTarget : c?.FistTarget;
-                float share = ((Of(state.Clip) is not null ? (1f - fromShare) * state.Clip!.FistWeightFor(moving) : 0f) + (Of(state.From) is not null ? fromShare * state.From!.FistWeightFor(moving) : 0f)) * w;
+                float FistWeight(WeaponPoseClip c) => left ? c.LeftFistWeightFor(moving) : c.FistWeightFor(moving);
+                float share = ((Of(state.Clip) is not null ? (1f - fromShare) * FistWeight(state.Clip!) : 0f) + (Of(state.From) is not null ? fromShare * FistWeight(state.From!) : 0f)) * w;
                 if ((Of(state.Clip) ?? Of(state.From)) is not { } fist || share <= 1e-3f) continue;
                 var (fr, ff) = Of(state.Clip) is not null ? (nowRight, nowFront) : (fromRight, fromFront);
                 var owner = Of(state.Clip) is not null ? state.Clip! : state.From!;
-                fist.Y += owner.SwingForward(split, moving, left);
+                float swing = owner.SwingForward(split, moving, left);
+                fist.Y += swing;
+                fist.Z += owner.SwingUp(swing, left);   // spear pass 4: the hand rises as it swings forward, drops as it goes back (a bent elbow's arc)
                 WeaponPoseFist(s, fist, fr, ff, up, share, left, owner.FistFromPelvis);
             }
+        }
+        if (anyLaid)
+        {
+            // The hands close round the shaft in every spear clip (the right hand always, the left as far as the clip's grip track has it on the shaft).
+            float grip = (state.Clip?.Weapon == "spear" ? 1f - fromShare : 0f) + (state.From?.Weapon == "spear" ? fromShare : 0f);
+            float leftOn = (state.Clip?.Weapon == "spear" ? (1f - fromShare) * state.Clip.GripAt(state.Time) : 0f) + (state.From?.Weapon == "spear" ? fromShare * state.From.GripAt(state.FromTime) : 0f);
+            LayGripFingers(s, grip * w, leftOn * w);
         }
         if (anyLaid && legs is not null)
             for (int i = 0; i < 2; i++)
@@ -260,6 +278,79 @@ public partial class CharacterViewer
 
     FootPin? _weaponFootPin;
 
+    /// <summary>The arm bones' names, built once (the fist solve looks them up every frame through the viewer's index cache).</summary>
+    readonly record struct ArmNames(string Upper, string OtherUpper, string Fore, string Hand);
+    static readonly ArmNames RightArmNames = new("RIG_R_UpperArm", "RIG_L_UpperArm", "RIG_R_Forearm", "RIG_R_Hand"), LeftArmNames = new("RIG_L_UpperArm", "RIG_R_UpperArm", "RIG_L_Forearm", "RIG_L_Hand");
+
+    /// <summary>The bones the bolt pistol idle's left arm layer takes (spear pass 4, <see cref="WeaponPoseClip.PistolArmFrom"/>): the upper spine, the left clavicle, arm, hand and fingers.</summary>
+    static readonly string[] PistolLayerBones = ["RIG_SpineA", "RIG_SpineD", "RIG_L_Clavicle", "RIG_L_UpperArm", "RIG_L_Forearm", "RIG_L_Hand", "RIG_L_Finger0", "RIG_L_Finger01", "RIG_L_Finger1", "RIG_L_Finger11", "RIG_L_Finger2", "RIG_L_Finger21"];
+    bool[]? _pistolMask;
+
+    /// <summary>
+    /// Lays <paramref name="clipName"/>'s local rotations for <see cref="PistolLayerBones"/> at <paramref name="time"/> (looped) over the pose as it is, as far as <paramref name="weight"/> (spear
+    /// pass 4: the idle's left hand is the bolt pistol's relaxed idle's own, read from the install at run time, nothing copied). A missing clip leaves the pose alone.
+    /// </summary>
+    void LayPistolArm(Skeleton3D s, string clipName, float time, float weight)
+    {
+        if (weight <= 1e-3f || _assets?.Animation(clipName) is not { } clip) return;
+        int count = s.GetBoneCount(), tracks = clip.Animation.TrackCount;
+        if (_pistolMask is null || _pistolMask.Length != count)
+        {
+            _pistolMask = new bool[count];
+            foreach (var name in PistolLayerBones) if (Bone(s, name) is var b and >= 0) _pistolMask[b] = true;
+        }
+        if (_weaponBaseSample is null || _weaponBaseSample.Length < tracks) _weaponBaseSample = new HavokTransform[tracks];
+        float dur = clip.Animation.Duration;
+        clip.Animation.SampleInto(dur > 1e-3f ? time % dur : 0f, _weaponBaseSample);
+        for (int t = 0; t < tracks; t++)
+        {
+            int bone = clip.TrackToBone[t];
+            if ((uint)bone >= (uint)count || !_pistolMask[bone]) continue;
+            var l = _weaponBaseSample[t];
+            var rot = new Quaternion(l.Rotation.X, l.Rotation.Y, l.Rotation.Z, l.Rotation.W).Normalized();
+            var cur = s.GetBonePoseRotation(bone);
+            if (cur.Dot(rot) < 0f) rot = -rot;
+            s.SetBonePoseRotation(bone, weight >= 0.999f ? rot : cur.Slerp(rot, weight).Normalized());
+        }
+    }
+
+    /// <summary>
+    /// The fingers' curl round the shaft (spear pass 4; authored: each finger bone turned from its rest pose about <see cref="FingerAxis"/> by these degrees, the thumb closing over the
+    /// fingers): a real one-handed grip, the fingers wrapped round the shaft, the thumb across them. The rig has three fingers a hand (the thumb's two joints and two finger groups' two each).
+    /// </summary>
+    static readonly (string Name, float Degrees)[] GripCurl =
+    [
+        ("Finger0", 30f), ("Finger01", 45f), ("Finger1", 70f), ("Finger11", 80f), ("Finger2", 75f), ("Finger21", 80f),
+    ];
+    static readonly Vector3 FingerAxis = new(0f, 0f, 1f);   // each finger bone's local Z closes it (found on the preview stage: the other axes bend it sideways or back)
+    int[]? _fingerBones;
+
+    /// <summary>Closes the right hand's fingers round the shaft as far as <paramref name="right"/> and the left hand's as far as <paramref name="left"/> (0 to 1; below 0.001 leaves the pose alone).</summary>
+    void LayGripFingers(Skeleton3D s, float right, float left)
+    {
+        if ((right <= 1e-3f && left <= 1e-3f) || ClawSpearClips.OldPass4 || ClawSpearClips.OldPass2) return;   // the rollbacks leave the hands open as before
+        if (_fingerBones is null)
+        {
+            _fingerBones = new int[GripCurl.Length * 2];
+            for (int side = 0; side < 2; side++)
+                for (int i = 0; i < GripCurl.Length; i++) _fingerBones[side * GripCurl.Length + i] = Bone(s, $"RIG_{(side == 0 ? "R" : "L")}_{GripCurl[i].Name}");
+        }
+        for (int side = 0; side < 2; side++)
+        {
+            float weight = Mathf.Clamp(side == 0 ? right : left, 0f, 1f);
+            if (weight <= 1e-3f) continue;
+            for (int i = 0; i < GripCurl.Length; i++)
+            {
+                int b = _fingerBones[side * GripCurl.Length + i];
+                if (b < 0) continue;
+                var target = (s.GetBoneRest(b).Basis.Orthonormalized().GetRotationQuaternion() * new Quaternion(FingerAxis, GripCurl[i].Degrees * MathF.PI / 180f)).Normalized();
+                var cur = s.GetBonePoseRotation(b);
+                if (cur.Dot(target) < 0f) target = -target;
+                s.SetBonePoseRotation(b, weight >= 0.999f ? target : cur.Slerp(target, weight).Normalized());
+            }
+        }
+    }
+
     /// <summary>
     /// The two-bone solve of the right arm (<see cref="WeaponPoseClip.FistTarget"/>): the upper arm and the forearm turned so the right grip socket reaches the middle of the shoulders plus
     /// <paramref name="offset"/> (right, forward, up in the clip's frame), the elbow toward <see cref="WeaponPoseClip.FistElbowHint"/>; three passes for the socket's offset from the hand; then each
@@ -267,8 +358,8 @@ public partial class CharacterViewer
     /// </summary>
     void WeaponPoseFist(Skeleton3D s, System.Numerics.Vector3 offset, Vector3 right, Vector3 front, Vector3 up, float weight, bool left = false, bool fromPelvis = false)
     {
-        string side = left ? "L" : "R", other = left ? "R" : "L";
-        int sh = Bone(s, $"RIG_{side}_UpperArm"), lsh = Bone(s, $"RIG_{other}_UpperArm"), fore = Bone(s, $"RIG_{side}_Forearm"), hand = Bone(s, $"RIG_{side}_Hand");
+        var names = left ? LeftArmNames : RightArmNames;
+        int sh = Bone(s, names.Upper), lsh = Bone(s, names.OtherUpper), fore = Bone(s, names.Fore), hand = Bone(s, names.Hand);
         if (sh < 0 || lsh < 0 || fore < 0 || hand < 0 || !WeaponPoseHands(out _, out _)) return;
         int socket = left ? _weaponHandL : _weaponHandR;
         var before0 = s.GetBonePoseRotation(sh); var before1 = s.GetBonePoseRotation(fore);
@@ -371,12 +462,22 @@ public partial class CharacterViewer
     /// The spine's direction as posed now (skeleton space, unit): from the waist (<see cref="SpearHold.SpineLow"/>) toward the middle of the shoulders, which the
     /// spear's pass 3 carry runs parallel to (<see cref="SpearHold.Place"/>); up when the rig lacks them.
     /// </summary>
-    public System.Numerics.Vector3 WeaponPoseSpine() => _skeleton is { } s ? SpineOf(s) : new System.Numerics.Vector3(0f, 0f, 1f);
+    public System.Numerics.Vector3 WeaponPoseSpine()
+    {
+        if (_skeleton is not { } s) return new System.Numerics.Vector3(0f, 0f, 1f);
+        _spineBones ??= [s.FindBone(SpearHold.SpineLow), s.FindBone(SpearHold.SpineHighL), s.FindBone(SpearHold.SpineHighR)];   // cached: three lookups a frame before (review of pass 3)
+        return SpineFrom(s, _spineBones[0], _spineBones[1], _spineBones[2]);
+    }
+    int[]? _spineBones;
 
     /// <summary><see cref="WeaponPoseSpine"/> of any skeleton (the preview stage's stand-in reads it too).</summary>
     public static System.Numerics.Vector3 SpineOf(Skeleton3D s)
     {
-        int lo = s.FindBone(SpearHold.SpineLow), l = s.FindBone(SpearHold.SpineHighL), r = s.FindBone(SpearHold.SpineHighR);
+        return SpineFrom(s, s.FindBone(SpearHold.SpineLow), s.FindBone(SpearHold.SpineHighL), s.FindBone(SpearHold.SpineHighR));
+    }
+
+    static System.Numerics.Vector3 SpineFrom(Skeleton3D s, int lo, int l, int r)
+    {
         if (lo < 0 || l < 0 || r < 0) return new System.Numerics.Vector3(0f, 0f, 1f);
         static System.Numerics.Vector3 N(Vector3 v) => new(v.X, v.Y, v.Z);
         return SpearHold.SpineOf(N(s.GetBoneGlobalPose(lo).Origin), N(s.GetBoneGlobalPose(l).Origin), N(s.GetBoneGlobalPose(r).Origin));

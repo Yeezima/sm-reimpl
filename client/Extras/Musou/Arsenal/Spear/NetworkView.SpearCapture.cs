@@ -98,6 +98,26 @@ public partial class NetworkView
     }
 
     /// <summary>
+    /// Owner's rule for recordings (2026-11-12: "make the bot be in an open area of the Ashfall map so everything can be seen clearly"): before a film the player walks, along the map's own walking
+    /// graph, to an open spot (<c>--tfw-spear-spot x,y</c> in map metres; default the plaza's centre, objective B's open ground at (0, 0)) so no wall or crowd stands in the camera's way. A spot with no
+    /// way from the landing is noted and the film is taken where he stands (check the first frames).
+    /// </summary>
+    async Task TfwSpearOpenSpot()
+    {
+        float x = 0f, y = 0f;
+        if (CmdArg("tfw-spear-spot") is { Length: > 0 } spot)
+        {
+            var parts = spot.Split(',');
+            if (parts.Length != 2 || !float.TryParse(parts[0], System.Globalization.CultureInfo.InvariantCulture, out x) || !float.TryParse(parts[1], System.Globalization.CultureInfo.InvariantCulture, out y)) { GD.Print($"SPEARFILM note: --tfw-spear-spot '{spot}' is not x,y; using 0,0"); x = y = 0f; }
+        }
+        var at = new System.Numerics.Vector3(x, y, _client!.Predicted.Position.Z);
+        bool ok = await TfwPathTo(at, "the film's open spot", 90.0);
+        TfwKey(Key.W, false);
+        GD.Print($"SPEARFILM open spot {(ok ? "reached" : "not reached")}: at {_client.Predicted.Position}");
+        await TfwWait(0.5);
+    }
+
+    /// <summary>
     /// Test aid <c>--tfw-spear-film [--tfw-spear-film-step n] [--tfw-spear-film-takes k] [--tfw-spear-views player,front,side]</c> (musou/spear-authored, 2026-11-12), for a recording
     /// (<c>godot.cmd --windowed --write-movie f.avi --fixed-fps 30 -- --connect ... --content musou --class "sm - assault" --melee "power spear" --tfw-spear-film --tfw-test &lt;dir&gt;</c>, server
     /// <c>SM_TFW_KEEP_HUMAN=1</c>): the real match, the real keys: the player deploys, walks away from the Orks and swings the light chain from standing, k times per view (default 2), keeping
@@ -111,6 +131,7 @@ public partial class NetworkView
         await TfwWait(2.0);
         TfwCheck("the power spear is the melee weapon", _config is not null && SpearRules.Wields(_config, client.Predicted), MeleeWargear(client.Predicted) ?? "none");
         TfwCheck("the spear's clips drive the pose (no --musou-spear-stand-in)", SpearPosesOn);
+        await TfwSpearOpenSpot();
         TfwKey(Key.W, true);
         await TfwWait(3.0);
         TfwKey(Key.W, false);
@@ -173,6 +194,7 @@ public partial class NetworkView
         await TfwWait(2.0);
         TfwCheck("the power spear is the melee weapon", _config is not null && SpearRules.Wields(_config, client.Predicted), MeleeWargear(client.Predicted) ?? "none");
         TfwCheck("the spear's clips drive the pose (no --musou-spear-stand-in)", SpearPosesOn);
+        await TfwSpearOpenSpot();
         TfwKey(Key.W, true);
         await TfwWait(3.0);
         TfwKey(Key.W, false);
