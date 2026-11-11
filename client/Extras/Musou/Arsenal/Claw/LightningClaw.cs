@@ -8,10 +8,21 @@ namespace SmClient;
 /// <summary>W2, the lightning claw's model hook (<see cref="WeaponRig.ExtrasWeaponModel"/>'s dispatcher, <c>client/Extras/Musou/Arsenal/WeaponRig.Arsenal.cs</c>): <see cref="ClawModel"/> on the power sword's grip.</summary>
 public sealed partial class WeaponRig
 {
+    internal static ClawHandFrame? _clawFrame;
+
     partial void LightningClawModel(HandRole role, string wargear, WeaponAssets assets, ref WeaponAttachment? attachment, ref WeaponAsset? asset, ref bool alwaysHeld)
     {
         if (role != HandRole.Melee || !wargear.Equals(ArsenalRules.LightningClaw, System.StringComparison.OrdinalIgnoreCase)) return;
         if (assets.Catalogue.Held(SmContent.Extras.Musou.Arsenal.Arsenal.ClawBase) is not { } sword || assets.Get(sword) is not { } swordAsset) return;   // the claw is held where the sword is
+        // Owner 2026-11-12: the claw is part of the hand, blades out of the gauntlet, locked to the hand bone: the gauntlet's model is made in the hand bone's own space and drawn on that bone with no offset
+        // (ClawGauntlet; `--old-claw-model` restores the held model below).
+        if (!ClawGauntlet.Old && _skeleton is { } hand && (_clawFrame ??= ClawHandFrame.Read(hand)) is { } frame && ClawGauntlet.For(swordAsset, sword, frame) is { } gauntlet)
+        {
+            attachment = ClawGauntlet.OnHand(sword, wargear, frame);
+            asset = gauntlet;
+            alwaysHeld = true;
+            return;
+        }
         // The forearm's direction is the rig's (every marine's skeleton is the same): read once, when the claw's mesh is made.
         if ((ClawModel.Known(swordAsset) ? ClawModel.For(swordAsset, sword) : ClawModel.For(swordAsset, sword, ForearmInModelRoot(sword, swordAsset))) is not { } claw) return;
         attachment = sword with { Wargear = wargear, Name = "lightning_claw", HideOnStow = true };   // worn on the arm: a stim stows the sword on the hip, never the gauntlet
