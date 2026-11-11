@@ -20,6 +20,8 @@ namespace SmClient;
 /// <param name="Forearm">The elbow-to-hand distance, metres (the rig's rest pose).</param>
 public sealed record ClawHandFrame(string Bone, Vector3 Along, Vector3 Back, Vector3 Across, Vector3 Knuckles, float Forearm)
 {
+    static bool _warned;
+
     /// <summary>The frame from the rig's rest pose; null when the hand or its finger roots are not found (the claw then keeps the held mount).</summary>
     public static ClawHandFrame? Read(Skeleton3D s)
     {
@@ -45,12 +47,13 @@ public sealed record ClawHandFrame(string Bone, Vector3 Along, Vector3 Back, Vec
             var d = (rootRest.Basis * s.GetBoneRest(tip).Origin).Normalized();
             curl += d - run * d.Dot(run);
         }
-        // The palm is the side the fingertips curl toward; the back is the other.
-        if (curl.LengthSquared() > 1e-6f && back.Dot(curl) > 0f) back = -back;
+        // The palm is the side the fingertips curl toward; the back is the other. Without a readable curl the sign is a guess: the claw keeps the old held model instead (logged once).
+        if (curl.LengthSquared() <= 1e-6f) { if (!_warned) { _warned = true; GD.Print("claw gauntlet: the finger curl cannot be read (RIG_R_Finger11 / Finger21 missing); the old held model is used"); } return null; }
+        if (back.Dot(curl) > 0f) back = -back;
         across = along.Cross(back).Normalized();   // right-handed: Across x Back = Along ... kept consistent below
         var knuckles = roots.Count > 0 ? roots.Aggregate(Vector3.Zero, (a, r) => a + r) / roots.Count : (i1 + i2) * 0.5f;
         float forearm = fore >= 0 ? MathF.Max(0.2f, s.GetBoneRest(hand).Origin.Length()) : 0.3f;
-        GD.Print($"claw gauntlet: hand frame along {along} back {back} across {across}; finger roots {string.Join(", ", names.Zip(roots, (n, r) => $"{n} {r}"))}; knuckles {knuckles}; hand rest origin {s.GetBoneRest(hand).Origin}");
+        if (!_warned) GD.Print($"claw gauntlet: hand frame along {along} back {back} across {across}; finger roots {string.Join(", ", names.Zip(roots, (n, r) => $"{n} {r}"))}; knuckles {knuckles}; hand rest origin {s.GetBoneRest(hand).Origin}");
         return new ClawHandFrame(s.GetBoneName(hand), along, back, across, knuckles, forearm);
     }
 }
@@ -61,7 +64,7 @@ public sealed record ClawHandFrame(string Bone, Vector3 Along, Vector3 Back, Vec
 /// housing (a curved dark armour plate in two stepped sections, a transverse knuckle bar, side guards and a wrist power unit: a vented dome in a brass ring), four brass sockets over the knuckles each with a
 /// coiled piston behind it and a flared collar, and four long, slightly curved blades fixed in the sockets and running straight out along the line of the fingers and well past them, tapering to points.
 /// Dark metal housing, brass sockets, steel blades; the power field's crackle (<see cref="ClawCrackle"/>) lies along each blade. Every size is **ours** (the references are pictures; nothing here is measured from them or
-/// copied from them): <see cref="BladeLength"/> 0.5 m from the knuckle line (about the forearm's length beyond the fingers), the blades 0.025 m wide at the root. Restore the old held model: <c>--old-claw-model</c>.
+/// copied from them): <see cref="BladeLength"/> 0.62 m from the knuckle line (about twice the 0.31 m forearm; past the knee at rest), the blades 0.038 m wide at the root. Restore the old held model: <c>--old-claw-model</c>.
 /// </summary>
 public static class ClawGauntlet
 {
@@ -69,18 +72,15 @@ public static class ClawGauntlet
     public static readonly bool Old = Array.IndexOf(OS.GetCmdlineUserArgs(), "--old-claw-model") >= 0;
 
     /// <summary>Metres, ours (state it in the refine register): the blades' length from the knuckle line to the tips.</summary>
-    public const float BladeLength = 0.46f;
+    public const float BladeLength = 0.62f;
 
     /// <summary>Metres, ours: how high above the finger roots' plane the back of the hand's armour plate lies, and the blades' height over it.</summary>
-    public const float PlateHeight = 0.045f, BladeRise = 0.040f;
+    public const float PlateHeight = 0.050f, BladeRise = 0.050f;
 
     /// <summary>Metres, ours: how far the blades' tips bend toward the palm over their length.</summary>
-    public const float Bend = 0.04f;
+    public const float Bend = 0.10f;
 
     static readonly Dictionary<WeaponAsset, WeaponAsset> Cache = new();
-
-    /// <summary>Whether the gauntlet was made on this sword model already.</summary>
-    public static bool Known(WeaponAsset sword) => Cache.ContainsKey(sword);
 
     /// <summary>The attachment of the gauntlet: the sword's, put on the hand bone with no offset (the model is in the hand bone's own space).</summary>
     public static WeaponAttachment OnHand(WeaponAttachment sword, string wargear, ClawHandFrame frame) =>
@@ -101,8 +101,8 @@ public static class ClawGauntlet
         var handle = sword.Model.Tree.ModelSpace(wield.HandleNode);
         if (!Num.Matrix4x4.Invert(handle, out _)) return null;
 
-        var dark = Standard(new Color(0.20f, 0.22f, 0.26f), 0.75f, 0.42f);
-        var plate = Standard(new Color(0.30f, 0.33f, 0.37f), 0.7f, 0.38f);
+        var dark = Standard(new Color(0.27f, 0.30f, 0.34f), 0.7f, 0.42f);
+        var plate = Standard(new Color(0.38f, 0.42f, 0.47f), 0.65f, 0.38f);
         var brass = Standard(new Color(0.86f, 0.62f, 0.22f), 0.85f, 0.30f);
         var steel = Standard(new Color(0.58f, 0.61f, 0.68f), 0.8f, 0.30f);
         var parts = new List<(Material Material, SurfaceTool Tool)>();
@@ -150,16 +150,16 @@ public static class ClawGauntlet
             }
         }
 
-        const float hw = 0.075f;   // half the plate's width at the knuckles
+        const float hw = 0.100f;   // half the plate's width at the knuckles
         float baseZ = PlateHeight;
-        float[] rows = [-0.054f, -0.018f, 0.018f, 0.054f];
+        float[] rows = [-0.069f, -0.023f, 0.023f, 0.069f];
 
         // The housing's plate: an arched armour shell over the back of the hand, in two stepped sections (the wrist section a little lower, the knuckle section lapping it), the arch following the back's curve.
         void Shell(SurfaceTool t, float x0, float x1, float w0, float w1, float lift)
         {
             const int xs = 5, ys = 12;
-            Vector3 Top(float x, float y, float w) { float u = Math.Clamp(y / w, -1f, 1f); return new Vector3(x, y, baseZ + lift + 0.012f + 0.020f * (1f - u * u)); }
-            Vector3 Bot(float x, float y, float w) { float u = Math.Clamp(y / w, -1f, 1f); return new Vector3(x, y, baseZ + lift - 0.004f + 0.020f * (1f - u * u)); }
+            Vector3 Top(float x, float y, float w) { float u = Math.Clamp(y / w, -1f, 1f); return new Vector3(x, y * 0.84f, baseZ + lift + 0.024f + 0.030f * (1f - u * u)); }
+            Vector3 Bot(float x, float y, float w) { float u = Math.Clamp(y / w, -1f, 1f); return new Vector3(x, y, baseZ + lift - 0.006f + 0.030f * (1f - u * u)); }
             for (int i = 0; i < xs; i++)
             {
                 float xa = x0 + (x1 - x0) * i / xs, xb = x0 + (x1 - x0) * (i + 1) / xs;
@@ -185,8 +185,8 @@ public static class ClawGauntlet
                     Quad(t, L(Top(xa, sgn * wa, wa)), L(Top(xb, sgn * wb, wb)), L(Bot(xb, sgn * wb, wb)), L(Bot(xa, sgn * wa, wa)));
             }
         }
-        Shell(Tool(dark), -0.215f, -0.090f, 0.068f, 0.074f, 0f);
-        Shell(Tool(plate), -0.105f, 0.040f, 0.072f, hw, 0.010f);
+        Shell(Tool(dark), -0.235f, -0.090f, 0.088f, 0.096f, 0f);
+        Shell(Tool(plate), -0.110f, 0.050f, 0.094f, hw, 0.012f);
 
         // Side guards (the housing's flanks, down over the hand's edges) with brass studs.
         foreach (float sgn in new[] { -1f, 1f })
@@ -206,37 +206,37 @@ public static class ClawGauntlet
         float rootZ = baseZ + BladeRise;
         foreach (float y in rows)
         {
-            Cyl(Tool(brass), new Vector3(-0.050f, y, rootZ), new Vector3(0.040f, y, rootZ), 0.0155f, 0.0155f, 12);
-            Cyl(Tool(brass), new Vector3(0.040f, y, rootZ), new Vector3(0.062f, y, rootZ), 0.0205f, 0.0135f, 12);   // the flared collar
-            Cyl(Tool(dark), new Vector3(0.062f, y, rootZ), new Vector3(0.066f, y, rootZ), 0.0135f, 0.0135f, 12);
-            Cyl(Tool(brass), new Vector3(-0.052f, y, rootZ), new Vector3(-0.044f, y, rootZ), 0.0195f, 0.0195f, 12);   // the barrel's rear ring
-            Box(Tool(brass), -0.030f, 0.020f, y - 0.019f, y + 0.019f, baseZ + 0.016f, rootZ - 0.008f);   // the barrel's foot on the shell
+            Cyl(Tool(brass), new Vector3(-0.050f, y, rootZ), new Vector3(0.040f, y, rootZ), 0.021f, 0.021f, 14);
+            Cyl(Tool(brass), new Vector3(0.040f, y, rootZ), new Vector3(0.066f, y, rootZ), 0.027f, 0.018f, 14);   // the flared collar
+            Cyl(Tool(dark), new Vector3(0.066f, y, rootZ), new Vector3(0.071f, y, rootZ), 0.018f, 0.018f, 14);
+            Cyl(Tool(brass), new Vector3(-0.052f, y, rootZ), new Vector3(-0.044f, y, rootZ), 0.025f, 0.025f, 14);   // the barrel's rear ring
+            Box(Tool(brass), -0.030f, 0.020f, y - 0.023f, y + 0.023f, baseZ + 0.016f, rootZ - 0.008f);   // the barrel's foot on the shell
             // the piston: a rod behind the barrel with a coil of rings
-            Cyl(Tool(steel), new Vector3(-0.135f, y, rootZ), new Vector3(-0.052f, y, rootZ), 0.0055f, 0.0055f, 8);
-            for (int k = 0; k < 7; k++)
+            Cyl(Tool(steel), new Vector3(-0.100f, y, rootZ), new Vector3(-0.052f, y, rootZ), 0.007f, 0.007f, 8);
+            for (int k = 0; k < 5; k++)
             {
-                float x = -0.130f + k * 0.0115f;
-                Cyl(Tool(k % 2 == 0 ? dark : steel), new Vector3(x, y, rootZ), new Vector3(x + 0.0085f, y, rootZ), 0.0105f, 0.0105f, 14);
+                float x = -0.098f + k * 0.0095f;
+                Cyl(Tool(k % 2 == 0 ? dark : steel), new Vector3(x, y, rootZ), new Vector3(x + 0.0085f, y, rootZ), 0.0135f, 0.0135f, 14);
             }
-            Cyl(Tool(brass), new Vector3(-0.145f, y, rootZ), new Vector3(-0.133f, y, rootZ), 0.013f, 0.013f, 10);   // the piston's rear cap
+            Cyl(Tool(brass), new Vector3(-0.108f, y, rootZ), new Vector3(-0.098f, y, rootZ), 0.017f, 0.017f, 10);   // the piston's rear cap
         }
 
         // The wrist power unit: a vented dome in a brass ring on the plate's wrist end.
-        float domeX = -0.165f, domeZ = baseZ + 0.028f;
-        Cyl(Tool(brass), new Vector3(domeX, 0f, domeZ - 0.004f), new Vector3(domeX, 0f, domeZ + 0.010f), 0.054f, 0.054f, 20);
-        Cyl(Tool(dark), new Vector3(domeX, 0f, domeZ + 0.010f), new Vector3(domeX, 0f, domeZ + 0.034f), 0.046f, 0.040f, 20);
-        Cyl(Tool(plate), new Vector3(domeX, 0f, domeZ + 0.034f), new Vector3(domeX, 0f, domeZ + 0.050f), 0.040f, 0.022f, 20);
-        Cyl(Tool(brass), new Vector3(domeX, 0f, domeZ + 0.050f), new Vector3(domeX, 0f, domeZ + 0.056f), 0.022f, 0.022f, 12);
+        float domeX = -0.178f, domeZ = baseZ + 0.028f;
+        Cyl(Tool(brass), new Vector3(domeX, 0f, domeZ - 0.004f), new Vector3(domeX, 0f, domeZ + 0.010f), 0.072f, 0.072f, 20);
+        Cyl(Tool(dark), new Vector3(domeX, 0f, domeZ + 0.010f), new Vector3(domeX, 0f, domeZ + 0.040f), 0.064f, 0.056f, 20);
+        Cyl(Tool(plate), new Vector3(domeX, 0f, domeZ + 0.040f), new Vector3(domeX, 0f, domeZ + 0.070f), 0.056f, 0.030f, 20);
+        Cyl(Tool(brass), new Vector3(domeX, 0f, domeZ + 0.070f), new Vector3(domeX, 0f, domeZ + 0.078f), 0.030f, 0.030f, 12);
         for (int k = 0; k < 8; k++)   // the vents
         {
             float an = k * MathF.Tau / 8f + 0.2f;
-            var c = new Vector3(domeX + MathF.Cos(an) * 0.044f, MathF.Sin(an) * 0.044f, domeZ + 0.024f);
+            var c = new Vector3(domeX + MathF.Cos(an) * 0.060f, MathF.Sin(an) * 0.060f, domeZ + 0.026f);
             var o = new Vector3(MathF.Cos(an), MathF.Sin(an), 0f) * 0.006f;
             Cyl(Tool(brass), c, c + o, 0.0042f, 0.0042f, 6);
         }
         // the wrist clamp at the rear of the shell: a dark band, and a brass bracer ring around the forearm's top
-        Box(Tool(dark), -0.250f, -0.205f, -0.078f, 0.078f, baseZ - 0.010f, baseZ + 0.030f);
-        Box(Tool(brass), -0.232f, -0.222f, -0.080f, 0.080f, baseZ - 0.012f, baseZ + 0.032f);
+        Box(Tool(dark), -0.265f, -0.225f, -0.098f, 0.098f, baseZ - 0.015f, baseZ + 0.040f);
+        Box(Tool(brass), -0.250f, -0.240f, -0.100f, 0.100f, baseZ - 0.017f, baseZ + 0.042f);
 
         // Four long, slightly curved steel blades fixed in the sockets: a flat diamond section tapering to a point, parallel along the fingers and curving a little toward the palm.
         const int segments = 14;
@@ -254,8 +254,8 @@ public static class ClawGauntlet
             {
                 float t = i / (float)segments;
                 float x = -0.020f + (length + 0.020f) * t;
-                centres[i] = At(x, y * (1f + 0.10f * t), BladeZ(t));
-                var ahead = At(x + 0.01f, y * (1f + 0.10f * (t + 0.01f / length)), BladeZ(MathF.Min(1f, t + 0.01f / length)));
+                centres[i] = At(x, y * (1f + 0.30f * t), BladeZ(t));
+                var ahead = At(x + 0.01f, y * (1f + 0.30f * (t + 0.01f / length)), BladeZ(MathF.Min(1f, t + 0.01f / length)));
                 var tan = (ahead - centres[i]).Normalized();
                 thick[i] = side.Normalized().Cross(tan).Normalized();
             }
@@ -263,12 +263,14 @@ public static class ClawGauntlet
             for (int i = 0; i < segments; i++)
             {
                 float t0 = i / (float)segments, t1 = (i + 1) / (float)segments;
-                float W(float t) => 0.0125f * (1f - 0.30f * t) * MathF.Pow(MathF.Min(1f, (1f - t) / 0.30f), 0.85f) + 0.0004f;
-                float H(float t) => 0.0050f * (1f - 0.55f * t) * MathF.Min(1f, (1f - t) / 0.22f) + 0.0003f;
+                float W(float t) => 0.019f * (1f - 0.25f * t) * MathF.Pow(MathF.Min(1f, (1f - t) / 0.26f), 0.8f) + 0.0004f;
+                float H(float t) => 0.0042f * (1f - 0.45f * t) * MathF.Min(1f, (1f - t) / 0.2f) + 0.0003f;
                 Vector3 A(int k, float ws, float hs, float cw, float ch) => centres[k] + sideDir * (ws * cw) + thick[k] * (hs * ch);
-                var s0 = new[] { A(i, W(t0), H(t0), 1, 0), A(i, W(t0), H(t0), 0, 1), A(i, W(t0), H(t0), -1, 0), A(i, W(t0), H(t0), 0, -1) };
-                var s1 = new[] { A(i + 1, W(t1), H(t1), 1, 0), A(i + 1, W(t1), H(t1), 0, 1), A(i + 1, W(t1), H(t1), -1, 0), A(i + 1, W(t1), H(t1), 0, -1) };
-                for (int k = 0; k < 4; k++) Quad(tool, s0[k], s1[k], s1[(k + 1) % 4], s0[(k + 1) % 4]);
+                // a flat blade: sharp edges at the sides, bevelled to a thin back (the section's six points)
+                float[,] sec = { { 1f, 0f }, { 0.45f, 1f }, { -0.45f, 1f }, { -1f, 0f }, { -0.45f, -1f }, { 0.45f, -1f } };
+                var s0 = new Vector3[6]; var s1 = new Vector3[6];
+                for (int k = 0; k < 6; k++) { s0[k] = A(i, W(t0), H(t0), sec[k, 0], sec[k, 1]); s1[k] = A(i + 1, W(t1), H(t1), sec[k, 0], sec[k, 1]); }
+                for (int k = 0; k < 6; k++) Quad(tool, s0[k], s1[k], s1[(k + 1) % 6], s0[(k + 1) % 6]);
             }
             // the glow: a soft sheen along this blade, in two planes
             const float span = 0.018f;
