@@ -23,6 +23,12 @@ public sealed partial record SimConfig
         if (Extras.HasFlag(ContentExtras.Musou)) allowed = true;
     }
 
+    // librarian zoom (owner, 2026-11-12): the Librarian carries no gun, but the Aim key zooms him like every class (his cast keys are Fire, Grenade and Reload).
+    partial void ExtrasAimWithoutWeapon(int classIndex, ref bool aims)
+    {
+        if (SmSim.Extras.Musou.LibrarianRules.IsLibrarian(this, classIndex)) aims = true;
+    }
+
     // musou/no-spread (owner, 2026-11-06): Musou Mode's shots have no spread at all.
     partial void ExtrasNoBulletSpread(ref bool off)
     {

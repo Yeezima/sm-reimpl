@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3069 spec table rows: **2258 tagged**, 558 not tagged (read from data with high confidence), 253 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 683 rows of the changes document.
+Scanned 3071 spec table rows: **2260 tagged**, 558 not tagged (read from data with high confidence), 253 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 683 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,16 +50,16 @@ Scanned 3069 spec table rows: **2258 tagged**, 558 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 22 | 13 | 13 | 12 | 7 |
-| Core simulation (provisional values) | 673 | 634 | 480 | 177 | 1 |
+| Core simulation (provisional values) | 675 | 636 | 480 | 179 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 235 | 224 | 126 | 63 | 0 |
-| **All areas** | **2258** | 1990 | 1688 | 708 | 38 |
+| **All areas** | **2260** | 1992 | 1688 | 710 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1279 |
+| kind: ours | 1281 |
 | confidence: low | 809 |
 | confidence: medium | 750 |
 | notes: ours | 412 |
@@ -69,8 +69,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | confidence: none (low) | 129 |
 | kind: provisional | 102 |
 | kind: user's knowledge | 56 |
+| notes: provisional | 40 |
 | kind: choice | 38 |
-| notes: provisional | 38 |
 | section: provisional | 38 |
 | section: placeholder | 35 |
 | notes: user's knowledge | 26 |
@@ -2310,7 +2310,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (673)
+### Core simulation (provisional values) (675)
 
 *Spec section: Provisional values in use*
 
@@ -2935,6 +2935,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-969BA874` | Musou: Psychic Stress | 0 to **100**, shared by both powers; lightning adds **5**/s while held (20 s to full), a Shockwave adds **50** (= 10 s of lightning: keep the ratio); cooling **12.5**/s (8 s from full) once **1.0** s has passed without a cast; each melee swing that strikes at… (stress, s) | kind: ours; notes: estimate | owner brief 2026-11-07 | Musou: Psychic Stress: compare with SM1 by feel or video. Ours: 0 to 100, shared by both powers; lightning adds 5/s while held (20 s… | ☐ |
 | `R-18992D17` | Musou: chain lightning | hold Fire: the enemy best lined up with the aim within **12** degrees and **37.5** m (30 m until the owner's "+25% range and damage" of 2026-11-11; the jump radius is not part of it, our reading), in sight, takes **112.5** dps (90 until the same); it jumps to… (dps, m) | kind: ours; notes: estimate | owner brief 2026-11-07; the 12 degree aim cone ours; the start time the owner's 0.1 s; the range and damage x1.25 owner 2026-11-11; the 16 m jump and no… | Musou: chain lightning: compare with SM1 by feel or video. Ours: hold Fire: the enemy best lined up with the aim within 12 degrees and… | ☐ |
 | `R-368FCD6B` | Musou: the chain lightning struck as drawn (musou-balance, `MusouSim.Version` 41) | the server picks a Librarian's chain on the crowd as his client drew it: the pool at his input's view tick and fraction (the render tick his client sampled the crowd at; the places between two ticks interpolated, a move over 3 m a tick keeps the earlier… (ticks, m) | kind: ours; confidence: medium | owner 2026-11-11: "reliability of delivering damage"; the rewind ours, as the core's lag compensation for players | Musou: the chain lightning struck as drawn (musou-balance…: compare with SM1 by feel or video. Ours: the server picks a Librarian's chain on the crowd as his client drew… | ☐ |
+| `R-31683314` | Musou: the Librarian's zoom (owner 2026-11-12: "he should have the same zoom as the other classes") | the Aim key puts the Librarian in aim mode (`PlayerState.Aiming`) although he holds no weapon: the same camera sets as every class (field of view 40 to 20, the rifle sets' blend, offset, mouse speed), the same conditions (not in a melee swing, throw, pound or… (fov degrees, key) | kind: ours; notes: provisional | the owner's request; the values are the other classes' | Musou: the Librarian's zoom (owner 2026-11-12: "he should…: compare with SM1 with an overlaid screenshot taken from the same position. Ours: the Aim key puts the Librarian in aim mode (PlayerState.Aiming)… | ☐ |
+| `R-E8823DBE` | Musou: the autocannon barrel's rear tube (owner 2026-11-12: "a small gap where there should be… | the plain tube between the receiver's front (1.072 m) and the clamp (1.364 m in the install) is taken out whole at the 1.6 m muzzle (the clamp flush on the receiver); at muzzles up to the install's 2.621 m it grows in proportion; the front plain tube keeps… (m along the model's +Y) | kind: ours; notes: provisional | the owner's remark; the placement is ours, the positions measured on the install | Musou: the autocannon barrel's rear tube (owner 2026-11-12:…: compare with SM1 by feel or video. Ours: the plain tube between the receiver's front (1.072 m) and the clamp… | ☐ |
 | `R-45B77A4A` | Musou: Psychic Shockwave, our parts | the reach up or down **15** m (a flat 60 m circle; was 4 m), the throws over **1.2** s (the fall Musou's shove uses for the war's fodder, else a stagger, then a drive), and the client's ring racing out to the reach in **0.55** s with a low **4** m wall fading… (m, s) | kind: ours; notes: estimate | ours | Musou: Psychic Shockwave, our parts: compare with SM1 by feel or video. Ours: the reach up or down 15 m (a flat 60 m circle; was 4 m), the throws… | ☐ |
 | `R-2FD01DD6` | Musou: the Librarian's look | the player's own resolved Tactical look with three pieces of the install's MP Librarian armour put on by package name, painted with the look's paint of their slots: torso `sm_armour_mp_librarian_torso` with `_belt`, right pad `_shldrr`, backpack `_backpack`… | kind: ours; notes: estimate | install packages (*original asset loaded*); the combination ours | Musou: the Librarian's look: compare with SM1 by feel or video. Ours: the player's own resolved Tactical look with three pieces of the… | ☐ |
 | `R-AF172235` | Musou: the Librarian's effects | pass 3 (`LibrarianBolts`): each link a fractal main bolt (midpoint displacement, 9 to 33 points by length, the push 0.11 of the link's length within 0.15 to 2.2 m) with 1 to 4 forks (more on the first links and long links) and sub-forks, leaning along the… (m, s) | kind: ours; notes: estimate | original effects borrowed by name for the Shockwave (*original asset loaded*); bolts, ring, recolour and glow ours | Musou: the Librarian's effects: compare with SM1 by feel or video. Ours: pass 3 (LibrarianBolts): each link a fractal main bolt (midpoint… | ☐ |

@@ -39,6 +39,9 @@ public partial class NetworkView
         await TfwShot("ac-player-00-ready");
         await AutocannonStill(1, "ac-third-side-idle");
         await AutocannonStill(2, "ac-third-rear-idle");
+        await AutocannonStill(3, "ac-close-right-idle");   // zoom-barrel pass: the barrel's join with the receiver, close
+        await AutocannonStill(4, "ac-close-left-idle");
+        await AutocannonStill(5, "ac-close-top-idle");
         GD.Print($"ACCAPTURE mark fire t {_connectedFor:F3} frame {Engine.GetProcessFrames()}");
         int blasts = _tfwBoltBlastsShown;
         TfwAction(GameAction.Fire, true);
@@ -133,8 +136,18 @@ public partial class NetworkView
         var fwd = new Vector3(-MathF.Sin(_yaw), MathF.Cos(_yaw), 0f);
         var right = new Vector3(MathF.Cos(_yaw), MathF.Sin(_yaw), 0f);
         var feet = new Vector3(p.X, p.Y, p.Z);
-        var eye = _acCam == 1 ? feet + right * 3.4f + fwd * 0.8f + Vector3.Back * 1.6f : feet - fwd * 3.6f + right * 0.8f + Vector3.Back * 3.0f;
-        var look = _acCam == 1 ? feet + fwd * 0.4f + Vector3.Back * 1.35f : feet + fwd * 6f + Vector3.Back * 1.2f;
+        Vector3 eye, look;
+        if (_acCam >= 3)
+        {
+            // the close-ups (zoom-barrel pass): on the barrel's join with the receiver (about 1.1 m ahead of the chest, 1.3 m up), 0.8 m off it: 3 from the right, 4 from the left, 5 from above
+            look = feet + fwd * 1.15f + Vector3.Back * 1.3f;
+            eye = look + (_acCam == 3 ? right * 0.8f + fwd * 0.25f + Vector3.Back * 0.15f : _acCam == 4 ? -right * 0.8f + fwd * 0.25f + Vector3.Back * 0.15f : Vector3.Back * 0.8f + fwd * 0.2f);
+        }
+        else
+        {
+            eye = _acCam == 1 ? feet + right * 3.4f + fwd * 0.8f + Vector3.Back * 1.6f : feet - fwd * 3.6f + right * 0.8f + Vector3.Back * 3.0f;
+            look = _acCam == 1 ? feet + fwd * 0.4f + Vector3.Back * 1.35f : feet + fwd * 6f + Vector3.Back * 1.2f;
+        }
         camera.GlobalTransform = Transform3D.Identity.Translated(_gameSpace.ToGlobal(eye)).LookingAt(_gameSpace.ToGlobal(look), Vector3.Up);
     }
 }

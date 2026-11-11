@@ -11,3 +11,6 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 -->
 ### Both modes
 - More of the original's own movement animations now play: a quick half-speed stop when you let go of sprint soon after starting it, a 180-degree pivot when you sprint off in the direction behind you, and the thunder hammer's own stop out of a sprint.
+### Musou Mode
+- The Librarian can now zoom in with the aim button like every other class (the same zoom, the same speed). He can still cast while zoomed.
+- The autocannon's barrel now joins the body of the gun without a gap where it begins to stick out.
