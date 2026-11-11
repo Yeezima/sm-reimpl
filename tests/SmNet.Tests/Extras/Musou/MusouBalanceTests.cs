@@ -120,14 +120,14 @@ public class MusouBalanceTests
         float oldWar = spear ? SpearRules.ReachMetres : rules.CleaveRange(config.MeleeRange, tracked, war: true) * war.CleaveReachScale;
         float oldRun = spear ? SpearRules.ReachMetres : rules.CleaveRange(config.MeleeRange, tracked, war: false);
         var inWar = MusouCleaveShape.Of(config, step, war: true, wargear);
-        Assert.Equal(oldWar * 0.6f, inWar.Reach, 3);
+        Assert.Equal(oldWar * 0.72f, inWar.Reach, 3);
         Assert.Equal(spear ? SpearRules.HalfAngleDegrees : war.CleaveHalfAngleDegrees, inWar.HalfAngleDegrees, 3);
         Assert.Equal(spear ? SpearRules.MostOrks : war.CleaveTargets, inWar.Most);
         var inRun = MusouCleaveShape.Of(config, step, war: false, wargear);
         Assert.Equal(oldRun, inRun.Reach, 3);
-        Assert.Equal(0.6f, war.PlayerCleaveReachScale);
-        if (spear) Assert.Equal(9f, inWar.Reach, 3);
-        if (!spear && !tracked) Assert.Equal(4.5f * 1.5f * 1.3f * 0.6f, inWar.Reach, 3);   // the synthetic config's 4 m core range + 0.5: 8.78 m before, 5.27 m now
+        Assert.Equal(0.72f, war.PlayerCleaveReachScale);
+        if (spear) Assert.Equal(10.8f, inWar.Reach, 3);
+        if (!spear && !tracked) Assert.Equal(4.5f * 1.5f * 1.3f * 0.72f, inWar.Reach, 3);   // the synthetic config's 4 m core range + 0.5: 8.78 m before, 5.27 m now
     }
 
     public static TheoryData<string?> Swung => new() { null, "sm_mp_melee_powersword", ArsenalRules.LightningClaw, ArsenalRules.PowerSpear };
@@ -142,7 +142,7 @@ public class MusouBalanceTests
     {
         var config = Config(Light, wargear);
         float oldReach = wargear == ArsenalRules.PowerSpear ? SpearRules.ReachMetres : MusouCombatRules.Default.CleaveRange(config.MeleeRange, false, war: true) * TfwCombatRules.Default.CleaveReachScale;
-        float reach = oldReach * 0.6f;
+        float reach = oldReach * 0.72f;
         foreach (bool before in new[] { false, true })
         {
             var w = War(config, before);
@@ -292,13 +292,13 @@ public class MusouBalanceTests
         float oldReach = wargear == ArsenalRules.PowerSpear ? SpearRules.ReachMetres : MusouCombatRules.Default.CleaveRange(config.MeleeRange, false, war: true) * TfwCombatRules.Default.CleaveReachScale;
         // The drawn arc's shape for him: the old reach; a human's: x0.6.
         Assert.Equal(oldReach, MusouCleaveShape.Of(config, Light, war: true, wargear, human: false).Reach, 3);
-        Assert.Equal(oldReach * 0.6f, MusouCleaveShape.Of(config, Light, war: true, wargear).Reach, 3);
+        Assert.Equal(oldReach * 0.72f, MusouCleaveShape.Of(config, Light, war: true, wargear).Reach, 3);
 
         var w = War(config);
         uint swingFrom = 0;
         AddMarine(w, t => swingFrom != 0 && t < swingFrom + 3 ? InputButtons.Melee : InputButtons.None);
         if (wargear is not null) Choose(w, Marine);
-        ushort near = Boy(w, AheadOf(w, Marine, oldReach * 0.6f - 0.4f, 10f)), oldInside = Boy(w, AheadOf(w, Marine, oldReach - 0.4f, -5f)), past = Boy(w, AheadOf(w, Marine, oldReach + 0.4f));
+        ushort near = Boy(w, AheadOf(w, Marine, oldReach * 0.72f - 0.4f, 10f)), oldInside = Boy(w, AheadOf(w, Marine, oldReach - 0.4f, -5f)), past = Boy(w, AheadOf(w, Marine, oldReach + 0.4f));
         swingFrom = w.Tick + 1;
         var struck = new HashSet<int>();
         for (int t = 0; t < 14; t++)

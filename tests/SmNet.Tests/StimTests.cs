@@ -37,7 +37,7 @@ public class StimTests(Xunit.Abstractions.ITestOutputHelper output)
     static readonly MeleeStep Heavy = Light with { PrimaryReaction = new(0f, ReactionKind.Stun), SecondaryReaction = Interrupt };
     static readonly WeaponSpec Rifle = new("rifle", WeaponSlot.Ranged, TriggerKind.FullAuto, 20f, 0.15f, 30, 270, 1.5f, 250f, 245f, 250f, 1f, 2.5f, 1f, 1f, 1f) { HitType = DamageType.Ranged };
 
-    static readonly SimConfig Config = new()
+    internal static readonly SimConfig Config = new()
     {
         Weapons = [Rifle],
         Thrown = [Stim, GrenadeTests.Frag],
