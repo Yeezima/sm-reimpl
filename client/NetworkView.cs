@@ -875,7 +875,7 @@ public partial class NetworkView : Node3D
                 if (BotThrowAimPoint(me, target) is { } landing) { _botThrowAim = landing; BotAimThrow(me, landing); }
                 else _pitch = Math.Clamp(MathF.Atan2(target.Position.Z - (me.Position.Z + _config.EyeHeight), BotGrenadeSafety.OldAimDistance(horizontal)), -MaxPitchDown, MaxPitchUp);
             }
-            else if (!me.Throwing) _botThrowPressAim = null;   // no throw under way: a press's landing does not outlive it
+            else if (!me.Throwing) { _botThrowPressAim = null; _botThrowAim = null; }   // no throw under way: a press's landing (and an aborted throw's aim) does not outlive it
             // The melta only reaches its cone length: beyond it, run at the target (no fire) instead of strafing.
             if (Loadouts.InHand(_config, me) is { Delivery: DeliveryKind.Cone, Cone: { } cone } && horizontal > cone.Length * 0.9f)
                 return BotOldTactics ? new PlayerInput(tick, 0f, 1f, _yaw, grenade, _pitch) : BotMoveInput(tick, BotWeave(me, new Vector2(-MathF.Sin(_yaw), MathF.Cos(_yaw)), horizontal), grenade);   // stream C: weaving

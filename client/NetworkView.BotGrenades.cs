@@ -105,10 +105,13 @@ public partial class NetworkView
     /// <summary>Counts and logs a held action at most once a second per kind.</summary>
     void BotNoteHeld(ref int count, ref double lastAt, string text)
     {
-        if (_connectedFor - lastAt < 1.0) return;
+        if (!BotHoldLogDue(lastAt)) return;
         count++; lastAt = _connectedFor;
         BotSafetyLogNow(text);
     }
+
+    /// <summary>Whether a held action of a kind last noted at <paramref name="lastAt"/> is due to be counted and logged (callers test it before formatting the text: no per-tick string).</summary>
+    bool BotHoldLogDue(double lastAt) => _connectedFor - lastAt >= 1.0;
 
     void BotSafetyLogNow(string text)
     {
@@ -121,7 +124,7 @@ public partial class NetworkView
     {
         if (_hazards.Count == 0 || !GrenadeSafetyOn || Loadouts.Rush(_config!, me) is null) return false;
         if (!InOwnBlast(target) && !BotGrenadeSafety.PathCrosses(_hazards, BotChest(me), BotChest(target))) return false;
-        BotNoteHeld(ref _chargesHeld, ref _botLastChargeHold, $"no charge at P{target.PlayerId} (its own grenade's blast on the way)");
+        if (BotHoldLogDue(_botLastChargeHold)) BotNoteHeld(ref _chargesHeld, ref _botLastChargeHold, $"no charge at P{target.PlayerId} (its own grenade's blast on the way)");
         return true;
     }
 
@@ -129,7 +132,7 @@ public partial class NetworkView
     bool BotMeleeIntoOwnBlast(PlayerState me, PlayerState target)
     {
         if (_hazards.Count == 0 || !GrenadeSafetyOn || (!InOwnBlast(target) && !InOwnBlast(me))) return false;
-        BotNoteHeld(ref _meleeHeld, ref _botLastMeleeHold, $"no melee at P{target.PlayerId} (inside its own grenade's blast)");
+        if (BotHoldLogDue(_botLastMeleeHold)) BotNoteHeld(ref _meleeHeld, ref _botLastMeleeHold, $"no melee at P{target.PlayerId} (inside its own grenade's blast)");
         return true;
     }
 
@@ -138,7 +141,7 @@ public partial class NetworkView
     {
         if (_hazards.Count == 0 || !GrenadeSafetyOn) return false;
         if (!InOwnBlast(target) && !BotGrenadeSafety.Inside(_hazards, target.Position)) return false;
-        BotNoteHeld(ref _jumpsHeld, ref _botLastJumpHold, $"no jump at P{target.PlayerId} (its own grenade's blast at the landing)");
+        if (BotHoldLogDue(_botLastJumpHold)) BotNoteHeld(ref _jumpsHeld, ref _botLastJumpHold, $"no jump at P{target.PlayerId} (its own grenade's blast at the landing)");
         return true;
     }
 
@@ -147,7 +150,7 @@ public partial class NetworkView
     {
         if (_hazards.Count == 0 || !GrenadeSafetyOn) return false;
         if (!InOwnBlast(target) && !BotGrenadeSafety.Inside(_hazards, target.Position)) return false;
-        BotNoteHeld(ref _poundsHeld, ref _botLastPoundHold, $"no pound onto P{target.PlayerId} (its own grenade's blast there)");
+        if (BotHoldLogDue(_botLastPoundHold)) BotNoteHeld(ref _poundsHeld, ref _botLastPoundHold, $"no pound onto P{target.PlayerId} (its own grenade's blast there)");
         return true;
     }
 
