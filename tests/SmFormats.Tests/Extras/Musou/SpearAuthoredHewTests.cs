@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Linq;
 using System.Numerics;
 using System.Text.Json;
@@ -117,8 +118,9 @@ public class SpearAuthoredHewTests(ITestOutputHelper output)
         Assert.Equal("RIG_Prop_LHand", r.GetProperty("bone_map").GetProperty("grip_sockets")[1].GetString());
         Assert.Equal(60.0, r.GetProperty("sample_rate_hz").GetDouble());
         Assert.StartsWith("Blender 4.5", r.GetProperty("authoring").GetProperty("tool").GetString());
-        // No install data in a committed file: no bone transforms of the skeleton, only authored channels and Blender's solved joint positions of the authored pose.
+        // No install data in a committed file: no bone transforms of the skeleton and no solved joint positions (those go to a private check file), only authored channels.
         Assert.False(r.TryGetProperty("bones", out _));
+        Assert.False(r.TryGetProperty("check", out _));
     }
 
     // ---- with the install: the in-game pose (the overlay's arithmetic over the idle stance) against the joints Blender solved at the same times ----
@@ -134,8 +136,10 @@ public class SpearAuthoredHewTests(ITestOutputHelper output)
         var rig = CharacterModel.LoadMarineRig(Game.Value!);
         var idle = rig.LoadAnimation(ClawSpearClips.SpearIdle);
         var mirror = new WeaponPoseMirror(rig.Skeleton);
-        using var doc = JsonDocument.Parse(AuthoredPoseClip.EmbeddedJson("spear_hew1.json"));
-        var check = doc.RootElement.GetProperty("check");
+        string checkFile = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "sm-reimpl", "spear-authoring", "spear_hew1.check.json");
+        if (!File.Exists(checkFile)) { output.WriteLine("no private check file (tools/blender/spear_hew_author.py --check): the comparison is skipped"); return; }
+        using var doc = JsonDocument.Parse(File.ReadAllText(checkFile));
+        var check = doc.RootElement;
         var times = check.GetProperty("times").EnumerateArray().Select(e => (float)e.GetDouble()).ToArray();
         float worst = 0f; string worstAt = "";
         foreach (var joint in check.GetProperty("joints").EnumerateObject())

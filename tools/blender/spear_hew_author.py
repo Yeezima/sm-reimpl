@@ -6,6 +6,7 @@ The marine's skeleton comes from the owner's install through `smtool spear-rig-d
 script reads it, builds a temporary armature plus proxy meshes in memory, keys the controls, samples them at 60 Hz and writes:
 
   --export <file.json>   the committed, original authored data (explicit units, axes, rest pose, bone map, sample rate and timing; no install bytes)
+  --check  <file.json>   (private) Blender's solved joint positions at 20 Hz, for the in-game comparison test (they carry the install's proportions, so they are not committed)
   --blend  <file.blend>  (private) the authoring scene: the controls' F-curves, editable in Blender
   --renders <dir>        (private) Workbench stills of the key poses from side / front / top, and a data dump
 
@@ -646,10 +647,13 @@ def main():
         "channels": ch,
         "grip": [[round(s["t"], 5), round(s["controls"]["grip_l"], 4)] for s in samples],
         "grip_point": [[round(s["t"], 5), round(s["controls"]["grip_pt"], 4)] for s in samples],
-        "check": {"rate_hz": 20, "note": "joint origins in skeleton space (metres) as Blender solved them over the base stance at its time 0, for the in-game comparison (tests): not read at run time",
-                  "joints": {k: [[round(x, 4) for x in s["check"][k]] for i, s in enumerate(samples) if i % 3 == 0] for k in CHECK},
-                  "times": [round(s["t"], 5) for i, s in enumerate(samples) if i % 3 == 0]},
     }
+    check = {"rate_hz": 20, "note": "joint origins in skeleton space (metres) as Blender solved them over the base stance at its time 0: the install's proportions, so PRIVATE (never committed); the in-game comparison test reads it",
+             "joints": {k: [[round(x, 4) for x in s["check"][k]] for i, s in enumerate(samples) if i % 3 == 0] for k in CHECK},
+             "times": [round(s["t"], 5) for i, s in enumerate(samples) if i % 3 == 0]}
+    if "--check" in opt:
+        with open(opt["--check"], "w", encoding="utf-8", newline="\n") as f:
+            json.dump(check, f)
     if "--export" in opt:
         os.makedirs(os.path.dirname(os.path.abspath(opt["--export"])), exist_ok=True)
         with open(opt["--export"], "w", encoding="utf-8", newline="\n") as f:

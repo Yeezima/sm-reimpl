@@ -41,7 +41,7 @@ clip (carry hand-over in, grip slide, coil, plant, contact, follow-through, brie
 
 ```
 smtool spear-rig-dump                    install -> %LOCALAPPDATA%\sm-reimpl\spear-authoring\rig.json     PRIVATE: the marine's skeleton and the hammer idle's rest pose
-blender -b --python tools/blender/spear_hew_author.py -- --rig rig.json --export src/SmContent/Extras/Musou/Authored/spear_hew1.json [--blend f.blend] [--renders dir]
+blender -b --python tools/blender/spear_hew_author.py -- --rig rig.json --export src/SmContent/Extras/Musou/Authored/spear_hew1.json [--check private.json] [--blend f.blend] [--renders dir]
                                           Blender: F-curves on a control empty -> Python solve -> 60 Hz channel samples   COMMITTED: original data only
 AuthoredPoseClip.FromJson / LoadEmbedded  JSON -> WeaponPoseClip (the existing overlay contract); the strike's identity and timing are the template's
 ClawSpearClips.SpearHew1                  = authored, or SpearHew1Original with --old-spear-hew
@@ -55,8 +55,7 @@ ClawSpearClips.SpearHew1                  = authored, or SpearHew1Original with 
   runtime does not re-solve the arms (it lays the exported aims), so no constraint is applied twice. A `--blend` saves the scene for editing in Blender; `--renders` writes Workbench stills.
 - **Export (`spear_hew1.json`, format `sm-spear-authored-clip/1`).** Units metres, degrees, seconds; the axes, the base stance (the hammer's idle, `SM_2HM_NAV_TH_IdleL_S_01`, its stance frame read
   from the thighs), the bone map, the grip sockets, 60 Hz sampling (plus exact keys at the wind-up's apex and the hit) and the timing (length 3.138 s, hit 0.711 s) are in the file. The channels
-  are the overlay's own kinds (Turn, Aim, Move, Foot, and the two grip tracks), so **WeaponPoseClip loses no motion and no extension was needed**. The file also carries a `check` block (Blender's
-  solved joint positions) which the runtime ignores.
+  are the overlay's own kinds (Turn, Aim, Move, Foot, and the two grip tracks), so **WeaponPoseClip loses no motion and no extension was needed**. Blender's solved joint positions are written to a separate **private** file (`--check`, they carry the install's proportions) for the install test.
 - **Adapter (`src/SmContent/Extras/Musou/AuthoredPoseClip.cs`).** 190 lines or fewer, no new runtime concept: the samples become linear keys of the same channel types; the adapter **refuses**
   data whose name, length, hit time or base stance differ from the strike it replaces, so an authored clip cannot move the hit. Deterministic. `SM_AUTHORED_CLIP_DIR` points it at a folder for
   an authoring preview without a rebuild (not for a match).
@@ -89,5 +88,5 @@ wide arc, the hand-overs into hew 2 and hew 3 and out to the carry), `ClawSpearC
 
 ## 7. Evidence
 
-Written after the captures (see the lead's report): `D:\sm-reimpl\media\spear-pilot\{before,after}\` (MP4s, stills, contact sheets), each named for what produced it (`match-` the real Musou match through
+Written after the captures (see the lead's report): `<media folder>\spear-pilot\{before,after}\` (MP4s, stills, contact sheets), each named for what produced it (`match-` the real Musou match through
 `--tfw-spear-film`, `stage-` the preview stage `--claw-spear-test`, `blender-` the authoring renders).

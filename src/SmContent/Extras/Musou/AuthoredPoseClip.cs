@@ -13,7 +13,7 @@ namespace SmContent.Extras.Musou;
 /// Aim, Move, Foot keys in the stance frame, the grip tracks), sampled at <c>sample_rate_hz</c> and read back as <see cref="PoseEase.Linear"/> keys, so no authoring constraint or IK is
 /// solved a second time at run time (the overlay's own leg solve and foot pin are the runtime's and run as for every clip). The timing is the template's (<see cref="WeaponPoseClip"/>
 /// of the original strike): the adapter refuses data whose name, length, hit time or base stance disagree, so an authored clip can never change when the blow lands. Deterministic: the
-/// same JSON gives the same keys. The export carries a <c>check</c> block (Blender's joint positions) that is not read here; tests compare it with the in-game pose.
+/// same JSON gives the same keys. Blender's solved joint positions go to a private check file (never committed); the install test compares them with the in-game pose.
 /// </summary>
 public static class AuthoredPoseClip
 {
