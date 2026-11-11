@@ -505,7 +505,9 @@ public static partial class Protocol
     //     negative: a tick ran without it), so the client steers its lead to a tick plus the measured jitter. Snapshot size unchanged.
     // 66 (charge-cancel, charge-ally-bump; the owner 2026-11-11): no layout change. S held back ends the bull rush from its stick branch and a Grenade press ends no charge phase
     //     (every mode); in Classic PvP a charge that meets an ally it cannot harm ends there with no collision stop. Restore switches (config hash): --old-charge-cancel, --old-ally-bump.
-    public const ushort Version = 66;
+    // 67 (charge-ally-slide; the owner 2026-11-11: "when a charge hits an ally it should slide past"): no layout change. A charge passes an ally it cannot harm (no contact, no stop, no turn; replaces protocol 66's
+    //     ally bump, Musou Mode included); the player collision still keeps the bodies apart. Restore switch --old-ally-bump (the protocol 65 collision stop on an ally) unchanged.
+    public const ushort Version = 67;
     /// <summary>The kill-feed cause code of a weapon kill on the head (protocol 64; <see cref="KillView.Headshot"/>).</summary>
     public const int HeadshotCauseCode = 6;
     /// <summary>Most spectators a server admits and a Scoreboard lists (protocol 46), so the Scoreboard stays within one packet.</summary>

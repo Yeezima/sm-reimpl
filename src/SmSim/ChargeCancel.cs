@@ -13,10 +13,9 @@ public sealed partial record SimConfig
     public bool ChargeBackCancel { get; init; } = true;
 
     /// <summary>
-    /// charge-ally-bump (protocol 66; the owner 2026-11-11: "if you bull rush or charge and hit a friendly, your player character will play the 'recoil' or stun animation. no
-    /// animation should play when hitting an ally"): in Classic PvP a charge that meets an ally it cannot harm ends where it met him, with no collision stop and nothing on the ally
-    /// (<see cref="ChargeCancel.Bumped"/>). False (restore switch <c>--old-ally-bump</c> on the server and every client; config hash): the protocol 65 stop (the charger plays the
-    /// collision stop, the wall-hit recoil). Hashed only when false.
+    /// charge-ally-bump (protocol 66; the owner 2026-11-11: "no animation should play when hitting an ally"), now charge-ally-slide (protocol 67; "when a charge hits an ally it should
+    /// slide past"): a charge passes an ally it cannot harm and plays on (<see cref="ChargeCancel.AllyPasses"/>). False (restore switch <c>--old-ally-bump</c> on the server and every client;
+    /// config hash): the protocol 65 stop (the charger plays the collision stop, the wall-hit recoil). Hashed only when false.
     /// </summary>
     public bool ChargeAllyBump { get; init; } = true;
 }
@@ -60,17 +59,11 @@ public static class ChargeCancel
     }
 
     /// <summary>
-    /// Whether a charge's contact with a player of its own side ends it with no stop (<see cref="Bumped"/>; <see cref="SimConfig.ChargeAllyBump"/>): Classic PvP (not Musou Mode,
-    /// whose co-op keeps the collision stop on an ally) and an ally the charge cannot harm (<paramref name="friendlyFire"/> off: with it on the ally takes the hit and the charger the
-    /// stop, as before). The caller checks the sides (<see cref="World.Hostile"/> false).
+    /// charge-ally-slide (protocol 67; the owner 2026-11-11: "when a charge hits an ally it should slide past"): whether a charge passes the players of its own side without a contact: no
+    /// hit, no collision stop, no turn, no ally bump, the charge plays on (<see cref="ChargeLock.Find"/> leaves allies out). Every mode (Classic PvP and Musou Mode alike, whose co-op
+    /// kept the collision stop at protocol 66) while <see cref="SimConfig.ChargeAllyBump"/> is on and the ally cannot be harmed (<paramref name="friendlyFire"/> off: with it on the ally
+    /// takes the hit and the charger the stop, as before). The player collision (sim/player-collision) still keeps the two bodies from overlapping: the charger's move slides along the
+    /// ally's capsule (the capsule's slide, no shove: an ally is not pushed more than any walking player is).
     /// </summary>
-    public static bool AllyBumps(SimConfig c, bool friendlyFire) => c.ChargeAllyBump && !friendlyFire && !c.Extras.HasFlag(ContentExtras.Musou);
-
-    /// <summary>
-    /// The charger's state after an ally bump (ours): the charge over where it met the ally (no collision stop, no turn to him), the horizontal velocity gone (the ally's body blocks
-    /// the way, as the stop zeroed it before), normal movement from the next tick. The spacing lock stays. A charge that is no longer in its charging phase (a wall stopped it this
-    /// tick, a landing or a reaction ended it) is left as it is.
-    /// </summary>
-    public static PlayerState Bumped(PlayerState s) =>
-        Rush.Charging(s.Rush) ? Rush.Cleared(s) with { Velocity = new Vector3(0f, 0f, s.Velocity.Z) } : s;
+    public static bool AllyPasses(SimConfig c, bool friendlyFire) => c.ChargeAllyBump && !friendlyFire;
 }

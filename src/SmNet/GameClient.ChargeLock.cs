@@ -23,8 +23,6 @@ public sealed partial class GameClient
     public int ChargeContactChecks { get; private set; }
     public int ChargeContactNoView { get; private set; }
     public int ChargeContactsPredicted { get; private set; }
-    /// <summary>charge-ally-bump (protocol 66): own charges predicted to end on an ally (no stop; replays included).</summary>
-    public int ChargeBumpsPredicted { get; private set; }
 
     /// <summary>
     /// feel/charge-clash: the bodies an own step collides with, less the own charge's victim while the collision stop shoves it (<see cref="ChargeClash.Carrying"/>; the server's world
@@ -41,13 +39,8 @@ public sealed partial class GameClient
         view ??= input.ViewFraction == 0f ? ViewAt(input.ViewTick) : null;
         ChargeContactChecks++;
         if (view is null) ChargeContactNoView++;
-        // charge-ally-bump (protocol 66): an ally met ends the charge with no stop unless the match has friendly fire (the scoreboard says; before the first one no bump is predicted: the old stop, which the server also plays when it has no rules; review 2026-11-11).
+        // charge-ally-slide (protocol 67): an ally is passed (no contact) unless the match has friendly fire (the scoreboard says; before the first one the ally still stops the charge, as the server does when it has no rules).
         var after = ChargeLock.Predict(PlayerId, before, next, _config, view, bodies, Collision, out var contact, friendlyFire: Scoreboard?.FriendlyFire ?? true);
-        if (contact is { Bump: true })
-        {
-            ChargeBumpsPredicted++;   // no connect: no impact presentation, no clash, no lock spot
-            return after;
-        }
         if (contact is { } c)
         {
             ChargeContactsPredicted++;

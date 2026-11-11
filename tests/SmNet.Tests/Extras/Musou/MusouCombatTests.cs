@@ -440,7 +440,25 @@ public class MusouCombatTests
     [Fact]
     public void A_charges_last_move_before_it_stops_on_a_player_still_hits_the_enemies()
     {
-        LastMoveHits(() => NewWorld(players: 2), w => { var d = w.Players[2].Position - w.Players[1].Position; return MathF.Atan2(-d.X, d.Y); });
+        // The charge stops on an ally only with the restore switch (charge-ally-slide, protocol 67: a charge passes an ally otherwise, Musou Mode included).
+        LastMoveHits(() => NewWorld(config: Config(0) with { ChargeAllyBump = false }, players: 2), w => { var d = w.Players[2].Position - w.Players[1].Position; return MathF.Atan2(-d.X, d.Y); });
+    }
+
+    [Fact]
+    public void A_charge_passes_an_ally_in_Musou_Mode_too()
+    {
+        // charge-ally-slide (protocol 67; the owner 2026-11-11): no contact, no stop, nothing on the ally (Musou Mode has no rule of its own).
+        var w = NewWorld(players: 2);
+        var other = w.Players[2];
+        float heading = MathF.Atan2(-(other.Position.X - Me(w).X), other.Position.Y - Me(w).Y);
+        for (int t = 0; t < 45; t++)
+        {
+            bool held = t < 2;
+            w.Step(_ => new PlayerInput(0, 0f, held ? 1f : 0f, heading, held ? InputButtons.Sprint | (t == 1 ? InputButtons.MeleeHeavy : 0) : 0));
+            Assert.Empty(w.LastRushes);
+            Assert.NotEqual(RushPhase.Collision, w.Players[1].Rush);
+            Assert.Equal((other.Shield, ReactionKind.None), (w.Players[2].Shield, w.Players[2].Reaction));
+        }
     }
 
     [Theory]
