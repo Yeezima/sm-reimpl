@@ -82,6 +82,8 @@ public static class LeanBot
         "log-charge-impact", "charge-shots",
         // feel/weight-impact: the weight pass before / after, whole and by part, and its log
         "old-feel", "old-camera-impulse", "old-landing-settle", "old-recoil-weight", "old-flinch-weight", "old-strike-entry", "old-heavy-footfall", "log-weight-feel", "feel-shots", "jump-test-pound", "old-pack-idle", "old-air-legs", "log-air-legs", "jump-test-air-melee",
+        // jump-pack death (2026-11-11): the mid-air death's before (the ragdoll at once)
+        "no-jump-death",
     };
 
     /// <summary>

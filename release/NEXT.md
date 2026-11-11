@@ -16,3 +16,6 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - The Librarian's chain lightning now leaps twice as far from Ork to Ork (up to 16 m) and no longer weakens down the chain: every Ork it strikes, the last as the first, takes the full damage.
 - Orbital strikes you call now do 20 % more damage to the Orks too, which bosses feel most (ordinary Orks die in the blast either way).
 - Musou Mode in this build does not play with earlier builds: everyone in a Musou match, and the server, needs this update.
+
+### Deaths and hits (both modes)
+- An Assault Marine or Raptor shot down in the middle of a jump-pack jump now plays the original's mid-air death: the body jerks from the hit as the pack bursts into flame, tumbles down head first, slams into the ground with a crater and smoke, and only then goes limp. Shoot one out of the air to see it.

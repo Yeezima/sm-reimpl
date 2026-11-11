@@ -204,6 +204,7 @@ public partial class NetworkView
                 RemoveRagdolls(id, keepDeathState: true);   // one player never has two corpses
                 KillView? kill = _deathCauses.TryGetValue(id, out var c) && _connectedFor - c.At < 3.0 ? c.Kill : null;
                 var kick = DeathKick(state, kill, out string why);   // Ork O7a: the push keeps the marine mass (parity) until the Ork blueprint's own push is read: spec "The networked Ork"
+                if (JumpDeathHeld(id)) { kick = Vector3.Zero; why = "jump death: no push at its hand-over (ours)"; }   // the blow came seconds ago; the body has fallen since (NetworkView.JumpDeath.cs)
                 // The body's own velocity is capped like the remote players' (a teleport or a dive must not fire the ragdoll through the map).
                 var rawVelocity = velocity;
                 velocity = HeldVelocity(id, velocity);   // pass 2: the held body has slid on and slowed meanwhile
@@ -229,7 +230,7 @@ public partial class NetworkView
                 _ragdolls.Add(rd);
                 _ragdollsStarted++;
                 double deathSeenAgo = _connectedFor - DeathSeenAt(id, _connectedFor);
-                try { ScheduleDeathFx(id, character, state, own, kill, rd); }   // F-D1: the data's death effects (queued; played in later frames, so the death frame costs nothing more)
+                try { if (!JumpDeathHandOver(id, rd)) ScheduleDeathFx(id, character, state, own, kill, rd); }   // F-D1: the data's death effects (queued; played in later frames, so the death frame costs nothing more); a held jump death's were queued at its death and move on to this ragdoll
                 catch (Exception ex) when (ex is not (StackOverflowException or AccessViolationException or OutOfMemoryException)) { if (_fxNoted.Add("deathfx-fault")) GD.PrintErr($"death effects failed: {ex}"); }
                 MarineDeathForget(id);   // pass 2: the hold is over, its state was used above
                 if (own) _cameraPlaced = false;
@@ -480,7 +481,7 @@ public partial class NetworkView
         }
         var feet = _gameSpace.Transform * new Vector3(me.Position.X, me.Position.Y, me.Position.Z);
         var rd = OwnRagdoll;
-        var focus = rd is not null ? rd.FocusPoint : feet + Vector3.Up * 1.2f;
+        var focus = rd is not null ? rd.FocusPoint : JumpDeathFocus(me.PlayerId) ?? feet + Vector3.Up * 1.2f;   // a jump death in mid-air: the falling body (NetworkView.JumpDeath.cs)
         if (!_deathCameraOn)
         {
             _deathCameraOn = true;
