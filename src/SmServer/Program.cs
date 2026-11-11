@@ -98,6 +98,9 @@ if (cli.NoChargeClash) config = config with { ChargeClash = false };
 // charge-cancel / charge-ally-bump (protocol 66): --old-charge-cancel and --old-ally-bump (restore switches) bring back the protocol 65 rules (config hash).
 if (cli.OldChargeCancel) config = config with { ChargeBackCancel = false };
 if (cli.OldAllyBump) config = config with { ChargeAllyBump = false };
+// stims-classic (protocol 68): --old-stim-use (restore switch) brings back the 9-tick stim press and the hit cancel (config hash).
+if (cli.OldStimUse) config = config with { StimReliable = false };
+Console.WriteLine(config.StimReliable ? "stim use: reliable (the press kept 0.5 s, no hit cancel before the release; owner 2026-11-12)" : "stim use: OLD (--old-stim-use, restore switch; clients need --old-stim-use too): the press kept 0.3 s, a hit before the release cancels");
 Console.WriteLine(config.ChargeBackCancel ? "charge cancel: S (the stick held back) from the rush's stick branch; a Grenade press ends no charge phase (owner 2026-11-11)" : "charge cancel: OLD (--old-charge-cancel, restore switch; clients need --old-charge-cancel too): a Grenade press ends the charge from its branch, S does not");
 Console.WriteLine(config.ChargeAllyBump ? "ally slide: a charge passes an ally it cannot harm, no contact and no collision stop (owner 2026-11-11; the slide ours)" : "ally slide: OLD (--old-ally-bump, restore switch; clients need --old-ally-bump too): the collision stop on an ally");
 Console.WriteLine(config.SolidBodies ? $"solid bodies: on (no move closer than {SolidBodies.GuardDistance(config, false):0.##} m between bodies as they stand, {SolidBodies.GuardDistance(config, true):0.##} m with a charger; the charge's contact swept, stopped where it meets; ours)" : "solid bodies: OFF (--old-body-contact, test aid; clients need --old-body-contact too)");

@@ -261,7 +261,7 @@ public class StimTests(Xunit.Abstractions.ITestOutputHelper output)
         // The server names the resolved item: the choice, else the class default.
         var w = Arena(Config, 50f, equipment1: 0, equipment2: 1);
         Assert.Equal((0, 1), (Loadouts.EquipmentIndex(Config, w.Players[1]), Loadouts.EquipmentIndex(Config, w.Players[2])));
-        Assert.Equal(67, Protocol.Version);
+        Assert.Equal(68, Protocol.Version);
     }
 
     [Theory]
@@ -277,6 +277,7 @@ public class StimTests(Xunit.Abstractions.ITestOutputHelper output)
         var many = StimBase with { Count = 99, Cooldown = 1f, Variants = [], Stim = Base with { Lifetime = 1f } };   // short, so the next attacked use is not immune
         var config = Config with
         {
+            StimReliable = false,   // stims-classic: this test needs the uses a hit cuts before their release (the restore switch keeps that cancel)
             Thrown = [many, GrenadeTests.Frag],
             // sim/light-melee-flinch: the attacker's stun strike cuts the throw (a light hit interrupts nothing any more).
             Classes = Config.Classes.Select(k => k with { Side = Team.None, MeleeHeavy = [Heavy with { Damage = 0.01f, SecondaryDamage = 0f }] }).ToArray(),

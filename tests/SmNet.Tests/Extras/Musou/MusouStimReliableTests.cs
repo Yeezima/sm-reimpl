@@ -8,7 +8,7 @@ namespace SmNet.Tests;
 /// Owner 2026-11-12: "Pressing the equipment use hotkey with stims equipped doesn't always use the stims. Ensure it's more reliably working the first time you press the button."
 /// The cause (found with a scripted sweep of presses over every action of the sim): the use key is a bufferable press kept only 0.3 s (9 ticks), so a press made more than 0.3 s before a swing, a charge or a
 /// recovery ends is dropped unused; and a hit reaction that starts before the stim's release (0.3 s into the use) cancels the use ("before its release nothing is spent") with the press consumed. In Musou Mode
-/// (<see cref="StimBoost.Reliable"/>) the press is kept 0.5 s and no hit starts a reaction before the release; Classic PvP keeps both rules. Also the owner's "increase all melee attacks cleave distance by 20%"
+/// (<see cref="SimConfig.StimReliable"/>) the press is kept 0.5 s and no hit starts a reaction before the release; Classic PvP keeps both rules. Also the owner's "increase all melee attacks cleave distance by 20%"
 /// (<see cref="TfwCombatRules.PlayerCleaveReachScale"/> 0.6 to 0.72), pinned here against the old scale.
 /// </summary>
 public class MusouStimReliableTests
@@ -36,41 +36,42 @@ public class MusouStimReliableTests
     }
 
     [Fact]
-    public void The_Classic_press_still_lapses_after_nine_ticks()
+    public void The_old_stim_use_switch_brings_back_the_nine_tick_press_in_both_modes()
     {
-        Assert.Equal((false, -1), PressDuringSwing(Make(false), 16));   // 14 ticks before the swing ends: dropped, as before
-        Assert.Equal((true, 30), PressDuringSwing(Make(false), 21));    // 9 ticks before: kept, used the tick the swing ends
+        foreach (bool musou in new[] { false, true })
+        {
+            var old = Make(musou) with { StimReliable = false };
+            Assert.Equal((false, -1), PressDuringSwing(old, 16));   // 14 ticks before the swing ends: dropped, as before
+            Assert.Equal((true, 30), PressDuringSwing(old, 21));    // 9 ticks before: kept, used the tick the swing ends
+        }
     }
 
     [Fact]
-    public void In_Musou_Mode_the_press_is_kept_fifteen_ticks_and_uses_the_stim_when_the_swing_ends()
-    {
-        var c = Make(true);
-        Assert.True(c.StimBoost.Reliable);
-        Assert.Equal((true, 30), PressDuringSwing(c, 16));
-        Assert.Equal((true, 30), PressDuringSwing(c, 15));
-        Assert.Equal((false, -1), PressDuringSwing(c, 14));   // past 0.5 s the press lapses (the wire carries at most 15 ticks)
-    }
-
-    [Fact]
-    public void Classic_PvP_has_no_reliable_use()
-    {
-        Assert.False(Make(false).StimBoost.Reliable);
-        Assert.False(StimBoost.None.Reliable);
-    }
-
-    [Fact]
-    public void A_hit_before_the_stims_release_starts_no_reaction_in_Musou_Mode_only()
+    public void The_press_is_kept_fifteen_ticks_and_uses_the_stim_when_the_swing_ends_in_Musou_Mode_and_Classic_PvP()
     {
         foreach (bool musou in new[] { false, true })
         {
             var c = Make(musou);
-            var s = Fresh(c);
-            for (int k = 0; k < 3 && !s.Throwing; k++) s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 0f, 0f, InputButtons.Grenade), c, out _);
-            Assert.True(s.Throwing);
-            Assert.True(s.ThrowTime < 0.3f);   // before the release (0.3 s)
-            Assert.Equal(!musou, Reaction.CanReact(s, c));
+            Assert.True(c.StimReliable);
+            Assert.Equal((true, 30), PressDuringSwing(c, 16));
+            Assert.Equal((true, 30), PressDuringSwing(c, 15));
+            Assert.Equal((false, -1), PressDuringSwing(c, 14));   // past 0.5 s the press lapses (the wire carries at most 15 ticks)
         }
+    }
+
+    [Fact]
+    public void A_hit_before_the_stims_release_starts_no_reaction_unless_the_old_switch_is_on()
+    {
+        foreach (bool musou in new[] { false, true })
+            foreach (bool reliable in new[] { false, true })
+            {
+                var c = Make(musou) with { StimReliable = reliable };
+                var s = Fresh(c);
+                for (int k = 0; k < 3 && !s.Throwing; k++) s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 0f, 0f, InputButtons.Grenade), c, out _);
+                Assert.True(s.Throwing);
+                Assert.True(s.ThrowTime < 0.3f);   // before the release (0.3 s)
+                Assert.Equal(!reliable, Reaction.CanReact(s, c));
+            }
     }
 
     [Fact]
