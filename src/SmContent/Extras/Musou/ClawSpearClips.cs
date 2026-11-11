@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -286,20 +286,24 @@ public static class ClawSpearClips
         gripPoint: (a, h, f, r, end) => [P(0f, WeaponPoseClip.CarryGrip), P(GripSlide, WeaponPoseClip.HewGrip, PoseEase.Out), P(r, WeaponPoseClip.HewGrip), P(r + GripSlideBack, WeaponPoseClip.CarryGrip), P(end, WeaponPoseClip.CarryGrip)]);
 
     /// <summary>
-    /// The rollback switch of the authored-animation pilot (musou/spear-authored, 2026-11-12): <c>--old-spear-hew</c> on the command line (or the environment variable <c>SM_OLD_SPEAR_HEW=1</c>) plays
-    /// <see cref="SpearHew1Original"/>, pass 3's keys, instead of the authored hew. Read once when this class is first used. Presentation only: the clips share their timing.
+    /// The rollback switch of the authored-animation pilot (musou/spear-authored, 2026-11-12): <see cref="SpearHew1Original"/>, pass 3's keys, plays instead of the authored hew. The client sets it
+    /// from <c>--old-spear-hew</c> (its command-line arguments, as every client switch; <c>SpearHewSwitch</c>), the environment variable <c>SM_OLD_SPEAR_HEW=1</c> sets it here. Presentation only:
+    /// the clips share their timing. Set it before the first clip is shown.
     /// </summary>
-    public static readonly bool OldHew1 = Array.IndexOf(Environment.GetCommandLineArgs(), "--old-spear-hew") >= 0 || Environment.GetEnvironmentVariable("SM_OLD_SPEAR_HEW") == "1";
+    public static bool OldHew1 { get; set; } = Environment.GetEnvironmentVariable("SM_OLD_SPEAR_HEW") == "1";
+
+    static readonly Lazy<WeaponPoseClip> AuthoredHew1 = new(() => AuthoredPoseClip.LoadEmbeddedOrTemplate("spear_hew1.json", SpearHew1Original));
 
     /// <summary>
     /// Hew 1 as authored in Blender (<c>tools/blender/spear_hew_author.py</c>, exported to <c>Authored/spear_hew1.json</c>, turned into keys by <see cref="AuthoredPoseClip"/>): the same strike, length, hit time,
     /// base stance, combo opening and grip-track meaning as <see cref="SpearHew1Original"/> (the adapter refuses data that disagrees), with a compact fast wind-up, an accelerating swing that
-    /// peaks at the hit, a brief finish hold and the approved recovery. <see cref="SpearHew1"/> is this unless <see cref="OldHew1"/>.
+    /// peaks at the hit, a brief finish hold and the approved recovery. Loaded on first use only; if the export is missing or refused this is <see cref="SpearHew1Original"/> (a one-time warning on
+    /// the error stream), so the claw's and the spear's other clips never depend on it. <see cref="SpearHew1"/> is this unless <see cref="OldHew1"/>.
     /// </summary>
-    public static readonly WeaponPoseClip SpearHew1Authored = AuthoredPoseClip.LoadEmbedded("spear_hew1.json", SpearHew1Original);
+    public static WeaponPoseClip SpearHew1Authored => AuthoredHew1.Value;
 
-    /// <summary>Hew 1 as played: the authored clip, or the original with <c>--old-spear-hew</c>.</summary>
-    public static readonly WeaponPoseClip SpearHew1 = OldHew1 ? SpearHew1Original : SpearHew1Authored;
+    /// <summary>Hew 1 as played: the authored clip, or the original with <c>--old-spear-hew</c> (the authored one is not even loaded then).</summary>
+    public static WeaponPoseClip SpearHew1 => OldHew1 ? SpearHew1Original : SpearHew1Authored;
 
     /// <summary>
     /// Hew 2, the wide rising hew (pass 3; the hammer's X2 at 0.85x: 2.745 s, hit 0.667 s): from hew 1's low-left follow-through the hips coil further left and the blade drops low behind
@@ -519,10 +523,14 @@ public static class ClawSpearClips
     }
 
     /// <summary>Every clip, in the preview's order.</summary>
-    public static readonly IReadOnlyList<WeaponPoseClip> All = [ClawX1, ClawX2, ClawX3, ClawX4, ClawHeavy, SpearRest, SpearHew1, SpearHew2, SpearHew3, SpearStun, SpearStab, SpearDive, SpearImpale, SpearLand];
+    static IReadOnlyList<WeaponPoseClip> BuildAll(WeaponPoseClip hew1) => [ClawX1, ClawX2, ClawX3, ClawX4, ClawHeavy, SpearRest, hew1, SpearHew2, SpearHew3, SpearStun, SpearStab, SpearDive, SpearImpale, SpearLand];
+    static readonly Lazy<IReadOnlyList<WeaponPoseClip>> AllOriginal = new(() => BuildAll(SpearHew1Original)), AllAuthored = new(() => BuildAll(SpearHew1Authored));
+    public static IReadOnlyList<WeaponPoseClip> All => OldHew1 ? AllOriginal.Value : AllAuthored.Value;
 
     /// <summary>The spear's strikes on the ground (the light hews and the F, F chain): each starts from <see cref="SpearRest"/> or the strike before it and ends back at the rest.</summary>
-    public static readonly IReadOnlyList<WeaponPoseClip> SpearStrikes = [SpearHew1, SpearHew2, SpearHew3, SpearStun, SpearStab];
+    static IReadOnlyList<WeaponPoseClip> BuildStrikes(WeaponPoseClip hew1) => [hew1, SpearHew2, SpearHew3, SpearStun, SpearStab];
+    static readonly Lazy<IReadOnlyList<WeaponPoseClip>> StrikesOriginal = new(() => BuildStrikes(SpearHew1Original)), StrikesAuthored = new(() => BuildStrikes(SpearHew1Authored));
+    public static IReadOnlyList<WeaponPoseClip> SpearStrikes => OldHew1 ? StrikesOriginal.Value : StrikesAuthored.Value;
 
     /// <summary>
     /// The spear's clip for a simulated strike (W3: the thunder hammer's combo at 0.85, <c>SpearRules.FromHammer</c>, so its steps are the hammer's): light strikes 1..3 the three hews (each

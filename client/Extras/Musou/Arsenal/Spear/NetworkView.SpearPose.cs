@@ -111,6 +111,9 @@ public partial class NetworkView
     /// The spear's clips are shown in this match: Musou's content, and neither <c>--musou-spear-stand-in</c> nor <c>--no-weapon-pose</c> (review, 2026-11-10: with the overlay off, the strike's
     /// foot-lock override and the spear's placement on the hands acted still; now nothing of it does and W3's mounts and the hammer's clips show alone).
     /// </summary>
+    /// <summary><c>--old-spear-hew</c> (musou/spear-authored): set once when the view class first loads, before any clip is shown (<see cref="SpearHewSwitch"/>).</summary>
+    static readonly bool OldSpearHew = SpearHewSwitch.Apply();
+
     bool SpearPosesOn => !MusouSpearStandIn && !CharacterViewer.NoWeaponPose && _config is { } c && c.Extras.HasFlag(ContentExtras.Musou);
 
     /// <summary>

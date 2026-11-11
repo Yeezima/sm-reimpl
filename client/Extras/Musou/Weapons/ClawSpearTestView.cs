@@ -41,7 +41,7 @@ public partial class ClawSpearTestView : Node3D
         public double End => Start + Length;
     }
 
-    public ClawSpearTestView(string gameDir, Dictionary<string, string?> args) { _gameDir = gameDir; _args = args; }
+    public ClawSpearTestView(string gameDir, Dictionary<string, string?> args) { SpearHewSwitch.Apply(); _gameDir = gameDir; _args = args; }
     public ClawSpearTestView() : this("", new Dictionary<string, string?>()) { }
 
     public override void _Ready()

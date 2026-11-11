@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -67,6 +68,25 @@ public static class AuthoredPoseClip
     }
 
     /// <summary>The embedded authored clip <paramref name="file"/> (<c>Authored/</c>) on <paramref name="template"/>.</summary>
+    /// <summary>
+    /// <paramref name="json"/> on <paramref name="template"/>, or the template itself with <paramref name="problem"/> set when the data is missing or refused (an authored clip is a refinement:
+    /// it must never take the clips round it down).
+    /// </summary>
+    public static WeaponPoseClip FromJsonOrTemplate(Func<string> json, WeaponPoseClip template, out string? problem)
+    {
+        try { problem = null; return FromJson(json(), template); }
+        catch (Exception e) when (e is InvalidDataException or JsonException or FileNotFoundException or KeyNotFoundException or InvalidOperationException or FormatException or IndexOutOfRangeException)
+        { problem = e.Message; return template; }
+    }
+
+    /// <summary>The embedded <paramref name="file"/> on <paramref name="template"/>; on any failure the template, with one warning on the error stream.</summary>
+    public static WeaponPoseClip LoadEmbeddedOrTemplate(string file, WeaponPoseClip template)
+    {
+        var clip = FromJsonOrTemplate(() => EmbeddedJson(file), template, out string? problem);
+        if (problem is not null) Console.Error.WriteLine($"authored clip {file}: {problem}; the original {template.Name} is used");
+        return clip;
+    }
+
     public static WeaponPoseClip LoadEmbedded(string file, WeaponPoseClip template) => FromJson(EmbeddedJson(file), template);
 
     /// <summary>The embedded export <paramref name="file"/> as text (the tests read its <c>check</c> block).</summary>

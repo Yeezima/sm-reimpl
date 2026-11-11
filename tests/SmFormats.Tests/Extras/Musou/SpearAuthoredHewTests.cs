@@ -106,6 +106,40 @@ public class SpearAuthoredHewTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void A_refused_authored_export_falls_back_to_the_original_clip()
+    {
+        var bad = AuthoredPoseClip.FromJsonOrTemplate(() => "{ not json", Original, out string? p1);
+        Assert.Same(Original, bad); Assert.NotNull(p1);
+        string json = AuthoredPoseClip.EmbeddedJson("spear_hew1.json");
+        var node = System.Text.Json.Nodes.JsonNode.Parse(json)!;
+        node["timing"]!["hit_time"] = 0.9;
+        var later = AuthoredPoseClip.FromJsonOrTemplate(() => node.ToJsonString(), Original, out string? p2);
+        Assert.Same(Original, later); Assert.Contains("hit", p2);
+        var missing = AuthoredPoseClip.FromJsonOrTemplate(() => AuthoredPoseClip.EmbeddedJson("nothing.json"), Original, out string? p3);
+        Assert.Same(Original, missing); Assert.NotNull(p3);
+        var good = AuthoredPoseClip.FromJsonOrTemplate(() => json, Original, out string? p4);
+        Assert.Null(p4); Assert.NotSame(Original, good);
+    }
+
+    [Fact]
+    public void The_private_output_guard_checks_the_output_path_not_the_working_directory()
+    {
+        string tmp = Path.Combine(Path.GetTempPath(), "sm-guard-" + Guid.NewGuid().ToString("N"));
+        string repo = Path.Combine(tmp, "checkout"), inRepo = Path.Combine(repo, "private", "x"), sibling = Path.Combine(tmp, "checkout-other"), install = Path.Combine(tmp, "Game");
+        Directory.CreateDirectory(Path.Combine(repo, ".git")); Directory.CreateDirectory(sibling); Directory.CreateDirectory(install);
+        try
+        {
+            Assert.NotNull(PrivateOutputGuard.Refuses(inRepo, install));          // under a checkout, whatever the working directory is
+            Assert.NotNull(PrivateOutputGuard.Refuses(repo, install));
+            Assert.Null(PrivateOutputGuard.Refuses(sibling, install));            // a sibling that merely starts with the same letters is outside
+            Assert.NotNull(PrivateOutputGuard.Refuses(Path.Combine(install, "out"), install));
+            Assert.Null(PrivateOutputGuard.Refuses(install + "-copy", install));   // "Game-copy" is not inside "Game"
+            Assert.True(PrivateOutputGuard.IsInside(Path.Combine(install, "A") + Path.DirectorySeparatorChar, install.ToUpperInvariant()));
+        }
+        finally { Directory.Delete(tmp, true); }
+    }
+
+    [Fact]
     public void The_export_states_its_units_axes_rest_pose_bone_map_and_sample_rate()
     {
         using var doc = JsonDocument.Parse(AuthoredPoseClip.EmbeddedJson("spear_hew1.json"));
@@ -137,7 +171,7 @@ public class SpearAuthoredHewTests(ITestOutputHelper output)
         var idle = rig.LoadAnimation(ClawSpearClips.SpearIdle);
         var mirror = new WeaponPoseMirror(rig.Skeleton);
         string checkFile = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "sm-reimpl", "spear-authoring", "spear_hew1.check.json");
-        if (!File.Exists(checkFile)) { output.WriteLine("no private check file (tools/blender/spear_hew_author.py --check): the comparison is skipped"); return; }
+        if (!File.Exists(checkFile)) { output.WriteLine("SKIPPED: no private check file (run tools/blender/spear_hew_author.py with --check, see docs/spear-authored-pilot.md): the in-game comparison did not run"); return; }
         using var doc = JsonDocument.Parse(File.ReadAllText(checkFile));
         var check = doc.RootElement;
         var times = check.GetProperty("times").EnumerateArray().Select(e => (float)e.GetDouble()).ToArray();
