@@ -33,7 +33,7 @@ public sealed record TfwCombatRules
     /// Read by the server's cleave (<c>World.MusouCleave</c>), the cleave on the contraptions (<c>World.TfwMekMelee</c>) and the client's drawn swing arc and predicted pick
     /// (<see cref="MusouCleaveShape"/>), so the line and the hitbox stay together. The 5-wave run keeps its reach (pinned replay).
     /// </summary>
-    public float PlayerCleaveReachScale { get; init; } = 0.6f;
+    public float PlayerCleaveReachScale { get; init; } = 0.72f;   // 0.6 (owner 2026-11-11) x 1.2 (owner 2026-11-12: "Increase all melee attacks cleave distance by 20%")
 
     // ---- the players' ranged damage (owner, 2026-11-11)
 

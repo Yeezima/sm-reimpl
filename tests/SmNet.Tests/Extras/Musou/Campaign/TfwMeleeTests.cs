@@ -315,7 +315,7 @@ public class TfwMeleeTests
         var me = w.Players[Human].Position;   // yaw 0: forward is +Y
         Vector3 Polar(float degrees, float metres, float up = 0f) => me + new Vector3(-MathF.Sin(degrees * MathF.PI / 180f) * metres, MathF.Cos(degrees * MathF.PI / 180f) * metres, up);
         ushort far = Boy(w, Polar(0f, 5.0f));          // 6.75 x1.3 = 8.8 m before the owner's x0.6 (2026-11-11): 5.27 m now
-        ushort tooFar = Boy(w, Polar(0f, 7f));         // past 6.4 (the track-to-hit reach 10.7 x0.6)
+        ushort tooFar = Boy(w, Polar(0f, 8.2f));       // past 7.7 (the track-to-hit reach 10.7 x0.72; owner 2026-11-12: x1.2 of the x0.6 before)
         ushort wide = Boy(w, Polar(105f, 3f));         // outside the old 90 degrees
         ushort behind = Boy(w, Polar(150f, 3f));       // outside the new 120
         ushort high = Boy(w, Polar(20f, 4f, 2.0f));    // above the 1.5 m height band
@@ -326,7 +326,7 @@ public class TfwMeleeTests
         Assert.DoesNotContain((int)behind, hit);
         Assert.DoesNotContain((int)high, hit);
         Assert.Equal(1.3f, TfwCombatRules.Default.CleaveReachScale);
-        Assert.Equal(0.6f, TfwCombatRules.Default.PlayerCleaveReachScale);
+        Assert.Equal(0.72f, TfwCombatRules.Default.PlayerCleaveReachScale);
         Assert.Equal(120f, TfwCombatRules.Default.CleaveHalfAngleDegrees);
         Assert.Equal(40, TfwCombatRules.Default.CleaveTargets);
     }

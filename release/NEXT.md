@@ -13,3 +13,5 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - More of the original's own movement animations now play: a quick half-speed stop when you let go of sprint soon after starting it, a 180-degree pivot when you sprint off in the direction behind you, and the thunder hammer's own stop out of a sprint.
 ### Musou Mode
 - Musou Mode: the made-up background yelling is gone (the distant Ork mobs shouting and the armies' war cries); only Orks and Marines actually on the field make noise, and their voices now carry about three quarters farther, so you hear everyone from further away.
+- Pressing the equipment key with combat stims now uses them far more reliably: the press is remembered for half a second while a swing or a charge finishes, and a hit in the first moment of the use no longer cancels it.
+- Melee attacks reach 20 percent further for every weapon, including the power spear's sweeps.
