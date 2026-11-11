@@ -135,10 +135,16 @@ public sealed partial class CreatorView
 
     // ---- the support ability (owner, 2026-11-12; docs/drop-pod-assault.md) ----
 
+    /// <summary><c>--no-drop-pod</c> (restore switch, owner 2026-11-12): the customizer has no SUPPORT step and B keeps calling the artillery strike (the same flag NetworkView reads); the pages look as before the step.</summary>
+    static readonly bool MusouNoSupportStep = OS.GetCmdlineUserArgs().Contains("--no-drop-pod");
+
+    /// <summary>The Librarian's steps shown: all of them, or without SUPPORT under the restore switch.</summary>
+    static int LibrarianStepCount => MusouCustomizer.LibrarianSteps.Count - (MusouNoSupportStep ? 1 : 0);
+
     /// <summary>The marines' page shows SUPPORT as its fifth step (after PERKS: LOOK is the Ork's, and the Ork has no Musou page); the Librarian's own count already holds it.</summary>
     partial void ExtrasStepShown(int step, ref bool shown)
     {
-        if (MusouLayout && !MusouOwnPage && !IsOrkOpen) shown = step <= (int)Step.Perks || step == (int)Step.Support;
+        if (MusouLayout && !MusouOwnPage && !IsOrkOpen) shown = step <= (int)Step.Perks || (step == (int)Step.Support && !MusouNoSupportStep);
     }
 
     /// <summary>The support the open loadout calls on B: its entry in the Musou extras (the Librarian's own key on his page).</summary>
@@ -177,7 +183,7 @@ public sealed partial class CreatorView
     partial void ExtrasStepCount(ref int count)
     {
         if (!MusouOwnPage) return;
-        count = _musouEntry == MusouCustomizerEntry.Librarian ? MusouCustomizer.LibrarianSteps.Count : 1;
+        count = _musouEntry == MusouCustomizerEntry.Librarian ? LibrarianStepCount : 1;
     }
 
     // ---- the pages ----
@@ -202,7 +208,7 @@ public sealed partial class CreatorView
             LeaveLibrarianSlot();
             MusouShowChrome();
             _preview.MusouLibrarian = false;
-            if (MusouLayout && _stepButtons.Count > (int)Step.Support) _stepButtons[(int)Step.Support].Text = $"{(int)Step.Look + 1}  {StepNames[(int)Step.Support]}";   // 5  SUPPORT (the hidden LOOK is the Ork's)
+            if (MusouLayout && !MusouNoSupportStep && _stepButtons.Count > (int)Step.Support) _stepButtons[(int)Step.Support].Text = $"{(int)Step.Look + 1}  {StepNames[(int)Step.Support]}";   // 5  SUPPORT (the hidden LOOK is the Ork's)
             return;
         }
         handled = true;
@@ -280,7 +286,7 @@ public sealed partial class CreatorView
         _summary.Text = MusouCustomizer.LibrarianSummary(activeName, LibrarianData, picks);
         _summary.TooltipText = _summary.Text;
 
-        int count = MusouCustomizer.LibrarianSteps.Count;
+        int count = LibrarianStepCount;
         if ((int)_step >= count) _step = Step.Class;
         StepsPanel.Visible = true;
         for (int i = 0; i < _stepButtons.Count; i++)

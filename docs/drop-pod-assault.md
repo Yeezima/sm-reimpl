@@ -55,7 +55,7 @@ They take the AI Marines' damage scale (spec: a tenth of every hit) and burn a p
 
 ## 5. Limits
 One pod squad per player at a time (a call while that player's pod is falling or its squad lives is refused and costs no cooldown); a call that needs more free puppet ids than
-exist (4) is refused. With the 12 ids: 2 pair + up to 4 retainers leave room for two squads at once; more callers wait for a squad to end. The cooldown starts only on an
+exist (4) is refused. With the 12 ids: the allied pair (2) and a retainer for each human (up to 4) leave room for one squad with 4 humans and two with up to 2; the others' calls are refused until a squad ends. The cooldown starts only on an
 accepted call. The call is not accepted in the Stormbird, between battles, dead or off the field. A battle ending removes the pod and its marines (`TfwDismissMarines`).
 
 ## 6. Open questions for the owner
