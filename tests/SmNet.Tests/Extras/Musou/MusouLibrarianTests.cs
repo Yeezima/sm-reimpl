@@ -424,6 +424,28 @@ public class MusouLibrarianTests
     }
 
     [Fact]
+    public void The_aim_key_zooms_the_librarian_like_every_class_although_he_holds_no_gun_and_classic_pvp_is_unchanged()
+    {
+        // The owner, 2026-11-12: "Add a zoom to the librarian - he should have the same zoom as the other classes": the Aim key puts him in aim mode (the networked Aiming flag the camera zooms on).
+        var w = NewWorld(out int cls);
+        w.Spawn(1, cls);
+        w.Step(_ => default);
+        Assert.Null(Loadouts.InHand(w.Config, w.Players[1]));
+        Assert.True(w.Config.AimsWithoutWeapon(cls));
+        float yaw = w.Players[1].Yaw;
+        PlayerInput Input(InputButtons b) => new(0, 0f, 0f, yaw, b, Pitch: 0f);
+        w.Step(_ => Input(InputButtons.Aim));
+        Assert.True(w.Players[1].Aiming);
+        w.Step(_ => Input(InputButtons.Aim | InputButtons.Fire));   // he casts while zoomed
+        Assert.True(w.Players[1].Aiming);
+        w.Step(_ => default);
+        Assert.False(w.Players[1].Aiming);
+        // Classic PvP (and a marine class): no weapon, no aim mode, as ever.
+        Assert.False(Raw(ContentExtras.None).AimsWithoutWeapon(0));
+        Assert.False(w.Config.AimsWithoutWeapon(0));
+    }
+
+    [Fact]
     public void A_dead_librarian_starts_his_next_life_at_rest_and_a_marine_has_no_powers()
     {
         var w = NewWorld(out int cls);

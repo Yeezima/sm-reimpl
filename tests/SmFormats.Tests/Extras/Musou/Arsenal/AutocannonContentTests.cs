@@ -87,7 +87,9 @@ public class AutocannonContentTests
         float jacket = AutocannonBarrel.Along(AutocannonBarrel.InstallMuzzle, k) - AutocannonBarrel.Along(AutocannonBarrel.JacketStart, k);
         Assert.Equal(AutocannonBarrel.ClampEnd - AutocannonBarrel.ClampStart, clamp, 4);
         Assert.Equal(AutocannonBarrel.InstallMuzzle - AutocannonBarrel.JacketStart, jacket, 4);
-        Assert.InRange(AutocannonBarrel.Along(AutocannonBarrel.ClampStart, k), AutocannonBarrel.ReceiverFront, AutocannonBarrel.ReceiverFront + 0.01f);   // the clamp just past the receiver
+        Assert.Equal(AutocannonBarrel.ReceiverFront, AutocannonBarrel.Along(AutocannonBarrel.ClampStart, k), 4);   // the clamp flush on the receiver's front: no bare neck between them (owner 2026-11-12: "a small gap where there should be barrel material")
+        var halfway = AutocannonBarrel.Knots((AutocannonBarrel.Muzzle + AutocannonBarrel.InstallMuzzle) / 2f);
+        Assert.InRange(AutocannonBarrel.Along(AutocannonBarrel.ClampStart, halfway), AutocannonBarrel.ReceiverFront + 0.1f, AutocannonBarrel.ReceiverFront + 0.2f);   // in between, the rear tube is half its length
         // Increasing everywhere (no part folds over another), and a point past the muzzle moves with it.
         float last = float.NegativeInfinity;
         for (float y = -0.3f; y <= 2.8f; y += 0.001f) { float m = AutocannonBarrel.Along(y, k); Assert.True(m >= last, $"not increasing at {y}"); last = m; }

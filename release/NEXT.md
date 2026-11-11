@@ -15,3 +15,5 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Musou Mode: the made-up background yelling is gone (the distant Ork mobs shouting and the armies' war cries); only Orks and Marines actually on the field make noise, and their voices now carry about three quarters farther, so you hear everyone from further away.
 - Pressing the equipment key with combat stims now uses them far more reliably: the press is remembered for half a second while a swing or a charge finishes, and a hit in the first moment of the use no longer cancels it.
 - Melee attacks reach 20 percent further for every weapon, including the power spear's sweeps.
+- The Librarian can now zoom in with the aim button like every other class (the same zoom, the same speed). He can still cast while zoomed.
+- The autocannon's barrel now joins the body of the gun without a gap where it begins to stick out.

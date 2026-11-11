@@ -8,7 +8,7 @@ namespace SmContent.Extras.Musou.Arsenal;
 /// sit in the heavy bolter's mounts as before and the stow is unchanged.
 /// <para>
 /// The barrel is a plain tube from the receiver to its ribbed front (no vertex between 1.072 and 2.277 m but the clamp's), so the shortening takes the length out of the plain tube on both sides of
-/// the clamp in proportion, and keeps the clamp with the rod's end cap (<see cref="ClampStart"/> to <see cref="ClampEnd"/>) and the ribbed front (<see cref="JacketStart"/> to the muzzle) at their own
+/// the clamp (the owner, 2026-11-12: "a small gap where there should be barrel material", the 2 cm of bare neck between the receiver and the clamp: at the owner's muzzle the rear tube is now taken out whole, the clamp sits flush on the receiver, and the front tube keeps the 2 cm), and keeps the clamp with the rod's end cap (<see cref="ClampStart"/> to <see cref="ClampEnd"/>) and the ribbed front (<see cref="JacketStart"/> to the muzzle) at their own
 /// lengths: the parts only move back. At 1.6 m that leaves 2 cm of plain tube (0.53 m of barrel past the receiver, was 1.55 m). A muzzle so close that even the kept parts do not fit squeezes them
 /// too, evenly. The positions are measured on the install (supported by evidence, <c>AutocannonContentTests</c> checks them against it); the 1.6 m is the owner's; the cut's placement is ours.
 /// </para>
@@ -37,10 +37,15 @@ public static class AutocannonBarrel
         if (!float.IsFinite(muzzle)) muzzle = Muzzle;
         muzzle = MathF.Max(muzzle, Shortest);
         float plainRear = ClampStart - ReceiverFront, clamp = ClampEnd - ClampStart, plainFront = JacketStart - ClampEnd, jacket = InstallMuzzle - JacketStart;
-        float front = muzzle - ReceiverFront, kept = clamp + jacket, plain = plainRear + plainFront;
-        float kp = front >= kept ? (front - kept) / plain : 0f;   // the plain tube's factor
-        float kk = front >= kept ? 1f : front / kept;             // the kept parts' (1 unless the muzzle is closer than they are long)
-        float a = ReceiverFront + plainRear * kp, b = a + clamp * kk, c = b + plainFront * kp;
+        float front = muzzle - ReceiverFront, kept = clamp + jacket;
+        // The tube between the receiver and the clamp is the neck that showed as a gap at the 1.6 m muzzle (the owner, 2026-11-12): it shrinks to nothing at the owner's muzzle, so the clamp
+        // sits flush on the receiver's front, and is the install's whole at the install's (in between, in proportion); the tube between the clamp and the ribbed front takes what is left.
+        float kr = Math.Clamp((muzzle - Muzzle) / (InstallMuzzle - Muzzle), 0f, 1f);
+        float rear = plainRear * kr;
+        float kp = front >= kept + rear ? (front - kept - rear) / plainFront : 0f;   // the front plain tube's factor
+        float kk = front >= kept ? 1f : front / kept;                                  // the kept parts' (1 unless the muzzle is closer than they are long)
+        if (front < kept + rear) rear = MathF.Max(0f, front - kept);
+        float a = ReceiverFront + rear, b = a + clamp * kk, c = b + plainFront * kp;
         return [(ReceiverFront, ReceiverFront), (ClampStart, a), (ClampEnd, b), (JacketStart, c), (InstallMuzzle, muzzle)];
     }
 
