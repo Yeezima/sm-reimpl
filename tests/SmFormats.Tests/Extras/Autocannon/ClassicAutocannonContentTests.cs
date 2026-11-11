@@ -79,7 +79,9 @@ public class ClassicAutocannonContentTests
     {
         var gun = ClassicAutocannon.WithAutocannon(Data(ContentExtras.All), Source, []).Weapons[^1];
         Assert.Equal((50f, 2f, 1f, 2.5f, 0.8f), (gun.Damage, gun.HeadMultiplier, gun.BodyMultiplier, gun.ShieldHeadMultiplier, gun.ShieldBodyMultiplier));   // the Stalker's
-        Assert.Equal((TriggerKind.FullAuto, AutocannonRules.SecondsPerRound, AutocannonRules.Clip, 0), (gun.Trigger, gun.ShotCooldown, gun.ClipSize, gun.ReserveSize));   // the autocannon's
+        Assert.Equal((TriggerKind.FullAuto, AutocannonRules.SecondsPerRound, 120, 0), (gun.Trigger, gun.ShotCooldown, gun.ClipSize, gun.ReserveSize));   // the autocannon's, with the multiplayer file's clip (owner 2026-11-11: "120 clip size")
+        Assert.Equal(Source.ClipSize, gun.ClipSize);
+        Assert.Equal(AutocannonRules.Clip, Arsenal.ClassicTwin(Source with { ClipSize = 0 }, Gun("sm_mp_exotic_heavy_bolter"), StalkerGun).ClipSize);   // a file without a clip keeps Musou's 400
         Assert.Equal((Source.MaxRange, Source.FallOffStart, Source.FallOffEnd, Source.FallOffEndMultiplier), (gun.MaxRange, gun.FallOffStart, gun.FallOffEnd, gun.FallOffEndMultiplier));
         Assert.Null(gun.Projectile);   // hit-scan: Classic's shot path sets off no blast
         Assert.Null(gun.Brace);
@@ -152,6 +154,39 @@ public class ClassicAutocannonContentTests
             Assert.True(ArsenalRules.Shown(ContentExtras.Musou, other));
         }
         Assert.False(ArsenalRules.Shown(ContentExtras.All, Arsenal.AutocannonTwinFile));
+    }
+
+    [Fact]
+    public void The_Havocs_autocannon_plays_its_Chaos_twins_effects_and_the_Devastators_the_loyalist_ones()
+    {
+        // The owner, 2026-11-11: "Give the chaos autocannon the chaos visual effects all the way through".
+        foreach (var extras in new[] { ContentExtras.All, ContentExtras.Autocannon, ContentExtras.Musou })
+        {
+            Assert.Equal(Arsenal.AutocannonTwinFile, Arsenal.EffectsFor(extras, ArsenalRules.Autocannon, chaos: true));   // the install's own Chaos entry
+            Assert.Equal(ArsenalRules.Autocannon, Arsenal.EffectsFor(extras, ArsenalRules.Autocannon, chaos: false));     // the loyalist renames of the autocannon's own
+            Assert.Equal(Arsenal.AutocannonTwinFile, Arsenal.EffectsFor(extras, "SM_MP_EXOTIC_AUTO_CANNON", chaos: true));
+        }
+        // The twin's entry is the one the loyalist renames start from: Chaos names in, loyalist names out.
+        var names = Arsenal.EffectNames(ArsenalRules.Autocannon)!;
+        Assert.Equal(Arsenal.LoyalistMuzzleEffect, names[Arsenal.ChaosMuzzleEffect]);
+        Assert.Equal(Arsenal.LoyalistTracerEffect, names[Arsenal.ChaosTracerEffect]);
+        Assert.Equal(Arsenal.LoyalistImpactEffect, names[Arsenal.ChaosImpactEffect]);
+        Assert.Equal([Arsenal.AutocannonTwinFile, Arsenal.HeavyBolterFile], Arsenal.PresentationSources(ContentExtras.All, ArsenalRules.Autocannon));   // the twin is read beside the classes' files
+        // Every other weapon and every profile without the item: the name itself, whoever fires.
+        foreach (var name in new[] { "sm_mp_exotic_heavy_bolter", ClassicAutocannon.HeavyBolterFileChaos, Arsenal.AutocannonTwinFile, "sm_mp_ranged_bolter", ArsenalRules.LightningClaw })
+            Assert.Equal(name, Arsenal.EffectsFor(ContentExtras.All, name, chaos: true));
+        foreach (var extras in new[] { ContentExtras.None, ContentExtras.Orks, ContentExtras.Orks | ContentExtras.Gore | ContentExtras.LoyalistBarks })
+            Assert.Equal(ArsenalRules.Autocannon, Arsenal.EffectsFor(extras, ArsenalRules.Autocannon, chaos: true));
+    }
+
+    [Fact]
+    public void The_drops_give_the_Classic_autocannon_the_heavy_bolters_ammunition()
+    {
+        var box = new PickupType("pickup_mp_drop_ammo", PickupKind.Ammo, 3, 4f, 25f, [40, 0, 40, 0, 12, 30], []);
+        var classic = ClassicAutocannon.WithAutocannon(Data(ContentExtras.All) with { Pickups = new PickupSpec([box]) }, Source, []);
+        Assert.Equal([40, 0, 40, 0, 12, 30, 40], classic.Pickups!.Types[0].WeaponAmounts);   // index 6: the Space Marine heavy bolter's 40
+        Assert.Equal(6, classic.Classes[0].PrimaryChoices[^1]);   // the Devastator's autocannon
+        Assert.Equal(40, classic.Pickups.Types[0].WeaponAmount(classic.Classes[1].PrimaryChoices[^1]));   // the Havoc's is the same weapon
     }
 
     [Fact]

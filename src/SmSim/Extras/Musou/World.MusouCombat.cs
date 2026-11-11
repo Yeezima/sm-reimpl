@@ -11,10 +11,10 @@ namespace SmSim;
 /// <list type="bullet">
 /// <item>Hit-scan rays (<see cref="ShotEvent"/> with an origin, no projectile): tested from the origin to where the core ended them against the enemies
 /// (<see cref="MusouSim.Raycast"/>: a body cylinder and a head sphere); the nearest takes the shot's damage at its distance
-/// (<see cref="Combat.DamageAt(float, WeaponSpec)"/>, or a charged stage's) times the weapon's head or body multiplier, and the tracer ends on it. The weapon
+/// (<see cref="MusouShotDamage"/>: <see cref="Combat.DamageAt(float, WeaponSpec)"/> in the 5-wave run, the full damage at any range in the war; or a charged stage's) times the weapon's head or body multiplier, and the tracer ends on it. The weapon
 /// is the one the shooter carries (its perk variant, as the core fired it).</item>
 /// <item>Cones: every enemy the cone covers (<see cref="MusouSim.ConeCoverage"/>) with a clear line from the eye to its chest takes the cone's damage times
-/// its fall-off and coverage multiplier (<see cref="Cones.Multiplier"/>), on the body, at most <see cref="MusouCombatRules.ConeTargets"/> nearest first;
+/// its fall-off and coverage multiplier (<see cref="MusouConeMultiplier"/>: the coverage alone in the war), on the body, at most <see cref="MusouCombatRules.ConeTargets"/> nearest first;
 /// the shot's hit kind becomes a body hit.</item>
 /// <item>Projectiles: each flying one's move this tick (from where it was after the last tick) is tested against the enemies; the first it meets takes its
 /// direct damage (and its detonation damage); one that detonates on contact goes off there (its blast through <see cref="ExtrasBlast"/>), any other stops
@@ -78,7 +78,7 @@ public sealed partial class World
             if (musou.War is { } war) { TfwPierceShot(k, shot, weapon, direction, length, war); continue; }   // Campaign/World.TfwMelee.cs: Musou Mode's shots go through
             ushort enemy = musou.Raycast(shot.Origin, direction, length, out float distance, out bool head);
             if (enemy == 0) continue;
-            var spec = Shots.ChargeShotOf(weapon, shot.Stage)?.Damage ?? weapon.DirectDamage with { Damage = Combat.DamageAt(distance, weapon) };
+            var spec = MusouShotDamage(weapon, shot.Stage, distance);
             float damage = spec.Damage * (head ? spec.HeadMultiplier : spec.BodyMultiplier) * MusouRangedDealt(shot.Shooter);
             musou.Damage(enemy, shot.Shooter, damage, direction, out _, marker: head ? (byte)2 : (byte)1, cause: MusouDeathKind.Shot);
             // The tracer ends on the enemy (the wire carries the end and the hit kind; no player is named).
@@ -96,6 +96,31 @@ public sealed partial class World
     /// </summary>
     float MusouRangedDealt(int attacker) =>
         _musou?.War is { } war && _players.ContainsKey(attacker) && Extras.Musou.Campaign.TfwCombatRules.ScalesPlayer(attacker) ? war.PlayerRangedDamageScale : 1f;
+
+    /// <summary>
+    /// The range fall-off on the enemies for a shot of <paramref name="weapon"/> that went <paramref name="distance"/> metres: 1 in Musou Mode's war (the owner, 2026-11-11: "There should be no damage
+    /// falloff for any ranged weapon in Musou mode"; <see cref="Extras.Musou.Campaign.TfwCombatRules.RangeFallOff"/>), for every shooter and weapon; the weapon's own fall-off
+    /// (<see cref="Combat.FallOff(float, WeaponSpec)"/>) in the 5-wave run (pinned replay). The one place every Musou shot path asks (<see cref="MusouShotDamage"/>, <see cref="MusouConeMultiplier"/>).
+    /// </summary>
+    float MusouRangeFallOff(WeaponSpec weapon, float distance) => MusouNoRangeFallOff ? 1f : Combat.FallOff(distance, weapon);
+
+    /// <summary>Whether the war's shots lose no damage with range (<see cref="MusouRangeFallOff"/>).</summary>
+    bool MusouNoRangeFallOff => _musou?.War is { RangeFallOff: false };
+
+    /// <summary>
+    /// A hit-scan shot's damage on an enemy or a contraption <paramref name="distance"/> metres away: its charged stage's (which has no fall-off of its own), else the weapon's damage times
+    /// <see cref="MusouRangeFallOff"/> (in the 5-wave run exactly <see cref="Combat.DamageAt(float, WeaponSpec)"/>). The 5-wave run's rays, the war's piercing rays and the contraptions' shots read it.
+    /// </summary>
+    DamageSpec MusouShotDamage(WeaponSpec weapon, int stage, float distance) =>
+        Shots.ChargeShotOf(weapon, stage)?.Damage ?? weapon.DirectDamage with { Damage = weapon.Damage * MusouRangeFallOff(weapon, distance) };
+
+    /// <summary>
+    /// A cone's multiplier on an enemy <paramref name="distance"/> metres away with <paramref name="coverage"/>: in the war its coverage multiplier alone (no distance fall-off: the melta's full damage
+    /// to the end of its cone, <see cref="MusouRangeFallOff"/>'s rule), else <see cref="Cones.Multiplier"/> (the 5-wave run).
+    /// </summary>
+    float MusouConeMultiplier(ConeSpec cone, float distance, float coverage) =>
+        !MusouNoRangeFallOff ? Cones.Multiplier(cone, distance, coverage)
+        : coverage <= 0f ? 0f : cone.CoverageFallOff.Count == 0 ? 1f : Combat.PointValue(cone.CoverageFallOff, coverage);   // Cones.Multiplier without its distance factor
 
     /// <summary>The weapon a shot left as its shooter carries it (the perk variant the core fired, <see cref="Loadouts.InHand"/>), else the config's.</summary>
     WeaponSpec MusouWeaponOf(in ShotEvent shot) =>
@@ -119,7 +144,7 @@ public sealed partial class World
             var chest = MusouSim.Chest(e.Position, height);
             if (Blocked(origin, chest) || TfwShielded(origin, chest)) continue;   // TfwShielded: a dome from outside (expansion S4)
             float distance = Vector3.Distance(origin, chest);
-            float multiplier = Cones.Multiplier(cone, distance, coverage);
+            float multiplier = MusouConeMultiplier(cone, distance, coverage);   // no distance fall-off in the war (owner 2026-11-11)
             if (multiplier <= 0f) continue;
             covered++;
             if (musou.Damage(e.Id, shooter, cone.Damage.Damage * multiplier * cone.Damage.BodyMultiplier * MusouRangedDealt(shooter), chest - origin, out _, marker: 1, cause: MusouDeathKind.Shot)) any = true;

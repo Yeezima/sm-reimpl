@@ -344,7 +344,7 @@ public partial class NetworkView
 
     void FxPlayOwnShot(PlayerState me, WeaponSpec weapon, int index, int stage, int nth = 0, int of = 1)
     {
-        var w = FxWeapon(weapon.Name);
+        var w = FxWeapon(EffectsWargear(_client!.PlayerId, weapon.Name));   // the shooter's side may pick the effects (added content: the Havoc's autocannon)
         if (w is null) return;
         var (end, hit, surface, normal, dir, victim) = TraceOwn(me, weapon, nth, of);
         var endG = ToGodot(end);
@@ -431,7 +431,7 @@ public partial class NetworkView
     {
         if (_config is null || shot.Weapon < 0 || shot.Weapon >= _config.Weapons.Count) return;
         var spec = _config.Weapons[shot.Weapon];
-        var w = FxWeapon(spec.Name);
+        var w = FxWeapon(EffectsWargear(shot.Shooter, spec.Name));
         if (w is null) return;
         _fxRemoteShots++;
         // The shooter's eye as last shown, for the fallback origin and the direction of the shot.
@@ -624,7 +624,7 @@ public partial class NetworkView
             var (at, weapon, smoked) = _fxLastShot[id];
             if (smoked || _connectedFor - at < 0.3) continue;
             _fxLastShot[id] = (at, weapon, true);
-            if (weapon < 0 || weapon >= _config.Weapons.Count || _catalogue.Weapon(_config.Weapons[weapon].Name) is not { } w) continue;
+            if (weapon < 0 || weapon >= _config.Weapons.Count || _catalogue.Weapon(EffectsWargear(id, _config.Weapons[weapon].Name)) is not { } w) continue;
             foreach (var p in w.StopFire)
             {
                 if (FxPlace(id, p.Marker) is not { } place) continue;

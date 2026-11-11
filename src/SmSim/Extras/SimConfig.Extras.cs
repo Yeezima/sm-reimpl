@@ -48,6 +48,13 @@ public sealed partial record SimConfig
         cap = SmSim.Extras.Musou.MusouPowerupRules.Cap;         // with a stim's speed never above x2 (owner 2026-11-10: "Cap at x2")
     }
 
+    // the autocannon pass 2 (owner, 2026-11-11: "No clip in Musou mode - just infinite shooting"): Musou's autocannon spends no round, so its clip never moves and nothing reloads it.
+    // Classic PvP's autocannon (ContentExtras.Autocannon, never with Musou) spends its clip of 120.
+    partial void ExtrasEndlessClip(WeaponSpec weapon, ref bool endless)
+    {
+        if (Extras.HasFlag(ContentExtras.Musou) && AutocannonRules.EndlessClip(weapon)) endless = true;
+    }
+
     partial void ExtrasThrownBlastScale(ThrownSpec? item, ref float scale)
     {
         if (Extras.HasFlag(ContentExtras.Musou) && item is not null && SmSim.Extras.Musou.Campaign.TfwCombatRules.IsFrag(item)) scale = MusouCombatRules.FragReachScale;

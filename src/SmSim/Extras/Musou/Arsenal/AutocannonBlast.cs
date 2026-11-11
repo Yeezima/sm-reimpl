@@ -23,24 +23,29 @@ public sealed partial class World
 /// <para>
 /// The autocannon pass (the owner, 2026-11-11: "it should kill essentially 1 shot any weak ork (adjust the damage value of the aoe blast radius of each shot to also 1 shot any fodder ork). initial
 /// shot damage should go up as well to be the damage value of the aoe explosion effect + 30"): the blast is <see cref="BlastDamage"/> everywhere inside its 2.5 m (no fall-off), so with the war's
-/// x1.2 on a human player's ranged damage (<c>TfwCombatRules.PlayerRangedDamageScale</c>) it deals 120 to every Ork in reach: the most health of any fodder Ork (<see cref="Fodder"/>: the
-/// Stormboy's 120; the Boyz, Shoota Boyz and Rokkit Boyz 85, the Gretchin and the Bomb Squig 30). The round itself is <see cref="DirectDamage"/>, the blast's + 30 (156 after the x1.2).
+/// x1.2 on a human player's ranged damage (<c>TfwCombatRules.PlayerRangedDamageScale</c>) it deals 85.2 to every Ork in reach: more than the most health of any fodder Ork (<see cref="Fodder"/>: the
+/// Boyz, Shoota Boyz and Rokkit Boyz 85, the Gretchin and the Bomb Squig 30; the owner, 2026-11-11: "Stormboy is not fodder", so his 120 is out of the rule, was 100 and 120 until then). The round
+/// itself is <see cref="DirectDamage"/>, the blast's + 30 (121.2 after the x1.2).
 /// </para>
 /// </summary>
 public static class AutocannonRules
 {
     /// <summary>Seconds between two rounds (data: the install's <c>csm_mp_exotic_auto_cannon</c> shot cooldown, used between single rounds).</summary>
     public const float SecondsPerRound = 0.4f;
-    /// <summary>The clip (data: the campaign gun's 400; Musou's ammunition is endless anyway).</summary>
+    /// <summary>
+    /// Musou's clip (the campaign gun's 400): never spent in Musou Mode (the owner, 2026-11-11: "No clip in Musou mode - just infinite shooting"; <see cref="EndlessClip"/>), so it is the full
+    /// value the state carries and nothing counts it. Classic PvP's autocannon has the multiplayer file's 120 instead (<c>Arsenal.ClassicTwin</c>).
+    /// </summary>
     public const int Clip = 400;
     /// <summary>The blast's reach: twice the bolt blast's 1.25 m (owner's: D12).</summary>
     public const float BlastRadius = 2.5f;
     /// <summary>
-    /// The blast's damage, the same anywhere in its reach (the owner, 2026-11-11: one blast kills any fodder Ork; 15, the bolt blast's, until then): 100 before the war's x1.2 on a human player's
-    /// ranged damage, 120 after it, the most health of any fodder Ork (<see cref="FodderHealthMost"/>, the Stormboy's).
+    /// The blast's damage, the same anywhere in its reach (the owner, 2026-11-11: one blast kills any fodder Ork; 15, the bolt blast's, until then): 71 before the war's x1.2 on a human player's
+    /// ranged damage, 85.2 after it (85.2000046 in single precision), over the most health of any fodder Ork (<see cref="FodderHealthMost"/>: 85, a Boy's, a Shoota Boy's and a Rokkit Boy's), so an
+    /// 85 Ork dies to one blast. 100 (120 after the x1.2, the Stormboy's health) until the owner's "Stormboy is not fodder" of the same day.
     /// </summary>
-    public const float BlastDamage = 100f;
-    /// <summary>The round's own damage (the owner, 2026-11-11: "the damage value of the aoe explosion effect + 30"): 130 before the war's x1.2, 156 after it (the file's 50 until then).</summary>
+    public const float BlastDamage = 71f;
+    /// <summary>The round's own damage (the owner, 2026-11-11: "the damage value of the aoe explosion effect + 30"): 101 before the war's x1.2, 121.2 after it (130 and 156 with the 100 blast; the file's 50 before that).</summary>
     public const float DirectDamage = BlastDamage + 30f;
     /// <summary>
     /// The blast's fall-off (distance in metres, share of the damage): full to its edge, so an Ork anywhere in reach takes all of <see cref="BlastDamage"/> (the owner's one-shot inside the radius,
@@ -49,22 +54,23 @@ public static class AutocannonRules
     public static readonly IReadOnlyList<DistancePoint> BlastFallOff = [new(BlastRadius, 1f)];
 
     /// <summary>
-    /// The fodder Orks the owner's one-shot covers (2026-11-11, "any weak ork", "any fodder ork"): every Ork that is neither an elite nor a boss (<c>TfwRewardRules.Elite</c>, <c>MusouPowerupRules.Elite</c>,
-    /// <c>MusouBossOrks</c>): the choppa and Shoota Boyz and the Gretchin (<c>MusouSim.Fodder</c>), the Rokkit Boyz (who stand in the crowds in a Boy's place), the Stormboyz and the Bomb Squigs. Not the
-    /// 'Ard Boy (170, an elite), the Nob, the Weirdboy (his shield), the Scrap Mek, the Chaos Marine or a boss.
+    /// The fodder Orks the owner's one-shot covers (2026-11-11, "any weak ork", "any fodder ork"; then "Stormboy is not fodder"): every Ork that is neither an elite nor a boss (<c>TfwRewardRules.Elite</c>,
+    /// <c>MusouPowerupRules.Elite</c>, <c>MusouBossOrks</c>) and not the Stormboy: the choppa and Shoota Boyz and the Gretchin (<c>MusouSim.Fodder</c>), the Rokkit Boyz (who stand in the crowds in a
+    /// Boy's place) and the Bomb Squigs. Not the Stormboy (120: the owner's word), the 'Ard Boy (170, an elite), the Nob, the Weirdboy (his shield), the Scrap Mek, the Chaos Marine or a boss.
     /// </summary>
     public static readonly IReadOnlyList<SmSim.Extras.Musou.MusouEnemyType> Fodder =
     [
         SmSim.Extras.Musou.MusouEnemyType.Boy, SmSim.Extras.Musou.MusouEnemyType.ShootaBoy, SmSim.Extras.Musou.MusouEnemyType.Gretchin,
-        SmSim.Extras.Musou.MusouEnemyType.RokkitBoy, SmSim.Extras.Musou.MusouEnemyType.Stormboy, SmSim.Extras.Musou.MusouEnemyType.BombSquig,
+        SmSim.Extras.Musou.MusouEnemyType.RokkitBoy, SmSim.Extras.Musou.MusouEnemyType.BombSquig,
     ];
 
-    /// <summary>The most health of a fodder Ork in Musou's tuning (the Stormboy's 120): what the blast must deal after the war's x1.2.</summary>
+    /// <summary>The most health of a fodder Ork in Musou's tuning (85: the Boy's, the Shoota Boy's and the Rokkit Boy's): what the blast must deal after the war's x1.2.</summary>
     public static float FodderHealthMost(SmSim.Extras.Musou.MusouRules rules) => Fodder.Max(t => rules.Of(t).Health);
 
     /// <summary>
-    /// Whether <paramref name="weapon"/> keeps a full clip in Musou Mode (the owner, 2026-11-11: "the autocannon should also have infinite ammo in musou mode"): the autocannon never runs dry; its heat
-    /// and overheat run as its data has them (<c>World.TfwEndlessAmmo</c>).
+    /// Whether <paramref name="weapon"/> has no clip in Musou Mode (the owner, 2026-11-11: "the autocannon should also have infinite ammo in musou mode", then "No clip in Musou mode - just infinite
+    /// shooting"): the autocannon's shots spend no round (<c>SimConfig.EndlessClip</c>, through the hook <c>ExtrasEndlessClip</c>, so the server and the client's prediction agree), so its clip never
+    /// moves from <see cref="Clip"/>, nothing reloads it and the HUD shows the endless sign; its heat and overheat run as its data has them.
     /// </summary>
     public static bool EndlessClip(WeaponSpec weapon) => ArsenalRules.IsAutocannon(weapon.Name);
 

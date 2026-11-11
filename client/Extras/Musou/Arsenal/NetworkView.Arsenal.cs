@@ -79,6 +79,27 @@ public partial class NetworkView
         names = Arsenal.EffectNames(_config.Extras, wargear);
     }
 
+    /// <summary>
+    /// The autocannon pass 2 (the owner, 2026-11-11: "Give the chaos autocannon the chaos visual effects all the way through"): a shot of the autocannon by a shooter of the Chaos race (the Havoc in
+    /// Classic PvP; in Musou Mode every player is a Space Marine) plays its install twin's own effects (<c>Arsenal.EffectsFor</c>: the purple flash, tracer, impact, stop smoke and casings), a Space
+    /// Marine's the loyalist ones; in a match that carries the item only, and only when the catalogue read the twin (its presentation source, read beside the classes' files), else the autocannon's own.
+    /// </summary>
+    partial void ExtrasShooterEffects(int shooter, string wargear, ref string effects)
+    {
+        if (_config is null || !ArsenalRules.IsAutocannon(wargear) || !ArsenalRules.Shown(_config.Extras, wargear)) return;
+        string chosen = Arsenal.EffectsFor(_config.Extras, wargear, ShooterRace(shooter) == Race.Chaos);
+        if (!string.Equals(chosen, wargear, StringComparison.OrdinalIgnoreCase) && _catalogue?.Weapon(chosen) is { Bindings.Count: > 0 }) effects = chosen;
+    }
+
+    /// <summary>The race player <paramref name="shooter"/> is drawn as (<see cref="Races.Of"/> of its class and team: the own prediction, else the last snapshot, else its side).</summary>
+    Race ShooterRace(int shooter)
+    {
+        if (_client is null || _config is null) return Race.None;
+        if (shooter == _client.PlayerId) return Races.Of(_config, _client.Predicted.Class, _client.Predicted.Team);
+        foreach (var o in _lastOthers) if (o.PlayerId == shooter) return Races.Of(_config, o.Class, o.Team);
+        return Races.OfSide(TeamOf(shooter));
+    }
+
     readonly Dictionary<string, float> _arsenalMoveSpeed = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>

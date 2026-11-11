@@ -759,7 +759,7 @@ public static class Combat
 
         void BasicShot(WeaponSpec w)
         {
-            if (!freeAmmo) clip -= Math.Min(Math.Max(1, w.AmmoPerShot), clip);
+            if (!freeAmmo && !c.EndlessClip(w)) clip -= Math.Min(Math.Max(1, w.AmmoPerShot), clip);   // EndlessClip: added content's weapon with no clip (Musou's autocannon); false in Classic PvP
             cooldown += w.ShotCooldown;
             fired = true; shotStage = 0;
             (heat, overheated, sinceHeat) = AddShotHeat(w.Heat, heat, overheated);
@@ -773,7 +773,7 @@ public static class Combat
             int number = w.BurstLength - burstLeft;   // 1 for the second round
             // Once the cooldown has run out every round is due (never a locked weapon, whatever the data).
             if (cooldown > TimeEpsilon && w.ShotCooldown - cooldown + TimeEpsilon < number * w.BurstInterval) return false;
-            if (!freeAmmo) clip -= Math.Min(Math.Max(1, w.AmmoPerShot), clip);
+            if (!freeAmmo && !c.EndlessClip(w)) clip -= Math.Min(Math.Max(1, w.AmmoPerShot), clip);
             fired = true; shotStage = 0;
             (heat, overheated, sinceHeat) = AddShotHeat(w.Heat, heat, overheated);
             burstLeft--;
@@ -788,7 +788,7 @@ public static class Combat
         void ChargedShot(WeaponSpec w, int stage)
         {
             var shot = Shots.ChargeShotOf(w, stage)!;
-            if (!freeAmmo) clip -= Math.Min(Math.Max(0, shot.AmmoCost), clip);
+            if (!freeAmmo && !c.EndlessClip(w)) clip -= Math.Min(Math.Max(0, shot.AmmoCost), clip);
             cooldown += shot.ShotCooldown;
             fired = true; shotStage = stage;
             if (w.Heat is { } hs && shot.HeatPerShot > 0f)
