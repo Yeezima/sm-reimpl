@@ -17,7 +17,8 @@ public readonly record struct RushEvent(uint Tick, int Player, int Target, bool 
 /// (and its hyper armour, <see cref="Rush.HyperArmour"/>) for every contact of that tick whatever the player order.
 /// If the attacker may harm that player it takes the rush's primary hit (shield part, then the damage) and reaction (the stun,
 /// unless hyper armour or flight; <see cref="TryReact"/>), and every other living player it may harm within the ability's reach
-/// in front (the melee cone, a clear line from the eye) the secondary hit; an ally (without friendly fire) only stops it.
+/// in front (the melee cone, a clear line from the eye) the secondary hit; an ally it cannot harm is passed (protocol 67, <c>ChargeCancel.AllyPasses</c>); under <c>--old-ally-bump</c> it only stops the charge.
+/// (With no match rules friendly fire counts as on, so an ally is harmed as an enemy.)
 /// </summary>
 public sealed partial class World
 {
