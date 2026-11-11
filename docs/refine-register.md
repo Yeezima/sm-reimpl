@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3069 spec table rows: **2258 tagged**, 558 not tagged (read from data with high confidence), 253 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 683 rows of the changes document.
+Scanned 3072 spec table rows: **2260 tagged**, 558 not tagged (read from data with high confidence), 254 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 684 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,16 +50,16 @@ Scanned 3069 spec table rows: **2258 tagged**, 558 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 22 | 13 | 13 | 12 | 7 |
-| Core simulation (provisional values) | 673 | 634 | 480 | 177 | 1 |
+| Core simulation (provisional values) | 675 | 636 | 480 | 178 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 235 | 224 | 126 | 63 | 0 |
-| **All areas** | **2258** | 1990 | 1688 | 708 | 38 |
+| **All areas** | **2260** | 1992 | 1688 | 709 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1279 |
+| kind: ours | 1281 |
 | confidence: low | 809 |
 | confidence: medium | 750 |
 | notes: ours | 412 |
@@ -69,8 +69,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | confidence: none (low) | 129 |
 | kind: provisional | 102 |
 | kind: user's knowledge | 56 |
+| notes: provisional | 39 |
 | kind: choice | 38 |
-| notes: provisional | 38 |
 | section: provisional | 38 |
 | section: placeholder | 35 |
 | notes: user's knowledge | 26 |
@@ -2310,7 +2310,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (673)
+### Core simulation (provisional values) (675)
 
 *Spec section: Provisional values in use*
 
@@ -2801,6 +2801,13 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-D7255E99` | Marine barks: lines | the campaign squad's sets of the speech bank: unnamed dialogue events 0x33c89dfa (sets fce76c70, 3486a710, 8e781e2c) and 0x1930d1dd (8e781e2c), `speech_status` set 2a767f17, the exertions celebration and roar; lines without media left out. Titus has 7 lines… | kind: ours; confidence: low | the data (lines); the choice ours | Marine barks: lines: compare with SM1 by feel or video. Ours: the campaign squad's sets of the speech bank: unnamed dialogue events… | ☐ |
 | `R-06DD6964` | Marine barks: when | every 6 to 14 s with an Ork within 30 m, else every 20 to 40 s; never two within 2 s of each other (s, m) | kind: ours; confidence: low | ours | Marine barks: when: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: every 6 to 14 s with an Ork within 30 m, else every 20 to 40 s; never… | ☐ |
 | `R-BDDECB80` | Marine barks measured (same run) | Titus barked 4 times in 120 s (calm); the allied pair was within 60 m only in the first seconds, so no ally bark was heard | confidence: low | measured 2026-11-08 | Marine barks measured (same run): compare with SM1 by timing a run over a known distance. Ours: Titus barked 4 times in 120 s (calm); the allied pair was within 60 m… | ☐ |
+
+*Spec section: Added content: Musou NPC voices only (musou/npc-voices-only; 2026-11-12; client only, Musou Mode only, no protocol or hash change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-4F67FEFB` | Ambient voices | **off**: the far battle's Ork mobs (musou/battle-ambience) and the armies' Waaagh! war cries (`TfwWaaaghFrame`) no longer play; the far battle's bolter, lasgun, artillery and explosion sounds and the war bed stay. `--musou-ambient-voices` restores both | kind: ours | owner 2026-11-12 | Ambient voices: compare with SM1 by feel or video. Ours: off: the far battle's Ork mobs (musou/battle-ambience) and the… | ☐ |
+| `R-9CFCDEE1` | Voice reach | x1.75: a crowd Ork's voice (its emitter's own curves) and every player's character speech read the distance curve at 1/1.75 of the real distance, so an Ork line that is 26 dB down at 12 m is that at 21 m; the crowd's speech ranges (grunt 35, bark 45, effort… (x, m) | kind: ours; notes: provisional | owner 2026-11-12 | Voice reach: compare with SM1 by listening A/B at the same distance and state. Ours: x1.75: a crowd Ork's voice (its emitter's own curves) and every… | ☐ |
 
 *Spec section: Added content: Musou T key lines (musou/hotkey-lines; 2026-11-10; client only, Musou Mode only, no protocol, wire, cooldown or hash change)*
 
@@ -3923,6 +3930,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-05E961E2` | Musou: no flinch on a shot Ork (2026-11-06) | the owner's ("for now, simply remove those hit reactions completely") | no drawn reaction when shot (our flinch read as a 180-degree turn); blasts and heavy melee still stagger | Musou Ork voices, shot flinch and spread | Musou: no flinch on a shot Ork (2026-11-06): compare with SM1 by watching the reaction and timing it frame by frame. Ours: the owner's ("for now, simply remove those hit reactions completely"). | ☐ |
 | `C-C9D5C525` | Musou: audio pass (musou/audio-pass, 2026-11-09) | the owner's (far Ork voices, the player's barks at full volume, deeper bolter rifles with a wet smack and explosion on the first hit); all numbers and the chosen events ours | Musou Mode only: far Ork mobs sound far only through the original events' own distance curves (placed 60 to 130 m; no gain or low-pass of ours); the own character's barks ignore explosion ducking and voice stealing; bolter rifles fire with a deep layer, sub layer and thump (the own gun heavier and protected from voice… | Musou audio pass | Musou: audio pass (musou/audio-pass, 2026-11-09): compare with SM1 by listening A/B at the same distance and state. Ours: the owner's (far Ork voices, the player's barks at full volume… | ☐ |
 | `C-E9FA5734` | Musou: far battle ambience and Marine barks (musou/battle-ambience, 2026-11-08) | the owner's ("add looping barks and voice lines for orks, bolter fire, lasgun fire, artillery, explosions ... screen shakes a tiny bit"; "random barks for space marines ... intense voice lines from the campaign"); rates, ranges, levels and the line choice ours | Musou battles only: a far battle of Ork mobs, bolter and lasgun bursts, artillery (a 0.01 rad shake, at most every 4 s) and explosions round the listener; the player barks campaign lines as Titus, the other Marines as Sidonus or Leandros (the barks off since 2026-11-10, musou/hotkey-lines; `--musou-auto-barks`… | Musou battle ambience and Marine barks | Musou: far battle ambience and Marine barks…: compare with SM1 by feel or video. Ours: the owner's ("add looping barks and voice lines for orks, bolter… | ☐ |
+| `C-4E2564A6` | Musou: only actual NPCs make noise, voices carry farther (musou/npc-voices-only, 2026-11-12) | the owner's ("Remove the ambient voices and yells from Musou mode. Only actual in game npcs should make noise. Just make it so you can hear everyone from further away."); the 1.75x reach ours, provisional | Musou Mode only: the far battle's Ork mob yells and the armies' Waaagh! war cries are off (bolter, lasgun, artillery and explosion sounds stay); crowd Orks' and players' voices are heard 1.75x farther (curve and speech ranges), caps unchanged; `--musou-ambient-voices` restores the yells, `--no-musou-voice-reach` the… | Musou NPC voices | Musou: only actual NPCs make noise, voices carry farther…: compare with SM1 by feel or video. Ours: the owner's ("Remove the ambient voices and yells from Musou mode.… | ☐ |
 | `C-3CC93CFD` | Musou: the T key says seven lines in turn, no automatic Marine barks (musou/hotkey-lines, 2026-11-10) | the owner's ("remove the voice barks feature we added previously. we'll stick to the hotkey and simply add more lines for it to say"; "use these voice lines in rotation with 'for the emperor' when pressing T"); the six lines are his picks from the listening sheet, the fixed order and the fallback ours | Musou Mode only: each accepted T press says the next of FOR THE EMPEROR (the voice pack's takes, as before) and six campaign lines of the install (Titus: "Purge the xenos!", "Send the Horde, brother.", "Excellently done.", "One less traitor.", "OFF, YOU ALIEN PEST!"; Sidonus: "AHHH!"), in that order, every client… | Musou T key lines | Musou: the T key says seven lines in turn, no automatic…: compare with SM1 by feel or video. Ours: the owner's ("remove the voice barks feature we added previously.… | ☐ |
 | `C-789AB6B5` | Musou Mode's customizer: Standard Marines, Librarian, Heretic (claude/musou-customizer, 2026-11-10) | the owner's request (2026-11-10: "leave classic pvp as it is now and only use this new adjustment for musou mode ... the top level options to replace faction options are these: standard marines, librarian class, heretic class"); what each entry holds is ours | Musou only (the customizer on the Musou profile: MUSOU MODE's new CUSTOMIZER row, a Musou match's Esc menu): the faction row becomes STANDARD MARINES, LIBRARIAN, HERETIC (NOT YET). Standard Marines is Classic's creator on the Space Marine side alone (no Chaos preview or look, Space Marine class names; the same CUSTOM… | none (front end only; no gameplay value) | Musou Mode's customizer: Standard Marines, Librarian…: compare with SM1 by feel or video. Ours: the owner's request (2026-11-10: "leave classic pvp as it is now and… | ☐ |
 | `C-C419DA44` | Musou Mode's own loadout slots and the Librarian's loadout (claude/musou-loadout-slots, 2026-11-10) | the owner's approval (2026-11-10, through the lead: "Musou own loadout spans approved"); the copy from Classic at first use, the Librarian's choices and every rule ours | Musou only (the customizer on the Musou profile): the Standard Marines edit ten loadout slots and a selection of Musou's own (the profile's set `musou`), apart from Classic PvP's, which are unchanged; the first time Musou's pages open, Musou's slots start as a copy of Classic's (the Ork Boy's left out; an Ork… | none (front end and profile only; no gameplay value) | Musou Mode's own loadout slots and the Librarian's loadout…: compare with SM1 by feel or video. Ours: the owner's approval (2026-11-10, through the lead: "Musou own… | ☐ |
@@ -4961,6 +4969,7 @@ Test aids, probes, demo and capture tooling, and engineering decisions (protocol
 | `R-E085B984` | Test aids | Stall keep-alive and freeze diagnostics (fix/stall-keepalive; client and a log filter, no protocol change) |
 | `R-E5247022` | Test aids | Added content: Musou Ork voices, shot flinch and spread (musou/ork-voices; 2026-11-06; client sounds and drawing, plus one Musou-only simulation rule) |
 | `R-CFE4CFB0` | Test aids (battle ambience, barks) | Added content: Musou battle ambience and Marine barks (musou/battle-ambience; 2026-11-08; client only, Musou Mode only, no protocol or hash change) |
+| `R-5BD9F3BA` | Test aids | Added content: Musou NPC voices only (musou/npc-voices-only; 2026-11-12; client only, Musou Mode only, no protocol or hash change) |
 | `R-B7F035E2` | Measured (real server on 127.0.0.1, a hidden windowed bot pressing T every 2.5 s, Movie Maker at 24 fps) | Added content: Musou T key lines (musou/hotkey-lines; 2026-11-10; client only, Musou Mode only, no protocol, wire, cooldown or hash change) |
 | `R-2EF718B2` | Test aids (Musou T key lines) | Added content: Musou T key lines (musou/hotkey-lines; 2026-11-10; client only, Musou Mode only, no protocol, wire, cooldown or hash change) |
 | `R-40690531` | Test aids | Added content: Musou audio pass (musou/audio-pass; 2026-11-09; client only, Musou Mode only, no protocol, wire or hash change) |

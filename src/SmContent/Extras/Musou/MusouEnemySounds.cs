@@ -78,12 +78,42 @@ public static class MusouSoundRules
     public static bool HeavyStep(MusouEnemyType t) => t is MusouEnemyType.Nob or MusouEnemyType.Warboss || MusouBossOrks.Is(t);
 }
 
+/// <summary>
+/// musou/npc-voices-only (owner, 2026-11-12: "Remove the ambient voices and yells from Musou mode. Only actual in game npcs should make noise. Just make it so you can hear everyone from further
+/// away."). Musou Mode only, client presentation only. The voices that are not an actual body's (the far battle's Ork mobs, the armies' Waaagh! war cries) are off, and the voices that are (the crowd
+/// Orks', the other players' and the own) carry <see cref="Reach"/> times farther. Every number is **ours** (spec "Musou NPC voices only").
+/// </summary>
+public static class MusouVoiceRules
+{
+    /// <summary>Restore switch: the ambient voices (far Ork mobs, army Waaagh!) play again, as before 2026-11-12.</summary>
+    public const string AmbientVoicesFlag = "--musou-ambient-voices";
+    /// <summary>Test aid: the voices' reach as before (1x).</summary>
+    public const string NoReachFlag = "--no-musou-voice-reach";
+    /// <summary>
+    /// How many times farther an NPC's or player's voice is heard (ours, provisional: the voice's distance curve is read at 1/<see cref="Reach"/> of the real distance and the crowd's speech ranges and
+    /// emitter range are <see cref="Reach"/> times longer: an Ork line 26 dB down at 12 m is that at 21 m). The voice caps are unchanged.
+    /// </summary>
+    public const float Reach = 1.75f;
+
+    /// <summary>Whether the ambient voices play (only with the restore switch).</summary>
+    public static bool AmbientVoices(IReadOnlyCollection<string> args) => args.Contains(AmbientVoicesFlag);
+
+    /// <summary>The reach to use: <see cref="Reach"/>, or 1 with the test aid.</summary>
+    public static float ReachFor(IReadOnlyCollection<string> args) => args.Contains(NoReachFlag) ? 1f : Reach;
+
+    /// <summary>Whether a far-battle kind is a voice (the Ork mobs' yells), not a sound effect.</summary>
+    public static bool IsAmbientVoice(MusouAmbienceKind kind) => kind == MusouAmbienceKind.OrkMob;
+}
+
 /// <summary>The crowd's budget: <see cref="Refill"/> each frame, <see cref="Take"/> for each sound. Counts what it passed and held, by group.</summary>
 public sealed class MusouSoundBudget
 {
     const int Groups = (int)MusouSoundGroup.Waaagh + 1, Verdicts = (int)MusouSoundVerdict.SpeechCap + 1;
     readonly float[] _tokens = new float[Groups];
     readonly long[,] _count = new long[Groups, Verdicts];
+
+    /// <summary>musou/npc-voices-only: how many times farther the voice groups (speech groups other than the Waaagh, which is gone) are heard (<see cref="MusouVoiceRules.Reach"/>; 1 = as before).</summary>
+    public float VoiceReach { get; set; } = 1f;
 
     public MusouSoundBudget() { for (int g = 0; g < Groups; g++) _tokens[g] = MusouSoundRules.LimitOf((MusouSoundGroup)g).Burst; }
 
@@ -100,7 +130,8 @@ public sealed class MusouSoundBudget
     public MusouSoundVerdict Take(MusouSoundGroup group, float distance, int voices, int speech)
     {
         var l = MusouSoundRules.LimitOf(group);
-        var verdict = distance > l.Range ? MusouSoundVerdict.TooFar
+        float range = l.Speech && group != MusouSoundGroup.Waaagh ? l.Range * VoiceReach : l.Range;
+        var verdict = distance > range ? MusouSoundVerdict.TooFar
             : group != MusouSoundGroup.Boss && voices >= MusouSoundRules.MaxVoices ? MusouSoundVerdict.VoiceCap
             : group != MusouSoundGroup.Boss && l.Speech && speech >= MusouSoundRules.MaxSpeech ? MusouSoundVerdict.SpeechCap
             : _tokens[(int)group] < 1f ? MusouSoundVerdict.OverRate : MusouSoundVerdict.Post;
