@@ -135,6 +135,12 @@ public sealed partial class World
         var type = attack.Melee ? DamageType.Melee : DamageType.Ranged;
         float damage = attack.Damage * _musou!.Rules.PlayerDamageScale * Loadouts.Body(Config, before).Received(type) * DamageTakenScale(attack.Player);   // Musou Mode: an AI Marine takes a tenth
         if (!(damage > 0f)) return;
+        // Owner, 2026-11-12: the bosses hit harder "but not 1 shotting the player": one boss hit takes at most MaxHitShare of the target's full health plus armour, after every multiplier above.
+        if (attack.Enemy != 0 && _musou.TryGet(attack.Enemy, out var striker) && MusouPowerupRules.Boss(striker.Type))
+        {
+            var body = Loadouts.Body(Config, before);
+            damage = MathF.Min(damage, MusouBossRules.MaxHitShare * (body.HealthMax + body.ShieldMax));
+        }
         var push = before.Position - attack.From;
         var direction = new Vector3(push.X, push.Y, 0f);
         direction = direction.LengthSquared() > 1e-8f ? Vector3.Normalize(direction) : Vector3.UnitY;

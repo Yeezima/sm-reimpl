@@ -161,8 +161,8 @@ public class OrkArmyAggregateTests
         Assert.Equal(500, VictoryWaveRules.Size);
         Assert.Equal(2, TfwWeirdboyRules.MaxAlive);
         Assert.Equal(2, TfwBattleRules.BigTwins);
-        Assert.Equal(8, TfwBossOrkRules.MostAlive);
-        Assert.Equal(0.5f, TfwBossOrkRules.Interval);
+        Assert.Equal(12, TfwBossOrkRules.MostAlive);   // 8 until 2026-11-12
+        Assert.Equal(0.25f, TfwBossOrkRules.Interval);   // 0.5 until 2026-11-12
         Assert.Equal(0.10f, TfwBattleRules.EliteShare(0f), 4);   // the elite share as before: the big Orks come twice beside it
         Assert.Equal(0.60f, TfwBattleRules.EliteShare(1f), 4);
         Assert.True(TfwBattleRules.Big(MusouEnemyType.Nob) && TfwBattleRules.Big(MusouEnemyType.BigShootaNob) && TfwBattleRules.Big(MusouEnemyType.BossNob) && TfwBattleRules.Big(MusouEnemyType.BossShootaBoy));

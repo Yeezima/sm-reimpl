@@ -15,7 +15,7 @@ public static class MusouBossOrks
     /// <summary>... and never under this (the owner: "floor of 3000 hp").</summary>
     public const float HealthFloor = 3000f;
     /// <summary>Damage of a melee strike and of a ranged round: the base kind's times this (the owner chose 2x).</summary>
-    public const float DamageScale = 2f;
+    public const float DamageScale = 2f * MusouBossRules.DangerScale;   // 3 since 2026-11-12 (owner: "more dangerous"; was 2, the owner's 2x of 2026-11-06)
     /// <summary>The melee reach: the base kind's times this (ours: a 3x arm; the full 3x would strike from beyond a player's own melee reach).</summary>
     public const float ReachScale = 1.5f;
     /// <summary>Run speed: the base kind's, at most this (ours: the 'Ard Boyz' and Nobs' pace, so the retinue keeps up with its boss).</summary>

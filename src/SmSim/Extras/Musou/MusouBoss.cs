@@ -8,11 +8,20 @@ namespace SmSim.Extras.Musou;
 /// </summary>
 public sealed record MusouBossRules
 {
+    /// <summary>
+    /// The bosses' danger (owner, 2026-11-12: "make ork warboss and bosses more dangerous. More damage but not 1 shotting the player"): the Warboss's swing, slam and charge and every Boss Ork's strike
+    /// and round deal this much more than before (ours: 1.5, an estimate to check in a playtest; kind: ours), and no single hit of theirs takes more than <see cref="MaxHitShare"/> of the target's full
+    /// health plus armour (<see cref="MusouHit"/>'s cap in the World).
+    /// </summary>
+    public const float DangerScale = 1.5f;
+    /// <summary>The most one boss hit may take of the target's full health plus armour (ours: 0.75, so a player at full never dies of one hit, whatever his received-damage perks).</summary>
+    public const float MaxHitShare = 0.75f;
+
     /// <summary>Ground slam: the telegraph (design: 0.8 s), the radius it lands in (design: 6 m), its damage (design: 40, and a stagger), its cooldown
     /// (design: 10 s, counted from the telegraph; ours), the reach a player must be within to start it (ours) and the recovery after it lands (ours).</summary>
     public float SlamWindUp { get; init; } = 0.8f;
     public float SlamRadius { get; init; } = 9f;   // late batch 2026-11-06: his body 1.5x, the slam's reach with it (was 6; ours, an estimate)
-    public float SlamDamage { get; init; } = 60f;   // the owner, 2026-11-06: the Warboss 1.5x (was 40)
+    public float SlamDamage { get; init; } = 60f * DangerScale;   // the owner, 2026-11-06: the Warboss 1.5x (was 40); x1.5 again 2026-11-12 (DangerScale: 90)
     public float SlamCooldown { get; init; } = 10f;
     public float SlamTrigger { get; init; } = 6f;   // 1.5x with his body (was 4, inside the players' new ring of 4.3 m; ours)
     public float SlamRecover { get; init; } = 0.6f;
@@ -23,7 +32,7 @@ public sealed record MusouBossRules
     public float ChargeLength { get; init; } = 15f;
     public float ChargeSpeed { get; init; } = 12f;
     public float ChargeWidth { get; init; } = 2.25f;   // 1.5x with his body (was 1.5; ours, an estimate)
-    public float ChargeDamage { get; init; } = 75f;   // the owner, 2026-11-06: the Warboss 1.5x (was 50)
+    public float ChargeDamage { get; init; } = 75f * DangerScale;   // the owner, 2026-11-06: the Warboss 1.5x (was 50); x1.5 again 2026-11-12 (112.5)
     public float ChargeKnockback { get; init; } = 3f;
     public float ChargeKnockbackSeconds { get; init; } = 0.4f;
     public float ChargeCooldown { get; init; } = 12f;
@@ -137,6 +146,8 @@ public sealed class MusouBoss
             if (Action != MusouBossAction.None) { _sim.Script(Id, false); Action = MusouBossAction.None; ActionTicks = 0; }
             return;
         }
+        // A stun window (MusouSim.BossStun.cs, owner 2026-11-12) drops the ability under way (the sim already took the script and the drive off); nothing starts while it lasts.
+        if (_sim.BossStunned(Id)) { Action = MusouBossAction.None; ActionTicks = 0; _charged.Clear(); return; }
         ActionTicks++;
         switch (Action)
         {

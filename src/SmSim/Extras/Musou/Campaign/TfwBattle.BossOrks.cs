@@ -27,8 +27,8 @@ public static class TfwBossOrkRules
     /// Most alive at once and the share of the waits since 2026-11-10 (the owner: "double boss and elite enemy spawns", then "let there be up to 8 boss orks alive at the same time and make them spawn more
     /// often"): 8, and half the waits (first 30 to 60 s, next 45 to 90 s); <see cref="TfwBattleRules.OldBigSpawns"/>: <see cref="MaxAlive"/> and the full waits.
     /// </summary>
-    public static int MostAlive => TfwBattleRules.OldBigSpawns ? MaxAlive : 8;
-    public static float Interval => TfwBattleRules.OldBigSpawns ? 1f : 0.5f;
+    public static int MostAlive => TfwBattleRules.OldBigSpawns ? MaxAlive : 12;   // 8 until 2026-11-12 (owner: "make more bosses spawn"; ours: 12, a factor of 1.5 on the cap)
+    public static float Interval => TfwBattleRules.OldBigSpawns ? 1f : 0.25f;   // 0.5 until 2026-11-12 (owner: "make more bosses spawn"; ours: the waits halve again, so twice as often: first 15 to 30 s, next 22 to 45 s)
 }
 
 /// <summary>One Boss Ork that came (<see cref="TfwBattle.OnBossOrk"/>, the server's log): its id, kind, full health, where, and its retinue.</summary>
