@@ -30,7 +30,8 @@ public partial class NetworkView
     /// charge-cancel / charge-ally-bump restore switches <c>--old-charge-cancel</c> (a Grenade press ends the charge, S does not) and <c>--old-ally-bump</c> (the collision stop on an
     /// ally), the protocol 65 rules (the server needs the same: config hash).
     /// </summary>
-    static SimConfig WithChargeCancelArgs(SimConfig c) => (OldChargeCancelArg ? c with { ChargeBackCancel = false } : c) is var d && OldAllyBumpArg ? d with { ChargeAllyBump = false } : d;
+    static SimConfig WithChargeCancelArgs(SimConfig c) => ((OldChargeCancelArg ? c with { ChargeBackCancel = false } : c) is var d && OldAllyBumpArg ? d with { ChargeAllyBump = false } : d) is var f && OldStimUseArg ? f with { StimReliable = false } : f;
+    static readonly bool OldStimUseArg = OS.GetCmdlineUserArgs().Contains("--old-stim-use");
     static readonly bool OldChargeCancelArg = OS.GetCmdlineUserArgs().Contains("--old-charge-cancel");
     static readonly bool OldAllyBumpArg = OS.GetCmdlineUserArgs().Contains("--old-ally-bump");
     /// <summary>fix/charge-player-collision test aid <c>--old-body-contact</c> (the server needs it too: config hash): the protocol 56 body and charge contact rules.</summary>
