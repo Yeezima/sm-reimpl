@@ -16,16 +16,15 @@ namespace SmClient;
 /// </summary>
 public partial class NetworkView
 {
-    /// <summary>Heights above a crowd body's feet of the effects standing for the whole-body burn (m, ours).</summary>
-    static readonly float[] MeltaCrowdHeights = [0.25f, 0.7f, 1.1f, 1.5f];
-    /// <summary>The most sets one frame starts, and the farthest body that gets one (m; ours).</summary>
-    const int MeltaCrowdSets = 3;
-    const float MeltaCrowdMetres = 45f;
+    static float[] MeltaCrowdHeights => MeltaBurnRules.CrowdHeights;
+    const int MeltaCrowdSets = MeltaBurnRules.CrowdSetsPerFrame;
+    const float MeltaCrowdMetres = MeltaBurnRules.CrowdMetres;
 
     ulong _musouMeltaFrame;
     int _musouMeltaSets, _musouMeltaBurns, _musouMeltaSkipped;
 
-    /// <summary>The name of the weapon in hand of a killer (the own predicted state or a drawn player's), or null when unknown.</summary>
+    /// <summary>The name of the weapon in hand of a killer (the own predicted state or a drawn player's), or null when unknown. Read when the death is drawn, not at the shot
+    /// (as the gore's lascannon check): a killer who switched weapons in between is judged by the new one (accepted). A killer that is neither the own player nor a drawn player gets no burn (ours).</summary>
     string? MusouKillerInHand(ushort killer)
     {
         if (killer == 0 || _config is null || _client is null) return null;
