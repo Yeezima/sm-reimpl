@@ -39,8 +39,8 @@ public class TfwBossOrkTests
             Assert.Equal(MathF.Max(3000f, b.Health * 10f), s.Health);
             Assert.Equal(b.Radius * 3f, s.Radius, 4);
             Assert.Equal(b.Height * 3f, s.Height, 4);
-            Assert.Equal(b.MeleeDamage * 2f, s.MeleeDamage);
-            Assert.Equal(b.RangedDamage * 2f, s.RangedDamage);
+            Assert.Equal(b.MeleeDamage * 3f, s.MeleeDamage);   // 2x until 2026-11-12, then 1.5x again (MusouBossRules.DangerScale)
+            Assert.Equal(b.RangedDamage * 3f, s.RangedDamage);
             Assert.Equal(b.MeleeRange * 1.5f, s.MeleeRange, 4);
             Assert.Equal(1000, s.Points);
             Assert.True(s.Speed <= 4.4f);
@@ -57,9 +57,9 @@ public class TfwBossOrkTests
     {
         var rules = MusouRules.Default;
         Assert.Equal(15000f, rules.BossHealth);
-        Assert.Equal(60f, rules.Of(MusouEnemyType.Warboss).MeleeDamage);
-        Assert.Equal(60f, rules.Boss.SlamDamage);
-        Assert.Equal(75f, rules.Boss.ChargeDamage);
+        Assert.Equal(90f, rules.Of(MusouEnemyType.Warboss).MeleeDamage);   // 60 until 2026-11-12
+        Assert.Equal(90f, rules.Boss.SlamDamage);
+        Assert.Equal(112.5f, rules.Boss.ChargeDamage);
         Assert.True(rules.BossHealth >= 2f * MusouBossOrks.Kinds.Max(k => rules.Of(k).Health));
     }
 
@@ -144,7 +144,7 @@ public class TfwBossOrkTests
             battle.Step(FarPlayer);
             Assert.True(battle.BossOrks.Count <= TfwBossOrkRules.MostAlive);
         }
-        int most = TfwBossOrkRules.MostAlive;   // 8 since 2026-11-10 (2 before)
+        int most = TfwBossOrkRules.MostAlive;   // 12 since 2026-11-12 (8 since 2026-11-10, 2 before)
         Assert.Equal(most, arrivals.Count);   // 12 min with none killed: the most came, the next waits
         Assert.True(battle.BossOrkDueTick <= battle.BattleTicks);
         sim.Damage(arrivals[0].Id, 1, 1e7f, Vector3.Zero, out _);

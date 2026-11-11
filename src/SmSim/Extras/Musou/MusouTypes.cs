@@ -176,7 +176,7 @@ public sealed record MusouRules
         // Warboss: a scaled Nob for now (MU3: the slam, the charge, the Waaagh!, the enrage); health from BossHealth. The owner, 2026-11-06: noticeably stronger than the Boss Orks, 1.5x damage (swing 40 to 60).
         // Late batch 2026-11-06 (his body 1.5x, BossScale 3 to 4.5): the players are now kept off his drawn body (the ring at his scaled radius, 3.4 m), so his swing reaches 1.15 m past that
         // ring as before (2.8 m from a 1.65 m ring then; 5.4 m from 4.3 m now; ours, an estimate).
-        new(MusouEnemyType.Warboss, 15000f, 4.6f, 0.75f, 2.9f, 2000) { MeleeDamage = 60f, MeleePeriod = 2.2f, MeleeRange = 5.4f, MeleeStaggers = true },
+        new(MusouEnemyType.Warboss, 15000f, 4.6f, 0.75f, 2.9f, 2000) { MeleeDamage = 60f * MusouBossRules.DangerScale, MeleePeriod = 2.2f, MeleeRange = 5.4f, MeleeStaggers = true },
         // The Boss Orks (owner, 2026-11-06): each from its base above (MusouBossOrks.From), in the enum's order.
         MusouBossOrks.From(MusouEnemyType.BossBoy, Base(MusouEnemyType.Boy)),
         MusouBossOrks.From(MusouEnemyType.BossShootaBoy, Base(MusouEnemyType.ShootaBoy)),

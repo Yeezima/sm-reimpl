@@ -17,3 +17,4 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Melee attacks reach 20 percent further for every weapon, including the power spear's sweeps.
 - The Librarian can now zoom in with the aim button like every other class (the same zoom, the same speed). He can still cast while zoomed.
 - The autocannon's barrel now joins the body of the gun without a gap where it begins to stick out.
+- Ork bosses and the Warboss hit harder (about half again), though never hard enough to kill a full-health marine in one hit. A boss is now stunned for 5 seconds each time it drops to 80, 60, 40 and 20 percent health, so those are your windows to hit it. Boss Orks arrive about twice as often, up to 12 at a time. Power-ups still drop only from elites and bosses.

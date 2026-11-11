@@ -101,6 +101,7 @@ public sealed partial class MusouSim
         SpawnedCombat(i);   // MU3 (MusouCombat.cs): no script, no drive
         SpawnedSwarm(i);
         SpawnedWeirdboy(i);   // MusouSim.Weirdboy.cs: the shield, the cooldowns
+        SpawnedBossStun(i);   // MusouSim.BossStun.cs: the bosses' stun windows
         SpawnedSquig(i);   // MusouSim.Squig.cs: the fuse, the kick
         SpawnedStormboy(i); SpawnedBigShoota(i);   // expansion S3 (MusouSim.Stormboy.cs, MusouSim.BigShoota.cs)
         SpawnedMek(i);   // expansion S4 (MusouSim.Mek.cs)
@@ -174,6 +175,7 @@ public sealed partial class MusouSim
             if (state == MusouEnemyState.Knocked) { StepKnocked(i, targets, near); continue; }   // Campaign/MusouSim.Knock.cs: only a war's fodder falls
             if (state == MusouEnemyState.Airborne) { StepAirborne(i); continue; }   // a Stormboy's hop (MusouSim.Stormboy.cs)
             if (_type[i] == MusouEnemyType.ScrapMek) { StepMek(i, targets, near); continue; }   // he runs, hides and builds (MusouSim.Mek.cs)
+            if (_stunLeft[i] > 0 && StepBossStun(i)) { if (_cooldown[i] > 0) _cooldown[i]--; continue; }   // a boss's stun window (MusouSim.BossStun.cs)
             if (_type[i] == MusouEnemyType.Weirdboy && StepWeirdboy(i, targets, near, fight)) { if (_cooldown[i] > 0) _cooldown[i]--; continue; }   // his stun, cast and fade (MusouSim.Weirdboy.cs)
             if (_cooldown[i] > 0) _cooldown[i]--;
             if (StepFeared(i, targets, near)) continue;   // the Fear powerup: it runs from a feared player (MusouSim.Powerups.cs)
