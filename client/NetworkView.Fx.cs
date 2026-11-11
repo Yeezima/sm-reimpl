@@ -587,7 +587,7 @@ public partial class NetworkView
         if (hit != ShotHit.World && up && hitFx) ArmourSparks(end, dir, delay, victim);   // fx/bolt-tracer-impact
         if (hit != ShotHit.World && armourUp == false && hitFx) BloodSplashAt(end, dir, delay, victim);   // fx/red-glow-blood: no armour left, a red splash
         if (hit != ShotHit.World) CharacterFlashHit(victim, armourUp, end);   // fx/character-visuals (pvp-hit-fx: at the hit point): the victim's model flashes (NetworkView.CharacterFlash.cs); kept in Classic
-        if (hit != ShotHit.World && hitFx && MeltaBurnRules.IsMelta(w.Wargear))   // fix/melta-burn-onhit: the burn over the whole body, in the hit's own frame (NetworkView.MeltaBurn.cs)
+        if (hit != ShotHit.World && MeltaBurnOnHit && MeltaBurnRules.IsMelta(w.Wargear))   // fix/melta-burn-onhit: the burn over the whole body, in the hit's own frame (NetworkView.MeltaBurn.cs); owner 2026-11-11: only a kill burns (MeltaKillBurn), unless --melta-burn-on-hit (which burns on every hit, in Classic PvP too, without --player-hit-fx)
         {
             var burn = plays.FirstOrDefault(x => x.Name.Contains("dmg_burn_limb", StringComparison.OrdinalIgnoreCase));
             MeltaBurnBody(victim, w.Wargear, true, burn is null ? null : new EffectPlayLike(burn.Name, burn.Lifetime));

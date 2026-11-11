@@ -152,6 +152,7 @@ public partial class NetworkView
             if (MusouBigOrkRules.KeepsBody(d.Type, MusouCrowd.OldBigOrks)) gibbed = false;   // musou-big-ork-deaths (2026-11-09): an elite or boss is never torn apart; it falls with its death clip
             if (MusouGoreRules.Thrown(d.Cause)) MusouThrow(d, metres);   // a blast or barrage death always leaves a body, thrown through the gore's burst: a ragdoll near, else a tumbling body
             else if (MusouCorpseRules.LeavesBody(gibbed, burstDrawn, farUnseen: false, CrowdView.OldCorpses)) _musouCrowd!.AddBody(d, MusouDeathWaited(d.Id), keepSkeleton: !_musouOldDeaths);
+            MusouMeltaBurn(d, metres);   // the owner, 2026-11-11: the melta burns the body of a target it kills (NetworkView.MusouMeltaBurn.cs)
             var at = new Vector3(d.Position.X, d.Position.Y, d.Position.Z + 1.1f);
             if (GoreOff && at.DistanceTo(camera) <= MusouCrowd.NearMetres)   // the dark gore draws the death blood; the red glow only with --no-musou-gore
                 BloodSplashAt(_gameSpace!.Transform * at, -(_gameSpace.Transform.Basis * new Vector3(d.Push.X, d.Push.Y, d.Push.Z)), 0.0);

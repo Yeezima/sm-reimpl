@@ -7,8 +7,8 @@ namespace SmClient;
 
 /// <summary>
 /// classic-no-player-hit-fx (owner, 2026-11-11; client presentation only, no protocol or config-hash change): in Classic PvP a ranged hit on a player draws none of the on-hit
-/// particle effects on or at him (<see cref="PlayerHitFxRules"/>): <c>FxImpact</c> skips the armour-hit effects, the spark fans, the health-hit burst, the melta burn and the hit
-/// container for a body or head hit, <c>DetonationBodyHit</c> the armour-hit effects, and a break a shot caused plays no <c>sm_armor_break_shoulders</c>. The victim model's flash and
+/// particle effects on or at him (<see cref="PlayerHitFxRules"/>): <c>FxImpact</c> skips the armour-hit effects, the spark fans, the health-hit burst, the (on-hit) melta burn and the hit
+/// container for a body or head hit, <c>DetonationBodyHit</c> the armour-hit effects, (SUPERSEDED in part, owner's answers 2026-11-11, claude/hit-fx-answers: a break a shot caused plays <c>sm_armor_break_shoulders</c> again, the bare-armour model flash is back and the melta burns only on a kill; see <see cref="PlayerHitFxRules.DrawsBreakFx"/>, <see cref="PlayerHitFxRules.BareHitFlash"/>). The victim model's flash and
 /// glow, the sounds, the HUD, the tracer and the map's impacts are unchanged; Musou Mode keeps everything. <c>--player-hit-fx</c> restores the effects; <c>--log-hit-fx</c> logs a
 /// <c>HITFX classic</c> line for each hit and break left bare.
 /// </summary>
@@ -20,6 +20,13 @@ public partial class NetworkView
 
     /// <summary>The match's content flags (none before the config is in, which reads as Classic).</summary>
     ContentExtras MatchExtras => _config?.Extras ?? ContentExtras.None;
+
+    bool? _oldClassicHitFx;
+    /// <summary><c>--old-classic-hit-fx</c>: Classic PvP without the bare-armour model flash and without the break effect for a shot's break (the look of the morning of 2026-11-11).</summary>
+    bool OldClassicHitFxFlag => _oldClassicHitFx ??= CmdFlag(PlayerHitFxRules.OldLookFlag);
+
+    /// <summary>The brief model flash on a hit with no armour left (owner, 2026-11-11: "the model flash should come back on for bare-armor hits"); see <see cref="PlayerHitFxRules.BareHitFlash"/>.</summary>
+    bool BareHitFlashOn => PlayerHitFxRules.BareHitFlash(MatchExtras, PlayerHitFxFlag, OldClassicHitFxFlag, OldHealthHitFlag);
 
     int _classicBareHits, _classicBareBreaks;
     /// <summary>Players whose armour an own melee strike broke this frame (the hit report says so; their break effect stays).</summary>
@@ -40,7 +47,7 @@ public partial class NetworkView
     /// <summary>The armour's break effect on <paramref name="victim"/>, unless a shot broke it in Classic PvP.</summary>
     void ArmourBreakFxIfDrawn(int victim)
     {
-        if (PlayerHitFxRules.DrawsBreakFx(_meleeBreaks.Contains(victim), MatchExtras, PlayerHitFxFlag)) { ArmourBreakFx(victim); return; }
+        if (PlayerHitFxRules.DrawsBreakFx(_meleeBreaks.Contains(victim), MatchExtras, PlayerHitFxFlag, OldClassicHitFxFlag)) { ArmourBreakFx(victim); return; }
         _classicBareBreaks++;
         if (LogHitFx) GD.Print($"HITFX classic t {_connectedFor:F3}: no break effect on player {victim} (a shot broke the armour; total {_classicBareBreaks})");
     }

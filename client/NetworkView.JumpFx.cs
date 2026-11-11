@@ -41,6 +41,8 @@ public partial class NetworkView
         public EvadeDirection DashDirection;
         // fx/jumppack-jets: the ready jets (the highest action_idle_by_power entry, full power) faded by the jump's availability, over the base glow (the lowest, no power) on the ground.
         public readonly List<FxEffect> ReadyJets = new(), BaseGlow = new();
+        /// <summary>The one-shot launch flashes still alive: cut at once when the pilot dies (owner 2026-11-11), whose pack they were fixed to.</summary>
+        public readonly List<FxEffect> Flashes = new();
         public float JetLevel = float.NaN, BaseLevel = float.NaN;
         public double LastAt = double.NaN, LandedAt = double.NegativeInfinity, DashAt = double.NegativeInfinity;
         public bool WasJumping, Ready;
@@ -124,7 +126,8 @@ public partial class NetworkView
     /// <summary>The pack's one blue flash at the start of a move.</summary>
     void PackFlash(int id, JumpPackEffects effects)
     {
-        PlayOnPack(id, effects.Ascending, repeat: false, "flash", exhaust: true, flashOnly: true);
+        var flashes = PlayOnPack(id, effects.Ascending, repeat: false, "flash", exhaust: true, flashOnly: true);
+        if (_jumpFx.TryGetValue(id, out var track)) { track.Flashes.RemoveAll(e => e.Dead || e.Age >= e.Life); track.Flashes.AddRange(flashes); }
         _flashFx++;
         if (_client is not null && id == _client.PlayerId) FeelShotTrigger("jump");
     }
@@ -139,8 +142,14 @@ public partial class NetworkView
     static void StopAll(JumpFxTrack t)
     {
         Fade(t.Looping, JumpFxFade); Fade(t.Idle, 0.0); t.IdleLevel = float.NaN;
-        Fade(t.ReadyJets, 0.0); Fade(t.BaseGlow, 0.0); t.JetLevel = t.BaseLevel = float.NaN; t.LastAt = double.NaN;
+        Fade(t.ReadyJets, 0.0); Fade(t.BaseGlow, 0.0);
+        if (!OldPackDeathFlash) Fade(t.Flashes, 0.0);   // owner 2026-11-11: the pack's flash disappears when its pilot dies, never left in the air
+        t.JetLevel = t.BaseLevel = float.NaN; t.LastAt = double.NaN;
     }
+
+    static bool? _oldPackDeathFlash;
+    /// <summary><c>--old-pack-death-flash</c> (owner 2026-11-11, before / after): the pack's flashes stay where they were when the pilot dies, and the death's flash is fixed in the world.</summary>
+    static bool OldPackDeathFlash => _oldPackDeathFlash ??= CmdFlag("old-pack-death-flash");
 
     /// <summary><c>--old-pack-idle</c> (test aid, before / after): the idle glow by power on the ground only, as before fx/jumppack-jets.</summary>
     bool OldPackIdle => _oldPackIdle ??= OS.GetCmdlineUserArgs().Contains("--old-pack-idle");
