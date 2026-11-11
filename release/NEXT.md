@@ -21,3 +21,4 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Melee attacks reach 20 percent further for every weapon, including the power spear's sweeps.
 - The Librarian can now zoom in with the aim button like every other class (the same zoom, the same speed). He can still cast while zoomed.
 - The autocannon's barrel now joins the body of the gun without a gap where it begins to stick out.
+- The drop pod assault now crushes every Ork within 30 metres where it lands (three times an artillery strike's damage), the customizer's step is called SUPPORT ABILITIES, and the four Marines who step out each shout FOR THE EMPEROR a moment apart, never all at once. Everyone has to update (a new network version).

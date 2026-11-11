@@ -88,7 +88,7 @@ public static class MusouCustomizer
     public static MusouEntryInfo Info(MusouCustomizerEntry entry) => Entries.First(e => e.Entry == entry);
 
     /// <summary>The Librarian's steps (the creator's five step buttons: class, weapons, his powers and equipment in the equipment's place, perks, look).</summary>
-    public static readonly IReadOnlyList<string> LibrarianSteps = ["CLASS", "WEAPONS", "POWERS", "PERKS", "LOOK", "SUPPORT"];
+    public static readonly IReadOnlyList<string> LibrarianSteps = ["CLASS", "WEAPONS", "POWERS", "PERKS", "LOOK", "SUPPORT ABILITIES"];
 
     /// <summary>The step that shows the support ability (owner, 2026-11-12; the same sixth step the marines' page has after PERKS).</summary>
     public const int SupportStep = 5;
@@ -99,7 +99,7 @@ public static class MusouCustomizer
     /// </summary>
     public static IReadOnlyList<MusouSection> SupportRows(MusouSupport chosen) =>
     [
-        new("SUPPORT ABILITY (B)",
+        new("SUPPORT ABILITIES (B)",
         [
             new("Artillery strike", "B marks a point with the laser designator; a walking barrage of shells follows a second later and kills the Orks it touches. 60 s cooldown in a battle (the same cooldown for both support abilities; none at the Firing Range).",
                 MusouRowKind.Choice, "support:" + MusouSlots.SupportName(MusouSupport.Artillery), chosen == MusouSupport.Artillery),

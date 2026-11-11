@@ -97,7 +97,7 @@ public class MusouCustomizerTests
     [Fact]
     public void The_librarian_page_has_six_steps_each_with_rows()
     {
-        Assert.Equal(["CLASS", "WEAPONS", "POWERS", "PERKS", "LOOK", "SUPPORT"], MusouCustomizer.LibrarianSteps);
+        Assert.Equal(["CLASS", "WEAPONS", "POWERS", "PERKS", "LOOK", "SUPPORT ABILITIES"], MusouCustomizer.LibrarianSteps);
         for (int step = 0; step < MusouCustomizer.LibrarianSteps.Count; step++)
         {
             var sections = MusouCustomizer.LibrarianStep(step, "CUSTOM 1 \"Bolter line\"", Librarian);

@@ -7,8 +7,8 @@ namespace SmSim;
 /// <summary>
 /// The drop pod assault in the World (Musou Mode's second support ability; docs/drop-pod-assault.md; owner, 2026-11-12): a player's call, the pod's touchdown (the clients draw the fall from tag 11's
 /// <see cref="TfwFireKind.Pod"/> record), the four Tactical Marines it brings (<see cref="MarineRole.Pod"/>: puppets, the AI Marine system), their 30 s fight at the pod, their retreat to the Imperial HQ and
-/// their end. Runs from <c>TfwFireStep</c> (a battle, or the Firing Range). The pod and its Marines hurt no friend; the touchdown kills the ordinary enemies within
-/// <see cref="TfwDropPodRules.CrushRadius"/> (ours; open owner question).
+/// their end. Runs from <c>TfwFireStep</c> (a battle, or the Firing Range). The pod and its Marines hurt no friend; the touchdown kills every enemy within
+/// <see cref="TfwDropPodRules.CrushRadius"/> (30 m) at <see cref="TfwDropPodRules.CrushDamageFactor"/> (3) x a shell's damage (owner 2026-11-12).
 /// </summary>
 public sealed partial class World
 {
@@ -95,7 +95,7 @@ public sealed partial class World
         }
     }
 
-    /// <summary>The touchdown: every ordinary enemy within <see cref="TfwDropPodRules.CrushRadius"/> dies (a boss is scratched), as a shell's kills; nobody on our side is hurt.</summary>
+    /// <summary>The touchdown: every enemy within <see cref="TfwDropPodRules.CrushRadius"/> takes 3 x a shell's damage (ordinary ones die) (a boss takes 3 x a shell's 30), as a shell's kills; nobody on our side is hurt.</summary>
     void TfwPodCrush(TfwPod pod)
     {
         var musou = _musou;
@@ -110,7 +110,7 @@ public sealed partial class World
             var away = new Vector2(e.Position.X - pod.At.X, e.Position.Y - pod.At.Y);
             float distance = away.Length();
             var push = distance > 1e-3f ? away / distance : new Vector2(-MathF.Sin(e.Yaw), MathF.Cos(e.Yaw));
-            float damage = (e.Id == _tfw!.Battle?.BossId || MusouBossOrks.Is(e.Type) ? TfwFireRules.BossDamage : MathF.Max(e.Health, 1f)) * ranged;
+            float damage = (e.Id == _tfw!.Battle?.BossId || MusouBossOrks.Is(e.Type) ? TfwFireRules.BossDamage : MathF.Max(e.Health, 1f)) * TfwDropPodRules.CrushDamageFactor * ranged;
             musou.Damage(e.Id, 0, damage, new Vector3(push, 0.8f), out bool killed, marker: 0, cause: MusouDeathKind.Barrage);
             if (killed) _tfw.Fire.ShellKills++;
         }

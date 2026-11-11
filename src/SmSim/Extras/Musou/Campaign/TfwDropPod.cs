@@ -24,12 +24,32 @@ public static class TfwDropPodRules
     public const float FallenSeconds = 3f;
     /// <summary>The pod stays on the ground this long after the last Marine has gone (s; ours).</summary>
     public const float WreckSeconds = 2f;
-    /// <summary>The touchdown kills every ordinary enemy within this (m; ours: the owner did not say), a boss takes <see cref="TfwFireRules.BossDamage"/>; it never hurts a player, an AI Marine or a Guardsman.</summary>
-    public const float CrushRadius = 6f;
+    /// <summary>The touchdown (owner 2026-11-12: "kill Orks in a 30m radius 3x the damage of a single artillery strike"): every enemy within this (m) takes <see cref="CrushDamageFactor"/> times what one shell deals it, the same shape as a shell's (flat damage inside the sphere, no fall-off: a shell kills every ordinary enemy outright, so the pod does; a boss takes 3 x <see cref="TfwFireRules.BossDamage"/> = 90); it never hurts a player, an AI Marine or a Guardsman.</summary>
+    public const float CrushRadius = 30f;
+    /// <summary>The factor on a shell's per-target damage (health for an ordinary enemy, <see cref="TfwFireRules.BossDamage"/> for a boss, then the caller's ranged scale), the owner's "3x".</summary>
+    public const float CrushDamageFactor = 3f;
     /// <summary>A call at a point nearer than this to the caller is refused (m; ours).</summary>
     public const float MinCallerDistance = 10f;
     /// <summary>The Marines come out round the pod at this radius (m; ours: the door ring of the hull's 3.6 m radius).</summary>
     public const float DoorRing = 5f;
+    /// <summary>The pod Marines' "For the Emperor" (owner 2026-11-12: "slightly staggered ... not in unison"): each Marine starts his cry this long after the one before (s; ours, a gap drawn in this range per Marine), the first this long after stepping out.</summary>
+    public const float ShoutGapMin = 0.15f, ShoutGapMax = 0.35f;
+
+    /// <summary>
+    /// Seconds after the Marines step out that Marine <paramref name="index"/> (0 to <see cref="Marines"/> - 1) begins his cry: the sum of the gaps up to him, each a hash of (<paramref name="seed"/>, number) between
+    /// <see cref="ShoutGapMin"/> and <see cref="ShoutGapMax"/>, so every client agrees, the order is the index and no two start together.
+    /// </summary>
+    public static float ShoutDelay(uint seed, int index)
+    {
+        float at = 0f;
+        for (int k = 0; k <= index; k++)
+        {
+            uint h = (seed + 1u) * 2654435761u ^ (uint)(k + 1) * 2246822519u;
+            h ^= h >> 15; h *= 2654435761u; h ^= h >> 13;
+            at += ShoutGapMin + (h & 0xffffu) / 65535f * (ShoutGapMax - ShoutGapMin);
+        }
+        return at;
+    }
     /// <summary>The Marines' scoreboard names (placeholders, labelled so).</summary>
     public static readonly string[] Names = ["Pod Brother Aurelio", "Pod Brother Cato", "Pod Brother Decimus", "Pod Brother Eusebio"];
 }
