@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2983 spec table rows: **2229 tagged**, 524 not tagged (read from data with high confidence), 230 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 661 rows of the changes document.
+Scanned 2985 spec table rows: **2230 tagged**, 525 not tagged (read from data with high confidence), 230 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 662 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -42,7 +42,7 @@ Scanned 2983 spec table rows: **2229 tagged**, 524 not tagged (read from data wi
 | Camera (critical) | 55 | 53 | 44 | 22 | 0 |
 | HUD and hit feedback (critical) | 71 | 66 | 52 | 11 | 0 |
 | Sound mix (critical) | 69 | 63 | 61 | 11 | 0 |
-| Effects (critical) | 89 | 79 | 74 | 40 | 0 |
+| Effects (critical) | 90 | 80 | 75 | 40 | 0 |
 | Game modes | 42 | 39 | 38 | 19 | 1 |
 | Perks | 59 | 48 | 31 | 25 | 0 |
 | Death and ragdoll | 14 | 10 | 12 | 10 | 0 |
@@ -53,15 +53,15 @@ Scanned 2983 spec table rows: **2229 tagged**, 524 not tagged (read from data wi
 | Core simulation (provisional values) | 668 | 630 | 477 | 174 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 235 | 224 | 126 | 63 | 0 |
-| **All areas** | **2229** | 1966 | 1662 | 697 | 38 |
+| **All areas** | **2230** | 1967 | 1663 | 697 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1261 |
+| kind: ours | 1262 |
 | confidence: low | 803 |
-| confidence: medium | 730 |
+| confidence: medium | 731 |
 | notes: ours | 403 |
 | kind: interpretation | 372 |
 | notes: estimate | 179 |
@@ -1788,7 +1788,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-E206209F` | Stalker confirm level and placement | on the shooter, 2D, at the data's level: no distance falloff (`HitConfirmDistanceDb`, which took -18 dB from 40 m), no mix-pass +4 dB or 250 Hz high-pass (most of the smack's energy is under 150 Hz); the victim's material (ceramite_armour or flesh); with… (dB) | kind: interpretation; confidence: medium | the event's actions 1-2 are non-positioned with no distance curve | Stalker confirm level and placement: compare with SM1 by listening A/B at the same distance and state. Ours: on the shooter, 2D, at the data's level: no distance falloff… | ☐ |
 | `R-90DE024A` | Stalker confirm in Musou | an own Stalker / Daemon Eye Bolter hit on an Ork (predicted contact or server hit, one a shot through the gun-sound budget) posts `play_stalker_smack` on the shooter (flesh, ceramite_armour for an armoured Ork); the wet bolter smack at the Ork is not played… | kind: interpretation; confidence: medium; notes: ours | owner 2026-11-09; that Ork hits confirm as player hits do is ours | Stalker confirm in Musou: compare with SM1 by listening A/B at the same distance and state. Ours: an own Stalker / Daemon Eye Bolter hit on an Ork (predicted contact… | ☐ |
 
-### Effects (gameplay-critical) (89)
+### Effects (gameplay-critical) (90)
 
 *Spec section: Jump-pack feel: fuel, air control, the air slash and impact effects (feel/jump-pack; protocol 31, used by the simulation)*
 
@@ -1908,6 +1908,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-C7827821` | Fight off-screen (Musou) | near a human, an army's remainder beyond the real caps (480 Orks, 28 squads) fights on in the far clash at its point or the base; the real units a human can see take the aggregates' fire but put out none there (their fire is real already: expansion S6's rule… | kind: ours; confidence: low | the owner, 2026-11-08 ("fight off-screen"); the rout fixes ours | Fight off-screen (Musou): compare with SM1 with side-by-side video of the same action. Ours: near a human, an army's remainder beyond the real caps (480 Orks, 28… | ☐ |
 | `R-566447DD` | Base is a target (Musou) | with no position Imperial a wave leaves for the Imperial base (goal `LandingGoal`) instead of waiting; a wave whose point fell with no other Imperial position goes there too; at the base it attacks (real Orks loose as a pack, its remainder clashes with the… (m, s) | kind: ours; confidence: medium | the owner, 2026-11-08 ("base is a target"); 20 m ours | Base is a target (Musou): compare with SM1 with side-by-side video of the same action. Ours: with no position Imperial a wave leaves for the Imperial base (goal… | ☐ |
 | `R-0364AED2` | Ashfall grime: EXACT or FAST (Musou, Graphics option) | Options > Graphics > Ashfall grime: EXACT (OVERLAY), the default, draws the grime as the overlay pass as before; FAST (FOLDED, WEAK GPUS) gives each kit surface a derived shader (its standard material's albedo, vertex colour, normal map, roughness, metallic… | kind: ours; confidence: medium | the owner, 2026-11-08 ("option in Graphics"); the derived shader ours | Ashfall grime: EXACT or FAST (Musou, Graphics option): compare with SM1 with side-by-side video of the same action. Ours: Options > Graphics > Ashfall grime: EXACT (OVERLAY), the default… | ☐ |
+
+*Spec section: No on-hit effects on shot players in Classic PvP (claude/classic-no-player-hit-fx, 2026-11-11; client only, not simulated, no protocol or config-hash change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-47A4E040` | What stays on a shot player (Classic PvP) | The victim model's own flash and glow are kept (the yellow hit spot, the engulfing red glow when the armour breaks, the regeneration glow: a shader on the model, not an effect, and the "shot look" of the owner's reference images of the original); the armour… | kind: ours; confidence: medium | our reading of the owner's request, to confirm with him | What stays on a shot player (Classic PvP): compare with SM1 with side-by-side video of the same action. Ours: The victim model's own flash and glow are kept (the yellow hit spot… | ☐ |
 
 ### Game modes (42)
 
@@ -3202,7 +3208,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-A8370751` | What the GPU draws (Musou) | the ring sprites and streamers a spray's particles carry, directly or under one combo there, when the spray does not loop, its effect does not repeat and has no soft-headed streamers, and it is not a dropper of an effect that runs collisions (a spray inside… | kind: ours | ours (implementation; the look is the CPU path's) | What the GPU draws (Musou): compare with SM1 by feel or video. Ours: the ring sprites and streamers a spray's particles carry, directly or… | ☐ |
-| `R-FFCC7211` | Live-effect cap with the GPU sprays (Musou) | **600** shot, hit and blast effects (was **1,200** until 2026-11-11; CPU path: 160); `--fx-cap N` overrides (`--fx-cap 1200` for the old cap). Why: the polish pass P3 measured the 200-death burst frame at 38.8 ms with 1,200 and 32.4 ms with 400 (the effect… (count) | notes: ours | owner 2026-11-11: "Drop to 600 blood spray cap" (1,200 was ours, measured, see the milestone) | Live-effect cap with the GPU sprays (Musou): compare with SM1 by feel or video. Ours: 600 shot, hit and blast effects (was 1,200 until 2026-11-11; CPU… | ☐ |
+| `R-FFCC7211` | Live-effect cap with the GPU sprays (Musou) | **1,200** shot, hit and blast effects (600 for a few hours on 2026-11-11, rolled back by the owner the same day; CPU path: 160); `--fx-cap N` overrides. Why: the polish pass P3 measured the 200-death burst frame at 38.8 ms with 1,200 and 32.4 ms with 400 (the… (count) | notes: ours | owner 2026-11-11: "roll back the blood spray cap in musou mode" (after "Drop to 600 blood spray cap" the same morning; 1,200 is ours, measured, see the… | Live-effect cap with the GPU sprays (Musou): compare with SM1 by feel or video. Ours: 1,200 shot, hit and blast effects (600 for a few hours on 2026-11-11… | ☐ |
 | `R-37A5A2B6` | GPU pools (Musou) | **131,072** records per blend (additive, alpha: 256 layers of 512 records; a layer is uploaded when a record in it changes), **8,192** live sprays; blocks are handed out in powers of two (a freed block is reused by the next of its size; the pool starts over… (count) | kind: ours | ours | GPU pools (Musou): compare with SM1 by feel or video. Ours: 131,072 records per blend (additive, alpha: 256 layers of 512… | ☐ |
 | `R-9142E6C0` | Burst hitch and dropped sprays (Musou, playtest check) | in the burst stress (200 Orks killed by one blast every 4 s) the GPU path's worst burst frame is **63.6 ms** median (CPU path 53.4 ms; p99 54.7 against 41.7 ms) and **34,192** sprays were dropped by the full alpha pool (a dropped spray draws none of its GPU… (ms, count) | kind: ours; confidence: low | measured (`tools\musou-perf.ps1 burst`, see the milestone) | Burst hitch and dropped sprays (Musou, playtest check): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: in the burst stress (200 Orks killed by one blast every 4 s) the GPU… | ☐ |
 | `R-3B45C8AA` | GPU sprays on old GPUs (Musou) | safe mode (the Compatibility renderer or `--safe-mode`) keeps the CPU path and its 160-effect cap; a texture array the renderer cannot make falls back to the CPU path | kind: ours; confidence: medium | ours (review of 2026-11-10) | GPU sprays on old GPUs (Musou): compare with SM1 by feel or video. Ours: safe mode (the Compatibility renderer or --safe-mode) keeps the CPU… | ☐ |
@@ -4052,6 +4058,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-412DE228` | Sound mix pass: jump pack tail faded | `play_sm_jump_pack_launch` plays a burst and two thrust layers for 1.7 to 2.4 s | each voice of the launch and apex posts holds full level for 0.5 s, then fades over 0.3 s to -15 dB | the owner (2026-11-06): "the intial sound is fine, but any echoes/reverb or extra something after that should be deeply diminished"; times and depth ours; same spec section | Sound mix pass: jump pack tail faded: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-F25E317A` | Sound loudness: everything louder and heard farther (sound/louder-farther, 2026-11-08) | The data's mix as it is: a remote bolter shot -25.5 dB at the voice at 5 m, -60.9 dB at 60 m; each sound fades by its bank curve | every sound +9 dB and every bank distance curve read at the distance / 2.5 (a sound at 30 m has the data's level of 12 m); distance never takes a sound below 20 % of its amplitude up close (-14 dB) and nothing is cut at a curve's end; melee weapons' on-hit sounds a further 2x (+6 dB); both modes, the loyalist barks… | the owner (2026-11-08): "clearly hearable and relatively much louder from much further away", "make everything much louder", "sounds should scale down to 20% of their normal sound when turned down by distance" (read as amplitude, ours), "raise melee weapon on hit sounds by 2X ... the same treatment as we did for… | Sound loudness: everything louder and heard farther…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-548F13D7` | Plasma reticles stay still while charging (fix/plasma-reticle-still) | The plasma gun's, plasma pistol's and plasma cannon's reticle clips (`plasmaidle_mc`, `plasmapistol_mc`, `plasma_cannon_mc` and their active versions in `Hud.gfx`) have charge frames (`alt_fire_fade` .. `alt_fire`) that turn the reticle; we played them by the charge | the reticle stays on its first frame (no turning); only the charge arc and the heat arc move; `--old-plasma-spin` plays the charge frames again | **Owner's request 2026-11-06** ("there should be no spinning of crosshairs or reticule. it should stay still. only the charge meter/heat bar moves."); spec "Reticles: charge and brace" | Plasma reticles stay still while charging…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
+| `C-A9F35B16` | No on-hit effects on shot players (claude/classic-no-player-hit-fx; Classic PvP only, client only) | A ranged hit on a player plays the weapon's hit container and the player blueprint's armour-hit effects at him (impact flashes, sparks, glows, the break effect `sm_armor_break_shoulders`) | In Classic PvP a ranged hit on a player draws none of them, nor our own additions (the spark fans, the health-hit burst that read as the "stalker bolter explosion cloud", the melta's whole-body burn); the victim model's own flash and glow, the sounds, the HUD, the tracer and the map's impacts stay; ours: the model's… | **Owner's request 2026-11-11** ("simply remove instances of weapon on hit visual effects like the stalker bolter explosion cloud on the player target you shot and hit - classic pvp only"); spec "No on-hit effects on shot players in Classic PvP" | No on-hit effects on shot players…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 
 ### Our choices where the original is unknown
 

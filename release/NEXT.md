@@ -9,6 +9,9 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Leave out changes a tester cannot notice (tooling, docs, refactors). Optional "### " headings group long lists.
 - Add your bullets in the same pull request as the change, when it merges.
 -->
+### Classic PvP
+- Shooting another player no longer draws hit effects on him: no fiery burst and smoke cloud (the Stalker Bolter's was the biggest), no sparks, flashes or burning. You still see his armour flash and glow, hear the hit and get the hit marker; shots that miss still mark the walls and floor.
+
 ### Musou Mode
 - The Librarian's chain lightning now leaps twice as far from Ork to Ork (up to 16 m) and no longer weakens down the chain: every Ork it strikes, the last as the first, takes the full damage.
 - Orbital strikes you call now do 20 % more damage to the Orks too, which bosses feel most (ordinary Orks die in the blast either way).

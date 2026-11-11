@@ -348,3 +348,71 @@ public class HitDecalRulesTests
     public void Player_hit_draws_no_decal_world_hit_does(SmSim.ShotHit hit, int victim, bool decal) =>
         Assert.Equal(decal, HitDecalRules.DrawsContainer(hit, victim));
 }
+
+/// <summary>classic-no-player-hit-fx (owner, 2026-11-11): Classic PvP draws no on-hit effects on a player a shot struck; Musou Mode and the restore flag draw them all.</summary>
+public class PlayerHitFxRulesTests
+{
+    const SmSim.ContentExtras Faithful = SmSim.ContentExtras.None;
+    const SmSim.ContentExtras Extended = SmSim.ContentExtras.Orks | SmSim.ContentExtras.Gore | SmSim.ContentExtras.LoyalistBarks;
+    const SmSim.ContentExtras Musou = SmSim.ContentExtras.Musou;
+
+    [Theory]
+    [InlineData(SmSim.ShotHit.Body, Faithful)]
+    [InlineData(SmSim.ShotHit.Head, Faithful)]
+    [InlineData(SmSim.ShotHit.Body, Extended)]   // Annihilation or Seize Ground with added content (the Ork Boy) is Classic too
+    [InlineData(SmSim.ShotHit.Head, Extended)]
+    public void Classic_draws_no_hit_effects_on_a_player(SmSim.ShotHit hit, SmSim.ContentExtras extras)
+    {
+        Assert.True(PlayerHitFxRules.Classic(extras));
+        Assert.False(PlayerHitFxRules.DrawsHitFx(hit, extras, restore: false));
+    }
+
+    [Theory]
+    [InlineData(SmSim.ShotHit.Body)]
+    [InlineData(SmSim.ShotHit.Head)]
+    [InlineData(SmSim.ShotHit.World)]
+    public void Musou_draws_them_all(SmSim.ShotHit hit)
+    {
+        Assert.False(PlayerHitFxRules.Classic(Musou));
+        Assert.True(PlayerHitFxRules.DrawsHitFx(hit, Musou, restore: false));
+        Assert.True(PlayerHitFxRules.DrawsBreakFx(melee: false, Musou, restore: false));
+    }
+
+    [Theory]
+    [InlineData(Faithful)]
+    [InlineData(Extended)]
+    [InlineData(Musou)]
+    public void A_shot_on_the_map_keeps_its_effects_in_every_mode(SmSim.ContentExtras extras)
+    {
+        Assert.True(PlayerHitFxRules.DrawsHitFx(SmSim.ShotHit.World, extras, restore: false));
+        Assert.True(PlayerHitFxRules.DrawsHitFx(SmSim.ShotHit.None, extras, restore: false));
+    }
+
+    [Theory]
+    [InlineData(SmSim.ShotHit.Body, Faithful)]
+    [InlineData(SmSim.ShotHit.Head, Extended)]
+    public void The_restore_flag_brings_them_back_in_Classic(SmSim.ShotHit hit, SmSim.ContentExtras extras)
+    {
+        Assert.Equal("player-hit-fx", PlayerHitFxRules.RestoreFlag);
+        Assert.Contains(PlayerHitFxRules.RestoreFlag, SmNet.LeanBot.PresentationAids);   // a bot given it loads the presentation, like the other before / after switches
+        Assert.True(PlayerHitFxRules.DrawsHitFx(hit, extras, restore: true));
+        Assert.True(PlayerHitFxRules.DrawsBreakFx(melee: false, extras, restore: true));
+    }
+
+    [Fact]
+    public void A_break_a_shot_caused_plays_no_break_effect_in_Classic_a_melee_break_does()
+    {
+        Assert.False(PlayerHitFxRules.DrawsBreakFx(melee: false, Faithful, restore: false));
+        Assert.False(PlayerHitFxRules.DrawsBreakFx(melee: false, Extended, restore: false));
+        Assert.True(PlayerHitFxRules.DrawsBreakFx(melee: true, Faithful, restore: false));
+    }
+
+    [Fact]
+    public void A_classic_body_hit_is_bare_whatever_the_victim_id_while_the_map_rule_is_unchanged()
+    {
+        // HitDecalRules keeps drawing the container for a body hit with no player id (a Musou enemy); the Classic rule stops it first for any body or head hit.
+        Assert.True(HitDecalRules.DrawsContainer(SmSim.ShotHit.Body, -1));
+        Assert.False(PlayerHitFxRules.DrawsHitFx(SmSim.ShotHit.Body, Faithful, restore: false));
+        Assert.True(PlayerHitFxRules.OnPlayer(SmSim.ShotHit.Head) && !PlayerHitFxRules.OnPlayer(SmSim.ShotHit.World) && !PlayerHitFxRules.OnPlayer(SmSim.ShotHit.None));
+    }
+}

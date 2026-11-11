@@ -29,6 +29,7 @@ public class LeanBotTests
     [InlineData("--bot-gait")]
     [InlineData("--log-sound")]
     [InlineData("--aim-test")]
+    [InlineData("--player-hit-fx")]   // classic-no-player-hit-fx: the restore switch is presentation only
     public void A_presentation_test_aid_loads_everything(string aid) =>
         Assert.False(LeanBot.Decide(bot: true, "headless", BotArgs.Append(aid)));
 

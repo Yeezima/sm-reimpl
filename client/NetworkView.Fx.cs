@@ -581,15 +581,18 @@ public partial class NetworkView
             plays = [];
         }
         if (hit != ShotHit.World || plays.Count > 0) _probeImpactAny = true;   // fx/tracers-impact: --tracer-probe (armour glows, sparks, flashes and the hit container all count)
-        if (hit != ShotHit.World) FxArmourHit(up, end, dir, victim, delay);
-        if (hit != ShotHit.World && up) ArmourSparks(end, dir, delay, victim);   // fx/bolt-tracer-impact
-        if (hit != ShotHit.World && armourUp == false) BloodSplashAt(end, dir, delay, victim);   // fx/red-glow-blood: no armour left, a red splash
-        if (hit != ShotHit.World) CharacterFlashHit(victim, armourUp, end);   // fx/character-visuals (pvp-hit-fx: at the hit point): the victim's model flashes (NetworkView.CharacterFlash.cs)
-        if (hit != ShotHit.World && MeltaBurnRules.IsMelta(w.Wargear))   // fix/melta-burn-onhit: the burn over the whole body, in the hit's own frame (NetworkView.MeltaBurn.cs)
+        // classic-no-player-hit-fx (owner, 2026-11-11): in Classic PvP a hit on a player draws none of the on-hit effects below, only the model's own flash (PlayerHitFxRules; --player-hit-fx restores)
+        bool hitFx = HitFxDrawn(hit, w.Wargear, victim);
+        if (hit != ShotHit.World && hitFx) FxArmourHit(up, end, dir, victim, delay);
+        if (hit != ShotHit.World && up && hitFx) ArmourSparks(end, dir, delay, victim);   // fx/bolt-tracer-impact
+        if (hit != ShotHit.World && armourUp == false && hitFx) BloodSplashAt(end, dir, delay, victim);   // fx/red-glow-blood: no armour left, a red splash
+        if (hit != ShotHit.World) CharacterFlashHit(victim, armourUp, end);   // fx/character-visuals (pvp-hit-fx: at the hit point): the victim's model flashes (NetworkView.CharacterFlash.cs); kept in Classic
+        if (hit != ShotHit.World && hitFx && MeltaBurnRules.IsMelta(w.Wargear))   // fix/melta-burn-onhit: the burn over the whole body, in the hit's own frame (NetworkView.MeltaBurn.cs)
         {
             var burn = plays.FirstOrDefault(x => x.Name.Contains("dmg_burn_limb", StringComparison.OrdinalIgnoreCase));
             MeltaBurnBody(victim, w.Wargear, true, burn is null ? null : new EffectPlayLike(burn.Name, burn.Lifetime));
         }
+        if (!hitFx) return;   // classic-no-player-hit-fx: nor the hit container, whatever the victim's id (a Classic body hit is always a player)
         if (!HitDecalRules.DrawsContainer(hit, victim)) return;   // fix/hit-decals-map-only (owner, 2026-11-08): a shot that hits a player leaves no decal; the container is for the map
         if (plays.Count == 0) return;
         _fxImpacts++;
