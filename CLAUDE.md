@@ -77,6 +77,10 @@ ship.cmd [-DryRun] [-Playtest]        :: owner's one-command playtest release (d
 ```
 The full reference of every command, flag and test aid is in `docs/commands.md`.
 
+Tool choice: use the Graphify MCP server (`graphify.cmd`, docs/commands.md "Graphify (code graph)") for impact, caller and implementer questions across
+projects and partial classes before changing shared sim or net code; its edges are name-based leads, so confirm every one with Grep; the `Extras*`
+partial-method hooks are a blind spot. Not for single-file or text work (Grep and Read). The lead refreshes the index (`graphify.cmd index`) after each ff of `main`.
+
 ## Alpha scope (set by the user, 2026-10-27)
 Only Annihilation and Seize Ground; no other modes for now (Exterminatus deferred). Customizer: in since 2026-10-28 (owner's
 request): a custom-class creator with 10 slots and a character (armour) customizer, matching the original in all but style.

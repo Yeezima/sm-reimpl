@@ -110,3 +110,8 @@ SOFTWARE.
 - GameExtractor (https://github.com/wattostudios/GameExtractor, `Plugin_OPPC_OBPK.java`; GPL-2.0+, as stated by the project at the
   time of consultation) and aluigi's QuickBMS script `warhammer_40000_oppc.bms` v0.2 were read as format evidence for the OPPC / OBPK
   archive layout (docs/discovery.md, "OPPC / OBPK archives"). No code was copied; `src/SmFormats/Obpk` is an independent implementation.
+
+## Graphify (development tool, not distributed)
+
+- The `graphifyy` Python package (Apache-2.0), installed per machine by `graphify.cmd setup` for code-impact queries (docs/commands.md,
+  "Graphify (code graph)"). It is not part of the repository, any build or any release.

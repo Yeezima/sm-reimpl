@@ -212,3 +212,28 @@ None yet.
 
 ### W4: the Remote Detonators
 None yet.
+
+## Graphify (code graph)
+
+Graphify (Python, Apache-2.0, pinned `graphifyy[mcp]==0.9.106`) builds a code-only graph of the repository (calls, implementers, partial
+classes) for change-impact questions. Owner decision 2026-11-11; a dev tool, never shipped or run by the game, servers or tests.
+
+```bat
+graphify.cmd setup                    :: create or repair the pinned venv under %LOCALAPPDATA%\sm-reimpl\tools\graphify-venv (idempotent; prints the version; needs Python 3 on the PC)
+graphify.cmd index                    :: incremental code-only update of THIS checkout into graphify-out\ (git-ignored; about 30 s the first time); writes graphify-out\index-head.txt (the HEAD indexed)
+graphify.cmd serve                    :: stdio MCP server (10 read-only tools); .mcp.json and .claude/settings.json start and pre-approve it in the main checkout and in worktrees
+graphify.cmd affected "src/SmSim/Combat.cs::Combat.StepPlayer()"       :: callers and dependants (reverse traversal; tests included)
+graphify.cmd explain "src/SmSim/Combat.cs::Combat.StepPlayer()" --all  :: a node with all its edges
+graphify.cmd path "A" "B"  |  graphify.cmd query "<question>"          :: shortest path between two nodes; BFS (a broad query truncates)
+```
+- **Refresh routine:** the lead runs `graphify.cmd index` in the main checkout after each fast-forward of `main`. An agent runs it in its own
+  worktree only when it needs its own changes in the graph. `serve` uses the checkout's `graphify-out\graph.json`, else the main checkout's
+  (found through the common dir of the repository), and prints a one-line warning on stderr when the index HEAD differs from the checkout HEAD
+  (stdout is the MCP channel). With the venv missing it fails at once with a message on stderr: run `setup`.
+- **Privacy (mandatory):** every graphify process runs with a clean environment (only PATH to the venv and system32, SYSTEMROOT, USERPROFILE, TEMP,
+  TMP, LOCALAPPDATA) plus `GRAPHIFY_BACKEND=none`, so no LLM backend or key is ever picked up; code only (`.graphifyignore` leaves out docs, specs,
+  JSON, config, `.claude/`, build output). Use it only through `graphify.cmd`; never run `graphify install`, `hook install`, `watch`, `clone` or
+  `add`, and never use a hosted endpoint. `SM_GRAPHIFY_VENV` overrides the venv folder (failure-path tests only).
+- **Blind spots:** edges are name-based leads: confirm each with Grep. The `Extras*` partial-method hooks (the declaration is not linked to the
+  implementation; a call site resolves to only one of them); three files with newer C# syntax are partly unparsed (`src/SmContent/WeaponTuning.cs`,
+  `src/SmSim/ContentExtras.cs`, `src/SmTool/Program.cs`); ambiguous names need the `path::Symbol()` form; a broad `query_graph` truncates.

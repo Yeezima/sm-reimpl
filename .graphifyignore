@@ -1,0 +1,12 @@
+.claude/
+config/
+docs/
+spec/
+release/
+bin/
+obj/
+**/bin/
+**/obj/
+*.json
+*.md
+graphify-out/
