@@ -49,7 +49,15 @@ public static class SpearHold
     /// right of the chest (<c>ClawSpearClips.SpearRest</c>): the blade above and forward of the right shoulder, left of the crosshair's column by 5.9 degrees at idle, the butt behind and outside
     /// the right leg (clearance over every stance clip 0.086 m at the least, the butt at least 0.65 m up; since pass 3 the walk, run and sprint hold the fist against the shoulders by a solve, <c>WeaponPoseClip.FistTarget</c>). Before: 55 at -15 in the stance's frame from a fist held out wide (pass 2).</para>
     /// </summary>
-    public const float CarryElevation = 65f, CarryAzimuth = -50f;
+    public static float CarryElevation => ClawSpearClips.OldPass2 ? 65f : Pass2CarryElevation;
+    public static float CarryAzimuth => ClawSpearClips.OldPass2 ? -50f : Pass2CarryAzimuth;
+    /// <summary>The carried shaft's lean while he moves (the walk, run and sprint): the carry of before pass 2 (the fist held at the chest keeps the shaft clear of the legs and the crosshair's column there).</summary>
+    public const float MovingCarryElevation = 65f, MovingCarryAzimuth = -50f;
+    /// <summary>
+    /// Spear pass 2 (owner, 2026-11-12, with his carry reference image: "the blade of the spear point forwards"): the shaft leans forward and up from the hand at the hip, the blade ahead of the body, only a little
+    /// across it (62 degrees above the horizontal, 22 degrees left of the front while he stands; ours, chosen with the clearance and crosshair column checks, <c>SpearClearanceTests</c>). <c>--old-spear-pass2</c> restores 65 at -50.
+    /// </summary>
+    public const float Pass2CarryElevation = 62f, Pass2CarryAzimuth = -22f;
     /// <summary>
     /// The way the carried blade's edge faces, as an azimuth from the front toward the body's right (degrees; flat, then squared to the shaft): forward and out, away from the body (owner,
     /// 2026-11-10: "the blade is facing away from the character model at idle and when running"; ours). Once both hands swing it the edge faces the front, as the strikes were approved.
@@ -71,7 +79,7 @@ public static class SpearHold
     /// </summary>
     /// <param name="front">The body's flat front (the stance's, read from the hips).</param>
     /// <returns>The butt's place, the shaft's direction from the butt toward the blade (unit) and the edge's direction (unit, square to the shaft).</returns>
-    public static (Vector3 Butt, Vector3 Shaft, Vector3 Edge) Place(Vector3 rightHand, Vector3 leftHand, float leftGrip, float rightFromButt, Vector3 front, Vector3 up)
+    public static (Vector3 Butt, Vector3 Shaft, Vector3 Edge) Place(Vector3 rightHand, Vector3 leftHand, float leftGrip, float rightFromButt, Vector3 front, Vector3 up, float moving = 0f)
     {
         var d = leftHand - rightHand;
         d = d.LengthSquared() < 1e-4f ? front : Vector3.Normalize(d);
@@ -82,8 +90,10 @@ public static class SpearHold
         if (grip < 1f)
         {
             float high = Math.Clamp((rightFromButt - WeaponPoseClip.LowGrip) / (WeaponPoseClip.CarryGrip - WeaponPoseClip.LowGrip), 0f, 1f);
-            float el = (90f + (CarryElevation - 90f) * high) * deg;
-            var lean = front * MathF.Cos(CarryAzimuth * deg) + right * MathF.Sin(CarryAzimuth * deg);   // the way the carried shaft leans, flat
+            float carryEl = CarryElevation, carryAz = CarryAzimuth;
+            if (!ClawSpearClips.OldPass2 && moving > 0f) { float m = Math.Clamp(moving, 0f, 1f); carryEl += (MovingCarryElevation - carryEl) * m; carryAz += (MovingCarryAzimuth - carryAz) * m; }   // pass 2: the idle's hip carry eases into the moving carry as the fist solve comes in
+            float el = (90f + (carryEl - 90f) * high) * deg;
+            var lean = front * MathF.Cos(carryAz * deg) + right * MathF.Sin(carryAz * deg);   // the way the carried shaft leans, flat
             var carry = Vector3.Normalize(lean * MathF.Cos(el) + up * MathF.Sin(el));
             d = Vector3.Normalize(Vector3.Lerp(carry, d, grip));
         }

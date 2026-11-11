@@ -21,7 +21,7 @@ public sealed partial class WeaponRig
     /// <see cref="SpearHold.AxisAt"/> of it), blended over the mount's place by <paramref name="weight"/> (0: as <see cref="Update"/> put it, 1: on the hands). Call after <see cref="Update"/>,
     /// with this frame's pose. False when no spear is in hand.
     /// </summary>
-    public bool PlaceSpearOnHands(Vector3 rightHand, Vector3 leftHand, float leftGrip, float rightFromButt, Vector3 front, float weight)
+    public bool PlaceSpearOnHands(Vector3 rightHand, Vector3 leftHand, float leftGrip, float rightFromButt, Vector3 front, float weight, float moving = 0f)
     {
         if (Faulted || weight <= 1e-3f) return false;
         foreach (var i in _items)
@@ -29,7 +29,7 @@ public sealed partial class WeaponRig
             if (i.Role != Role.Melee || i.Mode != 1 || i.Bone is null || !IsSpear(i.Asset) || !GodotObject.IsInstanceValid(i.Holder)) continue;
             if (!string.Equals(_spearBoneName, i.Bone, StringComparison.Ordinal)) { _spearBoneName = i.Bone; _spearBone = _skeleton.FindBone(i.Bone); }
             if (_spearBone < 0) return false;
-            var (butt, shaft, edge) = SpearHold.Place(SpearN(rightHand), SpearN(leftHand), leftGrip, rightFromButt, SpearN(front), new System.Numerics.Vector3(0f, 0f, 1f));
+            var (butt, shaft, edge) = SpearHold.Place(SpearN(rightHand), SpearN(leftHand), leftGrip, rightFromButt, SpearN(front), new System.Numerics.Vector3(0f, 0f, 1f), moving);
             // The model's frame (BuildSpear): the shaft along +X with its origin AxisFromButt from the butt, the blade in the XY plane with its edge on +Y.
             var x = SpearG(shaft); var y = SpearG(edge);
             var onHands = new Transform3D(new Basis(x, y, x.Cross(y).Normalized()), SpearG(butt) + x * SpearHold.AxisFromButt);

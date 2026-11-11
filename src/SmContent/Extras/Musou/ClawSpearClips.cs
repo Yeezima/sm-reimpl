@@ -245,18 +245,49 @@ public static class ClawSpearClips
     public static readonly System.Numerics.Vector3 CarryFist = new(0.36f, 0.62f, -0.02f);
 
     /// <summary>The spear's carry (owner, 2026-11-10: "carried 1 handed in the right hand when running or idling", the hand where the butt is just above the ground), held over the hammer's idle while the spear is not swung; every strike starts from it and the string's last returns to it.</summary>
-    public static readonly WeaponPoseClip SpearRest = new("spear_rest", "spear", SpearIdleLength, float.NaN, SpearIdle, 0f, 0f, 0f, float.NaN,
+    public static readonly WeaponPoseClip SpearRestOld = BuildRest(false);
+
+    /// <summary>
+    /// Spear pass 2 (owner, 2026-11-12, with his reference image of a spear carried at the hip): the right arm hangs nearly straight, a little forward and out from the body, the fist beside the right
+    /// hip (the upper arm 72 degrees down toward 35 degrees right of the front, the forearm 62 down toward 20), the shaft running diagonally across the body's right side with the blade forward and up
+    /// (<see cref="SpearHold.Pass2CarryElevation"/>) and the butt low and behind; the left arm hangs free at the left side. The walk, run and sprint hold the fist there by the solve
+    /// (<see cref="CarryFist"/>: in the moving stances the hip carry would put the shaft through the legs, SpearClearanceTests). Ours; <c>--old-spear-pass2</c> plays <see cref="SpearRestOld"/>.
+    /// </summary>
+    public static readonly WeaponPoseClip SpearRestPass2 = BuildRest(true);
+
+    /// <summary>The carry as played: pass 2's hip carry, or the older one with <c>--old-spear-pass2</c>.</summary>
+    /// <summary>The pass-2 carry lowers the hips this much (m): squared to the facing the hips are farther from the planted feet of the side-on stance, and the legs came 1 cm short of the feet.</summary>
+    public const float CarryDrop = -0.025f;
+
+    public static WeaponPoseClip SpearRest => OldPass2 ? SpearRestOld : SpearRestPass2;
+
+    /// <summary>The pass-2 carry's arm aims at rest (facing frame, degrees: elevation, azimuth): the right upper arm, right forearm, left upper arm and left forearm.</summary>
+    public const float P2RUpperEl = -74f, P2RUpperAz = 40f, P2RForeEl = -62f, P2RForeAz = 32f, P2LUpperEl = -78f, P2LUpperAz = -18f, P2LForeEl = -68f, P2LForeAz = -8f;
+
+    /// <summary>The rollback switch of spear pass 2 (<c>--old-spear-pass2</c>, <c>SM_OLD_SPEAR_PASS2=1</c>): the carry, hews, snap cut and stab of before the pass play. Set it before the first clip is shown.</summary>
+    public static bool OldPass2 { get; set; } = Environment.GetEnvironmentVariable("SM_OLD_SPEAR_PASS2") == "1";
+
+    static WeaponPoseClip BuildRest(bool pass2)
+    {
+        float ru = pass2 ? P2RUpperEl : RestRUpperEl, rua = pass2 ? P2RUpperAz : RestRUpperAz, rf = pass2 ? P2RForeEl : RestRForeEl, rfa = pass2 ? P2RForeAz : RestRForeAz;
+        float lu = pass2 ? P2LUpperEl : RestLUpperEl, lua = pass2 ? P2LUpperAz : RestLUpperAz, lf = pass2 ? P2LForeEl : RestLForeEl, lfa = pass2 ? P2LForeAz : RestLForeAz;
+        return new("spear_rest", "spear", SpearIdleLength, float.NaN, SpearIdle, 0f, 0f, 0f, float.NaN,
         "the hammer's idle (SM_2HM_NAV_TH_IdleL_S_01 1.5 s; the pose is held while it loops)",
-        "the carry: the spear in the right hand alone at the right side, the butt just above the ground and the blade up and forward over the shoulder, its edge facing out and forward from the hips; the left arm hanging free",
+        pass2 ? "the carry (pass 2): the spear in the right hand alone, the arm hanging nearly straight beside the hip, the shaft running diagonally across the right side with the blade forward and up and the butt low and behind; the left arm hanging free"
+              : "the carry: the spear in the right hand alone at the right side, the butt just above the ground and the blade up and forward over the shoulder, its edge facing out and forward from the hips; the left arm hanging free",
         [
             Turn(SpineD, T(0f, 4, 0, 0), T(SpearIdleLength, 4, 0, 0)),
             Turn(Head, T(0f, -4, 0, 0), T(SpearIdleLength, -4, 0, 0)),
-            Upper("R", A(0f, RestRUpperEl, RestRUpperAz), A(SpearIdleLength, RestRUpperEl, RestRUpperAz)),   // the facing frame: the constants as they are
-            Fore("R", A(0f, RestRForeEl, RestRForeAz), A(SpearIdleLength, RestRForeEl, RestRForeAz)),
-            Upper("L", A(0f, RestLUpperEl, RestLUpperAz), A(SpearIdleLength, RestLUpperEl, RestLUpperAz)),
-            Fore("L", A(0f, RestLForeEl, RestLForeAz), A(SpearIdleLength, RestLForeEl, RestLForeAz)),
+            Upper("R", A(0f, ru, rua), A(SpearIdleLength, ru, rua)),   // the facing frame: the constants as they are
+            Fore("R", A(0f, rf, rfa), A(SpearIdleLength, rf, rfa)),
+            Upper("L", A(0f, lu, lua), A(SpearIdleLength, lu, lua)),
+            Fore("L", A(0f, lf, lfa), A(SpearIdleLength, lf, lfa)),
+            .. pass2 ? [Turn(Pelvis, Z(0f), Z(SpearIdleLength)), PelvisMove(M(0f, 0, 0, CarryDrop), M(SpearIdleLength, 0, 0, CarryDrop)),
+                        Turn(SpineA, Z(0f), Z(SpearIdleLength)), Turn(RClav, Z(0f), Z(SpearIdleLength)), Turn(LClav, Z(0f), Z(SpearIdleLength)),
+                        Foot("L", M(0f, 0, 0, 0), M(SpearIdleLength, 0, 0, 0)), Foot("R", M(0f, 0, 0, 0), M(SpearIdleLength, 0, 0, 0))] : Array.Empty<PoseChannel>(),   // zero channels so a hand-over fades every bone a stroke keys')   // present so the overlay lays SquareYaw on the hips (pass 2 only: the old carry has no pelvis channel)
         ])
-    { Grip = [G(0f, 0f), G(SpearIdleLength, 0f)], GripPoint = [P(0f, WeaponPoseClip.CarryGrip), P(SpearIdleLength, WeaponPoseClip.CarryGrip)], FacingFrame = true, FistTarget = CarryFist };
+        { Grip = [G(0f, 0f), G(SpearIdleLength, 0f)], GripPoint = [P(0f, WeaponPoseClip.CarryGrip), P(SpearIdleLength, WeaponPoseClip.CarryGrip)], FacingFrame = true, FistTarget = CarryFist, SquareYaw = pass2 ? IdleHipsTurn : 0f };
+    }
 
     /// <summary>
     /// Hew 1, the wide descending hew (pass 3, 2026-11-11, the owner's "swinging out wide"; the hammer's X1 at 0.85x: 3.138 s, hit 0.711 s): from the carry the shaft slides low and is drawn
@@ -302,15 +333,32 @@ public static class ClawSpearClips
     /// </summary>
     public static WeaponPoseClip SpearHew1Authored => AuthoredHew1.Value;
 
+    // ---- spear pass 2 (2026-11-12): the hews, the snap cut and the stab authored in Blender (docs/claw-spear-animations.md section 3h); every timing is the template's ----
+    static readonly Lazy<WeaponPoseClip> P2Hew1 = new(() => AuthoredPoseClip.LoadEmbeddedOrTemplate("spear_hew1_p2.json", SpearHew1Authored));
+    static readonly Lazy<WeaponPoseClip> P2Hew2 = new(() => AuthoredPoseClip.LoadEmbeddedOrTemplate("spear_hew2_p2.json", SpearHew2Original));
+    static readonly Lazy<WeaponPoseClip> P2Hew3 = new(() => AuthoredPoseClip.LoadEmbeddedOrTemplate("spear_hew3_p2.json", SpearHew3Original));
+    static readonly Lazy<WeaponPoseClip> P2Stun = new(() => AuthoredPoseClip.LoadEmbeddedOrTemplate("spear_stun_p2.json", SpearStunOriginal));
+    static readonly Lazy<WeaponPoseClip> P2Stab = new(() => AuthoredPoseClip.LoadEmbeddedOrTemplate("spear_stab_p2.json", SpearStabOriginal));
+    /// <summary>Hew 1 of pass 2 (authored from the hip carry).</summary>
+    public static WeaponPoseClip SpearHew1Pass2 => P2Hew1.Value;
+    public static WeaponPoseClip SpearHew2Pass2 => P2Hew2.Value;
+    public static WeaponPoseClip SpearHew3Pass2 => P2Hew3.Value;
+    public static WeaponPoseClip SpearStunPass2 => P2Stun.Value;
+    public static WeaponPoseClip SpearStabPass2 => P2Stab.Value;
+    public static WeaponPoseClip SpearHew2 => OldPass2 ? SpearHew2Original : SpearHew2Pass2;
+    public static WeaponPoseClip SpearHew3 => OldPass2 ? SpearHew3Original : SpearHew3Pass2;
+    public static WeaponPoseClip SpearStun => OldPass2 ? SpearStunOriginal : SpearStunPass2;
+    public static WeaponPoseClip SpearStab => OldPass2 ? SpearStabOriginal : SpearStabPass2;
+
     /// <summary>Hew 1 as played: the authored clip, or the original with <c>--old-spear-hew</c> (the authored one is not even loaded then).</summary>
-    public static WeaponPoseClip SpearHew1 => OldHew1 ? SpearHew1Original : SpearHew1Authored;
+    public static WeaponPoseClip SpearHew1 => OldHew1 ? SpearHew1Original : OldPass2 ? SpearHew1Authored : SpearHew1Pass2;
 
     /// <summary>
     /// Hew 2, the wide rising hew (pass 3; the hammer's X2 at 0.85x: 2.745 s, hit 0.667 s): from hew 1's low-left follow-through the hips coil further left and the blade drops low behind
     /// his left side; the right foot passes through toward the target as the hips uncoil to the right and the blade is torn up round the front, through the target, to high behind his right
     /// shoulder; the approved recovery follows. Arms solved per key as hew 1's.
     /// </summary>
-    public static readonly WeaponPoseClip SpearHew2 = Spear("spear_hew2", 2.333f, 0.567f, 0.967f, SpearIdle, "the hammer's X2 (SM_MEL_TH_XATK_Combo3 2.333 s, hit 0.567 s)",
+    public static readonly WeaponPoseClip SpearHew2Original = Spear("spear_hew2", 2.333f, 0.567f, 0.967f, SpearIdle, "the hammer's X2 (SM_MEL_TH_XATK_Combo3 2.333 s, hit 0.567 s)",
         "wide rising hew: from the low-left follow-through the hips coil further left and sink as the blade drops low behind his left side, then the right foot passes through toward the target and the hips uncoil hard to the right as the blade is torn up round the front, through the target, to high behind his right shoulder, the arms long, the back straight",
         antic: 0.18f, follow: 0.28f, recover: 1.9f, (a, h, f, r, end) =>
         [
@@ -338,7 +386,7 @@ public static class ClawSpearClips
     /// right; the overhead loop could not be kept clear of the head and the pads in the wide version (ours). It starts as hew 1 does, from the carry (the right arm, the shaft sliding down from the
     /// carry grip as the left hand takes it), with the left hand where hew 2 leaves it, so the hand-overs from the carry, hew 1 and hew 2 (Musou picks any) stay clear.
     /// </summary>
-    public static readonly WeaponPoseClip SpearHew3 = Spear("spear_hew3", 2.333f, 0.700f, float.NaN, SpearIdle, "the hammer's X3 (SM_MEL_TH_HeavyATK02 2.333 s, hit 0.700 s; the string ends)",
+    public static readonly WeaponPoseClip SpearHew3Original = Spear("spear_hew3", 2.333f, 0.700f, float.NaN, SpearIdle, "the hammer's X3 (SM_MEL_TH_HeavyATK02 2.333 s, hit 0.700 s; the string ends)",
         "wide flat hew: from high over the right shoulder the blade comes down behind his right side to waist height as the hips coil right and the left foot lifts, then the left foot pivots forward-left toward the target and the hips swing hard left as a flat hew at waist height carries the blade from behind his right round the front and on to far left, the arms long and the back straight; it settles into the field guard, the feet come back under him and the shaft slides back up to the carry",
         antic: 0.20f, follow: 0.18f, recover: 2.0f, (a, h, f, r, end) =>
         [
@@ -360,7 +408,7 @@ public static class ClawSpearClips
         gripPoint: (a, h, f, r, end) => [P(0f, WeaponPoseClip.CarryGrip), P(GripSlide, WeaponPoseClip.HewGrip, PoseEase.Out), P(r, WeaponPoseClip.HewGrip), P(r + GripSlideBack, WeaponPoseClip.CarryGrip), P(end, WeaponPoseClip.CarryGrip)]);
 
     /// <summary>The F stun strike: a quick snap cut at head height, right to left, from the carry (the hammer's Y "Interrupt Attack" SM_MEL_TH_Ytap_ATK at 0.85x: 1.961 s, hit 0.509 s; a second F in its window chains to the stab).</summary>
-    public static readonly WeaponPoseClip SpearStun = Spear("spear_stun", 1.667f, 0.433f, 0.533f, SpearIdle, "the hammer's Y interrupt (SM_MEL_TH_Ytap_ATK 1.667 s, hit 0.433 s; chains to the slam at 0.533 s)",
+    public static readonly WeaponPoseClip SpearStunOriginal = Spear("spear_stun", 1.667f, 0.433f, 0.533f, SpearIdle, "the hammer's Y interrupt (SM_MEL_TH_Ytap_ATK 1.667 s, hit 0.433 s; chains to the slam at 0.533 s)",
         "stun strike: the shaft slides low through the hand as the left hand takes it and the haft is whipped up behind the right shoulder with a short coil of the hips, then a fast flat snap cut at head height from right to left with a half step of the left foot, the back straight; the hips stay coiled forward, ready for the stab",
         antic: 0.14f, follow: 0.12f, recover: 1.3f, (a, h, f, r, end) =>
         [
@@ -384,7 +432,7 @@ public static class ClawSpearClips
         gripPoint: (a, h, f, r, end) => [P(0f, WeaponPoseClip.CarryGrip), P(GripSlide, WeaponPoseClip.LowGrip, PoseEase.Out), P(r, WeaponPoseClip.LowGrip), P(r + GripSlideBack, WeaponPoseClip.CarryGrip), P(end, WeaponPoseClip.CarryGrip)]);
 
     /// <summary>The F, F finisher: the massive stab, a whole-body lunging thrust with the hammer slam's timing (SM_MEL_TH_YATK_Displace2 at 0.85x: 3.529 s, hit 1.294 s); the hands at the butt for the full reach, the blade held in the target, then wrenched out.</summary>
-    public static readonly WeaponPoseClip SpearStab = Spear("spear_stab", 3.0f, 1.1f, float.NaN, SpearIdle, "the hammer's Y,Y slam (SM_MEL_TH_YATK_Displace2 3.0 s, hit 1.1 s; the chain ends)",
+    public static readonly WeaponPoseClip SpearStabOriginal = Spear("spear_stab", 3.0f, 1.1f, float.NaN, SpearIdle, "the hammer's Y,Y slam (SM_MEL_TH_YATK_Displace2 3.0 s, hit 1.1 s; the chain ends)",
         "massive stab: from the stun's end the spear is drawn far back along the right hip with the blade levelled at the target and both hands at the butt, the hips coiling back and sinking onto the rear leg with the left foot lifting, the head fixed on the target; then the left foot stamps a long stride ahead and the hips drive the whole body, back straight, behind the blade in one lunging thrust, the left arm fully extended; the blade is held in the target as the body settles over the lunge, then wrenched out and the shaft slid back up to the carry",
         antic: 0.20f, follow: 0.20f, recover: 2.6f, (a, h, f, r, end) =>
         [
@@ -522,15 +570,13 @@ public static class ClawSpearClips
         { Grip = grip?.Invoke(a, h, f, recover, d), GripPoint = gripPoint?.Invoke(a, h, f, recover, d) };
     }
 
-    /// <summary>Every clip, in the preview's order.</summary>
-    static IReadOnlyList<WeaponPoseClip> BuildAll(WeaponPoseClip hew1) => [ClawX1, ClawX2, ClawX3, ClawX4, ClawHeavy, SpearRest, hew1, SpearHew2, SpearHew3, SpearStun, SpearStab, SpearDive, SpearImpale, SpearLand];
-    static readonly Lazy<IReadOnlyList<WeaponPoseClip>> AllOriginal = new(() => BuildAll(SpearHew1Original)), AllAuthored = new(() => BuildAll(SpearHew1Authored));
-    public static IReadOnlyList<WeaponPoseClip> All => OldHew1 ? AllOriginal.Value : AllAuthored.Value;
+    /// <summary>Every clip, in the preview's order (rebuilt when a rollback switch changes).</summary>
+    static IReadOnlyList<WeaponPoseClip> BuildAll() => [ClawX1, ClawX2, ClawX3, ClawX4, ClawHeavy, SpearRest, SpearHew1, SpearHew2, SpearHew3, SpearStun, SpearStab, SpearDive, SpearImpale, SpearLand];
+    static readonly Dictionary<(bool, bool), IReadOnlyList<WeaponPoseClip>> AllCache = new(), StrikeCache = new();
+    public static IReadOnlyList<WeaponPoseClip> All { get { lock (AllCache) { var k = (OldHew1, OldPass2); return AllCache.TryGetValue(k, out var l) ? l : AllCache[k] = BuildAll(); } } }
 
     /// <summary>The spear's strikes on the ground (the light hews and the F, F chain): each starts from <see cref="SpearRest"/> or the strike before it and ends back at the rest.</summary>
-    static IReadOnlyList<WeaponPoseClip> BuildStrikes(WeaponPoseClip hew1) => [hew1, SpearHew2, SpearHew3, SpearStun, SpearStab];
-    static readonly Lazy<IReadOnlyList<WeaponPoseClip>> StrikesOriginal = new(() => BuildStrikes(SpearHew1Original)), StrikesAuthored = new(() => BuildStrikes(SpearHew1Authored));
-    public static IReadOnlyList<WeaponPoseClip> SpearStrikes => OldHew1 ? StrikesOriginal.Value : StrikesAuthored.Value;
+    public static IReadOnlyList<WeaponPoseClip> SpearStrikes { get { lock (StrikeCache) { var k = (OldHew1, OldPass2); return StrikeCache.TryGetValue(k, out var l) ? l : StrikeCache[k] = [SpearHew1, SpearHew2, SpearHew3, SpearStun, SpearStab]; } } }
 
     /// <summary>
     /// The spear's clip for a simulated strike (W3: the thunder hammer's combo at 0.85, <c>SpearRules.FromHammer</c>, so its steps are the hammer's): light strikes 1..3 the three hews (each

@@ -152,6 +152,8 @@ sealed class WeaponPoseMirror
                 turn = Quaternion.Normalize(SlerpGodot(turn, old, fromShare));
                 shift = Vector3.Lerp(shift, ShiftOf(beforeList, fromTime, fromRight, fromFront, up), fromShare);
             }
+            if (b == Bone("RIG_Pelvis") && ((clip?.SquareYaw ?? 0f) * (1f - fromShare) + (from?.SquareYaw ?? 0f) * fromShare) * (1f - Math.Clamp(FistWeight, 0f, 1f)) is float sq && MathF.Abs(sq) > 1e-3f)
+                turn = Quaternion.Normalize(Quaternion.CreateFromAxisAngle(up, sq * MathF.PI / 180f) * turn);
             var pivot = Origin(b);
             MoveBone(b, turn, shift, pivot, w);
             if (_carried[b] >= 0) MoveBone(_carried[b], turn, shift, pivot, w);

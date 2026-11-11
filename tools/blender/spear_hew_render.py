@@ -7,6 +7,7 @@ import bpy
 from mathutils import Vector
 
 DEG = math.pi / 180.0
+CARRY = (65.0, -50.0)   # the carried shaft: elevation, azimuth in the facing frame (the pass-2 author sets its own)
 
 SEGMENTS = [
     ("RIG_Pelvis", "RIG_SpineA", 0.16), ("RIG_SpineA", "RIG_SpineD", 0.19), ("RIG_SpineD", "RIG_NeckA", 0.2), ("RIG_NeckA", "RIG_Head", 0.07),
@@ -92,7 +93,7 @@ def render(rig, curves, carry_dirs, outdir, samples, pose_at, times=None, size=6
         rs, ls = rig.origin("RIG_Prop_RHand"), rig.origin("RIG_Prop_LHand")
         grip_l = min(max(curves["grip_l"].evaluate(t * 60.0), 0.0), 1.0)
         grip_pt = curves["grip_pt"].evaluate(t * 60.0)
-        carry_dir = rig.aim_to_dir(65.0, -50.0 - 71.0)
+        carry_dir = rig.aim_to_dir(CARRY[0], CARRY[1] - 71.0)
         two = (ls - rs).normalized()
         d = (carry_dir * (1 - grip_l) + two * grip_l).normalized()
         butt = rs - d * grip_pt

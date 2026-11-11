@@ -99,6 +99,7 @@ public partial class CharacterViewer
     // Lazy (review, 2026-11-10): made the first time this viewer lays a clip or is asked for a carry, so the viewers that never are (every Classic PvP character) carry none of it.
     Dictionary<string, int>? _weaponPoseBones;
     int[] _weaponOrder = Array.Empty<int>();
+    int _weaponPelvis = -1;
     Dictionary<WeaponPoseClip, Dictionary<int, List<PoseChannel>>>? _weaponChannels;
     HashSet<string>? _weaponPoseMissing;
     /// <summary>Where the stance plants each foot this frame and how it turns it (per core leg, <c>_legs</c>), read before the overlay moves the body.</summary>
@@ -136,6 +137,7 @@ public partial class CharacterViewer
             order.Insert(order.IndexOf(c) + 1, f);   // siblings share a depth, so the carried bone stays before every bone deeper than it
         }
         _weaponOrder = order.ToArray();
+        _weaponPelvis = Bone(s, "RIG_Pelvis");
     }
 
     /// <summary>The bone carried rigidly with <paramref name="carrier"/> (<see cref="RigidWith"/>), or -1. Used by the overlay and by the Musou weight pass's settle (its pelvis drop).</summary>
@@ -203,6 +205,9 @@ public partial class CharacterViewer
                 turn = turn.Slerp(old, fromShare).Normalized();
                 shift = shift.Lerp(ShiftOf(beforeList, state.FromTime, fromRight, fromFront, up), fromShare);
             }
+            // Spear pass 2: the carry squares the hips to the facing while he stands (WeaponPoseClip.SquareYaw), fading out with the fist solve as he moves.
+            if (b == _weaponPelvis && ((state.Clip?.SquareYaw ?? 0f) * (1f - fromShare) + (state.From?.SquareYaw ?? 0f) * fromShare) * (1f - Mathf.Clamp(state.FistWeight, 0f, 1f)) is float sq && MathF.Abs(sq) > 1e-3f)
+                turn = (new Quaternion(up, sq * MathF.PI / 180f) * turn).Normalized();
             var pivot = s.GetBoneGlobalPose(b).Origin;
             MoveBone(s, b, turn, shift, pivot, w);
             // The marine rig hangs the spine beside the pelvis under the root, not under it, so a pelvis moved or turned on its own left the torso behind and the legs came away from the body

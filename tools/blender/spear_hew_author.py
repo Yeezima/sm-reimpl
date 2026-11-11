@@ -441,7 +441,9 @@ def pose_at(rig, curves, t, carry_dirs):
     spine_q = turn_quat(rig, v("spine_yaw"), v("spine_pitch"), v("spine_roll"))
     head_q = turn_quat(rig, v("head_yaw"), v("head_pitch"), 0.0)
     clav_q = turn_quat(rig, v("clav_yaw"), v("clav_pitch"), v("clav_roll"))
-    turns = {"RIG_Pelvis": q_pelvis, "RIG_SpineA": spine_q, "RIG_SpineD": spine_q, "RIG_Head": head_q, "RIG_L_Clavicle": clav_q, "RIG_R_Clavicle": clav_q}
+    spa = value(curves, "spa", t) if "spa" in curves else 1.0   # spear pass 2: how much of the spine's turn the lower spine (SpineA) takes; the pilot never keys it (1)
+    spineA_q = spine_q if spa >= 0.9999 else Quaternion().slerp(spine_q, max(spa, 0.0))
+    turns = {"RIG_Pelvis": q_pelvis, "RIG_SpineA": spineA_q, "RIG_SpineD": spine_q, "RIG_Head": head_q, "RIG_L_Clavicle": clav_q, "RIG_R_Clavicle": clav_q}
     arms_done = False
     infos = {}
     for b in rig.order:

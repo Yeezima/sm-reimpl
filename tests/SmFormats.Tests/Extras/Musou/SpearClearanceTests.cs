@@ -64,7 +64,7 @@ public class SpearClearanceTests(ITestOutputHelper output)
             mirror.Overlay(clip, clipTime, from, fromTime, share);
             float grip = clip.GripAt(clipTime), point = clip.GripPointAt(clipTime);
             if (from is not null && share > 0f) { grip += (from.GripAt(fromTime) - grip) * share; point += (from.GripPointAt(fromTime) - point) * share; }
-            var (butt, shaft, edge) = SpearHold.Place(mirror.RightHand, mirror.LeftHand, grip, point, mirror.SpearFront(clip), Vector3.UnitZ);
+            var (butt, shaft, edge) = SpearHold.Place(mirror.RightHand, mirror.LeftHand, grip, point, mirror.SpearFront(clip), Vector3.UnitZ, mirror.FistWeight);
             var r = SpearClearance.Measure(mirror.Pose, butt, shaft, edge);
             if (!float.IsFinite(r.Clearance)) throw new InvalidOperationException($"a clearance that is not a finite number: {key} at {clipTime:0.000} s");   // a NaN would never count as the worst
             if (!ByClip.TryGetValue(key, out var worst) || r.Clearance < worst.Result.Clearance) ByClip[key] = new Worst(scenario, time, r);
@@ -361,7 +361,7 @@ public class SpearClearanceTests(ITestOutputHelper output)
             {
                 mirror.Lay(clip, t);
                 mirror.Overlay(ClawSpearClips.SpearRest, t % ClawSpearClips.SpearIdleLength);
-                var (butt, shaft, edge) = SpearHold.Place(mirror.RightHand, mirror.LeftHand, 0f, WeaponPoseClip.CarryGrip, mirror.SpearFront(ClawSpearClips.SpearRest), Vector3.UnitZ);
+                var (butt, shaft, edge) = SpearHold.Place(mirror.RightHand, mirror.LeftHand, 0f, WeaponPoseClip.CarryGrip, mirror.SpearFront(ClawSpearClips.SpearRest), Vector3.UnitZ, mirror.FistWeight);
                 float a = SpearClearance.HeadColumnAngle(butt, shaft, edge, camera, pitch);
                 if (MathF.Abs(a) < MathF.Abs(least)) least = a;
             }

@@ -30,7 +30,7 @@ public class SpearAuthoredHewTests(ITestOutputHelper output)
         Assert.Equal(Original.BaseClip, Authored.BaseClip);
         Assert.Equal(Original.Weapon, Authored.Weapon);
         Assert.Contains("authored in Blender", Authored.Description);
-        Assert.Equal(ClawSpearClips.OldHew1 ? Original : Authored, ClawSpearClips.SpearHew1);   // the switch picks one of the two (--old-spear-hew: the original)
+        Assert.Equal(ClawSpearClips.OldHew1 ? Original : ClawSpearClips.OldPass2 ? Authored : ClawSpearClips.SpearHew1Pass2, ClawSpearClips.SpearHew1);   // the switches pick one of the three (--old-spear-hew: the original; --old-spear-pass2: this pilot clip)
         Assert.Equal(WeaponPoseClip.HewGrip, Authored.GripPointAt(Authored.HitTime), 3);
         Assert.Equal(1f, Authored.GripAt(Authored.HitTime), 3);
         Assert.Equal(0f, Authored.GripAt(0f), 3);   // starts from the one-handed carry
@@ -55,7 +55,7 @@ public class SpearAuthoredHewTests(ITestOutputHelper output)
         }
         foreach (var c in Authored.Channels.Where(c => c.Kind == PoseChannelKind.Aim))   // the arms start and end as the carry's arms
         {
-            var carry = ClawSpearClips.SpearRest.Channels.First(r => r.Bone == c.Bone && r.Kind == PoseChannelKind.Aim);
+            var carry = ClawSpearClips.SpearRestOld.Channels.First(r => r.Bone == c.Bone && r.Kind == PoseChannelKind.Aim);
             var a = c.Sample(0f); var b = carry.Sample(0f);
             // the carry is read in the facing frame, the strike's keys in the stance frame (71 degrees turned): the same direction, so the elevations match
             Assert.True(MathF.Abs(a.Elevation - b.Elevation) < 0.6f, $"{c.Bone} starts at elevation {a.Elevation}, the carry's is {b.Elevation}");

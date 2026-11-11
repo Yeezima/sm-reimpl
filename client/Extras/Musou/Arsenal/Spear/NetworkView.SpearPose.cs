@@ -207,7 +207,7 @@ public partial class NetworkView
             // character model", the spear "held out away from the body"; W3b leaned the carry toward the skeleton's +Y, the way the player faces, which across the hammer idle's side-on
             // stance, its hips 71 degrees right of it, put the shaft and the edge across the body).
             float grip = SpearGripOf(state, out float point);
-            onHands = rig.PlaceSpearOnHands(right, left, grip, point, character.WeaponPoseSpearFront(), state.Weight);   // the carry's: the facing (2026-11-11)
+            onHands = rig.PlaceSpearOnHands(right, left, grip, point, character.WeaponPoseSpearFront(), state.Weight, state.FistWeight);   // the carry's: the facing (2026-11-11)
         }
         if (rig is not null)
         {

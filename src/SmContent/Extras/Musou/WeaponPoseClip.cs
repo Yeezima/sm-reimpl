@@ -173,6 +173,13 @@ public sealed record WeaponPoseClip(string Name, string Weapon, float Duration, 
     /// </summary>
     public System.Numerics.Vector3? FistTarget { get; init; }
 
+    /// <summary>
+    /// Degrees the carry turns the hips to the left, about up, while he stands (faded out as the fist solve comes in with the speed, <c>FistWeight</c>): the hammer's idle stands side-on (its hips 71
+    /// degrees right of the way he faces) but the walk, run and sprint face the way he moves, so a carry that hangs the arm at the body's right and leans the blade forward needs the hips squared to
+    /// the facing at rest too (spear pass 2, owner 2026-11-12: the idle and the run as one carry). 0: the stance's hips.
+    /// </summary>
+    public float SquareYaw { get; init; }
+
     /// <summary>How the right elbow points in the fist's solve (<see cref="FistTarget"/>), in the clip's frame (right, forward, up): down, out to the right and a little back (ours).</summary>
     public static readonly System.Numerics.Vector3 FistElbowHint = new(0.45f, -0.25f, -1f);
 

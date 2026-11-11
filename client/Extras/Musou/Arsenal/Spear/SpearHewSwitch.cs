@@ -15,6 +15,7 @@ static class SpearHewSwitch
     {
         bool on = OS.GetCmdlineUserArgs().Contains("--old-spear-hew");
         if (on) ClawSpearClips.OldHew1 = true;
+        if (OS.GetCmdlineUserArgs().Contains("--old-spear-pass2")) ClawSpearClips.OldPass2 = true;   // spear pass 2 (2026-11-12): the older carry, hews, snap cut and stab
         return on;
     }
 }

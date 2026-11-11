@@ -252,6 +252,47 @@ unchanged; original baseline and a rollback kept. **One representative hew first
   light chain from standing in the real match through the real keys and logs each frame's number, wall-clock time and clip time (`SPEARFILMFRAMES`), because the real-time simulation and a fixed-rate recording
   (`--write-movie`) do not run at the same rate; the recording is cut and every frame shown for the time it really lasted.
 
+## 3h. Pass 2: the hip carry and five re-authored strokes (2026-11-12, claude/spear-pass-2)
+
+Owner (2026-11-12, with a reference image of a spear carried at the hip; the image is a watermarked stock photo and is never committed): "Do another spear pass: Use this image as reference for the idle and
+running animation. The right arm and grip on the spear should match that. Make the blade of the spear point forwards. Make the spear attack animations concise and powerful. Refer to real training
+manuals on how to fight with a halberd for the animations." Presentation only (client and SmContent); no simulation, wire, protocol, config-hash, timing or jump-pack change. Label: *ours*, not approved.
+
+- **The carry (`ClawSpearClips.SpearRestPass2`).** Standing: the hips are squared to the facing (`WeaponPoseClip.SquareYaw` 71 degrees, faded out as the fist solve comes in with the speed) so the
+  right side of the body is no longer turned away; the right arm hangs nearly straight beside the hip, a little forward and out (upper arm -74 degrees at 40 right of the front, forearm -62 at 32); the shaft leans
+  forward and up across the right side (`SpearHold.Pass2CarryElevation/Azimuth` 62 and -22 degrees in the facing frame: the blade ahead of the body, only a little across it, 4.6 degrees left of the
+  crosshair column), the butt low behind; the hips sit 2.5 cm lower (`CarryDrop`) so the legs reach the planted feet; every bone a stroke keys has a zero channel in the carry so hand-overs fade it.
+  **Running and sprinting keep the older chest-height fist and the shaft lean 65 at -50** (`SpearHold.MovingCarry*`, eased in with the fist weight): a hip-height hand does not pass the gates in the hammer's
+  moves. Measured over about 150 combinations of the fist's place (right 0.25 to 0.65 m, forward -0.1 to 0.7, up -0.45 to 0) and the shaft's lean (30 to 75 degrees up, 0 to 60 left), in the facing frame
+  and in the body's own frame: none gets above -0.08 m of `SpearClearanceTests` clearance (limit -0.02) with the 3 degree column margin; the shaft's butt end goes through the leg that swings under it
+  (right shin in the left strafe, the knees in the run) and the collar through the pack in the sprint strafes. **Open for the owner:** relax the capsule gate for the strafes and sprints, or accept the chest carry
+  while moving, or allow the hip carry only in the forward run.
+- **The strokes** (`tools/blender/spear_pass2_author.py` over the pilot's pipeline, exports `Authored/spear_{hew1,hew2,hew3,stun,stab}_p2.json`, `AuthoredPoseClip`): each is a held ready pose that yields at once
+  (a chained stroke starts on the stroke before), a short coil, a stroke whose progress grows as a power of time to its peak speed at the hit (the hips' own travel is the clock, so the blow arrives at full speed
+  at the hit time instead of having snapped early), a brief finish (0.25 to 0.6 s), then a quick recovery in a fixed order: the feet step back (lifted while they travel: FootPin), the hips' shift and lean return
+  with them, the left hand lets go and the shaft slides back with the right hand still up in front, then the hand comes down outside the body to the hip. Hit time, length, combo opening and base stance are
+  the strikes' (the adapter refuses anything else). **Carried over and named:** the palms' and the shaft's geometry through the stroke (measured in the chest frame from the previous clips' keys, re-timed, with a 3-tap
+  median over the arms' controls); the coil and finish poses of hew 1 (the pilot's compact coil).
+
+| Move | Technique (source) | What was authored |
+|---|---|---|
+| hew 1 | descending diagonal cut from the right shoulder with a passing step (Joachim Meyer 1570, the halberd and staff teaching, the polearm counterpart of his Zornhau; the hips lead as in his pollaxe-style plays) | grip slide at the hip, hands up as the hips coil to -8 degrees, hips accelerate to the hit (613 deg/s), left foot passes and plants |
+| hew 2 | rising cut from low left to high right, the right foot passing through (Meyer's rising cuts after a descending one, Aufsteigen / Nachreisen) | ready hold, 0.24 s coil, accelerating uncoil (675 deg/s at the hit), follow-through at the old speed |
+| hew 3 | flat horizontal cut at waist height with a pivoting step (Meyer's Zwerchhau family applied to the halberd) | chained start, 0.28 s coil, 609 deg/s at the hit |
+| F snap cut | short fast cut at head height from a half step, finished short (Meyer's Schnappen, the snap) | 0.36 s from the carry, the shaft's whip does the work (hips 451 deg/s) |
+| F,F stab | thrust from the long point with a lunging step, rear hand driving (Meyer's Langort thrust; the point thrust of Le Jeu de la Hache) | chained start, 0.34 s draw back, lunge with the shift (the hips yaw little) |
+
+  **Source honesty:** web searches and fetches gave only overviews of Meyer 1570, Le Jeu de la Hache, Fiore's pollaxe and the HEMA polearm literature (Wiktenauer's long pages were cut off before the halberd
+  text; Mair, Talhoffer and Silver were not read). The technique names above are from general knowledge of those systems, checked against those overviews, not from reading the plays; the poses were not
+  derived from any text or image. Treat them as labels to verify. Ground pound, impale and landing are unchanged (they still end on the older carry's arms; the 0.14 s hand-over to the new carry is gated).
+- **Transitions.** Carry to every hew (a random Musou swing) is the 0.14 s hand-over; chained hew 1 to 2, 2 to 3 and stun to stab start on the previous finish; attack to carry regrips as above.
+- **Rollback.** `--old-spear-pass2` / `SM_OLD_SPEAR_PASS2=1` (`ClawSpearClips.OldPass2`): the older carry (no pelvis channel, no squared hips), hews 2 and 3, snap cut and stab, hew 1 the pilot's (add
+  `--old-spear-hew` for pass 3's). docs/commands.md.
+- **Checks (filtered):** see docs/milestones.md. **Failing as of this branch:** `SpearClearanceTests.The_spear_never_passes_into_the_body_in_any_clip_or_hand_over` on two hand-over frames,
+  carry to hew 3 (-0.027 m, 7 mm over the limit) and hew 1 to hew 3 (-0.12 m; hew 3 follows hew 2 in the simulation, hew 1 to hew 3 only happens in the test's chain list); everything else, including the
+  stroke frames, steps, column, palms and the in-game against Blender comparison (worst 0.2 cm), passes.
+- **Evidence:** `<media folder>\spear-pass2\` (stage clips, before/after sheets; no match recording).
+
 ## 4. Preview stage and restore
 
 ```powershell
