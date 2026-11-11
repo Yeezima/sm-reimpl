@@ -9,3 +9,5 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Leave out changes a tester cannot notice (tooling, docs, refactors). Optional "### " headings group long lists.
 - Add your bullets in the same pull request as the change, when it merges.
 -->
+### Both modes
+- More of the original's own movement animations now play: a quick half-speed stop when you let go of sprint soon after starting it, a 180-degree pivot when you sprint off in the direction behind you, and the thunder hammer's own stop out of a sprint.
