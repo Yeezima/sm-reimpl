@@ -28,6 +28,10 @@ namespace SmClient;
 /// <item><b>The pistol's relaxed idle</b> (the owner, 2026-10-29: "the assault marine and raptor have a weird idle animation"): with the bolt pistol in hand and the weapon down, <c>SM_Pistol_NAV</c>'s
 /// "Idle Relaxed" plays <c>SM_NAV_IdleL_CS_01</c>; until now every marine without the rifle's turn data stood in the rifle's relaxed idle (<c>SM_NAV_IdleL_S_01</c>).</item>
 /// </list>
+/// <b>Install transitions (2026-11-12)</b>, from the same graphs (<c>smtool graph-dump MP_SM_Bolter_NuSprint</c>, <c>SM_Heavy_Bolter_NuSprint</c>, <c>SM_TH_NuSprint</c>): the <b>half-speed stop</b>
+/// (<c>SM_NAV_Bullrush2Idle_F_HalfSpeed_01</c>, the "Transition To Idle on Interrupt" state) when the sprint is let go inside the start state's window; the <b>180-degree turn into a sprint</b>
+/// (<c>SM_TRN_BO/CS/HB/TH_180Turn_to_Sprint</c>, "180 Idle to Sprint") instead of the start when the body stands more than 100 degrees off the aim; the <b>thunder hammer's stop</b>
+/// (<c>SM_NAV_Sprint_to_Idle_F</c>, <c>SM_TH_NuSprint</c>); the rules are <see cref="SprintInterruptRules"/> and <see cref="SprintTurnTracker"/>. <c>--no-extra-transitions</c> switches them off.
 /// <c>--no-sprint-stop</c>, <c>--no-sprint-start</c> (test aids) and <c>--no-p3</c> switch them off.
 /// </summary>
 public partial class NetworkView
@@ -35,6 +39,9 @@ public partial class NetworkView
     static readonly bool NoSprintStop = CharacterViewer.NoP3 || OS.GetCmdlineUserArgs().Contains("--no-sprint-stop");
     static readonly bool NoSprintStart = CharacterViewer.NoP3 || OS.GetCmdlineUserArgs().Contains("--no-sprint-start");
     static readonly bool LogEdges = OS.GetCmdlineUserArgs().Contains("--log-sprint-edges");
+    /// <summary><c>--no-extra-transitions</c> (before / after aid, 2026-11-12): the install's transition clips the client did not play (the half-speed stop, the 180-degree turn into a sprint, the hammer's stop) are off.</summary>
+    internal static readonly bool NoExtraTransitions = CharacterViewer.NoP3 || OS.GetCmdlineUserArgs().Contains("--no-extra-transitions");
+    int _sprintInterrupts, _sprintTurns;
 
     Task<SprintTransitions>? _edgeLoad;
     SprintTransitions? _edgeData;
@@ -49,6 +56,10 @@ public partial class NetworkView
     {
         public readonly SprintStopTracker Stop = new();
         public readonly SprintStartTracker Start = new();
+        public readonly SprintTurnTracker Turn = new();      // the 180-degree turn into the sprint (install transitions)
+        public double TurnStanding = double.NaN;             // the standing the running or last turn belongs to (SprintStartTracker.StandAt then)
+        public SprintEdgeClip? TurnClip;                     // the clip the running turn shows
+        public float StandOffset;                            // the body's angle to the aim at the last frame it stood (radians, signed)
         public SprintEdgeClip? StopClip;
         public bool SprintLast;                              // the last placement showed the sprint loop (or its start)
         public SprintFamily Family;
@@ -82,10 +93,10 @@ public partial class NetworkView
         _edgeData = load.Result;
         // Which clips the rig has, once (RigHasClip scans the rig's names).
         foreach (var set in _edgeData.Sets)
-            foreach (var c in new[] { set.Start, set.Stop })
+            foreach (var c in new[] { set.Start, set.Stop, set.Interrupt, set.Turn })
                 if (c is not null && RigHasClip(c.Clip)) _edgeClipsInRig.Add(c.Clip);
         _pistolIdle = _edgeData.PistolRelaxedIdle is { } idle && RigHasClip(idle) ? idle : null;
-        _edgeNote = string.Join(", ", _edgeData.Sets.Select(s => $"{s.Family}{(s.OneHanded ? " 1HM" : "")}: start {s.Start?.Clip ?? "none"}, stop {s.Stop?.Clip ?? "none"}, out {s.RunOnBlend:0.###}/{s.StopExitBlend:0.###} s"))
+        _edgeNote = string.Join(", ", _edgeData.Sets.Select(s => $"{s.Family}{(s.OneHanded ? " 1HM" : "")}: start {s.Start?.Clip ?? "none"}, stop {s.Stop?.Clip ?? "none"}, interrupt {s.Interrupt?.Clip ?? "none"}{(s.StartWindow is { } w ? $" (from {w.InterruptAt:0.##} of {w.Length:0.##} s)" : "")}, turn {s.Turn?.Clip ?? "none"}, out {s.RunOnBlend:0.###}/{s.StopExitBlend:0.###} s"))
             + $"; pistol relaxed idle {_pistolIdle ?? "none"}";
         GD.Print("sprint edges: " + _edgeNote);
         foreach (var n in _edgeData.Notes) GD.Print("  sprint edges note: " + n);
@@ -114,7 +125,8 @@ public partial class NetworkView
 
     /// <summary>The sprint edges of a marine's sprint family and hand (the pistol's loop in the rifle graph has its own stop).</summary>
     SprintEdges? EdgesOf(PlayerState s, SprintFamily family) =>
-        EdgeData()?.For(family, family == SprintFamily.Rifle && HipFamilyOf(s) == HipFireWeaponClass.Pistol);
+        NoExtraTransitions && family == SprintFamily.Hammer ? null   // the hammer's edges are an install transition: with the switch on it has none, as before
+        : EdgeData()?.For(family, family == SprintFamily.Rifle && HipFamilyOf(s) == HipFireWeaponClass.Pistol);
 
     /// <summary>A family's stop clip when the data is in and the rig has it (else null: the stop is not played and the sprint loop is not ended early for it).</summary>
     SprintEdgeClip? StopClipOf(PlayerState s, SprintFamily family) =>
@@ -208,6 +220,23 @@ public partial class NetworkView
         double span = _connectedFor - e.SpeedAt;
         if (span >= 0.1 || span < 0) { e.Decel = span > 0 && span < 0.5 ? (float)((e.SpeedThen - speed) / span) : 0f; e.SpeedThen = speed; e.SpeedAt = _connectedFor; }
         e.Start.Track(_connectedFor, speed, s.Grounded, moved, _frameNo);
+        e.Turn.Track(_connectedFor, _frameNo);
+        // The 180 turn's trigger: how far the planted body stood off the aim (the body follows the aim once the marine moves, so only the standing frames count).
+        if (!NoExtraTransitions && speed < RunThreshold && s.Grounded && _loco.TryGetValue(s.PlayerId, out var lt) && lt.Body.Valid) e.StandOffset = SprintTurnTracker.Offset(lt.Body.Yaw, lt.AimYaw);
+    }
+
+    /// <summary>
+    /// The half-speed stop (<c>SM_NAV_Bullrush2Idle_F_HalfSpeed_01</c>) when the sprint is let go inside the graph's start state (<see cref="SprintInterruptRules"/>: from 0.4286 of the start's clip to its end,
+    /// the stick at rest as for the full stop), else null (the family's full stop). Decided from the predicted / seen state alone (the stop flag, the time since the marine stood).
+    /// </summary>
+    SprintEdgeClip? InterruptClipOf(PlayerState s, SprintEdgeTrack e)
+    {
+        if (NoExtraTransitions || !SimSprintStopping(s)) return null;
+        var edges = EdgesOf(s, e.Family);
+        if (edges?.Interrupt is not { } clip || !_edgeClipsInRig.Contains(clip.Clip)) return null;
+        // A sprint that began with the 180 turn leaves through the turn state's own interrupt window (the plain start's when the data has none).
+        var window = e.TurnClip is not null && e.TurnStanding == e.Start.StandAt && edges.TurnWindow is { } tw ? tw : edges.StartWindow;
+        return e.Start.InStartWindow(_connectedFor, window) ? clip : null;
     }
 
     bool SprintStopPlace(CharacterViewer character, PlayerState s, SprintEdgeTrack e)
@@ -220,7 +249,7 @@ public partial class NetworkView
         float forward = s.Velocity.X * -MathF.Sin(yaw) + s.Velocity.Y * MathF.Cos(yaw);
         bool eligible = s.Alive && s.Grounded && !s.Aiming && !TurnInAction(s, null) && !(_loco.TryGetValue(s.PlayerId, out var lt) && lt.Fall.Falling);
         bool wasActive = e.Stop.Active;
-        if (!wasActive) e.StopClip = StopClipOf(s, e.Family);
+        if (!wasActive) e.StopClip = InterruptClipOf(s, e) ?? StopClipOf(s, e.Family);
         var frame = new StopFrame(_connectedFor, eligible, HipReady(s), SimSprintStopping(s), speed, forward, e.Decel, _frameNo);
         var ended = e.Stop.Update(frame, e.StopClip, _config.RunSpeed);
         if (ended != StopEnd.None)
@@ -232,7 +261,14 @@ public partial class NetworkView
             return false;
         }
         if (!e.Stop.Active || e.StopClip is not { } clip) return false;
-        if (!wasActive) { _sprintStops++; EdgeLog(s, $"stop begins: {clip.Clip} at {e.Stop.Time:F2} s (speed {speed:F1} m/s{(frame.SimStopping ? ", the simulation's stop" : "")})"); }
+        if (!wasActive)
+        {
+            e.Turn.Drop(); _sprintStops++;
+            bool interrupt = clip.State.Contains("Interrupt", StringComparison.Ordinal);
+            if (interrupt) _sprintInterrupts++;
+            FeelShotTrigger(interrupt ? "interrupt" : "stop");
+        }
+        if (!wasActive) { EdgeLog(s, $"stop begins: {clip.Clip} at {e.Stop.Time:F2} s (speed {speed:F1} m/s{(frame.SimStopping ? ", the simulation's stop" : "")})"); }
         if (!character.Pose(clip.Clip, e.Stop.Time, clip.BlendIn)) { e.Stop.Drop(); return false; }
         var hip = HipOf(s.PlayerId);
         hip.Kind = PoseKind.Normal;
@@ -249,17 +285,59 @@ public partial class NetworkView
         seedFraction = null;
         var e = EdgeOf(s.PlayerId);
         if (NoSprintStart) return false;
+        if (!NoExtraTransitions && SprintTurnPlace(character, s, family, e, out seedFraction)) return true;
+        if (seedFraction is not null) return false;   // the 180 turn has just ended: the loop takes over at its right foot
         bool was = e.Start.Active;
         var clip = EdgesOf(s, family)?.Start is { } start && _edgeClipsInRig.Contains(start.Clip) ? start : null;
         if (!e.Start.Place(_connectedFor, clip, out seedFraction, _frameNo)) { if (was) EdgeLog(s, "start done: the loop takes over"); return false; }
-        if (!was) { _sprintStarts++; EdgeLog(s, $"start begins: {clip!.Clip} at {e.Start.Time:F2} s (travel {e.Start.Travel:F2} m)"); }
+        if (!was) { _sprintStarts++; FeelShotTrigger("start"); EdgeLog(s, $"start begins: {clip!.Clip} at {e.Start.Time:F2} s (travel {e.Start.Travel:F2} m)"); }
         if (!character.Pose(clip!.Clip, e.Start.Time, clip.BlendIn)) { e.Start.Drop(); return false; }
         e.Stop.SprintShown(_connectedFor); e.SprintLast = true; e.Family = family;
         return true;
     }
 
-    /// <summary>Whether a sprint start is under way for the player (it holds the sprint while the body is still at the run's start).</summary>
-    bool SprintStartActive(int playerId) => _edges.TryGetValue(playerId, out var e) && e.Start.Active;
+    /// <summary>
+    /// The 180-degree turn into a sprint (<see cref="SprintTurnTracker"/>): begins at the sprint's first frame when the body stood more than 100 degrees off the aim and the family has the clip, then poses it in real
+    /// time (from the time the marine has been moving, so a body that left rest 0.2 s ago is 0.2 s in) while <see cref="BodyYawFor"/> turns the drawn body with the clip's root turn.
+    /// </summary>
+    bool SprintTurnPlace(CharacterViewer character, PlayerState s, SprintFamily family, SprintEdgeTrack e, out float? seedFraction)
+    {
+        seedFraction = null;
+        if (!e.Turn.Active)
+        {
+            if (e.Start.Armed || e.Start.SinceStand(_connectedFor) > SprintStartTracker.ArmSeconds || !SprintTurnTracker.Applies(e.StandOffset)) return false;
+            var turn = EdgesOf(s, family)?.Turn is { } c && _edgeClipsInRig.Contains(c.Clip) && c.Length > 0.1f ? c : null;
+            if (turn is null) return false;
+            // The turn starts from where the drawn body is now: it has followed the aim since the marine began to move (the frames before the sprint is shown, at the follow rate), so the turn is what is left of it.
+            var track = LocoOf(s.PlayerId);
+            float live = track.Body.Valid ? SprintTurnTracker.Offset(track.Body.Yaw, track.AimYaw) : e.StandOffset;
+            e.Turn.Begin(live, (float)Math.Min(e.Start.SinceStand(_connectedFor), SprintStartTracker.ArmSeconds));
+            e.TurnClip = turn; e.TurnStanding = e.Start.StandAt;
+            e.Start.Consume();   // no plain start for this standing
+            _sprintTurns++;
+            FeelShotTrigger("turn");
+            EdgeLog(s, $"180 turn begins: {turn.Clip} from {e.Turn.Time:F2} s (the body stood {e.StandOffset * 180f / MathF.PI:F0} degrees off the aim, {live * 180f / MathF.PI:F0} now)");
+        }
+        var clip = e.TurnClip!;
+        if (!e.Turn.Place(_connectedFor, clip, out seedFraction, _frameNo)) { if (seedFraction is not null) EdgeLog(s, "180 turn done: the loop takes over"); return false; }
+        if (!character.Pose(clip.Clip, e.Turn.Time, clip.BlendIn)) { e.Turn.Drop(); EdgeLog(s, "180 turn dropped: the pose failed"); return false; }
+        if (LogEdges && _connectedFor - _turnLogAt >= 0.1) { _turnLogAt = _connectedFor; EdgeLog(s, $"180 turn at {e.Turn.Time:F2} s, {e.Turn.Residual(clip) * 180f / MathF.PI:F0} degrees of the body's turn left"); }
+        e.Stop.SprintShown(_connectedFor); e.SprintLast = true; e.Family = family;
+        return true;
+    }
+    double _turnLogAt = double.NegativeInfinity;
+
+    /// <summary>
+    /// The drawn body's yaw while a 180 turn runs (called by <see cref="BodyYawFor"/>): the aim's plus what of the starting offset the clip's root has not turned yet. Null when none runs (or the extras are off).
+    /// </summary>
+    float? SprintTurnYaw(PlayerState s, float aimYaw) =>
+        !NoExtraTransitions && _edges.TryGetValue(s.PlayerId, out var e) && e.Turn.Active && e.TurnClip is { } clip ? aimYaw + e.Turn.Residual(clip) : null;
+
+    /// <summary>Whether the 180 turn into a sprint is under way for the player.</summary>
+    bool SprintTurnActive(int playerId) => !NoExtraTransitions && _edges.TryGetValue(playerId, out var e) && e.Turn.Active;
+
+    /// <summary>Whether a sprint start (or the 180 turn that replaces it) is under way for the player (it holds the sprint while the body is still at the run's start).</summary>
+    bool SprintStartActive(int playerId) => _edges.TryGetValue(playerId, out var e) && (e.Start.Active || e.Turn.Active);
 
     void EdgeLog(PlayerState s, string what)
     {
@@ -267,5 +345,5 @@ public partial class NetworkView
     }
 
     /// <summary>The bot log's counters (printed with the other bot status lines).</summary>
-    string SprintEdgeStats() => $"sprint edges: starts {_sprintStarts}, stops {_sprintStops} ({_sprintStopsDone} played to the end)";
+    string SprintEdgeStats() => $"sprint edges: starts {_sprintStarts}, stops {_sprintStops} ({_sprintStopsDone} played to the end; {_sprintInterrupts} half-speed), 180 turns {_sprintTurns}";
 }

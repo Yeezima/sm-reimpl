@@ -28,11 +28,11 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3057 spec table rows: **2255 tagged**, 550 not tagged (read from data with high confidence), 252 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 681 rows of the changes document.
+Scanned 3069 spec table rows: **2258 tagged**, 558 not tagged (read from data with high confidence), 253 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 683 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
-| Movement (critical) | 397 | 339 | 338 | 115 | 12 |
+| Movement (critical) | 400 | 342 | 341 | 116 | 12 |
 | Combat core (critical) | 17 | 7 | 15 | 14 | 9 |
 | Weapons (critical) | 121 | 73 | 106 | 54 | 3 |
 | Melee (critical) | 130 | 113 | 102 | 45 | 5 |
@@ -53,17 +53,17 @@ Scanned 3057 spec table rows: **2255 tagged**, 550 not tagged (read from data wi
 | Core simulation (provisional values) | 673 | 634 | 480 | 177 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 235 | 224 | 126 | 63 | 0 |
-| **All areas** | **2255** | 1987 | 1685 | 707 | 38 |
+| **All areas** | **2258** | 1990 | 1688 | 708 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1278 |
+| kind: ours | 1279 |
 | confidence: low | 809 |
-| confidence: medium | 747 |
-| notes: ours | 411 |
-| kind: interpretation | 377 |
+| confidence: medium | 750 |
+| notes: ours | 412 |
+| kind: interpretation | 379 |
 | notes: estimate | 181 |
 | kind: estimate | 156 |
 | confidence: none (low) | 129 |
@@ -91,7 +91,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 ## Part A: gameplay areas, critical first
 
-### Movement (gameplay-critical) (397)
+### Movement (gameplay-critical) (400)
 
 *Spec section: Extracted parameters*
 
@@ -568,6 +568,14 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-2854D975` | Pistol twist idle (test aid) | `--pistol-twist-idle` (off by default): the pistol posture at rest stands in the ready posture's "Twist Idle" (pitch clips, the spine twist toward the aim, the turn clips) instead of "Idle Relaxed", for the owner to compare against the video. Not the data's… | kind: interpretation; confidence: low; notes: ours | ours | Pistol twist idle (test aid): compare with SM1 by feel or video. Ours: --pistol-twist-idle (off by default): the pistol posture at rest… | ☐ |
 | `R-44FC88E6` | Stop: straight to the final idle (qc/reference-pass) | When the run's blend space lets go of a marine in the middle of its placement (damped speed below the leave speed), the stand (aim-offset idle, twist idle) is decided again there, so the run blends straight into the final idle over the posture's stop blend… (s) | kind: ours; confidence: medium | graph (the stop blend); ours (the order fix) | Stop: straight to the final idle (qc/reference-pass): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: When the run's blend space lets go of a marine in the middle of its… | ☐ |
 | `R-2EB73FCF` | Transition probe: two-handed melee bones | The probe measures `RIG_Prop_M_*` only on a character carrying a two-handed melee weapon (the thunder hammer, the daemon maul; the networked view sets the character's `melee_2h` meta); on every other character they carry no mesh and gave "move -> idle-plain"… | kind: ours | ours | Transition probe: two-handed melee bones: compare with SM1 by feel or video. Ours: The probe measures RIG_Prop_M_* only on a character carrying a… | ☐ |
+
+*Spec section: Install transitions the client did not play (polish item 10, 2026-11-12; client only, not simulated, no protocol change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-8C3979A2` | Half-speed stop: when | A sprint stop (the simulation's flag, every movement key let go: the existing rule) that begins while the marine is inside the start state's window (armed for this standing, from the interrupt branch to the start's length plus 0.15 s since it last stood:… (s) | kind: interpretation; confidence: medium; notes: ours | the graph's edge (`--if !BOOL_SprintIsActive branch BRANCH_Sprint_Interrupt`, **no `FLT_Input_Nav_Speed` condition**: the graph alone would play it with the… | Half-speed stop: when: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: A sprint stop (the simulation's flag, every movement key let go: the… | ☐ |
+| `R-4520788F` | 180 turn: when | The graph's entry state goes to it on `FLT_Aim_Horizontal_Deg` in [-100, 100] and to the plain start on "not in" that window; **the dump prints the two the other way round from what the clip can mean** (the plain start for the forward aim, the pivot for the… (deg) | kind: interpretation; confidence: medium | graph (the window ±100); the reading of which side is the pivot is an interpretation: **playtest check** whether the original pivots when the aim is outside or… | 180 turn: when: compare with SM1 by feel or video. Ours: The graph's entry state goes to it on FLT_Aim_Horizontal_Deg in… | ☐ |
+| `R-D6D59246` | 180 turn: timing and body turn | The clip plays in real time from the time the marine has already been moving (at most 0.4 s), because our body accelerates to the sprint in about 0.2 s and the clip's own root motion (still for 0.3 s) is not used; the body's heading is the aim's plus the… (s, deg) | kind: ours; confidence: medium | ours | 180 turn: timing and body turn: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: The clip plays in real time from the time the marine has already been… | ☐ |
 
 *Spec section: The hammer's swings and air slash (anim/hammer-swing; the step is simulated, the legs and the air slash clip are client presentation)*
 
@@ -4394,6 +4402,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-5B59D3E4` | Jump-pack death: no push, at once, the effects (2026-11-11) | The ragdoll after a jump death takes no push from the killing blow; the jump death begins at the death frame without waiting for the kill feed (a late fall-out-of-the-level cause ends it); its effects play on the falling body from the death, the impact at the floor clip's `StartAction`; the own death camera follows… | The push of the other deaths is ours too; binding `StartAction` to the actions is F-D1's interpretation | same | Jump-pack death: no push, at once, the effects (2026-11-11): compare with SM1 by feel or video. Ours: The ragdoll after a jump death takes no push from the killing blow… | ☐ |
 | `C-13EB4506` | Flinch set by the attacker's weapon (hit reactions) | A hit plays the flinch set its weapon's reaction type names (the graph's thirteen ports in the order of the set states; the wargear's ranged `trigger_reaction`), no longer the set of the victim's weapon in hand; the slot by front / back, high / low and side (the chooser's names); the storm bolter's and the grenade… | The port-to-set pairing by order; the 1.15 m height that makes a body hit "low"; the Bolter set for an unported type | same | Flinch set by the attacker's weapon (hit reactions): compare with SM1 by watching the reaction and timing it frame by frame. Ours: A hit plays the flinch set its weapon's reaction type names (the… | ☐ |
 | `C-ADBF4B81` | Light melee shows a flinch (hit reactions) | A light melee hit (the knife's included) shows the graph's "Random Flinches" (six additive 0.2 s clips, equal weight) on the victim for every viewer: the attacker on its hit frame, the victim from its own record, others from the snapshots; it interrupts and staggers nothing | The owner's recollection (a light hit only throws off the aim) replaces the data's `reaction_mp_melee` interrupt; that light hits send `Hit_Flinch`, the random pick's seed (victim and snapshot tick) | same | Light melee shows a flinch (hit reactions): compare with SM1 by watching the reaction and timing it frame by frame. Ours: A light melee hit (the knife's included) shows the graph's "Random… | ☐ |
+| `C-935C758B` | Install transitions: the 180 turn and the half-speed stop (2026-11-12) | The 180-degree turn into a sprint (`SM_TRN_BO/CS/HB/TH_180Turn_to_Sprint`) plays in real time, from the time the marine has already been moving, over a body that already travels (our body reaches sprint speed in about 0.2 s; the clip's root motion is not used), and the drawn body turns the shortest way, from where it… | Which side the pivot turns (the clip has one fixed direction), the original's hold of the body during the turn, the wall edge into the half-speed stop (needs the body braked before a wall) | spec "Install transitions the client did not play" | Install transitions: the 180 turn and the half-speed stop…: compare with SM1 by feel or video. Ours: The 180-degree turn into a sprint (SM_TRN_BO/CS/HB/TH_180Turn_to_Sprin… | ☐ |
 
 #### Dropped pickups (fidelity gap 1; protocol 26)
 
@@ -4588,6 +4597,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-86CCDF17` | Aim assist | Recorded as evidence only | Aim assist: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-F90CD7E2` | Weapon spread: the heavy bolter's braced sets and the speed tables | The braced sets wait for the brace; the `target_speed_to_scatter_*` tables are empty on the install and not read; the heavy bolter's and bolt pistol's `_accuracy_perk` sets need upgrade strings no file grants | Weapon spread: the heavy bolter's braced sets and the speed…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-D6C8E863` | Melee distance validation and player collision | The `AttackDistanceValidation` window is read (graph dump) but not used; lunges pass through players other than the locked target (no player-to-player collision) | Melee distance validation and player collision: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-E7695864` | Install transitions not wired (2026-11-12) | Hit reactions from the other attackers (`SM_REC_Light_Itrpt_FHR_01`, `_BHL_01`, `_FLL_01`, `SM_REC_Hvy_Itrpt_FHL_01`: the Bloodletter's second attack, the Nob's, the counter; the marine's own reactions state holds only FHL and BHR, the entry edges into the others have no decoded trigger and the attacker kind is not on… | Install transitions not wired (2026-11-12): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-6FB7303A` | 180 degree attacks, the displace kick-to-stomp tap-to-hold switch, the power sword's knee follow-up | Not simulated (the heavy classes' kick and stomp are simulated since Weapons C). Flinches are drawn (animation pass 2, hit reactions 2026-11-11) and, by the owner's rule, not simulated beyond the light melee's aim spread | 180 degree attacks, the displace kick-to-stomp tap-to-hold…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-7DE442CE` | Jump-pack dash attacks and hammer pound clips | Not simulated. The air melee below 8 m above ground is the graph's `MeleeDash`, not a pound (`FLT_Distance_Above_Ground` in [8, 1000] picks the pound): we always pound (M44 found it; not changed) | Jump-pack dash attacks and hammer pound clips: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-6E338ECD` | The 2.5 m rush variant | Open (M29); the charger's hyper armour is applied since M32 (owner's knowledge) | The 2.5 m rush variant: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
@@ -4844,6 +4854,7 @@ Test aids, probes, demo and capture tooling, and engineering decisions (protocol
 | `R-F5106771` | Probe result (four 150 s sessions, `--no-p3` / this build) | Transitions, connecting clips, the heavy sprint and the pistol idle (animation pass 3; client only, not simulated, no protocol change) |
 | `R-FD1BF923` | Probe result after the review (one fresh 150 s session on the merged build, protocol 38: a Tactical recorder with… | Transitions, connecting clips, the heavy sprint and the pistol idle (animation pass 3; client only, not simulated, no protocol change) |
 | `R-210A1F3E` | Probe result: the stop straight to the idle (qc/reference-pass) | Transitions, connecting clips, the heavy sprint and the pistol idle (animation pass 3; client only, not simulated, no protocol change) |
+| `R-A796DCF6` | Probe: the install transitions | Install transitions the client did not play (polish item 10, 2026-11-12; client only, not simulated, no protocol change) |
 | `R-DF3C1294` | `--no-melee-lock`, `--no-melee-assist`, `--hit-stop`, `--no-melee-variants` | Melee target lock, alignment and lunge (feel/melee-lock; used by the simulation; protocol 32) |
 | `R-9175CDEC` | `smtool graph-dump --melee [<graph prefix>]` | Melee target lock, alignment and lunge (feel/melee-lock; used by the simulation; protocol 32) |
 | `R-1A94F1A3` | Protocol 42 | Melee and charge, second pass (feel/melee-charge-2; protocol 42, used by the simulation) |

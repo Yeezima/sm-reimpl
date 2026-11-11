@@ -39,6 +39,7 @@ public static class LeanBot
     {
         "anim-probe", "tracer-probe", "log-melta-follow", "hip-probe", "yaw-probe", "pan-rate", "transition-probe", "transition-sweep", "camera-probe", "camera-selftest", "camera-back", "motion-probe",
         "frame-profile", "frame-stats", "look-churn", "look-log", "look-closeup", "picker-demo", "picker-on-death", "picker-deploy", "bot-change-loadout",
+        "no-extra-transitions", "no-sprint-stop", "no-sprint-start", "no-turns", "log-sprint-edges", "feel-shots-dense",   // install transitions: the restore switches change what is drawn, so a lean bot would not show them
         "bot-gait", "gait-sweep", "action-sweep", "bot-turn-sweep", "turn-sweep-fire", "latency-probe", "bullet-probe", "show-shot-rays", "camera-hide-log",
         "slash-trace", "claw-crackle-demo", "claw-glow-test", "run-start-log", "log-sound", "log-footsteps", "reload-capture", "reload-probe", "ork-capture", "screenshot", "screenshot-every",
         "record-demo", "spectate", "ragdoll-debug", "death-orbit-test", "no-shader-sweep", "hit-reaction-test", "damage-demo", "aim-test", "hud-demo", "hud-rewards-demo", "hud-headshot-demo", "hud-score-demo", "hud-vitals-demo", "hud-clip-demo", "hud-plasma-demo", "hud-switch-demo", "hud-launcher-demo", "scope-spread-demo", "pound-marker-demo",

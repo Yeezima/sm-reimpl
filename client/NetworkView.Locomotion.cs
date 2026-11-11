@@ -217,7 +217,8 @@ public partial class NetworkView
         float forward = s.Velocity.X * fx + s.Velocity.Y * fy, right = s.Velocity.X * fy - s.Velocity.Y * fx;
         float angle = MathF.Atan2(right, forward) * 180f / MathF.PI;
         // Animation pass 3: a sprint start under way holds the sprint while the body is still going forward faster than a run's start (its speed dips around the threshold).
-        bool startHolds = !CharacterViewer.NoP3 && SprintStartActive(s.PlayerId) && s.Grounded && forward > RunThreshold && !SimSprintStopping(s);
+        // Install transitions: through the 180 turn the drawn body is turned away from the travel (BodyYawFor), so "forward" is the aim's, not the body's: the speed alone holds it.
+        bool startHolds = !CharacterViewer.NoP3 && SprintStartActive(s.PlayerId) && s.Grounded && (forward > RunThreshold || (SprintTurnActive(s.PlayerId) && speed > RunThreshold)) && !SimSprintStopping(s);
         if ((LocoSprinting(s, t, speed, forward) || startHolds) && ((GaitSprint && GaitSprintPlace(character, s, hip, data, t, own)) || SprintPlace(character, s, hip, data, angle, speed, own))) return true;
         // A marine enters the movement poses above RunThreshold (raw simulation speed). With the blend space (it carries the idle pose as a share) it stays in
         // them while its damped speed (GaitPlace) is above GaitLeaveSpeed, so a reversal through zero speed, or a speed hovering at the threshold (a remote

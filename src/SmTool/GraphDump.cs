@@ -85,7 +85,7 @@ static class GraphDump
                     float t = n > 1 ? motion.Duration * i / (n - 1) : 0f;
                     float d = new System.Numerics.Vector2(p.X - first.X, p.Y - first.Y).Length();
                     float v = i == 0 || n < 2 ? 0f : new System.Numerics.Vector2(p.X - motion.Samples[i - 1].X, p.Y - motion.Samples[i - 1].Y).Length() / (motion.Duration / (n - 1));
-                    o.WriteLine($"  {t,6:0.000} s  x {p.X - first.X,7:0.000}  y {p.Y - first.Y,7:0.000}  z {p.Z - first.Z,6:0.000}  dist {d,6:0.000} m  speed {v,6:0.00} m/s");
+                    o.WriteLine($"  {t,6:0.000} s  x {p.X - first.X,7:0.000}  y {p.Y - first.Y,7:0.000}  z {p.Z - first.Z,6:0.000}  dist {d,6:0.000} m  speed {v,6:0.00} m/s  turn {(p.W - first.W) * 180f / MathF.PI,7:0.0} deg");
                 }
             }
             return 0;

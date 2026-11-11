@@ -11,8 +11,19 @@ namespace SmContent;
 /// <param name="BranchAt">Seconds into the clip from which the graph may leave it (<c>BRANCH_Sprint_Finished</c> for a stop, <c>BRANCH_Idle2SprintLoop</c> for a start).</param>
 /// <param name="BlendOut">The blend out of it at that branch, seconds (the start into the loop: 0.1 s), or the navigation's (<see cref="SprintTransitions.DefaultBlendOut"/>) when the graph leaves through the base graph.</param>
 /// <param name="RootForward">Extracted motion along the facing, metres, evenly spaced over <paramref name="RootDuration"/>.</param>
-public sealed record SprintEdgeClip(string Graph, string State, string Clip, float Length, float BlendIn, float BranchAt, float BlendOut, IReadOnlyList<float> RootForward, float RootDuration)
+/// <param name="Turn">The root's turn about the vertical (radians from the clip's start, evenly spaced over <paramref name="RootDuration"/>): read for the 180-degree turn into a sprint only (<see cref="SprintEdges.Turn"/>).</param>
+public sealed record SprintEdgeClip(string Graph, string State, string Clip, float Length, float BlendIn, float BranchAt, float BlendOut, IReadOnlyList<float> RootForward, float RootDuration,
+    IReadOnlyList<float>? Turn = null)
 {
+    /// <summary>How much of the clip's root turn is done at <paramref name="time"/> s, 0 to 1 (0 without turn data).</summary>
+    public float TurnProgress(float time)
+    {
+        if (Turn is not { Count: >= 2 } turn || RootDuration <= 0f) return 0f;
+        float total = turn[^1];
+        if (MathF.Abs(total) < 1e-4f) return 0f;
+        return Math.Clamp(StartClip.Sample(turn, RootDuration, time) / total, 0f, 1f);
+    }
+
     /// <summary>Metres along the facing at <paramref name="time"/> s.</summary>
     public float DistanceAt(float time) => StartClip.Sample(RootForward, RootDuration, time);
 
@@ -90,7 +101,17 @@ public sealed record SprintEdgeClip(string Graph, string State, string Clip, flo
 /// <param name="RunOnBlend">The base graph's blend out of the sprint into the navigation when the sprint is let go with the stick held (<c>FLT_Input_Nav_Speed</c> in [0.5, 100] and
 /// <c>!BOOL_SprintIsActive</c>): 'Standard Blend' 0.333 s for the bolter's and the plasma cannon's states, 'Default 3 Frame Transition' 0.1 s for the bolt pistol's and the heavy bolter's.</param>
 /// <param name="StopExitBlend">The base graph's blend from the sprint state into the navigation at the stop's <c>BRANCH_Sprint_Finished</c> (the same values).</param>
-public sealed record SprintEdges(SprintFamily Family, bool OneHanded, SprintEdgeClip? Start, SprintEdgeClip? Stop, float RunOnBlend, float StopExitBlend);
+/// <param name="Interrupt">The "Transition To Idle on Interrupt" state's clip (<c>SM_NAV_Bullrush2Idle_F_HalfSpeed_01</c>), the stop the graph plays when the sprint is let go while its start state is under way
+/// (<c>!BOOL_SprintIsActive</c> on <c>BRANCH_Sprint_Interrupt</c>, open from <see cref="StartWindow"/>'s <see cref="SprintStartWindow.InterruptAt"/>); entered over the 10 frame blend 0.333 s; null when the graph has none.
+/// (The same state is also entered from the loop when a wall is within 2 m ahead: not wired, see spec "Transitions the install has".)</param>
+/// <param name="Turn">The "180 Idle to Sprint" state's clip (<c>SM_TRN_BO/CS/HB/TH_180Turn_to_Sprint</c>), played instead of the start when the aim is more than 100 degrees off the body; null for families without one (the cannons).</param>
+/// <param name="TurnWindow">The 180 state's own span and <c>BRANCH_Sprint_Interrupt</c> window (the same edge into the half-speed stop leaves it too); null when its sequencer has no such tag.</param>
+/// <param name="StartWindow">How long the entry state (the start clip or the loop's own forward clip) runs and from when it may be interrupted; null when the graph has no such state.</param>
+public sealed record SprintEdges(SprintFamily Family, bool OneHanded, SprintEdgeClip? Start, SprintEdgeClip? Stop, float RunOnBlend, float StopExitBlend,
+    SprintEdgeClip? Interrupt = null, SprintEdgeClip? Turn = null, SprintStartWindow? StartWindow = null, SprintStartWindow? TurnWindow = null);
+
+/// <summary>The entry state's span: <paramref name="Length"/> s from the sprint's start to <c>BRANCH_Idle2SprintLoop</c>, and <paramref name="InterruptAt"/> s, from which <c>BRANCH_Sprint_Interrupt</c> is open.</summary>
+public sealed record SprintStartWindow(float Length, float InterruptAt);
 
 /// <summary>
 /// The sprint's connecting clips from the sprint graphs (animation pass 3; <c>smtool graph-dump --sprint-edges</c>), and the pistol's relaxed idle. Read-only.
@@ -108,14 +129,19 @@ public sealed record SprintTransitions(IReadOnlyList<SprintEdges> Sets, string? 
     public const float DefaultBlendOut = 0.333f;
 
     /// <param name="BaseSprint">The base graph's sprint state of the weapon (the one referencing the sprint graph) and <paramref name="BaseNav"/> its navigation state, for the blends out.</param>
-    public sealed record Map(SprintFamily Family, bool OneHanded, string Graph, string Loop, string StartState, string StopState, string BaseSprint, string BaseNav);
+    /// <param name="TurnState">The "180 Idle to Sprint" state (its machine's chooser state by <paramref name="TurnClipState"/> when it holds one per hand), null for a family without a 180 turn.</param>
+    public sealed record Map(SprintFamily Family, bool OneHanded, string Graph, string Loop, string StartState, string StopState, string BaseSprint, string BaseNav,
+        string? TurnState = null, string? TurnClipState = null, string InterruptState = "Transition To Idle on Interrupt");
 
     public static readonly Map[] DefaultMaps =
     [
-        new(SprintFamily.Rifle, false, "MP_SM_Bolter_NuSprint", "Sprint Loop", "Transition To Idle", "Sprint to Idle", "Bolter Sprint", "Bolter Navigation"),
-        new(SprintFamily.Rifle, true, "MP_SM_Bolter_NuSprint", "1HM Sprint Loop", "Transition To Idle", "1HM Sprint to Idle", "BoltPistol Sprint", "BoltPistol Navigation"),
-        new(SprintFamily.Heavy, false, "SM_Heavy_Bolter_NuSprint", "Sprint Loop", "Transition To Idle", "Sprint to Idle", "Heavy Bolter Sprint", "Heavy Bolter Nav"),
+        new(SprintFamily.Rifle, false, "MP_SM_Bolter_NuSprint", "Sprint Loop", "Transition To Idle", "Sprint to Idle", "Bolter Sprint", "Bolter Navigation", "180 Idle to Sprint", "2HR 180 Sprint"),
+        new(SprintFamily.Rifle, true, "MP_SM_Bolter_NuSprint", "1HM Sprint Loop", "Transition To Idle", "1HM Sprint to Idle", "BoltPistol Sprint", "BoltPistol Navigation", "180 Idle to Sprint", "1HM 180 Sprint"),
+        new(SprintFamily.Heavy, false, "SM_Heavy_Bolter_NuSprint", "Sprint Loop", "Transition To Idle", "Sprint to Idle", "Heavy Bolter Sprint", "Heavy Bolter Nav", "180 Idle to Sprint"),
         new(SprintFamily.Cannon, false, "SM_Lascannon_Plasma_NuSprint", "Sprint Loop", "Transition To Idle", "Sprint to Idle", "PlasmaCannon Sprint", "PlasmaCannon Navigation"),
+        // The thunder hammer's sprint graph (SM_TH_NuSprint, added with the install transitions): its stop is SM_NAV_Sprint_to_Idle_F and it has a 180 turn (SM_TRN_TH_180Turn_to_Sprint). Its base graph's
+        // sprint and navigation states live in the hammer's melee graph (not read): the blends out take DefaultBlendOut.
+        new(SprintFamily.Hammer, false, "SM_TH_NuSprint", "Sprint Loop", "Transition To Idle", "Sprint to Idle", "", "", "180 Idle to Sprint"),
     ];
 
     /// <summary>The graph whose states <see cref="Map.BaseSprint"/> and <see cref="Map.BaseNav"/> are in.</summary>
@@ -196,9 +222,48 @@ public sealed record SprintTransitions(IReadOnlyList<SprintEdges> Sets, string? 
                 float blendOut = toLoop is null ? 0.1f : g.EffectAt(toLoop.Transition)?.Duration ?? 0f;
                 start = Edge(g, map, startState, "BRANCH_Idle2SprintLoop", blendIn, blendOut, animationLength, motion, notes);
             }
+            // The entry state's span and the stop the graph plays when the sprint is let go during it (the half-speed stop, entered over the start's 'BRANCH_Sprint_Interrupt' transition).
+            SprintStartWindow? window = null;
+            SprintEdgeClip? interrupt = null;
+            if (startState is not null && SequencerUnder(g, startState.Generator) is { Animations.Count: > 0 } entrySeq)
+            {
+                float entryLength = SafeLength(entrySeq.Animations[0], animationLength) / (entrySeq.PlaybackSpeeds.Count > 0 && entrySeq.PlaybackSpeeds[0] > 0f ? entrySeq.PlaybackSpeeds[0] : 1f);
+                float interruptFraction = entrySeq.Tags.Where(t => t.Kind == "Branch" && t.Name == "BRANCH_Sprint_Interrupt").Select(t => t.Start).DefaultIfEmpty(float.NaN).Min();
+                if (entryLength > 0f && float.IsFinite(interruptFraction)) window = new SprintStartWindow(entryLength, interruptFraction * entryLength);
+            }
+            var interruptState = loop.Machine.States.FirstOrDefault(x => x.Name == map.InterruptState);
+            // Only when the start state has the edge into it (the interrupt state is also reached from the loop at a wall, which is not wired).
+            if (interruptState is not null && window is not null && startState!.Transitions.FirstOrDefault(t => t.ToStateId == interruptState.Id && t.BranchEvent == "BRANCH_Sprint_Interrupt") is { } toInterrupt)
+            {
+                float blendIn = g.EffectAt(toInterrupt.Transition)?.Duration ?? 0f;
+                interrupt = Edge(g, map, interruptState, "BRANCH_Sprint_Finished", blendIn, DefaultBlendOut, animationLength, motion, notes);
+            }
+
+            // The 180-degree turn into the sprint ("180 Idle to Sprint", entered from the entry state over 'Default 3 Frame Blend' when the aim is far off the body).
+            SprintEdgeClip? turn = null;
+            SprintStartWindow? turnWindow = null;
+            if (map.TurnState is { } turnName && loop.Machine.States.FirstOrDefault(x => x.Name == turnName) is { } turnState)
+            {
+                var clipState = map.TurnClipState is { } sub ? g.AllStates.Select(x => x.State).FirstOrDefault(x => x.Name == sub) : turnState;
+                var entry = loop.Machine.States.FirstOrDefault(x => x.Transitions.Any(t => t.ToStateId == turnState.Id) && x.Id != loop.State.Id);
+                var enterT = entry?.Transitions.FirstOrDefault(t => t.ToStateId == turnState.Id);
+                float blendIn = enterT is null ? 0.1f : g.EffectAt(enterT.Transition)?.Duration ?? 0f;
+                var toLoop = turnState.Transitions.FirstOrDefault(t => t.BranchEvent == "BRANCH_Idle2SprintLoop" && (t.ToStateId == loop.State.Id || g.AllStates.Any(x => x.State.Id == t.ToStateId && x.State.Name == map.Loop)));
+                float blendOut = toLoop is null ? 0.1f : g.EffectAt(toLoop.Transition)?.Duration ?? 0f;
+                if (enterT is null) { }   // no edge into the 180 state: the graph never plays it
+                else if (clipState is not null)
+                {
+                    turn = Edge(g, map, clipState, "BRANCH_Idle2SprintLoop", blendIn, blendOut, animationLength, motion, notes, withTurn: true);
+                    if (turn is not null && SequencerUnder(g, clipState.Generator) is { } turnSeq
+                        && turnSeq.Tags.Where(t => t.Kind == "Branch" && t.Name == "BRANCH_Sprint_Interrupt").Select(t => t.Start).DefaultIfEmpty(float.NaN).Min() is { } f && float.IsFinite(f))
+                        turnWindow = new SprintStartWindow(turn.Length, f * turn.Length);
+                }
+                else notes.Add($"{map.Graph}: no state '{map.TurnClipState}'");
+            }
             // The base graph's ways out of the sprint state: with the stick held (the run on) and at the stop's branch.
             float runOn = DefaultBlendOut, stopExit = DefaultBlendOut;
-            if (Graph(BaseGraph) is { } baseGraph && baseGraph.AllStates.FirstOrDefault(x => x.State.Name == map.BaseSprint) is { State: not null } bs
+            if (string.IsNullOrEmpty(map.BaseSprint)) { /* the hammer: its base states are in the melee graph (not read) */ }
+            else if (Graph(BaseGraph) is { } baseGraph && baseGraph.AllStates.FirstOrDefault(x => x.State.Name == map.BaseSprint) is { State: not null } bs
                 && bs.Machine.States.FirstOrDefault(x => x.Name == map.BaseNav) is { } nav)
             {
                 foreach (var t in bs.State.Transitions.Where(t => t.ToStateId == nav.Id))
@@ -209,7 +274,7 @@ public sealed record SprintTransitions(IReadOnlyList<SprintEdges> Sets, string? 
                 }
             }
             else notes.Add($"{BaseGraph}: no states '{map.BaseSprint}' / '{map.BaseNav}'; the ways out of the sprint blend over {DefaultBlendOut} s");
-            sets.Add(new SprintEdges(map.Family, map.OneHanded, start, stop, runOn, stopExit));
+            sets.Add(new SprintEdges(map.Family, map.OneHanded, start, stop, runOn, stopExit, interrupt, turn, window, turnWindow));
         }
 
         string? pistolIdle = null;
@@ -220,7 +285,7 @@ public sealed record SprintTransitions(IReadOnlyList<SprintEdges> Sets, string? 
     }
 
     static SprintEdgeClip? Edge(BehaviorGraphDetail g, Map map, BehaviorState state, string branch, float blendIn, float blendOut,
-        Func<string, float> animationLength, Func<string, HavokExtractedMotion?> motion, List<string> notes)
+        Func<string, float> animationLength, Func<string, HavokExtractedMotion?> motion, List<string> notes, bool withTurn = false)
     {
         var seq = SequencerUnder(g, state.Generator);
         if (seq is null || seq.Animations.Count == 0) { notes.Add($"{map.Graph}/{state.Name}: no clip"); return null; }
@@ -235,7 +300,14 @@ public sealed record SprintTransitions(IReadOnlyList<SprintEdges> Sets, string? 
         if (forward.Count == 0) notes.Add($"{map.Graph}/{state.Name}: {clip} has no extracted motion");
         // The root motion's samples span the clip at speed 1; its time line is the played one (the length and the branch are divided by the playback speed too). Every start and stop clip of
         // the install plays at speed 1 (the heavy and cannon stops bind it to FLT_Sprint_Speed at runtime, not read).
-        return new SprintEdgeClip(map.Graph, state.Name, clip, length, blendIn, at, blendOut, forward, (m?.Duration ?? 0f) / speed);
+        IReadOnlyList<float>? turn = withTurn && m is { Samples.Count: >= 2 } ? m.Samples.Select(sample => sample.W).ToArray() : null;
+        return new SprintEdgeClip(map.Graph, state.Name, clip, length, blendIn, at, blendOut, forward, (m?.Duration ?? 0f) / speed, turn);
+    }
+
+    static float SafeLength(string clip, Func<string, float> animationLength)
+    {
+        try { return animationLength(clip); }
+        catch (Exception ex) when (ex is KeyNotFoundException or NotSupportedException or InvalidDataException) { return 0f; }
     }
 
     static BehaviorSequencer? SequencerUnder(BehaviorGraphDetail g, int? node)
