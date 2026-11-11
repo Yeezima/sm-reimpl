@@ -100,6 +100,20 @@ public class AutocannonContentTests
         Assert.Equal(AutocannonBarrel.Along(AutocannonBarrel.ClampStart, tight), AutocannonBarrel.ReceiverFront, 4);
     }
 
+    [Fact]
+    public void The_kick_is_a_small_move_straight_back_that_starts_and_ends_at_rest()
+    {
+        // Owner 2026-11-11: "only slightly move straight back"; the size and times are ours (provisional approximation).
+        Assert.Equal(0f, AutocannonKick.Metres(0f));
+        Assert.Equal(0f, AutocannonKick.Metres(-0.1f));
+        Assert.Equal(0f, AutocannonKick.Metres(AutocannonKick.TotalSeconds));
+        Assert.Equal(0f, AutocannonKick.Metres(float.NaN));
+        Assert.Equal(AutocannonKick.PeakMetres, AutocannonKick.Metres(AutocannonKick.RiseSeconds), 5);
+        Assert.InRange(AutocannonKick.PeakMetres, 0.01f, 0.08f);   // a few centimetres, not a swing
+        Assert.True(AutocannonKick.TotalSeconds < 0.4f);   // gone before the next round (0.4 s)
+        for (float age = 0f; age < AutocannonKick.TotalSeconds; age += 0.005f) Assert.InRange(AutocannonKick.Metres(age), 0f, AutocannonKick.PeakMetres + 1e-6f);
+    }
+
     // ---- the player's install (skipped without it; nothing of it is kept)
 
     static readonly Lazy<string?> Game = new(() => GameInstall.TryLocate()?.Dir);

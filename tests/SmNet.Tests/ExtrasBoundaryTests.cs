@@ -124,6 +124,7 @@ public class ExtrasBoundaryTests
         ("client/NetworkView.Presentation.cs", "ExtrasEffectNames"),   // NetworkView.ExtrasEffectNames(string, ref IReadOnlyDictionary<string, string>?), in EffectNames: other effects in place of an added weapon's source's (the autocannon's loyalist flash and tracer, owner 2026-11-10)
         ("client/NetworkView.Presentation.cs", "ExtrasMoveClipSpeed"),   // NetworkView.ExtrasMoveClipSpeed(string, ref float), in MoveClipSpeed: the charge's and the pack's moves at the claw's / spear's clip speed
         ("client/NetworkView.Presentation.cs", "ExtrasShooterEffects"),   // NetworkView.ExtrasShooterEffects(int, string, ref string), in EffectsWargear (shots, launches, stop smoke): the Havoc's autocannon plays its Chaos twin's effects (owner 2026-11-11)
+        ("client/NetworkView.HipFire.cs", "ExtrasHipRecoil"),   // NetworkView.ExtrasHipRecoil(CharacterViewer, PlayerState, HipTrack, ref bool), at the start of HipRecoil: the autocannon's kick in place of the heavy bolter's clip (owner 2026-11-11)
         ("client/Hud/Hud.Movie.cs", "ExtrasReticle"),               // Hud.ExtrasReticle(string, ref ReticleSpec?), in DrawMovieReticle: the autocannon's own movie reticle (Hud.Content = Musou)
         ("client/Hud/Hud.Fidelity.cs", "ExtrasWeaponBox"),          // Hud.ExtrasWeaponBox(string, bool, ref WeaponBoxSpec?), in DrawMovieWeaponBox: the autocannon's ammunition display (Hud.Content = Musou)
     ];
