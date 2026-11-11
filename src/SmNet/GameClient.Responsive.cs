@@ -227,13 +227,13 @@ public sealed partial class GameClient
         var bodies = BodiesFor(input);
         // Presentation only: the charge contact this step may predict is not kept (the real prediction of the tick decides it; review of the Rush tests: a kept
         // speculative contact took the victim's body out of the next real step).
-        var (contact, clash, checks, noView, predicted) = (LastChargeContact, LastChargeClash, ChargeContactChecks, ChargeContactNoView, ChargeContactsPredicted);
+        var (contact, clash, checks, noView, predicted, bumps) = (LastChargeContact, LastChargeClash, ChargeContactChecks, ChargeContactNoView, ChargeContactsPredicted, ChargeBumpsPredicted);
         PlayerState next;
         using (PlayerCollision.Use(ClashBodies(Predicted, input, bodies)))
             next = Combat.StepSelf(Predicted, Match.Predicted(_latestSnapshotTick, input), _config, out _, out _, Collision,
                 input.MeleeTarget > 0 ? LockViewAt(input.ViewTick, Predicted) : null);
         next = PredictChargeContact(Predicted, next, input, null, bodies);
-        (LastChargeContact, LastChargeClash, ChargeContactChecks, ChargeContactNoView, ChargeContactsPredicted) = (contact, clash, checks, noView, predicted);
+        (LastChargeContact, LastChargeClash, ChargeContactChecks, ChargeContactNoView, ChargeContactsPredicted, ChargeBumpsPredicted) = (contact, clash, checks, noView, predicted, bumps);
         return _ahead = next;
     }
 

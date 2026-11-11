@@ -448,7 +448,7 @@ public class MusouExpansionS4Tests
 
         Assert.True(MusouSim.Version >= 18u);   // S4 raised it; later stages raise it further
         Assert.True(TfwRules.Version >= 36u);
-        Assert.Equal(65u, Protocol.Version);   // main's protocol (headshots raised it to 64 at integration, net/responsive to 65); the Musou expansion does not raise it
+        Assert.Equal(66u, Protocol.Version);   // main's protocol (headshots raised it to 64 at integration, net/responsive to 65, the charge cancel to 66); the Musou expansion does not raise it
     }
 
     [Fact]

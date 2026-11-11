@@ -124,11 +124,15 @@ public class ChargeLockTests(ITestOutputHelper output)
     [Fact]
     public void An_ally_only_stops_the_charge_and_is_not_moved()
     {
-        var w = Arena(Config, (Marine, Vector3.Zero), (Marine, new Vector3(0.4f, 6f, 0f)));
-        var c = Run(w, 40, 5);
-        Assert.NotNull(c);
-        Assert.Equal(new Vector3(0.4f, 6f, 0f), c.Value.Victim.Position);
-        Assert.Equal((RushPhase.Collision, ReactionKind.None), (c.Value.Charger.Rush, c.Value.Victim.Reaction));
+        // charge-ally-bump (protocol 66; the owner 2026-11-11): the charge ends where it met the ally, with no collision stop and no turn; --old-ally-bump: the stop, as before.
+        foreach (bool bump in new[] { true, false })
+        {
+            var w = Arena(Config with { ChargeAllyBump = bump }, (Marine, Vector3.Zero), (Marine, new Vector3(0.4f, 6f, 0f)));
+            var c = Run(w, 40, 5);
+            Assert.NotNull(c);
+            Assert.Equal(new Vector3(0.4f, 6f, 0f), c.Value.Victim.Position);
+            Assert.Equal((bump ? RushPhase.None : RushPhase.Collision, ReactionKind.None), (c.Value.Charger.Rush, c.Value.Victim.Reaction));
+        }
     }
 
     [Theory]

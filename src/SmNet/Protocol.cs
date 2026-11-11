@@ -503,7 +503,9 @@ public static partial class Protocol
     // 65 (net/responsive; the owner 2026-11-09: "buffering as low as it can go while still playing well"): the snapshot's 4-byte input lead becomes a 2-byte lead and a
     //     2-byte input slack (Snapshot.InputSlack: ms between the arrival of the recipient's input for each tick and that tick's run, the least since the previous snapshot;
     //     negative: a tick ran without it), so the client steers its lead to a tick plus the measured jitter. Snapshot size unchanged.
-    public const ushort Version = 65;
+    // 66 (charge-cancel, charge-ally-bump; the owner 2026-11-11): no layout change. S held back ends the bull rush from its stick branch and a Grenade press ends no charge phase
+    //     (every mode); in Classic PvP a charge that meets an ally it cannot harm ends there with no collision stop. Restore switches (config hash): --old-charge-cancel, --old-ally-bump.
+    public const ushort Version = 66;
     /// <summary>The kill-feed cause code of a weapon kill on the head (protocol 64; <see cref="KillView.Headshot"/>).</summary>
     public const int HeadshotCauseCode = 6;
     /// <summary>Most spectators a server admits and a Scoreboard lists (protocol 46), so the Scoreboard stays within one packet.</summary>

@@ -95,6 +95,11 @@ if (cli.NoChargeLock) config = config with { ChargeLock = false };
 if (cli.OldBodyContact) config = config with { SolidBodies = false };
 // feel/charge-clash: --no-charge-clash (test aid) restores the protocol 58 stop (config hash).
 if (cli.NoChargeClash) config = config with { ChargeClash = false };
+// charge-cancel / charge-ally-bump (protocol 66): --old-charge-cancel and --old-ally-bump (restore switches) bring back the protocol 65 rules (config hash).
+if (cli.OldChargeCancel) config = config with { ChargeBackCancel = false };
+if (cli.OldAllyBump) config = config with { ChargeAllyBump = false };
+Console.WriteLine(config.ChargeBackCancel ? "charge cancel: S (the stick held back) from the rush's stick branch; a Grenade press ends no charge phase (owner 2026-11-11)" : "charge cancel: OLD (--old-charge-cancel, restore switch; clients need --old-charge-cancel too): a Grenade press ends the charge from its branch, S does not");
+Console.WriteLine(config.ChargeAllyBump ? "ally bump: a Classic PvP charge that meets an ally it cannot harm ends there, no collision stop (owner 2026-11-11; the stop ours)" : "ally bump: OLD (--old-ally-bump, restore switch; clients need --old-ally-bump too): the collision stop on an ally");
 Console.WriteLine(config.SolidBodies ? $"solid bodies: on (no move closer than {SolidBodies.GuardDistance(config, false):0.##} m between bodies as they stand, {SolidBodies.GuardDistance(config, true):0.##} m with a charger; the charge's contact swept, stopped where it meets; ours)" : "solid bodies: OFF (--old-body-contact, test aid; clients need --old-body-contact too)");
 Console.WriteLine(config.ChargeClash && config.ChargeLock ? "charge clash: on (a stunned victim is carried by the charger's collision-stop shove, the pair locked at the capsules' touch; ours, the shove from the data)" : "charge clash: OFF (--no-charge-clash, test aid; clients need --no-charge-clash too)");
 Console.WriteLine(config.ChargeLock ? "charge lock: on (contact with the blocking body too; charger turned to the victim, victim at 0.9 m; ours)" : "charge lock: OFF (--no-charge-lock, test aid; clients need --no-charge-lock too)");

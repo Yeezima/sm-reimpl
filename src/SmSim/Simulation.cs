@@ -834,6 +834,8 @@ public sealed partial record SimConfig
             if (QuickdrawSwitch) w.Write("quickdraw-switch");   // feel/grenades-quickdraw: only when on (older hashes unchanged)
             if (MeleeLungeScale != 1f) { w.Write("lunge-scale"); w.Write(MeleeLungeScale); }   // feel/melee-charge-2: only when not the default (older hashes unchanged)
             if (MeleeFlinchDegrees != 6f || MeleeFlinchSeconds != 0.5f) { w.Write("melee-flinch"); w.Write(MeleeFlinchDegrees); w.Write(MeleeFlinchSeconds); }   // sim/light-melee-flinch: only when not the default
+            if (!ChargeBackCancel) w.Write("old-charge-cancel");   // charge-cancel (protocol 66): only when off (older hashes unchanged)
+            if (!ChargeAllyBump) w.Write("old-ally-bump");          // charge-ally-bump (protocol 66): only when off (older hashes unchanged)
             // Added content (ContentExtras.cs): only when any is on, so a faithful config hashes byte for byte as before the switch.
             if (Extras != ContentExtras.None) { w.Write("extras"); w.Write((uint)Extras); w.Write(ContentExtras.WireVersion); ExtrasHash(w); }   // EXTRAS-HOOK
         }

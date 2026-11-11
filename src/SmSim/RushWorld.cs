@@ -4,7 +4,8 @@ namespace SmSim;
 
 /// <summary>A charge that connected in the last tick (diagnostics, tests, client effects).</summary>
 /// <param name="Harmed">The connected player could be harmed (an enemy, or anyone with friendly fire): it took the hit.</param>
-public readonly record struct RushEvent(uint Tick, int Player, int Target, bool Harmed);
+/// <param name="Bump">charge-ally-bump (protocol 66): the player met was an ally the charge cannot harm, in Classic PvP: the charge ended there with no stop (<see cref="ChargeCancel.Bumped"/>).</param>
+public readonly record struct RushEvent(uint Tick, int Player, int Target, bool Harmed, bool Bump = false);
 
 /// <summary>
 /// The charge in the world (M29; rules **interpretation**, spec/behavior.md "Charge"): each tick a rush still connecting
@@ -35,6 +36,14 @@ public sealed partial class World
         if (ChargeLock.Find(attacker, before.Position, state.Position, state.Yaw, spec, Config, seen, Config.ChargeLock ? BodiesFor(attacker, input) : null, Collision,
                 id => _players.TryGetValue(id, out var current) && current.Alive, SolidGuard ? _moves : null, state.Team) is not { } contact) return false;
         int target = contact.Target;
+        // charge-ally-bump (protocol 66; the owner 2026-11-11): in Classic PvP an ally the charge cannot harm ends it where it met him, with no stop and nothing on him (StopRushes);
+        // the bodies' collision (sim/player-collision) is unchanged. The own client predicts the same (ChargeLock.Predict).
+        if (AllyBump(state, target))
+        {
+            _rushes.Add(new RushEvent(Tick, attacker, target, Harmed: false, Bump: true));
+            _chargeBumps.Add(attacker);
+            return true;
+        }
         var lockLine = ChargeLock.Direction(before.Position, state.Position, state.Yaw, contact, spec);
         // fix/charge-player-collision: the charger stops at the point of its move where it met an opponent (as the own client predicts it), not a tick's move beyond.
         if (Config.SolidBodies && contact.T < 1f && _players.TryGetValue(attacker, out var mover) && mover.Alive && _players.TryGetValue(target, out var met) && Hostile(state.Team, met.Team))
@@ -86,11 +95,20 @@ public sealed partial class World
     /// were charging in: one that connected takes the stop of that phase as any other contact (unless a resolution changed its state since).</param>
     void StopRushes(IEnumerable<int> chargers, IReadOnlyDictionary<int, RushPhase>? landed = null)
     {
-        try { StopRushesLocked(chargers, landed); } finally { _chargeLines.Clear(); }
+        try { StopRushesLocked(chargers, landed); } finally { _chargeLines.Clear(); _chargeBumps.Clear(); }
     }
 
     /// <summary>anim/melee-interaction: each connecting charger's lock line this tick (<see cref="ChargeLock.Direction"/>), for its stop.</summary>
     readonly Dictionary<int, Vector2> _chargeLines = new();
+    /// <summary>charge-ally-bump: the chargers whose contact this tick was an ally bump (<see cref="AllyBump"/>), for <see cref="StopRushes"/>.</summary>
+    readonly HashSet<int> _chargeBumps = new();
+
+    /// <summary>
+    /// charge-ally-bump (protocol 66): whether a charge in <paramref name="state"/> meeting <paramref name="target"/> is an ally bump: the two on one side (<see cref="Hostile"/> false), match
+    /// rules without friendly fire (none: everyone is harmed) and Classic PvP (<see cref="ChargeCancel.AllyBumps"/>). The match's state does not enter (the own client cannot see it).
+    /// </summary>
+    bool AllyBump(PlayerState state, int target) =>
+        ChargeCancel.AllyBumps(Config, friendlyFire: Rules is not { FriendlyFire: false }) && _players.TryGetValue(target, out var met) && !Hostile(state.Team, met.Team);
 
     void StopRushesLocked(IEnumerable<int> chargers, IReadOnlyDictionary<int, RushPhase>? landed)
     {
@@ -98,6 +116,8 @@ public sealed partial class World
         foreach (int id in chargers)
         {
             if (!_players.TryGetValue(id, out var now) || !now.Alive) continue;
+            // charge-ally-bump: the charge ends where it met the ally (no stop, no turn); a wall's stop this tick, a landing or a reaction since keep what they did.
+            if (_chargeBumps.Contains(id)) { _players[id] = ChargeCancel.Bumped(now); continue; }
             // anim/melee-interaction: facing the lock line (ChargeLock.Stopped; without the lock as Rush.Stopped).
             var line = _chargeLines.TryGetValue(id, out var l) ? l : new Vector2(-MathF.Sin(now.Yaw), MathF.Cos(now.Yaw));
             if (Rush.Charging(Rush.ChargingPhase(now))) _players[id] = ChargeLock.Stopped(now with { Rush = Rush.ChargingPhase(now) }, line, Config);   // the dash attack: its hit state
