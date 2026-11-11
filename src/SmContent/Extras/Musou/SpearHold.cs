@@ -59,6 +59,30 @@ public static class SpearHold
     /// </summary>
     public const float Pass2CarryElevation = 62f, Pass2CarryAzimuth = -22f;
     /// <summary>
+    /// Spear pass 3 (owner, 2026-11-12: "Make the character hold the spear parallel to his spine while idle and running"): the carried shaft runs along the spine, from the waist
+    /// (<see cref="SpineLow"/>) toward the middle of the shoulders (<see cref="SpineHighL"/>, <see cref="SpineHighR"/>: the torso's visible axis; the neck bone sits off it), so it follows the torso's lean in every stance; blade up, butt low. <see cref="Pass3CarryTilt"/> is
+    /// how far (degrees) the blade is tipped off the spine toward the front: 0, parallel (ours; the owner's word). The caller reads the spine from the pose (<see cref="SpineOf"/>).
+    /// </summary>
+    public const string SpineLow = "RIG_SpineA", SpineHighL = "RIG_L_UpperArm", SpineHighR = "RIG_R_UpperArm";
+    public const float Pass3CarryTilt = 0f;
+    /// <summary>
+    /// How far the carried blade leans in toward the body's centre line, a fixed side lean in the facing frame (degrees; ours): the shaft's fore-and-aft lean is the spine's exactly, but the side
+    /// lean is not parallel to the spine's own sway: from a hand at the side of the hip, a shaft parallel to a vertical spine puts the blade's head in the crosshair's column of the own
+    /// third-person view (the camera stands 0.64 m right of him; the hand is 0.46 m right of the pelvis), which the owner ruled out on 2026-11-11 and the clearance test holds
+    /// (<c>SpearClearanceTests.The_carried_blade_stays_out_of_the_crosshair_column_standing_walking_and_running</c>, 3 degrees). 13 degrees clears it in every walk and run direction (the test passes)
+    /// (measured over every hammer stance clip: 8 degrees leaves the head 2.6 degrees off the column at the worst, 12 degrees 3.4 with the hand at 0.44 m). 0 makes the shaft parallel to the spine in the front view too.
+    /// </summary>
+    public const float Pass3CarryRoll = 13f;
+    /// <summary>Where the right hand holds the shaft in the pass 3 carry (m from the butt): as the older carries (the hand is at the hip, so the butt hangs to about 0.05 to 0.1 m over the ground along the spine).</summary>
+    public const float Pass3CarryGrip = 0.95f;
+
+    /// <summary>The spine's direction (unit; skeleton space) from the waist's place toward the middle of the two shoulders' places; up when they coincide.</summary>
+    public static Vector3 SpineOf(Vector3 waist, Vector3 leftShoulder, Vector3 rightShoulder)
+    {
+        var d = (leftShoulder + rightShoulder) * 0.5f - waist;
+        return d.LengthSquared() < 1e-6f ? new Vector3(0f, 0f, 1f) : Vector3.Normalize(d);
+    }
+    /// <summary>
     /// The way the carried blade's edge faces, as an azimuth from the front toward the body's right (degrees; flat, then squared to the shaft): forward and out, away from the body (owner,
     /// 2026-11-10: "the blade is facing away from the character model at idle and when running"; ours). Once both hands swing it the edge faces the front, as the strikes were approved.
     /// </summary>
@@ -79,7 +103,7 @@ public static class SpearHold
     /// </summary>
     /// <param name="front">The body's flat front (the stance's, read from the hips).</param>
     /// <returns>The butt's place, the shaft's direction from the butt toward the blade (unit) and the edge's direction (unit, square to the shaft).</returns>
-    public static (Vector3 Butt, Vector3 Shaft, Vector3 Edge) Place(Vector3 rightHand, Vector3 leftHand, float leftGrip, float rightFromButt, Vector3 front, Vector3 up, float moving = 0f)
+    public static (Vector3 Butt, Vector3 Shaft, Vector3 Edge) Place(Vector3 rightHand, Vector3 leftHand, float leftGrip, float rightFromButt, Vector3 front, Vector3 up, float moving = 0f, Vector3? spine = null)
     {
         var d = leftHand - rightHand;
         d = d.LengthSquared() < 1e-4f ? front : Vector3.Normalize(d);
@@ -95,6 +119,21 @@ public static class SpearHold
             float el = (90f + (carryEl - 90f) * high) * deg;
             var lean = front * MathF.Cos(carryAz * deg) + right * MathF.Sin(carryAz * deg);   // the way the carried shaft leans, flat
             var carry = Vector3.Normalize(lean * MathF.Cos(el) + up * MathF.Sin(el));
+            if (ClawSpearClips.Pass3 && spine is { } sp && sp.LengthSquared() > 1e-6f)
+            {
+                // Pass 3: along the spine (tipped Pass3CarryTilt toward the front), upright from a low grip as before.
+                var along = Vector3.Normalize(sp);
+                float tilt = Pass3CarryTilt * deg;
+                var flatFront = front - along * Vector3.Dot(front, along);
+                if (tilt != 0f && flatFront.LengthSquared() > 1e-6f) along = Vector3.Normalize(along * MathF.Cos(tilt) + Vector3.Normalize(flatFront) * MathF.Sin(tilt));
+                if (Pass3CarryRoll != 0f && right.LengthSquared() > 1e-6f)
+                {
+                    // The fore-and-aft lean is the spine's; the side lean is fixed in the facing frame (the blade in toward the body's centre line), not the spine's own sway.
+                    float sf = Vector3.Dot(along, front), su = Vector3.Dot(along, up), rho = MathF.Sqrt(sf * sf + su * su);
+                    if (rho > 1e-3f) { float roll = Pass3CarryRoll * deg; along = Vector3.Normalize(right * -MathF.Sin(roll) + (front * sf + up * su) / rho * MathF.Cos(roll)); }
+                }
+                carry = Vector3.Normalize(Vector3.Lerp(up, along, high));
+            }
             d = Vector3.Normalize(Vector3.Lerp(carry, d, grip));
         }
         var butt = rightHand - d * rightFromButt;

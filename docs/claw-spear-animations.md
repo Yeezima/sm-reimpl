@@ -124,6 +124,8 @@ The pistol stays in the left hand for every claw strike (design D2); the left ar
 
 ## 3b. No clipping (2026-11-10)
 
+> **Relaxed 2026-11-12 (spear pass 3, section 3i).** The owner: "remove the no collision clipping text. It's ok if the spear or other parts of the character momentarily clip." Everything below describes the check as built; since pass 3 `SpearClearanceTests` *reports* the clearance of every clip and hand-over (least clearance, share of frames that clip, share deeper than 0.15 m) and fails only on a gross error: a clip more than 0.15 m inside the body for more than half of its frames. The palms on the shaft, the hands' spacing, the carried butt off the ground, the crosshair column and the planted feet are still held.
+
 The owner's review of the wired stills: "Make a pass at all the animations to ensure the spear isn't going through the player models body at any time". **The check** (`SpearClearance`,
 SmContent, Godot-free): the marine's body as capsules on its bones, fitted to the install's basic multiplayer armour and the Assault's jump pack in the bind pose (each part's vertices,
 skinned mostly to a bone or rigid on it, split into clusters; each capsule covers 88 % of its cluster at the least volume; head, torso, waist, pelvis, jump pack, shoulder pads, upper arms,
@@ -258,7 +260,7 @@ Owner (2026-11-12, with a reference image of a spear carried at the hip; the ima
 running animation. The right arm and grip on the spear should match that. Make the blade of the spear point forwards. Make the spear attack animations concise and powerful. Refer to real training
 manuals on how to fight with a halberd for the animations." Presentation only (client and SmContent); no simulation, wire, protocol, config-hash, timing or jump-pack change. Label: *ours*, not approved.
 
-- **The carry (`ClawSpearClips.SpearRestPass2`).** Standing: the hips are squared to the facing (`WeaponPoseClip.SquareYaw` 71 degrees, faded out as the fist solve comes in with the speed) so the
+- **The carry (`ClawSpearClips.SpearRestPass2`; replaced by pass 3's, section 3i; this is `--old-spear-pass3`'s).** Standing: the hips are squared to the facing (`WeaponPoseClip.SquareYaw` 71 degrees, faded out as the fist solve comes in with the speed) so the
   right side of the body is no longer turned away; the right arm hangs nearly straight beside the hip, a little forward and out (upper arm -74 degrees at 40 right of the front, forearm -62 at 32); the shaft leans
   forward and up across the right side (`SpearHold.Pass2CarryElevation/Azimuth` 62 and -22 degrees in the facing frame: the blade ahead of the body, only a little across it, 4.6 degrees left of the
   crosshair column), the butt low behind; the hips sit 2.5 cm lower (`CarryDrop`) so the legs reach the planted feet; every bone a stroke keys has a zero channel in the carry so hand-overs fade it.
@@ -288,10 +290,63 @@ manuals on how to fight with a halberd for the animations." Presentation only (c
 - **Transitions.** Carry to every hew (a random Musou swing) is the 0.14 s hand-over; chained hew 1 to 2, 2 to 3 and stun to stab start on the previous finish; attack to carry regrips as above.
 - **Rollback.** `--old-spear-pass2` / `SM_OLD_SPEAR_PASS2=1` (`ClawSpearClips.OldPass2`): the older carry (no pelvis channel, no squared hips), hews 2 and 3, snap cut and stab, hew 1 the pilot's (add
   `--old-spear-hew` for pass 3's). docs/commands.md.
-- **Checks (filtered):** see docs/milestones.md. **Failing as of this branch:** `SpearClearanceTests.The_spear_never_passes_into_the_body_in_any_clip_or_hand_over` on two hand-over frames,
+- **Checks (filtered):** see docs/milestones.md. **Failing as of that branch (resolved in section 3i: the clearance test now reports clipping; the owner accepts a momentary clip):** `SpearClearanceTests.The_spear_never_passes_into_the_body_in_any_clip_or_hand_over` on two hand-over frames,
   carry to hew 3 (-0.027 m, 7 mm over the limit) and hew 1 to hew 3 (-0.12 m; hew 3 follows hew 2 in the simulation, hew 1 to hew 3 only happens in the test's chain list); everything else, including the
   stroke frames, steps, column, palms and the in-game against Blender comparison (worst 0.2 cm), passes.
 - **Evidence:** `<media folder>\spear-pass2\` (stage clips, before/after sheets; no match recording).
+
+## 3i. Pass 3: the one-handed carry parallel to the spine (2026-11-12, claude/spear-pass-3)
+
+Owner (2026-11-12), after seeing pass 2: "For the spear animations - remove the no collision clipping text. It's ok if the spear or other parts of the character momentarily clip." / "Make the character
+hold the spear parallel to his spine while idle and running. These are the best hew animations yet.. keep it up. Use the reference for how the spear should be held while running. Ensure the right arm
+position is how our space marines hold the weapon - 1 handed in the right arm. Ensure the hand is connected to the arm." (The reference is the same watermarked stock photo as pass 2's, never committed.)
+Presentation only (client and SmContent); no simulation, wire, protocol, config-hash, timing or jump-pack-flight change. Label: *ours*, not approved.
+
+- **One carry for idle, walk, run and sprint in every direction** (`ClawSpearClips.SpearRestPass3`; it is pass 2's rest clip, so the hand-over channels and keys are the same, plus the solves below).
+  - **Parallel to the spine.** `SpearHold.Place(..., spine)`: the carried shaft's fore-and-aft lean is the spine's, read each frame from the pose (`SpearHold.SpineOf`: from `RIG_SpineA` toward the middle of the two
+    upper arms; the neck bone sits off the torso's visible axis, so it is not used; `CharacterViewer.WeaponPoseSpine`, the stand-in reads it too, the test mirror's `Spine()` is the same arithmetic). It
+    follows the torso's lean: the hammer idle's spine leans 2 to 3 degrees forward, the walks -1 to 17, the runs 5 to 21, the sprints 12 to 29 (over every hammer stance clip); in the real game the drawn
+    shaft's lean equals the drawn spine's to the printed digit in every phase (`media\spear-pass3\game\game-spearcarry-measurements.txt`). Blade up, butt low: the right hand is 0.95 m from the butt
+    (`SpearHold.Pass3CarryGrip`, the older carries' grip), so the butt rides at least 0.097 m off the ground over all twenty stances. A low grip (hews, stab) still stands the shaft upright from the hand,
+    and with the left hand on the shaft it lies on the line through both hands, as before.
+  - **One deliberate exception: a 13 degree side lean** (`SpearHold.Pass3CarryRoll`). A shaft parallel to the spine in the side view *and* in the front view puts the blade's head across the crosshair's
+    column in the own view: the camera stands 0.64 m right of him, the hand 0.46 m right of the pelvis, so the head sits 0 to 1 degrees off the centre column in most run directions (measured over the twenty
+    stances), and the owner ruled that out on 2026-11-11 (the column margin is still held: `The_carried_blade_stays_out_of_the_crosshair_column_standing_walking_and_running`, 3 degrees; the lead's brief kept it).
+    So the side lean is fixed in the facing frame (the blade in toward his centre line, as in the reference, where the spear leans toward his body), not the spine's own sway: 8 degrees left the head 2.6 degrees
+    off the column at the worst, 12 degrees 3.4 (hand at 0.44 m), 13 degrees clears it in every walk and run. In the real game's own camera the blade stands left of the reticle in every phase, sprint included
+    (`game-carry-player-camera-sheet.png`). Set the constant to 0 and the shaft is parallel to the spine in the front view too, at the price of the blade standing in the crosshair column while he moves.
+  - **One-handed in the right hand at the side, like the marines' one-handed weapon.** The right grip socket is solved onto a point beside the right hip every frame, standing too (`WeaponPoseClip.FistTarget`
+    `(0.46, 0.20, 0.10)` m right, forward and up from the pelvis, `FistFromPelvis`, `FistAlways`: before, the solve came in only with the speed and was measured from the middle of the shoulders). The hip is the
+    reference because the torso leans back in the idle and forward in the run; the hand stays 0.44 to 0.47 m right of the pelvis and 0.09 to 0.13 m above it in all twenty stances
+    (`The_shaft_follows_the_spines_lean_with_the_hand_at_the_side_in_every_stance`), outside the thigh armour (its capsule reaches 0.34 m), the elbow down, out and a little back (`FistElbowHint`). The install's own
+    one-handed melee stance (the claw's idle, `SM_NAV_IdleL_CS_01`, measured with `--pose-log`) holds the right hand 0.63 m right of the middle of the shoulders, 0.18 m behind it and 0.48 m below it, the arm
+    bent, hanging low; the carry's hand is 0.54 right, +0.13 forward, 0.50 below (the pass's own measurement over the idle), the same family of pose: the arm hanging at the side, the hand at the hip. The hips are squared
+    to the facing while he stands as in pass 2 (`SquareYaw`, faded by the movement share as before).
+  - **The arms swing with the stride** (`FistSwing` 0.05 m per metre of foot split for the right arm, `LeftFistSwing` 0.20 for the left; the left fist is solved too, `LeftFistTarget`, `(-0.46, 0.0, 0.10)`): the right
+    fist goes forward as the left foot does, the left the other way, scaled by the movement share. Over the forward run the right hand travels 0.10 m along the facing, the left 0.38 m, against each other
+    (`The_arms_swing_against_each_other_with_the_stride_in_the_forward_run`); standing they hang still. The spear moves with the right hand because the shaft runs through its grip socket.
+- **The hand stays attached to the arm.** The overlay and the solves only *turn* bones (they never translate an arm bone), so the chain clavicle - upper arm - forearm - hand - grip socket keeps its lengths: over every
+  frame of all twenty stances laying the carry changes no length of either arm by more than 0.00001 m (`The_hands_stay_attached_to_the_arms_with_fixed_bone_lengths_in_every_stance`), and in the real game the right arm
+  prints upper 33.2 cm, fore 31.2, hand 11.9 to 12.2 in every phase (the last is the stance clip's own weapon-socket motion; the same without the carry) with the grip socket 0.0 cm off the drawn shaft. Seen: the gauntlet's
+  fist closes round the shaft with the forearm running into it (`stage-carry-keypose-sheet.png`, the close-ups in the evidence folder). Before this pass no stretching hand was found by the checks either (they did not
+  exist): if the owner still sees a detached hand, it is in another pose (the hews' hand-overs are the candidates) and a still of it would settle it.
+- **Pass 2's strokes are untouched** (the five authored clips, their timings, hit times and combo openings): their start and end keys are pass 2's carry's arms; the carry's solves fade in and out over the same
+  0.14 s hand-over (the solve's weight follows the clip that has it), and the shaft's direction follows the left hand's grip (it turns from the line through the hands to the spine's lean as the left hand lets go).
+  The ground pound, the impale and the landing keep their keys; only their hand-over into the carry changed (the same mechanism). The jump pack's flight is not touched.
+- **Clipping is reported, not held** (section 3b's note). Measured over every clip and hand-over (`SpearClearanceTests`, printed): the carry least -0.19 m (the shaft in the right pad, run forward-left), 55 % of its
+  frames clip at all and 15 % deeper than 0.15 m (the collar against the shoulder pad and the jump pack's right thruster; the hand is beside the hip, so a spine-parallel shaft passes next to the pad); the strokes
+  as in pass 2 (least -0.06 m); the carry-to-stroke hand-overs up to -0.21 m for one or two frames. Nothing is through the torso for most of a clip.
+- **Rollback.** `--old-spear-pass3` / `SM_OLD_SPEAR_PASS3=1` (`ClawSpearClips.OldPass3`; docs/commands.md): pass 2's carry plays (the hip fist while standing, the chest fist while moving, the shaft leaning 62 degrees forward),
+  the strokes are the same. `--old-spear-pass2` still plays the older carries and strokes. `Pass3 = !OldPass2 && !OldPass3`.
+- **Test aids.** The stage: `--claw-spear-test --clip carry[:idle|walk|run|run-left|run-right|run-back|sprint|sprint-left|sprint-right] [--dist 0.5]` plays the carry over the hammer stance's idle, walk, run, strafes
+  and sprint (2.2 s each, or 3.2 s for one; `--dist` moves the camera in for close-ups; stills are named `spear_rest-<stance>_pose_<view>.png`). The real game: `godot.cmd --windowed [--write-movie f.avi --fixed-fps 30] -- --connect
+  ... --content musou --class "sm - assault" --melee "power spear" --tfw-spear-carry-film [--tfw-spear-views player,side,front] --tfw-test <dir>` (server `SM_TFW_KEEP_HUMAN=1`) stands, sprints, runs back, strafes
+  left and right and swings one hew with the real keys, with a `SPEARCARRY` line per phase (the drawn shaft's and the spine's lean, the side lean, the grip socket's distance from the shaft, the arm's bone lengths, the
+  speed) and a `SPEARCARRYFRAMES` line per view (engine frame, wall ms, phase, clip) to cut the recording by.
+- **Checks (filtered):** see docs/milestones.md. New `SpearPass3Tests`; `SpearClearanceTests` (reporting, the column with the pass 3 carry), `SpearPass2Tests` and `ClawSpearClipsTests` (the carry switch).
+- **Open for the owner:** the 13 degree side lean (0 = strictly parallel, blade across the crosshair while moving); the carry's hand place (0.46 right, 0.20 forward of the pelvis) and the swing amounts (ours, estimates);
+  the blade grazing the right shoulder pad and the jump pack in many frames (accepted by the owner's note; a wider hand would lose the column margin).
+- **Evidence:** `<media folder>\spear-pass3\` (stage and real-game MP4s, key-pose sheets, the reference beside idle and run for his eyes only, `README.txt` naming what is stage and what is game).
 
 ## 4. Preview stage and restore
 

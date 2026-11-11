@@ -54,7 +54,7 @@ public class SpearPass2Tests(ITestOutputHelper output)
         Assert.Equal(old ? ClawSpearClips.SpearHew3Original : ClawSpearClips.SpearHew3Pass2, ClawSpearClips.SpearHew3);
         Assert.Equal(old ? ClawSpearClips.SpearStunOriginal : ClawSpearClips.SpearStunPass2, ClawSpearClips.SpearStun);
         Assert.Equal(old ? ClawSpearClips.SpearStabOriginal : ClawSpearClips.SpearStabPass2, ClawSpearClips.SpearStab);
-        Assert.Equal(old ? ClawSpearClips.SpearRestOld : ClawSpearClips.SpearRestPass2, ClawSpearClips.SpearRest);
+        Assert.Equal(old ? ClawSpearClips.SpearRestOld : ClawSpearClips.OldPass3 ? ClawSpearClips.SpearRestPass2 : ClawSpearClips.SpearRestPass3, ClawSpearClips.SpearRest);   // spear pass 3 replaced the carry; its rollback is pass 2's
         Assert.Equal(old ? 65f : SpearHold.Pass2CarryElevation, SpearHold.CarryElevation);
         Assert.Equal(old ? -50f : SpearHold.Pass2CarryAzimuth, SpearHold.CarryAzimuth);
         // the rollback keeps the old carry exactly as it was: no squared hips, no pelvis channel

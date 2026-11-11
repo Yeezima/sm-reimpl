@@ -259,7 +259,32 @@ public static class ClawSpearClips
     /// <summary>The pass-2 carry lowers the hips this much (m): squared to the facing the hips are farther from the planted feet of the side-on stance, and the legs came 1 cm short of the feet.</summary>
     public const float CarryDrop = -0.025f;
 
-    public static WeaponPoseClip SpearRest => OldPass2 ? SpearRestOld : SpearRestPass2;
+    public static WeaponPoseClip SpearRest => OldPass2 ? SpearRestOld : OldPass3 ? SpearRestPass2 : SpearRestPass3;
+
+    /// <summary>The pass 3 carry's grip sockets against the pelvis (m right, forward, up in the facing frame; outside the thigh armour): the right fist beside the hip a little forward, the left one hanging at the left hip (ours).</summary>
+    public static readonly System.Numerics.Vector3 Pass3Fist = new(0.46f, 0.20f, 0.10f), Pass3LeftFist = new(-0.46f, 0.0f, 0.10f);
+    /// <summary>How far the pass 3 fists swing per metre of the feet's split (right slightly, left freely; ours).</summary>
+    public const float Pass3FistSwing = 0.05f, Pass3LeftFistSwing = 0.20f;
+
+    /// <summary>
+    /// Spear pass 3 (owner, 2026-11-12, after seeing pass 2: "Make the character hold the spear parallel to his spine while idle and running ... Ensure the right arm position is how our space marines
+    /// hold the weapon - 1 handed in the right arm. Ensure the hand is connected to the arm"; he accepts a momentary clip). One carry for standing, walking, running and sprinting: the spear in the
+    /// right hand alone at the side of the hip (the right grip socket solved onto <see cref="Pass3Fist"/>, the arm bent a little, in every stance), the shaft parallel to the spine
+    /// (<see cref="SpearHold.Pass3CarryTilt"/>: it follows the torso's lean), blade up, butt low (the hand <see cref="SpearHold.Pass3CarryGrip"/> m from the butt); the right arm swings slightly
+    /// with the stride and the left arm freely at the left (<see cref="Pass3LeftFist"/>, <see cref="WeaponPoseClip.FistSwing"/>). The hips are squared to the facing standing as in pass 2.
+    /// Ours; <c>--old-spear-pass3</c> plays <see cref="SpearRestPass2"/>.
+    /// </summary>
+    public static readonly WeaponPoseClip SpearRestPass3 = BuildRest(true) with
+    {
+        Description = "the carry (pass 3): the spear in the right hand alone at the side of the hip, the arm bent a little, the shaft parallel to the spine with the blade up and the butt low; the right arm swings slightly with the stride, the left arm freely",
+        FistTarget = Pass3Fist, LeftFistTarget = Pass3LeftFist, FistAlways = true, FistFromPelvis = true, FistSwing = Pass3FistSwing, LeftFistSwing = Pass3LeftFistSwing,
+        GripPoint = [P(0f, SpearHold.Pass3CarryGrip), P(SpearIdleLength, SpearHold.Pass3CarryGrip)],
+    };
+
+    /// <summary>The rollback switch of spear pass 3 (<c>--old-spear-pass3</c>, <c>SM_OLD_SPEAR_PASS3=1</c>): pass 2's carry (hip fist while standing, chest fist while moving, the shaft leaning 62 degrees forward) plays; the strokes are the same.</summary>
+    public static bool OldPass3 { get; set; } = Environment.GetEnvironmentVariable("SM_OLD_SPEAR_PASS3") == "1";
+    /// <summary>The pass 3 carry is in force (neither rollback is on).</summary>
+    public static bool Pass3 => !OldPass2 && !OldPass3;
 
     /// <summary>The pass-2 carry's arm aims at rest (facing frame, degrees: elevation, azimuth): the right upper arm, right forearm, left upper arm and left forearm.</summary>
     public const float P2RUpperEl = -74f, P2RUpperAz = 40f, P2RForeEl = -62f, P2RForeAz = 32f, P2LUpperEl = -78f, P2LUpperAz = -18f, P2LForeEl = -68f, P2LForeAz = -8f;
@@ -572,11 +597,11 @@ public static class ClawSpearClips
 
     /// <summary>Every clip, in the preview's order (rebuilt when a rollback switch changes).</summary>
     static IReadOnlyList<WeaponPoseClip> BuildAll() => [ClawX1, ClawX2, ClawX3, ClawX4, ClawHeavy, SpearRest, SpearHew1, SpearHew2, SpearHew3, SpearStun, SpearStab, SpearDive, SpearImpale, SpearLand];
-    static readonly Dictionary<(bool, bool), IReadOnlyList<WeaponPoseClip>> AllCache = new(), StrikeCache = new();
-    public static IReadOnlyList<WeaponPoseClip> All { get { lock (AllCache) { var k = (OldHew1, OldPass2); return AllCache.TryGetValue(k, out var l) ? l : AllCache[k] = BuildAll(); } } }
+    static readonly Dictionary<(bool, bool, bool), IReadOnlyList<WeaponPoseClip>> AllCache = new(), StrikeCache = new();
+    public static IReadOnlyList<WeaponPoseClip> All { get { lock (AllCache) { var k = (OldHew1, OldPass2, OldPass3); return AllCache.TryGetValue(k, out var l) ? l : AllCache[k] = BuildAll(); } } }
 
     /// <summary>The spear's strikes on the ground (the light hews and the F, F chain): each starts from <see cref="SpearRest"/> or the strike before it and ends back at the rest.</summary>
-    public static IReadOnlyList<WeaponPoseClip> SpearStrikes { get { lock (StrikeCache) { var k = (OldHew1, OldPass2); return StrikeCache.TryGetValue(k, out var l) ? l : StrikeCache[k] = [SpearHew1, SpearHew2, SpearHew3, SpearStun, SpearStab]; } } }
+    public static IReadOnlyList<WeaponPoseClip> SpearStrikes { get { lock (StrikeCache) { var k = (OldHew1, OldPass2, OldPass3); return StrikeCache.TryGetValue(k, out var l) ? l : StrikeCache[k] = [SpearHew1, SpearHew2, SpearHew3, SpearStun, SpearStab]; } } }
 
     /// <summary>
     /// The spear's clip for a simulated strike (W3: the thunder hammer's combo at 0.85, <c>SpearRules.FromHammer</c>, so its steps are the hammer's): light strikes 1..3 the three hews (each

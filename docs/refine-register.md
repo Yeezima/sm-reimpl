@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3057 spec table rows: **2255 tagged**, 550 not tagged (read from data with high confidence), 252 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 681 rows of the changes document.
+Scanned 3058 spec table rows: **2256 tagged**, 550 not tagged (read from data with high confidence), 252 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 681 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,17 +50,17 @@ Scanned 3057 spec table rows: **2255 tagged**, 550 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 22 | 13 | 13 | 12 | 7 |
-| Core simulation (provisional values) | 673 | 634 | 480 | 177 | 1 |
+| Core simulation (provisional values) | 674 | 635 | 481 | 177 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 235 | 224 | 126 | 63 | 0 |
-| **All areas** | **2255** | 1987 | 1685 | 707 | 38 |
+| **All areas** | **2256** | 1988 | 1686 | 707 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1278 |
-| confidence: low | 809 |
+| kind: ours | 1279 |
+| confidence: low | 810 |
 | confidence: medium | 747 |
 | notes: ours | 411 |
 | kind: interpretation | 377 |
@@ -2302,7 +2302,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (673)
+### Core simulation (provisional values) (674)
 
 *Spec section: Provisional values in use*
 
@@ -3346,7 +3346,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-409CD225` | Spear animations: the world foot pin | pass 3 (owner, 2026-11-11: the steps "with no floating", no sliding): while a spear strike shows in a match each foot the clip has on the ground (its keyed lift under **0.001 m**) is held on its spot in the world as the lunge moves the body; one left more… (m, s) | kind: ours; notes: estimate | ours | Spear animations: the world foot pin: compare with SM1 by feel or video. Ours: pass 3 (owner, 2026-11-11: the steps "with no floating", no sliding):… | ☐ |
 | `R-4DBF6D15` | Spear animations: the grip contract | a clip gives the right hand's place on the shaft in metres from the butt: **0.95** carried (running and at rest), **0.3** in the hews (pass 3, 2026-11-11, `WeaponPoseClip.HewGrip`: near the butt for the wide hews; 0.5 before), **0.5** in the snap cut, **0.3**… (m) | kind: ours; confidence: medium | owner, 2026-11-10 ("just above the ground", "slide ... lower ... for melee") | Spear animations: the grip contract: compare with SM1 by measuring on a flat spot of the same map. Ours: a clip gives the right hand's place on the shaft in metres from the… | ☐ |
 | `R-32203F17` | Spear animations: the carry | second follow-up pass (owner, 2026-11-11: "for the running and idle animation pull the spear and arm closer in to the body", and (lead) the carried blade out of the crosshair's column in the own view). Carried in the right hand alone, read in the facing frame… (degrees, m) | kind: ours; confidence: low | owner's requests; the angles ours, chosen with the clearance, column and closeness checks | Spear animations: the carry: compare with SM1 with an overlaid screenshot taken from the same position. Ours: second follow-up pass (owner, 2026-11-11: "for the running and idle… | ☐ |
-| `R-4CFFB697` | Spear animations: no clipping | owner, 2026-11-10: "ensure the spear isn't going through the player models body at any time". The marine's body as capsules on its bones, fitted to the install's basic multiplayer armour and the Assault's jump pack in the bind pose (the vertices skinned… (m) | kind: ours; confidence: medium | owner's review; the capsules measured from the install, the tolerance ours | Spear animations: no clipping: compare with SM1 by measuring on a flat spot of the same map. Ours: owner, 2026-11-10: "ensure the spear isn't going through the player… | ☐ |
+| `R-1C2320A6` | Spear animations: clipping measured (was: no clipping) | owner, 2026-11-10: "ensure the spear isn't going through the player models body at any time". The marine's body as capsules on its bones, fitted to the install's basic multiplayer armour and the Assault's jump pack in the bind pose (the vertices skinned… (m) | kind: ours; confidence: medium | owner's review; relaxed by the owner 2026-11-12; the capsules measured from the install, the tolerance and the gross-error bound ours | Spear animations: clipping measured (was: no clipping): compare with SM1 by measuring on a flat spot of the same map. Ours: owner, 2026-11-10: "ensure the spear isn't going through the player… | ☐ |
+| `R-85F1C3E9` | Spear animations: pass 3 carry (one-handed, parallel to the spine) | owner, 2026-11-12: "hold the spear parallel to his spine while idle and running", "1 handed in the right arm", "Ensure the hand is connected to the arm". One carry for idle, walk, run and sprint: the right grip socket solved onto **(0.46 right, 0.20 forward… (m, degrees) | kind: ours; confidence: low | owner's brief; the place, the swing, the grip and the 13 degrees ours (chosen with the clearance and column checks, a grid over the hand's place and the side… | Spear animations: pass 3 carry (one-handed, parallel to the…: compare with SM1 with an overlaid screenshot taken from the same position. Ours: owner, 2026-11-12: "hold the spear parallel to his spine while idle… | ☐ |
 | `R-E5F0A7F1` | Spear animations: the strikes re-posed for the check | the hews' wind-ups, cuts and follow-throughs, the snap cut and the stab keep their key times, hits, eases, hips, steps and grip tracks (the timing and the weight pass's retime as approved); only the arms' keys moved: where the hips' turn carries the chest 40… | kind: ours; confidence: low | owner's review; ours | Spear animations: the strikes re-posed for the check: compare with SM1 by feel or video. Ours: the hews' wind-ups, cuts and follow-throughs, the snap cut and the… | ☐ |
 | `R-F75EC18B` | Spear animations: the impale | owner, 2026-11-10: "Point-down"; since 2026-11-11 only when the landing impaled an Ork (next row). After the dive the blade is driven point-down into the impaled Ork at his feet, home by **0.14 s** of the landing (the hand-over from the dive; 0.08 s before)… (s, m, degrees) | kind: ours; confidence: low | owner's review; the times and the grip ours | Spear animations: the impale: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: owner, 2026-11-10: "Point-down"; since 2026-11-11 only when the… | ☐ |
 | `R-E5068C00` | Spear animations: W3's slide while a clip holds the hand | W3's own grip slide waits at the clip's point (`SpearHold.SlideAt`: 0 at W3's run grip 1.34 m, 1 at its low grip 0.45 m, so the carry's 0.95 m is 0.44) and goes on from there when the clip stops (0..1) | kind: ours; confidence: low | ours | Spear animations: W3's slide while a clip holds the hand: compare with SM1 by feel or video. Ours: W3's own grip slide waits at the clip's point (SpearHold.SlideAt: 0… | ☐ |

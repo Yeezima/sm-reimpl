@@ -216,12 +216,23 @@ public partial class CharacterViewer
             int carried = _weaponCarried[b];
             if (carried >= 0) MoveBone(s, carried, turn, shift, pivot, w);
         }
-        // The carry's fist (WeaponPoseClip.FistTarget, pass 3 of 2026-11-11): the right arm solved so its grip socket keeps its place against the shoulders, faded with the clip that has it.
-        float fistShare = ((state.Clip?.FistTarget is not null ? 1f - fromShare : 0f) + (state.From?.FistTarget is not null ? fromShare : 0f)) * w * Mathf.Clamp(state.FistWeight, 0f, 1f);
-        if (anyLaid && (state.Clip?.FistTarget ?? state.From?.FistTarget) is { } fist && fistShare > 1e-3f)
+        // The carry's fists (WeaponPoseClip.FistTarget, pass 3 of 2026-11-11; the left one and the swing since spear pass 3 of 2026-11-12): the arms solved so a grip socket keeps its place against
+        // the shoulders, faded with the clip that has it (in step with the test mirror's Overlay).
+        if (anyLaid)
         {
-            var (fr, ff) = state.Clip?.FistTarget is not null ? (nowRight, nowFront) : (fromRight, fromFront);
-            WeaponPoseFist(s, fist, fr, ff, up, fistShare);
+            float moving = Mathf.Clamp(state.FistWeight, 0f, 1f);
+            float split = legs is not null && _weaponPlantedAt is not null ? (_weaponPlantedAt[0] - _weaponPlantedAt[1]).Dot(FacingFront) : 0f;   // the left foot's place ahead of the right's along the facing
+            for (int side = 0; side < 2; side++)
+            {
+                bool left = side == 1;
+                System.Numerics.Vector3? Of(WeaponPoseClip? c) => left ? c?.LeftFistTarget : c?.FistTarget;
+                float share = ((Of(state.Clip) is not null ? (1f - fromShare) * state.Clip!.FistWeightFor(moving) : 0f) + (Of(state.From) is not null ? fromShare * state.From!.FistWeightFor(moving) : 0f)) * w;
+                if ((Of(state.Clip) ?? Of(state.From)) is not { } fist || share <= 1e-3f) continue;
+                var (fr, ff) = Of(state.Clip) is not null ? (nowRight, nowFront) : (fromRight, fromFront);
+                var owner = Of(state.Clip) is not null ? state.Clip! : state.From!;
+                fist.Y += owner.SwingForward(split, moving, left);
+                WeaponPoseFist(s, fist, fr, ff, up, share, left, owner.FistFromPelvis);
+            }
         }
         if (anyLaid && legs is not null)
             for (int i = 0; i < 2; i++)
@@ -254,16 +265,17 @@ public partial class CharacterViewer
     /// <paramref name="offset"/> (right, forward, up in the clip's frame), the elbow toward <see cref="WeaponPoseClip.FistElbowHint"/>; three passes for the socket's offset from the hand; then each
     /// bone slerped from its pose before the solve by <paramref name="weight"/>. The test mirror's <c>SolveFist</c> is the same arithmetic.
     /// </summary>
-    void WeaponPoseFist(Skeleton3D s, System.Numerics.Vector3 offset, Vector3 right, Vector3 front, Vector3 up, float weight)
+    void WeaponPoseFist(Skeleton3D s, System.Numerics.Vector3 offset, Vector3 right, Vector3 front, Vector3 up, float weight, bool left = false, bool fromPelvis = false)
     {
-        int sh = Bone(s, "RIG_R_UpperArm"), lsh = Bone(s, "RIG_L_UpperArm"), fore = Bone(s, "RIG_R_Forearm"), hand = Bone(s, "RIG_R_Hand");
+        string side = left ? "L" : "R", other = left ? "R" : "L";
+        int sh = Bone(s, $"RIG_{side}_UpperArm"), lsh = Bone(s, $"RIG_{other}_UpperArm"), fore = Bone(s, $"RIG_{side}_Forearm"), hand = Bone(s, $"RIG_{side}_Hand");
         if (sh < 0 || lsh < 0 || fore < 0 || hand < 0 || !WeaponPoseHands(out _, out _)) return;
-        int socket = _weaponHandR;
+        int socket = left ? _weaponHandL : _weaponHandR;
         var before0 = s.GetBonePoseRotation(sh); var before1 = s.GetBonePoseRotation(fore);
-        var mid = (s.GetBoneGlobalPose(sh).Origin + s.GetBoneGlobalPose(lsh).Origin) * 0.5f;
+        var mid = fromPelvis && _weaponPelvis >= 0 ? s.GetBoneGlobalPose(_weaponPelvis).Origin : (s.GetBoneGlobalPose(sh).Origin + s.GetBoneGlobalPose(lsh).Origin) * 0.5f;
         var target = mid + right * offset.X + front * offset.Y + up * offset.Z;
         var h0 = WeaponPoseClip.FistElbowHint;
-        var hint = (right * h0.X + front * h0.Y + up * h0.Z).Normalized();
+        var hint = (right * (left ? -h0.X : h0.X) + front * h0.Y + up * h0.Z).Normalized();
         for (int it = 0; it < 3; it++)
         {
             var S = s.GetBoneGlobalPose(sh).Origin; var E = s.GetBoneGlobalPose(fore).Origin; var H = s.GetBoneGlobalPose(hand).Origin; var P = s.GetBoneGlobalPose(socket).Origin;
@@ -354,6 +366,21 @@ public partial class CharacterViewer
     /// against the facing in every clip, so a strike begun from the carry starts with the shaft where the carry holds it, and the swung edge faces the target ahead; before, the hips' front).
     /// </summary>
     public Vector3 WeaponPoseSpearFront() => FacingFront;
+
+    /// <summary>
+    /// The spine's direction as posed now (skeleton space, unit): from the waist (<see cref="SpearHold.SpineLow"/>) toward the middle of the shoulders, which the
+    /// spear's pass 3 carry runs parallel to (<see cref="SpearHold.Place"/>); up when the rig lacks them.
+    /// </summary>
+    public System.Numerics.Vector3 WeaponPoseSpine() => _skeleton is { } s ? SpineOf(s) : new System.Numerics.Vector3(0f, 0f, 1f);
+
+    /// <summary><see cref="WeaponPoseSpine"/> of any skeleton (the preview stage's stand-in reads it too).</summary>
+    public static System.Numerics.Vector3 SpineOf(Skeleton3D s)
+    {
+        int lo = s.FindBone(SpearHold.SpineLow), l = s.FindBone(SpearHold.SpineHighL), r = s.FindBone(SpearHold.SpineHighR);
+        if (lo < 0 || l < 0 || r < 0) return new System.Numerics.Vector3(0f, 0f, 1f);
+        static System.Numerics.Vector3 N(Vector3 v) => new(v.X, v.Y, v.Z);
+        return SpearHold.SpineOf(N(s.GetBoneGlobalPose(lo).Origin), N(s.GetBoneGlobalPose(l).Origin), N(s.GetBoneGlobalPose(r).Origin));
+    }
 
     /// <summary>
     /// Where the hands grip (skeleton space) as posed now: the rig's own grip sockets, <c>RIG_Prop_RHand</c> and <c>RIG_Prop_LHand</c> (the hands' children every held weapon's handle sits on,
