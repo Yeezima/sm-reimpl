@@ -91,7 +91,7 @@ public class MusouKeyLinesTests
         string hook = File.ReadAllText(Path.Combine(RepoRoot(), "client", "Extras", "Musou", "NetworkView.MusouKeyLines.cs"));
         Assert.Contains("if (!MusouActive || NoMusouKeyLines || _sound is null) return false;", hook);
         string key = File.ReadAllText(Path.Combine(RepoRoot(), "client", "Extras", "LoyalistBarks", "NetworkView.LoyalistBarks.cs"));
-        Assert.Contains("if (moment == BarkMoment.Key && MusouKeyLine(id, (byte)seed, own, who)) return;", key);
+        Assert.Contains("if (moment == BarkMoment.Key && !emperorOnly && MusouKeyLine(id, (byte)seed, own, who)) return;", key);
         Assert.Single(System.Text.RegularExpressions.Regex.Matches(key, @"MusouKeyLine\("));
     }
 
