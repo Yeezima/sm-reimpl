@@ -867,13 +867,15 @@ public partial class NetworkView : Node3D
             float strafe = BotOldTactics ? BotWalkableStrafe(me, phase >= 8.0 ? 0f : id % 2 == 0 ? 1f : -1f) : BotStrafe(me, target);
             float horizontal = MathF.Sqrt(dx * dx + dy * dy);
             var grenade = BotThrow(me, target, horizontal);
-            // Throwing (pressed now or under way until the release). bot-grenade-safety (Classic PvP, a damaging item): at the predicted landing point (NetworkView.BotGrenades.cs);
-            // else (--old-bot-throws, stims, the blind grenade) at the ground BotThrowShort m short of the target, from before the 2026-10-29 bounce rule (test script heuristic).
+            // Throwing (pressed now or under way until the release). bot-grenade-safety (Classic PvP, a damaging item): at the predicted landing point, under way never nearer than
+            // the one checked at the press (NetworkView.BotGrenades.cs); else (--old-bot-throws, stims, the blind grenade) at the ground BotThrowShort m short of the target, from
+            // before the 2026-10-29 bounce rule (test script heuristic).
             if (grenade != InputButtons.None || (me.Throwing && me.ThrowTime <= _config.ThrowRelease + 0.05f))
             {
-                if (BotThrowLanding(me, target) is { } landing) { _botThrowAim = landing; BotAimThrow(me, landing); }
+                if (BotThrowAimPoint(me, target) is { } landing) { _botThrowAim = landing; BotAimThrow(me, landing); }
                 else _pitch = Math.Clamp(MathF.Atan2(target.Position.Z - (me.Position.Z + _config.EyeHeight), BotGrenadeSafety.OldAimDistance(horizontal)), -MaxPitchDown, MaxPitchUp);
             }
+            else if (!me.Throwing) _botThrowPressAim = null;   // no throw under way: a press's landing does not outlive it
             // The melta only reaches its cone length: beyond it, run at the target (no fire) instead of strafing.
             if (Loadouts.InHand(_config, me) is { Delivery: DeliveryKind.Cone, Cone: { } cone } && horizontal > cone.Length * 0.9f)
                 return BotOldTactics ? new PlayerInput(tick, 0f, 1f, _yaw, grenade, _pitch) : BotMoveInput(tick, BotWeave(me, new Vector2(-MathF.Sin(_yaw), MathF.Cos(_yaw)), horizontal), grenade);   // stream C: weaving
@@ -939,7 +941,9 @@ public partial class NetworkView : Node3D
     InputButtons BotWeaponButtons(PlayerState me, uint tick, PlayerState? target)
     {
         var c = _config!;
-        if (BotWantsSwitch(me)) return me.SwitchHeld ? InputButtons.None : InputButtons.Switch;   // press edge; released on the next tick
+        // bot-grenade-safety (Classic PvP): a splash weapon held at close range gives way to a loaded pistol, back when the range allows (NetworkView.BotGrenades.cs); else the old rule.
+        var splashSwitch = BotSplashSwitch(me, target);
+        if (splashSwitch == true || (splashSwitch is null && BotWantsSwitch(me))) return me.SwitchHeld ? InputButtons.None : InputButtons.Switch;   // press edge; released on the next tick
         if (Loadouts.InHand(c, me) is not { } weapon) return InputButtons.None;
         var buttons = InputButtons.None;
 
@@ -1009,7 +1013,7 @@ public partial class NetworkView : Node3D
                 return InputButtons.None;
             }
             _botLastThrow = _connectedFor;
-            _botThrowAim = landing;
+            _botThrowAim = landing; _botThrowPressAim = landing;
             GD.Print($"t {_connectedFor:F1} s: id {_client!.PlayerId} bot presses throw at a target {distance:F1} m away ({ThrowText(me)} 3D {V3Distance(BotChest(me), BotChest(target)):F1} m, " +
                      $"landing {V3Distance(BotChest(me), landing):F1} m from the chest; safety {safe.Safety:F1} m)");
             return InputButtons.Grenade;

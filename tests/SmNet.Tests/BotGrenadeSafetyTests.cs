@@ -235,6 +235,24 @@ public class BotGrenadeSafetyTests(ITestOutputHelper output)
         Assert.False(BotGrenadeSafety.BurstsTooClose(PlasmaBall with { Splash = null }, ChestAt(0, 0), ChestAt(0, 1f)));   // a plain bolt
     }
 
+    [Fact]
+    public void A_target_flying_at_the_bot_meets_the_ball_nearer_than_it_is_shown()
+    {
+        // A Raptor shown 9.5 m out flying at the heavy at 20 m/s (measured 2026-11-11: the ball met it 6.5 m from the heavy's chest and killed the heavy); the basic ball flies 100 m/s,
+        // remote players are drawn 0.1 s late.
+        var eye = new Vector3(0, 0, 1.8f);
+        var shown = ChestAt(0, 9.5f, 1f);
+        var flying = new Vector3(0, -20f, 0);
+        Assert.False(BotGrenadeSafety.BurstsTooClose(PlasmaBall, ChestAt(0, 0), shown));                       // where it is shown: 9.5 m, a shot
+        var meet = BotGrenadeSafety.MeetingPoint(eye, shown, flying, PlasmaBall.Speed, shownLate: 0.1f);
+        Assert.InRange(meet.Y, 5.4f, 5.7f);                                                                     // 9.5 - 20 x (0.1 + 0.08)
+        Assert.True(BotGrenadeSafety.BurstsTooClose(PlasmaBall, ChestAt(0, 0), meet));                          // where they meet: held
+        // Moving away (or standing) it meets the ball no nearer than it is shown.
+        Assert.True(BotGrenadeSafety.MeetingPoint(eye, shown, -flying, PlasmaBall.Speed, 0.1f).Y > shown.Y);
+        Assert.Equal(shown, BotGrenadeSafety.MeetingPoint(eye, shown, Vector3.Zero, PlasmaBall.Speed, 0.1f));
+        Assert.Equal(shown, BotGrenadeSafety.MeetingPoint(eye, shown, flying, 0f));                              // no speed, no delay: where it is
+    }
+
     // ---------------------------------------------------------------- remote detonation
 
     [Fact]
@@ -244,6 +262,176 @@ public class BotGrenadeSafetyTests(ITestOutputHelper output)
         Assert.False(BotGrenadeSafety.MayDetonate([At(0f, 3f), At(0f, 20f)], ChestAt(0, 0), safety));
         Assert.True(BotGrenadeSafety.MayDetonate([At(0f, 7f), At(0f, 20f)], ChestAt(0, 0), safety));
         Assert.True(BotGrenadeSafety.MayDetonate([], ChestAt(0, 0), safety));
+    }
+
+    // ---------------------------------------------------------------- tracking: age, expiry, unseen, down (no deadlock)
+
+    [Fact]
+    public void An_own_grenade_is_tracked_by_age_claim_and_place_and_dropped_after_the_cap()
+    {
+        const BotGrenadeSafety.OwnHazard None = BotGrenadeSafety.OwnHazard.None, Landing = BotGrenadeSafety.OwnHazard.Landing,
+            Grenade = BotGrenadeSafety.OwnHazard.Grenade, Drop = BotGrenadeSafety.OwnHazard.Drop;
+        // Unseen (not claimed yet): the planned landing stands for it until UnseenDropSeconds, then it is dropped; without a planned landing it has no place.
+        Assert.Equal(Landing, BotGrenadeSafety.TrackOwn(0.3f, claimed: false, seen: false, down: false, hasLanding: true, cleared: false));
+        Assert.Equal(None, BotGrenadeSafety.TrackOwn(0.3f, claimed: false, seen: false, down: false, hasLanding: false, cleared: false));
+        Assert.Equal(Landing, BotGrenadeSafety.TrackOwn(BotGrenadeSafety.UnseenDropSeconds - 0.05f, false, false, false, true, false));
+        Assert.Equal(Drop, BotGrenadeSafety.TrackOwn(BotGrenadeSafety.UnseenDropSeconds + 0.05f, false, false, false, true, false));
+        Assert.Equal(2.1f, BotGrenadeSafety.UnseenDropSeconds, 3);
+        // Claimed and in flight: its planned landing; once it has been outside the bot's reach, its own place too (a bounce back off a wall).
+        Assert.Equal(Landing, BotGrenadeSafety.TrackOwn(0.2f, claimed: true, seen: true, down: false, hasLanding: true, cleared: false));
+        Assert.Equal(Landing | Grenade, BotGrenadeSafety.TrackOwn(0.5f, true, true, false, true, cleared: true));
+        Assert.Equal(Grenade, BotGrenadeSafety.TrackOwn(0.5f, true, true, false, hasLanding: false, cleared: true));
+        // Down: only its own place.
+        Assert.Equal(Grenade, BotGrenadeSafety.TrackOwn(1.2f, true, true, down: true, hasLanding: true, cleared: false));
+        // Gone from the snapshot (it went off): dropped.
+        Assert.Equal(Drop, BotGrenadeSafety.TrackOwn(1.4f, true, seen: false, down: true, hasLanding: true, cleared: true));
+        // The cap: a grenade still there after MaxHazardSeconds (a lost detonation) is a hazard no longer.
+        Assert.Equal(Grenade, BotGrenadeSafety.TrackOwn(BotGrenadeSafety.MaxHazardSeconds - 0.1f, true, true, true, true, true));
+        Assert.Equal(Drop, BotGrenadeSafety.TrackOwn(BotGrenadeSafety.MaxHazardSeconds + 0.1f, true, true, true, true, true));
+        Assert.Equal(6f, BotGrenadeSafety.MaxHazardSeconds);
+    }
+
+    [Fact]
+    public void A_grenade_is_down_when_stuck_or_slow_over_a_full_sample()
+    {
+        Assert.True(BotGrenadeSafety.IsDown(stuckOrAttached: true, moved: 9f, sampleSeconds: 0.01));
+        Assert.True(BotGrenadeSafety.IsDown(false, moved: 1.0f, sampleSeconds: 0.15));          // under 10 m/s
+        Assert.False(BotGrenadeSafety.IsDown(false, moved: 7.0f, sampleSeconds: 0.15));         // the throw's 47.5 m/s
+        Assert.False(BotGrenadeSafety.IsDown(false, moved: 0.2f, sampleSeconds: 0.05));         // too short a sample to say
+    }
+
+    [Fact]
+    public void A_waiting_round_is_a_hazard_for_the_cap_from_when_it_is_first_seen()
+    {
+        Assert.True(BotGrenadeSafety.RoundIsHazard(firstSeen: 10.0, now: 10.0));
+        Assert.True(BotGrenadeSafety.RoundIsHazard(10.0, 15.9));
+        Assert.False(BotGrenadeSafety.RoundIsHazard(10.0, 16.1));
+        // A capped round no longer holds the bot: the move into it goes on.
+        var input = Input(0f, 1f, InputButtons.None);
+        var round = new BotGrenadeSafety.Hazard(At(0f, 6f), 4f + BotGrenadeSafety.Margin);
+        BotGrenadeSafety.Hazard[] live = BotGrenadeSafety.RoundIsHazard(10.0, 12.0) ? [round] : [];
+        BotGrenadeSafety.Hold(input, At(0, 0), ChestAt(0, 0), live, out var kind);
+        Assert.Equal(BotGrenadeSafety.HoldKind.Held, kind);
+        BotGrenadeSafety.Hazard[] capped = BotGrenadeSafety.RoundIsHazard(10.0, 16.5) ? [round] : [];
+        Assert.Equal(input, BotGrenadeSafety.Hold(input, At(0, 0), ChestAt(0, 0), capped, out kind));
+        Assert.Equal(BotGrenadeSafety.HoldKind.None, kind);
+    }
+
+    [Fact]
+    public void Weapons_that_can_leave_a_waiting_round_are_told_from_ones_whose_shots_burst_on_contact()
+    {
+        var gun = new WeaponSpec("test_gun", WeaponSlot.Ranged, TriggerKind.SemiAuto, 20f, 0.1f, 30, 90, 1f, 250f, 250f, 250f, 1f, 1f, 1f, 1f, 1f);
+        Assert.False(BotGrenadeSafety.LeavesWaitingRounds(gun));                                                       // hit-scan
+        Assert.False(BotGrenadeSafety.LeavesWaitingRounds(null));
+        var cannon = gun with { Delivery = DeliveryKind.Projectile, Projectile = PlasmaBall };
+        Assert.False(BotGrenadeSafety.LeavesWaitingRounds(cannon));                                                    // bursts on contact (the plasma cannon)
+        Assert.True(BotGrenadeSafety.LeavesWaitingRounds(cannon with { Projectile = PlasmaBall with { Sticky = true } }));           // sticks and waits
+        Assert.True(BotGrenadeSafety.LeavesWaitingRounds(cannon with { Projectile = PlasmaBall with { DetonateOnCollision = false } }));   // rests and waits
+        Assert.True(BotGrenadeSafety.LeavesWaitingRounds(cannon with { Projectile = GrenadeTests.FragBall with { MaxActive = 6 } }));     // the launcher (remote)
+        Assert.False(BotGrenadeSafety.LeavesWaitingRounds(cannon with { Projectile = PlasmaBall with { Sticky = true, Splash = null } })); // no blast: nothing to keep clear of
+    }
+
+    // ---------------------------------------------------------------- the back-out's give-up (a cornered bot is not stuck)
+
+    [Fact]
+    public void A_back_out_that_gets_no_farther_gives_up_after_the_limit_one_that_gains_never_does()
+    {
+        // Against a wall: the distance stays (a little sway is not progress).
+        BotGrenadeSafety.BackOutProgress? p = null;
+        bool giveUp = false;
+        double t = 0;
+        for (; t <= 3.0 && !giveUp; t += 1.0 / 30)
+            p = BotGrenadeSafety.StepBackOut(p, 5f + 0.1f * MathF.Sin((float)t * 7f), t, out giveUp);
+        Assert.True(giveUp);
+        Assert.InRange(t, BotGrenadeSafety.GiveUpSeconds, BotGrenadeSafety.GiveUpSeconds + 0.1);
+        // Backing out freely at 4 m/s: every tick gains, no give-up before it is out.
+        p = null; giveUp = false;
+        for (t = 0; t <= 3.0; t += 1.0 / 30)
+        {
+            p = BotGrenadeSafety.StepBackOut(p, 2f + 4f * (float)t, t, out giveUp);
+            Assert.False(giveUp);
+        }
+        // Slow progress restarts the clock each time it gains ProgressMetres.
+        p = BotGrenadeSafety.StepBackOut(null, 3f, 0.0, out _);
+        p = BotGrenadeSafety.StepBackOut(p, 3.3f, 1.4, out giveUp);
+        Assert.False(giveUp);
+        Assert.Equal(1.4, p.Value.Since, 6);
+        p = BotGrenadeSafety.StepBackOut(p, 3.4f, 2.8, out giveUp);   // only 0.1 m more: no progress, but 1.4 s since the last gain
+        Assert.False(giveUp);
+        BotGrenadeSafety.StepBackOut(p, 3.4f, 2.95, out giveUp);
+        Assert.True(giveUp);
+    }
+
+    [Fact]
+    public void A_bot_cornered_inside_its_own_blast_gives_up_and_moves_on_its_own_until_it_is_out()
+    {
+        // The bot backs into a wall 1 m behind it (its position is clamped there); the hazard is 3 m ahead.
+        var hazards = new BotGrenadeSafety.Hazard[] { new(At(0f, 3f), BotGrenadeSafety.SafetyDistance(Frag)) };
+        var feet = At(0, 0);
+        BotGrenadeSafety.BackOutProgress? p = null;
+        bool gaveUp = false;
+        var wanted = Input(1f, 1f, InputButtons.Fire | InputButtons.Melee);   // what the fight wants: forward and to the side, swinging
+        double t = 0;
+        for (; t < 3.0 && !gaveUp; t += 1.0 / 30)
+        {
+            var held = BotGrenadeSafety.Hold(wanted, feet, feet + new Vector3(0, 0, Chest), hazards, out var kind);
+            Assert.Equal(BotGrenadeSafety.HoldKind.BackedOut, kind);
+            Assert.True(held.MoveY < 0f);
+            feet = new Vector3(feet.X, MathF.Max(-1f, feet.Y + held.MoveY * 6f / 30f), 0f);   // the wall stops it at y = -1
+            p = BotGrenadeSafety.StepBackOut(p, BotGrenadeSafety.DistanceInside(hazards, feet + new Vector3(0, 0, Chest))!.Value, t, out gaveUp);
+        }
+        Assert.True(gaveUp, "a cornered bot gives up");
+        Assert.True(t < 2.6, $"gave up at {t:F2} s");
+        // While it is still inside, the blast that holds it is left out (its own moves, melee included); once out, the holds apply again.
+        Assert.True(BotGrenadeSafety.StillGivenUp(gaveUp, hazards, feet + new Vector3(0, 0, Chest)));
+        Assert.False(BotGrenadeSafety.StillGivenUp(gaveUp, hazards, ChestAt(-14f, 0f)));
+        Assert.False(BotGrenadeSafety.StillGivenUp(false, hazards, feet + new Vector3(0, 0, Chest)));
+        Assert.Equal(3f + 1f, BotGrenadeSafety.DistanceInside(hazards, At(0f, -1f))!.Value, 3);
+        Assert.Null(BotGrenadeSafety.DistanceInside(hazards, At(0f, -14f)));
+    }
+
+    // ---------------------------------------------------------------- a throw under way
+
+    [Fact]
+    public void A_throw_under_way_keeps_the_farther_of_the_press_landing_and_the_current_one()
+    {
+        var chest = ChestAt(0, 0);
+        var pressed = At(0f, 14f);
+        Assert.Equal(pressed, BotGrenadeSafety.FartherLanding(chest, pressed, At(0f, 9f)));    // the target ran in: the aim stays at the safe press point
+        Assert.Equal(At(0f, 17f), BotGrenadeSafety.FartherLanding(chest, pressed, At(0f, 17f)));   // it ran off: the aim follows it
+        Assert.Equal(At(3f, 14f), BotGrenadeSafety.FartherLanding(chest, pressed, At(3f, 14f)));
+        // The farther one is never inside the safety distance when the press was checked.
+        float safety = BotGrenadeSafety.SafetyDistance(Frag);
+        Assert.True(Vector3.Distance(chest, BotGrenadeSafety.FartherLanding(chest, pressed, At(0f, 2f))) >= safety);
+    }
+
+    // ---------------------------------------------------------------- the pistol for a splash weapon at close range
+
+    [Fact]
+    public void A_splash_shot_held_for_a_second_takes_a_loaded_pistol_and_the_range_brings_it_back()
+    {
+        float safety = BotGrenadeSafety.SafetyDistance(PlasmaBall);   // 8.5 m
+        BotGrenadeSafety.HeldRun? run = null;
+        double t = 0;
+        // A heavy at 5 m from its target: every tick's shot is held.
+        for (; t < 0.95; t += 1.0 / 30)
+        {
+            Assert.True(BotGrenadeSafety.BurstsTooClose(PlasmaBall, ChestAt(0, 0), ChestAt(0, 5f)));
+            run = BotGrenadeSafety.NoteHeld(run, t);
+            Assert.False(BotGrenadeSafety.TakePistol(BotGrenadeSafety.HeldFor(run, t), pistolClip: 8));
+        }
+        for (; t < 1.05; t += 1.0 / 30) run = BotGrenadeSafety.NoteHeld(run, t);
+        Assert.True(BotGrenadeSafety.TakePistol(BotGrenadeSafety.HeldFor(run, t), pistolClip: 8));
+        Assert.False(BotGrenadeSafety.TakePistol(BotGrenadeSafety.HeldFor(run, t), pistolClip: 0));   // an empty holstered pistol does not reload: no use
+        // A gap (a tick without a target, a fired shot) longer than HeldGapSeconds ends the run.
+        Assert.Equal(0.0, BotGrenadeSafety.HeldFor(run, t + 0.3));
+        var fresh = BotGrenadeSafety.NoteHeld(run, t + 0.3);
+        Assert.Equal(0.0, BotGrenadeSafety.HeldFor(fresh, t + 0.3));
+        // Back to the splash weapon only with its burst point the margin beyond the safety distance (no swapping at the edge).
+        Assert.False(BotGrenadeSafety.BackToSplash(safety + 0.5f, safety));
+        Assert.False(BotGrenadeSafety.BackToSplash(safety + 1.9f, safety));
+        Assert.True(BotGrenadeSafety.BackToSplash(safety + BotGrenadeSafety.PistolBackMargin, safety));
+        Assert.Equal(1f, BotGrenadeSafety.PistolAfterSeconds);
     }
 
     // ---------------------------------------------------------------- who plays by the rules

@@ -10,7 +10,7 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Add your bullets in the same pull request as the change, when it merges.
 -->
 ### Classic PvP
-- Bots no longer blow themselves up with their own grenades: they throw frag grenades only at enemies well outside the blast, aim them where the enemy will be, and no longer jump, charge or run into their own grenade before it goes off. They also stop firing plasma cannon and charged plasma shots at enemies (or walls) so close that the blast would catch them.
+- Bots no longer blow themselves up with their own grenades: they throw frag grenades only at enemies well outside the blast, aim them where the enemy will be, and no longer jump, charge or run into their own grenade before it goes off. They also stop firing plasma cannon and charged plasma shots at enemies (or walls) so close that the blast would catch them, and a heavy that is too close for its plasma cannon now draws its pistol instead of waiting.
 - Shooting another player no longer draws hit effects on him: no fiery burst and smoke cloud (the Stalker Bolter's was the biggest), no sparks, flashes or burning. You still see his armour flash and glow, hear the hit and get the hit marker; shots that miss still mark the walls and floor.
 
 ### Musou Mode

@@ -142,6 +142,7 @@ public sealed class NavAgent(NavGraph graph)
         _recoverUntil = double.NegativeInfinity;
         _flying = false;
         _waitStart = double.NaN;
+        _pressCancelled = false;
     }
 
     /// <summary>
@@ -220,13 +221,33 @@ public sealed class NavAgent(NavGraph graph)
     {
         long started = System.Diagnostics.Stopwatch.GetTimestamp();
         var steer = SteerCore(position, grounded, goal, now, body);
-        if (!OnJumpLink) _waitStart = double.NaN;   // a wait at a take-off cell does not survive leaving the link
+        if (!OnJumpLink) { _waitStart = double.NaN; _pressCancelled = false; }   // a wait at a take-off cell (or a held-back press) does not survive leaving the link
         _resting = steer.Arrived;
         MaxSteerMilliseconds = Math.Max(MaxSteerMilliseconds, System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds);
         return steer;
     }
 
     long _flyKey;
+
+    /// <summary>Take-off presses a caller held back (<see cref="CancelTakeOff"/>).</summary>
+    public int TakeOffsCancelled { get; private set; }
+    bool _pressCancelled;
+
+    /// <summary>
+    /// bot-grenade-safety (ours): the caller held back the take-off press of the flight under way (the bot's own grenade in the way), and the body is still on the ground with no jump
+    /// begun: the flight is dropped without counting a miss (so the link is not excluded after two held presses, as a press that never takes would be; <see cref="JumpMissLimit"/>),
+    /// the stand counts as on purpose (not stuck), and the link is tried again from its take-off cell on the next <see cref="Steer"/>. False (nothing done) once the body is in a
+    /// jump or in the air, or when no flight is under way.
+    /// </summary>
+    public bool CancelTakeOff(JumpPhase phase, bool grounded, Vector3 position, double now)
+    {
+        if (!_flying || !grounded || phase != JumpPhase.None) return false;
+        _flying = false;
+        _pressCancelled = true;   // the press never left: the next press on this link is the same start, not a new one
+        TakeOffsCancelled++;
+        _checkPos = position; _checkAt = now;
+        return true;
+    }
 
     /// <summary>Counts <paramref name="n"/> misses of a link; at <see cref="JumpMissLimit"/> this agent stops planning through it.</summary>
     void Miss(long key, int n)
@@ -444,7 +465,8 @@ public sealed class NavAgent(NavGraph graph)
         _flying = true; _flyStart = now; _flyFrom = position; _flyTo = wp.Position;
         _flyKey = NavGraph.JumpKey(move.From, wp.Node);
         _planTask = null;   // a search under way would land after the lift-off; it is dropped (the plan is the one being flown)
-        JumpsStarted++;
+        if (!_pressCancelled) JumpsStarted++;   // a press again after one held back (CancelTakeOff) is the same start
+        _pressCancelled = false;
         return new NavSteer(heading, 0f, false, true, false, false) { Jump = true, Flying = true };
     }
 }

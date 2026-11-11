@@ -16,6 +16,11 @@ namespace SmNet;
 /// <item>The hold: while the bot's own live grenade (or launcher round) is out, a <see cref="Hazard"/> at it; on the ground the bot does not move, jump, dash, hop or charge into
 /// one (it holds), and inside one it backs straight out (<see cref="Hold"/>); a jump-pack bot does not jump at, pound onto or steer at a target inside one.</item>
 /// <item>Remote detonation: never while the bot's chest is inside its own waiting rounds' blast reach (<see cref="MayDetonate"/>).</item>
+/// <item>No deadlock: an own grenade (<see cref="TrackOwn"/>) and a waiting round (<see cref="RoundIsHazard"/>) stop being hazards <see cref="MaxHazardSeconds"/> s after they
+/// are first seen, and a back-out that gets no farther from the blast for <see cref="GiveUpSeconds"/> s gives up (<see cref="StepBackOut"/>): the blasts that hold the bot are
+/// then left out until it is out of all of them (<see cref="StillGivenUp"/>).</item>
+/// <item>A splash weapon held for <see cref="PistolAfterSeconds"/> s at close range (<see cref="BurstsTooClose"/>) is swapped for a loaded pistol (<see cref="TakePistol"/>),
+/// and back once its burst point is <see cref="PistolBackMargin"/> m beyond its safety distance (<see cref="BackToSplash"/>).</item>
 /// </list>
 /// <c>--old-bot-throws</c> (<see cref="RestoreFlag"/>) brings the bots' throws, aim and holds back as they were.
 /// </summary>
@@ -33,10 +38,27 @@ public static class BotGrenadeSafety
     public const float LookAhead = 0.6f;
     /// <summary>Metres a second the hold assumes for a full stick (a marine's run, rounded up; ours).</summary>
     public const float MoveSpeed = 6f;
-    /// <summary>Seconds after the release an own throw stays a hazard at its predicted landing point when its grenade is never seen: this + 1.5 s (ours).</summary>
+    /// <summary>Seconds after the release an own throw stays a hazard at its predicted landing point when its grenade is never seen: this + 1.5 s (<see cref="UnseenDropSeconds"/>; ours).</summary>
     public const float UnseenSeconds = 0.6f;
-    /// <summary>Seconds an own grenade is a hazard at most (a lost detonation; the frag's lifetime is 30 s, its ground fuse 1 s; ours).</summary>
+    /// <summary>Seconds after the release an own throw whose grenade was never seen is dropped (<see cref="UnseenSeconds"/> + 1.5 s, the frag's flight and ground fuse; ours).</summary>
+    public const float UnseenDropSeconds = UnseenSeconds + 1.5f;
+    /// <summary>Seconds an own grenade, and a waiting round of the bot's own weapons, is a hazard at most from when it was released or first seen (a lost detonation, a round never
+    /// set off; the frag's lifetime is 30 s, its ground fuse 1 s; ours).</summary>
     public const float MaxHazardSeconds = 6f;
+    /// <summary>A claimed grenade that moved less than <see cref="DownSampleMetres"/> in <see cref="DownSampleSeconds"/> is down (under 10 m/s; the throw leaves at 47.5 m/s; ours).</summary>
+    public const double DownSampleSeconds = 0.15;
+    /// <summary>See <see cref="DownSampleSeconds"/>.</summary>
+    public const float DownSampleMetres = 1.5f;
+    /// <summary>Seconds a back-out may go on without getting <see cref="ProgressMetres"/> farther from the blast before the bot gives it up (cornered; ours).</summary>
+    public const float GiveUpSeconds = 1.5f;
+    /// <summary>Metres a back-out must gain on its farthest distance from the blast so far to count as progress (more than the snapshots' quantization and a stand's sway; ours).</summary>
+    public const float ProgressMetres = 0.25f;
+    /// <summary>Seconds a splash shot is held at close range before the bot takes its pistol (ours).</summary>
+    public const float PistolAfterSeconds = 1f;
+    /// <summary>Metres beyond the splash weapon's safety distance its burst point must be before the bot puts the pistol away again (so it does not swap back and forth at the edge; ours).</summary>
+    public const float PistolBackMargin = 2f;
+    /// <summary>Seconds without a held splash shot that end a held run (a tick without a target, a released trigger; ours).</summary>
+    public const float HeldGapSeconds = 0.25f;
     /// <summary>Seconds after the own release within which a new thrown projectile may be claimed as the bot's own (ours).</summary>
     public const float ClaimSeconds = 1f;
     /// <summary>Metres of slack on how far the own grenade can be from the release point (the hand above the feet, a snapshot's lead; ours).</summary>
@@ -128,8 +150,20 @@ public static class BotGrenadeSafety
     /// <summary>Whether <paramref name="point"/> is within the reach of any hazard (3D).</summary>
     public static bool Inside(IReadOnlyList<Hazard> hazards, Vector3 point)
     {
-        foreach (var h in hazards) if (Vector3.DistanceSquared(h.Centre, point) < h.Reach * h.Reach) return true;
+        for (int i = 0; i < hazards.Count; i++) if (Vector3.DistanceSquared(hazards[i].Centre, point) < hazards[i].Reach * hazards[i].Reach) return true;
         return false;
+    }
+
+    /// <summary>The distance (metres, 3D) from <paramref name="point"/> to the nearest hazard whose reach holds it, or null when none does.</summary>
+    public static float? DistanceInside(IReadOnlyList<Hazard> hazards, Vector3 point)
+    {
+        float? best = null;
+        for (int i = 0; i < hazards.Count; i++)
+        {
+            float d = Vector3.Distance(hazards[i].Centre, point);
+            if (d < hazards[i].Reach && (best is null || d < best)) best = d;
+        }
+        return best;
     }
 
     /// <summary>Whether the straight segment from <paramref name="from"/> to <paramref name="to"/> passes within the reach of any hazard (3D).</summary>
@@ -137,8 +171,9 @@ public static class BotGrenadeSafety
     {
         var d = to - from;
         float lengthSquared = d.LengthSquared();
-        foreach (var h in hazards)
+        for (int i = 0; i < hazards.Count; i++)
         {
+            var h = hazards[i];
             float t = lengthSquared > 1e-8f ? Math.Clamp(Vector3.Dot(h.Centre - from, d) / lengthSquared, 0f, 1f) : 0f;
             if (Vector3.DistanceSquared(from + d * t, h.Centre) < h.Reach * h.Reach) return true;
         }
@@ -149,8 +184,9 @@ public static class BotGrenadeSafety
     public static Vector2 Away(IReadOnlyList<Hazard> hazards, Vector3 at, Vector2 fallback)
     {
         float best = float.MaxValue; Vector2 away = Vector2.Zero;
-        foreach (var h in hazards)
+        for (int i = 0; i < hazards.Count; i++)
         {
+            var h = hazards[i];
             float d = Vector3.Distance(h.Centre, at);
             if (d >= h.Reach || d >= best) continue;
             best = d;
@@ -218,12 +254,121 @@ public static class BotGrenadeSafety
         SafetyDistance(projectile) is var safety and > 0f && Vector3.Distance(ownChest, impact) < safety;
 
     /// <summary>
+    /// Where a shot leaving <paramref name="eye"/> at <paramref name="speed"/> m/s meets a target whose chest is shown at <paramref name="targetChest"/> moving at
+    /// <paramref name="targetVelocity"/> (3D: a jump-pack flier too): the chest moved over <paramref name="shownLate"/> s (a remote player is drawn the interpolation delay behind
+    /// the server, where a projectile flies) plus the shot's flight to where it is shown (one step; ours). A target coming at the bot meets the shot nearer than it is shown.
+    /// </summary>
+    public static Vector3 MeetingPoint(Vector3 eye, Vector3 targetChest, Vector3 targetVelocity, float speed, float shownLate = 0f) =>
+        targetChest + targetVelocity * (MathF.Max(shownLate, 0f) + (speed > 0f ? Vector3.Distance(eye, targetChest) / speed : 0f));
+
+    /// <summary>
     /// Remote detonation (the grenade launcher's waiting rounds): false while the bot's chest is within <paramref name="safety"/> (the round's blast radius + margin) of any of
     /// <paramref name="ownRounds"/>.
     /// </summary>
     public static bool MayDetonate(IEnumerable<Vector3> ownRounds, Vector3 ownChest, float safety)
     {
-        foreach (var r in ownRounds) if (Vector3.DistanceSquared(r, ownChest) < safety * safety) return false;
+        foreach (var r in ownRounds) if (InReach(r, ownChest, safety)) return false;
         return true;
     }
+
+    /// <summary>Whether a waiting round at <paramref name="round"/> would catch <paramref name="ownChest"/> if it went off now: within <paramref name="safety"/> (3D).</summary>
+    public static bool InReach(Vector3 round, Vector3 ownChest, float safety) => Vector3.DistanceSquared(round, ownChest) < safety * safety;
+
+    // ---------------------------------------------------------------- tracking the own grenades and waiting rounds (no deadlock)
+
+    /// <summary>Where an own thrown grenade stands as a hazard this tick (<see cref="TrackOwn"/>).</summary>
+    [Flags]
+    public enum OwnHazard
+    {
+        /// <summary>Tracked, no hazard yet (unseen and with no planned landing).</summary>
+        None = 0,
+        /// <summary>At the throw's predicted landing point.</summary>
+        Landing = 1,
+        /// <summary>At the grenade's own place (down; or in flight after it once left the bot's reach: a bounce back off a wall).</summary>
+        Grenade = 2,
+        /// <summary>No longer tracked: gone (it went off), never seen in time, or older than <see cref="MaxHazardSeconds"/>.</summary>
+        Drop = 4,
+    }
+
+    /// <summary>
+    /// What an own thrown grenade stands for, <paramref name="age"/> s after its release: dropped past <see cref="MaxHazardSeconds"/>; unclaimed (never seen yet), at its planned
+    /// landing (<paramref name="hasLanding"/>) until <see cref="UnseenDropSeconds"/>, then dropped; claimed and no longer in the snapshot (<paramref name="seen"/> false), dropped (it
+    /// went off); claimed and <paramref name="down"/>, at its own place; claimed and in flight (its fuse not started yet), at its planned landing and, once it has been outside the
+    /// bot's reach (<paramref name="cleared"/>), at its own place too (a bounce back off a wall comes back at the bot).
+    /// </summary>
+    public static OwnHazard TrackOwn(float age, bool claimed, bool seen, bool down, bool hasLanding, bool cleared)
+    {
+        if (age > MaxHazardSeconds) return OwnHazard.Drop;
+        if (!claimed) return age > UnseenDropSeconds ? OwnHazard.Drop : hasLanding ? OwnHazard.Landing : OwnHazard.None;
+        if (!seen) return OwnHazard.Drop;
+        if (down) return OwnHazard.Grenade;
+        return (hasLanding ? OwnHazard.Landing : OwnHazard.None) | (cleared ? OwnHazard.Grenade : OwnHazard.None);
+    }
+
+    /// <summary>
+    /// Whether a claimed grenade is down: stuck or attached (<paramref name="stuckOrAttached"/>), or it moved less than <see cref="DownSampleMetres"/> over a sample of
+    /// <paramref name="sampleSeconds"/> s that is at least <see cref="DownSampleSeconds"/> long (a shorter sample says nothing yet).
+    /// </summary>
+    public static bool IsDown(bool stuckOrAttached, float moved, double sampleSeconds) => stuckOrAttached || (sampleSeconds >= DownSampleSeconds && moved < DownSampleMetres);
+
+    /// <summary>
+    /// Whether <paramref name="weapon"/> can leave a round waiting with a blast to come: remote-detonated (the grenade launcher), or a shot (basic or charged) with a damaging blast
+    /// that can rest or stick instead of bursting on contact (sticky, a rigid body, or one that does not detonate on collision). A plasma cannon's ball bursts on contact: no.
+    /// </summary>
+    public static bool LeavesWaitingRounds(WeaponSpec? weapon)
+    {
+        if (weapon is null) return false;
+        if (Shots.RemoteDetonated(weapon)) return true;
+        int stages = weapon.Charge?.Stages.Count ?? 0;
+        for (int k = 0; k <= stages; k++)
+            if (Shots.ProjectileOf(weapon, k) is { } p && DamagingRadius(p) > 0f && (p.Sticky || p.Rigid is not null || !p.DetonateOnCollision)) return true;
+        return false;
+    }
+
+    /// <summary>Whether a waiting round of the bot's own weapons first seen at <paramref name="firstSeen"/> is still a hazard at <paramref name="now"/> (seconds): for <see cref="MaxHazardSeconds"/>.</summary>
+    public static bool RoundIsHazard(double firstSeen, double now) => now - firstSeen <= MaxHazardSeconds;
+
+    /// <summary>A back-out's progress: when it last got farther from the blast (or began) and the farthest distance (metres) it had reached then.</summary>
+    public readonly record struct BackOutProgress(double Since, float Farthest);
+
+    /// <summary>
+    /// One tick of a back-out <paramref name="distance"/> metres from the blast it is in (<see cref="DistanceInside"/>): the progress to keep (a first tick starts it; a distance
+    /// <see cref="ProgressMetres"/> beyond the farthest so far restarts the clock) and <paramref name="giveUp"/>: no progress for <see cref="GiveUpSeconds"/> (a wall behind the bot).
+    /// </summary>
+    public static BackOutProgress StepBackOut(BackOutProgress? before, float distance, double now, out bool giveUp)
+    {
+        giveUp = false;
+        if (before is not { } b || distance > b.Farthest + ProgressMetres) return new BackOutProgress(now, distance);
+        giveUp = now - b.Since >= GiveUpSeconds;
+        return b;
+    }
+
+    /// <summary>Whether a give-up goes on: while the bot's chest is still inside one of <paramref name="hazards"/>; once it is out of all of them the holds apply again.</summary>
+    public static bool StillGivenUp(bool gaveUp, IReadOnlyList<Hazard> hazards, Vector3 chest) => gaveUp && Inside(hazards, chest);
+
+    /// <summary>
+    /// A throw under way: of the landing point checked at the press (<paramref name="pressed"/>, safe) and the one now (<paramref name="now"/>, the target moved since), the one farther
+    /// from <paramref name="ownChest"/>: the aim never turns to a point nearer than the press allowed.
+    /// </summary>
+    public static Vector3 FartherLanding(Vector3 ownChest, Vector3 pressed, Vector3 now) =>
+        Vector3.DistanceSquared(ownChest, now) >= Vector3.DistanceSquared(ownChest, pressed) ? now : pressed;
+
+    // ---------------------------------------------------------------- the pistol for a splash weapon at close range
+
+    /// <summary>A run of held splash shots: when it began and when the last one was held (seconds; <see cref="NoteHeld"/>).</summary>
+    public readonly record struct HeldRun(double From, double Last);
+
+    /// <summary>A splash shot held at <paramref name="now"/>: the run goes on (the last one within <see cref="HeldGapSeconds"/>) or a new one begins.</summary>
+    public static HeldRun NoteHeld(HeldRun? run, double now) => run is { } r && now - r.Last <= HeldGapSeconds ? r with { Last = now } : new HeldRun(now, now);
+
+    /// <summary>Seconds the run has been held at <paramref name="now"/>: 0 when there is none or it ended (no held shot for more than <see cref="HeldGapSeconds"/>).</summary>
+    public static double HeldFor(HeldRun? run, double now) => run is { } r && now - r.Last <= HeldGapSeconds ? r.Last - r.From : 0.0;
+
+    /// <summary>Whether the bot takes its pistol: its splash shot held for <see cref="PistolAfterSeconds"/> s and the holstered pistol has a round in the clip (a holstered weapon
+    /// does not reload).</summary>
+    public static bool TakePistol(double heldFor, int pistolClip) => heldFor >= PistolAfterSeconds && pistolClip > 0;
+
+    /// <summary>Whether a bot on its pistol for a held splash shot takes the splash weapon again: its burst point (<paramref name="burstDistance"/> from the chest) at least
+    /// <paramref name="safety"/> + <see cref="PistolBackMargin"/> away.</summary>
+    public static bool BackToSplash(float burstDistance, float safety) => burstDistance >= safety + PistolBackMargin;
 }

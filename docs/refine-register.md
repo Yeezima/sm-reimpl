@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3010 spec table rows: **2238 tagged**, 528 not tagged (read from data with high confidence), 244 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 665 rows of the changes document.
+Scanned 3013 spec table rows: **2238 tagged**, 528 not tagged (read from data with high confidence), 247 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 665 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -4843,9 +4843,12 @@ Test aids, probes, demo and capture tooling, and engineering decisions (protocol
 | `R-0A87477D` | Stims and the blind grenade | Classic PvP bots: grenade safety (bot-grenade-safety, owner 2026-11-11; client test aid, no protocol or config-hash change) |
 | `R-085B5BB5` | The own grenade | Classic PvP bots: grenade safety (bot-grenade-safety, owner 2026-11-11; client test aid, no protocol or config-hash change) |
 | `R-110CF6F1` | The hold (on the ground) | Classic PvP bots: grenade safety (bot-grenade-safety, owner 2026-11-11; client test aid, no protocol or config-hash change) |
+| `R-7B54AC63` | Back-out give-up (no deadlock; review 2026-11-11) | Classic PvP bots: grenade safety (bot-grenade-safety, owner 2026-11-11; client test aid, no protocol or config-hash change) |
+| `R-7186527D` | Navigation take-off held | Classic PvP bots: grenade safety (bot-grenade-safety, owner 2026-11-11; client test aid, no protocol or config-hash change) |
 | `R-31036B24` | Jump pack, charge and melee | Classic PvP bots: grenade safety (bot-grenade-safety, owner 2026-11-11; client test aid, no protocol or config-hash change) |
 | `R-3B583411` | Remote detonation | Classic PvP bots: grenade safety (bot-grenade-safety, owner 2026-11-11; client test aid, no protocol or config-hash change) |
 | `R-2577A1AF` | Self-splash weapons | Classic PvP bots: grenade safety (bot-grenade-safety, owner 2026-11-11; client test aid, no protocol or config-hash change) |
+| `R-F7917387` | The pistol for a splash weapon at close range (review 2026-11-11: the plasma cannon heavy held its fire from point… | Classic PvP bots: grenade safety (bot-grenade-safety, owner 2026-11-11; client test aid, no protocol or config-hash change) |
 | `R-342A9FB9` | What the bots do now (measured) | Classic PvP bots: grenade safety (bot-grenade-safety, owner 2026-11-11; client test aid, no protocol or config-hash change) |
 | `R-C709235C` | `--old-bot-throws` | Classic PvP bots: grenade safety (bot-grenade-safety, owner 2026-11-11; client test aid, no protocol or config-hash change) |
 | `R-9DA27EDE` | Probe (`--perf-probe`) | Performance pass 1 (perf/pass-1; build, client and release launcher; no protocol change) |
