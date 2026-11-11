@@ -28,8 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3011 spec table rows: **2245 tagged**, 532 not tagged (read from data with high confidence), 234 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 666 rows of the changes document.
-Scanned 3008 spec table rows: **2240 tagged**, 535 not tagged (read from data with high confidence), 233 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 673 rows of the changes document.
+Scanned 3021 spec table rows: **2247 tagged**, 539 not tagged (read from data with high confidence), 235 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 675 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -51,31 +50,21 @@ Scanned 3008 spec table rows: **2240 tagged**, 535 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 22 | 13 | 13 | 12 | 7 |
-| Core simulation (provisional values) | 675 | 635 | 481 | 178 | 1 |
+| Core simulation (provisional values) | 674 | 635 | 480 | 179 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 235 | 224 | 126 | 63 | 0 |
-| **All areas** | **2245** | 1980 | 1676 | 702 | 38 |
-| Core simulation (provisional values) | 667 | 630 | 476 | 175 | 1 |
-| General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 235 | 224 | 126 | 63 | 0 |
-| **All areas** | **2240** | 1976 | 1674 | 699 | 38 |
+| **All areas** | **2247** | 1981 | 1678 | 703 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
 | kind: ours | 1274 |
-| confidence: low | 808 |
-| confidence: medium | 739 |
-| notes: ours | 406 |
-| kind: interpretation | 374 |
-| notes: estimate | 181 |
-| kind: ours | 1269 |
 | confidence: low | 807 |
-| confidence: medium | 738 |
-| notes: ours | 405 |
+| confidence: medium | 742 |
+| notes: ours | 407 |
 | kind: interpretation | 375 |
-| notes: estimate | 179 |
+| notes: estimate | 181 |
 | kind: estimate | 156 |
 | confidence: none (low) | 129 |
 | kind: provisional | 100 |
@@ -2299,8 +2288,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (675)
-### Core simulation (provisional values) (667)
+### Core simulation (provisional values) (674)
 
 *Spec section: Provisional values in use*
 
