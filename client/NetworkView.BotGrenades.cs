@@ -143,6 +143,36 @@ public partial class NetworkView
         return InOwnBlast(target) || BotGrenadeSafety.Inside(_hazards, target.Position) ? (0f, 0f) : null;
     }
 
+    double _botLastSplashHold = double.NegativeInfinity;
+    int _splashHeld;
+
+    /// <summary>
+    /// Whether shot <paramref name="stage"/> of <paramref name="weapon"/> (0 basic, k the charge stage) would burst within its own blast reach of the bot (its projectile's damaging
+    /// blast radius + margin from the bot's chest): it bursts at the first level contact on the line from the eye to <paramref name="target"/>'s chest, else at the target.
+    /// False for shots without a blast, without a target, and outside Classic PvP. With <paramref name="note"/> a held shot is counted and logged (at most once a second).
+    /// </summary>
+    bool BotSplashShotHeld(PlayerState me, WeaponSpec weapon, int stage, PlayerState? target, bool note = true)
+    {
+        var projectile = Shots.ProjectileOf(weapon, stage);
+        if (!GrenadeSafetyOn || target is not { } t || BotGrenadeSafety.SafetyDistance(projectile) is not (var safety and > 0f)) return false;
+        var eye = me.Position + new V3(0, 0, _config!.EyeHeight);
+        var impact = BotChest(t);
+        if (_client?.Collision is { } world)
+        {
+            var line = impact - eye;
+            float length = line.Length();
+            if (length > 0.3f && world.Weapons.Raycast(eye, line / length, length) is { } hit) impact = hit.Point;
+        }
+        if (!BotGrenadeSafety.BurstsTooClose(projectile, BotChest(me), impact)) return false;
+        float distance = V3.Distance(BotChest(me), impact);
+        if (note && _connectedFor - _botLastSplashHold >= 1.0)
+        {
+            _splashHeld++; _botLastSplashHold = _connectedFor;
+            BotSafetyLogNow($"no {WeaponLabel(weapon)} {(stage > 0 ? "charged " : "")}shot at P{t.PlayerId}: it would burst {distance:F1} m from the chest (safety {safety:F1} m; splash shots held {_splashHeld})");
+        }
+        return true;
+    }
+
     /// <summary>The distance (m) from the bot's chest to the nearest waiting round of <paramref name="weapon"/> inside its blast reach (a detonation now would hit the bot), or null.</summary>
     float? BotDetonationHeld(PlayerState me, WeaponSpec weapon)
     {
@@ -269,13 +299,20 @@ public partial class NetworkView
             if (g.Id >= 0 && g.Down) _hazards.Add(new BotGrenadeSafety.Hazard(g.Centre, g.Reach));
             else if (g.HasLanding) _hazards.Add(new BotGrenadeSafety.Hazard(g.Landing, g.Reach));
         }
-        if (me.ProjectilesOut > 0)
-            foreach (var slot in new[] { WeaponSlot.Ranged, WeaponSlot.Pistol })
-                if (Loadouts.Weapon(_config!, me, slot) is { } w && Shots.RemoteDetonated(w) && BotGrenadeSafety.SafetyDistance(Shots.ProjectileOf(w, 0)) is var reach and > 0f)
-                {
-                    int index = Loadouts.WeaponIndex(_config!, me, slot);
-                    foreach (var q in live) if ((q.Flags & ProjectileFlags.Thrown) == 0 && q.Weapon == index && q.Stage == 0) _hazards.Add(new BotGrenadeSafety.Hazard(q.Position, reach));
-                }
+        // Rounds of the bot's own weapons that wait with a blast to come: the launcher's (while it has rounds out) and a sticky shot resting or stuck to a player (the plasma
+        // pistol's charged ball). Snapshots carry no owner: an ally's of the same weapon counts too (the bot only keeps clear of it).
+        foreach (var slot in new[] { WeaponSlot.Ranged, WeaponSlot.Second, WeaponSlot.Pistol })
+        {
+            if (Loadouts.Weapon(_config!, me, slot) is not { } w) continue;
+            int index = Loadouts.WeaponIndex(_config!, me, slot);
+            bool remote = Shots.RemoteDetonated(w) && me.ProjectilesOut > 0;
+            foreach (var q in live)
+            {
+                if ((q.Flags & ProjectileFlags.Thrown) != 0 || q.Weapon != index) continue;
+                bool waiting = (remote && q.Stage == 0) || (q.Flags & (ProjectileFlags.Stuck | ProjectileFlags.Attached)) != 0;
+                if (waiting && BotGrenadeSafety.SafetyDistance(Shots.ProjectileOf(w, q.Stage)) is var reach and > 0f) _hazards.Add(new BotGrenadeSafety.Hazard(q.Position, reach));
+            }
+        }
         return _hazards;
     }
 

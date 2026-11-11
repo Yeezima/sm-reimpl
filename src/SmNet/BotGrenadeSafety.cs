@@ -33,7 +33,7 @@ public static class BotGrenadeSafety
     public const float LookAhead = 0.6f;
     /// <summary>Metres a second the hold assumes for a full stick (a marine's run, rounded up; ours).</summary>
     public const float MoveSpeed = 6f;
-    /// <summary>Seconds after the release an own throw is a hazard at its predicted landing point until the grenade itself is seen (ours).</summary>
+    /// <summary>Seconds after the release an own throw stays a hazard at its predicted landing point when its grenade is never seen: this + 1.5 s (ours).</summary>
     public const float UnseenSeconds = 0.6f;
     /// <summary>Seconds an own grenade is a hazard at most (a lost detonation; the frag's lifetime is 30 s, its ground fuse 1 s; ours).</summary>
     public const float MaxHazardSeconds = 6f;
@@ -122,7 +122,7 @@ public static class BotGrenadeSafety
     /// <summary>The ground distance the old aim pointed at: <see cref="OldThrowShort"/> m short of the target, at least 2 m.</summary>
     public static float OldAimDistance(float horizontal) => MathF.Max(2f, horizontal - OldThrowShort);
 
-    /// <summary>A live own explosive: its centre (the grenade's last known place, or the predicted landing point before it is seen) and its reach (blast radius + margin), metres.</summary>
+    /// <summary>A live own explosive: its centre (the grenade's place once it is down, the throw's predicted landing point while it flies or is unseen) and its reach (blast radius + margin), metres.</summary>
     public readonly record struct Hazard(Vector3 Centre, float Reach);
 
     /// <summary>Whether <paramref name="point"/> is within the reach of any hazard (3D).</summary>
@@ -208,6 +208,14 @@ public static class BotGrenadeSafety
         kind = HoldKind.Held;
         return input with { MoveX = 0f, MoveY = 0f, Buttons = input.Buttons & ~(InputButtons.Jump | InputButtons.Sprint | InputButtons.MeleeHeavy) };
     }
+
+    /// <summary>
+    /// Self-splash shots (the plasma cannon, a plasma charge, the launcher): whether a shot whose <paramref name="projectile"/> bursts at <paramref name="impact"/> (the first level
+    /// contact on the line to the target, else the target's chest) would catch the bot: within its damaging blast radius + <see cref="Margin"/> of <paramref name="ownChest"/>.
+    /// False for a shot without a damaging blast (hit-scan, a plain bolt).
+    /// </summary>
+    public static bool BurstsTooClose(ProjectileSpec? projectile, Vector3 ownChest, Vector3 impact) =>
+        SafetyDistance(projectile) is var safety and > 0f && Vector3.Distance(ownChest, impact) < safety;
 
     /// <summary>
     /// Remote detonation (the grenade launcher's waiting rounds): false while the bot's chest is within <paramref name="safety"/> (the round's blast radius + margin) of any of

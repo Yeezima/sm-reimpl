@@ -962,17 +962,23 @@ public partial class NetworkView : Node3D
                 // A tap releases at once (the basic shot); a hold lasts until the firing stage (aimed: the bot turns to the target every tick).
                 if (_botTap) return buttons;
                 bool ready = lastFiring > 0 && Combat.ChargeStage(charge, me.ChargeTime, firing: true) >= lastFiring;
-                if (ready) return buttons;
+                // bot-grenade-safety (Classic PvP): a charged shot that would burst within its own blast of the bot is held on (an overheat ends the charge unfired).
+                if (ready && !BotSplashShotHeld(me, weapon, lastFiring, target)) return buttons;
                 return buttons | InputButtons.Fire;
             }
             if (me.FireHeld || me.Overheated) return buttons;   // release first: a charge starts on a press edge
             bool chargeNow = BotChargeAll || (tick * (double)c.TickSeconds + Math.Max(_client?.PlayerId ?? 0, 0) * 1.3) % BotChargeCycle >= BotChargeCycle - BotChargeWindow;
+            // bot-grenade-safety (Classic PvP; NetworkView.BotGrenades.cs): a charged shot that would burst within its own blast of the bot is not charged (the tap's basic shot instead),
+            // and a basic shot that would is not fired.
+            if (chargeNow && lastFiring > 0 && BotSplashShotHeld(me, weapon, lastFiring, target, note: false)) chargeNow = false;
+            if (BotSplashShotHeld(me, weapon, 0, target)) return buttons;
             // Too little in the clip to start a charge (the lascannon needs 2) but some in reserve: reload first.
             if (chargeNow && me.Clip > 0 && me.Clip < Math.Max(1, charge.AmmoToStart) && me.Reserve > 0 && me.ReloadLeft <= 0f)
                 return buttons | (me.ReloadHeld ? InputButtons.None : InputButtons.Reload);
             _botTap = !chargeNow;
             return buttons | InputButtons.Fire;
         }
+        if (BotSplashShotHeld(me, weapon, 0, target)) return buttons;   // bot-grenade-safety (Classic PvP): not a projectile that would burst within its own blast of the bot (the grenade launcher)
         return buttons | (weapon.Trigger == TriggerKind.FullAuto || !me.FireHeld ? InputButtons.Fire : InputButtons.None);
     }
 

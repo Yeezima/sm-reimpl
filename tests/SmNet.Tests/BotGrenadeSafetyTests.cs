@@ -219,6 +219,22 @@ public class BotGrenadeSafetyTests(ITestOutputHelper output)
         Assert.False(BotGrenadeSafety.Claimable(5f, 1.2f, speed));      // too late to be claimed at all
     }
 
+    // ---------------------------------------------------------------- self-splash shots
+
+    /// <summary>Plasma-cannon-like: a ball that bursts on contact, blast r 7 (60, ×1 to 3.5 m).</summary>
+    static readonly ProjectileSpec PlasmaBall = new("ebps\\test\\plasma", 100f, 3f, "raycast", 0.1f, [new(20.1f, 0.25f)], true, false, false, 0, 0f, 0f, 0, null,
+        new SplashSpec(7f, new DamageSpec(60f, 0f, 1f, 1f, 2f, 2f, true), [new(0f, 1f), new(3.5f, 1f), new(7f, 0.15f)], true, false, "target_all"));
+
+    [Fact]
+    public void A_splash_shot_is_not_fired_where_it_would_burst_within_its_own_blast_of_the_bot()
+    {
+        Assert.Equal(7f + BotGrenadeSafety.Margin, BotGrenadeSafety.SafetyDistance(PlasmaBall), 3);
+        Assert.True(BotGrenadeSafety.BurstsTooClose(PlasmaBall, ChestAt(0, 0), ChestAt(0, 5f)));     // a target 5 m away (or a rail 5 m out on the line to a farther one)
+        Assert.False(BotGrenadeSafety.BurstsTooClose(PlasmaBall, ChestAt(0, 0), ChestAt(0, 9f)));
+        Assert.False(BotGrenadeSafety.BurstsTooClose(null, ChestAt(0, 0), ChestAt(0, 1f)));          // hit-scan: no projectile
+        Assert.False(BotGrenadeSafety.BurstsTooClose(PlasmaBall with { Splash = null }, ChestAt(0, 0), ChestAt(0, 1f)));   // a plain bolt
+    }
+
     // ---------------------------------------------------------------- remote detonation
 
     [Fact]
