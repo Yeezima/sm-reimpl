@@ -28,16 +28,14 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3048 spec table rows: **2248 tagged**, 548 not tagged (read from data with high confidence), 252 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 678 rows of the changes document.
-Scanned 3041 spec table rows: **2249 tagged**, 542 not tagged (read from data with high confidence), 250 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 679 rows of the changes document.
-Scanned 3041 spec table rows: **2250 tagged**, 541 not tagged (read from data with high confidence), 250 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 679 rows of the changes document.
+Scanned 3052 spec table rows: **2251 tagged**, 549 not tagged (read from data with high confidence), 252 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 680 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
 | Movement (critical) | 397 | 339 | 338 | 115 | 12 |
 | Combat core (critical) | 17 | 7 | 15 | 14 | 9 |
 | Weapons (critical) | 121 | 73 | 106 | 54 | 3 |
-| Melee (critical) | 128 | 112 | 101 | 43 | 5 |
+| Melee (critical) | 130 | 113 | 102 | 45 | 5 |
 | Jump pack (critical) | 79 | 71 | 63 | 19 | 0 |
 | Charge (critical) | 56 | 47 | 47 | 22 | 0 |
 | Reactions (critical) | 25 | 22 | 23 | 12 | 0 |
@@ -55,22 +53,18 @@ Scanned 3041 spec table rows: **2250 tagged**, 541 not tagged (read from data wi
 | Core simulation (provisional values) | 673 | 634 | 480 | 177 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 235 | 224 | 126 | 63 | 0 |
-| **All areas** | **2248** | 1982 | 1679 | 703 | 38 |
-| **All areas** | **2250** | 1984 | 1680 | 706 | 38 |
+| **All areas** | **2251** | 1984 | 1681 | 706 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1274 |
-| confidence: low | 807 |
-| kind: ours | 1276 |
+| kind: ours | 1275 |
 | confidence: low | 808 |
-| confidence: medium | 743 |
-| notes: ours | 408 |
-| kind: interpretation | 376 |
-| notes: estimate | 180 |
-| notes: estimate | 182 |
+| confidence: medium | 744 |
+| notes: ours | 410 |
+| kind: interpretation | 377 |
+| notes: estimate | 181 |
 | kind: estimate | 156 |
 | confidence: none (low) | 129 |
 | kind: provisional | 101 |
@@ -968,7 +962,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-63D5DA0C` | Magazine returns | at the load tag or when the left hand is back at the weapon, whichever is later (never before the magazine left): bolter tag 0.30, hand 0.35 (`RIG_L_Hand` 0.15 m from the magazine at its closest, 1.13 m at its furthest, away from 0.11 to 0.35) → 0.35; stalker… (fraction of the clip) | kind: interpretation; confidence: medium | clip, skeleton, weapon mount | Magazine returns: compare with SM1 by feel or video. Ours: at the load tag or when the left hand is back at the weapon… | ☐ |
 | `R-125B93CF` | Dropped magazine physics | a `RigidBody3D` (layer none, mask: the level) with a box the size of the mesh, mass 0.4 kg, friction 0.7, bounce 0.3, linear damping 0.05, angular 0.6; initial velocity = the carrier's velocity + up to 0.6 m/s sideways (0.12 up) + up to 5 rad/s spin… (kg, m/s, rad/s, s) | kind: placeholder; confidence: none (low); notes: ours | ours | Dropped magazine physics: compare with SM1 by timing a run over a known distance. Ours: a RigidBody3D (layer none, mask: the level) with a box the size of… | ☐ |
 
-### Melee (gameplay-critical) (128)
+### Melee (gameplay-critical) (130)
 
 *Spec section: Melee flow, the hammer in both hands and the transitions pass (anim/melee-flow; client only, not simulated, no protocol change)*
 
@@ -1104,10 +1098,11 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-393E33A0` | Plasma burn: credit and signal | ticks are quiet (no Hit event, so no flinch, blood or pain cue per tick); a kill is the shooter's (`MusouDeathKind.Shot`); tag 11 kind Burn (7) tells the clients when a burn starts and at most once a second while hits renew it; the client draws two blue-white… | kind: ours; confidence: low | ours | Plasma burn: credit and signal: compare with SM1 by feel or video. Ours: ticks are quiet (no Hit event, so no flinch, blood or pain cue per… | ☐ |
 | `R-75F58B03` | Musou combat: what the x0.6 cleave covers | every human player's cleave; the AI Marines keep the reach before it (the lead, 2026-11-11, on the owner's "players only": AI allies keep theirs; their drawn arcs too, by their id); the Guard squads have no cleave; the cleave on the Scrap Mek contraptions… | kind: interpretation; confidence: medium; notes: ours | owner 2026-11-11; the coverage our reading | Musou combat: what the x0.6 cleave covers: compare with SM1 by feel or video. Ours: every human player's cleave; the AI Marines keep the reach before it… | ☐ |
 | `R-E19D028B` | Musou combat: what the x1.2 ranged damage covers | grenades and charges (frags, melta bombs, the Remote Detonators) count as ranged: our reading of "all ranged"; not the AI Marines' guns nor the Guard squads' (the lead, 2026-11-11, on the owner's "players only": AI allies keep their damage); not the… | kind: interpretation; confidence: medium; notes: ours | owner 2026-11-11; the coverage our reading | Musou combat: what the x1.2 ranged damage covers: compare with SM1 by counting hits to kill and by video of the health bar. Ours: grenades and charges (frags, melta bombs, the Remote Detonators)… | ☐ |
-| `R-C27235EA` | Musou: no range fall-off (war; claude/autocannon-pass-2, `TfwRules.Version` 68) | every ranged hit on the enemies and their contraptions in Musou Mode's war deals its **full damage at any distance it reaches** (its range; a cone its length): the range fall-off multiplier is **1** for every weapon, the arsenal's included (hit-scan and… (multiplier) | notes: ours | owner 2026-11-11: "There should be no damage falloff for any ranged weapon in Musou mode"; the melta's cone and the AI Marines' shots in it ours | Musou: no range fall-off (war; claude/autocannon-pass-2…: compare with SM1 by timing a run over a known distance. Ours: every ranged hit on the enemies and their contraptions in Musou… | ☐ |
-| `R-0FCE5142` | Musou: what "no range fall-off" covers | the melta's cone counts (its distance fall-off is a range fall-off: our reading of "any ranged weapon"); the AI Marines' guns do not count since the owner's "alliedmarine should not lose range falloff" (2026-11-11, see the damage answers row above); the… | kind: interpretation; confidence: medium; notes: ours | ours (the reading) | Musou: what "no range fall-off" covers: compare with SM1 by timing a run over a known distance. Ours: the melta's cone counts (its distance fall-off is a range fall-off:… | ☐ |
+| `R-2744DDC6` | Musou: no range fall-off (war; claude/autocannon-pass-2, `TfwRules.Version` 68) | every ranged hit on the enemies and their contraptions in Musou Mode's war deals its **full damage at any distance it reaches** (its range; a cone its length): the range fall-off multiplier is **1** for every weapon, the arsenal's included (hit-scan and… (multiplier) | notes: ours | owner 2026-11-11: "There should be no damage falloff for any ranged weapon in Musou mode"; the melta's cone and the AI Marines' shots in it ours | Musou: no range fall-off (war; claude/autocannon-pass-2…: compare with SM1 by timing a run over a known distance. Ours: every ranged hit on the enemies and their contraptions in Musou… | ☐ |
+| `R-32F24ABB` | Musou: what "no range fall-off" covers | the melta's cone counts (its distance fall-off is a range fall-off: our reading of "any ranged weapon"); the AI Marines' guns do not count since the owner's "alliedmarine should not lose range falloff" (2026-11-11, see the damage answers row above); the… | kind: interpretation; confidence: medium; notes: ours | ours (the reading) | Musou: what "no range fall-off" covers: compare with SM1 by timing a run over a known distance. Ours: the melta's cone counts (its distance fall-off is a range fall-off:… | ☐ |
+| `R-2744DDC6-2` | Musou: no range fall-off (war; claude/autocannon-pass-2, `TfwRules.Version` 68) | every ranged hit on the enemies and their contraptions in Musou Mode's war deals its **full damage at any distance it reaches** (its range; a cone its length): the range fall-off multiplier is **1** for every weapon, the arsenal's included (hit-scan and… (multiplier) | notes: ours | owner 2026-11-11: "There should be no damage falloff for any ranged weapon in Musou mode"; the melta's cone and the AI Marines' shots in it ours | Musou: no range fall-off (war; claude/autocannon-pass-2…: compare with SM1 by timing a run over a known distance. Ours: every ranged hit on the enemies and their contraptions in Musou… | ☐ |
 | `R-364A58E7` | The autocannon's kick (every mode with the autocannon; claude/autocannon-arm-recoil) | the gun and both arms move as one **0.04 m straight back along the barrel's axis** (the muzzle's direction turned round; the spine bone the arms and the chest prop hang from, so the hands stay on the gun), peaking **0.04 s** after the shot and back at rest… (m; s) | kind: ours; kind: provisional; kind: approximation; confidence: low; notes: estimate | owner 2026-11-11: "the arm currently moves completely away from the gun when firing. it should only slightly move straight back from the direction the gun… | The autocannon's kick (every mode with the autocannon…: compare with SM1 by feel or video. Ours: the gun and both arms move as one 0.04 m straight back along the… | ☐ |
-| `R-0FCE5142` | Musou: what "no range fall-off" covers | the melta's cone counts (its distance fall-off is a range fall-off: our reading of "any ranged weapon"); the AI Marines' guns count (the owner's "any"); the pierce share does not (a share per enemy gone through, not a fall-off with range; the plasma weapons… | kind: interpretation; confidence: medium; notes: ours | ours (the reading) | Musou: what "no range fall-off" covers: compare with SM1 by timing a run over a known distance. Ours: the melta's cone counts (its distance fall-off is a range fall-off:… | ☐ |
+| `R-32F24ABB-2` | Musou: what "no range fall-off" covers | the melta's cone counts (its distance fall-off is a range fall-off: our reading of "any ranged weapon"); the AI Marines' guns count (the owner's "any"); the pierce share does not (a share per enemy gone through, not a fall-off with range; the plasma weapons… | kind: interpretation; confidence: medium; notes: ours | ours (the reading) | Musou: what "no range fall-off" covers: compare with SM1 by timing a run over a known distance. Ours: the melta's cone counts (its distance fall-off is a range fall-off:… | ☐ |
 
 *Spec section: Player collision (sim/player-collision; protocol 43, used by the simulation)*
 
