@@ -20,8 +20,11 @@ public class ConfigHashPinTests(ITestOutputHelper output)
     /// <summary>The faithful profile's match config (Annihilation and Seize Ground, no added content), captured on main 61c152b7.</summary>
     const ulong FaithfulHash = 0x5277E16C8E7F6260UL;
 
-    /// <summary>The extended profile's (the Ork, gore, the loyalist barks; the playtest default), captured on main 61c152b7.</summary>
-    const ulong ExtendedHash = 0x2AAB9E068C454594UL;   // the VM's Classic server reports the same
+    /// <summary>
+    /// The extended profile's (the Ork, gore, the loyalist barks and, since claude/autocannon-pass of 2026-11-11, Classic PvP's autocannon; the playtest default): recaptured with the autocannon's flag and
+    /// its weapon appended to the Devastator's and the Havoc's lists (0x2AAB9E068C454594 before, captured on main 61c152b7). A ship with it needs the VM's Classic server updated.
+    /// </summary>
+    const ulong ExtendedHash = 0x7556F708CE2FD9A2UL;
 
     static readonly Lazy<string?> Game = new(() => GameInstall.TryLocate()?.Dir);
 

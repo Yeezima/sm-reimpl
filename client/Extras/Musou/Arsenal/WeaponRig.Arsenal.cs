@@ -7,14 +7,14 @@ namespace SmClient;
 /// <summary>
 /// Musou's arsenal on the character (W0, the base; docs/new-weapons-design.md section 8, hook 4): the one implementation of <see cref="ExtrasWeaponModel"/>, a dispatcher to each item's own
 /// model, which its milestone implements in its own file: W1 the autocannon (<c>turret_aa</c> at the chest prop, stowed at the bolter's marker), W2 the claw (built in code, always worn on the
-/// right hand), W3 the spear (built in code). Asked only for a rig under Musou's content (<see cref="Content"/>: the match's or the customizer page's profile) and only for the arsenal's names
-/// (<see cref="ArsenalRules.IsArsenal"/>). Until then nothing is drawn for them, as for any name without a model.
+/// right hand), W3 the spear (built in code). Asked only for a rig whose content carries the item (<see cref="Content"/>: the match's or the customizer page's profile; <see cref="ArsenalRules.Shown"/>:
+/// Musou's arsenal, and the autocannon in Classic PvP with <see cref="ContentExtras.Autocannon"/>). Otherwise nothing is drawn for them, as for any name without a model.
 /// </summary>
 public sealed partial class WeaponRig
 {
     partial void ExtrasWeaponModel(HandRole role, string wargear, WeaponAssets assets, ref WeaponAttachment? attachment, ref WeaponAsset? asset, ref bool alwaysHeld)
     {
-        if (!Content.HasFlag(ContentExtras.Musou) || !ArsenalRules.IsArsenal(wargear)) return;
+        if (!ArsenalRules.Shown(Content, wargear)) return;   // Musou's items, and the autocannon under Classic PvP's ContentExtras.Autocannon too (owner 2026-11-11)
         AutocannonModel(role, wargear, assets, ref attachment, ref asset);
         LightningClawModel(role, wargear, assets, ref attachment, ref asset, ref alwaysHeld);
         PowerSpearModel(role, wargear, assets, ref attachment, ref asset);

@@ -525,13 +525,15 @@ public partial class CustomizationCatalogTests : IDisposable
     [Fact]
     public void Every_profile_without_added_items_gets_the_datas_catalogue_itself()
     {
-        // W0, Musou's arsenal (docs/new-weapons-design.md section 8, hook 3): PerkCatalog.For is the only way added items reach the customizer; the faithful and extended profiles get the
-        // data's catalogue, the same object, so their slots and lists cannot show them.
+        // W0, Musou's arsenal (docs/new-weapons-design.md section 8, hook 3): PerkCatalog.For is the only way added items reach the customizer; the faithful profile gets the data's catalogue,
+        // the same object, so its slots and lists cannot show them (the extended profile since 2026-11-11 the Classic autocannon's row alone).
         var global = BafDocument.Read(GlobalBaf());
         var perks = PerkCatalog.Build(global, name => name.StartsWith("mp_perk") ? BafDocument.Read(Gear("perk")) : BafDocument.Read(Gear(name.Contains("pistol") ? "pistol" : "melee")), null, []);
         Assert.Same(perks, perks.For(ContentExtras.None));
-        Assert.Same(perks, perks.For(ContentExtras.All));
+        Assert.Same(perks, perks.For(ContentExtras.All & ~ContentExtras.Autocannon));
         Assert.Same(perks, perks.For(ContentExtras.Orks | ContentExtras.Gore));
+        // Classic PvP's autocannon (2026-11-11) is the extended profile's one added item, its row on the heavy classes (ClassicAutocannonContentTests); a build without added content adds nothing.
+        if (ContentExtras.Compiled) Assert.NotSame(perks, perks.For(ContentExtras.All)); else Assert.Same(perks, perks.For(ContentExtras.All));
         Assert.Same(perks, perks.WithClasses(c => c));
         // A change makes a copy; the rest is kept.
         var item = new LoadoutItem("sm_mp_added", "melee", "Added", "", 1, true, null, null);

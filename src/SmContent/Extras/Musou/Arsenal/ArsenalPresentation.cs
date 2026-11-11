@@ -1,3 +1,4 @@
+using SmSim;
 using SmSim.Extras.Musou.Arsenal;
 
 namespace SmContent.Extras.Musou.Arsenal;
@@ -14,7 +15,8 @@ namespace SmContent.Extras.Musou.Arsenal;
 /// (<c>sm_mp_exotic_heavy_bolter</c>) only if the twin has none;</item>
 /// <item>the Remote Detonators: none here (an install name with its own file; W4 draws its model, <c>NetworkView.ExtrasThrownVisual</c>).</item>
 /// </list>
-/// Read only by the client's Musou-gated hooks (<c>NetworkView.ExtrasPresentationSources</c>, <c>Hud.ExtrasReticle</c>, <c>Hud.ExtrasWeaponBox</c>): nothing changes without Musou's content.
+/// Read only by the client's arsenal hooks (<c>NetworkView.ExtrasPresentationSources</c>, <c>Hud.ExtrasReticle</c>, <c>Hud.ExtrasWeaponBox</c>) through the overloads that take the match's content
+/// (<see cref="ArsenalRules.Shown"/>: every item in Musou Mode, the autocannon alone in Classic PvP with <see cref="ContentExtras.Autocannon"/>): nothing changes without that content.
 /// </summary>
 public static partial class Arsenal
 {
@@ -38,6 +40,9 @@ public static partial class Arsenal
         : string.Equals(wargear, ArsenalRules.Autocannon, StringComparison.OrdinalIgnoreCase) ? AutocannonSources
         : null;
 
+    /// <summary><see cref="PresentationSources(string)"/> where <paramref name="extras"/> carries the item (<see cref="ArsenalRules.Shown"/>), else null.</summary>
+    public static IReadOnlyList<string>? PresentationSources(ContentExtras extras, string wargear) => ArsenalRules.Shown(extras, wargear) ? PresentationSources(wargear) : null;
+
     /// <summary>
     /// The autocannon's reticle: the HUD movie's <c>autocannon_mc</c> and, with an enemy under it, <c>autocannon_active_mc</c> (both in the reticle container, <c>smtool gfx-dump auto --grep
     /// autocannon</c>; the twin's <c>ui_data/reticule_type</c> is "autocannon"), with no spread ticks. Its <c>weapon_type</c> is "grenade_launcher", so the type rule alone would show the
@@ -48,6 +53,9 @@ public static partial class Arsenal
 
     static readonly ReticleSpec AutocannonReticle = new("autocannon", "autocannon_mc", "autocannon_active_mc", false);
 
+    /// <summary><see cref="Reticle(string)"/> where <paramref name="extras"/> carries the item (<see cref="ArsenalRules.Shown"/>), else null.</summary>
+    public static ReticleSpec? Reticle(ContentExtras extras, string wargear) => ArsenalRules.Shown(extras, wargear) ? Reticle(wargear) : null;
+
     /// <summary>
     /// The autocannon's weapon box: the movie's <c>ammo_autocannon_mc</c> with its heat bar and the rounds left in <c>ammo_mc/ammo_txt</c>, the display the heavy bolter's family already shows
     /// (<see cref="WeaponBoxRules.For"/> "heavy_bolter"). Null for every other name.
@@ -57,4 +65,17 @@ public static partial class Arsenal
 
     // Built once (the HUD asks every frame; its show-set cache keys on the display's paths, and the rules' own specs are built once too).
     static readonly WeaponBoxSpec? AutocannonBox = WeaponBoxRules.For(ArsenalRules.Autocannon, "heavy_bolter", false), AutocannonBoxChaos = WeaponBoxRules.For(ArsenalRules.Autocannon, "heavy_bolter", true);
+
+    /// <summary>
+    /// The weapon box of <paramref name="wargear"/> where <paramref name="extras"/> carries the item (<see cref="ArsenalRules.Shown"/>), else null. Musou Mode's autocannon never spends a round (the
+    /// owner, 2026-11-11: "infinite ammo in musou mode"), so its box shows the movie's endless sign (<c>infinity_mc</c>, the display the heavy bolter's family had before fix/pvp-deploy-spawn) with the
+    /// heat bar and no count (<see cref="EndlessAutocannonBox"/>); Classic PvP's spends its clip and shows the rounds left (<see cref="WeaponBox(string, bool)"/>).
+    /// </summary>
+    public static WeaponBoxSpec? WeaponBox(ContentExtras extras, string wargear, bool chaos) =>
+        !ArsenalRules.Shown(extras, wargear) ? null
+        : extras.HasFlag(ContentExtras.Musou) && ArsenalRules.IsAutocannon(wargear) ? EndlessAutocannonBox
+        : WeaponBox(wargear, chaos);
+
+    /// <summary>Musou Mode's autocannon box: the autocannon ammunition display with the endless sign, the heat bar, no count (built once).</summary>
+    public static readonly WeaponBoxSpec EndlessAutocannonBox = new("heavy_bolter", ["ammo_autocannon_mc", "infinity_mc"], "ammo_autocannon_mc/ammo_bar", WeaponBoxBar.Heat, null);
 }

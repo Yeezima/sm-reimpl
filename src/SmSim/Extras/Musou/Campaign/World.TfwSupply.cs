@@ -36,6 +36,8 @@ namespace SmSim
         /// <summary>
         /// The owner: "ammo should be infinite in musou mode". Every living player's (humans and AI Marines) weapons keep a full reserve (the perks' size), so a reload always fills the clip; a weapon
         /// that cannot reload (a brace weapon, or one with no reserve) gets its clip back once it is empty. The clip, the reload, the heat, the overheat and the vent run as ever.
+        /// The autocannon (the owner, 2026-11-11: "the autocannon should also have infinite ammo in musou mode"; <see cref="AutocannonRules.EndlessClip"/>) keeps its whole clip every tick, so it never
+        /// runs down (its HUD shows the endless sign); its heat and overheat still run.
         /// </summary>
         void TfwEndlessAmmo()
         {
@@ -51,6 +53,7 @@ namespace SmSim
                     var a = AmmoOf(q, slot);
                     var full = a with { Reserve = Math.Max(a.Reserve, weapon.ReserveSize) };
                     if ((weapon.Brace is not null || weapon.ReserveSize <= 0) && a.Clip <= 0 && weapon.ClipSize > 0) full = full with { Clip = weapon.ClipSize };
+                    if (AutocannonRules.EndlessClip(weapon) && weapon.ClipSize > 0) full = full with { Clip = weapon.ClipSize };   // never spent (2026-11-11)
                     if (full != a) q = WithAmmo(q, slot, full);
                 }
                 if (q != p) _players[id] = q;

@@ -166,7 +166,9 @@ public sealed partial class CustomizerServices
             // ui/customizer-ork: a build with added content reads the Ork Boy too (appended as the last class, so the six classes' indices and values are the
             // same), so the creator and a Join can name his class; the content profile decides whether he is offered (ContentGate, JoinPlan.Build).
             var tuning = ContentExtras.Compiled ? GameplayTuning.LoadForMatch(GameDir, ContentExtras.Orks) : GameplayTuning.Load(GameDir);
-            var session = ProfileSession.Open(catalog, Store);
+            // The profile is read and repaired with the data's catalogue plus the items a Classic profile with added content offers (Classic PvP's autocannon, 2026-11-11: catalog.For adds them only
+            // in a build with added content), so a slot saved under Extended keeps its autocannon whichever profile the front end opens with; what a page shows is still Catalog (its own profile's).
+            var session = ProfileSession.Open(catalog.For(ContentExtras.Autocannon), Store);
             lock (Notes) { Notes.AddRange(notes); Notes.AddRange(tuning.Notes); }
             PerkActivities = PerkStatuses.Of(tuning.Config);
             Config = tuning.Config;

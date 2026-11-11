@@ -114,6 +114,7 @@ public class ExtrasBoundaryTests
         ("client/NetworkView.Grenades.cs", "ExtrasThrownVisual"),   // NetworkView.ExtrasThrownVisual(ThrownSpec, ref ProjectileVisual?), in GrenadeModel: a thrown item drawn with another package's model
         ("client/NetworkView.Grenades.cs", "ExtrasThrownDetonated"),   // NetworkView.ExtrasThrownDetonated(ProjectileView), called in NetworkView.cs for every thrown detonation: W4 starts the Remote Detonators' ring (Musou only)
         ("src/SmContent/AnimationAlias.cs", "ExtrasAnimationAlias"),   // static AnimationAlias.ExtrasAnimationAlias(ref string), in Of: the data weapon an added one borrows its animations from
+        ("src/SmContent/Customization/AppearanceResolver.cs", "ExtrasWornAs"),   // static AppearanceResolver.ExtrasWornAs(ref string), in WornAs: the autocannon wears the heavy bolter's class overrides (its backpack; owner 2026-11-11)
         ("src/SmContent/Customization/ProfileView.cs", "ExtrasSetCatalog"),   // static ProfileViews.ExtrasSetCatalog(string, ref CustomizationCatalog), in SetCatalog: Musou's set is read with Musou's catalogue
         ("client/NetworkView.MeleeLock.cs", "ExtrasMeleeClip"),   // NetworkView.ExtrasMeleeClip(string, bool, int, ref string?, ref float), in OwnStrikeClip: the animation seam, a strike's custom clip (the claw's and the spear's, once approved)
         // W0b (lead 2026-11-10): presentation by source and the pack moves' clip speed; each asks the match's content (Musou) as well as the name.
