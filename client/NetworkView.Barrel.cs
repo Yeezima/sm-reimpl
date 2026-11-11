@@ -181,7 +181,7 @@ public partial class NetworkView
         try
         {
             var spec = _config.Weapons[q.Weapon];
-            if (FxWeapon(spec.Name) is not { } w || FxPlace(shooter.PlayerId, w.MuzzleMarker) is not { } muzzle) return;
+            if (FxWeapon(EffectsWargear(shooter.PlayerId, spec.Name)) is not { } w || FxPlace(shooter.PlayerId, w.MuzzleMarker) is not { } muzzle) return;
             var at = ToGodot(q.Position);
             var dir = at - muzzle.Position;
             dir = dir.LengthSquared() > 1e-4f ? dir.Normalized() : muzzle.Axes.Y;

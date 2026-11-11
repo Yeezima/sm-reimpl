@@ -79,6 +79,21 @@ public partial class NetworkView
     /// <summary>Added content: the effects an added weapon plays in place of its presentation source's (null: none renamed); asked from the main thread before the catalogue loads.</summary>
     partial void ExtrasEffectNames(string wargear, ref IReadOnlyDictionary<string, string>? names);
 
+    /// <summary>
+    /// The effect catalogue's entry name for a shot of <paramref name="wargear"/> by player <paramref name="shooter"/>: the name itself (every weapon of the data), or the added content's choice by the
+    /// shooter (<see cref="ExtrasShooterEffects"/>: the Havoc's autocannon shows its Chaos twin's own effects, the Devastator's the loyalist ones; the owner, 2026-11-11). Read by the shot, launch and
+    /// stop-fire effects.
+    /// </summary>
+    string EffectsWargear(int shooter, string wargear)
+    {
+        string effects = wargear;
+        ExtrasShooterEffects(shooter, wargear, ref effects);   // EXTRAS-HOOK added content (the autocannon): the shooter's side picks the effects
+        return effects;
+    }
+
+    /// <summary>Added content: another entry of the effect catalogue for <paramref name="wargear"/> fired by <paramref name="shooter"/> (left alone: the weapon's own); asked per shot on the main thread.</summary>
+    partial void ExtrasShooterEffects(int shooter, string wargear, ref string effects);
+
     /// <summary>The name the presentation's name rules read for <paramref name="wargear"/>: its first source, or the name itself (every name of the install).</summary>
     string? PresentedAs(string? wargear) => wargear is not null && PresentationSources(wargear) is { } sources ? sources[0] : wargear;
 

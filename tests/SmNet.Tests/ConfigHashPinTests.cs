@@ -23,8 +23,10 @@ public class ConfigHashPinTests(ITestOutputHelper output)
     /// <summary>
     /// The extended profile's (the Ork, gore, the loyalist barks and, since claude/autocannon-pass of 2026-11-11, Classic PvP's autocannon; the playtest default): recaptured with the autocannon's flag and
     /// its weapon appended to the Devastator's and the Havoc's lists (0x2AAB9E068C454594 before, captured on main 61c152b7). A ship with it needs the VM's Classic server updated.
+    /// Recaptured with claude/autocannon-pass-2 (2026-11-11): the Classic autocannon's clip of 120 (the owner's "120 clip size", 400 before) and the drops' amount for it (the heavy bolter's)
+    /// (0x7556F708CE2FD9A2 before).
     /// </summary>
-    const ulong ExtendedHash = 0x7556F708CE2FD9A2UL;
+    const ulong ExtendedHash = 0x479768E19E322CCAUL;
 
     static readonly Lazy<string?> Game = new(() => GameInstall.TryLocate()?.Dir);
 

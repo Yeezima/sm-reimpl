@@ -10,8 +10,9 @@ namespace SmContent.Extras.Musou.Arsenal;
 /// of the bolter and bolt pistol"): a Devastator loadout primary in Musou Mode, never in Classic PvP. The install has the gun only as <c>csm_mp_exotic_auto_cannon</c> (a Chaos file no class names, cut from
 /// the multiplayer game), so the Space Marines' weapon is its twin built here in code (<see cref="ArsenalRules.Autocannon"/>, never written to disk): the file's numbers (0.4 s between rounds,
 /// 150 m with the fall-off 0.75 from 45 to 70 m, heat 1 a round with overheat at 15, cooling 4.5 a second after 0.41 s: kind data), fired full auto (the campaign's trigger; the file's is a 2-round burst), a
-/// clip of 400 with no reserve (Musou's ammunition is endless anyway; the autocannon's clip is never spent there since 2026-11-11), and the heavy bolter's handling (raise, stance, spread: the file's scatter
-/// sets are not read; ours) without its brace (the owner: no brace). Musou's round is <see cref="AutocannonRules.DirectDamage"/> (130, the blast's + 30: the owner, 2026-11-11; the file's 50 until then).
+/// clip of 400 with no reserve (Musou's ammunition is endless anyway; the autocannon spends no round there since 2026-11-11: no clip at all), and the heavy bolter's handling (raise, stance, spread: the file's scatter
+/// sets are not read; ours) without its brace (the owner: no brace). Musou's round is <see cref="AutocannonRules.DirectDamage"/> (101, the blast's + 30: the owner, 2026-11-11; the file's 50 until then).
+/// Classic's has the file's clip of 120.
 /// It reaches the Devastator's primary list by appending an index, so no existing index moves. The explosive round is <c>AutocannonBlast.cs</c> (the simulation); the model and animations are
 /// <c>client/Extras/Musou/Arsenal/Autocannon/</c>. Classic PvP's autocannon (<c>ClassicAutocannon</c>, <see cref="ContentExtras.Autocannon"/>) is the same <see cref="Twin"/> with the Stalker
 /// Bolter's shot (<see cref="ClassicTwin"/>).
@@ -78,6 +79,16 @@ public static partial class Arsenal
     /// <summary><see cref="EffectNames(string)"/> where <paramref name="extras"/> carries the item (<see cref="ArsenalRules.Shown"/>): the same loyalist look in Musou Mode and in Classic PvP, else null.</summary>
     public static IReadOnlyDictionary<string, string>? EffectNames(ContentExtras extras, string wargear) => ArsenalRules.Shown(extras, wargear) ? EffectNames(wargear) : null;
 
+    /// <summary>
+    /// The effect catalogue's entry a shot of <paramref name="wargear"/> plays when its shooter is of the Chaos race (<paramref name="chaos"/>) where <paramref name="extras"/> carries the item: the
+    /// autocannon (one weapon for both heavy classes) shows its install twin's own entry, <see cref="AutocannonTwinFile"/>, so a Havoc's shots are Chaos all the way through (the owner, 2026-11-11:
+    /// "Give the chaos autocannon the chaos visual effects all the way through": the purple muzzle flash <see cref="ChaosMuzzleEffect"/>, tracer <see cref="ChaosTracerEffect"/>, the Chaos impact
+    /// container's <see cref="ChaosImpactEffect"/>, the stop smoke and casings, every effect the Chaos file names, as it binds them); a Space Marine's shots keep the autocannon's own entry (the
+    /// loyalist renames, <see cref="EffectNames(string)"/>). Every other name, and every name without the content, is itself. Its sounds are not chosen here (<see cref="SoundSources(ContentExtras, string)"/>).
+    /// </summary>
+    public static string EffectsFor(ContentExtras extras, string wargear, bool chaos) =>
+        chaos && ArsenalRules.IsAutocannon(wargear) && ArsenalRules.Shown(extras, wargear) ? AutocannonTwinFile : wargear;
+
     static partial void AppendAutocannon(ref SimConfig config, string gameDir, List<string> notes)
     {
         if (config.Weapons.Any(w => w.Name.Equals(ArsenalRules.Autocannon, StringComparison.OrdinalIgnoreCase))) return;   // already appended
@@ -123,7 +134,7 @@ public static partial class Arsenal
     }
 
     /// <summary>
-    /// The Space Marines' autocannon: the Chaos file's weapon <paramref name="source"/> (damage, range, fall-off, heat and multipliers are the file's) fired full auto one round every 0.4 s from a clip of 400 with
+    /// The Space Marines' autocannon: the Chaos file's weapon <paramref name="source"/> (damage, range, fall-off, heat and multipliers are the file's) fired full auto one round every 0.4 s from a clip of 400 (Musou's, never spent there; Classic's <see cref="ClassicTwin"/> takes the file's 120) with
     /// no reserve, carrying the heavy bolter's handling (<paramref name="heavy"/>: raise, stance, spread, reload; none of its brace).
     /// </summary>
     public static WeaponSpec Twin(WeaponSpec source, WeaponSpec heavy) => source with
@@ -140,14 +151,16 @@ public static partial class Arsenal
 
     /// <summary>
     /// Classic PvP's autocannon (the owner, 2026-11-11: "everything the same except: no aoe blast radius / simply higher single shot damage to be the same as the stalker - with the original games
-    /// headshot bonus value"): <see cref="Twin"/> (the rate, trigger, heat, range and fall-off, the clip of 400 and the heavy bolter's handling, as Musou's) with the Stalker Bolter's shot as Classic
-    /// reads it (<paramref name="stalker"/>: its damage, 50 on the install, and its head, body and armour multipliers, 2 and 2.5 on the head): no blast (Classic's shot path has none) and the data's
-    /// ammunition (the clip spends; an ammunition box refills it, as the heavy bolter's).
+    /// headshot bonus value"): <see cref="Twin"/> (the rate, trigger, heat, range and fall-off and the heavy bolter's handling, as Musou's) with the Stalker Bolter's shot as Classic reads it
+    /// (<paramref name="stalker"/>: its damage, 50 on the install, and its head, body and armour multipliers, 2 and 2.5 on the head) and the multiplayer file's clip (<paramref name="source"/>: 120 on
+    /// the install, no reserve; the owner, 2026-11-11: "In classic PvP only. 120 clip size"; Musou's 400 until then): no blast (Classic's shot path has none); the clip spends and an ammunition box
+    /// refills it as the heavy bolter's (<c>ClassicAutocannon.WithAutocannon</c> gives the boxes its amount).
     /// </summary>
     public static WeaponSpec ClassicTwin(WeaponSpec source, WeaponSpec heavy, WeaponSpec stalker) => Twin(source, heavy) with
     {
         Damage = stalker.Damage, HeadMultiplier = stalker.HeadMultiplier, BodyMultiplier = stalker.BodyMultiplier,
         ShieldHeadMultiplier = stalker.ShieldHeadMultiplier, ShieldBodyMultiplier = stalker.ShieldBodyMultiplier,
+        ClipSize = source.ClipSize > 0 ? source.ClipSize : AutocannonRules.Clip,   // the file's 120 (a file without one keeps Musou's)
     };
 
     // The Space Marine Devastator's primary list, after the heavy bolter and the others: one row, simulated (the twin is in Musou's config), level 1 (the file's).

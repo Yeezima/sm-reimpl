@@ -126,7 +126,7 @@ public sealed partial class World
         if (hit == 0 && dome < length) { length = dome; ended = true; }
         if (hit != 0)
         {
-            var spec = Shots.ChargeShotOf(weapon, shot.Stage)?.Damage ?? weapon.DirectDamage with { Damage = Combat.DamageAt(distance, weapon) };
+            var spec = MusouShotDamage(weapon, shot.Stage, distance);   // full damage at any range in the war (owner 2026-11-11)
             meks.Damage(hit, shot.Shooter, spec.Damage * spec.BodyMultiplier * MusouRangedDealt(shot.Shooter), out _);   // x1.2 (owner 2026-11-11)
             length = distance; ended = true;
         }

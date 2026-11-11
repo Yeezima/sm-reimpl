@@ -156,6 +156,19 @@ public sealed partial record SimConfig
 
     partial void ExtrasFireBoost(ref float rate, ref float cap);
 
+    /// <summary>
+    /// Whether a shot of <paramref name="weapon"/> spends no round in this config (added content: Musou Mode's autocannon has no clip, the owner's "No clip in Musou mode - just infinite shooting" of
+    /// 2026-11-11). False for every weapon in the faithful game and Classic PvP, where the hook does nothing. Not hashed itself: Musou's block covers it.
+    /// </summary>
+    public bool EndlessClip(WeaponSpec weapon)
+    {
+        bool endless = false;
+        ExtrasEndlessClip(weapon, ref endless);   // EXTRAS-HOOK
+        return endless;
+    }
+
+    partial void ExtrasEndlessClip(WeaponSpec weapon, ref bool endless);
+
     /// <summary>The scale on the reach of the blasts of thrown <paramref name="item"/> (1 in the faithful game; Musou Mode doubles the frag's, owner 2026-11-09).</summary>
     public float ThrownBlastScale(ThrownSpec? item)
     {

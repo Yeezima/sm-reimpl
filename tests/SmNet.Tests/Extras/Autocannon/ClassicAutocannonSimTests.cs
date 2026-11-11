@@ -9,8 +9,8 @@ namespace SmNet.Tests.Extras.Autocannon;
 /// <summary>
 /// Classic PvP's autocannon in a match (<see cref="ContentExtras.Autocannon"/>, the extended profile; the owner, 2026-11-11: "add the autocannon to classic pvp mode with everything the same except: no aoe
 /// blast radius / simply higher single shot damage to be the same as the stalker - with the original games headshot bonus value"): on a synthetic fixture, a Devastator's autocannon round hurts the
-/// Chaos player it strikes exactly as a Stalker Bolter round does, the players close behind and beside him not at all (no blast, no detonation), its clip spends (Musou's endless clip is Musou's), and
-/// the Havoc finds it at the Devastator's position. No original data.
+/// Chaos player it strikes exactly as a Stalker Bolter round does, the players close behind and beside him not at all (no blast, no detonation), its clip of 120 spends (Musou's autocannon has no clip)
+/// and a drop refills it as the heavy bolter's, Classic keeps the weapons' range fall-off, and the Havoc finds it at the Devastator's position. No original data.
 /// </summary>
 public class ClassicAutocannonSimTests
 {
@@ -89,13 +89,52 @@ public class ClassicAutocannonSimTests
     }
 
     [Fact]
-    public void Its_clip_spends_in_Classic_PvP()
+    public void Its_clip_of_120_spends_in_Classic_PvP()
     {
+        // The owner, 2026-11-11: "In classic PvP only. 120 clip size." (the multiplayer file's; Musou's 400 until then).
         var w = Line(Extended(), 0, 1, 8f);
-        Assert.Equal(400, w.Players[1].Clip);
+        Assert.Equal(120, w.Players[1].Clip);
+        Assert.Equal(0, w.Players[1].Reserve);
         var shot = FireOnce(w);
         Assert.Equal(ArsenalRules.Autocannon, shot.Weapon);
-        Assert.Equal(399, shot.Clip);   // one round gone; only Musou Mode keeps the autocannon's clip full
+        Assert.Equal(119, shot.Clip);   // one round gone; only Musou Mode's autocannon has no clip
+        Assert.False(w.Config.EndlessClip(w.Config.Weapons[^1]));
+    }
+
+    [Fact]
+    public void An_ammunition_box_refills_it_as_the_heavy_bolters()
+    {
+        // The drops are read from the install before the append, index for index with the data's weapons: without the autocannon's share a box gave it nothing.
+        var box = new PickupType("pickup_mp_drop_ammo", PickupKind.Ammo, 3, 4f, 25f, [60, 5, 60], []);
+        var grenades = new PickupType("pickup_mp_drop_grenades", PickupKind.Grenades, 1, 4f, 25f, [0, 0, 0], [1]);
+        var config = ClassicAutocannon.WithAutocannon(Data with { Extras = ContentExtras.All, Pickups = new PickupSpec([box, grenades]) }, ChaosFile, []);
+        Assert.Equal([60, 5, 60, 60], config.Pickups!.Types[0].WeaponAmounts);   // the autocannon (index 3) takes the Devastator's heavy bolter's 60
+        Assert.Equal([0, 0, 0, 0], config.Pickups.Types[1].WeaponAmounts);
+        Assert.Equal(PickupKind.Grenades, config.Pickups.Types[1].Kind);
+        var w = Line(config, 0, 1, 8f);
+        var s = w.Players[1] with { Clip = 10 };
+        var (after, gain) = Pickups.Collect(config, s, config.Pickups.Types[0]);
+        Assert.Equal(70, after.Clip);   // into the clip (no reserve), as the heavy bolter's
+        Assert.Equal(60, gain.Primary);
+        Assert.Equal(120, Pickups.Collect(config, w.Players[1] with { Clip = 100 }, config.Pickups.Types[0]).State.Clip);   // capped at the clip's 120
+        // A config without drops stays without; the helper leaves a longer list alone.
+        Assert.Null(ClassicAutocannon.WithAutocannon(Data with { Extras = ContentExtras.All }, ChaosFile, []).Pickups);
+        var longer = new PickupSpec([box with { WeaponAmounts = [1, 2, 3, 4, 5] }]);
+        Assert.Equal([1, 2, 3, 4, 5], ClassicAutocannon.WithBoxAmounts(longer, 0, 3)!.Types[0].WeaponAmounts);
+        Assert.Equal([60, 5, 0, 0, 60], ClassicAutocannon.WithBoxAmounts(new PickupSpec([box with { WeaponAmounts = [60, 5] }]), 0, 4)!.Types[0].WeaponAmounts);   // a gap is 0
+    }
+
+    [Fact]
+    public void Classic_PvP_keeps_the_weapons_range_fall_off()
+    {
+        // Musou's "no damage falloff" is the war's alone (World.MusouRangeFallOff): a Classic heavy bolter round at 100 m does x0.8 of what it does at 8 m (its 50 to 75 m fall-off).
+        float At(float metres)
+        {
+            var w = Line(Extended(), 0, 0, metres);
+            float full = w.Players[2].Health + w.Players[2].Shield;
+            return full - FireOnce(w).Left[2];
+        }
+        Assert.Equal(HeavyBolter.FallOffEndMultiplier, At(100f) / At(8f), 3);
     }
 
     [Fact]
@@ -128,9 +167,10 @@ public class ClassicAutocannonSimTests
         Assert.Equal((Stalker.Damage, Stalker.HeadMultiplier, Stalker.BodyMultiplier, Stalker.ShieldHeadMultiplier, Stalker.ShieldBodyMultiplier),
             (classic.Damage, classic.HeadMultiplier, classic.BodyMultiplier, classic.ShieldHeadMultiplier, classic.ShieldBodyMultiplier));
         Assert.Equal(AutocannonRules.BlastDamage + 30f, musou.Damage);
-        // Everything else is the same gun in both modes: the name, trigger, rate, clip, range, fall-off, heat and handling.
-        static object Gun(WeaponSpec g) => (g.Name, g.Trigger, g.ShotCooldown, g.ClipSize, g.ReserveSize, g.MaxRange, g.FallOffStart, g.FallOffEnd, g.FallOffEndMultiplier, g.Heat, g.AlwaysReady, g.RaiseDelay, g.Bursts, g.Brace);
+        // Everything else is the same gun in both modes but the clip: the name, trigger, rate, reserve, range, fall-off, heat and handling.
+        static object Gun(WeaponSpec g) => (g.Name, g.Trigger, g.ShotCooldown, g.ReserveSize, g.MaxRange, g.FallOffStart, g.FallOffEnd, g.FallOffEndMultiplier, g.Heat, g.AlwaysReady, g.RaiseDelay, g.Bursts, g.Brace);
         Assert.Equal(Gun(musou), Gun(classic));
-        Assert.Equal((AutocannonRules.Clip, 0), (classic.ClipSize, classic.ReserveSize));
+        Assert.Equal((120, 0), (classic.ClipSize, classic.ReserveSize));   // the multiplayer file's 120 (owner 2026-11-11: "120 clip size")
+        Assert.Equal((AutocannonRules.Clip, 0), (musou.ClipSize, musou.ReserveSize));   // Musou's 400, never spent there
     }
 }

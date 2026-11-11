@@ -41,6 +41,7 @@ public class ExtrasBoundaryTests
         ("src/SmSim/Stims.cs", "ExtrasStimBoost"),                 // SimConfig.ExtrasStimBoost(ref StimBoost), Musou Mode's combat stims (x3 lifetime, x2 melee, +20 % speed, no ammunition; owner 2026-11-09)
         ("src/SmSim/Stims.cs", "ExtrasFireBoost"),                 // SimConfig.ExtrasFireBoost(ref float rate, ref float cap), Musou Mode's Rapid Fire powerup (2x fire rate while PlayerState.FireBoostLeft runs, with a stim's speed never above 2x; owner 2026-11-10)
         ("src/SmSim/Stims.cs", "ExtrasThrownBlastScale"),          // SimConfig.ExtrasThrownBlastScale(ThrownSpec?, ref float), Musou Mode's frag blast x2 (owner 2026-11-09)
+        ("src/SmSim/Stims.cs", "ExtrasEndlessClip"),               // SimConfig.ExtrasEndlessClip(WeaponSpec, ref bool), read by SimConfig.EndlessClip in the shot step: Musou's autocannon spends no round (owner 2026-11-11: "No clip in Musou mode")
         ("src/SmSim/Projectiles.cs", "ExtrasProjectileStop"),      // World.ExtrasProjectileStop(in ProjectileState, Vector3, float, ref float), in Fly before a hit is taken (Musou S4: a shield dome or a contraption stops a projectile)
         ("src/SmSim/DamageScale.cs", "ExtrasDamageTaken"),         // World.ExtrasDamageTaken(int target, ref float scale), in DamageTakenScale at every player-damage site (Musou: AI Marines take a tenth)
         ("src/SmSim/Teams.cs", "ExtrasStepMatch"),                 // World.ExtrasStepMatch(ref bool handled), top of StepMatch; the core skips its flow when handled (Musou: one side)
@@ -122,6 +123,7 @@ public class ExtrasBoundaryTests
         ("client/NetworkView.Presentation.cs", "ExtrasSoundSources"),   // NetworkView.ExtrasSoundSources(string, ref IReadOnlyList<string>?), in SoundSources: the install files an added weapon SOUNDS as when they are not its effects' files (the autocannon: the Stalker Bolter, owner 2026-11-10)
         ("client/NetworkView.Presentation.cs", "ExtrasEffectNames"),   // NetworkView.ExtrasEffectNames(string, ref IReadOnlyDictionary<string, string>?), in EffectNames: other effects in place of an added weapon's source's (the autocannon's loyalist flash and tracer, owner 2026-11-10)
         ("client/NetworkView.Presentation.cs", "ExtrasMoveClipSpeed"),   // NetworkView.ExtrasMoveClipSpeed(string, ref float), in MoveClipSpeed: the charge's and the pack's moves at the claw's / spear's clip speed
+        ("client/NetworkView.Presentation.cs", "ExtrasShooterEffects"),   // NetworkView.ExtrasShooterEffects(int, string, ref string), in EffectsWargear (shots, launches, stop smoke): the Havoc's autocannon plays its Chaos twin's effects (owner 2026-11-11)
         ("client/Hud/Hud.Movie.cs", "ExtrasReticle"),               // Hud.ExtrasReticle(string, ref ReticleSpec?), in DrawMovieReticle: the autocannon's own movie reticle (Hud.Content = Musou)
         ("client/Hud/Hud.Fidelity.cs", "ExtrasWeaponBox"),          // Hud.ExtrasWeaponBox(string, bool, ref WeaponBoxSpec?), in DrawMovieWeaponBox: the autocannon's ammunition display (Hud.Content = Musou)
     ];
@@ -154,6 +156,12 @@ public class ExtrasBoundaryTests
         ("client/NetworkView.Sound.cs", "SoundSourceMap()"),        // W1b: the sound triggers loaded with an added weapon's sound source (the autocannon as the Stalker Bolter)
         ("client/NetworkView.Sound.cs", "SoundNameOf(wargear)"),    // W1b: the hit confirm by the sound source's name
         ("client/NetworkView.Fx.cs", "EffectNameMap()"),            // W1c: the effect catalogue loaded with an added weapon's effect renames (the loyalist flash, tracer and impact)
+        // The autocannon pass 2 (owner 2026-11-11): the shooter's race picks the autocannon's effects (the Havoc's Chaos twin) for the own and the others' shots, the launch and the stop smoke.
+        ("client/NetworkView.Fx.cs", "FxWeapon(EffectsWargear(_client!.PlayerId, weapon.Name))"),
+        ("client/NetworkView.Fx.cs", "FxWeapon(EffectsWargear(shot.Shooter, spec.Name))"),
+        ("client/NetworkView.Fx.cs", "_catalogue.Weapon(EffectsWargear(id, _config.Weapons[weapon].Name))"),
+        ("client/NetworkView.Barrel.cs", "FxWeapon(EffectsWargear(shooter.PlayerId, spec.Name))"),
+        ("src/SmSim/Combat.cs", "if (!freeAmmo && !c.EndlessClip(w)) clip -="),   // the autocannon pass 2: Musou's autocannon spends no round (ExtrasEndlessClip)
         // W0b: the catalogues read with the sources, the name rules by the source's name, the hammer's air slash, charge and grip by the alias, the pack moves' clip speed.
         ("client/NetworkView.Fx.cs", ".WithSources(sources)"),
         ("client/NetworkView.Fx.cs", ".WithEffectNames(effectNames)"),   // W1c: the effect catalogue with the added weapons' renamed effects

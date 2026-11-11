@@ -47,6 +47,15 @@ public sealed record TfwCombatRules
     public float PlayerRangedDamageScale { get; init; } = 1.2f;
 
     /// <summary>
+    /// Whether a ranged hit on the enemies loses damage with range in the war (the weapon's own fall-off, <see cref="Combat.FallOff(float, WeaponSpec)"/>; a cone's distance fall-off, the melta's).
+    /// The owner, 2026-11-11: "There should be no damage falloff for any ranged weapon in Musou mode": false, so every shot deals its full damage at any distance it reaches (its range, the cone's
+    /// length), for every weapon a player or an AI Marine fires, the arsenal's included, on the Orks and their contraptions (<c>World.MusouRangeFallOff</c>, the one place). A blast's fall-off from
+    /// its centre is not a range fall-off and stays; so does a pierced shot's share for each enemy it has gone through (<see cref="PierceKeep"/>). True restores the fall-off; the 5-wave run keeps it
+    /// (pinned replay).
+    /// </summary>
+    public bool RangeFallOff { get; init; }
+
+    /// <summary>
     /// Whether <see cref="PlayerCleaveReachScale"/> and <see cref="PlayerRangedDamageScale"/> apply to the attacks of player <paramref name="playerId"/> in the war: a human's character (the Librarian
     /// too when a human plays him), never an AI Marine (owner's scope, 2026-11-11: "Musou, players only"; the lead: AI allies keep their old reach and damage). The Guard squads never reach the
     /// players' paths. Only meaningful in a war, where the AI Marines hold <see cref="TfwContracts.IsPuppet"/>'s ids.
