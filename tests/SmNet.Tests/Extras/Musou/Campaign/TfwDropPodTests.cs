@@ -219,4 +219,65 @@ public class TfwDropPodTests
         Assert.Empty(w.Tfw!.Pods);
         Assert.True(w.TfwOrbital(Human, Open));
     }
+
+    [Fact]
+    public void A_pod_already_out_and_the_cooldown_each_refuse_a_second_call()
+    {
+        var w = Battle();
+        Assert.True(w.TfwDropPod(Human, Open));
+        Assert.False(w.TfwDropPod(Human, Open + new Vector3(0f, 25f, 0f)));   // a pod is out (and the cooldown runs)
+        Assert.Single(w.Tfw!.Pods);
+        Assert.Equal(60, w.TfwOwn(Human).OrbitalSeconds);
+        // The pod gone, the cooldown alone refuses.
+        w.Tfw.RemovePodForTests(w.Tfw.Pods[0]);
+        Assert.False(w.TfwDropPod(Human, Open + new Vector3(0f, 25f, 0f)));
+        Assert.True(w.Tfw.Fire.OrbitalTicksLeft(Human, w.Tick) > 0);
+        uint ready = w.Tick + (uint)(60 * w.Config.TickRate);
+        Assert.Equal(0u, w.Tfw.Fire.OrbitalTicksLeft(Human, ready));
+    }
+
+    [Fact]
+    public void Marines_called_by_one_pod_are_reserved_so_a_second_pod_or_a_retainer_cannot_take_their_ids()
+    {
+        var w = Battle();
+        var run = w.Tfw!;
+        Assert.True(w.TfwDropPod(Human, Open));
+        Assert.Equal(TfwDropPodRules.Marines, run.PodIdsReserved);
+        // Fill every id but the pod's four: nothing else may take one of those.
+        int spare = 0;
+        for (int id = TfwContracts.PuppetIdFirst; id <= TfwContracts.PuppetIdLast; id++) if (!w.Players.ContainsKey(id)) spare++;
+        for (int k = 0; k < spare - TfwDropPodRules.Marines; k++) Assert.NotNull(FillId(w));
+        Assert.Null(w.TfwSpawnRetainer(Human, new Vector3(0f, -90f, 0f)));   // the reserved ids are not his
+        TfwRig.Seconds(w, TfwDropPodRules.LandSeconds + TfwDropPodRules.DoorSeconds + TfwDropPodRules.StepOutSeconds + 0.3f);
+        Assert.Equal(TfwDropPodRules.Marines, PodMarines(w).Count());   // all four came
+        Assert.Equal(0, run.PodIdsReserved);
+    }
+
+    static int? FillId(World w)
+    {
+        for (int id = TfwContracts.PuppetIdFirst; id <= TfwContracts.PuppetIdLast; id++)
+            if (!w.Players.ContainsKey(id)) { w.Spawn(id, 0, team: Team.SpaceMarines); return id; }
+        return null;
+    }
+
+    [Fact]
+    public void Leaving_the_firing_range_takes_the_pod_and_its_marines_and_frees_the_ids()
+    {
+        var w = TfwRig.War();
+        TfwRig.Command(w, TfwCommand.RangeGo);
+        TfwRig.Seconds(w, 0.5f);
+        var range = Assert.IsType<TfwRange>(TfwTestArena.Field.Range);
+        var run = w.Tfw!;
+        Assert.Contains(Human, run.InRange);
+        var at = Vector3.Clamp(range.Centre + new Vector3(15f, 0f, 0f), range.Box.Min, range.Box.Max);
+        Assert.True(w.TfwDropPod(Human, at));
+        Assert.Equal(0, w.TfwOwn(Human).OrbitalSeconds);   // none at the range
+        TfwRig.Seconds(w, TfwDropPodRules.LandSeconds + TfwDropPodRules.DoorSeconds + TfwDropPodRules.StepOutSeconds + 0.3f);
+        Assert.Equal(TfwDropPodRules.Marines, PodMarines(w).Count());
+        TfwRig.Command(w, TfwCommand.RangeBack);
+        TfwRig.Seconds(w, 1f);
+        Assert.Empty(run.InRange);
+        Assert.Empty(PodMarines(w));
+        Assert.Empty(run.Pods);
+    }
 }

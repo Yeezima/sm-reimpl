@@ -228,7 +228,7 @@ public sealed partial class CreatorView : Control
 
     public void OpenStep(string name)
     {
-        for (int i = 0; i < StepNames.Length; i++) if (StepNames[i].Equals(name, StringComparison.OrdinalIgnoreCase)) { _step = (Step)i; Refresh(false); return; }
+        for (int i = 0; i < StepNames.Length; i++) if (StepNames[i].Equals(name, StringComparison.OrdinalIgnoreCase) && StepShown(i)) { _step = (Step)i; Refresh(false); return; }   // only a step the page shows: Classic never reaches SUPPORT
     }
 
     /// <summary>The step shown now (test aid).</summary>

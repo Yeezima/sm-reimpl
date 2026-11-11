@@ -64,8 +64,9 @@ public sealed partial class World
     }
 
     /// <summary>A puppet of class <paramref name="role"/> in the first free puppet id, registered with the run; its id, null with no free id.</summary>
-    int? TfwSpawnPuppet(TfwRun run, string role, Vector3 at, float yaw, Func<int, Marine> make)
+    int? TfwSpawnPuppet(TfwRun run, string role, Vector3 at, float yaw, Func<int, Marine> make, bool reserved = false)
     {
+        if (!reserved && TfwFreePuppetIds() <= run.PodIdsReserved) return null;   // ids a called pod's Marines will need (World.TfwDropPod.cs) are not taken by others
         for (int id = TfwContracts.PuppetIdFirst; id <= TfwContracts.PuppetIdLast; id++)
         {
             if (_players.ContainsKey(id)) continue;
@@ -111,7 +112,7 @@ public sealed partial class World
         _tfwMarineWork.Clear();
         _tfwMarineWork.AddRange(run.Marines);
         foreach (var m in _tfwMarineWork) TfwDismissMarine(m.Id);
-        run.ForgetPods();
+        TfwPodsEnd(run);
     }
 
     /// <summary>A new run: no puppet, no recovery, no order.</summary>

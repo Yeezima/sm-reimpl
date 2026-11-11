@@ -98,6 +98,8 @@ public class ExtrasBoundaryTests
         ("client/Customizer/CreatorView.cs", "ExtrasRoleLabel"),    // CreatorView.ExtrasRoleLabel(string, ref string), the class tabs and rows: the Space Marine name alone
         ("client/Customizer/CreatorView.cs", "ExtrasOwnPage"),      // CreatorView.ExtrasOwnPage(ref bool), AddedPage: the Librarian's / Heretic's page hides the slot (no rename, copy, reset, clear; step keys work)
         ("client/Customizer/CreatorView.cs", "ExtrasStepCount"),    // CreatorView.ExtrasStepCount(ref int), the Librarian's five steps
+        ("client/Customizer/CreatorView.cs", "ExtrasStepShown"),    // CreatorView.ExtrasStepShown(int, ref bool), StepShown: the marines' page adds SUPPORT after PERKS (Musou Mode)
+        ("client/Customizer/CreatorView.cs", "ExtrasSupportRows"),  // CreatorView.ExtrasSupportRows(...), the SUPPORT step's rows (Musou Mode)
         ("client/Customizer/CreatorView.cs", "ExtrasOpenAppearance"),   // CreatorView.ExtrasOpenAppearance(ref bool), APPEARANCE...: the look the Librarian wears
         ("client/Customizer/CreatorView.cs", "ExtrasDeploy"),       // CreatorView.ExtrasDeploy(ref bool), DEPLOY: PLAY AS LIBRARIAN on his page
         ("client/Customizer/CustomizerServices.cs", "ExtrasFactions"),   // CustomizerServices.ExtrasFactions(ref List<(string, string)>), the factions offered: the Space Marines alone in Musou

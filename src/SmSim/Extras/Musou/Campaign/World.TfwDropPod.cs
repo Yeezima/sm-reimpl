@@ -30,9 +30,7 @@ public sealed partial class World
         point = atRange ? Vector3.Clamp(point, box.Min, box.Max) : run.Field.Clamp(point);
         point.Z = TfwGroundBelow(point, point.Z);
         if (MarineBrain.Flat(p.Position, point) < TfwDropPodRules.MinCallerDistance) return false;
-        int free = 0;
-        for (int id = TfwContracts.PuppetIdFirst; id <= TfwContracts.PuppetIdLast; id++) if (!_players.ContainsKey(id)) free++;
-        if (free < TfwDropPodRules.Marines) return false;
+        if (TfwFreePuppetIds() - run.PodIdsReserved < TfwDropPodRules.Marines) return false;   // the ids other pods have called count as taken
         int rate = Math.Max(1, Config.TickRate);
         uint land = Tick + (uint)MathF.Round(TfwDropPodRules.LandSeconds * rate);
         uint spawn = land + (uint)MathF.Round((TfwDropPodRules.DoorSeconds + TfwDropPodRules.StepOutSeconds) * rate);
@@ -41,6 +39,22 @@ public sealed partial class World
         run.Fire.Pod(land, player, point, gone: false);
         if (!atRange) run.Fire.OrbitalCalled(player, Tick, rate);
         return true;
+    }
+
+    /// <summary>Puppet ids not in use.</summary>
+    int TfwFreePuppetIds()
+    {
+        int free = 0;
+        for (int id = TfwContracts.PuppetIdFirst; id <= TfwContracts.PuppetIdLast; id++) if (!_players.ContainsKey(id)) free++;
+        return free;
+    }
+
+    /// <summary>The pods end with the field (the battle, or the last player leaving the Firing Range): their Marines go, the pods are forgotten.</summary>
+    void TfwPodsEnd(TfwRun run)
+    {
+        if (run.Pods.Count == 0 && !run.Marines.Any(m => m.Role == MarineRole.Pod)) return;
+        foreach (var m in run.Marines.Where(m => m.Role == MarineRole.Pod).ToList()) TfwDismissMarine(m.Id);
+        run.ForgetPods();
     }
 
     /// <summary>One tick of the pods: touchdown, the Marines stepping out, the fight's end, the wreck's removal.</summary>
@@ -115,7 +129,7 @@ public sealed partial class World
             if (Musou?.Nav is { } nav && nav.Nearest(at, 1.5f, 2.5f) is var node and >= 0) at = nav.Position(node);
             else at.Z = TfwGroundBelow(at, pod.At.Z + 1f);
             string name = TfwDropPodRules.Names[k % TfwDropPodRules.Names.Length];
-            if (TfwSpawnPuppet(run, "tactical", at, angle, id => new Marine(id, -1, name, MarineRole.Pod, pod.Caller) { HoldAt = at, Pod = pod }) is { } id) pod.MarineIds.Add(id);
+            if (TfwSpawnPuppet(run, "tactical", at, angle, id => new Marine(id, -1, name, MarineRole.Pod, pod.Caller) { HoldAt = at, Pod = pod }, reserved: true) is { } id) pod.MarineIds.Add(id);
         }
     }
 

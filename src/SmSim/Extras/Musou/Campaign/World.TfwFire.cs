@@ -24,7 +24,7 @@ public sealed partial class World
         var run = _tfw!;
         var fire = run.Fire;
         object? following = run.Battle is { } battle ? battle : run.RangeOn ? run : null;   // the Firing Range keeps the fire support alive without a battle
-        if (following is null || _state != MatchState.Playing) { fire.Stop(); run.ForgetPods(); return; }
+        if (following is null || _state != MatchState.Playing) { fire.Stop(); TfwPodsEnd(run); return; }
         int rate = Math.Max(1, Config.TickRate);
         fire.Follow(following, Tick, rate);
         if (!fire.NoSchedule)

@@ -67,7 +67,12 @@ public sealed partial class TfwRun
         return null;
     }
 
+    /// <summary>Puppet ids a pod has called but not yet used: its Marines step out after the fall and the doors (<see cref="TfwDropPodRules.Marines"/> each).</summary>
+    public int PodIdsReserved => _pods.Count(p => p.Phase is TfwPodPhase.Falling or TfwPodPhase.Doors) * TfwDropPodRules.Marines;
+
     internal void AddPod(TfwPod pod) => _pods.Add(pod);
     internal void RemovePod(TfwPod pod) => _pods.Remove(pod);
+    /// <summary>Test aid: the pod is gone (its cooldown is the fire's, unchanged).</summary>
+    public void RemovePodForTests(TfwPod pod) => _pods.Remove(pod);
     internal void ForgetPods() => _pods.Clear();
 }
