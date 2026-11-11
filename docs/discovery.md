@@ -2295,6 +2295,28 @@ transition and chooser bytes (`havok_sm_base_mp__hkxx`; read-only). Values in sp
 - **Left open.** Whether the original applies the blueprint's ragdoll force (`ragdoll_force` tags, `DeathTuning`) on top of the clip's motion; what the conduit's untriggered transitions are for; how an
   unported reaction type (storm bolter, grenade launcher) flinches; whether the killing hit's flinch is gated by `min_hit_reaction_time` before its branch counts.
 
+## The jump-pack death in mid-air (2026-11-11)
+
+Question: what exactly the graph's "Jumppack Death" plays and when, so that it can be played before the ragdoll (it was read and chosen by the hit reactions pass but not played). Checked again on the
+install with `smtool graph-dump --upper` (which now prints each death clip's `StartAction` time) and `graph-dump SM_Base_MP`. Values and the rules built on them in spec/behavior.md "The jump-pack death in mid-air".
+
+- **The machine.** DEATH's state 15 "Jumppack Death" is a ModifierGenerator ("ModifierGenerator10") whose modifier is the `EntityPropertyControlsModifier` "Apply Gravity" (its property values not read) over the
+  machine "Jumppack Death Behavior" (start state 0). State 0 "Jumppack Death Start": a sequencer playing `SM_REC_MP_MidAirDeath_Hit_01` (0.6 s, speed 1, single play) with `Branch` 0.9412 to 1
+  `BRANCH_Jump_Death_Start` and `Event` 0.0333 `StartAction`; out on that branch (priority 1) into state 1 over "Default 3 Frame Transition" (0.1 s). State 1 "Jumppack Death Fall": a blender "Blend06"
+  (parameter 1, flags 0) whose weight-1 child is the sequencer of `SM_REC_MP_MidAirDeath_Fall_01` (1.467 s at speed 0.65, looping) with a `FloorCollisionTest` tag over the whole clip (0 to 1) and an
+  `Action` tag `ACTN_JumpDeath_Fall` from 0.0119 to 1, and whose weight-0 child is `SM_REC_MP_MidAirImpact_01` in user-controlled mode (mode 2; its time binding not read, so it is not driven here); out on
+  `BOOL_IsSupported` (priority 2) or `BOOL_Floor_Hit` (priority 1) into state 2, with no blending effect. State 2 "Jumppack Death Hit Floor": the sequencer of `SM_REC_MP_MidAirImpact_01` (0.833 s,
+  single play) with "Powered Ragdoll Controls Modifier07" from 0.44 and `Event` 0.04 `StartAction`. (The start state's clip generator is named "SM REC MP MidAirImpact 01.hkxa" but plays the hit clip.)
+- **The action events.** The start's `StartAction` lands at 0.0333 x 0.6 = 0.02 s (F-D1's `JumpStartDelay`, extracted before) and the floor's at 0.04 x 0.833 = 0.033 s; read as when the pack's
+  `actn_jumpdeath_start` and `actn_jumpdeath_impact` fire (F-D1's interpretation). No data file names an action `actn_jumpdeath_fall`: the fall's `ACTN_JumpDeath_Fall` tag binds nothing found.
+- **Measured on the clips** (the stage `--hrt-case death-jump`, bone heights in the world above the character's origin): during the hit clip every body bone stays above the origin (the pelvis 1.1 to 1.3 m,
+  then down to 0.43 m as the body turns over); the fall loop holds the body head-down with the pelvis 0.29 m above the origin and the hands (`RIG_Prop_LHand`, the fingers) 0.43 to 0.5 m below it; the floor
+  clip's first frames have the forearm and shoulder pad 0.22 to 0.26 m below the origin and from 0.11 s every bone above it, the pelvis at 0.22 m (lying). So the clips meet the floor with the hands while
+  the origin is still up to half a metre above it, and the floor clip ends with the origin on the floor: our reading of `BOOL_Floor_Hit` (the posed body's lowest point at the floor) and
+  `BOOL_IsSupported` (the origin on it), with the state's gravity carrying the body down in the floor clip.
+- **Left open.** What "Apply Gravity" sets (the original character controller's gravity and whether it keeps the horizontal motion); what drives the fall blender's weight-0 floor clip; what
+  `BOOL_Floor_Hit` measures in the engine (`FloorCollisionTest` suggests a test of the animated body against the floor); whether the killing blow's knockback or the ragdoll's force applies after the floor.
+
 ## The Ork's own blood (gore-original, 2026-11-07)
 
 Question: what does the original play when an Ork is hit or killed (Musou Mode's blood, the owner's reference recording of Exterminatus)? Read with `smtool baf-dump` and the new `smtool ork-blood auto` (read-only; Verified-local, this install).

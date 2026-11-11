@@ -296,7 +296,7 @@ static class GraphDump
             o.WriteLine("== flinch random (Hit_Flinch): " + string.Join(", ", upper.Flinch.Random.Select(r => $"{r.Clip.Clip} {r.Clip.Length:0.###}s x{r.Weight:0.##}")));
             foreach (var (weapon, type) in WeaponReactions.Load(gameDir).OrderBy(kv => kv.Key, StringComparer.Ordinal))
                 o.WriteLine($"== weapon reaction {weapon}: {type} -> {upper.Flinch.SetOfReaction(type) ?? "(no port: by name " + FlinchRules.SetFor(weapon, false) + ")"}");
-            foreach (var (kind, d) in upper.Death.Clips) o.WriteLine($"== death {kind}: {d.Clip} ({d.Length:0.###}s), ragdoll at {d.RagdollAt:0.###}s, blend {d.Blend:0.###}s");
+            foreach (var (kind, d) in upper.Death.Clips) o.WriteLine($"== death {kind}: {d.Clip} ({d.Length:0.###}s), ragdoll at {d.RagdollAt:0.###}s, blend {d.Blend:0.###}s{(float.IsFinite(d.ActionAt) ? $", StartAction at {d.ActionAt:0.####}s" : "")}");
             foreach (var r in upper.Death.Routes.OrderByDescending(r => r.Priority)) o.WriteLine($"== death route {r.Priority}: {r.Branch ?? "-"} if {r.Condition ?? "-"} -> {r.Target ?? "(conduit)"} blend {r.Blend:0.###}s");
             foreach (var r in upper.Death.EntryRoutes.OrderByDescending(r => r.Priority)) o.WriteLine($"== death conduit {r.Priority}: {r.Branch ?? "-"} if {r.Condition ?? "-"} -> {r.Target} blend {r.Blend:0.###}s");
             var jp = upper.JumpPack;

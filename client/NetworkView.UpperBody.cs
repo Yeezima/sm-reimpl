@@ -394,6 +394,14 @@ public partial class NetworkView
         // Hit reactions: the bones' skeleton-space poses of the last two held frames and when they were shown, for the ragdoll to carry the clip's motion on.
         public Transform3D[]? PosePrev, PoseLast;
         public double PosePrevAt = double.NaN, PoseLastAt = double.NaN;
+        // The jump-pack death in mid-air (NetworkView.JumpDeath.cs): the run that places and poses the falling body, the level it falls against, the living character it moves, the body its
+        // death effects play on (scheduled at the death; the ragdoll takes it over) and the impact the floor clip fires.
+        public JumpDeathRun? Jump;
+        public JumpDeathRay? Ray;
+        public CharacterViewer? Body;
+        public DeathBody? FxBody;
+        public JumpImpactWatch? ImpactWatch;
+        public int[]? BodyBones;
     }
 
     readonly Dictionary<int, MarineDeath> _marineDeaths = new();
@@ -409,9 +417,13 @@ public partial class NetworkView
     /// <summary>The time the death was first seen (a held death's ragdoll exists later; the death effects and sounds count from this), or <paramref name="fallback"/>.</summary>
     double DeathSeenAt(int id, double fallback) => _marineDeaths.TryGetValue(id, out var d) ? d.Seen : fallback;
 
-    /// <summary>The body's last horizontal velocity decayed over the hold it has had, for the ragdoll to start with (it slid that far already).</summary>
-    Vector3 HeldVelocity(int id, Vector3 velocity) =>
-        _marineDeaths.TryGetValue(id, out var d) && !d.Declined && !double.IsNaN(d.Start) ? new Vector3(velocity.X, velocity.Y, velocity.Z) * DeathRules.HeldVelocityFactor((float)(_connectedFor - d.Start), DeathSlideSeconds) : velocity;
+    /// <summary>The body's last horizontal velocity decayed over the hold it has had, for the ragdoll to start with (it slid that far already); a jump death's: its fall's, or its slide's once on the floor.</summary>
+    Vector3 HeldVelocity(int id, Vector3 velocity)
+    {
+        if (!_marineDeaths.TryGetValue(id, out var d)) return velocity;
+        if (d.Jump is { } run) return new Vector3(run.Velocity.X, run.Velocity.Y, run.Velocity.Z);
+        return !d.Declined && !double.IsNaN(d.Start) ? new Vector3(velocity.X, velocity.Y, velocity.Z) * DeathRules.HeldVelocityFactor((float)(_connectedFor - d.Start), DeathSlideSeconds) : velocity;
+    }
 
     static DeathClip? ResolveDeath(DeathAnimations death, MarineDeathKind kind)
     {
@@ -494,10 +506,13 @@ public partial class NetworkView
         if (NoDeathAnim || UpperData() is not { } data || data.Death.Clips.Count == 0 || _config is null || character.Assets is null) return false;
         if (!_marineDeaths.TryGetValue(id, out var entry)) _marineDeaths[id] = entry = new MarineDeath { Seen = _connectedFor };
         if (entry.Declined) return false;
+        if (entry.Jump is not null) return JumpDeathFrame(id, character, own, entry);   // the jump-pack death in mid-air (NetworkView.JumpDeath.cs)
         if (entry.Clip is null)
         {
             var kill = _deathCauses.TryGetValue(id, out var c) && _connectedFor - c.At < 3.0 ? c.Kill : (KillView?)null;
             var t = LocoOf(id);
+            // The jump-pack death in mid-air: its route (ROOT's priority 10, BOOL_JumpIsActive) needs no kill cause, so it begins at once (no hang in the air while the cause is awaited).
+            if (BeginJumpDeath(id, character, state, own, entry, data, kill, t)) return JumpDeathFrame(id, character, own, entry);
             if (kill is null && _connectedFor - entry.Seen < DeathCauseWait) { character.Visible = !own; return true; }   // the cause may still come: wait a frame or two (the body keeps its last pose; ProcessDeaths runs after the per-frame `character.Visible = state.Alive` reset of the remote loop, so this holds)
             if (!DeathRules.Holds(kill is { Cause: KillCause.World }, t.WasAirborne))
             {
@@ -525,8 +540,8 @@ public partial class NetworkView
             else chosen = DeathRules.Choose(DeathContextFor(state, kill, t, data, has, along, right, out detail), data.Death);
             if (chosen is not { } kind || kind is MarineDeathKind.JumpStart or MarineDeathKind.JumpFall or MarineDeathKind.JumpImpact)
             {
-                // The graph's jump-pack death (SM_REC_MP_MidAirDeath_Hit_01, the falling loop, SM_REC_MP_MidAirImpact_01 at the floor) is not played: the body is not placed while dead and the jump death's
-                // effects belong to the ragdoll (NetworkView.DeathFx.cs), so it falls as a ragdoll from the death on, as before.
+                // The graph's jump-pack death is played by BeginJumpDeath (NetworkView.JumpDeath.cs) above; a jump death reaching here (--no-jump-death, --old-hit-reactions, its clips missing)
+                // falls as a ragdoll from the death on, as before 2026-11-11.
                 entry.Declined = true;
                 if (UpperLog) GD.Print($"t {_connectedFor:F2} s: P{id} dies in a jump-pack jump: the data's mid-air death is not played, straight to the ragdoll{(own ? " (own)" : "")}");
                 return false;
@@ -685,7 +700,7 @@ public partial class NetworkView
     /// <summary>The bot log's pass-2 counters.</summary>
     string UpperStats() =>
         $"upper body: switches {_switchAnims}, flinches {_flinches} of {_flinchesNoted} hits (random {_randomFlinches}; skipped: {_flinchSkippedGap} too soon, {_flinchSkippedReaction} reacting), deaths held {_deathsHeld} ({_deathHolds} frames; " +
-        $"{string.Join(", ", _deathKinds.Select(kv => $"{kv.Key} {kv.Value}"))}), ragdoll bodies started with the clip's motion {Ragdoll.ClipMotionBodies}, pound run get-ups {_getupRuns}, wobble layers {_wobbleLayers}, flight action layers {_jumpActionLayers}";
+        $"{string.Join(", ", _deathKinds.Select(kv => $"{kv.Key} {kv.Value}"))}), {JumpDeathStats()}, ragdoll bodies started with the clip's motion {Ragdoll.ClipMotionBodies}, pound run get-ups {_getupRuns}, wobble layers {_wobbleLayers}, flight action layers {_jumpActionLayers}";
 
     /// <summary>The F1 line about animation pass 2.</summary>
     string UpperInfoLine() =>

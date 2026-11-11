@@ -17,7 +17,9 @@ namespace SmClient;
 /// later, and <c>plasma_dmg_burning_body</c> on the spine); a kill by the melta gun plays <c>actn_melta_death</c> (<c>meltagun_dmg_vaporize_limb</c> at seven body markers). A Chaos
 /// plasma weapon recolours them purple like its other plasma effects (<see cref="PlasmaColour"/>, the owner's rule).</item>
 /// <item>A marine killed in a jump (flight or dive, with a jump pack) plays the pack's <c>actn_jumpdeath_start</c> (<c>jumppack_death_mp</c> at the spine, <c>jumppack_dmg_burn_limb</c>
-/// on both upper arms, a calf and a thigh, the explosion sound) and, when the body reaches the ground, <c>actn_jumpdeath_impact</c> (<c>jumppack_land_death_mp</c> with its crater and the impact sound).</item>
+/// on both upper arms, a calf and a thigh, the explosion sound) and, when the body reaches the ground, <c>actn_jumpdeath_impact</c> (<c>jumppack_land_death_mp</c> with its crater and the impact sound).
+/// Since the jump-pack death of 2026-11-11 (<c>NetworkView.JumpDeath.cs</c>) they play on the falling body of the graph's jump death from the death (<see cref="DeathBody"/>; its ragdoll takes them over),
+/// the impact at the floor clip's <c>StartAction</c>; the ragdoll path (the chest near the ground) remains for a jump death that is not played.</item>
 /// <item>Final Vengeance (the perk whose upgrade string the player blueprint's <c>death_action</c> keys on): the own death plays <c>jumppack_predeath</c> at once and the explosion's effects 2.5 s later;
 /// for other players the perk is not on the wire, so the explosion's effects play when a kill by that perk names the dead player as the killer.</item>
 /// </list>
@@ -67,18 +69,42 @@ public partial class NetworkView
         public readonly Dictionary<string, int> Names = new();
     }
 
-    /// <summary>One step of a death action waiting for its time; the ragdoll it plays on is the corpse's (a respawn removes it and with it the step).</summary>
+    /// <summary>One step of a death action waiting for its time; the body it plays on is the corpse's (a respawn removes it and with it the step).</summary>
     sealed class DeathFxJob
     {
         public double Due;
-        public required Ragdoll Ragdoll;
+        public required DeathBody Body;
         public required DeathStep Step;
         public required DeathFxRun Run;
         public Vector3? NegativeHit;
         public string Wargear = "";
     }
 
-    sealed record JumpImpactWatch(Ragdoll Ragdoll, DeathAction? Action, double StartAt, DeathFxRun Run, Vector3? NegativeHit);
+    /// <summary>
+    /// The body a death's effects play on (jump-pack death, 2026-11-11): the corpse's ragdoll, or, for a jump death in mid-air, the falling body (<see cref="Held"/>, while its death <see cref="Hold"/> is
+    /// under way) until its ragdoll takes it over (<see cref="Ragdoll"/> set then): the effects that follow a bone move on to the ragdoll's.
+    /// </summary>
+    sealed class DeathBody
+    {
+        public required int PlayerId;
+        public Ragdoll? Ragdoll;
+        public CharacterViewer? Held;
+        public MarineDeath? Hold;
+    }
+
+    /// <summary>
+    /// The jump death's impact waiting for the floor: a ragdoll's when its chest nears the ground (<see cref="DeathEffectRules.ImpactDue"/>); a held jump death's (<see cref="Held"/>) when its floor clip's
+    /// <c>StartAction</c> fires (<see cref="FloorReached"/>), or never when it went to the ragdoll without a floor (<see cref="NoFloor"/>: the fall's cap).
+    /// </summary>
+    sealed class JumpImpactWatch(DeathBody body, DeathAction? action, double startAt, DeathFxRun run, Vector3? negativeHit)
+    {
+        public DeathBody Body { get; } = body;
+        public DeathAction? Action { get; } = action;
+        public double StartAt { get; } = startAt;
+        public DeathFxRun Run { get; } = run;
+        public Vector3? NegativeHit { get; } = negativeHit;
+        public bool Held, FloorReached, NoFloor;
+    }
 
     /// <summary>While a player is alive: whether it is in a jump the original's behaviour graph counts as active (<c>BOOL_JumpIsActive</c>: flight or dive; the take-off still stands on the ground).</summary>
     void NoteAirborne(int id, PlayerState state) =>
@@ -87,13 +113,17 @@ public partial class NetworkView
     // ---- choosing and scheduling ----
 
     /// <summary>
-    /// Called when a ragdoll starts: picks the death action (<see cref="DeathEffectRules.Choose"/>) and queues its steps. Never throws; false when nothing is played.
+    /// Called when a ragdoll starts (<paramref name="rd"/>), or when a jump death in mid-air begins (<paramref name="hold"/>: its effects play on the falling body from the death, then on its ragdoll):
+    /// picks the death action (<see cref="DeathEffectRules.Choose"/>) and queues its steps.
     /// </summary>
-    void ScheduleDeathFx(int id, CharacterViewer character, PlayerState state, bool own, KillView? kill, Ragdoll rd)
+    void ScheduleDeathFx(int id, CharacterViewer character, PlayerState state, bool own, KillView? kill, Ragdoll? rd, MarineDeath? hold = null)
     {
+        var body = hold is not null ? new DeathBody { PlayerId = id, Held = character, Hold = hold } : rd is not null ? new DeathBody { PlayerId = id, Ragdoll = rd } : null;
+        if (body is null) return;
+        if (hold is not null) hold.FxBody = body;   // scheduled here once: the ragdoll that takes this body over does not schedule again (JumpDeathHandOver)
         long began = System.Diagnostics.Stopwatch.GetTimestamp();
         double jit = Jit(), gc = GC.CollectionCount(0);
-        ScheduleDeathFxCore(id, character, state, own, kill, rd);
+        ScheduleDeathFxCore(id, character, state, own, kill, body, hold);
         double ms = Since(began);
         if (ms > _deathFxQueueMs) { _deathFxQueueMs = ms; _deathFxQueueNote = $"jit {Jit() - jit:F2} ms, {GC.CollectionCount(0) - gc} gen0 GC"; }
     }
@@ -103,14 +133,14 @@ public partial class NetworkView
     string _deathFxQueueNote = "", _deathFxPlayNote = "";
     readonly List<string> _deathFxLogs = new();
 
-    void ScheduleDeathFxCore(int id, CharacterViewer character, PlayerState state, bool own, KillView? kill, Ragdoll rd)
+    void ScheduleDeathFxCore(int id, CharacterViewer character, PlayerState state, bool own, KillView? kill, DeathBody body, MarineDeath? hold)
     {
         if (NoDeathFx || _deathEffects is not { } effects || _config is null || _fx is null || !FxActive) return;
         if (IsOrkCharacter(character)) return;
         bool chaos = state.Team == Team.Chaos;
         var side = effects.Side(chaos);
         bool hasPack = Loadouts.JumpPack(_config, state) is not null;
-        bool jumping = _airborneAlive.GetValueOrDefault(id);
+        bool jumping = hold?.Jump is not null || _airborneAlive.GetValueOrDefault(id);   // a held jump death is one (the same last living frame's BOOL_JumpIsActive)
         string wargear = "";
         var family = DeathFamily.None;
         if (kill is { Cause: KillCause.Weapon } k && k.Index >= 0 && k.Index < _config.Weapons.Count)
@@ -127,8 +157,14 @@ public partial class NetworkView
         if (DeathEffectRules.ActionOf(side, kind) is { } action)
         {
             double start = now + DeathEffectRules.StartOf(kind);
-            Enqueue(run, rd, action, start, hit, kind == DeathKind.Jump ? "" : wargear);
-            if (kind == DeathKind.Jump) _jumpImpacts.Add(new JumpImpactWatch(rd, side.JumpImpact, start, run, hit));
+            Enqueue(run, body, action, start, hit, kind == DeathKind.Jump ? "" : wargear);
+            if (kind == DeathKind.Jump)
+            {
+                // A held jump death fires its impact from its floor clip (JumpDeathFrame); a ragdoll's waits for its chest to near the ground.
+                var watch = new JumpImpactWatch(body, side.JumpImpact, start, run, hit) { Held = hold is not null };
+                _jumpImpacts.Add(watch);
+                if (hold is not null) hold.ImpactWatch = watch;
+            }
         }
         // Final Vengeance: the own perks are known (the others' are not on the wire; their explosion shows when it kills, NoteDeathCause).
         if (own && Loadouts.Upgrades(_config, state).Has(DeathEffectRules.FinalVengeanceUpgrade)
@@ -136,7 +172,7 @@ public partial class NetworkView
         {
             _vengeanceShown[id] = now;
             run.Label += run.Label.Length == 0 ? "final vengeance" : " + final vengeance";
-            Enqueue(run, rd, perk.Action, now, null, "");
+            Enqueue(run, body, perk.Action, now, null, "");
         }
         if (run.Pending == 0 && !_jumpImpacts.Any(w => w.Run == run)) return;
         CountKind(run.Label);
@@ -144,14 +180,14 @@ public partial class NetworkView
 
     void CountKind(string label) => _deathFxKinds[label] = _deathFxKinds.GetValueOrDefault(label) + 1;
 
-    void Enqueue(DeathFxRun run, Ragdoll rd, DeathAction action, double start, Vector3? negativeHit, string wargear, double minDelay = 0.0)
+    void Enqueue(DeathFxRun run, DeathBody body, DeathAction action, double start, Vector3? negativeHit, string wargear, double minDelay = 0.0)
     {
         foreach (var step in action.Steps)
         {
             if (step.Kind == DeathStepKind.Effect && step.Fx is not { Name.Length: > 0 }) continue;
             if (step.Delay < minDelay) continue;
             if (_deathFxJobs.Count >= MaxDeathFxJobs) { var dropped = _deathFxJobs[0]; _deathFxJobs.RemoveAt(0); dropped.Run.Pending--; }   // the oldest goes; its death no longer waits for it
-            _deathFxJobs.Add(new DeathFxJob { Due = start + step.Delay - minDelay, Ragdoll = rd, Step = step, Run = run, NegativeHit = negativeHit, Wargear = wargear });
+            _deathFxJobs.Add(new DeathFxJob { Due = start + step.Delay - minDelay, Body = body, Step = step, Run = run, NegativeHit = negativeHit, Wargear = wargear });
             run.Pending++;
         }
     }
@@ -165,8 +201,10 @@ public partial class NetworkView
         if (NoDeathFx || _deathEffects is not { } effects || _config is null || kill.Cause != KillCause.Perk || kill.Killer <= 0 || kill.Killer == kill.Victim) return;
         if (kill.Index < 0 || kill.Index >= _config.Perks.Count || !string.Equals(_config.Perks[kill.Index].UpgradeString, DeathEffectRules.FinalVengeanceUpgrade, StringComparison.OrdinalIgnoreCase)) return;
         if (_vengeanceShown.TryGetValue(kill.Killer, out var at) && _connectedFor - at < 8.0) return;   // already shown (the own death, or an earlier victim of the same blast)
-        var rd = _ragdolls.LastOrDefault(r => r.PlayerId == kill.Killer && IsInstanceValid(r));
-        if (rd is null || _fx is null || !FxActive) return;
+        // The exploder's body: still falling in its jump death (2026-11-11), else its corpse.
+        var body = _marineDeaths.TryGetValue(kill.Killer, out var held) && held.FxBody is { } fb && BodyThere(fb) ? fb
+            : _ragdolls.LastOrDefault(r => r.PlayerId == kill.Killer && IsInstanceValid(r)) is { } rd ? new DeathBody { PlayerId = kill.Killer, Ragdoll = rd } : null;
+        if (body is null || _fx is null || !FxActive) return;
         _vengeanceShown[kill.Killer] = _connectedFor;
         var side = effects.Side(TeamOf(kill.Killer) == Team.Chaos);
         if (side.Perks.FirstOrDefault(p => p.Upgrade.Equals(DeathEffectRules.FinalVengeanceUpgrade, StringComparison.OrdinalIgnoreCase)) is not { } perk) return;
@@ -174,7 +212,7 @@ public partial class NetworkView
         _deathFxKills++;
         CountKind(run.Label);
         double blast = perk.Action.Steps.Select(s => (double)s.Delay).DefaultIfEmpty(0).Max();
-        Enqueue(run, rd, perk.Action, _connectedFor, null, "", minDelay: (float)blast);
+        Enqueue(run, body, perk.Action, _connectedFor, null, "", minDelay: (float)blast);
     }
 
     // ---- per frame ----
@@ -212,7 +250,7 @@ public partial class NetworkView
         for (int i = _deathFxJobs.Count - 1; i >= 0; i--)
         {
             var job = _deathFxJobs[i];
-            if (!CorpseThere(job.Ragdoll)) { _deathFxJobs.RemoveAt(i); Finish(job.Run, job.Run.Pending - 1); continue; }
+            if (!BodyThere(job.Body)) { _deathFxJobs.RemoveAt(i); Finish(job.Run, job.Run.Pending - 1); continue; }
             if (now < job.Due) continue;
             _deathFxJobs.RemoveAt(i);
             PlayDeathStep(job);
@@ -221,15 +259,39 @@ public partial class NetworkView
         for (int i = _jumpImpacts.Count - 1; i >= 0; i--)
         {
             var w = _jumpImpacts[i];
-            if (!CorpseThere(w.Ragdoll)) { _jumpImpacts.RemoveAt(i); Finish(w.Run, w.Run.Pending); continue; }
+            if (!BodyThere(w.Body)) { _jumpImpacts.RemoveAt(i); Finish(w.Run, w.Run.Pending); continue; }
+            if (w.Held)
+            {
+                // A held jump death's impact: when its floor clip fired StartAction; none when it reached no floor (the cap; nothing to strike: the log counts it as no ground).
+                if (w.NoFloor) { _jumpImpacts.RemoveAt(i); w.Run.NoGround++; Finish(w.Run, w.Run.Pending); continue; }
+                if (!w.FloorReached) continue;
+                _jumpImpacts.RemoveAt(i);
+                if (w.Action is { } floor) PlayJumpImpact(w, floor); else Finish(w.Run, w.Run.Pending);
+                continue;
+            }
             if (now < w.StartAt) continue;
-            if (!DeathEffectRules.ImpactDue((float)(now - w.StartAt), HeightAbove(w.Ragdoll.FocusPoint))) continue;
+            if (!DeathEffectRules.ImpactDue((float)(now - w.StartAt), HeightAbove(BodyFocus(w.Body)))) continue;
             _jumpImpacts.RemoveAt(i);
             if (w.Action is { } impact) PlayJumpImpact(w, impact);
         }
     }
 
     bool CorpseThere(Ragdoll rd) => IsInstanceValid(rd) && !rd.IsQueuedForDeletion() && rd.IsInsideTree();
+
+    /// <summary>Whether a death's body is still there: its corpse, or a held jump death's falling body while that death is under way (a respawn or the player leaving ends it).</summary>
+    bool BodyThere(DeathBody body)
+    {
+        if (body.Ragdoll is { } rd) return CorpseThere(rd);
+        return body.Hold is { } hold && body.Held is { } held && IsInstanceValid(held) && _marineDeaths.TryGetValue(body.PlayerId, out var now) && ReferenceEquals(now, hold);
+    }
+
+    /// <summary>A death's body's chest (Godot world): the corpse's focus, or the falling body's chest bone.</summary>
+    Vector3 BodyFocus(DeathBody body) =>
+        body.Ragdoll is { } rd ? rd.FocusPoint : body.Held is { } held && IsInstanceValid(held) ? CharacterChest(held) : Vector3.Zero;
+
+    /// <summary>The skeleton a death's effects follow: the corpse's, or the falling body's.</summary>
+    Skeleton3D? BodySkeleton(DeathBody body) =>
+        body.Ragdoll is { } rd ? rd.Character?.Skeleton : body.Held is { } held && IsInstanceValid(held) ? held.Skeleton : null;
 
     void Finish(DeathFxRun run, int pending)
     {
@@ -244,21 +306,27 @@ public partial class NetworkView
     void PlayDeathStep(DeathFxJob job)
     {
         var run = job.Run;
-        var rd = job.Ragdoll;
+        var body = job.Body;
         switch (job.Step.Kind)
         {
             case DeathStepKind.Effect when job.Step.Fx is { } ground && _fx is not null && IsGroundEffect(ground.Name):
-                PlayGroundPlays(run, rd, [ground]);   // Final Vengeance's land effect: a ground effect with decals, like the jump death's impact
+                PlayGroundPlays(run, body, [ground]);   // Final Vengeance's land effect: a ground effect with decals, like the jump death's impact
                 break;
             case DeathStepKind.Effect when job.Step.Fx is { } p && _fx is not null:
             {
-                var (position, bone, skeleton) = DeathBone(rd, p.Marker);
+                var (position, bone, skeleton) = DeathBone(body, p.Marker);
                 long began = System.Diagnostics.Stopwatch.GetTimestamp();
                 var axes = AxesForDeath(p, job.NegativeHit);
                 Func<(Vector3 Position, Basis Axes)?>? follow = null;
-                if (p.Attached)
+                if (p.Attached && body.Ragdoll is { } rd)
                     follow = () => IsInstanceValid(rd) && skeleton is not null && IsInstanceValid(skeleton) && bone >= 0
                         ? ((skeleton.GlobalTransform * skeleton.GetBoneGlobalPose(bone)).Origin, axes) : IsInstanceValid(rd) ? (rd.FocusPoint, axes) : null;
+                else if (p.Attached)
+                {
+                    // A falling body's (jump death in mid-air): the bone of whichever body holds the death now, the falling one, then its ragdoll.
+                    string marker = p.Marker;
+                    follow = () => BodyThere(body) ? (DeathBone(body, marker).Position, axes) : null;
+                }
                 var tint = job.Wargear.Length > 0 ? RaceTint(job.Wargear, p.Name) : null;
                 var e = _fx.Play(p.Name, position, axes, p.Scale <= 0f ? 1f : p.Scale, null, follow, p.Lifetime, 0.0, false, DeathFxPriority, tint: tint);
                 _dfxEffectMs = Math.Max(_dfxEffectMs, Since(began));
@@ -268,7 +336,7 @@ public partial class NetworkView
             }
             case DeathStepKind.Sound when job.Step.Sound.Length > 0:
             {
-                if (PostDeathSound(job.Step.Sound, DeathBone(rd, "rig_pelvis").Position, run.Own)) { run.Sounds++; _deathFxSounds++; }
+                if (PostDeathSound(job.Step.Sound, DeathBone(body, "rig_pelvis").Position, run.Own)) { run.Sounds++; _deathFxSounds++; }
                 break;
             }
             case DeathStepKind.RemoveWargear:
@@ -286,9 +354,9 @@ public partial class NetworkView
     /// (<see cref="DeathEffectRules.SameBone"/>: the melta death names <c>rig_lhand</c>, <c>rig_rthigh</c>, <c>rig_lcalf</c> where the rig has <c>RIG_L_Hand</c>, <c>RIG_R_Thigh</c>,
     /// <c>RIG_L_Calf</c>); a name the rig does not have at all (<c>rig_chest</c>, <c>rig_spine1</c>) takes the corpse's chest (ours).
     /// </summary>
-    (Vector3 Position, int Bone, Skeleton3D? Skeleton) DeathBone(Ragdoll rd, string marker)
+    (Vector3 Position, int Bone, Skeleton3D? Skeleton) DeathBone(DeathBody body, string marker)
     {
-        var skeleton = rd.Character?.Skeleton;
+        var skeleton = BodySkeleton(body);
         if (skeleton is not null && IsInstanceValid(skeleton) && marker.Length > 0)
         {
             long began = System.Diagnostics.Stopwatch.GetTimestamp();
@@ -296,7 +364,7 @@ public partial class NetworkView
             _dfxBoneMs = Math.Max(_dfxBoneMs, Since(began));
             if (bone >= 0) return ((skeleton.GlobalTransform * skeleton.GetBoneGlobalPose(bone)).Origin, bone, skeleton);
         }
-        return (rd.FocusPoint, -1, skeleton);
+        return (BodyFocus(body), -1, skeleton);
     }
 
     /// <summary>
@@ -333,7 +401,7 @@ public partial class NetworkView
 
     void PlayJumpImpact(JumpImpactWatch w, DeathAction impact)
     {
-        PlayGroundPlays(w.Run, w.Ragdoll, impact.Effects.Select(s => s.Fx!).ToList(), impact.Steps.Where(s => s.Kind == DeathStepKind.Sound).Select(s => s.Sound));
+        PlayGroundPlays(w.Run, w.Body, impact.Effects.Select(s => s.Fx!).ToList(), impact.Steps.Where(s => s.Kind == DeathStepKind.Sound).Select(s => s.Sound));
         Finish(w.Run, w.Run.Pending);
     }
 
@@ -341,11 +409,11 @@ public partial class NetworkView
     /// Plays ground effects (with their collision content: crater, cracks, smoke) and their sounds on the level under a corpse's root bone. With a level but none within reach below (a pit,
     /// a kill region) nothing is played: no decals into the void, no impact sound (counted for the log). Without a map (flat ground) the root's place stands in.
     /// </summary>
-    void PlayGroundPlays(DeathFxRun run, Ragdoll rd, IReadOnlyList<FxPlay> plays, IEnumerable<string>? sounds = null)
+    void PlayGroundPlays(DeathFxRun run, DeathBody body, IReadOnlyList<FxPlay> plays, IEnumerable<string>? sounds = null)
     {
         long began = System.Diagnostics.Stopwatch.GetTimestamp();
         // The probe starts at the corpse's chest (as the impact's timing does): a ragdoll's root bone can lie at or under the floor, where a ray down finds nothing.
-        var root = rd.FocusPoint;
+        var root = BodyFocus(body);
         var g = _gameSpace is null ? default : _gameSpace.GlobalTransform.AffineInverse() * root;
         var (point, normal, surface) = _gameSpace is null ? (root, Vector3.Up, -1) : GroundUnder(new Num.Vector3(g.X, g.Y, g.Z));
         _dfxGroundMs = Math.Max(_dfxGroundMs, Since(began));

@@ -448,9 +448,10 @@ public enum MarineDeathKind
 
 /// <summary>
 /// A death clip and the time the graph hands the body to the ragdoll (<paramref name="RagdollAt"/>: the "Powered Ragdoll Controls Modifier" tag's start x the clip's length; for the jump death's start
-/// the branch into its fall, for the looping fall its length). <paramref name="Blend"/>: the seconds of the transition that enters it (the graph's blending effect).
+/// the branch into its fall, for the looping fall its length). <paramref name="Blend"/>: the seconds of the transition that enters it (the graph's blending effect). <paramref name="ActionAt"/>
+/// (jump-pack death, 2026-11-11): seconds into the clip of its sequencer's <c>StartAction</c> event tag (the jump death's start and floor clips fire their triggered actions there), NaN when it has none.
 /// </summary>
-public sealed record DeathClip(string Clip, float Length, float RagdollAt, float Blend = DeathAnimations.DefaultBlend);
+public sealed record DeathClip(string Clip, float Length, float RagdollAt, float Blend = DeathAnimations.DefaultBlend, float ActionAt = float.NaN);
 
 /// <summary>
 /// One transition into the death clips (hit reactions, 2026-11-11): from the base graph's ROOT into its DEATH state (<paramref name="Target"/>: the nested state it enters, Havok's to-nested-state id;
@@ -535,7 +536,8 @@ public sealed record DeathAnimations(IReadOnlyDictionary<MarineDeathKind, DeathC
                 MarineDeathKind.JumpFall => 1f,                                                                     // loops until the floor
                 _ => GraphWalk.Tag(seq, "Modifier", "Powered Ragdoll") is { } tag ? tag.Start : 0.8f,
             };
-            clips[kind] = new DeathClip(clip, length, Math.Clamp(handOver, 0f, 1f) * length, blend);
+            float actionAt = GraphWalk.Tag(seq, "Event", "StartAction") is { } action ? Math.Clamp(action.Start, 0f, 1f) * length : float.NaN;
+            clips[kind] = new DeathClip(clip, length, Math.Clamp(handOver, 0f, 1f) * length, blend, actionAt);
         }
         ReadBlasts(graphs, animationLength, clips, notes);
         return new(clips, notes) { Routes = routes, EntryRoutes = entry };
