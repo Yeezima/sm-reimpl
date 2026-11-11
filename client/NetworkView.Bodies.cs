@@ -25,7 +25,14 @@ public partial class NetworkView
     int _correctionsLogged;
 
     /// <summary>The config as the server's: player collision off with <c>--no-player-collision</c> (the config hashes then agree).</summary>
-    static SimConfig WithPlayerCollisionArg(SimConfig c) => (((NoPlayerCollision ? c with { PlayerBodies = false } : c) is var b && NoChargeLockArg ? b with { ChargeLock = false } : b) is var d && OldBodyContactArg ? d with { SolidBodies = false } : d) is var e && NoChargeClashArg ? e with { ChargeClash = false } : e;
+    static SimConfig WithPlayerCollisionArg(SimConfig c) => WithChargeCancelArgs((((NoPlayerCollision ? c with { PlayerBodies = false } : c) is var b && NoChargeLockArg ? b with { ChargeLock = false } : b) is var d && OldBodyContactArg ? d with { SolidBodies = false } : d) is var e && NoChargeClashArg ? e with { ChargeClash = false } : e);
+    /// <summary>
+    /// charge-cancel / charge-ally-bump restore switches <c>--old-charge-cancel</c> (a Grenade press ends the charge, S does not) and <c>--old-ally-bump</c> (the collision stop on an
+    /// ally), the protocol 65 rules (the server needs the same: config hash).
+    /// </summary>
+    static SimConfig WithChargeCancelArgs(SimConfig c) => (OldChargeCancelArg ? c with { ChargeBackCancel = false } : c) is var d && OldAllyBumpArg ? d with { ChargeAllyBump = false } : d;
+    static readonly bool OldChargeCancelArg = OS.GetCmdlineUserArgs().Contains("--old-charge-cancel");
+    static readonly bool OldAllyBumpArg = OS.GetCmdlineUserArgs().Contains("--old-ally-bump");
     /// <summary>fix/charge-player-collision test aid <c>--old-body-contact</c> (the server needs it too: config hash): the protocol 56 body and charge contact rules.</summary>
     /// <summary>feel/charge-clash test aid <c>--no-charge-clash</c> (the server needs it too: config hash): the protocol 58 stop, no clash.</summary>
     static readonly bool NoChargeClashArg = OS.GetCmdlineUserArgs().Contains("--no-charge-clash");

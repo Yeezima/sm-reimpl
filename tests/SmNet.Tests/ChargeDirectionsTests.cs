@@ -379,9 +379,10 @@ public class ChargeDirectionsTests(ITestOutputHelper output)
         PlayerInput Mine(int k, InputButtons b) => new(0, 0f, 1f, 0f, b);
         w.Step(id => id == 1 ? Mine(0, InputButtons.Sprint | InputButtons.MeleeHeavy) : new PlayerInput(0, 0f, 0f, 0f, InputButtons.None));
         Assert.Equal(RushPhase.Rush, w.Players[1].Rush);
-        // feel/charge-no-cancel: no stick ends the rush any more; a grenade press does, at the stick branch's time (0.6 s); the 1 s spacing still runs.
+        // feel/charge-no-cancel: no stick ends the rush any more but, since charge-cancel (protocol 66), S held back, at the stick branch's time (0.6 s; a grenade press no longer
+        // does); the 1 s spacing still runs.
         int k = 1;
-        while (w.Players[1].Rush != RushPhase.None && k < 60) { w.Step(id => id == 1 ? new PlayerInput(0, 0f, 0f, 0f, k % 2 == 1 ? InputButtons.Grenade : InputButtons.None) : new PlayerInput(0, 0f, 0f, 0f, InputButtons.None)); k++; }
+        while (w.Players[1].Rush != RushPhase.None && k < 60) { w.Step(id => id == 1 ? new PlayerInput(0, 0f, -1f, 0f, InputButtons.None) : new PlayerInput(0, 0f, 0f, 0f, InputButtons.None)); k++; }
         var before = w.Players[1];
         Assert.Equal(RushPhase.None, before.Rush);
         Assert.True(before.RushLock > 1, $"spacing left {before.RushLock}");
@@ -402,9 +403,10 @@ public class ChargeDirectionsTests(ITestOutputHelper output)
         s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 1f, 0f, InputButtons.Sprint | InputButtons.MeleeHeavy), c, out _);
         Assert.Equal(RushPhase.Rush, s.Rush);
         int k = 1;
-        while (s.Rush != RushPhase.None && k < 60) { s = Combat.StepPlayer(s, k % 2 == 0 ? new PlayerInput(0, 0f, 1f, 0f, InputButtons.Sprint | InputButtons.MeleeHeavy) : new PlayerInput(0, 0f, 1f, 0f, InputButtons.Grenade), c, out _); k++; }   // W + F on the even ticks, a grenade press (which ends the rush at its stick branch; no stick does since feel/charge-no-cancel) on the odd ones
+        while (s.Rush != RushPhase.None && k < 60) { s = Combat.StepPlayer(s, k % 2 == 0 ? new PlayerInput(0, 0f, 1f, 0f, InputButtons.Sprint | InputButtons.MeleeHeavy) : new PlayerInput(0, 0f, -1f, 0f, InputButtons.None), c, out _); k++; }   // W + F on the even ticks, S on the odd ones (which ends the rush at its stick branch since charge-cancel, protocol 66; before, a grenade press did)
         output.WriteLine($"rush over after {k} ticks: step {s.MeleeStep}, heavy {s.MeleeHeavy}, spacing left {s.RushLock}");
-        // sim/combat-pass (item 8): W is held, so the replay is no stun strike either (it was one before protocol 45).
+        // sim/combat-pass (item 8): the press was a charge press (Shift + W), so the replay is no stun strike either (it was one before protocol 45); here S is held on the end tick, so the
+        // charge press is dropped (InputBuffer: a charge press replays only while W is held).
         Assert.Equal((RushPhase.None, 0, false), (s.Rush, s.MeleeStep, s.MeleeHeavy));
         Assert.True(s.RushLock > 0);
     }
@@ -456,20 +458,24 @@ public class ChargeDirectionsTests(ITestOutputHelper output)
     // ---------------------------------------------------------------- sim/combat-2 (item 31)
 
     [Fact]
-    public void No_stick_direction_ends_the_charge_it_runs_to_its_own_end()
+    public void No_stick_direction_but_S_ends_the_charge_it_runs_to_its_own_end()
     {
-        int RushTicks(float mx, float my)
+        int RushTicks(float mx, float my, SimConfig c)
         {
-            var s = Combat.Respawned(new PlayerState(1, Vector3.Zero, Vector3.Zero, 0f, true) { Class = RMarine }, Rules);
-            s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 1f, 0f, InputButtons.Sprint | InputButtons.MeleeHeavy), Rules, out _);
+            var s = Combat.Respawned(new PlayerState(1, Vector3.Zero, Vector3.Zero, 0f, true) { Class = RMarine }, c);
+            s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 1f, 0f, InputButtons.Sprint | InputButtons.MeleeHeavy), c, out _);
             Assert.Equal(RushPhase.Rush, s.Rush);
             int k = 1;
-            while (s.Rush == RushPhase.Rush && k < 80) { s = Combat.StepPlayer(s, new PlayerInput(0, mx, my, 0f, InputButtons.None), Rules, out _); k++; }
+            while (s.Rush == RushPhase.Rush && k < 80) { s = Combat.StepPlayer(s, new PlayerInput(0, mx, my, 0f, InputButtons.None), c, out _); k++; }
             return k;
         }
-        int withW = RushTicks(0f, 1f), withD = RushTicks(1f, 0f), withNothing = RushTicks(0f, 0f), withS = RushTicks(0f, -1f);
-        output.WriteLine($"rush ticks: W {withW}, nothing {withNothing}, D {withD}, S {withS}");
+        int withW = RushTicks(0f, 1f, Rules), withD = RushTicks(1f, 0f, Rules), withNothing = RushTicks(0f, 0f, Rules), withS = RushTicks(0f, -1f, Rules);
+        int oldS = RushTicks(0f, -1f, Rules with { ChargeBackCancel = false });
+        output.WriteLine($"rush ticks: W {withW}, nothing {withNothing}, D {withD}, S {withS}; S with --old-charge-cancel {oldS}");
         Assert.Equal(withNothing, withW);   // W is as good as no input: the charge runs to its own end
-        Assert.Equal((withNothing, withNothing), (withD, withS));   // feel/charge-no-cancel (the owner 2026-11-02): A, D and S do not end it either
+        Assert.Equal(withNothing, withD);   // feel/charge-no-cancel (the owner 2026-11-02): A and D do not end it either
+        // charge-cancel (protocol 66; the owner 2026-11-11): S does, at the rush's stick branch (0.6 s of RushTests' clip: 18 ticks played); the restore switch: S does not.
+        Assert.Equal(1 + 18, withS);
+        Assert.Equal(withNothing, oldS);
     }
 }

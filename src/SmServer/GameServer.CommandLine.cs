@@ -53,6 +53,10 @@ public sealed record ServerArguments
     public bool OldBodyContact { get; init; }
     /// <summary>feel/charge-clash (test aid, before / after): the protocol 58 stop, no clash (<see cref="SimConfig.ChargeClash"/>; config hash: clients need it too).</summary>
     public bool NoChargeClash { get; init; }
+    /// <summary>charge-cancel (restore switch, before / after): the protocol 65 charge cancel: a Grenade press ends the charge, S does not (<see cref="SimConfig.ChargeBackCancel"/>; config hash: clients need it too).</summary>
+    public bool OldChargeCancel { get; init; }
+    /// <summary>charge-ally-bump (restore switch, before / after): the protocol 65 collision stop on an ally (<see cref="SimConfig.ChargeAllyBump"/>; config hash: clients need it too).</summary>
+    public bool OldAllyBump { get; init; }
     /// <summary>--log-overlaps (sim/player-collision test aid): every 10 s, how close the living players' capsules came and how often they overlapped.</summary>
     public bool LogOverlaps { get; init; }
     /// <summary>--max-spectators (protocol 46; ours, observer tooling): spectators admitted besides the players, 0 none (default <see cref="Protocol.MaxSpectators"/>).</summary>
@@ -90,6 +94,8 @@ public static class ServerCommandLine
           --no-player-collision         switch: test aid: players pass through each other as before protocol 43 (clients need --no-player-collision too)
           --no-charge-lock              switch: test aid: the charge contact and stop as before anim/melee-interaction (clients need --no-charge-lock too)
           --old-body-contact            switch: test aid: no guard against bodies passing through each other, the charge contact and stop as in protocol 56 (clients need --old-body-contact too)
+          --old-charge-cancel           switch: restore: a Grenade press ends the charge from its branch and S does not, as in protocol 65 (clients need --old-charge-cancel too)
+          --old-ally-bump               switch: restore: a charge that meets an ally plays the collision stop, as in protocol 65 (clients need --old-ally-bump too)
           --log-overlaps                switch: test aid: every 10 s, the closest the living players' capsules came and how many ticks they overlapped
           --unlocks all                 unlock mode (only 'all': no progression yet)
           --no-custom-emblems           switch: no custom emblem is pulled, kept or served
@@ -103,7 +109,7 @@ public static class ServerCommandLine
           --help, -h                    switch: this list
         """;
 
-    static readonly HashSet<string> Switches = ["--no-custom-emblems", "--limit-loopback", "--honor-side-requests", "--ork-data", "--no-player-collision", "--no-charge-lock", "--old-body-contact", "--log-overlaps", "--help", "-h"];
+    static readonly HashSet<string> Switches = ["--no-custom-emblems", "--limit-loopback", "--honor-side-requests", "--ork-data", "--no-player-collision", "--no-charge-lock", "--old-body-contact", "--old-charge-cancel", "--old-ally-bump", "--log-overlaps", "--help", "-h"];
     static readonly HashSet<string> Valued =
         ["--port", "--bind", "--game-dir", "--map", "--mode", "--score-limit", "--time-limit", "--friendly-fire", "--unlocks", "--countdown", "--pickup-test", "--bot-damage-scale", "--snapshot-rate",
          "--name-seed", "--max-per-ip", "--join-interval", "--idle-kick", "--ban-file", "--content", "--max-spectators"];
@@ -128,6 +134,8 @@ public static class ServerCommandLine
                     "--no-charge-lock" => a with { NoChargeLock = true },
                     "--old-body-contact" => a with { OldBodyContact = true },
                     "--no-charge-clash" => a with { NoChargeClash = true },
+                    "--old-charge-cancel" => a with { OldChargeCancel = true },
+                    "--old-ally-bump" => a with { OldAllyBump = true },
                     "--log-overlaps" => a with { LogOverlaps = true },
                     _ => a with { Help = true },
                 };

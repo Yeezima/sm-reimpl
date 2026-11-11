@@ -441,10 +441,12 @@ public static class Combat
             // sim/combat-2 (item 31, owner's decision 2026-10-30): W did not end the bull rush. feel/charge-no-cancel (protocol 53, the owner 2026-11-02: "movement keys should not end
             // the animation of the charge - the only way to end a charge movement is for it to hit an enemy or wall"): no stick direction ends the bull rush any more. What ends it
             // is still the clip's end, a hit or wall (its recoil), Jump, melee, a grenade, a reaction or death; the stick still ends the recoil, the dash attack's hit and its run-out.
-            bool stickEnds = (sanitized.MoveX != 0f || sanitized.MoveY != 0f) && s.Rush != RushPhase.Rush;
+            // charge-cancel (protocol 66): S (the stick held back) ends the bull rush again, a grenade nothing (below).
             // sim/no-fire-charging-all (protocol 48; owner 2026-10-31): neither Fire nor Aim ends the charge (for every class); only the stick (not W), a grenade, Jump,
             // melee or the clip's end do. They are ignored while it plays: no shot, no aim state (the camera stays), nothing buffered.
-            bool other = stickEnds || grenadePress;
+            // charge-cancel (protocol 66; the owner 2026-11-11): S held back ends the bull rush from its stick branch, tapped or held, and a Grenade press ends no charge phase
+            // any more (with or without a grenade left: the press waits in the input buffer); SimConfig.ChargeBackCancel false: the protocol 65 rule (ChargeCancel.EndsAtBranch).
+            bool other = ChargeCancel.EndsAtBranch(s, sanitized, grenadePress, c);
             // feel/melee-cancels (protocol 54): a melee press ends the hop or the bull rush and swings at once; the swing after it waits for the cancelled clip's end (MeleeCancel).
             if (MeleeCancel.Apply(s, c, meleePress, jumpPressed || jumpEscape, world) is { } cancel) { s = cancel.State; cancelLock = cancel.Lock; cancelStart = meleePress; }
             var rushBefore = s;
