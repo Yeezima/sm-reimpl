@@ -15,7 +15,7 @@ public partial class CharacterViewer
     int _acSpineD = -2;
 
     /// <summary>The kick this frame: <paramref name="back"/> is the offset in world space (the barrel's axis turned round, times the distance).</summary>
-    public void SetAutocannonKick(Vector3 back) { _acKickBack = back; _acKickUntil = Time.GetTicksUsec() / 1e6 + 0.1; }
+    public void SetAutocannonKick(Vector3 back) { _acKickBack = back; _acKickUntil = Time.GetTicksUsec() / 1e6 + 0.1; _layersDirty = true; }
 
     void AutocannonKickOverlay()
     {
