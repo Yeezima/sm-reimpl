@@ -88,7 +88,25 @@ public static class MusouCustomizer
     public static MusouEntryInfo Info(MusouCustomizerEntry entry) => Entries.First(e => e.Entry == entry);
 
     /// <summary>The Librarian's steps (the creator's five step buttons: class, weapons, his powers and equipment in the equipment's place, perks, look).</summary>
-    public static readonly IReadOnlyList<string> LibrarianSteps = ["CLASS", "WEAPONS", "POWERS", "PERKS", "LOOK"];
+    public static readonly IReadOnlyList<string> LibrarianSteps = ["CLASS", "WEAPONS", "POWERS", "PERKS", "LOOK", "SUPPORT"];
+
+    /// <summary>The step that shows the support ability (owner, 2026-11-12; the same sixth step the marines' page has after PERKS).</summary>
+    public const int SupportStep = 5;
+
+    /// <summary>
+    /// The SUPPORT step's rows (owner, 2026-11-12; docs/drop-pod-assault.md): what B calls in a battle, one choice per loadout (the artillery strike, the default, and the drop pod assault). A row's action is
+    /// <c>support:artillery</c> or <c>support:droppod</c>; <paramref name="chosen"/> is the one chosen.
+    /// </summary>
+    public static IReadOnlyList<MusouSection> SupportRows(MusouSupport chosen) =>
+    [
+        new("SUPPORT ABILITY (B)",
+        [
+            new("Artillery strike", "B marks a point with the laser designator; a walking barrage of shells follows a second later and kills the Orks it touches. 60 s cooldown in a battle (the same cooldown for both support abilities; none at the Firing Range).",
+                MusouRowKind.Choice, "support:" + MusouSlots.SupportName(MusouSupport.Artillery), chosen == MusouSupport.Artillery),
+            new("Drop pod assault", "B marks a point with the laser designator; a few seconds later a drop pod falls from the sky in fire and smoke and shakes the ground. Its doors open and 4 Tactical Marines fight for 30 seconds, then retreat to the Imperial HQ and vanish. Needs the pod of the campaign's data.",
+                MusouRowKind.Choice, "support:" + MusouSlots.SupportName(MusouSupport.DropPod), chosen == MusouSupport.DropPod),
+        ]),
+    ];
 
     /// <summary>The step that shows his look (its rows open the appearance editor).</summary>
     public const int LookStep = 4;
@@ -124,11 +142,12 @@ public static class MusouCustomizer
         "His loadout is saved in your profile with your Musou loadouts (SAVE keeps it). Pick him in the Stormbird: PLAY AS LIBRARIAN (on this page in a match, or in the Esc menu).";
 
     /// <summary>
-    /// The Librarian's rows on step <paramref name="step"/> (0 to 4, <see cref="LibrarianSteps"/>), from the data: <paramref name="loadout"/> (his class as <c>MusouLoadout</c> makes it) and the powers whose
+    /// The Librarian's rows on step <paramref name="step"/> (0 to 5, <see cref="LibrarianSteps"/>), from the data: <paramref name="loadout"/> (his class as <c>MusouLoadout</c> makes it) and the powers whose
     /// numbers <see cref="LibrarianRules"/> holds (<see cref="LibrarianPowers"/>). <paramref name="lookOf"/> names the active loadout whose look he wears.
     /// </summary>
-    public static IReadOnlyList<MusouSection> LibrarianStep(int step, string lookOf, LibrarianLoadout loadout, MusouLibrarianPicks? picks = null)
+    public static IReadOnlyList<MusouSection> LibrarianStep(int step, string lookOf, LibrarianLoadout loadout, MusouLibrarianPicks? picks = null, MusouSupport support = MusouSupport.Artillery)
     {
+        if (step == SupportStep) return SupportRows(support);
         if (picks is not null && step is >= 1 and <= 4) return LibrarianOwnStep(step, lookOf, loadout, picks);
         var powers = LibrarianPowers.Present();
         int powerCount = powers.Count(p => p.IsPower);

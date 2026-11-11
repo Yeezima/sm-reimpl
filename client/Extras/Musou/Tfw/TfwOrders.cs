@@ -5,6 +5,8 @@ using SmNet.Extras.Musou;
 using SmNet.Extras.Musou.Campaign;
 using SmSim;
 using SmSim.Extras.Musou.Campaign;
+using SmContent.Extras.Musou;
+using SmContent.Customization;
 using Num = System.Numerics;
 
 namespace SmClient;
@@ -49,6 +51,23 @@ public partial class NetworkView
         public override void _ExitTree() => ControlsInput.Apply();
     }
 
+    /// <summary><c>--no-drop-pod</c> (restore switch, owner 2026-11-12): B always calls the artillery strike, whatever a loadout chooses. <c>--tfw-support droppod|artillery</c> (test aid) forces the choice.</summary>
+    static readonly bool TfwNoDropPod = OS.GetCmdlineUserArgs().Contains("--no-drop-pod");
+
+    /// <summary>
+    /// What B calls (owner, 2026-11-12; docs/drop-pod-assault.md): the support the player's active Musou loadout chose in the customizer's SUPPORT step (the Librarian's own when he plays him), read from the
+    /// saved profile; the artillery strike when nothing is chosen or the profile is not loaded. The command is the whole of the choice on the wire: the server validates either kind.
+    /// </summary>
+    TfwCommand TfwSupportCommand(PlayerState me)
+    {
+        if (TfwNoDropPod) return TfwCommand.Orbital;
+        if (CmdArg("tfw-support") is { } forced) return forced.StartsWith("drop", StringComparison.OrdinalIgnoreCase) ? TfwCommand.DropPod : TfwCommand.Orbital;
+        if (PickerServices(_bot) is not { Session: { } session }) return TfwCommand.Orbital;
+        var saved = session.Saved;
+        string key = _config is not null && SmSim.Extras.Musou.LibrarianRules.IsLibrarian(_config, me.Class) ? MusouSlots.LibrarianSupportKey : MusouSlots.SupportKey(MusouSlots.MarinesOf(saved).Selected);
+        return MusouSlots.SupportOf(saved, key) == MusouSupport.DropPod ? TfwCommand.DropPod : TfwCommand.Orbital;
+    }
+
     void TfwOrdersFrame(in TfwWarView war, PlayerState me, float delta)
     {
         if (_bot) return;
@@ -56,7 +75,7 @@ public partial class NetworkView
         bool orbital = Input.IsPhysicalKeyPressed(Key.B) || (_pad is not null && PadHost.Active && _pad.Button(JoyButton.DpadLeft));
         bool atRange = war.Phase == TfwRunPhase.Hub && me.Alive && !PickerBusy && TfwRangeArea is { } rangeArea && rangeArea.Contains(new System.Numerics.Vector3(me.Position.X, me.Position.Y, me.Position.Z));   // the Firing Range tests the strike
         bool cooling = !atRange && war.Own.OrbitalSeconds > 0;   // contracts 25: one battle strike a minute (the HUD counts it down); the server decides all the same
-        if (orbital && !_tfwOrbitalKey && (enabled || atRange) && !cooling) { var target = TfwCrosshairPoint(me); _tfwState.Commands.Issue(TfwCommand.Orbital, 0, target); _tfwOrbitalCalled = _connectedFor; TfwDesignatorBeam(me, target); }   // the server decides
+        if (orbital && !_tfwOrbitalKey && (enabled || atRange) && !cooling) { var target = TfwCrosshairPoint(me); _tfwState.Commands.Issue(TfwSupportCommand(me), 0, target); _tfwOrbitalCalled = _connectedFor; TfwDesignatorBeam(me, target); }   // the server decides
         _tfwOrbitalKey = orbital;
         var press = _tfwKeys.Update(Input.IsPhysicalKeyPressed(Key.Z), Input.IsPhysicalKeyPressed(Key.X), Input.IsPhysicalKeyPressed(Key.V), Input.IsPhysicalKeyPressed(Key.P), delta, enabled);
         if (press == TfwOrderPress.None) return;

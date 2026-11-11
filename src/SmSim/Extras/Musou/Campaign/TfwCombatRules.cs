@@ -56,6 +56,12 @@ public sealed record TfwCombatRules
     public bool RangeFallOff { get; init; }
 
     /// <summary>
+    /// Whether the drop pod assault is on (owner, 2026-11-12; docs/drop-pod-assault.md): <see cref="TfwCommand.DropPod"/> calls a pod. False restores the artillery strike as the only support call:
+    /// the server refuses the command (the client's <c>--no-drop-pod</c> keeps B on the artillery strike). The 5-wave run has no support call.
+    /// </summary>
+    public bool DropPods { get; init; } = true;
+
+    /// <summary>
     /// Whether <see cref="PlayerCleaveReachScale"/> and <see cref="PlayerRangedDamageScale"/> apply to the attacks of player <paramref name="playerId"/> in the war: a human's character (the Librarian
     /// too when a human plays him), never an AI Marine (owner's scope, 2026-11-11: "Musou, players only"; the lead: AI allies keep their old reach and damage). The Guard squads never reach the
     /// players' paths. Only meaningful in a war, where the AI Marines hold <see cref="TfwContracts.IsPuppet"/>'s ids.

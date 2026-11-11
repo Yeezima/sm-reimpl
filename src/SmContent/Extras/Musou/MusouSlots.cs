@@ -27,6 +27,11 @@ public sealed record MusouLibrarianLoadout(string? Melee, string? Equipment, str
 }
 
 /// <summary>
+/// Musou Mode's support abilities (owner, 2026-11-12; docs/drop-pod-assault.md): what B calls. A loadout's choice is stored in the profile's Musou extras (<see cref="MusouSlots.SupportOf"/>); the first is the default.
+/// </summary>
+public enum MusouSupport { Artillery = 0, DropPod = 1 }
+
+/// <summary>
 /// Musou Mode's own loadout slots (musou/loadout-slots, 2026-11-10; the owner approved "Musou own loadout spans"; docs/changes-from-original.md section 0). Musou's pages stop sharing Classic
 /// PvP's custom-class slots: the profile keeps a loadout set of their own (<see cref="SetName"/>: ten slots and a selection, read and repaired as Classic's) and the Librarian's loadout
 /// (<see cref="MusouLibrarianLoadout"/>). The customizer serves Musou's pages through <see cref="MusouProfileView"/>; Classic PvP's slots, selection and file stay as they were.
@@ -78,6 +83,50 @@ public static class MusouSlots
     }
 
     static bool IsOrk(string? role) => string.Equals(role, OrkClass.Role, StringComparison.OrdinalIgnoreCase);
+
+    // ---- the support ability (owner, 2026-11-12) ----
+
+    /// <summary>The Librarian's key in the support map (<see cref="SupportKey"/> for the others).</summary>
+    public const string LibrarianSupportKey = "l";
+
+    /// <summary>The support map's key of a loadout: <c>d:&lt;role&gt;</c> for a DEFAULTS loadout, <c>c:&lt;slot&gt;</c> for a custom slot (the Librarian is <see cref="LibrarianSupportKey"/>).</summary>
+    public static string SupportKey(Selection selection) =>
+        selection.Kind == SelectionKind.Custom ? "c:" + selection.Slot : "d:" + (selection.Role ?? "").ToLowerInvariant();
+
+    /// <summary>The names stored (anything else reads as the artillery strike).</summary>
+    public static string SupportName(MusouSupport support) => support == MusouSupport.DropPod ? "droppod" : "artillery";
+
+    /// <summary>The support of the loadout <paramref name="key"/> in <paramref name="profile"/>: the artillery strike when nothing, or nothing readable, is stored.</summary>
+    public static MusouSupport SupportOf(CustomizationProfile profile, string key)
+    {
+        if (!profile.Extras.TryGetValue(ExtrasKey, out var text)) return MusouSupport.Artillery;
+        try
+        {
+            if (JsonNode.Parse(text) is JsonObject root && root["support"] is JsonObject map && map[key] is JsonValue v && v.TryGetValue<string>(out var name))
+                return string.Equals(name, "droppod", StringComparison.OrdinalIgnoreCase) ? MusouSupport.DropPod : MusouSupport.Artillery;
+        }
+        catch (Exception e) when (e is System.Text.Json.JsonException or InvalidOperationException or FormatException or ArgumentException) { }
+        return MusouSupport.Artillery;
+    }
+
+    /// <summary>The profile with loadout <paramref name="key"/>'s support set (the default, the artillery strike, removes the entry; everything else in the Musou extras entry is kept).</summary>
+    public static CustomizationProfile WithSupport(CustomizationProfile profile, string key, MusouSupport support)
+    {
+        JsonObject root;
+        try
+        {
+            root = profile.Extras.TryGetValue(ExtrasKey, out var text) && JsonNode.Parse(text) is JsonObject o ? o : new JsonObject();
+            _ = root.Count;
+        }
+        catch (Exception e) when (e is System.Text.Json.JsonException or ArgumentException) { root = new JsonObject(); }
+        JsonObject map = root["support"] as JsonObject ?? new JsonObject();
+        if (support == MusouSupport.Artillery) map.Remove(key); else map[key] = SupportName(support);
+        root.Remove("support");
+        if (map.Count > 0) root["support"] = map;
+        string? json = root.Count == 0 ? null : root.ToJsonString();
+        if (profile.Extras.TryGetValue(ExtrasKey, out var old) ? old == json : json is null) return profile;
+        return profile.WithExtra(ExtrasKey, json);
+    }
 
     // ---- the Librarian ----
 

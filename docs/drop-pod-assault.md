@@ -17,7 +17,7 @@ unless marked, and goes into spec "Added content: Musou: drop pod assault" and t
   without it, and Classic's file, are byte for byte as before. Copying or clearing a slot carries or drops its entry.
 * **Wire**: nothing is sent at deploy. The client knows its active Musou loadout and, on B, sends `TfwCommand.Orbital` (artillery) or the new
   `TfwCommand.DropPod` (11 is FireTest; the next free value), both with the crosshair point. The server validates and runs either, so a player's choice is
-  server-checked and server-authoritative. Core `Protocol.Version` stays; `TfwRules.Version` 70 and `MusouSim.Version` 46 (lead renumbers) because the command, a fire
+  server-checked and server-authoritative. Core `Protocol.Version` stays; `TfwRules.Version` 70 (lead renumbers; `MusouSim.Version` stays: a war-only change) because the command, a fire
   record kind (`TfwFireKind.Pod` 8, tag 11) and the marines' sim change.
 
 ## 2. The existing artillery strike (reused)

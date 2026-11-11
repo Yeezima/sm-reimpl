@@ -111,6 +111,7 @@ public sealed partial class World
         _tfwMarineWork.Clear();
         _tfwMarineWork.AddRange(run.Marines);
         foreach (var m in _tfwMarineWork) TfwDismissMarine(m.Id);
+        run.ForgetPods();
     }
 
     /// <summary>A new run: no puppet, no recovery, no order.</summary>
@@ -187,6 +188,7 @@ public sealed partial class World
         {
             if (!_players.TryGetValue(m.Id, out var p)) { run.RemoveMarine(m); continue; }
             if (m.Role == MarineRole.Retainer) { TfwRetainerStep(run, m, p); continue; }
+            if (m.Role == MarineRole.Pod) { TfwPodMarineStep(run, m, p); continue; }   // World.TfwDropPod.cs
             if (!p.Alive) TfwMarineDown(run, m);
             else m.Down = false;
         }
@@ -319,6 +321,7 @@ public sealed partial class World
         var standing = new PlayerInput(0, 0f, 0f, self.Yaw, InputButtons.None);
         var run = _tfw!;
         if (!self.Alive || run.MarineOf(id) is not { } m) return standing;
+        if (m.Role == MarineRole.Pod) return TfwPodMarineInput(run, m, self);   // World.TfwDropPod.cs
 
         // A retainer: its owner's order. The pair: who leads and who follows.
         bool retainer = m.Role == MarineRole.Retainer;

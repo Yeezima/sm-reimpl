@@ -250,4 +250,65 @@ public class MusouSlotsTests
         var unknown = MusouSlots.LibrarianChoice(new MusouLibrarianLoadout("mp_melee_no_such", "mp_eq_no_such", "no_perk", "no_perk", null), config, librarian);
         Assert.Equal(new LoadoutChoice(Class: librarian, Melee: 0), unknown);
     }
+
+    // ---- the support ability (owner 2026-11-12; docs/drop-pod-assault.md) ----
+
+    [Fact]
+    public void A_loadouts_support_defaults_to_the_artillery_strike_and_is_kept_per_loadout()
+    {
+        var profile = MusouSlots.Opened(OldProfile());
+        Assert.All(new[] { "d:tactical", "d:heavy", "d:assault", "c:1", "c:7", MusouSlots.LibrarianSupportKey }, k => Assert.Equal(MusouSupport.Artillery, MusouSlots.SupportOf(profile, k)));
+        Assert.Equal("d:tactical", MusouSlots.SupportKey(Selection.DefaultFor("Tactical")));
+        Assert.Equal("c:3", MusouSlots.SupportKey(Selection.CustomSlot(3)));
+
+        var one = MusouSlots.WithSupport(profile, "c:1", MusouSupport.DropPod);
+        var two = MusouSlots.WithSupport(one, MusouSlots.LibrarianSupportKey, MusouSupport.DropPod);
+        Assert.Equal(MusouSupport.DropPod, MusouSlots.SupportOf(two, "c:1"));
+        Assert.Equal(MusouSupport.DropPod, MusouSlots.SupportOf(two, MusouSlots.LibrarianSupportKey));
+        Assert.Equal(MusouSupport.Artillery, MusouSlots.SupportOf(two, "c:2"));   // the others keep the default
+        Assert.Equal(MusouSupport.Artillery, MusouSlots.SupportOf(two, "d:tactical"));
+        Assert.Same(two, MusouSlots.WithSupport(two, "c:1", MusouSupport.DropPod));   // no change, no new profile
+        var back = MusouSlots.WithSupport(MusouSlots.WithSupport(two, "c:1", MusouSupport.Artillery), MusouSlots.LibrarianSupportKey, MusouSupport.Artillery);
+        Assert.False(back.Extras.ContainsKey(MusouSlots.ExtrasKey));   // the default is never stored: the profile is as it was
+    }
+
+    [Fact]
+    public void The_support_is_saved_and_read_back_with_the_profile_and_keeps_the_librarians_entry()
+    {
+        var profile = MusouSlots.WithLibrarian(MusouSlots.Opened(OldProfile()), new MusouLibrarianLoadout("mp_melee_combat_knife", null, null, null, null));
+        profile = MusouSlots.WithSupport(profile, "c:2", MusouSupport.DropPod);
+        string json = ProfileStore.Serialize(profile);
+        Assert.Contains("droppod", json);   // written with the profile, in the Musou extras entry
+        Assert.Equal("mp_melee_combat_knife", MusouSlots.LibrarianOf(profile).Melee);
+        var shown = MusouProfileView.WithLibrarian.Show(profile);
+        var kept = MusouProfileView.WithLibrarian.Keep(profile, MusouSlots.WithSupport(shown, "d:heavy", MusouSupport.DropPod));
+        Assert.Equal(MusouSupport.DropPod, MusouSlots.SupportOf(kept, "d:heavy"));   // an edit through the customizer's view is kept
+        Assert.Equal(MusouSupport.DropPod, MusouSlots.SupportOf(kept, "c:2"));
+        // Classic's file is untouched: a profile never given a support serialises as before.
+        Assert.False(ProfileStore.Serialize(MusouSlots.Opened(OldProfile())).Contains("support", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Unreadable_or_unknown_support_entries_read_as_the_artillery_strike()
+    {
+        var bad = MusouSlots.Opened(OldProfile()).WithExtra(MusouSlots.ExtrasKey, "{ \"support\": { \"c:1\": \"nonsense\", \"c:2\": 5, \"d:tactical\": \"DROPPOD\" } }");
+        Assert.Equal(MusouSupport.Artillery, MusouSlots.SupportOf(bad, "c:1"));
+        Assert.Equal(MusouSupport.Artillery, MusouSlots.SupportOf(bad, "c:2"));
+        Assert.Equal(MusouSupport.DropPod, MusouSlots.SupportOf(bad, "d:tactical"));
+        Assert.Equal(MusouSupport.Artillery, MusouSlots.SupportOf(MusouSlots.Opened(OldProfile()).WithExtra(MusouSlots.ExtrasKey, "not json"), "c:1"));
+    }
+
+    [Fact]
+    public void The_support_step_offers_both_abilities_with_the_artillery_strike_first_and_marks_the_chosen()
+    {
+        foreach (var chosen in new[] { MusouSupport.Artillery, MusouSupport.DropPod })
+        {
+            var section = Assert.Single(MusouCustomizer.SupportRows(chosen));
+            Assert.Equal(["Artillery strike", "Drop pod assault"], section.Rows.Select(r => r.Title));
+            Assert.Equal(["support:artillery", "support:droppod"], section.Rows.Select(r => r.Action));
+            Assert.Equal(chosen == MusouSupport.Artillery ? [true, false] : [false, true], section.Rows.Select(r => r.Selected));
+            Assert.All(section.Rows, r => Assert.Equal(MusouRowKind.Choice, r.Kind));
+        }
+        Assert.Equal(MusouCustomizer.SupportRows(MusouSupport.DropPod).Select(s => s.Heading), MusouCustomizer.LibrarianStep(MusouCustomizer.SupportStep, "x", LibrarianLoadout.None, null, MusouSupport.DropPod).Select(s => s.Heading));
+    }
 }

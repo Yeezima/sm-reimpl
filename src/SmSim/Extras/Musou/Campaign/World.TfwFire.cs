@@ -24,7 +24,7 @@ public sealed partial class World
         var run = _tfw!;
         var fire = run.Fire;
         object? following = run.Battle is { } battle ? battle : run.RangeOn ? run : null;   // the Firing Range keeps the fire support alive without a battle
-        if (following is null || _state != MatchState.Playing) { fire.Stop(); return; }
+        if (following is null || _state != MatchState.Playing) { fire.Stop(); run.ForgetPods(); return; }
         int rate = Math.Max(1, Config.TickRate);
         fire.Follow(following, Tick, rate);
         if (!fire.NoSchedule)
@@ -32,6 +32,7 @@ public sealed partial class World
             if (TfwFireRules.RunsEnabled && Tick >= fire.NextRunTick && fire.Run is null) TfwBeginRun(TfwAim(2), TfwFireHeading(2), rate);
         }
         fire.SendDue(Tick, rate);
+        TfwDropPodStep();   // World.TfwDropPod.cs: the drop pods' touchdown, Marines and wrecks
         _fireLanding.Clear();
         fire.Landing(Tick, _fireLanding);
         foreach (var shell in _fireLanding) TfwShellLands(shell.At, shell.Caller);
