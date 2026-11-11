@@ -11,26 +11,27 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 -->
 ### Classic PvP
 - Bots no longer blow themselves up with their own grenades: they throw frag grenades only at enemies well outside the blast, aim them where the enemy will be, and no longer jump, charge or run into their own grenade before it goes off. They also stop firing plasma cannon and charged plasma shots at enemies (or walls) so close that the blast would catch them, and a heavy that is too close for its plasma cannon now draws its pistol instead of waiting.
-- Shooting another player no longer draws hit effects on him: no fiery burst and smoke cloud (the Stalker Bolter's was the biggest), no sparks, flashes or burning. You still see his armour flash and glow, hear the hit and get the hit marker; shots that miss still mark the walls and floor.
+- Shooting another player no longer draws the big hit effects on him: no fiery burst and smoke cloud (the Stalker Bolter's was the biggest), no sparks. His model flashes briefly when a shot hits bare armour, and armour breaking off throws its pieces again; you still hear the hit and get the hit marker, and shots that miss still mark the walls and floor.
+- The melta no longer sets players alight on every hit: it burns the body of a player it kills.
 - A bull rush (the charge) is no longer cut short by pressing the grenade key, with or without grenades left (a grenade pressed just before the charge ends is thrown as soon as it ends). To cut a charge short, tap or hold S (backwards, also S with A or D) once it has run about half a second.
 - Charging into a teammate no longer stops you or plays the recoil: your charge slides past him and carries on, and nothing happens to him. Charging into an enemy works as before.
-- This build does not play with earlier builds: everyone, and the server, needs this update.
-- New heavy weapon in the Extended content setting: the Devastator and the Havoc can take the autocannon (last in the heavy weapon list and in the custom class creator). It fires slow full-auto rounds that hit as hard as a Stalker Bolter shot, with the same headshot bonus, and no explosion; it has its own original autocannon sound, 400 rounds, and overheats after 15 rounds. The Faithful setting does not have it.
 - New heavy weapon in the Extended content setting: the Devastator and the Havoc can take the autocannon (last in the heavy weapon list and in the custom class creator). It fires slow full-auto rounds that hit as hard as a Stalker Bolter shot, with the same headshot bonus, and no explosion; it has its own original autocannon sound, a 120-round magazine that ammo drops refill like the heavy bolter's, and overheats after 15 rounds. The Faithful setting does not have it.
 - A Devastator carrying the autocannon wears the heavy bolter's backpack.
 - The Havoc's autocannon shows the Chaos look all the way through: purple muzzle flash, purple tracers and purple impacts. The Devastator's keeps its warm loyalist flash, tracers and impacts.
-- Classic PvP with the Extended setting in this build does not play with earlier builds: everyone in an Extended match, and the server, needs this update. Faithful matches are not affected.
+- Firing the autocannon no longer pulls the right arm off the gun: gun and arms kick back together a little along the barrel (both modes).
+- This build does not play with earlier builds: everyone, and the server, needs this update.
 
 ### Musou Mode
 - The Librarian's chain lightning now leaps twice as far from Ork to Ork (up to 16 m) and no longer weakens down the chain: every Ork it strikes, the last as the first, takes the full damage.
-- Orbital strikes you call now do 20 % more damage to the Orks too, which bosses feel most (ordinary Orks die in the blast either way).
+- Orbital strikes you call now do 20 % more damage to the Orks too, which bosses feel most (ordinary Orks die in the blast either way). Double Damage does not make them stronger.
 - In Musou Mode too, the grenade key no longer cuts a charge short; tap or hold S instead (charging into a teammate slides past him there too).
-- The autocannon is much stronger: each round's explosion now kills any ordinary Ork (Boyz, Shoota Boyz, Gretchin, Rokkit Boyz, Stormboyz, Squigs) inside its blast that it reaches (not behind cover or a Mek's shield), and the round itself hits even harder (30 more than the blast). Its ammunition never runs out (an infinity sign in the ammo box); it still overheats after 15 rounds.
 - The autocannon is much stronger: each round's explosion now kills any ordinary Ork (Boyz, Shoota Boyz, Gretchin, Rokkit Boyz, Squigs) inside its blast that it reaches (not behind cover or a Mek's shield), and the round itself hits even harder (30 more than the blast). Stormboyz are tougher than that: one explosion leaves them hurt but standing.
 - The autocannon has no magazine: it never reloads and keeps firing as long as you hold the trigger (an infinity sign in the ammo box). It still overheats after 15 rounds, so watch the heat bar.
-- No gun loses damage with distance any more: every shot from every gun (bolters, Stalker Bolter, lascannon, plasma, the autocannon and the rest) hits as hard at long range as up close, and the melta burns at full strength to the end of its reach. Grenades and other explosions still hurt less towards the edge of the blast.
+- Your guns no longer lose damage with distance: every shot you fire (bolters, Stalker Bolter, lascannon, plasma, the autocannon and the rest) hits as hard at long range as up close, and the melta burns at full strength to the end of its reach. Your shots that go through several Orks hit each one as hard as the first. The AI Marines' guns still lose damage with distance and through Orks. Grenades and other explosions still hurt less towards the edge of the blast.
+- The melta burns the bodies of the Orks it kills.
 - The Devastator now wears the heavy bolter's backpack when carrying the autocannon.
 - Musou Mode in this build does not play with earlier builds: everyone in a Musou match, and the server, needs this update.
 
 ### Deaths and hits (both modes)
 - An Assault Marine or Raptor shot down in the middle of a jump-pack jump now plays the original's mid-air death: the body jerks from the hit as the pack bursts into flame, tumbles down head first, slams into the ground with a crater and smoke, and only then goes limp. Shoot one out of the air to see it.
+- A jump pack's flame no longer stays hanging in the air when its wearer dies: it goes out at once, and the burst of the death falls with the body and ends when it lands.
