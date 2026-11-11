@@ -99,7 +99,7 @@ public sealed partial class World
 
     /// <summary>
     /// The range fall-off on the enemies for a shot of <paramref name="weapon"/> that went <paramref name="distance"/> metres: 1 in Musou Mode's war (the owner, 2026-11-11: "There should be no damage
-    /// falloff for any ranged weapon in Musou mode"; <see cref="Extras.Musou.Campaign.TfwCombatRules.RangeFallOff"/>), for every shooter and weapon; the weapon's own fall-off
+    /// falloff for any ranged weapon in Musou mode"; <see cref="Extras.Musou.Campaign.TfwCombatRules.RangeFallOff"/>) for a human player's shots (owner 2026-11-11: AI Marines keep their fall-off), every weapon; otherwise the weapon's own fall-off
     /// (<see cref="Combat.FallOff(float, WeaponSpec)"/>) in the 5-wave run (pinned replay). The one place every Musou shot path asks (<see cref="MusouShotDamage"/>, <see cref="MusouConeMultiplier"/>).
     /// </summary>
     float MusouRangeFallOff(WeaponSpec weapon, float distance, int shooter) => MusouNoRangeFallOff(shooter) ? 1f : Combat.FallOff(distance, weapon);

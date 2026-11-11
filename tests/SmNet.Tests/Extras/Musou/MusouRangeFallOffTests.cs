@@ -7,7 +7,7 @@ using SmSim.Extras.Musou.Campaign;
 namespace SmNet.Tests.Extras.Musou;
 
 /// <summary>
-/// The autocannon pass 2 (the owner, 2026-11-11: "There should be no damage falloff for any ranged weapon in Musou mode"): in Musou Mode's war every ranged hit on an Ork deals its full damage at any
+/// The autocannon pass 2 (the owner, 2026-11-11: "There should be no damage falloff for any ranged weapon in Musou mode"): in Musou Mode's war every ranged hit by a human player on an Ork deals (AI Marines keep their fall-off: owner 2026-11-11) its full damage at any
 /// distance it reaches (<see cref="TfwCombatRules.RangeFallOff"/> false, <c>World.MusouRangeFallOff</c>): a bolter, a stalker bolter, a lascannon and a plasma gun at 100 m (past every fall-off's end)
 /// hit as at 8 m, and the melta's cone at 15 m as at 5 m; the same world with the fall-off switched back on, the 5-wave run and Classic PvP keep the weapons' fall-off. Synthetic weapons (names shaped
 /// like the install's, values typed in) on the synthetic arena; no original data.

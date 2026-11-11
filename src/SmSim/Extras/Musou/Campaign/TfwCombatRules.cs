@@ -49,7 +49,7 @@ public sealed record TfwCombatRules
     /// <summary>
     /// Whether a ranged hit on the enemies loses damage with range in the war (the weapon's own fall-off, <see cref="Combat.FallOff(float, WeaponSpec)"/>; a cone's distance fall-off, the melta's).
     /// The owner, 2026-11-11: "There should be no damage falloff for any ranged weapon in Musou mode": false, so every shot deals its full damage at any distance it reaches (its range, the cone's
-    /// length), for every weapon a player or an AI Marine fires, the arsenal's included, on the Orks and their contraptions (<c>World.MusouRangeFallOff</c>, the one place). A blast's fall-off from
+    /// length), for every weapon a human player fires (AI Marines keep their fall-off: owner 2026-11-11), the arsenal's included, on the Orks and their contraptions (<c>World.MusouRangeFallOff</c>, the one place). A blast's fall-off from
     /// its centre is not a range fall-off and stays; so does a pierced shot's share for each enemy it has gone through (<see cref="PierceKeep"/>). True restores the fall-off; the 5-wave run keeps it
     /// (pinned replay).
     /// </summary>
