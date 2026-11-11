@@ -425,7 +425,11 @@ public partial class NetworkView
         BotNoteHits(hits);   // M44a: the bot's hit statistics
         FlinchNoteOwnHit(hits);   // animation pass 2: the victim flinches
         SoundHits(hits, rangedConfirm: feedback.Sound);   // M26b
-        if (hits.ShieldDamage > 0f && hits.VictimShield <= 0f && !hits.LastKilled) CharacterFlashBroke(hits.LastVictim);   // the armour just went: its red ring at once
+        if (hits.ShieldDamage > 0f && hits.VictimShield <= 0f && !hits.LastKilled)
+        {
+            if (hits.LastMelee) NoteMeleeBreak(hits.LastVictim);   // classic-no-player-hit-fx: a melee break keeps the break effect (NetworkView.ClassicHitFx.cs)
+            CharacterFlashBroke(hits.LastVictim);   // the armour just went: its red ring at once
+        }
         _lastVictim = hits.LastVictim; _lastVictimHealth = hits.VictimHealth; _lastVictimShield = hits.VictimShield;
         _lastHitAt = _connectedFor;
         if (_bot) GD.Print($"t {_connectedFor:F1} s: id {_client.PlayerId} hit report: {hits.Hits} hit(s), shield {hits.ShieldDamage:F1} health {hits.HealthDamage:F1}, kills {hits.Kills}, last P{hits.LastVictim}{(hits.LastHead ? " head" : "")}{(hits.LastKilled ? " killed" : "")}{(hits.LastMelee ? " melee" : "")}{(hits.LastSplash ? " splash" : "")}, victim {hits.VictimHealth:F0}/{hits.VictimShield:F0}");

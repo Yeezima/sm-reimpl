@@ -59,7 +59,7 @@ public partial class NetworkView
         var pos = ToGodot(d.Position);
         var toBody = ToGodot(feet with { Z = d.Position.Z }) - pos;
         var dir = toBody.LengthSquared() > 1e-4f ? toBody.Normalized() : Vector3.Down;
-        FxArmourHit(true, pos, dir, victim, 0.0);
+        if (HitFxDrawn(ShotHit.Body, ProjectileWargear(d), victim)) FxArmourHit(true, pos, dir, victim, 0.0);   // classic-no-player-hit-fx: none in Classic PvP (the explosion itself is the world's and stays)
         CharacterFlashHit(victim, null, pos);
         _detonationBodyHits++;
     }

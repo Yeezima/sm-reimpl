@@ -81,7 +81,8 @@ public partial class NetworkView
         ArmourFlashTracker.Ring = OldBreakRingFlag;
         ArmourFlashTracker.Reflash = OldHealthHitFlag;
         PvpHitFxDemo();
-        while (_armourFlash.TryTakeBreak(out int broke)) ArmourBreakFx(broke);
+        while (_armourFlash.TryTakeBreak(out int broke)) ArmourBreakFxIfDrawn(broke);   // classic-no-player-hit-fx: not for a break a shot caused in Classic PvP (NetworkView.ClassicHitFx.cs)
+        _meleeBreaks.Clear();
         CharacterViewer.OldFlashOutline = OldFlashOutlineFlag;
         CharacterViewer.OldBreakGlow = ArmourFlashTracker.Old = OldBreakGlowFlag;
         if (NoArmourFlash)

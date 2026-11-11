@@ -1,0 +1,47 @@
+using System.Collections.Generic;
+using Godot;
+using SmClient.ImpactRules;
+using SmSim;
+
+namespace SmClient;
+
+/// <summary>
+/// classic-no-player-hit-fx (owner, 2026-11-11; client presentation only, no protocol or config-hash change): in Classic PvP a ranged hit on a player draws none of the on-hit
+/// particle effects on or at him (<see cref="PlayerHitFxRules"/>): <c>FxImpact</c> skips the armour-hit effects, the spark fans, the health-hit burst, the melta burn and the hit
+/// container for a body or head hit, <c>DetonationBodyHit</c> the armour-hit effects, and a break a shot caused plays no <c>sm_armor_break_shoulders</c>. The victim model's flash and
+/// glow, the sounds, the HUD, the tracer and the map's impacts are unchanged; Musou Mode keeps everything. <c>--player-hit-fx</c> restores the effects; <c>--log-hit-fx</c> logs a
+/// <c>HITFX classic</c> line for each hit and break left bare.
+/// </summary>
+public partial class NetworkView
+{
+    bool? _playerHitFx;
+    /// <summary><c>--player-hit-fx</c>: Classic PvP draws the on-hit effects on players again (as before 2026-11-11).</summary>
+    bool PlayerHitFxFlag => _playerHitFx ??= CmdFlag(PlayerHitFxRules.RestoreFlag);   // "player-hit-fx"
+
+    /// <summary>The match's content flags (none before the config is in, which reads as Classic).</summary>
+    ContentExtras MatchExtras => _config?.Extras ?? ContentExtras.None;
+
+    int _classicBareHits, _classicBareBreaks;
+    /// <summary>Players whose armour an own melee strike broke this frame (the hit report says so; their break effect stays).</summary>
+    readonly HashSet<int> _meleeBreaks = new();
+
+    /// <summary>Whether a ranged hit (<paramref name="hit"/>) draws its on-hit effects; false for a hit on a player in Classic PvP (counted, and logged with <c>--log-hit-fx</c>).</summary>
+    bool HitFxDrawn(ShotHit hit, string wargear, int victim)
+    {
+        if (PlayerHitFxRules.DrawsHitFx(hit, MatchExtras, PlayerHitFxFlag)) return true;
+        _classicBareHits++;
+        if (LogHitFx) GD.Print($"HITFX classic t {_connectedFor:F3}: no on-hit effects for {wargear} on player {victim} (total {_classicBareHits})");
+        return false;
+    }
+
+    /// <summary>The own hit report: an own melee strike broke <paramref name="victim"/>'s armour (the break effect is kept for it).</summary>
+    void NoteMeleeBreak(int victim) => _meleeBreaks.Add(victim);
+
+    /// <summary>The armour's break effect on <paramref name="victim"/>, unless a shot broke it in Classic PvP.</summary>
+    void ArmourBreakFxIfDrawn(int victim)
+    {
+        if (PlayerHitFxRules.DrawsBreakFx(_meleeBreaks.Contains(victim), MatchExtras, PlayerHitFxFlag)) { ArmourBreakFx(victim); return; }
+        _classicBareBreaks++;
+        if (LogHitFx) GD.Print($"HITFX classic t {_connectedFor:F3}: no break effect on player {victim} (a shot broke the armour; total {_classicBareBreaks})");
+    }
+}
