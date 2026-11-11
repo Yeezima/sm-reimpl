@@ -233,6 +233,9 @@ public sealed class TfwFire
     /// <summary>An enemy is burning from a plasma hit (owner, 2026-11-08): <paramref name="enemy"/> at <paramref name="at"/>; the clients draw the flame for the burn's length.</summary>
     internal void Burn(uint tick, ushort enemy, Vector3 at) => Add(new TfwFireEvent(TfwFireKind.Burn, tick, enemy, at));
 
+    /// <summary>A drop pod called by <paramref name="caller"/> lands at <paramref name="at"/> on <paramref name="tick"/> (<paramref name="gone"/> false), or its wreck goes on <paramref name="tick"/> (true): the clients draw the fall, trail, impact and doors, and take the wreck away.</summary>
+    internal void Pod(uint tick, int caller, Vector3 at, bool gone) => Add(new TfwFireEvent(TfwFireKind.Pod, tick, (ushort)caller, at, gone ? Vector3.UnitX : default));
+
     void Add(in TfwFireEvent e)
     {
         if (_events.Count >= TfwFireRules.MaxEvents) return;

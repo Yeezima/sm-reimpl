@@ -133,10 +133,57 @@ public sealed partial class CreatorView
         if (MusouOwnPage) own = true;   // the Librarian's and the Heretic's pages: no slot actions, step keys on the page's own steps
     }
 
+    // ---- the support ability (owner, 2026-11-12; docs/drop-pod-assault.md) ----
+
+    /// <summary><c>--no-drop-pod</c> (restore switch, owner 2026-11-12): the customizer has no SUPPORT step and B keeps calling the artillery strike (the same flag NetworkView reads); the pages look as before the step.</summary>
+    static readonly bool MusouNoSupportStep = OS.GetCmdlineUserArgs().Contains("--no-drop-pod");
+
+    /// <summary>The Librarian's steps shown: all of them, or without SUPPORT under the restore switch.</summary>
+    static int LibrarianStepCount => MusouCustomizer.LibrarianSteps.Count - (MusouNoSupportStep ? 1 : 0);
+
+    /// <summary>The marines' page shows SUPPORT as its fifth step (after PERKS: LOOK is the Ork's, and the Ork has no Musou page); the Librarian's own count already holds it.</summary>
+    partial void ExtrasStepShown(int step, ref bool shown)
+    {
+        if (MusouLayout && !MusouOwnPage && !IsOrkOpen) shown = step <= (int)Step.Perks || (step == (int)Step.Support && !MusouNoSupportStep);
+    }
+
+    /// <summary>The support the open loadout calls on B: its entry in the Musou extras (the Librarian's own key on his page).</summary>
+    MusouSupport OpenSupport() => MusouSlots.SupportOf(_session.Working, _musouEntry == MusouCustomizerEntry.Librarian ? MusouSlots.LibrarianSupportKey : MusouSlots.SupportKey(_open));
+
+    /// <summary>The SUPPORT step of the marines' page: the same two rows the Librarian's page has; the choice is stored per loadout (a DEFAULTS loadout by its role).</summary>
+    partial void ExtrasSupportRows(List<Button> rowButtons, Action<string> heading, Action<string, Color?> note)
+    {
+        var chosen = OpenSupport();
+        foreach (var section in MusouCustomizer.SupportRows(chosen))
+        {
+            heading(section.Heading);
+            foreach (var item in section.Rows)
+            {
+                var r = item;
+                var row = new UiKit.Row(r.Title, r.Selected ? ["CHOSEN"] : [], r.Selected, true, r.Selected ? UiKit.Glyph.Kind.Check : null) { Focused = () => ShowTextCard(r.Title, r.Description, r.Selected ? "Chosen for this loadout. SAVE keeps it." : "Choose it for this loadout.", UiKit.Grey) };
+                row.Pressed += () => ChooseSupport(r);
+                _list.AddChild(row);
+                rowButtons.Add(row);
+            }
+        }
+        note(IsDefaults ? "DEFAULTS: the choice is kept for this class's defaults. Every loadout and the Librarian have their own." : "Every loadout has its own support.", null);
+    }
+
+    /// <summary>A SUPPORT row pressed: the open loadout's entry (the Librarian's on his page), kept by SAVE.</summary>
+    void ChooseSupport(MusouRow row)
+    {
+        if (row.Action is not { } action || !action.StartsWith("support:")) return;
+        var next = action["support:".Length..] == MusouSlots.SupportName(MusouSupport.DropPod) ? MusouSupport.DropPod : MusouSupport.Artillery;
+        string key = _musouEntry == MusouCustomizerEntry.Librarian ? MusouSlots.LibrarianSupportKey : MusouSlots.SupportKey(_open);
+        if (next != OpenSupport()) _session.Edit(p => MusouSlots.WithSupport(p, key, next));
+        Say($"{row.Title}: B calls it for this loadout. SAVE keeps it.", 4.0);
+        Refresh(focusList: false);
+    }
+
     partial void ExtrasStepCount(ref int count)
     {
         if (!MusouOwnPage) return;
-        count = _musouEntry == MusouCustomizerEntry.Librarian ? MusouCustomizer.LibrarianSteps.Count : 1;
+        count = _musouEntry == MusouCustomizerEntry.Librarian ? LibrarianStepCount : 1;
     }
 
     // ---- the pages ----
@@ -161,6 +208,7 @@ public sealed partial class CreatorView
             LeaveLibrarianSlot();
             MusouShowChrome();
             _preview.MusouLibrarian = false;
+            if (MusouLayout && !MusouNoSupportStep && _stepButtons.Count > (int)Step.Support) _stepButtons[(int)Step.Support].Text = $"{(int)Step.Look + 1}  {StepNames[(int)Step.Support]}";   // 5  SUPPORT (the hidden LOOK is the Ork's)
             return;
         }
         handled = true;
@@ -238,7 +286,7 @@ public sealed partial class CreatorView
         _summary.Text = MusouCustomizer.LibrarianSummary(activeName, LibrarianData, picks);
         _summary.TooltipText = _summary.Text;
 
-        int count = MusouCustomizer.LibrarianSteps.Count;
+        int count = LibrarianStepCount;
         if ((int)_step >= count) _step = Step.Class;
         StepsPanel.Visible = true;
         for (int i = 0; i < _stepButtons.Count; i++)
@@ -265,7 +313,7 @@ public sealed partial class CreatorView
         _deployButton.Disabled = MusouLibrarianDeploy is null;
         _deployButton.TooltipText = MusouLibrarianDeploy is null ? "Pick him in the Stormbird: Esc, PLAY AS LIBRARIAN" : "Become the Librarian now (in the Stormbird)";
 
-        MusouList(MusouCustomizer.LibrarianStep((int)_step, activeName, LibrarianData, picks), focusList, picks is null ? MusouCustomizer.LibrarianNote : MusouCustomizer.LibrarianOwnNote);
+        MusouList(MusouCustomizer.LibrarianStep((int)_step, activeName, LibrarianData, picks, MusouSlots.SupportOf(profile, MusouSlots.LibrarianSupportKey)), focusList, picks is null ? MusouCustomizer.LibrarianNote : MusouCustomizer.LibrarianOwnNote);
 
         _preview.MusouLibrarian = true;
         _preview.MusouLibrarianMelee = picks?.Chosen.Melee is { } melee ? "sm_" + melee : null;   // his own melee choice (stored without the side prefix), else the force sword
@@ -381,6 +429,7 @@ public sealed partial class CreatorView
         if (row.Action is not { } action || action.IndexOf(':') is not (> 0 and var colon)) return;
         string what = action[..colon], arg = action[(colon + 1)..];
         string? name = arg.Length == 0 ? null : arg;
+        if (what == "support") { ChooseSupport(row); return; }   // his own key, whatever his loadout holds
         const int slot = MusouSlots.LibrarianSlot;
         if (_session.Working.ClassAt(slot) is not { } current) return;
         CustomizationProfile Put(CustomizationProfile p, CustomClass next) =>

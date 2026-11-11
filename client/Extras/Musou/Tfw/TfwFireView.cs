@@ -28,7 +28,7 @@ namespace SmClient;
 public partial class NetworkView
 {
     /// <summary>The effects this view plays (<c>master_fx</c>).</summary>
-    static readonly string[] FxNames = ["artillery_explosion", "oob_explosion_huge", "thunderhawk_jet", "heavy_bolter_thunderhawk_tracer"];
+    static readonly string[] FxNames = ["artillery_explosion", "oob_explosion_huge", "thunderhawk_jet", "heavy_bolter_thunderhawk_tracer", "drop_pod_trail", "droppod_land_close", "drop_pod_landing_destruction", "droppod_engine_cooling_down"];   // the last four: the drop pod assault (NetworkView.TfwDropPod.cs)
     /// <summary>A Thunderhawk run's flyby (paused, played only by <see cref="TfwRunBegins"/>), best first: the aircraft's own (needs the campaign's bank), then the Valkyrie's.</summary>
     static readonly string[] FlybyEvents = ["play_thunderhawk_pass", "play_ig_valkyrie_flyby", "play_valkyrie_s13_flyby"];
     /// <summary>Shells: near, far.</summary>
@@ -105,6 +105,7 @@ public partial class NetworkView
         if (Lean || _client is null || _config is null) { _tfwFireIn.Clear(); return; }
         TfwFireTestFrame(war, delta);
         TfwOrbitalTestFrame(war);
+        TfwPodTestFrame(war);   // NetworkView.TfwDropPod.cs
         bool draw = DisplayServer.GetName() != "headless" && !_musouNoDraw;
         TfwFireAssets(draw);
         TfwFireBanks();
@@ -116,6 +117,7 @@ public partial class NetworkView
                 case TfwFireKind.Shell: _tfwShells.Add((f, false)); _tfwOrbitalSeen.Add(f); break;
                 case TfwFireKind.Run: TfwRunBegins(f, tick); break;
                 case TfwFireKind.Round: _tfwRoundsDue.Add((f, ToGodot(f.To))); break;
+                case TfwFireKind.Pod: TfwPodRecord(f); break;   // NetworkView.TfwDropPod.cs
             }
         _tfwFireIn.Clear();
         int rate = Math.Max(1, _config.TickRate);
@@ -123,6 +125,7 @@ public partial class NetworkView
         TfwRoundsFrame(tick);
         TfwAircraftFrame(tick, rate, (float)delta);
         TfwShockFrame();
+        TfwPodsFrame(tick, rate, TfwHudModel.InBattle(war.Phase) || war.Phase == TfwRunPhase.Hub);   // NetworkView.TfwDropPod.cs
         _tfwCloud?.Frame((float)delta);
         TfwWarSoundFrame(war);
         TfwBattleAmbienceFrame(war);   // musou/battle-ambience: the far battle (NetworkView.TfwBattleAmbience.cs)

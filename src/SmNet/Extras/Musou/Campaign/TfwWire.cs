@@ -95,7 +95,7 @@ public static class TfwWire
     // ---------------------------------------------------------------- commands (message kind 17)
 
     /// <summary>Whether a command names a place (the payload is <see cref="PointCommandBytes"/> long).</summary>
-    public static bool HasPoint(TfwCommand command) => command is TfwCommand.Hold or TfwCommand.Attack or TfwCommand.FireTest or TfwCommand.Orbital;
+    public static bool HasPoint(TfwCommand command) => command is TfwCommand.Hold or TfwCommand.Attack or TfwCommand.FireTest or TfwCommand.Orbital or TfwCommand.DropPod;
 
     /// <summary>The length of a command's payload.</summary>
     static int CommandLength(TfwCommand command) => HasPoint(command) ? PointCommandBytes : command == TfwCommand.ChooseReward ? OfferCommandBytes : CommandBytes;

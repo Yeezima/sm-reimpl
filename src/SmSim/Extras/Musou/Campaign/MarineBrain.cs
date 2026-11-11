@@ -79,7 +79,8 @@ public static class AllyRules
 public enum MarineOrder : byte { Follow = 0, Hold = 1, Attack = 2 }
 
 /// <summary>What a puppet is: a player's retainer (takes that player's orders, revives it, recovers 180 war seconds after a death), or a Marine of the allied pair (autonomous, back in 30 s).</summary>
-public enum MarineRole : byte { Retainer = 0, Ally = 1 }
+/// <summary>A retainer, one of the allied pair, or a Marine a called drop pod brought (<see cref="TfwPod"/>; Musou Mode's second support ability).</summary>
+public enum MarineRole : byte { Retainer = 0, Ally = 1, Pod = 2 }
 
 /// <summary>One AI Marine (a real World player, <see cref="TfwContracts.PuppetIdFirst"/> up): what the brain remembers between ticks.</summary>
 public sealed class Marine(int id, int slot, string name, MarineRole role = MarineRole.Ally, int owner = 0)
@@ -110,6 +111,9 @@ public sealed class Marine(int id, int slot, string name, MarineRole role = Mari
     /// <summary>Dead, and its death already dealt with; ticks until it is back.</summary>
     public bool Down { get; set; }
     public int RespawnTicks { get; set; }
+    /// <summary>A pod Marine's pod (null for the others), and the ticks since he fell (0: standing).</summary>
+    public TfwPod? Pod { get; set; }
+    public int FallenTicks { get; set; }
 }
 
 /// <summary>Where a puppet wants to be: within <see cref="Near"/> to <see cref="Far"/> of <see cref="Point"/>, flat (it stands inside the band, and backs off under it). <see cref="Via"/>: the next place on the way there (the walking graph's; none: straight).</summary>

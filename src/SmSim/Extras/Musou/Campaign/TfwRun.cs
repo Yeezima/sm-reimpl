@@ -151,6 +151,7 @@ public sealed partial class TfwRun
                 case TfwCommand.RangeGo: RangeGo(w, player); break;   // TfwRun.Range.cs
                 case TfwCommand.RangeBack: RangeBack(w, player); break;
                 case TfwCommand.Orbital: w.TfwOrbital(player, c.Point); break;   // World.TfwFire.cs: the server decides
+                case TfwCommand.DropPod: w.TfwDropPod(player, c.Point); break;   // World.TfwDropPod.cs: the server decides
                 case TfwCommand.FireTest: if (Fire.TestCommands) w.TfwFireForTests((c.Argument & 1) != 0, TfwFireRules.RunsEnabled && (c.Argument & 2) != 0, Field.Clamp(c.Point), w.TfwFireTestHeading(player, c.Point)); break;   // test aid (SM_TFW_FIRE_TEST)
                 default: Order(w, player, c); break;   // Follow, Hold and Attack: to the sender's retainer (restored 2026-11-08; the allied pair takes no order)
             }

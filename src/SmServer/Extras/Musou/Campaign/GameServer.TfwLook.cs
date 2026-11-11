@@ -17,7 +17,7 @@ public sealed partial class GameServer
     void TfwPuppetAppearance(int playerId, ref (ushort Version, Race Race, AppearanceCode Code)? look)
     {
         if (World.Tfw is not { } run || !TfwContracts.IsPuppet(playerId) || run.MarineOf(playerId) is not { } marine) return;
-        int wearer = marine.Role == MarineRole.Retainer ? marine.Owner : TfwRun.HostOf(World.Players.Keys);
+        int wearer = marine.Role != MarineRole.Ally ? marine.Owner : TfwRun.HostOf(World.Players.Keys);
         if (PeerOf(wearer) is not { } host || host.Appearance.Race != Race.SpaceMarines || host.Appearance.Version == 0) return;
         look = (host.Appearance.Version, Race.SpaceMarines, Published(host.Appearance));
     }

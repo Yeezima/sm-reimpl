@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3076 spec table rows: **2263 tagged**, 559 not tagged (read from data with high confidence), 254 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 685 rows of the changes document.
+Scanned 3092 spec table rows: **2276 tagged**, 561 not tagged (read from data with high confidence), 255 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 685 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,36 +50,36 @@ Scanned 3076 spec table rows: **2263 tagged**, 559 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 22 | 13 | 13 | 12 | 7 |
-| Core simulation (provisional values) | 677 | 638 | 480 | 180 | 1 |
+| Core simulation (provisional values) | 690 | 650 | 492 | 182 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 235 | 224 | 126 | 63 | 0 |
-| **All areas** | **2263** | 1995 | 1689 | 711 | 38 |
+| **All areas** | **2276** | 2007 | 1701 | 713 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1284 |
-| confidence: low | 809 |
-| confidence: medium | 751 |
-| notes: ours | 412 |
-| kind: interpretation | 379 |
+| kind: ours | 1295 |
+| confidence: low | 815 |
+| confidence: medium | 757 |
+| notes: ours | 413 |
+| kind: interpretation | 380 |
 | notes: estimate | 181 |
 | kind: estimate | 156 |
 | confidence: none (low) | 129 |
-| kind: provisional | 102 |
+| kind: provisional | 103 |
 | kind: user's knowledge | 56 |
 | notes: provisional | 41 |
 | kind: choice | 38 |
 | section: provisional | 38 |
 | section: placeholder | 35 |
 | notes: user's knowledge | 26 |
+| kind: approximation | 25 |
 | notes: interpretation | 25 |
-| kind: approximation | 24 |
 | kind: placeholder | 22 |
 | notes: placeholder | 20 |
+| notes: open question | 19 |
 | kind: gap (not reproduced) | 18 |
-| notes: open question | 18 |
 | notes: not reproduced (gap) | 13 |
 | notes: gap (not reproduced) | 10 |
 | kind: public (unverified) | 9 |
@@ -2311,7 +2311,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (677)
+### Core simulation (provisional values) (690)
 
 *Spec section: Provisional values in use*
 
@@ -2645,6 +2645,24 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-82ACA5B8` | Burst sound | within 130 m one of `play_sm_missile_explosion`, `play_powersource_explode_distant`, `play_ork_rokk_distant_explosion` in turn at +4 dB (+8 dB and the missile's on top within 45 m); past that a far one; late by the distance. `play_big_damage_large_explosion`… (dB, m) | kind: ours; confidence: low | ours | Burst sound: compare with SM1 by listening A/B at the same distance and state. Ours: within 130 m one of play_sm_missile_explosion… | ☐ |
 | `R-26C2FF49` | Flyby (paused) | `play_thunderhawk_pass` from the campaign's bank `rgn_s27_r500` (loaded at run time only with the runs on; it resolved), 2.5 s into the run and stopped at its end, with `play_sm_thunderhawk_engine`; else `play_ig_valkyrie_flyby` (s) | kind: ours; confidence: medium | the blueprint's `flybysound`; the timing ours | Flyby (paused): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: play_thunderhawk_pass from the campaign's bank rgn_s27_r500 (loaded… | ☐ |
 | `R-1E92B5E4` | The war round the walls | a far sound every 0.5 to 2.2 s from a random bearing, 22 to 36 m from the listener: far explosions, a titan's step, heavy bolters (no flyby: the owner took the far Valkyries out, 2026-11-01); -22 dB and LPF 62 (about 900 Hz) on top of the data's mix in a… (dB, s, m) | kind: ours; confidence: low | the owner's item 10; the mix ours | The war round the walls: compare with SM1 by feel or video. Ours: a far sound every 0.5 to 2.2 s from a random bearing, 22 to 36 m from… | ☐ |
+
+*Spec section: Added content: Musou Mode: drop pod assault (`docs/drop-pod-assault.md`, `TfwDropPod.cs`, `World.TfwDropPod.cs`, `NetworkView.TfwDropPod.cs`; `TfwRules.Version` 71, `MusouSim.Version` and `Protocol.Version` unchanged)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-B6850A96` | Call conditions | those of the artillery strike (battle on, player in it and alive, or at the Firing Range; point on the battlefield) and no pod of the player's out, 4 free puppet ids, the point 10 m or more from the caller (m) | kind: ours; confidence: medium | the strike's rules; the pod's limits ours | Call conditions: compare with SM1 by measuring on a flat spot of the same map. Ours: those of the artillery strike (battle on, player in it and alive, or… | ☐ |
+| `R-A73C1F3A` | Cooldown | 60 s per player in a battle, shared with the artillery strike; none at the Firing Range; starts only with an accepted call (s) | kind: ours; confidence: low | "the same as the artillery strike" (the lead's default) | Cooldown: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 60 s per player in a battle, shared with the artillery strike; none… | ☐ |
+| `R-1A32283D` | Fall | the touchdown 3.0 s after the call ("a few seconds later"); the client draws the pod from 90 m up over the last 1.5 s, accelerating (about 120 m/s at the ground) (s, m) | kind: ours; confidence: low | the owner ("falls rapidly"); numbers ours | Fall: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the touchdown 3.0 s after the call ("a few seconds later"); the… | ☐ |
+| `R-ED6DA40F` | Doors | the mesh has 5 door blocks (0 to 4); their shut pose is read from the object file's rig (`RIG_DoorNN` and the mesh node under it, composed: five panels 5.5 m tall on a ring of 2.1 m; the Euler order X, Y, Z is an interpretation, judged on the picture); at… (s, degrees, m) | kind: interpretation; kind: provisional; kind: approximation; confidence: low | the owner ("the doors drop open"); the pose the install's | Doors: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the mesh has 5 door blocks (0 to 4); their shut pose is read from the… | ☐ |
+| `R-4164E372` | Trail, impact, sounds | the install's `drop_pod_trail` on the falling pod, `droppod_land_close` and `drop_pod_landing_destruction` at touchdown, `droppod_engine_cooling_down` on the wreck 25 s, the blast cloud's dust and a 12 m crater; `play_droppod_incoming` 2.4 s before touchdown… (s) | confidence: medium; notes: ours | original effects and events (master_fx, bank `vehicles`); timing ours | Trail, impact, sounds: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the install's drop_pod_trail on the falling pod, droppod_land_close… | ☐ |
+| `R-A7C1071C` | Shake | 0.12 rad at 0 m, falling to none at 90 m (the artillery's is 0.05 at 0 m and 110 m, capped 0.07); none under Reduce motion (rad, m) | kind: ours; confidence: low | the owner ("shakes hard"); values ours | Shake: compare with SM1 by feel or video. Ours: 0.12 rad at 0 m, falling to none at 90 m (the artillery's is 0.05 at… | ☐ |
+| `R-656A638A` | Touchdown on enemies | every ordinary enemy within 6 m dies (a Barrage death of nobody, x1.2 for a human caller), a boss takes 30; no player, AI Marine or Guardsman is hurt (m) | kind: ours; confidence: low; notes: open question | the owner did not say: open question | Touchdown on enemies: compare with SM1 by measuring on a flat spot of the same map. Ours: every ordinary enemy within 6 m dies (a Barrage death of nobody, x1.2… | ☐ |
+| `R-782758DE` | The Marines | 4 AI Marines (`MarineRole.Pod`), the Tactical class's default loadout, wearing the caller's look, stepping out 1.0 s after the doors (0.6 s), on a ring of 5 m round the pod (s, m) | kind: ours; confidence: medium | the owner (4 tactical marines); the rest ours | The Marines: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 4 AI Marines (MarineRole.Pod), the Tactical class's default loadout… | ☐ |
+| `R-4FE75DCA` | The fight | 30 s from stepping out: each holds his place and shoots what he sees within 25 m of it (the retainer's Hold); the AI Marines' damage scale (a tenth of every hit) applies (s, m) | kind: ours; confidence: medium | the owner (30 s) | The fight: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 30 s from stepping out: each holds his place and shoots what he sees… | ☐ |
+| `R-C638CA14` | The retreat | then each sprints by the walking graph to the battle's Imperial HQ (`Layout.Hq`; the Range's start at the range) without fighting and is gone within 6 m of it, or after 40 s wherever he is (m, s) | kind: ours; confidence: medium | the owner ("retreating to the imperial home base HQ and then disappearing"); the radius and 40 s ours | The retreat: compare with SM1 by feel or video. Ours: then each sprints by the walking graph to the battle's Imperial HQ… | ☐ |
+| `R-59BE815F` | A fallen Marine | cleared 3 s after he falls, never replaced; a squad with none left ends at once; the wreck stays 2 s after the last has gone, then goes (a second Pod record) (s) | kind: ours; confidence: low | ours | A fallen Marine: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: cleared 3 s after he falls, never replaced; a squad with none left… | ☐ |
+| `R-4D96CE2A` | Limits | one pod per player at a time; the puppet ids (12) are shared with the allied pair (2) and the retainers (up to 4 humans), so with 4 humans one squad fits; a battle's end removes pods and Marines | kind: ours; confidence: medium | ours | Limits: compare with SM1 by feel or video. Ours: one pod per player at a time; the puppet ids (12) are shared with the… | ☐ |
+| `R-C78C3B2F` | Switch | the server's `TfwCombatRules.DropPods` false refuses the command; the client's `--no-drop-pod` keeps B on the artillery strike and hides the customizer's SUPPORT step (the pages look as before it) | kind: ours | the lead's restore pattern | Switch: compare with SM1 by feel or video. Ours: the server's TfwCombatRules.DropPods false refuses the command; the… | ☐ |
 
 *Spec section: Flying hitboxes, the view fraction, the grenade bounce and the bots' damage scale (fix/hitboxes-grenades-bots; protocol 37)*
 
@@ -4957,6 +4975,7 @@ Test aids, probes, demo and capture tooling, and engineering decisions (protocol
 | `R-DBF9DB11` | Elite bars: beyond the budget | Added content: Musou Mode: retainer paint, the class change in the Stormbird and the elites' bars (pass 2, M7 and M11; no protocol change, `TfwRules.Version` 15) |
 | `R-2884CE4D` | Test aids | Added content: Musou Mode: retainer paint, the class change in the Stormbird and the elites' bars (pass 2, M7 and M11; no protocol change, `TfwRules.Version` 15) |
 | `R-6D0F2490` | Wire | Added content: Musou Mode: fire support (M8, M9: `TfwFire`, `World.TfwFire.cs`, `TfwFireView.cs`; no protocol change, `TfwRules.Version` 15) |
+| `R-A0A81B25` | Wire | Added content: Musou Mode: drop pod assault (`docs/drop-pod-assault.md`, `TfwDropPod.cs`, `World.TfwDropPod.cs`, `NetworkView.TfwDropPod.cs`; `TfwRules.Version` 71, `MusouSim.Version` and `Protocol.Version` unchanged) |
 | `R-3C893894` | Test aids | Death effects (F-D1; client only, not simulated, no protocol change) |
 | `R-54698497` | `--bot-damage-scale f` | Flying hitboxes, the view fraction, the grenade bounce and the bots' damage scale (fix/hitboxes-grenades-bots; protocol 37) |
 | `R-5601E474` | Protocol 37 (on top of main's 36) | Flying hitboxes, the view fraction, the grenade bounce and the bots' damage scale (fix/hitboxes-grenades-bots; protocol 37) |

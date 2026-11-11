@@ -18,13 +18,14 @@ namespace SmClient.Customizer;
 public sealed partial class CreatorView : Control
 {
     // ui/customizer-ork: LOOK is the Ork Boy's fifth step (his look instead of the armour and colour editors); a marine's look is the appearance editor.
-    enum Step { Class, Weapons, Equipment, Perks, Look }
-    static readonly string[] StepNames = ["CLASS", "WEAPONS", "EQUIPMENT", "PERKS", "LOOK"];
+    // musou/support (owner, 2026-11-12): SUPPORT is a sixth, Musou Mode's own step (the marines' page shows it after PERKS, the Librarian's page has it in its own count); Classic never shows it.
+    enum Step { Class, Weapons, Equipment, Perks, Look, Support }
+    static readonly string[] StepNames = ["CLASS", "WEAPONS", "EQUIPMENT", "PERKS", "LOOK", "SUPPORT"];
     int StepCount
     {
         get
         {
-            int count = IsOrkOpen ? StepNames.Length : StepNames.Length - 1;
+            int count = IsOrkOpen ? (int)Step.Support : (int)Step.Look;
             ExtrasStepCount(ref count);   // EXTRAS-HOOK: an added page's own steps (Musou Mode: the Librarian's five)
             return count;
         }
@@ -227,7 +228,7 @@ public sealed partial class CreatorView : Control
 
     public void OpenStep(string name)
     {
-        for (int i = 0; i < StepNames.Length; i++) if (StepNames[i].Equals(name, StringComparison.OrdinalIgnoreCase)) { _step = (Step)i; Refresh(false); return; }
+        for (int i = 0; i < StepNames.Length; i++) if (StepNames[i].Equals(name, StringComparison.OrdinalIgnoreCase) && StepShown(i)) { _step = (Step)i; Refresh(false); return; }   // only a step the page shows: Classic never reaches SUPPORT
     }
 
     /// <summary>The step shown now (test aid).</summary>
@@ -423,7 +424,7 @@ public sealed partial class CreatorView : Control
         for (int i = 0; i < _stepButtons.Count; i++)
         {
             _stepButtons[i].SetPressedNoSignal((int)_step == i);
-            _stepButtons[i].Visible = i < StepCount;
+            _stepButtons[i].Visible = StepShown(i);
         }
         if (_lookCaption is not null) _lookCaption.Visible = !ork;
         if (_appearanceStepButton is not null) _appearanceStepButton.Visible = !ork;
@@ -530,6 +531,7 @@ public sealed partial class CreatorView : Control
             // Combat stimulants are simulated since perks/inert-2 (SmSim/Stims.cs; Musou Mode too): the old "not simulated yet" note is gone. An item that is not simulated says so on its own row.
         }
         else if (_step == Step.Look && IsOrkOpen) AddOrkLooks(rowButtons, Heading, Note);
+        else if (_step == Step.Support) ExtrasSupportRows(rowButtons, Heading, Note);   // EXTRAS-HOOK: Musou Mode's SUPPORT step
         else AddPerks(rowButtons, Heading, Note);
         if (IsOrkOpen && _step is Step.Weapons or Step.Equipment) Note("The Ork Boy carries these and nothing else. He fights for either side: the lobby menu's SIDE picks which.");
 
@@ -1018,8 +1020,18 @@ public sealed partial class CreatorView : Control
     void MoveStep(int delta)
     {
         if (IsEmpty && !AddedPage) return;   // an empty slot has only its class list; an added page has steps of its own whatever the hidden slot holds
-        _step = (Step)(((int)_step + delta + StepCount) % StepCount);
+        int n = StepNames.Length, s = (int)_step;
+        for (int k = 0; k < n; k++) { s = (s + delta + n) % n; if (StepShown(s)) break; }
+        _step = (Step)s;
         Refresh(focusList: false);
+    }
+
+    /// <summary>Whether step button <paramref name="step"/> shows: the steps below <see cref="StepCount"/>, except where an added page lays them out otherwise (<see cref="ExtrasStepShown"/>).</summary>
+    bool StepShown(int step)
+    {
+        bool shown = step < StepCount;
+        ExtrasStepShown(step, ref shown);   // EXTRAS-HOOK: Musou Mode's marines page adds SUPPORT after PERKS (LOOK is the Ork's)
+        return shown;
     }
 
     /// <summary>Focuses the first control (screens and tests).</summary>
@@ -1071,6 +1083,12 @@ public sealed partial class CreatorView : Control
 
     /// <summary>The number of steps (the step buttons, PageUp/PageDown).</summary>
     partial void ExtrasStepCount(ref int count);
+
+    /// <summary>EXTRAS-HOOK: whether step button <paramref name="step"/> shows (default: it is below the step count).</summary>
+    partial void ExtrasStepShown(int step, ref bool shown);
+
+    /// <summary>EXTRAS-HOOK: the rows of the SUPPORT step (Musou Mode's second support ability; owner 2026-11-12). Never called in Classic: the step is never shown there.</summary>
+    partial void ExtrasSupportRows(List<Button> rowButtons, Action<string> heading, Action<string, Color?> note);
 
     /// <summary>APPEARANCE...: <paramref name="handled"/> true when added content opened a look of its own.</summary>
     partial void ExtrasOpenAppearance(ref bool handled);
