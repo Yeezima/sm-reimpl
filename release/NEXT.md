@@ -11,12 +11,11 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 -->
 ### Both modes
 - More of the original's own movement animations now play: a quick half-speed stop when you let go of sprint soon after starting it, a 180-degree pivot when you sprint off in the direction behind you, and the thunder hammer's own stop out of a sprint.
+- Pressing the equipment key with combat stims now uses them far more reliably in every mode, Classic matches too: the press is remembered for half a second while a swing or a charge finishes, and a hit in the first moment of the use no longer cancels it.
+- This build does not play with earlier ones (a new network version): everyone must update before joining a game.
 
 ### Musou Mode
 - A new SUPPORT step in the customizer (Musou Mode's pages: the marines' loadouts and the Librarian) chooses what B calls, one choice for each loadout. The first is the artillery strike, as before. The second is a drop pod assault: B marks a point with the laser, a few seconds later a drop pod falls from the sky in fire and smoke and shakes the ground, its doors drop open and four Tactical Marines fight for 30 seconds, then retreat to the Imperial base and vanish. One pod at a time, and the same one-minute wait as the artillery strike. This build does not play with earlier ones (a new network version): everyone must update.
-- Pressing the equipment key with combat stims now uses them far more reliably in every mode, Classic matches too: the press is remembered for half a second while a swing or a charge finishes, and a hit in the first moment of the use no longer cancels it.
-- This build does not play with earlier ones (a new network version): everyone must update before joining a game.
-### Musou Mode
 - The made-up background yelling is gone (the distant Ork mobs shouting and the armies' war cries); only Orks and Marines actually on the field make noise, and their voices now carry about three quarters farther, so you hear everyone from further away.
 - Melee attacks reach 20 percent further for every weapon, including the power spear's sweeps.
 - The Librarian can now zoom in with the aim button like every other class (the same zoom, the same speed). He can still cast while zoomed.
