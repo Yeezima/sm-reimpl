@@ -64,10 +64,9 @@ builds/
 TestResults/
 
 # Claude Code session data and agent worktrees (local only)
-.claude/*
-!.claude/settings.json
+.claude/
 CLAUDE.local.md
-# .mcp.json (the graphify server only) and .claude/settings.json (enabledMcpjsonServers) are committed; see docs/commands.md "Graphify"
+# .mcp.json (the graphify server only) is committed but not pre-approved: each checkout approves it locally (docs/commands.md "Graphify")
 
 # Graphify index (docs/commands.md): local, rebuilt by graphify.cmd index
 graphify-out/

@@ -29,7 +29,7 @@ function Invoke-Clean([string]$exe, [string[]]$arguments) {
   # Inherited stdio (no redirection), so MCP bytes pass through untouched.
   $psi = New-Object System.Diagnostics.ProcessStartInfo
   $psi.FileName = $exe
-  $psi.Arguments = ($arguments | ForEach-Object { if ($_ -match '[\s"]' -or $_ -eq '') { '"' + ($_ -replace '"', '\"') + '"' } else { $_ } }) -join ' '
+  $psi.Arguments = ($arguments | ForEach-Object { if ($_ -match '[\s"]' -or $_ -eq '') { '"' + (($_ -replace '"', '\"') -replace '(\\+)$', '$1$1') + '"' } else { $_ } }) -join ' '
   $psi.WorkingDirectory = $repo
   $psi.UseShellExecute = $false
   $psi.Environment.Clear()
@@ -49,7 +49,8 @@ function Invoke-Clean([string]$exe, [string[]]$arguments) {
 }
 
 function Git-Out([string[]]$a) {
-  $o = & git -C $repo @a 2>$null
+  $old = $ErrorActionPreference; $ErrorActionPreference = 'Continue'   # PS 5.1: native stderr under Stop would throw
+  try { $o = & git -C $repo @a 2>$null } catch { $o = $null } finally { $ErrorActionPreference = $old }
   if ($LASTEXITCODE -ne 0) { return $null }
   return ($o | Select-Object -First 1)
 }
@@ -87,7 +88,8 @@ switch -Regex ($Command) {
     }
     $have = $null
     if (Test-Path $gexe) {
-      $have = & $py -c "import importlib.metadata as m; print(m.version('graphifyy'))" 2>$null
+      $old = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+      try { $have = & $py -c "import importlib.metadata as m; print(m.version('graphifyy'))" 2>$null } catch { $have = $null } finally { $ErrorActionPreference = $old }
     }
     if ($have -ne $Pin) {
       $rc = Invoke-Clean $py @('-m', 'pip', 'install', '--disable-pip-version-check', "graphifyy[mcp]==$Pin")

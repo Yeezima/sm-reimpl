@@ -185,7 +185,8 @@ $SourceExclude = @(
     'CLAUDE.md', 'docs', 'spec', 'tests', '.github', 'config',
     'src/SmTool', 'smtool.cmd', 'smtool.sh', 'SmReimpl.slnx', 'faithful-build.cmd',
     'tools/discover.ps1', 'discover.cmd', 'tools/m1.ps1', 'm1.cmd', 'tools/movie.ps1', 'movie.cmd', 'tools/bots.ps1', 'bots.cmd',
-    'tools/release', 'release.cmd', 'ship.cmd', 'test-and-mark.cmd', 'release'
+    'tools/release', 'release.cmd', 'ship.cmd', 'test-and-mark.cmd', 'release',
+    'graphify.cmd', 'tools/graphify.ps1', '.graphifyignore', '.mcp.json'
 )
 # The ship's "What's new" file and its archive (repository paths). Feature branches add tester-facing bullets to NEXT.md as they merge.
 $NextFile = Join-Path $RepoRoot 'release\NEXT.md'
