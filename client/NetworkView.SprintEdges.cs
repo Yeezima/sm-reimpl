@@ -57,6 +57,7 @@ public partial class NetworkView
         public readonly SprintStopTracker Stop = new();
         public readonly SprintStartTracker Start = new();
         public readonly SprintTurnTracker Turn = new();      // the 180-degree turn into the sprint (install transitions)
+        public double TurnStanding = double.NaN;             // the standing the running or last turn belongs to (SprintStartTracker.StandAt then)
         public SprintEdgeClip? TurnClip;                     // the clip the running turn shows
         public float StandOffset;                            // the body's angle to the aim at the last frame it stood (radians, signed)
         public SprintEdgeClip? StopClip;
@@ -124,7 +125,8 @@ public partial class NetworkView
 
     /// <summary>The sprint edges of a marine's sprint family and hand (the pistol's loop in the rifle graph has its own stop).</summary>
     SprintEdges? EdgesOf(PlayerState s, SprintFamily family) =>
-        EdgeData()?.For(family, family == SprintFamily.Rifle && HipFamilyOf(s) == HipFireWeaponClass.Pistol);
+        NoExtraTransitions && family == SprintFamily.Hammer ? null   // the hammer's edges are an install transition: with the switch on it has none, as before
+        : EdgeData()?.For(family, family == SprintFamily.Rifle && HipFamilyOf(s) == HipFireWeaponClass.Pistol);
 
     /// <summary>A family's stop clip when the data is in and the rig has it (else null: the stop is not played and the sprint loop is not ended early for it).</summary>
     SprintEdgeClip? StopClipOf(PlayerState s, SprintFamily family) =>
@@ -232,7 +234,9 @@ public partial class NetworkView
         if (NoExtraTransitions || !SimSprintStopping(s)) return null;
         var edges = EdgesOf(s, e.Family);
         if (edges?.Interrupt is not { } clip || !_edgeClipsInRig.Contains(clip.Clip)) return null;
-        return e.Start.InStartWindow(_connectedFor, edges.StartWindow) ? clip : null;
+        // A sprint that began with the 180 turn leaves through the turn state's own interrupt window (the plain start's when the data has none).
+        var window = e.TurnClip is not null && e.TurnStanding == e.Start.StandAt && edges.TurnWindow is { } tw ? tw : edges.StartWindow;
+        return e.Start.InStartWindow(_connectedFor, window) ? clip : null;
     }
 
     bool SprintStopPlace(CharacterViewer character, PlayerState s, SprintEdgeTrack e)
@@ -308,7 +312,7 @@ public partial class NetworkView
             var track = LocoOf(s.PlayerId);
             float live = track.Body.Valid ? SprintTurnTracker.Offset(track.Body.Yaw, track.AimYaw) : e.StandOffset;
             e.Turn.Begin(live, (float)Math.Min(e.Start.SinceStand(_connectedFor), SprintStartTracker.ArmSeconds));
-            e.TurnClip = turn;
+            e.TurnClip = turn; e.TurnStanding = e.Start.StandAt;
             e.Start.Consume();   // no plain start for this standing
             _sprintTurns++;
             FeelShotTrigger("turn");

@@ -27,7 +27,7 @@ public class InstallTransitionsTests
         new StateFixture(2, "Sprint Loop", new SequencerNode("SeqLoop", new ClipNode("loop", "SM_Loop"), []), [new TransitionFixture(4, Priority: 2, BlendDuration: 0.267f)]),
         new StateFixture(4, "Sprint to Idle", new SequencerNode("SeqStop", new ClipNode("stop", "SM_Stop", Mode: 0), [new Tag("Branch", 0.625f, 1f, 0)])),
         new StateFixture(5, "Transition To Idle on Interrupt", new SequencerNode("SeqHalf", new ClipNode("half", "SM_Half", Mode: 0), [new Tag("Branch", 0.963f, 1f, 0)])),
-        new StateFixture(24, "180 Idle to Sprint", new SequencerNode("SeqTurn", new ClipNode("turn", "SM_Turn", Mode: 0), [new Tag("Branch", 1f, 1f, 1)]),
+        new StateFixture(24, "180 Idle to Sprint", new SequencerNode("SeqTurn", new ClipNode("turn", "SM_Turn", Mode: 0), [new Tag("Branch", 1f, 1f, 1), new Tag("Branch", 0.4286f, 1f, 2)]),
             [new TransitionFixture(2, BranchEventId: 1, BlendDuration: 0.1f)]),
     ], StartStateId: 23));
 
@@ -72,6 +72,8 @@ public class InstallTransitionsTests
         Assert.Equal((0.1f, 0.1f), (turn.BlendIn, turn.BlendOut));    // entry 'Default 3 Frame Blend', into the loop at its branch
         Assert.Equal(1.233f, turn.BranchAt, 1e-4f);
         Assert.NotNull(turn.Turn);
+        var turnWindow = Assert.IsType<SprintStartWindow>(rifle.TurnWindow);   // the 180 state's own interrupt window, not the start's
+        Assert.Equal((1.233f, 0.4286f * 1.233f), (turnWindow.Length, turnWindow.InterruptAt));
         Assert.Equal(MathF.PI, turn.Turn![^1], 1e-4f);
     }
 
