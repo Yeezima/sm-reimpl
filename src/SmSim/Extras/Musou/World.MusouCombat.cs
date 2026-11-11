@@ -78,7 +78,7 @@ public sealed partial class World
             if (musou.War is { } war) { TfwPierceShot(k, shot, weapon, direction, length, war); continue; }   // Campaign/World.TfwMelee.cs: Musou Mode's shots go through
             ushort enemy = musou.Raycast(shot.Origin, direction, length, out float distance, out bool head);
             if (enemy == 0) continue;
-            var spec = MusouShotDamage(weapon, shot.Stage, distance);
+            var spec = MusouShotDamage(weapon, shot.Stage, distance, shot.Shooter);
             float damage = spec.Damage * (head ? spec.HeadMultiplier : spec.BodyMultiplier) * MusouRangedDealt(shot.Shooter);
             musou.Damage(enemy, shot.Shooter, damage, direction, out _, marker: head ? (byte)2 : (byte)1, cause: MusouDeathKind.Shot);
             // The tracer ends on the enemy (the wire carries the end and the hit kind; no player is named).
@@ -102,24 +102,27 @@ public sealed partial class World
     /// falloff for any ranged weapon in Musou mode"; <see cref="Extras.Musou.Campaign.TfwCombatRules.RangeFallOff"/>), for every shooter and weapon; the weapon's own fall-off
     /// (<see cref="Combat.FallOff(float, WeaponSpec)"/>) in the 5-wave run (pinned replay). The one place every Musou shot path asks (<see cref="MusouShotDamage"/>, <see cref="MusouConeMultiplier"/>).
     /// </summary>
-    float MusouRangeFallOff(WeaponSpec weapon, float distance) => MusouNoRangeFallOff ? 1f : Combat.FallOff(distance, weapon);
+    float MusouRangeFallOff(WeaponSpec weapon, float distance, int shooter) => MusouNoRangeFallOff(shooter) ? 1f : Combat.FallOff(distance, weapon);
 
-    /// <summary>Whether the war's shots lose no damage with range (<see cref="MusouRangeFallOff"/>).</summary>
-    bool MusouNoRangeFallOff => _musou?.War is { RangeFallOff: false };
+    /// <summary>
+    /// Whether <paramref name="shooter"/>'s shots lose no damage with range (<see cref="MusouRangeFallOff"/>): in the war a human player's (owner, 2026-11-11: "alliedmarine should not lose range falloff":
+    /// an AI Marine's gun keeps its own fall-off, <see cref="Extras.Musou.Campaign.TfwCombatRules.ScalesPlayer"/>), never in the 5-wave run.
+    /// </summary>
+    bool MusouNoRangeFallOff(int shooter) => _musou?.War is { RangeFallOff: false } && Extras.Musou.Campaign.TfwCombatRules.ScalesPlayer(shooter);
 
     /// <summary>
     /// A hit-scan shot's damage on an enemy or a contraption <paramref name="distance"/> metres away: its charged stage's (which has no fall-off of its own), else the weapon's damage times
     /// <see cref="MusouRangeFallOff"/> (in the 5-wave run exactly <see cref="Combat.DamageAt(float, WeaponSpec)"/>). The 5-wave run's rays, the war's piercing rays and the contraptions' shots read it.
     /// </summary>
-    DamageSpec MusouShotDamage(WeaponSpec weapon, int stage, float distance) =>
-        Shots.ChargeShotOf(weapon, stage)?.Damage ?? weapon.DirectDamage with { Damage = weapon.Damage * MusouRangeFallOff(weapon, distance) };
+    DamageSpec MusouShotDamage(WeaponSpec weapon, int stage, float distance, int shooter) =>
+        Shots.ChargeShotOf(weapon, stage)?.Damage ?? weapon.DirectDamage with { Damage = weapon.Damage * MusouRangeFallOff(weapon, distance, shooter) };
 
     /// <summary>
     /// A cone's multiplier on an enemy <paramref name="distance"/> metres away with <paramref name="coverage"/>: in the war its coverage multiplier alone (no distance fall-off: the melta's full damage
     /// to the end of its cone, <see cref="MusouRangeFallOff"/>'s rule), else <see cref="Cones.Multiplier"/> (the 5-wave run).
     /// </summary>
-    float MusouConeMultiplier(ConeSpec cone, float distance, float coverage) =>
-        !MusouNoRangeFallOff ? Cones.Multiplier(cone, distance, coverage)
+    float MusouConeMultiplier(ConeSpec cone, float distance, float coverage, int shooter) =>
+        !MusouNoRangeFallOff(shooter) ? Cones.Multiplier(cone, distance, coverage)
         : coverage <= 0f ? 0f : cone.CoverageFallOff.Count == 0 ? 1f : Combat.PointValue(cone.CoverageFallOff, coverage);   // Cones.Multiplier without its distance factor
 
     /// <summary>The weapon a shot left as its shooter carries it (the perk variant the core fired, <see cref="Loadouts.InHand"/>), else the config's.</summary>
@@ -144,7 +147,7 @@ public sealed partial class World
             var chest = MusouSim.Chest(e.Position, height);
             if (Blocked(origin, chest) || TfwShielded(origin, chest)) continue;   // TfwShielded: a dome from outside (expansion S4)
             float distance = Vector3.Distance(origin, chest);
-            float multiplier = MusouConeMultiplier(cone, distance, coverage);   // no distance fall-off in the war (owner 2026-11-11)
+            float multiplier = MusouConeMultiplier(cone, distance, coverage, shooter);   // no distance fall-off in the war (owner 2026-11-11)
             if (multiplier <= 0f) continue;
             covered++;
             if (musou.Damage(e.Id, shooter, cone.Damage.Damage * multiplier * cone.Damage.BodyMultiplier * MusouRangedDealt(shooter), chest - origin, out _, marker: 1, cause: MusouDeathKind.Shot)) any = true;

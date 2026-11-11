@@ -111,7 +111,7 @@ public sealed record TfwCombatRules
 
     // ---- piercing (item 24)
 
-    /// <summary>A shot that has gone through an enemy keeps this share of its damage for the next.</summary>
+    /// <summary>An AI Marine's hit-scan shot that has gone through an enemy keeps this share of its damage for the next (owner 2026-11-11: a human player's keeps all of it).</summary>
     public float PierceKeep { get; init; } = 0.85f;
     /// <summary>The most enemies any shot goes through; a stack buffer's size.</summary>
     public const int MostPierced = 16;

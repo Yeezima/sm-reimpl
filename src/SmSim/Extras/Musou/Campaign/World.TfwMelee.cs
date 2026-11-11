@@ -94,7 +94,7 @@ public sealed partial class World
         {
             ushort enemy = musou.Raycast(shot.Origin, direction, length, out float distance, out bool head, passed[..struck]);
             if (enemy == 0) break;
-            var spec = MusouShotDamage(weapon, shot.Stage, distance);   // full damage at any range in the war (owner 2026-11-11)
+            var spec = MusouShotDamage(weapon, shot.Stage, distance, shot.Shooter);   // full damage at any range in the war (owner 2026-11-11)
             float damage = spec.Damage * (head ? spec.HeadMultiplier : spec.BodyMultiplier) * keep * MusouRangedDealt(shot.Shooter);   // x1.2 (owner 2026-11-11); a plasma burn follows the hit
             musou.Damage(enemy, shot.Shooter, damage, direction, out _, marker: head ? (byte)2 : (byte)1, cause: MusouDeathKind.Shot);
             if (plasma) TfwPlasmaBurn(enemy, shot.Shooter, damage, war);
@@ -102,7 +102,7 @@ public sealed partial class World
             at[struck] = distance;
             passed[struck++] = enemy;
             last = distance;
-            if (!plasma) keep *= war.PierceKeep;
+            if (!plasma && !TfwCombatRules.ScalesPlayer(shot.Shooter)) keep *= war.PierceKeep;   // owner 2026-11-11: a human's shot loses nothing per Ork; an AI Marine's keeps the 15 %
         }
         if (struck == 0) return;
         SplashSpec? own = null;

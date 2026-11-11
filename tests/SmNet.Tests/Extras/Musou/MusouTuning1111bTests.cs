@@ -202,4 +202,27 @@ public class MusouTuning1111bTests
         var death = Assert.Single(w.Musou.Events, x => x.Kind == MusouEventKind.Death && x.Enemy == boy);
         Assert.Equal((0, (byte)MusouDeathKind.Barrage), (death.Player, death.Value));
     }
+
+    [Fact]
+    public void Double_Damage_does_not_multiply_an_orbital_strike()
+    {
+        // Owner 2026-11-11: "double damage should not affect orbital strikes". A shell's damage carries no attacker (the Barrage), and the powerup scales only a player's own hits.
+        var lost = new Dictionary<string, float>();
+        foreach (bool buffed in new[] { false, true })
+        {
+            var (w, boss) = Battle();
+            if (buffed)
+            {
+                Assert.True(w.MusouGiveBuff(Human, MusouPowerup.DoubleDamage));
+                TfwRig.Steps(w, 2);   // the scales are set once a tick
+                Assert.True(w.MusouBuffActive(Human, MusouPowerup.DoubleDamage));
+            }
+            float was = Lost(w, boss);
+            w.Musou!.BeginTick(w.Tick);
+            w.TfwShellForTests(Open, Human);
+            lost[buffed ? "buffed" : "plain"] = Lost(w, boss) - was;
+        }
+        Assert.Equal(TfwFireRules.BossDamage * 1.2f, lost["plain"], 3);   // the human's x1.2 alone
+        Assert.Equal(lost["plain"], lost["buffed"], 3);   // Double Damage adds nothing
+    }
 }
