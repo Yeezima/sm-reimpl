@@ -85,6 +85,7 @@ public partial class CharacterViewer
         LibrarianPoseOverlay();
         MusouWeightPoseOverlay();   // the Musou weight pass's settle (Weight/CharacterViewer.MusouWeight.cs); nothing unless a contact started one
         WeaponPoseOverlay();
+        AutocannonKickOverlay();   // the autocannon's kick (Arsenal/Autocannon/CharacterViewer.AutocannonKick.cs); nothing unless the networked view set one
     }
 
     void LibrarianPoseOverlay()

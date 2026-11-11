@@ -30,13 +30,14 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 Scanned 3048 spec table rows: **2248 tagged**, 548 not tagged (read from data with high confidence), 252 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 678 rows of the changes document.
 Scanned 3041 spec table rows: **2249 tagged**, 542 not tagged (read from data with high confidence), 250 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 679 rows of the changes document.
+Scanned 3041 spec table rows: **2250 tagged**, 541 not tagged (read from data with high confidence), 250 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 679 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
 | Movement (critical) | 397 | 339 | 338 | 115 | 12 |
 | Combat core (critical) | 17 | 7 | 15 | 14 | 9 |
 | Weapons (critical) | 121 | 73 | 106 | 54 | 3 |
-| Melee (critical) | 127 | 111 | 100 | 42 | 5 |
+| Melee (critical) | 128 | 112 | 101 | 43 | 5 |
 | Jump pack (critical) | 79 | 71 | 63 | 19 | 0 |
 | Charge (critical) | 56 | 47 | 47 | 22 | 0 |
 | Reactions (critical) | 25 | 22 | 23 | 12 | 0 |
@@ -55,6 +56,7 @@ Scanned 3041 spec table rows: **2249 tagged**, 542 not tagged (read from data wi
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 235 | 224 | 126 | 63 | 0 |
 | **All areas** | **2248** | 1982 | 1679 | 703 | 38 |
+| **All areas** | **2250** | 1984 | 1680 | 706 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -62,13 +64,16 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---:|
 | kind: ours | 1274 |
 | confidence: low | 807 |
+| kind: ours | 1276 |
+| confidence: low | 808 |
 | confidence: medium | 743 |
 | notes: ours | 408 |
 | kind: interpretation | 376 |
 | notes: estimate | 180 |
+| notes: estimate | 182 |
 | kind: estimate | 156 |
 | confidence: none (low) | 129 |
-| kind: provisional | 100 |
+| kind: provisional | 101 |
 | kind: user's knowledge | 56 |
 | kind: choice | 38 |
 | notes: provisional | 38 |
@@ -76,7 +81,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | section: placeholder | 35 |
 | notes: user's knowledge | 26 |
 | notes: interpretation | 25 |
-| kind: approximation | 22 |
+| kind: approximation | 23 |
 | kind: placeholder | 22 |
 | notes: placeholder | 20 |
 | kind: gap (not reproduced) | 18 |
@@ -963,7 +968,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-63D5DA0C` | Magazine returns | at the load tag or when the left hand is back at the weapon, whichever is later (never before the magazine left): bolter tag 0.30, hand 0.35 (`RIG_L_Hand` 0.15 m from the magazine at its closest, 1.13 m at its furthest, away from 0.11 to 0.35) → 0.35; stalker… (fraction of the clip) | kind: interpretation; confidence: medium | clip, skeleton, weapon mount | Magazine returns: compare with SM1 by feel or video. Ours: at the load tag or when the left hand is back at the weapon… | ☐ |
 | `R-125B93CF` | Dropped magazine physics | a `RigidBody3D` (layer none, mask: the level) with a box the size of the mesh, mass 0.4 kg, friction 0.7, bounce 0.3, linear damping 0.05, angular 0.6; initial velocity = the carrier's velocity + up to 0.6 m/s sideways (0.12 up) + up to 5 rad/s spin… (kg, m/s, rad/s, s) | kind: placeholder; confidence: none (low); notes: ours | ours | Dropped magazine physics: compare with SM1 by timing a run over a known distance. Ours: a RigidBody3D (layer none, mask: the level) with a box the size of… | ☐ |
 
-### Melee (gameplay-critical) (127)
+### Melee (gameplay-critical) (128)
 
 *Spec section: Melee flow, the hammer in both hands and the transitions pass (anim/melee-flow; client only, not simulated, no protocol change)*
 
@@ -1101,6 +1106,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-E19D028B` | Musou combat: what the x1.2 ranged damage covers | grenades and charges (frags, melta bombs, the Remote Detonators) count as ranged: our reading of "all ranged"; not the AI Marines' guns nor the Guard squads' (the lead, 2026-11-11, on the owner's "players only": AI allies keep their damage); not the… | kind: interpretation; confidence: medium; notes: ours | owner 2026-11-11; the coverage our reading | Musou combat: what the x1.2 ranged damage covers: compare with SM1 by counting hits to kill and by video of the health bar. Ours: grenades and charges (frags, melta bombs, the Remote Detonators)… | ☐ |
 | `R-C27235EA` | Musou: no range fall-off (war; claude/autocannon-pass-2, `TfwRules.Version` 68) | every ranged hit on the enemies and their contraptions in Musou Mode's war deals its **full damage at any distance it reaches** (its range; a cone its length): the range fall-off multiplier is **1** for every weapon, the arsenal's included (hit-scan and… (multiplier) | notes: ours | owner 2026-11-11: "There should be no damage falloff for any ranged weapon in Musou mode"; the melta's cone and the AI Marines' shots in it ours | Musou: no range fall-off (war; claude/autocannon-pass-2…: compare with SM1 by timing a run over a known distance. Ours: every ranged hit on the enemies and their contraptions in Musou… | ☐ |
 | `R-0FCE5142` | Musou: what "no range fall-off" covers | the melta's cone counts (its distance fall-off is a range fall-off: our reading of "any ranged weapon"); the AI Marines' guns do not count since the owner's "alliedmarine should not lose range falloff" (2026-11-11, see the damage answers row above); the… | kind: interpretation; confidence: medium; notes: ours | ours (the reading) | Musou: what "no range fall-off" covers: compare with SM1 by timing a run over a known distance. Ours: the melta's cone counts (its distance fall-off is a range fall-off:… | ☐ |
+| `R-364A58E7` | The autocannon's kick (every mode with the autocannon; claude/autocannon-arm-recoil) | the gun and both arms move as one **0.04 m straight back along the barrel's axis** (the muzzle's direction turned round; the spine bone the arms and the chest prop hang from, so the hands stay on the gun), peaking **0.04 s** after the shot and back at rest… (m; s) | kind: ours; kind: provisional; kind: approximation; confidence: low; notes: estimate | owner 2026-11-11: "the arm currently moves completely away from the gun when firing. it should only slightly move straight back from the direction the gun… | The autocannon's kick (every mode with the autocannon…: compare with SM1 by feel or video. Ours: the gun and both arms move as one 0.04 m straight back along the… | ☐ |
+| `R-0FCE5142` | Musou: what "no range fall-off" covers | the melta's cone counts (its distance fall-off is a range fall-off: our reading of "any ranged weapon"); the AI Marines' guns count (the owner's "any"); the pierce share does not (a share per enemy gone through, not a fall-off with range; the plasma weapons… | kind: interpretation; confidence: medium; notes: ours | ours (the reading) | Musou: what "no range fall-off" covers: compare with SM1 by timing a run over a known distance. Ours: the melta's cone counts (its distance fall-off is a range fall-off:… | ☐ |
 
 *Spec section: Player collision (sim/player-collision; protocol 43, used by the simulation)*
 
@@ -3975,6 +3982,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-B137A643` | Autocannon blast (Musou) | the owner's one-shot rule and "Stormboy is not fodder" (2026-11-11); which other Orks count as fodder (every one neither an elite nor a boss: Boy, Shoota Boy, Gretchin, Rokkit Boy, Bomb Squig) and counting the human players' x1.2 are ours | 71 everywhere in its 2.5 m, no fall-off (85.2 on the Orks after the x1.2: over 85, the most health of any fodder Ork; the Stormboy's 120 takes it and stands); 100 (120) with the Stormboy in the list earlier that day; was 15, full to 1.0 m, 30 % at the edge | "Autocannon: blast", "Autocannon: the fodder its blast kills (2026-11-11)" | Autocannon blast (Musou): compare with SM1 by measuring on a flat spot of the same map. Ours: the owner's one-shot rule and "Stormboy is not fodder" (2026-11-11)… | ☐ |
 | `C-EE58A379` | Autocannon round (Musou) | the owner's (the blast's + 30) | 101 (121.2 after the x1.2); 130 (156) with the 100 blast; was the file's 50 | "Autocannon: damage" | Autocannon round (Musou): compare with SM1 by feel or video. Ours: the owner's (the blast's + 30). | ☐ |
 | `C-2035A755` | Autocannon ammunition (Musou) | the owner's (infinite; then "No clip in Musou mode - just infinite shooting"); keeping the heat and the overheat, the endless sign on the HUD ours | no clip: no shot spends a round (the shot step's own rule, so the client predicts it), nothing reloads it; the first pass put the whole clip back every tick | "Autocannon: clip", "Musou arsenal: the autocannon's weapon box" | Autocannon ammunition (Musou): compare with SM1 by feel or video. Ours: the owner's (infinite; then "No clip in Musou mode - just infinite… | ☐ |
+| `C-3729108B` | Autocannon recoil (every mode with it) | the owner's request ("it should only slightly move straight back from the direction the gun fires in"); the size ours | the gun and both arms kick 0.04 m straight back along the barrel (0.04 s out, 0.26 s back) in place of the heavy bolter's recoil clip, which slid the right hand along the gun; provisional approximation | "The autocannon's kick" | Autocannon recoil (every mode with it): compare with SM1 by feel or video. Ours: the owner's request ("it should only slightly move straight back from… | ☐ |
 | `C-7068E1E2` | Autocannon backpack (every mode) | the owner's ("equipping the autocannon should also change the devastator/havoc's backpack to be the same one as the heavy bolter") | the Devastator wears the heavy bolter's weapon pack with the autocannon (the data gives it only with the heavy bolter); the Havoc's pack is the same for every weapon in the data | "Autocannon: backpack (every mode, 2026-11-11)" | Autocannon backpack (every mode): compare with SM1 by feel or video. Ours: the owner's ("equipping the autocannon should also change the… | ☐ |
 
 #### Musou's arsenal (`Musou`; docs/new-weapons-design.md, approved by the owner 2026-11-10)

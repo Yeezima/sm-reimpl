@@ -381,9 +381,15 @@ public partial class NetworkView
         return result;
     }
 
+    /// <summary>EXTRAS-HOOK (docs/added-content.md): an added weapon's own recoil; sets <paramref name="handled"/> when it shows it (no clip layer is laid).</summary>
+    partial void ExtrasHipRecoil(CharacterViewer character, PlayerState s, HipTrack t, ref bool handled);
+
     /// <summary>Lays the recoil of the last shot over the pose (or removes the layer when none runs).</summary>
     void HipRecoil(CharacterViewer character, PlayerState s, HipTrack t)
     {
+        bool kicked = false;
+        ExtrasHipRecoil(character, s, t, ref kicked);   // EXTRAS-HOOK added content (Musou's arsenal): the autocannon's kick replaces the heavy bolter's clip
+        if (kicked) { character.ClearPoseLayer(); return; }
         if (_hipAnims is null || !s.Alive || HipFamilyOf(s) is not { } family || HipRecoilOf(s, family) is not { } recoil) { character.ClearPoseLayer(); return; }
         if (!OldRecoilWeight && _config is not null && Loadouts.InHand(_config, s) is { } held && WeightFeel.NoBodyRecoil(held.Name)) { character.ClearPoseLayer(); return; }   // night/weapon-fx: the plasma gun's arms do not recoil
         float age = (float)(_connectedFor - t.RecoilAt);
