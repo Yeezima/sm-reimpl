@@ -28,8 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3052 spec table rows: **2251 tagged**, 549 not tagged (read from data with high confidence), 252 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 680 rows of the changes document.
-Scanned 3045 spec table rows: **2253 tagged**, 542 not tagged (read from data with high confidence), 250 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 679 rows of the changes document.
+Scanned 3057 spec table rows: **2255 tagged**, 550 not tagged (read from data with high confidence), 252 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 681 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -54,27 +53,21 @@ Scanned 3045 spec table rows: **2253 tagged**, 542 not tagged (read from data wi
 | Core simulation (provisional values) | 673 | 634 | 480 | 177 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 235 | 224 | 126 | 63 | 0 |
-| **All areas** | **2251** | 1984 | 1681 | 706 | 38 |
-| **All areas** | **2253** | 1986 | 1683 | 706 | 38 |
+| **All areas** | **2255** | 1987 | 1685 | 707 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1275 |
-| confidence: low | 808 |
-| confidence: medium | 744 |
-| notes: ours | 410 |
-| kind: interpretation | 377 |
 | kind: ours | 1278 |
-| confidence: low | 808 |
-| confidence: medium | 746 |
-| notes: ours | 410 |
-| kind: interpretation | 376 |
+| confidence: low | 809 |
+| confidence: medium | 747 |
+| notes: ours | 411 |
+| kind: interpretation | 377 |
 | notes: estimate | 181 |
 | kind: estimate | 156 |
 | confidence: none (low) | 129 |
-| kind: provisional | 101 |
+| kind: provisional | 102 |
 | kind: user's knowledge | 56 |
 | kind: choice | 38 |
 | notes: provisional | 38 |
@@ -82,7 +75,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | section: placeholder | 35 |
 | notes: user's knowledge | 26 |
 | notes: interpretation | 25 |
-| kind: approximation | 23 |
+| kind: approximation | 24 |
 | kind: placeholder | 22 |
 | notes: placeholder | 20 |
 | kind: gap (not reproduced) | 18 |
