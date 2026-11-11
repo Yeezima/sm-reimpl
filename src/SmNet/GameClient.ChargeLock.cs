@@ -41,8 +41,8 @@ public sealed partial class GameClient
         view ??= input.ViewFraction == 0f ? ViewAt(input.ViewTick) : null;
         ChargeContactChecks++;
         if (view is null) ChargeContactNoView++;
-        // charge-ally-bump (protocol 66): an ally met ends the charge with no stop unless the match has friendly fire (the scoreboard says; before the first one, the default off).
-        var after = ChargeLock.Predict(PlayerId, before, next, _config, view, bodies, Collision, out var contact, friendlyFire: Scoreboard?.FriendlyFire ?? false);
+        // charge-ally-bump (protocol 66): an ally met ends the charge with no stop unless the match has friendly fire (the scoreboard says; before the first one no bump is predicted: the old stop, which the server also plays when it has no rules; review 2026-11-11).
+        var after = ChargeLock.Predict(PlayerId, before, next, _config, view, bodies, Collision, out var contact, friendlyFire: Scoreboard?.FriendlyFire ?? true);
         if (contact is { Bump: true })
         {
             ChargeBumpsPredicted++;   // no connect: no impact presentation, no clash, no lock spot
