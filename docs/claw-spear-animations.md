@@ -32,6 +32,8 @@ in and in the facing frame, planted steps, the flight untouched (section 3d), an
 attacks is not done yet (section 3e's last paragraph).
 **Spear pass 3 (2026-11-11, claude/spear-wide):** the light hews swing out wide with the hips turning toward and through the target and the steps toward it, the run's carry held close in
 and its blade out of the crosshair's column, planted feet pinned in the world through the lunge (section 3f).
+**Authored-animation pilot (2026-11-12, claude/spear-authored-pilot):** hew 1 re-authored in Blender with Python-assisted FK/IK, exported as original keyframe data and read into the same overlay
+(section 3g, `docs/spear-authored-pilot.md`); `--old-spear-hew` plays pass 3's hew 1. No gameplay, timing or flight change.
 **Label:** ours (keyframes authored by us), laid over original clips read at run time; stand-in weapon models are placeholder demonstrations.
 
 Previews: `<media folder>\previews\claw-spear-anims\` (stills per view and moment, one clip per weapon and view, a README with the table below).
@@ -231,6 +233,24 @@ body", the hands gripping the shaft, the flight untouched. Section 3e's referenc
   reads and, separately, the pound's dive keys.
 
 Previews: `<media folder>\previews\spear-wide\` (MP4s per hew and view, the carry, a before/after contact sheet).
+
+## 3g. Pilot: hew 1 authored in Blender (2026-11-12, claude/spear-authored-pilot)
+
+The owner (2026-11-12): original keyframe authoring in Blender, Python-assisted authoring, cleanup and IK, then proof of the transfer into this pose system; no motion capture, no video-to-motion;
+reference footage for study only; compact wind-ups, forceful accelerating swings, convincing full-body movement, a brief deliberate finish pose; grip, clipping and planted feet fixed; gameplay timings
+unchanged; original baseline and a rollback kept. **One representative hew first**: hew 1.
+
+- **Pipeline** (`docs/spear-authored-pilot.md`): `smtool spear-rig-dump` (the install's marine rig and the hammer idle's rest pose into a private folder) -> `tools/blender/spear_hew_author.py` (F-curve controls,
+  FK in the overlay's arithmetic, two-bone arm and leg solves; 60 Hz export `src/SmContent/Extras/Musou/Authored/spear_hew1.json`) -> `AuthoredPoseClip` (JSON to `WeaponPoseClip`; refuses a changed hit time,
+  length or base stance). The overlay's channels carried every authored motion, so no extension was added. The in-game overlay matches Blender's solved joints within 0.2 cm at every sampled time
+  (`SpearAuthoredHewTests.The_in_game_pose_matches_the_joints_Blender_solved_at_the_same_times`, install only).
+- **The hew:** apex 0.19 s before the hit (0.521 s), the hips' yaw accelerating into the hit (rate 0 at the apex, about twice the average at the hit), the left foot planted by 0.64 s with the weight shifted a beat
+  ahead of the turn, the finish pose reached at 0.95 s and held to 1.18 s (the hips move under 4 degrees), the approved recovery after. Hit 0.711 s and the combo opening 1.098 s as before.
+- **Rollback:** `--old-spear-hew` (or `SM_OLD_SPEAR_HEW=1`) plays `ClawSpearClips.SpearHew1Original`, pass 3's hew 1, on the stage, in a match and in the tests' `ClawSpearClips.SpearHew1`.
+- **Carried over from pass 3** (named in `docs/spear-authored-pilot.md` section 3): the swing's mid-cut palm geometry (0.50 to 0.80 s) and the recovery's arm aims from 0.95 s.
+- **Test aids:** `godot.cmd --windowed ... -- --connect ... --content musou --class "sm - assault" --melee "power spear" --tfw-spear-film [--tfw-spear-film-step n --tfw-spear-film-takes k] --tfw-test <dir>` swings the
+  light chain from standing in the real match through the real keys and logs each frame's number, wall-clock time and clip time (`SPEARFILMFRAMES`), because the real-time simulation and a fixed-rate recording
+  (`--write-movie`) do not run at the same rate; the recording is cut and every frame shown for the time it really lasted.
 
 ## 4. Preview stage and restore
 

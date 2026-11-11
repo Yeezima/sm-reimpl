@@ -307,7 +307,10 @@ public class ClawSpearClipsTests(Xunit.Abstractions.ITestOutputHelper output)
         {
             var arm = clip.Channels.First(c => c.Kind == PoseChannelKind.Aim && c.Bone.EndsWith("UpperArm"));
             Assert.Contains(arm.Keys, k => MathF.Abs(k.T - clip.HitTime) < 1e-4f);   // a key exactly at the hit
-            Assert.Contains(arm.Keys, k => MathF.Abs(k.T - clip.Anticipation) < 1e-4f && k.Ease == PoseEase.In);   // the wind-up gathers
+            // A Blender-authored clip (AuthoredPoseClip) is sampled at 60 Hz and read back linearly: its gathering and snap are in the sampled values (SpearAuthoredHewTests pins the
+            // acceleration), so its apex key is a key at the right time and its keys ease Linear; the hand-keyed clips gather with an In key.
+            bool sampled = ReferenceEquals(clip, ClawSpearClips.SpearHew1Authored);
+            Assert.Contains(arm.Keys, k => MathF.Abs(k.T - clip.Anticipation) < 1e-4f && (sampled || k.Ease == PoseEase.In));   // the wind-up gathers
             var hitKey = arm.Keys.First(k => MathF.Abs(k.T - clip.HitTime) < 1e-4f);
             Assert.True(hitKey.Ease is PoseEase.Snap or PoseEase.Linear, $"{clip.Name}: the hit key eases {hitKey.Ease}");
             if (clip.Weapon == "claw")   // the claw's apex is held two frames before the snap (owner's review: the cocked pose must read)

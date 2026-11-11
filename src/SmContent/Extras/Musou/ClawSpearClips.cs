@@ -265,7 +265,7 @@ public static class ClawSpearClips
     /// (every 1/30 s through the swing) so the palms hold the authored shaft line clear of the body (<c>SpearClearanceTests</c>); the keys are written in the hammer idle's stance frame, the
     /// steps and the lean toward the target converted into it.
     /// </summary>
-    public static readonly WeaponPoseClip SpearHew1 = Spear("spear_hew1", 2.667f, 0.604f, 0.933f, SpearIdle, "the hammer's X1 (SM_MEL_TH_XATK_Combo2 2.667 s, hit 0.604 s)",
+    public static readonly WeaponPoseClip SpearHew1Original = Spear("spear_hew1", 2.667f, 0.604f, 0.933f, SpearIdle, "the hammer's X1 (SM_MEL_TH_XATK_Combo2 2.667 s, hit 0.604 s)",
         "wide descending hew: the shaft slides low through the right hand as the left hand takes it and is drawn across the chest, the blade back past his right side and high; the left foot steps toward the target and the hips turn through it, the arms long, as the blade sweeps round the front and cuts down across the target and on to low left; then the deep wide field guard",
         antic: 0.19f, follow: 0.29f, recover: 2.0f, (a, h, f, r, end) =>
         [
@@ -284,6 +284,22 @@ public static class ClawSpearClips
         ],
         grip: (a, h, f, r, end) => [G(0f, 0f), G(GripSlide, 1f, PoseEase.In), G(r, 1f), G(r + GripSlideBack, 0f), G(end, 0f)],
         gripPoint: (a, h, f, r, end) => [P(0f, WeaponPoseClip.CarryGrip), P(GripSlide, WeaponPoseClip.HewGrip, PoseEase.Out), P(r, WeaponPoseClip.HewGrip), P(r + GripSlideBack, WeaponPoseClip.CarryGrip), P(end, WeaponPoseClip.CarryGrip)]);
+
+    /// <summary>
+    /// The rollback switch of the authored-animation pilot (musou/spear-authored, 2026-11-12): <c>--old-spear-hew</c> on the command line (or the environment variable <c>SM_OLD_SPEAR_HEW=1</c>) plays
+    /// <see cref="SpearHew1Original"/>, pass 3's keys, instead of the authored hew. Read once when this class is first used. Presentation only: the clips share their timing.
+    /// </summary>
+    public static readonly bool OldHew1 = Array.IndexOf(Environment.GetCommandLineArgs(), "--old-spear-hew") >= 0 || Environment.GetEnvironmentVariable("SM_OLD_SPEAR_HEW") == "1";
+
+    /// <summary>
+    /// Hew 1 as authored in Blender (<c>tools/blender/spear_hew_author.py</c>, exported to <c>Authored/spear_hew1.json</c>, turned into keys by <see cref="AuthoredPoseClip"/>): the same strike, length, hit time,
+    /// base stance, combo opening and grip-track meaning as <see cref="SpearHew1Original"/> (the adapter refuses data that disagrees), with a compact fast wind-up, an accelerating swing that
+    /// peaks at the hit, a brief finish hold and the approved recovery. <see cref="SpearHew1"/> is this unless <see cref="OldHew1"/>.
+    /// </summary>
+    public static readonly WeaponPoseClip SpearHew1Authored = AuthoredPoseClip.LoadEmbedded("spear_hew1.json", SpearHew1Original);
+
+    /// <summary>Hew 1 as played: the authored clip, or the original with <c>--old-spear-hew</c>.</summary>
+    public static readonly WeaponPoseClip SpearHew1 = OldHew1 ? SpearHew1Original : SpearHew1Authored;
 
     /// <summary>
     /// Hew 2, the wide rising hew (pass 3; the hammer's X2 at 0.85x: 2.745 s, hit 0.667 s): from hew 1's low-left follow-through the hips coil further left and the blade drops low behind

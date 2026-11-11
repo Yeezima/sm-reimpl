@@ -12,6 +12,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Blender-authored strike data (tools/blender/spear_hew_author.py; original keys, no install bytes); Extras/** is removed from a faithful build by Directory.Build.targets. -->
+    <EmbeddedResource Include="Extras\Musou\Authored\*.json" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\SmFormats\SmFormats.csproj" />
     <ProjectReference Include="..\SmSim\SmSim.csproj" />
   </ItemGroup>

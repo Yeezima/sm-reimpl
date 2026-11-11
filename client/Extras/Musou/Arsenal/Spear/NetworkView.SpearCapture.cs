@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Threading.Tasks;
 using Godot;
@@ -92,6 +92,68 @@ public partial class NetworkView
         }
         _spearCam = 0;
         if (!CmdFlag("tfw-spear-no-hit")) await SpearHitLanding();
+        _spearCam = 0;
+        await TfwWait(0.5);
+        GetTree().Quit(0);
+    }
+
+    /// <summary>
+    /// Test aid <c>--tfw-spear-film [--tfw-spear-film-step n] [--tfw-spear-film-takes k] [--tfw-spear-views player,front,side]</c> (musou/spear-authored, 2026-11-12), for a recording
+    /// (<c>godot.cmd --windowed --write-movie f.avi --fixed-fps 30 -- --connect ... --content musou --class "sm - assault" --melee "power spear" --tfw-spear-film --tfw-test &lt;dir&gt;</c>, server
+    /// <c>SM_TFW_KEEP_HUMAN=1</c>): the real match, the real keys: the player deploys, walks away from the Orks and swings the light chain from standing, k times per view (default 2), keeping
+    /// only the takes where Musou's random pick (<c>MeleeChain.MusouSwing</c>) was swing <c>n</c> (default 1), each ended by waiting the swing out. A <c>SPEARFILM</c> line per take with the
+    /// view and the engine's frame numbers at the press, the hit and the end (frame / fixed fps = the recording's time), so a before / after recording is cut at the same moments.
+    /// </summary>
+    async Task TfwSpearFilm()
+    {
+        var client = _client!;
+        if (!await TfwTestDeploy(TfwLane.B)) return;
+        await TfwWait(2.0);
+        TfwCheck("the power spear is the melee weapon", _config is not null && SpearRules.Wields(_config, client.Predicted), MeleeWargear(client.Predicted) ?? "none");
+        TfwCheck("the spear's clips drive the pose (no --musou-spear-stand-in)", SpearPosesOn);
+        TfwKey(Key.W, true);
+        await TfwWait(3.0);
+        TfwKey(Key.W, false);
+        await TfwWait(1.0);
+        float facing = _yaw;
+        int want = int.TryParse(CmdArg("tfw-spear-film-step"), out int w) && w > 0 ? w : 1;
+        int takes = int.TryParse(CmdArg("tfw-spear-film-takes"), out int k) && k > 0 ? k : 2;
+        string views = CmdArg("tfw-spear-views") is { Length: > 0 } v ? v : "player,front,side";
+        foreach (var (cam, view) in new[] { (0, "player"), (1, "front"), (2, "side") })
+        {
+            if (!views.Contains(view, StringComparison.OrdinalIgnoreCase)) continue;
+            _yaw = facing;
+            _spearCam = cam;
+            await TfwWait(1.0);
+            int got = 0;
+            for (int attempt = 0; attempt < 18 && got < takes; attempt++)
+            {
+                // The real-time simulation and a fixed-rate recording (--write-movie) run at different rates, so each attempt logs, for every frame drawn from the key press on, the engine's frame
+                // number (= the recording's frame), the wall-clock time and the clip's own time in a SPEARFILMFRAMES line; the recording is cut and each frame shown for the time it really lasted.
+                var rows = new System.Text.StringBuilder();
+                ulong t0 = Time.GetTicksMsec();
+                async Task Tick()
+                {
+                    await TfwFrames();
+                    var pose = _local?.WeaponPose;
+                    rows.Append($"{Engine.GetFramesDrawn()},{Time.GetTicksMsec() - t0},{pose?.Clip?.Name ?? "none"},{pose?.Time ?? 0f:F4};");
+                }
+                int pressFrame = (int)Engine.GetFramesDrawn();
+                TfwAction(GameAction.Melee, true);
+                while (Time.GetTicksMsec() - t0 < 120) await Tick();
+                TfwAction(GameAction.Melee, false);
+                bool began = false;
+                while (Time.GetTicksMsec() - t0 < 3000 && !(began = client.Predicted.MeleeStep > 0 && !client.Predicted.MeleeHeavy)) await Tick();
+                if (!began) { await TfwWait(1.0); continue; }
+                int step = client.Predicted.MeleeStep;
+                bool keep = step == want;
+                while (Time.GetTicksMsec() - t0 < 4200) await Tick();
+                GD.Print($"SPEARFILM view {view} swing {step} {(keep ? "kept" : "skipped")} press {pressFrame} take {got + 1}");
+                if (keep) GD.Print($"SPEARFILMFRAMES {view} {got + 1} {rows}");
+                if (keep) got++;
+                await TfwWait(0.6);
+            }
+        }
         _spearCam = 0;
         await TfwWait(0.5);
         GetTree().Quit(0);
