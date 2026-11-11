@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3044 spec table rows: **2252 tagged**, 542 not tagged (read from data with high confidence), 250 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 679 rows of the changes document.
+Scanned 3045 spec table rows: **2253 tagged**, 542 not tagged (read from data with high confidence), 250 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 679 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -42,7 +42,7 @@ Scanned 3044 spec table rows: **2252 tagged**, 542 not tagged (read from data wi
 | Camera (critical) | 55 | 53 | 44 | 22 | 0 |
 | HUD and hit feedback (critical) | 71 | 66 | 52 | 11 | 0 |
 | Sound mix (critical) | 69 | 63 | 61 | 11 | 0 |
-| Effects (critical) | 93 | 82 | 78 | 41 | 0 |
+| Effects (critical) | 94 | 83 | 79 | 41 | 0 |
 | Game modes | 45 | 41 | 41 | 19 | 1 |
 | Perks | 59 | 48 | 31 | 25 | 0 |
 | Death and ragdoll | 14 | 10 | 12 | 10 | 0 |
@@ -53,21 +53,21 @@ Scanned 3044 spec table rows: **2252 tagged**, 542 not tagged (read from data wi
 | Core simulation (provisional values) | 674 | 635 | 480 | 179 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 235 | 224 | 126 | 63 | 0 |
-| **All areas** | **2252** | 1985 | 1682 | 706 | 38 |
+| **All areas** | **2253** | 1986 | 1683 | 706 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1277 |
-| confidence: low | 807 |
+| kind: ours | 1278 |
+| confidence: low | 808 |
 | confidence: medium | 746 |
 | notes: ours | 410 |
 | kind: interpretation | 376 |
 | notes: estimate | 181 |
 | kind: estimate | 156 |
 | confidence: none (low) | 129 |
-| kind: provisional | 100 |
+| kind: provisional | 101 |
 | kind: user's knowledge | 56 |
 | kind: choice | 38 |
 | notes: provisional | 38 |
@@ -75,7 +75,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | section: placeholder | 35 |
 | notes: user's knowledge | 26 |
 | notes: interpretation | 25 |
-| kind: approximation | 22 |
+| kind: approximation | 23 |
 | kind: placeholder | 22 |
 | notes: placeholder | 20 |
 | kind: gap (not reproduced) | 18 |
@@ -1803,7 +1803,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-E206209F` | Stalker confirm level and placement | on the shooter, 2D, at the data's level: no distance falloff (`HitConfirmDistanceDb`, which took -18 dB from 40 m), no mix-pass +4 dB or 250 Hz high-pass (most of the smack's energy is under 150 Hz); the victim's material (ceramite_armour or flesh); with… (dB) | kind: interpretation; confidence: medium | the event's actions 1-2 are non-positioned with no distance curve | Stalker confirm level and placement: compare with SM1 by listening A/B at the same distance and state. Ours: on the shooter, 2D, at the data's level: no distance falloff… | ☐ |
 | `R-90DE024A` | Stalker confirm in Musou | an own Stalker / Daemon Eye Bolter hit on an Ork (predicted contact or server hit, one a shot through the gun-sound budget) posts `play_stalker_smack` on the shooter (flesh, ceramite_armour for an armoured Ork); the wet bolter smack at the Ork is not played… | kind: interpretation; confidence: medium; notes: ours | owner 2026-11-09; that Ork hits confirm as player hits do is ours | Stalker confirm in Musou: compare with SM1 by listening A/B at the same distance and state. Ours: an own Stalker / Daemon Eye Bolter hit on an Ork (predicted contact… | ☐ |
 
-### Effects (gameplay-critical) (93)
+### Effects (gameplay-critical) (94)
 
 *Spec section: Jump-pack feel: fuel, air control, the air slash and impact effects (feel/jump-pack; protocol 31, used by the simulation)*
 
@@ -1935,8 +1935,9 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-EF8750E6` | Bare-armour model flash (Classic PvP) | a hit on a body whose armour is already gone re-flashes the model's red glow for 0.2 s (`ArmourFlashTracker.ReflashSeconds`, the fx/red-glow-blood flash that pvp-hit-fx had switched off for its burst); back in Classic PvP only, where the burst stays off.… (s) | kind: ours; confidence: medium | the owner (2026-11-11); the 0.2 s and the curve are ours (fx/red-glow-blood) | Bare-armour model flash (Classic PvP): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a hit on a body whose armour is already gone re-flashes the model's… | ☐ |
-| `R-30810A91` | The melta's burn on a kill (Classic PvP and Musou Mode) | the whole-body burn (`meltagun_dmg_burn_limb_armor` on `MeltaBurnRules.Bones`, on the corpse's skeleton; at the corpse's focus for a rig with none of those bones) plays when a melta weapon's shot KILLS the target, from the kill feed's weapon, when the corpse… | confidence: medium; notes: ours | the owner (2026-11-11); the bone list and gap are ours (fix/melta-burn-onhit) | The melta's burn on a kill (Classic PvP and Musou Mode): compare with SM1 with side-by-side video of the same action. Ours: the whole-body burn (meltagun_dmg_burn_limb_armor on… | ☐ |
-| `R-B4D21421` | The jump pack's flashes with the pilot | when a pack's pilot dies (or leaves) the pack's launch / dive / dash flash is cut at once instead of staying where it was (it had followed the worn pack, which the corpse no longer carries); the death's own burst `jumppack_death_mp` (`actn_jumpdeath_start`… | kind: ours; confidence: medium | the owner (2026-11-11); riding the body is ours (the data fixes the burst in the world) | The jump pack's flashes with the pilot: compare with SM1 with side-by-side video of the same action. Ours: when a pack's pilot dies (or leaves) the pack's launch / dive / dash… | ☐ |
+| `R-442DAB50` | The melta's burn on a kill (Classic PvP) | the whole-body burn (`meltagun_dmg_burn_limb_armor` on `MeltaBurnRules.Bones`, on the corpse's skeleton; at the corpse's focus only for a rig with none of those bones) plays when a melta weapon's shot KILLS a player (kill feed cause Weapon and a weapon name… | confidence: medium; notes: ours | the owner (2026-11-11); the bone list and gap are ours (fix/melta-burn-onhit) | The melta's burn on a kill (Classic PvP): compare with SM1 with side-by-side video of the same action. Ours: the whole-body burn (meltagun_dmg_burn_limb_armor on… | ☐ |
+| `R-06885633` | The melta's burn on a kill (Musou Mode, added content) | a Musou death carries no weapon, only the killer and the cause, so (as the gore does for the lascannon) a death by a shot whose killer holds a melta weapon in hand burns the crowd body: `meltagun_dmg_burn_limb_armor` at four heights (0.25, 0.7, 1.1, 1.5 m)… | kind: ours; confidence: medium | the owner (2026-11-11); the heights, caps and the killer-weapon reading are ours | The melta's burn on a kill (Musou Mode, added content): compare with SM1 with side-by-side video of the same action. Ours: a Musou death carries no weapon, only the killer and the cause, so… | ☐ |
+| `R-B4D21421` | The jump pack's flashes with the pilot | when a pack's pilot dies (or leaves) the pack's launch / dive / dash flash is cut at once instead of staying where it was (it had followed the worn pack, which the corpse no longer carries); the death's own burst `jumppack_death_mp` (`actn_jumpdeath_start`… | kind: ours; kind: provisional; kind: approximation; confidence: low | the owner (2026-11-11); riding the body and ending it at the landing are ours (the data fixes the burst in the world) | The jump pack's flashes with the pilot: compare with SM1 with side-by-side video of the same action. Ours: when a pack's pilot dies (or leaves) the pack's launch / dive / dash… | ☐ |
 
 ### Game modes (45)
 

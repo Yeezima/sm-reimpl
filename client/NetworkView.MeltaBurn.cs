@@ -36,31 +36,38 @@ public partial class NetworkView
     /// </summary>
     void MeltaKillBurn(int victim, KillView? kill, Ragdoll? corpse)
     {
-        if (MeltaBurnOnHit || kill is not { Cause: SmSim.KillCause.Weapon } k || _config is null || k.Index < 0 || k.Index >= _config.Weapons.Count) return;
+        if (MeltaBurnOnHit || kill is not { } k || _config is null || _fx is null) return;
+        if (_meltaKilled.TryGetValue(victim, out double done) && _connectedFor - done < MeltaKillGuardSeconds) return;   // once per death (a jump death calls twice: at its start and at its ragdoll)
+        if (!MeltaBurnRules.KillBurns(k.Cause, k.Index, _meltaWeaponNames ??= _config.Weapons.Select(w => w.Name).ToList())) return;
+        _meltaKilled[victim] = _connectedFor;
+        if (_meltaKilled.Count > 64) foreach (var gone in _meltaKilled.Where(kv => _connectedFor - kv.Value > 10.0).Select(kv => kv.Key).ToList()) _meltaKilled.Remove(gone);
         string wargear = _config.Weapons[k.Index].Name;
-        if (!MeltaBurnRules.IsMelta(wargear)) return;
-        int before = _meltaBurns;
-        MeltaBurnBody(victim, wargear, true, null);
-        if (_meltaBurns == before && corpse is not null && _fx is not null && IsInstanceValid(corpse) && _fx.System(MeltaBurnEffect) is not null)
+        int played = MeltaBurnBody(victim, wargear, true, null, kill: true);
+        // Only a rig with none of the named bones (an Ork's) burns at the corpse's focus (ours); a refused set (the burn is off, no effect) burns nothing.
+        if (played == 0 && corpse is not null && IsInstanceValid(corpse) && _fx.System(MeltaBurnEffect) is not null)
         {
             _fx.Play(MeltaBurnEffect, corpse.FocusPoint, Basis.Identity, 1f, null, () => IsInstanceValid(corpse) ? (corpse.FocusPoint, Basis.Identity) : null, 0f, 0.0, false, 2);
             _meltaBurns++;
             if (LogHitFx) GD.Print($"HITFX melta-burn t {_connectedFor:F3} player {victim}: kill burn at the corpse's focus (no named bones on this rig)");
         }
-        else if (LogHitFx) GD.Print($"HITFX melta-burn t {_connectedFor:F3} player {victim}: kill burn by {wargear}");
+        else if (LogHitFx) GD.Print($"HITFX melta-burn kill t {_connectedFor:F3} player {victim} by {wargear}: {played} effects");
     }
+
+    const double MeltaKillGuardSeconds = 4.0;
+    readonly Dictionary<int, double> _meltaKilled = new();
+    List<string>? _meltaWeaponNames;
 
     readonly Dictionary<int, double> _meltaBurnAt = new();
     int _meltaBurns;
 
     /// <summary>The whole-body burn on <paramref name="victim"/>, in this frame. <paramref name="named"/>: the burn effect the container resolved for the hit, when it did (its scale and life are kept).</summary>
-    void MeltaBurnBody(int victim, string wargear, bool bodyHit, EffectPlayLike? named)
+    int MeltaBurnBody(int victim, string wargear, bool bodyHit, EffectPlayLike? named, bool kill = false)
     {
-        if (_fx is null || _client is null || OldMeltaBurn) return;
-        double last = _meltaBurnAt.GetValueOrDefault(victim, double.NegativeInfinity);
-        if (!MeltaBurnRules.Due(MeltaBurnRules.IsMelta(wargear), bodyHit, victim, _client.PlayerId, _connectedFor, last)) return;
+        if (_fx is null || _client is null || OldMeltaBurn) return -1;
+        double last = kill ? double.NegativeInfinity : _meltaBurnAt.GetValueOrDefault(victim, double.NegativeInfinity);   // a kill burns once per death (the guard of MeltaKillBurn), whatever the gap
+        if (!MeltaBurnRules.Due(MeltaBurnRules.IsMelta(wargear), bodyHit, victim, kill ? -1 : _client.PlayerId, _connectedFor, last)) return -1;   // a kill burns the own body too
         string name = named?.Name ?? MeltaBurnEffect;
-        if (_fx.System(name) is null) return;
+        if (_fx.System(name) is null) return -1;
         _meltaBurnAt[victim] = _connectedFor;
         if (_meltaBurnAt.Count > 32) foreach (var gone in _meltaBurnAt.Keys.Where(id => !_remotes.ContainsKey(id)).ToList()) _meltaBurnAt.Remove(gone);
         int played = 0;
@@ -74,6 +81,7 @@ public partial class NetworkView
         }
         _meltaBurns += played;
         if (LogHitFx) GD.Print($"HITFX melta-burn t {_connectedFor:F3} player {victim}: {played} of {MeltaBurnRules.Bones.Length} bones (total {_meltaBurns}); heights{spread}");
+        return played;
     }
 
     /// <summary>The effect a melta hit resolved (name, life) without tying the burn to the catalogue's play type.</summary>

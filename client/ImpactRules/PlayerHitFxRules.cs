@@ -5,8 +5,8 @@ namespace SmClient.ImpactRules;
 /// <summary>
 /// classic-no-player-hit-fx (owner, 2026-11-11: "simply remove instances of weapon on hit visual effects like the stalker bolter explosion cloud on the player target you shot and hit -
 /// classic pvp only"): in Classic PvP (Annihilation and Seize Ground, any match that is not Musou Mode) a ranged hit on a player draws none of the on-hit particle effects on or at him:
-/// no armour-hit effects at the hit point or on his body markers, no spark fans, no health-hit burst or blood splash, no melta burn, no hit container (decals, exit wounds) and no armour
-/// break effect for a break a shot caused. Kept: the victim model's own flash and glow (a shader on the model, not an effect), the hit sounds, the HUD's hit marker and screen feedback,
+/// no armour-hit effects at the hit point or on his body markers, no spark fans, no health-hit burst or blood splash, no on-hit melta burn, no hit container (decals, exit wounds). SUPERSEDED in part by the owner's answers of 2026-11-11 (claude/hit-fx-answers): a break a shot caused plays its
+/// armour break effect again (<see cref="DrawsBreakFx"/>), the bare-armour model flash is back (<see cref="BareHitFlash"/>) and the melta burns on a kill, not on a hit (<c>NetworkView.MeltaKillBurn</c>). Kept: the victim model's own flash and glow (a shader on the model, not an effect), the hit sounds, the HUD's hit marker and screen feedback,
 /// the tracer or projectile in flight, explosions and everything a shot that misses players draws on the map. Musou Mode keeps all of it. A deliberate change from the original's look
 /// (docs/changes-from-original.md); <c>--player-hit-fx</c> brings the effects back in Classic.
 /// </summary>

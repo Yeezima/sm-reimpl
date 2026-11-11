@@ -112,6 +112,9 @@ public partial class NetworkView
         if (!_marineDeaths.TryGetValue(id, out var d) || d.FxBody is not { } body) return false;
         body.Ragdoll = rd;
         body.Held = null;
+        // claude/hit-fx-answers: the kill may not have been known when the death began; the melta's burn is decided again here (once per death: MeltaKillBurn's guard).
+        try { MeltaKillBurn(id, _deathCauses.TryGetValue(id, out var c) && _connectedFor - c.At < 8.0 ? c.Kill : null, rd); }
+        catch (Exception ex) when (ex is not (StackOverflowException or AccessViolationException or OutOfMemoryException)) { if (_fxNoted.Add("meltakill-fault")) GD.PrintErr($"melta kill burn failed: {ex.Message}"); }
         return true;
     }
 

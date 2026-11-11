@@ -7,8 +7,8 @@ namespace SmClient;
 
 /// <summary>
 /// classic-no-player-hit-fx (owner, 2026-11-11; client presentation only, no protocol or config-hash change): in Classic PvP a ranged hit on a player draws none of the on-hit
-/// particle effects on or at him (<see cref="PlayerHitFxRules"/>): <c>FxImpact</c> skips the armour-hit effects, the spark fans, the health-hit burst, the melta burn and the hit
-/// container for a body or head hit, <c>DetonationBodyHit</c> the armour-hit effects, and a break a shot caused plays no <c>sm_armor_break_shoulders</c>. The victim model's flash and
+/// particle effects on or at him (<see cref="PlayerHitFxRules"/>): <c>FxImpact</c> skips the armour-hit effects, the spark fans, the health-hit burst, the (on-hit) melta burn and the hit
+/// container for a body or head hit, <c>DetonationBodyHit</c> the armour-hit effects, (SUPERSEDED in part, owner's answers 2026-11-11, claude/hit-fx-answers: a break a shot caused plays <c>sm_armor_break_shoulders</c> again, the bare-armour model flash is back and the melta burns only on a kill; see <see cref="PlayerHitFxRules.DrawsBreakFx"/>, <see cref="PlayerHitFxRules.BareHitFlash"/>). The victim model's flash and
 /// glow, the sounds, the HUD, the tracer and the map's impacts are unchanged; Musou Mode keeps everything. <c>--player-hit-fx</c> restores the effects; <c>--log-hit-fx</c> logs a
 /// <c>HITFX classic</c> line for each hit and break left bare.
 /// </summary>

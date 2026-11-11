@@ -338,6 +338,32 @@ public class MeltaBurnRulesTests
 }
 
 /// <summary>fix/hit-decals-map-only (owner, 2026-11-08): a ranged shot that hits a player leaves no decal; one that strikes the map does.</summary>
+public class MeltaKillAttributionTests
+{
+    static readonly string[] Names = ["wargear_sm_bolter", "wargear_sm_meltagun", "wargear_csm_meltagun"];
+
+    [Theory]
+    [InlineData(SmSim.KillCause.Weapon, 1, true)]
+    [InlineData(SmSim.KillCause.Weapon, 2, true)]
+    [InlineData(SmSim.KillCause.Weapon, 0, false)]    // another gun
+    [InlineData(SmSim.KillCause.Weapon, 3, false)]    // index out of range
+    [InlineData(SmSim.KillCause.Weapon, -1, false)]
+    [InlineData(SmSim.KillCause.Thrown, 1, false)]    // the melta bomb is a thrown item: its index is into the thrown list, never the weapons
+    [InlineData(SmSim.KillCause.Melee, 1, false)]
+    [InlineData(SmSim.KillCause.JumpPack, 1, false)]
+    [InlineData(SmSim.KillCause.Perk, 1, false)]
+    [InlineData(SmSim.KillCause.World, 1, false)]
+    public void Only_a_weapon_kill_by_a_melta_burns(SmSim.KillCause cause, int index, bool burns) => Assert.Equal(burns, MeltaBurnRules.KillBurns(cause, index, Names));
+
+    [Theory]
+    [InlineData(true, "wargear_sm_meltagun", true)]
+    [InlineData(true, "wargear_csm_meltagun", true)]
+    [InlineData(true, "wargear_sm_bolter", false)]
+    [InlineData(true, null, false)]
+    [InlineData(false, "wargear_sm_meltagun", false)]   // a blast, a melee or a barrage death
+    public void The_crowds_burn_needs_a_shot_and_a_melta_in_the_killers_hand(bool shot, string? inHand, bool burns) => Assert.Equal(burns, MeltaBurnRules.CrowdKillBurns(shot, inHand));
+}
+
 public class HitDecalRulesTests
 {
     [Theory]

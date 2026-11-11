@@ -289,6 +289,13 @@ public partial class NetworkView
         return body.Hold is { } hold && body.Held is { } held && IsInstanceValid(held) && _marineDeaths.TryGetValue(body.PlayerId, out var now) && ReferenceEquals(now, hold);
     }
 
+    /// <summary>
+    /// Whether a jump death's body has landed or settled (the pack's burst, which rides it, ends then; ours): its floor clip's impact fired, it went to the ragdoll after the fall, or a plain ragdoll
+    /// stopped simulating.
+    /// </summary>
+    static bool PackBurstLanded(DeathBody body) =>
+        body.Hold?.ImpactWatch is { FloorReached: true } or { NoFloor: true } || (body.Ragdoll is { } rd && (body.Hold is not null || !rd.Simulating));
+
     /// <summary>A death's body's chest (Godot world): the corpse's focus, or the falling body's chest bone.</summary>
     Vector3 BodyFocus(DeathBody body) =>
         body.Ragdoll is { } rd ? rd.FocusPoint : body.Held is { } held && IsInstanceValid(held) ? CharacterChest(held) : Vector3.Zero;
@@ -336,7 +343,12 @@ public partial class NetworkView
                 if (packFlash && follow is { } inner)
                 {
                     var rides = inner;
-                    follow = () => { var place = rides(); if (place is null && self is not null) self.Life = Math.Min(self.Life, Math.Max(0.0, self.Age)); return place; };   // the body is gone: the burst goes with it
+                    follow = () =>
+                    {
+                        var place = rides();
+                        if ((place is null || PackBurstLanded(body)) && self is not null) { self.Life = Math.Min(self.Life, Math.Max(0.0, self.Age)); return null; }   // the body is gone or has landed / settled: the burst goes
+                        return place;
+                    };
                 }
                 var tint = job.Wargear.Length > 0 ? RaceTint(job.Wargear, p.Name) : null;
                 var e = _fx.Play(p.Name, position, axes, p.Scale <= 0f ? 1f : p.Scale, null, follow, p.Lifetime, 0.0, false, DeathFxPriority, tint: tint);
