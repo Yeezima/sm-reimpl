@@ -593,6 +593,7 @@ public partial class NetworkView
         if (CmdFlag("tfw-test-fight")) { await TfwTestFight(); return; }
         if (CmdFlag("tfw-test-melee")) { await TfwTestMelee(); return; }
         if (CmdFlag("tfw-test-charge")) { await TfwTestCharge(); return; }   // W4, the Remote Detonators (Arsenal/Charge/NetworkView.ChargeTest.cs)
+        if (CmdFlag("tfw-zoom-capture")) { await TfwZoomCapture(); return; }   // the Librarian's zoom against another class's (Librarian/NetworkView.ZoomCapture.cs)
         if (CmdFlag("tfw-autocannon-capture")) { await TfwAutocannonCapture(); return; }   // W1 (2026-11-10): the autocannon's screenshot gate (Arsenal/Autocannon/NetworkView.AutocannonCapture.cs)
         if (CmdFlag("tfw-autocannon-impact-capture")) { await TfwAutocannonImpactCapture(); return; }   // W1c: the autocannon's impacts on a wall and the ground (Arsenal/Autocannon/NetworkView.AutocannonImpactCapture.cs)
         if (CmdFlag("tfw-spear-capture")) { await TfwSpearCapture(); return; }   // the power spear's approved clips in a match (Arsenal/Spear/NetworkView.SpearCapture.cs)

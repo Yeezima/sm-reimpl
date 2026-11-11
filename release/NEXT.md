@@ -14,3 +14,9 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 
 ### Musou Mode
 - A new SUPPORT step in the customizer (Musou Mode's pages: the marines' loadouts and the Librarian) chooses what B calls, one choice for each loadout. The first is the artillery strike, as before. The second is a drop pod assault: B marks a point with the laser, a few seconds later a drop pod falls from the sky in fire and smoke and shakes the ground, its doors drop open and four Tactical Marines fight for 30 seconds, then retreat to the Imperial base and vanish. One pod at a time, and the same one-minute wait as the artillery strike. This build does not play with earlier ones (a new network version): everyone must update.
+### Musou Mode
+- The made-up background yelling is gone (the distant Ork mobs shouting and the armies' war cries); only Orks and Marines actually on the field make noise, and their voices now carry about three quarters farther, so you hear everyone from further away.
+- Pressing the equipment key with combat stims now uses them far more reliably: the press is remembered for half a second while a swing or a charge finishes, and a hit in the first moment of the use no longer cancels it.
+- Melee attacks reach 20 percent further for every weapon, including the power spear's sweeps.
+- The Librarian can now zoom in with the aim button like every other class (the same zoom, the same speed). He can still cast while zoomed.
+- The autocannon's barrel now joins the body of the gun without a gap where it begins to stick out.

@@ -125,10 +125,10 @@ public class SpearTests
     [Fact]
     public void A_spear_sweep_reaches_15_m_over_300_degrees_and_a_hammer_swing_does_not()
     {
-        // In the war every cleave's reach is x0.6 (owner 2026-11-11: "reduce melee attack cleave range by 40%"): the spear's 15 m sweep reaches 9 m, the hammer's 8.8 m (10.7) 5.3 m (6.4).
+        // In the war every cleave's reach is x0.6 (owner 2026-11-11: "reduce melee attack cleave range by 40%"): the spear's 15 m sweep reached 9 m (10.8 m since the owner's 2026-11-12 x1.2), the hammer's 8.8 m (10.7) 5.3 m (6.4), now 6.3 m (7.7).
         var spear = War(melee: 1);
         ushort near = Ork(spear, Polar(spear, 0f, 8.5f));       // past the hammer's 6.4 m
-        ushort far = Ork(spear, Polar(spear, 0f, 9.5f));
+        ushort far = Ork(spear, Polar(spear, 0f, 11.5f));
         ushort wide = Ork(spear, Polar(spear, 145f, 5f));       // past the war hammer's 120 each side
         ushort behind = Ork(spear, Polar(spear, 160f, 5f));     // outside 150
         ushort high = Ork(spear, Polar(spear, 20f, 4f, 2.0f));  // the flat cone's 1.5 m height band

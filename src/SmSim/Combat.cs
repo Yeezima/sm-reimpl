@@ -547,7 +547,7 @@ public static class Combat
         // a burst's later rounds) is cancelled below, so a release during the sprint fires nothing. The held trigger no longer takes the sprint away (M27's rule, superseded).
         // Whether the button is held stays the real one, so after the sprint a semi-automatic or charge weapon needs a new press; a full-auto trigger fires on.
         bool sprintNoFire = (input.Buttons & InputButtons.Sprint) != 0 && sanitized.MoveY > 0f && s.Grounded && !reacting && !rushing && !evading
-            && jump.Phase == JumpPhase.None && !jump.Started && !(aimDown && weapon is not null) && !(step > 0 && time < MoveAtOf(steps[step - 1], c));
+            && jump.Phase == JumpPhase.None && !jump.Started && !(aimDown && (weapon is not null || c.AimsWithoutWeapon(s.Class))) && !(step > 0 && time < MoveAtOf(steps[step - 1], c));
         // sim/roll-fire-pitch (protocol 51; the owner 2026-11-01: "ensure you can never shoot while the roll animation is playing"): for the whole roll the trigger does
         // nothing for every weapon (no shot, no charge start, no raise; nothing buffered), and in the tick the stick, Aim or a grenade cuts the roll short (before its clip's
         // end) neither, as the charge's fireDropped. A charge or pending charged shot held into the roll is cancelled at its start (the M21 rule, below), a raise and a
@@ -743,7 +743,7 @@ public static class Combat
 
         // Aim mode (protocol 12; interpretation, spec/behavior.md): the Aim button held with a ranged weapon in hand, outside
         // melee attacks, throws, jump-pack jumps and dives, and evades.
-        bool aiming = aimDown && weapon is not null && step == 0 && !throwing && !threw
+        bool aiming = aimDown && (weapon is not null || c.AimsWithoutWeapon(s.Class)) && step == 0 && !throwing && !threw
             && !JumpPack.Pounding(jump.Phase) && !evading;   // the owner, 2026-11-02: zoom in the air as on the ground
         // Raising the weapon (M31; see the summary): what lowered it this tick, the raise under way, and whether it is up.
         bool lowerOther = reacting || rushing || step > 0 || throwing || threw || evading || jump.Started || jump.PoundStart || jumpBusy
@@ -1120,7 +1120,7 @@ public static class Combat
     public static bool SprintApplies(PlayerState s, PlayerInput input, SimConfig c)
     {
         if ((input.Buttons & InputButtons.Sprint) == 0) return false;
-        return !(Loadouts.InHand(c, s) is not null && (input.Buttons & InputButtons.Aim) != 0);
+        return !((Loadouts.InHand(c, s) is not null || c.AimsWithoutWeapon(s.Class)) && (input.Buttons & InputButtons.Aim) != 0);
     }
 
     /// <summary>

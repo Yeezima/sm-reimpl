@@ -240,16 +240,24 @@ public static class InputBuffer
         return next.Alive ? next with { Buffered = action, BufferTicks = ticks, BufferedCharge = charge } : next with { Buffered = BufferedAction.None, BufferTicks = 0, BufferedCharge = false };
     }
 
+    /// <summary>
+    /// The window (ticks) a press of <paramref name="a"/> is kept for: <paramref name="window"/> (<see cref="SimConfig.InputBufferTicks"/>), except a press of the use key with a stim in Musou Mode
+    /// (<see cref="Stims.Reliable"/>; owner 2026-11-12: "ensure it's more reliably working the first time you press the button"), kept <see cref="MaxTicks"/> ticks (0.5 s at 30 Hz): a stim is used
+    /// in the middle of a fight, and a swing, a charge or a recovery longer than 0.3 s let the press lapse unused. Classic PvP keeps the window.
+    /// </summary>
+    internal static int WindowOf(PlayerState s, BufferedAction a, SimConfig c, int window) => a == BufferedAction.Grenade && Stims.Reliable(c, s) ? MaxTicks : window;
+
     /// <summary>The buffer after a tick (pure rule; see the class summary).</summary>
     internal static (BufferedAction Action, int Ticks) After(PlayerState before, InputButtons real, Tick t, int used, int window, SimConfig c)
     {
         if (window <= 0 || !before.Alive) return (BufferedAction.None, 0);
         window = Math.Min(window, MaxTicks);
         if (t.Fresh != BufferedAction.None)
-            return (used & Bit(t.Fresh)) == 0 && Locked(before, t.Fresh) && !Hold(before, t.Fresh) ? (t.Fresh, window) : (BufferedAction.None, 0);
+            return (used & Bit(t.Fresh)) == 0 && Locked(before, t.Fresh) && !Hold(before, t.Fresh) ? (t.Fresh, WindowOf(before, t.Fresh, c, window)) : (BufferedAction.None, 0);
         var carried = before.Buffered;
         if (carried == BufferedAction.None || t.Dropped) return (BufferedAction.None, 0);
         if (t.Replayed != BufferedAction.None && ((used & Bit(carried)) != 0 || !Locked(before, carried))) return (BufferedAction.None, 0);
+        window = WindowOf(before, carried, c, window);
         int left = Math.Max(0, Math.Min(before.BufferTicks, window) - 1);
         bool held = Held(carried, real);
         // feel/jump-pack-2: a long press is kept while held and for a new window from its release (so a hold let go before the lock ends still jumps).

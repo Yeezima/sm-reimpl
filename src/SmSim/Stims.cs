@@ -76,6 +76,16 @@ public static class Stims
     /// <summary>Whether firing a gun spends no ammunition now (Musou Mode's stims).</summary>
     public static bool FreeAmmo(SimConfig c, PlayerState s) => s.StimLeft > 0f && Active(c, s) is not null && c.StimBoost.FreeAmmo;
 
+    /// <summary>Whether the reliable use of stims (<see cref="StimBoost.Reliable"/>, Musou Mode only) applies to <paramref name="s"/>: the item is a stim.</summary>
+    public static bool Reliable(SimConfig c, PlayerState s) => c.StimBoost.Reliable && Loadouts.Equipment(c, s)?.Stim is not null;
+
+    /// <summary>
+    /// Whether <paramref name="s"/> is in the use's wind-up (Throwing, before the stim's release) with the reliable use on: no hit reaction starts then (<see cref="Reaction.CanReact"/>), so a hit does not
+    /// cancel the use ("before its release nothing is spent", <see cref="Reaction.Start"/>) and lose the press (Musou Mode only; Classic PvP keeps the cancel).
+    /// </summary>
+    public static bool WindUp(SimConfig c, PlayerState s) =>
+        s.Throwing && Reliable(c, s) && Loadouts.Equipment(c, s)?.Stim is { } stim && s.ThrowTime + 1e-4f < stim.UseRelease;
+
     /// <summary>Whether a stim keeps <paramref name="s"/> out of hit reactions now.</summary>
     public static bool ReactionImmune(SimConfig c, PlayerState s) => Active(c, s)?.ReactionImmune == true;
 
@@ -109,7 +119,9 @@ public static class Stims
 /// <param name="Melee">The melee damage multiplier while it works (the larger of this and the data's).</param>
 /// <param name="Speed">Times the speed of melee swings and the fire rate.</param>
 /// <param name="FreeAmmo">Whether firing spends no ammunition.</param>
-public readonly record struct StimBoost(float Lifetime, float Melee, float Speed, bool FreeAmmo)
+/// <param name="Reliable">Whether a press of the use key is kept for a longer time (<see cref="InputBuffer.MaxTicks"/>, 0.5 s) and a hit cannot cancel the use before its release (owner 2026-11-12:
+/// "ensure it's more reliably working the first time you press the button"; <see cref="Stims.Reliable"/>).</param>
+public readonly record struct StimBoost(float Lifetime, float Melee, float Speed, bool FreeAmmo, bool Reliable = false)
 {
     public static StimBoost None => new(1f, 1f, 1f, false);
 }

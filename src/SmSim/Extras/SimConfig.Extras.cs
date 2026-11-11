@@ -23,6 +23,12 @@ public sealed partial record SimConfig
         if (Extras.HasFlag(ContentExtras.Musou)) allowed = true;
     }
 
+    // librarian zoom (owner, 2026-11-12): the Librarian carries no gun, but the Aim key zooms him like every class (his cast keys are Fire, Grenade and Reload).
+    partial void ExtrasAimWithoutWeapon(int classIndex, ref bool aims)
+    {
+        if (SmSim.Extras.Musou.LibrarianRules.IsLibrarian(this, classIndex)) aims = true;
+    }
+
     // musou/no-spread (owner, 2026-11-06): Musou Mode's shots have no spread at all.
     partial void ExtrasNoBulletSpread(ref bool off)
     {
@@ -38,7 +44,7 @@ public sealed partial record SimConfig
     // musou/combat-rules (owner, 2026-11-09): Musou Mode's combat stims last 3x, hit 2x, swing and fire 20 % faster, and spend no ammunition; its frag blasts reach 2x.
     partial void ExtrasStimBoost(ref StimBoost boost)
     {
-        if (Extras.HasFlag(ContentExtras.Musou)) boost = new StimBoost(MusouCombatRules.StimLifetimeScale, MusouCombatRules.StimMeleeDamage, MusouCombatRules.StimAttackSpeed, true);
+        if (Extras.HasFlag(ContentExtras.Musou)) boost = new StimBoost(MusouCombatRules.StimLifetimeScale, MusouCombatRules.StimMeleeDamage, MusouCombatRules.StimAttackSpeed, true, Reliable: true);   // + owner 2026-11-12: a reliable use (a 0.5 s kept press, no hit cancel before the release)
     }
 
     partial void ExtrasFireBoost(ref float rate, ref float cap)

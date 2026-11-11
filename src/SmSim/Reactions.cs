@@ -255,6 +255,7 @@ public static class Reaction
     {
         if (!s.Alive || Evade.HyperArmour(s, c) || Rush.HyperArmour(s, c)) return false;
         if (Brace.ReactionImmune(s)) return false;   // fidelity gap 7: the heavy bolter's stance (owner's recollection: stuns and hits do not knock you out)
+        if (Stims.WindUp(c, s)) return false;   // owner 2026-11-12 (Musou Mode only): a stim's use is not cancelled by a hit before its release
         if (Stims.ReactionImmune(c, s)) return false;   // perks/inert-2: combat stims (mp_reaction_immunity while they work)
         if (s.Jump is JumpPhase.Ascent or JumpPhase.Hang or JumpPhase.Fall or JumpPhase.Dive) return false;
         if (ClipOf(s, c) is { } clip && Time(s, c) + Eps < clip.ReactAt) return false;

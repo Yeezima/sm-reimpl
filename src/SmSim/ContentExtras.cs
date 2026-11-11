@@ -211,6 +211,20 @@ public sealed partial record SimConfig
     partial void ExtrasAirJumps(ref bool allowed);
 
     /// <summary>
+    /// Whether the Aim key puts class <paramref name="classIndex"/> in aim mode (zoom) although he holds no weapon (owner, 2026-11-12: "Add a zoom to the librarian - he should have the same zoom as the other classes").
+    /// Always false in Classic PvP (every class there has a weapon): aim mode needs a ranged weapon in hand, as ever. Set by added content through <see cref="ExtrasAimWithoutWeapon"/>.
+    /// </summary>
+    public bool AimsWithoutWeapon(int classIndex)
+    {
+        bool aims = false;
+        ExtrasAimWithoutWeapon(classIndex, ref aims);   // EXTRAS-HOOK
+        return aims;
+    }
+
+    /// <summary>Hook for added content (docs/added-content.md): sets <paramref name="aims"/> when a weaponless class zooms with the Aim key (<see cref="AimsWithoutWeapon"/>).</summary>
+    partial void ExtrasAimWithoutWeapon(int classIndex, ref bool aims);
+
+    /// <summary>
     /// musou/no-spread (owner, 2026-11-06: "in musou mode only completely remove bullet spread"): every shot goes exactly along its aim (no scatter, no bloom, no melee flinch scatter) and the
     /// reticle stays closed. False in Classic PvP (and every non-Musou match). Set by added content through <see cref="ExtrasNoBulletSpread"/>; not hashed itself (Musou's block covers it).
     /// </summary>

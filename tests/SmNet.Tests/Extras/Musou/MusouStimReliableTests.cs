@@ -1,0 +1,99 @@
+using System.Numerics;
+using SmSim;
+using SmSim.Extras.Musou.Campaign;
+
+namespace SmNet.Tests;
+
+/// <summary>
+/// Owner 2026-11-12: "Pressing the equipment use hotkey with stims equipped doesn't always use the stims. Ensure it's more reliably working the first time you press the button."
+/// The cause (found with a scripted sweep of presses over every action of the sim): the use key is a bufferable press kept only 0.3 s (9 ticks), so a press made more than 0.3 s before a swing, a charge or a
+/// recovery ends is dropped unused; and a hit reaction that starts before the stim's release (0.3 s into the use) cancels the use ("before its release nothing is spent") with the press consumed. In Musou Mode
+/// (<see cref="StimBoost.Reliable"/>) the press is kept 0.5 s and no hit starts a reaction before the release; Classic PvP keeps both rules. Also the owner's "increase all melee attacks cleave distance by 20%"
+/// (<see cref="TfwCombatRules.PlayerCleaveReachScale"/> 0.6 to 0.72), pinned here against the old scale.
+/// </summary>
+public class MusouStimReliableTests
+{
+    static SimConfig Make(bool musou) => StimTests.Config with
+    {
+        InputBufferWindow = 0.3f,
+        Extras = musou ? ContentExtras.Musou : ContentExtras.None,
+    };
+
+    static PlayerState Fresh(SimConfig c) => Combat.Respawned(new PlayerState(1, Vector3.Zero, Vector3.Zero, 0f, true) { Class = 0 }, c);
+
+    /// <summary>A light swing at tick 0 (it ends at tick 30), the use key pressed for one tick at <paramref name="press"/>; whether a use began by tick 90, and the tick it began.</summary>
+    static (bool Used, int At) PressDuringSwing(SimConfig c, int press)
+    {
+        var s = Fresh(c);
+        for (int k = 0; k < 90; k++)
+        {
+            var b = k == 0 ? InputButtons.Melee : InputButtons.None;
+            if (k == press) b |= InputButtons.Grenade;
+            s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 0f, 0f, b), c, out _);
+            if (s.Throwing) return (true, k);
+        }
+        return (false, -1);
+    }
+
+    [Fact]
+    public void The_Classic_press_still_lapses_after_nine_ticks()
+    {
+        Assert.Equal((false, -1), PressDuringSwing(Make(false), 16));   // 14 ticks before the swing ends: dropped, as before
+        Assert.Equal((true, 30), PressDuringSwing(Make(false), 21));    // 9 ticks before: kept, used the tick the swing ends
+    }
+
+    [Fact]
+    public void In_Musou_Mode_the_press_is_kept_fifteen_ticks_and_uses_the_stim_when_the_swing_ends()
+    {
+        var c = Make(true);
+        Assert.True(c.StimBoost.Reliable);
+        Assert.Equal((true, 30), PressDuringSwing(c, 16));
+        Assert.Equal((true, 30), PressDuringSwing(c, 15));
+        Assert.Equal((false, -1), PressDuringSwing(c, 14));   // past 0.5 s the press lapses (the wire carries at most 15 ticks)
+    }
+
+    [Fact]
+    public void Classic_PvP_has_no_reliable_use()
+    {
+        Assert.False(Make(false).StimBoost.Reliable);
+        Assert.False(StimBoost.None.Reliable);
+    }
+
+    [Fact]
+    public void A_hit_before_the_stims_release_starts_no_reaction_in_Musou_Mode_only()
+    {
+        foreach (bool musou in new[] { false, true })
+        {
+            var c = Make(musou);
+            var s = Fresh(c);
+            for (int k = 0; k < 3 && !s.Throwing; k++) s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 0f, 0f, InputButtons.Grenade), c, out _);
+            Assert.True(s.Throwing);
+            Assert.True(s.ThrowTime < 0.3f);   // before the release (0.3 s)
+            Assert.Equal(!musou, Reaction.CanReact(s, c));
+        }
+    }
+
+    [Fact]
+    public void After_the_release_the_use_is_over_with_the_stims_own_immunity_and_a_frag_throw_is_never_armoured()
+    {
+        var c = Make(true);
+        var s = Fresh(c) with { Equipment = 1, Grenades = 1 };   // the frag grenade (index 1 of the config's items)
+        Assert.NotNull(Loadouts.Equipment(c, s));
+        s = s with { Throwing = true, ThrowTime = 0.05f };
+        Assert.False(Stims.WindUp(c, s));   // not a stim
+        Assert.True(Reaction.CanReact(s, c));
+    }
+
+    [Fact]
+    public void The_players_cleave_reach_in_the_war_is_twelve_tenths_of_the_pass_before()
+    {
+        var war = TfwCombatRules.Default;
+        Assert.Equal(0.72f, war.PlayerCleaveReachScale);
+        Assert.Equal(0.6f * 1.2f, war.PlayerCleaveReachScale, 5);
+        // The angle, the target cap and the war's own scale are untouched.
+        Assert.Equal(1.3f, war.CleaveReachScale);
+        Assert.Equal(120f, war.CleaveHalfAngleDegrees);
+        Assert.Equal(40, war.CleaveTargets);
+        Assert.Equal(15f, SmSim.Extras.Musou.Arsenal.SpearRules.ReachMetres);   // the spear's own 15 m (it goes through the scale: 10.8 m)
+    }
+}

@@ -30,6 +30,7 @@ public partial class NetworkView
     void MusouTrackEmitter(SoundEmitter emitter, bool own)
     {
         if (own && MusouAudioOn) emitter.ProtectSpeech = true;
+        if (MusouActive) emitter.VoiceDistanceScale = 1f / MusouVoiceReach;   // musou/npc-voices-only: every player's voice lines carry farther
     }
 
     /// <summary>A bolter rifle's shot: its fire sound again, deep, and the thump (voices: the copy's, one more).</summary>
