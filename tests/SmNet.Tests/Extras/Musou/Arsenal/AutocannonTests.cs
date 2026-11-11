@@ -11,8 +11,9 @@ namespace SmNet.Tests.Extras.Musou.Arsenal;
 
 /// <summary>
 /// W1, the Musou autocannon (docs/new-weapons-design.md section 4), in a war on the synthetic arena: the install's Chaos file's numbers (here its values written out as the reader gives them) become the
-/// Space Marines' full auto gun, one round every 0.4 s for 50, overheating after 15 rounds, through 5 Orks with a 2.5 m bolt-style blast at each Ork a round strikes; nothing of it outside a Musou
-/// config and the bolter's blasts as they were.
+/// Space Marines' full auto gun, one round every 0.4 s, overheating after 15 rounds, through 5 Orks with a 2.5 m bolt-style blast at each Ork a round strikes; nothing of it outside a Musou
+/// config and the bolter's blasts as they were. The autocannon pass (the owner, 2026-11-11): the blast is 100 everywhere in its reach (120 after a human's x1.2), so it kills every fodder Ork at its centre
+/// and its edge; the round is the blast's + 30 (130, 156 after the x1.2); its clip is never spent in the war.
 /// </summary>
 public class AutocannonTests
 {
@@ -67,15 +68,19 @@ public class AutocannonTests
     // ---------------------------------------------------------------- the weapon
 
     [Fact]
-    public void The_twin_is_full_auto_one_round_every_four_tenths_for_fifty_with_the_files_heat_and_the_heavy_bolters_handling()
+    public void The_twin_is_full_auto_one_round_every_four_tenths_with_the_files_heat_and_the_heavy_bolters_handling()
     {
         var twin = ContentArsenal.Twin(ChaosFile, HeavyBolter);
         Assert.Equal(ArsenalRules.Autocannon, twin.Name);
         Assert.Equal(TriggerKind.FullAuto, twin.Trigger);
         Assert.Equal(0.4f, twin.ShotCooldown);
         Assert.Equal(AutocannonRules.SecondsPerRound, twin.ShotCooldown);
-        Assert.Equal(50f, twin.Damage);
-        Assert.True(twin.Damage > HeavyBolter.Damage && twin.ShotCooldown > HeavyBolter.ShotCooldown);   // slower and harder than the heavy bolter
+        Assert.Equal(50f, twin.Damage);   // the shared twin keeps the file's round; Musou's own is the blast's + 30 (below)
+        var musou = ContentArsenal.MusouTwin(ChaosFile, HeavyBolter);
+        Assert.Equal(AutocannonRules.BlastDamage + 30f, musou.Damage);   // the owner, 2026-11-11: "the damage value of the aoe explosion effect + 30"
+        Assert.Equal(130f, musou.Damage);
+        Assert.Equal(twin with { Damage = musou.Damage }, musou);   // nothing else differs
+        Assert.True(musou.Damage > HeavyBolter.Damage && musou.ShotCooldown > HeavyBolter.ShotCooldown);   // slower and harder than the heavy bolter
         Assert.False(twin.Bursts);
         Assert.Equal((400, 0), (twin.ClipSize, twin.ReserveSize));
         Assert.Equal((150f, 45f, 70f, 0.75f), (twin.MaxRange, twin.FallOffStart, twin.FallOffEnd, twin.FallOffEndMultiplier));
@@ -90,6 +95,7 @@ public class AutocannonTests
         var config = Config();
         Assert.Equal(3, config.Weapons.Count);
         Assert.Equal(ArsenalRules.Autocannon, config.Weapons[2].Name);
+        Assert.Equal(AutocannonRules.DirectDamage, config.Weapons[2].Damage);   // Musou's round
         Assert.Equal([0, 2], config.Classes[0].PrimaryChoices);   // the Devastator: heavy bolter, then the autocannon
         Assert.Equal([1], config.Classes[1].PrimaryChoices);      // the Tactical's list is as it was
         Assert.Equal([0], config.Classes[2].PrimaryChoices);      // so is the Chaos Havoc's
@@ -115,7 +121,7 @@ public class AutocannonTests
     // ---------------------------------------------------------------- the firing
 
     [Fact]
-    public void It_fires_a_round_every_four_tenths_of_a_second_for_fifty_while_the_trigger_is_held()
+    public void It_fires_a_round_every_four_tenths_of_a_second_while_the_trigger_is_held()
     {
         var w = War(new Vector3(0f, -60f, 0f));
         Assert.Equal(ArsenalRules.Autocannon, Loadouts.InHand(w.Config, w.Players[Human])!.Name);
@@ -135,7 +141,10 @@ public class AutocannonTests
         for (int k = 1; k < ticks.Count; k++)
             Assert.InRange((ticks[k] - ticks[k - 1]) / (float)w.Config.TickRate, 0.4f - 1.5f / w.Config.TickRate, 0.4f + 1.5f / w.Config.TickRate);
         float ranged = TfwCombatRules.Default.PlayerRangedDamageScale;   // x1.2 in the war (owner 2026-11-11: "increase all ranged attack damage by 20%")
-        Assert.Contains(drops, d => MathF.Abs(d - 50f * ranged) < 0.5f || MathF.Abs(d - 65f * ranged) < 0.5f);   // a round is 50 (plus the blast's 15 on the Ork it strikes, in the same tick)
+        Assert.Equal(1.2f, ranged);
+        // A round is 130 and the blast on the Ork it strikes 100, in the same tick: 276 after the x1.2 (156 + 120).
+        Assert.All(drops, d => Assert.Equal((AutocannonRules.DirectDamage + AutocannonRules.BlastDamage) * ranged, d, 0.5f));
+        Assert.Equal(276f, (AutocannonRules.DirectDamage + AutocannonRules.BlastDamage) * ranged, 0.01f);
     }
 
     [Fact]
@@ -174,7 +183,7 @@ public class AutocannonTests
         Assert.Equal(6, records.Length);
         Assert.All(records, r => Assert.Equal(AutocannonRules.BlastRadius, r.To.Y));   // the clients get the radius
         float hurt = 100000f - HealthOf(w, beside);
-        Assert.InRange(hurt, AutocannonRules.BlastDamage * 0.3f, AutocannonRules.BlastDamage);   // a blast alone: the ray passes 2 m off him
+        Assert.Equal(AutocannonRules.BlastDamage * TfwCombatRules.Default.PlayerRangedDamageScale, hurt, 0.01f);   // a blast alone, all of it: the ray passes 2 m off him (no fall-off since 2026-11-11)
         Assert.Equal(100000f, HealthOf(w, outside));
     }
 
@@ -196,16 +205,139 @@ public class AutocannonTests
     }
 
     [Fact]
-    public void The_blast_is_twice_the_bolt_blasts_size_with_its_damage_and_shape()
+    public void The_blast_is_twice_the_bolt_blasts_size_and_full_to_its_edge()
     {
         var war = TfwCombatRules.Default;
         Assert.Equal(1.25f, war.BoltBlastRadius);
         Assert.Equal(2f, AutocannonRules.BlastRadius / war.BoltBlastRadius);   // twice the size (owner D12)
-        Assert.Equal(war.BoltBlastDamage, AutocannonRules.BlastDamage);
-        Assert.Equal(war.BoltBlastFallOff[1].Value, AutocannonRules.BlastFallOff[1].Value);
-        Assert.Equal(1.0f, AutocannonRules.BlastFallOff[0].Distance);
-        Assert.Equal(0.3f, Combat.SplashIntensity(AutocannonRules.BlastFallOff, 2.5f), 3);
+        Assert.Equal(100f, AutocannonRules.BlastDamage);
+        foreach (float d in new[] { 0f, 0.5f, 1f, 1.8f, 2.4f, 2.5f }) Assert.Equal(1f, Combat.SplashIntensity(AutocannonRules.BlastFallOff, d));   // no fall-off (owner 2026-11-11: a one-shot inside the radius)
         Assert.Equal(0f, Combat.SplashIntensity(AutocannonRules.BlastFallOff, 2.6f));
+        Assert.Equal(AutocannonRules.BlastFallOff, AutocannonRules.Blast.FallOff);
+        Assert.Equal(AutocannonRules.BlastDamage, AutocannonRules.Blast.Damage.Damage);
+        Assert.Equal(1f, AutocannonRules.Blast.Damage.BodyMultiplier);
+    }
+
+    // ---------------------------------------------------------------- the autocannon pass (owner 2026-11-11): one blast kills any fodder Ork
+
+    [Fact]
+    public void The_fodder_are_every_Ork_that_is_neither_an_elite_nor_a_boss_and_the_blast_after_the_x1_2_reaches_the_toughest()
+    {
+        Assert.Equal([MusouEnemyType.Boy, MusouEnemyType.ShootaBoy, MusouEnemyType.Gretchin, MusouEnemyType.RokkitBoy, MusouEnemyType.Stormboy, MusouEnemyType.BombSquig], AutocannonRules.Fodder);
+        var rules = MusouRules.Default;
+        Assert.Equal([85f, 85f, 30f, 85f, 120f, 30f], AutocannonRules.Fodder.Select(t => rules.Of(t).Health));
+        Assert.Equal(120f, AutocannonRules.FodderHealthMost(rules));   // the Stormboy
+        foreach (var t in AutocannonRules.Fodder)
+        {
+            Assert.False(TfwRewardRules.Elite(t), t.ToString());
+            Assert.False(MusouPowerupRules.Elite(t), t.ToString());
+            Assert.False(MusouBossOrks.Is(t), t.ToString());
+        }
+        Assert.True(MusouSim.Fodder(MusouEnemyType.Boy) && MusouSim.Fodder(MusouEnemyType.ShootaBoy) && MusouSim.Fodder(MusouEnemyType.Gretchin));   // the war's fodder rule, all in the list
+        float ranged = TfwCombatRules.Default.PlayerRangedDamageScale;
+        Assert.True(AutocannonRules.BlastDamage * ranged >= AutocannonRules.FodderHealthMost(rules));   // 120 >= 120
+        Assert.True(AutocannonRules.BlastDamage < AutocannonRules.FodderHealthMost(rules));             // the base alone would leave the Stormboy standing: the rule counts the x1.2
+        Assert.Equal(120f, AutocannonRules.BlastDamage * ranged, 0.01f);
+        Assert.Equal(156f, AutocannonRules.DirectDamage * ranged, 0.01f);
+    }
+
+    /// <summary>The point the round's first blast goes off at, struck on a Boy 8 m ahead (the war's own geometry: the ray at the shooter's eye, the Ork's near side).</summary>
+    static Vector3 FirstBlastPoint()
+    {
+        var w = War(new Vector3(0f, -60f, 0f));
+        Boy(w, w.Players[Human].Position + new Vector3(0f, 8f, 0f));
+        for (int k = 0; k < 20 && w.LastShots.Count == 0; k++) Tick(w, InputButtons.Fire);
+        return Assert.Single(w.Tfw!.Fire.Events, f => f.Kind == TfwFireKind.BoltBlast).At;
+    }
+
+    public static TheoryData<MusouEnemyType> FodderTypes => new(AutocannonRules.Fodder);
+
+    [Theory]
+    [MemberData(nameof(FodderTypes))]
+    public void One_blast_kills_a_fodder_Ork_at_its_centre_and_at_its_edge(MusouEnemyType type)
+    {
+        var point = FirstBlastPoint();
+        var w = War(new Vector3(0f, -60f, 0f));
+        var me = w.Players[Human].Position;
+        float health = w.Musou!.Rules.Of(type).Health;
+        float height = w.Musou.Body(type).Height;
+        // The Ork the round strikes (a tough stand-in, so nothing changes on the ray), one beside the blast's point and one at its edge, both off the ray.
+        Boy(w, me + new Vector3(0f, 8f, 0f));
+        // On the floor beside the point (off the ray, so the blast alone reaches them): the blast measures to the chest, 0.55 of the height up.
+        float dz = point.Z - MusouSim.Chest(me, height).Z;
+        Vector3 At(float distance, Vector2 way)
+        {
+            float flat = MathF.Sqrt(MathF.Max(0f, distance * distance - dz * dz));
+            var d = Vector2.Normalize(way) * flat;
+            return new Vector3(point.X + d.X, point.Y + d.Y, me.Z);
+        }
+        ushort centre = w.Musou.Spawn(type, new Vector3(point.X + 0.95f, point.Y + 0.3f, me.Z), 0f, health);
+        ushort edge = w.Musou.Spawn(type, At(AutocannonRules.BlastRadius - 0.08f, new Vector2(1f, 0.4f)), 0f, health);
+        Assert.NotEqual(0, centre);
+        Assert.NotEqual(0, edge);
+        Assert.True(w.Musou.TryGet(edge, out var e0));
+        Assert.InRange(Vector3.Distance(MusouSim.Chest(e0.Position, height), point), AutocannonRules.BlastRadius - 0.2f, AutocannonRules.BlastRadius);   // at the edge
+        Assert.True(w.Musou.TryGet(centre, out var c0));
+        Assert.InRange(Vector3.Distance(MusouSim.Chest(c0.Position, height), point), 0f, 1.6f);   // near the centre (not on the ray: a blast alone)
+        var deaths = new HashSet<ushort>();
+        for (int k = 0; k < 20 && w.LastShots.Count == 0; k++) Tick(w, InputButtons.Fire);
+        Assert.Single(w.LastShots);
+        foreach (var ev in w.Musou.Events) if (ev.Kind == MusouEventKind.Death) deaths.Add(ev.Enemy);
+        Assert.Contains(centre, deaths);
+        Assert.Contains(edge, deaths);
+    }
+
+    [Theory]
+    [MemberData(nameof(FodderTypes))]
+    public void A_round_kills_the_fodder_Ork_it_strikes(MusouEnemyType type)
+    {
+        var w = War(new Vector3(0f, -60f, 0f));
+        var me = w.Players[Human].Position;
+        ushort id = w.Musou!.Spawn(type, me + new Vector3(0f, 8f, 0f), 0f, w.Musou.Rules.Of(type).Health);
+        Assert.NotEqual(0, id);
+        // Aimed at his chest (the Gretchin and the Squig are under the eye's level).
+        float pitch = MathF.Atan2(MusouSim.Chest(me, w.Musou.Body(type).Height).Z - (me.Z + w.Config.EyeHeight), 8f);
+        bool died = false;
+        for (int k = 0; k < 20 && !died; k++)
+        {
+            w.Step(p => new PlayerInput(w.Tick, 0f, 0f, w.Players[p].Yaw, InputButtons.Fire, Pitch: pitch));
+            foreach (var ev in w.Musou.Events) if (ev.Kind == MusouEventKind.Death && ev.Enemy == id) died = true;
+        }
+        Assert.True(died);
+        Assert.Single(w.LastShots);   // the first round
+    }
+
+    [Fact]
+    public void Its_clip_is_never_spent_in_the_war()
+    {
+        var w = War(new Vector3(0f, -60f, 0f));
+        Assert.Equal(AutocannonRules.Clip, w.Players[Human].Clip);
+        int shots = 0;
+        for (int k = 0; k < 4 * w.Config.TickRate && !w.Players[Human].Overheated; k++)
+        {
+            Tick(w, InputButtons.Fire);
+            shots += w.LastShots.Count;
+            Assert.Equal(AutocannonRules.Clip, w.Players[Human].Clip);   // every tick: the whole clip
+            Assert.Equal(0, w.Players[Human].Reserve);
+        }
+        Assert.InRange(shots, 8, 15);
+        Assert.True(AutocannonRules.EndlessClip(w.Config.Weapons[2]));
+        Assert.False(AutocannonRules.EndlessClip(w.Config.Weapons[0]));   // the heavy bolter keeps Musou's rule (a fresh clip once empty)
+    }
+
+    [Fact]
+    public void Its_heat_still_runs_with_the_endless_clip()
+    {
+        var w = War(new Vector3(0f, -60f, 0f));
+        int shots = 0;
+        for (int k = 0; k < 12 * w.Config.TickRate && !w.Players[Human].Overheated; k++)
+        {
+            Tick(w, InputButtons.Fire);
+            shots += w.LastShots.Count;
+        }
+        Assert.True(w.Players[Human].Overheated);
+        Assert.Equal(15, shots);
+        Assert.Equal(AutocannonRules.Clip, w.Players[Human].Clip);
     }
 
     [Fact]

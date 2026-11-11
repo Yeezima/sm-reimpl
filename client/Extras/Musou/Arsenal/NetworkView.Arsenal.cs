@@ -48,29 +48,35 @@ public partial class NetworkView
 
     /// <summary>
     /// The arsenal's presentation sources (<c>Arsenal.PresentationSources</c>: the claw the power sword, the spear the thunder hammer, the autocannon its install twin then the heavy bolter), in
-    /// a Musou match only (<see cref="ContentExtras.Musou"/> in the match's config) and only for the arsenal's names.
+    /// a match that carries the item only (<see cref="ArsenalRules.Shown"/>: a Musou match, and the autocannon in a Classic match with <see cref="ContentExtras.Autocannon"/>).
     /// </summary>
     partial void ExtrasPresentationSources(string wargear, ref IReadOnlyList<string>? sources)
     {
-        if (_config is null || !_config.Extras.HasFlag(ContentExtras.Musou) || !ArsenalRules.IsArsenal(wargear)) return;
-        sources = Arsenal.PresentationSources(wargear);
+        if (_config is null || !ArsenalRules.Shown(_config.Extras, wargear)) return;
+        sources = Arsenal.PresentationSources(_config.Extras, wargear);
     }
 
-    /// <summary>The arsenal's sound sources where they are not the effects' (<c>Arsenal.SoundSources</c>: the autocannon's are the Stalker Bolter's, the owner's choice), in a Musou match only.</summary>
+    /// <summary>
+    /// The arsenal's sound sources where they are not the effects' (<c>Arsenal.SoundSources</c>: the autocannon's are the Stalker Bolter's, the owner's choice), in a Musou match only: Classic PvP's
+    /// autocannon keeps its install twin's own sounds (the owner, 2026-11-11: "no stalker bolter sound change").
+    /// </summary>
     partial void ExtrasSoundSources(string wargear, ref IReadOnlyList<string>? sources)
     {
         if (_config is null || !_config.Extras.HasFlag(ContentExtras.Musou) || !ArsenalRules.IsArsenal(wargear)) return;
-        sources = Arsenal.SoundSources(wargear);
+        sources = Arsenal.SoundSources(_config.Extras, wargear);
     }
 
     /// <summary>Test aid <c>--old-autocannon-fx</c>: the twin's own purple muzzle flash, tracer and impact burst (W1b's look, before W1c).</summary>
     static readonly bool OldAutocannonFx = CmdFlag("old-autocannon-fx");
 
-    /// <summary>W1c: the arsenal's effects in place of its sources' (<c>Arsenal.EffectNames</c>: the autocannon's loyalist muzzle flash, tracer and impact burst for the twin's purple ones, the owner's choices), in a Musou match only.</summary>
+    /// <summary>
+    /// W1c: the arsenal's effects in place of its sources' (<c>Arsenal.EffectNames</c>: the autocannon's loyalist muzzle flash, tracer and impact burst for the twin's purple ones, the owner's choices), in a
+    /// match that carries the item (a Musou match; the autocannon in Classic PvP too, the same look: the owner, 2026-11-11).
+    /// </summary>
     partial void ExtrasEffectNames(string wargear, ref IReadOnlyDictionary<string, string>? names)
     {
-        if (OldAutocannonFx || _config is null || !_config.Extras.HasFlag(ContentExtras.Musou) || !ArsenalRules.IsArsenal(wargear)) return;
-        names = Arsenal.EffectNames(wargear);
+        if (OldAutocannonFx || _config is null || !ArsenalRules.Shown(_config.Extras, wargear)) return;
+        names = Arsenal.EffectNames(_config.Extras, wargear);
     }
 
     readonly Dictionary<string, float> _arsenalMoveSpeed = new(StringComparer.OrdinalIgnoreCase);

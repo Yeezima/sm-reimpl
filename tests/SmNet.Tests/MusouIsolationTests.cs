@@ -54,7 +54,9 @@ public class MusouIsolationTests(ITestOutputHelper output)
 
     // ---------------------------------------------------------------- the goldens (captured on main 35deb39, before MU0's hooks)
 
-    const ulong FixtureFaithfulHash = 0x2235C9DFF926583FUL, FixtureExtendedHash = 0x54B88195AFC434B4UL, DefaultFaithfulHash = 0xA57B097C29D78EABUL, DefaultExtendedHash = 0x0CA292E1A0338C00UL;
+    const ulong FixtureFaithfulHash = 0x2235C9DFF926583FUL, FixtureExtendedHash = 0xA3A5F813DCFC7B6BUL, DefaultFaithfulHash = 0xA57B097C29D78EABUL, DefaultExtendedHash = 0xC14C777D6C269AB0UL;
+    // claude/autocannon-pass (2026-11-11): Classic PvP's autocannon joined the extended profile (ContentExtras.Autocannon in ContentExtras.All), so both extended pins moved with the flags
+    // (0x54B88195AFC434B4 and 0x0CA292E1A0338C00 before); a Classic change, not a Musou one: the faithful pins are as they were.
     // sim/light-melee-flinch (protocol 52): the classic baseline changed (the script's 49 light melee hits now flinch instead of interrupting), so both goldens moved together
     // (05F93BCF… before); faithful and extended still replay to the same hash. feel/melee-cooldown and feel/charge-no-cancel (protocol 53, 2026-11-02): the melee lock and the stick no longer ending a charge moved both again.
     // sim/reload-keeps (protocol 56, 2026-11-03) leaves both as they were: the script never reloads into a throw, a melee attack or a charge.
@@ -99,7 +101,7 @@ public class MusouIsolationTests(ITestOutputHelper output)
         Assert.Equal(66u, (uint)Protocol.Version);   // 66: charge-cancel (every mode: S ends the bull rush, a grenade no charge phase) and charge-ally-bump (Classic only); 65: net/responsive input slack in the snapshot header (every mode; no gameplay change); 64: headshot kill flag, scoreboard headshots and assists (every mode; no gameplay change); 63: stream B (holstered cooldowns, every mode; the hammer string reset); 62: sim/jump-escape, sim/hop-cancel-momentum (every mode) and sim/descent-recharge (Classic only); 61: night batch classic jump-pack capacity (Classic only, Musou keeps 300); 60: feel/charge-clash (classic PvP charges); 59: sim/swing-step, sim/lock-reach (every mode) and sim/air-jumps (Classic loses the air jump, Musou keeps it); 58: fix/pvp-deploy-spawn (classic PvP only); 57: fix/charge-player-collision; 56: sim/reload-keeps; 55: the hammer needs no pound delay; 54: feel/melee-cancels; 53: feel/melee-cooldown (the melee lock); 52: sim/light-melee-flinch (the flinch byte); 51: sim/no-fire-while-sprinting and sim/movement-fixes (50: the scoreboard's ping), not Musou
         Assert.Equal(2u, ContentExtras.WireVersion);
         Assert.False(ContentExtras.All.HasFlag(ContentExtras.Musou));
-        Assert.Equal(ContentExtras.Orks | ContentExtras.Gore | ContentExtras.LoyalistBarks, ContentExtras.All);
+        Assert.Equal(ContentExtras.Orks | ContentExtras.Gore | ContentExtras.LoyalistBarks | ContentExtras.Autocannon, ContentExtras.All);   // Classic PvP's autocannon joined extended on 2026-11-11 (a Classic change, not Musou's)
         if (ContentExtras.Compiled)
         {
             Assert.True(ContentProfiles.TryParse(ContentProfiles.Extended, out var extended, out _));

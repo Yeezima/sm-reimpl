@@ -29,6 +29,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 ## Summary
 
 Scanned 3011 spec table rows: **2245 tagged**, 532 not tagged (read from data with high confidence), 234 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 666 rows of the changes document.
+Scanned 3008 spec table rows: **2240 tagged**, 535 not tagged (read from data with high confidence), 233 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 673 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -43,7 +44,7 @@ Scanned 3011 spec table rows: **2245 tagged**, 532 not tagged (read from data wi
 | HUD and hit feedback (critical) | 71 | 66 | 52 | 11 | 0 |
 | Sound mix (critical) | 69 | 63 | 61 | 11 | 0 |
 | Effects (critical) | 90 | 80 | 75 | 40 | 0 |
-| Game modes | 42 | 39 | 38 | 19 | 1 |
+| Game modes | 45 | 40 | 41 | 19 | 1 |
 | Perks | 59 | 48 | 31 | 25 | 0 |
 | Death and ragdoll | 14 | 10 | 12 | 10 | 0 |
 | Customizer and paint | 48 | 45 | 26 | 15 | 0 |
@@ -54,6 +55,10 @@ Scanned 3011 spec table rows: **2245 tagged**, 532 not tagged (read from data wi
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 235 | 224 | 126 | 63 | 0 |
 | **All areas** | **2245** | 1980 | 1676 | 702 | 38 |
+| Core simulation (provisional values) | 667 | 630 | 476 | 175 | 1 |
+| General game design | 7 | 7 | 6 | 0 | 0 |
+| Ork faction | 235 | 224 | 126 | 63 | 0 |
+| **All areas** | **2240** | 1976 | 1674 | 699 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -65,6 +70,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | notes: ours | 406 |
 | kind: interpretation | 374 |
 | notes: estimate | 181 |
+| kind: ours | 1269 |
+| confidence: low | 807 |
+| confidence: medium | 738 |
+| notes: ours | 405 |
+| kind: interpretation | 375 |
+| notes: estimate | 179 |
 | kind: estimate | 156 |
 | confidence: none (low) | 129 |
 | kind: provisional | 100 |
@@ -1928,7 +1939,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-47A4E040` | What stays on a shot player (Classic PvP) | The victim model's own flash and glow are kept (the yellow hit spot, the engulfing red glow when the armour breaks, the regeneration glow: a shader on the model, not an effect, and the "shot look" of the owner's reference images of the original); the armour… | kind: ours; confidence: medium | our reading of the owner's request, to confirm with him | What stays on a shot player (Classic PvP): compare with SM1 with side-by-side video of the same action. Ours: The victim model's own flash and glow are kept (the yellow hit spot… | ☐ |
 
-### Game modes (42)
+### Game modes (45)
 
 *Spec section: Teams and Annihilation (M15, used by the simulation)*
 
@@ -2001,6 +2012,14 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-6E7574FE` | Spawn yaw | the horizontal bearing from the spawn to the centre, set at the moment of the spawn: every human (landing, redeploy, late join), the retainers and the allied pair (also their respawns), every Guard squad, every Ork (crowds, defenders, Stormboys, Big Shoota… (rad) | kind: ours | owner 2026-11-09 | Spawn yaw: compare with SM1 with an overlaid screenshot taken from the same position. Ours: the horizontal bearing from the spawn to the centre, set at the… | ☐ |
+
+*Spec section: Added content: Classic PvP's autocannon — the Musou autocannon in Annihilation and Seize Ground (extended profile only; owner 2026-11-11)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-C3AE4A56` | Classic autocannon: round | the Stalker Bolter's shot as Classic reads it: **50**, head **x2** (x2.5 on raised armour), body x1 (x0.8 on raised armour) (the install's `sm_mp_ranged_sniper_rifle` `damage_material_multipliers` / `armourshield_damage_material_multipliers`); the… (damage) | confidence: medium | owner 2026-11-11 (the Stalker's damage and the original game's headshot bonus); the values the install's | Classic autocannon: round: compare with SM1 by feel or video. Ours: the Stalker Bolter's shot as Classic reads it: 50, head x2 (x2.5 on… | ☐ |
+| `R-B22B0DB3` | Classic autocannon: the rest | Musou's gun otherwise: full auto, one round every 0.4 s, heat 1 a round with overheat at 15 (cooling 4.5 a second after 0.41 s), no brace, the heavy bolter's raise, stance, spread and reload time; a clip of **400** with no reserve that spends (the twin's, the… | confidence: medium | owner 2026-11-11 ("everything the same") | Classic autocannon: the rest: compare with SM1 by feel or video. Ours: Musou's gun otherwise: full auto, one round every 0.4 s, heat 1 a… | ☐ |
+| `R-E67DC240` | Classic autocannon: customizer | the profile is read with the data's catalogue plus the Classic autocannon's row (so a slot saved under extended keeps it whichever profile the front end opens with); a page shows its own profile's catalogue; a Join on an extended page is planned with the… | kind: ours; confidence: medium | 2026-11-11 | Classic autocannon: customizer: compare with SM1 by feel or video. Ours: the profile is read with the data's catalogue plus the Classic… | ☐ |
 
 ### Perks (59)
 
@@ -2281,6 +2300,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
 ### Core simulation (provisional values) (675)
+### Core simulation (provisional values) (667)
 
 *Spec section: Provisional values in use*
 
@@ -3267,18 +3287,17 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-21E51C9F` | Musou arsenal: presentation sources | the lightning claw shows and sounds as the power sword (`sm_mp_melee_powersword`); the power spear as the thunder hammer (`sm_mp_melee_2hand_thunder_hammer`); the autocannon as its install twin `csm_mp_exotic_auto_cannon`, then the heavy bolter… (file) | kind: ours; confidence: medium | lead 2026-11-10 (the design's section 5: the sword's sounds for the claw; section 6 named the power axe's swing and hit sounds for the spear, the lead's brief… | Musou arsenal: presentation sources: compare with SM1 by feel or video. Ours: the lightning claw shows and sounds as the power sword… | ☐ |
 | `R-FD2792ED` | Musou arsenal: what a source gives | the first candidate with any: its weapon (or thrown) effects; its sound commands and its hit, shot-hit, melee-hit, charge-hit and melee-ability hit containers; its name for the power flash, the sword's glow, flare and deployed effects, the hum and the… | kind: ours; confidence: medium | ours | Musou arsenal: what a source gives: compare with SM1 by feel or video. Ours: the first candidate with any: its weapon (or thrown) effects; its… | ☐ |
-| `R-B393270C` | Musou arsenal: the autocannon's weapon box | the heavy bolter family's display: `ammo_autocannon_mc` with its heat bar, the rounds left in `ammo_mc/ammo_txt` | kind: interpretation; confidence: medium; notes: ours | data names (`Hud.gfx`); the choice ours | Musou arsenal: the autocannon's weapon box: compare with SM1 by feel or video. Ours: the heavy bolter family's display: ammo_autocannon_mc with its heat… | ☐ |
+| `R-B393270C` | Musou arsenal: the autocannon's weapon box | Musou Mode (since 2026-11-11): `ammo_autocannon_mc` with its heat bar and the movie's endless sign `infinity_mc`, no count (its clip is never spent there; the display the heavy bolter's family had before fix/pvp-deploy-spawn); Classic PvP's autocannon: the… | kind: interpretation; confidence: medium; notes: ours | data names (`Hud.gfx`); the choice ours; owner 2026-11-11 (endless in Musou) | Musou arsenal: the autocannon's weapon box: compare with SM1 by feel or video. Ours: Musou Mode (since 2026-11-11): ammo_autocannon_mc with its heat bar… | ☐ |
 
 *Spec section: Musou's arsenal: W1, the autocannon (docs/new-weapons-design.md section 4)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-784C2EA3` | Autocannon: trigger | full auto (the file fires a semi-auto 2-round burst 0.2 s apart; the campaign gun fires full auto; the owner D5/Q9: full auto) | confidence: medium | campaign `auto_cannon` | Autocannon: trigger: compare with SM1 by feel or video. Ours: full auto (the file fires a semi-auto 2-round burst 0.2 s apart; the… | ☐ |
-| `R-3959E0A1` | Autocannon: clip | 400, no reserve (the campaign gun's; Musou's ammunition is endless anyway); reload R does nothing (rounds) | confidence: medium | campaign `auto_cannon` | Autocannon: clip: compare with SM1 by feel or video. Ours: 400, no reserve (the campaign gun's; Musou's ammunition is endless… | ☐ |
 | `R-F74732A8` | Autocannon: handling | the heavy bolter's raise delay (0.333 s), always-ready stance, spread and reload time; no brace; the file's own scatter sets are not read | kind: ours; confidence: low | design section 4 | Autocannon: handling: compare with SM1 by feel or video. Ours: the heavy bolter's raise delay (0.333 s), always-ready stance, spread… | ☐ |
-| `R-89DE4DD1` | Autocannon: blasts per round (playtest check) | a round can set off up to 6 blasts (the 5 pierced and the one that stops it, `TfwCombatRules.Pierced`), each with no per-blast cap, so Orks beside the ray can take up to 6 x 15 from one round; a balance and performance item to check in a playtest (the bolt… (blasts, damage) | kind: ours; confidence: low | review 2026-11-10 | Autocannon: blasts per round (playtest check): compare with SM1 by feel or video. Ours: a round can set off up to 6 blasts (the 5 pierced and the one that… | ☐ |
+| `R-89DE4DD1` | Autocannon: blasts per round (playtest check) | a round can set off up to 6 blasts (the 5 pierced and the one that stops it, `TfwCombatRules.Pierced`), each with no per-blast cap, so an Ork beside the ray can take up to 6 x 120 from one round (6 x 18 before 2026-11-11); a balance and performance item to… (blasts, damage) | kind: ours; confidence: low | review 2026-11-10 | Autocannon: blasts per round (playtest check): compare with SM1 by feel or video. Ours: a round can set off up to 6 blasts (the 5 pierced and the one that… | ☐ |
 | `R-7625389D` | Autocannon: pierce | through **5** Orks and the sixth that stops it (`TfwCombatRules.Pierced` names `auto_cannon`) (enemies) | kind: ours; confidence: medium | Musou's existing rule | Autocannon: pierce: compare with SM1 by shooting through a crate or a line of players and counting who is hit. Ours: through 5 Orks and the sixth that stops it (TfwCombatRules.Pierced… | ☐ |
-| `R-A42BF5F7` | Autocannon: blast | a blast at the point **every Ork a round strikes** (the bolt blasts' path), radius **2.5 m** (twice the bolt blast's 1.25 m), full to 1.0 m, 30 % at the edge, **15** at the centre; the campaign's 4 m hit-scan splash is dropped (m, damage) | kind: ours; confidence: low | owner D12 (the size); the damage and the shape are the bolt blast's | Autocannon: blast: compare with SM1 by measuring on a flat spot of the same map. Ours: a blast at the point every Ork a round strikes (the bolt blasts'… | ☐ |
+| `R-0B92F2C9` | Autocannon: the fodder its blast kills (2026-11-11) | every Ork that is neither an elite nor a boss: the choppa Boy 85, the Shoota Boy 85, the Gretchin 30, the Rokkit Boy 85, the Stormboy 120, the Bomb Squig 30 (any hit sets a Squig off); Musou's health of each, with no wave, difficulty, army or Guard scale on… (health) | kind: interpretation; confidence: medium; notes: ours | owner 2026-11-11 ("any weak ork", "any fodder ork"); which Orks count as fodder is ours (the elite and boss rules' complement) | Autocannon: the fodder its blast kills (2026-11-11): compare with SM1 by measuring on a flat spot of the same map. Ours: every Ork that is neither an elite nor a boss: the choppa Boy 85, the… | ☐ |
 | `R-F8A64DB4` | Autocannon: impact (W1c) | the rounds' hits on walls, the ground and every other level surface, and the body hits that fall back to the container's default entry, play `autocannon_dmg` in place of the twin's `chaos_autocannon_dmg` (white, lavender and purple flashes, sparks, hot crater… | kind: ours | owner 2026-11-10 ("Loyalist impact"); the names, scales and containers from the install (`material_effect_container`'s two `autocannon` files; `smtool fx-dump`… | Autocannon: impact (W1c): compare with SM1 by feel or video. Ours: the rounds' hits on walls, the ground and every other level surface… | ☐ |
 | `R-4E72E136` | Autocannon: barrel length (W1c) | the muzzle **1.6 m** from the model's root along its length (`turret_aa`'s +Y; W1b's "2.6 m" is the install's `FX_muzzle` at 2.621 m), so the barrel reaches **0.53 m** past the receiver (was 1.55 m) and the gun is 1.77 m from stock to muzzle (was 2.79 m)… (m) | kind: ours; confidence: medium | owner 2026-11-10 ("shorten it to 1.6m, then show me a screenshot"); the positions measured on the install (`AutocannonContentTests`) | Autocannon: barrel length (W1c): compare with SM1 by measuring on a flat spot of the same map. Ours: the muzzle 1.6 m from the model's root along its length (turret_aa's… | ☐ |
 | `R-B4298678` | Autocannon: animations | the heavy bolter's (walk, sprint, hop, fall, hip fire, flinch: the campaign's carry graph uses the same navigation graph); the model is the install's `turret_aa` (1,883 triangles) with W1c's shorter barrel, held and stowed as the heavy bolter's | confidence: medium | design section 4 | Autocannon: animations: compare with SM1 by feel or video. Ours: the heavy bolter's (walk, sprint, hop, fall, hip fire, flinch: the… | ☐ |
@@ -3940,6 +3959,25 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-F52B0690` | Musou balance: the players' cleave x0.6, their ranged damage x1.2 (musou-balance, owner 2026-11-11; `TfwRules.Version` 65) | the owner's requests (2026-11-11): "reduce melee attack cleave range by 40%", "increase all ranged attack damage by 20%" (scope "Musou, players only"); the coverage ours (grenades and charges count as ranged; the spear's sweep and the contraptions are cleaved shorter too; the Librarian's spells, the fire support and… | in the war, every human player's cleave's whole reach x0.6 after each weapon's shape (8.8 m: 5.3 m; the spear's 15 m: 9 m), every human player's gun, projectile, splash, grenade and charge hit on the enemies x1.2; AI Marines and Guardsmen keep their reach and damage; the 5-wave test aid unchanged | Musou combat: the players' cleave reach x0.6; the players' ranged damage x1.2 | Musou balance: the players' cleave x0.6, their ranged…: compare with SM1 by counting hits to kill and by video of the health bar. Ours: the owner's requests (2026-11-11): "reduce melee attack cleave range… | ☐ |
 | `C-0079CDA8` | Musou Librarian: the chain lightning struck as drawn, +25 % range and damage (musou-balance, owner 2026-11-11; `MusouSim.Version` 41) | the owner (2026-11-11): "librarian chain lightning spell doesn't seem to be reliably delivering damage, increase its range, damage, and reliability of delivering damage", "+25% range and damage"; the rewind ours | 37.5 m and 112.5 dps (30 and 90); the server picks the chain on the crowd at the caster's input view tick, as his client draws it; restore switch `SM_LIBRARIAN_OLD=rewind` | Musou: chain lightning; the chain lightning struck as drawn | Musou Librarian: the chain lightning struck as drawn, +25 %…: compare with SM1 by counting hits to kill and by video of the health bar. Ours: the owner (2026-11-11): "librarian chain lightning spell doesn't seem… | ☐ |
 | `C-2E5D3E89` | Musou tuning of 2026-11-11 (musou-tuning-1111b; `MusouSim.Version` 42, `TfwRules.Version` 66) | the owner's answers (2026-11-11): "Drop to 600 blood spray cap"; "Widen the 8m jump and make the damage not falloff anymore - it always stays constant", "16 m (double)"; "Add it to orbital strikes and stack it with double damage yes" | the GPU sprays' live-effect cap 600 (1,200); the chain lightning's jump 16 m (8 m) and every enemy of the chain at the full 112.5 dps (x0.85 a jump), tag 16's jumps in 0.2 m bytes for it; a human player's orbital strike x1.2 on the enemies (a boss 36 a shell, 30), an AI caller x1, the kills still nobody's | Live-effect cap with the GPU sprays (Musou); Musou: chain lightning jump and fall-off; Musou combat: the players' ranged damage x1.2 | Musou tuning of 2026-11-11 (musou-tuning-1111b…: compare with SM1 by feel or video. Ours: the owner's answers (2026-11-11): "Drop to 600 blood spray cap"… | ☐ |
+
+#### Classic PvP's autocannon (`Autocannon`, in the extended profile; spec "Added content: Classic PvP's autocannon")
+
+| ID | What | Ours / the owner's | Value | Spec row | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `C-61325581` | The autocannon as a heavy weapon of the Devastator and the Havoc (one weapon for both sides, last in both lists) | the owner's (the request); one weapon for both sides and its loyalist look on the Havoc ours | the Musou autocannon (Musou's arsenal W1) appended to both heavy classes and both customizer rows | "Classic autocannon: availability", "Classic autocannon: look" | The autocannon as a heavy weapon of the Devastator and the…: compare with SM1 by feel or video. Ours: the owner's (the request); one weapon for both sides and its loyalist… | ☐ |
+| `C-3B812158` | Its round | the owner's (the Stalker's shot with the original game's head bonus); keeping the autocannon's own fall-off ours | 50, head x2 (x2.5 on armour), body x1 (x0.8 on armour): the install's Stalker Bolter | "Classic autocannon: round" | Its round: compare with SM1 by feel or video. Ours: the owner's (the Stalker's shot with the original game's head bonus)… | ☐ |
+| `C-86B5E5F0` | No blast | the owner's | none: a round hurts only the player it strikes | "Classic autocannon: no blast" | No blast: compare with SM1 by measuring on a flat spot of the same map. Ours: the owner's. | ☐ |
+| `C-897D9519` | Its clip, rate, heat and handling | the owner's ("everything the same"); the clip of 400 (the twin's, not the multiplayer file's 120) ours | 400 that spends, 0.4 s a round, 15 rounds to overheat, the heavy bolter's handling | "Classic autocannon: the rest" | Its clip, rate, heat and handling: compare with SM1 by feel or video. Ours: the owner's ("everything the same"); the clip of 400 (the twin's, not… | ☐ |
+| `C-4A3FFE6B` | Its sounds | the owner's | the install's own autocannon sounds, not Musou's Stalker Bolter swap | "Classic autocannon: sounds" | Its sounds: compare with SM1 by feel or video. Ours: the owner's. | ☐ |
+
+#### Musou's arsenal (`Musou`; docs/new-weapons-design.md, approved by the owner 2026-11-10)
+
+| ID | What | Ours / the owner's | Value | Spec row | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `C-B137A643` | Autocannon blast (Musou) | the owner's one-shot rule; which Orks count as fodder (every one neither an elite nor a boss: Boy, Shoota Boy, Gretchin, Rokkit Boy, Stormboy, Bomb Squig) and counting the human players' x1.2 are ours | 100 everywhere in its 2.5 m, no fall-off (120 on the Orks after the x1.2: the Stormboy's 120 health, the most of any fodder Ork); was 15, full to 1.0 m, 30 % at the edge | "Autocannon: blast", "Autocannon: the fodder its blast kills (2026-11-11)" | Autocannon blast (Musou): compare with SM1 by measuring on a flat spot of the same map. Ours: the owner's one-shot rule; which Orks count as fodder (every one… | ☐ |
+| `C-EE58A379` | Autocannon round (Musou) | the owner's (the blast's + 30) | 130 (156 after the x1.2); was the file's 50 | "Autocannon: damage" | Autocannon round (Musou): compare with SM1 by feel or video. Ours: the owner's (the blast's + 30). | ☐ |
+| `C-2035A755` | Autocannon ammunition (Musou) | the owner's (infinite); keeping the heat and the overheat, the endless sign on the HUD ours | the clip is never spent in the war (the whole clip back every tick) | "Autocannon: clip", "Musou arsenal: the autocannon's weapon box" | Autocannon ammunition (Musou): compare with SM1 by feel or video. Ours: the owner's (infinite); keeping the heat and the overheat, the… | ☐ |
+| `C-7068E1E2` | Autocannon backpack (every mode) | the owner's ("equipping the autocannon should also change the devastator/havoc's backpack to be the same one as the heavy bolter") | the Devastator wears the heavy bolter's weapon pack with the autocannon (the data gives it only with the heavy bolter); the Havoc's pack is the same for every weapon in the data | "Autocannon: backpack (every mode, 2026-11-11)" | Autocannon backpack (every mode): compare with SM1 by feel or video. Ours: the owner's ("equipping the autocannon should also change the… | ☐ |
 
 #### Musou's arsenal (`Musou`; docs/new-weapons-design.md, approved by the owner 2026-11-10)
 
@@ -4919,4 +4957,5 @@ Test aids, probes, demo and capture tooling, and engineering decisions (protocol
 | `R-476D600F` | Test aid: `--musou-crowd-test` | Musou Mode: the big Orks' deaths and gait (musou-big-ork-deaths, 2026-11-09; Musou Mode only; the deaths and gait client presentation; the bodies against the map in the simulation, `MusouSim.Version` 34, to be renumbered at integration; no protocol change) |
 | `R-F137D8B4` | Test aid: old big spawns | Musou Mode: the Orks back at 100 %, twice the big Orks (musou-big-ork-deaths, 2026-11-10; Musou Mode's war only; `TfwRules.Version` 59, to be renumbered at integration; no protocol, wire or `MusouSim.Version` change) |
 | `R-060A8DDF` | Musou weight: puff budget | Musou weight and impact pass (claude/musou-weight, 2026-11-10; client only, no simulation, wire, protocol, config-hash or rules-version change; Musou Mode only) |
+| `R-B20A1288` | Classic autocannon: config hash | Added content: Classic PvP's autocannon — the Musou autocannon in Annihilation and Seize Ground (extended profile only; owner 2026-11-11) |
 

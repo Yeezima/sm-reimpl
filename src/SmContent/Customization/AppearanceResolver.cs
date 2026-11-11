@@ -76,7 +76,7 @@ public sealed record ResolveOptions
 /// badge is none); class overrides apply last; jump-pack classes (<see cref="ClassCustomization.JumpPack"/>, from the data's base wargear; **interpretation**:
 /// the data does not say how pack and backpack share the back) hide the backpack.
 /// </summary>
-public static class AppearanceResolver
+public static partial class AppearanceResolver
 {
     static readonly string[] Pads = ["leftshoulder", "rightshoulder"];
 
@@ -215,6 +215,23 @@ public static class AppearanceResolver
             if (!replaced.Contains(name) && packagesOf(name) is { Count: > 0 } packages) yield return new ResolvedPiece("perk", name, packages, true);
     }
 
+    /// <summary>
+    /// Whether <paramref name="need"/> (a class override's required wargear) is carried: by name, side prefixes ignored, or as the data weapon an added weapon wears as (<see cref="WornAs"/>: added
+    /// content's autocannon wears the heavy bolter's pack, the owner 2026-11-11). Without added content every name is only its own.
+    /// </summary>
     static bool Carries(IReadOnlyCollection<string>? carried, string need) =>
-        carried is not null && carried.Any(c => ProfileWire.Neutral(c).Equals(ProfileWire.Neutral(need), StringComparison.OrdinalIgnoreCase));
+        carried is not null && carried.Any(c => Same(c, need) || Same(WornAs(c), need));
+
+    static bool Same(string a, string b) => ProfileWire.Neutral(a).Equals(ProfileWire.Neutral(b), StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>The wargear <paramref name="wargear"/> counts as for the class overrides: itself, or (added content) the data weapon whose pack an added weapon wears.</summary>
+    public static string WornAs(string wargear)
+    {
+        string name = wargear;
+        ExtrasWornAs(ref name);   // EXTRAS-HOOK added content (the arsenal's autocannon): the heavy bolter's backpack
+        return name;
+    }
+
+    /// <summary>Added content: the data weapon an added weapon wears the class overrides of (the Devastator's weapon pack); nothing without added content.</summary>
+    static partial void ExtrasWornAs(ref string wargear);
 }

@@ -26,6 +26,13 @@ public enum ContentExtras : uint
     /// and its config hash are unchanged), and <c>--content musou</c> only alone (never combined with another flag).
     /// </summary>
     Musou = 8,
+    /// <summary>
+    /// The autocannon in Classic PvP (the owner, 2026-11-11: "add the autocannon to classic pvp mode with everything the same except: no aoe blast radius / simply higher single shot
+    /// damage to be the same as the stalker - with the original games headshot bonus value"): Musou's arsenal autocannon as a Devastator and Havoc heavy weapon in Annihilation and
+    /// Seize Ground, with the Stalker Bolter's shot damage and head multipliers, no blast, its data's ammunition and its original sounds (<c>SmContent.Extras.Musou.Arsenal.Arsenal.WithClassicAutocannon</c>).
+    /// In <see cref="ContentExtrasInfo.All"/>, so <c>extended</c> has it (and its config hash changed with it, 2026-11-11); <c>--content autocannon</c> alone; never with Musou.
+    /// </summary>
+    Autocannon = 16,
 }
 
 /// <summary>The build-wide facts about <see cref="ContentExtras"/> (C# 14 static extension members: <c>ContentExtras.WireVersion</c>, <c>ContentExtras.Compiled</c>).</summary>
@@ -67,7 +74,7 @@ public static class ContentExtrasInfo
         /// Every added content of the <c>extended</c> profile. <see cref="ContentExtras.Musou"/> is a mode of its own and not in it (its profile is
         /// <c>musou</c> alone); <see cref="Known"/> has every flag.
         /// </summary>
-        public static ContentExtras All => ContentExtras.Orks | ContentExtras.Gore | ContentExtras.LoyalistBarks;
+        public static ContentExtras All => ContentExtras.Orks | ContentExtras.Gore | ContentExtras.LoyalistBarks | ContentExtras.Autocannon;   // the Classic autocannon since 2026-11-11 (the extended hash moved with it)
 
         /// <summary>Every flag this source tree knows: <see cref="All"/> and <see cref="ContentExtras.Musou"/>.</summary>
         public static ContentExtras Known => ContentExtras.All | ContentExtras.Musou;
@@ -95,7 +102,8 @@ public static class ContentProfiles
     public static ContentExtras Default => ContentExtras.Compiled && TryParse(DefaultName, out var extras, out _) ? extras : ContentExtras.None;
 
     /// <summary>The flag names of a list (lower case, as <c>--content</c> takes them).</summary>
-    static readonly (string Name, ContentExtras Flag)[] Flags = [("orks", ContentExtras.Orks), ("gore", ContentExtras.Gore), ("loyalist-barks", ContentExtras.LoyalistBarks), (Musou, ContentExtras.Musou)];
+    static readonly (string Name, ContentExtras Flag)[] Flags =
+        [("orks", ContentExtras.Orks), ("gore", ContentExtras.Gore), ("loyalist-barks", ContentExtras.LoyalistBarks), ("autocannon", ContentExtras.Autocannon), (Musou, ContentExtras.Musou)];
 
     /// <summary>
     /// Parses a <c>--content</c> value: <c>faithful</c>, <c>extended</c>, <c>musou</c> or flags such as <c>orks,gore</c> (case and spaces ignored). False
@@ -158,9 +166,14 @@ public static class ContentProfiles
         return string.Join(",", names);
     }
 
-    /// <summary>The profile and extras wire version for a log line or refusal: "faithful", or "extended (orks,gore; extras wire 1)".</summary>
+    /// <summary>
+    /// The profile and extras wire version for a log line or refusal: "faithful", "extended (orks,gore,loyalist-barks,autocannon; extras wire 2)" (extended names its flags), or a list as its name
+    /// alone, "orks,gore (extras wire 2)" (2026-11-11: no longer repeated, so the server's refusal of any profile fits its 200 characters with the fourth Classic flag).
+    /// </summary>
     public static string Describe(ContentExtras extras) =>
-        extras == ContentExtras.None ? Faithful : $"{Name(extras)} ({string.Join(",", Flags.Where(f => extras.HasFlag(f.Flag)).Select(f => f.Name))}; extras wire {ContentExtras.WireVersion})";
+        extras == ContentExtras.None ? Faithful
+        : extras == ContentExtras.All ? $"{Name(extras)} ({string.Join(",", Flags.Where(f => extras.HasFlag(f.Flag)).Select(f => f.Name))}; extras wire {ContentExtras.WireVersion})"
+        : $"{Name(extras)} (extras wire {ContentExtras.WireVersion})";
 }
 
 public sealed partial record SimConfig

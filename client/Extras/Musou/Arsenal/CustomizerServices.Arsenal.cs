@@ -28,14 +28,16 @@ public sealed partial class CustomizerServices
         }
     }
 
-    partial void ExtrasConfig(ref SimConfig? config)
+    /// <summary>Musou's part of <see cref="ExtrasConfig"/> (the dispatcher, <c>client/Extras/CustomizerServices.Extras.cs</c>): true when the page is Musou's and <paramref name="config"/> was decided here.</summary>
+    bool MusouExtrasConfig(ref SimConfig? config)
     {
-        if (config is null || MusouConfigTask() is not { } task) return;
+        if (config is null || MusouConfigTask() is not { } task) return false;
         config = task.IsCompleted ? task.Result ?? config : null;
+        return true;
     }
 
     /// <summary>The end of the load: under a Musou profile, waits for Musou's own configuration, so <see cref="CustomizerServices.LoadTask"/> covers it (a launch with <c>--profile</c> waits on the task once, then checks <see cref="CustomizerServices.Ready"/>).</summary>
-    partial void ExtrasLoaded()
+    void MusouExtrasLoaded()
     {
         try { MusouConfigTask()?.Wait(); }
         catch (AggregateException) { }   // ReadMusouConfig catches its own failures; nothing to add

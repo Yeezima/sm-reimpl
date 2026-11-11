@@ -1,3 +1,4 @@
+using SmContent.Extras.Autocannon;
 using SmContent.Extras.Musou;
 using SmContent.Extras.Musou.Arsenal;
 using SmSim;
@@ -9,7 +10,8 @@ namespace SmContent;
 /// The match tuning's added-content load (docs/added-content.md): the one implementation of <see cref="ExtrasLoad"/>, a dispatcher that reads each added
 /// content's own tuning only under its own flag. The Ork is gated in <see cref="LoadForMatch"/> itself; gore and the loyalist barks read nothing here, so
 /// the extended profile loads as before Musou existed. Musou: its tuning (<see cref="MusouTuning"/>) on <see cref="SimConfig.MusouRules"/>, and its classes
-/// without a default primary (<see cref="MusouLoadout.Prepare"/>: the players spawn with the pistol alone), after its arsenal's items (<see cref="Arsenal.Append"/>).
+/// without a default primary (<see cref="MusouLoadout.Prepare"/>: the players spawn with the pistol alone), after its arsenal's items (<see cref="Arsenal.Append"/>). Classic PvP's autocannon
+/// (<see cref="ContentExtras.Autocannon"/>, in the extended profile; never with Musou): <see cref="ClassicAutocannon.Append"/>.
 /// </summary>
 public sealed partial record GameplayTuning
 {
@@ -23,5 +25,6 @@ public sealed partial record GameplayTuning
             config = Arsenal.Append(config, gameDir, notes);   // Musou's arsenal (docs/new-weapons-design.md, W0): its items before Prepare, so the Musou lists see them; the stubs add nothing
             config = MusouLoadout.Prepare(config with { MusouRules = MusouTuning.Load(gameDir, notes), LibrarianVariant = librarian });
         }
+        else if (config.Extras.HasFlag(ContentExtras.Autocannon)) config = ClassicAutocannon.Append(config, gameDir, notes);   // Classic PvP's autocannon (owner 2026-11-11); Musou is never combined with it
     }
 }

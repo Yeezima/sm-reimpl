@@ -14,11 +14,16 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - A bull rush (the charge) is no longer cut short by pressing the grenade key, with or without grenades left (a grenade pressed just before the charge ends is thrown as soon as it ends). To cut a charge short, tap or hold S (backwards, also S with A or D) once it has run about half a second.
 - Charging into a teammate no longer plays the recoil: your charge simply stops at him and you are free to move at once, and nothing happens to him. Charging into an enemy works as before.
 - This build does not play with earlier builds: everyone, and the server, needs this update.
+- New heavy weapon in the Extended content setting: the Devastator and the Havoc can take the autocannon (last in the heavy weapon list and in the custom class creator). It fires slow full-auto rounds that hit as hard as a Stalker Bolter shot, with the same headshot bonus, and no explosion; it has its own original autocannon sound, 400 rounds, and overheats after 15 rounds. The Faithful setting does not have it.
+- A Devastator carrying the autocannon wears the heavy bolter's backpack.
+- Classic PvP with the Extended setting in this build does not play with earlier builds: everyone in an Extended match, and the server, needs this update. Faithful matches are not affected.
 
 ### Musou Mode
 - The Librarian's chain lightning now leaps twice as far from Ork to Ork (up to 16 m) and no longer weakens down the chain: every Ork it strikes, the last as the first, takes the full damage.
 - Orbital strikes you call now do 20 % more damage to the Orks too, which bosses feel most (ordinary Orks die in the blast either way).
 - In Musou Mode too, the grenade key no longer cuts a charge short; tap or hold S instead (charging into another player still plays the recoil there).
+- The autocannon is much stronger: each round's explosion now kills any ordinary Ork (Boyz, Shoota Boyz, Gretchin, Rokkit Boyz, Stormboyz, Squigs) inside its blast that it reaches (not behind cover or a Mek's shield), and the round itself hits even harder (30 more than the blast). Its ammunition never runs out (an infinity sign in the ammo box); it still overheats after 15 rounds.
+- The Devastator now wears the heavy bolter's backpack when carrying the autocannon.
 - Musou Mode in this build does not play with earlier builds: everyone in a Musou match, and the server, needs this update.
 
 ### Deaths and hits (both modes)
