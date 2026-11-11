@@ -374,7 +374,8 @@ public class TfwMeleeTests
         for (int k = 0; k < 10 && w.LastShots.Count == 0; k++) Tick(w, buttons: InputButtons.Fire);
         var healths = line.Select(id => { w.Musou.TryGet(id, out var e); return e.Health; }).ToArray();
         Assert.Equal(1 + TfwCombatRules.Pierced(Rifle), healths.Count(h => h < 1000f));
-        Assert.True(1000f - healths[1] < 1000f - healths[0] && 1000f - healths[2] < 1000f - healths[1], string.Join(", ", healths));
+        // A human's shot loses nothing for each Ork it goes through (owner 2026-11-11: "but only for the players"; an AI Marine's keeps the 0.85, MusouRangeFallOffTests).
+        Assert.True(1000f - healths[0] > 0f && Math.Abs(healths[1] - healths[0]) < 0.01f && Math.Abs(healths[2] - healths[0]) < 0.01f, string.Join(", ", healths));
         Assert.Equal(1000f, healths[3]);
         Assert.Equal(3, w.TfwBestPierce);
         Assert.InRange(w.LastShots[^1].End.Y - me.Y, 9.3f, 11f);
