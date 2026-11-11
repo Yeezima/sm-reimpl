@@ -51,7 +51,9 @@ public partial class NetworkView
     /// Test aid <c>--musou-ork-voice-curve weapon</c>: the weapon-fire curves of <see cref="MusouSoundRules.VoiceCurveEvent"/> (musou/ork-voices, 2026-11-06).
     /// </summary>
     SmFormats.Audio.WwiseAttenuation? _musouVoiceCurve;
-    readonly MusouSoundBudget _musouBudget = new();
+    /// <summary>musou/npc-voices-only: how many times farther voices carry (<see cref="MusouVoiceRules.Reach"/>).</summary>
+    static readonly float MusouVoiceReach = MusouVoiceRules.ReachFor(OS.GetCmdlineUserArgs());
+    readonly MusouSoundBudget _musouBudget = new() { VoiceReach = MusouVoiceReach };
     readonly Random _musouSoundRoll = new(7);
     readonly List<(float Distance, int Index)> _musouNear = new();
     readonly Dictionary<ushort, int> _musouRank = new();
@@ -160,7 +162,7 @@ public partial class NetworkView
     void MusouChooseSlots(IReadOnlyList<MusouShown> shown, Num.Vector3 camera, double now)
     {
         _musouNear.Clear();
-        float range = MusouSoundRules.SlotRange * MusouSoundRules.SlotRange;
+        float range = MusouSoundRules.SlotRange * MusouVoiceReach * MusouSoundRules.SlotRange * MusouVoiceReach;
         _musouNearestSq = float.PositiveInfinity;
         for (int i = 0; i < shown.Count; i++)
         {
@@ -278,7 +280,7 @@ public partial class NetworkView
     /// <summary>A sound at one place (a shot, a hit, a fall), on an emitter of its own; none is made for what the budget would refuse by distance.</summary>
     void MusouCueAt(MusouSoundCue cue, MusouSoundSet set, Num.Vector3 at, MusouSoundGroup group, float distance, string what, string surface = "stone")
     {
-        if (cue.Empty || distance > MusouSoundRules.LimitOf(group).Range) return;
+        if (cue.Empty || distance > MusouSoundRules.LimitOf(group).Range * (MusouSoundRules.LimitOf(group).Speech && group != MusouSoundGroup.Waaagh ? MusouVoiceReach : 1f)) return;
         var emitter = new SoundEmitter { Position = ToGodot(at) + Vector3.Up * 1.2f, OneShot = true, Label = "musou " + what, Group = MusouSoundEmitters };
         emitter.Switches.Set(AudioCatalog.MaterialType, Fnv.Hash32(surface));
         if (MusouVoiceGroup(group, cue, set)) emitter.AttenuationOverride = _musouVoiceCurve;
@@ -361,6 +363,7 @@ public partial class NetworkView
         {
             if (MusouSoundIsOff(MusouSoundOff.CrowdVoices)) return false;   // musou/sound-ab: crowdvoices off
             emitter = MusouMouthOf(emitter);
+            emitter.DistanceScale = 1f / MusouVoiceReach;   // musou/npc-voices-only: heard farther
         }
         var option = cue.Pick(_musouSoundRoll);
         if (option.Events.Count == 0 && _sound.SpeechBusy(emitter)) return false;

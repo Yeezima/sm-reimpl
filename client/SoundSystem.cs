@@ -51,6 +51,8 @@ public sealed class SoundEmitter
     public bool ProtectGun;
     /// <summary>musou/audio-pass (Musou Mode only): the listener distance this emitter's voices read their curves at is multiplied by this (1.2 = the curves end at 1/1.2 of their distance: 20 % more falloff). 1 everywhere else.</summary>
     public float DistanceScale = 1f;
+    /// <summary>musou/npc-voices-only (Musou Mode only): extra multiplier of the listener distance for this emitter's character speech only (a player's voice lines carry farther). 1 everywhere else.</summary>
+    public float VoiceDistanceScale = 1f;
     /// <summary>musou/audio-pass (Musou Mode only): the emitter's voices are positioned even when the event's own are not (a 2D confirm sound), reading <see cref="AttenuationOverride"/>. False everywhere else.</summary>
     public bool Positioned;
 
@@ -802,7 +804,7 @@ public partial class SoundSystem : Node
     {
         var v = a.Voice;
         float? distance = null;
-        if (v.Is3D && v.Attenuation is not null && Distance(a.Emitter) is var (_, d)) distance = Loudness.CurveDistance(d);   // the curve's end read as the mix reads it
+        if (v.Is3D && v.Attenuation is not null && Distance(a.Emitter, IsSpeech(a.Event)) is var (_, d)) distance = Loudness.CurveDistance(d);   // the curve's end read as the mix reads it
         return VoiceAudibility.IsAudible(v.Is3D, v.Attenuation is not null, Loudness.MaxDistanceOf(v.Attenuation), distance, MixOf(a).VolumeDb, _masterDb,
             v.Chain.Count > 0 ? v.Chain[0].BelowThreshold : (byte)1, v.Chain.Count > 0, a.Limited);
     }
@@ -932,20 +934,20 @@ public partial class SoundSystem : Node
     }
 
     /// <summary>The emitter's position and its distance from the listener (the current camera), or null without a camera.</summary>
-    (Vector3 Position, float Distance)? Distance(SoundEmitter e)
+    (Vector3 Position, float Distance)? Distance(SoundEmitter e, bool speech = false)
     {
         var camera = GetViewport()?.GetCamera3D();
         var pos = e.Current;
         if (camera is null) return (pos, 0f);
         float d = camera.GlobalPosition.DistanceTo(pos);
         if (e.Own) d = Math.Min(d, OwnMinDistance);
-        return (pos, d * e.DistanceScale);
+        return (pos, d * e.DistanceScale * (speech ? e.VoiceDistanceScale : 1f));
     }
 
     /// <summary>The voice's live mix: parent chain, buses, RTPCs (distance now, the emitter's parameters as at the start), attenuation, modifiers, and the loudness rule (<see cref="Loudness"/>).</summary>
     VoiceMix MixOf(Active a)
     {
-        float? distance = Distance(a.Emitter) is var (_, d) ? d : null;
+        float? distance = Distance(a.Emitter, IsSpeech(a.Event)) is var (_, d) ? d : null;
         return Loudness.Evaluate(a.Voice, Shielded(a) ? null : _mods, a.Emitter.Id, _now, distance, a.Params, RtpcCap);   // protected voices ignore the data's Set/Reset ducking   // the data's mix with the loudness rule (gain included)
     }
 

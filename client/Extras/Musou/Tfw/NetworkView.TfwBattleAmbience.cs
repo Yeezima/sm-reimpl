@@ -25,6 +25,9 @@ public partial class NetworkView
     static readonly bool NoBattleAmbience = CmdFlag("no-musou-battle-ambience");
     static readonly float AmbienceGainArg = float.TryParse(CmdArg("musou-ambience-gain"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float g) && float.IsFinite(g) ? g : 0f;
 
+    /// <summary>musou/npc-voices-only (owner 2026-11-12): the far Ork mobs' yells and the armies' Waaagh! play only with <c>--musou-ambient-voices</c>.</summary>
+    static readonly bool MusouAmbientVoices = MusouVoiceRules.AmbientVoices(OS.GetCmdlineUserArgs());
+
     readonly MusouAmbienceScheduler _tfwAmbience = new();
     readonly List<MusouAmbienceSound> _tfwAmbienceDue = new();
     readonly int[] _tfwAmbiencePlayed = new int[MusouAmbienceRules.Specs.Count];
@@ -46,6 +49,7 @@ public partial class NetworkView
             var s = _tfwAmbienceDue[i];
             if (_connectedFor < s.At) continue;
             _tfwAmbienceDue.RemoveAt(i);
+            if (MusouVoiceRules.IsAmbientVoice(s.Kind) && !MusouAmbientVoices) continue;   // musou/npc-voices-only: the Ork mobs' yells are not an NPC's (restore: --musou-ambient-voices)
             TfwAmbiencePlay(s, listener);
         }
         if (LogSound("musou-ambience") && _connectedFor >= _tfwAmbienceLogAt)

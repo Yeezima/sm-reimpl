@@ -87,7 +87,7 @@ public partial class NetworkView
     /// <summary>The waves' Waaagh!: the planner's bursts, each a roar or a taunt of a Boy, Nob or 'Ard Boy at the wave's front, through the sound budget's Waaagh group (no weapon-fire curve: it carries).</summary>
     void TfwWaaaghFrame(Num.Vector3 camera, double now)
     {
-        if (_tfwState.Armies.Count == 0) return;
+        if (_tfwState.Armies.Count == 0 || !MusouAmbientVoices) return;   // musou/npc-voices-only: an aggregate's war cry is not an NPC's voice (restore: --musou-ambient-voices)
         foreach (var bark in _waaagh.Step(now, camera, _tfwState.Armies, id => _armyImpostors.Of(id)?.Anchor))
         {
             var (type, taunt) = WaaaghBarkRules.Voices[bark.Voice];
