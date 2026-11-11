@@ -12,5 +12,4 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 ### Musou Mode
 - The Librarian's chain lightning now leaps twice as far from Ork to Ork (up to 16 m) and no longer weakens down the chain: every Ork it strikes, the last as the first, takes the full damage.
 - Orbital strikes you call now do 20 % more damage to the Orks too, which bosses feel most (ordinary Orks die in the blast either way).
-- Fewer blood sprays and hit effects stay on screen at once in big fights, so a mass of deaths at once should stutter less.
 - Musou Mode in this build does not play with earlier builds: everyone in a Musou match, and the server, needs this update.

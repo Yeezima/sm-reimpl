@@ -10,7 +10,7 @@ namespace SmFormats.Tests;
 public class FxGpuLayoutTests
 {
     [Theory]
-    [InlineData(false, false, true, 600)]     // Musou on a normal GPU: the GPU sprays, cap 600 (the owner's "Drop to 600 blood spray cap", 2026-11-11; 1,200 before)
+    [InlineData(false, false, true, 1200)]    // Musou on a normal GPU: the GPU sprays, cap 1,200 (the owner's 600 of 2026-11-11 rolled back the same day)
     [InlineData(true, false, false, 160)]     // --fx-cpu: the CPU path, cap 160
     [InlineData(false, true, false, 160)]     // safe mode (Compatibility renderer or --safe-mode): the CPU path, cap 160
     [InlineData(true, true, false, 160)]
@@ -22,9 +22,9 @@ public class FxGpuLayoutTests
     }
 
     [Fact]
-    public void The_gpu_path_caps_live_effects_at_600_and_the_cpu_path_keeps_160()
+    public void The_gpu_path_caps_live_effects_at_1200_and_the_cpu_path_keeps_160()
     {
-        Assert.Equal(600, FxGpuLayout.GpuMaxEffects);   // owner 2026-11-11: "Drop to 600 blood spray cap" (P3: the 200-death burst frame 38.8 ms at 1,200, 32.4 ms at 400)
+        Assert.Equal(1200, FxGpuLayout.GpuMaxEffects);   // owner 2026-11-11: "roll back the blood spray cap in musou mode" (the morning's 600 undone)
         Assert.Equal(160, FxGpuLayout.CpuMaxEffects);
         Assert.Equal(1200, FxGpuLayout.EffectCap(gpu: true, 1200));   // --fx-cap 1200 still gives the old cap for a before / after
     }
