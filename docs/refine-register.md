@@ -28,8 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3036 spec table rows: **2247 tagged**, 539 not tagged (read from data with high confidence), 250 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 676 rows of the changes document.
-Scanned 3012 spec table rows: **2242 tagged**, 537 not tagged (read from data with high confidence), 233 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 675 rows of the changes document.
+Scanned 3040 spec table rows: **2249 tagged**, 541 not tagged (read from data with high confidence), 250 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 678 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -54,25 +53,18 @@ Scanned 3012 spec table rows: **2242 tagged**, 537 not tagged (read from data wi
 | Core simulation (provisional values) | 674 | 635 | 480 | 179 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 235 | 224 | 126 | 63 | 0 |
-| **All areas** | **2247** | 1981 | 1678 | 703 | 38 |
-| **All areas** | **2242** | 1978 | 1675 | 701 | 38 |
+| **All areas** | **2249** | 1983 | 1679 | 705 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1274 |
+| kind: ours | 1275 |
 | confidence: low | 807 |
-| confidence: medium | 742 |
-| notes: ours | 407 |
-| kind: interpretation | 375 |
-| notes: estimate | 181 |
-| kind: ours | 1270 |
-| confidence: low | 807 |
-| confidence: medium | 739 |
-| notes: ours | 407 |
+| confidence: medium | 743 |
+| notes: ours | 409 |
 | kind: interpretation | 376 |
-| notes: estimate | 179 |
+| notes: estimate | 181 |
 | kind: estimate | 156 |
 | confidence: none (low) | 129 |
 | kind: provisional | 100 |
@@ -2016,8 +2008,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
-| `R-C3AE4A56` | Classic autocannon: round | the Stalker Bolter's shot as Classic reads it: **50**, head **x2** (x2.5 on raised armour), body x1 (x0.8 on raised armour) (the install's `sm_mp_ranged_sniper_rifle` `damage_material_multipliers` / `armourshield_damage_material_multipliers`); the… (damage) | confidence: medium | owner 2026-11-11 (the Stalker's damage and the original game's headshot bonus); the values the install's | Classic autocannon: round: compare with SM1 by feel or video. Ours: the Stalker Bolter's shot as Classic reads it: 50, head x2 (x2.5 on… | ☐ |
-| `R-51E9F716` | Classic autocannon: ammunition boxes | each death drop gives the autocannon what it gives the Space Marine heavy bolter (its amount at the heavy bolter's index), into the clip as for every weapon without a reserve, capped at the 120; the drops are read from the install before the autocannon is… (rounds) | kind: ours; confidence: medium | the lead's brief 2026-11-11 ("refilled by ammo boxes"); the heavy bolter's amount ours | Classic autocannon: ammunition boxes: compare with SM1 by feel or video. Ours: each death drop gives the autocannon what it gives the Space Marine… | ☐ |
+| `R-C3AE4A56` | Classic autocannon: round | the Stalker Bolter's shot as Classic reads it: **50**, head **x2** (**x10** on raised armour: copied from the Stalker as balanced, the owner's Stalker change of 2026-11-02 `OwnerBalance.StalkerShieldHead`; the install's x2.5), body x1 (x0.8 on raised armour)… (damage) | confidence: medium | owner 2026-11-11 (the Stalker's damage and the original game's headshot bonus); the values the install's | Classic autocannon: round: compare with SM1 by feel or video. Ours: the Stalker Bolter's shot as Classic reads it: 50, head x2 (x10 on… | ☐ |
+| `R-51E9F716` | Classic autocannon: ammunition boxes | each death drop gives the autocannon what it gives the Space Marine heavy bolter (its amount at the heavy bolter's index), into the clip as for every weapon without a reserve, capped at the 120; one amount for both sides (the Space Marine heavy bolter's, also… (rounds) | kind: ours; confidence: medium | the lead's brief 2026-11-11 ("refilled by ammo boxes"); the heavy bolter's amount ours | Classic autocannon: ammunition boxes: compare with SM1 by feel or video. Ours: each death drop gives the autocannon what it gives the Space Marine… | ☐ |
 | `R-E67DC240` | Classic autocannon: customizer | the profile is read with the data's catalogue plus the Classic autocannon's row (so a slot saved under extended keeps it whichever profile the front end opens with); a page shows its own profile's catalogue; a Join on an extended page is planned with the… | kind: ours; confidence: medium | 2026-11-11 | Classic autocannon: customizer: compare with SM1 by feel or video. Ours: the profile is read with the data's catalogue plus the Classic… | ☐ |
 
 ### Perks (59)
