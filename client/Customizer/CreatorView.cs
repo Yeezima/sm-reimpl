@@ -20,7 +20,7 @@ public sealed partial class CreatorView : Control
     // ui/customizer-ork: LOOK is the Ork Boy's fifth step (his look instead of the armour and colour editors); a marine's look is the appearance editor.
     // musou/support (owner, 2026-11-12): SUPPORT is a sixth, Musou Mode's own step (the marines' page shows it after PERKS, the Librarian's page has it in its own count); Classic never shows it.
     enum Step { Class, Weapons, Equipment, Perks, Look, Support }
-    static readonly string[] StepNames = ["CLASS", "WEAPONS", "EQUIPMENT", "PERKS", "LOOK", "SUPPORT"];
+    static readonly string[] StepNames = ["CLASS", "WEAPONS", "EQUIPMENT", "PERKS", "LOOK", "SUPPORT ABILITIES"];
     int StepCount
     {
         get

@@ -88,7 +88,7 @@ public class TfwDropPodTests
     }
 
     [Fact]
-    public void The_touchdown_kills_the_ordinary_enemies_within_6_m_and_hurts_no_one_on_our_side()
+    public void The_touchdown_kills_the_ordinary_enemies_within_30_m_and_hurts_no_one_on_our_side()
     {
         var w = Battle();
         ushort near = Enemy(w, MusouEnemyType.Boy, Open + new Vector3(TfwDropPodRules.CrushRadius - 0.5f, 0f, 0f));
@@ -104,6 +104,83 @@ public class TfwDropPodTests
         Assert.Equal(before.Health + before.Shield, w.Players[Human].Health + w.Players[Human].Shield);
         var death = Assert.Single(w.Musou.Events, x => x.Kind == MusouEventKind.Death && x.Enemy == near);
         Assert.Equal((0, (byte)MusouDeathKind.Barrage), (death.Player, death.Value));
+    }
+
+    [Fact]
+    public void The_touchdown_deals_3_times_a_shells_damage_a_boss_90_and_ordinary_enemies_die_out_to_30_m()
+    {
+        Assert.Equal(30f, TfwDropPodRules.CrushRadius);
+        Assert.Equal(3f, TfwDropPodRules.CrushDamageFactor);
+        var w = Battle();
+        ushort boss = w.Musou!.Spawn(MusouEnemyType.BossNob, Open + new Vector3(20f, 0f, 0f), 0f, 1e6f);
+        Assert.NotEqual((ushort)0, boss);
+        ushort edge = Enemy(w, MusouEnemyType.Nob, Open + new Vector3(29f, 0f, 0f));
+        ushort out_ = Enemy(w, MusouEnemyType.Boy, Open + new Vector3(31.5f, 0f, 0f));
+        w.Musou.BeginTick(w.Tick);
+        w.TfwPodCrushForTests(Open, 0);   // no caller: the ranged scale is 1
+        Assert.True(w.Musou.TryGet(boss, out var b));
+        Assert.Equal(3f * TfwFireRules.BossDamage, 1e6f - b.Health, 2);
+        Assert.True(w.Musou.TryGet(edge, out var e));
+        Assert.Equal(MusouEnemyState.Dying, e.State);
+        Assert.True(w.Musou.TryGet(out_, out var o));
+        Assert.NotEqual(MusouEnemyState.Dying, o.State);
+    }
+
+    [Fact]
+    public void The_touchdown_is_one_pass_over_2000_orks_within_a_frame_s_budget()
+    {
+        var w = Battle();
+        int spawned = 0;
+        for (int k = 0; k < 2000; k++)
+        {
+            float a = k * 2.399963f, r = 2f + 27f * MathF.Sqrt(k / 2000f);
+            if (w.Musou!.Spawn(MusouEnemyType.Boy, Open + new Vector3(MathF.Cos(a) * r, MathF.Sin(a) * r, 0f), 0f, 100f) != 0) spawned++;
+        }
+        Assert.True(spawned >= 1500, $"{spawned} spawned");
+        w.Musou!.BeginTick(w.Tick);
+        w.TfwPodCrushForTests(Open, Human);   // warm up (JIT)
+        for (int k = 0; k < spawned; k++) w.Musou.Spawn(MusouEnemyType.Boy, Open + new Vector3(k % 20, k / 20 % 20, 0f), 0f, 100f);
+        w.Musou.BeginTick(w.Tick);
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        w.TfwPodCrushForTests(Open, Human);
+        sw.Stop();
+        Assert.True(sw.Elapsed.TotalMilliseconds < 100, $"{sw.Elapsed.TotalMilliseconds:F1} ms for {spawned} orks");
+    }
+
+    [Fact]
+    public void A_pod_marine_is_not_invulnerable_and_takes_the_ai_marines_tenth_of_a_hit()
+    {
+        var w = Battle();
+        Assert.True(w.TfwDropPod(Human, Open));
+        TfwRig.Seconds(w, TfwDropPodRules.LandSeconds + TfwDropPodRules.DoorSeconds + TfwDropPodRules.StepOutSeconds + 0.3f);
+        var marine = PodMarines(w).First();
+        Assert.Equal(TfwSupplyRules.BotDamageTaken, w.DamageTakenScale(marine.Id));   // the rule every AI Marine (puppet) has, and nothing else
+        Assert.Equal(1f, w.DamageTakenScale(Human));
+        var at = w.Players[marine.Id].Position;
+        var before = w.Players[marine.Id];
+        w.Musou!.BeginTick(w.Tick);
+        w.TfwShellForTests(at);
+        var after = w.Players[marine.Id];
+        float lost = before.Health + before.Shield - after.Health - after.Shield;
+        Assert.InRange(lost, 0.01f, TfwFireRules.PlayerDamage * TfwSupplyRules.BotDamageTaken + 0.01f);
+    }
+
+    [Fact]
+    public void The_marines_cries_start_one_after_another_0_15_to_0_35_s_apart_never_in_unison()
+    {
+        foreach (uint seed in new uint[] { 0, 1, 77, 123456, 4000000000u })
+        {
+            float previous = 0f;
+            for (int k = 0; k < TfwDropPodRules.Marines; k++)
+            {
+                float at = TfwDropPodRules.ShoutDelay(seed, k);
+                float gap = at - previous;
+                Assert.InRange(gap, TfwDropPodRules.ShoutGapMin - 1e-3f, TfwDropPodRules.ShoutGapMax + 1e-3f);
+                Assert.Equal(at, TfwDropPodRules.ShoutDelay(seed, k));   // the same on every client
+                previous = at;
+            }
+        }
+        Assert.NotEqual(TfwDropPodRules.ShoutDelay(1, 0), TfwDropPodRules.ShoutDelay(2, 0));   // the draw varies with the pod
     }
 
     [Fact]

@@ -238,7 +238,7 @@ public partial class NetworkView
     }
 
     /// <summary>A speaker's bark: the rules decide and pick the take; it plays (others 3D, own without position).</summary>
-    void BarkSay(int id, PlayerState s, BarkMoment moment, long seed, bool own)
+    void BarkSay(int id, PlayerState s, BarkMoment moment, long seed, bool own, bool emperorOnly = false)
     {
         if (_config is null || _barkRules is null) return;
         if (moment != BarkMoment.Key && (!LoyalistAutoBarks || _config.Extras.HasFlag(ContentExtras.Musou))) return;
@@ -256,7 +256,7 @@ public partial class NetworkView
         }
         if (moment == BarkMoment.Key && _sound is not null && _soundTracks.TryGetValue(id, out var t)) _sound.StopSpeech(t.Emitter);   // the key cuts SM1's line
         BarkStop(id, null);
-        if (moment == BarkMoment.Key && MusouKeyLine(id, (byte)seed, own, who)) return;   // Musou Mode: the key's rotation said a campaign line (musou/hotkey-lines); Classic PvP never
+        if (moment == BarkMoment.Key && !emperorOnly && MusouKeyLine(id, (byte)seed, own, who)) return;   // Musou Mode: the key's rotation said a campaign line (musou/hotkey-lines); Classic PvP never
         double length = BarkPlay(id, sp, clip, own);
         sp.Until = _connectedFor + (length > 0 ? length : clip.Seconds);
         sp.Key = moment == BarkMoment.Key;

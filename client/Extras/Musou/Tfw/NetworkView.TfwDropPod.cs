@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Godot;
 using SmClient.Customizer;
 using SmContent;
+using SmContent.Extras.LoyalistBarks;
 using SmContent.Extras.Musou;
 using SmNet.Extras.Musou.Campaign;
 using SmSim.Extras.Musou.Campaign;
@@ -42,6 +43,8 @@ public sealed partial class NetworkView
         public double LandedAt;
         public double GoneTick = double.PositiveInfinity;
         public FxEffect? Trail;
+        /// <summary>The Marines' staggered "For the Emperor": their ids and the tick each begins (null until they have stepped out).</summary>
+        public List<(int Id, double Tick, bool Done)>? Shouts;
     }
 
     /// <summary>A door's node, its closed pose (the node's own transform), where it hinges and which way it falls (Godot space).</summary>
@@ -206,6 +209,34 @@ public sealed partial class NetworkView
             if (!pod.Landed) TfwPodLands(pod, at);
             float open = TfwPodDoorForced ?? Math.Clamp((float)((_connectedFor - pod.LandedAt) / TfwDropPodRules.DoorSeconds), 0f, 1f);
             foreach (var door in pod.Doors) PodDoorTurn(door, open);
+            TfwPodShouts(pod, tick, rate);
+        }
+    }
+
+    /// <summary>
+    /// The pod Marines' battle cry (owner, 2026-11-12): once they have stepped out each says a FOR THE EMPEROR take of the voice pack from his own body, one after the other (<see cref="TfwDropPodRules.ShoutDelay"/>, 0.15 to 0.35 s apart,
+    /// ours), through the loyalist bark path (its take choice, cooldown and voice emitters; never the Musou key rotation). Which puppets are the pod's: the Space Marine puppets standing within 8 m of the pod when they appear.
+    /// </summary>
+    void TfwPodShouts(TfwPodShow pod, double tick, int rate)
+    {
+        double spawn = pod.Record.Tick + (TfwDropPodRules.DoorSeconds + TfwDropPodRules.StepOutSeconds) * rate;
+        if (tick < spawn) return;
+        if (pod.Shouts is null)
+        {
+            var ids = new List<int>();
+            foreach (var (id, s) in _barkPlayers)
+                if (TfwContracts.IsPuppet(id) && s.Alive && System.Numerics.Vector3.Distance(s.Position with { Z = pod.Record.At.Z }, pod.Record.At) <= 8f) ids.Add(id);
+            ids.Sort();
+            if (ids.Count == 0) { if (tick > spawn + 2 * rate) pod.Shouts = []; return; }   // none seen within 2 s: no cry
+            pod.Shouts = new();
+            for (int k = 0; k < ids.Count && k < TfwDropPodRules.Marines; k++) pod.Shouts.Add((ids[k], spawn + TfwDropPodRules.ShoutDelay((uint)pod.Record.Tick, k) * rate, false));
+        }
+        for (int k = 0; k < pod.Shouts.Count; k++)
+        {
+            var (id, at, done) = pod.Shouts[k];
+            if (done || tick < at) continue;
+            pod.Shouts[k] = (id, at, true);
+            if (_barkPlayers.TryGetValue(id, out var marine) && marine.Alive) BarkSay(id, marine, BarkMoment.Key, (long)pod.Record.Tick * 8 + k, own: false, emperorOnly: true);
         }
     }
 

@@ -41,8 +41,7 @@ which reads "B DROP POD READY" / "IN n S". The own block's cooldown byte (tag 7)
   landing; the marines appear at landing + 1.0 s and fight for 30 s (the owner), then retreat; they vanish at the HQ (within 6 m) or after 40 s of retreat; the pod
   node stays on the ground until the squad is gone (+ 2 s) and then goes with it.
 * **Impact**: screen shake `TfwShake` 0.12 rad at 0 m falling to 0 at 90 m (the artillery's is 0.05, cap 0.07: "hard" is ~2.5x; cap raised to 0.14 for the pod);
-  crater decal as a shell's. **Does the pod hurt Orks on landing? The owner did not say.** Provisional: it kills every ordinary enemy within 6 m of the touchdown
-  (like a shell, `MusouDeathKind.Barrage`, x1.2 for a human caller; a boss takes `BossDamage`) and never hurts players, AI Marines or Guardsmen (so a call at your own feet is safe).
+  crater decal as a shell's. **Landing (owner 2026-11-12, section 6)**: every enemy within 30 m takes 3x a shell's damage (`MusouDeathKind.Barrage`, x1.2 for a human caller; a boss takes 3 x `BossDamage` = 90) and it never hurts players, AI Marines or Guardsmen.
   A point within 10 m of the caller is refused (provisional) so a pod does not land on him.
 
 ## 4. The four Tactical Marines
@@ -58,8 +57,12 @@ One pod squad per player at a time (a call while that player's pod is falling or
 exist (4) is refused. With the 12 ids: the allied pair (2) and a retainer for each human (up to 4) leave room for one squad with 4 humans and two with up to 2; the others' calls are refused until a squad ends. The cooldown starts only on an
 accepted call. The call is not accepted in the Stormbird, between battles, dead or off the field. A battle ending removes the pod and its marines (`TfwDismissMarines`).
 
-## 6. Open questions for the owner
-1. Does the landing kill Orks (we guessed: within 6 m, never friends)? Radius?  2. Cooldown 60 s shared with the artillery (our default), or its own?
-3. Should the marines follow the caller or stand at the landing point (we: stand and fight, 30 s)?  4. DEFAULTS loadouts: store the choice per DEFAULTS role (ours) or
-force a copy to a custom slot?  5. One pod at a time per player, one support call per cooldown: right?  6. The retreat point is the Imperial HQ (`Layout.Hq`); a marine
-that cannot reach it in 40 s vanishes where it stands.  7. May the caller mark a point near himself (we: not within 10 m)?
+## 6. The owner's answers (2026-11-12; the questions are closed)
+1. **Landing**: kills Orks in a 30 m radius at 3x the damage of one artillery strike (a shell deals every enemy its health, a boss 30, flat, no fall-off; so the pod kills every ordinary enemy in 30 m and deals a boss 90; x1.2 on both for a human caller). Never hurts players, Marines or Guardsmen (our rule, kept).
+2. **Cooldown 60 s**, shared with the artillery strike (a loadout holds only one support ability); none at the Firing Range.
+3. **Marines defend the landing spot 30 s** (they do not follow the caller), then retreat to the HQ.
+4. **One pod per player at a time** (as built).
+5. **Not invulnerable**: they take the other allied Marines' reduced damage (a tenth of every hit, `TfwSupplyRules.BotDamageTaken`, which applies to every puppet id, pod Marines included).
+6. **Customizer**: the window is "Support abilities" with exactly the artillery strike and the drop pod assault; every Musou class (the three Marine classes' defaults, the ten custom slots, the Librarian).
+7. **Battle cry**: each Marine shouts FOR THE EMPEROR when stepping out, staggered 0.15 to 0.35 s apart (ours), never in unison (`TfwDropPodRules.ShoutDelay`; client only; the voice pack's takes through the loyalist bark path).
+Still ours: the retreat point (the HQ), the 40 s retreat limit, the 10 m minimum distance from the caller.
