@@ -216,7 +216,7 @@ public static partial class AppearanceResolver
     }
 
     /// <summary>
-    /// Whether <paramref name=need/> (a class override's required wargear) is carried: by name, side prefixes ignored, or as the data weapon an added weapon wears as (<see cref="WornAs"/>: added
+    /// Whether <paramref name="need"/> (a class override's required wargear) is carried: by name, side prefixes ignored, or as the data weapon an added weapon wears as (<see cref="WornAs"/>: added
     /// content's autocannon wears the heavy bolter's pack, the owner 2026-11-11). Without added content every name is only its own.
     /// </summary>
     static bool Carries(IReadOnlyCollection<string>? carried, string need) =>
@@ -224,7 +224,7 @@ public static partial class AppearanceResolver
 
     static bool Same(string a, string b) => ProfileWire.Neutral(a).Equals(ProfileWire.Neutral(b), StringComparison.OrdinalIgnoreCase);
 
-    /// <summary>The wargear <paramref name=wargear/> counts as for the class overrides: itself, or (added content) the data weapon whose pack an added weapon wears.</summary>
+    /// <summary>The wargear <paramref name="wargear"/> counts as for the class overrides: itself, or (added content) the data weapon whose pack an added weapon wears.</summary>
     public static string WornAs(string wargear)
     {
         string name = wargear;
