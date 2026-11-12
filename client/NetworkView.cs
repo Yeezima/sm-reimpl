@@ -277,6 +277,7 @@ public partial class NetworkView : Node3D
             GD.Print($"content: {ContentProfiles.Describe(content)}");
             MemStep("start"); var tuning = GameplayTuning.LoadForMatch(_gameDir, content, OrkData); MemStep("tuning");
             _config = WithPlayerCollisionArg(tuning.Config);   // sim/player-collision: --no-player-collision (NetworkView.Bodies.cs)
+            _config = WithAerialTackleRestoredArg(_config);   // musou/no-aerial-tackle restore switch (NetworkView.AerialTackle.cs)
             _tuningSource = tuning.Placeholders.Any(p => p is nameof(SimConfig.Damage) or nameof(SimConfig.ClipSize) or nameof(SimConfig.HealthMax) or nameof(SimConfig.MeleeSteps) or nameof(SimConfig.Classes))
                 ? "partly placeholders (see server log)" : "from the install";
             _notes.AddRange(tuning.Notes);

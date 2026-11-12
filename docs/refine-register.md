@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3099 spec table rows: **2280 tagged**, 564 not tagged (read from data with high confidence), 255 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 687 rows of the changes document.
+Scanned 3100 spec table rows: **2281 tagged**, 564 not tagged (read from data with high confidence), 255 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 688 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,18 +50,18 @@ Scanned 3099 spec table rows: **2280 tagged**, 564 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 22 | 13 | 13 | 12 | 7 |
-| Core simulation (provisional values) | 692 | 652 | 491 | 183 | 1 |
+| Core simulation (provisional values) | 693 | 653 | 492 | 183 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 236 | 225 | 126 | 64 | 0 |
-| **All areas** | **2280** | 2011 | 1700 | 716 | 38 |
+| **All areas** | **2281** | 2012 | 1701 | 716 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1299 |
+| kind: ours | 1300 |
 | confidence: low | 813 |
-| confidence: medium | 758 |
+| confidence: medium | 759 |
 | notes: ours | 413 |
 | kind: interpretation | 380 |
 | notes: estimate | 184 |
@@ -2318,7 +2318,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (692)
+### Core simulation (provisional values) (693)
 
 *Spec section: Provisional values in use*
 
@@ -3154,6 +3154,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
+| `R-DDB906FA` | Musou Mode: no aerial tackle, a light attack at any point in a hop (temporary) | In Musou Mode the Assault's and Raptor's aerial (flying) tackle, the dash attack (`Rush.CanDashAttack`, a melee press from 0.333 s into a hop), never starts: `SimConfig.AerialTackleOff` (hook `ExtrasAerialTackleOff`, Musou only, false in Classic PvP) makes… (rule) | kind: ours; confidence: medium | owner 2026-11-12: "Temporarily disable the Arial/flying tackle move for all assault and raptor marines in musou mode only. You should be able to start a melee… | Musou Mode: no aerial tackle, a light attack at any point…: compare with SM1 by feel or video. Ours: In Musou Mode the Assault's and Raptor's aerial (flying) tackle, the… | ☐ |
 | `R-8FE4B958` | Fuel: recharge in the descent, Classic PvP | the pack also recharges at `recharge_rate` in a jump's hang and fall (after the apex: the pack no longer lifts), besides on the ground; Musou Mode keeps the ground-only recharge. From full with the data's values (flat ground, `JumpEscapeTests`): full jump 1… (power/s) | kind: interpretation; confidence: low | owner 2026-11-06 (two jumps, a third shortly after); when the original recharges is not in the data | Fuel: recharge in the descent, Classic PvP: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the pack also recharges at recharge_rate in a jump's hang and fall… | ☐ |
 
 *Spec section: Stream B timing fixes: holstered cooldowns, toss follow-through, predicted own plasma ball, the hammer's string reset (protocol 62, 2026-11-06)*
@@ -4790,6 +4791,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-DA4B60BB` | Musou weight and impact pass (claude/musou-weight, 2026-11-10) | No Musou Mode in the original | The owner's brief of 2026-11-10 and his answers: the marines' ground contacts (foot tags and bones) drive dust and debris puffs, contact sounds and camera; more weight in landings, stops and rolls; melee retimed with its hit and end times kept, a short pose hold and camera push on the own heavy strikes and combo… | spec "Musou weight and impact pass" | Musou weight and impact pass (claude/musou-weight…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-F8BECC47` | Musou: powerups instead of weapon drops (musou/powerups, owner 2026-11-10; `MusouSim.Version` 40, wire tag 6 extended; Musou only) | No Musou Mode in the original | Ours (the owner's request, verbatim: "change the drop cards UI elements to be much more minimalistic and match the black and white theme. they don't drop weapons anymore but powerups, and more rarely. they should drop a 2x damage buff that lasts 30s, a buff that makes all orks run away from you for 15s, a buff that… | Musou Mode and the 5-wave run only; Classic PvP unchanged. spec "Musou powerups: drops and durations", "Musou powerups: our parts", "Musou powerups: the x2 caps", "Musou powerups: the hold", "Musou powerups: look (client)" | Musou: powerups instead of weapon drops (musou/powerups…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-FBFD2410` | Musou: boss danger, stun windows, more bosses (claude/musou-bosses-drops, owner 2026-11-12; `MusouSim.Version` 48, `TfwRules.Version` 71) | No Musou Mode in the original | Ours (added content, the owner's request): the Warboss and the Boss Orks hit 1.5x harder (the factor ours) but one boss hit takes at most 75 % of the target's full health plus armour; a boss falling to 80, 60, 40 and 20 % of its health stands stunned 5 s (each once; the owner's numbers), doing nothing, in the war… | Musou Mode only; Classic PvP and the 5-wave run's replay unchanged. Spec "Musou Mode: boss danger, stun windows and more bosses". | Musou: boss danger, stun windows, more bosses…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-BFB674C7` | Musou: no aerial tackle, a light attack at any point in a hop (claude/musou-no-aerial-tackle, owner 2026-11-12, TEMPORARY; `MusouSim.Version` 49, `TfwRules.Version` 74) | The Assault and Raptor start the aerial (flying) tackle, the dash attack, with a melee press in a hop; an earlier press cancels the hop into a swing that must wait for the cancelled clip to end | Ours (added content, the owner's temporary request): in Musou Mode a melee press at any point of a hop is the light attack at once, with no wait before the next swing; the tackle never starts. The air attack keeps the hop cancel's rules (rise stopped, 0.4 of the horizontal speed carried; ours). Restore:… | Musou Mode only; Classic PvP unchanged. Spec "Musou Mode: no aerial tackle, a light attack at any point in a hop (temporary)". | Musou: no aerial tackle, a light attack at any point in a…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 
 ## Appendix: not gameplay
 

@@ -49,6 +49,7 @@ public static class MeleeCancel
             var v = s.Velocity;
             var carried = float.IsFinite(v.X) && float.IsFinite(v.Y) ? new System.Numerics.Vector3(v.X * HopCarry, v.Y * HopCarry, float.IsFinite(v.Z) ? MathF.Min(0f, v.Z) : 0f)
                 : System.Numerics.Vector3.Zero;
+            if (c.AerialTackleOff) remaining = 0f;   // musou/no-aerial-tackle (owner 2026-11-12): a light attack at any point in a hop, no wait before the next
             return (s with { EvadeTicks = 0, EvadeDirection = EvadeDirection.Forward, EvadeLanded = false, Velocity = carried }, remaining);
         }
         return null;

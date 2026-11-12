@@ -9,3 +9,4 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Leave out changes a tester cannot notice (tooling, docs, refactors). Optional "### " headings group long lists.
 - Add your bullets in the same pull request as the change, when it merges.
 -->
+- Musou Mode: the Assault and Raptor no longer do the flying tackle (it is switched off for now); a melee press at any moment of a hop starts a normal light attack at once, with no wait before the next one. Musou Mode servers and players must update together.
