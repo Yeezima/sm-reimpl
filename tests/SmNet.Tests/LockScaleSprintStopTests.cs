@@ -407,13 +407,13 @@ public class LockScaleSprintStopTests(ITestOutputHelper output)
         Assert.Equal(stopping, back.Players[0]);
         Assert.Equal(Protocol.Slim(other), back.Players[1]);
         Assert.True(back.Players[1].SprintStop);
-        Assert.Equal(70, Protocol.Version);
-        // The slim record: melee byte [^30], time [^29..^26] (as in ReactionTests).
+        Assert.Equal(71, Protocol.Version);
+        // The slim record: melee byte [^31], time [^30..^27] (as in ReactionTests; protocol 71: the damage mark byte follows the evade byte).
         var slim = Protocol.Write(new Snapshot(9, 1, 1, [other]));
-        Assert.Equal(64, slim[^30]);
-        Assert.Equal(0f, BitConverter.ToSingle(slim, slim.Length - 29));
+        Assert.Equal(64, slim[^31]);
+        Assert.Equal(0f, BitConverter.ToSingle(slim, slim.Length - 30));
         var timed = (byte[])slim.Clone();
-        BitConverter.GetBytes(0.5f).CopyTo(timed, timed.Length - 29);
+        BitConverter.GetBytes(0.5f).CopyTo(timed, timed.Length - 30);
         Assert.Null(Protocol.Read(timed));   // the heavy flag without a step and with a time: refused as before
         // An attack, reaction or charge never carries it.
         Assert.False(Protocol.Slim(other with { MeleeStep = 1, MeleeTime = 0.1f }).SprintStop);

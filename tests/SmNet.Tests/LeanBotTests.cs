@@ -29,6 +29,7 @@ public class LeanBotTests
     [InlineData("--bot-gait")]
     [InlineData("--log-sound")]
     [InlineData("--aim-test")]
+    [InlineData("--no-player-hit-fx")]   // onhit-range-intensity (owner 2026-11-13): the no-particle look, presentation only
     [InlineData("--player-hit-fx")]   // classic-no-player-hit-fx: the restore switch is presentation only
     [InlineData("--no-jump-death")]
     public void A_presentation_test_aid_loads_everything(string aid) =>

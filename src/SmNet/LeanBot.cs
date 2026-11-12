@@ -45,7 +45,7 @@ public static class LeanBot
         "record-demo", "spectate", "ragdoll-debug", "death-orbit-test", "no-shader-sweep", "hit-reaction-test", "damage-demo", "aim-test", "hud-demo", "hud-rewards-demo", "hud-headshot-demo", "hud-score-demo", "hud-vitals-demo", "hud-clip-demo", "hud-plasma-demo", "hud-switch-demo", "hud-launcher-demo", "scope-spread-demo", "pound-marker-demo",
         "power-flash-demo", "log-power-flash", "power-flash-at",   // fx/power-flash: the hit flash demo and its log
         "pvp-hit-fx-demo", "pvp-hit-fx-every", "log-hit-fx",   // pvp-hit-fx: the shot-look demo on the nearest other player and its log
-        "player-hit-fx", "old-classic-hit-fx", "melta-burn-on-hit", "old-pack-death-flash",   // classic-no-player-hit-fx (owner 2026-11-11): Classic PvP's on-hit effects on players back (the before look)
+        "player-hit-fx", "no-player-hit-fx", "player-hit-burst", "no-damage-glow", "old-classic-hit-fx", "melta-burn-on-hit", "old-pack-death-flash",   // classic-no-player-hit-fx (owner 2026-11-11): Classic PvP's on-hit effects on players back (the before look)
         "musou-hud-demo",   // added content Musou (MU3): the Musou HUD and telegraphs with made-up values
         "musou-gore-demo",   // added content Musou (pass 2 M10): the scripted feed of the gore
         "musou-death-spike-test",   // added content Musou (night batch 2026-11-06): the whole scripted crowd dies at once, the frame times measured

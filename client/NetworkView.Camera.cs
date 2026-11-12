@@ -424,6 +424,7 @@ public partial class NetworkView
         if (feedback.Marker) { _hudView?.ShowHitMarker(hits.Kills > 0 || hits.LastKilled, hits.LastHead); _client.NoteHitMarker(predicted: false); }
         BotNoteHits(hits);   // M44a: the bot's hit statistics
         FlinchNoteOwnHit(hits);   // animation pass 2: the victim flinches
+        OwnHitReportGlow(hits);   // onhit-range-intensity: the glow and sparks of the own melee or blast damage the server confirmed
         SoundHits(hits, rangedConfirm: feedback.Sound);   // M26b
         if (hits.ShieldDamage > 0f && hits.VictimShield <= 0f && !hits.LastKilled)
         {

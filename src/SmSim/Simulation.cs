@@ -215,6 +215,17 @@ public readonly record struct PlayerState(int PlayerId, Vector3 Position, Vector
     public float ThirdCooldown { get; init; }
     /// <summary>Seconds since this player last took damage (drives regeneration).</summary>
     public float SinceDamage { get; init; }
+    /// <summary>
+    /// Protocol 71 (onhit-damage-mark; the owner 2026-11-13: "any sort of damage should trigger the sparks and glows"): a counter, modulo 8, that <see cref="Combat.ApplyDamage(PlayerState, float, float, float, SimConfig)"/> raises on
+    /// every damage this player takes (every weapon, melee kind, blast, rush and Musou enemy hit pass through it). Every player's record carries it, so any client can show a hit on any player:
+    /// a change in the counter is one or more damages since the last record, however many snapshots were lost. Not simulated, not predicted; presentation only.
+    /// </summary>
+    public byte DamageCount { get; init; }
+    /// <summary>Protocol 71 (bit 5 of the damage byte): this player has already taken damage this tick, so a second damage in the same tick (a multi-pellet or multi-victim effect) keeps the counter and adds its bits; cleared at the start of every player tick (<c>Combat.StepPlayer</c>: the server and the client prediction alike).</summary>
+    public bool DamageFresh { get; init; }
+    /// <summary>Protocol 71: whether the damage of the last tick that took any took some shield and some health (the bits of every damage of one tick are ORed); both can be set; the client reads red when health was hit, else yellow.</summary>
+    public bool DamageShield { get; init; }
+    public bool DamageHealth { get; init; }
     /// <summary>Seconds until a dead player respawns.</summary>
     public float RespawnLeft { get; init; }
     public float Pitch { get; init; }

@@ -242,6 +242,7 @@ public partial class NetworkView
             FxOwnShots(me, delta);
             FxLaserTest(me);   // feel/scope-lascannon test aid (NetworkView.Laser.cs)
             foreach (var shot in _frameShots) FxRemoteShot(shot);
+            DamageMarkGlows();   // protocol 71 (NetworkView.PlayerDamageGlow.cs): after the remote shots, which stamp their own glows
             FxStopFireSmoke();
             FxMapEffects();
             FxEyeGlow();   // M40-T13 (NetworkView.EyeGlow.cs)
@@ -585,13 +586,14 @@ public partial class NetworkView
         bool hitFx = HitFxDrawn(hit, w.Wargear, victim);
         if (hit != ShotHit.World && hitFx) FxArmourHit(up, end, dir, victim, delay);
         if (hit != ShotHit.World && up && hitFx) ArmourSparks(end, dir, delay, victim);   // fx/bolt-tracer-impact
-        if (hit != ShotHit.World && armourUp == false && hitFx) BloodSplashAt(end, dir, delay, victim);   // fx/red-glow-blood: no armour left, a red splash
+        if (hit != ShotHit.World && armourUp == false && hitFx) { if (HitBurstDrawn(hit)) BloodSplashAt(end, dir, delay, victim); else RedSparks(end, dir, delay); }   // owner 2026-11-13: Classic draws red sparks, not the large burst   // fx/red-glow-blood: no armour left, a red splash
         if (hit != ShotHit.World) CharacterFlashHit(victim, armourUp, end);   // fx/character-visuals (pvp-hit-fx: at the hit point): the victim's model flashes (NetworkView.CharacterFlash.cs); kept in Classic
         if (hit != ShotHit.World && MeltaBurnOnHit && MeltaBurnRules.IsMelta(w.Wargear))   // fix/melta-burn-onhit: the burn over the whole body, in the hit's own frame (NetworkView.MeltaBurn.cs); owner 2026-11-11: only a kill burns (MeltaKillBurn), unless --melta-burn-on-hit (which burns on every hit, in Classic PvP too, without --player-hit-fx)
         {
             var burn = plays.FirstOrDefault(x => x.Name.Contains("dmg_burn_limb", StringComparison.OrdinalIgnoreCase));
             MeltaBurnBody(victim, w.Wargear, true, burn is null ? null : new EffectPlayLike(burn.Name, burn.Lifetime));
         }
+        if (!HitBurstDrawn(hit)) return;   // owner 2026-11-13: Classic draws no large hit container (the stalker cloud) on a player
         if (!hitFx) return;   // classic-no-player-hit-fx: nor the hit container, whatever the victim's id (a Classic body hit is always a player)
         if (!HitDecalRules.DrawsContainer(hit, victim)) return;   // fix/hit-decals-map-only (owner, 2026-11-08): a shot that hits a player leaves no decal; the container is for the map
         if (plays.Count == 0) return;
@@ -611,7 +613,7 @@ public partial class NetworkView
             };
             var axes = AxesFromY(axis);
             if (p.TriggerPoint != "exit_wound") TracerProbeImpact(pos);   // fx/tracers-impact: --tracer-probe (the exit wound sits 0.35 m past the hit on purpose)
-            var impact = _fx.Play(p.Name, pos, axes, p.Scale <= 0f ? 1f : p.Scale, null, null, p.Lifetime, delay, false, 0, tint: RaceTint(w.Wargear, p.Name));
+            var impact = _fx.Play(p.Name, pos, axes, (p.Scale <= 0f ? 1f : p.Scale) * (hit != ShotHit.World ? HitFxParticleScale(end) : 1f), null, null, p.Lifetime, delay, false, 0, tint: RaceTint(w.Wargear, p.Name));   // onhit-range-intensity: a hit on a player keeps its size at range, x1.3
             if (impact is not null) { float dust = 1f; ExtrasImpactDustShare(w.Wargear, ref dust); impact.DustShare = dust; }   // EXTRAS-HOOK: Musou's autocannon round throws half the dust (musou/autocannon-dust)
         }
     }

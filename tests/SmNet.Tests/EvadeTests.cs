@@ -696,7 +696,7 @@ public class EvadeTests(ITestOutputHelper output)
     [Fact]
     public void Protocol_13_carries_the_exact_evade_in_the_own_record_and_direction_and_ticks_in_slim_records_within_1200_bytes()
     {
-        Assert.Equal(70, Protocol.Version);
+        Assert.Equal(71, Protocol.Version);
         PlayerState Loaded(int id) => new(id, new Vector3(1e4f), new Vector3(100f), 3f, false)
         {
             Alive = true, Health = 1e3f, Shield = 1e3f, Class = Protocol.MaxClasses - 1, Slot = WeaponSlot.Pistol, Clip = 65535, Reserve = 65535, OtherClip = 65535, OtherReserve = 65535,
@@ -710,14 +710,14 @@ public class EvadeTests(ITestOutputHelper output)
             Kills: [.. Enumerable.Range(0, Protocol.MaxSnapshotKills).Select(k => new KillView(65535 - k, 65535, 1, KillCause.Thrown, 254))],
             Points: [.. Enumerable.Repeat(new ControlPointView(Team.Chaos, Team.Chaos, 1f, true), Protocol.MaxSnapshotPoints)], Hits: new HitView(1, 2, 3, 4, 5, HitFlags.All, 1f, 1f), Shots: ShotTests.ManyShots(players, Protocol.MaxSnapshotShots)));
         output.WriteLine($"16 players and {Protocol.MaxSnapshotProjectiles} projectiles (protocol {Protocol.Version}): {bytes.Length} bytes");
-        Assert.Equal((1193, Protocol.MaxSnapshotBytes, 13), (bytes.Length, bytes.Length, Protocol.MaxSnapshotProjectiles));   // protocol 62 (own record + 8, 13 projectile records); protocol 45 (own record + 8, 14 projectile records); protocol 44 (own record + 14, 15 projectile records); protocol 23 (21, 22: 1198; 20: 1197; 17-19: 1195; 16: 1199; 15: 1195 with 19 projectiles)
+        Assert.Equal((1195, Protocol.MaxSnapshotBytes, 12), (bytes.Length, bytes.Length, Protocol.MaxSnapshotProjectiles));   // protocol 62 (own record + 8, 13 projectile records); protocol 45 (own record + 8, 14 projectile records); protocol 44 (own record + 14, 15 projectile records); protocol 23 (21, 22: 1198; 20: 1197; 17-19: 1195; 16: 1199; 15: 1195 with 19 projectiles)
         Assert.True(bytes.Length <= 1200 && bytes.Length <= UdpServerTransport.MaxPacket);
         var back = Assert.IsType<Snapshot>(Protocol.Read(bytes));
         Assert.Equal(players.Select(p => p.PlayerId == 7 ? p : Protocol.Slim(p)), back.Players);
         Assert.Equal((112, EvadeDirection.Right, 255), (back.Players[6].EvadeTicks, back.Players[6].EvadeDirection, back.Players[6].EvadeLock));   // own: exact
         Assert.Equal((48, EvadeDirection.Right, 0), (back.Players[2].EvadeTicks, back.Players[2].EvadeDirection, back.Players[2].EvadeLock));      // slim: no lock
         Assert.Equal((63, EvadeDirection.Forward), (back.Players[7].EvadeTicks, back.Players[7].EvadeDirection));                                 // slim: ticks capped at 63
-        Assert.Equal(13, back.Projectiles!.Length);   // protocol 62
+        Assert.Equal(12, back.Projectiles!.Length);   // protocol 62
         for (int k = 0; k < bytes.Length; k++) Assert.Null(Protocol.Read(bytes.AsSpan(0, k)));
         // Not evading: the direction is canonical (Forward) in slim records.
         Assert.Equal(EvadeDirection.Forward, Protocol.Slim(players[0] with { EvadeTicks = 0, EvadeDirection = EvadeDirection.Left }).EvadeDirection);
@@ -734,10 +734,10 @@ public class EvadeTests(ITestOutputHelper output)
         var disagree = (byte[])own.Clone(); disagree[^47] = 6;
         Assert.Null(Protocol.Read(disagree));
         var slim = Protocol.Write(new Snapshot(1, 1, 1, [me with { PlayerId = 4 }]));
-        Assert.Equal(5 | (2 << 6), (int)slim[^25]);                  // the slim record's last byte: direction << 6 | ticks
-        var orphan = (byte[])slim.Clone(); orphan[^25] = 2 << 6;   // a direction without ticks
+        Assert.Equal(5 | (2 << 6), (int)slim[^26]);                  // the slim record's last byte: direction << 6 | ticks
+        var orphan = (byte[])slim.Clone(); orphan[^26] = 2 << 6;   // a direction without ticks
         Assert.Null(Protocol.Read(orphan));
-        var control = (byte[])slim.Clone(); control[^25] = 63 | (3 << 6);
+        var control = (byte[])slim.Clone(); control[^26] = 63 | (3 << 6);
         Assert.Equal((63, EvadeDirection.Right), (Assert.IsType<Snapshot>(Protocol.Read(control)).Players[0].EvadeTicks, Assert.IsType<Snapshot>(Protocol.Read(control)).Players[0].EvadeDirection));
         // Long evades: the own record keeps the exact count beyond the slim cap.
         var longer = me with { EvadeTicks = 200, EvadeDirection = EvadeDirection.Back };

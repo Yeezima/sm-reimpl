@@ -101,7 +101,7 @@ public class WeaponTimingStreamBTests(ITestOutputHelper output)
         var p = Combat.Respawned(new PlayerState(7, Vector3.Zero, Vector3.Zero, 0f, true), Config(1f)) with { OtherCooldown = 0.75f, ThirdCooldown = 0.25f };
         var back = Assert.IsType<Snapshot>(Protocol.Read(Protocol.Write(new Snapshot(1, 1, 1, [p], Self: 7))));
         Assert.Equal((0.75f, 0.25f), (back.Players[0].OtherCooldown, back.Players[0].ThirdCooldown));
-        Assert.Equal(70, Protocol.Version);
+        Assert.Equal(71, Protocol.Version);
         Assert.Equal(13, Protocol.MaxSnapshotProjectiles);
         Assert.True(Protocol.MaxSnapshotBytes <= Protocol.SnapshotBudget, $"{Protocol.MaxSnapshotBytes}");
     }

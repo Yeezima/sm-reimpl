@@ -92,7 +92,7 @@ public partial class NetworkView
         {
             var was = _ciReaction.GetValueOrDefault(p.PlayerId);
             if (!p.Alive || p.Reaction == ReactionKind.None) { _ciReaction.Remove(p.PlayerId); if (_reactionSource.TryGetValue(p.PlayerId, out var r) && now - r.At > 0.5) _reactionSource.Remove(p.PlayerId); continue; }
-            bool started = was.Kind == ReactionKind.None || p.ReactionTicks < was.Ticks || p.Reaction != was.Kind;
+            bool started = PlayerHitFxRules.ReactionStarted(was.Kind, was.Ticks, p.Reaction, p.ReactionTicks);
             _ciReaction[p.PlayerId] = (p.Reaction, p.ReactionTicks);
             if (!started) continue;
             if (_reactionSource.TryGetValue(p.PlayerId, out var known) && known.Charge && now - known.At < 0.5) continue;

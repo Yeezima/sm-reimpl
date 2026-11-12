@@ -270,7 +270,7 @@ public class EvadeDiagonalTests(ITestOutputHelper output)
     [Fact]
     public void Protocol_14_carries_all_eight_directions_in_slim_and_own_records_and_refuses_malformed_ones()
     {
-        Assert.Equal(70, Protocol.Version);
+        Assert.Equal(71, Protocol.Version);
         var players = Enumerable.Range(1, 16).Select(id => new PlayerState(id, new Vector3(id), Vector3.Zero, 0.5f, true)
         {
             Alive = true, Slot = id % 3 == 0 ? WeaponSlot.Pistol : WeaponSlot.Ranged, EvadeTicks = id * 4, EvadeDirection = (EvadeDirection)(id % 8), EvadeLock = 3,
@@ -286,20 +286,20 @@ public class EvadeDiagonalTests(ITestOutputHelper output)
         Assert.Equal(EvadeDirection.Forward, Protocol.Slim(players[4] with { EvadeTicks = 0, EvadeDirection = EvadeDirection.BackLeft }).EvadeDirection);
         var idle = players[2] with { EvadeTicks = 0, EvadeDirection = EvadeDirection.BackLeft };
         var idleBytes = Protocol.Write(new Snapshot(1, 1, 1, [idle with { PlayerId = 4 }]));
-        Assert.Equal(1, idleBytes[^31]);   // slot byte (pistol): … slot, step, time 4, evade 1, then 24 bytes of blocks
+        Assert.Equal(1, idleBytes[^32]);   // slot byte (pistol): … slot, step, time 4, evade 1, then 24 bytes of blocks
         // The slot byte: unknown bits and a diagonal bit without an evade are refused.
         var me = players[4] with { PlayerId = 4, EvadeTicks = 5, EvadeDirection = EvadeDirection.BackRight };   // 5: bit 2 set
         var slim = Protocol.Write(new Snapshot(1, 1, 1, [me]));
-        Assert.Equal((2, 5 | (1 << 6)), ((int)slim[^31], (int)slim[^25]));
-        var unknown = (byte[])slim.Clone(); unknown[^31] |= 128;   // protocol 24: bit 3 (8) is the dash's landing part; 29: bits 4..6 the brace and the vent, bit 7 unknown
+        Assert.Equal((2, 5 | (1 << 6)), ((int)slim[^32], (int)slim[^26]));
+        var unknown = (byte[])slim.Clone(); unknown[^32] |= 128;   // protocol 24: bit 3 (8) is the dash's landing part; 29: bits 4..6 the brace and the vent, bit 7 unknown
         Assert.Null(Protocol.Read(unknown));
-        var landed = (byte[])slim.Clone(); landed[^31] |= 8;
+        var landed = (byte[])slim.Clone(); landed[^32] |= 8;
         Assert.True(Assert.IsType<Snapshot>(Protocol.Read(landed)).Players[0].EvadeLanded);
-        var orphan = (byte[])slim.Clone(); orphan[^25] = 0;   // no evade, but the diagonal bit
+        var orphan = (byte[])slim.Clone(); orphan[^26] = 0;   // no evade, but the diagonal bit
         Assert.Null(Protocol.Read(orphan));
-        var orphanLanding = (byte[])idleBytes.Clone(); orphanLanding[^31] |= 8;   // no evade, but the landing bit
+        var orphanLanding = (byte[])idleBytes.Clone(); orphanLanding[^32] |= 8;   // no evade, but the landing bit
         Assert.Null(Protocol.Read(orphanLanding));
         // The worst case is unchanged (the bit uses a spare one).
-        Assert.Equal(1193, Protocol.MaxSnapshotBytes);   // protocol 23: + the perk word (21, 22: 1198; 20: 1197; 17-19: 1195; 16: 1199; 15: 1195)
+        Assert.Equal(1195, Protocol.MaxSnapshotBytes);   // protocol 23: + the perk word (21, 22: 1198; 20: 1197; 17-19: 1195; 16: 1199; 15: 1195)
     }
 }

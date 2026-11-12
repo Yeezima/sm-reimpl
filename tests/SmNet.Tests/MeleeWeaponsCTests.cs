@@ -352,7 +352,7 @@ public class MeleeWeaponsCTests(ITestOutputHelper output)
                 if (starts.Any(s => s <= tick && tick < s + Window)) continue;
                 compared++;
                 // Health and shield come from others' hits (not predicted); the own state machine must match.
-                var p = pred with { Health = real.Health, Shield = real.Shield, SinceDamage = real.SinceDamage };
+                var p = pred with { Health = real.Health, Shield = real.Shield, SinceDamage = real.SinceDamage, DamageCount = real.DamageCount, DamageShield = real.DamageShield, DamageHealth = real.DamageHealth, DamageFresh = real.DamageFresh };   // protocol 71: the damage mark comes from others' hits too (not predicted)
                 if (p != real) mismatches.Add($"tick {tick}: predicted {pred}; server {real}");
             }
             output.WriteLine($"client {i} (class {classes[i]}): compared {compared} ticks, {mismatches.Count} mismatches; reactions on it {starts.Count}");

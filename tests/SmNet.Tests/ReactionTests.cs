@@ -555,7 +555,7 @@ public class ReactionTests(ITestOutputHelper output)
     [Fact]
     public void Protocol_17_carries_reactions_and_heavy_strikes_in_every_record_and_the_knockback_and_blindness_in_the_own()
     {
-        Assert.Equal(70, Protocol.Version);
+        Assert.Equal(71, Protocol.Version);
         var me = new PlayerState(3, Vector3.One, Vector3.Zero, 0f, true)
         {
             Alive = true, Reaction = ReactionKind.Stagger, ReactionDirection = ReactionDirection.Left, ReactionTicks = 7,
@@ -582,12 +582,12 @@ public class ReactionTests(ITestOutputHelper output)
         var slim = Protocol.Write(new Snapshot(9, 1, 1, [p]));
         // The slim record ends: … slot [^31], melee byte [^30], time [^29..^26], evade [^25], then 24 bytes of blocks (match,
         // kill count, point count, hits, shot count).
-        Assert.Equal(2, slim[^30]);
+        Assert.Equal(2, slim[^31]);
         Assert.NotNull(Protocol.Read(slim));
         byte[] With(byte melee, float? time = null)
         {
-            var b = (byte[])slim.Clone(); b[^30] = melee;
-            if (time is float t) BitConverter.GetBytes(t).CopyTo(b, b.Length - 29);
+            var b = (byte[])slim.Clone(); b[^31] = melee;
+            if (time is float t) BitConverter.GetBytes(t).CopyTo(b, b.Length - 30);
             return b;
         }
         Assert.NotNull(Protocol.Read(With(64 | 2)));             // heavy step 2
@@ -630,7 +630,7 @@ public class ReactionTests(ITestOutputHelper output)
         var back = Assert.IsType<Snapshot>(Protocol.Read(bytes));
         output.WriteLine($"protocol {Protocol.Version}: {bytes.Length} bytes with {back.Shots!.Length} shot records (budget {Protocol.SnapshotBudget})");
         // Protocol 17: the own record's 4 reaction bytes cost the fifth guaranteed shot record of protocol 16 (1199 bytes).
-        Assert.Equal((1193, Protocol.MaxSnapshotBytes, 4, Protocol.MinSnapshotShots), (bytes.Length, bytes.Length, back.Shots.Length, back.Shots.Length));
+        Assert.Equal((1195, Protocol.MaxSnapshotBytes, 4, Protocol.MinSnapshotShots), (bytes.Length, bytes.Length, back.Shots.Length, back.Shots.Length));
         Assert.True(bytes.Length <= Protocol.SnapshotBudget && bytes.Length + Protocol.ShotBytes > Protocol.SnapshotBudget);
         Assert.Equal(players.Select(p => p.PlayerId == 7 ? p : Protocol.Slim(p)), back.Players);
     }

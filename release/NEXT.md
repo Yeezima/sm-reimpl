@@ -27,3 +27,12 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - The autocannon's explosion no longer kicks up dust (its flash stays), its hit kicks up half as much, and each explosion throws chunks of rubble out of the ground, like a smaller ground pound. Fire it at a crowd and look at the floor around the blast.
 
 - Orks now flinch when you hit them: they recoil away from the shot or blow (torso well back, hips down, knees bending, feet staying put) while they keep running or swinging, harder for heavy weapons, hammers, charges and close explosions, and only a little for Nobs and the big Orks. Far crowds jolt and lean the same way.
+### Classic PvP
+- Hits on other players now show at range: the yellow glow on armour that is hit and the red glow when the armour is gone stay as large on your screen as they are at close range, instead of shrinking to nothing at 40 to 80 metres. Try the Stalker Bolter and the Lascannon on a far-off player.
+- Both hit glows are 30 % stronger (the yellow glow on hit armour and the red glow on a broken or bare one).
+- Hits on players draw sparks again in Classic PvP: yellow on armour, red on a bare body, with the yellow or red glow on the model. There is no big smoke or fire cloud on a hit player any more.
+- Every damage a player takes now shows the same glow and sparks on his model for everyone (yellow when his armour took it, red when only health did): shots, light combo strikes, F stun strikes, kicks, charge and bull rush, ground pound, jump landing, air slash, grenades. Not on a player who just died.
+- A new network version: everyone, players and servers, must update to this build; older builds cannot join.
+
+### Musou Mode
+- The hit effects on Marines are 30 % stronger and keep their size at range, the same as in Classic PvP.

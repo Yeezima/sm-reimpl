@@ -464,3 +464,148 @@ public class PlayerHitFxRulesTests
         Assert.True(PlayerHitFxRules.OnPlayer(SmSim.ShotHit.Head) && !PlayerHitFxRules.OnPlayer(SmSim.ShotHit.World) && !PlayerHitFxRules.OnPlayer(SmSim.ShotHit.None));
     }
 }
+
+/// <summary>onhit-range-intensity (owner, 2026-11-13): the hit effects keep their size on screen at range and are 30 % stronger.</summary>
+public class HitFxScaleRulesTests
+{
+    [Fact]
+    public void At_the_reference_distance_and_view_nothing_grows_and_the_intensity_is_thirty_percent()
+    {
+        Assert.Equal(1f, HitFxScaleRules.RangeScale(HitFxScaleRules.RefDistance, HitFxScaleRules.RefFov, HitFxScaleRules.MaxSpot), 3);
+        Assert.Equal(1f, HitFxScaleRules.RangeScale(5f, 70f, 6f));   // closer than the reference: never smaller than the data's size
+        Assert.Equal(1.3f, HitFxScaleRules.Intensity);
+        Assert.Equal(1.3f, HitFxScaleRules.ParticleScale(12f, 70f, oldRange: false, oldIntensity: false), 3);
+    }
+
+    [Fact]
+    public void A_hip_view_grows_with_distance_up_to_each_cap_and_a_scope_is_already_magnified()
+    {
+        float at40 = HitFxScaleRules.RangeScale(40f, 70f, HitFxScaleRules.MaxSpot), at80 = HitFxScaleRules.RangeScale(80f, 70f, HitFxScaleRules.MaxSpot);
+        Assert.Equal(40f / 12f, at40, 2);
+        Assert.Equal(HitFxScaleRules.MaxSpot, HitFxScaleRules.RangeScale(500f, 70f, HitFxScaleRules.MaxSpot));
+        Assert.True(at80 > at40);
+        Assert.Equal(HitFxScaleRules.MaxGlow, HitFxScaleRules.RangeScale(80f, 70f, HitFxScaleRules.MaxGlow));
+        Assert.True(HitFxScaleRules.RangeScale(80f, 10f, HitFxScaleRules.MaxSpot) < at80 / 4f);   // the Stalker's 10 degrees at 80 m
+    }
+
+    [Fact]
+    public void The_restore_switches_each_remove_their_part_and_nonsense_views_change_nothing()
+    {
+        Assert.Equal(1.3f, HitFxScaleRules.ParticleScale(80f, 70f, oldRange: true, oldIntensity: false), 3);
+        Assert.Equal(HitFxScaleRules.MaxParticle, HitFxScaleRules.ParticleScale(80f, 70f, oldRange: false, oldIntensity: true), 3);
+        Assert.Equal(1f, HitFxScaleRules.ParticleScale(80f, 70f, oldRange: true, oldIntensity: true));
+        Assert.Equal(1f, HitFxScaleRules.RangeScale(float.NaN, 70f, 6f));
+        Assert.Equal(1f, HitFxScaleRules.RangeScale(80f, 0f, 6f));
+    }
+
+    [Fact]
+    public void The_caps_hold_for_the_spot_the_particles_and_the_glow_card_and_the_old_switches_give_one()
+    {
+        Assert.Equal(6f, HitFxScaleRules.RangeScale(1000f, 70f, HitFxScaleRules.MaxSpot));
+        Assert.Equal(3f, HitFxScaleRules.RangeScale(1000f, 70f, HitFxScaleRules.MaxParticle));
+        Assert.Equal(1.5f, HitFxScaleRules.RangeScale(1000f, 70f, HitFxScaleRules.MaxGlow));
+        Assert.Equal(3f * 1.3f, HitFxScaleRules.ParticleScale(1000f, 70f, false, false), 3);
+        Assert.Equal(1f, HitFxScaleRules.ParticleScale(1000f, 70f, oldRange: true, oldIntensity: true));
+        Assert.Equal(1f, HitFxScaleRules.ParticleScale(0f, 70f, oldRange: false, oldIntensity: true));
+    }
+}
+
+/// <summary>onhit-range-intensity (owner 2026-11-13): the look of a hit on a player by damage kind and mode: Classic gets the glows and sparks, never the large burst; Musou keeps the burst on ranged hits.</summary>
+public class HitLookRulesTests
+{
+    const SmSim.ContentExtras Faithful = SmSim.ContentExtras.None;
+    const SmSim.ContentExtras Extended = SmSim.ContentExtras.Orks | SmSim.ContentExtras.Gore | SmSim.ContentExtras.LoyalistBarks;
+    const SmSim.ContentExtras Musou = SmSim.ContentExtras.Musou;
+    const PlayerHitFxRules.HitLook GlowsSparks = PlayerHitFxRules.HitLook.Glows | PlayerHitFxRules.HitLook.Sparks;
+
+    [Theory]
+    [InlineData(PlayerHitFxRules.DamageKind.Ranged, Faithful)]
+    [InlineData(PlayerHitFxRules.DamageKind.Ranged, Extended)]
+    [InlineData(PlayerHitFxRules.DamageKind.Melee, Faithful)]
+    [InlineData(PlayerHitFxRules.DamageKind.Charge, Faithful)]
+    [InlineData(PlayerHitFxRules.DamageKind.Pound, Faithful)]
+    [InlineData(PlayerHitFxRules.DamageKind.Slash, Extended)]
+    [InlineData(PlayerHitFxRules.DamageKind.Blast, Faithful)]
+    public void Classic_shows_the_glows_and_sparks_for_every_damage_and_never_the_large_burst(PlayerHitFxRules.DamageKind kind, SmSim.ContentExtras extras) =>
+        Assert.Equal(GlowsSparks, PlayerHitFxRules.LookFor(kind, extras, particles: true, burstRestore: false));
+
+    [Fact]
+    public void Musou_keeps_the_large_burst_on_ranged_hits_only()
+    {
+        Assert.Equal(GlowsSparks | PlayerHitFxRules.HitLook.Burst, PlayerHitFxRules.LookFor(PlayerHitFxRules.DamageKind.Ranged, Musou, true, false));
+        Assert.Equal(GlowsSparks, PlayerHitFxRules.LookFor(PlayerHitFxRules.DamageKind.Melee, Musou, true, false));
+        Assert.Equal(GlowsSparks, PlayerHitFxRules.LookFor(PlayerHitFxRules.DamageKind.Blast, Musou, true, false));
+    }
+
+    [Fact]
+    public void The_restore_switches_each_change_only_their_part()
+    {
+        Assert.Equal(PlayerHitFxRules.HitLook.Glows, PlayerHitFxRules.LookFor(PlayerHitFxRules.DamageKind.Ranged, Faithful, particles: false, burstRestore: false));   // --no-player-hit-fx: glows only
+        Assert.Equal(PlayerHitFxRules.HitLook.Glows, PlayerHitFxRules.LookFor(PlayerHitFxRules.DamageKind.Melee, Extended, false, false));
+        Assert.Equal(GlowsSparks | PlayerHitFxRules.HitLook.Burst, PlayerHitFxRules.LookFor(PlayerHitFxRules.DamageKind.Ranged, Faithful, true, burstRestore: true));   // --player-hit-burst
+        Assert.Equal(GlowsSparks, PlayerHitFxRules.LookFor(PlayerHitFxRules.DamageKind.Melee, Faithful, true, burstRestore: true));   // a melee hit never had a burst
+        Assert.Equal("no-player-hit-fx", PlayerHitFxRules.NoParticlesFlag);
+        Assert.Equal("player-hit-burst", PlayerHitFxRules.BurstFlag);
+        Assert.Contains(PlayerHitFxRules.BurstFlag, SmNet.LeanBot.PresentationAids);
+        Assert.Contains("no-damage-glow", SmNet.LeanBot.PresentationAids);
+    }
+}
+
+/// <summary>onhit-range-intensity (owner 2026-11-13): the glow of a server-confirmed damage on a player: armour or health colour, one per event, not on the own body, from a hit report or a started reaction.</summary>
+public class DamageEventGlowRulesTests
+{
+    [Theory]
+    [InlineData(10f, 0f, true)]    // armour took it: yellow
+    [InlineData(10f, 20f, true)]   // armour took some, health too: yellow
+    [InlineData(0f, 15f, false)]   // only health: red
+    public void The_damage_split_picks_yellow_or_red(float shield, float health, bool up) => Assert.Equal(up, PlayerHitFxRules.ArmourUpOfDamage(shield, health));
+
+    [Fact]
+    public void No_damage_is_no_glow() => Assert.Null(PlayerHitFxRules.ArmourUpOfDamage(0f, 0f));
+
+    [Fact]
+    public void One_glow_per_damage_event_within_the_window()
+    {
+        Assert.True(PlayerHitFxRules.DedupePasses(10.0, double.NegativeInfinity));
+        Assert.False(PlayerHitFxRules.DedupePasses(10.1, 10.0));   // the same event seen twice (report and reaction)
+        Assert.False(PlayerHitFxRules.DedupePasses(10.24, 10.0));
+        Assert.True(PlayerHitFxRules.DedupePasses(10.26, 10.0));   // the next blow of a combo
+    }
+
+    [Fact]
+    public void Another_players_model_glows_but_not_the_own_body_or_nobody()
+    {
+        Assert.True(PlayerHitFxRules.ShowsOnModel(victim: 3, ownPlayer: 1));
+        Assert.False(PlayerHitFxRules.ShowsOnModel(victim: 1, ownPlayer: 1));
+        Assert.False(PlayerHitFxRules.ShowsOnModel(victim: 0, ownPlayer: 1));
+    }
+
+    [Fact]
+    public void A_reaction_that_starts_or_restarts_confirms_a_damage_and_a_running_one_does_not()
+    {
+        var none = SmSim.ReactionKind.None;
+        var kind = System.Enum.GetValues<SmSim.ReactionKind>().First(k => k != none);
+        var other = System.Enum.GetValues<SmSim.ReactionKind>().First(k => k != none && k != kind);
+        Assert.True(PlayerHitFxRules.ReactionStarted(none, 0, kind, 1));       // began
+        Assert.True(PlayerHitFxRules.ReactionStarted(kind, 9, kind, 2));       // restarted: ticks counted up again
+        Assert.True(PlayerHitFxRules.ReactionStarted(kind, 9, other, 9));      // another kind
+        Assert.False(PlayerHitFxRules.ReactionStarted(kind, 2, kind, 3));      // still running
+        Assert.False(PlayerHitFxRules.ReactionStarted(kind, 2, none, 0));      // ended: nothing to show
+    }
+
+    [Theory]
+    [InlineData(true, false, 1, true)]    // melee damage the own player dealt
+    [InlineData(false, true, 1, true)]    // splash damage
+    [InlineData(false, false, 1, false)]  // a plain shot: it has its own record
+    [InlineData(true, false, 0, false)]   // no hit
+    public void A_report_needs_a_glow_only_for_melee_or_splash_damage(bool melee, bool splash, int hits, bool expected) => Assert.Equal(expected, PlayerHitFxRules.ReportNeedsGlow(melee, splash, hits));
+
+    [Fact]
+    public void Classic_and_Musou_pick_the_same_glow_for_a_melee_damage_and_differ_only_in_the_ranged_burst()
+    {
+        var classic = PlayerHitFxRules.LookFor(PlayerHitFxRules.DamageKind.Melee, SmSim.ContentExtras.None, true, false);
+        var musou = PlayerHitFxRules.LookFor(PlayerHitFxRules.DamageKind.Melee, SmSim.ContentExtras.Musou, true, false);
+        Assert.Equal(classic, musou);
+        Assert.NotEqual(PlayerHitFxRules.LookFor(PlayerHitFxRules.DamageKind.Ranged, SmSim.ContentExtras.None, true, false), PlayerHitFxRules.LookFor(PlayerHitFxRules.DamageKind.Ranged, SmSim.ContentExtras.Musou, true, false));
+    }
+}

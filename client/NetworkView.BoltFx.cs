@@ -98,6 +98,15 @@ public partial class NetworkView
             _camera.GlobalTransform = new Transform3D(Basis.LookingAt((middle - sideEye).Normalized(), Vector3.Up), sideEye);
             _camera.Fov = 70f;
         }
+        float demoRange = CmdFloat("bolt-fx-range");   // onhit-range (2026-11-13): --bolt-fx-range <m> [--bolt-fx-fov <deg>]: the shooter stands that far off and the camera is at his eye (a scoped view), for the on-hit effects at range
+        bool atRange = float.IsFinite(demoRange) && demoRange > 1f;
+        if (atRange)
+        {
+            var shooterFar = chest + toShooter * demoRange + new Vector3(0f, -0.15f, 0f);
+            var scopeEye = shooterFar + new Vector3(0f, 0.2f, 0f);
+            _camera.GlobalTransform = new Transform3D(Basis.LookingAt((chest - scopeEye).Normalized(), Vector3.Up), scopeEye);
+            _camera.Fov = CmdFloat("bolt-fx-fov") is var fv && float.IsFinite(fv) && fv > 0f ? fv : 20f;
+        }
         if (_connectedFor - _boltFxDemoAt < 2.4) return;
         _boltFxDemoAt = _connectedFor;
         string name = CmdArg("bolt-fx-demo") is { Length: > 0 } a ? a : "sm_mp_ranged_bolter";
@@ -108,12 +117,23 @@ public partial class NetworkView
         // --bolt-fx-armour 0: armour down; seq (fx/red-glow-blood): the first shot on armour, every later one on none (the break, then the re-flashes and the blood)
         bool armoured = CmdArg("bolt-fx-armour") is "seq" ? _boltFxDemoShots == 0 : !(CmdArg("bolt-fx-armour") is "0");
         // The shot: from 3.2 m to the shooter's side of the camera line, 1.3 m up, to the chest; the shooter does not exist (the effects use the fallback muzzle just ahead of the eye).
-        var from = chest + toShooter * 7.5f + new Vector3(0f, -0.15f, 0f);
+        var from = chest + toShooter * (atRange ? demoRange : 7.5f) + new Vector3(0f, -0.15f, 0f);
         var dir = (chest - from).Normalized();
         var end = chest;
         var normal = -dir;
-        FxShot(-999, spec, w, index, 0, end, ShotHit.Body, -1, normal, dir, ToNum(from - dir * 0.9f), own: false, v.PlayerId, armoured,
-               rayOrigin: from, rayDir: dir);
+        if (CmdArg("bolt-fx-melee") is { Length: > 0 } meleeKind)
+        {
+            // onhit-range-intensity capture aid: instead of a shot, a melee-class damage on the victim through the production helper (NetworkView.PlayerDamageGlow.cs): melee | charge | pound | slash | blast
+            var kind = meleeKind switch { "charge" => SmClient.ImpactRules.PlayerHitFxRules.DamageKind.Charge, "pound" => SmClient.ImpactRules.PlayerHitFxRules.DamageKind.Pound, "slash" => SmClient.ImpactRules.PlayerHitFxRules.DamageKind.Slash, "blast" => SmClient.ImpactRules.PlayerHitFxRules.DamageKind.Blast, _ => SmClient.ImpactRules.PlayerHitFxRules.DamageKind.Melee };
+            var attackerAt = ToNum(chest + toShooter * 1.4f) - new System.Numerics.Vector3(0f, 0f, 1.45f);
+            _damageGlowAt.Remove(v.PlayerId);
+            PlayerDamageGlow(attackerAt, v.PlayerId, v.Position, armoured, kind, "demo");
+        }
+        else
+        {
+            FxShot(-999, spec, w, index, 0, end, ShotHit.Body, -1, normal, dir, ToNum(from - dir * 0.9f), own: false, v.PlayerId, armoured,
+                   rayOrigin: from, rayDir: dir);
+        }
         if (CmdFlag("bolt-fx-charged") && PlasmaLightShot.ChargedStage(spec) > 0) LightBallLaunch(-999, spec, w, index, from - dir * 0.9f, end, 1f);   // fix/plasma-light-tracer capture aid: the charged ball (1.0) instead of the light one
         _boltFxDemoShots++;
         GD.Print($"t {_connectedFor:F1} s: bolt-fx-demo shot {_boltFxDemoShots} of {name} at player {v.PlayerId} ({(armoured ? "armour up" : "armour down")})");
@@ -132,13 +152,16 @@ public partial class NetworkView
     const string ArmourSparksEffect = "hit_ranged_armour_generic";
     const float ArmourSparksScale = 0.8f;
 
-    void ArmourSparks(Vector3 end, Vector3 dir, double delay, int victim = -1)
+    /// <summary>onhit-range-intensity (owner 2026-11-13: "yellow and red sparks"): the same spark fan in red for a hit on a body with no armour left (ours: the data has none; the red is the health-hit tint).</summary>
+    void RedSparks(Vector3 end, Vector3 dir, double delay) => ArmourSparks(end, dir, delay, -1, new Color(1f, 0.12f, 0.08f));
+
+    void ArmourSparks(Vector3 end, Vector3 dir, double delay, int victim = -1, Color? tint = null)
     {
         if (OldBoltFx || _fx is null) return;
         var axes = AxesFromY(-dir);
-        _fx.Play(ArmourSparksEffect, end, axes, ArmourSparksScale, null, null, 0f, delay, false, 0);
+        _fx.Play(ArmourSparksEffect, end, axes, ArmourSparksScale * HitFxParticleScale(end), null, null, 0f, delay, false, 0, tint: tint);
         // Its spark fan is a flat card (not a billboard): a second copy turned a quarter about the axis, so that one of the two always faces the camera.
         var axes2 = new Basis((-dir).Normalized(), Mathf.Pi / 2f) * axes;
-        _fx.Play(ArmourSparksEffect, end, axes2, ArmourSparksScale * 0.8f, null, null, 0f, delay, false, 0);
+        _fx.Play(ArmourSparksEffect, end, axes2, ArmourSparksScale * 0.8f * HitFxParticleScale(end), null, null, 0f, delay, false, 0, tint: tint);
     }
 }

@@ -417,14 +417,14 @@ public class RushTests(ITestOutputHelper output)
     [Fact]
     public void Protocol_18_carries_the_rush_phase_in_every_record_and_refuses_malformed_ones()
     {
-        Assert.Equal(70, Protocol.Version);
+        Assert.Equal(71, Protocol.Version);
         var p = new PlayerState(4, Vector3.One, Vector3.Zero, 1f, true) { Alive = true, Rush = RushPhase.Collision, RushTicks = 17, RushLock = 9 };
         var back = Assert.IsType<Snapshot>(Protocol.Read(Protocol.Write(new Snapshot(9, 1, 1, [p, p with { PlayerId = 5 }], Self: 4))));
         Assert.Equal(p, back.Players[0]);
         Assert.Equal((RushPhase.Collision, 17, 0), (back.Players[1].Rush, back.Players[1].RushTicks, back.Players[1].RushLock));
         var slim = Protocol.Write(new Snapshot(9, 1, 1, [p with { RushLock = 0 }]));
-        Assert.Equal(32 | 2, slim[^30]);   // the melee byte: bit 5 and the phase
-        byte[] With(byte b) { var c = (byte[])slim.Clone(); c[^30] = b; return c; }
+        Assert.Equal(32 | 2, slim[^31]);   // the melee byte: bit 5 and the phase
+        byte[] With(byte b) { var c = (byte[])slim.Clone(); c[^31] = b; return c; }
         Assert.Null(Protocol.Read(With(32)));          // phase 0
         Assert.NotNull(Protocol.Read(With(32 | 3)));   // protocol 30: phase 3, the dash attack's lunge (phases 1..6 in bits 0..2)
         Assert.Null(Protocol.Read(With(32 | 7)));      // phase 7
@@ -435,7 +435,7 @@ public class RushTests(ITestOutputHelper output)
         var half = (byte[])slim.Clone(); BitConverter.GetBytes(2.5f).CopyTo(half, half.Length - 29);
         Assert.Null(Protocol.Read(half));              // ticks not whole
         Assert.Equal(31, Protocol.MaxMeleeStep);
-        Assert.Equal(1193, Protocol.MaxSnapshotBytes);
+        Assert.Equal(1195, Protocol.MaxSnapshotBytes);
     }
 
     [Theory]

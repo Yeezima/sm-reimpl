@@ -58,6 +58,7 @@ public partial class NetworkView
         float delay = 5f;
         foreach (var o in _lastOthers) if (o.PlayerId == victim) { delay = HitBars.BodyOf(_config, o.Class).ShieldRegenDelay; break; }
         _armourFlash.Hit(victim, _connectedFor, armourUp ?? true, delay);
+        _damageGlowAt[victim] = _connectedFor;   // onhit-range-intensity: one glow per damage event (NetworkView.PlayerDamageGlow.cs)
     }
 
     /// <summary>An own hit left <paramref name="victim"/> with no armour (the hit report's shield after the hit): its red ring at once.</summary>
@@ -99,14 +100,15 @@ public partial class NetworkView
                 var d = demo switch { "hit" => (0.6f, 0f, 0f), "break" => (0f, 0.6f, 0f), "glow" => (0f, 0f, 0.6f), _ => ArmourFlashDemoAt(_connectedFor) };
                 _local.SetArmourFlash(d.Item1, d.Item2, d.Item3, ring: true);
             }
-            else { var f = _armourFlash.At(own, _connectedFor); _local.SetArmourFlash(f.Hit, f.Break, f.Glow, _armourFlash.BreakRing(own, _connectedFor)); }
+            else { var f = _armourFlash.At(own, _connectedFor); _local.SetArmourFlash(f.Hit, f.Break, f.Glow, _armourFlash.BreakRing(own, _connectedFor), intensity: HitFxBrightness); }
         }
         foreach (var state in _lastOthers)
         {
             if (!state.Alive) { _armourFlash.Reset(state.PlayerId); }
             if (!_remotes.TryGetValue(state.PlayerId, out var character)) continue;
             var f = state.Alive ? _armourFlash.At(state.PlayerId, _connectedFor) : (0f, 0f, 0f);
-            character.SetArmourFlash(f.Item1, f.Item2, f.Item3, _armourFlash.BreakRing(state.PlayerId, _connectedFor), f.Item1 > 0.001f ? HitPointOf(state.PlayerId, character) : null);
+            var (spotScale, glowScale) = f.Item1 > 0.001f || f.Item2 > 0.001f ? HitFxModelScale(character.GlobalPosition + Vector3.Up * 1.2f) : (1f, 1f);   // onhit-range-intensity: size kept at range
+            character.SetArmourFlash(f.Item1, f.Item2, f.Item3, _armourFlash.BreakRing(state.PlayerId, _connectedFor), f.Item1 > 0.001f ? HitPointOf(state.PlayerId, character) : null, spotScale, glowScale, HitFxBrightness);
         }
         _armourFlash.Prune(id => id == own || _remotes.ContainsKey(id));
     }

@@ -14,6 +14,8 @@ public static class PlayerHitFxRules
 {
     /// <summary>The client flag that restores the on-hit effects on players in Classic PvP (as before 2026-11-11).</summary>
     public const string RestoreFlag = "player-hit-fx";
+    /// <summary>onhit-range-intensity (owner 2026-11-13: "bring back the spark and burst particles on hit"): the 2026-11-11 removal is reversed as the default; this client flag brings the no-particle look back in Classic PvP (the rules below read the effects as drawn unless it is set).</summary>
+    public const string NoParticlesFlag = "no-player-hit-fx";
 
     /// <summary>Classic PvP: any match that is not Musou Mode (faithful or extended content alike; the Ork Boy is a Classic player too).</summary>
     public static bool Classic(ContentExtras extras) => !extras.HasFlag(ContentExtras.Musou);
@@ -31,6 +33,69 @@ public static class PlayerHitFxRules
     /// in Classic PvP not when a ranged hit broke it (a melee break keeps it: the request is about shots); Musou Mode and <paramref name="restore"/> keep it always.
     /// </summary>
     public static bool DrawsBreakFx(bool melee, ContentExtras extras, bool restore, bool oldLook = false) => !oldLook || melee || !Classic(extras) || restore;
+
+    /// <summary>What damages a player, for the choice of on-hit effects.</summary>
+    public enum DamageKind { Ranged, Melee, Charge, Pound, Slash, Blast }
+
+    /// <summary>The parts of the on-hit look: the yellow (armour) and red (health) model glows, the yellow and red sparks and glow effects, and the large burst (health-hit burst, smoke, the weapon's hit container).</summary>
+    [System.Flags]
+    public enum HitLook { None = 0, Glows = 1, Sparks = 2, Burst = 4 }
+
+    /// <summary>One glow per damage event on a victim: a second glow within this many seconds is the same event seen twice (a shot's record and the reaction it caused, the hit report and the reaction; ours).</summary>
+    public const double DedupeSeconds = 0.25;
+
+    /// <summary>Whether a glow may show now: no glow for this victim in the last <see cref="DedupeSeconds"/>.</summary>
+    public static bool DedupePasses(double now, double lastGlowAt) => !(now - lastGlowAt < DedupeSeconds);
+
+    /// <summary>
+    /// The armour colour of a damage the server confirmed (the hit report's damage split): armour took some of it (<paramref name="shieldDamage"/> above 0): yellow (true); only health was hit
+    /// (<paramref name="healthDamage"/> above 0): red (false); no damage: none (null, no glow).
+    /// </summary>
+    public static bool? ArmourUpOfDamage(float shieldDamage, float healthDamage) => shieldDamage > 0f ? true : healthDamage > 0f ? false : null;
+
+    /// <summary>
+    /// Protocol 71 (the damage mark every player's record carries): whether the counter changed since the last record seen, i.e. the player took one or more damages (modulo 8: a change is a change
+    /// however many snapshots were lost; eight damages in the gap would read as none, which a 30 Hz stream does not allow).
+    /// </summary>
+    public static bool DamageMarkChanged(byte wasCount, byte nowCount) => (wasCount & 7) != (nowCount & 7);
+
+    /// <summary>The armour colour of the damage a record's mark names (the bits of every damage of its tick): health taken (red, false; also when the shield broke in the same tick); only shield: yellow (true); neither bit: none (null: no glow).</summary>
+    public static bool? ArmourUpOfMark(bool shield, bool health) => health ? false : shield ? true : null;
+
+    /// <summary>
+    /// Whether a mark's change shows a glow: the player was alive in the record before and is alive now (a first sight, a record after a death, which covers a respawn, and a corpse show nothing: the model's flash is
+    /// reset for the dead; a respawn keeps the counter, the alive flags are what tell it).
+    /// </summary>
+    public static bool MarkShowsGlow(bool known, bool wasAlive, bool nowAlive, byte wasCount, byte nowCount) => known && wasAlive && nowAlive && DamageMarkChanged(wasCount, nowCount);
+
+    /// <summary>Whether a confirmed damage on <paramref name="victim"/> draws a glow on his model in this view: not on the own player (his body is not drawn).</summary>
+    public static bool ShowsOnModel(int victim, int ownPlayer) => victim > 0 && victim != ownPlayer;
+
+    /// <summary>
+    /// Whether another player's snapshot record shows a hit reaction that just started or restarted (a different kind, or the ticks counting up again): the server's confirmation that a melee or blast
+    /// damage landed on him. A reaction-less damage (hyper armour) shows none.
+    /// </summary>
+    public static bool ReactionStarted(ReactionKind wasKind, int wasTicks, ReactionKind nowKind, int nowTicks) =>
+        nowKind != ReactionKind.None && (wasKind == ReactionKind.None || nowTicks < wasTicks || nowKind != wasKind);
+
+    /// <summary>Whether a hit report is one the shot path has not drawn: a melee or splash damage (a plain shot has its own record).</summary>
+    public static bool ReportNeedsGlow(bool melee, bool splash, int hits) => hits > 0 && (melee || splash);
+
+    /// <summary>The client flag that brings back the large burst, smoke and hit container on a hit player in Classic PvP (the look of 2026-11-13's first preview).</summary>
+    public const string BurstFlag = "player-hit-burst";
+
+    /// <summary>
+    /// onhit-range-intensity (owner 2026-11-13: "there should only be large explosive visual effects on ranged weapon shots in musou mode. in classic pvp mode its only the yellow and red spawns and
+    /// yellow and red glows that are triggered when a player is shot or meleed"; "any sort of damage should trigger the sparks and glows"): the glows always, the sparks unless Classic PvP
+    /// is set to <c>--no-player-hit-fx</c> (<paramref name="particles"/> false), the large burst only on a ranged hit in Musou Mode (or in Classic with <paramref name="burstRestore"/>, <see cref="BurstFlag"/>).
+    /// </summary>
+    public static HitLook LookFor(DamageKind kind, ContentExtras extras, bool particles, bool burstRestore)
+    {
+        var look = HitLook.Glows;
+        if (particles || !Classic(extras)) look |= HitLook.Sparks;
+        if (kind == DamageKind.Ranged && (!Classic(extras) || (particles && burstRestore))) look |= HitLook.Burst;
+        return look;
+    }
 
     /// <summary>The client flag that brings back the 2026-11-11 morning look of Classic PvP: no model flash on a bare-armour hit, no break effect for a break a shot caused (owner's answers, 2026-11-11, restored both).</summary>
     public const string OldLookFlag = "old-classic-hit-fx";
