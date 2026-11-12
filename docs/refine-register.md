@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3099 spec table rows: **2280 tagged**, 564 not tagged (read from data with high confidence), 255 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 687 rows of the changes document.
+Scanned 3099 spec table rows: **2280 tagged**, 564 not tagged (read from data with high confidence), 255 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 688 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -4053,6 +4053,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | ID | What | Ours / the owner's | Value | Spec row | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `C-1E1E16A6` | Lightning claw (Assault Marine melee choice, Musou only) | the owner's request (D2 one claw plus the pistol, D13 about 25% faster, D16 no extra edge, D15 the look); the sword's moves and install animations at 1.25x (the owner's choice: "for now just make the power claw use the sword animations"), every hit x0.8, the model (laid along the forearm, long talons) and glow built… | no claw in the install; same damage a second as the power sword | spec "Lightning claw: the weapon", "tempo", "damage", "cleave", "animations", "model", "glow", "not yet reached" | Lightning claw (Assault Marine melee choice, Musou only): compare with SM1 by feel or video. Ours: the owner's request (D2 one claw plus the pistol, D13 about 25%… | ☐ |
+| `C-BD091F98` | Lightning claw gauntlet (Musou only, 2026-11-12) | the owner: the claw is part of the hand, blades out of the gauntlet, and a better model from his references; the item is drawn on the right hand bone with no offset, an original model built in code (arched housing, brass sockets, pistons, power dome, four curved blades 0.62 m from the knuckle line, flat and spread… | no claw in the install | docs/claw-spear-animations.md section 6 | Lightning claw gauntlet (Musou only, 2026-11-12): compare with SM1 by feel or video. Ours: the owner: the claw is part of the hand, blades out of the gauntlet… | ☐ |
 
 #### Musou's arsenal (`Musou`; docs/new-weapons-design.md, approved by the owner 2026-11-10)
 

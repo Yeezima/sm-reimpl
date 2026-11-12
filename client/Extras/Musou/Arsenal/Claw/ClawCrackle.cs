@@ -54,6 +54,9 @@ void fragment() {
     /// <summary>The view <see cref="Frame"/> belongs to; the driver drops both when it leaves the tree or is freed (leaving a match frees its view, a rejoin makes a new one).</summary>
     public static Node? Owner;
 
+    /// <summary>A claw is worn by someone in the match (the rig sets it when it builds the claw): the driver then finds the view and registers its glow driver without waiting for a strike (the power field is always on).</summary>
+    public static bool Wanted;
+
     /// <summary>Test aid: finds the networked view in the tree and registers its glow (a real strike does this from <c>LightningClawClip</c>).</summary>
     public static void Register(Node node, int depth)
     {
@@ -81,6 +84,7 @@ void fragment() {
 public partial class ClawCrackleDriver : Node
 {
     double _t;
+    int _scan;
     public override void _Process(double delta)
     {
         if (ClawCrackle.Demo)
@@ -88,7 +92,7 @@ public partial class ClawCrackleDriver : Node
             _t += delta;
             ClawCrackle.Material.SetShaderParameter(ClawCrackle.DemoName, Mathf.Sin((float)_t * Mathf.Tau * 0.5f) > -0.2f ? 1f : 0f);
         }
-        if (ClawCrackle.GlowTest && ClawCrackle.Frame is null && GetTree()?.Root is { } root) ClawCrackle.Register(root, 0);
+        if ((ClawCrackle.GlowTest || ClawCrackle.Wanted) && ClawCrackle.Frame is null && (++_scan % 20 == 1) && GetTree()?.Root is { } root) ClawCrackle.Register(root, 0);
         if (ClawCrackle.Owner is { } owner && (!GodotObject.IsInstanceValid(owner) || !owner.IsInsideTree())) { ClawCrackle.Frame = null; ClawCrackle.Owner = null; }
         ClawCrackle.Frame?.Invoke((float)delta);
     }
