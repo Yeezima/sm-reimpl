@@ -3,7 +3,7 @@ namespace SmSim;
 /// <summary>
 /// feel/melee-cancels (protocol 54; the owner, 2026-11-02): a melee press ends the Assault and Raptor's hop (the jump-pack dash) and the bull rush at once and starts the
 /// swing in the same tick, with no animation-cancel timing; the Tactical classes' bull rush the same. A cancel keeps the next swing from starting until the moment the
-/// cancelled clip would have ended (<see cref="PlayerState.MeleeLock"/>, in classic PvP and Musou Mode alike), so cancelling is not a way to spam. A Jump press ends the pack
+/// cancelled clip would have ended (<see cref="PlayerState.MeleeLock"/>, in classic PvP; in Musou Mode a hop cancel has no wait since the owner's 2026-11-12 "no aerial tackle", <see cref="SimConfig.AerialTackleOff"/>), so cancelling is not a way to spam. A Jump press ends the pack
 /// classes' bull rush at once (the jump pack then takes it, <see cref="JumpPack.Begin"/>). Not touched: the Tactical roll, the Devastator and Havoc hop and charge, the Ork Boy, the
 /// charge's collision stop (a recoil: the data's own branches), the dash attack (already a swing).
 /// </summary>
@@ -49,6 +49,7 @@ public static class MeleeCancel
             var v = s.Velocity;
             var carried = float.IsFinite(v.X) && float.IsFinite(v.Y) ? new System.Numerics.Vector3(v.X * HopCarry, v.Y * HopCarry, float.IsFinite(v.Z) ? MathF.Min(0f, v.Z) : 0f)
                 : System.Numerics.Vector3.Zero;
+            if (c.AerialTackleOff) remaining = 0f;   // musou/no-aerial-tackle (owner 2026-11-12): a light attack at any point in a hop, no wait before the next
             return (s with { EvadeTicks = 0, EvadeDirection = EvadeDirection.Forward, EvadeLanded = false, Velocity = carried }, remaining);
         }
         return null;

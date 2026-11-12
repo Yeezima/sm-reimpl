@@ -380,6 +380,7 @@ public static class Rush
     /// </summary>
     public static bool CanDashAttack(PlayerState s, SimConfig c, CollisionWorld? world)
     {
+        if (c.AerialTackleOff) return false;   // musou/no-aerial-tackle (owner 2026-11-12): added content turns the tackle off; a melee press in a hop is the light attack (MeleeCancel)
         if (!s.Alive || s.Reaction != ReactionKind.None || s.Rush != RushPhase.None || s.EvadeTicks <= 0 || s.EvadeLanded) return false;
         if (Loadouts.JumpPack(c, s)?.DashAttack is not { } dash || Loadouts.Evade(c, s) is not { Dash: true } evade) return false;
         if (Loadouts.Melee(c, s) is { Count: > 0 } light && light[0].HopSwing) return false;   // sim/hop-swing (owner, 2026-11-07): the hammer and the maul swing there instead (MeleeCancel)

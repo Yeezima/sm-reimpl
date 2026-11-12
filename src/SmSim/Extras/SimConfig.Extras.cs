@@ -14,7 +14,13 @@ public sealed partial record SimConfig
     {
         // Musou: its own version (simulation and wire sections), so a Musou-only change never touches ContentExtras.WireVersion or the extended hash.
         // Musou Mode's war rules: their version sits in the same block.
-        if (Extras.HasFlag(ContentExtras.Musou)) { w.Write("musou"); w.Write(MusouSim.Version); w.Write(SmSim.Extras.Musou.Campaign.TfwRules.Version); }
+        if (Extras.HasFlag(ContentExtras.Musou)) { w.Write("musou"); w.Write(MusouSim.Version); w.Write(SmSim.Extras.Musou.Campaign.TfwRules.Version); if (AerialTackleRestored) w.Write("aerial-tackle"); }
+    }
+
+    // musou/no-aerial-tackle (owner, 2026-11-12, temporary): Musou Mode has no aerial tackle; a melee press in a hop is the light attack at once. --musou-aerial-tackle (AerialTackleRestored) restores the tackle.
+    partial void ExtrasAerialTackleOff(ref bool off)
+    {
+        if (Extras.HasFlag(ContentExtras.Musou) && !AerialTackleRestored) off = true;
     }
 
     // sim/air-jumps (owner, 2026-11-06): only Musou Mode keeps the jump-pack classes' full jumps in the air (feel/melee-cancels); Classic PvP gets the hop alone.
