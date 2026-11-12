@@ -108,6 +108,17 @@ public class ClassicSoundscapeTests
         Assert.InRange(ClassicSoundscape.ProtectedVoiceCap, 1, 48 / 2);   // 15 others cannot starve the pool of 48
     }
 
+    [Theory]
+    [InlineData(ScapeMode.Clear, false, ScapeClass.Movement, 5, true)]
+    [InlineData(ScapeMode.Natural, false, ScapeClass.MovementFar, 20, true)]
+    [InlineData(ScapeMode.Clear, false, ScapeClass.Movement, 21, false)]   // past the bound: ordinary voices
+    [InlineData(ScapeMode.Clear, false, ScapeClass.Gunfire, 0, false)]     // gunfire still competes for voices
+    [InlineData(ScapeMode.Clear, false, ScapeClass.Reload, 0, false)]
+    [InlineData(ScapeMode.Clear, true, ScapeClass.Movement, 0, false)]     // the own player's paths stay as before
+    [InlineData(ScapeMode.Old, false, ScapeClass.Movement, 0, false)]      // old mix and Musou Mode (Old)
+    public void Protection_holds_only_for_others_movement_inside_the_bound(ScapeMode mode, bool own, ScapeClass c, int held, bool expected) =>
+        Assert.Equal(expected, ClassicSoundscape.Holds(mode, own, c, held));
+
     [Fact]
     public void Direction_modes_pan_and_darken_only_in_clear_for_others()
     {

@@ -380,6 +380,9 @@ public partial class SoundSystem : Node
     {
         public required SoundVoice Voice;
         public required SoundEmitter Emitter;
+        /// <summary>sound/classic-soundscape: the voice's mix at 0 m, computed at most once per <see cref="_now"/> (a class's target is relative to it).</summary>
+        public VoiceMix Mix0;
+        public double Mix0At = double.NaN;
         public Node? Player;
         public required AudioStreamOggVorbis Stream;
         public required double Started;
@@ -874,8 +877,9 @@ public partial class SoundSystem : Node
             // A crowd's voice (SoundEmitter.Group) takes a player only from its own crowd: it never cuts a player's sounds.
             // sound/classic-soundscape: others' footsteps and movement actions are not stolen while at most ClassicSoundscape.ProtectedVoiceCap of them hold voices (15 others cannot starve the pool);
             // such a voice takes a player whatever the priority (as the protected own lines do) from the quietest unprotected one.
-            bool holding = Scape != ScapeMode.Old && _active.Count(x => x.Player is not null && x.Voice.Is3D == positioned && ScapeProtected(x)) <= ClassicSoundscape.ProtectedVoiceCap;
-            var victim = _active.Where(x => x.Player is not null && x.Voice.Is3D == positioned && !Unstealable(x) && !(holding && ScapeProtected(x)) && (a.Emitter.Group is null || x.Emitter.Group == a.Emitter.Group))
+            int heldNow = Scape == ScapeMode.Old ? 0 : _active.Count(x => x.Player is not null && x.Voice.Is3D == positioned && ScapeProtected(x));
+            bool holding = heldNow <= ClassicSoundscape.ProtectedVoiceCap;
+            var victim = _active.Where(x => x.Player is not null && x.Voice.Is3D == positioned && !Unstealable(x) && !ClassicSoundscape.Holds(Scape, x.Emitter.Own, x.Offset.Scape, heldNow) && (a.Emitter.Group is null || x.Emitter.Group == a.Emitter.Group))
                 .OrderBy(x => x.Voice.Priority).ThenBy(x => x.Effective).ThenBy(x => x.Started).FirstOrDefault();
             if (victim is null || victim.Voice.Priority > a.Voice.Priority && !Unstealable(a) && !(holding && ScapeProtected(a))) return false;   // musou/audio-pass: a protected voice takes a player whatever the priority
             // A waiting loop takes over only from a voice at least 6 dB quieter than it would be (no swapping back and forth).
@@ -963,11 +967,24 @@ public partial class SoundSystem : Node
         {
             // sound/classic-soundscape: another player's sound of a class is raised to its range target over its own level at 0 m, and (clear direction) darkened behind the listener.
             if (a.Offset.Scape != ScapeClass.None)
-                mix = ClassicSoundscape.Apply(a.Offset.Scape, mix, Loudness.Evaluate(a.Voice, Shielded(a) ? null : _mods, a.Emitter.Id, _now, 0f, a.Params, RtpcCap), far);
-            if (Scape == ScapeMode.Clear && GetViewport()?.GetCamera3D() is { } cam && a.Emitter.Current - cam.GlobalPosition is var to && to.LengthSquared() > 1e-4f)
+            {
+                if (a.Mix0At != _now) { a.Mix0 = Loudness.Evaluate(a.Voice, Shielded(a) ? null : _mods, a.Emitter.Id, _now, 0f, a.Params, RtpcCap); a.Mix0At = _now; }
+                mix = ClassicSoundscape.Apply(a.Offset.Scape, mix, a.Mix0, far);
+            }
+            if (Scape == ScapeMode.Clear && ListenerCamera() is { } cam && a.Emitter.Current - cam.GlobalPosition is var to && to.LengthSquared() > 1e-4f)
                 mix = mix with { Lpf = mix.Lpf + ClassicSoundscape.RearLpfFor(Scape, false, (-cam.GlobalTransform.Basis.Z).Dot(to.Normalized())) };
         }
         return mix;
+    }
+
+    Camera3D? _listenerCam;
+    double _listenerCamAt = double.NaN;
+
+    /// <summary>The current camera, looked up once per <see cref="_now"/> (many voices ask each frame).</summary>
+    Camera3D? ListenerCamera()
+    {
+        if (_listenerCamAt != _now) { _listenerCam = GetViewport()?.GetCamera3D(); _listenerCamAt = _now; }
+        return _listenerCam;
     }
 
     float EffectiveNow(Active a) => MixOf(a).VolumeDb + GlobalGainDb;
@@ -1014,7 +1031,7 @@ public partial class SoundSystem : Node
     static bool Unstealable(Active a) => Shielded(a);
 
     /// <summary>sound/classic-soundscape: another player's footstep or movement action (<see cref="ClassicSoundscape.IsProtected"/>) is held against stealing and other sources' instance limits.</summary>
-    bool ScapeProtected(Active a) => Scape != ScapeMode.Old && !a.Emitter.Own && ClassicSoundscape.IsProtected(a.Offset.Scape);
+    bool ScapeProtected(Active a) => ClassicSoundscape.Holds(Scape, a.Emitter.Own, a.Offset.Scape, 0);
 
     static bool FullVoice(Active a) => a.Emitter.ProtectSpeech && IsSpeech(a.Event);
 

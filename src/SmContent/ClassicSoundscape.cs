@@ -64,6 +64,12 @@ public static class ClassicSoundscape
     /// <summary>Movement sounds are never stolen, cut by another source's instance limit or culled by the pool (up to <see cref="ProtectedVoiceCap"/>).</summary>
     public static bool IsProtected(ScapeClass c) => c is ScapeClass.Movement or ScapeClass.MovementFar;
 
+    /// <summary>
+    /// Whether a voice is held against stealing: the soundscape is on (not <see cref="ScapeMode.Old"/>), it is another player's (not <paramref name="own"/>), its class is protected, and at most
+    /// <see cref="ProtectedVoiceCap"/> protected voices hold players (<paramref name="heldCount"/>; 0 when only the class is asked).
+    /// </summary>
+    public static bool Holds(ScapeMode mode, bool own, ScapeClass c, int heldCount) => mode != ScapeMode.Old && !own && IsProtected(c) && heldCount <= ProtectedVoiceCap;
+
     /// <summary>Godot's <c>AudioStreamPlayer3D.PanningStrength</c> for another player's voice: 1 is Godot's own; clear direction spreads the stereo image wider (ours).</summary>
     public const float ClearPanningStrength = 1.8f;
     public static float PanningStrength(ScapeMode mode, bool own) => mode == ScapeMode.Clear && !own ? ClearPanningStrength : 1f;
