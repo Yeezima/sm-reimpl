@@ -573,6 +573,7 @@ static class AudioCommands
         var loudness = rest.Contains("--loudness") || rest.Contains("--loudness-gain") || rest.Contains("--loudness-range") ? SoundLoudness.FromArgs(rest, Console.Error.WriteLine) : SoundLoudness.Original;
         // --speech <character>/<exertion type>: a character's exertion line (speech_exertion) instead of an event, e.g. tactical_marine/effort_short_stab, ork_boy_2/damage_small.
         string? speech = Opt(rest, "--speech");
+        var scape = Opt(rest, "--scape") switch { "movement" => ScapeClass.Movement, "movement-far" => ScapeClass.MovementFar, "gunfire" => ScapeClass.Gunfire, "reload" => ScapeClass.Reload, _ => ScapeClass.None };
         // --melee-hit: a melee weapon's on-hit post as the client posts it: the mix pass's on-hit +4 dB (SoundMixPass.Hit) and the rule's melee hit gain.
         if (rest.Contains("--melee-hit")) offset = offset.Plus(SoundMixPass.Hit(false)).Plus(loudness.MeleeHit);
         Console.WriteLine($"event {eventName}: {(rest.Contains("--local") ? "local player" : "remote player")}, surface {Opt(rest, "--surface") ?? "(default)"}, speed {speed:0.##} m/s, distance {distance:0.#} m, master bus {catalog.MasterBusVolume:0.#} dB, rtpc volume cap {cap}" +
@@ -586,7 +587,10 @@ static class AudioCommands
             Console.WriteLine($"post {n + 1}: {play.Voices.Count} voices, {play.Stops.Count} stops, {play.Properties.Count} property actions");
             foreach (var v in play.Voices)
             {
-                var mix = loudness.Evaluate(v, null, 1, 0, v.Is3D ? distance : null, parameters, cap).With(offset);
+                var mix = loudness.Evaluate(v, null, 1, 0, v.Is3D ? distance : null, parameters, cap);
+                // sound/classic-soundscape: --scape movement|movement-far|gunfire|reload applies the Classic soundscape's class for another player (ClassicSoundscape.Apply); without it the old mix.
+                if (scape != ScapeClass.None && v.Is3D) mix = ClassicSoundscape.Apply(scape, mix, loudness.Evaluate(v, null, 1, 0, 0f, parameters, cap), distance);
+                mix = mix.With(offset);
                 float dur = catalog.Duration(v.WemId);
                 var rtpcs = v.Chain.SelectMany(c => c.Rtpcs).Where(r => r.RtpcId == VoiceMixer.Speed).Select(r => $"p{r.ParamId}={r.Evaluate(speed):0.#}");
                 Console.WriteLine($"  wem {v.WemId,10} {dur,5:0.00} s  {(v.Is3D ? "3D" : "2D")}  vol {mix.VolumeDb,6:0.0} dB (at post {v.VolumeDb:0.0}, buses {v.BusVolumeDb:0.0})  pitch {mix.PitchCents,6:0} c  lpf {mix.Lpf,4:0.#}  speed-rtpc [{string.Join(" ", rtpcs)}]  bus chain [{string.Join(" > ", v.Buses.Select(b => $"{b.Id:x8}:{b.Volume:0.#}"))}]");
@@ -603,7 +607,7 @@ static class AudioCommands
         if (i < 0) return true;
         if (RtpcVolumeCaps.TryParse(i + 1 < rest.Length ? rest[i + 1] : null, out cap, out string? error)) return true;
         Console.Error.WriteLine($"--cap: {error}");
-        Console.Error.WriteLine("usage: smtool audio-mix <event> [--local] [--surface s] [--speed v] [--distance d] [--posts n] [--cap peak|node|voice|off] [--step] [--treatment impact|confirm-armour|confirm-flesh|confirm-kill] [--state <set-state event>] [--loudness [--loudness-gain dB] [--loudness-range x]] [--speech character/type] [--melee-hit]; smtool audio-levels [--speed v] [--posts n] [--cap ...]");
+        Console.Error.WriteLine("usage: smtool audio-mix <event> [--local] [--surface s] [--speed v] [--distance d] [--posts n] [--cap peak|node|voice|off] [--step] [--treatment impact|confirm-armour|confirm-flesh|confirm-kill] [--state <set-state event>] [--loudness [--loudness-gain dB] [--loudness-range x]] [--speech character/type] [--melee-hit] [--scape movement|movement-far|gunfire|reload]; smtool audio-levels [--speed v] [--posts n] [--cap ...]");
         return false;
     }
 
