@@ -82,15 +82,15 @@ public partial class NetworkView
         }
         if (MusouSoundIsOff(MusouSoundOff.OwnLayers)) return;   // musou/sound-ab: ownlayers off
         // The player's own gun (owner follow-up 2026-11-09: "deeper, more powerful"): a protected emitter of its own at the muzzle (never stolen, cut or ducked): a louder deep copy, a sub copy under it, a louder thump.
-        var gun = new SoundEmitter { Position = e.Position, Follow = e.Follow, Switches = e.Switches, Own = true, OneShot = true, ProtectGun = true, Label = "musou bolter own layers" };
         var (thumpDb, deepDb, subDb) = OwnLayerDb;
+        if (thumpDb is null && deepDb is null && subDb is null) return;   // owner 2026-11-13: D, the original shot only (no emitter, nothing counted)
+        var gun = new SoundEmitter { Position = e.Position, Follow = e.Follow, Switches = e.Switches, Own = true, OneShot = true, ProtectGun = true, Label = "musou bolter own layers" };
         foreach (var b in file.Fire(null))
         {
             if (deepDb is { } d) PostBinding(b, gun, own, "fire own deep", extra: new VoiceOffset(d, MusouAudioRules.DeepPitchCents, MusouAudioRules.DeepLpf).Plus(fire));
             if (subDb is { } sb) PostBinding(b, gun, own, "fire own sub", extra: new VoiceOffset(sb, MusouAudioRules.OwnSubPitchCents, MusouAudioRules.OwnSubLpf).Plus(fire));
         }
-        if (thumpDb is { } t) _sound.Post(MusouAudioRules.ThumpEvent, gun, offset: new VoiceOffset(t, MusouAudioRules.ThumpPitchCents).Plus(fire));
-        CountSound("musou bolter thump");
+        if (thumpDb is { } t) { _sound.Post(MusouAudioRules.ThumpEvent, gun, offset: new VoiceOffset(t, MusouAudioRules.ThumpPitchCents).Plus(fire)); CountSound("musou bolter thump"); }
         if (LogSound("musou-audio")) GD.Print($"MUSOU AUDIO t {_connectedFor:F3} {spec.Name}: own gun layers deep {OwnDb(deepDb)} {MusouAudioRules.DeepPitchCents:F0} c, sub {OwnDb(subDb)} {MusouAudioRules.OwnSubPitchCents:F0} c, thump {OwnDb(thumpDb)}");
     }
 
