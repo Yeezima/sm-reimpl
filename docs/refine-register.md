@@ -28,14 +28,14 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3106 spec table rows: **2285 tagged**, 566 not tagged (read from data with high confidence), 255 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 688 rows of the changes document.
+Scanned 3113 spec table rows: **2288 tagged**, 570 not tagged (read from data with high confidence), 255 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 689 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
 | Movement (critical) | 400 | 342 | 341 | 116 | 12 |
 | Combat core (critical) | 18 | 8 | 15 | 15 | 9 |
 | Weapons (critical) | 121 | 73 | 106 | 54 | 3 |
-| Melee (critical) | 131 | 114 | 103 | 45 | 5 |
+| Melee (critical) | 134 | 116 | 104 | 47 | 5 |
 | Jump pack (critical) | 79 | 71 | 63 | 19 | 0 |
 | Charge (critical) | 61 | 51 | 49 | 25 | 0 |
 | Reactions (critical) | 25 | 22 | 23 | 12 | 0 |
@@ -53,18 +53,18 @@ Scanned 3106 spec table rows: **2285 tagged**, 566 not tagged (read from data wi
 | Core simulation (provisional values) | 691 | 652 | 491 | 182 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 236 | 225 | 126 | 64 | 0 |
-| **All areas** | **2285** | 2015 | 1702 | 719 | 38 |
+| **All areas** | **2288** | 2017 | 1703 | 721 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1303 |
+| kind: ours | 1305 |
 | confidence: low | 813 |
-| confidence: medium | 760 |
-| notes: ours | 413 |
+| confidence: medium | 761 |
+| notes: ours | 414 |
 | kind: interpretation | 380 |
-| notes: estimate | 187 |
+| notes: estimate | 188 |
 | kind: estimate | 156 |
 | confidence: none (low) | 129 |
 | kind: provisional | 103 |
@@ -977,7 +977,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-63D5DA0C` | Magazine returns | at the load tag or when the left hand is back at the weapon, whichever is later (never before the magazine left): bolter tag 0.30, hand 0.35 (`RIG_L_Hand` 0.15 m from the magazine at its closest, 1.13 m at its furthest, away from 0.11 to 0.35) → 0.35; stalker… (fraction of the clip) | kind: interpretation; confidence: medium | clip, skeleton, weapon mount | Magazine returns: compare with SM1 by feel or video. Ours: at the load tag or when the left hand is back at the weapon… | ☐ |
 | `R-125B93CF` | Dropped magazine physics | a `RigidBody3D` (layer none, mask: the level) with a box the size of the mesh, mass 0.4 kg, friction 0.7, bounce 0.3, linear damping 0.05, angular 0.6; initial velocity = the carrier's velocity + up to 0.6 m/s sideways (0.12 up) + up to 5 rad/s spin… (kg, m/s, rad/s, s) | kind: placeholder; confidence: none (low); notes: ours | ours | Dropped magazine physics: compare with SM1 by timing a run over a known distance. Ours: a RigidBody3D (layer none, mask: the level) with a box the size of… | ☐ |
 
-### Melee (gameplay-critical) (131)
+### Melee (gameplay-critical) (134)
 
 *Spec section: Melee flow, the hammer in both hands and the transitions pass (anim/melee-flow; client only, not simulated, no protocol change)*
 
@@ -1224,6 +1224,14 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-D4C04CE2` | Musou: predicted melee contact (pilot) | on the frame the own power sword strike's hit time passes, every Ork the client sees in the cleave's reach (its rule: reach, cone, height, no wall) gets the slash, the lead one the power flash, the swing its capped shake, the next two their secondary hit… (count) | kind: ours; confidence: low | owner's brief 2026-11-09; the pilot weapon the owner's choice | Musou: predicted melee contact (pilot): compare with SM1 by feel or video. Ours: on the frame the own power sword strike's hit time passes, every Ork… | ☐ |
+
+*Spec section: Melee cancels a charge at once, charge > melee chains, and Musou melee spam (charge-melee-chain; protocol 70, used by the simulation; every mode, the spam Musou Mode only)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-213E41CE` | The 1 s spacing (reading) | the spacing (`min_time_between_activations`, 1 s from one charge's start) applies only between two charges with no melee attack between them: any melee attack that starts (a light swing, a combo's next attack, a heavy strike) lifts it at once, so charge >… (s) | kind: ours; notes: estimate | ours (owner's wording) | The 1 s spacing (reading): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the spacing (min_time_between_activations, 1 s from one charge's… | ☐ |
+| `R-FBE0C386` | Musou melee spam | in Musou Mode a light attack has no cooldown, no wait and no combo window: a press after the swing's hit has landed starts a new swing on that tick (a random other swing of the weapon's chain, as before), a press before the hit queues the next swing for the… | confidence: medium; notes: ours | owner 2026-11-12 | Musou melee spam: compare with SM1 by feel or video. Ours: in Musou Mode a light attack has no cooldown, no wait and no combo… | ☐ |
+| `R-D9F3D825` | Restore switches | `--old-charge-melee-chain` (every client and the server; config hash only when on): the protocol 69 rules; `--musou-melee-cooldown` (Musou; hashed in Musou's block only when on): the earlier Musou melee rule | kind: ours | ours | Restore switches: compare with SM1 by feel or video. Ours: --old-charge-melee-chain (every client and the server; config hash… | ☐ |
 
 ### Jump pack (gameplay-critical) (79)
 
@@ -4211,6 +4219,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-6168DE91` | The charge's cancel: S, not a grenade (charge-cancel, 2026-11-11; protocol 66; every mode) | The rush's data branch `BRANCH_Attack2Idle` (0.667 s) lets the stick, Fire, Aim or a Grenade press end it; here, since protocols 48 and 53 took Fire, Aim and the stick off it, only a Grenade press did (also with no grenade left: the "dash cancel" with an empty grenade), and it ended the recoil and the dash attack's… | S held back (S, S + A, S + D; a pad's stick in the back three of eight sectors) ends the bull rush from the same branch (x the 0.7 lock scale: 0.467 s), tapped or held; a Grenade press ends no charge phase and waits in the input buffer (a throw follows the charge's end within 0.3 s); W, A and D still end nothing, the… | Owner 2026-11-11: "throwing a grenade no longer cancels a bull rush/charge animation. what should cancel a charge animation is tapping or holding the S key (backpedal)"; the branch time, the back sectors and an S tap before the branch doing nothing are ours. Spec "Charge cancel: S, not the grenade; the ally bump" | The charge's cancel: S, not a grenade (charge-cancel…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-5B69498D` | A charge slides past an ally (charge-ally-slide, 2026-11-11; every mode; protocol 67; replaces protocol 66's ally bump) | The owner's recollection of the original: "with an ally it just collides"; here the ally's contact put the charger into the collision stop (the wall-hit recoil), with the impact's hit-stop, effects and camera kick on both (protocol 66 ended the charge at the ally with no recoil) | A charge (the bull rush, the dash attack's lunge) passes an ally it cannot harm: no contact, no stop, no turn, the clip plays on; the shared player collision slides the charger along the ally's body and nothing happens to the ally. Enemies and friendly fire as before; Musou Mode too. `--old-ally-bump` restores the… | Owner 2026-11-11: "when a charge hits an ally it should slide past"; the slide itself is the capsule collision's (ours). An S tap before the stick branch is not remembered (owner: "early s tap should not be remembered"; already so, now tested). Spec "Charge ally slide" | A charge slides past an ally (charge-ally-slide…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-8C4D5D60` | The charge after a swing and the instant S cancel (charge-responsive, 2026-11-12; protocol 69; every mode) | The owner: a charge pressed during a light attack, a combo or a heavy strike did nothing until the attack ended; S had to be held about half a second (the stick branch) to cancel the charge | A charge press once the swing's hit has landed ends the attack and its combo and charges at once; a swing starts on the first tick after a charge ends or is cancelled; S (stick back at least half) cancels the bull rush from its second tick, the speed it carries capped at the sprint's. `--old-charge-after-melee` and… | Owner 2026-11-12: "You should immediately be able to charge after a melee attack, or vice versa"; "The charge should be cancelled instantaneously as soon as the S key or back on left joystick is triggered". The hit as the earliest point, the 0.5 stick length and the speed cap are ours. Spec "The charge after a swing… | The charge after a swing and the instant S cancel…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
+| `C-449F4205` | Melee cancels a charge at once; charge > melee chains; Musou melee spam (charge-melee-chain, 2026-11-12; protocol 70; every mode, the spam Musou Mode only) | The owner: a melee press mid charge should happen immediately (also at the charge's end); no charge during a charge; charge > melee > charge > melee should chain with no delay; the 1 s spacing only for discrete combat moves; in Musou Mode melee can be spammed with no cooldown | A light press cancels the bull rush on that tick (any class, no wait after it); a charge cannot start during a charge; a melee attack that starts lifts the 1 s charge spacing (charge, S cancel, charge within 1 s with no melee between is still spaced); Musou Mode light attacks restart at the hit, a press before it… | Owner 2026-11-12 (the verbatim words in the spec). The spacing reading and the hit-landing restart are ours. Spec "Melee cancels a charge at once, charge > melee chains, and Musou melee spam" | Melee cancels a charge at once; charge > melee chains…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 
 ### Our choices where the original is unknown
 

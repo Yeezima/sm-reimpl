@@ -274,7 +274,7 @@ public class SolidBodiesTests(ITestOutputHelper output)
         Assert.True(new SimConfig().SolidBodies);
         Assert.Equal(new SimConfig().Hash(), (new SimConfig() with { SolidBodies = true }).Hash());
         Assert.NotEqual(new SimConfig().Hash(), (new SimConfig() with { SolidBodies = false }).Hash());
-        Assert.Equal(69, Protocol.Version);
+        Assert.Equal(70, Protocol.Version);
     }
 
     // ---------------------------------------------------------------- clash, stun and recoil states
@@ -336,6 +336,7 @@ public class SolidBodiesTests(ITestOutputHelper output)
             float distance = to.Length();
             uint phase = t % 90;
             bool press = phase == 0 && distance is > 2.5f and < 9f;
+            if (me.Rush != RushPhase.None) return new PlayerInput(t, 0f, 1f, yaw, InputButtons.Sprint);   // charge-responsive (protocol 69): the back-off below would be an S cancel of the charge itself; the script holds W through it
             if (distance > 9f) return new PlayerInput(t, 0f, 1f, yaw, InputButtons.Sprint);
             if (distance < 2.5f) return new PlayerInput(t, 0f, -1f, yaw, InputButtons.None);   // back off for the next run-up
             return new PlayerInput(t, 0f, 1f, yaw, InputButtons.Sprint | (press ? InputButtons.MeleeHeavy : InputButtons.None));

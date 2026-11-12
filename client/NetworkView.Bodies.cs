@@ -30,12 +30,16 @@ public partial class NetworkView
     /// charge-cancel / charge-ally-bump restore switches <c>--old-charge-cancel</c> (a Grenade press ends the charge, S does not) and <c>--old-ally-bump</c> (the collision stop on an
     /// ally), the protocol 65 rules (the server needs the same: config hash).
     /// </summary>
-    static SimConfig WithChargeCancelArgs(SimConfig c) => ((((OldChargeCancelArg ? c with { ChargeBackCancel = false } : c) is var d && OldAllyBumpArg ? d with { ChargeAllyBump = false } : d) is var f && OldStimUseArg ? f with { StimReliable = false } : f) is var g && OldChargeAfterMeleeArg ? g with { ChargeAfterMelee = false } : g) is var h && OldChargeCancelDelayArg ? h with { ChargeInstantCancel = false } : h;
+    static SimConfig WithChargeCancelArgs(SimConfig c0) { var c = WithChargeCancelArgs0(c0); if (OldChargeMeleeChainArg) c = c with { ChargeMeleeChain = false }; if (MusouMeleeCooldownArg) c = c with { MusouMeleeCooldown = true }; return c; }
+    static SimConfig WithChargeCancelArgs0(SimConfig c) => ((((OldChargeCancelArg ? c with { ChargeBackCancel = false } : c) is var d && OldAllyBumpArg ? d with { ChargeAllyBump = false } : d) is var f && OldStimUseArg ? f with { StimReliable = false } : f) is var g && OldChargeAfterMeleeArg ? g with { ChargeAfterMelee = false } : g) is var h && OldChargeCancelDelayArg ? h with { ChargeInstantCancel = false } : h;
     static readonly bool OldStimUseArg = OS.GetCmdlineUserArgs().Contains("--old-stim-use");
     static readonly bool OldChargeCancelArg = OS.GetCmdlineUserArgs().Contains("--old-charge-cancel");
     /// <summary>charge-responsive restore switches <c>--old-charge-after-melee</c> and <c>--old-charge-cancel-delay</c> (the server needs the same: config hash).</summary>
     static readonly bool OldChargeAfterMeleeArg = OS.GetCmdlineUserArgs().Contains("--old-charge-after-melee");
     static readonly bool OldChargeCancelDelayArg = OS.GetCmdlineUserArgs().Contains("--old-charge-cancel-delay");
+    /// <summary>charge-melee-chain (protocol 70) restore switches <c>--old-charge-melee-chain</c> and <c>--musou-melee-cooldown</c> (the server needs the same: config hash).</summary>
+    static readonly bool OldChargeMeleeChainArg = OS.GetCmdlineUserArgs().Contains("--old-charge-melee-chain");
+    static readonly bool MusouMeleeCooldownArg = OS.GetCmdlineUserArgs().Contains("--musou-melee-cooldown");
     static readonly bool OldAllyBumpArg = OS.GetCmdlineUserArgs().Contains("--old-ally-bump");
     /// <summary>fix/charge-player-collision test aid <c>--old-body-contact</c> (the server needs it too: config hash): the protocol 56 body and charge contact rules.</summary>
     /// <summary>feel/charge-clash test aid <c>--no-charge-clash</c> (the server needs it too: config hash): the protocol 58 stop, no clash.</summary>

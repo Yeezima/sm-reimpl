@@ -448,7 +448,10 @@ public static class Combat
             // any more (with or without a grenade left: the press waits in the input buffer); SimConfig.ChargeBackCancel false: the protocol 65 rule (ChargeCancel.EndsAtBranch).
             bool other = ChargeCancel.EndsAtBranch(s, sanitized, grenadePress, c);
             // feel/melee-cancels (protocol 54): a melee press ends the hop or the bull rush and swings at once; the swing after it waits for the cancelled clip's end (MeleeCancel).
-            if (MeleeCancel.Apply(s, c, meleePress, jumpPressed || jumpEscape, world) is { } cancel) { s = cancel.State; cancelLock = cancel.Lock; cancelStart = meleePress; }
+            // charge-melee-chain (protocol 70; the owner 2026-11-12: "if I charge, then right click for melee light attack mid charge, it should happen immediately"): a light press ends the bull rush on that very
+            // tick (any class, any tick of it, its last included) and the swing starts at once, with no wait after it (MeleeCancel's cancel wait and the melee wait both skipped).
+            if (meleePress && ChargeCancel.MeleeEndsCharge(c, s) && Loadouts.Melee(c, s).Count > 0) { s = Rush.Cleared(s); cancelStart = true; }
+            else if (MeleeCancel.Apply(s, c, meleePress, jumpPressed || jumpEscape, world) is { } cancel) { s = cancel.State; cancelLock = cancel.Lock; cancelStart = meleePress; }
             // charge-responsive (protocol 69; the owner 2026-11-12): a charge press once the attack under way has hit ends the attack and its combo and charges at once; the melee wait ends with it.
             if (heavyPress && ChargeCancel.CanChargeFromMelee(c, s) && Loadouts.Rush(c, s) is { } meleeRush && s.RushLock == 0)
             {
@@ -547,6 +550,8 @@ public static class Combat
         float meleeLock = MathF.Max(0f, s.MeleeLock - dt);   // Musou never sets it but through a cancel (feel/melee-cancels)
         meleeLock = MathF.Max(meleeLock, cancelLock);
         if (meleeLock <= TimeEpsilon) meleeLock = 0f;
+        bool spam = c.MeleeSpam;   // Musou Mode (hook; the owner 2026-11-12): light attacks have no cooldown or delay
+        if (spam) meleeLock = 0f;
         bool queuedHeavy = queued && s.MeleeQueuedHeavy;
         // sim/no-fire-while-sprinting (protocol 51; the owner 2026-11-01: "you should not be able to shoot while sprinting"): while the sprint is applied (Sprint held with
         // the stick forward, on the ground; not in aim mode, a jump-pack phase, an evade, a reaction, the charge, a brace, or a melee attack's movement lock) the trigger does
@@ -593,6 +598,9 @@ public static class Combat
             // its Y-chain window (Weapons C: the Y,Y finishers, MeleeStep.YNext). A light press after an attack that ends the string does nothing.
             // feel/musou-melee-spam (the owner 2026-11-02; Musou Mode only): a light press once the swing's hit has landed starts a new attack at once, a random other swing of the
             // weapon's light chain (MeleeChain.MusouSwing; a press before the hit queues as usual); the heavy strikes and the in-place stomp keep their rules.
+            // Musou melee spam (MeleeSpam, the owner 2026-11-12: "spam melee attacks with no cooldown or delay"): a light press before the hit lands queues (whatever the combo window) and the next swing starts on the
+            // tick the hit lands; a press after it starts the next swing at once (the rule above).
+            if (spam && meleePress && !heavy && !m.InPlace && time < m.HitTime) { queued = true; queuedHeavy = false; meleePress = false; used |= InputBuffer.Bit(BufferedAction.Melee); }
             if (musou && meleePress && !heavy && !m.InPlace && time >= m.HitTime)
             {
                 used |= InputBuffer.Bit(BufferedAction.Melee);
@@ -610,7 +618,7 @@ public static class Combat
             if (queuedHeavy && heavyTarget == 0) { queued = false; queuedHeavy = false; }
             // The next attack starts only once this one's hit has landed (no data has a hit after its combo window opens).
             var (open, close) = MeleeChain.Window(m, heavy, queuedHeavy);
-            if (queued && time >= open && before < close && time >= m.HitTime)
+            if (queued && time >= m.HitTime && ((spam && !queuedHeavy) || (time >= open && before < close)))
             {
                 if (queuedHeavy) { step = heavyTarget; heavy = true; }
                 else { step = musou ? MeleeChain.MusouSwing(lightSteps, heavy ? 0 : step, input.Tick, s.PlayerId) : heavy ? 1 : step % lightSteps.Count + 1; heavy = false; }   // after a heavy strike, light attack 1
@@ -631,6 +639,7 @@ public static class Combat
             time = 0f; queued = false; queuedHeavy = false; startedNow = true;
             if (steps[step - 1].HitTime <= 0f) { meleeHitStep = step; hitHeavy = heavy; }
         }
+        if (startedNow && c.ChargeMeleeChain && s.RushLock > 0) s = s with { RushLock = 0 };   // charge-melee-chain: a melee attack between two charges lifts the 1 s spacing (the owner 2026-11-12)
         if (startedNow && !musou) meleeLock = MathF.Max(MathF.Max(0f, steps[step - 1].ComboOpen), cancelLock);   // the lock runs from the attack's start (this very tick) to its combo window, a cancel's to its clip's end
         // sim/combat-2 (item 39; the owner's decision of 2026-10-30: "the step forward of melee swings and F stun strikes starts the instant the button is pressed"):
         // the body's root motion runs one tick ahead of the attack's clock (the tick covering (t, t + dt] moves the body by the clip's (t + dt, t + 2dt]), so the press

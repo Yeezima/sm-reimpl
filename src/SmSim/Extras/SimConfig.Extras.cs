@@ -15,6 +15,7 @@ public sealed partial record SimConfig
         // Musou: its own version (simulation and wire sections), so a Musou-only change never touches ContentExtras.WireVersion or the extended hash.
         // Musou Mode's war rules: their version sits in the same block.
         if (Extras.HasFlag(ContentExtras.Musou)) { w.Write("musou"); w.Write(MusouSim.Version); w.Write(SmSim.Extras.Musou.Campaign.TfwRules.Version); }
+        if (Extras.HasFlag(ContentExtras.Musou) && MusouMeleeCooldown) w.Write("melee-cooldown");   // musou/melee-spam: the restore switch --musou-melee-cooldown, only when on
     }
 
     // sim/air-jumps (owner, 2026-11-06): only Musou Mode keeps the jump-pack classes' full jumps in the air (feel/melee-cancels); Classic PvP gets the hop alone.
@@ -27,6 +28,12 @@ public sealed partial record SimConfig
     partial void ExtrasAimWithoutWeapon(int classIndex, ref bool aims)
     {
         if (SmSim.Extras.Musou.LibrarianRules.IsLibrarian(this, classIndex)) aims = true;
+    }
+
+    // musou/melee-spam (owner, 2026-11-12): in Musou Mode a light attack has no cooldown or delay (the restore switch --musou-melee-cooldown brings the old waits back).
+    partial void ExtrasMeleeSpam(ref bool on)
+    {
+        if (Extras.HasFlag(ContentExtras.Musou) && !MusouMeleeCooldown) on = true;
     }
 
     // musou/no-spread (owner, 2026-11-06): Musou Mode's shots have no spread at all.

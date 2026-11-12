@@ -12,4 +12,5 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - This build does not play with earlier ones (new network version): everyone must update.
 - Both modes: you can charge (Shift + W + F) right after a melee attack, a light combo or a heavy strike once the swing has connected, and swing again straight after a charge ends or is cancelled.
 - Both modes: tapping S (or pulling the stick back) cancels a charge at once, from the first moment of the charge, with no half-second wait.
-
+- Both modes: a light melee press (right click) during a charge, even on its very last moment, cancels the charge and swings at once. A melee attack between two charges lifts the one second wait, so charge, melee, charge, melee chains with no delay (a charge cancelled with S and repeated within a second still waits).
+- Musou Mode: light melee attacks can be spammed with no cooldown or delay.

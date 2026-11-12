@@ -98,12 +98,15 @@ public class MeleeCancelTests(ITestOutputHelper output)
         Assert.Equal(0f, s.Position.Z, 2);
     }
 
+    /// <summary>charge-melee-chain (protocol 70, 2026-11-12) replaced protocol 54's wait after a melee cancel of a charge; the tests that pin the wait run under the restore switch (--old-charge-melee-chain).</summary>
+    static SimConfig Old54(SimConfig c) => c with { ChargeMeleeChain = false };
+
     [Fact]
     public void Tactical_a_melee_press_in_a_charge_ends_it_and_swings_at_once_with_the_clips_remaining_time_as_the_lock()
     {
-        var s = Charging(Heavy, cls: 0);
-        float played = Rush.Time(s, Heavy);
-        s = Step(s, Heavy, InputButtons.Melee);
+        var s = Charging(Old54(Heavy), cls: 0);
+        float played = Rush.Time(s, Old54(Heavy));
+        s = Step(s, Old54(Heavy), InputButtons.Melee);
         Assert.Equal(RushPhase.None, s.Rush);
         Assert.Equal(1, s.MeleeStep);
         float expected = RushTests.Spec.Rush.End - played;
@@ -113,8 +116,8 @@ public class MeleeCancelTests(ITestOutputHelper output)
     [Fact]
     public void Assault_a_melee_press_in_a_charge_ends_it_too()
     {
-        var s = Charging(Pack, cls: 0);
-        s = Step(s, Pack, InputButtons.Melee);
+        var s = Charging(Old54(Pack), cls: 0);
+        s = Step(s, Old54(Pack), InputButtons.Melee);
         Assert.Equal(RushPhase.None, s.Rush);
         Assert.Equal(1, s.MeleeStep);
         Assert.True(s.MeleeLock > 0.5f);
@@ -123,7 +126,7 @@ public class MeleeCancelTests(ITestOutputHelper output)
     [Fact]
     public void Musou_mode_has_the_same_cooldown()
     {
-        var musou = Heavy with { Extras = ContentExtras.Musou };
+        var musou = Old54(Heavy) with { Extras = ContentExtras.Musou, MusouMeleeCooldown = true };
         var s = Charging(musou, cls: 0);
         s = Step(s, musou, InputButtons.Melee);
         Assert.Equal(1, s.MeleeStep);
@@ -145,8 +148,8 @@ public class MeleeCancelTests(ITestOutputHelper output)
     [Fact]
     public void Devastator_a_melee_press_in_a_charge_or_a_hop_does_not_cancel()
     {
-        var s = Charging(Heavy, cls: 1);
-        s = Step(s, Heavy, InputButtons.Melee);
+        var s = Charging(Old54(Heavy), cls: 1);
+        s = Step(s, Old54(Heavy), InputButtons.Melee);
         Assert.Equal(RushPhase.Rush, s.Rush);
         Assert.Equal(0f, s.MeleeLock);
         var h = Step(Fresh(Heavy, 1), Heavy, InputButtons.Jump);
