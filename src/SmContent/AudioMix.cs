@@ -124,12 +124,12 @@ public readonly record struct VoiceMix(float VolumeDb, float PitchCents, float L
 /// </summary>
 /// <remarks>sound/mix-and-reloads (<see cref="SoundMixPass"/>): <see cref="HighPass"/> routes the voice through the on-hit high-pass bus; <see cref="TailDb"/> (0 = none, negative)
 /// fades the voice down to that level after the jump pack's hold (<see cref="SoundMixPass.TailGainDb"/>).</remarks>
-public readonly record struct VoiceOffset(float GainDb = 0f, float PitchCents = 0f, float Lpf = 0f, bool HighPass = false, float TailDb = 0f)
+public readonly record struct VoiceOffset(float GainDb = 0f, float PitchCents = 0f, float Lpf = 0f, bool HighPass = false, float TailDb = 0f, ScapeClass Scape = ScapeClass.None)
 {
     public static VoiceOffset None => default;
-    public bool IsNone => GainDb == 0f && PitchCents == 0f && Lpf == 0f && !HighPass && TailDb == 0f;
-    public VoiceOffset Plus(VoiceOffset o) => new(GainDb + o.GainDb, PitchCents + o.PitchCents, Lpf + o.Lpf, HighPass || o.HighPass, Math.Min(TailDb, o.TailDb));
-    public override string ToString() => IsNone ? "none" : $"{GainDb:+0.#;-0.#;0} dB {PitchCents:+0;-0;0} c lpf {Lpf:+0;-0;0}{(HighPass ? " hp" : "")}{(TailDb < 0f ? $" tail {TailDb:0.#} dB" : "")}";
+    public bool IsNone => GainDb == 0f && PitchCents == 0f && Lpf == 0f && !HighPass && TailDb == 0f && Scape == ScapeClass.None;
+    public VoiceOffset Plus(VoiceOffset o) => new(GainDb + o.GainDb, PitchCents + o.PitchCents, Lpf + o.Lpf, HighPass || o.HighPass, Math.Min(TailDb, o.TailDb), o.Scape != ScapeClass.None ? o.Scape : Scape);
+    public override string ToString() => IsNone ? "none" : $"{GainDb:+0.#;-0.#;0} dB {PitchCents:+0;-0;0} c lpf {Lpf:+0;-0;0}{(HighPass ? " hp" : "")}{(TailDb < 0f ? $" tail {TailDb:0.#} dB" : "")}{(Scape != ScapeClass.None ? $" scape {Scape}" : "")}";
 }
 
 /// <summary>

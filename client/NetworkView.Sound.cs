@@ -147,13 +147,14 @@ public partial class NetworkView
                 return false;
             }
             (_audio, _soundTriggers, double ms) = load.Result;
-            _sound = new SoundSystem(_audio) { GlobalGainDb = SoundGainDb, Limits = SoundLimitsMode, FootstepGainDb = FootstepGainDbArg, RtpcCap = RtpcCapArg, Loudness = LoudnessArg, LimitLog = LogSound("footstep") ? GD.Print : null };
+            _sound = new SoundSystem(_audio) { Scape = ClassicScape, GlobalGainDb = SoundGainDb, Limits = SoundLimitsMode, FootstepGainDb = FootstepGainDbArg, RtpcCap = RtpcCapArg, Loudness = LoudnessArg, LimitLog = LogSound("footstep") ? GD.Print : null };
             PrewarmHitSounds();
             AddChild(_sound);
             _worldEmitter = new SoundEmitter { Label = "world" };
             _soundNote = $"{_audio.LoadedPackages.Count} packages, {_audio.Library.ObjectCount:N0} objects, {_soundTriggers.Files.Count} files, " +
                          $"{_soundTriggers.Files.Values.Sum(f => f.Bindings.Count)} commands, {_soundTriggers.ClipTags.Count} tagged clips; loaded in {ms:F0} ms";
             GD.Print($"sound: loudness {LoudnessArg} (sound/louder-farther; --loudness-original for the data's levels)");
+            GD.Print($"sound: classic soundscape {ClassicScape} (sound/classic-soundscape; --sound-natural-position: softer positioning, --old-classic-mix: the old mix; Old also under Musou Mode)");
             GD.Print("sound: " + _soundNote + (_audio.MissingPackages.Count > 0 ? $"; packages not in the install: {string.Join(", ", _audio.MissingPackages)}" : ""));
             foreach (var n in _soundTriggers.Notes) GD.Print("  sound note: " + n);
         }
@@ -242,7 +243,9 @@ public partial class NetworkView
     SoundPlay? PostBinding(SoundBinding b, SoundEmitter e, bool own, string kind, float extraDelay = 0f, VoiceOffset extra = default)
     {
         if (_sound is null || b.StartEvent.Length == 0 || (b.OnlyIfOnPlayer && !own)) return null;
-        float gain = FootstepLevel.GainDb(b);
+        // sound/classic-soundscape (owner 2026-11-13: "others louder, own as now"): the -3 dB footstep level stays for the own player only; others' posts carry a class (ranged, protected, panned).
+        float gain = own || ClassicScape == ScapeMode.Old ? FootstepLevel.GainDb(b) : 0f;
+        extra = extra.Plus(ScapeOffset(kind, own));
         if (!RegenSoundOld && (kind == "armour regen" || kind == "armour restored"))   // owner decision 2026-10-31: half volume, 20 ft range for others' (none are posted today)
         {
             var camera = GetViewport()?.GetCamera3D();
@@ -268,6 +271,7 @@ public partial class NetworkView
     {
         if (_client is null || _config is null) return;
         if (!SoundReady() || _sound is null || _soundTriggers is null) { SoundMeleeOthers(me, others); return; }   // hit reactions: others' inferred melee hits still flinch their victims without sound
+        ClassicRecordMixFrame();   // --record-mix (test aid)
         int ownId = _client.PlayerId;
         foreach (var (_, ev) in _frameOwnEvents) OwnSoundEvents(me, ev);   // drained once per frame in HipFireBegin (M27)
         foreach (var shot in _frameShots) SoundShot(shot);
@@ -387,6 +391,7 @@ public partial class NetworkView
             SoundCharge(t, s, p, own);
             SoundMeleeBarks(t, s, p);
             SoundJump(t, s, p, own, delta);
+            if (!own) SoundRoll(t, s, p);   // sound/classic-soundscape: others' evade rolls
             if (own) SoundOwnState(t, s, p);
             // Others' throws: the toss sound at the release time (own throws come from the prediction's Threw event).
             // perks/inert-2: only a known thrown item (a stim's sound comes at its release, NetworkView.Stims.cs; an unknown remote item: none).
@@ -545,7 +550,7 @@ public partial class NetworkView
     void Bark(SpeechBinding b, SoundTrack t, PlayerState s, string kind)
     {
         if (_sound is null || SpeechCharacterOf(s) is not { } character) return;
-        var result = _sound.PostSpeech(b, character, t.Emitter);
+        var result = _sound.PostSpeech(b, character, t.Emitter, offset: ScapeOffset("bark", t.Emitter.Own));   // sound/classic-soundscape: others' grunts and barks are movement sounds
         if (LogSoundKinds.Count > 0) LogBark(b, t, s, kind, character, result);
         string key = $"{kind} {b.Type}" + (result == SpeechResult.Started ? "" : result == SpeechResult.Busy ? " (busy: dropped)" : " (no line)");
         _barkKinds[key] = _barkKinds.GetValueOrDefault(key) + 1;
