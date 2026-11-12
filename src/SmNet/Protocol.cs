@@ -513,8 +513,8 @@ public static partial class Protocol
     //     bull rush from its second tick, not from its stick branch, in every mode. Restore switches (config hash): --old-charge-after-melee, --old-charge-cancel-delay.
     // 70 (charge-melee-chain; the owner 2026-11-12): no layout change. A light melee press cancels a bull rush at once on any tick (any class, no wait after the swing) and any melee attack lifts the 1 s spacing between
     //     charges, so charge > melee > charge chains with no delay, in every mode; in Musou Mode light melee attacks have no cooldown or delay. Restore switches (config hash): --old-charge-melee-chain, --musou-melee-cooldown.
-    // 71 (onhit-damage-mark; the owner 2026-11-13: "any sort of damage should trigger the sparks and glows"): every player's record gains one byte after the evade byte: a damage counter (bits 0..2, modulo 8, raised by
-    //     every damage the player takes), and whether the last damage took shield (bit 3) and health (bit 4); bits 5..7 zero. Presentation only: the config hash does not change. Clients show the glow and sparks on a change.
+    // 71 (onhit-damage-mark; the owner 2026-11-13: "any sort of damage should trigger the sparks and glows"): every player's record gains one byte after the evade byte: a damage counter (bits 0..2, modulo 8, raised once per tick in which the player took any damage)
+    //     and whether the damages of that tick took shield (bit 3) and health (bit 4); bits 5..7 zero. Presentation only: the config hash does not change. Clients show the glow and sparks on a change.
     public const ushort Version = 71;
     /// <summary>The kill-feed cause code of a weapon kill on the head (protocol 64; <see cref="KillView.Headshot"/>).</summary>
     public const int HeadshotCauseCode = 6;

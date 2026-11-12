@@ -59,12 +59,12 @@ public static class PlayerHitFxRules
     /// </summary>
     public static bool DamageMarkChanged(byte wasCount, byte nowCount) => (wasCount & 7) != (nowCount & 7);
 
-    /// <summary>The armour colour of the last damage a record's mark names: shield taken: yellow (true); only health: red (false); neither bit: none (null).</summary>
-    public static bool? ArmourUpOfMark(bool shield, bool health) => shield ? true : health ? false : null;
+    /// <summary>The armour colour of the damage a record's mark names (the bits of every damage of its tick): health taken (red, false; also when the shield broke in the same tick); only shield: yellow (true); neither bit: none (null: no glow).</summary>
+    public static bool? ArmourUpOfMark(bool shield, bool health) => health ? false : shield ? true : null;
 
     /// <summary>
-    /// Whether a mark's change shows a glow: the player was alive in the record before and is alive now (a first sight, a respawn, which restarts the counter, and a corpse show nothing: the model's flash is
-    /// reset for the dead).
+    /// Whether a mark's change shows a glow: the player was alive in the record before and is alive now (a first sight, a record after a death, which covers a respawn, and a corpse show nothing: the model's flash is
+    /// reset for the dead; a respawn keeps the counter, the alive flags are what tell it).
     /// </summary>
     public static bool MarkShowsGlow(bool known, bool wasAlive, bool nowAlive, byte wasCount, byte nowCount) => known && wasAlive && nowAlive && DamageMarkChanged(wasCount, nowCount);
 

@@ -85,9 +85,11 @@ public partial class NetworkView
             _damageMarkSeen[o.PlayerId] = (o.DamageCount, o.Alive);
             if (!MarkShowsGlow(known, seen.Alive, o.Alive, seen.Count, o.DamageCount)) continue;
             if (LogHitFx) GD.Print($"HITFX mark P{o.PlayerId} counter {seen.Count}->{o.DamageCount} shield {o.DamageShield} health {o.DamageHealth} (t {_connectedFor:F2})");
-            PlayerDamageGlow(me, o.PlayerId, o.Position, ArmourUpOfMark(o.DamageShield, o.DamageHealth), DamageKind.Melee, "damage mark");
+            var up = ArmourUpOfMark(o.DamageShield, o.DamageHealth);
+            if (up is null) continue;   // a mark with neither bit names no damage taken: no glow
+            PlayerDamageGlow(me, o.PlayerId, o.Position, up, DamageKind.Melee, "damage mark");
         }
-        if (_damageMarkSeen.Count <= _lastOthers.Count + 4) return;
+        if (_damageMarkSeen.Count <= _lastOthers.Count) return;   // every frame: a player who left is forgotten at once, so a rejoin with his id starts as a first sight
         _damageMarkGone.Clear();
         foreach (var id in _damageMarkSeen.Keys) { bool present = false; foreach (var o in _lastOthers) if (o.PlayerId == id) { present = true; break; } if (!present) _damageMarkGone.Add(id); }
         foreach (var id in _damageMarkGone) _damageMarkSeen.Remove(id);

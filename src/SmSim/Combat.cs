@@ -1328,7 +1328,18 @@ public static class Combat
         }
         float healthDamage = MathF.Max(0f, raw) * healthMultiplier;
         float health = s.Health - healthDamage;
-        var after = s with { Shield = s.Shield - shieldDamage, Health = MathF.Max(0f, health), SinceDamage = 0f, DamageCount = (byte)((s.DamageCount + 1) & 7), DamageShield = shieldDamage > 0f, DamageHealth = healthDamage > 0f };   // protocol 71: the damage mark
+        var after = s with { Shield = s.Shield - shieldDamage, Health = MathF.Max(0f, health), SinceDamage = 0f };
+        if (shieldDamage > 0f || healthDamage > 0f)
+        {
+            // protocol 71: the damage mark: the counter rises at most once per tick per victim (a many-pellet weapon cannot wrap it), the shield and health bits of the tick's damages are ORed;
+            // a damage that took nothing (zero multipliers) leaves the mark alone.
+            bool fresh = s.DamageFresh;
+            after = after with
+            {
+                DamageCount = fresh ? s.DamageCount : (byte)((s.DamageCount + 1) & 7), DamageFresh = true,
+                DamageShield = (fresh && s.DamageShield) || shieldDamage > 0f, DamageHealth = (fresh && s.DamageHealth) || healthDamage > 0f,
+            };
+        }
         if (health <= 0f) after = Killed(after, c);
         return (after, shieldDamage, healthDamage);
     }

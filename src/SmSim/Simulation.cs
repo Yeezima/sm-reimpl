@@ -221,7 +221,9 @@ public readonly record struct PlayerState(int PlayerId, Vector3 Position, Vector
     /// a change in the counter is one or more damages since the last record, however many snapshots were lost. Not simulated, not predicted; presentation only.
     /// </summary>
     public byte DamageCount { get; init; }
-    /// <summary>Protocol 71: whether the last damage took some shield (yellow glow) and whether it took some health (red); both can be set.</summary>
+    /// <summary>Protocol 71 (not on the wire): this player has already taken damage this tick, so a second damage in the same tick (a multi-pellet or multi-victim effect) keeps the counter and adds its bits; cleared at the start of every tick (<c>World.Step</c>).</summary>
+    public bool DamageFresh { get; init; }
+    /// <summary>Protocol 71: whether the damage of the last tick that took any took some shield and some health (the bits of every damage of one tick are ORed); both can be set; the client reads red when health was hit, else yellow.</summary>
     public bool DamageShield { get; init; }
     public bool DamageHealth { get; init; }
     /// <summary>Seconds until a dead player respawns.</summary>
@@ -1216,6 +1218,7 @@ public sealed partial class World(SimConfig config, CollisionWorld? collision = 
         _jumps.Clear();
         foreach (var id in _players.Keys.ToList())
         {
+            if (_players[id].DamageFresh) _players[id] = _players[id] with { DamageFresh = false };   // protocol 71: a new tick, a new damage mark
             PlayerInput extraInput = default;
             bool extraHandled = false;
             ExtrasPlayerInput(id, ref extraInput, ref extraHandled);   // EXTRAS-HOOK: added content's players without a client (Musou Mode's AI Marines)
