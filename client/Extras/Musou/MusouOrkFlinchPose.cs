@@ -46,7 +46,9 @@ public static class MusouOrkFlinchPose
         Vector3 ankleL = sk.GetBoneGlobalPose(b.Leg[2]).Origin, ankleR = sk.GetBoneGlobalPose(b.Leg[5]).Origin;
 
         var shift = (away * MusouOrkFlinchRules.PelvisBack - up * MusouOrkFlinchRules.PelvisDrop) * size / scale;
-        shift *= Reachable(sk, b, shift, ankleL, ankleR);   // the largest share of the shift the legs can take with the feet kept (a leg the clip left nearly straight cannot follow the hips)
+        float share = Reachable(sk, b, shift, ankleL, ankleR);
+        if (DebugPlant) GD.Print($"PLANT size {size:F2}: the legs take {share * 100f:F0} % of the pelvis shift");
+        shift *= share;   // the largest share of the shift the legs can take with the feet kept (a leg the clip left nearly straight cannot follow the hips)
         Move(sk, b.Pelvis, shift);
         Move(sk, b.Spine1, new Vector3(shift.X, shift.Y, 0f));   // the torso follows the hips' shift (not their drop: the spine bends instead)
         // The torso tips back: about the axis up x away, so the top moves along the hit's direction.
@@ -55,8 +57,9 @@ public static class MusouOrkFlinchPose
         Tip(sk, b.Spine1, axis, MusouOrkFlinchRules.Spine1 * d);
         Tip(sk, b.Spine2, axis, MusouOrkFlinchRules.Spine2 * d);
         Tip(sk, b.Spine3, axis, MusouOrkFlinchRules.Spine3 * d);
-        Tip(sk, b.Neck, axis, MusouOrkFlinchRules.Neck * d);
-        Tip(sk, b.Head, axis, MusouOrkFlinchRules.Head * d);
+        float dHead = Mathf.DegToRad(1f) * MathF.Min(size, MusouOrkFlinchRules.HeadMaxSize);   // the neck and head stop at this size: past it the face points at the sky and the head sinks into the shoulders (seen at 2.5)
+        Tip(sk, b.Neck, axis, MusouOrkFlinchRules.Neck * dHead);
+        Tip(sk, b.Head, axis, MusouOrkFlinchRules.Head * dHead);
         Plant(sk, b.Leg[0], b.Leg[1], b.Leg[2], ankleL);
         Plant(sk, b.Leg[3], b.Leg[4], b.Leg[5], ankleR);
         if (DebugPlant && MathF.Max(sk.GetBoneGlobalPose(b.Leg[2]).Origin.DistanceTo(ankleL), sk.GetBoneGlobalPose(b.Leg[5]).Origin.DistanceTo(ankleR)) > 0.02f) GD.Print($"PLANT drift L {sk.GetBoneGlobalPose(b.Leg[2]).Origin.DistanceTo(ankleL):F3} R {sk.GetBoneGlobalPose(b.Leg[5]).Origin.DistanceTo(ankleR):F3} shift {shift.Length():F3} size {size:F2}");
