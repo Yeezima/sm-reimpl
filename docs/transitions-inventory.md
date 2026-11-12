@@ -94,4 +94,4 @@ a use-object action the multiplayer content does not call).
 4. **Blocked, for the owner**: the plasma, lascannon and plasma-pistol fire-mode change clips (need a fire-mode input and rules in the simulation and the protocol); the sprinter's wall stop (needs the simulation to brake).
 5. Not worth wiring: the other hit directions (enemy states), the incapacitated clips (no downed state).
 
-Done in this pass (batch 1): the hammer's and the chainsword's drop and landing, the hammer's jump-pack landings. See `docs/milestones.md` "Install transitions, second batch".
+Done in this pass (batch 1): the hammer's and the chainsword's drop and landing, the hammer's jump-pack landings. See `docs/milestones.md` "Install transitions, pass 2 batch 1".

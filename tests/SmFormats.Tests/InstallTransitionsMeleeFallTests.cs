@@ -102,3 +102,43 @@ public class InstallTransitionsMeleeFallTests
         Assert.Equal(4, byFamily.Count);
     }
 }
+
+public class MeleeFallChoiceTests
+{
+    [Theory]
+    [InlineData("sm_mp_melee_thunder_hammer", FallFamily.Hammer)]
+    [InlineData("sm_mp_melee_power_mace", FallFamily.Hammer)]
+    [InlineData("sm_mp_melee_chainsword", FallFamily.Chainsword)]
+    [InlineData("sm_mp_melee_chainsword_gold", FallFamily.Chainsword)]
+    [InlineData("sm_mp_melee_power_sword", FallFamily.Rifle)]
+    [InlineData("sm_mp_melee_combat_knife", FallFamily.Rifle)]
+    public void The_wargear_picks_the_family(string wargear, FallFamily expected) =>
+        Assert.Equal(expected, MeleeFallChoice.Family(wargear, extraTransitionsOff: false));
+
+    [Fact]
+    public void The_switch_or_no_wargear_gives_the_rifles_fall()
+    {
+        Assert.Equal(FallFamily.Rifle, MeleeFallChoice.Family("sm_mp_melee_thunder_hammer", extraTransitionsOff: true));
+        Assert.Equal(FallFamily.Rifle, MeleeFallChoice.Family("sm_mp_melee_chainsword", extraTransitionsOff: true));
+        Assert.Equal(FallFamily.Rifle, MeleeFallChoice.Family(null, extraTransitionsOff: false));
+    }
+
+    [Fact]
+    public void The_landing_is_the_hammers_only_for_a_hammer_with_the_switch_on_and_the_clip_present()
+    {
+        Assert.Equal("TH", MeleeFallChoice.Landing("x_thunder_hammer", false, "plain", "TH"));
+        Assert.Equal("TH", MeleeFallChoice.Landing("x_power_mace", false, "plain", "TH"));
+        Assert.Equal("plain", MeleeFallChoice.Landing("x_thunder_hammer", true, "plain", "TH"));       // --no-extra-transitions
+        Assert.Equal("plain", MeleeFallChoice.Landing("x_thunder_hammer", false, "plain", null));      // the clip is not in the rig
+        Assert.Equal("plain", MeleeFallChoice.Landing("x_chainsword", false, "plain", "TH"));
+        Assert.Equal("plain", MeleeFallChoice.Landing(null, false, "plain", "TH"));
+    }
+
+    [Fact]
+    public void Musous_spear_counts_as_the_hammer_through_its_alias()
+    {
+        // The alias of the spear carries the hammer's wargear name (AnimationAlias.Of, Extras); the choice only sees the aliased name.
+        Assert.True(MeleeFallChoice.IsHammer("sm_mp_melee_thunder_hammer"));
+        Assert.False(MeleeFallChoice.IsHammer(null));
+    }
+}

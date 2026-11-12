@@ -390,13 +390,13 @@ public partial class NetworkView
     }
 
     /// <summary>Install transitions: the run landing of the marine's weapon: the thunder hammer's (<c>SM_JMP_TH_Landing_LowRun</c>, 1.133 s) when it carries the hammer, else the plain one (0.9 s). <c>--no-extra-transitions</c>: the plain one.</summary>
-    string? LandRunOf(PlayerState s) => HammerCarried(s) ? _jmpLandRunTh ?? _jmpLandRun : _jmpLandRun;
+    string? LandRunOf(PlayerState s) => MeleeFallChoice.Landing(CarriedAlias(s), NoExtraTransitions, _jmpLandRun, _jmpLandRunTh);
 
     /// <summary>Install transitions: the idle landing of the marine's weapon (<c>SM_JMP_TH_Landing_Low</c> for the hammer, 1.2 s as the plain one).</summary>
-    string? LandIdleOf(PlayerState s) => HammerCarried(s) ? _jmpLandIdleTh ?? _jmpLandIdle : _jmpLandIdle;
+    string? LandIdleOf(PlayerState s) => MeleeFallChoice.Landing(CarriedAlias(s), NoExtraTransitions, _jmpLandIdle, _jmpLandIdleTh);
 
-    /// <summary>Install transitions: the marine's melee weapon is the thunder hammer or the daemon maul (the graphs' <c>BOOL_Thunderhammer</c>); false with <c>--no-extra-transitions</c>.</summary>
-    bool HammerCarried(PlayerState s) => !NoExtraTransitions && _config is not null && MeleeWargear(s) is { } w && HammerSlashPose.IsHammer(AnimationAlias.Of(w));
+    /// <summary>Install transitions: the marine's melee wargear by animation alias (Musou's spear is the hammer's), null without a configuration (<see cref="MeleeFallChoice"/>).</summary>
+    string? CarriedAlias(PlayerState s) => _config is not null && MeleeWargear(s) is { } w ? AnimationAlias.Of(w) : null;
 
     /// <summary>feel/jump-pack-2: the player's sword slash spec (its clip's crops), or null.</summary>
     SlashSpec? SlashOf(PlayerState s) => _config is null ? null : Loadouts.JumpPack(_config, s)?.Slash;

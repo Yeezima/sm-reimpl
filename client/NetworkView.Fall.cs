@@ -98,11 +98,7 @@ public partial class NetworkView
     /// Install transitions (2026-11-12): a marine carrying the thunder hammer (or the daemon maul) or the chainsword falls as the graphs' <c>BOOL_Thunderhammer</c> / <c>BOOL_Chainsword</c> states do
     /// (<c>SM_NAV_CS_Dropdown</c> / <c>_Landing</c>, <c>SM_2HM_NAV_TH_Dropdown</c> / <c>_Landing</c>: the heavy bolter's whole-body shape); every other marine keeps the rifle's. <c>--no-extra-transitions</c>: the rifle's for all.
     /// </summary>
-    FallFamily MeleeFallFamily(PlayerState s)
-    {
-        if (HammerCarried(s)) return FallFamily.Hammer;
-        return !NoExtraTransitions && _config is not null && MeleeWargear(s) is { } wargear && AnimationAlias.Of(wargear).Contains("chainsword", StringComparison.OrdinalIgnoreCase) ? FallFamily.Chainsword : FallFamily.Rifle;
-    }
+    FallFamily MeleeFallFamily(PlayerState s) => MeleeFallChoice.Family(CarriedAlias(s), NoExtraTransitions);
 
     /// <summary>Whether the marine's class has <c>mp_fall_protection</c> (the wargear whose lifetime actions apply it: the three core evade abilities, so all of them) and so leaves the landing at the short exit.</summary>
     bool FallProtectedClass(PlayerState s)
