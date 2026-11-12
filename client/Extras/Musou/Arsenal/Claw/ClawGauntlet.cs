@@ -101,10 +101,9 @@ public static class ClawGauntlet
         var handle = sword.Model.Tree.ModelSpace(wield.HandleNode);
         if (!Num.Matrix4x4.Invert(handle, out _)) return null;
 
-        var dark = Standard(new Color(0.27f, 0.30f, 0.34f), 0.7f, 0.42f);
-        var plate = Standard(new Color(0.38f, 0.42f, 0.47f), 0.65f, 0.38f);
-        var brass = Standard(new Color(0.86f, 0.62f, 0.22f), 0.85f, 0.30f);
-        var steel = Standard(new Color(0.58f, 0.61f, 0.68f), 0.8f, 0.30f);
+        // Worn materials (ClawPowerField): the housing's two plates are placeholders the rig swaps for the wearer's own gauntlet armour (ClawArmourLook; this worn grey plate where none is known), brass and
+        // steel fittings are procedural grime, chips and scratches, the blades are brushed steel with a power field in their emission.
+        Material dark = ClawPowerField.HousingDark, plate = ClawPowerField.HousingPlate, brass = ClawPowerField.Brass, steel = ClawPowerField.Steel, bladeMaterial = ClawPowerField.BladeMaterial;
         var parts = new List<(Material Material, SurfaceTool Tool)>();
         SurfaceTool Tool(Material m)
         {
@@ -125,7 +124,13 @@ public static class ClawGauntlet
             return new Vector3(r.X, r.Y, r.Z);
         }
         Vector3 L(Vector3 p) => At(p.X, p.Y, p.Z);
-        void Tri(SurfaceTool t, Vector3 p, Vector3 q, Vector3 r) { t.AddVertex(p); t.AddVertex(q); t.AddVertex(r); }
+        // Every triangle gets a box-projected UV (0.5 m to a unit, in the model's own space): the housing's armour texture is laid on it from the wearer's gauntlet (ClawArmourLook).
+        void Tri(SurfaceTool t, Vector3 p, Vector3 q, Vector3 r)
+        {
+            var n = (q - p).Cross(r - p).Abs();
+            Vector2 UvOf(Vector3 v) => (n.X >= n.Y && n.X >= n.Z ? new Vector2(v.Y, v.Z) : n.Y >= n.Z ? new Vector2(v.X, v.Z) : new Vector2(v.X, v.Y)) * 2f;
+            t.SetUV(UvOf(p)); t.AddVertex(p); t.SetUV(UvOf(q)); t.AddVertex(q); t.SetUV(UvOf(r)); t.AddVertex(r);
+        }
         void Quad(SurfaceTool t, Vector3 p, Vector3 q, Vector3 r, Vector3 s) { Tri(t, p, q, r); Tri(t, p, r, s); }
         void Box(SurfaceTool t, float x0, float x1, float y0, float y1, float z0, float z1)
         {
@@ -239,27 +244,32 @@ public static class ClawGauntlet
         Box(Tool(brass), -0.250f, -0.240f, -0.100f, 0.100f, baseZ - 0.017f, baseZ + 0.042f);
 
         // Four long, slightly curved steel blades fixed in the sockets: a flat diamond section tapering to a point, parallel along the fingers and curving a little toward the palm.
+        // UV: x along the blade (0 root, 1 point), y across the section (-1 .. 1; the cutting edges at the ends), for the brushed steel, the nicks and the glow's edge heat.
         const int segments = 14;
         float length = BladeLength;
         float BladeZ(float t) => rootZ - Bend * t * t;
-        var crackle = new SurfaceTool();
-        crackle.Begin(Mesh.PrimitiveType.Triangles);
-        foreach (float y in rows)
+        var halo = new SurfaceTool();
+        halo.Begin(Mesh.PrimitiveType.Triangles);
+        var bladeTool = Tool(bladeMaterial);
+        var roots = new Vector3[rows.Length];
+        var vectors = new Vector3[rows.Length];
+        var sideDir = (L(new Vector3(0f, 1f, 0f)) - L(Vector3.Zero)).Normalized();
+        for (int row = 0; row < rows.Length; row++)
         {
-            var tool = Tool(steel);
+            float y = rows[row];
             var centres = new Vector3[segments + 1];
             var thick = new Vector3[segments + 1];
-            var side = L(new Vector3(0f, 1f, 0f)) - L(Vector3.Zero);
+            var tangents = new Vector3[segments + 1];
             for (int i = 0; i <= segments; i++)
             {
                 float t = i / (float)segments;
                 float x = -0.020f + (length + 0.020f) * t;
                 centres[i] = At(x, y * (1f + 0.30f * t), BladeZ(t));
                 var ahead = At(x + 0.01f, y * (1f + 0.30f * (t + 0.01f / length)), BladeZ(MathF.Min(1f, t + 0.01f / length)));
-                var tan = (ahead - centres[i]).Normalized();
-                thick[i] = side.Normalized().Cross(tan).Normalized();
+                tangents[i] = (ahead - centres[i]).Normalized();
+                thick[i] = sideDir.Cross(tangents[i]).Normalized();
             }
-            var sideDir = side.Normalized();
+            roots[row] = centres[0]; vectors[row] = centres[segments] - centres[0];
             for (int i = 0; i < segments; i++)
             {
                 float t0 = i / (float)segments, t1 = (i + 1) / (float)segments;
@@ -270,20 +280,47 @@ public static class ClawGauntlet
                 float[,] sec = { { 1f, 0f }, { 0.45f, 1f }, { -0.45f, 1f }, { -1f, 0f }, { -0.45f, -1f }, { 0.45f, -1f } };
                 var s0 = new Vector3[6]; var s1 = new Vector3[6];
                 for (int k = 0; k < 6; k++) { s0[k] = A(i, W(t0), H(t0), sec[k, 0], sec[k, 1]); s1[k] = A(i + 1, W(t1), H(t1), sec[k, 0], sec[k, 1]); }
-                for (int k = 0; k < 6; k++) Quad(tool, s0[k], s1[k], s1[(k + 1) % 6], s0[(k + 1) % 6]);
+                for (int k = 0; k < 6; k++)
+                {
+                    int n = (k + 1) % 6;
+                    Vector2 Uv(float t, int c) => new(t, sec[c, 0]);
+                    bladeTool.SetUV(Uv(t0, k)); bladeTool.AddVertex(s0[k]); bladeTool.SetUV(Uv(t1, k)); bladeTool.AddVertex(s1[k]); bladeTool.SetUV(Uv(t1, n)); bladeTool.AddVertex(s1[n]);
+                    bladeTool.SetUV(Uv(t0, k)); bladeTool.AddVertex(s0[k]); bladeTool.SetUV(Uv(t1, n)); bladeTool.AddVertex(s1[n]); bladeTool.SetUV(Uv(t0, n)); bladeTool.AddVertex(s0[n]);
+                }
             }
-            // the glow: a soft sheen along this blade, in two planes
-            const float span = 0.018f;
-            for (int plane = 0; plane < 2; plane++)
+            // the halo: a view-facing ribbon along this blade (the shader turns it to the camera; each sample carries the blade's direction)
+            for (int i = 0; i < segments; i++)
             {
-                var p0 = plane == 0 ? centres[0] - sideDir * span : centres[0] - thick[0] * span;
-                var p1 = plane == 0 ? centres[0] + sideDir * span : centres[0] + thick[0] * span;
-                const float tipSpan = span * 0.12f;   // the sheen narrows to the blade's point
-                var p2 = plane == 0 ? centres[segments] + sideDir * tipSpan : centres[segments] + thick[segments] * tipSpan;
-                var p3 = plane == 0 ? centres[segments] - sideDir * tipSpan : centres[segments] - thick[segments] * tipSpan;
-                crackle.SetUV(new Vector2(0f, 0f)); crackle.AddVertex(p0); crackle.SetUV(new Vector2(0f, 1f)); crackle.AddVertex(p1); crackle.SetUV(new Vector2(1f, 1f)); crackle.AddVertex(p2);
-                crackle.SetUV(new Vector2(0f, 0f)); crackle.AddVertex(p0); crackle.SetUV(new Vector2(1f, 1f)); crackle.AddVertex(p2); crackle.SetUV(new Vector2(1f, 0f)); crackle.AddVertex(p3);
+                float t0 = i / (float)segments, t1 = (i + 1) / (float)segments;
+                void Vert(int k, float t, float side) { halo.SetUV(new Vector2(t, side)); halo.SetNormal(tangents[k]); halo.AddVertex(centres[k]); }
+                Vert(i, t0, -1f); Vert(i + 1, t1, -1f); Vert(i + 1, t1, 1f);
+                Vert(i, t0, -1f); Vert(i + 1, t1, 1f); Vert(i, t0, 1f);
             }
+        }
+
+        // The electrical arcs (ClawPowerField): fixed strips whose shape the vertex shader redraws every few frames. Importance order (the level of detail keeps the first ones): one arc crawling along each blade,
+        // one jump between each pair of neighbouring blades, one spit off each blade's edge, a second crawling arc on each blade.
+        SurfaceTool? arcs = null;
+        if (!ClawPowerField.NoArcs)
+        {
+            arcs = new SurfaceTool();
+            arcs.Begin(Mesh.PrimitiveType.Triangles);
+            arcs.SetCustomFormat(0, SurfaceTool.CustomFormat.RgbaFloat);
+            arcs.SetCustomFormat(1, SurfaceTool.CustomFormat.RgbaFloat);
+            int priority = 0, first = 0;
+            void Arc(int row, int toward, int kind)
+            {
+                float rank = priority / (float)ClawPowerField.ArcsPerClaw;
+                var neighbour = kind == 1 ? roots[toward] - roots[row] : Vector3.Zero;
+                ClawPowerField.AddArc(arcs, roots[row], vectors[row], neighbour, sideDir, priority, kind, rank);
+                ClawPowerField.AddArcIndices(arcs, first);
+                first += 2 * (ClawPowerField.ArcSegments + 1);
+                priority++;
+            }
+            for (int row = 0; row < rows.Length; row++) Arc(row, row, 0);
+            for (int row = 0; row < rows.Length - 1; row++) Arc(row, row + 1, 1);
+            for (int row = 0; row < rows.Length; row++) Arc(row, row, 2);
+            for (int row = 0; row < rows.Length; row++) Arc(row, row, 0);
         }
 
         var mesh = new ArrayMesh();
@@ -291,12 +328,21 @@ public static class ClawGauntlet
         foreach (var (material, tool) in parts)
         {
             tool.GenerateNormals();
+            tool.GenerateTangents();
             tool.SetMaterial(material);
             tool.Commit(mesh);
         }
+        halo.SetMaterial(ClawPowerField.HaloMaterial);
+        halo.Commit(mesh);
+        if (arcs is not null)
+        {
+            var arcMaterial = ClawPowerField.ArcMaterial;
+            ClawPowerField.SetBow(arcMaterial, (L(new Vector3(0f, 0f, 1f)) - L(Vector3.Zero)) * Bend);
+            arcs.SetMaterial(arcMaterial);
+            arcs.Commit(mesh);
+        }
+        mesh.CustomAabb = mesh.GetAabb().Grow(0.12f);   // an arc may leave the blades by a hand's breadth
         if (ClawCrackle.Demo || ClawCrackle.GlowTest) ClawCrackle.Ensure();
-        crackle.SetMaterial(ClawCrackle.Material);
-        crackle.Commit(mesh);
         for (int s = 0; s < mesh.GetSurfaceCount(); s++) triangles += mesh.SurfaceGetArrayLen(s) / 3;
         GD.Print($"claw gauntlet: built, {triangles} triangles, {parts.Count} materials, blades {length:F2} m from the knuckle line");
         return new WeaponAsset(sword.Model, mesh, new Dictionary<string, ArrayMesh>(), triangles, parts.Count, 0, 0, null);
