@@ -284,9 +284,10 @@ public sealed partial class FxPlayer
         if (plan.Cpu) { s.Cpu = true; _gpuFallbacks++; return s; }
         s.AllGpu = plan.All;
         bool more = e.Amount > 1f && HoldsAlpha(n);
+        bool thin = e.DustShare < 1f && HoldsAlpha(n);   // musou/autocannon-dust: as DrawSprayParticles, cycle 0
         // First pass: how many records of each blend.
         for (int i = 0; i < n.Spawns.Length; i++)
-        for (int copy = 0, copies = more ? FxAmount.Copies(e.Amount, R(Mix(seed, i), 77)) : 1; copy < copies; copy++)
+        for (int copy = 0, copies = thin && !FxAmount.Kept(e.DustShare, R(Mix(seed, i), 91)) ? 0 : more ? FxAmount.Copies(e.Amount, R(Mix(seed, i), 77)) : 1; copy < copies; copy++)
         {
             GpuParticleTypes(plan, GpuSeed(seed, i, copy), _gpuParticleTypes);
             foreach (int t in _gpuParticleTypes) { if (_gpuAdditiveTypes.Contains(t)) s.AddCount += GpuRecordsOf(t); else s.AlphaCount += GpuRecordsOf(t); }
@@ -309,7 +310,7 @@ public sealed partial class FxPlayer
         double start = g.Clock - age;
         int ai = s.AddStart, li = s.AlphaStart;
         for (int i = 0; i < n.Spawns.Length; i++)
-        for (int copy = 0, copies = more ? FxAmount.Copies(e.Amount, R(Mix(seed, i), 77)) : 1; copy < copies; copy++)
+        for (int copy = 0, copies = thin && !FxAmount.Kept(e.DustShare, R(Mix(seed, i), 91)) ? 0 : more ? FxAmount.Copies(e.Amount, R(Mix(seed, i), 77)) : 1; copy < copies; copy++)
         {
             // DrawSpray's spawn-time values (cycle 0: the spray does not loop).
             uint ps = GpuSeed(seed, i, copy);

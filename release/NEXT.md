@@ -9,3 +9,6 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Leave out changes a tester cannot notice (tooling, docs, refactors). Optional "### " headings group long lists.
 - Add your bullets in the same pull request as the change, when it merges.
 -->
+
+### Musou Mode
+- The autocannon's hit and its explosion now kick up half as much dust, and each explosion throws chunks of rubble out of the ground, like a smaller ground pound. Fire it at a crowd and look at the floor around the blast.
