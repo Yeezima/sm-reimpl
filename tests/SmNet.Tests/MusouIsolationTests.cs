@@ -64,7 +64,7 @@ public class MusouIsolationTests(ITestOutputHelper output)
     // feel/charge-clash (protocol 59, 2026-11-06): the clash's shove carrying the stunned victim and the 0.9 m charge guard moved both together (B63061B6… before; 17 charges).
     // sim/holstered-cooldown and sim/string-reset (protocol 62, stream B, 2026-11-07): each weapon keeping its own shot cooldown (the replay's states carry the holstered ones) moved both together (F6EC1813… before).
     // charge-melee-chain (protocol 70, 2026-11-12): a light press ends a charge at once and a melee start lifts the spacing; the script's melee and charges moved both together (7F4A657B... before; faithful and extended still equal).
-    const string FaithfulReplay = "C3422F35DC691B3D57ACEEE9FB5AD9828323FAB8D8934AB871895C902FCD0054", ExtendedReplay = "C3422F35DC691B3D57ACEEE9FB5AD9828323FAB8D8934AB871895C902FCD0054";
+    const string FaithfulReplay = "8A5833FDFB6C629D0E09BB2F4B84F8CECFE4C9E51142F31118C7D1F8CB1D5EBB", ExtendedReplay = "8A5833FDFB6C629D0E09BB2F4B84F8CECFE4C9E51142F31118C7D1F8CB1D5EBB";
 
     [Fact]
     public void The_faithful_and_extended_config_hashes_are_unchanged()

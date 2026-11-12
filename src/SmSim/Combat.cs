@@ -345,6 +345,7 @@ public static class Combat
     public static PlayerState StepPlayer(PlayerState s, PlayerInput input, SimConfig c, out SelfEvents events, CollisionWorld? world = null,
         IReadOnlyDictionary<int, PlayerState>? others = null)
     {
+        if (s.DamageFresh) s = s with { DamageFresh = false };   // protocol 71: a new tick, a new damage mark (the server's tick and the client's prediction alike)
         // feel/buffer-speed: a buffered press is replayed into the tick (InputBuffer.Begin) and the buffer updated from what started (InputBuffer.End).
         // A replayed melee press goes through the melee lock like a fresh one (the input's MeleeTarget is the tick's own).
         var buffer = InputBuffer.Begin(s, input, c);

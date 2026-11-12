@@ -22,7 +22,7 @@ public class DamageMarkTests
         // A second damage in the same tick (many pellets, many sources): the counter stays, the bits are ORed.
         var again = Combat.ApplyDamage(hit with { Shield = 0f }, 10f, 1f, 1f, c).After;
         Assert.Equal((1, true, true), ((int)again.DamageCount, again.DamageShield, again.DamageHealth));
-        // The next tick (World.Step clears the fresh flag): a new count, only that tick's bits.
+        // The next tick (Combat.StepPlayer clears the fresh flag): a new count, only that tick's bits.
         var next = Combat.ApplyDamage(again with { DamageFresh = false }, 10f, 1f, 1f, c).After;
         Assert.Equal((2, false, true), ((int)next.DamageCount, next.DamageShield, next.DamageHealth));
         // A shield-breaking blow that spills into health: both bits at once.
@@ -66,10 +66,10 @@ public class DamageMarkTests
         Assert.Equal((7, true, true), ((int)back.Players[2].DamageCount, back.Players[2].DamageShield, back.Players[2].DamageHealth));
         Assert.Equal(Protocol.Slim(a), back.Players[0]);
 
-        // The mark is the byte after the evade byte of a slim record: 26 from the end of a one-record snapshot (24 bytes of blocks follow it); bits 5..7 are refused.
+        // The mark is the byte after the evade byte of a slim record: 25 from the end of a one-record snapshot (24 bytes of blocks follow it); bits 6..7 are refused.
         var one = Protocol.Write(new Snapshot(1, 1, 1, [a]));
         Assert.Equal(5 | 8, one[^25]);
-        var unknown = (byte[])one.Clone(); unknown[^25] |= 32;
+        var unknown = (byte[])one.Clone(); unknown[^25] |= 64;
         Assert.Null(Protocol.Read(unknown));
     }
 
@@ -121,7 +121,7 @@ public class DamageMarkTests
         var back = Assert.IsType<Snapshot>(Protocol.Read(Protocol.Write(new Snapshot(1, 1, 1, world.Players.Values.OrderBy(p => p.PlayerId).ToArray()))));
         Assert.Equal(1, back.Players.Single(p => p.PlayerId == 2).DamageCount);
         Assert.True(freshAtHit);                                  // marked on the hit's tick
-        Assert.False(world.Players[2].DamageFresh);               // World.Step cleared it at the start of a later tick
+        Assert.False(world.Players[2].DamageFresh);               // Combat.StepPlayer cleared it at the start of a later tick
         Assert.Equal(1, world.Players[2].DamageCount);            // the counter stays
     }
 }

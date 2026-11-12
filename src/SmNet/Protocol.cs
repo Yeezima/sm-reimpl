@@ -514,7 +514,7 @@ public static partial class Protocol
     // 70 (charge-melee-chain; the owner 2026-11-12): no layout change. A light melee press cancels a bull rush at once on any tick (any class, no wait after the swing) and any melee attack lifts the 1 s spacing between
     //     charges, so charge > melee > charge chains with no delay, in every mode; in Musou Mode light melee attacks have no cooldown or delay. Restore switches (config hash): --old-charge-melee-chain, --musou-melee-cooldown.
     // 71 (onhit-damage-mark; the owner 2026-11-13: "any sort of damage should trigger the sparks and glows"): every player's record gains one byte after the evade byte: a damage counter (bits 0..2, modulo 8, raised once per tick in which the player took any damage)
-    //     and whether the damages of that tick took shield (bit 3) and health (bit 4); bits 5..7 zero. Presentation only: the config hash does not change. Clients show the glow and sparks on a change.
+    //     and whether the damages of that tick took shield (bit 3) and health (bit 4), and (bit 5) that the player was already damaged this tick (so round trips are exact); bits 5..7 zero. Presentation only: the config hash does not change. Clients show the glow and sparks on a change.
     public const ushort Version = 71;
     /// <summary>The kill-feed cause code of a weapon kill on the head (protocol 64; <see cref="KillView.Headshot"/>).</summary>
     public const int HeadshotCauseCode = 6;
@@ -760,7 +760,7 @@ public static partial class Protocol
                     var (meleeByte, meleeTime) = MeleeField(p);
                     w.U8(meleeByte); w.F32(meleeTime);   // protocol 17: heavy flag or a reaction (see MeleeField)
                     w.U8(EvadeByte(p));   // protocol 13: direction (bits 0..1) << 6 | ticks (0..63; 0 not evading); bit 2 in the slot byte (14)
-                    w.U8((byte)((p.DamageCount & 7) | (p.DamageShield ? 8 : 0) | (p.DamageHealth ? 16 : 0)));   // protocol 71: the damage mark
+                    w.U8((byte)((p.DamageCount & 7) | (p.DamageShield ? 8 : 0) | (p.DamageHealth ? 16 : 0) | (p.DamageFresh ? 32 : 0)));   // protocol 71: the damage mark (bit 5: damaged this tick already)
                     if (!full) continue;
                     // The recipient's own player: everything its prediction replays from (97 more bytes). Protocol 23 (M43): first the
                     // perk word: perk 1 (bits 0..6), perk 2 (bits 7..13; 127 none) and a burst's rounds left (bits 14..15).
@@ -1070,7 +1070,7 @@ public static partial class Protocol
             int evade = r.U8(), evadeTicks = evade & Evade.MaxSlimTicks;
             if (evadeTicks == 0 && (evade != 0 || diagonal != 0 || landed)) return null;   // a direction or a landing without an evade
             int damageMark = r.U8();   // protocol 71
-            if ((damageMark & 0xE0) != 0) return null;   // unknown bits
+            if ((damageMark & 0xC0) != 0) return null;   // unknown bits
             var p = new PlayerState(id, position, velocity, yaw, (flags & 1) != 0)
             {
                 Pitch = pitch, Alive = (flags & 2) != 0, Charging = (flags & 8) != 0, Throwing = (flags & 16) != 0, Aiming = (flags & 128) != 0,
@@ -1080,7 +1080,7 @@ public static partial class Protocol
                 MeleeChoice = meleeChoice, Team = (Team)(classAndTeam >> 6),
                 Primary = slot == (int)WeaponSlot.Ranged ? inHand : -1, Pistol = slot == (int)WeaponSlot.Pistol ? inHand : -1,
                 EvadeTicks = evadeTicks, EvadeDirection = (EvadeDirection)((evade >> 6) | (diagonal << 2)), EvadeLanded = landed,
-                DamageCount = (byte)(damageMark & 7), DamageShield = (damageMark & 8) != 0, DamageHealth = (damageMark & 16) != 0,   // protocol 71
+                DamageCount = (byte)(damageMark & 7), DamageShield = (damageMark & 8) != 0, DamageHealth = (damageMark & 16) != 0, DamageFresh = (damageMark & 32) != 0,   // protocol 71
                 ReadyTicks = up ? 1 : 0,   // slim: a representative value (the own record below has the exact ticks)
                 Brace = bracePhase, Venting = venting, JumpSlash = slash,
             };
@@ -1452,7 +1452,7 @@ public static partial class Protocol
             MeleeStep = melee.Step, MeleeTime = melee.Time, MeleeHeavy = melee.Heavy,
             Reaction = melee.Reaction, ReactionDirection = melee.Direction, ReactionTicks = melee.Ticks, Rush = melee.Rush, RushTicks = melee.RushTicks,
             SprintStop = melee.SprintStop,   // protocol 36
-            DamageCount = (byte)(p.DamageCount & 7), DamageShield = p.DamageShield, DamageHealth = p.DamageHealth,   // protocol 71
+            DamageCount = (byte)(p.DamageCount & 7), DamageShield = p.DamageShield, DamageHealth = p.DamageHealth, DamageFresh = p.DamageFresh,   // protocol 71
             Primary = p.Slot == WeaponSlot.Ranged ? FromIndex(Index(p.Primary)) : -1,
             Pistol = p.Slot == WeaponSlot.Pistol ? FromIndex(Index(p.Pistol)) : -1,
             MeleeChoice = FromIndex(Index(p.MeleeChoice)),
