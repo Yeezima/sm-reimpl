@@ -364,6 +364,9 @@ public sealed partial class PreviewStage : SubViewportContainer
     /// <summary>Turns the camera at once (screenshots and tests).</summary>
     public void SnapCamera() => _snapCamera = true;
 
+    /// <summary>Turns the figure to <paramref name="yaw"/> degrees (0: front, 180: from behind) and sets the zoom, at once (screenshots and tests: <c>--preview-yaw</c>, <c>--preview-zoom</c>).</summary>
+    public void ViewFrom(float yaw, float zoom) { _yaw = yaw; _zoom = Mathf.Clamp(zoom, 0.55f, 1.6f); _lastUserRotation = _time; _snapCamera = true; }
+
     // ---- the frame ----
 
     public override void _Ready()
@@ -411,6 +414,9 @@ public sealed partial class PreviewStage : SubViewportContainer
 
     /// <summary>The wargear in the preview's hand (test aid).</summary>
     public string? HeldWargear => _deployed;
+
+    /// <summary>The weapon nodes the preview's rig draws now and the wargear it was configured with (test aid: primary, pistol, melee).</summary>
+    public (int Nodes, string? Primary, string? Pistol, string? Melee) ShownWeapons => _rig is null ? (0, null, null, null) : (_rig.WeaponCount, _rig.Names.Primary, _rig.Names.Pistol, _rig.Names.Melee);
 
     void UpdateEyeGlow(double delta)
     {
