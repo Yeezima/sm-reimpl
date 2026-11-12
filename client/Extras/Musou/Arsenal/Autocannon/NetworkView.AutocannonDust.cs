@@ -25,6 +25,8 @@ public partial class NetworkView
 {
     /// <summary>The share of the autocannon's dust and debris sprites that is drawn (owner 2026-11-12: 50 % less; ours is a rounding of "50%").</summary>
     internal const float DustShare = 0.5f;
+    /// <summary>The share of the autocannon's 2.5 m blast's dust and debris sprites that is drawn: none (owner 2026-11-13: "remove the dust from the autocannon aoe blast"; the flash, fire, light and decals are additive or not sprites of dust and stay; the hit's own effect keeps <see cref="DustShare"/>).</summary>
+    internal const float BlastDust = 0f;
     /// <summary>The chunks of a blast at the autocannon's blast radius (ours), at most live at once, the most blasts that throw a frame, and the camera distance beyond which none are thrown (m).</summary>
     internal const int ShardMin = 5, ShardMax = 9, ShardCap = 36, ShardBurstsPerFrame = 2;
     internal const float ShardRange = 45f;
@@ -46,7 +48,7 @@ public partial class NetworkView
     }
 
     /// <summary>The dust share a blast of <paramref name="radius"/> metres is drawn with: <see cref="DustShare"/> for the autocannon's (a radius above the bolt blast's), 1 for every other blast.</summary>
-    float BlastDustShare(float radius) => !OldAutocannonDust && SmSim.AutocannonRules.BlastDrawScale(radius) > 1f ? DustShare : 1f;
+    float BlastDustShare(float radius) => !OldAutocannonDust && SmSim.AutocannonRules.BlastDrawScale(radius) > 1f ? BlastDust : 1f;
 
     /// <summary>The chunks of one autocannon blast at <paramref name="at"/> (game space, blast radius <paramref name="radius"/> m); the number thrown, 0 when none.</summary>
     int BlastDebris(Num.Vector3 at, float radius, int seed, ref int burstsThisFrame)

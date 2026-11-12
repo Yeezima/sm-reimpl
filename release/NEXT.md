@@ -11,4 +11,4 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 -->
 
 ### Musou Mode
-- The autocannon's hit and its explosion now kick up half as much dust, and each explosion throws chunks of rubble out of the ground, like a smaller ground pound. Fire it at a crowd and look at the floor around the blast.
+- The autocannon's explosion no longer kicks up dust (its flash stays), its hit kicks up half as much, and each explosion throws chunks of rubble out of the ground, like a smaller ground pound. Fire it at a crowd and look at the floor around the blast.
