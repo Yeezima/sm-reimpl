@@ -320,7 +320,7 @@ public sealed partial class NetworkView
 
     /// <summary>
     /// <c>--tfw-pod-test</c> (a scripted player, not <c>--bot</c>, with <c>--tfw-deploy b --tfw-support droppod</c>): looks ahead, presses the real key B, and checks the call end to end: the pod's record, its
-    /// touchdown about <see cref="TfwDropPodRules.LandSeconds"/> later on the crosshair's point, four more AI Marines after the doors, a second call refused (one pod each, and the cooldown), the cooldown on the
+    /// touchdown about <see cref="TfwDropPodRules.LandSeconds"/> later on the crosshair's point, five more AI Marines after the doors, a second call refused (one pod each, and the cooldown), the cooldown on the
     /// HUD, and every Marine and the pod gone after the fight and the retreat. TFWTEST lines; quits 0, or 1 when any failed.
     /// </summary>
     void TfwPodTestFrame(in TfwWarView war)
@@ -379,7 +379,7 @@ public sealed partial class NetworkView
                 // A live battle may kill them first (the Orks come to the landing zone): reported, not a failure; the sim's timeline is TfwDropPodTests'.
                 int fighting = TfwPodPuppets() - _tfwPodBase;
                 GD.Print($"TFWTEST note: drop pod: {fighting} of the Marines still fighting near the end of the 30 s");
-                TfwPodCheck($"no more than the squad's four: {fighting}", fighting <= TfwDropPodRules.Marines);
+                TfwPodCheck($"no more than the squad's five: {fighting}", fighting <= TfwDropPodRules.Marines);
                 _tfwPodStage = 6; _tfwPodAt = _connectedFor + TfwDropPodRules.RetreatMaxSeconds + TfwDropPodRules.WreckSeconds + 8.0;
                 break;
             case 6:

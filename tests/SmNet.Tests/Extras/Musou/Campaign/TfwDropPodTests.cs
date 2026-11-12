@@ -6,7 +6,7 @@ using SmSim.Extras.Musou.Campaign;
 
 namespace SmNet.Tests.Extras.Musou.Campaign;
 
-/// <summary>The drop pod assault (docs/drop-pod-assault.md, owner 2026-11-12): the call, the fall, the touchdown, the four Tactical Marines, their 30 s, their retreat to the HQ and their end, scripted through the real World.</summary>
+/// <summary>The drop pod assault (docs/drop-pod-assault.md, owner 2026-11-12): the call, the fall, the touchdown, the five Tactical Marines, their 30 s, their retreat to the HQ and their end, scripted through the real World.</summary>
 public class TfwDropPodTests
 {
     const int Human = TfwRig.Human;
@@ -195,11 +195,12 @@ public class TfwDropPodTests
     }
 
     [Fact]
-    public void Four_tactical_marines_step_out_fight_30_s_retreat_to_the_hq_and_are_gone_with_the_pod()
+    public void Five_tactical_marines_step_out_fight_30_s_retreat_to_the_imperial_base_and_are_gone_with_the_pod()
     {
         var w = Battle();
         var run = w.Tfw!;
-        var hq = run.Battle!.Layout.Hq;
+        var hq = run.Battle!.Layout.LandingZone;   // the Imperial base, not the Ork stronghold (Layout.Hq)
+        Assert.NotEqual(run.Battle.Layout.Hq, hq);
         Assert.True(w.TfwDropPod(Human, Open));
         var pod = run.Pods[0];
         int rate = w.Config.TickRate;
@@ -234,6 +235,7 @@ public class TfwDropPodTests
             foreach (var m in PodMarines(w)) closest = MathF.Min(closest, MarineBrain.Flat(w.Players[m.Id].Position, hq));
         }
         Assert.Empty(PodMarines(w));
+        Assert.True(closest < MarineBrain.Flat(Open, hq), $"the retreat went toward the Imperial base ({closest:F1} m at the closest, {MarineBrain.Flat(Open, hq):F1} m at the start)");
         TfwRig.Steps(w, 2);   // the pod notices on the next tick
         Assert.Equal(TfwPodPhase.Wreck, pod.Phase);
         Assert.Equal(Enumerable.Range(TfwContracts.PuppetIdFirst, TfwContracts.PuppetIds).Count(id => w.Players.ContainsKey(id)), run.Marines.Count);   // no body of theirs left in the world
@@ -320,13 +322,13 @@ public class TfwDropPodTests
         var run = w.Tfw!;
         Assert.True(w.TfwDropPod(Human, Open));
         Assert.Equal(TfwDropPodRules.Marines, run.PodIdsReserved);
-        // Fill every id but the pod's four: nothing else may take one of those.
+        // Fill every id but the pod's five: nothing else may take one of those.
         int spare = 0;
         for (int id = TfwContracts.PuppetIdFirst; id <= TfwContracts.PuppetIdLast; id++) if (!w.Players.ContainsKey(id)) spare++;
         for (int k = 0; k < spare - TfwDropPodRules.Marines; k++) Assert.NotNull(FillId(w));
         Assert.Null(w.TfwSpawnRetainer(Human, new Vector3(0f, -90f, 0f)));   // the reserved ids are not his
         TfwRig.Seconds(w, TfwDropPodRules.LandSeconds + TfwDropPodRules.DoorSeconds + TfwDropPodRules.StepOutSeconds + 0.3f);
-        Assert.Equal(TfwDropPodRules.Marines, PodMarines(w).Count());   // all four came
+        Assert.Equal(TfwDropPodRules.Marines, PodMarines(w).Count());   // all five came
         Assert.Equal(0, run.PodIdsReserved);
     }
 

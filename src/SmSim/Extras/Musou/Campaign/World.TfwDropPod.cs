@@ -6,7 +6,7 @@ namespace SmSim;
 
 /// <summary>
 /// The drop pod assault in the World (Musou Mode's second support ability; docs/drop-pod-assault.md; owner, 2026-11-12): a player's call, the pod's touchdown (the clients draw the fall from tag 11's
-/// <see cref="TfwFireKind.Pod"/> record), the four Tactical Marines it brings (<see cref="MarineRole.Pod"/>: puppets, the AI Marine system), their 30 s fight at the pod, their retreat to the Imperial HQ and
+/// <see cref="TfwFireKind.Pod"/> record), the five Tactical Marines it brings (<see cref="MarineRole.Pod"/>: puppets, the AI Marine system), their 30 s fight at the pod, their retreat to the Imperial HQ and
 /// their end. Runs from <c>TfwFireStep</c> (a battle, or the Firing Range). The pod and its Marines hurt no friend; the touchdown kills every enemy within
 /// <see cref="TfwDropPodRules.CrushRadius"/> (30 m) at <see cref="TfwDropPodRules.CrushDamageFactor"/> (3) x a shell's damage (owner 2026-11-12).
 /// </summary>
@@ -133,8 +133,8 @@ public sealed partial class World
         }
     }
 
-    /// <summary>The Imperial HQ the pod Marines retreat to: the battle's own, the Firing Range's start otherwise.</summary>
-    Vector3 TfwPodHome(TfwRun run) => run.Battle?.Layout.Hq ?? run.Field.MarineStart;
+    /// <summary>The Imperial base the pod Marines retreat to: the battle's landing zone (the Marines' own base), the Firing Range's start otherwise. Not <c>Layout.Hq</c>: that is the Ork commander's stronghold (owner 2026-11-12).</summary>
+    Vector3 TfwPodHome(TfwRun run) => run.Battle?.Layout.LandingZone ?? run.Field.MarineStart;
 
     /// <summary>A pod Marine's tick: a fallen one is cleared after <see cref="TfwDropPodRules.FallenSeconds"/>; a retreating one is gone at the HQ or when the retreat's time is up.</summary>
     void TfwPodMarineStep(TfwRun run, Marine m, in PlayerState p)

@@ -2,7 +2,7 @@
 
 Owner, 2026-11-12: a new SUPPORT section in the Customizer, every faction and class gets it; option 1 is the existing artillery strike; option 2 is the
 drop pod assault: B marks a point with the laser as the artillery strike does; a few seconds later a drop pod falls fast from the sky with a streak of fire and
-smoke, the screen shakes hard on impact, the doors drop open and 4 tactical Marines come out, fight for 30 s, retreat to the Imperial home base (HQ) and disappear.
+smoke, the screen shakes hard on impact, the doors drop open and 5 tactical Marines come out, fight for 30 s, retreat to the Imperial home base (HQ) and disappear.
 Musou Mode only (`--content musou`); Classic PvP has no support call, its gameplay and config hash do not change. Every number below is **ours / provisional**
 unless marked, and goes into spec "Added content: Musou: drop pod assault" and the refine register.
 
@@ -44,11 +44,11 @@ which reads "B DROP POD READY" / "IN n S". The own block's cooldown byte (tag 7)
   crater decal as a shell's. **Landing (owner 2026-11-12, section 6)**: every enemy within 30 m takes 3x a shell's damage (`MusouDeathKind.Barrage`, x1.2 for a human caller; a boss takes 3 x `BossDamage` = 90) and it never hurts players, AI Marines or Guardsmen.
   A point within 10 m of the caller is refused (provisional) so a pod does not land on him.
 
-## 4. The four Tactical Marines
+## 4. The five Tactical Marines
 Reuse the AI Marine system (`MarineBrain`, `World.TfwPuppets.cs`): a new `MarineRole.Pod` beside Retainer and Ally. Puppets are server-side players without a peer
 (ids 65516 to 65527, **12 shared with retainers and the allied pair**), the Tactical class's default loadout (the owner's "tactical marines": `TfwMarineClass("tactical")`,
 primary 0), side Space Marines, wearing the caller's look as a retainer does. Fight phase: hold the landing point (`PlanRetainer` Hold, engaging within
-`MarineRules.HoldRadius`) for 30 s; then retreat phase: `MarineBrain.Plan` with the objective `Layout.Hq` (the Imperial HQ; the run's `Field.MarineStart` at the range), sprinting
+`MarineRules.HoldRadius`) for 30 s; then retreat phase: `MarineBrain.Plan` with the objective `Layout.LandingZone` (the Imperial base, the Marines' own; not `Layout.Hq`, which is the Ork commander's stronghold; the run's `Field.MarineStart` at the range), sprinting
 by the walking graph, no stopping to fight; at the HQ or after the timeout `TfwDismissMarine`. A Marine killed is not replaced and is removed 3 s after.
 They take the AI Marines' damage scale (spec: a tenth of every hit) and burn a pod's lifetime only. **They do not follow the caller** (provisional; open question 3).
 
