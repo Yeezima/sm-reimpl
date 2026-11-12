@@ -17,4 +17,10 @@ public sealed partial record SimConfig
     /// so it reads them here. Derived from the classes, which the hash covers; not written into it.
     /// </summary>
     public IReadOnlyList<int> MusouDefaultPrimaries { get; init; } = [];
+
+    /// <summary>
+    /// Restore switch (<c>--musou-ork-swing-tracking</c> on the server and every client; config hash): a melee Ork's wind-up faces its target every tick up to the blow, as before 2026-11-12
+    /// (owner: Orks commit to a direction; <see cref="MusouSwingRules"/>). Hashed by added content's block only when on.
+    /// </summary>
+    public bool MusouOrkSwingTracking { get; init; }
 }

@@ -38,7 +38,7 @@ public sealed partial class World
     {
         if (!Config.Extras.HasFlag(ContentExtras.Musou) || Rules is null) return false;
         if (_musou is not null) return true;
-        _musou = new MusouSim(nav, Config.MusouRules) { TickRate = Config.TickRate };
+        _musou = new MusouSim(nav, Config.MusouRules) { TickRate = Config.TickRate, OldSwingTracking = Config.MusouOrkSwingTracking };   // MusouSim.Swing.cs
         _musouDirector = new MusouDirector(_musou, _spawns.Select(s => s.Position).ToList());
         // The Warboss comes out of the Chaos spawn room (owner, 2026-10-31): the spot of the map's Chaos start area nearest its centre.
         int chaosArea = Array.FindIndex(_startAreas, a => a.Side == Team.Chaos);

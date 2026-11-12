@@ -16,6 +16,7 @@ public sealed partial record SimConfig
         // Musou Mode's war rules: their version sits in the same block.
         if (Extras.HasFlag(ContentExtras.Musou)) { w.Write("musou"); w.Write(MusouSim.Version); w.Write(SmSim.Extras.Musou.Campaign.TfwRules.Version); if (AerialTackleRestored) w.Write("aerial-tackle"); }
         if (Extras.HasFlag(ContentExtras.Musou) && MusouMeleeCooldown) w.Write("melee-cooldown");   // musou/melee-spam: the restore switch --musou-melee-cooldown, only when on
+        if (Extras.HasFlag(ContentExtras.Musou) && MusouOrkSwingTracking) w.Write("ork-swing-tracking");   // musou/ork-swing-commit: the restore switch --musou-ork-swing-tracking, only when on
     }
 
     // musou/no-aerial-tackle (owner, 2026-11-12, temporary): Musou Mode has no aerial tackle; a melee press in a hop is the light attack at once. --musou-aerial-tackle (AerialTackleRestored) restores the tackle.

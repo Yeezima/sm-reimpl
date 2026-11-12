@@ -425,7 +425,8 @@ public sealed partial class MusouSim
         switch (_state[i])
         {
             case MusouEnemyState.WindUp:
-                Face(i, toward);
+                if (SwingRules) TrackSwing(i, toward, Ticks(spec.MeleeWindUp));   // MusouSim.Swing.cs: bounded early tracking, then the direction is locked
+                else Face(i, toward);   // before 2026-11-12 (and the 5-wave run): faces the target every tick up to the contact check
                 if (_stateTicks[i] >= Ticks(spec.MeleeWindUp))
                 {
                     SetState(i, MusouEnemyState.Strike);
