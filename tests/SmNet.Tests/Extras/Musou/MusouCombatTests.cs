@@ -521,21 +521,23 @@ public class MusouCombatTests
 
     // ---------------------------------------------------------------- bosses and melee stuns (owner 2026-11-12: unstunnable in any form, but susceptible to melee attack stuns)
 
-    static (World W, ushort Boss) WarWithBoss(Vector3 offset, MusouEnemyType type = MusouEnemyType.Warboss, int primary = 0, SimConfig? config = null)
+    static (World W, ushort Boss) WarWithBoss(Vector3 offset, MusouEnemyType type = MusouEnemyType.Warboss, int primary = 0, SimConfig? config = null, bool puppet = false)
     {
         var w = NewWorld(primary, config);
+        int who = 1;
+        if (puppet) { who = global::SmSim.Extras.Musou.Campaign.TfwContracts.PuppetIdFirst; w.Spawn(who, w.AssignClass(0)); w.Step(_ => default); }
         w.Musou!.War = global::SmSim.Extras.Musou.Campaign.TfwCombatRules.Default;
-        ushort boss = w.Musou.Spawn(type, Me(w) + offset, 0f, 1e6f);
+        ushort boss = w.Musou.Spawn(type, w.Players[who].Position + offset, 0f, 1e6f);
         for (int t = 0; t < 120; t++) w.Step(_ => new PlayerInput(0, 0f, 0f, 0f, 0));   // out of its spawn stand
         return (w, boss);
     }
 
-    static bool StunnedDuring(World w, ushort boss, int ticks, Func<int, PlayerInput> input)
+    static bool StunnedDuring(World w, ushort boss, int ticks, Func<int, PlayerInput> input, int only = 0)
     {
         bool stunned = false;
         for (int t = 0; t < ticks; t++)
         {
-            w.Step(_ => input(t));
+            w.Step(id => only == 0 || id == only ? input(t) : default);
             stunned |= w.Musou!.BossStunned(boss);
         }
         return stunned;
@@ -579,5 +581,16 @@ public class MusouCombatTests
             Assert.True(w.Musou!.TryGet(boss, out var e) && e.Health < 1e6f, $"primary {primary} hit it");
             Assert.Equal(0, w.Musou.BossStuns);
         }
+    }
+
+    [Fact]
+    public void An_AI_Marines_heavy_swing_and_charge_never_stun_a_boss()
+    {
+        var (heavy, hb) = WarWithBoss(new Vector3(0f, 2f, 0f), MusouEnemyType.BossNob, puppet: true);
+        Assert.False(StunnedDuring(heavy, hb, 30, t => new PlayerInput(0, 0f, 0f, 0f, t == 0 ? InputButtons.MeleeHeavy : 0), global::SmSim.Extras.Musou.Campaign.TfwContracts.PuppetIdFirst));
+        Assert.True(heavy.Musou!.TryGet(hb, out var hurt) && hurt.Health < 1e6f, "the swing landed");   // it hurt, it did not stun
+        var (w, boss) = WarWithBoss(new Vector3(0.3f, 4f, 0f), MusouEnemyType.BossNob, puppet: true);
+        Assert.False(StunnedDuring(w, boss, 45, t => { bool held = t < 2; return new PlayerInput(0, 0f, held ? 1f : 0f, 0f, held ? InputButtons.Sprint | (t == 1 ? InputButtons.MeleeHeavy : 0) : 0); }, global::SmSim.Extras.Musou.Campaign.TfwContracts.PuppetIdFirst));
+        Assert.True(w.Musou!.TryGet(boss, out var charged) && charged.Health < 1e6f, "the charge landed");
     }
 }

@@ -263,7 +263,7 @@ public sealed partial class World
                 musou.Damage(e.Id, id, damage, new Vector3(push, 0f), out bool killed, marker: 3, cause: MusouDeathKind.Melee);
                 if (killed) continue;
                 if (musou.War is { } war && MusouSim.Fodder(e.Type)) musou.KnockDown(e.Id, push, war.ChargePush, id, war.ChargeDeath);   // Musou Mode's fodder falls
-                else musou.StaggerMelee(e.Id, push, rules.HeavyKnockback);   // a charge staggers a boss too (melee stuns land on bosses, MusouSim.BossStun.cs)
+                else musou.StaggerMelee(e.Id, push, rules.HeavyKnockback, id);   // a charge staggers a boss too (melee stuns land on bosses, MusouSim.BossStun.cs)
             }
         }
         if (_musouCharged.Count > 0)
@@ -311,7 +311,7 @@ public sealed partial class World
             if (damage > stomped) musou.Damage(e.Id, attacker, damage - stomped, new Vector3(push, 0f), out killed, marker: 3, cause: MusouDeathKind.Melee);
             if (killed) continue;
             if (musou.War is { } war && MusouSim.Fodder(e.Type)) musou.KnockDown(e.Id, push, war.MeleePush, attacker, war.MeleeDeath);   // Musou Mode's fodder falls to any melee hit
-            else if (heavy) musou.StaggerMelee(e.Id, push, rules.HeavyKnockback);   // a heavy swing, the spear's and the claw's included, stuns a boss too (MusouSim.BossStun.cs)
+            else if (heavy) musou.StaggerMelee(e.Id, push, rules.HeavyKnockback, attacker);   // a heavy swing, the spear's and the claw's included, stuns a boss too (MusouSim.BossStun.cs)
         }
         _musouStomped.Clear();
         if (musou.War is not null) TfwBestCleave = Math.Max(TfwBestCleave, struck);
@@ -401,7 +401,7 @@ public sealed partial class World
             float knock = rules.BlastKnockback * MathF.Min(1f, intensity);
             // Corpse cap: in Musou Mode's war a fodder Ork the blast leaves alive is knocked down (thrown back as before, then on the ground); the rest stagger as before.
             if (capped && musou.KnockDown(e.Id, push, knock, owner, 0f)) continue;
-            if (melee) musou.StaggerMelee(e.Id, push, knock);   // a ground pound stuns a boss too (MusouSim.BossStun.cs)
+            if (melee) musou.StaggerMelee(e.Id, push, knock, owner);   // a ground pound stuns a boss too (MusouSim.BossStun.cs)
             else musou.Stagger(e.Id, push, knock);   // no other stagger moves a boss
         }
         if (capped) _musouThrowBudget[owner] = (_musouThrowBudget[owner].First, rules.BlastThrownMax - thrownLeft);

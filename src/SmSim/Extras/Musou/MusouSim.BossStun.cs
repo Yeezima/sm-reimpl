@@ -21,14 +21,14 @@ public sealed partial class MusouSim
     public int BossStuns { get; private set; }
 
     /// <summary>
-    /// A player's melee strike that carries a stagger (a heavy swing, a charge, a ground pound): an ordinary enemy staggers as <see cref="Stagger"/> says; the Warboss and a Boss Ork, which no
+    /// A human player's melee strike (not an AI Marine's) that carries a stagger (a heavy swing, a charge, a ground pound): an ordinary enemy staggers as <see cref="Stagger"/> says; the Warboss and a Boss Ork, which no
     /// other stagger moves, stand stunned for the same <see cref="MusouCombatRules.StaggerSeconds"/> (no knockback; each strike restarts the window, none is added on top). False for anything dying,
     /// in a hop or unknown. The only door through which a boss is stunned.
     /// </summary>
-    public bool StaggerMelee(ushort id, Vector2 push, float distance)
+    public bool StaggerMelee(ushort id, Vector2 push, float distance, int attacker)
     {
         int i = id - 1;
-        if (i < 0 || i >= Capacity || !_used[i] || !(_type[i] == MusouEnemyType.Warboss || MusouBossOrks.Is(_type[i]))) return Stagger(id, push, distance);
+        if (i < 0 || i >= Capacity || !_used[i] || !(_type[i] == MusouEnemyType.Warboss || MusouBossOrks.Is(_type[i])) || Campaign.TfwContracts.IsPuppet(attacker)) return Stagger(id, push, distance);   // an AI Marine's melee never stuns a boss (review of 2026-11-12): only a human player's
         if (War is null || _state[i] is MusouEnemyState.Dying or MusouEnemyState.Airborne or MusouEnemyState.Spawning) return false;
         if (_stunLeft[i] == 0)
         {

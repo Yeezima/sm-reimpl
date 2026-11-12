@@ -179,7 +179,7 @@ public class MusouBossDangerTests
         {
             var a = new Arena(type, 4000f, true, new Vector3(0f, 6f, 0f));
             var at = a.Me.Position;
-            Assert.True(a.Sim.StaggerMelee(a.Id, Push, 2f));
+            Assert.True(a.Sim.StaggerMelee(a.Id, Push, 2f, 1));
             Assert.Equal(MusouEnemyState.Stunned, a.Me.State);
             Assert.Equal(1, a.Sim.BossStuns);
             int window = (int)MathF.Round(MusouRules.Default.Combat.StaggerSeconds * 30f);   // 0.6 s = 18 ticks
@@ -197,7 +197,7 @@ public class MusouBossDangerTests
         int guard = 0;
         while (a.Boss!.Action != MusouBossAction.SlamWindUp && guard++ < 400) a.Step();
         Assert.Equal(MusouBossAction.SlamWindUp, a.Boss!.Action);
-        Assert.True(a.Sim.StaggerMelee(a.Id, Push, 2f));
+        Assert.True(a.Sim.StaggerMelee(a.Id, Push, 2f, 1));
         for (int k = 0; k < 17; k++)
         {
             a.Step();
@@ -208,18 +208,30 @@ public class MusouBossDangerTests
     }
 
     [Fact]
+    public void An_AI_Marines_melee_stagger_never_stuns_a_boss()
+    {
+        foreach (var type in Bosses)
+        {
+            var a = new Arena(type, 1000f, true, new Vector3(0f, 6f, 0f));
+            Assert.False(a.Sim.StaggerMelee(a.Id, Push, 2f, TfwContracts.PuppetIdFirst));
+            Assert.Equal(0, a.Sim.BossStuns);
+            Assert.NotEqual(MusouEnemyState.Stunned, a.Me.State);
+        }
+    }
+
+    [Fact]
     public void A_stunned_boss_takes_ordinary_damage_and_the_melee_stun_is_the_wars_only()
     {
         var a = new Arena(MusouEnemyType.BossNob, 1000f, true, new Vector3(0f, 30f, 0f));
-        a.Sim.StaggerMelee(a.Id, Push, 2f);
+        a.Sim.StaggerMelee(a.Id, Push, 2f, 1);
         float health = a.Me.Health;
         a.Hit(100f);
         Assert.Equal(health - 100f, a.Me.Health, 2);
         var skirmish = new Arena(MusouEnemyType.Warboss, 1000f, false, new Vector3(0f, 30f, 0f));   // the 5-wave run's Warboss (its replay is pinned): no stun
-        Assert.False(skirmish.Sim.StaggerMelee(skirmish.Id, Push, 2f));
+        Assert.False(skirmish.Sim.StaggerMelee(skirmish.Id, Push, 2f, 1));
         Assert.Equal(0, skirmish.Sim.BossStuns);
         var nob = new Arena(MusouEnemyType.Nob, 1000f, true, new Vector3(0f, 30f, 0f));   // an ordinary Ork staggers as always
-        Assert.True(nob.Sim.StaggerMelee(nob.Id, Push, 2f));
+        Assert.True(nob.Sim.StaggerMelee(nob.Id, Push, 2f, 1));
         Assert.Equal(MusouEnemyState.Stagger, nob.Me.State);
         Assert.Equal(0, nob.Sim.BossStuns);
     }
@@ -237,7 +249,7 @@ public class MusouBossDangerTests
             const int Ticks = 900;   // 30 s of chained strikes
             for (int t = 0; t < Ticks; t++)
             {
-                if (t % gap == 0) a.Sim.StaggerMelee(a.Id, Push, 2f);
+                if (t % gap == 0) a.Sim.StaggerMelee(a.Id, Push, 2f, 1);
                 if (a.Me.State != MusouEnemyState.Stunned) freeTicks++;   // a tick the boss starts free: after this tick's strike, before its step
                 a.Step();
             }
