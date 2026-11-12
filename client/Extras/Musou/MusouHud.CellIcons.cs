@@ -116,9 +116,12 @@ public sealed partial class MusouHud
             var p = polys[i];
             var tri = Geometry2D.TriangulatePolygon(p);
             if (tri.Length == 0) GD.PrintErr($"MusouHud cell icon {kind}: polygon {i} did not triangulate");
-            int o = verts.Count;
-            verts.AddRange(p);
-            foreach (int t in tri) idx.Add(o + t);
+            else
+            {
+                int o = verts.Count;
+                verts.AddRange(p);
+                foreach (int t in tri) idx.Add(o + t);
+            }
             edges[i] = new Vector2[p.Length + 1];
             Array.Copy(p, edges[i], p.Length);
             edges[i][p.Length] = p[0];
@@ -128,7 +131,7 @@ public sealed partial class MusouHud
         arrays[(int)Mesh.ArrayType.Vertex] = verts.ToArray();
         arrays[(int)Mesh.ArrayType.Index] = idx.ToArray();
         var mesh = new ArrayMesh();
-        mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, arrays);
+        if (idx.Count > 0) mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, arrays);   // nothing triangulated: the outline alone is drawn
         IconMesh[k] = mesh;
         IconEdges[k] = edges;
         if (kind == AbilityKind.DropPod)
@@ -144,7 +147,7 @@ public sealed partial class MusouHud
         int k = (int)kind;
         if (IconMesh[k] == null) BuildIcon(kind);
         DrawSetTransformMatrix(_cellXf * new Transform2D(0f, at));
-        DrawMesh(IconMesh[k], null, null, col);
+        if (IconMesh[k].GetSurfaceCount() > 0) DrawMesh(IconMesh[k], null, null, col);
         foreach (var e in IconEdges[k]) DrawPolyline(e, col, 1f, true);
         if (kind == AbilityKind.DropPod) DrawMultiline(_podLines, new Color(0f, 0f, 0f, 0.95f), 1.5f, true);
         DrawSetTransformMatrix(_cellXf);
