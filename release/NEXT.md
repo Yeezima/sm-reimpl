@@ -15,6 +15,7 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - This build does not play with earlier ones (a new network version): everyone must update before joining a game.
 
 ### Musou Mode
+- In the customizer's 3D view the new weapons now show in the hands: choose the autocannon (Musou Mode, and Classic with the extended content) and the figure stands ready with it held across the body; the lightning claw and the power spear are shown in the match's ready stance too. Original weapons look as before.
 - A new SUPPORT step in the customizer (Musou Mode's pages: the marines' loadouts and the Librarian) chooses what B calls, one choice for each loadout. The first is the artillery strike, as before. The second is a drop pod assault: B marks a point with the laser, a few seconds later a drop pod falls from the sky in fire and smoke and shakes the ground, its doors drop open and four Tactical Marines fight for 30 seconds, then retreat to the Imperial base and vanish. One pod at a time, and the same one-minute wait as the artillery strike. This build does not play with earlier ones (a new network version): everyone must update.
 - The made-up background yelling is gone (the distant Ork mobs shouting and the armies' war cries); only Orks and Marines actually on the field make noise, and their voices now carry about three quarters farther, so you hear everyone from further away.
 - Melee attacks reach 20 percent further for every weapon, including the power spear's sweeps.
