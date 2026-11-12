@@ -51,7 +51,7 @@ public static class LeanBot
         "musou-death-spike-test",   // added content Musou (night batch 2026-11-06): the whole scripted crowd dies at once, the frame times measured
         "log-ork-blood",   // added content Musou (gore-original): the original blood's per-kill log
         "feel-probe", "log-musou-contact",   // added content Musou (combat feel 2026-11-09): the contact timing and the predicted contacts, read where the crowd is drawn
-        "spear-probe", "demo-melee",   // added content Musou (arsenal W3, 2026-11-10): the spear's carry-grip measurement (--viewer) and the demo profile's melee weapon (--customizer)
+        "spear-probe", "demo-melee", "demo-primary", "preview-weapon-cycle", "preview-weapon-rounds", "preview-yaw", "preview-zoom",   // added content Musou (arsenal W3, 2026-11-10): the spear's carry-grip measurement (--viewer) and the demo profile's melee weapon (--customizer)
         "tfw-autocannon-capture", "tfw-autocannon-impact-capture",   // added content Musou (arsenal W1, W1c, 2026-11-10): the autocannon's screenshot gate, a scripted fight; its impacts on a wall and the ground
         "tfw-zoom-capture",   // added content Musou (2026-11-12): the Librarian's zoom stills next to a Tactical's
         "tfw-pod-test",   // added content Musou (2026-11-12): the drop pod assault's scripted check (record, landing, marines, retreat) and its captures

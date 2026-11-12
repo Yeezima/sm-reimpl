@@ -66,7 +66,14 @@ public sealed partial class FrontEndView : Control
 
     /// <summary>A screenshot may be taken: the install is read, the screen is built and its preview (if any) has drawn.</summary>
     public bool ReadyForScreenshot => _services.Failed ? _frames > 30 : _built && _scripted && _frames > _scriptFrame + 25 && (CurrentPreview is not { } preview || !preview.Visible || preview.Loaded)
-        && (!_args.ContainsKey("preview-switch-to") || _switchChecked);
+        && (!_args.ContainsKey("preview-switch-to") || _switchChecked) && !ScreenshotHeld();   // EXTRAS-HOOK: a scripted weapon cycle (Musou arsenal) holds the shot until it ends
+    /// <summary>Hook for added content (client/Extras/Musou/Customizer/FrontEndView.WeaponCycle.cs): a scripted preview run is under way, so the screenshot waits. False without one.</summary>
+    bool ScreenshotHeld() { bool hold = false; ExtrasScreenshotHold(ref hold); return hold; }   // EXTRAS-HOOK
+    partial void ExtrasScreenshotHold(ref bool hold);
+
+    /// <summary>Hook for added content: one frame of its scripted preview run (test aid <c>--preview-weapon-cycle</c>); nothing without it.</summary>
+    partial void ExtrasPreviewScript();
+
     int _switchedAt, _switchPhase;
     bool _switchChecked;
     PreviewStage? CurrentPreview => _creator?.Visible == true ? _creator.Preview : _appearance?.Visible == true ? _appearance.Preview : null;
@@ -162,6 +169,7 @@ public sealed partial class FrontEndView : Control
         if (!_scripted && _frames > 3) { _scripted = true; _scriptFrame = _frames; RunScript(); }
         else if (_scripted && !_autoJoined && _args.ContainsKey("auto-join") && _frames > _scriptFrame + 10) { _autoJoined = true; JoinLocal(); }
         if (_scripted && _args.GetValueOrDefault("preview-switch-to") is { } to) SwitchCheck(to);
+        ExtrasPreviewScript();   // EXTRAS-HOOK: the scripted weapon cycle of the added arsenal (test aid)
     }
 
     /// <summary>
@@ -787,6 +795,7 @@ public sealed partial class FrontEndView : Control
         p = LoadoutEdits.Create(p, 3, roles.Contains("assault") ? "assault" : roles[0], catalog).Profile;
         p = LoadoutEdits.Rename(p, 3, "Jump trooper").Profile;
         if (_args.GetValueOrDefault("demo-melee") is { Length: > 0 } demoMelee) p = LoadoutEdits.SetItem(p, 3, "melee", demoMelee, catalog).Profile;   // --demo-melee <neutral name>: slot 3's melee weapon (a screenshot aid for added content's items)
+        if (_args.GetValueOrDefault("demo-primary") is { Length: > 0 } demoPrimary) p = LoadoutEdits.SetItem(p, 2, "primary", demoPrimary, catalog).Profile;   // --demo-primary <neutral name>: slot 2 (the Devastator)'s primary weapon (autocannon screenshots)
         p = LoadoutEdits.Select(p, Selection.CustomSlot(1));
         session.Seed(p);
         RefreshSummary();

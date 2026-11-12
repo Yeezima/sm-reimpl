@@ -364,6 +364,9 @@ public sealed partial class PreviewStage : SubViewportContainer
     /// <summary>Turns the camera at once (screenshots and tests).</summary>
     public void SnapCamera() => _snapCamera = true;
 
+    /// <summary>Turns the figure to <paramref name="yaw"/> degrees (0: front, 180: from behind) and sets the zoom, at once (screenshots and tests: <c>--preview-yaw</c>, <c>--preview-zoom</c>).</summary>
+    public void ViewFrom(float yaw, float zoom) { _yaw = yaw; _zoom = Mathf.Clamp(zoom, 0.55f, 1.6f); _lastUserRotation = _time; _snapCamera = true; }
+
     // ---- the frame ----
 
     public override void _Ready()
@@ -411,6 +414,9 @@ public sealed partial class PreviewStage : SubViewportContainer
 
     /// <summary>The wargear in the preview's hand (test aid).</summary>
     public string? HeldWargear => _deployed;
+
+    /// <summary>The weapon nodes the preview's rig draws now and the wargear it was configured with (test aid: primary, pistol, melee).</summary>
+    public (int Nodes, string? Primary, string? Pistol, string? Melee) ShownWeapons => _rig is null ? (0, null, null, null) : (_rig.WeaponCount, _rig.Names.Primary, _rig.Names.Pistol, _rig.Names.Melee);
 
     void UpdateEyeGlow(double delta)
     {
@@ -597,7 +603,10 @@ public sealed partial class PreviewStage : SubViewportContainer
             var jump = Loadouts.JumpPack(config, cls);
             bool meleeInHand = jump is not null;   // a jump-pack class holds its melee weapon (the match's rule)
             ExtrasWeapons(ref primary, ref pistol, ref melee, ref meleeInHand);   // EXTRAS-HOOK: an added class's own weapons (Musou Mode: the Librarian's force sword in hand, no gun)
-            string key = $"{cls}|{primary}|{pistol}|{melee}|{jump?.Name}|{meleeInHand}";
+            bool ready = false;
+            ExtrasReadyPose(primary, melee, ref ready);   // EXTRAS-HOOK: an added weapon is drawn in the hands in the match's ready stance (the arsenal's claw, spear and autocannon)
+            ApplyReadyIdle(ready);
+            string key = $"{cls}|{primary}|{pistol}|{melee}|{jump?.Name}|{meleeInHand}|{ready}";
             if (key == _weaponKey) return;
             _weaponKey = key;
             _rig.Configure((cls, primary?.GetHashCode() ?? 0, pistol?.GetHashCode() ?? 0, melee, key), primary, pistol, melee,
@@ -617,6 +626,26 @@ public sealed partial class PreviewStage : SubViewportContainer
     /// <paramref name="key"/> extended so the dressed model is cached apart. Returns at once unless its content profile is on.
     /// </summary>
     partial void ExtrasDress(ref Func<ResolvedAppearance, ResolvedAppearance>? dress, ref string key);
+
+    /// <summary>
+    /// Hook for added content (client/Extras/Musou/Arsenal/PreviewStage.Arsenal.cs): <paramref name="ready"/> set when the primary or melee weapon is one the original never had, so the preview shows it drawn
+    /// in the match's ready stance instead of the bolt pistol's relaxed idle with the primary stowed. Returns at once for every original weapon.
+    /// </summary>
+    partial void ExtrasReadyPose(string? primary, string? melee, ref bool ready);
+
+    /// <summary>
+    /// The ready stance (the match's standing idle, <see cref="RigProfile.Clips"/>' <c>IdleCandidates</c>, no new clip) while an added weapon is on show, else the relaxed pistol idle; both seen from the same three-quarter
+    /// side. <see cref="HoldsPistol"/> follows the clip, so the primary comes into the hands with the ready stance.
+    /// </summary>
+    void ApplyReadyIdle(bool ready)
+    {
+        if (_character?.Assets is not { } assets) return;
+        string? want = assets.FindAnimation(ready ? RigProfiles.Marine.Clips.IdleCandidates : RigProfiles.Marine.Clips.PreviewIdleCandidates, "Idle");
+        if (want is null || want == IdleClip) return;
+        _character.Play(want, 0.2f);
+        IdleClip = want;
+        _poseYaw = PistolIdleYaw;
+    }
 
     /// <summary>Hook for added content: the wargear in the preview's hands and on its back (null: none), after the class's own.</summary>
     partial void ExtrasWeapons(ref string? primary, ref string? pistol, ref string? melee, ref bool meleeInHand);
