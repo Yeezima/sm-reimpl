@@ -497,4 +497,15 @@ public class HitFxScaleRulesTests
         Assert.Equal(1f, HitFxScaleRules.RangeScale(float.NaN, 70f, 6f));
         Assert.Equal(1f, HitFxScaleRules.RangeScale(80f, 0f, 6f));
     }
+
+    [Fact]
+    public void The_caps_hold_for_the_spot_the_particles_and_the_glow_card_and_the_old_switches_give_one()
+    {
+        Assert.Equal(6f, HitFxScaleRules.RangeScale(1000f, 70f, HitFxScaleRules.MaxSpot));
+        Assert.Equal(3f, HitFxScaleRules.RangeScale(1000f, 70f, HitFxScaleRules.MaxParticle));
+        Assert.Equal(1.5f, HitFxScaleRules.RangeScale(1000f, 70f, HitFxScaleRules.MaxGlow));
+        Assert.Equal(3f * 1.3f, HitFxScaleRules.ParticleScale(1000f, 70f, false, false), 3);
+        Assert.Equal(1f, HitFxScaleRules.ParticleScale(1000f, 70f, oldRange: true, oldIntensity: true));
+        Assert.Equal(1f, HitFxScaleRules.ParticleScale(0f, 70f, oldRange: false, oldIntensity: true));
+    }
 }

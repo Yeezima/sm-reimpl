@@ -58,8 +58,6 @@ public partial class CharacterViewer
     public const float HitBaseStrength = 0.04f, HitSpotStrength = 0.6f, HitGlowRadius = 0.24f;
     /// <summary><c>--old-hit-glow</c> (before / after aid): the even yellow rim flash, no spot.</summary>
     public static bool OldHitGlow { get; set; }
-    /// <summary>onhit-range-intensity (owner 2026-11-13): the brightness factor of the yellow hit glow (<c>k_hit</c>) and of the red break and bare-armour glow (<c>k_brk</c>), 1.3 by default (<c>--old-hit-fx-intensity</c>: 1); ours.</summary>
-    public static float HitFxIntensity { get; set; } = 1f;
 
     /// <summary>The old outline's shell thickness (m, ours).</summary>
     public const float OutlineWidth = 0.028f;
@@ -246,7 +244,7 @@ void fragment() {
     /// Sets the flashes of this frame (each 0..1; <paramref name="hit"/> yellow on the armour, <paramref name="broke"/> the red halo, <paramref name="glow"/> the yellowish recharge halo). All zero
     /// puts the model back (the side tint) and hides the halo. <paramref name="ring"/>: the red is the armour's break, drawn in the recharge glow's ring (owner, 2026-11-02). Cheap while nothing runs.
     /// </summary>
-    public void SetArmourFlash(float hit, float broke, float glow, bool ring = false, Vector3? hitPoint = null, float spotScale = 1f, float glowScale = 1f)
+    public void SetArmourFlash(float hit, float broke, float glow, bool ring = false, Vector3? hitPoint = null, float spotScale = 1f, float glowScale = 1f, float intensity = 1f)   // intensity (onhit-range-intensity, owner 2026-11-13): brightness factor of the yellow hit glow (k_hit) and the red break and bare-armour glow (k_brk), per call so that no state outlives a match; ours
     {
         if (_skeleton is null) return;
         bool old = OldFlashOutline;
@@ -268,8 +266,8 @@ void fragment() {
             material.SetShaderParameter("flash_mix", new Vector4(hit, broke, glow, 1f));
             material.SetShaderParameter("hit_point", HitPointFor(hitPoint));
             material.SetShaderParameter("spot_scale", spotScale);   // onhit-range-intensity
-            material.SetShaderParameter("k_hit", HitFxIntensity);
-            material.SetShaderParameter("k_brk", HitFxIntensity);
+            material.SetShaderParameter("k_hit", intensity);
+            material.SetShaderParameter("k_brk", intensity);
             _outlineMaterial?.SetShaderParameter("outline_amount", glow);
             foreach (var mesh in ArmourMeshes()) if (!ReferenceEquals(mesh.MaterialOverlay, material)) mesh.MaterialOverlay = material;   // also the pieces a new look added since
         }
@@ -285,8 +283,8 @@ void fragment() {
             if (show)
             {
                 _haloMaterial!.SetShaderParameter("halo_mix", new Vector4(broke, glow, OldBreakGlow || ring ? 0f : 1f, 1f));
-                _haloMaterial.SetShaderParameter("k_brk", HitFxIntensity);   // onhit-range-intensity
-                halo.Scale = ((broke > 0.001f || (glow > 0.001f && RegenAsBreak)) && !OldBreakGlow && !ring ? new Vector3(RedGlowScale * 0.9f, RedGlowScale, 1f) : Vector3.One) * (broke > 0.001f ? glowScale : 1f);
+                _haloMaterial.SetShaderParameter("k_brk", intensity);   // onhit-range-intensity
+                halo.Scale = (broke > 0.001f || (glow > 0.001f && RegenAsBreak)) && !OldBreakGlow && !ring ? new Vector3(RedGlowScale * 0.9f, RedGlowScale, 1f) * (broke > 0.001f ? glowScale : 1f) : Vector3.One;   // the range growth only for the red glow card, not the ring
                 // The model's body is not at the viewer's origin (the rig's root is offset): centre the halo on the lower spine, where the body is.
                 if (_haloBone == -2) _haloBone = _skeleton.FindBone("RIG_SpineA");
                 if (_haloBone >= 0) halo.GlobalPosition = _skeleton.ToGlobal(_skeleton.GetBoneGlobalPose(_haloBone).Origin) + Vector3.Up * 0.12f;
