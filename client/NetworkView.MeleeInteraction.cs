@@ -92,9 +92,10 @@ public partial class NetworkView
         {
             var was = _ciReaction.GetValueOrDefault(p.PlayerId);
             if (!p.Alive || p.Reaction == ReactionKind.None) { _ciReaction.Remove(p.PlayerId); if (_reactionSource.TryGetValue(p.PlayerId, out var r) && now - r.At > 0.5) _reactionSource.Remove(p.PlayerId); continue; }
-            bool started = was.Kind == ReactionKind.None || p.ReactionTicks < was.Ticks || p.Reaction != was.Kind;
+            bool started = PlayerHitFxRules.ReactionStarted(was.Kind, was.Ticks, p.Reaction, p.ReactionTicks);
             _ciReaction[p.PlayerId] = (p.Reaction, p.ReactionTicks);
             if (!started) continue;
+            ReactionDamageGlow(p, ownId);   // onhit-range-intensity: a reaction the server started is confirmed damage; its glow and sparks
             if (_reactionSource.TryGetValue(p.PlayerId, out var known) && known.Charge && now - known.At < 0.5) continue;
             int source = MeleeInteraction.ReactionSource(p, all);
             if (source > 0) _reactionSource[p.PlayerId] = (source, now, false);
@@ -135,7 +136,6 @@ public partial class NetworkView
         if (LogChargeImpact || _bot)
             GD.Print($"t {now:F2} s: charge impact P{charger.PlayerId} -> P{victim.PlayerId}{(ownCharger ? " (own charge)" : ownVictim ? " (on me)" : "")}: apart {Num.Vector2.Distance(new(charger.Position.X, charger.Position.Y), new(victim.Position.X, victim.Position.Y)):F2} m, " +
                      $"charger facing off {MathF.Abs(MeleeInteraction.Wrap(charger.Yaw - MeleeInteraction.Bearing(charger.Position, victim.Position))) * 180f / MathF.PI:F1} deg; impacts {_chargeImpacts}{(NoChargeImpact ? " (impact presentation off)" : "")}");
-        PlayerDamageGlow(charger.Position, victim.PlayerId, victim.Position, null, ownCharger ? OwnHitArmoured(victim.PlayerId) : null, PlayerHitFxRules.DamageKind.Charge, "charge");   // onhit-range-intensity
         if (NoChargeImpact) { if (ownCharger || ownVictim) FxShake(ChargeShakeRadians); return; }   // before: anim/melee-flow's 0.5 degree shake
         _chargeStops[charger.PlayerId] = now;
         _chargeStops[victim.PlayerId] = now;

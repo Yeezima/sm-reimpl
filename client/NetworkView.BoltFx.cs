@@ -127,11 +127,13 @@ public partial class NetworkView
             var kind = meleeKind switch { "charge" => SmClient.ImpactRules.PlayerHitFxRules.DamageKind.Charge, "pound" => SmClient.ImpactRules.PlayerHitFxRules.DamageKind.Pound, "slash" => SmClient.ImpactRules.PlayerHitFxRules.DamageKind.Slash, "blast" => SmClient.ImpactRules.PlayerHitFxRules.DamageKind.Blast, _ => SmClient.ImpactRules.PlayerHitFxRules.DamageKind.Melee };
             var attackerAt = ToNum(chest + toShooter * 1.4f) - new System.Numerics.Vector3(0f, 0f, 1.45f);
             _damageGlowAt.Remove(v.PlayerId);
-            PlayerDamageGlow(attackerAt, v.PlayerId, v.Position, null, armoured, kind, "demo");
+            PlayerDamageGlow(attackerAt, v.PlayerId, v.Position, armoured, kind, "demo");
         }
         else
-        FxShot(-999, spec, w, index, 0, end, ShotHit.Body, -1, normal, dir, ToNum(from - dir * 0.9f), own: false, v.PlayerId, armoured,
-               rayOrigin: from, rayDir: dir);
+        {
+            FxShot(-999, spec, w, index, 0, end, ShotHit.Body, -1, normal, dir, ToNum(from - dir * 0.9f), own: false, v.PlayerId, armoured,
+                   rayOrigin: from, rayDir: dir);
+        }
         if (CmdFlag("bolt-fx-charged") && PlasmaLightShot.ChargedStage(spec) > 0) LightBallLaunch(-999, spec, w, index, from - dir * 0.9f, end, 1f);   // fix/plasma-light-tracer capture aid: the charged ball (1.0) instead of the light one
         _boltFxDemoShots++;
         GD.Print($"t {_connectedFor:F1} s: bolt-fx-demo shot {_boltFxDemoShots} of {name} at player {v.PlayerId} ({(armoured ? "armour up" : "armour down")})");

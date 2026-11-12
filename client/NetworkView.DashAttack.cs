@@ -101,7 +101,6 @@ public partial class NetworkView
     /// </summary>
     void SlashHitPresentation(PlayerState s, bool own, JumpPackSpec? pack)
     {
-        SlashDamageGlows(s, own);   // onhit-range-intensity: the air slash's cone shows the glow on its victims
         if (!FxActive || _fx is null || _catalogue is null || pack is null || _config is null || _catalogue.JumpPack(pack.Name) is not { } effects) return;
         var (point, normal, surface) = GroundUnder(s.Position);
         var heading = DirToGodot(new System.Numerics.Vector3(-MathF.Sin(s.Yaw), MathF.Cos(s.Yaw), 0f));

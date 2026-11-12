@@ -14,7 +14,7 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Hits on other players now show at range: the yellow glow on armour that is hit and the red glow when the armour is gone stay as large on your screen as they are at close range, instead of shrinking to nothing at 40 to 80 metres. Try the Stalker Bolter and the Lascannon on a far-off player.
 - Both hit glows are 30 % stronger (the yellow glow on hit armour and the red glow on a broken or bare one).
 - Hits on players draw sparks again in Classic PvP: yellow on armour, red on a bare body, with the yellow or red glow on the model. There is no big smoke or fire cloud on a hit player any more.
-- Melee and other damage now show the same glow and sparks on the player they hit: light combo strikes, F stun strikes, kicks, charge and bull rush, ground pound, jump landing, air slash, and grenade blasts.
+- Melee and blast damage you deal now shows the same glow and sparks on the player you hit (yellow when armour took it, red when only health did): light combo strikes, F stun strikes, kicks, charge and bull rush, ground pound, jump landing, air slash, your grenades. Other players' melee and blasts show them on the victim when the hit staggers him.
 
 ### Musou Mode
 - The hit effects on Marines are 30 % stronger and keep their size at range, the same as in Classic PvP.

@@ -550,3 +550,62 @@ public class HitLookRulesTests
         Assert.Contains("no-damage-glow", SmNet.LeanBot.PresentationAids);
     }
 }
+
+/// <summary>onhit-range-intensity (owner 2026-11-13): the glow of a server-confirmed damage on a player: armour or health colour, one per event, not on the own body, from a hit report or a started reaction.</summary>
+public class DamageEventGlowRulesTests
+{
+    [Theory]
+    [InlineData(10f, 0f, true)]    // armour took it: yellow
+    [InlineData(10f, 20f, true)]   // armour took some, health too: yellow
+    [InlineData(0f, 15f, false)]   // only health: red
+    public void The_damage_split_picks_yellow_or_red(float shield, float health, bool up) => Assert.Equal(up, PlayerHitFxRules.ArmourUpOfDamage(shield, health));
+
+    [Fact]
+    public void No_damage_is_no_glow() => Assert.Null(PlayerHitFxRules.ArmourUpOfDamage(0f, 0f));
+
+    [Fact]
+    public void One_glow_per_damage_event_within_the_window()
+    {
+        Assert.True(PlayerHitFxRules.DedupePasses(10.0, double.NegativeInfinity));
+        Assert.False(PlayerHitFxRules.DedupePasses(10.1, 10.0));   // the same event seen twice (report and reaction)
+        Assert.False(PlayerHitFxRules.DedupePasses(10.24, 10.0));
+        Assert.True(PlayerHitFxRules.DedupePasses(10.26, 10.0));   // the next blow of a combo
+    }
+
+    [Fact]
+    public void Another_players_model_glows_but_not_the_own_body_or_nobody()
+    {
+        Assert.True(PlayerHitFxRules.ShowsOnModel(victim: 3, ownPlayer: 1));
+        Assert.False(PlayerHitFxRules.ShowsOnModel(victim: 1, ownPlayer: 1));
+        Assert.False(PlayerHitFxRules.ShowsOnModel(victim: 0, ownPlayer: 1));
+    }
+
+    [Fact]
+    public void A_reaction_that_starts_or_restarts_confirms_a_damage_and_a_running_one_does_not()
+    {
+        var none = SmSim.ReactionKind.None;
+        var kind = System.Enum.GetValues<SmSim.ReactionKind>().First(k => k != none);
+        var other = System.Enum.GetValues<SmSim.ReactionKind>().First(k => k != none && k != kind);
+        Assert.True(PlayerHitFxRules.ReactionStarted(none, 0, kind, 1));       // began
+        Assert.True(PlayerHitFxRules.ReactionStarted(kind, 9, kind, 2));       // restarted: ticks counted up again
+        Assert.True(PlayerHitFxRules.ReactionStarted(kind, 9, other, 9));      // another kind
+        Assert.False(PlayerHitFxRules.ReactionStarted(kind, 2, kind, 3));      // still running
+        Assert.False(PlayerHitFxRules.ReactionStarted(kind, 2, none, 0));      // ended: nothing to show
+    }
+
+    [Theory]
+    [InlineData(true, false, 1, true)]    // melee damage the own player dealt
+    [InlineData(false, true, 1, true)]    // splash damage
+    [InlineData(false, false, 1, false)]  // a plain shot: it has its own record
+    [InlineData(true, false, 0, false)]   // no hit
+    public void A_report_needs_a_glow_only_for_melee_or_splash_damage(bool melee, bool splash, int hits, bool expected) => Assert.Equal(expected, PlayerHitFxRules.ReportNeedsGlow(melee, splash, hits));
+
+    [Fact]
+    public void Classic_and_Musou_pick_the_same_glow_for_a_melee_damage_and_differ_only_in_the_ranged_burst()
+    {
+        var classic = PlayerHitFxRules.LookFor(PlayerHitFxRules.DamageKind.Melee, SmSim.ContentExtras.None, true, false);
+        var musou = PlayerHitFxRules.LookFor(PlayerHitFxRules.DamageKind.Melee, SmSim.ContentExtras.Musou, true, false);
+        Assert.Equal(classic, musou);
+        Assert.NotEqual(PlayerHitFxRules.LookFor(PlayerHitFxRules.DamageKind.Ranged, SmSim.ContentExtras.None, true, false), PlayerHitFxRules.LookFor(PlayerHitFxRules.DamageKind.Ranged, SmSim.ContentExtras.Musou, true, false));
+    }
+}

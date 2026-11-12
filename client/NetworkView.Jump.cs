@@ -270,7 +270,7 @@ public partial class NetworkView
                     t.LandMoving = own && s.Jump == JumpPhase.Landed ? s.JumpLandMoving : speed > RunThreshold;
                     if (own) _landings++; else _remoteLandings++;
                     var blast = pack is null ? null : JumpPack.LandingBlast(pack, drop);   // the server's rule
-                    if (blast is not null) { AddRing(s.Position, blast.Radius, new Color(0.95f, 0.85f, 0.4f)); PlayerDamageGlowsInRadius(s, blast.Radius, SmClient.ImpactRules.PlayerHitFxRules.DamageKind.Pound, "landing blast", own); }   // onhit-range-intensity
+                    if (blast is not null) AddRing(s.Position, blast.Radius, new Color(0.95f, 0.85f, 0.4f));
                     LandingPresentation(s, own, pack, drop);   // M41: the data's landing effect for the drop
                     if (_bot) GD.Print($"t {now:F1} s: {who} land at {s.Position.X:F1},{s.Position.Y:F1},{s.Position.Z:F1} after a {drop:F1} m drop (apex {t.ApexZ - t.LiftZ:F1} m above the lift-off; " +
                                        $"{(t.LandMoving ? "run" : "idle")} landing; blast radius {(blast is null ? "none" : blast.Radius.ToString("F1"))}; landings {(own ? _landings : _remoteLandings)}{(own ? "; predicted" : " seen")})");

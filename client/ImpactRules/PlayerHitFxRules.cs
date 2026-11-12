@@ -41,6 +41,31 @@ public static class PlayerHitFxRules
     [System.Flags]
     public enum HitLook { None = 0, Glows = 1, Sparks = 2, Burst = 4 }
 
+    /// <summary>One glow per damage event on a victim: a second glow within this many seconds is the same event seen twice (a shot's record and the reaction it caused, the hit report and the reaction; ours).</summary>
+    public const double DedupeSeconds = 0.25;
+
+    /// <summary>Whether a glow may show now: no glow for this victim in the last <see cref="DedupeSeconds"/>.</summary>
+    public static bool DedupePasses(double now, double lastGlowAt) => !(now - lastGlowAt < DedupeSeconds);
+
+    /// <summary>
+    /// The armour colour of a damage the server confirmed (the hit report's damage split): armour took some of it (<paramref name="shieldDamage"/> above 0): yellow (true); only health was hit
+    /// (<paramref name="healthDamage"/> above 0): red (false); no damage: none (null, no glow).
+    /// </summary>
+    public static bool? ArmourUpOfDamage(float shieldDamage, float healthDamage) => shieldDamage > 0f ? true : healthDamage > 0f ? false : null;
+
+    /// <summary>Whether a confirmed damage on <paramref name="victim"/> draws a glow on his model in this view: not on the own player (his body is not drawn).</summary>
+    public static bool ShowsOnModel(int victim, int ownPlayer) => victim > 0 && victim != ownPlayer;
+
+    /// <summary>
+    /// Whether another player's snapshot record shows a hit reaction that just started or restarted (a different kind, or the ticks counting up again): the server's confirmation that a melee or blast
+    /// damage landed on him. A reaction-less damage (hyper armour) shows none.
+    /// </summary>
+    public static bool ReactionStarted(ReactionKind wasKind, int wasTicks, ReactionKind nowKind, int nowTicks) =>
+        nowKind != ReactionKind.None && (wasKind == ReactionKind.None || nowTicks < wasTicks || nowKind != wasKind);
+
+    /// <summary>Whether a hit report is one the shot path has not drawn: a melee or splash damage (a plain shot has its own record).</summary>
+    public static bool ReportNeedsGlow(bool melee, bool splash, int hits) => hits > 0 && (melee || splash);
+
     /// <summary>The client flag that brings back the large burst, smoke and hit container on a hit player in Classic PvP (the look of 2026-11-13's first preview).</summary>
     public const string BurstFlag = "player-hit-burst";
 

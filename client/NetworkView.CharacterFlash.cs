@@ -58,6 +58,7 @@ public partial class NetworkView
         float delay = 5f;
         foreach (var o in _lastOthers) if (o.PlayerId == victim) { delay = HitBars.BodyOf(_config, o.Class).ShieldRegenDelay; break; }
         _armourFlash.Hit(victim, _connectedFor, armourUp ?? true, delay);
+        _damageGlowAt[victim] = _connectedFor;   // onhit-range-intensity: one glow per damage event (NetworkView.PlayerDamageGlow.cs)
     }
 
     /// <summary>An own hit left <paramref name="victim"/> with no armour (the hit report's shield after the hit): its red ring at once.</summary>
