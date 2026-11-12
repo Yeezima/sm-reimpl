@@ -9,3 +9,7 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Leave out changes a tester cannot notice (tooling, docs, refactors). Optional "### " headings group long lists.
 - Add your bullets in the same pull request as the change, when it merges.
 -->
+
+### Musou Mode
+
+- Orks now flinch when you hit them: they recoil away from the shot or blow (torso back, hips down, knees bending, feet staying put) while they keep running or swinging, harder for heavy weapons, hammers, charges and close explosions, and only a little for Nobs and the big Orks. Far crowds jolt and lean the same way.

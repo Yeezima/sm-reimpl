@@ -36,6 +36,7 @@ public partial class NetworkView
     /// <summary>A thrown item's detonation reached the view: a Remote Detonators charge starts its ring.</summary>
     partial void ExtrasThrownDetonated(ProjectileView d)
     {
+        MusouOrkFlinchBlast(d);   // Ork hit reactions (owner 2026-11-13): every detonation of a Musou match kicks the Orks round it (NetworkView.MusouOrkFlinch.cs)
         if (_config is null || !_config.Extras.HasFlag(ContentExtras.Musou) || !d.Thrown || d.Weapon < 0 || d.Weapon >= _config.Thrown.Count) return;
         if (!_config.Thrown[d.Weapon].Name.Equals(ArsenalRules.RemoteDetonators, StringComparison.OrdinalIgnoreCase)) return;
         ChargesSeen++;

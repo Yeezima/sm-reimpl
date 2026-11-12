@@ -65,7 +65,47 @@ public partial class MusouCrowd : CrowdView
     /// <summary>A blow from the direction opposite <paramref name="away"/> struck this Ork: it is drawn pushed back by up to <paramref name="metres"/> (<see cref="SmNet.Extras.Musou.MusouContactRules.RecoilAt"/>).</summary>
     public void Recoil(int id, Vector3 away, float metres) => _recoil[id] = (0f, away, metres);
 
-    /// <summary>A shot struck this Ork.</summary>
+    /// <summary>
+    /// Ork hit reactions (owner 2026-11-13, reference v3; <see cref="MusouOrkFlinchRules"/>): per id, the flinch's track. A skeletal Ork poses it (torso, pelvis, knees, feet planted), a baked one leans and jolts,
+    /// a very far one shows none. Drawn only; the clip, facing and path are the Ork's own. <c>--no-musou-ork-flinch</c> restores the no-reaction crowd of 2026-11-06.
+    /// </summary>
+    public static bool NoOrkFlinch { get; set; } = Array.IndexOf(OS.GetCmdlineUserArgs(), "--no-musou-ork-flinch") >= 0;
+    readonly Dictionary<int, MusouOrkFlinchTrack> _kick = new();
+    readonly List<int> _kickOver = new();
+    /// <summary>Flinches started and Orks drawn mid-flinch (the profile's and the tests').</summary>
+    public int Kicks { get; private set; }
+    public int Flinching => _kick.Count;
+    /// <summary>The ids that took a blast's kick and when (render seconds): the server's hit reports of the same blast follow about 0.2 s later and add no second kick.</summary>
+    readonly Dictionary<int, float> _blastKicked = new();
+    float _clock;
+
+    /// <summary>A hit: the Ork <paramref name="id"/> flinches away from <paramref name="away"/> (a unit direction in game space), <paramref name="strength"/> by the weapon (<see cref="MusouOrkFlinchRules.ShotStrength"/> ...); <paramref name="type"/> sizes it.</summary>
+    public void Hit(int id, System.Numerics.Vector2 away, float strength, MusouEnemyType type)
+    {
+        if (NoOrkFlinch || !MusouOrkFlinchRules.Reacts(type)) return;
+        float size = MusouOrkFlinchRules.Amplitude(strength, type);
+        if (!(size > 0f)) return;
+        if (_blastKicked.TryGetValue(id, out float at) && _clock - at < 0.6f) return;   // the blast's own kick covers the server's reports of it
+        _kick.TryGetValue(id, out var track);
+        track.Kick(away, size);
+        _kick[id] = track;
+        Kicks++;
+    }
+
+    /// <summary>A blast: the Ork <paramref name="id"/> takes the explosive's kick (<see cref="MusouOrkFlinchRules.BlastStrength"/> by its distance from the centre), away from it.</summary>
+    public void Blast(int id, System.Numerics.Vector2 away, float distance, float radius, MusouEnemyType type)
+    {
+        if (NoOrkFlinch || !MusouOrkFlinchRules.Reacts(type)) return;
+        float size = MusouOrkFlinchRules.Amplitude(MusouOrkFlinchRules.BlastStrength(distance, radius), type);
+        if (!(size > 0f)) return;
+        _kick.TryGetValue(id, out var track);
+        track.Kick(away, size);
+        _kick[id] = track;
+        _blastKicked[id] = _clock;
+        Kicks++;
+    }
+
+    /// <summary>Test aid (the old <c>--musou-ork-flinch</c>): a shot struck this Ork.</summary>
     public void Flinch(int id)
     {
         if (!_flinch.TryGetValue(id, out float age) || age >= FlinchAgain) _flinch[id] = 0f;
@@ -92,8 +132,27 @@ public partial class MusouCrowd : CrowdView
                 p -= new Vector3(-MathF.Sin(e.Yaw), MathF.Cos(e.Yaw), 0f) * (FlinchBack * MathF.Sin(MathF.PI * MathF.Min(1f, flinch / FlinchSeconds)));
             }
             if (_recoil.TryGetValue(e.Id, out var push)) p += push.Away * SmNet.Extras.Musou.MusouContactRules.RecoilAt(push.Age, push.Metres);
-            Items.Add(new Item { Key = e.Id, Type = (int)e.Type, Position = p, Yaw = e.Yaw, Time = time, Clip = clip, Distance = p.DistanceTo(camera) });
+            float distance = p.DistanceTo(camera);
+            var kick = Vector3.Zero;
+            if (_kick.TryGetValue(e.Id, out var track) && MusouOrkFlinchRules.DistanceScale(distance) > 0f && e.State is not (MusouEnemyState.Dying or MusouEnemyState.Knocked))
+            {
+                var c = track.Current();
+                kick = new Vector3(c.X, c.Y, 0f);
+            }
+            Items.Add(new Item { Key = e.Id, Type = (int)e.Type, Position = p, Yaw = e.Yaw, Time = time, Clip = clip, Distance = distance, Kick = kick });
         }
+        _clock += delta;
+        if (_kick.Count > 0)
+        {
+            _kickOver.Clear();
+            foreach (var id in new List<int>(_kick.Keys))
+            {
+                var t = _kick[id];
+                if (!t.Step(delta) || !_seen.Contains(id)) _kickOver.Add(id); else _kick[id] = t;
+            }
+            foreach (var id in _kickOver) _kick.Remove(id);
+        }
+        if (_blastKicked.Count > 64) { _kickOver.Clear(); foreach (var (id, at) in _blastKicked) if (_clock - at > 1f) _kickOver.Add(id); foreach (var id in _kickOver) _blastKicked.Remove(id); }
         _recoilOver.Clear();
         foreach (var (id, push) in _recoil) if (push.Age + delta >= SmNet.Extras.Musou.MusouContactRules.RecoilSeconds || !_seen.Contains(id)) _recoilOver.Add(id);
         foreach (var id in _recoilOver) _recoil.Remove(id);
