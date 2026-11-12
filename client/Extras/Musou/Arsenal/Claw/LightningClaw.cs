@@ -94,6 +94,7 @@ public partial class NetworkView
         public Godot.ShaderMaterial? Arcs;
         public MarineAssets? Look;
         public bool LookDone;
+        public int LookTries;
         public float Strike = -1f, Lod = -1f;
         public SoundEmitter? Sound;
         public bool Humming;
@@ -156,9 +157,11 @@ public partial class NetworkView
         _clawSeen.Add(id);
         if (rig.Housing.Count > 0 && (!ReferenceEquals(rig.Look, character.Assets) || (!rig.LookDone && rig.Look is not null)))
         {
+            if (!ReferenceEquals(rig.Look, character.Assets)) rig.LookTries = 0;
             rig.Look = character.Assets;
             var look = ClawArmourLook.For(rig.Look);
-            rig.LookDone = rig.Look is not null;   // a look not yet built is asked again next frame
+            rig.LookTries++;
+            rig.LookDone = rig.Look is null || look is not null || rig.LookTries >= 120;   // a look not yet built is asked again next frame (about 2 s at most)
             foreach (var (surface, dark) in rig.Housing)
                 rig.Mesh.SetSurfaceOverrideMaterial(surface, look is null ? null : dark ? look.Dark : look.Plate);
         }
