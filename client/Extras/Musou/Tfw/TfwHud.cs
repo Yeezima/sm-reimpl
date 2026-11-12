@@ -119,7 +119,7 @@ public sealed partial class TfwHud : Control
     /// </summary>
     void DrawPrompts(Vector2 vs)
     {
-        float cx = vs.X / 2f;
+        float cx = vs.X / 2f + MusouHudLayout.PromptShift(vs.X);   // clear of the ability cells on a narrow screen
         bool old = MusouHudLayout.Old;
         float promptY = old ? 640f : vs.Y - 52f, redeployY = old ? 690f : vs.Y - 22f;
         if (!Data.Alive && Data.War is { } war && TfwHudModel.RunHoldsRespawn(war)) Txt("KILLED", cx, 330f, 52, RedText, 0, 6, true);

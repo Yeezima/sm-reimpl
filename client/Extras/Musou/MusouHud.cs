@@ -39,6 +39,11 @@ public sealed partial class MusouHud : Control
         public float Multiplier = 1f, ChainLeft;
         public bool BossEnraged;
         public bool Alive = true;
+        /// <summary>The own class has a jump pack: its meter stands over the weapon panel in the corner layout (the chain makes room; Hud.Panels.cs).</summary>
+        public bool JumpMeterAbove;
+        /// <summary>The ability cells left of the equipment panel (owner 2026-11-12; MusouHud.Cells.cs), nearest the panel first: the Librarian's Shockwave and Pull, then the support call (B). The Librarian's frame is his own box.</summary>
+        public readonly AbilityCell[] Cells = new AbilityCell[3];
+        public bool LibrarianBox;
         /// <summary>The lives the run started with (the pips; 0: unknown, the highest seen).</summary>
         public int LivesMax;
         /// <summary>Seconds until the server starts the next run (the ended match's restart time), negative when not known.</summary>
@@ -206,6 +211,7 @@ public sealed partial class MusouHud : Control
         DrawBreak(vs, d);
         DrawCallOuts(vs);
         DrawBuffs(vs);   // the own powerups beside the own bar (MusouHud.Buffs.cs)
+        DrawAbilityCells(vs);   // the ability cooldown cells left of the equipment panel (MusouHud.Cells.cs)
         DrawEndPanel(vs, d);
     }
 
@@ -279,6 +285,12 @@ public sealed partial class MusouHud : Control
         bool old = MusouHudLayout.Old;
         // The corner: bottom right, over the weapon box's winged skull (its top edge at vs.Y - 248); the old layout: right of the crosshair.
         float rx = vs.X - 64f, y = old ? 470f : vs.Y - 306f;
+        if (MusouHudLayout.Corners)
+        {
+            // The panel stands in the corner (2026-11-12): the chain's right edge flush with the panel's, over its winged skull (and the jump pack meter over that, a class with one).
+            rx = vs.X - MusouHudLayout.CornerMargin;
+            y += Hud.MovieBoxMargin.Y - MusouHudLayout.CornerMargin - (Data.JumpMeterAbove ? 30f : 0f);
+        }
         float a = Math.Clamp(Data.ChainLeft * 4f, 0f, 1f);
         Txt(_chainX.Of((long)MathF.Round(Data.Multiplier * 10f), static k => $"x{k / 10}.{k % 10}"), rx, y, old ? 56 : 40, new Color(Gold, a), 1, 5, true);
         Txt(_chainN.Of(Data.Chain + 1, static k => $"CHAIN {k}"), rx, y + (old ? 32f : 24f), old ? 22 : 18, new Color(White, a), 1, 3, true);

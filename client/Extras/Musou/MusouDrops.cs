@@ -228,12 +228,17 @@ public partial class NetworkView
             layer.AddChild(_musouHoldFill);
             AddChild(layer);
         }
+        // Clear of the ability cells on a narrow screen (MusouHudLayout.PromptShift): the prompt and its hold bar move left together.
+        var screen = GetViewport().GetVisibleRect().Size;
+        float shift = screen.Y > 0f ? MusouHudLayout.PromptShift(screen.X / (screen.Y / 1080f), 175f) * (screen.Y / 1080f) : 0f;
+        _musouDropPrompt.OffsetLeft = -320f + shift; _musouDropPrompt.OffsetRight = 320f + shift;
         if (!ReferenceEquals(text, _musouDropPromptShown)) { _musouDropPrompt.Text = text; _musouDropPromptShown = text; }
         _musouDropPrompt.Visible = true;
         bool bar = hold >= 0f;
         _musouHoldTrack!.Visible = bar;
         _musouHoldFill!.Visible = bar && hold > 0f;
-        if (bar && hold > 0f) _musouHoldFill.OffsetRight = -MusouHoldBarWidth / 2f + MusouHoldBarWidth * Math.Clamp(hold, 0f, 1f);
+        _musouHoldTrack.OffsetLeft = -MusouHoldBarWidth / 2f + shift; _musouHoldTrack.OffsetRight = MusouHoldBarWidth / 2f + shift; _musouHoldFill.OffsetLeft = _musouHoldTrack.OffsetLeft;
+        if (bar && hold > 0f) _musouHoldFill.OffsetRight = _musouHoldTrack.OffsetLeft + MusouHoldBarWidth * Math.Clamp(hold, 0f, 1f);
     }
 
     string? _musouDropPromptShown;

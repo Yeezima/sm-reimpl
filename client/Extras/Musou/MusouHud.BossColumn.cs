@@ -17,7 +17,7 @@ public sealed partial class MusouHud
 {
     const float ColumnW = 340f, ColumnBarH = 12f, ColumnStep = 42f;
     /// <summary>The first bar's bottom edge above the screen's bottom: over the own bar's box (its bottom at <see cref="MusouHudLayout.VitalsCorner"/>.Y, about 39 tall at its scale) with a gap.</summary>
-    const float ColumnBase = 40f + 39f + 14f;
+    static readonly float ColumnBase = MusouHudLayout.VitalsCorner.Y + MusouHudLayout.VitalsCorner.Z / 0.65f * 39f + 14f;
 
     readonly MusouBossBarOrder _bossOrder = new();
     readonly List<MusouBossBar> _bossRows = new();
