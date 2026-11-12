@@ -11,4 +11,4 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 -->
 
 ### Musou Mode
-- Melee healing is capped: one melee swing now heals you at most 3 times, however many Orks it hits (the first three struck heal, the rest give nothing). The air slash's landing heal and healing from other sources are unchanged. Musou Mode servers and players must update together.
+- Melee healing is capped: one melee swing now heals you at most 3 times, however many Orks it hits (the first three struck heal, the rest give nothing); your AI Marine allies are capped the same way. The air slash's landing heal and healing from other sources are unchanged. Musou Mode servers and players must update together.

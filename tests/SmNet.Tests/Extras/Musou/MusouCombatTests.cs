@@ -263,6 +263,19 @@ public class MusouCombatTests
     }
 
     [Fact]
+    public void The_air_slash_landing_heal_stays_uncapped_next_to_a_capped_swing()
+    {
+        var w = NewWorld();
+        var body = Loadouts.Body(w.Config, w.Players[1]);
+        SetHealth(w, body.HealthMax * 0.2f);
+        TenBoys(w);
+        Run(w, 20, InputButtons.Melee);
+        Assert.Equal(body.HealthMax * (0.2f + 3 * 0.05f), w.Players[1].Health, 2);   // the swing: capped
+        typeof(World).GetMethod("MusouSlashLandHeal", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.Invoke(w, [1]);
+        Assert.Equal(body.HealthMax * (0.2f + 3 * 0.05f + MusouCombatRules.SlashLandHealthShare), w.Players[1].Health, 2);   // the landing: its whole 25 %, outside the cap
+    }
+
+    [Fact]
     public void A_heavy_swing_with_a_stomp_through_ten_Orks_heals_three_times_in_all()
     {
         var splash = new SplashSpec(3f, Plain with { Damage = 30f }, [new(0f, 1f), new(3f, 1f)], false, true, "target_all");

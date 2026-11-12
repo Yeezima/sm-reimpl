@@ -223,6 +223,12 @@ public sealed partial class World
     /// </summary>
     void MusouCharges()
     {
+        if (_musouHealTick.Count > 0)   // a removed player's heal counters go with him (as _musouCharged's below)
+        {
+            _musouStale.Clear();
+            foreach (int id in _musouHealTick.Keys) if (!_players.ContainsKey(id)) _musouStale.Add(id);
+            foreach (int id in _musouStale) { _musouHealTick.Remove(id); _musouHealCount.Remove(id); _musouHealed.RemoveWhere(h => h.Attacker == id); }
+        }
         _history.TryGetValue(Tick - 1, out var start);   // every player as this tick began
         bool any = _rushes.Count > 0 || _musouCharged.Count > 0;
         foreach (var p in _players.Values) any |= p.Rush != RushPhase.None;
