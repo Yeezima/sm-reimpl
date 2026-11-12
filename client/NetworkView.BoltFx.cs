@@ -121,6 +121,15 @@ public partial class NetworkView
         var dir = (chest - from).Normalized();
         var end = chest;
         var normal = -dir;
+        if (CmdArg("bolt-fx-melee") is { Length: > 0 } meleeKind)
+        {
+            // onhit-range-intensity capture aid: instead of a shot, a melee-class damage on the victim through the production helper (NetworkView.PlayerDamageGlow.cs): melee | charge | pound | slash | blast
+            var kind = meleeKind switch { "charge" => SmClient.ImpactRules.PlayerHitFxRules.DamageKind.Charge, "pound" => SmClient.ImpactRules.PlayerHitFxRules.DamageKind.Pound, "slash" => SmClient.ImpactRules.PlayerHitFxRules.DamageKind.Slash, "blast" => SmClient.ImpactRules.PlayerHitFxRules.DamageKind.Blast, _ => SmClient.ImpactRules.PlayerHitFxRules.DamageKind.Melee };
+            var attackerAt = ToNum(chest + toShooter * 1.4f) - new System.Numerics.Vector3(0f, 0f, 1.45f);
+            _damageGlowAt.Remove(v.PlayerId);
+            PlayerDamageGlow(attackerAt, v.PlayerId, v.Position, null, armoured, kind, "demo");
+        }
+        else
         FxShot(-999, spec, w, index, 0, end, ShotHit.Body, -1, normal, dir, ToNum(from - dir * 0.9f), own: false, v.PlayerId, armoured,
                rayOrigin: from, rayDir: dir);
         if (CmdFlag("bolt-fx-charged") && PlasmaLightShot.ChargedStage(spec) > 0) LightBallLaunch(-999, spec, w, index, from - dir * 0.9f, end, 1f);   // fix/plasma-light-tracer capture aid: the charged ball (1.0) instead of the light one
@@ -141,13 +150,16 @@ public partial class NetworkView
     const string ArmourSparksEffect = "hit_ranged_armour_generic";
     const float ArmourSparksScale = 0.8f;
 
-    void ArmourSparks(Vector3 end, Vector3 dir, double delay, int victim = -1)
+    /// <summary>onhit-range-intensity (owner 2026-11-13: "yellow and red sparks"): the same spark fan in red for a hit on a body with no armour left (ours: the data has none; the red is the health-hit tint).</summary>
+    void RedSparks(Vector3 end, Vector3 dir, double delay) => ArmourSparks(end, dir, delay, -1, new Color(1f, 0.12f, 0.08f));
+
+    void ArmourSparks(Vector3 end, Vector3 dir, double delay, int victim = -1, Color? tint = null)
     {
         if (OldBoltFx || _fx is null) return;
         var axes = AxesFromY(-dir);
-        _fx.Play(ArmourSparksEffect, end, axes, ArmourSparksScale * HitFxParticleScale(end), null, null, 0f, delay, false, 0);
+        _fx.Play(ArmourSparksEffect, end, axes, ArmourSparksScale * HitFxParticleScale(end), null, null, 0f, delay, false, 0, tint: tint);
         // Its spark fan is a flat card (not a billboard): a second copy turned a quarter about the axis, so that one of the two always faces the camera.
         var axes2 = new Basis((-dir).Normalized(), Mathf.Pi / 2f) * axes;
-        _fx.Play(ArmourSparksEffect, end, axes2, ArmourSparksScale * 0.8f * HitFxParticleScale(end), null, null, 0f, delay, false, 0);
+        _fx.Play(ArmourSparksEffect, end, axes2, ArmourSparksScale * 0.8f * HitFxParticleScale(end), null, null, 0f, delay, false, 0, tint: tint);
     }
 }

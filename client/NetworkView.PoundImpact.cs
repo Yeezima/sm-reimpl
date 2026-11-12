@@ -66,6 +66,7 @@ public partial class NetworkView
     /// <summary>The pound's impact for <paramref name="s"/> at the ground it stands on; <paramref name="pack"/> is its jump pack.</summary>
     void PoundImpactPresentation(PlayerState s, bool own, JumpPackSpec? pack)
     {
+        PlayerDamageGlowsInRadius(s, pack?.Pound?.Radius ?? 0f, SmClient.ImpactRules.PlayerHitFxRules.DamageKind.Pound, "ground pound", own);   // onhit-range-intensity
         if (own) CameraKick(WeightFeel.PoundDipDegrees, "pound");   // feel/weight-impact: on top of the shake, which is unchanged
         if (!FxActive || _fx is null || _catalogue is null || pack is null) return;
         if (_catalogue.JumpPack(pack.Name) is not { } effects) { if (_fxNoted.Add("jumppack:" + pack.Name)) GD.Print($"  effects: no ground effects for jump pack '{pack.Name}'"); return; }

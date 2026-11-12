@@ -19,6 +19,13 @@ public partial class NetworkView
     bool PlayerHitFxFlag => _playerHitFx ??= !CmdFlag(PlayerHitFxRules.NoParticlesFlag);   // owner 2026-11-13: drawn again by default; --no-player-hit-fx is the 2026-11-11 look
 
     /// <summary>The match's content flags (none before the config is in, which reads as Classic).</summary>
+    bool? _playerHitBurst;
+    /// <summary><c>--player-hit-burst</c>: Classic PvP draws the large burst, smoke and the weapon's hit container on a shot player again (owner 2026-11-13: only the yellow and red sparks and glows by default).</summary>
+    bool PlayerHitBurstFlag => _playerHitBurst ??= CmdFlag(PlayerHitFxRules.BurstFlag);
+
+    /// <summary>Whether a ranged hit on a player draws the large burst and the weapon's hit container (always for a hit that is not on a player).</summary>
+    bool HitBurstDrawn(ShotHit hit) => !PlayerHitFxRules.OnPlayer(hit) || PlayerHitFxRules.LookFor(PlayerHitFxRules.DamageKind.Ranged, MatchExtras, PlayerHitFxFlag, PlayerHitBurstFlag).HasFlag(PlayerHitFxRules.HitLook.Burst);
+
     ContentExtras MatchExtras => _config?.Extras ?? ContentExtras.None;
 
     bool? _oldClassicHitFx;

@@ -135,6 +135,7 @@ public partial class NetworkView
         if (LogChargeImpact || _bot)
             GD.Print($"t {now:F2} s: charge impact P{charger.PlayerId} -> P{victim.PlayerId}{(ownCharger ? " (own charge)" : ownVictim ? " (on me)" : "")}: apart {Num.Vector2.Distance(new(charger.Position.X, charger.Position.Y), new(victim.Position.X, victim.Position.Y)):F2} m, " +
                      $"charger facing off {MathF.Abs(MeleeInteraction.Wrap(charger.Yaw - MeleeInteraction.Bearing(charger.Position, victim.Position))) * 180f / MathF.PI:F1} deg; impacts {_chargeImpacts}{(NoChargeImpact ? " (impact presentation off)" : "")}");
+        PlayerDamageGlow(charger.Position, victim.PlayerId, victim.Position, null, ownCharger ? OwnHitArmoured(victim.PlayerId) : null, PlayerHitFxRules.DamageKind.Charge, "charge");   // onhit-range-intensity
         if (NoChargeImpact) { if (ownCharger || ownVictim) FxShake(ChargeShakeRadians); return; }   // before: anim/melee-flow's 0.5 degree shake
         _chargeStops[charger.PlayerId] = now;
         _chargeStops[victim.PlayerId] = now;

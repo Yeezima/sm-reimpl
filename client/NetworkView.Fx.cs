@@ -585,13 +585,14 @@ public partial class NetworkView
         bool hitFx = HitFxDrawn(hit, w.Wargear, victim);
         if (hit != ShotHit.World && hitFx) FxArmourHit(up, end, dir, victim, delay);
         if (hit != ShotHit.World && up && hitFx) ArmourSparks(end, dir, delay, victim);   // fx/bolt-tracer-impact
-        if (hit != ShotHit.World && armourUp == false && hitFx) BloodSplashAt(end, dir, delay, victim);   // fx/red-glow-blood: no armour left, a red splash
+        if (hit != ShotHit.World && armourUp == false && hitFx) { if (HitBurstDrawn(hit)) BloodSplashAt(end, dir, delay, victim); else RedSparks(end, dir, delay); }   // owner 2026-11-13: Classic draws red sparks, not the large burst   // fx/red-glow-blood: no armour left, a red splash
         if (hit != ShotHit.World) CharacterFlashHit(victim, armourUp, end);   // fx/character-visuals (pvp-hit-fx: at the hit point): the victim's model flashes (NetworkView.CharacterFlash.cs); kept in Classic
         if (hit != ShotHit.World && MeltaBurnOnHit && MeltaBurnRules.IsMelta(w.Wargear))   // fix/melta-burn-onhit: the burn over the whole body, in the hit's own frame (NetworkView.MeltaBurn.cs); owner 2026-11-11: only a kill burns (MeltaKillBurn), unless --melta-burn-on-hit (which burns on every hit, in Classic PvP too, without --player-hit-fx)
         {
             var burn = plays.FirstOrDefault(x => x.Name.Contains("dmg_burn_limb", StringComparison.OrdinalIgnoreCase));
             MeltaBurnBody(victim, w.Wargear, true, burn is null ? null : new EffectPlayLike(burn.Name, burn.Lifetime));
         }
+        if (!HitBurstDrawn(hit)) return;   // owner 2026-11-13: Classic draws no large hit container (the stalker cloud) on a player
         if (!hitFx) return;   // classic-no-player-hit-fx: nor the hit container, whatever the victim's id (a Classic body hit is always a player)
         if (!HitDecalRules.DrawsContainer(hit, victim)) return;   // fix/hit-decals-map-only (owner, 2026-11-08): a shot that hits a player leaves no decal; the container is for the map
         if (plays.Count == 0) return;
@@ -722,6 +723,7 @@ public partial class NetworkView
         _fxLastShotAt = _connectedFor; _fxLastEnd = pos; _fxLastFrom = pos;   // for --screenshot-on-effect
         string shooterWargear = ProjectileWargear(d);
         foreach (var p in plays) _fx!.Play(p.Name, pos + Vector3.Up * 0.05f, Basis.Identity, (p.Scale <= 0f ? 1f : p.Scale) * scale, null, null, p.Lifetime, 0.0, false, 2, tint: RaceTint(shooterWargear, p.Name));
+        if (d.Thrown) ThrownBlastGlows(d);   // onhit-range-intensity: a grenade's blast shows the glow on the players it reaches
         if (!d.Thrown && !OldChargedImpact) DetonationBodyHit(d);   // fx/tracers-impact: a projectile that struck a player shows the body hit (armour glow, flash) when it arrives
         foreach (var p in byMaterial)
             _fx!.Play(p.Name, surfaceNormal is { } n ? surfacePoint + n * 0.02f : pos + Vector3.Up * 0.05f, surfaceNormal is { } sn ? AxesFromY(sn) : Basis.Identity, (p.Scale <= 0f ? 1f : p.Scale) * scale, null, null, p.Lifetime, 0.0, false, 2, tint: RaceTint(shooterWargear, p.Name));

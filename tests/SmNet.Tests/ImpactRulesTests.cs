@@ -509,3 +509,44 @@ public class HitFxScaleRulesTests
         Assert.Equal(1f, HitFxScaleRules.ParticleScale(0f, 70f, oldRange: false, oldIntensity: true));
     }
 }
+
+/// <summary>onhit-range-intensity (owner 2026-11-13): the look of a hit on a player by damage kind and mode: Classic gets the glows and sparks, never the large burst; Musou keeps the burst on ranged hits.</summary>
+public class HitLookRulesTests
+{
+    const SmSim.ContentExtras Faithful = SmSim.ContentExtras.None;
+    const SmSim.ContentExtras Extended = SmSim.ContentExtras.Orks | SmSim.ContentExtras.Gore | SmSim.ContentExtras.LoyalistBarks;
+    const SmSim.ContentExtras Musou = SmSim.ContentExtras.Musou;
+    const PlayerHitFxRules.HitLook GlowsSparks = PlayerHitFxRules.HitLook.Glows | PlayerHitFxRules.HitLook.Sparks;
+
+    [Theory]
+    [InlineData(PlayerHitFxRules.DamageKind.Ranged, Faithful)]
+    [InlineData(PlayerHitFxRules.DamageKind.Ranged, Extended)]
+    [InlineData(PlayerHitFxRules.DamageKind.Melee, Faithful)]
+    [InlineData(PlayerHitFxRules.DamageKind.Charge, Faithful)]
+    [InlineData(PlayerHitFxRules.DamageKind.Pound, Faithful)]
+    [InlineData(PlayerHitFxRules.DamageKind.Slash, Extended)]
+    [InlineData(PlayerHitFxRules.DamageKind.Blast, Faithful)]
+    public void Classic_shows_the_glows_and_sparks_for_every_damage_and_never_the_large_burst(PlayerHitFxRules.DamageKind kind, SmSim.ContentExtras extras) =>
+        Assert.Equal(GlowsSparks, PlayerHitFxRules.LookFor(kind, extras, particles: true, burstRestore: false));
+
+    [Fact]
+    public void Musou_keeps_the_large_burst_on_ranged_hits_only()
+    {
+        Assert.Equal(GlowsSparks | PlayerHitFxRules.HitLook.Burst, PlayerHitFxRules.LookFor(PlayerHitFxRules.DamageKind.Ranged, Musou, true, false));
+        Assert.Equal(GlowsSparks, PlayerHitFxRules.LookFor(PlayerHitFxRules.DamageKind.Melee, Musou, true, false));
+        Assert.Equal(GlowsSparks, PlayerHitFxRules.LookFor(PlayerHitFxRules.DamageKind.Blast, Musou, true, false));
+    }
+
+    [Fact]
+    public void The_restore_switches_each_change_only_their_part()
+    {
+        Assert.Equal(PlayerHitFxRules.HitLook.Glows, PlayerHitFxRules.LookFor(PlayerHitFxRules.DamageKind.Ranged, Faithful, particles: false, burstRestore: false));   // --no-player-hit-fx: glows only
+        Assert.Equal(PlayerHitFxRules.HitLook.Glows, PlayerHitFxRules.LookFor(PlayerHitFxRules.DamageKind.Melee, Extended, false, false));
+        Assert.Equal(GlowsSparks | PlayerHitFxRules.HitLook.Burst, PlayerHitFxRules.LookFor(PlayerHitFxRules.DamageKind.Ranged, Faithful, true, burstRestore: true));   // --player-hit-burst
+        Assert.Equal(GlowsSparks, PlayerHitFxRules.LookFor(PlayerHitFxRules.DamageKind.Melee, Faithful, true, burstRestore: true));   // a melee hit never had a burst
+        Assert.Equal("no-player-hit-fx", PlayerHitFxRules.NoParticlesFlag);
+        Assert.Equal("player-hit-burst", PlayerHitFxRules.BurstFlag);
+        Assert.Contains(PlayerHitFxRules.BurstFlag, SmNet.LeanBot.PresentationAids);
+        Assert.Contains("no-damage-glow", SmNet.LeanBot.PresentationAids);
+    }
+}
