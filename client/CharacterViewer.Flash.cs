@@ -58,6 +58,8 @@ public partial class CharacterViewer
     public const float HitBaseStrength = 0.04f, HitSpotStrength = 0.6f, HitGlowRadius = 0.24f;
     /// <summary><c>--old-hit-glow</c> (before / after aid): the even yellow rim flash, no spot.</summary>
     public static bool OldHitGlow { get; set; }
+    /// <summary>onhit-range-intensity (owner 2026-11-13): the brightness factor of the yellow hit glow (<c>k_hit</c>) and of the red break and bare-armour glow (<c>k_brk</c>), 1.3 by default (<c>--old-hit-fx-intensity</c>: 1); ours.</summary>
+    public static float HitFxIntensity { get; set; } = 1f;
 
     /// <summary>The old outline's shell thickness (m, ours).</summary>
     public const float OutlineWidth = 0.028f;
@@ -71,6 +73,9 @@ shader_type spatial;
 render_mode blend_add, unshaded, depth_draw_never, cull_back, fog_disabled;
 
 uniform vec4 flash_mix = vec4(0.0);
+uniform float spot_scale = 1.0;   // onhit-range-intensity: the hit spot's radius, grown with range so that it keeps its size on screen
+uniform float k_hit = 1.0;        // onhit-range-intensity: the yellow hit glow's brightness factor
+uniform float k_brk = 1.0;        // onhit-range-intensity: the red break and bare-armour glow's brightness factor
 uniform vec4 hit_point = vec4(0.0);   // pvp-hit-fx: xyz the last hit's world point, w 1 when known (the yellow glow is brightest there)
 varying vec3 world_pos;
 
@@ -81,9 +86,9 @@ void vertex() {
 void fragment() {
     float facing = abs(dot(normalize(NORMAL), normalize(VIEW)));
     float rim = pow(1.0 - facing, 2.0);
-    float flash_hit = flash_mix.x;
+    float flash_hit = flash_mix.x * k_hit;
     vec3 dh = world_pos - hit_point.xyz;
-    float near_hit = hit_point.w * exp(-dot(dh, dh) / {{F(HitGlowRadius * HitGlowRadius)}});
+    float near_hit = hit_point.w * exp(-dot(dh, dh) / ({{F(HitGlowRadius * HitGlowRadius)}} * spot_scale * spot_scale));
     float flash_break = flash_mix.y;
     float flash_glow = flash_mix.z;
     vec3 energy = vec3({{F(HitColour.R)}}, {{F(HitColour.G)}}, {{F(HitColour.B)}}) * flash_hit * {{F(old || OldHitGlow ? HitStrength : HitBaseStrength)}}
@@ -91,9 +96,9 @@ void fragment() {
                 + vec3({{F(GlowColour.R)}}, {{F(GlowColour.G)}}, {{F(GlowColour.B)}}) * flash_glow * {{F(old ? GlowStrength : 0f)}};
     // pvp-hit-fx: a soft yellow-white spot round the hit point, not weighted by the rim (the reference is brightest where the bullet struck, facing the camera too)
     vec3 spot = mix(vec3({{F(HitColour.R)}}, {{F(HitColour.G)}}, {{F(HitColour.B)}}), vec3(1.0, 0.97, 0.85), near_hit * near_hit) * flash_hit * near_hit * (0.75 + 0.25 * rim) * {{F(old || OldHitGlow ? 0f : HitSpotStrength)}};
-    ALBEDO = spot + energy * (0.06 + 1.0 * rim) + flash_break * (rim * 0.8 + 0.02) * vec3({{F(RedNow.R)}}, {{F(RedNow.G)}}, {{F(RedNow.B)}}) * {{F(old || OldBreakGlow ? 0f : RedBodyStrength)}}
+    ALBEDO = spot + energy * (0.06 + 1.0 * rim) + flash_break * (rim * 0.8 + 0.02) * vec3({{F(RedNow.R)}}, {{F(RedNow.G)}}, {{F(RedNow.B)}}) * {{F(old || OldBreakGlow ? 0f : RedBodyStrength)}} * k_brk
                 + flash_glow * (rim * 0.8 + 0.02) * vec3({{F(YellowRegenColour.R)}}, {{F(YellowRegenColour.G)}}, {{F(YellowRegenColour.B)}}) * {{F(!old && RegenAsBreak ? RedBodyStrength : 0f)}}
-                + pow(flash_break, 8.0) * vec3(1.0, 0.45, 0.55) * {{F(old || OldBreakGlow ? 0f : (SoftBreak ? RedHotSoftStrength : RedHotStrength))}};
+                + pow(flash_break, 8.0) * vec3(1.0, 0.45, 0.55) * {{F(old || OldBreakGlow ? 0f : (SoftBreak ? RedHotSoftStrength : RedHotStrength))}} * k_brk;
 }
 """;
 
@@ -106,6 +111,7 @@ render_mode blend_add, unshaded, depth_draw_never, cull_disabled, fog_disabled;
 
 uniform vec4 halo_mix = vec4(0.0);   // x: break, y: glow, z: 1 the red glow (fx/red-glow-blood), 0 the round-2 ring
 uniform float push = {{F(HaloPush)}};
+uniform float k_brk = 1.0;   // onhit-range-intensity: the red break glow's brightness factor (the yellow recharge glow is unchanged)
 
 void vertex() {
     // turns about the vertical only (a camera looking down on the character must not tilt the card into the floor)
@@ -136,6 +142,7 @@ void fragment() {
     float edge = {{F(SoftBreak ? 1f : 0f)}} * (1.0 - smoothstep(0.35, 1.0, r)) + {{F(SoftBreak ? 0f : 1f)}} * (1.0 - smoothstep(0.55, 0.98, r));
     float ra = (core * 0.9 + spill) * (0.7 + 0.3 * vnoise(vec2(ang * 3.0 - TIME * 2.0, TIME * 4.0))) * edge * smoothstep(-0.97, -0.5, p.y);
     vec3 red = vec3({{F(RedNow.R)}}, {{F(RedNow.G)}}, {{F(RedNow.B)}}) * ra * {{F(RedGlowStrength)}} + vec3(0.9, 0.25, 0.35) * core * ra * pow(halo_mix.x, 3.0) * {{F(RedGlowStrength)}};
+    red *= k_brk;
     // night/weapon-fx: the recharge glow is a yellow copy of the break glow (same shape, strength and hot core), through the same path
     vec3 yellow = vec3({{F(YellowRegenColour.R)}}, {{F(YellowRegenColour.G)}}, {{F(YellowRegenColour.B)}}) * ra * {{F(RedGlowStrength)}} + vec3(0.95, 0.85, 0.4) * core * ra * pow(halo_mix.y, 3.0) * {{F(RedGlowStrength)}};
     vec3 ring_glow = vec3({{F(GlowColour.R)}}, {{F(GlowColour.G)}}, {{F(GlowColour.B)}}) * a * {{F(HaloGlowStrength)}};
@@ -239,7 +246,7 @@ void fragment() {
     /// Sets the flashes of this frame (each 0..1; <paramref name="hit"/> yellow on the armour, <paramref name="broke"/> the red halo, <paramref name="glow"/> the yellowish recharge halo). All zero
     /// puts the model back (the side tint) and hides the halo. <paramref name="ring"/>: the red is the armour's break, drawn in the recharge glow's ring (owner, 2026-11-02). Cheap while nothing runs.
     /// </summary>
-    public void SetArmourFlash(float hit, float broke, float glow, bool ring = false, Vector3? hitPoint = null)
+    public void SetArmourFlash(float hit, float broke, float glow, bool ring = false, Vector3? hitPoint = null, float spotScale = 1f, float glowScale = 1f)
     {
         if (_skeleton is null) return;
         bool old = OldFlashOutline;
@@ -260,6 +267,9 @@ void fragment() {
             var material = FlashMaterial();
             material.SetShaderParameter("flash_mix", new Vector4(hit, broke, glow, 1f));
             material.SetShaderParameter("hit_point", HitPointFor(hitPoint));
+            material.SetShaderParameter("spot_scale", spotScale);   // onhit-range-intensity
+            material.SetShaderParameter("k_hit", HitFxIntensity);
+            material.SetShaderParameter("k_brk", HitFxIntensity);
             _outlineMaterial?.SetShaderParameter("outline_amount", glow);
             foreach (var mesh in ArmourMeshes()) if (!ReferenceEquals(mesh.MaterialOverlay, material)) mesh.MaterialOverlay = material;   // also the pieces a new look added since
         }
@@ -275,7 +285,8 @@ void fragment() {
             if (show)
             {
                 _haloMaterial!.SetShaderParameter("halo_mix", new Vector4(broke, glow, OldBreakGlow || ring ? 0f : 1f, 1f));
-                halo.Scale = (broke > 0.001f || (glow > 0.001f && RegenAsBreak)) && !OldBreakGlow && !ring ? new Vector3(RedGlowScale * 0.9f, RedGlowScale, 1f) : Vector3.One;
+                _haloMaterial.SetShaderParameter("k_brk", HitFxIntensity);   // onhit-range-intensity
+                halo.Scale = ((broke > 0.001f || (glow > 0.001f && RegenAsBreak)) && !OldBreakGlow && !ring ? new Vector3(RedGlowScale * 0.9f, RedGlowScale, 1f) : Vector3.One) * (broke > 0.001f ? glowScale : 1f);
                 // The model's body is not at the viewer's origin (the rig's root is offset): centre the halo on the lower spine, where the body is.
                 if (_haloBone == -2) _haloBone = _skeleton.FindBone("RIG_SpineA");
                 if (_haloBone >= 0) halo.GlobalPosition = _skeleton.ToGlobal(_skeleton.GetBoneGlobalPose(_haloBone).Origin) + Vector3.Up * 0.12f;

@@ -611,7 +611,7 @@ public partial class NetworkView
             };
             var axes = AxesFromY(axis);
             if (p.TriggerPoint != "exit_wound") TracerProbeImpact(pos);   // fx/tracers-impact: --tracer-probe (the exit wound sits 0.35 m past the hit on purpose)
-            _fx.Play(p.Name, pos, axes, p.Scale <= 0f ? 1f : p.Scale, null, null, p.Lifetime, delay, false, 0, tint: RaceTint(w.Wargear, p.Name));
+            _fx.Play(p.Name, pos, axes, (p.Scale <= 0f ? 1f : p.Scale) * (hit != ShotHit.World ? HitFxParticleScale(end) : 1f), null, null, p.Lifetime, delay, false, 0, tint: RaceTint(w.Wargear, p.Name));   // onhit-range-intensity: a hit on a player keeps its size at range, x1.3
         }
     }
 

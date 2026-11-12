@@ -184,7 +184,7 @@ public partial class NetworkView
         }
         foreach (var p in plays)
         {
-            float scale = p.Scale <= 0f ? 1f : p.Scale;
+            float scale = (p.Scale <= 0f ? 1f : p.Scale) * HitFxParticleScale(end);   // onhit-range-intensity: kept at range, x1.3
             if (p.TriggerPoint == "hitpoint")
             {
                 if (own) continue;

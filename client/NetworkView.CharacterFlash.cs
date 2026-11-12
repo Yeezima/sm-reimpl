@@ -75,6 +75,7 @@ public partial class NetworkView
         if (_client is null || _config is null || _client.Status != ClientStatus.Connected) return;
         int own = _client.PlayerId;
         var me = _client.Predicted;
+        CharacterViewer.HitFxIntensity = HitFxBrightness;   // onhit-range-intensity (NetworkView.HitFxScale.cs)
         CharacterViewer.OldHitGlow = OldHitGlowFlag;
         CharacterViewer.OldRegenGlow = OldRegenGlowFlag;
         CharacterViewer.SoftBreak = !OldBreakRingFlag && !OldHealthHitFlag;
@@ -106,7 +107,8 @@ public partial class NetworkView
             if (!state.Alive) { _armourFlash.Reset(state.PlayerId); }
             if (!_remotes.TryGetValue(state.PlayerId, out var character)) continue;
             var f = state.Alive ? _armourFlash.At(state.PlayerId, _connectedFor) : (0f, 0f, 0f);
-            character.SetArmourFlash(f.Item1, f.Item2, f.Item3, _armourFlash.BreakRing(state.PlayerId, _connectedFor), f.Item1 > 0.001f ? HitPointOf(state.PlayerId, character) : null);
+            var (spotScale, glowScale) = f.Item1 > 0.001f || f.Item2 > 0.001f ? HitFxModelScale(character.GlobalPosition + Vector3.Up * 1.2f) : (1f, 1f);   // onhit-range-intensity: size kept at range
+            character.SetArmourFlash(f.Item1, f.Item2, f.Item3, _armourFlash.BreakRing(state.PlayerId, _connectedFor), f.Item1 > 0.001f ? HitPointOf(state.PlayerId, character) : null, spotScale, glowScale);
         }
         _armourFlash.Prune(id => id == own || _remotes.ContainsKey(id));
     }

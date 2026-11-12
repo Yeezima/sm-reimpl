@@ -464,3 +464,37 @@ public class PlayerHitFxRulesTests
         Assert.True(PlayerHitFxRules.OnPlayer(SmSim.ShotHit.Head) && !PlayerHitFxRules.OnPlayer(SmSim.ShotHit.World) && !PlayerHitFxRules.OnPlayer(SmSim.ShotHit.None));
     }
 }
+
+/// <summary>onhit-range-intensity (owner, 2026-11-13): the hit effects keep their size on screen at range and are 30 % stronger.</summary>
+public class HitFxScaleRulesTests
+{
+    [Fact]
+    public void At_the_reference_distance_and_view_nothing_grows_and_the_intensity_is_thirty_percent()
+    {
+        Assert.Equal(1f, HitFxScaleRules.RangeScale(HitFxScaleRules.RefDistance, HitFxScaleRules.RefFov, HitFxScaleRules.MaxSpot), 3);
+        Assert.Equal(1f, HitFxScaleRules.RangeScale(5f, 70f, 6f));   // closer than the reference: never smaller than the data's size
+        Assert.Equal(1.3f, HitFxScaleRules.Intensity);
+        Assert.Equal(1.3f, HitFxScaleRules.ParticleScale(12f, 70f, oldRange: false, oldIntensity: false), 3);
+    }
+
+    [Fact]
+    public void A_hip_view_grows_with_distance_up_to_each_cap_and_a_scope_is_already_magnified()
+    {
+        float at40 = HitFxScaleRules.RangeScale(40f, 70f, HitFxScaleRules.MaxSpot), at80 = HitFxScaleRules.RangeScale(80f, 70f, HitFxScaleRules.MaxSpot);
+        Assert.Equal(40f / 12f, at40, 2);
+        Assert.Equal(HitFxScaleRules.MaxSpot, HitFxScaleRules.RangeScale(500f, 70f, HitFxScaleRules.MaxSpot));
+        Assert.True(at80 > at40);
+        Assert.Equal(HitFxScaleRules.MaxGlow, HitFxScaleRules.RangeScale(80f, 70f, HitFxScaleRules.MaxGlow));
+        Assert.True(HitFxScaleRules.RangeScale(80f, 10f, HitFxScaleRules.MaxSpot) < at80 / 4f);   // the Stalker's 10 degrees at 80 m
+    }
+
+    [Fact]
+    public void The_restore_switches_each_remove_their_part_and_nonsense_views_change_nothing()
+    {
+        Assert.Equal(1.3f, HitFxScaleRules.ParticleScale(80f, 70f, oldRange: true, oldIntensity: false), 3);
+        Assert.Equal(HitFxScaleRules.MaxParticle, HitFxScaleRules.ParticleScale(80f, 70f, oldRange: false, oldIntensity: true), 3);
+        Assert.Equal(1f, HitFxScaleRules.ParticleScale(80f, 70f, oldRange: true, oldIntensity: true));
+        Assert.Equal(1f, HitFxScaleRules.RangeScale(float.NaN, 70f, 6f));
+        Assert.Equal(1f, HitFxScaleRules.RangeScale(80f, 0f, 6f));
+    }
+}
