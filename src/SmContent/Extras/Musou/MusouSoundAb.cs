@@ -18,6 +18,12 @@ namespace SmContent;
 /// <item><see cref="BoltBlast"/>: the frag detonation sound each bolt blast plays (a bolter round blows up at every enemy it goes through, up to 2 sounds a frame; the effects stay).</item>
 /// <item><see cref="OwnLayers"/>: musou/audio-pass's deep copy, sub copy and thump under the player's own bolter shots (on an emitter nothing may steal, cut or duck).</item>
 /// <item><see cref="AllyLayers"/>: musou/audio-pass's deep copy and thump under every other Marine's bolter shot (the allied Marines' and other players'; the own gun's layers stay).</item>
+/// <item><see cref="ClipGuard"/>: musou/soundscape-tuning's clip guard on Master (a soft limiter ahead of the hard one and the ceiling lowered by the master boost, so peaks no longer leave over full scale).</item>
+/// <item><see cref="Threat"/>: musou/soundscape-tuning's close threat cues (about +3 dB, never stolen or capped by the crowd).</item>
+/// <item><see cref="SoftDuck"/>: musou/soundscape-tuning's softer, shorter, close-blasts-only explosion duck (off: the data's whole cut for every blast, as before).</item>
+/// <item><see cref="BgDuck"/>: musou/soundscape-tuning's duck of the far battle and war bed under close combat.</item>
+/// <item><see cref="Bed"/>: musou/soundscape-tuning's quiet wind and fire bed.</item>
+/// <item><see cref="Waaagh"/>: the armies' Waaagh! war cries (on by default since the interview; off is the state of 2026-11-12 before it).</item>
 /// </list>
 /// </summary>
 [Flags]
@@ -36,7 +42,15 @@ public enum MusouSoundOff
     AllyLayers = 1 << 9,
     BoltBlast = 1 << 10,
     OwnLayers = 1 << 11,
-    All = Duck | LowPass | HitFilter | Limiter | Steal | InstLimit | Ambience | CrowdVoices | Blast | AllyLayers | BoltBlast | OwnLayers,
+    ClipGuard = 1 << 12,
+    Threat = 1 << 13,
+    SoftDuck = 1 << 14,
+    BgDuck = 1 << 15,
+    Bed = 1 << 16,
+    Waaagh = 1 << 17,
+    /// <summary>musou/soundscape-tuning's six changes, together: <c>--musou-sound-off soundscape</c> is the sound as it was before the interview.</summary>
+    Soundscape = ClipGuard | Threat | SoftDuck | BgDuck | Bed | Waaagh,
+    All = Soundscape | Duck | LowPass | HitFilter | Limiter | Steal | InstLimit | Ambience | CrowdVoices | Blast | AllyLayers | BoltBlast | OwnLayers,
 }
 
 /// <summary>The command-line names of <see cref="MusouSoundOff"/> and the numbers of the test aid (all ours, test aids only).</summary>
@@ -50,10 +64,11 @@ public static class MusouSoundAb
     [
         ("duck", MusouSoundOff.Duck), ("lowpass", MusouSoundOff.LowPass), ("hitfilter", MusouSoundOff.HitFilter), ("limiter", MusouSoundOff.Limiter), ("steal", MusouSoundOff.Steal),
         ("instlimit", MusouSoundOff.InstLimit), ("ambience", MusouSoundOff.Ambience), ("crowdvoices", MusouSoundOff.CrowdVoices), ("blast", MusouSoundOff.Blast), ("allylayers", MusouSoundOff.AllyLayers), ("boltblast", MusouSoundOff.BoltBlast), ("ownlayers", MusouSoundOff.OwnLayers),
+        ("clipguard", MusouSoundOff.ClipGuard), ("threat", MusouSoundOff.Threat), ("softduck", MusouSoundOff.SoftDuck), ("bgduck", MusouSoundOff.BgDuck), ("bed", MusouSoundOff.Bed), ("waaagh", MusouSoundOff.Waaagh),
     ];
 
-    /// <summary>"duck, lowpass, ... or all".</summary>
-    public static string Choices => string.Join(", ", Names.Select(n => n.Name)) + " or all";
+    /// <summary>"duck, lowpass, ... or all" (and soundscape, the six of musou/soundscape-tuning together).</summary>
+    public static string Choices => string.Join(", ", Names.Select(n => n.Name)) + ", soundscape or all";
 
     /// <summary>
     /// Parses a comma-separated list (<c>duck,limiter</c>; <c>all</c>; <c>none</c>; case and spaces ignored). Null or empty is <see cref="MusouSoundOff.None"/>. An unknown name is an error (the
@@ -69,6 +84,7 @@ public static class MusouSoundAb
         {
             if (raw.Equals("all", StringComparison.OrdinalIgnoreCase)) { result |= MusouSoundOff.All; continue; }
             if (raw.Equals("none", StringComparison.OrdinalIgnoreCase)) continue;
+            if (raw.Equals("soundscape", StringComparison.OrdinalIgnoreCase)) { result |= MusouSoundOff.Soundscape; continue; }
             var hit = Names.FirstOrDefault(n => n.Name.Equals(raw, StringComparison.OrdinalIgnoreCase));
             if (hit.Name is null) { error = $"'{raw}' is not one of {Choices}"; return false; }
             result |= hit.Flag;

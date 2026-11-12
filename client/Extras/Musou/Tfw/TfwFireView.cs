@@ -425,7 +425,7 @@ public partial class NetworkView
         float bearing = _tfwRoll.NextSingle() * MathF.Tau, far = WarNear + _tfwRoll.NextSingle() * (WarFar - WarNear);
         var at = camera.GlobalPosition + new Vector3(MathF.Cos(bearing) * far, 6f, MathF.Sin(bearing) * far);
         var offset = new VoiceOffset(GainDb: (inside ? HubGainDb : WarGainDb) + pick.Gain, PitchCents: (_tfwRoll.NextSingle() - 0.5f) * 300f - 150f, Lpf: inside ? HubLpf : WarLpf);
-        var emitter = new SoundEmitter { Position = at, OneShot = true, Label = "tfw war" };
+        var emitter = new SoundEmitter { Position = at, OneShot = true, Label = "tfw war", Background = true };   // Background: ducks under close combat (musou/soundscape-tuning)
         if (TfwPost(pick.Event, emitter, 0f, offset))
         {
             _tfwWarPlayed++;

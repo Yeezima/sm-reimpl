@@ -56,6 +56,7 @@ public partial class NetworkView
             if (e.Kind != MusouEventKind.Telegraph) continue;
             if (e.Value == MusouBigShoota.OverheatCue) { _musouBursts.Cancel(e.Enemy); continue; }
             if (e.Value != MusouGunBurst.Cue && e.Value != MusouBigShoota.BurstCue) continue;
+            if (e.Value == MusouBigShoota.BurstCue) MusouBigShootaThreat(e, shown);   // musou/soundscape-tuning: a Big Shoota's burst at the player
             int i = MusouFind(shown, e.Enemy);
             if (i < 0 || !MusouGunBurst.Synthesized(shown[i].Type)) continue;
             var type = shown[i].Type;

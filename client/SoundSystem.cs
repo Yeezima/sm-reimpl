@@ -55,6 +55,13 @@ public sealed class SoundEmitter
     public float VoiceDistanceScale = 1f;
     /// <summary>musou/audio-pass (Musou Mode only): the emitter's voices are positioned even when the event's own are not (a 2D confirm sound), reading <see cref="AttenuationOverride"/>. False everywhere else.</summary>
     public bool Positioned;
+    /// <summary>
+    /// musou/soundscape-tuning (Musou Mode only): a threat cue close to or aimed at the player. Its voices are never stolen by another sound, never ducked by the data's Set/Reset actions, and take any
+    /// other voice's player at the cap (use it with <see cref="Group"/> null). False everywhere else.
+    /// </summary>
+    public bool Threat;
+    /// <summary>musou/soundscape-tuning (Musou Mode only): the far war's emitters; their voices take <see cref="SoundSystem.BackgroundDb"/> (the duck under close combat). False everywhere else.</summary>
+    public bool Background;
 
     public Vector3 Current => Follow?.Invoke() ?? Position;
 }
@@ -131,6 +138,13 @@ public partial class SoundSystem : Node
 
     /// <summary>The data's Set/Reset actions aimed at a bus (the explosions' "deafening" low-pass and volume cuts on every sound) are dropped. False: as before.</summary>
     public bool IgnoreBusActions { get; set; }
+    /// <summary>
+    /// musou/soundscape-tuning (Musou Mode only): how the data's Set/Reset actions on buses (an explosion's deafening) are shaped: null (the default) applies them as the data has them; else the policy drops
+    /// the ones from a blast beyond its radius and makes the rest shallower and shorter (<see cref="MusouSoundscape.ShapeDuck"/>).
+    /// </summary>
+    public Func<SoundPropertyAction, float, SoundPropertyAction?>? ShapeBusActions { get; set; }
+    /// <summary>musou/soundscape-tuning (Musou Mode only): dB added to the voices of <see cref="SoundEmitter.Background"/> emitters (the far war's duck under close combat); 0 everywhere else.</summary>
+    public float BackgroundDb { get; set; }
     /// <summary>No low-pass is rendered (every voice on the unfiltered buses). False: as before.</summary>
     public bool NoLowPass { get; set; }
     /// <summary>The on-hit high-pass buses are not used (hits play on the plain buses). False: as before.</summary>
@@ -170,8 +184,45 @@ public partial class SoundSystem : Node
                     if (AudioServer.GetBusEffect(bus, i) is AudioEffectHardLimiter) AudioServer.SetBusEffectEnabled(bus, i, !bypass);
     }
 
+    AudioEffectLimiter? _softLimiter;
+    bool _clipGuard;
+
+    /// <summary>
+    /// musou/soundscape-tuning (Musou Mode only): the clip guard on Master. On, a soft limiter (<see cref="MusouSoundscape.SoftThresholdDb"/>) sits ahead of Master's hard limiter and the hard limiter's ceiling
+    /// is lowered by the master boost (<see cref="MusouSoundscape.GuardMasterCeilingDb"/>: Godot applies the bus volume after the effects, so the old ceiling left peaks over full scale). Off puts both back.
+    /// The soft limiter stays on the bus, disabled, until this node leaves the tree.
+    /// </summary>
+    public void SetClipGuard(bool on)
+    {
+        if (on == _clipGuard) return;
+        _clipGuard = on;
+        int hard = -1;
+        for (int i = 0; i < AudioServer.GetBusEffectCount(0); i++)
+            if (AudioServer.GetBusEffect(0, i) is AudioEffectHardLimiter) { hard = i; break; }
+        if (hard < 0) return;   // --sound-mix-classic: no limiter on Master, nothing to guard
+        if (on && _softLimiter is null)
+        {
+            _softLimiter = new AudioEffectLimiter { ThresholdDb = MusouSoundscape.SoftThresholdDb, CeilingDb = MusouSoundscape.SoftCeilingDb, SoftClipDb = MusouSoundscape.SoftClipDb, SoftClipRatio = MusouSoundscape.SoftClipRatio };
+            AudioServer.AddBusEffect(0, _softLimiter, hard);
+            hard++;
+        }
+        for (int i = 0; i < AudioServer.GetBusEffectCount(0); i++)
+        {
+            var e = AudioServer.GetBusEffect(0, i);
+            if (e == _softLimiter) AudioServer.SetBusEffectEnabled(0, i, on);
+            else if (e is AudioEffectHardLimiter limiter) limiter.CeilingDb = on ? MusouSoundscape.GuardMasterCeilingDb : SoundMixPass.MasterCeilingDb;
+        }
+    }
+
     public override void _ExitTree()
     {
+        SetClipGuard(false);
+        if (_softLimiter is not null)
+        {
+            for (int i = AudioServer.GetBusEffectCount(0) - 1; i >= 0; i--)
+                if (AudioServer.GetBusEffect(0, i) == _softLimiter) AudioServer.RemoveBusEffect(0, i);
+            _softLimiter = null;
+        }
         SetLimitersBypassed(false);
         RemoveMeters();
     }
@@ -605,7 +656,13 @@ public partial class SoundSystem : Node
         foreach (var a in play.Properties)
         {
             if (IgnoreBusActions && IsBus(a.Target)) { BusActionsDropped++; MixLog?.Invoke($"DUCK t {_now:F3} dropped {evt} '{emitter.Label}': {(a.Reset ? "Reset" : "Set")}{a.Property} bus {a.Target:x8}"); continue; }   // musou/sound-ab: duck off
-            _properties.Add((_now + extraDelay + a.Delay, a, emitter.Id, evt));
+            var action = a;
+            if (ShapeBusActions is { } shape && IsBus(a.Target))   // musou/soundscape-tuning: close blasts only, softer and shorter
+            {
+                if (shape(a, Distance(emitter)?.Distance ?? 0f) is not { } shaped) { BusActionsDropped++; MixLog?.Invoke($"DUCK t {_now:F3} too far {evt} '{emitter.Label}': {(a.Reset ? "Reset" : "Set")}{a.Property} bus {a.Target:x8}"); continue; }
+                action = shaped;
+            }
+            _properties.Add((_now + extraDelay + action.Delay, action, emitter.Id, evt));
         }
         SwitchActions += play.SwitchSets.Count;
         ApplyStops();   // stops due now act before this event's own voices start
@@ -959,6 +1016,7 @@ public partial class SoundSystem : Node
         // ui/menu-rebuild: the Options menu's music, effects and voice volumes (0 dB at the default).
         float db = mix.VolumeDb + GlobalGainDb + (a.Footstep ? FootstepGainDb : 0f) + SmClient.Customizer.Model.LiveOptions.GainDb(SmClient.Customizer.Model.GameOptions.CategoryOf(a.Event));
         db += SoundMixPass.TailGainDb(a.Offset.TailDb, _now - a.Started);   // sound/mix-and-reloads: the jump pack launch's tail
+        if (a.Emitter.Background) db += BackgroundDb;   // musou/soundscape-tuning: the far war ducks under close combat (0 outside Musou Mode)
         if (a.FadeUntil > 0) db += 20f * MathF.Log10(Math.Max(0.001f, (float)Math.Clamp((a.FadeUntil - _now) / KillFade, 0.0, 1.0)));   // killed by an instance limit: linear fade out
         if (a.Player is AudioStreamPlayer3D p3 && Distance(a.Emitter) is var (pos, _)) p3.GlobalPosition = pos;
         a.Effective = db;
@@ -989,7 +1047,7 @@ public partial class SoundSystem : Node
     }
 
     /// <summary>Whether a voice is protected (musou/audio-pass): the own gun's layers of a <see cref="SoundEmitter.ProtectGun"/> emitter, or the own character's line of a <see cref="SoundEmitter.ProtectSpeech"/> one.</summary>
-    static bool Shielded(Active a) => a.Emitter.ProtectGun || FullVoice(a);
+    static bool Shielded(Active a) => a.Emitter.ProtectGun || a.Emitter.Threat || FullVoice(a);
 
     /// <summary>The own character's line (musou/audio-pass).</summary>
     static bool Unstealable(Active a) => Shielded(a);

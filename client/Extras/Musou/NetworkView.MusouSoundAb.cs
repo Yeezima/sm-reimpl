@@ -51,6 +51,9 @@ public partial class NetworkView
         sound.Cap3D = lifted ? MusouSoundAb.LiftedCap3D : SoundSystem.Max3D;
         sound.Cap2D = lifted ? MusouSoundAb.LiftedCap2D : SoundSystem.Max2D;
         sound.SetLimitersBypassed((off & MusouSoundOff.Limiter) != 0);
+        sound.SetClipGuard(MusouActive && (off & MusouSoundOff.ClipGuard) == 0);   // musou/soundscape-tuning: the clip guard on Master
+        sound.ShapeBusActions = MusouActive && (off & MusouSoundOff.SoftDuck) == 0 ? MusouShapeDuck : null;   // musou/soundscape-tuning: close blasts only, softer and shorter
+        if (!MusouActive) sound.BackgroundDb = 0f;
         if (!MusouActive) return;
         if (!_musouSoundAbSaid)
         {
