@@ -146,7 +146,7 @@ public sealed class MusouBoss
             if (Action != MusouBossAction.None) { _sim.Script(Id, false); Action = MusouBossAction.None; ActionTicks = 0; }
             return;
         }
-        // A stun window (MusouSim.BossStun.cs, owner 2026-11-12) drops the ability under way (the sim already took the script and the drive off); nothing starts while it lasts.
+        // A melee stun (MusouSim.BossStun.cs, owner 2026-11-12) drops the ability under way (the sim already took the script and the drive off); nothing starts while it lasts.
         if (_sim.BossStunned(Id)) { Action = MusouBossAction.None; ActionTicks = 0; _charged.Clear(); return; }
         ActionTicks++;
         switch (Action)

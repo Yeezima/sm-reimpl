@@ -6,8 +6,8 @@ using SmSim.Extras.Musou.Campaign;
 namespace SmNet.Tests.Extras.Musou;
 
 /// <summary>
-/// Owner, 2026-11-12 (Musou Mode): the Warboss and the Boss Orks hit 1.5x harder but never kill a full player in one hit (a cap per hit of 75 % of his full health plus armour); a boss that falls to 80, 60,
-/// 40 or 20 % of its health stands stunned for 5 s (each share once, in the war only), its ability dropped and nothing started; only elites and bosses drop powerups.
+/// Owner, 2026-11-12 (Musou Mode): the Warboss and the Boss Orks hit 1.5x harder but never kill a full player in one hit (a cap per hit of 75 % of his full health plus armour); a boss is
+/// never stunned by its health falling (rolled back the same day) nor by any non-melee stun, only by a player's melee stagger (its ability dropped, nothing started); only elites and bosses drop powerups.
 /// </summary>
 public class MusouBossDangerTests
 {
@@ -132,80 +132,73 @@ public class MusouBossDangerTests
         public void HitTo(float share, float max) => Hit(Me.Health - max * share);
     }
 
+    static readonly Vector2 Push = Vector2.UnitY;
+
     [Fact]
-    public void A_boss_is_stunned_five_seconds_each_time_it_falls_to_80_60_40_and_20_percent()
+    public void A_boss_is_not_stunned_at_80_60_40_and_20_percent_of_its_health()
     {
         foreach (var type in Bosses)
         {
             var a = new Arena(type, 1000f, true, new Vector3(0f, 30f, 0f));
-            Assert.NotEqual(MusouEnemyState.Stunned, a.Me.State);
-            a.HitTo(0.81f, 1000f);   // not yet
-            a.Step();
-            Assert.Equal(0, a.Sim.BossStuns);
-            Assert.NotEqual(MusouEnemyState.Stunned, a.Me.State);
-            foreach (float share in new[] { 0.8f, 0.6f, 0.4f, 0.2f })
+            foreach (float share in new[] { 0.79f, 0.59f, 0.39f, 0.19f, 0.05f })
             {
-                a.HitTo(share - 0.001f, 1000f);
-                Assert.Equal(MusouEnemyState.Stunned, a.Me.State);
-                // 5 s = 150 ticks: still stunned after 149 more steps, back to its own decisions after the 150th.
-                for (int k = 0; k < 149; k++) { a.Step(); Assert.Equal(MusouEnemyState.Stunned, a.Me.State); }
-                a.Step();
-                Assert.NotEqual(MusouEnemyState.Stunned, a.Me.State);
-                a.Hit(1f);   // a little more, still above the next share: no new stun
-                Assert.NotEqual(MusouEnemyState.Stunned, a.Me.State);
+                a.HitTo(share, 1000f);
+                for (int k = 0; k < 3; k++)
+                {
+                    a.Step();
+                    Assert.NotEqual(MusouEnemyState.Stunned, a.Me.State);
+                    Assert.NotEqual(MusouEnemyState.Stagger, a.Me.State);
+                }
+                Assert.False(a.Sim.BossStunned(a.Id));
             }
-            Assert.Equal(4, a.Sim.BossStuns);
+            Assert.Equal(0, a.Sim.BossStuns);
         }
     }
 
     [Fact]
-    public void One_hit_across_several_shares_stuns_once_and_marks_them_all()
+    public void No_stagger_that_is_not_a_melee_strike_moves_a_boss()
     {
-        var a = new Arena(MusouEnemyType.BossNob, 1000f, true, new Vector3(0f, 30f, 0f));
-        a.HitTo(0.35f, 1000f);   // 80, 60 and 40 % crossed together
-        Assert.Equal(MusouEnemyState.Stunned, a.Me.State);
-        Assert.Equal(1, a.Sim.BossStuns);
-        for (int k = 0; k < 150; k++) a.Step();
-        a.HitTo(0.25f, 1000f);   // below the marked shares, above 20 %: nothing
-        Assert.Equal(1, a.Sim.BossStuns);
-        a.HitTo(0.19f, 1000f);
-        Assert.Equal(2, a.Sim.BossStuns);
-        Assert.Equal(MusouEnemyState.Stunned, a.Me.State);
-    }
-
-    [Fact]
-    public void A_stunned_boss_neither_moves_nor_attacks_and_takes_ordinary_damage()
-    {
-        var player = new Vector3(0f, 6f, 0f);
-        var a = new Arena(MusouEnemyType.BossNob, 10000f, true, player);
-        a.HitTo(0.79f, 10000f);
-        Assert.Equal(MusouEnemyState.Stunned, a.Me.State);
-        var at = a.Me.Position;
-        float health = a.Me.Health;
-        for (int k = 0; k < 140; k++)
+        // Grenades, blasts, demolition charges, plasma, artillery, the drop pod and the Librarian's Shockwave all go through Stagger (or a KnockDown that is false for a boss): false for every boss.
+        foreach (var type in Bosses)
         {
+            var a = new Arena(type, 1000f, true, new Vector3(0f, 30f, 0f));
+            Assert.False(a.Sim.Stagger(a.Id, Push, 2f));
+            Assert.False(a.Sim.Stagger(a.Id, Push, 0f));
+            Assert.False(a.Sim.KnockDown(a.Id, Push, 2f, 1, 0f));
             a.Step();
-            Assert.Equal(at, a.Me.Position);
-            Assert.Empty(a.Attacks);
-            Assert.Equal(MusouEnemyState.Stunned, a.Me.State);
+            Assert.NotEqual(MusouEnemyState.Stunned, a.Me.State);
+            Assert.NotEqual(MusouEnemyState.Stagger, a.Me.State);
+            Assert.Equal(0, a.Sim.BossStuns);
         }
-        a.Hit(100f);
-        Assert.Equal(health - 100f, a.Me.Health, 2);   // no extra damage in the window (ours)
-        // After the window it goes for the player again.
-        for (int k = 0; k < 30; k++) a.Step();
-        Assert.NotEqual(at, a.Me.Position);
     }
 
     [Fact]
-    public void A_stun_drops_the_Warbosss_ability_under_way_and_nothing_starts_until_it_ends()
+    public void A_melee_stagger_stuns_every_boss_for_the_staggers_own_length_and_it_stands()
+    {
+        foreach (var type in Bosses)
+        {
+            var a = new Arena(type, 4000f, true, new Vector3(0f, 6f, 0f));
+            var at = a.Me.Position;
+            Assert.True(a.Sim.StaggerMelee(a.Id, Push, 2f, 1));
+            Assert.Equal(MusouEnemyState.Stunned, a.Me.State);
+            Assert.Equal(1, a.Sim.BossStuns);
+            int window = (int)MathF.Round(MusouRules.Default.Combat.StaggerSeconds * 30f);   // 0.6 s = 18 ticks
+            for (int k = 0; k < window - 1; k++) { a.Step(); Assert.Equal(MusouEnemyState.Stunned, a.Me.State); Assert.Empty(a.Attacks); }
+            a.Step();
+            Assert.NotEqual(MusouEnemyState.Stunned, a.Me.State);
+            Assert.Equal(at, a.Me.Position);   // no knockback: it stood where it was
+        }
+    }
+
+    [Fact]
+    public void A_melee_stun_drops_the_Warbosss_ability_under_way_and_nothing_starts_until_it_ends()
     {
         var a = new Arena(MusouEnemyType.Warboss, 4000f, true, new Vector3(0f, 3f, 0f));
-        // The slam is due at once (SlamFirst 0): step until it winds up.
         int guard = 0;
         while (a.Boss!.Action != MusouBossAction.SlamWindUp && guard++ < 400) a.Step();
         Assert.Equal(MusouBossAction.SlamWindUp, a.Boss!.Action);
-        a.HitTo(0.79f, 4000f);
-        for (int k = 0; k < 140; k++)
+        Assert.True(a.Sim.StaggerMelee(a.Id, Push, 2f, 1));
+        for (int k = 0; k < 17; k++)
         {
             a.Step();
             Assert.Empty(a.Strikes);   // the slam that was winding up never lands
@@ -215,15 +208,54 @@ public class MusouBossDangerTests
     }
 
     [Fact]
-    public void Only_a_boss_in_the_war_is_stunned()
+    public void An_AI_Marines_melee_stagger_never_stuns_a_boss()
     {
-        var nob = new Arena(MusouEnemyType.Nob, 1000f, true, new Vector3(0f, 30f, 0f));
-        nob.HitTo(0.5f, 1000f);
-        Assert.Equal(0, nob.Sim.BossStuns);
-        Assert.NotEqual(MusouEnemyState.Stunned, nob.Me.State);
+        foreach (var type in Bosses)
+        {
+            var a = new Arena(type, 1000f, true, new Vector3(0f, 6f, 0f));
+            Assert.False(a.Sim.StaggerMelee(a.Id, Push, 2f, TfwContracts.PuppetIdFirst));
+            Assert.Equal(0, a.Sim.BossStuns);
+            Assert.NotEqual(MusouEnemyState.Stunned, a.Me.State);
+        }
+    }
+
+    [Fact]
+    public void A_stunned_boss_takes_ordinary_damage_and_the_melee_stun_is_the_wars_only()
+    {
+        var a = new Arena(MusouEnemyType.BossNob, 1000f, true, new Vector3(0f, 30f, 0f));
+        a.Sim.StaggerMelee(a.Id, Push, 2f, 1);
+        float health = a.Me.Health;
+        a.Hit(100f);
+        Assert.Equal(health - 100f, a.Me.Health, 2);
         var skirmish = new Arena(MusouEnemyType.Warboss, 1000f, false, new Vector3(0f, 30f, 0f));   // the 5-wave run's Warboss (its replay is pinned): no stun
-        skirmish.HitTo(0.5f, 1000f);
+        Assert.False(skirmish.Sim.StaggerMelee(skirmish.Id, Push, 2f, 1));
         Assert.Equal(0, skirmish.Sim.BossStuns);
+        var nob = new Arena(MusouEnemyType.Nob, 1000f, true, new Vector3(0f, 30f, 0f));   // an ordinary Ork staggers as always
+        Assert.True(nob.Sim.StaggerMelee(nob.Id, Push, 2f, 1));
+        Assert.Equal(MusouEnemyState.Stagger, nob.Me.State);
+        Assert.Equal(0, nob.Sim.BossStuns);
+    }
+
+    [Fact]
+    public void Stun_lock_measurement_chained_melee_stuns_hold_a_boss_as_long_as_each_lands_inside_the_window_and_no_longer()
+    {
+        // Owner's call whether to add an immunity window; none exists. The window is the stagger's 0.6 s (18 ticks); each melee stagger restarts it.
+        int window = (int)MathF.Round(MusouRules.Default.Combat.StaggerSeconds * 30f);
+        Assert.Equal(18, window);
+        foreach (var (gap, held) in new[] { (18, true), (12, true), (19, false) })
+        {
+            var a = new Arena(MusouEnemyType.Warboss, 1e7f, true, new Vector3(0f, 6f, 0f));
+            int freeTicks = 0;
+            const int Ticks = 900;   // 30 s of chained strikes
+            for (int t = 0; t < Ticks; t++)
+            {
+                if (t % gap == 0) a.Sim.StaggerMelee(a.Id, Push, 2f, 1);
+                if (a.Me.State != MusouEnemyState.Stunned) freeTicks++;   // a tick the boss starts free: after this tick's strike, before its step
+                a.Step();
+            }
+            if (held) Assert.Equal(0, freeTicks);   // held the whole 30 s: unbounded for as long as the strikes keep coming
+            else Assert.InRange(freeTicks, 1, Ticks / gap + 1);   // one free tick between strikes at most
+        }
     }
 
     // ---------------------------------------------------------------- drops

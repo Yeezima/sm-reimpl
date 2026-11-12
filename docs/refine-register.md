@@ -28,14 +28,14 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3120 spec table rows: **2292 tagged**, 572 not tagged (read from data with high confidence), 256 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 693 rows of the changes document.
+Scanned 3122 spec table rows: **2292 tagged**, 574 not tagged (read from data with high confidence), 256 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 693 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
 | Movement (critical) | 401 | 343 | 342 | 117 | 12 |
-| Combat core (critical) | 18 | 8 | 15 | 15 | 9 |
+| Combat core (critical) | 17 | 7 | 15 | 14 | 9 |
 | Weapons (critical) | 121 | 73 | 106 | 54 | 3 |
-| Melee (critical) | 134 | 116 | 104 | 47 | 5 |
+| Melee (critical) | 138 | 120 | 104 | 51 | 5 |
 | Jump pack (critical) | 79 | 71 | 63 | 19 | 0 |
 | Charge (critical) | 61 | 51 | 49 | 25 | 0 |
 | Reactions (critical) | 25 | 22 | 23 | 12 | 0 |
@@ -50,10 +50,10 @@ Scanned 3120 spec table rows: **2292 tagged**, 572 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 23 | 13 | 13 | 13 | 7 |
-| Core simulation (provisional values) | 693 | 654 | 493 | 182 | 1 |
+| Core simulation (provisional values) | 690 | 651 | 493 | 180 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 236 | 225 | 126 | 64 | 0 |
-| **All areas** | **2292** | 2021 | 1706 | 722 | 38 |
+| **All areas** | **2292** | 2021 | 1706 | 723 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -64,12 +64,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | confidence: medium | 763 |
 | notes: ours | 415 |
 | kind: interpretation | 381 |
-| notes: estimate | 188 |
+| notes: estimate | 190 |
 | kind: estimate | 156 |
 | confidence: none (low) | 129 |
 | kind: provisional | 103 |
 | kind: user's knowledge | 56 |
-| notes: provisional | 42 |
+| notes: provisional | 41 |
 | kind: choice | 38 |
 | section: provisional | 38 |
 | section: placeholder | 35 |
@@ -79,7 +79,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | kind: placeholder | 22 |
 | notes: placeholder | 20 |
 | kind: gap (not reproduced) | 19 |
-| notes: open question | 18 |
+| notes: open question | 19 |
 | notes: not reproduced (gap) | 13 |
 | notes: gap (not reproduced) | 10 |
 | kind: public (unverified) | 9 |
@@ -88,7 +88,6 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | kind: inferred | 3 |
 | section: approximation | 3 |
 | notes: unverified | 2 |
-| notes: approximation | 1 |
 
 ## Part A: gameplay areas, critical first
 
@@ -760,7 +759,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-640BBD78` | Spear: jump-pack rules | the hammer's: no pound delay, the hop swing, the steered slam (`Loadouts.WieldsHammer` through `ArsenalRules.WieldsHammer`) | kind: ours; confidence: medium | owner D17 (default) | Spear: jump-pack rules: compare with SM1 by feel or video. Ours: the hammer's: no pound delay, the hop swing, the steered slam… | ☐ |
 
-### Combat core (gameplay-critical) (18)
+### Combat core (gameplay-critical) (17)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -818,12 +817,6 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-0D9D6A50` | A contraption or a shield dome in the way | the charge sticks to a contraption like to an Ork and rides on it, and to a shield dome's surface (from outside) like to a wall, held at that point 0.05 m outside the surface on the thrower's side, as the core's own stop (a ring spot that falls inside the… | kind: ours; confidence: medium | design section 7 | A contraption or a shield dome in the way: compare with SM1 by counting hits to kill and by video of the health bar. Ours: the charge sticks to a contraption like to an Ork and rides on it… | ☐ |
-
-*Spec section: Musou Mode: boss danger, stun windows and more bosses (claude/musou-bosses-drops, 2026-11-12; `MusouSim.Version` 48, `TfwRules.Version` 71, no protocol or wire change; Musou Mode only)*
-
-| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
-|---|---|---|---|---|---|---|
-| `R-45DEB045` | Musou: boss damage | the Warboss's swing, slam and charge and every Boss Ork's strike and round **1.5** times what they were (Warboss 90 / 90 / 112.5; Boss Boy 24, 'Ard Boy 30, Nob 75, Shoota 9 a round) (factor) | kind: ours; notes: estimate | owner 2026-11-12 "more dangerous" (the factor is ours) | Musou: boss damage: compare with SM1 by counting hits to kill and by video of the health bar. Ours: the Warboss's swing, slam and charge and every Boss Ork's strike and… | ☐ |
 
 ### Weapons (gameplay-critical) (121)
 
@@ -983,7 +976,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-63D5DA0C` | Magazine returns | at the load tag or when the left hand is back at the weapon, whichever is later (never before the magazine left): bolter tag 0.30, hand 0.35 (`RIG_L_Hand` 0.15 m from the magazine at its closest, 1.13 m at its furthest, away from 0.11 to 0.35) → 0.35; stalker… (fraction of the clip) | kind: interpretation; confidence: medium | clip, skeleton, weapon mount | Magazine returns: compare with SM1 by feel or video. Ours: at the load tag or when the left hand is back at the weapon… | ☐ |
 | `R-125B93CF` | Dropped magazine physics | a `RigidBody3D` (layer none, mask: the level) with a box the size of the mesh, mass 0.4 kg, friction 0.7, bounce 0.3, linear damping 0.05, angular 0.6; initial velocity = the carrier's velocity + up to 0.6 m/s sideways (0.12 up) + up to 5 rad/s spin… (kg, m/s, rad/s, s) | kind: placeholder; confidence: none (low); notes: ours | ours | Dropped magazine physics: compare with SM1 by timing a run over a known distance. Ours: a RigidBody3D (layer none, mask: the level) with a box the size of… | ☐ |
 
-### Melee (gameplay-critical) (134)
+### Melee (gameplay-critical) (138)
 
 *Spec section: Melee flow, the hammer in both hands and the transitions pass (anim/melee-flow; client only, not simulated, no protocol change)*
 
@@ -1230,6 +1223,15 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-D4C04CE2` | Musou: predicted melee contact (pilot) | on the frame the own power sword strike's hit time passes, every Ork the client sees in the cleave's reach (its rule: reach, cone, height, no wall) gets the slash, the lead one the power flash, the swing its capped shake, the next two their secondary hit… (count) | kind: ours; confidence: low | owner's brief 2026-11-09; the pilot weapon the owner's choice | Musou: predicted melee contact (pilot): compare with SM1 by feel or video. Ours: on the frame the own power sword strike's hit time passes, every Ork… | ☐ |
+
+*Spec section: Musou Mode: boss danger, stun windows (rolled back: melee stuns only, claude/musou-boss-stun-rollback) and more bosses (claude/musou-bosses-drops, 2026-11-12; `MusouSim.Version` 48, `TfwRules.Version` 71, no protocol or wire change; Musou Mode only)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-45DEB045` | Musou: boss damage | the Warboss's swing, slam and charge and every Boss Ork's strike and round **1.5** times what they were (Warboss 90 / 90 / 112.5; Boss Boy 24, 'Ard Boy 30, Nob 75, Shoota 9 a round) (factor) | kind: ours; notes: estimate | owner 2026-11-12 "more dangerous" (the factor is ours) | Musou: boss damage: compare with SM1 by counting hits to kill and by video of the health bar. Ours: the Warboss's swing, slam and charge and every Boss Ork's strike and… | ☐ |
+| `R-6597ED04` | Musou: boss hit cap | one boss hit takes at most **0.75** of the target's full health plus armour (150 of a default 100 + 100), applied after every received-damage multiplier, so a full player of any class never dies of one hit; any other Ork is not capped (our reading of "not 1… (share of the pool) | kind: ours; notes: estimate | owner 2026-11-12 "not 1 shotting the player" (the share is ours) | Musou: boss hit cap: compare with SM1 by feel or video. Ours: one boss hit takes at most 0.75 of the target's full health plus… | ☐ |
+| `R-C45EF208` | Musou: bosses and melee stuns | the melee strikes that carry a stun or stagger for an ordinary Ork also stun the Warboss and the Boss Orks (a human player's melee only: an AI Marine's never does), each for the stagger's own length (**0.6** s, `MusouCombatRules.StaggerSeconds`), standing… (s) | kind: ours; notes: estimate | owner 2026-11-12 "susceptible to melee attack stuns though" (the reading and the 0.6 s are ours) | Musou: bosses and melee stuns: compare with SM1 by watching the reaction and timing it frame by frame. Ours: the melee strikes that carry a stun or stagger for an ordinary Ork… | ☐ |
+| `R-98482B0A` | Musou: boss stun-lock | none added (owner decides): chained melee stuns keep a boss stunned as long as each lands within 0.6 s (18 ticks) of the last; measured: strikes every 12 or 18 ticks hold a Warboss for the whole 30 s tried, every 19 ticks it is free one tick in each 19; the… (s) | kind: ours; notes: estimate; notes: open question | owner 2026-11-12 | Musou: boss stun-lock: compare with SM1 by watching the reaction and timing it frame by frame. Ours: none added (owner decides): chained melee stuns keep a boss stunned… | ☐ |
 
 *Spec section: Melee cancels a charge at once, charge > melee chains, and Musou melee spam (charge-melee-chain; protocol 70, used by the simulation; every mode, the spam Musou Mode only)*
 
@@ -2349,7 +2351,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (693)
+### Core simulation (provisional values) (690)
 
 *Spec section: Provisional values in use*
 
@@ -3451,14 +3453,6 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-D681C21A` | The ring as drawn | the original frag explosion at each spot on the server's schedule, a sound on every fourth spot, 30 % of a blast's camera shake each; the centre blast is the core's detonation effect at the data's size at x1.6 (the config's thrown blast scale for the charge… | kind: ours; confidence: low | design section 7 | The ring as drawn: compare with SM1 by feel or video. Ours: the original frag explosion at each spot on the server's schedule, a… | ☐ |
 | `R-33D56EEC` | Measurement | 1,000 Orks round the charge, 40 corpses, the death queue: killed 977, 40 flown; server tick 2.8 ms at the centre (0.3 ms quiet), ring worst 1.0 ms; 1,500 Orks: killed 1,465, centre tick 4.3 to 4.9 ms, ring worst 1.5 ms; death events seen equal the kills… | confidence: medium | measured | Measurement: compare with SM1 by feel or video. Ours: 1,000 Orks round the charge, 40 corpses, the death queue: killed 977… | ☐ |
 
-*Spec section: Musou Mode: boss danger, stun windows and more bosses (claude/musou-bosses-drops, 2026-11-12; `MusouSim.Version` 48, `TfwRules.Version` 71, no protocol or wire change; Musou Mode only)*
-
-| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
-|---|---|---|---|---|---|---|
-| `R-6597ED04` | Musou: boss hit cap | one boss hit takes at most **0.75** of the target's full health plus armour (150 of a default 100 + 100), applied after every received-damage multiplier, so a full player of any class never dies of one hit; any other Ork is not capped (our reading of "not 1… (share of the pool) | kind: ours; notes: estimate | owner 2026-11-12 "not 1 shotting the player" (the share is ours) | Musou: boss hit cap: compare with SM1 by feel or video. Ours: one boss hit takes at most 0.75 of the target's full health plus… | ☐ |
-| `R-A0B5AC36` | Musou: boss stun | a boss (the Warboss, a Boss Ork) falling to **80, 60, 40, 20 %** of its full health is stunned **5** s, each share once per boss; a hit crossing several shares gives one stun and marks them all; the stun is the existing Stunned state (clients draw the stagger… (share, s) | kind: ours | owner 2026-11-12 (80, 60, 40, 20 %; 5 s); the one-stun-per-hit and no-extra-damage rules are ours | Musou: boss stun: compare with SM1 by watching the reaction and timing it frame by frame. Ours: a boss (the Warboss, a Boss Ork) falling to 80, 60, 40, 20 % of its… | ☐ |
-| `R-39002C91` | Musou: boss stun cue | a Telegraph event with value **60** at the boss's feet when a stun begins (no client effect yet; the stagger clip is the provisional look) | kind: ours; notes: approximation; notes: provisional | ours | Musou: boss stun cue: compare with SM1 by watching the reaction and timing it frame by frame. Ours: a Telegraph event with value 60 at the boss's feet when a stun begins… | ☐ |
-
 ### General game design (7)
 
 *Spec section: Known behavior (public, unverified)*
@@ -3937,7 +3931,7 @@ The Orks are an addition the owner keeps (the original multiplayer had Space Mar
 |---|---|---|---|---|---|---|
 | `R-F56BB73A` | Musou weight: Ork push by weapon | a hit Ork of the rank and file is pushed back **0.35** m by a hammer, maul or mace, **0.28** by an axe, **0.12** by a knife, **0.2** by the rest (the combat-feel pilot's 0.2 for all before) (m) | kind: ours; confidence: low | the plan | Musou weight: Ork push by weapon: compare with SM1 by measuring on a flat spot of the same map. Ours: a hit Ork of the rank and file is pushed back 0.35 m by a hammer… | ☐ |
 
-*Spec section: Musou Mode: boss danger, stun windows and more bosses (claude/musou-bosses-drops, 2026-11-12; `MusouSim.Version` 48, `TfwRules.Version` 71, no protocol or wire change; Musou Mode only)*
+*Spec section: Musou Mode: boss danger, stun windows (rolled back: melee stuns only, claude/musou-boss-stun-rollback) and more bosses (claude/musou-bosses-drops, 2026-11-12; `MusouSim.Version` 48, `TfwRules.Version` 71, no protocol or wire change; Musou Mode only)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
@@ -4826,7 +4820,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-EA78DB46` | Musou: Guardsmen 1.1x (release integration, owner 2026-11-10; `TfwRules.Version` 64) | No Musou Mode in the original | The owner's: "Raise the guards to 1.1" (was 0.875x): the Guardsmen's health and shot damage 1.1x the install's 85 and the design's 5, so with every Nob twice the field holds a counterattack of its own size about half the time (our trial: 10 of 20) | Balance after twice the big Orks | Musou: Guardsmen 1.1x (release integration, owner…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-DA4B60BB` | Musou weight and impact pass (claude/musou-weight, 2026-11-10) | No Musou Mode in the original | The owner's brief of 2026-11-10 and his answers: the marines' ground contacts (foot tags and bones) drive dust and debris puffs, contact sounds and camera; more weight in landings, stops and rolls; melee retimed with its hit and end times kept, a short pose hold and camera push on the own heavy strikes and combo… | spec "Musou weight and impact pass" | Musou weight and impact pass (claude/musou-weight…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-F8BECC47` | Musou: powerups instead of weapon drops (musou/powerups, owner 2026-11-10; `MusouSim.Version` 40, wire tag 6 extended; Musou only) | No Musou Mode in the original | Ours (the owner's request, verbatim: "change the drop cards UI elements to be much more minimalistic and match the black and white theme. they don't drop weapons anymore but powerups, and more rarely. they should drop a 2x damage buff that lasts 30s, a buff that makes all orks run away from you for 15s, a buff that… | Musou Mode and the 5-wave run only; Classic PvP unchanged. spec "Musou powerups: drops and durations", "Musou powerups: our parts", "Musou powerups: the x2 caps", "Musou powerups: the hold", "Musou powerups: look (client)" | Musou: powerups instead of weapon drops (musou/powerups…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
-| `C-FBFD2410` | Musou: boss danger, stun windows, more bosses (claude/musou-bosses-drops, owner 2026-11-12; `MusouSim.Version` 48, `TfwRules.Version` 71) | No Musou Mode in the original | Ours (added content, the owner's request): the Warboss and the Boss Orks hit 1.5x harder (the factor ours) but one boss hit takes at most 75 % of the target's full health plus armour; a boss falling to 80, 60, 40 and 20 % of its health stands stunned 5 s (each once; the owner's numbers), doing nothing, in the war… | Musou Mode only; Classic PvP and the 5-wave run's replay unchanged. Spec "Musou Mode: boss danger, stun windows and more bosses". | Musou: boss danger, stun windows, more bosses…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-FBFD2410` | Musou: boss danger, stun windows, more bosses (claude/musou-bosses-drops, owner 2026-11-12; `MusouSim.Version` 48, `TfwRules.Version` 71) | No Musou Mode in the original | Ours (added content, the owner's request): the Warboss and the Boss Orks hit 1.5x harder (the factor ours) but one boss hit takes at most 75 % of the target's full health plus armour; (the 80/60/40/20 % stun windows were rolled back, owner 2026-11-12: bosses stay unstunnable by anything but a player's melee stun, 0.6… | Musou Mode only; Classic PvP and the 5-wave run's replay unchanged. Spec "Musou Mode: boss danger, stun windows and more bosses". | Musou: boss danger, stun windows, more bosses…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-BFB674C7` | Musou: no aerial tackle, a light attack at any point in a hop (claude/musou-no-aerial-tackle, owner 2026-11-12, TEMPORARY; `MusouSim.Version` 49, `TfwRules.Version` 74) | The Assault and Raptor start the aerial (flying) tackle, the dash attack, with a melee press in a hop; an earlier press cancels the hop into a swing that must wait for the cancelled clip to end | Ours (added content, the owner's temporary request): in Musou Mode a melee press at any point of a hop is the light attack at once, with no wait before the next swing; the tackle never starts. The air attack keeps the hop cancel's rules (rise stopped, 0.4 of the horizontal speed carried; ours). Restore:… | Musou Mode only; Classic PvP unchanged. Spec "Musou Mode: no aerial tackle, a light attack at any point in a hop (temporary)". | Musou: no aerial tackle, a light attack at any point in a…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 
 ## Appendix: not gameplay
