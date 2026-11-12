@@ -3,61 +3,43 @@ using System.Numerics;
 namespace SmSim.Extras.Musou;
 
 /// <summary>
-/// The bosses' stun windows (owner, 2026-11-12: "make it so when the bosses take enough damage they are stunned for a 5s window. This 5s stun triggers every time a boss or warboss reaches 80%, 60%, 40%,
-/// 20% hp"). The Warboss and the Boss Orks (<see cref="MusouPowerupRules.Boss"/>) in Musou Mode's war only (the 5-wave run's replay is pinned). Thresholds and window are the owner's; the rest of the
-/// rule (one stun per hit however many shares it crosses, no extra damage while stunned, the abilities cancelled) is ours (spec "Musou Mode: boss danger and stun").
+/// The bosses' melee stun (owner, 2026-11-12: "bosses should remain unstunnable in any form" and "they should be susceptible to melee attack stuns though"). The Warboss and the Boss Orks
+/// (<see cref="MusouPowerupRules.Boss"/>) stay immune to every stun and stagger (<see cref="MusouSim.Stagger"/> is false for them: grenades, blasts, charges of demolition, plasma, artillery,
+/// the drop pod, the Librarian's powers) except a player's melee strike that carries one (<see cref="MusouSim.StaggerMelee"/>). The health-threshold stun windows (80, 60, 40, 20 %) of the
+/// earlier change are gone. Spec "Musou Mode: bosses and melee stuns".
 /// </summary>
-public static class MusouBossStunRules
-{
-    /// <summary>The shares of its full health a boss is stunned at, each once (owner: 80, 60, 40, 20 %).</summary>
-    public static readonly float[] Shares = [0.8f, 0.6f, 0.4f, 0.2f];
-    /// <summary>The stun's length in seconds (owner: 5 s).</summary>
-    public const float Seconds = 5f;
-    /// <summary>The cue (a <see cref="MusouEventKind.Telegraph"/>'s value, ours) a stun begins with, at the boss's feet.</summary>
-    public const byte BeginCue = 60;
-
-    /// <summary>The bit set of the thresholds a boss with <paramref name="share"/> of its health left has reached (bit k: <see cref="Shares"/>[k]).</summary>
-    public static byte Reached(float share)
-    {
-        byte bits = 0;
-        for (int k = 0; k < Shares.Length; k++) if (share <= Shares[k]) bits |= (byte)(1 << k);
-        return bits;
-    }
-}
-
 public sealed partial class MusouSim
 {
-    readonly float[] _maxHealth = new float[Capacity];
-    readonly byte[] _stunMarks = new byte[Capacity];
     readonly ushort[] _stunLeft = new ushort[Capacity];
 
-    void SpawnedBossStun(int i) { _maxHealth[i] = _health[i]; _stunMarks[i] = 0; _stunLeft[i] = 0; }
+    void SpawnedBossStun(int i) { _stunLeft[i] = 0; }
 
-    /// <summary>Whether boss <paramref name="id"/> stands in a stun window now (the Warboss's abilities read it).</summary>
+    /// <summary>Whether boss <paramref name="id"/> stands in a melee stun now (the Warboss's abilities read it).</summary>
     public bool BossStunned(ushort id) => id >= 1 && id <= Capacity && _used[id - 1] && _stunLeft[id - 1] > 0;
 
-    /// <summary>Stun windows begun so far (the log and the tests).</summary>
+    /// <summary>Melee stuns that landed on a boss so far (the log and the tests).</summary>
     public int BossStuns { get; private set; }
 
-    /// <summary>From <see cref="Damage"/>, the enemy alive after a hit: a boss in the war that fell to a share it had not reached is stunned (every share the hit crossed is marked, one stun).</summary>
-    void BossHurt(int i)
+    /// <summary>
+    /// A player's melee strike that carries a stagger (a heavy swing, a charge, a ground pound): an ordinary enemy staggers as <see cref="Stagger"/> says; the Warboss and a Boss Ork, which no
+    /// other stagger moves, stand stunned for the same <see cref="MusouCombatRules.StaggerSeconds"/> (no knockback; each strike restarts the window, none is added on top). False for anything dying,
+    /// in a hop or unknown. The only door through which a boss is stunned.
+    /// </summary>
+    public bool StaggerMelee(ushort id, Vector2 push, float distance)
     {
-        if (War is null || !MusouPowerupRules.Boss(_type[i]) || _maxHealth[i] <= 0f) return;
-        byte reached = MusouBossStunRules.Reached(_health[i] / _maxHealth[i]);
-        byte fresh = (byte)(reached & ~_stunMarks[i]);
-        if (fresh == 0) return;
-        _stunMarks[i] |= fresh;
-        BeginBossStun(i);
-    }
-
-    void BeginBossStun(int i)
-    {
-        _scripted[i] = false; _drive[i] = Vector2.Zero; _driveTicks[i] = 0;
-        _token[i] = 0; _burst[i] = 0; _charging[i] = false; _velocity[i] = Vector2.Zero;
-        SetState(i, MusouEnemyState.Stunned);
-        _stunLeft[i] = Ticks(MusouBossStunRules.Seconds);
-        BossStuns++;
-        AddEvent(new MusouEvent(MusouEventKind.Telegraph, Tick, (ushort)(i + 1), 0, MusouBossStunRules.BeginCue, _position[i]));
+        int i = id - 1;
+        if (i < 0 || i >= Capacity || !_used[i] || !(_type[i] == MusouEnemyType.Warboss || MusouBossOrks.Is(_type[i]))) return Stagger(id, push, distance);
+        if (War is null || _state[i] is MusouEnemyState.Dying or MusouEnemyState.Airborne or MusouEnemyState.Spawning) return false;
+        if (_stunLeft[i] == 0)
+        {
+            _scripted[i] = false; _drive[i] = Vector2.Zero; _driveTicks[i] = 0;
+            _charging[i] = false;
+            SetState(i, MusouEnemyState.Stunned);
+            BossStuns++;
+        }
+        _token[i] = 0; _burst[i] = 0; _velocity[i] = Vector2.Zero;
+        _stunLeft[i] = Math.Max((ushort)1, Ticks(Rules.Combat.StaggerSeconds));
+        return true;
     }
 
     /// <summary>One tick of a stunned boss (from <see cref="Step"/>): it stands, then goes back to its own decisions. True while it stood.</summary>

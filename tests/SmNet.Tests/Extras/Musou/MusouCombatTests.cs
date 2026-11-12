@@ -518,4 +518,66 @@ public class MusouCombatTests
         Assert.True(w.Musou!.TryGet(boy, out var hurt));
         Assert.False(hurt.Alive);
     }
+
+    // ---------------------------------------------------------------- bosses and melee stuns (owner 2026-11-12: unstunnable in any form, but susceptible to melee attack stuns)
+
+    static (World W, ushort Boss) WarWithBoss(Vector3 offset, MusouEnemyType type = MusouEnemyType.Warboss, int primary = 0, SimConfig? config = null)
+    {
+        var w = NewWorld(primary, config);
+        w.Musou!.War = global::SmSim.Extras.Musou.Campaign.TfwCombatRules.Default;
+        ushort boss = w.Musou.Spawn(type, Me(w) + offset, 0f, 1e6f);
+        for (int t = 0; t < 120; t++) w.Step(_ => new PlayerInput(0, 0f, 0f, 0f, 0));   // out of its spawn stand
+        return (w, boss);
+    }
+
+    static bool StunnedDuring(World w, ushort boss, int ticks, Func<int, PlayerInput> input)
+    {
+        bool stunned = false;
+        for (int t = 0; t < ticks; t++)
+        {
+            w.Step(_ => input(t));
+            stunned |= w.Musou!.BossStunned(boss);
+        }
+        return stunned;
+    }
+
+    [Theory]
+    [InlineData(MusouEnemyType.Warboss)]
+    [InlineData(MusouEnemyType.BossNob)]
+    [InlineData(MusouEnemyType.BossBoy)]
+    public void A_heavy_melee_step_stuns_a_boss_and_a_light_one_does_not(MusouEnemyType type)
+    {
+        var (light, lb) = WarWithBoss(new Vector3(0f, 2f, 0f), type);
+        Assert.False(StunnedDuring(light, lb, 30, t => new PlayerInput(0, 0f, 0f, 0f, t == 0 ? InputButtons.Melee : 0)));
+        var (heavy, hb) = WarWithBoss(new Vector3(0f, 2f, 0f), type);
+        Assert.True(StunnedDuring(heavy, hb, 30, t => new PlayerInput(0, 0f, 0f, 0f, t == 0 ? InputButtons.MeleeHeavy : 0)));
+        Assert.True(heavy.Musou!.BossStuns >= 1);
+    }
+
+    [Fact]
+    public void A_charge_stuns_a_boss_on_its_path()
+    {
+        var (w, boss) = WarWithBoss(new Vector3(0.3f, 4f, 0f), MusouEnemyType.BossNob);
+        Assert.True(StunnedDuring(w, boss, 45, t => { bool held = t < 2; return new PlayerInput(0, 0f, held ? 1f : 0f, 0f, held ? InputButtons.Sprint | (t == 1 ? InputButtons.MeleeHeavy : 0) : 0); }));
+    }
+
+    [Fact]
+    public void A_ground_pound_stuns_a_boss_within_its_blast()
+    {
+        var splash = new SplashSpec(3f, Plain with { Damage = 30f }, [new(0f, 1f), new(3f, 1f)], false, true, "target_all");
+        var (w, boss) = WarWithBoss(new Vector3(0f, 1.5f, 0f), MusouEnemyType.BossArdBoy, config: Config(cls: c => c with { MeleeHeavy = [Heavy with { Stomp = splash, PrimaryReaction = default }] }));
+        Assert.True(StunnedDuring(w, boss, 30, t => new PlayerInput(0, 0f, 0f, 0f, t == 0 ? InputButtons.MeleeHeavy : 0)));
+    }
+
+    [Fact]
+    public void A_rocket_blast_a_flamer_and_a_shot_never_stun_a_boss()
+    {
+        foreach (int primary in new[] { 0, 1, 2 })
+        {
+            var (w, boss) = WarWithBoss(new Vector3(0f, 8f, 0f), MusouEnemyType.Warboss, primary);
+            Assert.False(StunnedDuring(w, boss, 60, _ => new PlayerInput(0, 0f, 0f, 0f, InputButtons.Fire)));
+            Assert.True(w.Musou!.TryGet(boss, out var e) && e.Health < 1e6f, $"primary {primary} hit it");
+            Assert.Equal(0, w.Musou.BossStuns);
+        }
+    }
 }
