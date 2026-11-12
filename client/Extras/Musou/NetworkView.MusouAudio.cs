@@ -28,20 +28,22 @@ public partial class NetworkView
     bool MusouAudioOn => MusouActive && !NoMusouAudioPass && MusouAudioRules.Applies(_config!.Extras);
 
     /// <summary>
-    /// Test aid <c>--musou-own-layer-db thump,deep,sub</c> (owner 2026-11-12, the crowded-fight sound tuning; presentation only): the own bolter's layer gains in dB, each a number or <c>off</c> (that layer not played),
-    /// in place of <see cref="MusouAudioRules.OwnThumpGainDb"/>, <see cref="MusouAudioRules.OwnDeepGainDb"/> and <see cref="MusouAudioRules.OwnSubGainDb"/>; a field left empty or <c>-</c> keeps its default (no flag: today's values).
+    /// Own bolter layers (owner 2026-11-13, picked from samples A-D: "i want d original bolter sound for now"): by default the own rifle plays the original shot only, no deep, sub or thump layer
+    /// (others' lighter layers stay). <c>--musou-own-layers</c> brings the layers back at <see cref="MusouAudioRules.OwnThumpGainDb"/>, <see cref="MusouAudioRules.OwnDeepGainDb"/> and <see cref="MusouAudioRules.OwnSubGainDb"/>.
+    /// Test aid <c>--musou-own-layer-db thump,deep,sub</c> (presentation only) sets the three gains in dB (each a number or <c>off</c>; empty keeps the default above) and turns the layers on.
     /// </summary>
+    static readonly bool OwnLayersRestored = CmdFlag("musou-own-layers");
     static readonly (float? Thump, float? Deep, float? Sub) OwnLayerDb = ParseOwnLayerDb(CmdArg("musou-own-layer-db"));
 
     static (float? Thump, float? Deep, float? Sub) ParseOwnLayerDb(string? text)
     {
         float? thump = MusouAudioRules.OwnThumpGainDb, deep = MusouAudioRules.OwnDeepGainDb, sub = MusouAudioRules.OwnSubGainDb;
-        if (text is null) return (thump, deep, sub);
+        if (text is null) return OwnLayersRestored ? (thump, deep, sub) : (null, null, null);
         var parts = text.Split(',');
         if (parts.Length != 3 || !TryField(parts[0], ref thump) || !TryField(parts[1], ref deep) || !TryField(parts[2], ref sub))
         {
-            GD.PrintErr($"--musou-own-layer-db: expected thump,deep,sub (each dB, 'off' or empty for the default), got '{text}'; the default gains stay");
-            return (MusouAudioRules.OwnThumpGainDb, MusouAudioRules.OwnDeepGainDb, MusouAudioRules.OwnSubGainDb);
+            GD.PrintErr($"--musou-own-layer-db: expected thump,deep,sub (each dB, 'off' or empty for the default), got '{text}'; the default stays");
+            return !OwnLayersRestored ? (null, null, null) : (MusouAudioRules.OwnThumpGainDb, MusouAudioRules.OwnDeepGainDb, MusouAudioRules.OwnSubGainDb);
         }
         return (thump, deep, sub);
 
