@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3099 spec table rows: **2280 tagged**, 564 not tagged (read from data with high confidence), 255 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 687 rows of the changes document.
+Scanned 3106 spec table rows: **2285 tagged**, 566 not tagged (read from data with high confidence), 255 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 688 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -37,7 +37,7 @@ Scanned 3099 spec table rows: **2280 tagged**, 564 not tagged (read from data wi
 | Weapons (critical) | 121 | 73 | 106 | 54 | 3 |
 | Melee (critical) | 131 | 114 | 103 | 45 | 5 |
 | Jump pack (critical) | 79 | 71 | 63 | 19 | 0 |
-| Charge (critical) | 56 | 47 | 47 | 22 | 0 |
+| Charge (critical) | 61 | 51 | 49 | 25 | 0 |
 | Reactions (critical) | 25 | 22 | 23 | 12 | 0 |
 | Camera (critical) | 55 | 53 | 44 | 22 | 0 |
 | HUD and hit feedback (critical) | 71 | 66 | 52 | 11 | 0 |
@@ -49,22 +49,22 @@ Scanned 3099 spec table rows: **2280 tagged**, 564 not tagged (read from data wi
 | Customizer and paint | 48 | 45 | 26 | 15 | 0 |
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
-| Networking and render smoothing | 22 | 13 | 13 | 12 | 7 |
-| Core simulation (provisional values) | 692 | 652 | 491 | 183 | 1 |
+| Networking and render smoothing | 23 | 13 | 13 | 13 | 7 |
+| Core simulation (provisional values) | 691 | 652 | 491 | 182 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 236 | 225 | 126 | 64 | 0 |
-| **All areas** | **2280** | 2011 | 1700 | 716 | 38 |
+| **All areas** | **2285** | 2015 | 1702 | 719 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1299 |
+| kind: ours | 1303 |
 | confidence: low | 813 |
-| confidence: medium | 758 |
+| confidence: medium | 760 |
 | notes: ours | 413 |
 | kind: interpretation | 380 |
-| notes: estimate | 184 |
+| notes: estimate | 187 |
 | kind: estimate | 156 |
 | confidence: none (low) | 129 |
 | kind: provisional | 103 |
@@ -1341,7 +1341,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-0DB8F980` | Jets fade | out over 0.2 s, back over 0.25 s, linear (s) | kind: estimate; confidence: low; notes: ours | owner's "smoothly"; values ours | Jets fade: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: out over 0.2 s, back over 0.25 s, linear. | ☐ |
 | `R-E62741A8` | Legs in an air strike | a melee strike more than 0.1 s in the air has no clip foot lock: the legs are the attack clip's (the lock held each foot the clip put down at a world point and the leg IK stretched it back there as the body flew on) (s) | kind: ours; confidence: medium | cause measured; the grace ours | Legs in an air strike: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a melee strike more than 0.1 s in the air has no clip foot lock: the… | ☐ |
 
-### Charge (gameplay-critical) (56)
+### Charge (gameplay-critical) (61)
 
 *Spec section: The charge: the bull rush (M29, used by the simulation; protocol 18; M31: the sprint rule, protocol 20, superseded in protocol 39; M32: the charger's hyper armour, protocol 21)*
 
@@ -1433,6 +1433,16 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-956FF538` | Homing | unchanged: the locked charge steers to its target at **180 degrees a second** inside the charge's cone; the video's last 0.3 s turns about 30 to 40 degrees (the camera's view: 100 to 130 a second), within the rate (°/s) | kind: estimate; confidence: low | video, estimate | Homing: compare with SM1 with an overlaid screenshot taken from the same position. Ours: unchanged: the locked charge steers to its target at 180 degrees a… | ☐ |
 | `R-A7CF46EC` | Client: the own charge's victim | drawn at the lock spot, which rides with the own drawn body through the shove (0.9 m ahead along the predicted heading); the override lets go once the interpolated victim shows its reaction **and** has reached the spot (within **0.15 m**), at most **1.2 s**… (m, s) | kind: ours; confidence: medium | ours | Client: the own charge's victim: compare with SM1 by feel or video. Ours: drawn at the lock spot, which rides with the own drawn body through… | ☐ |
 | `R-C1117654` | Client: drawn bodies | a remote drawn inside the own body or another remote is moved out by up to **0.9 m** (was 0.45 m: a remote more than half inside stayed partly inside) (m) | kind: ours | owner ("never, ever phase") | Client: drawn bodies: compare with SM1 by measuring on a flat spot of the same map. Ours: a remote drawn inside the own body or another remote is moved out by… | ☐ |
+
+*Spec section: The charge after a swing and the instant S cancel (charge-responsive; protocol 69, used by the simulation; every mode)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-48B1297C` | The charge after a swing | a charge press with the swing's hit landed (the attack time before the tick at least its hit time; on the install a light attack's hit is about 0.2 to 0.4 s in) ends the attack, its queued next attack and its melee wait and starts the charge on that very… (s) | kind: ours; notes: estimate | owner 2026-11-12; the hit as the earliest point and "every melee attack" ours | The charge after a swing: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a charge press with the swing's hit landed (the attack time before… | ☐ |
+| `R-1E15AAA2` | A swing after a charge | a melee press ends the charge and swings at once (protocol 54, unchanged; its cancel wait for the cancelled clip's end keeps the swing after that from starting early). After an S cancel or the clip's end the next swing starts on the first tick (nothing waits:… (s) | confidence: medium | owner 2026-11-12 ("or vice versa") | A swing after a charge: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a melee press ends the charge and swings at once (protocol 54… | ☐ |
+| `R-65E068A4` | The S cancel at once | S held back ends the bull rush on the tick after its start or any later tick, with no wait for the stick branch (it was 0.467 s); keyboard S, S + A, S + D, a pad's stick in the back three of eight sectors and at least **0.5** of full length… | kind: ours; notes: estimate | owner 2026-11-12; the 0.5 ours | The S cancel at once: compare with SM1 by feel or video. Ours: S held back ends the bull rush on the tick after its start or any… | ☐ |
+| `R-712DDB84` | S held at the start | needs no rule: the start needs W (the stick's forward part at least 0.7; a keyboard's W + S cancel out), so S cannot be held on the press tick; no fresh press is needed after it, S from the second tick cancels | kind: ours; confidence: medium | ours | S held at the start: compare with SM1 by feel or video. Ours: needs no rule: the start needs W (the stick's forward part at least… | ☐ |
+| `R-A9FD2798` | What an early cancel does | as the cancel at the branch (the charge is over at once, normal movement, no stop clip, no reaction, the 1 s spacing runs on) except the horizontal speed it carries is capped at the sprint speed (the clip's opening burst of 28 to 41 m/s would otherwise slide… (m/s) | kind: ours; notes: estimate | ours | What an early cancel does: compare with SM1 by timing a run over a known distance. Ours: as the cancel at the branch (the charge is over at once, normal… | ☐ |
 
 ### Reactions (gameplay-critical) (25)
 
@@ -2264,7 +2274,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-EC513790` | Look SSR by preset (fx/impact-pass review) | a look's `ssr.on` (the remaster's) turns screen-space reflections on at medium and high only; low and off never run SSR (older hardware is the next priority); high has SSR anyway. Off = the M40-T7 renderer features alone (no shadows, SSAO, SSIL, volumetric… | kind: ours | ours | Look SSR by preset (fx/impact-pass review): compare with SM1 with side-by-side screenshots in the same spot. Ours: a look's ssr.on (the remaster's) turns screen-space reflections on at… | ☐ |
 | `R-6E7116B1` | Effect checks after the review fixes (demo replays on Godot time, `--fixed-fps 30`, identical… | own bolter tracer and the enemy's shots from the follow camera, own lascannon beam: as bright as on main (the beam is an axis billboard: no edge-on fade; its fade size is its width); `FxTest --pound-test` crater, shockwave rings and dust as on main (flat… | confidence: medium | measured | Effect checks after the review fixes (demo replays on Godot…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: own bolter tracer and the enemy's shots from the follow camera, own… | ☐ |
 
-### Networking and render smoothing (22)
+### Networking and render smoothing (23)
 
 *Spec section: Time-faithful capture and the smoothed render clock (M40 T0, T2; client only, not simulated)*
 
@@ -2312,13 +2322,19 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-EB03504B` | Shot lag allowance | each shot is also tried on the enemy's places over the last **0.2** s, every 2 ticks (s) | kind: ours; notes: estimate | owner 2026-11-02 | Shot lag allowance: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: each shot is also tried on the enemy's places over the last 0.2 s… | ☐ |
 
+*Spec section: Charge cancel: S, not the grenade; the ally bump (charge-cancel, charge-ally-bump; protocol 66, used by the simulation)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-F273B158` | S cancels the bull rush (from protocol 69 at once, from the second tick: section "The charge after… | the stick held back ends the rush from its stick branch (the data's `BRANCH_Attack2Idle`, **0.467 s** on the install, the time the grenade press had): S, S + A, S + D on a keyboard; a pad's stick beyond the 0.1 dead zone in the back three of the eight 45… (s) | notes: ours; notes: estimate | owner 2026-11-11 (the input, "tapping or holding the S key"); the branch and the sectors ours | S cancels the bull rush (from protocol 69 at once, from the…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the stick held back ends the rush from its stick branch (the data's… | ☐ |
+
 *Spec section: Jump escape, hop-cancel momentum and descent recharge (protocol 62; sim/jump-escape, sim/hop-cancel-momentum, sim/descent-recharge, 2026-11-06)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (692)
+### Core simulation (provisional values) (691)
 
 *Spec section: Provisional values in use*
 
@@ -2889,7 +2905,6 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
-| `R-51545301` | S cancels the bull rush | the stick held back ends the rush from its stick branch (the data's `BRANCH_Attack2Idle`, **0.467 s** on the install, the time the grenade press had): S, S + A, S + D on a keyboard; a pad's stick beyond the 0.1 dead zone in the back three of the eight 45… (s) | notes: ours; notes: estimate | owner 2026-11-11 (the input, "tapping or holding the S key"); the branch and the sectors ours | S cancels the bull rush: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the stick held back ends the rush from its stick branch (the data's… | ☐ |
 | `R-73B243A5` | An S tap before the branch | does nothing: the stick is held, not pressed, and nothing keeps it (the input buffer keeps button presses only); S must be down at or after 0.467 s | kind: ours; notes: guess | ours (the grenade press it replaces was buffered 0.3 s) | An S tap before the branch: compare with SM1 by feel or video. Ours: does nothing: the stick is held, not pressed, and nothing keeps it… | ☐ |
 | `R-3AE5DB9E` | What the cancel does | the charge is over at once and the tick moves the body as normal movement from the rush's speed: no stop clip, no reaction, no attack or throw started; synthetic: 8.3 m/s along the view after the cancel's tick, -2.9 m/s (backwards) 10 ticks later with S held.… | kind: ours; confidence: medium | ours (as the rush's other early ends) | What the cancel does: compare with SM1 by feel or video. Ours: the charge is over at once and the tick moves the body as normal… | ☐ |
 | `R-08FC27AC` | Where the cancel applies | every mode that runs the shared charge: Classic PvP (the six classes, and the Ork Boy's charge in the extended content) and Musou Mode (its players' bull rush; the Musou enemies' contact is Musou's own and unchanged) | kind: ours; confidence: medium | the lead's brief (the shared charge) | Where the cancel applies: compare with SM1 by feel or video. Ours: every mode that runs the shared charge: Classic PvP (the six classes… | ☐ |
@@ -4195,6 +4210,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-A9F35B16` | No on-hit effects on shot players (claude/classic-no-player-hit-fx; Classic PvP only, client only) | A ranged hit on a player plays the weapon's hit container and the player blueprint's armour-hit effects at him (impact flashes, sparks, glows, the break effect `sm_armor_break_shoulders`) | In Classic PvP a ranged hit on a player draws none of them, nor our own additions (the spark fans, the health-hit burst that read as the "stalker bolter explosion cloud", the melta's whole-body burn); the victim model's own flash and glow, the sounds, the HUD, the tracer and the map's impacts stay; ours: the model's… | **Owner's request 2026-11-11** ("simply remove instances of weapon on hit visual effects like the stalker bolter explosion cloud on the player target you shot and hit - classic pvp only"); spec "No on-hit effects on shot players in Classic PvP" | No on-hit effects on shot players…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-6168DE91` | The charge's cancel: S, not a grenade (charge-cancel, 2026-11-11; protocol 66; every mode) | The rush's data branch `BRANCH_Attack2Idle` (0.667 s) lets the stick, Fire, Aim or a Grenade press end it; here, since protocols 48 and 53 took Fire, Aim and the stick off it, only a Grenade press did (also with no grenade left: the "dash cancel" with an empty grenade), and it ended the recoil and the dash attack's… | S held back (S, S + A, S + D; a pad's stick in the back three of eight sectors) ends the bull rush from the same branch (x the 0.7 lock scale: 0.467 s), tapped or held; a Grenade press ends no charge phase and waits in the input buffer (a throw follows the charge's end within 0.3 s); W, A and D still end nothing, the… | Owner 2026-11-11: "throwing a grenade no longer cancels a bull rush/charge animation. what should cancel a charge animation is tapping or holding the S key (backpedal)"; the branch time, the back sectors and an S tap before the branch doing nothing are ours. Spec "Charge cancel: S, not the grenade; the ally bump" | The charge's cancel: S, not a grenade (charge-cancel…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-5B69498D` | A charge slides past an ally (charge-ally-slide, 2026-11-11; every mode; protocol 67; replaces protocol 66's ally bump) | The owner's recollection of the original: "with an ally it just collides"; here the ally's contact put the charger into the collision stop (the wall-hit recoil), with the impact's hit-stop, effects and camera kick on both (protocol 66 ended the charge at the ally with no recoil) | A charge (the bull rush, the dash attack's lunge) passes an ally it cannot harm: no contact, no stop, no turn, the clip plays on; the shared player collision slides the charger along the ally's body and nothing happens to the ally. Enemies and friendly fire as before; Musou Mode too. `--old-ally-bump` restores the… | Owner 2026-11-11: "when a charge hits an ally it should slide past"; the slide itself is the capsule collision's (ours). An S tap before the stick branch is not remembered (owner: "early s tap should not be remembered"; already so, now tested). Spec "Charge ally slide" | A charge slides past an ally (charge-ally-slide…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
+| `C-8C4D5D60` | The charge after a swing and the instant S cancel (charge-responsive, 2026-11-12; protocol 69; every mode) | The owner: a charge pressed during a light attack, a combo or a heavy strike did nothing until the attack ended; S had to be held about half a second (the stick branch) to cancel the charge | A charge press once the swing's hit has landed ends the attack and its combo and charges at once; a swing starts on the first tick after a charge ends or is cancelled; S (stick back at least half) cancels the bull rush from its second tick, the speed it carries capped at the sprint's. `--old-charge-after-melee` and… | Owner 2026-11-12: "You should immediately be able to charge after a melee attack, or vice versa"; "The charge should be cancelled instantaneously as soon as the S key or back on left joystick is triggered". The hit as the earliest point, the 0.5 stick length and the speed cap are ours. Spec "The charge after a swing… | The charge after a swing and the instant S cancel…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 
 ### Our choices where the original is unknown
 

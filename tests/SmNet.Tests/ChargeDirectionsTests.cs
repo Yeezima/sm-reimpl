@@ -470,12 +470,13 @@ public class ChargeDirectionsTests(ITestOutputHelper output)
             return k;
         }
         int withW = RushTicks(0f, 1f, Rules), withD = RushTicks(1f, 0f, Rules), withNothing = RushTicks(0f, 0f, Rules), withS = RushTicks(0f, -1f, Rules);
-        int oldS = RushTicks(0f, -1f, Rules with { ChargeBackCancel = false });
+        int oldS = RushTicks(0f, -1f, Rules with { ChargeBackCancel = false }), delayedS = RushTicks(0f, -1f, Rules with { ChargeInstantCancel = false });
         output.WriteLine($"rush ticks: W {withW}, nothing {withNothing}, D {withD}, S {withS}; S with --old-charge-cancel {oldS}");
         Assert.Equal(withNothing, withW);   // W is as good as no input: the charge runs to its own end
         Assert.Equal(withNothing, withD);   // feel/charge-no-cancel (the owner 2026-11-02): A and D do not end it either
         // charge-cancel (protocol 66; the owner 2026-11-11): S does, at the rush's stick branch (0.6 s of RushTests' clip: 18 ticks played); the restore switch: S does not.
-        Assert.Equal(1 + 18, withS);
+        Assert.Equal(1 + 18, delayedS);   // --old-charge-cancel-delay: the branch
+        Assert.Equal(2, withS);           // charge-responsive (protocol 69): the first tick after the start
         Assert.Equal(withNothing, oldS);
     }
 }

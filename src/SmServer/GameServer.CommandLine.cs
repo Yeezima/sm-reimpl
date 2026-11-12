@@ -57,6 +57,10 @@ public sealed record ServerArguments
     public bool OldChargeCancel { get; init; }
     /// <summary>charge-ally-bump (restore switch, before / after): the protocol 65 collision stop on an ally (<see cref="SimConfig.ChargeAllyBump"/>; config hash: clients need it too).</summary>
     public bool OldAllyBump { get; init; }
+    /// <summary>charge-responsive (restore switch): a charge waits for a melee attack under way to end (<see cref="SimConfig.ChargeAfterMelee"/>; config hash: clients need it too).</summary>
+    public bool OldChargeAfterMelee { get; init; }
+    /// <summary>charge-responsive (restore switch): the S cancel waits for the rush's stick branch (<see cref="SimConfig.ChargeInstantCancel"/>; config hash: clients need it too).</summary>
+    public bool OldChargeCancelDelay { get; init; }
     /// <summary>stims-classic (restore switch): the earlier 9-tick stim press and the hit cancel before the release (<see cref="SimConfig.StimReliable"/>; config hash: clients need it too).</summary>
     public bool OldStimUse { get; init; }
     /// <summary>--log-overlaps (sim/player-collision test aid): every 10 s, how close the living players' capsules came and how often they overlapped.</summary>
@@ -98,6 +102,8 @@ public static class ServerCommandLine
           --old-body-contact            switch: test aid: no guard against bodies passing through each other, the charge contact and stop as in protocol 56 (clients need --old-body-contact too)
           --old-charge-cancel           switch: restore: a Grenade press ends the charge from its branch and S does not, as in protocol 65 (clients need --old-charge-cancel too)
           --old-stim-use                switch: restore: a stim press is kept 9 ticks and a hit before its release cancels the use (clients need --old-stim-use too)
+          --old-charge-after-melee      switch: restore: a charge waits for a melee attack under way to end (clients need --old-charge-after-melee too)
+          --old-charge-cancel-delay     switch: restore: S cancels the charge only from the rush's stick branch, about 0.47 s in (clients need --old-charge-cancel-delay too)
           --old-ally-bump               switch: restore: a charge that meets an ally plays the collision stop, as in protocol 65 (clients need --old-ally-bump too)
           --log-overlaps                switch: test aid: every 10 s, the closest the living players' capsules came and how many ticks they overlapped
           --unlocks all                 unlock mode (only 'all': no progression yet)
@@ -112,7 +118,7 @@ public static class ServerCommandLine
           --help, -h                    switch: this list
         """;
 
-    static readonly HashSet<string> Switches = ["--no-custom-emblems", "--limit-loopback", "--honor-side-requests", "--ork-data", "--no-player-collision", "--no-charge-lock", "--old-body-contact", "--old-charge-cancel", "--old-ally-bump", "--old-stim-use", "--log-overlaps", "--help", "-h"];
+    static readonly HashSet<string> Switches = ["--no-custom-emblems", "--limit-loopback", "--honor-side-requests", "--ork-data", "--no-player-collision", "--no-charge-lock", "--old-body-contact", "--old-charge-cancel", "--old-ally-bump", "--old-charge-after-melee", "--old-charge-cancel-delay", "--old-stim-use", "--log-overlaps", "--help", "-h"];
     static readonly HashSet<string> Valued =
         ["--port", "--bind", "--game-dir", "--map", "--mode", "--score-limit", "--time-limit", "--friendly-fire", "--unlocks", "--countdown", "--pickup-test", "--bot-damage-scale", "--snapshot-rate",
          "--name-seed", "--max-per-ip", "--join-interval", "--idle-kick", "--ban-file", "--content", "--max-spectators"];
@@ -139,6 +145,8 @@ public static class ServerCommandLine
                     "--no-charge-clash" => a with { NoChargeClash = true },
                     "--old-charge-cancel" => a with { OldChargeCancel = true },
                     "--old-ally-bump" => a with { OldAllyBump = true },
+                    "--old-charge-after-melee" => a with { OldChargeAfterMelee = true },
+                    "--old-charge-cancel-delay" => a with { OldChargeCancelDelay = true },
                     "--old-stim-use" => a with { OldStimUse = true },
                     "--log-overlaps" => a with { LogOverlaps = true },
                     _ => a with { Help = true },

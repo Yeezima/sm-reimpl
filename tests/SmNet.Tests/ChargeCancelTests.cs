@@ -28,6 +28,8 @@ public class ChargeCancelTests(ITestOutputHelper output)
     };
 
     static readonly SimConfig Old = Config with { ChargeBackCancel = false };
+    /// <summary>The protocol 66 to 68 S cancel: from the rush's stick branch only (restore switch --old-charge-cancel-delay).</summary>
+    static readonly SimConfig Delayed = Config with { ChargeInstantCancel = false };
 
     static PlayerState Fresh(int grenades, SimConfig? c = null) =>
         Combat.Respawned(Loadouts.Choose(c ?? Config, new PlayerState(1, Vector3.Zero, Vector3.Zero, 0f, true) { Class = 0 }, -1, -1, -1, 0), c ?? Config) with { Grenades = grenades };
@@ -134,7 +136,7 @@ public class ChargeCancelTests(ITestOutputHelper output)
     [InlineData(0.3f, -0.6f)]  // a pad's stick back and a little right
     public void S_held_ends_the_rush_at_its_stick_branch(float x, float y)
     {
-        var (states, _) = Run(1, Config, s => s.Rush != RushPhase.Rush || s.RushTicks >= 2 ? Stick(x, y) : Idle);   // held from the rush's second tick on
+        var (states, _) = Run(1, Delayed, s => s.Rush != RushPhase.Rush || s.RushTicks >= 2 ? Stick(x, y) : Idle);   // held from the rush's second tick on
         Assert.Equal(StickBranchTicks, RushTicks(states));
         var last = states.Last(p => p.Rush == RushPhase.Rush);
         Assert.Equal(StickBranchTicks, last.RushTicks);
@@ -165,13 +167,13 @@ public class ChargeCancelTests(ITestOutputHelper output)
     {
         foreach (int tapAt in new[] { StickBranchTicks, 22, EndTicks - 1 })
         {
-            var (states, _) = Run(0, Config, s => s.Rush == RushPhase.Rush && s.RushTicks == tapAt ? Stick(0f, -1f) : Idle);
+            var (states, _) = Run(0, Delayed, s => s.Rush == RushPhase.Rush && s.RushTicks == tapAt ? Stick(0f, -1f) : Idle);
             Assert.Equal(tapAt, RushTicks(states));   // the tap's tick ends it
         }
         // A tap let go before the branch is not kept (the stick is held, not pressed: no buffer): the rush runs to its end.
-        Assert.Equal(EndTicks, RushTicks(Run(0, Config, s => s.Rush == RushPhase.Rush && s.RushTicks is 8 or 9 ? Stick(0f, -1f) : Idle).States));
+        Assert.Equal(EndTicks, RushTicks(Run(0, Delayed, s => s.Rush == RushPhase.Rush && s.RushTicks is 8 or 9 ? Stick(0f, -1f) : Idle).States));
         // Held from before the branch, it ends there.
-        Assert.Equal(StickBranchTicks, RushTicks(Run(0, Config, s => s.Rush == RushPhase.Rush && s.RushTicks >= 8 ? Stick(0f, -1f) : Idle).States));
+        Assert.Equal(StickBranchTicks, RushTicks(Run(0, Delayed, s => s.Rush == RushPhase.Rush && s.RushTicks >= 8 ? Stick(0f, -1f) : Idle).States));
     }
 
     [Theory]
@@ -181,7 +183,7 @@ public class ChargeCancelTests(ITestOutputHelper output)
     {
         // charge-ally-slide (the owner 2026-11-11: "early s tap should not be remembered"): an S press made before the rush's stick branch (tick 18) is not buffered and does not end the rush
         // when the branch comes, whatever the input buffer's window (the stick is tested on the branch's own tick only); the control: S on the branch's tick ends it.
-        var c = Config with { InputBufferWindow = window };
+        var c = Delayed with { InputBufferWindow = window };
         for (int tapAt = 1; tapAt < StickBranchTicks; tapAt++)
         {
             int at = tapAt;
@@ -225,7 +227,7 @@ public class ChargeCancelTests(ITestOutputHelper output)
         Assert.NotEqual(c.Hash(), (c with { ChargeBackCancel = false }).Hash());
         Assert.NotEqual(c.Hash(), (c with { ChargeAllyBump = false }).Hash());
         Assert.NotEqual((c with { ChargeBackCancel = false }).Hash(), (c with { ChargeAllyBump = false }).Hash());
-        Assert.Equal(68, Protocol.Version);
+        Assert.Equal(69, Protocol.Version);
         // The server's switches (the clients take the same words: client NetworkView.Bodies.cs).
         Assert.True(ServerCommandLine.TryParse(["--old-charge-cancel", "--old-ally-bump"], out var a, out var error), error);
         Assert.Equal((true, true), (a.OldChargeCancel, a.OldAllyBump));

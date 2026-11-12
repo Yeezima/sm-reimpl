@@ -449,12 +449,19 @@ public static class Combat
             bool other = ChargeCancel.EndsAtBranch(s, sanitized, grenadePress, c);
             // feel/melee-cancels (protocol 54): a melee press ends the hop or the bull rush and swings at once; the swing after it waits for the cancelled clip's end (MeleeCancel).
             if (MeleeCancel.Apply(s, c, meleePress, jumpPressed || jumpEscape, world) is { } cancel) { s = cancel.State; cancelLock = cancel.Lock; cancelStart = meleePress; }
+            // charge-responsive (protocol 69; the owner 2026-11-12): a charge press once the attack under way has hit ends the attack and its combo and charges at once; the melee wait ends with it.
+            if (heavyPress && ChargeCancel.CanChargeFromMelee(c, s) && Loadouts.Rush(c, s) is { } meleeRush && s.RushLock == 0)
+            {
+                var ended = s with { MeleeStep = 0, MeleeTime = 0f, MeleeQueued = false, MeleeHeavy = false, MeleeQueuedHeavy = false, MeleeLock = 0f };
+                if (Rush.CanStart(ended, input, meleeRush, c)) s = ended;
+            }
             var rushBefore = s;
             var rush = Rush.Begin(s, input, c, heavyPress, jumpPressed, meleePress, other, world);
             (rushing, rushHeld, s) = (rush.Active, rush.Held, rush.State);
             // A charge ended this tick by the stick, a grenade, Jump or melee before its clip's end is still the charge's tick: the trigger fires nothing in it.
             fireDropped = !rushing && rushBefore.Rush != RushPhase.None && Loadouts.Rush(c, rushBefore) is not null && Rush.MoveOf(c, rushBefore) is { } endMove
                 && Rush.Time(rushBefore, c) + 1e-5f < endMove.End;
+            if (rush.Started && c.ChargeAfterMelee && s.MeleeLock > 0f) s = s with { MeleeLock = 0f };   // charge-responsive: a swing may follow the charge at once (a melee press cancelling it keeps its own cancel wait)
             if (rush.Started) used |= InputBuffer.Bit(s.Rush == RushPhase.Rush ? BufferedAction.MeleeHeavy : BufferedAction.Melee);   // the bull rush or the dash attack
             // feel/melee-lock (protocol 32): the bull rush steers to its locked target, inside the charge's cone, while it still connects.
             if (rushing && !rushHeld && s.Rush == RushPhase.Rush && s.Grounded && Rush.Connecting(s, c)

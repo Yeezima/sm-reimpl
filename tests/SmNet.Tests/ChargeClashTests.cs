@@ -197,7 +197,7 @@ public class ChargeClashTests(ITestOutputHelper output)
         // A marine charges a strafing chaos marine over and over at 150 ms RTT with 5 % loss. Through every clash: the charger's predicted state equals the server's (the shove
         // ignores the victim's body on both); the drawn bodies (the own predicted body and the interpolated other, apart by DrawnBodies) never overlap in either client's view.
         var link = new LinkConditions(TimeSpan.FromMilliseconds(75), TimeSpan.FromMilliseconds(10), 0.05);
-        var h = new Harness(link, seed, 0, Config, new ServerOptions { PeerTimeout = TimeSpan.FromMinutes(5), Match = new MatchRules { TimeLimit = 0f, CountdownTime = 0f } });
+        var h = new Harness(link, seed, 0, Config with { ChargeInstantCancel = false }, new ServerOptions { PeerTimeout = TimeSpan.FromMinutes(5), Match = new MatchRules { TimeLimit = 0f, CountdownTime = 0f } });
         h.AddClient(nonce: 100, options: new ClientOptions { RequestedClass = Marine, RequestedSide = Team.SpaceMarines });
         h.AddClient(nonce: 101, options: new ClientOptions { RequestedClass = Chaos, RequestedSide = Team.Chaos });
         var truth = new Dictionary<uint, PlayerState>();

@@ -98,6 +98,11 @@ if (cli.NoChargeClash) config = config with { ChargeClash = false };
 // charge-cancel / charge-ally-bump (protocol 66): --old-charge-cancel and --old-ally-bump (restore switches) bring back the protocol 65 rules (config hash).
 if (cli.OldChargeCancel) config = config with { ChargeBackCancel = false };
 if (cli.OldAllyBump) config = config with { ChargeAllyBump = false };
+// charge-responsive (protocol 69): --old-charge-after-melee and --old-charge-cancel-delay (restore switches; config hash).
+if (cli.OldChargeAfterMelee) config = config with { ChargeAfterMelee = false };
+if (cli.OldChargeCancelDelay) config = config with { ChargeInstantCancel = false };
+Console.WriteLine(config.ChargeAfterMelee ? "charge after melee: a charge starts once the attack under way has hit (owner 2026-11-12)" : "charge after melee: OLD (--old-charge-after-melee, restore switch; clients need it too): the charge waits for the attack's end");
+Console.WriteLine(config.ChargeInstantCancel ? "charge cancel: S from the charge's second tick (owner 2026-11-12)" : "charge cancel: OLD delay (--old-charge-cancel-delay, restore switch; clients need it too): S from the rush's stick branch");
 // stims-classic (protocol 68): --old-stim-use (restore switch) brings back the 9-tick stim press and the hit cancel (config hash).
 if (cli.OldStimUse) config = config with { StimReliable = false };
 Console.WriteLine(config.StimReliable ? "stim use: reliable (the press kept 0.5 s, no hit cancel before the release; owner 2026-11-12)" : "stim use: OLD (--old-stim-use, restore switch; clients need --old-stim-use too): the press kept 0.3 s, a hit before the release cancels");
