@@ -63,7 +63,11 @@ public partial class MusouCrowd : CrowdView
     readonly List<int> _recoilOver = new();
 
     /// <summary>A blow from the direction opposite <paramref name="away"/> struck this Ork: it is drawn pushed back by up to <paramref name="metres"/> (<see cref="SmNet.Extras.Musou.MusouContactRules.RecoilAt"/>).</summary>
-    public void Recoil(int id, Vector3 away, float metres) => _recoil[id] = (0f, away, metres);
+    public void Recoil(int id, Vector3 away, float metres)
+    {
+        if (!NoOrkFlinch) return;   // the hit reaction (owner 2026-11-13) keeps the feet planted: the push-back's 0.2 to 0.35 m slide is left out while it is on (--no-musou-ork-flinch: the push-back as before)
+        _recoil[id] = (0f, away, metres);
+    }
 
     /// <summary>
     /// Ork hit reactions (owner 2026-11-13, reference v3; <see cref="MusouOrkFlinchRules"/>): per id, the flinch's track. A skeletal Ork poses it (torso, pelvis, knees, feet planted), a baked one leans and jolts,

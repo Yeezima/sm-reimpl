@@ -40,11 +40,13 @@ public static class MusouOrkFlinchPose
         float size = kick.Length();
         if (size < 1e-4f) return;
         var away = kick / size;
+        size *= MusouOrkFlinchRules.TestScale;
         var up = new Vector3(0f, 0f, 1f);   // skeleton space is the game's: Z up, the Ork faces +Y
         // The feet to keep where the clip put them (skeleton space), before anything moves.
         Vector3 ankleL = sk.GetBoneGlobalPose(b.Leg[2]).Origin, ankleR = sk.GetBoneGlobalPose(b.Leg[5]).Origin;
 
         var shift = (away * MusouOrkFlinchRules.PelvisBack - up * MusouOrkFlinchRules.PelvisDrop) * size / scale;
+        shift *= Reachable(sk, b, shift, ankleL, ankleR);   // the largest share of the shift the legs can take with the feet kept (a leg the clip left nearly straight cannot follow the hips)
         Move(sk, b.Pelvis, shift);
         Move(sk, b.Spine1, new Vector3(shift.X, shift.Y, 0f));   // the torso follows the hips' shift (not their drop: the spine bends instead)
         // The torso tips back: about the axis up x away, so the top moves along the hit's direction.
@@ -57,14 +59,41 @@ public static class MusouOrkFlinchPose
         Tip(sk, b.Head, axis, MusouOrkFlinchRules.Head * d);
         Plant(sk, b.Leg[0], b.Leg[1], b.Leg[2], ankleL);
         Plant(sk, b.Leg[3], b.Leg[4], b.Leg[5], ankleR);
+        if (DebugPlant && MathF.Max(sk.GetBoneGlobalPose(b.Leg[2]).Origin.DistanceTo(ankleL), sk.GetBoneGlobalPose(b.Leg[5]).Origin.DistanceTo(ankleR)) > 0.02f) GD.Print($"PLANT drift L {sk.GetBoneGlobalPose(b.Leg[2]).Origin.DistanceTo(ankleL):F3} R {sk.GetBoneGlobalPose(b.Leg[5]).Origin.DistanceTo(ankleR):F3} shift {shift.Length():F3} size {size:F2}");
         LastFootDrift = MathF.Max(sk.GetBoneGlobalPose(b.Leg[2]).Origin.DistanceTo(ankleL), sk.GetBoneGlobalPose(b.Leg[5]).Origin.DistanceTo(ankleR)) * scale;
         WorstFootDrift = MathF.Max(WorstFootDrift, LastFootDrift);
     }
 
     /// <summary>Test aid: how far (m, world) the worse ankle ended from where the clip put it on the last pose, and the worst so far (the feet-planted check).</summary>
     public static float LastFootDrift, WorstFootDrift;
+    public static bool DebugPlant;
 
-    static void Move(Skeleton3D sk, int bone, Vector3 offset) => sk.SetBonePosePosition(bone, sk.GetBonePosePosition(bone) + offset);
+    /// <summary>The largest k in [0, 1] such that moving the hips by k x <paramref name="worldShiftScaled"/> (skeleton units) keeps both ankles within their leg's reach (about 2 % short of straight).</summary>
+    static float Reachable(Skeleton3D sk, Bones b, Vector3 worldShiftScaled, Vector3 ankleL, Vector3 ankleR)
+    {
+        float k = 1f;
+        for (int leg = 0; leg < 2; leg++)
+        {
+            int o = leg * 3;
+            var hip = sk.GetBoneGlobalPose(b.Leg[o]).Origin;
+            float reach = (hip.DistanceTo(sk.GetBoneGlobalPose(b.Leg[o + 1]).Origin) + sk.GetBoneGlobalPose(b.Leg[o + 1]).Origin.DistanceTo(sk.GetBoneGlobalPose(b.Leg[o + 2]).Origin)) * 0.98f;
+            var ankle = leg == 0 ? ankleL : ankleR;
+            var shift = worldShiftScaled;   // skeleton units: unchanged
+            if ((ankle - (hip + shift * k)).Length() <= reach) continue;
+            float lo = 0f, hi = k;
+            for (int i = 0; i < 8; i++) { float mid = (lo + hi) * 0.5f; if ((ankle - (hip + shift * mid)).Length() <= reach) lo = mid; else hi = mid; }
+            k = lo;
+        }
+        return k;
+    }
+
+    /// <summary>Moves a bone by a skeleton-space offset (its position pose is in its parent's frame, which may be turned).</summary>
+    static void Move(Skeleton3D sk, int bone, Vector3 offset)
+    {
+        int parent = sk.GetBoneParent(bone);
+        var inParent = parent >= 0 ? sk.GetBoneGlobalPose(parent).Basis.Orthonormalized().Inverse() * offset : offset;
+        sk.SetBonePosePosition(bone, sk.GetBonePosePosition(bone) + inParent);
+    }
 
     /// <summary>Tips a bone about a skeleton-space axis by <paramref name="angle"/> (radians), keeping its children's own motion.</summary>
     static void Tip(Skeleton3D sk, int bone, Vector3 axis, float angle)
@@ -98,6 +127,7 @@ public static class MusouOrkFlinchPose
         float h = MathF.Sqrt(MathF.Max(0f, l1 * l1 - a * a));
         var newKnee = hip + dir * a + bend * h;
         var newAnkle = hip + dir * dist;
+        if (DebugPlant && (target - newAnkle).Length() > 0.02f) GD.Print($"PLANT clamp: want {toTarget.Length():F3} have l1 {l1:F3} l2 {l2:F3} dist {dist:F3}");
 
         // The foot keeps the orientation the clip gave it.
         var footWorld = sk.GetBoneGlobalPose(foot).Basis.GetRotationQuaternion();
@@ -126,6 +156,7 @@ public static class MusouOrkFlinchPose
         float size = kick.Length();
         if (size < 1e-4f) return (Basis.Identity, Vector3.Zero);
         var away = kick / size;
+        size *= MusouOrkFlinchRules.TestScale;
         var axis = new Vector3(0f, 0f, 1f).Cross(away).Normalized();
         return (new Basis(axis, MusouOrkFlinchRules.FarLeanRadians(size) * strengthScale), away * (MusouOrkFlinchRules.FarShiftMetres(size) * strengthScale));
     }

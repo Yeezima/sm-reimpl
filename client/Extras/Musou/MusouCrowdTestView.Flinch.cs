@@ -20,17 +20,19 @@ public partial class MusouCrowdTestView
     int _flinchFrame;
     readonly List<ushort> _flinchIds = new();
     readonly Random _flinchRandom = new(7);
-    float _flinchPrevT;
+    float _flinchPrevT; int _driftK;
     double _flinchMs, _flinchMsMax; int _flinchMsN;
 
     void FlinchFrame(MusouEnemyType kind, MusouLooks.Look look, float dt)
     {
+        MusouOrkFlinchRules.TestScale = Arg(_args, "flinch-scale", 1f);
+        MusouOrkFlinchPose.DebugPlant = _args.ContainsKey("plant-debug");
         _flinchMode ??= _args.GetValueOrDefault("flinch") ?? "stand";
         float t = _t += dt;
         _shown.Clear();
         var front = new System.Numerics.Vector2(-1f, 0f);   // the hit comes from the front (+X) and pushes the Ork back (-X)
         float speed = SpeedOf(kind);
-        float seconds = _flinchMode switch { "stand" => 8f, "run" => 5f, "attack" => 6f, "burst" => 5f, _ => 6f };
+        float seconds = _flinchMode switch { "stand" => 8f, "drift" => 11f, "charge" => 5f, "blast" => 4f, "run" => 5f, "attack" => 6f, "burst" => 5f, _ => 6f };
         var centre = Vector3.Zero;
         void Hit(float at, ushort id, float strength) { if (_flinchPrevT < at && t >= at) _crowd!.Hit(id, front, strength, kind); }
         switch (_flinchMode)
@@ -44,6 +46,41 @@ public partial class MusouCrowdTestView
                 Hit(5.0f, _id, MusouOrkFlinchRules.MeleeStrength("sm_mp_melee_power_sword", true, true));
                 if (_flinchPrevT < 6f && t >= 6f) _crowd!.Blast(_id, front, 1f, 8f, kind);
                 break;
+            case "drift":   // the feet-planted check: a hit of each strength, the worst ankle drift of each window printed
+            {
+                _shown.Add(new MusouShown(_id, V(0, 0, 0), -MathF.PI / 2f, kind, MusouEnemyState.Seek, t));
+                float[] strengths = [1f, 1.5f, 2.5f, 1f, 1.5f, 2.5f];
+                for (int k = 0; k < strengths.Length; k++)
+                {
+                    float at = 1f + 1.5f * k;
+                    if (_flinchPrevT < at && t >= at) { MusouOrkFlinchPose.WorstFootDrift = 0f; _crowd!.Hit(_id, front, strengths[k], kind); _driftK = k; }
+                    if (_flinchPrevT < at + 1.2f && t >= at + 1.2f) GD.Print($"FLINCHDRIFT strength {strengths[k]:0.0} (size {MusouOrkFlinchRules.Amplitude(strengths[k], kind):0.0}): worst foot drift {MusouOrkFlinchPose.WorstFootDrift * 1000f:F1} mm");
+                }
+                break;
+            }
+            case "charge":   // a melee charge (2.5x) on a running Ork, then a heavy hammer strike
+            {
+                var at = new Vector3(-4f + speed * MathF.Min(t, 5f) * 0.4f, 0f, 0f);
+                _shown.Add(new MusouShown(_id, V(at.X, at.Y, at.Z), -MathF.PI / 2f, kind, MusouEnemyState.Seek, t));
+                centre = at;
+                Hit(1.2f, _id, MusouOrkFlinchRules.MeleeStrength("sm_mp_melee_power_sword", true, true));
+                Hit(3.0f, _id, MusouOrkFlinchRules.MeleeStrength("sm_mp_melee_2hand_thunder_hammer", true, false));
+                break;
+            }
+            case "blast":   // 25 Orks standing about a frag's blast (radius 8 m), the centre in front of the middle one
+            {
+                if (_flinchIds.Count == 0) for (int i = 0; i < 25; i++) _flinchIds.Add((ushort)(100 + i));
+                var c0 = new Vector3(0f, 0f, 0f);
+                for (int i = 0; i < 25; i++) _shown.Add(new MusouShown(_flinchIds[i], V((i % 5 - 2) * 1.6f, (i / 5 - 2) * 1.6f, 0f), -MathF.PI / 2f, i % 7 == 6 ? MusouEnemyType.ArdBoy : kind, MusouEnemyState.Seek, t));
+                if (_flinchPrevT < 1.2f && t >= 1.2f)
+                    for (int i = 0; i < 25; i++)
+                    {
+                        var d = new System.Numerics.Vector2((i % 5 - 2) * 1.6f + 1.2f, (i / 5 - 2) * 1.6f);
+                        _crowd!.Blast(_flinchIds[i], new System.Numerics.Vector2(-d.X, -d.Y) * -1f, d.Length(), 6f, kind);
+                    }
+                centre = c0;
+                break;
+            }
             case "run":
             {
                 var at = new Vector3(-6f + speed * MathF.Min(t, 5f) * 0.5f, 0f, 0f);
@@ -75,7 +112,7 @@ public partial class MusouCrowdTestView
         }
         _flinchPrevT = t;
         float height = MathF.Max(2f, LookHeight(look));
-        float dist = Arg(_args, "cam-dist", _flinchMode == "crowd" ? 20f : _flinchMode == "run" ? 7f : height * 2.4f);
+        float dist = Arg(_args, "cam-dist", _flinchMode == "crowd" ? 20f : _flinchMode == "blast" ? 9f : _flinchMode is "run" or "charge" ? 7f : height * 2.4f);
         var target = new Vector3(centre.X, 0f, _flinchMode == "crowd" ? 1f : height * 0.5f);
         var eye = target + new Vector3(0f, -dist, _flinchMode == "crowd" ? 6f : height * 0.2f);
         _camera!.Position = GameToGodot * eye;

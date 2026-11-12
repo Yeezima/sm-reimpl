@@ -123,9 +123,9 @@ public class MusouOrkFlinchRulesTests
     [Fact]
     public void The_whole_pose_stays_inside_the_references_size()
     {
-        // at strength 1: 19 degrees of torso, 7 cm back, 7 cm down (the proxy's "V2 reaction +30%", translated)
-        Assert.InRange(MusouOrkFlinchRules.Spine1 + MusouOrkFlinchRules.Spine2 + MusouOrkFlinchRules.Spine3 + MusouOrkFlinchRules.Neck + MusouOrkFlinchRules.Head, 14f, 24f);
-        Assert.InRange(MusouOrkFlinchRules.PelvisBack, 0.02f, 0.1f);
+        // at strength 1: 38 degrees of torso, 14 cm back, 9 cm down (the proxy's "V2 reaction +30%", translated)
+        Assert.InRange(MusouOrkFlinchRules.Spine1 + MusouOrkFlinchRules.Spine2 + MusouOrkFlinchRules.Spine3 + MusouOrkFlinchRules.Neck + MusouOrkFlinchRules.Head, 30f, 46f);
+        Assert.InRange(MusouOrkFlinchRules.PelvisBack, 0.02f, 0.2f);
         Assert.InRange(MusouOrkFlinchRules.PelvisDrop, 0.02f, 0.1f);
     }
 }

@@ -20,20 +20,23 @@ public static class MusouOrkFlinchRules
     /// <summary>Total seconds a reaction lasts after its kick.</summary>
     public const float Seconds = Rise + Hold + Fall;
 
-    /// <summary>The most a flinch may be scaled up to (a charge's 2.5 and a hammer's step, a close blast): the pose never goes past this many reference sizes.</summary>
-    public const float MaxStrength = 3f;
+    /// <summary>The most a flinch may be scaled up to (a charge's 2.5 and a hammer's step, a close blast): the pose never goes past this many base sizes. 3 while the base was half its size (a 57-degree torso); at the doubled base 2 keeps the deepest tip at 76 degrees and the legs in reach (owner 2026-11-13: "keep the scaling stagger strength" = every multiplier kept, only the top clipped).</summary>
+    public const float MaxStrength = 2f;
 
     // ---- the pose at strength 1 (a Boy shot by the bolt pistol), the reference proxy translated onto the Ork rigs (ours)
     /// <summary>The pelvis and the torso move this far along the hit's direction (m) and the pelvis drops this far (m): the knees bend to keep the feet where they were.</summary>
-    public const float PelvisBack = 0.07f, PelvisDrop = 0.07f;
-    /// <summary>The torso's recoil: degrees tipped back at the three spine bones, the neck and the head (their sum 19; the first pass at 11 measured about half the reference's visible motion: summed pixel change per figure area 9 against 15 to 26).</summary>
-    public const float Spine1 = 5.0f, Spine2 = 4.5f, Spine3 = 4.5f, Neck = 2.0f, Head = 3.0f;
+    public const float PelvisBack = 0.14f, PelvisDrop = 0.09f;
+    /// <summary>The torso's recoil: degrees tipped back at the three spine bones, the neck and the head (their sum 38, twice the first version's 19 at the owner's word of 2026-11-13, "increase the magnitude of all ork reactions by 2x of current"; the first pass at 11 measured about half the reference's visible motion: summed pixel change per figure area 9 against 15 to 26).</summary>
+    public const float Spine1 = 10.0f, Spine2 = 9.0f, Spine3 = 9.0f, Neck = 4.0f, Head = 6.0f;
 
     // ---- the far crowd (the baked tier): the whole instance leans about its feet and shifts
     /// <summary>The lean (degrees) and the shift along the hit (m) of a far Ork at strength 1.</summary>
-    public const float FarLean = 7f, FarShift = 0.06f;
+    public const float FarLean = 14f, FarShift = 0.12f;
     /// <summary>Within this far from the camera (m) a skeletal Ork flinches fully and a baked one jolts; past <see cref="FarMetres"/> nothing is drawn (ours).</summary>
     public const float FarMetres = 70f;
+
+    /// <summary>Test aid only (<c>--flinch-scale</c> on the crowd test stage): every pose and lean is drawn at this share (0.5 draws the first version's magnitude for a side-by-side). 1 in the game.</summary>
+    public static float TestScale = 1f;
 
     /// <summary>The envelope at <paramref name="age"/> seconds after a kick: 0 before it, rising to 1 over <see cref="Rise"/>, 1 over <see cref="Hold"/>, then falling to 0 over <see cref="Fall"/>.</summary>
     public static float Envelope(float age)
