@@ -373,7 +373,7 @@ public partial class NetworkView
         // about +3 dB, never stolen, cut or ducked, with no instance limit. A cue the threat bucket has no token for plays as any other.
         if (threat && !(option.Events.Count == 0 && option.Lines.Count == 0) && _musouThreatBudget.Take())
         {
-            var te = new SoundEmitter { Position = emitter.Current, OneShot = true, Label = "musou threat " + what, Threat = true, Switches = emitter.Switches, DistanceScale = voice ? 1f / MusouVoiceReach : 1f };
+            var te = new SoundEmitter { Position = emitter.Current, OneShot = true, Label = "musou threat " + what, Threat = true, Follow = () => emitter.Current, Switches = emitter.Switches, DistanceScale = voice ? 1f / MusouVoiceReach : 1f };
             if (emitter.AttenuationOverride is not null) te.AttenuationOverride = emitter.AttenuationOverride;
             return MusouThreatPost(option, set, te, what, group, distance);
         }

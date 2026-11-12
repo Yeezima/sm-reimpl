@@ -2517,3 +2517,8 @@ Searched `data/chunks/ebp_sets__mp_versus_set.oppc` (`smtool list --csv`) for ba
 | `csm_banner` | 728, 2 | Chaos banner | not used |
 | `wc_capture_point` | 248, 1 (`capture_point_disk_dif`) | a round spiked floor disk (the point entity's visual, see "Point entity" above) | not used |
 Readers: `StaticModel.Load` through `MekModels` (`client/Extras/Musou/Tfw/TfwBanners.cs`). Previews: `<media folder>\previews\musou-capture-banners\models\` (outside the repository). Also found: the capture circle's old decal ring (`TfwMarkers.RingDecal`) does not show on Ashfall's city ground (seen 2026-11-10 with `--musou-old-capture-ui`); the cause is not established (the decal's cull mask 1 against the city's layers is a guess).
+
+
+## Musou soundscape: the wind bed's singleplayer-content dependency (2026-11-12)
+
+The multiplayer banks hold no wind loop. `play_wind_open` (and `play_wind_closed`, `stop_wind_open`, `stop_wind_closed`, found by hashing candidate names) is in `in_game_default`, but its Play action targets the sound 0x35b92d6a (one embedded wem, endless loop, -15.3 dB, 2D) in the campaign region bank `rgn_onthetrail_r100_player_01`; Musou Mode's quiet bed loads that bank once per client when a battle starts (a singleplayer-content dependency, as the campaign's speech bank is for the Marine barks). The fire bed's `play_world_fire_03` (four crackles in an endless random container and a flame sound, 3D) is in `in_game_default`.

@@ -140,6 +140,8 @@ public sealed class MusouBackgroundDucker
     /// <summary>The current duck (dB, 0 or negative).</summary>
     public float Db { get; private set; }
 
+    public void Reset() { Db = 0f; _heldUntil = double.NegativeInfinity; }
+
     public void Step(float seconds, bool engaged)
     {
         _now += seconds;

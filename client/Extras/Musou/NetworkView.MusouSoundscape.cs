@@ -33,7 +33,7 @@ public partial class NetworkView
     int _musouThreatPosted, _musouThreatTokens;
     SoundEmitter[]? _musouBed;
     readonly SoundEmitter _musouWind = new() { Label = "musou wind", Group = "musou bed", Follow = null };
-    bool _musouBedOn;
+    bool _musouBedOn, _musouWindTried, _musouWindBank;
 
     /// <summary>Once a frame, before the crowd's sounds: the player, the camera, the far war's duck.</summary>
     void MusouSoundscapeFrame(PlayerState me, IReadOnlyList<MusouShown> shown, Camera3D cam, float delta)
@@ -129,6 +129,7 @@ public partial class NetworkView
     void MusouBedFrame(bool battle)
     {
         bool want = battle && !Lean && _sound is not null && _camera is not null && !MusouSoundIsOff(MusouSoundOff.Bed) && _audio is { } audio && audio.HasEvent(MusouSoundscape.FireEvent);
+        if (!battle) { _musouBgDucker.Reset(); if (_sound is { } s) s.BackgroundDb = 0f; }   // no duck sticks after a battle
         if (!want)
         {
             if (_musouBedOn && _musouBed is { } old) { foreach (var e in old) _sound?.StopEmitter(e); _sound?.StopEmitter(_musouWind); }
@@ -140,7 +141,8 @@ public partial class NetworkView
         _musouBed ??= BuildBed();
         _musouWind.Follow = () => _camera?.GlobalPosition;
         foreach (var e in _musouBed) _sound!.Post(MusouSoundscape.FireEvent, e, offset: new VoiceOffset(MusouSoundscape.FireGainDb));
-        bool windBank = _audio.AddPackage(_gameDir, MusouSoundscape.WindPackage);
+        if (!_musouWindTried) { _musouWindTried = true; _musouWindBank = _audio.AddPackage(_gameDir, MusouSoundscape.WindPackage); }   // once per client: AddPackage re-opens and re-parses
+        bool windBank = _musouWindBank;
         var wind = _sound!.Post(MusouSoundscape.WindEvent, _musouWind, offset: new VoiceOffset(MusouSoundscape.WindGainDb));
         if (LogSound("musou-ambience")) GD.Print($"musou bed: {MusouSoundscape.FireEvent} on {_musouBed.Length} emitters at +{MusouSoundscape.FireGainDb:0} dB; {MusouSoundscape.WindEvent} (bank {MusouSoundscape.WindPackage} {(windBank ? "loaded" : "missing")}) voices {wind?.Voices.Count ?? 0} 3D {wind?.Voices.Exists(v => v.Is3D)}");
     }
