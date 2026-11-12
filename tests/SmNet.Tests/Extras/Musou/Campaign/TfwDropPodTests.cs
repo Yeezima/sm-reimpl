@@ -6,7 +6,7 @@ using SmSim.Extras.Musou.Campaign;
 
 namespace SmNet.Tests.Extras.Musou.Campaign;
 
-/// <summary>The drop pod assault (docs/drop-pod-assault.md, owner 2026-11-12): the call, the fall, the touchdown, the four Tactical Marines, their 30 s, their retreat to the HQ and their end, scripted through the real World.</summary>
+/// <summary>The drop pod assault (docs/drop-pod-assault.md, owner 2026-11-12): the call, the fall, the touchdown, the five Tactical Marines, their 30 s, their retreat to the HQ and their end, scripted through the real World.</summary>
 public class TfwDropPodTests
 {
     const int Human = TfwRig.Human;
@@ -195,11 +195,12 @@ public class TfwDropPodTests
     }
 
     [Fact]
-    public void Four_tactical_marines_step_out_fight_30_s_retreat_to_the_hq_and_are_gone_with_the_pod()
+    public void Five_tactical_marines_step_out_fight_30_s_retreat_to_the_imperial_base_and_are_gone_with_the_pod()
     {
         var w = Battle();
         var run = w.Tfw!;
-        var hq = run.Battle!.Layout.Hq;
+        var hq = run.Battle!.Layout.LandingZone;   // the Imperial base, not the Ork stronghold (Layout.Hq)
+        Assert.NotEqual(run.Battle.Layout.Hq, hq);
         Assert.True(w.TfwDropPod(Human, Open));
         var pod = run.Pods[0];
         int rate = w.Config.TickRate;
@@ -234,6 +235,8 @@ public class TfwDropPodTests
             foreach (var m in PodMarines(w)) closest = MathF.Min(closest, MarineBrain.Flat(w.Players[m.Id].Position, hq));
         }
         Assert.Empty(PodMarines(w));
+        Assert.True(closest <= TfwDropPodRules.HqRadius + 0.5f, $"the retreat reached the Imperial base ({closest:F1} m at the closest)");
+        Assert.True(MarineBrain.Flat(hq, run.Battle.Layout.Hq) > TfwDropPodRules.HqRadius * 2f);   // and the base is not the Ork stronghold
         TfwRig.Steps(w, 2);   // the pod notices on the next tick
         Assert.Equal(TfwPodPhase.Wreck, pod.Phase);
         Assert.Equal(Enumerable.Range(TfwContracts.PuppetIdFirst, TfwContracts.PuppetIds).Count(id => w.Players.ContainsKey(id)), run.Marines.Count);   // no body of theirs left in the world
@@ -320,13 +323,13 @@ public class TfwDropPodTests
         var run = w.Tfw!;
         Assert.True(w.TfwDropPod(Human, Open));
         Assert.Equal(TfwDropPodRules.Marines, run.PodIdsReserved);
-        // Fill every id but the pod's four: nothing else may take one of those.
+        // Fill every id but the pod's five: nothing else may take one of those.
         int spare = 0;
         for (int id = TfwContracts.PuppetIdFirst; id <= TfwContracts.PuppetIdLast; id++) if (!w.Players.ContainsKey(id)) spare++;
         for (int k = 0; k < spare - TfwDropPodRules.Marines; k++) Assert.NotNull(FillId(w));
         Assert.Null(w.TfwSpawnRetainer(Human, new Vector3(0f, -90f, 0f)));   // the reserved ids are not his
         TfwRig.Seconds(w, TfwDropPodRules.LandSeconds + TfwDropPodRules.DoorSeconds + TfwDropPodRules.StepOutSeconds + 0.3f);
-        Assert.Equal(TfwDropPodRules.Marines, PodMarines(w).Count());   // all four came
+        Assert.Equal(TfwDropPodRules.Marines, PodMarines(w).Count());   // all five came
         Assert.Equal(0, run.PodIdsReserved);
     }
 
@@ -335,6 +338,30 @@ public class TfwDropPodTests
         for (int id = TfwContracts.PuppetIdFirst; id <= TfwContracts.PuppetIdLast; id++)
             if (!w.Players.ContainsKey(id)) { w.Spawn(id, 0, team: Team.SpaceMarines); return id; }
         return null;
+    }
+
+    [Fact]
+    public void At_the_firing_range_the_retreat_heads_for_the_ranges_start()
+    {
+        var w = TfwRig.War();
+        TfwRig.Command(w, TfwCommand.RangeGo);
+        TfwRig.Seconds(w, 0.5f);
+        var range = Assert.IsType<TfwRange>(TfwTestArena.Field.Range);
+        var run = w.Tfw!;
+        Assert.Null(run.Battle);
+        var at = Vector3.Clamp(range.Centre + new Vector3(15f, 0f, 0f), range.Box.Min, range.Box.Max);
+        Assert.True(w.TfwDropPod(Human, at));
+        TfwRig.Seconds(w, TfwDropPodRules.LandSeconds + TfwDropPodRules.DoorSeconds + TfwDropPodRules.StepOutSeconds + TfwDropPodRules.FightSeconds + 0.5f);
+        var pod = run.Pods[0];
+        Assert.Equal(TfwPodPhase.Retreating, pod.Phase);
+        var home = run.Field.MarineStart;
+        float start = PodMarines(w).Min(m => MarineBrain.Flat(w.Players[m.Id].Position, home)), closest = start;
+        for (int k = 0; k < (TfwDropPodRules.RetreatMaxSeconds + 1f) * w.Config.TickRate && PodMarines(w).Any(); k++)
+        {
+            TfwRig.Steps(w, 1);
+            foreach (var m in PodMarines(w)) closest = MathF.Min(closest, MarineBrain.Flat(w.Players[m.Id].Position, home));
+        }
+        Assert.True(closest < start - 1f, $"the retreat went toward the Range's start ({closest:F1} m at the closest, {start:F1} m at the start)");
     }
 
     [Fact]

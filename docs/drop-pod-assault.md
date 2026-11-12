@@ -2,7 +2,7 @@
 
 Owner, 2026-11-12: a new SUPPORT section in the Customizer, every faction and class gets it; option 1 is the existing artillery strike; option 2 is the
 drop pod assault: B marks a point with the laser as the artillery strike does; a few seconds later a drop pod falls fast from the sky with a streak of fire and
-smoke, the screen shakes hard on impact, the doors drop open and 4 tactical Marines come out, fight for 30 s, retreat to the Imperial home base (HQ) and disappear.
+smoke, the screen shakes hard on impact, the doors drop open and 5 tactical Marines come out, fight for 30 s, retreat to the Imperial home base (the landing zone) and disappear.
 Musou Mode only (`--content musou`); Classic PvP has no support call, its gameplay and config hash do not change. Every number below is **ours / provisional**
 unless marked, and goes into spec "Added content: Musou: drop pod assault" and the refine register.
 
@@ -38,18 +38,18 @@ which reads "B DROP POD READY" / "IN n S". The own block's cooldown byte (tag 7)
   impact, `droppod_engine_cooling_down` on the landed pod; sound `play_droppod_incoming` (already the artillery whistle's fallback) while it falls.
 * **Timeline (ticks at the server rate; ours)**: call at t0; the beam shows at once; the pod lands at t0 + 3.0 s (the owner's "a few seconds later"); the client sees
   the fall from 90 m up over the last 1.5 s (rapid, ~60 m/s), tag 11 `Pod` record sent at call time so the client can start it exactly; doors open over 0.6 s at
-  landing; the marines appear at landing + 1.0 s and fight for 30 s (the owner), then retreat; they vanish at the HQ (within 6 m) or after 40 s of retreat; the pod
+  landing; the marines appear at landing + 1.0 s and fight for 30 s (the owner), then retreat; they vanish at the Imperial base (within 6 m) or after 40 s of retreat; the pod
   node stays on the ground until the squad is gone (+ 2 s) and then goes with it.
 * **Impact**: screen shake `TfwShake` 0.12 rad at 0 m falling to 0 at 90 m (the artillery's is 0.05, cap 0.07: "hard" is ~2.5x; cap raised to 0.14 for the pod);
   crater decal as a shell's. **Landing (owner 2026-11-12, section 6)**: every enemy within 30 m takes 3x a shell's damage (`MusouDeathKind.Barrage`, x1.2 for a human caller; a boss takes 3 x `BossDamage` = 90) and it never hurts players, AI Marines or Guardsmen.
   A point within 10 m of the caller is refused (provisional) so a pod does not land on him.
 
-## 4. The four Tactical Marines
+## 4. The five Tactical Marines
 Reuse the AI Marine system (`MarineBrain`, `World.TfwPuppets.cs`): a new `MarineRole.Pod` beside Retainer and Ally. Puppets are server-side players without a peer
 (ids 65516 to 65527, **12 shared with retainers and the allied pair**), the Tactical class's default loadout (the owner's "tactical marines": `TfwMarineClass("tactical")`,
 primary 0), side Space Marines, wearing the caller's look as a retainer does. Fight phase: hold the landing point (`PlanRetainer` Hold, engaging within
-`MarineRules.HoldRadius`) for 30 s; then retreat phase: `MarineBrain.Plan` with the objective `Layout.Hq` (the Imperial HQ; the run's `Field.MarineStart` at the range), sprinting
-by the walking graph, no stopping to fight; at the HQ or after the timeout `TfwDismissMarine`. A Marine killed is not replaced and is removed 3 s after.
+`MarineRules.HoldRadius`) for 30 s; then retreat phase: `MarineBrain.Plan` with the objective `Layout.LandingZone` (the Imperial base, the Marines' own; not `Layout.Hq`, which is the Ork commander's stronghold; the run's `Field.MarineStart` at the range), sprinting
+by the walking graph, no stopping to fight; at the Imperial base or after the timeout `TfwDismissMarine`. A Marine killed is not replaced and is removed 3 s after.
 They take the AI Marines' damage scale (spec: a tenth of every hit) and burn a pod's lifetime only. **They do not follow the caller** (provisional; open question 3).
 
 ## 5. Limits
@@ -60,9 +60,9 @@ accepted call. The call is not accepted in the Stormbird, between battles, dead 
 ## 6. The owner's answers (2026-11-12; the questions are closed)
 1. **Landing**: kills Orks in a 30 m radius at 3x the damage of one artillery strike (a shell deals every enemy its health, a boss 30, flat, no fall-off; so the pod kills every ordinary enemy in 30 m and deals a boss 90; x1.2 on both for a human caller). Never hurts players, Marines or Guardsmen (our rule, kept).
 2. **Cooldown 60 s**, shared with the artillery strike (a loadout holds only one support ability); none at the Firing Range.
-3. **Marines defend the landing spot 30 s** (they do not follow the caller), then retreat to the HQ.
+3. **Marines defend the landing spot 30 s** (they do not follow the caller), then retreat to the Imperial base.
 4. **One pod per player at a time** (as built).
 5. **Not invulnerable**: they take the other allied Marines' reduced damage (a tenth of every hit, `TfwSupplyRules.BotDamageTaken`, which applies to every puppet id, pod Marines included).
 6. **Customizer**: the window is "Support abilities" with exactly the artillery strike and the drop pod assault; every Musou class (the three Marine classes' defaults, the ten custom slots, the Librarian).
 7. **Battle cry**: each Marine shouts FOR THE EMPEROR when stepping out, staggered 0.15 to 0.35 s apart (ours), never in unison (`TfwDropPodRules.ShoutDelay`; client only; the voice pack's takes through the loyalist bark path).
-Still ours: the retreat point (the HQ), the 40 s retreat limit, the 10 m minimum distance from the caller.
+Still ours: the retreat point (the Imperial base, the landing zone), the 40 s retreat limit, the 10 m minimum distance from the caller.

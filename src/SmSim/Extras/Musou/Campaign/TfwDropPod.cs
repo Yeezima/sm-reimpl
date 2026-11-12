@@ -4,12 +4,12 @@ namespace SmSim.Extras.Musou.Campaign;
 
 /// <summary>
 /// The drop pod assault's numbers (Musou Mode's second support ability; docs/drop-pod-assault.md; owner, 2026-11-12). The owner's are the 30 s of the fight, "a few seconds later" and
-/// the four Tactical Marines; every other value is an estimate of ours (spec "Added content: Musou: drop pod assault", the refine register). A change here raises <see cref="TfwRules.Version"/>.
+/// the five Tactical Marines; every other value is an estimate of ours (spec "Added content: Musou: drop pod assault", the refine register). A change here raises <see cref="TfwRules.Version"/>.
 /// </summary>
 public static class TfwDropPodRules
 {
-    /// <summary>Marines in a squad (the owner: "4 tactical marines").</summary>
-    public const int Marines = 4;
+    /// <summary>Marines in a squad (owner 2026-11-12: first "4 tactical marines", then "5 instead of 4").</summary>
+    public const int Marines = 5;
     /// <summary>Seconds from the call to the touchdown (the owner: "a few seconds later"; ours).</summary>
     public const float LandSeconds = 3f;
     /// <summary>The last part of that the client draws the pod falling in, and how high it starts (m): about 60 m/s, "rapidly" (ours).</summary>
@@ -18,7 +18,7 @@ public static class TfwDropPodRules
     public const float DoorSeconds = 0.6f, StepOutSeconds = 1f;
     /// <summary>The Marines fight this long (s, the owner's 30) from stepping out, then retreat.</summary>
     public const float FightSeconds = 30f;
-    /// <summary>A retreating Marine is gone within this of the HQ, or after this long (s) wherever he is (ours).</summary>
+    /// <summary>A retreating Marine is gone within this of the Imperial base (the landing zone), or after this long (s) wherever he is (ours).</summary>
     public const float HqRadius = 6f, RetreatMaxSeconds = 40f;
     /// <summary>A killed Marine is taken out of the world this long after (s; ours).</summary>
     public const float FallenSeconds = 3f;
@@ -51,7 +51,7 @@ public static class TfwDropPodRules
         return at;
     }
     /// <summary>The Marines' scoreboard names (placeholders, labelled so).</summary>
-    public static readonly string[] Names = ["Pod Brother Aurelio", "Pod Brother Cato", "Pod Brother Decimus", "Pod Brother Eusebio"];
+    public static readonly string[] Names = ["Pod Brother Aurelio", "Pod Brother Cato", "Pod Brother Decimus", "Pod Brother Eusebio", "Pod Brother Flavio"];
 }
 
 /// <summary>Where a pod is: falling, landed with its doors opening, its Marines fighting, retreating, or the wreck waiting to go.</summary>
