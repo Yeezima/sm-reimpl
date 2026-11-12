@@ -18,7 +18,7 @@ public static class TfwDropPodRules
     public const float DoorSeconds = 0.6f, StepOutSeconds = 1f;
     /// <summary>The Marines fight this long (s, the owner's 30) from stepping out, then retreat.</summary>
     public const float FightSeconds = 30f;
-    /// <summary>A retreating Marine is gone within this of the HQ, or after this long (s) wherever he is (ours).</summary>
+    /// <summary>A retreating Marine is gone within this of the Imperial base (the landing zone), or after this long (s) wherever he is (ours).</summary>
     public const float HqRadius = 6f, RetreatMaxSeconds = 40f;
     /// <summary>A killed Marine is taken out of the world this long after (s; ours).</summary>
     public const float FallenSeconds = 3f;

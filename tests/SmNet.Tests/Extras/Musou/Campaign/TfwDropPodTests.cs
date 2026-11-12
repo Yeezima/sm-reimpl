@@ -235,7 +235,8 @@ public class TfwDropPodTests
             foreach (var m in PodMarines(w)) closest = MathF.Min(closest, MarineBrain.Flat(w.Players[m.Id].Position, hq));
         }
         Assert.Empty(PodMarines(w));
-        Assert.True(closest < MarineBrain.Flat(Open, hq), $"the retreat went toward the Imperial base ({closest:F1} m at the closest, {MarineBrain.Flat(Open, hq):F1} m at the start)");
+        Assert.True(closest <= TfwDropPodRules.HqRadius + 0.5f, $"the retreat reached the Imperial base ({closest:F1} m at the closest)");
+        Assert.True(MarineBrain.Flat(hq, run.Battle.Layout.Hq) > TfwDropPodRules.HqRadius * 2f);   // and the base is not the Ork stronghold
         TfwRig.Steps(w, 2);   // the pod notices on the next tick
         Assert.Equal(TfwPodPhase.Wreck, pod.Phase);
         Assert.Equal(Enumerable.Range(TfwContracts.PuppetIdFirst, TfwContracts.PuppetIds).Count(id => w.Players.ContainsKey(id)), run.Marines.Count);   // no body of theirs left in the world
@@ -337,6 +338,30 @@ public class TfwDropPodTests
         for (int id = TfwContracts.PuppetIdFirst; id <= TfwContracts.PuppetIdLast; id++)
             if (!w.Players.ContainsKey(id)) { w.Spawn(id, 0, team: Team.SpaceMarines); return id; }
         return null;
+    }
+
+    [Fact]
+    public void At_the_firing_range_the_retreat_heads_for_the_ranges_start()
+    {
+        var w = TfwRig.War();
+        TfwRig.Command(w, TfwCommand.RangeGo);
+        TfwRig.Seconds(w, 0.5f);
+        var range = Assert.IsType<TfwRange>(TfwTestArena.Field.Range);
+        var run = w.Tfw!;
+        Assert.Null(run.Battle);
+        var at = Vector3.Clamp(range.Centre + new Vector3(15f, 0f, 0f), range.Box.Min, range.Box.Max);
+        Assert.True(w.TfwDropPod(Human, at));
+        TfwRig.Seconds(w, TfwDropPodRules.LandSeconds + TfwDropPodRules.DoorSeconds + TfwDropPodRules.StepOutSeconds + TfwDropPodRules.FightSeconds + 0.5f);
+        var pod = run.Pods[0];
+        Assert.Equal(TfwPodPhase.Retreating, pod.Phase);
+        var home = run.Field.MarineStart;
+        float start = PodMarines(w).Min(m => MarineBrain.Flat(w.Players[m.Id].Position, home)), closest = start;
+        for (int k = 0; k < (TfwDropPodRules.RetreatMaxSeconds + 1f) * w.Config.TickRate && PodMarines(w).Any(); k++)
+        {
+            TfwRig.Steps(w, 1);
+            foreach (var m in PodMarines(w)) closest = MathF.Min(closest, MarineBrain.Flat(w.Players[m.Id].Position, home));
+        }
+        Assert.True(closest < start - 1f, $"the retreat went toward the Range's start ({closest:F1} m at the closest, {start:F1} m at the start)");
     }
 
     [Fact]

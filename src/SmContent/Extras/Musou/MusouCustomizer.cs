@@ -103,7 +103,7 @@ public static class MusouCustomizer
         [
             new("Artillery strike", "B marks a point with the laser designator; a walking barrage of shells follows a second later and kills the Orks it touches. 60 s cooldown in a battle (the same cooldown for both support abilities; none at the Firing Range).",
                 MusouRowKind.Choice, "support:" + MusouSlots.SupportName(MusouSupport.Artillery), chosen == MusouSupport.Artillery),
-            new("Drop pod assault", "B marks a point with the laser designator; a few seconds later a drop pod falls from the sky in fire and smoke and shakes the ground. Its doors open and 4 Tactical Marines fight for 30 seconds, then retreat to the Imperial HQ and vanish. Needs the pod of the campaign's data.",
+            new("Drop pod assault", "B marks a point with the laser designator; a few seconds later a drop pod falls from the sky in fire and smoke and shakes the ground. Its doors open and 5 Tactical Marines fight for 30 seconds, then retreat to the Imperial base and vanish. Needs the pod of the campaign's data.",
                 MusouRowKind.Choice, "support:" + MusouSlots.SupportName(MusouSupport.DropPod), chosen == MusouSupport.DropPod),
         ]),
     ];
