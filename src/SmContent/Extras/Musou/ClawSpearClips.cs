@@ -298,14 +298,18 @@ public static class ClawSpearClips
     /// read at run time) and handed to a runner's arm pump as he speeds up (the left fist solve with the speed only, a bent elbow, the hand rising as it swings forward), the right fist's pump slightly
     /// livelier, and the client closes the right hand's fingers round the shaft (<c>CharacterViewer.LayGripFingers</c>). Ours; <c>--old-spear-pass4</c> plays <see cref="SpearRestPass3"/>.
     /// </summary>
-    public static readonly WeaponPoseClip SpearRestPass4 = SpearRestPass3 with
+    public static WeaponPoseClip SpearRestPass4 => OldPass4b ? SpearRestPass4Upright.Value : SpearRestPass4Leaning.Value;
+
+    static WeaponPoseClip BuildRestPass4(bool lean) => SpearRestPass3 with
     {
         Description = "the carry (pass 4): the spear in the right hand alone at the side of the hip with the fingers closed round the shaft, the right arm pumping a little with the stride; the left arm as the bolt pistol's relaxed idle holds it while he stands and a runner's bent-elbow pump against the legs as he runs",
         LeftFistTarget = Pass4LeftFist, LeftFistWithSpeed = true, FistSwing = Pass4FistSwing, LeftFistSwing = Pass4LeftFistSwing, SwingLift = Pass4FistLift, LeftSwingLift = Pass4LeftFistLift,
         PistolArmFrom = SmContent.RigClipTable.PistolRelaxedIdle,
         Channels = SpearRestPass3.Channels.Select(c => c.Bone is "RIG_L_UpperArm" or "RIG_L_Forearm" ? c with { Keys = c.Keys.Select(k => k with { Weight = 0f }).ToArray() }
-            : c.Bone == SpineD && !OldPass4b ? Turn(SpineD, T(0f, 4, Pass4bCarryLean, 0), T(SpearIdleLength, 4, Pass4bCarryLean, 0)) : c).ToArray(),
+            : c.Bone == SpineD && lean ? Turn(SpineD, T(0f, 4, Pass4bCarryLean, 0), T(SpearIdleLength, 4, Pass4bCarryLean, 0)) : c).ToArray(),
     };
+    static readonly Lazy<WeaponPoseClip> SpearRestPass4Upright = new(() => BuildRestPass4(false));
+    static readonly Lazy<WeaponPoseClip> SpearRestPass4Leaning = new(() => BuildRestPass4(true));
 
 
 

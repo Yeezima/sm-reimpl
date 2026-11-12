@@ -63,6 +63,27 @@ public partial class CharacterViewer
 
     static float LineDistance(Vector3 p, Vector3 c, Vector3 d) => (p - c).Cross(d).Length();
 
+    readonly List<Vector3> _gripTips = new(3);
+    readonly bool[] _thumbWarm = new bool[2];
+    readonly int[,] _thumbIdx = new int[2, 2];
+    readonly float[] _thumbCost = new float[2];
+
+    static Transform3D G0(Transform3D parentG, Quaternion restP, Vector3 posP, float a) => parentG * new Transform3D(new Basis(restP * new Quaternion(new Vector3(0f, 0f, 1f), a)), posP);
+    static Transform3D G1(Transform3D g0, Quaternion restQ, Vector3 posQ, float b) => g0 * new Transform3D(new Basis(restQ * new Quaternion(new Vector3(0f, 0f, 1f), b)), posQ);
+
+    /// <summary>The thumb search's cost of turning its two bones to (a, b): its joint and tip on the finger-centre radius, the bones clear of the shaft, the tip on the side the fingers are not.</summary>
+    static float ThumbCost(Transform3D parentG, Quaternion restP, Quaternion restQ, Vector3 posP, Vector3 posQ, float a, float b, Vector3 c, Vector3 d, float rf, float R, Vector3 fingers)
+    {
+        var g0 = G0(parentG, restP, posP, a); var g1 = G1(g0, restQ, posQ, b);
+        var j = g1.Origin; var tip = g1 * new Vector3(TipLength, 0f, 0f);
+        float cost = MathF.Pow(LineDistance(j, c, d) - rf, 2f) + 2f * MathF.Pow(LineDistance(tip, c, d) - rf, 2f);
+        if (SegmentDistance(g0.Origin, j, c, d) < R + 0.004f) cost += 0.01f;
+        if (SegmentDistance(j, tip, c, d) < R + 0.004f) cost += 0.01f;
+        var side = tip - c; side -= d * side.Dot(d);
+        if (side.LengthSquared() > 1e-8f && fingers.LengthSquared() > 1e-8f) cost += 0.002f * (1f + side.Normalized().Dot(fingers.Normalized()));
+        return cost;
+    }
+
     /// <summary>The nearest approach of the segment a-b to the shaft's axis (c, d).</summary>
     static float SegmentDistance(Vector3 a, Vector3 b, Vector3 c, Vector3 d)
     {
@@ -92,8 +113,9 @@ public partial class CharacterViewer
                 }
         }
         float R = SpearHold.ShaftRadius, worst = 0f;
-        var fingerTips = new List<Vector3>();
+        var fingerTips = _gripTips; fingerTips.Clear();
         var zAxis = new Vector3(0f, 0f, 1f);
+        int sideIx = left ? 1 : 0;
         for (int i = 0; i < Chains.Length; i++)
         {
             int p = _gripBones[((left ? 1 : 0) * Chains.Length + i) * 2], q = _gripBones[((left ? 1 : 0) * Chains.Length + i) * 2 + 1];
@@ -103,8 +125,6 @@ public partial class CharacterViewer
             var restP = s.GetBoneRest(p).Basis.Orthonormalized().GetRotationQuaternion();
             var restQ = s.GetBoneRest(q).Basis.Orthonormalized().GetRotationQuaternion();
             var posP = s.GetBonePosePosition(p); var posQ = s.GetBonePosePosition(q);
-            Transform3D G0(float a) => parentG * new Transform3D(new Basis(restP * new Quaternion(zAxis, a)), posP);
-            Transform3D G1(Transform3D g0, float b) => g0 * new Transform3D(new Basis(restQ * new Quaternion(zAxis, b)), posQ);
             float off = chain.Thumb ? ThumbOff : FingerOff, rf = R + off;
             float bestA = 0f, bestB = 0f;
             const float step = 2f * MathF.PI / 180f, max = 115f * MathF.PI / 180f;
@@ -114,16 +134,16 @@ public partial class CharacterViewer
                 float a = 0f;
                 for (; a <= max; a += step)
                 {
-                    var g0 = G0(a);
+                    var g0 = G0(parentG, restP, posP, a);
                     if (LineDistance(g0 * posQ, c, d) <= rf || SegmentDistance(g0.Origin, g0 * posQ, c, d) <= rf) break;
                 }
                 bestA = MathF.Min(a, max);
                 // The distal bone: the smallest turn that brings the tip to the surface (stopping short where its length would go into it).
-                var g0f = G0(bestA);
+                var g0f = G0(parentG, restP, posP, bestA);
                 float b = 0f, lastGood = 0f;
                 for (; b <= max; b += step)
                 {
-                    var g1 = G1(g0f, b);
+                    var g1 = G1(g0f, restQ, posQ, b);
                     var tip = g1 * new Vector3(TipLength, 0f, 0f);
                     if (SegmentDistance(g1.Origin, tip, c, d) < R + 0.004f) break;
                     lastGood = b;
@@ -134,23 +154,35 @@ public partial class CharacterViewer
             else
             {
                 // The thumb: both bones searched together for the pose that puts the thumb's joint and tip on the shaft's surface, on the side the fingers are not.
-                float bestCost = float.MaxValue;
                 var mean = Vector3.Zero;
                 foreach (var f in fingerTips) mean += f;
                 if (fingerTips.Count > 0) mean /= fingerTips.Count;
                 var fingers = mean - c; fingers -= d * fingers.Dot(d);
-                for (float a = -40f * MathF.PI / 180f; a <= 140f * MathF.PI / 180f; a += 3f * MathF.PI / 180f)
-                    for (float b = -40f * MathF.PI / 180f; b <= 140f * MathF.PI / 180f; b += 3f * MathF.PI / 180f)
-                    {
-                        var g0 = G0(a); var g1 = G1(g0, b);
-                        var j = g1.Origin; var tip = g1 * new Vector3(TipLength, 0f, 0f);
-                        float cost = MathF.Pow(LineDistance(j, c, d) - rf, 2f) + 2f * MathF.Pow(LineDistance(tip, c, d) - rf, 2f);
-                        if (SegmentDistance(g0.Origin, j, c, d) < R + 0.004f) cost += 0.01f;
-                        if (SegmentDistance(j, tip, c, d) < R + 0.004f) cost += 0.01f;
-                        var side = tip - c; side -= d * side.Dot(d);
-                        if (side.LengthSquared() > 1e-8f && fingers.LengthSquared() > 1e-8f) cost += 0.002f * (1f + side.Normalized().Dot(fingers.Normalized()));
-                        if (cost < bestCost) { bestCost = cost; bestA = a; bestB = b; }
-                    }
+                const int lo = -13, hi = 47;   // grid indices of -40 and 140 degrees at 3 degrees a step
+                const float gs = 3f * MathF.PI / 180f;
+                float bestCost = float.MaxValue;
+                int bi = 0, bj = 0;
+                int ti = sideIx;
+                // Warm start: a small window about last frame's solution; the full grid on the first frame or when the cost has grown (the hand moved a long way).
+                if (_thumbWarm[ti])
+                {
+                    for (int ia = Math.Max(lo, _thumbIdx[ti, 0] - 4); ia <= Math.Min(hi, _thumbIdx[ti, 0] + 4); ia++)
+                        for (int ib = Math.Max(lo, _thumbIdx[ti, 1] - 4); ib <= Math.Min(hi, _thumbIdx[ti, 1] + 4); ib++)
+                        {
+                            float cost = ThumbCost(parentG, restP, restQ, posP, posQ, ia * gs, ib * gs, c, d, rf, R, fingers);
+                            if (cost < bestCost) { bestCost = cost; bi = ia; bj = ib; }
+                        }
+                    if (bestCost > _thumbCost[ti] * 1.25f + 1e-5f) bestCost = float.MaxValue;   // the error grew: search it all
+                }
+                if (bestCost == float.MaxValue)
+                    for (int ia = lo; ia <= hi; ia++)
+                        for (int ib = lo; ib <= hi; ib++)
+                        {
+                            float cost = ThumbCost(parentG, restP, restQ, posP, posQ, ia * gs, ib * gs, c, d, rf, R, fingers);
+                            if (cost < bestCost) { bestCost = cost; bi = ia; bj = ib; }
+                        }
+                _thumbWarm[ti] = true; _thumbIdx[ti, 0] = bi; _thumbIdx[ti, 1] = bj; _thumbCost[ti] = bestCost;
+                bestA = bi * gs; bestB = bj * gs;
             }
             var rotP = (restP * new Quaternion(zAxis, bestA)).Normalized();
             var rotQ = (restQ * new Quaternion(zAxis, bestB)).Normalized();
@@ -159,7 +191,7 @@ public partial class CharacterViewer
             if (curQ.Dot(rotQ) < 0f) rotQ = -rotQ;
             s.SetBonePoseRotation(p, weight >= 0.999f ? rotP : curP.Slerp(rotP, weight).Normalized());
             s.SetBonePoseRotation(q, weight >= 0.999f ? rotQ : curQ.Slerp(rotQ, weight).Normalized());
-            var fg0 = G0(bestA); var fg1 = G1(fg0, bestB);
+            var fg0 = G0(parentG, restP, posP, bestA); var fg1 = G1(fg0, restQ, posQ, bestB);
             var fTip = fg1 * new Vector3(TipLength, 0f, 0f);
             if (!chain.Thumb) fingerTips.Add(fTip);
             float gap = LineDistance(fTip, c, d) - rf;

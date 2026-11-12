@@ -63,4 +63,19 @@ public class SpearPass4bTests
         // the 13 degree side lean that keeps the blade off the crosshair is untouched
         Assert.Equal(13f, SpearHold.Pass3CarryRoll);
     }
+
+    [Fact]
+    public void Setting_the_pass_4b_rollback_after_start_up_restores_the_upright_carry()
+    {
+        float Lean(WeaponPoseClip c) => c.Channels.First(k => k.Bone == "RIG_SpineD" && k.Kind == PoseChannelKind.Turn).Sample(0.5f).Pitch;
+        bool was = ClawSpearClips.OldPass4b;
+        try
+        {
+            ClawSpearClips.OldPass4b = false;
+            Assert.True(Lean(ClawSpearClips.SpearRestPass4) < -1f);
+            ClawSpearClips.OldPass4b = true;
+            Assert.Equal(Lean(ClawSpearClips.SpearRestPass3), Lean(ClawSpearClips.SpearRestPass4), 2);
+        }
+        finally { ClawSpearClips.OldPass4b = was; }
+    }
 }

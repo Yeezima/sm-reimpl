@@ -319,7 +319,7 @@ public partial class CharacterViewer
                 }
                 SolveWeaponLeg(s, legs[i], target, _weaponPlantedRot![i], front);
             }
-        PopProbe(s, state.FrameDelta, $"{state.Clip?.Name}@{state.Time:F3} from {state.From?.Name}@{state.FromShare:F2}");
+        if (PopProbeOn) PopProbe(s, state.FrameDelta, $"{state.Clip?.Name}@{state.Time:F3} from {state.From?.Name}@{state.FromShare:F2}");
         _layersDirty = true;   // a held stance is applied again next frame, so the strike moves on
     }
 
