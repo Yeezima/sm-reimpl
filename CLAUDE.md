@@ -27,6 +27,7 @@ the rule for new added content: `docs/added-content.md`.
   Noted dependencies: Musou Mode's Warboss draws the campaign's `warboss_regular` body and `cinematic_warboss` head
   (`ebp_sets__sequence2_core_units`; docs/discovery.md "Warboss model"); Musou's Stormboy uses the campaign's `boy_stormboy` +
   `havok_stormboy` from `ebp_sets__s002-001` (docs/discovery.md "Exterminatus Ork roster").
+  Musou's Ashfall wind bed plays `play_wind_open` from the campaign region bank `rgn_onthetrail_r100_player_01` (no wind in the MP banks; musou/soundscape 2026-11-12).
 - Content map (Verified-local by archive names): PvP = `data/chunks/mp_*`, `ebp_sets__mp_versus_set`,
   `wargear__mp_sm`/`wargear__mp_csm`, `data/packages/*_mp_*`; Exterminatus = `data/chunks/cp_maps__*`/`cp_map_*`,
   `ebp_sets__mp_coop_*`, `ork_core_units`/`chaos_core_units`; shared = `player_set`, packages `sm_*`/`csm_*`,
