@@ -125,6 +125,14 @@ public partial class NetworkView
         if (Lean || _hudView is null) return;
         if (_librarianHud is null) { _librarianHud = new LibrarianHud(); _hudView.AddChild(_librarianHud); }
         _librarianHud.Feed(own, now, LibrarianSwitches.WarpPull);
+        if (_musouHud is { } cellsHud)   // the Shockwave's (and the restore switch Pull's) cell in the Musou HUD's row of ability cells
+        {
+            cellsHud.Data.LibrarianBox = own is not null;
+            ref var shock = ref cellsHud.Data.Cells[0];
+            shock = new AbilityCell { Shown = own is not null, Kind = AbilityKind.Shockwave, Key = "RELOAD", Left = own?.ShockwaveCooldown ?? 0f, Total = LibrarianRules.ShockwaveCooldown, Locked = own?.Locked ?? false };
+            ref var pull = ref cellsHud.Data.Cells[1];
+            pull = new AbilityCell { Shown = own is not null && LibrarianSwitches.WarpPull, Kind = AbilityKind.Pull, Key = "GRENADE", Left = own?.PullCooldown ?? 0f, Total = LibrarianRules.Pass2.PullCooldown, Locked = own?.Locked ?? false };
+        }
     }
 
     static PlayerState? FindPlayer(IReadOnlyList<PlayerState> players, ushort id)
@@ -436,7 +444,8 @@ public sealed partial class LibrarianHud : Control
         float scale = Size.Y / RefHeight;
         if (scale <= 0f) return;
         var vs = Size / scale;
-        DrawSetTransform(new Vector2(vs.X - 514f, vs.Y - 248f) * scale, Mathf.DegToRad(Tilt), new Vector2(scale, scale));
+        // The owner, 2026-11-12: the box in the bottom right corner, the same distance from the edges as the match HUD's panel (MusouHudLayout.LibrarianShift; zero with --musou-old-hud-layout).
+        DrawSetTransform((new Vector2(vs.X - 514f, vs.Y - 248f) + MusouHudLayout.LibrarianShift) * scale, Mathf.DegToRad(Tilt), new Vector2(scale, scale));
 
         // The box: the stress in the reserve's digits, the label, the bar along the bottom.
         Panel(0f, BoxW, 11f, true);
@@ -447,9 +456,12 @@ public sealed partial class LibrarianHud : Control
         DrawRect(new Rect2(16f, 99f, 334f, 10f), Track);
         DrawRect(new Rect2(16f, 98f, 334f * fill, 12f), v.Locked ? new Color(1f, blink * 0.35f, blink * 0.3f) : RedFill);
 
-        // The Shockwave: a cell left of the match HUD's grenade box (which shows his equipment at -86).
-        Cell(-86f - 92f, "WAVE", "RELOAD", v.ShockwaveCooldown, LibrarianRules.ShockwaveCooldown, v.Locked);
-        if (_pull) Cell(-86f, "PULL", "GRENADE", v.PullCooldown, LibrarianRules.Pass2.PullCooldown, v.Locked);   // restore switch pull: no equipment, so the grenade box's place is free
+        // The Shockwave: a cell left of the match HUD's grenade box (which shows his equipment at -86). In the corner layout (2026-11-12) the cells are the Musou HUD's row (MusouHud.Cells.cs), uniform with the support call's.
+        if (!MusouHudLayout.Corners)
+        {
+            Cell(-86f - 92f, "WAVE", "RELOAD", v.ShockwaveCooldown, LibrarianRules.ShockwaveCooldown, v.Locked);
+            if (_pull) Cell(-86f, "PULL", "GRENADE", v.PullCooldown, LibrarianRules.Pass2.PullCooldown, v.Locked);   // restore switch pull: no equipment, so the grenade box's place is free
+        }
         DrawSetTransform(Vector2.Zero, 0f, Vector2.One);
     }
 

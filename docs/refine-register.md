@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3099 spec table rows: **2280 tagged**, 564 not tagged (read from data with high confidence), 255 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 687 rows of the changes document.
+Scanned 3100 spec table rows: **2281 tagged**, 564 not tagged (read from data with high confidence), 255 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 688 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -40,7 +40,7 @@ Scanned 3099 spec table rows: **2280 tagged**, 564 not tagged (read from data wi
 | Charge (critical) | 56 | 47 | 47 | 22 | 0 |
 | Reactions (critical) | 25 | 22 | 23 | 12 | 0 |
 | Camera (critical) | 55 | 53 | 44 | 22 | 0 |
-| HUD and hit feedback (critical) | 71 | 66 | 52 | 11 | 0 |
+| HUD and hit feedback (critical) | 72 | 67 | 52 | 11 | 0 |
 | Sound mix (critical) | 69 | 63 | 61 | 11 | 0 |
 | Effects (critical) | 94 | 83 | 79 | 41 | 0 |
 | Game modes | 45 | 41 | 41 | 19 | 1 |
@@ -53,13 +53,13 @@ Scanned 3099 spec table rows: **2280 tagged**, 564 not tagged (read from data wi
 | Core simulation (provisional values) | 692 | 652 | 491 | 183 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 236 | 225 | 126 | 64 | 0 |
-| **All areas** | **2280** | 2011 | 1700 | 716 | 38 |
+| **All areas** | **2281** | 2012 | 1700 | 716 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1299 |
+| kind: ours | 1300 |
 | confidence: low | 813 |
 | confidence: medium | 758 |
 | notes: ours | 413 |
@@ -1553,7 +1553,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-C9703C8F` | Strike and reaction entry floor | a melee strike's and a hit reaction's entry fade has a floor of **0.125** s instead of 0.1875 s, so the graphs' 0.1 s and 0.167 s are nearer met; not the charge, the roll, the stomp (a Devastator's or Havoc's heavy strike) or any exit (s) | kind: ours; confidence: low | ours | Strike and reaction entry floor: compare with SM1 by watching the reaction and timing it frame by frame. Ours: a melee strike's and a hit reaction's entry fade has a floor of 0.125… | ☐ |
 | `R-79ECC932` | Heavy footfall | a moving Devastator's or Havoc's own footfall dips the camera **0.05** degrees (**0.09** above 7 m/s); the sound is the data's; the data has no camera footfall (degrees) | kind: ours; confidence: low | ours | Heavy footfall: compare with SM1 with an overlaid screenshot taken from the same position. Ours: a moving Devastator's or Havoc's own footfall dips the camera 0.05… | ☐ |
 
-### HUD and hit feedback (gameplay-critical) (71)
+### HUD and hit feedback (gameplay-critical) (72)
 
 *Spec section: Scoreboard ping on the HUD scoreboard (net/scoreboard-ping; protocol 50; ours)*
 
@@ -1646,6 +1646,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-1CF0E83E` | Musou HUD layout (client; owner 2026-11-10) | Musou only (`--musou-old-hud`: the layout before): the own armour and health bar (the match HUD's) bottom left at 0.65 of its size, its box's bottom 40 above the screen's bottom; the capture tiles top left (46 + 8 gap) with the on-point line and bar under… (1080-high virtual units, px) | kind: ours | owner 2026-11-10 ("move all musou mode specific UI elements to the edges of the screen, prioritizing the corners"; "Bottom left, approve"; "put your player… | Musou HUD layout (client; owner 2026-11-10): compare with SM1 with side-by-side screenshots in the same spot. Ours: Musou only (--musou-old-hud: the layout before): the own armour and… | ☐ |
+| `R-57FB9C2A` | Musou HUD corners (client; owner 2026-11-12) | Musou only (`--musou-old-hud-layout`: the layout before): one margin for both bottom corners, 44 units: the own armour and health bar's outermost visible pixels 44 from the left and bottom edges (the bar 1.1 times its 0.65, i.e. 0.715, its box anchored at its… (1080-high virtual units) | kind: ours | owner 2026-11-12 (verbatim in docs/milestones.md); margins measured on 1920 x 1080 windowed shots (1 unit = 1 px there), cell sizes measured from the equipment… | Musou HUD corners (client; owner 2026-11-12): compare with SM1 with side-by-side screenshots in the same spot. Ours: Musou only (--musou-old-hud-layout: the layout before): one margin… | ☐ |
 
 *Spec section: Added content: Musou Mode: the HUD, the war map and the orders (TF7b; no protocol change, `TfwRules.Version` 5 since the deployed flag)*
 
@@ -4785,6 +4786,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-AFDFDD67` | Musou: the Orks back at 100 %, twice the big Orks (musou-big-ork-deaths, owner 2026-11-10; `TfwRules.Version` 59) | No Musou Mode in the original | The owner's: "roll back the 20% less orks change" (every bulk Ork count back to before 2026-11-09; the Ork armies stay real Orks alone), "double the amount of scaled up in size orks ... let them exist independent of the cap" (every Nob and Big Shoota Nob twice where one came, off the crowds' and armies' caps) and "up… | Musou Mode's war only. spec "Musou Mode: the Orks back at 100 %, twice the big Orks" | Musou: the Orks back at 100 %, twice the big Orks…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-6202225B-2` | Musou: HUD at the screen edges (musou/ui-edges, owner 2026-11-10; client only, no rules or wire change) | No Musou Mode in the original | Ours (the owner's request, verbatim: "move all musou mode specific UI elements to the edges of the screen, prioritizing the corners nd minimizing impact on free screen space to view the game world."): the boss bars bottom left (the score panel's corner, empty in Musou), the capture tiles (smaller) with the on-point… | Musou Mode and the old 5-wave run only; the match HUD (Classic PvP) is unchanged. docs/milestones.md "Musou HUD at the screen edges" | Musou: HUD at the screen edges (musou/ui-edges, owner…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-6202225B-3` | Musou: HUD at the screen edges (musou/ui-edges, owner 2026-11-10; client only, no rules or wire change) | No Musou Mode in the original | Ours (the owner's request, verbatim: "move all musou mode specific UI elements to the edges of the screen, prioritizing the corners nd minimizing impact on free screen space to view the game world."): the commander's and the Boss Orks' bars bottom left (the score panel's corner, empty in Musou), the capture tiles… | Musou Mode and the old 5-wave run only; the match HUD (Classic PvP) is unchanged. docs/milestones.md "Musou HUD at the screen edges" | Musou: HUD at the screen edges (musou/ui-edges, owner…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-D2A4FF9E` | Musou: HUD corners (owner 2026-11-12; client only, no rules or wire change) | No Musou Mode in the original | Ours (the owner's request, verbatim: "For Musou mode only move this marked with red marker weapon and grenade/equipment hud to the bottom right corner of the screen. Match the same margins to the edge as the recent change to the health and armor bar to the bottom left. They should match in distance from the edges of… | Musou Mode only; the match HUD (Classic PvP) is unchanged. docs/milestones.md "Musou HUD corners" | Musou: HUD corners (owner 2026-11-12; client only, no rules…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-BC561D40` | Musou: capture banners in the world, no capture HUD (musou/capture-banners, owner 2026-11-10; client only, no rules, wire or protocol change) | No Musou Mode in the original (Seize Ground's points are the original's own and unchanged) | Ours (the owner's request, verbatim: "remove the text and status bar for the capture point ui elements in musou mode. add a banner is red when ork held, is covered by smoke, then when the smoke obscuring the banner completely dissipates the banner is now blue when captured by the player and his team. the end result is… | Musou Mode only; Classic Seize Ground unchanged. spec "Musou capture banners", "Musou capture circle", "Musou capture indicators" | Musou: capture banners in the world, no capture HUD…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-EA78DB46` | Musou: Guardsmen 1.1x (release integration, owner 2026-11-10; `TfwRules.Version` 64) | No Musou Mode in the original | The owner's: "Raise the guards to 1.1" (was 0.875x): the Guardsmen's health and shot damage 1.1x the install's 85 and the design's 5, so with every Nob twice the field holds a counterattack of its own size about half the time (our trial: 10 of 20) | Balance after twice the big Orks | Musou: Guardsmen 1.1x (release integration, owner…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-DA4B60BB` | Musou weight and impact pass (claude/musou-weight, 2026-11-10) | No Musou Mode in the original | The owner's brief of 2026-11-10 and his answers: the marines' ground contacts (foot tags and bones) drive dust and debris puffs, contact sounds and camera; more weight in landings, stops and rolls; melee retimed with its hit and end times kept, a short pose hold and camera push on the own heavy strikes and combo… | spec "Musou weight and impact pass" | Musou weight and impact pass (claude/musou-weight…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |

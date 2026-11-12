@@ -161,6 +161,9 @@ public partial class NetworkView
         if (_hudView is not null) _hudView.Data.NoScorePanel = true;
         // The owner, 2026-11-10 ("Bottom left, approve"): the own armour and health bar bottom left, over the Boss Ork bars (MusouHudLayout); --musou-old-hud: the original's top centre.
         if (_hudView is not null) _hudView.Data.VitalsCorner = MusouHudLayout.Old ? null : MusouHudLayout.VitalsCorner;
+        // The owner, 2026-11-12: the weapon and equipment panel in the bottom right corner, the same distance from the edges as the own bar's from the bottom left (MusouHudLayout.CornerMargin);
+        // --musou-old-hud-layout and --musou-old-hud: the match HUD's place.
+        if (_hudView is not null) _hudView.Data.WeaponBoxCorner = MusouHudLayout.WeaponBoxCorner;
 
         // The HUD's frame.
         var f = _musouHud.Data;

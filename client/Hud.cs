@@ -112,6 +112,11 @@ public sealed partial class Hud : Control
         /// (virtual units), Z its scale. Null (the default, and always in Classic PvP): the original's place (Hud.Vitals.cs).
         /// </summary>
         public Vector3? VitalsCorner;
+        /// <summary>
+        /// Added content sets this: the weapon and equipment panel's place instead of the original's: the distances (virtual units) from the screen's right and bottom edges to the outermost visible pixels of its
+        /// gold frame; the jump pack meter and the "no grenades" line then stand over the panel instead of under it. Null (the default, and always in Classic PvP): the original's place.
+        /// </summary>
+        public Vector2? WeaponBoxCorner;
         public string Clock = "";
         /// <summary>Centre banner: warm-up or match over; empty while playing.</summary>
         public string Banner = "";

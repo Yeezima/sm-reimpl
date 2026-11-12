@@ -94,15 +94,52 @@ public sealed partial class Hud
     {
         var d = Data;
         if (!d.Alive) return;
+        // Added content (Musou's corner layout): the whole panel moves so its gold frame's outermost pixels stand at the given margins; the movie's box and the M44 box have their own original margins.
+        var baseWas = _base;
+        var corner = d.WeaponBoxCorner;
+        if (corner is { } c) _base = baseWas * new Transform2D(0f, MovieBoxMargin - c);
         bool movie = d.HasWeapon && DrawMovieWeaponBox(vs);   // ui/hud-fidelity: the movie's box (Hud.Fidelity.cs); the jump meter and the lines under it stay
+        if (corner is { } c2 && !movie) _base = baseWas * new Transform2D(0f, ClassicBoxMargin - c2);
         BeginLocal(Placed(new Vector2(vs.X - 514f, vs.Y - 248f), 2.5f));   // ui/hud-3: 10 units higher, as the owner's reference frame
         // ui/hud-camera-2 (owner, 2026-10-30): no status words in the weapon box in any state (RELOADING, SWITCHING, RECHARGING, OVERHEATED): the original has none.
         if (d.HasWeapon && !movie) DrawBoxContents();
         if (d.HasGrenade && !movie) DrawGrenadeBox();
         float below = BoxH + (movie ? 26f : 10f);   // ui/hud-fidelity: the movie's box stands 1.12 times larger
-        if (d.HasJump) { DrawJumpMeter(below); below += 34f; }
-        if (d.GrenadesOutText.Length > 0) Txt(d.GrenadesOutText, BoxW - 6f, below + 18f, 17, new Color(0.9f, 0.9f, 0.9f), 1, 3);
+        if (corner is null)
+        {
+            if (d.HasJump) { DrawJumpMeter(below); below += 34f; }
+            if (d.GrenadesOutText.Length > 0) Txt(d.GrenadesOutText, BoxW - 6f, below + 18f, 17, new Color(0.9f, 0.9f, 0.9f), 1, 3);
+        }
+        else
+        {
+            // The panel stands in the corner: what hung under it stands over its winged skull instead.
+            float above = -34f;
+            if (d.HasJump) { DrawJumpMeter(above); above -= 30f; }
+            if (d.GrenadesOutText.Length > 0) Txt(d.GrenadesOutText, BoxW - 6f, above + 12f, 17, new Color(0.9f, 0.9f, 0.9f), 1, 3);
+        }
         EndLocal();
+        _base = baseWas;
+        DrawSetTransformMatrix(_base);
+    }
+
+    /// <summary>
+    /// The movie box's gold frame in its original place: the distances from the screen's right edge to its rightmost pixel and from the bottom edge to its lowest (virtual units; the box is right and bottom
+    /// anchored on the stage, so they hold at every size and aspect ratio). Measured on a 1920 x 1080 shot (ours).
+    /// </summary>
+    public static readonly Vector2 MovieBoxMargin = new(115f, 66f);
+
+    /// <summary>
+    /// The M44 box (the Librarian's gauge, a gunless class's grenade box, a missing movie) in its original place: its gold frame's rightmost and lowest points, from the frame's size, turn and corner
+    /// (514 left of and 248 above the right bottom), less the half of the 2-unit line.
+    /// </summary>
+    public static Vector2 ClassicBoxMargin
+    {
+        get
+        {
+            float a = Mathf.DegToRad(2.5f), c = MathF.Cos(a), s = MathF.Sin(a);
+            float right = MathF.Max(BoxW * c, BoxW * c - BoxH * s), bottom = BoxW * s + BoxH * c;
+            return new Vector2(514f - right - 2f, 248f - bottom - 1f);
+        }
     }
 
     void DrawBoxContents()

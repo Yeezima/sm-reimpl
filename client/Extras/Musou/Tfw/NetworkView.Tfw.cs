@@ -86,8 +86,24 @@ public partial class NetworkView
         // The match HUD's "RESPAWN IN n" would lie: a fallen player in the field waits for its retainer or the extraction, held by the run. TfwHud says KILLED and what happens instead. One who
         // joined after the landing is not in the field: the core's respawn runs and its line is true.
         if (!f.Alive && TfwHudModel.RunHoldsRespawn(war) && _hudView is { } hud) hud.Data.Alive = true;
-        if (_musouHud is { } musou) musou.Data.BossName = TfwHudModel.BossName(war, _tfwState.Objectives);
+        if (_musouHud is { } musou)
+        {
+            musou.Data.BossName = TfwHudModel.BossName(war, _tfwState.Objectives);
+            // The support call's cell (owner 2026-11-12; MusouHud.Cells.cs): B's artillery strike or drop pod and its cooldown, in a battle.
+            if (_supportAt < _connectedFor - 1.0 || _supportAt > _connectedFor) { _supportAt = _connectedFor; _supportShown = TfwSupportCommand(me); }
+            bool drop = _supportShown == TfwCommand.DropPod;
+            float wait = MusouHudDemoCampaign ? 37f : war.Own.OrbitalSeconds;
+            musou.Data.Cells[2] = new AbilityCell
+            {
+                Shown = TfwHudModel.InBattle(war.Phase) && me.Alive, Kind = drop ? AbilityKind.DropPod : AbilityKind.Artillery,
+                Key = PadHost.Active ? "D-LEFT" : "B", Left = wait, Total = SmSim.Extras.Musou.Campaign.TfwFireRules.OrbitalCooldownSeconds,
+            };
+            musou.Data.JumpMeterAbove = _hudView?.Data.HasJump ?? false;
+        }
     }
+
+    double _supportAt = double.NegativeInfinity;
+    TfwCommand _supportShown = TfwCommand.Orbital;
 
     /// <summary>The Orks this client knows standing in position <paramref name="o"/> (its radius, <see cref="TfwHudModel.ClearingReach"/> up and down).</summary>
     int TfwOrksOn(TfwObjective o) => _musouState.CountWithin(new System.Numerics.Vector3(o.Position.X, o.Position.Y, o.Position.Z), o.Radius, TfwHudModel.ClearingReach);
