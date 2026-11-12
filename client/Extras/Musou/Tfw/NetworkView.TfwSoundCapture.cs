@@ -15,6 +15,9 @@ namespace SmClient;
 /// </summary>
 public partial class NetworkView
 {
+    /// <summary><c>--tfw-sound-fire-seconds s</c> (owner 2026-11-12, the own-layer samples): the heavy part's fire lasts s seconds (default 5; the second frag is thrown at 2.5 s).</summary>
+    static readonly double SoundCapFireSeconds = double.TryParse(CmdArg("tfw-sound-fire-seconds"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double fs) && fs is > 3 and <= 120 ? fs : 5.0;
+
     void SoundCapMark(string part) => GD.Print($"SOUNDCAP {part} t {_connectedFor:F2} frame {Engine.GetProcessFrames()} sample {_musouRecorder?.Frames ?? -1} grenades {_client?.Predicted.Grenades}");
 
     async Task TfwSoundCapture()
@@ -38,7 +41,7 @@ public partial class NetworkView
         await TfwWait(0.5);
         TfwAction(GameAction.Fire, true);
         bool second = false;
-        for (double start = _connectedFor, until = start + 5.0; _connectedFor < until;)
+        for (double start = _connectedFor, until = start + SoundCapFireSeconds; _connectedFor < until;)
         {
             TfwAimNearest(30f);
             await TfwWait(0.15);

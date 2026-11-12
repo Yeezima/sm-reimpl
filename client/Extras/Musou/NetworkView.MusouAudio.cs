@@ -27,6 +27,35 @@ public partial class NetworkView
 
     bool MusouAudioOn => MusouActive && !NoMusouAudioPass && MusouAudioRules.Applies(_config!.Extras);
 
+    /// <summary>
+    /// Test aid <c>--musou-own-layer-db thump,deep,sub</c> (owner 2026-11-12, the crowded-fight sound tuning; presentation only): the own bolter's layer gains in dB, each a number or <c>off</c> (that layer not played),
+    /// in place of <see cref="MusouAudioRules.OwnThumpGainDb"/>, <see cref="MusouAudioRules.OwnDeepGainDb"/> and <see cref="MusouAudioRules.OwnSubGainDb"/>; a field left empty or <c>-</c> keeps its default (no flag: today's values).
+    /// </summary>
+    static readonly (float? Thump, float? Deep, float? Sub) OwnLayerDb = ParseOwnLayerDb(CmdArg("musou-own-layer-db"));
+
+    static (float? Thump, float? Deep, float? Sub) ParseOwnLayerDb(string? text)
+    {
+        float? thump = MusouAudioRules.OwnThumpGainDb, deep = MusouAudioRules.OwnDeepGainDb, sub = MusouAudioRules.OwnSubGainDb;
+        if (text is null) return (thump, deep, sub);
+        var parts = text.Split(',');
+        if (parts.Length != 3 || !TryField(parts[0], ref thump) || !TryField(parts[1], ref deep) || !TryField(parts[2], ref sub))
+        {
+            GD.PrintErr($"--musou-own-layer-db: expected thump,deep,sub (each dB, 'off' or empty for the default), got '{text}'; the default gains stay");
+            return (MusouAudioRules.OwnThumpGainDb, MusouAudioRules.OwnDeepGainDb, MusouAudioRules.OwnSubGainDb);
+        }
+        return (thump, deep, sub);
+
+        static bool TryField(string field, ref float? value)
+        {
+            field = field.Trim();
+            if (field.Length == 0 || field == "-") return true;
+            if (field.Equals("off", StringComparison.OrdinalIgnoreCase)) { value = null; return true; }
+            if (!float.TryParse(field, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float db) || !float.IsFinite(db)) return false;
+            value = db;
+            return true;
+        }
+    }
+
     void MusouTrackEmitter(SoundEmitter emitter, bool own)
     {
         if (own && MusouAudioOn) emitter.ProtectSpeech = true;
@@ -52,17 +81,18 @@ public partial class NetworkView
         if (MusouSoundIsOff(MusouSoundOff.OwnLayers)) return;   // musou/sound-ab: ownlayers off
         // The player's own gun (owner follow-up 2026-11-09: "deeper, more powerful"): a protected emitter of its own at the muzzle (never stolen, cut or ducked): a louder deep copy, a sub copy under it, a louder thump.
         var gun = new SoundEmitter { Position = e.Position, Follow = e.Follow, Switches = e.Switches, Own = true, OneShot = true, ProtectGun = true, Label = "musou bolter own layers" };
-        var body = new VoiceOffset(MusouAudioRules.OwnDeepGainDb, MusouAudioRules.DeepPitchCents, MusouAudioRules.DeepLpf).Plus(fire);
-        var sub = new VoiceOffset(MusouAudioRules.OwnSubGainDb, MusouAudioRules.OwnSubPitchCents, MusouAudioRules.OwnSubLpf).Plus(fire);
+        var (thumpDb, deepDb, subDb) = OwnLayerDb;
         foreach (var b in file.Fire(null))
         {
-            PostBinding(b, gun, own, "fire own deep", extra: body);
-            PostBinding(b, gun, own, "fire own sub", extra: sub);
+            if (deepDb is { } d) PostBinding(b, gun, own, "fire own deep", extra: new VoiceOffset(d, MusouAudioRules.DeepPitchCents, MusouAudioRules.DeepLpf).Plus(fire));
+            if (subDb is { } sb) PostBinding(b, gun, own, "fire own sub", extra: new VoiceOffset(sb, MusouAudioRules.OwnSubPitchCents, MusouAudioRules.OwnSubLpf).Plus(fire));
         }
-        _sound.Post(MusouAudioRules.ThumpEvent, gun, offset: new VoiceOffset(MusouAudioRules.OwnThumpGainDb, MusouAudioRules.ThumpPitchCents).Plus(fire));
+        if (thumpDb is { } t) _sound.Post(MusouAudioRules.ThumpEvent, gun, offset: new VoiceOffset(t, MusouAudioRules.ThumpPitchCents).Plus(fire));
         CountSound("musou bolter thump");
-        if (LogSound("musou-audio")) GD.Print($"MUSOU AUDIO t {_connectedFor:F3} {spec.Name}: own gun layers deep {MusouAudioRules.OwnDeepGainDb:+0;-0} dB {MusouAudioRules.DeepPitchCents:F0} c, sub {MusouAudioRules.OwnSubGainDb:+0;-0} dB {MusouAudioRules.OwnSubPitchCents:F0} c, thump {MusouAudioRules.OwnThumpGainDb:+0;-0} dB");
+        if (LogSound("musou-audio")) GD.Print($"MUSOU AUDIO t {_connectedFor:F3} {spec.Name}: own gun layers deep {OwnDb(deepDb)} {MusouAudioRules.DeepPitchCents:F0} c, sub {OwnDb(subDb)} {MusouAudioRules.OwnSubPitchCents:F0} c, thump {OwnDb(thumpDb)}");
     }
+
+    static string OwnDb(float? db) => db is { } v ? $"{v:+0.#;-0.#;0} dB" : "off";
 
     /// <summary>The first Ork a bolter rifle's shot hits (<paramref name="at"/>, Godot space): the wet smack, then the explosion.</summary>
     void MusouBolterFirstHit(string weapon, Vector3 at)
