@@ -43,7 +43,16 @@ public class MusouSkirmishPinTests(ITestOutputHelper output)
     // Recaptured 2026-11-09 for musou/combat-rules (MusouSim.Version 28): every melee strike gives back 5 % armour (with that one share at 0 the old golden still matched).
     // Recaptured 2026-11-09 for client-built tracers (MusouSim.Version 28): a gun Ork's burst start is announced by a Telegraph event; the replay's stats are unchanged.
     // Recaptured 2026-11-09 at the Musou integration (both changes above together).
-    const string Golden = "11BAC586C8BD290D5350CD9E48A55DE3C7EBD0AEF61E098DD5FD38438C830CB0";
+    // Recaptured 2026-11-12 for the melee heal cap, 3 per swing (MusouSim.Version 52; owner 2026-11-12): the replay's swings strike more than three enemies, so the players' health differs (stats unchanged).
+    // Proof it moved only the heal: with --musou-uncapped-melee-heal (MusouUncappedMeleeHeal) the replay returns the previous golden (OldGolden, asserted below).
+    const string OldGolden = "11BAC586C8BD290D5350CD9E48A55DE3C7EBD0AEF61E098DD5FD38438C830CB0";
+    const string Golden = "004AFBAA723EC657EB323C86DBD9CC05B9A40B9475FF221F5641EB1D59390FE8";
+
+    [Fact]
+    public void With_the_uncapped_heal_switch_the_replay_is_the_golden_from_before_the_cap()
+    {
+        Assert.Equal(OldGolden, Replay(uncappedHeal: true).Hash);
+    }
 
     [Fact]
     public void The_skirmish_replay_is_unchanged()
@@ -58,8 +67,9 @@ public class MusouSkirmishPinTests(ITestOutputHelper output)
 
     internal readonly record struct ReplayStats(int MaxAlive, int Kos, int Strikes, int Tracers, int Hits, int Shots, int Wave, MusouPhase Phase, int Lives);
 
-    static (string Hash, ReplayStats Stats) Replay()
+    static (string Hash, ReplayStats Stats) Replay(bool uncappedHeal = false)
     {
+        var Config = MusouSkirmishPinTests.Config with { MusouUncappedMeleeHeal = uncappedHeal };
         var mesh = new NavigationTests.Level().Floor(0f, 0f, 60f, 60f).Wall(30f, 12f, 30f, 48f).Mesh();
         var collision = new CollisionWorld(mesh, mesh);
         var w = new World(Config, collision, Markers)

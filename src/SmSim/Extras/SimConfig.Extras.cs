@@ -15,8 +15,12 @@ public sealed partial record SimConfig
         // Musou: its own version (simulation and wire sections), so a Musou-only change never touches ContentExtras.WireVersion or the extended hash.
         // Musou Mode's war rules: their version sits in the same block.
         if (Extras.HasFlag(ContentExtras.Musou)) { w.Write("musou"); w.Write(MusouSim.Version); w.Write(SmSim.Extras.Musou.Campaign.TfwRules.Version); if (AerialTackleRestored) w.Write("aerial-tackle"); }
+        if (Extras.HasFlag(ContentExtras.Musou) && MusouUncappedMeleeHeal) w.Write("uncapped-melee-heal");   // musou/melee-heal-cap: the restore switch --musou-uncapped-melee-heal, only when on
         if (Extras.HasFlag(ContentExtras.Musou) && MusouMeleeCooldown) w.Write("melee-cooldown");   // musou/melee-spam: the restore switch --musou-melee-cooldown, only when on
     }
+
+    /// <summary>musou/melee-heal-cap restore switch (<c>--musou-uncapped-melee-heal</c> on the server and every client; config hash, only when on): true gives back the heal for every enemy a melee swing strikes (no cap of <see cref="MusouCombatRules.MeleeHealsPerSwing"/>).</summary>
+    public bool MusouUncappedMeleeHeal { get; init; }
 
     // musou/no-aerial-tackle (owner, 2026-11-12, temporary): Musou Mode has no aerial tackle; a melee press in a hop is the light attack at once. --musou-aerial-tackle (AerialTackleRestored) restores the tackle.
     partial void ExtrasAerialTackleOff(ref bool off)

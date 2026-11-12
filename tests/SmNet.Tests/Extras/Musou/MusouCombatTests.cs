@@ -242,6 +242,64 @@ public class MusouCombatTests
         Assert.Equal(body.HealthMax * (0.5f + 2 * 0.05f), w.Players[1].Health, 2);   // two enemies: 2 x 5 %
     }
 
+    static void TenBoys(World w)
+    {
+        for (int k = 0; k < 10; k++) w.Musou!.Spawn(MusouEnemyType.Boy, Me(w) + new Vector3(k * 0.25f - 1.1f, 1.5f, 0f), 0f, 85f);
+    }
+
+    /// <summary>musou/melee-heal-cap (owner 2026-11-12): one swing (a strike step) heals at most 3 times, whatever the enemies struck.</summary>
+    [Fact]
+    public void One_swing_through_ten_Orks_heals_exactly_three_times_and_two_swings_heal_three_each()
+    {
+        var w = NewWorld();
+        var body = Loadouts.Body(w.Config, w.Players[1]);
+        SetHealth(w, body.HealthMax * 0.2f);
+        TenBoys(w);
+        Run(w, 20, InputButtons.Melee);
+        Assert.Equal(body.HealthMax * (0.2f + 3 * 0.05f), w.Players[1].Health, 2);   // ten struck, three healed
+        Run(w, 20, InputButtons.Melee);
+        Assert.Equal(body.HealthMax * (0.2f + 6 * 0.05f), w.Players[1].Health, 2);   // a second swing heals three more
+        Assert.Equal(3, MusouCombatRules.MeleeHealsPerSwing);
+    }
+
+    [Fact]
+    public void The_air_slash_landing_heal_stays_uncapped_next_to_a_capped_swing()
+    {
+        var w = NewWorld();
+        var body = Loadouts.Body(w.Config, w.Players[1]);
+        SetHealth(w, body.HealthMax * 0.2f);
+        TenBoys(w);
+        Run(w, 20, InputButtons.Melee);
+        Assert.Equal(body.HealthMax * (0.2f + 3 * 0.05f), w.Players[1].Health, 2);   // the swing: capped
+        typeof(World).GetMethod("MusouSlashLandHeal", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.Invoke(w, [1]);
+        Assert.Equal(body.HealthMax * (0.2f + 3 * 0.05f + MusouCombatRules.SlashLandHealthShare), w.Players[1].Health, 2);   // the landing: its whole 25 %, outside the cap
+    }
+
+    [Fact]
+    public void A_heavy_swing_with_a_stomp_through_ten_Orks_heals_three_times_in_all()
+    {
+        var splash = new SplashSpec(3f, Plain with { Damage = 30f }, [new(0f, 1f), new(3f, 1f)], false, true, "target_all");
+        var w = NewWorld(config: Config(cls: c => c with { MeleeHeavy = [Heavy with { Stomp = splash }] }));
+        var body = Loadouts.Body(w.Config, w.Players[1]);
+        SetHealth(w, body.HealthMax * 0.2f);
+        TenBoys(w);
+        Run(w, 20, InputButtons.MeleeHeavy);
+        Assert.Equal(body.HealthMax * (0.2f + 3 * 0.05f), w.Players[1].Health, 2);   // the stomp and its cleave are one swing: three heals, not three plus three
+    }
+
+    [Fact]
+    public void The_restore_switch_gives_the_heal_for_every_enemy_struck_and_is_hashed_only_in_Musou()
+    {
+        var uncapped = NewWorld(config: Config() with { MusouUncappedMeleeHeal = true });
+        var body = Loadouts.Body(uncapped.Config, uncapped.Players[1]);
+        SetHealth(uncapped, body.HealthMax * 0.2f);
+        TenBoys(uncapped);
+        Run(uncapped, 20, InputButtons.Melee);
+        Assert.Equal(body.HealthMax * (0.2f + 8 * 0.05f), uncapped.Players[1].Health, 2);   // --musou-uncapped-melee-heal: every enemy struck heals (the cleave strikes eight of the ten in this setup)
+        Assert.NotEqual(Config().Hash(), (Config() with { MusouUncappedMeleeHeal = true }).Hash());
+        Assert.Equal((Config() with { Extras = ContentExtras.Orks }).Hash(), (Config() with { Extras = ContentExtras.Orks, MusouUncappedMeleeHeal = true }).Hash());   // Classic: the switch is not hashed
+    }
+
     [Fact]
     public void The_cleave_hits_at_most_eight_nearest_first_and_only_in_its_cone()
     {
