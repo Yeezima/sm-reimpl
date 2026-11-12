@@ -14,6 +14,8 @@ public static class PlayerHitFxRules
 {
     /// <summary>The client flag that restores the on-hit effects on players in Classic PvP (as before 2026-11-11).</summary>
     public const string RestoreFlag = "player-hit-fx";
+    /// <summary>onhit-range-intensity (owner 2026-11-13: "bring back the spark and burst particles on hit"): the 2026-11-11 removal is reversed as the default; this client flag brings the no-particle look back in Classic PvP (the rules below read the effects as drawn unless it is set).</summary>
+    public const string NoParticlesFlag = "no-player-hit-fx";
 
     /// <summary>Classic PvP: any match that is not Musou Mode (faithful or extended content alike; the Ork Boy is a Classic player too).</summary>
     public static bool Classic(ContentExtras extras) => !extras.HasFlag(ContentExtras.Musou);

@@ -15,8 +15,8 @@ namespace SmClient;
 public partial class NetworkView
 {
     bool? _playerHitFx;
-    /// <summary><c>--player-hit-fx</c>: Classic PvP draws the on-hit effects on players again (as before 2026-11-11).</summary>
-    bool PlayerHitFxFlag => _playerHitFx ??= CmdFlag(PlayerHitFxRules.RestoreFlag);   // "player-hit-fx"
+    /// <summary>Whether Classic PvP draws the on-hit effects on players: yes since 2026-11-13 (owner: "bring back the spark and burst particles on hit"); <c>--no-player-hit-fx</c> is the look of 2026-11-11 to 2026-11-13.</summary>
+    bool PlayerHitFxFlag => _playerHitFx ??= !CmdFlag(PlayerHitFxRules.NoParticlesFlag);   // owner 2026-11-13: drawn again by default; --no-player-hit-fx is the 2026-11-11 look
 
     /// <summary>The match's content flags (none before the config is in, which reads as Classic).</summary>
     ContentExtras MatchExtras => _config?.Extras ?? ContentExtras.None;
@@ -26,7 +26,7 @@ public partial class NetworkView
     bool OldClassicHitFxFlag => _oldClassicHitFx ??= CmdFlag(PlayerHitFxRules.OldLookFlag);
 
     /// <summary>The brief model flash on a hit with no armour left (owner, 2026-11-11: "the model flash should come back on for bare-armor hits"); see <see cref="PlayerHitFxRules.BareHitFlash"/>.</summary>
-    bool BareHitFlashOn => PlayerHitFxRules.BareHitFlash(MatchExtras, PlayerHitFxFlag, OldClassicHitFxFlag, OldHealthHitFlag);
+    bool BareHitFlashOn => PlayerHitFxRules.BareHitFlash(MatchExtras, false, OldClassicHitFxFlag, OldHealthHitFlag);   // owner 2026-11-13: the flash stays with the particles back
 
     int _classicBareHits, _classicBareBreaks;
     /// <summary>Players whose armour an own melee strike broke this frame (the hit report says so; their break effect stays).</summary>
