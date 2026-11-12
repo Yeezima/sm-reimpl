@@ -96,8 +96,11 @@ public static class MusouOrkFlinchRules
     /// <summary>The scale of the pose by distance from the camera: whether near (skeletal) or far (baked) is the crowd's tier, this is only the cut-off; 0 past <see cref="FarMetres"/>.</summary>
     public static float DistanceScale(float distance) => distance <= FarMetres ? 1f : 0f;
 
-    /// <summary>Whether this kind carries the bone pose (the Boy rig's skeleton); the others (the Warboss, the Squigs) take the whole-body lean at any distance.</summary>
+    /// <summary>Whether this kind flinches at all: every Ork but the Bomb Squig, the Scrap Mek and the Weirdboy (their hits draw no reaction, at any distance). Those that react and have the Boy rig's bones take the bone pose; the rest (the Warboss, the Stormboy ...) the whole-body lean.</summary>
     public static bool Reacts(MusouEnemyType type) => type is not (MusouEnemyType.BombSquig or MusouEnemyType.ScrapMek or MusouEnemyType.Weirdboy);
+
+    /// <summary>Whether this Ork, at this distance from the camera, is drawn flinching: it reacts and is within <see cref="FarMetres"/>. The push-back (the combat-feel slide) is left out only for these.</summary>
+    public static bool Flinches(MusouEnemyType type, float distance) => Reacts(type) && DistanceScale(distance) > 0f;
 
     /// <summary>The far tier's lean angle (radians) and shift (m) for a flinch of <paramref name="size"/> reference sizes.</summary>
     public static float FarLeanRadians(float size) => FarLean * MathF.PI / 180f * size;

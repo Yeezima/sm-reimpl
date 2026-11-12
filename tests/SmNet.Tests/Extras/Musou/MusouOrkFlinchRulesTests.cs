@@ -81,6 +81,15 @@ public class MusouOrkFlinchRulesTests
     }
 
     [Fact]
+    public void Only_an_Ork_that_reacts_and_is_within_range_flinches_so_only_it_loses_the_push_back()
+    {
+        Assert.True(MusouOrkFlinchRules.Flinches(MusouEnemyType.Boy, 10f));
+        Assert.True(MusouOrkFlinchRules.Flinches(MusouEnemyType.Warboss, 69f));
+        Assert.False(MusouOrkFlinchRules.Flinches(MusouEnemyType.Boy, MusouOrkFlinchRules.FarMetres + 1f));
+        foreach (var t in new[] { MusouEnemyType.BombSquig, MusouEnemyType.ScrapMek, MusouEnemyType.Weirdboy }) Assert.False(MusouOrkFlinchRules.Flinches(t, 5f));
+    }
+
+    [Fact]
     public void Far_away_shows_nothing()
     {
         Assert.Equal(1f, MusouOrkFlinchRules.DistanceScale(30f));

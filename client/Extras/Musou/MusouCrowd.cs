@@ -65,7 +65,7 @@ public partial class MusouCrowd : CrowdView
     /// <summary>A blow from the direction opposite <paramref name="away"/> struck this Ork: it is drawn pushed back by up to <paramref name="metres"/> (<see cref="SmNet.Extras.Musou.MusouContactRules.RecoilAt"/>).</summary>
     public void Recoil(int id, Vector3 away, float metres)
     {
-        if (!NoOrkFlinch) return;   // the hit reaction (owner 2026-11-13) keeps the feet planted: the push-back's 0.2 to 0.35 m slide is left out while it is on (--no-musou-ork-flinch: the push-back as before)
+        if (!NoOrkFlinch && _flinchable.Contains(id)) return;   // the hit reaction (owner 2026-11-13) keeps the feet planted: the push-back's 0.2 to 0.35 m slide is left out for an Ork drawn flinching (one that reacts, within 70 m); the rest keep it (--no-musou-ork-flinch: the push-back for all, as before)
         _recoil[id] = (0f, away, metres);
     }
 
@@ -75,7 +75,8 @@ public partial class MusouCrowd : CrowdView
     /// </summary>
     public static bool NoOrkFlinch { get; set; } = Array.IndexOf(OS.GetCmdlineUserArgs(), "--no-musou-ork-flinch") >= 0;
     readonly Dictionary<int, MusouOrkFlinchTrack> _kick = new();
-    readonly List<int> _kickOver = new();
+    readonly List<int> _kickOver = new(), _kickIds = new();
+    readonly HashSet<int> _flinchable = new();   // ids drawn last frame that flinch (MusouOrkFlinchRules.Flinches)
     /// <summary>Flinches started and Orks drawn mid-flinch (the profile's and the tests').</summary>
     public int Kicks { get; private set; }
     public int Flinching => _kick.Count;
@@ -121,6 +122,7 @@ public partial class MusouCrowd : CrowdView
         UpkeepLooks("musou");
         Items.Clear();
         _seen.Clear();
+        _flinchable.Clear();
         foreach (var e in shown)
         {
             var p = new Vector3(e.Position.X, e.Position.Y, e.Position.Z);
@@ -138,6 +140,7 @@ public partial class MusouCrowd : CrowdView
             if (_recoil.TryGetValue(e.Id, out var push)) p += push.Away * SmNet.Extras.Musou.MusouContactRules.RecoilAt(push.Age, push.Metres);
             float distance = p.DistanceTo(camera);
             var kick = Vector3.Zero;
+            if (MusouOrkFlinchRules.Flinches(e.Type, distance)) _flinchable.Add(e.Id);
             if (_kick.TryGetValue(e.Id, out var track) && MusouOrkFlinchRules.DistanceScale(distance) > 0f && e.State is not (MusouEnemyState.Dying or MusouEnemyState.Knocked))
             {
                 var c = track.Current();
@@ -149,7 +152,9 @@ public partial class MusouCrowd : CrowdView
         if (_kick.Count > 0)
         {
             _kickOver.Clear();
-            foreach (var id in new List<int>(_kick.Keys))
+            _kickIds.Clear();
+            foreach (var id in _kick.Keys) _kickIds.Add(id);
+            foreach (var id in _kickIds)
             {
                 var t = _kick[id];
                 if (!t.Step(delta) || !_seen.Contains(id)) _kickOver.Add(id); else _kick[id] = t;
