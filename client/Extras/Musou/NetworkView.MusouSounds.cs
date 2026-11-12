@@ -127,6 +127,7 @@ public partial class NetworkView
         double now = _connectedFor;
         var camera = new Num.Vector3(cam.GlobalPosition.X, -cam.GlobalPosition.Z, cam.GlobalPosition.Y);   // Godot to game space, as MusouPresent
         _musouBudget.Refill(delta);
+        MusouSoundscapeFrame(me, shown, cam, delta);   // musou/soundscape-tuning: the threat cues' state, the far war's duck, the wind and fire bed (NetworkView.MusouSoundscape.cs)
         (_musouLiveVoices, _musouLiveSpeech) = _sound.GroupVoices(MusouSoundEmitters);
         _musouPeakVoices = Math.Max(_musouPeakVoices, _musouLiveVoices);
         _musouPeakSpeech = Math.Max(_musouPeakSpeech, _musouLiveSpeech);
@@ -221,11 +222,11 @@ public partial class NetworkView
             switch (e.State)
             {
                 case MusouEnemyState.WindUp:
-                    MusouCue(set.WindUp, set, emitter, MusouSoundGroup.Swing, distance, "wind-up");
+                    MusouCue(set.WindUp, set, emitter, MusouSoundGroup.Swing, distance, "wind-up", threat: MusouThreatOf(e));
                     MusouCue(set.Effort, set, emitter, MusouSoundGroup.Effort, distance, "effort");
                     break;
                 case MusouEnemyState.Strike:
-                    MusouCue(set.Swing, set, emitter, MusouSoundGroup.Swing, distance, "swing");
+                    MusouCue(set.Swing, set, emitter, MusouSoundGroup.Swing, distance, "swing", threat: MusouThreatOf(e));
                     break;
                 case MusouEnemyState.Stagger:
                     MusouCue(set.Stun, set, emitter, MusouSoundGroup.Stun, distance, "stun");
@@ -278,13 +279,13 @@ public partial class NetworkView
     }
 
     /// <summary>A sound at one place (a shot, a hit, a fall), on an emitter of its own; none is made for what the budget would refuse by distance.</summary>
-    void MusouCueAt(MusouSoundCue cue, MusouSoundSet set, Num.Vector3 at, MusouSoundGroup group, float distance, string what, string surface = "stone")
+    void MusouCueAt(MusouSoundCue cue, MusouSoundSet set, Num.Vector3 at, MusouSoundGroup group, float distance, string what, string surface = "stone", bool threat = false)
     {
         if (cue.Empty || distance > MusouSoundRules.LimitOf(group).Range * (MusouSoundRules.LimitOf(group).Speech && group != MusouSoundGroup.Waaagh ? MusouVoiceReach : 1f)) return;
         var emitter = new SoundEmitter { Position = ToGodot(at) + Vector3.Up * 1.2f, OneShot = true, Label = "musou " + what, Group = MusouSoundEmitters };
         emitter.Switches.Set(AudioCatalog.MaterialType, Fnv.Hash32(surface));
         if (MusouVoiceGroup(group, cue, set)) emitter.AttenuationOverride = _musouVoiceCurve;
-        MusouCue(cue, set, emitter, group, distance, what);
+        MusouCue(cue, set, emitter, group, distance, what, threat);
     }
 
     /// <summary>What the crowd's events sound like.</summary>
@@ -303,7 +304,7 @@ public partial class NetworkView
                 break;
             case MusouEventKind.Strike:
                 var cue = e.Value switch { (byte)MusouBossAbility.GroundSlam => set.SlamHit, (byte)MusouBossAbility.Charge => set.ChargeHit, _ => set.MeleeHit };
-                MusouCueAt(cue, set, e.Vector, e.Value != 0 ? MusouSoundGroup.Boss : MusouSoundGroup.MeleeHit, Num.Vector3.Distance(e.Vector, camera), "strike", "armour");
+                MusouCueAt(cue, set, e.Vector, e.Value != 0 ? MusouSoundGroup.Boss : MusouSoundGroup.MeleeHit, Num.Vector3.Distance(e.Vector, camera), "strike", "armour", threat: e.Value != 0 && MusouThreatClose(MusouSoundscape.Threat.BossAttack, enemy.Position, enemy.Yaw));
                 break;
             case MusouEventKind.Hit when e.Value == MusouWeirdboy.ShieldMarker:   // the Weirdboy's shield took it: no pain
                 break;
@@ -330,9 +331,10 @@ public partial class NetworkView
                 var emitter = MusouSlotOf(enemy.Id)?.Emitter;
                 if (emitter is null) break;
                 _sound!.StopSpeech(MusouMouthOf(emitter));   // the boss's roar takes the place of what he was saying
-                MusouCue(set.Roar, set, emitter, MusouSoundGroup.Boss, distance, "boss roar");
-                if (e.Value == (byte)MusouBossAbility.GroundSlam) MusouCue(set.SlamWindUp, set, emitter, MusouSoundGroup.Boss, distance, "slam wind-up");
-                else if (e.Value == (byte)MusouBossAbility.Charge) MusouCue(set.ChargeStart, set, emitter, MusouSoundGroup.Boss, distance, "charge start");
+                bool bossThreat = MusouThreatClose(MusouSoundscape.Threat.BossAttack, enemy.Position, enemy.Yaw);   // musou/soundscape-tuning: his wind-up, slam and charge, close or aimed at the player
+                MusouCue(set.Roar, set, emitter, MusouSoundGroup.Boss, distance, "boss roar", bossThreat);
+                if (e.Value == (byte)MusouBossAbility.GroundSlam) MusouCue(set.SlamWindUp, set, emitter, MusouSoundGroup.Boss, distance, "slam wind-up", bossThreat);
+                else if (e.Value == (byte)MusouBossAbility.Charge) MusouCue(set.ChargeStart, set, emitter, MusouSoundGroup.Boss, distance, "charge start", bossThreat);
                 break;
         }
     }
@@ -356,16 +358,25 @@ public partial class NetworkView
     }
 
     /// <summary>Plays one option of a cue if the budget lets it; true when something posted. A line for an enemy still speaking is dropped before it costs the budget.</summary>
-    bool MusouCue(MusouSoundCue cue, MusouSoundSet set, SoundEmitter emitter, MusouSoundGroup group, float distance, string what)
+    bool MusouCue(MusouSoundCue cue, MusouSoundSet set, SoundEmitter emitter, MusouSoundGroup group, float distance, string what, bool threat = false)
     {
         if (cue.Empty || _sound is null) return false;
-        if (MusouVoiceGroup(group, cue, set))
+        bool voice = MusouVoiceGroup(group, cue, set);
+        if (voice)
         {
             if (MusouSoundIsOff(MusouSoundOff.CrowdVoices)) return false;   // musou/sound-ab: crowdvoices off
             emitter = MusouMouthOf(emitter);
             emitter.DistanceScale = 1f / MusouVoiceReach;   // musou/npc-voices-only: heard farther
         }
         var option = cue.Pick(_musouSoundRoll);
+        // musou/soundscape-tuning: a close threat cue is posted on an emitter of its own (outside the crowd's group: the crowd's voice and speech caps, its token buckets and its stealing never touch it),
+        // about +3 dB, never stolen, cut or ducked, with no instance limit. A cue the threat bucket has no token for plays as any other.
+        if (threat && !(option.Events.Count == 0 && option.Lines.Count == 0) && _musouThreatBudget.Take())
+        {
+            var te = new SoundEmitter { Position = emitter.Current, OneShot = true, Label = "musou threat " + what, Threat = true, Follow = () => emitter.Current, Switches = emitter.Switches, DistanceScale = voice ? 1f / MusouVoiceReach : 1f };
+            if (emitter.AttenuationOverride is not null) te.AttenuationOverride = emitter.AttenuationOverride;
+            return MusouThreatPost(option, set, te, what, group, distance);
+        }
         if (option.Events.Count == 0 && _sound.SpeechBusy(emitter)) return false;
         if (_musouBudget.Take(group, distance, _musouLiveVoices, _musouLiveSpeech) != MusouSoundVerdict.Post) return false;
         var offset = MusouOrkOffset;

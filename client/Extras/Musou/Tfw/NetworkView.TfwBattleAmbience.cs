@@ -25,8 +25,11 @@ public partial class NetworkView
     static readonly bool NoBattleAmbience = CmdFlag("no-musou-battle-ambience");
     static readonly float AmbienceGainArg = float.TryParse(CmdArg("musou-ambience-gain"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float g) && float.IsFinite(g) ? g : 0f;
 
-    /// <summary>musou/npc-voices-only (owner 2026-11-12): the far Ork mobs' yells and the armies' Waaagh! play only with <c>--musou-ambient-voices</c>.</summary>
+    /// <summary>musou/npc-voices-only (owner 2026-11-12): the far Ork mobs' yells play only with <c>--musou-ambient-voices</c>. (The armies' Waaagh! was split off by the soundscape interview: <see cref="MusouWaaaghOn"/>.)</summary>
     static readonly bool MusouAmbientVoices = MusouVoiceRules.AmbientVoices(OS.GetCmdlineUserArgs());
+    static readonly bool MusouWaaaghArg = MusouSoundscape.Waaagh(OS.GetCmdlineUserArgs());
+    /// <summary>musou/soundscape-tuning: the armies' Waaagh! war cries play (the default; <c>--no-musou-waaagh</c> or <c>--musou-sound-off waaagh</c> silences them).</summary>
+    bool MusouWaaaghOn => MusouWaaaghArg && !MusouSoundIsOff(MusouSoundOff.Waaagh);
 
     readonly MusouAmbienceScheduler _tfwAmbience = new();
     readonly List<MusouAmbienceSound> _tfwAmbienceDue = new();
@@ -38,8 +41,9 @@ public partial class NetworkView
     /// <summary>The frame (from <c>TfwFireFrame</c>).</summary>
     void TfwBattleAmbienceFrame(in TfwWarView war)
     {
-        if (NoBattleAmbience || MusouSoundIsOff(MusouSoundOff.Ambience) || Lean || _sound is null || _camera is not { } camera) return;   // musou/sound-ab: ambience off
         bool battle = war.Phase is TfwRunPhase.Battle or TfwRunPhase.FinalAssault;
+        MusouBedFrame(battle);   // musou/soundscape-tuning: the quiet fire bed (NetworkView.MusouSoundscape.cs)
+        if (NoBattleAmbience || MusouSoundIsOff(MusouSoundOff.Ambience) || Lean || _sound is null || _camera is not { } camera) return;   // musou/sound-ab: ambience off
         if (!battle) { _tfwAmbienceOn = false; _tfwAmbienceDue.Clear(); return; }
         if (!_tfwAmbienceOn) { _tfwAmbienceOn = true; _tfwAmbience.Reset(_connectedFor); }
         _tfwAmbienceDue.AddRange(_tfwAmbience.Step(_connectedFor));
@@ -63,7 +67,7 @@ public partial class NetworkView
     {
         if (_sound!.GroupVoices(AmbienceGroup).Voices >= AmbienceVoicesMost) { _tfwAmbienceHeld++; return; }
         var at = listener + new Vector3(MathF.Cos(s.Bearing) * s.Distance, 4f, MathF.Sin(s.Bearing) * s.Distance);
-        var emitter = new SoundEmitter { Position = at, OneShot = true, Label = $"musou battle {s.Kind}", Group = AmbienceGroup };
+        var emitter = new SoundEmitter { Position = at, OneShot = true, Label = $"musou battle {s.Kind}", Group = AmbienceGroup, Background = true };   // Background: the far war ducks under close combat (musou/soundscape-tuning)
         var offset = new VoiceOffset(GainDb: s.GainDb + AmbienceGainArg, PitchCents: s.Kind == MusouAmbienceKind.OrkMob ? 0f : (Random.Shared.NextSingle() - 0.5f) * 120f, Lpf: s.Lpf);
         bool played;
         if (s.Event.StartsWith("speech:", StringComparison.Ordinal) && s.Event.Split(':') is [_, var character, var type])

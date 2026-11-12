@@ -66,7 +66,7 @@ public partial class NetworkView
                 break;
             case MusouSquigRules.FuseCue:
                 _squigFuses[e.Enemy] = new SquigFuse { Lit = now, Seconds = e.Player / (double)Math.Max(1, _config?.TickRate ?? 30), NextBeep = now };
-                S2Post(SquigFuseSound, ToGodot(feet), 0f);
+                S2Post(SquigFuseSound, ToGodot(feet), 0f, MusouThreatNear(MusouSoundscape.Threat.SquigFuse, feet));   // musou/soundscape-tuning: a lit Squig near the player is a threat cue
                 break;
             case MusouSquigRules.KickCue:
                 S2Post(SquigKickSound, ToGodot(feet), 0f);
@@ -82,7 +82,7 @@ public partial class NetworkView
                 var flat = new Num.Vector2(e.Vector.X - feet.X, e.Vector.Y - feet.Y);
                 var forward = flat.LengthSquared() > 1e-6f ? Num.Vector2.Normalize(flat) : Num.Vector2.UnitY;
                 var muzzle = feet + new Num.Vector3(forward * MusouRokkitRules.MuzzleForward, MusouRokkitRules.MuzzleHeight);
-                StartRocket(e.Player, muzzle, e.Vector);
+                StartRocket(e.Player, muzzle, e.Vector, MusouThreatNear(MusouSoundscape.Threat.Rokkit, e.Vector));   // musou/soundscape-tuning: a rokkit aimed at the player
                 break;
             }
             case MusouRokkitRules.BlastCue:
@@ -95,7 +95,7 @@ public partial class NetworkView
     }
 
     /// <summary>A rocket shown from <paramref name="muzzle"/> towards <paramref name="aim"/>: its fire, its trail and its whine's emitter (a Rokkit Boy's, and expansion S4's turret's).</summary>
-    void StartRocket(ushort serial, Num.Vector3 muzzle, Num.Vector3 aim)
+    void StartRocket(ushort serial, Num.Vector3 muzzle, Num.Vector3 aim, bool threat = false)
     {
         double now = _connectedFor;
         var way = aim - muzzle;
@@ -105,7 +105,8 @@ public partial class NetworkView
         rocket.Emitter.Follow = () => _rockets.TryGetValue(serial, out var r) ? ToGodot(r.Position) : null;
         _rockets[serial] = rocket;
         _rocketsShown++;
-        S2Post(RokkitFireSound, ToGodot(muzzle), 0f);
+        rocket.Emitter.Threat = threat;   // its whine rides on the rocket: never stolen or cut while it comes at the player
+        S2Post(RokkitFireSound, ToGodot(muzzle), 0f, threat);
         if (_fx is not null && FxActive)
         {
             var axes = AxesAlong(ToGodot(muzzle + rocket.Velocity) - ToGodot(muzzle));
@@ -129,10 +130,12 @@ public partial class NetworkView
         SoundDetonation(view, "squig");
     }
 
-    void S2Post(string name, Vector3 at, float gainDb)
+    void S2Post(string name, Vector3 at, float gainDb, bool threat = false)
     {
         if (_sound is null) return;
-        _sound.Post(name, new SoundEmitter { Position = at, OneShot = true, Label = "musou s2" }, offset: new VoiceOffset(gainDb));
+        if (threat && !_musouThreatBudget.Take()) threat = false;
+        _sound.Post(name, new SoundEmitter { Position = at, OneShot = true, Label = threat ? "musou s2 threat" : "musou s2", Threat = threat }, offset: new VoiceOffset(gainDb + (threat ? MusouSoundscape.ThreatLiftDb : 0f)));
+        if (threat) { _musouThreatPosted++; if (LogSound("musou")) GD.Print($"MUSOU THREAT t {_connectedFor:F3} {name}"); }
     }
 
     void EndFuse(ushort id)
@@ -185,7 +188,7 @@ public partial class NetworkView
             if (warn != 0 && _rockets.TryGetValue(warn, out var threat))
             {
                 _rocketWarnings++;
-                if (_sound is not null) _sound.Post(SquigWhistle, threat.Emitter, offset: new VoiceOffset(-6f));   // the whine rides on the rocket
+                if (_sound is not null) { threat.Emitter.Threat = _musouThreatOn; _sound.Post(SquigWhistle, threat.Emitter, offset: new VoiceOffset(-6f + (_musouThreatOn ? MusouSoundscape.ThreatLiftDb : 0f))); }   // the whine rides on the rocket (musou/soundscape-tuning: +3 dB, never stolen)
                 ShowIncoming(threat.Position, (float)(MusouRocketWarner.Threat(me, new MusouRocketTrack(warn, threat.Position, threat.Velocity))?.Seconds ?? 1f));
             }
         }
@@ -205,7 +208,7 @@ public partial class NetworkView
             {
                 fuse.NextBeep = now + (0.45 - 0.38 * burnt);
                 fuse.Flash = 1f;
-                Beep(ToGodot(s.Position + new Num.Vector3(0f, 0f, 0.5f)), (float)burnt);
+                Beep(ToGodot(s.Position + new Num.Vector3(0f, 0f, 0.5f)), (float)burnt, MusouThreatNear(MusouSoundscape.Threat.SquigFuse, s.Position));
             }
             fuse.Flash = MathF.Max(0f, fuse.Flash - (float)delta * 9f);
             if (fuse.Light is null)
@@ -222,10 +225,10 @@ public partial class NetworkView
     }
 
     /// <summary>The fuse's beep (placeholder: a short generated tone, rising a little in pitch as it burns).</summary>
-    void Beep(Vector3 at, float burnt)
+    void Beep(Vector3 at, float burnt, bool threat = false)
     {
         _beep ??= MakeBeep();
-        var player = new AudioStreamPlayer3D { Stream = _beep, Bus = SoundSystem.BusName, UnitSize = 6f, MaxDistance = 60f, VolumeDb = -8f + (_sound?.GlobalGainDb ?? 0f), PitchScale = 1f + 0.35f * burnt };
+        var player = new AudioStreamPlayer3D { Stream = _beep, Bus = SoundSystem.BusName, UnitSize = 6f, MaxDistance = 60f, VolumeDb = -8f + (threat ? MusouSoundscape.ThreatLiftDb : 0f) + (_sound?.GlobalGainDb ?? 0f), PitchScale = 1f + 0.35f * burnt };
         AddChild(player);
         player.GlobalPosition = at;
         player.Finished += player.QueueFree;

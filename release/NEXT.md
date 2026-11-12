@@ -15,3 +15,9 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 
 - Orks now commit to a swing. They turn toward you only for the first moment of the wind-up (never a sudden half-turn), then the direction is fixed: run in a circle round an Ork as it raises its weapon and the blow misses (a walk is not quick enough; a run is). Stepping back out of reach still works. Not compatible with earlier builds: everyone must update. Try it against Boyz, Nobs and the Boss Orks, and tell us if the swings feel too easy or too hard to dodge.
 - Your own bolter now plays the original shot sound only; the extra deep layers under it are gone.
+- Loud fights no longer clip at the peaks. Nothing else got quieter: only the loudest moments are caught before they leave the game.
+- Close danger is easier to hear: a boss winding up, slamming or charging, a Nob's heavy swing, a rokkit or Big Shoota aimed at you, a lit Bomb Squig next to you and an Ork raising his weapon behind you play a little louder and the crowd can no longer cut them off.
+- Big explosions muffle your hearing less: only blasts close to you do it, it is milder and over sooner.
+- The far battle and the distant war dip a few decibels while Orks are fighting you, then come back.
+- The armies' Waaagh! war cries are back (the far crowd's yells stay off).
+- A quiet wind and the crackle of fires sit under the battle.
