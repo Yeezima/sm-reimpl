@@ -17,8 +17,8 @@ public static class MusouSwingRules
     /// <summary>How fast it turns while tracking (degrees a second, ours): faster than an engaged Ork's 480 for walking, so a swing begun slightly off is still brought round (up to 72 degrees in the 0.13 s).</summary>
     public const float TrackTurnDegrees = 540f;
 
-    /// <summary>The wind-up ticks (counted from the tick after it starts) in which the Ork still tracks, of a wind-up of <paramref name="windUpTicks"/>.</summary>
-    public static int TrackTicks(int windUpTicks) => Math.Clamp((int)MathF.Round(TrackShare * windUpTicks), 0, windUpTicks);
+    /// <summary>The wind-up ticks (counted from the tick after it starts; at least 1, so a very short wind-up still turns) in which the Ork still tracks, of a wind-up of <paramref name="windUpTicks"/>.</summary>
+    public static int TrackTicks(int windUpTicks) => Math.Clamp((int)MathF.Round(TrackShare * windUpTicks), 1, Math.Max(1, windUpTicks));
 }
 
 public sealed partial class MusouSim

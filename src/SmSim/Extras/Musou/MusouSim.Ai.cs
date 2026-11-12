@@ -476,7 +476,7 @@ public sealed partial class MusouSim
                 {
                     SetState(i, MusouEnemyState.WindUp);
                     _cooldown[i] = Ticks(spec.MeleePeriod);
-                    Face(i, toward);
+                    if (!SwingRules) Face(i, toward);   // MusouSim.Swing.cs: the committed swing turns from where the Ork stands at a bounded rate, no entry snap; the marker below shows that early aim
                     AddEvent(new MusouEvent(MusouEventKind.Telegraph, Tick, (ushort)(i + 1), (ushort)Math.Clamp(target.Id, 0, ushort.MaxValue), MeleeWindUpTelegraph,
                         _position[i] + new Vector3(Forward(_yaw[i]) * spec.MeleeRange, 0f)));
                     return Vector2.Zero;

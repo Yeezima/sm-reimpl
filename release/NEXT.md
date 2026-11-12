@@ -12,4 +12,4 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 
 ### Musou Mode
 
-- Orks now commit to a swing. They still turn toward you at the start of the wind-up, then the direction is fixed: run in a circle round an Ork as it raises its weapon and the blow misses (a walk is not quick enough; a run is). Stepping back out of reach still works. Not compatible with earlier builds: everyone must update. Try it against Boyz, Nobs and the Boss Orks, and tell us if the swings feel too easy or too hard to dodge.
+- Orks now commit to a swing. They turn toward you only for the first moment of the wind-up (never a sudden half-turn), then the direction is fixed: run in a circle round an Ork as it raises its weapon and the blow misses (a walk is not quick enough; a run is). Stepping back out of reach still works. Not compatible with earlier builds: everyone must update. Try it against Boyz, Nobs and the Boss Orks, and tell us if the swings feel too easy or too hard to dodge.

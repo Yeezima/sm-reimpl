@@ -150,6 +150,31 @@ public class MusouSwingCommitTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void A_wind_up_has_no_entry_snap_and_a_short_one_still_turns()
+    {
+        Assert.Equal(1, MusouSwingRules.TrackTicks(1));
+        Assert.Equal(1, MusouSwingRules.TrackTicks(3));
+        // An Ork whose back is to the target when the wind-up starts (a token taken in reach) turns at most 540 degrees a second for 4 ticks (72 degrees), so it swings 100+ degrees wide of a still player.
+        var sim = new MusouSim(null) { Swarm = MusouSwarmRules.Default };
+        ushort id = sim.Spawn(MusouEnemyType.Boy, Vector3.Zero, MathF.PI, 1e6f);   // faces -y; the player stands at +y
+        var attacks = new List<MusouAttack>();
+        bool started = false, hit = false;
+        float yawAtStart = 0f, yawAtLock = 0f;
+        for (uint t = 1; t <= 150 && !hit; t++)
+        {
+            sim.BeginTick(t); attacks.Clear();
+            sim.Step([new MusouTarget(1, new Vector3(0f, 1.2f, 0f), true)], null, true, attacks);
+            sim.TryGet(id, out var e);
+            if (e.State == MusouEnemyState.WindUp && !started) { started = true; yawAtStart = sim.YawOf(id); }
+            if (started && sim.SwingLocked(id, 15) && yawAtLock == 0f) yawAtLock = sim.YawOf(id);
+            hit = attacks.Any(a => a.Enemy == id);
+            if (started && e.State == MusouEnemyState.Recover) break;
+        }
+        output.WriteLine($"entry yaw {yawAtStart:0.00}, locked yaw {yawAtLock:0.00}");
+        Assert.False(hit);
+    }
+
+    [Fact]
     public void The_5_wave_run_without_the_crowd_rules_keeps_its_facing_rule()
     {
         // No Swarm: the pool as the 5-wave run has it: the swing still faces its target to the blow.

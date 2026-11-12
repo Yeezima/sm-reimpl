@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3127 spec table rows: **2296 tagged**, 575 not tagged (read from data with high confidence), 256 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 694 rows of the changes document.
+Scanned 3128 spec table rows: **2297 tagged**, 575 not tagged (read from data with high confidence), 256 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 694 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -52,19 +52,19 @@ Scanned 3127 spec table rows: **2296 tagged**, 575 not tagged (read from data wi
 | Networking and render smoothing | 23 | 13 | 13 | 13 | 7 |
 | Core simulation (provisional values) | 690 | 651 | 493 | 180 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 240 | 229 | 126 | 67 | 0 |
-| **All areas** | **2296** | 2025 | 1706 | 726 | 38 |
+| Ork faction | 241 | 230 | 126 | 68 | 0 |
+| **All areas** | **2297** | 2026 | 1706 | 727 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1312 |
+| kind: ours | 1313 |
 | confidence: low | 814 |
 | confidence: medium | 763 |
 | notes: ours | 415 |
 | kind: interpretation | 381 |
-| notes: estimate | 193 |
+| notes: estimate | 194 |
 | kind: estimate | 156 |
 | confidence: none (low) | 129 |
 | kind: provisional | 103 |
@@ -3943,6 +3943,7 @@ The Orks are an addition the owner keeps (the original multiplayer had Space Mar
 |---|---|---|---|---|---|---|
 | `R-09957D59` | Musou: swing tracking share | the wind-up turns toward the target only in its first **0.3** (4 of a Boy's 15 ticks, 0.13 s of 0.5 s) (share of the wind-up) | kind: ours; notes: estimate | owner 2026-11-12 (the idea); the value ours (0.4 first tried: a run at 5 m/s round a Boy at 1.2 m was still hit) | Musou: swing tracking share: compare with SM1 by feel or video. Ours: the wind-up turns toward the target only in its first 0.3 (4 of a… | ☐ |
 | `R-5331CE13` | Musou: swing tracking turn rate | **540** (degrees a second) | kind: ours; notes: estimate | ours (up to 72 degrees of re-aim in 0.13 s; an engaged Ork's walking turn is 480) | Musou: swing tracking turn rate: compare with SM1 with an overlaid screenshot taken from the same position. Ours: 540. | ☐ |
+| `R-A2A7ED10` | Musou: swing entry | no snap to the target when the wind-up starts: the Ork turns from the facing it has, at the rate above, for at least 1 tick of the share (a wind-up of 3 ticks or fewer still turns); the Telegraph marker is sent at the start and shows the early aim, not the… | kind: ours; notes: estimate | reviewer 2026-11-13 | Musou: swing entry: compare with SM1 by feel or video. Ours: no snap to the target when the wind-up starts: the Ork turns from the… | ☐ |
 | `R-378E2963` | Musou: swing lock | after the tracking share the facing is held to the blow; the blow lands on a target within reach (`MeleeRange` + 0.3 m) and **60** degrees (`MeleeConeDegrees`, each side) of the locked facing (degrees) | kind: ours; notes: estimate | owner 2026-11-12; the cone as before | Musou: swing lock: compare with SM1 with an overlaid screenshot taken from the same position. Ours: after the tracking share the facing is held to the blow; the blow… | ☐ |
 | `R-9C8D6A28` | Restore switch | `--musou-ork-swing-tracking` (server and every client; hashed in Musou's block only when on) | kind: ours | ours | Restore switch: compare with SM1 by feel or video. Ours: --musou-ork-swing-tracking (server and every client; hashed in… | ☐ |
 
