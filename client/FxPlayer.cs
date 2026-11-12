@@ -88,6 +88,12 @@ public sealed class FxEffect
     /// <summary>gore-original (Musou Mode's blood mist): the effect's smoke-classed sprites are drawn even with the owner's no-smoke rule on (the blood cloud is no smoke).</summary>
     public bool KeepSmoke;
     /// <summary>
+    /// musou/autocannon-dust (ours; the owner, 2026-11-12: "kick up 50% less dust"): the share of the effect's dust and debris that is drawn. Below 1 each particle of a spray that throws alpha-blended
+    /// sprites is kept by a seeded roll (<see cref="SmContent.FxAmount.Kept"/>) and each alpha-blended sprite outside a spray (a debris beam or ring) has its alpha scaled by it; additive sprites (flash, fire,
+    /// sparks), decals and lights stay. 1: the data's look (every effect but Musou's autocannon).
+    /// </summary>
+    public float DustShare = 1f;
+    /// <summary>
     /// gore-original (Musou Mode's blood; ours): the data's colours are read as display (sRGB) values, as the original's gamma-space blending showed them, and turned linear
     /// before they tint the sprite (the batch's pipeline is linear, so the raw values showed lighter: the blood mist's (98, 21, 17) as a salmon pink). False: the raw values
     /// as before (every other effect, classic PvP's included).
@@ -651,9 +657,11 @@ public sealed partial class FxPlayer : Node3D
         {
             // gore-original: Musou's blood draws more of each blood spray's particles (Amount; 1 everywhere else).
             bool more = e.Amount > 1f && HoldsAlpha(n);
+            bool thin = e.DustShare < 1f && HoldsAlpha(n);   // musou/autocannon-dust
             for (int i = 0; i < n.Spawns.Length; i++)
             for (int copy = 0, copies = more ? SmContent.FxAmount.Copies(e.Amount, R(Mix(seed, cycle * 97 + i), 77)) : 1; copy < copies; copy++)
             {
+                bool dropDust = thin && !SmContent.FxAmount.Kept(e.DustShare, R(Mix(seed, cycle * 97 + i), 91));   // musou/autocannon-dust: only the particle's alpha (dust) sprites go; its additive flash and fire stay
                 double spawn = cycle * (double)duration + n.Spawns[i];
                 float tau = (float)(age - spawn);
                 if (tau < 0f || tau > life) continue;
@@ -691,7 +699,7 @@ public sealed partial class FxPlayer : Node3D
                 float scale = c.S * At(n.ParticleScale, Math.Clamp(tau / life, 0f, 1f), 1f);
                 var kid = new Ctx(pos, pc.B, scale, ps, origin, moveDir, speed, n.Drag, g, tau);
                 for (int k = 0; k < n.Children.Length; k++)
-                    if (gpu == 0 || !GpuLeaf(n.Children[k])) DrawNode(e, n.Children[k], kid, tau, depth + 1, Mix(ps, k + 5));
+                    if ((gpu == 0 || !GpuLeaf(n.Children[k])) && !(dropDust && HoldsAlpha(n.Children[k]))) DrawNode(e, n.Children[k], kid, tau, depth + 1, Mix(ps, k + 5));
             }
         }
     }
@@ -718,7 +726,7 @@ public sealed partial class FxPlayer : Node3D
         float radius = At(n.Radius, t, 0.1f) * c.S * Jitter(n.EpsRadius, seed, 8);
         if (e.SmokeRein < 1f && IsSmoke(n)) radius *= e.SmokeRein;   // feel/muzzle-smoke
         if (radius <= 0.0005f) return;
-        var colour = Shade(Final(n, t, seed), e);
+        var colour = Shade(Final(n, t, seed, n.Additive ? 1f : e.DustShare), e);   // musou/autocannon-dust: an alpha sprite's density
         if (!_batch.Sprite(n.Material, CellFor(n, t, seed), out var rect)) { if (!n.Material.IsEmpty) _missing.Add("sprite:" + n.Material.Name); return; }
         var centre = c.Pos + c.B * (new Vector3(At(n.OffX, t, 0f), At(n.OffY, t, 0f), At(n.OffZ, t, 0f)) * c.S);
         float D = MathF.PI / 180f;
@@ -774,6 +782,7 @@ public sealed partial class FxPlayer : Node3D
             float angle = MathF.Acos(Math.Clamp(cosA, 0f, 1f)) * 180f / MathF.PI;
             alphaScale = Math.Clamp(angle / MathF.Max(1f, n.FadeAngle), 0f, 1f);
         }
+        if (!n.Additive) alphaScale *= e.DustShare;   // musou/autocannon-dust
         var colour = Shade(Final(n, t, seed, alphaScale), e);
         // U range: the texture's metres per U, its scroll and offset.
         float u0, u1; int mode;

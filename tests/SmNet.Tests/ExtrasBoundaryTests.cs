@@ -63,6 +63,7 @@ public class ExtrasBoundaryTests
         ("client/NetworkView.MeleeHitSound.cs", "ExtrasOwnStrikeContact"),   // NetworkView.ExtrasOwnStrikeContact(PlayerState, MeleeStep), called from MeleeFxFor at the own strike's hit: Musou's predicted contact (combat feel 2026-11-09)
         ("client/NetworkView.Fx.cs", "ExtrasOwnShotEnd"),   // NetworkView.ExtrasOwnShotEnd(WeaponSpec, Vector3, Vector3, ref float, ref bool), in TraceOwn: Musou's Orks stop the drawn own shot
         ("client/NetworkView.Fx.cs", "ExtrasOwnShotContact"),   // NetworkView.ExtrasOwnShotContact(PlayerState, WeaponSpec, Vector3, Vector3, Vector3), in FxPlayOwnShot: the predicted shot's impact and hit sound on an Ork
+        ("client/NetworkView.Fx.cs", "ExtrasImpactDustShare"),   // NetworkView.ExtrasImpactDustShare(string, ref float), in FxImpact: Musou's autocannon hits draw half their dust and debris (musou/autocannon-dust)
         ("client/NetworkView.Fx.cs", "ExtrasShakeTotal"),   // NetworkView.ExtrasShakeTotal(float, float, ref float), in FxShake: Musou's shakes do not stack
         ("src/SmSim/WorldBodies.cs", "ExtrasRecordBodies"),   // World.ExtrasRecordBodies(), each tick: added content's solid bodies (Musou's big Orks, musou/boss-collision)
         ("src/SmSim/WorldBodies.cs", "ExtrasBodies"),   // World.ExtrasBodies(uint, ref BodyView?): those bodies in a player's movement collision

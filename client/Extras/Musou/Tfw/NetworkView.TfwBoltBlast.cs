@@ -48,7 +48,7 @@ public partial class NetworkView
     /// <summary>Tag 11's bolt blast records of this frame's sections (as <see cref="TfwFragFrame"/>), each (tick, count) once.</summary>
     void TfwBoltBlastFrame()
     {
-        int drawn = 0, sounded = 0;
+        int drawn = 0, sounded = 0, debrisBursts = 0;
         _tfwBoltDrawn.RemoveAll(d => _connectedFor - d.At > BoltBlastMergeSeconds);
         foreach (var section in _tfwSections)
         {
@@ -68,7 +68,9 @@ public partial class NetworkView
                 }
                 if (Lean || DisplayServer.GetName() == "headless") { drawn++; _tfwBoltDrawn.Add((_connectedFor, fire.At)); continue; }
                 var shake = _shake;
-                if (FxDetonation(view, BoltBlastFxScale * BoltBlastSizeOf(fire.To.Y))) _tfwBoltBlastsDrawn++;
+                bool detonated = FxDetonation(view, BoltBlastFxScale * BoltBlastSizeOf(fire.To.Y), BlastDustShare(fire.To.Y));   // musou/autocannon-dust: the autocannon's blast draws no dust (flash and fire stay)
+                if (detonated) _tfwBoltBlastsDrawn++;
+                if (detonated && BlastDustShare(fire.To.Y) < 1f) BlastDebris(fire.At, fire.To.Y, (int)fire.Tick * 31 + (int)fire.Subject, ref debrisBursts);   // and throws chunks of the ground (NetworkView.AutocannonDust.cs)
                 _shake = shake + (_shake - shake) * BoltBlastShake;
                 drawn++;
                 _tfwBoltDrawn.Add((_connectedFor, fire.At));

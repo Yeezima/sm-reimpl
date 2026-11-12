@@ -284,12 +284,14 @@ public sealed partial class FxPlayer
         if (plan.Cpu) { s.Cpu = true; _gpuFallbacks++; return s; }
         s.AllGpu = plan.All;
         bool more = e.Amount > 1f && HoldsAlpha(n);
+        bool thin = e.DustShare < 1f && HoldsAlpha(n);   // musou/autocannon-dust: as DrawSprayParticles, cycle 0
         // First pass: how many records of each blend.
         for (int i = 0; i < n.Spawns.Length; i++)
         for (int copy = 0, copies = more ? FxAmount.Copies(e.Amount, R(Mix(seed, i), 77)) : 1; copy < copies; copy++)
         {
             GpuParticleTypes(plan, GpuSeed(seed, i, copy), _gpuParticleTypes);
-            foreach (int t in _gpuParticleTypes) { if (_gpuAdditiveTypes.Contains(t)) s.AddCount += GpuRecordsOf(t); else s.AlphaCount += GpuRecordsOf(t); }
+            bool dropDust = thin && !FxAmount.Kept(e.DustShare, R(Mix(seed, i), 91));   // musou/autocannon-dust: only the alpha (dust) types go, the additive flash and fire stay
+            foreach (int t in _gpuParticleTypes) { if (dropDust && !_gpuAdditiveTypes.Contains(t)) continue; if (_gpuAdditiveTypes.Contains(t)) s.AddCount += GpuRecordsOf(t); else s.AlphaCount += GpuRecordsOf(t); }
         }
         if (s.AddCount + s.AlphaCount == 0) { s.Done = true; return s; }
         s.Slot = g.NewSlot(out s.Generation);
@@ -324,9 +326,11 @@ public sealed partial class FxPlayer
             float spawnAt = (float)(start + n.Spawns[i]);
             var (lo, hi) = FxGpuLayout.SplitSeed(ps);
             GpuParticleTypes(plan, ps, _gpuParticleTypes);
+            bool dropDust = thin && !FxAmount.Kept(e.DustShare, R(Mix(seed, i), 91));
             foreach (int t in _gpuParticleTypes)
             {
                 bool additive = _gpuAdditiveTypes.Contains(t);
+                if (dropDust && !additive) continue;
                 var pool = additive ? g.Additive : g.Alpha;
                 var r = _gpuRecord;
                 r[0] = s.Slot; r[1] = t; r[2] = spawnAt; r[3] = s.Generation;

@@ -32,6 +32,8 @@ public sealed partial class GroundShards : Node3D
     static Vector3[][]? _points;
     readonly Dictionary<string, StandardMaterial3D[]> _materials = new();
     int _seed = 31;
+    /// <summary>musou/autocannon-dust: the most chunks this node keeps at once (the oldest go first); <see cref="MaxLive"/> unless a smaller node (the autocannon blasts') sets less.</summary>
+    public int Cap { get; set; } = MaxLive;
     public int Live => _live.Count;
     public int Spawned { get; private set; }
     public int Removed { get; private set; }
@@ -40,7 +42,9 @@ public sealed partial class GroundShards : Node3D
     /// <param name="counts">feel/jump-pack: another count range (the sword slash's smaller burst), else <see cref="MinCount"/> to <see cref="MaxCount"/>.</param>
     /// <param name="speedScale">feel/jump-pack: scales every launch speed (the slash's chunks fly lower).</param>
     /// <param name="forward">feel/jump-pack: a horizontal direction (Godot space) the chunks are thrown along within ±70 degrees (the slash's cone), else all around.</param>
-    public int Spawn(Vector3 point, Vector3 normal, string surface, int seed, (int Min, int Max)? counts = null, float speedScale = 1f, Vector3? forward = null)
+    /// <param name="sizeScale">musou/autocannon-dust: scales every chunk's size (a smaller blast's smaller chunks).</param>
+    /// <param name="spreadScale">musou/autocannon-dust: scales how far around the centre the chunks start.</param>
+    public int Spawn(Vector3 point, Vector3 normal, string surface, int seed, (int Min, int Max)? counts = null, float speedScale = 1f, Vector3? forward = null, float sizeScale = 1f, float spreadScale = 1f)
     {
         EnsureShapes();
         var rng = new Random(seed * 7919 + _seed++);
@@ -53,9 +57,9 @@ public sealed partial class GroundShards : Node3D
         float R() => (float)rng.NextDouble();
         for (int i = 0; i < count; i++)
         {
-            while (_live.Count >= MaxLive) Remove(0);
+            while (_live.Count >= Math.Max(1, Cap)) Remove(0);
             bool slab = R() < SlabShare;
-            float size = slab ? Mathf.Lerp(MinSlab, MaxSlab, R()) : Mathf.Lerp(MinSize, MaxSize, R() * R());
+            float size = (slab ? Mathf.Lerp(MinSlab, MaxSlab, R()) : Mathf.Lerp(MinSize, MaxSize, R() * R())) * sizeScale;
             var extent = slab ? new Vector3(size, size * SlabThickness, size) : Vector3.One * size;
             float speed = (slab ? SlabSpeed : 1f) * speedScale;
             int variant = rng.Next(_meshes!.Length);
@@ -79,7 +83,7 @@ public sealed partial class GroundShards : Node3D
             for (int k = 0; k < points.Length; k++) points[k] = _points[variant][k] * extent;
             body.AddChild(new CollisionShape3D { Name = "Hull", Shape = new ConvexPolygonShape3D { Points = points } });
             AddChild(body);
-            float radius = Mathf.Lerp(MinRadius, MaxRadius, R());
+            float radius = Mathf.Lerp(MinRadius, MaxRadius, R()) * spreadScale;
             body.GlobalTransform = new Transform3D(new Basis(new Vector3(R() - 0.5f, R() - 0.5f, R() - 0.5f).Normalized(), R() * MathF.Tau), point + up * (extent.Y + 0.08f) + around * radius);
             body.LinearVelocity = (around * Mathf.Lerp(MinOut, MaxOut, R()) + up * Mathf.Lerp(MinUp, MaxUp, R())) * speed;
             body.AngularVelocity = new Vector3(R() * 2f - 1f, R() * 2f - 1f, R() * 2f - 1f) * MaxSpin * speed;
