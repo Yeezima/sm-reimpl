@@ -114,7 +114,7 @@ public partial class MusouCrowdTestView
         float height = MathF.Max(2f, LookHeight(look));
         float dist = Arg(_args, "cam-dist", _flinchMode == "crowd" ? 20f : _flinchMode == "blast" ? 9f : _flinchMode is "run" or "charge" ? 7f : height * 2.4f);
         var target = new Vector3(centre.X, 0f, _flinchMode == "crowd" ? 1f : height * 0.5f);
-        var eye = target + new Vector3(0f, -dist, _flinchMode == "crowd" ? 6f : height * 0.2f);
+        var eye = target + (_args.ContainsKey("cam-front") ? new Vector3(dist, 0f, height * 0.2f) : new Vector3(0f, -dist, _flinchMode == "crowd" ? 6f : height * 0.2f));   // --cam-front: from the side the hit comes from
         _camera!.Position = GameToGodot * eye;
         _camera.LookAt(GameToGodot * target, Vector3.Up);
         var watch = System.Diagnostics.Stopwatch.StartNew();

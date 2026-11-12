@@ -20,12 +20,14 @@ public static class MusouOrkFlinchRules
     /// <summary>Total seconds a reaction lasts after its kick.</summary>
     public const float Seconds = Rise + Hold + Fall;
 
-    /// <summary>The most a flinch may be scaled up to (a charge's 2.5 and a hammer's step, a close blast): the pose never goes past this many base sizes. 3 while the base was half its size (a 57-degree torso); at the doubled base 2 keeps the deepest tip at 76 degrees and the legs in reach (owner 2026-11-13: "keep the scaling stagger strength" = every multiplier kept, only the top clipped).</summary>
-    public const float MaxStrength = 2f;
+    /// <summary>The most a flinch may be scaled up to (a charge's 2.5 and a hammer's step, a close blast): the pose never goes past this many base sizes. 3 while the base was half its size (a 57-degree torso), 2 for a day after the doubling, 2.5 since the owner's "Let them go harder" (2026-11-13): heavy (2) stays below charge and hammer or axe heavy (2.5), close blasts reach 2.5, and the deepest tip is 85 degrees (spine 70, neck and head held at 15 by <see cref="HeadMaxSize"/>); only a hammer's charge (3.1) is clipped.</summary>
+    public const float MaxStrength = 2.5f;
 
     // ---- the pose at strength 1 (a Boy shot by the bolt pistol), the reference proxy translated onto the Ork rigs (ours)
     /// <summary>The pelvis and the torso move this far along the hit's direction (m) and the pelvis drops this far (m): the knees bend to keep the feet where they were.</summary>
     public const float PelvisBack = 0.14f, PelvisDrop = 0.09f;
+    /// <summary>The neck and the head tip with the size only up to this (base sizes): at the 2.5 cap they would add 25 degrees and the head sank into the shoulders (ours).</summary>
+    public const float HeadMaxSize = 1.5f;
     /// <summary>The torso's recoil: degrees tipped back at the three spine bones, the neck and the head (their sum 38, twice the first version's 19 at the owner's word of 2026-11-13, "increase the magnitude of all ork reactions by 2x of current"; the first pass at 11 measured about half the reference's visible motion: summed pixel change per figure area 9 against 15 to 26).</summary>
     public const float Spine1 = 10.0f, Spine2 = 9.0f, Spine3 = 9.0f, Neck = 4.0f, Head = 6.0f;
 
