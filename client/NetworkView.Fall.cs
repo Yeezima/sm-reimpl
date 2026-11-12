@@ -90,9 +90,15 @@ public partial class NetworkView
     FallSet? FallSetOf(PlayerState s)
     {
         if (FallData() is not { } data) return null;
-        var family = HipFamilyOf(s) == HipFireWeaponClass.Heavy ? FallFamily.Heavy : FallFamily.Rifle;
+        var family = HipFamilyOf(s) == HipFireWeaponClass.Heavy ? FallFamily.Heavy : MeleeFallFamily(s);
         return data.For(family) ?? data.For(FallFamily.Rifle);
     }
+
+    /// <summary>
+    /// Install transitions (2026-11-12): a marine carrying the thunder hammer (or the daemon maul) or the chainsword falls as the graphs' <c>BOOL_Thunderhammer</c> / <c>BOOL_Chainsword</c> states do
+    /// (<c>SM_NAV_CS_Dropdown</c> / <c>_Landing</c>, <c>SM_2HM_NAV_TH_Dropdown</c> / <c>_Landing</c>: the heavy bolter's whole-body shape); every other marine keeps the rifle's. <c>--no-extra-transitions</c>: the rifle's for all.
+    /// </summary>
+    FallFamily MeleeFallFamily(PlayerState s) => MeleeFallChoice.Family(CarriedAlias(s), NoExtraTransitions);
 
     /// <summary>Whether the marine's class has <c>mp_fall_protection</c> (the wargear whose lifetime actions apply it: the three core evade abilities, so all of them) and so leaves the landing at the short exit.</summary>
     bool FallProtectedClass(PlayerState s)
@@ -147,7 +153,7 @@ public partial class NetworkView
             case FallEvent.Landed: Landed(s, t, own); break;
             case FallEvent.Aborted: t.LegsWeight = 0f; break;   // died, or the pack / a roll / a reaction took over: nothing to fade
         }
-        if (fall.Falling && t.FallSet is { Family: FallFamily.Heavy } heavy) HeavyDropStep(s, t, heavy, own);
+        if (fall.Falling && t.FallSet is { } heavy && heavy.Family.WholeBodyDrop()) HeavyDropStep(s, t, heavy, own);
     }
 
     void BeginFall(PlayerState s, LocoTrack t, bool own)
@@ -173,7 +179,7 @@ public partial class NetworkView
         double airTime = fall.LastAirTime;
         float threshold = set is null ? 0f : FallHardSpeedOverride is { } over && set.Family == FallFamily.Rifle ? over : set.HardFallSpeed;
         // The heavy bolter's landing needs the drop (1 m above the ground) and begins at 0.5 m, usually before touchdown; the rifle's needs the speed.
-        bool hard = set is not null && (set.Family == FallFamily.Heavy ? fall.DropStarted : FallRules.IsHard(fall.PeakDown, threshold));
+        bool hard = set is not null && (set.Family.WholeBodyDrop() ? fall.DropStarted : FallRules.IsHard(fall.PeakDown, threshold));
         if (set is not null && !fall.HeavyLanded) BeginLanding(s, t, set, hard, own, 0f);
         // feel/weight-impact: a fall below the hard clip's speed shows a share of the crouch, and the own camera dips by the fall speed.
         t.SettleWeight = !OldLandingSettle && !hard && set is { Family: FallFamily.Rifle } ? WeightFeel.SettleWeight(fall.PeakDown) : 0f;
@@ -189,10 +195,10 @@ public partial class NetworkView
     {
         t.Fall.BeginLanding(_connectedFor, hard);
         t.LandProtected = FallProtectedClass(s);
-        if (set.Family == FallFamily.Heavy) t.Fall.MarkHeavyDone();
+        if (set.Family.WholeBodyDrop()) t.Fall.MarkHeavyDone();
         if (hard) _landingsHard++;
-        if (set.Family == FallFamily.Heavy && (_bot || LogFall))
-            GD.Print($"t {_connectedFor:F2} s: P{s.PlayerId} heavy LANDING clip begins at {height:F2} m above the ground ({(own ? "own" : "seen")})");
+        if (set.Family.WholeBodyDrop() && (_bot || LogFall))
+            GD.Print($"t {_connectedFor:F2} s: P{s.PlayerId} {set.Family} LANDING clip begins at {height:F2} m above the ground ({(own ? "own" : "seen")})");
     }
 
     /// <summary>The own player's landing feel from the blueprint's <c>finish_falling_actions</c>: the camera shake and the effect at its feet (the sound is the sound system's).</summary>

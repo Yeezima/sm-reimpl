@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 using Godot;
+using SmContent;
 using SmNet;
 using SmSim;
 
@@ -63,6 +64,9 @@ public partial class NetworkView
     const string GetupClipName = "SM_JMP_GP_ReturnToIdle";
     const string LandRunClipName = "SM_JMP_Landing_LowRun";
     const string LandIdleClipName = "SM_JMP_Landing_Low";
+    // Install transitions (2026-11-12): MP_SM_NAV_JP_Sim's "Hammer Run Land" / "Hammer Idle Land" (BOOL_Thunderhammer) play these instead of the non-hammer pair.
+    const string LandRunClipNameTh = "SM_JMP_TH_Landing_LowRun";
+    const string LandIdleClipNameTh = "SM_JMP_TH_Landing_Low";
     /// <summary>The take-off clip's <c>BRANCH_To_Jump</c> (s after the press): the flight clips take over from here.</summary>
     const float TakeOffBranch = FlightPoseRules.TakeOffBranch;
     /// <summary>Pitch (radians) beyond which a flight clip's aim is up or down rather than level (client choice).</summary>
@@ -81,7 +85,7 @@ public partial class NetworkView
     readonly bool _botJumpFree;
     const float BotJumpClearance = 8f;               // metres free above the head the bot wants before jumping (on a map)
 
-    string? _jmpTakeOff, _jmpDive, _jmpImpact, _jmpGetup, _jmpLandRun, _jmpLandIdle;
+    string? _jmpTakeOff, _jmpDive, _jmpImpact, _jmpGetup, _jmpLandRun, _jmpLandIdle, _jmpLandRunTh, _jmpLandIdleTh;
     readonly Dictionary<(char Dir, char Aim), string> _jmpFlight = new();
     /// <summary>M45: the low flight set (<c>SM_JMP_ZeroLo_*</c>, the graph's 'Jump Move Blend' weight 9) beside the high one above (<c>SM_JMP_Zero_*</c>, weight 18).</summary>
     readonly Dictionary<(char Dir, char Aim), string> _jmpFlightLo = new();
@@ -123,6 +127,8 @@ public partial class NetworkView
         _jmpGetup = Resolve(GetupClipName, "pound get-up");
         _jmpLandRun = Resolve(LandRunClipName, "run landing");
         _jmpLandIdle = Resolve(LandIdleClipName, "idle landing");
+        _jmpLandRunTh = Resolve(LandRunClipNameTh, "hammer run landing");
+        _jmpLandIdleTh = Resolve(LandIdleClipNameTh, "hammer idle landing");
         // M45: the high set (SM_JMP_Zero_*) and the low set (SM_JMP_ZeroLo_*) apart; before M45 the shortest name of either won (the high set).
         var pattern = new Regex(@"^SM_JMP_Zero(Lo)?_.*?([FBLRU])_Aim_([UFD])(_\d+)?$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
         foreach (var n in names.Where(n => !n.Contains("_TH_", StringComparison.OrdinalIgnoreCase)).OrderBy(n => n.Length))
@@ -143,7 +149,7 @@ public partial class NetworkView
     /// <summary>The jump clips chosen, for the start-up log.</summary>
     string JumpClipsText() =>
         $"take-off {_jmpTakeOff ?? "none"}, dive {_jmpDive ?? "none"}, impact {_jmpImpact ?? "none"}, get-up {_jmpGetup ?? "none"}, " +
-        $"landing run {_jmpLandRun ?? "none"} / idle {_jmpLandIdle ?? "none"}, flight {_jmpFlight.Count} high + {_jmpFlightLo.Count} low (posed by the vertical angle{(LoopFlight ? "; --loop-flight: looping instead" : "")}): " +
+        $"landing run {_jmpLandRun ?? "none"} / idle {_jmpLandIdle ?? "none"} (hammer {_jmpLandRunTh ?? "none"} / {_jmpLandIdleTh ?? "none"}), flight {_jmpFlight.Count} high + {_jmpFlightLo.Count} low (posed by the vertical angle{(LoopFlight ? "; --loop-flight: looping instead" : "")}): " +
         string.Join(", ", _jmpFlight.OrderBy(k => k.Key.Dir).ThenBy(k => k.Key.Aim).Select(k => $"{k.Key.Dir}{k.Key.Aim}={k.Value}"));
 
     float ClipLength(string? clip, float fallback) => clip is not null && _assets?.Animation(clip) is { } a ? a.Animation.Duration : fallback;
@@ -294,7 +300,7 @@ public partial class NetworkView
         {
             var pack = Loadouts.JumpPack(_config!, s);
             float moveLock = pack is null ? 0f : JumpPack.MoveLock(pack, t.LandMoving, _config);
-            if (age >= ClipLength(t.LandMoving ? _jmpLandRun : _jmpLandIdle, 0.9f) || (age >= moveLock && speed > RunThreshold)) t.View = JumpView.None;
+            if (age >= ClipLength(t.LandMoving ? LandRunOf(s) : LandIdleOf(s), 0.9f) || (age >= moveLock && speed > RunThreshold)) t.View = JumpView.None;
         }
         else if (t.View == JumpView.Getup)
         {
@@ -368,7 +374,7 @@ public partial class NetworkView
         if (airborneOnly) return null;
         switch (t.View)
         {
-            case JumpView.Landing when (t.LandMoving ? _jmpLandRun ?? _jmpLandIdle : _jmpLandIdle ?? _jmpLandRun) is { } land:
+            case JumpView.Landing when (t.LandMoving ? LandRunOf(s) ?? LandIdleOf(s) : LandIdleOf(s) ?? LandRunOf(s)) is { } land:
                 return (land, (float)(now - t.Since));
             case JumpView.Getup when t.Slash && SlashClipOf(s) is { } slashGetup:
                 return (slashGetup, SlashImpactTime(s, sinceImpact));
@@ -382,6 +388,15 @@ public partial class NetworkView
         }
         return null;
     }
+
+    /// <summary>Install transitions: the run landing of the marine's weapon: the thunder hammer's (<c>SM_JMP_TH_Landing_LowRun</c>, 1.133 s) when it carries the hammer, else the plain one (0.9 s). <c>--no-extra-transitions</c>: the plain one.</summary>
+    string? LandRunOf(PlayerState s) => MeleeFallChoice.Landing(CarriedAlias(s), NoExtraTransitions, _jmpLandRun, _jmpLandRunTh);
+
+    /// <summary>Install transitions: the idle landing of the marine's weapon (<c>SM_JMP_TH_Landing_Low</c> for the hammer, 1.2 s as the plain one).</summary>
+    string? LandIdleOf(PlayerState s) => MeleeFallChoice.Landing(CarriedAlias(s), NoExtraTransitions, _jmpLandIdle, _jmpLandIdleTh);
+
+    /// <summary>Install transitions: the marine's melee wargear by animation alias (Musou's spear is the hammer's), null without a configuration (<see cref="MeleeFallChoice"/>).</summary>
+    string? CarriedAlias(PlayerState s) => _config is not null && MeleeWargear(s) is { } w ? AnimationAlias.Of(w) : null;
 
     /// <summary>feel/jump-pack-2: the player's sword slash spec (its clip's crops), or null.</summary>
     SlashSpec? SlashOf(PlayerState s) => _config is null ? null : Loadouts.JumpPack(_config, s)?.Slash;
