@@ -28,9 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3145 spec table rows: **2312 tagged**, 576 not tagged (read from data with high confidence), 257 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 697 rows of the changes document.
-Scanned 3124 spec table rows: **2294 tagged**, 574 not tagged (read from data with high confidence), 256 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 694 rows of the changes document.
-Scanned 3132 spec table rows: **2299 tagged**, 576 not tagged (read from data with high confidence), 257 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 694 rows of the changes document.
+Scanned 3157 spec table rows: **2321 tagged**, 578 not tagged (read from data with high confidence), 258 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 699 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -54,34 +52,20 @@ Scanned 3132 spec table rows: **2299 tagged**, 576 not tagged (read from data wi
 | Networking and render smoothing | 23 | 13 | 13 | 13 | 7 |
 | Core simulation (provisional values) | 692 | 653 | 495 | 180 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 241 | 230 | 126 | 68 | 0 |
-| **All areas** | **2312** | 2041 | 1718 | 727 | 38 |
-| Ork faction | 236 | 225 | 126 | 64 | 0 |
-| **All areas** | **2294** | 2023 | 1708 | 723 | 38 |
-| Ork faction | 243 | 232 | 133 | 64 | 0 |
-| **All areas** | **2299** | 2028 | 1713 | 723 | 38 |
+| Ork faction | 248 | 237 | 133 | 68 | 0 |
+| **All areas** | **2321** | 2050 | 1727 | 727 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1328 |
-| confidence: low | 825 |
-| confidence: medium | 764 |
-| notes: ours | 415 |
-| kind: interpretation | 381 |
-| notes: estimate | 194 |
-| kind: estimate | 156 |
-| kind: ours | 1310 |
-| confidence: low | 815 |
-| confidence: medium | 764 |
-| kind: ours | 1313 |
-| confidence: low | 817 |
-| confidence: medium | 767 |
+| kind: ours | 1335 |
+| confidence: low | 829 |
+| confidence: medium | 769 |
 | notes: ours | 415 |
 | kind: interpretation | 382 |
-| notes: estimate | 190 |
-| kind: estimate | 157 |
+| notes: estimate | 194 |
+| kind: estimate | 158 |
 | confidence: none (low) | 129 |
 | kind: provisional | 103 |
 | kind: user's knowledge | 56 |
