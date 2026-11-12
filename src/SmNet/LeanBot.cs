@@ -57,7 +57,7 @@ public static class LeanBot
         "tfw-pod-test",   // added content Musou (2026-11-12): the drop pod assault's scripted check (record, landing, marines, retreat) and its captures
         "tfw-feel-capture",   // added content Musou (combat feel): a short scripted fight for the before / after captures
         "tfw-weight-capture", "tfw-weight-pack", "tfw-weight-log", "log-musou-weight",   // added content Musou (weight pass 2026-11-10): the scripted baseline moves and their frame log
-        "tfw-fight-capture", "tfw-sound-capture",   // added content Musou (capture banners, sound A/B 2026-11-10): the banner flip and the mix captures
+        "tfw-fight-capture", "tfw-sound-capture", "tfw-sound-fire-seconds", "musou-own-layer-db", "musou-own-layers",   // added content Musou (capture banners, sound A/B 2026-11-10): the banner flip and the mix captures
         "tfw-arc-capture", "log-musou-arcs",   // added content Musou (swing arc 2026-11-10): the arc stills' scripted swings and the arc log
         "tfw-spear-capture", "claw-spear-test", "tfw-claw-capture", "old-claw-model", "no-claw-arcs", "tfw-spear-carry-film", "tfw-spear-film", "tfw-spear-spot", "tfw-spear-hide-others", "tfw-spear-film-kind",   // added content Musou (arsenal W3b, 2026-11-10; the films and their open spot, spear pass 4): the spear's in-match stills and films and the claw / spear preview stage
         "shimmer-probe", "shimmer-trace",   // added content Musou (ashfall/no-flicker): the kit gallery's shimmer measure
