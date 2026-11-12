@@ -659,8 +659,9 @@ public sealed partial class FxPlayer : Node3D
             bool more = e.Amount > 1f && HoldsAlpha(n);
             bool thin = e.DustShare < 1f && HoldsAlpha(n);   // musou/autocannon-dust
             for (int i = 0; i < n.Spawns.Length; i++)
-            for (int copy = 0, copies = thin && !SmContent.FxAmount.Kept(e.DustShare, R(Mix(seed, cycle * 97 + i), 91)) ? 0 : more ? SmContent.FxAmount.Copies(e.Amount, R(Mix(seed, cycle * 97 + i), 77)) : 1; copy < copies; copy++)
+            for (int copy = 0, copies = more ? SmContent.FxAmount.Copies(e.Amount, R(Mix(seed, cycle * 97 + i), 77)) : 1; copy < copies; copy++)
             {
+                bool dropDust = thin && !SmContent.FxAmount.Kept(e.DustShare, R(Mix(seed, cycle * 97 + i), 91));   // musou/autocannon-dust: only the particle's alpha (dust) sprites go; its additive flash and fire stay
                 double spawn = cycle * (double)duration + n.Spawns[i];
                 float tau = (float)(age - spawn);
                 if (tau < 0f || tau > life) continue;
@@ -698,7 +699,7 @@ public sealed partial class FxPlayer : Node3D
                 float scale = c.S * At(n.ParticleScale, Math.Clamp(tau / life, 0f, 1f), 1f);
                 var kid = new Ctx(pos, pc.B, scale, ps, origin, moveDir, speed, n.Drag, g, tau);
                 for (int k = 0; k < n.Children.Length; k++)
-                    if (gpu == 0 || !GpuLeaf(n.Children[k])) DrawNode(e, n.Children[k], kid, tau, depth + 1, Mix(ps, k + 5));
+                    if ((gpu == 0 || !GpuLeaf(n.Children[k])) && !(dropDust && HoldsAlpha(n.Children[k]))) DrawNode(e, n.Children[k], kid, tau, depth + 1, Mix(ps, k + 5));
             }
         }
     }

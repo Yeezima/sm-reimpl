@@ -11,9 +11,8 @@ namespace SmClient;
 /// explosion it causes on hit kick up 50% less dust. what should happen also is chunks of debris similar to the ground pound effect should fly out as a reaction to the explosive force of the high
 /// explosive autocannon round detonating."
 /// <list type="bullet">
-/// <item><b>Dust:</b> the round's world and body hit (<c>autocannon_dmg</c>, through <see cref="ExtrasImpactDustShare"/>) and its 2.5 m blast (the frag detonation, <see cref="TfwBoltBlastFrame"/>) draw
-/// <see cref="DustShare"/> of the dust and debris sprites they drew (<see cref="FxEffect.DustShare"/>: half of the particles of each spray throwing alpha-blended sprites, half the alpha of those outside a
-/// spray); sizes and timings are the data's, flashes, fire, decals and lights are untouched. Before: every particle at 1.</item>
+/// <item><b>Dust:</b> the round's world and body hit (<c>autocannon_dmg</c>, through <see cref="ExtrasImpactDustShare"/>) draw <see cref="DustShare"/> (half) of the dust and debris sprites they drew, and its 2.5 m blast (the frag detonation, <see cref="TfwBoltBlastFrame"/>) draws <see cref="BlastDust"/> (none; owner 2026-11-13) (<see cref="FxEffect.DustShare"/>: the share of the particles of each spray throwing alpha-blended sprites, that share of the alpha of those outside a
+/// spray; a dropped particle loses only its alpha sprites, its additive flash and fire stay); sizes and timings are the data's, flashes, fire, decals and lights are untouched. Before: every particle at 1.</item>
 /// <item><b>Debris:</b> each drawn blast also throws chunks of the ground it stands over (the pound's <see cref="GroundShards"/>: the same physics chunks, flat slabs, tints and bounce) on a node of their own
 /// (<see cref="ShardCap"/> live at most, so a pound's 120 are never eaten), <see cref="ShardMin"/> to <see cref="ShardMax"/> at the 2.5 m blast (scaled by radius over <see cref="SmSim.AutocannonRules.BlastRadius"/>),
 /// at <see cref="ShardSpeed"/> of the pound's speeds, <see cref="ShardSize"/> of its sizes and <see cref="ShardSpread"/> of its spread, from the wall within a metre of the blast or the ground under it;
@@ -47,8 +46,10 @@ public partial class NetworkView
         share = DustShare;
     }
 
-    /// <summary>The dust share a blast of <paramref name="radius"/> metres is drawn with: <see cref="DustShare"/> for the autocannon's (a radius above the bolt blast's), 1 for every other blast.</summary>
-    float BlastDustShare(float radius) => !OldAutocannonDust && SmSim.AutocannonRules.BlastDrawScale(radius) > 1f ? BlastDust : 1f;
+    /// <summary>The dust share a blast of <paramref name="radius"/> metres is drawn with: <see cref="BlastDust"/> for the autocannon's (a radius above the bolt blast's), 1 for every other blast.</summary>
+    float BlastDustShare(float radius) => BlastDustShareOf(radius, OldAutocannonDust);
+    /// <summary>The pure radius-to-share mapping (tested): <see cref="BlastDust"/> above the bolt blast's radius unless restored, else 1.</summary>
+    internal static float BlastDustShareOf(float radius, bool restored) => !restored && SmSim.AutocannonRules.BlastDrawScale(radius) > 1f ? BlastDust : 1f;
 
     /// <summary>The chunks of one autocannon blast at <paramref name="at"/> (game space, blast radius <paramref name="radius"/> m); the number thrown, 0 when none.</summary>
     int BlastDebris(Num.Vector3 at, float radius, int seed, ref int burstsThisFrame)

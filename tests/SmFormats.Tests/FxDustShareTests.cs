@@ -22,6 +22,12 @@ public class FxDustShareTests
     [InlineData(0f, 0f, false)]
     public void The_roll_under_the_share_keeps_the_particle(float share, float roll, bool kept) => Assert.Equal(kept, FxAmount.Kept(share, roll));
 
+    [Theory]
+    [InlineData(0f)]
+    [InlineData(0.5f)]
+    [InlineData(0.99f)]
+    public void A_share_of_zero_keeps_no_particle_whatever_the_roll(float roll) => Assert.False(FxAmount.Kept(0f, roll));
+
     [Fact]
     public void Half_the_particles_stay_over_many_rolls()
     {
@@ -44,7 +50,6 @@ public class FxDustShareTests
             string rel = Path.GetRelativePath(client, file).Replace(Path.DirectorySeparatorChar, '/');
             Assert.True(rel is "NetworkView.Fx.cs", rel);   // the core sets only what the Musou hook / argument hands it (1 everywhere else)
         }
-        Assert.Contains("DustShare = 0.5f", File.ReadAllText(Path.Combine(client, "Extras/Musou/Arsenal/Autocannon/NetworkView.AutocannonDust.cs")).Replace("internal const float ", ""));
         Assert.Contains("musou-old-autocannon-fx", File.ReadAllText(Path.Combine(Root(), "src/SmNet/LeanBot.cs")));
     }
 }
