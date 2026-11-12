@@ -173,6 +173,65 @@ public sealed record WeaponPoseClip(string Name, string Weapon, float Duration, 
     /// </summary>
     public System.Numerics.Vector3? FistTarget { get; init; }
 
+    /// <summary>
+    /// Degrees the carry turns the hips to the left, about up, while he stands (faded out as the fist solve comes in with the speed, <c>FistWeight</c>): the hammer's idle stands side-on (its hips 71
+    /// degrees right of the way he faces) but the walk, run and sprint face the way he moves, so a carry that hangs the arm at the body's right and leans the blade forward needs the hips squared to
+    /// the facing at rest too (spear pass 2, owner 2026-11-12: the idle and the run as one carry). 0: the stance's hips.
+    /// </summary>
+    public float SquareYaw { get; init; }
+
+    /// <summary>
+    /// Spear pass 3 (owner, 2026-11-12: "held one-handed in the right hand at the side ... left arm swings freely"): where the left hand's grip socket goes by the same two-bone solve as
+    /// <see cref="FistTarget"/> (metres right, forward and up from the middle of the shoulders in the clip's frame, the elbow down, out to the left and a little back). Null: the keys alone.
+    /// </summary>
+    public System.Numerics.Vector3? LeftFistTarget { get; init; }
+
+    /// <summary>
+    /// True: the fist solves (<see cref="FistTarget"/>, <see cref="LeftFistTarget"/>) are laid at full weight in every stance, standing too (the pass 3 carry: the hand hangs at the hip
+    /// whatever the stance's arms do); false (older carries): they come in with the speed (<c>FistWeight</c>).
+    /// </summary>
+    public bool FistAlways { get; init; }
+
+    /// <summary>
+    /// True: the fist targets (<see cref="FistTarget"/>, <see cref="LeftFistTarget"/>) are metres right, forward and up from the pelvis's origin (the hip joints' middle) instead of the middle of
+    /// the shoulders: the hand at the side of the hip stays there whatever the torso's lean does (the pass 3 carry: the torso leans back in the idle and forward in the run).
+    /// </summary>
+    public bool FistFromPelvis { get; init; }
+
+    /// <summary>
+    /// Metres the fists swing forward and back per metre the feet are apart along the facing, scaled by the movement share (<c>FistWeight</c>): the right fist goes forward when the left
+    /// foot is ahead, the left fist the other way (the arms swing against the legs, as a walker's do). The pass 3 carry's run: the right arm swings slightly, the left freely.
+    /// </summary>
+    public float FistSwing { get; init; }
+    public float LeftFistSwing { get; init; }
+
+    /// <summary>The fist solves' weight for this clip given the movement share <paramref name="moving"/> (<see cref="FistAlways"/>: 1).</summary>
+    public float FistWeightFor(float moving) => FistAlways ? 1f : Math.Clamp(moving, 0f, 1f);
+
+    /// <summary>
+    /// Spear pass 4 (owner, 2026-11-12: "when idling the left hand should match the bolt pistol idle animation"): the name of an install clip whose left arm, clavicle, fingers and
+    /// <c>RIG_SpineD</c> are laid under the keys while he stands (read at run time; weight 1 minus the movement share), so the idle's left arm is the bolt pistol's relaxed idle's own. Null: none.
+    /// </summary>
+    public string? PistolArmFrom { get; init; }
+
+    /// <summary>True: the left fist solve (<see cref="LeftFistTarget"/>) comes in with the movement share only (standing, <see cref="PistolArmFrom"/>'s arm shows); false: as <see cref="FistWeightFor"/>.</summary>
+    public bool LeftFistWithSpeed { get; init; }
+
+    /// <summary>The left fist solve's weight for the movement share <paramref name="moving"/>.</summary>
+    public float LeftFistWeightFor(float moving) => LeftFistWithSpeed ? Math.Clamp(moving, 0f, 1f) : FistWeightFor(moving);
+
+    /// <summary>
+    /// Metres each fist rises per metre it has swung forward (an elbow bent as a runner's: the hand comes up as it comes forward, drops as it goes back), the right and the left; with
+    /// <see cref="FistSwing"/> and <see cref="LeftFistSwing"/> (pass 4).
+    /// </summary>
+    public float SwingLift { get; init; }
+    public float LeftSwingLift { get; init; }
+    /// <summary>The fist's swing rise (m) for a swing offset <paramref name="forward"/> (m): up as it goes forward of its rest place, down as it goes behind.</summary>
+    public float SwingUp(float forward, bool left) => (left ? LeftSwingLift : SwingLift) * forward;
+
+    /// <summary>The fist's swing offset forward (m) for feet <paramref name="footSplit"/> metres apart (the left foot's forward place minus the right's) at movement share <paramref name="moving"/>.</summary>
+    public float SwingForward(float footSplit, float moving, bool left) => (left ? -LeftFistSwing : FistSwing) * Math.Clamp(footSplit, -1f, 1f) * Math.Clamp(moving, 0f, 1f);
+
     /// <summary>How the right elbow points in the fist's solve (<see cref="FistTarget"/>), in the clip's frame (right, forward, up): down, out to the right and a little back (ours).</summary>
     public static readonly System.Numerics.Vector3 FistElbowHint = new(0.45f, -0.25f, -1f);
 

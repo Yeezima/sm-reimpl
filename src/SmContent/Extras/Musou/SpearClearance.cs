@@ -14,7 +14,7 @@ public readonly record struct SpearClearanceResult(float Clearance, string Part,
 }
 
 /// <summary>
-/// The no-clipping check of the power spear's poses (owner, 2026-11-10: "Make a pass at all the animations to ensure the spear isn't going through the player models body at any time";
+/// The clearance measurement of the power spear's poses (owner, 2026-11-10: "Make a pass at all the animations to ensure the spear isn't going through the player models body at any time"; relaxed by the owner on 2026-11-12: "It's ok if the spear or other parts of the character momentarily clip", so the tests report it and fail only a gross error;
 /// added content, Musou Mode only; <c>docs/claw-spear-animations.md</c>). The marine's body is a set of capsules on its bones (<see cref="Body"/>) and the spear (W3's model as
 /// <see cref="SpearHold"/> measures it) a set of thin segments; <see cref="Measure"/> gives the least clearance between them at one pose. Godot-free: the clearance test
 /// (<c>SpearClearanceTests</c>, every spear clip sampled over time on the install's rig) and the preview stage (<c>--claw-spear-test --clearance</c>, the client's own overlay) both call it.

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Threading.Tasks;
 using Godot;
@@ -95,6 +95,237 @@ public partial class NetworkView
         _spearCam = 0;
         await TfwWait(0.5);
         GetTree().Quit(0);
+    }
+
+    /// <summary>
+    /// Owner's rule for recordings (2026-11-12: "make the bot be in an open area of the Ashfall map so everything can be seen clearly"): before a film the player walks, along the map's own walking
+    /// graph, to an open spot (<c>--tfw-spear-spot x,y</c> in map metres; default the plaza's centre, objective B's open ground at (0, 0)) so no wall or crowd stands in the camera's way. A spot with no
+    /// way from the landing is noted and the film is taken where he stands (check the first frames).
+    /// </summary>
+    async Task TfwSpearOpenSpot()
+    {
+        float x = 0f, y = 0f;
+        if (CmdArg("tfw-spear-spot") is { Length: > 0 } spot)
+        {
+            var parts = spot.Split(',');
+            if (parts.Length != 2 || !float.TryParse(parts[0], System.Globalization.CultureInfo.InvariantCulture, out x) || !float.TryParse(parts[1], System.Globalization.CultureInfo.InvariantCulture, out y)) { GD.Print($"SPEARFILM note: --tfw-spear-spot '{spot}' is not x,y; using 0,0"); x = y = 0f; }
+        }
+        var at = new System.Numerics.Vector3(x, y, _client!.Predicted.Position.Z);
+        bool ok = await TfwPathTo(at, "the film's open spot", 90.0);
+        TfwKey(Key.W, false);
+        GD.Print($"SPEARFILM open spot {(ok ? "reached" : "not reached")}: at {_client.Predicted.Position}");
+        if (CmdArg("tfw-spear-hide-others") is not null)
+        {
+            // Spear pass 4b (owner, 2026-11-12: no allies crossing the camera): every other character is hidden from here on (the drawn marine alone), checked ten times a second.
+            var timer = new Godot.Timer { WaitTime = 0.1, Autostart = true };
+            timer.Timeout += () => { foreach (var n in GetTree().Root.FindChildren("*", "Node3D", true, false)) if (n is CharacterViewer cv && !ReferenceEquals(cv, _local) && cv.Visible) cv.Visible = false; };
+            AddChild(timer);
+        }
+        await TfwWait(0.5);
+    }
+
+    /// <summary>
+    /// Test aid <c>--tfw-spear-film [--tfw-spear-film-step n] [--tfw-spear-film-takes k] [--tfw-spear-views player,front,side]</c> (musou/spear-authored, 2026-11-12), for a recording
+    /// (<c>godot.cmd --windowed --write-movie f.avi --fixed-fps 30 -- --connect ... --content musou --class "sm - assault" --melee "power spear" --tfw-spear-film --tfw-test &lt;dir&gt;</c>, server
+    /// <c>SM_TFW_KEEP_HUMAN=1</c>): the real match, the real keys: the player deploys, walks away from the Orks and swings the light chain from standing, k times per view (default 2), keeping
+    /// only the takes where Musou's random pick (<c>MeleeChain.MusouSwing</c>) was swing <c>n</c> (default 1), each ended by waiting the swing out. A <c>SPEARFILM</c> line per take with the
+    /// view and the engine's frame numbers at the press, the hit and the end (frame / fixed fps = the recording's time), so a before / after recording is cut at the same moments.
+    /// </summary>
+    async Task TfwSpearFilm()
+    {
+        var client = _client!;
+        if (!await TfwTestDeploy(TfwLane.B)) return;
+        await TfwWait(2.0);
+        TfwCheck("the power spear is the melee weapon", _config is not null && SpearRules.Wields(_config, client.Predicted), MeleeWargear(client.Predicted) ?? "none");
+        TfwCheck("the spear's clips drive the pose (no --musou-spear-stand-in)", SpearPosesOn);
+        await TfwSpearOpenSpot();
+        TfwKey(Key.W, true);
+        await TfwWait(3.0);
+        TfwKey(Key.W, false);
+        await TfwWait(1.0);
+        float facing = _yaw;
+        int want = int.TryParse(CmdArg("tfw-spear-film-step"), out int w) && w > 0 ? w : 1;
+        int takes = int.TryParse(CmdArg("tfw-spear-film-takes"), out int k) && k > 0 ? k : 2;
+        string views = CmdArg("tfw-spear-views") is { Length: > 0 } v ? v : "player,front,side";
+        foreach (var (cam, view) in new[] { (0, "player"), (1, "front"), (2, "side") })
+        {
+            if (!views.Contains(view, StringComparison.OrdinalIgnoreCase)) continue;
+            _yaw = facing;
+            _spearCam = cam;
+            await TfwWait(1.0);
+            int got = 0;
+            for (int attempt = 0; attempt < 18 && got < takes; attempt++)
+            {
+                // The real-time simulation and a fixed-rate recording (--write-movie) run at different rates, so each attempt logs, for every frame drawn from the key press on, the engine's frame
+                // number (= the recording's frame), the wall-clock time and the clip's own time in a SPEARFILMFRAMES line; the recording is cut and each frame shown for the time it really lasted.
+                var rows = new System.Text.StringBuilder();
+                ulong t0 = Time.GetTicksMsec();
+                async Task Tick()
+                {
+                    await TfwFrames();
+                    var pose = _local?.WeaponPose;
+                    rows.Append($"{Engine.GetFramesDrawn()},{Time.GetTicksMsec() - t0},{pose?.Clip?.Name ?? "none"},{pose?.Time ?? 0f:F4};");
+                }
+                int pressFrame = (int)Engine.GetFramesDrawn();
+                TfwAction(GameAction.Melee, true);
+                while (Time.GetTicksMsec() - t0 < 120) await Tick();
+                TfwAction(GameAction.Melee, false);
+                bool began = false;
+                while (Time.GetTicksMsec() - t0 < 3000 && !(began = client.Predicted.MeleeStep > 0 && !client.Predicted.MeleeHeavy)) await Tick();
+                if (!began) { await TfwWait(1.0); continue; }
+                int step = client.Predicted.MeleeStep;
+                bool keep = step == want;
+                while (Time.GetTicksMsec() - t0 < 4200) await Tick();
+                GD.Print($"SPEARFILM view {view} swing {step} {(keep ? "kept" : "skipped")} press {pressFrame} take {got + 1}");
+                if (keep) GD.Print($"SPEARFILMFRAMES {view} {got + 1} {rows}");
+                if (keep) got++;
+                await TfwWait(0.6);
+            }
+        }
+        _spearCam = 0;
+        await TfwWait(0.5);
+        GetTree().Quit(0);
+    }
+
+    /// <summary>
+    /// Test aid <c>--tfw-spear-film --tfw-spear-film-kind chain|snap|stab [--tfw-spear-views player,side,front] [--tfw-spear-spot x,y] [--tfw-spear-hide-others]</c> (spear pass 4b, 2026-11-12): the real keys in a real
+    /// match for a recording: <c>chain</c> the light string (three melee taps through the combo openings), <c>snap</c> the F strike, <c>stab</c> F then F again in the slam window (the massive stab). One take
+    /// per view; a <c>SPEARFILMFRAMES view 1 ...</c> line (engine frame, wall ms, clip, clip time) to cut the recording by.
+    /// </summary>
+    async Task TfwSpearStrikeFilm()
+    {
+        var client = _client!;
+        if (!await TfwTestDeploy(TfwLane.B)) return;
+        await TfwWait(2.0);
+        TfwCheck("the power spear is the melee weapon", _config is not null && SpearRules.Wields(_config, client.Predicted), MeleeWargear(client.Predicted) ?? "none");
+        await TfwSpearOpenSpot();
+        TfwKey(Key.W, true);
+        await TfwWait(3.0);
+        TfwKey(Key.W, false);
+        await TfwWait(1.0);
+        float facing = _yaw;
+        string kind = CmdArg("tfw-spear-film-kind") ?? "chain", views = CmdArg("tfw-spear-views") is { Length: > 0 } v ? v : "player,side";
+        foreach (var (cam, view) in new[] { (0, "player"), (1, "front"), (2, "side") })
+        {
+            if (!views.Contains(view, StringComparison.OrdinalIgnoreCase)) continue;
+            _yaw = facing;
+            _spearCam = cam;
+            await TfwWait(1.0);
+            var rows = new System.Text.StringBuilder();
+            ulong t0 = Time.GetTicksMsec();
+            async Task Tick()
+            {
+                await TfwFrames();
+                var pose = _local?.WeaponPose;
+                rows.Append($"{Engine.GetFramesDrawn()},{Time.GetTicksMsec() - t0},{pose?.Clip?.Name ?? "none"},{pose?.Time ?? 0f:F4};");
+            }
+            async Task Hold(double seconds) { ulong until = Time.GetTicksMsec() + (ulong)(seconds * 1000); while (Time.GetTicksMsec() < until) await Tick(); }
+            async Task Tap(GameAction a) { TfwAction(a, true); await Hold(0.12); TfwAction(a, false); await Tick(); }
+            await Hold(0.8);
+            if (kind == "chain")
+            {
+                await Tap(GameAction.Melee); await Hold(0.85);
+                await Tap(GameAction.Melee); await Hold(0.85);
+                await Tap(GameAction.Melee); await Hold(3.2);
+            }
+            else if (kind == "snap") { await Tap(GameAction.StunStrike); await Hold(4.0); }
+            else
+            {
+                await Tap(GameAction.StunStrike);
+                ulong give = Time.GetTicksMsec() + 3000;
+                while (Time.GetTicksMsec() < give && !(client.Predicted.MeleeStep == 1 && client.Predicted.MeleeHeavy && client.Predicted.MeleeTime >= 0.70f)) await Tick();
+                await Tap(GameAction.StunStrike); await Hold(5.5);
+            }
+            GD.Print($"SPEARFILM kind {kind} view {view} done");
+            GD.Print($"SPEARFILMFRAMES {view} 1 {rows}");
+            await TfwWait(1.0);
+            TfwKey(Key.S, true); await TfwWait(2.0); TfwKey(Key.S, false);   // back from the lunge, so the next view starts where this did
+            await TfwWait(1.0);
+        }
+        _spearCam = 0;
+        GetTree().Quit(0);
+    }
+
+    /// <summary>
+    /// Test aid <c>--tfw-spear-carry-film [--tfw-spear-views player,side,front]</c> (spear pass 3, 2026-11-12), for a recording (<c>godot.cmd --windowed --write-movie f.avi --fixed-fps 30 -- --connect ...
+    /// --content musou --class "sm - assault" --melee "power spear" --tfw-spear-carry-film --tfw-test &lt;dir&gt;</c>, server <c>SM_TFW_KEEP_HUMAN=1</c>): the real match, the real keys: the player deploys,
+    /// walks away from the Orks, then per view stands, runs forward (W), runs left (A), runs right (D), sprints (W + Sprint) and swings one light hew from standing. A <c>SPEARCARRYFRAMES</c> line
+    /// per view lists, for every frame drawn, the engine's frame number (= the recording's frame), the wall-clock time and the phase, to cut the recording by; a <c>SPEARCARRY</c> line per phase gives the
+    /// drawn spear against the drawn spine: the shaft's fore-and-aft lean and the spine's, its side lean, the right grip socket's distance from the shaft, and the right arm's bone lengths.
+    /// </summary>
+    async Task TfwSpearCarryFilm()
+    {
+        var client = _client!;
+        if (!await TfwTestDeploy(TfwLane.B)) return;
+        await TfwWait(2.0);
+        TfwCheck("the power spear is the melee weapon", _config is not null && SpearRules.Wields(_config, client.Predicted), MeleeWargear(client.Predicted) ?? "none");
+        TfwCheck("the spear's clips drive the pose (no --musou-spear-stand-in)", SpearPosesOn);
+        await TfwSpearOpenSpot();
+        TfwKey(Key.W, true);
+        await TfwWait(3.0);
+        TfwKey(Key.W, false);
+        await TfwWait(1.0);
+        float facing = _yaw;
+        string views = CmdArg("tfw-spear-views") is { Length: > 0 } v ? v : "player,side";
+        foreach (var (cam, view) in new[] { (0, "player"), (1, "front"), (2, "side") })
+        {
+            if (!views.Contains(view, StringComparison.OrdinalIgnoreCase)) continue;
+            _yaw = facing;
+            _spearCam = cam;
+            await TfwWait(1.0);
+            var rows = new System.Text.StringBuilder();
+            ulong t0 = Time.GetTicksMsec();
+            async Task Phase(string label, double seconds, Action? on, Action? off)
+            {
+                on?.Invoke();
+                ulong end = Time.GetTicksMsec() + (ulong)(seconds * 1000.0), probe = Time.GetTicksMsec() + (ulong)(seconds * 500.0);
+                bool probed = false;
+                while (Time.GetTicksMsec() < end)
+                {
+                    await TfwFrames();
+                    var pose = _local?.WeaponPose;
+                    rows.Append($"{Engine.GetFramesDrawn()},{Time.GetTicksMsec() - t0},{label},{pose?.Clip?.Name ?? "none"},{pose?.Time ?? 0f:F3};");
+                    if (!probed && Time.GetTicksMsec() >= probe) { probed = true; GD.Print($"SPEARCARRY {view} {label}: {SpearCarryProbe()}"); }
+                }
+                off?.Invoke();
+            }
+            // Sprint first (the way ahead is the longest), then back the way he came, so no phase runs into a wall (a sprint into one stands still).
+            await Phase("idle", 2.5, null, null);
+            await Phase("sprint", 2.0, () => { TfwKey(Key.W, true); TfwAction(GameAction.Sprint, true); }, () => { TfwKey(Key.W, false); TfwAction(GameAction.Sprint, false); });
+            await Phase("idle2", 0.8, () => _yaw = facing + MathF.PI, null);
+            await Phase("run", 3.0, () => TfwKey(Key.W, true), () => TfwKey(Key.W, false));
+            await Phase("idle3", 0.8, () => _yaw = facing, null);
+            await Phase("run-left", 2.5, () => TfwKey(Key.A, true), () => TfwKey(Key.A, false));
+            await Phase("run-right", 2.5, () => TfwKey(Key.D, true), () => TfwKey(Key.D, false));
+            await Phase("idle4", 1.0, null, null);
+            await Phase("hew", 4.0, () => TfwAction(GameAction.Melee, true), () => TfwAction(GameAction.Melee, false));
+            GD.Print($"SPEARCARRYFRAMES {view} {rows}");
+            _yaw = facing;
+        }
+        _spearCam = 0;
+        await TfwWait(0.5);
+        GetTree().Quit(0);
+    }
+
+    /// <summary>Test aid (<see cref="TfwSpearCarryFilm"/>): the drawn spear against the drawn spine and the right arm, in the own skeleton's space.</summary>
+    string SpearCarryProbe()
+    {
+        if (_local?.Skeleton is not { } sk || _local.Weapons?.SpearEnds(out var butt, out var tip) != true) return "no spear drawn";
+        var inv = sk.GlobalTransform.AffineInverse();
+        var b = inv * butt; var t = inv * tip;
+        var shaft = (t - b).Normalized();
+        var spine = _local.WeaponPoseSpine();
+        float Lean(float y, float z) => MathF.Atan2(y, z) * 180f / MathF.PI;
+        float roll = MathF.Asin(Mathf.Clamp(-shaft.X, -1f, 1f)) * 180f / MathF.PI;
+        string hand = "";
+        if (_local.WeaponPoseHands(out var right, out _))
+        {
+            var d = right - b; float along = d.Dot(shaft);
+            hand = $", right grip socket {(d - shaft * along).Length() * 100f:F1} cm off the shaft";
+        }
+        float Len(string a, string c) { int ia = sk.FindBone(a), ic = sk.FindBone(c); return ia < 0 || ic < 0 ? -1f : sk.GetBoneGlobalPose(ia).Origin.DistanceTo(sk.GetBoneGlobalPose(ic).Origin) * 100f; }
+        var vel = _client!.Predicted.Velocity;
+        return $"speed {MathF.Sqrt(vel.X * vel.X + vel.Y * vel.Y):F1} m/s, shaft lean {Lean(shaft.Y, shaft.Z):F1} deg forward, spine lean {Lean(spine.Y, spine.Z):F1}, side lean {roll:F1}{hand}; right arm bones cm: upper {Len("RIG_R_UpperArm", "RIG_R_Forearm"):F1} fore {Len("RIG_R_Forearm", "RIG_R_Hand"):F1} hand {Len("RIG_R_Hand", SpearHold.RightGripBone):F1}; {SpearHeights()}";
     }
 
     /// <summary>

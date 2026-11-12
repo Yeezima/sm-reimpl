@@ -111,6 +111,9 @@ public partial class NetworkView
     /// The spear's clips are shown in this match: Musou's content, and neither <c>--musou-spear-stand-in</c> nor <c>--no-weapon-pose</c> (review, 2026-11-10: with the overlay off, the strike's
     /// foot-lock override and the spear's placement on the hands acted still; now nothing of it does and W3's mounts and the hammer's clips show alone).
     /// </summary>
+    /// <summary><c>--old-spear-hew</c> (musou/spear-authored): set once when the view class first loads, before any clip is shown (<see cref="SpearHewSwitch"/>).</summary>
+    static readonly bool OldSpearHew = SpearHewSwitch.Apply();
+
     bool SpearPosesOn => !MusouSpearStandIn && !CharacterViewer.NoWeaponPose && _config is { } c && c.Extras.HasFlag(ContentExtras.Musou);
 
     /// <summary>
@@ -204,7 +207,7 @@ public partial class NetworkView
             // character model", the spear "held out away from the body"; W3b leaned the carry toward the skeleton's +Y, the way the player faces, which across the hammer idle's side-on
             // stance, its hips 71 degrees right of it, put the shaft and the edge across the body).
             float grip = SpearGripOf(state, out float point);
-            onHands = rig.PlaceSpearOnHands(right, left, grip, point, character.WeaponPoseSpearFront(), state.Weight);   // the carry's: the facing (2026-11-11)
+            onHands = rig.PlaceSpearOnHands(right, left, grip, point, character.WeaponPoseSpearFront(), state.Weight, state.FistWeight, character.WeaponPoseSpine());   // the carry's: the facing (2026-11-11)
         }
         if (rig is not null)
         {

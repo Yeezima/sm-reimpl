@@ -172,6 +172,9 @@ public class ClawSpearClipsTests(Xunit.Abstractions.ITestOutputHelper output)
             }
     }
 
+    /// <summary>The strokes of spear pass 2 (Blender-authored from the squared hip carry): their start, end and shape are pinned by <c>SpearPass2Tests</c>; the checks here pin the hand-keyed clips of before.</summary>
+    static bool Authored(WeaponPoseClip c) => c.Description.Contains("authored in Blender", StringComparison.Ordinal);
+
     [Fact]
     public void Claw_strikes_return_to_the_stance_at_their_end()
     {
@@ -192,13 +195,14 @@ public class ClawSpearClipsTests(Xunit.Abstractions.ITestOutputHelper output)
         // Since the second follow-up pass (2026-11-11) the carry is read in the facing frame and the strikes over the hammer idle in its stance frame, 71 degrees right of the facing: the same
         // arms are the carry's azimuths less ClawSpearClips.IdleHipsTurn.
         Assert.True(ClawSpearClips.SpearRest.FacingFrame);
-        var rest = ClawSpearClips.SpearRest.Channels.Where(c => c.Kind == PoseChannelKind.Aim).ToDictionary(c => c.Bone, c => { var s = c.Sample(0f); return s with { Yaw = s.Yaw - ClawSpearClips.IdleHipsTurn }; });
+        var rest = ClawSpearClips.SpearRestOld.Channels.Where(c => c.Kind == PoseChannelKind.Aim).ToDictionary(c => c.Bone, c => { var s = c.Sample(0f); return s with { Yaw = s.Yaw - ClawSpearClips.IdleHipsTurn }; });
         Assert.Equal(4, rest.Count);
         Assert.Equal(0f, ClawSpearClips.SpearImpale.GripAt(ClawSpearClips.SpearImpale.Duration), 3);
         Assert.Equal(WeaponPoseClip.LowGrip, ClawSpearClips.SpearImpale.GripPointAt(ClawSpearClips.SpearImpale.Duration), 3);
         Assert.Equal(0f, ClawSpearClips.SpearLand.GripAt(ClawSpearClips.SpearLand.Duration), 3);
         Assert.Equal(WeaponPoseClip.LowGrip, ClawSpearClips.SpearLand.GripPointAt(ClawSpearClips.SpearLand.Duration), 3);
-        foreach (var clip in ClawSpearClips.SpearStrikes.Append(ClawSpearClips.SpearImpale).Append(ClawSpearClips.SpearLand))
+        // (Spear pass 2: the pound's landings are left as they were and still end on the older carry's arms; the 0.14 s hand-over to the new carry covers the difference, SpearClearanceTests.)
+        foreach (var clip in ClawSpearClips.SpearStrikes.Where(c => !Authored(c)).Append(ClawSpearClips.SpearImpale).Append(ClawSpearClips.SpearLand))
             foreach (var ch in clip.Channels)
             {
                 var end = ch.Sample(clip.Duration);
@@ -209,7 +213,7 @@ public class ClawSpearClipsTests(Xunit.Abstractions.ITestOutputHelper output)
                 Assert.Equal(1f, end.Weight, 3);
             }
         // The forehand starts from the rest too (the backhand and spin start from the sweep before them).
-        foreach (var ch in ClawSpearClips.SpearHew1.Channels.Where(c => c.Kind == PoseChannelKind.Aim))
+        foreach (var ch in ClawSpearClips.SpearHew1Original.Channels.Where(c => c.Kind == PoseChannelKind.Aim))
         {
             var start = ch.Sample(0f); var want = rest[ch.Bone];
             Assert.Equal(want.Elevation, start.Elevation, 3);
@@ -222,7 +226,8 @@ public class ClawSpearClipsTests(Xunit.Abstractions.ITestOutputHelper output)
     {
         // Owner 2026-11-10: "right hand carries, both swing", and (review of the wired stills) "the spear should be held out away from the body at idle and when running": at rest the right
         // upper arm is held out to the side and the forearm forward and out, both below the horizontal (the grip track 0: the spear leans from that hand, SpearHold.Place); the left arm hangs free.
-        var rest = ClawSpearClips.SpearRest.Channels.Where(c => c.Kind == PoseChannelKind.Aim).ToDictionary(c => c.Bone, c => c.Sample(0f));
+        // (The older carry's contract; spear pass 2's carry is pinned by SpearPass2Tests.)
+        var rest = ClawSpearClips.SpearRestOld.Channels.Where(c => c.Kind == PoseChannelKind.Aim).ToDictionary(c => c.Bone, c => c.Sample(0f));
         Assert.InRange(rest["RIG_R_UpperArm"].Azimuth, 30f, 120f);   // 45 since the crosshair pass (2026-11-11): out to the player's right over the side-on hammer idle
         Assert.InRange(rest["RIG_R_UpperArm"].Elevation, -60f, -10f);
         Assert.InRange(rest["RIG_R_Forearm"].Azimuth, 20f, 90f);
@@ -268,7 +273,8 @@ public class ClawSpearClipsTests(Xunit.Abstractions.ITestOutputHelper output)
     {
         // Owner 2026-11-10: gripped high toward the blade when running, slid low toward the butt for melee.
         Assert.Equal(WeaponPoseClip.CarryGrip, ClawSpearClips.SpearRest.GripPointAt(0.5f));
-        foreach (var (first, melee) in new[] { (ClawSpearClips.SpearHew1, WeaponPoseClip.HewGrip), (ClawSpearClips.SpearHew3, WeaponPoseClip.HewGrip), (ClawSpearClips.SpearStun, WeaponPoseClip.LowGrip) })   // the strikes begun from the carry (hew 3 too since pass 3)
+        // (Spear pass 2: hew 3 is a chained stroke like hew 2, starting with the left hand on the shaft at the melee grip; a start from the carry reaches it in the hand-over.)
+        foreach (var (first, melee) in new[] { (ClawSpearClips.SpearHew1, WeaponPoseClip.HewGrip), (ClawSpearClips.SpearHew3, WeaponPoseClip.HewGrip), (ClawSpearClips.SpearStun, WeaponPoseClip.LowGrip) }.Where(x => !Authored(x.Item1) || x.Item1.Name != "spear_hew3"))   // the strikes begun from the carry (hew 3 too since pass 3)
         {
             Assert.Equal(WeaponPoseClip.CarryGrip, first.GripPointAt(0f));
             Assert.Equal(melee, first.GripPointAt(ClawSpearClips.GripSlide), 3);
@@ -276,7 +282,7 @@ public class ClawSpearClipsTests(Xunit.Abstractions.ITestOutputHelper output)
             Assert.Equal(WeaponPoseClip.CarryGrip, first.GripPointAt(first.Duration), 3);
             if (!float.IsNaN(first.NextAt)) Assert.Equal(melee, first.GripPointAt(first.NextAt), 3);   // a chained strike takes over the melee grip
         }
-        foreach (var chained in new[] { ClawSpearClips.SpearHew2 })
+        foreach (var chained in new[] { ClawSpearClips.SpearHew2 }.Concat(Authored(ClawSpearClips.SpearHew3) ? [ClawSpearClips.SpearHew3] : Array.Empty<WeaponPoseClip>()))
         {
             Assert.Equal(WeaponPoseClip.HewGrip, chained.GripPointAt(0f), 3);
             Assert.Equal(WeaponPoseClip.CarryGrip, chained.GripPointAt(chained.Duration), 3);
@@ -307,7 +313,10 @@ public class ClawSpearClipsTests(Xunit.Abstractions.ITestOutputHelper output)
         {
             var arm = clip.Channels.First(c => c.Kind == PoseChannelKind.Aim && c.Bone.EndsWith("UpperArm"));
             Assert.Contains(arm.Keys, k => MathF.Abs(k.T - clip.HitTime) < 1e-4f);   // a key exactly at the hit
-            Assert.Contains(arm.Keys, k => MathF.Abs(k.T - clip.Anticipation) < 1e-4f && k.Ease == PoseEase.In);   // the wind-up gathers
+            // A Blender-authored clip (AuthoredPoseClip) is sampled at 60 Hz and read back linearly: its gathering and snap are in the sampled values (SpearAuthoredHewTests pins the
+            // acceleration), so its apex key is a key at the right time and its keys ease Linear; the hand-keyed clips gather with an In key.
+            bool sampled = Authored(clip);
+            Assert.Contains(arm.Keys, k => MathF.Abs(k.T - clip.Anticipation) < 1e-4f && (sampled || k.Ease == PoseEase.In));   // the wind-up gathers
             var hitKey = arm.Keys.First(k => MathF.Abs(k.T - clip.HitTime) < 1e-4f);
             Assert.True(hitKey.Ease is PoseEase.Snap or PoseEase.Linear, $"{clip.Name}: the hit key eases {hitKey.Ease}");
             if (clip.Weapon == "claw")   // the claw's apex is held two frames before the snap (owner's review: the cocked pose must read)

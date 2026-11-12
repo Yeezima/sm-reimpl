@@ -36,12 +36,12 @@ public partial class ClawSpearTestView : Node3D
     readonly List<string> _notes = new();
 
     /// <summary>One piece of the stage's timeline: a strike (or none: the stance alone) over a base clip, from a stage time for a length; the base clip loops freely or runs from its start.</summary>
-    sealed record Segment(WeaponPoseClip? Clip, string BaseClip, bool BaseLoops, double Start, double Length, string Weapon)
+    sealed record Segment(WeaponPoseClip? Clip, string BaseClip, bool BaseLoops, double Start, double Length, string Weapon, float StanceLength = 0f, bool Moving = false, string Tag = "")
     {
         public double End => Start + Length;
     }
 
-    public ClawSpearTestView(string gameDir, Dictionary<string, string?> args) { _gameDir = gameDir; _args = args; }
+    public ClawSpearTestView(string gameDir, Dictionary<string, string?> args) { SpearHewSwitch.Apply(); _gameDir = gameDir; _args = args; }
     public ClawSpearTestView() : this("", new Dictionary<string, string?>()) { }
 
     public override void _Ready()
@@ -136,8 +136,28 @@ public partial class ClawSpearTestView : Node3D
             _segments.Add(new Segment(ClawSpearClips.SpearImpale, ClawSpearClips.SpearDiveImpact, false, t, ClawSpearClips.SpearImpale.Duration, "spear")); t += ClawSpearClips.SpearImpale.Duration;
             Idle(ClawSpearClips.SpearIdle, 1.0, "spear");
         }
+        // Spear pass 3: the carry over the hammer stance's idle, walk, run, strafes and sprint (docs/claw-spear-animations.md section 3i): --clip carry (the tour) or carry:<tag> for one stance.
+        void Stance(string tag, string clip, float length, double seconds, bool moving) { _segments.Add(new Segment(ClawSpearClips.SpearRest, clip, true, t, seconds, "spear", length, moving, tag)); t += seconds; }
+        void CarryTour(string only)
+        {
+            var loco = LocomotionAnimations.From(_marine!.Assets!.Rig.Rig);
+            var tour = new List<(string Tag, string Clip, float Length, bool Moving)> { ("idle", loco.HammerIdle ?? ClawSpearClips.SpearIdle, ClawSpearClips.SpearIdleLength, false) };
+            LocoDirection? Dir(float angle) => loco.Hammer?.Directions.OrderBy(d => MathF.Abs(d.AngleDegrees - angle)).FirstOrDefault();
+            if (Dir(0f) is { Walk: { } walk }) tour.Add(("walk", walk.Clip, walk.Length, true));
+            if (Dir(0f) is { Run: { } run }) tour.Add(("run", run.Clip, run.Length, true));
+            if (Dir(-90f) is { Run: { } runL }) tour.Add(("run-left", runL.Clip, runL.Length, true));
+            if (Dir(90f) is { Run: { } runR }) tour.Add(("run-right", runR.Clip, runR.Length, true));
+            if (Dir(180f) is { Run: { } runB }) tour.Add(("run-back", runB.Clip, runB.Length, true));
+            if (loco.SprintFor(SprintFamily.Hammer) is { } sprint)
+                foreach (var (tag, angle) in new[] { ("sprint", 0f), ("sprint-left", -45f), ("sprint-right", 45f) })
+                    if (sprint.Clips.OrderBy(c => MathF.Abs(c.AngleDegrees - angle)).FirstOrDefault() is { } c) tour.Add((tag, c.Clip, c.Length, true));
+            foreach (var (tag, clip, length, moving) in tour)
+                if (only.Length == 0 || only == tag) Stance(tag, clip, length, only.Length == 0 ? 2.2 : 3.2, moving);
+        }
         switch (want)
         {
+            case "carry": CarryTour(""); break;
+            case var w when w.StartsWith("carry:", StringComparison.Ordinal): CarryTour(w[6..]); break;
             case "claw": Claw(); break;
             case "spear": Spear(); break;
             case "all": Claw(); Spear(); break;
@@ -156,6 +176,25 @@ public partial class ClawSpearTestView : Node3D
     }
 
     double? _holdAt;
+    Camera3D? _camera;
+    int _sheetK, _camK, _sheetWait;
+
+    /// <summary>
+    /// <c>--hand R|L [--hand-dir f,r,u] [--hand-d m]</c> (spear pass 4b): the camera follows the hand's grip socket, at <c>--hand-d</c> metres (default 0.3) along <c>--hand-dir</c> (the character's front, right and up;
+    /// default 0.5,0.8,0.3), looking at the socket: close-ups of the grip from the same angle in every phase.
+    /// </summary>
+    void FollowHandCamera()
+    {
+        if (_camera is null || _marine?.Skeleton is not { } sk || !_args.TryGetValue("hand", out var side) || !_marine.WeaponPoseHands(out var right, out var left)) return;
+        var socket = sk.GlobalTransform * (side.StartsWith('L') ? left : right);
+        var dirs = (_args.GetValueOrDefault("hand-dir") ?? "0.5,0.8,0.3").Split(';');
+        var parts = dirs[Math.Min(Math.Max(_camK, 0), dirs.Length - 1)].Split(',');
+        float F(int i) => parts.Length > i && float.TryParse(parts[i], NumberStyles.Float, CultureInfo.InvariantCulture, out var v) ? v : 0f;
+        float d = float.TryParse(_args.GetValueOrDefault("hand-d"), NumberStyles.Float, CultureInfo.InvariantCulture, out var hd) ? hd : 0.3f;
+        var dir = new Vector3(F(0), F(2), F(1)).Normalized();   // front is +X, right +Z, up +Y on the stage
+        _camera.Position = socket + dir * d;
+        _camera.LookAt(socket, Vector3.Up);
+    }
 
     public override void _Process(double delta)
     {
@@ -175,10 +214,19 @@ public partial class ClawSpearTestView : Node3D
         int index = _segments.IndexOf(seg);
         if (index != _segment) { _segment = index; _taken.Clear(); }
         double local = Math.Max(0.0, _t - seg.Start);
-        float baseTime = seg.BaseLoops ? (float)(_t % 1.5) : (float)local;   // the idles are 1.5 s loops; a dive clip runs from the segment's start
+        float baseTime = seg.BaseLoops ? (float)(_t % (seg.StanceLength > 0f ? seg.StanceLength : 1.5)) : (float)local;   // the idles are 1.5 s loops; a dive clip runs from the segment's start
+        _pose.FistWeight = seg.Moving ? 1f : 0f;   // the carry's movement share (the match eases it with the speed)
         _pose.Show(seg.Clip, (float)local);   // before the base pose is applied: Pose() lays the overlay in the same call
         _marine.Pose(seg.BaseClip, baseTime, ClipBlends.Default);
         FaceCamera();
+        // --hand-dir a;b;c (spear pass 4b): a contact sheet, one still per direction once the clip is --hand-at (default 0.5) s in, the camera following the hand.
+        if (_args.GetValueOrDefault("hand-dir") is { } handDirs && handDirs.Contains(';') && _pendingStill is null && _sheetK < handDirs.Split(';').Length
+            && local >= (float.TryParse(_args.GetValueOrDefault("hand-at"), NumberStyles.Float, CultureInfo.InvariantCulture, out var handAt) ? handAt : 0.5f))
+        {
+            if (_sheetWait == 0) { _camK = _sheetK; _sheetWait = 4; }   // the camera moves now; the still is taken a few frames later, once it has been rendered
+            else if (--_sheetWait == 0) { _sheetK++; _pendingStill = (System.IO.Path.Combine(_outDir, $"{_args.GetValueOrDefault("hand-tag") ?? "hand"}_{_sheetK}.png"), (float)local); }
+        }
+        FollowHandCamera();
         if (_pendingStill is { } pending) { _pendingStill = null; SaveStill(pending.Path, pending.Local); }   // the frame rendered with the moment's pose is the one before this _Process
         if (_poseLog && (_logEvery <= 0 || (_logFrames++ % _logEvery) == 0)) LogPose(seg, (float)local);
         bool claw = seg.Weapon == "claw";
@@ -212,10 +260,10 @@ public partial class ClawSpearTestView : Node3D
                 : seg.Clip is { } held ? $"{held.Name}   t = {local:0.000} s   (held pose)" : $"{(claw ? "claw" : "spear")} stance";
             if (_bar is not null) _bar.Size = new Vector2(seg.Clip is { } cb ? 600f * (float)Math.Clamp(local / cb.Duration, 0, 1) : 0f, 6f);
         }
-        if (_stills && seg.Clip is { } clip && (!ReferenceEquals(clip, ClawSpearClips.SpearRest) || local >= 0.5)) TakeStills(clip, (float)local);
+        if (_stills && seg.Clip is { } clip && (!ReferenceEquals(clip, ClawSpearClips.SpearRest) || local >= 0.5)) TakeStills(clip, (float)local, seg.Tag);
     }
 
-    void TakeStills(WeaponPoseClip clip, float local)
+    void TakeStills(WeaponPoseClip clip, float local, string tag = "")
     {
         (string, float)[] moments = float.IsNaN(clip.HitTime)
             ? [("pose", 0.5f)]
@@ -224,7 +272,7 @@ public partial class ClawSpearTestView : Node3D
         {
             if (local < at || _taken.Contains(name)) continue;
             _taken.Add(name);
-            _pendingStill = (System.IO.Path.Combine(_outDir, $"{clip.Name}_{name}_{_view}.png"), local);
+            _pendingStill = (System.IO.Path.Combine(_outDir, $"{clip.Name}{(tag.Length > 0 ? "-" + tag : "")}_{name}_{_view}.png"), local);
         }
     }
 
@@ -270,7 +318,7 @@ public partial class ClawSpearTestView : Node3D
             return (N(g.Origin), new System.Numerics.Quaternion(q.X, q.Y, q.Z, q.W));
         }
         if (!_marine.WeaponPoseHands(out var right, out var left)) return;
-        var (butt, shaft, edge) = SpearHold.Place(N(right), N(left), spear.LeftGrip, spear.RightHandFromButt, N(_marine.WeaponPoseSpearFront()), new System.Numerics.Vector3(0f, 0f, 1f));
+        var (butt, shaft, edge) = SpearHold.Place(N(right), N(left), spear.LeftGrip, spear.RightHandFromButt, N(_marine.WeaponPoseSpearFront()), new System.Numerics.Vector3(0f, 0f, 1f), 0f, _marine.WeaponPoseSpine());
         var r = SpearClearance.Measure(Bone, butt, shaft, edge);
         if (!_clearanceWorst.TryGetValue(clip.Name, out var worst) || r.Clearance < worst.Result.Clearance)
             _clearanceWorst[clip.Name] = (local, r, string.Create(CultureInfo.InvariantCulture, $"stage t {_t:0.000}, grip {spear.LeftGrip:0.00} at {spear.RightHandFromButt:0.00} m, fading from {_pose.From?.Name ?? "-"} ({_pose.FromShare:0.00})"));
@@ -320,6 +368,7 @@ public partial class ClawSpearTestView : Node3D
         // The multiplayer clips face the skeleton's +X (Godot +X here; the Librarian's cast pose measured the same), the character's right is Godot +Z.
         // Cameras: the game's third person behind the right shoulder, the right side, the front.
         var camera = new Camera3D { Fov = 45f, Near = 0.05f, Far = 200f, Current = true };
+        _camera = camera;
         AddChild(camera);
         Vector3 f = new(1f, 0f, 0f), r = new(0f, 0f, 1f), u = Vector3.Up;
         Vector3 at, look;
@@ -327,8 +376,16 @@ public partial class ClawSpearTestView : Node3D
         {
             case "side": at = r * 6.4f + u * 1.5f + f * 0.3f; look = u * 1.2f + f * 0.3f; break;
             case "front": at = f * 6.4f + u * 1.5f - r * 0.3f; look = u * 1.2f; break;
+            case "left": at = -r * 6.4f + u * 1.5f + f * 0.3f; look = u * 1.2f + f * 0.3f; break;   // the character's left side (spear pass 4: the left arm)
+            case "q": at = f * 4.6f + r * 3.6f + u * 1.5f; look = u * 1.1f; break;   // front three-quarter from his right (the reference's angle)
+            case "qleft": at = f * 4.6f - r * 3.6f + u * 1.5f; look = u * 1.1f; break;
+            case "back": at = -f * 6.4f + u * 1.5f - r * 0.3f; look = u * 1.2f; break;
             default: at = -f * 4.4f + r * 1.4f + u * 2.3f; look = f * 1.2f + u * 1.2f + r * 0.2f; break;
         }
+        // --look-f m / --look-r m (spear pass 4b): slide the whole camera forward / right in the character's frame (aim a close-up at a hand: the right hand is about 0.5 right, 0.25 forward of the hips).
+        { var shift = Vector3.Zero; if (float.TryParse(_args.GetValueOrDefault("look-f"), NumberStyles.Float, CultureInfo.InvariantCulture, out var lf)) shift += f * lf; if (float.TryParse(_args.GetValueOrDefault("look-r"), NumberStyles.Float, CultureInfo.InvariantCulture, out var lr)) shift += r * lr; at += shift; look += shift; }
+        if (float.TryParse(_args.GetValueOrDefault("dist"), NumberStyles.Float, CultureInfo.InvariantCulture, out var dist) && dist > 0.1f) at = look + (at - look) * dist;   // --dist 0.5: the camera at half the distance (close-ups of the arm and hand)
+        if (float.TryParse(_args.GetValueOrDefault("look-height"), NumberStyles.Float, CultureInfo.InvariantCulture, out var lh)) { at.Y += lh - look.Y; look.Y = lh; }   // --look-height m: aim the close-up at this height (the hand: about 0.9)
         camera.Position = at;
         camera.LookAt(look, Vector3.Up);
         AddChild(new DirectionalLight3D { LightEnergy = 1.2f, ShadowEnabled = true, RotationDegrees = new Vector3(-42f, 210f, 0f) });
