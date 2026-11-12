@@ -72,7 +72,11 @@ public static class MusouHudLayout
     /// </summary>
     static readonly Godot.Vector2 MovieColumnCorner = new(-603.6f, -87.2f);
 
-    public static readonly CellMetrics MovieCells = new(85f, 147f, 10f), LibrarianCells = new(80f, 122f, 6f);
+    /// <summary>The cooldown bar under each cell (owner 2026-11-12: beneath and outside the cell): its gap to the cell's bottom edge and its height. Cell plus bar fill the equipment column's footprint, so the bar's bottom stands on the weapon box's line at the corner margin.</summary>
+    public const float BarGap = 6f, BarHeight = 7f, BarBlock = BarGap + BarHeight;
+
+    /// <summary>The cells' own size (the column's 85 x 147 and the Librarian's 80 x 122 minus the bar's block under them).</summary>
+    public static readonly CellMetrics MovieCells = new(85f, 147f - BarBlock, 10f), LibrarianCells = new(80f, 122f - BarBlock, 6f);
 
     /// <summary>
     /// The frame of the cells' row (local units to virtual units): its origin the bottom-left corner of the equipment column (the match HUD's grenade box for the Librarian, who carries no gun and
@@ -95,7 +99,7 @@ public static class MusouHudLayout
     public static Godot.Vector2 LibrarianShift => Corners ? Hud.ClassicBoxMargin - new Godot.Vector2(CornerMargin, CornerMargin) : Godot.Vector2.Zero;
 
     /// <summary>The local rectangle of cell <paramref name="k"/> (0 is the one next to the equipment column) in <see cref="CellFrame"/>.</summary>
-    public static Godot.Rect2 CellRect(CellMetrics m, int k) => new(-(k + 1) * (m.Width + m.Gap), -m.Height, m.Width, m.Height);
+    public static Godot.Rect2 CellRect(CellMetrics m, int k) => new(-(k + 1) * (m.Width + m.Gap), -m.Height - BarBlock, m.Width, m.Height);
 
     /// <summary>The left edge of the leftmost ability cell (or of the equipment column when there is none), virtual units; set each frame by <see cref="MusouHud"/>. Infinity before the first frame.</summary>
     public static float CellsLeftEdge = float.PositiveInfinity;

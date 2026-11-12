@@ -12,7 +12,7 @@ public struct AbilityCell
 {
     public bool Shown, Locked;
     public AbilityKind Kind;
-    public string Key;
+    public string Key;   // not drawn since the second pass (owner 2026-11-12: no unnecessary text in the cells); kept for the callers
     public float Left, Total;
 }
 
@@ -45,7 +45,8 @@ public sealed partial class MusouHud
         MusouHudLayout.CellsLeftEdge = frame.Origin.X + (count == 0 ? 0f : MusouHudLayout.CellRect(m, count - 1).Position.X) - 4f;   // the row's left end (the turn moves its lower end 4 left at most)
         if (count == 0) return;
         var baseXf = new Transform2D(0f, new Vector2(scale, scale), 0f, Vector2.Zero);
-        DrawSetTransformMatrix(baseXf * frame);
+        _cellXf = baseXf * frame;
+        DrawSetTransformMatrix(_cellXf);
         int slot = 0;
         for (int i = 0; i < Data.Cells.Length; i++)
         {
@@ -54,6 +55,11 @@ public sealed partial class MusouHud
         }
         DrawSetTransformMatrix(baseXf);
     }
+
+    Transform2D _cellXf;
+
+    /// <summary>The icon's height in a cell and the height of the number's band, local units: the icon and the band are spaced evenly (equal gaps above, between and below); CapRatio is the font's capital height over its size.</summary>
+    const float IconHeight = 50f, BandHeight = 24f, CapRatio = 0.7f;
 
     void DrawCell(int index, in AbilityCell c, Rect2 r)
     {
@@ -68,60 +74,25 @@ public sealed partial class MusouHud
         _cellClosed[8] = _cell[0];
         DrawPolyline(_cellClosed, ready ? FrameGold : DimGold, 2f, true);
 
-        float cx = x + w / 2f;
-        Txt(c.Key ?? "", x + 11f, y + 22f, 15, ready ? Gold : Grey, -1, 2, true);
-        DrawGlyph(c.Kind, new Vector2(cx, y + h * 0.36f), c.Locked ? new Color(0.5f, 0.1f, 0.1f) : cooling ? GlyphCooling : GlyphReady);
-        float valueY = y + h * 0.72f;
-        if (c.Locked) Txt("LOCKED", cx, valueY - 4f, 15, RedText, 0, 2, true);
+        // Inside: the icon and the number (or READY) centred on the cell's vertical axis, the three gaps (top, between, bottom) equal. No text but the number, READY or LOCKED (owner 2026-11-12).
+        float cx = x + w / 2f, pad = (h - IconHeight - BandHeight) / 3f;
+        float iconY = y + pad + IconHeight / 2f, bandY = y + pad * 2f + IconHeight + BandHeight / 2f;
+        DrawIcon(c.Kind, new Vector2(cx, iconY), c.Locked ? new Color(0.5f, 0.1f, 0.1f) : cooling ? GlyphCooling : GlyphReady);
+        if (c.Locked) Txt("LOCKED", cx, bandY + 17f * CapRatio / 2f, 17, RedText, 0, 2, true);
         else if (cooling)
         {
             int secs = (int)MathF.Ceiling(c.Left);
             if (_cellSecondsFor[index] != secs) { _cellSecondsFor[index] = secs; _cellSeconds[index] = secs.ToString(CultureInfo.InvariantCulture); }
-            Txt(_cellSeconds[index], cx, valueY, 36, White, 0, 2);   // the weapon box's large thin digits
+            Txt(_cellSeconds[index], cx, bandY + 36f * CapRatio / 2f, 36, White, 0, 2);   // the weapon box's large thin digits
         }
-        else Txt("READY", cx, valueY - 4f, 17, c.Kind is AbilityKind.Shockwave or AbilityKind.Pull ? Psychic : Gold, 0, 2, true);
-        Txt(NameOf(c.Kind), cx, y + h - 24f, 12, Grey, 0, 2, true);
-        // The bar along the bottom: the weapon box's white, full when the call is ready, filling as the cooldown runs out.
+        else Txt("READY", cx, bandY + 26f * CapRatio / 2f, 26, c.Kind is AbilityKind.Shockwave or AbilityKind.Pull ? Psychic : Gold, 0, 2, true);
+
+        // The cooldown bar beneath the cell, outside it, the cell's width (owner 2026-11-12): the weapon box's white, full when ready, filling as the cooldown runs out.
         float f = c.Locked ? 0f : cooling && c.Total > 0f ? Math.Clamp(1f - c.Left / c.Total, 0f, 1f) : 1f;
-        DrawRect(new Rect2(x + 9f, y + h - 15f, w - 18f, 6f), new Color(0f, 0f, 0f, 0.65f));
-        if (f > 0f) DrawRect(new Rect2(x + 9f, y + h - 15f, (w - 18f) * f, 6f), new Color(White, ready ? 0.95f : 0.8f));
-    }
-
-    static string NameOf(AbilityKind k) => k switch { AbilityKind.Artillery => "STRIKE", AbilityKind.DropPod => "DROP POD", AbilityKind.Shockwave => "SHOCKWAVE", _ => "PULL" };
-
-    readonly Vector2[] _glyph = new Vector2[5];
-    static readonly Vector2[] Cross = [new(0f, -1f), new(1f, 0f), new(0f, 1f), new(-1f, 0f)];
-    static readonly float[] Sides = [-1f, 1f];
-
-    /// <summary>The glyphs: a target ring with a cross for the artillery strike, a pod falling in flame for the drop pod, rings spreading for the Shockwave, arrows drawn in for the Pull.</summary>
-    void DrawGlyph(AbilityKind kind, Vector2 c, Color col)
-    {
-        switch (kind)
-        {
-            case AbilityKind.Artillery:
-                DrawArc(c, 12f, 0f, MathF.Tau, 28, col, 2f, true);
-                foreach (var d in Cross) DrawLine(c + d * 7f, c + d * 17f, col, 2f, true);
-                DrawCircle(c, 2.5f, col);
-                break;
-            case AbilityKind.DropPod:
-                _glyph[0] = c + new Vector2(-6f, -9f); _glyph[1] = c + new Vector2(6f, -9f); _glyph[2] = c + new Vector2(8f, 4f); _glyph[3] = c + new Vector2(0f, 14f); _glyph[4] = c + new Vector2(-8f, 4f);
-                DrawColoredPolygon(_glyph, col);
-                DrawLine(c + new Vector2(-4f, -13f), c + new Vector2(-4f, -20f), col, 2f, true);
-                DrawLine(c + new Vector2(4f, -13f), c + new Vector2(4f, -20f), col, 2f, true);
-                break;
-            case AbilityKind.Shockwave:
-                DrawCircle(c, 4f, col);
-                DrawArc(c, 10f, 0f, MathF.Tau, 24, col, 2f, true);
-                DrawArc(c, 16f, 0f, MathF.Tau, 32, new Color(col, col.A * 0.6f), 2f, true);
-                break;
-            default:
-                foreach (float s in Sides)
-                {
-                    DrawLine(c + new Vector2(s * 16f, 0f), c + new Vector2(s * 5f, 0f), col, 2f, true);
-                    DrawLine(c + new Vector2(s * 10f, -5f), c + new Vector2(s * 5f, 0f), col, 2f, true);
-                    DrawLine(c + new Vector2(s * 10f, 5f), c + new Vector2(s * 5f, 0f), col, 2f, true);
-                }
-                break;
-        }
+        float by = y + h + MusouHudLayout.BarGap;
+        DrawRect(new Rect2(x, by, w, MusouHudLayout.BarHeight), new Color(0f, 0f, 0f, 0.7f));
+        if (f > 0f) DrawRect(new Rect2(x, by, w * f, MusouHudLayout.BarHeight), new Color(White, ready ? 0.95f : 0.8f));
+        DrawRect(new Rect2(x, by, w, MusouHudLayout.BarHeight), ready ? FrameGold : DimGold, false, 1.5f);
     }
 }
+
