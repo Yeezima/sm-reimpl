@@ -1328,7 +1328,7 @@ public static class Combat
         }
         float healthDamage = MathF.Max(0f, raw) * healthMultiplier;
         float health = s.Health - healthDamage;
-        var after = s with { Shield = s.Shield - shieldDamage, Health = MathF.Max(0f, health), SinceDamage = 0f };
+        var after = s with { Shield = s.Shield - shieldDamage, Health = MathF.Max(0f, health), SinceDamage = 0f, DamageCount = (byte)((s.DamageCount + 1) & 7), DamageShield = shieldDamage > 0f, DamageHealth = healthDamage > 0f };   // protocol 71: the damage mark
         if (health <= 0f) after = Killed(after, c);
         return (after, shieldDamage, healthDamage);
     }

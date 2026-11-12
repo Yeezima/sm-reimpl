@@ -297,7 +297,7 @@ public class LoadoutTests(ITestOutputHelper output)
         var hello = new Hello(Protocol.Version, 1, 2, 3, 4, 5, 6, 2);
         Assert.Equal(hello, Protocol.Read(Protocol.Write(hello)));
         Assert.Equal(Protocol.ServerDefaultClass, new Hello(Protocol.Version, 1, 2, 3).RequestedClass);
-        Assert.Equal(70, Protocol.Version);
+        Assert.Equal(71, Protocol.Version);
     }
 
     // ---------------------------------------------------------------- per-recipient snapshots
@@ -369,7 +369,7 @@ public class LoadoutTests(ITestOutputHelper output)
         var two = Protocol.Write(new Snapshot(1, 1, 1, [players[0], players[0] with { PlayerId = 1 }], Self: 1));
         Assert.Null(Protocol.Read(two));
         var single = Protocol.Write(new Snapshot(1, 1, 1, [players[1]]));
-        single[^31] = 2;   // slot byte of the only (slim) record (… flags, class, in hand, melee choice, SLOT, step, time 4, evade 1), before the match, kill, point and hit blocks
+        single[^32] = 2;   // slot byte of the only (slim) record (… flags, class, in hand, melee choice, SLOT, step, time 4, evade 1), before the match, kill, point and hit blocks
         Assert.Null(Protocol.Read(single));
     }
 

@@ -95,7 +95,6 @@ public partial class NetworkView
             bool started = PlayerHitFxRules.ReactionStarted(was.Kind, was.Ticks, p.Reaction, p.ReactionTicks);
             _ciReaction[p.PlayerId] = (p.Reaction, p.ReactionTicks);
             if (!started) continue;
-            ReactionDamageGlow(p, ownId);   // onhit-range-intensity: a reaction the server started is confirmed damage; its glow and sparks
             if (_reactionSource.TryGetValue(p.PlayerId, out var known) && known.Charge && now - known.At < 0.5) continue;
             int source = MeleeInteraction.ReactionSource(p, all);
             if (source > 0) _reactionSource[p.PlayerId] = (source, now, false);

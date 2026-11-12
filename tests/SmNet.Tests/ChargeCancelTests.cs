@@ -227,7 +227,7 @@ public class ChargeCancelTests(ITestOutputHelper output)
         Assert.NotEqual(c.Hash(), (c with { ChargeBackCancel = false }).Hash());
         Assert.NotEqual(c.Hash(), (c with { ChargeAllyBump = false }).Hash());
         Assert.NotEqual((c with { ChargeBackCancel = false }).Hash(), (c with { ChargeAllyBump = false }).Hash());
-        Assert.Equal(70, Protocol.Version);
+        Assert.Equal(71, Protocol.Version);
         // The server's switches (the clients take the same words: client NetworkView.Bodies.cs).
         Assert.True(ServerCommandLine.TryParse(["--old-charge-cancel", "--old-ally-bump"], out var a, out var error), error);
         Assert.Equal((true, true), (a.OldChargeCancel, a.OldAllyBump));

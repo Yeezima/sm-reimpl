@@ -215,6 +215,15 @@ public readonly record struct PlayerState(int PlayerId, Vector3 Position, Vector
     public float ThirdCooldown { get; init; }
     /// <summary>Seconds since this player last took damage (drives regeneration).</summary>
     public float SinceDamage { get; init; }
+    /// <summary>
+    /// Protocol 71 (onhit-damage-mark; the owner 2026-11-13: "any sort of damage should trigger the sparks and glows"): a counter, modulo 8, that <see cref="Combat.ApplyDamage(PlayerState, float, float, float, SimConfig)"/> raises on
+    /// every damage this player takes (every weapon, melee kind, blast, rush and Musou enemy hit pass through it). Every player's record carries it, so any client can show a hit on any player:
+    /// a change in the counter is one or more damages since the last record, however many snapshots were lost. Not simulated, not predicted; presentation only.
+    /// </summary>
+    public byte DamageCount { get; init; }
+    /// <summary>Protocol 71: whether the last damage took some shield (yellow glow) and whether it took some health (red); both can be set.</summary>
+    public bool DamageShield { get; init; }
+    public bool DamageHealth { get; init; }
     /// <summary>Seconds until a dead player respawns.</summary>
     public float RespawnLeft { get; init; }
     public float Pitch { get; init; }

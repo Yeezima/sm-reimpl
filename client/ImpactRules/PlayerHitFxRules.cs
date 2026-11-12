@@ -53,6 +53,21 @@ public static class PlayerHitFxRules
     /// </summary>
     public static bool? ArmourUpOfDamage(float shieldDamage, float healthDamage) => shieldDamage > 0f ? true : healthDamage > 0f ? false : null;
 
+    /// <summary>
+    /// Protocol 71 (the damage mark every player's record carries): whether the counter changed since the last record seen, i.e. the player took one or more damages (modulo 8: a change is a change
+    /// however many snapshots were lost; eight damages in the gap would read as none, which a 30 Hz stream does not allow).
+    /// </summary>
+    public static bool DamageMarkChanged(byte wasCount, byte nowCount) => (wasCount & 7) != (nowCount & 7);
+
+    /// <summary>The armour colour of the last damage a record's mark names: shield taken: yellow (true); only health: red (false); neither bit: none (null).</summary>
+    public static bool? ArmourUpOfMark(bool shield, bool health) => shield ? true : health ? false : null;
+
+    /// <summary>
+    /// Whether a mark's change shows a glow: the player was alive in the record before and is alive now (a first sight, a respawn, which restarts the counter, and a corpse show nothing: the model's flash is
+    /// reset for the dead).
+    /// </summary>
+    public static bool MarkShowsGlow(bool known, bool wasAlive, bool nowAlive, byte wasCount, byte nowCount) => known && wasAlive && nowAlive && DamageMarkChanged(wasCount, nowCount);
+
     /// <summary>Whether a confirmed damage on <paramref name="victim"/> draws a glow on his model in this view: not on the own player (his body is not drawn).</summary>
     public static bool ShowsOnModel(int victim, int ownPlayer) => victim > 0 && victim != ownPlayer;
 

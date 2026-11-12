@@ -16,9 +16,9 @@ namespace SmClient;
 /// <list type="bullet">
 /// <item>the own hit reports (<see cref="OwnHitReportGlow"/>): a melee or splash damage the own player dealt, with its armour and health split, so yellow when armour absorbed some and red when only health
 /// was hit (light combo, F stun strikes, kicks, charge, ground pound, jump landing, air slash, the own grenades; a report names the last victim of its tick);</item>
-/// <item>the hit reaction another player's snapshot record starts (<see cref="ReactionDamageGlow"/>, <see cref="PlayerHitFxRules.ReactionStarted"/>): the server's answer to a melee or blast damage that lands
-/// on someone else's victim. Its armour state is not on the wire (a snapshot carries no other player's health or shield), so it reads yellow, and a reaction-less damage (hyper armour) shows nothing in
-/// another player's view.</item>
+/// <item>the damage mark of every player's record (protocol 71, <see cref="DamageMarkGlows"/>): a counter the server raises on every damage a player takes with the armour and health bits of the last one, so
+/// every damage on every player shows in every view with the right colour (light combo, which only flinches, hyper-armoured charges and melee kills included; before the mark, only a started hit reaction was
+/// visible and always read yellow).</item>
 /// </list>
 /// A shot has its own record (<c>FxImpact</c>). One glow per damage event: <see cref="PlayerHitFxRules.DedupePasses"/>, stamped by every glow (<c>CharacterFlashHit</c>). The own player's own body is not drawn, so
 /// nothing is added there. <c>--no-player-hit-fx</c> keeps the glows and drops the sparks; <c>--no-damage-glow</c> removes these melee and blast glows.
@@ -67,14 +67,29 @@ public partial class NetworkView
         }
     }
 
-    /// <summary>A reaction just started on <paramref name="p"/> (another player's snapshot record): the server confirmed a melee or blast damage on him; its glow, unless the own hit report draws it.</summary>
-    void ReactionDamageGlow(PlayerState p, int ownId)
+    readonly Dictionary<int, (byte Count, bool Alive)> _damageMarkSeen = new();
+    readonly List<int> _damageMarkGone = new();
+
+    /// <summary>
+    /// Protocol 71: every other player's record carries a damage counter and the last damage's shield and health bits (<see cref="PlayerState.DamageCount"/>); a change since the record before is a damage the
+    /// server applied (any weapon, melee kind, blast or Musou enemy hit), shown as the glow and sparks, yellow when it took shield and red when only health. Called each frame after the remote shots, so a shot
+    /// that already drew its own glow (stamped) is not drawn twice. A corpse and a respawn show nothing (<see cref="PlayerHitFxRules.MarkShowsGlow"/>).
+    /// </summary>
+    void DamageMarkGlows()
     {
-        if (_client is null || p.PlayerId == ownId) return;
-        var source = _reactionSource.TryGetValue(p.PlayerId, out var known) && _connectedFor - known.At < 0.5 ? known : (Source: 0, At: 0.0, Charge: false);
-        if (source.Source == ownId && ownId > 0) return;   // the own strike: the hit report names the armour state and draws it
-        var from = p.Position;
-        foreach (var o in _lastOthers) if (o.PlayerId == source.Source) { from = o.Position; break; }
-        PlayerDamageGlow(from, p.PlayerId, p.Position, null, source.Charge ? DamageKind.Charge : DamageKind.Melee, "reaction");
+        if (_client is null) return;
+        var me = _client.Predicted.Position;
+        foreach (var o in _lastOthers)
+        {
+            bool known = _damageMarkSeen.TryGetValue(o.PlayerId, out var seen);
+            _damageMarkSeen[o.PlayerId] = (o.DamageCount, o.Alive);
+            if (!MarkShowsGlow(known, seen.Alive, o.Alive, seen.Count, o.DamageCount)) continue;
+            if (LogHitFx) GD.Print($"HITFX mark P{o.PlayerId} counter {seen.Count}->{o.DamageCount} shield {o.DamageShield} health {o.DamageHealth} (t {_connectedFor:F2})");
+            PlayerDamageGlow(me, o.PlayerId, o.Position, ArmourUpOfMark(o.DamageShield, o.DamageHealth), DamageKind.Melee, "damage mark");
+        }
+        if (_damageMarkSeen.Count <= _lastOthers.Count + 4) return;
+        _damageMarkGone.Clear();
+        foreach (var id in _damageMarkSeen.Keys) { bool present = false; foreach (var o in _lastOthers) if (o.PlayerId == id) { present = true; break; } if (!present) _damageMarkGone.Add(id); }
+        foreach (var id in _damageMarkGone) _damageMarkSeen.Remove(id);
     }
 }

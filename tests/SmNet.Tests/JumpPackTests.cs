@@ -702,7 +702,7 @@ public class JumpPackTests(ITestOutputHelper output)
     [Fact]
     public void Protocol_9_carries_the_jump_state_in_full_and_flags_in_slim_records_within_1200_bytes()
     {
-        Assert.Equal(70, Protocol.Version);
+        Assert.Equal(71, Protocol.Version);
         PlayerState Loaded(int id) => new(id, new Vector3(1e4f), new Vector3(100f), 3f, false)
         {
             Alive = true, Health = 1e3f, Shield = 1e3f, Class = Protocol.MaxClasses - 1, Slot = WeaponSlot.Pistol, Clip = 65535, Reserve = 65535, OtherClip = 65535, OtherReserve = 65535,
@@ -749,10 +749,10 @@ public class JumpPackTests(ITestOutputHelper output)
         Assert.Equal(JumpPhase.Fall, Assert.IsType<Snapshot>(Protocol.Read(control)).Players[0].Jump);
         // Slim: both jump flags at once are refused; flag 128 is aiming since protocol 12.
         var slim = Protocol.Write(new Snapshot(1, 1, 1, [me with { PlayerId = 4 }]));
-        Assert.Equal(32, slim[^35] & 96);   // the flags byte: 9 bytes of the slim record and the evade byte (protocol 13) follow it
-        var both = (byte[])slim.Clone(); both[^35] |= 64;
+        Assert.Equal(32, slim[^36] & 96);   // the flags byte: 9 bytes of the slim record and the evade byte (protocol 13) follow it
+        var both = (byte[])slim.Clone(); both[^36] |= 64;
         Assert.Null(Protocol.Read(both));
-        var high = (byte[])slim.Clone(); high[^35] |= 128;
+        var high = (byte[])slim.Clone(); high[^36] |= 128;
         Assert.True(Assert.IsType<Snapshot>(Protocol.Read(high)).Players[0].Aiming);
         var pound = Protocol.Write(new Snapshot(1, 1, 1, [me with { PlayerId = 4, Jump = JumpPhase.Recover }]));
         Assert.Equal(JumpPhase.Dive, Assert.IsType<Snapshot>(Protocol.Read(pound)).Players[0].Jump);

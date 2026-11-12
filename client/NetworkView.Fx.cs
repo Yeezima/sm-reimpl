@@ -242,6 +242,7 @@ public partial class NetworkView
             FxOwnShots(me, delta);
             FxLaserTest(me);   // feel/scope-lascannon test aid (NetworkView.Laser.cs)
             foreach (var shot in _frameShots) FxRemoteShot(shot);
+            DamageMarkGlows();   // protocol 71 (NetworkView.PlayerDamageGlow.cs): after the remote shots, which stamp their own glows
             FxStopFireSmoke();
             FxMapEffects();
             FxEyeGlow();   // M40-T13 (NetworkView.EyeGlow.cs)

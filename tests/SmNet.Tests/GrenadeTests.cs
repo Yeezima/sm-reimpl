@@ -521,7 +521,7 @@ public class GrenadeTests(ITestOutputHelper output)
     [Fact]
     public void Protocol_8_carries_the_throw_state_within_1200_bytes_and_refuses_unknown_flags()
     {
-        Assert.Equal(70, Protocol.Version);
+        Assert.Equal(71, Protocol.Version);
         var players = Enumerable.Range(1, Protocol.MaxPlayers).Select(Loaded).ToArray();
         var projectiles = Enumerable.Range(0, Protocol.MaxSnapshotProjectiles)
             .Select(k => new ProjectileView(60000 + k, 254, k % 2 == 0 ? 0 : 255, new Vector3(k, -k, 3), k % 2 == 0 ? ProjectileFlags.Thrown | ProjectileFlags.Stuck : ProjectileFlags.Detonated)).ToArray();
@@ -550,7 +550,7 @@ public class GrenadeTests(ITestOutputHelper output)
         // Slim flags: 32 and 64 together (jumping and pounding), a thrown record with a stage, an unknown projectile flag (8).
         // (Bit 128 is the aiming flag since protocol 12.)
         var slim = Protocol.Write(new Snapshot(1, 1, 1, [me with { PlayerId = 4 }]));
-        slim[^35] |= 96;   // flags byte of the slim record: … flags, class, in hand, melee choice, slot, step, time 4, evade 1 (protocol 13), then the match, kill, point and hit blocks
+        slim[^36] |= 96;   // flags byte of the slim record: … flags, class, in hand, melee choice, slot, step, time 4, evade 1 (protocol 13), then the match, kill, point and hit blocks
 
         Assert.Null(Protocol.Read(slim));
         byte[] One(ProjectileView q) => Protocol.Write(new Snapshot(1, 1, 1, [], Projectiles: [q]));
