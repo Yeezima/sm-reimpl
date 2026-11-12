@@ -281,6 +281,9 @@ public static class ClawSpearClips
         GripPoint = [P(0f, SpearHold.Pass3CarryGrip), P(SpearIdleLength, SpearHold.Pass3CarryGrip)],
     };
 
+    /// <summary>Spear pass 4b: the carry's upper spine pitch (degrees; pass 4's was 0): the torso leans a little forward in the carry so the shaft, which stays parallel to the spine, leans nearer the reference photograph's (ours).</summary>
+    public static readonly float Pass4bCarryLean = float.TryParse(Environment.GetEnvironmentVariable("SM_CARRY_LEAN"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var lean) ? lean : -4f;
+
     /// <summary>The pass 4 carry's fists against the pelvis (m right, forward, up in the facing frame): the right fist as pass 3's (the crosshair column's margin is set by it), the left one at the hip, a little lower and further out than pass 3's so the swinging forearm clears the thigh.</summary>
     public static readonly System.Numerics.Vector3 Pass4LeftFist = new(-0.44f, 0.04f, 0.06f);
     /// <summary>
@@ -300,11 +303,17 @@ public static class ClawSpearClips
         Description = "the carry (pass 4): the spear in the right hand alone at the side of the hip with the fingers closed round the shaft, the right arm pumping a little with the stride; the left arm as the bolt pistol's relaxed idle holds it while he stands and a runner's bent-elbow pump against the legs as he runs",
         LeftFistTarget = Pass4LeftFist, LeftFistWithSpeed = true, FistSwing = Pass4FistSwing, LeftFistSwing = Pass4LeftFistSwing, SwingLift = Pass4FistLift, LeftSwingLift = Pass4LeftFistLift,
         PistolArmFrom = SmContent.RigClipTable.PistolRelaxedIdle,
-        Channels = SpearRestPass3.Channels.Select(c => c.Bone is "RIG_L_UpperArm" or "RIG_L_Forearm" ? c with { Keys = c.Keys.Select(k => k with { Weight = 0f }).ToArray() } : c).ToArray(),
+        Channels = SpearRestPass3.Channels.Select(c => c.Bone is "RIG_L_UpperArm" or "RIG_L_Forearm" ? c with { Keys = c.Keys.Select(k => k with { Weight = 0f }).ToArray() }
+            : c.Bone == SpineD && !OldPass4b ? Turn(SpineD, T(0f, 4, Pass4bCarryLean, 0), T(SpearIdleLength, 4, Pass4bCarryLean, 0)) : c).ToArray(),
     };
+
+
 
     /// <summary>The rollback switch of spear pass 4 (<c>--old-spear-pass4</c>, <c>SM_OLD_SPEAR_PASS4=1</c>): pass 3's carry, hews, snap cut and stab play (the stage's and the match's).</summary>
     public static bool OldPass4 { get; set; } = Environment.GetEnvironmentVariable("SM_OLD_SPEAR_PASS4") == "1";
+
+    /// <summary>The rollback switch of spear pass 4b (<c>--old-spear-pass4b</c>, <c>SM_OLD_SPEAR_PASS4B=1</c>): pass 4's hands (the fixed finger closure, the arm solve's wrist, the socket where the rig has it), strokes and carry lean play.</summary>
+    public static bool OldPass4b { get; set; } = Environment.GetEnvironmentVariable("SM_OLD_SPEAR_PASS4B") == "1";
 
     /// <summary>The rollback switch of spear pass 3 (<c>--old-spear-pass3</c>, <c>SM_OLD_SPEAR_PASS3=1</c>): pass 2's carry (hip fist while standing, chest fist while moving, the shaft leaning 62 degrees forward) plays; the strokes are the same.</summary>
     public static bool OldPass3 { get; set; } = Environment.GetEnvironmentVariable("SM_OLD_SPEAR_PASS3") == "1";
@@ -407,13 +416,24 @@ public static class ClawSpearClips
     public static WeaponPoseClip SpearHew3Pass4 => P4Hew3.Value;
     public static WeaponPoseClip SpearStunPass4 => P4Stun.Value;
     public static WeaponPoseClip SpearStabPass4 => P4Stab.Value;
-    public static WeaponPoseClip SpearHew2 => OldPass2 ? SpearHew2Original : OldPass4 ? SpearHew2Pass2 : SpearHew2Pass4;
-    public static WeaponPoseClip SpearHew3 => OldPass2 ? SpearHew3Original : OldPass4 ? SpearHew3Pass2 : SpearHew3Pass4;
-    public static WeaponPoseClip SpearStun => OldPass2 ? SpearStunOriginal : OldPass4 ? SpearStunPass2 : SpearStunPass4;
-    public static WeaponPoseClip SpearStab => OldPass2 ? SpearStabOriginal : OldPass4 ? SpearStabPass2 : SpearStabPass4;
+    // ---- spear pass 4b (2026-11-12): the second iteration on the strokes (tools/blender/spear_pass4b_author.py); every timing is the template's ----
+    static readonly Lazy<WeaponPoseClip> P4bHew1 = new(() => AuthoredPoseClip.LoadEmbeddedOrTemplate("spear_hew1_p4b.json", SpearHew1Pass4));
+    static readonly Lazy<WeaponPoseClip> P4bHew2 = new(() => AuthoredPoseClip.LoadEmbeddedOrTemplate("spear_hew2_p4b.json", SpearHew2Pass4));
+    static readonly Lazy<WeaponPoseClip> P4bHew3 = new(() => AuthoredPoseClip.LoadEmbeddedOrTemplate("spear_hew3_p4b.json", SpearHew3Pass4));
+    static readonly Lazy<WeaponPoseClip> P4bStun = new(() => AuthoredPoseClip.LoadEmbeddedOrTemplate("spear_stun_p4b.json", SpearStunPass4));
+    static readonly Lazy<WeaponPoseClip> P4bStab = new(() => AuthoredPoseClip.LoadEmbeddedOrTemplate("spear_stab_p4b.json", SpearStabPass4));
+    public static WeaponPoseClip SpearHew1Pass4b => P4bHew1.Value;
+    public static WeaponPoseClip SpearHew2Pass4b => P4bHew2.Value;
+    public static WeaponPoseClip SpearHew3Pass4b => P4bHew3.Value;
+    public static WeaponPoseClip SpearStunPass4b => P4bStun.Value;
+    public static WeaponPoseClip SpearStabPass4b => P4bStab.Value;
+    public static WeaponPoseClip SpearHew2 => OldPass2 ? SpearHew2Original : OldPass4 ? SpearHew2Pass2 : OldPass4b ? SpearHew2Pass4 : SpearHew2Pass4b;
+    public static WeaponPoseClip SpearHew3 => OldPass2 ? SpearHew3Original : OldPass4 ? SpearHew3Pass2 : OldPass4b ? SpearHew3Pass4 : SpearHew3Pass4b;
+    public static WeaponPoseClip SpearStun => OldPass2 ? SpearStunOriginal : OldPass4 ? SpearStunPass2 : OldPass4b ? SpearStunPass4 : SpearStunPass4b;
+    public static WeaponPoseClip SpearStab => OldPass2 ? SpearStabOriginal : OldPass4 ? SpearStabPass2 : OldPass4b ? SpearStabPass4 : SpearStabPass4b;
 
-    /// <summary>Hew 1 as played: pass 4's, pass 2's with <c>--old-spear-pass4</c>, the authored pilot with <c>--old-spear-pass2</c> or the original with <c>--old-spear-hew</c> (the others are not even loaded then).</summary>
-    public static WeaponPoseClip SpearHew1 => OldHew1 ? SpearHew1Original : OldPass2 ? SpearHew1Authored : OldPass4 ? SpearHew1Pass2 : SpearHew1Pass4;
+    /// <summary>Hew 1 as played: pass 4b's, pass 4's with <c>--old-spear-pass4b</c>, pass 2's with <c>--old-spear-pass4</c>, the authored pilot with <c>--old-spear-pass2</c> or the original with <c>--old-spear-hew</c> (the others are not even loaded then).</summary>
+    public static WeaponPoseClip SpearHew1 => OldHew1 ? SpearHew1Original : OldPass2 ? SpearHew1Authored : OldPass4 ? SpearHew1Pass2 : OldPass4b ? SpearHew1Pass4 : SpearHew1Pass4b;
 
     /// <summary>
     /// Hew 2, the wide rising hew (pass 3; the hammer's X2 at 0.85x: 2.745 s, hit 0.667 s): from hew 1's low-left follow-through the hips coil further left and the blade drops low behind
@@ -634,11 +654,11 @@ public static class ClawSpearClips
 
     /// <summary>Every clip, in the preview's order (rebuilt when a rollback switch changes).</summary>
     static IReadOnlyList<WeaponPoseClip> BuildAll() => [ClawX1, ClawX2, ClawX3, ClawX4, ClawHeavy, SpearRest, SpearHew1, SpearHew2, SpearHew3, SpearStun, SpearStab, SpearDive, SpearImpale, SpearLand];
-    static readonly Dictionary<(bool, bool, bool, bool), IReadOnlyList<WeaponPoseClip>> AllCache = new(), StrikeCache = new();
-    public static IReadOnlyList<WeaponPoseClip> All { get { lock (AllCache) { var k = (OldHew1, OldPass2, OldPass3, OldPass4); return AllCache.TryGetValue(k, out var l) ? l : AllCache[k] = BuildAll(); } } }
+    static readonly Dictionary<(bool, bool, bool, bool, bool), IReadOnlyList<WeaponPoseClip>> AllCache = new(), StrikeCache = new();
+    public static IReadOnlyList<WeaponPoseClip> All { get { lock (AllCache) { var k = (OldHew1, OldPass2, OldPass3, OldPass4, OldPass4b); return AllCache.TryGetValue(k, out var l) ? l : AllCache[k] = BuildAll(); } } }
 
     /// <summary>The spear's strikes on the ground (the light hews and the F, F chain): each starts from <see cref="SpearRest"/> or the strike before it and ends back at the rest.</summary>
-    public static IReadOnlyList<WeaponPoseClip> SpearStrikes { get { lock (StrikeCache) { var k = (OldHew1, OldPass2, OldPass3, OldPass4); return StrikeCache.TryGetValue(k, out var l) ? l : StrikeCache[k] = [SpearHew1, SpearHew2, SpearHew3, SpearStun, SpearStab]; } } }
+    public static IReadOnlyList<WeaponPoseClip> SpearStrikes { get { lock (StrikeCache) { var k = (OldHew1, OldPass2, OldPass3, OldPass4, OldPass4b); return StrikeCache.TryGetValue(k, out var l) ? l : StrikeCache[k] = [SpearHew1, SpearHew2, SpearHew3, SpearStun, SpearStab]; } } }
 
     /// <summary>
     /// The spear's clip for a simulated strike (W3: the thunder hammer's combo at 0.85, <c>SpearRules.FromHammer</c>, so its steps are the hammer's): light strikes 1..3 the three hews (each

@@ -50,10 +50,10 @@ public class SpearPass2Tests(ITestOutputHelper output)
     public void The_switch_picks_between_pass_2_and_the_old_clips()
     {
         bool old = ClawSpearClips.OldPass2, p4 = ClawSpearClips.OldPass4;
-        Assert.Equal(old ? ClawSpearClips.SpearHew2Original : p4 ? ClawSpearClips.SpearHew2Pass2 : ClawSpearClips.SpearHew2Pass4, ClawSpearClips.SpearHew2);
-        Assert.Equal(old ? ClawSpearClips.SpearHew3Original : p4 ? ClawSpearClips.SpearHew3Pass2 : ClawSpearClips.SpearHew3Pass4, ClawSpearClips.SpearHew3);
-        Assert.Equal(old ? ClawSpearClips.SpearStunOriginal : p4 ? ClawSpearClips.SpearStunPass2 : ClawSpearClips.SpearStunPass4, ClawSpearClips.SpearStun);
-        Assert.Equal(old ? ClawSpearClips.SpearStabOriginal : p4 ? ClawSpearClips.SpearStabPass2 : ClawSpearClips.SpearStabPass4, ClawSpearClips.SpearStab);
+        Assert.Equal(old ? ClawSpearClips.SpearHew2Original : p4 ? ClawSpearClips.SpearHew2Pass2 : ClawSpearClips.OldPass4b ? ClawSpearClips.SpearHew2Pass4 : ClawSpearClips.SpearHew2Pass4b, ClawSpearClips.SpearHew2);
+        Assert.Equal(old ? ClawSpearClips.SpearHew3Original : p4 ? ClawSpearClips.SpearHew3Pass2 : ClawSpearClips.OldPass4b ? ClawSpearClips.SpearHew3Pass4 : ClawSpearClips.SpearHew3Pass4b, ClawSpearClips.SpearHew3);
+        Assert.Equal(old ? ClawSpearClips.SpearStunOriginal : p4 ? ClawSpearClips.SpearStunPass2 : ClawSpearClips.OldPass4b ? ClawSpearClips.SpearStunPass4 : ClawSpearClips.SpearStunPass4b, ClawSpearClips.SpearStun);
+        Assert.Equal(old ? ClawSpearClips.SpearStabOriginal : p4 ? ClawSpearClips.SpearStabPass2 : ClawSpearClips.OldPass4b ? ClawSpearClips.SpearStabPass4 : ClawSpearClips.SpearStabPass4b, ClawSpearClips.SpearStab);
         Assert.Equal(old ? ClawSpearClips.SpearRestOld : ClawSpearClips.OldPass3 ? ClawSpearClips.SpearRestPass2 : p4 ? ClawSpearClips.SpearRestPass3 : ClawSpearClips.SpearRestPass4, ClawSpearClips.SpearRest);   // spear pass 3 replaced the carry; its rollback is pass 2's
         Assert.Equal(old ? 65f : SpearHold.Pass2CarryElevation, SpearHold.CarryElevation);
         Assert.Equal(old ? -50f : SpearHold.Pass2CarryAzimuth, SpearHold.CarryAzimuth);

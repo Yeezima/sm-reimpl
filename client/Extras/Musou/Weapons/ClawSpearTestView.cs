@@ -176,6 +176,25 @@ public partial class ClawSpearTestView : Node3D
     }
 
     double? _holdAt;
+    Camera3D? _camera;
+    int _sheetK, _camK, _sheetWait;
+
+    /// <summary>
+    /// <c>--hand R|L [--hand-dir f,r,u] [--hand-d m]</c> (spear pass 4b): the camera follows the hand's grip socket, at <c>--hand-d</c> metres (default 0.3) along <c>--hand-dir</c> (the character's front, right and up;
+    /// default 0.5,0.8,0.3), looking at the socket: close-ups of the grip from the same angle in every phase.
+    /// </summary>
+    void FollowHandCamera()
+    {
+        if (_camera is null || _marine?.Skeleton is not { } sk || !_args.TryGetValue("hand", out var side) || !_marine.WeaponPoseHands(out var right, out var left)) return;
+        var socket = sk.GlobalTransform * (side.StartsWith('L') ? left : right);
+        var dirs = (_args.GetValueOrDefault("hand-dir") ?? "0.5,0.8,0.3").Split(';');
+        var parts = dirs[Math.Min(Math.Max(_camK, 0), dirs.Length - 1)].Split(',');
+        float F(int i) => parts.Length > i && float.TryParse(parts[i], NumberStyles.Float, CultureInfo.InvariantCulture, out var v) ? v : 0f;
+        float d = float.TryParse(_args.GetValueOrDefault("hand-d"), NumberStyles.Float, CultureInfo.InvariantCulture, out var hd) ? hd : 0.3f;
+        var dir = new Vector3(F(0), F(2), F(1)).Normalized();   // front is +X, right +Z, up +Y on the stage
+        _camera.Position = socket + dir * d;
+        _camera.LookAt(socket, Vector3.Up);
+    }
 
     public override void _Process(double delta)
     {
@@ -200,6 +219,14 @@ public partial class ClawSpearTestView : Node3D
         _pose.Show(seg.Clip, (float)local);   // before the base pose is applied: Pose() lays the overlay in the same call
         _marine.Pose(seg.BaseClip, baseTime, ClipBlends.Default);
         FaceCamera();
+        // --hand-dir a;b;c (spear pass 4b): a contact sheet, one still per direction once the clip is --hand-at (default 0.5) s in, the camera following the hand.
+        if (_args.GetValueOrDefault("hand-dir") is { } handDirs && handDirs.Contains(';') && _pendingStill is null && _sheetK < handDirs.Split(';').Length
+            && local >= (float.TryParse(_args.GetValueOrDefault("hand-at"), NumberStyles.Float, CultureInfo.InvariantCulture, out var handAt) ? handAt : 0.5f))
+        {
+            if (_sheetWait == 0) { _camK = _sheetK; _sheetWait = 4; }   // the camera moves now; the still is taken a few frames later, once it has been rendered
+            else if (--_sheetWait == 0) { _sheetK++; _pendingStill = (System.IO.Path.Combine(_outDir, $"{_args.GetValueOrDefault("hand-tag") ?? "hand"}_{_sheetK}.png"), (float)local); }
+        }
+        FollowHandCamera();
         if (_pendingStill is { } pending) { _pendingStill = null; SaveStill(pending.Path, pending.Local); }   // the frame rendered with the moment's pose is the one before this _Process
         if (_poseLog && (_logEvery <= 0 || (_logFrames++ % _logEvery) == 0)) LogPose(seg, (float)local);
         bool claw = seg.Weapon == "claw";
@@ -341,6 +368,7 @@ public partial class ClawSpearTestView : Node3D
         // The multiplayer clips face the skeleton's +X (Godot +X here; the Librarian's cast pose measured the same), the character's right is Godot +Z.
         // Cameras: the game's third person behind the right shoulder, the right side, the front.
         var camera = new Camera3D { Fov = 45f, Near = 0.05f, Far = 200f, Current = true };
+        _camera = camera;
         AddChild(camera);
         Vector3 f = new(1f, 0f, 0f), r = new(0f, 0f, 1f), u = Vector3.Up;
         Vector3 at, look;
@@ -354,6 +382,8 @@ public partial class ClawSpearTestView : Node3D
             case "back": at = -f * 6.4f + u * 1.5f - r * 0.3f; look = u * 1.2f; break;
             default: at = -f * 4.4f + r * 1.4f + u * 2.3f; look = f * 1.2f + u * 1.2f + r * 0.2f; break;
         }
+        // --look-f m / --look-r m (spear pass 4b): slide the whole camera forward / right in the character's frame (aim a close-up at a hand: the right hand is about 0.5 right, 0.25 forward of the hips).
+        { var shift = Vector3.Zero; if (float.TryParse(_args.GetValueOrDefault("look-f"), NumberStyles.Float, CultureInfo.InvariantCulture, out var lf)) shift += f * lf; if (float.TryParse(_args.GetValueOrDefault("look-r"), NumberStyles.Float, CultureInfo.InvariantCulture, out var lr)) shift += r * lr; at += shift; look += shift; }
         if (float.TryParse(_args.GetValueOrDefault("dist"), NumberStyles.Float, CultureInfo.InvariantCulture, out var dist) && dist > 0.1f) at = look + (at - look) * dist;   // --dist 0.5: the camera at half the distance (close-ups of the arm and hand)
         if (float.TryParse(_args.GetValueOrDefault("look-height"), NumberStyles.Float, CultureInfo.InvariantCulture, out var lh)) { at.Y += lh - look.Y; look.Y = lh; }   // --look-height m: aim the close-up at this height (the hand: about 0.9)
         camera.Position = at;

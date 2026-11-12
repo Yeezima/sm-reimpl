@@ -597,7 +597,7 @@ public partial class NetworkView
         if (CmdFlag("tfw-autocannon-impact-capture")) { await TfwAutocannonImpactCapture(); return; }   // W1c: the autocannon's impacts on a wall and the ground (Arsenal/Autocannon/NetworkView.AutocannonImpactCapture.cs)
         if (CmdFlag("tfw-spear-capture")) { await TfwSpearCapture(); return; }   // the power spear's approved clips in a match (Arsenal/Spear/NetworkView.SpearCapture.cs)
         if (CmdFlag("tfw-spear-carry-film")) { await TfwSpearCarryFilm(); return; }   // spear pass 3: the carry standing, running, strafing, sprinting, for a recording
-        if (CmdFlag("tfw-spear-film")) { await TfwSpearFilm(); return; }   // the spear's light hews in a match, for a recording (Arsenal/Spear/NetworkView.SpearCapture.cs)
+        if (CmdFlag("tfw-spear-film")) { if (CmdArg("tfw-spear-film-kind") is { Length: > 0 }) await TfwSpearStrikeFilm(); else await TfwSpearFilm(); return; }   // the spear's light hews in a match, for a recording (Arsenal/Spear/NetworkView.SpearCapture.cs)
         if (CmdFlag("tfw-feel-capture")) { await TfwFeelCapture(); return; }   // combat feel (2026-11-09): a short fight for the before / after captures (Tfw/NetworkView.TfwMelee.cs)
         if (CmdFlag("tfw-weight-capture")) { await TfwWeightCapture(); return; }   // musou weight pass (2026-11-10): the baseline moves (Tfw/NetworkView.TfwWeightCapture.cs)
         if (CmdFlag("tfw-arc-capture")) { await TfwArcCapture(); return; }   // musou swing arc (2026-11-10): before / after stills (Tfw/NetworkView.TfwArcCapture.cs)

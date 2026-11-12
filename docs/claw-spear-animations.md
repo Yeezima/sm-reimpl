@@ -400,6 +400,43 @@ wire, protocol, config-hash, timing or jump-pack-flight change. Label: *ours*, n
 - **Checks (filtered):** see docs/milestones.md. New `SpearPass4Tests`; `SpearAuthoredHewTests`, `SpearPass2Tests`, `SpearPass3Tests` (the switches), `ClawSpearClipsTests`, `SpearClearanceTests`.
 - **Jank list and evidence:** `<media folder>\spear-pass4\` (README, `jank-list.txt`).
 
+## 3k. Pass 4b: the grip fitted to the shaft, the left arm's elbow, the left hand's take, the second iteration on the strokes (2026-11-12, claude/spear-pass-4b)
+
+Owner (2026-11-12), on pass 4: "Do a full pass and don't come back to me until the director of a AAA action combat game would be satisfied with the result. No jank, ensure you match the references perfectly." /
+"The right hand needs to grip the spear naturally as a person would." / "The swing animations need to be reworked as well." / "Keep the slight tilt to avoid covering the crosshair." This pass empties pass 4's jank
+list (`<media folder>\spear-pass4\jank-list.txt`). Musou Mode only, presentation only (client and SmContent): no simulation, wire, protocol, config-hash, timing or jump-pack-flight change. Label: *ours*, not approved.
+Rollback `--old-spear-pass4b` / `SM_OLD_SPEAR_PASS4B=1` (`ClawSpearClips.OldPass4b`): pass 4's hands (the fixed finger closure, the socket where the rig has it, the arm solve's wrist, the old elbow hint), carry lean and strokes.
+
+- **The grip, fitted** (`client/Extras/Musou/Weapons/CharacterViewer.GripFit.cs`; install-only parts, run at run time). (1) *The grip point*: the rig's grip sockets (`RIG_Prop_RHand/LHand`) are moved each frame to
+  `GripPoint` in the hand's own frame (0.135 m along the fingers, 0.026 out of the palm, 0.020 across it; the left mirrored): the rig's socket sat 4 cm short of the knuckles, so the shaft ran under the heel of the hand and
+  the fingers could only hook it; the shaft now passes the finger bases at a finger's thickness. The spear model, the stage's stand-in and `SpearHold.Place` all read the sockets, so they follow. (2) *The wrist*: in the carry
+  the right hand's world rotation is laid so the shaft crosses the palm diagonally (`GripDiagonal` 20 degrees from the hand's across axis toward the fingers, the blade toward the thumb; the shortest turn from the arm
+  solve's hand, so the roll is the stance's) and the arm is solved for that hand (`WeaponPoseFist(..., handWorld)`: the socket's offset from the wrist is the laid rotation's, the hand is set after the solve), so the
+  forearm and hand keep their lengths and the hand stays attached; it fades with the carry's own 0.14 s hand-over (the strokes keep their authored hands). (3) *Fingers fitted per finger* (`FitGripFingers`): for each of the two
+  finger groups the proximal bone turns (about its local Z, the curl axis) until its far joint is a finger's thickness (1.0 cm) off the shaft's surface (radius 2.1 cm), then the distal bone until the tip is, stopping short where
+  its length would enter the shaft: no finger through the shaft; the closure follows the shaft's actual axis in the frame. The thumb's two bones are searched together for the pose that puts its joint and tip on the surface
+  on the side of the shaft the fingers are not on. Printed with `SM_GRIP_PROBE=1` (`GRIPFIT`: angles, joint and tip distances from the axis; the carry idle: index/middle group 0 and 80 degrees, the ring/pinky group 34 and 72, every
+  tip 3.0 to 3.2 cm from the axis = on the surface plus the finger). **Physical limit, not fixed:** the rig's thumb root sits 12.9 cm from the shaft's axis and its two bones reach 12 cm with the tip block, so the thumb closes to
+  4.8 cm from the axis (1.7 cm off the surface) and cannot wrap the shaft as a person's does; it lies across the palm side. Moving the thumb's root bone would stretch the skin.
+- **The left hand's take** (`CharacterViewer.WeaponPose.cs`): while the clip's grip track brings the left hand onto the shaft (0 to 1) the left arm is solved so the hand lies on the shaft line (the projection of its socket onto
+  the line through the right grip point along the shaft), as far as `Smooth(grip / 0.5)`, the elbow where the clip has it (`WeaponPoseFist(..., keepElbow)`): hew 1's left hand, up to 6 cm short for 0.1 s in pass 4, is now within 1.0 cm
+  when the fingers close (`SM_GRIP_TRACE=1`: 3.4 cm at grip 0.64, 1.0 cm at 0.91; the release at the end of the hew is the grip track's 0.1 s open, the fingers opening with it).
+- **The left arm's elbow flipped (found by the pop probe)**: pass 3 and 4 gave the left arm an elbow hint (down, out) that lay along the arm's own line when the hand hangs at the hip (hint . arm line 0.96 to 0.99), so the bend
+  plane was undefined and the forearm flipped in single frames while running (100 to 500 rad/s in the stage's run, 35 to 77 in the match's recordings). The left arm now has its own hint (`PumpElbowHint`, out and back): the
+  stage's run, walk, sprint and strafes peak at 25 to 45 rad/s (the stride's own).
+- **Pop probe** (`SM_POP_PROBE=1`: a `POP` line per frame with the fastest bone's and the fastest arm bone's angular speed; `tools`: none, a two-line script in the lead's notes): over the stage's whole spear string and in the match's film,
+  the carry-to-stroke and stroke-to-carry hand-overs (carry to hews 1 and stun; hews 1 to 2 to 3; hew 3, the stun and the stab to the carry) show no spike over 2.5 times their neighbours; what remains is the strokes' own peak (the hit,
+  25 to 57 rad/s on the right forearm) and the stage's idle loop seam (a base-clip artefact of the stage's `t mod 1.5`). The first version of the wrist blended by the left hand's grip and spiked (29 rad/s on the right hand at hew 1's start); it now follows the carry's own weight.
+- **Carry lean** (`ClawSpearClips.Pass4bCarryLean`, 4 degrees forward (pitch -4) on the upper spine in the carry, pass 4s 0): the torso leans a little forward, and the shaft, which stays parallel to the spine, leans nearer the reference
+  photograph's (the photograph's shaft stands about 25 degrees off vertical; ours was about 17 standing and now about 21; running it follows the run's own lean). The 13 degree side tilt is untouched (`SpearHold.Pass3CarryRoll`,
+  the crosshair column test).
+- **The strokes, second iteration** (`tools/blender/spear_pass4b_author.py` over pass 4's pipeline, `Authored/spear_*_p4b.json`): the coil's apex another 0.01 s nearer the hit, a still higher-power acceleration (progress as time to
+  the 2.7 to 3.0), the hips carried 3 to 4 degrees further past the finish (the stab 7 cm), the hand-overs and steps pass 2's. Every gameplay timing is the strike's (`SpearPass4bTests`). **Honest limit:** this is a re-tune of the
+  same pipeline and palm geometry, not new keyed arcs; a rebuild of the arcs themselves (new blade paths per stroke) is a larger piece of authoring that this pass did not do.
+- **Test aids** (stage): `--hand R|L [--hand-dir f,r,u;f,r,u...] [--hand-d m] [--hand-at s] [--hand-tag name]` (the camera follows the grip socket; with several directions one still each: contact sheets of the grip),
+  `--look-f m --look-r m`. (match): `--tfw-spear-hide-others` (every character but the player's hidden: no ally crosses the camera), `--tfw-spear-film --tfw-spear-film-kind chain|snap|stab` (the light string, the F snap cut, F,F
+  the stab, for recordings, with a `SPEARFILMFRAMES` line to cut by).
+
 ## 4. Preview stage and restore
 
 ```powershell

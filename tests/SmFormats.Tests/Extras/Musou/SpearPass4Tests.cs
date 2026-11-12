@@ -27,7 +27,7 @@ public class SpearPass4Tests
     {
         bool oldP4 = ClawSpearClips.OldPass4, oldP3 = ClawSpearClips.OldPass3, oldP2 = ClawSpearClips.OldPass2;
         if (!oldP2 && !oldP3) Assert.Same(oldP4 ? ClawSpearClips.SpearRestPass3 : ClawSpearClips.SpearRestPass4, ClawSpearClips.SpearRest);
-        if (!oldP2) Assert.Same(oldP4 ? ClawSpearClips.SpearStabPass2 : ClawSpearClips.SpearStabPass4, ClawSpearClips.SpearStab);
+        if (!oldP2) Assert.Same(oldP4 ? ClawSpearClips.SpearStabPass2 : ClawSpearClips.OldPass4b ? ClawSpearClips.SpearStabPass4 : ClawSpearClips.SpearStabPass4b, ClawSpearClips.SpearStab);
         Assert.True(ClawSpearClips.Pass3 || oldP2 || oldP3);   // pass 4 keeps pass 3's solves (the flag stays on)
     }
 

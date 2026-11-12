@@ -114,6 +114,13 @@ public partial class NetworkView
         bool ok = await TfwPathTo(at, "the film's open spot", 90.0);
         TfwKey(Key.W, false);
         GD.Print($"SPEARFILM open spot {(ok ? "reached" : "not reached")}: at {_client.Predicted.Position}");
+        if (CmdArg("tfw-spear-hide-others") is not null)
+        {
+            // Spear pass 4b (owner, 2026-11-12: no allies crossing the camera): every other character is hidden from here on (the drawn marine alone), checked ten times a second.
+            var timer = new Godot.Timer { WaitTime = 0.1, Autostart = true };
+            timer.Timeout += () => { foreach (var n in GetTree().Root.FindChildren("*", "Node3D", true, false)) if (n is CharacterViewer cv && !ReferenceEquals(cv, _local) && cv.Visible) cv.Visible = false; };
+            AddChild(timer);
+        }
         await TfwWait(0.5);
     }
 
@@ -177,6 +184,65 @@ public partial class NetworkView
         }
         _spearCam = 0;
         await TfwWait(0.5);
+        GetTree().Quit(0);
+    }
+
+    /// <summary>
+    /// Test aid <c>--tfw-spear-film --tfw-spear-film-kind chain|snap|stab [--tfw-spear-views player,side,front] [--tfw-spear-spot x,y] [--tfw-spear-hide-others]</c> (spear pass 4b, 2026-11-12): the real keys in a real
+    /// match for a recording: <c>chain</c> the light string (three melee taps through the combo openings), <c>snap</c> the F strike, <c>stab</c> F then F again in the slam window (the massive stab). One take
+    /// per view; a <c>SPEARFILMFRAMES view 1 ...</c> line (engine frame, wall ms, clip, clip time) to cut the recording by.
+    /// </summary>
+    async Task TfwSpearStrikeFilm()
+    {
+        var client = _client!;
+        if (!await TfwTestDeploy(TfwLane.B)) return;
+        await TfwWait(2.0);
+        TfwCheck("the power spear is the melee weapon", _config is not null && SpearRules.Wields(_config, client.Predicted), MeleeWargear(client.Predicted) ?? "none");
+        await TfwSpearOpenSpot();
+        TfwKey(Key.W, true);
+        await TfwWait(3.0);
+        TfwKey(Key.W, false);
+        await TfwWait(1.0);
+        float facing = _yaw;
+        string kind = CmdArg("tfw-spear-film-kind") ?? "chain", views = CmdArg("tfw-spear-views") is { Length: > 0 } v ? v : "player,side";
+        foreach (var (cam, view) in new[] { (0, "player"), (1, "front"), (2, "side") })
+        {
+            if (!views.Contains(view, StringComparison.OrdinalIgnoreCase)) continue;
+            _yaw = facing;
+            _spearCam = cam;
+            await TfwWait(1.0);
+            var rows = new System.Text.StringBuilder();
+            ulong t0 = Time.GetTicksMsec();
+            async Task Tick()
+            {
+                await TfwFrames();
+                var pose = _local?.WeaponPose;
+                rows.Append($"{Engine.GetFramesDrawn()},{Time.GetTicksMsec() - t0},{pose?.Clip?.Name ?? "none"},{pose?.Time ?? 0f:F4};");
+            }
+            async Task Hold(double seconds) { ulong until = Time.GetTicksMsec() + (ulong)(seconds * 1000); while (Time.GetTicksMsec() < until) await Tick(); }
+            async Task Tap(GameAction a) { TfwAction(a, true); await Hold(0.12); TfwAction(a, false); await Tick(); }
+            await Hold(0.8);
+            if (kind == "chain")
+            {
+                await Tap(GameAction.Melee); await Hold(0.85);
+                await Tap(GameAction.Melee); await Hold(0.85);
+                await Tap(GameAction.Melee); await Hold(3.2);
+            }
+            else if (kind == "snap") { await Tap(GameAction.StunStrike); await Hold(4.0); }
+            else
+            {
+                await Tap(GameAction.StunStrike);
+                ulong give = Time.GetTicksMsec() + 3000;
+                while (Time.GetTicksMsec() < give && !(client.Predicted.MeleeStep == 1 && client.Predicted.MeleeHeavy && client.Predicted.MeleeTime >= 0.70f)) await Tick();
+                await Tap(GameAction.StunStrike); await Hold(5.5);
+            }
+            GD.Print($"SPEARFILM kind {kind} view {view} done");
+            GD.Print($"SPEARFILMFRAMES {view} 1 {rows}");
+            await TfwWait(1.0);
+            TfwKey(Key.S, true); await TfwWait(2.0); TfwKey(Key.S, false);   // back from the lunge, so the next view starts where this did
+            await TfwWait(1.0);
+        }
+        _spearCam = 0;
         GetTree().Quit(0);
     }
 

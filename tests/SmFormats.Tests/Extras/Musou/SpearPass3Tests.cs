@@ -36,7 +36,7 @@ public class SpearPass3Tests(ITestOutputHelper output)
         Assert.Equal(expected, ClawSpearClips.SpearRest);
         Assert.Equal(!oldP2 && !oldP3, ClawSpearClips.Pass3);
         // the strokes are pass 2's (or pass 4's) in both: the pass 3 rollback changes the carry alone
-        Assert.Equal(oldP2 ? ClawSpearClips.SpearHew2Original : oldP4 ? ClawSpearClips.SpearHew2Pass2 : ClawSpearClips.SpearHew2Pass4, ClawSpearClips.SpearHew2);
+        Assert.Equal(oldP2 ? ClawSpearClips.SpearHew2Original : oldP4 ? ClawSpearClips.SpearHew2Pass2 : ClawSpearClips.OldPass4b ? ClawSpearClips.SpearHew2Pass4 : ClawSpearClips.SpearHew2Pass4b, ClawSpearClips.SpearHew2);
         // pass 3's rest is pass 2's rest plus the solves: no new keys, the same hand-over channels
         Assert.Equal(ClawSpearClips.SpearRestPass2.Channels.Length, ClawSpearClips.SpearRestPass3.Channels.Length);
         Assert.Null(ClawSpearClips.SpearRestPass2.LeftFistTarget);
@@ -144,7 +144,7 @@ public class SpearPass3Tests(ITestOutputHelper output)
                 sideLo = MathF.Min(sideLo, side); sideHi = MathF.Max(sideHi, side); upLo = MathF.Min(upLo, up); upHi = MathF.Max(upHi, up);
             }
             output.WriteLine(string.Format(I, "{0,-34} the hand {1:0.00}..{2:0.00} m right of the pelvis, {3:0.00}..{4:0.00} m above it", name, sideLo, sideHi, upLo, upHi));
-            if (sideLo < 0.40f || sideHi > 0.72f) failures.Add($"{name}: the hand is {sideLo:0.00}..{sideHi:0.00} m right of the pelvis (at the side of the hip, outside the thigh: 0.40 to 0.72)");
+            if (sideLo < 0.38f || sideHi > 0.72f) failures.Add($"{name}: the hand is {sideLo:0.00}..{sideHi:0.00} m right of the pelvis (at the side of the hip, outside the thigh armour (0.34): 0.38 to 0.72; pass 4b's forward torso lean pulls the hand in 1 cm, 0.40 before)");
             if (upLo < -0.25f || upHi > 0.45f) failures.Add($"{name}: the hand is {upLo:0.00}..{upHi:0.00} m above the pelvis (at the hip)");
         }
         output.WriteLine(string.Format(I, "the shaft's worst fore-and-aft angle to the spine {0:0.000} deg (seen from the side); the spine leans {1:0} to {2:0} deg forward over the stances; the carried butt lowest {3:0.000} m ({4})", worstAngle, leanLo, leanHi, buttLow, buttAt));
