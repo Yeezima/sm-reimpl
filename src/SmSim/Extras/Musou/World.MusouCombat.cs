@@ -325,8 +325,12 @@ public sealed partial class World
     void MusouMeleeHeal(int attacker, int enemy)
     {
         if (!_players.TryGetValue(attacker, out var p) || !p.Alive) return;
-        if (!_musouHealTick.TryGetValue(attacker, out uint last) || last != Tick) { _musouHealTick[attacker] = Tick; _musouHealed.RemoveWhere(h => h.Attacker == attacker); }
+        if (!_musouHealTick.TryGetValue(attacker, out uint last) || last != Tick) { _musouHealTick[attacker] = Tick; _musouHealed.RemoveWhere(h => h.Attacker == attacker); _musouHealCount[attacker] = 0; }
         if (!_musouHealed.Add((attacker, enemy))) return;
+        // musou/melee-heal-cap (owner 2026-11-12): one swing = one attacker's strike step, resolved in one tick (a stomp and its cleave, or a spear impale); only the first MeleeHealsPerSwing enemies struck heal.
+        int healed = _musouHealCount.GetValueOrDefault(attacker);
+        if (!Config.MusouUncappedMeleeHeal && healed >= MusouCombatRules.MeleeHealsPerSwing) return;
+        _musouHealCount[attacker] = healed + 1;
         // musou/combat-rules (owner, 2026-11-09): every strike also gives back 5 % of the armour; while a combat stim works a strike gives 25 % health and 20 % armour INSTEAD of the 5 % and 5 %.
         bool stim = Stims.Active(Config, p) is not null;
         MusouRestore(attacker, stim ? MusouCombatRules.StimStrikeHealthShare : MusouCombatRules.MeleeHealShare, stim ? MusouCombatRules.StimStrikeArmourShare : MusouCombatRules.MeleeArmourShare);
@@ -348,6 +352,7 @@ public sealed partial class World
     void MusouSlashLandHeal(int player) => MusouRestore(player, MusouCombatRules.SlashLandHealthShare, MusouCombatRules.SlashLandArmourShare);
 
     readonly Dictionary<int, uint> _musouHealTick = new();
+    readonly Dictionary<int, int> _musouHealCount = new();   // heals given this tick (_musouHealTick) to each attacker: the cap per swing
     readonly HashSet<(int Attacker, int Enemy)> _musouHealed = new();
 
     /// <summary>

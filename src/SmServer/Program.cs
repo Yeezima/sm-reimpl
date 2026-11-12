@@ -104,6 +104,7 @@ if (cli.OldChargeCancelDelay) config = config with { ChargeInstantCancel = false
 // charge-melee-chain (protocol 70): --old-charge-melee-chain and --musou-melee-cooldown (restore switches; config hash).
 if (cli.OldChargeMeleeChain) config = config with { ChargeMeleeChain = false };
 if (cli.MusouMeleeCooldown) config = config with { MusouMeleeCooldown = true };
+if (cli.MusouUncappedMeleeHeal) config = config with { MusouUncappedMeleeHeal = true };   // musou/melee-heal-cap (owner 2026-11-12): restore switch, config hash
 Console.WriteLine(config.ChargeAfterMelee ? "charge after melee: a charge starts once the attack under way has hit (owner 2026-11-12)" : "charge after melee: OLD (--old-charge-after-melee, restore switch; clients need it too): the charge waits for the attack's end");
 Console.WriteLine(config.ChargeInstantCancel ? "charge cancel: S from the charge's second tick (owner 2026-11-12)" : "charge cancel: OLD delay (--old-charge-cancel-delay, restore switch; clients need it too): S from the rush's stick branch");
 // stims-classic (protocol 68): --old-stim-use (restore switch) brings back the 9-tick stim press and the hit cancel (config hash).

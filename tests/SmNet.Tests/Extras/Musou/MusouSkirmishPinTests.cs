@@ -43,7 +43,8 @@ public class MusouSkirmishPinTests(ITestOutputHelper output)
     // Recaptured 2026-11-09 for musou/combat-rules (MusouSim.Version 28): every melee strike gives back 5 % armour (with that one share at 0 the old golden still matched).
     // Recaptured 2026-11-09 for client-built tracers (MusouSim.Version 28): a gun Ork's burst start is announced by a Telegraph event; the replay's stats are unchanged.
     // Recaptured 2026-11-09 at the Musou integration (both changes above together).
-    const string Golden = "11BAC586C8BD290D5350CD9E48A55DE3C7EBD0AEF61E098DD5FD38438C830CB0";
+    // Recaptured 2026-11-12 for the melee heal cap, 3 per swing (MusouSim.Version 52; owner 2026-11-12): the replay's swings strike more than three enemies, so the players' health differs (stats unchanged).
+    const string Golden = "004AFBAA723EC657EB323C86DBD9CC05B9A40B9475FF221F5641EB1D59390FE8";
 
     [Fact]
     public void The_skirmish_replay_is_unchanged()

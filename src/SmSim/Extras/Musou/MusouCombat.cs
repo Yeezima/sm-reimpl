@@ -12,6 +12,8 @@ public sealed record MusouCombatRules
     public float CleaveExtraRange { get; init; } = 0.5f;
     /// <summary>The share of a player's whole health a melee attack that strikes anybody gives back (the owner, 2026-11-02).</summary>
     public const float MeleeHealShare = 0.05f;
+    /// <summary>musou/melee-heal-cap (owner, 2026-11-12: "cap it at 3 instances of healing per 1 melee swing"): one melee swing (one strike step: its stomp and cleave together; a spear impale) gives at most this many heals, whatever the enemies struck; the first this many struck heal, the rest give none. Restore switch <c>--musou-uncapped-melee-heal</c>.</summary>
+    public const int MeleeHealsPerSwing = 3;
     // ---- musou/combat-rules (owner, 2026-11-09; all kind: ours, Musou Mode only; Classic PvP never reads them)
     /// <summary>The share of a player's whole armour a melee strike gives back, per enemy struck (owner: "make all melee attacks restore 5% armor").</summary>
     public const float MeleeArmourShare = 0.05f;

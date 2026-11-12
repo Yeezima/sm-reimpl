@@ -65,6 +65,8 @@ public sealed record ServerArguments
     public bool OldChargeMeleeChain { get; init; }
     /// <summary>musou/melee-spam (restore switch): Musou Mode keeps the melee waits (<see cref="SimConfig.MusouMeleeCooldown"/>; config hash: clients need it too).</summary>
     public bool MusouMeleeCooldown { get; init; }
+    /// <summary>musou/melee-heal-cap (restore switch): no cap of 3 heals per melee swing in Musou Mode (<see cref="SimConfig.MusouUncappedMeleeHeal"/>; config hash: clients need it too).</summary>
+    public bool MusouUncappedMeleeHeal { get; init; }
     /// <summary>stims-classic (restore switch): the earlier 9-tick stim press and the hit cancel before the release (<see cref="SimConfig.StimReliable"/>; config hash: clients need it too).</summary>
     public bool OldStimUse { get; init; }
     /// <summary>musou/no-aerial-tackle (restore switch): Musou Mode keeps the Assault's and Raptor's aerial tackle (SimConfig.AerialTackleRestored, added content; config hash: clients need it too).</summary>
@@ -112,6 +114,7 @@ public static class ServerCommandLine
           --old-charge-cancel-delay     switch: restore: S cancels the charge only from the rush's stick branch, about 0.47 s in (clients need --old-charge-cancel-delay too)
           --old-charge-melee-chain     switch: restore: no instant melee cancel of a charge and no spacing reset by a melee attack (clients need --old-charge-melee-chain too)
           --musou-melee-cooldown       switch: restore: Musou Mode melee keeps the combo waits instead of spam (clients need --musou-melee-cooldown too)
+          --musou-uncapped-melee-heal  switch: restore: Musou Mode melee heals for every enemy struck, no cap of 3 per swing (clients need --musou-uncapped-melee-heal too)
           --old-ally-bump               switch: restore: a charge that meets an ally plays the collision stop, as in protocol 65 (clients need --old-ally-bump too)
           --log-overlaps                switch: test aid: every 10 s, the closest the living players' capsules came and how many ticks they overlapped
           --unlocks all                 unlock mode (only 'all': no progression yet)
@@ -127,7 +130,7 @@ public static class ServerCommandLine
           --help, -h                    switch: this list
         """;
 
-    static readonly HashSet<string> Switches = ["--musou-aerial-tackle", "--no-custom-emblems", "--limit-loopback", "--honor-side-requests", "--ork-data", "--no-player-collision", "--no-charge-lock", "--old-body-contact", "--old-charge-cancel", "--old-ally-bump", "--old-stim-use", "--log-overlaps", "--help", "--old-charge-after-melee", "--old-charge-cancel-delay", "--old-charge-melee-chain", "--musou-melee-cooldown"];
+    static readonly HashSet<string> Switches = ["--musou-aerial-tackle", "--no-custom-emblems", "--limit-loopback", "--honor-side-requests", "--ork-data", "--no-player-collision", "--no-charge-lock", "--old-body-contact", "--old-charge-cancel", "--old-ally-bump", "--old-stim-use", "--log-overlaps", "--help", "--old-charge-after-melee", "--old-charge-cancel-delay", "--old-charge-melee-chain", "--musou-melee-cooldown", "--musou-uncapped-melee-heal"];
     static readonly HashSet<string> Valued =
         ["--port", "--bind", "--game-dir", "--map", "--mode", "--score-limit", "--time-limit", "--friendly-fire", "--unlocks", "--countdown", "--pickup-test", "--bot-damage-scale", "--snapshot-rate",
          "--name-seed", "--max-per-ip", "--join-interval", "--idle-kick", "--ban-file", "--content", "--max-spectators"];
@@ -158,6 +161,7 @@ public static class ServerCommandLine
                     "--old-charge-cancel-delay" => a with { OldChargeCancelDelay = true },
                     "--old-charge-melee-chain" => a with { OldChargeMeleeChain = true },
                     "--musou-melee-cooldown" => a with { MusouMeleeCooldown = true },
+                    "--musou-uncapped-melee-heal" => a with { MusouUncappedMeleeHeal = true },
                     "--old-stim-use" => a with { OldStimUse = true },
                     "--musou-aerial-tackle" => a with { AerialTackleRestored = true },
                     "--log-overlaps" => a with { LogOverlaps = true },
