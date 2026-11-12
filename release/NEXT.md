@@ -25,3 +25,5 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Classic PvP sound: gunfire, explosions, jump-pack take-offs and ground pounds stay faintly audible across the whole map, and other players' footsteps and moves are no longer drowned out or cut off by gunfire.
 - Classic PvP sound: direction is clearer. Sounds pan harder to left and right and sound duller from behind. A launch option gives the softer, natural positioning back, and another restores the whole old mix. Musou Mode is unchanged.
 - The autocannon's explosion no longer kicks up dust (its flash stays), its hit kicks up half as much, and each explosion throws chunks of rubble out of the ground, like a smaller ground pound. Fire it at a crowd and look at the floor around the blast.
+
+- Orks now flinch when you hit them: they recoil away from the shot or blow (torso well back, hips down, knees bending, feet staying put) while they keep running or swinging, harder for heavy weapons, hammers, charges and close explosions, and only a little for Nobs and the big Orks. Far crowds jolt and lean the same way.

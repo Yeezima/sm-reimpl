@@ -139,6 +139,7 @@ public partial class NetworkView
                     if (MusouWeirdboyShieldHit(e, shown)) break;   // the Weirdboy's shield took it: its pulse, no blood (NetworkView.MusouWeirdboy.cs)
                     MusouHitFx(e, shown, camera, own: e.Player == ownId, me);
                     MusouRecoil(e, shown, me);   // combat feel: the rank and file pushed back from the blow (NetworkView.MusouContact.cs)
+                    MusouOrkFlinchHit(e, shown, me);   // Ork hit reactions (owner 2026-11-13): the Ork flinches away from the hit (NetworkView.MusouOrkFlinch.cs)
                     break;
                 case MusouEventKind.Death:
                     var (_, type) = MusouDeathOf(e);

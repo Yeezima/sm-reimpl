@@ -44,6 +44,7 @@ public abstract partial class CrowdView : Node3D
         public float Yaw, Time, Sink, Distance;
         public int Clip;
         public Quaternion Turn;    // a thrown body's tumble on top of its yaw (all zero: none)
+        public Vector3 Kick;       // an Ork's hit reaction (MusouOrkFlinchRules): horizontal, away from the hit, its length the size in reference sizes (zero: none); skeletal members pose it, baked ones lean
     }
     /// <summary>This frame's list: the crowd fills it before <see cref="Draw"/>.</summary>
     protected readonly List<Item> Items = new();
@@ -58,6 +59,8 @@ public abstract partial class CrowdView : Node3D
         public int Key = int.MinValue;
         public int Clip = -1;
         public bool Used;
+        public MusouOrkFlinchPose.Bones? FlinchBones;
+        public bool FlinchResolved, Flinched;
     }
     readonly List<Skinned> _skinned = new();
     readonly Dictionary<int, Skinned> _skinnedByKey = new();
@@ -78,6 +81,8 @@ public abstract partial class CrowdView : Node3D
     readonly Dictionary<MusouLooks.Look, int> _farPerLook = new(ReferenceEqualityComparer.Instance), _farBodiesPerLook = new(ReferenceEqualityComparer.Instance);
     /// <summary>The side of a far batch's cell (m, ours) and the margin round it a member may reach (a body's size, a big look's scale).</summary>
     public const float CellMetres = 32f, CellMargin = 4f;
+    /// <summary>The far (baked) tier's share of the flinch's lean and shift (ours; <see cref="MusouOrkFlinchRules.FarLean"/>).</summary>
+    public const float FarStrength = 1f;
     /// <summary>
     /// crowd-smooth (2026-11-08, ours): a member drawn skinned stays skinned until this much past <see cref="CrowdLimits.NearMetres"/>, so one walking along the line does not swap between the
     /// skinned pose and the baked one frame by frame. <see cref="OldTierSwitch"/> (client <c>--musou-old-crowd-motion</c>): no hold.
@@ -327,12 +332,20 @@ public abstract partial class CrowdView : Node3D
         }
         s.Used = true;
         s.Root.Visible = true;
-        s.Root.Transform = new Transform3D(BasisOf(it).Scaled(Vector3.One * look.Scale), it.Position - new Vector3(0, 0, it.Sink));
+        bool kicked = it.Kick.LengthSquared() > 1e-8f;
+        if (kicked && !s.FlinchResolved) { s.FlinchResolved = true; s.FlinchBones = MusouOrkFlinchPose.Resolve(s.Skeleton); }
+        bool bones = kicked && s.FlinchBones is not null;
+        var rootBasis = BasisOf(it);
+        var rootAt = it.Position - new Vector3(0, 0, it.Sink);
+        if (kicked && !bones) { var (lean, shift) = MusouOrkFlinchPose.WholeBody(it.Kick); rootBasis = lean * rootBasis; rootAt += shift; }   // no bones to pose: the baked tier's lean
+        s.Root.Transform = new Transform3D(rootBasis.Scaled(Vector3.One * look.Scale), rootAt);
         // Beyond the half-rate distance every second frame, half the members on each (by the key's parity; the frames between keep the last pose); a changed clip poses at once.
-        bool due = it.Clip != s.Clip || it.Distance <= Limits.HalfRateMetres || ((it.Key & 1) == 0) == _odd;
+        bool due = it.Clip != s.Clip || it.Distance <= Limits.HalfRateMetres || ((it.Key & 1) == 0) == _odd || bones || s.Flinched;   // a flinching Ork is posed every frame, and once more when it ends
         if (!due) return true;
         s.Clip = it.Clip;
         PoseSkinned(s, it);
+        if (bones) MusouOrkFlinchPose.Apply(s.Skeleton, s.FlinchBones!, new Basis(new Vector3(0, 0, 1), it.Yaw).Inverse() * it.Kick, look.Scale);
+        s.Flinched = bones;
         return true;
     }
 
@@ -426,8 +439,10 @@ public abstract partial class CrowdView : Node3D
         counts[look] = perLook + 1;
         var vat = look.Vat!;
         var (r0, r1, blend) = MusouVat.FramesAt(vat.Clips[it.Clip], look.SampleTime(it.Clip, it.Time));
-        var basis = BasisOf(it).Scaled(Vector3.One * look.Scale);
+        var basisYaw = BasisOf(it);
         var o = it.Position;
+        if (it.Kick.LengthSquared() > 1e-8f) { var (lean, shift) = MusouOrkFlinchPose.WholeBody(it.Kick, FarStrength); basisYaw = lean * basisYaw; o += shift; }   // the baked tier's jolt and lean about the feet
+        var basis = basisYaw.Scaled(Vector3.One * look.Scale);
         int at = f.Count * 16;
         var buf = f.Buffer;
         buf[at] = basis.X.X; buf[at + 1] = basis.Y.X; buf[at + 2] = basis.Z.X; buf[at + 3] = o.X;
