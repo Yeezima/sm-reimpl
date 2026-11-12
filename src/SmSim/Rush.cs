@@ -301,8 +301,12 @@ public static class Rush
             bool dashAfter = s.Rush is RushPhase.DashHit or RushPhase.DashCollision or RushPhase.DashStop;
             float evadeAt = scaled ? c.LockTime(move.EvadeAt) : move.EvadeAt, moveAt = scaled ? c.LockTime(move.MoveAt) : move.MoveAt;
             float meleeAt = dashAfter ? c.LockTime(move.MeleeAt) : move.MeleeAt;
-            bool over = At(move.End) || (jumpPress && At(evadeAt)) || ((meleePress || heavyPress) && At(meleeAt)) || (otherInput && At(moveAt));
+            // charge-responsive (protocol 69): S held back (firmly: ChargeCancel.InstantBackStick) ends the bull rush from its second tick on, not from the branch.
+            bool backNow = s.Rush == RushPhase.Rush && c.ChargeBackCancel && c.ChargeInstantCancel && ChargeCancel.BackInstant(input.Sanitized());
+            bool over = At(move.End) || (jumpPress && At(evadeAt)) || ((meleePress || heavyPress) && At(meleeAt)) || (otherInput && At(moveAt)) || backNow;
             if (!over) return new(true, false, false, s with { RushTicks = Math.Min(s.RushTicks + 1, MaxTicks) });
+            if (backNow && !At(moveAt) && !At(move.End) && !(jumpPress && At(evadeAt)) && !((meleePress || heavyPress) && At(meleeAt)))
+                return new(false, false, false, Landed(s, c));   // an early cancel: the clip's opening burst (28 to 41 m/s) is not carried on, the speed is capped as after a landing (ours)
             // The dash attack's lunge ends into its run-out ("Dash to Idle" on BRANCH_toIdle), which plays from this tick.
             if (s.Rush == RushPhase.DashAttack && At(move.End) && Loadouts.JumpPack(c, s)?.DashAttack is not null)
                 return new(true, false, false, s with { Rush = RushPhase.DashStop, RushTicks = 1 });

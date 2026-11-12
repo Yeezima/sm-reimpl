@@ -509,7 +509,11 @@ public static partial class Protocol
     //     ally bump, Musou Mode included); the player collision still keeps the bodies apart. Restore switch --old-ally-bump (the protocol 65 collision stop on an ally) unchanged.
     // 68 (stims-classic; the owner 2026-11-12: "Classic too"): no layout change. A press of the use key with a stim equipped is kept 15 ticks (0.5 s) instead of 9 and a hit before the stim's release starts
     //     no reaction, in every mode (Musou Mode had it since its own pass). Restore switch (config hash): --old-stim-use.
-    public const ushort Version = 68;
+    // 69 (charge-responsive; the owner 2026-11-12): no layout change. A charge (Shift + W + F) starts in the middle of a melee attack or combo once its hit has landed, and S (the stick held back) cancels the
+    //     bull rush from its second tick, not from its stick branch, in every mode. Restore switches (config hash): --old-charge-after-melee, --old-charge-cancel-delay.
+    // 70 (charge-melee-chain; the owner 2026-11-12): no layout change. A light melee press cancels a bull rush at once on any tick (any class, no wait after the swing) and any melee attack lifts the 1 s spacing between
+    //     charges, so charge > melee > charge chains with no delay, in every mode; in Musou Mode light melee attacks have no cooldown or delay. Restore switches (config hash): --old-charge-melee-chain, --musou-melee-cooldown.
+    public const ushort Version = 70;
     /// <summary>The kill-feed cause code of a weapon kill on the head (protocol 64; <see cref="KillView.Headshot"/>).</summary>
     public const int HeadshotCauseCode = 6;
     /// <summary>Most spectators a server admits and a Scoreboard lists (protocol 46), so the Scoreboard stays within one packet.</summary>

@@ -242,6 +242,23 @@ public sealed partial record SimConfig
     partial void ExtrasNoBulletSpread(ref bool off);
 
     /// <summary>
+    /// musou/melee-spam (owner, 2026-11-12: "In Musou mode only, a player should be able to spam melee attacks with no cooldown or delay"): light melee attacks have no cooldown, wait or combo window (a press
+    /// before the swing's hit queues the next swing for the hit's tick, a press after it swings at once). False in Classic PvP. Set by added content through <see cref="ExtrasMeleeSpam"/>; Musou's block covers it.
+    /// </summary>
+    public bool MeleeSpam
+    {
+        get
+        {
+            bool on = false;
+            ExtrasMeleeSpam(ref on);   // EXTRAS-HOOK
+            return on;
+        }
+    }
+
+    /// <summary>Hook for added content (docs/added-content.md): sets <paramref name="on"/> when an extra lets light melee attacks be spammed (<see cref="MeleeSpam"/>).</summary>
+    partial void ExtrasMeleeSpam(ref bool on);
+
+    /// <summary>
     /// night batch 2026-11-06 (owner: "in classic pvp mode return the maximum jump pack fuel capacity to exactly the same as the original game"): whether the jump pack
     /// holds the owner's capacity (<c>JumpPackTuning.OwnerCapacity</c>, 300) instead of the data's <c>max_power</c> (100, <see cref="JumpPackSpec.DataMaxPower"/>). False in Classic PvP
     /// (and every non-Musou match); set by added content through <see cref="ExtrasJumpPackOwnerCapacity"/> (Musou Mode: true, as before). Not hashed itself (Musou's block covers it).

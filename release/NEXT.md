@@ -25,3 +25,8 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - The lightning claw is now part of the Assault Marine's gauntlet instead of a weapon held in the fist: a dark armoured housing with brass sockets, pistons and a vented power dome on the back of the hand, and four long, slightly curved steel blades running out past the fingers, fixed to the hand in every move.
 - The lightning claw now crackles with power: its blades glow a strong blue-white with a halo, thin jagged lightning arcs crawl along them and jump between them (more on every strike), and its armoured housing is weathered like the rest of your armour and takes your gauntlet's colours.
 - Musou Mode: the Assault and Raptor no longer do the flying tackle (it is switched off for now); a melee press at any moment of a hop starts a normal light attack at once, with no wait before the next one. Musou Mode servers and players must update together.
+- This build does not play with earlier ones (new network version): everyone must update.
+- Both modes: you can charge (Shift + W + F) right after a melee attack, a light combo or a heavy strike once the swing has connected, and swing again straight after a charge ends or is cancelled.
+- Both modes: tapping S (or pulling the stick back) cancels a charge at once, from the first moment of the charge, with no half-second wait.
+- Both modes: a light melee press (right click) during a charge, even on its very last moment, cancels the charge and swings at once. A melee attack between two charges lifts the one second wait, so charge, melee, charge, melee chains with no delay (a charge cancelled with S and repeated within a second still waits).
+- Musou Mode: light melee attacks can be spammed with no cooldown or delay.
