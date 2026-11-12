@@ -71,6 +71,8 @@ public sealed record ServerArguments
     public bool OldStimUse { get; init; }
     /// <summary>musou/no-aerial-tackle (restore switch): Musou Mode keeps the Assault's and Raptor's aerial tackle (SimConfig.AerialTackleRestored, added content; config hash: clients need it too).</summary>
     public bool AerialTackleRestored { get; init; }
+    /// <summary>musou/ork-swing-commit (restore switch): a melee Ork's wind-up faces its target every tick up to the blow, as before 2026-11-12 (SimConfig.MusouOrkSwingTracking, added content; config hash: clients need it too).</summary>
+    public bool MusouOrkSwingTracking { get; init; }
     /// <summary>--log-overlaps (sim/player-collision test aid): every 10 s, how close the living players' capsules came and how often they overlapped.</summary>
     public bool LogOverlaps { get; init; }
     /// <summary>--max-spectators (protocol 46; ours, observer tooling): spectators admitted besides the players, 0 none (default <see cref="Protocol.MaxSpectators"/>).</summary>
@@ -130,7 +132,7 @@ public static class ServerCommandLine
           --help, -h                    switch: this list
         """;
 
-    static readonly HashSet<string> Switches = ["--musou-aerial-tackle", "--no-custom-emblems", "--limit-loopback", "--honor-side-requests", "--ork-data", "--no-player-collision", "--no-charge-lock", "--old-body-contact", "--old-charge-cancel", "--old-ally-bump", "--old-stim-use", "--log-overlaps", "--help", "--old-charge-after-melee", "--old-charge-cancel-delay", "--old-charge-melee-chain", "--musou-melee-cooldown", "--musou-uncapped-melee-heal"];
+    static readonly HashSet<string> Switches = ["--musou-aerial-tackle", "--no-custom-emblems", "--limit-loopback", "--honor-side-requests", "--ork-data", "--no-player-collision", "--no-charge-lock", "--old-body-contact", "--old-charge-cancel", "--old-ally-bump", "--old-stim-use", "--log-overlaps", "--help", "--old-charge-after-melee", "--old-charge-cancel-delay", "--old-charge-melee-chain", "--musou-melee-cooldown", "--musou-uncapped-melee-heal", "--musou-ork-swing-tracking"];
     static readonly HashSet<string> Valued =
         ["--port", "--bind", "--game-dir", "--map", "--mode", "--score-limit", "--time-limit", "--friendly-fire", "--unlocks", "--countdown", "--pickup-test", "--bot-damage-scale", "--snapshot-rate",
          "--name-seed", "--max-per-ip", "--join-interval", "--idle-kick", "--ban-file", "--content", "--max-spectators"];
@@ -164,6 +166,7 @@ public static class ServerCommandLine
                     "--musou-uncapped-melee-heal" => a with { MusouUncappedMeleeHeal = true },
                     "--old-stim-use" => a with { OldStimUse = true },
                     "--musou-aerial-tackle" => a with { AerialTackleRestored = true },
+                    "--musou-ork-swing-tracking" => a with { MusouOrkSwingTracking = true },
                     "--log-overlaps" => a with { LogOverlaps = true },
                     _ => a with { Help = true },
                 };

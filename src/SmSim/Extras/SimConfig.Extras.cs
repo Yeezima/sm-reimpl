@@ -17,6 +17,7 @@ public sealed partial record SimConfig
         if (Extras.HasFlag(ContentExtras.Musou)) { w.Write("musou"); w.Write(MusouSim.Version); w.Write(SmSim.Extras.Musou.Campaign.TfwRules.Version); if (AerialTackleRestored) w.Write("aerial-tackle"); }
         if (Extras.HasFlag(ContentExtras.Musou) && MusouUncappedMeleeHeal) w.Write("uncapped-melee-heal");   // musou/melee-heal-cap: the restore switch --musou-uncapped-melee-heal, only when on
         if (Extras.HasFlag(ContentExtras.Musou) && MusouMeleeCooldown) w.Write("melee-cooldown");   // musou/melee-spam: the restore switch --musou-melee-cooldown, only when on
+        if (Extras.HasFlag(ContentExtras.Musou) && MusouOrkSwingTracking) w.Write("ork-swing-tracking");   // musou/ork-swing-commit: the restore switch --musou-ork-swing-tracking, only when on
     }
 
     /// <summary>musou/melee-heal-cap restore switch (<c>--musou-uncapped-melee-heal</c> on the server and every client; config hash, only when on): true gives back the heal for every enemy a melee swing strikes (no cap of <see cref="MusouCombatRules.MeleeHealsPerSwing"/>).</summary>

@@ -29,6 +29,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 ## Summary
 
 Scanned 3123 spec table rows: **2293 tagged**, 574 not tagged (read from data with high confidence), 256 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 694 rows of the changes document.
+Scanned 3128 spec table rows: **2297 tagged**, 575 not tagged (read from data with high confidence), 256 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 694 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -54,17 +55,20 @@ Scanned 3123 spec table rows: **2293 tagged**, 574 not tagged (read from data wi
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 236 | 225 | 126 | 64 | 0 |
 | **All areas** | **2293** | 2022 | 1706 | 723 | 38 |
+| Ork faction | 241 | 230 | 126 | 68 | 0 |
+| **All areas** | **2297** | 2026 | 1706 | 727 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
 | kind: ours | 1309 |
+| kind: ours | 1313 |
 | confidence: low | 814 |
 | confidence: medium | 763 |
 | notes: ours | 415 |
 | kind: interpretation | 381 |
-| notes: estimate | 190 |
+| notes: estimate | 194 |
 | kind: estimate | 156 |
 | confidence: none (low) | 129 |
 | kind: provisional | 103 |
@@ -3938,6 +3942,16 @@ The Orks are an addition the owner keeps (the original multiplayer had Space Mar
 |---|---|---|---|---|---|---|
 | `R-AA81BFBA` | Musou: Boss Ork spawns | at most **12** alive (8 before), the waits halved again (first **15** to **30** s after the landing, next **22.5** to **45** s; were 30 to 60 and 45 to 90): twice as often, one and a half times as many at once; each still gated by the pool's room (count, factor) | kind: ours; notes: estimate | owner 2026-11-12 "make more bosses spawn" (the factors are ours) | Musou: Boss Ork spawns: compare with SM1 by feel or video. Ours: at most 12 alive (8 before), the waits halved again (first 15 to 30 s… | ☐ |
 
+*Spec section: Musou Mode: Ork swing commit (musou/ork-swing-commit, 2026-11-12; `MusouSim.Version` 52, `TfwRules.Version` 77; no protocol or wire change; Musou Mode only)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-09957D59` | Musou: swing tracking share | the wind-up turns toward the target only in its first **0.3** (4 of a Boy's 15 ticks, 0.13 s of 0.5 s) (share of the wind-up) | kind: ours; notes: estimate | owner 2026-11-12 (the idea); the value ours (0.4 first tried: a run at 5 m/s round a Boy at 1.2 m was still hit) | Musou: swing tracking share: compare with SM1 by feel or video. Ours: the wind-up turns toward the target only in its first 0.3 (4 of a… | ☐ |
+| `R-5331CE13` | Musou: swing tracking turn rate | **540** (degrees a second) | kind: ours; notes: estimate | ours (up to 72 degrees of re-aim in 0.13 s; an engaged Ork's walking turn is 480) | Musou: swing tracking turn rate: compare with SM1 with an overlaid screenshot taken from the same position. Ours: 540. | ☐ |
+| `R-A2A7ED10` | Musou: swing entry | no snap to the target when the wind-up starts: the Ork turns from the facing it has, at the rate above, for at least 1 tick of the share (a wind-up of 3 ticks or fewer still turns); the Telegraph marker is sent at the start and shows the early aim, not the… | kind: ours; notes: estimate | reviewer 2026-11-13 | Musou: swing entry: compare with SM1 by feel or video. Ours: no snap to the target when the wind-up starts: the Ork turns from the… | ☐ |
+| `R-378E2963` | Musou: swing lock | after the tracking share the facing is held to the blow; the blow lands on a target within reach (`MeleeRange` + 0.3 m) and **60** degrees (`MeleeConeDegrees`, each side) of the locked facing (degrees) | kind: ours; notes: estimate | owner 2026-11-12; the cone as before | Musou: swing lock: compare with SM1 with an overlaid screenshot taken from the same position. Ours: after the tracking share the facing is held to the blow; the blow… | ☐ |
+| `R-9C8D6A28` | Restore switch | `--musou-ork-swing-tracking` (server and every client; hashed in Musou's block only when on) | kind: ours | ours | Restore switch: compare with SM1 by feel or video. Ours: --musou-ork-swing-tracking (server and every client; hashed in… | ☐ |
+
 ## Part C: Deliberate changes (keep or revert after playtest)
 
 Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our choices where the original is unknown, and what is not reproduced yet. Nothing is classified here; every row is listed. The prompt says what to ask after the playtest.
@@ -4824,6 +4838,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-F8BECC47` | Musou: powerups instead of weapon drops (musou/powerups, owner 2026-11-10; `MusouSim.Version` 40, wire tag 6 extended; Musou only) | No Musou Mode in the original | Ours (the owner's request, verbatim: "change the drop cards UI elements to be much more minimalistic and match the black and white theme. they don't drop weapons anymore but powerups, and more rarely. they should drop a 2x damage buff that lasts 30s, a buff that makes all orks run away from you for 15s, a buff that… | Musou Mode and the 5-wave run only; Classic PvP unchanged. spec "Musou powerups: drops and durations", "Musou powerups: our parts", "Musou powerups: the x2 caps", "Musou powerups: the hold", "Musou powerups: look (client)" | Musou: powerups instead of weapon drops (musou/powerups…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-FBFD2410` | Musou: boss danger, stun windows, more bosses (claude/musou-bosses-drops, owner 2026-11-12; `MusouSim.Version` 48, `TfwRules.Version` 71) | No Musou Mode in the original | Ours (added content, the owner's request): the Warboss and the Boss Orks hit 1.5x harder (the factor ours) but one boss hit takes at most 75 % of the target's full health plus armour; (the 80/60/40/20 % stun windows were rolled back, owner 2026-11-12: bosses stay unstunnable by anything but a player's melee stun, 0.6… | Musou Mode only; Classic PvP and the 5-wave run's replay unchanged. Spec "Musou Mode: boss danger, stun windows and more bosses". | Musou: boss danger, stun windows, more bosses…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-BFB674C7` | Musou: no aerial tackle, a light attack at any point in a hop (claude/musou-no-aerial-tackle, owner 2026-11-12, TEMPORARY; `MusouSim.Version` 49, `TfwRules.Version` 74) | The Assault and Raptor start the aerial (flying) tackle, the dash attack, with a melee press in a hop; an earlier press cancels the hop into a swing that must wait for the cancelled clip to end | Ours (added content, the owner's temporary request): in Musou Mode a melee press at any point of a hop is the light attack at once, with no wait before the next swing; the tackle never starts. The air attack keeps the hop cancel's rules (rise stopped, 0.4 of the horizontal speed carried; ours). Restore:… | Musou Mode only; Classic PvP unchanged. Spec "Musou Mode: no aerial tackle, a light attack at any point in a hop (temporary)". | Musou: no aerial tackle, a light attack at any point in a…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-96A8DEF2` | Musou Mode: Ork swings commit to a direction (musou/ork-swing-commit, 2026-11-12; `MusouSim.Version` 52, `TfwRules.Version` 77) | the owner's request (2026-11-12); added content, no SM1 counterpart | Ours (the idea the owner's, the values estimates): a melee Ork turns toward its target for the first 30 % of its wind-up (540 degrees a second) then holds that facing; the blow needs the target within reach and the 60 degree cone of the locked facing, so circling at a run dodges a Boy's swing (from about 4.5 m/s at… | spec "Musou Mode: Ork swing commit" | Musou Mode: Ork swings commit to a direction…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 
 ## Appendix: not gameplay
 

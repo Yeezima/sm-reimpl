@@ -425,7 +425,8 @@ public sealed partial class MusouSim
         switch (_state[i])
         {
             case MusouEnemyState.WindUp:
-                Face(i, toward);
+                if (SwingRules) TrackSwing(i, toward, Ticks(spec.MeleeWindUp));   // MusouSim.Swing.cs: bounded early tracking, then the direction is locked
+                else Face(i, toward);   // before 2026-11-12 (and the 5-wave run): faces the target every tick up to the contact check
                 if (_stateTicks[i] >= Ticks(spec.MeleeWindUp))
                 {
                     SetState(i, MusouEnemyState.Strike);
@@ -475,7 +476,7 @@ public sealed partial class MusouSim
                 {
                     SetState(i, MusouEnemyState.WindUp);
                     _cooldown[i] = Ticks(spec.MeleePeriod);
-                    Face(i, toward);
+                    if (!SwingRules) Face(i, toward);   // MusouSim.Swing.cs: the committed swing turns from where the Ork stands at a bounded rate, no entry snap; the marker below shows that early aim
                     AddEvent(new MusouEvent(MusouEventKind.Telegraph, Tick, (ushort)(i + 1), (ushort)Math.Clamp(target.Id, 0, ushort.MaxValue), MeleeWindUpTelegraph,
                         _position[i] + new Vector3(Forward(_yaw[i]) * spec.MeleeRange, 0f)));
                     return Vector2.Zero;

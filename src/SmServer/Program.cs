@@ -111,6 +111,8 @@ Console.WriteLine(config.ChargeInstantCancel ? "charge cancel: S from the charge
 if (cli.OldStimUse) config = config with { StimReliable = false };
 // musou/no-aerial-tackle (owner 2026-11-12): --musou-aerial-tackle (restore switch) keeps the aerial tackle in Musou Mode (config hash).
 if (cli.AerialTackleRestored) config = config with { AerialTackleRestored = true };
+// musou/ork-swing-commit (owner 2026-11-12): --musou-ork-swing-tracking (restore switch) keeps the Orks' wind-up facing the target to the blow (config hash).
+if (cli.MusouOrkSwingTracking) config = config with { MusouOrkSwingTracking = true };
 Console.WriteLine(config.StimReliable ? "stim use: reliable (the press kept 0.5 s, no hit cancel before the release; owner 2026-11-12)" : "stim use: OLD (--old-stim-use, restore switch; clients need --old-stim-use too): the press kept 0.3 s, a hit before the release cancels");
 Console.WriteLine(config.ChargeBackCancel ? "charge cancel: S (the stick held back) from the rush's stick branch; a Grenade press ends no charge phase (owner 2026-11-11)" : "charge cancel: OLD (--old-charge-cancel, restore switch; clients need --old-charge-cancel too): a Grenade press ends the charge from its branch, S does not");
 Console.WriteLine(config.ChargeAllyBump ? "ally slide: a charge passes an ally it cannot harm, no contact and no collision stop (owner 2026-11-11; the slide ours)" : "ally slide: OLD (--old-ally-bump, restore switch; clients need --old-ally-bump too): the collision stop on an ally");
