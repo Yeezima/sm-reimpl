@@ -345,6 +345,12 @@ public partial class NetworkView
         var layout = _client?.Scoreboard?.Seize?.Points;
         // "inspect" (M34 capture aid): a slow orbit close around the own weapon in hand (its middle, a little behind the muzzle),
         // a little above it; without a ranged weapon in hand the "action" view below shows.
+        // "inspect-melee" (fx/weapon-visuals capture aid, with --hold-melee): the same orbit round the own melee weapon's grip.
+        if (mode == "inspect-melee" && _local?.Weapons is { } meleeRig && meleeRig.TryMeleeMarker("RIG_Prop_RHand", out var grip))
+        {
+            float turn2 = (float)(_spectateAngle * InspectTurnSpeed);
+            return (grip.Origin + new Vector3(MathF.Cos(turn2) * 1.6f, 0.5f, MathF.Sin(turn2) * 1.6f), grip.Origin);
+        }
         if (mode == "inspect" && _client is not null && MuzzleWorld(_client.PlayerId) is { } muzzle)
         {
             var weapon = muzzle.Position - muzzle.Direction * InspectBehindMuzzle;

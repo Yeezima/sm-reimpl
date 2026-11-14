@@ -93,6 +93,7 @@ public partial class NetworkView
             bool hasLoco = _loco.TryGetValue(state.PlayerId, out var loco);
             if (hasLoco && state.MeleeStep == 0) loco!.MeleeWeight = 1f;   // the handed-over swing's fade ends with it: the next swing never starts hidden
             bool meleeShown = state.Alive && state.MeleeStep > 0 && (hasLoco ? loco!.MeleeWeight : 1f) > MeleeVisibleWeight;
+            if (HoldMeleeDemo && state.Alive && ReferenceEquals(character, _local)) meleeShown = true;   // fx/weapon-visuals capture aid: --hold-melee
             rig.Update(state.Slot, meleeShown, state.Alive, delta, _config.WeaponSwitchTime, release, take);
         }
         catch (Exception ex) when (ex is not (OutOfMemoryException or StackOverflowException or AccessViolationException))
