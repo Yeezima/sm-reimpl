@@ -277,3 +277,4 @@ graphify.cmd path "A" "B"  |  graphify.cmd query "<question>"          :: shorte
 - **Blind spots:** edges are name-based leads: confirm each with Grep. The `Extras*` partial-method hooks (the declaration is not linked to the
   implementation; a call site resolves to only one of them); three files with newer C# syntax are partly unparsed (`src/SmContent/WeaponTuning.cs`,
   `src/SmSim/ContentExtras.cs`, `src/SmTool/Program.cs`); ambiguous names need the `path::Symbol()` form; a broad `query_graph` truncates.
+client.cmd --connect <h:p> --bot --jump-test --jump-test-pound-early [--melee <name>] [--perks jump_pack_reduced_cooldown] :: sim/pound-any-weapon capture aid: the jump test's odd cycles press melee on the first ascent tick with the feet 8.3 m above the ground (the pound in the rise, any weapon)

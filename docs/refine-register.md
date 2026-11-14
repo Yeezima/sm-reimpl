@@ -28,11 +28,11 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3200 spec table rows: **2354 tagged**, 587 not tagged (read from data with high confidence), 259 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 713 rows of the changes document.
+Scanned 3201 spec table rows: **2355 tagged**, 587 not tagged (read from data with high confidence), 259 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 714 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
-| Movement (critical) | 403 | 344 | 344 | 118 | 12 |
+| Movement (critical) | 404 | 345 | 344 | 118 | 12 |
 | Combat core (critical) | 17 | 7 | 15 | 14 | 9 |
 | Weapons (critical) | 121 | 73 | 106 | 54 | 3 |
 | Melee (critical) | 148 | 130 | 109 | 52 | 5 |
@@ -53,13 +53,13 @@ Scanned 3200 spec table rows: **2354 tagged**, 587 not tagged (read from data wi
 | Core simulation (provisional values) | 695 | 655 | 495 | 181 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 248 | 237 | 133 | 68 | 0 |
-| **All areas** | **2354** | 2081 | 1749 | 730 | 38 |
+| **All areas** | **2355** | 2082 | 1749 | 730 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1367 |
+| kind: ours | 1368 |
 | confidence: low | 838 |
 | confidence: medium | 782 |
 | notes: ours | 415 |
@@ -91,7 +91,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 ## Part A: gameplay areas, critical first
 
-### Movement (gameplay-critical) (403)
+### Movement (gameplay-critical) (404)
 
 *Spec section: Extracted parameters*
 
@@ -718,6 +718,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-B840042B` | A: up stairs, slopes, flat ground | unchanged: no gravity is added while the feet are within the slack of the ground plus the curve (tested: 0.25 m risers every 0.6 m, 0.2 m every 0.4 m, a 20 degree ramp, the flat curve tick for tick, the existing 0.3 m step cases) | kind: ours | ours | A: up stairs, slopes, flat ground: compare with SM1 by feel or video. Ours: unchanged: no gravity is added while the feet are within the slack of… | ☐ |
 | `R-62EEE491` | A: animation | a roll or hop falling off a drop (past its own lift, going down) keeps its clip for **0.3 s** off the ground, then the fall pose (the charge's `FallRules.ChargeFallDelay`); the landing then plays as for any fall; on the ground the clip resumes.… (s) | kind: ours; confidence: low | ours (the charge's rule reused) | A: animation: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a roll or hop falling off a drop (past its own lift, going down)… | ☐ |
 | `R-CB6E42DC` | B: the Air-Cooled Thrusters delay | with `mp_perk_jump_pack_reduced_cooldown` the data's `smash_available_delay` is **2** s (taken as "after the lift-off"; an interpretation): with that perk the pound waits 2 s into a jump (a full jump's apex is about 1.4 s after the lift-off), the slash does… (s) | kind: interpretation; confidence: low | wargear `jump_info` perk entry | B: the Air-Cooled Thrusters delay: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: with mp_perk_jump_pack_reduced_cooldown the data's… | ☐ |
+| `R-44B4103C` | Pound from any weapon in the ascent (sim/pound-any-weapon, protocol 73) | the owner 2026-11-14: "power sword and chainsword both cannot ground pound immediately after a full power jump ... the end result ... assault marine/raptor of all weapon choices has the ability to ground pound immediately after clearing the minimum height… (s, m) | kind: ours | owner's request | Pound from any weapon in the ascent (sim/pound-any-weapon…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the owner 2026-11-14: "power sword and chainsword both cannot ground… | ☐ |
 | `R-6A5E0D45` | C: the short hop while falling | a **Space tap** in the air while falling (walked or dashed off a ledge; a jump's apex hang or its fall; not its ascent, take-off, dive or recovery) is the dash: the press waits in the input buffer and is not replayed while Space is down (the tap-or-hold… (ticks) | kind: ours; kind: user's knowledge; confidence: medium | the owner's report (user's knowledge of the original); data: the base graph's `Navigation --on BTN_Nav_Evade --> Jumppack Evade` has no `BOOL_IsSupported` test… | C: the short hop while falling: compare with SM1 by feel or video. Ours: a Space tap in the air while falling (walked or dashed off a ledge; a… | ☐ |
 | `R-15F080D4` | C: fuel, spacing, limits | the dash still costs no power and keeps its spacing: `min_time_between_activations` 0.8 s × the 0.7 lock scale (17 ticks) from a dash's start; a tap inside it is kept for the buffer's 0.3 s and dashes when the spacing ends, else it is lost; a press during a… (s, power) | kind: ours; confidence: medium | data (spacing, no cost); no air limit: absence of evidence | C: fuel, spacing, limits: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the dash still costs no power and keeps its spacing:… | ☐ |
 | `R-C82D328F` | C: presentation | a dash started in the air ends the jump's view without a landing (no landing effect, ring or sound in mid-air); its flight, landing and sounds are the dash's own | kind: ours | ours | C: presentation: compare with SM1 by feel or video. Ours: a dash started in the air ends the jump's view without a landing (no… | ☐ |
@@ -4848,6 +4849,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-78D8EC19` | Thrown Ork bodies (Musou Mode, 2026-11-02) | No Musou Mode in the original | Ours (added content): Orks killed by a blast or artillery are thrown up, sideways or both as real ragdolls near the camera (a pool of 20) and tumbling bodies beyond it, through the unchanged bloody burst | Musou Mode only; shot and melee deaths unchanged. Spec "Musou Mode: random swings, thrown bodies, thinner clouds". | Thrown Ork bodies (Musou Mode, 2026-11-02): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-86FC1C90` | Random Musou swings, thinner Musou clouds (2026-11-02) | No Musou Mode in the original | Ours (added content): each light attack in Musou Mode is a random swing of the weapon's chain, never the same twice running, and Musou's gore clouds are about a fifth more see-through (0.58 against 0.72) | Classic PvP keeps its chain order and clouds. Same spec section. | Random Musou swings, thinner Musou clouds (2026-11-02): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-792CF21A` | Hammer ignores the pound's delay (2026-11-02; protocol 55) | The data's `smash_available_delay` 2 s under Air-Cooled Thrusters applies to every melee weapon | Deliberate, in classic PvP too (the owner): the thunder hammer and daemon maul never wait for it; a sword with the perk still does | Spec "Musou Mode batch of 2026-11-02 and the hammer's pound". | Hammer ignores the pound's delay (2026-11-02; protocol 55): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-C74B2BBC` | No weapon waits for the pound's delay (2026-11-14; protocol 73) | The data's `smash_available_delay` 2 s under Air-Cooled Thrusters applies to every weapon but (ours, 2026-11-02) the hammers | Deliberate, in Classic PvP and Musou Mode (the owner): the sword, chainsword, axes and knife pound in the ascent as soon as the feet are 8 m up, as the hammers do | Spec "Pound from any weapon in the ascent". | No weapon waits for the pound's delay (2026-11-14; protocol…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-2663D884` | Musou batch (2026-11-02) | No Musou Mode in the original | Ours (added content): 5 % heal on a melee hit, twice the Orks, crowds that always swarm, elite squads, a Warboss of scale 3, bass-less power weapon hits, solid backdrop and no Ork damage at the Firing Range, flinches, more shouting | Musou Mode only. Same spec section. | Musou batch (2026-11-02): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-E2D75C92` | Musou: twice the Orks again (2026-11-03) | No Musou Mode in the original | Ours (added content): a pool of 1024 and about 900 Orks alive in the Manufactorum battle for one player | Musou Mode only. Spec "Musou Mode: twice the Orks again". | Musou: twice the Orks again (2026-11-03): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-E3DAF7EE` | Musou: packs, twice the Orks again, no melee wedges (2026-11-06) | No Musou Mode in the original | Ours (added content): Orks muster at their spawn point and go as loose packs that keep a blob shape down the flow field and spread round their target; a pool of 2048 and about 1800 Orks alive for one player; no red melee wind-up wedges under the Orks in Musou Mode | Musou Mode only (the 5-wave run keeps its steering and wedges). Spec "Musou Mode: packs and twice the Orks again". | Musou: packs, twice the Orks again, no melee wedges…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |

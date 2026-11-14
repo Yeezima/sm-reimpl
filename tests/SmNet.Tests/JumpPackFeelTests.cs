@@ -404,8 +404,9 @@ public class JumpPackFeelTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public void The_slash_does_not_wait_for_the_pounds_delay_but_the_pound_does()
+    public void Neither_the_slash_nor_the_pound_waits_for_the_pounds_delay()
     {
+        // sim/pound-any-weapon (protocol 73; the owner 2026-11-14): the delay of the perk (2 s) no longer holds a sword's pound back.
         var delayed = Config with { JumpPacks = [Pack with { PoundDelay = 2f }] };
         var (_, after, _) = Slash(delayed, 1, 0f);
         Assert.True(after[0].JumpSlash && after[0].Jump == JumpPhase.Dive);
@@ -413,20 +414,22 @@ public class JumpPackFeelTests(ITestOutputHelper output)
         for (int k = 0; k < 13; k++) Step(ref s, delayed, InputButtons.Jump);
         while (s.Jump != JumpPhase.Hang) Step(ref s, delayed, InputButtons.None);
         Step(ref s, delayed, InputButtons.Melee, pitch: -1.2f);
-        Assert.Equal(JumpPhase.Hang, s.Jump);   // 13 m up, under 2 s after the lift-off: no pound yet
+        Assert.Equal(JumpPhase.Dive, s.Jump);   // 13 m up, under 2 s after the lift-off: the pound
+        Assert.False(s.JumpSlash);
     }
 
     [Theory]
     [InlineData("sm_mp_melee_2hand_thunder_hammer", true)]
     [InlineData("csm_mp_melee_2hand_power_mace", true)]
     [InlineData("sm_mp_melee_power_sword", false)]
-    public void A_hammer_or_maul_never_waits_for_the_pounds_delay(string wargear, bool free)
+    public void A_hammer_or_maul_never_waits_for_the_pounds_delay_and_since_protocol_73_no_other_weapon_does(string wargear, bool hammer)
     {
-        // Classic PvP and Musou Mode alike (the owner, 2026-11-02): only the weapon in hand decides; protocol 55.
+        // Classic PvP and Musou Mode alike (the owner, 2026-11-02; protocol 55 for the hammers, protocol 73 for every weapon).
+        const bool free = true;
         var classes = Config.Classes.Select(k => k with { MeleeChoices = [new MeleeCombo(wargear, k.Melee)] }).ToArray();
         var delayed = Config with { JumpPacks = [Pack with { PoundDelay = 2f }], Classes = classes };
         var s = Fresh(delayed);
-        Assert.Equal(free, Loadouts.WieldsHammer(delayed, s));
+        Assert.Equal(hammer, Loadouts.WieldsHammer(delayed, s));
         for (int k = 0; k < 13; k++) Step(ref s, delayed, InputButtons.Jump);
         while (s.Jump != JumpPhase.Hang) Step(ref s, delayed, InputButtons.None);
         Step(ref s, delayed, InputButtons.Melee, pitch: -1.2f);
@@ -477,7 +480,7 @@ public class JumpPackFeelTests(ITestOutputHelper output)
         Assert.True(seen.Add((plain with { JumpPacks = [JumpPackTests.Pack with { Slash = JumpPackAttackTests.Slash }] }).Hash()));
         Assert.True(seen.Add((plain with { JumpPacks = [JumpPackTests.Pack with { Slash = Snappy }] }).Hash()));
         Assert.True(seen.Add((plain with { JumpPacks = [JumpPackTests.Pack with { Slash = Snappy with { LungeSpeed = 5f } }] }).Hash()));
-        Assert.Equal(72, Protocol.Version);
+        Assert.Equal(73, Protocol.Version);
         Assert.Equal(1195, Protocol.MaxSnapshotBytes);
     }
 

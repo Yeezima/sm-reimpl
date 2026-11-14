@@ -377,7 +377,10 @@ public partial class NetworkView
         uint hold = _jumpTestCycle % 2 == 0 && pack.HoldTiers ? 8u : pack.ReleaseCut && _jumpTestCycle % 2 == 0 ? 20u : full;
         if (k < hold) { buttons = InputButtons.Jump; if (k < 12) my = 1f; }
         bool pound = OS.GetCmdlineUserArgs().Contains("--jump-test-pound");   // feel/weight-impact capture aid: the melee press at the full jump's apex, above MinPoundHeight
-        if ((pound ? k is 29 : k is 48) && _jumpTestCycle % 2 == 1) buttons |= InputButtons.Melee;
+        // sim/pound-any-weapon capture aid (--jump-test-pound-early): the melee press on the first tick of the full jump's ascent with the feet 8.3 m above the ground (the probe) (the pound, in the rise, with any weapon).
+        bool early = OS.GetCmdlineUserArgs().Contains("--jump-test-pound-early");
+        if (early) { if (_jumpTestCycle % 2 == 1 && me.Jump == JumpPhase.Ascent && JumpPack.AboveGround(me, _client!.Collision) >= 8.3f) buttons |= InputButtons.Melee; }
+        else if ((pound ? k is 29 : k is 48) && _jumpTestCycle % 2 == 1) buttons |= InputButtons.Melee;
         // fx/jumppack-jets capture aid (--jump-test-air-melee): a melee press in the air in each move: the even cycles' small jump (k 22, the slash below 8 m) and each dash (6 ticks after its tap).
         if (JumpTestAirMelee && ((k is 22 && _jumpTestCycle % 2 == 0) || k is 156 or 196)) buttons |= InputButtons.Melee;
         // anim/jump-pack-blend capture aid (--jump-test-steer): the stick in the air steers left and right every 1 s (the odd cycles back too) so the flight's direction clips change.
