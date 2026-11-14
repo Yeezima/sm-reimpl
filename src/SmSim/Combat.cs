@@ -577,6 +577,7 @@ public static class Combat
         bool rollNoFire = roll && (evading || rollCut);
         bool fireHeldThroughSprint = (sprintNoFire || rollNoFire) && fireDown;
         if (sprintNoFire || rollNoFire) fireDown = firePress = chargeDown = chargePress = basicDown = basicPress = shotWanted = false;
+        bool stompReleased = false;   // sim/stomp-release: the stomp ended this tick (the weapon comes up with it, below)
         bool startedNow = false;   // sim/combat-2 (item 39): an attack (from rest, or the next of a string) began in this very tick
         MeleeStep? motionStep = null;   // feel/melee-lock: the attack whose root motion and alignment this tick covers, over (motionFrom, motionTo]
         float motionFrom = 0f, motionTo = 0f;
@@ -587,6 +588,13 @@ public static class Combat
             time += dt * attackSpeed;   // Musou Mode's combat stims: +20 % attack speed (Stims.Speed; 1 elsewhere)
             if (m.Reach is not null) (motionStep, motionFrom, motionTo) = (m, MathF.Min(before + dt * attackSpeed, m.Duration), MathF.Min(time + dt * attackSpeed, m.Duration));   // sim/combat-2: one tick ahead of the clock (below)
             if (before < m.HitTime && m.HitTime <= time) { meleeHitStep = step; hitHeavy = heavy; }
+            // sim/stomp-release (the owner 2026-11-14: "allow a devastator/havoc player ... to be able to act after a stomp move (F) 1.2 seconds into the animation"): the in-place stomp ends 1.2 s into its clip
+            // (after its hit); the attack is over in this tick, so a shot, aim, move, switch, reload, throw, melee press or charge of this very tick acts as from rest (the label below starts a swing).
+            if (c.StompRelease && StompTuning.Released(m, time, TimeEpsilon))
+            {
+                step = 0; time = 0f; queued = false; queuedHeavy = false; heavy = false; steps = lightSteps; motionStep = null; stompReleased = true;
+                goto stringReset;
+            }
             // sim/stomp-uninterruptible (protocol 51; the owner 2026-11-01: "devastator/havoc stomp can only be cancelled by a hop move. shooting, aim down sight, or any
             // other action should never interrupt a stomp animation"): the heavy classes' stomp (MeleeStep.InPlace) queues no next attack, so it always plays to its end;
             // only the hop (a Jump press from its BRANCH_Evade, above) ends it early. The presses are left unused (the input buffer's own rules decide a replay).
@@ -774,7 +782,7 @@ public static class Combat
             || sprintNoFire;   // sim/no-fire-while-sprinting: the sprint drops a raise and its waiting shot, and a burst's later rounds
         bool lowering = lowerOther || switched;
         int raise = lowering || weapon is null ? 0 : s.RaiseTicks;
-        bool raised = weapon is null || !weapon.WaitsToRaise || aiming || (!lowering && s.ReadyTicks > 0);
+        bool raised = weapon is null || !weapon.WaitsToRaise || aiming || stompReleased || (!lowering && s.ReadyTicks > 0);   // sim/stomp-release: the released stomp leaves the weapon up (the pistol fires at 1.2 s)
 
         float since = s.SinceDamage + dt;
         var body = Loadouts.Body(c, s);   // M43: the perks' regeneration and shield (Larraman's Blessing, Iron Halo, Artificer Armor)
@@ -985,7 +993,7 @@ public static class Combat
         // feel/grenades-quickdraw (the owner, 2026-11-06: "near instant, like a quickdraw"): with SimConfig.QuickdrawSwitch the weapon a switch takes comes up during the
         // switch, so it is up on the tick the switch ends (no raise before the first shot); anything else that lowers it still does.
         bool quickdraw = c.QuickdrawSwitch && weapon is not null && (switched || switchLeft > 0f) && !lowerOther && !sprinting;
-        bool weaponUp = fired || charging || pending > 0 || raise > 0 || aiming || quickdraw || (weapon is { WaitsToRaise: false } && !lowering && !sprinting);
+        bool weaponUp = fired || stompReleased || charging || pending > 0 || raise > 0 || aiming || quickdraw || (weapon is { WaitsToRaise: false } && !lowering && !sprinting);
         int readyTicks = weapon is null ? 0 : weaponUp ? c.ReadyHoldTicks : lowering || sprinting ? 0 : Math.Max(0, s.ReadyTicks - 1);
         // Planting the feet (fidelity gap 7): the press tick of a brace stops the body at once (ours, after the owner: "could not walk"; the entry
         // clip has no root motion), so a sprint does not slide on through the entry.
