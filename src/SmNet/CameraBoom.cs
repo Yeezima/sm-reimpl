@@ -92,6 +92,9 @@ public sealed class CameraBoom
         return Math.Clamp(MathF.Exp(MathF.Log(focus) + (MathF.Log(target) - MathF.Log(focus)) * k), FocusMin, FocusMax);
     }
 
+    /// <summary>sim/lascannon-steady-zoom: whether the scoped lascannon's view counts as steady (scope blend at least half up): the walking-synced footfall camera kick is then skipped.</summary>
+    public static bool ScopeSteady(float scope) => scope >= 0.5f;
+
     /// <summary>
     /// sim/lascannon-steady-zoom (owner 2026-11-15): the camera's direction in a scope. <paramref name="scope"/> (0..1, the scoped weapon's aim blend; 0 for a weapon with no scope) fades the focus turn
     /// <paramref name="stable"/> out to the plain <paramref name="view"/>; at 1 the result is the view itself (exactly), so walking, which moves the camera and its wall casts, cannot sway the scoped crosshair.

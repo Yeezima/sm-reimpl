@@ -259,7 +259,7 @@ public partial class NetworkView
         t.HipShotsSeen = counted;
         if (projectiles > 0 && Loadouts.WeaponIndex(_config!, s, s.Slot) is var inHand && inHand >= 0 && _config!.Weapons[inHand].Delivery == DeliveryKind.Projectile)
             for (int i = 0; i < projectiles; i++) _inferShots.Add(new ReloadInference.Shot(inHand, _config.Weapons[inHand].AmmoPerShot, 0));
-        var inferred = t.Inference.Update(_config!.Weapons, w => ReloadClipOf(_config.Weapons[w], data) is not null, _inferShots, s.Alive, busy, (int)s.Slot, _connectedFor, delta, _config.TickSeconds);
+        var inferred = t.Inference.Update(_config!.Weapons, w => ReloadClipOf(_config.Weapons[w], data) is not null, _inferShots, s.Alive, busy, (int)s.Slot, _connectedFor, delta, _config.TickSeconds, wp => LascannonTapTuning.Time(_config, wp));
         return inferred is { } x && ReloadClipOf(_config.Weapons[x.Weapon], data) is { } clip ? (clip, x.Weapon, x.Total, x.Elapsed) : null;
     }
 

@@ -136,6 +136,7 @@ public sealed class ReloadInference
     readonly Dictionary<int, double> _lastShotAt = new();
     int _weapon, _slot;
     float _elapsed, _total;
+    bool _oneRound;
 
     /// <summary>A reload is under way (or waiting for its start).</summary>
     public bool Inferring { get; private set; }
@@ -148,16 +149,16 @@ public sealed class ReloadInference
     /// <summary>
     /// One frame. <paramref name="weapons"/>: the configuration's weapons; <paramref name="reloads"/>: whether a weapon index has a reload to show;
     /// <paramref name="busy"/>: the player is in a reaction, melee attack or throw (no reload starts); <paramref name="alive"/>; <paramref name="slot"/>: its weapon slot (a change cancels);
-    /// <paramref name="now"/> and <paramref name="delta"/>: seconds. Returns the reload that should be shown now (weapon, total, elapsed ≥ 0), or null.
+    /// <paramref name="now"/> and <paramref name="delta"/>: seconds; <paramref name="reloadTime"/>: the reload time the sim uses for a weapon when it is not the data's (the lascannon's 0.4 s tap). Returns the reload that should be shown now (weapon, total, elapsed ≥ 0), or null.
     /// </summary>
-    public (int Weapon, float Total, float Elapsed)? Update(IReadOnlyList<WeaponSpec> weapons, Func<int, bool> reloads, IEnumerable<Shot> shots, bool alive, bool busy, int slot, double now, float delta, float tick)
+    public (int Weapon, float Total, float Elapsed)? Update(IReadOnlyList<WeaponSpec> weapons, Func<int, bool> reloads, IEnumerable<Shot> shots, bool alive, bool busy, int slot, double now, float delta, float tick, Func<WeaponSpec, float>? reloadTime = null)
     {
         if (!alive) { _inClip.Clear(); _fired.Clear(); _lastShotAt.Clear(); Inferring = false; return null; }
         if (Inferring)
         {
             _elapsed += delta;
             if (slot != _slot) { Inferring = false; return null; }   // cancelled by a switch (sim/reload-keeps: nothing else): the clip stays empty
-            if (_elapsed >= _total) { Inferring = false; _inClip[_weapon] = 0; return null; }
+            if (_elapsed >= _total) { Inferring = false; _inClip[_weapon] = _oneRound ? Math.Max(0, _inClip.GetValueOrDefault(_weapon) - 1) : 0; return null; }
             return _elapsed >= 0f ? (_weapon, _total, _elapsed) : null;
         }
         foreach (var shot in shots)
@@ -165,7 +166,7 @@ public sealed class ReloadInference
             if ((uint)shot.Weapon >= (uint)weapons.Count || !reloads(shot.Weapon)) continue;
             var weapon = weapons[shot.Weapon];
             // A weapon not fired for longer than its reload took was refilled by hand.
-            if (_lastShotAt.TryGetValue(shot.Weapon, out double last) && now - last > weapon.ReloadTime + IdleGraceSeconds) _inClip[shot.Weapon] = 0;
+            if (_lastShotAt.TryGetValue(shot.Weapon, out double last) && now - last > (reloadTime?.Invoke(weapon) ?? weapon.ReloadTime) + IdleGraceSeconds) _inClip[shot.Weapon] = 0;
             _lastShotAt[shot.Weapon] = now;
             int cost = Math.Max(1, shot.Cost);
             int used = Math.Min(weapon.ClipSize, _inClip.GetValueOrDefault(shot.Weapon) + cost);
@@ -174,7 +175,7 @@ public sealed class ReloadInference
             _fired[shot.Weapon] = fired;
             if (used < weapon.ClipSize || busy) continue;
             if (fired >= weapon.ClipSize + weapon.ReserveSize) continue;   // nothing left to load
-            Inferring = true; _weapon = shot.Weapon; _slot = slot; _total = weapon.ReloadTime;
+            Inferring = true; _weapon = shot.Weapon; _slot = slot; _total = reloadTime?.Invoke(weapon) ?? weapon.ReloadTime; _oneRound = _total < weapon.ReloadTime - 1e-4f;   // sim/lascannon-tap-reload: a shorter time is the one-round reload
             float wait = weapon.Trigger == TriggerKind.SemiAuto ? Math.Max(weapon.ShotCooldown, tick) : tick;
             _elapsed = Math.Max(0, shot.Age) * tick + delta - wait;
             break;

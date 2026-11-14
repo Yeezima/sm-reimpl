@@ -113,4 +113,71 @@ public class LascannonTapReloadTests(ITestOutputHelper output)
         var half = CameraBoom.ScopedLook(Vector3.Normalize(new Vector3(0.3f, 1f, 0f)), view, 0.5f);
         Assert.InRange(half.Length(), 0.999f, 1.001f);
     }
+
+    [Fact]
+    public void A_weapon_switch_mid_reload_keeps_the_one_round_reload()
+    {
+        var c = Config;
+        var s = Step(c, Fresh(c, 1, 20), InputButtons.Reload).S;
+        s = Step(c, s, InputButtons.Switch).S;
+        for (int i = 0; i < 40 && s.SwitchLeft > 0f; i++) s = Step(c, s, InputButtons.None).S;
+        for (int i = 0; i < 30; i++) s = Step(c, s, InputButtons.None).S;   // the holstered reload finishes while the pistol is out
+        s = Step(c, s, InputButtons.Switch).S;
+        for (int i = 0; i < 40; i++) s = Step(c, s, InputButtons.None).S;
+        Assert.Equal(WeaponSlot.Ranged, s.Slot);
+        Assert.Equal((2, 19), (s.Clip, s.Reserve));   // one round, not a full clip
+    }
+
+    [Fact]
+    public void A_respawn_clears_the_reload()
+    {
+        var c = Config;
+        var s = Step(c, Fresh(c, 1, 20), InputButtons.Reload).S;
+        Assert.True(s.ReloadLeft > 0f);
+        var again = Combat.Respawned(s with { Alive = false }, c);
+        Assert.Equal(0f, again.ReloadLeft);
+    }
+
+    [Fact]
+    public void The_empty_clip_auto_reload_is_one_round()
+    {
+        var c = Config;
+        var s = Step(c, Fresh(c, 0, 20), InputButtons.Fire).S;
+        Assert.InRange(s.ReloadLeft, 0.3f, 0.4f);
+        for (int i = 0; i < 20 && s.ReloadLeft > 0f; i++) s = Step(c, s, InputButtons.None).S;
+        Assert.Equal((1, 19), (s.Clip, s.Reserve));
+    }
+
+    [Fact]
+    public void The_Chaos_lascannon_is_the_same()
+    {
+        var chaos = Lascannon with { Name = "csm_mp_exotic_las_cannon" };
+        var c = Config with { Weapons = [chaos, StompUninterruptibleTests.BoltPistol] };
+        var (ticks, s) = Tap(c, Fresh(c, 1, 20));
+        Assert.Equal((2, 19), (s.Clip, s.Reserve));
+        Assert.InRange(ticks, 12, 13);
+    }
+
+    [Fact]
+    public void A_remote_lascannon_reload_is_inferred_at_0_4_s_and_loads_one_round()
+    {
+        var r = new SmContent.ReloadInference();
+        var weapons = new[] { Lascannon };
+        var shots = Enumerable.Range(0, 4).Select(_ => new SmContent.ReloadInference.Shot(0, 1, 40)).ToList();   // old enough to be past the shot's cooldown
+        var got = r.Update(weapons, _ => true, shots, true, false, 0, 10.0, 1f / 60, 1f / 30, w => LascannonTapTuning.Time(Config, w));
+        Assert.NotNull(got);
+        Assert.Equal(LascannonTapTuning.ReloadTime, got!.Value.Total);
+        Assert.Equal(4, r.Used(0));
+        r.Update(weapons, _ => true, [], true, false, 0, 10.5, 0.5f, 1f / 30, w => LascannonTapTuning.Time(Config, w));
+        Assert.Equal(3, r.Used(0));   // one round loaded, not the clip
+    }
+
+    [Fact]
+    public void Scoped_walking_makes_no_footfall_camera_impulse()
+    {
+        Assert.True(CameraBoom.ScopeSteady(1f));
+        Assert.True(CameraBoom.ScopeSteady(0.5f));
+        Assert.False(CameraBoom.ScopeSteady(0f));
+        Assert.False(CameraBoom.ScopeSteady(0.49f));
+    }
 }
