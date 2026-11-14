@@ -150,6 +150,7 @@ public partial class NetworkView
             _sound = new SoundSystem(_audio) { Scape = ClassicScape, GlobalGainDb = SoundGainDb, Limits = SoundLimitsMode, FootstepGainDb = FootstepGainDbArg, RtpcCap = RtpcCapArg, Loudness = LoudnessArg, LimitLog = LogSound("footstep") ? GD.Print : null };
             PrewarmHitSounds();
             AddChild(_sound);
+            SetUpSoundTuner();   // sound/tuning-tool: the owner's saved mixer settings, and the F7 panel
             _worldEmitter = new SoundEmitter { Label = "world" };
             _soundNote = $"{_audio.LoadedPackages.Count} packages, {_audio.Library.ObjectCount:N0} objects, {_soundTriggers.Files.Count} files, " +
                          $"{_soundTriggers.Files.Values.Sum(f => f.Bindings.Count)} commands, {_soundTriggers.ClipTags.Count} tagged clips; loaded in {ms:F0} ms";

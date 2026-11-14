@@ -454,6 +454,8 @@ public partial class SoundSystem : Node
         public VoiceOffset Offset;
         /// <summary>Set when an instance limit killed the voice: it fades out and is released at this time.</summary>
         public double FadeUntil;
+        /// <summary>sound/tuning-tool: the voice's <see cref="SoundTuningGroups"/> index (set at its start; -1 = none).</summary>
+        public int Group = -1;
     }
 
     static int _handles;
@@ -838,7 +840,13 @@ public partial class SoundSystem : Node
             Voice = v, Emitter = p.Emitter, Player = null, Started = _now, Event = p.Event, Stream = stream,
             Params = p.Emitter.Parameters.Count > 0 ? new Dictionary<uint, float>(p.Emitter.Parameters) : null,
             PostId = p.PostId, Handle = ++_handles, Footstep = p.Footstep, Limited = p.Limited, Offset = p.Offset,
+            Group = SoundTuningGroups.IndexOf(SoundTuningGroups.Resolve(p.Event, p.Emitter.Own, p.Footstep, p.Emitter.Background, p.Emitter.Threat, p.Emitter.Label)),
         };
+        if (ClassicAutocannonSound.Applies(Scape != ScapeMode.Old, p.Event, v))   // sound/classic-autocannon: the shot's body ignores the speed curve and plays at the heavy bolter's level
+        {
+            a.Params = ClassicAutocannonSound.Pin(a.Params);
+            a.Offset = a.Offset.Plus(ClassicAutocannonSound.BodyOffset);
+        }
         if (!Audible(a))
         {
             if (v.LoopCount == 0) { _active.Add(a); Virtual++; } else { Culled++; if (!v.Is3D) ThresholdCulls++; FreeSpeech(p.Event, p.Emitter); }
@@ -870,7 +878,8 @@ public partial class SoundSystem : Node
         var v = a.Voice;
         float? distance = null;
         if (v.Is3D && v.Attenuation is not null && Distance(a.Emitter, IsSpeech(a.Event)) is var (_, d)) distance = Loudness.CurveDistance(d);   // the curve's end read as the mix reads it
-        return VoiceAudibility.IsAudible(v.Is3D, v.Attenuation is not null, Loudness.MaxDistanceOf(v.Attenuation), distance, MixOf(a).VolumeDb, _masterDb,
+        bool tuned = a.Group >= 0 && SoundTuning.Live[a.Group].CustomFalloff;   // sound/tuning-tool: the group's own curve ends where the owner set it (silent past it), not at the data's end
+        return VoiceAudibility.IsAudible(v.Is3D, v.Attenuation is not null, tuned ? 0f : Loudness.MaxDistanceOf(v.Attenuation), distance, MixOf(a).VolumeDb + SoundTuning.Live.GainDb(a.Group), _masterDb,
             v.Chain.Count > 0 ? v.Chain[0].BelowThreshold : (byte)1, v.Chain.Count > 0, a.Limited);
     }
 
@@ -1031,6 +1040,12 @@ public partial class SoundSystem : Node
             if (Scape == ScapeMode.Clear && ListenerCamera() is { } cam && a.Emitter.Current - cam.GlobalPosition is var to && to.LengthSquared() > 1e-4f)
                 mix = mix with { Lpf = mix.Lpf + ClassicSoundscape.RearLpfFor(Scape, false, (-cam.GlobalTransform.Basis.Z).Dot(to.Normalized())) };
         }
+        if (a.Group >= 0 && SoundTuning.Live[a.Group] is { CustomFalloff: true } tuned && a.Voice.Is3D && distance is float dist)
+        {
+            // sound/tuning-tool: the owner's own distance curve for the group replaces the data's: the voice's level at 0 m, then the group's fall-off (the low-pass stays the data's at this distance).
+            if (a.Mix0At != _now) { a.Mix0 = Loudness.Evaluate(a.Voice, Shielded(a) ? null : _mods, a.Emitter.Id, _now, 0f, a.Params, RtpcCap); a.Mix0At = _now; }
+            mix = mix with { VolumeDb = a.Mix0.VolumeDb + tuned.FalloffDb(dist) };
+        }
         return mix;
     }
 
@@ -1044,13 +1059,13 @@ public partial class SoundSystem : Node
         return _listenerCam;
     }
 
-    float EffectiveNow(Active a) => MixOf(a).VolumeDb + GlobalGainDb;
+    float EffectiveNow(Active a) => MixOf(a).VolumeDb + GlobalGainDb + SoundTuning.Live.GainDb(a.Group);
 
     void Volume(Active a)
     {
         var mix = MixOf(a).With(a.Offset);
         // ui/menu-rebuild: the Options menu's music, effects and voice volumes (0 dB at the default).
-        float db = mix.VolumeDb + GlobalGainDb + (a.Footstep ? FootstepGainDb : 0f) + SmClient.Customizer.Model.LiveOptions.GainDb(SmClient.Customizer.Model.GameOptions.CategoryOf(a.Event));
+        float db = mix.VolumeDb + GlobalGainDb + (a.Footstep ? FootstepGainDb : 0f) + SmClient.Customizer.Model.LiveOptions.GainDb(SmClient.Customizer.Model.GameOptions.CategoryOf(a.Event)) + SoundTuning.Live.GainDb(a.Group);   // sound/tuning-tool: the owner's group volume
         db += SoundMixPass.TailGainDb(a.Offset.TailDb, _now - a.Started);   // sound/mix-and-reloads: the jump pack launch's tail
         if (a.Emitter.Background) db += BackgroundDb;   // musou/soundscape-tuning: the far war ducks under close combat (0 outside Musou Mode)
         if (a.FadeUntil > 0) db += 20f * MathF.Log10(Math.Max(0.001f, (float)Math.Clamp((a.FadeUntil - _now) / KillFade, 0.0, 1.0)));   // killed by an instance limit: linear fade out
@@ -1102,7 +1117,7 @@ public partial class SoundSystem : Node
 
     void UpdateActive(float delta)
     {
-        if (_reverb is not null) _reverb.Wet = Mathf.MoveToward(_reverb.Wet, _reverbTarget, delta * 2f);
+        if (_reverb is not null) _reverb.Wet = Mathf.MoveToward(_reverb.Wet, Math.Clamp(_reverbTarget * SoundTuning.Live.ReverbScale, 0f, 1f), delta * 2f);
         for (int i = _active.Count - 1; i >= 0; i--)
         {
             var a = _active[i];

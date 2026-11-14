@@ -387,6 +387,7 @@ public partial class NetworkView : Node3D
             if (_overlay is not null) _overlay.Visible = _showInfo;
             return;
         }
+        if (!_bot && SoundTunerInput(e)) return;   // sound/tuning-tool: F7
         if (Observe) { ObserverInput(e); return; }   // protocol 46: a spectator's keys and mouse (NetworkView.Observer.cs)
         if (_bot) return;
         PickupKey(e);   // fidelity gap 1: latch an E tap between input samples

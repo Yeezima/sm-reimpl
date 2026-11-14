@@ -40,12 +40,11 @@ static class AudioRender
     /// One post to render: the event, the material switch (null: none set), an impact-state event to post first (the client's body-hit pair), a death state (group
     /// <see cref="ImpactSounds.DeathStateGroup"/>; null: none/cleared), the local-player switch, and the offset the client adds (<see cref="VoiceOffset"/>).
     /// </summary>
-    public sealed record PostSpec(string Event, string? MaterialType = null, string? ImpactState = null, uint? DeathState = null, bool Local = false, VoiceOffset Offset = default);
+    public sealed record PostSpec(string Event, string? MaterialType = null, string? ImpactState = null, uint? DeathState = null, bool Local = false, VoiceOffset Offset = default, float Speed = 0f, bool ClassicAutocannon = false);
 
     /// <summary>Resolves each post (in order, so random containers keep drawing) and mixes all their voices (and the extra tracks) into one buffer.</summary>
     public static Result Render(AudioCatalog catalog, IReadOnlyList<PostSpec> specs, int channels, RtpcVolumeCap cap = RtpcVolumeCaps.Default, IReadOnlyList<MixTrack>? extra = null)
     {
-        var parameters = new Dictionary<uint, float> { [VoiceMixer.Speed] = 0f };
         var tracks = new List<MixTrack>(extra ?? []);
         var lines = new List<string>();
         int missing = 0, voices = 0;
@@ -69,7 +68,10 @@ static class AudioRender
             voices += play.Voices.Count;
             foreach (var v in play.Voices)
             {
-                var mix = VoiceMixer.Evaluate(v, null, 1, 0, null, parameters, cap).With(spec.Offset);
+                var parameters = new Dictionary<uint, float> { [VoiceMixer.Speed] = spec.Speed };
+                var offset = spec.Offset;
+                if (spec.ClassicAutocannon && ClassicAutocannonSound.IsBody(spec.Event, v)) { parameters = ClassicAutocannonSound.Pin(parameters); offset = offset.Plus(ClassicAutocannonSound.BodyOffset); }   // sound/classic-autocannon
+                var mix = VoiceMixer.Evaluate(v, null, 1, 0, null, parameters, cap).With(offset);
                 var pcm = Decode(catalog, v.WemId, out int ch, out int rate);
                 if (pcm is null) { missing++; lines.Add($"wem {v.WemId}: no media / decode failed"); continue; }
                 tracks.Add(new MixTrack(pcm, ch, rate, v.Delay, mix.VolumeDb, mix.PitchCents, mix.Lpf));
@@ -111,7 +113,7 @@ static class AudioRender
     // ---------------------------------------------------------------- smtool audio-render
 
     public const string Help = """
-        smtool audio-render <event> [--out <dir>] [--seed n] [--count k] [--material armour|flesh] [--local] [--mono] [--cap peak|node|voice|off] [--game <dir>]
+        smtool audio-render <event> [--out <dir>] [--seed n] [--count k] [--material armour|flesh] [--local] [--mono] [--speed m/s] [--classic-autocannon] [--cap peak|node|voice|off] [--game <dir>]
           Renders what one post of a Wwise event sounds like, k variants (default 4), to <dir>\<event>__<material>__v<n>.wav (16-bit, 48 kHz, stereo or --mono).
           The post is resolved as the client does for a body hit: switch material_type = ceramite_armour (armour, the default) or flesh, with the matching impact state
           (set_state_impact_armor / set_state_impact_broken_armor); random and sequence containers pick by --seed (the k variants are k successive posts of one seeded catalogue, so a same-seed run repeats exactly); --local sets the local-player case.
@@ -131,12 +133,14 @@ static class AudioRender
         int seed = int.TryParse(Opt(rest, "--seed"), NumberStyles.Integer, CultureInfo.InvariantCulture, out int s) ? s : 1;
         int count = int.TryParse(Opt(rest, "--count"), NumberStyles.Integer, CultureInfo.InvariantCulture, out int c) && c > 0 ? Math.Min(c, 64) : 4;
         int channels = rest.Contains("--mono") ? 1 : 2;
+        float speed = float.TryParse(Opt(rest, "--speed"), NumberStyles.Float, CultureInfo.InvariantCulture, out float sp) ? sp : 0f;   // the shooter's speed RTPC, m/s
+        bool classicAutocannon = rest.Contains("--classic-autocannon");   // sound/classic-autocannon: the client's rule for the Classic autocannon's body
         var cap = RtpcVolumeCaps.Default;
         if (Opt(rest, "--cap") is { } capText && !RtpcVolumeCaps.TryParse(capText, out cap, out string? error)) { Console.Error.WriteLine($"--cap: {error}"); return 2; }
         using var catalog = AudioCatalog.Open(gameDir, null, repoRoot: repoRoot, log: Console.Error, seed: seed);
         for (int n = 0; n < count; n++)
         {
-            var r = Render(catalog, eventName, material, rest.Contains("--local"), channels, cap);
+            var r = Render(catalog, [new PostSpec(eventName, TryMaterial(material, out string mt, out string ms) ? mt : null, ms, null, rest.Contains("--local"), default, speed, classicAutocannon)], channels, cap);
             if (!r.Found) { Console.Error.WriteLine($"event {eventName} is not in the loaded banks"); return 1; }
             string path = Path.Combine(outDir, $"{SafeName(eventName)}__{material}__v{n + 1}.wav");
             WriteWav(path, r);
