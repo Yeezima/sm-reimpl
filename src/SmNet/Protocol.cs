@@ -224,9 +224,9 @@ public readonly record struct HitView(int Hits, int ShieldTenths, int HealthTent
 /// <summary>
 /// The match as snapshots carry it (protocol 10, 9 bytes): state, the winner of an ended match (<see cref="Team.None"/>: a
 /// draw), <paramref name="TicksLeft"/> (playing: until the time limit, <see cref="uint.MaxValue"/> for none; ended: until the
-/// restart) and the two team scores (0..65535). Protocol 11: the mode in bits 4..5 of the state byte.
+/// restart) and the two team scores (0..65535). Protocol 11: the mode in bit 4 of the state byte. Protocol 78: bit 5 = <paramref name="NextMap"/> (an ended match that the server follows with another map of its rotation: clients rejoin).
 /// </summary>
-public readonly record struct MatchView(MatchState State, Team Winner, uint TicksLeft, int MarineScore, int ChaosScore, GameMode Mode = GameMode.Annihilation);
+public readonly record struct MatchView(MatchState State, Team Winner, uint TicksLeft, int MarineScore, int ChaosScore, GameMode Mode = GameMode.Annihilation, bool NextMap = false);
 
 /// <summary>
 /// A control point as snapshots carry it (protocol 11, 2 bytes): owner (None: neutral), the side whose progress counts,
@@ -525,7 +525,8 @@ public static partial class Protocol
     // 75 (sim/stim-regen-now; the owner's recollection 2026-11-14): bit 6 of the damage byte (every record) is the health-regen waiver. Using a combat stim ends the health regeneration delay at the stim's release (regeneration at the normal or Larraman's rate from the next tick). Every mode. Client prediction must agree, hence the bump.
     // 76 (sim/kick-push; the owner 2026-11-14): no layout change. The Devastator's and Havoc's kick (the heavy classes' light melee attack) knocks its target back 40 % as far (x0.4); the stomp and Musou's enemies unchanged. Every mode.
     //     Client prediction must agree, hence the bump (renumbered from 75 at integration, after sim/stim-regen-now). Restore switch (config hash): --old-kick-push.
-    public const ushort Version = 76;
+    // 78 (classic-maps-all; the owner 2026-11-15): bit 5 of the match block's state byte is MatchView.NextMap: set while a match has ended on a server that runs a map rotation (--maps); the client then rejoins the same address when the restart clock runs out and plays the next map (its Challenge names it). No other layout change. (77 is taken by another branch.)
+    public const ushort Version = 78;
     /// <summary>The kill-feed cause code of a weapon kill on the head (protocol 64; <see cref="KillView.Headshot"/>).</summary>
     public const int HeadshotCauseCode = 6;
     /// <summary>Most spectators a server admits and a Scoreboard lists (protocol 46), so the Scoreboard stays within one packet.</summary>
@@ -819,7 +820,7 @@ public static partial class Protocol
                 // Match (protocol 10; 9 bytes): state | winner << 2, ticks left, team scores.
                 var match = s.Match ?? default;
                 if (match.State == MatchState.Countdown) throw new ArgumentException("MatchState.Countdown has no wire value: send it through MatchFlowWire.ToWire (Warmup with ticks left).");
-                w.U8((byte)(((int)match.State & 3) | (((int)match.Winner & 3) << 2) | (((int)match.Mode & 1) << 4))); w.U32(match.TicksLeft);
+                w.U8((byte)(((int)match.State & 3) | (((int)match.Winner & 3) << 2) | (((int)match.Mode & 1) << 4) | (match.NextMap ? 32 : 0))); w.U32(match.TicksLeft);
                 w.U16(Count(match.MarineScore)); w.U16(Count(match.ChaosScore));
                 // Kill feed (protocol 10; 9 bytes each since 15): sequence, killer, victim (u16 each), cause | pitch code << 3, index, yaw byte.
                 var kills = s.Kills ?? [];
@@ -1177,8 +1178,8 @@ public static partial class Protocol
             players[i] = p;
         }
         int state = r.U8();
-        if (state > 31 || ((state >> 2) & 3) > (int)Team.Chaos) return null;   // unknown state bits or mode, or winner 3
-        var match = new MatchView((MatchState)(state & 3), (Team)((state >> 2) & 3), r.U32(), r.U16(), r.U16(), (GameMode)(state >> 4));
+        if (state > 63 || ((state >> 2) & 3) > (int)Team.Chaos) return null;   // unknown state bits or mode, or winner 3
+        var match = new MatchView((MatchState)(state & 3), (Team)((state >> 2) & 3), r.U32(), r.U16(), r.U16(), (GameMode)((state >> 4) & 1), (state & 32) != 0);
         int killCount = r.U8();
         if (killCount > MaxSnapshotKills) return null;
         var kills = new KillView[killCount];

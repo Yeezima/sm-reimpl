@@ -322,7 +322,7 @@ public partial class NetworkView : Node3D
                 SmoothRenderClock = !OldRenderClock,
                 // anim/feel-pass: a replay's Welcome comes at its recorded time, however long the recording's map load took (a demo recorded beside other loading clients waited
                 // more than the 10 s live timeout for it, and the replay gave up with NoAnswer); the live timeout stays for live connections.
-                ConnectTimeout = DemoPlayPath is not null ? TimeSpan.FromMinutes(10) : ConnectFailure.DefaultTimeout,
+                ConnectTimeout = DemoPlayPath is not null ? TimeSpan.FromMinutes(10) : PatientConnect ? TimeSpan.FromMinutes(1) : ConnectFailure.DefaultTimeout,
                 MeleeLock = !NoMeleeLock,   // feel/melee-lock (NetworkView.MeleeLock.cs)
                 Bot = _bot,   // protocol 37: the Hello marks a test bot (the server's --bot-damage-scale)
                 Observer = Observe,   // protocol 46: a spectator (NetworkView.Observer.cs)

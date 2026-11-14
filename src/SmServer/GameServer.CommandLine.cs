@@ -15,6 +15,10 @@ public sealed record ServerArguments
     public string? GameDir { get; init; }
     /// <summary>A map name, "none" for the flat placeholder ground, or null for the default (mp_tdm_09 when installed).</summary>
     public string? Map { get; init; }
+    /// <summary>--maps (classic-maps-all): a rotation, "all" (every playable competitive map the install lists) or a comma list of map names; the server plays them in turn, one match each (<see cref="RotationChild"/>).</summary>
+    public IReadOnlyList<string>? Maps { get; init; }
+    /// <summary>--rotation-child (internal): this process is one match's server under a rotation supervisor (Program.cs): it exits with <see cref="ServerCommandLine.RotationExit"/> a second before the next match would start.</summary>
+    public bool RotationChild { get; init; }
     public GameMode Mode { get; init; } = GameMode.Annihilation;
     /// <summary>False for --mode ffa (no teams).</summary>
     public bool Teams { get; init; } = true;
@@ -90,6 +94,8 @@ public static class ServerCommandLine
 {
     /// <summary>Exit code for a command-line error.</summary>
     public const int UsageError = 2;
+    /// <summary>Exit code of a rotation child: its match is over, the supervisor starts the next map.</summary>
+    public const int RotationExit = 11;
 
     public const string Usage =
         """
@@ -98,6 +104,7 @@ public static class ServerCommandLine
           --port <1-65535>              UDP port (default 27015)
           --bind <ip>                   listen on this address only (default every interface; 127.0.0.1 for test runs)
           --game-dir <dir>              the game install (default: the located install, SM_GAME_DIR, config/local.json)
+          --maps all|<a,b,c>            a rotation: every competitive map the install lists (all) or those named, one match each, in order and round again (the server restarts itself between maps; clients rejoin at once); not with --map
           --map <name|none>             multiplayer map (default mp_tdm_09 when installed; none = flat placeholder ground; --content musou: tfw_war, Ashfall Citadel, generated; tfw_war_m09 restores the old Manufactorum war; both need --content musou)
           --mode annihilation|seize|ffa match rules (default annihilation)
           --score-limit <1-65535>       score limit (default per mode; provisional)
@@ -140,9 +147,9 @@ public static class ServerCommandLine
           --help, -h                    switch: this list
         """;
 
-    static readonly HashSet<string> Switches = ["--musou-aerial-tackle", "--no-custom-emblems", "--limit-loopback", "--honor-side-requests", "--ork-data", "--no-player-collision", "--no-charge-lock", "--old-body-contact", "--old-charge-cancel", "--old-ally-bump", "--old-stim-use", "--log-overlaps", "--help", "--old-charge-after-melee", "--old-charge-cancel-delay", "--old-charge-melee-chain", "--old-hop-rules", "--musou-melee-cooldown", "--musou-uncapped-melee-heal", "--musou-ork-swing-tracking"];
+    static readonly HashSet<string> Switches = ["--rotation-child", "--musou-aerial-tackle", "--no-custom-emblems", "--limit-loopback", "--honor-side-requests", "--ork-data", "--no-player-collision", "--no-charge-lock", "--old-body-contact", "--old-charge-cancel", "--old-ally-bump", "--old-stim-use", "--log-overlaps", "--help", "--old-charge-after-melee", "--old-charge-cancel-delay", "--old-charge-melee-chain", "--old-hop-rules", "--musou-melee-cooldown", "--musou-uncapped-melee-heal", "--musou-ork-swing-tracking"];
     static readonly HashSet<string> Valued =
-        ["--port", "--bind", "--game-dir", "--map", "--mode", "--score-limit", "--time-limit", "--friendly-fire", "--unlocks", "--countdown", "--pickup-test", "--bot-damage-scale", "--snapshot-rate",
+        ["--port", "--bind", "--game-dir", "--map", "--maps", "--mode", "--score-limit", "--time-limit", "--friendly-fire", "--unlocks", "--countdown", "--pickup-test", "--bot-damage-scale", "--snapshot-rate",
          "--name-seed", "--max-per-ip", "--join-interval", "--idle-kick", "--ban-file", "--content", "--max-spectators"];
 
     /// <summary>Parses the arguments; false with a one-line <paramref name="error"/> for an unknown flag, a missing or invalid value, or a stray word.</summary>
@@ -157,6 +164,7 @@ public static class ServerCommandLine
             {
                 a = flag switch
                 {
+                    "--rotation-child" => a with { RotationChild = true },
                     "--no-custom-emblems" => a with { CustomEmblems = false },
                     "--limit-loopback" => a with { LimitLoopback = true },
                     "--honor-side-requests" => a with { HonorSideRequests = true },
@@ -205,6 +213,7 @@ public static class ServerCommandLine
                     break;
                 case "--game-dir": a = a with { GameDir = value }; break;
                 case "--map": a = a with { Map = value }; break;
+                case "--maps": a = a with { Maps = value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries) }; break;
                 case "--mode":
                     if (value is "annihilation" or "seize" or "ffa")
                         a = a with { Teams = value != "ffa", Mode = value == "seize" ? GameMode.SeizeGround : GameMode.Annihilation };

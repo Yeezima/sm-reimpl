@@ -213,6 +213,7 @@ public partial class NetworkView
         var match = _client.Match;
         if (!_matchSeen || match != _lastMatch) { _lastMatch = match; _matchSeen = true; _matchSeenAt = _connectedFor; }
         if (match.State == MatchState.Ended) _endedSince ??= _connectedFor; else _endedSince = null;
+        NoteRotation(match);   // classic-maps-all: a server that rotates its maps moves on (NetworkView.Rotation.cs)
 
         RoundStatsGate(match.State);   // fidelity gap 4: the battle record's statistics start afresh with each round
         foreach (var k in _client.TakeKills())

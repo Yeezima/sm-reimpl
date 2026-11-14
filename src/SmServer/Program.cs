@@ -21,6 +21,16 @@ if (!ServerCommandLine.TryParse(args, out var cli, out var cliError))
     return ServerCommandLine.UsageError;
 }
 if (cli.Help) { Console.WriteLine(ServerCommandLine.Usage); return 0; }
+if (cli.Maps is not null)
+{
+    // classic-maps-all: a rotation. This process only supervises; each match runs in a child server on one map of the list (RotationSupervisor.cs).
+    if (cli.Map is not null || cli.RotationChild) { Console.Error.WriteLine("smserver: --maps replaces --map; give one of them"); return ServerCommandLine.UsageError; }
+    string rotationInstall;
+    try { rotationInstall = GameInstall.Locate(cli.GameDir); }
+    catch (DirectoryNotFoundException) { Console.Error.WriteLine($"smserver: game not found. {GameInstall.NotFoundMessage}"); return 1; }
+    if (!RotationSupervisor.TryPlan(rotationInstall, cli, out var rotation, out var rotationError)) { Console.Error.WriteLine($"smserver: {rotationError}"); return 1; }
+    return RotationSupervisor.Run(args, rotation);
+}
 bool customEmblems = cli.CustomEmblems;
 var unlocks = cli.Unlocks;
 int port = cli.Port;
@@ -39,7 +49,7 @@ bool teams = cli.Teams;
 var mode = cli.Mode;
 int? scoreLimit = cli.ScoreLimit;
 
-rules = rules with { Mode = mode, ScoreLimit = scoreLimit ?? MatchRules.For(mode).ScoreLimit, HonorSideRequests = cli.HonorSideRequests };
+rules = rules with { Mode = mode, ScoreLimit = scoreLimit ?? MatchRules.For(mode).ScoreLimit, HonorSideRequests = cli.HonorSideRequests, RotatesAfterMatch = cli.RotationChild };
 if (cli.HonorSideRequests) Console.WriteLine("--honor-side-requests: a joining client's requested side is kept up to the per-side limit; balancing applies only to joins that name no side (test aid, ours)");
 
 string install;
@@ -503,6 +513,7 @@ server.Stepped += world =>
 Console.WriteLine($"smserver on UDP {port}; protocol {Protocol.Version}; content {fingerprint:X16}; config {config.Hash():X16}; {config.TickRate} Hz");
 Console.CancelKeyPress += (_, e) => { e.Cancel = true; Environment.Exit(0); };
 var lastReport = TimeSpan.Zero;
+TimeSpan? rotationDueAt = null;
 // hotfix/musou-server-lag: on Windows the loop's 1 ms pause is a high-resolution timer (Thread.Sleep(1) slept 15.6 ms or, with the PC busy, far longer) and the process
 // runs above normal priority; pacing only (LoopPacing.cs; SM_OLD_LOOP_PACING=1 restores the old loop for tests).
 LoopPacing.Start();
@@ -522,6 +533,16 @@ while (true)
     try
     {
         server.Update();
+        // classic-maps-all: a rotation child's match is over and its clients were told (protocol 78); it answers no more joins (RotationDue) and leaves a moment later for the supervisor's next map.
+        if (cli.RotationChild && server.RotationDue)
+        {
+            rotationDueAt ??= clock.Now;
+            if (clock.Now - rotationDueAt > TimeSpan.FromMilliseconds(800))
+            {
+                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-ddTHH:mm:ssZ}] rotation: the match on {mapName} is over; the next map starts");
+                return ServerCommandLine.RotationExit;
+            }
+        }
         if (server.FatalError is { } fatal)
         {
             // Exit code 4: the simulation keeps failing (ServerOptions.MaxConsecutiveTickFaults); a supervisor restarts the server.

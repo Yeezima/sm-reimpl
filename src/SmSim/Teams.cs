@@ -91,6 +91,8 @@ public sealed record MatchRules
     public bool FriendlyFire { get; init; }
     /// <summary>Seconds from the end of a match to the next (ours; the original returns to the lobby).</summary>
     public float RestartDelay { get; init; } = 15f;
+    /// <summary>classic-maps-all (ours): the server runs a map rotation, so the ended match is followed by another map, not a restart on this one; snapshots of an ended match say so (<see cref="MatchView.NextMap"/>) and clients rejoin.</summary>
+    public bool RotatesAfterMatch { get; init; }
     /// <summary>
     /// Seconds of "MATCH BEGINS" before play (ours: the original's length is in the executable; its HUD clip shows a mm:ss number). 0 (the
     /// default here): none, a round starts as soon as both sides have a player (the behavior before the match flow). The server's default is

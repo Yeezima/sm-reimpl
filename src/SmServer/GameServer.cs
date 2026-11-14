@@ -303,8 +303,12 @@ public sealed partial class GameServer
         }
     }
 
+    /// <summary>classic-maps-all: the server follows an ended match with the next map of its rotation (--maps) and is about to exit: it answers no join any more (the clients ask again until the next map's server is up).</summary>
+    public bool RotationDue => World.Rules is { RotatesAfterMatch: true } && World.State == MatchState.Ended && World.TicksLeft <= MatchFlowWire.RotationRejoinTicks;
+
     void OnHello(int connection, Hello h)
     {
+        if (RotationDue) return;   // classic-maps-all: the next map's server answers joins, not this one
         if (h.Cookie != Cookie(connection, h.Nonce))
         {
             // First contact (or a stale cookie): no state, and nothing larger than the request goes back to an address
@@ -737,7 +741,7 @@ public sealed partial class GameServer
 
     /// <summary>The match block every snapshot carries.</summary>
     public static MatchView MatchOf(World world) =>
-        new(MatchFlowWire.ToWire(world.State), world.Winner, world.TicksLeft, world.ScoreOf(Team.SpaceMarines), world.ScoreOf(Team.Chaos), world.Rules?.Mode ?? GameMode.Annihilation);
+        new(MatchFlowWire.ToWire(world.State), world.Winner, world.TicksLeft, world.ScoreOf(Team.SpaceMarines), world.ScoreOf(Team.Chaos), world.Rules?.Mode ?? GameMode.Annihilation, world.State == MatchState.Ended && world.Rules is { RotatesAfterMatch: true });
 
     /// <summary>Every control point's state (protocol 11): in Seize Ground only (Annihilation and free-for-all send none).</summary>
     public static ControlPointView[] PointsOf(World world) => world.Rules is { Mode: GameMode.SeizeGround }

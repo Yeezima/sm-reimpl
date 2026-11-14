@@ -82,8 +82,10 @@ public sealed partial class HostPanel : UiKit.MenuColumn
         _hostButton.Name = "HostButton";
         _stopOther = UiKit.MenuButton("Stop server", StopOtherServers, "Stop the server of this game that is running on this PC (started by the host launcher or an earlier menu). Never stops other programs.");
         _stopOther.Disabled = true;
-        foreach (var row in new Control[] { _modeRow, _reachRow, UiKit.MenuField("Port", _port), _emblemsRow, _difficultyRow, _addLoyalist, _addChaos, _clearBots, UiKit.MenuGap(0.5f), _hostButton, _stopOther })
+        _mapRow = BuildMapRow();   // classic-maps-all: the install's competitive maps (HostPanel.Maps.cs); null when there is nothing to choose
+        foreach (var row in new Control?[] { _modeRow, _mapRow, _reachRow, UiKit.MenuField("Port", _port), _emblemsRow, _difficultyRow, _addLoyalist, _addChaos, _clearBots, UiKit.MenuGap(0.5f), _hostButton, _stopOther })
         {
+            if (row is null) continue;
             AddChild(row);
             _setupRows.Add(row);
         }
@@ -95,6 +97,7 @@ public sealed partial class HostPanel : UiKit.MenuColumn
         var stop = UiKit.MenuButton("Stop server", () => StopHosted(), "Stop the server this menu started and its bots (to change the number of bots, stop it and host again)");
         foreach (var row in new Control[] { _runningText, _joinOwn, stop })
         {
+            if (row is null) continue;
             AddChild(row);
             _runningRows.Add(row);
         }
@@ -159,6 +162,7 @@ public sealed partial class HostPanel : UiKit.MenuColumn
         if (musou) { _modeBeforeMusou ??= _mode; _mode = ServerLaunch.ModeAnnihilation; }
         else if (_modeBeforeMusou is { } before) { _mode = before; _modeBeforeMusou = null; }
         _modeRow.SetDisabled(musou); _modeRow.SetIndex(_mode == ServerLaunch.ModeSeize ? 1 : 0);
+        _mapRow?.SetDisabled(musou);   // classic-maps-all: Musou Mode plays its own map
         _reachRow.SetIndex(_localOnly ? 0 : 1);
         _hostButton.Text = musou ? "HOST MUSOU" : "HOST A MATCH";
         _hostButton.TooltipText = musou ? $"Start a Musou server on this PC for up to {MusouLocal.MaxPlayers} players and join it" : "Start a server on this PC and join it";
@@ -236,6 +240,7 @@ public sealed partial class HostPanel : UiKit.MenuColumn
             int count = HostedBots.Count, pending = HostedBots.Pending;
             string bots = count > 0 ? HostBots.CountText(count) + (pending > 0 ? $" ({pending} more joining)" : "") : pending > 0 ? $"{pending} bots joining" : "no bots";
             string hosted = o.Content == SmSim.ContentProfiles.Musou ? $"Musou (up to {MusouLocal.MaxPlayers} players)" : o.Mode == ServerLaunch.ModeSeize ? "Seize Ground" : "Annihilation";
+            if (MapRunningText(o) is { } mapText && o.Content != SmSim.ContentProfiles.Musou) hosted += ", " + mapText;
             _runningText.Text = ($"Hosting {hosted} on port {o.Port}, {(o.LocalOnly ? "this PC only" : "all interfaces")}" + ", " + bots + (HostedServer.Ready ? "" : " (starting...)")).ToUpperInvariant();
         }
         _runningText.TooltipText = _runningText.Text;
@@ -295,7 +300,9 @@ public sealed partial class HostPanel : UiKit.MenuColumn
         }
         string? map = null;
         ExtrasHostMap(ref map);   // EXTRAS-HOOK: Musou Mode's Ashfall layout choice (--ashfall-layout field, draft 11; HostPanel.AshfallLayout.cs); null = the server's default map
-        var options = new HostOptions(_mode, port, _localOnly, _gameDir, _emblems, content, bots is null ? 0 : plan.Count, Difficulty, map);
+        var (chosenMap, chosenMaps) = ChosenMap();   // classic-maps-all: the MAP row (Manufactorum: neither; Musou keeps its own map)
+        map ??= chosenMap;
+        var options = new HostOptions(_mode, port, _localOnly, _gameDir, _emblems, content, bots is null ? 0 : plan.Count, Difficulty, map, map is null ? chosenMaps : null);
         if (HostedServer.Start(_exe, options, bots) is { } error) { Say(error, true); return; }
         GD.Print($"host: server started on UDP {port} ({(_localOnly ? "this PC only" : "all interfaces")}); kill-on-close job: {HostedServer.Guarded}; bots planned: {plan.Count} ({options.Difficulty})");
         _pendingJoin = true;

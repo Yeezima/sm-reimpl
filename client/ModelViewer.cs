@@ -363,8 +363,9 @@ public partial class ModelViewer : Node3D
     public override void _ExitTree() => HostedServer.Stop();
 
     /// <summary>Starts the networked view (M5) for <c>--connect</c> or for a Join from the front end; <paramref name="args"/> are the client's user arguments.</summary>
-    void StartNetwork(Dictionary<string, string?> args, string gameDir)
+    void StartNetwork(Dictionary<string, string?> args, string gameDir, bool rejoin = false)
     {
+            _networkArgs = args;   // classic-maps-all: a rotation rejoins with the same arguments
             // M5: networked view. It draws its own overlay and decides when a screenshot is worth taking.
             bool bot = args.ContainsKey("bot");
             bool lean = SmNet.LeanBot.Decide(bot, DisplayServer.GetName(), OS.GetCmdlineUserArgs());   // perf/lean-bots + perf/pass-1: a headless bot (NetworkView.Lean.cs, BotLean)
@@ -396,10 +397,10 @@ public partial class ModelViewer : Node3D
                                       args.GetValueOrDefault("bot-throw-max") is { } tm && float.TryParse(tm, System.Globalization.CultureInfo.InvariantCulture, out var throwMax) ? throwMax : 20f,
                                       args.ContainsKey("wait-jump"), args.ContainsKey("bot-jump-free"))
                                       {
-                                          Name = "Network", RequestedSide = side ?? SmSim.Team.None,
+                                          Name = "Network", RequestedSide = side ?? SmSim.Team.None, PatientConnect = rejoin,
                                           ShowScoreboard = args.ContainsKey("show-scoreboard"), WaitMatchEnd = args.ContainsKey("wait-match-end"),
                                           Spectate = args.GetValueOrDefault("spectate") ?? (args.ContainsKey("spectate") ? "action" : args.ContainsKey("observe") ? "observe" : null),
-                                          Observe = args.ContainsKey("observe"), ObservePose = args.GetValueOrDefault("observe-pose"), ObserveFollow = args.ContainsKey("observe-follow"),   // protocol 46: a spectator (NetworkView.Observer.cs)
+                                          Observe = args.ContainsKey("observe"), ObservePose = args.GetValueOrDefault("observe-pose"), ObserveTour = args.GetValueOrDefault("observe-tour"), ObserveFollow = args.ContainsKey("observe-follow"),   // protocol 46: a spectator (NetworkView.Observer.cs)
                                           ShowInfo = args.ContainsKey("show-info"), HudDemo = args.ContainsKey("hud-demo"), AimTest = args.ContainsKey("aim-test"), BotSlot = args.GetValueOrDefault("bot-slot"), BotStand = args.ContainsKey("bot-stand"), BotIdle = args.ContainsKey("bot-idle"), BotFireWalls = args.ContainsKey("bot-fire-walls"), RagdollDebug = args.ContainsKey("ragdoll-debug"), RagdollRest = args.GetValueOrDefault("ragdoll-rest") is { } rr && float.TryParse(rr, System.Globalization.CultureInfo.InvariantCulture, out var restSeconds) ? restSeconds : null, PlaceholderFx = args.ContainsKey("placeholder-fx"), FxSlow = args.GetValueOrDefault("fx-slow") is { } fs && float.TryParse(fs, System.Globalization.CultureInfo.InvariantCulture, out var slow) ? slow : 1f, NoFx = args.ContainsKey("no-fx") || lean, NoHud = args.ContainsKey("no-hud"), NoWeapons = args.ContainsKey("no-weapons"), NoOverlay = args.ContainsKey("no-overlay") || args.ContainsKey("no-markers"), NoMarkers = args.ContainsKey("no-markers"), ShowMarkers = args.ContainsKey("show-markers"), BotGoal = args.GetValueOrDefault("bot-goal"), BotRoute = args.GetValueOrDefault("bot-route"), FrameStatsLog = args.ContainsKey("frame-stats"), NoSound = args.ContainsKey("no-sound"), MapSounds = args.ContainsKey("map-sounds"), HitArmour = args.GetValueOrDefault("hit-armour"), DamageDemo = args.ContainsKey("damage-demo") ? args.GetValueOrDefault("damage-demo") ?? "cycle" : null, SoundGainDb = args.GetValueOrDefault("sound-gain") is { } soundGainText && float.TryParse(soundGainText, System.Globalization.CultureInfo.InvariantCulture, out var soundGain) && float.IsFinite(soundGain) ? soundGain : 0f, NoHipFire = args.ContainsKey("no-hip-fire"), NoLocomotion = args.ContainsKey("no-locomotion"), YawProbe = args.ContainsKey("yaw-probe"), NoViewSmoothing = args.ContainsKey("no-view-smoothing"), PanRate = args.GetValueOrDefault("pan-rate") is { } pr && float.TryParse(pr, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var panRate) ? panRate : 0f, BotGait = args.ContainsKey("bot-gait"), HipProbe = args.ContainsKey("hip-probe"), PerWeaponSprint = args.ContainsKey("per-weapon-sprint"),
                                       };
             if (side is null) GD.PrintErr($"--side '{args.GetValueOrDefault("side")}' is not marines or chaos; the class's side is used");
@@ -432,7 +433,7 @@ public partial class ModelViewer : Node3D
             _lastContent is { } last ? SmSim.ContentProfiles.Name(last) : args.GetValueOrDefault("content"));
 
     /// <summary>The Join button: leaves the front end and starts the networked view with the active loadout (the same arguments <c>--connect</c> takes).</summary>
-    void OnJoin(JoinRequest request)
+    void OnJoin(JoinRequest request, bool rejoin = false)
     {
         var args = new Dictionary<string, string?>(_launchArgs, StringComparer.OrdinalIgnoreCase) { ["connect"] = request.Host };
         foreach (var (key, value) in request.Plan.ToArgs()) args[key] = value;
@@ -444,7 +445,7 @@ public partial class ModelViewer : Node3D
         _frontEnd = null;
         request.Services.Previews.Clear();   // the preview's models are not needed in the match
         _fromFrontEnd = true;
-        StartNetwork(args, _gameDir);
+        StartNetwork(args, _gameDir, rejoin);
         // A hint that stays until the join has worked: Esc goes back to the menu (a wrong address, a rejection or a lost server must not strand the player).
         _backLayer = new CanvasLayer { Name = "BackHint", Layer = 50 };
         _backHint = new Label { Text = "Esc: back to the menu", Visible = false, Position = new Vector2(24, 0) };
@@ -485,6 +486,24 @@ public partial class ModelViewer : Node3D
         _backLayer = null; _backHint = null;
         OnJoin(retry);
         _musouRetried = true;   // after OnJoin: a failure of this retry shows the normal error
+        return true;
+    }
+
+    Dictionary<string, string?>? _networkArgs;   // the arguments the running networked view was started with (a rotation rejoin reuses them)
+
+    /// <summary>
+    /// classic-maps-all (protocol 78): the networked view saw the end of a match on a server that rotates its maps (<see cref="NetworkView.RotateRequested"/>): it is replaced by a new one
+    /// joining the same address (from the front end's Join, the same request; from <c>--connect</c>, the same arguments). The Challenge of the new join names the next map.
+    /// </summary>
+    bool TryRotationRejoin()
+    {
+        if (_network is not { RotateRequested: true } || _networkArgs?.ContainsKey("play-demo") == true) return false;
+        _network.QueueFree();
+        _network = null;
+        _backLayer?.QueueFree();
+        _backLayer = null; _backHint = null;
+        if (_fromFrontEnd && FrontEndLaunch.Current is { } request) OnJoin(request, rejoin: true);
+        else if (_networkArgs is { } args) StartNetwork(args, _gameDir, rejoin: true);
         return true;
     }
 
@@ -643,6 +662,7 @@ public partial class ModelViewer : Node3D
         // The loading screen (2026-11-07: black and LOADING alone) covers a join still connecting; the hint shows once the join failed (Esc works in both).
         if (_backHint is not null) _backHint.Visible = _network is { } hinted && hinted.ConnectionFailed;
         if (TryMusouRetry()) return;   // a Classic PvP join refused because of the own Musou server: stopped, joined again (no message)
+        if (TryRotationRejoin()) return;   // classic-maps-all: the server moves on to its next map: join the same address again
         // --auto-back <seconds> (test aid): the Esc of a join that goes nowhere, pressed after that long.
         if (_fromFrontEnd && _launchArgs.GetValueOrDefault("auto-back") is { } autoBack && double.TryParse(autoBack, System.Globalization.CultureInfo.InvariantCulture, out var backAfter)
             && _network is { } stuck && (stuck.ConnectionFailed || stuck.StillConnecting) && _elapsed > backAfter) BackAtBlink();
@@ -668,7 +688,7 @@ public partial class ModelViewer : Node3D
         System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(path)!);
         var err = GetViewport().GetTexture().GetImage().SavePng(path);
         GD.Print(err == Error.Ok ? $"screenshot -> {path}" : $"screenshot failed: {err}");
-        if (_screenshotEvery is { } interval) { _nextSeriesShot = _elapsed + interval; return; }
+        if (_screenshotEvery is { } interval) { _nextSeriesShot = _elapsed + interval; _network?.ObserveTourAdvance(); return; }
         _screenshot = null;
         if (_quit && _quitAfter is null) GetTree().Quit(err == Error.Ok ? 0 : 1);
     }

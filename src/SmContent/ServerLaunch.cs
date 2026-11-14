@@ -4,9 +4,10 @@ namespace SmContent;
 /// <param name="Content">The client's <c>--content</c> profile name (docs/added-content.md), passed to the server so the two match; null: the server's default.</param>
 /// <param name="Bots">fix/connect-timeout, fix/hosting-bots-logs: how many bots the front end starts once the server listens (<see cref="HostBots"/>; default none); with any,
 /// the server keeps requested sides (<c>--honor-side-requests</c>) so the bots stay on theirs.</param>
+/// <param name="Map">The map the server plays (<c>--map</c>); null: the server's default (Manufactorum). <paramref name="Maps"/>: a rotation (<c>--maps all</c>, classic-maps-all), instead of a map.</param>
 /// <param name="Difficulty">Easy: the server scales the damage bots deal (<c>--bot-damage-scale</c> <see cref="HostBots.EasyDamageScale"/>); Normal: unscaled.</param>
 public sealed record HostOptions(string Mode, int Port, bool LocalOnly, string GameDir, bool AllowCustomEmblems = false, string? Content = null,
-    int Bots = HostBots.DefaultCount, BotDifficulty Difficulty = BotDifficulty.Easy, string? Map = null);
+    int Bots = HostBots.DefaultCount, BotDifficulty Difficulty = BotDifficulty.Easy, string? Map = null, string? Maps = null);
 
 /// <summary>
 /// The pure parts of starting the bundled dedicated server from the client (the process handling is in the client): where the executable is looked for,
@@ -117,6 +118,7 @@ public static class ServerLaunch
         // Added content E1: the client's profile, so the hosted server's config hash matches the client joining it.
         if (!string.IsNullOrWhiteSpace(options.Content)) { args.Add("--content"); args.Add(options.Content); }
         if (!string.IsNullOrWhiteSpace(options.Map)) { args.Add("--map"); args.Add(options.Map); }   // draft 11: the client's --ashfall-layout field hosts tfw_war_field
+        else if (!string.IsNullOrWhiteSpace(options.Maps)) { args.Add("--maps"); args.Add(options.Maps); }   // classic-maps-all: the lobby's ROTATION
         args.AddRange(HostBots.ServerArguments(options.Bots, options.Difficulty));   // bots: keep requested sides, Easy scales their damage
         return args;
     }
