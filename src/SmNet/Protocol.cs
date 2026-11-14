@@ -518,7 +518,9 @@ public static partial class Protocol
     // 72 (sim/hop-rules; the owner 2026-11-14): no size change. The jump byte's bit 6 in phase None says the air jump is open (a Jump press ended a bull rush held in the air: a charge off a ledge; PlayerState.JumpAirOpen). Rules, every mode where the
     //     Assault Marine / Raptor play: a charge off a ledge can be jumped out of with a full jump (the long press lifts the pack in the air); a hop cuts the light-combo wait still running to half of what is left, not below 0.25 s;
     //     a Jump press ends the aerial tackle and hops at once. Restore switch (config hash): --old-hop-rules.
-    public const ushort Version = 72;
+    // 73 (sim/pound-any-weapon; the owner 2026-11-14: swords could not pound in the ascent): no layout change. No melee weapon waits for the pound's smash_available_delay (Air-Cooled Thrusters' 2 s; the hammers already did, protocol 55):
+    //     a melee press above the slash's height (8 m) pounds at once, in the ascent too. Every mode. Client prediction must agree, hence the bump.
+    public const ushort Version = 73;
     /// <summary>The kill-feed cause code of a weapon kill on the head (protocol 64; <see cref="KillView.Headshot"/>).</summary>
     public const int HeadshotCauseCode = 6;
     /// <summary>Most spectators a server admits and a Scoreboard lists (protocol 46), so the Scoreboard stays within one packet.</summary>

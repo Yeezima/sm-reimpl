@@ -1053,7 +1053,8 @@ public static partial class Loadouts
     {
         if (JumpPack(c, s.Class) is not { } pack) return null;
         var worn = pack.Variants.Count == 0 ? pack : Capacity(c, pack.With(Upgrades(c, s)));
-        return worn.PoundDelay > 0f && WieldsHammer(c, s) ? worn with { PoundDelay = 0f } : worn;
+        // sim/pound-any-weapon (protocol 73; the owner 2026-11-14): no melee weapon waits for the pound's smash_available_delay (Air-Cooled Thrusters' 2 s): a press above the slash's height pounds at once, in the ascent too.
+        return worn.PoundDelay > 0f ? worn with { PoundDelay = 0f } : worn;
     }
 
     /// <summary>
