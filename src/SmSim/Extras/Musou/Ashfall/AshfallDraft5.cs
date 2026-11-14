@@ -215,6 +215,7 @@ internal static partial class AshfallDraft5Pass
             c.Flags.Add($"{id}: {n} collision boxes under {MinBox} m dropped as dust across its placements");
 
         if (field is not null) EnforceStairAccess(c, g5, field);   // draft 12: every stair reachable at both ends on the final collision
+        if (field is { Layout: AshfallLayout.Heights }) EnforceHighGround(c, g5, field);   // draft 13: no dead-end flight, no blocked foot or landing, no item in front of a door
 
         var spawns = g5.Spawns.Select(s => s == g5.Points[0].Center ? points[0].Center : s).ToList();
         var level = new AshfallLevel(c.Parts, points, g5.Areas, spawns, AshfallMap.HashOf(c.Parts, field is null ? AshfallMap.Version : field.HashVersion)) { Layout = field is null ? AshfallLayout.Draft10 : field.Layout };
@@ -354,7 +355,7 @@ internal static partial class AshfallDraft5Pass
     /// </summary>
     static string[] ReplacementsOf(string family) => family == "tower" ? ["AC-046"] : [];
 
-    static string[] PoolOf(string family, string name, float height) => family switch
+    static string[] PoolOf(string family, string name, float height) => name.Contains(" overwatch terrace ", StringComparison.Ordinal) ? ["AC-050"] : family switch   // draft 13: the heights layout's overwatch terraces are the medium firing platform
     {
         "shell" or "shell2" or "corner" => Shell,
         "facade" => Facade,

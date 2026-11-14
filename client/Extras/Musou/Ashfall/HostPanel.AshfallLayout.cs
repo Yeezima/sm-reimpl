@@ -12,5 +12,6 @@ public sealed partial class HostPanel
         if (!Musou || !_args.TryGetValue("ashfall-layout", out var layout)) return;
         if (layout == "field") map = SmSim.Extras.Musou.Campaign.TfwMap.FieldName;
         else if (layout == "draft10") map = SmSim.Extras.Musou.Campaign.TfwMap.Draft10Name;
+        else if (layout == "heights") map = SmSim.Extras.Musou.Campaign.TfwMap.HeightsName;   // draft 13: the high-ground layout
     }
 }

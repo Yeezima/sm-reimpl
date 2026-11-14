@@ -52,7 +52,7 @@ static class AshfallClashCommand
                             foreach (var old in Directory.GetFiles(dir, "f*.png")) File.Delete(old);
                             var grid = new AshfallGrid(AshfallMap.Build(layout));
                             var bg = Background(grid, layout);
-                            frame = s => Frame(Path.Combine(dir, $"f{f++:0000}.png"), grid, bg, s, $"{(layout switch { AshfallLayout.Field => "Draft 11 battlefield", AshfallLayout.City => "Draft 12 city", _ => "Draft 10" })} - point {p} - {n} a side - {s.Phase} - {s.Time:0} s");
+                            frame = s => Frame(Path.Combine(dir, $"f{f++:0000}.png"), grid, bg, s, $"{(layout switch { AshfallLayout.Field => "Draft 11 battlefield", AshfallLayout.City => "Draft 12 city", AshfallLayout.Heights => "Draft 13 heights", _ => "Draft 10" })} - point {p} - {n} a side - {s.Phase} - {s.Time:0} s");
                         }
                         var w = System.Diagnostics.Stopwatch.StartNew();
                         var r = AshfallClash.Run(setup, frame);
