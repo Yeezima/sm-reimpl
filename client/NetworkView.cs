@@ -732,6 +732,7 @@ public partial class NetworkView : Node3D
         }
         if (_bot && BotSwitchEvery > 0 && _connectedFor > 4.0) return BotSwitchInput(tick);   // fix/stow-right test aid (NetworkView.UpperBody.cs)
         if (_bot && BotIdle) return new PlayerInput(tick, 0f, 0f, _yaw, InputButtons.None, _pitch);
+        if (_bot && BotStimDemoEvery > 0 && StimOf(_client!.Predicted) is not null) return BotStimDemoInput(tick);   // stim-original test aid (NetworkView.Stims.cs)
         if (_bot && BarrelTest) return BarrelTestInput(tick);   // fx/barrel-origin test aid (NetworkView.Barrel.cs)
         if (_bot && BotGait) return BotGaitInput(tick);   // M36 test aid
         if (_bot && AimTest && BotBackup) return BotBackupInput(tick);   // feel/camera-hitstop test aid (--bot-backup): backs into the wall behind
