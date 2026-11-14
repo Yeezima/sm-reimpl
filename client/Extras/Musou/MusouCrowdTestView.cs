@@ -101,6 +101,7 @@ public partial class MusouCrowdTestView : Node3D
         var kind = _kinds[_kind];
         var look = _looks.For(kind)!;
         if (_args.ContainsKey("flinch")) { FlinchFrame(kind, look, dt); return; }   // Ork hit reactions (owner 2026-11-13): MusouCrowdTestView.Flinch.cs
+        if (_args.ContainsKey("dizzy")) { DizzyFrame(kind, look, dt); return; }   // the dizzy boss (owner 2026-11-14): MusouCrowdTestView.Dizzy.cs
         float height = MathF.Max(2f, LookHeight(look));
         float speed = SpeedOf(kind);
         _t += dt;
