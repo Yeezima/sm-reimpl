@@ -29,6 +29,9 @@ public class ExtrasBoundaryTests
         ("src/SmContent/GameplayTuning.cs", "ExtrasLoad"),         // GameplayTuning.ExtrasLoad(ref SimConfig, string, List<string>), called in LoadForMatch
         ("src/SmContent/Customization/ProfileView.cs", "ExtrasLookRemoved"),   // ProfileViews.ExtrasLookRemoved(ref CustomizationProfile, string), in RemoveLook: the Musou Librarian's look (musou/loadout-slots review)
         ("src/SmServer/GameServer.Envelope.cs", "ExtrasSend"),     // GameServer.ExtrasSend(), called once a tick after SendPickups (E3's envelope), only with added content
+        ("client/NetworkView.Appearance.cs", "ExtrasEnsureModel"),  // NetworkView.ExtrasEnsureModel(CharacterViewer?, int, bool, PlayerState, ref CharacterViewer?), the character a player of an added class wears (Musou: the Dreadnought model)
+        ("client/NetworkView.cs", "ExtrasPlace"),                  // NetworkView.ExtrasPlace(CharacterViewer, PlayerState, bool, ref bool), added content poses its own rig (Musou: the Dreadnought)
+        ("client/NetworkView.Death.cs", "ExtrasDeath"),            // NetworkView.ExtrasDeath(CharacterViewer, ref bool), added content's own death, no ragdoll (Musou: the Dreadnought)
         ("client/NetworkView.cs", "ExtrasInput"),                  // NetworkView.ExtrasInput(ref PlayerInput), on every sampled live input (loyalist barks: the FOR THE EMPEROR key)
         ("client/NetworkView.cs", "ExtrasFrame"),                  // NetworkView.ExtrasFrame(PlayerState, IReadOnlyList<PlayerState>, double), once a frame after the sound (loyalist barks: barks and the key's shouts)
         ("client/NetworkView.Match.cs", "ExtrasKill"),             // NetworkView.ExtrasKill(KillView), each kill-feed entry once (loyalist barks: kill barks)

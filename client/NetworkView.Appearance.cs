@@ -215,6 +215,9 @@ public partial class NetworkView
     /// Hook for added content: <paramref name="dress"/> set for a class whose players wear their resolved look changed (pieces put on over it); the class then gets looks of its own in the caches.
     /// Called once per resolve input, before the resolver. Musou Mode: the Librarian's armour (client/Extras/Musou/Librarian/NetworkView.LibrarianLook.cs).
     /// </summary>
+    /// <summary>Hook for added content: <paramref name="result"/> set to the character a player of an added class wears (its model, or its stand-in); left null: the usual look path. Musou: the Dreadnought (client/Extras/Musou/Dreadnought).</summary>
+    partial void ExtrasEnsureModel(CharacterViewer? current, int playerId, bool local, PlayerState state, ref CharacterViewer? result);
+
     partial void ExtrasLook(int playerClass, ref Func<ResolvedAppearance, ResolvedAppearance>? dress);
 
     LookRequest? WantedLook(PlayerState s, bool own)
@@ -229,6 +232,9 @@ public partial class NetworkView
     /// </summary>
     CharacterViewer EnsureModel(CharacterViewer? current, int playerId, bool local, PlayerState state)
     {
+        CharacterViewer? extra = null;
+        ExtrasEnsureModel(current, playerId, local, state, ref extra);   // EXTRAS-HOOK: added content's own models (Musou: the Dreadnought)
+        if (extra is not null) return extra;
         if (IsOrkPlayer(state)) return EnsureOrkModel(current, playerId, local, state);   // Ork O7a (NetworkView.Ork.cs): the boy's own rig and looks
         string? currentKey = current is null ? null : current.GetMeta("look_key").AsString();
         var want = WantedLook(state, local);

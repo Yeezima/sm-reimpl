@@ -1536,6 +1536,9 @@ public partial class NetworkView : Node3D
     /// <param name="throwTime">Seconds into a throw under way (own player: the simulation's ThrowTime; others: since their
     /// slim Throwing flag rose), or null when not throwing: the toss clip is posed at that time when the rig has it.</param>
     /// <param name="smooth">Remote players: the smoothed time of the reaction, charge or attack clip (<see cref="SmoothRemoteClip"/>), used instead of the snapshot's value.</param>
+    /// <summary>Hook for added content: <paramref name="handled"/> set when the character was posed by it (Musou: the Dreadnought's rig).</summary>
+    partial void ExtrasPlace(CharacterViewer character, PlayerState state, bool own, ref bool handled);
+
     void Place(CharacterViewer character, PlayerState state, float? throwTime = null, bool own = false, SmoothClip? smooth = null)
     {
         // qc/reference-pass: the transition probe measures the melee prop bones (RIG_Prop_M_*) only where a mesh can hang on them: a marine with a two-handed melee weapon, and every
@@ -1547,6 +1550,9 @@ public partial class NetworkView : Node3D
             character.SetMeta(TransitionProbe.TwoHandedMeta, IsOrkCharacter(character) || (MeleeWargear(state) is { } twoHand && AnimationAlias.Of(twoHand).Contains("_2hand_", StringComparison.OrdinalIgnoreCase)));   // AnimationAlias (W0b): Musou's spear is two-handed
             character.SetMeta(TransitionProbe.OwnMeta, own);   // anim/strafe-blend: the direction events say own / remote
         }
+        bool extraPlaced = false;
+        ExtrasPlace(character, state, own, ref extraPlaced);   // EXTRAS-HOOK: added content poses its own rigs (Musou: the Dreadnought)
+        if (extraPlaced) return;
         if (IsOrkCharacter(character)) { PlaceOrk(character, state, throwTime, own, smooth); return; }   // Ork O7a (NetworkView.Ork.cs): the boy's rig has its own clips
         character.ClearPoseLayers();  // M27: the recoil layer is laid again by PlaceLocomotion when it applies (animation pass 1: every layer slot, CharacterViewer.Layers.cs; the fall slots by FallLayers)
         character.ClearTurnPose();    // M40-T5: so are the turn layer and the spine twist
