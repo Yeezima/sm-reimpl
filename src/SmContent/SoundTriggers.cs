@@ -291,6 +291,8 @@ public sealed partial class SoundTriggers
         if (map is not null)
         {
             string ability = step <= 0 ? map.AbilityOf(false, 1) : map.AbilityOf(heavy, step);
+            // sim/sword-ff-stab: the stab finisher sounds as the X,F strike it copies (Classic only: Musou's read keeps its stomp finisher and never sets the flag).
+            if (ability.Length == 0 && heavy && map.StabHeavy > 0 && MeleeTuning.StabApplied && step == map.HeavySequencers.Length + 1) ability = map.AbilityOf(true, map.StabHeavy);
             if (ability.Length == 0 && heavy && step > 0 && $"ability_melee_y{(step == 1 ? "" : step.ToString(System.Globalization.CultureInfo.InvariantCulture))}" is var y && Has(y)) return y;
             return ability;
         }

@@ -91,6 +91,8 @@ public sealed partial record GameplayTuning(SimConfig Config, string Source, IRe
     /// </summary>
     public static GameplayTuning LoadForMatch(string gameDir, ContentExtras extras, bool orkData = false)
     {
+        // sim/sword-ff-stab is Classic PvP's: Musou's sword keeps its stomp blast (MeleeTuning.WithoutSwordStab).
+        using var stab = extras.HasFlag(ContentExtras.Musou) ? MeleeTuning.WithoutSwordStab() : null;
         var tuning = Load(gameDir, extras.HasFlag(ContentExtras.Orks) ? MatchOrk(orkData) : null);
         if (extras == ContentExtras.None) return tuning;
         var config = tuning.Config with { Extras = extras };

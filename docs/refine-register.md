@@ -33,6 +33,11 @@ Scanned 3214 spec table rows: **2365 tagged**, 590 not tagged (read from data wi
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
 | Movement (critical) | 407 | 348 | 346 | 118 | 12 |
+Scanned 3201 spec table rows: **2355 tagged**, 587 not tagged (read from data with high confidence), 259 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 714 rows of the changes document.
+
+| Area | Tagged rows | by kind | by confidence | by notes | by section text |
+|---|---:|---:|---:|---:|---:|
+| Movement (critical) | 404 | 344 | 345 | 118 | 12 |
 | Combat core (critical) | 17 | 7 | 15 | 14 | 9 |
 | Weapons (critical) | 121 | 73 | 106 | 54 | 3 |
 | Melee (critical) | 149 | 131 | 110 | 53 | 5 |
@@ -54,6 +59,7 @@ Scanned 3214 spec table rows: **2365 tagged**, 590 not tagged (read from data wi
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 248 | 237 | 133 | 68 | 0 |
 | **All areas** | **2365** | 2092 | 1758 | 731 | 38 |
+| **All areas** | **2355** | 2081 | 1750 | 730 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -62,6 +68,9 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | kind: ours | 1377 |
 | confidence: low | 841 |
 | confidence: medium | 788 |
+| kind: ours | 1367 |
+| confidence: low | 838 |
+| confidence: medium | 783 |
 | notes: ours | 415 |
 | kind: interpretation | 383 |
 | notes: estimate | 198 |
@@ -92,6 +101,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 ## Part A: gameplay areas, critical first
 
 ### Movement (gameplay-critical) (407)
+### Movement (gameplay-critical) (404)
 
 *Spec section: Extracted parameters*
 
@@ -615,6 +625,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
+| `R-13EB912C` | Power sword Y,Y finisher: the stab (sim/sword-ff-stab, owner 2026-11-14; supersedes the row above… | the owner's request (verbatim): "currently the power sword F + F heavy attack stun strike combo results in a stomp action by assault marine/raptor. i want you to make a change that results in the F + F heavy attack stun strike combo result in the stab move… (s, damage) | confidence: medium | owner's request; wargear `ability_bullrush_01` perk entry; graph `MP_SM_MEL_PowerSword` | Power sword Y,Y finisher: the stab (sim/sword-ff-stab…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the owner's request (verbatim): "currently the power sword F + F… | ☐ |
 | `R-8F337F3A` | Axe combo windows read from `BRANCH_Melee_Combo_MISS` | the axe's attacks carry only the MISS-named combo branch (the graph also names `BRANCH_Melee_Combo_HIT` and cleave-through branches no sequencer carries); taken as the combo window whether the attack hit or missed | kind: interpretation; confidence: medium | graph | Axe combo windows read from BRANCH_Melee_Combo_MISS: compare with SM1 by feel or video. Ours: the axe's attacks carry only the MISS-named combo branch (the graph… | ☐ |
 | `R-F47076E4` | Hammer light-to-heavy window | read from `BRANCH_Melee_Combo` (0.35–0.72 of "TH Default 1"); the graph's transition to X,Y uses `BRANCH_To_Slam` (0.34–0.70) (s) | kind: ours; confidence: medium | graph | Hammer light-to-heavy window: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: read from BRANCH_Melee_Combo (0.35–0.72 of "TH Default 1"); the… | ☐ |
 | `R-BF6EB26D` | Which displace graph | `MP_SM_MEL_TB_Displace` (the heavy-weapon kick) with any weapon in hand; `MP_SM_MEL_Displace` (chainsword kick clip, no kick-to-stomp transition) is not used | kind: ours; confidence: low | graph | Which displace graph: compare with SM1 by feel or video. Ours: MP_SM_MEL_TB_Displace (the heavy-weapon kick) with any weapon in… | ☐ |
@@ -4979,6 +4990,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-89E824F0` | Musou Mode: no melee cleave cap (lead 25 integration, owner 2026-11-14; `TfwRules.Version` 80) | No Musou Mode in the original | Ours (added content, the owner's request, verbatim: "All orks within the cleave range should always be hit no matter how many"): a human swing in Musou Mode strikes every Ork inside its cleave (was at most 40; the power spear's sweep at most 12); reach, angle and the heals-per-swing cap (5 since the same day)… | Musou Mode only; Classic PvP untouched | Musou Mode: no melee cleave cap (lead 25 integration, owner…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-6AC0F6ED` | Musou Mode: melee heal cap 5 per swing (lead 25 integration, owner 2026-11-14; `MusouSim.Version` 55) | No Musou Mode in the original | Ours (added content, the owner's request, verbatim: "adjust the enemies triggering the heal effect per swing to be 5 instead of 3"): one melee swing heals for at most the first 5 enemies struck (was 3, 2026-11-12) | Musou Mode only; Classic PvP untouched | Musou Mode: melee heal cap 5 per swing (lead 25…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-2E5AA696` | Weapon visuals (fx/weapon-visuals, owner 2026-11-14; client only) | Original: only the thunder hammer binds an idle light; the combat knife's perk effect (`combat_knife_idle`, warm light and gold edges) is bound but never played here; Kraken Bolts change no tracer | Ours (the owner's request): every power weapon throws the hammer's blue light, the Serrated Combat Blade gives the knife a green light and green power-field overlay, Kraken Bolts bolters draw larger red tracers (both modes). The green, red and sizes are estimates | `--no-power-light`, `--old-kraken-tracer` restore the before; Musou's claw and spear are not touched | Weapon visuals (fx/weapon-visuals, owner 2026-11-14; client…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-4D927CA9` | Power sword F + F is a stab, not a stomp (sim/sword-ff-stab, owner 2026-11-14; Classic PvP only; config hash changes, no protocol bump here) | The original's sword Y,Y finisher is the foot stomp (`SM_MEL_CS_YATK_DSP_Stomp`, blast r 7, 25 + 50) | Ours (the owner's request, verbatim in spec "Power sword Y,Y finisher: the stab"): the second F plays the X,F strike's clip and timing without a blast and hits the primary target for 100 + 50 shield and a stagger (Furious Charge's bull rush entry, always, no perk needed), nothing for others; Musou Mode's sword keeps… | Spec "Power sword Y,Y finisher: the stab"; restore `SM_OLD_SWORD_FF=1` | Power sword F + F is a stab, not a stomp…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 
 ## Appendix: not gameplay
 
