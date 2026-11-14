@@ -28,25 +28,19 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3231 spec table rows: **2375 tagged**, 597 not tagged (read from data with high confidence), 259 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 719 rows of the changes document.
+Scanned 3244 spec table rows: **2388 tagged**, 597 not tagged (read from data with high confidence), 259 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 722 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
-| Movement (critical) | 408 | 348 | 347 | 118 | 12 |
+| Movement (critical) | 412 | 351 | 349 | 119 | 12 |
 | Combat core (critical) | 19 | 9 | 17 | 15 | 9 |
-Scanned 3217 spec table rows: **2368 tagged**, 590 not tagged (read from data with high confidence), 259 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 720 rows of the changes document.
-
-| Area | Tagged rows | by kind | by confidence | by notes | by section text |
-|---|---:|---:|---:|---:|---:|
-| Movement (critical) | 411 | 350 | 348 | 119 | 12 |
-| Combat core (critical) | 17 | 7 | 15 | 14 | 9 |
 | Weapons (critical) | 121 | 73 | 106 | 54 | 3 |
 | Melee (critical) | 149 | 131 | 110 | 53 | 5 |
 | Jump pack (critical) | 85 | 77 | 69 | 19 | 0 |
 | Charge (critical) | 61 | 51 | 49 | 25 | 0 |
 | Reactions (critical) | 25 | 22 | 23 | 12 | 0 |
 | Camera (critical) | 55 | 53 | 44 | 22 | 0 |
-| HUD and hit feedback (critical) | 72 | 67 | 52 | 11 | 0 |
+| HUD and hit feedback (critical) | 73 | 68 | 53 | 11 | 0 |
 | Sound mix (critical) | 90 | 84 | 76 | 11 | 0 |
 | Effects (critical) | 98 | 87 | 82 | 41 | 0 |
 | Game modes | 46 | 42 | 42 | 19 | 1 |
@@ -56,35 +50,27 @@ Scanned 3217 spec table rows: **2368 tagged**, 590 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 23 | 13 | 13 | 13 | 7 |
-| Core simulation (provisional values) | 707 | 666 | 505 | 184 | 1 |
+| Core simulation (provisional values) | 716 | 673 | 510 | 185 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 249 | 238 | 134 | 68 | 0 |
-| **All areas** | **2375** | 2100 | 1766 | 735 | 38 |
-| Ork faction | 248 | 237 | 133 | 68 | 0 |
-| **All areas** | **2368** | 2093 | 1758 | 732 | 38 |
+| **All areas** | **2388** | 2110 | 1772 | 737 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1378 |
-| confidence: low | 845 |
-| confidence: medium | 792 |
+| kind: ours | 1384 |
+| confidence: low | 849 |
+| confidence: medium | 794 |
 | notes: ours | 417 |
 | kind: interpretation | 386 |
-| notes: estimate | 200 |
-| kind: estimate | 161 |
-| confidence: low | 840 |
-| confidence: medium | 789 |
-| notes: ours | 415 |
-| kind: interpretation | 383 |
-| notes: estimate | 198 |
-| kind: estimate | 158 |
+| notes: estimate | 201 |
+| kind: estimate | 165 |
 | confidence: none (low) | 129 |
 | kind: provisional | 103 |
 | kind: user's knowledge | 56 |
 | notes: provisional | 41 |
-| kind: choice | 38 |
+| kind: choice | 39 |
 | section: provisional | 38 |
 | section: placeholder | 35 |
 | notes: user's knowledge | 27 |
@@ -105,7 +91,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 ## Part A: gameplay areas, critical first
 
-### Movement (gameplay-critical) (411)
+### Movement (gameplay-critical) (412)
 
 *Spec section: Extracted parameters*
 
@@ -797,6 +783,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-640BBD78` | Spear: jump-pack rules | the hammer's: no pound delay, the hop swing, the steered slam (`Loadouts.WieldsHammer` through `ArsenalRules.WieldsHammer`) | kind: ours; confidence: medium | owner D17 (default) | Spear: jump-pack rules: compare with SM1 by feel or video. Ours: the hammer's: no pound delay, the hop swing, the steered slam… | ☐ |
+
+*Spec section: Added content: Musou Dreadnought (D0 and D1, 2026-11-14; `MusouSim.Version` 56, `TfwRules.Version` 81; no protocol change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-6CE25613` | Dreadnought: the sprint limit (D6) | Sprint held at most **6** s then a gap of **1** s with Sprint taken off the input (the data's `dread_sprint`); time held resets when Sprint is let go (estimate); one rule (`DreadnoughtSprintGate`) applied by the server (new hook `ExtrasInputFilter`) and by… (s) | kind: estimate; confidence: low | wargear `dread_sprint` | Dreadnought: the sprint limit (D6): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: Sprint held at most 6 s then a gap of 1 s with Sprint taken off the… | ☐ |
 
 ### Combat core (gameplay-critical) (19)
 
@@ -1647,7 +1639,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-C9703C8F` | Strike and reaction entry floor | a melee strike's and a hit reaction's entry fade has a floor of **0.125** s instead of 0.1875 s, so the graphs' 0.1 s and 0.167 s are nearer met; not the charge, the roll, the stomp (a Devastator's or Havoc's heavy strike) or any exit (s) | kind: ours; confidence: low | ours | Strike and reaction entry floor: compare with SM1 by watching the reaction and timing it frame by frame. Ours: a melee strike's and a hit reaction's entry fade has a floor of 0.125… | ☐ |
 | `R-79ECC932` | Heavy footfall | a moving Devastator's or Havoc's own footfall dips the camera **0.05** degrees (**0.09** above 7 m/s); the sound is the data's; the data has no camera footfall (degrees) | kind: ours; confidence: low | ours | Heavy footfall: compare with SM1 with an overlaid screenshot taken from the same position. Ours: a moving Devastator's or Havoc's own footfall dips the camera 0.05… | ☐ |
 
-### HUD and hit feedback (gameplay-critical) (72)
+### HUD and hit feedback (gameplay-critical) (73)
 
 *Spec section: Scoreboard ping on the HUD scoreboard (net/scoreboard-ping; protocol 50; ours)*
 
@@ -1785,6 +1777,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-C2C74997` | Spear animations: the crosshair column | 2026-11-11 (lead: the carried blade crossed the crosshair's column in the own view at idle): the blade's head (collar, crossguard, blade) stays at least **3** degrees of the horizontal view to one side of the screen's centre column at idle in the default… (degrees) | kind: ours; confidence: low | ours (the reticle at rest is about 2 degrees across its half at the data's 40-degree view in the 1600 x 900 window) | Spear animations: the crosshair column: compare with SM1 with an overlaid screenshot taken from the same position. Ours: 2026-11-11 (lead: the carried blade crossed the crosshair's column in… | ☐ |
+
+*Spec section: Added content: Musou Dreadnought (D0 and D1, 2026-11-14; `MusouSim.Version` 56, `TfwRules.Version` 81; no protocol change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-D69BECA2` | Dreadnought: the camera and HUD (D6) | the rig camera's offset and pivot x **2.2** (the marine's data curves x the model's size ratio; the data's `dn_*` curves were not found) with the data's fields of view: 42 exploring, 20 aimed, 55 sprinting (blended in 0.5 s); the autocannon reticle and the… (fov degrees, ratio) | kind: estimate; confidence: low | camera tuning; wargear `ui_data` | Dreadnought: the camera and HUD (D6): compare with SM1 with an overlaid screenshot taken from the same position. Ours: the rig camera's offset and pivot x 2.2 (the marine's data curves x… | ☐ |
 
 ### Sound mix (gameplay-critical) (90)
 
@@ -2465,7 +2463,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (707)
+### Core simulation (provisional values) (716)
 
 *Spec section: Provisional values in use*
 
@@ -3607,7 +3605,16 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-F080981C` | Dreadnought: the entrance and the hub rule | owner 2026-11-14: "the player appears as a placeholder ultramarine tactical in the thunderhawk troop bay musou zone after selecting dreadnaught - he appears in the dreadnaught once he loads into the ashfall citadel map by deploying. there should never be a… (s) | kind: interpretation; confidence: medium | blueprint `sm_dreadnought` `entity_actions_ext/triggered_actions/evt_spawn_in`; rig `havok_sm_dreadnought_basic__hkxx`; owner's rule | Dreadnought: the entrance and the hub rule: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: owner 2026-11-14: "the player appears as a placeholder ultramarine… | ☐ |
 | `R-DD677E70` | Dreadnought: the big body is solid to the other players | the player-to-player collision gives every body its own capsule radius and height when the config has a class body with one (`SimConfig.HasBodyCapsules`; Musou only), so a marine keeps 0.45 + 1.0 m from him; configs without one (Classic, the Ork) give no body… (m) | kind: interpretation; confidence: medium | review 2026-11-14 | Dreadnought: the big body is solid to the other players: compare with SM1 by measuring on a flat spot of the same map. Ours: the player-to-player collision gives every body its own capsule… | ☐ |
 | `R-291395C3` | Dreadnought: the control point heal (read, not yet used) | `evt_dread_cap` heals **1500** health (HP) | notes: estimate | blueprint `sm_dreadnought` `evt_dread_cap/do_heal` | Dreadnought: the control point heal (read, not yet used): compare with SM1 by feel or video. Ours: evt_dread_cap heals 1500 health. | ☐ |
-| `R-FD00930F` | Dreadnought: melta (read, D4 uses it) | hit-scan, **200** damage (armour part 200), `shot_cooldown` **0.33** s (**0.095** s with the upgrade `fury_aim_mode`), range **250** m, clip **1**, reserve 12 and infinite, recharge after **0.33** s at **1** a second; the `is_in_coop` variant carries **100**… (HP, s) | kind: guess; confidence: low | wargear `dread_melta` (`pump_states`, `common_data/ammunition`); two files of the name exist (the Chaos twin's, same numbers: the first read is kept) | Dreadnought: melta (read, D4 uses it): compare with SM1 by feel or video. Ours: hit-scan, 200 damage (armour part 200), shot_cooldown 0.33 s (0.095 s… | ☐ |
+| `R-2E756FEC` | Dreadnought: melta (in use since D4) | hit-scan, **200** damage (armour part 200), `shot_cooldown` **0.33** s (**0.095** s with the upgrade `fury_aim_mode`), range **250** m, clip **1**, reserve 12 and infinite, recharge after **0.33** s at **1** a second; the `is_in_coop` variant carries **100**… (HP, s) | kind: guess; confidence: low | wargear `dread_melta` (`pump_states`, `common_data/ammunition`); two files of the name exist (the Chaos twin's, same numbers: the first read is kept) | Dreadnought: melta (in use since D4): compare with SM1 by feel or video. Ours: hit-scan, 200 damage (armour part 200), shot_cooldown 0.33 s (0.095 s… | ☐ |
+| `R-98438AA1` | Dreadnought: the model and clips (D2) | the install's `sm_dreadnought_basic` model (19 drawn blocks incl. the cannon, melta, arm) on its own rig `havok_sm_dreadnought_basic__hkxx` (54 bones, 155 clips) drawn as a player (`DreadnoughtLooks`, hooks `ExtrasEnsureModel`, `ExtrasPlace`, `ExtrasDeath`)… (s, m/s) | kind: ours; kind: choice; notes: estimate | rig graph names; model O3d tree | Dreadnought: the model and clips (D2): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the install's sm_dreadnought_basic model (19 drawn blocks incl. the… | ☐ |
+| `R-A89D1442` | Dreadnought: the assault cannon in the sim (D3) | `dread_assault_cannon` read by the sim's weapon reader (`DreadnoughtWeapons`): 30 damage, cooldown 0.06 s, clip 140, reload 2.5 s, range 250 m, no fall-off; held fire (full auto), a large reserve (2,000,000) for the data's infinite one, always up; the HUD… (rounds, s) | kind: ours | wargear `dread_assault_cannon` | Dreadnought: the assault cannon in the sim (D3): compare with SM1 by feel or video. Ours: dread_assault_cannon read by the sim's weapon reader… | ☐ |
+| `R-37180C7E` | Dreadnought: the melta in the sim (D4) | `dread_melta` by the same reader: a cone shapecast (length 25 m, half-angle 6 degrees, fall-off 1 / 0.5 / 0.15 at 8 / 12.5 / 25 m), 200 damage and 200 armour damage, cooldown 0.33 s, a clip of one recharged one a second after 0.33 s; the "pistol" slot, so… (HP, s) | confidence: low | wargear `dread_melta` | Dreadnought: the melta in the sim (D4): compare with SM1 by feel or video. Ours: dread_melta by the same reader: a cone shapecast (length 25 m… | ☐ |
+| `R-603175AE` | Dreadnought: the arm's strikes in the sim (D5) | the five abilities as the core's strike lists (`DreadnoughtMelee`): light X = X01 (hit at 0.867 s, ends 2.397 s, combo window from 0.967 s, move from 1.2 s; 100 primary, 50 secondary, shield 250 / 100) and X02 (hit 0.600, ends 2.116, 125 / 75), Y from rest =… (s, HP, m) | kind: ours; confidence: medium | `smtool dreadnought-dump` tags | Dreadnought: the arm's strikes in the sim (D5): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the five abilities as the core's strike lists (DreadnoughtMelee):… | ☐ |
+| `R-69FA991B` | Dreadnought: footfall blasts (D5) | each foot's stomp is 25 damage (armour 25) in a 10 m sphere (data) but which footfalls fire it is not decoded: **one blast every 2.2 m of ground walked** (the walk cycle's two footfalls in about 4 m), never standing, airborne or in the entrance; melee damage… (m, HP) | kind: estimate; confidence: low | blueprint `evt_spawn_*_stomp`; the walk clips' lengths | Dreadnought: footfall blasts (D5): compare with SM1 by feel or video. Ours: each foot's stomp is 25 damage (armour 25) in a 10 m sphere (data)… | ☐ |
+| `R-296614C8` | Dreadnought: the buff (D6) | his equipment is a copy of the marines' combat stim (`StimSpec`) named `dread_buff` with the data's 10 s lifetime and reaction immunity; Musou's stim rules then scale it as every stim (lifetime x3 = **30 s**, melee damage x2, attack speed x1.2) and refill it… (s, HP/s) | kind: estimate; confidence: medium | wargear `dread_buff`; owner 2026-11-14 | Dreadnought: the buff (D6): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: his equipment is a copy of the marines' combat stim (StimSpec) named… | ☐ |
+| `R-AB286EAE` | Dreadnought: the customizer entry and the pick (D7) | `MusouCustomizerEntry.Dreadnought` after Heretic, label "Dreadnought": a page of fixed rows (class, weapons, abilities, not for him) with PLAY AS DREADNOUGHT in a match, plus the Esc menu row "Play as Dreadnought" in the Stormbird; both send the Setup with… | kind: ours | owner 2026-11-14 | Dreadnought: the customizer entry and the pick (D7): compare with SM1 by feel or video. Ours: MusouCustomizerEntry.Dreadnought after Heretic, label "Dreadnought":… | ☐ |
+| `R-F38CEA95` | Dreadnought: sounds (D7) | the install's events of bank `Weapon_Dreadnought` posted by the client: `play_engine_sm_dreadnought` from the end of the entrance to his death (speed RTPC), `play_dreadnought_footstep` / `play_dreadnought_sprint_footstep` on the sim's 2.2 m stride… | kind: ours | `smtool audio-event` on each event | Dreadnought: sounds (D7): compare with SM1 by feel or video. Ours: the install's events of bank Weapon_Dreadnought posted by the client:… | ☐ |
+| `R-352ADBF8` | Dreadnought: balance in the war (D8) | a scripted Dreadnought (`--dn-survive`: into the crowd on lane B, cannon held, aimed at the nearest Ork, a reload at the empty clip) lived **109 s** in the thickest fight (the allied Guards and Marines fight beside him) and died once; health fell from 2000 to… (s, HP) | confidence: low | local capture, 2026-11-15 | Dreadnought: balance in the war (D8): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a scripted Dreadnought (--dn-survive: into the crowd on lane B… | ☐ |
 
 ### General game design (7)
 
@@ -4238,6 +4245,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-D59C1237` | Stims: a reliable use in Classic PvP too (stims-classic, owner 2026-11-12; protocol 68) | the original's timing: the use key's press is buffered 0.3 s (9 ticks) and a hit reaction before the stim's release (0.3 s into the use) cancels the use and loses the press; the owner's request: "Should the stim fix also apply in Classic PvP?" "Classic too" | the press is kept 15 ticks (0.5 s) and no hit starts a reaction before the release (the damage is still taken); every mode. `--old-stim-use` on the server and every client restores the 9-tick press and the cancel | Owner 2026-11-12: "ensure it's more reliably working the first time you press the button"; the 0.5 s and the no-cancel rule are ours. Spec "Stims: a reliable use" | Stims: a reliable use in Classic PvP too (stims-classic…: compare with SM1 by feel or video. Ours: the original's timing: the use key's press is buffered 0.3 s (9… | ☐ |
 | `C-0079CDA8` | Musou Librarian: the chain lightning struck as drawn, +25 % range and damage (musou-balance, owner 2026-11-11; `MusouSim.Version` 41) | the owner (2026-11-11): "librarian chain lightning spell doesn't seem to be reliably delivering damage, increase its range, damage, and reliability of delivering damage", "+25% range and damage"; the rewind ours | 37.5 m and 112.5 dps (30 and 90); the server picks the chain on the crowd at the caster's input view tick, as his client draws it; restore switch `SM_LIBRARIAN_OLD=rewind` | Musou: chain lightning; the chain lightning struck as drawn | Musou Librarian: the chain lightning struck as drawn, +25 %…: compare with SM1 by counting hits to kill and by video of the health bar. Ours: the owner (2026-11-11): "librarian chain lightning spell doesn't seem… | ☐ |
 | `C-0CE1D512` | Musou Dreadnought class: a pick of the Musou war (claude/musou-dreadnought-d0-d1, owner 2026-11-14; `MusouSim.Version` 56, `TfwRules.Version` 81) | the owner's request ("Add a new class to Musou mode - next to librarian and heretic selection options in the customize UI - dreadnaught"; "matches exactly that of the loyalist space marine dreadnaught") and his decisions of the same day (any number of players, his own Musou health pool, the data's cannon clip and… | Musou only: a new class `sm - dreadnought` after the Librarian with the data's speeds, a health of 2000 (the data's 8000 would be immortal to ordinary Orks) regenerating 62.5 a second after 5 s (the data's share of it), a 1.0 m by 3.0 m capsule that the Orks crowd as a large body, and the data's 5 s entrance of no… | Dreadnought: the class; speeds; Musou health; Musou regeneration; the body; the Orks treat him as a large body; the entrance | Musou Dreadnought class: a pick of the Musou war…: compare with SM1 by feel or video. Ours: the owner's request ("Add a new class to Musou mode - next to… | ☐ |
+| `C-6EA5C6BB` | Musou Dreadnought, the finished class (claude/musou-dreadnought-d2-b93279, 2026-11-15; `MusouSim.Version` 56, `TfwRules.Version` 81, no protocol change) | the owner's request and decisions of 2026-11-14 and 2026-11-15 ("continue the dreadnaught work until its ready to be playtested in game") | Musou only: the class now has the real model and animations, the data's assault cannon (140 rounds, 2.5 s reload; 15 rounds a second on the 30 Hz tick) and melta (Switch), the arm's five strikes (X, X, stomp, slam of 500 in 10 m, the rush), footfall blasts of 25 in 10 m every 2.2 m walked (our estimate of which… | Dreadnought: the model and clips; the assault cannon; the melta; the arm's strikes; footfall blasts; the sprint limit; the buff; the camera and HUD; the customizer entry; sounds; balance in the war | Musou Dreadnought, the finished class…: compare with SM1 by feel or video. Ours: the owner's request and decisions of 2026-11-14 and 2026-11-15… | ☐ |
 | `C-2E5D3E89` | Musou tuning of 2026-11-11 (musou-tuning-1111b; `MusouSim.Version` 42, `TfwRules.Version` 66) | the owner's answers (2026-11-11): "Drop to 600 blood spray cap"; "Widen the 8m jump and make the damage not falloff anymore - it always stays constant", "16 m (double)"; "Add it to orbital strikes and stack it with double damage yes" | the GPU sprays' live-effect cap 600 (1,200); the chain lightning's jump 16 m (8 m) and every enemy of the chain at the full 112.5 dps (x0.85 a jump), tag 16's jumps in 0.2 m bytes for it; a human player's orbital strike x1.2 on the enemies (a boss 36 a shell, 30), an AI caller x1, the kills still nobody's | Live-effect cap with the GPU sprays (Musou); Musou: chain lightning jump and fall-off; Musou combat: the players' ranged damage x1.2 | Musou tuning of 2026-11-11 (musou-tuning-1111b…: compare with SM1 by feel or video. Ours: the owner's answers (2026-11-11): "Drop to 600 blood spray cap"… | ☐ |
 | `C-B8F01CC3` | Musou: no range fall-off for any ranged weapon (claude/autocannon-pass-2, owner 2026-11-11; `TfwRules.Version` 68, `MusouSim.Version` 44) | the owner (2026-11-11): "There should be no damage falloff for any ranged weapon in Musou mode"; that the melta's cone distance fall-off counts, and that the AI Marines' shots are covered too, ours (his words: "any ranged weapon") | in the war every hit-scan shot on an Ork or a contraption deals its full damage at any distance it reaches (the weapons' x0.8 / x0.75 / x0.5 from 45 to 70 m and so on gone), the melta's cone its full 200 to its 20 m (x0.15 at 20 m before), the arsenal's too; a blast's fall-off from its centre, a pierced shot's 0.85… | Musou: no range fall-off | Musou: no range fall-off for any ranged weapon…: compare with SM1 by timing a run over a known distance. Ours: the owner (2026-11-11): "There should be no damage falloff for any… | ☐ |
 | `C-DFD75858` | Musou: the damage answers (claude/musou-damage-answers, owner 2026-11-11; `TfwRules.Version` 69, `MusouSim.Version` 45) | the owner (2026-11-11): "alliedmarine should not lose range falloff"; "a shot should not lose 15% of its damage for each ork it passes through - but only for the players"; "melta should keep its full 200 damage out to 20m"; "double damage should not affect orbital strikes" | the AI Marines' guns get their range fall-off back (the no-fall-off rule above is the human players'), a human's hit-scan shot loses nothing per Ork it goes through (an AI Marine's keeps the 0.85 share), the melta's full 200 to 20 m for a player and Double Damage never on an orbital strike are pinned by tests; Classic… | Musou: no range fall-off | Musou: the damage answers (claude/musou-damage-answers…: compare with SM1 by counting hits to kill and by video of the health bar. Ours: the owner (2026-11-11): "alliedmarine should not lose range falloff"… | ☐ |
