@@ -32,6 +32,21 @@ public class DreadnoughtAbilityTests
         Assert.Equal(0f, gate.Held);
     }
 
+    [Fact]
+    public void Tapping_the_key_does_not_reset_the_limit_any_sprint_is_followed_by_the_gap()
+    {
+        var gate = new DreadnoughtSprintGate();
+        var held = new PlayerInput(0, 0f, 1f, 0f, InputButtons.Sprint);
+        var off = new PlayerInput(0, 0f, 1f, 0f, InputButtons.None);
+        for (int k = 0; k < 30 * 5; k++) { var i = held; gate.Apply(ref i, Dt); }
+        gate.Apply(ref off, Dt);   // a one-tick release
+        var again = held; gate.Apply(ref again, Dt);
+        Assert.Equal(InputButtons.None, again.Buttons & InputButtons.Sprint);   // the gap, not a fresh 6 s
+        for (int k = 0; k < 40; k++) { var i = held; gate.Apply(ref i, Dt); }
+        var back = held; gate.Apply(ref back, Dt);
+        Assert.Equal(InputButtons.Sprint, back.Buttons & InputButtons.Sprint);   // after the gap it sprints again
+    }
+
     static readonly WeaponSpec Cannon = new(DreadnoughtRules.CannonWargear, WeaponSlot.Ranged, TriggerKind.FullAuto, 30f, 0.06f, 140, 2_000_000, 2.5f, 250f, 250f, 250f, 1f, 1f, 1f, 1f, 1f) { AlwaysReady = true };
     static readonly ThrownSpec Stims = new("combat_stims", 3, 3, 1f, 0f, ThrownSpec.NoProjectile) { Stim = new StimSpec(5f, 0.2f, 0.6f) };
     static readonly SimConfig Config = MusouLoadout.Prepare(TfwRig.Config with { Weapons = [.. TfwRig.Config.Weapons, Cannon], Thrown = [Stims] });

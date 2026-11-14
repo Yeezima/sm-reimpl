@@ -53,7 +53,7 @@ public class DreadnoughtGunsTests
         int clip0 = Me(w).Clip;
         int ticks = 0;
         while (Me(w).Clip > 0 && ticks < 600) { w.Step(_ => Held(InputButtons.Fire)); ticks++; }
-        Assert.Equal(0, Me(w).Clip + 0 * ticks);
+        Assert.Equal(0, Me(w).Clip);
     
         Assert.InRange(ticks, 276, 282);   // 0.06 s is 1.8 ticks and the 30 Hz step fires at most once a tick, a round every 2 ticks: 15 a second, not the data's 16.7 (spec "Dreadnought: the cannon")
         Assert.Equal(140, clip0);

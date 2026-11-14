@@ -18,7 +18,12 @@ public sealed class DreadnoughtSprintGate
     public void Apply(ref PlayerInput input, float dt)
     {
         if (_gap > 0f) { _gap = MathF.Max(0f, _gap - dt); _held = 0f; input = input with { Buttons = input.Buttons & ~InputButtons.Sprint }; return; }
-        if ((input.Buttons & InputButtons.Sprint) == 0) { _held = 0f; return; }
+        if ((input.Buttons & InputButtons.Sprint) == 0)
+        {
+            if (_held > 0f) _gap = DreadnoughtRules.SprintGapSeconds;   // any sprint is followed by the data's gap: tapping the key does not reset the limit
+            _held = 0f;
+            return;
+        }
         _held += dt;
         if (_held > DreadnoughtRules.SprintSeconds + 1e-4f)
         {

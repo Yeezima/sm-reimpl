@@ -46,7 +46,6 @@ public class DreadnoughtMeleeTests
         Assert.Equal(2, c.Melee[0].HeavyNext);   // X then Y: the slam strike
         Assert.Equal(1, slam.YNext);              // Y then Y: the stomp again
         Assert.Empty(c.MeleeChoices);
-        if (c.MeleeRush is { } rush) Assert.Equal((500f, 125f), (rush.Primary.Damage, rush.Secondary.Damage));
     }
 
     [Fact]
@@ -77,6 +76,76 @@ public class DreadnoughtMeleeTests
         for (int k = 0; k < 30 * 2; k++) w.Step(_ => new PlayerInput(0, 0f, 1f, 0f, InputButtons.None));   // walks 2 s (toward +Y: the Boys are ahead)
         Assert.True(Health(near) < standing - 20f || Health(near) <= 0f, $"near Ork {standing} -> {Health(near)}");
         Assert.True(Health(far) > 900f, $"the Ork 40 m away took {1000f - Health(far)}");
-        Assert.True(before >= standing - 0.01f || before > 0f);
+        Assert.True(standing <= before + 0.01f);
+    }
+
+    static float Boy(World w, Vector3 at, out ushort id) { id = w.Musou!.Spawn(MusouEnemyType.Boy, at, 0f, 100000f); Assert.NotEqual((ushort)0, id); return 100000f; }
+    static float HealthOf(World w, ushort id) => w.Musou!.TryGet(id, out var e) ? e.Health : -1f;
+
+    /// <summary>Damage the strikes deal an Ork 3 m ahead (Musou's own scales on top: the cleave, the stim, the war's multipliers), by the step run out.</summary>
+    [Fact]
+    public void The_strikes_deal_the_datas_damage_or_more_to_an_Ork_in_reach_the_slam_500_and_the_stomp_50()
+    {
+        float Dealt(Func<World, bool> act)
+        {
+            var w = Landed();
+            var at = Me(w).Position;
+            Boy(w, at + new Vector3(0f, 3f, 0f), out ushort boy);
+            Assert.True(act(w));
+            TfwRig.Seconds(w, 4.5f);
+            return 100000f - HealthOf(w, boy);
+        }
+        // X from rest: X01 (100) or X02 (125), the cleave and Musou's scales on top
+        float light = Dealt(w => { Press(w, InputButtons.Melee); return true; });
+        Assert.True(light >= 100f - 0.5f, $"a light strike dealt {light}");
+        // Y from rest: the stomp's 50 in 10 m (the Ork at 3 m takes it whole: no fall-off is read)
+        float stomp = Dealt(w => { Press(w, InputButtons.MeleeHeavy); return true; });
+        Assert.True(stomp >= 50f - 0.5f, $"the stomp dealt {stomp}");
+        // X then Y: Y01 with the slam's 500 (and its own 50)
+        float slam = Dealt(w =>
+        {
+            Press(w, InputButtons.Melee);
+            for (int k = 0; k < 32; k++) Press(w, InputButtons.None);
+            Press(w, InputButtons.MeleeHeavy);
+            return Me(w).MeleeHeavy;
+        });
+        Assert.True(slam >= 500f, $"X then Y dealt {slam}");
+        Assert.True(slam > stomp + 400f);
+    }
+
+    [Fact]
+    public void The_slam_and_the_footfalls_never_hurt_a_marine_standing_next_to_him()
+    {
+        var w = Landed();
+        var at = Me(w).Position;
+        w.Spawn(7, 0);
+        w.MusouJoined(7);
+        TfwRig.Steps(w, 3);
+        Assert.True(w.Players.ContainsKey(7));
+        Assert.True(w.TfwRespawnAt(7, at + new Vector3(3f, 0f, 0f), 0f));
+        TfwRig.Seconds(w, 6f);   // past the other's own protection
+        float before = w.Players[7].Health + w.Players[7].Shield;
+        Press(w, InputButtons.Melee);
+        for (int k = 0; k < 32; k++) Press(w, InputButtons.None);
+        Press(w, InputButtons.MeleeHeavy);
+        for (int k = 0; k < 30 * 3; k++) w.Step(i => i == Human ? new PlayerInput(0, 0f, 1f, 0f, InputButtons.None) : default);   // and a walk: footfalls
+        var after = w.Players[7];
+        Assert.True(after.Alive);
+        Assert.True(after.Health + after.Shield >= before - 0.01f, $"the marine went from {before} to {after.Health + after.Shield}");
+    }
+
+    [Fact]
+    public void The_rush_is_the_tacticals_path_with_the_datas_500_and_125_and_the_4_m_reach()
+    {
+        var move = new RushMove("rush", [Vector2.Zero, new Vector2(0f, 3f)], 1f, 1f, 0.5f, 0.5f, 0.5f);
+        var dmg = new DamageSpec(75f, 25f, 1f, 1f, 1f, 1f, false);
+        var rush = new RushSpec("bullrush", move, move, dmg, default, dmg, default, 3f, 1f);
+        var raw = TfwRig.Config with { Weapons = [.. TfwRig.Config.Weapons, Cannon] };
+        raw = raw with { Classes = raw.Classes.Select((k, n) => n == 0 ? k with { MeleeRush = rush } : k).ToList() };
+        var prepared = MusouLoadout.Prepare(raw);
+        var c = prepared.Classes.First(k => k.Name == DreadnoughtRules.ClassName);
+        Assert.NotNull(c.MeleeRush);
+        Assert.Equal((500f, 1000f, 125f, 75f, DreadnoughtMelee.Reach), (c.MeleeRush!.Primary.Damage, c.MeleeRush.Primary.ShieldDamage, c.MeleeRush.Secondary.Damage, c.MeleeRush.Secondary.ShieldDamage, c.MeleeRush.Range));
+        Assert.Equal(75f, prepared.Classes[0].MeleeRush!.Primary.Damage);   // the Tactical's own is untouched
     }
 }

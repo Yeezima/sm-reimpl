@@ -784,7 +784,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-640BBD78` | Spear: jump-pack rules | the hammer's: no pound delay, the hop swing, the steered slam (`Loadouts.WieldsHammer` through `ArsenalRules.WieldsHammer`) | kind: ours; confidence: medium | owner D17 (default) | Spear: jump-pack rules: compare with SM1 by feel or video. Ours: the hammer's: no pound delay, the hop swing, the steered slam… | ☐ |
 
-*Spec section: Added content: Musou Dreadnought (D0 and D1, 2026-11-14; `MusouSim.Version` 56, `TfwRules.Version` 81; no protocol change)*
+*Spec section: Added content: Musou Dreadnought (D0 to D9, 2026-11-14 and 2026-11-15; `MusouSim.Version` 56, `TfwRules.Version` 81; no protocol change)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
@@ -850,7 +850,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-0D9D6A50` | A contraption or a shield dome in the way | the charge sticks to a contraption like to an Ork and rides on it, and to a shield dome's surface (from outside) like to a wall, held at that point 0.05 m outside the surface on the thrower's side, as the core's own stop (a ring spot that falls inside the… | kind: ours; confidence: medium | design section 7 | A contraption or a shield dome in the way: compare with SM1 by counting hits to kill and by video of the health bar. Ours: the charge sticks to a contraption like to an Ork and rides on it… | ☐ |
 
-*Spec section: Added content: Musou Dreadnought (D0 and D1, 2026-11-14; `MusouSim.Version` 56, `TfwRules.Version` 81; no protocol change)*
+*Spec section: Added content: Musou Dreadnought (D0 to D9, 2026-11-14 and 2026-11-15; `MusouSim.Version` 56, `TfwRules.Version` 81; no protocol change)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
@@ -1779,7 +1779,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-C2C74997` | Spear animations: the crosshair column | 2026-11-11 (lead: the carried blade crossed the crosshair's column in the own view at idle): the blade's head (collar, crossguard, blade) stays at least **3** degrees of the horizontal view to one side of the screen's centre column at idle in the default… (degrees) | kind: ours; confidence: low | ours (the reticle at rest is about 2 degrees across its half at the data's 40-degree view in the 1600 x 900 window) | Spear animations: the crosshair column: compare with SM1 with an overlaid screenshot taken from the same position. Ours: 2026-11-11 (lead: the carried blade crossed the crosshair's column in… | ☐ |
 
-*Spec section: Added content: Musou Dreadnought (D0 and D1, 2026-11-14; `MusouSim.Version` 56, `TfwRules.Version` 81; no protocol change)*
+*Spec section: Added content: Musou Dreadnought (D0 to D9, 2026-11-14 and 2026-11-15; `MusouSim.Version` 56, `TfwRules.Version` 81; no protocol change)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
@@ -3597,7 +3597,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-47E96A7E` | Serrated knife's light and field | the combat knife (both races) of a wielder with `mp_perk_combat_knife_damage` plays the same data light tinted green (0.12, 0.9, 0.2) at 0.577 opacity (its brightest channel 0.45, half of the first version's 0.9; owner 2026-11-14: "toned down 50%") and wears… (colour) | kind: ours; confidence: low | owner 2026-11-14 | Serrated knife's light and field: compare with SM1 by feel or video. Ours: the combat knife (both races) of a wielder with… | ☐ |
 | `R-71D3A9E3` | Kraken Bolts tracer | a bolter shot of a shooter with `mp_perk_weap_bolter_kraken_rounds` (the bolters, gold bolters and pistol-slot bolters of both races that carry the Kraken entry) draws its tracer red (1, 0.08, 0.04) with the beam width x 0.62 and trail x 0.42 of the data's… (factor, colour) | kind: ours; confidence: low | owner 2026-11-14 | Kraken Bolts tracer: compare with SM1 by feel or video. Ours: a bolter shot of a shooter with mp_perk_weap_bolter_kraken_rounds… | ☐ |
 
-*Spec section: Added content: Musou Dreadnought (D0 and D1, 2026-11-14; `MusouSim.Version` 56, `TfwRules.Version` 81; no protocol change)*
+*Spec section: Added content: Musou Dreadnought (D0 to D9, 2026-11-14 and 2026-11-15; `MusouSim.Version` 56, `TfwRules.Version` 81; no protocol change)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
@@ -4126,7 +4126,7 @@ The Orks are an addition the owner keeps (the original multiplayer had Space Mar
 | `R-378E2963` | Musou: swing lock | after the tracking share the facing is held to the blow; the blow lands on a target within reach (`MeleeRange` + 0.3 m) and **60** degrees (`MeleeConeDegrees`, each side) of the locked facing (degrees) | kind: ours; notes: estimate | owner 2026-11-12; the cone as before | Musou: swing lock: compare with SM1 with an overlaid screenshot taken from the same position. Ours: after the tracking share the facing is held to the blow; the blow… | ☐ |
 | `R-9C8D6A28` | Restore switch | `--musou-ork-swing-tracking` (server and every client; hashed in Musou's block only when on) | kind: ours | ours | Restore switch: compare with SM1 by feel or video. Ours: --musou-ork-swing-tracking (server and every client; hashed in… | ☐ |
 
-*Spec section: Added content: Musou Dreadnought (D0 and D1, 2026-11-14; `MusouSim.Version` 56, `TfwRules.Version` 81; no protocol change)*
+*Spec section: Added content: Musou Dreadnought (D0 to D9, 2026-11-14 and 2026-11-15; `MusouSim.Version` 56, `TfwRules.Version` 81; no protocol change)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|

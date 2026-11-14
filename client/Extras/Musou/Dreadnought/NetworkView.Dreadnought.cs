@@ -24,7 +24,8 @@ public partial class NetworkView
 
     sealed class DreadnoughtTrack
     {
-        public bool WasAlive, EngineOn, Seen, ClassDread, HasPos, Corpse, StepDust;
+        public bool WasAlive, EngineOn, Seen, ClassDread, HasPos, Corpse, StepDust, Placed;
+        public string Label = "";
         public Vector3 PrevPos;
         public int PrevClip;
         public double Born = double.NegativeInfinity, Died = double.NegativeInfinity;
@@ -84,10 +85,12 @@ public partial class NetworkView
         if (!IsDreadnoughtCharacter(character)) return;
         handled = true;
         var t = DreadTrack(state.PlayerId);
+        bool first = !t.Placed;   // the first time this character is posed (a join in a battle, or the model finishing its load): no edge to read yet, so no entrance replays
+        t.Placed = true;
         // A new life (the dead to alive edge) or a jump of the body while alive (a war redeploy, an extraction or a call-back: the server re-locks the entrance at each) starts the entrance clip.
         var pos = new Vector3(state.Position.X, state.Position.Y, state.Position.Z);
         bool jumped = t.HasPos && new Vector2(pos.X - t.PrevPos.X, pos.Y - t.PrevPos.Y).Length() > DreadnoughtTeleportMetres;
-        if (state.Alive && ((!t.WasAlive && t.Seen) || jumped)) t.Born = _connectedFor;
+        if (state.Alive && !first && (!t.WasAlive || jumped)) t.Born = _connectedFor;
         t.PrevPos = pos; t.HasPos = true;
         t.WasAlive = true; t.Corpse = false;
         character.ClearPoseLayers();
@@ -184,7 +187,7 @@ public partial class NetworkView
     {
         if (_sound is null || Lean) return;
         var em = t.Emitter;
-        em.Own = own; em.Label = $"dreadnought {s.PlayerId}";
+        em.Own = own; if (t.Label.Length == 0) t.Label = $"dreadnought {s.PlayerId}"; em.Label = t.Label;
         em.Position = ToGodot(s.Position) + Vector3.Up * 1.5f;
         float speed = MathF.Sqrt(s.Velocity.X * s.Velocity.X + s.Velocity.Y * s.Velocity.Y);
         em.Parameters[VoiceMixer.Speed] = speed;

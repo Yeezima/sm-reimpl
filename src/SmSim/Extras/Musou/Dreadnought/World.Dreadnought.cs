@@ -79,7 +79,12 @@ public sealed partial class World
         float dt = 1f / Math.Max(1, Config.TickRate);
         _dreadnoughtGone.Clear();
         foreach (int id in _respawns) _dreadnoughtEntry.Remove(id);   // the core's respawn after a death: a new life, a new entrance
-        if (DreadnoughtHub) foreach (int id in _players.Keys.ToArray()) DreadnoughtHubStandIn(id);
+        if (DreadnoughtHub)
+        {
+            _dreadnoughtLive.Clear();
+            foreach (int id in _players.Keys) _dreadnoughtLive.Add(id);   // a copy: the stand-in changes players
+            foreach (int id in _dreadnoughtLive) DreadnoughtHubStandIn(id);
+        }
         foreach (var id in _dreadnoughtEntry.Keys)
             if (!_players.TryGetValue(id, out var q) || !q.Alive || !DreadnoughtRules.IsDreadnought(Config, q.Class)) _dreadnoughtGone.Add(id);   // dead, left or changed class: the next spawn is a new entrance
         foreach (int id in _dreadnoughtGone) { _dreadnoughtEntry.Remove(id); _dreadnoughtStride.Remove(id); }
