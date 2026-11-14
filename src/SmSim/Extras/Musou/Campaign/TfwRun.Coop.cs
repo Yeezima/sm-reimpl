@@ -12,7 +12,7 @@ public sealed partial class TfwRun
 
     /// <summary>
     /// A living human who is not in the field while a battle or the final assault is under way (it joined after the landing: it spawned in the Stormbird) lands at the landing zone at the
-    /// next free place of <see cref="TfwCoop.LandingOffset"/>, facing the HQ, with its retainer, and is one of the team from then on (its scores, its revive window, the extraction).
+    /// next free place of <see cref="TfwCoop.LandingOffset"/> (a Dreadnought pick: the base's centre or the next free place beside it, <see cref="DreadnoughtRules.LandingOffset"/>), facing the HQ, with its retainer, and is one of the team from then on (its scores, its revive window, the extraction).
     /// Not during a pickup (the team is leaving: it waits in the Stormbird), not after the run's end.
     /// </summary>
     void JoinLate(World w)
@@ -27,7 +27,7 @@ public sealed partial class TfwRun
         float yaw = layout.FaceCentre(layout.LandingZone);   // owner 2026-11-09: a spawn faces the map's centre
         foreach (int id in _late)
         {
-            var at = Ashore(w, layout, LandingOf(w, id, _deployed.Count));
+            var at = LandingAt(w, layout, id, _deployed.Count);
             _landingSlots[id] = _deployed.Count;   // TfwRun.Flow.cs: a redeploy comes back here
             _deployed.Add(id);
             w.TfwRespawnAt(id, at, yaw);

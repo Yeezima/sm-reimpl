@@ -174,4 +174,52 @@ public class DreadnoughtWarTests
         Assert.InRange(apart, 3f, 5f);
         Assert.True(Flat(3) < 6f, "the Tactical stays by the base in its own slot");
     }
+
+    static World Landed(params int[] extraDreadnoughts)
+    {
+        var w = HubWithPick();
+        foreach (int id in extraDreadnoughts) { w.Spawn(id, Dread(w.Config)); w.MusouJoined(id); }
+        TfwRig.Steps(w, 2);
+        TfwRig.Deploy(w);
+        TfwRig.Steps(w, 2);
+        return w;
+    }
+
+    static float Apart(World w, int a, int b) => Vector3.Distance(w.Players[a].Position with { Z = 0f }, w.Players[b].Position with { Z = 0f });
+
+    [Fact]
+    public void Three_dreadnoughts_land_across_the_base_four_metres_apart_with_the_first_in_the_middle()
+    {
+        var w = Landed(2, 3);
+        var zone = TfwTestArena.LandingZone;
+        Assert.True(Vector3.Distance(w.Players[1].Position with { Z = 0f }, zone) < 0.75f);
+        // places 0, +4, -4 across the base: 4 m from the centre each, 8 m between the two outer ones
+        Assert.InRange(Apart(w, 1, 2), 3.5f, 4.5f);
+        Assert.InRange(Apart(w, 1, 3), 3.5f, 4.5f);
+        Assert.InRange(Apart(w, 2, 3), 7.5f, 8.5f);
+        // across the width: the line through them is perpendicular to the way they face (toward the map's centre)
+        var line = Vector2.Normalize(new Vector2(w.Players[2].Position.X - w.Players[3].Position.X, w.Players[2].Position.Y - w.Players[3].Position.Y));
+        var tfw = w.Tfw!.Battle!.Layout;
+        float yaw = tfw.FaceCentre(tfw.LandingZone);
+        var facing = new Vector2(-MathF.Sin(yaw), MathF.Cos(yaw));
+        Assert.True(MathF.Abs(Vector2.Dot(line, facing)) < 0.1f, $"the line of Dreadnoughts is not across the base: {Vector2.Dot(line, facing)}");
+    }
+
+    [Fact]
+    public void A_redeploying_dreadnought_takes_a_free_place_not_a_living_ones()
+    {
+        var w = Landed(2, 3);                 // places 0, 1, 2 for players 1, 2, 3
+        var run = w.Tfw!;
+        w.Remove(1);                          // the centre place's Dreadnought leaves
+        TfwRig.Steps(w, 2);
+        var held = w.Players[2].Position;     // place 1 stays held by player 2
+        Assert.True(w.TfwKillForTests(3));
+        TfwRig.Steps(w, 2);
+        Assert.True(run.Enqueue(3, new TfwCommandRecord(1, TfwCommand.Redeploy, 0)));
+        TfwRig.Steps(w, 2);
+        Assert.Equal(1, run.Redeploys);
+        Assert.True(w.Players[3].Alive);
+        Assert.True(Apart(w, 2, 3) > 3.5f, $"the redeploying Dreadnought landed on a living one: {Apart(w, 2, 3)}");
+        Assert.Equal(held with { Z = 0f }, w.Players[2].Position with { Z = 0f });
+    }
 }

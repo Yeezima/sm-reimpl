@@ -100,15 +100,19 @@ public class SprintMeleeChargeTests(ITestOutputHelper output)
     }
 
     // ---- the Ork Boy (owner 2026-11-15: "It should be for all classes including ork boy in classic PvP yes") ----
+    // The rule is class-agnostic: it reads Loadouts.Rush and Rush.ChargeHeld, never the race. Here an Ork-race class carrying an Ork-shaped charge (the real one is OrkClass.ReadRush's, built from
+    // the install's data: slower contact damage, no minimum interval, a 10 m range; OrkBalanceTests pins its shape) on the Ork's 5 m/s body. The real read is not exercised: it needs the install.
 
     static readonly SimConfig OrkConfig = Config with
     {
         Extras = ContentExtras.Orks,
-        Classes = [.. Config.Classes, Config.Classes[0] with { Name = "ork - boy", Race = Race.Orks, Side = Team.None }],
+        Bodies = [new BodySpec("ork - boy (test)", 5f, 6.5f, 4.5f, 8f, 3f, 3f, 3f, 2f, 120f, 5f, 5f, 50f, 7f, 33f)],
+        Classes = [.. Config.Classes, Config.Classes[0] with { Name = "ork - boy", Race = Race.Orks, Side = Team.None, Body = 0,
+            MeleeRush = Config.Classes[0].MeleeRush! with { Primary = Config.Classes[0].MeleeRush!.Primary with { Damage = 15f, ShieldDamage = 15f }, Secondary = Config.Classes[0].MeleeRush!.Primary with { Damage = 0f, ShieldDamage = 0f }, Range = 10f, MinInterval = 0f } }],
     };
 
     [Fact]
-    public void The_Ork_Boy_charges_on_Shift_W_and_a_light_press_and_swings_with_Shift_released()
+    public void An_Ork_race_class_with_an_Ork_shaped_charge_charges_on_Shift_W_and_a_light_press_and_swings_with_Shift_released()
     {
         const int ork = 2;
         var start = Combat.Respawned(new PlayerState(1, Vector3.Zero, Vector3.Zero, 0f, true) { Class = ork }, OrkConfig);
@@ -116,8 +120,9 @@ public class SprintMeleeChargeTests(ITestOutputHelper output)
         Assert.NotNull(Loadouts.Rush(OrkConfig, start));
         var charged = Step(start, SprintLight, OrkConfig);
         Assert.Equal((RushPhase.Rush, 0), (charged.Rush, charged.MeleeStep));
-        var s = Step(start, In(InputButtons.None, y: 1f), OrkConfig);
-        s = Step(s, WalkLight, OrkConfig);
+        var s = Step(start, In(InputButtons.Sprint, y: 1f), OrkConfig);   // sprinting
+        s = Step(s, In(InputButtons.None, y: 1f), OrkConfig);              // Shift let go, W held
+        s = Step(s, WalkLight, OrkConfig);                                 // the press: the swing at once
         Assert.Equal((RushPhase.None, 1), (s.Rush, s.MeleeStep));
     }
 
