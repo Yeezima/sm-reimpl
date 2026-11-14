@@ -39,7 +39,13 @@ public static class ClipBlends
     public const float MeleeChain = Default;
 
     /// <summary>Jump-pack clips: the ground pound's dive, impact and get-up (<c>SM_JMP_GP_*</c>) use "Fast Blend" 0.167 s; take-off, flight and landings "Blend Launch to Jump" / "Back To Jump" 0.1 s (<c>MP_SM_NAV_JP_Sim</c>).</summary>
-    public static float Jump(string clip) => clip.Contains("_GP_", System.StringComparison.OrdinalIgnoreCase) || clip.Contains("Landing_MedRun", System.StringComparison.OrdinalIgnoreCase) ? Fast : Default;
+    public static float Jump(string clip) =>
+        clip.Contains("_GP_", System.StringComparison.OrdinalIgnoreCase) || clip.Contains("Landing_MedRun", System.StringComparison.OrdinalIgnoreCase) ? Fast
+        : !OldJumpBlend && (clip.StartsWith("SM_JMP_Zero", System.StringComparison.OrdinalIgnoreCase) || clip.StartsWith("SM_JMP_Curve", System.StringComparison.OrdinalIgnoreCase)) ? FlightEntry : Default;
+
+    /// <summary>anim/jump-pack-blend (ours): a flight clip taking over (from the take-off, or from the other direction or aim) fades over 0.25 s: the graph's 0.1 s plus the viewer's floor left a visible switch between the very different F / L / R / B clips.</summary>
+    public const float FlightEntry = SmContent.JumpAirBlend.FlightEntry;
+    static readonly bool OldJumpBlend = System.Linq.Enumerable.Contains(Godot.OS.GetCmdlineUserArgs(), "--old-jump-blend");
 
     /// <summary>The melee strike's blend: the string's first step enters from navigation, the others chain.</summary>
     public static float Melee(int step) => step <= 1 ? MeleeEntry : MeleeChain;

@@ -380,12 +380,17 @@ public partial class NetworkView
         if ((pound ? k is 29 : k is 48) && _jumpTestCycle % 2 == 1) buttons |= InputButtons.Melee;
         // fx/jumppack-jets capture aid (--jump-test-air-melee): a melee press in the air in each move: the even cycles' small jump (k 22, the slash below 8 m) and each dash (6 ticks after its tap).
         if (JumpTestAirMelee && ((k is 22 && _jumpTestCycle % 2 == 0) || k is 156 or 196)) buttons |= InputButtons.Melee;
+        // anim/jump-pack-blend capture aid (--jump-test-steer): the stick in the air steers left and right every 1 s (the odd cycles back too) so the flight's direction clips change.
+        if (JumpTestSteer && k is >= 12 and < 140) { mx = ((k - 12) / 30) % 2 == 0 ? 1f : -1f; my = _jumpTestCycle % 2 == 1 && k >= 72 ? -1f : 1f; }
         if (k is 150) { buttons = InputButtons.Jump; mx = 1f; my = 1f; }
         else if (k is 151) { mx = 1f; my = 1f; }
         else if (k is 190) { buttons = InputButtons.Jump; mx = -1f; my = -1f; }
         else if (k is 191) { mx = -1f; my = -1f; }
         return new PlayerInput(tick, mx, my, _yaw, buttons, _pitch);
     }
+
+    bool JumpTestSteer => _jumpTestSteer ??= OS.GetCmdlineUserArgs().Contains("--jump-test-steer");
+    bool? _jumpTestSteer;
 
     bool JumpTestAirMelee => _jumpTestAirMelee ??= OS.GetCmdlineUserArgs().Contains("--jump-test-air-melee");
     bool? _jumpTestAirMelee;
