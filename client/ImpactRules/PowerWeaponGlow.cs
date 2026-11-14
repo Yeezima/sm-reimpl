@@ -21,6 +21,13 @@ public static class PowerWeaponGlow
     /// <summary>The Serrated Combat Blade perk's upgrade string (<c>mp_perk_combat_knife_damage</c>).</summary>
     public const string SerratedUpgrade = "mp_perk_combat_knife_damage";
 
+    /// <summary>The data effect every power weapon's light plays: the thunder hammer's own (<c>thunderhammer_idle_light</c>, wargear <c>while_deployed_actions</c>, scale 1, marker <c>fx_swing</c>), unchanged; only the knife's is recoloured (a tint) and dimmed.</summary>
+    public const string DataLight = "thunderhammer_idle_light";
+    /// <summary>The serrated knife's glow magnitude against the first version (owner, 2026-11-14: "toned down 50%"): the light's brightness (effect opacity) and the field overlay's core and rim.</summary>
+    public const float KnifeGlowScale = 0.5f;
+    /// <summary>The effect opacity that makes the knife's tinted data light exactly <see cref="KnifeGlowScale"/> of the first version's green (whose brightest channel was Green.G = 0.9): the data light's colour keeps its brightest channel (Blue.B = 221/255) under a tint, so 0.5 / 0.867.</summary>
+    public static readonly float KnifeLightOpacity = KnifeGlowScale / (221f / 255f);
+
     /// <summary>The hammer's light colour (0..1 RGB): the data's (3, 113, 221). All power weapons use it.</summary>
     public static readonly (float R, float G, float B) Blue = (3f / 255f, 113f / 255f, 221f / 255f);
     /// <summary>The serrated knife's light colour (ours: the hammer's light turned green).</summary>
