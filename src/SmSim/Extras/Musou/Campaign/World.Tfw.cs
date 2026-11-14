@@ -132,7 +132,7 @@ public sealed partial class World
         foreach (int id in _players.Keys) _musouIds.Add(id);
         _musouIds.Sort();
         int n = 0;
-        foreach (int id in _musouIds) { var p = _players[id]; _musouTargets[n++] = new MusouTarget(id, p.Position, p.Alive); }
+        foreach (int id in _musouIds) { var p = _players[id]; _musouTargets[n++] = new MusouTarget(id, p.Position, p.Alive, Body: DreadnoughtBodyRing(p)); }
         n += guards.AppendTargets(_musouTargets.AsSpan(n));
         if (_musouBoss is null || _musouBoss.Id != battle.BossId)
             _musouBoss = new MusouBoss(_musou!, null, battle.BossId, battle.BossMaxHealth, Config.CapsuleRadius);

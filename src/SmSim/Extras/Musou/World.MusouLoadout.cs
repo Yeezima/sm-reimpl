@@ -45,6 +45,7 @@ public sealed partial class World
     /// </summary>
     public void MusouJoined(int playerId)
     {
+        _dreadnoughtEntry.Remove(playerId);   // Dreadnought/World.Dreadnought.cs: a fresh join of the id starts his entrance again
         if (_tfw is not null) { TfwArmAll(); return; }   // Campaign/World.TfwArsenal.cs: the full loadout (owner's item 25), never the strip
         if (_musou is null || !MusouLoadout.Prepared(Config) || !_players.TryGetValue(playerId, out var p) || !p.Alive) return;
         _musouArmed.Add(playerId);

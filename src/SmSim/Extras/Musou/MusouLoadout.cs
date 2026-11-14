@@ -26,7 +26,9 @@ public static class MusouLoadout
             PrimaryChoices = c.PrimaryChoices.Count > 0 ? (c.PrimaryChoices.Contains(c.Primary) ? c.PrimaryChoices : [c.Primary, .. c.PrimaryChoices]) : [c.Primary],
         }).ToList();
         AppendLibrarian(classes, config.LibrarianVariant.WarpPull);
-        return config with { Classes = classes, MusouDefaultPrimaries = config.MusouDefaultPrimaries.Count > 0 ? config.MusouDefaultPrimaries : config.Classes.Select(c => c.Primary).ToList() };
+        var bodies = config.Bodies;
+        AppendDreadnought(classes, ref bodies);
+        return config with { Classes = classes, Bodies = bodies, MusouDefaultPrimaries = config.MusouDefaultPrimaries.Count > 0 ? config.MusouDefaultPrimaries : config.Classes.Select(c => c.Primary).ToList() };
     }
 
     /// <summary>
@@ -53,6 +55,24 @@ public static class MusouLoadout
                 MeleeChoices = [sword, .. tactical.MeleeChoices.Where(m => m.Wargear != sword.Wargear)],
             };
         classes.Add(librarian);
+    }
+
+    /// <summary>
+    /// The Dreadnought (docs/musou-dreadnought-design.md; <see cref="DreadnoughtRules"/>), appended after the Librarian so no index changes: the Tactical's melee as a placeholder arm (D5 replaces it), no gun and no pistol (the
+    /// cannon and the melta come in D3 and D4), no equipment, perks, jump pack or evade, and a body of his own (<see cref="DreadnoughtRules.Body"/>) appended to <paramref name="bodies"/>. Added once, only here, so only under
+    /// Musou; nothing is added when the config has no Space Marine Tactical to copy.
+    /// </summary>
+    static void AppendDreadnought(List<ClassLoadout> classes, ref IReadOnlyList<BodySpec> bodies)
+    {
+        if (classes.Any(c => c.Name == DreadnoughtRules.ClassName)) return;
+        var tactical = classes.FirstOrDefault(c => c.Name == "sm - tactical") ?? classes.FirstOrDefault(c => c.Side == Team.SpaceMarines);
+        if (tactical is null) return;
+        classes.Add(tactical with
+        {
+            Name = DreadnoughtRules.ClassName, Role = DreadnoughtRules.Role, Primary = -1, Pistol = -1, PrimaryChoices = [], PistolChoices = [], EquipmentChoices = [], PerkChoices = [], DefaultPerk = -1,
+            JumpPack = -1, Evade = -1, Body = bodies.Count,
+        });
+        bodies = [.. bodies, DreadnoughtRules.Body()];
     }
 
     /// <summary>The class's default primary, whether or not <see cref="Prepare"/> took it away; -1: none (Musou Mode's full loadout).</summary>

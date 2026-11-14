@@ -28,12 +28,12 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3215 spec table rows: **2366 tagged**, 590 not tagged (read from data with high confidence), 259 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 718 rows of the changes document.
+Scanned 3230 spec table rows: **2374 tagged**, 597 not tagged (read from data with high confidence), 259 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 719 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
 | Movement (critical) | 408 | 348 | 347 | 118 | 12 |
-| Combat core (critical) | 17 | 7 | 15 | 14 | 9 |
+| Combat core (critical) | 19 | 9 | 17 | 15 | 9 |
 | Weapons (critical) | 121 | 73 | 106 | 54 | 3 |
 | Melee (critical) | 149 | 131 | 110 | 53 | 5 |
 | Jump pack (critical) | 85 | 77 | 69 | 19 | 0 |
@@ -50,22 +50,22 @@ Scanned 3215 spec table rows: **2366 tagged**, 590 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 23 | 13 | 13 | 13 | 7 |
-| Core simulation (provisional values) | 701 | 661 | 501 | 181 | 1 |
+| Core simulation (provisional values) | 706 | 665 | 504 | 184 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 248 | 237 | 133 | 68 | 0 |
-| **All areas** | **2366** | 2092 | 1759 | 731 | 38 |
+| Ork faction | 249 | 238 | 134 | 68 | 0 |
+| **All areas** | **2374** | 2099 | 1765 | 735 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1377 |
-| confidence: low | 841 |
-| confidence: medium | 789 |
-| notes: ours | 415 |
-| kind: interpretation | 383 |
-| notes: estimate | 198 |
-| kind: estimate | 158 |
+| kind: ours | 1378 |
+| confidence: low | 846 |
+| confidence: medium | 790 |
+| notes: ours | 417 |
+| kind: interpretation | 384 |
+| notes: estimate | 200 |
+| kind: estimate | 161 |
 | confidence: none (low) | 129 |
 | kind: provisional | 103 |
 | kind: user's knowledge | 56 |
@@ -76,14 +76,14 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | notes: user's knowledge | 26 |
 | kind: approximation | 25 |
 | notes: interpretation | 25 |
-| kind: placeholder | 22 |
+| kind: placeholder | 23 |
 | notes: placeholder | 20 |
 | kind: gap (not reproduced) | 19 |
 | notes: open question | 19 |
 | notes: not reproduced (gap) | 13 |
 | notes: gap (not reproduced) | 10 |
 | kind: public (unverified) | 9 |
-| kind: guess | 4 |
+| kind: guess | 6 |
 | notes: guess | 4 |
 | kind: inferred | 3 |
 | section: approximation | 3 |
@@ -771,7 +771,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-640BBD78` | Spear: jump-pack rules | the hammer's: no pound delay, the hop swing, the steered slam (`Loadouts.WieldsHammer` through `ArsenalRules.WieldsHammer`) | kind: ours; confidence: medium | owner D17 (default) | Spear: jump-pack rules: compare with SM1 by feel or video. Ours: the hammer's: no pound delay, the hop swing, the steered slam… | ☐ |
 
-### Combat core (gameplay-critical) (17)
+### Combat core (gameplay-critical) (19)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -829,6 +829,13 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-0D9D6A50` | A contraption or a shield dome in the way | the charge sticks to a contraption like to an Ork and rides on it, and to a shield dome's surface (from outside) like to a wall, held at that point 0.05 m outside the surface on the thrower's side, as the core's own stop (a ring spot that falls inside the… | kind: ours; confidence: medium | design section 7 | A contraption or a shield dome in the way: compare with SM1 by counting hits to kill and by video of the health bar. Ours: the charge sticks to a contraption like to an Ork and rides on it… | ☐ |
+
+*Spec section: Added content: Musou Dreadnought (D0 and D1, 2026-11-14; `MusouSim.Version` 56, `TfwRules.Version` 81; no protocol change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-4F90C2AD` | Dreadnought: Musou health (owner: his own pool) | **2000** health, no shield; ten times a marine's 200 (100 health and 100 armour) and two thirds of a Boss Ork's 3000 floor (`MusouBossOrks.HealthFloor`), so a sustained crowd, the elites and the bosses can wear him down where the data's 8000 with 250 a second… (HP) | kind: estimate; confidence: low; notes: ours | owner 2026-11-14 ("he has his own Musou health pool"); the figure our choice from Musou's class healths and boss scales | Dreadnought: Musou health (owner: his own pool): compare with SM1 by counting hits to kill and by video of the health bar. Ours: 2000 health, no shield; ten times a marine's 200 (100 health and 100… | ☐ |
+| `R-CD4D4D1A` | Dreadnought: Musou regeneration (owner: "scaled consistently") | delay **5** s (the data's); rate **62.5**/s: the data's 250 of 8000 is 3.125 % of his health a second, the same share of his 2000 (HP/s) | kind: estimate; confidence: low | the data's ratio; the scaling the owner's ("scaled consistently") | Dreadnought: Musou regeneration (owner: "scaled…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: delay 5 s (the data's); rate 62.5/s: the data's 250 of 8000 is 3.125… | ☐ |
 
 ### Weapons (gameplay-critical) (121)
 
@@ -2432,7 +2439,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (701)
+### Core simulation (provisional values) (706)
 
 *Spec section: Provisional values in use*
 
@@ -3565,6 +3572,16 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-47E96A7E` | Serrated knife's light and field | the combat knife (both races) of a wielder with `mp_perk_combat_knife_damage` plays the same data light tinted green (0.12, 0.9, 0.2) at 0.577 opacity (its brightest channel 0.45, half of the first version's 0.9; owner 2026-11-14: "toned down 50%") and wears… (colour) | kind: ours; confidence: low | owner 2026-11-14 | Serrated knife's light and field: compare with SM1 by feel or video. Ours: the combat knife (both races) of a wielder with… | ☐ |
 | `R-71D3A9E3` | Kraken Bolts tracer | a bolter shot of a shooter with `mp_perk_weap_bolter_kraken_rounds` (the bolters, gold bolters and pistol-slot bolters of both races that carry the Kraken entry) draws its tracer red (1, 0.08, 0.04) with the beam width x 0.62 and trail x 0.42 of the data's… (factor, colour) | kind: ours; confidence: low | owner 2026-11-14 | Kraken Bolts tracer: compare with SM1 by feel or video. Ours: a bolter shot of a shooter with mp_perk_weap_bolter_kraken_rounds… | ☐ |
 
+*Spec section: Added content: Musou Dreadnought (D0 and D1, 2026-11-14; `MusouSim.Version` 56, `TfwRules.Version` 81; no protocol change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-E2548C0F` | Dreadnought: the class | a class `sm - dreadnought` appended after the Librarian, Musou only (`MusouLoadout.Prepare`; Classic and the extended profile never see it): the Tactical's melee as a placeholder arm until D5, no gun, no pistol, no equipment, no perks (`PerkChoices` empty, no… | kind: ours; kind: placeholder; notes: estimate | owner 2026-11-14; the design's fixed kit | Dreadnought: the class: compare with SM1 by feel or video. Ours: a class sm - dreadnought appended after the Librarian, Musou only… | ☐ |
+| `R-0632213A` | Dreadnought: the body (owner: "a true big body, about 2 to 3 m") | walking capsule radius **1.0** m (2 m across), height **3.0** m (new optional `BodySpec.CapsuleRadius` and `CapsuleHeight`, hashed only when set; the marine's 0.45 and 1.9 for every other class); the data gives no capsule, only the melee hit volume… (m) | kind: estimate; confidence: low; notes: ours | owner 2026-11-14 (2 to 3 m); capsule values our reading | Dreadnought: the body (owner: "a true big body, about 2 to…: compare with SM1 by measuring on a flat spot of the same map. Ours: walking capsule radius 1.0 m (2 m across), height 3.0 m (new optional… | ☐ |
+| `R-8B7E4097` | Dreadnought: the entrance | on spawn (or taking the class) everything he receives is multiplied by **0** for **5** s (`evt_spawn_in`, `apply_modifiers` lifetime 5 for received melee, ranged and explosive damage); the entrance clip `DN_NAV_Entrance` is **4.833** s; a death, a class… (s) | kind: guess; confidence: low | blueprint `sm_dreadnought` `entity_actions_ext/triggered_actions/evt_spawn_in`; rig `havok_sm_dreadnought_basic__hkxx` | Dreadnought: the entrance: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: on spawn (or taking the class) everything he receives is multiplied… | ☐ |
+| `R-291395C3` | Dreadnought: the control point heal (read, not yet used) | `evt_dread_cap` heals **1500** health (HP) | notes: estimate | blueprint `sm_dreadnought` `evt_dread_cap/do_heal` | Dreadnought: the control point heal (read, not yet used): compare with SM1 by feel or video. Ours: evt_dread_cap heals 1500 health. | ☐ |
+| `R-FD00930F` | Dreadnought: melta (read, D4 uses it) | hit-scan, **200** damage (armour part 200), `shot_cooldown` **0.33** s (**0.095** s with the upgrade `fury_aim_mode`), range **250** m, clip **1**, reserve 12 and infinite, recharge after **0.33** s at **1** a second; the `is_in_coop` variant carries **100**… (HP, s) | kind: guess; confidence: low | wargear `dread_melta` (`pump_states`, `common_data/ammunition`); two files of the name exist (the Chaos twin's, same numbers: the first read is kept) | Dreadnought: melta (read, D4 uses it): compare with SM1 by feel or video. Ours: hit-scan, 200 damage (armour part 200), shot_cooldown 0.33 s (0.095 s… | ☐ |
+
 ### General game design (7)
 
 *Spec section: Known behavior (public, unverified)*
@@ -4071,6 +4088,12 @@ The Orks are an addition the owner keeps (the original multiplayer had Space Mar
 | `R-378E2963` | Musou: swing lock | after the tracking share the facing is held to the blow; the blow lands on a target within reach (`MeleeRange` + 0.3 m) and **60** degrees (`MeleeConeDegrees`, each side) of the locked facing (degrees) | kind: ours; notes: estimate | owner 2026-11-12; the cone as before | Musou: swing lock: compare with SM1 with an overlaid screenshot taken from the same position. Ours: after the tracking share the facing is held to the blow; the blow… | ☐ |
 | `R-9C8D6A28` | Restore switch | `--musou-ork-swing-tracking` (server and every client; hashed in Musou's block only when on) | kind: ours | ours | Restore switch: compare with SM1 by feel or video. Ours: --musou-ork-swing-tracking (server and every client; hashed in… | ☐ |
 
+*Spec section: Added content: Musou Dreadnought (D0 and D1, 2026-11-14; `MusouSim.Version` 56, `TfwRules.Version` 81; no protocol change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-611D21C7` | Dreadnought: the Orks treat him as a large body (owner) | the Orks keep their ring off him (`PlayerRing` 0.9 m plus their body), hold, reach and swing at the edge of his capsule: the capsule's radius beyond a marine's (0.55 m) is added to the ring, the melee hold and the reach (`MusouTarget.Body`), and to the shove… (m) | kind: interpretation; confidence: medium | owner 2026-11-14 ("Orks crowd him as a large body") | Dreadnought: the Orks treat him as a large body (owner): compare with SM1 by measuring on a flat spot of the same map. Ours: the Orks keep their ring off him (PlayerRing 0.9 m plus their body)… | ☐ |
+
 ## Part C: Deliberate changes (keep or revert after playtest)
 
 Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our choices where the original is unknown, and what is not reproduced yet. Nothing is classified here; every row is listed. The prompt says what to ask after the playtest.
@@ -4187,6 +4210,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-69232A58` | Musou: the cleave reach x1.2 and a reliable stim use (stims-key-cleave, owner 2026-11-12; `MusouSim.Version` 46, `TfwRules.Version` 70) | the owner's requests (2026-11-12): "Increase all melee attacks cleave distance by 20%", "Ensure it's more reliably working the first time you press the button" (stims); the causes and the 0.5 s ours | in the war, every human player's cleave reach x1.2 of the pass before (x0.72 of the data's war cleave; the spear's sweep 10.8 m); in Musou Mode the stim key's press is kept 0.5 s and no hit cancels a stim's use before its release (Classic PvP too since protocol 68: see the next row) | Musou combat: the players' cleave reach x1.2; Musou stims: a reliable use | Musou: the cleave reach x1.2 and a reliable stim use…: compare with SM1 by measuring on a flat spot of the same map. Ours: the owner's requests (2026-11-12): "Increase all melee attacks cleave… | ☐ |
 | `C-D59C1237` | Stims: a reliable use in Classic PvP too (stims-classic, owner 2026-11-12; protocol 68) | the original's timing: the use key's press is buffered 0.3 s (9 ticks) and a hit reaction before the stim's release (0.3 s into the use) cancels the use and loses the press; the owner's request: "Should the stim fix also apply in Classic PvP?" "Classic too" | the press is kept 15 ticks (0.5 s) and no hit starts a reaction before the release (the damage is still taken); every mode. `--old-stim-use` on the server and every client restores the 9-tick press and the cancel | Owner 2026-11-12: "ensure it's more reliably working the first time you press the button"; the 0.5 s and the no-cancel rule are ours. Spec "Stims: a reliable use" | Stims: a reliable use in Classic PvP too (stims-classic…: compare with SM1 by feel or video. Ours: the original's timing: the use key's press is buffered 0.3 s (9… | ☐ |
 | `C-0079CDA8` | Musou Librarian: the chain lightning struck as drawn, +25 % range and damage (musou-balance, owner 2026-11-11; `MusouSim.Version` 41) | the owner (2026-11-11): "librarian chain lightning spell doesn't seem to be reliably delivering damage, increase its range, damage, and reliability of delivering damage", "+25% range and damage"; the rewind ours | 37.5 m and 112.5 dps (30 and 90); the server picks the chain on the crowd at the caster's input view tick, as his client draws it; restore switch `SM_LIBRARIAN_OLD=rewind` | Musou: chain lightning; the chain lightning struck as drawn | Musou Librarian: the chain lightning struck as drawn, +25 %…: compare with SM1 by counting hits to kill and by video of the health bar. Ours: the owner (2026-11-11): "librarian chain lightning spell doesn't seem… | ☐ |
+| `C-0CE1D512` | Musou Dreadnought class: a pick of the Musou war (claude/musou-dreadnought-d0-d1, owner 2026-11-14; `MusouSim.Version` 56, `TfwRules.Version` 81) | the owner's request ("Add a new class to Musou mode - next to librarian and heretic selection options in the customize UI - dreadnaught"; "matches exactly that of the loyalist space marine dreadnaught") and his decisions of the same day (any number of players, his own Musou health pool, the data's cannon clip and… | Musou only: a new class `sm - dreadnought` after the Librarian with the data's speeds, a health of 2000 (the data's 8000 would be immortal to ordinary Orks) regenerating 62.5 a second after 5 s (the data's share of it), a 1.0 m by 3.0 m capsule that the Orks crowd as a large body, and the data's 5 s entrance of no… | Dreadnought: the class; speeds; Musou health; Musou regeneration; the body; the Orks treat him as a large body; the entrance | Musou Dreadnought class: a pick of the Musou war…: compare with SM1 by feel or video. Ours: the owner's request ("Add a new class to Musou mode - next to… | ☐ |
 | `C-2E5D3E89` | Musou tuning of 2026-11-11 (musou-tuning-1111b; `MusouSim.Version` 42, `TfwRules.Version` 66) | the owner's answers (2026-11-11): "Drop to 600 blood spray cap"; "Widen the 8m jump and make the damage not falloff anymore - it always stays constant", "16 m (double)"; "Add it to orbital strikes and stack it with double damage yes" | the GPU sprays' live-effect cap 600 (1,200); the chain lightning's jump 16 m (8 m) and every enemy of the chain at the full 112.5 dps (x0.85 a jump), tag 16's jumps in 0.2 m bytes for it; a human player's orbital strike x1.2 on the enemies (a boss 36 a shell, 30), an AI caller x1, the kills still nobody's | Live-effect cap with the GPU sprays (Musou); Musou: chain lightning jump and fall-off; Musou combat: the players' ranged damage x1.2 | Musou tuning of 2026-11-11 (musou-tuning-1111b…: compare with SM1 by feel or video. Ours: the owner's answers (2026-11-11): "Drop to 600 blood spray cap"… | ☐ |
 | `C-B8F01CC3` | Musou: no range fall-off for any ranged weapon (claude/autocannon-pass-2, owner 2026-11-11; `TfwRules.Version` 68, `MusouSim.Version` 44) | the owner (2026-11-11): "There should be no damage falloff for any ranged weapon in Musou mode"; that the melta's cone distance fall-off counts, and that the AI Marines' shots are covered too, ours (his words: "any ranged weapon") | in the war every hit-scan shot on an Ork or a contraption deals its full damage at any distance it reaches (the weapons' x0.8 / x0.75 / x0.5 from 45 to 70 m and so on gone), the melta's cone its full 200 to its 20 m (x0.15 at 20 m before), the arsenal's too; a blast's fall-off from its centre, a pierced shot's 0.85… | Musou: no range fall-off | Musou: no range fall-off for any ranged weapon…: compare with SM1 by timing a run over a known distance. Ours: the owner (2026-11-11): "There should be no damage falloff for any… | ☐ |
 | `C-DFD75858` | Musou: the damage answers (claude/musou-damage-answers, owner 2026-11-11; `TfwRules.Version` 69, `MusouSim.Version` 45) | the owner (2026-11-11): "alliedmarine should not lose range falloff"; "a shot should not lose 15% of its damage for each ork it passes through - but only for the players"; "melta should keep its full 200 damage out to 20m"; "double damage should not affect orbital strikes" | the AI Marines' guns get their range fall-off back (the no-fall-off rule above is the human players'), a human's hit-scan shot loses nothing per Ork it goes through (an AI Marine's keeps the 0.85 share), the melta's full 200 to 20 m for a player and Double Damage never on an orbital strike are pinned by tests; Classic… | Musou: no range fall-off | Musou: the damage answers (claude/musou-damage-answers…: compare with SM1 by counting hits to kill and by video of the health bar. Ours: the owner (2026-11-11): "alliedmarine should not lose range falloff"… | ☐ |

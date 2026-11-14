@@ -76,7 +76,7 @@ public sealed partial class MusouSim
     {
         float reach = spec.MeleeRange * 0.8f;
         if (OldOrkMovement || Swarm is null || target.Radius > 0f || target.Goal) return reach;
-        return MathF.Max(reach, MathF.Min(spec.MeleeRange - 0.05f, Rules.PlayerRing + Body(_type[i]).Radius + MusouMoveRules.RingHoldMargin));   // never beyond his reach: he must still strike from where he stands
+        return MathF.Max(reach, MathF.Min(spec.MeleeRange - 0.05f, Rules.PlayerRing + target.Body + Body(_type[i]).Radius + MusouMoveRules.RingHoldMargin));   // never beyond his reach: he must still strike from where he stands
     }
 
     /// <summary>A Stormboy's way to his ordered place (<paramref name="way"/> from him to it) with the stand and walk-again of <see cref="MusouMoveRules.OrderArrive"/> / <see cref="MusouMoveRules.OrderLeave"/>.</summary>

@@ -18,6 +18,14 @@ public sealed record BodySpec(string Name,
     /// <summary>The body's hit volumes (character frame, as <see cref="SimConfig.HitVolumes"/>); null: the config's.</summary>
     public IReadOnlyList<HitVolume>? HitVolumes { get; init; }
 
+    /// <summary>
+    /// The body's walking capsule (metres; a big body such as a walker: the Musou Dreadnought, owner 2026-11-14); null: the config's own radius and height. Hashed only when set, so the bodies
+    /// without it (the Ork Boy) hash as before.
+    /// </summary>
+    public float? CapsuleRadius { get; init; }
+    /// <inheritdoc cref="CapsuleRadius"/>
+    public float? CapsuleHeight { get; init; }
+
     /// <summary>The config's own body (its marine fields and hit volumes), as a spec (for references and tests).</summary>
     public static BodySpec Of(SimConfig c, string name = "marine") => new(name,
         c.RunSpeed, c.StrafeSpeed, c.BackSpeed, c.SprintSpeed, c.WalkSpeed, c.AimRunSpeed, c.AimStrafeSpeed, c.AimBackSpeed,
@@ -28,6 +36,7 @@ public sealed record BodySpec(string Name,
     public bool IsValid =>
         Name is not null && new[] { RunSpeed, StrafeSpeed, BackSpeed, SprintSpeed, WalkSpeed, AimRunSpeed, AimStrafeSpeed, AimBackSpeed, HealthMax }.All(v => float.IsFinite(v) && v > 0f)
         && new[] { HealthRegenDelay, HealthRegenRate, ShieldMax, ShieldRegenDelay, ShieldRegenRate }.All(v => float.IsFinite(v) && v >= 0f)
+        && (CapsuleRadius is null || (float.IsFinite(CapsuleRadius.Value) && CapsuleRadius.Value is > 0f and <= 4f)) && (CapsuleHeight is null || (float.IsFinite(CapsuleHeight.Value) && CapsuleHeight.Value is > 0f and <= 8f))
         && (HitVolumes is null || (HitVolumes.Count is > 0 and <= 64 && HitVolumes.All(v => v is not null && v.IsValid) && HitVolumes.Any(v => v.Zone == HitZone.Head)));
 
     internal void Write(BinaryWriter w)
@@ -37,6 +46,7 @@ public sealed record BodySpec(string Name,
                      HealthMax, HealthRegenDelay, HealthRegenRate, ShieldMax, ShieldRegenDelay, ShieldRegenRate })
             w.Write(f);
         SimConfig.WriteVolumes(w, HitVolumes);
+        if (CapsuleRadius is not null || CapsuleHeight is not null) { w.Write("capsule"); w.Write(CapsuleRadius ?? -1f); w.Write(CapsuleHeight ?? -1f); }   // only a big body's
     }
 }
 
@@ -85,6 +95,7 @@ public sealed partial record SimConfig
                 HealthMax = b.HealthMax, HealthRegenDelay = b.HealthRegenDelay, HealthRegenRate = b.HealthRegenRate,
                 ShieldMax = b.ShieldMax, ShieldRegenDelay = b.ShieldRegenDelay, ShieldRegenRate = b.ShieldRegenRate,
                 HitVolumes = b.HitVolumes ?? based.HitVolumes,
+                CapsuleRadius = b.CapsuleRadius ?? based.CapsuleRadius, CapsuleHeight = b.CapsuleHeight ?? based.CapsuleHeight,
             };
             BodyCaches.AddOrUpdate(copy, this);
             return _copies[body] = copy;

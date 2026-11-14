@@ -51,6 +51,7 @@ public sealed partial class World
     {
         if (_musou is null || _musouDirector is null) return;
         LibrarianStep();   // Librarian/World.Librarian.cs: a Librarian's powers (nobody else has any)
+        DreadnoughtStep();   // Dreadnought/World.Dreadnought.cs: a Dreadnought's entrance (nobody else has one)
         ArsenalStep();   // Arsenal/World.Arsenal.cs: the arsenal's own timers (W4, the charge's fuse and ring); a no-op until then
         if (_tfw is not null) { long whole = SimProfile.Begin(); TfwStep(); SimProfile.End("tfw: whole step", whole); return; }   // Campaign/World.Tfw.cs: the war, not the 5-wave run (musou/perf-pass: SM_TICK_STATS section)
         long started = System.Diagnostics.Stopwatch.GetTimestamp();
@@ -65,7 +66,7 @@ public sealed partial class World
         _musouIds.Clear();
         foreach (int id in _players.Keys) _musouIds.Add(id);
         _musouIds.Sort();
-        foreach (int id in _musouIds) { var p = _players[id]; _musouTargets[n++] = new MusouTarget(id, p.Position, p.Alive); }
+        foreach (int id in _musouIds) { var p = _players[id]; _musouTargets[n++] = new MusouTarget(id, p.Position, p.Alive, Body: DreadnoughtBodyRing(p)); }
         var targets = _musouTargets.AsSpan(0, n);
 
         if (playing)
@@ -293,6 +294,7 @@ public sealed partial class World
 
     partial void ExtrasDamageTaken(int target, ref float scale)
     {
+        if (_musou is not null) DreadnoughtDamageTaken(target, ref scale);   // Dreadnought/World.Dreadnought.cs: no damage during the entrance
         if (_tfw is null) return;
         TfwDamageTaken(target, ref scale);   // Campaign/World.TfwSupply.cs: the AI Marines take a tenth
     }
