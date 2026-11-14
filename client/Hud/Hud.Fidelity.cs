@@ -367,7 +367,7 @@ public sealed partial class Hud
             // fix/bolter-hud-last-round: an empty clip shows the strip's last frame (no white tick left), not the one before it.
             if (spec.Value == WeaponBoxBar.Spent && WeaponBoxRules.UsesEmptyBarFrame(spec.Family) && d.WeaponBarFull < 0f && WeaponBoxRules.ClipEmpty(d.Clip, d.ClipMax)) barFrame = WeaponBoxRules.EmptyBarFrame(hud.FrameCount(barSprite));
         }
-        bool reserve = d.ReserveMax > 0 || d.Reserve > 0;
+        bool reserve = (d.ReserveMax > 0 || d.Reserve > 0) && !HudRules.EndlessReserve(d.Reserve);   // an endless reserve (the Dreadnought's cannon) shows the clip
         int count = reserve ? d.Reserve : d.Clip;
         bool empty = count == 0 && d.Clip == 0;
         IReadOnlySet<string> show = spec is null ? NoPaths : ShowSets.Get(spec.Show);

@@ -252,6 +252,11 @@ public sealed partial class World
         if (_musou is not null) DreadnoughtInputLocked(id, ref locked);   // Dreadnought/World.Dreadnought.cs: the entrance clip
     }
 
+    partial void ExtrasInputFilter(int id, ref PlayerInput input)
+    {
+        if (_musou is not null) DreadnoughtFilterInput(id, ref input);   // Dreadnought/World.Dreadnought.cs: the sprint's 6 s and 1 s gap
+    }
+
     partial void ExtrasPlayerInput(int id, ref PlayerInput input, ref bool handled)
     {
         if (_tfw is null) return;

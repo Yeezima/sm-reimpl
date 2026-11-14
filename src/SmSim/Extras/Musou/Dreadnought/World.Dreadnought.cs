@@ -18,6 +18,8 @@ public sealed partial class World
     /// <summary>The time left of a living Dreadnought's entrance (seconds; 0: over) by player id; a dead one or one of another class has none.</summary>
     readonly Dictionary<int, float> _dreadnoughtEntry = new();
     readonly List<int> _dreadnoughtGone = new();
+    readonly Dictionary<int, DreadnoughtSprintGate> _dreadnoughtSprints = new();
+    readonly List<int> _dreadnoughtLive = new();
     /// <summary>Per living Dreadnought: where his last footfall check stood and the ground left to cover before the next footfall's blast (D5).</summary>
     readonly Dictionary<int, (Vector3 Last, float Left)> _dreadnoughtStride = new();
     /// <summary>The players whose pick is the Dreadnought (they play the Tactical in the hub until the landing).</summary>
@@ -81,12 +83,16 @@ public sealed partial class World
         foreach (var id in _dreadnoughtEntry.Keys)
             if (!_players.TryGetValue(id, out var q) || !q.Alive || !DreadnoughtRules.IsDreadnought(Config, q.Class)) _dreadnoughtGone.Add(id);   // dead, left or changed class: the next spawn is a new entrance
         foreach (int id in _dreadnoughtGone) { _dreadnoughtEntry.Remove(id); _dreadnoughtStride.Remove(id); }
-        foreach (var (id, p) in _players)
+        _dreadnoughtLive.Clear();
+        foreach (var (id, p) in _players) if (p.Alive && DreadnoughtRules.IsDreadnought(Config, p.Class)) _dreadnoughtLive.Add(id);   // a copy: the blasts below change players
+        foreach (int id in _dreadnoughtLive)
         {
-            if (!p.Alive || !DreadnoughtRules.IsDreadnought(Config, p.Class)) continue;
+            var p = _players[id];
+            if (!p.Alive) continue;
             if (!_dreadnoughtEntry.TryGetValue(id, out float left)) { _dreadnoughtEntry[id] = DreadnoughtRules.InvulnerableSeconds; continue; }   // enters this tick: the whole 5 s are still ahead
             if (left > 0f) _dreadnoughtEntry[id] = MathF.Max(0f, left - dt);
             DreadnoughtFootfalls(id, p);
+            if (_players.TryGetValue(id, out var after)) DreadnoughtBuffRegen(id, after);
         }
     }
 
@@ -107,6 +113,23 @@ public sealed partial class World
             left += DreadnoughtRules.FootfallStride;
         }
         _dreadnoughtStride[id] = (p.Position, left);
+    }
+
+    /// <summary>Takes the Sprint bit off a living Dreadnought's input past his sprint limit (<see cref="DreadnoughtSprintGate"/>); the client applies the same rule before it sends.</summary>
+    void DreadnoughtFilterInput(int id, ref PlayerInput input)
+    {
+        if (!_players.TryGetValue(id, out var p) || !p.Alive || !DreadnoughtRules.IsDreadnought(Config, p.Class)) { _dreadnoughtSprints.Remove(id); return; }
+        if (!_dreadnoughtSprints.TryGetValue(id, out var gate)) _dreadnoughtSprints[id] = gate = new DreadnoughtSprintGate();
+        gate.Apply(ref input, 1f / Math.Max(1, Config.TickRate));
+    }
+
+    /// <summary>The buff's second regeneration (D6; data <c>dread_buff</c>: regeneration x2): while his stim runs, past the regeneration delay, health comes back at one more regeneration rate.</summary>
+    void DreadnoughtBuffRegen(int id, in PlayerState p)
+    {
+        if (p.StimLeft <= 0f || p.SinceDamage < Config.For(p.Class).HealthRegenDelay) return;
+        var body = Config.For(p.Class);
+        float health = MathF.Min(body.HealthMax, p.Health + body.HealthRegenRate * (DreadnoughtRules.BuffRegenMultiplier - 1f) / Math.Max(1, Config.TickRate));
+        if (health > p.Health) _players[id] = p with { Health = health };
     }
 
     /// <summary>The entrance clip's part of his entrance: he cannot move or fire while it plays (the clip is shorter than the invulnerability by the difference), nor before his entrance has begun.</summary>

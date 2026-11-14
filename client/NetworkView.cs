@@ -697,6 +697,9 @@ public partial class NetworkView : Node3D
     /// </summary>
     partial void ExtrasInput(ref PlayerInput input);
 
+    /// <summary>Hook for added content: may take buttons off a live sampled input before it is sent and predicted (the server applies the same rule). Implemented in an <c>Extras/</c> folder.</summary>
+    partial void ExtrasInputGate(ref PlayerInput input);
+
     /// <summary>
     /// Hook for added content: the test bot's input when added content gives it something else to do than the players' fight (Musou Mode: the Orks). Left null, the bot plays as ever.
     /// Implemented in an <c>Extras/</c> folder; returns at once unless its feature runs.
@@ -714,6 +717,7 @@ public partial class NetworkView : Node3D
         Ph("input sampling");
         var input = _demoPlayback is not null ? DemoSampleInput(tick) : SampleInputCore(tick);   // M40 T0: replayed demos answer from the recording
         if (_demoPlayback is null) ExtrasInput(ref input);   // EXTRAS-HOOK: added content's keys on a live input (loyalist barks: the FOR THE EMPEROR key)
+        if (_demoPlayback is null) ExtrasInputGate(ref input);   // EXTRAS-HOOK: added content's limits on a live input (Musou: the Dreadnought's sprint, the same rule as the server's)
         DemoRecordInput(input);
         _ownStickHeld = input.MoveX != 0f || input.MoveY != 0f;   // anim/jump-pack-blend: the sim's landing is the run landing when the stick is held at the touchdown
         NoteSentInput(input);   // feel/bullets: the shot of this tick is drawn on the ray this input carries (NetworkView.Bullets.cs)

@@ -38,6 +38,13 @@ public static class DreadnoughtRules
     /// <summary>Metres of ground walked between two footfall blasts (**estimate**: the walk cycle's two footfalls in about 4 m).</summary>
     public const float FootfallStride = 2.2f;
 
+    // ---- the sprint and the buff (data: dread_sprint, dread_buff) ----
+    /// <summary>The sprint's longest run and the gap after it (data, seconds).</summary>
+    public const float SprintSeconds = 6f, SprintGapSeconds = 1f;
+    /// <summary>The buff's own length (data, 10 s; Musou's stim rules then scale a stim's lifetime, so it lasts <see cref="BuffLifetime"/> x <c>MusouCombatRules.StimLifetimeScale</c>), the regeneration multiplier while it runs (data) and the name of his equipment item.</summary>
+    public const float BuffLifetime = 10f, BuffRegenMultiplier = 2f;
+    public const string BuffName = "dread_buff";
+
     // ---- the entrance (data: evt_spawn_in, DN_NAV_Entrance) ----
     /// <summary>Every received damage is multiplied by 0 for this long after he spawns (data, 5 s) while the entrance clip of <see cref="EntranceSeconds"/> plays (data, 4.833 s).</summary>
     public const float InvulnerableSeconds = 5f, EntranceSeconds = 4.833f;

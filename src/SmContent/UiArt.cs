@@ -158,11 +158,15 @@ public static class HudRules
         return (MaxTicks, Math.Clamp(loaded, 0, MaxTicks));
     }
 
+    /// <summary>A reserve this large is an endless one (the wire holds at most 65535; no data weapon has 60000): the HUD shows the clip, not the reserve.</summary>
+    public static bool EndlessReserve(int reserve) => reserve >= 60000;
+
     /// <summary>"clip/reserve" as the switch cards write it: the clip padded with zeros to the digits of the clip size ("06/68", "4/23").</summary>
     public static string CardAmmo(int clip, int clipMax, int reserve)
     {
         int digits = Math.Max(1, Math.Max(clipMax, 0).ToString(System.Globalization.CultureInfo.InvariantCulture).Length);
-        return Math.Max(clip, 0).ToString("D" + digits, System.Globalization.CultureInfo.InvariantCulture) + "/" + Math.Max(reserve, 0).ToString(System.Globalization.CultureInfo.InvariantCulture);
+        string rounds = Math.Max(clip, 0).ToString("D" + digits, System.Globalization.CultureInfo.InvariantCulture);
+        return EndlessReserve(reserve) ? rounds : rounds + "/" + Math.Max(reserve, 0).ToString(System.Globalization.CultureInfo.InvariantCulture);   // an endless reserve (Musou's Dreadnought cannon) is not a number
     }
 }
 

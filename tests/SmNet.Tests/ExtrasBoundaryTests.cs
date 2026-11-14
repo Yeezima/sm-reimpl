@@ -32,6 +32,8 @@ public class ExtrasBoundaryTests
         ("client/NetworkView.Appearance.cs", "ExtrasEnsureModel"),  // NetworkView.ExtrasEnsureModel(CharacterViewer?, int, bool, PlayerState, ref CharacterViewer?), the character a player of an added class wears (Musou: the Dreadnought model)
         ("client/NetworkView.cs", "ExtrasPlace"),                  // NetworkView.ExtrasPlace(CharacterViewer, PlayerState, bool, ref bool), added content poses its own rig (Musou: the Dreadnought)
         ("client/NetworkView.Death.cs", "ExtrasDeath"),            // NetworkView.ExtrasDeath(CharacterViewer, ref bool), added content's own death, no ragdoll (Musou: the Dreadnought)
+        ("client/NetworkView.cs", "ExtrasInputGate"),              // NetworkView.ExtrasInputGate(ref PlayerInput), on every live sampled input after ExtrasInput: added content's limits (Musou: the Dreadnought's sprint)
+        ("client/NetworkView.Camera.cs", "ExtrasRigCamera"),       // NetworkView.ExtrasRigCamera(PlayerState, float, float, ref Vector3, ref Vector3, ref float, ref float), the rig camera's offset, pivot and fov (Musou: the Dreadnought)
         ("client/NetworkView.cs", "ExtrasInput"),                  // NetworkView.ExtrasInput(ref PlayerInput), on every sampled live input (loyalist barks: the FOR THE EMPEROR key)
         ("client/NetworkView.cs", "ExtrasFrame"),                  // NetworkView.ExtrasFrame(PlayerState, IReadOnlyList<PlayerState>, double), once a frame after the sound (loyalist barks: barks and the key's shouts)
         ("client/NetworkView.Match.cs", "ExtrasKill"),             // NetworkView.ExtrasKill(KillView), each kill-feed entry once (loyalist barks: kill barks)
@@ -56,6 +58,7 @@ public class ExtrasBoundaryTests
         ("src/SmServer/GameServer.cs", "ExtrasCreated"),           // GameServer.ExtrasCreated(), end of the constructor when Extras is not None (Musou: the nav graph, World.StartMusou)
         // Musou Mode (TF0): each returns at once unless World.Tfw is set (World.StartTfw, only on the map tfw_war under ContentExtras.Musou), or for another map.
         ("src/SmSim/Simulation.cs", "ExtrasSampled"),              // World.ExtrasSampled(int, in PlayerInput), after the input is sanitized (Musou: the Librarian reads its keys)
+        ("src/SmSim/Simulation.cs", "ExtrasInputFilter"),          // World.ExtrasInputFilter(int, ref PlayerInput), after the input is sanitized: added content takes buttons off it (Musou: the Dreadnought's sprint limit)
         ("src/SmSim/Simulation.cs", "ExtrasInputLocked"),          // World.ExtrasInputLocked(int, ref bool), before the input is sanitized: added content locks a player's stick and buttons as the countdown does (Musou: the Dreadnought's 4.833 s entrance)
         ("src/SmSim/Simulation.cs", "ExtrasPlayerInput"),          // World.ExtrasPlayerInput(int, ref PlayerInput, ref bool handled), before Step asks for a player's input (the AI Marines have no client)
         ("src/SmServer/GameServer.cs", "ExtrasGeneratedMap"),      // static GameServer.ExtrasGeneratedMap(ContentExtras, string, ref string?, ref GameMap?, ref string?), in GeneratedMap, which Program.cs calls (tfw_war, composed from the install)
