@@ -6,7 +6,7 @@ using SmSim;
 namespace SmFormats.Tests;
 
 /// <summary>
-/// sim/sword-ff-stab (owner, 2026-11-14): the power sword's F + F finisher is the X,X,F stab (the heavy list's strike 3: clip, timing, no blast) with the charge's Furious Charge hit
+/// sim/sword-ff-stab (owner, 2026-11-14): the power sword's F + F finisher is the X,F stab (the heavy list's strike 2: clip, timing, no blast) with the charge's Furious Charge hit
 /// (<c>ability_bullrush_01</c> under <c>mp_perk_improved_bullrush</c>: 100 + 50, stagger); the axe and the hammer keep their blasts. Synthetic graphs and wargear, plus a pin on the install
 /// (skipped without one).
 /// </summary>
@@ -108,7 +108,7 @@ public class SwordFfStabTests
         Assert.Equal((0f, 0f), (stab.SecondaryDamage, stab.SecondaryShieldDamage));
         Assert.Equal(ReactionKind.Stagger, stab.PrimaryReaction.Kind);
         Assert.Equal((0, 0f, 0f), (stab.YNext, stab.YComboOpen, stab.YComboClose));           // it ends the chain
-        Assert.NotNull(quick.Stomp);                                                          // the X,X,F strike keeps its own blast
+        Assert.NotNull(quick.Stomp);                                                          // the X,F strike keeps its own blast
         Assert.Equal(3, quick.YNext);                                                         // and still chains into the finisher
     }
 
@@ -122,26 +122,26 @@ public class SwordFfStabTests
     }
 
     [Fact]
-    public void Only_the_power_sword_map_has_a_stab_and_it_names_the_x_x_f_strike()
+    public void Only_the_power_sword_map_has_a_stab_and_it_names_the_x_f_strike()
     {
-        Assert.Equal(3, MeleeTuning.PowerSword.StabHeavy);
-        Assert.Equal("Sequencer28", MeleeTuning.PowerSword.HeavySequencers[MeleeTuning.PowerSword.StabHeavy - 1]);
+        Assert.Equal(2, MeleeTuning.PowerSword.StabHeavy);
+        Assert.Equal("Sequencer27", MeleeTuning.PowerSword.HeavySequencers[MeleeTuning.PowerSword.StabHeavy - 1]);
         Assert.Equal(0, MeleeTuning.PowerAxe.StabHeavy);
         Assert.Equal(0, MeleeTuning.ThunderHammer.StabHeavy);
         Assert.Equal(0, MeleeTuning.Displace.StabHeavy);
     }
 
     [MeleeInstallPinTests.InstallFact]
-    public void On_the_install_the_sword_finisher_is_the_x_x_f_clip_at_100_plus_50_stagger_and_the_axe_keeps_its_slam()
+    public void On_the_install_the_sword_finisher_is_the_x_f_clip_at_100_plus_50_stagger_and_the_axe_keeps_its_slam()
     {
         string game = GameInstall.TryLocate()!.Dir;
         var sword = MeleeTuning.Load(game, MeleeTuning.PowerSword);
         Assert.Equal(5, sword.Heavy.Count);
-        Assert.Equal(sword.HeavyAnimations[2], sword.HeavyAnimations[4]);
+        Assert.Equal(sword.HeavyAnimations[1], sword.HeavyAnimations[4]);
         var stab = sword.Heavy[4];
         Assert.Null(stab.Stomp);
         Assert.Equal((100f, 50f, ReactionKind.Stagger), (stab.Damage, stab.ShieldDamage, stab.PrimaryReaction.Kind));
-        Assert.Equal((sword.Heavy[2].Duration, sword.Heavy[2].HitTime), (stab.Duration, stab.HitTime));
+        Assert.Equal((sword.Heavy[1].Duration, sword.Heavy[1].HitTime), (stab.Duration, stab.HitTime));
         var axe = MeleeTuning.Load(game, MeleeTuning.PowerAxe);
         Assert.NotNull(axe.Heavy[4].Stomp);
     }
@@ -183,14 +183,14 @@ public class SwordFfStabTests
             Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(Variants.Bytes(Sword(GameplayTuning.Load(game).Config)))));
     }
 
-    /// <summary>The stab is drawn with the clip of the X,X,F strike (what a sword user sees in Musou Mode at light, light, light, F: the data clip of heavy strike 4; the spear's pose clips draw only for the spear).</summary>
+    /// <summary>The stab is drawn with the clip of the X,F strike (what a sword user sees in Musou Mode at light, light, light, F: the data clip of heavy strike 4; the spear's pose clips draw only for the spear).</summary>
     [MeleeInstallPinTests.InstallFact]
-    public void The_stab_plays_the_clip_of_the_light_light_F_strike_in_the_animation_tables()
+    public void The_stab_plays_the_clip_of_the_light_F_strike_in_the_animation_tables()
     {
         string game = GameInstall.TryLocate()!.Dir;
         var classes = GameplayTuning.Load(game).Classes!;
         var clips = classes.MeleeHeavyAnimationsByWeapon["sm_mp_melee_powersword"];
-        Assert.Equal(clips[2], clips[4]);
-        Assert.Contains("YATK_Combo3", clips[4]);
+        Assert.Equal(clips[1], clips[4]);
+        Assert.Contains("PS_XATK_Combo4", clips[4]);
     }
 }
