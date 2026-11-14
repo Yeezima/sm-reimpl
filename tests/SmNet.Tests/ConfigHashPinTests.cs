@@ -18,7 +18,7 @@ namespace SmNet.Tests;
 public class ConfigHashPinTests(ITestOutputHelper output)
 {
     /// <summary>The faithful profile's match config (Annihilation and Seize Ground, no added content), captured on main 61c152b7.</summary>
-    const ulong FaithfulHash = 0x5277E16C8E7F6260UL;
+    const ulong FaithfulHash = 0x40E5ADF50CD19EBDUL;   // recaptured with sim/sword-ff-stab (2026-11-14): the Classic power sword's F + F finisher is the X,F thrust at Furious Charge damage (0x5277E16C8E7F6260 before)
 
     /// <summary>
     /// The extended profile's (the Ork, gore, the loyalist barks and, since claude/autocannon-pass of 2026-11-11, Classic PvP's autocannon; the playtest default): recaptured with the autocannon's flag and
@@ -27,7 +27,7 @@ public class ConfigHashPinTests(ITestOutputHelper output)
     /// (0x7556F708CE2FD9A2 before).
     /// Recaptured with claude/autocannon-accuracy (2026-11-14): the Classic autocannon's scatter is the Stalker's (0x479768E19E322CCA before).
     /// </summary>
-    const ulong ExtendedHash = 0x4470226340FFAB58UL;
+    const ulong ExtendedHash = 0x25C0E0FF4304DC7EUL;   // recaptured with sim/sword-ff-stab (2026-11-14) (0x4470226340FFAB58 before)
 
     static readonly Lazy<string?> Game = new(() => GameInstall.TryLocate()?.Dir);
 

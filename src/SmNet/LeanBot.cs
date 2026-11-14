@@ -37,7 +37,7 @@ public static class LeanBot
     /// </summary>
     public static readonly IReadOnlySet<string> PresentationAids = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase)
     {
-        "anim-probe", "tracer-probe", "log-melta-follow", "hip-probe", "yaw-probe", "pan-rate", "transition-probe", "transition-sweep", "camera-probe", "camera-selftest", "camera-back", "motion-probe",
+        "anim-probe", "tracer-probe", "fire-test", "log-power-glow", "old-kraken-tracer", "tfw-bay-capture", "log-melta-follow", "hip-probe", "yaw-probe", "pan-rate", "transition-probe", "transition-sweep", "camera-probe", "camera-selftest", "camera-back", "motion-probe",
         "frame-profile", "frame-stats", "look-churn", "look-log", "look-closeup", "picker-demo", "picker-on-death", "picker-deploy", "bot-change-loadout",
         "no-extra-transitions", "no-sprint-stop", "no-sprint-start", "no-turns", "log-sprint-edges", "feel-shots-dense",   // install transitions: the restore switches change what is drawn, so a lean bot would not show them
         "bot-gait", "gait-sweep", "action-sweep", "bot-turn-sweep", "turn-sweep-fire", "latency-probe", "bullet-probe", "show-shot-rays", "camera-hide-log",
