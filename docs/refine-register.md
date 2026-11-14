@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3174 spec table rows: **2329 tagged**, 584 not tagged (read from data with high confidence), 258 in the appendix (test aids, capture tooling, engineering), 3 malformed (not classified). Part C lists 709 rows of the changes document.
+Scanned 3174 spec table rows: **2332 tagged**, 584 not tagged (read from data with high confidence), 258 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 709 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,18 +50,18 @@ Scanned 3174 spec table rows: **2329 tagged**, 584 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 23 | 13 | 13 | 13 | 7 |
-| Core simulation (provisional values) | 695 | 655 | 495 | 181 | 1 |
+| Core simulation (provisional values) | 698 | 658 | 498 | 181 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 248 | 237 | 133 | 68 | 0 |
-| **All areas** | **2329** | 2057 | 1731 | 728 | 38 |
+| **All areas** | **2332** | 2060 | 1734 | 728 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1343 |
-| confidence: low | 830 |
-| confidence: medium | 772 |
+| kind: ours | 1346 |
+| confidence: low | 832 |
+| confidence: medium | 773 |
 | notes: ours | 414 |
 | kind: interpretation | 382 |
 | notes: estimate | 196 |
@@ -2386,7 +2386,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (695)
+### Core simulation (provisional values) (698)
 
 *Spec section: Provisional values in use*
 
@@ -3502,6 +3502,14 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-7EFF067C` | Musou: dizzy lean | the standing boss leans **4** degrees about its feet, the lean's direction going once round every **1.8** s, built up over **0.15** s from standing straight (degrees, s) | kind: ours; notes: estimate | owner 2026-11-14 "stand in place"; the values are ours (no original dizzy animation) | Musou: dizzy lean: compare with SM1 with an overlaid screenshot taken from the same position. Ours: the standing boss leans 4 degrees about its feet, the lean's… | ☐ |
 | `R-D2757D6E` | Musou: dizzy stars | **3** yellow five-pointed stars circle above the head, once round every **1.1** s, at a radius of **0.17** body heights and **0.07** above the head's top (the Warboss's head is **0.74** of his model's height, a Boss Ork's is the top), each **0.06** body… (count, s, body heights) | kind: ours; notes: estimate | owner 2026-11-14 "stars appear above their head circling around, until they are no longer stunned"; the look is ours (no original equivalent) | Musou: dizzy stars: compare with SM1 by feel or video. Ours: 3 yellow five-pointed stars circle above the head, once round every… | ☐ |
 | `R-988C4996` | Musou: dizzy test aids | `--musou-old-boss-stun` restores the stagger clip and no stars; `godot.cmd --windowed -- --musou-crowd-test --dizzy [--stun s] [--kinds Warboss]` plays stand, stun, stand and saves a frame a step | kind: ours | ours | Musou: dizzy test aids: compare with SM1 by feel or video. Ours: --musou-old-boss-stun restores the stagger clip and no stars… | ☐ |
+
+*Spec section: Weapon visuals: power weapons' light, the serrated knife's field, Kraken tracers (fx/weapon-visuals; client only, not simulated, no protocol change; owner 2026-11-14)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-9DD5AA8B` | Power weapons' light | every power weapon in hand (thunder hammer, power sword, power axe, daemon maul, both races) throws the hammer's light: one looping point light, colour (3, 113, 221), intensity 1, attenuation end 1 m, no flicker (the data's `thunderhammer_idle_light`)… (colour, m) | kind: ours; confidence: medium | owner 2026-11-14; `thunderhammer_idle_light` | Power weapons' light: compare with SM1 by feel or video. Ours: every power weapon in hand (thunder hammer, power sword, power axe… | ☐ |
+| `R-47E96A7E` | Serrated knife's light and field | the combat knife (both races) of a wielder with `mp_perk_combat_knife_damage` throws the same light in green (0.12, 0.9, 0.2) and wears an additive green overlay on its whole mesh (core 0.45, rim 2.2, shimmer): the green outline and power-field glow; without… (colour) | kind: ours; confidence: low | owner 2026-11-14 | Serrated knife's light and field: compare with SM1 by feel or video. Ours: the combat knife (both races) of a wielder with… | ☐ |
+| `R-71D3A9E3` | Kraken Bolts tracer | a bolter shot of a shooter with `mp_perk_weap_bolter_kraken_rounds` (the bolters, gold bolters and pistol-slot bolters of both races that carry the Kraken entry) draws its tracer red (1, 0.08, 0.04) with the beam width x 0.62 and trail x 0.42 of the data's… (factor, colour) | kind: ours; confidence: low | owner 2026-11-14 | Kraken Bolts tracer: compare with SM1 by feel or video. Ours: a bolter shot of a shooter with mp_perk_weap_bolter_kraken_rounds… | ☐ |
 
 ### General game design (7)
 
@@ -5175,14 +5183,4 @@ Test aids, probes, demo and capture tooling, and engineering decisions (protocol
 | `R-F137D8B4` | Test aid: old big spawns | Musou Mode: the Orks back at 100 %, twice the big Orks (musou-big-ork-deaths, 2026-11-10; Musou Mode's war only; `TfwRules.Version` 59, to be renumbered at integration; no protocol, wire or `MusouSim.Version` change) |
 | `R-060A8DDF` | Musou weight: puff budget | Musou weight and impact pass (claude/musou-weight, 2026-11-10; client only, no simulation, wire, protocol, config-hash or rules-version change; Musou Mode only) |
 | `R-B20A1288` | Classic autocannon: config hash | Added content: Classic PvP's autocannon — the Musou autocannon in Annihilation and Seize Ground (extended profile only; owner 2026-11-11) |
-
-### Malformed spec rows
-
-Rows whose cell count differs from their table's header. Their cells are shifted, so they are not classified. Fix them in the spec.
-
-| Line | Section | Parameter | Problem |
-|---:|---|---|---|
-| 5804 | Weapon visuals: power weapons' light, the serrated knife's field, Kraken tracers (fx/weapon-visuals; client only, not simulated, no protocol change; owner 2026-11-14) | Power weapons' light | 9 cells, header has 8 |
-| 5805 | Weapon visuals: power weapons' light, the serrated knife's field, Kraken tracers (fx/weapon-visuals; client only, not simulated, no protocol change; owner 2026-11-14) | Serrated knife's light and field | 9 cells, header has 8 |
-| 5806 | Weapon visuals: power weapons' light, the serrated knife's field, Kraken tracers (fx/weapon-visuals; client only, not simulated, no protocol change; owner 2026-11-14) | Kraken Bolts tracer | 9 cells, header has 8 |
 
