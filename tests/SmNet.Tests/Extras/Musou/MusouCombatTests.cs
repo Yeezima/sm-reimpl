@@ -176,9 +176,9 @@ public class MusouCombatTests
             float a = k * MathF.Tau / 6f;
             pack.Add(sim.Spawn(MusouEnemyType.Boy, at + new Vector3(MathF.Cos(a), MathF.Sin(a), 0f) * 1.5f, 0f, 85f));
         }
-        var survivorAt = at + new Vector3(8f, 0f, 0f);   // 4 m of the data reach: the frag blast is twice as large in Musou (owner 2026-11-09)
+        var survivorAt = at + new Vector3(10f, 0f, 0f);   // 0.4 of the reach, as 8 of 20 m was: 10 m of the data, x2 (owner 2026-11-09), x1.25 more (AoE pass 2026-11-14) = 25 m
         ushort survivor = sim.Spawn(MusouEnemyType.Boy, survivorAt, 0f, 85f);
-        ushort outside = sim.Spawn(MusouEnemyType.Boy, at + new Vector3(-13f, 0f, 0f), 0f, 85f);   // past the doubled 12 m
+        ushort outside = sim.Spawn(MusouEnemyType.Boy, at + new Vector3(-31f, 0f, 0f), 0f, 85f);   // past the 25 m reach
         var events = new List<MusouEvent>();
         for (int t = 0; t < 60 && w.Projectiles.Count > 0; t++) { w.Step(_ => default); events.AddRange(sim.Events); }
         Assert.Empty(w.Projectiles);
@@ -186,7 +186,7 @@ public class MusouCombatTests
         Assert.All(events.Where(e => e.Kind == MusouEventKind.Death), e => Assert.Equal(((ushort)1, (byte)MusouDeathKind.Blast), (e.Player, e.Value)));
         Assert.Equal(6, w.Scores[1].Kills);
         Assert.Equal(6, w.MusouDirector!.Scores[1].Kos);
-        // The survivor: half the damage at 8 m (4 m before the doubling), staggered, knocked away from the blast (half the 2 m).
+        // The survivor: the same share of the damage as before (0.4 of the reach), staggered, knocked away from the blast (half the 2 m).
         Assert.True(sim.TryGet(survivor, out var s));
         Assert.Equal(85f - 60f, s.Health, 2);
         Assert.Equal(MusouEnemyState.Stagger, s.State);

@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3162 spec table rows: **2325 tagged**, 579 not tagged (read from data with high confidence), 258 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 702 rows of the changes document.
+Scanned 3166 spec table rows: **2326 tagged**, 582 not tagged (read from data with high confidence), 258 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 704 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,10 +50,10 @@ Scanned 3162 spec table rows: **2325 tagged**, 579 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 23 | 13 | 13 | 13 | 7 |
-| Core simulation (provisional values) | 692 | 653 | 495 | 180 | 1 |
+| Core simulation (provisional values) | 693 | 653 | 496 | 180 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 248 | 237 | 133 | 68 | 0 |
-| **All areas** | **2325** | 2054 | 1730 | 727 | 38 |
+| **All areas** | **2326** | 2054 | 1731 | 727 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -61,7 +61,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---:|
 | kind: ours | 1339 |
 | confidence: low | 830 |
-| confidence: medium | 771 |
+| confidence: medium | 772 |
 | notes: ours | 415 |
 | kind: interpretation | 382 |
 | notes: estimate | 194 |
@@ -2385,7 +2385,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (692)
+### Core simulation (provisional values) (693)
 
 *Spec section: Provisional values in use*
 
@@ -2736,6 +2736,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-59BE815F` | A fallen Marine | cleared 3 s after he falls, never replaced; a squad with none left ends at once; the wreck stays 2 s after the last has gone, then goes (a second Pod record) (s) | kind: ours; confidence: low | ours | A fallen Marine: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: cleared 3 s after he falls, never replaced; a squad with none left… | ☐ |
 | `R-4D96CE2A` | Limits | one pod per player at a time (owner 2026-11-12: "Yes 1 pod per player at a time"); the puppet ids (12) are shared with the allied pair (2) and the retainers (up to 4 humans), so with 4 humans one squad of 5 fits (12 - 2 - 4 = 6 free); a battle's end removes… | kind: ours; confidence: medium | ours | Limits: compare with SM1 by feel or video. Ours: one pod per player at a time (owner 2026-11-12: "Yes 1 pod per player… | ☐ |
 | `R-C78C3B2F` | Switch | the server's `TfwCombatRules.DropPods` false refuses the command; the client's `--no-drop-pod` keeps B on the artillery strike and hides the customizer's SUPPORT ABILITIES step (the pages look as before it) | kind: ours | the lead's restore pattern | Switch: compare with SM1 by feel or video. Ours: the server's TfwCombatRules.DropPods false refuses the command; the… | ☐ |
+
+*Spec section: Added content: Musou Mode: AoE pass (`MusouCombatRules.WeaponAoeScale`, `PoundReachScale`, `World.MusouPoundBlast`; `TfwRules.Version` 79, `MusouSim.Version` 54)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-C089F9F0` | Autocannon burst | 2.5 m x1.4 = 3.5 m (not 1.25: its own factor); the lead's reading of "increase autocannon aoe burst size by 40%" as 1.4 on its own size, to confirm with the owner (1.75, 40 % on top of 1.25, is a one-line change of `MusouCombatRules.AutocannonAoeScale`); the… (x) | confidence: medium | owner 2026-11-14; reading the lead's | Autocannon burst: compare with SM1 by feel or video. Ours: 2.5 m x1.4 = 3.5 m (not 1.25: its own factor); the lead's reading of… | ☐ |
 
 *Spec section: Flying hitboxes, the view fraction, the grenade bounce and the bots' damage scale (fix/hitboxes-grenades-bots; protocol 37)*
 
@@ -4889,6 +4895,8 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-FBFD2410` | Musou: boss danger, stun windows, more bosses (claude/musou-bosses-drops, owner 2026-11-12; `MusouSim.Version` 48, `TfwRules.Version` 71) | No Musou Mode in the original | Ours (added content, the owner's request): the Warboss and the Boss Orks hit 1.5x harder (the factor ours) but one boss hit takes at most 75 % of the target's full health plus armour; (the 80/60/40/20 % stun windows were rolled back, owner 2026-11-12: bosses stay unstunnable by anything but a player's melee stun, 0.6… | Musou Mode only; Classic PvP and the 5-wave run's replay unchanged. Spec "Musou Mode: boss danger, stun windows and more bosses". | Musou: boss danger, stun windows, more bosses…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-BFB674C7` | Musou: no aerial tackle, a light attack at any point in a hop (claude/musou-no-aerial-tackle, owner 2026-11-12, TEMPORARY; `MusouSim.Version` 49, `TfwRules.Version` 74) | The Assault and Raptor start the aerial (flying) tackle, the dash attack, with a melee press in a hop; an earlier press cancels the hop into a swing that must wait for the cancelled clip to end | Ours (added content, the owner's temporary request): in Musou Mode a melee press at any point of a hop is the light attack at once, with no wait before the next swing; the tackle never starts. The air attack keeps the hop cancel's rules (rise stopped, 0.4 of the horizontal speed carried; ours). Restore:… | Musou Mode only; Classic PvP unchanged. Spec "Musou Mode: no aerial tackle, a light attack at any point in a hop (temporary)". | Musou: no aerial tackle, a light attack at any point in a…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-7241A1DE` | Musou Mode: Ork swings commit to a direction (musou/ork-swing-commit, 2026-11-12; `MusouSim.Version` 53, `TfwRules.Version` 78) | the owner's request (2026-11-12); added content, no SM1 counterpart | Ours (the idea the owner's, the values estimates): a melee Ork turns toward its target for the first 30 % of its wind-up (540 degrees a second) then holds that facing; the blow needs the target within reach and the 60 degree cone of the locked facing, so circling at a run dodges a Boy's swing (from about 4.5 m/s at… | spec "Musou Mode: Ork swing commit" | Musou Mode: Ork swings commit to a direction…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-403CD0D0` | Musou Mode: drop pod recast (claude/musou-aoe-droppod-recast, owner 2026-11-14; `MusouSim.Version` 54, `TfwRules.Version` 79) | No Musou Mode in the original | Ours (added content, the owner's request, verbatim: "let the player drop another pod immediately when the 60 second cooldown is up"): a new drop pod may be called as soon as the 60 s cooldown ends, whatever pod or squad of the player is still out; the puppet ids (12, shared with the allies and retainers) cap the… | `World.TfwDropPod`, spec "Added content: Musou Mode: drop pod assault" | Musou Mode: drop pod recast (claude/musou-aoe-droppod-recast…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-CFF0666F` | Musou Mode: AoE pass (claude/musou-aoe-droppod-recast, owner 2026-11-14; `MusouSim.Version` 54, `TfwRules.Version` 79) | No Musou Mode in the original | Ours (added content, the owner's request): the assault Marine's ground pound and air slash landing reach 1.5x as far and deal 1.5x (centre too); every player weapon's blast reaches 1.25x; the autocannon's burst 1.4x its own size (the lead's reading, to confirm: 1.75 is one constant) | `MusouCombatRules.WeaponAoeScale`, `PoundReachScale`, `AutocannonAoeScale`, spec "Added content: Musou Mode: AoE pass" | Musou Mode: AoE pass (claude/musou-aoe-droppod-recast…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 
 ## Appendix: not gameplay
 

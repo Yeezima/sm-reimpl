@@ -123,7 +123,8 @@ public sealed partial class World
     /// <param name="own">The weapon's own blast (Musou's arsenal: <c>ArsenalShotBlast</c>), else null: the bolt blast.</param>
     void TfwBoltBlasts(int shooter, Vector3 origin, Vector3 direction, ReadOnlySpan<float> distances, TfwCombatRules war, SplashSpec? own = null)
     {
-        var splash = own ?? war.BoltBlast();
+        // musou/aoe-pass (owner 2026-11-14): the bolt blast's reach x1.25, the autocannon's burst x1.4 (MusouCombatRules.AutocannonAoeScale), fall-off distances with it; damage unchanged.
+        var splash = own is null ? Combat.ScaledReach(war.BoltBlast(), MusouCombatRules.WeaponAoeScale) : Combat.ScaledReach(own, MusouCombatRules.AutocannonAoeScale);
         int frag = -1;
         for (int i = 0; i < Config.Thrown.Count && frag < 0; i++) if (TfwCombatRules.IsFrag(Config.Thrown[i])) frag = i;
         foreach (float distance in distances)

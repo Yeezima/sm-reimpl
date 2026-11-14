@@ -151,8 +151,8 @@ public class MusouCombatRulesTests
     public void The_frag_blast_reaches_twice_as_far_in_Musou_and_nothing_else_changes()
     {
         var musou = WithStim(MusouSimTests.Base);
-        Assert.Equal(2f, musou.ThrownBlastScale(FragItem));
-        Assert.Equal(1f, musou.ThrownBlastScale(Stim));
+        Assert.Equal(2.5f, musou.ThrownBlastScale(FragItem));   // x2, then the AoE pass's x1.25 (owner 2026-11-14)
+        Assert.Equal(1.25f, musou.ThrownBlastScale(Stim));   // any other item: the AoE pass's x1.25 (a stim has no blast)
         var scaled = Combat.ScaledReach(FragItem.Projectile.Splash!, 2f);
         Assert.Equal(20f, scaled.Radius);
         Assert.Equal(200f, scaled.Damage.Damage);
@@ -203,5 +203,68 @@ public class MusouCombatRulesTests
         }
         Assert.DoesNotContain((int)far, hit);
         Assert.DoesNotContain((int)wide, hit);
+    }
+
+    // ---- musou/aoe-pass (owner 2026-11-14)
+
+    static readonly SplashSpec Pound = new(6f, Plain with { Damage = 100f, ShieldDamage = 80f }, [new(0f, 1f), new(3f, 0.6f), new(6f, 0.1f)], true, false, "target_all");
+
+    static SplashSpec? JumpBlast(World w, JumpEventKind kind, SplashSpec? blast)
+    {
+        var args = new object?[] { kind, blast };
+        typeof(World).GetMethod("ExtrasJumpBlast", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.Invoke(w, args);
+        return (SplashSpec?)args[1];
+    }
+
+    [Fact]
+    public void The_ground_pound_and_the_air_slash_landing_reach_one_and_a_half_times_as_far_and_deal_one_and_a_half_times_at_the_centre()
+    {
+        var w = NewWorld();
+        foreach (var kind in new[] { JumpEventKind.Impact, JumpEventKind.SlashLand })
+        {
+            var big = JumpBlast(w, kind, Pound)!;
+            Assert.Equal(9f, big.Radius);
+            Assert.Equal([new DistancePoint(0f, 1f), new DistancePoint(4.5f, 0.6f), new DistancePoint(9f, 0.1f)], big.FallOff);   // the same shape as a fraction of the new radius
+            Assert.Equal(150f, big.Damage.Damage);   // the centre
+            Assert.Equal(120f, big.Damage.ShieldDamage);
+            Assert.Equal(Combat.SplashIntensity(Pound.FallOff, 4.5f), Combat.SplashIntensity(big.FallOff, 6.75f), 4);   // half way out: the same share
+            Assert.Equal(Combat.SplashIntensity(Pound.FallOff, 6f), Combat.SplashIntensity(big.FallOff, 9f), 4);          // the rim keeps its share
+        }
+        Assert.Equal(Pound, JumpBlast(w, JumpEventKind.Land, Pound));   // an ordinary landing and a launch are as they were
+        Assert.Equal(Pound, JumpBlast(w, JumpEventKind.Launch, Pound));
+        Assert.Null(JumpBlast(w, JumpEventKind.Impact, null));
+    }
+
+    [Fact]
+    public void Classic_PvP_keeps_its_pound_and_landing_blasts_and_every_weapon_blast_size()
+    {
+        var classic = new World(MusouSimTests.Base with { Extras = ContentExtras.None }, null, [new SpawnPoint(Vector3.Zero, 0f)]);
+        foreach (var kind in new[] { JumpEventKind.Impact, JumpEventKind.SlashLand, JumpEventKind.Land }) Assert.Same(Pound, JumpBlast(classic, kind, Pound));
+        var c = WithStim(MusouSimTests.Base with { Extras = ContentExtras.None });
+        Assert.Equal(1f, c.ThrownBlastScale(null));
+        Assert.Equal(1f, c.ThrownBlastScale(FragItem));
+        Assert.Equal(1f, c.ThrownBlastScale(Stim));
+        // Orks, gore and the Ork faction alone are not Musou Mode.
+        Assert.Equal(1f, (MusouSimTests.Base with { Extras = ContentExtras.Orks | ContentExtras.Gore }).ThrownBlastScale(null));
+    }
+
+    [Fact]
+    public void Every_player_weapon_blast_reaches_a_quarter_further_in_Musou_and_the_autocannon_burst_two_fifths_further()
+    {
+        var musou = WithStim(MusouSimTests.Base);
+        Assert.Equal(1.25f, musou.ThrownBlastScale(null));   // a launched projectile's blast (launchers, plasma, melta)
+        Assert.Equal(2.5f, musou.ThrownBlastScale(FragItem));
+        Assert.Equal(1.25f, MusouCombatRules.WeaponAoeScale);
+        Assert.Equal(1.4f, MusouCombatRules.AutocannonAoeScale);   // the lead's reading: 1.75 is the one-line alternative
+        var bolt = Combat.ScaledReach(SmSim.Extras.Musou.Campaign.TfwCombatRules.Default.BoltBlast(), MusouCombatRules.WeaponAoeScale);
+        Assert.Equal(1.5625f, bolt.Radius, 4);
+        Assert.Equal(15f, bolt.Damage.Damage);   // the damage is as it was
+        var auto = Combat.ScaledReach(AutocannonRules.Blast, MusouCombatRules.AutocannonAoeScale);
+        Assert.Equal(3.5f, auto.Radius, 4);
+        Assert.Equal(AutocannonRules.BlastDamage, auto.Damage.Damage);
+        Assert.Equal(1f, Combat.SplashIntensity(auto.FallOff, 3.4f));   // still full to its edge
+        Assert.Equal(0f, Combat.SplashIntensity(auto.FallOff, 3.6f));
+        Assert.True(AutocannonRules.LosesDust(auto.Radius));    // the client still draws the autocannon's blast without dust
+        Assert.False(AutocannonRules.LosesDust(bolt.Radius));   // and the bolt blast with it
     }
 }

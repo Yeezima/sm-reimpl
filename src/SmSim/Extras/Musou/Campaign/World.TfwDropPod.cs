@@ -14,8 +14,8 @@ public sealed partial class World
 {
     /// <summary>
     /// A player's call for a drop pod at <paramref name="point"/> (the command DropPod; the client only asks): refused, with nothing changed, unless the strike's own conditions hold (a battle on, the player in it
-    /// and alive, or at the Firing Range; the point on the battlefield; the player's support cooldown over, <see cref="TfwFireRules.OrbitalCooldownSeconds"/>, shared with the artillery strike) and the player has
-    /// no pod out, the point is at least <see cref="TfwDropPodRules.MinCallerDistance"/> from the player and <see cref="TfwDropPodRules.Marines"/> puppet ids are free. Whether it was accepted.
+    /// and alive, or at the Firing Range; the point on the battlefield; the player's support cooldown over, <see cref="TfwFireRules.OrbitalCooldownSeconds"/>, shared with the artillery strike; an earlier pod or its
+    /// Marines still out does not block a new call, owner 2026-11-14) and the point is at least <see cref="TfwDropPodRules.MinCallerDistance"/> from the player and <see cref="TfwDropPodRules.Marines"/> puppet ids are free. Whether it was accepted.
     /// </summary>
     public bool TfwDropPod(int player, Vector3 point)
     {
@@ -24,13 +24,13 @@ public sealed partial class World
         if (!atRange && (run.Battle is null || !run.InField.Contains(player))) return false;
         if (!_players.TryGetValue(player, out var p) || !p.Alive || TfwContracts.IsPuppet(player)) return false;
         if (!atRange && run.Fire.OrbitalTicksLeft(player, Tick) > 0) return false;
-        if (run.PodOf(player) is not null) return false;
+        // No "one pod each" gate since owner 2026-11-14 ("let the player drop another pod immediately when the 60 second cooldown is up"): the cooldown above is the only limit on the caller; the puppet ids below cap what is on the field.
         var box = atRange ? run.Field.Range!.Box : run.Field.Bounds;
         if (!float.IsFinite(point.X + point.Y + point.Z) || point.X < box.Min.X || point.X > box.Max.X || point.Y < box.Min.Y || point.Y > box.Max.Y) return false;
         point = atRange ? Vector3.Clamp(point, box.Min, box.Max) : run.Field.Clamp(point);
         point.Z = TfwGroundBelow(point, point.Z);
         if (MarineBrain.Flat(p.Position, point) < TfwDropPodRules.MinCallerDistance) return false;
-        if (TfwFreePuppetIds() - run.PodIdsReserved < TfwDropPodRules.Marines) return false;   // the ids other pods have called count as taken
+        if (TfwFreePuppetIds() - run.PodIdsReserved < 1) return false;   // the ids other pods have called count as taken; a squad is up to Marines strong as the ids allow (12 ids: with a squad out and the allies and a retainer, a recast brings fewer Marines, owner 2026-11-14)
         int rate = Math.Max(1, Config.TickRate);
         uint land = Tick + (uint)MathF.Round(TfwDropPodRules.LandSeconds * rate);
         uint spawn = land + (uint)MathF.Round((TfwDropPodRules.DoorSeconds + TfwDropPodRules.StepOutSeconds) * rate);

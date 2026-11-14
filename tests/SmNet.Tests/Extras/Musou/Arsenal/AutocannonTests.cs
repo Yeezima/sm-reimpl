@@ -172,8 +172,8 @@ public class AutocannonTests
         var line = Enumerable.Range(0, 7).Select(k => Boy(w, me + new Vector3(0f, 8f + k * 6f, 0f))).ToArray();
         // Beside the first, 2.0 m off the ray: outside the bolt blast's 1.25 m, inside the autocannon's 2.5 m.
         ushort beside = Boy(w, me + new Vector3(2.0f, 8f, 0f));
-        // Beside the second, 3.0 m off: outside both.
-        ushort outside = Boy(w, me + new Vector3(3.0f, 14f, 0f));
+        // Beside the second, 4.0 m off: outside both (the burst is 3.5 m since the AoE pass, 2026-11-14).
+        ushort outside = Boy(w, me + new Vector3(4.0f, 14f, 0f));
         Tick(w, InputButtons.Fire);
         for (int k = 0; k < 20 && w.LastShots.Count == 0; k++) Tick(w, InputButtons.Fire);
         Assert.NotEmpty(w.LastShots);
@@ -182,7 +182,7 @@ public class AutocannonTests
         Assert.Equal(100000f, HealthOf(w, line[6]));
         var records = w.Tfw!.Fire.Events.Where(f => f.Kind == TfwFireKind.BoltBlast).ToArray();
         Assert.Equal(6, records.Length);
-        Assert.All(records, r => Assert.Equal(AutocannonRules.BlastRadius, r.To.Y));   // the clients get the radius
+        Assert.All(records, r => Assert.Equal(AutocannonRules.BlastRadius * SmSim.Extras.Musou.MusouCombatRules.AutocannonAoeScale, r.To.Y, 0.06f));   // the clients get the radius (x1.4, AoE pass 2026-11-14)
         float hurt = 100000f - HealthOf(w, beside);
         Assert.Equal(AutocannonRules.BlastDamage * TfwCombatRules.Default.PlayerRangedDamageScale, hurt, 0.01f);   // a blast alone, all of it: the ray passes 2 m off him (no fall-off since 2026-11-11)
         Assert.Equal(100000f, HealthOf(w, outside));

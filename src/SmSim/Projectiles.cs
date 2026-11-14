@@ -444,7 +444,9 @@ public sealed partial class World
                 direction: BlastPush(point, direct, p.Velocity));
         // Every damaging blast in file order; a lingering one is applied now and stays (StepAreas).
         // EXTRAS-HOOK via SimConfig.ThrownBlastScale: Musou Mode's frag blasts reach twice as far (owner 2026-11-09); 1 everywhere else, so Classic PvP is untouched.
-        float reach = p.Thrown && p.Weapon >= 0 && p.Weapon < Config.Thrown.Count ? Config.ThrownBlastScale(Config.Thrown[p.Weapon]) : 1f;
+        // musou/aoe-pass (owner 2026-11-14): a launched projectile of a player (a null item) is scaled too, every player weapon's reach x1.25 in Musou Mode (1 elsewhere); an enemy's (Ork rocket) never.
+        float reach = p.Thrown ? (p.Weapon >= 0 && p.Weapon < Config.Thrown.Count ? Config.ThrownBlastScale(Config.Thrown[p.Weapon]) : 1f)
+            : _players.ContainsKey(p.Owner) ? Config.ThrownBlastScale(null) : 1f;
         foreach (var splash0 in spec.AllSplashes)
         {
             var splash = reach == 1f ? splash0 : Combat.ScaledReach(splash0, reach);

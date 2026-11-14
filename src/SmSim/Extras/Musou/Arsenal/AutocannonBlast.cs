@@ -90,4 +90,10 @@ public static class AutocannonRules
     /// </summary>
     public static float BlastDrawScale(float radius) =>
         !float.IsFinite(radius) || radius <= 0f || MathF.Abs(radius - BoltBlastReach) <= WireStep + 1e-3f ? 1f : radius / BoltBlastReach;
+
+    /// <summary>
+    /// Whether a blast whose record says <paramref name="radius"/> metres is the autocannon's, which draws no dust (musou/autocannon-dust). The bolt blast is 1.25 x <see cref="SmSim.Extras.Musou.MusouCombatRules.WeaponAoeScale"/> since the
+    /// AoE pass (owner 2026-11-14), so "larger than the bolt blast" is larger than that (with a tenth of margin for the wire's rounding); the autocannon's is 2.5 x <see cref="SmSim.Extras.Musou.MusouCombatRules.AutocannonAoeScale"/> (3.5 m).
+    /// </summary>
+    public static bool LosesDust(float radius) => BlastDrawScale(radius) > SmSim.Extras.Musou.MusouCombatRules.WeaponAoeScale + 0.1f;
 }

@@ -246,8 +246,8 @@ public class TfwMeleeTests
         int blasts = 0;
         for (int k = 0; k < 300 && w.Projectiles.Count > 0; k++)
         {
-            // 24 m from where it will land: outside the data's 10 m doubled (owner 2026-11-09: frag explosions 2x their size).
-            if (far == 0 && w.Projectiles[0].Position.Z < 1.5f) far = Boy(w, w.Projectiles[0].Position with { Z = 0f } + new Vector3(24f, 0f, 0f), health: 10000f);
+            // 30 m from where it will land: outside the data's 10 m at 2.5x (owner 2026-11-09: 2x; AoE pass 2026-11-14: x1.25 more).
+            if (far == 0 && w.Projectiles[0].Position.Z < 1.5f) far = Boy(w, w.Projectiles[0].Position with { Z = 0f } + new Vector3(30f, 0f, 0f), health: 10000f);
             Tick(w);
             blasts += w.LastDetonations.Count(d => d.Thrown);
         }
@@ -448,7 +448,7 @@ public class TfwMeleeTests
         for (int k = 0; k < 3; k++)
         {
             Assert.True(MathF.Abs(records[k].At.Y - me.Y - (6f + k * 4f)) < 1f, $"blast {k} at {records[k].At}");
-            Assert.Equal(war.BoltBlastRadius, records[k].To.Y);
+            Assert.Equal(war.BoltBlastRadius * SmSim.Extras.Musou.MusouCombatRules.WeaponAoeScale, records[k].To.Y, 3);   // AoE pass 2026-11-14
             Assert.Equal(0f, records[k].To.X);   // the frag's effect: thrown item 0
             Assert.InRange(1000f - HealthOf(w, beside[k]), war.BoltBlastDamage * 0.3f * war.PlayerRangedDamageScale, war.BoltBlastDamage * war.PlayerRangedDamageScale);   // a blast only: the shot's ray passes beside him (x1.2, owner 2026-11-11)
             Assert.Equal(1000f, HealthOf(w, past[k]));   // past the halved reach

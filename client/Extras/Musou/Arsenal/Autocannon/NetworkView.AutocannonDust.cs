@@ -49,7 +49,7 @@ public partial class NetworkView
     /// <summary>The dust share a blast of <paramref name="radius"/> metres is drawn with: <see cref="BlastDust"/> for the autocannon's (a radius above the bolt blast's), 1 for every other blast.</summary>
     float BlastDustShare(float radius) => BlastDustShareOf(radius, OldAutocannonDust);
     /// <summary>The pure radius-to-share mapping (tested): <see cref="BlastDust"/> above the bolt blast's radius unless restored, else 1.</summary>
-    internal static float BlastDustShareOf(float radius, bool restored) => !restored && SmSim.AutocannonRules.BlastDrawScale(radius) > 1f ? BlastDust : 1f;
+    internal static float BlastDustShareOf(float radius, bool restored) => !restored && SmSim.AutocannonRules.LosesDust(radius) ? BlastDust : 1f;
 
     /// <summary>The chunks of one autocannon blast at <paramref name="at"/> (game space, blast radius <paramref name="radius"/> m); the number thrown, 0 when none.</summary>
     int BlastDebris(Num.Vector3 at, float radius, int seed, ref int burstsThisFrame)
