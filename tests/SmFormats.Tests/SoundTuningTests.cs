@@ -151,17 +151,16 @@ public class SoundTuningTests
     static SoundVoice Voice(params uint[] path) => new(1, 1, 0f, -10f, 0f, 1, true, null, 50, path);
 
     [Fact]
-    public void The_autocannons_body_alone_is_pinned_and_lifted()
+    public void The_autocannons_footstep_body_alone_is_dropped()
     {
         Assert.True(ClassicAutocannonSound.IsBody(ClassicAutocannonSound.Event, Voice(1, ClassicAutocannonSound.BodyNode, 2)));
-        Assert.False(ClassicAutocannonSound.IsBody(ClassicAutocannonSound.Event, Voice(1, 2)));   // the tail and the other layers stay as the data has them
+        Assert.False(ClassicAutocannonSound.IsBody(ClassicAutocannonSound.Event, Voice(1, 2)));   // the shot's own layers (tail, click) stay as the data has them
         Assert.False(ClassicAutocannonSound.IsBody("play_sm_heavy_bolter_fire", Voice(ClassicAutocannonSound.BodyNode)));   // no other weapon
-        var pinned = ClassicAutocannonSound.Pin(new Dictionary<uint, float> { [VoiceMixer.Speed] = 0f, [7] = 1f });
-        Assert.Equal(ClassicAutocannonSound.PinnedSpeed, pinned[VoiceMixer.Speed]);
-        Assert.Equal(1f, pinned[7]);
-        Assert.Equal(ClassicAutocannonSound.PinnedSpeed, ClassicAutocannonSound.Pin(null)[VoiceMixer.Speed]);
-        Assert.Equal(ClassicAutocannonSound.BodyGainDb, ClassicAutocannonSound.BodyOffset.GainDb);
-        Assert.True(ClassicAutocannonSound.BodyOffset.Lpf < 0f);
+        // The cue set of a Classic shot: the one event the weapon files post, and no Dreadnought or walk/footstep event anywhere in it.
+        Assert.Equal("play_ch_autocannon_fire", ClassicAutocannonSound.Event);
+        Assert.DoesNotContain("dread", ClassicAutocannonSound.Event, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("foot", ClassicAutocannonSound.Event, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("walk", ClassicAutocannonSound.Event, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

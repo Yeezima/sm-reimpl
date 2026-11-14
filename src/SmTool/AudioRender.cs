@@ -70,7 +70,7 @@ static class AudioRender
             {
                 var parameters = new Dictionary<uint, float> { [VoiceMixer.Speed] = spec.Speed };
                 var offset = spec.Offset;
-                if (spec.ClassicAutocannon && ClassicAutocannonSound.IsBody(spec.Event, v)) { parameters = ClassicAutocannonSound.Pin(parameters); offset = offset.Plus(ClassicAutocannonSound.BodyOffset); }   // sound/classic-autocannon
+                if (spec.ClassicAutocannon && ClassicAutocannonSound.IsBody(spec.Event, v)) continue;   // sound/classic-autocannon: the footstep body is never played
                 var mix = VoiceMixer.Evaluate(v, null, 1, 0, null, parameters, cap).With(offset);
                 var pcm = Decode(catalog, v.WemId, out int ch, out int rate);
                 if (pcm is null) { missing++; lines.Add($"wem {v.WemId}: no media / decode failed"); continue; }

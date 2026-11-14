@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3215 spec table rows: **2366 tagged**, 590 not tagged (read from data with high confidence), 259 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 718 rows of the changes document.
+Scanned 3214 spec table rows: **2365 tagged**, 590 not tagged (read from data with high confidence), 259 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 718 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -41,7 +41,7 @@ Scanned 3215 spec table rows: **2366 tagged**, 590 not tagged (read from data wi
 | Reactions (critical) | 25 | 22 | 23 | 12 | 0 |
 | Camera (critical) | 55 | 53 | 44 | 22 | 0 |
 | HUD and hit feedback (critical) | 72 | 67 | 52 | 11 | 0 |
-| Sound mix (critical) | 91 | 85 | 78 | 11 | 0 |
+| Sound mix (critical) | 90 | 84 | 76 | 11 | 0 |
 | Effects (critical) | 98 | 87 | 82 | 41 | 0 |
 | Game modes | 46 | 42 | 42 | 19 | 1 |
 | Perks | 59 | 48 | 31 | 25 | 0 |
@@ -53,15 +53,15 @@ Scanned 3215 spec table rows: **2366 tagged**, 590 not tagged (read from data wi
 | Core simulation (provisional values) | 701 | 661 | 501 | 181 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 248 | 237 | 133 | 68 | 0 |
-| **All areas** | **2366** | 2092 | 1759 | 731 | 38 |
+| **All areas** | **2365** | 2091 | 1757 | 731 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1377 |
-| confidence: low | 841 |
-| confidence: medium | 789 |
+| kind: ours | 1376 |
+| confidence: low | 840 |
+| confidence: medium | 788 |
 | notes: ours | 415 |
 | kind: interpretation | 383 |
 | notes: estimate | 198 |
@@ -1752,7 +1752,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-C2C74997` | Spear animations: the crosshair column | 2026-11-11 (lead: the carried blade crossed the crosshair's column in the own view at idle): the blade's head (collar, crossguard, blade) stays at least **3** degrees of the horizontal view to one side of the screen's centre column at idle in the default… (degrees) | kind: ours; confidence: low | ours (the reticle at rest is about 2 degrees across its half at the data's 40-degree view in the 1600 x 900 window) | Spear animations: the crosshair column: compare with SM1 with an overlaid screenshot taken from the same position. Ours: 2026-11-11 (lead: the carried blade crossed the crosshair's column in… | ☐ |
 
-### Sound mix (gameplay-critical) (91)
+### Sound mix (gameplay-critical) (90)
 
 *Spec section: Sound playback (M26b; client only, not simulated)*
 
@@ -1911,8 +1911,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
-| `R-F3CA448A` | Autocannon body speed pin | the body voices read the speed RTPC as 2.5 m/s (its 0 dB point) whatever the shooter's speed; every other layer of the post and every other event is untouched (m/s) | kind: ours; confidence: medium | the owner's report; the value is ours | Autocannon body speed pin: compare with SM1 by listening A/B at the same distance and state. Ours: the body voices read the speed RTPC as 2.5 m/s (its 0 dB point)… | ☐ |
-| `R-60205D8B` | Autocannon body level (estimate) | +22 dB on the body voices and the low-pass offset -20 (the data's LPF 20 off); pitch kept. Calibrated on another player's shot (the remote floor and curve are the heavy bolter's): the body's two voices summed in power against the heavy bolter's 12 at 5 m and… (dB, LPF units) | kind: ours; confidence: low | the owner's "as loud as the heavy bolter"; the calibration and numbers are ours | Autocannon body level (estimate): compare with SM1 by listening A/B at the same distance and state. Ours: +22 dB on the body voices and the low-pass offset -20 (the data's LPF… | ☐ |
+| `R-13518CA8` | Autocannon footstep body dropped | the body voices (switch 0x06921B84, the Chaos marine footstep samples) are never played in Classic PvP's autocannon shot, whatever the shooter's speed; every other layer of the post (the map bank's tail layer, the click) and every other event is untouched.… | kind: ours | the owner's report ("completely remove that and ensure its only the autocannon shooting sound effect") | Autocannon footstep body dropped: compare with SM1 by listening A/B at the same distance and state. Ours: the body voices (switch 0x06921B84, the Chaos marine footstep… | ☐ |
 | `R-A8D24B08` | Autocannon sound scope | Classic PvP's autocannon of the extended profile only (the event is posted only there: Musou Mode's autocannon plays the Stalker Bolter's files); `--old-classic-mix` plays the data's again | kind: ours | the owner | Autocannon sound scope: compare with SM1 by listening A/B at the same distance and state. Ours: Classic PvP's autocannon of the extended profile only (the event is… | ☐ |
 | `R-5E86FA86` | Tuner groups | 25 groups (master; your gun, melee, jump pack, footsteps, voice, other; other players' bolters and pistols, heavy bolter and autocannon, plasma, melta, lascannon, other; their footsteps, jump packs, melee, voices; melee and bullet impacts, explosions… | kind: ours; confidence: medium | the owner's list; the name rules are our reading of the install's event names | Tuner groups: compare with SM1 by listening A/B at the same distance and state. Ours: 25 groups (master; your gun, melee, jump pack, footsteps, voice… | ☐ |
 | `R-DE2F7D1B` | Tuner volume | each group -40 to +24 dB in 0.5 dB steps, added to the voice on top of the Options menu's volumes; the master group adds to every group's (dB) | kind: ours | the owner | Tuner volume: compare with SM1 by listening A/B at the same distance and state. Ours: each group -40 to +24 dB in 0.5 dB steps, added to the voice on top… | ☐ |
