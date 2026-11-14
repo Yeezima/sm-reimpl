@@ -293,7 +293,7 @@ public static class Reaction
             Charging = false, ChargeTime = 0f, PendingShot = 0, PendingLeft = 0f, Throwing = false, ThrowTime = 0f,   // sim/reload-keeps: a reload runs on through the reaction
             EvadeTicks = 0, EvadeDirection = EvadeDirection.Forward, EvadeLanded = false, JumpDashDirection = keepJump ? s.JumpDashDirection : EvadeDirection.Forward, Aiming = false, Rush = RushPhase.None, RushTicks = 0,
             Jump = keepJump ? s.Jump : JumpPhase.None, JumpTicks = keepJump ? s.JumpTicks : 0, JumpMark = keepJump ? s.JumpMark : 0,
-            JumpHolding = false, JumpLandMoving = false, JumpCut = false, JumpSmall = false, JumpSlash = false,
+            JumpHolding = false, JumpLandMoving = false, JumpCut = false, JumpSmall = false, JumpAirOpen = false, JumpSlash = false,
             Velocity = new Vector3(0f, 0f, s.Velocity.Z), SprintStop = false,
         };
     }

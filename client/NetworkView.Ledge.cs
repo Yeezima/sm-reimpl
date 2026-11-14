@@ -29,6 +29,9 @@ public partial class NetworkView
     static readonly bool LedgeHop = OS.GetCmdlineUserArgs().Contains("--ledge-hop"), LedgeTap = OS.GetCmdlineUserArgs().Contains("--ledge-tap");
     /// <summary><c>--ledge-steer</c> (sim/movement-fixes, with <c>--ledge-charge</c>): D is held while the body is in the air, so the charge off the ledge bends right (logged at the landing).</summary>
     static readonly bool LedgeSteer = OS.GetCmdlineUserArgs().Contains("--ledge-steer");
+    /// <summary><c>--ledge-jump</c> (sim/hop-rules capture aid, with <c>--ledge-charge</c>): Space is pressed once the charge is held in the air off the ledge and kept down until the landing, so the pack lifts the body out of the charge (the full jump).</summary>
+    static readonly bool LedgeJump = OS.GetCmdlineUserArgs().Contains("--ledge-jump");
+    bool _ledgeJumped;
     double _ledgeStart, _ledgeChargeAt = 0.5, _ledgeLeftAt;
     bool _ledgePressed;
     int _ledgeAirTicks;
@@ -63,6 +66,11 @@ public partial class NetworkView
                     _ledgePressed = true; b |= InputButtons.Jump;
                     GD.Print($"t {_connectedFor:F2} s: LEDGE {(LedgeHop ? "hop" : "tap")} at {me.Position.X:F1},{me.Position.Y:F1},{me.Position.Z:F1} ({(me.Grounded ? "on the ground" : $"{_connectedFor - _ledgeLeftAt:F2} s into the fall")})");
                 }
+                if (LedgeJump && !me.Grounded && (_ledgeJumped || me.Rush == RushPhase.Rush))
+                {
+                    if (!_ledgeJumped) GD.Print($"t {_connectedFor:F2} s: LEDGE jump pressed {_connectedFor - _ledgeLeftAt:F2} s after leaving the ground, charge {me.Rush}");
+                    _ledgeJumped = true; b |= InputButtons.Jump;
+                }
                 if (LedgeSteer && !me.Grounded) return new PlayerInput(tick, 1f, 0f, _ledgeYaw, b, _pitch);   // D in the air (the W is dropped: a sideways stick)
                 return new PlayerInput(tick, 0f, 1f, _ledgeYaw, b, _pitch);
             }
@@ -78,7 +86,7 @@ public partial class NetworkView
             _ledgeYaw = p.Yaw; _yaw = p.Yaw;
             _ledgeUntil = _connectedFor + p.Seconds + 3.0; _ledgeLeft = false; _ledgeRunning = true; _ledgeStart = _connectedFor;
             _ledgeChargeAt = Math.Max(0.5, 0.65 * p.Seconds - 0.5);
-            _ledgePressed = false; _ledgeCharged = false;
+            _ledgePressed = false; _ledgeCharged = false; _ledgeJumped = false;
             GD.Print($"t {_connectedFor:F2} s: LEDGE plan {_ledgePlans}: heading {p.Yaw * 180f / MathF.PI:F0} deg, leaves the ground after {p.Seconds:F1} s, lands {p.Drop:F1} m lower after {p.AirSeconds:F2} s, peak {p.Peak:F1} m/s down");
         }
         else

@@ -103,6 +103,7 @@ if (cli.OldChargeAfterMelee) config = config with { ChargeAfterMelee = false };
 if (cli.OldChargeCancelDelay) config = config with { ChargeInstantCancel = false };
 // charge-melee-chain (protocol 70): --old-charge-melee-chain and --musou-melee-cooldown (restore switches; config hash).
 if (cli.OldChargeMeleeChain) config = config with { ChargeMeleeChain = false };
+if (cli.OldHopRules) config = config with { HopRules = false };   // sim/hop-rules (protocol 72): restore switch, config hash
 if (cli.MusouMeleeCooldown) config = config with { MusouMeleeCooldown = true };
 if (cli.MusouUncappedMeleeHeal) config = config with { MusouUncappedMeleeHeal = true };   // musou/melee-heal-cap (owner 2026-11-12): restore switch, config hash
 Console.WriteLine(config.ChargeAfterMelee ? "charge after melee: a charge starts once the attack under way has hit (owner 2026-11-12)" : "charge after melee: OLD (--old-charge-after-melee, restore switch; clients need it too): the charge waits for the attack's end");

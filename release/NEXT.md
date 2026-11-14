@@ -9,3 +9,7 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Leave out changes a tester cannot notice (tooling, docs, refactors). Optional "### " headings group long lists.
 - Add your bullets in the same pull request as the change, when it merges.
 -->
+- Assault Marine and Raptor: if you jump (hold Space) after charging off a ledge you now do a full jump out of the charge, in Classic PvP and in Musou Mode, instead of just dropping.
+- Assault Marine and Raptor: a hop after a light melee swing shortens the wait before your next swing, so swing, hop, swing flows faster; the wait is cut to about half and never to nothing, so you cannot spam swings by hopping.
+- Assault Marine and Raptor: pressing hop in the middle of an aerial (flying) tackle now cancels the tackle straight into a hop instead of doing nothing.
+- A new network version: everyone, players and servers, must update to this build; older builds cannot join.

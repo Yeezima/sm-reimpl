@@ -796,6 +796,7 @@ public partial class NetworkView : Node3D
         BotHazards(me);   // bot-grenade-safety: the bot's own live grenades and waiting rounds this tick (NetworkView.BotGrenades.cs)
         if (JumpTest && JumpTestInput(me, tick) is { } jumpTest) return jumpTest;   // M44 test aid (NetworkView.JumpFx.cs)
         if (SlashTestInput(me, tick) is { } slashTest) return slashTest;   // feel/jump-pack test aid --slash-test (NetworkView.DashAttack.cs)
+        if (HopRulesTestInput(me, tick) is { } hopRules) return hopRules;   // sim/hop-rules capture aid --hop-rules-test (NetworkView.HopRulesTest.cs)
         if (SwingTestInput(me, tick) is { } swingTest) return swingTest;   // anim/hammer-swing test aid --swing-test (NetworkView.SwingTest.cs)
         if (StompMoveTestInput(me, tick) is { } stompMove) return stompMove;   // anim/stomp-to-move test aid --stomp-move-test (NetworkView.StompMoveTest.cs)
         if (CameraTestInput(me, tick) is { } cameraTest) return cameraTest;   // camera/hop-and-walls test aid --camera-test (NetworkView.CameraTest.cs)

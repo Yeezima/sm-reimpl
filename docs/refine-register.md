@@ -28,14 +28,14 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3171 spec table rows: **2329 tagged**, 584 not tagged (read from data with high confidence), 258 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 708 rows of the changes document.
+Scanned 3180 spec table rows: **2335 tagged**, 586 not tagged (read from data with high confidence), 259 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 709 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
 | Movement (critical) | 401 | 343 | 342 | 117 | 12 |
 | Combat core (critical) | 17 | 7 | 15 | 14 | 9 |
 | Weapons (critical) | 121 | 73 | 106 | 54 | 3 |
-| Melee (critical) | 140 | 122 | 105 | 51 | 5 |
+| Melee (critical) | 146 | 128 | 107 | 52 | 5 |
 | Jump pack (critical) | 79 | 71 | 63 | 19 | 0 |
 | Charge (critical) | 61 | 51 | 49 | 25 | 0 |
 | Reactions (critical) | 25 | 22 | 23 | 12 | 0 |
@@ -53,19 +53,19 @@ Scanned 3171 spec table rows: **2329 tagged**, 584 not tagged (read from data wi
 | Core simulation (provisional values) | 695 | 655 | 495 | 181 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 248 | 237 | 133 | 68 | 0 |
-| **All areas** | **2329** | 2057 | 1731 | 728 | 38 |
+| **All areas** | **2335** | 2063 | 1733 | 729 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1343 |
+| kind: ours | 1349 |
 | confidence: low | 830 |
-| confidence: medium | 772 |
+| confidence: medium | 774 |
 | notes: ours | 414 |
 | kind: interpretation | 382 |
-| notes: estimate | 196 |
-| kind: estimate | 157 |
+| notes: estimate | 197 |
+| kind: estimate | 158 |
 | confidence: none (low) | 129 |
 | kind: provisional | 103 |
 | kind: user's knowledge | 56 |
@@ -976,7 +976,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-63D5DA0C` | Magazine returns | at the load tag or when the left hand is back at the weapon, whichever is later (never before the magazine left): bolter tag 0.30, hand 0.35 (`RIG_L_Hand` 0.15 m from the magazine at its closest, 1.13 m at its furthest, away from 0.11 to 0.35) → 0.35; stalker… (fraction of the clip) | kind: interpretation; confidence: medium | clip, skeleton, weapon mount | Magazine returns: compare with SM1 by feel or video. Ours: at the load tag or when the left hand is back at the weapon… | ☐ |
 | `R-125B93CF` | Dropped magazine physics | a `RigidBody3D` (layer none, mask: the level) with a box the size of the mesh, mass 0.4 kg, friction 0.7, bounce 0.3, linear damping 0.05, angular 0.6; initial velocity = the carrier's velocity + up to 0.6 m/s sideways (0.12 up) + up to 5 rad/s spin… (kg, m/s, rad/s, s) | kind: placeholder; confidence: none (low); notes: ours | ours | Dropped magazine physics: compare with SM1 by timing a run over a known distance. Ours: a RigidBody3D (layer none, mask: the level) with a box the size of… | ☐ |
 
-### Melee (gameplay-critical) (140)
+### Melee (gameplay-critical) (146)
 
 *Spec section: Melee flow, the hammer in both hands and the transitions pass (anim/melee-flow; client only, not simulated, no protocol change)*
 
@@ -1242,6 +1242,17 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-213E41CE` | The 1 s spacing (reading) | the spacing (`min_time_between_activations`, 1 s from one charge's start) applies only between two charges with no melee attack between them: any melee attack that starts (a light swing, a combo's next attack, a heavy strike) lifts it at once, so charge >… (s) | kind: ours; notes: estimate | ours (owner's wording) | The 1 s spacing (reading): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the spacing (min_time_between_activations, 1 s from one charge's… | ☐ |
 | `R-FBE0C386` | Musou melee spam | in Musou Mode a light attack has no cooldown, no wait and no combo window: a press after the swing's hit has landed starts a new swing on that tick (a random other swing of the weapon's chain, as before), a press before the hit queues the next swing for the… | confidence: medium; notes: ours | owner 2026-11-12 | Musou melee spam: compare with SM1 by feel or video. Ours: in Musou Mode a light attack has no cooldown, no wait and no combo… | ☐ |
 | `R-D9F3D825` | Restore switches | `--old-charge-melee-chain` (every client and the server; config hash only when on): the protocol 69 rules; `--musou-melee-cooldown` (Musou; hashed in Musou's block only when on): the earlier Musou melee rule | kind: ours | ours | Restore switches: compare with SM1 by feel or video. Ours: --old-charge-melee-chain (every client and the server; config hash… | ☐ |
+
+*Spec section: Hop rules: the ledge jump after a charge, the hop cutting the melee wait, the hop out of the aerial tackle (sim/hop-rules; protocol 72, used by the simulation; Assault Marine and Raptor)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-790B4BAC` | Ledge jump after a charge | a fresh Jump press that ends a bull rush held in the air (not on the ground, the rush phase only) opens the air jump (`PlayerState.JumpAirOpen`): the hold past the hop's decision tick (5 ticks, 0.17 s, as on the ground) lifts the pack in the air, committed to… | kind: ours; confidence: medium | owner 2026-11-14 | Ledge jump after a charge: compare with SM1 by feel or video. Ours: a fresh Jump press that ends a bull rush held in the air (not on the… | ☐ |
+| `R-029EA931` | Hop cuts the melee wait | the start of a hop (the jump-pack dash, on the ground or in the air) cuts the melee wait still running (`PlayerState.MeleeLock`: the light combo's wait to its combo window, or a cancel's wait) to **0.5** of what is left, but not below **0.25 s**; a wait… (s) | kind: ours; kind: estimate | owner 2026-11-14 (the cut, not the numbers) | Hop cuts the melee wait: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the start of a hop (the jump-pack dash, on the ground or in the air)… | ☐ |
+| `R-EC7884DA` | Hop out of the aerial tackle | a fresh Jump press in any phase of the dash attack (the aerial tackle: the lunge, its hit, wall stop and run-out, in the air or on the ground) ends it and starts the hop in that tick: no take-off, no tap-or-hold decision, from the stick of that tick, past the… | kind: ours; confidence: medium | owner 2026-11-14 | Hop out of the aerial tackle: compare with SM1 by feel or video. Ours: a fresh Jump press in any phase of the dash attack (the aerial… | ☐ |
+| `R-C9581702` | Aerial tackle's momentum | the hop is the usual dash from the state of the press tick: the tackle's speed is not carried, the dash's own travel (about 16.4 m/s along the stick, forward without one) takes over; the rise starts from the body's height (m/s) | kind: ours; notes: estimate | ours | Aerial tackle's momentum: compare with SM1 by timing a run over a known distance. Ours: the hop is the usual dash from the state of the press tick: the… | ☐ |
+| `R-C7CF180E` | Musou Mode | the aerial tackle is off there (`AerialTackleOff`), so rule 3 never applies; the hop's cut of the melee wait is moot (Musou melee has no wait: `MeleeSpam`); rule 1 applies as in Classic (Musou already allowed it) | kind: ours | ours | Musou Mode: compare with SM1 by feel or video. Ours: the aerial tackle is off there (AerialTackleOff), so rule 3 never… | ☐ |
+| `R-73D9D80A` | Restore switch | `--old-hop-rules` (server and every client; config hash only when on): the protocol 71 rules | kind: ours | ours | Restore switch: compare with SM1 by feel or video. Ours: --old-hop-rules (server and every client; config hash only when on):… | ☐ |
 
 ### Jump pack (gameplay-critical) (79)
 
@@ -4304,6 +4315,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-5B69498D` | A charge slides past an ally (charge-ally-slide, 2026-11-11; every mode; protocol 67; replaces protocol 66's ally bump) | The owner's recollection of the original: "with an ally it just collides"; here the ally's contact put the charger into the collision stop (the wall-hit recoil), with the impact's hit-stop, effects and camera kick on both (protocol 66 ended the charge at the ally with no recoil) | A charge (the bull rush, the dash attack's lunge) passes an ally it cannot harm: no contact, no stop, no turn, the clip plays on; the shared player collision slides the charger along the ally's body and nothing happens to the ally. Enemies and friendly fire as before; Musou Mode too. `--old-ally-bump` restores the… | Owner 2026-11-11: "when a charge hits an ally it should slide past"; the slide itself is the capsule collision's (ours). An S tap before the stick branch is not remembered (owner: "early s tap should not be remembered"; already so, now tested). Spec "Charge ally slide" | A charge slides past an ally (charge-ally-slide…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-8C4D5D60` | The charge after a swing and the instant S cancel (charge-responsive, 2026-11-12; protocol 69; every mode) | The owner: a charge pressed during a light attack, a combo or a heavy strike did nothing until the attack ended; S had to be held about half a second (the stick branch) to cancel the charge | A charge press once the swing's hit has landed ends the attack and its combo and charges at once; a swing starts on the first tick after a charge ends or is cancelled; S (stick back at least half) cancels the bull rush from its second tick, the speed it carries capped at the sprint's. `--old-charge-after-melee` and… | Owner 2026-11-12: "You should immediately be able to charge after a melee attack, or vice versa"; "The charge should be cancelled instantaneously as soon as the S key or back on left joystick is triggered". The hit as the earliest point, the 0.5 stick length and the speed cap are ours. Spec "The charge after a swing… | The charge after a swing and the instant S cancel…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-449F4205` | Melee cancels a charge at once; charge > melee chains; Musou melee spam (charge-melee-chain, 2026-11-12; protocol 70; every mode, the spam Musou Mode only) | The owner: a melee press mid charge should happen immediately (also at the charge's end); no charge during a charge; charge > melee > charge > melee should chain with no delay; the 1 s spacing only for discrete combat moves; in Musou Mode melee can be spammed with no cooldown | A light press cancels the bull rush on that tick (any class, no wait after it); a charge cannot start during a charge; a melee attack that starts lifts the 1 s charge spacing (charge, S cancel, charge within 1 s with no melee between is still spaced); Musou Mode light attacks restart at the hit, a press before it… | Owner 2026-11-12 (the verbatim words in the spec). The spacing reading and the hit-landing restart are ours. Spec "Melee cancels a charge at once, charge > melee chains, and Musou melee spam" | Melee cancels a charge at once; charge > melee chains…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
+| `C-4C0FAB2C` | Hop rules: the ledge jump after a charge, the hop cutting the melee wait, the hop out of the aerial tackle (sim/hop-rules, 2026-11-14; protocol 72; Assault Marine and Raptor) | The owner: a full jump after charging off a ledge (Classic PvP and Musou Mode: it only fell straight down); a hop after a light swing should make the follow-up swing come sooner, but not so soon that melee > hop spams; the aerial tackle should cancel into a hop (it did nothing) | A Jump press that ends a bull rush held in the air opens the air jump (the hold lifts the pack in the air, a tap hops); a hop's start cuts the melee wait still running to half, not below 0.25 s; a Jump press in the aerial tackle ends it and hops at once, past the hop's spacing. `--old-hop-rules` restores the earlier… | Owner 2026-11-14 (verbatim words in the spec). The 0.5, the 0.25 s floor, the opening's lifetime and the spacing bypass are ours. Spec "Hop rules" | Hop rules: the ledge jump after a charge, the hop cutting…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 
 ### Our choices where the original is unknown
 
@@ -5174,4 +5186,5 @@ Test aids, probes, demo and capture tooling, and engineering decisions (protocol
 | `R-F137D8B4` | Test aid: old big spawns | Musou Mode: the Orks back at 100 %, twice the big Orks (musou-big-ork-deaths, 2026-11-10; Musou Mode's war only; `TfwRules.Version` 59, to be renumbered at integration; no protocol, wire or `MusouSim.Version` change) |
 | `R-060A8DDF` | Musou weight: puff budget | Musou weight and impact pass (claude/musou-weight, 2026-11-10; client only, no simulation, wire, protocol, config-hash or rules-version change; Musou Mode only) |
 | `R-B20A1288` | Classic autocannon: config hash | Added content: Classic PvP's autocannon — the Musou autocannon in Annihilation and Seize Ground (extended profile only; owner 2026-11-11) |
+| `R-4D8893ED` | Ledge jump: wire | Hop rules: the ledge jump after a charge, the hop cutting the melee wait, the hop out of the aerial tackle (sim/hop-rules; protocol 72, used by the simulation; Assault Marine and Raptor) |
 

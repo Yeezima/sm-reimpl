@@ -348,6 +348,11 @@ public readonly record struct PlayerState(int PlayerId, Vector3 Position, Vector
     /// <summary>sim/jump-hang: in <see cref="JumpPhase.Hang"/>, the jump is the small jump (a medium hold), which hangs <see cref="JumpPackSpec.SmallHangTime"/> longer. False in every other phase.</summary>
     public bool JumpSmall { get; init; }
     /// <summary>
+    /// sim/hop-rules (protocol 72; <see cref="SimConfig.HopRules"/>): a Jump press ended a bull rush held in the air (a charge off a ledge) and the body has not landed or begun another jump-pack phase or a hop since,
+    /// so the long press may still lift the pack in the air (<see cref="JumpPack.Begin"/>'s <c>airOpen</c>), in Classic PvP too. False in every other state. Wire: the jump byte's bit 6, in phase None.
+    /// </summary>
+    public bool JumpAirOpen { get; init; }
+    /// <summary>
     /// Protocol 30: the <see cref="JumpPhase.Dive"/> or <see cref="JumpPhase.Recover"/> is the sword slash's (<see cref="SlashSpec"/>), not the ground
     /// pound's. Protocol 31 (feel/jump-pack): in the take-off and on the lift-off tick (phase Ascent), a slash press is buffered (<see cref="JumpPack"/>). False in every
     /// other phase. Every record: slot byte bit 7 (with the pounding flag, or the jumping flag for the buffer).
@@ -850,6 +855,7 @@ public sealed partial record SimConfig
             if (!ChargeAfterMelee) w.Write("old-charge-after-melee");   // charge-responsive (protocol 69): only when off (older hashes unchanged)
             if (!ChargeInstantCancel) w.Write("old-charge-cancel-delay");   // charge-responsive (protocol 69): only when off
             if (!ChargeMeleeChain) w.Write("old-charge-melee-chain");   // charge-melee-chain (protocol 70): only when off
+            if (!HopRules) w.Write("old-hop-rules");   // sim/hop-rules (protocol 72): only when off
             if (!ChargeAllyBump) w.Write("old-ally-bump");          // charge-ally-bump (protocol 66): only when off (older hashes unchanged)
             // Added content (ContentExtras.cs): only when any is on, so a faithful config hashes byte for byte as before the switch.
             if (Extras != ContentExtras.None) { w.Write("extras"); w.Write((uint)Extras); w.Write(ContentExtras.WireVersion); ExtrasHash(w); }   // EXTRAS-HOOK

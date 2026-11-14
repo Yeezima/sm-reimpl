@@ -449,8 +449,9 @@ public static class Evade
     /// <param name="takeOff">M44, dash only: a take-off started this tick (in the landing part, from <see cref="EvadeMove.JumpAt"/>): it ends the dash.</param>
     /// <param name="dashDirection">M44, dash only: the direction latched at the take-off's press (<see cref="PlayerState.JumpDashDirection"/>); null: the stick now.</param>
     /// <param name="world">sim/movement-fixes (review L3): the level a hop's height above the ground is probed on (null: the flat ground at z = 0).</param>
+    /// <param name="ignoreLock">sim/hop-rules (protocol 72): the dash starts although its spacing still runs (the hop that cancels the aerial tackle); the new spacing then runs from this start.</param>
     internal static Tick Begin(PlayerState s, EvadeSpec? spec, PlayerInput input, bool jumpPress, bool meleePress, bool switchPress, bool rangedDown, SimConfig c,
-        bool dashStart = false, bool takeOff = false, EvadeDirection? dashDirection = null, CollisionWorld? world = null)
+        bool dashStart = false, bool takeOff = false, EvadeDirection? dashDirection = null, CollisionWorld? world = null, bool ignoreLock = false)
     {
         if (spec is null) return new Tick(false, false, 0, EvadeDirection.Forward, 0, s.Yaw);
         float dt = c.TickSeconds;
@@ -493,7 +494,7 @@ public static class Evade
         // sim/movement-fixes (C): a dash may start in the air (JumpPack.Begin's air dash, or a take-off released after walking off a ledge). A melee or heavy
         // press in the same tick refuses it, on the ground and in the air alike (review L2), so the press acts instead of being lost.
         bool airDash = spec.Dash && dashStart && !s.Grounded;
-        if (!active && trigger && lockTicks == 0 && (s.EvadeTicks == 0 || chain)
+        if (!active && trigger && (lockTicks == 0 || ignoreLock) && (s.EvadeTicks == 0 || chain)
             && (s.Grounded || airDash) && s.MeleeStep == 0 && !meleePress && !Combat.ThrowHolds(s, c))
         {
             // The direction latched at a take-off's press; an air dash (no take-off) takes the stick on its start tick (the tap's release).

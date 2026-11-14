@@ -241,10 +241,12 @@ public class MeleeCancelTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public void Assault_holding_space_in_a_charge_held_in_the_air_ends_it_but_in_classic_starts_no_jump()
+    public void Assault_holding_space_in_a_charge_held_in_the_air_ends_it_and_jumps_in_classic_since_protocol_72()
     {
-        var phases = ChargeHeldInTheAir(Pack);
-        Assert.DoesNotContain(JumpPhase.Ascent, phases);   // sim/air-jumps: Classic PvP (Musou Mode: MusouAirJumpTests)
+        // sim/hop-rules (protocol 72; the owner 2026-11-14: "you should be able to full jump as normal when you are charging off of a ledge"): the charge off a ledge opens the air jump in Classic PvP too (HopRulesTests).
+        Assert.Contains(JumpPhase.Ascent, ChargeHeldInTheAir(Pack));
+        // sim/air-jumps (protocol 71's rule, the restore switch --old-hop-rules): Classic PvP's pack classes jump from the ground only (Musou Mode: MusouAirJumpTests).
+        Assert.DoesNotContain(JumpPhase.Ascent, ChargeHeldInTheAir(Pack with { HopRules = false }));
     }
 
     internal static List<JumpPhase> ChargeHeldInTheAir(SimConfig c)

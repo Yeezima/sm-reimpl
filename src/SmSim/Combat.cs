@@ -54,7 +54,7 @@ public static class Combat
             Heat = 0, Overheated = false, SinceHeat = 0, OtherHeat = 0, OtherOverheated = false, OtherSinceHeat = 0,
             Charging = false, ChargeTime = 0, PendingShot = 0, PendingLeft = 0,
             Grenades = Loadouts.Equipment(c, s)?.SpawnCount ?? 0, GrenadeCooldown = 0, Throwing = false, ThrowTime = 0, StimLeft = 0, FireBoostLeft = 0,
-            Jump = JumpPhase.None, JumpTicks = 0, JumpMark = 0, JumpHolding = false, JumpLandMoving = false, JumpCut = false, JumpSmall = false, JumpSlash = false, Aiming = false,
+            Jump = JumpPhase.None, JumpTicks = 0, JumpMark = 0, JumpHolding = false, JumpLandMoving = false, JumpCut = false, JumpSmall = false, JumpAirOpen = false, JumpSlash = false, Aiming = false,
             JumpPower = Loadouts.JumpPack(c, s)?.MaxPower ?? 0f,
             EvadeTicks = 0, EvadeDirection = EvadeDirection.Forward, EvadeLock = 0, EvadeLanded = false, JumpDashDirection = EvadeDirection.Forward,
             MeleeHeavy = false, MeleeQueuedHeavy = false,
@@ -118,7 +118,7 @@ public static class Combat
         Alive = false, Health = 0f, Shield = 0f, RespawnLeft = Loadouts.RespawnTime(c, s), Velocity = Vector3.Zero, ReloadLeft = 0f, OtherReloadLeft = 0f, ThirdReloadLeft = 0f, SwitchLeft = 0f,
         MeleeStep = 0, MeleeTime = 0f, MeleeQueued = false, MeleeDirection = EvadeDirection.Forward, MeleeLock = 0f,   // fix/dead-melee-direction: it outlived the attack and the reader refuses that
         Charging = false, ChargeTime = 0f, PendingShot = 0, PendingLeft = 0f, Throwing = false, ThrowTime = 0f, StimLeft = 0f, FireBoostLeft = 0f,
-        Jump = JumpPhase.None, JumpTicks = 0, JumpMark = 0, JumpHolding = false, JumpLandMoving = false, JumpCut = false, JumpSmall = false, JumpSlash = false, Aiming = false,
+        Jump = JumpPhase.None, JumpTicks = 0, JumpMark = 0, JumpHolding = false, JumpLandMoving = false, JumpCut = false, JumpSmall = false, JumpAirOpen = false, JumpSlash = false, Aiming = false,
         EvadeTicks = 0, EvadeDirection = EvadeDirection.Forward, EvadeLock = 0, EvadeLanded = false, JumpDashDirection = EvadeDirection.Forward,
         Brace = BracePhase.None, BraceTicks = 0, Venting = false,
         Buffered = BufferedAction.None, BufferTicks = 0, BufferedCharge = false, SprintStop = false,
@@ -436,8 +436,12 @@ public static class Combat
         // Protocol 30: also the dash attack (a melee press in a jump-pack dash's window), and a charge held in the air (Rush.Held).
         bool rushing = false, rushHeld = false, fireDropped = false, cancelStart = false;
         float cancelLock = 0f;
+        // sim/hop-rules (protocol 72; the owner 2026-11-14): a fresh Jump press of a jump-pack class that ends a bull rush held in the air (a charge off a ledge) opens the air jump, and one that ends the
+        // aerial tackle (the dash attack, any of its phases) starts the hop at once, past the hop's spacing (MeleeCancel clears both below).
+        bool chargeOffLedge = false, tackleCancel = false;
         if (!reacting)
         {
+            if (c.HopRules && jumpEscape) { chargeOffLedge = s.Rush == RushPhase.Rush && !s.Grounded; tackleCancel = Rush.IsDash(s.Rush); }
             // BR-02: the Tactical classes' charge is not ended by Fire (and fires nothing; below); every other class's is, as before.
             // sim/combat-2 (item 31, owner's decision 2026-10-30): W did not end the bull rush. feel/charge-no-cancel (protocol 53, the owner 2026-11-02: "movement keys should not end
             // the animation of the charge - the only way to end a charge movement is for it to hit an enemy or wall"): no stick direction ends the bull rush any more. What ends it
@@ -505,7 +509,8 @@ public static class Combat
         // feel/jump-pack: a slash press buffered in the take-off also probes (JumpPack.Begin; it fires on the tick after the lift-off).
         bool heldOver = s.JumpSlash && pack?.Slash is { Snappy: true } && s.Jump == JumpPhase.Ascent;
         float aboveGround = (meleePress || heldOver) && pack?.Slash is not null && JumpPack.InFlight(s.Jump) ? JumpPack.AboveGround(s, world) : float.PositiveInfinity;
-        var jump = JumpPack.Begin(s, pack, jumpDown, jumpPressed && Evade.JumpAllowed(s, evadeSpec, c), meleePress, s.MeleeStep > 0, c, dashAt, aboveGround, longJump, escape: jumpEscape);
+        var jump = JumpPack.Begin(s, pack, jumpDown, jumpPressed && Evade.JumpAllowed(s, evadeSpec, c), meleePress, s.MeleeStep > 0, c, dashAt, aboveGround, longJump, escape: jumpEscape,
+            airOpen: c.HopRules && (s.JumpAirOpen || chargeOffLedge), hopNow: tackleCancel);
         if (jump.Started) used |= InputBuffer.Bit(BufferedAction.Jump);
         if (meleePress && (jump.PoundStart || (jump.Buffered && !(s.JumpSlash && s.Jump == JumpPhase.TakeOff)))) used |= InputBuffer.Bit(BufferedAction.Melee);   // the pound, the slash or its take-off buffer
         if (jump.BlocksMelee) { meleePress = false; heavyPress = false; }
@@ -518,7 +523,7 @@ public static class Combat
         // trigger does not end the evade at the data's BRANCH_ToRanged (RangedAt) any more; Aim and a grenade still do, the stick at BRANCH_Run as before.
         bool roll = IsRoll(evadeSpec);
         var evade = Evade.Begin(s, evadeSpec, input.Sanitized(), jumpDown && !s.JumpHeld, meleePress || heavyPress, switchPress, (fireDown && !roll) || aimDown || grenadePress, c,
-            jump.DashStart, jump.Started, dashDirection, world);
+            jump.DashStart, jump.Started, dashDirection, world, ignoreLock: tackleCancel && jump.DashStart);
         if (meleeJumpBranch && !escapeMelee && !jump.Started && !evade.Started) s = beforeJumpBranch;   // nothing took the press: the attack goes on (not for the jump escape)
         bool evading = evade.Active;
         if (evade.Started) used |= InputBuffer.Bit(BufferedAction.Jump);
@@ -553,6 +558,8 @@ public static class Combat
         if (meleeLock <= TimeEpsilon) meleeLock = 0f;
         bool spam = c.MeleeSpam;   // Musou Mode (hook; the owner 2026-11-12): light attacks have no cooldown or delay
         if (spam) meleeLock = 0f;
+        // sim/hop-rules (protocol 72; the owner 2026-11-14: "keep the cooldown on light combo attack melee swings but make a hop reduce it"): the hop's start cuts the melee wait still running (HopTuning.HopLock).
+        if (c.HopRules && evade.Started && pack is not null && evadeSpec is { Dash: true }) meleeLock = HopTuning.HopLock(meleeLock);
         bool queuedHeavy = queued && s.MeleeQueuedHeavy;
         // sim/no-fire-while-sprinting (protocol 51; the owner 2026-11-01: "you should not be able to shoot while sprinting"): while the sprint is applied (Sprint held with
         // the stick forward, on the ground; not in aim mode, a jump-pack phase, an evade, a reaction, the charge, a brace, or a melee attack's movement lock) the trigger does
@@ -1022,13 +1029,13 @@ public static class Combat
         var beforeMove = s;
         s = (reacting || rushing ? (reacting ? Reaction.Move(s, input.Sanitized().Yaw, c, world) : Rush.Move(s, c, world, rushHeld)) with
             {
-                JumpPower = pack is not null ? jump.Power : s.JumpPower, Jump = JumpPhase.None, JumpTicks = 0, JumpMark = 0, JumpHolding = false, JumpLandMoving = false, JumpCut = false, JumpSmall = false,
+                JumpPower = pack is not null ? jump.Power : s.JumpPower, Jump = JumpPhase.None, JumpTicks = 0, JumpMark = 0, JumpHolding = false, JumpLandMoving = false, JumpCut = false, JumpSmall = false, JumpAirOpen = false,
                 JumpSlash = false,
             }
             : evading ? Evade.Step(s, evadeSpec!, evade, c, world, out wallHit, out dashLanded) with
             {
                 // M44: a dash (jump-pack classes) keeps the pack's power and recharge; no jump runs during it.
-                JumpPower = pack is not null ? jump.Power : s.JumpPower, Jump = JumpPhase.None, JumpTicks = 0, JumpMark = 0, JumpHolding = false, JumpLandMoving = false, JumpCut = false, JumpSmall = false,
+                JumpPower = pack is not null ? jump.Power : s.JumpPower, Jump = JumpPhase.None, JumpTicks = 0, JumpMark = 0, JumpHolding = false, JumpLandMoving = false, JumpCut = false, JumpSmall = false, JumpAirOpen = false,
                 JumpSlash = false,
             }
             : pack is not null ? JumpPack.Move(s, moveInput, c, pack, world, speedScale, jump, out jumpEvent, aiming) : Movement.Step(s, moveInput, c, world, speedScale, aiming))
@@ -1079,6 +1086,7 @@ public static class Combat
             ProjectilesOut = projectilesOut,
             Grenades = grenades, GrenadeCooldown = grenadeCooldown, Throwing = throwing, ThrowTime = throwTime, GrenadeHeld = grenadeDown, StimLeft = stimLeft, FireBoostLeft = fireBoostLeft,
             JumpHeld = jumpDown,
+            JumpAirOpen = c.HopRules && (chargeOffLedge || s.JumpAirOpen) && !s.Grounded && !reacting && jump.Phase == JumpPhase.None && !jump.Started && !evading,   // sim/hop-rules: the air jump stays open until landing or another phase
             EvadeTicks = evadeTicks, EvadeDirection = evadeDirection, EvadeLock = evade.Lock, EvadeLanded = evadeLanded,
             JumpDashDirection = dashAt is not null && s.Jump == JumpPhase.TakeOff ? dashDirection : EvadeDirection.Forward,
             MeleeHeavy = step > 0 && heavy, MeleeQueuedHeavy = queued && queuedHeavy, MeleeHeavyHeld = heavyDown,
