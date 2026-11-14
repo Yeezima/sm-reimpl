@@ -28,17 +28,11 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3214 spec table rows: **2365 tagged**, 590 not tagged (read from data with high confidence), 259 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 718 rows of the changes document.
-Scanned 3216 spec table rows: **2367 tagged**, 590 not tagged (read from data with high confidence), 259 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 718 rows of the changes document.
-
-| Area | Tagged rows | by kind | by confidence | by notes | by section text |
-|---|---:|---:|---:|---:|---:|
-| Movement (critical) | 409 | 348 | 348 | 119 | 12 |
 Scanned 3217 spec table rows: **2368 tagged**, 590 not tagged (read from data with high confidence), 259 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 719 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
-| Movement (critical) | 410 | 350 | 347 | 118 | 12 |
+| Movement (critical) | 411 | 350 | 348 | 119 | 12 |
 | Combat core (critical) | 17 | 7 | 15 | 14 | 9 |
 | Weapons (critical) | 121 | 73 | 106 | 54 | 3 |
 | Melee (critical) | 149 | 131 | 110 | 53 | 5 |
@@ -59,21 +53,15 @@ Scanned 3217 spec table rows: **2368 tagged**, 590 not tagged (read from data wi
 | Core simulation (provisional values) | 701 | 661 | 501 | 181 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 248 | 237 | 133 | 68 | 0 |
-| **All areas** | **2365** | 2091 | 1757 | 731 | 38 |
-| **All areas** | **2367** | 2092 | 1760 | 732 | 38 |
-| **All areas** | **2368** | 2094 | 1759 | 731 | 38 |
+| **All areas** | **2368** | 2093 | 1758 | 732 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1376 |
+| kind: ours | 1378 |
 | confidence: low | 840 |
-| confidence: medium | 788 |
-| kind: ours | 1377 |
-| kind: ours | 1379 |
-| confidence: low | 841 |
-| confidence: medium | 790 |
+| confidence: medium | 789 |
 | notes: ours | 415 |
 | kind: interpretation | 383 |
 | notes: estimate | 198 |
@@ -103,8 +91,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 ## Part A: gameplay areas, critical first
 
-### Movement (gameplay-critical) (409)
-### Movement (gameplay-critical) (410)
+### Movement (gameplay-critical) (411)
 
 *Spec section: Extracted parameters*
 
@@ -371,7 +358,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-24376061` | Stim ends the health regeneration delay | at the stim's release (0.3 s into its use) health regeneration no longer waits for its delay (5 s, less Larraman's Blessing's -1.5 s) until the next damage (`PlayerState.HealthRegenWaived`, bit 6 of the snapshot's damage byte), so health regenerates from the… (s) | confidence: medium; notes: user's knowledge | the owner's recollection of the original, 2026-11-14 | Stim ends the health regeneration delay: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: at the stim's release (0.3 s into its use) health regeneration no… | ☐ |
-*Spec section: The kick pushes 60 % less (sim/kick-push; owner 2026-11-14, protocol 75, no wire change)*
+
+*Spec section: The kick pushes 60 % less (sim/kick-push; owner 2026-11-14, protocol 76, no wire change)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
