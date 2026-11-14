@@ -95,7 +95,7 @@ public class SwordFfStabTests
     }
 
     [Fact]
-    public void The_finisher_is_the_x_x_x_y_strike_without_its_blast_and_with_the_furious_charge_hit()
+    public void The_finisher_is_the_x_y_strike_without_its_blast_and_with_the_furious_charge_hit()
     {
         var t = Read(2);
         Assert.Equal(3, t.Heavy.Count);
@@ -183,7 +183,7 @@ public class SwordFfStabTests
             Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(Variants.Bytes(Sword(GameplayTuning.Load(game).Config)))));
     }
 
-    /// <summary>The stab is drawn with the clip of the X,F strike (what a sword user sees in Musou Mode at light, light, light, F: the data clip of heavy strike 4; the spear's pose clips draw only for the spear).</summary>
+    /// <summary>The stab is drawn with the clip of the X,F strike (what a sword user sees in Musou Mode at light strike 1, then F: the data clip of heavy strike 2; the spear's pose clips draw only for the spear).</summary>
     [MeleeInstallPinTests.InstallFact]
     public void The_stab_plays_the_clip_of_the_light_F_strike_in_the_animation_tables()
     {
