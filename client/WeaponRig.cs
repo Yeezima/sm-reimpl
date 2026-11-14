@@ -610,8 +610,9 @@ public sealed partial class WeaponRig
                           && WeaponHands.InHand(i.Role, _shown, melee, _grenadeHeld, i.Attachment.TwoHanded, i.Attachment.Wield?.Bone, meleeBone);
             if (StowPistol && i.Role == Role.Pistol) inHand = false;   // anim/melee-flow: both hands on the hammer
             // fix/versatility-knife-stow: the selected primary of a Weapon Versatility Tactical hangs on the left thigh for the strike instead of riding the chest prop through it.
-            bool thigh = i.ThighMount is not null && MeleeHolster.OnThigh(i.Role, _shown, hasSecond, melee, _empty || StimStowed);
-            if (thigh) inHand = false;
+            bool holster = MeleeHolster.OnThigh(i.Role, _shown, hasSecond, melee, _empty || StimStowed) && (hasSecond || !OldFfHolster);
+            // fix/ff-weapon-flying (review): a primary with no stow mount has no thigh spot either; it still leaves the swung chest prop (stow marker, or not drawn), never rides the strike.
+            (inHand, bool thigh) = MeleeHolster.Resolve(inHand, holster, i.ThighMount is not null);
             // With two primaries only the one swapped out last hangs on the back; the other is not drawn.
             Apply(i, inHand, !thigh && hasSecond && i.Role is Role.Primary or Role.Second && !inHand && i.Role != onBack, thigh);
             if (i.Mode == 1 && GodotObject.IsInstanceValid(i.Holder) && (i.Swung ? i.SwingGrip : i.OneHandGrip) is { } grip) i.Holder.Transform = grip(GripSlide);   // the spear's fist slides along the shaft (one hand or two)
@@ -637,6 +638,9 @@ public sealed partial class WeaponRig
 
     /// <summary>fix/stow-right: between the old weapon's release and the new one's take both ranged weapons are on their stow markers.</summary>
     bool _empty;
+
+    /// <summary><c>--old-ff-holster</c> (test aid, fix/ff-weapon-flying before / after): only a Weapon Versatility Tactical holsters the selected primary on the thigh during a strike (the old rule); the single primary rides the chest prop.</summary>
+    public static readonly bool OldFfHolster = OS.GetCmdlineUserArgs().Contains("--old-ff-holster");
 
     /// <summary>
     /// <c>--old-stow</c> (test aid, fix/stow-right before / after): a switch plays the new weapon's clip alone and swaps the models at its tag (<see cref="SwitchPlan.For"/>'s old rule), so the
