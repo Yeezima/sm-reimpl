@@ -44,13 +44,13 @@ public class HammerHopSlamTests(ITestOutputHelper output)
     };
 
     /// <summary>The Assault (pack, hop, dash attack from 10 ticks of the flight) holding the hammer; <paramref name="hopSwing"/> false: a weapon without the rule.</summary>
-    static SimConfig Pack(bool hopSwing = true) => JumpPackAttackTests.Config with
+    internal static SimConfig Pack(bool hopSwing = true) => JumpPackAttackTests.Config with
     {
         Classes = [HammerClass(JumpPackAttackTests.Config.Classes[0], hopSwing), JumpPackAttackTests.Config.Classes[1]],
         InputBufferWindow = 0.3f,
     };
 
-    static PlayerState Fresh(SimConfig c, Team team) => Combat.Respawned(new PlayerState(1, Vector3.Zero, Vector3.Zero, 0f, true) { Class = 0, Team = team }, c);
+    internal static PlayerState Fresh(SimConfig c, Team team) => Combat.Respawned(new PlayerState(1, Vector3.Zero, Vector3.Zero, 0f, true) { Class = 0, Team = team }, c);
 
     static PlayerState Step(PlayerState s, SimConfig c, InputButtons b, float yaw = 0f) => Combat.StepPlayer(s, new PlayerInput(0, 0f, 0f, yaw, b), c, out _);
 
@@ -58,7 +58,7 @@ public class HammerHopSlamTests(ITestOutputHelper output)
 
     // ---------------------------------------------------------------- (1) a swing anywhere in the hop
 
-    static PlayerState HopFor(SimConfig c, Team team, int ticks)
+    internal static PlayerState HopFor(SimConfig c, Team team, int ticks)
     {
         var s = Step(Fresh(c, team), c, InputButtons.Jump);
         s = Step(s, c, InputButtons.None);   // released before the decision tick: the hop

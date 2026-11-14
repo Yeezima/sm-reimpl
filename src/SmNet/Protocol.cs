@@ -515,7 +515,10 @@ public static partial class Protocol
     //     charges, so charge > melee > charge chains with no delay, in every mode; in Musou Mode light melee attacks have no cooldown or delay. Restore switches (config hash): --old-charge-melee-chain, --musou-melee-cooldown.
     // 71 (onhit-damage-mark; the owner 2026-11-13: "any sort of damage should trigger the sparks and glows"): every player's record gains one byte after the evade byte: a damage counter (bits 0..2, modulo 8, raised once per tick in which the player took any damage)
     //     and whether the damages of that tick took shield (bit 3) and health (bit 4), and (bit 5) that the player was already damaged this tick (so round trips are exact); bits 5..7 zero. Presentation only: the config hash does not change. Clients show the glow and sparks on a change.
-    public const ushort Version = 71;
+    // 72 (sim/hop-rules; the owner 2026-11-14): no size change. The jump byte's bit 6 in phase None says the air jump is open (a Jump press ended a bull rush held in the air: a charge off a ledge; PlayerState.JumpAirOpen). Rules, every mode where the
+    //     Assault Marine / Raptor play: a charge off a ledge can be jumped out of with a full jump (the long press lifts the pack in the air); a hop cuts the light-combo wait still running to half of what is left, not below 0.25 s;
+    //     a Jump press ends the aerial tackle and hops at once. Restore switch (config hash): --old-hop-rules.
+    public const ushort Version = 72;
     /// <summary>The kill-feed cause code of a weapon kill on the head (protocol 64; <see cref="KillView.Headshot"/>).</summary>
     public const int HeadshotCauseCode = 6;
     /// <summary>Most spectators a server admits and a Scoreboard lists (protocol 46), so the Scoreboard stays within one packet.</summary>
@@ -785,7 +788,7 @@ public static partial class Protocol
                     // Protocol 27 (M45): in the ascent, bit 6 says the rise is cut (Jump let go; the mark is then the cut's tick).
                     w.U8((byte)(((int)p.Jump & 7) | (p.JumpHeld ? 8 : 0) | (p.JumpHolding ? 16 : 0)
                         | (p.Jump == JumpPhase.TakeOff ? ((int)p.JumpDashDirection & 7) << 5 : p.JumpLandMoving ? 32 : 0)
-                        | (p.Jump == JumpPhase.Ascent && p.JumpCut ? 64 : 0) | (p.Jump == JumpPhase.Hang && p.JumpSmall ? 64 : 0)));   // sim/jump-hang: in the hang, bit 6 says the small jump's longer hang
+                        | (p.Jump == JumpPhase.Ascent && p.JumpCut ? 64 : 0) | (p.Jump == JumpPhase.Hang && p.JumpSmall ? 64 : 0) | (p.Jump == JumpPhase.None && p.JumpAirOpen ? 64 : 0)));   // protocol 72: in phase None, bit 6 says the air jump is open (sim/hop-rules)   // sim/jump-hang: in the hang, bit 6 says the small jump's longer hang
                     w.U16((ushort)Math.Clamp(p.JumpTicks, 0, JumpPack.MaxTicks)); w.U16((ushort)Math.Clamp(p.JumpMark, 0, JumpPack.MaxTicks)); w.F32(p.JumpPower);
                     // Evade (protocol 13; 2 bytes): the exact ticks and the spacing lock.
                     w.U8((byte)Math.Clamp(p.EvadeTicks, 0, Evade.MaxTicks)); w.U8((byte)Math.Clamp(p.EvadeLock, 0, Evade.MaxTicks));
@@ -1117,7 +1120,7 @@ public static partial class Protocol
                 p = p with { ChargeTime = r.F32(), PendingLeft = r.F32(), PendingShot = r.U8(), ProjectilesOut = r.U8() };
                 int jump = r.U8();
                 var phase = (JumpPhase)(jump & 7);
-                if (phase != JumpPhase.TakeOff && jump > (phase is JumpPhase.Ascent or JumpPhase.Hang ? 127 : 63)) return null;   // unknown flags (protocol 24: bits 5..7 are the dash direction while taking off; 27: bit 6 the ascent's cut)
+                if (phase != JumpPhase.TakeOff && jump > (phase is JumpPhase.Ascent or JumpPhase.Hang or JumpPhase.None ? 127 : 63)) return null;   // unknown flags (protocol 24: bits 5..7 are the dash direction while taking off; 27: bit 6 the ascent's cut)
                 if (phase == JumpPhase.Ascent && (jump & 64) != 0 && (jump & 16) != 0) return null;   // a cut rise is not holding
                 if (JumpPack.Jumping(phase) != ((flags & 32) != 0) || JumpPack.Pounding(phase) != ((flags & 64) != 0)) return null;   // disagrees with the slim flags
                 if (slash && phase is JumpPhase.Hang or JumpPhase.Fall) return null;   // protocol 31: the buffered press only in the take-off and on the lift-off tick
@@ -1125,7 +1128,7 @@ public static partial class Protocol
                 {
                     Jump = phase, JumpHeld = (jump & 8) != 0, JumpHolding = (jump & 16) != 0,
                     JumpLandMoving = phase != JumpPhase.TakeOff && (jump & 32) != 0, JumpDashDirection = phase == JumpPhase.TakeOff ? (EvadeDirection)(jump >> 5) : EvadeDirection.Forward,
-                    JumpCut = phase == JumpPhase.Ascent && (jump & 64) != 0, JumpSmall = phase == JumpPhase.Hang && (jump & 64) != 0,
+                    JumpCut = phase == JumpPhase.Ascent && (jump & 64) != 0, JumpSmall = phase == JumpPhase.Hang && (jump & 64) != 0, JumpAirOpen = phase == JumpPhase.None && (jump & 64) != 0,
                     JumpTicks = r.U16(), JumpMark = r.U16(), JumpPower = r.F32(),
                 };
                 int exactTicks = r.U8(), evadeLock = r.U8();

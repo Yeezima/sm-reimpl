@@ -30,7 +30,7 @@ public partial class NetworkView
     /// charge-cancel / charge-ally-bump restore switches <c>--old-charge-cancel</c> (a Grenade press ends the charge, S does not) and <c>--old-ally-bump</c> (the collision stop on an
     /// ally), the protocol 65 rules (the server needs the same: config hash).
     /// </summary>
-    static SimConfig WithChargeCancelArgs(SimConfig c0) { var c = WithChargeCancelArgs0(c0); if (OldChargeMeleeChainArg) c = c with { ChargeMeleeChain = false }; if (MusouMeleeCooldownArg) c = c with { MusouMeleeCooldown = true }; if (MusouUncappedMeleeHealArg) c = c with { MusouUncappedMeleeHeal = true }; return c; }
+    static SimConfig WithChargeCancelArgs(SimConfig c0) { var c = WithChargeCancelArgs0(c0); if (OldChargeMeleeChainArg) c = c with { ChargeMeleeChain = false }; if (OldHopRulesArg) c = c with { HopRules = false }; if (MusouMeleeCooldownArg) c = c with { MusouMeleeCooldown = true }; if (MusouUncappedMeleeHealArg) c = c with { MusouUncappedMeleeHeal = true }; return c; }
     static SimConfig WithChargeCancelArgs0(SimConfig c) => ((((OldChargeCancelArg ? c with { ChargeBackCancel = false } : c) is var d && OldAllyBumpArg ? d with { ChargeAllyBump = false } : d) is var f && OldStimUseArg ? f with { StimReliable = false } : f) is var g && OldChargeAfterMeleeArg ? g with { ChargeAfterMelee = false } : g) is var h && OldChargeCancelDelayArg ? h with { ChargeInstantCancel = false } : h;
     static readonly bool OldStimUseArg = OS.GetCmdlineUserArgs().Contains("--old-stim-use");
     static readonly bool OldChargeCancelArg = OS.GetCmdlineUserArgs().Contains("--old-charge-cancel");
@@ -39,6 +39,8 @@ public partial class NetworkView
     static readonly bool OldChargeCancelDelayArg = OS.GetCmdlineUserArgs().Contains("--old-charge-cancel-delay");
     /// <summary>charge-melee-chain (protocol 70) restore switches <c>--old-charge-melee-chain</c> and <c>--musou-melee-cooldown</c> (the server needs the same: config hash).</summary>
     static readonly bool OldChargeMeleeChainArg = OS.GetCmdlineUserArgs().Contains("--old-charge-melee-chain");
+    /// <summary>sim/hop-rules (protocol 72) restore switch <c>--old-hop-rules</c> (the server needs the same: config hash).</summary>
+    static readonly bool OldHopRulesArg = OS.GetCmdlineUserArgs().Contains("--old-hop-rules");
     static readonly bool MusouMeleeCooldownArg = OS.GetCmdlineUserArgs().Contains("--musou-melee-cooldown");
     /// <summary>musou/melee-heal-cap restore switch <c>--musou-uncapped-melee-heal</c> (the server needs the same: config hash).</summary>
     static readonly bool MusouUncappedMeleeHealArg = OS.GetCmdlineUserArgs().Contains("--musou-uncapped-melee-heal");

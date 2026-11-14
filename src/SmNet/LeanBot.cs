@@ -65,7 +65,7 @@ public static class LeanBot
         "guard-demo", "guard-demo-at", "guard-no-vat", "tfw-deploy", "tfw-test", "tfw-test-downs", "tfw-test-win", "tfw-test-fight", "tfw-fight-seconds", "tfw-test-capture", "tfw-capture-seconds", "tfw-capture-weak", "tfw-fire-test", "tfw-fire-at", "tfw-fire-cam", "tfw-fire-cam-run", "tfw-reduce-motion", "tfw-orbital-test", "tfw-librarian", "librarian-demo",   // added content Musou (TF7a; the Librarian pass 2: the Stormbird pick, the capture script): the scripted Guardsmen, the skinned crowd only, a scripted Deploy
         // review round (L2): the remaining probes, logs, captures and sweeps of the client
         "pose-pop-probe", "turn-probe", "turn-probe-events", "turn-probe-trace", "transition-probe-csv", "transition-probe-trace", "anim-probe-csv", "motion-probe-worst",
-        "gait-sweep-fire", "ui-sound-probe", "log-fall", "log-falls", "log-upper", "log-sprint-edges", "log-death-fx", "bot-ledge", "ledge-charge",
+        "gait-sweep-fire", "ui-sound-probe", "log-fall", "log-falls", "log-upper", "log-sprint-edges", "log-death-fx", "bot-ledge", "ledge-charge", "ledge-jump", "hop-rules-test", "hop-rules-cycle", "hop-rules-at",
         "ragdoll", "ragdoll-rest", "ragdoll-delay", "screenshot-at", "screenshot-on-effect", "demo-look", "demo-profile", "demo-no-quit", "play-demo",
         "jump-test", "slash-test", "dash-wall-test", "pound-test", "stomp-test", "stomp-move-test", "swing-test", "swing-trace", "log-lunge", "carry-test", "camera-test", "log-melee-fx", "log-plasma-fx", "laser-test", "shot-test", "barrel-test", "barrel-probe", "old-barrel", "reload-test", "ork-test", "guard-test", "warboss-test", "musou-crowd-test", "emblem-test", "appearance-test", "ui-selftest", "lock-demo",
         // the screenshot waits
