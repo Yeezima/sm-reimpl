@@ -41,6 +41,7 @@ public partial class NetworkView
         public bool Heavy;
         public int StepIndex;
         public string? Wargear;
+        public (string Clip, float Scale)[]? Clips;
         public float Distance, Height;
         public int Hits;
     }
@@ -48,7 +49,7 @@ public partial class NetworkView
     MusouSlashArcView? _musouArcView;
     readonly Dictionary<ushort, PendingArc> _musouPendingArcs = new();
     readonly Dictionary<ushort, (uint Tick, int StepIndex, bool Heavy, double At)> _musouArcLast = new();   // each player's last drawn swing
-    (double At, Num.Vector3 Feet, float Yaw, MeleeStep Step, bool Heavy, int StepIndex, string? Wargear, bool Drawn)? _musouOwnSwing;
+    (double At, Num.Vector3 Feet, float Yaw, MeleeStep Step, bool Heavy, int StepIndex, string? Wargear, bool Drawn, (string Clip, float Scale)[] Clips)? _musouOwnSwing;
 
     /// <summary>When the own player was last seen in a charge or a landing (its rush phase set); -1 before any.</summary>
     double _musouOwnRushAt = -1;
@@ -65,14 +66,14 @@ public partial class NetworkView
     {
         _musouLastStrikeAt = _connectedFor;   // the capture aid's clock (Tfw/NetworkView.TfwArcCapture.cs)
         if (!MusouArcsOn || _client is null || _camera is null || _gameSpace is null || _config is null) return;
-        _musouOwnSwing = (_connectedFor, me.Position, me.Yaw, step, me.MeleeHeavy, me.MeleeStep, wargear, false);
+        _musouOwnSwing = (_connectedFor, me.Position, me.Yaw, step, me.MeleeHeavy, me.MeleeStep, wargear, false, MusouArcClips(me, step));
         MusouStrikeTargets(me, step, wargear);   // the cleave's shape (the spear's sweep too); the contact below reuses this pick
         if (_musouStrikeTargets.Count == 0) return;
         float distance = 0f, height = 0f;
         foreach (var t in _musouStrikeTargets) { distance += t.Distance; height += t.Chest.Z - me.Position.Z; }
         distance /= _musouStrikeTargets.Count;
         height /= _musouStrikeTargets.Count;
-        MusouDrawArc(me.Position, me.Yaw, step, me.MeleeHeavy, me.MeleeStep, wargear, distance, height, _client.PlayerId, _musouStrikeTargets.Count, "seen");
+        MusouDrawArc(me.Position, me.Yaw, step, me.MeleeHeavy, me.MeleeStep, wargear, distance, height, _client.PlayerId, _musouStrikeTargets.Count, "seen", _musouOwnSwing.Value.Clips);
         _musouArcLast[(ushort)_client.PlayerId] = (0u, me.MeleeStep, me.MeleeHeavy, _connectedFor);
         _musouOwnSwing = _musouOwnSwing.Value with { Drawn = true };
     }
@@ -98,7 +99,7 @@ public partial class NetworkView
         if (own && me.Alive && me.Rush == RushPhase.None && _musouOwnSwing is { } mine && _musouOwnRushAt < mine.At && _connectedFor - mine.At < MusouContactRules.MatchSeconds)
         {
             if (mine.Drawn) { _musouArcLast[e.Player] = (e.Tick, mine.StepIndex, mine.Heavy, _connectedFor); return true; }   // drawn at the predicted strike
-            swing = new PendingArc { Feet = mine.Feet, Yaw = mine.Yaw, Step = mine.Step, Heavy = mine.Heavy, StepIndex = mine.StepIndex, Wargear = mine.Wargear };
+            swing = new PendingArc { Feet = mine.Feet, Yaw = mine.Yaw, Step = mine.Step, Heavy = mine.Heavy, StepIndex = mine.StepIndex, Wargear = mine.Wargear, Clips = mine.Clips };
             _musouOwnSwing = mine with { Drawn = true };
         }
         else
@@ -108,7 +109,7 @@ public partial class NetworkView
             // The same step reported again within a moment is the same swing (its cleave reported over two server ticks).
             if (_musouArcLast.TryGetValue(e.Player, out last) && last.StepIndex == s.MeleeStep && last.Heavy == s.MeleeHeavy && _connectedFor - last.At < MusouSlashArcRules.SameSwingSeconds)
             { _musouArcLast[e.Player] = last with { Tick = e.Tick }; return true; }
-            swing = new PendingArc { Feet = s.Position, Yaw = s.Yaw, Step = step, Heavy = s.MeleeHeavy, StepIndex = s.MeleeStep, Wargear = MeleeWargear(s) };
+            swing = new PendingArc { Feet = s.Position, Yaw = s.Yaw, Step = step, Heavy = s.MeleeHeavy, StepIndex = s.MeleeStep, Wargear = MeleeWargear(s), Clips = MusouArcClips(s, step) };
         }
         swing.Tick = e.Tick;
         MusouArcAdd(swing, at);
@@ -137,7 +138,7 @@ public partial class NetworkView
     void MusouDrawPending(ushort player, PendingArc a, string source)
     {
         int n = Math.Max(1, a.Hits);
-        MusouDrawArc(a.Feet, a.Yaw, a.Step, a.Heavy, a.StepIndex, a.Wargear, a.Distance / n, a.Height / n, player, a.Hits, source);
+        MusouDrawArc(a.Feet, a.Yaw, a.Step, a.Heavy, a.StepIndex, a.Wargear, a.Distance / n, a.Height / n, player, a.Hits, source, a.Clips);
         _musouArcLast[player] = (a.Tick, a.StepIndex, a.Heavy, _connectedFor);
     }
 
@@ -145,7 +146,7 @@ public partial class NetworkView
     /// One arc round the swinger's feet <paramref name="feet"/> (game space) along heading <paramref name="yaw"/>, for <paramref name="step"/>, through enemies struck at a mean flat distance
     /// <paramref name="struck"/> and a mean chest height <paramref name="height"/> above the feet.
     /// </summary>
-    void MusouDrawArc(Num.Vector3 feet, float yaw, MeleeStep step, bool heavy, int stepIndex, string? wargear, float struck, float height, int attacker, int hits, string source)
+    void MusouDrawArc(Num.Vector3 feet, float yaw, MeleeStep step, bool heavy, int stepIndex, string? wargear, float struck, float height, int attacker, int hits, string source, (string Clip, float Scale)[]? clips = null)
     {
         if (_camera is null || _gameSpace is null || _config is null || _client is null) return;
         if (Num.Vector3.Distance(feet, ToGame(_camera.GlobalPosition)) > MusouSlashRules.Metres) return;   // the strokes' 30 m limit (owner, 2026-11-10), from the swinger
@@ -168,10 +169,63 @@ public partial class NetworkView
             AddChild(_musouArcView);
         }
         int direction = MusouSlashArcRules.Direction(heavy, stepIndex);
-        _musouArcView.Add(origin, gForward, gLeft, shape, radius, MusouSlashArcRules.Width(heavy, stepIndex), direction, colour, style.Brightness, attacker, model, own: attacker == _client.PlayerId);
+        var path = MusouArcPathOf(model, clips, step, wargear, shape.HalfAngleDegrees, out string pathNote);
+        _musouArcView.Add(origin, gForward, gLeft, shape, radius, MusouSlashArcRules.Width(heavy, stepIndex), direction, colour, style.Brightness, attacker, model, own: attacker == _client.PlayerId, path: path);
         _musouArcs++;
         if (LogMusouArcs)
             GD.Print($"MUSOU ARC t {_connectedFor:F3} player {attacker} step {stepIndex}{(heavy ? " heavy" : "")} {look ?? "-"}: reach {shape.Reach:F2} m, span {shape.SpanDegrees:F0} deg, " +
-                     $"radius {radius:F2} m (struck at {struck:F2}), height {height:F2} m, {(direction > 0 ? "right to left" : "left to right")}, {colour}, {hits} {source}");
+                     $"radius {radius:F2} m (struck at {struck:F2}), height {height:F2} m, {(path is null ? (direction > 0 ? "right to left" : "left to right") : "tip path")}, {colour}, {hits} {source}; {pathNote}");
+    }
+
+    /// <summary>The fitted path's segments (the view draws one quad each).</summary>
+    const int MusouArcPathSegments = 36;
+
+    /// <summary>Test aid: <c>--no-musou-arc-path</c> draws every arc as the level circle segment again (before 2026-11-14).</summary>
+    static readonly bool NoMusouArcPath = CmdFlag("no-musou-arc-path");
+
+    /// <summary>The fitted tip path of each animation and weapon (null: the animation gave none, the level arc is drawn). Sampled once, then kept.</summary>
+    readonly Dictionary<(string Clip, string Wargear, int Half), MusouSlashArcPath.Path?> _musouArcPaths = new();   // keys lower case
+
+    /// <summary>
+    /// The clips a player's swing may be showing, each with the rate of its time to the step's (a clip of the added content's own, the weapon's base clip, the reach variants the swing blends from),
+    /// so the arc can read the one the swinger is posed with.
+    /// </summary>
+    (string Clip, float Scale)[] MusouArcClips(PlayerState s, MeleeStep step)
+    {
+        var list = new List<(string, float)>(4);
+        if (_assets is null) return [];
+        if (OwnStrikeClip(s, 1f) is { } custom) list.Add((custom.Clip, custom.Time));
+        if (AttackClip(s) is { } baseClip) list.Add((baseClip, MeleeClipSpeed(s)));
+        if (step.Reach is { } reach && step.Duration > 1e-4f)
+            foreach (var v in reach.Variants)
+                if (v.Clip.Length > 0 && _assets.Animation(v.Clip) is { } anim) list.Add((v.Clip, anim.Animation.Duration / step.Duration));
+        return list.ToArray();
+    }
+
+    /// <summary>
+    /// The arc's path for a swing: the weapon tip's path through the swing's animation (the clip the swinger is posed with when it is one of <paramref name="clips"/>, else the first), over the
+    /// strike's active window, fitted by <see cref="MusouSlashArcPath.Fit"/>; sampled once per clip and weapon. Null (the level arc) when it cannot be had.
+    /// </summary>
+    MusouSlashArcPath.Path? MusouArcPathOf(CharacterViewer? model, (string Clip, float Scale)[]? clips, MeleeStep step, string? wargear, float halfAngle, out string note)
+    {
+        note = "level";
+        if (NoMusouArcPath) return null;
+        if (model is null || clips is null || clips.Length == 0 || _assets is null) { note = "level (no model or clip)"; return null; }
+        var pick = clips[0];
+        string? posed = model.PosedClip;
+        foreach (var c in clips) if (posed is not null && string.Equals(posed, c.Clip, StringComparison.OrdinalIgnoreCase)) { pick = c; break; }
+        var key = (pick.Clip.ToLowerInvariant(), (wargear ?? "").ToLowerInvariant(), (int)MathF.Round(halfAngle));
+        if (_musouArcPaths.TryGetValue(key, out var known)) { note = known is null ? $"level ({pick.Clip}: no tip path)" : $"{pick.Clip} (cached)"; return known; }
+        if (_assets.Animation(pick.Clip) is not { } anim || !MusouSlashArcPath.Window(step.HitTime * pick.Scale, anim.Animation.Duration, out float from, out float to)) { note = $"level ({pick.Clip}: no window)"; return null; }
+        if (model.SampleMeleeTip(pick.Clip, from, to, MusouSlashArcPath.Samples) is not { } sampled) { note = $"level ({pick.Clip}: no weapon in hand yet)"; return null; }   // not kept: asked again at the next swing
+        var path = MusouSlashArcPath.Fit(sampled.Tip, sampled.Chest, MusouArcPathSegments, halfAngle);
+        _musouArcPaths[key] = path;
+        note = path is null
+            ? $"level ({pick.Clip}: no usable tip path)"
+            : $"{pick.Clip} {from:F2}..{to:F2} s, weapon {sampled.WeaponLength:F2} m, tilt {path.TiltDegrees:F0} deg, bow {path.BowDegrees:F0} deg, turns {path.TravelDegrees:F0} deg, " +
+              $"from {Dir(path.Directions[0])} to {Dir(path.Directions[^1])}";
+        return path;
+
+        static string Dir(Num.Vector3 d) => $"({d.X:F2} fwd, {d.Y:F2} left, {d.Z:F2} up)";
     }
 }
