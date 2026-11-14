@@ -353,11 +353,11 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-37B82987` | A press the tick of the release | a melee press in that tick starts the next swing (a light attack, or a stomp again from F) at once, within the usual melee wait (the stomp's combo window has closed by 1.2 s) | kind: ours; confidence: medium | the release acting as the clip's end | A press the tick of the release: compare with SM1 by feel or video. Ours: a melee press in that tick starts the next swing (a light attack, or… | ☐ |
 | `R-72E3090D` | Restore switch | `--old-stomp-release` (server and every client; config hash only when on): the stomp locks to its clip's end (1.667 s) | kind: ours | ours | Restore switch: compare with SM1 by feel or video. Ours: --old-stomp-release (server and every client; config hash only when… | ☐ |
 
-*Spec section: A combat stim starts regeneration at once (sim/stim-regen-now; protocol 75, no wire change)*
+*Spec section: A combat stim starts regeneration at once (sim/stim-regen-now; protocol 75)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
-| `R-24376061` | Stim ends the health regeneration delay | at the stim's release (0.3 s into its use) the time since damage counts as at least the health regeneration delay (5 s, less Larraman's Blessing's -1.5 s), so health regenerates from the next tick at the normal rate (5/s) or Larraman's boosted rate (45/s)… (s) | confidence: medium; notes: user's knowledge | the owner's recollection of the original, 2026-11-14 | Stim ends the health regeneration delay: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: at the stim's release (0.3 s into its use) the time since damage… | ☐ |
+| `R-24376061` | Stim ends the health regeneration delay | at the stim's release (0.3 s into its use) health regeneration no longer waits for its delay (5 s, less Larraman's Blessing's -1.5 s) until the next damage (`PlayerState.HealthRegenWaived`, bit 6 of the snapshot's damage byte), so health regenerates from the… (s) | confidence: medium; notes: user's knowledge | the owner's recollection of the original, 2026-11-14 | Stim ends the health regeneration delay: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: at the stim's release (0.3 s into its use) health regeneration no… | ☐ |
 
 *Spec section: No firing during the roll (sim/roll-fire-pitch; protocol 51, no wire change)*
 

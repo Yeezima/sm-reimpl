@@ -96,6 +96,34 @@ public class StimRegenNowTests
         Assert.Equal(without, with);
     }
 
+    [Theory]
+    [InlineData(ContentExtras.None)]
+    [InlineData(ContentExtras.Musou)]
+    public void A_stim_starts_health_at_once_but_armour_keeps_its_own_delay(ContentExtras extras)
+    {
+        var c = Make(extras) with { ShieldMax = 100f, ShieldRegenDelay = 7f, ShieldRegenRate = 33f };
+        var s = Combat.Respawned(new PlayerState(1, Vector3.Zero, Vector3.Zero, 0f, true) { Class = 0 }, c) with { Health = 50f, Shield = 40f, SinceDamage = 0f };
+        int armourStart = -1, healthStart = -1;
+        for (int k = 0; k < 300; k++)
+        {
+            s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 0f, 0f, k == 0 ? InputButtons.Grenade : InputButtons.None), c, out _);
+            if (healthStart < 0 && s.Health > 50f) healthStart = k;
+            if (armourStart < 0 && s.Shield > 40f) armourStart = k;
+        }
+        Assert.InRange(healthStart, 1, 12);                                  // within a few ticks of the stim's release
+        Assert.InRange((armourStart + 1) * Dt, 6.9f, 7.2f);                        // armour: the usual 7 s from the damage, the stim changes nothing
+    }
+
+    [Fact]
+    public void The_waiver_travels_in_the_snapshot_record_and_clears_on_damage()
+    {
+        var c = Make(ContentExtras.None);
+        var s = Combat.Respawned(new PlayerState(1, Vector3.Zero, Vector3.Zero, 0f, true) { Class = 0 }, c) with { Health = 50f, HealthRegenWaived = true };
+        Assert.True(s.HealthRegenWaived);
+        var (hit, _, _) = Combat.ApplyDamage(s, 10f, 1f, 1f, c);
+        Assert.False(hit.HealthRegenWaived);
+    }
+
     [Fact]
     public void A_stim_never_lengthens_the_delay_and_never_heals_past_the_maximum()
     {

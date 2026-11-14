@@ -66,10 +66,13 @@ public class DamageMarkTests
         Assert.Equal((7, true, true), ((int)back.Players[2].DamageCount, back.Players[2].DamageShield, back.Players[2].DamageHealth));
         Assert.Equal(Protocol.Slim(a), back.Players[0]);
 
-        // The mark is the byte after the evade byte of a slim record: 25 from the end of a one-record snapshot (24 bytes of blocks follow it); bits 6..7 are refused.
+        // The mark is the byte after the evade byte of a slim record: 25 from the end of a one-record snapshot (24 bytes of blocks follow it); bit 6 is the stim's health-regen waiver (protocol 75), bit 7 is refused.
         var one = Protocol.Write(new Snapshot(1, 1, 1, [a]));
         Assert.Equal(5 | 8, one[^25]);
-        var unknown = (byte[])one.Clone(); unknown[^25] |= 64;
+        var waived = Assert.IsType<Snapshot>(Protocol.Read(Protocol.Write(new Snapshot(1, 1, 1, [a with { HealthRegenWaived = true }]))));
+        Assert.True(waived.Players[0].HealthRegenWaived);
+        Assert.False(back.Players[0].HealthRegenWaived);
+        var unknown = (byte[])one.Clone(); unknown[^25] |= 128;
         Assert.Null(Protocol.Read(unknown));
     }
 
