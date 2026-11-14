@@ -259,7 +259,7 @@ public partial class NetworkView
                     t.Slash |= s.JumpSlash;
                     if (t.Slash) { SlashLanded(s, own, pack, MathF.Max(0f, t.ApexZ - s.Position.Z)); break; }   // protocol 30: no pound blast, crater or ring
                     if (own) _impacts++; else _remoteImpacts++;
-                    if (pack?.Pound is { } pound) AddRing(s.Position, pound.Radius, new Color(1f, 0.45f, 0.15f));   // the placeholder ring: --show-markers only
+                    if (pack?.Pound is { } pound) AddRing(s.Position, pound.Radius * PoundRingScale, new Color(1f, 0.45f, 0.15f));   // the placeholder ring: --show-markers only
                     PoundImpactPresentation(s, own, pack);   // M41: the original impact effect, the dark ring, the chunks (NetworkView.PoundImpact.cs)
                     if (_bot) GD.Print($"t {now:F1} s: {who} pound impact at {s.Position.X:F1},{s.Position.Y:F1},{s.Position.Z:F1} after a {t.ApexZ - s.Position.Z:F1} m drop " +
                                        $"(blast radius {(pack?.Pound is { } b ? b.Radius.ToString("F1") : "none")}; impacts {(own ? _impacts : _remoteImpacts)}{(own ? "; predicted" : " seen; inferred from the flags")})");

@@ -53,15 +53,14 @@ by the walking graph, no stopping to fight; at the Imperial base or after the ti
 They take the AI Marines' damage scale (spec: a tenth of every hit) and burn a pod's lifetime only. **They do not follow the caller** (provisional; open question 3).
 
 ## 5. Limits
-One pod squad per player at a time (a call while that player's pod is falling or its squad lives is refused and costs no cooldown); a call that needs more free puppet ids than
-exist (4) is refused. With the 12 ids: the allied pair (2) and a retainer for each human (up to 4) leave room for one squad with 4 humans and two with up to 2; the others' calls are refused until a squad ends. The cooldown starts only on an
+Since 2026-11-14 (owner) a player may call a new pod whenever the cooldown is over, with an earlier pod or squad still out; at the Firing Range, which has no cooldown, at most 2 pods per player at once. A call that finds fewer than 5 free puppet ids (beyond those called pods have reserved) is refused and costs no cooldown. With the 12 ids: the allied pair (2) and a retainer for each human (up to 4) leave room for one squad with 4 humans and two with up to 2; the others' calls are refused until a squad ends. The cooldown starts only on an
 accepted call. The call is not accepted in the Stormbird, between battles, dead or off the field. A battle ending removes the pod and its marines (`TfwDismissMarines`).
 
 ## 6. The owner's answers (2026-11-12; the questions are closed)
 1. **Landing**: kills Orks in a 30 m radius at 3x the damage of one artillery strike (a shell deals every enemy its health, a boss 30, flat, no fall-off; so the pod kills every ordinary enemy in 30 m and deals a boss 90; x1.2 on both for a human caller). Never hurts players, Marines or Guardsmen (our rule, kept).
 2. **Cooldown 60 s**, shared with the artillery strike (a loadout holds only one support ability); none at the Firing Range.
 3. **Marines defend the landing spot 30 s** (they do not follow the caller), then retreat to the Imperial base.
-4. **One pod per player at a time** (as built).
+4. **One pod per player at a time** (as built; lifted by the owner 2026-11-14: a new call as soon as the cooldown ends, see section 5).
 5. **Not invulnerable**: they take the other allied Marines' reduced damage (a tenth of every hit, `TfwSupplyRules.BotDamageTaken`, which applies to every puppet id, pod Marines included).
 6. **Customizer**: the window is "Support abilities" with exactly the artillery strike and the drop pod assault; every Musou class (the three Marine classes' defaults, the ten custom slots, the Librarian).
 7. **Battle cry**: each Marine shouts FOR THE EMPEROR when stepping out, staggered 0.15 to 0.35 s apart (ours), never in unison (`TfwDropPodRules.ShoutDelay`; client only; the voice pack's takes through the loyalist bark path).

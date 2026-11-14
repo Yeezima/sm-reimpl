@@ -313,14 +313,17 @@ public class TfwDropPodTests
         Assert.Equal(0u, w.Tfw.Fire.OrbitalTicksLeft(Human, ready));
     }
 
+    static float OutSeconds => TfwDropPodRules.LandSeconds + TfwDropPodRules.DoorSeconds + TfwDropPodRules.StepOutSeconds + 0.5f;
+
     [Fact]
     public void A_new_pod_may_be_called_the_moment_the_cooldown_ends_while_the_first_squad_still_fights()
     {
         // owner 2026-11-14: "let the player drop another pod immediately when the 60 second cooldown is up"
         var w = Battle();
         var run = w.Tfw!;
+        w.TfwDismissOtherMarinesForTests();   // the ids: 12 in all, five a squad
         Assert.True(w.TfwDropPod(Human, Open));
-        TfwRig.Seconds(w, TfwDropPodRules.LandSeconds + TfwDropPodRules.DoorSeconds + TfwDropPodRules.StepOutSeconds + 0.5f);
+        TfwRig.Seconds(w, OutSeconds);
         Assert.Equal(TfwDropPodRules.Marines, PodMarines(w).Count());
         var first = run.Pods[0];
         Assert.Equal(TfwPodPhase.Fighting, first.Phase);
@@ -330,16 +333,60 @@ public class TfwDropPodTests
         Assert.True(w.TfwDropPod(Human, second));     // the first pod and its squad are still out
         Assert.Equal(2, run.Pods.Count);
         Assert.Equal(60, w.TfwOwn(Human).OrbitalSeconds);   // the cooldown starts again
-        TfwRig.Seconds(w, TfwDropPodRules.LandSeconds + TfwDropPodRules.DoorSeconds + TfwDropPodRules.StepOutSeconds + 0.5f);
-        int free = TfwContracts.PuppetIds - 3 - TfwDropPodRules.Marines;   // the ids left to the second squad beside the first's five and the two allies and the retainer
-        Assert.Equal(TfwDropPodRules.Marines + Math.Min(TfwDropPodRules.Marines, free), PodMarines(w).Count());   // two squads on the field together (the second as strong as the ids allow)
+        TfwRig.Seconds(w, OutSeconds);
+        Assert.Equal(2 * TfwDropPodRules.Marines, PodMarines(w).Count());   // two squads on the field together
         Assert.Equal(TfwPodPhase.Fighting, run.Pods[1].Phase);
-        // The first squad keeps its own lifetime: its fight ends 30 s after it stepped out, whatever the second does.
-        Assert.Equal(first.SpawnTick + (uint)MathF.Round(TfwDropPodRules.FightSeconds * w.Config.TickRate), first.FightEndTick);
+        Assert.Equal(first.SpawnTick + (uint)MathF.Round(TfwDropPodRules.FightSeconds * w.Config.TickRate), first.FightEndTick);   // the first keeps its own lifetime
     }
 
     [Fact]
-    public void A_recast_with_no_puppet_id_free_is_refused_and_costs_no_cooldown()
+    public void Three_pods_can_stand_together_when_a_squad_has_gone()
+    {
+        var w = Battle();
+        var run = w.Tfw!;
+        w.TfwDismissOtherMarinesForTests();
+        Assert.True(w.TfwDropPod(Human, Open));
+        TfwRig.Seconds(w, OutSeconds);
+        run.Fire.OrbitalClearForTests(Human);
+        Assert.True(w.TfwDropPod(Human, Open + new Vector3(0f, 25f, 0f)));
+        TfwRig.Seconds(w, OutSeconds);
+        Assert.Equal(2 * TfwDropPodRules.Marines, PodMarines(w).Count());
+        w.TfwDismissPodMarinesForTests(run.Pods[0]);   // the first squad has gone home
+        run.Fire.OrbitalClearForTests(Human);
+        Assert.True(w.TfwDropPod(Human, Open + new Vector3(25f, 0f, 0f)));
+        TfwRig.Steps(w, 2);
+        Assert.Equal(3, run.Pods.Count);   // the first one's wreck, the second's fighting squad, the third falling
+        Assert.Contains(run.Pods, p => p.Phase == TfwPodPhase.Wreck);
+        Assert.Contains(run.Pods, p => p.Phase == TfwPodPhase.Fighting);
+        Assert.Contains(run.Pods, p => p.Phase == TfwPodPhase.Falling);
+    }
+
+    [Fact]
+    public void Overlapping_squads_each_retreat_and_despawn_on_their_own_clock()
+    {
+        var w = Battle();
+        var run = w.Tfw!;
+        w.TfwDismissOtherMarinesForTests();
+        Assert.True(w.TfwDropPod(Human, Open));
+        var first = run.Pods[0];
+        TfwRig.Seconds(w, 10f);
+        run.Fire.OrbitalClearForTests(Human);
+        Assert.True(w.TfwDropPod(Human, Open + new Vector3(0f, 25f, 0f)));
+        var second = run.Pods[1];
+        for (int k = 0; k < 60 && first.Phase != TfwPodPhase.Retreating; k++) TfwRig.Seconds(w, 0.5f);
+        Assert.Equal(TfwPodPhase.Retreating, first.Phase);   // the first squad's fight is over (30 s after it stepped out)
+        Assert.Equal(TfwPodPhase.Fighting, second.Phase);    // the second's goes on for about 10 s more
+        Assert.Equal(TfwDropPodRules.Marines, second.MarinesOut);
+        w.TfwDismissPodMarinesForTests(first);                // the first squad reaches the Imperial base
+        TfwRig.Seconds(w, TfwDropPodRules.WreckSeconds + 0.5f);
+        Assert.DoesNotContain(first, run.Pods);               // its pod is gone on its own clock
+        Assert.Contains(second, run.Pods);
+        Assert.Equal(TfwDropPodRules.Marines, PodMarines(w).Count());   // and the second squad still stands
+        Assert.Equal(TfwPodPhase.Fighting, second.Phase);
+    }
+
+    [Fact]
+    public void A_recast_with_fewer_than_five_puppet_ids_free_is_refused_and_costs_no_cooldown()
     {
         var w = Battle();
         var run = w.Tfw!;
@@ -347,10 +394,26 @@ public class TfwDropPodTests
         run.Fire.OrbitalClearForTests(Human);
         int spare = 0;
         for (int id = TfwContracts.PuppetIdFirst; id <= TfwContracts.PuppetIdLast; id++) if (!w.Players.ContainsKey(id)) spare++;
-        for (int k = 0; k < spare - TfwDropPodRules.Marines; k++) Assert.NotNull(FillId(w));   // only the first pod's reserved ids are left: none for a second squad
+        for (int k = 0; k < spare - (TfwDropPodRules.Marines + 4); k++) Assert.NotNull(FillId(w));   // the first pod's five reserved and four more: fewer than five for a second squad
         Assert.False(w.TfwDropPod(Human, Open + new Vector3(0f, 25f, 0f)));
         Assert.Single(run.Pods);
         Assert.Equal(0, w.TfwOwn(Human).OrbitalSeconds);
+    }
+
+    [Fact]
+    public void At_the_Firing_Range_a_player_may_have_two_pods_out_and_no_more()
+    {
+        var w = TfwRig.War();
+        TfwRig.Command(w, TfwCommand.RangeGo);
+        TfwRig.Seconds(w, 0.5f);
+        var range = Assert.IsType<TfwRange>(TfwTestArena.Field.Range);
+        var run = w.Tfw!;
+        var at = Vector3.Clamp(range.Centre + new Vector3(15f, 0f, 0f), range.Box.Min, range.Box.Max);
+        Assert.True(w.TfwDropPod(Human, at));
+        Assert.True(w.TfwDropPod(Human, at + new Vector3(0f, 5f, 0f)));   // no cooldown at the range
+        Assert.False(w.TfwDropPod(Human, at + new Vector3(0f, 10f, 0f)));   // the cap of two
+        Assert.Equal(2, run.PodsOf(Human));
+        Assert.Equal(TfwDropPodRules.RangePodsMax, run.Pods.Count);
     }
 
     [Fact]

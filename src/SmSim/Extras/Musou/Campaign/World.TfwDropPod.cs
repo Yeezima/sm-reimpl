@@ -24,13 +24,14 @@ public sealed partial class World
         if (!atRange && (run.Battle is null || !run.InField.Contains(player))) return false;
         if (!_players.TryGetValue(player, out var p) || !p.Alive || TfwContracts.IsPuppet(player)) return false;
         if (!atRange && run.Fire.OrbitalTicksLeft(player, Tick) > 0) return false;
+        if (atRange && run.PodsOf(player) >= TfwDropPodRules.RangePodsMax) return false;   // the range has no cooldown: at most this many pods of a player at once
         // No "one pod each" gate since owner 2026-11-14 ("let the player drop another pod immediately when the 60 second cooldown is up"): the cooldown above is the only limit on the caller; the puppet ids below cap what is on the field.
         var box = atRange ? run.Field.Range!.Box : run.Field.Bounds;
         if (!float.IsFinite(point.X + point.Y + point.Z) || point.X < box.Min.X || point.X > box.Max.X || point.Y < box.Min.Y || point.Y > box.Max.Y) return false;
         point = atRange ? Vector3.Clamp(point, box.Min, box.Max) : run.Field.Clamp(point);
         point.Z = TfwGroundBelow(point, point.Z);
         if (MarineBrain.Flat(p.Position, point) < TfwDropPodRules.MinCallerDistance) return false;
-        if (TfwFreePuppetIds() - run.PodIdsReserved < 1) return false;   // the ids other pods have called count as taken; a squad is up to Marines strong as the ids allow (12 ids: with a squad out and the allies and a retainer, a recast brings fewer Marines, owner 2026-11-14)
+        if (TfwFreePuppetIds() - run.PodIdsReserved < TfwDropPodRules.Marines) return false;   // the ids other pods have called count as taken; fewer than a squad's five free: refused at no cooldown, the player may retry (review 2026-11-14)
         int rate = Math.Max(1, Config.TickRate);
         uint land = Tick + (uint)MathF.Round(TfwDropPodRules.LandSeconds * rate);
         uint spawn = land + (uint)MathF.Round((TfwDropPodRules.DoorSeconds + TfwDropPodRules.StepOutSeconds) * rate);
@@ -118,6 +119,12 @@ public sealed partial class World
 
     /// <summary>Test aid: a pod of <paramref name="caller"/> touches down at <paramref name="at"/> now (the crush, nothing else).</summary>
     public void TfwPodCrushForTests(Vector3 at, int caller = 0) => TfwPodCrush(new TfwPod(caller, Tick, Tick, Tick, at));
+
+    /// <summary>Test aid: every AI Marine that is not a pod's (the allies, the retainers) is dismissed, so the puppet ids are free for the pods.</summary>
+    public void TfwDismissOtherMarinesForTests() { foreach (var m in _tfw!.Marines.Where(m => m.Role != MarineRole.Pod).ToList()) TfwDismissMarine(m.Id); }
+
+    /// <summary>Test aid: the Marines of <paramref name="pod"/> are dismissed (as a squad that fell or went home).</summary>
+    public void TfwDismissPodMarinesForTests(TfwPod pod) { foreach (int id in pod.MarineIds.ToList()) TfwDismissMarine(id); }
 
     /// <summary>The Marines step out, at the doors round the pod (<see cref="TfwDropPodRules.DoorRing"/>), each to hold the place he stands on.</summary>
     void TfwPodSpawn(TfwRun run, TfwPod pod)

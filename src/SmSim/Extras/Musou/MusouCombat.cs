@@ -31,6 +31,8 @@ public sealed record MusouCombatRules
     public const float AutocannonAoeScale = 1.4f;
     /// <summary>The assault Marine's ground pound and air slash landing in Musou Mode: blast radius (fall-off distances with it) times <see cref="PoundReachScale"/>, damage (so the centre's) times <see cref="PoundDamageScale"/> (owner 2026-11-14: "50% large aoe", "increase the damage at the center ... by 50%").</summary>
     public const float PoundReachScale = 1.5f, PoundDamageScale = 1.5f;
+    /// <summary>The reach scale of the pound and the slash landing for a match's content: <see cref="PoundReachScale"/> in Musou Mode, 1 in Classic PvP (what the client draws its ring and shake at).</summary>
+    public static float PoundReach(ContentExtras extras) => extras.HasFlag(ContentExtras.Musou) ? PoundReachScale : 1f;
     /// <summary>A <see cref="MeleeStep.TrackToHit"/> strike's cleave reaches this much farther (ours, feel/melee-reliability: enemies carry no player lock).</summary>
     public const float CleaveTrackRange = 1f;
     /// <summary>

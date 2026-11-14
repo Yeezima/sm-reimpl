@@ -267,4 +267,17 @@ public class MusouCombatRulesTests
         Assert.True(AutocannonRules.LosesDust(auto.Radius));    // the client still draws the autocannon's blast without dust
         Assert.False(AutocannonRules.LosesDust(bolt.Radius));   // and the bolt blast with it
     }
+
+    [Fact]
+    public void The_clients_pound_ring_follows_the_blast_in_Musou_and_stays_the_datas_in_Classic()
+    {
+        Assert.Equal(1.5f, MusouCombatRules.PoundReach(ContentExtras.Musou));
+        Assert.Equal(9f, Pound.Radius * MusouCombatRules.PoundReach(ContentExtras.Musou));   // the ring marks what the server's blast reaches
+        Assert.Equal(JumpBlast(NewWorld(), JumpEventKind.Impact, Pound)!.Radius, Pound.Radius * MusouCombatRules.PoundReach(ContentExtras.Musou));
+        Assert.Equal(1f, MusouCombatRules.PoundReach(ContentExtras.None));
+        Assert.Equal(1f, MusouCombatRules.PoundReach(ContentExtras.Orks | ContentExtras.Gore));
+        string root = new DirectoryInfo(AppContext.BaseDirectory).Parent!.Parent!.Parent!.Parent!.Parent!.FullName;
+        foreach (var (file, call) in new[] { ("NetworkView.PoundImpact.cs", "PoundRing.Request(pound.Radius * PoundRingScale)"), ("NetworkView.PoundImpact.cs", "(pack.Pound?.Radius ?? 0f) * PoundRingScale"), ("NetworkView.Jump.cs", "pound.Radius * PoundRingScale") })
+            Assert.Contains(call, File.ReadAllText(Path.Combine(root, "client", file)));
+    }
 }

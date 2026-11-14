@@ -150,7 +150,7 @@ public sealed partial class NetworkView
     {
         if (f.To.X > 0.5f)
         {
-            foreach (var pod in _tfwPods) if (pod.Record.Subject == f.Subject && pod.GoneTick == double.PositiveInfinity && pod.Record.Tick <= f.Tick) { pod.GoneTick = f.Tick; break; }
+            foreach (var pod in _tfwPods) if (pod.Record.Subject == f.Subject && pod.GoneTick == double.PositiveInfinity && pod.Record.Tick <= f.Tick && System.Numerics.Vector3.DistanceSquared(pod.Record.At, f.At) < 1f)   // the caller may have several pods out: the wreck's record names its pod by its place { pod.GoneTick = f.Tick; break; }
             return;
         }
         foreach (var pod in _tfwPods) if (pod.Record.Subject == f.Subject && pod.Record.Tick == f.Tick) return;
@@ -320,7 +320,7 @@ public sealed partial class NetworkView
 
     /// <summary>
     /// <c>--tfw-pod-test</c> (a scripted player, not <c>--bot</c>, with <c>--tfw-deploy b --tfw-support droppod</c>): looks ahead, presses the real key B, and checks the call end to end: the pod's record, its
-    /// touchdown about <see cref="TfwDropPodRules.LandSeconds"/> later on the crosshair's point, five more AI Marines after the doors, a second call refused (one pod each, and the cooldown), the cooldown on the
+    /// touchdown about <see cref="TfwDropPodRules.LandSeconds"/> later on the crosshair's point, five more AI Marines after the doors, a second call refused (the cooldown), the cooldown on the
     /// HUD, and every Marine and the pod gone after the fight and the retreat. TFWTEST lines; quits 0, or 1 when any failed.
     /// </summary>
     void TfwPodTestFrame(in TfwWarView war)
@@ -362,7 +362,7 @@ public sealed partial class NetworkView
                     TfwPodCheck($"its touchdown is {off:F1} m from the crosshair's point", off < 3f);
                 }
                 TfwPodCheck($"the cooldown shows: {war.Own.OrbitalSeconds} s", war.Own.OrbitalSeconds is > 40 and <= 60);
-                _tfwState.Commands.Issue(TfwCommand.DropPod, 0, _tfwPodChosen);   // a second call: refused (one pod each, and the cooldown)
+                _tfwState.Commands.Issue(TfwCommand.DropPod, 0, _tfwPodChosen);   // a second call: refused (the cooldown)
                 _tfwPodStage = 3; _tfwPodAt = _connectedFor + 3.0;
                 break;
             case 3:

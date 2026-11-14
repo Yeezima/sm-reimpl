@@ -28,6 +28,8 @@ public static class TfwDropPodRules
     public const float CrushRadius = 30f;
     /// <summary>The factor on a shell's per-target damage (health for an ordinary enemy, <see cref="TfwFireRules.BossDamage"/> for a boss, then the caller's ranged scale), the owner's "3x".</summary>
     public const float CrushDamageFactor = 3f;
+    /// <summary>The most pods one player may have out at the Firing Range, where there is no cooldown (ours, owner 2026-11-14 asked only for the battle's cooldown).</summary>
+    public const int RangePodsMax = 2;
     /// <summary>A call at a point nearer than this to the caller is refused (m; ours).</summary>
     public const float MinCallerDistance = 10f;
     /// <summary>The Marines come out round the pod at this radius (m; ours: the door ring of the hull's 3.6 m radius).</summary>
@@ -70,9 +72,11 @@ public sealed class TfwPod(int caller, uint landTick, uint spawnTick, uint fight
     public uint RetreatTick { get; internal set; }
     public uint EndTick { get; internal set; }
     internal readonly List<int> MarineIds = new();
+    /// <summary>The Marines of this pod still in the world (a test aid's view).</summary>
+    public int MarinesOut => MarineIds.Count;
 }
 
-/// <summary>The pods of a run (one per player at a time).</summary>
+/// <summary>The pods of a run (several per player may be out since 2026-11-14; the cooldown spaces the calls, the puppet ids and, at the Firing Range, <see cref="TfwDropPodRules.RangePodsMax"/> limit them).</summary>
 public sealed partial class TfwRun
 {
     readonly List<TfwPod> _pods = new();
@@ -81,6 +85,8 @@ public sealed partial class TfwRun
     public IReadOnlyList<TfwPod> Pods => _pods;
 
     /// <summary>The pod <paramref name="player"/> has out, if any.</summary>
+    public int PodsOf(int player) => _pods.Count(p => p.Caller == player);
+
     public TfwPod? PodOf(int player)
     {
         foreach (var p in _pods) if (p.Caller == player) return p;
