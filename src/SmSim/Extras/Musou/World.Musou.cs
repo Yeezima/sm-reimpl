@@ -247,6 +247,11 @@ public sealed partial class World
 
     partial void ExtrasSampled(int id, in PlayerInput input) => LibrarianSampled(id, input);
 
+    partial void ExtrasInputLocked(int id, ref bool locked)
+    {
+        if (_musou is not null) DreadnoughtInputLocked(id, ref locked);   // Dreadnought/World.Dreadnought.cs: the entrance clip
+    }
+
     partial void ExtrasPlayerInput(int id, ref PlayerInput input, ref bool handled)
     {
         if (_tfw is null) return;

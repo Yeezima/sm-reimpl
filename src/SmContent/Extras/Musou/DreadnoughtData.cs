@@ -32,7 +32,7 @@ public sealed record DreadnoughtClipTag(string Kind, string? Name, float Seconds
 
 /// <summary>An arm strike (<c>dread_melee_default</c>): its ability, primary and secondary hit, reach and the clip it plays (length and tags from the rig, when read).</summary>
 public sealed record DreadnoughtStrike(string Ability, DreadnoughtHit? Primary, DreadnoughtHit? Secondary, float? Range, string? Clip, float? ClipSeconds,
-    IReadOnlyList<DreadnoughtClipTag> Tags);
+    IReadOnlyList<DreadnoughtClipTag> Tags, float PlaybackSpeed = 1f);
 
 /// <summary>An area action (the ground slam, the stomp attack, a footfall): damage at its centre, the area's radius and the stun damage.</summary>
 public sealed record DreadnoughtArea(string Action, float? Damage, float? ArmourDamage, float? StunDamage, float? Radius, float? DebrisRadius);
@@ -79,11 +79,16 @@ public sealed record DreadnoughtData(DreadnoughtBody Body, DreadnoughtGun? Canno
         notes ??= [];
         BafDocument? blueprint = null;
         var wargear = new Dictionary<string, BafDocument>(StringComparer.OrdinalIgnoreCase);
-        using (var archive = ObpkArchive.Open(Path.Combine(gameDir, GameplayTuning.BlueprintPackage)))
-            archive.ReadEntries(e => archive.GroupName(e) == "attr_pc" && e.FileName == Blueprint, (_, d) => blueprint = BafDocument.Read(d));
-        var names = Wargear.ToHashSet(StringComparer.OrdinalIgnoreCase);
-        using (var archive = ObpkArchive.Open(Path.Combine(gameDir, GameplayTuning.WargearPackage)))
-            archive.ReadEntries(e => archive.GroupName(e) == "attr_pc" && names.Contains(e.FileName), (e, d) => { if (!wargear.ContainsKey(e.FileName)) wargear[e.FileName] = BafDocument.Read(d); });   // the install holds two files of the melta and the buff (the Chaos twin's; same numbers): the first read is kept
+        try
+        {
+            using (var archive = ObpkArchive.Open(Path.Combine(gameDir, GameplayTuning.BlueprintPackage)))
+                archive.ReadEntries(e => archive.GroupName(e) == "attr_pc" && e.FileName == Blueprint, (_, d) => blueprint = BafDocument.Read(d));
+            var names = Wargear.ToHashSet(StringComparer.OrdinalIgnoreCase);
+            using (var archive = ObpkArchive.Open(Path.Combine(gameDir, GameplayTuning.WargearPackage)))
+                archive.ReadEntries(e => archive.GroupName(e) == "attr_pc" && names.Contains(e.FileName), (e, d) => { if (!wargear.ContainsKey(e.FileName)) wargear[e.FileName] = BafDocument.Read(d); });   // the install holds two files of the melta and the buff (the Chaos twin's; same numbers): the first read is kept
+        }
+        catch (Exception e) when (e is FileNotFoundException or DirectoryNotFoundException or InvalidDataException)
+        { notes.Add($"dreadnought: packages: {e.Message}"); }
         Func<string, float>? length = null;
         IReadOnlyList<BehaviorGraph> graphs = [];
         try
@@ -92,7 +97,7 @@ public sealed record DreadnoughtData(DreadnoughtBody Body, DreadnoughtGun? Canno
             length = clip => character.LoadAnimation(clip).Animation.Duration;
             graphs = HavokBehavior.Read(character.Pack);
         }
-        catch (Exception e) when (e is InvalidDataException or KeyNotFoundException or FileNotFoundException or ArgumentException or IndexOutOfRangeException or NotSupportedException)
+        catch (Exception e) when (e is InvalidDataException or KeyNotFoundException or FileNotFoundException or DirectoryNotFoundException or ArgumentException or IndexOutOfRangeException or NotSupportedException)
         { notes.Add($"dreadnought: rig: {e.Message}; no clip lengths or tags"); }
         return From(blueprint, wargear, length, graphs, notes);
     }
@@ -155,6 +160,7 @@ public sealed record DreadnoughtData(DreadnoughtBody Body, DreadnoughtGun? Canno
                     return h.Damage is null && h.ArmourDamage is null && h.StunDamage is null ? null : h;
                 }
                 float? seconds = null;
+                float speed = 1f;
                 IReadOnlyList<DreadnoughtClipTag> tags = [];
                 if (clipLength is not null)
                 {
@@ -164,9 +170,13 @@ public sealed record DreadnoughtData(DreadnoughtBody Body, DreadnoughtGun? Canno
                     var seq = graphs.FirstOrDefault(g => g.Name.Equals(Graph, StringComparison.OrdinalIgnoreCase))?.Sequencers
                         .FirstOrDefault(s => s.Animations.Any(a => a.Equals(clip, StringComparison.OrdinalIgnoreCase)));
                     if (seq is not null && seconds is float len)
-                        tags = seq.Tags.Select(t => new DreadnoughtClipTag(t.Kind, t.Name, Math.Clamp(t.Start, 0f, 1f) * len)).ToArray();
+                    {
+                        int at = seq.Animations.ToList().FindIndex(x => x.Equals(clip, StringComparison.OrdinalIgnoreCase));
+                        if (at >= 0 && at < seq.PlaybackSpeeds.Count && float.IsFinite(seq.PlaybackSpeeds[at]) && seq.PlaybackSpeeds[at] > 0f) speed = seq.PlaybackSpeeds[at];
+                        tags = seq.Tags.Select(t => new DreadnoughtClipTag(t.Kind, t.Name, Math.Clamp(t.Start, 0f, 1f) * len / speed)).ToArray();   // the tag's share of the clip, in the seconds it plays at the generator's speed
+                    }
                 }
-                strikes.Add(new DreadnoughtStrike(ability, Hit("primary_target_actions"), Hit("secondary_target_actions"), armFile.Num("generic_metadata/max_range", under), clip, seconds, tags));
+                strikes.Add(new DreadnoughtStrike(ability, Hit("primary_target_actions"), Hit("secondary_target_actions"), armFile.Num("generic_metadata/max_range", under), clip, seconds, tags, speed));
             }
             foreach (var action in new[] { "actn_pound_hit", "actn_stomp_hit" })
             {

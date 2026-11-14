@@ -298,7 +298,8 @@ public sealed partial class World
         if (_tfw is null || !_players.TryGetValue(id, out var p)) return false;
         if (faceCentre && _tfw.Battle?.Layout is { } layout) yaw = layout.FaceCentre(at);   // owner 2026-11-09: in a battle every unit spawns facing the map's centre (the Stormbird and the Range keep their own facing)
         if (_nextLoadouts.ContainsKey(id) && _tfwArsenals.TryGetValue(id, out var arsenal)) arsenal.LoadedPrimary = arsenal.LoadedPistol = -1;   // a Setup's choice stands: no extra is left to send home
-        _players[id] = Combat.Respawned(WithNextLoadout(p) with { Position = at, Yaw = yaw }, Config);
+        bool chose = _nextLoadouts.ContainsKey(id);
+        _players[id] = Combat.Respawned(DreadnoughtAtRespawn(id, WithNextLoadout(p), chose) with { Position = at, Yaw = yaw }, Config);   // Dreadnought/World.Dreadnought.cs: the hub rule and the new entrance
         _respawns.Add(id);
         _musouArmed.Remove(id);
         _tfwFragged.Remove(id);

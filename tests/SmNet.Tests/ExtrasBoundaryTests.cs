@@ -53,6 +53,7 @@ public class ExtrasBoundaryTests
         ("src/SmServer/GameServer.cs", "ExtrasCreated"),           // GameServer.ExtrasCreated(), end of the constructor when Extras is not None (Musou: the nav graph, World.StartMusou)
         // Musou Mode (TF0): each returns at once unless World.Tfw is set (World.StartTfw, only on the map tfw_war under ContentExtras.Musou), or for another map.
         ("src/SmSim/Simulation.cs", "ExtrasSampled"),              // World.ExtrasSampled(int, in PlayerInput), after the input is sanitized (Musou: the Librarian reads its keys)
+        ("src/SmSim/Simulation.cs", "ExtrasInputLocked"),          // World.ExtrasInputLocked(int, ref bool), before the input is sanitized: added content locks a player's stick and buttons as the countdown does (Musou: the Dreadnought's 4.833 s entrance)
         ("src/SmSim/Simulation.cs", "ExtrasPlayerInput"),          // World.ExtrasPlayerInput(int, ref PlayerInput, ref bool handled), before Step asks for a player's input (the AI Marines have no client)
         ("src/SmServer/GameServer.cs", "ExtrasGeneratedMap"),      // static GameServer.ExtrasGeneratedMap(ContentExtras, string, ref string?, ref GameMap?, ref string?), in GeneratedMap, which Program.cs calls (tfw_war, composed from the install)
         ("src/SmServer/GameServer.cs", "ExtrasPlayerName"),        // GameServer.ExtrasPlayerName(int, ref string), in ScoreboardOf (the AI Marines' names)

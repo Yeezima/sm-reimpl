@@ -100,23 +100,42 @@ public class DreadnoughtClassTests
     }
 
     [Fact]
-    public void A_body_without_a_capsule_hashes_as_before_and_one_with_it_hashes_differently()
+    public void A_body_without_a_capsule_writes_exactly_the_bytes_it_always_did_and_one_with_it_adds_a_marked_tail()
     {
         var plain = new BodySpec("x", 6f, 6f, 4f, 9f, 3f, 3f, 3f, 2f, 100f, 5f, 5f, 100f, 7f, 33f);
-        byte[] Bytes(BodySpec b) { var m = new MemoryStream(); using (var w = new BinaryWriter(m)) b.GetType().GetMethod("Write", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.Invoke(b, [w]); return m.ToArray(); }
-        Assert.Equal(Bytes(plain), Bytes(plain with { CapsuleRadius = null }));
-        Assert.NotEqual(Bytes(plain), Bytes(plain with { CapsuleRadius = 1f }));
+        byte[] Written(BodySpec body)
+        {
+            var m = new MemoryStream();
+            using (var w = new BinaryWriter(m)) typeof(BodySpec).GetMethod("Write", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.Invoke(body, [w]);
+            return m.ToArray();
+        }
+        // The stream before this change, written out independently: the name, the fourteen floats, the volumes (none: the config's).
+        var expected = new MemoryStream();
+        using (var w = new BinaryWriter(expected))
+        {
+            w.Write("x");
+            foreach (float f in new[] { 6f, 6f, 4f, 9f, 3f, 3f, 3f, 2f, 100f, 5f, 5f, 100f, 7f, 33f }) w.Write(f);
+        }
+        var before = expected.ToArray();
+        var now = Written(plain);
+        Assert.Equal(before, now[..before.Length]);
+        Assert.True(now.Length - before.Length is > 0 and < 8);   // only the volumes' absent marker follows, as before
+        var withCapsule = Written(plain with { CapsuleRadius = 1f });
+        Assert.Equal(now, withCapsule[..now.Length]);
+        Assert.True(withCapsule.Length > now.Length);
         Assert.False((plain with { CapsuleRadius = 0f }).IsValid);
         Assert.False((plain with { CapsuleHeight = float.NaN }).IsValid);
         Assert.True((plain with { CapsuleRadius = 1f, CapsuleHeight = 3f }).IsValid);
     }
 
     [Fact]
-    public void The_class_changes_the_musou_hash_and_a_classic_config_is_untouched_by_the_body_field()
+    public void The_class_changes_the_musou_hash_and_a_config_with_only_a_plain_body_hashes_as_it_did_before_the_capsule_field()
     {
         Assert.NotEqual(Raw.Hash(), Prepared.Hash());
-        var classic = Raw with { Extras = ContentExtras.None };
-        Assert.Equal(classic.Hash(), (classic with { Bodies = [] }).Hash());
+        // The golden pins of the Classic and extended (Ork body) profiles are ConfigHashPinTests (install-gated; they passed with this change).
+        Assert.False(Raw.HasBodyCapsules);
+        Assert.True(Prepared.HasBodyCapsules);
+        Assert.False((Raw with { Bodies = [new BodySpec("x", 6f, 6f, 4f, 9f, 3f, 3f, 3f, 2f, 100f, 5f, 5f, 100f, 7f, 33f)] }).HasBodyCapsules);
     }
 
     // ---- in a match ----
@@ -178,6 +197,21 @@ public class DreadnoughtClassTests
     }
 
     [Fact]
+    public void A_death_and_the_cores_respawn_start_the_entrance_again()
+    {
+        var w = NewWorld();
+        w.Spawn(1, DreadnoughtIndex(w.Config));
+        Steps(w, 30 * 6);
+        Assert.Equal(1f, w.DamageTakenScale(1));
+        var field = typeof(World).GetField("_players", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
+        ((Dictionary<int, PlayerState>)field.GetValue(w)!)[1] = Combat.Killed(w.Players[1], w.Config) with { RespawnLeft = 0.1f };
+        Steps(w, 30);
+        Assert.True(w.Players[1].Alive);
+        Assert.True(w.DreadnoughtEntryLeft(1) > 3.5f);
+        Assert.Equal(0f, w.DamageTakenScale(1));
+    }
+
+    [Fact]
     public void Changing_class_away_ends_the_entrance_and_choosing_him_again_begins_one()
     {
         var w = NewWorld();
@@ -234,5 +268,22 @@ public class DreadnoughtClassTests
         float Ring(int id) => (float)ring.Invoke(w, [w.Players[id]])!;
         Assert.Equal(DreadnoughtRules.CapsuleRadius - w.Config.CapsuleRadius, Ring(1), 4);
         Assert.Equal(0f, Ring(2));
+    }
+
+    [Fact]
+    public void The_hold_before_the_swing_is_the_same_distance_from_the_edge_of_the_body_for_a_marine_and_the_big_body()
+    {
+        // MeleeHold compared with the reach that already leaves the capsule out: he must not hold off a second time (review 2026-11-14).
+        float HoldDistance(float body)
+        {
+            var sim = new MusouSim(null, MusouRules.Default);
+            ushort boy = sim.Spawn(MusouEnemyType.Boy, new Vector3(0f, 12f, 0f), 0f, 1000f);
+            var targets = new[] { new MusouTarget(1, Vector3.Zero, true, Body: body) };
+            var attacks = new List<MusouAttack>();
+            for (uint t = 1; t <= 30 * 8; t++) { sim.BeginTick(t); attacks.Clear(); sim.Step(targets, null, true, attacks); }
+            Assert.True(sim.TryGet(boy, out var e));
+            return new Vector2(e.Position.X, e.Position.Y).Length() - body;
+        }
+        Assert.Equal(HoldDistance(0f), HoldDistance(0.55f), 0.35f);
     }
 }

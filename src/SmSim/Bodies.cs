@@ -58,6 +58,9 @@ public sealed partial record SimConfig
     /// </summary>
     public IReadOnlyList<BodySpec> Bodies { get; init; } = [];
 
+    /// <summary>Whether any class body has a walking capsule of its own (<see cref="BodySpec.CapsuleRadius"/>): the player-to-player collision then gives every body its own radius and height. False for every config without one (Classic, the Ork).</summary>
+    public bool HasBodyCapsules => Bodies.Any(b => b.CapsuleRadius is not null || b.CapsuleHeight is not null);
+
     /// <summary>
     /// The config a player of class <paramref name="playerClass"/> moves, regenerates and is hit with: this config itself for a class
     /// without a body of its own (and always when <see cref="Bodies"/> is empty), else a copy with the class's <see cref="BodySpec"/>

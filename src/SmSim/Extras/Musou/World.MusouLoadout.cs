@@ -46,6 +46,8 @@ public sealed partial class World
     public void MusouJoined(int playerId)
     {
         _dreadnoughtEntry.Remove(playerId);   // Dreadnought/World.Dreadnought.cs: a fresh join of the id starts his entrance again
+        _dreadnoughtWanted.Remove(playerId);
+        DreadnoughtHubStandIn(playerId);   // ... and in the hub he plays as the Tactical
         if (_tfw is not null) { TfwArmAll(); return; }   // Campaign/World.TfwArsenal.cs: the full loadout (owner's item 25), never the strip
         if (_musou is null || !MusouLoadout.Prepared(Config) || !_players.TryGetValue(playerId, out var p) || !p.Alive) return;
         _musouArmed.Add(playerId);
@@ -70,5 +72,5 @@ public sealed partial class World
     }
 
     /// <summary>A round's respawn (the core's StartRound gives the full class loadout): every player is armed afresh.</summary>
-    void MusouRearm() => _musouArmed.Clear();
+    void MusouRearm() { _musouArmed.Clear(); _dreadnoughtEntry.Clear(); }   // a new round: every life begins again (Dreadnought/World.Dreadnought.cs: the entrance)
 }

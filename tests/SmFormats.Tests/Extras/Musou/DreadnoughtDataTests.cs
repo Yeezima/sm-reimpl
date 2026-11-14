@@ -176,6 +176,16 @@ public class DreadnoughtDataTests
     }
 
     [Fact]
+    public void A_clips_tags_are_in_the_seconds_it_plays_at_the_generators_speed()
+    {
+        var graph = new SmFormats.Havok.BehaviorGraph(DreadnoughtData.Graph, [], [new SmFormats.Havok.BehaviorSequencer("seq", ["DN_MEL_XATK_01_3.5m"],
+            [new SmFormats.Havok.BehaviorTag("Event", 0.5f, 0.6f, "ACTN_Hit_Primary_Target", null)], [2f])]);
+        var x01 = DreadnoughtData.From(Blueprint(), Wargear(), _ => 4f, [graph], []).Strikes[0];
+        Assert.Equal(2f, x01.PlaybackSpeed);
+        Assert.Equal(1f, Assert.Single(x01.Tags).Seconds);   // half of 4 s at double speed
+    }
+
+    [Fact]
     public void The_areas_report_the_damage_area_radius_apart_from_the_debris_force_radius()
     {
         var areas = DreadnoughtData.From(Blueprint(), Wargear(), null, [], []).Areas;

@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3230 spec table rows: **2374 tagged**, 597 not tagged (read from data with high confidence), 259 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 719 rows of the changes document.
+Scanned 3231 spec table rows: **2375 tagged**, 597 not tagged (read from data with high confidence), 259 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 719 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,20 +50,20 @@ Scanned 3230 spec table rows: **2374 tagged**, 597 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 23 | 13 | 13 | 13 | 7 |
-| Core simulation (provisional values) | 706 | 665 | 504 | 184 | 1 |
+| Core simulation (provisional values) | 707 | 666 | 505 | 184 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 249 | 238 | 134 | 68 | 0 |
-| **All areas** | **2374** | 2099 | 1765 | 735 | 38 |
+| **All areas** | **2375** | 2100 | 1766 | 735 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
 | kind: ours | 1378 |
-| confidence: low | 846 |
-| confidence: medium | 790 |
+| confidence: low | 845 |
+| confidence: medium | 792 |
 | notes: ours | 417 |
-| kind: interpretation | 384 |
+| kind: interpretation | 386 |
 | notes: estimate | 200 |
 | kind: estimate | 161 |
 | confidence: none (low) | 129 |
@@ -83,7 +83,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | notes: not reproduced (gap) | 13 |
 | notes: gap (not reproduced) | 10 |
 | kind: public (unverified) | 9 |
-| kind: guess | 6 |
+| kind: guess | 5 |
 | notes: guess | 4 |
 | kind: inferred | 3 |
 | section: approximation | 3 |
@@ -2439,7 +2439,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (706)
+### Core simulation (provisional values) (707)
 
 *Spec section: Provisional values in use*
 
@@ -3578,7 +3578,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-E2548C0F` | Dreadnought: the class | a class `sm - dreadnought` appended after the Librarian, Musou only (`MusouLoadout.Prepare`; Classic and the extended profile never see it): the Tactical's melee as a placeholder arm until D5, no gun, no pistol, no equipment, no perks (`PerkChoices` empty, no… | kind: ours; kind: placeholder; notes: estimate | owner 2026-11-14; the design's fixed kit | Dreadnought: the class: compare with SM1 by feel or video. Ours: a class sm - dreadnought appended after the Librarian, Musou only… | ☐ |
 | `R-0632213A` | Dreadnought: the body (owner: "a true big body, about 2 to 3 m") | walking capsule radius **1.0** m (2 m across), height **3.0** m (new optional `BodySpec.CapsuleRadius` and `CapsuleHeight`, hashed only when set; the marine's 0.45 and 1.9 for every other class); the data gives no capsule, only the melee hit volume… (m) | kind: estimate; confidence: low; notes: ours | owner 2026-11-14 (2 to 3 m); capsule values our reading | Dreadnought: the body (owner: "a true big body, about 2 to…: compare with SM1 by measuring on a flat spot of the same map. Ours: walking capsule radius 1.0 m (2 m across), height 3.0 m (new optional… | ☐ |
-| `R-8B7E4097` | Dreadnought: the entrance | on spawn (or taking the class) everything he receives is multiplied by **0** for **5** s (`evt_spawn_in`, `apply_modifiers` lifetime 5 for received melee, ranged and explosive damage); the entrance clip `DN_NAV_Entrance` is **4.833** s; a death, a class… (s) | kind: guess; confidence: low | blueprint `sm_dreadnought` `entity_actions_ext/triggered_actions/evt_spawn_in`; rig `havok_sm_dreadnought_basic__hkxx` | Dreadnought: the entrance: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: on spawn (or taking the class) everything he receives is multiplied… | ☐ |
+| `R-F080981C` | Dreadnought: the entrance and the hub rule | owner 2026-11-14: "the player appears as a placeholder ultramarine tactical in the thunderhawk troop bay musou zone after selecting dreadnaught - he appears in the dreadnaught once he loads into the ashfall citadel map by deploying. there should never be a… (s) | kind: interpretation; confidence: medium | blueprint `sm_dreadnought` `entity_actions_ext/triggered_actions/evt_spawn_in`; rig `havok_sm_dreadnought_basic__hkxx`; owner's rule | Dreadnought: the entrance and the hub rule: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: owner 2026-11-14: "the player appears as a placeholder ultramarine… | ☐ |
+| `R-DD677E70` | Dreadnought: the big body is solid to the other players | the player-to-player collision gives every body its own capsule radius and height when the config has a class body with one (`SimConfig.HasBodyCapsules`; Musou only), so a marine keeps 0.45 + 1.0 m from him; configs without one (Classic, the Ork) give no body… (m) | kind: interpretation; confidence: medium | review 2026-11-14 | Dreadnought: the big body is solid to the other players: compare with SM1 by measuring on a flat spot of the same map. Ours: the player-to-player collision gives every body its own capsule… | ☐ |
 | `R-291395C3` | Dreadnought: the control point heal (read, not yet used) | `evt_dread_cap` heals **1500** health (HP) | notes: estimate | blueprint `sm_dreadnought` `evt_dread_cap/do_heal` | Dreadnought: the control point heal (read, not yet used): compare with SM1 by feel or video. Ours: evt_dread_cap heals 1500 health. | ☐ |
 | `R-FD00930F` | Dreadnought: melta (read, D4 uses it) | hit-scan, **200** damage (armour part 200), `shot_cooldown` **0.33** s (**0.095** s with the upgrade `fury_aim_mode`), range **250** m, clip **1**, reserve 12 and infinite, recharge after **0.33** s at **1** a second; the `is_in_coop` variant carries **100**… (HP, s) | kind: guess; confidence: low | wargear `dread_melta` (`pump_states`, `common_data/ammunition`); two files of the name exist (the Chaos twin's, same numbers: the first read is kept) | Dreadnought: melta (read, D4 uses it): compare with SM1 by feel or video. Ours: hit-scan, 200 damage (armour part 200), shot_cooldown 0.33 s (0.095 s… | ☐ |
 
