@@ -113,7 +113,7 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
         public string[] FinisherAbilities { get; init; } = [];
         /// <summary>
         /// sim/sword-ff-stab (owner, 2026-11-14): the Y,Y finisher (the first of <see cref="FinisherSequencers"/>) is the stab of the weapon's X,X,X,Y strike (the heavy list's strike
-        /// <see cref="StabHeavy"/>, 1-based; Musou's "light, light, light, F" move) instead of its own blast: that strike's clip, timing, window and reach, no blast, the primary target takes the
+        /// <see cref="StabHeavy"/>, 1-based; Musou's "light, light, F" move) instead of its own blast: that strike's clip, timing, window and reach, no blast, the primary target takes the
         /// weapon's charge hit as the Furious Charge perk's entry gives it (<see cref="StabPerk"/>: 100 + 50 shield, its stagger), nothing for the others. 0 (the default): the finisher as read.
         /// </summary>
         public int StabHeavy { get; init; }
@@ -230,7 +230,7 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
         LoopLights = false, LightHeavyNext = [0, 0, 0, -1],
         FinisherSequencers = ["Sequencer30"], FinisherAbilities = [""],
         YNext = [5, 5, 5, 5, 0],
-        StabHeavy = 4,   // sim/sword-ff-stab (owner, 2026-11-14): F + F is the X,X,X,F stab at the Furious Charge's damage
+        StabHeavy = 3,   // sim/sword-ff-stab (owner, 2026-11-14): F + F is the X,X,F stab (Musou's light, light, F) at the Furious Charge's damage
         ExtendedRules = true,
     };
 

@@ -198,7 +198,7 @@ public partial class NetworkView
         if (!await TfwTestDeploy(TfwLane.B)) return;
         await TfwWait(2.0);
         string kind = CmdArg("tfw-spear-film-kind") ?? "chain";
-        if (kind != "lllf") TfwCheck("the power spear is the melee weapon", _config is not null && SpearRules.Wields(_config, client.Predicted), MeleeWargear(client.Predicted) ?? "none");
+        if (kind is not ("lllf" or "llf")) TfwCheck("the power spear is the melee weapon", _config is not null && SpearRules.Wields(_config, client.Predicted), MeleeWargear(client.Predicted) ?? "none");
         else GD.Print($"SPEARFILM melee weapon {MeleeWargear(client.Predicted) ?? "none"}");
         await TfwSpearOpenSpot();
         TfwKey(Key.W, true);
@@ -230,14 +230,14 @@ public partial class NetworkView
                 await Tap(GameAction.Melee); await Hold(0.85);
                 await Tap(GameAction.Melee); await Hold(3.2);
             }
-            else if (kind == "lllf")   // docs/commands.md: the sword's light, light, light, F (X,X,X,Y): a melee press from rest and in each strike's combo window (from 0.9 s) until the third light strike has played into its window, then F; the clip drawn is logged on every frame
+            else if (kind is "lllf" or "llf")   // docs/commands.md: the sword's light, light, (light,) F (X,X,F / X,X,X,F): a melee press from rest and in each strike's combo window (from 0.9 s) until the third light strike has played into its window, then F; the clip drawn is logged on every frame
             {
                 ulong until = Time.GetTicksMsec() + 20000;
                 while (Time.GetTicksMsec() < until)
                 {
                     var p = client.Predicted;
-                    if (p.MeleeStep == 3 && !p.MeleeHeavy && p.MeleeTime >= 0.9f) break;
-                    if (p.MeleeStep == 0 || (!p.MeleeHeavy && p.MeleeStep < 3 && p.MeleeTime >= 0.9f)) { await Tap(GameAction.Melee); await Hold(0.2); }
+                    if (p.MeleeStep == (kind == "llf" ? 2 : 3) && !p.MeleeHeavy && p.MeleeTime >= 0.9f) break;
+                    if (p.MeleeStep == 0 || (!p.MeleeHeavy && p.MeleeStep < (kind == "llf" ? 2 : 3) && p.MeleeTime >= 0.9f)) { await Tap(GameAction.Melee); await Hold(0.2); }
                     else await Tick();
                 }
                 await Tap(GameAction.StunStrike);
