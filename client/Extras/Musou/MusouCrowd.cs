@@ -127,6 +127,9 @@ public partial class MusouCrowd : CrowdView
         {
             var p = new Vector3(e.Position.X, e.Position.Y, e.Position.Z);
             int clip = GunClip(e, ClipOf(e.State));   // MusouCrowd.Guns.cs: a firing Shoota Boy aims
+            Quaternion turn = default;
+            bool dizzy = IsDizzy(e);
+            if (dizzy) { clip = MusouLooks.Idle; turn = Lean(e.StateSeconds); }   // MusouCrowd.Dizzy.cs: a stunned boss stands on its idle (the stagger clip turned it round), swaying; stars above
             _seen.Add(e.Id);
             float time, rate = 1f;
             if (clip == MusouLooks.Run && !OldGait) (clip, rate) = Gait(e, p, delta);   // 2026-11-09: the run follows his drawn speed, the idle when he stands (MusouGaitRules)
@@ -146,8 +149,10 @@ public partial class MusouCrowd : CrowdView
                 var c = track.Current();
                 kick = new Vector3(c.X, c.Y, 0f);
             }
-            Items.Add(new Item { Key = e.Id, Type = (int)e.Type, Position = p, Yaw = e.Yaw, Time = time, Clip = clip, Distance = distance, Kick = kick });
+            Items.Add(new Item { Key = e.Id, Type = (int)e.Type, Position = p, Yaw = e.Yaw, Time = time, Clip = clip, Distance = distance, Kick = kick, Turn = turn });
+            if (dizzy) NoteDizzy(e, p, e.StateSeconds);
         }
+        UpdateRings();
         _clock += delta;
         if (_kick.Count > 0)
         {
