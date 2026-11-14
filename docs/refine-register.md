@@ -28,8 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3226 spec table rows: **2375 tagged**, 592 not tagged (read from data with high confidence), 259 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 722 rows of the changes document.
-Scanned 3249 spec table rows: **2392 tagged**, 598 not tagged (read from data with high confidence), 259 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 722 rows of the changes document.
+Scanned 3258 spec table rows: **2399 tagged**, 600 not tagged (read from data with high confidence), 259 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 724 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -53,25 +52,16 @@ Scanned 3249 spec table rows: **2392 tagged**, 598 not tagged (read from data wi
 | Networking and render smoothing | 23 | 13 | 13 | 13 | 7 |
 | Core simulation (provisional values) | 719 | 676 | 511 | 186 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 248 | 237 | 133 | 68 | 0 |
-| **All areas** | **2375** | 2097 | 1761 | 735 | 38 |
 | Ork faction | 249 | 238 | 134 | 68 | 0 |
-| **All areas** | **2392** | 2114 | 1774 | 738 | 38 |
+| **All areas** | **2399** | 2118 | 1777 | 741 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1382 |
-| confidence: low | 840 |
-| confidence: medium | 792 |
-| notes: ours | 415 |
-| kind: interpretation | 383 |
-| notes: estimate | 198 |
-| kind: estimate | 158 |
-| kind: ours | 1387 |
+| kind: ours | 1391 |
 | confidence: low | 851 |
-| confidence: medium | 794 |
+| confidence: medium | 797 |
 | notes: ours | 417 |
 | kind: interpretation | 386 |
 | notes: estimate | 202 |
