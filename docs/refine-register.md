@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3201 spec table rows: **2355 tagged**, 587 not tagged (read from data with high confidence), 259 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 714 rows of the changes document.
+Scanned 3203 spec table rows: **2356 tagged**, 588 not tagged (read from data with high confidence), 259 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 714 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,10 +50,10 @@ Scanned 3201 spec table rows: **2355 tagged**, 587 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 23 | 13 | 13 | 13 | 7 |
-| Core simulation (provisional values) | 695 | 655 | 495 | 181 | 1 |
+| Core simulation (provisional values) | 696 | 656 | 496 | 181 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 248 | 237 | 133 | 68 | 0 |
-| **All areas** | **2355** | 2082 | 1749 | 730 | 38 |
+| **All areas** | **2356** | 2083 | 1750 | 730 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -61,9 +61,9 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---:|
 | kind: ours | 1368 |
 | confidence: low | 838 |
-| confidence: medium | 782 |
+| confidence: medium | 783 |
 | notes: ours | 415 |
-| kind: interpretation | 382 |
+| kind: interpretation | 383 |
 | notes: estimate | 197 |
 | kind: estimate | 158 |
 | confidence: none (low) | 129 |
@@ -2422,7 +2422,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (695)
+### Core simulation (provisional values) (696)
 
 *Spec section: Provisional values in use*
 
@@ -2856,7 +2856,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-6F564A51` | Pistol tracer waits for the raise | the shot keeps its server time (the sim waits 0.167 s for the raise); the tracer starts from the raised muzzle once the posture's relaxed-to-ready blend has run; the impact waits with it; muzzle flash and sound stay (s) | kind: ours; confidence: medium | owner (item 38) | Pistol tracer waits for the raise: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the shot keeps its server time (the sim waits 0.167 s for the raise)… | ☐ |
 | `R-72C5ADE5` | Bolt tracers thinner and shorter | width x 0.42 of the data's (0.25 m beam), trail x 0.3 of the data's 40 m texture length; the data's texture, head speed and width curve kept (factor) | kind: ours; confidence: low | owner (item 45) | Bolt tracers thinner and shorter: compare with SM1 by feel or video. Ours: width x 0.42 of the data's (0.25 m beam), trail x 0.3 of the data's… | ☐ |
 | `R-5100F4DE` | Melta cone | (colours superseded by the fuzzy cone, see "Melta blast cone" above) purple-blue (0.42, 0.30, 1) near violet at the far end, pale blue-white (0.72, 0.88, 1) at the barrel; axis from the muzzle to the aim point (the basis scaled per local axis: `Basis.Scaled`… (colour) | kind: ours; confidence: low | owner (items 40, 46) | Melta cone: compare with SM1 by measuring on a flat spot of the same map. Ours: (colours superseded by the fuzzy cone, see "Melta blast cone" above)… | ☐ |
-| `R-23A54755` | Combat stim glow | the item-34 halo in red at 1.6 x size (4.0 x 4.5 m), pulsing, and a red health cross (0.55 m, procedural: the install has no usable world-sprite icon) 1.55 m above the lower spine, for the stim's `Lifetime` (data), fading over 0.35 s at the end; others see it… (m, s) | kind: ours; confidence: low | owner (item 48) | Combat stim glow: compare with SM1 by feel or video. Ours: the item-34 halo in red at 1.6 x size (4.0 x 4.5 m), pulsing, and a… | ☐ |
+| `R-80A30BFB` | Combat stim glow (superseded by fx/stim-original, 2026-11-14) | the item-34 halo in red at 1.6 x size (4.0 x 4.5 m) and a procedural red health cross above the head; **off by default since fx/stim-original**, back with `--old-stim-glow`; others see it from the release they see (`StimLeft` is not on the wire) (m, s) | kind: ours; confidence: low | owner (item 48) | Combat stim glow (superseded by fx/stim-original…: compare with SM1 by feel or video. Ours: the item-34 halo in red at 1.6 x size (4.0 x 4.5 m) and a procedural… | ☐ |
+| `R-712D2CD9` | Combat stim look: `fx_cntr` and the effects' `length` | `fx_cntr` is no rig marker or bone of the marine; it is read as the entity's centre, the model's origin at the feet (the icon's own 2.6 m offset puts the shield about 1.85 m above it, over the head); the play_fx `length` (1 to 3) is not used (its meaning is… (m) | kind: interpretation; confidence: medium | interpretation | Combat stim look: fx_cntr and the effects' length: compare with SM1 by measuring on a flat spot of the same map. Ours: fx_cntr is no rig marker or bone of the marine; it is read as the… | ☐ |
 
 *Spec section: Controller (gamepad; client only, no protocol change)*
 
