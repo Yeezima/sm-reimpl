@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3171 spec table rows: **2329 tagged**, 584 not tagged (read from data with high confidence), 258 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 708 rows of the changes document.
+Scanned 3180 spec table rows: **2337 tagged**, 585 not tagged (read from data with high confidence), 258 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 708 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -41,7 +41,7 @@ Scanned 3171 spec table rows: **2329 tagged**, 584 not tagged (read from data wi
 | Reactions (critical) | 25 | 22 | 23 | 12 | 0 |
 | Camera (critical) | 55 | 53 | 44 | 22 | 0 |
 | HUD and hit feedback (critical) | 72 | 67 | 52 | 11 | 0 |
-| Sound mix (critical) | 83 | 77 | 73 | 11 | 0 |
+| Sound mix (critical) | 91 | 85 | 78 | 11 | 0 |
 | Effects (critical) | 98 | 87 | 82 | 41 | 0 |
 | Game modes | 45 | 41 | 41 | 19 | 1 |
 | Perks | 59 | 48 | 31 | 25 | 0 |
@@ -53,15 +53,15 @@ Scanned 3171 spec table rows: **2329 tagged**, 584 not tagged (read from data wi
 | Core simulation (provisional values) | 695 | 655 | 495 | 181 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 248 | 237 | 133 | 68 | 0 |
-| **All areas** | **2329** | 2057 | 1731 | 728 | 38 |
+| **All areas** | **2337** | 2065 | 1736 | 728 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1343 |
-| confidence: low | 830 |
-| confidence: medium | 772 |
+| kind: ours | 1351 |
+| confidence: low | 831 |
+| confidence: medium | 776 |
 | notes: ours | 414 |
 | kind: interpretation | 382 |
 | notes: estimate | 196 |
@@ -1720,7 +1720,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-C2C74997` | Spear animations: the crosshair column | 2026-11-11 (lead: the carried blade crossed the crosshair's column in the own view at idle): the blade's head (collar, crossguard, blade) stays at least **3** degrees of the horizontal view to one side of the screen's centre column at idle in the default… (degrees) | kind: ours; confidence: low | ours (the reticle at rest is about 2 degrees across its half at the data's 40-degree view in the 1600 x 900 window) | Spear animations: the crosshair column: compare with SM1 with an overlaid screenshot taken from the same position. Ours: 2026-11-11 (lead: the carried blade crossed the crosshair's column in… | ☐ |
 
-### Sound mix (gameplay-critical) (83)
+### Sound mix (gameplay-critical) (91)
 
 *Spec section: Sound playback (M26b; client only, not simulated)*
 
@@ -1874,6 +1874,19 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-E206209F` | Stalker confirm level and placement | on the shooter, 2D, at the data's level: no distance falloff (`HitConfirmDistanceDb`, which took -18 dB from 40 m), no mix-pass +4 dB or 250 Hz high-pass (most of the smack's energy is under 150 Hz); the victim's material (ceramite_armour or flesh); with… (dB) | kind: interpretation; confidence: medium | the event's actions 1-2 are non-positioned with no distance curve | Stalker confirm level and placement: compare with SM1 by listening A/B at the same distance and state. Ours: on the shooter, 2D, at the data's level: no distance falloff… | ☐ |
 | `R-90DE024A` | Stalker confirm in Musou | an own Stalker / Daemon Eye Bolter hit on an Ork (predicted contact or server hit, one a shot through the gun-sound budget) posts `play_stalker_smack` on the shooter (flesh, ceramite_armour for an armoured Ork); the wet bolter smack at the Ork is not played… | kind: interpretation; confidence: medium; notes: ours | owner 2026-11-09; that Ork hits confirm as player hits do is ours | Stalker confirm in Musou: compare with SM1 by listening A/B at the same distance and state. Ours: an own Stalker / Daemon Eye Bolter hit on an Ork (predicted contact… | ☐ |
+
+*Spec section: Classic autocannon sound and the sound tuning tool (sound/tuning-tool; owner 2026-11-14; client only, presentation only, not simulated)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-F3CA448A` | Autocannon body speed pin | the body voices read the speed RTPC as 2.5 m/s (its 0 dB point) whatever the shooter's speed; every other layer of the post and every other event is untouched (m/s) | kind: ours; confidence: medium | the owner's report; the value is ours | Autocannon body speed pin: compare with SM1 by listening A/B at the same distance and state. Ours: the body voices read the speed RTPC as 2.5 m/s (its 0 dB point)… | ☐ |
+| `R-7F63A896` | Autocannon body level | +24 dB on the body voices (the body's loudest voice then -13 dB own at the voice against the heavy bolter's loudest single voice at -19 dB; the post's peak in the offline render -17 dBFS against the heavy bolter's 15 layers at -15 dBFS, from -138 standing and… (dB, LPF units) | kind: ours; confidence: low | the owner's "as loud as the heavy bolter"; the numbers are ours | Autocannon body level: compare with SM1 by listening A/B at the same distance and state. Ours: +24 dB on the body voices (the body's loudest voice then -13 dB own… | ☐ |
+| `R-A8D24B08` | Autocannon sound scope | Classic PvP's autocannon of the extended profile only (the event is posted only there: Musou Mode's autocannon plays the Stalker Bolter's files); `--old-classic-mix` plays the data's again | kind: ours | the owner | Autocannon sound scope: compare with SM1 by listening A/B at the same distance and state. Ours: Classic PvP's autocannon of the extended profile only (the event is… | ☐ |
+| `R-5E86FA86` | Tuner groups | 25 groups (master; your gun, melee, jump pack, footsteps, voice, other; other players' bolters and pistols, heavy bolter and autocannon, plasma, melta, lascannon, other; their footsteps, jump packs, melee, voices; melee and bullet impacts, explosions… | kind: ours; confidence: medium | the owner's list; the name rules are our reading of the install's event names | Tuner groups: compare with SM1 by listening A/B at the same distance and state. Ours: 25 groups (master; your gun, melee, jump pack, footsteps, voice… | ☐ |
+| `R-DE2F7D1B` | Tuner volume | each group -40 to +24 dB in 0.5 dB steps, added to the voice on top of the Options menu's volumes; the master group adds to every group's (dB) | kind: ours | the owner | Tuner volume: compare with SM1 by listening A/B at the same distance and state. Ours: each group -40 to +24 dB in 0.5 dB steps, added to the voice on top… | ☐ |
+| `R-5C0D8B0A` | Tuner distance fall-off | per group, off by default (the data's curve and the match's loudness rule): on = the voice's level at 0 m, full within the minimum distance (0.5 to 100 m, 3 m at the switch), then 0 to 24 dB per doubling of the distance (6 dB = inverse distance, the default)… (m, dB per doubling) | kind: ours; confidence: medium | the owner ("how it falls off at distance") | Tuner distance fall-off: compare with SM1 by listening A/B at the same distance and state. Ours: per group, off by default (the data's curve and the match's loudness… | ☐ |
+| `R-DA0B1EB1` | Tuner reverb | one scale 0 to 3 on the map's reverb send (the mixer has a single shared reverb on the effects bus, no per-voice send) (factor) | kind: ours; confidence: medium | the owner ("etc."); the single reverb is the mixer's limit | Tuner reverb: compare with SM1 by listening A/B at the same distance and state. Ours: one scale 0 to 3 on the map's reverb send (the mixer has a single… | ☐ |
+| `R-B986C0DF` | Tuner files | the owner's changes (only groups that differ from the defaults) in `%LOCALAPPDATA%\sm-reimpl\sound-tuning.json`, read at client start; the shipped defaults in `config/sound-tuning-defaults.json` (absent = every group 0 dB and the data's curve; written by… | kind: ours | the owner's request | Tuner files: compare with SM1 by listening A/B at the same distance and state. Ours: the owner's changes (only groups that differ from the defaults) in… | ☐ |
 
 ### Effects (gameplay-critical) (98)
 
