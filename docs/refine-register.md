@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3225 spec table rows: **2372 tagged**, 594 not tagged (read from data with high confidence), 259 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 725 rows of the changes document.
+Scanned 3226 spec table rows: **2373 tagged**, 594 not tagged (read from data with high confidence), 259 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 725 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,10 +50,10 @@ Scanned 3225 spec table rows: **2372 tagged**, 594 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 23 | 13 | 13 | 13 | 7 |
-| Core simulation (provisional values) | 705 | 665 | 502 | 183 | 1 |
+| Core simulation (provisional values) | 706 | 666 | 503 | 183 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 248 | 237 | 133 | 68 | 0 |
-| **All areas** | **2372** | 2097 | 1759 | 734 | 38 |
+| **All areas** | **2373** | 2098 | 1760 | 734 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -61,9 +61,9 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---:|
 | kind: ours | 1381 |
 | confidence: low | 841 |
-| confidence: medium | 789 |
+| confidence: medium | 790 |
 | notes: ours | 415 |
-| kind: interpretation | 384 |
+| kind: interpretation | 385 |
 | notes: estimate | 199 |
 | kind: estimate | 158 |
 | confidence: none (low) | 129 |
@@ -2444,7 +2444,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (705)
+### Core simulation (provisional values) (706)
 
 *Spec section: Provisional values in use*
 
@@ -3059,6 +3059,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-146B3658` | Rotation signal (protocol 78) | bit 5 of the match block's state byte (`MatchView.NextMap`) while an ended match is followed by another map; the client joins the same address again when the restart clock shows 30 ticks (1 s) or fewer; the server answers no join from then on and exits 0.8 s… (bit, ticks, s) | kind: ours; notes: estimate | ours | Rotation signal (protocol 78): compare with SM1 by turning the view at full speed with the same input settings and timing a half turn. Ours: bit 5 of the match block's state byte (MatchView.NextMap) while an… | ☐ |
 | `R-C661F575` | Lobby map choice | the Host panel's MAP row: Manufactorum (default), the other playable maps by their install names, ROTATION (ALL MAPS) | kind: ours | owner 2026-11-15 | Lobby map choice: compare with SM1 by feel or video. Ours: the Host panel's MAP row: Manufactorum (default), the other playable… | ☐ |
 | `R-415FBC68` | Material blend modes read | `BlendMode` 8 and 10: alpha cut-out (scissor at 0.5); 1: alpha blend (the vista cards, drawn unlit); 255: opaque. 10 is read like 8 | kind: interpretation; confidence: low; notes: guess | the other maps' materials (`smtool map-emissive --blend`); 8 as in M-materials | Material blend modes read: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: BlendMode 8 and 10: alpha cut-out (scissor at 0.5); 1: alpha blend… | ☐ |
+| `R-919221A1` | Sky boxes not drawn | surfaces whose material shader starts with `sky_` (`seq_NN_sky`, YCoCg textures) are not drawn as map geometry; the lighting's sky shows | kind: interpretation; confidence: medium | in-game views before and after (`smtool map-emissive --material Around,TopBottom`) | Sky boxes not drawn: compare with SM1 by feel or video. Ours: surfaces whose material shader starts with sky_ (seq_NN_sky, YCoCg… | ☐ |
 
 *Spec section: Swing step, the lock-on's lunge and the air jump by mode (sim/swing-step, sim/lock-reach, sim/air-jumps; protocol 59, no wire change)*
 
