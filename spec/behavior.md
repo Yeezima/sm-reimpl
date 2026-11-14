@@ -1523,6 +1523,14 @@ Source: the owner, 2026-11-14: "allow a devastator/havoc player in both game mod
 | A press the tick of the release | a melee press in that tick starts the next swing (a light attack, or a stomp again from F) at once, within the usual melee wait (the stomp's combo window has closed by 1.2 s) | - | per tick | `Combat.StepPlayerCore` | the release acting as the clip's end | ours | medium |
 | Restore switch | `--old-stomp-release` (server and every client; config hash only when on): the stomp locks to its clip's end (1.667 s) | - | - | `SimConfig.StompRelease` | ours | ours | - |
 
+### A combat stim starts regeneration at once (sim/stim-regen-now; protocol 75)
+
+Source: the owner's recollection of the original, 2026-11-14: "when using a combat stim that natural regeneration or boosted by larramans regen rate should kick in immediately even if there is still time left before natural regeneration begins after damage, normally." Code: `Combat.StepPlayerCore` (after the `since` update). Tests: `StimRegenNowTests`.
+
+| Rule | Value | Units | Timing basis | Where | Source | Kind | Confidence |
+|---|---|---|---|---|---|---|---|
+| Stim ends the health regeneration delay | at the stim's release (0.3 s into its use) health regeneration no longer waits for its delay (5 s, less Larraman's Blessing's -1.5 s) until the next damage (`PlayerState.HealthRegenWaived`, bit 6 of the snapshot's damage byte), so health regenerates from the next tick at the normal rate (5/s) or Larraman's boosted rate (45/s); the stim's own modifiers are unchanged. Classic PvP and Musou Mode alike. Health only (owner's decision, 2026-11-14): the armour keeps its own 7 s delay from the damage, untouched by the stim | s | at the release tick | `Combat.StepPlayerCore` | the owner's recollection of the original, 2026-11-14 | owner recollection | medium |
+
 ### No firing during the roll (sim/roll-fire-pitch; protocol 51, no wire change)
 
 Source: the owner, 2026-11-01: "you can currently shoot any gun while rolling as tactical marine. ensure you can never shoot while the roll animation is playing."

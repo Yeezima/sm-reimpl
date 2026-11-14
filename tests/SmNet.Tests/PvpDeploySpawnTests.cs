@@ -172,7 +172,7 @@ public class PvpDeploySpawnTests(ITestOutputHelper output)
         Assert.False(Assert.IsType<Setup>(Protocol.Read(Protocol.Write(setup with { Flags = 0 }))).Deploy);
         bytes[^1] = 2;
         Assert.Null(Protocol.Read(bytes));
-        Assert.Equal(74, Protocol.Version);
+        Assert.Equal(75, Protocol.Version);
     }
 
     [Fact]
