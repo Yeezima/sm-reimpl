@@ -224,7 +224,7 @@ public partial class NetworkView
         TfwCheck("Enter on DEPLOY sends a command", _tfwPanel is null && (_tfwState.Commands.Pending > waiting || TfwNow.Phase != TfwRunPhase.Hub), $"pending {_tfwState.Commands.Pending}");
         if (!await TfwUntil("the server echoes it: travel", () => TfwNow.Phase == TfwRunPhase.Travel, 5.0)) return false;
         var battle = final ? TfwRunPhase.FinalAssault : TfwRunPhase.Battle;
-        return await TfwUntil($"the Stormbird lands: {battle}", () => TfwNow.Phase == battle && _tfwState.Objectives.Count == TfwBattle.CommanderObjective + 1, 10.0);
+        return await TfwUntil($"the Stormbird lands: {battle}", () => TfwNow.Phase == battle && _tfwState.Objectives.Count == TfwBattle.CommanderObjective + 1, CmdFloat("--tfw-landing-wait", 10f));   // test aid: a fixed-rate recording runs the client faster than the server's travel
     }
 
     /// <summary>One battle won on <paramref name="lane"/>: the player walks to each position in turn, it is secured, the commander comes and falls (<c>SM_TFW_WIN_TEST</c>), and the free pickup brings it home.</summary>

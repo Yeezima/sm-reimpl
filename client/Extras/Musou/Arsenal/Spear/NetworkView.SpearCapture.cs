@@ -197,14 +197,16 @@ public partial class NetworkView
         var client = _client!;
         if (!await TfwTestDeploy(TfwLane.B)) return;
         await TfwWait(2.0);
-        TfwCheck("the power spear is the melee weapon", _config is not null && SpearRules.Wields(_config, client.Predicted), MeleeWargear(client.Predicted) ?? "none");
+        string kind = CmdArg("tfw-spear-film-kind") ?? "chain";
+        if (kind != "lllf") TfwCheck("the power spear is the melee weapon", _config is not null && SpearRules.Wields(_config, client.Predicted), MeleeWargear(client.Predicted) ?? "none");
+        else GD.Print($"SPEARFILM melee weapon {MeleeWargear(client.Predicted) ?? "none"}");
         await TfwSpearOpenSpot();
         TfwKey(Key.W, true);
         await TfwWait(3.0);
         TfwKey(Key.W, false);
         await TfwWait(1.0);
         float facing = _yaw;
-        string kind = CmdArg("tfw-spear-film-kind") ?? "chain", views = CmdArg("tfw-spear-views") is { Length: > 0 } v ? v : "player,side";
+        string views = CmdArg("tfw-spear-views") is { Length: > 0 } v ? v : "player,side";
         foreach (var (cam, view) in new[] { (0, "player"), (1, "front"), (2, "side") })
         {
             if (!views.Contains(view, StringComparison.OrdinalIgnoreCase)) continue;
@@ -217,7 +219,7 @@ public partial class NetworkView
             {
                 await TfwFrames();
                 var pose = _local?.WeaponPose;
-                rows.Append($"{Engine.GetFramesDrawn()},{Time.GetTicksMsec() - t0},{pose?.Clip?.Name ?? "none"},{pose?.Time ?? 0f:F4};");
+                rows.Append($"{Engine.GetFramesDrawn()},{Time.GetTicksMsec() - t0},{pose?.Clip?.Name ?? "none"},{pose?.Time ?? 0f:F4},{(client.Predicted.MeleeStep > 0 ? (client.Predicted.MeleeHeavy ? "H" : "L") + client.Predicted.MeleeStep + ":" + (AttackClip(client.Predicted) ?? "?") : "-")};");
             }
             async Task Hold(double seconds) { ulong until = Time.GetTicksMsec() + (ulong)(seconds * 1000); while (Time.GetTicksMsec() < until) await Tick(); }
             async Task Tap(GameAction a) { TfwAction(a, true); await Hold(0.12); TfwAction(a, false); await Tick(); }
@@ -227,6 +229,19 @@ public partial class NetworkView
                 await Tap(GameAction.Melee); await Hold(0.85);
                 await Tap(GameAction.Melee); await Hold(0.85);
                 await Tap(GameAction.Melee); await Hold(3.2);
+            }
+            else if (kind == "lllf")   // docs/commands.md: the sword's light, light, light, F (X,X,X,Y): a melee press from rest and in each strike's combo window (from 0.9 s) until the third light strike has played into its window, then F; the clip drawn is logged on every frame
+            {
+                ulong until = Time.GetTicksMsec() + 20000;
+                while (Time.GetTicksMsec() < until)
+                {
+                    var p = client.Predicted;
+                    if (p.MeleeStep == 3 && !p.MeleeHeavy && p.MeleeTime >= 0.9f) break;
+                    if (p.MeleeStep == 0 || (!p.MeleeHeavy && p.MeleeStep < 3 && p.MeleeTime >= 0.9f)) { await Tap(GameAction.Melee); await Hold(0.2); }
+                    else await Tick();
+                }
+                await Tap(GameAction.StunStrike);
+                await Hold(4.5);
             }
             else if (kind == "snap") { await Tap(GameAction.StunStrike); await Hold(4.0); }
             else
