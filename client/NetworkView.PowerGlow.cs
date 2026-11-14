@@ -23,6 +23,23 @@ public partial class NetworkView
     bool HoldMeleeDemo => _holdMelee ??= CmdFlag("hold-melee");
     bool? _holdMelee;
 
+    /// <summary>Capture aid <c>--fire-test [--fire-yaw deg]</c> (with <c>--bot</c>): the bot stands still and fires 0.25 s every 1.2 s at a fixed yaw and level pitch (a wall), for the Kraken tracer's stills.</summary>
+    PlayerInput? FireTestInput(PlayerState me, uint tick)
+    {
+        if (!CmdFlag("fire-test") || !me.Alive) { _fireTestStart = -1; return null; }
+        if (_fireTestStart < 0)
+        {
+            _fireTestStart = _connectedFor + 2.0;
+            _fireTestYaw = float.TryParse(CmdArg("fire-yaw"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var deg) ? deg * MathF.PI / 180f : _yaw;
+        }
+        _yaw = _fireTestYaw; _pitch = 0f;
+        double t = _connectedFor - _fireTestStart;
+        bool fire = t >= 0 && (t % 1.2) < 0.25;
+        return new PlayerInput(tick, 0f, 0f, _fireTestYaw, fire ? InputButtons.Fire : InputButtons.None, 0f);
+    }
+    double _fireTestStart = -1;
+    float _fireTestYaw;
+
     bool NoPowerLight => _noPowerLight ??= CmdFlag("no-power-light");
     bool? _noPowerLight;
 

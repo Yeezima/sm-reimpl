@@ -799,6 +799,7 @@ public partial class NetworkView : Node3D
         if (SwingTestInput(me, tick) is { } swingTest) return swingTest;   // anim/hammer-swing test aid --swing-test (NetworkView.SwingTest.cs)
         if (StompMoveTestInput(me, tick) is { } stompMove) return stompMove;   // anim/stomp-to-move test aid --stomp-move-test (NetworkView.StompMoveTest.cs)
         if (CameraTestInput(me, tick) is { } cameraTest) return cameraTest;   // camera/hop-and-walls test aid --camera-test (NetworkView.CameraTest.cs)
+        if (FireTestInput(me, tick) is { } fireTest) return fireTest;   // fx/weapon-visuals capture aid --fire-test (NetworkView.PowerGlow.cs)
         if (CarryTestInput(me, tick) is { } carry) return carry;   // anim/relic-bolter-idle test aid --carry-test (NetworkView.CarryTest.cs)
         if (DashWallTestInput(me, tick) is { } dashWall) return dashWall;   // feel/jump-pack-2 test aid --dash-wall-test (NetworkView.DashAttack.cs)
         // A navigation jump in flight keeps its checked controls (NetworkView.Nav.cs).
