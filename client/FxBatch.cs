@@ -60,6 +60,8 @@ public sealed partial class FxBatch : Node3D
     public static bool NoPull { get; set; } = Array.Exists(OS.GetCmdlineUserArgs(), a => a == "--no-fx-pull");
     /// <summary>The effect being drawn is a ground effect (set by <see cref="FxPlayer"/> per effect; see <see cref="GroundSoftScale"/>).</summary>
     public bool SoftGround { get; set; }
+    /// <summary>plasma-soft-visuals: the effect being drawn is a plasma one; its beam and streamer quads fade out across their width (<see cref="SmClient.Bullets.PlasmaSoftEdges"/>).</summary>
+    public bool SoftEdge { get; set; }
     /// <summary><c>--no-ground-soft</c> (test aid): ground effects drawn with the M42 fades only (the before picture).</summary>
     public static bool NoGroundSoft { get; set; } = Array.Exists(OS.GetCmdlineUserArgs(), a => a == "--no-ground-soft");
     /// <summary>M42 near-camera fade: full opacity beyond <see cref="NearK"/> x the quad's size (clamped), zero at <see cref="NearZeroK"/> of that. **Ours.**</summary>
@@ -173,6 +175,7 @@ void vertex() {
     float la = length(ax), lb = length(ay);
     // Fade size: the short side of a long thin quad (tracers, beams), else the long side. God rays (kind 4, 5) keep the long side, as reviewed.
     float vcode = floor(v_info.z + 0.5);
+    if (vcode > 127.5) vcode -= 128.0;   // plasma-soft-visuals: the soft-edge flag
     if (vcode > 63.5) vcode -= 64.0;   // fx/chaos-plasma-tracer: the neutral-texture flag
     if (vcode > 31.5) vcode -= 32.0;   // feel/jump-pack: the ground-soft flag (below)
     bool god_ray = floor(vcode / 4.0 + 0.01) > 3.5;
@@ -202,6 +205,9 @@ vec2 sprite_to_atlas(vec2 s, vec4 r) {
 void fragment() {
     float u_raw = mix(v_info.x, v_info.y, UV.x);
     float code = floor(v_info.z + 0.5);
+    // plasma-soft-visuals: +128 marks a plasma effect's beam or streamer quad: its alpha falls to 0 across the width (no hard line at the long sides).
+    bool soft_edge = code > 127.5;
+    if (soft_edge) code -= 128.0;
     // fx/chaos-plasma-tracer: +64 marks a quad drawn without its texture's own hue (the Chaos plasma tracer's teal wisps, recoloured by the tint).
     bool neutral = code > 63.5;
     if (neutral) code -= 64.0;
@@ -250,7 +256,11 @@ void fragment() {
     }
     vec3 base = neutral ? vec3(max(t.r, max(t.g, t.b))) : t.rgb;
     ALBEDO = base * COLOR.rgb;
-    ALPHA = t.a * COLOR.a * fade;
+    float a = t.a * COLOR.a * fade;
+    // plasma-soft-visuals (PlasmaSoftEdges.Lateral / Radial): a ribbon fades out across its width, a camera-facing glow card out toward its rim (a big square card's straight, rotated edge was a hard line).
+    if (soft_edge) a *= smoothstep(0.15, 2.5, v_orig_d);   // plasma-soft-visuals: a trail the camera is inside fades out near it instead of being cut by the near plane in a straight line
+    if (soft_edge) a *= (kind < 0.5) ? 1.0 - smoothstep(0.55, 1.0, length(UV * 2.0 - 1.0)) : 1.0 - smoothstep(0.2, 1.0, abs(UV.y * 2.0 - 1.0));
+    ALPHA = a;
 }
 ";
 
@@ -358,7 +368,7 @@ void fragment() {
                     QuadKind kind = QuadKind.CameraBillboard, bool neutral = false)
     {
         if (colour.A <= 0.003f) return true;
-        mode = Math.Clamp(mode, 0, 3) + 4 * (int)kind + (SoftGround && Fades && !NoGroundSoft ? 32 : 0) + (neutral ? 64 : 0);
+        mode = Math.Clamp(mode, 0, 3) + 4 * (int)kind + (SoftGround && Fades && !NoGroundSoft ? 32 : 0) + (neutral ? 64 : 0) + (SoftEdge && Fades && (kind is QuadKind.AxisBillboard or QuadKind.FlatCard or QuadKind.CameraBillboard) ? 128 : 0);
         if (additive)
         {
             if (_nAdd >= Capacity) { _dropped++; return false; }

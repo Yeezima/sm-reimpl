@@ -6,6 +6,7 @@ using System.IO;
 using Godot;
 using SmContent;
 using SmFormats.Fx;
+using SmClient.Bullets;
 
 namespace SmClient;
 
@@ -18,6 +19,10 @@ public sealed class FxEffect
     public float Scale = 1f;
     /// <summary>hit-sparks-flashes (ours): when above 0, no particle of this effect ends farther than this many metres from <see cref="Origin"/> (<c>HitFxScaleRules.LimitReach</c>); 0: no cap.</summary>
     public float ReachCap;
+    /// <summary>plasma-soft-visuals (owner 2026-11-14, ours): when above 0, a spray's spawn offset (its emit offset and volume) is cut to this many metres, so the plasma chambers' crawling arcs (the data lets them wander up to 2.5 m up) stay on the gun; 0: no cut.</summary>
+    public float SprayLeash;
+    /// <summary>plasma-soft-visuals (ours): a plasma effect: its beam and streamer quads fade out across the width and a ribbon fades out at its tail (<c>PlasmaSoftEdges</c>).</summary>
+    public bool SoftEdges;
     /// <summary>Where a beam-type effect ends (tracers, the melta blast); beams whose axis is the effect's axis span the distance to it.</summary>
     public Vector3? Target;
     /// <summary>Called each frame for an attached effect: the marker's world place, or null when it is gone (the effect then stays where it was).</summary>
@@ -164,6 +169,8 @@ public sealed partial class FxPlayer : Node3D
     /// fx/no-smoke (the owner, 2026-10-29, a deliberate change from the original): smoke, dust, mist and haze sprites (<see cref="CNode.Smoke"/>, <see cref="SmContent.SmokeRules"/>) are not
     /// drawn; impacts keep their flash, sparks, debris and decal, explosions their fireball and flash. <c>--smoke on</c> (test aid, before / after) draws them as the data has them.
     /// </summary>
+    /// <summary><c>--old-plasma-edges</c> (plasma-soft-visuals): the plasma ribbons keep their hard edges and the chambers' arcs their 2.5 m reach.</summary>
+    public static bool OldPlasmaEdges { get; set; } = Array.IndexOf(OS.GetCmdlineUserArgs(), "--old-plasma-edges") >= 0;
     public static bool ShowSmoke { get; set; } = SmokeRules.SwitchOn(OS.GetCmdlineUserArgs());
 
     /// <summary>
@@ -312,7 +319,7 @@ public sealed partial class FxPlayer : Node3D
         var e = new FxEffect
         {
             System = system, Origin = origin, Axes = axes, Scale = scale, Target = target, Follow = follow, Age = -delay, Repeat = repeat, Priority = priority,
-            Seed = _nextSeed++ * 2654435761u, Name = name, Ambient = ambient, Tint = tint, SmokeRein = smokeRein, FollowFor = followFor,
+            Seed = _nextSeed++ * 2654435761u, Name = name, Ambient = ambient, SoftEdges = !OldPlasmaEdges && PlasmaSoftEdges.Applies(name), Tint = tint, SmokeRein = smokeRein, FollowFor = followFor,
             Life = lifetime > 0f ? lifetime : system.Lifetime is { } l ? l + 0.05 : repeat ? 8.0 : 3.0,
         };
         if (repeat && system.Lifetime is { } rl && rl > 0.01f) e.Life = double.PositiveInfinity;
@@ -551,13 +558,13 @@ public sealed partial class FxPlayer : Node3D
         if (e.Repeat && e.System.Lifetime is { } l && l > 0.05f && !e.System.HasStreamer) age %= l + 0.05;
         var root = new Ctx(e.Origin, e.Axes, e.Scale, e.Seed);
         int before = _frameQuads;
-        if (_batch is not null) _batch.SoftGround = e.SoftGround;
+        if (_batch is not null) { _batch.SoftGround = e.SoftGround; _batch.SoftEdge = e.SoftEdges; }
         foreach (var node in e.System.Roots)
         {
             if (e.GroundOnly && !HoldsDropper(node)) continue;
             DrawNode(e, node, root, age, 0, Mix(e.Seed, 1));
         }
-        if (_batch is not null) _batch.SoftGround = false;
+        if (_batch is not null) { _batch.SoftGround = false; _batch.SoftEdge = false; }
         e.QuadsThisFrame = _frameQuads - before;
     }
 
@@ -691,9 +698,11 @@ public sealed partial class FxPlayer : Node3D
                 // feel/muzzle-smoke (owner's change, NetworkView.Smoke.cs): a gun's smoke puffs keep their forward speed and lose part of their sideways speed.
                 var moveDir = e.SmokeRein < 1f && HoldsSmoke(n) ? c.B * new Vector3(local.X * e.SmokeRein, local.Y, local.Z * e.SmokeRein) : dir;
                 float speed = At(n.Speed, te, 0f) * (n.ScaleSpeed ? c.S : 1f);
-                var origin = c.Pos + c.B * (new Vector3(At(n.OffX, te, 0f), At(n.OffY, te, 0f), At(n.OffZ, te, 0f)) * c.S);
+                var spawnOff = new Vector3(At(n.OffX, te, 0f), At(n.OffY, te, 0f), At(n.OffZ, te, 0f)) * c.S;
                 if (!n.FromPoint)
-                    origin += c.B * (new Vector3(R(ps, 3) - 0.5f, R(ps, 4) - 0.5f, R(ps, 5) - 0.5f) * new Vector3(At(n.VolX, te, 0f), At(n.VolY, te, 0f), At(n.VolZ, te, 0f)) * c.S);
+                    spawnOff += new Vector3(R(ps, 3) - 0.5f, R(ps, 4) - 0.5f, R(ps, 5) - 0.5f) * new Vector3(At(n.VolX, te, 0f), At(n.VolY, te, 0f), At(n.VolZ, te, 0f)) * c.S;
+                if (e.SprayLeash > 0f && spawnOff.Length() > e.SprayLeash) spawnOff = spawnOff.Normalized() * e.SprayLeash;   // plasma-soft-visuals
+                var origin = c.Pos + c.B * spawnOff;
                 if (e.Collisions && n.Collides)
                 {
                     // M41: the dropper lands where it starts (the effect sits on the ground): its collision descriptions play in the surface's frame (+Y = the normal),
@@ -853,7 +862,7 @@ public sealed partial class FxPlayer : Node3D
     {
         if (n.Distortion || _batch is null || !_batch.HasRoom) return;
         if (!LeafTime(n, age, seed, out float t, out float dur)) return;
-        int N = e.WidthAlongTrail ? 30 : e.SoftHead ? 14 : 8;   // fix/plasma-trail-slab: a finer ribbon for the rounded, faded head; plasma-original-fx: for the widening along the ribbon (each quad is one width and one colour: 30 keeps the steps small)
+        int N = e.WidthAlongTrail ? 30 : (e.SoftHead ? 14 : e.SoftEdges ? 24 : 8);   // fix/plasma-trail-slab: a finer ribbon for the rounded, faded head; plasma-original-fx: for the widening along the ribbon (each quad is one width and one colour: 30 keeps the steps small)
         float trail = At(n.Length, t, 0.3f);
         if (trail <= 0.001f) return;
         float seconds = n.LengthAsSeconds ? trail : trail / MathF.Max(2f, c.InParticle ? MathF.Abs(c.Speed) : 4f);
@@ -907,6 +916,7 @@ public sealed partial class FxPlayer : Node3D
                 width *= round; col = new Color(col.R * round, col.G * round, col.B * round, col.A * round);   // additive: the colour fades too, not only its alpha
             }
             if (e.SoftHead && f > 0.6f) { float fade = MathF.Max(0f, (1f - f) / 0.4f); col = new Color(col.R * fade, col.G * fade, col.B * fade, col.A * fade); }   // the tail fades out too: a young ball's trail ends where it was launched, not as a cut-off rectangle
+            if (e.SoftEdges) { float tail = PlasmaSoftEdges.Ribbon(f); col = new Color(col.R * tail, col.G * tail, col.B * tail, col.A * tail); }   // plasma-soft-visuals: the ribbon fades in from its head and out toward its tail
             float u0 = u, u1 = n.MeterPerU > 0.001f ? u + len / n.MeterPerU : (j + 1f) / N;
             if (n.MeterPerU <= 0.001f) u0 = (float)j / N;
             u = u1;

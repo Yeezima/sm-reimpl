@@ -166,6 +166,7 @@ public partial class NetworkView
                               tint: RaceTint(w.Wargear, p.Name));
             if (e is null) continue;
             e.StopOnLost = true;
+            if (into is not null && !FxPlayer.OldPlasmaEdges) e.SprayLeash = Bullets.PlasmaSoftEdges.ArcLeash;   // plasma-soft-visuals: the chamber's arcs stay on the gun, not 2.5 m up in the air
             into?.Add((e, p.OnStop));
             _plasmaFxStarted++;
             if (LogPlasmaFx) GD.Print($"t {_connectedFor:F1} s: P{id} {w.Wargear} {why}: {p.Name} x{(p.Scale <= 0f ? 1f : p.Scale):0.##} at {marker}{(into is null ? "" : " (loop)")}");
