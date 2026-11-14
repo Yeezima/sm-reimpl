@@ -475,7 +475,7 @@ public partial class NetworkView
             eye = DampFraction(_specFraction, !(first || teleported || SpectateCuts), castFrom, eye, delta, _aheadFrom, _aheadTo, SpectatePullMaxSpeed);
         }
         else _specFraction.Reset();
-        if (mode != "inspect") eye = ClearOfBodies(eye, me, includeOwn: true, _specTarget, delta);
+        if (mode != "inspect" && mode != "inspect-melee") eye = ClearOfBodies(eye, me, includeOwn: true, _specTarget, delta);
         eye = Depenetrate(eye);
         _cameraPlaced = true;
         var toTarget = _specTarget - eye;

@@ -19,6 +19,10 @@ public partial class NetworkView
     readonly List<int> _powerGone = new();
     int _powerLightsStarted, _knifeFields;
 
+    /// <summary>Capture aid <c>--hold-melee</c>: the own melee weapon stays in hand (use with <c>--spectate inspect-melee</c>).</summary>
+    bool HoldMeleeDemo => _holdMelee ??= CmdFlag("hold-melee");
+    bool? _holdMelee;
+
     bool NoPowerLight => _noPowerLight ??= CmdFlag("no-power-light");
     bool? _noPowerLight;
 
