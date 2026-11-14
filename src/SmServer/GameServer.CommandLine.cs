@@ -67,6 +67,8 @@ public sealed record ServerArguments
     public bool OldHopRules { get; init; }
     /// <summary>sim/stomp-release (restore switch): the stomp locks the player to the end of its clip (<see cref="SimConfig.StompRelease"/>; config hash: clients need it too).</summary>
     public bool OldStompRelease { get; init; }
+    /// <summary>sim/kick-push (restore switch): the heavy classes' kick pushes with the data's full knockback (<see cref="SimConfig.KickPushCut"/>; config hash: clients need it too).</summary>
+    public bool OldKickPush { get; init; }
     /// <summary>musou/melee-spam (restore switch): Musou Mode keeps the melee waits (<see cref="SimConfig.MusouMeleeCooldown"/>; config hash: clients need it too).</summary>
     public bool MusouMeleeCooldown { get; init; }
     /// <summary>musou/melee-heal-cap (restore switch): no cap of 3 heals per melee swing in Musou Mode (<see cref="SimConfig.MusouUncappedMeleeHeal"/>; config hash: clients need it too).</summary>
@@ -170,6 +172,7 @@ public static class ServerCommandLine
                     "--old-charge-melee-chain" => a with { OldChargeMeleeChain = true },
                     "--old-hop-rules" => a with { OldHopRules = true },
                     "--old-stomp-release" => a with { OldStompRelease = true },
+                    "--old-kick-push" => a with { OldKickPush = true },
                     "--musou-melee-cooldown" => a with { MusouMeleeCooldown = true },
                     "--musou-uncapped-melee-heal" => a with { MusouUncappedMeleeHeal = true },
                     "--old-stim-use" => a with { OldStimUse = true },

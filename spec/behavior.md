@@ -1523,6 +1523,15 @@ Source: the owner, 2026-11-14: "allow a devastator/havoc player in both game mod
 | A press the tick of the release | a melee press in that tick starts the next swing (a light attack, or a stomp again from F) at once, within the usual melee wait (the stomp's combo window has closed by 1.2 s) | - | per tick | `Combat.StepPlayerCore` | the release acting as the clip's end | ours | medium |
 | Restore switch | `--old-stomp-release` (server and every client; config hash only when on): the stomp locks to its clip's end (1.667 s) | - | - | `SimConfig.StompRelease` | ours | ours | - |
 
+### The kick pushes 60 % less (sim/kick-push; owner 2026-11-14, protocol 75, no wire change)
+
+Source: the owner, 2026-11-14: "only the devastator/havoc kick move (right mouse button) knocks back too far. reduce the knockback by 60% - the kick move only. don't touch the stomp." Code: `KickTuning` (`PushScale`, `WithPush`), `SimConfig.KickPushCut` (restore switch `--old-kick-push`), `World.ResolveMelee`. Tests: `KickPushTests`.
+
+| Rule | Value | Units | Timing basis | Where | Source | Kind | Confidence |
+|---|---|---|---|---|---|---|---|
+| The kick's knockback | the Devastator's and the Havoc's kick (`MeleeStep.Kick`, `ability_displace_kick`; one step shared by both) knocks the player it hits back 40 % of the data's distance (the hit reaction's backward metres x0.4; kind, up, right and duration unchanged; the file's value is still read as it is). The stomp, other attacks and Musou's enemies (their own knockback constants) are unchanged | m (x0.4) | at the kick's hit | `KickTuning.WithPush` | the owner's request, 2026-11-14 | owner's instruction (ours) | high |
+| Restore switch | `--old-kick-push` (server and every client; config hash only when on): the data's full knockback | - | - | `SimConfig.KickPushCut` | ours | ours | - |
+
 ### No firing during the roll (sim/roll-fire-pitch; protocol 51, no wire change)
 
 Source: the owner, 2026-11-01: "you can currently shoot any gun while rolling as tactical marine. ensure you can never shoot while the roll animation is playing."

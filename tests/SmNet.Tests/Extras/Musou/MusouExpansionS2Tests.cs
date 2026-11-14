@@ -429,7 +429,7 @@ public class MusouExpansionS2Tests
         Assert.NotNull(read);
         Assert.Equal(entities.Select(e => (e.Id, e.Type, e.State)), read.Select(e => (e.Id, e.Type, e.State)));
         Assert.True(MusouSim.Version >= 14u);   // S2 raised it; later stages raise it further
-        Assert.Equal(74u, Protocol.Version);   // main's protocol (the damage mark raised it to 71, headshots raised it to 64 at integration, net/responsive to 65, the charge cancel to 66, the ally slide to 67, the Classic stims to 68); the Musou expansion does not raise it
+        Assert.Equal(75u, Protocol.Version);   // main's protocol (the damage mark raised it to 71, headshots raised it to 64 at integration, net/responsive to 65, the charge cancel to 66, the ally slide to 67, the Classic stims to 68); the Musou expansion does not raise it
     }
 
     // ---------------------------------------------------------------- isolation
