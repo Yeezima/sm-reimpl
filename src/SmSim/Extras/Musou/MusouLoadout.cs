@@ -27,8 +27,16 @@ public static class MusouLoadout
         }).ToList();
         AppendLibrarian(classes, config.LibrarianVariant.WarpPull);
         var bodies = config.Bodies;
-        AppendDreadnought(classes, ref bodies);
-        return config with { Classes = classes, Bodies = bodies, MusouDefaultPrimaries = config.MusouDefaultPrimaries.Count > 0 ? config.MusouDefaultPrimaries : config.Classes.Select(c => c.Primary).ToList() };
+        int before = classes.Count;
+        AppendDreadnought(classes, config.Weapons, ref bodies);
+        var defaults = config.MusouDefaultPrimaries.Count > 0 ? config.MusouDefaultPrimaries : config.Classes.Select(c => c.Primary).ToList();
+        if (classes.Count > before)
+        {
+            // The Dreadnought's cannon is his default primary (the strip above never touched him: his Primary is -1 so the config stays Prepared; the war's arming reads the default by class index).
+            defaults = [.. defaults, .. Enumerable.Repeat(-1, Math.Max(0, before - defaults.Count))];
+            defaults = [.. defaults, .. Enumerable.Repeat(-1, Math.Max(0, classes.Count - 1 - defaults.Count)), classes[^1].PrimaryChoices.Count > 0 ? classes[^1].PrimaryChoices[0] : -1];
+        }
+        return config with { Classes = classes, Bodies = bodies, MusouDefaultPrimaries = defaults };
     }
 
     /// <summary>
@@ -62,14 +70,15 @@ public static class MusouLoadout
     /// cannon and the melta come in D3 and D4), no equipment, perks, jump pack or evade, and a body of his own (<see cref="DreadnoughtRules.Body"/>) appended to <paramref name="bodies"/>. Added once, only here, so only under
     /// Musou; nothing is added when the config has no Space Marine Tactical to copy.
     /// </summary>
-    static void AppendDreadnought(List<ClassLoadout> classes, ref IReadOnlyList<BodySpec> bodies)
+    static void AppendDreadnought(List<ClassLoadout> classes, IReadOnlyList<WeaponSpec> weapons, ref IReadOnlyList<BodySpec> bodies)
     {
         if (classes.Any(c => c.Name == DreadnoughtRules.ClassName)) return;
         var tactical = classes.FirstOrDefault(c => c.Name == "sm - tactical") ?? classes.FirstOrDefault(c => c.Side == Team.SpaceMarines);
         if (tactical is null) return;
+        int cannon = weapons.ToList().FindIndex(w => w.Name == DreadnoughtRules.CannonWargear), melta = weapons.ToList().FindIndex(w => w.Name == DreadnoughtRules.MeltaWargear);
         classes.Add(tactical with
         {
-            Name = DreadnoughtRules.ClassName, Role = DreadnoughtRules.Role, Primary = -1, Pistol = -1, PrimaryChoices = [], PistolChoices = [], EquipmentChoices = [], PerkChoices = [], DefaultPerk = -1,
+            Name = DreadnoughtRules.ClassName, Role = DreadnoughtRules.Role, Primary = -1, Pistol = melta, PrimaryChoices = cannon >= 0 ? [cannon] : [], PistolChoices = melta >= 0 ? [melta] : [], EquipmentChoices = [], PerkChoices = [], DefaultPerk = -1,
             JumpPack = -1, Evade = -1, Body = bodies.Count,
         });
         bodies = [.. bodies, DreadnoughtRules.Body()];

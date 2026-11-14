@@ -10,6 +10,9 @@ public static class DreadnoughtRules
     /// <summary>The class's key in <see cref="SimConfig.Classes"/> (appended after the Librarian under Musou only, <see cref="MusouLoadout.Prepare"/>), its role (new: a balanced join never swaps it) and its body's name.</summary>
     public const string ClassName = "sm - dreadnought", Role = "dreadnought", BodyName = "dreadnought";
 
+    /// <summary>The install's wargear names of his two guns (kind: data); <c>SmContent.Extras.Musou.DreadnoughtWeapons</c> appends them to a Musou config.</summary>
+    public const string CannonWargear = "dread_assault_cannon", MeltaWargear = "dread_melta";
+
     // ---- movement (data: sm_dreadnought speeds, standing / aiming) ----
     public const float RunSpeed = 6.5f, StrafeSpeed = 6.5f, BackSpeed = 4.5f, SprintSpeed = 11f, WalkSpeed = 3f;
     public const float AimRunSpeed = 5f, AimStrafeSpeed = 5f, AimBackSpeed = 4f;

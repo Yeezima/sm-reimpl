@@ -67,6 +67,46 @@ public partial class NetworkView
         await DnStill(1, "dn-side-back");
         TfwKey(Key.S, false);
         await TfwWait(0.5);
+        // the guns: walk towards the Orks, aim at the nearest and hold Fire (the cannon), then Switch and fire the melta
+        var point = _tfwState.Objectives[0].Position;
+        await TfwPathTo(point, "walked towards the Orks", 90.0, () => _musouState.MiddleNear(client.Predicted.Position, 26f) is not null);
+        for (int run = 0; run < 3 && !AutocannonAim(); run++) await TfwWait(0.5);
+        PlayerState me = client.Predicted;
+        string held = _config is { } cfg && Loadouts.InHand(cfg, me) is { } hw ? hw.Name : "?";
+        GD.Print($"DNCAPTURE t {_connectedFor:F2} in hand {held}, clip {me.Clip}, reserve {me.Reserve}");
+        TfwCheck("the cannon is in hand", held == DreadnoughtRules.CannonWargear, held);
+        await TfwShot("dn-player-gun-ready");
+        int clip0 = me.Clip;
+        TfwAction(GameAction.Fire, true);
+        double begun = _connectedFor;
+        await TfwWait(0.5);
+        await DnStill(1, "dn-side-fire-1");
+        while (_connectedFor < begun + 1.2) { AutocannonAim(); await TfwFrames(); }
+        await TfwShot("dn-player-fire");
+        await DnStill(2, "dn-rear-fire");
+        while (_connectedFor < begun + 3.0) { AutocannonAim(); await TfwFrames(); }
+        TfwAction(GameAction.Fire, false);
+        GD.Print($"DNCAPTURE t {_connectedFor:F2} after {(_connectedFor - begun):F1} s of fire: clip {client.Predicted.Clip} (was {clip0}), reload {client.Predicted.ReloadLeft:F2}");
+        TfwCheck("rounds were fired", client.Predicted.Clip < clip0 || client.Predicted.ReloadLeft > 0f, $"{clip0} -> {client.Predicted.Clip}");
+        await TfwWait(0.3);
+        // the melta: Switch, then fire it at the crowd twice
+        await TfwActionTap(GameAction.NextWeapon);
+        await TfwWait(1.2);
+        held = _config is { } cfg2 && Loadouts.InHand(cfg2, client.Predicted) is { } mw ? mw.Name : "?";
+        GD.Print($"DNCAPTURE t {_connectedFor:F2} in hand {held}, clip {client.Predicted.Clip}");
+        TfwCheck("Switch brought the melta", held == DreadnoughtRules.MeltaWargear, held);
+        await DnStill(1, "dn-side-melta-ready");
+        for (int shot = 0; shot < 2; shot++)
+        {
+            AutocannonAim();
+            TfwAction(GameAction.Fire, true);
+            await TfwFrames(3);
+            int clip = client.Predicted.Clip;
+            if (shot == 0) { await TfwShot("dn-player-melta"); await DnStill(1, "dn-side-melta"); }
+            TfwAction(GameAction.Fire, false);
+            GD.Print($"DNCAPTURE melta shot {shot}: clip {clip}, after {client.Predicted.Clip}");
+            await TfwWait(1.5);
+        }
         GD.Print("DNCAPTURE done");
         GetTree().Quit(0);
     }
