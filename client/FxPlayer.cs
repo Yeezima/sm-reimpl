@@ -19,7 +19,7 @@ public sealed class FxEffect
     public float Scale = 1f;
     /// <summary>hit-sparks-flashes (ours): when above 0, no particle of this effect ends farther than this many metres from <see cref="Origin"/> (<c>HitFxScaleRules.LimitReach</c>); 0: no cap.</summary>
     public float ReachCap;
-    /// <summary>plasma-soft-visuals (owner 2026-11-14, ours): when above 0, a spray's spawn offset (its emit offset and volume) is cut to this many metres, so the plasma chambers' crawling arcs (the data lets them wander up to 2.5 m up) stay on the gun; 0: no cut.</summary>
+    /// <summary>plasma-soft-visuals (owner 2026-11-14, ours): when above 0, a spray's spawn offset (its emit offset and volume, after the effect's scale) is cut to this many metres, so the plasma chambers' crawling arcs (the data lets them wander up to 2.5 m up) stay on the gun; 0: no cut.</summary>
     public float SprayLeash;
     /// <summary>plasma-soft-visuals (ours): a plasma effect: its beam and streamer quads fade out across the width and a ribbon fades out at its tail (<c>PlasmaSoftEdges</c>).</summary>
     public bool SoftEdges;
@@ -855,7 +855,13 @@ public sealed partial class FxPlayer : Node3D
             float w = width * MathF.Max(0f, n.WidthOverLength.Evaluate(fm));
             if (w <= 0.0005f) continue;
             var centre = start + axis * (length * fm);
-            if (_batch.Add(n.Additive, centre, axis * (length / segments), side * w, colour, rect, Mathf.Lerp(u0, u1, f0), Mathf.Lerp(u0, u1, f1), mode, kind, neutral: neutral)) _frameQuads++;
+            if (e.SoftEdges && _batch.SoftEdge)
+            {
+                // plasma-soft-visuals: the same tent cross-fade as a streamer's steps (twice as long, fading along it), so a tapered beam's steps meet without a line.
+                float ua = Mathf.Lerp(u0, u1, f0), ub = Mathf.Lerp(u0, u1, f1), du = (ub - ua) * 0.5f;
+                if (_batch.Add(n.Additive, centre, axis * (length / segments) * 2f, side * w, colour, rect, ua - du, ub + du, mode, kind, neutral: neutral, tent: true)) _frameQuads++;
+            }
+            else if (_batch.Add(n.Additive, centre, axis * (length / segments), side * w, colour, rect, Mathf.Lerp(u0, u1, f0), Mathf.Lerp(u0, u1, f1), mode, kind, neutral: neutral)) _frameQuads++;
         }
     }
 
@@ -896,6 +902,8 @@ public sealed partial class FxPlayer : Node3D
         if (e.SmokeRein < 1f && IsSmoke(n)) widthScale *= e.SmokeRein;   // feel/muzzle-smoke
         float width0 = At(n.Width, t, 0.1f) * widthScale;
         bool neutral = PlasmaColour.NeutralTexture(e.Name, n.Material.Name, e.Tint is not null);   // fx/chaos-plasma-tracer: the Chaos trails' streamers
+        float ribbonLength = 0f;
+        if (e.SoftEdges) for (int j = 0; j < N; j++) ribbonLength += pts[j].DistanceTo(pts[j + 1]);
         float u = 0f;
         for (int j = 0; j < N; j++)
         {
@@ -917,7 +925,7 @@ public sealed partial class FxPlayer : Node3D
                 width *= round; col = new Color(col.R * round, col.G * round, col.B * round, col.A * round);   // additive: the colour fades too, not only its alpha
             }
             if (e.SoftHead && f > 0.6f) { float fade = MathF.Max(0f, (1f - f) / 0.4f); col = new Color(col.R * fade, col.G * fade, col.B * fade, col.A * fade); }   // the tail fades out too: a young ball's trail ends where it was launched, not as a cut-off rectangle
-            if (e.SoftEdges) { float tail = PlasmaSoftEdges.Ribbon(f) * PlasmaSoftEdges.EndOn(MathF.Abs(ax.Dot((mid - _camPos).Normalized()))); col = new Color(col.R * tail, col.G * tail, col.B * tail, col.A * tail); }   // plasma-soft-visuals: the ribbon fades in from its head and out toward its tail
+            if (e.SoftEdges) { float tail = PlasmaSoftEdges.Ribbon(f, ribbonLength) * PlasmaSoftEdges.EndOn(MathF.Abs(ax.Dot((mid - _camPos).Normalized()))); col = n.Additive ? new Color(col.R * tail, col.G * tail, col.B * tail, col.A * tail) : new Color(col.R, col.G, col.B, col.A * tail); }   // plasma-soft-visuals: the ribbon fades in from its head and out toward its tail
             float u0 = u, u1 = n.MeterPerU > 0.001f ? u + len / n.MeterPerU : (j + 1f) / N;
             if (n.MeterPerU <= 0.001f) u0 = (float)j / N;
             u = u1;

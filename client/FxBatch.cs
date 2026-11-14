@@ -263,7 +263,8 @@ void fragment() {
     float a = t.a * COLOR.a * fade;
     // plasma-soft-visuals (PlasmaSoftEdges.Lateral / Radial): a ribbon fades out across its width, a camera-facing glow card out toward its rim (a big square card's straight, rotated edge was a hard line).
     if (tent) a *= 1.0 - abs(UV.x * 2.0 - 1.0);
-    if (soft_edge) a *= smoothstep(0.15, 2.5, v_orig_d);   // plasma-soft-visuals: a trail the camera is inside fades out near it instead of being cut by the near plane in a straight line
+    // Ribbons only (a glow card, the gun's own chamber glow, is never dimmed), and from a distance that grows with the ribbon's width: a 6 m trail the camera is inside fades, a 0.1 m arc on the held gun does not.
+    if (soft_edge && kind > 0.5) a *= smoothstep(0.03, max(0.1, min(2.5, v_size * 0.4)), v_orig_d);   // plasma-soft-visuals: a trail the camera is inside fades out near it instead of being cut by the near plane in a straight line
     if (soft_edge) a *= (kind < 0.5) ? 1.0 - smoothstep(0.55, 1.0, length(UV * 2.0 - 1.0)) : 1.0 - smoothstep(0.2, 1.0, abs(UV.y * 2.0 - 1.0));
     ALPHA = a;
 }
