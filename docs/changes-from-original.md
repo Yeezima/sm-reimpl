@@ -138,6 +138,7 @@ The owner (2026-11-11): "add the autocannon to classic pvp mode with everything 
 | Its clip, rate, heat and handling | the owner's ("everything the same"; the clip: "In classic PvP only. 120 clip size", 2026-11-11, the multiplayer file's value; 400 until then, ours) | 120 that spends, no reserve, 0.4 s a round, 15 rounds to overheat, the heavy bolter's handling | "Classic autocannon: the rest" |
 | Its ammunition from the drops | ours (the lead's brief: "refilled by ammo boxes"; the install's boxes name no autocannon ammunition) | each drop gives it what it gives the Space Marine heavy bolter, into the clip, capped at 120 (before 2026-11-11 the drops' amounts ended before its index, so a box gave it nothing) | "Classic autocannon: ammunition boxes" |
 | Its sounds | the owner's | the install's own autocannon sounds, not Musou's Stalker Bolter swap | "Classic autocannon: sounds" |
+| Its accuracy (2026-11-14) | the owner's ("equivalent to the stalker at range in terms of accuracy and spread"); keeping the heavy view kick ours | the Stalker Bolter's scatter (aimed 0.225 deg, +0.7 a shot, max 1.8; hip 0.4 deg) instead of the heavy bolter's (1.25 deg aimed, 1.9 hip); Musou's autocannon unchanged | "Classic autocannon: accuracy" |
 
 ### Musou's arsenal (`Musou`; docs/new-weapons-design.md, approved by the owner 2026-11-10)
 
