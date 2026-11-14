@@ -112,6 +112,12 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
         public string[] FinisherSequencers { get; init; } = [];
         public string[] FinisherAbilities { get; init; } = [];
         /// <summary>
+        /// sim/sword-ff-stab (owner, 2026-11-14): the Y,Y finisher (the first of <see cref="FinisherSequencers"/>) is the stab of the weapon's X,X,X,Y strike (the heavy list's strike
+        /// <see cref="StabHeavy"/>, 1-based; Musou's "light, light, light, F" move) instead of its own blast: that strike's clip, timing, window and reach, no blast, the primary target takes the
+        /// weapon's charge hit as the Furious Charge perk's entry gives it (<see cref="StabPerk"/>: 100 + 50 shield, its stagger), nothing for the others. 0 (the default): the finisher as read.
+        /// </summary>
+        public int StabHeavy { get; init; }
+        /// <summary>
         /// Weapons C: per heavy strike (the heavy list: heavies then finishers), the strike (1-based) a heavy press in its
         /// <see cref="YComboBranches"/> window chains to; 0 (or missing): none (<see cref="MeleeStep.YNext"/>).
         /// </summary>
@@ -139,6 +145,10 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
 
     /// <summary>The heavy combo's stomp: the sequencer's action tag and the wargear's triggered action it fires.</summary>
     public const string StompTag = "DISPLACE_FootStomp", StompAction = "displace_footstomp";
+    /// <summary>The perk whose upgrade string makes the charge's entry the Furious Charge one (<c>mp_perk_improved_bullrush</c>: <c>ability_bullrush_01</c> 100 + 50, stagger).</summary>
+    public const string StabPerk = "mp_perk_improved_bullrush";
+    /// <summary>Test aid: <c>SM_OLD_SWORD_FF=1</c> (server and client alike) restores the power sword's F + F stomp before sim/sword-ff-stab.</summary>
+    static readonly bool OldSwordFf = Environment.GetEnvironmentVariable("SM_OLD_SWORD_FF") == "1";
     /// <summary>The heavy classes' kick ability (sim/light-melee-flinch: <see cref="MeleeStep.Kick"/>).</summary>
     public const string KickAbility = "ability_displace_kick";
 
@@ -209,6 +219,7 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
         LoopLights = false, LightHeavyNext = [0, 0, 0, -1],
         FinisherSequencers = ["Sequencer30"], FinisherAbilities = [""],
         YNext = [5, 5, 5, 5, 0],
+        StabHeavy = 4,   // sim/sword-ff-stab (owner, 2026-11-14): F + F is the X,X,X,F stab at the Furious Charge's damage
         ExtendedRules = true,
     };
 
@@ -278,6 +289,15 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
     static readonly bool OldSlamSteer = Environment.GetEnvironmentVariable("SM_OLD_SLAM_STEER") == "1";
     static readonly bool OldSlamRecovery = Environment.GetEnvironmentVariable("SM_OLD_SLAM_RECOVERY") == "1";
     static readonly bool OldHopSwing = Environment.GetEnvironmentVariable("SM_OLD_HOP_SWING") == "1";
+
+    /// <summary>The weapon's charge hit under the Furious Charge perk (<see cref="StabPerk"/> granted): its primary damage and reaction (<c>ability_bullrush_01</c>), or null with a note.</summary>
+    static (Hit Primary, ReactionEntry Reaction)? StabHit(BafDocument wargear, IReadOnlyDictionary<string, string>? mapping, List<string> notes)
+    {
+        using var grant = UpgradeScope.Grant([StabPerk]);
+        var actions = wargear.Root.Table($"ability_data/ability_definitions/{RushTuning.Ability}")?.Table("primary_target_actions/hit_sim/actions");
+        if (DefaultDamage(actions) is not { } damage) { notes.Add($"sword stab: no {RushTuning.Ability} primary damage; the finisher stays the stomp"); return null; }
+        return (damage, ReactionTuning.HitReaction(actions, mapping));
+    }
 
     /// <summary>
     /// sim/slam-recovery and sim/slam-steer (the owner, 2026-11-07): a Y,Y finisher's rules from the weapon's last light swing. <paramref name="recovery"/>: it frees a new string
@@ -443,6 +463,20 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
                 heavyAnimations.Add(animation);
             }
             catch (InvalidDataException e) { notes.Add($"heavy strike {i + 1}: {e.Message}; the heavy chain stops before it"); break; }
+        }
+        // sim/sword-ff-stab: the finisher is the weapon's stab (see WeaponMap.StabHeavy).
+        if (weapon.StabHeavy > 0 && !OldSwordFf && heavy.Count == weapon.HeavySequencers.Length + weapon.FinisherSequencers.Length && weapon.StabHeavy <= weapon.HeavySequencers.Length
+            && StabHit(wargear, mapping, notes) is { } stabHit)
+        {
+            int f = weapon.HeavySequencers.Length;
+            heavy[f] = heavy[weapon.StabHeavy - 1] with
+            {
+                Stomp = null, YNext = 0, YComboOpen = 0f, YComboClose = 0f,
+                Damage = stabHit.Primary.Damage, ShieldDamage = stabHit.Primary.ShieldDamage, HealthMultiplier = stabHit.Primary.HealthMultiplier, ShieldMultiplier = stabHit.Primary.ShieldMultiplier,
+                DamageType = stabHit.Primary.Type == DamageType.Unknown ? DamageType.Melee : stabHit.Primary.Type,
+                PrimaryReaction = stabHit.Reaction, SecondaryDamage = 0f, SecondaryShieldDamage = 0f, SecondaryReaction = default,
+            };
+            heavyAnimations[f] = heavyAnimations[weapon.StabHeavy - 1];
         }
         // A chain into a strike that could not be read is dropped (the simulation also checks the bounds).
         for (int i = 0; i < steps.Count; i++)
