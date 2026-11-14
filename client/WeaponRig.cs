@@ -610,7 +610,7 @@ public sealed partial class WeaponRig
                           && WeaponHands.InHand(i.Role, _shown, melee, _grenadeHeld, i.Attachment.TwoHanded, i.Attachment.Wield?.Bone, meleeBone);
             if (StowPistol && i.Role == Role.Pistol) inHand = false;   // anim/melee-flow: both hands on the hammer
             // fix/versatility-knife-stow: the selected primary of a Weapon Versatility Tactical hangs on the left thigh for the strike instead of riding the chest prop through it.
-            bool thigh = i.ThighMount is not null && MeleeHolster.OnThigh(i.Role, _shown, hasSecond, melee, _empty || StimStowed);
+            bool thigh = i.ThighMount is not null && MeleeHolster.OnThigh(i.Role, _shown, hasSecond, melee, _empty || StimStowed) && (hasSecond || !OldFfHolster);
             if (thigh) inHand = false;
             // With two primaries only the one swapped out last hangs on the back; the other is not drawn.
             Apply(i, inHand, !thigh && hasSecond && i.Role is Role.Primary or Role.Second && !inHand && i.Role != onBack, thigh);
@@ -637,6 +637,9 @@ public sealed partial class WeaponRig
 
     /// <summary>fix/stow-right: between the old weapon's release and the new one's take both ranged weapons are on their stow markers.</summary>
     bool _empty;
+
+    /// <summary><c>--old-ff-holster</c> (test aid, fix/ff-weapon-flying before / after): only a Weapon Versatility Tactical holsters the selected primary on the thigh during a strike (the old rule); the single primary rides the chest prop.</summary>
+    public static readonly bool OldFfHolster = OS.GetCmdlineUserArgs().Contains("--old-ff-holster");
 
     /// <summary>
     /// <c>--old-stow</c> (test aid, fix/stow-right before / after): a switch plays the new weapon's clip alone and swaps the models at its tag (<see cref="SwitchPlan.For"/>'s old rule), so the

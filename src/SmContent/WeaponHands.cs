@@ -64,13 +64,17 @@ public static class BackWeapon
 /// </summary>
 public static class MeleeHolster
 {
-    /// <summary>True when the item (a primary role) is the selected one and goes to the left thigh for the strike.</summary>
+    /// <summary>
+    /// True when the item (a primary role) is the selected one and goes to the left thigh for the strike. fix/ff-weapon-flying (owner, 2026-11-14: "there should be no weapon models flying around
+    /// in the air away from the marine during any F + F stun strike combo ever - no matter if weapon versatility is equipped or not"): the same holster now applies without Weapon Versatility
+    /// (one primary), for every class that carries a primary; <paramref name="hasSecond"/> no longer matters.
+    /// </summary>
     /// <param name="role">The item's role.</param>
     /// <param name="shown">The ranged slot in hand (after the switch delay).</param>
     /// <param name="hasSecond">The character carries Weapon Versatility's second primary.</param>
     /// <param name="meleeOut">A melee strike is shown.</param>
     /// <param name="away">Both guns are already away (between a switch's release and take, or a stim).</param>
     public static bool OnThigh(HandRole role, WeaponSlot shown, bool hasSecond, bool meleeOut, bool away) =>
-        hasSecond && meleeOut && !away
+        meleeOut && !away
         && ((role == HandRole.Primary && shown == WeaponSlot.Ranged) || (role == HandRole.Second && shown == WeaponSlot.Second));
 }
