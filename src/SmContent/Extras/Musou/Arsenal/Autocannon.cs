@@ -161,7 +161,28 @@ public static partial class Arsenal
         Damage = stalker.Damage, HeadMultiplier = stalker.HeadMultiplier, BodyMultiplier = stalker.BodyMultiplier,
         ShieldHeadMultiplier = stalker.ShieldHeadMultiplier, ShieldBodyMultiplier = stalker.ShieldBodyMultiplier,
         ClipSize = source.ClipSize > 0 ? source.ClipSize : AutocannonRules.Clip,   // the file's 120 (a file without one keeps Musou's)
+        Spread = StalkerScatter(stalker.Spread, heavy.Spread),
     };
+
+    /// <summary>
+    /// Classic's autocannon accuracy (the owner, 2026-11-14: "classic pvp mode only - the autocannon also needs to have much better accuracy - it should be equivalent to the stalker at range in terms
+    /// of accuracy and spread"): the Stalker Bolter's scatter (initial half-widths, growth per shot, maximum, recovery rate and delay) in every stance and movement slot, as the data reads it; the view
+    /// kick (the handling sets: climb and sway) stays the heavy bolter's, so the gun still handles as a heavy weapon. A stalker without spread leaves the heavy bolter's spread alone. Scatter is
+    /// angular, so equal sets land as tightly at any range; the damage fall-off is not accuracy and stays the file's.
+    /// </summary>
+    public static SpreadSpec? StalkerScatter(SpreadSpec? stalker, SpreadSpec? heavy)
+    {
+        if (stalker is null) return heavy;
+        SpreadSet?[] sets = new SpreadSet?[stalker.Basic.Sets.Count];
+        for (int i = 0; i < sets.Length; i++)
+        {
+            if (stalker.Basic.Sets[i] is not { } s) continue;
+            var stance = (SpreadStance)(i / 3); var movement = (SpreadMovement)(i % 3);
+            var handling = heavy?.Basic.SetFor(stance, movement)?.Handling ?? s.Handling;
+            sets[i] = s with { Handling = handling };
+        }
+        return new SpreadSpec(new SpreadStances(sets), []);
+    }
 
     // The Space Marine Devastator's primary list, after the heavy bolter and the others: one row, simulated (the twin is in Musou's config), level 1 (the file's).
     static partial void AutocannonItems(ref PerkCatalog catalog) => catalog = WithAutocannonRow(catalog, CustomizationCatalog.SpaceMarine);

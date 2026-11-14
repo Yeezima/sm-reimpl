@@ -90,6 +90,56 @@ public class ClassicAutocannonContentTests
         Assert.NotEqual(AutocannonRules.DirectDamage, gun.Damage);
     }
 
+    static HandlingSet Kick(float climb) => HandlingSet.None with { PermanentClimbPerShot = climb };
+    static SpreadSet Set(string name, float initial, float perShot, float max, float climb) =>
+        new(name, new ScatterSet(initial, initial, perShot, max, max, 3f, 0.1f), Kick(climb));
+    // Six slots (standing / aiming x idle / walking / running); the stalker's aimed running slot is named by none (falls back to aiming idle).
+    static SpreadSpec Spreads(string tag, float scale, float climb) => new(new SpreadStances(
+    [
+        Set(tag + "-hip-idle", 2f * scale, 0.5f * scale, 5f * scale, climb), Set(tag + "-hip-walk", 3f * scale, 0.5f * scale, 6f * scale, climb), Set(tag + "-hip-run", 4f * scale, 0.5f * scale, 7f * scale, climb),
+        Set(tag + "-aim-idle", 0.25f * scale, 0.1f * scale, 1.5f * scale, climb), Set(tag + "-aim-walk", 0.5f * scale, 0.1f * scale, 2f * scale, climb), null,
+    ]), []);
+
+    /// <summary>The owner, 2026-11-14: Classic's autocannon "should be equivalent to the stalker at range in terms of accuracy and spread".</summary>
+    [Fact]
+    public void Its_scatter_is_the_Stalkers_in_every_slot_so_it_lands_as_tightly_at_range_and_its_kick_stays_the_heavy_bolters()
+    {
+        var stalker = StalkerGun with { Spread = Spreads("stalker", 1f, 0.1f) };
+        var heavy = Gun("sm_mp_exotic_heavy_bolter") with { Spread = Spreads("heavy", 4f, 0.7f) };
+        var gun = Arsenal.ClassicTwin(Source with { Spread = Spreads("own", 9f, 9f) }, heavy, stalker);
+        foreach (var stance in new[] { SpreadStance.Standing, SpreadStance.Aiming })
+            foreach (var movement in new[] { SpreadMovement.Idle, SpreadMovement.Walking, SpreadMovement.Running })
+            {
+                var mine = gun.Spread!.Basic.SetFor(stance, movement)!;
+                var theirs = stalker.Spread!.Basic.SetFor(stance, movement)!;
+                Assert.Equal(theirs.Scatter, mine.Scatter);   // base cone, growth per shot, maximum, recovery rate and delay
+                Assert.Equal(heavy.Spread!.Basic.SetFor(stance, movement)!.Handling, mine.Handling);   // the view kick stays a heavy weapon's
+                // Angular scatter: the same cone is the same spread at 30 m and at 60 m.
+                foreach (float metres in new[] { 30f, 60f })
+                    Assert.Equal(HalfWidthMetres(theirs.Scatter, metres), HalfWidthMetres(mine.Scatter, metres), 6);
+            }
+        Assert.Empty(gun.Spread!.Stages);
+        // A Stalker without spread leaves the heavy bolter's.
+        Assert.Same(heavy.Spread, Arsenal.ClassicTwin(Source, heavy, StalkerGun with { Spread = null }).Spread);
+        // Musou's autocannon is the heavy bolter's, as it was.
+        Assert.Same(heavy.Spread, Arsenal.MusouTwin(Source, heavy).Spread);
+    }
+
+    static double HalfWidthMetres(ScatterSet s, float metres) => metres * Math.Tan(s.InitialHorizontal * Math.PI / 180);
+
+    [Fact]
+    public void Musou_config_is_unchanged_the_Classic_scatter_is_Classic_only()
+    {
+        var stalker = StalkerGun with { Spread = Spreads("stalker", 1f, 0.1f) };
+        var heavy = Gun("sm_mp_exotic_heavy_bolter") with { Spread = Spreads("heavy", 4f, 0.7f) };
+        var musou = Arsenal.WithAutocannon(Data(ContentExtras.None) with { Weapons = [heavy, Gun("sm_mp_exotic_las_cannon"), Gun(ClassicAutocannon.HeavyBolterFileChaos), Gun("csm_mp_exotic_las_cannon"), stalker, Gun("sm_mp_ranged_bolter")] }, Source, []);
+        // Musou's hash is pinned by the synthetic twin it builds: the same spread object the heavy bolter has, so its bytes are the heavy bolter's.
+        Assert.Same(heavy.Spread, musou.Weapons[^1].Spread);
+        var classic = ClassicAutocannon.WithAutocannon(Data(ContentExtras.All) with { Weapons = musou.Weapons.Take(6).ToList() }, Source, []);
+        Assert.NotEqual(musou.Weapons[^1].Spread, classic.Weapons[^1].Spread);
+        Assert.NotEqual(musou.Hash(), classic.Hash());
+    }
+
     [Fact]
     public void Without_a_Stalker_or_a_heavy_bolter_nothing_is_appended_and_a_note_says_why()
     {

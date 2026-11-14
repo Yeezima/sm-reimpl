@@ -25,8 +25,9 @@ public class ConfigHashPinTests(ITestOutputHelper output)
     /// its weapon appended to the Devastator's and the Havoc's lists (0x2AAB9E068C454594 before, captured on main 61c152b7). A ship with it needs the VM's Classic server updated.
     /// Recaptured with claude/autocannon-pass-2 (2026-11-11): the Classic autocannon's clip of 120 (the owner's "120 clip size", 400 before) and the drops' amount for it (the heavy bolter's)
     /// (0x7556F708CE2FD9A2 before).
+    /// Recaptured with claude/autocannon-accuracy (2026-11-14): the Classic autocannon's scatter is the Stalker's (0x479768E19E322CCA before).
     /// </summary>
-    const ulong ExtendedHash = 0x479768E19E322CCAUL;
+    const ulong ExtendedHash = 0x4470226340FFAB58UL;
 
     static readonly Lazy<string?> Game = new(() => GameInstall.TryLocate()?.Dir);
 

@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3171 spec table rows: **2329 tagged**, 584 not tagged (read from data with high confidence), 258 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 708 rows of the changes document.
+Scanned 3172 spec table rows: **2330 tagged**, 584 not tagged (read from data with high confidence), 258 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 709 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -43,7 +43,7 @@ Scanned 3171 spec table rows: **2329 tagged**, 584 not tagged (read from data wi
 | HUD and hit feedback (critical) | 72 | 67 | 52 | 11 | 0 |
 | Sound mix (critical) | 83 | 77 | 73 | 11 | 0 |
 | Effects (critical) | 98 | 87 | 82 | 41 | 0 |
-| Game modes | 45 | 41 | 41 | 19 | 1 |
+| Game modes | 46 | 42 | 42 | 19 | 1 |
 | Perks | 59 | 48 | 31 | 25 | 0 |
 | Death and ragdoll | 14 | 10 | 12 | 10 | 0 |
 | Customizer and paint | 48 | 45 | 26 | 15 | 0 |
@@ -53,15 +53,15 @@ Scanned 3171 spec table rows: **2329 tagged**, 584 not tagged (read from data wi
 | Core simulation (provisional values) | 695 | 655 | 495 | 181 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 248 | 237 | 133 | 68 | 0 |
-| **All areas** | **2329** | 2057 | 1731 | 728 | 38 |
+| **All areas** | **2330** | 2058 | 1732 | 728 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1343 |
+| kind: ours | 1344 |
 | confidence: low | 830 |
-| confidence: medium | 772 |
+| confidence: medium | 773 |
 | notes: ours | 414 |
 | kind: interpretation | 382 |
 | notes: estimate | 196 |
@@ -2020,7 +2020,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-0E49FD3A` | Large burst on a hit player (Classic PvP; reverses the burst part of the row above) | owner 2026-11-13 (verbatim, after the first preview): "classic pvp mode: keep all on hit effects except the one in this reference image" and "there should only be large explosive visual effects on ranged weapon shots in musou mode. in classic pvp mode its… | kind: ours | the owner (2026-11-13); the red sparks are ours | Large burst on a hit player (Classic PvP; reverses the…: compare with SM1 with side-by-side video of the same action. Ours: owner 2026-11-13 (verbatim, after the first preview): "classic pvp… | ☐ |
 | `R-6540FEFF` | Glow and sparks for every damage on a player (Classic PvP and Musou Mode; protocol 71) | owner 2026-11-13 (verbatim): "any melee damage should also trigger the glows", "charge/bull rush, air slash landing, ground pound, light melee combo, F stun strike moves, any sort of damage should trigger the sparks and glows". Driven only by damage the… | kind: ours; confidence: medium | the owner (2026-11-13); the 0.25 s, the counter's width and the reading of the bits are ours | Glow and sparks for every damage on a player (Classic PvP…: compare with SM1 by counting hits to kill and by video of the health bar. Ours: owner 2026-11-13 (verbatim): "any melee damage should also trigger… | ☐ |
 
-### Game modes (45)
+### Game modes (46)
 
 *Spec section: Teams and Annihilation (M15, used by the simulation)*
 
@@ -2099,6 +2099,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-C3AE4A56` | Classic autocannon: round | the Stalker Bolter's shot as Classic reads it: **50**, head **x2** (**x10** on raised armour: copied from the Stalker as balanced, the owner's Stalker change of 2026-11-02 `OwnerBalance.StalkerShieldHead`; the install's x2.5), body x1 (x0.8 on raised armour)… (damage) | confidence: medium | owner 2026-11-11 (the Stalker's damage and the original game's headshot bonus); the values the install's | Classic autocannon: round: compare with SM1 by feel or video. Ours: the Stalker Bolter's shot as Classic reads it: 50, head x2 (x10 on… | ☐ |
+| `R-AD26426F` | Classic autocannon: accuracy (claude/autocannon-accuracy, 2026-11-14) | the autocannon's scatter in Classic PvP is the **Stalker Bolter's** (`sm_mp_ranged_sniper_rifle`), read from the install's `climb_sway_scatter` sets as `SpreadTuning` gives them (copied: initial half-widths, growth per shot, maximum, decrease rate and delay… (deg; deg/shot; deg/s; s) | kind: ours; confidence: medium | owner 2026-11-14: "classic pvp mode only - the autocannon also needs to have much better accuracy - it should be equivalent to the stalker at range in terms of… | Classic autocannon: accuracy (claude/autocannon-accuracy…: compare with SM1 by feel or video. Ours: the autocannon's scatter in Classic PvP is the Stalker Bolter's… | ☐ |
 | `R-51E9F716` | Classic autocannon: ammunition boxes | each death drop gives the autocannon what it gives the Space Marine heavy bolter (its amount at the heavy bolter's index), into the clip as for every weapon without a reserve, capped at the 120; one amount for both sides (the Space Marine heavy bolter's, also… (rounds) | kind: ours; confidence: medium | the lead's brief 2026-11-11 ("refilled by ammo boxes"); the heavy bolter's amount ours | Classic autocannon: ammunition boxes: compare with SM1 by feel or video. Ours: each death drop gives the autocannon what it gives the Space Marine… | ☐ |
 | `R-E67DC240` | Classic autocannon: customizer | the profile is read with the data's catalogue plus the Classic autocannon's row (so a slot saved under extended keeps it whichever profile the front end opens with); a page shows its own profile's catalogue; a Join on an extended page is planned with the… | kind: ours; confidence: medium | 2026-11-11 | Classic autocannon: customizer: compare with SM1 by feel or video. Ours: the profile is read with the data's catalogue plus the Classic… | ☐ |
 
@@ -4139,6 +4140,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-897D9519` | Its clip, rate, heat and handling | the owner's ("everything the same"; the clip: "In classic PvP only. 120 clip size", 2026-11-11, the multiplayer file's value; 400 until then, ours) | 120 that spends, no reserve, 0.4 s a round, 15 rounds to overheat, the heavy bolter's handling | "Classic autocannon: the rest" | Its clip, rate, heat and handling: compare with SM1 by feel or video. Ours: the owner's ("everything the same"; the clip: "In classic PvP only.… | ☐ |
 | `C-7DAF2C6B` | Its ammunition from the drops | ours (the lead's brief: "refilled by ammo boxes"; the install's boxes name no autocannon ammunition) | each drop gives it what it gives the Space Marine heavy bolter, into the clip, capped at 120 (before 2026-11-11 the drops' amounts ended before its index, so a box gave it nothing) | "Classic autocannon: ammunition boxes" | Its ammunition from the drops: compare with SM1 by feel or video. Ours: ours (the lead's brief: "refilled by ammo boxes"; the install's boxes… | ☐ |
 | `C-4A3FFE6B` | Its sounds | the owner's | the install's own autocannon sounds, not Musou's Stalker Bolter swap | "Classic autocannon: sounds" | Its sounds: compare with SM1 by feel or video. Ours: the owner's. | ☐ |
+| `C-B99513AB` | Its accuracy (2026-11-14) | the owner's ("equivalent to the stalker at range in terms of accuracy and spread"); keeping the heavy view kick ours | the Stalker Bolter's scatter (aimed 0.225 deg, +0.7 a shot, max 1.8; hip 0.4 deg) instead of the heavy bolter's (1.25 deg aimed, 1.9 hip); Musou's autocannon unchanged | "Classic autocannon: accuracy" | Its accuracy (2026-11-14): compare with SM1 by feel or video. Ours: the owner's ("equivalent to the stalker at range in terms of accuracy… | ☐ |
 
 #### Musou's arsenal (`Musou`; docs/new-weapons-design.md, approved by the owner 2026-11-10)
 
