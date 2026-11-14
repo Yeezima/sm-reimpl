@@ -316,7 +316,7 @@ public static partial class JumpPack
         // sim/jump-escape (protocol 62): the Assault / Raptor's press (escape) cuts the landing's locks and the pound's or slash's recovery: the take-off starts at once.
         bool canStart = phase == JumpPhase.None || airFall || (phase == JumpPhase.Landed && (escape || T(ticks) + Eps >= JumpLock(pack, landMoving, c)))
             || (escape && phase == JumpPhase.Recover);
-        if (canStart && jumpPress && (s.Grounded || airLong) && !meleeBusy && !meleePress && (dashAt is not null || power + Eps >= pack.CostAt(0f)))
+        if (canStart && jumpPress && (s.Grounded || (airLong && (!c.HopRules || power + Eps >= pack.CostAt(0f)))) && !meleeBusy && !meleePress && (dashAt is not null || power + Eps >= pack.CostAt(0f)))
         {
             phase = JumpPhase.TakeOff; ticks = 0; mark = 0; landMoving = false; started = true;
             if (dashAt is null) power = MathF.Max(0f, power - pack.CostAt(0f));   // with a dash: spent when the jump commits (below)
@@ -400,7 +400,9 @@ public static partial class JumpPack
         if (phase == JumpPhase.TakeOff && T(ticks) + Eps >= pack.TakeOffDelay)
         {
             // Lift-off needs the ground: a player who left it during the take-off (walked off a ledge) just falls (power stays spent).
-            if (s.Grounded) { phase = JumpPhase.Ascent; launch = true; }
+            // sim/hop-rules (protocol 72; the owner 2026-11-14: a full jump when charging off a ledge): a take-off pressed on the last grounded ticks (the charge's run reached the edge) still lifts off in the
+            // air when its delay is over; before, it fell straight down with the power spent.
+            if (s.Grounded || c.HopRules) { phase = JumpPhase.Ascent; launch = true; }
             else { phase = JumpPhase.Fall; holding = false; mark = ticks; }
         }
 

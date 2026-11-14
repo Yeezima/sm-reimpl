@@ -249,7 +249,7 @@ public class JumpPackFeelTests(ITestOutputHelper output)
 
     // ---------------------------------------------------------------- with level collision (the review of 2026-10-29)
 
-    sealed class Level
+    internal sealed class Level
     {
         readonly List<Vector3> _v = new();
         readonly List<int> _i = new();
@@ -266,7 +266,7 @@ public class JumpPackFeelTests(ITestOutputHelper output)
     }
 
     /// <summary>A floor at z = 0 (x, y in ±100), a wall across y = 8 to 9 (40 m high: above every jump) and a plateau 6 m high for x &gt; 20.</summary>
-    static readonly CollisionWorld Room = new Level()
+    internal static readonly CollisionWorld Room = new Level()
         .Box(new(-100, -100, -1), new(100, 100, 0))
         .Box(new(-100, 8, 0), new(100, 9, 40))
         .Box(new(20, -100, 0), new(100, 100, 6))

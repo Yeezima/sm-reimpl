@@ -24,7 +24,7 @@ public class MeleeCancelTests(ITestOutputHelper output)
     };
 
     /// <summary>RushTests' marine (a roll and the bull rush: the Tactical), and a Devastator beside it: the same with the hop.</summary>
-    static readonly SimConfig Heavy = RushTests.Config with
+    internal static readonly SimConfig Heavy = RushTests.Config with
     {
         Evades = [EvadeTests.Roll, EvadeTests.Hop],
         Classes = [RushTests.Config.Classes[0] with { Evade = 0 }, RushTests.Config.Classes[0] with { Evade = 1 }],

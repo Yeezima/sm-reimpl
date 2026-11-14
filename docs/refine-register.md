@@ -28,14 +28,14 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3180 spec table rows: **2335 tagged**, 586 not tagged (read from data with high confidence), 259 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 709 rows of the changes document.
+Scanned 3182 spec table rows: **2337 tagged**, 586 not tagged (read from data with high confidence), 259 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 709 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
 | Movement (critical) | 401 | 343 | 342 | 117 | 12 |
 | Combat core (critical) | 17 | 7 | 15 | 14 | 9 |
 | Weapons (critical) | 121 | 73 | 106 | 54 | 3 |
-| Melee (critical) | 146 | 128 | 107 | 52 | 5 |
+| Melee (critical) | 148 | 130 | 109 | 52 | 5 |
 | Jump pack (critical) | 79 | 71 | 63 | 19 | 0 |
 | Charge (critical) | 61 | 51 | 49 | 25 | 0 |
 | Reactions (critical) | 25 | 22 | 23 | 12 | 0 |
@@ -53,15 +53,15 @@ Scanned 3180 spec table rows: **2335 tagged**, 586 not tagged (read from data wi
 | Core simulation (provisional values) | 695 | 655 | 495 | 181 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 248 | 237 | 133 | 68 | 0 |
-| **All areas** | **2335** | 2063 | 1733 | 729 | 38 |
+| **All areas** | **2337** | 2065 | 1735 | 729 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1349 |
+| kind: ours | 1351 |
 | confidence: low | 830 |
-| confidence: medium | 774 |
+| confidence: medium | 776 |
 | notes: ours | 414 |
 | kind: interpretation | 382 |
 | notes: estimate | 197 |
@@ -976,7 +976,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-63D5DA0C` | Magazine returns | at the load tag or when the left hand is back at the weapon, whichever is later (never before the magazine left): bolter tag 0.30, hand 0.35 (`RIG_L_Hand` 0.15 m from the magazine at its closest, 1.13 m at its furthest, away from 0.11 to 0.35) → 0.35; stalker… (fraction of the clip) | kind: interpretation; confidence: medium | clip, skeleton, weapon mount | Magazine returns: compare with SM1 by feel or video. Ours: at the load tag or when the left hand is back at the weapon… | ☐ |
 | `R-125B93CF` | Dropped magazine physics | a `RigidBody3D` (layer none, mask: the level) with a box the size of the mesh, mass 0.4 kg, friction 0.7, bounce 0.3, linear damping 0.05, angular 0.6; initial velocity = the carrier's velocity + up to 0.6 m/s sideways (0.12 up) + up to 5 rad/s spin… (kg, m/s, rad/s, s) | kind: placeholder; confidence: none (low); notes: ours | ours | Dropped magazine physics: compare with SM1 by timing a run over a known distance. Ours: a RigidBody3D (layer none, mask: the level) with a box the size of… | ☐ |
 
-### Melee (gameplay-critical) (146)
+### Melee (gameplay-critical) (148)
 
 *Spec section: Melee flow, the hammer in both hands and the transitions pass (anim/melee-flow; client only, not simulated, no protocol change)*
 
@@ -1248,6 +1248,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-790B4BAC` | Ledge jump after a charge | a fresh Jump press that ends a bull rush held in the air (not on the ground, the rush phase only) opens the air jump (`PlayerState.JumpAirOpen`): the hold past the hop's decision tick (5 ticks, 0.17 s, as on the ground) lifts the pack in the air, committed to… | kind: ours; confidence: medium | owner 2026-11-14 | Ledge jump after a charge: compare with SM1 by feel or video. Ours: a fresh Jump press that ends a bull rush held in the air (not on the… | ☐ |
+| `R-10E9FAC8` | Ledge jump: a take-off pressed at the edge | a Jump press (a hold) made on the last grounded ticks of the charge's run, so the body leaves the ground during the 0.2 s take-off, now lifts off in the air when the delay is over (the jump the owner pressed); protocol 71 let the take-off fall straight down… | kind: ours; confidence: medium | owner 2026-11-14 | Ledge jump: a take-off pressed at the edge: compare with SM1 by feel or video. Ours: a Jump press (a hold) made on the last grounded ticks of the charge's… | ☐ |
+| `R-86B0FC08` | Ledge jump: fuel | the air jump costs what the ground jump does (`CostAt` of the hold; a press with less than the zero hold's cost starts nothing in the air: the hop is free); the hop that cancels the tackle costs none. Before this change the air start (Musou Mode) was free at… (power) | kind: ours; confidence: medium | ours | Ledge jump: fuel: compare with SM1 by feel or video. Ours: the air jump costs what the ground jump does (CostAt of the hold; a… | ☐ |
 | `R-029EA931` | Hop cuts the melee wait | the start of a hop (the jump-pack dash, on the ground or in the air) cuts the melee wait still running (`PlayerState.MeleeLock`: the light combo's wait to its combo window, or a cancel's wait) to **0.5** of what is left, but not below **0.25 s**; a wait… (s) | kind: ours; kind: estimate | owner 2026-11-14 (the cut, not the numbers) | Hop cuts the melee wait: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the start of a hop (the jump-pack dash, on the ground or in the air)… | ☐ |
 | `R-EC7884DA` | Hop out of the aerial tackle | a fresh Jump press in any phase of the dash attack (the aerial tackle: the lunge, its hit, wall stop and run-out, in the air or on the ground) ends it and starts the hop in that tick: no take-off, no tap-or-hold decision, from the stick of that tick, past the… | kind: ours; confidence: medium | owner 2026-11-14 | Hop out of the aerial tackle: compare with SM1 by feel or video. Ours: a fresh Jump press in any phase of the dash attack (the aerial… | ☐ |
 | `R-C9581702` | Aerial tackle's momentum | the hop is the usual dash from the state of the press tick: the tackle's speed is not carried, the dash's own travel (about 16.4 m/s along the stick, forward without one) takes over; the rise starts from the body's height (m/s) | kind: ours; notes: estimate | ours | Aerial tackle's momentum: compare with SM1 by timing a run over a known distance. Ours: the hop is the usual dash from the state of the press tick: the… | ☐ |

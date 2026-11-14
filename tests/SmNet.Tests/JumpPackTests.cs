@@ -518,6 +518,8 @@ public class JumpPackTests(ITestOutputHelper output)
     [Fact]
     public void Leaving_the_ground_during_the_take_off_turns_the_jump_into_a_fall_with_the_power_spent()
     {
+        // sim/hop-rules (protocol 72): the take-off now lifts off in the air (HopRulesMoreTests); this is the protocol 71 rule, the restore switch --old-hop-rules.
+        var old = Config with { HopRules = false };
         // A 5 m ledge ending at y = 0.5, the floor below.
         var level = Mesh(Floor(5f, y1: 0.5f), Floor(0f, y0: 0.5f), (new(-300, 0.5f, 0), new(300, 0.5f, 0), new(300, 0.5f, 5), new(-300, 0.5f, 5)));
         var s = Fresh(at: new Vector3(0, 0.3f, 5f)) with { Velocity = new Vector3(0, 5f, 0) };
@@ -525,7 +527,7 @@ public class JumpPackTests(ITestOutputHelper output)
         float top = 0f;
         for (int k = 0; k < 120 && s.Jump != JumpPhase.Landed; k++)
         {
-            events.Add(Step(ref s, k == 0 ? InputButtons.Jump : InputButtons.None, my: 1f, world: level).Jump);
+            events.Add(Step(ref s, k == 0 ? InputButtons.Jump : InputButtons.None, old, my: 1f, world: level).Jump);
             top = MathF.Max(top, s.Position.Z);
             if (k == 6) Assert.Equal(JumpPhase.Fall, s.Jump);
         }
@@ -536,7 +538,7 @@ public class JumpPackTests(ITestOutputHelper output)
         Assert.True(s.JumpPower > 65f && s.JumpPower < 100f, $"power {s.JumpPower}");   // 35 spent at the press; protocol 62: the fall recharges (Classic PvP)
         // Control: far from the edge it lifts off.
         var g = Fresh(at: new Vector3(0, -10f, 5f));
-        for (int k = 0; k < 7; k++) Step(ref g, k == 0 ? InputButtons.Jump : InputButtons.None, world: level);
+        for (int k = 0; k < 7; k++) Step(ref g, k == 0 ? InputButtons.Jump : InputButtons.None, old, world: level);
         Assert.Equal(JumpPhase.Ascent, g.Jump);
     }
 
