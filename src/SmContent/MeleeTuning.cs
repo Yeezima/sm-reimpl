@@ -157,6 +157,8 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
     public static IDisposable WithoutSwordStab() { bool before = _noStab; _noStab = true; return new Restore(before); }
     sealed class Restore(bool before) : IDisposable { public void Dispose() => _noStab = before; }
     /// <summary>Whether a read on this thread makes the sword's finisher the stab (<see cref="OldSwordFf"/> and <see cref="WithoutSwordStab"/> turn it off).</summary>
+    /// <summary>Set once a read made a finisher the stab (the match's tuning is one read: the sounds then take the stab's ability for it, <see cref="WeaponMap.AbilityOf"/>'s caller <c>SoundTriggers.MeleeHitAbility</c>).</summary>
+    public static volatile bool StabApplied;
     public static bool SwordStabOn => !OldSwordFf && !_noStab;
     /// <summary>The heavy classes' kick ability (sim/light-melee-flinch: <see cref="MeleeStep.Kick"/>).</summary>
     public const string KickAbility = "ability_displace_kick";
@@ -474,6 +476,7 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
             catch (InvalidDataException e) { notes.Add($"heavy strike {i + 1}: {e.Message}; the heavy chain stops before it"); break; }
         }
         // sim/sword-ff-stab: the finisher is the weapon's stab (see WeaponMap.StabHeavy).
+        if (weapon.StabHeavy > 0) StabApplied = false;   // this read decides (the last read of the match's tuning wins)
         if (weapon.StabHeavy > 0 && SwordStabOn && heavy.Count == weapon.HeavySequencers.Length + weapon.FinisherSequencers.Length && weapon.StabHeavy <= weapon.HeavySequencers.Length
             && StabHit(wargear, mapping, notes) is { } stabHit)
         {
@@ -486,6 +489,7 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
                 PrimaryReaction = stabHit.Reaction, SecondaryDamage = 0f, SecondaryShieldDamage = 0f, SecondaryReaction = default,
             };
             heavyAnimations[f] = heavyAnimations[weapon.StabHeavy - 1];
+            StabApplied = true;
         }
         // A chain into a strike that could not be read is dropped (the simulation also checks the bounds).
         for (int i = 0; i < steps.Count; i++)
