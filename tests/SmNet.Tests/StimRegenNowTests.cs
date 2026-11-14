@@ -65,6 +65,37 @@ public class StimRegenNowTests
         Assert.All(h, v => Assert.Equal(50f, v));
     }
 
+    [Theory]
+    [InlineData(ContentExtras.None)]
+    [InlineData(ContentExtras.Musou)]
+    public void Damage_taken_after_the_stim_restarts_the_delay_as_normal(ContentExtras extras)
+    {
+        var c = Make(extras);
+        var s = Combat.Respawned(new PlayerState(1, Vector3.Zero, Vector3.Zero, 0f, true) { Class = 0 }, c) with { Health = 50f, SinceDamage = 0f };
+        for (int k = 0; k < 30; k++)
+            s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 0f, 0f, k == 0 ? InputButtons.Grenade : InputButtons.None), c, out _);
+        Assert.True(s.StimLeft > 0f && s.Health > 50f);   // the stim released and regeneration is running
+        var (hit, _, _) = Combat.ApplyDamage(s, 10f, 1f, 1f, c);
+        Assert.Equal(0f, hit.SinceDamage);
+        float after = hit.Health;
+        for (int k = 0; k < 100; k++)   // 3.3 s, inside the 5 s delay: no regeneration
+        {
+            hit = Combat.StepPlayer(hit, new PlayerInput(0, 0f, 0f, 0f, InputButtons.None), c, out _);
+            Assert.Equal(after, hit.Health);
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void A_stim_with_the_delay_already_over_changes_no_regeneration(bool larraman)
+    {
+        var c = Make(ContentExtras.None);
+        var with = Run(c, larraman, press: true, ticks: 40, sinceDamage: 6f).Health;
+        var without = Run(c, larraman, press: false, ticks: 40, sinceDamage: 6f).Health;
+        Assert.Equal(without, with);
+    }
+
     [Fact]
     public void A_stim_never_lengthens_the_delay_and_never_heals_past_the_maximum()
     {
