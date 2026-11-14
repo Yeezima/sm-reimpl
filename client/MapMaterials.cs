@@ -44,6 +44,8 @@ public sealed partial class MapMaterials
     public int Emissive { get; private set; }
     public int Layered { get; private set; }
     public int CutOut { get; private set; }
+    /// <summary>Alpha-blended materials (<c>BlendMode</c> 1: the vista cards).</summary>
+    public int Blended { get; private set; }
     public int Tinted { get; private set; }
 
     /// <summary>Multiply by the vertex colour where the shader name has "vtxtint". Test aid: SM_NO_TINT=1 turns it off.</summary>
@@ -57,7 +59,9 @@ public sealed partial class MapMaterials
     public Material? Build(BmatMaterial bmat, IReadOnlyDictionary<string, byte[]> dds, List<string> notes, bool vertexColours = false, bool normalMaps = true)
     {
         if (!bmat.Textures.TryGetValue("DiffuseMap", out var diffuseName) || Load(diffuseName, dds, notes) is not { } diffuse) return null;
-        bool cutOut = bmat.BlendMode == 8, twoSided = bmat.CullMode == 0;
+        // classic-maps-all: BlendMode 8 and 10 are alpha cut-outs (10: the walkway grates and fences of the other maps; the same reading as 8, provisional), BlendMode 1 is an alpha blend
+        // (the vista cards: painted far scenery with a silhouette in the alpha, drawn by the unlit shader; read as opaque they were flat tan walls). Wherever else it is 255 (the default) the surface is opaque.
+        bool cutOut = bmat.BlendMode is 8 or 10, blended = bmat.BlendMode == 1, twoSided = bmat.CullMode == 0;
         if (vertexColours && bmat.Textures.ContainsKey("DiffuseMap2") && BuildLayered(bmat, diffuse, dds, cutOut, twoSided, normalMaps, notes) is { } layered) return layered;
         var material = new StandardMaterial3D
         {
@@ -71,10 +75,26 @@ public sealed partial class MapMaterials
             RenderQuality.ApplyCutOut(material);   // M40-T7: alpha-to-coverage with MSAA
             CutOut++;
         }
+        if (bmat.ShaderName == "water")
+        {
+            // classic-maps-all (provisional approximation): the sewer water of Waste Management's vista (shader "water": scrolling normals, a reflection map, OpacityMin 0.7): drawn as a see-through
+            // scum surface at the material's OpacityMin, so the mirrored geometry below it (the old reflection trick) shows through instead of an opaque tan sheet.
+            material.Transparency = BaseMaterial3D.TransparencyEnum.Alpha;
+            material.AlbedoColor = new Color(1f, 1f, 1f, Math.Clamp(bmat.Floats.GetValueOrDefault("OpacityMin", 0.7f), 0.3f, 1f));
+            material.RenderPriority = -1;
+            Blended++;
+        }
+        if (blended)
+        {
+            material.Transparency = BaseMaterial3D.TransparencyEnum.Alpha;
+            if (bmat.ShaderName?.Contains("unlit", StringComparison.Ordinal) == true) material.ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded;
+            material.RenderPriority = -2;   // far backdrops first: whatever is blended in front of them draws over them
+            Blended++;
+        }
         if (twoSided) material.CullMode = BaseMaterial3D.CullModeEnum.Disabled;
         // Vertex tint. A StandardMaterial3D also multiplies the alpha by the vertex alpha (the layer weight, not an opacity), which would
         // punch holes in a cut-out; so cut-outs are not tinted here (no Manufactorum cut-out has a single-layer vtxtint shader).
-        if (vertexColours && TintVertexColours && !cutOut && bmat.ShaderName?.Contains("vtxtint", StringComparison.Ordinal) == true)
+        if (vertexColours && TintVertexColours && !cutOut && !blended && bmat.ShaderName?.Contains("vtxtint", StringComparison.Ordinal) == true)
         {
             material.VertexColorUseAsAlbedo = true;
             material.VertexColorIsSrgb = TintIsSrgb;

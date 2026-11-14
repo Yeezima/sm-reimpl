@@ -30,6 +30,66 @@ public static class MapEmissiveCommand
             }
             return 0;
         }
+        if (rest.Contains("--big"))
+        {
+            // classic-maps-all: the placements with the largest drawn extent (world box of the nearest LOD's mesh), with their materials: finds the flat slabs and backdrops that dominate a view.
+            var big = new List<(string Name, string Def, string Mesh, System.Numerics.Vector3 Size, System.Numerics.Vector3 Centre, string Mats)>();
+            foreach (var o in scene.Objects)
+            {
+                if (!scene.Definitions.TryGetValue(o.Definition, out var def)) continue;
+                foreach (var v in def.NearestLod())
+                {
+                    if (!scene.Meshes.TryGetValue(v.MeshName, out var mesh)) continue;
+                    var lo = new System.Numerics.Vector3(float.MaxValue); var hi = new System.Numerics.Vector3(float.MinValue);
+                    var m = v.NodeTransform * o.Transform;
+                    foreach (var block in mesh.Blocks)
+                        foreach (var p in block.Positions) { var w = System.Numerics.Vector3.Transform(p, m); lo = System.Numerics.Vector3.Min(lo, w); hi = System.Numerics.Vector3.Max(hi, w); }
+                    if (lo.X > hi.X) continue;
+                    big.Add((o.Name, o.Definition, v.MeshName, hi - lo, (hi + lo) / 2f, string.Join(",", mesh.Blocks.SelectMany(b => b.Materials).Select(r => r.Name).Distinct().Take(3))));
+                }
+            }
+            int top = int.TryParse(rest.SkipWhile(a => a != "--top").Skip(1).FirstOrDefault(), out var t) ? t : 25;
+            if (rest.SkipWhile(a => a != "--within").Skip(1).FirstOrDefault() is { } within && within.Split(',') is [var wx, var wy, var wr]
+                && float.TryParse(wx, out var cx) && float.TryParse(wy, out var cy) && float.TryParse(wr, out var cr))
+                big = big.Where(b => (b.Centre.X - cx) * (b.Centre.X - cx) + (b.Centre.Y - cy) * (b.Centre.Y - cy) <= cr * cr).ToList();
+            foreach (var b in big.OrderByDescending(b => Math.Max(b.Size.X, Math.Max(b.Size.Y, b.Size.Z))).Take(top))
+                Console.WriteLine($"{b.Def,-34} {b.Mesh,-34} size {b.Size.X,7:0}x{b.Size.Y,7:0}x{b.Size.Z,7:0} at {b.Centre.X,7:0},{b.Centre.Y,7:0},{b.Centre.Z,6:0}  {b.Mats}");
+            return 0;
+        }
+        if (rest.Contains("--blend"))
+        {
+            // classic-maps-all: every material of the placed meshes by blend and cull mode and shader (which of them the client's material builder reads: BlendMode 8 only, CullMode 0), with the meshes that use it.
+            var used = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+            foreach (var d in scene.Definitions.Values)
+                foreach (var v in d.NearestLod())
+                    if (scene.Meshes.TryGetValue(v.MeshName, out var mesh))
+                        foreach (var block in mesh.Blocks)
+                            foreach (var range in block.Materials)
+                            {
+                                if (!used.TryGetValue(range.Name, out var l)) used[range.Name] = l = [];
+                                if (!l.Contains(v.MeshName, StringComparer.OrdinalIgnoreCase)) l.Add(v.MeshName);
+                            }
+            foreach (var g in used.Where(u => scene.Materials.ContainsKey(u.Key)).GroupBy(u => (scene.Materials[u.Key].BlendMode, scene.Materials[u.Key].CullMode, scene.Materials[u.Key].ShaderName)).OrderBy(g => g.Key.BlendMode).ThenBy(g => g.Key.CullMode))
+            {
+                if (!all && g.Key.BlendMode == 255 && g.Key.CullMode == 255) continue;
+                Console.WriteLine($"blend {g.Key.BlendMode} cull {g.Key.CullMode} shader {g.Key.ShaderName}: {g.Count()} materials");
+                foreach (var u in g.OrderBy(u => u.Key).Take(12)) Console.WriteLine($"    {u.Key} (meshes {string.Join(",", u.Value.Take(3))}{(u.Value.Count > 3 ? $",+{u.Value.Count - 3}" : "")})");
+            }
+            return 0;
+        }
+        if (rest.SkipWhile(a => a != "--material").Skip(1).FirstOrDefault() is { } materials)
+        {
+            // classic-maps-all: every field of the named materials (shader, textures, floats, vectors, blend and cull mode), to see why a surface draws flat or bright.
+            foreach (var name in materials.Split(','))
+            {
+                if (!scene.Materials.TryGetValue(name, out var m)) { Console.WriteLine($"{name}: not in the scene"); continue; }
+                Console.WriteLine($"{name}: shader {m.ShaderName}; blend {m.BlendMode}, cull {m.CullMode}");
+                foreach (var (k, v) in m.Textures) Console.WriteLine($"    texture {k} = {v}");
+                foreach (var (k, v) in m.Floats) Console.WriteLine($"    float {k} = {v}");
+                foreach (var (k, v) in m.Vectors) Console.WriteLine($"    vector {k} = {string.Join("/", v.Select(x => x.ToString("0.###")))}");
+            }
+            return 0;
+        }
         if (rest.SkipWhile(a => a != "--where").Skip(1).FirstOrDefault() is { } where)
         {
             var names = where.Split(',').ToHashSet(StringComparer.OrdinalIgnoreCase);

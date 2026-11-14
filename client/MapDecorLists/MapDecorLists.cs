@@ -39,18 +39,46 @@ public static class MapDecorLists
     /// <summary>How close to a board (horizontal metres) a <see cref="Near"/> definition counts as part of the station.</summary>
     public const float NearRadius = 6f;
 
+    /// <summary>
+    /// What one map does not draw (classic-maps-all, 2026-11-15): object definitions removed everywhere, those removed only near a board, and surfaces removed from meshes that stay. A map gets a set only
+    /// where its own emissive audit and in-game views showed the same artifact as Manufactorum's (<c>smtool map-emissive --map m --all</c>); nothing is copied from another map blindly.
+    /// </summary>
+    public sealed record DecorSet(IReadOnlyList<string> Always, IReadOnlyList<string> Near, IReadOnlyList<(string Mesh, string Material)> Surfaces);
+
+    /// <summary>Manufactorum's set (the lists above).</summary>
+    public static readonly DecorSet ManufactorumSet = new(Always, Near, Surfaces);
+
+    /// <summary>
+    /// Waste Management (<c>mp_tdm_01</c>) is built from Manufactorum's art kit: the same <c>backpanel_a</c>, <c>tech_panel_*</c>, <c>tech_panel_pipe_*</c> and <c>tech_interface_a</c> definitions with the same
+    /// <c>tech_stations</c> (0.55/0.14/0.12) and <c>backPanel</c> emissive tints, placed as the same wall stations at its two bases and two mid-map stations; in-game views of its baseline drew the same salmon pipe runs
+    /// and boards (2026-11-15). So the Manufactorum lists apply, plus what its own audit added: <c>tech_panel_d</c> (the boards' small panels, <c>tech_stations</c>), the <c>console_dif</c> surface of
+    /// <c>Pipe_Piece_A</c> (salmon-tinted, 4 placements) and the olive <c>backPanel</c> surface of <c>tech_interface_a</c>.
+    /// </summary>
+    public static readonly DecorSet WasteManagementSet = new(
+        [.. Always, "tech_panel_d"], Near, [.. Surfaces, ("Pipe_Piece_A", "console_dif"), ("tech_interface_a", "backPanel")]);
+
+    /// <summary>The sets by map name (ignoring case); a map not in it hides nothing.</summary>
+    public static readonly IReadOnlyDictionary<string, DecorSet> Sets = new Dictionary<string, DecorSet>(StringComparer.OrdinalIgnoreCase)
+    {
+        [Map] = ManufactorumSet,
+        ["mp_tdm_01"] = WasteManagementSet,
+    };
+
+    /// <summary>The set for <paramref name="map"/>, or null (nothing is hidden there).</summary>
+    public static DecorSet? For(string map) => Sets.TryGetValue(map, out var set) ? set : null;
+
     /// <summary>Whether the material range <paramref name="material"/> of <paramref name="mesh"/> is not drawn on <paramref name="map"/> (never with <paramref name="old"/>, the restore switch).</summary>
     public static bool HidesSurface(string map, string mesh, string material, bool old) =>
-        !old && map.Equals(Map, StringComparison.OrdinalIgnoreCase)
-        && Surfaces.Any(s => s.Mesh.Equals(mesh, StringComparison.OrdinalIgnoreCase) && s.Material.Equals(material, StringComparison.OrdinalIgnoreCase));
+        !old && For(map) is { } set
+        && set.Surfaces.Any(s => s.Mesh.Equals(mesh, StringComparison.OrdinalIgnoreCase) && s.Material.Equals(material, StringComparison.OrdinalIgnoreCase));
 
-    /// <summary>The indices of the placements (definition, horizontal place) not to draw; empty on other maps or with <paramref name="old"/>.</summary>
+    /// <summary>The indices of the placements (definition, horizontal place) not to draw; empty on maps without a set or with <paramref name="old"/>.</summary>
     public static HashSet<int> Hidden(string map, bool old, IReadOnlyList<(string Definition, float X, float Y)> placements)
     {
         var hidden = new HashSet<int>();
-        if (old || !map.Equals(Map, StringComparison.OrdinalIgnoreCase)) return hidden;
-        var always = new HashSet<string>(Always, StringComparer.OrdinalIgnoreCase);
-        var near = new HashSet<string>(Near, StringComparer.OrdinalIgnoreCase);
+        if (old || For(map) is not { } set) return hidden;
+        var always = new HashSet<string>(set.Always, StringComparer.OrdinalIgnoreCase);
+        var near = new HashSet<string>(set.Near, StringComparer.OrdinalIgnoreCase);
         var boards = new List<(float X, float Y)>();
         for (int i = 0; i < placements.Count; i++)
         {
