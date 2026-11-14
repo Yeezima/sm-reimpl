@@ -156,11 +156,12 @@ public class SoundTuningTests
         Assert.True(ClassicAutocannonSound.IsBody(ClassicAutocannonSound.Event, Voice(1, ClassicAutocannonSound.BodyNode, 2)));
         Assert.False(ClassicAutocannonSound.IsBody(ClassicAutocannonSound.Event, Voice(1, 2)));   // the shot's own layers (tail, click) stay as the data has them
         Assert.False(ClassicAutocannonSound.IsBody("play_sm_heavy_bolter_fire", Voice(ClassicAutocannonSound.BodyNode)));   // no other weapon
-        // The cue set of a Classic shot: the one event the weapon files post, and no Dreadnought or walk/footstep event anywhere in it.
-        Assert.Equal("play_ch_autocannon_fire", ClassicAutocannonSound.Event);
-        Assert.DoesNotContain("dread", ClassicAutocannonSound.Event, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("foot", ClassicAutocannonSound.Event, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("walk", ClassicAutocannonSound.Event, StringComparison.OrdinalIgnoreCase);
+        // A simulated post of the event: the tail, the body (the footstep samples), the click. Classic keeps the tail and the click only; the old mix keeps all three.
+        var post = new[] { Voice(11, 12), Voice(21, ClassicAutocannonSound.BodyNode, 22), Voice(31) };
+        var played = post.Where(v => !ClassicAutocannonSound.Applies(true, ClassicAutocannonSound.Event, v)).ToList();
+        Assert.Equal([post[0], post[2]], played);
+        Assert.Equal(3, post.Count(v => !ClassicAutocannonSound.Applies(false, ClassicAutocannonSound.Event, v)));
+        Assert.Equal("play_ch_autocannon_fire", ClassicAutocannonSound.Event);   // the one event the weapon files post: no dreadnought or footstep event joins it
     }
 
     [Fact]
