@@ -98,9 +98,14 @@ public partial class NetworkView
             if (ArmourFlashDemoMode is { Length: > 0 } demo)
             {
                 var d = demo switch { "hit" => (0.6f, 0f, 0f), "break" => (0f, 0.6f, 0f), "glow" => (0f, 0f, 0.6f), _ => ArmourFlashDemoAt(_connectedFor) };
-                _local.SetArmourFlash(d.Item1, d.Item2, d.Item3, ring: true);
+                _local.SetArmourFlash(d.Item1, d.Item2, d.Item3, ring: true, spotScale: HitFxScaleRules.FlashSize(1f, OldFlashMagnitude), glowScale: HitFxScaleRules.FlashSize(1f, OldFlashMagnitude), intensity: FlashBrightness);   // demo: the same x1.4 as a real hit
             }
-            else { var f = _armourFlash.At(own, _connectedFor); _local.SetArmourFlash(f.Hit, f.Break, f.Glow, _armourFlash.BreakRing(own, _connectedFor), intensity: FlashBrightness); }
+            else
+            {
+                var f = _armourFlash.At(own, _connectedFor);
+                var (ownSpot, ownGlow) = f.Hit > 0.001f || f.Break > 0.001f ? HitFxModelScale(_local.GlobalPosition + Vector3.Up * 1.2f) : (1f, 1f);   // hit-sparks-flashes: the same size factor as another player's model
+                _local.SetArmourFlash(f.Hit, f.Break, f.Glow, _armourFlash.BreakRing(own, _connectedFor), spotScale: ownSpot, glowScale: ownGlow, intensity: FlashBrightness);
+            }
         }
         foreach (var state in _lastOthers)
         {
