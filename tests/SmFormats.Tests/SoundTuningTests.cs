@@ -165,6 +165,20 @@ public class SoundTuningTests
     }
 
     [Fact]
+    public void The_own_shot_resolves_as_the_default_case_and_plays_the_tail_not_the_body()
+    {
+        var own = new SoundSwitches().Set(AudioCatalog.PlayerGroup, AudioCatalog.LocalPlayerValue).Set(7u, 9u);
+        var shot = ClassicAutocannonSound.ShotSwitches(true, ClassicAutocannonSound.Event, own);
+        Assert.Null(shot.Get(AudioCatalog.PlayerGroup));   // the default case: the map bank's tail layer, not the unloaded local objects
+        Assert.Equal(9u, shot.Get(7u));
+        Assert.Equal(AudioCatalog.LocalPlayerValue, own.Get(AudioCatalog.PlayerGroup));   // the emitter itself is untouched
+        Assert.Same(own, ClassicAutocannonSound.ShotSwitches(false, ClassicAutocannonSound.Event, own));   // --old-classic-mix, Musou's mix
+        Assert.Same(own, ClassicAutocannonSound.ShotSwitches(true, "play_sm_heavy_bolter_fire", own));    // no other event
+        // and the body is dropped for that own shot too
+        Assert.True(ClassicAutocannonSound.Applies(true, ClassicAutocannonSound.Event, Voice(ClassicAutocannonSound.BodyNode)));
+    }
+
+    [Fact]
     public void The_classic_gate_leaves_the_old_mix_musou_and_other_weapons_alone()
     {
         var body = Voice(ClassicAutocannonSound.BodyNode);

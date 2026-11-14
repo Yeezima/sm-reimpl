@@ -19,5 +19,18 @@ public static class ClassicAutocannonSound
     /// <summary>The whole gate: the Classic mix is on (not <c>--old-classic-mix</c>, which is also the mode Musou Mode runs the mix in) and the voice is the footstep body, which is dropped.</summary>
     public static bool Applies(bool classicMix, string evt, SoundVoice voice) => classicMix && IsBody(evt, voice);
 
+    /// <summary>
+    /// The switches the shot is resolved with. The event's local-player case (switch group 0x0d500bea set to the player's own value) reaches two tail objects (0x00db28ec, 0x05567177) that no loaded bank holds,
+    /// so with the footstep body gone an own shot would be a 0.05 s click. The own shot therefore resolves as every other player's does (the group unset: the <c>default</c> case, whose tail layer is in the map bank),
+    /// which sounds at the player's own position. Any other event, and the old mix, keep the emitter's switches.
+    /// </summary>
+    public static SoundSwitches ShotSwitches(bool classicMix, string evt, SoundSwitches switches)
+    {
+        if (!classicMix || !string.Equals(evt, Event, StringComparison.Ordinal) || switches.Get(AudioCatalog.PlayerGroup) is null) return switches;
+        var c = switches.Clone();
+        c.Remove(AudioCatalog.PlayerGroup);
+        return c;
+    }
+
     public static bool IsBody(string evt, SoundVoice voice) => string.Equals(evt, Event, StringComparison.Ordinal) && voice.Path.Contains(BodyNode);
 }

@@ -58,7 +58,7 @@ static class AudioRender
             if (spec.MaterialType is not null) sw.Set("material_type", spec.MaterialType);
             if (spec.Local) sw.Set(AudioCatalog.PlayerGroup, AudioCatalog.LocalPlayerValue);
             SoundPlay play;
-            try { play = catalog.Post(spec.Event, sw, 1); }
+            try { play = catalog.Post(spec.Event, spec.ClassicAutocannon ? ClassicAutocannonSound.ShotSwitches(true, spec.Event, sw) : sw, 1); }
             finally
             {
                 catalog.SetState(ImpactStateGroup, beforeImpact ?? AudioCatalog.NoneState);
