@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Godot;
 using SmClient.Looks;
 using SmContent.Extras.Musou;
+using SmContent;
 using SmNet;
 using SmSim;
 using SmSim.Extras.Musou;
@@ -21,7 +22,16 @@ public partial class NetworkView
     DreadnoughtLooks? _dreadLooks;
     readonly Dictionary<int, DreadnoughtTrack> _dreadTracks = new();
 
-    sealed class DreadnoughtTrack { public bool WasAlive; public double Born = double.NegativeInfinity, Died = double.NegativeInfinity; }
+    sealed class DreadnoughtTrack
+    {
+        public bool WasAlive, EngineOn;
+        public double Born = double.NegativeInfinity, Died = double.NegativeInfinity;
+        public SoundEmitter Emitter = new();
+        public Vector3 Last;
+        public float Stride;
+        public int Strike;
+        public float ReloadLeft;
+    }
 
     bool IsDreadnoughtClass(int playerClass) => _config is not null && DreadnoughtRules.IsDreadnought(_config, playerClass);
     static bool IsDreadnoughtCharacter(CharacterViewer c) => c.HasMeta("look_key") && c.GetMeta("look_key").AsString() == DreadnoughtKey;
@@ -69,8 +79,9 @@ public partial class NetworkView
         character.Transform = new Transform3D(new Basis(new Vector3(0, 0, 1), yaw), new Vector3(state.Position.X, state.Position.Y, state.Position.Z));
         if (character.GetNodeOrNull<Node3D>("ChargeGlow") is { } glow) glow.Visible = false;
         character.Visible = true;
-        if (!state.Alive) { character.Pose(DreadnoughtRig.Death, (float)Math.Min(_connectedFor - t.Died, DreadnoughtRig.DeathSeconds), 0.2f); return; }
         double since = _connectedFor - t.Born;
+        DreadnoughtSounds(t, state, own, state.Alive && since < DreadnoughtRig.EntranceSeconds);
+        if (!state.Alive) { character.Pose(DreadnoughtRig.Death, (float)Math.Min(_connectedFor - t.Died, DreadnoughtRig.DeathSeconds), 0.2f); return; }
         if (since < DreadnoughtRig.EntranceSeconds) { character.Pose(DreadnoughtRig.Entrance, (float)since, 0.1f); return; }
         if (_config is { } cfg)
         {
@@ -87,6 +98,43 @@ public partial class NetworkView
             }
         }
         DreadnoughtLocomotion(character, state);
+    }
+
+    // ---- sounds (D7): the install's own events from bank Weapon_Dreadnought through the sound system (the data's mix); none for a lean bot ----
+    const string DreadEngineEvent = "play_engine_sm_dreadnought", DreadFootEvent = "play_dreadnought_footstep", DreadSprintFootEvent = "play_dreadnought_sprint_footstep", DreadReloadEvent = "play_dreadnought_sm_weapon_reload";
+    static readonly string[] DreadLightSwing = ["play_dreadnought_melee_swing_x1", "play_dreadnought_melee_swing_x2"], DreadHeavySwing = ["play_sm_stomp_displace", "play_dreadnought_melee_swing_y1"];
+
+    /// <summary>
+    /// Posts a Dreadnought's sounds for this frame: his engine loop from the end of his entrance until his death, a footstep every <see cref="DreadnoughtRules.FootfallStride"/> metres walked (the sim's footfall stride: the
+    /// sprint's footstep when sprinting), the arm's swing at each strike's start and the cannon's reload. The data's events (docs/discovery.md "Dreadnought (Dreadnought Assault)", section "Sounds"); the cannon's own fire
+    /// sound is the wargear's, played by the shot path.
+    /// </summary>
+    void DreadnoughtSounds(DreadnoughtTrack t, PlayerState s, bool own, bool entering)
+    {
+        if (_sound is null || Lean) return;
+        var em = t.Emitter;
+        em.Own = own; em.Label = $"dreadnought {s.PlayerId}";
+        em.Position = ToGodot(s.Position) + Vector3.Up * 1.5f;
+        float speed = MathF.Sqrt(s.Velocity.X * s.Velocity.X + s.Velocity.Y * s.Velocity.Y);
+        em.Parameters[VoiceMixer.Speed] = speed;
+        if (!s.Alive) { if (t.EngineOn) { _sound.StopEmitter(em); t.EngineOn = false; } t.Last = Vector3.Zero; return; }
+        if (!entering && !t.EngineOn) { _sound.Post(DreadEngineEvent, em); t.EngineOn = true; }
+        var here = ToGodot(s.Position);
+        if (t.Last != Vector3.Zero && s.Grounded && !entering)
+        {
+            float moved = new Vector2(here.X - t.Last.X, here.Z - t.Last.Z).Length();   // Godot space: X, Z are the ground
+            if (moved < 3f) t.Stride += moved;
+            if (t.Stride >= DreadnoughtRules.FootfallStride) { t.Stride -= DreadnoughtRules.FootfallStride; _sound.Post(speed > DreadnoughtRules.RunSpeed + 1.5f ? DreadSprintFootEvent : DreadFootEvent, em, footstep: true); }
+        }
+        t.Last = here;
+        if (s.MeleeStep > 0 && t.Strike == 0)
+        {
+            var list = s.MeleeHeavy ? DreadHeavySwing : DreadLightSwing;
+            if (s.MeleeStep <= list.Length) _sound.Post(list[s.MeleeStep - 1], em);
+        }
+        t.Strike = s.MeleeStep;
+        if (s.ReloadLeft > 0f && t.ReloadLeft <= 0f) _sound.Post(DreadReloadEvent, em);
+        t.ReloadLeft = s.ReloadLeft;
     }
 
     /// <summary>The walk, run, sprint or idle clip for the state (**ours**: eight sectors off the facing, walk below <see cref="DreadnoughtRig.RunFrom"/>, rate from the speed, the aim pitch across the down / level / up clips).</summary>

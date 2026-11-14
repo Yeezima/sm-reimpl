@@ -26,10 +26,22 @@ public class MusouCustomizerTests
     [Fact]
     public void The_top_level_is_standard_marines_librarian_and_heretic_in_that_order()
     {
-        Assert.Equal([MusouCustomizerEntry.StandardMarines, MusouCustomizerEntry.Librarian, MusouCustomizerEntry.Heretic], MusouCustomizer.Entries.Select(e => e.Entry));
+        Assert.Equal([MusouCustomizerEntry.StandardMarines, MusouCustomizerEntry.Librarian, MusouCustomizerEntry.Heretic, MusouCustomizerEntry.Dreadnought], MusouCustomizer.Entries.Select(e => e.Entry));
         Assert.Equal("Standard Marines", MusouCustomizer.Info(MusouCustomizerEntry.StandardMarines).Label);
         Assert.Equal("Librarian", MusouCustomizer.Info(MusouCustomizerEntry.Librarian).Label);
         Assert.StartsWith("Heretic", MusouCustomizer.Info(MusouCustomizerEntry.Heretic).Label);
+        Assert.Equal(("Dreadnought", true), (MusouCustomizer.Info(MusouCustomizerEntry.Dreadnought).Label, MusouCustomizer.Info(MusouCustomizerEntry.Dreadnought).Available));
+    }
+
+    [Fact]
+    public void The_dreadnoughts_page_lists_his_fixed_kit_from_the_rules_and_offers_no_choice()
+    {
+        var sections = MusouCustomizer.DreadnoughtRows();
+        Assert.Equal(["CLASS", "WEAPONS", "ABILITIES", "NOT FOR HIM"], sections.Select(x => x.Heading));
+        Assert.DoesNotContain(sections.SelectMany(x => x.Rows), r => r.Kind == MusouRowKind.Choice);
+        Assert.Contains("2000", sections[0].Rows[0].Description);   // his Musou health
+        Assert.Contains("500", sections[1].Rows[2].Description);    // the slam
+        Assert.Contains("PLAY AS DREADNOUGHT", MusouCustomizer.DreadnoughtNote);
     }
 
     [Fact]

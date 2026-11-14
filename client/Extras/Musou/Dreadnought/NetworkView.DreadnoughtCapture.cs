@@ -37,6 +37,15 @@ public partial class NetworkView
     async Task TfwDreadnoughtCapture()
     {
         var client = _client!;
+        if (CmdFlag("dn-pick"))
+        {
+            // the player's own path (no --class): PLAY AS DREADNOUGHT, as the Esc menu row and the customizer page send it; he stays the Tactical stand-in in the Stormbird
+            TfwCheck("he is not a Dreadnought before the pick", !IsDreadnoughtClass(client.Predicted.Class), client.Predicted.Class.ToString());
+            TfwCheck("PLAY AS DREADNOUGHT is on offer in the Stormbird", DreadnoughtOffered(client.Predicted, out _), "");
+            TfwCheck("the pick was sent", PickDreadnought("the capture"), "");
+            await TfwWait(3.0);
+            TfwCheck("in the Stormbird he still plays the Tactical stand-in", !IsDreadnoughtClass(client.Predicted.Class), client.Predicted.Class.ToString());
+        }
         if (!await AutocannonDeploy()) return;
         TfwCheck("he is the Dreadnought after the landing", IsDreadnoughtClass(client.Predicted.Class), client.Predicted.Class.ToString());
         GD.Print($"DNCAPTURE t {_connectedFor:F2} landed, class {client.Predicted.Class}, health {client.Predicted.Health:F0}, locked {DreadnoughtEntryText()}");

@@ -31,7 +31,9 @@ public partial class NetworkView
     /// <summary>The Esc menu's Musou rows: in the Stormbird the Librarian's class; the host's row while a battle is under way (the Stormbird comes back in 20 s, then the run is in the Stormbird).</summary>
     partial void ExtrasMatchMenu(MatchMenu menu)
     {
+        DreadnoughtMatchMenu(menu);   // Dreadnought/NetworkView.DreadnoughtPick.cs: PLAY AS DREADNOUGHT in the Stormbird
         LibrarianMatchMenu(menu);   // Librarian/NetworkView.LibrarianLook.cs: PLAY AS LIBRARIAN in the Stormbird
+        DreadnoughtCustomizer();    // the Dreadnought's page in the picker
         LibrarianCustomizer();      // the same: the customizer's Librarian page (PLAY AS LIBRARIAN there; a Librarian opens on it)
         if (!MusouActive || _client is not { } client || _tfwState.War is not { } war || !TfwHudModel.InBattle(war.Phase) || !war.Own.Deployed) return;
         if (client.Scoreboard is not { } board || !TfwHudModel.IsHost(client.PlayerId, board.Players.Select(r => r.PlayerId))) return;

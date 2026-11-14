@@ -6,7 +6,7 @@ using SmSim.Extras.Musou;
 namespace SmContent.Extras.Musou;
 
 /// <summary>The Musou customizer's top-level entries (owner, 2026-11-10), in the order shown.</summary>
-public enum MusouCustomizerEntry { StandardMarines, Librarian, Heretic }
+public enum MusouCustomizerEntry { StandardMarines, Librarian, Heretic, Dreadnought }
 
 /// <summary>One top-level entry: its button text, its name in lines and cards, whether it can be played now and its tooltip.</summary>
 public sealed record MusouEntryInfo(MusouCustomizerEntry Entry, string Label, string Name, bool Available, string Tooltip, int Width);
@@ -83,6 +83,33 @@ public static class MusouCustomizer
             "Tactical, Assault and Devastator: your Musou loadouts (ten slots of their own, apart from Classic PvP's), wargear, perks and armour (Space Marine side)", 230),
         new(MusouCustomizerEntry.Librarian, "Librarian", "Librarian", true, "The psyker: force sword and psychic powers; his own melee weapon, equipment, perks and look", 190),
         new(MusouCustomizerEntry.Heretic, "Heretic (not yet)", "Heretic", false, "Not yet available: a placeholder for a future class", 230),
+        new(MusouCustomizerEntry.Dreadnought, "Dreadnought", "Dreadnought", true, "The loyalist Dreadnought of Dreadnought Assault: assault cannon, melta and an arm of crushing strikes; a fixed kit, nothing to choose", 190),
+    ];
+
+    /// <summary>The Dreadnought's page (owner, 2026-11-14: "next to librarian and heretic selection options in the customize UI"): a fixed kit, so one page of rows with no steps. Every number is the data's (<see cref="DreadnoughtRules"/>, <see cref="DreadnoughtMelee"/>) or Musou's own pool (health).</summary>
+    public const string DreadnoughtSummary = "DREADNOUGHT: assault cannon, melta, a crushing arm, sprint and a buff: a fixed kit. You stand as a Tactical in the Thunderhawk; he lands with you.";
+    public const string DreadnoughtNote = "The Dreadnought has no loadout slots, perks or look of his own. Pick him in the Stormbird: PLAY AS DREADNOUGHT (on this page in a match, or in the Esc menu); he arrives when the battle begins.";
+
+    public static IReadOnlyList<MusouSection> DreadnoughtRows() =>
+    [
+        new("CLASS",
+        [
+            new("Dreadnought", $"A walker of the Chapter on his own big body: {N(DreadnoughtRules.Health)} health (Musou's own pool; the data's 8000 would make a crowd harmless to him), {N(DreadnoughtRules.RegenRate)} a second back after {N(DreadnoughtRules.RegenDelay)} s, no armour shield. Walks {N(DreadnoughtRules.RunSpeed)} m/s, sprints {N(DreadnoughtRules.SprintSpeed)} m/s for {N(DreadnoughtRules.SprintSeconds)} s with a {N(DreadnoughtRules.SprintGapSeconds)} s gap. He cannot jump, dodge or crouch. {N(DreadnoughtRules.InvulnerableSeconds)} s of safety while he steps out of the pod.", MusouRowKind.Fixed),
+        ]),
+        new("WEAPONS",
+        [
+            new("Assault cannon", "Hold Fire: 30 damage a round, a round every 0.06 s, a clip of 140 and a 2.5 s reload; endless reserve. Aim narrows the view.", MusouRowKind.Fixed),
+            new("Melta", "Switch toggles to it: 200 damage in a cone, one shot, 0.33 s apart; the charge comes back a second later.", MusouRowKind.Fixed),
+            new("Arm", $"Melee: two crushing strikes (100 and 125). Stun strike (Y): the stomp, or after a strike the slam: {N(DreadnoughtMelee.SlamDamage)} damage within {N(DreadnoughtMelee.AreaRadius)} m. Every few steps he walks stamps {N(DreadnoughtMelee.FootfallDamage)} damage into the Orks around him (our estimate of which steps).", MusouRowKind.Fixed),
+        ]),
+        new("ABILITIES",
+        [
+            new("Buff", "The equipment key: his stim. Lasts three times its 10 s under Musou's stim rule, doubles his strikes, doubles his regeneration and stops flinching; it comes back every 15 s.", MusouRowKind.Fixed),
+        ]),
+        new("NOT FOR HIM",
+        [
+            new("Support abilities, perks, a look, grenades", "The Dreadnought carries none of them: his kit is fixed.", MusouRowKind.NotYet),
+        ]),
     ];
 
     public static MusouEntryInfo Info(MusouCustomizerEntry entry) => Entries.First(e => e.Entry == entry);
