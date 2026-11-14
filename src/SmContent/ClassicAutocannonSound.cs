@@ -19,11 +19,14 @@ public static class ClassicAutocannonSound
     /// <summary>The speed (m/s) the body reads: the curve's 0 dB point (ours).</summary>
     public const float PinnedSpeed = 2.5f;
 
-    /// <summary>dB added to the body (ours: the body's loudest voice reaches -13 dB own at the voice and the post's peak is within 2 dB of the heavy bolter's 15 layers (offline renders -17 against -15 dBFS)). Refine in a playtest.</summary>
-    public const float BodyGainDb = 24f;
+    /// <summary>dB added to the body (ours, an estimate): calibrated on another player's shot, whose remote floor and curve are the heavy bolter's, to the heavy bolter's summed voice power at 5 m and 80 m (<c>smtool audio-mix --loudness --scape gunfire --speed 2.5</c>: the autocannon's two body voices -33/-36 dB at 5 m and -43/-46 dB at 80 m against the heavy bolter's 12 voices at -8.7 dB and -20.6 dB summed, so +22.9 near and +20.8 far); own shot about 2 dB under the heavy bolter's sum. Refine in a playtest.</summary>
+    public const float BodyGainDb = 22f;
 
     /// <summary>Low-pass value added to the body (ours: -20 takes the data's LPF 20 off, so the shot is not dull). Refine in a playtest.</summary>
     public const float BodyLpf = -20f;
+
+    /// <summary>The whole gate: the Classic mix is on (not <c>--old-classic-mix</c>, which is also the mode Musou Mode runs the mix in) and the voice is the autocannon's body.</summary>
+    public static bool Applies(bool classicMix, string evt, SoundVoice voice) => classicMix && IsBody(evt, voice);
 
     public static bool IsBody(string evt, SoundVoice voice) => string.Equals(evt, Event, StringComparison.Ordinal) && voice.Path.Contains(BodyNode);
 

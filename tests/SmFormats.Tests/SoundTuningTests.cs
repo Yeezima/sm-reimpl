@@ -163,4 +163,29 @@ public class SoundTuningTests
         Assert.Equal(ClassicAutocannonSound.BodyGainDb, ClassicAutocannonSound.BodyOffset.GainDb);
         Assert.True(ClassicAutocannonSound.BodyOffset.Lpf < 0f);
     }
+
+    [Fact]
+    public void The_classic_gate_leaves_the_old_mix_musou_and_other_weapons_alone()
+    {
+        var body = Voice(ClassicAutocannonSound.BodyNode);
+        Assert.True(ClassicAutocannonSound.Applies(true, ClassicAutocannonSound.Event, body));
+        Assert.False(ClassicAutocannonSound.Applies(false, ClassicAutocannonSound.Event, body));   // --old-classic-mix, and the mix Musou Mode runs in
+        Assert.False(ClassicAutocannonSound.Applies(true, "play_sm_bolter_stalker_fire", body));    // Musou's autocannon plays the Stalker's event
+        Assert.False(ClassicAutocannonSound.Applies(true, "play_sm_heavy_bolter_fire", body));
+        Assert.False(ClassicAutocannonSound.Applies(true, ClassicAutocannonSound.Event, Voice(5)));
+    }
+
+    [Fact]
+    public void A_group_gain_lifts_a_quiet_voice_over_the_cull_threshold_and_a_custom_curve_ends_where_the_owner_set_it()
+    {
+        // The client passes the voice's level plus the group's gain, and 0 (none) as the curve's end for a group with its own fall-off.
+        float quiet = VoiceAudibility.VolumeThreshold - 5f;
+        Assert.False(VoiceAudibility.IsAudible(true, true, 100f, 50f, quiet, 0f, 1, true, false));
+        Assert.True(VoiceAudibility.IsAudible(true, true, 100f, 50f, quiet + 10f, 0f, 1, true, false));   // +10 dB group gain
+        Assert.False(VoiceAudibility.IsAudible(true, true, 100f, 150f, -20f, 0f, 1, true, false));         // the data's curve ends at 100 m
+        Assert.True(VoiceAudibility.IsAudible(true, true, 0f, 150f, -20f, 0f, 1, true, false));            // custom fall-off: the data's end is not tested
+        var g = new GroupTuning(0f, true, 3f, 200f, 6f);
+        Assert.True(g.FalloffDb(150f) > -80f);   // still sounding at 150 m with a 200 m maximum
+        Assert.Equal(-80f, g.FalloffDb(200f));   // and gone at the maximum
+    }
 }

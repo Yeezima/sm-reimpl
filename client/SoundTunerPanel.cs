@@ -39,12 +39,14 @@ public partial class SoundTunerPanel : CanvasLayer
         if (!current.IsDefault) GD.Print($"sound tuning: {note}");
     }
 
-    readonly bool _musou;
+    readonly Func<bool> _musou;
+    readonly List<Control> _musouRows = new();
+    Input.MouseModeEnum _previousMouse = Input.MouseModeEnum.Captured;
     readonly List<Action> _refresh = new();
     Label? _status;
     Control? _root;
 
-    public SoundTunerPanel(bool musou)
+    public SoundTunerPanel(Func<bool> musou)
     {
         _musou = musou;
         Layer = 95;
@@ -64,7 +66,8 @@ public partial class SoundTunerPanel : CanvasLayer
         outer.AddThemeConstantOverride("separation", 6);
         panel.AddChild(outer);
 
-        outer.AddChild(new Label { Text = "SOUND TUNER   (F7 closes)  -  changes are live", Modulate = new Color(0.95f, 0.8f, 0.3f) });
+        outer.AddChild(new Label { Text = "SOUND TUNER   (F7 or Esc closes)  -  changes are live", Modulate = new Color(0.95f, 0.8f, 0.3f) });
+        outer.AddChild(new Label { Text = "A group's own distance fall-off replaces the game's distance curve and the Classic soundscape's ranging for that group.", Modulate = new Color(0.7f, 0.7f, 0.7f), AutowrapMode = TextServer.AutowrapMode.WordSmart });
         var scroll = new ScrollContainer { SizeFlagsVertical = Control.SizeFlags.ExpandFill, HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
         outer.AddChild(scroll);
         var list = new VBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
@@ -76,13 +79,15 @@ public partial class SoundTunerPanel : CanvasLayer
         for (int i = 0; i < SoundTuningGroups.All.Count; i++)
         {
             var group = SoundTuningGroups.All[i];
-            if (group.MusouOnly && !_musou) continue;
             if (group.Section != section)
             {
                 section = group.Section;
-                list.AddChild(new Label { Text = section.ToUpperInvariant(), Modulate = new Color(0.55f, 0.8f, 1f) });
+                var header = new Label { Text = section.ToUpperInvariant(), Modulate = new Color(0.55f, 0.8f, 1f) };
+                list.AddChild(header);
+                if (group.MusouOnly) _musouRows.Add(header);
             }
-            AddGroup(list, i, group);
+            var box = AddGroup(list, i, group);
+            if (group.MusouOnly) _musouRows.Add(box);
         }
 
         var buttons = new HBoxContainer();
@@ -96,7 +101,7 @@ public partial class SoundTunerPanel : CanvasLayer
         outer.AddChild(_status);
     }
 
-    void AddGroup(VBoxContainer list, int index, SoundTuningGroup group)
+    VBoxContainer AddGroup(VBoxContainer list, int index, SoundTuningGroup group)
     {
         var box = new VBoxContainer();
         list.AddChild(box);
@@ -104,6 +109,7 @@ public partial class SoundTunerPanel : CanvasLayer
             () => SoundTuning.Live[index].VolumeDb,
             v => SoundTuning.Live[index] = SoundTuning.Live[index] with { VolumeDb = v },
             v => $"{v:+0.0;-0.0;0.0} dB", () => _defaults[index].VolumeDb, group.Help);
+        if (index == 0) return box;   // the master has a volume only: a fall-off on "everything" would override every group's
         var fall = new VBoxContainer { Visible = SoundTuning.Live[index].CustomFalloff };
         var check = new CheckBox { Text = "own distance fall-off", ButtonPressed = SoundTuning.Live[index].CustomFalloff, TooltipText = "Off: the game's own distance curve. On: full level within the minimum distance, then the roll-off, silent past the maximum." };
         check.Toggled += on => { SoundTuning.Live[index] = SoundTuning.Live[index] with { CustomFalloff = on }; fall.Visible = on; };
@@ -116,6 +122,7 @@ public partial class SoundTunerPanel : CanvasLayer
         Slider(fall, "   full level within", 0.5f, 100f, 0.5f, () => SoundTuning.Live[index].MinDistance, v => SoundTuning.Live[index] = SoundTuning.Live[index] with { MinDistance = v }, v => $"{v:0.0} m", () => _defaults[index].MinDistance);
         Slider(fall, "   roll-off", 0f, 24f, 0.5f, () => SoundTuning.Live[index].RolloffDb, v => SoundTuning.Live[index] = SoundTuning.Live[index] with { RolloffDb = v }, v => $"{v:0.0} dB/x2", () => _defaults[index].RolloffDb);
         Slider(fall, "   silent beyond", 5f, 300f, 1f, () => SoundTuning.Live[index].MaxDistance, v => SoundTuning.Live[index] = SoundTuning.Live[index] with { MaxDistance = v }, v => $"{v:0} m", () => _defaults[index].MaxDistance);
+        return box;
     }
 
     void Slider(VBoxContainer parent, string label, float min, float max, float step, Func<float> get, Action<float> set, Func<float, string> format, Func<float> reset, string? tip = null)
@@ -171,8 +178,15 @@ public partial class SoundTunerPanel : CanvasLayer
     {
         if (open == Visible) return;
         Visible = open;
-        if (open) { Refresh(); Input.MouseMode = Input.MouseModeEnum.Visible; }
-        else Input.MouseMode = Input.MouseModeEnum.Captured;
+        if (open)
+        {
+            bool musou = _musou();
+            foreach (var row in _musouRows) row.Visible = musou;   // Musou Mode's groups show only under Musou Mode (checked at every opening)
+            Refresh();
+            _previousMouse = Input.MouseMode;
+            Input.MouseMode = Input.MouseModeEnum.Visible;
+        }
+        else Input.MouseMode = _previousMouse;   // what it was before: a free mouse stays free
     }
 
     public void Toggle() => SetOpen(!Visible);

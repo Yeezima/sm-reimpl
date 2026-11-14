@@ -842,7 +842,7 @@ public partial class SoundSystem : Node
             PostId = p.PostId, Handle = ++_handles, Footstep = p.Footstep, Limited = p.Limited, Offset = p.Offset,
             Group = SoundTuningGroups.IndexOf(SoundTuningGroups.Resolve(p.Event, p.Emitter.Own, p.Footstep, p.Emitter.Background, p.Emitter.Threat, p.Emitter.Label)),
         };
-        if (Scape != ScapeMode.Old && ClassicAutocannonSound.IsBody(p.Event, v))   // sound/classic-autocannon: the shot's body ignores the speed curve and plays at the heavy bolter's level
+        if (ClassicAutocannonSound.Applies(Scape != ScapeMode.Old, p.Event, v))   // sound/classic-autocannon: the shot's body ignores the speed curve and plays at the heavy bolter's level
         {
             a.Params = ClassicAutocannonSound.Pin(a.Params);
             a.Offset = a.Offset.Plus(ClassicAutocannonSound.BodyOffset);
@@ -878,7 +878,8 @@ public partial class SoundSystem : Node
         var v = a.Voice;
         float? distance = null;
         if (v.Is3D && v.Attenuation is not null && Distance(a.Emitter, IsSpeech(a.Event)) is var (_, d)) distance = Loudness.CurveDistance(d);   // the curve's end read as the mix reads it
-        return VoiceAudibility.IsAudible(v.Is3D, v.Attenuation is not null, Loudness.MaxDistanceOf(v.Attenuation), distance, MixOf(a).VolumeDb, _masterDb,
+        bool tuned = a.Group >= 0 && SoundTuning.Live[a.Group].CustomFalloff;   // sound/tuning-tool: the group's own curve ends where the owner set it (silent past it), not at the data's end
+        return VoiceAudibility.IsAudible(v.Is3D, v.Attenuation is not null, tuned ? 0f : Loudness.MaxDistanceOf(v.Attenuation), distance, MixOf(a).VolumeDb + SoundTuning.Live.GainDb(a.Group), _masterDb,
             v.Chain.Count > 0 ? v.Chain[0].BelowThreshold : (byte)1, v.Chain.Count > 0, a.Limited);
     }
 
@@ -1058,7 +1059,7 @@ public partial class SoundSystem : Node
         return _listenerCam;
     }
 
-    float EffectiveNow(Active a) => MixOf(a).VolumeDb + GlobalGainDb;
+    float EffectiveNow(Active a) => MixOf(a).VolumeDb + GlobalGainDb + SoundTuning.Live.GainDb(a.Group);
 
     void Volume(Active a)
     {
