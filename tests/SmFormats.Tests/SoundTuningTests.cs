@@ -151,17 +151,31 @@ public class SoundTuningTests
     static SoundVoice Voice(params uint[] path) => new(1, 1, 0f, -10f, 0f, 1, true, null, 50, path);
 
     [Fact]
-    public void The_autocannons_body_alone_is_pinned_and_lifted()
+    public void The_autocannons_footstep_body_alone_is_dropped()
     {
         Assert.True(ClassicAutocannonSound.IsBody(ClassicAutocannonSound.Event, Voice(1, ClassicAutocannonSound.BodyNode, 2)));
-        Assert.False(ClassicAutocannonSound.IsBody(ClassicAutocannonSound.Event, Voice(1, 2)));   // the tail and the other layers stay as the data has them
+        Assert.False(ClassicAutocannonSound.IsBody(ClassicAutocannonSound.Event, Voice(1, 2)));   // the shot's own layers (tail, click) stay as the data has them
         Assert.False(ClassicAutocannonSound.IsBody("play_sm_heavy_bolter_fire", Voice(ClassicAutocannonSound.BodyNode)));   // no other weapon
-        var pinned = ClassicAutocannonSound.Pin(new Dictionary<uint, float> { [VoiceMixer.Speed] = 0f, [7] = 1f });
-        Assert.Equal(ClassicAutocannonSound.PinnedSpeed, pinned[VoiceMixer.Speed]);
-        Assert.Equal(1f, pinned[7]);
-        Assert.Equal(ClassicAutocannonSound.PinnedSpeed, ClassicAutocannonSound.Pin(null)[VoiceMixer.Speed]);
-        Assert.Equal(ClassicAutocannonSound.BodyGainDb, ClassicAutocannonSound.BodyOffset.GainDb);
-        Assert.True(ClassicAutocannonSound.BodyOffset.Lpf < 0f);
+        // A simulated post of the event: the tail, the body (the footstep samples), the click. Classic keeps the tail and the click only; the old mix keeps all three.
+        var post = new[] { Voice(11, 12), Voice(21, ClassicAutocannonSound.BodyNode, 22), Voice(31) };
+        var played = post.Where(v => !ClassicAutocannonSound.Applies(true, ClassicAutocannonSound.Event, v)).ToList();
+        Assert.Equal([post[0], post[2]], played);
+        Assert.Equal(3, post.Count(v => !ClassicAutocannonSound.Applies(false, ClassicAutocannonSound.Event, v)));
+        Assert.Equal("play_ch_autocannon_fire", ClassicAutocannonSound.Event);   // the one event the weapon files post: no dreadnought or footstep event joins it
+    }
+
+    [Fact]
+    public void The_own_shot_resolves_as_the_default_case_and_plays_the_tail_not_the_body()
+    {
+        var own = new SoundSwitches().Set(AudioCatalog.PlayerGroup, AudioCatalog.LocalPlayerValue).Set(7u, 9u);
+        var shot = ClassicAutocannonSound.ShotSwitches(true, ClassicAutocannonSound.Event, own);
+        Assert.Null(shot.Get(AudioCatalog.PlayerGroup));   // the default case: the map bank's tail layer, not the unloaded local objects
+        Assert.Equal(9u, shot.Get(7u));
+        Assert.Equal(AudioCatalog.LocalPlayerValue, own.Get(AudioCatalog.PlayerGroup));   // the emitter itself is untouched
+        Assert.Same(own, ClassicAutocannonSound.ShotSwitches(false, ClassicAutocannonSound.Event, own));   // --old-classic-mix, Musou's mix
+        Assert.Same(own, ClassicAutocannonSound.ShotSwitches(true, "play_sm_heavy_bolter_fire", own));    // no other event
+        // and the body is dropped for that own shot too
+        Assert.True(ClassicAutocannonSound.Applies(true, ClassicAutocannonSound.Event, Voice(ClassicAutocannonSound.BodyNode)));
     }
 
     [Fact]

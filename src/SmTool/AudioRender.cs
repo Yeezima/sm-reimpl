@@ -58,7 +58,7 @@ static class AudioRender
             if (spec.MaterialType is not null) sw.Set("material_type", spec.MaterialType);
             if (spec.Local) sw.Set(AudioCatalog.PlayerGroup, AudioCatalog.LocalPlayerValue);
             SoundPlay play;
-            try { play = catalog.Post(spec.Event, sw, 1); }
+            try { play = catalog.Post(spec.Event, spec.ClassicAutocannon ? ClassicAutocannonSound.ShotSwitches(true, spec.Event, sw) : sw, 1); }
             finally
             {
                 catalog.SetState(ImpactStateGroup, beforeImpact ?? AudioCatalog.NoneState);
@@ -70,7 +70,7 @@ static class AudioRender
             {
                 var parameters = new Dictionary<uint, float> { [VoiceMixer.Speed] = spec.Speed };
                 var offset = spec.Offset;
-                if (spec.ClassicAutocannon && ClassicAutocannonSound.IsBody(spec.Event, v)) { parameters = ClassicAutocannonSound.Pin(parameters); offset = offset.Plus(ClassicAutocannonSound.BodyOffset); }   // sound/classic-autocannon
+                if (spec.ClassicAutocannon && ClassicAutocannonSound.IsBody(spec.Event, v)) continue;   // sound/classic-autocannon: the footstep body is never played
                 var mix = VoiceMixer.Evaluate(v, null, 1, 0, null, parameters, cap).With(offset);
                 var pcm = Decode(catalog, v.WemId, out int ch, out int rate);
                 if (pcm is null) { missing++; lines.Add($"wem {v.WemId}: no media / decode failed"); continue; }
@@ -113,7 +113,7 @@ static class AudioRender
     // ---------------------------------------------------------------- smtool audio-render
 
     public const string Help = """
-        smtool audio-render <event> [--out <dir>] [--seed n] [--count k] [--material armour|flesh] [--local] [--mono] [--speed m/s] [--classic-autocannon] [--cap peak|node|voice|off] [--game <dir>]
+        smtool audio-render <event> [--out <dir>] [--seed n] [--count k] [--material armour|flesh] [--local] [--mono] [--speed m/s] [--classic-autocannon] [--map <map>] [--cap peak|node|voice|off] [--game <dir>]
           Renders what one post of a Wwise event sounds like, k variants (default 4), to <dir>\<event>__<material>__v<n>.wav (16-bit, 48 kHz, stereo or --mono).
           The post is resolved as the client does for a body hit: switch material_type = ceramite_armour (armour, the default) or flesh, with the matching impact state
           (set_state_impact_armor / set_state_impact_broken_armor); random and sequence containers pick by --seed (the k variants are k successive posts of one seeded catalogue, so a same-seed run repeats exactly); --local sets the local-player case.
@@ -137,7 +137,7 @@ static class AudioRender
         bool classicAutocannon = rest.Contains("--classic-autocannon");   // sound/classic-autocannon: the client's rule for the Classic autocannon's body
         var cap = RtpcVolumeCaps.Default;
         if (Opt(rest, "--cap") is { } capText && !RtpcVolumeCaps.TryParse(capText, out cap, out string? error)) { Console.Error.WriteLine($"--cap: {error}"); return 2; }
-        using var catalog = AudioCatalog.Open(gameDir, null, repoRoot: repoRoot, log: Console.Error, seed: seed);
+        using var catalog = AudioCatalog.Open(gameDir, Opt(rest, "--map"), repoRoot: repoRoot, log: Console.Error, seed: seed);   // --map: the map bank too (the shot's tail layers of the autocannon live there)
         for (int n = 0; n < count; n++)
         {
             var r = Render(catalog, [new PostSpec(eventName, TryMaterial(material, out string mt, out string ms) ? mt : null, ms, null, rest.Contains("--local"), default, speed, classicAutocannon)], channels, cap);
