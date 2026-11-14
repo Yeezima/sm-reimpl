@@ -30,7 +30,7 @@ public partial class NetworkView
         return wanted + view * _rigFocus;
     }
 
-    Vector3 StableLook(Vector3 wanted, Vector3 position, Vector3 view)
+    Vector3 StableLookOf(Vector3 wanted, Vector3 position, Vector3 view)
     {
         var look = CameraBoom.StableLook(new Num.Vector3(wanted.X, wanted.Y, wanted.Z), new Num.Vector3(position.X, position.Y, position.Z), new Num.Vector3(view.X, view.Y, view.Z), _rigFocus, Num.Vector3.UnitY);
         return new Vector3(look.X, look.Y, look.Z).Normalized();

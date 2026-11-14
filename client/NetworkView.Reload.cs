@@ -232,7 +232,8 @@ public partial class NetworkView
     {
         if (!s.Alive || s.ReloadLeft <= 0f || Loadouts.InHand(_config!, s) is not { } weapon || ReloadClipOf(weapon, data) is not { } clip) return null;
         int index = Loadouts.WeaponIndex(_config!, s, s.Slot);
-        return (clip, index, weapon.ReloadTime, Math.Clamp(weapon.ReloadTime - s.ReloadLeft, 0f, weapon.ReloadTime));
+        float total = LascannonTapTuning.Time(_config!, weapon);   // sim/lascannon-tap-reload: the normal clip time-scaled to 0.4 s
+        return (clip, index, total, Math.Clamp(total - s.ReloadLeft, 0f, total));
     }
 
     // ------------------------------------------------------------------ other players: inferred from their shots

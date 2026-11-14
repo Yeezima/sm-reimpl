@@ -860,6 +860,7 @@ public sealed partial record SimConfig
             if (!HopRules) w.Write("old-hop-rules");   // sim/hop-rules (protocol 72): only when off
             if (!StompRelease) w.Write("old-stomp-release");   // sim/stomp-release (2026-11-14): only when off
             if (!KickPushCut) w.Write("old-kick-push");   // sim/kick-push (protocol 76): only when off
+            if (!LascannonTapReload) w.Write("old-lascannon-reload");   // sim/lascannon-tap-reload (protocol 77): only when off
             if (!ChargeAllyBump) w.Write("old-ally-bump");          // charge-ally-bump (protocol 66): only when off (older hashes unchanged)
             // Added content (ContentExtras.cs): only when any is on, so a faithful config hashes byte for byte as before the switch.
             if (Extras != ContentExtras.None) { w.Write("extras"); w.Write((uint)Extras); w.Write(ContentExtras.WireVersion); ExtrasHash(w); }   // EXTRAS-HOOK

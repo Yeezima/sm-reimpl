@@ -734,7 +734,7 @@ public static class Combat
             if (hLeft <= 0f) return;
             hLeft -= dt;
             if (hLeft > (w.Recharge is null ? 1e-6f : TimeEpsilon)) return;
-            int moved = Math.Min(w.Recharge is null ? w.ClipSize - hClip : Math.Min(1, w.ClipSize - hClip), hReserve);
+            int moved = Math.Min(w.Recharge is null && !LascannonTapTuning.Applies(c, w) ? w.ClipSize - hClip : Math.Min(1, w.ClipSize - hClip), hReserve);
             hClip += Math.Max(0, moved); hReserve -= Math.Max(0, moved);
             hLeft = w.Recharge is { } r && hClip < w.ClipSize && hReserve > 0 ? r.RoundTime : 0f;   // a recharging clip goes on round by round
         }
@@ -852,7 +852,8 @@ public static class Combat
             if (reloadLeft <= (w.Recharge is null ? 1e-6f : TimeEpsilon))
             {
                 // A recharging clip gets one round per recharge; a reload fills the clip.
-                int moved = Math.Min(w.Recharge is null ? w.ClipSize - clip : Math.Min(1, w.ClipSize - clip), reserve);
+                bool oneRound = w.Recharge is not null || LascannonTapTuning.Applies(c, w);   // sim/lascannon-tap-reload: one round per reload
+                int moved = Math.Min(!oneRound ? w.ClipSize - clip : Math.Min(1, w.ClipSize - clip), reserve);
                 clip += moved; reserve -= moved; reloadLeft = 0f;
             }
         }
@@ -944,7 +945,7 @@ public static class Combat
                 bool shootsNow = weapon.Recharge is not null && shotWanted && clip > 0 && cooldown <= 1e-6f;
                 if (wantsReload && !shootsNow && clip < weapon.ClipSize && reserve > 0)
                 {
-                    reloadLeft = weapon.Recharge?.RoundTime ?? weapon.ReloadTime;
+                    reloadLeft = LascannonTapTuning.Applies(c, weapon) ? LascannonTapTuning.ReloadTime : weapon.Recharge?.RoundTime ?? weapon.ReloadTime;   // sim/lascannon-tap-reload
                     if (reloadPress && !reloadUsed) used |= InputBuffer.Bit(BufferedAction.Reload);
                 }
                 else if (chargePress && charge is not null && cooldown <= 1e-6f && clip >= Math.Max(1, charge.AmmoToStart))

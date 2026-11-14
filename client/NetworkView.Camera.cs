@@ -326,7 +326,15 @@ public partial class NetworkView
         var look = (_gameSpace.Basis * new Vector3(aimGame.X, aimGame.Y, aimGame.Z)).Normalized();
         // camera/hop-and-walls: the crosshair stays on the world point the uncollided rig camera looks at while the boom is short (CameraBoom.StableLook, NetworkView.CameraAim.cs).
         var focusPoint = OldCameraCollision && !CameraTest ? position : RigFocusPoint(wanted, look, head, delta);   // the extra cast only where it is used
-        if (!OldCameraCollision) look = StableLook(wanted, position, look);
+        // sim/lascannon-steady-zoom (owner 2026-11-15: "no bob when zoomed in - just a steady stable crosshair"): the scoped weapons' (lascannon, stalker bolter: the one ZoomFovs switch) zoomed view looks
+        // exactly along the view (yaw, pitch): the focus-point turn (StableLook) re-aims the camera as the walking body moves it and the boom's wall casts re-place it, which at the scope's narrow field of view
+        // shows as the crosshair swaying. The turn fades out with the scope's blend (w).
+        if (!OldCameraCollision)
+        {
+            var stable = StableLookOf(wanted, position, look);
+            var scopedLook = CameraBoom.ScopedLook(new System.Numerics.Vector3(stable.X, stable.Y, stable.Z), new System.Numerics.Vector3(look.X, look.Y, look.Z), scoped ? w : 0f);
+            look = new Vector3(scopedLook.X, scopedLook.Y, scopedLook.Z).Normalized();
+        }
         _camera.GlobalTransform = new Transform3D(Basis.LookingAt(look, Vector3.Up), position);
         if (CameraTest) CameraTestCost(System.Diagnostics.Stopwatch.GetTimestamp() - castsFrom);
         CameraTestNote(me, position, wanted, look, (focusPoint - position).Cross(look).Length());   // --camera-test (NetworkView.CameraTest.cs)

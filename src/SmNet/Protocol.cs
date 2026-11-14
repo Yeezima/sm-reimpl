@@ -525,7 +525,9 @@ public static partial class Protocol
     // 75 (sim/stim-regen-now; the owner's recollection 2026-11-14): bit 6 of the damage byte (every record) is the health-regen waiver. Using a combat stim ends the health regeneration delay at the stim's release (regeneration at the normal or Larraman's rate from the next tick). Every mode. Client prediction must agree, hence the bump.
     // 76 (sim/kick-push; the owner 2026-11-14): no layout change. The Devastator's and Havoc's kick (the heavy classes' light melee attack) knocks its target back 40 % as far (x0.4); the stomp and Musou's enemies unchanged. Every mode.
     //     Client prediction must agree, hence the bump (renumbered from 75 at integration, after sim/stim-regen-now). Restore switch (config hash): --old-kick-push.
-    public const ushort Version = 76;
+    // 77 (sim/lascannon-tap-reload; the owner 2026-11-15, experimental): no layout change. Classic PvP's lascannon reloads one round per tap in 0.4 s (no shot meanwhile); Musou Mode and other weapons unchanged.
+    //     Client prediction must agree, hence the bump (the charge branch also takes 77: the lead renumbers at integration). Restore switch (config hash): --old-lascannon-reload.
+    public const ushort Version = 77;
     /// <summary>The kill-feed cause code of a weapon kill on the head (protocol 64; <see cref="KillView.Headshot"/>).</summary>
     public const int HeadshotCauseCode = 6;
     /// <summary>Most spectators a server admits and a Scoreboard lists (protocol 46), so the Scoreboard stays within one packet.</summary>
