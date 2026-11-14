@@ -48,6 +48,7 @@ public partial class NetworkView
         }
         if (!await AutocannonDeploy()) return;
         TfwCheck("he is the Dreadnought after the landing", IsDreadnoughtClass(client.Predicted.Class), client.Predicted.Class.ToString());
+        if (CmdFlag("dn-survive")) { await DnSurvive(); return; }
         GD.Print($"DNCAPTURE t {_connectedFor:F2} landed, class {client.Predicted.Class}, health {client.Predicted.Health:F0}, locked {DreadnoughtEntryText()}");
         await TfwWait(0.6);
         await DnStill(1, "dn-side-entrance-1");
@@ -131,6 +132,34 @@ public partial class NetworkView
         GD.Print($"DNCAPTURE t {_connectedFor:F2} after Y: step {client.Predicted.MeleeStep} heavy {client.Predicted.MeleeHeavy}, crowd near {TfwNearCount(12f)}");
         await TfwWait(2.5);
         GD.Print("DNCAPTURE done");
+        GetTree().Quit(0);
+    }
+
+    /// <summary>
+    /// <c>--dn-survive</c> (D8, balance sanity): into the crowd, aim at the nearest Ork and hold the cannon, striking in turn, for 150 s (a Musou war's first minutes); a DNSURVIVE line every 5 s (health, clip, Orks within 12 m, kills seen)
+    /// and one for each death and respawn (class, health, how long he lived). Quits 0.
+    /// </summary>
+    async Task DnSurvive()
+    {
+        var client = _client!;
+        var point = _tfwState.Objectives[0].Position;
+        await TfwPathTo(point, "survive: walked towards the Orks", 90.0, () => _musouState.MiddleNear(client.Predicted.Position, 26f) is not null);
+        double start = _connectedFor, next = start; bool alive = client.Predicted.Alive; double lifeStart = start; int deaths = 0, respawns = 0; long kills0 = MusouDeathsSeen;
+        float minHealth = float.MaxValue;
+        TfwAction(GameAction.Fire, true);
+        while (_connectedFor < start + 150.0)
+        {
+            await TfwFrames();
+            var me = client.Predicted;
+            if (me.Alive) { AutocannonAim(); minHealth = MathF.Min(minHealth, me.Health); }
+            if (alive && !me.Alive) { deaths++; alive = false; GD.Print($"DNSURVIVE t {_connectedFor - start:F1} DIED after {_connectedFor - lifeStart:F1} s of life; kills so far {MusouDeathsSeen - kills0}"); await TfwShot($"dn-death-{deaths}"); }
+            if (!alive && me.Alive) { respawns++; alive = true; lifeStart = _connectedFor; GD.Print($"DNSURVIVE t {_connectedFor - start:F1} RESPAWNED class {me.Class} dreadnought {IsDreadnoughtClass(me.Class)} health {me.Health:F0}"); await TfwShot($"dn-respawn-{respawns}"); }
+            if (_connectedFor >= next) { next += 5.0; GD.Print($"DNSURVIVE t {_connectedFor - start:F0} health {me.Health:F0} clip {me.Clip} alive {me.Alive} Orks within 12 m {TfwNearCount(12f)} kills {MusouDeathsSeen - kills0}"); }
+            if ((int)(_connectedFor - start) % 20 == 5 && me.Alive && me.Clip < 40) { TfwAction(GameAction.Fire, false); await TfwActionTap(GameAction.Reload); TfwAction(GameAction.Fire, true); }
+        }
+        TfwAction(GameAction.Fire, false);
+        GD.Print($"DNSURVIVE done: {deaths} death(s), {respawns} respawn(s), lowest health {minHealth:F0}, kills {MusouDeathsSeen - kills0}");
+        TfwCheck("the Dreadnought played the whole span", true, "");
         GetTree().Quit(0);
     }
 
