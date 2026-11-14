@@ -820,7 +820,7 @@ public sealed partial class FxPlayer : Node3D
                                 : (n.Billboard ? FxBatch.QuadKind.AxisBillboard : FxBatch.QuadKind.FlatCard);
         if (!tapered)
         {
-            if (_batch.Add(n.Additive, mid, axis * length, side * width, colour, rect, u0, u1, mode, kind)) _frameQuads++;
+            if (_batch.Add(n.Additive, mid, axis * length, side * width, colour, rect, u0, u1, mode, kind, neutral: e.Tint is not null && n.Material.Name == "plasma_tracer")) _frameQuads++;   // fx/chaos-plasma-tracer
             return;
         }
         const int segments = 8;

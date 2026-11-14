@@ -173,6 +173,7 @@ void vertex() {
     float la = length(ax), lb = length(ay);
     // Fade size: the short side of a long thin quad (tracers, beams), else the long side. God rays (kind 4, 5) keep the long side, as reviewed.
     float vcode = floor(v_info.z + 0.5);
+    if (vcode > 63.5) vcode -= 64.0;   // fx/chaos-plasma-tracer: the neutral-texture flag
     if (vcode > 31.5) vcode -= 32.0;   // feel/jump-pack: the ground-soft flag (below)
     bool god_ray = floor(vcode / 4.0 + 0.01) > 3.5;
     v_size = !god_ray && max(la, lb) > 3.0 * min(la, lb) ? min(la, lb) : max(la, lb);
@@ -201,6 +202,9 @@ vec2 sprite_to_atlas(vec2 s, vec4 r) {
 void fragment() {
     float u_raw = mix(v_info.x, v_info.y, UV.x);
     float code = floor(v_info.z + 0.5);
+    // fx/chaos-plasma-tracer: +64 marks a quad drawn without its texture's own hue (the Chaos plasma tracer's teal wisps, recoloured by the tint).
+    bool neutral = code > 63.5;
+    if (neutral) code -= 64.0;
     // feel/jump-pack: +32 marks a ground effect's quad (pound, slash, landing dust): soft without the push, from smaller sprites up, over a longer distance,
     // so the ground, props and bodies never cut a hard line through its dust and smoke.
     bool ground_soft = code > 31.5;
@@ -244,7 +248,8 @@ void fragment() {
         }
         if (god && mode < 0.5) fade *= smoothstep(0.0, end_fade, u_raw) * (1.0 - smoothstep(1.0 - end_fade, 1.0, u_raw));
     }
-    ALBEDO = t.rgb * COLOR.rgb;
+    vec3 base = neutral ? vec3(max(t.r, max(t.g, t.b))) : t.rgb;
+    ALBEDO = base * COLOR.rgb;
     ALPHA = t.a * COLOR.a * fade;
 }
 ";
@@ -350,10 +355,10 @@ void fragment() {
     /// 0 plain, 1 wrap (repeat), 2 clamp (nothing outside 0..1), <paramref name="kind"/> what the quad is (for the M42 fades).
     /// </summary>
     public bool Add(bool additive, Vector3 centre, Vector3 x, Vector3 y, Color colour, Vector4 rect, float u0 = 0f, float u1 = 1f, int mode = 0,
-                    QuadKind kind = QuadKind.CameraBillboard)
+                    QuadKind kind = QuadKind.CameraBillboard, bool neutral = false)
     {
         if (colour.A <= 0.003f) return true;
-        mode = Math.Clamp(mode, 0, 3) + 4 * (int)kind + (SoftGround && Fades && !NoGroundSoft ? 32 : 0);
+        mode = Math.Clamp(mode, 0, 3) + 4 * (int)kind + (SoftGround && Fades && !NoGroundSoft ? 32 : 0) + (neutral ? 64 : 0);
         if (additive)
         {
             if (_nAdd >= Capacity) { _dropped++; return false; }

@@ -28,11 +28,11 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3171 spec table rows: **2329 tagged**, 584 not tagged (read from data with high confidence), 258 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 708 rows of the changes document.
+Scanned 3172 spec table rows: **2330 tagged**, 584 not tagged (read from data with high confidence), 258 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 708 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
-| Movement (critical) | 401 | 343 | 342 | 117 | 12 |
+| Movement (critical) | 402 | 343 | 343 | 118 | 12 |
 | Combat core (critical) | 17 | 7 | 15 | 14 | 9 |
 | Weapons (critical) | 121 | 73 | 106 | 54 | 3 |
 | Melee (critical) | 140 | 122 | 105 | 51 | 5 |
@@ -53,16 +53,16 @@ Scanned 3171 spec table rows: **2329 tagged**, 584 not tagged (read from data wi
 | Core simulation (provisional values) | 695 | 655 | 495 | 181 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 248 | 237 | 133 | 68 | 0 |
-| **All areas** | **2329** | 2057 | 1731 | 728 | 38 |
+| **All areas** | **2330** | 2057 | 1732 | 729 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
 | kind: ours | 1343 |
-| confidence: low | 830 |
+| confidence: low | 831 |
 | confidence: medium | 772 |
-| notes: ours | 414 |
+| notes: ours | 415 |
 | kind: interpretation | 382 |
 | notes: estimate | 196 |
 | kind: estimate | 157 |
@@ -91,7 +91,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 ## Part A: gameplay areas, critical first
 
-### Movement (gameplay-critical) (401)
+### Movement (gameplay-critical) (402)
 
 *Spec section: Extracted parameters*
 
@@ -142,6 +142,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-A049FE08` | Plasma colour: the finding | on the install the Chaos plasma gun, pistol and cannon already play their own purple and magenta effects for the muzzle, tracer, projectile trails, vents, overheat, innate glow and eye glow (`chaos_plasma_gun_muzzle`, `chaos_plasma_gun_tracer`… | confidence: medium | install (master_fx, wargear, ebps) | Plasma colour: the finding: compare with SM1 by feel or video. Ours: on the install the Chaos plasma gun, pistol and cannon already play… | ☐ |
 | `R-0521C070` | Plasma colour: the rule | a Chaos plasma weapon (`csm_*plasma*`) plays a loyalist-named effect (`plasma_*`, not `chaos_*` / `csm_*`) recoloured purple through `FxEffect.Tint` (`FxPlayer.Recolour`: the tint hue at the element's own brightness): RGB (0.85, 0.36, 1.0) taken from the… (RGB 0..1) | kind: ours; kind: user's knowledge; confidence: low | owner's knowledge ("purple while the marines is blue"); the value ours | Plasma colour: the rule: compare with SM1 by feel or video. Ours: a Chaos plasma weapon (csm_*plasma*) plays a loyalist-named effect… | ☐ |
 | `R-C7A36E8C` | Plasma colour: the placeholder ball | the placeholder plasma projectile ball (`--placeholder-fx`) is blue-white (0.6, 0.85, 1) for the loyalists and purple (0.82, 0.5, 1) for Chaos weapons (by the weapon's `csm_` name) (RGB 0..1) | kind: placeholder; confidence: low; notes: ours | ours | Plasma colour: the placeholder ball: compare with SM1 by feel or video. Ours: the placeholder plasma projectile ball (--placeholder-fx) is… | ☐ |
+| `R-B85C586D` | Plasma colour: the Chaos light-shot tracer | the Chaos plasma gun's and pistol's light shot plays `chaos_plasma_gun_tracer`, whose purple smoke and linger the data give but whose core streak (`plasma_tracer`, two beams) is the loyalist one: teal wisps keyed pale yellow (255, 246, 139), which drew… (RGB 0..1) | confidence: low; notes: ours | ours | Plasma colour: the Chaos light-shot tracer: compare with SM1 by feel or video. Ours: the Chaos plasma gun's and pistol's light shot plays… | ☐ |
 | `R-01CD142C` | Not covered | the Chaos player blueprint (`csm_chaos_marine_player`: health, shield, speeds, perk upgrades) is not part of this rule and was not compared; effects and sounds stay Chaos by design; the screenshots under `%LOCALAPPDATA%\sm-reimpl\cache\race-parity\` show the… | kind: gap (not reproduced) | — | Not covered: compare with SM1 by feel or video. Ours: the Chaos player blueprint (csm_chaos_marine_player: health, shield… | ☐ |
 
 *Spec section: Evade: the Tactical roll and the heavy hop (M21, used by the simulation)*

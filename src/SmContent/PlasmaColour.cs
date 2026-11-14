@@ -31,5 +31,18 @@ public static class PlasmaColour
     /// shared non-plasma effects (<c>bolter_dmg_*</c>, <c>light_led_*</c>) are never tinted.
     /// </summary>
     public static (float R, float G, float B)? TintFor(string wargear, string effect) =>
-        IsChaosPlasma(wargear) && effect.StartsWith("plasma_", StringComparison.OrdinalIgnoreCase) && !Neutral.Contains(effect) ? ChaosPurple : null;
+        !IsChaosPlasma(wargear) ? null
+        : IsChaosTracer(effect) ? ChaosTracer
+        : effect.StartsWith("plasma_", StringComparison.OrdinalIgnoreCase) && !Neutral.Contains(effect) ? ChaosPurple : null;
+
+    /// <summary>
+    /// fx/chaos-plasma-tracer (owner, 2026-11-14: the Chaos plasma gun's and pistol's light-shot tracer "looks like a loyalist shot", cyan-green beside a magenta flash and decal). The install's
+    /// <c>chaos_plasma_gun_tracer</c> has purple smoke and linger but its core streak (<c>plasma_tracer</c>, two beams) is the loyalist one: teal wisps keyed pale yellow (255, 246, 139), which
+    /// draws cyan-green. The data gives no other core colour, so the core takes the Chaos muzzle flash's and decal's hue (<c>chaos_plasma_gun_muzzle</c>: (255, 96, 200) flash, (195, 115, 254) front)
+    /// and the client draws the texture's wisps without their teal (FxBatch neutral quads). **Ours**: the hue, a blend of those two keys.
+    /// </summary>
+    public static readonly (float R, float G, float B) ChaosTracer = (0.85f, 0.28f, 0.92f);
+
+    /// <summary>Whether an effect is the Chaos plasma gun's / pistol's light-shot tracer (<c>chaos_plasma_gun_tracer</c>; the loyalists' is <c>plasma_gun_tracer</c>).</summary>
+    public static bool IsChaosTracer(string effect) => effect.Equals("chaos_plasma_gun_tracer", StringComparison.OrdinalIgnoreCase);
 }
