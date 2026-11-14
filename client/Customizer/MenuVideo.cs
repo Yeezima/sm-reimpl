@@ -17,14 +17,20 @@ public static partial class UiKit
     /// <summary>The switch that restores the still picture behind the menus (<c>--menu-still</c>).</summary>
     public const string MenuStillSwitch = "menu-still";
 
-    /// <summary><c>--menu-still</c> on the command line: the menus show the still picture, as before 2026-11-10.</summary>
-    public static bool MenuStill { get; } = Array.IndexOf(OS.GetCmdlineUserArgs(), "--" + MenuStillSwitch) >= 0;
+    /// <summary>The switch that brings the looping video back behind the menus (<c>--menu-video</c>; the default from 2026-11-10 to 2026-11-14).</summary>
+    public const string MenuVideoSwitch = "menu-video";
+
+    /// <summary>
+    /// The menus show the still picture: the default again since 2026-11-14 (owner: "yes the orange forgle-world city is the art to go back to", the picture of 1 to 9 November); <c>--menu-video</c> restores the video loop.
+    /// <c>--menu-still</c> is still accepted and changes nothing.
+    /// </summary>
+    public static bool MenuStill { get; } = Array.IndexOf(OS.GetCmdlineUserArgs(), "--" + MenuVideoSwitch) < 0;
 
     /// <summary>The video's file, or null when it is missing (development run: beside the project; exported game: beside the exe).</summary>
     public static string? MenuVideoFile() => MenuFile(MenuVideoPath);
 
     /// <summary>
-    /// The background of the menus: the looping video unless <c>--menu-still</c> is given or the file is missing (then the still picture, or the plain dark one without it).
+    /// The background of the menus: the still picture; the looping video only with <c>--menu-video</c> (and the file present) (then the still picture, or the plain dark one without it).
     /// <paramref name="video"/> overrides the choice (the self-test builds both). The video is not played under the headless display server (nothing is drawn there).
     /// </summary>
     public static Control MenuBackground(bool? video = null)

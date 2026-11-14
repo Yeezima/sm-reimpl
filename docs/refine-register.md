@@ -28,20 +28,11 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3201 spec table rows: **2355 tagged**, 587 not tagged (read from data with high confidence), 259 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 714 rows of the changes document.
-Scanned 3202 spec table rows: **2356 tagged**, 587 not tagged (read from data with high confidence), 259 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 714 rows of the changes document.
-Scanned 3203 spec table rows: **2356 tagged**, 588 not tagged (read from data with high confidence), 259 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 714 rows of the changes document.
-Scanned 3201 spec table rows: **2355 tagged**, 587 not tagged (read from data with high confidence), 259 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 713 rows of the changes document.
-Scanned 3174 spec table rows: **2332 tagged**, 584 not tagged (read from data with high confidence), 258 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 709 rows of the changes document.
+Scanned 3214 spec table rows: **2365 tagged**, 590 not tagged (read from data with high confidence), 259 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 717 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
-| Movement (critical) | 404 | 345 | 344 | 118 | 12 |
-Scanned 3204 spec table rows: **2357 tagged**, 588 not tagged (read from data with high confidence), 259 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 714 rows of the changes document.
-
-| Area | Tagged rows | by kind | by confidence | by notes | by section text |
-|---|---:|---:|---:|---:|---:|
-| Movement (critical) | 406 | 347 | 346 | 118 | 12 |
+| Movement (critical) | 407 | 348 | 346 | 118 | 12 |
 | Combat core (critical) | 17 | 7 | 15 | 14 | 9 |
 | Weapons (critical) | 121 | 73 | 106 | 54 | 3 |
 | Melee (critical) | 149 | 131 | 110 | 53 | 5 |
@@ -59,45 +50,20 @@ Scanned 3204 spec table rows: **2357 tagged**, 588 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 23 | 13 | 13 | 13 | 7 |
-| Core simulation (provisional values) | 697 | 657 | 497 | 181 | 1 |
+| Core simulation (provisional values) | 701 | 661 | 501 | 181 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 248 | 237 | 133 | 68 | 0 |
-| **All areas** | **2355** | 2082 | 1749 | 730 | 38 |
-| **All areas** | **2356** | 2083 | 1751 | 730 | 38 |
-| Core simulation (provisional values) | 696 | 656 | 496 | 181 | 1 |
-| General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 248 | 237 | 133 | 68 | 0 |
-| **All areas** | **2356** | 2083 | 1750 | 730 | 38 |
-| **All areas** | **2355** | 2082 | 1750 | 731 | 38 |
-| **All areas** | **2357** | 2084 | 1751 | 730 | 38 |
-| Core simulation (provisional values) | 698 | 658 | 498 | 181 | 1 |
-| General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 248 | 237 | 133 | 68 | 0 |
-| **All areas** | **2332** | 2060 | 1734 | 728 | 38 |
+| **All areas** | **2365** | 2092 | 1758 | 731 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1368 |
-| kind: ours | 1369 |
-| confidence: low | 838 |
-| confidence: medium | 784 |
-| confidence: medium | 783 |
+| kind: ours | 1377 |
+| confidence: low | 841 |
+| confidence: medium | 788 |
 | notes: ours | 415 |
 | kind: interpretation | 383 |
-| notes: estimate | 197 |
-| confidence: low | 839 |
-| confidence: medium | 782 |
-| kind: ours | 1370 |
-| confidence: low | 838 |
-| confidence: medium | 784 |
-| notes: ours | 415 |
-| kind: ours | 1346 |
-| confidence: low | 832 |
-| confidence: medium | 773 |
-| notes: ours | 414 |
-| kind: interpretation | 382 |
 | notes: estimate | 198 |
 | kind: estimate | 158 |
 | confidence: none (low) | 129 |
@@ -125,8 +91,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 ## Part A: gameplay areas, critical first
 
-### Movement (gameplay-critical) (404)
-### Movement (gameplay-critical) (406)
+### Movement (gameplay-critical) (407)
 
 *Spec section: Extracted parameters*
 
@@ -2466,9 +2431,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (697)
-### Core simulation (provisional values) (696)
-### Core simulation (provisional values) (698)
+### Core simulation (provisional values) (701)
 
 *Spec section: Provisional values in use*
 
@@ -3592,6 +3555,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-69A30A8B` | Spark reach cap | no particle of the spark fans (`hit_ranged_armour_generic`, both copies, yellow and red), of the armour-hit / inactive-hit effects and of the weapon's own hit effects on a player ends farther than **4 m** from the effect's origin (the hit point on the body… (m) | kind: ours; confidence: medium | owner 2026-11-14 (the 4 m); the knee shape and which effects count as "sparks" are ours | Spark reach cap: compare with SM1 by measuring on a flat spot of the same map. Ours: no particle of the spark fans (hit_ranged_armour_generic, both… | ☐ |
 | `R-1209803F` | Flash magnitude | the model's yellow (armour) and red (health, break, bare-armour) flashes are **x1.4** as bright (shader `k_hit`, `k_brk`: 1.3 -> 1.82 in all) and **x1.4** as large (the yellow hit spot's radius and the red glow card, on top of the range growth), on the own… (factor) | kind: ours; confidence: medium | owner 2026-11-14 ("by 40%"); reading magnitude as brightness and size, not duration, is ours | Flash magnitude: compare with SM1 by feel or video. Ours: the model's yellow (armour) and red (health, break, bare-armour)… | ☐ |
+
 *Spec section: Weapon visuals: power weapons' light, the serrated knife's field, Kraken tracers (fx/weapon-visuals; client only, not simulated, no protocol change; owner 2026-11-14)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
