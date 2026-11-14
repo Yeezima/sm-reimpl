@@ -16,6 +16,8 @@ public sealed class FxEffect
     public Vector3 Origin;
     public Basis Axes = Basis.Identity;
     public float Scale = 1f;
+    /// <summary>hit-sparks-flashes (ours): when above 0, no particle of this effect ends farther than this many metres from <see cref="Origin"/> (<c>HitFxScaleRules.LimitReach</c>); 0: no cap.</summary>
+    public float ReachCap;
     /// <summary>Where a beam-type effect ends (tracers, the melta blast); beams whose axis is the effect's axis span the distance to it.</summary>
     public Vector3? Target;
     /// <summary>Called each frame for an attached effect: the marker's world place, or null when it is gone (the effect then stays where it was).</summary>
@@ -418,14 +420,17 @@ public sealed partial class FxPlayer : Node3D
         public readonly bool InParticle;
         public readonly Vector3 P0, Dir;
         public readonly float Speed, Drag, Gravity, Tau;
+        /// <summary>hit-sparks-flashes: the effect's reach cap (m) and origin; 0: none.</summary>
+        public readonly float Cap;
+        public readonly Vector3 CapOrigin;
 
-        public Ctx(Vector3 pos, Basis b, float s, uint seed, Vector3 p0, Vector3 dir, float speed, float drag, float gravity, float tau) : this(pos, b, s, seed)
+        public Ctx(Vector3 pos, Basis b, float s, uint seed, Vector3 p0, Vector3 dir, float speed, float drag, float gravity, float tau, float cap = 0f, Vector3 capOrigin = default) : this(pos, b, s, seed)
         {
-            InParticle = true; P0 = p0; Dir = dir; Speed = speed; Drag = drag; Gravity = gravity; Tau = tau;
+            InParticle = true; P0 = p0; Dir = dir; Speed = speed; Drag = drag; Gravity = gravity; Tau = tau; Cap = cap; CapOrigin = capOrigin;
         }
 
         public Ctx With(Vector3 pos, Basis b, float s, uint seed) => InParticle
-            ? new Ctx(pos, b, s, seed, P0, Dir, Speed, Drag, Gravity, Tau)
+            ? new Ctx(pos, b, s, seed, P0, Dir, Speed, Drag, Gravity, Tau, Cap, CapOrigin)
             : new Ctx(pos, b, s, seed);
     }
 
@@ -433,7 +438,16 @@ public sealed partial class FxPlayer : Node3D
     {
         float d = c.Drag;
         float disp = d > 1e-4f ? c.Speed * (1f - MathF.Exp(-d * tau)) / d : c.Speed * tau;
-        return c.P0 + c.Dir * disp + new Vector3(0f, -Drop(c.Gravity, d, tau), 0f);
+        var p = c.P0 + c.Dir * disp + new Vector3(0f, -Drop(c.Gravity, d, tau), 0f);
+        return c.Cap > 0f ? LimitToReach(p, c.CapOrigin, c.Cap) : p;
+    }
+
+    /// <summary>The place a particle that would be at <paramref name="p"/> is drawn at under a reach cap: along the same line from the origin, never farther than the cap.</summary>
+    internal static Vector3 LimitToReach(Vector3 p, Vector3 origin, float cap)
+    {
+        var off = p - origin;
+        float r = off.Length();
+        return r <= 1e-6f ? p : origin + off * (SmClient.ImpactRules.HitFxScaleRules.LimitReach(r, cap) / r);
     }
 
     /// <summary>How far a particle with gravity <paramref name="g"/> and drag <paramref name="d"/> has fallen after <paramref name="tau"/> seconds.</summary>
@@ -694,10 +708,10 @@ public sealed partial class FxPlayer : Node3D
                     continue;
                 }
                 float g = n.Gravity;
-                var pc = new Ctx(origin, FromY(dir, R(ps, 6) * MathF.Tau), c.S, ps, origin, moveDir, speed, n.Drag, g, tau);
+                var pc = new Ctx(origin, FromY(dir, R(ps, 6) * MathF.Tau), c.S, ps, origin, moveDir, speed, n.Drag, g, tau, e.ReachCap, e.Origin);
                 var pos = ParticlePos(pc, tau);
                 float scale = c.S * At(n.ParticleScale, Math.Clamp(tau / life, 0f, 1f), 1f);
-                var kid = new Ctx(pos, pc.B, scale, ps, origin, moveDir, speed, n.Drag, g, tau);
+                var kid = new Ctx(pos, pc.B, scale, ps, origin, moveDir, speed, n.Drag, g, tau, e.ReachCap, e.Origin);
                 for (int k = 0; k < n.Children.Length; k++)
                     if ((gpu == 0 || !GpuLeaf(n.Children[k])) && !(dropDust && HoldsAlpha(n.Children[k]))) DrawNode(e, n.Children[k], kid, tau, depth + 1, Mix(ps, k + 5));
             }

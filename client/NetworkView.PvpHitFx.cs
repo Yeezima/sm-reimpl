@@ -66,8 +66,9 @@ public partial class NetworkView
         var axes = AxesFromY(back).Rotated(back, (float)(_burstRandom.NextDouble() * Math.Tau));
         float scale = HealthHitBurst.Size * (0.85f + (float)_burstRandom.NextDouble() * 0.35f) * HitFxParticleScale(end);   // onhit-range-intensity
         int variant = _burstRandom.Next(HealthHitBurst.Variants);
-        if (_fx.Play(HealthHitBurst.Name(variant), end + back * 0.05f, axes, scale, null, null, 0f, delay, false, 1) is not null)
+        if (_fx.Play(HealthHitBurst.Name(variant), end + back * 0.05f, axes, scale, null, null, 0f, delay, false, 1) is { } burst)
         {
+            burst.ReachCap = SparkReachCap;   // hit-sparks-flashes: a shot-hit particle source
             _bursts++;
             if (LogHitFx) GD.Print($"HITFX burst {HealthHitBurst.Name(variant)} at {end.X:F1},{end.Y:F1},{end.Z:F1} scale {scale:F2} (total {_bursts})");
         }
@@ -82,8 +83,9 @@ public partial class NetworkView
             if (_fx.System(p.Name) is null) continue;
             var follow = p.Marker.Length > 0 ? BodyMarker(victim, p.Marker) ?? BodyMarker(victim, "RIG_SpineD") ?? BodyMarker(victim, "RIG_SpineA") : null;
             if (follow?.Invoke() is not { } place) continue;
-            if (_fx.Play(p.Name, place.Position, Basis.Identity, (p.Scale <= 0f ? 1f : p.Scale) * HitFxBrightness, null, p.Attached ? follow : null, p.Lifetime, 0.0, false, 2) is not null)
+            if (_fx.Play(p.Name, place.Position, Basis.Identity, (p.Scale <= 0f ? 1f : p.Scale) * HitFxBrightness, null, p.Attached ? follow : null, p.Lifetime, 0.0, false, 2) is { } brk)
             {
+                brk.ReachCap = SparkReachCap;   // hit-sparks-flashes: the break effect's sparks
                 _breakFx++;
                 if (LogHitFx) GD.Print($"HITFX break {p.Name} on player {victim} at {place.Position.X:F1},{place.Position.Y:F1},{place.Position.Z:F1} (total {_breakFx})");
             }

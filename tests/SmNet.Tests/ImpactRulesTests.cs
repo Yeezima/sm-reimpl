@@ -469,6 +469,38 @@ public class PlayerHitFxRulesTests
 public class HitFxScaleRulesTests
 {
     [Fact]
+    public void Hit_sparks_never_end_farther_than_four_metres_from_the_body()   // hit-sparks-flashes
+    {
+        Assert.Equal(4f, HitFxScaleRules.SparkReach);
+        float worst = 0f;
+        foreach (float speed in new[] { 5f, 30f, 120f, 600f })
+        foreach (float drag in new[] { 0f, 0.5f, 3f })
+        for (float tau = 0f; tau <= 5f; tau += 0.02f)
+        {
+            float raw = drag > 1e-4f ? speed * (1f - MathF.Exp(-drag * tau)) / drag : speed * tau;   // the particle's path length from FxPlayer.ParticlePos (gravity only adds to it)
+            float capped = HitFxScaleRules.LimitReach(raw, HitFxScaleRules.SparkReach);
+            worst = MathF.Max(worst, capped);
+            Assert.True(capped <= HitFxScaleRules.SparkReach, $"speed {speed} drag {drag} tau {tau}: {capped}");
+        }
+        Assert.True(worst > 3.9f);   // the cap is reached, not undershot
+        Assert.Equal(2f, HitFxScaleRules.LimitReach(2f, 4f));   // a short flight is untouched
+        Assert.Equal(1e9f, HitFxScaleRules.LimitReach(1e9f, 0f));   // 0: no cap (--old-hit-spark-reach)
+        Assert.True(HitFxScaleRules.LimitReach(3.5f, 4f) > HitFxScaleRules.LimitReach(3.2f, 4f));   // still ordered
+    }
+
+    [Fact]
+    public void Flash_magnitude_is_forty_percent_more_in_brightness_and_size_for_both_colours()   // hit-sparks-flashes: one factor feeds the yellow and red flashes
+    {
+        Assert.Equal(1.4f, HitFxScaleRules.FlashMagnitude);
+        Assert.Equal(1.3f * 1.4f, HitFxScaleRules.FlashBrightness(false, false), 3);
+        Assert.Equal(1.3f, HitFxScaleRules.FlashBrightness(false, true), 3);
+        Assert.Equal(1.4f, HitFxScaleRules.FlashBrightness(true, false), 3);
+        Assert.Equal(1.4f, HitFxScaleRules.FlashSize(1f, false), 3);
+        Assert.Equal(2.1f, HitFxScaleRules.FlashSize(1.5f, false), 3);
+        Assert.Equal(1.5f, HitFxScaleRules.FlashSize(1.5f, true), 3);
+    }
+
+    [Fact]
     public void At_the_reference_distance_and_view_nothing_grows_and_the_intensity_is_thirty_percent()
     {
         Assert.Equal(1f, HitFxScaleRules.RangeScale(HitFxScaleRules.RefDistance, HitFxScaleRules.RefFov, HitFxScaleRules.MaxSpot), 3);
@@ -607,5 +639,42 @@ public class DamageEventGlowRulesTests
         var musou = PlayerHitFxRules.LookFor(PlayerHitFxRules.DamageKind.Melee, SmSim.ContentExtras.Musou, true, false);
         Assert.Equal(classic, musou);
         Assert.NotEqual(PlayerHitFxRules.LookFor(PlayerHitFxRules.DamageKind.Ranged, SmSim.ContentExtras.None, true, false), PlayerHitFxRules.LookFor(PlayerHitFxRules.DamageKind.Ranged, SmSim.ContentExtras.Musou, true, false));
+    }
+}
+
+/// <summary>hit-sparks-flashes wiring (source-level: the client cannot be loaded here): every shot-hit particle source on a player is reach-capped, the GPU path leaves capped effects to the CPU, and the own model's flash gets the same size factor as another player's.</summary>
+public class HitSparksFlashesWiringTests
+{
+    static string Src(params string[] parts)
+    {
+        var d = new DirectoryInfo(AppContext.BaseDirectory);
+        while (d is not null && !File.Exists(Path.Combine(d.FullName, "SmReimpl.slnx"))) d = d.Parent;
+        return File.ReadAllText(Path.Combine(new[] { d!.FullName, "client" }.Concat(parts).ToArray()));
+    }
+
+    static int Count(string text, string what) => System.Text.RegularExpressions.Regex.Matches(text, System.Text.RegularExpressions.Regex.Escape(what)).Count;
+
+    [Fact]
+    public void Every_shot_hit_particle_source_on_a_player_gets_the_reach_cap()
+    {
+        Assert.Equal(2, Count(Src("NetworkView.BoltFx.cs"), "ReachCap = cap"));      // both spark copies, yellow and red
+        Assert.Equal(2, Count(Src("NetworkView.HitFeedback.cs"), "ReachCap = SparkReachCap"));   // armour-hit and inactive-hit effects
+        Assert.Equal(2, Count(Src("NetworkView.PvpHitFx.cs"), "ReachCap = SparkReachCap"));      // health-hit burst, armour break effect
+        Assert.Equal(1, Count(Src("NetworkView.Fx.cs"), "hit != ShotHit.World) impact.ReachCap = SparkReachCap"));   // the weapon's own hit effects
+        Assert.Contains("ParticlePos", Src("FxPlayer.cs"));
+        Assert.Contains("c.Cap > 0f", Src("FxPlayer.cs"));
+    }
+
+    [Fact]
+    public void A_capped_effect_is_not_handed_to_the_gpu_sprays()
+        => Assert.Contains("e.ReachCap > 0f", Src("Extras", "Musou", "FxPlayer.MusouGpu.cs"));
+
+    [Fact]
+    public void Own_and_remote_flashes_take_the_same_size_and_brightness_factors()
+    {
+        var f = Src("NetworkView.CharacterFlash.cs");
+        Assert.Equal(2, Count(f, "_local.SetArmourFlash("));   // the demo call and the game call; the off-switch call is `_local?.`
+        Assert.Contains("spotScale: ownSpot, glowScale: ownGlow, intensity: FlashBrightness", f);
+        Assert.Contains("spotScale, glowScale, FlashBrightness", f);
     }
 }
