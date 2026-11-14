@@ -35,6 +35,9 @@ public partial class NetworkView
     /// <summary>Deaths far and out of view given no body (musou/perf-pass; the log's count).</summary>
     long _musouUnseenDeaths;
 
+    /// <summary>The pound's and the slash landing's drawn reach against the data's (1.5 in Musou Mode, owner 2026-11-14; 1 in Classic PvP): the ring, the chunks and the shake follow the server's blast.</summary>
+    float PoundRingScale => SmSim.Extras.Musou.MusouCombatRules.PoundReach(_config?.Extras ?? ContentExtras.None);
+
     bool MusouActive => _config is { } c && c.Extras.HasFlag(ContentExtras.Musou);
 
     /// <summary>net/responsive: the interpolation delay's floor in Musou Mode (the 100 ms before the adaptive delay; its crowd's far records come every 5th tick).</summary>

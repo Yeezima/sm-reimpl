@@ -55,6 +55,7 @@ public sealed partial class World
         }
         else if (pack is not null && kind is JumpEventKind.Land or JumpEventKind.SlashLand)
             blast = JumpPack.LandingBlast(pack, drop);   // protocol 30: a slash's landing as any landing (ours; no pound blast)
+        ExtrasJumpBlast(kind, ref blast);   // EXTRAS-HOOK
         int first = _hits.Count;
         if (kind == JumpEventKind.Launch) TakeOffBlasts(player, state);   // M43: Blast Off
         if (blast is not null)
@@ -70,4 +71,7 @@ public sealed partial class World
 
     /// <summary>Hook for added content (docs/added-content.md): after a jump-pack event was resolved (Musou Mode: the air slash's landing heals).</summary>
     partial void ExtrasJump(int player, JumpEventKind kind);
+
+    /// <summary>Hook for added content (docs/added-content.md): the blast a pound (Impact) or a landing (Land, SlashLand) is about to apply, before it does (Musou Mode: the ground pound's and the air slash landing's larger blast; owner 2026-11-14).</summary>
+    partial void ExtrasJumpBlast(JumpEventKind kind, ref SplashSpec? blast);
 }

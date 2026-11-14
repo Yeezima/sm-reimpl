@@ -269,6 +269,21 @@ public sealed partial class World
         MusouSlashLandHeal(player);   // World.MusouCombat.cs
     }
 
+    /// <summary>musou/aoe-pass (owner 2026-11-14): the ground pound's and the air slash landing's blast reaches x1.5 (the fall-off distances with it, so the rim keeps its share) and deals x1.5 (the centre's too).</summary>
+    partial void ExtrasJumpBlast(JumpEventKind kind, ref SplashSpec? blast)
+    {
+        if (_musou is null || blast is null || kind is not (JumpEventKind.Impact or JumpEventKind.SlashLand)) return;
+        blast = MusouPoundBlast(blast);
+    }
+
+    /// <summary>The blast scaled as the pound and the slash landing are in Musou Mode: reach x <see cref="MusouCombatRules.PoundReachScale"/>, every damage figure x <see cref="MusouCombatRules.PoundDamageScale"/>.</summary>
+    internal static SplashSpec MusouPoundBlast(SplashSpec blast)
+    {
+        var scaled = Combat.ScaledReach(blast, MusouCombatRules.PoundReachScale);
+        var d = scaled.Damage;
+        return scaled with { Damage = d with { Damage = d.Damage * MusouCombatRules.PoundDamageScale, ShieldDamage = d.ShieldDamage * MusouCombatRules.PoundDamageScale } };
+    }
+
     partial void ExtrasBlast(int owner, Vector3 point, SplashSpec splash, bool melee)
     {
         if (_musou is null) return;

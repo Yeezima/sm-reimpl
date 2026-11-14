@@ -29,6 +29,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 ## Summary
 
 Scanned 3167 spec table rows: **2329 tagged**, 580 not tagged (read from data with high confidence), 258 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 704 rows of the changes document.
+Scanned 3166 spec table rows: **2326 tagged**, 582 not tagged (read from data with high confidence), 258 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 704 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -54,6 +55,10 @@ Scanned 3167 spec table rows: **2329 tagged**, 580 not tagged (read from data wi
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 248 | 237 | 133 | 68 | 0 |
 | **All areas** | **2329** | 2058 | 1731 | 729 | 38 |
+| Core simulation (provisional values) | 693 | 653 | 496 | 180 | 1 |
+| General game design | 7 | 7 | 6 | 0 | 0 |
+| Ork faction | 248 | 237 | 133 | 68 | 0 |
+| **All areas** | **2326** | 2054 | 1731 | 727 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -62,6 +67,9 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | kind: ours | 1343 |
 | confidence: low | 831 |
 | confidence: medium | 771 |
+| kind: ours | 1339 |
+| confidence: low | 830 |
+| confidence: medium | 772 |
 | notes: ours | 415 |
 | kind: interpretation | 382 |
 | notes: estimate | 196 |
@@ -2387,6 +2395,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
 ### Core simulation (provisional values) (695)
+### Core simulation (provisional values) (693)
 
 *Spec section: Provisional values in use*
 
@@ -2735,8 +2744,14 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-4FE75DCA` | The fight | 30 s from stepping out: each holds his place and shoots what he sees within 25 m of it (the retainer's Hold); the AI Marines' damage scale (a tenth of every hit, `TfwSupplyRules.BotDamageTaken`, by puppet id) applies and they are not invulnerable (owner… (s, m) | kind: ours; confidence: medium | the owner (30 s: "defend the location for 30 seconds") | The fight: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 30 s from stepping out: each holds his place and shoots what he sees… | ☐ |
 | `R-C638CA14` | The retreat | then each sprints by the walking graph to the battle's Imperial base (`Layout.LandingZone`, the Marines' own; not `Layout.Hq`, the Ork commander's stronghold, which they headed for until 2026-11-12; the Range's start at the range) without fighting and is gone… (m, s) | kind: ours; confidence: medium | the owner ("retreating to the imperial home base HQ and then disappearing"; 2026-11-12: "retreat to the imperial base not the ork stronghold"); the radius and… | The retreat: compare with SM1 by feel or video. Ours: then each sprints by the walking graph to the battle's Imperial base… | ☐ |
 | `R-59BE815F` | A fallen Marine | cleared 3 s after he falls, never replaced; a squad with none left ends at once; the wreck stays 2 s after the last has gone, then goes (a second Pod record) (s) | kind: ours; confidence: low | ours | A fallen Marine: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: cleared 3 s after he falls, never replaced; a squad with none left… | ☐ |
-| `R-4D96CE2A` | Limits | one pod per player at a time (owner 2026-11-12: "Yes 1 pod per player at a time"); the puppet ids (12) are shared with the allied pair (2) and the retainers (up to 4 humans), so with 4 humans one squad of 5 fits (12 - 2 - 4 = 6 free); a battle's end removes… | kind: ours; confidence: medium | ours | Limits: compare with SM1 by feel or video. Ours: one pod per player at a time (owner 2026-11-12: "Yes 1 pod per player… | ☐ |
+| `R-4D96CE2A` | Limits | no limit on pods per player in a battle but the cooldown (owner 2026-11-14 lifted his 2026-11-12 "1 pod per player at a time"); at the Firing Range, which has no cooldown, at most 2 pods of a player at once (ours); a call needs 5 free puppet ids beyond those… | kind: ours; confidence: medium | ours | Limits: compare with SM1 by feel or video. Ours: no limit on pods per player in a battle but the cooldown (owner… | ☐ |
 | `R-C78C3B2F` | Switch | the server's `TfwCombatRules.DropPods` false refuses the command; the client's `--no-drop-pod` keeps B on the artillery strike and hides the customizer's SUPPORT ABILITIES step (the pages look as before it) | kind: ours | the lead's restore pattern | Switch: compare with SM1 by feel or video. Ours: the server's TfwCombatRules.DropPods false refuses the command; the… | ☐ |
+
+*Spec section: Added content: Musou Mode: AoE pass (`MusouCombatRules.WeaponAoeScale`, `PoundReachScale`, `World.MusouPoundBlast`; `TfwRules.Version` 79, `MusouSim.Version` 54)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-C089F9F0` | Autocannon burst | 2.5 m x1.4 = 3.5 m (not 1.25: its own factor); the lead's reading of "increase autocannon aoe burst size by 40%" as 1.4 on its own size, to confirm with the owner (1.75, 40 % on top of 1.25, is a one-line change of `MusouCombatRules.AutocannonAoeScale`); the… (x) | confidence: medium | owner 2026-11-14; reading the lead's | Autocannon burst: compare with SM1 by feel or video. Ours: 2.5 m x1.4 = 3.5 m (not 1.25: its own factor); the lead's reading of… | ☐ |
 
 *Spec section: Flying hitboxes, the view fraction, the grenade bounce and the bots' damage scale (fix/hitboxes-grenades-bots; protocol 37)*
 
@@ -4900,6 +4915,8 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-7B78FF5D` | Musou: the dizzy boss (claude/musou-boss-dizzy, owner 2026-11-14; client only) | No Musou Mode in the original, and no dizzy animation | Ours (added content, the owner's request): a boss in a melee stun stands on its idle clip, facing where it faced (its old stagger clip turned the Warboss round), leaning 4 degrees in a slow circle (1.8 s), with 3 stars circling above its head (1.1 s a turn) until the stun ends; every value ours (spec "Musou Mode: the… | Musou Mode only; Classic PvP untouched | Musou: the dizzy boss (claude/musou-boss-dizzy, owner…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-BFB674C7` | Musou: no aerial tackle, a light attack at any point in a hop (claude/musou-no-aerial-tackle, owner 2026-11-12, TEMPORARY; `MusouSim.Version` 49, `TfwRules.Version` 74) | The Assault and Raptor start the aerial (flying) tackle, the dash attack, with a melee press in a hop; an earlier press cancels the hop into a swing that must wait for the cancelled clip to end | Ours (added content, the owner's temporary request): in Musou Mode a melee press at any point of a hop is the light attack at once, with no wait before the next swing; the tackle never starts. The air attack keeps the hop cancel's rules (rise stopped, 0.4 of the horizontal speed carried; ours). Restore:… | Musou Mode only; Classic PvP unchanged. Spec "Musou Mode: no aerial tackle, a light attack at any point in a hop (temporary)". | Musou: no aerial tackle, a light attack at any point in a…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-7241A1DE` | Musou Mode: Ork swings commit to a direction (musou/ork-swing-commit, 2026-11-12; `MusouSim.Version` 53, `TfwRules.Version` 78) | the owner's request (2026-11-12); added content, no SM1 counterpart | Ours (the idea the owner's, the values estimates): a melee Ork turns toward its target for the first 30 % of its wind-up (540 degrees a second) then holds that facing; the blow needs the target within reach and the 60 degree cone of the locked facing, so circling at a run dodges a Boy's swing (from about 4.5 m/s at… | spec "Musou Mode: Ork swing commit" | Musou Mode: Ork swings commit to a direction…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-403CD0D0` | Musou Mode: drop pod recast (claude/musou-aoe-droppod-recast, owner 2026-11-14; `MusouSim.Version` 54, `TfwRules.Version` 79) | No Musou Mode in the original | Ours (added content, the owner's request, verbatim: "let the player drop another pod immediately when the 60 second cooldown is up"): a new drop pod may be called as soon as the 60 s cooldown ends, whatever pod or squad of the player is still out; the puppet ids (12, shared with the allies and retainers) cap the… | `World.TfwDropPod`, spec "Added content: Musou Mode: drop pod assault" | Musou Mode: drop pod recast (claude/musou-aoe-droppod-recast…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-CFF0666F` | Musou Mode: AoE pass (claude/musou-aoe-droppod-recast, owner 2026-11-14; `MusouSim.Version` 54, `TfwRules.Version` 79) | No Musou Mode in the original | Ours (added content, the owner's request): the assault Marine's ground pound and air slash landing reach 1.5x as far and deal 1.5x (centre too); every player weapon's blast reaches 1.25x; the autocannon's burst 1.4x its own size (the lead's reading, to confirm: 1.75 is one constant) | `MusouCombatRules.WeaponAoeScale`, `PoundReachScale`, `AutocannonAoeScale`, spec "Added content: Musou Mode: AoE pass" | Musou Mode: AoE pass (claude/musou-aoe-droppod-recast…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 
 ## Appendix: not gameplay
 

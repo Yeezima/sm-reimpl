@@ -168,6 +168,8 @@ public sealed class TfwFire
     public uint OrbitalTicksLeft(int player, uint tick) => _orbitalReady.TryGetValue(player, out uint ready) && ready > tick ? ready - tick : 0u;
 
     /// <summary>A battle strike by <paramref name="player"/> on <paramref name="tick"/>: the cooldown starts (a strike at the Firing Range does not call this).</summary>
+    /// <summary>Test aid: the player's support cooldown is over (as after 60 s, without running them).</summary>
+    public void OrbitalClearForTests(int player) => _orbitalReady.Remove(player);
     internal void OrbitalCalled(int player, uint tick, int rate) => _orbitalReady[player] = tick + (uint)MathF.Ceiling(TfwFireRules.OrbitalCooldownSeconds * rate - 1e-3f);
 
     internal void Started(uint tick)

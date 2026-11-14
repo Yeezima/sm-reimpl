@@ -81,8 +81,11 @@ public sealed partial record SimConfig
 
     partial void ExtrasThrownBlastScale(ThrownSpec? item, ref float scale)
     {
-        if (Extras.HasFlag(ContentExtras.Musou) && item is not null && SmSim.Extras.Musou.Campaign.TfwCombatRules.IsFrag(item)) scale = MusouCombatRules.FragReachScale;
-        else if (Extras.HasFlag(ContentExtras.Musou) && item is not null && item.Name.Equals(SmSim.Extras.Musou.Arsenal.ArsenalRules.RemoteDetonators, StringComparison.OrdinalIgnoreCase))
+        if (!Extras.HasFlag(ContentExtras.Musou)) return;
+        // musou/aoe-pass (owner 2026-11-14): a null item is a launched (not thrown) projectile's blast; every player weapon's reach x WeaponAoeScale, a frag's on top of its x2.
+        if (item is not null && SmSim.Extras.Musou.Campaign.TfwCombatRules.IsFrag(item)) scale = MusouCombatRules.FragReachScale * MusouCombatRules.WeaponAoeScale;
+        else if (item is not null && item.Name.Equals(SmSim.Extras.Musou.Arsenal.ArsenalRules.RemoteDetonators, StringComparison.OrdinalIgnoreCase))
             scale = SmSim.Extras.Musou.Arsenal.DemolitionChargeRules.CentreStretch;   // a "blast reach" contract: the charge has no splash today; one added later would be scaled x1.6 on the server too   // W4: the client's one centre effect at the 16 m blast (x1.6 of the data's 10 m); the item has no splash, so the server's blasts are untouched
+        else scale = MusouCombatRules.WeaponAoeScale;
     }
 }
