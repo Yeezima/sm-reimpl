@@ -5182,7 +5182,7 @@ Rows whose cell count differs from their table's header. Their cells are shifted
 
 | Line | Section | Parameter | Problem |
 |---:|---|---|---|
-| 5804 | Weapon visuals: power weapons' light, the serrated knife's field, Kraken tracers (fx/weapon-visuals; client only, not simulated, no protocol change; owner 2026-11-14) | Power weapons' light | 8 cells, header has 7 |
-| 5805 | Weapon visuals: power weapons' light, the serrated knife's field, Kraken tracers (fx/weapon-visuals; client only, not simulated, no protocol change; owner 2026-11-14) | Serrated knife's light and field | 8 cells, header has 7 |
-| 5806 | Weapon visuals: power weapons' light, the serrated knife's field, Kraken tracers (fx/weapon-visuals; client only, not simulated, no protocol change; owner 2026-11-14) | Kraken Bolts tracer | 8 cells, header has 7 |
+| 5804 | Weapon visuals: power weapons' light, the serrated knife's field, Kraken tracers (fx/weapon-visuals; client only, not simulated, no protocol change; owner 2026-11-14) | Power weapons' light | 9 cells, header has 8 |
+| 5805 | Weapon visuals: power weapons' light, the serrated knife's field, Kraken tracers (fx/weapon-visuals; client only, not simulated, no protocol change; owner 2026-11-14) | Serrated knife's light and field | 9 cells, header has 8 |
+| 5806 | Weapon visuals: power weapons' light, the serrated knife's field, Kraken tracers (fx/weapon-visuals; client only, not simulated, no protocol change; owner 2026-11-14) | Kraken Bolts tracer | 9 cells, header has 8 |
 
