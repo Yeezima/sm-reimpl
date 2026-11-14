@@ -43,6 +43,8 @@ public partial class NetworkView
         public readonly List<FxEffect> ReadyJets = new(), BaseGlow = new();
         /// <summary>The one-shot launch flashes still alive: cut at once when the pilot dies (owner 2026-11-11), whose pack they were fixed to.</summary>
         public readonly List<FxEffect> Flashes = new();
+        /// <summary>Every effect this player's pack has played and not yet ended (thrusts, flashes, apex bursts, jets, glow): all cut at once when the pilot dies or its worn pack is gone (owner 2026-11-14).</summary>
+        public readonly List<FxEffect> All = new();
         public float JetLevel = float.NaN, BaseLevel = float.NaN;
         public double LastAt = double.NaN, LandedAt = double.NegativeInfinity, DashAt = double.NegativeInfinity;
         public bool WasJumping, Ready;
@@ -106,10 +108,14 @@ public partial class NetworkView
                 if (_fxNoted.Add($"packmarker:{id % 2}:{marker}")) GD.Print($"  effects: {what}: no worn marker '{marker}' on P{id}'s pack; {p.Name} not shown");
                 continue;
             }
-            Func<(Vector3, Basis)?>? follow = p.Attached ? () => PackMarker(id, marker, exhaust) : null;
+            FxEffect? self = null;
+            // owner 2026-11-14: the worn pack gone (the pilot died, his ragdoll took over, he left) ends the effect on the spot; it never stays in the air where the pack last was.
+            Func<(Vector3, Basis)?>? follow = p.Attached ? () => { var m = PackMarker(id, marker, exhaust); if (m is null && self is not null && !OldPackDeathThrust) CutNow(self); return m; } : null;
             float lifetime = flashOnly ? PackFlashSeconds : repeat ? 0f : p.Lifetime;
             if (_fx!.Play(p.Name, place.Position, place.Axes, p.Scale <= 0f ? 1f : p.Scale, null, follow, lifetime, 0.0, repeat, 1) is { } e)
             {
+                self = e;
+                if (_jumpFx.TryGetValue(id, out var own)) { own.All.RemoveAll(x => x.Dead); own.All.Add(e); }
                 e.FlashOnly = flashOnly;
                 e.TrailScale = PackTrailScale;   // fx/impact-pass: the thrust's trail is the last few metres of the nozzle's path
                 if (exhaust) e.BeamScale = PackTrailScale;   // ... and its flame a third as long
@@ -139,13 +145,33 @@ public partial class NetworkView
         effects.Clear();
     }
 
-    static void StopAll(JumpFxTrack t)
+    /// <summary>owner 2026-11-14: ends an effect now: no repeat, no life left, not drawn (the next update removes it).</summary>
+    static void CutNow(FxEffect e) { e.Repeat = false; e.Life = Math.Min(e.Life, Math.Max(0.0, e.Age)); e.Follow = null; e.Hidden = true; }
+
+    static bool? _oldPackDeathThrust;
+    /// <summary><c>--old-pack-death-thrust</c> (owner 2026-11-14, before / after): the pack's apex bursts and any effect of it that is not tracked stay where they were when the pilot dies.</summary>
+    static bool OldPackDeathThrust => _oldPackDeathThrust ??= CmdFlag("old-pack-death-thrust");
+
+    int _packCuts;
+
+    void StopAll(JumpFxTrack t)
     {
+        if (!OldPackDeathThrust && t.All.Count > 0)
+        {
+            int live = t.All.Count(e => !e.Dead);
+            foreach (var e in t.All) { CutNow(e); _ownPackFx.Remove(e); }
+            _packCuts += live;
+            if (PackDeathLog && live > 0) GD.Print($"t {_connectedFor:F2} s: pack death: {live} jump pack effect(s) cut at once");
+            t.All.Clear();
+        }
         Fade(t.Looping, JumpFxFade); Fade(t.Idle, 0.0); t.IdleLevel = float.NaN;
         Fade(t.ReadyJets, 0.0); Fade(t.BaseGlow, 0.0);
         if (!OldPackDeathFlash) Fade(t.Flashes, 0.0);   // owner 2026-11-11: the pack's flash disappears when its pilot dies, never left in the air
         t.JetLevel = t.BaseLevel = float.NaN; t.LastAt = double.NaN;
     }
+
+    /// <summary><c>--log-pack-death</c> (test aid): prints how many pack effects were cut when a pilot died.</summary>
+    static bool PackDeathLog => CmdFlag("log-pack-death");
 
     static bool? _oldPackDeathFlash;
     /// <summary><c>--old-pack-death-flash</c> (owner 2026-11-11, before / after): the pack's flashes stay where they were when the pilot dies, and the death's flash is fixed in the world.</summary>

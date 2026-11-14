@@ -453,6 +453,8 @@ public class PlayerHitFxRulesTests
     {
         Assert.Contains("melta-burn-on-hit", SmNet.LeanBot.PresentationAids);
         Assert.Contains("old-pack-death-flash", SmNet.LeanBot.PresentationAids);
+        Assert.Contains("old-pack-death-thrust", SmNet.LeanBot.PresentationAids);
+        Assert.Contains("log-pack-death", SmNet.LeanBot.PresentationAids);
     }
 
     [Fact]
