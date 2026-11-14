@@ -80,6 +80,8 @@ public static class MusouLoadout
         {
             Name = DreadnoughtRules.ClassName, Role = DreadnoughtRules.Role, Primary = -1, Pistol = melta, PrimaryChoices = cannon >= 0 ? [cannon] : [], PistolChoices = melta >= 0 ? [melta] : [], EquipmentChoices = [], PerkChoices = [], DefaultPerk = -1,
             JumpPack = -1, Evade = -1, Body = bodies.Count,
+            Melee = DreadnoughtMelee.Light(), MeleeHeavy = DreadnoughtMelee.Heavy(), MeleeChoices = [],
+            MeleeRush = tactical.MeleeRush is { } rush ? rush with { Ability = "melee_x_rush", Primary = rush.Primary with { Damage = 500f, ShieldDamage = 1000f }, Secondary = rush.Secondary with { Damage = 125f, ShieldDamage = 75f }, Range = DreadnoughtMelee.Reach } : null,
         });
         bodies = [.. bodies, DreadnoughtRules.Body()];
     }

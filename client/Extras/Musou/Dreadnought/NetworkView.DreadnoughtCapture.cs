@@ -107,6 +107,20 @@ public partial class NetworkView
             GD.Print($"DNCAPTURE melta shot {shot}: clip {clip}, after {client.Predicted.Clip}");
             await TfwWait(1.5);
         }
+        // the arm: switch back to the cannon, face the crowd and strike: a light X, then the heavy Y (the stomp), then the sprint charge
+        await TfwActionTap(GameAction.NextWeapon);
+        await TfwWait(0.8);
+        TfwFaceCrowd(30f);
+        int healthBefore = TfwNearCount(12f);
+        GD.Print($"DNCAPTURE t {_connectedFor:F2} melee: crowd near {healthBefore}");
+        await TfwActionTap(GameAction.Melee);
+        for (int k = 0; k < 8; k++) { await TfwWait(0.25); if (k is 1 or 3) await DnStill(1, $"dn-side-melee-x-{k}"); }
+        GD.Print($"DNCAPTURE t {_connectedFor:F2} after X: step {client.Predicted.MeleeStep} heavy {client.Predicted.MeleeHeavy}");
+        await TfwWait(2.0);
+        await TfwActionTap(GameAction.StunStrike);
+        for (int k = 0; k < 10; k++) { await TfwWait(0.25); if (k is 3 or 5) await DnStill(1, $"dn-side-melee-y-{k}"); }
+        GD.Print($"DNCAPTURE t {_connectedFor:F2} after Y: step {client.Predicted.MeleeStep} heavy {client.Predicted.MeleeHeavy}, crowd near {TfwNearCount(12f)}");
+        await TfwWait(2.5);
         GD.Print("DNCAPTURE done");
         GetTree().Quit(0);
     }

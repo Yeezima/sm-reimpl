@@ -1,3 +1,4 @@
+using System.Numerics;
 using SmSim.Extras.Musou;
 
 namespace SmSim;
@@ -17,6 +18,8 @@ public sealed partial class World
     /// <summary>The time left of a living Dreadnought's entrance (seconds; 0: over) by player id; a dead one or one of another class has none.</summary>
     readonly Dictionary<int, float> _dreadnoughtEntry = new();
     readonly List<int> _dreadnoughtGone = new();
+    /// <summary>Per living Dreadnought: where his last footfall check stood and the ground left to cover before the next footfall's blast (D5).</summary>
+    readonly Dictionary<int, (Vector3 Last, float Left)> _dreadnoughtStride = new();
     /// <summary>The players whose pick is the Dreadnought (they play the Tactical in the hub until the landing).</summary>
     readonly HashSet<int> _dreadnoughtWanted = new();
 
@@ -77,13 +80,33 @@ public sealed partial class World
         if (DreadnoughtHub) foreach (int id in _players.Keys.ToArray()) DreadnoughtHubStandIn(id);
         foreach (var id in _dreadnoughtEntry.Keys)
             if (!_players.TryGetValue(id, out var q) || !q.Alive || !DreadnoughtRules.IsDreadnought(Config, q.Class)) _dreadnoughtGone.Add(id);   // dead, left or changed class: the next spawn is a new entrance
-        foreach (int id in _dreadnoughtGone) _dreadnoughtEntry.Remove(id);
+        foreach (int id in _dreadnoughtGone) { _dreadnoughtEntry.Remove(id); _dreadnoughtStride.Remove(id); }
         foreach (var (id, p) in _players)
         {
             if (!p.Alive || !DreadnoughtRules.IsDreadnought(Config, p.Class)) continue;
             if (!_dreadnoughtEntry.TryGetValue(id, out float left)) { _dreadnoughtEntry[id] = DreadnoughtRules.InvulnerableSeconds; continue; }   // enters this tick: the whole 5 s are still ahead
             if (left > 0f) _dreadnoughtEntry[id] = MathF.Max(0f, left - dt);
+            DreadnoughtFootfalls(id, p);
         }
+    }
+
+    /// <summary>
+    /// A footfall's blast (D5): the data gives each foot's stomp 25 damage in a 10 m sphere (<c>evt_spawn_r_stomp</c>, <c>evt_spawn_l_stomp</c>) but not which footfalls fire it; **estimate**: one every
+    /// <see cref="DreadnoughtRules.FootfallStride"/> metres of ground he walks (the walk cycle's 1.333 s at 3 m/s is two footfalls in 4 m), never while he stands, flies or is in the entrance. Melee damage,
+    /// so Musou's melee kill credit and heal rules apply; a Musou blast never hurts a marine.
+    /// </summary>
+    void DreadnoughtFootfalls(int id, in PlayerState p)
+    {
+        if (!_dreadnoughtStride.TryGetValue(id, out var st)) { _dreadnoughtStride[id] = (p.Position, DreadnoughtRules.FootfallStride); return; }
+        float moved = new Vector2(p.Position.X - st.Last.X, p.Position.Y - st.Last.Y).Length();
+        if (!p.Grounded || moved > 3f) moved = 0f;   // airborne, or a teleport (a respawn)
+        float left = st.Left - moved;
+        if (left <= 0f)
+        {
+            ApplyBlast(id, 0, p.Position + new Vector3(0, 0, ChestOf(p)), DreadnoughtMelee.Footfall, melee: true);
+            left += DreadnoughtRules.FootfallStride;
+        }
+        _dreadnoughtStride[id] = (p.Position, left);
     }
 
     /// <summary>The entrance clip's part of his entrance: he cannot move or fire while it plays (the clip is shorter than the invulnerability by the difference), nor before his entrance has begun.</summary>

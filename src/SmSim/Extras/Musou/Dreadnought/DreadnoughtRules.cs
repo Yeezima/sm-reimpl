@@ -35,6 +35,9 @@ public static class DreadnoughtRules
     /// <summary>His walking capsule (owner, 2026-11-14: "a true big body, about 2 to 3 m"; **estimate**): 2 m across, 3 m tall. The Orks keep their ring, reach and hold at the edge of it (<see cref="MusouTarget.Body"/>).</summary>
     public const float CapsuleRadius = 1.0f, CapsuleHeight = 3.0f;
 
+    /// <summary>Metres of ground walked between two footfall blasts (**estimate**: the walk cycle's two footfalls in about 4 m).</summary>
+    public const float FootfallStride = 2.2f;
+
     // ---- the entrance (data: evt_spawn_in, DN_NAV_Entrance) ----
     /// <summary>Every received damage is multiplied by 0 for this long after he spawns (data, 5 s) while the entrance clip of <see cref="EntranceSeconds"/> plays (data, 4.833 s).</summary>
     public const float InvulnerableSeconds = 5f, EntranceSeconds = 4.833f;

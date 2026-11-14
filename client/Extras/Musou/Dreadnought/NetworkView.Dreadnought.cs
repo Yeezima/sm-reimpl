@@ -72,6 +72,20 @@ public partial class NetworkView
         if (!state.Alive) { character.Pose(DreadnoughtRig.Death, (float)Math.Min(_connectedFor - t.Died, DreadnoughtRig.DeathSeconds), 0.2f); return; }
         double since = _connectedFor - t.Born;
         if (since < DreadnoughtRig.EntranceSeconds) { character.Pose(DreadnoughtRig.Entrance, (float)since, 0.1f); return; }
+        if (_config is { } cfg)
+        {
+            // the charge (Sprint + Melee) and its collision stop, then the arm's strike at the simulation's time
+            if (state.Rush is RushPhase.Rush or RushPhase.Collision)
+            {
+                float rt = SmSim.Rush.Time(state, cfg);
+                if (character.Pose(state.Rush == RushPhase.Rush ? DreadnoughtRig.RushAttack : DreadnoughtRig.Collision, rt, 0.12f)) return;
+            }
+            if (state.MeleeStep > 0)
+            {
+                var list = state.MeleeHeavy ? DreadnoughtRig.HeavyStrikes : DreadnoughtRig.LightStrikes;
+                if (state.MeleeStep <= list.Length && character.Pose(list[state.MeleeStep - 1], MathF.Max(0f, state.MeleeTime), 0.12f)) return;
+            }
+        }
         DreadnoughtLocomotion(character, state);
     }
 

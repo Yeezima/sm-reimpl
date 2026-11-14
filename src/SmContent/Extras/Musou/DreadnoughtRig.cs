@@ -21,6 +21,10 @@ public static class DreadnoughtRig
     /// <summary>Ground speed (m/s) the walk and run cycles are taken to cover at rate 1 (**estimate**: the data's walk 3 and run 6.5 speeds; the clips' own strides were not measured). Above <see cref="RunFrom"/> the run cycle shows.</summary>
     public const float WalkCycleSpeed = 3f, RunCycleSpeed = 6.5f, RunFrom = 4.5f;
 
+    /// <summary>The arm's strike clips (the 3.5 m variants): light X1, X2; heavy: the stomp (the first heavy), Y01 (the second); the rush.</summary>
+    public static readonly string[] LightStrikes = ["DN_MEL_XATK_01_3.5m", "DN_MEL_XATK_02_3.5m"], HeavyStrikes = ["DN_MEL_Stomp_3.5m", "DN_MEL_YATK_3.5m"];
+    public const string RushAttack = "DN_MEL_Bullrush_Attack";
+
     static readonly string[] Dirs = ["F", "FR", "R", "BR", "B", "BL", "L", "FL"];
 
     /// <summary>The direction's letters (F, FR, R, BR, B, BL, L, FL) of a velocity at <paramref name="degrees"/> off the facing (0 forward, 90 right; eight 45-degree sectors).</summary>
