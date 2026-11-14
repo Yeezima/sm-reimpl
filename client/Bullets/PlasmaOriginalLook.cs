@@ -41,7 +41,7 @@ public static class PlasmaOriginalLook
 
     /// <summary>
     /// The Compatibility renderer's safety streak under the light shot's data tracer (fx/plasma-tracers-safe-mode's mitigation, kept: ours) takes the data tracer's soft smoke head colour
-    /// in the original look (0..1 RGB): loyalist (113, 255, 255), Chaos (224, 101, 255), from <c>plasma_gun_tracer</c> / <c>chaos_plasma_gun_tracer</c>.
+    /// in the original look (0..1 RGB): loyalist (113, 255, 255) from <c>plasma_gun_tracer</c>; Chaos the one Chaos plasma hue (<c>SmContent.PlasmaColour.ChaosPurple</c>, the same as the tinted data tracer: the data's smoke (224, 101, 255) differed from it).
     /// </summary>
-    public static (float R, float G, float B) SafeStreakColour(bool chaos) => chaos ? (224f / 255f, 101f / 255f, 1f) : (113f / 255f, 1f, 1f);
+    public static (float R, float G, float B) SafeStreakColour(bool chaos) => chaos ? SmContent.PlasmaColour.ChaosPurple : (113f / 255f, 1f, 1f);
 }

@@ -1374,7 +1374,7 @@ Read-only on the install (app 55150) with `smtool baf-dump data/packages/wargear
   `USpeed` 800, keys (255, 246, 139)), a `soft smoke` beam (`alpha_trail_soft`, blended, 0.32 to 0.61 m, (113, 255, 255) to (69, 123, 254) at alpha 0) and a 1 s `linger` beam
   (`alpha_trail_curvy`, 0 to 0.72 m, (79, 149, 255) half alpha to clear). The `plasma_tracer` sprite (atlas page, rotated) is four teal wisps, a bright head and a long ragged tail: the
   bolt is that texture crossing the span at 800 m/s, tinted pale yellow. `chaos_plasma_gun_tracer` is the same with purple smoke ((224, 101, 255)) and linger ((199, 122, 255)); its core
-  streak is the same teal texture and pale yellow keys as the loyalist one.
+  streak is the same teal texture and pale yellow keys as the loyalist one. The teal `plasma_tracer` core is why the Chaos light shot drew cyan-green (fx/chaos-plasma-tracer, 2026-11-14); the Chaos trails (`chaos_plasma_gun_trail`, `csm_plasma_cannon_primary_trail`, `csm_plasma_cannon_secondary_trail`) carry purple and pink keys on `plasma_trail` / `add_trail_soft` streamers (the cannon's secondary `blue trail` starts at (55, 200, 255)); `smtool fx-dump auto <effect> --fields` prints them.
 - **Charged shot.** The firing stage `4.charge_heavy` of both weapons is a `projectile` delivery: `ebps\projectiles\plasma_altfire_mp` (gun), `plasma_pistol_altfire_mp` (pistol), Chaos
   `plasma_altfire_chaos_mp`, `plasma_pistol_altfire_chaos_mp` (speed 90, lifetime 1.5 s; the pistol's blast radius 6). Each projectile's `renderable_ext` is `invisible_projectile` (no mesh) with
   `dynamic_visuals` True; its whole look is `entity_actions_ext/lifetime_action` `play_fx` at marker `fx_trail`, scale 1, `scale_if_from_player` False: `plasma_gun_charged_trail` for both

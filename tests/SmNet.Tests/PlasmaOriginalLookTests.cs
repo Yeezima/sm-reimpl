@@ -51,11 +51,11 @@ public class PlasmaOriginalLookTests
     }
 
     [Fact]
-    public void TheSafeModeStreakTakesTheDataTracersSmokeColour()
+    public void TheSafeModeStreakTakesTheLoyalistSmokeColourAndTheOneChaosHue()
     {
         var loyal = PlasmaOriginalLook.SafeStreakColour(chaos: false);
         Assert.Equal((113f / 255f, 1f, 1f), loyal);
         var chaos = PlasmaOriginalLook.SafeStreakColour(chaos: true);
-        Assert.Equal((224f / 255f, 101f / 255f, 1f), chaos);
+        Assert.Equal(SmContent.PlasmaColour.ChaosPurple, chaos);   // the same hue as the tinted data tracer (fx/chaos-plasma-tracer)
     }
 }
