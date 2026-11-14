@@ -36,6 +36,11 @@ Scanned 3201 spec table rows: **2355 tagged**, 587 not tagged (read from data wi
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
 | Movement (critical) | 404 | 345 | 344 | 118 | 12 |
+Scanned 3204 spec table rows: **2357 tagged**, 588 not tagged (read from data with high confidence), 259 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 714 rows of the changes document.
+
+| Area | Tagged rows | by kind | by confidence | by notes | by section text |
+|---|---:|---:|---:|---:|---:|
+| Movement (critical) | 406 | 347 | 346 | 118 | 12 |
 | Combat core (critical) | 17 | 7 | 15 | 14 | 9 |
 | Weapons (critical) | 121 | 73 | 106 | 54 | 3 |
 | Melee (critical) | 149 | 131 | 110 | 53 | 5 |
@@ -63,6 +68,7 @@ Scanned 3201 spec table rows: **2355 tagged**, 587 not tagged (read from data wi
 | Ork faction | 248 | 237 | 133 | 68 | 0 |
 | **All areas** | **2356** | 2083 | 1750 | 730 | 38 |
 | **All areas** | **2355** | 2082 | 1750 | 731 | 38 |
+| **All areas** | **2357** | 2084 | 1751 | 730 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -78,6 +84,9 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | notes: estimate | 197 |
 | confidence: low | 839 |
 | confidence: medium | 782 |
+| kind: ours | 1370 |
+| confidence: low | 838 |
+| confidence: medium | 784 |
 | notes: ours | 415 |
 | kind: interpretation | 382 |
 | notes: estimate | 198 |
@@ -108,6 +117,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 ## Part A: gameplay areas, critical first
 
 ### Movement (gameplay-critical) (404)
+### Movement (gameplay-critical) (406)
 
 *Spec section: Extracted parameters*
 
@@ -360,6 +370,14 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-C73D3AA4` | The hop cancels it | a Jump press from the stomp's `BRANCH_Evade` (× the lock scale, never before the hit when the data opens it after the hit; `Combat.MeleeEvadeOpen`) ends the stomp and starts the hop in that tick, with the hop's own recovery; before the branch Jump does… (s) | kind: ours; confidence: medium | the owner's decision (the hop cancels); the branch time extracted; keeping the branch gate ours | The hop cancels it: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a Jump press from the stomp's BRANCH_Evade (× the lock scale, never… | ☐ |
+
+*Spec section: The stomp frees the player at 1.2 s (sim/stomp-release; owner 2026-11-14, no wire change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-EA0B9125` | The weapon comes up with it | the release tick leaves the weapon raised (`ReadyHold`), so the bolt pistol's first shot leaves on the press tick at 1.2 s instead of waiting for its 0.167 s raise (the always-ready heavy bolter needs none). Ours: the owner's example ("the bolt pistol should… | kind: ours; confidence: medium | ours; the owner's example | The weapon comes up with it: compare with SM1 by feel or video. Ours: the release tick leaves the weapon raised (ReadyHold), so the bolt… | ☐ |
+| `R-37B82987` | A press the tick of the release | a melee press in that tick starts the next swing (a light attack, or a stomp again from F) at once, within the usual melee wait (the stomp's combo window has closed by 1.2 s) | kind: ours; confidence: medium | the release acting as the clip's end | A press the tick of the release: compare with SM1 by feel or video. Ours: a melee press in that tick starts the next swing (a light attack, or… | ☐ |
+| `R-72E3090D` | Restore switch | `--old-stomp-release` (server and every client; config hash only when on): the stomp locks to its clip's end (1.667 s) | kind: ours | ours | Restore switch: compare with SM1 by feel or video. Ours: --old-stomp-release (server and every client; config hash only when… | ☐ |
 
 *Spec section: No firing during the roll (sim/roll-fire-pitch; protocol 51, no wire change)*
 
@@ -4314,6 +4332,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-D777C32D` | The primary is stowed round the right side (fix/stow-right; client only) | The pistol switch's clip (`SM_Swap_Rifle_to_Melee_01`) animates the primary's chest prop round the marine's left side onto the back marker while both hands stay in front: the gun flies 0.4 to 0.8 m from either hand | The primary is put away by its own draw clip (`SM_Swap_Rifle_to_Rifle_01`) played backwards: in the right hand round the right side to the back marker, released there at the draw's attach tag; then the pistol's draw; the pistol is holstered the same way (its draw backwards) before the rifle draw. Playing a draw… | Owner's knowledge 2026-10-29 ("tactical marine when stowing their primary weapon to switch to bolt pistol should stow it to the right around their back not the left. currently the gun floats through the air"); spec "The primary is stowed round the right side" | The primary is stowed round the right side (fix/stow-right…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-D47CCCC3` | The charge needs only W (feel/charge-directions; protocol 39; supersedes M31's sprint gate) | The locale names it "Charge Attack (while Sprinting)" (110691); M31 read the owner's earlier rule as a sprint gate (Sprint applied and faster than run + 0.25 x (sprint - run) = 7.375 m/s) | An F press with W held starts the charge from standing, a walk, a run or a sprint; aim mode and the held trigger no longer turn it into the stun strike; without W, F is the stun strike; the jump-pack classes still charge from the ground only | Owner's knowledge and decision 2026-10-29 ("charge shouldn't require you to actually sprint to initiate charge, just be holding w when you press f to initiate forward charge"); spec "Charge directions" | The charge needs only W (feel/charge-directions; protocol…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-09BB7D6D` | The charge needs the sprint; F otherwise is a stun strike in the held direction (sim/charge-needs-sprint; protocol 49; supersedes the W-only start of protocol 39) | A W + F press started the charge from standing, a walk, a run or a sprint | Shift (the pad's sprint hold) and W held at the F press start the charge; F without them is the stun strike in the direction of the held keys (all eight, forward with none); W + F without Shift is a forward stun strike; the buffered press follows the same test | Owner's decision 2026-10-31 ("you also need to be holding shift. if you are holding W, A, S, D, or a combination of them, then press f, you should do a stun strike in that direction"); spec "The charge needs the sprint" | The charge needs the sprint; F otherwise is a stun strike…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
+| `C-F4E85D52` | The stomp frees the player at 1.2 s (sim/stomp-release; owner 2026-11-14) | The stomp's clip locks the Devastator and the Havoc for its whole 1.667 s (only the hop cancels it, protocol 51) | From 1.2 s into the clip (after the blast at 0.767 s) the stomp ends and the player may fire (the bolt pistol shoots at once), aim, move, switch, reload, throw, melee and charge, in Classic PvP and Musou Mode; before 1.2 s the lock stays. Restore switch `--old-stomp-release` | The owner: the lock-out was a bit too long | The stomp frees the player at 1.2 s (sim/stomp-release…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-342607B9` | Only the hop cancels the stomp (sim/stomp-uninterruptible; protocol 51) | The stomp's sequencer lets a shot end it from its `RangedAt` branch (as every melee attack), and a melee press in a combo window chains the next attack | Once the Devastator's or Havoc's stomp starts, no shot (the pistol's quick shot included) and no melee press ends it; only the hop, from the stomp's `BRANCH_Evade`, cancels it (aim, switches, reload, grenades, the sprint and the charge were already held off by any melee attack) | Owner's decision 2026-11-01 ("can only be cancelled by a hop move. shooting, aim down sight, or any other action should never interrupt a stomp animation"); spec "Only the hop cancels the stomp" | Only the hop cancels the stomp (sim/stomp-uninterruptible…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-E3A84838` | Only a weapon switch takes a reload out of hand (sim/reload-keeps; protocol 56) | Our earlier reading: a melee attack, a grenade throw, a ground pound's dive, a hit reaction or a charge ended the reload in hand (the rounds were not loaded) | None of them ends it any more: the reload runs on through them on its own timer and loads its rounds when done, even mid-swing; nothing new starts while they last (Reload input is still ignored there). A weapon switch stores it with its weapon (the holstered reload runs on, unchanged since 2026-10-30); death clears it | Owner's decision 2026-11-03 ("reloads should not be cancelled by anything other than switching weapons"); spec "Reloads continue while the weapon is not equipped" | Only a weapon switch takes a reload out of hand…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-73D7BA0B` | No firing during the roll (sim/roll-fire-pitch; protocol 51) | The roll's sequencers let the trigger end the Tactical roll from `BRANCH_ToRanged` (0.667 s of the 1.167 s clip) and fire in that tick | For the whole roll the trigger does nothing for any weapon (no shot, charge or raise) and no longer ends the roll; the stick, Aim and a grenade still end it at their branches, and the tick they do so fires nothing; the heavies' hop and the jump-pack dash keep the data's fire branch | Owner's knowledge and decision 2026-11-01 ("ensure you can never shoot while the roll animation is playing"); spec "No firing during the roll" | No firing during the roll (sim/roll-fire-pitch; protocol 51): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |

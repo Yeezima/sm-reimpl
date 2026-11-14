@@ -65,6 +65,8 @@ public sealed record ServerArguments
     public bool OldChargeMeleeChain { get; init; }
     /// <summary>sim/hop-rules (restore switch): the protocol 71 jump and hop rules (<see cref="SimConfig.HopRules"/>; config hash: clients need it too).</summary>
     public bool OldHopRules { get; init; }
+    /// <summary>sim/stomp-release (restore switch): the stomp locks the player to the end of its clip (<see cref="SimConfig.StompRelease"/>; config hash: clients need it too).</summary>
+    public bool OldStompRelease { get; init; }
     /// <summary>musou/melee-spam (restore switch): Musou Mode keeps the melee waits (<see cref="SimConfig.MusouMeleeCooldown"/>; config hash: clients need it too).</summary>
     public bool MusouMeleeCooldown { get; init; }
     /// <summary>musou/melee-heal-cap (restore switch): no cap of 3 heals per melee swing in Musou Mode (<see cref="SimConfig.MusouUncappedMeleeHeal"/>; config hash: clients need it too).</summary>
@@ -118,6 +120,7 @@ public static class ServerCommandLine
           --old-charge-cancel-delay     switch: restore: S cancels the charge only from the rush's stick branch, about 0.47 s in (clients need --old-charge-cancel-delay too)
           --old-charge-melee-chain     switch: restore: no instant melee cancel of a charge and no spacing reset by a melee attack (clients need --old-charge-melee-chain too)
           --old-hop-rules              switch: restore: no ledge jump after a charge, no shortening of the melee wait by a hop, no hop out of the aerial tackle (clients need --old-hop-rules too)
+          --old-stomp-release          switch: restore: the Devastator's and Havoc's stomp locks them to the end of its clip instead of 1.2 s (clients need --old-stomp-release too)
           --musou-melee-cooldown       switch: restore: Musou Mode melee keeps the combo waits instead of spam (clients need --musou-melee-cooldown too)
           --musou-uncapped-melee-heal  switch: restore: Musou Mode melee heals for every enemy struck, no cap of 3 per swing (clients need --musou-uncapped-melee-heal too)
           --old-ally-bump               switch: restore: a charge that meets an ally plays the collision stop, as in protocol 65 (clients need --old-ally-bump too)
@@ -166,6 +169,7 @@ public static class ServerCommandLine
                     "--old-charge-cancel-delay" => a with { OldChargeCancelDelay = true },
                     "--old-charge-melee-chain" => a with { OldChargeMeleeChain = true },
                     "--old-hop-rules" => a with { OldHopRules = true },
+                    "--old-stomp-release" => a with { OldStompRelease = true },
                     "--musou-melee-cooldown" => a with { MusouMeleeCooldown = true },
                     "--musou-uncapped-melee-heal" => a with { MusouUncappedMeleeHeal = true },
                     "--old-stim-use" => a with { OldStimUse = true },
