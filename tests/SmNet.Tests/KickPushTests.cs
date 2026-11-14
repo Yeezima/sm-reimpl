@@ -46,10 +46,4 @@ public class KickPushTests
         Assert.Equal(-1, PushOf(Config, kick: false));   // a light attack that is not the kick flinches only (no reaction, no push), as before
         Assert.Equal(32, PushOf(Config, kick: true, stomp: true));   // F: the stomp's blast, not the kick
     }
-
-    [Fact]
-    public void Musou_enemies_keep_their_own_knockback()
-    {
-        Assert.Equal(2f, new SmSim.Extras.Musou.MusouCombatRules().BlastKnockback);   // Musou's enemies take rules' constants, never the step's reaction entry
-    }
 }

@@ -462,7 +462,7 @@ public class MusouExpansionS3Tests(Xunit.Abstractions.ITestOutputHelper output)
     public void The_new_states_and_cues_round_trip_and_the_versions_move()
     {
         Assert.True(MusouSim.Version >= 14u);   // S3 raised it; later stages raise it further
-        Assert.Equal(75u, Protocol.Version);   // main's protocol (the damage mark raised it to 71, headshots raised it to 64 at integration, net/responsive to 65, the charge cancel to 66, the ally slide to 67, the Classic stims to 68); the Musou expansion does not raise it
+        Assert.Equal(76u, Protocol.Version);   // main's protocol (the stim waiver raised it to 75, the kick push to 76, the damage mark raised it to 71, headshots raised it to 64 at integration, net/responsive to 65, the charge cancel to 66, the ally slide to 67, the Classic stims to 68); the Musou expansion does not raise it
         Assert.True(TfwRules.Version >= 34u);
         var list = new List<MusouEntity>
         {
