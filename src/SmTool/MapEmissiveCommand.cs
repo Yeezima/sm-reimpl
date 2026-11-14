@@ -71,7 +71,7 @@ public static class MapEmissiveCommand
                             }
             foreach (var g in used.Where(u => scene.Materials.ContainsKey(u.Key)).GroupBy(u => (scene.Materials[u.Key].BlendMode, scene.Materials[u.Key].CullMode, scene.Materials[u.Key].ShaderName)).OrderBy(g => g.Key.BlendMode).ThenBy(g => g.Key.CullMode))
             {
-                if (!all && g.Key.BlendMode == 255 && g.Key.CullMode == 255) continue;
+                if (!all && g.Key.BlendMode == 255 && g.Key.CullMode == 255 && g.Key.ShaderName?.Contains("water", StringComparison.OrdinalIgnoreCase) != true && g.Key.ShaderName?.Contains("anim", StringComparison.OrdinalIgnoreCase) != true) continue;
                 Console.WriteLine($"blend {g.Key.BlendMode} cull {g.Key.CullMode} shader {g.Key.ShaderName}: {g.Count()} materials");
                 foreach (var u in g.OrderBy(u => u.Key).Take(12)) Console.WriteLine($"    {u.Key} (meshes {string.Join(",", u.Value.Take(3))}{(u.Value.Count > 3 ? $",+{u.Value.Count - 3}" : "")})");
             }

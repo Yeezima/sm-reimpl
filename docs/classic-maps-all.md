@@ -68,6 +68,36 @@ views decide. Findings are in section 4.
 | Lobby | Host panel | a MAP row (every playable map, or ROTATION) |
 | Client | `NetworkView` | follows a rotation: reconnects after the match end |
 
-## 4. Per-map results
+## 4. Findings that decide the artifact work
 
-(filled in as each map is verified; see the checklist below)
+- **Waste Management (`mp_tdm_01`) is Manufactorum's art kit.** Its baseline views drew the same salmon pipe runs, boards and keypads (stills in the owner's media folder, `classic-maps\mp_tdm_01\stations_baseline`). The audit lists the same definitions and tints (`tech_stations` 0.55/0.14/0.12, `backPanel` 0.27/0.29/0.10). It gets a set (`MapDecorLists.WasteManagementSet`) built from its own audit: `backpanel_a`, `tech_panel_c/d`, `tech_panel_pipe_a/b`, the salmon surface of `tech_panel_pipe_g`, `tech_interface_a`'s salmon and olive surfaces and `Pipe_Piece_A`'s `console_dif`.
+- **Station Tertius, Chem Refinery, Desolation, Dome Mechanicus** place the same kit objects (`backpanel_a/b`, `handle_bar_a`, `tech_panel_a/c/d`, `tech_interface_a`, `tank_a`, `Pipe_detail_A`); on Desolation the `tech_stations` tint is orange (0.94/0.43/0.11), the "yellow" case. Each has its own set listing only what its audit found.
+- **Hab Center, Basilica, Habs Ablaze, Shattered Bridge, Aquila Canyon: no set.** Hab Center's `tech_stations` (0.94/0.43/0.11) sits on `Hab_wall_panel_A/Fan`, the small amber window lamps (views show small lit windows, not boards); Basilica's is dark red (0.28/0.02/0.01) on console indicator lamps; Habs Ablaze has only red, blue and amber lamp materials; Shattered Bridge only lamps; Aquila Canyon one `console_dif` on one wall detail. These are legitimate lamps and markings and stay. Red lamps (`mini_env_light_red`) are pure red lamps everywhere and stay.
+- **A second artifact class found by the same views: opaque sheets.** The vista cards (`BlendMode` 1, unlit) and Waste Management's `water` surface were drawn as flat opaque tan sheets because the material builder read only `BlendMode` 8. Now alpha cut-out (8, 10) and blend (1), and a see-through water. `smtool map-emissive --blend` lists them per map. Shattered Bridge's large tan slabs beside the towers are not these cards: they are the canyon-wall mesh (`GEO_Rock_Wall`, 1.6 km wide, stretched texture), left as authored.
+- Not fixed, noted: the whole of Shattered Bridge reads orange (sunset light and fog; unverified against the original), Waste Management's water is a provisional approximation, `BlendMode` 10 is read like 8 (a guess).
+
+## 5. Per-map checklist
+
+Checks run on a dedicated server (`--bind 127.0.0.1`) with two lean bot clients, one per side, 1-minute matches, both modes (summaries kept in the owner's temporary test folder): spawn rooms read (spawn spots per side, exit found), bots leave the rooms and path across the map (nav graph built per map), kills scored, points captured and scored in Seize Ground, the match ends and the restart clock counts. Rotation: `--maps mp_tdm_17,mp_tdm_01` with two bots, the bots rejoined by themselves on the second map. Visual QA: windowed free-camera tours (`--observe-tour`); stills are in the owner's media folder.
+
+Legend: Y = run and passed; Y(a) = Annihilation only; "-" = not run (the PC was too loaded by other work to finish the planned runs; stated, not assumed). "Sets" = `MapDecorLists` set.
+
+| Map (archive) | Modes enabled | Spawns / start rooms | Two-bot run: collision, traversal, scoring, round end (Annihilation / Seize) | Objectives (Seize) | Visual QA | Salmon / yellow check |
+|---|---|---|---|---|---|---|
+| Shattered Bridge (`mp_tdm_17`) | both | 45 spots per side, exits found | Y / Y (kills scored, captures, match ended) | 3 points captured, scored | tours before and after the material fix; warm orange light and tan canyon-wall slabs, not emissive | no emissive board kit; lamps only; no set |
+| Waste Management (`mp_tdm_01`) | both | 13 per side | Y / Y | 3 points | baseline and station views | salmon pipes, boards, keypads found (same as Manufactorum); set added; after-fix stills not captured (-) |
+| Basilica (`mp_tdm_11`) | both | 27 per side | Y / Y | 4 points | baseline tour, console views | dim red console lamps only; no set |
+| Hab Center (`mp_tdm_18`) | both | 25 per side | Y / Y | 4 points | baseline tour, panel views | amber window lamps; no set |
+| Habs Ablaze (`mp_dlc1_map1`) | both | 55 / 45 | Y / Y | 4 points | final tour (night, blue) | lamps only; no set |
+| Station Tertius (`mp_dlc1_map2`) | both | from data (21 markers) | Y(a) / - | - | - | kit consoles in audit; set added, no view (-) |
+| Chem Refinery (`mp_dlc2_map1`) | both | from data | - / - | - | - | kit boards in audit; set added, no view (-) |
+| Aquila Canyon (`mp_dlc2_map2`) | both | 21 / 45 | server start only | - | baseline tour (desert, sepia) | one `console_dif`; no set |
+| Desolation (`mp_dlc2_map3`) | both | 21 / 21 | server start only | - | baseline partial | kit boards (orange tint) in audit; set added, no view (-) |
+| Dome Mechanicus (`mp_dlc2_map4`) | both | from data | - / - | - | - | kit boards in audit; set added, no view (-) |
+| Manufactorum (`mp_tdm_09`) | both (unchanged) | 15 per side | server start only | - | final-build view: no salmon | set unchanged (tests pin it); blend changes do not touch it (it has only blend 8 and 255) |
+| `mp_dlc3_map1..4` | none | no data in the install | - | - | - | - |
+
+Rotation: `--maps mp_tdm_17,mp_tdm_01`, two bots: match 1 ended by the time limit, the server exited, the bots rejoined on `mp_tdm_01` and played on (Y).
+
+Not verified: the Host panel row in a window (built, unit-tested pieces only); real clients (every run used lean bots plus one windowed observer); the "after" stills of the kit maps; Seize Ground and the second client on Station Tertius to Dome Mechanicus; the Manufactorum bot re-test; any comparison against the original game's own images (none available here).
+

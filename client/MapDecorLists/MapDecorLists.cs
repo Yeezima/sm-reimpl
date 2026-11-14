@@ -48,20 +48,37 @@ public static class MapDecorLists
     /// <summary>Manufactorum's set (the lists above).</summary>
     public static readonly DecorSet ManufactorumSet = new(Always, Near, Surfaces);
 
-    /// <summary>
-    /// Waste Management (<c>mp_tdm_01</c>) is built from Manufactorum's art kit: the same <c>backpanel_a</c>, <c>tech_panel_*</c>, <c>tech_panel_pipe_*</c> and <c>tech_interface_a</c> definitions with the same
-    /// <c>tech_stations</c> (0.55/0.14/0.12) and <c>backPanel</c> emissive tints, placed as the same wall stations at its two bases and two mid-map stations; in-game views of its baseline drew the same salmon pipe runs
-    /// and boards (2026-11-15). So the Manufactorum lists apply, plus what its own audit added: <c>tech_panel_d</c> (the boards' small panels, <c>tech_stations</c>), the <c>console_dif</c> surface of
-    /// <c>Pipe_Piece_A</c> (salmon-tinted, 4 placements) and the olive <c>backPanel</c> surface of <c>tech_interface_a</c>.
-    /// </summary>
+    // The other maps that are built from Manufactorum's art kit (classic-maps-all, 2026-11-15). Each set is derived from that map's own emissive audit (`smtool map-emissive --map m`): only the
+    // definitions and surfaces the audit found with the salmon (`tech_stations` 0.55/0.14/0.12, on Desolation the orange 0.94/0.43/0.11) or olive (`backPanel`) emissive tints, which are the
+    // ones Manufactorum's lists already name; the pipes and tanks near a board go whole as on Manufactorum (Near), and their salmon surface goes everywhere. Nothing else of Manufactorum's lists is
+    // applied (a definition the map does not place with such a material stays). The red, blue, cyan, white and amber lamps stay.
+
+    /// <summary>Waste Management (<c>mp_tdm_01</c>): <c>backpanel_a</c>, <c>tech_panel_c/d</c>, <c>tech_panel_pipe_a/b</c>, the <c>tech_panel_pipe_g</c> runs' salmon surface, <c>tech_interface_a</c>'s salmon and olive surfaces and <c>Pipe_Piece_A</c>'s salmon <c>console_dif</c>.</summary>
     public static readonly DecorSet WasteManagementSet = new(
-        [.. Always, "tech_panel_d"], Near, [.. Surfaces, ("Pipe_Piece_A", "console_dif"), ("tech_interface_a", "backPanel")]);
+        ["backpanel_a", "tech_panel_c", "tech_panel_d", "tech_panel_pipe_a", "tech_panel_pipe_b"], Near,
+        [("tech_panel_pipe_g", "tech_stations"), ("tech_interface_a", "tech_stations"), ("tech_interface_a", "backPanel"), ("Pipe_Piece_A", "console_dif")]);
+
+    /// <summary>Station Tertius (<c>mp_dlc1_map2</c>): four <c>tech_interface_a</c> consoles with the salmon and olive surfaces.</summary>
+    public static readonly DecorSet StationTertiusSet = new([], Near, [("tech_interface_a", "tech_stations"), ("tech_interface_a", "backPanel")]);
+
+    /// <summary>Chem Refinery (<c>mp_dlc2_map1</c>): the boards (<c>backpanel_a/b</c>) and their <c>handle_bar_a</c>, <c>tech_panel_c/d</c> fittings.</summary>
+    public static readonly DecorSet ChemRefinerySet = new(["backpanel_a", "backpanel_b", "handle_bar_a", "tech_panel_c", "tech_panel_d"], Near, []);
+
+    /// <summary>Desolation (<c>mp_dlc2_map3</c>): the boards and <c>handle_bar_a</c> (orange 0.94/0.43/0.11 here), and the tanks' orange surface.</summary>
+    public static readonly DecorSet DesolationSet = new(["backpanel_a", "backpanel_b", "handle_bar_a"], Near, [("tech_panel_tank_a", "tech_stations")]);
+
+    /// <summary>Dome Mechanicus (<c>mp_dlc2_map4</c>): the boards, <c>handle_bar_a</c>, <c>tech_panel_a/c</c>, and the big pipe's collars.</summary>
+    public static readonly DecorSet DomeMechanicusSet = new(["backpanel_a", "backpanel_b", "handle_bar_a", "tech_panel_a", "tech_panel_c"], Near, [("Pipe_detail_A", "tech_stations")]);
 
     /// <summary>The sets by map name (ignoring case); a map not in it hides nothing.</summary>
     public static readonly IReadOnlyDictionary<string, DecorSet> Sets = new Dictionary<string, DecorSet>(StringComparer.OrdinalIgnoreCase)
     {
         [Map] = ManufactorumSet,
         ["mp_tdm_01"] = WasteManagementSet,
+        ["mp_dlc1_map2"] = StationTertiusSet,
+        ["mp_dlc2_map1"] = ChemRefinerySet,
+        ["mp_dlc2_map3"] = DesolationSet,
+        ["mp_dlc2_map4"] = DomeMechanicusSet,
     };
 
     /// <summary>The set for <paramref name="map"/>, or null (nothing is hidden there).</summary>
