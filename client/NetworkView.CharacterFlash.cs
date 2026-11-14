@@ -100,7 +100,7 @@ public partial class NetworkView
                 var d = demo switch { "hit" => (0.6f, 0f, 0f), "break" => (0f, 0.6f, 0f), "glow" => (0f, 0f, 0.6f), _ => ArmourFlashDemoAt(_connectedFor) };
                 _local.SetArmourFlash(d.Item1, d.Item2, d.Item3, ring: true);
             }
-            else { var f = _armourFlash.At(own, _connectedFor); _local.SetArmourFlash(f.Hit, f.Break, f.Glow, _armourFlash.BreakRing(own, _connectedFor), intensity: HitFxBrightness); }
+            else { var f = _armourFlash.At(own, _connectedFor); _local.SetArmourFlash(f.Hit, f.Break, f.Glow, _armourFlash.BreakRing(own, _connectedFor), intensity: FlashBrightness); }
         }
         foreach (var state in _lastOthers)
         {
@@ -108,7 +108,7 @@ public partial class NetworkView
             if (!_remotes.TryGetValue(state.PlayerId, out var character)) continue;
             var f = state.Alive ? _armourFlash.At(state.PlayerId, _connectedFor) : (0f, 0f, 0f);
             var (spotScale, glowScale) = f.Item1 > 0.001f || f.Item2 > 0.001f ? HitFxModelScale(character.GlobalPosition + Vector3.Up * 1.2f) : (1f, 1f);   // onhit-range-intensity: size kept at range
-            character.SetArmourFlash(f.Item1, f.Item2, f.Item3, _armourFlash.BreakRing(state.PlayerId, _connectedFor), f.Item1 > 0.001f ? HitPointOf(state.PlayerId, character) : null, spotScale, glowScale, HitFxBrightness);
+            character.SetArmourFlash(f.Item1, f.Item2, f.Item3, _armourFlash.BreakRing(state.PlayerId, _connectedFor), f.Item1 > 0.001f ? HitPointOf(state.PlayerId, character) : null, spotScale, glowScale, FlashBrightness);   // hit-sparks-flashes: x1.4 brightness and size
         }
         _armourFlash.Prune(id => id == own || _remotes.ContainsKey(id));
     }

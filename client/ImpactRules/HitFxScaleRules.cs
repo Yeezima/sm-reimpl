@@ -25,6 +25,40 @@ public static class HitFxScaleRules
     public const float MaxSpot = 6f, MaxParticle = 3f, MaxGlow = 1.5f;
     public const string OldRangeFlag = "old-hit-fx-range", OldIntensityFlag = "old-hit-fx-intensity";
 
+    /// <summary>
+    /// hit-sparks-flashes (owner 2026-11-14: "increase the size and magnitude of the red and yellow flashes a player exhibits when being shot without or with armor ... increase by 40% overall magnitude";
+    /// ours): the model's yellow (armour) and red (health / break) flashes are 1.4 times as bright (shader k_hit, k_brk) and 1.4 times as large (the hit spot's radius, the red glow card) on top of
+    /// <see cref="Intensity"/>. Duration is unchanged. <c>--old-hit-flash-magnitude</c> restores the 2026-11-13 look.
+    /// </summary>
+    public const float FlashMagnitude = 1.4f;
+    public const string OldFlashMagnitudeFlag = "old-hit-flash-magnitude";
+
+    /// <summary>The brightness factor of the model's hit flashes (Intensity x FlashMagnitude, each unless restored).</summary>
+    public static float FlashBrightness(bool oldIntensity, bool oldMagnitude) => (oldIntensity ? 1f : Intensity) * (oldMagnitude ? 1f : FlashMagnitude);
+
+    /// <summary>The size factor on the model's hit spot / red glow card: the range growth times the flash magnitude.</summary>
+    public static float FlashSize(float rangeGrowth, bool oldMagnitude) => rangeGrowth * (oldMagnitude ? 1f : FlashMagnitude);
+
+    /// <summary>
+    /// hit-sparks-flashes (owner 2026-11-14: "reduce the distance they fly to only 4m away from the marine that spawned them by being shot"; ours): no spark of a hit on a player ends farther than this
+    /// from the hit point on his body, however far its speed, drag and gravity would take it. <c>--old-hit-spark-reach</c> restores the data's reach.
+    /// </summary>
+    public const float SparkReach = 4f;
+    public const string OldSparkReachFlag = "old-hit-spark-reach";
+
+    /// <summary>
+    /// The distance a particle ends at when it would fly <paramref name="r"/> m from its effect's origin under a cap of <paramref name="max"/> m (0 or less: no cap): unchanged up to 75 % of the cap,
+    /// then eased toward the cap so that it never passes it (no pile-up on a sphere's skin).
+    /// </summary>
+    public static float LimitReach(float r, float max)
+    {
+        if (max <= 0f || r <= 0f) return r;
+        float knee = 0.75f * max;
+        if (r <= knee) return r;
+        float span = max - knee;
+        return knee + span * MathF.Tanh((r - knee) / span);
+    }
+
     /// <summary>The growth (at least 1) that keeps an effect's size on screen from falling below its size at the reference: distance and field of view of the camera that sees it.</summary>
     public static float RangeScale(float distance, float fovDegrees, float max)
     {

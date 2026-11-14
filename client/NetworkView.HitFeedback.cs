@@ -189,11 +189,11 @@ public partial class NetworkView
             {
                 if (own) continue;
                 var hitAxes = AxesFromY(-dir);
-                if (_fx.Play(p.Name, end, hitAxes, scale, null, null, p.Lifetime, delay, false, 0) is not null) _fxArmourFx++;
+                if (_fx.Play(p.Name, end, hitAxes, scale, null, null, p.Lifetime, delay, false, 0) is { } fxe) { fxe.ReachCap = SparkReachCap; _fxArmourFx++; }   // hit-sparks-flashes: 4 m cap
             }
             else if (glows && p.Marker.Length > 0 && BodyMarker(victim, p.Marker) is { } follow && follow() is { } place)
             {
-                if (_fx.Play(p.Name, place.Position, Basis.Identity, scale, null, follow, p.Lifetime, delay, false, 0) is not null) _fxArmourFx++;
+                if (_fx.Play(p.Name, place.Position, Basis.Identity, scale, null, follow, p.Lifetime, delay, false, 0) is { } fxe) { fxe.ReachCap = SparkReachCap; _fxArmourFx++; }
             }
         }
     }

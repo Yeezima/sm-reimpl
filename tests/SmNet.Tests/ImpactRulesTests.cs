@@ -469,6 +469,38 @@ public class PlayerHitFxRulesTests
 public class HitFxScaleRulesTests
 {
     [Fact]
+    public void Hit_sparks_never_end_farther_than_four_metres_from_the_body()   // hit-sparks-flashes
+    {
+        Assert.Equal(4f, HitFxScaleRules.SparkReach);
+        float worst = 0f;
+        foreach (float speed in new[] { 5f, 30f, 120f, 600f })
+        foreach (float drag in new[] { 0f, 0.5f, 3f })
+        for (float tau = 0f; tau <= 5f; tau += 0.02f)
+        {
+            float raw = drag > 1e-4f ? speed * (1f - MathF.Exp(-drag * tau)) / drag : speed * tau;   // the particle's path length from FxPlayer.ParticlePos (gravity only adds to it)
+            float capped = HitFxScaleRules.LimitReach(raw, HitFxScaleRules.SparkReach);
+            worst = MathF.Max(worst, capped);
+            Assert.True(capped <= HitFxScaleRules.SparkReach, $"speed {speed} drag {drag} tau {tau}: {capped}");
+        }
+        Assert.True(worst > 3.9f);   // the cap is reached, not undershot
+        Assert.Equal(2f, HitFxScaleRules.LimitReach(2f, 4f));   // a short flight is untouched
+        Assert.Equal(1e9f, HitFxScaleRules.LimitReach(1e9f, 0f));   // 0: no cap (--old-hit-spark-reach)
+        Assert.True(HitFxScaleRules.LimitReach(3.5f, 4f) > HitFxScaleRules.LimitReach(3.2f, 4f));   // still ordered
+    }
+
+    [Fact]
+    public void Flash_magnitude_is_forty_percent_more_in_brightness_and_size_for_both_colours()   // hit-sparks-flashes: one factor feeds the yellow and red flashes
+    {
+        Assert.Equal(1.4f, HitFxScaleRules.FlashMagnitude);
+        Assert.Equal(1.3f * 1.4f, HitFxScaleRules.FlashBrightness(false, false), 3);
+        Assert.Equal(1.3f, HitFxScaleRules.FlashBrightness(false, true), 3);
+        Assert.Equal(1.4f, HitFxScaleRules.FlashBrightness(true, false), 3);
+        Assert.Equal(1.4f, HitFxScaleRules.FlashSize(1f, false), 3);
+        Assert.Equal(2.1f, HitFxScaleRules.FlashSize(1.5f, false), 3);
+        Assert.Equal(1.5f, HitFxScaleRules.FlashSize(1.5f, true), 3);
+    }
+
+    [Fact]
     public void At_the_reference_distance_and_view_nothing_grows_and_the_intensity_is_thirty_percent()
     {
         Assert.Equal(1f, HitFxScaleRules.RangeScale(HitFxScaleRules.RefDistance, HitFxScaleRules.RefFov, HitFxScaleRules.MaxSpot), 3);

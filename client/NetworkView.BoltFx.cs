@@ -159,9 +159,10 @@ public partial class NetworkView
     {
         if (OldBoltFx || _fx is null) return;
         var axes = AxesFromY(-dir);
-        _fx.Play(ArmourSparksEffect, end, axes, ArmourSparksScale * HitFxParticleScale(end), null, null, 0f, delay, false, 0, tint: tint);
+        var cap = SparkReachCap;   // hit-sparks-flashes: no spark farther than 4 m from the hit point on the body
+        if (_fx.Play(ArmourSparksEffect, end, axes, ArmourSparksScale * HitFxParticleScale(end), null, null, 0f, delay, false, 0, tint: tint) is { } a) a.ReachCap = cap;
         // Its spark fan is a flat card (not a billboard): a second copy turned a quarter about the axis, so that one of the two always faces the camera.
         var axes2 = new Basis((-dir).Normalized(), Mathf.Pi / 2f) * axes;
-        _fx.Play(ArmourSparksEffect, end, axes2, ArmourSparksScale * 0.8f * HitFxParticleScale(end), null, null, 0f, delay, false, 0, tint: tint);
+        if (_fx.Play(ArmourSparksEffect, end, axes2, ArmourSparksScale * 0.8f * HitFxParticleScale(end), null, null, 0f, delay, false, 0, tint: tint) is { } b) b.ReachCap = cap;
     }
 }

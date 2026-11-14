@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3200 spec table rows: **2354 tagged**, 587 not tagged (read from data with high confidence), 259 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 713 rows of the changes document.
+Scanned 3202 spec table rows: **2356 tagged**, 587 not tagged (read from data with high confidence), 259 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 714 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,18 +50,18 @@ Scanned 3200 spec table rows: **2354 tagged**, 587 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 23 | 13 | 13 | 13 | 7 |
-| Core simulation (provisional values) | 695 | 655 | 495 | 181 | 1 |
+| Core simulation (provisional values) | 697 | 657 | 497 | 181 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 248 | 237 | 133 | 68 | 0 |
-| **All areas** | **2354** | 2081 | 1749 | 730 | 38 |
+| **All areas** | **2356** | 2083 | 1751 | 730 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1367 |
+| kind: ours | 1369 |
 | confidence: low | 838 |
-| confidence: medium | 782 |
+| confidence: medium | 784 |
 | notes: ours | 415 |
 | kind: interpretation | 382 |
 | notes: estimate | 197 |
@@ -2421,7 +2421,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (695)
+### Core simulation (provisional values) (697)
 
 *Spec section: Provisional values in use*
 
@@ -3538,6 +3538,13 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-D2757D6E` | Musou: dizzy stars | **3** yellow five-pointed stars circle above the head, once round every **1.1** s, at a radius of **0.17** body heights and **0.07** above the head's top (the Warboss's head is **0.74** of his model's height, a Boss Ork's is the top), each **0.06** body… (count, s, body heights) | kind: ours; notes: estimate | owner 2026-11-14 "stars appear above their head circling around, until they are no longer stunned"; the look is ours (no original equivalent) | Musou: dizzy stars: compare with SM1 by feel or video. Ours: 3 yellow five-pointed stars circle above the head, once round every… | ☐ |
 | `R-988C4996` | Musou: dizzy test aids | `--musou-old-boss-stun` restores the stagger clip and no stars; `godot.cmd --windowed -- --musou-crowd-test --dizzy [--stun s] [--kinds Warboss]` plays stand, stun, stand and saves a frame a step | kind: ours | ours | Musou: dizzy test aids: compare with SM1 by feel or video. Ours: --musou-old-boss-stun restores the stagger clip and no stars… | ☐ |
 
+*Spec section: Spark reach and flash magnitude on a hit player (hit-sparks-flashes, 2026-11-14; client only, presentation only, not simulated, no protocol or config-hash change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-69A30A8B` | Spark reach cap | no particle of the spark fans (`hit_ranged_armour_generic`, both copies, yellow and red), of the armour-hit / inactive-hit effects and of the weapon's own hit effects on a player ends farther than **4 m** from the effect's origin (the hit point on the body… (m) | kind: ours; confidence: medium | owner 2026-11-14 (the 4 m); the knee shape and which effects count as "sparks" are ours | Spark reach cap: compare with SM1 by measuring on a flat spot of the same map. Ours: no particle of the spark fans (hit_ranged_armour_generic, both… | ☐ |
+| `R-1209803F` | Flash magnitude | the model's yellow (armour) and red (health, break, bare-armour) flashes are **x1.4** as bright (shader `k_hit`, `k_brk`: 1.3 -> 1.82 in all) and **x1.4** as large (the yellow hit spot's radius and the red glow card, on top of the range growth). Duration… (factor) | kind: ours; confidence: medium | owner 2026-11-14 ("by 40%"); reading magnitude as brightness and size, not duration, is ours | Flash magnitude: compare with SM1 by feel or video. Ours: the model's yellow (armour) and red (health, break, bare-armour)… | ☐ |
+
 ### General game design (7)
 
 *Spec section: Known behavior (public, unverified)*
@@ -4333,6 +4340,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-548F13D7` | Plasma reticles stay still while charging (fix/plasma-reticle-still) | The plasma gun's, plasma pistol's and plasma cannon's reticle clips (`plasmaidle_mc`, `plasmapistol_mc`, `plasma_cannon_mc` and their active versions in `Hud.gfx`) have charge frames (`alt_fire_fade` .. `alt_fire`) that turn the reticle; we played them by the charge | the reticle stays on its first frame (no turning); only the charge arc and the heat arc move; `--old-plasma-spin` plays the charge frames again | **Owner's request 2026-11-06** ("there should be no spinning of crosshairs or reticule. it should stay still. only the charge meter/heat bar moves."); spec "Reticles: charge and brace" | Plasma reticles stay still while charging…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-75ED899E` | Hit effects: bare-armour flash, break particles, melta burn on kills, the pack's flash (claude/hit-fx-answers; client only) | The original's flash on a bare-armour hit, the break effect on a break, the melta's burn on its victims (as we understand it) | Classic PvP: the model's brief red flash on a hit with no armour left and the break effect for a shot's break are back (the owner's answers of 2026-11-11 refine the row below); the melta's whole-body burn plays only on targets it kills, in Classic PvP and Musou Mode; a pack's flash is cut when its pilot dies and the… | **Owner's answers 2026-11-11**; spec "Hit effects: the bare-armour flash and the break particles back" | Hit effects: bare-armour flash, break particles, melta burn…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-67627CBB` | Hit effects at range, 30 % stronger (onhit-range-intensity; client only) | The original's on-hit effects on a player (as we understand it) | The yellow hit glow, the red break and bare-armour glow and the particle effects on a hit player keep their size on screen at range (grown with distance and field of view, up to 6x the spot, 3x particles, 1.5x the glow card) and are 30 % stronger, for every weapon in Classic PvP and Musou Mode. Ours: the rule and the… | **Owner 2026-11-13**; spec "Hit effects at range and 30 % stronger" | Hit effects at range, 30 % stronger (onhit-range-intensity…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
+| `C-C033DE86` | Spark reach 4 m, hit flashes 40 % stronger (hit-sparks-flashes; client only) | Sparks and the model's yellow and red flashes on a shot player as the data and the 2026-11-13 rows draw them | Particles of the on-hit effects on a player end within 4 m of the hit point; the yellow and red model flashes are x1.4 as bright and x1.4 as large (duration unchanged). Switches `--old-hit-spark-reach`, `--old-hit-flash-magnitude` | **Owner 2026-11-14**; spec "Spark reach and flash magnitude" | Spark reach 4 m, hit flashes 40 % stronger…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-EDEE58B3` | Sparks back, no large burst on a hit player in Classic PvP (onhit-range-intensity; client only; supersedes the row below) | The original's on-hit effects on a player (as we understand it) | The yellow and red sparks and glows on a hit player are back in Classic PvP (owner 2026-11-13, reversing the removal of 2026-11-11), but not the large health-hit burst, smoke or the weapon's hit container (the owner: only yellow and red sparks and glows in Classic; large explosive effects on ranged hits only in Musou… | **Owner 2026-11-13**; spec "Large burst on a hit player" | Sparks back, no large burst on a hit player in Classic PvP…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-4DDA1E52` | Glow and sparks for every damage on a player (onhit-range-intensity; protocol 71, a one-byte damage mark in every snapshot record; config hash unchanged) | The original's on-hit effects on a player (as we understand it) | Every damage a player takes (any weapon, light combo, F stun, kicks, charge, ground pound, jump landing, air slash, grenade and other blasts, Musou enemy hits) shows the yellow glow and sparks when shield took it and red when only health did, on his model in every other player's view, from a damage counter the server… | **Owner 2026-11-13**; spec "Glow and sparks for every damage on a player" | Glow and sparks for every damage on a player…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-BF8F7EE7` | No on-hit effects on shot players (claude/classic-no-player-hit-fx; Classic PvP only, client only) (SUPERSEDED 2026-11-13 by the two rows above: sparks and glows are back, no large burst) | A ranged hit on a player plays the weapon's hit container and the player blueprint's armour-hit effects at him (impact flashes, sparks, glows, the break effect `sm_armor_break_shoulders`) | In Classic PvP a ranged hit on a player draws none of them, nor our own additions (the spark fans, the health-hit burst that read as the "stalker bolter explosion cloud", the melta's whole-body burn); the victim model's own flash and glow, the sounds, the HUD, the tracer and the map's impacts stay; ours: the model's… | **Owner's request 2026-11-11** ("simply remove instances of weapon on hit visual effects like the stalker bolter explosion cloud on the player target you shot and hit - classic pvp only"); spec "No on-hit effects on shot players in Classic PvP" | No on-hit effects on shot players…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |

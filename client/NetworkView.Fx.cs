@@ -614,6 +614,7 @@ public partial class NetworkView
             var axes = AxesFromY(axis);
             if (p.TriggerPoint != "exit_wound") TracerProbeImpact(pos);   // fx/tracers-impact: --tracer-probe (the exit wound sits 0.35 m past the hit on purpose)
             var impact = _fx.Play(p.Name, pos, axes, (p.Scale <= 0f ? 1f : p.Scale) * (hit != ShotHit.World ? HitFxParticleScale(end) : 1f), null, null, p.Lifetime, delay, false, 0, tint: RaceTint(w.Wargear, p.Name));   // onhit-range-intensity: a hit on a player keeps its size at range, x1.3
+            if (impact is not null && hit != ShotHit.World) impact.ReachCap = SparkReachCap;   // hit-sparks-flashes: a hit on a player's particles end within 4 m of the body
             if (impact is not null) { float dust = 1f; ExtrasImpactDustShare(w.Wargear, ref dust); impact.DustShare = dust; }   // EXTRAS-HOOK: Musou's autocannon round throws half the dust (musou/autocannon-dust)
         }
     }
