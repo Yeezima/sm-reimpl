@@ -28,18 +28,12 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3258 spec table rows: **2399 tagged**, 600 not tagged (read from data with high confidence), 259 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 724 rows of the changes document.
+Scanned 3262 spec table rows: **2403 tagged**, 600 not tagged (read from data with high confidence), 259 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 725 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
-| Movement (critical) | 413 | 352 | 350 | 119 | 12 |
+| Movement (critical) | 417 | 356 | 353 | 119 | 12 |
 | Combat core (critical) | 19 | 9 | 17 | 15 | 9 |
-Scanned 3221 spec table rows: **2372 tagged**, 590 not tagged (read from data with high confidence), 259 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 721 rows of the changes document.
-
-| Area | Tagged rows | by kind | by confidence | by notes | by section text |
-|---|---:|---:|---:|---:|---:|
-| Movement (critical) | 415 | 354 | 351 | 119 | 12 |
-| Combat core (critical) | 17 | 7 | 15 | 14 | 9 |
 | Weapons (critical) | 121 | 73 | 106 | 54 | 3 |
 | Melee (critical) | 156 | 135 | 113 | 56 | 5 |
 | Jump pack (critical) | 85 | 77 | 69 | 19 | 0 |
@@ -59,28 +53,19 @@ Scanned 3221 spec table rows: **2372 tagged**, 590 not tagged (read from data wi
 | Core simulation (provisional values) | 719 | 676 | 511 | 186 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 249 | 238 | 134 | 68 | 0 |
-| **All areas** | **2399** | 2118 | 1777 | 741 | 38 |
-| Ork faction | 248 | 237 | 133 | 68 | 0 |
-| **All areas** | **2372** | 2097 | 1761 | 732 | 38 |
+| **All areas** | **2403** | 2122 | 1780 | 741 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1391 |
+| kind: ours | 1395 |
 | confidence: low | 851 |
-| confidence: medium | 797 |
+| confidence: medium | 800 |
 | notes: ours | 417 |
-| kind: interpretation | 386 |
+| kind: interpretation | 388 |
 | notes: estimate | 202 |
 | kind: estimate | 166 |
-| kind: ours | 1382 |
-| confidence: low | 840 |
-| confidence: medium | 792 |
-| notes: ours | 415 |
-| kind: interpretation | 385 |
-| notes: estimate | 198 |
-| kind: estimate | 158 |
 | confidence: none (low) | 129 |
 | kind: provisional | 103 |
 | kind: user's knowledge | 56 |
@@ -106,8 +91,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 ## Part A: gameplay areas, critical first
 
-### Movement (gameplay-critical) (413)
-### Movement (gameplay-critical) (415)
+### Movement (gameplay-critical) (417)
 
 *Spec section: Extracted parameters*
 
@@ -382,14 +366,14 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-8775D0A9` | The kick's knockback | the Devastator's and the Havoc's kick (`MeleeStep.Kick`, `ability_displace_kick`; one step shared by both) knocks the player it hits back 40 % of the data's distance (the hit reaction's backward metres x0.4; kind, up, right and duration unchanged; the file's… (m (x0.4)) | kind: ours | the owner's request, 2026-11-14 | The kick's knockback: compare with SM1 by watching the reaction and timing it frame by frame. Ours: the Devastator's and the Havoc's kick (MeleeStep.Kick… | ☐ |
 | `R-4764D4BF` | Restore switch | `--old-kick-push` (server and every client; config hash only when on): the data's full knockback | kind: ours | ours | Restore switch: compare with SM1 by feel or video. Ours: --old-kick-push (server and every client; config hash only when on):… | ☐ |
 
-*Spec section: Lascannon tap reload and steady zoom (sim/lascannon-tap-reload, protocol 77, no wire change; client steady zoom; **experimental**, Classic PvP)*
+*Spec section: Lascannon tap reload and steady zoom (sim/lascannon-tap-reload, protocol 78, no wire change; client steady zoom; **experimental**, Classic PvP)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-6AA02DC3` | Lascannon reload time | 0.4 s per reload (the shot lock is the reload itself: nothing fires while it runs), Annihilation and Seize Ground only; Musou Mode and every other weapon keep their reloads (s) | kind: ours | the owner's request, 2026-11-15 | Lascannon reload time: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 0.4 s per reload (the shot lock is the reload itself: nothing fires… | ☐ |
 | `R-A650529C` | Lascannon reload size | 1 round from the reserve per reload (nothing when the clip is full or the reserve empty); the Reload button held on starts the next round when one ends (the sim keeps no hold timer, so a hold is a round every 0.4 s up to a full clip; whether a hold should… (rounds) | kind: ours; kind: interpretation; confidence: medium | the owner's request, 2026-11-15; hold behaviour ours | Lascannon reload size: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 1 round from the reserve per reload (nothing when the clip is full or… | ☐ |
 | `R-0807BC31` | Lascannon reload animation | the normal reload clip and sounds time-scaled to 0.4 s (the sim's `ReloadLeft` clock); other players' reloads are inferred by the client from shots and use the same 0.4 s (`ReloadInference` with the sim's reload time; the clip then counts one round loaded) (s) | kind: ours; confidence: medium | the owner's request, 2026-11-15 | Lascannon reload animation: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the normal reload clip and sounds time-scaled to 0.4 s (the sim's… | ☐ |
-| `R-7135D272` | Scoped view is steady | while the lascannon's scope is up the camera looks exactly along the view (yaw, pitch), also under `--old-camera-collision`: the focus-point turn that re-aims the camera as the walking body and the boom's wall casts move it is faded out with the scope's aim… | kind: ours; kind: interpretation; confidence: medium | the owner's request, 2026-11-15 | Scoped view is steady: compare with SM1 by feel or video. Ours: while the lascannon's scope is up the camera looks exactly along the… | ☐ |
+| `R-7135D272` | Scoped view is steady | every mode, Musou too (camera only; the owner's no-bob request named no mode, unlike the reload): while the lascannon's scope is up the camera looks exactly along the view (yaw, pitch), also under `--old-camera-collision`: the focus-point turn that re-aims… | kind: ours; kind: interpretation; confidence: medium | the owner's request, 2026-11-15 | Scoped view is steady: compare with SM1 by feel or video. Ours: every mode, Musou too (camera only; the owner's no-bob request named… | ☐ |
 
 *Spec section: No firing during the roll (sim/roll-fire-pitch; protocol 51, no wire change)*
 
