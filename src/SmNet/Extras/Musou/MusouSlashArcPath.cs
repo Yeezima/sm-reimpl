@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Numerics;
 
 namespace SmNet.Extras.Musou;
@@ -99,18 +100,68 @@ public static class MusouSlashArcPath
             var v = Vector3.Lerp(smooth[seg], smooth[seg + 1], t);
             result.Directions[k] = v.LengthSquared() > 1e-8f ? Vector3.Normalize(v) : smooth[seg];
         }
-        var first = result.Directions[0];
-        var last = result.Directions[segments];
+        Summarise(result);
+        return result;
+    }
+
+    /// <summary>Sets the path's tilt and bow from its directions.</summary>
+    static void Summarise(Path path)
+    {
+        int segments = path.Directions.Length - 1;
+        var first = path.Directions[0];
+        var last = path.Directions[segments];
         var chord = last - first;
         float horizontal = MathF.Sqrt(chord.X * chord.X + chord.Y * chord.Y);
-        result.TiltDegrees = MathF.Atan2(chord.Z, horizontal) / Rad;
+        path.TiltDegrees = MathF.Atan2(chord.Z, horizontal) / Rad;
         // The bow: the widest angle between the line and the great-circle chord between its ends.
         float chordLength = AngleBetween(first, last);
         float bow = 0f;
         for (int k = 1; k < segments; k++)
-            bow = MathF.Max(bow, MathF.Min(AngleBetween(first, result.Directions[k]) + AngleBetween(result.Directions[k], last) - chordLength, 180f * Rad));
-        result.BowDegrees = bow / Rad;
+            bow = MathF.Max(bow, MathF.Min(AngleBetween(first, path.Directions[k]) + AngleBetween(path.Directions[k], last) - chordLength, 180f * Rad));
+        path.BowDegrees = bow / Rad;
+    }
+
+    /// <summary>The widest a path is stretched (times) and the least horizontal sweep (degrees) a path needs to be stretched at all: an overhead chop has none to stretch.</summary>
+    public const float StretchMost = 2.5f, StretchMinSweep = 15f;
+
+    /// <summary>
+    /// A path that sweeps less than the cleave's <paramref name="spanDegrees"/> (a short active window) stretched over it, so the arc still covers what the cleave hits: its angles (azimuth and
+    /// elevation alike, so its tilt and curve stay) are scaled about the path's middle by span / sweep, at most <see cref="StretchMost"/>, and held inside the cone and the elevation limits.
+    /// The path itself when it already sweeps the span, or sweeps under <see cref="StretchMinSweep"/>.
+    /// </summary>
+    public static Path Stretch(Path path, float spanDegrees)
+    {
+        var azimuth = new float[path.Directions.Length];
+        var elevation = new float[path.Directions.Length];
+        float lo = float.MaxValue, hi = float.MinValue;
+        for (int i = 0; i < azimuth.Length; i++)
+        {
+            var d = path.Directions[i];
+            azimuth[i] = MathF.Atan2(d.Y, d.X);
+            elevation[i] = MathF.Asin(Math.Clamp(d.Z, -1f, 1f));
+            lo = MathF.Min(lo, azimuth[i]); hi = MathF.Max(hi, azimuth[i]);
+        }
+        float sweep = (hi - lo) / Rad;
+        if (!(spanDegrees > 0f) || sweep < StretchMinSweep || sweep >= spanDegrees) return path;
+        float factor = MathF.Min(spanDegrees / sweep, StretchMost);
+        float midAzimuth = (lo + hi) / 2f, midElevation = (elevation.Min() + elevation.Max()) / 2f, half = spanDegrees / 2f * Rad;
+        var result = new Path { Directions = new Vector3[path.Directions.Length], TravelDegrees = path.TravelDegrees * factor };
+        for (int i = 0; i < azimuth.Length; i++)
+        {
+            float a = Math.Clamp(midAzimuth + (azimuth[i] - midAzimuth) * factor, -half, half);
+            float e = Math.Clamp(midElevation + (elevation[i] - midElevation) * factor, ElevationMin * Rad, ElevationMax * Rad);
+            float c = MathF.Cos(e);
+            result.Directions[i] = new Vector3(c * MathF.Cos(a), c * MathF.Sin(a), MathF.Sin(e));
+        }
+        Summarise(result);
         return result;
+    }
+
+    /// <summary>What a fitted path depends on, so two swings share one only when they would fit the same: the clip, the weapon, the cleave's half angle (degrees, rounded) and the body (its rig's own tip and chest).</summary>
+    public readonly record struct Key(string Clip, string Wargear, int HalfAngle, int Body)
+    {
+        public static Key Of(string clip, string? wargear, float halfAngleDegrees, int body) =>
+            new(clip.ToLowerInvariant(), (wargear ?? "").ToLowerInvariant(), (int)MathF.Round(halfAngleDegrees), body);
     }
 
     /// <summary>
@@ -138,12 +189,22 @@ public static class MusouSlashArcPath
     }
 
     /// <summary>The path's points at <paramref name="radius"/> metres from the chest (offsets from it, X forward, Y left, Z up): the swing's tilt, curve and direction at the cleave's distance.</summary>
-    public static Vector3[] Scale(Path path, float radius)
+    public static Vector3[] Scale(Path path, float radius, float maxDrop = float.PositiveInfinity)
     {
         var points = new Vector3[path.Directions.Length];
-        for (int i = 0; i < points.Length; i++) points[i] = path.Directions[i] * radius;
+        for (int i = 0; i < points.Length; i++)
+        {
+            points[i] = path.Directions[i] * radius;
+            if (points[i].Z < -maxDrop) points[i].Z = -maxDrop;   // never below the floor (the line has no depth test)
+        }
         return points;
     }
+
+    /// <summary>How far below the line's centre (the chest of the enemies struck, <paramref name="centreHeight"/> above the swinger's feet) the line may go: down to <see cref="FloorMargin"/> above the swinger's feet level.</summary>
+    public static float MaxDrop(float centreHeight) => MathF.Max(0f, centreHeight - FloorMargin);
+
+    /// <summary>The line stays at least this far (metres) above the swinger's feet level.</summary>
+    public const float FloorMargin = 0.1f;
 
     /// <summary>The longest run (by the angle it turns through, else by its samples) of consecutive <paramref name="dirs"/> whose azimuth is within <paramref name="halfAngleDegrees"/> of the heading.</summary>
     static List<Vector3> LongestRunInside(List<Vector3> dirs, float halfAngleDegrees)

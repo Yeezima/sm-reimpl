@@ -169,8 +169,8 @@ public partial class NetworkView
             AddChild(_musouArcView);
         }
         int direction = MusouSlashArcRules.Direction(heavy, stepIndex);
-        var path = MusouArcPathOf(model, clips, step, wargear, shape.HalfAngleDegrees, out string pathNote);
-        _musouArcView.Add(origin, gForward, gLeft, shape, radius, MusouSlashArcRules.Width(heavy, stepIndex), direction, colour, style.Brightness, attacker, model, own: attacker == _client.PlayerId, path: path);
+        var path = MusouArcPathOf(model, attacker, clips, step, wargear, shape.HalfAngleDegrees, out string pathNote);
+        _musouArcView.Add(origin, gForward, gLeft, shape, radius, MusouSlashArcRules.Width(heavy, stepIndex), direction, colour, style.Brightness, attacker, model, own: attacker == _client.PlayerId, path: path, maxDrop: MusouSlashArcPath.MaxDrop(height));
         _musouArcs++;
         if (LogMusouArcs)
             GD.Print($"MUSOU ARC t {_connectedFor:F3} player {attacker} step {stepIndex}{(heavy ? " heavy" : "")} {look ?? "-"}: reach {shape.Reach:F2} m, span {shape.SpanDegrees:F0} deg, " +
@@ -184,7 +184,7 @@ public partial class NetworkView
     static readonly bool NoMusouArcPath = CmdFlag("no-musou-arc-path");
 
     /// <summary>The fitted tip path of each animation and weapon (null: the animation gave none, the level arc is drawn). Sampled once, then kept.</summary>
-    readonly Dictionary<(string Clip, string Wargear, int Half), MusouSlashArcPath.Path?> _musouArcPaths = new();   // keys lower case
+    readonly Dictionary<MusouSlashArcPath.Key, MusouSlashArcPath.Path?> _musouArcPaths = new();   // keys lower case
 
     /// <summary>
     /// The clips a player's swing may be showing, each with the rate of its time to the step's (a clip of the added content's own, the weapon's base clip, the reach variants the swing blends from),
@@ -206,24 +206,35 @@ public partial class NetworkView
     /// The arc's path for a swing: the weapon tip's path through the swing's animation (the clip the swinger is posed with when it is one of <paramref name="clips"/>, else the first), over the
     /// strike's active window, fitted by <see cref="MusouSlashArcPath.Fit"/>; sampled once per clip and weapon. Null (the level arc) when it cannot be had.
     /// </summary>
-    MusouSlashArcPath.Path? MusouArcPathOf(CharacterViewer? model, (string Clip, float Scale)[]? clips, MeleeStep step, string? wargear, float halfAngle, out string note)
+    MusouSlashArcPath.Path? MusouArcPathOf(CharacterViewer? model, int body, (string Clip, float Scale)[]? clips, MeleeStep step, string? wargear, float halfAngle, out string note)
     {
         note = "level";
         if (NoMusouArcPath) return null;
         if (model is null || clips is null || clips.Length == 0 || _assets is null) { note = "level (no model or clip)"; return null; }
-        var pick = clips[0];
+        // The clip the swinger is posed with now (a remote player's too: the view poses it from the player's state). When it is none of the swing's own clips the pick is the only candidate, or
+        // else none: a wrong variant's path would be worse than the level arc.
         string? posed = model.PosedClip;
-        foreach (var c in clips) if (posed is not null && string.Equals(posed, c.Clip, StringComparison.OrdinalIgnoreCase)) { pick = c; break; }
-        var key = (pick.Clip.ToLowerInvariant(), (wargear ?? "").ToLowerInvariant(), (int)MathF.Round(halfAngle));
-        if (_musouArcPaths.TryGetValue(key, out var known)) { note = known is null ? $"level ({pick.Clip}: no tip path)" : $"{pick.Clip} (cached)"; return known; }
+        (string Clip, float Scale)? picked = null;
+        foreach (var c in clips) if (posed is not null && string.Equals(posed, c.Clip, StringComparison.OrdinalIgnoreCase)) { picked = c; break; }
+        string how = "";
+        if (picked is null)
+        {
+            if (clips.Length != 1) { note = $"level (posed clip {posed ?? "none"} is none of the swing's {clips.Length} clips)"; return null; }
+            picked = clips[0];
+            how = $" [fallback: posed clip {posed ?? "none"} is not it]";
+        }
+        var pick = picked.Value;
+        var key = MusouSlashArcPath.Key.Of(pick.Clip, wargear, halfAngle, body);
+        if (_musouArcPaths.TryGetValue(key, out var known)) { note = known is null ? $"level ({pick.Clip}: no tip path)" : $"{pick.Clip} (cached){how}"; return known; }
         if (_assets.Animation(pick.Clip) is not { } anim || !MusouSlashArcPath.Window(step.HitTime * pick.Scale, anim.Animation.Duration, out float from, out float to)) { note = $"level ({pick.Clip}: no window)"; return null; }
         if (model.SampleMeleeTip(pick.Clip, from, to, MusouSlashArcPath.Samples) is not { } sampled) { note = $"level ({pick.Clip}: no weapon in hand yet)"; return null; }   // not kept: asked again at the next swing
         var path = MusouSlashArcPath.Fit(sampled.Tip, sampled.Chest, MusouArcPathSegments, halfAngle);
+        if (path is not null) path = MusouSlashArcPath.Stretch(path, halfAngle * 2f);   // a short active window still covers the cleave's span
         _musouArcPaths[key] = path;
         note = path is null
             ? $"level ({pick.Clip}: no usable tip path)"
             : $"{pick.Clip} {from:F2}..{to:F2} s, weapon {sampled.WeaponLength:F2} m, tilt {path.TiltDegrees:F0} deg, bow {path.BowDegrees:F0} deg, turns {path.TravelDegrees:F0} deg, " +
-              $"from {Dir(path.Directions[0])} to {Dir(path.Directions[^1])}";
+              $"from {Dir(path.Directions[0])} to {Dir(path.Directions[^1])}{how}";
         return path;
 
         static string Dir(Num.Vector3 d) => $"({d.X:F2} fwd, {d.Y:F2} left, {d.Z:F2} up)";

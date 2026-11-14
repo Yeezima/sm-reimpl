@@ -182,4 +182,51 @@ public class MusouSlashArcPathTests
         Assert.False(MusouSlashArcPath.Window(0.5f, 0f, out _, out _));
         Assert.False(MusouSlashArcPath.Window(float.NaN, 1f, out _, out _));
     }
+
+    [Fact]
+    public void The_cache_key_tells_two_bodies_apart_but_not_the_case_of_a_name()
+    {
+        var a = MusouSlashArcPath.Key.Of("SM_MEL_CS_ATK_F_01_D_1m", "sm_mp_melee_powersword", 120f, 3);
+        Assert.Equal(a, MusouSlashArcPath.Key.Of("sm_mel_cs_atk_f_01_d_1m", "SM_MP_MELEE_POWERSWORD", 120.2f, 3));
+        Assert.NotEqual(a, MusouSlashArcPath.Key.Of("SM_MEL_CS_ATK_F_01_D_1m", "sm_mp_melee_powersword", 120f, 4));   // another body
+        Assert.NotEqual(a, MusouSlashArcPath.Key.Of("SM_MEL_CS_ATK_F_01_D_1m", "sm_mp_melee_powersword", 75f, 3));    // another cleave
+        Assert.NotEqual(a, MusouSlashArcPath.Key.Of("SM_MEL_CS_ATK_F_01_D_1m", "csm_mp_melee_powersword", 120f, 3));  // another weapon
+        Assert.NotEqual(a, MusouSlashArcPath.Key.Of("SM_MEL_CS_XATK_Combo3_1m", "sm_mp_melee_powersword", 120f, 3));  // another clip
+        var cache = new Dictionary<MusouSlashArcPath.Key, int> { [a] = 1 };
+        Assert.False(cache.ContainsKey(MusouSlashArcPath.Key.Of("SM_MEL_CS_ATK_F_01_D_1m", "sm_mp_melee_powersword", 120f, 9)));
+    }
+
+    [Fact]
+    public void The_scale_never_takes_the_line_below_the_floor_under_the_swinger()
+    {
+        var path = MusouSlashArcPath.Fit(Swing(-5, 5, 20, -60), Chest, 24)!;                  // a steep chop down to -60 degrees
+        var free = MusouSlashArcPath.Scale(path, 3f);
+        Assert.True(free.Min(p => p.Z) < -2.4f, "unclamped, it drops about 2.6 m at a 3 m radius");
+        float centreHeight = 1.1f;
+        var floored = MusouSlashArcPath.Scale(path, 3f, MusouSlashArcPath.MaxDrop(centreHeight));
+        Assert.True(floored.Min(p => p.Z) >= -(centreHeight - MusouSlashArcPath.FloorMargin) - 1e-4f);
+        Assert.Equal(free[0], floored[0]);                                                     // the points above the floor are untouched
+        Assert.Equal(0f, MusouSlashArcPath.MaxDrop(0.05f));
+    }
+
+    [Fact]
+    public void A_short_path_is_stretched_over_the_cleave_span_keeping_its_tilt_and_curve()
+    {
+        var path = MusouSlashArcPath.Fit(Swing(-25, 25, -10, 10), Chest, 24)!;                 // 50 degrees of sweep, rising
+        var stretched = MusouSlashArcPath.Stretch(path, 240f);
+        float Sweep(MusouSlashArcPath.Path p) => (p.Directions.Max(d => MathF.Atan2(d.Y, d.X)) - p.Directions.Min(d => MathF.Atan2(d.Y, d.X))) / Deg;
+        Assert.InRange(Sweep(stretched), Sweep(path) * 2.4f, Sweep(path) * 2.51f);              // at most 2.5 times
+        Assert.True(stretched.Directions[0].Y < path.Directions[0].Y && stretched.Directions[24].Y > path.Directions[24].Y);
+        Assert.Equal(path.Directions[0].Y < 0f, stretched.Directions[0].Y < 0f);               // same direction
+        Assert.InRange(stretched.TiltDegrees, path.TiltDegrees - 10f, path.TiltDegrees + 10f);   // about the same slope (the angles scale together; the chord on the sphere shifts a little)
+        Assert.All(stretched.Directions, d => Assert.Equal(1f, d.Length(), 1e-3f));
+        // A path that already sweeps the span, or an overhead chop with no sweep, comes back as it was.
+        var wide = MusouSlashArcPath.Fit(Swing(-100, 100, 0, 0), Chest, 24)!;
+        Assert.Same(wide, MusouSlashArcPath.Stretch(wide, 200f));
+        var chop = MusouSlashArcPath.Fit(Swing(-3, 3, 70, -40), Chest, 24)!;
+        Assert.Same(chop, MusouSlashArcPath.Stretch(chop, 240f));
+        // It stays inside a cone a short path would otherwise leave.
+        var cone = MusouSlashArcPath.Stretch(MusouSlashArcPath.Fit(Swing(30, 80, 0, 0), Chest, 24)!, 150f);
+        Assert.All(cone.Directions, d => Assert.True(MathF.Abs(MathF.Atan2(d.Y, d.X)) <= 75.5f * Deg));
+    }
 }

@@ -111,13 +111,13 @@ void fragment() {
     /// arc where it covers that model (null: nothing hides it). <paramref name="own"/>: the own player's swing (the Compatibility renderer's depth-tested group).
     /// </summary>
     public void Add(Vector3 centre, Vector3 forward, Vector3 left, MusouCleaveShape.Shape shape, float radius, float width, int direction, MusouSlashColour colour, float brightness,
-        int attacker = 0, Node3D? attackerModel = null, bool own = false, MusouSlashArcPath.Path? path = null)
+        int attacker = 0, Node3D? attackerModel = null, bool own = false, MusouSlashArcPath.Path? path = null, float maxDrop = float.PositiveInfinity)
     {
         Vector3[]? offsets = null;
         if (path is not null)
         {
             // The weapon tip's path (X forward, Y left, Z up) at the cleave radius, in Godot world space round the centre: the heading and left are level, up is the world's.
-            var scaled = MusouSlashArcPath.Scale(path, radius);
+            var scaled = MusouSlashArcPath.Scale(path, radius, maxDrop);
             offsets = new Vector3[scaled.Length];
             for (int i = 0; i < scaled.Length; i++) offsets[i] = forward * scaled[i].X + left * scaled[i].Y + Vector3.Up * scaled[i].Z;
         }
