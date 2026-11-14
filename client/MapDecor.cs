@@ -29,24 +29,10 @@ namespace SmClient;
 public static class MapDecor
 {
     public const string Map = "mp_tdm_09";
-    /// <summary>Object definitions removed wherever they are placed.</summary>
-    public static readonly string[] Always =
-    [
-        "backpanel_a", "backpanel_b", "backpanel_c",
-        "tech_panel_a", "tech_panel_b", "tech_panel_c",
-        "tech_panel_pipe_a", "tech_panel_pipe_b", "tech_panel_pipe_c",
-        "handle_bar_a", "accessories_doorbutton",
-        // owner 2026-11-07: the console stations' short posts (two glowing red-white dots, a red band, dash rows and thin cable lines), 49 placements, "e_adm_dressing".
-        "tech_panel_pipe_e",
-    ];
-    /// <summary>Object definitions removed only near a board (see the class remarks): the fittings' pipes and dome, and the seals and scrolls pinned on the boards.</summary>
-    public static readonly string[] Near = ["tech_panel_pipe_g", "tech_panel_tank_a", "acc_seal_01", "acc_seal_02", "acc_seal_03", "acc_scroll_01", "acc_scroll_02"];
-    /// <summary>
-    /// Surfaces removed from meshes that stay: the cabinet <c>tech_interface_b</c> carries two olive <c>backPanel</c> plates in its front.
-    /// (mesh name, material name); the cabinet's other surfaces stay.
-    /// </summary>
-    public static readonly (string Mesh, string Material)[] Surfaces = [("tech_interface_b", "backPanel")];
-
+    // The lists (engine-free, so the tests can read them) are in MapDecorLists/MapDecorLists.cs.
+    public static string[] Always => MapDecorLists.Always;
+    public static string[] Near => MapDecorLists.Near;
+    public static (string Mesh, string Material)[] Surfaces => MapDecorLists.Surfaces;
     /// <summary>Whether the material range <paramref name="material"/> of <paramref name="mesh"/> is not drawn on <paramref name="map"/>.</summary>
     public static bool HidesSurface(string map, string mesh, string material) =>
         !Old && map.Equals(Map, StringComparison.OrdinalIgnoreCase)
