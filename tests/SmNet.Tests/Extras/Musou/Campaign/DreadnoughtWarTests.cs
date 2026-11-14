@@ -152,4 +152,26 @@ public class DreadnoughtWarTests
         Assert.All(plain.Bodies, b => Assert.Equal((0f, 0f), (b.Radius, b.Height)));
         Assert.Equal(SolidBodies.GuardDistance(classic, true), SolidBodies.GuardDistance(classic, true, 0, 0));
     }
+
+    [Fact]
+    public void The_landing_puts_the_first_dreadnought_at_the_base_centre_and_spreads_several_while_other_classes_keep_their_places()
+    {
+        // owner 2026-11-15: "spawn in the middle of the imperial base HQ ... Spread them out a bit if multiple players picked dreadnaught class".
+        Assert.Equal(Vector3.Zero, DreadnoughtRules.LandingOffset(0));
+        Assert.Equal([0f, 4f, -4f, 8f], Enumerable.Range(0, 4).Select(j => DreadnoughtRules.LandingOffset(j).X).ToArray());
+        var w = HubWithPick();                      // player 1 (Human) picked the Dreadnought
+        w.Spawn(2, Dread(w.Config)); w.MusouJoined(2);   // a second pick
+        w.Spawn(3, 0); w.MusouJoined(3);                  // a Tactical
+        TfwRig.Steps(w, 2);
+        TfwRig.Deploy(w);
+        TfwRig.Steps(w, 2);
+        var zone = TfwTestArena.LandingZone;
+        Assert.True(DreadnoughtRules.IsDreadnought(w.Config, w.Players[1].Class) && DreadnoughtRules.IsDreadnought(w.Config, w.Players[2].Class));
+        Assert.False(DreadnoughtRules.IsDreadnought(w.Config, w.Players[3].Class));
+        float Flat(int id) => Vector3.Distance(w.Players[id].Position with { Z = 0f }, zone);
+        Assert.True(Flat(1) < 0.75f, $"the first Dreadnought at the base's centre: {w.Players[1].Position}");
+        float apart = Vector3.Distance(w.Players[1].Position with { Z = 0f }, w.Players[2].Position with { Z = 0f });
+        Assert.InRange(apart, 3f, 5f);
+        Assert.True(Flat(3) < 6f, "the Tactical stays by the base in its own slot");
+    }
 }

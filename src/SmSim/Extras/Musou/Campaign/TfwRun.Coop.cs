@@ -27,7 +27,7 @@ public sealed partial class TfwRun
         float yaw = layout.FaceCentre(layout.LandingZone);   // owner 2026-11-09: a spawn faces the map's centre
         foreach (int id in _late)
         {
-            var at = Ashore(w, layout, TfwCoop.LandingOffset(_deployed.Count));
+            var at = Ashore(w, layout, LandingOf(w, id, _deployed.Count));
             _landingSlots[id] = _deployed.Count;   // TfwRun.Flow.cs: a redeploy comes back here
             _deployed.Add(id);
             w.TfwRespawnAt(id, at, yaw);

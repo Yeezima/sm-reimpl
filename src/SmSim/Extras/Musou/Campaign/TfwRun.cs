@@ -223,7 +223,7 @@ public sealed partial class TfwRun
         for (int k = 0; k < _deployed.Count; k++)
         {
             int id = _deployed[k];
-            var at = Ashore(w, layout, TfwCoop.LandingOffset(k));
+            var at = Ashore(w, layout, LandingOf(w, id, k));
             _landingSlots[id] = k;   // TfwRun.Flow.cs: a redeploy comes back here
             w.TfwRespawnAt(id, at, yaw);
             w.TfwSpawnRetainer(id, Ashore(w, layout, at - layout.LandingZone + new Vector3(0f, -2f, 0f)), yaw);   // each human's own retainer (restored 2026-11-08)
@@ -231,6 +231,22 @@ public sealed partial class TfwRun
         w.TfwPlaceCrates(Sites.Crates(layout, w.Tick), _deployed);
         if (Allies) w.TfwSpawnAllies(layout.LandingZone, yaw);   // the owner, 2026-11-08: two allied Marines besides the retainers, whatever the number of players (no lord or Defender)
         LastLandMilliseconds = System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+    }
+
+    /// <summary>
+    /// Where player <paramref name="id"/> stands from the landing zone: its slot of <see cref="TfwCoop.LandingOffset"/>, or, for a Dreadnought pick (owner 2026-11-15: "in the middle of the imperial base HQ ... spread them out a bit"),
+    /// the centre of the base and, with several, <see cref="DreadnoughtRules.LandingOffset"/>'s places in id order (the Dreadnoughts before it in <see cref="_deployed"/> count; a late joiner not yet in it is after all of them).
+    /// </summary>
+    Vector3 LandingOf(World w, int id, int slot)
+    {
+        if (!w.DreadnoughtPicked(id)) return TfwCoop.LandingOffset(slot);
+        int j = 0;
+        foreach (int other in _deployed)
+        {
+            if (other == id) break;
+            if (w.DreadnoughtPicked(other)) j++;
+        }
+        return DreadnoughtRules.LandingOffset(j);
     }
 
     /// <summary>A place <paramref name="offset"/> from the landing zone, on the graph's ground; the landing zone itself when that falls in a wall.</summary>

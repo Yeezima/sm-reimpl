@@ -67,6 +67,10 @@ public sealed partial class World
         _musouArmed.Remove(id);
     }
 
+    /// <summary>Whether player <paramref name="id"/> is a Dreadnought pick, living as one or waiting in the hub as the Tactical stand-in (the landing makes him one; owner 2026-11-15: his place there is the base's centre).</summary>
+    public bool DreadnoughtPicked(int id) =>
+        _dreadnoughtWanted.Contains(id) || (_players.TryGetValue(id, out var p) && DreadnoughtRules.IsDreadnought(Config, p.Class));
+
     /// <summary>How much of the entrance's invulnerability player <paramref name="id"/> has left (0: none, or not a living Dreadnought).</summary>
     public float DreadnoughtEntryLeft(int id) => _dreadnoughtEntry.GetValueOrDefault(id);
 

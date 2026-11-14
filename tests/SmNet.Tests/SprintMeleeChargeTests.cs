@@ -99,6 +99,28 @@ public class SprintMeleeChargeTests(ITestOutputHelper output)
         Assert.Equal((RushPhase.None, 1), (s.Rush, s.MeleeStep));
     }
 
+    // ---- the Ork Boy (owner 2026-11-15: "It should be for all classes including ork boy in classic PvP yes") ----
+
+    static readonly SimConfig OrkConfig = Config with
+    {
+        Extras = ContentExtras.Orks,
+        Classes = [.. Config.Classes, Config.Classes[0] with { Name = "ork - boy", Race = Race.Orks, Side = Team.None }],
+    };
+
+    [Fact]
+    public void The_Ork_Boy_charges_on_Shift_W_and_a_light_press_and_swings_with_Shift_released()
+    {
+        const int ork = 2;
+        var start = Combat.Respawned(new PlayerState(1, Vector3.Zero, Vector3.Zero, 0f, true) { Class = ork }, OrkConfig);
+        Assert.Equal(Race.Orks, Races.Of(OrkConfig, start.Class, start.Team));
+        Assert.NotNull(Loadouts.Rush(OrkConfig, start));
+        var charged = Step(start, SprintLight, OrkConfig);
+        Assert.Equal((RushPhase.Rush, 0), (charged.Rush, charged.MeleeStep));
+        var s = Step(start, In(InputButtons.None, y: 1f), OrkConfig);
+        s = Step(s, WalkLight, OrkConfig);
+        Assert.Equal((RushPhase.None, 1), (s.Rush, s.MeleeStep));
+    }
+
     // ---- (2) the ledge cancel ----
 
     static PlayerState OffALedge(SimConfig c)

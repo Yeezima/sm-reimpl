@@ -35,6 +35,19 @@ public static class DreadnoughtRules
     /// <summary>His walking capsule (owner, 2026-11-14: "a true big body, about 2 to 3 m"; **estimate**): 2 m across, 3 m tall. The Orks keep their ring, reach and hold at the edge of it (<see cref="MusouTarget.Body"/>).</summary>
     public const float CapsuleRadius = 1.0f, CapsuleHeight = 3.0f;
 
+    // ---- the landing (owner, 2026-11-15) ----
+    /// <summary>
+    /// Metres between two Dreadnoughts at the landing (**estimate**, ours): 4 m, his 2 m capsule and a 2 m gap, so a squad of Dreadnoughts is not one pile (the owner: "Spread them out a bit if multiple players picked dreadnaught
+    /// class"). The first stands at the landing zone's centre.
+    /// </summary>
+    public const float LandingSpacing = 4f;
+
+    /// <summary>
+    /// Where the <paramref name="j"/>-th Dreadnought (0-based, in id order) stands from the landing zone (the Imperial base), in metres (owner, 2026-11-15: "Make the dreadnaught spawn in the middle of the imperial base HQ at the
+    /// start of the Musou game mode"): the first at the centre, the others alternating right and left of it along the base's width, <see cref="LandingSpacing"/> apart (0, +4, -4, +8, ...).
+    /// </summary>
+    public static System.Numerics.Vector3 LandingOffset(int j) => new(((j + 1) / 2) * (j % 2 == 1 ? 1f : -1f) * LandingSpacing, 0f, 0f);
+
     /// <summary>Metres of ground walked between two footfall blasts (**estimate**: the walk cycle's two footfalls in about 4 m).</summary>
     public const float FootfallStride = 2.2f;
 
