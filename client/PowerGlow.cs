@@ -19,8 +19,8 @@ shader_type spatial;
 render_mode blend_add, unshaded, depth_draw_never, cull_back, fog_disabled;
 
 uniform vec3 glow_colour : source_color;
-uniform float core = 0.45;
-uniform float rim = 2.2;
+uniform float core = 0.225;
+uniform float rim = 1.1;
 
 void fragment() {
     float facing = abs(dot(normalize(NORMAL), normalize(VIEW)));

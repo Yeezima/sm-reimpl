@@ -930,6 +930,10 @@ public sealed partial class FxPlayer : Node3D
         _lights.Add(new LightRequest { Pos = pos, Colour = new Color(col.R, col.G, col.B), Energy = energy, Range = range, Priority = energy * range / (1f + _camPos.DistanceTo(pos)) });
     }
 
+    /// <summary>Capture aid: the live pooled light nodes (colour, energy, range, attenuation, shadow, position).</summary>
+    public string LightReport() => string.Join(" | ", _lightNodes.Where(n => n is not null && n.Visible).Select(n =>
+        $"{n.Name} colour {n.LightColor.R:F2},{n.LightColor.G:F2},{n.LightColor.B:F2} energy {n.LightEnergy:F2} range {n.OmniRange:F2} atten {n.OmniAttenuation:F2} shadow {n.ShadowEnabled} at {n.GlobalPosition.X:F2},{n.GlobalPosition.Y:F2},{n.GlobalPosition.Z:F2}")) is { Length: > 0 } r ? r : "none";
+
     void ApplyLights()
     {
         _lights.Sort((a, b) => b.Priority.CompareTo(a.Priority));

@@ -43,9 +43,19 @@ public partial class NetworkView
     bool NoPowerLight => _noPowerLight ??= CmdFlag("no-power-light");
     bool? _noPowerLight;
 
+    double _lightReportAt;
+    /// <summary>--log-power-glow: every 3 s the effect player's live light nodes (what the hammer's light really is).</summary>
+    void LightReport()
+    {
+        if (!CmdFlag("log-power-glow") || _fx is null || _connectedFor < _lightReportAt) return;
+        _lightReportAt = _connectedFor + 3.0;
+        GD.Print($"t {_connectedFor:F1} s: live fx lights: {_fx.LightReport()}");
+    }
+
     /// <summary>Once per player per frame (from <see cref="MeleeFxFor"/>): starts, keeps or stops the light and the knife's field.</summary>
     void PowerGlowFrame(PlayerState s, CharacterViewer? character)
     {
+        LightReport();
         string? raw = MeleeWargear(s);   // the install's name, not PresentedAs: Musou's claw and spear are not power weapons here
         bool serrated = _config is not null && Loadouts.Upgrades(_config, s).Has(PowerWeaponGlow.SerratedUpgrade);
         var colour = NoPowerLight || !s.Alive || character is null || !ImpactRules.MeleeIdleGuard.Allows(IsOrkVoice(s)) || character.Weapons?.MeleeMeshInHand is null
@@ -80,12 +90,16 @@ public partial class NetworkView
                 var c = _client is not null && id == _client.PlayerId ? _local : _remotes.GetValueOrDefault(id);
                 return c?.Weapons is { } r && r.TryMeleeMarker(m, out var t) ? (t.Origin, t.Basis) : null;
             };
-            if (_fx.Play(PowerGlow.LightName(colour), at.Origin, at.Basis, 1f, null, follow, 0f, 0.0, repeat: true, priority: 1) is { } e)
+            // The hammer's own data effect, as the hammer plays it (scale 1, its marker); the knife's is that effect tinted green and at half brightness. The built light is the fallback.
+            bool data = _fx.System(PowerWeaponGlow.DataLight) is not null;
+            var tint = data && colour == PowerGlowColour.Green ? new Color(PowerWeaponGlow.Green.R, PowerWeaponGlow.Green.G, PowerWeaponGlow.Green.B) : (Color?)null;
+            if (_fx.Play(data ? PowerWeaponGlow.DataLight : PowerGlow.LightName(colour), at.Origin, at.Basis, 1f, null, follow, 0f, 0.0, repeat: true, priority: 1, tint: tint) is { } e)
             {
                 e.StopOnLost = true;
+                if (colour == PowerGlowColour.Green) e.Opacity = data ? PowerWeaponGlow.KnifeLightOpacity : PowerWeaponGlow.KnifeGlowScale;
                 set.Effect = e; set.Marker = m;
                 _powerLightsStarted++;
-                if (_bot || CmdFlag("log-power-glow")) GD.Print($"t {_connectedFor:F1} s: P{id} {raw} {colour} light at {m}");
+                if (_bot || CmdFlag("log-power-glow")) GD.Print($"t {_connectedFor:F1} s: P{id} {raw} {colour} light at {m} ({(data ? "data effect " + PowerWeaponGlow.DataLight : "built fallback")})");
             }
             break;
         }

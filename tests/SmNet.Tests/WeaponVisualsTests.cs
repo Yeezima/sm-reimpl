@@ -90,4 +90,13 @@ public class WeaponVisualsTests
         Assert.True(KrakenTracer.WidthScale > 2f * 0.28f);   // the plain bolt tracer keeps 0.28 of the data's width and 0.22 of its trail
         Assert.True(KrakenTracer.TrailScale > 1.5f * 0.22f);
     }
+
+    [Fact]
+    public void Every_power_weapon_plays_the_hammers_own_data_light_and_the_knife_is_dimmed_by_half()
+    {
+        Assert.Equal("thunderhammer_idle_light", PowerWeaponGlow.DataLight);
+        Assert.Equal(0.5f, PowerWeaponGlow.KnifeGlowScale);
+        // The tinted data light's brightest channel (0.9 x 221/255 x opacity) is half the first version's 0.9.
+        Assert.Equal(0.45f, 0.9f * (221f / 255f) * PowerWeaponGlow.KnifeLightOpacity, 3);
+    }
 }
