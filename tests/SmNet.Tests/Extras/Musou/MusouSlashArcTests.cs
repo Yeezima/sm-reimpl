@@ -102,12 +102,12 @@ public class MusouSlashArcTests
         var shape = MusouCleaveShape.Of(config, step, war, wargear);
         // The numbers the line is drawn with (spec "Melee slash arc: one per swing"): the spear's sweep is its own everywhere; any other weapon the cleave's (the core's 4 m melee range + 0.5,
         // + 1 m on a track-to-hit step; in the war x1.5 x1.3 and 120 degrees each side, in the 5-wave run the core's 60-degree cone x1.5). In the war every reach x0.6 last (owner 2026-11-11).
-        if (wargear == ArsenalRules.PowerSpear) { Assert.Equal(war ? 10.8f : 15f, shape.Reach, 3); Assert.Equal(150f, shape.HalfAngleDegrees); Assert.Equal(12, shape.Most); }
+        if (wargear == ArsenalRules.PowerSpear) { Assert.Equal(war ? 10.8f : 15f, shape.Reach, 3); Assert.Equal(150f, shape.HalfAngleDegrees); Assert.Equal(SpearRules.MostOrks, shape.Most); }   // no cap (owner 2026-11-14)
         else
         {
             Assert.Equal((tracked ? 5.5f : 4.5f) * (war ? 1.5f * 1.3f * 0.72f : 1f), shape.Reach, 3);
             Assert.Equal(war ? 120f : 90f, shape.HalfAngleDegrees, 3);
-            Assert.Equal(war ? 40 : 8, shape.Most);
+            Assert.Equal(war ? MusouSim.Capacity : 8, shape.Most);   // the war: no cap (owner 2026-11-14); the 5-wave run keeps 8
         }
 
         var w = war ? War(config) : Skirmish(config);
@@ -141,7 +141,7 @@ public class MusouSlashArcTests
         var shape = MusouCleaveShape.Of(config, Light, war, wargear);
         var w = war ? War(config) : Skirmish(config);
         var (feet, yaw) = (w.Players[Human].Position, w.Players[Human].Yaw);
-        int crowd = shape.Most + 4;
+        int crowd = Math.Min(shape.Most + 4, 60);   // no cap in the war (owner 2026-11-14): 60 all struck
         for (int k = 0; k < crowd; k++)
         {
             float degrees = (k % 9 - 4) * (shape.HalfAngleDegrees - 10f) / 4f;
@@ -149,7 +149,7 @@ public class MusouSlashArcTests
             w.Musou!.Spawn(MusouEnemyType.Boy, Polar(feet, yaw, degrees, metres), 0f, 1000f);
         }
         var (struck, _) = Swing(w);
-        Assert.Equal(shape.Most, struck.Count);
+        Assert.Equal(Math.Min(shape.Most, crowd), struck.Count);
     }
 
     /// <summary>

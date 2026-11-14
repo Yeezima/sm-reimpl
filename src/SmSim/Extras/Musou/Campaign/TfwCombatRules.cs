@@ -12,8 +12,11 @@ public sealed record TfwCombatRules
 
     // ---- the cleave (item 22)
 
-    /// <summary>Most enemies one swing strikes, nearest first (the owner: "up to 20"; 2026-11-09: "raise the cleave cap up to 40 orks in one swing").</summary>
-    public int CleaveTargets { get; init; } = 40;
+    /// <summary>
+    /// Most enemies one swing strikes, nearest first: no cap, every enemy in the cleave is struck (owner, 2026-11-14: "All orks within the cleave range should always be hit no matter how many";
+    /// <see cref="MusouSim.Capacity"/>, every enemy that can exist). History: "up to 20", then 2026-11-09 "raise the cleave cap up to 40 orks in one swing".
+    /// </summary>
+    public int CleaveTargets { get; init; } = MusouSim.Capacity;
 
     /// <summary>Most Guardsmen one Boss Ork swing strikes (20: the cleave cap before the players' 2026-11-09 raise to 40, which was for the players' swings only).</summary>
     public int BossCleaveTargets { get; init; } = 20;

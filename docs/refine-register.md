@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3171 spec table rows: **2330 tagged**, 583 not tagged (read from data with high confidence), 258 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 706 rows of the changes document.
+Scanned 3171 spec table rows: **2329 tagged**, 584 not tagged (read from data with high confidence), 258 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 707 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,22 +50,22 @@ Scanned 3171 spec table rows: **2330 tagged**, 583 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 23 | 13 | 13 | 13 | 7 |
-| Core simulation (provisional values) | 696 | 656 | 496 | 182 | 1 |
+| Core simulation (provisional values) | 695 | 655 | 495 | 181 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 248 | 237 | 133 | 68 | 0 |
-| **All areas** | **2330** | 2058 | 1732 | 729 | 38 |
+| **All areas** | **2329** | 2057 | 1731 | 728 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
 | kind: ours | 1343 |
-| confidence: low | 831 |
+| confidence: low | 830 |
 | confidence: medium | 772 |
-| notes: ours | 415 |
+| notes: ours | 414 |
 | kind: interpretation | 382 |
 | notes: estimate | 196 |
-| kind: estimate | 158 |
+| kind: estimate | 157 |
 | confidence: none (low) | 129 |
 | kind: provisional | 103 |
 | kind: user's knowledge | 56 |
@@ -2386,7 +2386,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (696)
+### Core simulation (provisional values) (695)
 
 *Spec section: Provisional values in use*
 
@@ -3446,7 +3446,6 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-73CE2C31` | Spear: tempo | the spear is the thunder hammer's combo with every step's timing (duration, hit, combo window, ranged-cancel, move, no-react window, string reset, evade, the slam's steering window) divided by **0.85**; the slam's turn is the same 185 degrees over the longer… (x the hammer's rate) | kind: estimate; confidence: low; notes: ours | owner D14 "slower than hammer"; 0.85 ours | Spear: tempo: compare with SM1 by feel or video. Ours: the spear is the thunder hammer's combo with every step's timing… | ☐ |
 | `R-DA640157` | Spear: sweep reach | **15 m** from the feet (the hammer's war cleave: 8.8 m, 10.7 m with a track-to-hit step), the cleave's own height band (1.5 m) and wall rule (m) | kind: estimate; confidence: low | owner D14 "much wider reach"; 2026-11-10 "Wider and longer": 15 m (12 m before) | Spear: sweep reach: compare with SM1 by measuring on a flat spot of the same map. Ours: 15 m from the feet (the hammer's war cleave: 8.8 m, 10.7 m with a… | ☐ |
 | `R-84D13CDE` | Spear: sweep width | **150 degrees** to each side (300 in all, nearly a full circle; owner 2026-11-10 "Wider and longer", 120 each side before). The war's hammer cleave is 120 each side since 2026-11-09 (degrees) | kind: estimate; confidence: low | owner, 2026-11-10 (question tool) | Spear: sweep width: compare with SM1 by measuring on a flat spot of the same map. Ours: 150 degrees to each side (300 in all, nearly a full circle; owner… | ☐ |
-| `R-77758F95` | Spear: sweep cap | at most **12** Orks, nearest first (the hammer's war cleave: 40); kept at 12 for the 300 degrees at 15 m (owner 2026-11-10) (Orks) | kind: estimate; confidence: low; notes: ours | ours (a crowd cap) | Spear: sweep cap: compare with SM1 by feel or video. Ours: at most 12 Orks, nearest first (the hammer's war cleave: 40); kept at… | ☐ |
 | `R-E48FE621` | Spear: impale | when the spear's player lands a jump-pack ground pound (the pound's Impact), the Ork nearest the landing within **2 m** (the nearest alive after the pack's own blast) takes **600** (a Nob's whole health), times the stims' melee factor, with the melee heal… (health, m) | kind: estimate; confidence: low | owner D18 (the proposed rule) | Spear: impale: compare with SM1 by feel or video. Ours: when the spear's player lands a jump-pack ground pound (the pound's… | ☐ |
 | `R-A061A276` | Spear: where offered | appended at the end of the Space Marine Assault's melee choices (no index moves) and to the Musou customizer's melee row, when the class carries the thunder hammer; no other class and no other profile; never dropped by an Ork or offered on a reward card… | kind: ours; confidence: medium | owner D1, D3 | Spear: where offered: compare with SM1 by feel or video. Ours: appended at the end of the Space Marine Assault's melee choices (no… | ☐ |
 | `R-8478B02C` | Spear: carry | idle and running: the spear is held in the **right hand alone** (the power sword's hand mount, the shaft where a sword's blade points) with the fist **high** at 1.34 m from the butt (0.29 m on the shaft's own axis, the butt at -1.05 and the collar at 0.84)… (m, s) | kind: ours; confidence: medium | owner, 2026-11-10 | Spear: carry: compare with SM1 by feel or video. Ours: idle and running: the spear is held in the right hand alone (the… | ☐ |
@@ -4908,6 +4907,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-7241A1DE` | Musou Mode: Ork swings commit to a direction (musou/ork-swing-commit, 2026-11-12; `MusouSim.Version` 53, `TfwRules.Version` 78) | the owner's request (2026-11-12); added content, no SM1 counterpart | Ours (the idea the owner's, the values estimates): a melee Ork turns toward its target for the first 30 % of its wind-up (540 degrees a second) then holds that facing; the blow needs the target within reach and the 60 degree cone of the locked facing, so circling at a run dodges a Boy's swing (from about 4.5 m/s at… | spec "Musou Mode: Ork swing commit" | Musou Mode: Ork swings commit to a direction…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-403CD0D0` | Musou Mode: drop pod recast (claude/musou-aoe-droppod-recast, owner 2026-11-14; `MusouSim.Version` 54, `TfwRules.Version` 79) | No Musou Mode in the original | Ours (added content, the owner's request, verbatim: "let the player drop another pod immediately when the 60 second cooldown is up"): a new drop pod may be called as soon as the 60 s cooldown ends, whatever pod or squad of the player is still out; the puppet ids (12, shared with the allies and retainers) cap the… | `World.TfwDropPod`, spec "Added content: Musou Mode: drop pod assault" | Musou Mode: drop pod recast (claude/musou-aoe-droppod-recast…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-CFF0666F` | Musou Mode: AoE pass (claude/musou-aoe-droppod-recast, owner 2026-11-14; `MusouSim.Version` 54, `TfwRules.Version` 79) | No Musou Mode in the original | Ours (added content, the owner's request): the assault Marine's ground pound and air slash landing reach 1.5x as far and deal 1.5x (centre too); every player weapon's blast reaches 1.25x; the autocannon's burst 1.4x its own size (the lead's reading, to confirm: 1.75 is one constant) | `MusouCombatRules.WeaponAoeScale`, `PoundReachScale`, `AutocannonAoeScale`, spec "Added content: Musou Mode: AoE pass" | Musou Mode: AoE pass (claude/musou-aoe-droppod-recast…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-89E824F0` | Musou Mode: no melee cleave cap (lead 25 integration, owner 2026-11-14; `TfwRules.Version` 80) | No Musou Mode in the original | Ours (added content, the owner's request, verbatim: "All orks within the cleave range should always be hit no matter how many"): a human swing in Musou Mode strikes every Ork inside its cleave (was at most 40; the power spear's sweep at most 12); reach, angle and the 3-heals-per-swing cap unchanged; the client still… | Musou Mode only; Classic PvP untouched | Musou Mode: no melee cleave cap (lead 25 integration, owner…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 
 ## Appendix: not gameplay
 

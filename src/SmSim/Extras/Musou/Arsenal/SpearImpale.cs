@@ -22,7 +22,7 @@ public static class SpearRules
     public const float HalfAngleDegrees = 150f;
 
     /// <summary>The most Orks one sweep strikes, nearest first (the hammer's is the war's 40; the spear's is a crowd cap of its own, estimate).</summary>
-    public const int MostOrks = 12;
+    public const int MostOrks = MusouSim.Capacity;   // no cap (owner, 2026-11-14: "All orks within the cleave range should always be hit no matter how many"); was 12
 
     /// <summary>The swings' damage as a share of the hammer's (150 against 200 for a light swing; the heavy sweeps the same share; the slam is the hammer's): an estimate.</summary>
     public const float DamageScale = 0.75f;

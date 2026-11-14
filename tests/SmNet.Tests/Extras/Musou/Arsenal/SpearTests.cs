@@ -152,17 +152,16 @@ public class SpearTests
     }
 
     [Fact]
-    public void A_spear_sweep_strikes_at_most_twelve_orks_nearest_first()
+    public void A_spear_sweep_strikes_every_ork_inside_it()
     {
-        var w = War(melee: 1);
+        var w = War(melee: 1);   // owner 2026-11-14: "All orks within the cleave range should always be hit no matter how many" (was at most 12)
         var ids = new List<ushort>();
-        for (int k = 0; k < 30; k++) ids.Add(Ork(w, Polar(w, (k - 15) * 6f, 2f + k * 0.3f)));
+        for (int k = 0; k < 30; k++) ids.Add(Ork(w, Polar(w, (k - 15) * 6f, 2f + k * 0.3f)));   // 2 to 10.7 m, inside the war's 10.8 m sweep
+        ushort outside = Ork(w, Polar(w, 0f, 12f));
         var hit = StruckBySwing(w);
-        Assert.Equal(SpearRules.MostOrks, hit.Count);
-        Assert.Equal(12, SpearRules.MostOrks);
-        // Nearest first: the twelve struck are the twelve closest.
-        var nearest = ids.OrderBy(id => { w.Musou!.TryGet(id, out var e); return Vector3.Distance(e.Position, w.Players[Human].Position); }).Take(12).Select(i => (int)i).ToHashSet();
-        Assert.Equal(nearest, hit);
+        Assert.Equal(ids.Select(i => (int)i).ToHashSet(), hit);
+        Assert.DoesNotContain((int)outside, hit);
+        Assert.Equal(SmSim.Extras.Musou.MusouSim.Capacity, SpearRules.MostOrks);
     }
 
     [Fact]
@@ -173,7 +172,7 @@ public class SpearTests
         var players = (Dictionary<int, PlayerState>)typeof(World).GetField("_players", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(w)!;
         players[Human] = players[Human] with { Health = body.HealthMax * 0.2f };
         for (int k = 0; k < 30; k++) Ork(w, Polar(w, (k - 15) * 6f, 2f + k * 0.3f));
-        Assert.Equal(SpearRules.MostOrks, StruckBySwing(w).Count);
+        Assert.Equal(30, StruckBySwing(w).Count);   // every Ork in the sweep (no cap since 2026-11-14)
         Assert.Equal(body.HealthMax * (0.2f + 3 * MusouCombatRules.MeleeHealShare), w.Players[Human].Health, 2);
     }
 
@@ -411,7 +410,7 @@ public class SpearTests
         var watch = System.Diagnostics.Stopwatch.StartNew();
         var hit = StruckBySwing(w);
         watch.Stop();
-        Assert.Equal(SpearRules.MostOrks, hit.Count);
+        Assert.InRange(hit.Count, 700, 725);   // no cap (owner 2026-11-14): every Ork inside the 10.8 m, 150-degree sweep (725 placed there, a few on the edge)
         Assert.True(watch.ElapsedMilliseconds < 3000, $"140 ticks with 1000 Orks in reach took {watch.ElapsedMilliseconds} ms");
     }
 }

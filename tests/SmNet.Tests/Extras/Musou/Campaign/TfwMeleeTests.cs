@@ -272,7 +272,7 @@ public class TfwMeleeTests
     [Theory]
     [InlineData(InputButtons.Melee)]
     [InlineData(InputButtons.MeleeHeavy)]
-    public void A_swing_reaches_forty_enemies_and_draws_each_a_slash(InputButtons press)
+    public void A_swing_strikes_every_enemy_in_its_cleave_and_draws_each_a_slash(InputButtons press)
     {
         var w = War();
         w.Musou!.Frozen = true;
@@ -288,8 +288,8 @@ public class TfwMeleeTests
             Tick(w, buttons: t < 3 ? press : InputButtons.None);
             slashes = Math.Max(slashes, w.Musou.Events.Count(e => e.Kind == MusouEventKind.Hit && e.Value == 3));
         }
-        Assert.Equal(TfwCombatRules.Default.CleaveTargets, slashes);
-        Assert.Equal(40, w.TfwBestCleave);
+        Assert.Equal(50, slashes);   // owner 2026-11-14: no cap (was 40)
+        Assert.Equal(50, w.TfwBestCleave);
     }
 
     static HashSet<int> StruckBySwing(World w, params ushort[] ids)
@@ -328,7 +328,7 @@ public class TfwMeleeTests
         Assert.Equal(1.3f, TfwCombatRules.Default.CleaveReachScale);
         Assert.Equal(0.72f, TfwCombatRules.Default.PlayerCleaveReachScale);
         Assert.Equal(120f, TfwCombatRules.Default.CleaveHalfAngleDegrees);
-        Assert.Equal(40, TfwCombatRules.Default.CleaveTargets);
+        Assert.Equal(MusouSim.Capacity, TfwCombatRules.Default.CleaveTargets);
     }
 
     [Fact]

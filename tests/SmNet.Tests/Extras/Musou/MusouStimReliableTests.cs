@@ -94,7 +94,7 @@ public class MusouStimReliableTests
         // The angle, the target cap and the war's own scale are untouched.
         Assert.Equal(1.3f, war.CleaveReachScale);
         Assert.Equal(120f, war.CleaveHalfAngleDegrees);
-        Assert.Equal(40, war.CleaveTargets);
+        Assert.Equal(SmSim.Extras.Musou.MusouSim.Capacity, war.CleaveTargets);   // owner 2026-11-14: no cap
         Assert.Equal(15f, SmSim.Extras.Musou.Arsenal.SpearRules.ReachMetres);   // the spear's own 15 m (it goes through the scale: 10.8 m)
     }
 }
