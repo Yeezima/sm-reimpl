@@ -1255,6 +1255,15 @@ if (-not $SkipBuild) {
             Copy-Item -LiteralPath $imgSrc -Destination (Join-Path $exportDir $img)
         }
 
+        # The owner's Thunderhawk wall-asset kit (2026-11-14; he cleared it for the repository and tester builds): four GLBs read as plain files (client/assets/owner-kit has a .gdignore,
+        # so the Godot export leaves them out), beside the exe as assets\owner-kit\thunderhawk-classic\models\ (client/Extras/Musou/Tfw/Bay/OwnerKit.cs).
+        $kitModels = Join-Path $client 'assets/owner-kit/thunderhawk-classic/models'
+        if (-not (Test-Path -LiteralPath $kitModels)) { Fail 'Missing client/assets/owner-kit/thunderhawk-classic/models in the clean copy (it is committed).' }
+        $kitTo = Join-Path $exportDir 'assets\owner-kit\thunderhawk-classic\models'
+        New-Item -ItemType Directory -Force -Path $kitTo | Out-Null
+        Copy-Item -Path (Join-Path $kitModels '*.glb') -Destination $kitTo
+        if ((Get-ChildItem -LiteralPath $kitTo -Filter *.glb).Count -ne 4) { Fail 'The owner kit did not copy: expected 4 GLBs.' }
+
         # Musou's Ashfall Citadel kit look (owner, 2026-11-06: the release carries Ashfall the same as the local playtests): the owner's generated models,
         # exactly the files the kit loads (smtool ashfall-kit-files), copied from his private library (read only) beside the exe as ashfall-kit\.
         # A missing library or file fails the build: a tester build without them would fall back to the graybox look.

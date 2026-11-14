@@ -31,13 +31,14 @@ Rows read from the install with high confidence and no such wording are not tagg
 Scanned 3201 spec table rows: **2355 tagged**, 587 not tagged (read from data with high confidence), 259 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 714 rows of the changes document.
 Scanned 3202 spec table rows: **2356 tagged**, 587 not tagged (read from data with high confidence), 259 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 714 rows of the changes document.
 Scanned 3203 spec table rows: **2356 tagged**, 588 not tagged (read from data with high confidence), 259 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 714 rows of the changes document.
+Scanned 3201 spec table rows: **2355 tagged**, 587 not tagged (read from data with high confidence), 259 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 713 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
 | Movement (critical) | 404 | 345 | 344 | 118 | 12 |
 | Combat core (critical) | 17 | 7 | 15 | 14 | 9 |
 | Weapons (critical) | 121 | 73 | 106 | 54 | 3 |
-| Melee (critical) | 148 | 130 | 109 | 52 | 5 |
+| Melee (critical) | 149 | 131 | 110 | 53 | 5 |
 | Jump pack (critical) | 85 | 77 | 69 | 19 | 0 |
 | Charge (critical) | 61 | 51 | 49 | 25 | 0 |
 | Reactions (critical) | 25 | 22 | 23 | 12 | 0 |
@@ -61,6 +62,7 @@ Scanned 3203 spec table rows: **2356 tagged**, 588 not tagged (read from data wi
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 248 | 237 | 133 | 68 | 0 |
 | **All areas** | **2356** | 2083 | 1750 | 730 | 38 |
+| **All areas** | **2355** | 2082 | 1750 | 731 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -74,6 +76,11 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | notes: ours | 415 |
 | kind: interpretation | 383 |
 | notes: estimate | 197 |
+| confidence: low | 839 |
+| confidence: medium | 782 |
+| notes: ours | 415 |
+| kind: interpretation | 382 |
+| notes: estimate | 198 |
 | kind: estimate | 158 |
 | confidence: none (low) | 129 |
 | kind: provisional | 103 |
@@ -988,7 +995,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-63D5DA0C` | Magazine returns | at the load tag or when the left hand is back at the weapon, whichever is later (never before the magazine left): bolter tag 0.30, hand 0.35 (`RIG_L_Hand` 0.15 m from the magazine at its closest, 1.13 m at its furthest, away from 0.11 to 0.35) → 0.35; stalker… (fraction of the clip) | kind: interpretation; confidence: medium | clip, skeleton, weapon mount | Magazine returns: compare with SM1 by feel or video. Ours: at the load tag or when the left hand is back at the weapon… | ☐ |
 | `R-125B93CF` | Dropped magazine physics | a `RigidBody3D` (layer none, mask: the level) with a box the size of the mesh, mass 0.4 kg, friction 0.7, bounce 0.3, linear damping 0.05, angular 0.6; initial velocity = the carrier's velocity + up to 0.6 m/s sideways (0.12 up) + up to 5 rad/s spin… (kg, m/s, rad/s, s) | kind: placeholder; confidence: none (low); notes: ours | ours | Dropped magazine physics: compare with SM1 by timing a run over a known distance. Ours: a RigidBody3D (layer none, mask: the level) with a box the size of… | ☐ |
 
-### Melee (gameplay-critical) (148)
+### Melee (gameplay-critical) (149)
 
 *Spec section: Melee flow, the hammer in both hands and the transitions pass (anim/melee-flow; client only, not simulated, no protocol change)*
 
@@ -1184,6 +1191,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-EE938A5A` | Designator beam | at the artillery call the lascannon's red beam runs from the weapon's muzzle to the aimed point, at **0.18** of its width scale (the basic shot draws at 0.5) and **0.5** of its life (0.2 s core, 0.3 s glow); never under 2.2 px on screen (factor) | kind: ours; notes: estimate | owner 2026-11-02 | Designator beam: compare with SM1 by feel or video. Ours: at the artillery call the lascannon's red beam runs from the weapon's… | ☐ |
 | `R-C7CB4EC6` | Flung corpses (Musou) | an Ork killed by a blast (frag, plasma cannon, launcher, also a round that bursts on him) or by artillery (kinds Blast, Barrage) always leaves a body, thrown through the gore's unchanged burst: see "Musou: explosive kills" below for the values | kind: ours; notes: estimate | owner 2026-11-02 | Flung corpses (Musou): compare with SM1 by feel or video. Ours: an Ork killed by a blast (frag, plasma cannon, launcher, also a round… | ☐ |
 | `R-DDC821ED` | The Firing Range (Musou Mode) | a flat floor of **100** m x **100** m with walls **2** m thick and **24** m high, generated beside the level (east of its extent by **60** m, level with its middle) in the same world; the Stormbird's left tech panel carries a button (a pad **1.5** m round); E… (m, s, count) | kind: ours; notes: estimate | owner 2026-11-02 "reimplement the 'firing range' map ... 100m x 100m ... spawns continuously 200 orks" | The Firing Range (Musou Mode): compare with SM1 by measuring on a flat spot of the same map. Ours: a flat floor of 100 m x 100 m with walls 2 m thick and 24 m high… | ☐ |
+| `R-D781C127` | The troop bay's wall assets and station zones (Musou Mode; owner, 2026-11-14: "use the model… | The three coloured floor pads (blue Destination, orange Equipment, green Range) and the green wall button are no longer drawn; each station is an owner-kit model mounted on a hull tech panel in front of its zone: **EQUIPMENT** = `Armory.glb` (1.5 m, 1.7 m up)… (m) | kind: ours; confidence: low; notes: estimate | the owner's request (which model for which station, and the exact spots, are ours) | The troop bay's wall assets and station zones (Musou Mode…: compare with SM1 by measuring on a flat spot of the same map. Ours: The three coloured floor pads (blue Destination, orange Equipment… | ☐ |
 
 *Spec section: Musou Mode: random swings, thrown bodies, thinner clouds (musou/melee-ragdoll-clouds; Musou Mode only, no protocol change, `TfwRules.Version` 23)*
 
