@@ -158,4 +158,26 @@ public class DecoratorTests
         Assert.False(DecoratorRules.OnScreen(-300f, 400f, 1920f, 1080f));
         Assert.False(DecoratorRules.OnScreen(960f, 2000f, 1920f, 1080f));
     }
+
+    [Fact]
+    public void Ally_marker_filter_follows_the_view_not_the_distance_or_walls()
+    {
+        // alive, not self, on a team, not hostile, in front, on screen: shown (distance and walls are not inputs)
+        Assert.True(DecoratorRules.AllyMarkerShown(true, false, true, false, false, true, musou: false));
+        Assert.False(DecoratorRules.AllyMarkerShown(true, false, true, false, false, false, musou: false));   // off screen
+        Assert.False(DecoratorRules.AllyMarkerShown(true, false, true, false, true, true, musou: false));    // behind the camera
+        Assert.False(DecoratorRules.AllyMarkerShown(false, false, true, false, false, true, musou: false));  // dead
+        Assert.False(DecoratorRules.AllyMarkerShown(true, true, true, false, false, true, musou: false));    // self
+        Assert.False(DecoratorRules.AllyMarkerShown(true, false, false, false, false, true, musou: false));  // no team
+        Assert.False(DecoratorRules.AllyMarkerShown(true, false, true, true, false, true, musou: false));    // a foe
+        Assert.False(DecoratorRules.AllyMarkerShown(true, false, true, false, false, true, musou: true));    // Musou keeps aimed-only
+    }
+
+    [Fact]
+    public void The_aimed_ally_is_not_drawn_twice_and_a_foe_or_Musou_keeps_its_entry()
+    {
+        Assert.False(DecoratorRules.AimedNeedsOwnEntry(DecoratorRelation.Ally, musou: false));
+        Assert.True(DecoratorRules.AimedNeedsOwnEntry(DecoratorRelation.Enemy, musou: false));
+        Assert.True(DecoratorRules.AimedNeedsOwnEntry(DecoratorRelation.Ally, musou: true));
+    }
 }

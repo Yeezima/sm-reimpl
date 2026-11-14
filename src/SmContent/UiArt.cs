@@ -324,6 +324,16 @@ public static class DecoratorRules
         _ => false,
     };
 
+    /// <summary>
+    /// Whether an ally carries a marker this frame (Classic PvP, owner 2026-11-14): alive, not the viewer, on a team, not hostile, in front of the camera and on screen; distance and walls do
+    /// not matter. Never in Musou Mode, which keeps the aimed-player rule.
+    /// </summary>
+    public static bool AllyMarkerShown(bool alive, bool isSelf, bool hasTeam, bool hostile, bool behindCamera, bool onScreen, bool musou) =>
+        !musou && alive && !isSelf && hasTeam && !hostile && !behindCamera && onScreen;
+
+    /// <summary>Whether the aimed player still needs its own entry: not an ally already drawn by the all-allies rule (so no ally is drawn twice).</summary>
+    public static bool AimedNeedsOwnEntry(DecoratorRelation relation, bool musou) => musou || relation != DecoratorRelation.Ally;
+
     /// <summary>Whether a projected anchor lies inside the screen (ours: the marker is drawn for allies in view; a small margin so a marker half off the edge still shows).</summary>
     public static bool OnScreen(float x, float y, float width, float height, float margin = 40f) =>
         x >= -margin && x <= width + margin && y >= -margin && y <= height + margin;
