@@ -29,6 +29,8 @@
     <Compile Include="..\..\client\Gamepad\GamepadRules.cs" Link="ClientGamepad\GamepadRules.cs" />
     <!-- ui/keybinds: the key and controller bindings store (defaults, conflicts, saving, sampling), engine-free (ControlsInput and ControlsView, the Godot side, are not linked). -->
     <Compile Include="..\..\client\Controls\ControlBindings.cs" Link="ClientControls\ControlBindings.cs" />
+    <!-- fix/manufactorum-salmon-2: the names MapDecor does not draw on Manufactorum, engine-free. -->
+    <Compile Include="..\..\client\MapDecorLists\MapDecorLists.cs" Link="ClientMapDecor\MapDecorLists.cs" />
   </ItemGroup>
 
   <ItemGroup>

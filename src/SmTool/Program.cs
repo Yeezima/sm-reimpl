@@ -51,6 +51,7 @@ return args switch
     ["armour-audit", var gameDir, .. var rest] => SmTool.ArmourAuditCommand.Run(gameDir, rest),
     ["fx-smoke", var gameDir, .. var rest] => SmTool.FxSmokeCommands.Run(gameDir, rest),
     ["fx-dump", var gameDir, .. var rest] => SmTool.FxDumpCommands.Run(gameDir, rest),
+    ["map-emissive", var gameDir, .. var rest] => SmTool.MapEmissiveCommand.Run(gameDir, rest),
     ["gfx-dump", var gameDir, .. var rest] => SmTool.GfxDumpCommand.Run(gameDir, rest),
     [var dump, .. var rest] when dump is "baf-dump" or "locale" or "customization-dump" && SmTool.DumpCommands.Run(dump, rest) is var dumpCode && dumpCode >= 0 => dumpCode,
     [var audio, .. var rest] when audio.StartsWith("audio-") && AudioCommands.Run(audio, rest) is var code && code >= 0 => code,

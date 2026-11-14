@@ -21,66 +21,26 @@ namespace SmClient;
 /// <para>
 /// The list is by object definition name. <see cref="Always"/> names definitions used only by these stations (or, backpanel_c, as the
 /// same boards elsewhere). <see cref="Near"/> names definitions that also dress other things (the console stations' cabling and
-/// domes): they are removed only where they sit within <see cref="NearRadius"/> metres (horizontally) of a board or a <c>tech_interface_b</c> cabinet, so the monitor
+/// domes): they are removed only where they sit within <see cref="MapDecorLists.NearRadius"/> metres (horizontally) of a board or a <c>tech_interface_b</c> cabinet, so the monitor
 /// consoles keep their cabling. The console stations themselves (<c>tech_interface_*</c>, the monitors) stay; their <c>tech_panel_pipe_e</c> posts are removed (owner, 2026-11-07). <c>--old-armoury-racks</c>
 /// draws everything as before.
 /// </para>
 /// </summary>
 public static class MapDecor
 {
-    public const string Map = "mp_tdm_09";
-    /// <summary>Object definitions removed wherever they are placed.</summary>
-    public static readonly string[] Always =
-    [
-        "backpanel_a", "backpanel_b", "backpanel_c",
-        "tech_panel_a", "tech_panel_b", "tech_panel_c",
-        "tech_panel_pipe_a", "tech_panel_pipe_b", "tech_panel_pipe_c",
-        "handle_bar_a", "accessories_doorbutton",
-        // owner 2026-11-07: the console stations' short posts (two glowing red-white dots, a red band, dash rows and thin cable lines), 49 placements, "e_adm_dressing".
-        "tech_panel_pipe_e",
-    ];
-    /// <summary>Object definitions removed only near a board (see the class remarks): the fittings' pipes and dome, and the seals and scrolls pinned on the boards.</summary>
-    public static readonly string[] Near = ["tech_panel_pipe_g", "tech_panel_tank_a", "acc_seal_01", "acc_seal_02", "acc_seal_03", "acc_scroll_01", "acc_scroll_02"];
-    /// <summary>
-    /// Surfaces removed from meshes that stay: the cabinet <c>tech_interface_b</c> carries two olive <c>backPanel</c> plates in its front.
-    /// (mesh name, material name); the cabinet's other surfaces stay.
-    /// </summary>
-    public static readonly (string Mesh, string Material)[] Surfaces = [("tech_interface_b", "backPanel")];
-
+    public const string Map = MapDecorLists.Map;
+    // The lists (engine-free, so the tests can read them) are in MapDecorLists/MapDecorLists.cs.
+    public static string[] Always => MapDecorLists.Always;
+    public static string[] Near => MapDecorLists.Near;
+    public static (string Mesh, string Material)[] Surfaces => MapDecorLists.Surfaces;
     /// <summary>Whether the material range <paramref name="material"/> of <paramref name="mesh"/> is not drawn on <paramref name="map"/>.</summary>
-    public static bool HidesSurface(string map, string mesh, string material) =>
-        !Old && map.Equals(Map, StringComparison.OrdinalIgnoreCase)
-        && Surfaces.Any(s => s.Mesh.Equals(mesh, StringComparison.OrdinalIgnoreCase) && s.Material.Equals(material, StringComparison.OrdinalIgnoreCase));
-    /// <summary>How close to a board (horizontal metres) a <see cref="Near"/> definition counts as part of the station.</summary>
-    public const float NearRadius = 6f;
+    public static bool HidesSurface(string map, string mesh, string material) => MapDecorLists.HidesSurface(map, mesh, material, Old);
 
     /// <summary><c>--old-armoury-racks</c>: draw the boards and their fittings as before (before / after aid).</summary>
     public static bool Old => _old ??= Array.IndexOf(OS.GetCmdlineUserArgs(), "--old-armoury-racks") >= 0;
     static bool? _old;
 
     /// <summary>The indices (into <see cref="MapScene.Objects"/>) of the placements not to draw; empty on other maps or with the old switch.</summary>
-    public static HashSet<int> Hidden(MapScene scene)
-    {
-        var hidden = new HashSet<int>();
-        if (Old || !scene.Map.Equals(Map, StringComparison.OrdinalIgnoreCase)) return hidden;
-        var always = new HashSet<string>(Always, StringComparer.OrdinalIgnoreCase);
-        var near = new HashSet<string>(Near, StringComparer.OrdinalIgnoreCase);
-        var boards = new List<System.Numerics.Vector3>();
-        for (int i = 0; i < scene.Objects.Count; i++)
-        {
-            var o = scene.Objects[i];
-            // The boards' places (backpanel_*, and the cabinets whose plates are not drawn) anchor the Near rule.
-            if (o.Definition.StartsWith("backpanel", StringComparison.OrdinalIgnoreCase) || o.Definition.Equals("tech_interface_b", StringComparison.OrdinalIgnoreCase))
-                boards.Add(o.Transform.Translation);
-            if (always.Contains(o.Definition)) hidden.Add(i);
-        }
-        for (int i = 0; i < scene.Objects.Count; i++)
-        {
-            var o = scene.Objects[i];
-            if (!near.Contains(o.Definition)) continue;
-            var p = o.Transform.Translation;
-            if (boards.Any(b => (b.X - p.X) * (b.X - p.X) + (b.Y - p.Y) * (b.Y - p.Y) <= NearRadius * NearRadius)) hidden.Add(i);
-        }
-        return hidden;
-    }
+    public static HashSet<int> Hidden(MapScene scene) =>
+        MapDecorLists.Hidden(scene.Map, Old, scene.Objects.Select(o => (o.Definition, o.Transform.Translation.X, o.Transform.Translation.Y)).ToList());
 }
