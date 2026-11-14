@@ -210,7 +210,7 @@ public class ChargeResponsiveTests(ITestOutputHelper output)
         Assert.Equal((true, true), (a.OldChargeAfterMelee, a.OldChargeCancelDelay));
         Assert.True(ServerCommandLine.TryParse([], out var none, out _));
         Assert.Equal((false, false), (none.OldChargeAfterMelee, none.OldChargeCancelDelay));
-        Assert.Equal(75, Protocol.Version);
+        Assert.Equal(76, Protocol.Version);
     }
 
     // ---------------------------------------------------------------- the world and prediction

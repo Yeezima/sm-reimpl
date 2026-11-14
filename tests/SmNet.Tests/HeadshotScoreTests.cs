@@ -148,7 +148,7 @@ public class HeadshotScoreTests
     [Fact]
     public void The_kill_feed_carries_the_headshot_as_cause_code_six_and_only_for_a_weapon_kill()
     {
-        Assert.Equal(75, Protocol.Version);
+        Assert.Equal(76, Protocol.Version);
         KillView[] kills =
         [
             new(1, 1, 2, KillCause.Weapon, 3, Vector3.UnitX, Headshot: true),

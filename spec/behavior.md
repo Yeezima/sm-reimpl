@@ -1530,6 +1530,14 @@ Source: the owner's recollection of the original, 2026-11-14: "when using a comb
 | Rule | Value | Units | Timing basis | Where | Source | Kind | Confidence |
 |---|---|---|---|---|---|---|---|
 | Stim ends the health regeneration delay | at the stim's release (0.3 s into its use) health regeneration no longer waits for its delay (5 s, less Larraman's Blessing's -1.5 s) until the next damage (`PlayerState.HealthRegenWaived`, bit 6 of the snapshot's damage byte), so health regenerates from the next tick at the normal rate (5/s) or Larraman's boosted rate (45/s); the stim's own modifiers are unchanged. Classic PvP and Musou Mode alike. Health only (owner's decision, 2026-11-14): the armour keeps its own 7 s delay from the damage, untouched by the stim | s | at the release tick | `Combat.StepPlayerCore` | the owner's recollection of the original, 2026-11-14 | owner recollection | medium |
+### The kick pushes 60 % less (sim/kick-push; owner 2026-11-14, protocol 76, no wire change)
+
+Source: the owner, 2026-11-14: "only the devastator/havoc kick move (right mouse button) knocks back too far. reduce the knockback by 60% - the kick move only. don't touch the stomp." Code: `KickTuning` (`PushScale`, `WithPush`), `SimConfig.KickPushCut` (restore switch `--old-kick-push`), `World.ResolveMelee`. Tests: `KickPushTests`.
+
+| Rule | Value | Units | Timing basis | Where | Source | Kind | Confidence |
+|---|---|---|---|---|---|---|---|
+| The kick's knockback | the Devastator's and the Havoc's kick (`MeleeStep.Kick`, `ability_displace_kick`; one step shared by both) knocks the player it hits back 40 % of the data's distance (the hit reaction's backward metres x0.4; kind, up, right and duration unchanged; the file's value is still read as it is). The stomp, other attacks and Musou's enemies (their own knockback constants) are unchanged | m (x0.4) | at the kick's hit | `KickTuning.WithPush` | the owner's request, 2026-11-14 | owner's instruction (ours) | high |
+| Restore switch | `--old-kick-push` (server and every client; config hash only when on): the data's full knockback | - | - | `SimConfig.KickPushCut` | ours | ours | - |
 
 ### No firing during the roll (sim/roll-fire-pitch; protocol 51, no wire change)
 

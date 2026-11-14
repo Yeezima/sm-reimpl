@@ -859,6 +859,7 @@ public sealed partial record SimConfig
             if (!ChargeMeleeChain) w.Write("old-charge-melee-chain");   // charge-melee-chain (protocol 70): only when off
             if (!HopRules) w.Write("old-hop-rules");   // sim/hop-rules (protocol 72): only when off
             if (!StompRelease) w.Write("old-stomp-release");   // sim/stomp-release (2026-11-14): only when off
+            if (!KickPushCut) w.Write("old-kick-push");   // sim/kick-push (protocol 76): only when off
             if (!ChargeAllyBump) w.Write("old-ally-bump");          // charge-ally-bump (protocol 66): only when off (older hashes unchanged)
             // Added content (ContentExtras.cs): only when any is on, so a faithful config hashes byte for byte as before the switch.
             if (Extras != ContentExtras.None) { w.Write("extras"); w.Write((uint)Extras); w.Write(ContentExtras.WireVersion); ExtrasHash(w); }   // EXTRAS-HOOK
@@ -1417,7 +1418,7 @@ public sealed partial class World(SimConfig config, CollisionWorld? collision = 
             }
             if (!_players[target].Alive) continue;
             if (light) Flinch(attacker, target);   // sim/light-melee-flinch: the aim thrown off, nothing else
-            else TryReact(attacker, target, reaction, state.Position, new Vector2(pushDirection.X, pushDirection.Y));
+            else TryReact(attacker, target, step.Kick ? KickTuning.WithPush(reaction, Config) : reaction, state.Position, new Vector2(pushDirection.X, pushDirection.Y));
         }
         if (step.Stomp is { } stomp)
             ApplyBlast(attacker, 0, state.Position + new Vector3(0, 0, ChestOf(state)), stomp, melee: true);   // a stomp kill is a melee kill

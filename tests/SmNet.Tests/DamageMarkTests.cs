@@ -79,7 +79,7 @@ public class DamageMarkTests
     [Fact]
     public void The_protocol_is_71_the_slim_record_one_byte_longer_and_the_fullest_snapshot_still_fits()
     {
-        Assert.Equal(75, Protocol.Version);
+        Assert.Equal(76, Protocol.Version);
         Assert.Equal(48, Protocol.SlimRecordBytes);
         Assert.True(Protocol.MaxSnapshotBytes <= Protocol.SnapshotBudget);
         Assert.Equal(4, Protocol.MinSnapshotShots);   // the guaranteed shots stay; one projectile record went instead
