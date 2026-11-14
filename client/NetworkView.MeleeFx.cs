@@ -93,6 +93,7 @@ public partial class NetworkView
         foreach (var id in _swordFlareAt.Keys) if (!_meleeFxPresent.Contains(id)) _meleeFxGone.Add(id);
         foreach (var id in _swordSwing.Keys) if (!_meleeFxPresent.Contains(id)) _meleeFxGone.Add(id);
         foreach (var id in _meleeFxGone) { _swordGlowMesh.Remove(id); _swordFlareAt.Remove(id); _swordSwing.Remove(id); }
+        PowerGlowPrune(_meleeFxPresent);
         _meleeFxGate.Prune(_meleeFxPresent.Contains);
     }
 
@@ -135,6 +136,7 @@ public partial class NetworkView
         var loaded = _meleeFxLoad.Result;
         _fx!.Preload(loaded.Systems, loaded.Decals);
         if (PowerBlade.BuildFlare(loaded.Systems.Values) is { } flare) _fx.Preload(new Dictionary<string, CSystem> { [PowerBlade.FlareName] = flare }, new Dictionary<string, byte[]>());
+        _fx.Preload(PowerGlow.Lights(), new Dictionary<string, byte[]>());   // fx/weapon-visuals: the power weapons' light
         if (PowerFlash.Build(loaded.Systems.Values) is { } powerCloud) _fx.Preload(new Dictionary<string, CSystem> { [PowerFlash.CloudName] = powerCloud }, new Dictionary<string, byte[]>());
         if (StompFx.Build(loaded.Systems.Values, CmdArg("stomp-ring")) is { } shockwave) _fx.Preload(new Dictionary<string, CSystem> { [StompFx.ShockwaveName] = shockwave }, new Dictionary<string, byte[]>());
         _meleeFx = loaded.Data;
@@ -150,6 +152,7 @@ public partial class NetworkView
         var character = own ? _local : _remotes.GetValueOrDefault(s.PlayerId);
         string? wargear = PresentedAs(MeleeWargear(s));   // W0b: an added weapon's effects by its source's name (the claw: the power sword's glow, flare and flash); the name itself for the data's
         SwordFrame(s, character, wargear);
+        PowerGlowFrame(s, character);   // fx/weapon-visuals: every power weapon's light, the serrated knife's green field
         if (!s.Alive || s.MeleeStep <= 0 || Combat.MeleeStepOf(_config!, s) is not { } step) { _meleeFxGate.Idle(s.PlayerId); return; }
         // Once per attack (review): the attack is keyed on its start tick (own: the prediction's tick; others: the newest snapshot's), so a reconcile rewind of any size
         // does not fire it again, and a player first seen mid-attack does not fire for a hit time already passed.

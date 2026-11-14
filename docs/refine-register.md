@@ -32,6 +32,7 @@ Scanned 3201 spec table rows: **2355 tagged**, 587 not tagged (read from data wi
 Scanned 3202 spec table rows: **2356 tagged**, 587 not tagged (read from data with high confidence), 259 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 714 rows of the changes document.
 Scanned 3203 spec table rows: **2356 tagged**, 588 not tagged (read from data with high confidence), 259 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 714 rows of the changes document.
 Scanned 3201 spec table rows: **2355 tagged**, 587 not tagged (read from data with high confidence), 259 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 713 rows of the changes document.
+Scanned 3174 spec table rows: **2332 tagged**, 584 not tagged (read from data with high confidence), 258 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 709 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -69,6 +70,10 @@ Scanned 3204 spec table rows: **2357 tagged**, 588 not tagged (read from data wi
 | **All areas** | **2356** | 2083 | 1750 | 730 | 38 |
 | **All areas** | **2355** | 2082 | 1750 | 731 | 38 |
 | **All areas** | **2357** | 2084 | 1751 | 730 | 38 |
+| Core simulation (provisional values) | 698 | 658 | 498 | 181 | 1 |
+| General game design | 7 | 7 | 6 | 0 | 0 |
+| Ork faction | 248 | 237 | 133 | 68 | 0 |
+| **All areas** | **2332** | 2060 | 1734 | 728 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -88,6 +93,10 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | confidence: low | 838 |
 | confidence: medium | 784 |
 | notes: ours | 415 |
+| kind: ours | 1346 |
+| confidence: low | 832 |
+| confidence: medium | 773 |
+| notes: ours | 414 |
 | kind: interpretation | 382 |
 | notes: estimate | 198 |
 | kind: estimate | 158 |
@@ -2459,6 +2468,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 ### Core simulation (provisional values) (697)
 ### Core simulation (provisional values) (696)
+### Core simulation (provisional values) (698)
 
 *Spec section: Provisional values in use*
 
@@ -3582,6 +3592,13 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-69A30A8B` | Spark reach cap | no particle of the spark fans (`hit_ranged_armour_generic`, both copies, yellow and red), of the armour-hit / inactive-hit effects and of the weapon's own hit effects on a player ends farther than **4 m** from the effect's origin (the hit point on the body… (m) | kind: ours; confidence: medium | owner 2026-11-14 (the 4 m); the knee shape and which effects count as "sparks" are ours | Spark reach cap: compare with SM1 by measuring on a flat spot of the same map. Ours: no particle of the spark fans (hit_ranged_armour_generic, both… | ☐ |
 | `R-1209803F` | Flash magnitude | the model's yellow (armour) and red (health, break, bare-armour) flashes are **x1.4** as bright (shader `k_hit`, `k_brk`: 1.3 -> 1.82 in all) and **x1.4** as large (the yellow hit spot's radius and the red glow card, on top of the range growth), on the own… (factor) | kind: ours; confidence: medium | owner 2026-11-14 ("by 40%"); reading magnitude as brightness and size, not duration, is ours | Flash magnitude: compare with SM1 by feel or video. Ours: the model's yellow (armour) and red (health, break, bare-armour)… | ☐ |
+*Spec section: Weapon visuals: power weapons' light, the serrated knife's field, Kraken tracers (fx/weapon-visuals; client only, not simulated, no protocol change; owner 2026-11-14)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-9DD5AA8B` | Power weapons' light | every power weapon in hand (thunder hammer, power sword, power axe, daemon maul, both races) throws the hammer's light: one looping point light, colour (3, 113, 221), intensity 1, attenuation end 1 m, no flicker (the data's `thunderhammer_idle_light`)… (colour, m) | kind: ours; confidence: medium | owner 2026-11-14; `thunderhammer_idle_light` | Power weapons' light: compare with SM1 by feel or video. Ours: every power weapon in hand (thunder hammer, power sword, power axe… | ☐ |
+| `R-47E96A7E` | Serrated knife's light and field | the combat knife (both races) of a wielder with `mp_perk_combat_knife_damage` throws the same light in green (0.12, 0.9, 0.2) and wears an additive green overlay on its whole mesh (core 0.45, rim 2.2, shimmer): the green outline and power-field glow; without… (colour) | kind: ours; confidence: low | owner 2026-11-14 | Serrated knife's light and field: compare with SM1 by feel or video. Ours: the combat knife (both races) of a wielder with… | ☐ |
+| `R-71D3A9E3` | Kraken Bolts tracer | a bolter shot of a shooter with `mp_perk_weap_bolter_kraken_rounds` (the bolters, gold bolters and pistol-slot bolters of both races that carry the Kraken entry) draws its tracer red (1, 0.08, 0.04) with the beam width x 0.62 and trail x 0.42 of the data's… (factor, colour) | kind: ours; confidence: low | owner 2026-11-14 | Kraken Bolts tracer: compare with SM1 by feel or video. Ours: a bolter shot of a shooter with mp_perk_weap_bolter_kraken_rounds… | ☐ |
 
 ### General game design (7)
 
@@ -4997,6 +5014,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-CFF0666F` | Musou Mode: AoE pass (claude/musou-aoe-droppod-recast, owner 2026-11-14; `MusouSim.Version` 54, `TfwRules.Version` 79) | No Musou Mode in the original | Ours (added content, the owner's request): the assault Marine's ground pound and air slash landing reach 1.5x as far and deal 1.5x (centre too); every player weapon's blast reaches 1.25x; the autocannon's burst 1.4x its own size (the lead's reading, to confirm: 1.75 is one constant) | `MusouCombatRules.WeaponAoeScale`, `PoundReachScale`, `AutocannonAoeScale`, spec "Added content: Musou Mode: AoE pass" | Musou Mode: AoE pass (claude/musou-aoe-droppod-recast…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-89E824F0` | Musou Mode: no melee cleave cap (lead 25 integration, owner 2026-11-14; `TfwRules.Version` 80) | No Musou Mode in the original | Ours (added content, the owner's request, verbatim: "All orks within the cleave range should always be hit no matter how many"): a human swing in Musou Mode strikes every Ork inside its cleave (was at most 40; the power spear's sweep at most 12); reach, angle and the heals-per-swing cap (5 since the same day)… | Musou Mode only; Classic PvP untouched | Musou Mode: no melee cleave cap (lead 25 integration, owner…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-6AC0F6ED` | Musou Mode: melee heal cap 5 per swing (lead 25 integration, owner 2026-11-14; `MusouSim.Version` 55) | No Musou Mode in the original | Ours (added content, the owner's request, verbatim: "adjust the enemies triggering the heal effect per swing to be 5 instead of 3"): one melee swing heals for at most the first 5 enemies struck (was 3, 2026-11-12) | Musou Mode only; Classic PvP untouched | Musou Mode: melee heal cap 5 per swing (lead 25…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-2E5AA696` | Weapon visuals (fx/weapon-visuals, owner 2026-11-14; client only) | Original: only the thunder hammer binds an idle light; the combat knife's perk effect (`combat_knife_idle`, warm light and gold edges) is bound but never played here; Kraken Bolts change no tracer | Ours (the owner's request): every power weapon throws the hammer's blue light, the Serrated Combat Blade gives the knife a green light and green power-field overlay, Kraken Bolts bolters draw larger red tracers (both modes). The green, red and sizes are estimates | `--no-power-light`, `--old-kraken-tracer` restore the before; Musou's claw and spear are not touched | Weapon visuals (fx/weapon-visuals, owner 2026-11-14; client…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 
 ## Appendix: not gameplay
 

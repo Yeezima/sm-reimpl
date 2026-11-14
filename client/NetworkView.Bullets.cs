@@ -144,6 +144,8 @@ public partial class NetworkView
         _bulletPeakLive = Math.Max(_bulletPeakLive, fx.ShotEffectCount);
         float scale = p.Scale <= 0f ? 1f : p.Scale;
         var tint = RaceTint(w.Wargear, p.Name);
+        bool kraken = KrakenShot(w.Wargear, p.Name, shooter);   // fx/weapon-visuals: Kraken Bolts' red, larger tracer
+        if (kraken) tint = KrakenTint;
         float headSpeed = TracerHeadSpeed(p.Name);
         Vector3? join = null;
         // fx/tracers-impact: one straight line from the muzzle to the end point (where the impact and its decal are painted); --bent-bullets: the bend onto the ray of feel/bullets.
@@ -180,8 +182,8 @@ public partial class NetworkView
             // leg, a few metres crossed in a few milliseconds, as a pooled streak outside the effect pool.
             _bulletsBent++;
             var e1 = fx.Play(p.Name, join.Value, AxesFromY((end - join.Value).Normalized()), scale, target: end, lifetime: p.Lifetime, delay: d1 / speed, priority: 1, tint: tint, smokeRein: SmokeRein);
-            if (e1 is not null) { _fxTracers++; e1.HeadSpeed = speed; ThinBoltTracer(e1, p.Name); }
-            StreakAdd(from, join.Value, join.Value, speed);
+            if (e1 is not null) { _fxTracers++; e1.HeadSpeed = speed; ThinBoltTracer(e1, p.Name, kraken); }
+            StreakAdd(from, join.Value, join.Value, speed, kraken ? KrakenTint : null);
             BulletDebugAdd(own, rayOrigin, end, from, join);
             return travel;
         }
@@ -215,7 +217,7 @@ public partial class NetworkView
                 // fx/plasma-tracers-safe-mode's mitigation kept (ours): in the Compatibility renderer a thin pooled streak in the data tracer's smoke colour under the data tracer.
                 if (PlasmaBolt.UsesPooledStreak(SafeMode.Compatibility)) { var (r, g, b) = PlasmaOriginalLook.SafeStreakColour(PlasmaColour.IsChaosPlasma(w.Wargear)); StreakAdd(from, end, end, speed > 0f ? speed : FallbackStreakSpeed, new Color(r, g, b, 1f), bolt: true); }
             }
-            ThinBoltTracer(straight, p.Name);
+            ThinBoltTracer(straight, p.Name, kraken);
             if (bolt) { straight.TracerWidthScale = PlasmaBolt.WidthScale; straight.TracerTrailScale = PlasmaBolt.TrailScale; _plasmaBolts++; }
         }
         BulletDebugAdd(own, rayOrigin, end, from, null);
