@@ -604,6 +604,7 @@ public partial class NetworkView
         if (CmdFlag("tfw-weight-capture")) { await TfwWeightCapture(); return; }   // musou weight pass (2026-11-10): the baseline moves (Tfw/NetworkView.TfwWeightCapture.cs)
         if (CmdFlag("tfw-arc-capture")) { await TfwArcCapture(); return; }   // musou swing arc (2026-11-10): before / after stills (Tfw/NetworkView.TfwArcCapture.cs)
         if (CmdFlag("tfw-sound-capture")) { await TfwSoundCapture(); return; }   // musou/sound-ab (2026-11-10): the same short fight for each clip of the sound A/B (Tfw/NetworkView.TfwSoundCapture.cs)
+        if (CmdFlag("tfw-bay-capture")) { await TfwBayCapture(); return; }   // the troop bay's wall assets used through the real keys (Tfw/Bay/NetworkView.TfwBayCapture.cs)
         if (CmdFlag("tfw-test-capture")) { await TfwTestCapture(); return; }
         var start = TfwNow;
         TfwCheck("the reserves are the run's", start.Transport == TfwBattleRules.StartTransport && start.Supplies == TfwBattleRules.StartSupplies, $"{start.Transport}, {start.Supplies}");
