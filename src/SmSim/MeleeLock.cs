@@ -428,7 +428,7 @@ public static class MeleeLock
     public static Phase PhaseOf(in PlayerState s, PlayerInput input, SimConfig c)
     {
         if (s.Rush == RushPhase.Rush) return Phase.Rush;
-        bool heavy = (input.Buttons & InputButtons.MeleeHeavy) != 0 && !s.MeleeHeavyHeld;
+        bool heavy = ((input.Buttons & InputButtons.MeleeHeavy) != 0 && !s.MeleeHeavyHeld) || ChargeCancel.SprintMeleeStarts(c, s, input, (input.Buttons & InputButtons.Melee) != 0 && !s.MeleeHeld);   // sim/sprint-melee-charge: Shift + W + a light press charges
         if (heavy && s.Rush == RushPhase.None && s.RushLock <= 1 && Loadouts.Rush(c, s) is { } rush && Rush.CanStart(s, input, rush, c)) return Phase.RushStart;
         return s.MeleeStep > 0 ? Phase.Melee : Phase.MeleeStart;
     }

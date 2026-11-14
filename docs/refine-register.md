@@ -28,14 +28,14 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3217 spec table rows: **2368 tagged**, 590 not tagged (read from data with high confidence), 259 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 720 rows of the changes document.
+Scanned 3226 spec table rows: **2375 tagged**, 592 not tagged (read from data with high confidence), 259 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 722 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
 | Movement (critical) | 411 | 350 | 348 | 119 | 12 |
 | Combat core (critical) | 17 | 7 | 15 | 14 | 9 |
 | Weapons (critical) | 121 | 73 | 106 | 54 | 3 |
-| Melee (critical) | 149 | 131 | 110 | 53 | 5 |
+| Melee (critical) | 156 | 135 | 113 | 56 | 5 |
 | Jump pack (critical) | 85 | 77 | 69 | 19 | 0 |
 | Charge (critical) | 61 | 51 | 49 | 25 | 0 |
 | Reactions (critical) | 25 | 22 | 23 | 12 | 0 |
@@ -53,15 +53,15 @@ Scanned 3217 spec table rows: **2368 tagged**, 590 not tagged (read from data wi
 | Core simulation (provisional values) | 701 | 661 | 501 | 181 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 248 | 237 | 133 | 68 | 0 |
-| **All areas** | **2368** | 2093 | 1758 | 732 | 38 |
+| **All areas** | **2375** | 2097 | 1761 | 735 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1378 |
+| kind: ours | 1382 |
 | confidence: low | 840 |
-| confidence: medium | 789 |
+| confidence: medium | 792 |
 | notes: ours | 415 |
 | kind: interpretation | 383 |
 | notes: estimate | 198 |
@@ -73,7 +73,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | kind: choice | 38 |
 | section: provisional | 38 |
 | section: placeholder | 35 |
-| notes: user's knowledge | 27 |
+| notes: user's knowledge | 30 |
 | kind: approximation | 25 |
 | notes: interpretation | 25 |
 | kind: placeholder | 22 |
@@ -1001,7 +1001,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-63D5DA0C` | Magazine returns | at the load tag or when the left hand is back at the weapon, whichever is later (never before the magazine left): bolter tag 0.30, hand 0.35 (`RIG_L_Hand` 0.15 m from the magazine at its closest, 1.13 m at its furthest, away from 0.11 to 0.35) → 0.35; stalker… (fraction of the clip) | kind: interpretation; confidence: medium | clip, skeleton, weapon mount | Magazine returns: compare with SM1 by feel or video. Ours: at the load tag or when the left hand is back at the weapon… | ☐ |
 | `R-125B93CF` | Dropped magazine physics | a `RigidBody3D` (layer none, mask: the level) with a box the size of the mesh, mass 0.4 kg, friction 0.7, bounce 0.3, linear damping 0.05, angular 0.6; initial velocity = the carrier's velocity + up to 0.6 m/s sideways (0.12 up) + up to 5 rad/s spin… (kg, m/s, rad/s, s) | kind: placeholder; confidence: none (low); notes: ours | ours | Dropped magazine physics: compare with SM1 by timing a run over a known distance. Ours: a RigidBody3D (layer none, mask: the level) with a box the size of… | ☐ |
 
-### Melee (gameplay-critical) (149)
+### Melee (gameplay-critical) (156)
 
 *Spec section: Melee flow, the hammer in both hands and the transitions pass (anim/melee-flow; client only, not simulated, no protocol change)*
 
@@ -1268,6 +1268,18 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-213E41CE` | The 1 s spacing (reading) | the spacing (`min_time_between_activations`, 1 s from one charge's start) applies only between two charges with no melee attack between them: any melee attack that starts (a light swing, a combo's next attack, a heavy strike) lifts it at once, so charge >… (s) | kind: ours; notes: estimate | ours (owner's wording) | The 1 s spacing (reading): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the spacing (min_time_between_activations, 1 s from one charge's… | ☐ |
 | `R-FBE0C386` | Musou melee spam | in Musou Mode a light attack has no cooldown, no wait and no combo window: a press after the swing's hit has landed starts a new swing on that tick (a random other swing of the weapon's chain, as before), a press before the hit queues the next swing for the… | confidence: medium; notes: ours | owner 2026-11-12 | Musou melee spam: compare with SM1 by feel or video. Ours: in Musou Mode a light attack has no cooldown, no wait and no combo… | ☐ |
 | `R-D9F3D825` | Restore switches | `--old-charge-melee-chain` (every client and the server; config hash only when on): the protocol 69 rules; `--musou-melee-cooldown` (Musou; hashed in Musou's block only when on): the earlier Musou melee rule | kind: ours | ours | Restore switches: compare with SM1 by feel or video. Ours: --old-charge-melee-chain (every client and the server; config hash… | ☐ |
+
+*Spec section: A light press while sprinting charges, and a light press cancels a ledge charge's momentum (sim/sprint-melee-charge and sim/ledge-charge-cancel; protocol 77, used by the simulation; the first Classic PvP only, the second every mode)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-95637A58` | A light press while sprinting | a fresh light melee press (RMB) with Sprint (Shift) and W held (the stick's forward part at least 0.7, A or D allowed), on the ground with no melee attack, evade, jump-pack phase or reaction under way, is the charge (the same charge as Shift + W + F: its… | notes: user's knowledge | owner's recollection 2026-11-15 | A light press while sprinting: compare with SM1 by feel or video. Ours: a fresh light melee press (RMB) with Sprint (Shift) and W held (the… | ☐ |
+| `R-4C76BA3F` | Refused charge, no swing | when the charge cannot start (the 1 s spacing, a swing under way whose hit has not landed) the press does nothing; it waits in the input buffer (0.3 s, an estimate) and swings if Shift is let go inside it, or charges once allowed. The charge-from-a-swing rule… | kind: ours; confidence: medium | ours (the heavy press's rule applied to the light press) | Refused charge, no swing: compare with SM1 by feel or video. Ours: when the charge cannot start (the 1 s spacing, a swing under way… | ☐ |
+| `R-761DD552` | Shift let go, W held | with Sprint not held the same press is the light swing, on that very tick: no recovery, wait or sprint-stop delay is added | notes: user's knowledge | owner's recollection 2026-11-15 | Shift let go, W held: compare with SM1 by feel or video. Ours: with Sprint not held the same press is the light swing, on that very… | ☐ |
+| `R-9F43A182` | A light press mid charge | unchanged (protocol 70): it ends the bull rush and swings at once, so charge > swing > charge chains still work without letting go of Shift. Reading: the owner's 2026-11-12 request is explicit for a charge under way; his 2026-11-15 rule is read for the press… | kind: ours; confidence: medium | ours (reading) | A light press mid charge: compare with SM1 by feel or video. Ours: unchanged (protocol 70): it ends the bull rush and swings at once, so… | ☐ |
+| `R-84468218` | The ledge cancel | a light press (any tick, any class that charges) in a charge held in the air zeroes its horizontal velocity on that tick (the vertical fall is kept) and ends the charge; the first swing starts the same tick and steps in the stick's way of eight (W forward, A… (m/s, -) | notes: user's knowledge | owner's recollection 2026-11-15 | The ledge cancel: compare with SM1 by timing a run over a known distance. Ours: a light press (any tick, any class that charges) in a charge held in… | ☐ |
+| `R-04F5F3EE` | The step's length | the swing's own root-motion step and lock-on lunge (the weapon's data, the lunge scale), unchanged; no extra carry (m) | kind: ours; confidence: medium | ours | The step's length: compare with SM1 by measuring on a flat spot of the same map. Ours: the swing's own root-motion step and lock-on lunge (the weapon's… | ☐ |
+| `R-468F5688` | Restore switches | `--old-sprint-melee`, `--old-ledge-cancel` (every client and the server; config hash only when on) | kind: ours | ours | Restore switches: compare with SM1 by feel or video. Ours: --old-sprint-melee, --old-ledge-cancel (every client and the server… | ☐ |
 
 *Spec section: Hop rules: the ledge jump after a charge, the hop cutting the melee wait, the hop out of the aerial tackle (sim/hop-rules; protocol 72, used by the simulation; Assault Marine and Raptor)*
 
@@ -4281,6 +4293,8 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-119588AB` | Dash attack meets walls (feel/jump-pack-2) | The lunge's wall test starts at its `WallCollisionTest` (0.300 s) and takes walls within the sprint's 25 degrees of head-on: earlier walls block, glancing ones are slid along | Walls stop the lunge from its first tick and within 60 degrees of head-on, into the data's wall state (`SM_NAV_Bullrush2Idle_F_Collision_01`, the bull rush's connect clip); ours: a small camera knock | Owner's request 2026-10-29 ("he should collide with walls and play the same 'impact ricochet' animation"); the 60 degrees ours; spec as above | Dash attack meets walls (feel/jump-pack-2): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-D6A92489` | Shorter landing and dash-attack locks (feel/jump-pack-2) | The jump-pack landings' `BRANCH_Run` / `BRANCH_Jump_To_Jump` (0.333 / 0.132 s run landing, 0.462 / 0.277 s idle) and the dash attack's after-states' branch times | All × `SimConfig.ActionLockScale` (0.7, the one setting of feel/locks-sprint-stop's "Shorter action locks"): landings 0.233 / 0.093 and 0.323 / 0.194 s; the dash attack's wall stop takes Jump from 0.467 s; the pound's get-up and the slash's recovery kept | Owner's request 2026-10-29 ("i generally feel too locked out of movement ... mark that as a estimation for later review"): an **estimate to review**; spec as above | Shorter landing and dash-attack locks (feel/jump-pack-2): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-3631B221` | Shorter action locks (feel/locks-sprint-stop) | The data's branch times: a melee attack lets the stick move the body from its `BRANCH_Melee_Run` / `_Draw_Run` (knife 0.78 to 0.93 s), a roll from 0.667 s, the heavy hop from 0.452 s, a reaction's stick and Jump branches (stun 0.333 s to Jump), the bull rush's stick 0.667 s and Jump 0.5 s; evades 0.8 s apart; a throw… | Every time that gates moving, jumping or evading out of an action × **0.7** (`SimConfig.ActionLockScale`): melee `MoveAt` and the evade branch, the roll's and hop's stick and next-evade branches and the dash landing's (not the evade's cooldown, the data's 0.8 s again since sim/evade-cooldowns), a reaction's stick and… | Owner's request 2026-10-29 ("i generally feel too locked out of movement.. reduce generally the animation timings so i can jump or hop out of things more easily. mark that as a estimation for later review"); 0.7 is an **estimate (owner's request)** to review; spec "Action lock scale and the sprint stop" | Shorter action locks (feel/locks-sprint-stop): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
+| `C-1B1DDD72` | A light press while sprinting charges (sim/sprint-melee-charge, protocol 77; Classic PvP) | RMB with Shift + W held swings (the charge was Shift + W + F only) | RMB with Shift + W held is the charge; the swing needs Shift let go (then at once); a press mid charge still cancels into the swing (protocol 70); Musou unchanged | Owner's recollection 2026-11-15 ("when sprinting a right click should charge not melee attack (tac and asm)"); the buffered replay of a refused press and the mid-charge reading ours; restore `--old-sprint-melee`; spec "A light press while sprinting charges" | A light press while sprinting charges…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
+| `C-940DB392` | A light press cancels a ledge charge's momentum (sim/ledge-charge-cancel, protocol 77; every mode) | a light press in a charge held in the air ended the charge but the horizontal speed went on as normal air movement | the press zeroes the horizontal momentum at once and the swing steps the stick's way of eight (the view with no stick) in the air | Owner's recollection 2026-11-15 ("cancel the forward momentum at any time with a melee light combo attack ... step forward in the direction they are inputting"); the step's length is the swing's own data (ours); restore `--old-ledge-cancel`; spec as above | A light press cancels a ledge charge's momentum…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-BAB4D237` | Getting shot blends (anim/reaction-blend) | The additive hit flinch (0.2 s) is laid at full weight and ends at its last frame (our reading) | The flinch eases in over 0.05 s (ours) and out over 0.333 s after its clip, the conduit's 'Standard Blend' (owner's item 49, 2026-10-30) | The owner's playtest: the end snapped back to standing | Getting shot blends (anim/reaction-blend): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-4A68EE45` | Jump out of a melee attack (feel/locks-sprint-stop) | Not simulated: a melee attack blocked every evade and jump-pack take-off until it ended (knife light 1.43 to 1.93 s; our reading until now) | A Jump press from the attack's `BRANCH_Evade` (read from each attack's sequencer: knife light 0.48 / 0.47 / 0.60 s) ends the attack and rolls, hops or takes off in that tick; the branch × 0.7 (above), but never before the attack's hit lands when the data opens it after the hit | The data's tag (extracted); the mapping (Jump ends the attack) interpretation, as for the evade's and the reactions' branches; brought in by the owner's request above; spec "Action lock scale and the sprint stop" | Jump out of a melee attack (feel/locks-sprint-stop): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-7B51C356` | Sprint stop (feel/locks-sprint-stop) | The ground acceleration rule: letting go of the keys at sprint speed stops the body in 0.16 to 0.25 s and 0.5 to 1.25 m; the original's sprint-to-idle clip (`SM_NAV_Bullrush2Idle_F_01`, 5.79 m of root motion over 1.2 s, `BRANCH_Sprint_Finished` 0.833 s) could not be played on it | With every movement key let go after a sprint (faster than run + 0.25 × (sprint − run)) the body slows along its velocity, v² falling at a constant rate from at most sprint speed so that a stop from sprint speed lasts **0.833 s** (the clip's `BRANCH_Sprint_Finished`) and covers 2/3 × 9 × 0.833 = **5.0 m** (the clip:… | Owner's request 2026-10-29 ("a 'slowdown' when you stop sprinting where an animation plays of the character model slowing down from the sprint back to a stop, if movement keys are let go of entirely"); the curve and the cancels ours, the time from the data; spec "Action lock scale and the sprint stop" | Sprint stop (feel/locks-sprint-stop): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |

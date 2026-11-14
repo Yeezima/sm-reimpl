@@ -455,17 +455,31 @@ public static class Combat
             // feel/melee-cancels (protocol 54): a melee press ends the hop or the bull rush and swings at once; the swing after it waits for the cancelled clip's end (MeleeCancel).
             // charge-melee-chain (protocol 70; the owner 2026-11-12: "if I charge, then right click for melee light attack mid charge, it should happen immediately"): a light press ends the bull rush on that very
             // tick (any class, any tick of it, its last included) and the swing starts at once, with no wait after it (MeleeCancel's cancel wait and the melee wait both skipped).
-            if (meleePress && ChargeCancel.MeleeEndsCharge(c, s) && Loadouts.Melee(c, s).Count > 0) { s = Rush.Cleared(s); cancelStart = true; }
+            // sim/sprint-melee-charge (protocol 77; the owner's recollection 2026-11-15, Classic PvP): a light press with Shift and W held on the ground is a charge press, never a swing (the swing needs Shift let go).
+            bool sprintCharge = ChargeCancel.SprintMeleeStarts(c, s, input, meleePress);
+            // sim/ledge-charge-cancel (protocol 77; the owner's recollection 2026-11-15, every mode): a light press in a charge held in the air (off a ledge) ends the charge's momentum at once; the swing's step goes the stick's way (the view without one).
+            if (meleePress && ChargeCancel.MeleeEndsCharge(c, s) && Loadouts.Melee(c, s).Count > 0)
+            {
+                bool ledge = ChargeCancel.LedgeCancels(c, s);
+                s = Rush.Cleared(s);
+                if (ledge) s = s with { Velocity = new Vector3(0f, 0f, s.Velocity.Z) };
+                cancelStart = true;
+            }
             else if (MeleeCancel.Apply(s, c, meleePress, jumpPressed || jumpEscape, world) is { } cancel) { s = cancel.State; cancelLock = cancel.Lock; cancelStart = meleePress; }
             // charge-responsive (protocol 69; the owner 2026-11-12): a charge press once the attack under way has hit ends the attack and its combo and charges at once; the melee wait ends with it.
-            if (heavyPress && ChargeCancel.CanChargeFromMelee(c, s) && Loadouts.Rush(c, s) is { } meleeRush && s.RushLock == 0)
+            if ((heavyPress || sprintCharge) && ChargeCancel.CanChargeFromMelee(c, s) && Loadouts.Rush(c, s) is { } meleeRush && s.RushLock == 0)
             {
                 var ended = s with { MeleeStep = 0, MeleeTime = 0f, MeleeQueued = false, MeleeHeavy = false, MeleeQueuedHeavy = false, MeleeLock = 0f };
                 if (Rush.CanStart(ended, input, meleeRush, c)) s = ended;
             }
             var rushBefore = s;
-            var rush = Rush.Begin(s, input, c, heavyPress, jumpPressed, meleePress, other, world);
+            var rush = Rush.Begin(s, input, c, heavyPress || sprintCharge, jumpPressed, meleePress, other, world);
             (rushing, rushHeld, s) = (rush.Active, rush.Held, rush.State);
+            if (sprintCharge)
+            {
+                if (rush.Started) used |= InputBuffer.Bit(BufferedAction.Melee);   // the press was the charge
+                else if (!rush.Active) meleePress = false;   // refused (spacing, a swing under way): no swing; the press waits in the input buffer for Shift to be let go or the charge to be allowed
+            }
             // A charge ended this tick by the stick, a grenade, Jump or melee before its clip's end is still the charge's tick: the trigger fires nothing in it.
             fireDropped = !rushing && rushBefore.Rush != RushPhase.None && Loadouts.Rush(c, rushBefore) is not null && Rush.MoveOf(c, rushBefore) is { } endMove
                 && Rush.Time(rushBefore, c) + 1e-5f < endMove.End;
@@ -1020,7 +1034,8 @@ public static class Combat
         // horizontally: the carried speed in the state's velocity rides on until the ground, plus the swing's own step or lock-on lunge (as on the ground, while its motion runs);
         // gravity brings the body down from where it was (the cancel kept no upward speed).
         Vector2? airCarry = null;
-        if (meleeGlide is null && step > 0 && !s.Grounded && pack is not null && evadeSpec is { Dash: true } && !reacting && !rushing && !evading
+        // sim/ledge-charge-cancel (protocol 77): a charging class's swing in the air rides the same way (after a ledge charge the carried speed is zero: the step alone moves the body).
+        if (meleeGlide is null && step > 0 && !s.Grounded && ((pack is not null && evadeSpec is { Dash: true }) || (c.LedgeChargeCancel && Loadouts.Rush(c, s) is not null)) && !reacting && !rushing && !evading
             && jump.Phase == JumpPhase.None && !jump.Started && !steps[step - 1].InPlace)
         {
             var carry = new Vector2(s.Velocity.X, s.Velocity.Y);

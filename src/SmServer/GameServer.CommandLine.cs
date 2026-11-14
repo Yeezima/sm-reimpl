@@ -69,6 +69,10 @@ public sealed record ServerArguments
     public bool OldStompRelease { get; init; }
     /// <summary>sim/kick-push (restore switch): the heavy classes' kick pushes with the data's full knockback (<see cref="SimConfig.KickPushCut"/>; config hash: clients need it too).</summary>
     public bool OldKickPush { get; init; }
+    /// <summary>sim/sprint-melee-charge (restore switch): a light press while sprinting swings (<see cref="SimConfig.SprintMeleeCharge"/>; config hash: clients need it too).</summary>
+    public bool OldSprintMelee { get; init; }
+    /// <summary>sim/ledge-charge-cancel (restore switch): a light press keeps a ledge charge's momentum (<see cref="SimConfig.LedgeChargeCancel"/>; config hash: clients need it too).</summary>
+    public bool OldLedgeCancel { get; init; }
     /// <summary>musou/melee-spam (restore switch): Musou Mode keeps the melee waits (<see cref="SimConfig.MusouMeleeCooldown"/>; config hash: clients need it too).</summary>
     public bool MusouMeleeCooldown { get; init; }
     /// <summary>musou/melee-heal-cap (restore switch): no cap of 3 heals per melee swing in Musou Mode (<see cref="SimConfig.MusouUncappedMeleeHeal"/>; config hash: clients need it too).</summary>
@@ -121,6 +125,8 @@ public static class ServerCommandLine
           --old-charge-after-melee      switch: restore: a charge waits for a melee attack under way to end (clients need --old-charge-after-melee too)
           --old-charge-cancel-delay     switch: restore: S cancels the charge only from the rush's stick branch, about 0.47 s in (clients need --old-charge-cancel-delay too)
           --old-charge-melee-chain     switch: restore: no instant melee cancel of a charge and no spacing reset by a melee attack (clients need --old-charge-melee-chain too)
+          --old-sprint-melee           switch: restore: a light press while sprinting swings instead of charging (clients need --old-sprint-melee too)
+          --old-ledge-cancel           switch: restore: a light press keeps a ledge charge's momentum (clients need --old-ledge-cancel too)
           --old-hop-rules              switch: restore: no ledge jump after a charge, no shortening of the melee wait by a hop, no hop out of the aerial tackle (clients need --old-hop-rules too)
           --old-stomp-release          switch: restore: the Devastator's and Havoc's stomp locks them to the end of its clip instead of 1.2 s (clients need --old-stomp-release too)
           --musou-melee-cooldown       switch: restore: Musou Mode melee keeps the combo waits instead of spam (clients need --musou-melee-cooldown too)
@@ -173,6 +179,8 @@ public static class ServerCommandLine
                     "--old-hop-rules" => a with { OldHopRules = true },
                     "--old-stomp-release" => a with { OldStompRelease = true },
                     "--old-kick-push" => a with { OldKickPush = true },
+                    "--old-sprint-melee" => a with { OldSprintMelee = true },
+                    "--old-ledge-cancel" => a with { OldLedgeCancel = true },
                     "--musou-melee-cooldown" => a with { MusouMeleeCooldown = true },
                     "--musou-uncapped-melee-heal" => a with { MusouUncappedMeleeHeal = true },
                     "--old-stim-use" => a with { OldStimUse = true },
