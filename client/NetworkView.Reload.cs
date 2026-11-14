@@ -29,6 +29,8 @@ namespace SmClient;
 /// </summary>
 public partial class NetworkView
 {
+    /// <summary>sim/lascannon-tap-reload: the remote reload time (0.4 s for the lascannon tap rule), cached so the inference allocates no delegate per frame.</summary>
+    Func<WeaponSpec, float>? _lascannonReloadTime;
     bool NoReload => _noReload ??= OS.GetCmdlineUserArgs().Contains("--no-reload");
     bool? _noReload;
 
@@ -232,7 +234,8 @@ public partial class NetworkView
     {
         if (!s.Alive || s.ReloadLeft <= 0f || Loadouts.InHand(_config!, s) is not { } weapon || ReloadClipOf(weapon, data) is not { } clip) return null;
         int index = Loadouts.WeaponIndex(_config!, s, s.Slot);
-        return (clip, index, weapon.ReloadTime, Math.Clamp(weapon.ReloadTime - s.ReloadLeft, 0f, weapon.ReloadTime));
+        float total = LascannonTapTuning.Time(_config!, weapon);   // sim/lascannon-tap-reload: the normal clip time-scaled to 0.4 s
+        return (clip, index, total, Math.Clamp(total - s.ReloadLeft, 0f, total));
     }
 
     // ------------------------------------------------------------------ other players: inferred from their shots
@@ -258,7 +261,7 @@ public partial class NetworkView
         t.HipShotsSeen = counted;
         if (projectiles > 0 && Loadouts.WeaponIndex(_config!, s, s.Slot) is var inHand && inHand >= 0 && _config!.Weapons[inHand].Delivery == DeliveryKind.Projectile)
             for (int i = 0; i < projectiles; i++) _inferShots.Add(new ReloadInference.Shot(inHand, _config.Weapons[inHand].AmmoPerShot, 0));
-        var inferred = t.Inference.Update(_config!.Weapons, w => ReloadClipOf(_config.Weapons[w], data) is not null, _inferShots, s.Alive, busy, (int)s.Slot, _connectedFor, delta, _config.TickSeconds);
+        var inferred = t.Inference.Update(_config!.Weapons, w => ReloadClipOf(_config.Weapons[w], data) is not null, _inferShots, s.Alive, busy, (int)s.Slot, _connectedFor, delta, _config.TickSeconds, _lascannonReloadTime ??= wp => LascannonTapTuning.Time(_config!, wp));
         return inferred is { } x && ReloadClipOf(_config.Weapons[x.Weapon], data) is { } clip ? (clip, x.Weapon, x.Total, x.Elapsed) : null;
     }
 

@@ -674,9 +674,9 @@ public partial class NetworkView
         if (wf is not null && s.Overheated && !p.Overheated && s.Slot == p.Slot) PostAll(wf.Of("overheat"), t.Emitter, true, "overheat");
         // A reload that ended early (switch or death since sim/reload-keeps: slot changed, dead, or the time left was more than a tick) is cancelled: its pending sounds drop and a new reload plays normally.
         if (p.ReloadLeft > 0f && (s.Slot != p.Slot || !s.Alive || (s.ReloadLeft <= 0f && p.ReloadLeft > c.TickSeconds * 1.5f))) _ownReloadSounds.Cancel((int)p.Slot);
-        if (wf is not null && weapon is not null && s.ReloadLeft > 0f && p.ReloadLeft <= 0f && s.Slot == p.Slot && _ownReloadSounds.Start((int)s.Slot, _connectedFor, Math.Max(0.1f, weapon.ReloadTime)) is int instance)
+        if (wf is not null && weapon is not null && s.ReloadLeft > 0f && p.ReloadLeft <= 0f && s.Slot == p.Slot && _ownReloadSounds.Start((int)s.Slot, _connectedFor, Math.Max(0.1f, LascannonTapTuning.Time(c, weapon))) is int instance)
         {
-            float length = Math.Max(0.1f, weapon.ReloadTime);
+            float length = Math.Max(0.1f, LascannonTapTuning.Time(c, weapon));
             int slotKey = (int)s.Slot;
             // ui/hud-camera-2 (owner, 2026-10-30): one reload, one set of sounds. A start seen again before the sounds' time is over (a press during the reload, a prediction
             // corrected by a snapshot that replays the press) schedules nothing.

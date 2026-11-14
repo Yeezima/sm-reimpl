@@ -104,6 +104,7 @@ if (cli.OldChargeCancelDelay) config = config with { ChargeInstantCancel = false
 // charge-melee-chain (protocol 70): --old-charge-melee-chain and --musou-melee-cooldown (restore switches; config hash).
 if (cli.OldChargeMeleeChain) config = config with { ChargeMeleeChain = false };
 if (cli.OldHopRules) config = config with { HopRules = false };   // sim/hop-rules (protocol 72): restore switch, config hash
+if (cli.OldLascannonReload) config = config with { LascannonTapReload = false };   // sim/lascannon-tap-reload (protocol 78): restore switch, config hash
 if (cli.OldKickPush) config = config with { KickPushCut = false };   // sim/kick-push (2026-11-14): restore switch, config hash
 if (cli.OldSprintMelee) config = config with { SprintMeleeCharge = false };   // sim/sprint-melee-charge (protocol 77): restore switch, config hash
 if (cli.OldLedgeCancel) config = config with { LedgeChargeCancel = false };   // sim/ledge-charge-cancel (protocol 77): restore switch, config hash

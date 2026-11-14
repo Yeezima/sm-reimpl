@@ -478,6 +478,7 @@ public partial class NetworkView
     /// </summary>
     bool DeathCamera(PlayerState me, float delta)
     {
+        _lascannonScope = 0f;   // sim/lascannon-steady-zoom: no scope while dead
         if (_camera is null || _gameSpace is null || Spectate is not null) return false;
         if (me.Alive)
         {

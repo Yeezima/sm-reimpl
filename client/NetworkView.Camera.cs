@@ -139,6 +139,7 @@ public partial class NetworkView
     /// </summary>
     bool RigCamera(PlayerState me, float delta)
     {
+        _lascannonScope = 0f;   // sim/lascannon-steady-zoom: recomputed below; never left stale when the rig returns early
         _cameraPlacedValid = false;   // feel/controls: set again by NoteCameraPlaced when the rig places the camera this frame
         if (_camera is null || _gameSpace is null || _config is null || _cameraRig is null || CameraFor(me) is not { } wc) return false;
         var ex = wc.Exploration; var aim = wc.Aim;
@@ -330,8 +331,24 @@ public partial class NetworkView
         var aimGame = Combat.AimDirection(_yaw, pitch);
         var look = (_gameSpace.Basis * new Vector3(aimGame.X, aimGame.Y, aimGame.Z)).Normalized();
         // camera/hop-and-walls: the crosshair stays on the world point the uncollided rig camera looks at while the boom is short (CameraBoom.StableLook, NetworkView.CameraAim.cs).
+        var plainLook = look;
         var focusPoint = OldCameraCollision && !CameraTest ? position : RigFocusPoint(wanted, look, head, delta);   // the extra cast only where it is used
-        if (!OldCameraCollision) look = StableLook(wanted, position, look);
+        // sim/lascannon-steady-zoom (owner 2026-11-15: "no bob when zoomed in - just a steady stable crosshair"): the scoped weapons' (lascannon, stalker bolter: the one ZoomFovs switch) zoomed view looks
+        // exactly along the view (yaw, pitch): the focus-point turn (StableLook) re-aims the camera as the walking body moves it and the boom's wall casts re-place it, which at the scope's narrow field of view
+        // shows as the crosshair swaying. The turn fades out with the scope's blend (w).
+        // The lascannon only (owner asked for it alone): the scoped look is the plain view, whatever --old-camera-collision says (the stable look below is skipped under it, and then the old camera's own look stays).
+        _lascannonScope = scoped && Loadouts.InHand(_config, me) is { } inHand && LascannonTapTuning.IsLascannon(inHand) ? w : 0f;
+        if (!OldCameraCollision)
+        {
+            var stable = StableLookOf(wanted, position, look);
+            look = new Vector3(stable.X, stable.Y, stable.Z);
+        }
+        if (_lascannonScope > 0f)
+        {
+            var scopedLook = CameraBoom.ScopedLook(new System.Numerics.Vector3(look.X, look.Y, look.Z), new System.Numerics.Vector3(plainLook.X, plainLook.Y, plainLook.Z), _lascannonScope);
+            look = new Vector3(scopedLook.X, scopedLook.Y, scopedLook.Z);
+        }
+        look = look.Normalized();
         _camera.GlobalTransform = new Transform3D(Basis.LookingAt(look, Vector3.Up), position);
         if (CameraTest) CameraTestCost(System.Diagnostics.Stopwatch.GetTimestamp() - castsFrom);
         CameraTestNote(me, position, wanted, look, (focusPoint - position).Cross(look).Length());   // --camera-test (NetworkView.CameraTest.cs)
