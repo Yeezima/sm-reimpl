@@ -49,7 +49,7 @@ public partial class MapView : Node3D
         // Group world transforms by (mesh, block, mirrored, casts shadows), remembering which placements each group draws.
         var groups = new Dictionary<(string Mesh, int Block, bool Mirrored, bool Shadows), List<(Transform3D Transform, int Object)>>();
         var decorHidden = MapDecor.Hidden(scene);   // fix/manufactorum-fluorescent: the olive boards and salmon fittings are not drawn
-        if (decorHidden.Count > 0) notes.Add($"{decorHidden.Count} placements of the armoury wall stations are not drawn (owner's request 2026-11-04; --old-armoury-racks draws them)");
+        if (decorHidden.Count > 0) notes.Add($"{decorHidden.Count} placements of Manufactorum's wall stations and salmon fittings are not drawn (owner's requests 2026-11-04, 2026-11-07, 2026-11-14; --old-armoury-racks draws them)");
         for (int o = 0; o < scene.Objects.Count; o++)
         {
             if (decorHidden.Contains(o)) continue;

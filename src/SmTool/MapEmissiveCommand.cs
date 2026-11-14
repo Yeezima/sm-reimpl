@@ -3,7 +3,7 @@ using SmContent;
 namespace SmTool;
 
 /// <summary>
-/// <c>smtool map-emissive &lt;game-dir|auto&gt; [--map mp_tdm_09] [--all] [--where def,def]</c>: every material of a map's placed meshes that has an <c>EmissiveMap</c>, with its
+/// <c>smtool map-emissive &lt;game-dir|auto&gt; [--map mp_tdm_09] [--all] [--where def,def] [--surfaces mesh,mesh]</c>: every material of a map's placed meshes that has an <c>EmissiveMap</c>, with its
 /// <c>EmissiveColor</c>, whether that tint is salmon-red (red at least 0.35 and at least twice green and blue; the olive and green tints are flagged separately),
 /// and for each the surface's mesh, the object definitions that use the mesh and their placement counts (read-only; fix/manufactorum-salmon-2, 2026-11-14).
 /// </summary>
@@ -15,6 +15,21 @@ public static class MapEmissiveCommand
         string map = rest.SkipWhile(a => a != "--map").Skip(1).FirstOrDefault() ?? "mp_tdm_09";
         bool all = rest.Contains("--all");
         var scene = MapScene.Load(gameDir, map);
+        if (rest.SkipWhile(a => a != "--surfaces").Skip(1).FirstOrDefault() is { } surf)
+        {
+            // every material range of the named meshes (nearest-LOD blocks as drawn): material, triangles, share of the block's triangles
+            foreach (var name in surf.Split(','))
+            {
+                if (!scene.Meshes.TryGetValue(name, out var m)) { Console.WriteLine($"{name}: not in the scene"); continue; }
+                for (int b = 0; b < m.Blocks.Count; b++)
+                {
+                    int total = m.Blocks[b].Materials.Sum(r => r.IndexCount / 3);
+                    foreach (var r in m.Blocks[b].Materials)
+                        Console.WriteLine($"{name}[{b}] {r.Name,-24} {r.IndexCount / 3,6} triangles {100.0 * (r.IndexCount / 3) / Math.Max(1, total),5:0.0}%");
+                }
+            }
+            return 0;
+        }
         if (rest.SkipWhile(a => a != "--where").Skip(1).FirstOrDefault() is { } where)
         {
             var names = where.Split(',').ToHashSet(StringComparer.OrdinalIgnoreCase);
