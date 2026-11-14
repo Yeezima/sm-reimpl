@@ -125,6 +125,17 @@ public class StimRegenNowTests
     }
 
     [Fact]
+    public void Respawning_clears_the_waiver()
+    {
+        var c = Make(ContentExtras.None);
+        var s = Combat.Respawned(new PlayerState(1, Vector3.Zero, Vector3.Zero, 0f, true) { Class = 0 }, c);
+        for (int k = 0; k < 20; k++)   // the stim releases at tick 9
+            s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 0f, 0f, k == 0 ? InputButtons.Grenade : InputButtons.None), c, out _);
+        Assert.True(s.HealthRegenWaived);
+        Assert.False(Combat.Respawned(Combat.Killed(s, c), c).HealthRegenWaived);
+    }
+
+    [Fact]
     public void A_stim_never_lengthens_the_delay_and_never_heals_past_the_maximum()
     {
         var c = Make(ContentExtras.None);
