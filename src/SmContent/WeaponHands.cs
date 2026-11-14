@@ -77,4 +77,12 @@ public static class MeleeHolster
     public static bool OnThigh(HandRole role, WeaponSlot shown, bool hasSecond, bool meleeOut, bool away) =>
         meleeOut && !away
         && ((role == HandRole.Primary && shown == WeaponSlot.Ranged) || (role == HandRole.Second && shown == WeaponSlot.Second));
+
+    /// <summary>
+    /// The holster decision for one primary item once <see cref="OnThigh"/> said it leaves the chest prop (fix/ff-weapon-flying review: "no weapon flies ever"): with a thigh spot it hangs
+    /// there; without one (no stow mount in the data, or a model supplied by an extra such as Musou's arsenal) it is simply not in hand, so the rig shows it on its stow marker or not at all, never on the swung chest prop.
+    /// </summary>
+    /// <returns>The item's new in-hand state and whether it is on the thigh.</returns>
+    public static (bool InHand, bool Thigh) Resolve(bool inHand, bool holster, bool hasThighMount) =>
+        holster ? (false, hasThighMount) : (inHand, false);
 }

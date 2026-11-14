@@ -62,4 +62,12 @@ public class MeleeHolsterTests
             }
         }
     }
+
+    [Theory]
+    [InlineData(true, true, true, false, true)]     // thigh spot: hangs there
+    [InlineData(true, true, false, false, false)]   // no stow mount (no thigh spot): out of the hand, not on the chest prop
+    [InlineData(true, false, true, true, false)]    // no strike: unchanged
+    [InlineData(false, true, false, false, false)]
+    public void A_holstered_primary_without_a_thigh_spot_still_leaves_the_hand(bool inHand, bool holster, bool hasThigh, bool wantInHand, bool wantThigh) =>
+        Assert.Equal((wantInHand, wantThigh), MeleeHolster.Resolve(inHand, holster, hasThigh));
 }
