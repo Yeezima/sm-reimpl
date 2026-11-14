@@ -25,6 +25,9 @@ public class PlasmaSoftEdgesTests
     }
 
     [Fact]
+    public void ARibbonSeenEndOnFadesOut() { Assert.Equal(1f, PlasmaSoftEdges.EndOn(0f)); Assert.Equal(1f, PlasmaSoftEdges.EndOn(0.6f)); Assert.Equal(0f, PlasmaSoftEdges.EndOn(1f), 5); }
+
+    [Fact]
     public void AGlowCardHasNoStraightEdge() { Assert.Equal(1f, PlasmaSoftEdges.Radial(0.5f)); Assert.Equal(0f, PlasmaSoftEdges.Radial(1f), 5); }
 
     [Theory]

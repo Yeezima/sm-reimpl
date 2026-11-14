@@ -806,6 +806,7 @@ public sealed partial class FxPlayer : Node3D
             alphaScale = Math.Clamp(angle / MathF.Max(1f, n.FadeAngle), 0f, 1f);
         }
         if (!n.Additive) alphaScale *= e.DustShare;   // musou/autocannon-dust
+        if (e.SoftEdges) alphaScale *= PlasmaSoftEdges.EndOn(MathF.Abs(axis.Dot((mid - _camPos).Normalized())));   // plasma-soft-visuals: a beam seen end-on is a thin straight line
         var colour = Shade(Final(n, t, seed, alphaScale), e);
         // U range: the texture's metres per U, its scroll and offset.
         float u0, u1; int mode;
@@ -916,11 +917,17 @@ public sealed partial class FxPlayer : Node3D
                 width *= round; col = new Color(col.R * round, col.G * round, col.B * round, col.A * round);   // additive: the colour fades too, not only its alpha
             }
             if (e.SoftHead && f > 0.6f) { float fade = MathF.Max(0f, (1f - f) / 0.4f); col = new Color(col.R * fade, col.G * fade, col.B * fade, col.A * fade); }   // the tail fades out too: a young ball's trail ends where it was launched, not as a cut-off rectangle
-            if (e.SoftEdges) { float tail = PlasmaSoftEdges.Ribbon(f); col = new Color(col.R * tail, col.G * tail, col.B * tail, col.A * tail); }   // plasma-soft-visuals: the ribbon fades in from its head and out toward its tail
+            if (e.SoftEdges) { float tail = PlasmaSoftEdges.Ribbon(f) * PlasmaSoftEdges.EndOn(MathF.Abs(ax.Dot((mid - _camPos).Normalized()))); col = new Color(col.R * tail, col.G * tail, col.B * tail, col.A * tail); }   // plasma-soft-visuals: the ribbon fades in from its head and out toward its tail
             float u0 = u, u1 = n.MeterPerU > 0.001f ? u + len / n.MeterPerU : (j + 1f) / N;
             if (n.MeterPerU <= 0.001f) u0 = (float)j / N;
             u = u1;
-            if (_batch.Add(n.Additive, mid, d, side * width, col, rect, u0, u1, 1, FxBatch.QuadKind.AxisBillboard, neutral)) _frameQuads++;
+            if (e.SoftEdges && _batch.SoftEdge)
+            {
+                // plasma-soft-visuals: each step is drawn twice as long with a tent fade along it, so neighbouring steps (each one width, one colour) cross-fade instead of meeting in a straight line.
+                float du = (u1 - u0) * 0.5f;
+                if (_batch.Add(n.Additive, mid, d * 2f, side * width, col, rect, u0 - du, u1 + du, 1, FxBatch.QuadKind.AxisBillboard, neutral, tent: true)) _frameQuads++;
+            }
+            else if (_batch.Add(n.Additive, mid, d, side * width, col, rect, u0, u1, 1, FxBatch.QuadKind.AxisBillboard, neutral)) _frameQuads++;
         }
     }
 

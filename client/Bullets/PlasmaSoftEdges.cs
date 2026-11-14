@@ -49,6 +49,9 @@ public static class PlasmaSoftEdges
     /// <summary>A ribbon segment's factor (head and tail fades together).</summary>
     public static float Ribbon(float along) => Head(along) * Tail(along);
 
+    /// <summary>The alpha factor of a ribbon seen nearly end-on: <paramref name="cos"/> is |axis . view direction|; a ribbon pointing at the camera is foreshortened to a thin straight line, so it fades out from 0.75 to 0.97.</summary>
+    public static float EndOn(float cos) => 1f - Smooth(0.75f, 0.97f, Math.Clamp(cos, 0f, 1f));
+
     /// <summary>The shader's lateral falloff, as the source of the GLSL line (kept next to <see cref="Lateral"/> so the two stay the same curve).</summary>
     public const string ShaderLine = "a *= 1.0 - smoothstep(0.2, 1.0, abs(UV.y * 2.0 - 1.0));";
 }
