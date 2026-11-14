@@ -12,7 +12,8 @@ namespace SmClient;
 /// Musou swing arc capture aid <c>--tfw-arc-capture</c> (before <c>--tfw-test &lt;dir&gt;</c>; server <c>SM_TFW_KEEP_HUMAN=1</c>; a windowed run): the before / after stills of the swing arc
 /// (owner, 2026-11-10). The scripted player deploys on lane B, walks into the crowd and swings a light chain of three and a stun strike twice: the first time the stills come from the player's
 /// own camera (<c>arc-player-*</c>), the second time from a camera high behind and beside the player (<c>arc-third-*</c>), each still <see cref="StillAfter"/> s after the predicted strike.
-/// Pick the weapon with <c>--class</c> and <c>--melee</c>; <c>--musou-old-slashes</c> gives the "before" set. Every press goes through the real actions.
+/// Pick the weapon with <c>--class</c> and <c>--melee</c>; <c>--musou-old-slashes</c> gives the "before" set. Every press goes through the real actions. <c>--tfw-arc-film</c> (2026-11-14, for a
+/// <c>--write-movie</c> recording): only the third-person view, its camera kept on the player the whole time (no stills), the light chain of three and the stun strike twice, a pause between them.
 /// </summary>
 public partial class NetworkView
 {
@@ -23,6 +24,8 @@ public partial class NetworkView
     Camera3D? _arcShotCamera;
     bool _arcShotCameraOn;
 
+    static readonly bool ArcFilm = CmdFlag("tfw-arc-film");
+
     async Task TfwArcCapture()
     {
         var client = _client!;
@@ -31,7 +34,7 @@ public partial class NetworkView
         var point = _tfwState.Objectives[0].Position;
         await TfwPathTo(point, "arc: walked towards the Orks", 45.0, () => _musouState.MiddleNear(client.Predicted.Position, 22f) is not null);
         string weapon = MeleeWargear(client.Predicted) ?? "-";
-        foreach (string view in new[] { "player", "third" })
+        foreach (string view in ArcFilm ? new[] { "third" } : new[] { "player", "third" })
         {
             for (int run = 0; run < 4 && TfwNearCount(7f) < 5; run++)   // into the crowd until at least 5 Orks stand within 7 m
             {
@@ -40,20 +43,24 @@ public partial class NetworkView
             }
             for (double until = _connectedFor + 20.0; TfwNearCount(6f) < 8 && _connectedFor < until;) await TfwWait(0.1);   // let the crowd close in: every swing of the chain lands
             GD.Print($"TFWARC t {_connectedFor:F2} {view} view, {weapon}, Orks within 7 m: {TfwNearCount(7f)}");
-            for (int k = 0; k < 4; k++)
+            if (ArcFilm) _arcShotCameraOn = true;
+            for (int k = 0; k < (ArcFilm ? 8 : 4); k++)
             {
-                bool heavy = k == 3;
+                bool heavy = k % 4 == 3;
                 TfwAimNearest(8f);
                 double pressed = _connectedFor;
                 await TfwActionTap(heavy ? GameAction.StunStrike : GameAction.Melee);
                 await TfwUntil("arc: the strike", () => _musouLastStrikeAt > pressed, 1.5);
                 if (view == "third") TfwArcCamera(true);
-                await TfwArcWait(StillAfter);
-                await TfwShot($"arc-{view}-{(heavy ? "heavy" : $"light{k + 1}")}");
-                TfwArcCamera(false);
-                await TfwWait(heavy ? 1.1 : 0.45);
+                await TfwArcWait(ArcFilm ? 0.9 : StillAfter);
+                if (!ArcFilm)
+                {
+                    await TfwShot($"arc-{view}-{(heavy ? "heavy" : $"light{k + 1}")}");
+                    TfwArcCamera(false);
+                }
+                if (ArcFilm) await TfwArcWait(0.3); else await TfwWait(heavy ? 1.1 : 0.45);
             }
-            await TfwWait(1.2);
+            if (ArcFilm) await TfwArcWait(1.2); else await TfwWait(1.2);
         }
         GD.Print($"TFWARC t {_connectedFor:F2} done: {_musouArcs} arcs drawn");
         GetTree().Quit(0);
@@ -65,7 +72,7 @@ public partial class NetworkView
         double end = _connectedFor + seconds;
         while (_connectedFor < end)
         {
-            if (_arcShotCameraOn) _arcShotCamera?.MakeCurrent();
+            if (_arcShotCameraOn) { if (ArcFilm) TfwArcCamera(true); else _arcShotCamera?.MakeCurrent(); }
             await TfwFrames();
         }
         if (_arcShotCameraOn) _arcShotCamera?.MakeCurrent();
@@ -83,8 +90,8 @@ public partial class NetworkView
         var me = _client.Predicted;
         var forward = new Num.Vector3(-MathF.Sin(me.Yaw), MathF.Cos(me.Yaw), 0f);
         var left = new Num.Vector3(-MathF.Cos(me.Yaw), -MathF.Sin(me.Yaw), 0f);
-        var eye = me.Position - forward * 5.5f + left * 4f + new Num.Vector3(0f, 0f, 8f);
-        var look = me.Position + forward * 3f + new Num.Vector3(0f, 0f, 0.8f);
+        var eye = ArcFilm ? me.Position - forward * 4.2f + left * 2.6f + new Num.Vector3(0f, 0f, 2.9f) : me.Position - forward * 5.5f + left * 4f + new Num.Vector3(0f, 0f, 8f);   // film: low and close, the arcs read from the side
+        var look = me.Position + forward * 3f + new Num.Vector3(0f, 0f, ArcFilm ? 1.3f : 0.8f);
         if (_arcShotCamera is null)
         {
             _arcShotCamera = new Camera3D { Name = "ArcShotCamera" };

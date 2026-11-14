@@ -55,6 +55,8 @@ void fragment() {
         public float Radius, Width, Age;
         public int Direction;
         public Color Colour;
+        /// <summary>The line's points as offsets from <see cref="Centre"/> (the weapon tip's path scaled to the cleave radius, <see cref="MusouSlashArcPath"/>), or null: the level circle segment.</summary>
+        public Vector3[]? Offsets;
     }
 
     /// <summary>
@@ -109,8 +111,16 @@ void fragment() {
     /// arc where it covers that model (null: nothing hides it). <paramref name="own"/>: the own player's swing (the Compatibility renderer's depth-tested group).
     /// </summary>
     public void Add(Vector3 centre, Vector3 forward, Vector3 left, MusouCleaveShape.Shape shape, float radius, float width, int direction, MusouSlashColour colour, float brightness,
-        int attacker = 0, Node3D? attackerModel = null, bool own = false)
+        int attacker = 0, Node3D? attackerModel = null, bool own = false, MusouSlashArcPath.Path? path = null, float maxDrop = float.PositiveInfinity)
     {
+        Vector3[]? offsets = null;
+        if (path is not null)
+        {
+            // The weapon tip's path (X forward, Y left, Z up) at the cleave radius, in Godot world space round the centre: the heading and left are level, up is the world's.
+            var scaled = MusouSlashArcPath.Scale(path, radius, maxDrop);
+            offsets = new Vector3[scaled.Length];
+            for (int i = 0; i < scaled.Length; i++) offsets[i] = forward * scaled[i].X + left * scaled[i].Y + Vector3.Up * scaled[i].Z;
+        }
         var (r, g, b) = MusouSlashRules.Rgb(colour);
         float bright = brightness > 0f ? brightness : 1f;
         int reference = 0;
@@ -125,7 +135,7 @@ void fragment() {
         if (!group.Arcs[group.Next].Live) group.Alive++;
         group.Arcs[group.Next] = new Arc
         {
-            Live = true, Centre = centre, Forward = forward, Left = left, Shape = shape, Radius = radius, Width = width, Direction = direction,
+            Live = true, Centre = centre, Forward = forward, Left = left, Shape = shape, Radius = radius, Width = width, Direction = direction, Offsets = offsets,
             Colour = new Color(r * bright / ColourRange, g * bright / ColourRange, b * bright / ColourRange, 1f),
         };
         group.Next = (group.Next + 1) % group.Arcs.Length;
@@ -174,17 +184,27 @@ void fragment() {
     /// </summary>
     static void Emit(ImmediateMesh mesh, in Arc a, Vector3 eye, float pull)
     {
-        int segments = MusouSlashArcRules.Segments(a.Shape);
+        var offsets = a.Offsets;
+        int segments = offsets is null ? MusouSlashArcRules.Segments(a.Shape) : offsets.Length - 1;
         float head = MusouSlashArcRules.Head(a.Age), fade = MusouSlashArcRules.Fade(a.Age), half = a.Width * 0.5f;
         Vector3 prevOuter = default, prevInner = default;
         float prevAlong = 0f;
         for (int k = 0; k <= segments; k++)
         {
             float along = k / (float)segments;
-            float angle = MusouSlashArcRules.AngleAt(along, a.Shape, a.Direction);
-            var radial = a.Forward * MathF.Cos(angle) + a.Left * MathF.Sin(angle);
-            var point = a.Centre + radial * a.Radius;
-            var tangent = -a.Forward * MathF.Sin(angle) + a.Left * MathF.Cos(angle);
+            Vector3 point, tangent;
+            if (offsets is null)
+            {
+                float angle = MusouSlashArcRules.AngleAt(along, a.Shape, a.Direction);
+                var radial = a.Forward * MathF.Cos(angle) + a.Left * MathF.Sin(angle);
+                point = a.Centre + radial * a.Radius;
+                tangent = -a.Forward * MathF.Sin(angle) + a.Left * MathF.Cos(angle);
+            }
+            else
+            {
+                point = a.Centre + offsets[k];
+                tangent = offsets[Math.Min(k + 1, segments)] - offsets[Math.Max(k - 1, 0)];
+            }
             var side = tangent.Cross(eye - point);
             side = side.LengthSquared() < 1e-8f ? Vector3.Up : side.Normalized();
             var outer = point + side * half;
