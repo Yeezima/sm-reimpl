@@ -22,6 +22,7 @@ public sealed partial record GameplayTuning
             // The Librarian's restore switches (LibrarianVariant, SM_LIBRARIAN_OLD): read here, on the server and the clients alike, so a class change stays in the config hash.
             var librarian = LibrarianVariant.Parse(Environment.GetEnvironmentVariable(LibrarianVariant.EnvironmentVariable));
             if (librarian.Any) notes.Add($"musou: the Librarian's restore switches {librarian} ({LibrarianVariant.EnvironmentVariable})");
+            config = DreadnoughtWeapons.Append(config, gameDir, notes);   // the Dreadnought's cannon and melta (D3, D4): before Prepare, which gives him them
             config = Arsenal.Append(config, gameDir, notes);   // Musou's arsenal (docs/new-weapons-design.md, W0): its items before Prepare, so the Musou lists see them; the stubs add nothing
             config = MusouLoadout.Prepare(config with { MusouRules = MusouTuning.Load(gameDir, notes), LibrarianVariant = librarian });
         }

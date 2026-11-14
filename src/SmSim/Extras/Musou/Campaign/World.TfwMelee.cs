@@ -41,7 +41,7 @@ public sealed partial class World
             float push = landing ? war.LandingPush : charging ? war.ChargePush : sprinting ? war.SprintPush : war.WalkPush;
             float death = landing ? war.LandingDeath : charging ? war.ChargeDeath : sprinting ? war.SprintDeath : war.WalkDeath;
             var heading = speed > 1e-3f ? velocity / speed : new Vector2(-MathF.Sin(p.Yaw), MathF.Cos(p.Yaw));
-            float contact = musou.Rules.PlayerRing + war.ContactMargin;
+            float contact = musou.Rules.PlayerRing + DreadnoughtBodyRing(p) + war.ContactMargin;   // a big body's capsule (the Dreadnought) is wider
             float reach = landing ? war.LandingReach : contact + 0.6f;
             if (!charging || !Rush.Connecting(p, Config) || landing)
             {

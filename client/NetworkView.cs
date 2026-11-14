@@ -577,7 +577,7 @@ public partial class NetworkView : Node3D
                 if (starting) HeavyEnd(rigStart);
             }
             Ph("remote players: bookkeeping");
-            character.Visible = state.Alive;   // a dead marine's living model is hidden: its ragdoll lies there instead (M23)
+            character.Visible = state.Alive || _deadKept;   // a dead marine's living model is hidden: its ragdoll lies there instead (M23); added content may keep its own (Musou: the Dreadnought's corpse)
             // Slim records carry only whether a player is charging (protocol 7): count the starts for the log.
             bool wasCharging = _remoteCharging.GetValueOrDefault(state.PlayerId);
             if (state.Charging && !wasCharging)
@@ -697,6 +697,9 @@ public partial class NetworkView : Node3D
     /// </summary>
     partial void ExtrasInput(ref PlayerInput input);
 
+    /// <summary>Hook for added content: may take buttons off a live sampled input before it is sent and predicted (the server applies the same rule). Implemented in an <c>Extras/</c> folder.</summary>
+    partial void ExtrasInputGate(ref PlayerInput input);
+
     /// <summary>
     /// Hook for added content: the test bot's input when added content gives it something else to do than the players' fight (Musou Mode: the Orks). Left null, the bot plays as ever.
     /// Implemented in an <c>Extras/</c> folder; returns at once unless its feature runs.
@@ -714,6 +717,7 @@ public partial class NetworkView : Node3D
         Ph("input sampling");
         var input = _demoPlayback is not null ? DemoSampleInput(tick) : SampleInputCore(tick);   // M40 T0: replayed demos answer from the recording
         if (_demoPlayback is null) ExtrasInput(ref input);   // EXTRAS-HOOK: added content's keys on a live input (loyalist barks: the FOR THE EMPEROR key)
+        if (_demoPlayback is null) ExtrasInputGate(ref input);   // EXTRAS-HOOK: added content's limits on a live input (Musou: the Dreadnought's sprint, the same rule as the server's)
         DemoRecordInput(input);
         _ownStickHeld = input.MoveX != 0f || input.MoveY != 0f;   // anim/jump-pack-blend: the sim's landing is the run landing when the stick is held at the touchdown
         NoteSentInput(input);   // feel/bullets: the shot of this tick is drawn on the ray this input carries (NetworkView.Bullets.cs)
@@ -1532,6 +1536,15 @@ public partial class NetworkView : Node3D
         EmissionEnergyMultiplier = energy,
     };
 
+    /// <summary>Hook for added content: <paramref name="handled"/> set when the character was posed by it (Musou: the Dreadnought's rig).</summary>
+    partial void ExtrasPlace(CharacterViewer character, PlayerState state, bool own, ref bool handled);
+
+    /// <summary>
+    /// Hook for added content: called by <see cref="TrackDeath"/> for a player who is not alive; <paramref name="keep"/> set when the added content poses and shows the dead character itself (Musou: the Dreadnought's
+    /// death clip and corpse), so it stays visible instead of being hidden for a ragdoll.
+    /// </summary>
+    partial void ExtrasDeadPlace(CharacterViewer character, PlayerState state, bool own, ref bool keep);
+
     /// <summary>Positions are game space (metres, Z up); yaw rotates about +Z, and yaw 0 faces +Y like the model.</summary>
     /// <param name="throwTime">Seconds into a throw under way (own player: the simulation's ThrowTime; others: since their
     /// slim Throwing flag rose), or null when not throwing: the toss clip is posed at that time when the rig has it.</param>
@@ -1547,6 +1560,9 @@ public partial class NetworkView : Node3D
             character.SetMeta(TransitionProbe.TwoHandedMeta, IsOrkCharacter(character) || (MeleeWargear(state) is { } twoHand && AnimationAlias.Of(twoHand).Contains("_2hand_", StringComparison.OrdinalIgnoreCase)));   // AnimationAlias (W0b): Musou's spear is two-handed
             character.SetMeta(TransitionProbe.OwnMeta, own);   // anim/strafe-blend: the direction events say own / remote
         }
+        bool extraPlaced = false;
+        ExtrasPlace(character, state, own, ref extraPlaced);   // EXTRAS-HOOK: added content poses its own rigs (Musou: the Dreadnought)
+        if (extraPlaced) return;
         if (IsOrkCharacter(character)) { PlaceOrk(character, state, throwTime, own, smooth); return; }   // Ork O7a (NetworkView.Ork.cs): the boy's rig has its own clips
         character.ClearPoseLayers();  // M27: the recoil layer is laid again by PlaceLocomotion when it applies (animation pass 1: every layer slot, CharacterViewer.Layers.cs; the fall slots by FallLayers)
         character.ClearTurnPose();    // M40-T5: so are the turn layer and the spine twist

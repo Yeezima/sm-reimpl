@@ -43,6 +43,9 @@ public sealed partial class CreatorView
     /// <summary>In a Musou match: PLAY AS LIBRARIAN on his page (null: the picker has no way to pick him now). Returns null when he was picked, else the reason for the status line.</summary>
     public Func<string?>? MusouLibrarianDeploy { get; set; }
 
+    /// <summary>In a Musou match: PLAY AS DREADNOUGHT on his page (as <see cref="MusouLibrarianDeploy"/>).</summary>
+    public Func<string?>? MusouDreadnoughtDeploy { get; set; }
+
     /// <summary>Opens a Musou entry (the shells: a Librarian's picker opens on his page; test aids).</summary>
     public void MusouOpen(MusouCustomizerEntry entry)
     {
@@ -58,7 +61,7 @@ public sealed partial class CreatorView
         int i = Array.IndexOf(args, "--musou-entry");
         if (i < 0 || i + 1 >= args.Length) return null;
         string v = args[i + 1].ToLowerInvariant();
-        return v.StartsWith("lib") ? MusouCustomizerEntry.Librarian : v.StartsWith("her") ? MusouCustomizerEntry.Heretic : MusouCustomizerEntry.StandardMarines;
+        return v.StartsWith("lib") ? MusouCustomizerEntry.Librarian : v.StartsWith("dre") ? MusouCustomizerEntry.Dreadnought : v.StartsWith("her") ? MusouCustomizerEntry.Heretic : MusouCustomizerEntry.StandardMarines;
     }
 
     /// <summary>The entry has its own page (the Librarian, the Heretic) in the Musou layout.</summary>
@@ -223,6 +226,7 @@ public sealed partial class CreatorView
         _save!.Visible = true; _save.Disabled = !dirty || _session.ReadOnly;
         _revert!.Visible = true; _revert.Disabled = !dirty;
         if (_musouEntry == MusouCustomizerEntry.Librarian) RefreshLibrarian(profile, active, focusList);
+        else if (_musouEntry == MusouCustomizerEntry.Dreadnought) RefreshDreadnought(focusList);
         else RefreshHeretic(focusList);
     }
 
@@ -322,10 +326,40 @@ public sealed partial class CreatorView
         _preview.SetFraming(Framing.Body);
     }
 
+    /// <summary>The Dreadnought's page: a fixed kit, one page of rows, no steps and no preview (the model is shown in the match); PLAY AS DREADNOUGHT in a match.</summary>
+    void RefreshDreadnought(bool focusList)
+    {
+        _summary.Visible = true;
+        _summary.Text = MusouCustomizer.DreadnoughtSummary;
+        _summary.TooltipText = _summary.Text;
+        StepsPanel.Visible = false;
+        _scroll.Visible = true;
+        _preview.MusouLibrarian = false;
+        _preview.Visible = false;
+        var placeholder = MusouPlaceholder();
+        placeholder.Visible = true;
+        MusouPlaceholderTexts(placeholder, "DREADNOUGHT", "SHOWN IN THE BATTLE");
+        if (_cardPanel is not null) _cardPanel.Visible = true;
+        _look!.Visible = false;
+        _deployButton!.Visible = Deploy is not null;   // in a match only
+        _deployButton.Text = "PLAY AS DREADNOUGHT";
+        _deployButton.Disabled = MusouDreadnoughtDeploy is null;
+        _deployButton.TooltipText = MusouDreadnoughtDeploy is null ? "Pick him in the Stormbird: Esc, PLAY AS DREADNOUGHT" : "Become the Dreadnought (he arrives with the battle)";
+        MusouList(MusouCustomizer.DreadnoughtRows(), focusList, MusouCustomizer.DreadnoughtNote);
+    }
+
+    /// <summary>The placeholder panel's two lines (the Heretic's, or the Dreadnought's).</summary>
+    static void MusouPlaceholderTexts(PanelContainer panel, string title, string line)
+    {
+        var labels = panel.FindChildren("*", "Label", true, false).OfType<Label>().ToList();
+        if (labels.Count >= 2) { labels[0].Text = title; labels[1].Text = line; }
+    }
+
     void RefreshHeretic(bool focusList)
     {
         _summary.Visible = true;
         _summary.Text = MusouCustomizer.HereticSummary;
+        if (_musouPlaceholder is not null) MusouPlaceholderTexts(_musouPlaceholder, "HERETIC", "NOT YET AVAILABLE");
         _summary.TooltipText = "";
         StepsPanel.Visible = false;
         _scroll.Visible = true;
@@ -513,6 +547,12 @@ public sealed partial class CreatorView
     {
         if (!MusouOwnPage) return;
         handled = true;
+        if (_musouEntry == MusouCustomizerEntry.Dreadnought)
+        {
+            if (MusouDreadnoughtDeploy is not { } dread) { Say("Pick the Dreadnought in the Stormbird: Esc, PLAY AS DREADNOUGHT.", 6.0); return; }
+            if (dread() is { Length: > 0 } fault) Say(fault, 8.0);
+            return;
+        }
         if (_musouEntry != MusouCustomizerEntry.Librarian) return;
         if (MusouLibrarianDeploy is not { } deploy) { Say("Pick the Librarian in the Stormbird: Esc, PLAY AS LIBRARIAN.", 6.0); return; }
         if (deploy() is { Length: > 0 } problem) Say(problem, 8.0);

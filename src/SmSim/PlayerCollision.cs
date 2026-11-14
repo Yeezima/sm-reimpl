@@ -143,6 +143,7 @@ public static class PlayerCollision
         float t = ahead * c.TickSeconds;
         var bodies = new List<PlayerBody>();
         Vector3? me = null;
+        bool sized = c.HasBodyCapsules;   // a class body with a capsule of its own (a walker): every body then carries its own, so two classes' radii add; none: the shared capsule, as always
         foreach (var p in seen)
         {
             if (!p.Alive || !Finite(p.Position)) continue;
@@ -150,7 +151,13 @@ public static class PlayerCollision
             var move = Finite(p.Velocity) ? new Vector2(p.Velocity.X, p.Velocity.Y) * t : Vector2.Zero;
             float length = move.Length();
             if (length > MaxExtrapolation) move *= MaxExtrapolation / length;
-            bodies.Add(new PlayerBody(p.PlayerId, p.Position + new Vector3(move.X, move.Y, 0f), p.Position));
+            if (sized)
+            {
+                var own = c.For(p.Class);
+                float radius = MathF.Max(own.CapsuleRadius, 0.05f);
+                bodies.Add(new PlayerBody(p.PlayerId, p.Position + new Vector3(move.X, move.Y, 0f), p.Position, radius, MathF.Max(own.CapsuleHeight, 2f * radius)));
+            }
+            else bodies.Add(new PlayerBody(p.PlayerId, p.Position + new Vector3(move.X, move.Y, 0f), p.Position));
         }
         return BodyView.Of(bodies, me);
     }

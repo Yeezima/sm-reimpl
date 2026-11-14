@@ -93,8 +93,8 @@ public class MusouLibrarianSwitchTests
     {
         var now = MusouLoadout.Prepare(MusouLibrarianTests.Raw(ContentExtras.Musou));
         var old = MusouLoadout.Prepare(MusouLibrarianTests.Raw(ContentExtras.Musou) with { LibrarianVariant = new LibrarianVariant(WarpPull: true) });
-        Assert.NotEmpty(now.Classes[^1].EquipmentChoices);
-        Assert.Empty(old.Classes[^1].EquipmentChoices);
+        Assert.NotEmpty(now.Classes.First(c => c.Name == LibrarianRules.ClassName).EquipmentChoices);
+        Assert.Empty(old.Classes.First(c => c.Name == LibrarianRules.ClassName).EquipmentChoices);
         Assert.NotEqual(now.Hash(), old.Hash());   // a client without the switch is refused
         var shockOnly = MusouLoadout.Prepare(MusouLibrarianTests.Raw(ContentExtras.Musou) with { LibrarianVariant = new LibrarianVariant(OldShockwave: true, OldSend: true) });
         Assert.Equal(now.Hash(), shockOnly.Hash());   // the server-side switches leave the config alone
