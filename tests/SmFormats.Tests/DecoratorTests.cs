@@ -128,9 +128,10 @@ public class DecoratorTests
         // ui/hud-3 (owner 2026-10-30): a name only over the player under the crosshair, enemy red and friend yellow.
         Assert.True(DecoratorRules.PlayerVisible(DecoratorRelation.Ally, 100f, lineOfSight: true));
         Assert.True(DecoratorRules.PlayerVisible(DecoratorRelation.Enemy, 80f, lineOfSight: true));
-        Assert.False(DecoratorRules.PlayerVisible(DecoratorRelation.Ally, 30f, lineOfSight: false));
+        // Owner 2026-11-14 (Classic PvP): an ally in view shows at any distance and behind a wall; a foe is unchanged.
+        Assert.True(DecoratorRules.PlayerVisible(DecoratorRelation.Ally, 30f, lineOfSight: false));
+        Assert.True(DecoratorRules.PlayerVisible(DecoratorRelation.Ally, 400f, lineOfSight: false));
         Assert.False(DecoratorRules.PlayerVisible(DecoratorRelation.Enemy, 40f, lineOfSight: false));
-        Assert.False(DecoratorRules.PlayerVisible(DecoratorRelation.Ally, 130f, lineOfSight: true));
         Assert.False(DecoratorRules.PlayerVisible(DecoratorRelation.Enemy, 130f, lineOfSight: true));
         Assert.False(DecoratorRules.PlayerVisible(DecoratorRelation.None, 5f, lineOfSight: true));
     }
@@ -143,8 +144,40 @@ public class DecoratorTests
         Assert.Equal(0.55f, DecoratorRules.PlayerScale(DecoratorRules.AllyRange), 3);
         Assert.True(DecoratorRules.PlayerScale(60f) < DecoratorRules.PlayerScale(30f));
         Assert.Equal(1f, DecoratorRules.PlayerAlpha(DecoratorRelation.Ally, 50f));
-        Assert.Equal(0f, DecoratorRules.PlayerAlpha(DecoratorRelation.Ally, DecoratorRules.AllyRange));
+        Assert.Equal(1f, DecoratorRules.PlayerAlpha(DecoratorRelation.Ally, 400f));   // an ally's marker never fades
+        Assert.Equal(0.55f, DecoratorRules.PlayerScale(400f), 3);                     // and never shrinks below 0.55
         Assert.Equal(1f, DecoratorRules.PlayerAlpha(DecoratorRelation.Enemy, 80f));
         Assert.Equal(0f, DecoratorRules.PlayerAlpha(DecoratorRelation.Enemy, DecoratorRules.AllyRange));
+    }
+
+    [Fact]
+    public void Ally_markers_need_the_ally_on_screen()
+    {
+        Assert.True(DecoratorRules.OnScreen(960f, 400f, 1920f, 1080f));
+        Assert.True(DecoratorRules.OnScreen(-10f, 400f, 1920f, 1080f));    // half off the edge still draws
+        Assert.False(DecoratorRules.OnScreen(-300f, 400f, 1920f, 1080f));
+        Assert.False(DecoratorRules.OnScreen(960f, 2000f, 1920f, 1080f));
+    }
+
+    [Fact]
+    public void Ally_marker_filter_follows_the_view_not_the_distance_or_walls()
+    {
+        // alive, not self, on a team, not hostile, in front, on screen: shown (distance and walls are not inputs)
+        Assert.True(DecoratorRules.AllyMarkerShown(true, false, true, false, false, true, musou: false));
+        Assert.False(DecoratorRules.AllyMarkerShown(true, false, true, false, false, false, musou: false));   // off screen
+        Assert.False(DecoratorRules.AllyMarkerShown(true, false, true, false, true, true, musou: false));    // behind the camera
+        Assert.False(DecoratorRules.AllyMarkerShown(false, false, true, false, false, true, musou: false));  // dead
+        Assert.False(DecoratorRules.AllyMarkerShown(true, true, true, false, false, true, musou: false));    // self
+        Assert.False(DecoratorRules.AllyMarkerShown(true, false, false, false, false, true, musou: false));  // no team
+        Assert.False(DecoratorRules.AllyMarkerShown(true, false, true, true, false, true, musou: false));    // a foe
+        Assert.False(DecoratorRules.AllyMarkerShown(true, false, true, false, false, true, musou: true));    // Musou keeps aimed-only
+    }
+
+    [Fact]
+    public void The_aimed_ally_is_not_drawn_twice_and_a_foe_or_Musou_keeps_its_entry()
+    {
+        Assert.False(DecoratorRules.AimedNeedsOwnEntry(DecoratorRelation.Ally, musou: false));
+        Assert.True(DecoratorRules.AimedNeedsOwnEntry(DecoratorRelation.Enemy, musou: false));
+        Assert.True(DecoratorRules.AimedNeedsOwnEntry(DecoratorRelation.Ally, musou: true));
     }
 }
