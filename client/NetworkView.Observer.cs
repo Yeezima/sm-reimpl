@@ -38,12 +38,21 @@ public partial class NetworkView
     const float ObsBaseSpeed = 12f, ObsMinSpeed = 0.5f, ObsMaxSpeed = 250f, ObsFastFactor = 4f, ObsSlowFactor = 0.2f;   // m/s; ours
     const float ObsFovMin = 15f, ObsFovMax = 110f, ObsFovRate = 30f;   // degrees; degrees per second held
     const float ObsMoveSmooth = 3.5f, ObsLookSmooth = 7f;              // 1/s: the smoothing's exponential rates
+    /// <summary>Capture aid <c>--observe-distance m</c> (anim/jump-pack-blend): the follow camera's starting distance (metres, within the keys' range); default 3.4.</summary>
+    static float ObservedFollowDistance()
+    {
+        var args = OS.GetCmdlineUserArgs();
+        int i = Array.IndexOf(args, "--observe-distance");
+        return i >= 0 && i + 1 < args.Length && float.TryParse(args[i + 1], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var d)
+            ? Math.Clamp(d, ObsFollowMin, ObsFollowMax) : ObsFollowDistance;
+    }
+
     const float ObsFollowDistance = 3.4f, ObsFollowMin = 1.2f, ObsFollowMax = 12f;   // metres behind the shoulder pivot
     const float ObsFeedSeconds = 8f;
 
     Vector3 _obsPos, _obsVel;
     float _obsYaw, _obsPitch, _obsYawShown, _obsPitchShown;   // radians in Godot space (yaw 0 faces -Z); the first pair is what the mouse sets
-    float _obsSpeed = ObsBaseSpeed, _obsFov = DefaultFov, _obsFollowDist = ObsFollowDistance;
+    float _obsSpeed = ObsBaseSpeed, _obsFov = DefaultFov, _obsFollowDist = ObservedFollowDistance();
     bool _obsHud = true, _obsSmooth, _obsPlaced, _obsFollowAsked;
     int _obsFollow;                       // the followed player's id; 0 free-fly
     float _obsOrbitYaw, _obsOrbitPitch;   // the mouse's turn around the followed player

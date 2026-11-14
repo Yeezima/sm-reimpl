@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3171 spec table rows: **2329 tagged**, 584 not tagged (read from data with high confidence), 258 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 708 rows of the changes document.
+Scanned 3175 spec table rows: **2333 tagged**, 584 not tagged (read from data with high confidence), 258 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 708 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -36,7 +36,7 @@ Scanned 3171 spec table rows: **2329 tagged**, 584 not tagged (read from data wi
 | Combat core (critical) | 17 | 7 | 15 | 14 | 9 |
 | Weapons (critical) | 121 | 73 | 106 | 54 | 3 |
 | Melee (critical) | 140 | 122 | 105 | 51 | 5 |
-| Jump pack (critical) | 79 | 71 | 63 | 19 | 0 |
+| Jump pack (critical) | 83 | 75 | 67 | 19 | 0 |
 | Charge (critical) | 61 | 51 | 49 | 25 | 0 |
 | Reactions (critical) | 25 | 22 | 23 | 12 | 0 |
 | Camera (critical) | 55 | 53 | 44 | 22 | 0 |
@@ -53,14 +53,14 @@ Scanned 3171 spec table rows: **2329 tagged**, 584 not tagged (read from data wi
 | Core simulation (provisional values) | 695 | 655 | 495 | 181 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 248 | 237 | 133 | 68 | 0 |
-| **All areas** | **2329** | 2057 | 1731 | 728 | 38 |
+| **All areas** | **2333** | 2061 | 1735 | 728 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1343 |
-| confidence: low | 830 |
+| kind: ours | 1347 |
+| confidence: low | 834 |
 | confidence: medium | 772 |
 | notes: ours | 414 |
 | kind: interpretation | 382 |
@@ -1243,7 +1243,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-FBE0C386` | Musou melee spam | in Musou Mode a light attack has no cooldown, no wait and no combo window: a press after the swing's hit has landed starts a new swing on that tick (a random other swing of the weapon's chain, as before), a press before the hit queues the next swing for the… | confidence: medium; notes: ours | owner 2026-11-12 | Musou melee spam: compare with SM1 by feel or video. Ours: in Musou Mode a light attack has no cooldown, no wait and no combo… | ☐ |
 | `R-D9F3D825` | Restore switches | `--old-charge-melee-chain` (every client and the server; config hash only when on): the protocol 69 rules; `--musou-melee-cooldown` (Musou; hashed in Musou's block only when on): the earlier Musou melee rule | kind: ours | ours | Restore switches: compare with SM1 by feel or video. Ours: --old-charge-melee-chain (every client and the server; config hash… | ☐ |
 
-### Jump pack (gameplay-critical) (79)
+### Jump pack (gameplay-critical) (83)
 
 *Spec section: Jump pack and ground pound (M14, used by the simulation)*
 
@@ -1312,6 +1312,10 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-53024608` | Client effects and sound | the own player's thrust effect ends at the release (`PackMode.Fall` with the cut; others' records do not carry it: their vertical speed decides), and its sound: the data's `action_apex` (`play_sm_jump_pack_descent`, `play_sm_jump_pack_innate_loop`) posts at… | kind: ours | — | Client effects and sound: compare with SM1 by listening A/B at the same distance and state. Ours: the own player's thrust effect ends at the release (PackMode.Fall… | ☐ |
 | `R-E35172FD` | Flight pose by the vertical angle | the flight clips (`SM_JMP_Zero_<dir>_Aim_<aim>`, 3.333 s) are posed, not played: their time fraction is bound to `FLT_Nav_Vertical_Angle_NORMALIZED` (the straight-up clips to `FLT_Nav_Vertical_Angle_DAMPED`) in user-controlled mode. Read along the clip… | kind: interpretation; confidence: medium | `MP_SM_NAV_JP_Sim` (mode 2 clips, the variable bindings); the clips' poses | Flight pose by the vertical angle: compare with SM1 with an overlaid screenshot taken from the same position. Ours: the flight clips (SM_JMP_Zero_<dir>_Aim_<aim>, 3.333 s) are posed… | ☐ |
 | `R-39551B7C` | Flight pose fraction | 0.5 − elevation / π with elevation = atan2(vertical speed, horizontal speed) (straight up 0, level 0.5, straight down 1), damped toward it with a 0.15 s time constant (exponential; a new flight starts at its target); own player: the predicted state; others:… | kind: ours; confidence: low | the game code that computes the variables is not in the data | Flight pose fraction: compare with SM1 by feel or video. Ours: 0.5 − elevation / π with elevation = atan2(vertical speed, horizontal… | ☐ |
+| `R-F12122CC` | Steady flight keys (anim/jump-pack-blend, owner 2026-11-14: flying looks janky) | The drawn flight clip's direction (F/B/L/R/U) and aim (U/F/D) change at most every 0.22 s; the neutral direction is left above 1.3 x and entered below 0.7 x the 3 m/s threshold; a new dominant direction must beat the shown one's speed by 1.3 x (a reversal… (s / m/s / rad) | kind: ours; confidence: low | the graph's selection code is not in the data | Steady flight keys (anim/jump-pack-blend, owner 2026-11-14:…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: The drawn flight clip's direction (F/B/L/R/U) and aim (U/F/D) change… | ☐ |
+| `R-76E074E5` | Flight clip entry blend (anim/jump-pack-blend) | 0.25 s when a flight clip takes over (from the take-off or another direction / aim); was 0.1 s lengthened to the viewer's floor (s) | kind: ours; confidence: low | the graph's 0.1 s looked like a switch between very different clips | Flight clip entry blend (anim/jump-pack-blend): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 0.25 s when a flight clip takes over (from the take-off or another… | ☐ |
+| `R-32720A45` | Landing lead (anim/jump-pack-blend) | The landing clip (run or idle by the horizontal speed) starts fading in 0.19 s before ground contact, predicted from the height above the ground, the vertical speed and the pack's falling gravity (h = v t + g t²/2), held at its first frame until the touchdown (s) | kind: ours; confidence: low | the landing began at the touchdown, so its 0.19 s fade ran after the feet were down | Landing lead (anim/jump-pack-blend): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: The landing clip (run or idle by the horizontal speed) starts fading… | ☐ |
+| `R-495F7DC4` | Dropped-snapshot hold (anim/jump-pack-blend) | A remote player's jump flag that drops for under 0.07 s while it is still off the ground keeps the flight (it flashed the landing clip) (s) | kind: ours; confidence: low | a client-side reading of the slim record | Dropped-snapshot hold (anim/jump-pack-blend): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: A remote player's jump flag that drops for under 0.07 s while it is… | ☐ |
 | `R-0F3BE662` | Low and high flight sets | the graph blends `SM_JMP_ZeroLo_*` (weight 9) and `SM_JMP_Zero_*` (weight 18) by `FLT_Distance_Above_Ground_DAMPED`; shown: one clip at a time, the low set below 12.5 m above the map's character collision (a ray down from the feet, 60 m), the high set above… (m) | kind: ours; confidence: low | 'Jump Move Blend' weights extracted | Low and high flight sets: compare with SM1 by measuring on a flat spot of the same map. Ours: the graph blends SM_JMP_ZeroLo_* (weight 9) and SM_JMP_Zero_* (weight… | ☐ |
 | `R-C10ACB8E` | Test-bot holds | the navigation jump builder's holds are now 1, 14, 19, 60 ticks after the press (flown as 5, 14, 19, 60 with the dash: about 2, 9, 12 and 17.5 m high; 60 holds past the apex), `NavJumpFlight.SimulationVersion` 4 rebuilds cached links; the client bot scales… (ticks) | kind: ours | test aid | Test-bot holds: compare with SM1 by feel or video. Ours: the navigation jump builder's holds are now 1, 14, 19, 60 ticks after… | ☐ |
 

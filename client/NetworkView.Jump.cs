@@ -40,6 +40,9 @@ public partial class NetworkView
         public float Fraction = float.NaN;
         public double FractionAt;
         public bool Low;
+        // anim/jump-pack-blend: the steady flight keys (direction, aim) and when a remote's flight was last seen (a dropped snapshot is no landing).
+        public readonly JumpAirBlend.KeyState Keys = new();
+        public double LastAirAt = double.NegativeInfinity;
         // Animation pass 2: the pound's get-up window (JumpGetupDecide): decided once per pound; the run get-up when moving.
         public bool GetupDecided, GetupRun;
         // Protocol 30: the dive (and its impact and get-up) is the sword slash's; when the dive started (connected time).
@@ -165,6 +168,23 @@ public partial class NetworkView
         return FlightClipIn(_jmpFlight, s);
     }
 
+    /// <summary>anim/jump-pack-blend: <see cref="FlightClip"/> with the drawn keys held steady (<see cref="JumpAirBlend.Choose"/>); <c>--old-jump-blend</c> or no track: the plain rule.</summary>
+    string? FlightClipSteady(JumpTrack t, PlayerState s, bool low)
+    {
+        var set = low && _jmpFlightLo.Count > 0 ? _jmpFlightLo : _jmpFlight;
+        if (set.Count == 0) return null;
+        if (OldJumpBlend) return FlightClipIn(set, s);
+        float fx = -MathF.Sin(s.Yaw), fy = MathF.Cos(s.Yaw);
+        float forward = s.Velocity.X * fx + s.Velocity.Y * fy, right = s.Velocity.X * fy - s.Velocity.Y * fx;
+        var (dir, aim) = JumpAirBlend.Choose(t.Keys, forward, right, s.Pitch, _connectedFor);
+        foreach (var key in new[] { (dir, aim), (dir, 'F'), ('U', aim), ('U', 'F') })
+            if (set.TryGetValue(key, out var clip)) return clip;
+        return set.Values.First();
+    }
+
+    /// <summary>anim/jump-pack-blend test aid <c>--old-jump-blend</c>: the flight's keys, landing lead, snapshot debounce and blend times as before (before / after recordings).</summary>
+    static readonly bool OldJumpBlend = OS.GetCmdlineUserArgs().Contains("--old-jump-blend");
+
     string? FlightClipIn(Dictionary<(char Dir, char Aim), string> set, PlayerState s)
     {
         if (set.Count == 0) return null;
@@ -201,6 +221,12 @@ public partial class NetworkView
             : JumpPack.Pounding(s.Jump) ? (s.Grounded ? JumpView.Impact : JumpView.Dive)
             : JumpView.None;
         var prev = t.View;
+        // anim/jump-pack-blend: a remote's flight flag that drops for a moment while it is still off the ground is a dropped snapshot, not a landing (it flashed the landing clip).
+        if (!own && !OldJumpBlend)
+        {
+            if (raw == JumpView.Air) t.LastAirAt = now;
+            else if (raw == JumpView.None && prev == JumpView.Air && !s.Grounded && JumpAirBlend.HoldsAir(now, t.LastAirAt)) raw = JumpView.Air;
+        }
         // anim/feel-pass: a remote pound's dive and recovery share one flag, told apart by the grounded bit; a recovery that leaves the ground for a tick (the slash's landing
         // lunge over an edge, a step) went back to the dive and restarted the slash clip at its wind-up. Once landed, the pound stays landed until its flag drops.
         if (!own && !CharacterViewer.NoFeel && raw == JumpView.Dive && prev is JumpView.Impact) raw = JumpView.Impact;
@@ -218,6 +244,7 @@ public partial class NetworkView
         if (next != prev)
         {
             t.Since = now; t.Fraction = float.NaN;   // M45: a new view starts its flight pose at the target
+            t.Keys.Reset();                          // anim/jump-pack-blend: and its flight keys by the plain rule
             if (next != JumpView.Getup) { t.GetupDecided = false; t.GetupRun = false; }   // pass 2: a new pound decides again
             string who = own ? $"id {_client!.PlayerId}" : $"id {_client!.PlayerId} sees P{s.PlayerId}";
             var pack = Loadouts.JumpPack(_config!, s);
@@ -348,7 +375,12 @@ public partial class NetworkView
                     t.Fraction = SmContent.JumpFlightPose.Damp(t.Fraction, target, (float)(now - t.FractionAt));
                     t.FractionAt = now;
                     t.Low = SmContent.JumpFlightPose.Low(AboveGround(s), t.Low);
-                    if (FlightClip(s, t.Low) is { } flight)
+                    // anim/jump-pack-blend: just before the ground the landing clip starts fading in, so the pose has arrived at the touchdown (it began there: late, a pop).
+                    if (!OldJumpBlend && Loadouts.JumpPack(_config!, s) is { } landPack
+                        && JumpAirBlend.LandingImminent(_jumpGround is null ? MathF.Max(0f, s.Position.Z) : AboveGround(s), s.Velocity.Z, landPack.FallingGravity)
+                        && (horizontal > RunThreshold ? LandRunOf(s) ?? LandIdleOf(s) : LandIdleOf(s) ?? LandRunOf(s)) is { } landNext)
+                        return (landNext, 0f);
+                    if (FlightClipSteady(t, s, t.Low) is { } flight)
                     {
                         if (_bot && s.PlayerId == _client?.PlayerId && (int)(t.Fraction * 10f) != _lastPoseDecile)
                         {
