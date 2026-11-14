@@ -6,7 +6,7 @@ namespace SmSim.Extras.Musou.Ashfall;
 /// Which generator builds Ashfall (owner, 2026-11-09: "full redesign - but keep the current version as a path to easily roll back to"). <see cref="Draft10"/> is the shipped layout (map <c>tfw_war</c>, hash pinned);
 /// <see cref="Field"/> is the battlefield ruleset of docs/ashfall-layout-brief.md (map <c>tfw_war_field</c>; docs/musou-ashfall-graybox.md "Draft 11 battlefield layout").
 /// </summary>
-public enum AshfallLayout : byte { Draft10 = 0, Field = 1, City = 2 }
+public enum AshfallLayout : byte { Draft10 = 0, Field = 1, City = 2, Heights = 3 }
 
 /// <summary>Draft 12: what the layouts share.</summary>
 public static class AshfallLayouts
@@ -15,12 +15,12 @@ public static class AshfallLayouts
     public static bool Planned(this AshfallLayout layout) => layout != AshfallLayout.Draft10;
 
     /// <summary>The default plan of a planned layout (null for draft 10).</summary>
-    public static AshfallFieldPlan? PlanOf(this AshfallLayout layout) => layout switch { AshfallLayout.Field => AshfallField.Default, AshfallLayout.City => AshfallCity.Default, _ => null };
+    public static AshfallFieldPlan? PlanOf(this AshfallLayout layout) => layout switch { AshfallLayout.Field => AshfallField.Default, AshfallLayout.City => AshfallCity.Default, AshfallLayout.Heights => AshfallHeights.Default, _ => null };
 
     /// <summary>The layout's name in the tools' and the client's switches (<c>--layout</c>, <c>--ashfall-layout</c>).</summary>
-    public static AshfallLayout Parse(string? name) => name switch { "field" => AshfallLayout.Field, "draft10" => AshfallLayout.Draft10, "city" => AshfallLayout.City, _ => AshfallLayout.City };
+    public static AshfallLayout Parse(string? name) => name switch { "field" => AshfallLayout.Field, "draft10" => AshfallLayout.Draft10, "city" => AshfallLayout.City, "heights" => AshfallLayout.Heights, _ => AshfallLayout.City };
 
-    public static string Key(this AshfallLayout layout) => layout switch { AshfallLayout.Field => "field", AshfallLayout.City => "city", _ => "draft10" };
+    public static string Key(this AshfallLayout layout) => layout switch { AshfallLayout.Field => "field", AshfallLayout.City => "city", AshfallLayout.Heights => "heights", _ => "draft10" };
 }
 
 /// <summary>

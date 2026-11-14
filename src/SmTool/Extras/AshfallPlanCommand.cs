@@ -40,7 +40,7 @@ static class AshfallPlanCommand
             else if (rest[i] == "--layout" && i + 1 < rest.Length)   // draft 11/12: city (map tfw_war), field (map tfw_war_field) or draft10 (the rollback, tfw_war_draft10); the battlefield overlays come with it
             {
                 string v = rest[++i];
-                if (v is not ("city" or "field" or "draft10")) { Console.Error.WriteLine($"ashfall-plan: --layout takes city, field or draft10, not \"{v}\""); return 2; }
+                if (v is not ("city" or "field" or "draft10" or "heights")) { Console.Error.WriteLine($"ashfall-plan: --layout takes city, field, heights or draft10, not \"{v}\""); return 2; }
                 layout = AshfallLayouts.Parse(v); overlays = true;
             }
             else if (rest[i] == "--overlays") overlays = true;
@@ -196,7 +196,7 @@ static class AshfallPlanCommand
             sb.AppendLine($"<rect x=\"{F(X(range.Box.Min.X))}\" y=\"{F(ly)}\" width=\"10\" height=\"10\" fill=\"#{r:x2}{g:x2}{b:x2}\" stroke=\"#222\" stroke-width=\"0.4\"/><text x=\"{F(X(range.Box.Min.X) + 14)}\" y=\"{F(ly + 9)}\" font-size=\"10\">{kind}</text>");
         }
         sb.AppendLine($"<text x=\"{F(X(range.Box.Min.X))}\" y=\"{F(Y(y1 - 20) + 8 + row * 14 + 14)}\" font-size=\"9\" fill=\"#444\">F6 / P15: floor or perch, top height m. Shade: higher is darker.</text>");
-        sb.AppendLine($"<text x=\"10\" y=\"16\" font-size=\"13\" font-weight=\"bold\">Ashfall Citadel {(level.Layout switch { AshfallLayout.Field => $"battlefield layout (draft 11, field version {AshfallField.Version})", AshfallLayout.City => $"city layout (draft 12, city version {AshfallCity.Version})", _ => $"graybox, version {AshfallMap.Version}" })}, hash {level.Hash:X16}, kit dressing {dressing.Version}: {dressing.Items.Count} items (ours: placeholder demonstration)</text>");
+        sb.AppendLine($"<text x=\"10\" y=\"16\" font-size=\"13\" font-weight=\"bold\">Ashfall Citadel {(level.Layout switch { AshfallLayout.Field => $"battlefield layout (draft 11, field version {AshfallField.Version})", AshfallLayout.City => $"city layout (draft 12, city version {AshfallCity.Version})", AshfallLayout.Heights => $"high-ground layout (draft 13, heights version {AshfallHeights.Version})", _ => $"graybox, version {AshfallMap.Version}" })}, hash {level.Hash:X16}, kit dressing {dressing.Version}: {dressing.Items.Count} items (ours: placeholder demonstration)</text>");
         sb.AppendLine($"<text x=\"10\" y=\"30\" font-size=\"11\"><tspan fill=\"#1f5fbf\">Skin {dressing.Items.Count(i => i.Role == AshfallDressRole.Skin)}</tspan>  <tspan fill=\"#4c8a6a\">Surface {dressing.Items.Count(i => i.Role == AshfallDressRole.Surface)}</tspan>  <tspan fill=\"#e07a10\">Decoration {dressing.Items.Count(i => i.Role == AshfallDressRole.Decoration)}</tspan>  <tspan fill=\"#c0189c\">Prop (filled) {dressing.Items.Count(i => i.Role == AshfallDressRole.Prop)}</tspan></text>");
         if (bf is not null) sb.Append(AshfallBattlefieldViews.Overlays(bf, X, Y, Scale));   // draft 11: protected areas, routes, pinch points, assembly zones, approaches, sightlines, travel times, failed constraints
         sb.AppendLine("</svg>");
