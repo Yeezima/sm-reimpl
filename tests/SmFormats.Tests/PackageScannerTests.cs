@@ -689,6 +689,11 @@ public sealed class PackageScannerTests : IDisposable
         Assert.Contains(Scan(Zip(("source/s.zip", withDll)), Source), f => f.Rule == "binary-in-source");
         byte[] withOgg = ZipBytes(("s/assets/bark.ogg", [0x4F, 0x67, 0x67, 0x53, 0, 2, 0, 0]), ("s/client/assets/menu/menu-loop.ogv", [0x4F, 0x67, 0x67, 0x53, 0, 2, 0, 0]), ("s/a.cs", Text("class A {}")));
         Assert.Empty(Scan(Zip(("source/s.zip", withOgg)), Source));
+        // The owner's kit models (2026-11-14) pass under client/assets/owner-kit/ only; a .glb elsewhere in the source offer is still a binary.
+        byte[] glb = [0x67, 0x6C, 0x54, 0x46, 2, 0, 0, 0, 0, 0, 0, 0];
+        Assert.Empty(Scan(Zip(("source/s.zip", ZipBytes(("s/client/assets/owner-kit/thunderhawk-classic/models/Armory.glb", glb)))), Source));
+        Assert.Contains(Scan(Zip(("source/s.zip", ZipBytes(("s/client/assets/other/Armory.glb", glb)))), Source), f => f.Rule == "binary-in-source");
+        Assert.Contains(Scan(Zip(("source/s.zip", ZipBytes(("s/client/assets/owner-kit/../../x.glb", glb)))), Source), f => f.Rule == "binary-in-source");
         // Outside the source offer the binary rule does not apply (a package's own .dll files are fine).
         Assert.Empty(Scan(Zip(("game/x.dll", [0x4D, 0x5A, 0x90, 0, 3, 0, 0, 0]))));
     }

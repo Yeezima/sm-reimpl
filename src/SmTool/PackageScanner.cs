@@ -76,6 +76,11 @@ public sealed class PackageScanner
     /// <summary>Binary files the source offer may hold (the added content's own sounds and images, the main menu's video loop: our own media, 2026-11-10); every other non-text file in it is refused.</summary>
     public static readonly string[] SourceMediaExtensions = [".ogg", ".ogv", ".png", ".jpg", ".jpeg", ".webp", ".ttf", ".otf", ".ico"];
 
+    /// <summary>The source offer's one binary exception besides <see cref="SourceMediaExtensions"/>: the owner's Thunderhawk kit models (<c>.glb</c> under <c>client/assets/owner-kit/</c>),
+    /// which he cleared for the repository and the tester builds (2026-11-14; the troop bay's wall stations). A .glb anywhere else in the source offer is still refused; the content rules still scan it.</summary>
+    public static bool IsOwnerKitModel(string entry, string ext) =>
+        ext.Equals(".glb", StringComparison.OrdinalIgnoreCase) && entry.Replace('\\', '/').Contains("/client/assets/owner-kit/", StringComparison.OrdinalIgnoreCase) && !entry.Contains("..", StringComparison.Ordinal);
+
     /// <summary>Nested zips are opened at most this deep (a zip in a zip in the package); deeper is refused.</summary>
     const int MaxNestDepth = 2;
     /// <summary>A nested zip is inflated into memory to be opened; one that inflates to more than this (whatever its stated size) is refused as unverifiable.</summary>
@@ -322,7 +327,7 @@ public sealed class PackageScanner
         if (_inSourceArchive)
         {
             if (archive is not null || ext == ".zip") Add("archive-in-source", "an archive inside the source offer");
-            else if (!SourceMediaExtensions.Contains(ext) && IsBinary(open)) Add("binary-in-source", $"a non-text file ('{(ext.Length > 0 ? ext : "no extension")}') inside the source offer");
+            else if (!SourceMediaExtensions.Contains(ext) && !IsOwnerKitModel(name, ext) && IsBinary(open)) Add("binary-in-source", $"a non-text file ('{(ext.Length > 0 ? ext : "no extension")}') inside the source offer");
         }
         if (AllowedExtensions is { } allowed && !sourceArchive)
         {
