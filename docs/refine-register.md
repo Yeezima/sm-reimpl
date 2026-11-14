@@ -28,11 +28,11 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3215 spec table rows: **2366 tagged**, 590 not tagged (read from data with high confidence), 259 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 718 rows of the changes document.
+Scanned 3216 spec table rows: **2367 tagged**, 590 not tagged (read from data with high confidence), 259 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 718 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
-| Movement (critical) | 408 | 348 | 347 | 118 | 12 |
+| Movement (critical) | 409 | 348 | 348 | 119 | 12 |
 | Combat core (critical) | 17 | 7 | 15 | 14 | 9 |
 | Weapons (critical) | 121 | 73 | 106 | 54 | 3 |
 | Melee (critical) | 149 | 131 | 110 | 53 | 5 |
@@ -53,7 +53,7 @@ Scanned 3215 spec table rows: **2366 tagged**, 590 not tagged (read from data wi
 | Core simulation (provisional values) | 701 | 661 | 501 | 181 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 248 | 237 | 133 | 68 | 0 |
-| **All areas** | **2366** | 2092 | 1759 | 731 | 38 |
+| **All areas** | **2367** | 2092 | 1760 | 732 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -61,7 +61,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---:|
 | kind: ours | 1377 |
 | confidence: low | 841 |
-| confidence: medium | 789 |
+| confidence: medium | 790 |
 | notes: ours | 415 |
 | kind: interpretation | 383 |
 | notes: estimate | 198 |
@@ -73,7 +73,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | kind: choice | 38 |
 | section: provisional | 38 |
 | section: placeholder | 35 |
-| notes: user's knowledge | 26 |
+| notes: user's knowledge | 27 |
 | kind: approximation | 25 |
 | notes: interpretation | 25 |
 | kind: placeholder | 22 |
@@ -91,7 +91,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 ## Part A: gameplay areas, critical first
 
-### Movement (gameplay-critical) (408)
+### Movement (gameplay-critical) (409)
 
 *Spec section: Extracted parameters*
 
@@ -352,6 +352,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-EA0B9125` | The weapon comes up with it | the release tick leaves the weapon raised (`ReadyHold`), so the bolt pistol's first shot leaves on the press tick at 1.2 s instead of waiting for its 0.167 s raise (the always-ready heavy bolter needs none). Ours: the owner's example ("the bolt pistol should… | kind: ours; confidence: medium | ours; the owner's example | The weapon comes up with it: compare with SM1 by feel or video. Ours: the release tick leaves the weapon raised (ReadyHold), so the bolt… | ☐ |
 | `R-37B82987` | A press the tick of the release | a melee press in that tick starts the next swing (a light attack, or a stomp again from F) at once, within the usual melee wait (the stomp's combo window has closed by 1.2 s) | kind: ours; confidence: medium | the release acting as the clip's end | A press the tick of the release: compare with SM1 by feel or video. Ours: a melee press in that tick starts the next swing (a light attack, or… | ☐ |
 | `R-72E3090D` | Restore switch | `--old-stomp-release` (server and every client; config hash only when on): the stomp locks to its clip's end (1.667 s) | kind: ours | ours | Restore switch: compare with SM1 by feel or video. Ours: --old-stomp-release (server and every client; config hash only when… | ☐ |
+
+*Spec section: A combat stim starts regeneration at once (sim/stim-regen-now; protocol 75, no wire change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-24376061` | Stim ends the health regeneration delay | at the stim's release (0.3 s into its use) the time since damage counts as at least the health regeneration delay (5 s, less Larraman's Blessing's -1.5 s), so health regenerates from the next tick at the normal rate (5/s) or Larraman's boosted rate (45/s)… (s) | confidence: medium; notes: user's knowledge | the owner's recollection of the original, 2026-11-14 | Stim ends the health regeneration delay: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: at the stim's release (0.3 s into its use) the time since damage… | ☐ |
 
 *Spec section: No firing during the roll (sim/roll-fire-pitch; protocol 51, no wire change)*
 

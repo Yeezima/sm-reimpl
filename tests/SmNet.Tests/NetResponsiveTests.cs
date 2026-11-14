@@ -192,7 +192,7 @@ public class NetResponsiveTests(ITestOutputHelper output)
         Assert.Equal((-3, -33), (back.InputLead, back.InputSlack));
         var none = Assert.IsType<Snapshot>(Protocol.Read(Protocol.Write(new Snapshot(9, 8, Protocol.NoLead, []))));
         Assert.Equal((Protocol.NoLead, Protocol.NoSlack), (none.InputLead, none.InputSlack));
-        Assert.Equal(74, Protocol.Version);
+        Assert.Equal(75, Protocol.Version);
 
         // A live client: positive slack; with its uplink cut for 200 ms (under the 500 ms neutral-input wait) the server runs ticks without its input: negative slack.
         var h = new Harness(new LinkConditions(TimeSpan.FromMilliseconds(20), TimeSpan.Zero, 0), 5, 1);

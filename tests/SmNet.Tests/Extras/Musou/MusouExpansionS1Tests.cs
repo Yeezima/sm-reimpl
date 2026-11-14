@@ -28,7 +28,7 @@ public class MusouExpansionS1Tests
         Assert.Equal(600f, rules.Of(MusouEnemyType.BigShootaNob).Health);
         Assert.Equal(250f, rules.Of(MusouEnemyType.ScrapMek).Health);
         foreach (var t in Enum.GetValues<MusouEnemyType>()) Assert.Equal(t, rules.Of(t).Type);
-        Assert.Equal(74u, Protocol.Version);   // main's protocol (the damage mark raised it to 71, headshots raised it to 64 at integration, net/responsive to 65, the charge cancel to 66, the ally slide to 67, the Classic stims to 68); the Musou expansion does not raise it
+        Assert.Equal(75u, Protocol.Version);   // main's protocol (the damage mark raised it to 71, headshots raised it to 64 at integration, net/responsive to 65, the charge cancel to 66, the ally slide to 67, the Classic stims to 68); the Musou expansion does not raise it
     }
 
     [Fact]

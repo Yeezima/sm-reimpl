@@ -786,6 +786,9 @@ public static class Combat
 
         float since = s.SinceDamage + dt;
         var body = Loadouts.Body(c, s);   // M43: the perks' regeneration and shield (Larraman's Blessing, Iron Halo, Artificer Armor)
+        // sim/stim-regen-now (owner's recollection, 2026-11-14): using a combat stim cancels the rest of the health regeneration delay, so
+        // regeneration (the normal rate, or Larraman's Blessing's) starts on the next tick. Both modes share this step.
+        if (threw && item!.Stim is not null) since = MathF.Max(since, body.HealthRegenDelay);
         float shield = s.SinceDamage >= body.ShieldRegenDelay ? MathF.Min(body.ShieldMax, s.Shield + body.ShieldRegenRate * dt) : s.Shield;
         float health = s.SinceDamage >= body.HealthRegenDelay ? MathF.Min(body.HealthMax, s.Health + body.HealthRegenRate * dt) : s.Health;
         // A burst under way (M43, Burst Fire): lost with the weapon in hand changing or being lowered, or without a burst weapon.
