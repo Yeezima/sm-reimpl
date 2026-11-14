@@ -97,7 +97,7 @@ public partial class NetworkView
         var config = _config!;
         var shape = MusouCleaveShape.Of(config, step, _tfwState.War is not null, wargear);   // the server's volume: x1.5 x1.3 and 120 degrees each side in the war, the spear's 15 m and 150
         float reach = shape.Reach, minCos = shape.MinCos;
-        int most = Math.Min(MusouContactRules.MaxTargets, shape.Most);   // and its count: 40 in the war, 8 in the skirmish, 12 for the spear
+        int most = Math.Min(MusouContactRules.MaxTargets, shape.Most);   // and its count, drawn at most MaxTargets (40) a swing: the server strikes every Ork in the war and the spear's sweep since 2026-11-14 (owner: no cap), 8 in the skirmish; past 40 the hits play from the server's events alone
         var forward = new Num.Vector2(-MathF.Sin(me.Yaw), MathF.Cos(me.Yaw));
         var eye = me.Position + new Num.Vector3(0f, 0f, config.EyeHeight);
         for (int i = 0; i < _tfwShown.Count; i++)

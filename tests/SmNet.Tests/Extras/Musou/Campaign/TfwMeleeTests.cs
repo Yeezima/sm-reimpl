@@ -292,6 +292,30 @@ public class TfwMeleeTests
         Assert.Equal(50, w.TfwBestCleave);
     }
 
+    /// <summary>Owner 2026-11-14: no cleave cap. A swing into a packed crowd of 400 strikes every one inside the cleave, in a bounded time (a guard, generous for a loaded machine).</summary>
+    [Fact]
+    public void A_swing_into_four_hundred_strikes_them_all_quickly()
+    {
+        var w = War();
+        w.Musou!.Frozen = true;
+        var me = w.Players[Human].Position;   // yaw 0: forward is +Y; the light step's war reach is 6.3 m, 120 degrees each side
+        for (int k = 0; k < 400; k++)
+        {
+            float degrees = (k % 41 - 20) * 4.5f, metres = 1.2f + (k / 41) * 0.45f;   // -90..90 degrees, 1.2..5.25 m
+            Boy(w, me + new Vector3(-MathF.Sin(degrees * MathF.PI / 180f) * metres, MathF.Cos(degrees * MathF.PI / 180f) * metres, 0f));
+        }
+        var hit = new HashSet<int>();
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        for (int t = 0; t < 12; t++)
+        {
+            Tick(w, buttons: t < 3 ? InputButtons.Melee : InputButtons.None);
+            foreach (var e in w.Musou.Events) if (e.Kind == MusouEventKind.Hit && e.Value == 3) hit.Add(e.Enemy);
+        }
+        watch.Stop();
+        Assert.Equal(400, hit.Count);
+        Assert.True(watch.ElapsedMilliseconds < 3000, $"12 ticks with a 400-Ork swing took {watch.ElapsedMilliseconds} ms");
+    }
+
     static HashSet<int> StruckBySwing(World w, params ushort[] ids)
     {
         var hit = new HashSet<int>();

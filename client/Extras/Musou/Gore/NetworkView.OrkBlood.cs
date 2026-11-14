@@ -44,7 +44,7 @@ public partial class NetworkView
     static readonly string? OrkBloodWeaponArg = CmdArg("ork-blood-weapon"), OrkBloodAbilityArg = CmdArg("ork-blood-ability"), OrkBloodZoneArg = CmdArg("ork-blood-zone");
 
     /// <summary>Kills that play their blood in one frame (the rest play none; ours).</summary>
-    const int OrkBloodKillsPerFrame = 40;   // 40 (was 8): a cleave strikes up to 40 (owner 2026-11-09)
+    const int OrkBloodKillsPerFrame = 40;   // 40 (was 8; owner 2026-11-09: a cleave struck up to 40). Since 2026-11-14 a cleave has no cap: this stays a draw budget, kills past it play no blood
     /// <summary>Kills farther from the camera play no blood; the limbs' bursts of a whole-body point and the drips only within the nearer distance (m, ours).</summary>
     const float OrkBloodMetres = 45f, OrkBloodLimbMetres = 20f;
 
