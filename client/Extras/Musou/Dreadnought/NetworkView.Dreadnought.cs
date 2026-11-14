@@ -24,7 +24,9 @@ public partial class NetworkView
 
     sealed class DreadnoughtTrack
     {
-        public bool WasAlive, EngineOn;
+        public bool WasAlive, EngineOn, Seen, ClassDread, HasPos, Corpse, StepDust;
+        public Vector3 PrevPos;
+        public int PrevClip;
         public double Born = double.NegativeInfinity, Died = double.NegativeInfinity;
         public SoundEmitter Emitter = new();
         public Vector3 Last;
@@ -33,18 +35,29 @@ public partial class NetworkView
         public float ReloadLeft;
     }
 
-    bool IsDreadnoughtClass(int playerClass) => _config is not null && DreadnoughtRules.IsDreadnought(_config, playerClass);
-    static bool IsDreadnoughtCharacter(CharacterViewer c) => c.HasMeta("look_key") && c.GetMeta("look_key").AsString() == DreadnoughtKey;
+    /// <summary>The Dreadnought's class index in this match's config, or -1 (Classic and every config without him), found once: every per-frame hook returns at once when it is -1.</summary>
+    int _dreadIndex = -2;
+    int DreadIndex => _dreadIndex != -2 ? _dreadIndex : _config is null ? -1 : _dreadIndex = DreadnoughtClassIndex();
+    bool IsDreadnoughtClass(int playerClass) => DreadIndex >= 0 && playerClass == DreadIndex;
+
+    /// <summary>The characters wearing his model (a set: no per-frame string work; empty without a Dreadnought in the match).</summary>
+    readonly HashSet<CharacterViewer> _dreadCharacters = new();
+    bool IsDreadnoughtCharacter(CharacterViewer c) => _dreadCharacters.Count > 0 && _dreadCharacters.Contains(c);
 
     DreadnoughtTrack DreadTrack(int id) { if (!_dreadTracks.TryGetValue(id, out var t)) _dreadTracks[id] = t = new DreadnoughtTrack(); return t; }
 
     partial void ExtrasEnsureModel(CharacterViewer? current, int playerId, bool local, PlayerState state, ref CharacterViewer? result)
     {
+        if (DreadIndex < 0) return;   // Classic and every config without him: nothing here
         bool want = IsDreadnoughtClass(state.Class);
+        var track = DreadTrack(playerId);
+        // His entrance starts when a player seen as something else (the hub's Tactical stand-in) becomes him: the landing. A first sight as the Dreadnought (a join in a battle) does not replay it.
+        if (want && !track.ClassDread && track.Seen) track.Born = _connectedFor;
+        track.Seen = true; track.ClassDread = want;
         if (!want)
         {
             // A Dreadnought turned back into a marine (the hub's Tactical stand-in): the rig is another one, so it is dropped for the placeholder and the usual look swap follows.
-            if (current is not null && IsDreadnoughtCharacter(current) && _assets is not null) { current.QueueFree(); result = Spawn(playerId, local, _assets, LookKeys.Placeholder); }
+            if (current is not null && IsDreadnoughtCharacter(current) && _assets is not null) { _dreadCharacters.Remove(current); current.QueueFree(); result = Spawn(playerId, local, _assets, LookKeys.Placeholder); }
             return;
         }
         if (current is not null && IsDreadnoughtCharacter(current)) { result = current; return; }
@@ -58,9 +71,10 @@ public partial class NetworkView
         }
         if (_dreadLooks.Assets is { } assets)
         {
-            current?.QueueFree();
+            if (current is not null) { _dreadCharacters.Remove(current); current.QueueFree(); }
             result = Spawn(playerId, local, assets, DreadnoughtKey);
-            if (result.GetNodeOrNull<Label3D>("Nameplate") is { } plate) plate.Position = new Vector3(0, 0, 4.2f);
+            _dreadCharacters.Add(result);
+            if (result.GetNodeOrNull<Label3D>("Nameplate") is { } plate) plate.Position = new Vector3(0, 0, _dreadLooks.Height + 0.3f);
         }
         // not built yet (or failed): result stays null and the usual path shows the Tactical stand-in
     }
@@ -70,9 +84,12 @@ public partial class NetworkView
         if (!IsDreadnoughtCharacter(character)) return;
         handled = true;
         var t = DreadTrack(state.PlayerId);
-        if (state.Alive && !t.WasAlive) t.Born = _connectedFor;
-        if (!state.Alive && t.WasAlive) t.Died = _connectedFor;
-        t.WasAlive = state.Alive;
+        // A new life (the dead to alive edge) or a jump of the body while alive (a war redeploy, an extraction or a call-back: the server re-locks the entrance at each) starts the entrance clip.
+        var pos = new Vector3(state.Position.X, state.Position.Y, state.Position.Z);
+        bool jumped = t.HasPos && new Vector2(pos.X - t.PrevPos.X, pos.Y - t.PrevPos.Y).Length() > DreadnoughtTeleportMetres;
+        if (state.Alive && ((!t.WasAlive && t.Seen) || jumped)) t.Born = _connectedFor;
+        t.PrevPos = pos; t.HasPos = true;
+        t.WasAlive = true; t.Corpse = false;
         character.ClearPoseLayers();
         character.ClearTurnPose();
         float yaw = own ? DisplayYaw(state) : state.Yaw;
@@ -80,8 +97,8 @@ public partial class NetworkView
         if (character.GetNodeOrNull<Node3D>("ChargeGlow") is { } glow) glow.Visible = false;
         character.Visible = true;
         double since = _connectedFor - t.Born;
-        DreadnoughtSounds(t, state, own, state.Alive && since < DreadnoughtRig.EntranceSeconds);
-        if (!state.Alive) { character.Pose(DreadnoughtRig.Death, (float)Math.Min(_connectedFor - t.Died, DreadnoughtRig.DeathSeconds), 0.2f); return; }
+        DreadnoughtSounds(t, state, own, since < DreadnoughtRig.EntranceSeconds);
+        DreadnoughtEffects(t, state, since < DreadnoughtRig.EntranceSeconds);
         if (since < DreadnoughtRig.EntranceSeconds) { character.Pose(DreadnoughtRig.Entrance, (float)since, 0.1f); return; }
         if (_config is { } cfg)
         {
@@ -98,6 +115,60 @@ public partial class NetworkView
             }
         }
         DreadnoughtLocomotion(character, state);
+    }
+
+    /// <summary>A body that moves this far in one frame while alive was moved by the server (a redeploy, an extraction, a call-back): a new entrance (ours, a heuristic: the server's lock has no wire signal).</summary>
+    const float DreadnoughtTeleportMetres = 6f;
+    /// <summary>How long a dead Dreadnought's body is shown (data: death_time 10 s).</summary>
+    const double DreadnoughtCorpseSeconds = 10.0;
+
+    /// <summary>
+    /// A dead Dreadnought (called by TrackDeath, which does not place the dead): the death clip at its time, held on its last frame, shown for <see cref="DreadnoughtCorpseSeconds"/>; no ragdoll.
+    /// </summary>
+    partial void ExtrasDeadPlace(CharacterViewer character, PlayerState state, bool own, ref bool keep)
+    {
+        if (!IsDreadnoughtCharacter(character)) return;
+        var t = DreadTrack(state.PlayerId);
+        if (t.WasAlive) { t.Died = _connectedFor; t.WasAlive = false; t.EngineOn = false; _sound?.StopEmitter(t.Emitter); }
+        double dead = _connectedFor - t.Died;
+        if (dead > DreadnoughtCorpseSeconds || double.IsInfinity(dead)) { character.Visible = false; return; }
+        if (!t.Corpse)
+        {
+            t.Corpse = true;
+            character.ClearPoseLayers(); character.ClearTurnPose();
+            if (character.GetNodeOrNull<Node3D>("ChargeGlow") is { } glow) glow.Visible = false;
+        }
+        float yaw = own ? DisplayYaw(state) : state.Yaw;
+        character.Transform = new Transform3D(new Basis(new Vector3(0, 0, 1), yaw), new Vector3(state.Position.X, state.Position.Y, state.Position.Z));
+        character.Pose(DreadnoughtRig.Death, (float)Math.Min(dead, DreadnoughtRig.DeathSeconds), 0.2f);
+        character.Visible = true;
+        keep = true;
+    }
+
+    // ---- effects (D7): the install's effects through the effect player ----
+    const string DreadMuzzleEffect = "autocannon_muzzle", DreadDustEffect = "jump_land";
+    /// <summary>The muzzle flash's scale (data: the cannon's effect binding 1.75) and the footfall dust's (ours, the size of his foot).</summary>
+    const float DreadMuzzleScale = 1.75f, DreadDustScale = 2.5f;
+
+    /// <summary>A muzzle flash at the cannon for each frame the clip lost a round, and the footfall dust where the stride lands. Nothing for a lean bot.</summary>
+    void DreadnoughtEffects(DreadnoughtTrack t, PlayerState s, bool entering)
+    {
+        if (_fx is null || Lean) { t.PrevClip = s.Clip; t.StepDust = false; return; }
+        bool cannon = s.Slot == WeaponSlot.Ranged;
+        if (!entering && cannon && s.Clip < t.PrevClip && s.ReloadLeft <= 0f)
+        {
+            float cp = MathF.Cos(s.Pitch);
+            var fwd = new Vector3(-MathF.Sin(s.Yaw) * cp, MathF.Cos(s.Yaw) * cp, MathF.Sin(s.Pitch));
+            var right = new Vector3(MathF.Cos(s.Yaw), MathF.Sin(s.Yaw), 0f);
+            var muzzle = new Vector3(s.Position.X, s.Position.Y, s.Position.Z + 2.3f) + fwd * 2.2f + right * 0.8f;   // ours: the cannon's barrels, ahead of his right shoulder
+            _fx.Play(DreadMuzzleEffect, new Vector3(muzzle.X, muzzle.Z, -muzzle.Y), AxesFromY(new Vector3(fwd.X, fwd.Z, -fwd.Y)), DreadMuzzleScale);   // game space (X, Y, Z up) to Godot's (X, Z, -Y)
+        }
+        t.PrevClip = s.Clip;
+        if (t.StepDust)
+        {
+            t.StepDust = false;
+            _fx.Play(DreadDustEffect, ToGodot(s.Position), Basis.Identity, DreadDustScale);
+        }
     }
 
     // ---- sounds (D7): the install's own events from bank Weapon_Dreadnought through the sound system (the data's mix); none for a lean bot ----
@@ -124,7 +195,7 @@ public partial class NetworkView
         {
             float moved = new Vector2(here.X - t.Last.X, here.Z - t.Last.Z).Length();   // Godot space: X, Z are the ground
             if (moved < 3f) t.Stride += moved;
-            if (t.Stride >= DreadnoughtRules.FootfallStride) { t.Stride -= DreadnoughtRules.FootfallStride; _sound.Post(speed > DreadnoughtRules.RunSpeed + 1.5f ? DreadSprintFootEvent : DreadFootEvent, em, footstep: true); }
+            if (t.Stride >= DreadnoughtRules.FootfallStride) { t.Stride -= DreadnoughtRules.FootfallStride; t.StepDust = true; _sound.Post(speed > DreadnoughtRules.RunSpeed + 1.5f ? DreadSprintFootEvent : DreadFootEvent, em, footstep: true); }
         }
         t.Last = here;
         if (s.MeleeStep > 0 && t.Strike == 0)
@@ -153,15 +224,24 @@ public partial class NetworkView
                 character.Stance("dn:sprint", null, DreadnoughtRig.Sprint, null, 0f, Math.Clamp(speed / DreadnoughtRules.SprintSpeed, 0.6f, 1.4f), 0.25f);
                 return;
             }
-            string dir = DreadnoughtRig.Direction(MathF.Atan2(right, forward) * 180f / MathF.PI);
+            int dir = DreadnoughtRig.DirectionIndex(MathF.Atan2(right, forward) * 180f / MathF.PI);
             bool run = speed > DreadnoughtRig.RunFrom;
-            string key = $"dn:{(run ? "run" : "walk")}:{dir}:{(melta ? "l" : "a")}";
-            character.Stance(key, DreadnoughtRig.Move(run, dir, melta, -1), DreadnoughtRig.Move(run, dir, melta, 0), DreadnoughtRig.Move(run, dir, melta, 1), pitchT,
+            character.Stance(DreadMoveKey(run, dir, melta), DreadnoughtRig.MoveClip(run, dir, melta, -1), DreadnoughtRig.MoveClip(run, dir, melta, 0), DreadnoughtRig.MoveClip(run, dir, melta, 1), pitchT,
                 speed / (run ? DreadnoughtRig.RunCycleSpeed : DreadnoughtRig.WalkCycleSpeed), 0.2f);
             return;
         }
         character.Stance(melta ? "dn:idle:l" : "dn:idle:a", DreadnoughtRig.Stand(melta, -1), DreadnoughtRig.Stand(melta, 0), DreadnoughtRig.Stand(melta, 1), pitchT, 1f, 0.25f);
     }
+
+    /// <summary>The stance keys, built once (the pose asks every frame).</summary>
+    static readonly string[] DreadMoveKeys = BuildMoveKeys();
+    static string[] BuildMoveKeys()
+    {
+        var keys = new string[2 * 8 * 2];
+        for (int r = 0; r < 2; r++) for (int d = 0; d < 8; d++) for (int m = 0; m < 2; m++) keys[(r * 8 + d) * 2 + m] = $"dn:{(r == 1 ? "run" : "walk")}:{d}:{(m == 1 ? "l" : "a")}";
+        return keys;
+    }
+    static string DreadMoveKey(bool run, int direction, bool melta) => DreadMoveKeys[((run ? 8 : 0) + direction) * 2 + (melta ? 1 : 0)];
 
     readonly DreadnoughtSprintGate _dnSprint = new();
     float _dnSprintFov;

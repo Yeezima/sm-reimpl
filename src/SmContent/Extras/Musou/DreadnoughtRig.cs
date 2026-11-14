@@ -28,11 +28,27 @@ public static class DreadnoughtRig
     static readonly string[] Dirs = ["F", "FR", "R", "BR", "B", "BL", "L", "FL"];
 
     /// <summary>The direction's letters (F, FR, R, BR, B, BL, L, FL) of a velocity at <paramref name="degrees"/> off the facing (0 forward, 90 right; eight 45-degree sectors).</summary>
-    public static string Direction(float degrees)
+    public static string Direction(float degrees) => Dirs[DirectionIndex(degrees)];
+
+    /// <summary>The sector's index (0 F, 1 FR, 2 R, 3 BR, 4 B, 5 BL, 6 L, 7 FL) of <see cref="Direction"/>.</summary>
+    public static int DirectionIndex(float degrees)
     {
         float d = degrees % 360f; if (d < 0) d += 360f;
-        return Dirs[(int)MathF.Floor((d + 22.5f) / 45f) % 8];
+        return (int)MathF.Floor((d + 22.5f) / 45f) % 8;
     }
+
+    /// <summary>Every <see cref="Move"/> name, built once (the pose asks every frame): [run 0/1, sector 0 to 7, melta 0/1, aim 0 down, 1 level, 2 up].</summary>
+    static readonly string[,,,] MoveNames = BuildMoveNames();
+
+    static string[,,,] BuildMoveNames()
+    {
+        var t = new string[2, 8, 2, 3];
+        for (int r = 0; r < 2; r++) for (int d = 0; d < 8; d++) for (int m = 0; m < 2; m++) for (int a = 0; a < 3; a++) t[r, d, m, a] = Move(r == 1, Dirs[d], m == 1, a - 1);
+        return t;
+    }
+
+    /// <summary>The cached <see cref="Move"/> name (<paramref name="aim"/> -1, 0, +1).</summary>
+    public static string MoveClip(bool run, int direction, bool melta, int aim) => MoveNames[run ? 1 : 0, direction, melta ? 1 : 0, aim + 1];
 
     /// <summary>
     /// A locomotion clip: <paramref name="run"/> (else walk), <paramref name="direction"/> (<see cref="Direction"/>), <paramref name="melta"/> (the left arm raised: the <c>LAim</c> set), <paramref name="aim"/> -1 down, 0 level, +1 up.

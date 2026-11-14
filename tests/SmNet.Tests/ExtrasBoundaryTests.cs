@@ -31,6 +31,7 @@ public class ExtrasBoundaryTests
         ("src/SmServer/GameServer.Envelope.cs", "ExtrasSend"),     // GameServer.ExtrasSend(), called once a tick after SendPickups (E3's envelope), only with added content
         ("client/NetworkView.Appearance.cs", "ExtrasEnsureModel"),  // NetworkView.ExtrasEnsureModel(CharacterViewer?, int, bool, PlayerState, ref CharacterViewer?), the character a player of an added class wears (Musou: the Dreadnought model)
         ("client/NetworkView.cs", "ExtrasPlace"),                  // NetworkView.ExtrasPlace(CharacterViewer, PlayerState, bool, ref bool), added content poses its own rig (Musou: the Dreadnought)
+        ("client/NetworkView.cs", "ExtrasDeadPlace"),        // NetworkView.ExtrasDeadPlace(CharacterViewer, PlayerState, bool, ref bool), TrackDeath for a dead player: added content shows its own corpse (Musou: the Dreadnought)
         ("client/NetworkView.Death.cs", "ExtrasDeath"),            // NetworkView.ExtrasDeath(CharacterViewer, ref bool), added content's own death, no ragdoll (Musou: the Dreadnought)
         ("client/NetworkView.cs", "ExtrasInputGate"),              // NetworkView.ExtrasInputGate(ref PlayerInput), on every live sampled input after ExtrasInput: added content's limits (Musou: the Dreadnought's sprint)
         ("client/NetworkView.Camera.cs", "ExtrasRigCamera"),       // NetworkView.ExtrasRigCamera(PlayerState, float, float, ref Vector3, ref Vector3, ref float, ref float), the rig camera's offset, pivot and fov (Musou: the Dreadnought)

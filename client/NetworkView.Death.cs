@@ -143,6 +143,7 @@ public partial class NetworkView
     {
         bool wasAlive = _aliveSeen.GetValueOrDefault(id);
         _aliveSeen[id] = state.Alive;
+        _deadKept = false;
         if (state.Alive)
         {
             if (!wasAlive) UpperReset(id);   // pass 2: a respawn (or the first sight) starts afresh
@@ -168,9 +169,13 @@ public partial class NetworkView
             _pendingDeaths.Add((id, character, state, own, v));
         }
         UpperReset(id);   // pass 2: dead
-        if (own) character.Visible = false;
+        ExtrasDeadPlace(character, state, own, ref _deadKept);   // EXTRAS-HOOK: added content shows its own dead character (Musou: the Dreadnought's death clip)
+        if (own && !_deadKept) character.Visible = false;
         return false;
     }
+
+    /// <summary>Set by <see cref="TrackDeath"/> for the player it was last called for: added content keeps this dead character visible.</summary>
+    bool _deadKept;
 
     /// <summary>Hook for added content: <paramref name="handled"/> set when the character's death is its own (no ragdoll is made).</summary>
     partial void ExtrasDeath(CharacterViewer character, ref bool handled);

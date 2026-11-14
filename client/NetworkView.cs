@@ -577,7 +577,7 @@ public partial class NetworkView : Node3D
                 if (starting) HeavyEnd(rigStart);
             }
             Ph("remote players: bookkeeping");
-            character.Visible = state.Alive;   // a dead marine's living model is hidden: its ragdoll lies there instead (M23)
+            character.Visible = state.Alive || _deadKept;   // a dead marine's living model is hidden: its ragdoll lies there instead (M23); added content may keep its own (Musou: the Dreadnought's corpse)
             // Slim records carry only whether a player is charging (protocol 7): count the starts for the log.
             bool wasCharging = _remoteCharging.GetValueOrDefault(state.PlayerId);
             if (state.Charging && !wasCharging)
@@ -1536,13 +1536,19 @@ public partial class NetworkView : Node3D
         EmissionEnergyMultiplier = energy,
     };
 
+    /// <summary>Hook for added content: <paramref name="handled"/> set when the character was posed by it (Musou: the Dreadnought's rig).</summary>
+    partial void ExtrasPlace(CharacterViewer character, PlayerState state, bool own, ref bool handled);
+
+    /// <summary>
+    /// Hook for added content: called by <see cref="TrackDeath"/> for a player who is not alive; <paramref name="keep"/> set when the added content poses and shows the dead character itself (Musou: the Dreadnought's
+    /// death clip and corpse), so it stays visible instead of being hidden for a ragdoll.
+    /// </summary>
+    partial void ExtrasDeadPlace(CharacterViewer character, PlayerState state, bool own, ref bool keep);
+
     /// <summary>Positions are game space (metres, Z up); yaw rotates about +Z, and yaw 0 faces +Y like the model.</summary>
     /// <param name="throwTime">Seconds into a throw under way (own player: the simulation's ThrowTime; others: since their
     /// slim Throwing flag rose), or null when not throwing: the toss clip is posed at that time when the rig has it.</param>
     /// <param name="smooth">Remote players: the smoothed time of the reaction, charge or attack clip (<see cref="SmoothRemoteClip"/>), used instead of the snapshot's value.</param>
-    /// <summary>Hook for added content: <paramref name="handled"/> set when the character was posed by it (Musou: the Dreadnought's rig).</summary>
-    partial void ExtrasPlace(CharacterViewer character, PlayerState state, bool own, ref bool handled);
-
     void Place(CharacterViewer character, PlayerState state, float? throwTime = null, bool own = false, SmoothClip? smooth = null)
     {
         // qc/reference-pass: the transition probe measures the melee prop bones (RIG_Prop_M_*) only where a mesh can hang on them: a marine with a two-handed melee weapon, and every

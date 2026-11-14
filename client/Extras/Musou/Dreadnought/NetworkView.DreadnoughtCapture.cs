@@ -61,8 +61,12 @@ public partial class NetworkView
         await TfwWait(1.2);
         GD.Print($"DNCAPTURE t {_connectedFor:F2} run, speed {SpeedOf(client.Predicted):F1}");
         await DnViews("run");
+        TfwKey(Key.W, false);
+        _yaw += MathF.PI;   // the Guards stood ahead: sprint the other way, into the open
+        await TfwWait(0.4);
+        TfwKey(Key.W, true);
         TfwKey(Key.Shift, true);
-        await TfwWait(1.2);
+        await TfwWait(2.0);
         GD.Print($"DNCAPTURE t {_connectedFor:F2} sprint, speed {SpeedOf(client.Predicted):F1}");
         await DnViews("sprint");
         TfwKey(Key.Shift, false);
@@ -131,6 +135,14 @@ public partial class NetworkView
         for (int k = 0; k < 10; k++) { await TfwWait(0.25); if (k is 3 or 5) await DnStill(1, $"dn-side-melee-y-{k}"); }
         GD.Print($"DNCAPTURE t {_connectedFor:F2} after Y: step {client.Predicted.MeleeStep} heavy {client.Predicted.MeleeHeavy}, crowd near {TfwNearCount(12f)}");
         await TfwWait(2.5);
+        // the buff: the equipment key, then what the state shows
+        int grenades = client.Predicted.Grenades;
+        await TfwActionTap(GameAction.Grenade);
+        await TfwWait(1.0);
+        GD.Print($"DNCAPTURE t {_connectedFor:F2} buff: stim left {client.Predicted.StimLeft:F1} s, charges {grenades} -> {client.Predicted.Grenades}");
+        TfwCheck("the buff is running", client.Predicted.StimLeft > 5f, client.Predicted.StimLeft.ToString("F1"));
+        await DnStill(1, "dn-side-buff");
+        if (CmdFlag("dn-film")) { await DnSurvive(); return; }
         GD.Print("DNCAPTURE done");
         GetTree().Quit(0);
     }
