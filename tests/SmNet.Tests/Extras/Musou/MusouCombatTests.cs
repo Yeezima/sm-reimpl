@@ -247,7 +247,7 @@ public class MusouCombatTests
         for (int k = 0; k < 10; k++) w.Musou!.Spawn(MusouEnemyType.Boy, Me(w) + new Vector3(k * 0.25f - 1.1f, 1.5f, 0f), 0f, 85f);
     }
 
-    /// <summary>musou/melee-heal-cap (owner 2026-11-12): one swing (a strike step) heals at most 3 times, whatever the enemies struck.</summary>
+    /// <summary>musou/melee-heal-cap (owner 2026-11-12): one swing (a strike step) heals at most MeleeHealsPerSwing times (5 since the owner's 2026-11-14 change, was 3), whatever the enemies struck.</summary>
     [Fact]
     public void One_swing_through_ten_Orks_heals_exactly_three_times_and_two_swings_heal_three_each()
     {
@@ -256,10 +256,10 @@ public class MusouCombatTests
         SetHealth(w, body.HealthMax * 0.2f);
         TenBoys(w);
         Run(w, 20, InputButtons.Melee);
-        Assert.Equal(body.HealthMax * (0.2f + 3 * 0.05f), w.Players[1].Health, 2);   // ten struck, three healed
+        Assert.Equal(body.HealthMax * (0.2f + MusouCombatRules.MeleeHealsPerSwing * 0.05f), w.Players[1].Health, 2);   // ten struck, three healed
         Run(w, 20, InputButtons.Melee);
-        Assert.Equal(body.HealthMax * (0.2f + 6 * 0.05f), w.Players[1].Health, 2);   // a second swing heals three more
-        Assert.Equal(3, MusouCombatRules.MeleeHealsPerSwing);
+        Assert.Equal(body.HealthMax * (0.2f + 2 * MusouCombatRules.MeleeHealsPerSwing * 0.05f), w.Players[1].Health, 2);   // a second swing heals three more
+        Assert.Equal(5, MusouCombatRules.MeleeHealsPerSwing);   // owner 2026-11-14 (was 3)
     }
 
     [Fact]
@@ -270,9 +270,9 @@ public class MusouCombatTests
         SetHealth(w, body.HealthMax * 0.2f);
         TenBoys(w);
         Run(w, 20, InputButtons.Melee);
-        Assert.Equal(body.HealthMax * (0.2f + 3 * 0.05f), w.Players[1].Health, 2);   // the swing: capped
+        Assert.Equal(body.HealthMax * (0.2f + MusouCombatRules.MeleeHealsPerSwing * 0.05f), w.Players[1].Health, 2);   // the swing: capped
         typeof(World).GetMethod("MusouSlashLandHeal", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.Invoke(w, [1]);
-        Assert.Equal(body.HealthMax * (0.2f + 3 * 0.05f + MusouCombatRules.SlashLandHealthShare), w.Players[1].Health, 2);   // the landing: its whole 25 %, outside the cap
+        Assert.Equal(body.HealthMax * (0.2f + MusouCombatRules.MeleeHealsPerSwing * 0.05f + MusouCombatRules.SlashLandHealthShare), w.Players[1].Health, 2);   // the landing: its whole 25 %, outside the cap
     }
 
     [Fact]
@@ -284,7 +284,7 @@ public class MusouCombatTests
         SetHealth(w, body.HealthMax * 0.2f);
         TenBoys(w);
         Run(w, 20, InputButtons.MeleeHeavy);
-        Assert.Equal(body.HealthMax * (0.2f + 3 * 0.05f), w.Players[1].Health, 2);   // the stomp and its cleave are one swing: three heals, not three plus three
+        Assert.Equal(body.HealthMax * (0.2f + MusouCombatRules.MeleeHealsPerSwing * 0.05f), w.Players[1].Health, 2);   // the stomp and its cleave are one swing: three heals, not three plus three
     }
 
     [Fact]

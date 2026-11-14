@@ -46,7 +46,8 @@ public class MusouSkirmishPinTests(ITestOutputHelper output)
     // Recaptured 2026-11-12 for the melee heal cap, 3 per swing (MusouSim.Version 52; owner 2026-11-12): the replay's swings strike more than three enemies, so the players' health differs (stats unchanged).
     // Proof it moved only the heal: with --musou-uncapped-melee-heal (MusouUncappedMeleeHeal) the replay returns the previous golden (OldGolden, asserted below).
     const string OldGolden = "11BAC586C8BD290D5350CD9E48A55DE3C7EBD0AEF61E098DD5FD38438C830CB0";
-    const string Golden = "004AFBAA723EC657EB323C86DBD9CC05B9A40B9475FF221F5641EB1D59390FE8";
+    // Recaptured 2026-11-14 for the heal cap raised to 5 per swing (MusouSim.Version 55; owner 2026-11-14; was 004AFBAA...0FE8 at 3): only MeleeHealsPerSwing changed between the two (stats unchanged).
+    const string Golden = "571D21E93EA5C271103218F3624490B54C24E6065CFBCBDAA0F9A6B4DDD3D565";
 
     [Fact]
     public void With_the_uncapped_heal_switch_the_replay_is_the_golden_from_before_the_cap()

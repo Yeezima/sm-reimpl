@@ -167,13 +167,13 @@ public class SpearTests
     [Fact]
     public void A_spear_sweep_through_twelve_orks_heals_three_times_only()
     {
-        var w = War(melee: 1);   // owner 2026-11-12: one swing heals at most 3 times (MusouCombatRules.MeleeHealsPerSwing)
+        var w = War(melee: 1);   // owner 2026-11-12: one swing heals at most MusouCombatRules.MeleeHealsPerSwing times (5 since 2026-11-14)
         var body = Loadouts.Body(w.Config, w.Players[Human]);
         var players = (Dictionary<int, PlayerState>)typeof(World).GetField("_players", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(w)!;
         players[Human] = players[Human] with { Health = body.HealthMax * 0.2f };
         for (int k = 0; k < 30; k++) Ork(w, Polar(w, (k - 15) * 6f, 2f + k * 0.3f));
         Assert.Equal(30, StruckBySwing(w).Count);   // every Ork in the sweep (no cap since 2026-11-14)
-        Assert.Equal(body.HealthMax * (0.2f + 3 * MusouCombatRules.MeleeHealShare), w.Players[Human].Health, 2);
+        Assert.Equal(body.HealthMax * (0.2f + MusouCombatRules.MeleeHealsPerSwing * MusouCombatRules.MeleeHealShare), w.Players[Human].Health, 2);
     }
 
     [Fact]
