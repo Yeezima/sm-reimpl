@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3171 spec table rows: **2329 tagged**, 584 not tagged (read from data with high confidence), 258 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 708 rows of the changes document.
+Scanned 3174 spec table rows: **2329 tagged**, 584 not tagged (read from data with high confidence), 258 in the appendix (test aids, capture tooling, engineering), 3 malformed (not classified). Part C lists 709 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -4909,6 +4909,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-CFF0666F` | Musou Mode: AoE pass (claude/musou-aoe-droppod-recast, owner 2026-11-14; `MusouSim.Version` 54, `TfwRules.Version` 79) | No Musou Mode in the original | Ours (added content, the owner's request): the assault Marine's ground pound and air slash landing reach 1.5x as far and deal 1.5x (centre too); every player weapon's blast reaches 1.25x; the autocannon's burst 1.4x its own size (the lead's reading, to confirm: 1.75 is one constant) | `MusouCombatRules.WeaponAoeScale`, `PoundReachScale`, `AutocannonAoeScale`, spec "Added content: Musou Mode: AoE pass" | Musou Mode: AoE pass (claude/musou-aoe-droppod-recast…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-89E824F0` | Musou Mode: no melee cleave cap (lead 25 integration, owner 2026-11-14; `TfwRules.Version` 80) | No Musou Mode in the original | Ours (added content, the owner's request, verbatim: "All orks within the cleave range should always be hit no matter how many"): a human swing in Musou Mode strikes every Ork inside its cleave (was at most 40; the power spear's sweep at most 12); reach, angle and the heals-per-swing cap (5 since the same day)… | Musou Mode only; Classic PvP untouched | Musou Mode: no melee cleave cap (lead 25 integration, owner…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-6AC0F6ED` | Musou Mode: melee heal cap 5 per swing (lead 25 integration, owner 2026-11-14; `MusouSim.Version` 55) | No Musou Mode in the original | Ours (added content, the owner's request, verbatim: "adjust the enemies triggering the heal effect per swing to be 5 instead of 3"): one melee swing heals for at most the first 5 enemies struck (was 3, 2026-11-12) | Musou Mode only; Classic PvP untouched | Musou Mode: melee heal cap 5 per swing (lead 25…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-2E5AA696` | Weapon visuals (fx/weapon-visuals, owner 2026-11-14; client only) | Original: only the thunder hammer binds an idle light; the combat knife's perk effect (`combat_knife_idle`, warm light and gold edges) is bound but never played here; Kraken Bolts change no tracer | Ours (the owner's request): every power weapon throws the hammer's blue light, the Serrated Combat Blade gives the knife a green light and green power-field overlay, Kraken Bolts bolters draw larger red tracers (both modes). The green, red and sizes are estimates | `--no-power-light`, `--old-kraken-tracer` restore the before; Musou's claw and spear are not touched | Weapon visuals (fx/weapon-visuals, owner 2026-11-14; client…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 
 ## Appendix: not gameplay
 
@@ -5174,4 +5175,14 @@ Test aids, probes, demo and capture tooling, and engineering decisions (protocol
 | `R-F137D8B4` | Test aid: old big spawns | Musou Mode: the Orks back at 100 %, twice the big Orks (musou-big-ork-deaths, 2026-11-10; Musou Mode's war only; `TfwRules.Version` 59, to be renumbered at integration; no protocol, wire or `MusouSim.Version` change) |
 | `R-060A8DDF` | Musou weight: puff budget | Musou weight and impact pass (claude/musou-weight, 2026-11-10; client only, no simulation, wire, protocol, config-hash or rules-version change; Musou Mode only) |
 | `R-B20A1288` | Classic autocannon: config hash | Added content: Classic PvP's autocannon — the Musou autocannon in Annihilation and Seize Ground (extended profile only; owner 2026-11-11) |
+
+### Malformed spec rows
+
+Rows whose cell count differs from their table's header. Their cells are shifted, so they are not classified. Fix them in the spec.
+
+| Line | Section | Parameter | Problem |
+|---:|---|---|---|
+| 5804 | Weapon visuals: power weapons' light, the serrated knife's field, Kraken tracers (fx/weapon-visuals; client only, not simulated, no protocol change; owner 2026-11-14) | Power weapons' light | 8 cells, header has 7 |
+| 5805 | Weapon visuals: power weapons' light, the serrated knife's field, Kraken tracers (fx/weapon-visuals; client only, not simulated, no protocol change; owner 2026-11-14) | Serrated knife's light and field | 8 cells, header has 7 |
+| 5806 | Weapon visuals: power weapons' light, the serrated knife's field, Kraken tracers (fx/weapon-visuals; client only, not simulated, no protocol change; owner 2026-11-14) | Kraken Bolts tracer | 8 cells, header has 7 |
 
