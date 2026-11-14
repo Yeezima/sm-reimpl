@@ -32,7 +32,7 @@ public partial class MusouCrowd
     /// <summary>A look's model height at its scale (metres, game Z; measured once).</summary>
     float HeightOfLook(MusouLooks.Look? look)
     {
-        if (look is null) return 3f;
+        if (look is null || look.Assets.Pieces.Count == 0) return 3f;   // not cached: measured again once its pieces exist
         if (_heights.TryGetValue(look, out float known)) return known;
         float top = float.NegativeInfinity, bottom = float.PositiveInfinity;
         foreach (var piece in look.Assets.Pieces) { var box = piece.Mesh.GetAabb(); top = MathF.Max(top, box.End.Z); bottom = MathF.Min(bottom, box.Position.Z); }

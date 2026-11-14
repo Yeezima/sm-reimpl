@@ -13,17 +13,53 @@ public class MusouDizzyTests
     static readonly MusouEnemyType[] Bosses =
         [MusouEnemyType.Warboss, MusouEnemyType.BossBoy, MusouEnemyType.BossShootaBoy, MusouEnemyType.BossArdBoy, MusouEnemyType.BossNob];
 
-    static (MusouSim Sim, MusouTarget[] Targets, ushort Id, Func<uint> Step) Arena(MusouEnemyType type, float yaw)
+    sealed class Rig
     {
-        var rules = MusouRules.Default with { Boss = MusouBossRules.Default with { SlamFirst = 1000f, ChargeFirst = 1000f } };
-        var sim = new MusouSim(null, rules) { TickRate = 30, War = TfwCombatRules.Default };
-        ushort id = sim.Spawn(type, Vector3.Zero, yaw, 4000f);
-        var targets = new[] { new MusouTarget(1, new Vector3(0f, 6f, 0f), true) };   // behind the boss's facing when yaw is 0: it would turn to it if it could
-        uint tick = 0;
-        var attacks = new List<MusouAttack>();
-        uint Step() { sim.BeginTick(++tick); attacks.Clear(); sim.Step(targets, null, true, attacks); return tick; }
-        for (int k = 0; k < 60; k++) Step();   // out of its spawn stand
-        return (sim, targets, id, Step);
+        public readonly MusouSim Sim;
+        public readonly MusouTarget[] Targets;
+        public readonly MusouBoss? Boss;
+        public readonly ushort Id;
+        public uint Tick;
+        readonly List<MusouAttack> _attacks = new();
+        readonly List<MusouBossStrike> _strikes = new();
+
+        public Rig(MusouEnemyType type, float yaw, float slamFirst = 1000f, float chargeFirst = 1000f, float distance = 6f, int warm = 60)
+        {
+            var rules = MusouRules.Default with { Boss = MusouBossRules.Default with { SlamFirst = slamFirst, ChargeFirst = chargeFirst } };
+            Sim = new MusouSim(null, rules) { TickRate = 30, War = TfwCombatRules.Default };
+            Id = Sim.Spawn(type, Vector3.Zero, yaw, 4000f);
+            if (type == MusouEnemyType.Warboss) Boss = new MusouBoss(Sim, null, Id, 4000f);
+            Targets = [new MusouTarget(1, new Vector3(0f, distance, 0f), true)];
+            for (int k = 0; k < warm; k++) Step();   // out of its spawn stand; it turns to face the player at +Y (yaw about 0)
+        }
+
+        public uint Step() { Sim.BeginTick(++Tick); _attacks.Clear(); _strikes.Clear(); Sim.Step(Targets, null, true, _attacks); Boss?.Step(Targets, true, _strikes); return Tick; }
+
+        /// <summary>The player walks to the far side, so the boss's facing is turned away from it (a regression that turns a stunned boss toward its target shows).</summary>
+        public Vector2 MovePlayerBehind()
+        {
+            float yaw = Sim.YawOf(Id);
+            var forward = new Vector2(-MathF.Sin(yaw), MathF.Cos(yaw));
+            Targets[0] = new MusouTarget(1, new Vector3(-forward * 6f, 0f), true);
+            return forward;
+        }
+
+        public MusouEnemy Me => Sim.TryGet(Id, out var e) ? e : default;
+    }
+
+    static readonly int Window = (int)MathF.Round(MusouRules.Default.Combat.StaggerSeconds * 30f);
+
+    static void AssertHoldsFacing(Rig r, Vector2 forward, int ticks)
+    {
+        float before = r.Sim.YawOf(r.Id);
+        for (int k = 0; k < ticks; k++)
+        {
+            r.Step();
+            Assert.Equal(MusouEnemyState.Stunned, r.Me.State);
+            Assert.Equal(before, r.Me.Yaw);   // the snapshot's yaw: not turned toward the player behind it, not turned away
+            Assert.Equal(before, r.Sim.YawOf(r.Id));
+        }
+        Assert.True(Vector2.Dot(forward, new Vector2(-MathF.Sin(r.Me.Yaw), MathF.Cos(r.Me.Yaw))) > 0.999f);
     }
 
     [Fact]
@@ -31,18 +67,45 @@ public class MusouDizzyTests
     {
         foreach (var type in Bosses)
         {
-            var (sim, _, id, step) = Arena(type, 0.7f);
-            float before = sim.YawOf(id);
-            Assert.True(sim.StaggerMelee(id, Vector2.UnitY, 2f, 1));
-            int window = (int)MathF.Round(MusouRules.Default.Combat.StaggerSeconds * 30f);
-            for (int k = 0; k < window - 1; k++)
-            {
-                step();
-                Assert.Equal(MusouEnemyState.Stunned, sim.TryGet(id, out var e) ? e.State : default);
-                Assert.Equal(before, e.Yaw);   // the snapshot's yaw: not turned toward the player behind it, not turned away
-                Assert.Equal(before, sim.YawOf(id));
-            }
+            var r = new Rig(type, 0.7f);
+            var forward = r.MovePlayerBehind();
+            Assert.True(Vector2.Dot(forward, Vector2.Normalize(new Vector2(r.Targets[0].Position.X, r.Targets[0].Position.Y))) < -0.99f, "the player is behind the boss");
+            Assert.True(r.Sim.StaggerMelee(r.Id, Vector2.UnitY, 2f, 1));
+            AssertHoldsFacing(r, forward, Window - 1);
         }
+    }
+
+    [Fact]
+    public void A_boss_stunned_in_its_slam_or_charge_does_not_turn_either()
+    {
+        foreach (var (slam, charge, wanted) in new[] { (0f, 1000f, MusouBossAction.SlamWindUp), (1000f, 0f, MusouBossAction.ChargeWindUp), (1000f, 0f, MusouBossAction.Charging) })
+        {
+            var r = new Rig(MusouEnemyType.Warboss, 0f, slam, charge, distance: charge == 0f ? 14f : 6f, warm: charge == 0f ? 0 : 60);   // the charge starts from 6 m and more
+            int guard = 0;
+            while (r.Boss!.Action != wanted && guard++ < 600) r.Step();
+            Assert.Equal(wanted, r.Boss!.Action);   // both abilities call the sim's Turn while they run
+            var forward = r.MovePlayerBehind();
+            Assert.True(r.Sim.StaggerMelee(r.Id, Vector2.UnitY, 2f, 1));
+            AssertHoldsFacing(r, forward, Window - 1);
+            Assert.Equal(MusouBossAction.None, r.Boss.Action);
+        }
+    }
+
+    [Fact]
+    public void A_strike_that_restarts_the_stun_does_not_turn_the_boss_and_it_stays_dizzy_throughout()
+    {
+        var r = new Rig(MusouEnemyType.BossNob, 0.7f);
+        var forward = r.MovePlayerBehind();
+        r.Sim.StaggerMelee(r.Id, Vector2.UnitY, 2f, 1);
+        float before = r.Sim.YawOf(r.Id);
+        for (int k = 0; k < Window * 3; k++)
+        {
+            if (k % (Window - 2) == 0) Assert.True(r.Sim.StaggerMelee(r.Id, Vector2.UnitY, 2f, 1));   // each strike restarts the window
+            r.Step();
+            Assert.True(MusouDizzyRules.Dizzy(r.Me.Type, r.Me.State), $"tick {k}");
+            Assert.Equal(before, r.Me.Yaw);
+        }
+        Assert.True(Vector2.Dot(forward, new Vector2(-MathF.Sin(r.Me.Yaw), MathF.Cos(r.Me.Yaw))) > 0.999f);
     }
 
     [Fact]
@@ -50,7 +113,7 @@ public class MusouDizzyTests
     {
         foreach (var type in Bosses)
         {
-            var (sim, _, id, step) = Arena(type, 0f);
+            var r = new Rig(type, 0f); var sim = r.Sim; var id = r.Id; Action step = () => r.Step();
             Assert.True(sim.TryGet(id, out var e));
             Assert.False(MusouDizzyRules.Dizzy(e.Type, e.State));   // standing free: not dizzy
             sim.StaggerMelee(id, Vector2.UnitY, 2f, 1);
