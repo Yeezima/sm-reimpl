@@ -151,6 +151,17 @@ public class TfwSupplyTests
     }
 
     [Fact]
+    public void A_revive_clears_the_stims_health_regen_waiver()
+    {
+        var w = TfwRig.War(config: WithStims(Musou));
+        SetPlayer(w, Human, w.Players[Human] with { HealthRegenWaived = true });   // a stim used before the fall
+        Assert.True(w.TfwKillForTests(Human));
+        Assert.True(w.TfwRevive(Human));
+        Assert.True(w.Players[Human].Alive);
+        Assert.False(w.Players[Human].HealthRegenWaived);
+    }
+
+    [Fact]
     public void Classic_pvp_never_gives_a_stim_charge_back()
     {
         var map = TfwTestArena.Build();

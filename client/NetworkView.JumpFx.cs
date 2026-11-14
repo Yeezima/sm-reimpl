@@ -43,6 +43,9 @@ public partial class NetworkView
         public readonly List<FxEffect> ReadyJets = new(), BaseGlow = new();
         /// <summary>The one-shot launch flashes still alive: cut at once when the pilot dies (owner 2026-11-11), whose pack they were fixed to.</summary>
         public readonly List<FxEffect> Flashes = new();
+        /// <summary>Every effect this player's pack has played and not yet ended (thrusts, flashes, apex bursts, jets, glow): all cut at once when the pilot dies or its worn pack is gone (owner 2026-11-14).</summary>
+        public readonly List<FxEffect> All = new();
+        public int Id;
         public float JetLevel = float.NaN, BaseLevel = float.NaN;
         public double LastAt = double.NaN, LandedAt = double.NegativeInfinity, DashAt = double.NegativeInfinity;
         public bool WasJumping, Ready;
@@ -74,6 +77,7 @@ public partial class NetworkView
     void FxJumpPacks(PlayerState me)
     {
         if (_client is null || _config is null || _catalogue is null || _fx is null) return;
+        if (_packWatch.Count > 0) PackWatchFrame();
         var seen = new HashSet<int>();
         JumpFxFor(me, own: true);
         OwnPackFxHide();
@@ -106,10 +110,14 @@ public partial class NetworkView
                 if (_fxNoted.Add($"packmarker:{id % 2}:{marker}")) GD.Print($"  effects: {what}: no worn marker '{marker}' on P{id}'s pack; {p.Name} not shown");
                 continue;
             }
-            Func<(Vector3, Basis)?>? follow = p.Attached ? () => PackMarker(id, marker, exhaust) : null;
+            FxEffect? self = null;
+            // owner 2026-11-14: the worn pack gone (the pilot died, his ragdoll took over, he left) ends the effect on the spot; it never stays in the air where the pack last was.
+            Func<(Vector3, Basis)?>? follow = p.Attached ? () => { var m = PackMarker(id, marker, exhaust); if (m is null && self is not null && !OldPackDeathThrust) CutNow(self); return m; } : null;
             float lifetime = flashOnly ? PackFlashSeconds : repeat ? 0f : p.Lifetime;
             if (_fx!.Play(p.Name, place.Position, place.Axes, p.Scale <= 0f ? 1f : p.Scale, null, follow, lifetime, 0.0, repeat, 1) is { } e)
             {
+                self = e;
+                if (_jumpFx.TryGetValue(id, out var own)) { own.All.RemoveAll(x => x.Dead); own.All.Add(e); }
                 e.FlashOnly = flashOnly;
                 e.TrailScale = PackTrailScale;   // fx/impact-pass: the thrust's trail is the last few metres of the nozzle's path
                 if (exhaust) e.BeamScale = PackTrailScale;   // ... and its flame a third as long
@@ -139,13 +147,54 @@ public partial class NetworkView
         effects.Clear();
     }
 
-    static void StopAll(JumpFxTrack t)
+    /// <summary>owner 2026-11-14: ends an effect now: no repeat, no life left, not drawn (the next update removes it).</summary>
+    static void CutNow(FxEffect e) { e.Repeat = false; e.Life = Math.Min(e.Life, Math.Max(0.0, e.Age)); e.Follow = null; e.Hidden = true; }
+
+    static bool? _oldPackDeathThrust;
+    /// <summary><c>--old-pack-death-thrust</c> (owner 2026-11-14, before / after): the pack's apex bursts and any effect of it that is not tracked stay where they were when the pilot dies.</summary>
+    static bool OldPackDeathThrust => _oldPackDeathThrust ??= CmdFlag("old-pack-death-thrust");
+
+    int _packCuts;
+    readonly List<(int Id, double At, List<FxEffect> Fx, HashSet<int> Said)> _packWatch = new();
+
+    /// <summary><c>--log-pack-death</c>: after a pilot dies, how many of the pack's effects are still alive 0.1, 0.5, 1 and 2 s later (and what they are), with or without the fix.</summary>
+    void PackWatchFrame()
     {
+        for (int i = _packWatch.Count - 1; i >= 0; i--)
+        {
+            var w = _packWatch[i];
+            double age = _connectedFor - w.At;
+            for (int step = 0; step < PackWatchTimes.Length; step++)
+            {
+                if (age < PackWatchTimes[step] || !w.Said.Add(step)) continue;
+                var alive = w.Fx.Where(e => !e.Dead).ToList();
+                GD.Print($"t {_connectedFor:F2} s: pack death watch P{w.Id} +{PackWatchTimes[step]:F1} s: {alive.Count} of {w.Fx.Count} pack effects still alive{(alive.Count > 0 ? " (" + string.Join(", ", alive.Select(e => $"{e.Name}{(e.Hidden ? " hidden" : "")} at {e.Origin.X:F1},{e.Origin.Y:F1},{e.Origin.Z:F1}")) + ")" : "")}");
+            }
+            if (age > PackWatchTimes[^1] + 0.5) _packWatch.RemoveAt(i);
+        }
+    }
+    static readonly double[] PackWatchTimes = { 0.1, 0.5, 1.0, 2.0 };
+
+    void StopAll(JumpFxTrack t)
+    {
+        if (PackDeathLog && t.All.Count(e => !e.Dead) is > 0 and var seen) _packWatch.Add((t.Id, _connectedFor, t.All.Where(e => !e.Dead).ToList(), new HashSet<int>()));
+        if (OldPackDeathThrust) t.All.Clear();   // before look: nothing is cut; the list is only for the log
+        if (!OldPackDeathThrust && t.All.Count > 0)
+        {
+            int live = t.All.Count(e => !e.Dead);
+            foreach (var e in t.All) { CutNow(e); _ownPackFx.Remove(e); }
+            _packCuts += live;
+            if (PackDeathLog && live > 0) GD.Print($"t {_connectedFor:F2} s: pack death: {live} jump pack effect(s) cut at once");
+            t.All.Clear();
+        }
         Fade(t.Looping, JumpFxFade); Fade(t.Idle, 0.0); t.IdleLevel = float.NaN;
         Fade(t.ReadyJets, 0.0); Fade(t.BaseGlow, 0.0);
         if (!OldPackDeathFlash) Fade(t.Flashes, 0.0);   // owner 2026-11-11: the pack's flash disappears when its pilot dies, never left in the air
         t.JetLevel = t.BaseLevel = float.NaN; t.LastAt = double.NaN;
     }
+
+    /// <summary><c>--log-pack-death</c> (test aid): prints how many pack effects were cut when a pilot died.</summary>
+    static bool PackDeathLog => CmdFlag("log-pack-death");
 
     static bool? _oldPackDeathFlash;
     /// <summary><c>--old-pack-death-flash</c> (owner 2026-11-11, before / after): the pack's flashes stay where they were when the pilot dies, and the death's flash is fixed in the world.</summary>
@@ -195,7 +244,7 @@ public partial class NetworkView
 
     void JumpFxFor(PlayerState s, bool own)
     {
-        if (!_jumpFx.TryGetValue(s.PlayerId, out var t)) _jumpFx[s.PlayerId] = t = new JumpFxTrack();
+        if (!_jumpFx.TryGetValue(s.PlayerId, out var t)) _jumpFx[s.PlayerId] = t = new JumpFxTrack { Id = s.PlayerId };
         var pack = Loadouts.JumpPack(_config!, s);
         var effects = pack is null ? null : _catalogue!.JumpPack(pack.Name);
         if (!s.Alive || effects is null) { StopAll(t); t.Mode = PackMode.Ground; t.Dashing = false; return; }
@@ -385,11 +434,28 @@ public partial class NetworkView
         if (JumpTestAirMelee && ((k is 22 && _jumpTestCycle % 2 == 0) || k is 156 or 196)) buttons |= InputButtons.Melee;
         // anim/jump-pack-blend capture aid (--jump-test-steer): the stick in the air steers left and right every 1 s (the odd cycles back too) so the flight's direction clips change.
         if (JumpTestSteer && k is >= 12 and < 140) { mx = ((k - 12) / 30) % 2 == 0 ? 1f : -1f; my = _jumpTestCycle % 2 == 1 && k >= 72 ? -1f : 1f; }
+        // owner 2026-11-14 capture aid (--jump-test-die <tick>): in each odd cycle's full jump the pilot dies that many ticks after the press (the in-match DEPLOY: a Classic suicide), to show the pack's effects end with it.
+        if (JumpTestDieTick is { } dieAt && _jumpTestCycle % 2 == 1 && k >= dieAt && _jumpTestDiedCycle != _jumpTestCycle) { _jumpTestDiedCycle = _jumpTestCycle; JumpTestDie(me); }
         if (k is 150) { buttons = InputButtons.Jump; mx = 1f; my = 1f; }
         else if (k is 151) { mx = 1f; my = 1f; }
         else if (k is 190) { buttons = InputButtons.Jump; mx = -1f; my = -1f; }
         else if (k is 191) { mx = -1f; my = -1f; }
         return new PlayerInput(tick, mx, my, _yaw, buttons, _pitch);
+    }
+
+    int _jumpTestDiedCycle = -1;
+    uint? JumpTestDieTick => CmdArg("jump-test-die") is { } t && uint.TryParse(t, out var v) ? v : null;
+
+    /// <summary>The pilot kills itself: the picker's DEPLOY path with the bot's own class (needs <c>--profile &lt;file&gt;</c>).</summary>
+    void JumpTestDie(PlayerState me)
+    {
+        if (PickerServices(bot: true) is not { } services) { GD.PrintErr("--jump-test-die needs --profile <file>"); return; }
+        services.LoadTask.Wait();
+        if (services.Ready && SmClient.Customizer.Model.LaunchOptions.ParseLoadout("default:assault", services.Catalog!) is { } selection)
+        {
+            bool sent = SendLoadout(services, selection, save: false, out string why, deploy: true);
+            GD.Print($"t {_connectedFor:F2} s: jump-test-die: DEPLOY sent at {JumpPack.AboveGround(me, _client!.Collision):F1} m up ({(sent ? "ok" : why)})");
+        }
     }
 
     bool JumpTestSteer => _jumpTestSteer ??= OS.GetCmdlineUserArgs().Contains("--jump-test-steer");

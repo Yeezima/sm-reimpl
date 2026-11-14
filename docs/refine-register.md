@@ -34,6 +34,12 @@ Scanned 3231 spec table rows: **2375 tagged**, 597 not tagged (read from data wi
 |---|---:|---:|---:|---:|---:|
 | Movement (critical) | 408 | 348 | 347 | 118 | 12 |
 | Combat core (critical) | 19 | 9 | 17 | 15 | 9 |
+Scanned 3217 spec table rows: **2368 tagged**, 590 not tagged (read from data with high confidence), 259 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 720 rows of the changes document.
+
+| Area | Tagged rows | by kind | by confidence | by notes | by section text |
+|---|---:|---:|---:|---:|---:|
+| Movement (critical) | 411 | 350 | 348 | 119 | 12 |
+| Combat core (critical) | 17 | 7 | 15 | 14 | 9 |
 | Weapons (critical) | 121 | 73 | 106 | 54 | 3 |
 | Melee (critical) | 149 | 131 | 110 | 53 | 5 |
 | Jump pack (critical) | 85 | 77 | 69 | 19 | 0 |
@@ -41,7 +47,7 @@ Scanned 3231 spec table rows: **2375 tagged**, 597 not tagged (read from data wi
 | Reactions (critical) | 25 | 22 | 23 | 12 | 0 |
 | Camera (critical) | 55 | 53 | 44 | 22 | 0 |
 | HUD and hit feedback (critical) | 72 | 67 | 52 | 11 | 0 |
-| Sound mix (critical) | 91 | 85 | 78 | 11 | 0 |
+| Sound mix (critical) | 90 | 84 | 76 | 11 | 0 |
 | Effects (critical) | 98 | 87 | 82 | 41 | 0 |
 | Game modes | 46 | 42 | 42 | 19 | 1 |
 | Perks | 59 | 48 | 31 | 25 | 0 |
@@ -54,6 +60,8 @@ Scanned 3231 spec table rows: **2375 tagged**, 597 not tagged (read from data wi
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 249 | 238 | 134 | 68 | 0 |
 | **All areas** | **2375** | 2100 | 1766 | 735 | 38 |
+| Ork faction | 248 | 237 | 133 | 68 | 0 |
+| **All areas** | **2368** | 2093 | 1758 | 732 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -66,6 +74,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | kind: interpretation | 386 |
 | notes: estimate | 200 |
 | kind: estimate | 161 |
+| confidence: low | 840 |
+| confidence: medium | 789 |
+| notes: ours | 415 |
+| kind: interpretation | 383 |
+| notes: estimate | 198 |
+| kind: estimate | 158 |
 | confidence: none (low) | 129 |
 | kind: provisional | 103 |
 | kind: user's knowledge | 56 |
@@ -73,7 +87,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | kind: choice | 38 |
 | section: provisional | 38 |
 | section: placeholder | 35 |
-| notes: user's knowledge | 26 |
+| notes: user's knowledge | 27 |
 | kind: approximation | 25 |
 | notes: interpretation | 25 |
 | kind: placeholder | 23 |
@@ -91,7 +105,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 ## Part A: gameplay areas, critical first
 
-### Movement (gameplay-critical) (408)
+### Movement (gameplay-critical) (411)
 
 *Spec section: Extracted parameters*
 
@@ -352,6 +366,19 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-EA0B9125` | The weapon comes up with it | the release tick leaves the weapon raised (`ReadyHold`), so the bolt pistol's first shot leaves on the press tick at 1.2 s instead of waiting for its 0.167 s raise (the always-ready heavy bolter needs none). Ours: the owner's example ("the bolt pistol should… | kind: ours; confidence: medium | ours; the owner's example | The weapon comes up with it: compare with SM1 by feel or video. Ours: the release tick leaves the weapon raised (ReadyHold), so the bolt… | ☐ |
 | `R-37B82987` | A press the tick of the release | a melee press in that tick starts the next swing (a light attack, or a stomp again from F) at once, within the usual melee wait (the stomp's combo window has closed by 1.2 s) | kind: ours; confidence: medium | the release acting as the clip's end | A press the tick of the release: compare with SM1 by feel or video. Ours: a melee press in that tick starts the next swing (a light attack, or… | ☐ |
 | `R-72E3090D` | Restore switch | `--old-stomp-release` (server and every client; config hash only when on): the stomp locks to its clip's end (1.667 s) | kind: ours | ours | Restore switch: compare with SM1 by feel or video. Ours: --old-stomp-release (server and every client; config hash only when… | ☐ |
+
+*Spec section: A combat stim starts regeneration at once (sim/stim-regen-now; protocol 75)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-24376061` | Stim ends the health regeneration delay | at the stim's release (0.3 s into its use) health regeneration no longer waits for its delay (5 s, less Larraman's Blessing's -1.5 s) until the next damage (`PlayerState.HealthRegenWaived`, bit 6 of the snapshot's damage byte), so health regenerates from the… (s) | confidence: medium; notes: user's knowledge | the owner's recollection of the original, 2026-11-14 | Stim ends the health regeneration delay: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: at the stim's release (0.3 s into its use) health regeneration no… | ☐ |
+
+*Spec section: The kick pushes 60 % less (sim/kick-push; owner 2026-11-14, protocol 76, no wire change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-8775D0A9` | The kick's knockback | the Devastator's and the Havoc's kick (`MeleeStep.Kick`, `ability_displace_kick`; one step shared by both) knocks the player it hits back 40 % of the data's distance (the hit reaction's backward metres x0.4; kind, up, right and duration unchanged; the file's… (m (x0.4)) | kind: ours | the owner's request, 2026-11-14 | The kick's knockback: compare with SM1 by watching the reaction and timing it frame by frame. Ours: the Devastator's and the Havoc's kick (MeleeStep.Kick… | ☐ |
+| `R-4764D4BF` | Restore switch | `--old-kick-push` (server and every client; config hash only when on): the data's full knockback | kind: ours | ours | Restore switch: compare with SM1 by feel or video. Ours: --old-kick-push (server and every client; config hash only when on):… | ☐ |
 
 *Spec section: No firing during the roll (sim/roll-fire-pitch; protocol 51, no wire change)*
 
@@ -1759,7 +1786,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-C2C74997` | Spear animations: the crosshair column | 2026-11-11 (lead: the carried blade crossed the crosshair's column in the own view at idle): the blade's head (collar, crossguard, blade) stays at least **3** degrees of the horizontal view to one side of the screen's centre column at idle in the default… (degrees) | kind: ours; confidence: low | ours (the reticle at rest is about 2 degrees across its half at the data's 40-degree view in the 1600 x 900 window) | Spear animations: the crosshair column: compare with SM1 with an overlaid screenshot taken from the same position. Ours: 2026-11-11 (lead: the carried blade crossed the crosshair's column in… | ☐ |
 
-### Sound mix (gameplay-critical) (91)
+### Sound mix (gameplay-critical) (90)
 
 *Spec section: Sound playback (M26b; client only, not simulated)*
 
@@ -1918,8 +1945,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
-| `R-F3CA448A` | Autocannon body speed pin | the body voices read the speed RTPC as 2.5 m/s (its 0 dB point) whatever the shooter's speed; every other layer of the post and every other event is untouched (m/s) | kind: ours; confidence: medium | the owner's report; the value is ours | Autocannon body speed pin: compare with SM1 by listening A/B at the same distance and state. Ours: the body voices read the speed RTPC as 2.5 m/s (its 0 dB point)… | ☐ |
-| `R-60205D8B` | Autocannon body level (estimate) | +22 dB on the body voices and the low-pass offset -20 (the data's LPF 20 off); pitch kept. Calibrated on another player's shot (the remote floor and curve are the heavy bolter's): the body's two voices summed in power against the heavy bolter's 12 at 5 m and… (dB, LPF units) | kind: ours; confidence: low | the owner's "as loud as the heavy bolter"; the calibration and numbers are ours | Autocannon body level (estimate): compare with SM1 by listening A/B at the same distance and state. Ours: +22 dB on the body voices and the low-pass offset -20 (the data's LPF… | ☐ |
+| `R-13518CA8` | Autocannon footstep body dropped | the body voices (switch 0x06921B84, the Chaos marine footstep samples) are never played in Classic PvP's autocannon shot, whatever the shooter's speed; every other layer of the post (the map bank's tail layer, the click) and every other event is untouched.… | kind: ours | the owner's report ("completely remove that and ensure its only the autocannon shooting sound effect") | Autocannon footstep body dropped: compare with SM1 by listening A/B at the same distance and state. Ours: the body voices (switch 0x06921B84, the Chaos marine footstep… | ☐ |
 | `R-A8D24B08` | Autocannon sound scope | Classic PvP's autocannon of the extended profile only (the event is posted only there: Musou Mode's autocannon plays the Stalker Bolter's files); `--old-classic-mix` plays the data's again | kind: ours | the owner | Autocannon sound scope: compare with SM1 by listening A/B at the same distance and state. Ours: Classic PvP's autocannon of the extended profile only (the event is… | ☐ |
 | `R-5E86FA86` | Tuner groups | 25 groups (master; your gun, melee, jump pack, footsteps, voice, other; other players' bolters and pistols, heavy bolter and autocannon, plasma, melta, lascannon, other; their footsteps, jump packs, melee, voices; melee and bullet impacts, explosions… | kind: ours; confidence: medium | the owner's list; the name rules are our reading of the install's event names | Tuner groups: compare with SM1 by listening A/B at the same distance and state. Ours: 25 groups (master; your gun, melee, jump pack, footsteps, voice… | ☐ |
 | `R-DE2F7D1B` | Tuner volume | each group -40 to +24 dB in 0.5 dB steps, added to the voice on top of the Options menu's volumes; the master group adds to every group's (dB) | kind: ours | the owner | Tuner volume: compare with SM1 by listening A/B at the same distance and state. Ours: each group -40 to +24 dB in 0.5 dB steps, added to the voice on top… | ☐ |
@@ -3341,7 +3367,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
-| `R-9C0F0760` | Main menu video | `client/assets/menu/menu-loop.ogv` (committed; the release copies it beside the exe): Ogg Theora, 1920 x 1080, 4:2:0, a constant 30 fps, 939 frames (31.3 s), quality 7 of 10 (about 20 MB; SSIM 0.987 against the uncompressed loop), no audio; made from the… (px, fps, s) | notes: ours | the owner (the video and its use); fit and no dim: ours | Main menu video: compare with SM1 by feel or video. Ours: client/assets/menu/menu-loop.ogv (committed; the release copies it… | ☐ |
+| `R-9C0F0760` | Main menu video | `client/assets/menu/menu-loop.ogv` (committed as a developer aid; since 2026-11-14 the release no longer copies it beside the exe, and the source zip leaves it out): Ogg Theora, 1920 x 1080, 4:2:0, a constant 30 fps, 939 frames (31.3 s), quality 7 of 10… (px, fps, s) | notes: ours | the owner (the video and its use); fit and no dim: ours | Main menu video: compare with SM1 by feel or video. Ours: client/assets/menu/menu-loop.ogv (committed as a developer aid; since… | ☐ |
 | `R-5CD35826` | Menu video loop seam | the source's last frame does not meet its first (SSIM 0.94 where a frame step of its slow start is about 0.997, so debris and embers jump): its last 15 frames (0.5 s) fade into its first 15, its 16th plays unblended last and the loop starts on its 17th, so… (s, frames) | kind: ours; confidence: medium | ours | Menu video loop seam: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the source's last frame does not meet its first (SSIM 0.94 where a… | ☐ |
 | `R-4FAE2E57` | Menu video pause and fallback | paused while the customizer (its own dark background) covers it, going on where it was; not played under the headless display server; a video that shows no frame after 2.0 s of drawn frames (an unplayable file) gives way to the still picture; a missing file… (s) | kind: ours; confidence: medium | ours | Menu video pause and fallback: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: paused while the customizer (its own dark background) covers it… | ☐ |
 | `R-E5EA2A49` | Menu video cost | measured on the owner's PC (12 logical cores, a 60 fps cap, the menu idle, 30 s after warm-up): Forward+ 27 % of one core with the video, 9 % with the still; Compatibility (safe mode) 25 % and 7 %; no frame over 16.7 ms in either, the loop restart included… (% of one core, ms) | kind: ours; confidence: medium | measurement | Menu video cost: compare with SM1 by feel or video. Ours: measured on the owner's PC (12 logical cores, a 60 fps cap, the menu… | ☐ |
@@ -4340,6 +4366,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-D47CCCC3` | The charge needs only W (feel/charge-directions; protocol 39; supersedes M31's sprint gate) | The locale names it "Charge Attack (while Sprinting)" (110691); M31 read the owner's earlier rule as a sprint gate (Sprint applied and faster than run + 0.25 x (sprint - run) = 7.375 m/s) | An F press with W held starts the charge from standing, a walk, a run or a sprint; aim mode and the held trigger no longer turn it into the stun strike; without W, F is the stun strike; the jump-pack classes still charge from the ground only | Owner's knowledge and decision 2026-10-29 ("charge shouldn't require you to actually sprint to initiate charge, just be holding w when you press f to initiate forward charge"); spec "Charge directions" | The charge needs only W (feel/charge-directions; protocol…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-09BB7D6D` | The charge needs the sprint; F otherwise is a stun strike in the held direction (sim/charge-needs-sprint; protocol 49; supersedes the W-only start of protocol 39) | A W + F press started the charge from standing, a walk, a run or a sprint | Shift (the pad's sprint hold) and W held at the F press start the charge; F without them is the stun strike in the direction of the held keys (all eight, forward with none); W + F without Shift is a forward stun strike; the buffered press follows the same test | Owner's decision 2026-10-31 ("you also need to be holding shift. if you are holding W, A, S, D, or a combination of them, then press f, you should do a stun strike in that direction"); spec "The charge needs the sprint" | The charge needs the sprint; F otherwise is a stun strike…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-F4E85D52` | The stomp frees the player at 1.2 s (sim/stomp-release; owner 2026-11-14) | The stomp's clip locks the Devastator and the Havoc for its whole 1.667 s (only the hop cancels it, protocol 51) | From 1.2 s into the clip (after the blast at 0.767 s) the stomp ends and the player may fire (the bolt pistol shoots at once), aim, move, switch, reload, throw, melee and charge, in Classic PvP and Musou Mode; before 1.2 s the lock stays. Restore switch `--old-stomp-release` | The owner: the lock-out was a bit too long; spec "The stomp frees the player at 1.2 s" | The stomp frees the player at 1.2 s (sim/stomp-release…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
+| `C-AE3B05F5` | The kick pushes 60 % less (sim/kick-push; owner 2026-11-14) | The Devastator's and Havoc's kick (the right-mouse melee) knocks its target back by the data's distance | 40 % of it (x0.4); the stomp and Musou's enemies unchanged. Restore switch `--old-kick-push` | The owner: "only the devastator/havoc kick move (right mouse button) knocks back too far. reduce the knockback by 60%"; spec "The kick pushes 60 % less" | The kick pushes 60 % less (sim/kick-push; owner 2026-11-14): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-342607B9` | Only the hop cancels the stomp (sim/stomp-uninterruptible; protocol 51) | The stomp's sequencer lets a shot end it from its `RangedAt` branch (as every melee attack), and a melee press in a combo window chains the next attack | Once the Devastator's or Havoc's stomp starts, no shot (the pistol's quick shot included) and no melee press ends it; only the hop, from the stomp's `BRANCH_Evade`, cancels it (aim, switches, reload, grenades, the sprint and the charge were already held off by any melee attack) | Owner's decision 2026-11-01 ("can only be cancelled by a hop move. shooting, aim down sight, or any other action should never interrupt a stomp animation"); spec "Only the hop cancels the stomp" | Only the hop cancels the stomp (sim/stomp-uninterruptible…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-E3A84838` | Only a weapon switch takes a reload out of hand (sim/reload-keeps; protocol 56) | Our earlier reading: a melee attack, a grenade throw, a ground pound's dive, a hit reaction or a charge ended the reload in hand (the rounds were not loaded) | None of them ends it any more: the reload runs on through them on its own timer and loads its rounds when done, even mid-swing; nothing new starts while they last (Reload input is still ignored there). A weapon switch stores it with its weapon (the holstered reload runs on, unchanged since 2026-10-30); death clears it | Owner's decision 2026-11-03 ("reloads should not be cancelled by anything other than switching weapons"); spec "Reloads continue while the weapon is not equipped" | Only a weapon switch takes a reload out of hand…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-73D7BA0B` | No firing during the roll (sim/roll-fire-pitch; protocol 51) | The roll's sequencers let the trigger end the Tactical roll from `BRANCH_ToRanged` (0.667 s of the 1.167 s clip) and fire in that tick | For the whole roll the trigger does nothing for any weapon (no shot, charge or raise) and no longer ends the roll; the stick, Aim and a grenade still end it at their branches, and the tick they do so fires nothing; the heavies' hop and the jump-pack dash keep the data's fire branch | Owner's knowledge and decision 2026-11-01 ("ensure you can never shoot while the roll animation is playing"); spec "No firing during the roll" | No firing during the roll (sim/roll-fire-pitch; protocol 51): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
@@ -4395,6 +4422,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-8C4D5D60` | The charge after a swing and the instant S cancel (charge-responsive, 2026-11-12; protocol 69; every mode) | The owner: a charge pressed during a light attack, a combo or a heavy strike did nothing until the attack ended; S had to be held about half a second (the stick branch) to cancel the charge | A charge press once the swing's hit has landed ends the attack and its combo and charges at once; a swing starts on the first tick after a charge ends or is cancelled; S (stick back at least half) cancels the bull rush from its second tick, the speed it carries capped at the sprint's. `--old-charge-after-melee` and… | Owner 2026-11-12: "You should immediately be able to charge after a melee attack, or vice versa"; "The charge should be cancelled instantaneously as soon as the S key or back on left joystick is triggered". The hit as the earliest point, the 0.5 stick length and the speed cap are ours. Spec "The charge after a swing… | The charge after a swing and the instant S cancel…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-449F4205` | Melee cancels a charge at once; charge > melee chains; Musou melee spam (charge-melee-chain, 2026-11-12; protocol 70; every mode, the spam Musou Mode only) | The owner: a melee press mid charge should happen immediately (also at the charge's end); no charge during a charge; charge > melee > charge > melee should chain with no delay; the 1 s spacing only for discrete combat moves; in Musou Mode melee can be spammed with no cooldown | A light press cancels the bull rush on that tick (any class, no wait after it); a charge cannot start during a charge; a melee attack that starts lifts the 1 s charge spacing (charge, S cancel, charge within 1 s with no melee between is still spaced); Musou Mode light attacks restart at the hit, a press before it… | Owner 2026-11-12 (the verbatim words in the spec). The spacing reading and the hit-landing restart are ours. Spec "Melee cancels a charge at once, charge > melee chains, and Musou melee spam" | Melee cancels a charge at once; charge > melee chains…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-4C0FAB2C` | Hop rules: the ledge jump after a charge, the hop cutting the melee wait, the hop out of the aerial tackle (sim/hop-rules, 2026-11-14; protocol 72; Assault Marine and Raptor) | The owner: a full jump after charging off a ledge (Classic PvP and Musou Mode: it only fell straight down); a hop after a light swing should make the follow-up swing come sooner, but not so soon that melee > hop spams; the aerial tackle should cancel into a hop (it did nothing) | A Jump press that ends a bull rush held in the air opens the air jump (the hold lifts the pack in the air, a tap hops); a hop's start cuts the melee wait still running to half, not below 0.25 s; a Jump press in the aerial tackle ends it and hops at once, past the hop's spacing. `--old-hop-rules` restores the earlier… | Owner 2026-11-14 (verbatim words in the spec). The 0.5, the 0.25 s floor, the opening's lifetime and the spacing bypass are ours. Spec "Hop rules" | Hop rules: the ledge jump after a charge, the hop cutting…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
+| `C-8004978E` | Plasma visuals: soft edges, no stray arc light (plasma-soft-visuals, owner 2026-11-14; client only, both modes) | Original: the plasma ribbons, trails and glow cards end in hard-edged quads, and the cannon's `*_innate_arcs` lightning may spawn up to 2.5 m above the chamber (its emit offset keys) | Ours (the owner: "remove this" for the blue light above a plasma cannon carrier's head; "soften the visual effects out ... in a natural, gradient way"): the chamber effects' spray offset is cut to 0.35 m; plasma beams and streamers fade out across their width, in at the head and out at the tail, camera glow cards… | Client only; tagged ours in the refine register | Plasma visuals: soft edges, no stray arc light…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 
 ### Our choices where the original is unknown
 

@@ -12,6 +12,7 @@ namespace SmClient.Customizer;
 public static partial class UiKit
 {
     /// <summary>Where the video is read from: beside the project in a development run, under <c>assets/menu</c> beside the game in an exported one (a folder Godot does not import).</summary>
+    // Developer aid since 2026-11-14: the release no longer ships this file (owner), so outside a checkout MenuVideoFile() is null and --menu-video shows the still picture.
     public const string MenuVideoPath = "res://assets/menu/menu-loop.ogv";
 
     /// <summary>The switch that restores the still picture behind the menus (<c>--menu-still</c>).</summary>

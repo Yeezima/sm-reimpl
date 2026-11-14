@@ -215,6 +215,8 @@ public readonly record struct PlayerState(int PlayerId, Vector3 Position, Vector
     public float ThirdCooldown { get; init; }
     /// <summary>Seconds since this player last took damage (drives regeneration).</summary>
     public float SinceDamage { get; init; }
+    /// <summary>Protocol 75 (sim/stim-regen-now): a combat stim was used since the last damage, so health regenerates without waiting for the health delay (armour keeps <see cref="SinceDamage"/> and its delay). Cleared wherever <see cref="SinceDamage"/> resets. Bit 6 of the damage byte on the wire.</summary>
+    public bool HealthRegenWaived { get; init; }
     /// <summary>
     /// Protocol 71 (onhit-damage-mark; the owner 2026-11-13: "any sort of damage should trigger the sparks and glows"): a counter, modulo 8, that <see cref="Combat.ApplyDamage(PlayerState, float, float, float, SimConfig)"/> raises on
     /// every damage this player takes (every weapon, melee kind, blast, rush and Musou enemy hit pass through it). Every player's record carries it, so any client can show a hit on any player:
@@ -857,6 +859,7 @@ public sealed partial record SimConfig
             if (!ChargeMeleeChain) w.Write("old-charge-melee-chain");   // charge-melee-chain (protocol 70): only when off
             if (!HopRules) w.Write("old-hop-rules");   // sim/hop-rules (protocol 72): only when off
             if (!StompRelease) w.Write("old-stomp-release");   // sim/stomp-release (2026-11-14): only when off
+            if (!KickPushCut) w.Write("old-kick-push");   // sim/kick-push (protocol 76): only when off
             if (!ChargeAllyBump) w.Write("old-ally-bump");          // charge-ally-bump (protocol 66): only when off (older hashes unchanged)
             // Added content (ContentExtras.cs): only when any is on, so a faithful config hashes byte for byte as before the switch.
             if (Extras != ContentExtras.None) { w.Write("extras"); w.Write((uint)Extras); w.Write(ContentExtras.WireVersion); ExtrasHash(w); }   // EXTRAS-HOOK
@@ -1405,7 +1408,7 @@ public sealed partial class World(SimConfig config, CollisionWorld? collision = 
                 // Weapons C: the armour-shield part first, off the shield only (as a blast's and the charge's), then the damage.
                 var victim = before;
                 float shieldOnly = MathF.Min(victim.Shield, MathF.Max(0f, shieldPart * received));
-                if (shieldOnly > 0f) victim = victim with { Shield = victim.Shield - shieldOnly, SinceDamage = 0f };
+                if (shieldOnly > 0f) victim = victim with { Shield = victim.Shield - shieldOnly, SinceDamage = 0f, HealthRegenWaived = false };
                 var (after, shieldDamage, healthDamage) = Combat.ApplyDamage(victim, damage, step.ShieldMultiplier,
                     step.HealthMultiplier * Stims.HealthTaken(Config, before, meleeType), Config);   // perks/inert-2: the target's stims, health part only
                 shieldDamage += shieldOnly;
@@ -1417,7 +1420,7 @@ public sealed partial class World(SimConfig config, CollisionWorld? collision = 
             }
             if (!_players[target].Alive) continue;
             if (light) Flinch(attacker, target);   // sim/light-melee-flinch: the aim thrown off, nothing else
-            else TryReact(attacker, target, reaction, state.Position, new Vector2(pushDirection.X, pushDirection.Y));
+            else TryReact(attacker, target, step.Kick ? KickTuning.WithPush(reaction, Config) : reaction, state.Position, new Vector2(pushDirection.X, pushDirection.Y));
         }
         if (step.Stomp is { } stomp)
             ApplyBlast(attacker, 0, state.Position + new Vector3(0, 0, ChestOf(state)), stomp, melee: true);   // a stomp kill is a melee kill
@@ -1542,7 +1545,7 @@ public sealed partial class World(SimConfig config, CollisionWorld? collision = 
         var type = spec.Type != DamageType.Unknown ? spec.Type : splash ? DamageType.Explosive : melee ? DamageType.Melee : DamageType.Ranged;
         intensity *= Loadouts.Body(Config, victim).Received(type) * DamageScaleOf(shooter) * DamageTakenScale(target);   // test aid: --bot-damage-scale (1 unless set)
         float shieldOnly = MathF.Min(victim.Shield, MathF.Max(0f, spec.ShieldDamage * intensity));
-        if (shieldOnly > 0f) victim = victim with { Shield = victim.Shield - shieldOnly, SinceDamage = 0f };
+        if (shieldOnly > 0f) victim = victim with { Shield = victim.Shield - shieldOnly, SinceDamage = 0f, HealthRegenWaived = false };
         bool head = zone == HitZone.Head;
         float stim = Stims.HealthTaken(Config, victim, type);   // perks/inert-2: combat stims scale the health part only
         var (after, shieldDamage, healthDamage) = Combat.ApplyDamage(victim, spec.Damage * intensity,

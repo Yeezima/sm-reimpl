@@ -73,7 +73,6 @@ public class PartsTests
     [InlineData("game/data_SmClient_windows_x86_64/SmClient.dll", "client")]
     [InlineData("game/data_SmClient_windows_x86_64/SmClient.deps.json", "client")]
     [InlineData("game/assets/menu/background.jpg", "media")]
-    [InlineData("game/assets/menu/menu-loop.ogv", "media")]
     [InlineData("game/ashfall-kit/models/wall.glb", "ashfall")]
     [InlineData("server/SmServer.exe", "server")]
     [InlineData("server/SmSim.dll", "server")]
@@ -81,6 +80,20 @@ public class PartsTests
     [InlineData("server/hostfxr.dll", "dotnet")]
     [InlineData("source/sm-reimpl-source-abc.zip", "source")]
     public void Every_path_has_its_part(string path, string part) => Assert.Equal(part, PartRules.PartOf(path));
+
+    [Fact]
+    public void The_release_no_longer_ships_the_menu_video_loop()
+    {
+        // Owner 2026-11-14: menu-loop.ogv (20 MB, a dev aid behind --menu-video) is out of the release: not copied beside the exe, left out of the source zip
+        // (the content guard also refuses an .ogv in a binary package: PackageScannerTests).
+        var root = AppContext.BaseDirectory;
+        while (root is not null && !File.Exists(Path.Combine(root, "SmReimpl.slnx"))) root = Path.GetDirectoryName(root);
+        Assert.NotNull(root);
+        var script = File.ReadAllLines(Path.Combine(root!, "tools", "release", "release.ps1"));
+        var copyList = script.Single(l => l.Contains("assets/menu/background.jpg") && l.Contains("foreach"));
+        Assert.DoesNotContain(".ogv", copyList);
+        Assert.Contains(script, l => l.Contains("'client/assets/menu/menu-loop.ogv'"));
+    }
 
     [Fact]
     public void The_manifest_lists_every_file_and_parses_back()

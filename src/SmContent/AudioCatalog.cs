@@ -20,6 +20,8 @@ public sealed class SoundSwitches
 
     public SoundSwitches Set(string group, string value) => Set(Fnv.Hash32(group), Fnv.Hash32(value));
 
+    public bool Remove(uint group) => _values.Remove(group);
+
     public SoundSwitches Clone()
     {
         var c = new SoundSwitches();

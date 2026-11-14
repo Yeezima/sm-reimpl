@@ -186,7 +186,8 @@ $SourceExclude = @(
     'src/SmTool', 'smtool.cmd', 'smtool.sh', 'SmReimpl.slnx', 'faithful-build.cmd',
     'tools/discover.ps1', 'discover.cmd', 'tools/m1.ps1', 'm1.cmd', 'tools/movie.ps1', 'movie.cmd', 'tools/bots.ps1', 'bots.cmd',
     'tools/release', 'release.cmd', 'ship.cmd', 'test-and-mark.cmd', 'release',
-    'graphify.cmd', 'tools/graphify.ps1', '.graphifyignore', '.mcp.json'
+    'graphify.cmd', 'tools/graphify.ps1', '.graphifyignore', '.mcp.json',
+    'client/assets/menu/menu-loop.ogv'   # the dev-only menu video loop (20 MB; owner 2026-11-14: out of the release; --menu-video plays it from a checkout)
 )
 # The ship's "What's new" file and its archive (repository paths). Feature branches add tester-facing bullets to NEXT.md as they merge.
 $NextFile = Join-Path $RepoRoot 'release\NEXT.md'
@@ -1246,9 +1247,9 @@ if (-not $SkipBuild) {
         if (-not (Test-Path -LiteralPath (Join-Path $exportDir 'sm-reimpl.exe'))) { Fail 'The export produced no sm-reimpl.exe.' }
         Get-ChildItem -LiteralPath $exportDir -Recurse -File | Where-Object { $_.Extension -in '.pdb', '.xml' } | Remove-Item -Force
 
-        # The owner's menu background, the loading screen's picture (2026-11-10), the main menu's video loop (his own cinematic of Ashfall, 2026-11-10) and the hub planet
+        # The owner's menu background, the loading screen's picture (2026-11-10), and the hub planet (the main menu's video loop, menu-loop.ogv, is no longer shipped since 2026-11-14)
         # are loaded as plain files, outside the Godot export (export_presets.cfg leaves them out): beside the exe.
-        foreach ($img in @('assets/menu/background.jpg', 'assets/menu/loading-background.jpg', 'assets/menu/menu-loop.ogv', 'assets/musou/planet.jpg')) {
+        foreach ($img in @('assets/menu/background.jpg', 'assets/menu/loading-background.jpg', 'assets/musou/planet.jpg')) {
             $imgSrc = Join-Path $client $img
             if (-not (Test-Path -LiteralPath $imgSrc)) { Fail "Missing $img in the clean copy (it is committed)." }
             New-Item -ItemType Directory -Force -Path (Split-Path -Parent (Join-Path $exportDir $img)) | Out-Null

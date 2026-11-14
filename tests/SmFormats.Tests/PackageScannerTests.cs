@@ -334,10 +334,11 @@ public sealed class PackageScannerTests : IDisposable
     public void ExtensionsOutsideTheAllowlistAreRefusedInTheBinaryProfile()
     {
         void Profile(PackageScanner s) => s.AllowedExtensions = new HashSet<string>(PackageScanCommand.BinaryProfileExtensions, StringComparer.OrdinalIgnoreCase);
-        // game/assets/menu/menu-loop.ogv: the main menu's video loop (our own media, 2026-11-10) is a type the client package holds.
+        // game/assets/menu/menu-loop.ogv: the main menu's video loop is no longer shipped (owner, 2026-11-14), so a binary package holding an .ogv is refused.
         var findings = Scan(Zip(("a/x.dll", Filler(100)), ("a/run.sh", Text("echo")), ("a/LICENSE", Text("x")), ("a/SmServer", Filler(100)), ("a/odd.xyz", Filler(100)), ("a/noext", Filler(100)),
             ("game/assets/menu/menu-loop.ogv", [0x4F, 0x67, 0x67, 0x53, 0, 2, 0, 0])), Profile);
-        Assert.Equal(2, findings.Count(f => f.Rule == "unexpected-type"));
+        Assert.Equal(3, findings.Count(f => f.Rule == "unexpected-type"));
+        Assert.Contains(findings, f => f.Entry == "game/assets/menu/menu-loop.ogv");
         Assert.Contains(findings, f => f.Entry == "a/odd.xyz");
         Assert.Contains(findings, f => f.Entry == "a/noext");
     }

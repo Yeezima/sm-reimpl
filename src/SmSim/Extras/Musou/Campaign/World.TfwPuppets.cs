@@ -168,7 +168,7 @@ public sealed partial class World
     {
         if (_tfw is null || !_players.TryGetValue(id, out var p) || p.Alive) return false;
         var body = Loadouts.Body(Config, p);
-        _players[id] = p with { Alive = true, Health = body.HealthMax * MarineRules.ReviveShare, Shield = body.ShieldMax * MarineRules.ReviveShare, RespawnLeft = 0f, SinceDamage = 0f, Grounded = true };
+        _players[id] = p with { Alive = true, Health = body.HealthMax * MarineRules.ReviveShare, Shield = body.ShieldMax * MarineRules.ReviveShare, RespawnLeft = 0f, SinceDamage = 0f, HealthRegenWaived = false, Grounded = true };
         _musouArmed.Add(id);
         return true;
     }

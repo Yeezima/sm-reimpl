@@ -123,7 +123,7 @@ public sealed partial class World
         float received = Loadouts.Body(Config, victim).Received(type) * DamageScaleOf(attacker) * DamageTakenScale(target)   // test aid: --bot-damage-scale; added content's taken scale (1 in Classic PvP)
             * Stims.MeleeDealt(Config, state);   // perks/inert-2: the charger's combat stims
         float shieldOnly = MathF.Min(victim.Shield, MathF.Max(0f, damage.ShieldDamage * received));
-        if (shieldOnly > 0f) victim = victim with { Shield = victim.Shield - shieldOnly, SinceDamage = 0f };
+        if (shieldOnly > 0f) victim = victim with { Shield = victim.Shield - shieldOnly, SinceDamage = 0f, HealthRegenWaived = false };
         var (after, shieldDamage, healthDamage) = Combat.ApplyDamage(victim, damage.Damage * received, damage.ShieldBodyMultiplier,
             damage.BodyMultiplier * Stims.HealthTaken(Config, before, type), Config);   // perks/inert-2: the target's stims, health part only
         _players[target] = after;

@@ -49,7 +49,7 @@ public static class Combat
             Slot = slot, Clip = inHand?.ClipSize ?? 0, Reserve = inHand?.ReserveSize ?? 0,
             OtherClip = other?.ClipSize ?? 0, OtherReserve = other?.ReserveSize ?? 0, SwitchLeft = 0,
             ThirdClip = third?.ClipSize ?? 0, ThirdReserve = third?.ReserveSize ?? 0, ThirdHeat = 0, ThirdOverheated = false, ThirdSinceHeat = 0,
-            Cooldown = 0, OtherCooldown = 0, ThirdCooldown = 0, ReloadLeft = 0, OtherReloadLeft = 0, ThirdReloadLeft = 0, SinceDamage = 0, RespawnLeft = 0, Velocity = Vector3.Zero, Grounded = true,
+            Cooldown = 0, OtherCooldown = 0, ThirdCooldown = 0, ReloadLeft = 0, OtherReloadLeft = 0, ThirdReloadLeft = 0, SinceDamage = 0, HealthRegenWaived = false, RespawnLeft = 0, Velocity = Vector3.Zero, Grounded = true,
             MeleeStep = 0, MeleeTime = 0, MeleeQueued = false, MeleeDirection = EvadeDirection.Forward, MeleeLock = 0f,
             Heat = 0, Overheated = false, SinceHeat = 0, OtherHeat = 0, OtherOverheated = false, OtherSinceHeat = 0,
             Charging = false, ChargeTime = 0, PendingShot = 0, PendingLeft = 0,
@@ -786,8 +786,11 @@ public static class Combat
 
         float since = s.SinceDamage + dt;
         var body = Loadouts.Body(c, s);   // M43: the perks' regeneration and shield (Larraman's Blessing, Iron Halo, Artificer Armor)
+        // sim/stim-regen-now (owner's recollection, 2026-11-14): using a combat stim cancels the rest of the health regeneration delay, so
+        // regeneration (the normal rate, or Larraman's Blessing's) starts on the next tick. Both modes share this step.
+        bool regenWaived = s.HealthRegenWaived || (threw && item!.Stim is not null);   // the armour keeps SinceDamage and its own delay (owner: health only)
         float shield = s.SinceDamage >= body.ShieldRegenDelay ? MathF.Min(body.ShieldMax, s.Shield + body.ShieldRegenRate * dt) : s.Shield;
-        float health = s.SinceDamage >= body.HealthRegenDelay ? MathF.Min(body.HealthMax, s.Health + body.HealthRegenRate * dt) : s.Health;
+        float health = s.SinceDamage >= body.HealthRegenDelay || s.HealthRegenWaived ? MathF.Min(body.HealthMax, s.Health + body.HealthRegenRate * dt) : s.Health;
         // A burst under way (M43, Burst Fire): lost with the weapon in hand changing or being lowered, or without a burst weapon.
         int burstLeft = weapon is { Bursts: true } && !lowering && !switched ? s.BurstLeft : 0;
 
@@ -1081,7 +1084,7 @@ public static class Combat
         events = new SelfEvents(fired, shotStage, meleeHitStep, detonate, threw, jumpEvent, hitHeavy, JumpPack.SlashHits(s, pack, c));
         var result = s with
         {
-            SinceDamage = since, Shield = shield, Health = health, Cooldown = cooldown,
+            SinceDamage = since, HealthRegenWaived = regenWaived, Shield = shield, Health = health, Cooldown = cooldown,
             ReloadLeft = reloadLeft, OtherReloadLeft = otherReloadLeft, ThirdReloadLeft = thirdReloadLeft, OtherCooldown = otherCooldown, ThirdCooldown = thirdCooldown, Clip = clip, Reserve = reserve,
             Slot = slot, OtherClip = otherClip, OtherReserve = otherReserve, SwitchLeft = switchLeft,
             ThirdClip = thirdClip, ThirdReserve = thirdReserve, ThirdHeat = thirdHeat, ThirdOverheated = thirdOverheated, ThirdSinceHeat = thirdSinceHeat,
@@ -1345,7 +1348,7 @@ public static class Combat
         }
         float healthDamage = MathF.Max(0f, raw) * healthMultiplier;
         float health = s.Health - healthDamage;
-        var after = s with { Shield = s.Shield - shieldDamage, Health = MathF.Max(0f, health), SinceDamage = 0f };
+        var after = s with { Shield = s.Shield - shieldDamage, Health = MathF.Max(0f, health), SinceDamage = 0f, HealthRegenWaived = false };
         if (shieldDamage > 0f || healthDamage > 0f)
         {
             // protocol 71: the damage mark: the counter rises at most once per tick per victim (a many-pellet weapon cannot wrap it), the shield and health bits of the tick's damages are ORed;
