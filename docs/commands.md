@@ -277,3 +277,4 @@ graphify.cmd path "A" "B"  |  graphify.cmd query "<question>"          :: shorte
 - **Blind spots:** edges are name-based leads: confirm each with Grep. The `Extras*` partial-method hooks (the declaration is not linked to the
   implementation; a call site resolves to only one of them); three files with newer C# syntax are partly unparsed (`src/SmContent/WeaponTuning.cs`,
   `src/SmSim/ContentExtras.cs`, `src/SmTool/Program.cs`); ambiguous names need the `path::Symbol()` form; a broad `query_graph` truncates.
+SM_OLD_SWORD_FF=1 (environment, server and client alike) :: sim/sword-ff-stab (owner, 2026-11-14) restore switch: the power sword's F + F is the data's footstomp again instead of the X,X,X,F stab (100 + 50 shield, stagger); read once at start; the config hash changes with it, so set it on both sides. Musou Mode's sword has the stomp either way.

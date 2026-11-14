@@ -149,6 +149,15 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
     public const string StabPerk = "mp_perk_improved_bullrush";
     /// <summary>Test aid: <c>SM_OLD_SWORD_FF=1</c> (server and client alike) restores the power sword's F + F stomp before sim/sword-ff-stab.</summary>
     static readonly bool OldSwordFf = Environment.GetEnvironmentVariable("SM_OLD_SWORD_FF") == "1";
+    [ThreadStatic] static bool _noStab;
+    /// <summary>
+    /// sim/sword-ff-stab is Classic PvP's: until the result is disposed this thread reads the F + F finisher as the data's stomp again (<see cref="GameplayTuning.LoadForMatch"/> under
+    /// <c>ContentExtras.Musou</c>: Musou's sword, the Librarian's included, keeps its blast to clear a crowd).
+    /// </summary>
+    public static IDisposable WithoutSwordStab() { bool before = _noStab; _noStab = true; return new Restore(before); }
+    sealed class Restore(bool before) : IDisposable { public void Dispose() => _noStab = before; }
+    /// <summary>Whether a read on this thread makes the sword's finisher the stab (<see cref="OldSwordFf"/> and <see cref="WithoutSwordStab"/> turn it off).</summary>
+    public static bool SwordStabOn => !OldSwordFf && !_noStab;
     /// <summary>The heavy classes' kick ability (sim/light-melee-flinch: <see cref="MeleeStep.Kick"/>).</summary>
     public const string KickAbility = "ability_displace_kick";
 
@@ -465,7 +474,7 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
             catch (InvalidDataException e) { notes.Add($"heavy strike {i + 1}: {e.Message}; the heavy chain stops before it"); break; }
         }
         // sim/sword-ff-stab: the finisher is the weapon's stab (see WeaponMap.StabHeavy).
-        if (weapon.StabHeavy > 0 && !OldSwordFf && heavy.Count == weapon.HeavySequencers.Length + weapon.FinisherSequencers.Length && weapon.StabHeavy <= weapon.HeavySequencers.Length
+        if (weapon.StabHeavy > 0 && SwordStabOn && heavy.Count == weapon.HeavySequencers.Length + weapon.FinisherSequencers.Length && weapon.StabHeavy <= weapon.HeavySequencers.Length
             && StabHit(wargear, mapping, notes) is { } stabHit)
         {
             int f = weapon.HeavySequencers.Length;

@@ -145,4 +145,52 @@ public class SwordFfStabTests
         var axe = MeleeTuning.Load(game, MeleeTuning.PowerAxe);
         Assert.NotNull(axe.Heavy[4].Stomp);
     }
+
+    [Fact]
+    public void A_read_inside_WithoutSwordStab_keeps_the_stomp_and_the_scope_ends_with_it()
+    {
+        using (MeleeTuning.WithoutSwordStab())
+        {
+            Assert.False(MeleeTuning.SwordStabOn);
+            var t = Read(2);
+            Assert.NotNull(t.Heavy[2].Stomp);
+            Assert.Equal("Stomp_3.5m", t.HeavyAnimations[2]);
+        }
+        Assert.True(MeleeTuning.SwordStabOn);
+        Assert.Null(Read(2).Heavy[2].Stomp);
+    }
+
+    static MeleeCombo Sword(SimConfig c) =>
+        c.Classes.First(k => k.Name == "sm - assault marine").MeleeChoices.First(m => m.Wargear == "sm_mp_melee_powersword");
+
+    /// <summary>The real path: the sword in the Assault Marine's melee choices of the match tuning, per content profile.</summary>
+    [MeleeInstallPinTests.InstallFact]
+    public void Classic_and_faithful_matches_stab_and_Musou_Mode_keeps_the_stomp_blast()
+    {
+        string game = GameInstall.TryLocate()!.Dir;
+        foreach (var extras in new[] { ContentExtras.None, ContentExtras.Orks })
+        {
+            var stab = Sword(GameplayTuning.LoadForMatch(game, extras).Config).Heavy[4];
+            Assert.Null(stab.Stomp);
+            Assert.Equal((100f, 50f, ReactionKind.Stagger), (stab.Damage, stab.ShieldDamage, stab.PrimaryReaction.Kind));
+        }
+        var musou = Sword(GameplayTuning.LoadForMatch(game, ContentExtras.Musou).Config).Heavy[4];
+        Assert.NotNull(musou.Stomp);                                   // the data's footstomp blast: the Librarian's crowd clear
+        Assert.Equal(0f, musou.Damage);
+        var classic = Sword(GameplayTuning.Load(game).Config).Heavy[4];
+        Assert.Null(classic.Stomp);                                    // the scope is gone after the Musou read
+        Assert.NotEqual(Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(Variants.Bytes(Sword(GameplayTuning.LoadForMatch(game, ContentExtras.Musou).Config)))),
+            Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(Variants.Bytes(Sword(GameplayTuning.Load(game).Config)))));
+    }
+
+    /// <summary>The stab is drawn with the clip of the X,X,X,F strike (what a sword user sees in Musou Mode at light, light, light, F: the data clip of heavy strike 4; the spear's pose clips draw only for the spear).</summary>
+    [MeleeInstallPinTests.InstallFact]
+    public void The_stab_plays_the_clip_of_the_light_light_light_F_strike_in_the_animation_tables()
+    {
+        string game = GameInstall.TryLocate()!.Dir;
+        var classes = GameplayTuning.Load(game).Classes!;
+        var clips = classes.MeleeHeavyAnimationsByWeapon["sm_mp_melee_powersword"];
+        Assert.Equal(clips[3], clips[4]);
+        Assert.Contains("YATK_DSP_Stomp", clips[4]);
+    }
 }
