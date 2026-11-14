@@ -45,6 +45,7 @@ public class ExtrasBoundaryTests
         ("src/SmSim/Stims.cs", "ExtrasThrownBlastScale"),          // SimConfig.ExtrasThrownBlastScale(ThrownSpec?, ref float), Musou Mode's frag blast x2 (owner 2026-11-09)
         ("src/SmSim/AerialTackle.cs", "ExtrasAerialTackleOff"),    // SimConfig.AerialTackleOff, read by Rush.CanDashAttack and MeleeCancel.Apply: Musou Mode has no aerial tackle (owner 2026-11-12, temporary)
         ("src/SmSim/ContentExtras.cs", "ExtrasMeleeSpam"),         // SimConfig.MeleeSpam: Musou Mode ignores the melee wait (owner 2026-11-12, melee spam)
+        ("src/SmSim/ContentExtras.cs", "ExtrasSprintMeleeKept"),   // SimConfig.SprintMeleeKept: Musou Mode keeps a light press while sprinting a swing (owner 2026-11-15, sprint-melee-charge)
         ("src/SmSim/Stims.cs", "ExtrasEndlessClip"),              // SimConfig.ExtrasEndlessClip(WeaponSpec, ref bool), read by SimConfig.EndlessClip in the shot step: Musou's autocannon spends no round (owner 2026-11-11: "No clip in Musou mode")
         ("src/SmSim/Projectiles.cs", "ExtrasProjectileStop"),      // World.ExtrasProjectileStop(in ProjectileState, Vector3, float, ref float), in Fly before a hit is taken (Musou S4: a shield dome or a contraption stops a projectile)
         ("src/SmSim/DamageScale.cs", "ExtrasDamageTaken"),         // World.ExtrasDamageTaken(int target, ref float scale), in DamageTakenScale at every player-damage site (Musou: AI Marines take a tenth)

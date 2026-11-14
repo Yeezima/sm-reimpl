@@ -108,7 +108,7 @@ public static class ChargeCancel
 
     /// <summary>sim/sprint-melee-charge: whether a light press this tick is a charge request (Shift + W held, on the ground, nothing else under way; Classic PvP, <see cref="SimConfig.SprintMeleeCharge"/>).</summary>
     public static bool SprintMeleeStarts(SimConfig c, PlayerState s, PlayerInput input, bool meleePress) =>
-        c.SprintMeleeCharge && meleePress && !c.Extras.HasFlag(ContentExtras.Musou) && s.Alive && s.Grounded && s.Rush == RushPhase.None && s.EvadeTicks <= 0 && s.Jump == JumpPhase.None
+        c.SprintMeleeCharge && meleePress && !c.SprintMeleeKept && s.Alive && s.Grounded && s.Rush == RushPhase.None && s.EvadeTicks <= 0 && s.Jump == JumpPhase.None
         && Loadouts.Rush(c, s) is { } spec && Rush.ChargeHeld(input, spec);
 
     /// <summary>sim/ledge-charge-cancel: whether the bull rush under way is held in the air, so a light press zeroes its momentum.</summary>

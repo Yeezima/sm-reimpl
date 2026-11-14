@@ -157,6 +157,22 @@ public class SprintMeleeChargeTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void A_jump_pack_class_cancels_a_ledge_charge_too_through_the_pack_air_path()
+    {
+        var c = WithStep(MeleeCancelTests.Pack);   // the Assault: a jump pack and a dash, whose air movement is JumpPack.Move
+        Assert.NotNull(Loadouts.JumpPack(c, Fresh(c)));
+        var held = MeleeCancelTests.Charging(c, cls: 0) with { Position = new Vector3(0f, 0f, 8f), Grounded = false };
+        held = Step(held, In(InputButtons.None), c);
+        Assert.Equal(RushPhase.Rush, held.Rush);
+        Assert.True(Flat(held) > 5f, $"held speed {Flat(held)}");
+        var s = Step(held, In(InputButtons.Melee, x: 1f), c);   // D
+        Assert.Equal((RushPhase.None, 1), (s.Rush, s.MeleeStep));
+        Assert.True(Flat(s) < Flat(held) * 0.5f, $"momentum gone: {Flat(s)}");
+        Assert.True(s.Position.X - held.Position.X > 0.1f, $"steps right: {s.Position - held.Position}");
+        for (int k = 0; k < 15 && !s.Grounded; k++) { s = Step(s, In(InputButtons.None), c); Assert.True(Flat(s) < 6f, $"tick {k}: {Flat(s)}"); }
+    }
+
+    [Fact]
     public void The_restore_switch_keeps_the_charges_momentum()
     {
         var old = Config with { LedgeChargeCancel = false };
