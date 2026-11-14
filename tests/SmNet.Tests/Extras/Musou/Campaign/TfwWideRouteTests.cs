@@ -67,7 +67,7 @@ public class TfwWideRouteTests(ITestOutputHelper output)
     }
 
     [Theory]
-    [InlineData(TfwMap.Name, 20f)]           // the city: every route outside the stronghold on its avenues
+    [InlineData(TfwMap.CityName, 20f)]       // the city: every route outside the stronghold on its avenues
     [InlineData(TfwMap.FieldName, 20f)]
     [InlineData(TfwMap.Draft10Name, 13f)]    // draft 10's streets are 14 to 20 m at their narrowest: the widest it has
     public void The_war_s_army_routes_from_the_landing_zone_keep_to_the_wide_ways(string map, float least)

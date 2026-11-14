@@ -18,7 +18,7 @@ static class MusouArmyRoutesCommand
 {
     public static int Run(string[] rest)
     {
-        string[] maps = [TfwMap.Name, TfwMap.FieldName, TfwMap.Draft10Name];
+        string[] maps = [TfwMap.Name, TfwMap.CityName, TfwMap.FieldName, TfwMap.Draft10Name];
         string? table = null;
         for (int i = 0; i < rest.Length; i++)
         {

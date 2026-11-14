@@ -41,7 +41,9 @@ public class AshfallDraft13Tests(ITestOutputHelper output)
     public void Tfw_war_heights_builds_the_heights_layout_and_the_other_maps_stay_as_they_were()
     {
         Assert.Equal(AshfallLayout.Heights, TfwMap.LayoutOf(TfwMap.HeightsName));
-        Assert.Equal(AshfallLayout.City, TfwMap.LayoutOf(TfwMap.Name));
+        Assert.Equal(AshfallLayout.Heights, TfwMap.LayoutOf(TfwMap.Name));   // the 2026-11-14 ship: the default Musou map is draft 13
+        Assert.Equal(AshfallLayout.City, TfwMap.LayoutOf(TfwMap.CityName));
+        Assert.True(TfwMap.IsWarMap(TfwMap.CityName) && TfwMap.IsAshfall(TfwMap.CityName) && Protocol.IsMapName(TfwMap.CityName));
         Assert.Equal(AshfallLayout.Heights, AshfallLayouts.Parse("heights"));
         Assert.Equal("heights", AshfallLayout.Heights.Key());
         Assert.True(TfwMap.IsWarMap(TfwMap.HeightsName) && TfwMap.IsAshfall(TfwMap.HeightsName) && Protocol.IsMapName(TfwMap.HeightsName));
@@ -52,7 +54,7 @@ public class AshfallDraft13Tests(ITestOutputHelper output)
         Assert.Equal(AshfallLayout.Heights, H.Level.Layout);
         output.WriteLine($"heights hash {H.Level.Hash:X16}");
         if (PinnedHeightsHash != 0UL) Assert.Equal(PinnedHeightsHash, H.Level.Hash);
-        var a = TfwWorld.Load("", out var pa, TfwMap.HeightsName); var b = TfwWorld.Load("", out var pb, TfwMap.Name);
+        var a = TfwWorld.Load("", out var pa, TfwMap.HeightsName); var b = TfwWorld.Load("", out var pb, TfwMap.CityName);
         Assert.Null(pa); Assert.Null(pb);
         Assert.NotEqual(a!.Hash, b!.Hash);
         Assert.Equal(AshfallContent.ToMapContent(H.Level).Hash, H.Level.Hash);

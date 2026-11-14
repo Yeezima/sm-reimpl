@@ -858,7 +858,7 @@ The owner's request (the lead chat, 2026-11-09): "use the new mapmaking and map 
 Draft 10 redone on draft 11's plan path (`AshfallLayout.City`, `Extras/Musou/Ashfall/Field/AshfallCity.cs`). It keeps draft 10's dense urban character (buildings, walls, platforms) instead of draft 11's ruin islands, and uses draft 11's routing and checks. Every place, size and threshold is ours: placeholder demonstration, estimates for the owner's playtest.
 
 ### Selection and rollback
-- **`tfw_war`** (Musou's default map) now builds the city.
+- **`tfw_war`** (Musou's default map) built the city from draft 12 until 2026-11-14; since then it builds draft 13 and the city is `tfw_war_city` (see "Draft 13 heights").
   - City version 1. Its hash is salted with `AshfallCity.HashVersion` (`0x43000001`).
   - Level hash **`0x1E3B60672DF1809B`** (after the stair pass below; `0x401F29A0BB9A1E49` before it), pinned in `AshfallDraft12Tests.PinnedCityHash`.
 - **Rollback: `tfw_war_draft10`** builds draft 10 bit for bit (`AshfallMap.Version` 17, hash `0xA47761F67B43DC1C`).
@@ -1059,7 +1059,7 @@ The bundled kit (the release's `ashfall-kit\`, 81 files) grows from 80.8 to 141.
 ## Draft 13 heights (2026-11-14)
 The owner (2026-11-14): "another draft of the ashfall map. include large scaled up buildings again, and ensure that there are no dead end stairs, no stairs with blocked entrances, and no weird things like a wall in front of a door ... devastator and tactical marines to have strong high ground positions to play from, and the ability for assault to leverage its ability to jump to gain an advantage on the high ground." Every place, size and threshold is ours (placeholder demonstration, estimates for the owner's playtest).
 
-- **Selection.** Layout `AshfallLayout.Heights`, map **`tfw_war_heights`** (host: `--ashfall-layout heights`; server: `--map tfw_war_heights`). `tfw_war` stays the city (draft 12), `tfw_war_draft10` and `tfw_war_field` as they were. Heights version 1, hash salt `0x48000001`, level hash **`0x0B35BFB12EF8FD3D`** (`AshfallDraft13Tests.PinnedHeightsHash`). Making it the default `tfw_war` is one line in `TfwMap.LayoutOf` (and the tests that pin `tfw_war` as the city).
+- **Selection.** Layout `AshfallLayout.Heights`, map **`tfw_war_heights`** (host: `--ashfall-layout heights`; server: `--map tfw_war_heights`). `tfw_war` stays the city (draft 12), `tfw_war_draft10` and `tfw_war_field` as they were. Heights version 1, hash salt `0x48000001`, level hash **`0x0B35BFB12EF8FD3D`** (`AshfallDraft13Tests.PinnedHeightsHash`). Since the 2026-11-14 ship (owner: "ensure that the newest ashfall version is included") `tfw_war` builds the heights too; the city (draft 12) moved to its own map `tfw_war_city` (host `--ashfall-layout city`), the rollback.
 - **Plan** (`AshfallHeights.cs`): the city's roads, points, base, stronghold and rules, with larger buildings (mean footprint 345 m2 against 239 m2; rows 17-18 m deep, 20-30 m wide), taller landmarks, the fabric within 95 m of a point kept to 9 m, and up to six **overwatch terraces** per point (AC-050 firing platforms, 5.4 m deck of about 211 m2, 52 m out on the diagonals first): 12 placed (A 3, B 4, C 5).
 - **Checks** (`AshfallHighGround.cs`, `AshfallDraft13.cs`), enforced in the pass like the stair-access rule (the other item in the way, or else the item that holds the stair or door, is left out; the stronghold is checked and reported, never changed):
   - **Dead-end flights:** a flight's top must land on at least 5 m2 of open floor or a further flight.

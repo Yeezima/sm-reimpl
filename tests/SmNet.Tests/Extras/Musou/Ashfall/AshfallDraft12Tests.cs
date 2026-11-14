@@ -28,12 +28,12 @@ public class AshfallDraft12Tests(ITestOutputHelper output)
     // ---------------------------------------------------------------- the switch and the rollback
 
     [Fact]
-    public void Tfw_war_builds_the_city_and_draft_10_stays_reachable_unchanged_behind_its_own_map_name()
+    public void Tfw_war_city_builds_the_city_and_draft_10_stays_reachable_unchanged_behind_its_own_map_name()
     {
-        Assert.Equal(AshfallLayout.City, TfwMap.LayoutOf(TfwMap.Name));
+        Assert.Equal(AshfallLayout.City, TfwMap.LayoutOf(TfwMap.CityName));   // since 2026-11-14 tfw_war builds draft 13; the city keeps its own name
         Assert.Equal(AshfallLayout.Draft10, TfwMap.LayoutOf(TfwMap.Draft10Name));
         Assert.Equal(AshfallLayout.Field, TfwMap.LayoutOf(TfwMap.FieldName));
-        foreach (var n in new[] { TfwMap.Name, TfwMap.Draft10Name, TfwMap.FieldName })
+        foreach (var n in new[] { TfwMap.Name, TfwMap.CityName, TfwMap.Draft10Name, TfwMap.FieldName })
         {
             Assert.True(TfwMap.IsWarMap(n) && TfwMap.IsAshfall(n), n);
             Assert.True(Protocol.IsMapName(n), n);
@@ -46,7 +46,7 @@ public class AshfallDraft12Tests(ITestOutputHelper output)
         output.WriteLine($"city hash {C.Level.Hash:X16}");
         if (PinnedCityHash != 0UL) Assert.Equal(PinnedCityHash, C.Level.Hash);
         // the composed worlds differ, so a client on another layout is told apart at the handshake
-        var a = TfwWorld.Load("", out var pa, TfwMap.Name); var b = TfwWorld.Load("", out var pb, TfwMap.Draft10Name);
+        var a = TfwWorld.Load("", out var pa, TfwMap.CityName); var b = TfwWorld.Load("", out var pb, TfwMap.Draft10Name);
         Assert.Null(pa); Assert.Null(pb);
         Assert.NotEqual(a!.Hash, b!.Hash);
         Assert.Equal(AshfallContent.ToMapContent(C.Level).Hash, C.Level.Hash);

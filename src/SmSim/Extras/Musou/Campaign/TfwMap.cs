@@ -216,18 +216,20 @@ public static class TfwMap
     /// </summary>
     public const string FieldName = "tfw_war_field";
     /// <summary>
-    /// Draft 12's rollback switch (owner, 2026-11-09: the draft-10 redo keeps the current version as a path to roll back to): the shipped draft-10 level (hash <c>0xA47761F67B43DC1C</c>). Since draft 12, <see cref="Name"/>
-    /// builds the city layout (<c>AshfallLayout.City</c>, docs/musou-ashfall-graybox.md "Draft 12 city layout").
+    /// Draft 12's rollback switch (owner, 2026-11-09: the draft-10 redo keeps the current version as a path to roll back to): the shipped draft-10 level (hash <c>0xA47761F67B43DC1C</c>). From draft 12 until 2026-11-14, <see cref="Name"/>
+    /// built the city layout (now <see cref="CityName"/>; <see cref="Name"/> builds draft 13) (<c>AshfallLayout.City</c>, docs/musou-ashfall-graybox.md "Draft 12 city layout").
     /// </summary>
     public const string Draft10Name = "tfw_war_draft10";
-    /// <summary>Draft 13's high-ground layout (owner, 2026-11-14; <c>AshfallLayout.Heights</c>, docs/musou-ashfall-graybox.md "Draft 13 heights"): the city's rules with large buildings and reachable high ground. <see cref="Name"/> stays the city (the rollback).</summary>
+    /// <summary>Draft 13's high-ground layout (owner, 2026-11-14; <c>AshfallLayout.Heights</c>, docs/musou-ashfall-graybox.md "Draft 13 heights"): the city's rules with large buildings and reachable high ground. Since the 2026-11-14 ship (owner: "ensure that the newest ashfall version is included") <see cref="Name"/> builds it too.</summary>
     public const string HeightsName = "tfw_war_heights";
+    /// <summary>Draft 12's rollback switch since <see cref="Name"/> builds draft 13 (2026-11-14): the city layout (<c>AshfallLayout.City</c>, docs/musou-ashfall-graybox.md "Draft 12 city layout").</summary>
+    public const string CityName = "tfw_war_city";
     /// <summary>Whether <paramref name="name"/> is one of the war's maps (<see cref="Name"/>, <see cref="FieldName"/>, <see cref="Draft10Name"/> or <see cref="ManufactorumName"/>).</summary>
-    public static bool IsWarMap(string? name) => name is Name or FieldName or Draft10Name or HeightsName or ManufactorumName;
+    public static bool IsWarMap(string? name) => name is Name or FieldName or Draft10Name or HeightsName or CityName or ManufactorumName;
     /// <summary>Whether <paramref name="name"/> is an Ashfall Citadel map (generated in code: <see cref="Name"/>, <see cref="FieldName"/> or <see cref="Draft10Name"/>).</summary>
-    public static bool IsAshfall(string? name) => name is Name or FieldName or Draft10Name or HeightsName;
-    /// <summary>The Ashfall layout of a map name (<see cref="FieldName"/>: the field; <see cref="Draft10Name"/>: draft 10; anything else: the city, draft 12).</summary>
-    public static SmSim.Extras.Musou.Ashfall.AshfallLayout LayoutOf(string? name) => name switch { FieldName => SmSim.Extras.Musou.Ashfall.AshfallLayout.Field, Draft10Name => SmSim.Extras.Musou.Ashfall.AshfallLayout.Draft10, HeightsName => SmSim.Extras.Musou.Ashfall.AshfallLayout.Heights, _ => SmSim.Extras.Musou.Ashfall.AshfallLayout.City };
+    public static bool IsAshfall(string? name) => name is Name or FieldName or Draft10Name or HeightsName or CityName;
+    /// <summary>The Ashfall layout of a map name (<see cref="FieldName"/>: the field; <see cref="Draft10Name"/>: draft 10; <see cref="CityName"/>: the city, draft 12; anything else, <see cref="Name"/> included: the heights, draft 13).</summary>
+    public static SmSim.Extras.Musou.Ashfall.AshfallLayout LayoutOf(string? name) => name switch { FieldName => SmSim.Extras.Musou.Ashfall.AshfallLayout.Field, Draft10Name => SmSim.Extras.Musou.Ashfall.AshfallLayout.Draft10, CityName => SmSim.Extras.Musou.Ashfall.AshfallLayout.City, _ => SmSim.Extras.Musou.Ashfall.AshfallLayout.Heights };
     /// <summary>The install's map every battle is fought on.</summary>
     public const string Battlefield = "mp_tdm_09";   // Manufactorum: the 5-wave test aid's map and the battlefield of ManufactorumName
     /// <summary>Raised with any change of how the world is composed (hashed into <see cref="TfwMapData.Hash"/>; 2: TF1's arena and Stormbird replace TF0's flat slab; 3: Manufactorum replaces the empty arena; 4: the Thunderhawk's interior replaces the Stormbird's box; 8: Ashfall Citadel replaces Manufactorum under <see cref="Name"/>; the Manufactorum composition keeps <see cref="ManufactorumVersion"/>).</summary>
