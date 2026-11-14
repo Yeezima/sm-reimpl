@@ -148,25 +148,44 @@ public partial class NetworkView
     void FillDecorators(Hud.Frame f, PlayerState me, PlayerState? aimed)
     {
         // Shown only while playing as a living player: not spectating, dead, or in the countdown, warm-up and match-over phases.
-        if (aimed is null || _camera is null || _gameSpace is null || _client is null || me.Team == Team.None || !me.Alive || Spectate is not null
+        if (_camera is null || _gameSpace is null || _client is null || me.Team == Team.None || !me.Alive || Spectate is not null
             || _client.Match.State != MatchState.Playing) return;
-        var other = aimed.Value;
-        if (!other.Alive || other.PlayerId == _client.PlayerId || other.Team == Team.None) return;
-        var relation = World.Hostile(me.Team, other.Team) ? DecoratorRelation.Enemy : DecoratorRelation.Ally;
-        float distance = System.Numerics.Vector3.Distance(other.Position, me.Position);
-        if (!DecoratorRules.PlayerVisible(relation, distance, true)) return;   // the crosshair's ray is the line of sight
-        var anchor = _gameSpace.Transform * new Vector3(other.Position.X, other.Position.Y, other.Position.Z + 2.5f);
-        if (_camera.IsPositionBehind(anchor)) return;
-        f.Decorators.Add(new Hud.Decorator
+        // Classic PvP (owner 2026-11-14): every living ally in view carries its marker, at any distance and through walls. Musou Mode keeps the aimed-player rule.
+        bool allInView = !(_config?.Extras.HasFlag(ContentExtras.Musou) ?? false);
+        if (allInView)
         {
-            Name = HudName(other.PlayerId), Rel = relation == DecoratorRelation.Enemy ? Hud.Rel.Enemy : Hud.Rel.Own, Team = other.Team,
-            Screen = _camera.UnprojectPosition(anchor), Distance = distance,
-        });
+            var size = GetViewport().GetVisibleRect().Size;
+            foreach (var ally in _lastOthers)
+            {
+                if (!ally.Alive || ally.PlayerId == _client.PlayerId || ally.Team == Team.None || World.Hostile(me.Team, ally.Team)) continue;
+                AddDecorator(f, me, ally, DecoratorRelation.Ally, size);
+            }
+        }
+        if (aimed is not { } other || !other.Alive || other.PlayerId == _client.PlayerId || other.Team == Team.None) return;
+        var relation = World.Hostile(me.Team, other.Team) ? DecoratorRelation.Enemy : DecoratorRelation.Ally;
+        if (allInView && relation == DecoratorRelation.Ally) return;   // already added above
+        AddDecorator(f, me, other, relation, null);
         if (_bot && (int)(_connectedFor / 4.0) != _decoratorLogSlot)
         {
             _decoratorLogSlot = (int)(_connectedFor / 4.0);
             GD.Print($"t {_connectedFor:F1} s: id {_client.PlayerId} aimed decorator: {(relation == DecoratorRelation.Enemy ? "enemy" : "ally")}");
         }
+    }
+
+    /// <summary>One player decorator, 2.5 m over the shown feet; <paramref name="viewSize"/> (the all-allies path) drops an anchor outside the screen.</summary>
+    void AddDecorator(Hud.Frame f, PlayerState me, PlayerState other, DecoratorRelation relation, Vector2? viewSize)
+    {
+        float distance = System.Numerics.Vector3.Distance(other.Position, me.Position);
+        if (!DecoratorRules.PlayerVisible(relation, distance, true)) return;   // a foe: the crosshair's ray is the line of sight; an ally: always
+        var anchor = _gameSpace!.Transform * new Vector3(other.Position.X, other.Position.Y, other.Position.Z + 2.5f);
+        if (_camera!.IsPositionBehind(anchor)) return;
+        var screen = _camera.UnprojectPosition(anchor);
+        if (viewSize is { } v && !DecoratorRules.OnScreen(screen.X, screen.Y, v.X, v.Y)) return;
+        f.Decorators.Add(new Hud.Decorator
+        {
+            Name = HudName(other.PlayerId), Rel = relation == DecoratorRelation.Enemy ? Hud.Rel.Enemy : Hud.Rel.Own, Team = other.Team,
+            Screen = screen, Distance = distance,
+        });
     }
 
     int _decoratorLogSlot = -1;

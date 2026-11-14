@@ -312,19 +312,29 @@ public static class DecoratorRules
     /// </summary>
     public const float OcclusionDistance = 75f;
 
-    /// <summary>Whether a player's decorator shows (ours, owner 2026-10-30): only the player under the crosshair (the caller passes it; the ray is the line of sight), friend or foe, within <see cref="AllyRange"/>.</summary>
+    /// <summary>
+    /// Whether a player's decorator shows (ours). A foe: only the aimed one (the caller passes it; the ray is the line of sight) within <see cref="AllyRange"/> (owner 2026-10-30).
+    /// An ally (owner 2026-11-14, Classic PvP): whenever the ally is in the viewer's view (the caller checks on screen and in front of the camera), at any distance and through walls; the
+    /// distance and <paramref name="lineOfSight"/> do not matter.
+    /// </summary>
     public static bool PlayerVisible(DecoratorRelation relation, float distance, bool lineOfSight) => relation switch
     {
-        DecoratorRelation.Ally or DecoratorRelation.Enemy => distance <= AllyRange && lineOfSight,
+        DecoratorRelation.Ally => true,
+        DecoratorRelation.Enemy => distance <= AllyRange && lineOfSight,
         _ => false,
     };
+
+    /// <summary>Whether a projected anchor lies inside the screen (ours: the marker is drawn for allies in view; a small margin so a marker half off the edge still shows).</summary>
+    public static bool OnScreen(float x, float y, float width, float height, float margin = 40f) =>
+        x >= -margin && x <= width + margin && y >= -margin && y <= height + margin;
 
     /// <summary>The decorator's scale by distance (ours): full size within 10 m, down to 0.55 at <see cref="AllyRange"/>.</summary>
     public static float PlayerScale(float distance) => 1f - 0.45f * Math.Clamp((distance - 10f) / (AllyRange - 10f), 0f, 1f);
 
-    /// <summary>The decorator's fade near the edge of its range (ours): 1 up to 85 % of the range, then to 0.</summary>
+    /// <summary>The decorator's fade near the edge of its range (ours): 1 up to 85 % of the range, then to 0. An ally's never fades (owner 2026-11-14: shown at any distance).</summary>
     public static float PlayerAlpha(DecoratorRelation relation, float distance)
     {
+        if (relation == DecoratorRelation.Ally) return 1f;
         float range = AllyRange;
         return Math.Clamp((range - distance) / (range * 0.15f), 0f, 1f);
     }

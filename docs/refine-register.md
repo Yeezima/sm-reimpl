@@ -28,11 +28,11 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3171 spec table rows: **2329 tagged**, 584 not tagged (read from data with high confidence), 258 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 708 rows of the changes document.
+Scanned 3172 spec table rows: **2330 tagged**, 584 not tagged (read from data with high confidence), 258 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 709 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
-| Movement (critical) | 401 | 343 | 342 | 117 | 12 |
+| Movement (critical) | 402 | 344 | 343 | 117 | 12 |
 | Combat core (critical) | 17 | 7 | 15 | 14 | 9 |
 | Weapons (critical) | 121 | 73 | 106 | 54 | 3 |
 | Melee (critical) | 140 | 122 | 105 | 51 | 5 |
@@ -53,15 +53,15 @@ Scanned 3171 spec table rows: **2329 tagged**, 584 not tagged (read from data wi
 | Core simulation (provisional values) | 695 | 655 | 495 | 181 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 248 | 237 | 133 | 68 | 0 |
-| **All areas** | **2329** | 2057 | 1731 | 728 | 38 |
+| **All areas** | **2330** | 2058 | 1732 | 728 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1343 |
+| kind: ours | 1344 |
 | confidence: low | 830 |
-| confidence: medium | 772 |
+| confidence: medium | 773 |
 | notes: ours | 414 |
 | kind: interpretation | 382 |
 | notes: estimate | 196 |
@@ -91,7 +91,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 ## Part A: gameplay areas, critical first
 
-### Movement (gameplay-critical) (401)
+### Movement (gameplay-critical) (402)
 
 *Spec section: Extracted parameters*
 
@@ -465,6 +465,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-08CA80B5` | Player decorator: foes | the name only, in red, over the head of the **aimed** foe (no icon, no bars); ui/hud-3 (owner, 2026-10-30): shown only while the crosshair's centre ray hits that player, nothing otherwise | kind: interpretation; confidence: low | footage (t105: one frame, an enemy's red name over its head, nothing else seen); owner's decision (aim only) | Player decorator: foes: compare with SM1 by feel or video. Ours: the name only, in red, over the head of the aimed foe (no icon, no… | ☐ |
 | `R-FF5CCA21` | Player decorator anchor and size | 2.5 m over the feet; scale 1 within 10 m falling to 0.55 at 120 m; faded over the last 15 % of the range (m) | kind: ours; confidence: low | ours (the movie's `close to camera` / `far from camera` labels carry no change) | Player decorator anchor and size: compare with SM1 by measuring on a flat spot of the same map. Ours: 2.5 m over the feet; scale 1 within 10 m falling to 0.55 at 120 m… | ☐ |
 | `R-51A3445A` | Player decorator visibility | **ui/hud-3 (owner, 2026-10-30):** only the player under the crosshair (the centre ray's first hit, `CenterRayTarget`), friend (gold name with the race icon) or foe (red name), within 120 m (`DecoratorRules.PlayerVisible`; the ray is the line of sight); no… (m) | kind: ours; confidence: medium | owner's decision | Player decorator visibility: compare with SM1 by measuring on a flat spot of the same map. Ours: ui/hud-3 (owner, 2026-10-30): only the player under the crosshair… | ☐ |
+| `R-6939BC69` | Ally marker visibility (Classic PvP) | **owner, 2026-11-14:** every living ally whose anchor (2.5 m over the feet) is on screen and in front of the camera carries the gold eagle and its label, at any distance on the map and through walls; no fade with distance, scale 1 within 10 m falling to 0.55… (m) | kind: ours; confidence: medium | owner's request with his screenshot (eagle and `P6` over an ally); the through-walls and no-fade parts are our choice | Ally marker visibility (Classic PvP): compare with SM1 by measuring on a flat spot of the same map. Ours: owner, 2026-11-14: every living ally whose anchor (2.5 m over the… | ☐ |
 | `R-C8CF015D` | Not drawn: player health and armour bars | the movie's `info_mc` has a health bar (red, left) and an armour bar (yellow-white, right) driven by `healthPct` / `shieldPct` (101-frame mask clips); the wire carries no health for other players, so the bars cannot be drawn | notes: not reproduced (gap); kind: gap (not reproduced) | `Decorator.gfx`; protocol | Not drawn: player health and armour bars: compare with SM1 by counting hits to kill and by video of the health bar. Ours: the movie's info_mc has a health bar (red, left) and an armour bar… | ☐ |
 | `R-C673A99A` | Point decorator state | the movie's `anim_mc` labels: `neutral`, `ally_sm` / `ally_chaos` / `enemy_sm` / `enemy_chaos` for an owned point, `*_flash` while the other side is taking its hold down (the tip: "If a capture point you own is blinking, that means an enemy is uncapping it")… | kind: interpretation; confidence: medium | `Decorator.gfx` / `HudText.gfx` labels; the mapping from game state is an interpretation of the names | Point decorator state: compare with SM1 by feel or video. Ours: the movie's anim_mc labels: neutral, ally_sm / ally_chaos / enemy_sm… | ☐ |
 | `R-E7E3431E` | Point flash timing | `*_flash`: a 30-frame loop (1 s) fading an overlay of the icon from opaque to 10 % (alpha 256, 239, 223, 208 ... 27, 26 of 256) over the icon's steady 50 %; `*_combat_flash`: 10 frames (0.33 s), 256, 195, 143, 101, 68, 45, 31, 26; the icon here blinks between… (s) | kind: interpretation | `Decorator.gfx` `DominationPoint` frames 7 to 18 (30 fps) | Point flash timing: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: *_flash: a 30-frame loop (1 s) fading an overlay of the icon from… | ☐ |
@@ -4535,6 +4536,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-89356159` | Seize Ground sounds (fidelity gap 9) | The capture click `play_mp_point_being_captured` (a 36 ms tick with a stop event) once a second while the local player stands on a moving point (each post plays one pick only: the data's containers repeat for ever until a stop, which stacked into a growing hum, BR-03), `Play_Objective_Complete` when a point becomes… | The events are the original's; the scripts that post them are compiled, so when (and for whom) is ours, and the points-total tick belongs to an XP tally that does not exist here | Spec "Match sounds and menu sounds (fidelity gap 9; client only, not simulated, no protocol change)" | Seize Ground sounds (fidelity gap 9): compare with SM1 by feel or video. Ours: The capture click play_mp_point_being_captured (a 36 ms tick with a… | ☐ |
 | `C-B1B0E497` | Menu sounds (fidelity gap 9) | The original's `Play_Menu_Move`, `Play_Menu_Select` and `Play_Menu_Back` on the front end's and customizer's buttons (also the in-match picker): Move on pointer or key focus, Select on a press, Back on a press of BACK, CANCEL, RESUME, close or leave | The movies post the events for their own screens; which of our buttons is a Select or a Back, and the keyboard-focus rule, are ours; the menu-opening, multiplayer-select and cooperative-select events, the music and the announcer are not played | Spec "Match sounds and menu sounds (fidelity gap 9; client only, not simulated, no protocol change)" | Menu sounds (fidelity gap 9): compare with SM1 by feel or video. Ours: The original's Play_Menu_Move, Play_Menu_Select and Play_Menu_Back on… | ☐ |
 | `C-7268B90A` | World decorators (fidelity gap 10) | ui/hud-3 (owner, 2026-10-30): only the aimed player's name (the crosshair's target): friend gold with the race icon, foe red; nothing over anyone else. Capture bar and flash states on the Seize Ground markers; the old rules (friends 120 m, 75 m through walls, foes in sight) are gone; capture bar and flash states on… | The player decorators' health and armour bars (the wire carries no health for other players), the exact conditions under which enemy decorators show (the perk "Situational Awareness" lifts one), the "Player Decorators" host option, the point decorator's pointer triangles, the compass / gutter threat indicator | World decorators and the kill feed's pictures | World decorators (fidelity gap 10): compare with SM1 by feel or video. Ours: ui/hud-3 (owner, 2026-10-30): only the aimed player's name (the… | ☐ |
+| `C-DD45ED5B` | Ally markers in view (Classic PvP) | Every living ally on screen shows the gold eagle and its label over its head, at any distance and through walls (owner, 2026-11-14); foes keep the aimed-only red name; Musou Mode unchanged | Whether the original showed far allies through walls (its entity decorators cut at 75 m occlusion distance); the size falloff (0.55 at 120 m and beyond) is ours | World decorators | Ally markers in view (Classic PvP): compare with SM1 by feel or video. Ours: Every living ally on screen shows the gold eagle and its label over… | ☐ |
 | `C-CCE95916` | HUD pass 3 (ui/hud-3) | Own damage is a coloured screen-edge vignette (armour cyan, health red or orange) instead of the bar's flash; the Iron Halo perk alone keeps the spiked armour bar, all others get the reference's bar without spikes and with the orange health (since ui/hud-bar-colours the movie's own cream `lightdamagebar_mc`, cut by… | The exact look of the vignette, the chevrons' size and speed, the band length and the melta bar's mapping are ours, from the owner's reference frames | Zone indicators | HUD pass 3 (ui/hud-3): compare with SM1 by feel or video. Ours: Own damage is a coloured screen-edge vignette (armour cyan, health… | ☐ |
 | `C-9EE425A0` | Turn in place and the aim-offset idle (M40-T5) | A standing marine keeps its lower body planted while the aim is within 90 degrees (75 pistol, heavy bolter) of it, the upper body follows through the graph's aim-offset idle, and past that `SM_NAV_AimTurn_Left/Right` turn the body by their root motion; the standing relaxed rifle now aims along the view (the old idle… | The graphs' rigid "Idle Spin" at a requested facing change of 100 degrees a second (150 heavy bolter) is not applied; the turn clips' playback speed (`FLT_TurnSpeedMultiplier`); the slope idles; the "Can't Fire" flag in turns (a marine can fire mid-turn, barrel off the aim); the pistol's and heavy bolter's twist… | "Turn in place, aim-offset idle, stop foot pins and run start (M40-T5)" | Turn in place and the aim-offset idle: compare with SM1 by measuring on a flat spot of the same map. Ours: A standing marine keeps its lower body planted while the aim is… | ☐ |
 | `C-880E3C8F` | Stops (M40-T5) | The run blends into the idle over 0.333 s (0.15 s ready); a sprint stop is a 1.3 s clip with 5.8 m of root motion | A run's stop: feet on the ground are pinned by IK while the pose cross-fades, then step to the idle stance (ours: 7 cm arc, 0.2 s); since animation pass 3 they let go over 0.15 s when the marine moves on. A sprint stop plays the stop clip, posed by the body's speed over the simulation's sprint stop (0.833 s; animation… | same | Stops: compare with SM1 by feel or video. Ours: The run blends into the idle over 0.333 s (0.15 s ready); a sprint… | ☐ |
