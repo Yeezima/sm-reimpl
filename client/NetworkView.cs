@@ -714,6 +714,7 @@ public partial class NetworkView : Node3D
         var input = _demoPlayback is not null ? DemoSampleInput(tick) : SampleInputCore(tick);   // M40 T0: replayed demos answer from the recording
         if (_demoPlayback is null) ExtrasInput(ref input);   // EXTRAS-HOOK: added content's keys on a live input (loyalist barks: the FOR THE EMPEROR key)
         DemoRecordInput(input);
+        _ownStickHeld = input.MoveX != 0f || input.MoveY != 0f;   // anim/jump-pack-blend: the sim's landing is the run landing when the stick is held at the touchdown
         NoteSentInput(input);   // feel/bullets: the shot of this tick is drawn on the ray this input carries (NetworkView.Bullets.cs)
         Ph("client update (tick step)");   // the prediction step and the send follow in GameClient.Update
         return input;
@@ -1615,7 +1616,9 @@ public partial class NetworkView : Node3D
         if (BracePose(character, state, own)) return;
         // Aim mode (held aim, every player's flag): the weapon class's aim stance bent by the pitch; else the idle / run choice.
         // A falling marine stands in the air (the graph's Dropping state has no direction or speed): the locomotion is posed with no horizontal velocity, the fall's layers go over it.
+        character.StanceFadeFloorOnce = JumpExitFade(state);   // anim/jump-pack-blend: the fade out of a landing
         PlaceLocomotion(character, FallBaseState(state, fallTrack), own);
+        character.StanceFadeFloorOnce = 0f;
         FallLayers(character, state, fallTrack);
         ReloadPose(character, state);   // M35: the reload clip over the legs' movement
         SwitchLayer(character, state, fallTrack);   // pass 2: the weapon switch over the upper body

@@ -7,6 +7,14 @@ namespace SmContent;
 /// </summary>
 public static class JumpAirBlend
 {
+    /// <summary>A flight clip taking over fades over this long (s; ours; the graph's 0.1 s was a visible switch).</summary>
+    public const float FlightEntry = 0.25f;
+    /// <summary>The shortest fade (s) from a landing's or a pound get-up's end into the run or idle (ours; the stance fade's 0.15 s floor popped the legs).</summary>
+    public const float LandingExitFade = 0.28f;
+    /// <summary>The flight into a ground pound's or an air slash's dive fades over this long (s; ours; the graph's 0.167 s "Fast Blend" or 0.1 s popped the arms).</summary>
+    public const float DiveEntry = 0.25f;
+    /// <summary>The same when the direction turned to its opposite (F to B, L to R: the clips are mirrors; ours).</summary>
+    public const float OppositeEntry = 0.4f;
     /// <summary>The shortest time a drawn flight direction / aim stays before another may replace it (s; ours): a steering stick or a mouse sweep crossing a threshold flipped the clip every few frames.</summary>
     public const float MinKeyHold = 0.22f;
     /// <summary>The neutral (U) direction is left only above this fraction of the threshold's speed and entered only below the inverse (ours).</summary>
@@ -26,6 +34,8 @@ public static class JumpAirBlend
         public char Dir = 'U', Aim = 'F';
         public double ChangedAt = double.NegativeInfinity;
         public bool Valid;
+        /// <summary>The call that just changed the keys turned the direction to its opposite (F to B, L to R): the clips differ most.</summary>
+        public bool ChangedOpposite;
         public void Reset() { Valid = false; ChangedAt = double.NegativeInfinity; }
     }
 
@@ -39,6 +49,7 @@ public static class JumpAirBlend
         float af = MathF.Abs(forward), ar = MathF.Abs(right), top = MathF.Max(af, ar);
         char rawDir = top < neutralSpeed ? 'U' : af >= ar ? (forward > 0f ? 'F' : 'B') : (right > 0f ? 'R' : 'L');
         char rawAim = pitch > aimThreshold ? 'U' : pitch < -aimThreshold ? 'D' : 'F';
+        st.ChangedOpposite = false;
         if (!st.Valid) { st.Dir = rawDir; st.Aim = rawAim; st.ChangedAt = now; st.Valid = true; return (st.Dir, st.Aim); }
 
         // Direction, with a band round the neutral speed and a margin between the four.
@@ -56,12 +67,17 @@ public static class JumpAirBlend
         else if (st.Aim == 'D') { if (pitch > -aimThreshold + AimHysteresis) aim = rawAim == 'U' && pitch > aimThreshold ? 'U' : 'F'; }
         else aim = rawAim;   // level: leaves at the plain threshold (the band is on the way back)
 
-        if ((dir != st.Dir || aim != st.Aim) && now - st.ChangedAt >= MinKeyHold) { st.Dir = dir; st.Aim = aim; st.ChangedAt = now; }
+        if ((dir != st.Dir || aim != st.Aim) && now - st.ChangedAt >= MinKeyHold) { st.ChangedOpposite = IsOpposite(st.Dir, dir); st.Dir = dir; st.Aim = aim; st.ChangedAt = now; }
         return (st.Dir, st.Aim);
     }
 
-    /// <summary>
-    /// Seconds until the feet reach the ground <paramref name="aboveGround"/> m below, falling at <paramref name="vertical"/> m/s (negative: down) under
+    /// <summary>Forward and back, or left and right.</summary>
+    public static bool IsOpposite(char a, char b) => (a, b) is ('F', 'B') or ('B', 'F') or ('L', 'R') or ('R', 'L');
+
+    /// <summary>The fade (s) for a flight clip taking over: <see cref="OppositeEntry"/> when the direction just turned to its opposite, else <see cref="FlightEntry"/>.</summary>
+    public static float EntryBlend(bool opposite) => opposite ? OppositeEntry : FlightEntry;
+
+    /// <summary>Seconds until the feet reach the ground <paramref name="aboveGround"/> m below, falling at <paramref name="vertical"/> m/s (negative: down) under
     /// <paramref name="gravity"/> m/s² (positive): the positive root of h = v t + g t² / 2. Infinity when not falling, the ground is unknown or the numbers are not finite.
     /// </summary>
     public static float TimeToContact(float aboveGround, float vertical, float gravity)
@@ -71,6 +87,19 @@ public static class JumpAirBlend
         if (g < 1e-3f) return h / v;
         return (-v + MathF.Sqrt(v * v + 2f * g * h)) / g;
     }
+
+    /// <summary>A remote player's vertical speed (m/s, downwards) the landing lead needs (ours): its record carries no phase, and the hang's slow drift must not start the landing clip.</summary>
+    public const float RemoteMinFallSpeed = 4f;
+
+    /// <summary>
+    /// Whether the landing lead overrides the flight clip: the own player only in the Fall phase (its gravity is <paramref name="fallingGravity"/> there; in the hang it
+    /// is the hang's, which a low hop lingers in), a remote player when it falls at least <see cref="RemoteMinFallSpeed"/>; then the contact must be within <see cref="LandingLead"/>.
+    /// </summary>
+    public static bool LeadApplies(bool own, SmSim.JumpPhase phase, float aboveGround, float vertical, float fallingGravity) =>
+        (own ? phase == SmSim.JumpPhase.Fall : vertical <= -RemoteMinFallSpeed) && LandingImminent(aboveGround, vertical, fallingGravity);
+
+    /// <summary>The lead's landing is the run landing: the own player when the stick is held (the simulation's rule at the touchdown), others above <paramref name="runThreshold"/> m/s horizontally.</summary>
+    public static bool LeadMoving(bool own, bool stickHeld, float horizontal, float runThreshold) => own ? stickHeld : horizontal > runThreshold;
 
     /// <summary>Whether the landing clip should begin fading in now: falling (not a pound's dive) and the contact within <see cref="LandingLead"/>.</summary>
     public static bool LandingImminent(float aboveGround, float vertical, float gravity) => TimeToContact(aboveGround, vertical, gravity) <= LandingLead;

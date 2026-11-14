@@ -372,6 +372,9 @@ public partial class CharacterViewer : Node3D
         _stanceMode = true;
     }
 
+    /// <summary>anim/jump-pack-blend: set around the call that starts a stance fade, its shortest length (s; 0: the usual); the caller clears it.</summary>
+    public float StanceFadeFloorOnce;
+
     /// <summary>Makes a layer the one fading in (the others fade out); the fade time applies when it was not the target before.</summary>
     void SelectLayer(Layer layer, float fadeSeconds)
     {
@@ -380,6 +383,7 @@ public partial class CharacterViewer : Node3D
         if (selected)
         {
             float seconds = float.IsFinite(fadeSeconds) ? Math.Clamp(fadeSeconds, NoP3 ? 0.02f : SmoothMinStanceFadeSeconds, 2f) : StanceFadeSeconds;
+            if (StanceFadeFloorOnce > seconds) seconds = StanceFadeFloorOnce;   // anim/jump-pack-blend: a landing's exit fades to the run or idle over longer
             ExtrasBlendSeconds(ref seconds, stance: true);   // EXTRAS-HOOK: added content's blend floor (Musou weight pass: longer stance cross-fades)
             foreach (var l in _layers) l.FadeSeconds = seconds;
         }
