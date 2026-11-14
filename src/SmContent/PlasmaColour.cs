@@ -12,8 +12,8 @@ namespace SmContent;
 /// </summary>
 public static class PlasmaColour
 {
-    /// <summary>The Chaos plasma's purple (0..1 RGB; ours, taken from the Chaos effects' own purple keys, e.g. (216, 60, 255), (224, 101, 255), (167, 21, 232)).</summary>
-    public static readonly (float R, float G, float B) ChaosPurple = (0.85f, 0.36f, 1f);
+    /// <summary>The Chaos plasma's purple (0..1 RGB; ours, the one Chaos plasma hue: a blend of the Chaos effects' own purple and magenta keys, the muzzle flash's (255, 96, 200) and (195, 115, 254) among them, with green held low so that additive overlaps stay pink-purple and not white; the light-shot tracer, the Compatibility streak and every recoloured loyalist-named effect use it).</summary>
+    public static readonly (float R, float G, float B) ChaosPurple = (0.85f, 0.32f, 0.95f);
 
     /// <summary>The placeholder plasma ball's colour for each side (client placeholder projectiles): blue-white for the loyalists (as before), purple for Chaos.</summary>
     public static (float R, float G, float B) BallColour(bool chaos) => chaos ? (0.82f, 0.5f, 1f) : (0.6f, 0.85f, 1f);
@@ -32,16 +32,24 @@ public static class PlasmaColour
     /// </summary>
     public static (float R, float G, float B)? TintFor(string wargear, string effect) =>
         !IsChaosPlasma(wargear) ? null
-        : IsChaosTracer(effect) ? ChaosTracer
+        : IsChaosTracer(effect) ? ChaosPurple
         : effect.StartsWith("plasma_", StringComparison.OrdinalIgnoreCase) && !Neutral.Contains(effect) ? ChaosPurple : null;
 
     /// <summary>
     /// fx/chaos-plasma-tracer (owner, 2026-11-14: the Chaos plasma gun's and pistol's light-shot tracer "looks like a loyalist shot", cyan-green beside a magenta flash and decal). The install's
     /// <c>chaos_plasma_gun_tracer</c> has purple smoke and linger but its core streak (<c>plasma_tracer</c>, two beams) is the loyalist one: teal wisps keyed pale yellow (255, 246, 139), which
-    /// draws cyan-green. The data gives no other core colour, so the core takes the Chaos muzzle flash's and decal's hue (<c>chaos_plasma_gun_muzzle</c>: (255, 96, 200) flash, (195, 115, 254) front)
-    /// and the client draws the texture's wisps without their teal (FxBatch neutral quads). **Ours**: the hue, a blend of those two keys.
+    /// draws cyan-green; the data names no other core colour, so the core takes <see cref="ChaosPurple"/>. The Chaos trails' <c>plasma_trail</c> streamers carry purple keys over the same kind of teal
+    /// texture (blue wisps in the capture): their keys are the data's, the texture's hue is dropped (<see cref="NeutralTexture"/>).
     /// </summary>
-    public static readonly (float R, float G, float B) ChaosTracer = (0.85f, 0.28f, 0.92f);
+    static readonly string[] NeutralMaterials = ["plasma_tracer", "plasma_trail"];
+
+    /// <summary>
+    /// Whether a beam or streamer of <paramref name="material"/> in <paramref name="effect"/> is drawn without its texture's own teal (the texture's brightest channel as grey, so the colour keys or the tint decide the hue):
+    /// the <c>plasma_tracer</c> and <c>plasma_trail</c> materials, in a Chaos plasma effect (<c>chaos_plasma_*</c>, <c>csm_plasma_*</c>) or in any effect a Chaos plasma weapon plays recoloured (<paramref name="tinted"/>). Loyalist effects never.
+    /// </summary>
+    public static bool NeutralTexture(string effect, string material, bool tinted) =>
+        Array.IndexOf(NeutralMaterials, material) >= 0
+        && (tinted || effect.StartsWith("chaos_plasma_", StringComparison.OrdinalIgnoreCase) || effect.StartsWith("csm_plasma_", StringComparison.OrdinalIgnoreCase));
 
     /// <summary>Whether an effect is the Chaos plasma gun's / pistol's light-shot tracer (<c>chaos_plasma_gun_tracer</c>; the loyalists' is <c>plasma_gun_tracer</c>).</summary>
     public static bool IsChaosTracer(string effect) => effect.Equals("chaos_plasma_gun_tracer", StringComparison.OrdinalIgnoreCase);

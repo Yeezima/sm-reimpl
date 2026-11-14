@@ -318,11 +318,11 @@ public class RaceParityTests
     }
 
     [Fact]
-    public void Chaos_plasma_light_shot_tracer_takes_the_chaos_colour_and_the_loyalist_one_stays_as_the_data_has_it()
+    public void Chaos_plasma_light_shot_tracer_takes_the_one_chaos_hue_near_the_muzzle_flash_and_the_loyalist_one_stays_as_the_data_has_it()
     {
         // fx/chaos-plasma-tracer: the Chaos gun's and pistol's light shot plays chaos_plasma_gun_tracer, whose core streak is the loyalist teal; it is tinted magenta-purple.
         foreach (string chaos in new[] { "csm_mp_ranged_plasma_gun", "csm_mp_pistol_plasma_pistol" })
-            Assert.Equal(PlasmaColour.ChaosTracer, PlasmaColour.TintFor(chaos, "chaos_plasma_gun_tracer"));
+            Assert.Equal(PlasmaColour.ChaosPurple, PlasmaColour.TintFor(chaos, "chaos_plasma_gun_tracer"));
         // The charged shot's trail is the Chaos file's own purple and pink keys: not recoloured.
         Assert.Null(PlasmaColour.TintFor("csm_mp_ranged_plasma_gun", "chaos_plasma_gun_trail"));
         // The loyalist plasma, gun and pistol, light shot included, is never tinted.
@@ -332,9 +332,26 @@ public class RaceParityTests
             Assert.Null(PlasmaColour.TintFor(loyal, "chaos_plasma_gun_tracer"));
             Assert.Null(PlasmaColour.TintFor(loyal, "plasma_gun_charged_trail"));
         }
-        // The hue is the muzzle flash's: red and blue above green.
-        var (r, g, b) = PlasmaColour.ChaosTracer;
-        Assert.True(r > g && b > g);
+        // One hue: near the mean of the Chaos muzzle flash's keys (255, 96, 200) and (195, 115, 254) (within 0.12 per channel), and the Compatibility streak's.
+        var (r, g, b) = PlasmaColour.ChaosPurple;
+        Assert.InRange(r, 0.88f - 0.12f, 0.88f + 0.12f); Assert.InRange(g, 0.41f - 0.12f, 0.41f + 0.12f); Assert.InRange(b, 0.89f - 0.12f, 0.89f + 0.12f);
+    }
+
+    [Fact]
+    public void The_plasma_trails_teal_texture_is_dropped_for_chaos_plasma_effects_and_tinted_ones_only()
+    {
+        // Chaos plasma effects (the data's own purple keys): the teal plasma_tracer / plasma_trail textures draw neutral.
+        foreach (string chaos in new[] { "chaos_plasma_gun_tracer", "chaos_plasma_gun_trail", "csm_plasma_cannon_primary_trail", "csm_plasma_cannon_secondary_trail" })
+            foreach (string material in new[] { "plasma_tracer", "plasma_trail" })
+                Assert.True(PlasmaColour.NeutralTexture(chaos, material, tinted: false));
+        // A loyalist-named effect a Chaos weapon plays recoloured counts as tinted.
+        Assert.True(PlasmaColour.NeutralTexture("plasma_gun_charged_dmg", "plasma_trail", tinted: true));
+        // The loyalist effects (untinted) and other materials never do.
+        foreach (string loyal in new[] { "plasma_gun_tracer", "plasma_gun_charged_trail", "plasma_cannon_primary_trail" })
+            foreach (string material in new[] { "plasma_tracer", "plasma_trail" })
+                Assert.False(PlasmaColour.NeutralTexture(loyal, material, tinted: false));
+        foreach (string other in new[] { "add_trail_soft", "alpha_trail_soft", "beam_gradient", "add_volume_soft" })
+            Assert.False(PlasmaColour.NeutralTexture("chaos_plasma_gun_trail", other, tinted: true));
     }
 
     [Fact]

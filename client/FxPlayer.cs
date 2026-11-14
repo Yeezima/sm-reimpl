@@ -818,9 +818,10 @@ public sealed partial class FxPlayer : Node3D
         // M42: what the quad is, for FxBatch's fades (no edge-on fade on axis billboards; god rays get their own soft, end and near fades).
         var kind = n.GodRayFade ? (n.Billboard ? FxBatch.QuadKind.GodRayAxis : FxBatch.QuadKind.GodRay)
                                 : (n.Billboard ? FxBatch.QuadKind.AxisBillboard : FxBatch.QuadKind.FlatCard);
+        bool neutral = PlasmaColour.NeutralTexture(e.Name, n.Material.Name, e.Tint is not null);   // fx/chaos-plasma-tracer
         if (!tapered)
         {
-            if (_batch.Add(n.Additive, mid, axis * length, side * width, colour, rect, u0, u1, mode, kind, neutral: e.Tint is not null && n.Material.Name == "plasma_tracer")) _frameQuads++;   // fx/chaos-plasma-tracer
+            if (_batch.Add(n.Additive, mid, axis * length, side * width, colour, rect, u0, u1, mode, kind, neutral: neutral)) _frameQuads++;   // fx/chaos-plasma-tracer
             return;
         }
         const int segments = 8;
@@ -830,7 +831,7 @@ public sealed partial class FxPlayer : Node3D
             float w = width * MathF.Max(0f, n.WidthOverLength.Evaluate(fm));
             if (w <= 0.0005f) continue;
             var centre = start + axis * (length * fm);
-            if (_batch.Add(n.Additive, centre, axis * (length / segments), side * w, colour, rect, Mathf.Lerp(u0, u1, f0), Mathf.Lerp(u0, u1, f1), mode, kind)) _frameQuads++;
+            if (_batch.Add(n.Additive, centre, axis * (length / segments), side * w, colour, rect, Mathf.Lerp(u0, u1, f0), Mathf.Lerp(u0, u1, f1), mode, kind, neutral: neutral)) _frameQuads++;
         }
     }
 
@@ -870,6 +871,7 @@ public sealed partial class FxPlayer : Node3D
         float widthScale = c.S;
         if (e.SmokeRein < 1f && IsSmoke(n)) widthScale *= e.SmokeRein;   // feel/muzzle-smoke
         float width0 = At(n.Width, t, 0.1f) * widthScale;
+        bool neutral = PlasmaColour.NeutralTexture(e.Name, n.Material.Name, e.Tint is not null);   // fx/chaos-plasma-tracer: the Chaos trails' streamers
         float u = 0f;
         for (int j = 0; j < N; j++)
         {
@@ -894,7 +896,7 @@ public sealed partial class FxPlayer : Node3D
             float u0 = u, u1 = n.MeterPerU > 0.001f ? u + len / n.MeterPerU : (j + 1f) / N;
             if (n.MeterPerU <= 0.001f) u0 = (float)j / N;
             u = u1;
-            if (_batch.Add(n.Additive, mid, d, side * width, col, rect, u0, u1, 1, FxBatch.QuadKind.AxisBillboard)) _frameQuads++;
+            if (_batch.Add(n.Additive, mid, d, side * width, col, rect, u0, u1, 1, FxBatch.QuadKind.AxisBillboard, neutral)) _frameQuads++;
         }
     }
 
