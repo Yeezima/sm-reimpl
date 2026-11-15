@@ -28,45 +28,45 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3329 spec table rows: **2411 tagged**, 618 not tagged (read from data with high confidence), 300 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 738 rows of the changes document.
+Scanned 3329 spec table rows: **2368 tagged**, 618 not tagged (read from data with high confidence), 343 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 738 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
-| Movement (critical) | 411 | 353 | 349 | 114 | 12 |
+| Movement (critical) | 404 | 346 | 343 | 114 | 12 |
 | Combat core (critical) | 21 | 12 | 19 | 14 | 8 |
 | Weapons (critical) | 119 | 73 | 106 | 52 | 3 |
 | Melee (critical) | 157 | 137 | 113 | 56 | 5 |
-| Jump pack (critical) | 83 | 75 | 67 | 17 | 0 |
+| Jump pack (critical) | 81 | 73 | 67 | 17 | 0 |
 | Charge (critical) | 59 | 49 | 48 | 24 | 0 |
 | Reactions (critical) | 25 | 22 | 23 | 12 | 0 |
 | Camera (critical) | 55 | 53 | 44 | 22 | 0 |
 | HUD and hit feedback (critical) | 73 | 68 | 53 | 11 | 0 |
 | Sound mix (critical) | 89 | 83 | 75 | 11 | 0 |
 | Effects (critical) | 95 | 87 | 79 | 41 | 0 |
-| Game modes | 46 | 42 | 42 | 19 | 1 |
-| Perks | 58 | 48 | 31 | 24 | 0 |
+| Game modes | 45 | 41 | 42 | 19 | 1 |
+| Perks | 52 | 42 | 29 | 24 | 0 |
 | Death and ragdoll | 13 | 10 | 12 | 9 | 0 |
-| Customizer and paint | 47 | 44 | 26 | 15 | 0 |
+| Customizer and paint | 46 | 43 | 26 | 15 | 0 |
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
-| Networking and render smoothing | 24 | 14 | 14 | 12 | 7 |
-| Core simulation (provisional values) | 744 | 701 | 530 | 188 | 1 |
+| Networking and render smoothing | 17 | 7 | 14 | 12 | 7 |
+| Core simulation (provisional values) | 725 | 682 | 514 | 188 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 249 | 238 | 134 | 68 | 0 |
-| **All areas** | **2411** | 2144 | 1789 | 729 | 37 |
+| **All areas** | **2368** | 2101 | 1765 | 729 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1424 |
-| confidence: low | 857 |
-| confidence: medium | 805 |
+| kind: ours | 1381 |
+| confidence: low | 855 |
+| confidence: medium | 802 |
 | notes: ours | 403 |
 | kind: interpretation | 383 |
 | notes: estimate | 203 |
-| kind: estimate | 171 |
-| confidence: none (low) | 127 |
+| kind: estimate | 164 |
+| confidence: none (low) | 108 |
 | kind: provisional | 103 |
 | kind: user's knowledge | 53 |
 | kind: choice | 42 |
@@ -91,7 +91,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 ## Part A: gameplay areas, critical first
 
-### Movement (gameplay-critical) (411)
+### Movement (gameplay-critical) (404)
 
 *Spec section: Extracted parameters*
 
@@ -252,7 +252,6 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-00D769A0` | Tiers' power | a small jump costs the decision hold's cost (35 on the install) whatever the hold: what a longer hold spent is given back at the release; the full jump the full hold's (55); the dash nothing (live bot: 300 → 265 for the small jump, 300 → 245 for the full one) (power) | kind: ours; confidence: low | `power_settings` values; the refund ours | Tiers' power: compare with SM1 by feel or video. Ours: a small jump costs the decision hold's cost (35 on the install)… | ☐ |
 | `R-8435D053` | Buffered Space after a landing | a Jump press the landing (or another lock, or the fall) holds back is kept by the input buffer and acts on the first tick allowed (9 ticks after an idle landing at the data's locks, 6 at the 0.7 scale). The review (the owner: Space held during a landing… (ticks) | kind: ours; confidence: low | the review's request for the owner's intent; the rules ours | Buffered Space after a landing: compare with SM1 by feel or video. Ours: a Jump press the landing (or another lock, or the fall) holds back is… | ☐ |
 | `R-948FB061` | Dash attack and bull rush: a contact on the wall's tick | a charge whose move this tick ends in its wall stop still tests this tick's move against the players (`Rush.WallStoppedFrom`: its charging phase and tick count before the stop); if it reaches one, the hit wins: the hit state (the dash attack's `DashHit`, the… | kind: ours; confidence: low | the review | Dash attack and bull rush: a contact on the wall's tick: compare with SM1 by feel or video. Ours: a charge whose move this tick ends in its wall stop still tests this… | ☐ |
-| `R-D196B53C` | Bots | `--jump-test` alternates the small jump (Space let go 8 ticks after the press) and the full one (13 ticks); the jump bot holds up to the height map's 0.4 s (Space down through tick 12: the full jump) and logs the tier; nav jump holds 1, 14, 19 and 60 fly as… (ticks) | kind: ours | test aid | Bots: compare with SM1 by feel or video. Ours: --jump-test alternates the small jump (Space let go 8 ticks after the… | ☐ |
 | `R-CFDCA32D` | Small jump's hang (sim/jump-hang) | the small jump (a medium hold) hangs **0.35 s** longer at its apex: its hang gravity starts at **5 %** of the data's `jump_hang_gravity` (12 m/s²) and eases up to all of it along a smoothstep over those 0.35 s, then the data's 0.5 s hang (12 m/s²) and the… (s, m/s², fraction) | kind: ours; confidence: low | the owner, 2026-10-31 ("you drop out of the air too fast once you hit the peak height ... hold vertical height for a bit longer before you start to drop"); the… | Small jump's hang (sim/jump-hang): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the small jump (a medium hold) hangs 0.35 s longer at its apex: its… | ☐ |
 | `R-70A048D1` | Dash attack: walls | the lunge (`RushPhase.DashAttack`) meets walls **from its first tick** (the data's `WallCollisionTest` starts 0.300 s in: before, a wall only blocked and the body pressed against it) and within **60 degrees** of head-on (the wall took at least a quarter of… (ticks, degrees) | kind: ours; confidence: low | the owner's request (walls from the start); the 60 degrees ours | Dash attack: walls: compare with SM1 with an overlaid screenshot taken from the same position. Ours: the lunge (RushPhase.DashAttack) meets walls from its first tick (the… | ☐ |
 | `R-0573A833` | Dash attack: client | the wall state poses its clip through the charge's path (as before; its tags post the clip's sounds); ours: the own camera's 0.04 rad knock at the wall; test aid `--dash-wall-test` | kind: ours; confidence: low | ours | Dash attack: client: compare with SM1 by feel or video. Ours: the wall state poses its clip through the charge's path (as before… | ☐ |
@@ -426,7 +425,6 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-4484EE0D` | Clear of every player | a chosen spot is never within two capsule radii plus 0.1 m (1.0 m) of a living player in plan (within a capsule's height); the spawn room takes the first spot 2 m clear, else the first spot 1.0 m clear (new), else the least crowded (m) | kind: ours; confidence: low | ours | Clear of every player: compare with SM1 by measuring on a flat spot of the same map. Ours: a chosen spot is never within two capsule radii plus 0.1 m (1.0 m) of… | ☐ |
 | `R-F1209AB7` | Choosing on the death screen | while dead, a line under the loadout hint says "SPAWN AT: SPAWN ROOM / POINT B / NAME (TELEPORT HOMER)"; Next weapon (X, the wheel; the wheel down goes back) or the controller's D-pad right / left cycles the choices the client knows (the scoreboard's carrier… (s) | kind: ours; confidence: low | ours (SM1 had no such choice; keys and look ours) | Choosing on the death screen: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: while dead, a line under the loadout hint says "SPAWN AT: SPAWN ROOM… | ☐ |
 | `R-361A02E1` | Carrier flag on the scoreboard | each scoreboard row says whether the player is alive and carries Teleport Homer (sent every second to everyone, enemies too) | kind: ours; confidence: low | ours | Carrier flag on the scoreboard: compare with SM1 by feel or video. Ours: each scoreboard row says whether the player is alive and carries… | ☐ |
-| `R-03B89F9B` | Respawn choice rate | the server takes at most 8 choices a second from a peer (a token bucket); others are dropped (1/s) | kind: ours; confidence: low | ours | Respawn choice rate: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the server takes at most 8 choices a second from a peer (a token… | ☐ |
 | `R-7FAEA922` | Heavy bolter count in the HUD | the weapon box shows the rounds left in the bolter's count field (`ammo_mc/ammo_txt`, red at 0) over the heat bar, not the movie's endless sign (`infinity_mc`, which the movie places in the box and which may be what SM1 showed) | confidence: medium | **owner's decision** (2026-11-06: the 400 cap must be visible) | Heavy bolter count in the HUD: compare with SM1 by feel or video. Ours: the weapon box shows the rounds left in the bolter's count field… | ☐ |
 
 *Spec section: Sprint, backpedal and facing poses; hidden zone indicators (M36; client only, not simulated)*
@@ -660,16 +658,11 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-A9C2A0D0` | Loopback exemption | loopback addresses (127.0.0.0/8, ::1) are exempt from the per-address cap, the join rate, the per-address respawn hold and the idle kick, so the owner's playtests can run up to 12 bot clients on one machine; `--limit-loopback` applies them to loopback too… | kind: ours; confidence: none (low) | ours (maintainer's request, 2026-10-28) | Loopback exemption: compare with SM1 by feel or video. Ours: loopback addresses (127.0.0.0/8, ::1) are exempt from the per-address… | ☐ |
 | `R-7A94F73E` | Players per address | at most 4 players from one IP address (IPv4-mapped IPv6 counts as IPv4); more are refused with `ServerFull` "at most 4 players from one address"; 0 = no cap (players) | kind: ours; confidence: none (low) | ours (one household or LAN party behind one NAT) | Players per address: compare with SM1 by feel or video. Ours: at most 4 players from one IP address (IPv4-mapped IPv6 counts as… | ☐ |
-| `R-D7526043` | Join rate per address | at most one accepted new join per IP address every 5 s; a Hello inside the window gets no answer, so the client's own resend (every 250 ms) gets in once the window has passed; a new client replacing a player on the same address counts as a join; 0 = no limit (s) | kind: ours; confidence: none (low) | ours | Join rate per address: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: at most one accepted new join per IP address every 5 s; a Hello… | ☐ |
 | `R-3ABBFC1C` | Idle kick | a player with no real input (any movement or any button; turning alone does not count) and no customizer use (a Setup from the class creator or appearance editor, an emblem upload chunk; appearance queries and blob requests are automatic and do not count) for… (s) | kind: ours; confidence: none (low) | ours | Idle kick: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a player with no real input (any movement or any button; turning… | ☐ |
-| `R-0BFCE5E9` | Repeated Hello of a joined client | answered with the same Welcome but no longer counts as being heard from: a client that only resends its Hello times out after the 5 s peer timeout | kind: ours; confidence: none (low) | ours (before: it refreshed the timeout, so Hellos alone could hold a slot) | Repeated Hello of a joined client: compare with SM1 by feel or video. Ours: answered with the same Welcome but no longer counts as being heard… | ☐ |
 | `R-D22A526B` | Re-join while dead | a new client on the connection of a dead player, or from the address of a dead player that left, gets no answer until that player's respawn time has run out (5 s placeholder respawn), so a re-join is never a faster respawn or loadout swap; a re-join while… (s) | kind: ours; confidence: none (low) | ours | Re-join while dead: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a new client on the connection of a dead player, or from the address… | ☐ |
-| `R-D9C2F998` | Tick catch-up | at most 5 ticks per server update; after a longer stall the due ticks are skipped (tick phase kept), snapshot and scoreboard times move up to now, and the skip is logged (throttled to one line per 10 s) (ticks) | kind: ours; confidence: none (low) | ours (before: unbounded, so a long stall ran every missed tick at once) | Tick catch-up: compare with SM1 by feel or video. Ours: at most 5 ticks per server update; after a longer stall the due ticks… | ☐ |
-| `R-2E8E90AA` | Crash isolation | a packet handler that throws is logged and drops only that sender's player; a recipient whose snapshot fails is dropped alone (the others still get theirs, and the tick's shot records are always cleared); a tick, scoreboard or pickup step that throws is… | kind: ours; confidence: none (low) | ours | Crash isolation: compare with SM1 by feel or video. Ours: a packet handler that throws is logged and drops only that sender's… | ☐ |
 | `R-72723578` | Failing simulation | after 60 ticks in a row have failed (2 s at 30 Hz) the server logs `FATAL` and exits with code 4 so a supervisor restarts it; a single good tick resets the count; 0 = never (ticks) | kind: ours; confidence: none (low) | ours | Failing simulation: compare with SM1 by feel or video. Ours: after 60 ticks in a row have failed (2 s at 30 Hz) the server logs… | ☐ |
 | `R-6701E17F` | Bans | `--ban-file`: one IP address or CIDR range per line (the address needs a dot or a colon: a bare number is ignored), `#` comments; checked every 2 s and read again when its time or size changes (a file written in the last 2 s is read once more); banned sources… (s) | kind: ours; confidence: none (low) | ours | Bans: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: --ban-file: one IP address or CIDR range per line (the address needs… | ☐ |
 | `R-63CC1230` | Refusal detail | a content mismatch names the server's Steam build (from `appmanifest_55150.acf` two folders above the install, read-only, when present) and content fingerprint; the server logs every refusal with the client's protocol, content, config or map hash (throttled… | kind: ours; confidence: none (low) | ours | Refusal detail: compare with SM1 by feel or video. Ours: a content mismatch names the server's Steam build (from… | ☐ |
-| `R-82B2FE16` | UDP receive | read until the socket reports nothing (`Poll`, then `ReceiveFrom` until would-block), not while `Available` > 0 (on Linux 0 for an empty datagram, which then blocked every packet behind it); at most 256 empty, oversized or failed datagrams skipped per call… (datagrams) | kind: ours; confidence: none (low) | ours | UDP receive: compare with SM1 by feel or video. Ours: read until the socket reports nothing (Poll, then ReceiveFrom until… | ☐ |
 
 *Spec section: Provisional values in use*
 
@@ -1332,7 +1325,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-C778FFFB` | Melee field-of-view widening (camera/melee-fov-widen, owner 2026-11-15) | any melee action (swing, heavy strike, the charge incl. the sprint-RMB charge, the dash attack's lunge, the ground pound) adds 10 horizontal degrees to the configured field of view (`FovMath.Clamp`; unset = the data's look), capped at 120 (115 goes to 120… (horizontal degrees at the window's aspect; 0.3 s) | kind: ours | `MeleeFov`, `NetworkView.MeleeFov`, `NetworkView.RigCamera` | Melee field-of-view widening (camera/melee-fov-widen, owner…: compare with SM1 with an overlaid screenshot taken from the same position. Ours: any melee action (swing, heavy strike, the charge incl. the… | ☐ |
 
-### Jump pack (gameplay-critical) (83)
+### Jump pack (gameplay-critical) (81)
 
 *Spec section: Jump pack and ground pound (M14, used by the simulation)*
 
@@ -1384,7 +1377,6 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-D4302E5A` | Take-off burst | at a lift-off or a dash's start the thrust's dropper part (its collision content: a ground flash ring, smoke, a beam, a `decal_melta_dif` 8 m scorch, a light) plays on the ground under the player (within 80 m of the camera) | kind: ours; confidence: low | `jumppack_thrust` dropper | Take-off burst: compare with SM1 by feel or video. Ours: at a lift-off or a dash's start the thrust's dropper part (its… | ☐ |
 | `R-94FE7613` | Heavier pound impact | added to M41 (all **ours**, the owner's request): the heavy effect's crack decal laid again at 1.7 × and 2.5 × (10 and 15 m), turned 37° and −71°, shaded 0.45, 12 s with the ring's fade; 20–35 chunks (15% slabs of 0.3–0.5 m half-size, a third as thick, 0.6 ×… (m, s) | kind: ours | — | Heavier pound impact: compare with SM1 by feel or video. Ours: added to M41 (all ours, the owner's request): the heavy effect's… | ☐ |
 | `R-2E81231D` | Effect draw order | effect sprites, glow quads and casings on render layer 2 (no decal paints them; the cause of "flat lines over the dust": the ring, crater and crack decals were projected onto the dust cards inside their boxes); additive decal glows render priority −1 (before… | kind: ours | — | Effect draw order: compare with SM1 by feel or video. Ours: effect sprites, glow quads and casings on render layer 2 (no decal… | ☐ |
-| `R-FD9EB805` | Test-bot jump holds | a hold under the decision tick is a dash, so for a class with a dash the navigation jump builder raises its holds (1, 4, 7, 12 ticks after the press) to at least `NavJumpFlight.ShortestJumpHold` (5 at 30 Hz: Jump still down on tick 5), flying 5, 7 and 12 (5… (ticks) | kind: ours | test aid | Test-bot jump holds: compare with SM1 by feel or video. Ours: a hold under the decision tick is a dash, so for a class with a dash… | ☐ |
 
 *Spec section: The middle jump (M45, the owner's knowledge of the original; protocol 27)*
 
@@ -1408,7 +1400,6 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-1D8FDB7F` | Jump blends, second pass (anim/jump-pack-blend) | The take-off clip (`SM_JMP_Curve_*`) also fades in over 0.25 s; a flight direction turned to its opposite (F to B, L to R) over 0.4 s; the flight into a ground pound's or air slash's dive over 0.25 s (was 0.167 / 0.1 s); a landing's or pound get-up's exit… (s) | kind: ours; confidence: low | the transition probe's jerk at take-off, direction reversals and landing exits | Jump blends, second pass (anim/jump-pack-blend): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: The take-off clip (SM_JMP_Curve_*) also fades in over 0.25 s; a… | ☐ |
 | `R-79FEECAA` | Landing lead gating (anim/jump-pack-blend) | The own player's lead applies in the Fall phase only (the hang's gravity is lower: a low hop lingered at the clip's first frame); a remote player's needs a fall of at least 4 m/s; the lead's landing is the run landing when the own stick is held (the… (m/s) | kind: ours; confidence: low | the simulation's phases (`JumpPack.cs`) | Landing lead gating (anim/jump-pack-blend): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: The own player's lead applies in the Fall phase only (the hang's… | ☐ |
 | `R-0F3BE662` | Low and high flight sets | the graph blends `SM_JMP_ZeroLo_*` (weight 9) and `SM_JMP_Zero_*` (weight 18) by `FLT_Distance_Above_Ground_DAMPED`; shown: one clip at a time, the low set below 12.5 m above the map's character collision (a ray down from the feet, 60 m), the high set above… (m) | kind: ours; confidence: low | 'Jump Move Blend' weights extracted | Low and high flight sets: compare with SM1 by measuring on a flat spot of the same map. Ours: the graph blends SM_JMP_ZeroLo_* (weight 9) and SM_JMP_Zero_* (weight… | ☐ |
-| `R-C10ACB8E` | Test-bot holds | the navigation jump builder's holds are now 1, 14, 19, 60 ticks after the press (flown as 5, 14, 19, 60 with the dash: about 2, 9, 12 and 17.5 m high; 60 holds past the apex), `NavJumpFlight.SimulationVersion` 4 rebuilds cached links; the client bot scales… (ticks) | kind: ours | test aid | Test-bot holds: compare with SM1 by feel or video. Ours: the navigation jump builder's holds are now 1, 14, 19, 60 ticks after… | ☐ |
 
 *Spec section: Weapon switch, hit flinch, death hit and the jump pack's upper body (animation pass 2; client only, not simulated, no protocol change)*
 
@@ -2125,7 +2116,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-0E49FD3A` | Large burst on a hit player (Classic PvP; reverses the burst part of the row above) | owner 2026-11-13 (verbatim, after the first preview): "classic pvp mode: keep all on hit effects except the one in this reference image" and "there should only be large explosive visual effects on ranged weapon shots in musou mode. in classic pvp mode its… | kind: ours | the owner (2026-11-13); the red sparks are ours | Large burst on a hit player (Classic PvP; reverses the…: compare with SM1 with side-by-side video of the same action. Ours: owner 2026-11-13 (verbatim, after the first preview): "classic pvp… | ☐ |
 | `R-6540FEFF` | Glow and sparks for every damage on a player (Classic PvP and Musou Mode; protocol 71) | owner 2026-11-13 (verbatim): "any melee damage should also trigger the glows", "charge/bull rush, air slash landing, ground pound, light melee combo, F stun strike moves, any sort of damage should trigger the sparks and glows". Driven only by damage the… | kind: ours; confidence: medium | the owner (2026-11-13); the 0.25 s, the counter's width and the reading of the bits are ours | Glow and sparks for every damage on a player (Classic PvP…: compare with SM1 by counting hits to kill and by video of the health bar. Ours: owner 2026-11-13 (verbatim): "any melee damage should also trigger… | ☐ |
 
-### Game modes (46)
+### Game modes (45)
 
 *Spec section: Teams and Annihilation (M15, used by the simulation)*
 
@@ -2144,7 +2135,6 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-16D3F103` | Spawn choice | **M22: each side's start area (spawn room), as in Seize Ground (row below), at join, respawn and round start**, at the user's request ("only spawn in the correct spawn room"). The data says otherwise for Annihilation: the `TeamDeathmatchMarine`/`Chaos`… (m) | kind: interpretation; confidence: low | user's request; markers extracted; the original's per-spawn choice is in code | Spawn choice: compare with SM1 by measuring on a flat spot of the same map. Ours: M22: each side's start area (spawn room), as in Seize Ground (row… | ☐ |
 | `R-956A1C89` | Spawn protection | none | confidence: low | not found in the data or the TDM objectives | Spawn protection: compare with SM1 by feel or video. Ours: none. | ☐ |
 | `R-EF33FE2C` | Match flow | warm-up while a side has no player (play goes on, nothing scores); the match starts (scores and player scores 0, clock set) the tick both sides have a player (the server first runs a countdown with attacks locked: "Match flow: the start countdown", below); it… (s) | kind: provisional; confidence: none (low); notes: ours | `EmptyTeamGameOver` (script name) for the emptied side; warm-up and restart ours (the original returns to the lobby) | Match flow: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: warm-up while a side has no player (play goes on, nothing scores)… | ☐ |
-| `R-136EE8C9` | Kill feed | each death: killer (0: none), victim, cause (weapon, thrown item, melee, jump pack, world) and its index; the server keeps the last 256 and sends each client the oldest it has not received, at most 4 per snapshot, until it acknowledges a snapshot carrying… (deaths) | kind: ours | ours | Kill feed: compare with SM1 by feel or video. Ours: each death: killer (0: none), victim, cause (weapon, thrown item… | ☐ |
 
 *Spec section: Seize Ground (M16, used by the simulation)*
 
@@ -2208,7 +2198,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-51E9F716` | Classic autocannon: ammunition boxes | each death drop gives the autocannon what it gives the Space Marine heavy bolter (its amount at the heavy bolter's index), into the clip as for every weapon without a reserve, capped at the 120; one amount for both sides (the Space Marine heavy bolter's, also… (rounds) | kind: ours; confidence: medium | the lead's brief 2026-11-11 ("refilled by ammo boxes"); the heavy bolter's amount ours | Classic autocannon: ammunition boxes: compare with SM1 by feel or video. Ours: each death drop gives the autocannon what it gives the Space Marine… | ☐ |
 | `R-E67DC240` | Classic autocannon: customizer | the profile is read with the data's catalogue plus the Classic autocannon's row (so a slot saved under extended keeps it whichever profile the front end opens with); a page shows its own profile's catalogue; a Join on an extended page is planned with the… | kind: ours; confidence: medium | 2026-11-11 | Classic autocannon: customizer: compare with SM1 by feel or video. Ours: the profile is read with the data's catalogue plus the Classic… | ☐ |
 
-### Perks (58)
+### Perks (52)
 
 *Spec section: Custom classes: loadout changes, perks and the wire (T2, T3a; protocol 22)*
 
@@ -2218,12 +2208,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-2E95CCF0` | Loadout change timing | a change asked for while alive or dead applies at the player's next respawn: the death timer (`World.Step`) or a match restart (`StartRound`); a later request replaces an earlier one; a rejoin or leave drops it; never mid-life (tick) | kind: ours; notes: provisional | our default pending the owner | Loadout change timing: compare with SM1 by feel or video. Ours: a change asked for while alive or dead applies at the player's next… | ☐ |
 | `R-5196E7C1` | Class in a change request | -1 or out of range: the current class; a class of the other side: that side's class of the same role, else the same position, else the first; the other choices carry over by position | kind: ours; notes: provisional | as the balanced join (M15) | Class in a change request: compare with SM1 by feel or video. Ours: -1 or out of range: the current class; a class of the other side:… | ☐ |
 | `R-8795AC83` | Choice indices | indices into the class's lists (primary, pistol, melee, equipment, perks), -1 the default; out of range: the default (index) | kind: ours | — | Choice indices: compare with SM1 by feel or video. Ours: indices into the class's lists (primary, pistol, melee, equipment… | ☐ |
-| `R-981F38FA` | Emblem | 128 x 128 BC3, exactly 16,384 bytes; hash = first 16 bytes of SHA-256 (bytes) | kind: ours | architecture section 2 | Emblem: compare with SM1 by feel or video. Ours: 128 x 128 BC3, exactly 16,384 bytes; hash = first 16 bytes of SHA-256. | ☐ |
 | `R-45CB9BE5` | Armour or flesh hit (hit feedback; owner's request from the user's knowledge: armour hits and wet… | a player hit is an **armour hit** when the victim's armour shield was above 0 before the hit (the hit that breaks the shield is still an armour hit); otherwise a flesh hit. Every player hit carries it: `HitEvent.Armoured`, `ShotEvent.Armoured` (ray and cone… | kind: interpretation; confidence: medium | data: the player blueprint keeps the hit material `broken_ceramite` either way and switches the impact **sound state** instead: `armourshield_broken` posts… | Armour or flesh hit (hit feedback; owner's request from the…: compare with SM1 by counting hits to kill and by video of the health bar. Ours: a player hit is an armour hit when the victim's armour shield was… | ☐ |
 | `R-2215ECB9` | Appearance rules (server) | structure, then catalogue ranges (bad fields to their defaults one by one), then the predefined-set lock (a predefined set resets pieces, colours and patterns: our default for owner question 8); pads without a decal layout are not checked on the server (the… | kind: ours | install (Verified-local, smserver output 2026-10-28) | Appearance rules (server): compare with SM1 by feel or video. Ours: structure, then catalogue ranges (bad fields to their defaults one by… | ☐ |
-| `R-D66C5B56` | Setup limits | one new Setup per peer per 1 s (a resend of the same sequence is answered with the same SetupAck at any time; an older sequence is ignored); session required (s) | kind: ours | architecture | Setup limits: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: one new Setup per peer per 1 s (a resend of the same sequence is… | ☐ |
-| `R-F86598F9` | Emblem pulls (client) | others' emblems pulled from the server only after an Appearance names them; at most 4 at once; every 1 s the missing emblems of known appearances are wanted again (a skipped or failed pull is retried); a timed-out pull retried twice after 1 s each, a corrupt… | kind: ours | ours | Emblem pulls (client): compare with SM1 by feel or video. Ours: others' emblems pulled from the server only after an Appearance names… | ☐ |
-| `R-544497B2` | True Grit log | the server logs a pistol-slot bolter request the rule replaced (join and Setup) | kind: ours | — | True Grit log: compare with SM1 by feel or video. Ours: the server logs a pistol-slot bolter request the rule replaced (join… | ☐ |
 
 *Spec section: Perks (M43; protocol 23)*
 
@@ -2284,8 +2270,6 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-02430AC6` | Health-only damage taken | ranged ×0.75 (0.6), melee ×0.5 (0.35), explosive ×0.75 (0.6), world ×0.75 (no world damage is simulated); only the part of a hit that reaches health is scaled, the armour shield takes its part as before; a hit of unknown type counts as ranged (multiplier) | kind: interpretation; confidence: medium | `received_*_damage_health_only` | Health-only damage taken: compare with SM1 by counting hits to kill and by video of the health bar. Ours: ranged ×0.75 (0.6), melee ×0.5 (0.35), explosive ×0.75 (0.6), world… | ☐ |
 | `R-5083A15E` | Melee damage dealt | ×1.35 (Master-Crafted ×2, `exclusive`: no other melee-damage modifier exists) on the user's melee attacks, the charge, the dash attack and the slash (the whole hit, its armour-only part too); not on blasts a melee step sets off (stomps) (multiplier) | kind: interpretation; confidence: medium | `melee_damage` | Melee damage dealt: compare with SM1 by counting hits to kill and by video of the health bar. Ours: ×1.35 (Master-Crafted ×2, exclusive: no other melee-damage modifier… | ☐ |
 | `R-D2333356` | Reaction immunity | no hit reaction while the stim works (`apply_upgrade_string mp_reaction_immunity`, read as for the slams, Weapons C); damage still applies | kind: interpretation; confidence: medium | `actn_stims_activated` | Reaction immunity: compare with SM1 by watching the reaction and timing it frame by frame. Ours: no hit reaction while the stim works (apply_upgrade_string… | ☐ |
-| `R-F6252E69` | Own stim time at a reconcile (review) | while the record's item cooldown runs: `Lifetime − (Cooldown − GrenadeCooldown)` (the server starts both in the release tick); past it (only Master-Crafted's 7 s outlast the 6 s spacing) the prediction's value when it agrees with the record on life, class… (s) | kind: ours; confidence: medium | ours | Own stim time at a reconcile (review): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: while the record's item cooldown runs: Lifetime − (Cooldown −… | ☐ |
-| `R-5228203E` | Others' equipment (protocol 40) | each scoreboard row (about once a second) ends with the player's equipment item (index into the thrown items; 255 none); slim snapshot records carry none. A client draws and sounds another player's use as a stim or a throw by it; while unknown (no scoreboard… | kind: ours; confidence: medium | ours | Others' equipment (protocol 40): compare with SM1 by feel or video. Ours: each scoreboard row (about once a second) ends with the player's… | ☐ |
 | `R-89D79C38` | Client | the stim's clip over the upper body (the brace's leg mask) during the use instead of the toss clip, in jump-pack flight too; at the release the action's sound (`play_sm_stimpack`) and its default entry's effects (`stimpack_heal_looping` at `fx_torso`, both… | kind: ours; kind: interpretation; confidence: low | wargear; ours | Client: compare with SM1 by feel or video. Ours: the stim's clip over the upper body (the brace's leg mask) during the… | ☐ |
 
 ### Death and ragdoll (13)
@@ -2308,7 +2292,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-5AED6E4D` | Ragdoll lifecycle (client) | simulates until every body has been still (< 0.3 m/s and < 2 rad/s) for 3 s (the user's request), or 12 s at most, or the chest falls below −300 m; then the pose is kept and the physics freed; at most 16 corpses (simulating or lying; the oldest lying one goes… (s) | kind: provisional; confidence: none (low); notes: ours | user's request (3 s); the rest ours | Ragdoll lifecycle (client): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: simulates until every body has been still (< 0.3 m/s and < 2 rad/s)… | ☐ |
 | `R-42969A4B` | Death camera and vignette (client) | after the user's description of the original: the camera blends in 0.3 s (smoothstep) from the last view to a third-person orbit of the own ragdoll's chest, then rises to at least 0.4 rad elevation over 1.5 s and pulls back 1.2 m over 3 s (FOV to 60°), kept… (s) | kind: placeholder; confidence: none (low); notes: ours | after the user's description of the original; numbers ours | Death camera and vignette (client): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: after the user's description of the original: the camera blends in… | ☐ |
 
-### Customizer and paint (47)
+### Customizer and paint (46)
 
 *Spec section: Armour paint (client only; not simulated)*
 
@@ -2358,7 +2342,6 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-87127A30` | Whose look a player wears | the own player: the codes of the Hello (the profile's selected class, `ClientOptions.SpaceMarineAppearance` / `ChaosAppearance`), the pending `Setup` after its respawn; others: `GameClient.AppearanceOf(id)` when its race is the race of the player's class… | kind: ours; confidence: medium | architecture sections 4 and 5 | Whose look a player wears: compare with SM1 with side-by-side screenshots in the same spot. Ours: the own player: the codes of the Hello (the profile's selected class… | ☐ |
 | `R-4F2EC052` | Default look | `AppearanceResolver.Resolve(AppearanceCode.Default, class)`: the class's `default_armor_set` and its class overrides, the race's default paint scheme (the customizer's preview shows the same). **Owner's decision (2026-10-28: "havoc default armor yes"; the… | kind: choice; confidence: medium | `mp_armor_set`, class `default_armor_set` | Default look: compare with SM1 with side-by-side screenshots in the same spot. Ours: AppearanceResolver.Resolve(AppearanceCode.Default, class): the… | ☐ |
 | `R-D426329F` | Wargear the resolver sees | the player's primary, pistol, melee wargear and perk names (`Loadouts.WeaponIndex`, `MeleeWargear`, `PerkIndex`): the Devastator's weapon pack follows the heavy weapon, the Havoc's Iron Halo icon the perk. Others' perks are not on the wire (M43: the own… | confidence: medium | class `override_wargear` | Wargear the resolver sees: compare with SM1 with side-by-side screenshots in the same spot. Ours: the player's primary, pistol, melee wargear and perk names… | ☐ |
-| `R-D7E578E8` | Building never waits | `Prefetch` starts the files on worker threads; each frame the wanted looks are tried in order (the own look first, then the order first wanted) with `TryBuild(look, 1)` (one new piece, a few ms) until 5 ms are spent, at least one try per frame; a look nobody… (ms) | kind: ours | ours | Building never waits: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: Prefetch starts the files on worker threads; each frame the wanted… | ☐ |
 | `R-EEE462A1` | Placeholder | a player seen for the first time whose look is not built wears the default marine (`_assets`; a Chaos player tinted red, as before T7) until it is; never a missing character | kind: ours | ours | Placeholder: compare with SM1 with side-by-side screenshots in the same spot. Ours: a player seen for the first time whose look is not built wears the… | ☐ |
 | `R-29FBCB8C` | When a model changes | the character swaps once the wanted look is built, only while the player is alive and not dying this frame (`SwapRules.Decide`); a dead player keeps the model it died in (the ragdoll builds its own character from it), and swaps at the respawn. A swap replaces… | kind: ours | ours | When a model changes: compare with SM1 with side-by-side screenshots in the same spot. Ours: the character swaps once the wanted look is built, only while the… | ☐ |
 | `R-3A06FBA2` | Own look after a change | a `ChangeSetup`'s look becomes the own one at the first respawn after the server's `SetupAck`, or when the scoreboard's own row shows the acknowledged version; a refused emblem (`SetupFlags.EmblemRejected`) shows as the fallback badge on the own model too.… (s) | kind: ours; notes: provisional | architecture section 4 (our default 5) | Own look after a change: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a ChangeSetup's look becomes the own one at the first respawn after… | ☐ |
@@ -2427,7 +2410,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-EC513790` | Look SSR by preset (fx/impact-pass review) | a look's `ssr.on` (the remaster's) turns screen-space reflections on at medium and high only; low and off never run SSR (older hardware is the next priority); high has SSR anyway. Off = the M40-T7 renderer features alone (no shadows, SSAO, SSIL, volumetric… | kind: ours | ours | Look SSR by preset (fx/impact-pass review): compare with SM1 with side-by-side screenshots in the same spot. Ours: a look's ssr.on (the remaster's) turns screen-space reflections on at… | ☐ |
 | `R-6E7116B1` | Effect checks after the review fixes (demo replays on Godot time, `--fixed-fps 30`, identical… | own bolter tracer and the enemy's shots from the follow camera, own lascannon beam: as bright as on main (the beam is an axis billboard: no edge-on fade; its fade size is its width); `FxTest --pound-test` crater, shockwave rings and dust as on main (flat… | confidence: medium | measured | Effect checks after the review fixes (demo replays on Godot…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: own bolter tracer and the enemy's shots from the follow camera, own… | ☐ |
 
-### Networking and render smoothing (24)
+### Networking and render smoothing (17)
 
 *Spec section: Time-faithful capture and the smoothed render clock (M40 T0, T2; client only, not simulated)*
 
@@ -2456,18 +2439,6 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-3C2CAC91` | Adaptive interpolation delay | the larger of **1.5** snapshot intervals and the 95th-percentile snapshot gap plus the arrival jitter (98th percentile of the arrival offset less its median) plus **5 ms**, over the last **2 s** of snapshots; floor **50 ms**, ceiling **100 ms** (the server's… (ms) | kind: ours; confidence: medium | ours (net/responsive) | Adaptive interpolation delay: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the larger of 1.5 snapshot intervals and the 95th-percentile snapshot… | ☐ |
 | `R-5FCE3E5A` | Musou Mode interpolation floor | **100 ms** (its crowd is drawn at the same render tick and its far records come every 5th tick) (ms) | kind: ours; confidence: medium | ours (net/responsive) | Musou Mode interpolation floor: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 100 ms (its crowd is drawn at the same render tick and its far… | ☐ |
 
-*Spec section: Test bots: aim error, engagement range, spawn-door wait, launcher and side requests (M44a; client and server option, test aids, not simulated, no protocol change)*
-
-| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
-|---|---|---|---|---|---|---|
-| `R-F831153D` | Bot melee misses (stream C, 2026-11-06 late) | **30 %** of a bot's melee attacks are deliberately missed: each press that starts a swing or a combo step draws a miss, and a missed swing's view is turned **80 degrees** to a random side (**105 degrees** when the enemy is within 1.8 m, where the lock takes… (fraction, degrees, m) | kind: ours; kind: estimate | owner 2026-11-06 late; 30 %, the turns and 6 m ours | Bot melee misses (stream C, 2026-11-06 late): compare with SM1 with an overlaid screenshot taken from the same position. Ours: 30 % of a bot's melee attacks are deliberately missed: each press… | ☐ |
-| `R-25F3C186` | Bot shots in the air (stream C) | a jump-pack bot's shots in the air get the aim error (wander, scatter, distance scale and trigger discipline), **doubled** (`BotAirAimScale` 2: at the default accuracy the aim's own chance of landing on the body goes from 97 to about 58 %), since with the… | kind: ours; kind: estimate | owner 2026-11-06 late | Bot shots in the air (stream C): compare with SM1 by feel or video. Ours: a jump-pack bot's shots in the air get the aim error (wander… | ☐ |
-| `R-8389442F` | Bot strafing (stream C) | in a gunfight a bot strafes left and right in legs of **0.7 to 2 s** (uniform, seeded), turning early when its side is not walkable for 1.5 m; it no longer stands 2 s of every 10 nor keeps one side for the whole fight (owner: "the bots should prefer to strafe… (s) | kind: ours; kind: estimate | owner 2026-11-06 late; leg lengths ours | Bot strafing (stream C): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: in a gunfight a bot strafes left and right in legs of 0.7 to 2 s… | ☐ |
-| `R-FB826BA2` | Bot aim mode (stream C) | a bot fights a ranged gunfight on the ground with a **primary** weapon at **10 m** or more holding aim mode (the Aim button: the data's aiming spread sets, e.g. heavy bolter 1.25 against 1.9 degrees, bolter 0.075 against 0.25; aiming speeds), not while… (m) | kind: ours; kind: estimate | owner's 49 % request; the choice ours | Bot aim mode (stream C): compare with SM1 by measuring on a flat spot of the same map. Ours: a bot fights a ranged gunfight on the ground with a primary weapon at… | ☐ |
-| `R-261BAA24` | Bot weave (stream C) | a bot closing on an enemy more than **9 m** away (the charge's reach) never runs a straight line at it: the advance while firing beyond 40 m and the melta's close-in run turn **40 degrees** to alternating sides in legs of **0.8 to 1.5 s**, where the turned… (m, degrees, s) | kind: ours; kind: estimate | owner 2026-11-06 late; the numbers ours | Bot weave (stream C): compare with SM1 with an overlaid screenshot taken from the same position. Ours: a bot closing on an enemy more than 9 m away (the charge's reach)… | ☐ |
-| `R-F39784AA` | Bot flanking (stream C) | an ally engages an enemy when it is within **40 m** of it and faces it within **25 degrees**; a bot fighting that enemy then strafes around it away from the ally until it is **70 degrees** around (then strafes left and right again), and a bot that cannot see… (m, degrees) | kind: ours; kind: estimate | owner 2026-11-06 late; the numbers ours | Bot flanking (stream C): compare with SM1 with an overlaid screenshot taken from the same position. Ours: an ally engages an enemy when it is within 40 m of it and faces it… | ☐ |
-| `R-BB28D290` | Bot heavy-weapon spread (stream C, the owner's choice 2026-11-07: "Tighten for bots") | a heavy-role bot (Devastator, Havoc) firing its primary weapon in Classic PvP aims against **35 %** of the scatter the simulation will give the shot: the scatter is deterministic (`Spread.Draw` of the player id and the input's tick, scaled by the half-widths… (share) | kind: ours; kind: estimate | owner 2026-11-07; 0.35 ours | Bot heavy-weapon spread (stream C, the owner's choice…: compare with SM1 by feel or video. Ours: a heavy-role bot (Devastator, Havoc) firing its primary weapon in… | ☐ |
-
 *Spec section: Musou Mode: the enemies' bodies for shots (used by the simulation, Musou Mode only)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
@@ -2493,7 +2464,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-27330EFB` | Perf tour (`--perf-tour`) | with `--perf-probe` and `--observe-tour`, the observer's camera moves to the tour's next place at the end of each 5 s probe window and each `perf:` line names its place (s) | kind: ours | measurement aid | Perf tour (--perf-tour): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: with --perf-probe and --observe-tour, the observer's camera moves to… | ☐ |
 | `R-83C63D35` | Classic maps performance result | no new map clearly worse than Manufactorum: render CPU 2.0 to 4.7 ms (Manufactorum 3.1), server tick mean 0.64 to 1.06 ms with 17 clients; one run per map on a busy machine (frame times noisy by about 3 ms); no change made to any map's drawing (ms) | confidence: low | measured | Classic maps performance result: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: no new map clearly worse than Manufactorum: render CPU 2.0 to 4.7 ms… | ☐ |
 
-### Core simulation (provisional values) (744)
+### Core simulation (provisional values) (725)
 
 *Spec section: Provisional values in use*
 
@@ -2535,25 +2506,14 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
-| `R-7BAED7ED` | Connect timeout | a connecting client with no answer to its Hellos (no Challenge, Welcome or Reject) for **10 s** gives up (`ClientStatus.NoAnswer`) and shows "No answer from host:port. Is a server running there, and is it the same version as yours?" with Esc back to the menu… (s) | kind: ours; confidence: none (low) | ours | Connect timeout: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a connecting client with no answer to its Hellos (no Challenge… | ☐ |
 | `R-483E2F3B` | Refusal text | a refusal is shown in plain words (another version, other game files, other settings, map, full) followed by the server's own detail, wrapped in the status box; the refusal message's layout (kind 3, reason, nonce, length, text) is fixed, so any version can… | kind: ours; confidence: none (low) | ours | Refusal text: compare with SM1 by feel or video. Ours: a refusal is shown in plain words (another version, other game files… | ☐ |
 | `R-3AF466AF` | End-of-match UI before a match state | the countdown, the splash, "NEXT MAP" and the summary are drawn only once a snapshot carried a match state (a default frame drew "NEXT MAP - 0:00" while connecting) | kind: ours; confidence: none (low) | ours (bug fix) | End-of-match UI before a match state: compare with SM1 by feel or video. Ours: the countdown, the splash, "NEXT MAP" and the summary are drawn only… | ☐ |
-| `R-F0EEFE25` | Hosting: port check and start watch | before starting, the UDP port is checked (the system's listener table, then a bind on 127.0.0.1 with exclusive use, closed at once); a taken port says "Port N is already in use on this PC (...). Close it or choose another port." naming the holder (a server of… (s) | kind: ours; confidence: none (low) | ours | Hosting: port check and start watch: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: before starting, the UDP port is checked (the system's listener… | ☐ |
 | `R-276B7D86` | STOP SERVER | stops the server this menu started and its bots; with none running, a server of this install started elsewhere (the host launcher) is stopped instead, matched by process name and the full path of this install's server executable, checked again just before… | kind: ours; confidence: none (low) | owner's request; rules ours | STOP SERVER: compare with SM1 by feel or video. Ours: stops the server this menu started and its bots; with none running, a… | ☐ |
 | `R-05652C85` | Bots in a hosted match | BOTS stepper (- / +): **0 ("No bots", the default in every reach) to 15**, Easy / Normal; the number is never remembered (only the difficulty is, in `frontend.json`; an earlier build's saved `hostBotsLocal` / `hostBotsLan` fills are ignored and dropped at the… (bots, s) | kind: ours; confidence: none (low) | owner's requests; rules ours | Bots in a hosted match: compare with SM1 by feel or video. Ours: BOTS stepper (- / +): 0 ("No bots", the default in every reach) to… | ☐ |
 | `R-6F4B1F60` | Bot difficulty | Easy: the server runs `--bot-damage-scale 0.34` (the owner's testing setting) and the bots keep their default aim (`--bot-accuracy` 0.03 with the trigger discipline); Normal: damage scale 1. With any bots (a number above 0 at the start) the server runs… (factor) | kind: ours; confidence: none (low) | owner's request; rules ours | Bot difficulty: compare with SM1 by feel or video. Ours: Easy: the server runs --bot-damage-scale 0.34 (the owner's testing… | ☐ |
 | `R-E3D02719` | Bot log files | every bot the menu starts writes its own log through Godot's `--log-file` (an engine option, before `--`) in `%APPDATA%\sm-reimpl\logs\bots\bot-<n>-<side>-<yyyyMMdd-HHmmss>-<front-end pid>.log`; the **30** newest `bot-*.log` there are kept, older ones deleted… (files) | kind: ours; confidence: none (low) | owner's decision; values ours | Bot log files: compare with SM1 by feel or video. Ours: every bot the menu starts writes its own log through Godot's… | ☐ |
 | `R-BF35AB94` | Early-close note | "2 - Play", "4 - Join" start the game from cmd as before, then an optional hidden helper (`Launcher.ps1 -Watch`; a blocked PowerShell loses only the note) that finds the game just started (that executable's full path, started in the last 20 s, the newest)… (s) | kind: ours; confidence: none (low) | owner's request; rules ours | Early-close note: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: "2 - Play", "4 - Join" start the game from cmd as before, then an… | ☐ |
 | `R-C8959072` | Host launcher bots | "3 - Host a match on this PC" and "5 - Host a match for friends (LAN)" start **no bots** (fix/hosting-bots-logs, owner's decision; the window points to the menu's BOTS instead); `Launcher.ps1 -StartBots` stays as a manual test aid only (default `-Count 0`… | kind: ours; confidence: none (low) | owner's request; rules ours | Host launcher bots: compare with SM1 by feel or video. Ours: "3 - Host a match on this PC" and "5 - Host a match for friends… | ☐ |
-
-*Spec section: Performance pass 1 (perf/pass-1; build, client and release launcher; no protocol change)*
-
-| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
-|---|---|---|---|---|---|---|
-| `R-9CEA0140` | Lean bot frame cap | a lean bot (`LeanBot.Decide`: the hosted match's bots, `bots.cmd`, `Launcher.ps1 -StartBots`) runs at most **30** frames a second (`--bot-fps n` overrides, 0 = no cap; Godot's own `--max-fps` before `--` wins); before, a headless bot ran uncapped at about 134 (frames/s) | kind: ours; confidence: none (low) | ours (the server's 30 Hz tick: one input a tick) | Lean bot frame cap: compare with SM1 by feel or video. Ours: a lean bot (LeanBot.Decide: the hosted match's bots, bots.cmd… | ☐ |
-| `R-C6583162` | Lean bot physics steps | **30** a second (a lean bot builds no ragdolls or physics props; Godot's default 60) (steps/s) | kind: ours; confidence: none (low) | ours | Lean bot physics steps: compare with SM1 by feel or video. Ours: 30 a second (a lean bot builds no ragdolls or physics props; Godot's… | ☐ |
-| `R-96A0A21B` | Lean bot content | no effects (`--no-fx`); everything else perf/lean-bots skips (row "Lean headless bot": the map's visuals, sound, looks, weapons, ragdolls, poses, ...); collision, navigation, characters and everything the bot decides from are loaded | kind: ours; confidence: none (low) | ours | Lean bot content: compare with SM1 by feel or video. Ours: no effects (--no-fx); everything else perf/lean-bots skips (row "Lean… | ☐ |
-| `R-9CBB7590` | Human client GC mode | `GCLatencyMode.SustainedLowLatency` for a client that is not a bot (no blocking full collection unless memory runs low); `--gc-default` keeps the runtime's default | kind: ours; confidence: none (low) | ours | Human client GC mode: compare with SM1 by feel or video. Ours: GCLatencyMode.SustainedLowLatency for a client that is not a bot (no… | ☐ |
 
 *Spec section: Added content: the content switch (E1; server, client and config hash; no protocol change)*
 
@@ -2867,8 +2827,6 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-DE95452D` | Name pools | one per race, original names in the style of each faction, **not** an established character of Space Marine (2011), Space Marine 2 or the wider Warhammer canon (pinned against a list of canon names by `PlayerNameTests`: no name part equal to one, containing… (names) | kind: ours | ours | Name pools: compare with SM1 by feel or video. Ours: one per race, original names in the style of each faction, not an… | ☐ |
 | `R-33823869` | Faction | the pool of the race the bot plays (`Races.Of`: the class's race, else its side's): a loyalist bot is a Brother or Sergeant, a Chaos bot a Chaos name, an Ork Boy an Ork name; a bot whose race changes at a respawn (a class change to or from the Ork Boy) takes… | kind: ours | ours | Faction: compare with SM1 by feel or video. Ours: the pool of the race the bot plays (Races.Of: the class's race, else… | ☐ |
 | `R-34533316` | Choice and uniqueness | the race's pool shuffled by the server's name seed and the race, read from the race's join order on (the n-th bot of a race named so far), the first name no connected player holds (without case); a name is free again once its player has left. More bots of one… | kind: ours | ours | Choice and uniqueness: compare with SM1 by feel or video. Ours: the race's pool shuffled by the server's name seed and the race, read… | ☐ |
-| `R-A40BE858` | Name seed | `--name-seed <n>` (0 to 4294967295) fixes it: the same seed and join order give the same names (tests); default a random seed when the server starts, printed in its startup line ("names: ... seed N"). A bot that reconnects gets a name afresh (not necessarily… | kind: ours | ours | Name seed: compare with SM1 by feel or video. Ours: --name-seed <n> (0 to 4294967295) fixes it: the same seed and join… | ☐ |
-| `R-4DE26DA6` | Name characters | at most 24; Latin-1 letters and digits, space, '-', '\'' and '.' (anything else dropped: control characters, BBCode brackets; runs of spaces collapsed, trimmed), applied when the server sets a name, when a row is written and when a client reads one (characters) | kind: ours | ours (the HUD font) | Name characters: compare with SM1 by feel or video. Ours: at most 24; Latin-1 letters and digits, space, '-', '\'' and '.'… | ☐ |
 | `R-B654BEFE` | Where names show | the HUD kill feed and the BBCode feed text, the reward line ("+ Kill Brother Aurex"), the aimed-enemy name over the crosshair, the world decorators over allies, the test-aid nameplates (`--show-markers`), the Tab scoreboard (name column widened to 31… | kind: ours | ours | Where names show: compare with SM1 by feel or video. Ours: the HUD kill feed and the BBCode feed text, the reward line ("+ Kill… | ☐ |
 
 *Spec section: Player collision (sim/player-collision; protocol 43, used by the simulation)*
@@ -2977,19 +2935,6 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-DCA2D052` | End-of-map panel | in the Stormbird before the cards: the map, KOs, best chain, map points, run total; Enter or CONTINUE goes on | kind: ours; confidence: low | the addendum | End-of-map panel: compare with SM1 by feel or video. Ours: in the Stormbird before the cards: the map, KOs, best chain, map… | ☐ |
 | `R-E71CE7E1` | End-of-run panel | on Won or Lost: one row per map (the last 16), TOTAL, the outcome, the humans ranked, NEW BEST, COPY RESULT. It stays until closed, so the 15 s restart delay need not change: a new run waits behind it | kind: ours; confidence: low | the addendum; the hold ours | End-of-run panel: compare with SM1 by timing a run over a known distance. Ours: on Won or Lost: one row per map (the last 16), TOTAL, the outcome… | ☐ |
 | `R-0DE87C04` | Local best | `musou-best.json` beside `frontend.json`: total, day, outcome, `TfwRules.Version`; only the current version counts, a damaged file reads as no best. No online leaderboard. A local server is under the player's control, so a shared line is honest but unverified | kind: ours | the addendum | Local best: compare with SM1 by feel or video. Ours: musou-best.json beside frontend.json: total, day, outcome… | ☐ |
-
-*Spec section: Stall keep-alive and freeze diagnostics (fix/stall-keepalive; client and a log filter, no protocol change)*
-
-| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
-|---|---|---|---|---|---|---|
-| `R-D29B5413` | Stall keep-alive: start | when no `GameClient.Update` has begun for **1 s**, a background thread (checks every 100 ms) re-sends the newest input batch (s) | kind: ours; confidence: none (low) | ours (the server's own silence rule is 0.5 s neutral, 5 s timeout) | Stall keep-alive: start: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: when no GameClient.Update has begun for 1 s, a background thread… | ☐ |
-| `R-804365BD` | Stall keep-alive: interval | one keep-alive every **0.5 s** while stalled (ten times inside the server's 5 s timeout) (s) | kind: ours; confidence: none (low) | ours | Stall keep-alive: interval: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: one keep-alive every 0.5 s while stalled (ten times inside the… | ☐ |
-| `R-A9B08743` | Stall keep-alive: bound | none after **30 s** of stall, so a client that is truly hung still times out (s) | kind: ours; confidence: none (low) | ours | Stall keep-alive: bound: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: none after 30 s of stall, so a client that is truly hung still times… | ☐ |
-| `R-ECF314B5` | Stall keep-alive: content | the newest batch with every input made neutral (no movement, no buttons, no melee target; ticks, heading, pitch and view fields kept); a spectator's batch (its camera) as it is. A server of the same protocol takes it as a batch that sets `LastHeard`; its… | kind: ours; confidence: none (low) | ours | Stall keep-alive: content: compare with SM1 by feel or video. Ours: the newest batch with every input made neutral (no movement, no… | ☐ |
-| `R-6F965540` | Watchdog for human players | the frame watchdog now also runs for a human's client, reporting a frame that has not finished for **3 s** (bots and `--frame-profile`: 2 s, unchanged) in the client log (s) | kind: ours; confidence: none (low) | ours | Watchdog for human players: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the frame watchdog now also runs for a human's client, reporting a… | ☐ |
-| `R-599C739E` | Slow-frame line | a frame that took **1 s** or more while connected is written to the log with the keep-alive packets sent meanwhile (s) | kind: ours; confidence: none (low) | ours | Slow-frame line: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a frame that took 1 s or more while connected is written to the log… | ☐ |
-| `R-89EEAE92` | "Connection is gone" line | names the cause: a freeze of this client (a frame of at least server timeout minus 1 s since the last snapshot), a freeze earlier in the session, or a server or network that went silent while frames ran normally; with the worst frame, the time since the last… | kind: ours; confidence: none (low) | ours | "Connection is gone" line: compare with SM1 by feel or video. Ours: names the cause: a freeze of this client (a frame of at least server… | ☐ |
-| `R-96F42DFA` | Hosted server lines in the client log | every join, every leave with its reason, every refusal, every fault note (" failed: ", "dropped after", "FATAL") with up to **14** stack lines after it, as "hosted server: ..."; the server's own throttle (the first 20 faults in full, then one in 10 s; stacks… (lines) | kind: ours; confidence: none (low) | ours | Hosted server lines in the client log: compare with SM1 by feel or video. Ours: every join, every leave with its reason, every refusal, every fault… | ☐ |
 
 *Spec section: Added content: Musou battle ambience and Marine barks (musou/battle-ambience; 2026-11-08; client only, Musou Mode only, no protocol or hash change)*
 
@@ -3467,12 +3412,6 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-E0D7C562` | No 3D drawn while the load builds and warms (both modes, a human client; a crash fix for P2's… | from the frame that builds the map's nodes until the last of the **6** warm-ups (one a frame: looks, the Ork, weapon models, grenades, pickups, the crosshair's ray) the viewport draws no 3D; the loading screen covers the view in those frames anyway. Reason:… (frames) | kind: ours; confidence: medium | ours (engine work) | No 3D drawn while the load builds and warms (both modes, a…: compare with SM1 by feel or video. Ours: from the frame that builds the map's nodes until the last of the 6… | ☐ |
 | `R-955FB827` | Per-instance shader values on the Compatibility renderer (checked, no change) | the power sword's glow and flare, the force sword's, the melta cone and the slash cone keep their shared materials with per-instance values on both renderers: stills on the Compatibility renderer (Godot 4.7.2, OpenGL 3.3, the development PC) show the blade's… | confidence: medium | measured (stills, 2026-11-11) | Per-instance shader values on the Compatibility renderer…: compare with SM1 by feel or video. Ours: the power sword's glow and flare, the force sword's, the melta cone… | ☐ |
 
-*Spec section: Polish pass P2 (claude/polish-p2, 2026-11-10; client, content, server; load time only: no simulation, wire, protocol or config-hash change)*
-
-| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
-|---|---|---|---|---|---|---|
-| `R-EDECAEC7` | Map load off the main thread (both modes, a human client) | the handshake's Challenge starts the load on a worker (`ClientOptions.BeginLoadMap`, `IMapLoad`; the client polls it each update and sends its Hello with the map hash once it is done; the connect timeout waits meanwhile): the install's map content (or the… | kind: ours | ours (the plan's item 2) | Map load off the main thread (both modes, a human client): compare with SM1 by feel or video. Ours: the handshake's Challenge starts the load on a worker… | ☐ |
-
 *Spec section: Polish pass P1 (claude/polish-p1, 2026-11-10; client, server runtime and options; no simulation, wire, protocol or config-hash change)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
@@ -3480,8 +3419,6 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-A6224793` | Sound instance limits, the flags read | the advanced-settings bytes are read as kill newest, virtual behaviour, ignore the parents' limit (`SoundBank.cs`); the all-parents rule (every limiting node of the chain counts) and the -60 dB below-threshold cut are ours; a misread would reach hit confirms… | kind: estimate; confidence: low; notes: interpretation; notes: unverified | interpretation of the v56 bank layout, unverified by listening | Sound instance limits, the flags read: compare with SM1 by listening A/B at the same distance and state. Ours: the advanced-settings bytes are read as kill newest, virtual… | ☐ |
 | `R-70ACA5F0` | Revived loops resume | a looping non-positioned voice demoted under the -60 dB threshold (a virtual voice) goes on from its running position when it is revived ((now - started) modulo the stream's length), not from its start as before (s) | kind: ours; confidence: medium | ours (review of 2026-11-10) | Revived loops resume: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a looping non-positioned voice demoted under the -60 dB threshold (a… | ☐ |
 | `R-F660BE9D` | Performance readout | **F3** cycles OFF (default), FPS (frames a second over the last second, the mean and worst frame of that second), FPS + NETWORK (plus the ping from the snapshot echoes, the snapshot loss over 3 s, the interpolation delay and the input slack the server… (s) | kind: ours | ours (a tester aid; the original had no such readout) | Performance readout: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: F3 cycles OFF (default), FPS (frames a second over the last second… | ☐ |
-| `R-900DB710` | Server GC latency mode | `GCLatencyMode.SustainedLowLatency` for the dedicated server (as the human client's since perf/pass-1; before: the runtime's Interactive mode); `SM_OLD_SERVER_RUNTIME=1` keeps the default | kind: ours; confidence: medium | ours | Server GC latency mode: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: GCLatencyMode.SustainedLowLatency for the dedicated server (as the… | ☐ |
-| `R-54E913E5` | Server ReadyToRun | a server published with a runtime identifier (the release zips, `tools/release`) is compiled ahead of time (`PublishReadyToRun`); `dotnet build` / `server.cmd` unaffected; `-p:SmReadyToRun=false` publishes JIT-only | kind: ours; confidence: low | ours (measured before: a 65 ms first-join tick, 47 ms of it the world step's first run) | Server ReadyToRun: compare with SM1 by feel or video. Ours: a server published with a runtime identifier (the release zips… | ☐ |
 | `R-9875635A` | Ashfall grime in safe mode | folded (FAST) whatever the Graphics option says while safe mode is on; `--ashfall-grime-exact-safe` restores the option's choice | kind: ours; confidence: medium | ours (the perf pass measured the overlay at 0.5 to 1.2 ms GPU and up to 580 draw calls) | Ashfall grime in safe mode: compare with SM1 by feel or video. Ours: folded (FAST) whatever the Graphics option says while safe mode is… | ☐ |
 
 *Spec section: Musou Mode: GPU spray particles (musou/gpu-particles, 2026-11-10; client only, Musou Mode only; no simulation, wire, protocol, config-hash or rules-version change)*
@@ -5151,8 +5088,10 @@ Test aids, probes, demo and capture tooling, engineering decisions (protocol, wi
 | `R-7280DE6D` | Server log | Blind grenade (M37, used by the simulation) |
 | `R-B7956A0B` | Protocol 9 | Jump pack and ground pound (M14, used by the simulation) |
 | `R-4CF18367` | Protocol 24 | Jump pack follow-ups (M44, the owner's playtest of 2026-10-28; protocol 24) |
+| `R-FD9EB805` | Test-bot jump holds | Jump pack follow-ups (M44, the owner's playtest of 2026-10-28; protocol 24) |
 | `R-1248CDD4` | Test aid | The middle jump (M45, the owner's knowledge of the original; protocol 27) |
 | `R-FFA12D20` | Protocol 27 | The middle jump (M45, the owner's knowledge of the original; protocol 27) |
+| `R-C10ACB8E` | Test-bot holds | The middle jump (M45, the owner's knowledge of the original; protocol 27) |
 | `R-0228F5FC` | Protocol 13 | Evade: the Tactical roll and the heavy hop (M21, used by the simulation) |
 | `R-D71F4C3B` | Protocol 14 | Evade: the Tactical roll and the heavy hop (M21, used by the simulation) |
 | `R-19DA23A1` | Protocol 17 | Hit reactions, heavy strikes, knockback and blindness (M28, used by the simulation; protocol 17) |
@@ -5170,8 +5109,10 @@ Test aids, probes, demo and capture tooling, engineering decisions (protocol, wi
 | `R-2C2D4410` | Protocol 31 | Jump-pack feel: fuel, air control, the air slash and impact effects (feel/jump-pack; protocol 31, used by the simulation) |
 | `R-123C1066` | Buffer: the replay | Input buffering and slower movement (feel/buffer-speed; protocol 33, used by the simulation) |
 | `R-29CF50BC` | Buffer: wire | Input buffering and slower movement (feel/buffer-speed; protocol 33, used by the simulation) |
+| `R-D196B53C` | Bots | The three jumps, the dash attack's walls and the air slash's swing (feel/jump-pack-2; protocol 38, used by the simulation) |
 | `R-ACF31455` | Evade: spacing | Action lock scale and the sprint stop (feel/locks-sprint-stop; protocol 36, used by the simulation) |
 | `R-267A54F6` | Protocol 36 | Action lock scale and the sprint stop (feel/locks-sprint-stop; protocol 36, used by the simulation) |
+| `R-136EE8C9` | Kill feed | Teams and Annihilation (M15, used by the simulation) |
 | `R-9ACBF5C8` | Protocol 10 | Teams and Annihilation (M15, used by the simulation) |
 | `R-1CEBBCD6` | Map hash (blockers) | Seize Ground (M16, used by the simulation) |
 | `R-0ACEA847` | Protocol 11 | Seize Ground (M16, used by the simulation) |
@@ -5197,20 +5138,28 @@ Test aids, probes, demo and capture tooling, engineering decisions (protocol, wi
 | `R-185BAADB` | Loading in a match | Armour rendering of a customized look (customizer T6; client only, not simulated) |
 | `R-D2E922CC` | Cost (measured on this PC, debug build) | Armour rendering of a customized look (customizer T6; client only, not simulated) |
 | `R-D677371E` | Appearance code | Custom classes: loadout changes, perks and the wire (T2, T3a; protocol 22) |
+| `R-981F38FA` | Emblem | Custom classes: loadout changes, perks and the wire (T2, T3a; protocol 22) |
 | `R-E610F0C0` | Protocol 22 sizes | Custom classes: loadout changes, perks and the wire (T2, T3a; protocol 22) |
 | `R-BE10CF61` | Blob pull | Custom classes: loadout changes, perks and the wire (T2, T3a; protocol 22) |
 | `R-D37F5FBE` | Wire indices | Custom classes: loadout changes, perks and the wire (T2, T3a; protocol 22) |
 | `R-379B5896` | Appearance code indices | Custom classes: loadout changes, perks and the wire (T2, T3a; protocol 22) |
 | `R-2016BBC7` | Appearance timing and versions | Custom classes: loadout changes, perks and the wire (T2, T3a; protocol 22) |
+| `R-D66C5B56` | Setup limits | Custom classes: loadout changes, perks and the wire (T2, T3a; protocol 22) |
 | `R-891FC3E4` | Query and serving budgets | Custom classes: loadout changes, perks and the wire (T2, T3a; protocol 22) |
 | `R-EDFD314B` | Emblem uploads (server) | Custom classes: loadout changes, perks and the wire (T2, T3a; protocol 22) |
+| `R-F86598F9` | Emblem pulls (client) | Custom classes: loadout changes, perks and the wire (T2, T3a; protocol 22) |
 | `R-E7F59AE8` | Old clients | Custom classes: loadout changes, perks and the wire (T2, T3a; protocol 22) |
+| `R-544497B2` | True Grit log | Custom classes: loadout changes, perks and the wire (T2, T3a; protocol 22) |
 | `R-E5F597B6` | Model key | Custom classes, end to end (customizer T9; summary) and in the match (T7) |
+| `R-D7E578E8` | Building never waits | Custom classes, end to end (customizer T9; summary) and in the match (T7) |
 | `R-DE2A0D0F` | Test aids (client only) | Custom classes, end to end (customizer T9; summary) and in the match (T7) |
 | `R-D680D0E8` | Wire | Weapon spread (weapons/spread; the owner's decision 2026-10-28; used by the simulation; no protocol change) |
 | `R-B3B0DB48` | Perk kills (protocol 23) | Perks (M43; protocol 23) |
 | `R-6A78E096` | Protocol 44 | Perks without data (protocol 44; owner's decisions of 2026-10-30) |
+| `R-03B89F9B` | Respawn choice rate | Classic PvP: Deploy, respawn choice, heavy bolter count (fix/pvp-deploy-spawn; protocol 58) |
 | `R-06411108` | Protocol 58 | Classic PvP: Deploy, respawn choice, heavy bolter count (fix/pvp-deploy-spawn; protocol 58) |
+| `R-F6252E69` | Own stim time at a reconcile (review) | Combat stims (perks/inert-2; protocol 40, the config hash changes) |
+| `R-5228203E` | Others' equipment (protocol 40) | Combat stims (perks/inert-2; protocol 40, the config hash changes) |
 | `R-587283EB` | **Demo file** (`--record-demo <file>`) | Time-faithful capture and the smoothed render clock (M40 T0, T2; client only, not simulated) |
 | `R-DD23A31C` | **Replay** (`--play-demo <file>`, no server) | Time-faithful capture and the smoothed render clock (M40 T0, T2; client only, not simulated) |
 | `R-06DC5D5F` | Replay fidelity | Time-faithful capture and the smoothed render clock (M40 T0, T2; client only, not simulated) |
@@ -5279,6 +5228,11 @@ Test aids, probes, demo and capture tooling, engineering decisions (protocol, wi
 | `R-9175CDEC` | `smtool graph-dump --melee [<graph prefix>]` | Melee target lock, alignment and lunge (feel/melee-lock; used by the simulation; protocol 32) |
 | `R-AD4F6782` | Weapon switch time | Melee and charge, second pass (feel/melee-charge-2; protocol 42, used by the simulation) |
 | `R-1A94F1A3` | Protocol 42 | Melee and charge, second pass (feel/melee-charge-2; protocol 42, used by the simulation) |
+| `R-D7526043` | Join rate per address | Dedicated server hardening (server/hardening; server only, no protocol change) |
+| `R-0BFCE5E9` | Repeated Hello of a joined client | Dedicated server hardening (server/hardening; server only, no protocol change) |
+| `R-D9C2F998` | Tick catch-up | Dedicated server hardening (server/hardening; server only, no protocol change) |
+| `R-2E8E90AA` | Crash isolation | Dedicated server hardening (server/hardening; server only, no protocol change) |
+| `R-82B2FE16` | UDP receive | Dedicated server hardening (server/hardening; server only, no protocol change) |
 | `R-72F9868D` | Respawn time | Provisional values in use |
 | `R-BE29EC39` | Latency readout | Network responsiveness (net/responsive, 2026-11-09; client and server; protocol 65: the snapshot carries the input slack; no gameplay rule changed) |
 | `R-39742A91` | Test aids | Stomp impacts, the power sword and the jump-pack thrust (fx/impact-pass; client only, not simulated, no protocol change) |
@@ -5290,6 +5244,13 @@ Test aids, probes, demo and capture tooling, engineering decisions (protocol, wi
 | `R-DB790507` | Bot accuracy 49 % (night batch 2026-11-06) | Test bots: aim error, engagement range, spawn-door wait, launcher and side requests (M44a; client and server option, test aids, not simulated, no protocol change) |
 | `R-5042F469` | Trigger discipline | Test bots: aim error, engagement range, spawn-door wait, launcher and side requests (M44a; client and server option, test aids, not simulated, no protocol change) |
 | `R-08C79EDB` | Melee reaction time (night batch 2026-11-06) | Test bots: aim error, engagement range, spawn-door wait, launcher and side requests (M44a; client and server option, test aids, not simulated, no protocol change) |
+| `R-F831153D` | Bot melee misses (stream C, 2026-11-06 late) | Test bots: aim error, engagement range, spawn-door wait, launcher and side requests (M44a; client and server option, test aids, not simulated, no protocol change) |
+| `R-25F3C186` | Bot shots in the air (stream C) | Test bots: aim error, engagement range, spawn-door wait, launcher and side requests (M44a; client and server option, test aids, not simulated, no protocol change) |
+| `R-8389442F` | Bot strafing (stream C) | Test bots: aim error, engagement range, spawn-door wait, launcher and side requests (M44a; client and server option, test aids, not simulated, no protocol change) |
+| `R-FB826BA2` | Bot aim mode (stream C) | Test bots: aim error, engagement range, spawn-door wait, launcher and side requests (M44a; client and server option, test aids, not simulated, no protocol change) |
+| `R-261BAA24` | Bot weave (stream C) | Test bots: aim error, engagement range, spawn-door wait, launcher and side requests (M44a; client and server option, test aids, not simulated, no protocol change) |
+| `R-F39784AA` | Bot flanking (stream C) | Test bots: aim error, engagement range, spawn-door wait, launcher and side requests (M44a; client and server option, test aids, not simulated, no protocol change) |
+| `R-BB28D290` | Bot heavy-weapon spread (stream C, the owner's choice 2026-11-07: "Tighten for bots") | Test bots: aim error, engagement range, spawn-door wait, launcher and side requests (M44a; client and server option, test aids, not simulated, no protocol change) |
 | `R-75F40B1D` | `--bot-old-tactics` | Test bots: aim error, engagement range, spawn-door wait, launcher and side requests (M44a; client and server option, test aids, not simulated, no protocol change) |
 | `R-A5527B80` | Measured, stream C (bounded runs, server `--bind 127.0.0.1`, Manufactorum, Annihilation, 3 Marine + 3 Chaos bots:… | Test bots: aim error, engagement range, spawn-door wait, launcher and side requests (M44a; client and server option, test aids, not simulated, no protocol change) |
 | `R-6CD31534` | Bot damage against a standing marine (server simulation, flat ground, Tactical bolter, 120 s, unlimited reserve; ranged… | Test bots: aim error, engagement range, spawn-door wait, launcher and side requests (M44a; client and server option, test aids, not simulated, no protocol change) |
@@ -5356,7 +5317,13 @@ Test aids, probes, demo and capture tooling, engineering decisions (protocol, wi
 | `R-F7917387` | The pistol for a splash weapon at close range (review 2026-11-11: the plasma cannon heavy held its fire from point… | Classic PvP bots: grenade safety (bot-grenade-safety, owner 2026-11-11; client test aid, no protocol or config-hash change) |
 | `R-342A9FB9` | What the bots do now (measured) | Classic PvP bots: grenade safety (bot-grenade-safety, owner 2026-11-11; client test aid, no protocol or config-hash change) |
 | `R-C709235C` | `--old-bot-throws` | Classic PvP bots: grenade safety (bot-grenade-safety, owner 2026-11-11; client test aid, no protocol or config-hash change) |
+| `R-7BAED7ED` | Connect timeout | Connect timeout, hosting checks and hosted bots (fix/connect-timeout; client, front end and release launcher; no protocol change) |
+| `R-F0EEFE25` | Hosting: port check and start watch | Connect timeout, hosting checks and hosted bots (fix/connect-timeout; client, front end and release launcher; no protocol change) |
 | `R-BF10C7C3` | Bot memory | Connect timeout, hosting checks and hosted bots (fix/connect-timeout; client, front end and release launcher; no protocol change) |
+| `R-9CEA0140` | Lean bot frame cap | Performance pass 1 (perf/pass-1; build, client and release launcher; no protocol change) |
+| `R-C6583162` | Lean bot physics steps | Performance pass 1 (perf/pass-1; build, client and release launcher; no protocol change) |
+| `R-96A0A21B` | Lean bot content | Performance pass 1 (perf/pass-1; build, client and release launcher; no protocol change) |
+| `R-9CBB7590` | Human client GC mode | Performance pass 1 (perf/pass-1; build, client and release launcher; no protocol change) |
 | `R-9DA27EDE` | Probe (`--perf-probe`) | Performance pass 1 (perf/pass-1; build, client and release launcher; no protocol change) |
 | `R-5FBBC333` | Menu sound cost | Match sounds and menu sounds (fidelity gap 9; client only, not simulated, no protocol change) |
 | `R-454764E5` | Config hash | Added content: the content switch (E1; server, client and config hash; no protocol change) |
@@ -5383,6 +5350,8 @@ Test aids, probes, demo and capture tooling, engineering decisions (protocol, wi
 | `R-3C893894` | Test aids | Death effects (F-D1; client only, not simulated, no protocol change) |
 | `R-54698497` | `--bot-damage-scale f` | Flying hitboxes, the view fraction, the grenade bounce and the bots' damage scale (fix/hitboxes-grenades-bots; protocol 37) |
 | `R-5601E474` | Protocol 37 (on top of main's 36) | Flying hitboxes, the view fraction, the grenade bounce and the bots' damage scale (fix/hitboxes-grenades-bots; protocol 37) |
+| `R-A40BE858` | Name seed | Display names: the bots' names (names/bot-lore; protocol 41) |
+| `R-4DE26DA6` | Name characters | Display names: the bots' names (names/bot-lore; protocol 41) |
 | `R-A4CB19AF` | Protocol 41 | Display names: the bots' names (names/bot-lore; protocol 41) |
 | `R-0E87ED84` | Protocol 43 | Player collision (sim/player-collision; protocol 43, used by the simulation) |
 | `R-7B32DDE7` | Protocol 45 | Combat pass: the charge key, holstered reloads, headshots, directional melee, the ledge charge's fall (sim/combat-pass; protocol 45, used by the simulation) |
@@ -5393,7 +5362,15 @@ Test aids, probes, demo and capture tooling, engineering decisions (protocol, wi
 | `R-752D26F1` | Protocol 51 | Movement fixes: the heavy hop down stairs and off ledges, the pound in a full jump, the short hop while falling, steering a ledge charge (sim/movement-fixes; protocol 51, no wire change) |
 | `R-628FFD94` | Score on the wire | Added content: Musou Mode: rewards, extra slots and the score (pass 2 M6, M6b; `TfwRules.Version` 12; no protocol change) |
 | `R-48FF3A72` | Extra slots on the wire | Added content: Musou Mode: rewards, extra slots and the score (pass 2 M6, M6b; `TfwRules.Version` 12; no protocol change) |
+| `R-D29B5413` | Stall keep-alive: start | Stall keep-alive and freeze diagnostics (fix/stall-keepalive; client and a log filter, no protocol change) |
+| `R-804365BD` | Stall keep-alive: interval | Stall keep-alive and freeze diagnostics (fix/stall-keepalive; client and a log filter, no protocol change) |
+| `R-A9B08743` | Stall keep-alive: bound | Stall keep-alive and freeze diagnostics (fix/stall-keepalive; client and a log filter, no protocol change) |
+| `R-ECF314B5` | Stall keep-alive: content | Stall keep-alive and freeze diagnostics (fix/stall-keepalive; client and a log filter, no protocol change) |
 | `R-F987BDB3` | Stall keep-alive: scope | Stall keep-alive and freeze diagnostics (fix/stall-keepalive; client and a log filter, no protocol change) |
+| `R-6F965540` | Watchdog for human players | Stall keep-alive and freeze diagnostics (fix/stall-keepalive; client and a log filter, no protocol change) |
+| `R-599C739E` | Slow-frame line | Stall keep-alive and freeze diagnostics (fix/stall-keepalive; client and a log filter, no protocol change) |
+| `R-89EEAE92` | "Connection is gone" line | Stall keep-alive and freeze diagnostics (fix/stall-keepalive; client and a log filter, no protocol change) |
+| `R-96F42DFA` | Hosted server lines in the client log | Stall keep-alive and freeze diagnostics (fix/stall-keepalive; client and a log filter, no protocol change) |
 | `R-E085B984` | Test aids | Stall keep-alive and freeze diagnostics (fix/stall-keepalive; client and a log filter, no protocol change) |
 | `R-E5247022` | Test aids | Added content: Musou Ork voices, shot flinch and spread (musou/ork-voices; 2026-11-06; client sounds and drawing, plus one Musou-only simulation rule) |
 | `R-ACBC573D` | Hit reaction, switch and aids | Added content: Musou Ork hit reactions (musou/ork-flinch; 2026-11-13; client drawing only, Musou Mode only, no protocol or hash change) |
@@ -5435,8 +5412,11 @@ Test aids, probes, demo and capture tooling, engineering decisions (protocol, wi
 | `R-D3537240` | Shader sweep behind the loading screen (both modes, a human client) | Polish pass P3 (claude/polish-p3, 2026-11-11; client only; first frames and loads: no simulation, wire, protocol or config-hash change) |
 | `R-CAE9BEEA` | Measurement aids (no change of behaviour) | Polish pass P3 (claude/polish-p3, 2026-11-11; client only; first frames and loads: no simulation, wire, protocol or config-hash change) |
 | `R-4EEFB531` | Ashfall layout cache (Musou, added content) | Polish pass P2 (claude/polish-p2, 2026-11-10; client, content, server; load time only: no simulation, wire, protocol or config-hash change) |
+| `R-EDECAEC7` | Map load off the main thread (both modes, a human client) | Polish pass P2 (claude/polish-p2, 2026-11-10; client, content, server; load time only: no simulation, wire, protocol or config-hash change) |
 | `R-5F9027EA` | Loading captions | Polish pass P2 (claude/polish-p2, 2026-11-10; client, content, server; load time only: no simulation, wire, protocol or config-hash change) |
 | `R-866FC7E6` | `LOADTIME` line | Polish pass P1 (claude/polish-p1, 2026-11-10; client, server runtime and options; no simulation, wire, protocol or config-hash change) |
+| `R-900DB710` | Server GC latency mode | Polish pass P1 (claude/polish-p1, 2026-11-10; client, server runtime and options; no simulation, wire, protocol or config-hash change) |
+| `R-54E913E5` | Server ReadyToRun | Polish pass P1 (claude/polish-p1, 2026-11-10; client, server runtime and options; no simulation, wire, protocol or config-hash change) |
 | `R-3D34462F` | Physics steps aid | Polish pass P1 (claude/polish-p1, 2026-11-10; client, server runtime and options; no simulation, wire, protocol or config-hash change) |
 | `R-476D600F` | Test aid: `--musou-crowd-test` | Musou Mode: the big Orks' deaths and gait (musou-big-ork-deaths, 2026-11-09; Musou Mode only; the deaths and gait client presentation; the bodies against the map in the simulation, `MusouSim.Version` 34, to be renumbered at integration; no protocol change) |
 | `R-F137D8B4` | Test aid: old big spawns | Musou Mode: the Orks back at 100 %, twice the big Orks (musou-big-ork-deaths, 2026-11-10; Musou Mode's war only; `TfwRules.Version` 59, to be renumbered at integration; no protocol, wire or `MusouSim.Version` change) |
