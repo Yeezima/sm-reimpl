@@ -105,3 +105,44 @@ Not verified: the Host panel row in a window (built, unit-tested pieces only); r
 ### Shattered Bridge's orange look is authored
 
 `smtool maps-audit auto --lighting mp_tdm_17` reads the map's `l_lights` layer: sun colour 1.00/0.75/0.46 at power 4.0 (Manufactorum: 1.00/0.86/0.68 at 3.0), ambient up 0.64/0.46/0.36 and low 0.35/0.35/0.54, and a fog gradient to 0.58/0.48/0.38 at 40 % over 200 m (Manufactorum's far fog is 0.75/0.64/0.54 at 27 %). So the warm orange sun, sky-side ambient and tan fog are in the data; our rendering adds nothing orange of its own. How the engine tonemaps and blends that fog is not known (the fog reading is ours, discovery.md "Fog re-read").
+
+## 6. Bots (bots/new-maps, 2026-11-16)
+
+Owner (2026-11-16): "broken bot ai on annihilation new maps classic PvP - fix it to make it work well on the new maps". The import had only two-bot checks. Measured with a
+6 v 6 Annihilation lobby (Tactical, Assault, Devastator and the Chaos classes of the same roles, 12 headless bots 1.2 s apart, `--bind 127.0.0.1`, accuracy 0.03, the
+default), 6 minutes a map after the bots joined, one run a map before and after; the server's `SM_BOT_STATS` aid counts kills, deaths, deaths by the world and standing still;
+stuck detections and "goal unreachable" samples come from the bots' own logs (`docs/commands.md`). One run a map is a sample, not a statistic: differences of a kill a minute
+are noise (Manufactorum, whose rules did not change, read 17.9 before and 18.1 after).
+
+| Map | kills a minute (before / after) | deaths by the world | seconds standing still % | stuck detections | "goal unreachable" samples |
+|---|---|---|---|---|---|
+| Waste Management (`mp_tdm_01`) | 18.6 / 18.6 | 0 / 0 | 0.4 / 0.2 | 12 / 3 | 0 / 0 |
+| Basilica (`mp_tdm_11`) | 14.1 / 16.6 | 1 / 0 | 1.4 / 0.2 | 15 / 3 | 0 / 0 |
+| Shattered Bridge (`mp_tdm_17`) | 7.0 / 13.1 | 9 / 1 | 10.6 / 5.9 | 214 / 175 | 26 / 0 |
+| Hab Center (`mp_tdm_18`) | 13.7 / 17.9 | 0 / 0 | 1.1 / 0.4 | 20 / 11 | 0 / 3 |
+| Habs Ablaze (`mp_dlc1_map1`) | 16.1 / 15.6 | 0 / 0 | 0.8 / 0.4 | 61 / 18 | 0 / 0 |
+| Station Tertius (`mp_dlc1_map2`) | 17.4 / 17.9 | 6 / 1 | 0.5 / 0.2 | 22 / 6 | 0 / 0 |
+| Chem Refinery (`mp_dlc2_map1`) | 15.4 / 19.7 | 1 / 0 | 4.5 / 0.4 | 160 / 10 | 21 / 0 |
+| Aquila Canyon (`mp_dlc2_map2`) | 18.2 / 18.7 | 0 / 0 | 0.1 / 0.2 | 12 / 3 | 0 / 0 |
+| Desolation (`mp_dlc2_map3`) | 17.2 / 17.7 | 1 / 0 | 2.1 / 0.5 | 14 / 26 | 16 / 0 |
+| Dome Mechanicus (`mp_dlc2_map4`) | 14.6 / 15.7 | 1 / 0 | 2.3 / 0.8 | 50 / 35 | 0 / 0 |
+| Manufactorum (pin: rules unchanged) (`mp_tdm_09`) | 17.9 / 18.1 | 0 / 0 | 0.3 / 0.3 | 7 / 7 | 0 / 0 |
+
+What went wrong, found by the numbers and fixed in general code (spec "Classic PvP bots on the ten imported maps"; every rule is ours and applies to every `mp_*` map but
+Manufactorum, never to Musou Mode):
+
+- **Pits and slivers a drop falls into** (Shattered Bridge: the chasm under the bridge, 60 thousand of 178 thousand cells a side; Chem Refinery, Desolation): a class without a jump
+  pack cannot climb out, so bots stood in them for minutes (one Havoc 173 detections, 26 "unreachable" samples). The graph now leaves out cells no walk or drop leads back from.
+- **Slits in decks** (Chem Refinery: 127 stuck detections at drop edges in one run, Habs Ablaze): the graph made drops through 0.5 m slits that the capsule bridges; drops now need the
+  floor 0.56 m ahead and to each side to be as low as the landing. A bot still stuck at a drop's edge gives up the drops along it; one stuck where the graph has no cell walks to the
+  nearest cell.
+- **Jump-pack bots on a cold cache**: the jump links of a map and side take 150 s (Basilica) to 353 s (Shattered Bridge) to build the first time, and the bot walked straight at its
+  goal with detours for all of it (and the build starved its own frame loop: the watchdog logged 400 s without a frame in an 8-build test). The bot now walks on the plain graph at
+  once and takes the links when they are ready, the build using a third of the cores.
+- **Falls**: on Shattered Bridge (holes in the deck) 9 of 52 deaths, then 21 of 92 once the bots moved, were falls, nearly all jump-pack bots dashing, hopping or evading over a hole.
+  Dashes (16 m), hops (7 m), evades (10 and 16 m) and jumps at a target are now held back unless there is floor all the way.
+
+Still weak: **Shattered Bridge**: one jump-pack bot stood in a pit off the graph for minutes in the final run (144 of 175 stuck detections; the walk to the nearest cell does not get a
+class out of a pit with walls on all sides, and a jump out of the pit is not scripted), kills a minute 13.1 against 17 to 19 elsewhere (the bridge is long; the bots meet 80 m apart on
+average). **Dome Mechanicus** (35 stuck detections) and **Desolation** (26) were not looked into. Not verified: Seize Ground on the new maps, other lobby sizes, a cold jump-link
+cache on a machine other than this one, Musou Mode (untouched by construction; not run), the recordings asked for (not made).

@@ -326,6 +326,12 @@ public partial class NetworkView
         if (Nav is not { } nav) return true;
         var forward = new V2(-MathF.Sin(_yaw), MathF.Cos(_yaw));
         var right = new V2(forward.Y, -forward.X);
+        if (!BotNoEscape && BotNavigation.NewMapRules(_navMap?.Name ?? "") && _config is { } c)
+        {
+            // bots/new-maps: the evade really travels 5 to 9 m (a roll or the Devastator's hop) or 16 m (a jump-pack dash): floor all the way, not only 3 m (Shattered Bridge: the dashes flew into holes).
+            float travel = Loadouts.JumpPack(c, me) is not null ? 16f : 10f;
+            return nav.CanWalk(me.Position, right * (side * BotRollCheck)) && nav.FloorAlong(me.Position, me.Position + new V3(right.X * side * travel, right.Y * side * travel, 0f), 2f, 3f);
+        }
         return nav.CanWalk(me.Position, right * (side * BotRollCheck));
     }
 

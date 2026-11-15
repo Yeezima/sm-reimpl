@@ -142,8 +142,9 @@ public partial class NetworkView
         _botHopper ??= new BotHopper(Math.Max(_client?.PlayerId ?? 0, 0) * 31 + 5);
         bool free = me.Grounded && me.Jump == JumpPhase.None && !me.JumpHeld && me.MeleeStep == 0 && !me.Throwing && me.SwitchLeft <= 0f && !me.Charging && me.PendingShot == 0;
         bool canDash = free && Loadouts.Evade(c, me) is { Dash: true } && !Evade.Cooling(me);
-        // bots/new-maps: no dash or hop over a hole (or off the edge) in the deck 7 m ahead of its heading.
-        if (free && !BotFloorBetween(me, me.Position + new System.Numerics.Vector3(-MathF.Sin(_yaw) * 7f, MathF.Cos(_yaw) * 7f, 0f))) return InputButtons.None;
+        // bots/new-maps: no dash (16 m) or hop (7 m) over a hole (or off the edge) in the deck ahead of its heading.
+        float ahead = canDash ? 16f : 7f;   // a dash travels about 16 m, a hop less
+        if (free && !BotFloorBetween(me, me.Position + new System.Numerics.Vector3(-MathF.Sin(_yaw) * ahead, MathF.Cos(_yaw) * ahead, 0f))) return InputButtons.None;
         int hopTicks = NavJumpFlight.ShortestJumpHold(c, me.Class) + 1;
         float hopCost = pack.CostAt(hopTicks * c.TickSeconds);
         var move = _botHopper.Next(_connectedFor, canDash, free, me.JumpPower, hopCost, pack.CostAt(pack.MaxHold), distance);
