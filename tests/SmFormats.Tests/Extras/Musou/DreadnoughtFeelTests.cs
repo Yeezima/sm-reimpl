@@ -59,4 +59,36 @@ public class DreadnoughtFeelTests
         Assert.Equal(11f * 1.3f, DreadnoughtRules.SprintSpeed, 4);
         Assert.Equal(1.3f, DreadnoughtRules.MoveSpeed);
     }
+
+    [Fact]
+    public void The_arm_has_a_start_cue_for_every_strike_and_the_datas_sounds_and_effects()
+    {
+        foreach (var k in Enum.GetValues<DaArmKey>()) Assert.NotNull(DreadnoughtArm.Cue(k, DaArmBeat.Start));
+        Assert.Contains("play_dreadnought_melee_pwrup_x1", DreadnoughtArm.Cue(DaArmKey.Light1, DaArmBeat.Start)!.Sounds);
+        Assert.Contains("play_dreadnought_melee_pwrup_y1", DreadnoughtArm.Cue(DaArmKey.Slam, DaArmBeat.Start)!.Sounds);
+        Assert.Contains("play_dreadnought_swing_end", DreadnoughtArm.Cue(DaArmKey.Slam, DaArmBeat.Antic)!.Sounds);
+        Assert.Contains("play_dreadnought_melee_antic_x1", DreadnoughtArm.Cue(DaArmKey.Rush, DaArmBeat.Start)!.Sounds);
+        Assert.Contains(DreadnoughtArm.Cue(DaArmKey.Rush, DaArmBeat.Start)!.Effects, e => e.Name == "bullrush_swing" && e.Scale == 3f);
+        Assert.Equal(2, DreadnoughtArm.Cue(DaArmKey.Slam, DaArmBeat.Hit)!.Effects.Count(e => e.Name == "thunderhammer_dmg_displace_heavy"));
+        Assert.Contains(DreadnoughtArm.Cue(DaArmKey.Slam, DaArmBeat.Swing)!.Effects, e => e.Name == "plasma_charging");
+        Assert.Equal(DaArmKey.Stomp, DreadnoughtArm.KeyOf(true, 1));
+        Assert.Equal(DaArmKey.Light2, DreadnoughtArm.KeyOf(false, 2));
+        // the beats come in order before the hit
+        float hit = 0.867f;
+        Assert.True(DreadnoughtArm.BeatTime(DaArmBeat.Start, hit) < DreadnoughtArm.BeatTime(DaArmBeat.Antic, hit));
+        Assert.True(DreadnoughtArm.BeatTime(DaArmBeat.Antic, hit) <= DreadnoughtArm.BeatTime(DaArmBeat.Swing, hit));
+        Assert.True(DreadnoughtArm.BeatTime(DaArmBeat.Swing, hit) <= DreadnoughtArm.BeatTime(DaArmBeat.Hit, hit));
+    }
+
+    [Fact]
+    public void Lights_exhaust_and_rumble_carry_the_datas_values_and_the_settings_scale_the_rumble()
+    {
+        Assert.Equal(12, DreadnoughtArm.Lights.Length);
+        Assert.Contains(DreadnoughtArm.Lights, l => l.Name == "light_headlight_red" && l.Marker == "fx_lefteye_csm");
+        Assert.Contains(DreadnoughtArm.AllMarkers(), m => m == "fx_l_exhaust02");
+        Assert.Equal((0.1f, 0.4f), (DreadnoughtArm.FootLeft.Small, DreadnoughtArm.FootLeft.Large));
+        Assert.Equal((0.6f, 0.35f, 0.5f), (DreadnoughtArm.StompSelf.Small, DreadnoughtArm.StompSelf.Large, DreadnoughtArm.StompSelf.Seconds));
+        Assert.Equal(0f, DreadnoughtArm.RumbleScale(1f, true));
+        Assert.Equal(0.5f, DreadnoughtArm.RumbleScale(0.5f, false));
+    }
 }

@@ -23,7 +23,7 @@ public partial class NetworkView
     internal (Num.Vector3 Offset, Num.Vector3 Degrees) DreadShakeNow;
 
     /// <summary>Per Dreadnought: what the feel needs to see change between frames.</summary>
-    sealed class DreadFeelState { public bool Left, WasAir, StimWas, Hurt66, Hurt33, Entered, Rush; public float PrevMelee; public int PrevStep; public double AirSince; }
+    sealed class DreadFeelState { public bool Left, WasAir, StimWas, Hurt66, Hurt33, Entered, Rush, RushOn, Sprinting; public float PrevMelee = -1f; public int PrevStep; public bool PrevHeavy; public double AirSince; public readonly List<FxEffect> Lit = new(); public bool Lights; }
     readonly Dictionary<int, DreadFeelState> _dreadFeel = new();
 
     DreadFeelState FeelOf(int id) { if (!_dreadFeel.TryGetValue(id, out var f)) _dreadFeel[id] = f = new DreadFeelState(); return f; }
@@ -45,10 +45,14 @@ public partial class NetworkView
         if (_fx is not null && !Lean && FxActive)
             foreach (var e in feel.Effects)
             {
-                if (e.DelaySeconds <= 0f) { DreadPlayEffect(e, s); continue; }
+                if (e.DelaySeconds <= 0f) { DreadPlayEffect(e, s, t); continue; }
                 var cap = e; var st = s;
-                GetTree().CreateTimer(e.DelaySeconds).Timeout += () => DreadPlayEffect(cap, st);
+                GetTree().CreateTimer(e.DelaySeconds).Timeout += () => DreadPlayEffect(cap, st, t);
             }
+        if (own && action is DreadAction.FootLeft or DreadAction.SprintFootLeft) DreadRumble(DreadnoughtArm.FootLeft);
+        if (own && action is DreadAction.FootRight or DreadAction.SprintFootRight) DreadRumble(DreadnoughtArm.FootRight);
+        if (own && action is DreadAction.StompLeft or DreadAction.StompRight) DreadRumble(DreadnoughtArm.StompSelf);
+        if (action is DreadAction.SprintFootLeft or DreadAction.SprintFootRight) DreadPlayEffects(DreadnoughtArm.EffortSprint, s, t);
         if (feel.Shake is { } shake && _client is not null)
         {
             var me = _client.Predicted.Position;
@@ -57,8 +61,19 @@ public partial class NetworkView
         }
     }
 
-    void DreadPlayEffect(DaEffect e, PlayerState s)
+    /// <summary>A marker point of a Dreadnought's model in Godot world space (the object tree's marker on its bone), or null.</summary>
+    Vector3? DreadMarkerWorld(DreadnoughtTrack t, string marker)
     {
+        if (t.Viewer is not { } v || !IsInstanceValid(v) || v.Skeleton is not { } sk || _dreadLooks is null || !_dreadLooks.Markers.TryGetValue(marker, out var m)) return null;
+        int bone = sk.FindBone(m.Bone);
+        return bone < 0 ? null : (sk.GlobalTransform * sk.GetBoneGlobalPose(bone) * MarineAssets.ToGodot(m.Local)).Origin;
+    }
+
+    void DreadPlayEffects(DaEffect[] list, PlayerState s, DreadnoughtTrack t) { if (_fx is null || Lean || !FxActive) return; foreach (var e in list) DreadPlayEffect(e, s, t); }
+
+    void DreadPlayEffect(DaEffect e, PlayerState s, DreadnoughtTrack t)
+    {
+        if (DreadMarkerWorld(t, e.Marker) is { } real) { _fx?.Play(e.Name, real, Basis.Identity, e.Scale); return; }
         var (h, side, fwd) = DreadMarker(e.Marker);
         var right = new Num.Vector3(MathF.Cos(s.Yaw), MathF.Sin(s.Yaw), 0f); var f = new Num.Vector3(-MathF.Sin(s.Yaw), MathF.Cos(s.Yaw), 0f);
         var p = s.Position + new Num.Vector3(0, 0, h) + right * side + f * fwd;
@@ -66,12 +81,12 @@ public partial class NetworkView
     }
 
     /// <summary>The shake aimed at the own player: a stomp's or slam's area shake for a camera inside its 10 m.</summary>
-    void DreadAreaShake(PlayerState s)
+    void DreadAreaShake(PlayerState s, bool own)
     {
         if (_client is null) return;
         var me = _client.Predicted.Position;
         float d = new Num.Vector2(s.Position.X - me.X, s.Position.Y - me.Y).Length();
-        if (d <= DreadnoughtMelee.AreaRadius) _dreadShakes.Add((DreadnoughtFeel.StompArea, _connectedFor, d, true));
+        if (d <= DreadnoughtMelee.AreaRadius) { _dreadShakes.Add((DreadnoughtFeel.StompArea, _connectedFor, d, true)); if (!own) DreadRumble(DreadnoughtArm.StompAreaHit); }
     }
 
     /// <summary>Per frame, per living Dreadnought: edges that fire the table (entrance, stomp's foot hit, wall hit, landing, power-up, damage thresholds). Footfalls are fired by the stride (<see cref="DreadnoughtSounds"/>).</summary>
@@ -92,17 +107,24 @@ public partial class NetworkView
                 {
                     f.Left = !f.Left;
                     DreadAct(f.Left ? DreadAction.StompLeft : DreadAction.StompRight, s, t, own);
-                    DreadAreaShake(s);
+                    DreadAreaShake(s, own);
                 }
             }
         }
-        f.PrevStep = s.MeleeStep; f.PrevMelee = s.MeleeTime;
+        DreadArmBeats(f, s, t, own);
+        f.PrevStep = s.MeleeStep; f.PrevHeavy = s.MeleeHeavy; f.PrevMelee = s.MeleeTime;
+        DreadLights(f, s, t);
+        float spd = MathF.Sqrt(s.Velocity.X * s.Velocity.X + s.Velocity.Y * s.Velocity.Y); bool sprinting = spd > DreadnoughtRules.RunSpeed + 1.5f;
+        if (sprinting && !f.Sprinting) DreadPlayEffects(DreadnoughtArm.EffortStart, s, t);
+        f.Sprinting = sprinting;
         bool rush = s.Rush == RushPhase.Collision;   // the charge's wall stop
         if (rush && !f.Rush) DreadAct(DreadAction.HitWall, s, t, own);
+        if (s.Rush == RushPhase.Rush && !f.RushOn) { f.RushOn = true; DreadCue(DaArmKey.Rush, DaArmBeat.Start, s, t); } else if (s.Rush != RushPhase.Rush) f.RushOn = false;
         f.Rush = rush;
         if (!s.Grounded) { if (!f.WasAir) f.AirSince = _connectedFor; f.WasAir = true; }
         else if (f.WasAir) { f.WasAir = false; double air = _connectedFor - f.AirSince; if (air > 0.25) DreadAct(air > 0.8 ? DreadAction.LandHeavy : DreadAction.LandLight, s, t, own); }
-        bool stim = s.StimLeft > 0f;   // the power-up
+        // the power-up. The time left is not on the wire (Stims.Carry): the drawn snapshot state has 0, so the own player reads the prediction (the film log's 2 s end was this); others' power-ups show no start or end effect.
+        bool stim = own && _client is not null && _client.Predicted.StimLeft > 0f;
         if (stim && !f.StimWas) DreadAct(DreadAction.Buff, s, t, own);
         if (!stim && f.StimWas) DreadAct(DreadAction.BuffEnd, s, t, own);
         f.StimWas = stim;
@@ -119,7 +141,7 @@ public partial class NetworkView
     void DreadnoughtFeelDeath(DreadnoughtTrack t, PlayerState s, bool own)
     {
         var f = FeelOf(s.PlayerId);
-        f.Entered = false; f.Hurt66 = f.Hurt33 = false; f.StimWas = false;
+        f.Entered = false; f.Hurt66 = f.Hurt33 = false; f.StimWas = false; DreadLightsOff(f);
         DreadAct(DreadAction.DeathStart, s, t, own);
         DreadAct(DreadAction.DeathBlast, s, t, own);
         if (_client is null) return;
@@ -137,5 +159,82 @@ public partial class NetworkView
         DreadShakeNow = (o, d);
         offset += new Vector3(o.X, o.Y, o.Z);
         degrees += new Vector3(d.X, d.Y, d.Z);
+    }
+
+    /// <summary>Plays one cue of the arm (its sounds and effects) for the Dreadnought <paramref name="s"/>.</summary>
+    void DreadCue(DaArmKey key, DaArmBeat beat, PlayerState s, DreadnoughtTrack t)
+    {
+        if (DreadnoughtArm.Cue(key, beat) is not { } cue) return;
+        if (LogDreadFeel) GD.Print($"DNFEEL t {_connectedFor:F2} Arm {key}/{beat} player {s.PlayerId}: sounds [{string.Join(", ", cue.Sounds)}] effects [{string.Join(", ", cue.Effects.Select(e => $"{e.Name}x{e.Scale}@{e.Marker}"))}]");
+        if (_sound is not null && !Lean) foreach (var snd in cue.Sounds) _sound.Post(snd, t.Emitter);
+        DreadPlayEffects(cue.Effects, s, t);
+    }
+
+    /// <summary>The arm's beats by the strike's time (the sim's, as the clip clock runs it): start when the strike begins, antic and swing before the hit, the hit; the own player feels the hit as the data's rumble.</summary>
+    void DreadArmBeats(DreadFeelState f, PlayerState s, DreadnoughtTrack t, bool own)
+    {
+        if (s.MeleeStep <= 0) return;
+        bool fresh = f.PrevStep != s.MeleeStep || f.PrevHeavy != s.MeleeHeavy || f.PrevMelee > s.MeleeTime + 0.01f;
+        var steps = s.MeleeHeavy ? DreadnoughtMelee.Heavy() : DreadnoughtMelee.Light();
+        if (s.MeleeStep > steps.Count) return;
+        var key = DreadnoughtArm.KeyOf(s.MeleeHeavy, s.MeleeStep);
+        float hit = steps[s.MeleeStep - 1].HitTime, prev = fresh ? -1f : f.PrevMelee;
+        foreach (var beat in new[] { DaArmBeat.Start, DaArmBeat.Antic, DaArmBeat.Swing, DaArmBeat.Hit })
+        {
+            float at = DreadnoughtArm.BeatTime(beat, hit);
+            if (prev >= at || s.MeleeTime < at) continue;
+            DreadCue(key, beat, s, t);
+            if (beat == DaArmBeat.Start) DreadPlayEffects(DreadnoughtArm.EffortBig, s, t);
+            if (beat == DaArmBeat.Hit && own) DreadRumble(DreadnoughtArm.ArmHit);
+        }
+    }
+
+    /// <summary>The lights and eyes of his lifetime action, once per life, on the model's markers (following the bones); ended when he dies.</summary>
+    void DreadLights(DreadFeelState f, PlayerState s, DreadnoughtTrack t)
+    {
+        if (f.Lights || _fx is null || Lean || !FxActive || t.Viewer is not { } v || _dreadLooks is null || _dreadLooks.Markers.Count == 0) return;
+        f.Lights = true;
+        foreach (var e in DreadnoughtArm.Lights)
+        {
+            if (!_dreadLooks.Markers.TryGetValue(e.Marker, out var m)) continue;
+            var sk = v.Skeleton; if (sk is null) continue;
+            int bone = sk.FindBone(m.Bone); if (bone < 0) continue;
+            var local = MarineAssets.ToGodot(m.Local);
+            (Vector3 Position, Basis Axes)? Place()
+            {
+                if (!IsInstanceValid(sk) || !sk.IsInsideTree()) return null;
+                var w = sk.GlobalTransform * sk.GetBoneGlobalPose(bone) * local;
+                return (w.Origin, w.Basis.Orthonormalized());
+            }
+            if (Place() is not { } at) continue;
+            if (_fx.Play(e.Name, at.Position, at.Axes, e.Scale, null, Place, 0f, 0.0, repeat: true, priority: 1) is { } fx) f.Lit.Add(fx);
+        }
+        if (LogDreadFeel) GD.Print($"DNFEEL t {_connectedFor:F2} Lights player {s.PlayerId}: {f.Lit.Count} of {DreadnoughtArm.Lights.Length} playing");
+    }
+
+    void DreadLightsOff(DreadFeelState f) { foreach (var e in f.Lit) e.Life = Math.Min(e.Life, e.Age); f.Lit.Clear(); f.Lights = false; }
+
+    /// <summary>The own pad's vibration (<c>controller_rumble</c>): the data's two motors for its seconds, scaled by the Camera shake option and off with Reduce motion (the game has no vibration option); logged with <c>--dn-feel-log</c>.</summary>
+    void DreadRumble(DaRumble r)
+    {
+        float k = DreadnoughtArm.RumbleScale(SmClient.Customizer.Model.LiveOptions.CameraShake, UiKit.ReduceMotion);
+        if (LogDreadFeel) GD.Print($"DNFEEL t {_connectedFor:F2} Rumble small {r.Small * k:F2} large {r.Large * k:F2} for {r.Seconds:F2} s");
+        if (k <= 0f || Lean) return;
+        foreach (int pad in Input.GetConnectedJoypads()) Input.StartJoyVibration(pad, r.Small * k, r.Large * k, r.Seconds);
+    }
+
+    /// <summary>One cannon shot's effects: the muzzle flash (autocannon_muzzle x1.75) and the casing (shell_casing x3) at their markers, the tracer trail (chaos_kraken_trail) from the muzzle along the aim.</summary>
+    void DreadCannonShot(DreadnoughtTrack t, PlayerState s)
+    {
+        if (_fx is null || Lean || !FxActive) return;
+        float cp = MathF.Cos(s.Pitch);
+        var fwd = new Num.Vector3(-MathF.Sin(s.Yaw) * cp, MathF.Cos(s.Yaw) * cp, MathF.Sin(s.Pitch));
+        var gf = new Vector3(fwd.X, fwd.Z, -fwd.Y);
+        var muzzle = DreadMarkerWorld(t, DreadnoughtFeel.CannonMuzzle.Marker) ?? ToGodot(s.Position + new Num.Vector3(0, 0, 2.3f) + fwd * 2.2f);
+        _fx.Play(DreadnoughtFeel.CannonMuzzle.Name, muzzle, AxesFromY(gf), DreadnoughtFeel.CannonMuzzle.Scale);
+        var casing = DreadMarkerWorld(t, DreadnoughtFeel.CannonCasing.Marker) ?? muzzle;
+        _fx.Play(DreadnoughtFeel.CannonCasing.Name, casing, Basis.Identity, DreadnoughtFeel.CannonCasing.Scale);
+        _fx.Play(DreadnoughtFeel.CannonTrail, muzzle, AxesFromY(gf), 1f, muzzle + gf * DreadnoughtFeel.TracerMetres);
+        if (LogDreadFeel) GD.Print($"DNFEEL t {_connectedFor:F2} CannonShot {DreadnoughtFeel.CannonMuzzle.Name}x{DreadnoughtFeel.CannonMuzzle.Scale}, {DreadnoughtFeel.CannonCasing.Name}x{DreadnoughtFeel.CannonCasing.Scale}, {DreadnoughtFeel.CannonTrail}");
     }
 }

@@ -15,12 +15,14 @@ namespace SmClient;
 /// </summary>
 public sealed class DreadnoughtLooks
 {
-    sealed record Read(RigAssets Rig, CharacterPiece Body, List<string> Notes);
+    sealed record Read(RigAssets Rig, CharacterPiece Body, List<string> Notes, Dictionary<string, (string Bone, System.Numerics.Matrix4x4 Local)> Markers);
 
     readonly string _gameDir;
     readonly Task<Read> _read;
 
     public List<string> Notes { get; } = new();
+    /// <summary>The model's marker points (<c>fx_torso</c>, <c>fx_l_foot</c>, the lights ...) as the bone they sit under and the offset in it, read from the object tree (the effects' places; a marker the tree lacks is absent).</summary>
+    public Dictionary<string, (string Bone, System.Numerics.Matrix4x4 Local)> Markers { get; private set; } = new();
     /// <summary>The model's assets once built (null before, or when it failed: <see cref="Failed"/>).</summary>
     public MarineAssets? Assets { get; private set; }
     public bool Failed { get; private set; }
@@ -47,7 +49,10 @@ public sealed class DreadnoughtLooks
         foreach (var v in drawn.Where(v => model.Mesh.Blocks[v.MeshId].Skin is null))
             if (tree.UnderBone(v.RefNode, rig.BoneNames.Contains) is { } placed) rigid[v.MeshId] = new RigidBlock(placed.Bone, placed.Local);
         notes.Add($"dreadnought: rig {DreadnoughtRig.Entry}: {rig.Rig.Skeleton.BoneNames.Count} bones, {rig.Rig.AnimationNames.Count} clips; {model.Mesh.Blocks.Count} blocks, {drawn.Count} drawn ({string.Join(", ", drawn.Select(v => v.RefNode))}); {rigid.Count} rigid");
-        return new Read(rig, new CharacterPiece("musou_" + Visual, model, null) { Rigid = rigid, Hidden = hidden }, notes);
+        var markers = new Dictionary<string, (string, System.Numerics.Matrix4x4)>();
+        foreach (var name in DreadnoughtArm.AllMarkers()) if (tree.UnderBone(name, rig.BoneNames.Contains) is { } at) markers[name] = (at.Bone, at.Local);
+        notes.Add($"dreadnought: {markers.Count} of {DreadnoughtArm.AllMarkers().Count()} marker points found in the object tree ({string.Join(", ", DreadnoughtArm.AllMarkers().Where(n => !markers.ContainsKey(n)))} missing)");
+        return new Read(rig, new CharacterPiece("musou_" + Visual, model, null) { Rigid = rigid, Hidden = hidden }, notes, markers);
     }
 
     /// <summary>Builds the assets once the files are read (main thread, once); the assets when built this call, else null.</summary>
@@ -62,6 +67,7 @@ public sealed class DreadnoughtLooks
         }
         var read = _read.Result;
         Notes.AddRange(read.Notes);
+        Markers = read.Markers;
         try
         {
             var pieces = new PieceCache(_gameDir, read.Rig, Notes);

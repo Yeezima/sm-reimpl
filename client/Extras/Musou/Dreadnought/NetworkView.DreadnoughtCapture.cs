@@ -53,6 +53,8 @@ public partial class NetworkView
         if (CmdFlag("dn-fire-film")) { await DnFireFilm(); return; }
         if (CmdFlag("dn-da-film")) { await DnDaFilm(); return; }
         if (CmdFlag("dn-da-death")) { await DnDaDeath(); return; }
+        if (CmdFlag("dn-buff-probe")) { await DnBuffProbe(); return; }
+        if (CmdFlag("dn-da-clean")) { await DnDaClean(); return; }
         GD.Print($"DNCAPTURE t {_connectedFor:F2} landed, class {client.Predicted.Class}, health {client.Predicted.Health:F0}, locked {DreadnoughtEntryText()}");
         await TfwWait(0.6);
         await DnStill(1, "dn-side-entrance-1");

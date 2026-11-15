@@ -106,9 +106,13 @@ public static class DreadnoughtFeel
     /// <summary>The cannon's shot (the wargear's own lists; docs/discovery.md "DA Dreadnought inventory"): sound events, muzzle flash (scale 1.75), casing effect (scale 3), the tracer trail and the hit container.</summary>
     public static readonly string[] CannonSounds = ["play_sm_heavy_bolter_fire", "play_dreadnought_sm_assault_cannon"];
     public static readonly DaEffect CannonMuzzle = new("autocannon_muzzle", 1.75f, "fx_muzzle_assault_cannon"), CannonCasing = new("shell_casing", 3f, "fx_shells_eject_assault_cannon");
+    /// <summary>How far ahead of the muzzle the tracer trail runs (ours: the shot's hit point is not known to the effect).</summary>
+    public const float TracerMetres = 60f;
     public const string CannonTrail = "chaos_kraken_trail", CannonHit = "dlc3_dread_assault_cannon", ChaosCannonHit = "dlc3_dread_reaper_cannon";
     public static readonly string[] MeltaEffects = ["meltagun_cylinder_blast_3", "meltagun_cylinder_blast_4"], ChaosMeltaEffects = ["csm_meltagun_cylinder_blast_3", "csm_meltagun_cylinder_blast_4"];
     public const string MeltaPumpEvent = "play_melta_gun_pump";
+    /// <summary>The pump sounds this long after the melta's shot (ours: the pump state follows the shot).</summary>
+    public const float MeltaPumpDelay = 0.45f;
 
     // ---- the shake's scaling (Options: Camera shake; Reduce motion) ----
     /// <summary>The share of a shake drawn: nothing with Reduce Motion, else the Camera shake option (0..1).</summary>

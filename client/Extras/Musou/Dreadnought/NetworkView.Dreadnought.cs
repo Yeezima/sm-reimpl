@@ -27,6 +27,9 @@ public partial class NetworkView
     sealed class DreadnoughtTrack
     {
         public bool WasAlive, EngineOn, Seen, ClassDread, HasPos, Corpse, StepDust, Placed;
+        /// <summary>The character wearing his model (the markers' skeleton), set each frame he is posed.</summary>
+        public CharacterViewer? Viewer;
+        public float PrevCooldown, PrevShotCd;
         public string Label = "";
         public Vector3 PrevPos;
         public int PrevClip;
@@ -92,6 +95,7 @@ public partial class NetworkView
         var t = DreadTrack(state.PlayerId);
         bool first = !t.Placed;   // the first time this character is posed (a join in a battle, or the model finishing its load): no edge to read yet, so no entrance replays
         t.Placed = true;
+        t.Viewer = character;
         // A new life (the dead to alive edge) or a jump of the body while alive (a war redeploy, an extraction or a call-back: the server re-locks the entrance at each) starts the entrance clip.
         var pos = new Vector3(state.Position.X, state.Position.Y, state.Position.Z);
         bool jumped = t.HasPos && new Vector2(pos.X - t.PrevPos.X, pos.Y - t.PrevPos.Y).Length() > DreadnoughtTeleportMetres;
@@ -200,6 +204,7 @@ public partial class NetworkView
         float side = s.Slot == WeaponSlot.Pistol ? -0.8f : 0.8f;
         var muzzle = new Vector3(s.Position.X, s.Position.Y, s.Position.Z + 2.3f) + fwd * 2.2f + right * side;
         place = (new Vector3(muzzle.X, muzzle.Z, -muzzle.Y), AxesFromY(new Vector3(fwd.X, fwd.Z, -fwd.Y)));   // game space (X, Y, Z up) to Godot's (X, Z, -Y)
+        if (_dreadTracks.TryGetValue(shooter, out var tr) && DreadMarkerWorld(tr, marker) is { } real && place is { } pl) place = (real, pl.Item2);   // the model's own muzzle marker when it has one (the estimate above is the fallback)
     }
 
     /// <summary>A muzzle flash at the cannon for each frame the clip lost a round, and the footfall dust where the stride lands. Nothing for a lean bot.</summary>
@@ -208,6 +213,9 @@ public partial class NetworkView
         if (_fx is null || Lean) { t.PrevClip = s.Clip; t.StepDust = false; return; }
         // No flash of his own any more (the buff, owner 2026-11-15): the shot path plays the autocannon's whole effect list (flash at its scale 1.5, tracer, casings) and asks ExtrasFxPlace for the barrel, so there is exactly one flash per shot.
         t.PrevClip = s.Clip;
+        // The cannon's own shot effects (owner 2026-11-15: DA's own flash, casings and tracer): the catalogue has no effect bindings for dread_assault_cannon ("no effect data" in the log), so each shot plays the wargear's named effects at the model's own markers.
+        if (s.Slot == WeaponSlot.Ranged && s.Cooldown > t.PrevShotCd + 0.02f && !entering) DreadCannonShot(t, s);
+        t.PrevShotCd = s.Cooldown;
         if (t.StepDust)
         {
             t.StepDust = false;
@@ -245,12 +253,14 @@ public partial class NetworkView
                 DreadAct(sprint ? (foot.Left ? DreadAction.SprintFootLeft : DreadAction.SprintFootRight) : (foot.Left ? DreadAction.FootLeft : DreadAction.FootRight), s, t, own); }
         }
         t.Last = here;
-        if (s.MeleeStep > 0 && t.Strike == 0)
-        {
-            var list = s.MeleeHeavy ? DreadHeavySwing : DreadLightSwing;
-            if (s.MeleeStep <= list.Length) _sound.Post(list[s.MeleeStep - 1], em);
-        }
+        // the arm's sounds are DreadnoughtArm.Cues' now (NetworkView.DreadnoughtFeel.cs: start, antic, swing and hit beats)
         t.Strike = s.MeleeStep;
+        // the melta's pump follows each shot (wargear pump state; the 0.45 s lag is ours)
+        if (s.Slot == WeaponSlot.Pistol && s.Cooldown > t.PrevCooldown + 0.05f)
+        {
+            var pumpEm = em; GetTree().CreateTimer(DreadnoughtFeel.MeltaPumpDelay).Timeout += () => { if (LogDreadFeel) GD.Print($"DNFEEL t {_connectedFor:F2} MeltaPump {DreadnoughtFeel.MeltaPumpEvent}"); _sound?.Post(DreadnoughtFeel.MeltaPumpEvent, pumpEm); };
+        }
+        t.PrevCooldown = s.Cooldown;
         if (s.ReloadLeft > 0f && t.ReloadLeft <= 0f) _sound.Post(DreadReloadEvent, em);
         t.ReloadLeft = s.ReloadLeft;
     }
