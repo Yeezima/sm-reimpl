@@ -192,7 +192,29 @@ public sealed partial class FxPlayer : Node3D
         int at = Array.IndexOf(args, "--fx-skip");
         return at >= 0 && at + 1 < args.Length ? args[at + 1].Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries) : [];
     }
-    public static bool OldPlasmaEdges { get; set; } = Array.IndexOf(OS.GetCmdlineUserArgs(), "--old-plasma-edges") >= 0;
+    /// <summary><c>--fx-tree name,name</c> (test aid, bolt-smoke proof 2026-11-15): prints each named effect's node tree (kind, name, material, blend, duration) once, on its first play.</summary>
+    static readonly string[] TreeNames = FxTreeNames();
+    static string[] FxTreeNames()
+    {
+        var args = OS.GetCmdlineUserArgs();
+        int at = Array.IndexOf(args, "--fx-tree");
+        return at >= 0 && at + 1 < args.Length ? args[at + 1].Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries) : [];
+    }
+    readonly HashSet<string> _treeDumped = new();
+    void DumpTree(string name, CSystem system)
+    {
+        if (TreeNames.Length == 0 || Array.IndexOf(TreeNames, name) < 0 || !_treeDumped.Add(name)) return;
+        GD.Print($"FXTREE {name}");
+        void Walk(CNode n, int depth, string tag)
+        {
+            string mat = n is CSprite s ? $" mat {s.Material.Name} {(s.Additive ? "ADD" : s.Distortion ? "DIST" : "ALPHA")}" : "";
+            GD.Print($"FXTREE {new string(' ', depth * 2)}{tag}{n.GetType().Name} '{n.Name}' dur {n.Duration:F2} smoke {n.Smoke}/{n.SmokeOnly} hide {n.Hide}{mat}");
+            foreach (var c in n.Children) Walk(c, depth + 1, "");
+            foreach (var c in n.OnCollision) Walk(c, depth + 1, "[collision] ");
+        }
+        foreach (var r in system.Roots) Walk(r, 1, "");
+    }
+    public static bool OldPlasmaEdges { get; set; } =Array.IndexOf(OS.GetCmdlineUserArgs(), "--old-plasma-edges") >= 0;
     public static bool ShowSmoke { get; set; } = SmokeRules.SwitchOn(OS.GetCmdlineUserArgs());
 
     /// <summary>
@@ -328,6 +350,7 @@ public sealed partial class FxPlayer : Node3D
         if (!IsReady || System(name) is not { } system) return null;
         if (!float.IsFinite(origin.X + origin.Y + origin.Z) || !float.IsFinite(scale)) return null;
         if (SkipPlays.Length > 0 && Array.IndexOf(SkipPlays, name) >= 0) return null;   // --fx-skip (test aid)
+        DumpTree(name, system);
         if (LogPlays) GD.Print($"FXPLAY {name} scale {scale:F2} priority {priority} at ({origin.X:F1}, {origin.Y:F1}, {origin.Z:F1}) dist {origin.DistanceTo(_camPos):F1}");
         int ambientCount = _ambientCount, cap = MaxEffects;
         ExtrasFxCap(ref cap);   // EXTRAS-HOOK: Musou Mode's GPU sprays raise the cap (musou/gpu-particles)

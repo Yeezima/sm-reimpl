@@ -18,6 +18,13 @@ public static class BoltSmoke
         return wargear.Contains("bolt", StringComparison.OrdinalIgnoreCase) || wargear.Contains("stalker", StringComparison.OrdinalIgnoreCase) || wargear.Contains("sniper_rifle", StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>
+    /// Musou Mode's kill gore after a bolt weapon's kill (owner 2026-11-15, "no black smoke clouds ... when shooting bolt weapons in musou mode"): whether the death's blood effects (<c>body_explode</c>, <c>body_dismemberment</c>,
+    /// <c>body_dismemberment_limb</c>) are played without their smoke-classed parts (the <c>mist</c>'s <c>dark</c> and <c>light</c> rings, <c>smoke</c>, <c>smoke dissipating</c>), the blood, gibs and limbs staying: the kill was by a bolt
+    /// weapon's shot or its bolt blast (<paramref name="byShotOrBoltBlast"/>), not melee, a charge, a grenade or the autocannon, unless <paramref name="old"/>.
+    /// </summary>
+    public static bool KillDropsSmoke(string? wargear, bool byShotOrBoltBlast, bool old) => !old && byShotOrBoltBlast && IsBoltWeapon(wargear);
+
     /// <summary>The dust share for a wargear's effects: <see cref="Share"/> for a bolt weapon unless <paramref name="old"/>, else 1.</summary>
     public static float ShareFor(string? wargear, bool old) => !old && IsBoltWeapon(wargear) ? Share : 1f;
 }

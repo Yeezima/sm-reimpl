@@ -28,6 +28,7 @@ public partial class NetworkView
         var client = _client!;
         if (!await AutocannonDeploy()) return;
         await TfwWait(1.0);
+        if (CmdFlag("bolt-smoke-scene")) { await BoltSmokeSceneRun(); return; }   // fx/bolt-smoke proof: the deterministic scene (NetworkView.BoltSmokeScene.cs)
         var point = _tfwState.Objectives[0].Position;
         await TfwPathTo(point, "walked towards the Orks", 150.0, () => _musouState.MiddleNear(client.Predicted.Position, 26f) is not null);
         string held = _config is { } c && Loadouts.InHand(c, client.Predicted) is { } w ? w.Name : "?";

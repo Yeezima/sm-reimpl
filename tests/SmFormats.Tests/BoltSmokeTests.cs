@@ -22,6 +22,17 @@ public class BoltSmokeTests
     [InlineData(null, false)]
     public void The_rule_covers_the_bolt_weapons_only(string? wargear, bool covered) => Assert.Equal(covered, BoltSmoke.IsBoltWeapon(wargear));
 
+    [Theory]
+    [InlineData("sm_mp_ranged_bolter", true, false, true)]       // a bolter kill by shot or blast: the gore loses its smoke
+    [InlineData("sm_mp_exotic_heavy_bolter", true, false, true)]
+    [InlineData("sm_mp_ranged_sniper_rifle", true, false, true)]
+    [InlineData("sm_mp_ranged_bolter", false, false, false)]     // melee, a charge, a grenade: the gore as the data has it
+    [InlineData("sm_mp_exotic_auto_cannon", true, false, false)] // the autocannon has its own rule
+    [InlineData("sm_mp_ranged_plasma_gun", true, false, false)]
+    [InlineData("sm_mp_ranged_bolter", true, true, false)]       // --old-bolt-smoke
+    public void A_bolt_kills_gore_loses_its_smoke_only_for_a_bolt_shot_or_blast(string wargear, bool byShotOrBoltBlast, bool old, bool drops)
+        => Assert.Equal(drops, BoltSmoke.KillDropsSmoke(wargear, byShotOrBoltBlast, old));
+
     [Fact]
     public void A_covered_weapon_draws_no_alpha_sprites_unless_restored()
     {
