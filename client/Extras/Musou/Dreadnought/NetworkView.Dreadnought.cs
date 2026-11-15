@@ -182,6 +182,15 @@ public partial class NetworkView
         keep = true;
     }
 
+    /// <summary>The Dreadnought's wargear (cannon, melta, and the Chaos reaper cannon under the test aid) read into the effect catalogue: no class carries them, which is why the catalogue had no bindings for them before.</summary>
+    partial void ExtrasEffectWargear(List<string> names, List<string> effects)
+    {
+        if (_config is null || !_config.Extras.HasFlag(ContentExtras.Musou)) return;
+        effects.AddRange(DreadnoughtArm.AllEffectNames());
+        names.Add(DreadnoughtRules.CannonWargear); names.Add(DreadnoughtRules.MeltaWargear);
+        if (DreadChaos) names.Add(DreadnoughtRig.ChaosCannonWargear);
+    }
+
     // ---- effects (D7): the install's effects through the effect player ----
     const string DreadDustEffect = "jump_land";
     /// <summary>The footfall dust's scale (ours, the size of his foot).</summary>
@@ -204,7 +213,12 @@ public partial class NetworkView
         float side = s.Slot == WeaponSlot.Pistol ? -0.8f : 0.8f;
         var muzzle = new Vector3(s.Position.X, s.Position.Y, s.Position.Z + 2.3f) + fwd * 2.2f + right * side;
         place = (new Vector3(muzzle.X, muzzle.Z, -muzzle.Y), AxesFromY(new Vector3(fwd.X, fwd.Z, -fwd.Y)));   // game space (X, Y, Z up) to Godot's (X, Z, -Y)
-        if (_dreadTracks.TryGetValue(shooter, out var tr) && DreadMarkerWorld(tr, marker) is { } real && place is { } pl) place = (real, pl.Item2);   // the model's own muzzle marker when it has one (the estimate above is the fallback)
+        if (_dreadTracks.TryGetValue(shooter, out var tr) && place is { } pl)
+        {
+            // The data names the cannon's flash on a list of markers (fx_muzzle_autocannon_top, then fx_muzzle_assault_cannon: the first the model has is used); the loyalist model has the second only, and the estimate above sat 2 m ahead of the barrel.
+            var real = DreadMarkerWorld(tr, marker) ?? (DreadnoughtFeel.MarkerFallback.TryGetValue(marker, out var alt) ? DreadMarkerWorld(tr, alt) : null);
+            if (real is { } at) place = (at, pl.Item2);
+        }   // the model's own muzzle marker when it has one (the estimate above is the fallback)
     }
 
     /// <summary>A muzzle flash at the cannon for each frame the clip lost a round, and the footfall dust where the stride lands. Nothing for a lean bot.</summary>
@@ -213,9 +227,7 @@ public partial class NetworkView
         if (_fx is null || Lean) { t.PrevClip = s.Clip; t.StepDust = false; return; }
         // No flash of his own any more (the buff, owner 2026-11-15): the shot path plays the autocannon's whole effect list (flash at its scale 1.5, tracer, casings) and asks ExtrasFxPlace for the barrel, so there is exactly one flash per shot.
         t.PrevClip = s.Clip;
-        // The cannon's own shot effects (owner 2026-11-15: DA's own flash, casings and tracer): the catalogue has no effect bindings for dread_assault_cannon ("no effect data" in the log), so each shot plays the wargear's named effects at the model's own markers.
-        if (s.Slot == WeaponSlot.Ranged && s.Cooldown > t.PrevShotCd + 0.02f && !entering) DreadCannonShot(t, s);
-        if (s.Slot == WeaponSlot.Pistol && s.Cooldown > t.PrevMeltaCd + 0.05f && !entering) DreadMeltaShot(t, s);
+        // The cannon's and the melta's own effects (flash, casings, tracer, impacts) are the wargear's bindings through the normal shot path, now that the catalogue reads their files (ExtrasEffectWargear); no per-shot copy here.
         t.PrevMeltaCd = s.Cooldown;
         t.PrevShotCd = s.Cooldown;
         if (t.StepDust)

@@ -367,6 +367,7 @@ public static class Combat
         int shotStage = 0, meleeHitStep = 0;
         float dt = c.TickSeconds;
         float attackSpeed = Stims.AttackSpeed(c, s);   // Musou Mode's combat stims (owner 2026-11-09): 1.2 while they work, 1 everywhere else
+        bool noHeat = Stims.NoHeat(c, s);               // the Dreadnought's Overcharge: the gun builds no heat while the power-up runs (heat built before cools as usual)
         bool freeAmmo = Stims.FreeAmmo(c, s);          // … and no round leaves the magazine
         // Added content's fire boost (Musou Mode's Rapid Fire powerup, owner 2026-11-10; PlayerState.FireBoostLeft): the guns fire SimConfig.FireBoost times as fast and spend nothing. 1 and never set in Classic PvP.
         float fireBoost = s.Alive && s.FireBoostLeft > 0f ? c.FireBoost : 1f;
@@ -813,7 +814,7 @@ public static class Combat
             if (!freeAmmo && !c.EndlessClip(w)) clip -= Math.Min(Math.Max(1, w.AmmoPerShot), clip);   // EndlessClip: added content's weapon with no clip (Musou's autocannon); false in Classic PvP
             cooldown += w.ShotCooldown;
             fired = true; shotStage = 0;
-            (heat, overheated, sinceHeat) = AddShotHeat(w.Heat, heat, overheated);
+            if (!noHeat) (heat, overheated, sinceHeat) = AddShotHeat(w.Heat, heat, overheated);
             if (Shots.RemoteDetonated(w)) projectilesOut = Math.Min(projectilesOut + 1, w.Projectile!.MaxActive);
             if (w.Bursts) burstLeft = w.BurstLength - 1;   // the burst's later rounds follow (BurstRound)
         }
@@ -826,7 +827,7 @@ public static class Combat
             if (cooldown > TimeEpsilon && w.ShotCooldown - cooldown + TimeEpsilon < number * w.BurstInterval) return false;
             if (!freeAmmo && !c.EndlessClip(w)) clip -= Math.Min(Math.Max(1, w.AmmoPerShot), clip);
             fired = true; shotStage = 0;
-            (heat, overheated, sinceHeat) = AddShotHeat(w.Heat, heat, overheated);
+            if (!noHeat) (heat, overheated, sinceHeat) = AddShotHeat(w.Heat, heat, overheated);
             burstLeft--;
             return true;
         }

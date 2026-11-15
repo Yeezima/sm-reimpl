@@ -111,12 +111,15 @@ public partial class NetworkView
         string dir = _gameDir;
         bool loadDeath = !NoDeathFx;   // read on the main thread (it asks the engine for the command line)
         var sources = PresentationSourceMap();   // W0b: an added weapon shown with install files' effects (Musou's arsenal); empty without added content: the catalogue as before
+        var extraEffectWargear = new List<string>();
+        var extraEffectNames = new List<string>();
+        ExtrasEffectWargear(extraEffectWargear, extraEffectNames);   // EXTRAS-HOOK: install wargear no class carries whose effects an added mode plays through the normal shot path (the Dreadnought's cannon and melta)
         var effectNames = EffectNameMap();   // W1c: and with other effects in place of some of the source's (the autocannon's loyalist flash and tracer); empty without added content
         _fxLoad = Task.Run(() =>
         {
             var watch = System.Diagnostics.Stopwatch.StartNew();
-            var catalogue = sources.Count == 0 && effectNames.Count == 0 ? EffectCatalogue.Load(dir)
-                : EffectCatalogue.Load(dir, sources.Values.SelectMany(v => v)).WithSources(sources).WithEffectNames(effectNames);
+            var catalogue = sources.Count == 0 && effectNames.Count == 0 && extraEffectWargear.Count == 0 ? EffectCatalogue.Load(dir)
+                : EffectCatalogue.Load(dir, sources.Values.SelectMany(v => v).Concat(extraEffectWargear)).WithSources(sources).WithEffectNames(effectNames);
             var library = FxLibrary.Load(dir);
             var names = new HashSet<string>(StringComparer.Ordinal);
             void Add(IEnumerable<FxBinding> bindings) { foreach (var b in bindings) if (b.Play is { Name.Length: > 0 } p) names.Add(p.Name); }
@@ -132,6 +135,7 @@ public partial class NetworkView
             foreach (var pack in catalogue.JumpPacks.Values) foreach (var n in pack.FlightNames) names.Add(n);
             foreach (var plays in catalogue.Dashes.Values) foreach (var p in plays) if (p.Name.Length > 0) names.Add(p.Name);
             names.Add(ArmourSparksEffect);   // fx/bolt-tracer-impact
+            foreach (var n in extraEffectNames) names.Add(n);   // EXTRAS-HOOK result: the effects an added mode plays by name (the Dreadnought's feel)
             names.Add(SlashFlashEffect);   // fx/air-slash-landing: the perk landing's burst for the air slash (NetworkView.SlashFlash.cs)
             // F-D1: the death effects the player blueprints and jump packs bind (their ground impact runs collisions like the jump packs' other ground effects).
             DeathEffects? death = null; string? deathError = null;
@@ -629,6 +633,9 @@ public partial class NetworkView
 
     /// <summary>Added content (Musou's Dreadnought): where a shooter's effect <paramref name="marker"/> is when it has no weapon model (null: the usual place).</summary>
     partial void ExtrasFxPlace(int shooter, string marker, ref (Vector3, Basis)? place);
+
+    /// <summary>Added content: install wargear files the effect catalogue also reads (no class carries them) and effect names the effect load also compiles; none without added content.</summary>
+    partial void ExtrasEffectWargear(List<string> names, List<string> effects);
 
     /// <summary>Barrel smoke when a player stops firing (0.3 s without a shot).</summary>
     void FxStopFireSmoke()

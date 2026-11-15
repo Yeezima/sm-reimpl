@@ -280,6 +280,9 @@ public sealed partial class World
         }
     }
 
+    /// <summary>Where the last <see cref="MusouCleave"/> struck an enemy (the nearest one's chest), null when it struck none: the point of the Dreadnought's Overcharge shockwave.</summary>
+    Vector3? _musouCleaveHit;
+
     /// <summary>The cleave of one melee step (see the class summary).</summary>
     void MusouCleave(int attacker, PlayerState state, MeleeStep step)
     {
@@ -302,6 +305,7 @@ public sealed partial class World
         var eye = state.Position + new Vector3(0, 0, Config.EyeHeight);
         int n = musou.Query(state.Position, range, _musouNear, Config.MeleeVerticalReach);
         int struck = 0;
+        _musouCleaveHit = null; float nearest = float.MaxValue;   // the Dreadnought's Overcharge: where the swing struck (the nearest enemy hit)
         for (int k = 0; k < n && struck < most; k++)
         {
             if (!musou.TryGet(_musouNear[k], out var e) || !e.Alive) continue;   // !Alive: one a Weirdboy's burst killed earlier in this loop
@@ -310,6 +314,7 @@ public sealed partial class World
             if (distance > 1e-4f && Vector2.Dot(flat / distance, forward) < minCos) continue;   // overlapping counts as in front, as the core's
             if (Blocked(eye, MusouSim.Chest(e.Position, musou.Body(e.Type).Height))) continue;
             struck++;
+            if (distance < nearest) { nearest = distance; _musouCleaveHit = MusouSim.Chest(e.Position, musou.Body(e.Type).Height); }
             MusouMeleeHeal(attacker, e.Id);   // the owner 2026-11-06: a heal for every enemy hit (one already healed for by this tick's stomp is not counted twice)
             var push = distance > 1e-4f ? flat / distance : forward;
             bool killed = false;

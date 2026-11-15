@@ -19,6 +19,10 @@ public static class DreadnoughtMelee
 
     static SplashSpec Area(float damage, float armour) => new(AreaRadius, new DamageSpec(damage, armour, 1f, 1f, 1f, 1f, false) { Type = DamageType.Melee }, [], false, true, "target_all");
 
+    /// <summary>Overcharge's shockwave (the power-up's addition, owner 2026-11-15): <see cref="OverchargeRadius"/> **ours (estimate)**, knockback and interrupt through the stomp's blast rules, no damage.</summary>
+    public const float OverchargeRadius = 3f;
+    public static SplashSpec Overcharge => Area(0f, 0f) with { Radius = OverchargeRadius };
+
     /// <summary>The slam's, the stomp's and a footfall's blast.</summary>
     public static SplashSpec Slam => Area(SlamDamage, 0f);
     public static SplashSpec Stomp => Area(StompDamage, 250f);

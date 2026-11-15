@@ -186,6 +186,11 @@ public partial class NetworkView
             DreadCue(key, beat, s, t);
             if (beat == DaArmBeat.Start) DreadPlayEffects(DreadnoughtArm.EffortBig, s, t);
             if (beat == DaArmBeat.Hit && own) DreadRumble(DreadnoughtArm.ArmHit);
+            if (beat == DaArmBeat.Hit && s.StimLeft > 0f)   // Overcharge: the wave the server releases at a hit (drawn on each hit beat of the power-up; the sim decides whom it moves)
+            {
+                DreadPlayEffects(DreadnoughtArm.OverchargeWave, s, t);
+                if (own && _client is not null) _dreadShakes.Add((DreadnoughtFeel.OverchargeShake, _connectedFor, 0f, false));
+            }
         }
     }
 
@@ -222,33 +227,5 @@ public partial class NetworkView
         if (LogDreadFeel) GD.Print($"DNFEEL t {_connectedFor:F2} Rumble small {r.Small * k:F2} large {r.Large * k:F2} for {r.Seconds:F2} s");
         if (k <= 0f || Lean) return;
         foreach (int pad in Input.GetConnectedJoypads()) Input.StartJoyVibration(pad, r.Small * k, r.Large * k, r.Seconds);
-    }
-
-    /// <summary>One cannon shot's effects: the muzzle flash (autocannon_muzzle x1.75) and the casing (shell_casing x3) at their markers, the tracer trail (chaos_kraken_trail) from the muzzle along the aim.</summary>
-    void DreadCannonShot(DreadnoughtTrack t, PlayerState s)
-    {
-        if (_fx is null || Lean || !FxActive) return;
-        float cp = MathF.Cos(s.Pitch);
-        var fwd = new Num.Vector3(-MathF.Sin(s.Yaw) * cp, MathF.Cos(s.Yaw) * cp, MathF.Sin(s.Pitch));
-        var gf = new Vector3(fwd.X, fwd.Z, -fwd.Y);
-        var muzzle = DreadMarkerWorld(t, DreadnoughtFeel.CannonMuzzle.Marker) ?? ToGodot(s.Position + new Num.Vector3(0, 0, 2.3f) + fwd * 2.2f);
-        _fx.Play(DreadnoughtFeel.CannonMuzzle.Name, muzzle, AxesFromY(gf), DreadnoughtFeel.CannonMuzzle.Scale);
-        var casing = DreadMarkerWorld(t, DreadnoughtFeel.CannonCasing.Marker) ?? muzzle;
-        _fx.Play(DreadnoughtFeel.CannonCasing.Name, casing, Basis.Identity, DreadnoughtFeel.CannonCasing.Scale);
-        _fx.Play(DreadnoughtFeel.CannonTrail, muzzle, AxesFromY(gf), 1f, muzzle + gf * DreadnoughtFeel.TracerMetres);
-        if (LogDreadFeel && DreadMarkerWorld(t, DreadnoughtFeel.CannonMuzzle.Marker) is { } mk) GD.Print($"DNFEEL muzzle marker offset from the feet (godot x,y up,z): {mk - ToGodot(s.Position)}, aim {gf}, found casing marker {DreadMarkerWorld(t, DreadnoughtFeel.CannonCasing.Marker) is not null}");
-        if (LogDreadFeel) GD.Print($"DNFEEL t {_connectedFor:F2} CannonShot {DreadnoughtFeel.CannonMuzzle.Name}x{DreadnoughtFeel.CannonMuzzle.Scale}, {DreadnoughtFeel.CannonCasing.Name}x{DreadnoughtFeel.CannonCasing.Scale}, {DreadnoughtFeel.CannonTrail}");
-    }
-
-    /// <summary>One melta shot's effects: the wargear's two cylinder blasts (<c>meltagun_cylinder_blast_3</c> and <c>_4</c>; Chaos' <c>csm_</c> copies) at the left hand's muzzle marker (the melta arm) along the aim. The catalogue has no bindings for <c>dread_melta</c> ("no effect data" in the log), so nothing else played before.</summary>
-    void DreadMeltaShot(DreadnoughtTrack t, PlayerState s)
-    {
-        if (_fx is null || Lean || !FxActive) return;
-        float cp = MathF.Cos(s.Pitch);
-        var fwd = new Num.Vector3(-MathF.Sin(s.Yaw) * cp, MathF.Cos(s.Yaw) * cp, MathF.Sin(s.Pitch));
-        var gf = new Vector3(fwd.X, fwd.Z, -fwd.Y);
-        var at = DreadMarkerWorld(t, DreadnoughtArm.LeftHand) ?? ToGodot(s.Position + new Num.Vector3(0, 0, 2.3f) + fwd * 2.2f);
-        foreach (var name in DreadChaos ? DreadnoughtFeel.ChaosMeltaEffects : DreadnoughtFeel.MeltaEffects) _fx.Play(name, at, AxesFromY(gf), 1f);
-        if (LogDreadFeel) GD.Print($"DNFEEL t {_connectedFor:F2} MeltaShot {string.Join(", ", DreadChaos ? DreadnoughtFeel.ChaosMeltaEffects : DreadnoughtFeel.MeltaEffects)}");
     }
 }

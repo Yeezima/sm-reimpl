@@ -107,7 +107,7 @@ public sealed partial class World
             if (!_dreadnoughtEntry.TryGetValue(id, out float left)) { _dreadnoughtEntry[id] = DreadnoughtRules.InvulnerableSeconds; continue; }   // enters this tick: the whole 5 s are still ahead
             if (left > 0f) _dreadnoughtEntry[id] = MathF.Max(0f, left - dt);
             DreadnoughtFootfalls(id, p);
-            if (_players.TryGetValue(id, out var after)) DreadnoughtBuffRegen(id, after);
+            if (_players.TryGetValue(id, out var after)) { DreadnoughtBuffRegen(id, after); DreadnoughtBuffExtra(id, after); }
         }
     }
 
@@ -137,6 +137,29 @@ public sealed partial class World
         if (!_dreadnoughtSprints.TryGetValue(id, out var gate)) _dreadnoughtSprints[id] = gate = new DreadnoughtSprintGate();
         gate.Apply(ref input, 1f / Math.Max(1, Config.TickRate));
     }
+
+    /// <summary>
+    /// Overcharge, the power-up's addition (owner 2026-11-15; Musou only): while the buff runs, a melee swing that strikes releases ONE shockwave at the hit (the nearest enemy struck; <see cref="MusouCleave"/> sets the point), knocking back and
+    /// interrupting every enemy within <see cref="DreadnoughtMelee.OverchargeRadius"/> of it. No damage of its own (the swing and the stomp's own blast deal theirs): knockback and interrupt only. This runs once per resolved swing, so
+    /// one swing that hits several Orks releases one wave.
+    /// </summary>
+    void DreadnoughtOvercharge(int attacker, in PlayerState state)
+    {
+        if (_musouCleaveHit is not { } point || !DreadnoughtRules.IsDreadnought(Config, state.Class) || !Stims.NoHeat(Config, state)) return;
+        MusouBlast(attacker, point, DreadnoughtMelee.Overcharge, melee: true);
+        _dreadnoughtShockwaves++;
+    }
+
+    /// <summary>Shockwaves released since the match began (test aid).</summary>
+    internal int _dreadnoughtShockwaves;
+    /// <summary>Shockwaves released so far (test aid).</summary>
+    public int DreadnoughtShockwaves => _dreadnoughtShockwaves;
+
+    /// <summary>
+    /// The one place for an extra power-up effect on top of the data's (regeneration x2, reaction immunity; owner 2026-11-15: an addition is coming, not chosen yet). Called every tick while a Dreadnought lives; act only when
+    /// <c>p.StimLeft &gt; 0</c> (the buff runs). Empty on purpose. The length is the single constant <see cref="DreadnoughtRules.BuffLifetime"/> (10 s, times Musou's <c>MusouCombatRules.StimLifetimeScale</c> = 30 s).
+    /// </summary>
+    void DreadnoughtBuffExtra(int id, in PlayerState p) { }
 
     /// <summary>The buff's second regeneration (D6; data <c>dread_buff</c>: regeneration x2): while his stim runs, past the regeneration delay, health comes back at one more regeneration rate.</summary>
     void DreadnoughtBuffRegen(int id, in PlayerState p)

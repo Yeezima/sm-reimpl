@@ -268,6 +268,7 @@ public sealed partial class World
         if (_musou is null) return;
         int librarian = LibrarianMeleeBegin(attacker);   // Librarian/World.Librarian.cs: a swing that strikes takes stress off
         MusouCleave(attacker, state, step);   // World.MusouCombat.cs
+        DreadnoughtOvercharge(attacker, state);   // Dreadnought/World.Dreadnought.cs: the power-up's shockwave at the hit, once per swing
         TfwMekMelee(attacker, state, step);   // Campaign/World.TfwMeks.cs: the contraptions (expansion S4)
         LibrarianMeleeEnd(attacker, librarian);
     }

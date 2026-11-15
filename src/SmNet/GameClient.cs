@@ -621,7 +621,8 @@ public sealed partial class GameClient
         _roundRespawnPending = false;
         SpreadOutcomes[(int)spreadOutcome]++;
         // perks/inert-2: the combat stims' time left is not on the wire either: derived from the record's item cooldown, past it the prediction's (Stims.Carry).
-        mine = Stims.Carry(_config, mine, spreadOutcome is SpreadReconcile.Outcome.Carried or SpreadReconcile.Outcome.Mismatch ? predictedSpread.State : null);
+        // Past the item's cooldown the prediction's time is the only one there is, so it is offered whatever the spread did with it (Stims.Carry checks class, item, count and cooldown itself); before, a spread outcome that rested the bloom dropped the Dreadnought's 30 s power-up to 0 once its cooldown ended (his lifetime outlasts the cooldown; the marines' stims do not).
+        mine = Stims.Carry(_config, mine, _history.TryGetValue(s.ServerTick, out var stimHistory) ? stimHistory.State : Predicted);   // no entry for that tick: the newest prediction (never 0 for lack of one)
         if (ExtrasCarry is { } carry) mine = carry(mine, s.ServerTick);   // EXTRAS-HOOK: added content's own timers not on the wire (Musou: the Rapid Fire powerup's PlayerState.FireBoostLeft)
 
         // Reconcile: take the authoritative state and replay every input the server has not applied yet.

@@ -61,6 +61,9 @@ public static class DreadnoughtArm
     /// <summary>The share of a rumble played: none with Reduce motion, else the Camera shake option (the game has no vibration option of its own).</summary>
     public static float RumbleScale(float cameraShakeOption, bool reduceMotion) => DreadnoughtFeel.Scale(cameraShakeOption, reduceMotion);
 
+    /// <summary>Overcharge's wave at the hit (the stomp's displace effects scaled down: ours, an estimate), at the arm's hand marker; played on each swing's hit while the power-up runs.</summary>
+    public static readonly DaEffect[] OverchargeWave = [E("knockback_stomp_dmg_furied", 0.3f, LeftHand), E("interrupt_stomp_dmg", 0.4f, LeftHand)];
+
     // ---- lights and eyes (the blueprint's lifetime action; played while he lives, on the model's markers) ----
     public static readonly DaEffect[] Lights =
     [
@@ -77,8 +80,13 @@ public static class DreadnoughtArm
     public static readonly DaEffect[] EffortSprint = [new("stormboy_flying", 0.25f, "fx_l_exhaust"), new("stormboy_flying", 0.25f, "fx_r_exhaust"), new("autocannon_dmg_explosive_small", 0.2f, "fx_l_exhaust02"), new("autocannon_dmg_explosive_small", 0.2f, "fx_r_exhaust02")];
     public static readonly DaEffect[] EffortBig = [new("stormboy_flying", 0.25f, "fx_l_exhaust"), new("stormboy_flying", 0.25f, "fx_r_exhaust"), new("autocannon_dmg_explosive_small", 0.2f, "fx_l_exhaust"), new("autocannon_dmg_explosive_small", 0.2f, "fx_r_exhaust")];
 
+    /// <summary>Every effect name the feel plays (the effect player only plays what was compiled up front: these are added to the effect load; before, the lights, eyes, death blasts and others were refused as unknown).</summary>
+    public static IEnumerable<string> AllEffectNames() =>
+        Cues.SelectMany(c => c.Effects).Concat(Lights).Concat(EffortStart).Concat(EffortSprint).Concat(EffortBig).Concat(DreadnoughtFeel.Table.SelectMany(f => f.Effects))
+            .Select(e => e.Name).Concat(DreadnoughtFeel.MeltaEffects).Concat(DreadnoughtFeel.ChaosMeltaEffects).Append(DreadnoughtFeel.CannonTrail).Distinct();
+
     /// <summary>Every marker name the feel places effects on (read from the model's object tree by the client).</summary>
     public static IEnumerable<string> AllMarkers() =>
         Cues.SelectMany(c => c.Effects).Concat(Lights).Concat(EffortStart).Concat(EffortSprint).Concat(EffortBig).Concat(DreadnoughtFeel.Table.SelectMany(f => f.Effects))
-            .Select(e => e.Marker).Concat(["fx_muzzle_assault_cannon", "fx_shells_eject_assault_cannon"]).Distinct();
+            .Select(e => e.Marker).Concat(["fx_muzzle_assault_cannon", "fx_shells_eject_assault_cannon", "fx_muzzle", "fx_muzzle_autocannon_top", "fx_muzzle_autocannon_bottom"]).Distinct();
 }

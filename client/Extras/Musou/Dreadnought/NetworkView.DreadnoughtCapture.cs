@@ -56,6 +56,7 @@ public partial class NetworkView
         if (CmdFlag("dn-buff-probe")) { await DnBuffProbe(); return; }
         if (CmdFlag("dn-da-clean")) { await DnDaClean(); return; }
         if (CmdFlag("dn-da-wreck")) { await DnDaWreck(); return; }
+        if (CmdFlag("dn-da-overcharge")) { await DnDaOvercharge(); return; }
         GD.Print($"DNCAPTURE t {_connectedFor:F2} landed, class {client.Predicted.Class}, health {client.Predicted.Health:F0}, locked {DreadnoughtEntryText()}");
         await TfwWait(0.6);
         await DnStill(1, "dn-side-entrance-1");

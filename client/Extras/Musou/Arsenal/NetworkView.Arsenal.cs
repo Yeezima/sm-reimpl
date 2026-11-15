@@ -77,6 +77,7 @@ public partial class NetworkView
     /// </summary>
     partial void ExtrasEffectNames(string wargear, ref IReadOnlyDictionary<string, string>? names)
     {
+        if (_config is not null && DreadChaos && string.Equals(wargear, SmSim.Extras.Musou.DreadnoughtRules.MeltaWargear, StringComparison.OrdinalIgnoreCase)) { names = SmContent.Extras.Musou.DreadnoughtFeel.ChaosMeltaNames; return; }   // the Chaos Dreadnought's melta: the csm_ cylinder blasts
         if (OldAutocannonFx || _config is null) return;
         if (!ArsenalRules.Shown(_config.Extras, wargear)) return;
         names = Arsenal.EffectNames(_config.Extras, wargear);

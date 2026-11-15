@@ -75,6 +75,7 @@ public class ExtrasBoundaryTests
         ("client/NetworkView.Fx.cs", "ExtrasOwnShotContact"),   // NetworkView.ExtrasOwnShotContact(PlayerState, WeaponSpec, Vector3, Vector3, Vector3), in FxPlayOwnShot: the predicted shot's impact and hit sound on an Ork
         ("client/NetworkView.Fx.cs", "ExtrasImpactDustShare"),   // NetworkView.ExtrasImpactDustShare(string, ref float), in FxImpact: Musou's autocannon hits draw half their dust and debris (musou/autocannon-dust)
         ("client/NetworkView.Fx.cs", "ExtrasFxPlace"),   // NetworkView.ExtrasFxPlace(int, string, ref (Vector3, Basis)?), in FxPlace: Musou's Dreadnought has no weapon model, so its cannon's and melta's effect markers are the barrel on his body (the 2026-11-15 buff)
+        ("client/NetworkView.Fx.cs", "ExtrasEffectWargear"),   // NetworkView.ExtrasEffectWargear(List<string>, List<string>), in SetUpFx: install wargear no class carries (the Dreadnought's cannon, melta, reaper cannon) and effect names Musou's Dreadnought plays by name, read into the effect load (the 2026-11-15 DA pass)
         ("client/NetworkView.Fx.cs", "ExtrasShakeTotal"),   // NetworkView.ExtrasShakeTotal(float, float, ref float), in FxShake: Musou's shakes do not stack
         ("src/SmSim/WorldBodies.cs", "ExtrasRecordBodies"),   // World.ExtrasRecordBodies(), each tick: added content's solid bodies (Musou's big Orks, musou/boss-collision)
         ("src/SmSim/WorldBodies.cs", "ExtrasBodies"),   // World.ExtrasBodies(uint, ref BodyView?): those bodies in a player's movement collision

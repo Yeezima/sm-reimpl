@@ -70,6 +70,9 @@ public static class DreadnoughtFeel
     public static readonly DaShake DeathBlastLong = new("death blast (torso)", 0.35f, 0f, 0.65f, A(0, 12, 0), A(0f, 12, 0), A(0.85f, 15, 200), A(0.75f, 25, 100), A(1f, 10, 50), 5f, 25f);
 
     /// <summary>Every shake, for the table and the tests.</summary>
+    /// <summary>Overcharge's wave (the power-up's addition, owner 2026-11-15): the stomp area's shake at a quarter of its amplitudes (**ours (estimate)**), on the own camera.</summary>
+    public static readonly DaShake OverchargeShake = StompArea with { Name = "overcharge wave", Horizontal = Q(StompArea.Horizontal), Vertical = Q(StompArea.Vertical), Pitch = Q(StompArea.Pitch), Yaw = Q(StompArea.Yaw), Roll = Q(StompArea.Roll) };
+    static DaShakeAxis Q(DaShakeAxis a) => a with { Amplitude = a.Amplitude * 0.25f };
     public static readonly DaShake[] Shakes = [Footfall, SprintFootfall, LandHeavy, LandLight, HitWall, Stomp, StompArea, Entry, DeathBlastLight, DeathBlastLong];
 
     // ---- the per-action table (the checklist docs/discovery.md "DA Dreadnought inventory" mirrors; the client plays exactly these) ----
@@ -110,6 +113,10 @@ public static class DreadnoughtFeel
     public const float TracerMetres = 60f;
     public const string CannonTrail = "chaos_kraken_trail", CannonHit = "dlc3_dread_assault_cannon", ChaosCannonHit = "dlc3_dread_reaper_cannon";
     public static readonly string[] MeltaEffects = ["meltagun_cylinder_blast_3", "meltagun_cylinder_blast_4"], ChaosMeltaEffects = ["csm_meltagun_cylinder_blast_3", "csm_meltagun_cylinder_blast_4"];
+    /// <summary>The Chaos Dreadnought's melta plays the same wargear's <c>csm_</c> cylinder blasts (the install holds a second <c>dread_melta</c> entry with them): the effect renames the effect catalogue applies.</summary>
+    public static readonly IReadOnlyDictionary<string, string> ChaosMeltaNames = new Dictionary<string, string> { [MeltaEffects[0]] = ChaosMeltaEffects[0], [MeltaEffects[1]] = ChaosMeltaEffects[1] };
+    /// <summary>A marker the wargear's effect names first that the model lacks, and the model's own for it (the data lists <c>fx_muzzle_autocannon_top</c> then <c>fx_muzzle_assault_cannon</c> on the flash; the loyalist has the second, the Chaos model both). The melta's <c>fx_muzzle</c> is on the model as <c>fx_Muzzle</c> (names compare without case).</summary>
+    public static readonly IReadOnlyDictionary<string, string> MarkerFallback = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { ["fx_muzzle_autocannon_top"] = "fx_muzzle_assault_cannon", ["fx_muzzle_autocannon_bottom"] = "fx_muzzle_assault_cannon" };
     public const string MeltaPumpEvent = "play_melta_gun_pump";
     /// <summary>The pump sounds this long after the melta's shot (ours: the pump state follows the shot).</summary>
     public const float MeltaPumpDelay = 0.45f;

@@ -80,6 +80,29 @@ public partial class NetworkView
         GetTree().Quit(0);
     }
 
+    /// <summary><c>--dn-da-overcharge</c> (with <c>--write-movie</c>): the power-up (Overcharge): used at once, then the cannon held for 12 s (no heat), then eight melee swings into whatever stands in front. <c>DNFILM seg NAME frame N</c> marks each part; <c>DNOVER</c> lines log the heat.</summary>
+    async Task DnDaOvercharge()
+    {
+        var client = _client!;
+        void Seg(string name) => GD.Print($"DNFILM seg {name} frame {Engine.GetFramesDrawn()} t {_connectedFor:F1}");
+        await TfwWait(5.4);
+        _dnCam = 1;
+        Seg("buff");
+        await TfwActionTap(GameAction.Grenade); await TfwWait(1.0);
+        // the server runs in real time and a rendering run is slower than its clock: the parts follow the power-up's own time left, not the client's seconds
+        Seg("cannon");
+        TfwAction(GameAction.Fire, true);
+        double t0 = _connectedFor, log = t0;
+        while (client.Predicted.StimLeft > 9f && _connectedFor < t0 + 40.0) { await TfwFrames(); if (_connectedFor >= log) { log += 0.5; GD.Print($"DNOVER heat {client.Predicted.Heat:F2} overheated {client.Predicted.Overheated} stim {client.Predicted.StimLeft:F1} cooldown {client.Predicted.GrenadeCooldown:F1} grenades {client.Predicted.Grenades}"); } }
+        TfwAction(GameAction.Fire, false);
+        await TfwWait(0.3);
+        Seg("melee");
+        for (int k = 0; k < 8; k++) { await TfwActionTap(GameAction.Melee); await TfwWait(0.9); GD.Print($"DNOVER melee {k} stim {client.Predicted.StimLeft:F1}"); }
+        Seg("end");
+        _dnCam = 0;
+        GetTree().Quit(0);
+    }
+
     /// <summary><c>--dn-da-wreck</c> (server <c>SM_DN_TEST_KILL=&lt;s&gt;</c>; with <c>--write-movie</c>): after the landing he stands in the open from the side view until the server kills him, then 9 s of the wreck. <c>DNFILM seg death</c> marks the frame he died at.</summary>
     async Task DnDaWreck()
     {

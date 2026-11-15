@@ -28,12 +28,12 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3302 spec table rows: **2427 tagged**, 616 not tagged (read from data with high confidence), 259 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 733 rows of the changes document.
+Scanned 3309 spec table rows: **2433 tagged**, 617 not tagged (read from data with high confidence), 259 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 734 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
 | Movement (critical) | 419 | 358 | 354 | 119 | 12 |
-| Combat core (critical) | 21 | 11 | 19 | 15 | 9 |
+| Combat core (critical) | 22 | 12 | 20 | 15 | 9 |
 | Weapons (critical) | 121 | 73 | 106 | 54 | 3 |
 | Melee (critical) | 156 | 135 | 113 | 56 | 5 |
 | Jump pack (critical) | 85 | 77 | 69 | 19 | 0 |
@@ -50,27 +50,27 @@ Scanned 3302 spec table rows: **2427 tagged**, 616 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 23 | 13 | 13 | 13 | 7 |
-| Core simulation (provisional values) | 739 | 693 | 526 | 189 | 1 |
+| Core simulation (provisional values) | 744 | 698 | 528 | 189 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 249 | 238 | 134 | 68 | 0 |
-| **All areas** | **2427** | 2143 | 1798 | 744 | 38 |
+| **All areas** | **2433** | 2149 | 1801 | 744 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1414 |
-| confidence: low | 862 |
-| confidence: medium | 807 |
+| kind: ours | 1418 |
+| confidence: low | 864 |
+| confidence: medium | 808 |
 | notes: ours | 417 |
 | kind: interpretation | 390 |
 | notes: estimate | 204 |
-| kind: estimate | 168 |
+| kind: estimate | 170 |
 | confidence: none (low) | 129 |
 | kind: provisional | 103 |
 | kind: user's knowledge | 56 |
+| kind: choice | 41 |
 | notes: provisional | 41 |
-| kind: choice | 39 |
 | section: provisional | 38 |
 | section: placeholder | 35 |
 | notes: user's knowledge | 30 |
@@ -807,7 +807,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-6DA45788` | Dreadnought: walk, run and sprint speeds | the data's times **1.3**: run 8.45, strafe 8.45, back 5.85, sprint 14.3, walk 3.9; aiming run 6.5, strafe 6.5, back 5.2 (m/s) | kind: ours | owner 2026-11-15: "run 30% faster than current, and sprint 30% faster than current" (the data's 6.5 and 11 stay as `Data*Speed`) | Dreadnought: walk, run and sprint speeds: compare with SM1 by timing a run over a known distance. Ours: the data's times 1.3: run 8.45, strafe 8.45, back 5.85, sprint 14.3… | ☐ |
 | `R-365B0276` | Dreadnought: shake of a sprint footfall | 0.15 s + 0.075 s; vertical 0.15, pitch 1.0, yaw 0.6, roll 0.65 (same frequencies 4 / 15 / 25 Hz); 2.5 to 15 m (m, degrees) | kind: ours; confidence: low | `evt_left_foot_sprint` / `evt_right_foot_sprint` | Dreadnought: shake of a sprint footfall: compare with SM1 by timing a run over a known distance. Ours: 0.15 s + 0.075 s; vertical 0.15, pitch 1.0, yaw 0.6, roll 0.65 (same… | ☐ |
 
-### Combat core (gameplay-critical) (21)
+### Combat core (gameplay-critical) (22)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -879,6 +879,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-78614D43` | Dreadnought: damage states | the data's `health_actions`: at 66 % and 33 % of his health the exhaust smoke, the shoulder armour effects and fire; the armour break (`play_armor_break`) at 33 % (share of the Musou pool) | kind: ours; confidence: medium | `health_ext/health_actions` | Dreadnought: damage states: compare with SM1 by counting hits to kill and by video of the health bar. Ours: the data's health_actions: at 66 % and 33 % of his health the exhaust… | ☐ |
+
+*Spec section: Musou Dreadnought power-up: Overcharge (claude/musou-dreadnought-da, 2026-11-15; `MusouSim.Version` 60, `TfwRules.Version` 85; no protocol change; Musou only)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-4212C891` | Overcharge: the shockwave's damage | **none** of its own (`DreadnoughtMelee.Overcharge` damage 0): the swing and the stomp's own blast deal their damage; the wave only moves and interrupts (damage) | kind: ours; confidence: medium | the owner: "no extra damage beyond the stomp's own, if it has any"; chosen: none, because the swing already damages every Ork in the cleave | Overcharge: the shockwave's damage: compare with SM1 by counting hits to kill and by video of the health bar. Ours: none of its own (DreadnoughtMelee.Overcharge damage 0): the swing and… | ☐ |
 
 ### Weapons (gameplay-critical) (121)
 
@@ -2499,7 +2505,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (739)
+### Core simulation (provisional values) (744)
 
 *Spec section: Provisional values in use*
 
@@ -3690,6 +3696,16 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-923823DE` | Dreadnought: effect marker points | the install's effects play at body heights: foot 0.15 m (0.7 m left or right), pelvis 1.6, centre 1.8, torso 2.4, shoulder 3.0, left hand 2.3 and 1.2 ahead (m above the feet) | kind: ours; confidence: low | the rig's marker bones are not read | Dreadnought: effect marker points: compare with SM1 by feel or video. Ours: the install's effects play at body heights: foot 0.15 m (0.7 m left… | ☐ |
 | `R-861106FB` | Chaos Dreadnought | model `chaos_dreadnought` on the same rig, cannon `dread_csm_assault_cannon` (reaper) with `dlc3_dread_reaper_cannon`, melta effects `csm_meltagun_cylinder_blast_3/4`; behind the client test aid `--chaos-dreadnought`, not in the customizer (Musou players are… | confidence: medium | `chaos_dreadnought`, `csm_dreadnought` | Chaos Dreadnought: compare with SM1 by feel or video. Ours: model chaos_dreadnought on the same rig, cannon… | ☐ |
 
+*Spec section: Musou Dreadnought power-up: Overcharge (claude/musou-dreadnought-da, 2026-11-15; `MusouSim.Version` 60, `TfwRules.Version` 85; no protocol change; Musou only)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-473ACDA0` | Overcharge: length | 30 s: `DreadnoughtRules.BuffLifetime` (10 s, the data) x `MusouCombatRules.StimLifetimeScale` (3); one constant each (s) | kind: choice | the owner, 2026-11-15 | Overcharge: length: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 30 s: DreadnoughtRules.BuffLifetime (10 s, the data) x… | ☐ |
+| `R-F7194563` | Overcharge: the cannon builds no heat | while the power-up runs (`StimLeft` above 0) a round adds no heat (`StimSpec.NoHeat`, set on his `dread_buff` item only; `Stims.NoHeat`, `Combat` shot and burst round); the cannon still fires every 0.1 s with no ammunition spent; heat built before the use… (heat) | kind: choice | the owner, 2026-11-15 | Overcharge: the cannon builds no heat: compare with SM1 by feel or video. Ours: while the power-up runs (StimLeft above 0) a round adds no heat… | ☐ |
+| `R-2B1331FF` | Overcharge: the shockwave | every melee swing that strikes at least one enemy releases ONE shockwave at the nearest struck enemy's chest while the power-up runs (`DreadnoughtOvercharge`, once per resolved swing, however many Orks the swing struck): radius **3 m**, the stomp's blast… (m) | kind: ours; kind: estimate; confidence: low | the owner, 2026-11-15 ("about 3 m") | Overcharge: the shockwave: compare with SM1 by measuring on a flat spot of the same map. Ours: every melee swing that strikes at least one enemy releases ONE… | ☐ |
+| `R-BAAFEE65` | Overcharge: the wave's look and shake | the stomp's displace effects scaled down (`knockback_stomp_dmg_furied` x0.3, `interrupt_stomp_dmg` x0.4 at the left hand marker) and the stomp area's camera shake at a quarter of its amplitudes (`DreadnoughtFeel.OverchargeShake`), on each swing's hit beat… (scale) | kind: ours; kind: estimate; confidence: low | the owner, 2026-11-15 (the data's stomp values) | Overcharge: the wave's look and shake: compare with SM1 by feel or video. Ours: the stomp's displace effects scaled down (knockback_stomp_dmg_furied… | ☐ |
+| `R-F7DBC98D` | Overcharge: the place for an addition | `World.DreadnoughtBuffExtra` (called every tick, empty) stays for any later power-up effect | kind: ours | lead 27 | Overcharge: the place for an addition: compare with SM1 by feel or video. Ours: World.DreadnoughtBuffExtra (called every tick, empty) stays for any… | ☐ |
+
 ### General game design (7)
 
 *Spec section: Known behavior (public, unverified)*
@@ -4326,6 +4342,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-B8F01CC3` | Musou: no range fall-off for any ranged weapon (claude/autocannon-pass-2, owner 2026-11-11; `TfwRules.Version` 68, `MusouSim.Version` 44) | the owner (2026-11-11): "There should be no damage falloff for any ranged weapon in Musou mode"; that the melta's cone distance fall-off counts, and that the AI Marines' shots are covered too, ours (his words: "any ranged weapon") | in the war every hit-scan shot on an Ork or a contraption deals its full damage at any distance it reaches (the weapons' x0.8 / x0.75 / x0.5 from 45 to 70 m and so on gone), the melta's cone its full 200 to its 20 m (x0.15 at 20 m before), the arsenal's too; a blast's fall-off from its centre, a pierced shot's 0.85… | Musou: no range fall-off | Musou: no range fall-off for any ranged weapon…: compare with SM1 by timing a run over a known distance. Ours: the owner (2026-11-11): "There should be no damage falloff for any… | ☐ |
 | `C-DFD75858` | Musou: the damage answers (claude/musou-damage-answers, owner 2026-11-11; `TfwRules.Version` 69, `MusouSim.Version` 45) | the owner (2026-11-11): "alliedmarine should not lose range falloff"; "a shot should not lose 15% of its damage for each ork it passes through - but only for the players"; "melta should keep its full 200 damage out to 20m"; "double damage should not affect orbital strikes" | the AI Marines' guns get their range fall-off back (the no-fall-off rule above is the human players'), a human's hit-scan shot loses nothing per Ork it goes through (an AI Marine's keeps the 0.85 share), the melta's full 200 to 20 m for a player and Double Damage never on an orbital strike are pinned by tests; Classic… | Musou: no range fall-off | Musou: the damage answers (claude/musou-damage-answers…: compare with SM1 by counting hits to kill and by video of the health bar. Ours: the owner (2026-11-11): "alliedmarine should not lose range falloff"… | ☐ |
 | `C-6E22FB59` | Musou Dreadnought, the Dreadnought Assault Dreadnought (claude/musou-dreadnought-da, 2026-11-15; `MusouSim.Version` 59, `TfwRules.Version` 84, no protocol change) | the Dreadnought of Dreadnought Assault: its camera shake, footfall, stomp, entrance, landing, wall-hit, power-up, damage-state and death effects and sounds, its own cannon sounds and effects, the engine loop, walk 6.5 and sprint 11 m/s, 8000 health | Musou only: all of those from the data (shake at the data's numbers for the own view and nearby, fall-off by distance, scaled by Camera shake and Reduce motion); **ours:** the shake's units (metres, degrees) and its linear fall-off, the effect marker heights, the damage-state thresholds on Musou's 2000 health, Musou's… | the owner's orders of 2026-11-15 (decisions/2026-11-15-musou-dreadnought-weapon-buff.md); spec "Musou Dreadnought becomes the Dreadnought Assault Dreadnought"; docs/discovery.md "DA Dreadnought inventory" | Musou Dreadnought, the Dreadnought Assault Dreadnought…: compare with SM1 by feel or video. Ours: the Dreadnought of Dreadnought Assault: its camera shake, footfall… | ☐ |
+| `C-B2AF66F5` | Musou Dreadnought power-up: Overcharge (claude/musou-dreadnought-da, owner 2026-11-15; `MusouSim.Version` 60, `TfwRules.Version` 85, no protocol change) | the original's Dreadnought power-up gives regeneration x2 and reaction immunity; Musou keeps them for 30 s and adds Overcharge: the cannon builds no heat and fires without stopping, and each melee swing that strikes releases one 3 m shockwave (knockback and interrupt, no damage of its own) at the hit; the wave's… | ours (added content, Musou only) | low | Musou Dreadnought power-up: Overcharge…: compare with SM1 by feel or video. Ours: the original's Dreadnought power-up gives regeneration x2 and… | ☐ |
 
 #### Classic PvP's autocannon (`Autocannon`, in the extended profile; spec "Added content: Classic PvP's autocannon")
 

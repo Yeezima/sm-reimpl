@@ -91,4 +91,22 @@ public class DreadnoughtFeelTests
         Assert.Equal(0f, DreadnoughtArm.RumbleScale(1f, true));
         Assert.Equal(0.5f, DreadnoughtArm.RumbleScale(0.5f, false));
     }
+
+    [Fact]
+    public void Every_effect_the_feel_plays_is_in_the_effect_load_the_lights_the_death_blasts_and_the_fire()
+    {
+        var names = DreadnoughtArm.AllEffectNames().ToHashSet();
+        foreach (var n in new[] { "light_red_pulse", "light_headlight_red", "light_thunderhawk_red_medium", "tainted_psyker_skull_eye", "chaos_marine_death", "amb_fire", "interrupt_stomp_dmg", "knockback_stomp_dmg_furied", "meltagun_cylinder_blast_3", "csm_meltagun_cylinder_blast_4" })
+            Assert.Contains(n, names);
+        Assert.Equal(names.Count, DreadnoughtArm.AllEffectNames().Count());   // each once
+    }
+
+    [Fact]
+    public void The_cannons_flash_marker_list_falls_back_to_the_models_own_marker_and_the_chaos_melta_renames_its_blasts()
+    {
+        Assert.Equal("fx_muzzle_assault_cannon", DreadnoughtFeel.MarkerFallback["fx_muzzle_autocannon_top"]);
+        Assert.Equal("csm_meltagun_cylinder_blast_3", DreadnoughtFeel.ChaosMeltaNames["meltagun_cylinder_blast_3"]);
+        Assert.Contains("fx_muzzle", DreadnoughtArm.AllMarkers());
+        Assert.Equal(0.25f * DreadnoughtFeel.StompArea.Pitch.Amplitude, DreadnoughtFeel.OverchargeShake.Pitch.Amplitude, 4);   // a quarter of the stomp area's shake
+    }
 }
