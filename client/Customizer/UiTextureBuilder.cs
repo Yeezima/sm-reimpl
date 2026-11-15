@@ -75,7 +75,7 @@ public static class UiTextureBuilder
     /// <summary>The owner's orange line (his marked image, 2026-11-15) in crop pixels: everything inside is kept, outside is transparent, the edge feathered.</summary>
     static readonly Vector2[] OverlayOutline =
     [
-        new(0, 0), new(43, 0), new(99, 52), new(101, 106), new(505, 110), new(512, 205), new(416, 219), new(440, 237), new(466, 247), new(488, 276), new(488, 520),
+        new(0, 0), new(43, 0), new(99, 52), new(101, 106), new(505, 110), new(512, 205), new(416, 219), new(440, 237), new(462, 247), new(476, 262), new(478, 306), new(485, 312), new(485, 432), new(489, 446), new(489, 520),
         new(482, 565), new(433, 577), new(133, 589), new(133, 606), new(0, 606),
     ];
 
@@ -145,6 +145,12 @@ public static class UiTextureBuilder
                 {
                     // A one-pixel soft edge on the dilated mask.
                     float a = dil[y * W + x];
+                    if (x < (int)(94 * sf))
+                    {
+                        // Against the wall: dark stone stays, the concept's lighter sky between the letters goes.
+                        var q = img.GetPixel(x, y);
+                        if (Mathf.Max(q.R, Mathf.Max(q.G, q.B)) < 0.31f && q.B < q.R + 0.1f) a = 1f;
+                    }
                     bandAlpha[y * W + x] = a;
                 }
             // Under the wordmark, round the crest and along the frame's top: the concept's sky is keyed out (flood from the sky's own grey, generous tolerance); the letters' dark outline, the crest and the steel stay.
@@ -164,6 +170,9 @@ public static class UiTextureBuilder
                     bandAlpha[(skyRect.Position.Y + y) * W + skyRect.Position.X + x] = a;
                 }
             for (int y = y1; y < skyRect.Position.Y; y++) for (int x = x0; x < x1; x++) bandAlpha[y * W + x] = 1f;
+            // The sky band between the wordmark and the frame's top is gone completely; the crest is cut from the upscaled picture with its own matte (below) and sits over the video.
+            for (int y = (int)(216 * sfy); y < (int)(243 * sfy); y++) for (int x = (int)(102 * sf); x < (int)(500 * sf); x++) bandAlpha[y * W + x] = 0f;
+            CrestMatte(img, bandAlpha, W, H, sf, sfy);
         }
         // The grey haze at the frame's top-right corner and the thin strip down its right side: flooded out from the background's own grey.
         foreach (var (rx, ry, rw, rh, bx, by, tol) in new[] { (410, 200, 100, 70, 95, 4, 34f), (452, 255, 60, 320, 57, 160, 28f) })
@@ -189,7 +198,7 @@ public static class UiTextureBuilder
             }
         PaintOutNameplate(img, sf, sfy);
         if (!string.IsNullOrEmpty(masonryPath) && System.IO.File.Exists(masonryPath))
-            ReplaceWall(img, A, bandAlpha, Image.LoadFromFile(masonryPath), sf, sfy);
+            GradeWall(img, A, bandAlpha, Image.LoadFromFile(masonryPath), sf, sfy);
         FinishOverlay(img, A, D, sf, sfy);
         return img;
     }
@@ -214,6 +223,112 @@ public static class UiTextureBuilder
             }
         }
     }
+
+    /// <summary>
+    /// The concept's own painted wall (left edge and top left) graded to the video's masonry instead of replaced (owner 2026-11-15): the pixels' mean and spread per channel are moved to those of the tower's
+    /// masonry in the owner's video (<paramref name="masonry"/>, brightened and warmed for the sunset), a high-pass of that masonry is laid over as weathering at low strength, soot darkens the base, a warm
+    /// rim lights the edges that face the sun, and the outer edge is made irregular: courses end at different places with chipped corners, so it is no straight line. Seeded and reproducible.
+    /// </summary>
+    static void GradeWall(Image img, float[] A, float[] letters, Image masonry, float sf, float sfy)
+    {
+        int W = img.GetWidth(), H = img.GetHeight();
+        masonry.Convert(Image.Format.Rgba8);
+        int mw = masonry.GetWidth(), mh = masonry.GetHeight();
+        float WedgeAt(float yc) => yc < 232f ? 100f : yc < 252f ? Mathf.Lerp(100f, 21f, (yc - 232f) / 20f) : 21f;
+        double[] mo = new double[3], so = new double[3], mm = new double[3], sm = new double[3]; long no = 0;
+        for (int y = 0; y < H; y += 3)
+        {
+            int maxX = (int)(WedgeAt(y / sfy) * sf);
+            for (int x = 0; x < maxX; x += 3)
+            {
+                if (A[y * W + x] <= 0.5f) continue;
+                var c = img.GetPixel(x, y); no++;
+                mo[0] += c.R; mo[1] += c.G; mo[2] += c.B; so[0] += c.R * c.R; so[1] += c.G * c.G; so[2] += c.B * c.B;
+            }
+        }
+        long nm = 0;
+        for (int y = 0; y < mh; y++) for (int x = 0; x < mw; x++) { var c = masonry.GetPixel(x, y); nm++; mm[0] += c.R; mm[1] += c.G; mm[2] += c.B; sm[0] += c.R * c.R; sm[1] += c.G * c.G; sm[2] += c.B * c.B; }
+        if (no < 100) return;
+        float[] mean_o = new float[3], std_o = new float[3], mean_m = new float[3], std_m = new float[3];
+        for (int k = 0; k < 3; k++)
+        {
+            mean_o[k] = (float)(mo[k] / no); std_o[k] = Mathf.Max(0.02f, (float)Math.Sqrt(Math.Max(0.0, so[k] / no - mean_o[k] * mean_o[k])));
+            mean_m[k] = (float)(mm[k] / nm); std_m[k] = Mathf.Max(0.02f, (float)Math.Sqrt(Math.Max(0.0, sm[k] / nm - mean_m[k] * mean_m[k])));
+        }
+        float[] lift = [1.30f * 1.06f, 1.30f, 1.30f * 0.92f];
+        var blur = (Image)masonry.Duplicate();
+        blur.Resize(Math.Max(1, mw / 6), Math.Max(1, mh / 6), Image.Interpolation.Bilinear);
+        blur.Resize(mw, mh, Image.Interpolation.Bilinear);
+        var rng = new Random(20261116);
+        var edge = new float[H];
+        // A natural broken outline: slow waves, a finer wobble and now and then a chipped bite, nothing stair-stepped (seeded).
+        var bites = new List<(float Y, float R, float D)>();
+        for (float by = 10f; by < 230f; by += rng.Next(14, 34)) bites.Add((by * sfy, rng.Next(5, 13) * sfy, rng.Next(6, 20) * sf));
+        for (int y = 0; y < H; y++)
+        {
+            float yc = y / sfy;
+            float amp = yc < 232f ? 1f : 0f;
+            float e = WedgeAt(yc) * sf;
+            float wob = (Mathf.Sin(y * 0.021f) * 9f + Mathf.Sin(y * 0.063f + 1.1f) * 5f + Mathf.Sin(y * 0.19f + 0.4f) * 2.2f) * sf * 0.5f - 8f * sf;
+            float bite = 0f;
+            foreach (var (by, br, bd) in bites) { float dy = Mathf.Abs(y - by) / (br * 2.4f); if (dy < 1f) bite = Mathf.Max(bite, bd * 0.55f * (1f - dy * dy)); }
+            edge[y] = e + amp * (wob - bite);
+        }
+        for (int y = 0; y < H; y++)
+        {
+            float yc = y / sfy;
+            float soot = 1f - 0.34f * Mathf.SmoothStep(0.25f, 1f, y / (float)H);
+            int maxX = Math.Min(W - 1, (int)(WedgeAt(yc) * sf) + (int)(9 * sf));
+            for (int x = 0; x < maxX; x++)
+            {
+                int i = y * W + x;
+                bool letter = yc >= 98f && yc < 216f && x / sf >= 28f && letters[i] > 0.5f && NearLetter(img, x, y, (int)(5 * sf));
+                if (letter) continue;
+                if (yc >= 98f && yc < 252f && A[i] <= 0f) A[i] = 1f;   // behind the wordmark the wall runs on, whatever the key made of the concept's sky there
+                if (A[i] <= 0f) continue;
+                if (x > edge[y] + 1f) { A[i] = 0f; continue; }
+                A[i] *= Mathf.Clamp((edge[y] - x) / (3f * sf) + 0.5f, 0f, 1f);
+                var c = img.GetPixel(x, y);
+                // Behind the wordmark the concept's pixels are the dark keep of the letters' surroundings: take the wall's own stone from above instead (mirrored down the rows), so the wall runs on unbroken.
+                if (yc >= 98f && yc < 252f && x < (int)(WedgeAt(yc) * sf)) { float d = (yc - 98f) % 196f; float srcY = d < 98f ? 98f - d : d - 98f; var c1 = img.GetPixel(x, Math.Clamp((int)(srcY * sfy), 0, H - 1)); float d2 = (yc - 98f + 61f) % 196f; float srcY2 = d2 < 98f ? 98f - d2 : d2 - 98f; var c2 = img.GetPixel((x + (int)(23 * sf)) % Math.Max(1, (int)(WedgeAt(yc) * sf)), Math.Clamp((int)(srcY2 * sfy), 0, H - 1)); c = c1.Lerp(c2, 0.5f * Mathf.SmoothStep(0f, 1f, Mathf.Abs(Mathf.Sin(yc * 0.045f)))); }
+                float[] v = [c.R, c.G, c.B];
+                for (int k = 0; k < 3; k++)
+                {
+                    float z = (v[k] - mean_o[k]) / std_o[k];
+                    v[k] = (mean_m[k] + z * std_m[k] * 1.9f) * lift[k];
+                }
+                int mx = (x * 5 / 4 + y / 3) % mw, my = (y * 5 / 4 + x / 3) % mh;
+                var m = masonry.GetPixel(mx, my); var b = blur.GetPixel(mx, my);
+                float hp = (m.R * 0.3f + m.G * 0.59f + m.B * 0.11f) - (b.R * 0.3f + b.G * 0.59f + b.B * 0.11f);
+                float lm = v[0] * 0.3f + v[1] * 0.59f + v[2] * 0.11f;
+                float[] tintK = [1.05f, 1.0f, 0.93f];
+                for (int k = 0; k < 3; k++) v[k] = Mathf.Clamp(((lm + (v[k] - lm) * 0.30f) * tintK[k] + hp * 1.9f) * soot, 0f, 1f);
+                float dEdge = edge[y] - x;
+                if (dEdge < 7f * sf && dEdge >= 0f)
+                {
+                    float r = 1f - dEdge / (7f * sf);
+                    v[0] = Mathf.Min(1f, v[0] + 0.12f * r); v[1] = Mathf.Min(1f, v[1] + 0.07f * r); v[2] = Mathf.Min(1f, v[2] + 0.02f * r);
+                }
+                img.SetPixel(x, y, new Color(v[0], v[1], v[2], 1f));
+            }
+        }
+    }
+
+    /// <summary>A pixel of the lettering: saturated blue, or (the outline and shadow) dark with blue lettering within <paramref name="r"/> pixels.</summary>
+    static bool NearLetter(Image img, int x, int y, int r)
+    {
+        if (IsBlue(img.GetPixel(x, y))) return true;
+        if (Mathf.Max(img.GetPixel(x, y).R, Mathf.Max(img.GetPixel(x, y).G, img.GetPixel(x, y).B)) > 0.3f) return false;
+        for (int dy = -r; dy <= r; dy += 2)
+            for (int dx = -r; dx <= r; dx += 2)
+                if (IsBlue(img.GetPixel(Math.Clamp(x + dx, 0, img.GetWidth() - 1), Math.Clamp(y + dy, 0, img.GetHeight() - 1)))) return true;
+        return false;
+    }
+
+    static bool IsBlue(Color p) { float max = Mathf.Max(p.R, Mathf.Max(p.G, p.B)), min = Mathf.Min(p.R, Mathf.Min(p.G, p.B)); return max > 0.25f && p.B >= p.R + 0.12f && (max - min) / max > 0.35f; }
+
+    /// <summary>A pixel that belongs to the wordmark's letters (saturated blue) or their near-black outline.</summary>
+    static bool IsLetterPixel(Color p) { float max = Mathf.Max(p.R, Mathf.Max(p.G, p.B)); return p.B >= p.R + 0.10f || max < 0.14f; }
 
     /// <summary>
     /// Replaces the concept's left-edge stone with a ruined wall built from the video's own masonry (owner 2026-11-15: "match the floor and buildings in the background shot"): course by course, blocks of random
@@ -341,6 +456,65 @@ public static class UiTextureBuilder
         }
     }
 
+    /// <summary>
+    /// The skull and wings (owner: "match the concept's crest exactly"), matted from the upscaled crop: the crest is the warm or bright metal against the frame notch's dark grey backing, so a warm / bright test,
+    /// closed over the eye sockets and feather gaps and softened a pixel, is its alpha. Same size and place as in the concept (wings x 150 to 375, y 214 to 262 in crop pixels), over the video.
+    /// </summary>
+    static void CrestMatte(Image img, float[] alpha, int W, int H, float sf, float sfy)
+    {
+        int x0 = (int)(136 * sf), x1 = (int)(390 * sf), y0 = (int)(208 * sfy), y1 = (int)(266 * sfy);
+        int w = x1 - x0, h = y1 - y0;
+        var m = new float[w * h];
+        for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++)
+            {
+                var p = img.GetPixel(x0 + x, y0 + y);
+                float cx = (x0 + x) / sf, cy = (y0 + y) / sfy;
+                float lum = p.R * 0.3f + p.G * 0.59f + p.B * 0.11f;
+                bool warm = p.R >= p.B + 0.035f && lum > 0.2f, bright = lum > 0.42f && p.R >= p.B - 0.03f;
+                bool on = warm || bright;
+                if (cy > 247f && Mathf.Abs(cx - 262f) > 15f) on = false;   // below the wings only the skull's chin; the frame's top bar is steel, not crest
+                if (cy > 263f) on = false;
+                m[y * w + x] = on ? 1f : 0f;
+            }
+        float[] Morph(float[] a, bool dilate, int r)
+        {
+            var o = new float[a.Length];
+            for (int y = 0; y < h; y++)
+                for (int x = 0; x < w; x++)
+                {
+                    float v = dilate ? 0f : 1f;
+                    for (int dy = -r; dy <= r; dy++) for (int dx = -r; dx <= r; dx++)
+                    { float q = a[Mathf.Clamp(y + dy, 0, h - 1) * w + Mathf.Clamp(x + dx, 0, w - 1)]; v = dilate ? Mathf.Max(v, q) : Mathf.Min(v, q); }
+                    o[y * w + x] = v;
+                }
+            return o;
+        }
+        int r = Math.Max(2, (int)(1.4f * sf));
+        var closed = Morph(Morph(m, true, r), false, r);
+        // Drop specks: keep only the part connected to the middle (the skull).
+        var keep = new bool[w * h]; var stack = new Stack<int>();
+        int seed = (h * 45 / 100) * w + (int)((262f - 136f) * sf);
+        if (closed[seed] > 0.5f) { stack.Push(seed); keep[seed] = true; }
+        while (stack.Count > 0)
+        {
+            int i = stack.Pop(); int x = i % w, y = i / w;
+            foreach (var (nx, ny) in new[] { (x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1) })
+            {
+                if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+                int j = ny * w + nx;
+                if (!keep[j] && closed[j] > 0.5f) { keep[j] = true; stack.Push(j); }
+            }
+        }
+        for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++)
+            {
+                float sum = 0f;
+                for (int dy = -1; dy <= 1; dy++) for (int dx = -1; dx <= 1; dx++) sum += keep[Mathf.Clamp(y + dy, 0, h - 1) * w + Mathf.Clamp(x + dx, 0, w - 1)] ? 1f : 0f;
+                alpha[(y0 + y) * W + x0 + x] = Mathf.SmoothStep(0.15f, 0.85f, sum / 9f);
+            }
+    }
+
     /// <summary>A vertical box blur over a rectangle (the recess's rim and sides, where the upscale left dark scan-line streaks).</summary>
     static void SmoothRecess(Image img, Rect2I r, int radius)
     {
@@ -395,7 +569,7 @@ public static class UiTextureBuilder
     {
         int W = img.GetWidth(), H = img.GetHeight();
         // Shadow: the alpha blurred and shifted down and right.
-        int sx = (int)(7 * sf), sy = (int)(9 * sfy);
+        int sx = (int)(2 * sf), sy = (int)(8 * sfy);
         var blurred = BoxBlur(A, W, H, (int)(9 * sf));
         var haze = new Color(0.62f, 0.44f, 0.30f);
         for (int y = 0; y < H; y++)
@@ -426,7 +600,7 @@ public static class UiTextureBuilder
                 // Composite over a soft contact shadow.
                 float a = A[i];
                 int si = Mathf.Clamp(y - sy, 0, H - 1) * W + Mathf.Clamp(x - sx, 0, W - 1);
-                float sh = 0.62f * blurred[si];
+                float sh = 0.5f * blurred[si];
                 float outA = a + sh * (1f - a);
                 if (outA <= 0.0001f) { img.SetPixel(x, y, new Color(0, 0, 0, 0)); continue; }
                 float k = a / outA;

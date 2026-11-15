@@ -92,3 +92,9 @@ Font: Oswald (SIL OFL 1.1, variable weight, `client/assets/fonts/Oswald-wght.ttf
 ```
 godot.cmd -- --build-ui-textures concept-4panel-x4.png --owner-crop owner-ref-main-menu-crop.png --upscaled owner-crop-x4.png --masonry masonry-tower.png
 ```
+
+## Pass 2h/2i (owner, 2026-11-15)
+
+* The wall is the concept's own painted stone again (`GradeWall`), graded to the video's masonry: per-channel mean and spread moved to those of `masonry-tower.png`, chroma reduced to a grey-brown, a high-pass of the video's masonry laid over as weathering, soot toward the base, a weak warm rim, and a smooth irregular outer edge (slow waves plus a few shallow chips, seeded). Behind and under the wordmark the wall continues from the rows above (two mirrored phases blended), so no concept sky box remains there.
+* The sky band between the wordmark and the frame's top is removed completely; the skull and wings are matted from the 4x upscaled crop (`CrestMatte`: warm or bright metal against the dark backing, closed over the eye sockets, kept only if connected to the skull), at the concept's size and place, graded like the frame.
+* The overlay's right edge follows the frame's steel (polygon points moved in), and the contact shadow is offset down only (2 crop px right), so no grey strip shows beside the steel.
