@@ -9,12 +9,14 @@ base = os.path.join(os.environ['LOCALAPPDATA'], 'sm-reimpl', 'perf', 'classic-ma
 LINE = re.compile(r'^perf: (\d+) s place (\d+): .*?: (\d+) frames, mean ([\d.]+) ms \((\d+) fps\), p99 ([\d.]+), worst ([\d.]+); render cpu ([\d.]+) ms gpu ([\d.]+) ms; draw calls (\d+), objects (\d+), primitives (\d+)k;.*?vram (\d+) MB.*?lights (\d+) \((\d+) with shadows\), decals (\d+), particle nodes (\d+), mesh instances (\d+);.*?working set (\d+) MB')
 
 def windows(path, limit=None):
-    out = []
+    out = []; seen = set()
     for l in open(path, encoding='utf8', errors='replace'):
         m = LINE.match(l)
         if m:
             g = m.groups()
-            if limit is not None and int(g[1]) > limit: continue   # the tour's last place repeats until the client quits
+            if limit is not None and int(g[1]) > limit: continue
+            if int(g[1]) in seen: continue   # the tour's last place repeats until the client quits: only the first window of a place counts
+            seen.add(int(g[1]))
             out.append(dict(t=int(g[0]), place=int(g[1]), frames=int(g[2]), mean=float(g[3]), fps=int(g[4]), p99=float(g[5]), worst=float(g[6]),
                             cpu=float(g[7]), gpu=float(g[8]), draws=int(g[9]), objs=int(g[10]), prims=int(g[11]), vram=int(g[12]), lights=int(g[13]),
                             shadows=int(g[14]), decals=int(g[15]), particles=int(g[16]), meshes=int(g[17]), ws=int(g[18])))

@@ -11,7 +11,7 @@
   Logs and summary under %LOCALAPPDATA%\sm-reimpl\perf\classic-maps-perf\<tag>\<map>-<mode>\ (places.txt names the places in order; tools\classic-maps-perf-table.py
   turns the logs into the table). Bounded by --quit-after. The machine's load is sampled before and after the client run and written to summary.txt.
 #>
-param([Parameter(Mandatory)][string]$Map, [string]$Mode = 'annihilation', [int]$Port = 27631, [int]$Marines = 8, [int]$Chaos = 8, [int]$SoakSeconds = 150, [string]$Tag = 'base', [string]$ClientArgs = '', [switch]$NoClient)
+param([Parameter(Mandatory)][string]$Map, [string]$Mode = 'annihilation', [int]$Port = 0, [int]$Marines = 8, [int]$Chaos = 8, [int]$SoakSeconds = 150, [string]$Tag = 'base', [string]$ClientArgs = '', [switch]$NoClient)
 $ErrorActionPreference = 'Stop'
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 . (Join-Path $RepoRoot 'tools\quiet-launch.ps1')
@@ -57,6 +57,13 @@ $out = Join-Path $env:LOCALAPPDATA "sm-reimpl\perf\classic-maps-perf\$Tag\$Map-$
 if (Test-Path $out) { Remove-Item -Recurse -Force $out }
 New-Item -ItemType Directory -Force -Path $out | Out-Null
 ($names -join "`n") | Set-Content (Join-Path $out 'places.txt')
+if ($Port -eq 0) {   # a free loopback port: the first of 27631.. nothing listens on
+    foreach ($try in 27631..27690) {
+        $l = $null
+        try { $l = [Net.Sockets.UdpClient]::new([Net.IPEndPoint]::new([Net.IPAddress]::Loopback, $try)); $l.Close(); $Port = $try; break } catch { }
+    }
+    if ($Port -eq 0) { throw 'no free UDP port in 27631..27690: pass -Port' }
+}
 $pids = @()
 $serverDll = Join-Path $RepoRoot 'src\SmServer\bin\Release\net10.0\SmServer.dll'
 $env:SM_TICK_STATS = '5'
@@ -88,6 +95,7 @@ try {
             $ga = @('--background', '--log', $log, '--'); $ca = @('--connect', "127.0.0.1:$Port", '--bot', '--no-sound', '--side', $side[0], '--class', $cls, '--quit-after', "$total")
             $txt = & (Join-Path $RepoRoot 'tools\godot.ps1') @ga @ca *>&1 | Out-String
             if ($txt -match 'started pid (\d+)') { $pids += [int]$Matches[1]; "bot $($Matches[1])" | Add-Content (Join-Path $out 'pids.txt') }
+            else { throw "a bot did not report its pid, so it could not be tracked (stopping the run; the bots started so far are stopped by PID): $txt" }
             Start-Sleep -Milliseconds 1200
         }
     }
@@ -96,7 +104,7 @@ try {
     $mem += "after bots joined: server working set $([int]((Get-Process -Id $server.Id).WorkingSet64 / 1MB)) MB"
     $load0 = Load-Sample
     if (-not $NoClient) {
-        $clientSecs = [int](5 * ($places.Count + 1) + 25)
+        $clientSecs = [int](5 * $places.Count + 20)   # the probe's first window starts before the camera is placed: one window of lead-in, then one per place
         $clientLog = Join-Path $out 'client.log'
         $extra = @(); if ($ClientArgs) { $extra = @($ClientArgs -split ' ' | Where-Object { $_ }) }
         $ga = @('--windowed', '--disable-vsync', '--log', $clientLog, '--'); $ca = @('--connect', "127.0.0.1:$Port", '--observe', '--observe-tour', $tour, '--no-sound', '--frame-profile', '--frame-profile-warmup', '5', '--perf-probe', '--perf-tour', '--net-latency', '5', '--quit-after', "$clientSecs") + $extra
