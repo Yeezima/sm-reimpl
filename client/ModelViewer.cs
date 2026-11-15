@@ -186,6 +186,7 @@ public partial class ModelViewer : Node3D
                 // M44: "Leave match" in the in-match menu goes back to the front end from a plain --connect too. A copy taken before ApplyProfileLoadout adds the class and item
                 // arguments of the profile's loadout to args: the Join that follows must use the player's saved choice, not these.
                 _gameDir = gameDir; _launchArgs = new Dictionary<string, string?>(args, args.Comparer);
+                LeaveCheckSetup(args);
                 ApplyProfileLoadout(args, gameDir);
                 StartNetwork(args, gameDir);
                 return;
@@ -363,8 +364,9 @@ public partial class ModelViewer : Node3D
     public override void _ExitTree() => HostedServer.Stop();
 
     /// <summary>Starts the networked view (M5) for <c>--connect</c> or for a Join from the front end; <paramref name="args"/> are the client's user arguments.</summary>
-    void StartNetwork(Dictionary<string, string?> args, string gameDir, bool rejoin = false)
+    void StartNetwork(Dictionary<string, string?> args, string gameDir, bool rejoin = false, bool keepOldForTest = false)
     {
+            if (_network is not null && !keepOldForTest) DropNetwork();   // (keepOldForTest: --leave-check-double leaves the old one in the tree to prove the sweep) a view still running is never left behind a new one
             _networkArgs = args;   // classic-maps-all: a rotation rejoins with the same arguments
             // M5: networked view. It draws its own overlay and decides when a screenshot is worth taking.
             bool bot = args.ContainsKey("bot");
@@ -409,7 +411,14 @@ public partial class ModelViewer : Node3D
     }
 
     /// <summary>"Leave match" in the in-match menu: back to the front end's main menu with a short note (deferred: it frees the view that asked), at the blink's black.</summary>
-    void LeaveMatch() => AtBlink(LeaveMatchNow, MenuBuilt);
+    void LeaveMatch()
+    {
+        if (_blinkChangePending && _network is not null) { _leaveQueued = true; return; }   // fix/leave-cleanup: a leave asked while another change waits for the black runs right after it, never dropped
+        AtBlink(LeaveMatchNow, MenuBuilt);
+    }
+
+    bool _leaveQueued;
+    int StrayDropped;   // views DropNetwork found beside the referenced one (the leave check reads it)
 
     void LeaveMatchNow()
     {
@@ -417,6 +426,28 @@ public partial class ModelViewer : Node3D
         foreach (var key in LoadoutArguments.Append("loadout")) _launchArgs.Remove(key);   // a stale --class / --loadout must not override the saved choice on the next Join
         BackToFrontEnd("You left the match.");
     }
+
+    /// <summary>
+    /// fix/leave-cleanup (owner, 2026-11-15): the one teardown of the networked view, for every way out of a match (leave, back from a failed join, a retry or a rotation rejoin, a new join):
+    /// the view marks itself left, closes its connection, stops its sounds and hides, then leaves the tree at once (not at the frame's end), together with any other networked view
+    /// that outlived a lost reference. Only then does the front end or the next view show.
+    /// </summary>
+    void DropNetwork()
+    {
+        var views = new List<NetworkView>();
+        if (_network is { } own) views.Add(own);
+        foreach (var child in GetChildren()) if (child is NetworkView stray && !views.Contains(stray)) { views.Add(stray); GD.Print("leave: a networked view outlived its reference; dropped too"); StrayDropped++; }
+        foreach (var view in views)
+        {
+            view.LeaveNow();
+            if (view.GetParent() is { } parent) parent.RemoveChild(view);
+            view.QueueFree();
+        }
+        _network = null;
+        _backLayer?.QueueFree();
+        _backLayer = null; _backHint = null;
+    }
+
 
     static readonly string[] ViewerArguments = ["mesh", "archive", "anim", "time", "bones", "chaos", "stance", "clip-stats", "weapons", "worn", "hand", "view", "paint", "focus", "viewer", "keep-backpack"];
 
@@ -480,10 +511,7 @@ public partial class ModelViewer : Node3D
         var plan = services.PlanFor() ?? request.Plan;
         var retry = request with { Plan = plan, Content = services.Content };
         GD.Print($"join: {request.Host} refused the Musou profile while this client's Musou server (pid {pid}) ran; stopped it (running now: {HostedServer.Running}) and joining again with {SmSim.ContentProfiles.Name(services.Content)}");
-        _network?.QueueFree();
-        _network = null;
-        _backLayer?.QueueFree();
-        _backLayer = null; _backHint = null;
+        DropNetwork();
         OnJoin(retry);
         _musouRetried = true;   // after OnJoin: a failure of this retry shows the normal error
         return true;
@@ -498,10 +526,7 @@ public partial class ModelViewer : Node3D
     bool TryRotationRejoin()
     {
         if (_network is not { } rotating || !(rotating.RotateRequested || rotating.RotationConnectionLost) || _networkArgs?.ContainsKey("play-demo") == true) return false;
-        _network.QueueFree();
-        _network = null;
-        _backLayer?.QueueFree();
-        _backLayer = null; _backHint = null;
+        DropNetwork();
         if (_fromFrontEnd && FrontEndLaunch.Current is { } request) OnJoin(request, rejoin: true);
         else if (_networkArgs is { } args) StartNetwork(args, _gameDir, rejoin: true);
         return true;
@@ -511,14 +536,12 @@ public partial class ModelViewer : Node3D
     void BackToFrontEnd(string? reasonOverride = null)
     {
         string reason = reasonOverride ?? (_network?.FailureText is { Length: > 0 } text ? text : "Could not connect to the server.");
-        _network?.QueueFree();
-        _network = null;
-        _backLayer?.QueueFree();
-        _backLayer = null; _backHint = null;
+        DropNetwork();
         _fromFrontEnd = false;
         _musouRetried = false;   // the next join from the menu is a new one
         FrontEndLaunch.Current = null;
         Input.MouseMode = Input.MouseModeEnum.Visible;
+        if (_frontEnd is { } oldFront) { oldFront.Release(); oldFront.GetParent()?.QueueFree(); _frontEnd = null; }   // fix/leave-cleanup: never two front ends
         _frontEnd = new FrontEndView(() => MakeServices(_launchArgs, _gameDir), JoinAtBlink, StartScreen.Join, _launchArgs, reason) { Name = "FrontEnd", GameFoundNote = _foundNote };
         var layer = new CanvasLayer { Name = "FrontEndLayer" };
         layer.AddChild(_frontEnd);
@@ -591,7 +614,11 @@ public partial class ModelViewer : Node3D
         if (_blink is null || !_blink.IsInsideTree()) { change(); return; }
         if (_blinkChangePending) return;
         _blinkChangePending = true;
-        _blink.Run(() => { _blinkChangePending = false; change(); }, ready);
+        _blink.Run(() =>
+        {
+            _blinkChangePending = false; change();
+            if (_leaveQueued) { _leaveQueued = false; if (_network is not null) CallDeferred(nameof(LeaveMatch)); }
+        }, ready);
     }
 
     /// <summary>The blink back to the menu opens once the menu's rows are up (the front end reads the install again first), within the blink's longest hold.</summary>
@@ -661,6 +688,7 @@ public partial class ModelViewer : Node3D
         // The networked view waits until it is connected and the players are in view.
         // The loading screen (2026-11-07: black and LOADING alone) covers a join still connecting; the hint shows once the join failed (Esc works in both).
         if (_backHint is not null) _backHint.Visible = _network is { } hinted && hinted.ConnectionFailed;
+        LeaveCheckStep();   // fix/leave-cleanup test aid (ModelViewer.LeaveCheck.cs)
         if (TryMusouRetry()) return;   // a Classic PvP join refused because of the own Musou server: stopped, joined again (no message)
         if (TryRotationRejoin()) return;   // classic-maps-all: the server moves on to its next map: join the same address again
         // --auto-back <seconds> (test aid): the Esc of a join that goes nowhere, pressed after that long.

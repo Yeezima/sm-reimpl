@@ -37,7 +37,7 @@ public class DreadnoughtMeleeTests
         Assert.Equal(2, c.Melee.Count);
         Assert.Equal((100f, 50f, 250f), (c.Melee[0].Damage, c.Melee[0].SecondaryDamage, c.Melee[0].ShieldDamage));
         Assert.Equal((125f, 75f), (c.Melee[1].Damage, c.Melee[1].SecondaryDamage));
-        Assert.Equal(0.867f, c.Melee[0].HitTime);
+        Assert.Equal(0.867f / DreadnoughtRules.MeleeSpeed, c.Melee[0].HitTime, 4);   // the data's tag at the buff's 1.3 x (2026-11-15)
         Assert.Equal(2, c.MeleeHeavy.Count);
         var stomp = c.MeleeHeavy[0];
         var slam = c.MeleeHeavy[1];

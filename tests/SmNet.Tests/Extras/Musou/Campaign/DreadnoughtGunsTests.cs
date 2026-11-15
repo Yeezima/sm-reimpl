@@ -47,20 +47,14 @@ public class DreadnoughtGunsTests
     }
 
     [Fact]
-    public void Held_fire_spends_a_round_every_two_ticks_and_the_clip_runs_out_then_reloads_in_2_5_seconds()
+    public void Held_fire_spends_no_round_since_the_2026_11_15_buff_the_cannon_is_endless_and_its_limit_is_heat()
     {
+        // The cannon's reload and clip belong to the data's gun (140 rounds, 2.5 s reload): the buff made it the autocannon's, which never spends a round (DreadnoughtBuffTests: the heat meter and the rate).
         var w = Landed();
         int clip0 = Me(w).Clip;
-        int ticks = 0;
-        while (Me(w).Clip > 0 && ticks < 600) { w.Step(_ => Held(InputButtons.Fire)); ticks++; }
-        Assert.Equal(0, Me(w).Clip);
-    
-        Assert.InRange(ticks, 276, 282);   // 0.06 s is 1.8 ticks and the 30 Hz step fires at most once a tick, a round every 2 ticks: 15 a second, not the data's 16.7 (spec "Dreadnought: the cannon")
         Assert.Equal(140, clip0);
-        float reload = 0f;
-        for (int k = 0; k < 150 && Me(w).Clip == 0; k++) { w.Step(_ => Held(k == 0 ? InputButtons.Reload : InputButtons.None)); reload += 1f / 30f; }
-        Assert.Equal(140, Me(w).Clip);
-        Assert.InRange(reload, 2.3f, 2.8f);
+        for (int k = 0; k < 30 * 10; k++) w.Step(_ => Held(InputButtons.Fire));
+        Assert.Equal(clip0, Me(w).Clip);
     }
 
     [Fact]

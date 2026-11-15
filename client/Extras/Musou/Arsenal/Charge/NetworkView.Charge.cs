@@ -55,7 +55,7 @@ public partial class NetworkView
             var view = new ProjectileView(0, frag, 0, at, ProjectileFlags.Thrown);
             bool sound = k % 4 == 0;
             double delay = DemolitionChargeRules.SpotTick(k) * tick;
-            GetTree().CreateTimer(delay).Timeout += () => ChargeSpot(view, sound);
+            GetTree().CreateTimer(delay).Timeout += () => { if (IsInstanceValid(this) && !Left) ChargeSpot(view, sound); };   // fix/leave-cleanup: not after the view left
         }
     }
 

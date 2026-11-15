@@ -34,6 +34,9 @@ public partial class NetworkView
         public float Stride;
         public int Strike;
         public float ReloadLeft;
+        /// <summary>The frame-rate clip clocks of the arm's strike (own player: <see cref="OwnClipClock"/>, others: <see cref="ClipClock"/>).</summary>
+        public readonly OwnClipClock OwnStrike = new();
+        public readonly ClipClock OtherStrike = new();
     }
 
     /// <summary>The Dreadnought's class index in this match's config, or -1 (Classic and every config without him), found once: every per-frame hook returns at once when it is -1.</summary>
@@ -114,11 +117,35 @@ public partial class NetworkView
             if (state.MeleeStep > 0)
             {
                 var list = state.MeleeHeavy ? DreadnoughtRig.HeavyStrikes : DreadnoughtRig.LightStrikes;
-                if (state.MeleeStep <= list.Length && character.Pose(list[state.MeleeStep - 1], MathF.Max(0f, state.MeleeTime), 0.12f)) return;
+                if (state.MeleeStep <= list.Length && character.Pose(list[state.MeleeStep - 1], DreadnoughtStrikeClipTime(t, state, own), DreadnoughtStrikeBlend)) return;
             }
+            else { t.OwnStrike.Stop(); t.OtherStrike.Stop(); }
         }
         DreadnoughtLocomotion(character, state);
     }
+
+    /// <summary>
+    /// The seconds into the strike's clip to show this frame (owner, 2026-11-15: his melee "very choppy and poppy": "sync, smooth, blend, and transition"). The strike's time is the simulation's, which stands still between two
+    /// ticks (the own player's, predicted) or two snapshots (the others', interpolated), so the clip was posed at a stepped time and froze and jumped at 30 Hz or less; it now runs on the frame-rate clocks every other
+    /// strike uses (<see cref="OwnClipClock"/> for the own player, <see cref="ClipClock"/> for the others), then is multiplied by <see cref="DreadnoughtRules.MeleeSpeed"/>: the sim runs the strike 1.3 times as fast as the data's
+    /// clip, so the clip plays 1.3 times as fast and its hit frame is at the sim's hit time.
+    /// </summary>
+    float DreadnoughtStrikeClipTime(DreadnoughtTrack t, PlayerState s, bool own)
+    {
+        long key = ClipClock.Key(3, s.MeleeStep, s.MeleeHeavy ? 1 : 0, s.MeleeChoice);
+        float simTime = MathF.Max(0f, s.MeleeTime);
+        if (DreadRawStrike) return simTime * DreadnoughtRules.MeleeSpeed;   // test aid: the strike's time as the tick or snapshot carries it (the look before the smoothing)
+        float shown = own && _client is not null && _config is not null
+            ? t.OwnStrike.Step(key, simTime, _client.ClipFraction, _config.TickSeconds, float.MaxValue, _client.ClipLead)
+            : t.OtherStrike.Step(key, simTime, (float)GetProcessDeltaTime(), float.MaxValue);
+        return shown * DreadnoughtRules.MeleeSpeed;
+    }
+
+    /// <summary>Test aid <c>--dn-raw-strike</c>: the strike clip at the simulation's stepped time, not the frame-rate clock (the before of the smoothing's before-and-after clip).</summary>
+    static readonly bool DreadRawStrike = CmdFlag("dn-raw-strike");
+
+    /// <summary>The cross-fade into a strike (s): the data's 0.1 s entry and 0.167 s restart, taken at the clip rate; the viewer lengthens a fade to its floor (0.125 s) so no bone turns more than a frame's tolerance.</summary>
+    const float DreadnoughtStrikeBlend = 0.15f;
 
     /// <summary>A body that moves this far in one frame while alive was moved by the server (a redeploy, an extraction, a call-back): a new entrance (ours, a heuristic: the server's lock has no wire signal).</summary>
     const float DreadnoughtTeleportMetres = 6f;
@@ -149,28 +176,39 @@ public partial class NetworkView
     }
 
     // ---- effects (D7): the install's effects through the effect player ----
-    const string DreadMuzzleEffect = "autocannon_muzzle", DreadDustEffect = "jump_land";
-    /// <summary>The muzzle flash's scale (data: the cannon's effect binding 1.75) and the footfall dust's (ours, the size of his foot).</summary>
-    const float DreadMuzzleScale = 1.75f, DreadDustScale = 2.5f;
+    const string DreadDustEffect = "jump_land";
+    /// <summary>The footfall dust's scale (ours, the size of his foot).</summary>
+    const float DreadDustScale = 2.5f;
+
+    /// <summary>
+    /// The barrel for the shot path's effect markers (<see cref="ExtrasFxPlace"/>): ahead of his right shoulder for the cannon, his left for the melta (**ours**, as the flash had been placed), with the aim's axes; nothing for any
+    /// other shooter. The state is the own prediction or the last snapshot's.
+    /// </summary>
+    partial void ExtrasFxPlace(int shooter, string marker, ref (Vector3, Basis)? place)
+    {
+        if (DreadIndex < 0 || _client is null) return;
+        PlayerState s = default; bool found = false;
+        if (shooter == _client.PlayerId) { s = _client.Predicted; found = true; }
+        else foreach (var o in _lastOthers) if (o.PlayerId == shooter) { s = o; found = true; break; }
+        if (!found || !IsDreadnoughtClass(s.Class)) return;
+        float cp = MathF.Cos(s.Pitch);
+        var fwd = new Vector3(-MathF.Sin(s.Yaw) * cp, MathF.Cos(s.Yaw) * cp, MathF.Sin(s.Pitch));
+        var right = new Vector3(MathF.Cos(s.Yaw), MathF.Sin(s.Yaw), 0f);
+        float side = s.Slot == WeaponSlot.Pistol ? -0.8f : 0.8f;
+        var muzzle = new Vector3(s.Position.X, s.Position.Y, s.Position.Z + 2.3f) + fwd * 2.2f + right * side;
+        place = (new Vector3(muzzle.X, muzzle.Z, -muzzle.Y), AxesFromY(new Vector3(fwd.X, fwd.Z, -fwd.Y)));   // game space (X, Y, Z up) to Godot's (X, Z, -Y)
+    }
 
     /// <summary>A muzzle flash at the cannon for each frame the clip lost a round, and the footfall dust where the stride lands. Nothing for a lean bot.</summary>
     void DreadnoughtEffects(DreadnoughtTrack t, PlayerState s, bool entering)
     {
         if (_fx is null || Lean) { t.PrevClip = s.Clip; t.StepDust = false; return; }
-        bool cannon = s.Slot == WeaponSlot.Ranged;
-        if (!entering && cannon && s.Clip < t.PrevClip && s.ReloadLeft <= 0f)
-        {
-            float cp = MathF.Cos(s.Pitch);
-            var fwd = new Vector3(-MathF.Sin(s.Yaw) * cp, MathF.Cos(s.Yaw) * cp, MathF.Sin(s.Pitch));
-            var right = new Vector3(MathF.Cos(s.Yaw), MathF.Sin(s.Yaw), 0f);
-            var muzzle = new Vector3(s.Position.X, s.Position.Y, s.Position.Z + 2.3f) + fwd * 2.2f + right * 0.8f;   // ours: the cannon's barrels, ahead of his right shoulder
-            _fx.Play(DreadMuzzleEffect, new Vector3(muzzle.X, muzzle.Z, -muzzle.Y), AxesFromY(new Vector3(fwd.X, fwd.Z, -fwd.Y)), DreadMuzzleScale);   // game space (X, Y, Z up) to Godot's (X, Z, -Y)
-        }
+        // No flash of his own any more (the buff, owner 2026-11-15): the shot path plays the autocannon's whole effect list (flash at its scale 1.5, tracer, casings) and asks ExtrasFxPlace for the barrel, so there is exactly one flash per shot.
         t.PrevClip = s.Clip;
         if (t.StepDust)
         {
             t.StepDust = false;
-            _fx.Play(DreadDustEffect, ToGodot(s.Position), Basis.Identity, DreadDustScale);
+            _fx.Play(DreadDustEffect, ToGodot(s.Position), Basis.Identity, DreadDustScale, priority: SmContent.FxPriority.Special);
         }
     }
 

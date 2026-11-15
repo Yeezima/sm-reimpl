@@ -1943,6 +1943,7 @@ public partial class NetworkView : Node3D
     /// <summary>The connection status: text and whether it is an error (rejection, disconnect, load error, map not loaded); empty while all is well.</summary>
     (string Text, bool IsError) StatusLine()
     {
+        if (Left) return ("", false);   // fix/leave-cleanup: after a deliberate leave nothing of the match says anything
         if (_error != "") return ($"Error: {_error}", true);
         if (_client is null) return ("Not started", false);
         return _client.Status switch

@@ -1,3 +1,4 @@
+
 namespace SmSim.Extras.Musou;
 
 /// <summary>
@@ -23,15 +24,38 @@ public static class DreadnoughtMelee
     public static SplashSpec Stomp => Area(StompDamage, 250f);
     public static SplashSpec Footfall => Area(FootfallDamage, 25f);
 
-    /// <summary>X01 and X02 (light): the data's tags; 100 / 50 and 125 / 75, shield 250 / 100.</summary>
-    public static IReadOnlyList<MeleeStep> Light() =>
+    /// <summary>
+    /// <paramref name="step"/> run <paramref name="speed"/> times as fast (owner, 2026-11-15: "melee attacks are 30% faster"): every time in it (seconds from the strike's start) divided by the speed, so the hit, the windows and the end
+    /// stay in the same places of the clip when the clip is played at that rate. Damages, reach and flags are not touched; a time that is infinity (no window) stays so.
+    /// </summary>
+    public static MeleeStep Faster(MeleeStep step, float speed)
+    {
+        static float T(float t, float k) => float.IsFinite(t) ? t / k : t;
+        return step with
+        {
+            Duration = step.Duration / speed, HitTime = step.HitTime / speed, ComboOpen = step.ComboOpen / speed, ComboClose = step.ComboClose / speed,
+            RangedAt = step.RangedAt / speed, MoveAt = step.MoveAt / speed, YComboOpen = step.YComboOpen / speed, YComboClose = step.YComboClose / speed,
+            NoReactFrom = step.NoReactFrom / speed, NoReactTo = step.NoReactTo / speed, EvadeAt = T(step.EvadeAt, speed), StringResetAt = T(step.StringResetAt, speed),
+        };
+    }
+
+    static IReadOnlyList<MeleeStep> Faster(IReadOnlyList<MeleeStep> steps) => [.. steps.Select(s => Faster(s, DreadnoughtRules.MeleeSpeed))];
+
+    /// <summary>X01 and X02 (light): the data's tags (100 / 50 and 125 / 75, shield 250 / 100) at <see cref="DreadnoughtRules.MeleeSpeed"/>.</summary>
+    public static IReadOnlyList<MeleeStep> Light() => Faster(DataLight());
+
+    /// <summary>The stomp (Y from rest, 50 in 10 m) and Y01 (50 and the 500 slam), the data's tags at <see cref="DreadnoughtRules.MeleeSpeed"/>.</summary>
+    public static IReadOnlyList<MeleeStep> Heavy() => Faster(DataHeavy());
+
+    /// <summary>X01 and X02 as the data times them (seconds from the strike's start; kind: data).</summary>
+    public static IReadOnlyList<MeleeStep> DataLight() =>
     [
         new MeleeStep(2.397f, 0.867f, 0.967f, 2.2f, 1.2f, 1.2f, 100f, 50f, 0f) { ShieldDamage = 250f, SecondaryShieldDamage = 100f, HeavyNext = 2 },
         new MeleeStep(2.116f, 0.600f, 1.000f, 1.9f, 1.3f, 1.167f, 125f, 75f, 0f) { ShieldDamage = 250f, SecondaryShieldDamage = 100f, HeavyNext = 2 },
     ];
 
-    /// <summary>The stomp (Y from rest, 50 in 10 m) and Y01 (50 and the 500 slam).</summary>
-    public static IReadOnlyList<MeleeStep> Heavy() =>
+    /// <summary>The stomp and Y01 as the data times them.</summary>
+    public static IReadOnlyList<MeleeStep> DataHeavy() =>
     [
         new MeleeStep(3.578f, 1.200f, 1.333f, 3.4f, 2.0f, 2.0f, 0f, 0f, 0f) { Stomp = Stomp, InPlace = true },
         new MeleeStep(3.578f, 1.200f, 2.000f, 3.4f, 1.933f, 2.033f, 50f, 0f, 0f) { ShieldDamage = 200f, Stomp = Slam, InPlace = true, YNext = 1, YComboOpen = 2.0f, YComboClose = 3.4f },

@@ -300,6 +300,9 @@ public partial class NetworkView
     /// <summary>Where a player's effect marker is now (world position and axes with +Y along the locator's +Y); null without a weapon model.</summary>
     (Vector3 Position, Basis Axes)? FxPlace(int shooter, string marker)
     {
+        var placed = ((Vector3, Basis)?)null;
+        ExtrasFxPlace(shooter, marker, ref placed);   // EXTRAS-HOOK: the Dreadnought's cannon and melta have no weapon model: the barrel on his body
+        if (placed is { } own) return own;
         if (marker.Length > 0 && MarkerWorld(shooter, marker) is { } t) return (t.Origin, t.Basis);
         if (MuzzleWorld(shooter) is { } m) return (m.Position, AxesFromY(m.Direction));
         return null;
@@ -628,6 +631,9 @@ public partial class NetworkView
     static readonly bool OldBoltSmokeFx = CmdFlag("old-bolt-smoke") || CmdFlag("musou-old-bolt-smoke");
     /// <summary>A Musou autocannon round that struck the level with no enemy: its blast's bright flash plays where it struck (<c>ExtrasTerrainBlast</c>; nothing without the added content).</summary>
     partial void ExtrasTerrainBlast(string wargear, Vector3 end, Vector3 normal);
+
+    /// <summary>Added content (Musou's Dreadnought): where a shooter's effect <paramref name="marker"/> is when it has no weapon model (null: the usual place).</summary>
+    partial void ExtrasFxPlace(int shooter, string marker, ref (Vector3, Basis)? place);
 
     /// <summary>Barrel smoke when a player stops firing (0.3 s without a shot).</summary>
     void FxStopFireSmoke()

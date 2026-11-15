@@ -22,8 +22,8 @@ public sealed partial record GameplayTuning
             // The Librarian's restore switches (LibrarianVariant, SM_LIBRARIAN_OLD): read here, on the server and the clients alike, so a class change stays in the config hash.
             var librarian = LibrarianVariant.Parse(Environment.GetEnvironmentVariable(LibrarianVariant.EnvironmentVariable));
             if (librarian.Any) notes.Add($"musou: the Librarian's restore switches {librarian} ({LibrarianVariant.EnvironmentVariable})");
-            config = DreadnoughtWeapons.Append(config, gameDir, notes);   // the Dreadnought's cannon and melta (D3, D4): before Prepare, which gives him them
             config = Arsenal.Append(config, gameDir, notes);   // Musou's arsenal (docs/new-weapons-design.md, W0): its items before Prepare, so the Musou lists see them; the stubs add nothing
+            config = DreadnoughtWeapons.Append(config, gameDir, notes);   // the Dreadnought's cannon and melta (D3, D4): after the arsenal (his cannon is the autocannon's numbers, the 2026-11-15 buff) and before Prepare, which gives him them
             config = MusouLoadout.Prepare(config with { MusouRules = MusouTuning.Load(gameDir, notes), LibrarianVariant = librarian });
         }
         else if (config.Extras.HasFlag(ContentExtras.Autocannon)) config = ClassicAutocannon.Append(config, gameDir, notes);   // Classic PvP's autocannon (owner 2026-11-11); Musou is never combined with it
