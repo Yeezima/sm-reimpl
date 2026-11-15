@@ -70,7 +70,7 @@ public partial class NetworkView
 
     /// <summary>The dust share a blast of <paramref name="radius"/> metres is drawn with: <see cref="BlastDust"/> for the autocannon's (a radius above the bolt blast's), 1 for every other blast.</summary>
     /// <summary>musou/autocannon-flash: whether a blast of <paramref name="radius"/> metres draws only its bright flash (the autocannon's, not the bolt blast's; <c>--musou-old-autocannon-fx</c> restores the whole effect).</summary>
-    bool BlastFlashOnly(float radius) => !OldAutocannonDust && SmSim.AutocannonRules.LosesDust(radius);
+    bool BlastFlashOnly(float radius) => SmContent.BoltSmoke.BlastFlashOnly(SmSim.AutocannonRules.LosesDust(radius), OldAutocannonDust, OldBoltSmoke);   // fx/bolt-smoke (owner 2026-11-15, "Flash only"): the bolt blast too
     float BlastDustShare(float radius) => BlastDustShareOf(radius, OldAutocannonDust, OldBoltSmoke);
     /// <summary>The pure radius-to-share mapping (tested): <see cref="BlastDust"/> above the bolt blast's radius unless restored, else 1.</summary>
     internal static float BlastDustShareOf(float radius, bool restored, bool boltRestored = false) => restored && boltRestored ? 1f : !restored && SmSim.AutocannonRules.LosesDust(radius) ? BlastDust : boltRestored || SmSim.AutocannonRules.LosesDust(radius) ? 1f : BoltBlastDust;

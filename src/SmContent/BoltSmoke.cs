@@ -25,6 +25,13 @@ public static class BoltSmoke
     /// </summary>
     public static bool KillDropsSmoke(string? wargear, bool byShotOrBoltBlast, bool old) => !old && byShotOrBoltBlast && IsBoltWeapon(wargear);
 
+    /// <summary>
+    /// Musou Mode's blast (owner 2026-11-15, "Flash only": a bolt weapon's AoE blast draws a bright flash and nothing else, as the autocannon's does): whether a blast draws only its bright flash
+    /// (<see cref="FxEffect.BrightFlash"/>; <see cref="BrightFlash.Keeps"/>: no fire puff, no smoke, no debris). The autocannon's blast (<paramref name="autocannonBlast"/>) unless <paramref name="oldAutocannon"/>, a bolt
+    /// weapon's unless <paramref name="oldBolt"/> (<c>--old-bolt-smoke</c> restores the whole frag effect).
+    /// </summary>
+    public static bool BlastFlashOnly(bool autocannonBlast, bool oldAutocannon, bool oldBolt) => autocannonBlast ? !oldAutocannon : !oldBolt;
+
     /// <summary>The dust share for a wargear's effects: <see cref="Share"/> for a bolt weapon unless <paramref name="old"/>, else 1.</summary>
     public static float ShareFor(string? wargear, bool old) => !old && IsBoltWeapon(wargear) ? Share : 1f;
 }
