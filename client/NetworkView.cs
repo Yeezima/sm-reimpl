@@ -736,6 +736,7 @@ public partial class NetworkView : Node3D
             _switchPending = false; _latch.Reset(); return new PlayerInput(tick, 0f, 0f, _yaw, InputButtons.None, _pitch);
         }
         if (_bot && BotSwitchEvery > 0 && _connectedFor > 4.0) return BotSwitchInput(tick);   // fix/stow-right test aid (NetworkView.UpperBody.cs)
+        if (_bot && FovDemo) return FovDemoInput(tick);   // camera/melee-fov-widen test aid (NetworkView.MeleeFov.cs)
         if (_bot && BotIdle) return new PlayerInput(tick, 0f, 0f, _yaw, InputButtons.None, _pitch);
         if (_bot && BotStimDemoEvery > 0 && StimOf(_client!.Predicted) is not null) return BotStimDemoInput(tick);   // stim-original test aid (NetworkView.Stims.cs)
         if (_bot && BarrelTest) return BarrelTestInput(tick);   // fx/barrel-origin test aid (NetworkView.Barrel.cs)

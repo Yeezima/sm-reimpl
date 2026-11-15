@@ -16,6 +16,22 @@ public partial class NetworkView
     /// <summary><c>--log-fov</c> (test aid): a line for every widening and its end, with the horizontal degrees shown.</summary>
     static readonly bool LogFov = CmdFlag("log-fov");
 
+    /// <summary><c>--fov-demo</c> (test aid): a standing bot that, in a 22 s loop, strikes, fires, strikes, aims, strikes and throws a grenade, for the <c>--log-fov</c> proof.</summary>
+    static readonly bool FovDemo = CmdFlag("fov-demo");
+
+    /// <summary>The scripted buttons of <see cref="FovDemo"/> at this connected time.</summary>
+    PlayerInput FovDemoInput(uint tick)
+    {
+        double t = (_connectedFor - 4.0) % 22.0;
+        var b = InputButtons.None;
+        if (_connectedFor < 4.0) b = InputButtons.None;
+        else if (t is >= 1 and < 1.1 or >= 8 and < 8.1 or >= 15 and < 15.1) b = InputButtons.Melee;
+        else if (t is >= 5 and < 5.3) b = InputButtons.Fire;
+        else if (t is >= 11 and < 11.6) b = InputButtons.Aim;
+        else if (t is >= 18 and < 18.1) b = InputButtons.Grenade;
+        return new PlayerInput(tick, 0f, 0f, _yaw, b, _pitch);
+    }
+
     readonly MeleeFov _meleeFov = new();
     float _meleeFovLogT;
 
