@@ -20,7 +20,7 @@ public static class UiTextureBuilder
     static float F = 1f;
     static Rect2I U(int x, int y, int w, int h) => new((int)MathF.Round(x * F), (int)MathF.Round(y * F), (int)MathF.Round(w * F), (int)MathF.Round(h * F));
 
-    public static int Run(string? conceptPath, string? outDir, string? cropPath = null, string? upscaledPath = null)
+    public static int Run(string? conceptPath, string? outDir, string? cropPath = null, string? upscaledPath = null, string? masonryPath = null)
     {
         if (string.IsNullOrEmpty(conceptPath) || !System.IO.File.Exists(conceptPath)) { GD.PrintErr("build-ui-textures: give the concept image: --build-ui-textures <concept-4panel.jpg>"); return 2; }
         var src = Image.LoadFromFile(conceptPath);
@@ -41,7 +41,7 @@ public static class UiTextureBuilder
         {
             var crop = Image.LoadFromFile(cropPath);
             crop.Convert(Image.Format.Rgba8);
-            Save("overlay-main", MainOverlay(crop, upscaledPath));
+            Save("overlay-main", MainOverlay(crop, upscaledPath, masonryPath));
             Save("frame-wall", WallFrame(crop));
             Save("wall-main", WallSynth(crop));
             Save("wordmark", WordmarkBuild(Cut(crop, new Rect2I(30, 122, 478, 94))));
@@ -84,7 +84,7 @@ public static class UiTextureBuilder
     /// without it, 2x with Lanczos limited to the local range of the source so it cannot ring, then an unsharp mask), the button plates painted out of the recess (clean amber with the concept's scan lines; the
     /// live buttons go there), and an alpha that follows the owner's line.
     /// </summary>
-    static Image MainOverlay(Image crop, string? upscaledPath)
+    static Image MainOverlay(Image crop, string? upscaledPath, string? masonryPath)
     {
         Image img;
         if (!string.IsNullOrEmpty(upscaledPath) && System.IO.File.Exists(upscaledPath))
@@ -132,7 +132,8 @@ public static class UiTextureBuilder
                     var p = img.GetPixel(x, y);
                     float max = Mathf.Max(p.R, Mathf.Max(p.G, p.B)), min = Mathf.Min(p.R, Mathf.Min(p.G, p.B));
                     float sat = max <= 0.001f ? 0f : (max - min) / max;
-                    mask[y * W + x] = p.B >= p.R + 0.12f && sat > 0.40f ? 1f : 0f;
+                    bool lPart = x / sf > 436f;   // the final L is lighter blue: a lower threshold keeps all of it, bar and stem
+                    mask[y * W + x] = lPart ? (p.B >= p.R + 0.07f && sat > 0.22f ? 1f : 0f) : (p.B >= p.R + 0.12f && sat > 0.40f ? 1f : 0f);
                 }
             int r = (int)(Mathf.Round(5f * sf));
             // Dilate by r (a square, in two passes), keeping the letters, the dark outline and the shadow beside them.
@@ -144,12 +145,6 @@ public static class UiTextureBuilder
                 {
                     // A one-pixel soft edge on the dilated mask.
                     float a = dil[y * W + x];
-                    if (x < (int)(104 * sf))
-                    {
-                        // Against the wall: dark stone stays, the concept's lighter sky between the letters goes.
-                        var q = img.GetPixel(x, y);
-                        if (Mathf.Max(q.R, Mathf.Max(q.G, q.B)) < 0.31f && q.B < q.R + 0.1f) a = 1f;
-                    }
                     bandAlpha[y * W + x] = a;
                 }
             // Under the wordmark, round the crest and along the frame's top: the concept's sky is keyed out (flood from the sky's own grey, generous tolerance); the letters' dark outline, the crest and the steel stay.
@@ -192,8 +187,158 @@ public static class UiTextureBuilder
                 D[y * W + x] = d;
                 A[y * W + x] = Mathf.SmoothStep(0f, 1f, Mathf.Clamp(0.5f + d / feather, 0f, 1f)) * bandAlpha[y * W + x];
             }
+        PaintOutNameplate(img, sf, sfy);
+        if (!string.IsNullOrEmpty(masonryPath) && System.IO.File.Exists(masonryPath))
+            ReplaceWall(img, A, bandAlpha, Image.LoadFromFile(masonryPath), sf, sfy);
         FinishOverlay(img, A, D, sf, sfy);
         return img;
+    }
+
+    /// <summary>The nameplate's lettering ("ONE SOLDIER. MANY BATTLEFIELDS.") painted out of the frame's bottom bar (owner 2026-11-15): each row of the plate between its ends is the blend of the steel just left and right of the words.</summary>
+    static void PaintOutNameplate(Image img, float sf, float sfy)
+    {
+        int y0 = (int)(547 * sfy), y1 = (int)(568 * sfy), x0 = (int)(131 * sf), x1 = (int)(386 * sf);
+        for (int y = y0; y < y1; y++)
+        {
+            Color Avg(int xa) { Color c = default; for (int k = 0; k < 8; k++) { var q = img.GetPixel(xa + k, y); c.R += q.R; c.G += q.G; c.B += q.B; } return new Color(c.R / 8, c.G / 8, c.B / 8); }
+            var left = Avg(x0 - 10); var right = Avg(x1 + 2);
+            for (int x = x0; x < x1; x++)
+            {
+                float t = (x - x0) / (float)(x1 - x0);
+                // A touch of grain so the patch is not a smooth band.
+                float grain = 1f + 0.035f * Mathf.Sin(x * 0.9f + y * 1.7f) * Mathf.Sin(x * 0.31f);
+                var c = left.Lerp(right, t);
+                float edge = Mathf.Clamp(Mathf.Min(x - x0, x1 - 1 - x) / (6f * sf), 0f, 1f);
+                var old = img.GetPixel(x, y);
+                img.SetPixel(x, y, old.Lerp(new Color(c.R * grain, c.G * grain, c.B * grain, 1f), edge));
+            }
+        }
+    }
+
+    /// <summary>
+    /// Replaces the concept's left-edge stone with a ruined wall built from the video's own masonry (owner 2026-11-15: "match the floor and buildings in the background shot"): course by course, blocks of random
+    /// width and height, each filled with a random soft patch of the tower's masonry (a still of the owner's video, <paramref name="masonry"/>), tinted a little differently, with mortar, a chipped bevel,
+    /// chipped and broken corners, cracks, soot and a warm light from the right; the right edge breaks off irregularly (blocks missing, courses ending at different places). The wall runs behind the
+    /// wordmark (its letters stay on top) and as a column beside the frame. Seeded, so the builder gives the same wall every time.
+    /// </summary>
+    static void ReplaceWall(Image img, float[] A, float[] letters, Image masonry, float sf, float sfy)
+    {
+        int W = img.GetWidth(), H = img.GetHeight();
+        int wallW = (int)(106 * sf);
+        var wall = Image.CreateEmpty(wallW, H, false, Image.Format.Rgba8);
+        wall.Fill(new Color(0, 0, 0, 0));
+        masonry.Convert(Image.Format.Rgba8);
+        int mw = masonry.GetWidth(), mh = masonry.GetHeight();
+        var rng = new Random(20261115);
+        float WedgeAt(float yc) => yc < 232f ? 100f : yc < 244f ? Mathf.Lerp(100f, 21f, (yc - 232f) / 12f) : 21f;
+        // Courses.
+        float y0 = -rng.Next(0, (int)(60 * sfy));
+        while (y0 < H)
+        {
+            int ch = (int)(rng.Next(46, 74) * sfy);
+            float yc = (y0 + ch / 2f) / sfy;
+            float edge = WedgeAt(yc) * sf;
+            // The course ends short of the edge by a random amount, more in the upper, broken part.
+            float jag = yc < 110f ? rng.Next(0, 90) : yc < 232f ? rng.Next(0, 60) : rng.Next(0, 3);
+            float limit = edge - jag * sf;
+            float x0 = -rng.Next(0, (int)(40 * sf));
+            while (x0 < limit)
+            {
+                int bw = (int)(rng.Next(70, 140) * sf);
+                float bx1 = Mathf.Min(x0 + bw, limit);
+                if (bx1 - x0 > 22 * sf) DrawBlock(wall, masonry, rng, (int)x0, (int)y0, (int)(bx1 - x0), ch, mw, mh, sf, bx1 < x0 + bw);
+                x0 += bw;
+            }
+            y0 += ch;
+        }
+        // Soot and a long soft light/shade over the whole wall: darker lower down and to the left, warm at the right.
+        for (int y = 0; y < H; y++)
+            for (int x = 0; x < wallW; x++)
+            {
+                var c = wall.GetPixel(x, y);
+                if (c.A <= 0f) continue;
+                float n = 0.5f + 0.25f * Mathf.Sin(x * 0.011f + y * 0.017f) + 0.25f * Mathf.Sin(x * 0.043f - y * 0.009f + 1.7f);
+                float soot = 1f - 0.30f * n * Mathf.SmoothStep(0.15f, 1f, y / (float)H);
+                c = new Color(c.R * soot, c.G * soot, c.B * soot, c.A);
+                wall.SetPixel(x, y, c);
+            }
+        // Composite: the wall replaces the original stone left of its edge, except where the wordmark's letters stand.
+        for (int y = 0; y < H; y++)
+        {
+            float yc = y / sfy;
+            int maxX = Math.Min(wallW, (int)(WedgeAt(yc) * sf) + 1);
+            for (int x = 0; x < maxX; x++)
+            {
+                int i = y * W + x;
+                bool letter = yc >= 98f && yc < 216f && x / sf >= 28f && letters[i] > 0.5f;
+                if (letter) continue;
+                var w = wall.GetPixel(x, y);
+                A[i] = w.A;
+                img.SetPixel(x, y, new Color(w.R, w.G, w.B, 1f));
+            }
+        }
+    }
+
+    static void DrawBlock(Image wall, Image masonry, Random rng, int bx, int by, int bw, int bh, int mw, int mh, float sf, bool broken)
+    {
+        // A soft patch of the masonry for this block: a random window of it, stretched to the block's size (so no two blocks look alike and the sample's own mortar lines stay out).
+        int pw = rng.Next(46, 80), ph = Math.Max(18, (int)(pw * bh / (float)bw));
+        int ox = rng.Next(0, Math.Max(1, mw - pw)), oy = rng.Next((int)(mh * 0.45f), Math.Max((int)(mh * 0.45f) + 1, mh - ph));
+        bool flip = rng.Next(2) == 0;
+        float tint = 0.86f + (float)rng.NextDouble() * 0.26f;
+        float warm = (float)rng.NextDouble() * 0.08f;
+        // Corner chips.
+        float[] chip = [rng.Next(0, 4) == 0 ? rng.Next(14, 70) * sf / 4f : 0f, rng.Next(0, 4) == 0 ? rng.Next(14, 70) * sf / 4f : 0f, rng.Next(0, 3) == 0 ? rng.Next(14, 60) * sf / 4f : 0f, rng.Next(0, 3) == 0 ? rng.Next(14, 60) * sf / 4f : 0f];
+        if (broken) chip[1] = Math.Max(chip[1], rng.Next(20, 90) * sf / 4f);   // a broken, ragged end towards the edge
+        int mortar = Math.Max(4, (int)(2.4f * sf));
+        for (int v = 0; v < bh; v++)
+        {
+            int yy = by + v;
+            if (yy < 0 || yy >= wall.GetHeight()) continue;
+            for (int u = 0; u < bw; u++)
+            {
+                int xx = bx + u;
+                if (xx < 0 || xx >= wall.GetWidth()) continue;
+                // Corners cut off: TL, TR, BL, BR.
+                if (u + v < chip[0] || (bw - 1 - u) + v < chip[1] || u + (bh - 1 - v) < chip[2] || (bw - 1 - u) + (bh - 1 - v) < chip[3]) continue;
+                int de = Math.Min(Math.Min(u, v), Math.Min(bw - 1 - u, bh - 1 - v));
+                Color c;
+                if (de < mortar) c = new Color(0.12f, 0.105f, 0.09f, 1f);
+                else
+                {
+                    int sx = ox + (int)(u / (float)bw * pw), sy = oy + (int)(v / (float)bh * ph);
+                    if (flip) sx = ox + pw - 1 - (sx - ox);
+                    var m = masonry.GetPixel(Math.Clamp(sx, 0, mw - 1), Math.Clamp(sy, 0, mh - 1));
+                    float lum = m.R * 0.3f + m.G * 0.59f + m.B * 0.11f;
+                    // The video's masonry is a cool grey in haze; lit warm and a little brighter, with a fine grain.
+                    float grain = 1f + 0.10f * (float)Math.Sin(u * 0.37 + v * 0.53) * (float)Math.Sin(u * 0.11 - v * 0.17);
+                    float stain = 1f - 0.22f * (0.5f + 0.5f * (float)Math.Sin(u * 0.013 + v * 0.021 + tint * 9.0)) * (0.5f + 0.5f * (float)Math.Sin(u * 0.041 - v * 0.033));
+                    float k = lum * 1.28f * tint * grain * stain;
+                    c = new Color(Mathf.Clamp(k * (1.05f + warm), 0f, 1f), Mathf.Clamp(k * 1.0f, 0f, 1f), Mathf.Clamp(k * (0.92f - warm), 0f, 1f), 1f);
+                    // Bevel: lit top and right (the sunset), shaded bottom and left; a broken block's edge is darker.
+                    int bev = Math.Max(4, (int)(5f * sf));
+                    if (v < bev) c = new Color(Mathf.Min(1f, c.R + 0.14f * (1f - v / (float)bev)), Mathf.Min(1f, c.G + 0.10f * (1f - v / (float)bev)), c.B, 1f);
+                    if (bw - 1 - u < bev) c = new Color(Mathf.Min(1f, c.R + 0.16f * (1f - (bw - 1 - u) / (float)bev)), Mathf.Min(1f, c.G + 0.09f * (1f - (bw - 1 - u) / (float)bev)), c.B, 1f);
+                    if (bh - 1 - v < bev) c = new Color(c.R * 0.72f, c.G * 0.72f, c.B * 0.72f, 1f);
+                    if (u < bev) c = new Color(c.R * 0.8f, c.G * 0.8f, c.B * 0.8f, 1f);
+                }
+                wall.SetPixel(xx, yy, c);
+            }
+        }
+        // Cracks: a jagged dark line or two.
+        int cracks = rng.Next(0, 3);
+        for (int k = 0; k < cracks; k++)
+        {
+            float cx = bx + rng.Next(bw / 5, bw * 4 / 5), cy = by + rng.Next(0, bh / 3);
+            int steps = rng.Next(bh / 2, bh);
+            for (int t = 0; t < steps; t++)
+            {
+                cx += rng.Next(-3, 4); cy += 1.2f;
+                int px = (int)cx, py = (int)cy;
+                if (px < 1 || py < 0 || px >= wall.GetWidth() - 1 || py >= wall.GetHeight() || py >= by + bh - 2) break;
+                for (int d = 0; d < 2; d++) { var o = wall.GetPixel(px + d, py); if (o.A > 0f) wall.SetPixel(px + d, py, new Color(o.R * 0.35f, o.G * 0.33f, o.B * 0.3f, 1f)); }
+            }
+        }
     }
 
     /// <summary>A vertical box blur over a rectangle (the recess's rim and sides, where the upscale left dark scan-line streaks).</summary>

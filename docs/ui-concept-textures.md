@@ -82,3 +82,13 @@ Font: Oswald (SIL OFL 1.1, variable weight, `client/assets/fonts/Oswald-wght.ttf
 ## Pass 2f: the main menu's video framing (owner, 2026-11-15)
 
 `MenuVideoBackground.FramedRect`: while the overlay shows, the video is enlarged to 1.6x its covering size (less on windows wider than 16:9, so the same part of the picture stays in view) and panned so its focus point (u 0.49, v 0.565: the middle of the Marine and the tower with its god rays, measured on the video's frames) sits at 72 % of the window's width and 50 % of its height, centred in the part right of the overlay; clamped so the picture always covers the window. The video is 1920 x 1080, so at 1.6x it is softer than before.
+
+## Pass 2g (owner, 2026-11-15)
+
+* The nameplate lettering is painted out of the frame's bottom bar (`PaintOutNameplate`; the plate stays as clean steel).
+* The wordmark's final L is kept whole: the matte uses a lower threshold for the L's lighter blue (x > 436 crop px), so it has the same height, stroke and bevel as the other letters.
+* The left-edge stone is a ruined wall built by the builder from the video's own masonry (`ReplaceWall`): course by course, blocks of random size, each filled with a soft patch of a still of the owner's video, tinted, with mortar, a chipped bevel, chipped and broken corners, cracks, soot and a warm light from the right, and an irregular broken right edge; seeded (same wall every run). Source still: `menu-background-video.mp4` at 2 s, full frame 2560 x 1440, the tower's masonry cut at (1300, 537, 255 x 195) (`ffmpeg -ss 2 -i menu-background-video.mp4 -frames:v 1 video-t2.png`, then `-vf crop=255:195:1300:537`); a Real-ESRGAN x4 of it was tried and left out (it adds hatching), the raw cut is used:
+
+```
+godot.cmd -- --build-ui-textures concept-4panel-x4.png --owner-crop owner-ref-main-menu-crop.png --upscaled owner-crop-x4.png --masonry masonry-tower.png
+```
