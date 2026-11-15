@@ -262,7 +262,7 @@ public partial class NetworkView
         _musouArcPaths[key] = path;
         note = path is null
             ? $"level ({pick.Clip}: no usable tip path)"
-            : $"{pick.Clip} {from:F2}..{to:F2} s, weapon {sampled.WeaponLength:F2} m, tilt {path.TiltDegrees:F0} deg, bow {path.BowDegrees:F0} deg, turns {path.TravelDegrees:F0} deg, " +
+            : $"{pick.Clip} {from:F2}..{to:F2} s, weapon {sampled.WeaponLength:F2} m, tilt {path.TiltDegrees:F0} deg, deviation {path.BowDegrees:F1} deg over a sweep of {path.SweepDegrees:F0} deg, turns {path.TravelDegrees:F0} deg, " +
               $"from {Dir(path.Directions[0])} to {Dir(path.Directions[^1])}{how}";
         return path;
 

@@ -57,7 +57,13 @@ void fragment() {
         public Color Colour;
         /// <summary>The line's points as offsets from <see cref="Centre"/> (the weapon tip's path scaled to the cleave radius, <see cref="MusouSlashArcPath"/>), or null: the level circle segment.</summary>
         public Vector3[]? Offsets;
+        /// <summary>Per vertex: hidden by the level or a player (the cut); refreshed every <see cref="CutEveryFrames"/> frames from <see cref="CutStride"/>-spaced rays.</summary>
+        public bool[]? Hid;
+        public int Stale;
     }
+
+    /// <summary>The cost bound of the level cut: a ray at every 4th vertex (10 of 37), interpolated by the nearest ray, redone every 3rd frame: about 3 rays per arc per frame (was 36).</summary>
+    const int CutStride = 4, CutEveryFrames = 3;
 
     /// <summary>
     /// The arcs of one attacker's stencil reference (0: no model hides them; <see cref="OwnDepthTested"/>: the own player's in the Compatibility renderer): their pool, material and mesh, how many
@@ -102,7 +108,11 @@ void fragment() {
     /// <summary>True when the level (a building, terrain) blocks the line from the eye to a point (both Godot world space); the arc is cut there.</summary>
     public Func<Vector3, Vector3, bool>? WorldBlocks;
 
-    double _playersNext;
+    double _playersNext, _lastLive;
+    readonly HashSet<Node3D> _twinned = new();
+
+    /// <summary>Seconds with no live arc after which the player stencil twins are freed (they draw every mesh of every player again for nothing); the next arc marks them anew.</summary>
+    const double TwinKeepSeconds = 3.0;
     readonly List<(Node3D Model, float Radius, float Height)> _capsules = new();
 
     /// <summary>Gives every player model its stencil twins (Forward+ and Mobile) or measures its capsule (Compatibility), at most every <see cref="MusouSlashMark.RefreshSeconds"/>.</summary>
@@ -115,7 +125,7 @@ void fragment() {
         foreach (var model in PlayerModels())
         {
             if (!GodotObject.IsInstanceValid(model) || !model.IsInsideTree() || !model.Visible) continue;
-            if (Stencil) MusouSlashMark.Mark(model, MusouSlashMark.PlayerReference, MusouSlashMark.PlayerTwinName);
+            if (Stencil) { MusouSlashMark.Mark(model, MusouSlashMark.PlayerReference, MusouSlashMark.PlayerTwinName); _twinned.Add(model); }
             else _capsules.Add((model, 0f, 0f));
         }
         if (Stencil) return;
@@ -165,6 +175,25 @@ void fragment() {
             if (SegmentDistance(eye, point, bottom, top) < radius) return true;
         }
         return false;
+    }
+
+    /// <summary>The cut of an arc: a ray at every <see cref="CutStride"/>th vertex (and the last), each vertex taking the nearest ray's answer.</summary>
+    bool[] CutOf(in Arc a, Vector3[] offsets, Vector3 eye)
+    {
+        int n = offsets.Length;
+        var hid = new bool[n];
+        int last = -1;
+        bool lastAnswer = false;
+        for (int k = 0; k < n; k++)
+        {
+            bool cast = k % CutStride == 0 || k == n - 1;
+            if (!cast) continue;
+            bool answer = Hidden(eye, a.Centre + offsets[k]);
+            for (int j = Math.Max(last, 0) + (last < 0 ? 0 : 1); j <= k; j++)
+                hid[j] = last < 0 ? answer : (j - last <= k - j ? lastAnswer : answer);
+            last = k; lastAnswer = answer;
+        }
+        return hid;
     }
 
     /// <summary>The shortest distance between the segments p1-q1 and p2-q2.</summary>
@@ -229,7 +258,8 @@ void fragment() {
         {
             // Owner 2026-11-15: every player model hides the arc (one shared stencil mark, Forward+ and Mobile; capsules in the Compatibility renderer), the level hides it (a ray per vertex).
             // Orks and allied NPCs carry no mark and the arc has no depth test, so it still draws over them.
-            RefreshPlayers(Time.GetTicksMsec() / 1000.0, force: true);
+            _lastLive = Time.GetTicksMsec() / 1000.0;
+            RefreshPlayers(_lastLive, force: true);
             if (Stencil) reference = MusouSlashMark.PlayerReference;
         }
         else if (!Stencil) reference = own ? OwnDepthTested : 0;   // review: no stencil, so no twins (they would cost a draw of every mesh of the model for nothing)
@@ -256,7 +286,12 @@ void fragment() {
         var eye = camera?.GlobalPosition ?? Vector3.Zero;
         double now = Time.GetTicksMsec() / 1000.0;
         int total = 0;
-        if (!Legacy && Live > 0) RefreshPlayers(now, force: false);   // models gain meshes (a drawn weapon, a new look) and move: twins and capsules kept current while arcs live
+        if (!Legacy && Live > 0) { _lastLive = now; RefreshPlayers(now, force: false); }   // models gain meshes (a drawn weapon, a new look) and move: twins and capsules kept current while arcs live
+        else if (_twinned.Count > 0 && now - _lastLive > TwinKeepSeconds)
+        {
+            foreach (var model in _twinned) if (GodotObject.IsInstanceValid(model)) MusouSlashMark.Unmark(model, MusouSlashMark.PlayerTwinName);
+            _twinned.Clear();
+        }
         foreach (var (reference, group) in _groups)
         {
             if (group.Alive == 0 && !group.Drew) continue;   // review: nothing to clear and nothing to draw (most groups, most frames)
@@ -271,7 +306,8 @@ void fragment() {
                 a.Age += (float)delta;
                 if (a.Age >= MusouSlashArcRules.Lifetime) { a.Live = false; group.Alive--; continue; }
                 if (!open) { group.Mesh.SurfaceBegin(Mesh.PrimitiveType.Triangles, group.Material); open = true; }
-                Emit(group.Mesh, a, eye, pull, Legacy ? null : this);
+                if (!Legacy && a.Offsets is { } offsets && (a.Hid is null || ++a.Stale >= CutEveryFrames)) { a.Hid = CutOf(a, offsets, eye); a.Stale = 0; }
+                Emit(group.Mesh, a, eye, pull);
                 n++;
             }
             if (open) group.Mesh.SurfaceEnd();
@@ -291,7 +327,7 @@ void fragment() {
     /// The arc's ribbon: two vertices a segment, the width across the curve and the view so the line faces the camera. <paramref name="pull"/> above 0 (the Compatibility renderer's own arcs):
     /// every vertex moved that many metres toward the eye along its sight line, which keeps its place on the screen and only brings its depth nearer.
     /// </summary>
-    static void Emit(ImmediateMesh mesh, in Arc a, Vector3 eye, float pull, MusouSlashArcView? occlusion = null)
+    static void Emit(ImmediateMesh mesh, in Arc a, Vector3 eye, float pull)
     {
         var offsets = a.Offsets;
         int segments = offsets is null ? MusouSlashArcRules.Segments(a.Shape) : offsets.Length - 1;
@@ -320,7 +356,7 @@ void fragment() {
             var outer = point + side * half;
             var inner = point - side * half;
             if (pull > 0f) { outer = Toward(outer, eye, pull); inner = Toward(inner, eye, pull); }
-            bool hidden = occlusion is not null && occlusion.Hidden(eye, point);   // a ray per vertex: the arc is cut where a player, a building or the ground is in front of it
+            bool hidden = a.Hid is { } hid && k < hid.Length && hid[k];   // the arc is cut where a player, a building or the ground is in front of it
             if (k > 0 && !hidden && !prevHidden)
             {
                 Vertex(mesh, prevOuter, prevAlong, 1f, head, fade, a.Colour);

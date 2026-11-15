@@ -37,6 +37,22 @@ public static class MusouSlashMark
         return Materials[reference] = material;
     }
 
+    /// <summary>Frees the twins named <paramref name="twinName"/> under <paramref name="model"/> (the stencil draws they cost go with them).</summary>
+    public static void Unmark(Node model, string twinName)
+    {
+        var stack = new Stack<Node>();
+        stack.Push(model);
+        while (stack.Count > 0)
+        {
+            var node = stack.Pop();
+            foreach (var child in node.GetChildren())
+            {
+                if (child.Name == twinName) child.QueueFree();
+                else stack.Push(child);
+            }
+        }
+    }
+
     /// <summary>Gives every mesh under <paramref name="model"/> that has none a twin that writes <paramref name="reference"/>.</summary>
     public static void Mark(Node model, int reference, string twinName = TwinName)
     {

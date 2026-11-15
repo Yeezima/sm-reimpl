@@ -107,6 +107,44 @@ public class MusouSlashArcLimitTests
     }
 
     [Fact]
+    public void A_plain_sweep_is_not_read_as_a_sharp_bow_just_because_it_lies_on_a_sphere()
+    {
+        // A level 120 degree sweep and a diagonal one lie on the chest's sphere: no sideways deviation, so the default turn, not the clamp.
+        var level = new List<Vector3>();
+        var diagonal = new List<Vector3>();
+        for (int i = 0; i < N; i++)
+        {
+            float k = i / (float)(N - 1);
+            float a = (-60f + 120f * k) * Deg;
+            level.Add(Chest + new Vector3(MathF.Cos(a), MathF.Sin(a), 0f) * 1.2f);
+            float b = (-50f + 100f * k) * Deg, e = (-30f + 60f * k) * Deg;
+            diagonal.Add(Chest + new Vector3(MathF.Cos(e) * MathF.Cos(b), MathF.Cos(e) * MathF.Sin(b), MathF.Sin(e)) * 1.2f);
+        }
+        Assert.Equal(MusouSlashArcPath.DefaultTurnDegrees, MusouSlashArcPath.FitLimited(level, Chest, 24, 0f, 0.42f, 0.42f)!.Arc!.TurnDegrees, 3);
+        Assert.InRange(MusouSlashArcPath.FitLimited(diagonal, Chest, 24, 0f, 0.42f, 0.42f)!.Arc!.TurnDegrees, 8f, 39f);
+    }
+
+    [Fact]
+    public void A_swing_that_bulges_sideways_bows_by_how_much_it_bulges()
+    {
+        float Turn(float bulge)
+        {
+            var list = new List<Vector3>();
+            for (int i = 0; i < N; i++)
+            {
+                float k = i / (float)(N - 1);
+                float a = (-50f + 100f * k) * Deg, e = bulge * MathF.Sin(k * MathF.PI) * Deg;
+                list.Add(Chest + new Vector3(MathF.Cos(e) * MathF.Cos(a), MathF.Cos(e) * MathF.Sin(a), MathF.Sin(e)) * 1.2f);
+            }
+            return MusouSlashArcPath.FitLimited(list, Chest, 24, 0f, 0.42f, 0.42f)!.Arc!.TurnDegrees;
+        }
+        float small = Turn(6f), large = Turn(14f);
+        Assert.InRange(small, 8f, 40f);
+        Assert.True(large > small, $"{large} vs {small}");
+        Assert.True(small < 40f, "a mild bulge is under the clamp");
+    }
+
+    [Fact]
     public void The_swing_keeps_its_direction_and_tilt()
     {
         // Rising diagonal, right to left.

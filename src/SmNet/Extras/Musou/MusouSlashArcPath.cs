@@ -25,6 +25,8 @@ public static class MusouSlashArcPath
         public float TiltDegrees;
         /// <summary>Degrees the line bows away from the straight chord at its widest (its curve).</summary>
         public float BowDegrees;
+        /// <summary>The limited fit's measure: degrees between the strike's first and last direction (BowDegrees then holds the sideways deviation from the great circle).</summary>
+        public float SweepDegrees;
         /// <summary>The limited arc (owner 2026-11-15; <see cref="FitLimited"/>): null for the older full-swing path (<see cref="Fit"/>).</summary>
         public Limited? Arc;
     }
@@ -253,7 +255,7 @@ public static class MusouSlashArcPath
     /// Seconds past the strike's hit time the arc still follows the tip (a short follow-through; never the recovery), the arc's fixed length (metres, along the curve), and the least and most the
     /// stroke turns through (degrees, end to end: a gentle even bow). Owner 2026-11-15: release plus short follow-through, about 2 m, a gentle even bow; the numbers are ours.
     /// </summary>
-    public const float FollowSeconds = 0.06f, ArcLength = 2f, MinTurnDegrees = 8f, MaxTurnDegrees = 40f;
+    public const float FollowSeconds = 0.06f, ArcLength = 2f, MinTurnDegrees = 8f, MaxTurnDegrees = 40f, DefaultTurnDegrees = 20f, BowRatioFull = 0.5f;
 
     /// <summary>The fewest usable samples and the least travel (degrees) the limited fit needs; below it the caller draws <see cref="Level"/>.</summary>
     public const int MinLimitedSamples = 3;
@@ -306,35 +308,44 @@ public static class MusouSlashArcPath
         if (!(chordLength > 1e-4f)) return null;   // a swing that comes back to where it started has no direction
         var u = chord / chordLength;
         var midpoint = (kept[0] + kept[^1]) * 0.5f;
-        Vector3 farthest = Vector3.Zero;
-        float sag = 0f;
-        foreach (var d in kept)
-        {
-            var v = d - midpoint;
-            var dev = v - u * Vector3.Dot(v, u);
-            float m = dev.Length();
-            if (m > sag) { sag = m; farthest = dev; }
-        }
+        // The bow is measured against the great circle through the swing's first and last direction, not against the straight chord: seen from the chest every swing's directions lie on a
+        // sphere, so the chord of a plain level sweep already sags (0.5 of the sphere's radius for 120 degrees), which read as a 98 degree bow and hit the clamp on every swing (found 2026-11-15).
+        // What bows the line is the path's sideways deviation from that great circle.
+        var plane = Vector3.Cross(kept[0], kept[^1]);
+        float alpha = AngleBetween(kept[0], kept[^1]);
+        float beta = 0f;
         Vector3 bow;
-        if (sag > 1e-3f) bow = farthest / sag;
-        else
+        float turn;
+        var mid = Vector3.Normalize(midpoint);
+        if (plane.LengthSquared() > 1e-8f)
         {
-            // A straight path bows away from the chest, like a cleave's circle round the swinger.
-            var outward = midpoint - u * Vector3.Dot(midpoint, u);
-            bow = outward.LengthSquared() > 1e-8f ? Vector3.Normalize(outward) : Vector3.UnitZ;
+            var n = Vector3.Normalize(plane);
+            float signed = 0f;
+            foreach (var d in kept) { float s = MathF.Asin(Math.Clamp(Vector3.Dot(d, n), -1f, 1f)); if (MathF.Abs(s) > MathF.Abs(signed)) signed = s; }
+            beta = MathF.Abs(signed);
+            bow = signed >= 0f ? n : -n;
+            mid = Clamp(Vector3.Normalize(mid + bow * MathF.Sin(beta)));
         }
-        float turn = 4f * MathF.Atan(2f * sag / chordLength) / Rad;
-        turn = Math.Clamp(turn, MinTurnDegrees, MaxTurnDegrees);
-        var apex = midpoint + bow * MathF.Min(sag, 0.5f);
-        var mid = Clamp(apex.LengthSquared() > 1e-8f ? Vector3.Normalize(apex) : kept[kept.Count / 2]);
-        return Build(mid, u, bow, turn, segments);
+        else bow = Vector3.UnitZ;
+        if (beta < 2f * Rad)
+        {
+            // A path that stays on its great circle bows away from the chest, like a cleave's circle round the swinger, by the default turn.
+            var outward = mid - u * Vector3.Dot(mid, u);
+            bow = outward.LengthSquared() > 1e-8f ? Vector3.Normalize(outward) : Vector3.UnitZ;
+            turn = DefaultTurnDegrees;
+        }
+        else turn = MinTurnDegrees + (MaxTurnDegrees - MinTurnDegrees) * Math.Clamp(beta / MathF.Max(alpha, 1e-3f) / BowRatioFull, 0f, 1f);   // the real strikes sweep 120 to 165 degrees and stray 8 to 80 (logged): a straight tan() map hit the cap on 4 of 5
+        var fitted = Build(mid, u, bow, turn, segments);
+        fitted.BowDegrees = beta / Rad;
+        fitted.SweepDegrees = alpha / Rad;
+        return fitted;
     }
 
     /// <summary>The level default (no usable tip path): a stroke straight ahead at the line's height, bowed outward, travelling <paramref name="direction"/> (+1 right to left, -1 left to right).</summary>
     public static Path Level(int direction, int segments)
     {
         var tangent = new Vector3(0f, direction >= 0 ? 1f : -1f, 0f);
-        return Build(Vector3.UnitX, tangent, Vector3.UnitX, 20f, segments);
+        return Build(Vector3.UnitX, tangent, Vector3.UnitX, DefaultTurnDegrees, segments);
     }
 
     static Path Build(Vector3 mid, Vector3 tangent, Vector3 bow, float turnDegrees, int segments)
