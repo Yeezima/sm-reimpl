@@ -20,8 +20,17 @@ public partial class NetworkView
     /// <summary>This view is itself a rejoin after a rotation: its connection waits up to a minute for the server's answer instead of 10 s (a map load on the server).</summary>
     public bool PatientConnect { get; init; }
 
+    bool _nextMapSeen;
+
+    /// <summary>
+    /// The connection was lost or went unanswered after an ended match had said <see cref="MatchView.NextMap"/> (at any moment of the end): the server moved on to its next map and this client missed the
+    /// last snapshots, so it is treated as a rotation and rejoins patiently instead of going back to the menu.
+    /// </summary>
+    public bool RotationConnectionLost => _nextMapSeen && _client?.Status is ClientStatus.Disconnected or ClientStatus.NoAnswer;
+
     void NoteRotation(MatchView match)
     {
+        if (match.State == MatchState.Ended && match.NextMap) _nextMapSeen = true;
         if (RotateRequested || match.State != MatchState.Ended || !match.NextMap || match.TicksLeft > RotationRejoinTicks) return;
         RotateRequested = true;
         Godot.GD.Print("rotation: the server moves to its next map; joining the same address again");

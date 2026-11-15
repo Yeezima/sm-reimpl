@@ -101,4 +101,20 @@ public class MapDecorListsTests
         Assert.Equal(MapDecorLists.Always.Length, MapDecorLists.Always.Distinct(StringComparer.OrdinalIgnoreCase).Count());
         Assert.Empty(MapDecorLists.Always.Intersect(MapDecorLists.Near, StringComparer.OrdinalIgnoreCase));
     }
+
+    [Theory]
+    [InlineData("mp_tdm_17", true), InlineData("mp_tdm_01", true), InlineData("mp_dlc2_map4", true), InlineData("MP_TDM_09", false), InlineData("mp_tdm_09", false)]
+    public void The_sky_boxes_are_skipped_on_the_new_maps_and_never_on_manufactorum(string map, bool skipped)
+    {
+        Assert.Equal(skipped, MapDecorLists.SkipsSkyBoxes(map, old: false));
+        Assert.False(MapDecorLists.SkipsSkyBoxes(map, old: true));   // --old-sky-boxes restores the drawing everywhere
+    }
+
+    [Fact]
+    public void Only_the_engines_sky_shaders_count_as_sky()
+    {
+        Assert.True(MapDecorLists.IsSkyShader("sky_ycocg_bloomcontrol"));
+        Assert.False(MapDecorLists.IsSkyShader("diff_unlit"));
+        Assert.False(MapDecorLists.IsSkyShader(null));
+    }
 }

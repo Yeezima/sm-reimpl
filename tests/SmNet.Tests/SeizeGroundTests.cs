@@ -443,7 +443,7 @@ public class SeizeGroundTests(ITestOutputHelper output)
         // The mode: 1 is Seize Ground, 2 and 3 are refused.
         int state = 13 + 1 + 1;
         Assert.Equal((int)MatchState.Playing | (1 << 4), bytes[state]);
-        Assert.Null(Protocol.Read(Patch(bytes, state, (int)MatchState.Playing | (2 << 4))));
+        Assert.Null(Protocol.Read(Patch(bytes, state, (int)MatchState.Playing | (4 << 4))));
         for (int n = 0; n < bytes.Length; n++) Assert.Null(Protocol.Read(bytes.AsSpan(0, n)));
     }
 

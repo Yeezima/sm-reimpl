@@ -81,6 +81,15 @@ public static class MapDecorLists
         ["mp_dlc2_map4"] = DomeMechanicusSet,
     };
 
+    /// <summary>Whether a material's shader is the engine's sky shader (<c>sky_ycocg_bloomcontrol</c>, ...).</summary>
+    public static bool IsSkyShader(string? shader) => shader?.StartsWith("sky_", StringComparison.Ordinal) == true;
+
+    /// <summary>
+    /// classic-maps-all: the engine's sky boxes (<c>seq_NN_sky</c>) are not drawn as map geometry on any map except Manufactorum, whose drawing is pinned as it was (its box sits at the origin, far from
+    /// its play area); never with <paramref name="old"/> (<c>--old-sky-boxes</c>).
+    /// </summary>
+    public static bool SkipsSkyBoxes(string map, bool old) => !old && !map.Equals(Map, StringComparison.OrdinalIgnoreCase);
+
     /// <summary>The set for <paramref name="map"/>, or null (nothing is hidden there).</summary>
     public static DecorSet? For(string map) => Sets.TryGetValue(map, out var set) ? set : null;
 

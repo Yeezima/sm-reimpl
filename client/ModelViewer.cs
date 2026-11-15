@@ -497,7 +497,7 @@ public partial class ModelViewer : Node3D
     /// </summary>
     bool TryRotationRejoin()
     {
-        if (_network is not { RotateRequested: true } || _networkArgs?.ContainsKey("play-demo") == true) return false;
+        if (_network is not { } rotating || !(rotating.RotateRequested || rotating.RotationConnectionLost) || _networkArgs?.ContainsKey("play-demo") == true) return false;
         _network.QueueFree();
         _network = null;
         _backLayer?.QueueFree();

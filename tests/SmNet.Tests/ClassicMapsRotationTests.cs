@@ -82,4 +82,38 @@ public sealed class ClassicMapsRotationTests
         Assert.True(onlyKills.SupportsAnnihilation);
         Assert.False(onlyKills.SupportsSeize);
     }
+
+    static ServerArguments Args(string mode, params string[] maps) =>
+        ServerCommandLine.TryParse(["--maps", string.Join(",", maps), "--mode", mode], out var cli, out var error) ? cli : throw new InvalidOperationException(error);
+
+    static readonly MapEntry[] Roster =
+    [
+        Entry("mp_tdm_17", "Shattered Bridge", true, "teamdeathmatch", "domination"),
+        Entry("mp_tdm_01", "Waste Management", true, "teamdeathmatch", "domination"),
+        Entry("mp_kills", "Kills Only", true, "teamdeathmatch"),
+        Entry("mp_dlc3_map2", "dlc3_map2", false, "teamdeathmatch", "domination"),
+    ];
+
+    [Fact]
+    public void A_rotation_plan_keeps_the_order_drops_repeats_and_all_takes_the_maps_that_can_be_played_in_the_mode()
+    {
+        Assert.True(RotationSupervisor.TryPlan(Roster, Args("seize", "mp_tdm_01", "mp_tdm_17", "mp_tdm_01"), out var maps, out var error), error);
+        Assert.Equal(["mp_tdm_01", "mp_tdm_17"], maps);
+        Assert.True(RotationSupervisor.TryPlan(Roster, Args("annihilation", "all"), out maps, out error), error);
+        Assert.Equal(["mp_tdm_17", "mp_tdm_01", "mp_kills"], maps);   // playable only; the stub is left out
+        Assert.True(RotationSupervisor.TryPlan(Roster, Args("seize", "all"), out maps, out error), error);
+        Assert.Equal(["mp_tdm_17", "mp_tdm_01"], maps);               // the kills-only map has no Seize Ground
+    }
+
+    [Fact]
+    public void A_rotation_plan_refuses_an_unknown_unplayable_or_wrong_mode_map_with_a_clear_error()
+    {
+        Assert.False(RotationSupervisor.TryPlan(Roster, Args("annihilation", "mp_nope"), out _, out var error));
+        Assert.Contains("not a competitive map", error);
+        Assert.False(RotationSupervisor.TryPlan(Roster, Args("annihilation", "mp_dlc3_map2"), out _, out error));
+        Assert.Contains("cannot be played", error);
+        Assert.False(RotationSupervisor.TryPlan(Roster, Args("seize", "mp_tdm_17", "mp_kills"), out _, out error));
+        Assert.Contains("does not offer Seize Ground", error);
+        Assert.False(RotationSupervisor.TryPlan([], Args("annihilation", "all"), out _, out error));
+    }
 }

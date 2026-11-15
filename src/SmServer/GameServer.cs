@@ -304,7 +304,10 @@ public sealed partial class GameServer
     }
 
     /// <summary>classic-maps-all: the server follows an ended match with the next map of its rotation (--maps) and is about to exit: it answers no join any more (the clients ask again until the next map's server is up).</summary>
-    public bool RotationDue => World.Rules is { RotatesAfterMatch: true } && World.State == MatchState.Ended && World.TicksLeft <= MatchFlowWire.RotationRejoinTicks;
+    public bool RotationDue => RotationDueFor(World);
+
+    /// <summary>The rule of <see cref="RotationDue"/> for a world: a rotating server's ended match whose restart clock shows at most <see cref="MatchFlowWire.RotationRejoinTicks"/> ticks.</summary>
+    public static bool RotationDueFor(World world) => world.Rules is { RotatesAfterMatch: true } && world.State == MatchState.Ended && world.TicksLeft <= MatchFlowWire.RotationRejoinTicks;
 
     void OnHello(int connection, Hello h)
     {

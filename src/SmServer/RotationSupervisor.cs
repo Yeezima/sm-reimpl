@@ -14,10 +14,13 @@ namespace SmServer;
 static class RotationSupervisor
 {
     /// <summary>The ordered map list the arguments ask for, or an error line (exit code 1).</summary>
-    public static bool TryPlan(string install, ServerArguments cli, out List<string> maps, out string error)
+    public static bool TryPlan(string install, ServerArguments cli, out List<string> maps, out string error) =>
+        TryPlan(MapCatalog.Read(install), cli, out maps, out error);
+
+    /// <summary><see cref="TryPlan(string, ServerArguments, out List{string}, out string)"/> against a given roster (tests).</summary>
+    public static bool TryPlan(IReadOnlyList<MapEntry> catalog, ServerArguments cli, out List<string> maps, out string error)
     {
         maps = []; error = "";
-        var catalog = MapCatalog.Read(install);
         bool Offers(MapEntry m) => cli.Mode == GameMode.SeizeGround ? m.SupportsSeize : m.SupportsAnnihilation;
         if (cli.Maps!.Count == 1 && cli.Maps[0].Equals("all", StringComparison.OrdinalIgnoreCase))
         {

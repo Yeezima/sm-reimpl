@@ -116,8 +116,8 @@ public partial class MapView : Node3D
         {
             if (MapDecor.HidesSurface(scene.Map, meshName, range.Name)) continue;
             // classic-maps-all: the engine's sky boxes (seq_NN_sky; shader sky_ycocg_bloomcontrol, YCoCg textures, no DiffuseMap) are drawn by the engine around the camera. Read as map geometry they
-            // got the grey placeholder and stood in the level as big flat lit boxes (tan sides, violet top on Shattered Bridge). Not drawn; the lighting's sky shows (MapLightingView).
-            if (scene.Materials.TryGetValue(range.Name, out var skyMaterial) && skyMaterial.ShaderName?.StartsWith("sky_", StringComparison.Ordinal) == true) continue;
+            // got the grey placeholder and stood in the level as big flat lit boxes (tan sides, violet top on Shattered Bridge). Not drawn on the new maps (never on Manufactorum, whose drawing stays as it was: MapDecorLists.SkipsSkyBoxes); the lighting's sky shows (MapLightingView).
+            if (MapDecor.SkipsSkyBoxes(scene.Map) && scene.Materials.TryGetValue(range.Name, out var skyMaterial) && MapDecorLists.IsSkyShader(skyMaterial.ShaderName)) continue;
             int count = range.IndexCount - range.IndexCount % 3;
             if (count < 3 || range.StartIndex < 0 || range.StartIndex + count > block.Indices.Length) continue;
             // Vertex window of this range; fall back to the whole block if an index falls outside the declared window.

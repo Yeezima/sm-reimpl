@@ -37,6 +37,13 @@ public static class MapDecor
     public static bool HidesSurface(string map, string mesh, string material) => MapDecorLists.HidesSurface(map, mesh, material, Old);
 
     /// <summary><c>--old-armoury-racks</c>: draw the boards and their fittings as before (before / after aid).</summary>
+    /// <summary>Whether the engine's sky-box surfaces (shader <c>sky_*</c>) are not drawn on <paramref name="map"/>: every map but Manufactorum, and never with <c>--old-sky-boxes</c>.</summary>
+    public static bool SkipsSkyBoxes(string map) => MapDecorLists.SkipsSkyBoxes(map, OldSkyBoxes);
+
+    /// <summary><c>--old-sky-boxes</c>: draw the sky boxes as map geometry again, as before classic-maps-all (before / after aid).</summary>
+    public static bool OldSkyBoxes => _oldSky ??= Array.IndexOf(OS.GetCmdlineUserArgs(), "--old-sky-boxes") >= 0;
+    static bool? _oldSky;
+
     public static bool Old => _old ??= Array.IndexOf(OS.GetCmdlineUserArgs(), "--old-armoury-racks") >= 0;
     static bool? _old;
 

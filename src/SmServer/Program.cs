@@ -25,6 +25,7 @@ if (cli.Maps is not null)
 {
     // classic-maps-all: a rotation. This process only supervises; each match runs in a child server on one map of the list (RotationSupervisor.cs).
     if (cli.Map is not null || cli.RotationChild) { Console.Error.WriteLine("smserver: --maps replaces --map; give one of them"); return ServerCommandLine.UsageError; }
+    if (cli.Content.HasFlag(ContentExtras.Musou)) { Console.Error.WriteLine("smserver: --maps is Classic PvP only; Musou Mode plays its own map (leave --maps out with --content musou)"); return ServerCommandLine.UsageError; }
     string rotationInstall;
     try { rotationInstall = GameInstall.Locate(cli.GameDir); }
     catch (DirectoryNotFoundException) { Console.Error.WriteLine($"smserver: game not found. {GameInstall.NotFoundMessage}"); return 1; }
@@ -537,6 +538,7 @@ while (true)
     {
         server.Update();
         // classic-maps-all: a rotation child's match is over and its clients were told (protocol 79); it answers no more joins (RotationDue) and leaves a moment later for the supervisor's next map.
+        if (!server.RotationDue) rotationDueAt = null;   // a rotation that is no longer due (a player joined an empty restart, say) starts its 0.8 s afresh
         if (cli.RotationChild && server.RotationDue)
         {
             rotationDueAt ??= clock.Now;
