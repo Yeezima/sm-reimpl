@@ -152,9 +152,22 @@ public sealed partial class MenuVideoBackground : Control
         AddChild(UiKit.MenuStillBackground().With(n => { n.Name = "MenuStillFallback"; n.SetAnchorsPreset(LayoutPreset.FullRect); }));
     }
 
+    /// <summary>
+    /// The main menu's framing (ui/concept-redesign, 2026-11-15): the concept's overlay covers the left 48 % of the screen, so the video is enlarged by <see cref="MainMenuZoom"/> from its left edge, which moves the
+    /// Marine and the battlefield right, clear of the overlay's frame. Other screens show the picture as it was made.
+    /// </summary>
+    public bool MainMenuFraming { get => _framing; set { if (_framing == value) return; _framing = value; Fit(); } }
+    public const float MainMenuZoom = 1.3f;
+    bool _framing;
+
     void Fit()
     {
         var r = CoverRect(Size, _videoSize);
+        if (_framing)
+        {
+            var size = r.Size * MainMenuZoom;
+            r = new Rect2(new Vector2(r.Position.X, (Size.Y - size.Y) / 2f), size);   // left edge kept, centred vertically
+        }
         Player.Position = r.Position;
         Player.Size = r.Size;
     }

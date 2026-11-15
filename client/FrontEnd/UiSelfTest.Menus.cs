@@ -48,7 +48,7 @@ public sealed partial class UiSelfTest
             Check("menu: a first row has the focus", GetViewport().GuiGetFocusOwner() is Button { Text: var focusedText } && focusedText == wanted[0] || FindButton(main, b => b.Text == wanted[0]) is not null);
             foreach (var row in new[] { "CLASSIC PVP", "OPTIONS" })
                 Check($"menu: {row} is a dark-metal steel button", FindButton(main, b => b.Text == row) is { } rowButton && rowButton.ThemeTypeVariation == Steel.ButtonType && (rowButton.GetThemeStylebox("normal") is StyleBoxTexture || rowButton.GetThemeStylebox("normal") is Steel.SteelStyle { Kind: Steel.Kind.Dark }));
-            Check("menu: the wordmark, the crest, the frame and the nameplate are there", main is ConceptMainPage page01 && page01.Frame.IsVisibleInTree() && page01.Wordmark.IsVisibleInTree() && main.FindChild("Crest", true, false) is not null && main.FindChild("Nameplate", true, false) is Label { Text: "ONE SOLDIER. MANY BATTLEFIELDS." });
+            Check("menu: the wordmark, the crest, the frame and the nameplate are there", main is ConceptMainPage page01 && page01.Frame.IsVisibleInTree() && page01.Wordmark.IsVisibleInTree() && (main.FindChild("Crest", true, false) is not null || page01.Frame is TextureRect) && main.FindChild("Nameplate", true, false) is Label { Text: "ONE SOLDIER. MANY BATTLEFIELDS." });
 
             await PressRow("CLASSIC PVP", main);
             var lobby = _front.LobbyPage!;
@@ -420,10 +420,13 @@ public sealed partial class UiSelfTest
         var concept = (ConceptMainPage)main;
         var firstRow = FindButton(main.Rows, b => b.Text == "CLASSIC PVP")!;
         var exit = FindButton(main.Rows, b => b.Text == "EXIT")!;
-        Check($"fit {at}: the rows are steel buttons 62 apart plus the gap, all inside the frame", Mathf.Abs(exit.GlobalPosition.Y - firstRow.GlobalPosition.Y - (ConceptMainPage.RowHeight + ConceptMainPage.RowGap) * (RowTexts(main).Count - 1)) < 1.5f
-            && concept.Frame.GetGlobalRect().Encloses(firstRow.GetGlobalRect()) && concept.Frame.GetGlobalRect().Encloses(exit.GetGlobalRect()), firstRow.GetGlobalRect().ToString());
-        Check($"fit {at}: the wordmark, the crest and the frame are in the window and clear of the video's Marine (the right 55 %)", Encloses(view, concept.Frame.GetGlobalRect()) && Encloses(view, concept.Wordmark.GetGlobalRect())
-            && concept.Frame.GetGlobalRect().End.X <= view.Position.X + view.Size.X * 0.4f && concept.Wordmark.GetGlobalRect().End.X <= view.Position.X + view.Size.X * 0.45f, concept.Frame.GetGlobalRect().ToString());
+        // The overlay (2026-11-15): the rows are evenly spaced steel buttons inside the window of the picture; the picture and its wordmark are in the window and keep to the left half.
+        var rowButtons = AllButtons(main.Rows).Where(x => x.IsVisibleInTree()).OrderBy(x => x.GlobalPosition.Y).ToList();
+        float pitch0 = rowButtons.Count > 1 ? rowButtons[1].GlobalPosition.Y - rowButtons[0].GlobalPosition.Y : 0f;
+        Check($"fit {at}: the rows are evenly spaced and all inside the window picture", rowButtons.Count == RowTexts(main).Count && rowButtons.Zip(rowButtons.Skip(1), (p, q) => Mathf.Abs(q.GlobalPosition.Y - p.GlobalPosition.Y - pitch0) < 1.5f).All(ok => ok)
+            && rowButtons.All(rb => concept.Frame.GetGlobalRect().Encloses(rb.GetGlobalRect())), firstRow.GetGlobalRect().ToString());
+        Check($"fit {at}: the picture and the wordmark are in the window and keep to its left half, clear of the Marine", Encloses(view, concept.Frame.GetGlobalRect()) && Encloses(view, concept.Wordmark.GetGlobalRect())
+            && concept.Frame.GetGlobalRect().End.X <= view.Position.X + view.Size.X * 0.5f + 1f && concept.Wordmark.GetGlobalRect().End.X <= view.Position.X + view.Size.X * 0.5f + 1f, concept.Frame.GetGlobalRect().ToString());
         var plateRect = ((Control)main.FindChild("Nameplate", true, false)!).GetGlobalRect();
         Check($"fit {at}: the nameplate sits on the frame's lower edge, inside its width, in the window", plateRect.Position.X >= concept.Frame.GetGlobalRect().Position.X && plateRect.End.X <= concept.Frame.GetGlobalRect().End.X && plateRect.Intersects(concept.Frame.GetGlobalRect()) && Encloses(view, plateRect), plateRect.ToString());
         int size = firstRow.GetThemeFontSize("font_size");

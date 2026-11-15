@@ -244,9 +244,10 @@ public static partial class Steel
                 var floor = new Color(0.035f, 0.032f, 0.03f);
                 if (amber)
                 {
-                    // The amber light of the recess, from its rim inward, with the concept's fine horizontal scan lines.
-                    const int steps = 18;
-                    for (int i = 0; i < steps; i++) Plate(c, rc.Grow(-i * 3.4f), 3f, Mix(Amber, floor, Mathf.Pow(i / (float)steps, 0.5f)));
+                    // The amber glow of the recess (the reference's soft one): dark at the steel, warming inward to a mid amber, with the concept's fine horizontal scan lines.
+                    const int steps = 26;
+                    var rim = new Color(0.16f, 0.09f, 0.02f); var mid = new Color(0.50f, 0.29f, 0.05f);
+                    for (int i = 0; i < steps; i++) Plate(c, rc.Grow(-i * 1.6f), 3f, Mix(rim, mid, Mathf.SmoothStep(0f, 1f, i / 14f)));
                     for (float y = rc.Position.Y + 3f; y < rc.End.Y - 3f; y += 4f) Fill(c, new Rect2(rc.Position.X + 3f, y, rc.Size.X - 6f, 1f), new Color(0f, 0f, 0f, 0.28f));
                 }
                 else Plate(c, rc, 3f, floor);

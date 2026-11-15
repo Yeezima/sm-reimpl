@@ -48,3 +48,15 @@ Rebuild with `godot.cmd -- --build-ui-textures <concept-4panel.jpg> --owner-crop
 | `wordmark` | 30,122,478x94, matte: saturation key, holes closed, dark outline kept, alpha softened and eroded | SM-REIMPL |
 
 Without `--owner-crop` the 4-panel pieces of the first pass are made as before (`frame-main`, `stone-main`, `wordmark`).
+
+## Pass 2c: the main menu as one overlay (owner, 2026-11-15)
+
+The owner: "simply paste in the concept art overlaid on the left side of the screen, then fix the buttons". The main menu's left side is now ONE picture, `overlay-main.png` (1044 x 1212), cut from the owner's 522 x 606 crop of panel 01 (the wall, the wordmark, the crest, the window and its nameplate), with its alpha following the owner's orange line (feathered); this replaces `frame-wall`, `wall-main`, `wordmark` and the crest for the main menu only (they stay for Options and the fallback). The concept's button plates are painted out of the recess (its amber with scan lines); the live buttons stand on their places (the recess area `UiTextureBuilder.OverlayRows`), spread evenly, tighter when STOP MUSOU SERVER shows. Behind the wordmark and the crest only the letters (outline, shadow) and the crest are kept, so no box of the concept's sky shows.
+
+Upscale stage: without `--upscaled` the crop is enlarged 2x with Lanczos limited to the local range of the source (no ringing) and an unsharp mask. `--upscaled <png>` replaces that stage with any already upscaled picture of the same framing (the builder scales its coordinates to the picture's size), so an AI-upscaled crop can be dropped in with no code change:
+
+```
+godot.cmd -- --build-ui-textures <concept-4panel.jpg> --owner-crop <owner-ref-main-menu-crop.png> [--upscaled <crop upscaled.png>]
+```
+
+While the overlay shows, the video behind the menu is enlarged 1.3x from its left edge (`MenuVideoBackground.MainMenuFraming`) so the Marine and the battlefield stand clear of the overlay, which spans the full height and about 48 % of the width at 16:9.

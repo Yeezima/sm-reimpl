@@ -16,7 +16,7 @@ public static class UiTextureBuilder
     /// <summary>Output pixels per concept pixel: the concept's panels are 780 x 440 for a 1920 x 1080 screen (2.46x); the frames are drawn about 1.74x, so the pieces are made at that scale and drawn 1:1.</summary>
     public const float S = 1.74f;
 
-    public static int Run(string? conceptPath, string? outDir, string? cropPath = null)
+    public static int Run(string? conceptPath, string? outDir, string? cropPath = null, string? upscaledPath = null)
     {
         if (string.IsNullOrEmpty(conceptPath) || !System.IO.File.Exists(conceptPath)) { GD.PrintErr("build-ui-textures: give the concept image: --build-ui-textures <concept-4panel.jpg>"); return 2; }
         var src = Image.LoadFromFile(conceptPath);
@@ -36,10 +36,11 @@ public static class UiTextureBuilder
         {
             var crop = Image.LoadFromFile(cropPath);
             crop.Convert(Image.Format.Rgba8);
+            Save("overlay-main", MainOverlay(crop, upscaledPath));
             Save("frame-wall", WallFrame(crop));
-            Save("wall-main", Scaled(Cut(crop, new Rect2I(0, 300, 24, 250)), 1.25f));
-            Save("wall-cap", Scaled(Cut(crop, new Rect2I(0, 0, 76, 112)), 1.35f));
-            Save("wordmark", Scaled(WordmarkMatte(Cut(crop, new Rect2I(30, 122, 478, 94))), 1.2f));
+            Save("wall-main", WallSynth(crop));
+            Save("wordmark", WordmarkBuild(Cut(crop, new Rect2I(30, 122, 478, 94))));
+            if (string.IsNullOrEmpty(cropPath)) Save("crest", Scaled(ClearBottomSides(FloodKey(Cut(crop, new Rect2I(150, 212, 226, 44)), 34f, 2, 2), 36, 30), 1.2f));
         }
 
         // ---- buttons: the plate with its label removed ----
@@ -57,6 +58,163 @@ public static class UiTextureBuilder
         if (string.IsNullOrEmpty(cropPath)) Save("stone-main", Scaled(Cut(src, new Rect2I(10, 240, 37, 100)), S));
         Save("stone-options", Scaled(FloodKey(Cut(src, new Rect2I(1496, 600, 42, 150)), 22f, 41, 75), S));
         return 0;
+    }
+
+    // ---- the main menu overlay (owner 2026-11-15: "simply paste in the concept art overlaid on the left side of the screen") ----
+
+    /// <summary>The owner's crop is 522 x 606; every rectangle below is in its pixels (an upscaled input of the same framing is scaled to it).</summary>
+    public const int CropW = 522, CropH = 606;
+    /// <summary>Where the live buttons go (the plates' area; the baked plates are painted out there), the wordmark and the nameplate, in crop pixels.</summary>
+    public static readonly Rect2I OverlayRows = new(92, 281, 341, 226), OverlayWordmark = new(30, 122, 478, 94), OverlayNameplate = new(118, 543, 265, 30);
+
+    /// <summary>The owner's orange line (his marked image, 2026-11-15) in crop pixels: everything inside is kept, outside is transparent, the edge feathered.</summary>
+    static readonly Vector2[] OverlayOutline =
+    [
+        new(0, 0), new(43, 0), new(99, 52), new(101, 106), new(505, 110), new(512, 205), new(416, 219), new(479, 237), new(497, 262), new(497, 520),
+        new(485, 565), new(433, 577), new(133, 589), new(133, 606), new(0, 606),
+    ];
+
+    /// <summary>
+    /// The one image of the main menu's left side: the crop, upscaled (the pluggable stage: <paramref name="upscaledPath"/> is an already upscaled picture of the same framing, e.g. from an AI upscaler;
+    /// without it, 2x with Lanczos limited to the local range of the source so it cannot ring, then an unsharp mask), the button plates painted out of the recess (clean amber with the concept's scan lines; the
+    /// live buttons go there), and an alpha that follows the owner's line.
+    /// </summary>
+    static Image MainOverlay(Image crop, string? upscaledPath)
+    {
+        Image img;
+        if (!string.IsNullOrEmpty(upscaledPath) && System.IO.File.Exists(upscaledPath))
+        {
+            img = Image.LoadFromFile(upscaledPath);
+            img.Convert(Image.Format.Rgba8);
+            GD.Print($"overlay: pre-upscaled input {img.GetWidth()} x {img.GetHeight()}");
+        }
+        else img = SmartUpscale(crop, 2);
+        int W = img.GetWidth(), H = img.GetHeight();
+        float sf = W / (float)CropW, sfy = H / (float)CropH;
+        // Paint the plates out: the recess's own amber, with its scan lines, from the clean strips beside the plates.
+        var rows = OverlayRows;
+        Color amber = default; int n = 0;
+        for (int y = (int)(300 * sfy); y < (int)(480 * sfy); y++)
+            for (int x = (int)(72 * sf); x < (int)(88 * sf); x++) { var p = img.GetPixel(x, y); amber.R += p.R; amber.G += p.G; amber.B += p.B; n++; }
+        amber = new Color(Mathf.Min(1f, amber.R / n * 1.45f), Mathf.Min(1f, amber.G / n * 1.4f), Mathf.Min(1f, amber.B / n * 1.2f));   // the strips beside the plates include the dark rim; the glow's own amber is brighter
+        float top = rows.Position.Y * sfy, bottom = rows.End.Y * sfy;
+        for (int y = (int)top; y < (int)bottom; y++)
+        {
+            float edge = Mathf.Min(y - top, bottom - y) / (30f * sfy);
+            float shade = Mathf.Lerp(0.72f, 1.04f, Mathf.SmoothStep(0f, 1f, edge));
+            bool line = (int)(y / (1.5f * sfy)) % 2 == 0;
+            float scan = line ? 0.86f : 1.0f;
+            for (int x = (int)(rows.Position.X * sf); x < (int)(rows.End.X * sf); x++)
+            {
+                // Soft sides so the patch meets the recess without a seam.
+                float side = Mathf.Min(x - rows.Position.X * sf, rows.End.X * sf - x) / (16f * sf);
+                var old = img.GetPixel(x, y);
+                var fill = new Color(Mathf.Clamp(amber.R * shade * scan, 0f, 1f), Mathf.Clamp(amber.G * shade * scan, 0f, 1f), Mathf.Clamp(amber.B * shade * scan, 0f, 1f), 1f);
+                img.SetPixel(x, y, old.Lerp(fill, Mathf.Clamp(side, 0f, 1f)));
+            }
+        }
+        // Behind the wordmark and the crest the concept's grey sky would show as a box on our video: keep only the letters (with their outline and shadow) and the crest.
+        var bandAlpha = new float[W * H];
+        Array.Fill(bandAlpha, 1f);
+        {
+            int y0 = (int)(98 * sfy), y1 = (int)(216 * sfy), x0 = (int)(102 * sf), x1 = (int)(514 * sf);
+            var mask = new float[W * H];
+            for (int y = y0; y < y1; y++)
+                for (int x = x0; x < x1; x++)
+                {
+                    var p = img.GetPixel(x, y);
+                    float max = Mathf.Max(p.R, Mathf.Max(p.G, p.B)), min = Mathf.Min(p.R, Mathf.Min(p.G, p.B));
+                    float sat = max <= 0.001f ? 0f : (max - min) / max;
+                    mask[y * W + x] = p.B >= p.R + 0.12f && sat > 0.40f ? 1f : 0f;
+                }
+            int r = (int)(Mathf.Round(5f * sf));
+            // Dilate by r (a square, in two passes), keeping the letters, the dark outline and the shadow beside them.
+            var tmp = new float[W * H]; var dil = new float[W * H];
+            for (int y = y0; y < y1; y++) for (int x = x0; x < x1; x++) { float v = 0f; for (int d = -r; d <= r; d++) v = Mathf.Max(v, mask[y * W + Mathf.Clamp(x + d, 0, W - 1)]); tmp[y * W + x] = v; }
+            for (int y = y0; y < y1; y++) for (int x = x0; x < x1; x++) { float v = 0f; for (int d = -r; d <= r; d++) v = Mathf.Max(v, tmp[Mathf.Clamp(y + d, 0, H - 1) * W + x]); dil[y * W + x] = v; }
+            for (int y = y0; y < y1; y++)
+                for (int x = x0; x < x1; x++)
+                {
+                    // A one-pixel soft edge on the dilated mask.
+                    float a = dil[y * W + x];
+                    bandAlpha[y * W + x] = a;
+                }
+            // Crest: flood-key its grey surround.
+            var crestRect = new Rect2I((int)(150 * sf), (int)(212 * sfy), (int)(226 * sf), (int)(34 * sfy));
+            var sub = FloodKey(img.GetRegion(crestRect), 34f, 2, 2);
+            for (int y = 0; y < sub.GetHeight(); y++)
+                for (int x = 0; x < sub.GetWidth(); x++)
+                {
+                    // The key leaves a box of the concept's haze round the crest: an ellipse over the crest (centre 262, 240; radii 112 x 25 crop px) trims it.
+                    float ex = ((crestRect.Position.X + x) / sf - 262f) / 112f, ey = ((crestRect.Position.Y + y) / sfy - 238f) / 26f;
+                    float e = Mathf.Clamp((1.08f - Mathf.Sqrt(ex * ex + ey * ey)) / 0.12f, 0f, 1f);
+                    bandAlpha[(crestRect.Position.Y + y) * W + crestRect.Position.X + x] = sub.GetPixel(x, y).A * e;
+                }
+            for (int y = y1; y < (int)(212 * sfy); y++) for (int x = x0; x < x1; x++) bandAlpha[y * W + x] = 1f;
+        }
+        // The alpha: inside the owner's outline, feathered.
+        float feather = 5f * sf;
+        for (int y = 0; y < H; y++)
+            for (int x = 0; x < W; x++)
+            {
+                var pt = new Vector2(x / sf, y / sfy);
+                float d = SignedDistance(pt, OverlayOutline) * sf;   // positive inside
+                var p = img.GetPixel(x, y);
+                p.A = Mathf.Clamp(0.5f + d / feather, 0f, 1f) * bandAlpha[y * W + x];
+                img.SetPixel(x, y, p);
+            }
+        return img;
+    }
+
+    /// <summary>Distance from a point to a polygon's outline, positive inside and negative outside.</summary>
+    static float SignedDistance(Vector2 p, Vector2[] poly)
+    {
+        float best = float.MaxValue; bool inside = false;
+        for (int i = 0, j = poly.Length - 1; i < poly.Length; j = i++)
+        {
+            var a = poly[j]; var b = poly[i];
+            if ((a.Y > p.Y) != (b.Y > p.Y) && p.X < (b.X - a.X) * (p.Y - a.Y) / (b.Y - a.Y) + a.X) inside = !inside;
+            var ab = b - a; float t = ab.LengthSquared() > 0f ? Mathf.Clamp((p - a).Dot(ab) / ab.LengthSquared(), 0f, 1f) : 0f;
+            best = Mathf.Min(best, (p - (a + ab * t)).Length());
+        }
+        return inside ? best : -best;
+    }
+
+    /// <summary>
+    /// A clean enlargement by <paramref name="k"/>: Lanczos, each output pixel then limited to the range of the source pixels around it (no overshoot, so no ringing halos at the edges), and a mild unsharp
+    /// mask. Without a neural upscaler this is the best that can be done from the crop alone.
+    /// </summary>
+    static Image SmartUpscale(Image src, int k)
+    {
+        int w = src.GetWidth(), h = src.GetHeight(), W = w * k, H = h * k;
+        var sp = src.GetData();
+        var big = (Image)src.Duplicate();
+        big.Resize(W, H, Image.Interpolation.Lanczos);
+        var bp = big.GetData();
+        for (int y = 0; y < H; y++)
+        {
+            int sy = Math.Min(h - 1, y / k);
+            for (int x = 0; x < W; x++)
+            {
+                int sx = Math.Min(w - 1, x / k);
+                int o = (y * W + x) * 4;
+                for (int c = 0; c < 3; c++)
+                {
+                    int lo = 255, hi = 0;
+                    for (int dy = -1; dy <= 1; dy++)
+                        for (int dx = -1; dx <= 1; dx++)
+                        {
+                            int v = sp[(Math.Clamp(sy + dy, 0, h - 1) * w + Math.Clamp(sx + dx, 0, w - 1)) * 4 + c];
+                            if (v < lo) lo = v; if (v > hi) hi = v;
+                        }
+                    bp[o + c] = (byte)Math.Clamp((int)bp[o + c], lo, hi);
+                }
+                bp[o + 3] = 255;
+            }
+        }
+        var outImg = Image.CreateFromData(W, H, false, Image.Format.Rgba8, bp);
+        Sharpen(outImg, 0.45f);
+        return outImg;
     }
 
     // ---- the wall and frame of the owner's crop ----
@@ -79,8 +237,10 @@ public static class UiTextureBuilder
                 bool inHole = cx >= WallHole.Position.X && cx < WallHole.End.X && cy >= WallHole.Position.Y && cy < WallHole.End.Y;
                 if (inHole) a = 0f;
                 // Outside the frame's top and bottom edge (right of the wall) and its right edge: the scene, transparent.
-                if (x > 70 && y < 6) a = 0f;
-                if (x > 70 && y > h - 7) a = 0f;
+                if (y < 7) a = 0f;
+                // The wall above and beside the frame is the synthesised wall's job: the cut's own stone fades in over its first rows at the left, so no lit rectangle shows above the frame.
+                if (x < 80 && y < 60) a = Math.Min(a, Mathf.SmoothStep(7f, 60f, y) * Mathf.SmoothStep(0f, 1f, 1f - Math.Max(0f, (x - 40f) / 40f)) * 0f + Mathf.SmoothStep(20f, 60f, y));
+                if (y > h - 7 && x > 70) a = 0f;
                 if (x > w - 4) a = 0f;
                 // Chamfers of the two right-hand corners.
                 float dTR = (w - x) + y - 26f, dBR = (w - x) + (h - y) - 26f;
@@ -95,6 +255,112 @@ public static class UiTextureBuilder
                 p.A = a; img.SetPixel(x, y, p);
             }
         return Scaled(img, WallScale);
+    }
+
+    /// <summary>
+    /// A continuous stone wall for the left edge, made from the crop's own stone (its top-left block): the sample is stacked down 1280 px with every second block upside down, shifted sideways
+    /// and cross-faded at the seams; the right edge is irregular (two slow waves), shaded towards the edge, and casts a soft shadow onto the video.
+    /// </summary>
+    static Image WallSynth(Image crop)
+    {
+        var sample = Scaled(Cut(crop, new Rect2I(0, 0, 70, 100)), 1.6f);
+        int sw = sample.GetWidth(), sh = sample.GetHeight();
+        const int H = 1280;
+        int W = sw;
+        var wall = Image.CreateEmpty(W, H, false, Image.Format.Rgba8);
+        const int fade = 16;
+        for (int y = 0; y < H; y++)
+        {
+            int block = y / (sh - fade), within = y % (sh - fade);
+            for (int x = 0; x < W; x++)
+            {
+                Color Pick(int b, int yy)
+                {
+                    int sy = b % 2 == 1 ? sh - 1 - yy : yy;
+                    int sx = (x + (b * 37) % W) % sw;
+                    return sample.GetPixel(sx, Mathf.Clamp(sy, 0, sh - 1));
+                }
+                var c = Pick(block, within);
+                if (within >= sh - 2 * fade && y + fade < H)
+                {
+                    float t = (within - (sh - 2 * fade)) / (float)fade;
+                    c = c.Lerp(Pick(block + 1, within - (sh - 2 * fade)), Mathf.Clamp(t, 0f, 1f));
+                }
+                wall.SetPixel(x, y, c);
+            }
+        }
+        for (int y = 0; y < H; y++)
+        {
+            float edge = W * 0.80f + W * 0.12f * (Mathf.Sin(y * 0.021f) + Mathf.Sin(y * 0.057f + 1.3f) * 0.6f) / 1.6f;
+            for (int x = 0; x < W; x++)
+            {
+                var c = wall.GetPixel(x, y);
+                float shade = 1f - 0.5f * Mathf.SmoothStep(edge - 34f, edge, x);
+                float a = Mathf.Clamp((edge - x) / 6f, 0f, 1f);
+                if (a <= 0f) { c = new Color(0f, 0f, 0f, 0.4f * Mathf.Clamp(1f - (x - edge) / 16f, 0f, 1f)); }
+                else c = new Color(c.R * shade, c.G * shade, c.B * shade, a);
+                wall.SetPixel(x, y, c);
+            }
+        }
+        return wall;
+    }
+
+    /// <summary>
+    /// The wordmark rebuilt from the crop's letters: the lettering mask (saturation key, holes closed, one pixel bolder), the chrome of the letters raised in contrast with a bright rim, a deep navy
+    /// outline round them and a soft drop shadow, all drawn here so no scrap of the JPEG's background is left.
+    /// </summary>
+    static Image WordmarkBuild(Image img)
+    {
+        const int pad = 8;
+        int w = img.GetWidth(), h = img.GetHeight(), W = w + pad * 2, H = h + pad * 2;
+        var m = new float[W * H];
+        for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++)
+            {
+                var p = img.GetPixel(x, y);
+                float max = Mathf.Max(p.R, Mathf.Max(p.G, p.B)), min = Mathf.Min(p.R, Mathf.Min(p.G, p.B));
+                float sat = max <= 0.001f ? 0f : (max - min) / max;
+                m[(y + pad) * W + x + pad] = p.B >= p.R + 0.05f && sat > 0.28f ? 1f : 0f;
+            }
+        float[] Dilate(float[] s, int r) { var o = new float[s.Length]; for (int y = 0; y < H; y++) for (int x = 0; x < W; x++) { float v = 0f; for (int dy = -r; dy <= r; dy++) for (int dx = -r; dx <= r; dx++) { if (dx * dx + dy * dy > r * r + 1) continue; v = Mathf.Max(v, s[Mathf.Clamp(y + dy, 0, H - 1) * W + Mathf.Clamp(x + dx, 0, W - 1)]); } o[y * W + x] = v; } return o; }
+        float[] Erode(float[] s, int r) { var o = new float[s.Length]; for (int y = 0; y < H; y++) for (int x = 0; x < W; x++) { float v = 1f; for (int dy = -r; dy <= r; dy++) for (int dx = -r; dx <= r; dx++) { if (dx * dx + dy * dy > r * r + 1) continue; v = Mathf.Min(v, s[Mathf.Clamp(y + dy, 0, H - 1) * W + Mathf.Clamp(x + dx, 0, W - 1)]); } o[y * W + x] = v; } return o; }
+        var closed = Erode(Dilate(m, 2), 2);                 // holes of the keyed JPEG closed
+        var body = Dilate(closed, 1);                         // one pixel bolder
+        var outline = Dilate(body, 3);
+        var shadowMask = Dilate(body, 4);
+        var outImg = Image.CreateEmpty(W, H, false, Image.Format.Rgba8);
+        outImg.Fill(new Color(0, 0, 0, 0));
+        // Shadow: the outline's shape shifted down and right, soft.
+        const int sx = 4, sy = 5;
+        for (int y = 0; y < H; y++)
+            for (int x = 0; x < W; x++)
+            {
+                float sum = 0f;
+                for (int dy = -2; dy <= 2; dy++) for (int dx = -2; dx <= 2; dx++) sum += shadowMask[Mathf.Clamp(y - sy + dy, 0, H - 1) * W + Mathf.Clamp(x - sx + dx, 0, W - 1)];
+                float a = 0.62f * sum / 25f;
+                if (a > 0f) outImg.SetPixel(x, y, new Color(0.01f, 0.01f, 0.03f, a));
+            }
+        for (int y = 0; y < H; y++)
+            for (int x = 0; x < W; x++)
+            {
+                int i = y * W + x;
+                if (outline[i] > 0.5f && body[i] < 0.5f) outImg.SetPixel(x, y, new Color(0.015f, 0.03f, 0.09f, 1f));
+            }
+        for (int y = 0; y < H; y++)
+            for (int x = 0; x < W; x++)
+            {
+                int i = y * W + x;
+                if (body[i] < 0.5f) continue;
+                int sxp = Mathf.Clamp(x - pad, 0, w - 1), syp = Mathf.Clamp(y - pad, 0, h - 1);
+                var p = img.GetPixel(sxp, syp);
+                // Levels: a deeper black point and more contrast; letters that came out dark in the crop's edge pixels are pulled to the body's blue.
+                float L(float v) => Mathf.Clamp((v - 0.10f) * 1.5f + 0.05f, 0f, 1f);
+                var c = new Color(L(p.R), L(p.G), L(p.B), 1f);
+                bool rim = body[(y - 1) * W + x] < 0.5f || body[y * W + x - 1] < 0.5f;   // the lit top and left edge
+                if (rim) c = new Color(Mathf.Min(1f, c.R + 0.32f), Mathf.Min(1f, c.G + 0.34f), Mathf.Min(1f, c.B + 0.3f), 1f);
+                outImg.SetPixel(x, y, c);
+            }
+        return Scaled(outImg, 1.25f);
     }
 
     /// <summary>
