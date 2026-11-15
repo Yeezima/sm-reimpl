@@ -298,6 +298,20 @@ public static class RefineRules
     /// <summary>A row whose Kind cell starts with "superseded": history of behaviour a later row replaced or removed (the replacement carries the live tag). Listed in the appendix only.</summary>
     public static bool IsSuperseded(string kind) => Rx.Is(Plain(kind).Trim(), @"^superseded\b");
 
+    /// <summary>A row whose Kind cell starts with "engineering measurement" (a cost, memory or frame-time reading of our own build) or "engineering rule" (a wire, snapshot or load-safety rule). Nothing in SM1 to compare it with; listed in the appendix.</summary>
+    public static bool IsEngineeringMeasurement(string kind) => Rx.Is(Plain(kind).Trim(), @"^engineering (measurement|rule)\b");
+
+    /// <summary>"duplicate of R-XXXXXXXX" at the start of any cell of the row (a table without a Kind column carries the note in its Source or Where cell): the row repeats another register row, which carries the live tag.</summary>
+    public static string? DuplicateOf(IReadOnlyList<string> cells)
+    {
+        foreach (var c in cells)
+        {
+            var m = Rx.New(@"^duplicate of (R-[0-9A-F]{8})\b").Match(Plain(c).Trim());
+            if (m.Success) return m.Groups[1].Value;
+        }
+        return null;
+    }
+
     public static bool LooksNonGameplayName(string name) => NonGameplayName.IsMatch(Plain(name));
 
     /// <summary>The reasons a row needs human-playtest refinement (empty: not tagged). Source, notes and status cells are scanned for wording; the value is not.</summary>
@@ -570,6 +584,17 @@ public static class RefineRegister
                     model.Appendix.Add(Entry(id, table, roles, row, RefineAreas.Appendix, ["superseded (history)"]));
                     continue;
                 }
+                var dupOf = RefineRules.DuplicateOf(cells);
+                if (dupOf != null)
+                {
+                    model.Appendix.Add(Entry(id, table, roles, row, RefineAreas.Appendix, ["duplicate of " + dupOf]));
+                    continue;
+                }
+                if (RefineRules.IsEngineeringMeasurement(Cell(roles.Kind)))
+                {
+                    model.Appendix.Add(Entry(id, table, roles, row, RefineAreas.Appendix, ["engineering measurement or rule"]));
+                    continue;
+                }
                 if (testAid || area == RefineAreas.Appendix || RefineRules.LooksNonGameplayName(name) || RefineRules.IsEngineering(name, Cell(roles.Source), Cell(roles.Kind)))
                 {
                     model.Appendix.Add(Entry(id, table, roles, row, RefineAreas.Appendix, reasons.Count == 0 ? ["test aid"] : reasons));
@@ -802,7 +827,7 @@ public static class RefineRegister
 
         // Appendix
         sb.AppendLine("## Appendix: not gameplay").AppendLine();
-        sb.AppendLine("Test aids, probes, demo and capture tooling, engineering decisions (protocol, wire formats, budgets, uploads, caches, load order) and superseded rows (kind `superseded`: history of behaviour a later row replaced or removed). Listed so nothing is lost; no SM1 comparison needed.").AppendLine();
+        sb.AppendLine("Test aids, probes, demo and capture tooling, engineering decisions (protocol, wire formats, budgets, uploads, caches, load order), superseded rows (kind `superseded`: history of behaviour a later row replaced or removed), duplicates (a cell reading `duplicate of R-...`; the named row carries the live tag) and engineering measurements and rules (kind `engineering measurement`: cost, memory and frame-time readings of our own build; `engineering rule`: wire, snapshot and load-safety rules). Listed so nothing is lost; no SM1 comparison needed.").AppendLine();
         if (model.Appendix.Count == 0) sb.AppendLine("None.").AppendLine();
         else
         {

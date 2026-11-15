@@ -294,6 +294,34 @@ public class RefineRegisterTests
     }
 
     [Fact]
+    public void Duplicates_and_engineering_measurements_go_to_the_appendix()
+    {
+        const string md = """
+            ## S
+
+            | Parameter | Value | Kind | Confidence |
+            |---|---|---|---|
+            | Twin | 5 s | duplicate of R-0123ABCD | low |
+            | GPU frame time | 1.5 ms | engineering measurement (was extracted) | medium |
+            | Live | 5 s | ours | low |
+
+            ## T
+
+            | Parameter | Value | Where |
+            |---|---|---|
+            | Twin two | 5 s | duplicate of R-0123ABCD |
+            """;
+        var m = Analyse(md);
+        Assert.Equal("Live", Assert.Single(m.Tagged).Name);
+        Assert.Equal(3, m.Appendix.Count);
+        Assert.Equal("R-0123ABCD", RefineRules.DuplicateOf(["Twin two", "5 s", "duplicate of R-0123ABCD"]));
+        Assert.Null(RefineRules.DuplicateOf(["x", "see duplicate of R-0123ABCD"]));
+        Assert.True(RefineRules.IsEngineeringMeasurement("engineering measurement (was extracted)"));
+        Assert.True(RefineRules.IsEngineeringMeasurement("engineering rule (was ours)"));
+        Assert.False(RefineRules.IsEngineeringMeasurement("ours, engineering measurement"));
+    }
+
+    [Fact]
     public void Engineering_rows_go_to_the_appendix_but_visual_and_gameplay_values_keep_their_place()
     {
         var m = Analyse(OneTable(string.Join("\n",
