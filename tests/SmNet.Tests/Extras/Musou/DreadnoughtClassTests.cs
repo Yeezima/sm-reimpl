@@ -76,8 +76,8 @@ public class DreadnoughtClassTests
     {
         var body = Assert.Single(Prepared.Bodies);
         Assert.True(body.IsValid);
-        Assert.Equal((6.5f, 6.5f, 4.5f, 11f, 3f), (body.RunSpeed, body.StrafeSpeed, body.BackSpeed, body.SprintSpeed, body.WalkSpeed));
-        Assert.Equal((5f, 5f, 4f), (body.AimRunSpeed, body.AimStrafeSpeed, body.AimBackSpeed));
+        Assert.Equal((6.5f * 1.3f, 6.5f * 1.3f, 4.5f * 1.3f, 11f * 1.3f, 3f * 1.3f), (body.RunSpeed, body.StrafeSpeed, body.BackSpeed, body.SprintSpeed, body.WalkSpeed));
+        Assert.Equal((5f * 1.3f, 5f * 1.3f, 4f * 1.3f), (body.AimRunSpeed, body.AimStrafeSpeed, body.AimBackSpeed));
         Assert.Equal((2000f, 0f, 5f), (body.HealthMax, body.ShieldMax, body.HealthRegenDelay));
         // 250 a second of 8000 is 3.125 % of his health a second; the same share of his 2000.
         Assert.Equal(DreadnoughtRules.DataRegenRate / DreadnoughtRules.DataHealth, body.HealthRegenRate / body.HealthMax, 6);

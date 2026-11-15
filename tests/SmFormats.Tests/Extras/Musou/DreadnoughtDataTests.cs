@@ -272,9 +272,9 @@ public class DreadnoughtDataTests
     {
         var d = DreadnoughtData.Read(Game.Value!);
         var b = d.Body;
-        Assert.Equal((SmSim.Extras.Musou.DreadnoughtRules.RunSpeed, SmSim.Extras.Musou.DreadnoughtRules.StrafeSpeed, SmSim.Extras.Musou.DreadnoughtRules.BackSpeed, SmSim.Extras.Musou.DreadnoughtRules.SprintSpeed, SmSim.Extras.Musou.DreadnoughtRules.WalkSpeed),
+        Assert.Equal((SmSim.Extras.Musou.DreadnoughtRules.DataRunSpeed, SmSim.Extras.Musou.DreadnoughtRules.DataStrafeSpeed, SmSim.Extras.Musou.DreadnoughtRules.DataBackSpeed, SmSim.Extras.Musou.DreadnoughtRules.DataSprintSpeed, SmSim.Extras.Musou.DreadnoughtRules.DataWalkSpeed),
             (b.RunSpeed!.Value, b.StrafeSpeed!.Value, b.BackSpeed!.Value, b.SprintSpeed!.Value, b.WalkSpeed!.Value));
-        Assert.Equal((SmSim.Extras.Musou.DreadnoughtRules.AimRunSpeed, SmSim.Extras.Musou.DreadnoughtRules.AimStrafeSpeed, SmSim.Extras.Musou.DreadnoughtRules.AimBackSpeed),
+        Assert.Equal((SmSim.Extras.Musou.DreadnoughtRules.DataAimRunSpeed, SmSim.Extras.Musou.DreadnoughtRules.DataAimStrafeSpeed, SmSim.Extras.Musou.DreadnoughtRules.DataAimBackSpeed),
             (b.AimRunSpeed!.Value, b.AimStrafeSpeed!.Value, b.AimBackSpeed!.Value));
         Assert.Equal((SmSim.Extras.Musou.DreadnoughtRules.DataHealth, SmSim.Extras.Musou.DreadnoughtRules.DataRegenDelay, SmSim.Extras.Musou.DreadnoughtRules.DataRegenRate), (b.HealthMax!.Value, b.HealthRegenDelay!.Value, b.HealthRegenRate!.Value));
         Assert.Equal((SmSim.Extras.Musou.DreadnoughtRules.InvulnerableSeconds, SmSim.Extras.Musou.DreadnoughtRules.EntranceSeconds), (d.Entrance.InvulnerableSeconds!.Value, MathF.Round(d.Entrance.ClipSeconds!.Value, 3)));

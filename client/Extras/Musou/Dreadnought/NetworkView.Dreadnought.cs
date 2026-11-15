@@ -105,6 +105,7 @@ public partial class NetworkView
         double since = _connectedFor - t.Born;
         DreadnoughtSounds(t, state, own, since < DreadnoughtRig.EntranceSeconds);
         DreadnoughtEffects(t, state, since < DreadnoughtRig.EntranceSeconds);
+        DreadnoughtFeelStep(t, state, own, since < DreadnoughtRig.EntranceSeconds, since);
         if (since < DreadnoughtRig.EntranceSeconds) { character.Pose(DreadnoughtRig.Entrance, (float)since, 0.1f); return; }
         if (_config is { } cfg)
         {
@@ -159,7 +160,7 @@ public partial class NetworkView
     {
         if (!IsDreadnoughtCharacter(character)) return;
         var t = DreadTrack(state.PlayerId);
-        if (t.WasAlive) { t.Died = _connectedFor; t.WasAlive = false; t.EngineOn = false; _sound?.StopEmitter(t.Emitter); }
+        if (t.WasAlive) { t.Died = _connectedFor; t.WasAlive = false; t.EngineOn = false; _sound?.StopEmitter(t.Emitter); DreadnoughtFeelDeath(t, state, own); }
         double dead = _connectedFor - t.Died;
         if (dead > DreadnoughtCorpseSeconds || double.IsInfinity(dead)) { character.Visible = false; return; }
         if (!t.Corpse)
@@ -208,12 +209,11 @@ public partial class NetworkView
         if (t.StepDust)
         {
             t.StepDust = false;
-            _fx.Play(DreadDustEffect, ToGodot(s.Position), Basis.Identity, DreadDustScale);
         }
     }
 
     // ---- sounds (D7): the install's own events from bank Weapon_Dreadnought through the sound system (the data's mix); none for a lean bot ----
-    const string DreadEngineEvent = "play_engine_sm_dreadnought", DreadFootEvent = "play_dreadnought_footstep", DreadSprintFootEvent = "play_dreadnought_sprint_footstep", DreadReloadEvent = "play_dreadnought_sm_weapon_reload";
+    const string DreadEngineEvent = DreadnoughtFeel.EngineEvent, DreadFootEvent = "play_dreadnought_footstep", DreadSprintFootEvent = "play_dreadnought_sprint_footstep", DreadReloadEvent = "play_dreadnought_sm_weapon_reload";
     static readonly string[] DreadLightSwing = ["play_dreadnought_melee_swing_x1", "play_dreadnought_melee_swing_x2"], DreadHeavySwing = ["play_sm_stomp_displace", "play_dreadnought_melee_swing_y1"];
 
     /// <summary>
@@ -228,7 +228,7 @@ public partial class NetworkView
         em.Own = own; if (t.Label.Length == 0) t.Label = $"dreadnought {s.PlayerId}"; em.Label = t.Label;
         em.Position = ToGodot(s.Position) + Vector3.Up * 1.5f;
         float speed = MathF.Sqrt(s.Velocity.X * s.Velocity.X + s.Velocity.Y * s.Velocity.Y);
-        em.Parameters[VoiceMixer.Speed] = speed;
+        em.Parameters[VoiceMixer.Speed] = speed / DreadnoughtRules.MoveSpeed;   // the engine's speed RTPC is anchored at the data's 6.5 m/s run; his run is 1.3 times that now
         if (!s.Alive) { if (t.EngineOn) { _sound.StopEmitter(em); t.EngineOn = false; } t.Last = Vector3.Zero; return; }
         if (!entering && !t.EngineOn) { _sound.Post(DreadEngineEvent, em); t.EngineOn = true; }
         var here = ToGodot(s.Position);
@@ -236,7 +236,8 @@ public partial class NetworkView
         {
             float moved = new Vector2(here.X - t.Last.X, here.Z - t.Last.Z).Length();   // Godot space: X, Z are the ground
             if (moved < 3f) t.Stride += moved;
-            if (t.Stride >= DreadnoughtRules.FootfallStride) { t.Stride -= DreadnoughtRules.FootfallStride; t.StepDust = true; _sound.Post(speed > DreadnoughtRules.RunSpeed + 1.5f ? DreadSprintFootEvent : DreadFootEvent, em, footstep: true); }
+            if (t.Stride >= DreadnoughtRules.FootfallStride) { t.Stride -= DreadnoughtRules.FootfallStride; var foot = FeelOf(s.PlayerId); foot.Left = !foot.Left; bool sprint = speed > DreadnoughtRules.RunSpeed + 1.5f;
+                DreadAct(sprint ? (foot.Left ? DreadAction.SprintFootLeft : DreadAction.SprintFootRight) : (foot.Left ? DreadAction.FootLeft : DreadAction.FootRight), s, t, own); }
         }
         t.Last = here;
         if (s.MeleeStep > 0 && t.Strike == 0)

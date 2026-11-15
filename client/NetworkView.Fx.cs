@@ -382,6 +382,9 @@ public partial class NetworkView
     /// <summary>An added mode's camera offset this frame (camera space: X right, Y up, Z back; before the Camera shake option's factor). Musou's weight pass: the push along the own heavy swing.</summary>
     partial void ExtrasCameraOffset(double delta, ref Vector3 offset);
 
+    /// <summary>An added mode's camera shake this frame: offset (camera space, metres) and angles (degrees: pitch, yaw, roll); before the Camera shake option's factor. Musou's Dreadnought (the data's camera effects).</summary>
+    partial void ExtrasCameraShake(double delta, ref Vector3 offset, ref Vector3 degrees);
+
     /// <summary>The origin of the last <see cref="TraceOwn"/> (game space).</summary>
     Num.Vector3 _traceOwnStart;
 
@@ -820,8 +823,11 @@ public partial class NetworkView
         float punch = (PunchNow() + CameraImpulseNow(delta)) * accessibility;   // feel/weight-impact: the impulses (NetworkView.CameraImpulse.cs); anim/melee-interaction: the charge connect's camera kick (NetworkView.MeleeInteraction.cs)
         var push = Vector3.Zero;
         ExtrasCameraOffset(delta, ref push);   // EXTRAS-HOOK: added content's camera push (Musou weight pass: along the own heavy swing), camera space
+        var shakeDegrees = Vector3.Zero;
+        ExtrasCameraShake(delta, ref push, ref shakeDegrees);   // EXTRAS-HOOK: Musou Dreadnought's camera effects (position into push, angles into shakeDegrees)
         push *= accessibility;
-        if (!rotate && bob == Vector3.Zero && punch == 0f && push == Vector3.Zero) return;
+        shakeDegrees *= accessibility;
+        if (!rotate && bob == Vector3.Zero && punch == 0f && push == Vector3.Zero && shakeDegrees == Vector3.Zero) return;
         _unshaken = _camera.GlobalTransform;
         var t = _unshaken;
         if (punch != 0f) t.Basis = t.Basis * new Basis(Vector3.Right, -punch) * new Basis(Vector3.Forward, punch * 0.35f);
@@ -833,6 +839,7 @@ public partial class NetworkView
             float decay = MathF.Exp(-14f * (float)delta);
             _shake *= decay;
         }
+        if (shakeDegrees != Vector3.Zero) t.Basis = t.Basis * new Basis(Vector3.Right, Mathf.DegToRad(shakeDegrees.X)) * new Basis(Vector3.Up, Mathf.DegToRad(shakeDegrees.Y)) * new Basis(Vector3.Forward, Mathf.DegToRad(shakeDegrees.Z));
         if (bob != Vector3.Zero) t.Origin += _unshaken.Basis.X * bob.X + _unshaken.Basis.Y * bob.Y;
         if (push != Vector3.Zero) t.Origin += _unshaken.Basis.X * push.X + _unshaken.Basis.Y * push.Y + _unshaken.Basis.Z * push.Z;
         _camera.GlobalTransform = t;
