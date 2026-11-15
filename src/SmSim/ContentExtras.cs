@@ -259,6 +259,23 @@ public sealed partial record SimConfig
     partial void ExtrasMeleeSpam(ref bool on);
 
     /// <summary>
+    /// sim/sprint-melee-charge (owner 2026-11-15, decided for Musou the same day): true when added content keeps a light press while sprinting a swing (Musou Mode's input), so the sprint charge
+    /// (<see cref="SprintMeleeCharge"/>) is Classic PvP only. False in Classic PvP. Set through <see cref="ExtrasSprintMeleeKept"/>.
+    /// </summary>
+    public bool SprintMeleeKept
+    {
+        get
+        {
+            bool on = false;
+            ExtrasSprintMeleeKept(ref on);   // EXTRAS-HOOK
+            return on;
+        }
+    }
+
+    /// <summary>Hook for added content (docs/added-content.md): sets <paramref name="on"/> when an extra keeps the light press while sprinting a swing (<see cref="SprintMeleeKept"/>).</summary>
+    partial void ExtrasSprintMeleeKept(ref bool on);
+
+    /// <summary>
     /// night batch 2026-11-06 (owner: "in classic pvp mode return the maximum jump pack fuel capacity to exactly the same as the original game"): whether the jump pack
     /// holds the owner's capacity (<c>JumpPackTuning.OwnerCapacity</c>, 300) instead of the data's <c>max_power</c> (100, <see cref="JumpPackSpec.DataMaxPower"/>). False in Classic PvP
     /// (and every non-Musou match); set by added content through <see cref="ExtrasJumpPackOwnerCapacity"/> (Musou Mode: true, as before). Not hashed itself (Musou's block covers it).

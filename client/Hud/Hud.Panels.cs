@@ -154,7 +154,7 @@ public sealed partial class Hud
             Skull(new Vector2(187f, -6f), 7f, new Color(1f, 0.95f, 0.6f));
 
         // Reserve (large, thin); without a reserve the clip, without either the endless sign.
-        bool reserve = d.ReserveMax > 0 || d.Reserve > 0;
+        bool reserve = (d.ReserveMax > 0 || d.Reserve > 0) && !HudRules.EndlessReserve(d.Reserve);
         if (reserve || d.ClipMax > 0)
         {
             int shown = reserve ? d.Reserve : d.Clip;

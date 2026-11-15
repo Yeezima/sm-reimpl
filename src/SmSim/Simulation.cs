@@ -860,6 +860,9 @@ public sealed partial record SimConfig
             if (!HopRules) w.Write("old-hop-rules");   // sim/hop-rules (protocol 72): only when off
             if (!StompRelease) w.Write("old-stomp-release");   // sim/stomp-release (2026-11-14): only when off
             if (!KickPushCut) w.Write("old-kick-push");   // sim/kick-push (protocol 76): only when off
+            if (!SprintMeleeCharge) w.Write("old-sprint-melee");   // sim/sprint-melee-charge (protocol 77): only when off
+            if (!LedgeChargeCancel) w.Write("old-ledge-cancel");   // sim/ledge-charge-cancel (protocol 77): only when off
+            if (!LascannonTapReload) w.Write("old-lascannon-reload");   // sim/lascannon-tap-reload (protocol 78): only when off
             if (!ChargeAllyBump) w.Write("old-ally-bump");          // charge-ally-bump (protocol 66): only when off (older hashes unchanged)
             // Added content (ContentExtras.cs): only when any is on, so a faithful config hashes byte for byte as before the switch.
             if (Extras != ContentExtras.None) { w.Write("extras"); w.Write((uint)Extras); w.Write(ContentExtras.WireVersion); ExtrasHash(w); }   // EXTRAS-HOOK
@@ -1232,7 +1235,10 @@ public sealed partial class World(SimConfig config, CollisionWorld? collision = 
             bool extraHandled = false;
             ExtrasPlayerInput(id, ref extraInput, ref extraHandled);   // EXTRAS-HOOK: added content's players without a client (Musou Mode's AI Marines)
             var sampled = extraHandled ? extraInput : inputFor(id);
-            var input = (State == MatchState.Countdown ? MatchFlow.Locked(sampled) : sampled).Sanitized() with { Tick = Tick };   // no attacks before the match begins (ours)
+            bool inputLocked = State == MatchState.Countdown;
+            ExtrasInputLocked(id, ref inputLocked);   // EXTRAS-HOOK: added content may lock a player's input as the countdown does (Musou: the Dreadnought's entrance)
+            var input = (inputLocked ? MatchFlow.Locked(sampled) : sampled).Sanitized() with { Tick = Tick };   // no attacks before the match begins (ours)
+            ExtrasInputFilter(id, ref input);   // EXTRAS-HOOK: added content may take buttons off a player's sanitized input (Musou: the Dreadnought's sprint limit)
             ExtrasSampled(id, input);   // EXTRAS-HOOK: added content reads the sanitized input (Musou: the Librarian's powers)
             NoteInteract(id, input);   // fidelity gap 1: pickups (Pickups.cs)
             PlayerState next;
@@ -1438,6 +1444,8 @@ public sealed partial class World(SimConfig config, CollisionWorld? collision = 
     /// </summary>
     partial void ExtrasPlayerInput(int id, ref PlayerInput input, ref bool handled);
     partial void ExtrasSampled(int id, in PlayerInput input);
+    partial void ExtrasInputLocked(int id, ref bool locked);
+    partial void ExtrasInputFilter(int id, ref PlayerInput input);
 
     /// <summary>
     /// Hook for added content: at the end of <see cref="ResolveMelee"/> (after the players it hit and its stomp), with the attacker's state this tick

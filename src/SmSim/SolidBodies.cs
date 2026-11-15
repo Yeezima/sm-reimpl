@@ -58,6 +58,16 @@ public static class SolidBodies
         return charging ? MathF.Max(2f * r - (c.ChargeClash ? ClashDepth : ChargeDepth), r) : r;   // feel/charge-clash: a charger meets a body at its edge, never inside it
     }
 
+    /// <summary>
+    /// <see cref="GuardDistance(SimConfig, bool)"/> for a pair of classes: identical when neither has a capsule of its own; else the larger of the two radii (a charger: the two radii added less the depth, never under the larger).
+    /// </summary>
+    public static float GuardDistance(SimConfig c, bool charging, int classA, int classB)
+    {
+        if (!c.HasBodyCapsules) return GuardDistance(c, charging);
+        float ra = MathF.Max(c.For(classA).CapsuleRadius, 0.05f), rb = MathF.Max(c.For(classB).CapsuleRadius, 0.05f), r = MathF.Max(ra, rb);
+        return charging ? MathF.Max(ra + rb - (c.ChargeClash ? ClashDepth : ChargeDepth), r) : r;
+    }
+
     /// <summary>Whether two bodies' heights overlap side by side (neither on the other's head), as <see cref="PlayerCollision.Relate"/>'s Side.</summary>
     public static bool Beside(Vector3 a, Vector3 b, SimConfig c)
     {
@@ -169,7 +179,7 @@ public sealed partial class World
                     if (!Hostile(ta, tb)) continue;   // opponents only: allies keep protocol 56's bodies (so the co-op of the added content is unchanged)
                     var na = a1; var nb = b1;
                     bool charging = Charging(ids[i], start) || Charging(ids[j], start);
-                    if (!SolidBodies.Guard(a0, ref na, b0, ref nb, SolidBodies.GuardDistance(Config, charging), Config, out var normal)) continue;
+                    if (!SolidBodies.Guard(a0, ref na, b0, ref nb, SolidBodies.GuardDistance(Config, charging, ca, cb), Config, out var normal)) continue;
                     changed = true;
                     LastGuardStops++;
                     if (na != a1)

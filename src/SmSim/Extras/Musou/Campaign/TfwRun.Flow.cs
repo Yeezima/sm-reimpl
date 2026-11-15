@@ -41,7 +41,7 @@ public sealed partial class TfwRun
         if (k < 0 || !w.Players.TryGetValue(player, out var p) || p.Alive || Supplies < TfwBattleRules.RedeployCost) return;
         Supplies -= TfwBattleRules.RedeployCost;
         var layout = battle.Layout;
-        w.TfwRespawnAt(player, Ashore(w, layout, TfwCoop.LandingOffset(_landingSlots.GetValueOrDefault(player, k))), layout.FaceCentre(layout.LandingZone));   // owner 2026-11-09: faces the map's centre
+        w.TfwRespawnAt(player, LandingAt(w, layout, player, _landingSlots.GetValueOrDefault(player, k)), layout.FaceCentre(layout.LandingZone));   // owner 2026-11-09: faces the map's centre
         _reviveTicks.Remove(player);
         ExtractionTicks = 0;
         Redeploys++;

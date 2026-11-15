@@ -29,6 +29,12 @@ public class ExtrasBoundaryTests
         ("src/SmContent/GameplayTuning.cs", "ExtrasLoad"),         // GameplayTuning.ExtrasLoad(ref SimConfig, string, List<string>), called in LoadForMatch
         ("src/SmContent/Customization/ProfileView.cs", "ExtrasLookRemoved"),   // ProfileViews.ExtrasLookRemoved(ref CustomizationProfile, string), in RemoveLook: the Musou Librarian's look (musou/loadout-slots review)
         ("src/SmServer/GameServer.Envelope.cs", "ExtrasSend"),     // GameServer.ExtrasSend(), called once a tick after SendPickups (E3's envelope), only with added content
+        ("client/NetworkView.Appearance.cs", "ExtrasEnsureModel"),  // NetworkView.ExtrasEnsureModel(CharacterViewer?, int, bool, PlayerState, ref CharacterViewer?), the character a player of an added class wears (Musou: the Dreadnought model)
+        ("client/NetworkView.cs", "ExtrasPlace"),                  // NetworkView.ExtrasPlace(CharacterViewer, PlayerState, bool, ref bool), added content poses its own rig (Musou: the Dreadnought)
+        ("client/NetworkView.cs", "ExtrasDeadPlace"),        // NetworkView.ExtrasDeadPlace(CharacterViewer, PlayerState, bool, ref bool), TrackDeath for a dead player: added content shows its own corpse (Musou: the Dreadnought)
+        ("client/NetworkView.Death.cs", "ExtrasDeath"),            // NetworkView.ExtrasDeath(CharacterViewer, ref bool), added content's own death, no ragdoll (Musou: the Dreadnought)
+        ("client/NetworkView.cs", "ExtrasInputGate"),              // NetworkView.ExtrasInputGate(ref PlayerInput), on every live sampled input after ExtrasInput: added content's limits (Musou: the Dreadnought's sprint)
+        ("client/NetworkView.Camera.cs", "ExtrasRigCamera"),       // NetworkView.ExtrasRigCamera(PlayerState, float, float, ref Vector3, ref Vector3, ref float, ref float), the rig camera's offset, pivot and fov (Musou: the Dreadnought)
         ("client/NetworkView.cs", "ExtrasInput"),                  // NetworkView.ExtrasInput(ref PlayerInput), on every sampled live input (loyalist barks: the FOR THE EMPEROR key)
         ("client/NetworkView.cs", "ExtrasFrame"),                  // NetworkView.ExtrasFrame(PlayerState, IReadOnlyList<PlayerState>, double), once a frame after the sound (loyalist barks: barks and the key's shouts)
         ("client/NetworkView.Match.cs", "ExtrasKill"),             // NetworkView.ExtrasKill(KillView), each kill-feed entry once (loyalist barks: kill barks)
@@ -45,6 +51,7 @@ public class ExtrasBoundaryTests
         ("src/SmSim/Stims.cs", "ExtrasThrownBlastScale"),          // SimConfig.ExtrasThrownBlastScale(ThrownSpec?, ref float), Musou Mode's frag blast x2 (owner 2026-11-09)
         ("src/SmSim/AerialTackle.cs", "ExtrasAerialTackleOff"),    // SimConfig.AerialTackleOff, read by Rush.CanDashAttack and MeleeCancel.Apply: Musou Mode has no aerial tackle (owner 2026-11-12, temporary)
         ("src/SmSim/ContentExtras.cs", "ExtrasMeleeSpam"),         // SimConfig.MeleeSpam: Musou Mode ignores the melee wait (owner 2026-11-12, melee spam)
+        ("src/SmSim/ContentExtras.cs", "ExtrasSprintMeleeKept"),   // SimConfig.SprintMeleeKept: Musou Mode keeps a light press while sprinting a swing (owner 2026-11-15, sprint-melee-charge)
         ("src/SmSim/Stims.cs", "ExtrasEndlessClip"),              // SimConfig.ExtrasEndlessClip(WeaponSpec, ref bool), read by SimConfig.EndlessClip in the shot step: Musou's autocannon spends no round (owner 2026-11-11: "No clip in Musou mode")
         ("src/SmSim/Projectiles.cs", "ExtrasProjectileStop"),      // World.ExtrasProjectileStop(in ProjectileState, Vector3, float, ref float), in Fly before a hit is taken (Musou S4: a shield dome or a contraption stops a projectile)
         ("src/SmSim/DamageScale.cs", "ExtrasDamageTaken"),         // World.ExtrasDamageTaken(int target, ref float scale), in DamageTakenScale at every player-damage site (Musou: AI Marines take a tenth)
@@ -53,6 +60,8 @@ public class ExtrasBoundaryTests
         ("src/SmServer/GameServer.cs", "ExtrasCreated"),           // GameServer.ExtrasCreated(), end of the constructor when Extras is not None (Musou: the nav graph, World.StartMusou)
         // Musou Mode (TF0): each returns at once unless World.Tfw is set (World.StartTfw, only on the map tfw_war under ContentExtras.Musou), or for another map.
         ("src/SmSim/Simulation.cs", "ExtrasSampled"),              // World.ExtrasSampled(int, in PlayerInput), after the input is sanitized (Musou: the Librarian reads its keys)
+        ("src/SmSim/Simulation.cs", "ExtrasInputFilter"),          // World.ExtrasInputFilter(int, ref PlayerInput), after the input is sanitized: added content takes buttons off it (Musou: the Dreadnought's sprint limit)
+        ("src/SmSim/Simulation.cs", "ExtrasInputLocked"),          // World.ExtrasInputLocked(int, ref bool), before the input is sanitized: added content locks a player's stick and buttons as the countdown does (Musou: the Dreadnought's 4.833 s entrance)
         ("src/SmSim/Simulation.cs", "ExtrasPlayerInput"),          // World.ExtrasPlayerInput(int, ref PlayerInput, ref bool handled), before Step asks for a player's input (the AI Marines have no client)
         ("src/SmServer/GameServer.cs", "ExtrasGeneratedMap"),      // static GameServer.ExtrasGeneratedMap(ContentExtras, string, ref string?, ref GameMap?, ref string?), in GeneratedMap, which Program.cs calls (tfw_war, composed from the install)
         ("src/SmServer/GameServer.cs", "ExtrasPlayerName"),        // GameServer.ExtrasPlayerName(int, ref string), in ScoreboardOf (the AI Marines' names)

@@ -93,10 +93,16 @@ public partial class NetworkView
     bool HeavyClass(PlayerState s) =>
         _config is not null && Loadouts.ClassOf(_config, s.Class)?.Name is { } name && (name.Contains("devastator", StringComparison.OrdinalIgnoreCase) || name.Contains("havoc", StringComparison.OrdinalIgnoreCase));
 
+    /// <summary>The scoped lascannon's aim blend (0..1; 0 for any other view), set by the camera each frame.</summary>
+    float _lascannonScope;
+
+    /// <summary>Whether the scoped lascannon's view is steady: the walking-synced footfall kick is then skipped (a half-blended scope already counts).</summary>
+    internal static bool LascannonScopeSteady(float scope) => CameraBoom.ScopeSteady(scope);
+
     /// <summary>A footfall of the own Devastator or Havoc on the move: the sound is the data's and is not touched.</summary>
     void HeavyFootfall(PlayerState s)
     {
-        if (OldHeavyFootfall || !s.Grounded || !HeavyClass(s)) return;
+        if (OldHeavyFootfall || !s.Grounded || !HeavyClass(s) || LascannonScopeSteady(_lascannonScope)) return;   // sim/lascannon-steady-zoom: no walking-synced sway in the lascannon's scope
         float speed = MathF.Sqrt(s.Velocity.X * s.Velocity.X + s.Velocity.Y * s.Velocity.Y);
         if (speed < 1f) return;
         CameraKick(speed > 7f ? WeightFeel.FootfallSprintDegrees : WeightFeel.FootfallRunDegrees, "heavy footfall");

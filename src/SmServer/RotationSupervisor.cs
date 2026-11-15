@@ -7,7 +7,7 @@ namespace SmServer;
 /// <summary>
 /// The map rotation (classic-maps-all, 2026-11-15; <c>--maps all|a,b,c</c>): one server process per match. This supervisor starts the server itself as a child on the first map
 /// (<c>--map m --rotation-child</c>, the other arguments as given), waits for it, and starts the next map of the list when the child exits with
-/// <see cref="ServerCommandLine.RotationExit"/> (its match ended and it said so in its snapshots; protocol 78); any other exit code ends the supervisor with that code. The list repeats.
+/// <see cref="ServerCommandLine.RotationExit"/> (its match ended and it said so in its snapshots; protocol 79); any other exit code ends the supervisor with that code. The list repeats.
 /// Each map's mode support is checked against the install's front-end data (<see cref="MapCatalog"/>) before anything starts; a map that is not playable here or does not offer the
 /// chosen mode is an error, not skipped silently (except in <c>all</c>, which takes the maps that are).
 /// </summary>

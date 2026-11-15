@@ -492,7 +492,7 @@ public partial class ModelViewer : Node3D
     Dictionary<string, string?>? _networkArgs;   // the arguments the running networked view was started with (a rotation rejoin reuses them)
 
     /// <summary>
-    /// classic-maps-all (protocol 78): the networked view saw the end of a match on a server that rotates its maps (<see cref="NetworkView.RotateRequested"/>): it is replaced by a new one
+    /// classic-maps-all (protocol 79): the networked view saw the end of a match on a server that rotates its maps (<see cref="NetworkView.RotateRequested"/>): it is replaced by a new one
     /// joining the same address (from the front end's Join, the same request; from <c>--connect</c>, the same arguments). The Challenge of the new join names the next map.
     /// </summary>
     bool TryRotationRejoin()

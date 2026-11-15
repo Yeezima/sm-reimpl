@@ -12,7 +12,7 @@ public static class MatchFlowWire
     /// <summary>The state the match block carries for the world's state.</summary>
     public static MatchState ToWire(MatchState state) => state == MatchState.Countdown ? MatchState.Warmup : state;
 
-    /// <summary>classic-maps-all (protocol 78): an ended match on a rotating server asks its clients to rejoin once its restart clock shows at most this many ticks (1 s at 30 Hz); the server stops answering joins from then on and exits a moment later.</summary>
+    /// <summary>classic-maps-all (protocol 79): an ended match on a rotating server asks its clients to rejoin once its restart clock shows at most this many ticks (1 s at 30 Hz); the server stops answering joins from then on and exits a moment later.</summary>
     public const uint RotationRejoinTicks = 30;
 
     /// <summary>Whether the match block says the match-begins countdown is running.</summary>

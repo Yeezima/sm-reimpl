@@ -13,12 +13,14 @@ public sealed partial class Hud
 {
     partial void ExtrasReticle(string wargear, ref ReticleSpec? spec)
     {
+        if (SmContent.Extras.Musou.DreadnoughtPresentation.Reticle(Content, wargear) is { } dread) { spec = dread; return; }   // the Dreadnought's guns (Dreadnought/DreadnoughtPresentation.cs)
         if (Arsenal.Reticle(Content, wargear) is not { } own) return;
         spec = own;
     }
 
     partial void ExtrasWeaponBox(string wargear, bool chaos, ref WeaponBoxSpec? spec)
     {
+        if (SmContent.Extras.Musou.DreadnoughtPresentation.WeaponBox(Content, wargear) is { } dread) { spec = dread; return; }
         if (Arsenal.WeaponBox(Content, wargear, chaos) is not { } own) return;
         spec = own;
     }

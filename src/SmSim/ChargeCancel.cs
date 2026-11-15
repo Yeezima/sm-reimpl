@@ -47,6 +47,19 @@ public sealed partial record SimConfig
     /// no-cooldown spam (2026-11-12). Lives here so a build without added content compiles; read only by the Musou hook (<see cref="SimConfig.MeleeSpam"/>) and hashed in Musou's block only when true.
     /// </summary>
     public bool MusouMeleeCooldown { get; init; }
+
+    /// <summary>
+    /// sim/sprint-melee-charge (protocol 77; the owner's recollection 2026-11-15: "when sprinting a right click should charge not melee attack (tac and asm) ... to melee attack you should need to let go of
+    /// shift while holding w, at which point you are instantly able to melee attack again"): a light press with Shift and W held on the ground starts the charge (<see cref="ChargeCancel.SprintMeleeStarts"/>),
+    /// never a swing. Classic PvP only (Musou keeps its input). False (restore switch <c>--old-sprint-melee</c> on the server and every client; config hash): the swing. Hashed only when false.
+    /// </summary>
+    public bool SprintMeleeCharge { get; init; } = true;
+
+    /// <summary>
+    /// sim/ledge-charge-cancel (protocol 77; the owner's recollection 2026-11-15): a light press in a charge held in the air zeroes its horizontal momentum at once and the first swing steps the stick's way (the view
+    /// without one); every mode. False (restore switch <c>--old-ledge-cancel</c> on the server and every client; config hash): the momentum is kept. Hashed only when false.
+    /// </summary>
+    public bool LedgeChargeCancel { get; init; } = true;
 }
 
 /// <summary>
@@ -92,6 +105,14 @@ public static class ChargeCancel
     /// </summary>
     public static bool CanChargeFromMelee(SimConfig c, PlayerState s) =>
         c.ChargeAfterMelee && s.Alive && s.Rush == RushPhase.None && s.MeleeStep > 0 && Combat.MeleeStepOf(c, s) is { InPlace: false } m && s.MeleeTime + 1e-5f >= m.HitTime;
+
+    /// <summary>sim/sprint-melee-charge: whether a light press this tick is a charge request (Shift + W held, on the ground, nothing else under way; Classic PvP, <see cref="SimConfig.SprintMeleeCharge"/>).</summary>
+    public static bool SprintMeleeStarts(SimConfig c, PlayerState s, PlayerInput input, bool meleePress) =>
+        c.SprintMeleeCharge && meleePress && !c.SprintMeleeKept && s.Alive && s.Grounded && s.Rush == RushPhase.None && s.EvadeTicks <= 0 && s.Jump == JumpPhase.None
+        && Loadouts.Rush(c, s) is { } spec && Rush.ChargeHeld(input, spec);
+
+    /// <summary>sim/ledge-charge-cancel: whether the bull rush under way is held in the air, so a light press zeroes its momentum.</summary>
+    public static bool LedgeCancels(SimConfig c, PlayerState s) => c.LedgeChargeCancel && s.Alive && s.Rush == RushPhase.Rush && !s.Grounded;
 
     /// <summary>charge-melee-chain: whether a light melee press ends the bull rush under way at once (<see cref="SimConfig.ChargeMeleeChain"/>; any class, any tick of the rush, its last included).</summary>
     public static bool MeleeEndsCharge(SimConfig c, PlayerState s) => c.ChargeMeleeChain && s.Alive && s.Rush == RushPhase.Rush;

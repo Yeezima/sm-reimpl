@@ -348,14 +348,14 @@ public class MusouLibrarianTests
             Assert.False(LibrarianRules.IsLibrarian(prepared with { Classes = [.. prepared.Classes, prepared.Classes[0] with { Name = LibrarianRules.ClassName }] }, 3));
         }
         var musou = MusouLoadout.Prepare(Raw(ContentExtras.Musou));
-        Assert.Equal(4, musou.Classes.Count);
-        Assert.Equal(["sm - tactical", "sm - assault", "csm - tactical", LibrarianRules.ClassName], musou.Classes.Select(c => c.Name));
+        Assert.Equal(5, musou.Classes.Count);   // the Dreadnought is appended after him (D1)
+        Assert.Equal(["sm - tactical", "sm - assault", "csm - tactical", LibrarianRules.ClassName, DreadnoughtRules.ClassName], musou.Classes.Select(c => c.Name));
         Assert.True(LibrarianRules.IsLibrarian(musou, 3));
         Assert.False(LibrarianRules.IsLibrarian(musou, 0));
         Assert.False(LibrarianRules.IsLibrarian(musou, 9));
         Assert.True(MusouLoadout.Prepared(musou));
         Assert.Equal(musou.Classes[3].Name, MusouLoadout.Prepare(musou).Classes[3].Name);
-        Assert.Equal(4, MusouLoadout.Prepare(musou).Classes.Count);   // a second Prepare adds none
+        Assert.Equal(5, MusouLoadout.Prepare(musou).Classes.Count);   // a second Prepare adds none
     }
 
     [Fact]
@@ -382,7 +382,7 @@ public class MusouLibrarianTests
     internal static World NewWorld(out int librarianClass, LibrarianVariant variant = default)
     {
         var config = MusouLoadout.Prepare(Raw(ContentExtras.Musou) with { MusouRules = MusouRules.Default with { PlayerDamageScale = 0f }, LibrarianVariant = variant });
-        librarianClass = config.Classes.Count - 1;
+        librarianClass = config.Classes.ToList().FindIndex(c => c.Name == LibrarianRules.ClassName);   // the Dreadnought is appended after him (D1)
         var w = new World(config) { Rules = MusouSimTests.Endless, StartAreas = MusouDirectorTests.Rooms };
         Assert.True(w.StartMusou(null));
         w.MusouDirector!.Hold = true;

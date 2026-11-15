@@ -214,6 +214,7 @@ public sealed partial class TfwRun
         _deployed.Clear();
         foreach (int id in w.Players.Keys) if (!TfwContracts.IsPuppet(id)) _deployed.Add(id);
         _deployed.Sort();
+        _dreadSlots.Clear();   // a new landing: every Dreadnought's place is chosen afresh (LandingAt)
         Battle = new TfwBattle(w.Musou!, w.TfwGuards!, layout, state.Imperial, _deployed.Count, final, bonus, TfwBattleRules.EliteShare(TfwBattleRules.RunProgress(Wins, WinsNeeded(lane), final)), Guardsmen) { Patrols = Patrols, VictoryWave = VictoryWave, Armies = Armies };
         Battle.Start();
         Score.BeginMap(lane, (byte)node, _deployed);
@@ -223,7 +224,7 @@ public sealed partial class TfwRun
         for (int k = 0; k < _deployed.Count; k++)
         {
             int id = _deployed[k];
-            var at = Ashore(w, layout, TfwCoop.LandingOffset(k));
+            var at = LandingAt(w, layout, id, k);
             _landingSlots[id] = k;   // TfwRun.Flow.cs: a redeploy comes back here
             w.TfwRespawnAt(id, at, yaw);
             w.TfwSpawnRetainer(id, Ashore(w, layout, at - layout.LandingZone + new Vector3(0f, -2f, 0f)), yaw);   // each human's own retainer (restored 2026-11-08)
@@ -233,13 +234,45 @@ public sealed partial class TfwRun
         LastLandMilliseconds = System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds;
     }
 
+    /// <summary>Each living Dreadnought's place number at the landing (<see cref="DreadnoughtRules.LandingOffset"/>'s j), kept so a redeploy or a late join takes a free one, never a live Dreadnought's.</summary>
+    readonly Dictionary<int, int> _dreadSlots = new();
+
+    /// <summary>
+    /// Where player <paramref name="id"/> stands at the landing: the ground at its slot of <see cref="TfwCoop.LandingOffset"/> from the landing zone, or, for a Dreadnought pick (owner 2026-11-15: "in the middle of the imperial base HQ ...
+    /// spread them out a bit"), the centre of the base and, with several, <see cref="DreadnoughtRules.LandingOffset"/>'s places across the base's width (perpendicular to its facing toward the map's centre). A Dreadnought takes
+    /// the lowest place not held by another living deployed Dreadnought (id order at the landing; a redeploy or a late join finds a free one). A place whose ground is no good (no graph node near it) is tried again nearer the
+    /// centre, then on the other side, before the landing zone itself.
+    /// </summary>
+    Vector3 LandingAt(World w, TfwLayout layout, int id, int slot)
+    {
+        if (!w.DreadnoughtPicked(id)) return Ashore(w, layout, TfwCoop.LandingOffset(slot));
+        var taken = new HashSet<int>();
+        foreach (int other in _deployed)
+            if (other != id && w.DreadnoughtPicked(other) && _dreadSlots.TryGetValue(other, out int held) && w.Players.TryGetValue(other, out var o) && o.Alive) taken.Add(held);
+        int j = 0;
+        while (taken.Contains(j)) j++;
+        _dreadSlots[id] = j;
+        float yaw = layout.FaceCentre(layout.LandingZone);
+        var right = new Vector3(MathF.Cos(yaw), MathF.Sin(yaw), 0f);   // the sim's yaw: forward (-sin, cos), so right is (cos, sin)
+        var local = DreadnoughtRules.LandingOffset(j);
+        foreach (float scale in new[] { 1f, 0.75f, 0.5f, 0.25f, -0.25f, -0.5f, -0.75f, -1f })
+        {
+            var at = Ashore(w, layout, right * (local.X * scale), fallback: false);
+            if (at is { } found) return found;
+        }
+        return layout.LandingZone;
+    }
+
     /// <summary>A place <paramref name="offset"/> from the landing zone, on the graph's ground; the landing zone itself when that falls in a wall.</summary>
-    static Vector3 Ashore(World w, TfwLayout layout, Vector3 offset)
+    static Vector3 Ashore(World w, TfwLayout layout, Vector3 offset) => Ashore(w, layout, offset, fallback: true)!.Value;
+
+    /// <summary>A place <paramref name="offset"/> from the landing zone on the graph's ground; with no graph the place itself; null (with <paramref name="fallback"/> false) when no node is near it, else the landing zone.</summary>
+    static Vector3? Ashore(World w, TfwLayout layout, Vector3 offset, bool fallback)
     {
         var at = layout.LandingZone + offset;
         if (w.Musou?.Nav is not { } nav) return at;
         int node = nav.Nearest(at, 1.5f, 2.5f);
-        return node >= 0 ? nav.Position(node) : layout.LandingZone;
+        return node >= 0 ? nav.Position(node) : fallback ? layout.LandingZone : null;
     }
 
     void Fight(World w, int rate)

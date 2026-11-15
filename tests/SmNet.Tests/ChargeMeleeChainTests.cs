@@ -34,7 +34,7 @@ public class ChargeMeleeChainTests(ITestOutputHelper output)
     [Fact]
     public void A_light_press_at_any_tick_of_a_charge_cancels_it_into_the_swing_on_that_tick()
     {
-        for (int k = 0; k < 40; k++)
+        for (int k = 0; k < 30; k++)   // protocol 77: past the clip a Shift + W + light press is a new charge (sim/sprint-melee-charge), so the spacing bounds the loop
         {
             var before = Charging(Config, k);
             var after = Step(before, Light, Config);

@@ -92,6 +92,21 @@ public sealed class CameraBoom
         return Math.Clamp(MathF.Exp(MathF.Log(focus) + (MathF.Log(target) - MathF.Log(focus)) * k), FocusMin, FocusMax);
     }
 
+    /// <summary>sim/lascannon-steady-zoom: whether the scoped lascannon's view counts as steady (scope blend at least half up): the walking-synced footfall camera kick is then skipped.</summary>
+    public static bool ScopeSteady(float scope) => scope >= 0.5f;
+
+    /// <summary>
+    /// sim/lascannon-steady-zoom (owner 2026-11-15): the camera's direction in a scope. <paramref name="scope"/> (0..1, the scoped weapon's aim blend; 0 for a weapon with no scope) fades the focus turn
+    /// <paramref name="stable"/> out to the plain <paramref name="view"/>; at 1 the result is the view itself (exactly), so walking, which moves the camera and its wall casts, cannot sway the scoped crosshair.
+    /// </summary>
+    public static Vector3 ScopedLook(Vector3 stable, Vector3 view, float scope)
+    {
+        if (!(scope > 0f)) return stable;
+        if (scope >= 1f) return view;
+        var mix = Vector3.Lerp(stable, view, scope);
+        return mix.LengthSquared() > 1e-8f ? Vector3.Normalize(mix) : view;
+    }
+
     /// <summary>
     /// The direction from the camera at <paramref name="actual"/> that keeps the crosshair on the point the camera at <paramref name="rig"/> looks at <paramref name="focus"/> metres
     /// along <paramref name="view"/> (unit). Equal places: the view itself. A turn beyond <see cref="AimMaxTurn"/> stops there, and it never reaches straight up or down along the unit

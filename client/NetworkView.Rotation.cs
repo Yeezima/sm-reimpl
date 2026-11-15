@@ -4,7 +4,7 @@ using SmSim;
 namespace SmClient;
 
 /// <summary>
-/// classic-maps-all (2026-11-15; protocol 78): a server that runs a map rotation (<c>--maps</c>) says so in the match block of an ended match
+/// classic-maps-all (2026-11-15; protocol 79): a server that runs a map rotation (<c>--maps</c>) says so in the match block of an ended match
 /// (<see cref="MatchView.NextMap"/>) and stops itself a second before the restart clock runs out, to come back on the next map of its list at the same address.
 /// This view then asks its owner (<c>ModelViewer</c>) to join the same address again (<see cref="RotateRequested"/>): the new join reads the Challenge's map name, loads that
 /// map (the loading screen shows) and plays on. The rejoin waits as long as a map takes to load on the server (<see cref="PatientConnect"/>).

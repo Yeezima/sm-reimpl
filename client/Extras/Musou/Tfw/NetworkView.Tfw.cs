@@ -37,6 +37,7 @@ public partial class NetworkView
         Ph("tfw: fire, clouds");
         TfwFireFrame(war, delta);
         TfwFireCamFrame();
+        DreadnoughtCamFrame();   // Dreadnought/NetworkView.DreadnoughtCapture.cs: the capture's third-person frames
         AutocannonCamFrame();   // Arsenal/Autocannon/NetworkView.AutocannonCapture.cs: the capture's third-person frames
         SpearCamFrame();   // Arsenal/Spear/NetworkView.SpearCapture.cs: the same for the spear's stills
         ClawCamFrame();   // Arsenal/Claw/NetworkView.ClawCapture.cs: the lightning claw's capture views

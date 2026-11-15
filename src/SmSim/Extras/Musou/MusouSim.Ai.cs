@@ -7,8 +7,9 @@ namespace SmSim.Extras.Musou;
 /// <c>TfwContracts.GuardTargetId</c>; never 0, which is "no target"). <paramref name="Radius"/>: how far round its position a target reaches (a squad's men; a player 0). <paramref name="Goal"/>: a place to go to, not to fight
 /// (Musou Mode: a secured point the Orks retake), which the flow field leads to and nobody strikes. <paramref name="Ring"/>: a goal's capture ring (m, flat); above 0 each Ork takes its own spot across it
 /// (<c>MusouSim.Hold.cs</c>), at 0 it stands within <see cref="MusouSwarmRules.GoalStand"/> of the centre as before.
+/// <paramref name="Body"/>: a player's capsule radius beyond a marine's (a big body: the Dreadnought; 0 for everyone else): the Orks keep their ring, reach and hold at that much more.
 /// </summary>
-public readonly record struct MusouTarget(int Id, Vector3 Position, bool Alive, float Radius = 0f, bool Goal = false, float Ring = 0f);
+public readonly record struct MusouTarget(int Id, Vector3 Position, bool Alive, float Radius = 0f, bool Goal = false, float Ring = 0f, float Body = 0f);
 
 /// <summary>
 /// An enemy's attack that landed this tick (<see cref="MusouSim.Step"/>), for the World to apply: the enemy, the player, the damage (before the player's own
@@ -419,7 +420,7 @@ public sealed partial class MusouSim
         var flat = new Vector2(d.X, d.Y);
         float distance = flat.Length();
         var toward = distance > 1e-4f ? flat / distance : Forward(_yaw[i]);
-        float reach = MathF.Max(0f, distance - target.Radius);   // a squad is reached at its men, not at its centre
+        float reach = MathF.Max(0f, distance - target.Radius - target.Body);   // a squad is reached at its men, not at its centre; a big body (the Dreadnought) at the edge of his wider capsule
         var swarm = Swarm;
         if (swarm is not null) _spread[i] = distance > swarm.SpreadBeyond;
         switch (_state[i])
@@ -651,7 +652,7 @@ public sealed partial class MusouSim
         {
             if (!target.Alive || target.Goal || target.Radius > 0f || MathF.Abs(target.Position.Z - p.Z) > LevelReachOf(i)) continue;
             var away = new Vector2(p.X - target.Position.X, p.Y - target.Position.Y);
-            float gap = Rules.PlayerRing + Body(_type[i]).Radius, dist = away.Length();   // the Warboss's scaled body (late batch 2026-11-06); every other type's is its own radius
+            float gap = Rules.PlayerRing + target.Body + Body(_type[i]).Radius, dist = away.Length();   // the Warboss's scaled body (late batch 2026-11-06); every other type's is its own radius
             if (dist >= gap) continue;
             var dir = dist > 1e-4f ? away / dist : Forward(i * 2.399963f);
             push += dir * (gap - dist) * Rules.SeparationStrength * 2f;
