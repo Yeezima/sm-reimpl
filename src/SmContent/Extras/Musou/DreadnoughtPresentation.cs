@@ -14,11 +14,7 @@ public static class DreadnoughtPresentation
     static readonly ReticleSpec CannonReticle = new("autocannon", "autocannon_mc", "autocannon_active_mc", false);
     static readonly WeaponBoxSpec? MeltaBox = WeaponBoxRules.For(DreadnoughtRules.MeltaWargear, "melta", false);
 
-    /// <summary>
-    /// The name a presentation rule reads for <paramref name="wargear"/>: the Dreadnought's cannon is the Musou autocannon's (owner, 2026-11-15: its "sounds, visual shot and muzzle flash effects should all match the autocannon in musou mode"),
-    /// so its sources, sounds and effect renames are the autocannon's; every other name is itself. Whether to apply it at all (Musou only) is the caller's: <c>ArsenalRules.Shown</c> then decides.
-    /// </summary>
-    public static string AsAutocannon(string wargear) => wargear == DreadnoughtRules.CannonWargear ? ArsenalRules.Autocannon : wargear;
+    // The cannon no longer borrows the autocannon's sounds and effects (owner, 2026-11-15, "DA's own"): the shot path reads the wargear's own lists (see DreadnoughtFeel.Cannon*); the autocannon's damage and blast stay in the rules.
 
     public static ReticleSpec? Reticle(ContentExtras extras, string wargear) =>
         !extras.HasFlag(ContentExtras.Musou) ? null : wargear == DreadnoughtRules.CannonWargear ? CannonReticle : wargear == DreadnoughtRules.MeltaWargear ? ReticleRules.For(wargear, "melta") : null;

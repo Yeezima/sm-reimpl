@@ -111,12 +111,15 @@ public partial class NetworkView
         string dir = _gameDir;
         bool loadDeath = !NoDeathFx;   // read on the main thread (it asks the engine for the command line)
         var sources = PresentationSourceMap();   // W0b: an added weapon shown with install files' effects (Musou's arsenal); empty without added content: the catalogue as before
+        var extraEffectWargear = new List<string>();
+        var extraEffectNames = new List<string>();
+        ExtrasEffectWargear(extraEffectWargear, extraEffectNames);   // EXTRAS-HOOK: install wargear no class carries whose effects an added mode plays through the normal shot path (the Dreadnought's cannon and melta)
         var effectNames = EffectNameMap();   // W1c: and with other effects in place of some of the source's (the autocannon's loyalist flash and tracer); empty without added content
         _fxLoad = Task.Run(() =>
         {
             var watch = System.Diagnostics.Stopwatch.StartNew();
-            var catalogue = sources.Count == 0 && effectNames.Count == 0 ? EffectCatalogue.Load(dir)
-                : EffectCatalogue.Load(dir, sources.Values.SelectMany(v => v)).WithSources(sources).WithEffectNames(effectNames);
+            var catalogue = sources.Count == 0 && effectNames.Count == 0 && extraEffectWargear.Count == 0 ? EffectCatalogue.Load(dir)
+                : EffectCatalogue.Load(dir, sources.Values.SelectMany(v => v).Concat(extraEffectWargear)).WithSources(sources).WithEffectNames(effectNames);
             var library = FxLibrary.Load(dir);
             var names = new HashSet<string>(StringComparer.Ordinal);
             void Add(IEnumerable<FxBinding> bindings) { foreach (var b in bindings) if (b.Play is { Name.Length: > 0 } p) names.Add(p.Name); }
@@ -132,6 +135,7 @@ public partial class NetworkView
             foreach (var pack in catalogue.JumpPacks.Values) foreach (var n in pack.FlightNames) names.Add(n);
             foreach (var plays in catalogue.Dashes.Values) foreach (var p in plays) if (p.Name.Length > 0) names.Add(p.Name);
             names.Add(ArmourSparksEffect);   // fx/bolt-tracer-impact
+            foreach (var n in extraEffectNames) names.Add(n);   // EXTRAS-HOOK result: the effects an added mode plays by name (the Dreadnought's feel)
             names.Add(SlashFlashEffect);   // fx/air-slash-landing: the perk landing's burst for the air slash (NetworkView.SlashFlash.cs)
             // F-D1: the death effects the player blueprints and jump packs bind (their ground impact runs collisions like the jump packs' other ground effects).
             DeathEffects? death = null; string? deathError = null;
@@ -381,6 +385,9 @@ public partial class NetworkView
 
     /// <summary>An added mode's camera offset this frame (camera space: X right, Y up, Z back; before the Camera shake option's factor). Musou's weight pass: the push along the own heavy swing.</summary>
     partial void ExtrasCameraOffset(double delta, ref Vector3 offset);
+
+    /// <summary>An added mode's camera shake this frame: offset (camera space, metres) and angles (degrees: pitch, yaw, roll); before the Camera shake option's factor. Musou's Dreadnought (the data's camera effects).</summary>
+    partial void ExtrasCameraShake(double delta, ref Vector3 offset, ref Vector3 degrees);
 
     /// <summary>The origin of the last <see cref="TraceOwn"/> (game space).</summary>
     Num.Vector3 _traceOwnStart;
@@ -637,6 +644,9 @@ public partial class NetworkView
     /// <summary>Added content (Musou's Dreadnought): where a shooter's effect <paramref name="marker"/> is when it has no weapon model (null: the usual place).</summary>
     partial void ExtrasFxPlace(int shooter, string marker, ref (Vector3, Basis)? place);
 
+    /// <summary>Added content: install wargear files the effect catalogue also reads (no class carries them) and effect names the effect load also compiles; none without added content.</summary>
+    partial void ExtrasEffectWargear(List<string> names, List<string> effects);
+
     /// <summary>Barrel smoke when a player stops firing (0.3 s without a shot).</summary>
     void FxStopFireSmoke()
     {
@@ -832,8 +842,11 @@ public partial class NetworkView
         float punch = (PunchNow() + CameraImpulseNow(delta)) * accessibility;   // feel/weight-impact: the impulses (NetworkView.CameraImpulse.cs); anim/melee-interaction: the charge connect's camera kick (NetworkView.MeleeInteraction.cs)
         var push = Vector3.Zero;
         ExtrasCameraOffset(delta, ref push);   // EXTRAS-HOOK: added content's camera push (Musou weight pass: along the own heavy swing), camera space
+        var shakeDegrees = Vector3.Zero;
+        ExtrasCameraShake(delta, ref push, ref shakeDegrees);   // EXTRAS-HOOK: Musou Dreadnought's camera effects (position into push, angles into shakeDegrees)
         push *= accessibility;
-        if (!rotate && bob == Vector3.Zero && punch == 0f && push == Vector3.Zero) return;
+        shakeDegrees *= accessibility;
+        if (!rotate && bob == Vector3.Zero && punch == 0f && push == Vector3.Zero && shakeDegrees == Vector3.Zero) return;
         _unshaken = _camera.GlobalTransform;
         var t = _unshaken;
         if (punch != 0f) t.Basis = t.Basis * new Basis(Vector3.Right, -punch) * new Basis(Vector3.Forward, punch * 0.35f);
@@ -845,6 +858,7 @@ public partial class NetworkView
             float decay = MathF.Exp(-14f * (float)delta);
             _shake *= decay;
         }
+        if (shakeDegrees != Vector3.Zero) t.Basis = t.Basis * new Basis(Vector3.Right, Mathf.DegToRad(shakeDegrees.X)) * new Basis(Vector3.Up, Mathf.DegToRad(shakeDegrees.Y)) * new Basis(Vector3.Forward, Mathf.DegToRad(shakeDegrees.Z));
         if (bob != Vector3.Zero) t.Origin += _unshaken.Basis.X * bob.X + _unshaken.Basis.Y * bob.Y;
         if (push != Vector3.Zero) t.Origin += _unshaken.Basis.X * push.X + _unshaken.Basis.Y * push.Y + _unshaken.Basis.Z * push.Z;
         _camera.GlobalTransform = t;

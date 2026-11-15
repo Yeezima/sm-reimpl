@@ -82,7 +82,7 @@ public static class MusouLoadout
         if (thrown.FirstOrDefault(t => t.Stim is not null && t.Name != DreadnoughtRules.BuffName) is { } stim && !thrown.Any(t => t.Name == DreadnoughtRules.BuffName))
         {
             buff = thrown.Count;
-            thrown = [.. thrown, stim with { Name = DreadnoughtRules.BuffName, Count = 1, InitialCount = 1, Stim = stim.Stim! with { Lifetime = DreadnoughtRules.BuffLifetime, ReactionImmune = true } }];
+            thrown = [.. thrown, stim with { Name = DreadnoughtRules.BuffName, Count = 1, InitialCount = 1, Stim = stim.Stim! with { Lifetime = DreadnoughtRules.BuffLifetime, ReactionImmune = true, NoHeat = true } }];
         }
         else if (thrown.ToList().FindIndex(t => t.Name == DreadnoughtRules.BuffName) is int had and >= 0) buff = had;
         classes.Add(tactical with

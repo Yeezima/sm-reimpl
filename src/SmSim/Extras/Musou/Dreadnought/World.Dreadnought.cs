@@ -28,6 +28,12 @@ public sealed partial class World
     /// <summary>Whether the war is in its hub (the troop bay): the only place a Dreadnought pick plays as a Tactical.</summary>
     bool DreadnoughtHub => _tfw is { Phase: SmSim.Extras.Musou.Campaign.TfwRunPhase.Hub };
 
+    /// <summary>Test aid (the server's <c>SM_DN_TEST_KILL</c>): kills a living Dreadnought through the ordinary death (<see cref="Combat.Killed"/>), so his death effects and wreck can be filmed.</summary>
+    public void DreadnoughtTestKill(int id)
+    {
+        if (_players.TryGetValue(id, out var p) && p.Alive && DreadnoughtRules.IsDreadnought(Config, p.Class)) _players[id] = Combat.Killed(p, Config) with { RespawnLeft = 14f };   // a long wait, so the wreck stays on screen
+    }
+
     /// <summary>The class index of the Dreadnought in this config, or -1.</summary>
     int DreadnoughtClassIndex() => Config.Classes.ToList().FindIndex(c => c.Name == DreadnoughtRules.ClassName);
 
@@ -131,6 +137,24 @@ public sealed partial class World
         if (!_dreadnoughtSprints.TryGetValue(id, out var gate)) _dreadnoughtSprints[id] = gate = new DreadnoughtSprintGate();
         gate.Apply(ref input, 1f / Math.Max(1, Config.TickRate));
     }
+
+    /// <summary>
+    /// Overcharge, the power-up's addition (owner 2026-11-15; Musou only): while the buff runs, a melee swing that strikes releases ONE shockwave at the hit (the nearest enemy struck; <see cref="MusouCleave"/> sets the point), knocking back and
+    /// interrupting every enemy within <see cref="DreadnoughtMelee.OverchargeRadius"/> of it. No damage of its own (the swing and the stomp's own blast deal theirs): knockback and interrupt only. This runs once per resolved swing, so
+    /// one swing that hits several Orks releases one wave.
+    /// </summary>
+    void DreadnoughtOvercharge(int attacker, in PlayerState state)
+    {
+        if (_musouCleaveHit is not { } point || !DreadnoughtRules.IsDreadnought(Config, state.Class) || !Stims.NoHeat(Config, state)) return;
+        MusouBlast(attacker, point, DreadnoughtMelee.Overcharge, melee: true);
+        _dreadnoughtShockwaves++;
+    }
+
+    /// <summary>Shockwaves released since the match began (test aid).</summary>
+    internal int _dreadnoughtShockwaves;
+    /// <summary>Shockwaves released so far (test aid).</summary>
+    public int DreadnoughtShockwaves => _dreadnoughtShockwaves;
+
 
     /// <summary>The buff's second regeneration (D6; data <c>dread_buff</c>: regeneration x2): while his stim runs, past the regeneration delay, health comes back at one more regeneration rate.</summary>
     void DreadnoughtBuffRegen(int id, in PlayerState p)

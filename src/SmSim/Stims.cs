@@ -31,6 +31,8 @@ public sealed record StimSpec(float Lifetime, float UseRelease, float UseDuratio
     public float MeleeDamage { get; init; } = 1f;
     /// <summary>Whether the stim applies <c>mp_reaction_immunity</c> for its lifetime.</summary>
     public bool ReactionImmune { get; init; }
+    /// <summary>Whether the stim stops the gun in hand building heat for its lifetime (added content: the Dreadnought's Overcharge, owner 2026-11-15; false for every stim of the data).</summary>
+    public bool NoHeat { get; init; }
     /// <summary>The use's clip (client only; not hashed): the "Equip - StimPack" sequencer's.</summary>
     public string Animation { get; init; } = "";
 
@@ -51,6 +53,7 @@ public sealed record StimSpec(float Lifetime, float UseRelease, float UseDuratio
     {
         foreach (float f in new[] { s.Lifetime, s.UseRelease, s.UseDuration, s.ReceivedWorld, s.ReceivedRanged, s.ReceivedMelee, s.ReceivedExplosive, s.MeleeDamage }) w.Write(f);
         w.Write(s.ReactionImmune);
+        if (s.NoHeat) w.Write(true);   // only when set: a config without an Overcharge hashes as before
     }
 }
 
@@ -72,6 +75,9 @@ public static class Stims
 
     /// <summary>The speed of melee swings and the fire rate of <paramref name="s"/> now (1 without a stim, or outside Musou Mode).</summary>
     public static float AttackSpeed(SimConfig c, PlayerState s) => s.StimLeft > 0f && Active(c, s) is not null ? c.StimBoost.Speed : 1f;
+
+    /// <summary>Whether the gun in hand builds no heat now (the Dreadnought's Overcharge: <see cref="StimSpec.NoHeat"/>); heat already built cools as usual.</summary>
+    public static bool NoHeat(SimConfig c, PlayerState s) => Active(c, s)?.NoHeat == true;
 
     /// <summary>Whether firing a gun spends no ammunition now (Musou Mode's stims).</summary>
     public static bool FreeAmmo(SimConfig c, PlayerState s) => s.StimLeft > 0f && Active(c, s) is not null && c.StimBoost.FreeAmmo;
@@ -106,7 +112,7 @@ public static class Stims
             return record with { StimLeft = left > 1e-4f ? MathF.Min(left, life) : 0f };
         }
         bool agrees = predicted is { } p && p.Alive && p.Class == record.Class && p.Equipment == record.Equipment
-            && p.Grenades == record.Grenades && p.GrenadeCooldown <= 0f;
+            && (p.Grenades == record.Grenades || (c.StimBoost.Lifetime > 1f && record.Grenades > p.Grenades)) && p.GrenadeCooldown <= 0f;   // Musou: the war's supply refills the item (the prediction does not run it) while a x3 stim still works: a record with more is no disagreement. Before, the Dreadnought's 30 s power-up showed 0 on the own client when the refill came, about 14 s in
         float tail = MathF.Max(0f, LifetimeOf(c, stim) - item.Cooldown);
         return record with { StimLeft = agrees ? Math.Clamp(predicted!.Value.StimLeft, 0f, tail) : 0f };
     }

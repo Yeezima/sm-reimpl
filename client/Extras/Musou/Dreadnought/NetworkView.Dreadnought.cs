@@ -19,12 +19,17 @@ namespace SmClient;
 public partial class NetworkView
 {
     const string DreadnoughtKey = "dreadnought";
+    /// <summary>Test aid <c>--chaos-dreadnought</c>: every Dreadnought wears the Chaos model and fires the reaper cannon's own sounds and effects (the sim's numbers are the same). Not in the customizer (Musou players are Imperial).</summary>
+    static readonly bool DreadChaos = CmdFlag("chaos-dreadnought");
     DreadnoughtLooks? _dreadLooks;
     readonly Dictionary<int, DreadnoughtTrack> _dreadTracks = new();
 
     sealed class DreadnoughtTrack
     {
         public bool WasAlive, EngineOn, Seen, ClassDread, HasPos, Corpse, StepDust, Placed;
+        /// <summary>The character wearing his model (the markers' skeleton), set each frame he is posed.</summary>
+        public CharacterViewer? Viewer;
+        public float PrevCooldown, PrevShotCd, PrevMeltaCd;
         public string Label = "";
         public Vector3 PrevPos;
         public int PrevClip;
@@ -65,7 +70,7 @@ public partial class NetworkView
             return;
         }
         if (current is not null && IsDreadnoughtCharacter(current)) { result = current; return; }
-        _dreadLooks ??= new DreadnoughtLooks(_gameDir);
+        _dreadLooks ??= new DreadnoughtLooks(_gameDir, DreadChaos);
         bool wasDone = _dreadLooks.Done;
         _dreadLooks.Step();
         if (!wasDone && _dreadLooks.Done)
@@ -90,6 +95,7 @@ public partial class NetworkView
         var t = DreadTrack(state.PlayerId);
         bool first = !t.Placed;   // the first time this character is posed (a join in a battle, or the model finishing its load): no edge to read yet, so no entrance replays
         t.Placed = true;
+        t.Viewer = character;
         // A new life (the dead to alive edge) or a jump of the body while alive (a war redeploy, an extraction or a call-back: the server re-locks the entrance at each) starts the entrance clip.
         var pos = new Vector3(state.Position.X, state.Position.Y, state.Position.Z);
         bool jumped = t.HasPos && new Vector2(pos.X - t.PrevPos.X, pos.Y - t.PrevPos.Y).Length() > DreadnoughtTeleportMetres;
@@ -105,6 +111,7 @@ public partial class NetworkView
         double since = _connectedFor - t.Born;
         DreadnoughtSounds(t, state, own, since < DreadnoughtRig.EntranceSeconds);
         DreadnoughtEffects(t, state, since < DreadnoughtRig.EntranceSeconds);
+        DreadnoughtFeelStep(t, state, own, since < DreadnoughtRig.EntranceSeconds, since);
         if (since < DreadnoughtRig.EntranceSeconds) { character.Pose(DreadnoughtRig.Entrance, (float)since, 0.1f); return; }
         if (_config is { } cfg)
         {
@@ -159,7 +166,7 @@ public partial class NetworkView
     {
         if (!IsDreadnoughtCharacter(character)) return;
         var t = DreadTrack(state.PlayerId);
-        if (t.WasAlive) { t.Died = _connectedFor; t.WasAlive = false; t.EngineOn = false; _sound?.StopEmitter(t.Emitter); }
+        if (t.WasAlive) { t.Died = _connectedFor; t.WasAlive = false; t.EngineOn = false; _sound?.StopEmitter(t.Emitter); DreadnoughtFeelDeath(t, state, own); }
         double dead = _connectedFor - t.Died;
         if (dead > DreadnoughtCorpseSeconds || double.IsInfinity(dead)) { character.Visible = false; return; }
         if (!t.Corpse)
@@ -173,6 +180,15 @@ public partial class NetworkView
         character.Pose(DreadnoughtRig.Death, (float)Math.Min(dead, DreadnoughtRig.DeathSeconds), 0.2f);
         character.Visible = true;
         keep = true;
+    }
+
+    /// <summary>The Dreadnought's wargear (cannon, melta, and the Chaos reaper cannon under the test aid) read into the effect catalogue: no class carries them, which is why the catalogue had no bindings for them before.</summary>
+    partial void ExtrasEffectWargear(List<string> names, List<string> effects)
+    {
+        if (_config is null || !_config.Extras.HasFlag(ContentExtras.Musou)) return;
+        effects.AddRange(DreadnoughtArm.AllEffectNames());
+        names.Add(DreadnoughtRules.CannonWargear); names.Add(DreadnoughtRules.MeltaWargear);
+        if (DreadChaos) names.Add(DreadnoughtRig.ChaosCannonWargear);
     }
 
     // ---- effects (D7): the install's effects through the effect player ----
@@ -197,6 +213,12 @@ public partial class NetworkView
         float side = s.Slot == WeaponSlot.Pistol ? -0.8f : 0.8f;
         var muzzle = new Vector3(s.Position.X, s.Position.Y, s.Position.Z + 2.3f) + fwd * 2.2f + right * side;
         place = (new Vector3(muzzle.X, muzzle.Z, -muzzle.Y), AxesFromY(new Vector3(fwd.X, fwd.Z, -fwd.Y)));   // game space (X, Y, Z up) to Godot's (X, Z, -Y)
+        if (_dreadTracks.TryGetValue(shooter, out var tr) && place is { } pl)
+        {
+            // The data names the cannon's flash on a list of markers (fx_muzzle_autocannon_top, then fx_muzzle_assault_cannon: the first the model has is used); the loyalist model has the second only, and the estimate above sat 2 m ahead of the barrel.
+            var real = DreadMarkerWorld(tr, marker) ?? (DreadnoughtFeel.MarkerFallback.TryGetValue(marker, out var alt) ? DreadMarkerWorld(tr, alt) : null);
+            if (real is { } at) place = (at, pl.Item2);
+        }   // the model's own muzzle marker when it has one (the estimate above is the fallback)
     }
 
     /// <summary>A muzzle flash at the cannon for each frame the clip lost a round, and the footfall dust where the stride lands. Nothing for a lean bot.</summary>
@@ -205,15 +227,19 @@ public partial class NetworkView
         if (_fx is null || Lean) { t.PrevClip = s.Clip; t.StepDust = false; return; }
         // No flash of his own any more (the buff, owner 2026-11-15): the shot path plays the autocannon's whole effect list (flash at its scale 1.5, tracer, casings) and asks ExtrasFxPlace for the barrel, so there is exactly one flash per shot.
         t.PrevClip = s.Clip;
+        // The cannon's and the melta's own effects (flash, casings, tracer, impacts) are the wargear's bindings through the normal shot path, now that the catalogue reads their files (ExtrasEffectWargear); no per-shot copy here.
+        t.PrevMeltaCd = s.Cooldown;
+        t.PrevShotCd = s.Cooldown;
         if (t.StepDust)
         {
             t.StepDust = false;
-            _fx.Play(DreadDustEffect, ToGodot(s.Position), Basis.Identity, DreadDustScale, priority: SmContent.FxPriority.Special);
         }
     }
 
     // ---- sounds (D7): the install's own events from bank Weapon_Dreadnought through the sound system (the data's mix); none for a lean bot ----
-    const string DreadEngineEvent = "play_engine_sm_dreadnought", DreadFootEvent = "play_dreadnought_footstep", DreadSprintFootEvent = "play_dreadnought_sprint_footstep", DreadReloadEvent = "play_dreadnought_sm_weapon_reload";
+    /// <summary>The ground one footfall covers in the clips (**ours**, from the clips' cycles: walk 1.333 s for two steps at 3 m/s, run 0.8 s at 6.5, sprint 0.8 s at 11; the clips play faster with his 1.3x speeds, so the distance holds): the feel's footfalls (sound, dust, shake) follow the feet, not the sim's blast stride.</summary>
+    const float DreadWalkStride = 2.0f, DreadRunStride = 2.6f, DreadSprintStride = 4.4f;
+    const string DreadEngineEvent = DreadnoughtFeel.EngineEvent, DreadFootEvent = "play_dreadnought_footstep", DreadSprintFootEvent = "play_dreadnought_sprint_footstep", DreadReloadEvent = "play_dreadnought_sm_weapon_reload";
     static readonly string[] DreadLightSwing = ["play_dreadnought_melee_swing_x1", "play_dreadnought_melee_swing_x2"], DreadHeavySwing = ["play_sm_stomp_displace", "play_dreadnought_melee_swing_y1"];
 
     /// <summary>
@@ -228,7 +254,7 @@ public partial class NetworkView
         em.Own = own; if (t.Label.Length == 0) t.Label = $"dreadnought {s.PlayerId}"; em.Label = t.Label;
         em.Position = ToGodot(s.Position) + Vector3.Up * 1.5f;
         float speed = MathF.Sqrt(s.Velocity.X * s.Velocity.X + s.Velocity.Y * s.Velocity.Y);
-        em.Parameters[VoiceMixer.Speed] = speed;
+        em.Parameters[VoiceMixer.Speed] = speed / DreadnoughtRules.MoveSpeed;   // the engine's speed RTPC is anchored at the data's 6.5 m/s run; his run is 1.3 times that now
         if (!s.Alive) { if (t.EngineOn) { _sound.StopEmitter(em); t.EngineOn = false; } t.Last = Vector3.Zero; return; }
         if (!entering && !t.EngineOn) { _sound.Post(DreadEngineEvent, em); t.EngineOn = true; }
         var here = ToGodot(s.Position);
@@ -236,15 +262,19 @@ public partial class NetworkView
         {
             float moved = new Vector2(here.X - t.Last.X, here.Z - t.Last.Z).Length();   // Godot space: X, Z are the ground
             if (moved < 3f) t.Stride += moved;
-            if (t.Stride >= DreadnoughtRules.FootfallStride) { t.Stride -= DreadnoughtRules.FootfallStride; t.StepDust = true; _sound.Post(speed > DreadnoughtRules.RunSpeed + 1.5f ? DreadSprintFootEvent : DreadFootEvent, em, footstep: true); }
+            float strideNeeded = speed > DreadnoughtRules.RunSpeed + 1.5f ? DreadSprintStride : speed > DreadnoughtRig.RunFrom ? DreadRunStride : DreadWalkStride;
+            if (t.Stride >= strideNeeded) { t.Stride -= strideNeeded; var foot = FeelOf(s.PlayerId); foot.Left = !foot.Left; bool sprint = speed > DreadnoughtRules.RunSpeed + 1.5f;
+                DreadAct(sprint ? (foot.Left ? DreadAction.SprintFootLeft : DreadAction.SprintFootRight) : (foot.Left ? DreadAction.FootLeft : DreadAction.FootRight), s, t, own); }
         }
         t.Last = here;
-        if (s.MeleeStep > 0 && t.Strike == 0)
-        {
-            var list = s.MeleeHeavy ? DreadHeavySwing : DreadLightSwing;
-            if (s.MeleeStep <= list.Length) _sound.Post(list[s.MeleeStep - 1], em);
-        }
+        // the arm's sounds are DreadnoughtArm.Cues' now (NetworkView.DreadnoughtFeel.cs: start, antic, swing and hit beats)
         t.Strike = s.MeleeStep;
+        // the melta's pump follows each shot (wargear pump state; the 0.45 s lag is ours)
+        if (s.Slot == WeaponSlot.Pistol && s.Cooldown > t.PrevCooldown + 0.05f)
+        {
+            var pumpEm = em; GetTree().CreateTimer(DreadnoughtFeel.MeltaPumpDelay).Timeout += () => { if (LogDreadFeel) GD.Print($"DNFEEL t {_connectedFor:F2} MeltaPump {DreadnoughtFeel.MeltaPumpEvent}"); _sound?.Post(DreadnoughtFeel.MeltaPumpEvent, pumpEm); };
+        }
+        t.PrevCooldown = s.Cooldown;
         if (s.ReloadLeft > 0f && t.ReloadLeft <= 0f) _sound.Post(DreadReloadEvent, em);
         t.ReloadLeft = s.ReloadLeft;
     }
@@ -262,7 +292,7 @@ public partial class NetworkView
         {
             if (speed > DreadnoughtRules.RunSpeed + 1.5f && forward > 0f)
             {
-                character.Stance("dn:sprint", null, DreadnoughtRig.Sprint, null, 0f, Math.Clamp(speed / DreadnoughtRules.SprintSpeed, 0.6f, 1.4f), 0.25f);
+                character.Stance("dn:sprint", null, DreadnoughtRig.Sprint, null, 0f, Math.Clamp(speed / DreadnoughtRules.DataSprintSpeed, 0.6f, 1.6f), 0.25f);
                 return;
             }
             int dir = DreadnoughtRig.DirectionIndex(MathF.Atan2(right, forward) * 180f / MathF.PI);

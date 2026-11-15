@@ -35,8 +35,15 @@ public static class DreadnoughtRules
     public static bool IsMelta(string? wargear) => string.Equals(wargear, MeltaWargear, StringComparison.OrdinalIgnoreCase);
 
     // ---- movement (data: sm_dreadnought speeds, standing / aiming) ----
-    public const float RunSpeed = 6.5f, StrafeSpeed = 6.5f, BackSpeed = 4.5f, SprintSpeed = 11f, WalkSpeed = 3f;
-    public const float AimRunSpeed = 5f, AimStrafeSpeed = 5f, AimBackSpeed = 4f;
+    /// <summary>The data's speeds (m/s; kind: data), pinned by the parity tests.</summary>
+    public const float DataRunSpeed = 6.5f, DataStrafeSpeed = 6.5f, DataBackSpeed = 4.5f, DataSprintSpeed = 11f, DataWalkSpeed = 3f, DataAimRunSpeed = 5f, DataAimStrafeSpeed = 5f, DataAimBackSpeed = 4f;
+    /// <summary>
+    /// His walk, run and sprint are this many times Musou's earlier values (owner, 2026-11-15: "make the dreadnought run 30% faster than current, and sprint 30% faster than current"; **owner's value**): every ground speed of
+    /// the body below is the data's times this, so the strafe, the back step and the aimed speeds keep their proportions.
+    /// </summary>
+    public const float MoveSpeed = 1.3f;
+    public const float RunSpeed = DataRunSpeed * MoveSpeed, StrafeSpeed = DataStrafeSpeed * MoveSpeed, BackSpeed = DataBackSpeed * MoveSpeed, SprintSpeed = DataSprintSpeed * MoveSpeed, WalkSpeed = DataWalkSpeed * MoveSpeed;
+    public const float AimRunSpeed = DataAimRunSpeed * MoveSpeed, AimStrafeSpeed = DataAimStrafeSpeed * MoveSpeed, AimBackSpeed = DataAimBackSpeed * MoveSpeed;
 
     // ---- health (the owner's pool, estimate) ----
     /// <summary>The data's health, regeneration delay and rate (8000, 5 s, 250 a second): what the original gives him, kept for the parity tests and the scaling below.</summary>

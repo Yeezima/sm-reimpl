@@ -12,10 +12,24 @@ static class DreadnoughtDumpCommand
 {
     static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
 
+    /// <summary><c>--markers [--chaos]</c>: every effect marker (fx_*, light, muzzle) node of the body's object tree with its parent chain, to find where a marker lives (read-only).</summary>
+    static int Markers(string gameDir, string visual)
+    {
+        var tree = ObjectTree.Load(Path.Combine(gameDir, DreadnoughtRig.Archive), visual) ?? throw new FileNotFoundException(visual);
+        foreach (var name in tree.Order)
+        {
+            if (!(name.StartsWith("fx_", StringComparison.OrdinalIgnoreCase) || name.Contains("light", StringComparison.OrdinalIgnoreCase) || name.Contains("muzzle", StringComparison.OrdinalIgnoreCase) || name.Contains("eye", StringComparison.OrdinalIgnoreCase) || name.Contains("skull", StringComparison.OrdinalIgnoreCase))) continue;
+            Console.WriteLine($"  {name,-34} parent {tree.Nodes[name].Parent}");
+        }
+        Console.WriteLine($"{tree.Nodes.Count} nodes in {visual}");
+        return 0;
+    }
+
     public static int Run(string[] args)
     {
         string gameDir = args.Length > 0 && !args[0].StartsWith("--") && args[0] != "auto" ? args[0] : GameInstall.Locate();
         var notes = new List<string>();
+        if (args.Contains("--markers")) return Markers(gameDir, args.Contains("--chaos") ? DreadnoughtRig.ChaosBodyVisual : DreadnoughtRig.BodyVisual);
         var d = DreadnoughtData.Read(gameDir, notes);
         string bp = $"ebps.oppc:{DreadnoughtData.Blueprint}";
         void Row(string name, object? value, string source) => Console.WriteLine($"  {name,-34} {Format(value),-14} {source}");

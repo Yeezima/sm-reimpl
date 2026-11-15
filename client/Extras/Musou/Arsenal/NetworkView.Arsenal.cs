@@ -53,7 +53,6 @@ public partial class NetworkView
     partial void ExtrasPresentationSources(string wargear, ref IReadOnlyList<string>? sources)
     {
         if (_config is null) return;
-        wargear = SmContent.Extras.Musou.DreadnoughtPresentation.AsAutocannon(wargear);   // the Dreadnought's cannon shows the autocannon's effects (owner 2026-11-15)
         if (!ArsenalRules.Shown(_config.Extras, wargear)) return;
         sources = Arsenal.PresentationSources(_config.Extras, wargear);
     }
@@ -65,7 +64,6 @@ public partial class NetworkView
     partial void ExtrasSoundSources(string wargear, ref IReadOnlyList<string>? sources)
     {
         if (_config is null || !_config.Extras.HasFlag(ContentExtras.Musou)) return;
-        wargear = SmContent.Extras.Musou.DreadnoughtPresentation.AsAutocannon(wargear);   // the Dreadnought's cannon sounds as the autocannon (owner 2026-11-15)
         if (!ArsenalRules.IsArsenal(wargear)) return;
         sources = Arsenal.SoundSources(_config.Extras, wargear);
     }
@@ -79,8 +77,8 @@ public partial class NetworkView
     /// </summary>
     partial void ExtrasEffectNames(string wargear, ref IReadOnlyDictionary<string, string>? names)
     {
+        if (_config is not null && DreadChaos && string.Equals(wargear, SmSim.Extras.Musou.DreadnoughtRules.MeltaWargear, StringComparison.OrdinalIgnoreCase)) { names = SmContent.Extras.Musou.DreadnoughtFeel.ChaosMeltaNames; return; }   // the Chaos Dreadnought's melta: the csm_ cylinder blasts
         if (OldAutocannonFx || _config is null) return;
-        wargear = SmContent.Extras.Musou.DreadnoughtPresentation.AsAutocannon(wargear);   // the Dreadnought's cannon: the autocannon's loyalist flash, tracer and impact (owner 2026-11-15)
         if (!ArsenalRules.Shown(_config.Extras, wargear)) return;
         names = Arsenal.EffectNames(_config.Extras, wargear);
     }
@@ -92,6 +90,7 @@ public partial class NetworkView
     /// </summary>
     partial void ExtrasShooterEffects(int shooter, string wargear, ref string effects)
     {
+        if (DreadChaos && _config is not null && SmSim.Extras.Musou.DreadnoughtRules.IsCannon(wargear) && _catalogue?.Weapon(SmContent.Extras.Musou.DreadnoughtRig.ChaosCannonWargear) is { Bindings.Count: > 0 }) { effects = SmContent.Extras.Musou.DreadnoughtRig.ChaosCannonWargear; return; }
         if (_config is null || !ArsenalRules.IsAutocannon(wargear) || !ArsenalRules.Shown(_config.Extras, wargear)) return;
         string chosen = Arsenal.EffectsFor(_config.Extras, wargear, ShooterRace(shooter) == Race.Chaos);
         if (!string.Equals(chosen, wargear, StringComparison.OrdinalIgnoreCase) && _catalogue?.Weapon(chosen) is { Bindings.Count: > 0 }) effects = chosen;

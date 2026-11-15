@@ -51,6 +51,12 @@ public partial class NetworkView
         if (CmdFlag("dn-survive")) { await DnSurvive(); return; }
         if (CmdFlag("dn-melee-film")) { await DnMeleeFilm(); return; }
         if (CmdFlag("dn-fire-film")) { await DnFireFilm(); return; }
+        if (CmdFlag("dn-da-film")) { await DnDaFilm(); return; }
+        if (CmdFlag("dn-da-death")) { await DnDaDeath(); return; }
+        if (CmdFlag("dn-buff-probe")) { await DnBuffProbe(); return; }
+        if (CmdFlag("dn-da-clean")) { await DnDaClean(); return; }
+        if (CmdFlag("dn-da-wreck")) { await DnDaWreck(); return; }
+        if (CmdFlag("dn-da-overcharge")) { await DnDaOvercharge(); return; }
         GD.Print($"DNCAPTURE t {_connectedFor:F2} landed, class {client.Predicted.Class}, health {client.Predicted.Health:F0}, locked {DreadnoughtEntryText()}");
         await TfwWait(0.6);
         await DnStill(1, "dn-side-entrance-1");
@@ -207,6 +213,57 @@ public partial class NetworkView
             if (_connectedFor >= next) { next += 0.5; var p = client.Predicted; GD.Print($"DNFILM frame {Engine.GetFramesDrawn()} t {_connectedFor - begun:F1} heat {p.Heat:F1} overheated {p.Overheated}"); }
         }
         GD.Print($"DNFILM end frame {Engine.GetFramesDrawn()}");
+        _dnCam = 0;
+        GetTree().Quit(0);
+    }
+
+    /// <summary>
+    /// <c>--dn-da-film</c> (the DA Dreadnought's proof, 2026-11-15; with <c>--write-movie</c>): the arrival (the entrance's 5.4 s from behind), a walk and a sprint, then at the Orks the stomp, the power-up, the cannon, the melta, the light chain and
+    /// finally the cannon held until he dies (or 60 s). <c>DNFILM seg NAME frame N</c> lines mark each segment's first frame; <c>--dn-feel-log</c> adds every play call (DNFEEL).
+    /// </summary>
+    async Task DnDaFilm()
+    {
+        var client = _client!;
+        void Seg(string name) => GD.Print($"DNFILM seg {name} frame {Engine.GetFramesDrawn()} t {_connectedFor:F1}");
+        _dnCam = 2; Seg("arrival");
+        await TfwWait(5.4);
+        _dnCam = 1;
+        var point = _tfwState.Objectives[0].Position;
+        Seg("walk");
+        TfwAction(GameAction.MoveForward, true);
+        await TfwWait(3.0);
+        Seg("sprint");
+        TfwAction(GameAction.Sprint, true);
+        await TfwWait(4.0);
+        TfwAction(GameAction.Sprint, false); TfwAction(GameAction.MoveForward, false);
+        await TfwPathTo(point, "da film: walked towards the Orks", 90.0, () => _musouState.MiddleNear(client.Predicted.Position, 22f) is not null);
+        Seg("stomp");
+        await TfwActionTap(GameAction.StunStrike);
+        await TfwWait(4.5);
+        Seg("buff");
+        await TfwActionTap(GameAction.Grenade);
+        await TfwWait(3.0);
+        Seg("cannon");
+        TfwAction(GameAction.Fire, true);
+        for (double u = _connectedFor + 4.0; _connectedFor < u;) { await TfwFrames(); if (client.Predicted.Alive) AutocannonAim(); }
+        TfwAction(GameAction.Fire, false);
+        Seg("melta");
+        await TfwActionTap(GameAction.NextWeapon);
+        await TfwWait(1.0);
+        for (int k = 0; k < 3; k++) { TfwAction(GameAction.Fire, true); await TfwWait(0.3); TfwAction(GameAction.Fire, false); await TfwWait(1.2); }
+        await TfwActionTap(GameAction.NextWeapon);
+        await TfwWait(1.0);
+        Seg("melee");
+        for (int k = 0; k < 3; k++) { await TfwActionTap(GameAction.Melee); await TfwWait(1.0); }
+        _dnCam = 1;
+        Seg("death");
+        TfwAction(GameAction.Fire, true);
+        double stop = _connectedFor + 60.0;
+        while (_connectedFor < stop && client.Predicted.Alive) { await TfwFrames(); AutocannonAim(); }
+        TfwAction(GameAction.Fire, false);
+        await TfwWait(4.0);
+        Seg("end");
+        GD.Print($"DNFILM alive {client.Predicted.Alive}");
         _dnCam = 0;
         GetTree().Quit(0);
     }
