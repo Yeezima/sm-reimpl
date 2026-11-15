@@ -214,6 +214,7 @@ public sealed partial class CreatorView : Control
     {
         if (selection != _open) _perkSlot = 0;   // a loadout opened by the shell starts at perk 1, as a click on its chip does
         _open = selection;
+        _armSlotsTab = true;   // a loadout opened by the shell (the picker, --loadout): the SLOTS tab shows where it sits
         _open = ValidOpen();   // never the Ork's loadouts without the Orks (ui/customizer-ork)
         Refresh(focusList: false);
     }
@@ -230,7 +231,7 @@ public sealed partial class CreatorView : Control
 
     public void OpenStep(string name)
     {
-        for (int i = 0; i < StepNames.Length; i++) if (StepNames[i].Equals(name, StringComparison.OrdinalIgnoreCase) && StepShown(i)) { _step = (Step)i; Refresh(false); return; }   // only a step the page shows: Classic never reaches SUPPORT
+        for (int i = 0; i < StepNames.Length; i++) if (StepNames[i].Equals(name, StringComparison.OrdinalIgnoreCase) && StepShown(i)) { _step = (Step)i; _armPicking = true; Refresh(false); return; }   // only a step the page shows: Classic never reaches SUPPORT
     }
 
     /// <summary>The step shown now (test aid).</summary>
@@ -245,6 +246,7 @@ public sealed partial class CreatorView : Control
     public void Reenter()
     {
         ReturnFromRevertedCopy();
+        _armSlotsTab = false; _armPicking = false;   // the Armoury opens on its CLASS tab with the slot cards
         _open = ValidOpen();
         // The content profile may have changed on the lobby menu (ui/customizer-ork): the remembered DEFAULTS role, the factions and the class tabs follow it.
         if (_lastDefaultsRole is { } last && !_services.Roles().Contains(last, StringComparer.OrdinalIgnoreCase)) _lastDefaultsRole = null;
@@ -381,7 +383,7 @@ public sealed partial class CreatorView : Control
         {
             int index = i;
             var b = new Button { Text = $"{i + 1}  {StepNames[i]}", Alignment = HorizontalAlignment.Left, ToggleMode = true, FocusMode = FocusModeEnum.All, CustomMinimumSize = new Vector2(0, 44) };
-            b.Pressed += () => { _step = (Step)index; Refresh(focusList: true); };
+            b.Pressed += () => { _step = (Step)index; _armPicking = true; Refresh(focusList: true); };
             _steps.AddChild(b);
             _stepButtons.Add(b);
         }
@@ -1028,7 +1030,7 @@ public sealed partial class CreatorView : Control
         if (IsEmpty && !AddedPage) return;   // an empty slot has only its class list; an added page has steps of its own whatever the hidden slot holds
         int n = StepNames.Length, s = (int)_step;
         for (int k = 0; k < n; k++) { s = (s + delta + n) % n; if (StepShown(s)) break; }
-        _step = (Step)s;
+        _step = (Step)s; _armPicking = true;
         Refresh(focusList: false);
     }
 

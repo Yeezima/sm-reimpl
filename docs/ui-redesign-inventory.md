@@ -26,12 +26,12 @@ its own 1080-high virtual space scaled by the window height, with panels anchore
 | 8 | Musou page (`MusouMenu`: PLAY ON THIS PC, HOST LOCAL LOBBY, JOIN LOCAL LOBBY, CUSTOMIZER, co-op note) | MUSOU MODE | no | yes | the main menu's frame layout | p2 |
 | 9 | **Options** (`OptionsView`): GRAPHICS, SOUND, CONTROLS, INTERFACE | OPTIONS; Esc menu in a match | yes | yes | the concept's panel 04, 1:1 (painted overlay and plates, live rows scrolling inside; phase 4a) | **done** (measured; see section 2 and docs/ui-concept-textures.md) |
 | 10 | Keybinds (`ControlsView`: keyboard tab, controller tab, rebind capture, conflict prompt) | CONTROLS, KEYBINDS | yes | yes | steel frame and tabs | p2 |
-| 11 | Armoury = the class creator (`CreatorView`): DEFAULTS and CUSTOM 1 to 10, class tabs, steps CLASS, WEAPONS, EQUIPMENT, PERKS, (LOOK), (SUPPORT ABILITIES), preview, item card, action bar | ARMOURY (the old CUSTOMIZER); Esc menu, LOADOUT in a match | yes | yes (Musou layout: STANDARD MARINES, LIBRARIAN, HERETIC (not yet)) | the concept's panel 03 | p2 |
-| 12 | Appearance editor (`AppearanceView`: MY APPEARANCES, CHAPTER, ARMOUR, COLOURS, BADGES, EYES) | APPEARANCE... in the Armoury | yes | yes | steel frame and rows; the preview stays | p2 |
+| 11 | Armoury = the class creator (`CreatorView`): DEFAULTS and CUSTOM 1 to 10, class tabs, steps CLASS, WEAPONS, EQUIPMENT, PERKS, (LOOK), (SUPPORT ABILITIES), preview, item card, action bar | ARMOURY (the old CUSTOMIZER); Esc menu, LOADOUT in a match | yes | yes (Musou layout: STANDARD MARINES, LIBRARIAN, HERETIC (not yet)) | the concept's panel 03 |**done (phase 4d)** |
+| 12 | Appearance editor (`AppearanceView`: MY APPEARANCES, CHAPTER, ARMOUR, COLOURS, BADGES, EYES) | APPEARANCE... in the Armoury | yes | yes | steel frame and rows; the preview stays |**done (phase 4d)** |
 | 13 | Emblem importer (custom image) | BADGES | yes | yes | steel dialog | p2 |
 | 14 | Loading screen (`NetworkView.Loading`, `MenuVideo`: the still `loading-background.jpg`) | a join | yes | yes | unchanged (the request does not cover it) | keep |
 | 15 | In-match Esc menu (`MatchMenu`): RESUME, LOADOUT, OPTIONS, LEAVE MATCH, extra rows (Musou: BACK TO STORMBIRD), respawn banner | Esc | yes | yes | the main menu's steel buttons over the match's dim | p2 |
-| 16 | In-match loadout picker (the Armoury opened with DEPLOY / SET ACTIVE) | death, LOADOUT | yes | yes (PLAY AS LIBRARIAN) | the Armoury of panel 03 | p2 |
+| 16 | In-match loadout picker (the Armoury opened with DEPLOY / SET ACTIVE) | death, LOADOUT | yes | yes (PLAY AS LIBRARIAN) | the Armoury of panel 03 |**done (phase 4d)** |
 | 17 | Match flow and summary (`MatchFlowView`, `MatchSummaryView`: warm-up, end splash, scoreboard) | match | yes | yes | steel plates, same data | p2 |
 | 18 | Tab scoreboard, kill feed, banners | match | yes | yes (Musou rows) | steel plates | p2 |
 | 19 | Musou hub screens (`Extras/Musou/Tfw`: war map, equipment station prompt, reward panels, range confirm, battle panel) | Musou | no | yes | steel plates, inside the added-content boundary | p2 |
@@ -195,3 +195,20 @@ The Musou parts stay in `client/Extras/Musou/` and are reached through the exist
 ## Phase 4b note (Options rows; Armoury not yet done)
 
 Options rows (rows 9, 40+): every choice is the concept's arrow pill, every OFF / ON option the concept's switch, every slider the concept's amber slider; two columns when the labels fit (INTERFACE, SOUND), one otherwise (GRAPHICS, CONTROLS). Every setting, default and handler is unchanged. Armoury (row 11, 12, 16) and the HUD are not part of this commit.
+
+
+## Phase 4d: the Armoury's controls (owner, 2026-11-15; answers: one card per loadout slot, scrolling; the extras in a tab strip above the class list)
+
+| Original control | Where it is now |
+| --- | --- |
+| Class tabs (both sides' names; Ork Boy with Extended) | the four class plate rows (gold = the open class; one side's name drawn, both sides in the button's text and tooltip); Musou: LIBRARIAN first, then the marines' classes |
+| DEFAULTS and CUSTOM 1 to 10 chips | the SLOTS tab (header strip): the chips wrap in the rail |
+| Steps CLASS, WEAPONS, EQUIPMENT, PERKS, LOOK, SUPPORT | the cards: one card per loadout slot (each weapon section, equipment, perk 1, perk 2; the Librarian: melee, powers, perks, look, support); a card opens that slot's choices as cards; the weapon row and the three tiles open the same steps; PageUp / PageDown and the pad shoulders still move through the steps |
+| Perk slot chooser (Perk 1 / Perk 2) | the PERK 1 and PERK 2 cards and tiles; the toggles stay in the choices list |
+| Faction row (Space Marines, Chaos, Orks; Musou entries) | pills above the preview |
+| Item card | under the preview, in the one face |
+| APPEARANCE... (armour, paint, badges, eyes; Ork look) | the ARMOUR & PAINT tab (opens the appearance editor) and the dock's APPEARANCE... |
+| Rename (F2), Copy to..., Reset, Clear, Revert, SAVE (Ctrl+S), SET ACTIVE, DEPLOY, LEAVE MATCH | the dock of plates under the preview (keys and pad buttons unchanged) |
+| CONFIRM LOADOUT (new label) | SET ACTIVE and SAVE (in a match: SAVE and DEPLOY; on the Librarian's page: SAVE and PLAY AS LIBRARIAN) |
+| BACK (Esc, B) / RESUME | the BACK plate |
+| Mode badge (new) | CLASSIC PVP, or MUSOU in Musou Mode |

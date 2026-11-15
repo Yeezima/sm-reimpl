@@ -33,13 +33,22 @@ public sealed partial class CreatorView
         string? WeaponIcon(string w) => w.Contains("SWORD", StringComparison.Ordinal) ? "arm-wico-sword" : null;
         void Go(int step) { _step = (Step)step; Refresh(focusList: true); }
         var tiles = new List<ArmTile>();
-        foreach (var p in LibrarianPowers.Present().Where(p => p.IsPower).Take(3))
+        foreach (var p in LibrarianPowers.Present().Take(3))   // his powers, then the stress scale
         {
             string name = p.Title; string lower = name.ToLowerInvariant();
-            string? icon = lower.Contains("lightning") ? "arm-tico-lightning" : lower.Contains("warp") ? "arm-tico-warp" : lower.Contains("shock") ? "arm-tico-shock" : null;
+            string? icon = lower.Contains("lightning") ? "arm-tico-lightning" : lower.Contains("warp") ? "arm-tico-warp" : lower.Contains("shock") ? "arm-tico-shock" : lower.Contains("stress") ? "arm-ico-stress" : null;
             tiles.Add(new ArmTile(name, icon, _step == (Step)2 && tiles.Count == 0, () => Go(2)));
         }
-        detail = new ArmDetail(weapon, WeaponIcon(weapon), () => Go(1), tiles);
+        void Pick(int step) { _step = (Step)step; _armPicking = true; Refresh(focusList: true); }
+        var slots = new List<ArmSlot>
+        {
+            new("MELEE WEAPON", weapon, weapon.Contains("SWORD", StringComparison.Ordinal) ? "arm-ico-sword" : null, () => Pick(1)),
+            new("PSYCHIC POWERS", string.Join(", ", tiles.Select(t => t.Label.Split(" (")[0])), "arm-ico-lightning", () => Pick(2)),
+            new("PERKS", "KEPT FROM YOUR CLASS", null, () => Pick(3)),
+            new("LOOK", "YOUR ACTIVE LOADOUT", null, () => Pick(4)),
+            new("SUPPORT ABILITY", "ARTILLERY OR DROP POD", null, () => Pick(5)),
+        };
+        detail = new ArmDetail(weapon, WeaponIcon(weapon), () => Go(1), tiles, slots);
     }
 
     partial void ExtrasArmouryBadge(ref string text)

@@ -197,7 +197,7 @@ public static partial class UiTextureBuilder
             var clean = (Image)up.Duplicate();
             var tileTop = Probe(up, sf, 590, 103, 2); var tileBot = Probe(up, sf, 590, 146, 2);
             FillVertical(clean, sf, new Rect2(564, 103, 54, 44), tileTop.Lerp(new Color(0.04f, 0.07f, 0.17f), 0.5f), tileBot.Lerp(new Color(0.03f, 0.05f, 0.12f), 0.5f));
-            FillScan(clean, sf, ArmCardText, 624f, 750f);
+            FillScan(clean, sf, new Rect2(628, 105, 118, 43), 626f, 741f);
             var tex = Region(clean, ArmCard);
             PolyAlpha(tex, sf, ArmCard.Position, ArmCardShape(ArmCard));
             save("arm-card", tex);
@@ -223,7 +223,7 @@ public static partial class UiTextureBuilder
             FillVertical(tClean, sf, new Rect2(128, 288, 60, 52), dd, dd2);
             save("arm-tile-dark", Region(tClean, Pad(ArmTiles[1], 2, 2, 2, 2)));
             var gClean = (Image)up.Duplicate();
-            var gg = Probe(up, sf, 56, 296, 2); var gg2 = Probe(up, sf, 56, 338, 2);
+            var gg = new Color(0.14f, 0.10f, 0.05f); var gg2 = new Color(0.10f, 0.075f, 0.04f);   // the gold tile's dark interior (the concept's)
             FillVertical(gClean, sf, new Rect2(50, 288, 60, 52), gg, gg2);
             save("arm-tile-gold", Region(gClean, Pad(ArmTiles[0], 2, 2, 2, 2)));
             // the weapon row's icon tile frame

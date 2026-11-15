@@ -17,10 +17,12 @@ namespace SmClient.Customizer;
 public sealed partial class CreatorView
 {
     /// <summary>A class list row: label, icon art name, whether it is the open class and what a press does.</summary>
-    public sealed record ArmClass(string Label, string? Icon, bool Selected, Action Press);
+    public sealed record ArmClass(string Label, string? Icon, bool Selected, Action Press, string? Real = null);
     /// <summary>The weapon row and the three tiles: a label, an icon art name (or null), whether it is the step shown, and what a press does.</summary>
     public sealed record ArmTile(string Label, string? Icon, bool Selected, Action Press);
-    public sealed record ArmDetail(string Weapon, string? WeaponIcon, Action WeaponPress, IReadOnlyList<ArmTile> Tiles);
+    public sealed record ArmDetail(string Weapon, string? WeaponIcon, Action WeaponPress, IReadOnlyList<ArmTile> Tiles, IReadOnlyList<ArmSlot>? Slots = null);
+    /// <summary>One loadout slot's card (owner, 2026-11-15: one card per loadout slot): the slot's name, what it holds now, an icon art name and what a press does (opens that slot's choices).</summary>
+    public sealed record ArmSlot(string Slot, string Value, string? Icon, Action Press);
 
     bool _arm;
     Control? _armCanvas;
@@ -36,6 +38,9 @@ public sealed partial class CreatorView
     Label? _armWeaponName;
     Control? _armSteps;
     Label? _armColumnTitle;
+    Button? _armTabClass, _armTabSlots, _armTabLook, _armPickBack;
+    ScrollContainer? _armSlotScroll; VBoxContainer? _armSlotList;
+    bool _armSlotsTab, _armPicking;
     TextureRect? _armWeaponIcon;
 
     static readonly Color ArmLight = new(0.88f, 0.87f, 0.83f), ArmDark = new(0.10f, 0.06f, 0.02f), ArmDim = new(0.72f, 0.70f, 0.64f);
@@ -78,26 +83,37 @@ public sealed partial class CreatorView
         Move(stepsPanel, _armCanvas);
         var holder = new Control { Name = "ArmouryHidden", Visible = false }; AddChild(holder);
         var pills = new HBoxContainer { Name = "ArmouryPills" }; pills.AddThemeConstantOverride("separation", 2);
-        foreach (var sb in _stepButtons) Move(sb, pills);
+        foreach (var sb in _stepButtons) Move(sb, holder);   // the steps stay (keys, tests, added pages) but the cards open them
+        Button Tab(string text, string tip, Action press) { var t = new Button { Text = text, ToggleMode = true, FocusMode = FocusModeEnum.All, TooltipText = tip, ClipText = true, SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill }; t.Pressed += () => press(); pills.AddChild(t); return t; }
+        _armTabClass = Tab("CLASS", "The class list", () => { _armSlotsTab = false; ArmouryDirty(); });
+        _armTabSlots = Tab("SLOTS", "DEFAULTS and CUSTOM 1 to 10: pick a loadout slot", () => { _armSlotsTab = true; ArmouryDirty(); });
+        _armTabLook = Tab("ARMOUR & PAINT", "The armour pieces, colours, badges and eyes of this loadout (the appearance editor)", () => { _armTabLook!.ButtonPressed = false; OpenAppearance(); });
         var oldSteps = _steps; var stepsMargin = (Container)oldSteps.GetParent(); stepsMargin.RemoveChild(oldSteps); holder.AddChild(oldSteps); foreach (var side in new[] { "left", "right", "top", "bottom" }) stepsMargin.AddThemeConstantOverride("margin_" + side, 0); _armSteps = stepsPanel;   // the spacer, LOOK caption and Appearance button stay in the hidden old box
         stepsMargin.AddChild(pills); _steps = pills;
         if (stepsPanel is PanelContainer sp) sp.AddThemeStyleboxOverride("panel", new StyleBoxEmpty());
         // The middle: the preview and the item card; the right: the choices as cards.
+        Move(_scroll, _armCanvas);   // the list first, as in the old layout (the tests and the tree order look for the list's scroll before the item card's)
         Move(right, _armCanvas);
-        Move(_scroll, _armCanvas);
         _scroll.CustomMinimumSize = Vector2.Zero;
+        // The cards are tall: one wheel notch moves a card's pitch (the default step is an eighth of the view).
+        void Wheel(InputEvent e) { if (e is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.WheelDown or MouseButton.WheelUp } w) { var sc = (ScrollContainer)(w.ButtonIndex == MouseButton.WheelDown ? _scroll : _scroll); sc.ScrollVertical += (w.ButtonIndex == MouseButton.WheelDown ? 1 : -1) * Mathf.RoundToInt(1.5f * UiTextureBuilder.ArmCardPitch * Mathf.Max(0.5f, _armScale)); sc.AcceptEvent(); } }
+        _scroll.GuiInput += Wheel;
         _scroll.SizeFlagsHorizontal = SizeFlags.Fill; _scroll.HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled;
         // The top: the faction / mode row and the loadout chips (scrolling sideways), the info lines.
         _armTopRow = new Control { Name = "ArmouryTop", MouseFilter = MouseFilterEnum.Ignore }; _armCanvas.AddChild(_armTopRow);
         _sideCaption!.Visible = false;
+        _strip.Wrap = true;
         Move(_sideToggle, _armTopRow);
-        _armStripScroll = new ScrollContainer { Name = "ArmouryStrip", HorizontalScrollMode = ScrollContainer.ScrollMode.ShowNever, VerticalScrollMode = ScrollContainer.ScrollMode.Disabled, FollowFocus = true };
+        _armStripScroll = new ScrollContainer { Name = "ArmouryStrip", HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled, VerticalScrollMode = ScrollContainer.ScrollMode.Auto, FollowFocus = true };
         _armCanvas.AddChild(_armStripScroll); Move(_strip, _armStripScroll);
         _armInfo = new VBoxContainer { Name = "ArmouryInfo", MouseFilter = MouseFilterEnum.Ignore }; _armCanvas.AddChild(_armInfo);
         Move(_banner, _armInfo); Move(_activeLabel, _armInfo); Move(_summary, _armCanvas);
         _activeLabel.HorizontalAlignment = HorizontalAlignment.Left;
         // The bottom: CONFIRM LOADOUT, the dock, BACK, the mode badge.
         _armColumnTitle = new Label { Name = "ArmouryColumnTitle", MouseFilter = MouseFilterEnum.Ignore, ClipText = true, VerticalAlignment = VerticalAlignment.Center }; _armCanvas.AddChild(_armColumnTitle);
+        _armSlotScroll = new ScrollContainer { Name = "ArmourySlots", HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled, FollowFocus = true }; _armCanvas.AddChild(_armSlotScroll);
+        _armSlotList = new VBoxContainer { MouseFilter = MouseFilterEnum.Ignore, SizeFlagsHorizontal = SizeFlags.ExpandFill }; _armSlotScroll.AddChild(_armSlotList);
+        _armPickBack = new Button { Name = "ArmouryPickBack", Text = "< SLOTS", FocusMode = FocusModeEnum.All, Visible = false }; _armPickBack.Pressed += () => { _armPicking = false; ArmouryDirty(); }; _armCanvas.AddChild(_armPickBack);
         _armWings = Tex("ArmouryWings", "arm-wings", _armCanvas);
         _armConfirm = new Button { Name = "ConfirmLoadout", Text = "CONFIRM LOADOUT", FocusMode = FocusModeEnum.All };
         _armConfirm.Pressed += ConfirmLoadout; _armCanvas.AddChild(_armConfirm);
@@ -149,14 +165,30 @@ public sealed partial class CreatorView
             string? name = i == 0 ? OpenClass?.Perk(0) ?? options?.DefaultPerk?.Name : OpenClass?.Perk(1);
             return name is null ? "NO PERK" : _catalog.Perks.Perk(name)?.DisplayName ?? name;
         }
-        void Go(Step step, int perk = -1) { _step = step; if (perk >= 0) _perkSlot = perk; Refresh(focusList: true); }
+        void Go(Step step, int perk) { _step = step; if (perk >= 0) _perkSlot = perk; Refresh(focusList: true); }
         bool perks = _step == Step.Perks;
-        return new ArmDetail(IsEmpty ? "NO CLASS" : weapon.Length > 0 ? weapon.ToUpperInvariant() : "WEAPONS", null, () => Go(Step.Weapons),
+        return new ArmDetail(IsEmpty ? "NO CLASS" : weapon.Length > 0 ? weapon.ToUpperInvariant() : "WEAPONS", null, () => Go(Step.Weapons, -1),
         [
-            new ArmTile(equip, null, _step == Step.Equipment, () => Go(Step.Equipment)),
+            new ArmTile(equip, null, _step == Step.Equipment, () => Go(Step.Equipment, -1)),
             new ArmTile(Perk(0), null, perks && _perkSlot == 0, () => Go(Step.Perks, 0)),
             new ArmTile(Perk(1), null, perks && _perkSlot == 1, () => Go(Step.Perks, 1)),
-        ]);
+        ], IsEmpty ? null : ArmClassSlots(equip, Perk));
+    }
+
+    /// <summary>The card per loadout slot of a class: each weapon section (primary, sidearm, melee, ...), the equipment, the two perks; a press opens that slot's choices in the right column.</summary>
+    List<ArmSlot> ArmClassSlots(string equip, Func<int, string> perk)
+    {
+        var slots = new List<ArmSlot>();
+        void Pick(Step step, int perkSlot) { _step = step; if (perkSlot >= 0) _perkSlot = perkSlot; _armPicking = true; Refresh(focusList: true); }
+        foreach (var section in LoadoutRows.Weapons(_catalog, Role, _previewRace, OpenClass, _services.Policy))
+        {
+            var sel = section.Rows.FirstOrDefault(r => r.Selected); string heading = section.Heading; int cut = heading.IndexOf("  (", StringComparison.Ordinal); if (cut > 0) heading = heading[..cut];
+            slots.Add(new ArmSlot(heading, sel?.Title ?? "NONE", null, () => Pick(Step.Weapons, -1)));
+        }
+        slots.Add(new ArmSlot("EQUIPMENT", equip, null, () => Pick(Step.Equipment, -1)));
+        slots.Add(new ArmSlot("PERK 1", perk(0), null, () => Pick(Step.Perks, 0)));
+        slots.Add(new ArmSlot("PERK 2", perk(1), null, () => Pick(Step.Perks, 1)));
+        return slots;
     }
 
     List<ArmClass> ArmouryClasses()
@@ -166,7 +198,7 @@ public sealed partial class CreatorView
         {
             string r = role; string label = OrkLoadout.IsOrk(role) ? OrkLoadout.ClassName : LoadoutRows.ClassName(_catalog, role, _previewRace); string lower = (role + " " + label).ToLowerInvariant();
             string? icon = lower.Contains("tact") ? "arm-ico-tactical" : lower.Contains("assault") || lower.Contains("raptor") ? "arm-ico-assault" : lower.Contains("dev") || lower.Contains("hav") ? "arm-ico-devastator" : null;
-            rows.Add(new ArmClass(label.ToUpperInvariant(), icon, !IsEmpty && r.Equals(Role, StringComparison.OrdinalIgnoreCase), () => ChooseRole(r)));
+            rows.Add(new ArmClass(label.ToUpperInvariant(), icon, !IsEmpty && r.Equals(Role, StringComparison.OrdinalIgnoreCase), () => ChooseRole(r), RoleLabel(role)));
         }
         ExtrasArmouryClasses(rows);
         return rows;
@@ -182,12 +214,16 @@ public sealed partial class CreatorView
         Put(_armOverlay!, UiTextureBuilder.ArmRail); Put(_armTitle!, UiTextureBuilder.ArmTitle); Put(_armWings!, UiTextureBuilder.ArmWings);
         Put(_armBadge!, UiTextureBuilder.ArmBadge); Put(_armBadgeText!, UiTextureBuilder.ArmBadge);
         Put(_armRows!, new Rect2(58, 122, 198, 105));
+        var detail0 = ArmouryDetail();
         Put(_armWeapon!, UiTextureBuilder.ArmWeaponIcon.Merge(UiTextureBuilder.ArmWeaponName));
         Put(_armTilesHost!, new Rect2(36, 276, 238, 74));
         Put(_armTopRow!, new Rect2(296, 5, 330, 20)); _sideToggle.Position = Vector2.Zero; _sideToggle.Size = _armTopRow!.Size;
-        Put(_armStripScroll!, new Rect2(296, 28, 244, 40));
+        Put(_armStripScroll!, new Rect2(40, 124, 234, 224)); _armWeapon!.Visible = !_armSlotsTab; _armTilesHost!.Visible = !_armSlotsTab; _strip.Wrap = true; _strip.SizeFlagsHorizontal = SizeFlags.ExpandFill; _armStripScroll!.Visible = _armSlotsTab; _armRows!.Visible = !_armSlotsTab;
+        bool hasSlots = (detail0.Slots?.Count ?? 0) > 0; bool slotMode = !_armPicking && hasSlots;
+        _armSlotScroll!.Visible = slotMode; _scroll.Visible = !slotMode; _armPickBack!.Visible = !slotMode && hasSlots;
+        Put(_armSlotScroll, new Rect2(549, 93, 222, 277)); Put(_armPickBack, new Rect2(712, 76, 52, 14));
         Put(_armInfo!, new Rect2(296, 68, 246, 24));
-        Put(_scroll, new Rect2(546, 90, 222, 280)); Put(_armColumnTitle!, new Rect2(551, 77, 212, 14));
+        Put(_scroll, new Rect2(549, 93, 222, 277)); Put(_armColumnTitle!, new Rect2(551, 77, 212, 14));
         Put(_summary, new Rect2(272, 380, 370, 13));
         Put(_armDock!, new Rect2(272, 395, 374, 40));
         var rightBox = _preview.GetParent<Control>(); Put(rightBox, new Rect2(296, 94, 246, 284));
@@ -195,8 +231,8 @@ public sealed partial class CreatorView
         Put(_armConfirm!, UiTextureBuilder.ArmConfirm);
         Put(_armBack!, UiTextureBuilder.ArmBack);
         string badge = "CLASSIC PVP"; ExtrasArmouryBadge(ref badge);
-        var detail = ArmouryDetail(); _armDetailNow = detail; var classes = ArmouryClasses();
-        string sig = string.Join("|", classes.Select(c => c.Label + c.Selected)) + "#" + detail.Weapon + string.Join("|", detail.Tiles.Select(t => t.Label + t.Selected)) + "#" + badge + "#" + string.Join("|", _stepButtons.Select(b => b.Text + b.Visible)) + "#" + string.Join("|", _list.GetChildren().Select(c => c.GetInstanceId())) + "#" + Mathf.Round(s * 1000f) + "#" + _unsaved.Text.Length;
+        var detail = detail0; _armDetailNow = detail; var classes = ArmouryClasses();
+        string sig = string.Join("|", classes.Select(c => c.Label + c.Selected)) + "#" + detail.Weapon + string.Join("|", detail.Tiles.Select(t => t.Label + t.Selected)) + "#" + badge + "#" + string.Join("|", _stepButtons.Select(b => b.Text + b.Visible)) + "#" + string.Join("|", _list.GetChildren().Select(c => c.GetInstanceId())) + "#" + Mathf.Round(s * 1000f) + "#" + _unsaved.Text.Length + _armSlotsTab + _armPicking + string.Join("|", detail.Slots?.Select(x => x.Slot + x.Value) ?? []);
         if (sig == _armSig) return;
         _armSig = sig; _armScale = s;
         StyleArmoury(s, classes, detail, badge);
@@ -234,15 +270,17 @@ public sealed partial class CreatorView
         for (int i = 0; i < classes.Count && i < 4; i++)
         {
             var row = classes[i]; var r = new Rect2(0, new[] { 2.75f, 30f, 55f, 80f }[i], 198, 23.5f);
-            var b = new Button { Text = row.Label, ToggleMode = true, FocusMode = FocusModeEnum.All, Alignment = HorizontalAlignment.Left, ClipText = true, Name = "ArmClass" + i };
-            b.Position = r.Position * s; b.Size = r.Size * s; b.TooltipText = row.Label;
+            var b = new Button { Text = row.Real ?? row.Label, ToggleMode = true, FocusMode = FocusModeEnum.All, Alignment = HorizontalAlignment.Left, ClipText = true, Name = "ArmClass" + i };
+            b.Position = r.Position * s; b.Size = r.Size * s; b.TooltipText = row.Real ?? row.Label;
             b.ButtonPressed = row.Selected;
             var press = row.Press;
             b.Pressed += () => { press(); };
             _armRows.AddChild(b);
             ArmPlate(b, "arm-row-dark", "arm-row-gold", new PaintedButtons.Pad(2, 1, 2, 1), new PaintedButtons.Pad(10, 4.25f, 9, 4.25f), s);
             ArmText(b, ArmNameSize, s, ArmLight, ArmDark);
-            foreach (var n in new[] { "normal", "hover", "pressed", "hover_pressed", "focus", "disabled" }) if (b.GetThemeStylebox(n) is StyleBoxTexture sb) sb.ContentMarginLeft = 76f * s;
+            foreach (var n in new[] { "font_color", "font_hover_color", "font_focus_color", "font_pressed_color", "font_hover_pressed_color", "font_disabled_color" }) b.AddThemeColorOverride(n, Colors.Transparent);   // the plate's name is the label below (one side's class name, upper case); the button keeps both sides' name
+            var nameLabel = new Label { Text = row.Label, MouseFilter = MouseFilterEnum.Ignore, VerticalAlignment = VerticalAlignment.Center, ClipText = true };
+            ArmLabel(nameLabel, ArmNameSize, s, row.Selected ? ArmDark : ArmLight); nameLabel.Position = new Vector2(76f, 0f) * s; nameLabel.Size = new Vector2(116f, 23.5f) * s; b.AddChild(nameLabel);
             if (row.Icon is not null && ConceptArt.Get(row.Icon) is { } tex)
             {
                 var ico = new TextureRect { Texture = tex, MouseFilter = MouseFilterEnum.Ignore, ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered, TextureFilter = TextureFilterEnum.LinearWithMipmaps, Modulate = row.Selected ? ArmDark : ArmLight };
@@ -274,19 +312,20 @@ public sealed partial class CreatorView
             PaintedButtons.Apply(b, "arm-tile-dark", "arm-tile-gold", new PaintedButtons.Pad(1, 2, 1, 2), new PaintedButtons.Pad(3, 3, 3, 3), s, true, paintedText: true, noGlow: true);
             int paren = t.Label.IndexOf(" (", StringComparison.Ordinal); var l = new Label { Text = (paren > 0 ? t.Label[..paren] : t.Label).ToUpperInvariant(), MouseFilter = MouseFilterEnum.Ignore, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Bottom, AutowrapMode = TextServer.AutowrapMode.Word };
             ArmLabel(l, ArmTileSize, s, t.Selected ? new Color(1f, 0.95f, 0.8f) : ArmLight);
-            l.Position = new Vector2(3f, 38f) * s; l.Size = new Vector2(68f, 25f) * s; b.AddChild(l);
+            l.Position = new Vector2(3f, 30f) * s; l.Size = new Vector2(68f, 31f) * s; b.AddChild(l);
             if (t.Icon is not null && ConceptArt.Get(t.Icon) is { } tex)
                 b.AddChild(new TextureRect { Texture = tex, MouseFilter = MouseFilterEnum.Ignore, ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered, TextureFilter = TextureFilterEnum.LinearWithMipmaps, Position = new Vector2(14f, 6f) * s, Size = new Vector2(46f, 30f) * s });
         }
-        // ---- the header pills ----
-        foreach (var b in _stepButtons)
+        // ---- the header tab strip: CLASS, SLOTS, ARMOUR & PAINT ----
+        _armTabClass!.SetPressedNoSignal(!_armSlotsTab); _armTabSlots!.SetPressedNoSignal(_armSlotsTab);
+        foreach (var b in new[] { _armTabClass, _armTabSlots, _armTabLook! })
         {
-            string text = b.Text; int cut = text.IndexOf("  ", StringComparison.Ordinal); b.TooltipText = cut >= 0 ? text[(cut + 2)..] : text;
-            b.CustomMinimumSize = new Vector2(0, 0); b.SizeFlagsHorizontal = SizeFlags.ExpandFill; b.SizeFlagsVertical = SizeFlags.ExpandFill; b.ClipText = true;
-            b.Alignment = HorizontalAlignment.Center;
+            b.CustomMinimumSize = Vector2.Zero; b.Alignment = HorizontalAlignment.Center;
             PaintedButtons.Apply(b, "opt-plate-blank", "opt-plate-gold-blank", new PaintedButtons.Pad(1, 1, 1, 1), new PaintedButtons.Pad(1, 1, 1, 1), s * 0.45f, true, paintedText: false, noGlow: true);
-            ArmText(b, ArmPillSize, s, ArmLight, ArmDark);
+            ArmText(b, ArmPillSize + 1f, s, ArmLight, ArmDark);
         }
+        PaintedButtons.Apply(_armPickBack!, "opt-plate-blank", "opt-plate-gold-blank", new PaintedButtons.Pad(1), new PaintedButtons.Pad(1), s * 0.45f, true, paintedText: false, noGlow: true); ArmText(_armPickBack, ArmPillSize + 1f, s, ArmLight, ArmDark);
+        BuildArmSlotCards(s, detail);
         // ---- CONFIRM LOADOUT, BACK, the badge ----
         ArmPlate(_armConfirm!, "arm-confirm", "arm-confirm", new PaintedButtons.Pad(0), new PaintedButtons.Pad(0), s, false);
         ArmText(_armConfirm, ArmConfirmSize, s, ArmDark, ArmDark); _armConfirm.AddThemeColorOverride("font_hover_color", new Color(0.2f, 0.12f, 0.02f));
@@ -318,6 +357,30 @@ public sealed partial class CreatorView
             ArmText(b, ArmPlateSize, s, ArmLight, ArmDark);
         }
         StyleArmCards(s);
+        if (_armSlotScroll!.Visible) _armColumnTitle!.Text = "LOADOUT";
+    }
+
+    /// <summary>One card per loadout slot (owner, 2026-11-15), at the concept's card positions: the slot's name small above its content; the column scrolls when there are more cards than fit.</summary>
+    void BuildArmSlotCards(float s, ArmDetail detail)
+    {
+        foreach (var c in _armSlotList!.GetChildren()) { _armSlotList.RemoveChild(c); c.QueueFree(); }
+        _armSlotList.AddThemeConstantOverride("separation", Mathf.RoundToInt((UiTextureBuilder.ArmCardPitch - UiTextureBuilder.ArmCard.Size.Y) * s));
+        if (ConceptArt.Get("arm-card") is not { } card || detail.Slots is null) return;
+        foreach (var slot in detail.Slots)
+        {
+            var b = new Button { Text = slot.Slot + ": " + slot.Value, FocusMode = FocusModeEnum.All, CustomMinimumSize = new Vector2(0, UiTextureBuilder.ArmCard.Size.Y * s), TooltipText = slot.Slot + ": " + slot.Value, ClipText = true, Name = "ArmSlot" + _armSlotList.GetChildCount() };
+            var press = slot.Press; b.Pressed += () => press();
+            StyleBoxTexture Box(Color mod) => new() { Texture = card, ModulateColor = mod, DrawCenter = true, AxisStretchHorizontal = StyleBoxTexture.AxisStretchMode.Stretch, AxisStretchVertical = StyleBoxTexture.AxisStretchMode.Stretch };
+            var gold = new Color(1.3f, 1.12f, 0.78f);
+            b.AddThemeStyleboxOverride("normal", Box(Colors.White)); b.AddThemeStyleboxOverride("hover", Box(ConceptArt.Warm)); b.AddThemeStyleboxOverride("pressed", Box(gold)); b.AddThemeStyleboxOverride("focus", Box(gold)); b.AddThemeStyleboxOverride("disabled", Box(Colors.Gray));
+            foreach (var n in new[] { "font_color", "font_hover_color", "font_focus_color", "font_pressed_color", "font_hover_pressed_color", "font_disabled_color" }) b.AddThemeColorOverride(n, Colors.Transparent);
+            var cap = new Label { Text = slot.Slot.ToUpperInvariant(), MouseFilter = MouseFilterEnum.Ignore, ClipText = true, VerticalAlignment = VerticalAlignment.Center };
+            ArmLabel(cap, ArmTileSize * 0.85f, s, new Color(0.97f, 0.82f, 0.4f)); cap.Position = new Vector2(79f, 6f) * s; cap.Size = new Vector2(126f, 14f) * s; b.AddChild(cap);
+            var val = new Label { Text = slot.Value.ToUpperInvariant(), MouseFilter = MouseFilterEnum.Ignore, AutowrapMode = TextServer.AutowrapMode.Word, ClipText = true, VerticalAlignment = VerticalAlignment.Center };
+            ArmLabel(val, ArmNameSize, s, ArmLight); val.Position = new Vector2(79f, 22f) * s; val.Size = new Vector2(126f, 40f) * s; b.AddChild(val);
+            if (slot.Icon is not null && ConceptArt.Get(slot.Icon) is { } tex) b.AddChild(new TextureRect { Texture = tex, MouseFilter = MouseFilterEnum.Ignore, ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, StretchMode = TextureRect.StretchModeEnum.Scale, TextureFilter = TextureFilterEnum.LinearWithMipmaps, Position = new Vector2(16f, 8f) * s, Size = new Vector2(50f, 50f) * s });
+            _armSlotList.AddChild(b);
+        }
     }
 
     /// <summary>The right column: every choice row as a concept card (icon tile at the left, the name, a gold wash when chosen); headings and notes in the one face.</summary>
@@ -327,6 +390,7 @@ public sealed partial class CreatorView
         _armColumnTitle!.Text = ""; ArmLabel(_armColumnTitle, ArmTileSize, s, new Color(0.97f, 0.82f, 0.4f));
         if (_list.GetChildCount() > 0 && _list.GetChild(0) is Label first) { _armColumnTitle.Text = first.Text; first.Visible = false; }
         _list.AddThemeConstantOverride("separation", Mathf.RoundToInt((UiTextureBuilder.ArmCardPitch - UiTextureBuilder.ArmCard.Size.Y) * s));
+        if (!_list.GetChildren().Any(n => n.Name == "ArmPad")) _list.AddChild(new Control { Name = "ArmPad", CustomMinimumSize = new Vector2(0, 8f * s), MouseFilter = MouseFilterEnum.Ignore });   // room under the last card so it scrolls fully into view
         foreach (var c in _list.GetChildren())
         {
             switch (c)
