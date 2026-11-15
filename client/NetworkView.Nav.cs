@@ -29,8 +29,8 @@ public partial class NetworkView
 {
     /// <summary><c>--bot-old-jump-build</c> (test aid, before/after): a jump-pack bot's graph arrives whole, jump links included (the bot walks straight until then).</summary>
     static readonly bool BotOldJumpBuild = CmdFlag("bot-old-jump-build");
-    /// <summary>Threads a bot client's jump-link build may use: a third of the cores (at least 2), so the build does not starve the frame loop or the other bots on the machine (ours).</summary>
-    static readonly int BotJumpBuildThreads = Math.Max(2, System.Environment.ProcessorCount / 3);
+    /// <summary>Threads a bot client's jump-link build may use: a third of the cores (at least 1, always one core free), so the build does not starve the frame loop or the other bots on the machine (ours).</summary>
+    static readonly int BotJumpBuildThreads = Math.Max(1, Math.Min(System.Environment.ProcessorCount / 3, System.Environment.ProcessorCount - 1));
     /// <summary><c>--bot-no-escape</c> (test aid, before/after): the Classic PvP bots' stuck rules of bots/new-maps off (no walk to the nearest cell from a spot the graph has none at, no giving up a drop that is stuck on; <see cref="BotNavigation.NewMapRules"/>).</summary>
     static readonly bool BotNoEscape = CmdFlag("bot-no-escape");
 
@@ -39,13 +39,36 @@ public partial class NetworkView
     /// every 2 m): the new maps have holes in their decks (Shattered Bridge) that the bots flew and dashed into. True on Manufactorum, on Musou Mode's maps, without the graph and with <c>--bot-no-escape</c>.
     /// </summary>
     bool BotFloorBetween(PlayerState me, V3 to) =>
-        BotNoEscape || !BotNavigation.NewMapRules(_navMap?.Name ?? "") || _nav is not { } graph || graph.FloorAlong(me.Position, to, 2f, 3f);
+        BotNoEscape || !BotNavigation.NewMapRules(_navMap?.Name ?? "") || _nav is not { } graph || graph.FloorAlong(me.Position, to, 2f, 1.5f);
 
     /// <summary>A bot's path follower over <paramref name="graph"/>; on a Classic PvP map (<c>mp_*</c>) with the off-graph escape (bots/new-maps), Musou Mode's maps without.</summary>
     NavAgent NewNavAgent(NavGraph graph)
     {
         bool rules = !BotNoEscape && BotNavigation.NewMapRules(_navMap?.Name ?? "");
-        return new NavAgent(graph) { Background = true, EscapeOffGraph = rules, ExcludeStuckDrops = rules };
+        var team = _client?.Predicted.Team ?? Team.None;
+        int playerClass = _client?.Predicted.Class ?? -1;
+        var map = _navMap; var world = _navWorld; var config = _config;
+        // bots/new-maps (review M1): a jump-pack bot off the graph in a pit flies out: the nearest of 16 headings with the full hold whose landing is a graph cell at least 3 m away.
+        Func<V3, (V3, int, int, float)?>? pit = null;
+        if (rules && world is not null && config is not null && Loadouts.JumpPack(config, playerClass) is { } pack)
+            pit = feet =>
+            {
+                int hold = Math.Max(NavJumpFlight.ShortestJumpHold(config, playerClass), new NavJumpOptions().Holds.Max());
+                (V3, int, int, float)? best = null;
+                float bestFlat = float.MaxValue;
+                for (int d = 0; d < NavJumpFlight.Directions; d++)
+                {
+                    var r = NavJumpFlight.Simulate(world, config, playerClass, team, feet, d, hold);
+                    if (!r.Landed) continue;
+                    float flat = new V2(r.Position.X - feet.X, r.Position.Y - feet.Y).Length();
+                    int n = graph.Nearest(r.Position, 0.75f, 0.5f);
+                    if (flat < 3f || n < 0 || !graph.Links(n).Any() || flat >= bestFlat) continue;
+                    bestFlat = flat;
+                    best = (graph.Position(n), d, hold, pack.CostAt(hold * config.TickSeconds));
+                }
+                return best;
+            };
+        return new NavAgent(graph) { Background = true, EscapeOffGraph = rules, ExcludeStuckDrops = rules, PitJump = pit is null ? null : f => pit(f) is { } h ? (h.Item1, h.Item2, h.Item3, h.Item4) : null };
     }
 
     const double NavLogEvery = 5.0;              // seconds between the bot's "nav:" log lines
@@ -330,7 +353,7 @@ public partial class NetworkView
         {
             // bots/new-maps: the evade really travels 5 to 9 m (a roll or the Devastator's hop) or 16 m (a jump-pack dash): floor all the way, not only 3 m (Shattered Bridge: the dashes flew into holes).
             float travel = Loadouts.JumpPack(c, me) is not null ? 16f : 10f;
-            return nav.CanWalk(me.Position, right * (side * BotRollCheck)) && nav.FloorAlong(me.Position, me.Position + new V3(right.X * side * travel, right.Y * side * travel, 0f), 2f, 3f);
+            return nav.CanWalk(me.Position, right * (side * BotRollCheck)) && nav.FloorAlong(me.Position, me.Position + new V3(right.X * side * travel, right.Y * side * travel, 0f), 2f, 1.5f);
         }
         return nav.CanWalk(me.Position, right * (side * BotRollCheck));
     }
@@ -451,7 +474,7 @@ public partial class NetworkView
             ? $"path {p.Length:F0} m ({p.Waypoints.Count} waypoints{(p.Partial ? ", partial" : "")}), remaining {a.Remaining:F0} m ({a.Progress * 100f:F0}% of {a.LegLength:F0} m), waypoint {a.Waypoint}/{p.Waypoints.Count - 1}"
             : a is null ? "no graph yet (straight walk with detours)" : "no path";
         GD.Print($"t {_connectedFor:F1} s: id {_client.PlayerId} nav: {(me.Alive ? "" : "dead; ")}{(_navPurpose == "" ? "no goal" : $"goal {_navPurpose} at {_navGoal.X:F0},{_navGoal.Y:F0},{_navGoal.Z:F0}")}; {path}; " +
-                 $"plans {a?.Plans ?? 0} (failed {a?.Failures ?? 0}, {(a is { Plans: > 0 } ? a.PlanMilliseconds / a.Plans : 0):F1} ms mean, {a?.MaxPlanMilliseconds ?? 0:F0} ms max, off the frame loop; steering {a?.MaxSteerMilliseconds ?? 0:F1} ms max){(a is { Unreachable: true } ? ", goal unreachable" : "")}, stuck {a?.StuckCount ?? 0} (escapes {a?.Escapes ?? 0}, drops given up {a?.ExcludedDrops ?? 0}), old detours {_botDetours}; jumps {a?.JumpsStarted ?? 0} (landed {a?.JumpsLanded ?? 0}, missed {a?.JumpsMissed ?? 0}); graph {(_nav is null ? _navCurrent?.Note ?? _navNote : $"{_nav.NodeCount:N0} cells{(_nav.Jumps is { } js ? $", {js.LinkCount:N0} jump links" : "")}")}");
+                 $"plans {a?.Plans ?? 0} (failed {a?.Failures ?? 0}, {(a is { Plans: > 0 } ? a.PlanMilliseconds / a.Plans : 0):F1} ms mean, {a?.MaxPlanMilliseconds ?? 0:F0} ms max, off the frame loop; steering {a?.MaxSteerMilliseconds ?? 0:F1} ms max){(a is { Unreachable: true } ? ", goal unreachable" : "")}, stuck {a?.StuckCount ?? 0} (escapes {a?.Escapes ?? 0}, drops given up {a?.ExcludedDrops ?? 0}, pit jumps {a?.PitJumps ?? 0}), old detours {_botDetours}; jumps {a?.JumpsStarted ?? 0} (landed {a?.JumpsLanded ?? 0}, missed {a?.JumpsMissed ?? 0}); graph {(_nav is null ? _navCurrent?.Note ?? _navNote : $"{_nav.NodeCount:N0} cells{(_nav.Jumps is { } js ? $", {js.LinkCount:N0} jump links" : "")}")}");
         _navPurpose = "";
     }
 }

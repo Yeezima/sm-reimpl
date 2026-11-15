@@ -143,4 +143,113 @@ public class BotNewMapsTests
         Assert.False(Settings.PruneTraps);
         Assert.False(NavSettings.From(Config).PruneTraps);
     }
+
+    // ------------------------------------------------------------------ review round (2026-11-16)
+
+    [Fact]
+    public void Setup_turns_the_rules_on_for_an_imported_map_and_off_for_Manufactorum()
+    {
+        MapContent Map(string name) => new(name, "", [], [new MapSpawn("s", new Vector3(0, 0, 0), 0f)], 0UL);
+        var on = BotNavigation.Setup(Map("mp_tdm_01"), Config)!.Value.Settings;
+        Assert.True(on.PruneTraps && on.StrictDrops);
+        var off = BotNavigation.Setup(Map("mp_tdm_09"), Config)!.Value.Settings;
+        Assert.False(off.PruneTraps || off.StrictDrops);
+        Assert.Equal(NavSettings.From(Config), off);   // Manufactorum keeps the old settings, so its cache key
+        var musou = BotNavigation.Setup(Map("tfw_war"), Config)!.Value.Settings;
+        Assert.False(musou.PruneTraps || musou.StrictDrops);
+    }
+
+    [Fact]
+    public void FloorAlong_follows_ramps_and_stairs_and_stops_at_holes_and_gaps_with_a_deck_far_below()
+    {
+        // A floor, a 20 degree ramp to a deck 2.2 m up (x 0..6), the deck to x = 16, a hole x 16..22 over a floor 6 m down, the deck again from 22.
+        var level = new NavigationTests.Level().Floor(-10, -10, 0, 10, 0f);
+        level.Quad(new(0, -10, 0), new(6, -10, 2.2f), new(6, 10, 2.2f), new(0, 10, 0));
+        level.Floor(6, -10, 16, 10, 2.2f).Floor(22, -10, 30, 10, 2.2f).Floor(16, -10, 22, 10, -4f);
+        var g = NavGraph.Build(level.Mesh(), null, Settings, new NavArea(new Vector2(-12, -12), new Vector2(32, 12), [new Vector3(-5, 0, 0), new Vector3(10, 0, 2.2f), new Vector3(26, 0, 2.2f)]));
+        Assert.True(g.FloorAlong(new Vector3(-8, 0, 0), new Vector3(14, 0, 2.2f), 2f, 1.5f), "up the ramp and onto the deck");
+        Assert.False(g.FloorAlong(new Vector3(10, 0, 2.2f), new Vector3(26, 0, 2.2f), 2f, 1.5f), "the hole in the deck, the floor 6 m under it is not floor");
+        Assert.True(g.FloorAlong(new Vector3(7, 0, 2.2f), new Vector3(7, 0, 2.2f), 2f, 1.5f));
+    }
+
+    [Fact]
+    public void Drop_links_near_a_point_are_the_ones_off_that_ledge_only()
+    {
+        var level = new NavigationTests.Level().Floor(-10, -10, 10, 0).Box(new Vector3(-10, 0, 0), new Vector3(10, 10, 1.2f));
+        var g = NavGraph.Build(level.Mesh(), null, Settings);
+        var near = g.DropLinksNear(new Vector3(0, 0.5f, 1.2f), 2f, 1.5f);
+        Assert.NotEmpty(near);
+        Assert.All(near, l => { var a = g.Position(l.From); Assert.True(MathF.Abs(a.X) <= 2.01f && a.Z > 1f && g.Position(l.To).Z < 0.5f); });
+        Assert.Empty(g.DropLinksNear(new Vector3(0, 6f, 1.2f), 2f, 1.5f).Where(l => g.Position(l.From).Y < 2f));
+        Assert.Empty(g.DropLinksNear(new Vector3(0, 0.5f, 5f), 2f, 1.5f));   // nothing at that height
+    }
+
+    [Fact]
+    public void Every_seed_of_a_multi_seed_map_stays_reachable_when_the_traps_are_pruned()
+    {
+        // The well yard with a second platform on the far side, a seed on each deck and a seed in the open: pruning removes the well only.
+        var level = WellYard();
+        level.Box(new Vector3(-10, 10, 0), new Vector3(10, 14, 3));
+        var seeds = new NavArea(new Vector2(-12, -12), new Vector2(12, 16), [new Vector3(0, 5, 3), new Vector3(0, 12, 3), new Vector3(6, -5, 3), new Vector3(-6, -5, 3)]);
+        var g = NavGraph.Build(level.Mesh(), null, Settings with { PruneTraps = true }, seeds);
+        foreach (var seed in seeds.Seeds)
+        {
+            Assert.True(g.Nearest(seed, 0.6f, 0.6f) >= 0, $"seed {seed} has no cell");
+            Assert.False(g.FindPath(seeds.Seeds[0], seed)!.Partial, $"no walk to {seed}");
+        }
+    }
+
+    /// <summary>A ledge: down is a drop, up is stairs.</summary>
+    static (NavGraph Graph, Vector3 Edge, Vector3 Goal) LedgeLevel()
+    {
+        var level = new NavigationTests.Level().Floor(-10, -10, 10, 0);
+        for (int k = 0; k < 4; k++) level.Box(new Vector3(-10, k, 0), new Vector3(0, k + 1, 0.3f * (k + 1)));
+        level.Floor(0, 0, 10, 4);
+        level.Box(new Vector3(-10, 4, 0), new Vector3(10, 10, 1.2f));
+        return (NavGraph.Build(level.Mesh(), null, Settings), new Vector3(5, 4.5f, 1.2f), new Vector3(5, 1, 0));
+    }
+
+    [Fact]
+    public void A_drop_given_up_comes_back_after_the_forget_time_and_only_counts_at_its_edge()
+    {
+        var (g, edge, goal) = LedgeLevel();
+        NavAgent Agent() => new(g) { ExcludeStuckDrops = true, DropForgetSeconds = 25.0 };
+        // Stuck at the edge for a few windows (never moving): the drops off it are given up.
+        var a = Agent();
+        double t = 0;
+        for (; t < 8; t += 0.033) a.Steer(edge, true, goal, t);
+        Assert.True(a.ExcludedDrops > 0, "given up after the stuck windows at the edge");
+        // The same standstill far from the edge (the path's first waypoint is not near): counts nothing.
+        var far = Agent();
+        for (double u = 0; u < 8; u += 0.033) far.Steer(new Vector3(5, 9.5f, 1.2f), true, goal, u);
+        // (a bot 5 m from the drop's origin is not at the edge; it may have been stuck for another reason)
+        Assert.True(far.ExcludedDrops == 0 || far.StuckCount > 0);
+        // The entries decay: moving about for longer than the forget time, nothing is given up any more.
+        for (; t < 8 + 30; t += 0.033) a.Steer(new Vector3(5 + (float)(Math.Sin(t) * 3), 7f, 1.2f), true, goal, t);
+        Assert.Equal(0, a.ExcludedDrops);
+    }
+
+    [Fact]
+    public void A_jump_pack_bot_stuck_in_a_pit_asks_for_and_flies_the_jump_out()
+    {
+        var (g, on) = Beam();
+        var config = JumpPackTests.Config with { JumpPacks = [JumpPackTests.Pack with { ReleaseCut = true }] };
+        var pack = config.JumpPacks[0];
+        int asked = 0;
+        var agent = new NavAgent(g)
+        {
+            EscapeOffGraph = true,
+            PitJump = feet => { asked++; return (new Vector3(8, 0, 0), 4, 60, pack.CostAt(1f)); },
+        };
+        var body = new NavBody(JumpPhase.None, 0, 300f, 0f, pack, config.TickSeconds);
+        bool pressed = false;
+        for (int k = 0; k < 600 && !pressed; k++) pressed = agent.Steer(on, true, new Vector3(-8, 0, 0), k * 0.033, body).Jump;
+        Assert.True(pressed, "the jump is pressed");
+        Assert.True(asked >= 1 && agent.PitJumps == 1);
+        // Without a jump pack (no body) or with the rule off, nothing is asked.
+        asked = 0;
+        var plain = new NavAgent(g) { EscapeOffGraph = true, PitJump = feet => { asked++; return null; } };
+        for (int k = 0; k < 600; k++) plain.Steer(on, true, new Vector3(-8, 0, 0), k * 0.033, null);
+        Assert.Equal(0, asked);
+    }
 }

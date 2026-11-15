@@ -656,15 +656,22 @@ public sealed partial class NavGraph
     }
 
     /// <summary>
-    /// bots/new-maps: whether there is floor all the way from <paramref name="from"/> to <paramref name="to"/>: a graph cell within <paramref name="maxDz"/> m of the line's height at every
-    /// <paramref name="step"/> m (no hole, no gap in a deck, no edge between). The jump-pack bots' dashes, hops and jumps at a target are held back over a floor that fails it.
+    /// bots/new-maps: whether there is floor all the way from <paramref name="from"/> to <paramref name="to"/> on the ground plane: a graph cell at every <paramref name="step"/> m within
+    /// <paramref name="maxDz"/> m of the height of the cell before it (the height follows the floor, so a ramp or stairs are floor and a hole with a deck far below is not; the line's own height
+    /// is ignored: a dash up a ramp ends higher than it starts). The jump-pack bots' dashes, hops and jumps at a target are held back over a floor that fails it.
     /// </summary>
     public bool FloorAlong(Vector3 from, Vector3 to, float step, float maxDz)
     {
-        float length = Vector3.Distance(from, to);
+        float length = new Vector2(to.X - from.X, to.Y - from.Y).Length();
         int steps = Math.Max(1, (int)MathF.Ceiling(length / MathF.Max(0.5f, step)));
+        float z = from.Z;
         for (int i = 1; i <= steps; i++)
-            if (Nearest(Vector3.Lerp(from, to, (float)i / steps), 0.5f, maxDz) < 0) return false;
+        {
+            float t = (float)i / steps;
+            int n = Nearest(new Vector3(from.X + (to.X - from.X) * t, from.Y + (to.Y - from.Y) * t, z), 0.5f, maxDz);
+            if (n < 0) return false;
+            z = _z[n];
+        }
         return true;
     }
 

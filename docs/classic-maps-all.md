@@ -142,7 +142,8 @@ Manufactorum, never to Musou Mode):
 - **Falls**: on Shattered Bridge (holes in the deck) 9 of 52 deaths, then 21 of 92 once the bots moved, were falls, nearly all jump-pack bots dashing, hopping or evading over a hole.
   Dashes (16 m), hops (7 m), evades (10 and 16 m) and jumps at a target are now held back unless there is floor all the way.
 
-Still weak: **Shattered Bridge**: one jump-pack bot stood in a pit off the graph for minutes in the final run (144 of 175 stuck detections; the walk to the nearest cell does not get a
-class out of a pit with walls on all sides, and a jump out of the pit is not scripted), kills a minute 13.1 against 17 to 19 elsewhere (the bridge is long; the bots meet 80 m apart on
-average). **Dome Mechanicus** (35 stuck detections) and **Desolation** (26) were not looked into. Not verified: Seize Ground on the new maps, other lobby sizes, a cold jump-link
+Review round (same day): the stuck-drop give-up now decays after 25 s and counts only at the drop's edge, the floor check follows ramps and stairs (1.5 m of the floor before it), and a jump-pack bot stuck in a pit off the graph flies out (a scripted jump). Re-run of four maps: Shattered Bridge 13.9 kills a minute, 3 deaths by the world, 33 stuck detections (175 before the review round, 214 at the start), 0.6% standing still, jump presses 13 to 17 and dashes and hops seen 1899 to 1788 (no loss of aggression); Dome Mechanicus 16.1 kills, 44 stuck (one hotspot: a 0.7 m curb between graph cells at about -16,48 that the bots do not climb, in the baseline too); Desolation 17.7 kills, 21 stuck (no hotspot); Chem Refinery 18.9 kills, 23 stuck.
+
+Still weak: **Shattered Bridge**: one jump-pack bot stood in a pit off the graph for minutes before the review round (144 of 175 stuck detections; fixed by the scripted jump, not seen again in the re-run), kills a minute 13.9 against 17 to 19 elsewhere (the bridge is long; the bots meet 80 m apart on
+average). **Dome Mechanicus**: the 0.7 m curb hotspot (a graph and motor mismatch, not fixed). Not verified: Seize Ground on the new maps, other lobby sizes, a cold jump-link
 cache on a machine other than this one, Musou Mode (untouched by construction; not run), the recordings asked for (not made).

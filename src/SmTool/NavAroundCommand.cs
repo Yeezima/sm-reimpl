@@ -28,7 +28,7 @@ static class NavAroundCommand
         {
             // The graph as it was before PruneTraps (read from the cache the old bots used).
             var (settings, area) = BotNavigation.Setup(content, config)!.Value;
-            settings = settings with { PruneTraps = false };
+            settings = settings with { PruneTraps = false, StrictDrops = false };
             var mesh = world.CharacterFor(side);
             ulong key = NavGraph.KeyFor(mesh, world.KillVolumes, settings, area);
             graph = NavCache.LoadOrBuild(BotNavigation.CacheDirectory, content.Name, key, settings, () => NavGraph.Build(mesh, world.KillVolumes, settings, area), out note);
