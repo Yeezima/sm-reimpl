@@ -470,6 +470,7 @@ public partial class NetworkView
     void UpdateLoadoutHint(PlayerState me, bool ended)
     {
         if (_loadoutHint is null || _client is null) return;
+        if (Left || _client.Status != ClientStatus.Connected) { _loadoutHint.Visible = false; return; }   // fix/leave-cleanup: a lost server shows its error alone, never the death screen's prompts behind it
         string first = "", second = "";
         bool down = PickerRules.CanOpen(true, UiAlive(me), Spectate is not null, ended);
         if (_pickerWanted && _pickerLayer is null) first = "Loading your loadouts...";
