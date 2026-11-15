@@ -38,7 +38,7 @@ Left on purpose: partly superseded rows that still carry a live interpretation (
 
 None found in the values I spot-checked (health 100, regen 5 s / 5 per s, shield 100, regen 7 s / 33 per s, respawn 5 s, tick 30, `smash_available_delay` use). Observations to confirm, not claimed as defects:
 
-1. `SimConfig` defaults for speeds are 5 / 5 / 5 / 8 / 3 (run, strafe, back, sprint, walk, `Simulation.cs`), while the spec's extracted rows say 6.5 / 6 / 4.5 / 10 / 3.6. The spec says `GameplayTuning` fills them from the install; I did not trace that override, so I treat the defaults as the synthetic no-install values. Worth one test or comment by whoever owns `SimConfig`.
+1. `SimConfig` defaults for speeds are 5 / 5 / 5 / 8 / 3 (run, strafe, back, sprint, walk, `Simulation.cs`), while the spec's extracted rows say 6.5 / 6 / 4.5 / 10 / 3.6. The spec says `GameplayTuning` fills them from the install; I did not trace that override, so I treat the defaults as the synthetic no-install values. Worth one test or comment by whoever owns `SimConfig`. Lead check (2026-11-16): `GameplayTuning.cs` reads `run_speed`, `sprint_speed`, `walk_speed` and the aiming speeds from the install's `biped_locomotion_ext` and falls back to the `SimConfig` defaults only when a field is missing, so there is no disagreement.
 2. `Evade.cs` carries a stale comment about the direction rule (already known to the lead; waits for a code pass).
 
 ## 4. Items folded in from the evidence-p0 review
