@@ -13,7 +13,7 @@ public sealed partial class World
     partial void ArsenalShotBlast(WeaponSpec weapon, ref SplashSpec? blast)
     {
         // Musou only (review 2026-11-11): Classic's autocannon has no blast; its hit-scan path never reaches this hook, and the _musou check keeps it so.
-        if (_musou is not null && (weapon.Name.Equals(ArsenalRules.Autocannon, StringComparison.OrdinalIgnoreCase) || weapon.Name.Equals(SmSim.Extras.Musou.DreadnoughtRules.CannonWargear, StringComparison.OrdinalIgnoreCase))) blast = AutocannonRules.Blast;
+        if (_musou is not null && (weapon.Name.Equals(ArsenalRules.Autocannon, StringComparison.OrdinalIgnoreCase) || SmSim.Extras.Musou.DreadnoughtRules.IsCannon(weapon.Name))) blast = AutocannonRules.Blast;
     }
 }
 

@@ -56,7 +56,7 @@ public static class MusouOrkFlinchRules
     {
         if (weapon is not { Length: > 0 } w) return 1f;
         bool Has(string part) => w.Contains(part, StringComparison.OrdinalIgnoreCase);
-        if (Has("auto_cannon") || Has("autocannon") || Has("dread_assault_cannon")) return 1.8f;   // the Dreadnought's cannon is the autocannon's (owner 2026-11-15)
+        if (Has("auto_cannon") || Has("autocannon") || SmSim.Extras.Musou.DreadnoughtRules.IsCannon(w)) return 1.8f;   // the Dreadnought's cannon is the autocannon's (owner 2026-11-15)
         if (Has("sniper_rifle") || Has("stalker") || Has("melta") || Has("las_cannon") || Has("lascannon")) return 1.5f;
         if (Has("heavy_bolter") || Has("plasma_gun") || Has("plasma_cannon")) return 1.3f;   // the plasma cannon's shot is a blast (the lead's assumption), so its blast uses BlastStrength; a hit not seen as a blast reads as 1.3 (ours)
         return 1f;

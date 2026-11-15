@@ -58,7 +58,7 @@ public static class DreadnoughtWeapons
 
     /// <summary>
     /// The cannon's heat: the autocannon's meter (overheat at 15, high at 9, recovery at 1, cooling 4.5 a second after 0.41 s, the file's) with the heat per shot divided so that continuous fire reaches the overheat at the same moment. The
-    /// autocannon's round n leaves at (n - 1) x 0.4 s and the 15th heats it over: 5.6 s; at <paramref name="brace"/> the same 5.6 s holds 1 + 5.6 / 0.1 = 57 rounds, so each adds 15 / 57 of the meter (0.263). Cooling and the
+    /// autocannon's round n leaves at (n - 1) x 0.4 s and the 15th heats it over: 5.6 s; at <paramref name="brace"/> the same 5.6 s holds 1 + 5.6 / 0.1 = 57 rounds, so each adds 15 / 56.5 of the meter (0.2655: the 57th reaches 15, the 56th stays under it). Cooling and the
     /// lockout until the meter is back at its recovery value are the autocannon's (no vent: the weapon has none).
     /// </summary>
     public static HeatSpec CannonHeat(HeatSpec autocannon, float autocannonCooldown, float brace)
@@ -66,7 +66,8 @@ public static class DreadnoughtWeapons
         float rounds = MathF.Ceiling(autocannon.Overheat / autocannon.PerShot - 1e-4f);   // 15
         float seconds = (rounds - 1f) * autocannonCooldown;                                  // 5.6 s from the first round to the overheating one
         float fired = 1f + MathF.Round(seconds / brace);                                    // 57
-        return autocannon with { PerShot = autocannon.Overheat / fired };
+        // Overheat / (fired - 0.5): round 57 reaches the overheat and round 56 does not, whatever the float sums round to (15 / 57 summed 57 times may land just under 15 and overheat one round late)
+        return autocannon with { PerShot = autocannon.Overheat / (fired - 0.5f) };
     }
 
     /// <summary>

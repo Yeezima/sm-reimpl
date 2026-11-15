@@ -185,14 +185,19 @@ public class DreadnoughtBuffTests
     [Fact]
     public void Heat_per_shot_makes_continuous_fire_overheat_after_the_autocannons_own_seconds()
     {
-        Assert.Equal(15f / 57f, Cannon.Heat!.PerShot, 5);
+        // summed as the sim sums it: round 57 reaches the overheat, round 56 does not
+        float sum = 0f, perShot = Cannon.Heat!.PerShot;
+        for (int k = 1; k <= 56; k++) sum += perShot;
+        Assert.True(sum < Cannon.Heat.Overheat, $"56 rounds heat {sum} of {Cannon.Heat.Overheat}");
+        sum += perShot;
+        Assert.True(sum >= Cannon.Heat.Overheat, $"57 rounds heat {sum} of {Cannon.Heat.Overheat}");
         Assert.Equal(Autocannon.Heat!.Overheat, Cannon.Heat.Overheat);
         Assert.Equal((Autocannon.Heat.CoolRate, Autocannon.Heat.CoolDelay, Autocannon.Heat.Recovery), (Cannon.Heat.CoolRate, Cannon.Heat.CoolDelay, Cannon.Heat.Recovery));
         // the dreadnought's overheat tick against the autocannon's, in worlds
         int dread = OverheatTick(Landed(), null);
         int auto = OverheatTick(AutocannonWorld(), null);
         Assert.InRange(dread, 1, 600);
-        Assert.InRange(Math.Abs(dread - auto), 0, 3);   // within a tick or two of 5.6 s
+        Assert.Equal(auto, dread);   // the same tick
         Assert.InRange(auto / 30f, 5.3f, 6.0f);
     }
 
@@ -204,6 +209,45 @@ public class DreadnoughtBuffTests
 
     /// <summary>The same Dreadnought carrying the autocannon itself (0.4 s between rounds, its heat) in the cannon's place: the comparison for the cannon's blast and overheat.</summary>
     static World AutocannonWorld() => Landed(Config with { Weapons = [.. Config.Weapons.Select(x => x.Name == DreadnoughtRules.CannonWargear ? Autocannon with { Name = DreadnoughtRules.CannonWargear } : x)] });
+
+    [Fact]
+    public void Every_rule_that_treats_a_gun_as_the_autocannon_treats_his_cannon_so()
+    {
+        Assert.True(DreadnoughtRules.IsCannon(Cannon.Name) && !DreadnoughtRules.IsCannon(Melta.Name) && DreadnoughtRules.IsMelta(Melta.Name));
+        Assert.Equal(TfwCombatRules.Pierced(Autocannon), TfwCombatRules.Pierced(Cannon));   // 5 Orks
+        Assert.Equal(5, TfwCombatRules.Pierced(Cannon));
+        Assert.Equal(SmNet.Extras.Musou.MusouOrkFlinchRules.ShotStrength(Autocannon.Name), SmNet.Extras.Musou.MusouOrkFlinchRules.ShotStrength(Cannon.Name));   // 1.8
+        Assert.Equal(1.8f, SmNet.Extras.Musou.MusouOrkFlinchRules.ShotStrength(Cannon.Name));
+        Assert.True(Config.EndlessClip(Cannon));
+        // its blast: ArsenalShotBlast, proven by the neighbour's damage in A_round_hits_and_blasts_as_the_autocannons_does
+    }
+
+    [Fact]
+    public void His_swing_has_no_cap_outside_the_war_too_in_the_5_wave_run()
+    {
+        // the 5-wave run's cleave takes 8 enemies (MusouCombatRules.CleaveTargets); the Dreadnought's takes every one in reach, a Tactical's still 8
+        Assert.Equal(8, MusouRules.Default.Combat.CleaveTargets);
+        int Struck(string cls)
+        {
+            var rifle = TfwRig.Config.Weapons[0];
+            var tactical = new ClassLoadout("sm - tactical", 0, -1, [new MeleeStep(1f, 0.2f, 0.4f, 0.6f, 0.5f, 0.7f, 25f, 10f, 3.5f)]) { PrimaryChoices = [0], EquipmentChoices = [], Side = Team.SpaceMarines, Role = "tactical" };
+            var config = MusouLoadout.Prepare(MusouSimTests.Base with { Weapons = [rifle, Cannon, Melta], Thrown = [], Classes = [tactical], MusouRules = Still, Extras = ContentExtras.Musou });
+            var w = new World(config) { Rules = MusouSimTests.Endless };
+            Assert.True(w.StartMusou(null));
+            w.MusouDirector!.Hold = true;
+            int index = config.Classes.ToList().FindIndex(c => c.Name == cls);
+            Assert.True(index >= 0, cls);
+            w.Spawn(1, index);
+            for (int t = 0; t < 160; t++) w.Step(_ => new PlayerInput(0, 0f, 0f, 0f, 0));   // past his entrance's lock
+            var at = w.Players[1].Position;
+            var ids = new List<ushort>();
+            for (int k = 0; k < 14; k++) ids.Add(w.Musou!.Spawn(MusouEnemyType.Boy, at + new Vector3((k - 6.5f) * 0.12f, 1.4f + (k % 3) * 0.1f, 0f), 0f, 100000f));
+            for (int t = 0; t < 40; t++) w.Step(_ => new PlayerInput(0, 0f, 0f, 0f, t == 0 ? InputButtons.Melee : 0));
+            return ids.Count(i => w.Musou!.TryGet(i, out var e) && e.Health < 100000f - 1f);
+        }
+        Assert.Equal(14, Struck(DreadnoughtRules.ClassName));
+        Assert.InRange(Struck("sm - tactical"), 1, 8);
+    }
 
     // ---------------------------------------------------------------- the melta
 
@@ -220,7 +264,7 @@ public class DreadnoughtBuffTests
         Assert.Equal(TacticalMelta.Recharge!.RoundTime * 0.6f, Melta.Recharge!.RoundTime, 3);
         // full damage at every distance out to the end of the cone: no fall-off
         foreach (float d in new[] { 0f, 6.5f, 15f, Melta.Cone.Length })
-            Assert.Equal(1f, Combat.SplashIntensity(Melta.Cone.FallOff, d) is var i && i > 0 ? 1f : 0f);
+            Assert.Equal(1f, Combat.SplashIntensity(Melta.Cone.FallOff, d), 4);
         Assert.All(Melta.Cone.FallOff, p => Assert.Equal(1f, p.Value));
         Assert.Equal(1f, Melta.FallOffEndMultiplier);
         Assert.True(Config.EndlessClip(Melta));

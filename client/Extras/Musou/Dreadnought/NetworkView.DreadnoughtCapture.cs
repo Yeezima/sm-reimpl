@@ -49,6 +49,8 @@ public partial class NetworkView
         if (!await AutocannonDeploy()) return;
         TfwCheck("he is the Dreadnought after the landing", IsDreadnoughtClass(client.Predicted.Class), client.Predicted.Class.ToString());
         if (CmdFlag("dn-survive")) { await DnSurvive(); return; }
+        if (CmdFlag("dn-melee-film")) { await DnMeleeFilm(); return; }
+        if (CmdFlag("dn-fire-film")) { await DnFireFilm(); return; }
         GD.Print($"DNCAPTURE t {_connectedFor:F2} landed, class {client.Predicted.Class}, health {client.Predicted.Health:F0}, locked {DreadnoughtEntryText()}");
         await TfwWait(0.6);
         await DnStill(1, "dn-side-entrance-1");
@@ -147,6 +149,65 @@ public partial class NetworkView
         await DnStill(1, "dn-side-buff");
         if (CmdFlag("dn-film")) { await DnSurvive(); return; }
         GD.Print("DNCAPTURE done");
+        GetTree().Quit(0);
+    }
+
+    /// <summary>
+    /// <c>--dn-melee-film</c> (the 2026-11-15 buff's proof; with <c>--write-movie f.avi --fixed-fps 30</c>, <c>--dn-raw-strike</c> for the "before"): right after the landing, where no Ork has come yet, from the side view: three light presses (the chain
+    /// X1, X2, X1) and the heavy strike. <c>DNFILM</c> lines carry the movie frames to cut by (<c>Engine.GetFramesDrawn</c> at the start and the end) and each strike step seen.
+    /// </summary>
+    async Task DnMeleeFilm()
+    {
+        var client = _client!;
+        await TfwWait(5.4);   // the entrance's lock is over
+        _dnCam = 1;
+        await TfwWait(0.6);
+        GD.Print($"DNFILM start frame {Engine.GetFramesDrawn()}");
+        int lastStep = 0; bool lastHeavy = false; double begun = _connectedFor;
+        async Task Watch(double seconds)
+        {
+            double until = _connectedFor + seconds;
+            while (_connectedFor < until)
+            {
+                await TfwFrames();
+                var p = client.Predicted;
+                if (p.MeleeStep != lastStep || p.MeleeHeavy != lastHeavy) { lastStep = p.MeleeStep; lastHeavy = p.MeleeHeavy; GD.Print($"DNFILM frame {Engine.GetFramesDrawn()} t {_connectedFor - begun:F2} strike step {p.MeleeStep} heavy {p.MeleeHeavy}"); }
+            }
+        }
+        for (int k = 0; k < 3; k++) { await TfwActionTap(GameAction.Melee); await Watch(0.95); }
+        await Watch(2.0);
+        await TfwActionTap(GameAction.StunStrike);
+        await Watch(4.0);
+        GD.Print($"DNFILM end frame {Engine.GetFramesDrawn()}");
+        _dnCam = 0;
+        GetTree().Quit(0);
+    }
+
+    /// <summary>
+    /// <c>--dn-fire-film</c> (the buff's proof; <c>--write-movie</c>): the cannon fired for 8 s from the side view where no Ork has come yet (the heat bar rises, the gun overheats at about 5.6 s, locks and cools), then 3 s of rest. <c>DNFILM</c> lines carry the frames and the heat each half second.
+    /// </summary>
+    async Task DnFireFilm()
+    {
+        var client = _client!;
+        await TfwWait(5.4);
+        _dnCam = 1;
+        await TfwWait(0.6);
+        GD.Print($"DNFILM start frame {Engine.GetFramesDrawn()}");
+        double begun = _connectedFor, next = begun;
+        TfwAction(GameAction.Fire, true);
+        while (_connectedFor < begun + 8.0)
+        {
+            await TfwFrames();
+            if (_connectedFor >= next) { next += 0.5; var p = client.Predicted; GD.Print($"DNFILM frame {Engine.GetFramesDrawn()} t {_connectedFor - begun:F1} heat {p.Heat:F1} overheated {p.Overheated} clip {p.Clip}"); }
+        }
+        TfwAction(GameAction.Fire, false);
+        while (_connectedFor < begun + 11.5)
+        {
+            await TfwFrames();
+            if (_connectedFor >= next) { next += 0.5; var p = client.Predicted; GD.Print($"DNFILM frame {Engine.GetFramesDrawn()} t {_connectedFor - begun:F1} heat {p.Heat:F1} overheated {p.Overheated}"); }
+        }
+        GD.Print($"DNFILM end frame {Engine.GetFramesDrawn()}");
+        _dnCam = 0;
         GetTree().Quit(0);
     }
 

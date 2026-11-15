@@ -136,7 +136,7 @@ public sealed record TfwCombatRules
         string name = weapon.Name;
         bool Has(string part) => name.Contains(part, StringComparison.OrdinalIgnoreCase);
         if (Has("las_cannon")) return 8;
-        if (Has("heavy_bolter") || Has("plasma_cannon") || Has("auto_cannon") || Has(DreadnoughtRules.CannonWargear)) return 5;   // the Dreadnought's cannon is the autocannon's (owner 2026-11-15)
+        if (Has("heavy_bolter") || Has("plasma_cannon") || Has("auto_cannon") || DreadnoughtRules.IsCannon(name)) return 5;   // the Dreadnought's cannon is the autocannon's (owner 2026-11-15)
         if (Has("sniper_rifle")) return 4;
         if (Has("storm_bolter") || Has("melta")) return 3;
         return weapon.Slot == WeaponSlot.Pistol ? 1 : 2;

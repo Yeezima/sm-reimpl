@@ -12,7 +12,7 @@ namespace SmContent.Extras.Musou;
 public static class DreadnoughtPresentation
 {
     static readonly ReticleSpec CannonReticle = new("autocannon", "autocannon_mc", "autocannon_active_mc", false);
-    static readonly WeaponBoxSpec? CannonBox = WeaponBoxRules.For(DreadnoughtRules.CannonWargear, "heavy_bolter", false), MeltaBox = WeaponBoxRules.For(DreadnoughtRules.MeltaWargear, "melta", false);
+    static readonly WeaponBoxSpec? MeltaBox = WeaponBoxRules.For(DreadnoughtRules.MeltaWargear, "melta", false);
 
     /// <summary>
     /// The name a presentation rule reads for <paramref name="wargear"/>: the Dreadnought's cannon is the Musou autocannon's (owner, 2026-11-15: its "sounds, visual shot and muzzle flash effects should all match the autocannon in musou mode"),

@@ -34,10 +34,9 @@ public partial class NetworkView
         public float Stride;
         public int Strike;
         public float ReloadLeft;
-        /// <summary>The frame-rate clip clocks of the arm's strike (own player: <see cref="OwnClipClock"/>, others: <see cref="ClipClock"/>) and the last frame's heat and cooldown (shot detection).</summary>
+        /// <summary>The frame-rate clip clocks of the arm's strike (own player: <see cref="OwnClipClock"/>, others: <see cref="ClipClock"/>).</summary>
         public readonly OwnClipClock OwnStrike = new();
         public readonly ClipClock OtherStrike = new();
-        public float PrevHeat, PrevCooldown;
     }
 
     /// <summary>The Dreadnought's class index in this match's config, or -1 (Classic and every config without him), found once: every per-frame hook returns at once when it is -1.</summary>
@@ -177,26 +176,34 @@ public partial class NetworkView
     }
 
     // ---- effects (D7): the install's effects through the effect player ----
-    const string DreadMuzzleEffect = SmContent.Extras.Musou.Arsenal.Arsenal.LoyalistMuzzleEffect, DreadDustEffect = "jump_land";
-    /// <summary>The muzzle flash's scale (the autocannon's own binding, 1.5: owner 2026-11-15; the data's own cannon had 1.75) and the footfall dust's (ours, the size of his foot).</summary>
-    const float DreadMuzzleScale = 1.5f, DreadDustScale = 2.5f;
+    const string DreadDustEffect = "jump_land";
+    /// <summary>The footfall dust's scale (ours, the size of his foot).</summary>
+    const float DreadDustScale = 2.5f;
+
+    /// <summary>
+    /// The barrel for the shot path's effect markers (<see cref="ExtrasFxPlace"/>): ahead of his right shoulder for the cannon, his left for the melta (**ours**, as the flash had been placed), with the aim's axes; nothing for any
+    /// other shooter. The state is the own prediction or the last snapshot's.
+    /// </summary>
+    partial void ExtrasFxPlace(int shooter, string marker, ref (Vector3, Basis)? place)
+    {
+        if (DreadIndex < 0 || _client is null) return;
+        PlayerState s = default; bool found = false;
+        if (shooter == _client.PlayerId) { s = _client.Predicted; found = true; }
+        else foreach (var o in _lastOthers) if (o.PlayerId == shooter) { s = o; found = true; break; }
+        if (!found || !IsDreadnoughtClass(s.Class)) return;
+        float cp = MathF.Cos(s.Pitch);
+        var fwd = new Vector3(-MathF.Sin(s.Yaw) * cp, MathF.Cos(s.Yaw) * cp, MathF.Sin(s.Pitch));
+        var right = new Vector3(MathF.Cos(s.Yaw), MathF.Sin(s.Yaw), 0f);
+        float side = s.Slot == WeaponSlot.Pistol ? -0.8f : 0.8f;
+        var muzzle = new Vector3(s.Position.X, s.Position.Y, s.Position.Z + 2.3f) + fwd * 2.2f + right * side;
+        place = (new Vector3(muzzle.X, muzzle.Z, -muzzle.Y), AxesFromY(new Vector3(fwd.X, fwd.Z, -fwd.Y)));   // game space (X, Y, Z up) to Godot's (X, Z, -Y)
+    }
 
     /// <summary>A muzzle flash at the cannon for each frame the clip lost a round, and the footfall dust where the stride lands. Nothing for a lean bot.</summary>
     void DreadnoughtEffects(DreadnoughtTrack t, PlayerState s, bool entering)
     {
         if (_fx is null || Lean) { t.PrevClip = s.Clip; t.StepDust = false; return; }
-        bool cannon = s.Slot == WeaponSlot.Ranged;
-        // A shot of the cannon: the cannon spends no round now (owner 2026-11-15: unlimited ammunition), so a round leaving shows as the shot cooldown starting again or the heat rising; the clip dropping still counts (the data's cannon).
-        bool shot = s.Clip < t.PrevClip || s.Cooldown > t.PrevCooldown + 1e-3f || s.Heat > t.PrevHeat + 0.02f;
-        t.PrevHeat = s.Heat; t.PrevCooldown = s.Cooldown;
-        if (!entering && cannon && shot && s.ReloadLeft <= 0f)
-        {
-            float cp = MathF.Cos(s.Pitch);
-            var fwd = new Vector3(-MathF.Sin(s.Yaw) * cp, MathF.Cos(s.Yaw) * cp, MathF.Sin(s.Pitch));
-            var right = new Vector3(MathF.Cos(s.Yaw), MathF.Sin(s.Yaw), 0f);
-            var muzzle = new Vector3(s.Position.X, s.Position.Y, s.Position.Z + 2.3f) + fwd * 2.2f + right * 0.8f;   // ours: the cannon's barrels, ahead of his right shoulder
-            _fx.Play(DreadMuzzleEffect, new Vector3(muzzle.X, muzzle.Z, -muzzle.Y), AxesFromY(new Vector3(fwd.X, fwd.Z, -fwd.Y)), DreadMuzzleScale);   // game space (X, Y, Z up) to Godot's (X, Z, -Y)
-        }
+        // No flash of his own any more (the buff, owner 2026-11-15): the shot path plays the autocannon's whole effect list (flash at its scale 1.5, tracer, casings) and asks ExtrasFxPlace for the barrel, so there is exactly one flash per shot.
         t.PrevClip = s.Clip;
         if (t.StepDust)
         {
