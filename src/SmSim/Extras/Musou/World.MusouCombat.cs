@@ -286,6 +286,7 @@ public sealed partial class World
     /// <summary>The cleave of one melee step (see the class summary).</summary>
     void MusouCleave(int attacker, PlayerState state, MeleeStep step)
     {
+        _musouCleaveHit = null;   // every swing starts with no hit point: an early return below must not leave the last swing's (or another player's) for the Overcharge wave
         if (_state != MatchState.Playing) return;
         MusouBeginTick();
         var musou = _musou!;
@@ -305,7 +306,7 @@ public sealed partial class World
         var eye = state.Position + new Vector3(0, 0, Config.EyeHeight);
         int n = musou.Query(state.Position, range, _musouNear, Config.MeleeVerticalReach);
         int struck = 0;
-        _musouCleaveHit = null; float nearest = float.MaxValue;   // the Dreadnought's Overcharge: where the swing struck (the nearest enemy hit)
+        float nearest = float.MaxValue;   // the Dreadnought's Overcharge: where the swing struck (the nearest enemy hit)
         for (int k = 0; k < n && struck < most; k++)
         {
             if (!musou.TryGet(_musouNear[k], out var e) || !e.Alive) continue;   // !Alive: one a Weirdboy's burst killed earlier in this loop

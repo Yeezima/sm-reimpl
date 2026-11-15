@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3309 spec table rows: **2433 tagged**, 617 not tagged (read from data with high confidence), 259 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 734 rows of the changes document.
+Scanned 3308 spec table rows: **2432 tagged**, 617 not tagged (read from data with high confidence), 259 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 734 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,16 +50,16 @@ Scanned 3309 spec table rows: **2433 tagged**, 617 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 23 | 13 | 13 | 13 | 7 |
-| Core simulation (provisional values) | 744 | 698 | 528 | 189 | 1 |
+| Core simulation (provisional values) | 743 | 697 | 528 | 189 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 249 | 238 | 134 | 68 | 0 |
-| **All areas** | **2433** | 2149 | 1801 | 744 | 38 |
+| **All areas** | **2432** | 2148 | 1801 | 744 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1418 |
+| kind: ours | 1417 |
 | confidence: low | 864 |
 | confidence: medium | 808 |
 | notes: ours | 417 |
@@ -2505,7 +2505,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (744)
+### Core simulation (provisional values) (743)
 
 *Spec section: Provisional values in use*
 
@@ -3704,7 +3704,6 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-F7194563` | Overcharge: the cannon builds no heat | while the power-up runs (`StimLeft` above 0) a round adds no heat (`StimSpec.NoHeat`, set on his `dread_buff` item only; `Stims.NoHeat`, `Combat` shot and burst round); the cannon still fires every 0.1 s with no ammunition spent; heat built before the use… (heat) | kind: choice | the owner, 2026-11-15 | Overcharge: the cannon builds no heat: compare with SM1 by feel or video. Ours: while the power-up runs (StimLeft above 0) a round adds no heat… | ☐ |
 | `R-2B1331FF` | Overcharge: the shockwave | every melee swing that strikes at least one enemy releases ONE shockwave at the nearest struck enemy's chest while the power-up runs (`DreadnoughtOvercharge`, once per resolved swing, however many Orks the swing struck): radius **3 m**, the stomp's blast… (m) | kind: ours; kind: estimate; confidence: low | the owner, 2026-11-15 ("about 3 m") | Overcharge: the shockwave: compare with SM1 by measuring on a flat spot of the same map. Ours: every melee swing that strikes at least one enemy releases ONE… | ☐ |
 | `R-BAAFEE65` | Overcharge: the wave's look and shake | the stomp's displace effects scaled down (`knockback_stomp_dmg_furied` x0.3, `interrupt_stomp_dmg` x0.4 at the left hand marker) and the stomp area's camera shake at a quarter of its amplitudes (`DreadnoughtFeel.OverchargeShake`), on each swing's hit beat… (scale) | kind: ours; kind: estimate; confidence: low | the owner, 2026-11-15 (the data's stomp values) | Overcharge: the wave's look and shake: compare with SM1 by feel or video. Ours: the stomp's displace effects scaled down (knockback_stomp_dmg_furied… | ☐ |
-| `R-F7DBC98D` | Overcharge: the place for an addition | `World.DreadnoughtBuffExtra` (called every tick, empty) stays for any later power-up effect | kind: ours | lead 27 | Overcharge: the place for an addition: compare with SM1 by feel or video. Ours: World.DreadnoughtBuffExtra (called every tick, empty) stays for any… | ☐ |
 
 ### General game design (7)
 

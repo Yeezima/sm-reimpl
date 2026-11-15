@@ -6,7 +6,7 @@ namespace SmServer;
 /// </summary>
 public sealed partial class GameServer
 {
-    static readonly float? DreadnoughtTestKillAfter = float.TryParse(Environment.GetEnvironmentVariable("SM_DN_TEST_KILL"), System.Globalization.CultureInfo.InvariantCulture, out float k) ? k : null;
+    static readonly float? DreadnoughtTestKillAfter = float.TryParse(Environment.GetEnvironmentVariable("SM_DN_TEST_KILL"), System.Globalization.CultureInfo.InvariantCulture, out float k) && float.IsFinite(k) && k >= 0f ? k : null;   // NaN, infinity or a negative value is no setting
     readonly Dictionary<int, double> _dnKillSince = new();
     readonly HashSet<int> _dnKilled = new();
 

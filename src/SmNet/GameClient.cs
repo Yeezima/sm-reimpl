@@ -186,6 +186,17 @@ public sealed partial class GameClient
     uint _latestSnapshotTick;
     /// <summary>The server tick of the newest snapshot received (0 before the first).</summary>
     public uint LatestSnapshotTick => _latestSnapshotTick;
+    /// <summary>
+    /// The prediction offered to <see cref="Stims.Carry"/>: Classic keeps what it always did (the spread's, only when it was carried or disagreed). Musou's x3 stims outlast their item's cooldown, so there the
+    /// prediction is also found by tick or taken as the newest when none exists, but never after a round respawn (the server reset the stim) nor when life, class or weapon differ (Mismatch).
+    /// </summary>
+    PlayerState? StimPrediction(bool respawned, SpreadReconcile.Outcome outcome, uint tick, PlayerState? spreadState)
+    {
+        if (_config is not { } c || c.StimBoost.Lifetime <= 1f) return outcome is SpreadReconcile.Outcome.Carried or SpreadReconcile.Outcome.Mismatch ? spreadState : null;
+        if (respawned || outcome is SpreadReconcile.Outcome.RoundRespawn or SpreadReconcile.Outcome.Mismatch) return null;
+        return _history.TryGetValue(tick, out var h) ? h.State : Predicted;
+    }
+
     bool _hasAuthoritativeState;
     TimeSpan _latestSnapshotAt;
 
@@ -618,11 +629,12 @@ public sealed partial class GameClient
         // A round respawn in between rests it too (a living player's record matches its prediction on every compared field). After a stall the
         // client restarts from rest while the server may still be warm: only the own tracer and impact picture can differ until the bloom settles.
         mine = SpreadReconcile.Choose(mine, _history.TryGetValue(s.ServerTick, out var predictedSpread) ? predictedSpread.State : null, _roundRespawnPending, out var spreadOutcome);
+        bool respawned = _roundRespawnPending;   // the server reset the stim with the round respawn: no prediction carries it
         _roundRespawnPending = false;
         SpreadOutcomes[(int)spreadOutcome]++;
         // perks/inert-2: the combat stims' time left is not on the wire either: derived from the record's item cooldown, past it the prediction's (Stims.Carry).
         // Past the item's cooldown the prediction's time is the only one there is, so it is offered whatever the spread did with it (Stims.Carry checks class, item, count and cooldown itself); before, a spread outcome that rested the bloom dropped the Dreadnought's 30 s power-up to 0 once its cooldown ended (his lifetime outlasts the cooldown; the marines' stims do not).
-        mine = Stims.Carry(_config, mine, _history.TryGetValue(s.ServerTick, out var stimHistory) ? stimHistory.State : Predicted);   // no entry for that tick: the newest prediction (never 0 for lack of one)
+        mine = Stims.Carry(_config, mine, StimPrediction(respawned, spreadOutcome, s.ServerTick, predictedSpread.State));   // no entry for that tick: the newest prediction (never 0 for lack of one)
         if (ExtrasCarry is { } carry) mine = carry(mine, s.ServerTick);   // EXTRAS-HOOK: added content's own timers not on the wire (Musou: the Rapid Fire powerup's PlayerState.FireBoostLeft)
 
         // Reconcile: take the authoritative state and replay every input the server has not applied yet.

@@ -147,4 +147,55 @@ public class DreadnoughtOverchargeTests
         var refilled = SmSim.Stims.Carry(w.Config, record with { StimLeft = 0f, Grenades = record.Grenades + 1 }, record);
         Assert.Equal(carried.StimLeft, refilled.StimLeft, 3);
     }
+
+    [Fact]
+    public void The_wave_moves_an_ork_2_8_m_from_the_hit_and_not_one_3_4_m_away_sideways_too()
+    {
+        // above the swing's vertical reach (2.2 m up) so only the wave can reach them; 3-D distances 2.8 m and 3.4 m from the hit, one to each side
+        float Run(float distance, World w)
+        {
+            var hit = Me(w).Position + new Vector3(0f, 1.8f, 0f);
+            float flat = MathF.Sqrt(distance * distance - 2.2f * 2.2f);
+            var struck = Boy(w, hit);
+            var near = Boy(w, hit + new Vector3(flat, 0f, 2.2f));
+            bool moved = false;
+            for (int k = 0; k < 46; k++)
+            {
+                Step(w, k == 0 ? InputButtons.Melee : InputButtons.None);
+                if (w.Musou!.TryGet(near, out var e) && e.State is not (MusouEnemyState.Spawning or MusouEnemyState.Seek or MusouEnemyState.WindUp or MusouEnemyState.Strike or MusouEnemyState.Recover)) moved = true;
+            }
+            _ = struck;
+            return moved ? 1f : 0f;
+        }
+        var a = Landed(); Buff(a);
+        var b = Landed(); Buff(b);
+        Assert.Equal(1f, Run(2.8f, a));
+        Assert.Equal(0f, Run(3.4f, b));
+    }
+
+    [Fact]
+    public void A_swing_that_strikes_nobody_releases_no_wave_and_leaves_no_point_for_the_next()
+    {
+        var w = Landed(); Buff(w);
+        var boy = Boy(w, Me(w).Position + new Vector3(0f, 1.8f, 0f));
+        int before = w.DreadnoughtShockwaves;
+        Steps(w, 1, InputButtons.Melee); Steps(w, 60);
+        Assert.Equal(before + 1, w.DreadnoughtShockwaves);   // the struck swing: one
+        w.Musou!.Damage(boy, Human, 1_000_000f, Vector3.Zero, out _);
+        Steps(w, 30);
+        int mid = w.DreadnoughtShockwaves;
+        Steps(w, 1, InputButtons.Melee); Steps(w, 60);
+        Assert.Equal(mid, w.DreadnoughtShockwaves);   // an empty swing: none, not the last one's point again
+    }
+
+    [Fact]
+    public void Classic_carry_gives_the_stim_no_time_past_the_cooldown_without_a_prediction_and_after_a_respawn()
+    {
+        var w = Landed(); Buff(w);
+        int guard = 0;
+        while (Me(w).GrenadeCooldown > 0f && guard++ < 30 * 90) Step(w);
+        var record = Me(w);
+        Assert.Equal(0f, SmSim.Stims.Carry(w.Config, record with { StimLeft = 7f }, null).StimLeft);   // no prediction offered (a rested or respawned round): the stim is over
+        Assert.Equal(0f, SmSim.Stims.Carry(w.Config, record with { StimLeft = 7f, Alive = false }, record).StimLeft);   // a dead record has none
+    }
 }
