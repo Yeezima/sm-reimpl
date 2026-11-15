@@ -60,7 +60,7 @@ public sealed partial class UiSelfTest
             await SendKey(Key.Down);
             await Frames(2);
             var focused = GetViewport().GuiGetFocusOwner();
-            Check("glow: it follows the focus", focused != row && FocusGlow.Target == focused, focused?.Name ?? "none");
+            Check("glow: it follows the focus (a painted plate wears its own focus look instead)", focused != row && (FocusGlow.Target == focused || focused?.HasMeta(FocusGlow.NoGlowMeta) == true), focused?.Name ?? "none");
 
             // The mouse: moving onto a row gives it the focus, so only one row glows.
             // (A headless run's window is small and the menu rows' text is drawn very large, so the pointer goes to a probe button of known place on a layer of its own.)

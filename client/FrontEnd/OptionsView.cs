@@ -43,6 +43,8 @@ public sealed partial class OptionsView : UiKit.MenuPage
     readonly TextureRect _overlay = new() { Name = "OptionsOverlay", MouseFilter = MouseFilterEnum.Ignore, ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, StretchMode = TextureRect.StretchModeEnum.Scale, TextureFilter = TextureFilterEnum.LinearWithMipmaps };
     readonly Control _tabHost = new() { Name = "OptionsTabs", MouseFilter = MouseFilterEnum.Ignore };
     bool _concept;
+    readonly MarginContainer _rowsMargin = new() { MouseFilter = MouseFilterEnum.Ignore };
+    float _rowsScale;   // the scale the rows were last styled at (0: restyle)
     FrontEndSettings _snapshot;
     public string Tab { get; private set; } = Graphics;
     UiKit.MenuChoice? _windowRow, _resolutionRow;   // the Graphics rows F11 changes behind the player's back
@@ -95,7 +97,7 @@ public sealed partial class OptionsView : UiKit.MenuPage
         page.AddThemeConstantOverride("separation", 10);
         page.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         page.AddChild(_grid); page.AddChild(_wide);
-        var margin = new MarginContainer { MouseFilter = MouseFilterEnum.Ignore };
+        var margin = _rowsMargin;
         margin.AddThemeConstantOverride("margin_left", 6); margin.AddThemeConstantOverride("margin_right", 14); margin.AddThemeConstantOverride("margin_top", 8);
         margin.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         margin.AddChild(page);
@@ -189,30 +191,25 @@ public sealed partial class OptionsView : UiKit.MenuPage
             b.CustomMinimumSize = Vector2.Zero; b.Position = r.Position - strip.Position; b.Size = r.Size;
             if (Mathf.IsEqualApprox((float)b.GetMeta("painted_s", 0f), s)) continue;
             b.SetMeta("painted_s", s);
-            PaintedButtons.Apply(b, "opt-tab-" + ids[i] + "-dark", "opt-tab-" + ids[i] + "-gold", new PaintedButtons.Pad(3, 3, 3, 3), new PaintedButtons.Pad(3, 4, 3, 5), s, goldFocus: false, paintedText: i != 1);
-            if (i == 1)
-            {
-                // SOUND has no painted label (the concept's is AUDIO): live Oswald at the painted labels' size, light on the dark plate, dark ink on the gold.
-                b.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(13.2f * s));
-                foreach (var c in new[] { "font_color", "font_hover_color", "font_focus_color" }) b.AddThemeColorOverride(c, new Color(0.80f, 0.79f, 0.76f));
-                foreach (var c in new[] { "font_pressed_color", "font_hover_pressed_color" }) b.AddThemeColorOverride(c, new Color(0.10f, 0.06f, 0.02f));
-            }
+            PaintedButtons.Apply(b, "opt-tab-" + ids[i] + "-dark", "opt-tab-" + ids[i] + "-gold", new PaintedButtons.Pad(3, 3, 3, 3), new PaintedButtons.Pad(3, 4, 3, 5), s, goldFocus: false, paintedText: false);
+            PlateText(b, s, 13.4f, goldPressed: true);   // one lettering for all four tabs (owner 2026-11-15: text of one level renders identically)
         }
         // The rows scroll inside the content area.
         var rows = M(new Rect2(130, 160, 542, 138));
         _list.Position = rows.Position; _list.Size = rows.Size;
-        _grid.Columns = rows.Size.X < 1100f ? 1 : 2;
+        StyleRows(s);
         // APPLY, REVERT, BACK.
         void Plate(Button b, Rect2 rect, string dark, string gold, PaintedButtons.Pad dp, PaintedButtons.Pad gp, bool goldFocus, bool goldRest = false, bool noGlow = true)
         {
             var r = M(rect); b.CustomMinimumSize = Vector2.Zero; b.Position = r.Position; b.Size = r.Size;
             if (Mathf.IsEqualApprox((float)b.GetMeta("painted_s", 0f), s)) return;
             b.SetMeta("painted_s", s);
-            PaintedButtons.Apply(b, dark, gold, dp, gp, s, goldFocus, paintedText: true, goldRest: goldRest, noGlow: noGlow);
+            PaintedButtons.Apply(b, dark, gold, dp, gp, s, goldFocus, paintedText: false, goldRest: goldRest, noGlow: noGlow);
+            PlateText(b, s, 15f, goldPressed: gold != dark, goldRest: goldRest);   // APPLY, REVERT and BACK: one lettering
         }
         Plate(_apply, UiTextureBuilder.OptionsApply, "opt-apply-dark", "opt-apply-gold", new PaintedButtons.Pad(3, 4, 3, 4), new PaintedButtons.Pad(3, 4, 3, 5), false, goldRest: true);
         Plate(_revert, UiTextureBuilder.OptionsRevert, "opt-revert-dark", "opt-revert-gold", new PaintedButtons.Pad(3, 4, 3, 4), new PaintedButtons.Pad(3, 4, 3, 5), true, noGlow: false);
-        Plate(_back, UiTextureBuilder.OptionsBack, "opt-back-dark", "opt-back-dark", new PaintedButtons.Pad(3, 2, 3, 2), new PaintedButtons.Pad(3, 2, 3, 2), false, noGlow: false);
+        Plate(_back, UiTextureBuilder.OptionsBack, "opt-back-dark", "opt-back-dark", new PaintedButtons.Pad(0, 0, 0, 0), new PaintedButtons.Pad(0, 0, 0, 0), false, noGlow: false);
         // The toast chip.
         var t = M(UiTextureBuilder.OptionsToast); _toast.Position = t.Position; _toast.Size = t.Size;
         if (_foot is { } foot) { foot.Position = new Vector2(24f, Size.Y - foot.GetCombinedMinimumSize().Y - 14f); foot.Size = new Vector2(Mathf.Min(Size.X - 48f, 1100f), foot.GetCombinedMinimumSize().Y); }
@@ -245,6 +242,7 @@ public sealed partial class OptionsView : UiKit.MenuPage
         }
         _grid.UpdateMinimumSize(); _wide.UpdateMinimumSize();
         _list.ScrollVertical = 0;
+        _rowsScale = 0f;
         Place();
     }
 

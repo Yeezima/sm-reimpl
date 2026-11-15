@@ -46,7 +46,7 @@ public sealed partial class UiSelfTest
             Check("concept: OPTIONS opens with the focus on its tab", options.Visible && GetViewport().GuiGetFocusOwner() is Button { Text: "GRAPHICS" } && options.Tab == OptionsView.Graphics, GetViewport().GuiGetFocusOwner()?.Name ?? "none");
             Check("concept: OPTIONS has four category tabs, the open one gold (pressed)", new[] { "GRAPHICS", "SOUND", "CONTROLS", "INTERFACE" }.All(t => FindButton(options, b => b.Text == t && b.ThemeTypeVariation == Steel.TabType) is not null)
                 && FindButton(options, b => b.Text == "GRAPHICS")!.ButtonPressed && !FindButton(options, b => b.Text == "SOUND")!.ButtonPressed);
-            Check("concept: the rows are in two columns on a wide window and every choice and slider wears the steel skin", options.Grid is GridContainer { Columns: 2 }
+            Check("concept: the rows are in columns by fit (two when the labels leave room, else one) on a wide window and every choice and slider wears the steel skin", options.Grid is GridContainer { Columns: 1 or 2 } && ((GridContainer)options.Grid).Columns == options.RowLayout.Columns
                 && AllButtons(options.Grid).OfType<UiKit.MenuChoice>().All(c => c.IsSteel) && options.Grid.GetChildren().OfType<UiKit.MenuSlider>().Any());
             int graphicsRows = options.Grid.GetChildCount() + options.FindChild("OptionsWide", true, false)!.GetChildCount();
             Check("concept: GRAPHICS is the densest tab (12 rows and the renderer line, since the four interface rows moved to INTERFACE)", graphicsRows == 13, graphicsRows.ToString());

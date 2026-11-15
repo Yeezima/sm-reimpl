@@ -190,3 +190,8 @@ The Musou parts stay in `client/Extras/Musou/` and are reached through the exist
 * Loadout controls: 14 rows (section 4).
 * In the art but not in the game: the INTERFACE tab and its seven example settings (2.6); a "UI DESIGN STUDY" legend; the MUSOU badge (display only, added).
 * In the game but not in the art: GRAPHICS' 17 rows beyond the art's four, SOUND, the lobby, host, join, Musou page, keybinds, appearance editor, the Esc menu, the scoreboard, loading, the hub; each has its place in the tables above.
+
+
+## Phase 4b note (Options rows; Armoury not yet done)
+
+Options rows (rows 9, 40+): every choice is the concept's arrow pill, every OFF / ON option the concept's switch, every slider the concept's amber slider; two columns when the labels fit (INTERFACE, SOUND), one otherwise (GRAPHICS, CONTROLS). Every setting, default and handler is unchanged. Armoury (row 11, 12, 16) and the HUD are not part of this commit.

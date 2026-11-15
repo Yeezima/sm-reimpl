@@ -124,43 +124,41 @@ public static partial class UiTextureBuilder
         string[] tabId = ["graphics", "sound", "controls", "interface"];
         for (int i = 0; i < 4; i++)
         {
+            // Owner 2026-11-15 (text uniformity): every tab is a BLANK plate (no painted label, no moved ink); the page writes all four labels in the same live lettering.
             var rect = Pad(OptionsTabs[i], mv, mv);
-            Image dark = Cut4(clean, sf, rect, mh), darkWithLabel = Cut4(up, sf, rect, mh);
-            Image goldBlank = Cut4(clean, sf, goldTabRect, mh);
-            Image gold;
-            if (i == 3) { gold = Cut4(up, sf, goldTabRect, mh); }
-            else gold = goldBlank;
-            if (i == 0 || i == 2) { dark = darkWithLabel; var s0 = i == 0 ? gSrc : cSrc; LayLabel(gold, goldTabRect.Position, sf, s0, R(OptionsTabs[3]).GetCenter() + new Vector2(0, -0.5f), darkInk, false); }
-            if (i == 3)
-            {
-                // The dark INTERFACE plate: the blank AUDIO plate stretched to its width, with the label moved over.
-                dark = Cut4(clean, sf, Pad(OptionsTabs[1], mv, mv), mh); dark.Resize((int)MathF.Round(rect.Size.X * sf), dark.GetHeight(), Image.Interpolation.Lanczos);
-                LayLabel(dark, rect.Position, sf, iSrc, R(OptionsTabs[i]).GetCenter(), lightInk, true);
-            }
+            Image dark = Cut4(clean, sf, rect, mh);
+            if (i == 3) { dark = Cut4(clean, sf, Pad(OptionsTabs[1], mv, mv), mh); dark.Resize((int)MathF.Round(rect.Size.X * sf), dark.GetHeight(), Image.Interpolation.Lanczos); }
+            Image gold = Cut4(clean, sf, goldTabRect, mh);
+            if (i != 3) gold.Resize((int)MathF.Round(gold.GetWidth() * OptionsTabs[i].Size.X / OptionsTabs[3].Size.X), gold.GetHeight(), Image.Interpolation.Lanczos);
             save("opt-tab-" + tabId[i] + "-dark", dark); save("opt-tab-" + tabId[i] + "-gold", gold);
         }
         // APPLY (gold) and REVERT (dark): the concept's own; the other state is the blank plate with the label moved over.
         var applyRect = Pad(OptionsApply, 4, 5); var revertRect = Pad(OptionsRevert, 4, 4);
-        var applyGold = Cut4(up, sf, applyRect, mh); var applyDark = Cut4(clean, sf, revertRect, mh);
-        var revertDark = Cut4(up, sf, revertRect, mh);
+        var applyGold = Cut4(clean, sf, applyRect, mh); var applyDark = Cut4(clean, sf, revertRect, mh);
+        var revertDark = Cut4(clean, sf, revertRect, mh);
         var revertGold = Cut4(clean, sf, applyRect, mh);
-        LayLabel(revertGold, applyRect.Position, sf, rSrc, R(OptionsApply).GetCenter() + new Vector2(0, -0.5f), darkInk, false);
-        LayLabel(applyDark, revertRect.Position, sf, aSrc, R(OptionsRevert).GetCenter() + new Vector2(0, -0.5f), lightInk, true);
+        save("opt-plate-blank", Cut4(clean, sf, revertRect, mh)); save("opt-plate-gold-blank", Cut4(clean, sf, applyRect, mh));
         save("opt-apply-gold", applyGold); save("opt-apply-dark", applyDark); save("opt-revert-dark", revertDark); save("opt-revert-gold", revertGold);
         var backRect = Pad(OptionsBack, 2, 2);
-        save("opt-back-dark", Cut4(up, sf, backRect, 1.5f));
+        // BACK sits on the scene, not on the dark interior: cut exactly to the plate with a chamfered, hard-edged alpha (no grey box round it).
+        var backPlate = Cut4(clean, sf, R(OptionsBack), 0f);
+        { int bw = backPlate.GetWidth(), bh = backPlate.GetHeight(); float cut = 3.2f * sf;
+          for (int y = 0; y < bh; y++) for (int x = 0; x < bw; x++) { float dx = Math.Min(x + 0.5f, bw - x - 0.5f), dy = Math.Min(y + 0.5f, bh - y - 0.5f); float a = Mathf.Clamp((dx + dy - cut) + 0.5f, 0f, 1f); var q = backPlate.GetPixel(x, y); backPlate.SetPixel(x, y, new Color(q.R, q.G, q.B, a)); } }
+        save("opt-back-dark", backPlate); save("opt-back-blank", backPlate);
         // The toast chip (painted SETTINGS APPLIED) and the blank one.
         var toastRect = new Rect2(R(OptionsToast).Position - new Vector2(2, 2), R(OptionsToast).Size + new Vector2(4, 4));
         save("opt-toast", Cut4(up, sf, toastRect, 0f));
         var toastBox = new Rect2(R(new Rect2(356, 369, 104, 15)).Position, R(new Rect2(356, 369, 104, 15)).Size);
         var toastClean = BlankLabels(up, sf, [toastBox, R(new Rect2(336, 368, 22, 17))]);
         save("opt-toast-blank", Cut4(toastClean, sf, toastRect, 0f));
+        OptionsControlTextures(up, sf, save);
         // ---- the overlay: the frame, title plate, crest, stone and eagle pieces, the interior with its labels, tabs, rows and actions painted out ----
         var overlay = (Image)up.Duplicate();
         PaintOutZone(overlay, sf, R(new Rect2(132, 158, 536, 138)), 6f);   // the rows area (text, controls)
         PaintOutZone(overlay, sf, R(new Rect2(146, 123, 516, 27.5f)), 5f);    // the tabs
-        PaintOutZone(overlay, sf, R(new Rect2(252, 298, 294, 36)), 5f);    // APPLY and REVERT
+        PaintOutZone(overlay, sf, R(new Rect2(252, 293, 294, 41)), 5f);    // APPLY and REVERT
         OverlayAlpha(overlay, sf, org);
+        CleanStoneAndMirror(overlay, sf, org);
         save("overlay-options", overlay);
     }
 
@@ -178,10 +176,59 @@ public static partial class UiTextureBuilder
 
     /// <summary>The alpha of the Options assembly: inside the outline polygon, minus the scene's grey reached by a gradient-limited flood from the polygon's border (the steel's edge stops it).</summary>
     /// <summary>Parts the flood must never enter (inside the steel: the title plate's body, the dark interior).</summary>
-    static readonly Vector2[] StoneLeft = [new(62, 121), new(104, 118), new(104, 322), new(96, 322), new(88, 302), new(78, 252), new(75, 216), new(62, 208)];
+    static readonly Vector2[] StoneLeft = [new(63, 153), new(70, 142), new(80, 130), new(88, 124), new(104, 118), new(104, 322), new(97, 322), new(91, 312), new(87, 300), new(85, 278), new(80, 252), new(76, 225), new(75, 214), new(63, 208)];
     static bool Protected(float x, float y, Vector2[] stoneRight) =>
         (x > 300f && x < 500f && y > 83f && y < 125f) || (x > 126f && x < 674f && y > 112f && y < 340f)
         || SignedDistance(new Vector2(x, y), StoneLeft) > 0f || SignedDistance(new Vector2(x, y), stoneRight) > 0f;
+
+    /// <summary>
+    /// Owner 2026-11-15 ("no grey boxes ... build the frame from one clean half mirrored"): beside the steel the stone pieces get the hand-measured silhouette (<see cref="StoneLeft"/>, soft 1 px edge) instead of the flood's
+    /// guess, so no scene grey stays round them; then the left half (up to the panel's axis, x 400) is mirrored onto the right, pixels and alpha, so the frame, plate, crest and both stone pieces are exact mirror images.
+    /// </summary>
+    static void CleanStoneAndMirror(Image img, float sf, Vector2 org)
+    {
+        int W = img.GetWidth(), H = img.GetHeight();
+        for (int y = 0; y < H; y++)
+            for (int x = 0; x < W; x++)
+            {
+                float px = x / sf + org.X, py = y / sf + org.Y;
+                if (px >= 104f || py < 118f || py > 324f) continue;
+                float d = SignedDistance(new Vector2(px, py), StoneLeft) * sf;   // > 0 inside
+                var p = img.GetPixel(x, y);
+                img.SetPixel(x, y, new Color(p.R, p.G, p.B, Mathf.Clamp(0.5f + d / (1.0f * sf), 0f, 1f) * (d > -1f ? 1f : 0f)));
+            }
+        int axis = (int)MathF.Round((400f - org.X) * sf);
+        // The title plate and the crest (the OPTIONS lettering is not symmetric) stay as they are; everything else is mirrored.
+        int tx0 = (int)((296f - org.X) * sf), tx1 = (int)((504f - org.X) * sf), ty1 = (int)((128f - org.Y) * sf);
+        for (int y = 0; y < H; y++) for (int j = 0; axis + j < W && axis - 1 - j >= 0; j++) { int x = axis + j; if (y < ty1 && x >= tx0 && x < tx1) continue; img.SetPixel(x, y, img.GetPixel(axis - 1 - j, y)); }
+        // The title area's own seam: its left half mirrors onto the right only outside the plate; the plate is cut from the source symmetric enough (its edges are within the box).
+        // Clean edges: the faint haze (alpha under 0.2) goes, and the dark fringe left by the scene's shadow is eaten from the outside in (dark pixels next to the cut-out only; the steel is bright and stops it).
+        for (int y = 0; y < H; y++) for (int x = 0; x < W; x++) { var p = img.GetPixel(x, y); if (p.A < 0.2f) img.SetPixel(x, y, new Color(p.R, p.G, p.B, 0f)); }
+        for (int it = 0; it < 16; it++)
+        {
+            var kill = new System.Collections.Generic.List<(int, int)>();
+            for (int y = 1; y < H - 1; y++) for (int x = 1; x < W - 1; x++)
+                {
+                    var p = img.GetPixel(x, y); if (p.A < 0.5f || Lum(p) > 0.11f) continue;
+                    if (img.GetPixel(x + 1, y).A < 0.5f || img.GetPixel(x - 1, y).A < 0.5f || img.GetPixel(x, y + 1).A < 0.5f || img.GetPixel(x, y - 1).A < 0.5f) kill.Add((x, y));
+                }
+            foreach (var (x, y) in kill) { var p = img.GetPixel(x, y); img.SetPixel(x, y, new Color(p.R, p.G, p.B, 0f)); }
+        }
+        // Opening of the alpha (erode, then dilate, 3 px at 4x): hairlines and crumbs along the edge go, the steel and stone shapes keep their size and their straight, crisp edges.
+        {
+            const int r = 3;
+            var a = new bool[W * H]; for (int y = 0; y < H; y++) for (int x = 0; x < W; x++) a[y * W + x] = img.GetPixel(x, y).A >= 0.5f;
+            bool[] Pass(bool[] src, bool erode)
+            {
+                var tmp = new bool[W * H]; var dst = new bool[W * H];
+                for (int y = 0; y < H; y++) for (int x = 0; x < W; x++) { bool v = erode; for (int k = -r; k <= r; k++) { int xx = Math.Clamp(x + k, 0, W - 1); if (src[y * W + xx] != erode) { v = !erode; break; } } tmp[y * W + x] = v; }
+                for (int y = 0; y < H; y++) for (int x = 0; x < W; x++) { bool v = erode; for (int k = -r; k <= r; k++) { int yy = Math.Clamp(y + k, 0, H - 1); if (tmp[yy * W + x] != erode) { v = !erode; break; } } dst[y * W + x] = v; }
+                return dst;
+            }
+            var opened = Pass(Pass(a, true), false);
+            for (int y = 0; y < H; y++) for (int x = 0; x < W; x++) if (!opened[y * W + x]) { var p = img.GetPixel(x, y); if (p.A > 0f) img.SetPixel(x, y, new Color(p.R, p.G, p.B, 0f)); }
+        }
+    }
 
     static void OverlayAlpha(Image img, float sf, Vector2 org)
     {

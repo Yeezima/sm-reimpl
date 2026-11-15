@@ -471,7 +471,7 @@ public sealed partial class UiSelfTest
         foreach (var b in AllButtons(page).Where(x => x.IsVisibleInTree()))
         {
             float need = UiKit.TextNeed(b);
-            float room = b is UiKit.MenuChoice { IsSteel: true } ? OptionsView.LabelWidth : b is UiKit.MenuChoice ? UiKit.MenuValueColumn : b.Size.X;
+            float room = b is UiKit.MenuChoice { IsSteel: true } c ? (c.LabelColumn > 0f ? c.LabelColumn : OptionsView.LabelWidth) : b is UiKit.MenuChoice ? UiKit.MenuValueColumn : b.Size.X;
             if (need > room + 1f) cut.Add($"{b.Text} needs {need:F0}, has {room:F0}");
         }
         foreach (var l in AllLabels(page).Where(x => x.IsVisibleInTree() && !x.ClipText && x.Name.ToString() == "Value"))

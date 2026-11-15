@@ -345,11 +345,12 @@ public static partial class UiKit
         static StyleBoxTexture? _pillArt;
         static StyleBoxTexture? PillArt() => _pillArt ??= ConceptArt.Patch("pill", new Vector2(40f, 14f), Vector2.Zero);
 
-        Rect2 Pill() => new(_labelWidth, (Size.Y - PillHeight) / 2f, Mathf.Max(40f, Size.X - _labelWidth), PillHeight);
+        Rect2 Pill() => _concept ? ConceptRect() : new(_labelWidth, (Size.Y - PillHeight) / 2f, Mathf.Max(40f, Size.X - _labelWidth), PillHeight);
 
         public override void _Draw()
         {
             if (!_steel) return;
+            if (_concept) { DrawConcept(); return; }
             var pill = Pill();
             bool focus = HasFocus(), lit = (focus || _hover) && !Disabled;
             var c = GetCanvasItem();

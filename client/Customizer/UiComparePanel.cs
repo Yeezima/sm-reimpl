@@ -110,6 +110,8 @@ public static class UiComparePanel
         Measure("FULL", full, full.Count(b => b));
         var lines = new List<string> { $"UICOMPARE {screen} {tag} scale={s:0.0000}", "region | pixels | SSIM | dE mean-colour | dE per-pixel | coverage of polygon" };
         foreach (var r in report) lines.Add($"{r.Name,-24} | {r.N,6} | {r.Ssim:0.000} | {r.DeMean,5:0.00} | {r.DePixel,5:0.00} | {r.Cover * 100,4:0}%");
+        int ri = Array.IndexOf(ua, "--rows");
+        if (ri >= 0 && ri + 1 < ua.Length && System.IO.File.Exists(ua[ri + 1])) ControlRows(System.IO.File.ReadAllLines(ua[ri + 1]), T, O, lines);
         foreach (var l in lines) GD.Print(l);
         System.IO.File.WriteAllLines(System.IO.Path.Combine(outDir, tag + "-metrics.txt"), lines);
         var heat = Image.CreateEmpty(W, H, false, Image.Format.Rgba8); var ours = Image.CreateEmpty(W, H, false, Image.Format.Rgba8);
@@ -126,6 +128,73 @@ public static class UiComparePanel
         return 0;
     }
 
+    /// <summary>
+    /// The concept's row controls, in its screen pixels: a whole control (x, y, w, h) and the segments scored against ours. A segment is anchored to the left end, the right end or the middle of our control (no stretching
+    /// of caps: a wider or narrower control of ours is compared where the concept's art is, end to end); a text box inside a segment (the pill's value) is left out.
+    /// </summary>
+    sealed record Ctl(string Kind, string Segment, float X, float Y, float W, float H, char Anchor, float Cx, float Cy, float Cw, float Ch, (float X0, float X1)? Text = null);
+
+    static readonly Ctl[] ConceptControls =
+    [
+        new("slider", "left cap", 231.5f, 152.5f, 140.5f, 16f, 'L', 231.5f, 152.5f, 20f, 16f), new("slider", "middle", 231.5f, 152.5f, 140.5f, 16f, 'M', 285f, 152.5f, 30f, 16f), new("slider", "knob and right cap", 231.5f, 152.5f, 140.5f, 16f, 'R', 338f, 152.5f, 34f, 16f),
+        new("pill", "left arrow", 250.5f, 176.5f, 116f, 21f, 'L', 250.5f, 176.5f, 30f, 21f), new("pill", "right arrow", 250.5f, 176.5f, 116f, 21f, 'R', 336.5f, 176.5f, 30f, 21f), new("pill", "top and bottom rim", 250.5f, 176.5f, 116f, 21f, 'M', 290f, 176.5f, 36f, 4f),
+        new("switch0", "OFF switch", 565f, 143f, 76f, 23f, 'L', 565f, 143f, 76f, 23f), new("switch1", "ON switch", 267f, 235f, 79f, 24f, 'L', 267f, 235f, 79f, 24f),
+    ];
+
+    /// <summary>The row controls (--rows &lt;dump from --dump-rows&gt;): the first of our controls of each kind, compared segment by segment with the concept's own.</summary>
+    static void ControlRows(string[] dump, float[] T, float[] O, List<string> lines)
+    {
+        lines.Add("row control segment (ours -> concept) | pixels | SSIM | dE mean-colour | dE per-pixel");
+        int fullW = W, fullH = H;
+        foreach (var c in ConceptControls)
+        {
+            var hit = dump.Select(l => l.Split('|')).FirstOrDefault(p => p[0] == c.Kind);
+            string name = $"{c.Kind} {c.Segment}";
+            if (hit is null) { lines.Add($"{name,-34} | not on this page"); continue; }
+            float F(int i) => float.Parse(hit[i], System.Globalization.CultureInfo.InvariantCulture);
+            float ox = F(2), oy = F(3), ow = F(4);
+            int cx0 = (int)MathF.Round(c.Cx), cy0 = (int)MathF.Round(c.Cy), cw = (int)MathF.Round(c.Cw), ch = (int)MathF.Round(c.Ch);
+            // The same offset inside the control for ours: from the left end, the right end or the middle (sub-pixel shifts keep the concept's art on ours).
+            float dx = c.Anchor switch { 'L' => ox + (c.Cx - c.X), 'R' => ox + ow - (c.X + c.W - c.Cx), _ => ox + ow / 2f + (c.Cx - (c.X + c.W / 2f)) };
+            float dy = oy + (c.Cy - c.Y);
+            // Registration: the dump's rectangle and the drawn pixels differ by a fraction of a pixel; the shift (within 1.5 px) that scores best is used and reported.
+            double bestSsim = double.NegativeInfinity, bestDe = 0, bestPx = 0, bestMean = 0; float bsx = 0, bsy = 0; int bn = 0;
+            for (float jy = -1.5f; jy <= 1.5f; jy += 0.5f)
+                for (float jx = -1.5f; jx <= 1.5f; jx += 0.5f)
+                {
+                    var t = new float[cw * ch * 3]; var o = new float[cw * ch * 3]; var mask = new bool[cw * ch];
+                    float shx = dx - cx0 + jx, shy = dy - cy0 + jy;
+                    for (int y = 0; y < ch; y++) for (int x = 0; x < cw; x++)
+                        {
+                            int gx = cx0 + x, gy = cy0 + y;
+                            for (int k = 0; k < 3; k++) t[(y * cw + x) * 3 + k] = T[(gy * fullW + gx) * 3 + k];
+                            float sx = cx0 + x + shx, sy = cy0 + y + shy;
+                            int ax = (int)MathF.Floor(sx), ay = (int)MathF.Floor(sy); float fx = sx - ax, fy = sy - ay;
+                            for (int k = 0; k < 3; k++)
+                            {
+                                float G(int px, int py) => O[(Math.Clamp(py, 0, fullH - 1) * fullW + Math.Clamp(px, 0, fullW - 1)) * 3 + k];
+                                o[(y * cw + x) * 3 + k] = (G(ax, ay) * (1 - fx) + G(ax + 1, ay) * fx) * (1 - fy) + (G(ax, ay + 1) * (1 - fx) + G(ax + 1, ay + 1) * fx) * fy;
+                            }
+                            mask[y * cw + x] = !(c.Text is { } tc && gx >= tc.X0 && gx < tc.X1);
+                        }
+                    W = cw; H = ch;
+                    var lt = new float[cw * ch]; var lo = new float[cw * ch];
+                    for (int i = 0; i < lt.Length; i++) { lt[i] = t[i * 3] * 0.2126f + t[i * 3 + 1] * 0.7152f + t[i * 3 + 2] * 0.0722f; lo[i] = o[i * 3] * 0.2126f + o[i * 3 + 1] * 0.7152f + o[i * 3 + 2] * 0.0722f; }
+                    var sm = SsimMap(lt, lo);
+                    W = fullW; H = fullH;
+                    int n = 0; double ss = 0, dep = 0; double[] mt = new double[3], mo = new double[3];
+                    for (int i = 0; i < mask.Length; i++)
+                    {
+                        if (!mask[i]) continue; n++; ss += sm[i];
+                        for (int k = 0; k < 3; k++) { mt[k] += t[i * 3 + k]; mo[k] += o[i * 3 + k]; }
+                        dep += DeltaE(Lab(t[i * 3], t[i * 3 + 1], t[i * 3 + 2]), Lab(o[i * 3], o[i * 3 + 1], o[i * 3 + 2]));
+                    }
+                    if (ss / n > bestSsim) { bestSsim = ss / n; bn = n; bestPx = dep / n; bestMean = DeltaE(Lab((float)(mt[0] / n), (float)(mt[1] / n), (float)(mt[2] / n)), Lab((float)(mo[0] / n), (float)(mo[1] / n), (float)(mo[2] / n))); bsx = jx; bsy = jy; }
+                }
+            lines.Add($"{name + " (" + hit[1] + ")",-34} | {bn,6} | {bestSsim:0.000} | {bestMean,5:0.00} | {bestPx,5:0.00} | shift {bsx:0.0},{bsy:0.0}");
+        }
+    }
+
     static void OptionsRegions(List<(string, bool[], bool)> r)
     {
         var interior = Rect(118, 150, 684, 300);
@@ -138,11 +207,13 @@ public static class UiComparePanel
         r.Add(("stone and eagle, left", Rect(60, 112, 100, 326), true));
         r.Add(("stone and eagle, right", Rect(700, 112, 742, 326), true));
         string[] names = ["tab GRAPHICS", "tab AUDIO (SOUND)", "tab CONTROLS", "tab INTERFACE (gold)"];
-        for (int i = 0; i < 4; i++) r.Add((names[i], Minus(Rect(tabs[i].Position.X + 1, tabs[i].Position.Y + 1, tabs[i].End.X - 1, tabs[i].End.Y - 1), i == 1 ? Rect(320, 130, 362, 149) : Rect(0, 0, 0, 0)), false));
-        r.Add(("APPLY (gold)", Rect(264, 304, 398, 328), false));
-        r.Add(("REVERT", Rect(416, 304, 536, 328), false));
-        r.Add(("BACK", Rect(723, 431, 775, 446), false));
-        r.Add(("interior bands", Or(Rect(130, 154, 670, 160), Rect(130, 296, 670, 302)), true));
+        // Owner 2026-11-15 (text uniformity): every label is live lettering of one face now, so the concept's own lettering is masked out; only the plates are scored.
+        var tabLabels = new[] { Rect(180, 129, 246, 149), Rect(316, 129, 364, 149), Rect(425, 129, 498, 149), Rect(552, 129, 632, 149) };
+        for (int i = 0; i < 4; i++) r.Add((names[i], Minus(Rect(tabs[i].Position.X + 1, tabs[i].Position.Y + 1, tabs[i].End.X - 1, tabs[i].End.Y - 1), tabLabels[i]), false));
+        r.Add(("APPLY (gold)", Minus(Rect(264, 304, 398, 328), Rect(305, 306, 362, 326)), false));
+        r.Add(("REVERT", Minus(Rect(416, 304, 536, 328), Rect(446, 306, 506, 326)), false));
+        r.Add(("BACK", Minus(Rect(723, 431, 775, 446), Rect(729, 432, 770, 445)), false));
+        r.Add(("interior bands", Or(Minus(Rect(130, 154, 670, 160), Rect(0, 0, 0, 0)), Minus(Rect(130, 296, 670, 302), Rect(250, 290, 550, 305))), true));
     }
 
     static float[] SsimMap(float[] a, float[] b)
