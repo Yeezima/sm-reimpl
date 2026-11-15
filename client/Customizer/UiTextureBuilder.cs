@@ -16,7 +16,7 @@ public static class UiTextureBuilder
     /// <summary>Output pixels per concept pixel: the concept's panels are 780 x 440 for a 1920 x 1080 screen (2.46x); the frames are drawn about 1.74x, so the pieces are made at that scale and drawn 1:1.</summary>
     public const float S = 1.74f;
 
-    public static int Run(string? conceptPath, string? outDir)
+    public static int Run(string? conceptPath, string? outDir, string? cropPath = null)
     {
         if (string.IsNullOrEmpty(conceptPath) || !System.IO.File.Exists(conceptPath)) { GD.PrintErr("build-ui-textures: give the concept image: --build-ui-textures <concept-4panel.jpg>"); return 2; }
         var src = Image.LoadFromFile(conceptPath);
@@ -31,6 +31,17 @@ public static class UiTextureBuilder
         // Options (panel 04): top-right corner 66 x 53, top strip, right strip; ring thickness 17 (sides), 14 (top and bottom).
         Save("frame-options", Ring(src, new Rect2I(1436, 582, 66, 53), new Rect2I(1380, 582, 40, 53), new Rect2I(1436, 670, 66, 40), 15, 14, 24, fromTopRight: true));
 
+        // ---- the main menu's wall, frame and wordmark from the owner's sharper crop of panel 01 (522 x 606), when given ----
+        if (!string.IsNullOrEmpty(cropPath) && System.IO.File.Exists(cropPath))
+        {
+            var crop = Image.LoadFromFile(cropPath);
+            crop.Convert(Image.Format.Rgba8);
+            Save("frame-wall", WallFrame(crop));
+            Save("wall-main", Scaled(Cut(crop, new Rect2I(0, 300, 24, 250)), 1.25f));
+            Save("wall-cap", Scaled(Cut(crop, new Rect2I(0, 0, 76, 112)), 1.35f));
+            Save("wordmark", Scaled(WordmarkMatte(Cut(crop, new Rect2I(30, 122, 478, 94))), 1.2f));
+        }
+
         // ---- buttons: the plate with its label removed ----
         Save("button-dark", Plate(src, new Rect2I(96, 266, 239, 27), new Rect2I(158, 269, 120, 19), new Rect2I(116, 269, 40, 19), 8));
         Save("button-gold", Plate(src, new Rect2I(96, 234, 239, 29), new Rect2I(154, 238, 126, 21), new Rect2I(112, 238, 40, 21), 8));
@@ -42,10 +53,115 @@ public static class UiTextureBuilder
         // ---- ornaments ----
         Save("crest", Scaled(ClearBottomSides(FloodKey(Cut(src, new Rect2I(1127, 537, 146, 31)), 26f), 22, 24), S * 1.15f));
         Save("title-plate", Scaled(FloodKey(Cut(src, new Rect2I(1090, 566, 220, 37)), 26f), S));
-        Save("wordmark", Scaled(SaturationKey(Cut(src, new Rect2I(45, 110, 350, 80))), S * 1.2f));
-        Save("stone-main", Scaled(Cut(src, new Rect2I(10, 240, 37, 100)), S));
+        if (string.IsNullOrEmpty(cropPath)) Save("wordmark", Scaled(SaturationKey(Cut(src, new Rect2I(45, 110, 350, 80))), S * 1.2f));
+        if (string.IsNullOrEmpty(cropPath)) Save("stone-main", Scaled(Cut(src, new Rect2I(10, 240, 37, 100)), S));
         Save("stone-options", Scaled(FloodKey(Cut(src, new Rect2I(1496, 600, 42, 150)), 22f, 41, 75), S));
         return 0;
+    }
+
+    // ---- the wall and frame of the owner's crop ----
+
+    /// <summary>Crop pixels per output pixel for the wall frame (the crop's frame is 470 wide; ours is drawn about 590).</summary>
+    public const float WallScale = 1.2f;
+    /// <summary>The cut: x 0..495, y 236..581 of the crop. The hole (the amber recess) and the outside of the right-hand outline are transparent; the stone at the left stays opaque, so the frame is mounted on the wall.</summary>
+    public static readonly Rect2I WallFrameRect = new(0, 236, 495, 345), WallHole = new(68, 275, 394, 228);
+
+    static Image WallFrame(Image crop)
+    {
+        var img = Cut(crop, WallFrameRect);
+        int w = img.GetWidth(), h = img.GetHeight();
+        for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++)
+            {
+                var p = img.GetPixel(x, y);
+                float a = 1f;
+                int cx = x, cy = y + WallFrameRect.Position.Y;
+                bool inHole = cx >= WallHole.Position.X && cx < WallHole.End.X && cy >= WallHole.Position.Y && cy < WallHole.End.Y;
+                if (inHole) a = 0f;
+                // Outside the frame's top and bottom edge (right of the wall) and its right edge: the scene, transparent.
+                if (x > 70 && y < 6) a = 0f;
+                if (x > 70 && y > h - 7) a = 0f;
+                if (x > w - 4) a = 0f;
+                // Chamfers of the two right-hand corners.
+                float dTR = (w - x) + y - 26f, dBR = (w - x) + (h - y) - 26f;
+                if (dTR < 0f) a = 0f; if (dBR < 0f) a = 0f;
+                // Feather the hole's edge.
+                if (!inHole)
+                {
+                    int dx = Math.Max(Math.Max(WallHole.Position.X - cx, cx - (WallHole.End.X - 1)), 0), dy = Math.Max(Math.Max(WallHole.Position.Y - cy, cy - (WallHole.End.Y - 1)), 0);
+                    if (dx == 0 && dy == 0) a = 0f;
+                    else if (Math.Max(dx, dy) <= 1) a = Math.Min(a, 0.55f);
+                }
+                p.A = a; img.SetPixel(x, y, p);
+            }
+        return Scaled(img, WallScale);
+    }
+
+    /// <summary>
+    /// The wordmark's alpha matte from the owner's crop: saturation key, small holes closed (dilate then erode), the dark outline kept (dark pixels within 3 px of lettering), then the alpha
+    /// softened with a 3 x 3 blur and eroded slightly with a contrast curve, so the JPEG's rough edge is a clean one.
+    /// </summary>
+    static Image WordmarkMatte(Image img)
+    {
+        int w = img.GetWidth(), h = img.GetHeight();
+        var a0 = new float[w * h];
+        for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++)
+            {
+                var p = img.GetPixel(x, y);
+                float max = Mathf.Max(p.R, Mathf.Max(p.G, p.B)), min = Mathf.Min(p.R, Mathf.Min(p.G, p.B));
+                float sat = max <= 0.001f ? 0f : (max - min) / max;
+                a0[y * w + x] = p.B >= p.R + 0.05f ? Mathf.Clamp((sat - 0.2f) / 0.2f, 0f, 1f) : 0f;
+            }
+        float[] Morph(float[] src, bool dilate)
+        {
+            var o = new float[src.Length];
+            for (int y = 0; y < h; y++)
+                for (int x = 0; x < w; x++)
+                {
+                    float v = dilate ? 0f : 1f;
+                    for (int dy = -1; dy <= 1; dy++)
+                        for (int dx = -1; dx <= 1; dx++)
+                        {
+                            int nx = Mathf.Clamp(x + dx, 0, w - 1), ny = Mathf.Clamp(y + dy, 0, h - 1);
+                            v = dilate ? Mathf.Max(v, src[ny * w + nx]) : Mathf.Min(v, src[ny * w + nx]);
+                        }
+                    o[y * w + x] = v;
+                }
+            return o;
+        }
+        var closed = Morph(Morph(a0, true), false);
+        var a1 = new float[w * h];
+        for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++)
+            {
+                var p = img.GetPixel(x, y);
+                float a = closed[y * w + x], max = Mathf.Max(p.R, Mathf.Max(p.G, p.B));
+                if (a < 1f && max < 0.3f)
+                    for (int dy = -2; dy <= 2 && a < 1f; dy++)
+                        for (int dx = -2; dx <= 2; dx++)
+                        {
+                            int nx = x + dx, ny = y + dy;
+                            if (nx >= 0 && ny >= 0 && nx < w && ny < h && closed[ny * w + nx] > 0.9f) { a = 1f; break; }
+                        }
+                a1[y * w + x] = a;
+            }
+        var blurred = new float[w * h];
+        for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++)
+            {
+                float sum = 0f;
+                for (int dy = -1; dy <= 1; dy++) for (int dx = -1; dx <= 1; dx++) sum += a1[Mathf.Clamp(y + dy, 0, h - 1) * w + Mathf.Clamp(x + dx, 0, w - 1)];
+                blurred[y * w + x] = sum / 9f;
+            }
+        for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++)
+            {
+                var p = img.GetPixel(x, y);
+                p.A = Mathf.SmoothStep(0.3f, 0.7f, blurred[y * w + x]);
+                img.SetPixel(x, y, p);
+            }
+        return img;
     }
 
     // ---- primitives ----

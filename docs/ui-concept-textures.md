@@ -35,3 +35,16 @@ and mirrored into a nine-patch with a transparent hole; labels are removed by ti
 
 Known limits (the concept is 780 x 440 per panel, JPEG): the pieces are soft at 4K, the frame's top, bottom and side strips are single samples stretched along the edge, and the wordmark's edge is
 slightly rough. Not yet cut from the concept: the slider track, fill and knob, the OFF / ON switch (they stay code-drawn in the steel palette), the HUD frames and the Armoury cards (phase 2b).
+
+## Pass 2b: the main menu from the owner's sharper crop (2026-11-15)
+
+Rebuild with `godot.cmd -- --build-ui-textures <concept-4panel.jpg> --owner-crop <owner-ref-main-menu-crop.png>` (the crop is the owner's 522 x 606 cut of panel 01, outside the repository). With the crop the builder also makes:
+
+| Piece | Cut from the crop (x, y, w, h) | Use |
+|---|---|---|
+| `frame-wall` | 0,236,495,345; the amber recess (68,275,394x228) transparent, the right-hand outside transparent, the stone at the left kept opaque | the main menu's frame mounted on the wall, with the nameplate inset in its thick bottom bar (unique steel on every side, scaled 1.2, no mirrored corner) |
+| `wall-main` | 0,300,24,250 | the stone column down the left edge (tiled, every second tile upside down) |
+| `wall-cap` | 0,0,76,112 | the stone block at the top left |
+| `wordmark` | 30,122,478x94, matte: saturation key, holes closed, dark outline kept, alpha softened and eroded | SM-REIMPL |
+
+Without `--owner-crop` the 4-panel pieces of the first pass are made as before (`frame-main`, `stone-main`, `wordmark`).

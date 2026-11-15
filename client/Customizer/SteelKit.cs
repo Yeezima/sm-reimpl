@@ -51,6 +51,8 @@ public static class ConceptArt
 
     /// <summary>The frame rings' corner sizes (texture pixels) and their ring thickness (UI pixels): the main menu's (panel 01) and Options' (panel 04), as UiTextureBuilder makes them.</summary>
     public static readonly Vector2 MainCorner = new(110f, 104f), OptionsCorner = new(115f, 92f);
+    /// <summary>The wall frame (the owner's crop of panel 01, frame-wall.png, 594 x 414): ring thickness (left, top, right, bottom) and nine-patch margins (left, top, right, bottom), texture pixels; the older ring below is the fallback.</summary>
+    public static readonly Vector4 WallRing = new(82f, 47f, 40f, 94f), WallMargins = new(170f, 110f, 150f, 140f);
     public static readonly Vector4 MainRing = new(47f, 42f, 47f, 42f), OptionsRing = new(26f, 24f, 26f, 24f);   // left, top, right, bottom
     public static readonly Color Warm = new(1.32f, 1.16f, 0.9f);
 }
@@ -232,7 +234,9 @@ public static partial class Steel
         /// <summary>The painted frame (the concept's ring, a nine-patch with a transparent hole) over the recess: amber-lit for the main menu, dark for Options.</summary>
         bool DrawPaintedFrame(Rid c, Rect2 r, bool amber, Texture2D art)
         {
-            var ring = amber ? ConceptArt.MainRing : ConceptArt.OptionsRing;
+            bool wall = amber && ConceptArt.Get("frame-wall") is not null;
+            if (wall) art = ConceptArt.Get("frame-wall")!;
+            var ring = wall ? ConceptArt.WallRing : amber ? ConceptArt.MainRing : ConceptArt.OptionsRing;
             var corner = amber ? ConceptArt.MainCorner : ConceptArt.OptionsCorner;
             var rc = new Rect2(r.Position.X + ring.X - 2f, r.Position.Y + ring.Y - 2f, r.Size.X - ring.X - ring.Z + 4f, r.Size.Y - ring.Y - ring.W + 4f);
             if (rc.Size.X > 8f && rc.Size.Y > 8f)
@@ -249,7 +253,9 @@ public static partial class Steel
             }
             _ring ??= new StyleBoxTexture
             {
-                Texture = art, DrawCenter = false, TextureMarginLeft = corner.X, TextureMarginRight = corner.X, TextureMarginTop = corner.Y, TextureMarginBottom = corner.Y,
+                Texture = art, DrawCenter = false,
+                TextureMarginLeft = wall ? ConceptArt.WallMargins.X : corner.X, TextureMarginRight = wall ? ConceptArt.WallMargins.Z : corner.X,
+                TextureMarginTop = wall ? ConceptArt.WallMargins.Y : corner.Y, TextureMarginBottom = wall ? ConceptArt.WallMargins.W : corner.Y,
                 AxisStretchHorizontal = StyleBoxTexture.AxisStretchMode.Stretch, AxisStretchVertical = StyleBoxTexture.AxisStretchMode.Stretch,
             };
             _ring.Draw(c, r);
@@ -602,8 +608,13 @@ public static partial class UiKit
             {
                 // The painted stone, tiled down the pillar at its own pixel size, mirrored for a left-hand pillar.
                 float k = Mathf.Max(1f, Size.X / tile.GetWidth()), tw = tile.GetWidth() * k, th = tile.GetHeight() * k;
-                for (float ty = 0f; ty < Size.Y; ty += th)
-                    DrawTextureRect(tile, _flip ? new Rect2(tw, ty, -tw, th) : new Rect2(0f, ty, tw, th), false);
+                int n = 0;
+                for (float ty = 0f; ty < Size.Y; ty += th, n++)
+                {
+                    // Every second tile upside down, so the courses of stone do not repeat in step.
+                    float y0 = n % 2 == 1 ? ty + th : ty, hh = n % 2 == 1 ? -th : th;
+                    DrawTextureRect(tile, _flip ? new Rect2(tw, y0, -tw, hh) : new Rect2(0f, y0, tw, hh), false);
+                }
                 return;
             }
             var rng = new Random(_seed);
