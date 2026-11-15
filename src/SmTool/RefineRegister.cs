@@ -259,7 +259,7 @@ public static class RefineRules
     static readonly Regex Dash = Rx.New(@"^[\s—–\-/.]*$|^n/?a$");
 
     // Engineering subjects: wire formats, budgets, uploads, caches, old clients. Decided by the row's subject (its name), not its source alone.
-    static readonly Regex EngineeringSubject = Rx.New(@"^(protocol \d+\b|map hash\b)|\b(wire|budgets?|uploads?|blob|bytes?|appearance code|model key|caches?|hash|handshake|packets?|blob chunks?|versions|old clients?|prefetch|loading)\b");
+    static readonly Regex EngineeringSubject = Rx.New(@"^(protocol( \d+\b|\s*$)|map hash\b|server log\s*$)|\b(wire|budgets?|uploads?|blob|bytes?|appearance code|model key|caches?|hash|handshake|packets?|blob chunks?|versions|old clients?|prefetch|loading)\b");
 
     public static string Plain(string s) => s.Replace("**", "").Replace("’", "'").Replace("`", "");
 
@@ -294,6 +294,9 @@ public static class RefineRules
     }
 
     public static bool IsTestAid(string kind) => Rx.Is(Plain(kind), @"\btest aid\b");
+
+    /// <summary>A row whose Kind cell starts with "superseded": history of behaviour a later row replaced or removed (the replacement carries the live tag). Listed in the appendix only.</summary>
+    public static bool IsSuperseded(string kind) => Rx.Is(Plain(kind).Trim(), @"^superseded\b");
 
     public static bool LooksNonGameplayName(string name) => NonGameplayName.IsMatch(Plain(name));
 
@@ -562,6 +565,11 @@ public static class RefineRegister
                 if (RefineRules.ConfidenceLevel(Cell(roles.Confidence)) != "high")
                     foreach (var sr in leadInReasons) if (!reasons.Contains(sr)) reasons.Add(sr);
                 bool testAid = RefineRules.IsTestAid(Cell(roles.Kind));
+                if (RefineRules.IsSuperseded(Cell(roles.Kind)))
+                {
+                    model.Appendix.Add(Entry(id, table, roles, row, RefineAreas.Appendix, ["superseded (history)"]));
+                    continue;
+                }
                 if (testAid || area == RefineAreas.Appendix || RefineRules.LooksNonGameplayName(name) || RefineRules.IsEngineering(name, Cell(roles.Source), Cell(roles.Kind)))
                 {
                     model.Appendix.Add(Entry(id, table, roles, row, RefineAreas.Appendix, reasons.Count == 0 ? ["test aid"] : reasons));
@@ -794,7 +802,7 @@ public static class RefineRegister
 
         // Appendix
         sb.AppendLine("## Appendix: not gameplay").AppendLine();
-        sb.AppendLine("Test aids, probes, demo and capture tooling, and engineering decisions (protocol, wire formats, budgets, uploads, caches, load order). Listed so nothing is lost; no SM1 comparison needed.").AppendLine();
+        sb.AppendLine("Test aids, probes, demo and capture tooling, engineering decisions (protocol, wire formats, budgets, uploads, caches, load order) and superseded rows (kind `superseded`: history of behaviour a later row replaced or removed). Listed so nothing is lost; no SM1 comparison needed.").AppendLine();
         if (model.Appendix.Count == 0) sb.AppendLine("None.").AppendLine();
         else
         {

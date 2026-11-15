@@ -32,7 +32,7 @@ Items in the [Deliberate changes](#deliberate-changes-do-not-report-these-as-bug
 - `R-9F8281FF` **Time to kill with the bolter.** About 14 body hits, about 1.7 s of continuous fire, from full shield and health (derived, unverified). Compare with SM1: time how long a bolter takes to kill a Tactical at medium range.
 - `R-210FBF3B` **How shield and health combine.** A hit wears the shield first, then spills into health (interpretation). Compare with SM1: when does the shield break, and does the overflow feel right?
 - `R-14D25338` **Damage fall-off with range.** Full damage, then linear down to the last point (inferred). Compare with SM1: how much weaker is a bolter at long range?
-- `R-8813BF01` **Weapon switch time.** 0.6 s (placeholder). Compare with SM1: time a switch from pistol to primary.
+- `R-8813BF01` **Weapon switch time.** the original's clips take 0.467 s (rifle class) and 0.667 s (bolt pistol), shot not before the end (data); our build uses the owner's 0.1 s quickdraw (his decision, 2026-11-06). Compare with SM1: time a switch from pistol to primary.
 - `R-04EFEAEF` **Raise delay before the first shot.** Rifle 0.2 s, pistol 0.167 s (data, owner's rule). Compare with SM1: after sprinting, how long until the first shot comes out?
 - `R-C64B6FB4` **How long the weapon stays up after a shot.** 10 s, the owner's rough estimate, unverified. This one needs a stopwatch in SM1: fire once, stop, and see when the weapon lowers.
 - `R-C0955EA4` **Heavy bolter heat.** +3 per shot, overheat at 100, cools 25 per second after 0.3 s. Compare with SM1: how long can you fire before overheating, and how long is the lockout?

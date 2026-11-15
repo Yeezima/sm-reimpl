@@ -13,7 +13,7 @@ Method: started from the spec rows (and their refine-register rows) of kind esti
 
 | Outcome | Rows | Which |
 |---|---:|---|
-| Settled (left the refine register) | 1 | Evade direction (`R-3D3F6639`) |
+| Settled (left the refine register) | 1 | Evade direction (`R-3D3F6639`; amended by the refine-register sweep, 2026-11-16: Left and Right are medium because the angle's sign is read from the graph's state names only, so the row is back in the register) |
 | Narrowed (data added, value or reading sharper, still tagged) | 11 | Control returns, Switch, Next evade, Weapon switch time, Ready hold, Vent duration, Charge lock and steering, Rush motion, Contact, Wall, Homing |
 | Examined, not settled (no change to the row text) | 9 | section 4 |
 | New facts recorded in docs/discovery.md, no row | 4 | compiled Lua layout; `directional_targeting_ext` extra fields; plasma heat comparison; the swap clips' tags |
@@ -28,7 +28,8 @@ The refine register went from 2442 to 2441 tagged rows (`smtool refine-register 
 - Old: the stick's nearest axis, `|y| >= |x|` forward or back, so exact diagonals go forward or back; "interpretation (sectors ours)", low.
 - Data: every evade state machine in `SM_Base_MP` (the rifle roll, the melee-weapon roll, the pistol's heavy and jump-pack evades) starts in a state chosen by `FLT_LStick_Angle_Char`: Forward in [-45, 45], Back in [135, -135] through 180, Left in [-135, -45], Right in [45, 135], tried in that order (graph-dump "start in ... if" lines of the "Behavior00", "Chainsword Evade", "Chainsword Evade00" and "Chainsword Evade01" choosers).
 - New: unchanged rule, now data: 90 degree sectors, the inclusive boundaries go to Forward (45 and -45) and Back (135 and -135). `Evade.DirectionOf` already behaves so (checked by reading the code against the wedges).
-- Confidence: high for the sectors. Left ours: the 0.1 dead zone for "no stick" (the graph's angle variable is undefined then). The 8-direction diagonals (spec "Diagonal rolls (M22)", owner's recollection) have **no** clip or wedge in the data (only the four sets); forward diagonals are plausible through the forward roll's `Align To Nav Direction` modifier (field 180) and stay as they are; the back-diagonal turned clips have no data basis.
+- Sign convention: the sign of `FLT_LStick_Angle_Char` (negative = left) is read from the graph's own state names (the state named Left carries the negative wedge), not from the code that fills the variable, and the stick angle was not otherwise measured; so the Forward/Back sectors are high and the Left/Right assignment is medium (a mirrored sign would swap only left and right).
+- Confidence: high for the Forward and Back sectors, medium for Left and Right (sign convention above). Left ours: the 0.1 dead zone for "no stick" (the graph's angle variable is undefined then). The 8-direction diagonals (spec "Diagonal rolls (M22)", owner's recollection) have **no** clip or wedge in the data (only the four sets); forward diagonals are plausible through the forward roll's `Align To Nav Direction` modifier (field 180) and stay as they are; the back-diagonal turned clips have no data basis.
 
 ### 2.2 Narrowed
 

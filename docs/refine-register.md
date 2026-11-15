@@ -28,16 +28,16 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3329 spec table rows: **2441 tagged**, 620 not tagged (read from data with high confidence), 268 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 738 rows of the changes document.
+Scanned 3329 spec table rows: **2433 tagged**, 616 not tagged (read from data with high confidence), 280 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 738 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
-| Movement (critical) | 418 | 355 | 353 | 119 | 12 |
+| Movement (critical) | 416 | 353 | 353 | 117 | 12 |
 | Combat core (critical) | 22 | 12 | 20 | 15 | 9 |
-| Weapons (critical) | 121 | 73 | 106 | 54 | 3 |
-| Melee (critical) | 159 | 138 | 115 | 56 | 5 |
+| Weapons (critical) | 119 | 73 | 106 | 52 | 3 |
+| Melee (critical) | 158 | 137 | 114 | 56 | 5 |
 | Jump pack (critical) | 85 | 77 | 69 | 19 | 0 |
-| Charge (critical) | 61 | 51 | 49 | 25 | 0 |
+| Charge (critical) | 59 | 49 | 48 | 24 | 0 |
 | Reactions (critical) | 25 | 22 | 23 | 12 | 0 |
 | Camera (critical) | 55 | 53 | 44 | 22 | 0 |
 | HUD and hit feedback (critical) | 73 | 68 | 53 | 11 | 0 |
@@ -50,25 +50,25 @@ Scanned 3329 spec table rows: **2441 tagged**, 620 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 25 | 14 | 14 | 13 | 7 |
-| Core simulation (provisional values) | 748 | 703 | 533 | 188 | 1 |
+| Core simulation (provisional values) | 747 | 702 | 533 | 188 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 249 | 238 | 134 | 68 | 0 |
-| **All areas** | **2441** | 2155 | 1808 | 743 | 38 |
+| **All areas** | **2433** | 2149 | 1806 | 738 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1426 |
-| confidence: low | 863 |
-| confidence: medium | 817 |
-| notes: ours | 416 |
-| kind: interpretation | 387 |
+| kind: ours | 1425 |
+| confidence: low | 860 |
+| confidence: medium | 818 |
+| notes: ours | 411 |
+| kind: interpretation | 385 |
 | notes: estimate | 203 |
-| kind: estimate | 172 |
+| kind: estimate | 171 |
 | confidence: none (low) | 128 |
 | kind: provisional | 103 |
-| kind: user's knowledge | 56 |
+| kind: user's knowledge | 53 |
 | kind: choice | 42 |
 | notes: provisional | 41 |
 | section: provisional | 38 |
@@ -91,7 +91,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 ## Part A: gameplay areas, critical first
 
-### Movement (gameplay-critical) (418)
+### Movement (gameplay-critical) (416)
 
 *Spec section: Extracted parameters*
 
@@ -130,7 +130,6 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-275C2134` | "Moderately more" | the True Grit bolter's DPS 1.25 × the bolt pistol's (ratio) | kind: ours; confidence: low | ours (the owner's words, made a number) | "Moderately more": compare with SM1 by feel or video. Ours: the True Grit bolter's DPS 1.25 × the bolt pistol's. | ☐ |
 | `R-4FD8E671` | DPS measure | body hits at 15 m ("medium range"), against a full marine (shield then health); damage = the smallest (rounded up to 0.1) that brings both burst and sustained to at least the target, so the binding one lands on it (bolter: sustained; True Grit: sustained) and… (m, damage/s) | kind: ours; confidence: low | ours | DPS measure: compare with SM1 by feel or video. Ours: body hits at 15 m ("medium range"), against a full marine (shield… | ☐ |
 | `R-1011230A` | Perk variants | each perk variant (Kraken Bolts: 0.155 s, shield ×0.8, piercing) is measured on its own against the same target (the default bolt pistol's DPS × the rule's ratio) and gets the smallest damage that meets it; a variant already at its target keeps the data's.… (damage) | kind: ours; confidence: low | review, 2026-10-28 | Perk variants: compare with SM1 by feel or video. Ours: each perk variant (Kraken Bolts: 0.155 s, shield ×0.8, piercing) is… | ☐ |
-| `R-ABCCA53F` | Protocol | unchanged (27): damage is server-side; the config hash changes (weapon damage is hashed), so mixed builds refuse each other | notes: ours | ours | Protocol: compare with SM1 by feel or video. Ours: unchanged (27): damage is server-side; the config hash changes… | ☐ |
 
 *Spec section: Chaos weapons follow their loyalist twins (owner; weapons task A; used by the simulation and the client; no protocol change)*
 
@@ -158,6 +157,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-43FF0AB5` | Melee (`BRANCH_Melee_Combo`) | evade 0.8 s; heavy 0.6333 s (back 0.7) (s) | kind: interpretation; confidence: low | branch tag | Melee (BRANCH_Melee_Combo): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: evade 0.8 s; heavy 0.6333 s (back 0.7). | ☐ |
 | `R-F6CCFF23` | Next evade (`BRANCH_Evade`) | evade 1.1667 s (only at the end); heavy forward 0.6767 s, others the end (s) | confidence: medium | branch tag; `Bolter Evade --on BTN_Nav_Evade branch BRANCH_Evade--> Bolter Evade` (evidence-p0) | Next evade (BRANCH_Evade): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: evade 1.1667 s (only at the end); heavy forward 0.6767 s, others the… | ☐ |
 | `R-0D62E699` | Spacing | `min_time_between_activations` 0.8 s from one press to the next (24 ticks; the rules and the timing basis: section "Evade cooldowns"), on top of `NextAt`: a roll cancelled at 0.667 s allows the next at 0.8 s (s) | kind: interpretation; confidence: medium | `special_nav_ability` | Spacing: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: min_time_between_activations 0.8 s from one press to the next (24… | ☐ |
+| `R-3D3F6639` | Direction | the stick at the press, in the view's frame: within 0.1 (ours) forward; else the nearest axis (\|y\| ≥ \|x\|: forward or back, so exact diagonals go forward or back; else left or right); the four clips only (single clips, no blends) | confidence: medium | `SM_Base_MP`'s evade state choosers (rifle roll, melee-weapon roll, the pistol's heavy and jump-pack evades alike): start in Forward if `FLT_LStick_Angle_Char`… | Direction: compare with SM1 by feel or video. Ours: the stick at the press, in the view's frame: within 0.1 (ours)… | ☐ |
 | `R-FE9539C0` | Diagonal rolls (M22) | the roll (Tactical, Chaos Tactical) takes 8 directions: 45° sectors centred on the axes and diagonals, so two movement keys roll diagonally (W+D forward-right, S+D back-right, …); dead zone forward as before; the hop (Devastator, Havoc) takes the same 8… | kind: interpretation; confidence: low; notes: ours; notes: user's knowledge | diagonals: user's knowledge of the original ("hold D and S and roll south-east") and, for the hop, the owner recollection of 2026-10-31 (same freedom as the… | Diagonal rolls: compare with SM1 by feel or video. Ours: the roll (Tactical, Chaos Tactical) takes 8 directions: 45° sectors… | ☐ |
 | `R-58C14CAA` | Facing | the body keeps the view's yaw at the press for the whole roll; a forward roll with the stick turns the body to the stick's direction first (the forward sequencer's `Align To Nav Direction` modifier, 0–0.1 of the clip, 180), then rolls along it; side and back… (rad) | kind: interpretation; confidence: low | modifier on the evade forward sequencer only (not the heavy one) | Facing: compare with SM1 by feel or video. Ours: the body keeps the view's yaw at the press for the whole roll; a… | ☐ |
 | `R-7EF6126E` | Turning during the roll | not simulated: `max_turn_rate` 40 (°/s assumed) recorded (°/s) | kind: gap (not reproduced) | `ability_evade` | Turning during the roll: compare with SM1 by rolling while holding a turn and measuring how far the heading changes. Ours: not simulated: max_turn_rate 40 (°/s assumed) recorded. | ☐ |
@@ -185,7 +185,6 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
-| `R-AD722D2E` | Charge start (protocol 39; superseded by protocol 49: Sprint must be held as well, section "The… | an F press (`InputButtons.MeleeHeavy`) with **W held** starts the bull rush: the stick's forward part at least 0.7 (`RushSpec.MinForwardStick`; W alone or with A or D on a keyboard gives 1), standing, walking, running or sprinting alike; aim mode and the held… | kind: user's knowledge; notes: ours | the owner, 2026-10-29: "charge shouldn't require you to actually sprint to initiate charge, just be holding w when you press f" (user's knowledge of the… | Charge start (protocol 39; superseded by protocol 49:…: compare with SM1 by timing a run over a known distance. Ours: an F press (InputButtons.MeleeHeavy) with W held starts the bull… | ☐ |
 | `R-758EB91D` | Charge side steer | A or D held with W at the F press turns the charge's heading from the view toward that side by **25 degrees** × (the stick's angle from straight ahead / 45 degrees, at most 1): W + A 25 degrees left, W + D 25 degrees right on a keyboard; the sideways part… (degrees) | kind: estimate; kind: user's knowledge; confidence: low; notes: ours | the rule: the owner, 2026-10-29 ("charge a bit to the left or right"; user's knowledge); the 25 degrees and the proportional share: ours, an estimate for the… | Charge side steer: compare with SM1 with an overlaid screenshot taken from the same position. Ours: A or D held with W at the F press turns the charge's heading from the… | ☐ |
 | `R-24D5D983` | Charge spacing and a mashed F | W + F while the charge's 1 s spacing (`RushSpec.MinInterval`, counted from the last charge's start) still runs is the **stun strike** (the heavy press falls through to the heavy melee step), not nothing; an F pressed during a charge (with the owner's 0.3 s… | kind: ours; confidence: low | ours (the fall-through follows from the gates; not checked against the original) | Charge spacing and a mashed F: compare with SM1 by feel or video. Ours: W + F while the charge's 1 s spacing (RushSpec.MinInterval, counted… | ☐ |
 | `R-A41A577E` | Charge side steer and the melee lock | a charge whose start locks onto a target (protocol 32: the target within 7 m in the charge's 45 degree cone along the view) starts along the **view** and steers toward it at 180 degrees a second as before (A or D change nothing then); without a target the A /… (degrees) | kind: ours; confidence: low | ours (the maintainer's brief: keep the lock's steering when there is a target) | Charge side steer and the melee lock: compare with SM1 with an overlaid screenshot taken from the same position. Ours: a charge whose start locks onto a target (protocol 32: the target… | ☐ |
@@ -747,7 +746,6 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-2DDE2235` | A: the hop's end in the air | a hop whose clip ends in the air (a drop deeper than its travel: about 3 m below after the 0.967 s clip) ends there and the body falls on as any walk-off fall (straight down under gravity, the walk-off rule) and lands normally; the client shows the fall pose… | kind: ours; confidence: low | the existing walk-off rule | A: the hop's end in the air: compare with SM1 by feel or video. Ours: a hop whose clip ends in the air (a drop deeper than its travel:… | ☐ |
 | `R-B840042B` | A: up stairs, slopes, flat ground | unchanged: no gravity is added while the feet are within the slack of the ground plus the curve (tested: 0.25 m risers every 0.6 m, 0.2 m every 0.4 m, a 20 degree ramp, the flat curve tick for tick, the existing 0.3 m step cases) | kind: ours | ours | A: up stairs, slopes, flat ground: compare with SM1 by feel or video. Ours: unchanged: no gravity is added while the feet are within the slack of… | ☐ |
 | `R-62EEE491` | A: animation | a roll or hop falling off a drop (past its own lift, going down) keeps its clip for **0.3 s** off the ground, then the fall pose (the charge's `FallRules.ChargeFallDelay`); the landing then plays as for any fall; on the ground the clip resumes.… (s) | kind: ours; confidence: low | ours (the charge's rule reused) | A: animation: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a roll or hop falling off a drop (past its own lift, going down)… | ☐ |
-| `R-CB6E42DC` | B: the Air-Cooled Thrusters delay | (superseded by protocol 73, sim/pound-any-weapon: no weapon waits for this delay) with `mp_perk_jump_pack_reduced_cooldown` the data's `smash_available_delay` is **2** s (taken as "after the lift-off"; an interpretation): with that perk the pound waits 2 s… (s) | kind: interpretation; confidence: low | wargear `jump_info` perk entry | B: the Air-Cooled Thrusters delay: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: (superseded by protocol 73, sim/pound-any-weapon: no weapon waits for… | ☐ |
 | `R-44B4103C` | Pound from any weapon in the ascent (sim/pound-any-weapon, protocol 73) | the owner 2026-11-14: "power sword and chainsword both cannot ground pound immediately after a full power jump ... the end result ... assault marine/raptor of all weapon choices has the ability to ground pound immediately after clearing the minimum height… (s, m) | kind: ours | owner's request | Pound from any weapon in the ascent (sim/pound-any-weapon…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the owner 2026-11-14: "power sword and chainsword both cannot ground… | ☐ |
 | `R-6A5E0D45` | C: the short hop while falling | a **Space tap** in the air while falling (walked or dashed off a ledge; a jump's apex hang or its fall; not its ascent, take-off, dive or recovery) is the dash: the press waits in the input buffer and is not replayed while Space is down (the tap-or-hold… (ticks) | kind: ours; kind: user's knowledge; confidence: medium | the owner's report (user's knowledge of the original); data: the base graph's `Navigation --on BTN_Nav_Evade --> Jumppack Evade` has no `BOOL_IsSupported` test… | C: the short hop while falling: compare with SM1 by feel or video. Ours: a Space tap in the air while falling (walked or dashed off a ledge; a… | ☐ |
 | `R-15F080D4` | C: fuel, spacing, limits | the dash still costs no power and keeps its spacing: `min_time_between_activations` 0.8 s × the 0.7 lock scale (17 ticks) from a dash's start; a tap inside it is kept for the buffer's 0.3 s and dashes when the spacing ends, else it is lost; a press during a… (s, power) | kind: ours; confidence: medium | data (spacing, no cost); no air limit: absence of evidence | C: fuel, spacing, limits: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the dash still costs no power and keeps its spacing:… | ☐ |
@@ -885,7 +883,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-4212C891` | Overcharge: the shockwave's damage | **none** of its own (`DreadnoughtMelee.Overcharge` damage 0): the swing and the stomp's own blast deal their damage; the wave only moves and interrupts (damage) | kind: ours; confidence: medium | the owner: "no extra damage beyond the stomp's own, if it has any"; chosen: none, because the swing already damages every Ork in the cleave | Overcharge: the shockwave's damage: compare with SM1 by counting hits to kill and by video of the health bar. Ours: none of its own (DreadnoughtMelee.Overcharge damage 0): the swing and… | ☐ |
 
-### Weapons (gameplay-critical) (121)
+### Weapons (gameplay-critical) (119)
 
 *Spec section: Classes and default loadouts (M10, used by the simulation)*
 
@@ -984,8 +982,6 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-50EE5820` | Hyper armour and flight | do not protect: blindness is not a reaction (M28 rule kept; nothing in the data says otherwise) | kind: interpretation; confidence: low | M28 rule | Hyper armour and flight: compare with SM1 by counting hits to kill and by video of the health bar. Ours: do not protect: blindness is not a reaction (M28 rule kept; nothing… | ☐ |
 | `R-18E11596` | Duration rules | the longer of the current and the new, in ticks (3.5 s = 105, 2 s = 60 at 30 Hz), set in the detonation tick after the players stepped; counts down every living tick; death clears it (M28) (ticks) | kind: interpretation; confidence: medium | M28 | Duration rules: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the longer of the current and the new, in ticks (3.5 s = 105, 2 s =… | ☐ |
 | `R-389F6349` | The look | the client whitens the view while blinded (M28 placeholder, unchanged: the rule's output keeps its shape, `BlindTicks`); the original's `camera_effect` (2.5 s, blur 0.75, desaturation 0.9, a tint) and `krak_grenade_screen_dmg` are not drawn | kind: placeholder | — | The look: compare with SM1 by feel or video. Ours: the client whitens the view while blinded (M28 placeholder… | ☐ |
-| `R-BA478E13` | Protocol | unchanged (21): `BlindTicks` was already in the own record; the rule changes the config hash (`SplashSpec.BlindOnly` is hashed), so mixed builds refuse each other. The facing rule (2026-10-28) is server-side too (blindness is not predicted): protocol… | notes: ours | ours | Protocol: compare with SM1 by feel or video. Ours: unchanged (21): BlindTicks was already in the own record; the rule… | ☐ |
-| `R-7280DE6D` | Server log | `tick N: blind grenade #id of player P blinded T at D m (S s), …` | notes: ours | ours | Server log: compare with SM1 by feel or video. Ours: tick N: blind grenade #id of player P blinded T at D m (S s), … | ☐ |
 
 *Spec section: Weapon models on the character (M24; client visuals, not simulated)*
 
@@ -1043,7 +1039,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-63D5DA0C` | Magazine returns | at the load tag or when the left hand is back at the weapon, whichever is later (never before the magazine left): bolter tag 0.30, hand 0.35 (`RIG_L_Hand` 0.15 m from the magazine at its closest, 1.13 m at its furthest, away from 0.11 to 0.35) → 0.35; stalker… (fraction of the clip) | kind: interpretation; confidence: medium | clip, skeleton, weapon mount | Magazine returns: compare with SM1 by feel or video. Ours: at the load tag or when the left hand is back at the weapon… | ☐ |
 | `R-125B93CF` | Dropped magazine physics | a `RigidBody3D` (layer none, mask: the level) with a box the size of the mesh, mass 0.4 kg, friction 0.7, bounce 0.3, linear damping 0.05, angular 0.6; initial velocity = the carrier's velocity + up to 0.6 m/s sideways (0.12 up) + up to 5 rad/s spin… (kg, m/s, rad/s, s) | kind: placeholder; confidence: none (low); notes: ours | ours | Dropped magazine physics: compare with SM1 by timing a run over a known distance. Ours: a RigidBody3D (layer none, mask: the level) with a box the size of… | ☐ |
 
-### Melee (gameplay-critical) (159)
+### Melee (gameplay-critical) (158)
 
 *Spec section: Melee flow, the hammer in both hands and the transitions pass (anim/melee-flow; client only, not simulated, no protocol change)*
 
@@ -1104,7 +1100,6 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-3C953AFA` | Melee lunge scale | **× 1.3 (2026-10-29), × 1.625 since 2026-10-31 (the owner: "a bit longer in general", +25% on top; ours)** on every melee attack's forward root motion (light and heavy, every weapon); backward motion, the charge, the dash attack, the slash and the pound… | kind: ours; kind: estimate; confidence: low | the owner's request; 1.3 and the forward-only rule ours | Melee lunge scale: compare with SM1 by feel or video. Ours: × 1.3 (2026-10-29), × 1.625 since 2026-10-31 (the owner: "a bit… | ☐ |
 | `R-1FCA0F79` | Melee lunge: locked burst | (sim/melee-lunge, owner 2026-10-31: "the step should be longer the further away the target is"; "quicker and more forcefully") a locked target (the data's lock range `max_melee_target_distance` 7 m, `directional_targeting_ext`; held to 8 m by the 1 m leash)… (m, m/s) | kind: ours; confidence: low; notes: guess | guess | Melee lunge: locked burst: compare with SM1 by timing a run over a known distance. Ours: (sim/melee-lunge, owner 2026-10-31: "the step should be longer the… | ☐ |
 | `R-CD4291DE` | Melee lunge: exploits | the burst is capped in speed (28 m/s) and never closes past the 1 m separation; the body moves through the capsule controller (`Movement.Glide`): walls stop it, a lunge off a ledge drops from there; the lock keeps its line-of-sight and directional rules (#23… | kind: ours; confidence: medium | measured | Melee lunge: exploits: compare with SM1 by feel or video. Ours: the burst is capped in speed (28 m/s) and never closes past the 1 m… | ☐ |
-| `R-AD4F6782` | Weapon switch time | (superseded on 2026-11-06 by the quickdraw, section "Quick throw and quickdraw switch": 0.1 s, no raise) 0.6 s placeholder × **0.8** = **0.48 s** (18 → 15 ticks to the first possible shot); the raise after a switch still applies (the pistol's 0.167 s: 5 ticks) (s) | kind: estimate; confidence: low | the owner's request; to measure against the original (the data's switch clips: rifle 0.467 s, pistol 0.667 s) | Weapon switch time: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: (superseded on 2026-11-06 by the quickdraw, section "Quick throw and… | ☐ |
 | `R-E4637B72` | Alignment: eased turn | in the alignment window the share of the turn left that a tick covers follows a smoothstep (3u² − 2u³) of the window's time instead of a constant rate, re-planned each tick (a moving target is followed), still capped at 1080°/s; without a target the attack… | kind: ours; confidence: low | the owner's request ("make them fluid"); the curve ours | Alignment: eased turn: compare with SM1 by feel or video. Ours: in the alignment window the share of the turn left that a tick covers… | ☐ |
 | `R-3F21C13B` | Alignment: window at least 0.2 s | a window shorter than 0.2 s is widened: its end later up to the attack's hit, then its start earlier down to 0 (knife Y2 0.179–0.238 → 0.098–0.298 s); a longer window unchanged (s) | kind: ours; confidence: low | ours | Alignment: window at least 0.2 s: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a window shorter than 0.2 s is widened: its end later up to the… | ☐ |
 | `R-888100DB` | Lock hysteresis | a lock already held (an attack or a charge under way, or the client's remembered lock at a new start) is kept while its target lies within the cone's half-angle **+ 15°**; a new search keeps the plain 45° cone; the charge's first tick unchanged (degrees) | kind: ours; confidence: low | ours | Lock hysteresis: compare with SM1 with an overlaid screenshot taken from the same position. Ours: a lock already held (an attack or a charge under way, or the client's… | ☐ |
@@ -1466,14 +1461,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-0DB8F980` | Jets fade | out over 0.2 s, back over 0.25 s, linear (s) | kind: estimate; confidence: low; notes: ours | owner's "smoothly"; values ours | Jets fade: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: out over 0.2 s, back over 0.25 s, linear. | ☐ |
 | `R-E62741A8` | Legs in an air strike | a melee strike more than 0.1 s in the air has no clip foot lock: the legs are the attack clip's (the lock held each foot the clip put down at a world point and the leg IK stretched it back there as the body flew on) (s) | kind: ours; confidence: medium | cause measured; the grace ours | Legs in an air strike: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a melee strike more than 0.1 s in the air has no clip foot lock: the… | ☐ |
 
-### Charge (gameplay-critical) (61)
+### Charge (gameplay-critical) (59)
 
 *Spec section: The charge: the bull rush (M29, used by the simulation; protocol 18; M31: the sprint rule, protocol 20, superseded in protocol 39; M32: the charger's hyper armour, protocol 21)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
-| `R-7EE1950B` | Binding | (superseded on 2026-10-29 by protocol 39: F with W held, no sprint; and by protocol 49, 2026-10-31: Shift + W + F, section "The charge needs the sprint") F (the heavy / stun strike's button, `InputButtons.MeleeHeavy`) while **sprinting** forward (M31, owner's… | kind: user's knowledge | user's knowledge of the original; locale 110691 | Binding: compare with SM1 by feel or video. Ours: (superseded on 2026-10-29 by protocol 39: F with W held, no sprint… | ☐ |
-| `R-98B884B3` | Start gate (M31) | (superseded on 2026-10-29 by protocol 39, the owner's rule: W held at the F press is enough; section "Charge directions"; `Rush.SprintThreshold` and `RushSpec.SprintMargin` are gone) a heavy press while sprinting: Sprint held and applied that tick… (m/s) | kind: interpretation; kind: user's knowledge; confidence: low; notes: ours | sprint needed: the owner; threshold and margin: ours | Start gate: compare with SM1 by timing a run over a known distance. Ours: (superseded on 2026-10-29 by protocol 39, the owner's rule: W held at… | ☐ |
 | `R-77279B89` | Jump-pack classes (M31) | the Assault Marine and the Raptor **can charge, on the ground only** (owner's decision 2026-10-28): any jump-pack phase (take-off, ascent, hang, fall, dive, landing, recovery) refuses the start, and so does being airborne without one (walking off a ledge)… | kind: user's knowledge | user's knowledge of the original | Jump-pack classes: compare with SM1 by feel or video. Ours: the Assault Marine and the Raptor can charge, on the ground only… | ☐ |
 | `R-A7D09F49` | Rush motion | the 5 m variant's extracted motion `SM_BUL_Hit_M_5m` (1.667 s clip; 4.99 m by 0.167 s, 11.85 m by 0.667 s, 14.32 m by 1.19 s) along the body's heading, as a velocity through the capsule controller; the heading is the view's at the press (protocol 39: turned… (m, s) | kind: ours; kind: choice; confidence: low | clip motion; `MP_SM_Bolter_NuSprint` "Smash Blendspace" | Rush motion: compare with SM1 by feel or video. Ours: the 5 m variant's extracted motion SM_BUL_Hit_M_5m (1.667 s clip… | ☐ |
 | `R-E44ADA47` | Rush branches | ends at `BRANCH_Sprint_Finished` 0.714 × 1.667 = 1.19 s; the stick, Fire, Aim or a Grenade press end it from `BRANCH_Attack2Idle` 0.667 s (since protocol 66 S alone, no Grenade press: section "Charge cancel: S, not the grenade; the ally bump"); Jump (evade or… (s) | kind: ours; confidence: low | tags | Rush branches: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: ends at BRANCH_Sprint_Finished 0.714 × 1.667 = 1.19 s; the stick… | ☐ |
@@ -2519,7 +2512,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-27330EFB` | Perf tour (`--perf-tour`) | with `--perf-probe` and `--observe-tour`, the observer's camera moves to the tour's next place at the end of each 5 s probe window and each `perf:` line names its place (s) | kind: ours | measurement aid | Perf tour (--perf-tour): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: with --perf-probe and --observe-tour, the observer's camera moves to… | ☐ |
 | `R-83C63D35` | Classic maps performance result | no new map clearly worse than Manufactorum: render CPU 2.0 to 4.7 ms (Manufactorum 3.1), server tick mean 0.64 to 1.06 ms with 17 clients; one run per map on a busy machine (frame times noisy by about 3 ms); no change made to any map's drawing (ms) | confidence: low | measured | Classic maps performance result: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: no new map clearly worse than Manufactorum: render CPU 2.0 to 4.7 ms… | ☐ |
 
-### Core simulation (provisional values) (748)
+### Core simulation (provisional values) (747)
 
 *Spec section: Provisional values in use*
 
@@ -3397,7 +3390,6 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-73585451` | Slam steering: rate | **300** degrees a second toward the view (the mouse or the right stick: the input's yaw, no new input) (deg/s) | kind: estimate; confidence: low | the owner's recording (row above) | Slam steering: rate: compare with SM1 by feel or video. Ours: 300 degrees a second toward the view (the mouse or the right stick:… | ☐ |
 | `R-9095089B` | Slam steering: limit | **185** degrees in all; as the turn is capped at the rate over the window, the window opens 185 / 300 = **0.617 s** before the hit (0.483 s into the slam) and closes at the hit (1.1 s); before it the slam holds the facing it began with, after it the facing it… (deg, s) | kind: ours; kind: user's knowledge; confidence: medium | the owner's value (185); the window's place ours, fitted to the recording | Slam steering: limit: compare with SM1 by feel or video. Ours: 185 degrees in all; as the turn is capped at the rate over the… | ☐ |
 | `R-588F176B` | Slam steering: own model | The own marine's body in a steered slam shows the simulation's heading (not the view's frame-rate yaw), so it never runs ahead of the 185-degree limit | kind: ours; confidence: medium | ours | Slam steering: own model: compare with SM1 by feel or video. Ours: The own marine's body in a steered slam shows the simulation's… | ☐ |
-| `R-595B1816` | Protocol | No wire change: the yaw already travels in every input; the new step fields enter the config hash only when set (the hammer's and maul's maps), so mismatched builds are refused by the hash. `Protocol.Version` stays 63 | kind: ours | ours | Protocol: compare with SM1 by feel or video. Ours: No wire change: the yaw already travels in every input; the new step… | ☐ |
 
 *Spec section: Headshot medal, score and scream (protocol 64, 2026-11-07)*
 
@@ -5169,13 +5161,16 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 
 ## Appendix: not gameplay
 
-Test aids, probes, demo and capture tooling, and engineering decisions (protocol, wire formats, budgets, uploads, caches, load order). Listed so nothing is lost; no SM1 comparison needed.
+Test aids, probes, demo and capture tooling, engineering decisions (protocol, wire formats, budgets, uploads, caches, load order) and superseded rows (kind `superseded`: history of behaviour a later row replaced or removed). Listed so nothing is lost; no SM1 comparison needed.
 
 | ID | Parameter | Section |
 |---|---|---|
 | `R-3B26B8A9` | Wire (protocol 29) | Brace and vent (fidelity gap 7) |
+| `R-ABCCA53F` | Protocol | Owner's bolter balance (2026-10-28; deliberate change from the original) |
 | `R-D95AD129` | Projectiles on the wire (protocol 7) | Charged fire, projectiles and splash (M12, used by the simulation; thrown items and the melta cone: M13 below) |
 | `R-128D96A8` | Protocol 8 | Thrown equipment and the melta cone (M13, used by the simulation) |
+| `R-BA478E13` | Protocol | Blind grenade (M37, used by the simulation) |
+| `R-7280DE6D` | Server log | Blind grenade (M37, used by the simulation) |
 | `R-B7956A0B` | Protocol 9 | Jump pack and ground pound (M14, used by the simulation) |
 | `R-4CF18367` | Protocol 24 | Jump pack follow-ups (M44, the owner's playtest of 2026-10-28; protocol 24) |
 | `R-1248CDD4` | Test aid | The middle jump (M45, the owner's knowledge of the original; protocol 27) |
@@ -5183,10 +5178,13 @@ Test aids, probes, demo and capture tooling, and engineering decisions (protocol
 | `R-0228F5FC` | Protocol 13 | Evade: the Tactical roll and the heavy hop (M21, used by the simulation) |
 | `R-D71F4C3B` | Protocol 14 | Evade: the Tactical roll and the heavy hop (M21, used by the simulation) |
 | `R-19DA23A1` | Protocol 17 | Hit reactions, heavy strikes, knockback and blindness (M28, used by the simulation; protocol 17) |
+| `R-7EE1950B` | Binding | The charge: the bull rush (M29, used by the simulation; protocol 18; M31: the sprint rule, protocol 20, superseded in protocol 39; M32: the charger's hyper armour, protocol 21) |
+| `R-98B884B3` | Start gate (M31) | The charge: the bull rush (M29, used by the simulation; protocol 18; M31: the sprint rule, protocol 20, superseded in protocol 39; M32: the charger's hyper armour, protocol 21) |
 | `R-24FB38EF` | Protocol 18 | The charge: the bull rush (M29, used by the simulation; protocol 18; M31: the sprint rule, protocol 20, superseded in protocol 39; M32: the charger's hyper armour, protocol 21) |
 | `R-726ED469` | Protocol 19 | The charge: the bull rush (M29, used by the simulation; protocol 18; M31: the sprint rule, protocol 20, superseded in protocol 39; M32: the charger's hyper armour, protocol 21) |
 | `R-32634EAA` | Protocol 20 (M31) | The charge: the bull rush (M29, used by the simulation; protocol 18; M31: the sprint rule, protocol 20, superseded in protocol 39; M32: the charger's hyper armour, protocol 21) |
 | `R-F8EA8ED8` | Protocol 21 (M32) | The charge: the bull rush (M29, used by the simulation; protocol 18; M31: the sprint rule, protocol 20, superseded in protocol 39; M32: the charger's hyper armour, protocol 21) |
+| `R-AD722D2E` | Charge start (protocol 39; superseded by protocol 49: Sprint must be held as well, section "The charge needs the… | Charge directions (feel/charge-directions; protocol 39, used by the simulation) |
 | `R-4AF0EC41` | Test aids | Charge directions (feel/charge-directions; protocol 39, used by the simulation) |
 | `R-3867108E` | Protocol 39 | Charge directions (feel/charge-directions; protocol 39, used by the simulation) |
 | `R-821DDD79` | Protocol 30 | Falls, the airborne charge, the dash attack and the sword slash (protocol 30, used by the simulation; branch sim/jump-pack-and-falls) |
@@ -5194,6 +5192,7 @@ Test aids, probes, demo and capture tooling, and engineering decisions (protocol
 | `R-2C2D4410` | Protocol 31 | Jump-pack feel: fuel, air control, the air slash and impact effects (feel/jump-pack; protocol 31, used by the simulation) |
 | `R-123C1066` | Buffer: the replay | Input buffering and slower movement (feel/buffer-speed; protocol 33, used by the simulation) |
 | `R-29CF50BC` | Buffer: wire | Input buffering and slower movement (feel/buffer-speed; protocol 33, used by the simulation) |
+| `R-ACF31455` | Evade: spacing | Action lock scale and the sprint stop (feel/locks-sprint-stop; protocol 36, used by the simulation) |
 | `R-267A54F6` | Protocol 36 | Action lock scale and the sprint stop (feel/locks-sprint-stop; protocol 36, used by the simulation) |
 | `R-9ACBF5C8` | Protocol 10 | Teams and Annihilation (M15, used by the simulation) |
 | `R-1CEBBCD6` | Map hash (blockers) | Seize Ground (M16, used by the simulation) |
@@ -5286,6 +5285,7 @@ Test aids, probes, demo and capture tooling, and engineering decisions (protocol
 | `R-86ECBB54` | Probe: the melee falls | Install transitions, pass 2 batch 1 (2026-11-12; client only, not simulated, no protocol change) |
 | `R-DF3C1294` | `--no-melee-lock`, `--no-melee-assist`, `--hit-stop`, `--no-melee-variants` | Melee target lock, alignment and lunge (feel/melee-lock; used by the simulation; protocol 32) |
 | `R-9175CDEC` | `smtool graph-dump --melee [<graph prefix>]` | Melee target lock, alignment and lunge (feel/melee-lock; used by the simulation; protocol 32) |
+| `R-AD4F6782` | Weapon switch time | Melee and charge, second pass (feel/melee-charge-2; protocol 42, used by the simulation) |
 | `R-1A94F1A3` | Protocol 42 | Melee and charge, second pass (feel/melee-charge-2; protocol 42, used by the simulation) |
 | `R-BE29EC39` | Latency readout | Network responsiveness (net/responsive, 2026-11-09; client and server; protocol 65: the snapshot carries the input slack; no gameplay rule changed) |
 | `R-39742A91` | Test aids | Stomp impacts, the power sword and the jump-pack thrust (fx/impact-pass; client only, not simulated, no protocol change) |
@@ -5393,6 +5393,7 @@ Test aids, probes, demo and capture tooling, and engineering decisions (protocol
 | `R-1082D317` | Probe result (`feel/sweep1`, `--no-feel` / this build) | The feel pass: the roll's blending for every action (anim/feel-pass; client only, not simulated, no protocol change) |
 | `R-DB189635` | Wire | Sticky launcher grenades (sim/sticky-launcher; protocol 48, used by the simulation) |
 | `R-3826420A` | Test aids | The weight pass: landing, recoil, flinch, strike entries, camera impulses (feel/weight-impact; client only, not simulated, no protocol or config-hash change) |
+| `R-CB6E42DC` | B: the Air-Cooled Thrusters delay | Movement fixes: the heavy hop down stairs and off ledges, the pound in a full jump, the short hop while falling, steering a ledge charge (sim/movement-fixes; protocol 51, no wire change) |
 | `R-752D26F1` | Protocol 51 | Movement fixes: the heavy hop down stairs and off ledges, the pound in a full jump, the short hop while falling, steering a ledge charge (sim/movement-fixes; protocol 51, no wire change) |
 | `R-628FFD94` | Score on the wire | Added content: Musou Mode: rewards, extra slots and the score (pass 2 M6, M6b; `TfwRules.Version` 12; no protocol change) |
 | `R-48FF3A72` | Extra slots on the wire | Added content: Musou Mode: rewards, extra slots and the score (pass 2 M6, M6b; `TfwRules.Version` 12; no protocol change) |
@@ -5406,6 +5407,8 @@ Test aids, probes, demo and capture tooling, and engineering decisions (protocol
 | `R-B7F035E2` | Measured (real server on 127.0.0.1, a hidden windowed bot pressing T every 2.5 s, Movie Maker at 24 fps) | Added content: Musou T key lines (musou/hotkey-lines; 2026-11-10; client only, Musou Mode only, no protocol, wire, cooldown or hash change) |
 | `R-2EF718B2` | Test aids (Musou T key lines) | Added content: Musou T key lines (musou/hotkey-lines; 2026-11-10; client only, Musou Mode only, no protocol, wire, cooldown or hash change) |
 | `R-40690531` | Test aids | Added content: Musou audio pass (musou/audio-pass; 2026-11-09; client only, Musou Mode only, no protocol, wire or hash change) |
+| `R-2DF998F2` | Ally bump (Classic PvP; superseded by the ally slide, protocol 67) | Charge cancel: S, not the grenade; the ally bump (charge-cancel, charge-ally-bump; protocol 66, used by the simulation) |
+| `R-79F12026` | Not a bump | Charge cancel: S, not the grenade; the ally bump (charge-cancel, charge-ally-bump; protocol 66, used by the simulation) |
 | `R-5808DFC2` | Switches | Charge cancel: S, not the grenade; the ally bump (charge-cancel, charge-ally-bump; protocol 66, used by the simulation) |
 | `R-70C8B148` | Protocol 66 | Charge cancel: S, not the grenade; the ally bump (charge-cancel, charge-ally-bump; protocol 66, used by the simulation) |
 | `R-8D8D69FF` | Protocol 67 | Charge cancel: S, not the grenade; the ally bump (charge-cancel, charge-ally-bump; protocol 66, used by the simulation) |
@@ -5424,6 +5427,7 @@ Test aids, probes, demo and capture tooling, and engineering decisions (protocol
 | `R-6FB25F32` | Stormboy state on the wire | Musou Mode: expansion S3, Stormboy squads and the Big Shoota Nob (musou/exp-s3, 2026-11-07; `MusouSim.Version` 14, `TfwRules.Version` 34, no core protocol bump: `Protocol.Version` stays 63) |
 | `R-21B899DB` | Wire (S4) | Musou Mode: expansion S4, the Scrap Meks and their contraptions (musou/exp-s4, 2026-11-08; `MusouSim.Version` 18, `TfwRules.Version` 36, wire tag 17, no core protocol bump: `Protocol.Version` stays 63) |
 | `R-AFD6145F` | Switch | The charge clash: charger and victim locked through the shove (feel/charge-clash; protocol 59, no wire change) |
+| `R-595B1816` | Protocol | Hammer and maul: hop swing, slam recovery and the steered slam (sim/hop-swing, sim/slam-recovery, sim/slam-steer; 2026-11-07, protocol 63 unchanged) |
 | `R-04107A30` | Headshot on the wire | Headshot medal, score and scream (protocol 64, 2026-11-07) |
 | `R-4B7E3D1D` | Loading screen | Loading screen (2026-11-07, client only) |
 | `R-027C2554` | Loading screen picture (ui/loading-blink, 2026-11-10) | Loading screen (2026-11-07, client only) |

@@ -276,6 +276,24 @@ public class RefineRegisterTests
     }
 
     [Fact]
+    public void Superseded_rows_are_history_in_the_appendix_and_a_live_row_keeps_its_tag()
+    {
+        const string md = """
+            ## S
+
+            | Parameter | Value | Kind | Confidence |
+            |---|---|---|---|
+            | Old gate | (superseded) a sprint | superseded | n/a |
+            | New gate | W held | ours | low |
+            """;
+        var m = Analyse(md);
+        Assert.Equal("Old gate", Assert.Single(m.Appendix).Name);
+        Assert.Equal("New gate", Assert.Single(m.Tagged).Name);
+        Assert.True(RefineRules.IsSuperseded("superseded (was interpretation)"));
+        Assert.False(RefineRules.IsSuperseded("ours, superseded later"));
+    }
+
+    [Fact]
     public void Engineering_rows_go_to_the_appendix_but_visual_and_gameplay_values_keep_their_place()
     {
         var m = Analyse(OneTable(string.Join("\n",
@@ -289,6 +307,9 @@ public class RefineRegisterTests
         Assert.Equal(["Model key", "Emblem bytes", "Protocol 18", "Map hash (blockers)"], m.Appendix.Select(e => e.Name));
         Assert.Equal(["Custom emblem", "Ground chunks (ours)", "Tick"], m.Tagged.Select(e => e.Name));
         Assert.True(RefineRules.IsEngineering("Old clients", "architecture section 3", "ours"));
+        Assert.True(RefineRules.IsEngineering("Protocol", "ours", "ours"));
+        Assert.True(RefineRules.IsEngineering("Server log", "ours", "ours"));
+        Assert.False(RefineRules.IsEngineering("Protocol rule for the charge", "ours", "ours"));
         Assert.False(RefineRules.IsEngineering("Pound impact", "ours", "ours"));
     }
 
