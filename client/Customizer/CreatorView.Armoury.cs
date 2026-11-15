@@ -38,6 +38,7 @@ public sealed partial class CreatorView
     Label? _armWeaponName;
     Control? _armSteps;
     Label? _armColumnTitle;
+    Panel? _armWell;
     Button? _armTabClass, _armTabSlots, _armTabLook, _armPickBack;
     ScrollContainer? _armSlotScroll; VBoxContainer? _armSlotList;
     bool _armSlotsTab, _armPicking;
@@ -111,6 +112,7 @@ public sealed partial class CreatorView
         _activeLabel.HorizontalAlignment = HorizontalAlignment.Left;
         // The bottom: CONFIRM LOADOUT, the dock, BACK, the mode badge.
         _armColumnTitle = new Label { Name = "ArmouryColumnTitle", MouseFilter = MouseFilterEnum.Ignore, ClipText = true, VerticalAlignment = VerticalAlignment.Center }; _armCanvas.AddChild(_armColumnTitle);
+        _armWell = new Panel { Name = "ArmourySlotsWell", MouseFilter = MouseFilterEnum.Ignore, Visible = false }; _armCanvas.AddChild(_armWell);
         _armSlotScroll = new ScrollContainer { Name = "ArmourySlots", HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled, FollowFocus = true }; _armCanvas.AddChild(_armSlotScroll);
         _armSlotList = new VBoxContainer { MouseFilter = MouseFilterEnum.Ignore, SizeFlagsHorizontal = SizeFlags.ExpandFill }; _armSlotScroll.AddChild(_armSlotList);
         _armPickBack = new Button { Name = "ArmouryPickBack", Text = "< SLOTS", FocusMode = FocusModeEnum.All, Visible = false }; _armPickBack.Pressed += () => { _armPicking = false; ArmouryDirty(); }; _armCanvas.AddChild(_armPickBack);
@@ -154,7 +156,7 @@ public sealed partial class CreatorView
     ArmDetail ArmouryDetail()
     {
         ArmDetail? added = null;
-        ExtrasArmouryDetail(ref added);
+        ExtrasArmouryDetail(ref added);   // EXTRAS-HOOK: the Librarian's weapon row, tiles and slot cards
         if (added is not null) return added;
         string race = _previewRace; string weapon = "";
         foreach (var section in LoadoutRows.Weapons(_catalog, Role, race, OpenClass, _services.Policy)) { var sel = section.Rows.FirstOrDefault(r => r.Selected); if (sel is not null) { weapon = sel.Title; break; } }
@@ -200,7 +202,7 @@ public sealed partial class CreatorView
             string? icon = lower.Contains("tact") ? "arm-ico-tactical" : lower.Contains("assault") || lower.Contains("raptor") ? "arm-ico-assault" : lower.Contains("dev") || lower.Contains("hav") ? "arm-ico-devastator" : null;
             rows.Add(new ArmClass(label.ToUpperInvariant(), icon, !IsEmpty && r.Equals(Role, StringComparison.OrdinalIgnoreCase), () => ChooseRole(r), RoleLabel(role)));
         }
-        ExtrasArmouryClasses(rows);
+        ExtrasArmouryClasses(rows);   // EXTRAS-HOOK: the Librarian's row first
         return rows;
     }
 
@@ -218,7 +220,7 @@ public sealed partial class CreatorView
         Put(_armWeapon!, UiTextureBuilder.ArmWeaponIcon.Merge(UiTextureBuilder.ArmWeaponName));
         Put(_armTilesHost!, new Rect2(36, 276, 238, 74));
         Put(_armTopRow!, new Rect2(296, 5, 330, 20)); _sideToggle.Position = Vector2.Zero; _sideToggle.Size = _armTopRow!.Size;
-        Put(_armStripScroll!, new Rect2(40, 124, 234, 224)); _armWeapon!.Visible = !_armSlotsTab; _armTilesHost!.Visible = !_armSlotsTab; _strip.Wrap = true; _strip.SizeFlagsHorizontal = SizeFlags.ExpandFill; _armStripScroll!.Visible = _armSlotsTab; _armRows!.Visible = !_armSlotsTab;
+        Put(_armStripScroll!, new Rect2(40, 124, 234, 224)); _armWeapon!.Visible = !_armSlotsTab; _armTilesHost!.Visible = !_armSlotsTab; _strip.Wrap = true; _strip.SizeFlagsHorizontal = SizeFlags.ExpandFill; _armStripScroll!.Visible = _armSlotsTab; _armRows!.Visible = !_armSlotsTab; _armWell!.Visible = _armSlotsTab; Put(_armWell, new Rect2(38, 121, 238, 229)); _armCanvas.MoveChild(_armWell, _armStripScroll.GetIndex()); 
         bool hasSlots = (detail0.Slots?.Count ?? 0) > 0; bool slotMode = !_armPicking && hasSlots;
         _armSlotScroll!.Visible = slotMode; _scroll.Visible = !slotMode; _armPickBack!.Visible = !slotMode && hasSlots;
         Put(_armSlotScroll, new Rect2(549, 93, 222, 277)); Put(_armPickBack, new Rect2(712, 76, 52, 14));
@@ -230,9 +232,9 @@ public sealed partial class CreatorView
         Put(_armSteps!, UiTextureBuilder.ArmHeader);
         Put(_armConfirm!, UiTextureBuilder.ArmConfirm);
         Put(_armBack!, UiTextureBuilder.ArmBack);
-        string badge = "CLASSIC PVP"; ExtrasArmouryBadge(ref badge);
+        string badge = "CLASSIC PVP"; ExtrasArmouryBadge(ref badge);   // EXTRAS-HOOK: the mode badge
         var detail = detail0; _armDetailNow = detail; var classes = ArmouryClasses();
-        string sig = string.Join("|", classes.Select(c => c.Label + c.Selected)) + "#" + detail.Weapon + string.Join("|", detail.Tiles.Select(t => t.Label + t.Selected)) + "#" + badge + "#" + string.Join("|", _stepButtons.Select(b => b.Text + b.Visible)) + "#" + string.Join("|", _list.GetChildren().Select(c => c.GetInstanceId())) + "#" + Mathf.Round(s * 1000f) + "#" + _unsaved.Text.Length + _armSlotsTab + _armPicking + string.Join("|", detail.Slots?.Select(x => x.Slot + x.Value) ?? []);
+        string sig = string.Join("|", classes.Select(c => c.Label + c.Selected)) + "#" + detail.Weapon + string.Join("|", detail.Tiles.Select(t => t.Label + t.Selected)) + "#" + badge + "#" + string.Join("|", _stepButtons.Select(b => b.Text + b.Visible)) + "#" + string.Join("|", _list.GetChildren().Select(c => c.GetInstanceId())) + "#" + Mathf.Round(s * 1000f) + "#" + _unsaved.Text.Length + string.Join("", _strip.Chips.Select(c => c.GetInstanceId())) + _armSlotsTab + _armPicking + string.Join("|", detail.Slots?.Select(x => x.Slot + x.Value) ?? []);
         if (sig == _armSig) return;
         _armSig = sig; _armScale = s;
         StyleArmoury(s, classes, detail, badge);
@@ -326,6 +328,19 @@ public sealed partial class CreatorView
         }
         PaintedButtons.Apply(_armPickBack!, "opt-plate-blank", "opt-plate-gold-blank", new PaintedButtons.Pad(1), new PaintedButtons.Pad(1), s * 0.45f, true, paintedText: false, noGlow: true); ArmText(_armPickBack, ArmPillSize + 1f, s, ArmLight, ArmDark);
         BuildArmSlotCards(s, detail);
+        // The SLOTS tab: a dark well with the chips as plates (one lettering; the open loadout's chip gold; the state words in the tooltip, the star kept).
+        _armWell!.AddThemeStyleboxOverride("panel", new StyleBoxFlat { BgColor = new Color(0.055f, 0.042f, 0.022f), BorderColor = new Color(0.50f, 0.37f, 0.12f), BorderWidthLeft = 1, BorderWidthTop = 1, BorderWidthRight = 1, BorderWidthBottom = 1 });
+        var openChip = _strip.Open is { } opened ? _strip.ChipOf(opened) : null;
+        foreach (var chip in _strip.Chips)
+        {
+            chip.CustomMinimumSize = new Vector2(70f * s, 31f * s); chip.ClipText = true;
+            bool isOpen = chip == openChip;
+            PaintedButtons.Apply(chip, "opt-plate-blank", "opt-plate-gold-blank", new PaintedButtons.Pad(1, 1, 1, 1), new PaintedButtons.Pad(1, 1, 1, 1), s * 0.45f, true, paintedText: false, goldRest: isOpen, noGlow: true);
+            ArmText(chip, 8.2f, s, isOpen ? ArmDark : ArmLight, ArmDark);
+            foreach (var n in new[] { "normal", "hover", "pressed", "hover_pressed", "focus", "disabled" }) if (chip.GetThemeStylebox(n) is StyleBoxTexture sb) { sb.ContentMarginLeft = 12f * s; sb.ContentMarginRight = 3f * s; }
+            chip.AddThemeConstantOverride("line_spacing", -Mathf.RoundToInt(2.6f * s));
+            foreach (var l in chip.GetChildren().OfType<Label>()) l.Visible = false;
+        }
         // ---- CONFIRM LOADOUT, BACK, the badge ----
         ArmPlate(_armConfirm!, "arm-confirm", "arm-confirm", new PaintedButtons.Pad(0), new PaintedButtons.Pad(0), s, false);
         ArmText(_armConfirm, ArmConfirmSize, s, ArmDark, ArmDark); _armConfirm.AddThemeColorOverride("font_hover_color", new Color(0.2f, 0.12f, 0.02f));
