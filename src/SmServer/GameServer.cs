@@ -267,6 +267,7 @@ public sealed partial class GameServer
             long section = SmSim.SimProfile.Begin();   // musou/perf-pass: SM_TICK_STATS's sections (nothing without it)
             GuardTick();   // a fault is logged; too many in a row stop the server for its supervisor (GameServer.Guard.cs)
             SmSim.SimProfile.End("world step", section);
+            Guard("bot stats", BotStatsTick);   // test aid SM_BOT_STATS (GameServer.BotStats.cs)
             _nextTickAt += tickLength;
             section = SmSim.SimProfile.Begin();
             if (_nextTickAt > _nextSnapshotAt) { Guard("snapshots", SendSnapshots); _nextSnapshotAt += snapshotLength; TickStatsSnapshot(); }

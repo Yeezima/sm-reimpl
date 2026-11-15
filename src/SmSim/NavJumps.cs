@@ -144,6 +144,11 @@ public sealed record NavJumpOptions
     public int RobustPoints { get; init; } = 8;
     /// <summary>Cost (metres of walking) added to a jump link on top of its flight length: stopping, take-off and landing locks.</summary>
     public float Penalty { get; init; } = 20f;
+    /// <summary>
+    /// Threads the build may use (bots/new-maps, 2026-11-16; not part of the cache key: it changes how long a build takes, not what it finds): 0 = all cores but one (the old rule), more than 0
+    /// = at most that many. A bot client sets it low so a build on a big map does not starve its own frame loop (and the other bots' on the same machine).
+    /// </summary>
+    public int Threads { get; init; }
 
     internal ulong Hash(ulong h)
     {
@@ -276,7 +281,7 @@ public sealed class NavJumpSet
         long simulated = 0;
         var perNode = new List<(int From, int To, float Cost, byte Direction, byte Hold, float Power)>[takeOffs.Count];
         // One core is left to the game; the build stops at the next take-off cell when cancelled.
-        var parallel = new ParallelOptions { MaxDegreeOfParallelism = Math.Max(1, Environment.ProcessorCount - 1), CancellationToken = cancel };
+        var parallel = new ParallelOptions { MaxDegreeOfParallelism = o.Threads > 0 ? o.Threads : Math.Max(1, Environment.ProcessorCount - 1), CancellationToken = cancel };
         Parallel.For(0, takeOffs.Count, parallel, () => new NavGraph.DijkstraScratch(graph.NodeCount), (i, _, scratch) =>
         {
             int a = takeOffs[i];

@@ -129,3 +129,44 @@ Client working set 1.6 to 1.8 GB on every map (a debug build with the other Godo
 **Reading.** No new map is clearly worse than Manufactorum on what the renderer reports. Worst remaining: **Hab Center** (render CPU 4.7 ms against Manufactorum's 3.1, 142 lights, about 2,200 draw calls) and **Shattered Bridge** (3.9 ms, 105 lights); Basilica has the most draw calls (2968 mean, 190 lights) but a cheaper frame. Chem Refinery has the highest mean frame time (16.88 ms) with a cheap render (3.8 ms CPU), so that figure is load noise rather than the map. The likely cause, the same on every map and on Manufactorum (read from the code, not isolated by an experiment): the map is drawn from the nearest LOD only, with no draw distance, and one MultiMesh per mesh whose culling box covers every placement, so all of a mesh's placements are drawn whenever one is in view. Few placed lights cast shadows (at most 6, `MaxShadowedLights`; 1 to 7 here) and all fade out at 70 m; the nav graph is built by bots only and cached on disk; the server's tick cost is flat across the maps.
 
 **One fix tried and dropped.** Splitting each mesh's placements into 40 m culling cells on the new maps (same pixels) roughly doubled the draw calls (Waste Management 1289 to 2009, Habs Ablaze 2112 to 4093) and gave no consistent frame gain (mean of the ten new maps 13.1 ms before, 15.0 ms after; single maps moved both ways by more than the noise). It is not in the branch. **Held for the owner's choice** (each changes what a map shows): a draw distance or LOD switch for far placements, and fewer placed lights on Hab Center and Basilica. No map's drawing was changed. Not measured: Seize Ground, a repeat of any run on a quiet machine, a human client's load time, the Compatibility renderer, shader-compile spikes (the first view of most maps shows one worst frame of 100 to 150 ms; Manufactorum too).
+## 6. Bots (bots/new-maps, 2026-11-16)
+
+Owner (2026-11-16): "broken bot ai on annihilation new maps classic PvP - fix it to make it work well on the new maps". The import had only two-bot checks. Measured with a
+6 v 6 Annihilation lobby (Tactical, Assault, Devastator and the Chaos classes of the same roles, 12 headless bots 1.2 s apart, `--bind 127.0.0.1`, accuracy 0.03, the
+default), 6 minutes a map after the bots joined, one run a map before and after; the server's `SM_BOT_STATS` aid counts kills, deaths, deaths by the world and standing still;
+stuck detections and "goal unreachable" samples come from the bots' own logs (`docs/commands.md`). One run a map is a sample, not a statistic: differences of a kill a minute
+are noise (Manufactorum, whose rules did not change, read 17.9 before and 18.1 after).
+
+| Map | kills a minute (before / after) | deaths by the world | seconds standing still % | stuck detections | "goal unreachable" samples |
+|---|---|---|---|---|---|
+| Waste Management (`mp_tdm_01`) | 18.6 / 18.6 | 0 / 0 | 0.4 / 0.2 | 12 / 3 | 0 / 0 |
+| Basilica (`mp_tdm_11`) | 14.1 / 16.6 | 1 / 0 | 1.4 / 0.2 | 15 / 3 | 0 / 0 |
+| Shattered Bridge (`mp_tdm_17`) | 7.0 / 13.1 | 9 / 1 | 10.6 / 5.9 | 214 / 175 | 26 / 0 |
+| Hab Center (`mp_tdm_18`) | 13.7 / 17.9 | 0 / 0 | 1.1 / 0.4 | 20 / 11 | 0 / 3 |
+| Habs Ablaze (`mp_dlc1_map1`) | 16.1 / 15.6 | 0 / 0 | 0.8 / 0.4 | 61 / 18 | 0 / 0 |
+| Station Tertius (`mp_dlc1_map2`) | 17.4 / 17.9 | 6 / 1 | 0.5 / 0.2 | 22 / 6 | 0 / 0 |
+| Chem Refinery (`mp_dlc2_map1`) | 15.4 / 19.7 | 1 / 0 | 4.5 / 0.4 | 160 / 10 | 21 / 0 |
+| Aquila Canyon (`mp_dlc2_map2`) | 18.2 / 18.7 | 0 / 0 | 0.1 / 0.2 | 12 / 3 | 0 / 0 |
+| Desolation (`mp_dlc2_map3`) | 17.2 / 17.7 | 1 / 0 | 2.1 / 0.5 | 14 / 26 | 16 / 0 |
+| Dome Mechanicus (`mp_dlc2_map4`) | 14.6 / 15.7 | 1 / 0 | 2.3 / 0.8 | 50 / 35 | 0 / 0 |
+| Manufactorum (pin: rules unchanged) (`mp_tdm_09`) | 17.9 / 18.1 | 0 / 0 | 0.3 / 0.3 | 7 / 7 | 0 / 0 |
+
+What went wrong, found by the numbers and fixed in general code (spec "Classic PvP bots on the ten imported maps"; every rule is ours and applies to every `mp_*` map but
+Manufactorum, never to Musou Mode):
+
+- **Pits and slivers a drop falls into** (Shattered Bridge: the chasm under the bridge, 60 thousand of 178 thousand cells a side; Chem Refinery, Desolation): a class without a jump
+  pack cannot climb out, so bots stood in them for minutes (one Havoc 173 detections, 26 "unreachable" samples). The graph now leaves out cells no walk or drop leads back from.
+- **Slits in decks** (Chem Refinery: 127 stuck detections at drop edges in one run, Habs Ablaze): the graph made drops through 0.5 m slits that the capsule bridges; drops now need the
+  floor 0.56 m ahead and to each side to be as low as the landing. A bot still stuck at a drop's edge gives up the drops along it; one stuck where the graph has no cell walks to the
+  nearest cell.
+- **Jump-pack bots on a cold cache**: the jump links of a map and side take 150 s (Basilica) to 353 s (Shattered Bridge) to build the first time, and the bot walked straight at its
+  goal with detours for all of it (and the build starved its own frame loop: the watchdog logged 400 s without a frame in an 8-build test). The bot now walks on the plain graph at
+  once and takes the links when they are ready, the build using a third of the cores.
+- **Falls**: on Shattered Bridge (holes in the deck) 9 of 52 deaths, then 21 of 92 once the bots moved, were falls, nearly all jump-pack bots dashing, hopping or evading over a hole.
+  Dashes (16 m), hops (7 m), evades (10 and 16 m) and jumps at a target are now held back unless there is floor all the way.
+
+Review round (same day): the stuck-drop give-up now decays after 25 s and counts only at the drop's edge, the floor check follows ramps and stairs (1.5 m of the floor before it), and a jump-pack bot stuck in a pit off the graph flies out (a scripted jump). Re-run of four maps: Shattered Bridge 13.9 kills a minute, 3 deaths by the world, 33 stuck detections (175 before the review round, 214 at the start), 0.6% standing still, jump presses 13 to 17 and dashes and hops seen 1899 to 1788 (no loss of aggression); Dome Mechanicus 16.1 kills, 44 stuck (one hotspot: a 0.7 m curb between graph cells at about -16,48 that the bots do not climb, in the baseline too); Desolation 17.7 kills, 21 stuck (no hotspot); Chem Refinery 18.9 kills, 23 stuck.
+
+Still weak: **Shattered Bridge**: one jump-pack bot stood in a pit off the graph for minutes before the review round (144 of 175 stuck detections; fixed by the scripted jump, not seen again in the re-run), kills a minute 13.9 against 17 to 19 elsewhere (the bridge is long; the bots meet 80 m apart on
+average). **Dome Mechanicus**: the 0.7 m curb hotspot (a graph and motor mismatch, not fixed). Not verified: Seize Ground on the new maps, other lobby sizes, a cold jump-link
+cache on a machine other than this one, Musou Mode (untouched by construction; not run), the recordings asked for (not made).
