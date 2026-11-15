@@ -82,7 +82,8 @@ public sealed partial class CreatorView : Control
     readonly SlotStrip _strip;
     readonly Label _banner, _title, _summary, _status, _unsaved, _activeLabel;
     readonly HBoxContainer _tabs = UiKit.HBox(8), _actions = UiKit.HBox(8);
-    readonly VBoxContainer _steps = UiKit.VBox(8), _list = UiKit.VBox(8), _card = UiKit.VBox(6);
+    BoxContainer _steps = UiKit.VBox(8);   // the armoury layout swaps it for a horizontal box (the step pills)
+    readonly VBoxContainer _list = UiKit.VBox(8), _card = UiKit.VBox(6);
     readonly ScrollContainer _scroll;
     readonly PreviewStage _preview;
     readonly List<Button> _stepButtons = new(), _tabButtons = new();
@@ -192,6 +193,7 @@ public sealed partial class CreatorView : Control
         BuildStepButtons();
         _session.Changed += OnSessionChanged;
         Refresh(focusList: false);
+        EnterArmoury(margin, right, stepsPanel);   // the concept's Armoury layout (phase 4d)
     }
 
     Control Host => (Control)(GetParent() ?? this);
@@ -400,7 +402,7 @@ public sealed partial class CreatorView : Control
     {
         bool handled = false;
         ExtrasRefresh(focusList, ref handled);   // EXTRAS-HOOK: an added page drawn in this frame instead (Musou Mode: the Librarian and the Heretic)
-        if (handled) return;
+        if (handled) { ArmouryDirty(); return; }
         var profile = _session.Working;
         var active = LoadoutEdits.Active(profile, _catalog, out _);
         string role = Role;
@@ -457,6 +459,7 @@ public sealed partial class CreatorView : Control
         if (_step != Step.Look) _previewOrkLook = null;
         RebuildList(focusList);
         UpdatePreview();
+        ArmouryDirty();
     }
 
     string ActiveName(CustomizationProfile profile, Selection active)
@@ -670,11 +673,13 @@ public sealed partial class CreatorView : Control
     void ShowTextCard(string title, string body, string extra = "", Color? extraColour = null)
     {
         foreach (var c in _card.GetChildren()) { _card.RemoveChild(c); c.QueueFree(); }
-        _cardTitle = UiKit.Text(title, UiKit.HeaderSize - 4, UiKit.Gold).With(l => l.ClipText = true);
+        _cardTitle = UiKit.Text(_arm ? title.ToUpperInvariant() : title, UiKit.HeaderSize - 4, UiKit.Gold).With(l => l.ClipText = true);
+        if (_arm) _cardTitle.AddThemeFontOverride("font", UiKit.ConceptFont());   // one face on the Armoury page
         _card.AddChild(_cardTitle);
         var text = UiKit.VBox(6);
         _cardBody = body.Length > 0 ? UiKit.Text(body, CardTextMax, UiKit.White, HorizontalAlignment.Left, true) : null;
         _cardExtra = extra.Length > 0 ? UiKit.Text(extra, CardTextMax, extraColour ?? UiKit.Grey, HorizontalAlignment.Left, true) : null;
+        if (_arm) foreach (var l in new[] { _cardBody, _cardExtra }) l?.AddThemeFontOverride("font", UiKit.ConceptFont());
         if (_cardBody is not null) text.AddChild(_cardBody);
         if (_cardExtra is not null) text.AddChild(_cardExtra);
         _cardScroll = UiKit.Scroll(text);
@@ -768,6 +773,7 @@ public sealed partial class CreatorView : Control
     public override void _Process(double delta)
     {
         if (_status.Text.Length > 0 && Time.GetTicksMsec() / 1000.0 > _statusUntil) _status.Text = "";
+        ArmouryPoll(delta);
     }
 
     void ChooseRole(string role)

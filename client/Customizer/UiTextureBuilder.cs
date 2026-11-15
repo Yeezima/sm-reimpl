@@ -54,6 +54,7 @@ public static partial class UiTextureBuilder
         {
             var one = Image.LoadFromFile(concept1xPath); one.Convert(Image.Format.Rgba8);
             if (panels is null || panels.Contains("options")) OptionsTextures(one, src, outDir, Save);
+            if (panels is null || panels.Contains("armoury")) ArmouryTextures(one, src, Save);   // phase 4d
         }
 
         // ---- buttons: the plate with its label removed ----

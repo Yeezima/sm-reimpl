@@ -317,6 +317,7 @@ public sealed partial class UiSelfTest : Node
         await OptionsChecks();   // ui/menu-rebuild: the options' rows, effects and persistence
         await ConceptChecks();   // ui/concept-redesign phase 1: the steel kit, the main menu and OPTIONS in the concept's layout (UiSelfTest.Concept.cs)
         await PresetsGlowChecks();   // ui/lighting-presets, ui/focus-glow (UiSelfTest.PresetsGlow.cs)
+        await ArmouryChecks();   // ui/concept-redesign phase 4d: the Armoury (UiSelfTest.Armoury.cs)
         await FitChecks();
         await ArmourBarChecks();   // ui/armour-bar-fix: one armour bar layer (UiSelfTest.ArmourBar.cs)
         await HeadshotMedalChecks();
