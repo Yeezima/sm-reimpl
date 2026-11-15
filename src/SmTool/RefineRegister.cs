@@ -900,6 +900,12 @@ public static class RefineRegister
             rendered = Render(model, changes, specName, changesName);
             var dups = DuplicateIds(model.Tagged.Concat(model.Appendix).Select(e => e.Id).Concat(ChangeIds(changes).SelectMany(a => a)));
             if (dups.Count > 0) throw new InvalidOperationException("refine-register: duplicate IDs: " + string.Join(", ", dups));
+            // A "duplicate of R-..." cell must name another row that exists; a typo would otherwise hide a live row in the appendix.
+            var allIds = model.Tagged.Concat(model.Appendix).Select(e => e.Id).ToHashSet();
+            var badDups = model.Appendix.SelectMany(e => e.Reasons.Where(r => r.StartsWith("duplicate of ", StringComparison.Ordinal))
+                    .Select(r => (e.Id, Target: r["duplicate of ".Length..])))
+                .Where(d => d.Target == d.Id || !allIds.Contains(d.Target)).Select(d => $"{d.Id} -> {d.Target}").ToList();
+            if (badDups.Count > 0) throw new InvalidOperationException("refine-register: 'duplicate of' names no other row: " + string.Join(", ", badDups));
         }
         catch (InvalidOperationException e)
         {
