@@ -32,7 +32,10 @@ public static class Panel01
     /// <summary>The plates' tops (the gold plate's includes its glow) and the painted labels' boxes, measured on the image (text pixels thresholded, padded 5 sides and 4 above and below).</summary>
     public static readonly float[] SrcTop = [256.5f, 301.5f, 339f, 377f, 414.8f];
     public static readonly Rect2[] SrcText = [new(192, 267, 138, 23), new(198, 305, 125, 22), new(213, 343, 99, 22), new(219, 381, 85, 22), new(237, 420, 47, 24)];
-    public const float LabelCx = 261f, GoldLabelCy = 278.5f, DarkLabelDy = -1.4f;
+    public const float LabelCx = 261f, GoldLabelCy = 278.5f, DarkLabelDy = -0.4f;
+    /// <summary>The painted labels' own centres and heights on their plates (fitted to the concept's own labels by cross-correlation in quarter pixels: the concept centres each a little differently, EXIT 1.5 px lower); labels without a painted original take the mean.</summary>
+    public static float LabelCxOf(string id) => id switch { "armoury" => 263f, "options" => 262.25f, "exit" => 261f, _ => 261f };
+    public static float LabelDyOf(string id) => id switch { "exit" => 1.35f, _ => -0.15f };
 
     /// <summary>The frame's outer outline (the notch between the shoulders is open at the top, the crest sits in it).</summary>
     public static readonly Vector2[] Frame = [new(62.4f, 239.6f), new(83.8f, 229.8f), new(104.3f, 231.5f), new(113.2f, 219.1f), new(157.8f, 219.1f), new(164.0f, 227.1f), new(343.2f, 227.1f), new(346.7f, 219.1f), new(385.1f, 219.1f), new(404.7f, 228.9f), new(418.9f, 239.6f), new(443.0f, 263.6f), new(459.0f, 279.7f), new(459.0f, 509.6f), new(450.1f, 516.8f), new(91.8f, 516.8f), new(48.1f, 509.6f), new(46.4f, 254.7f)];

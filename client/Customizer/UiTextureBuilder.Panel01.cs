@@ -82,40 +82,64 @@ public static partial class UiTextureBuilder
             for (int y = (int)(t.Position.Y * sf); y < (int)(t.End.Y * sf); y++) for (int x = (int)(t.Position.X * sf); x < (int)(t.End.X * sf); x++) { var p = up.GetPixel(x, y); if (p.B > 0.82f && p.R > 0.82f) { tr += p.R; tg += p.G; tb += p.B; tn++; } }
             return tn > 0 ? new Color((float)(tr / tn), (float)(tg / tn), (float)(tb / tn)) : new Color(0.93f, 0.93f, 0.9f);
         }
-        // The label's pixels (alpha from the blue channel against the blank plate) laid on a blank plate texture at the given text centre (screen px, relative to the texture's origin).
-        void Lay(Image dst, Rect2 originPx, int srcRowIdx, Color ink, Vector2 centre)
+        // The concept's lettering as alpha maps (against the blank plate), cut into a glyph atlas from the DARK plates' labels; D (gold plate only) is normalised to them. Every label is then laid out from that one atlas.
+        float[] AlphaOf(int row)
         {
-            var t = SrcText[srcRowIdx];
-            int bx0 = (int)(t.Position.X * sf), by0 = (int)(t.Position.Y * sf), bw = (int)(t.Size.X * sf), bh = (int)(t.Size.Y * sf);
-            float inkB = Ink(srcRowIdx).B;
-            int ox = (int)MathF.Round((centre.X - t.Size.X / 2f - originPx.Position.X) * sf), oy = (int)MathF.Round((centre.Y - t.Size.Y / 2f - originPx.Position.Y) * sf);
+            var t = SrcText[row]; int bx0 = (int)(t.Position.X * sf), by0 = (int)(t.Position.Y * sf), bw = (int)(t.Size.X * sf), bh = (int)(t.Size.Y * sf);
+            float inkB = Ink(row).B; var a = new float[bw * bh];
             for (int y = 0; y < bh; y++)
                 for (int x = 0; x < bw; x++)
                 {
                     var p = up.GetPixel(bx0 + x, by0 + y); var bg = clean.GetPixel(bx0 + x, by0 + y);
-                    float a = Mathf.Clamp((p.B - bg.B) / MathF.Max(0.05f, inkB - bg.B), 0f, 1f);
-                    a = Mathf.SmoothStep(0.15f, 0.72f, a);   // the glyph's silhouette only (a crisp antialiased edge): the concept's selected label is bright and flat, the others carry a bevel and a halo; as silhouettes in one flat ink all five are identical
-                    int dx = ox + x, dy = oy + y;
-                    if (dx < 0 || dy < 0 || dx >= dst.GetWidth() || dy >= dst.GetHeight() || a <= 0f) continue;
+                    a[y * bw + x] = Mathf.SmoothStep(0.06f, 0.94f, Mathf.Clamp((p.B - bg.B) / MathF.Max(0.05f, inkB - bg.B), 0f, 1f));
+                }
+            return a;
+        }
+        var atlas = new P01Atlas();
+        string[] srcText = ["MUSOU MODE", "CLASSIC PVP", "ARMOURY", "OPTIONS", "EXIT"];
+        for (int row = 1; row < 5; row++)
+        {
+            var t = SrcText[row];
+            foreach (var (ch, g) in atlas.Cut(srcText[row], AlphaOf(row), (int)(t.Size.X * sf), (int)(t.Size.Y * sf), true)) if (!atlas.Glyphs.ContainsKey(ch)) atlas.Glyphs[ch] = g;
+        }
+        atlas.Finish();
+        {
+            var t = SrcText[0];
+            var gold = atlas.Cut(srcText[0], AlphaOf(0), (int)(t.Size.X * sf), (int)(t.Size.Y * sf), false);
+            var dE = atlas.Glyphs['E']; var gE = gold['E'];
+            float k = P01Atlas.CapHeight(dE) / P01Atlas.CapHeight(gE), target = P01Atlas.Coverage(dE), lo = 0.4f, hi = 4f;
+            for (int it = 0; it < 24; it++) { float mid = (lo + hi) / 2f; if (P01Atlas.Coverage(P01Atlas.Scaled(gE, k, mid)) > target) lo = mid; else hi = mid; }
+            float power = (lo + hi) / 2f;
+            atlas.Glyphs['D'] = P01Atlas.Scaled(gold['D'], k, power);
+            GD.Print($"atlas: {atlas.Glyphs.Count} glyphs, mean gap {atlas.MeanGap / sf:0.00}, word space {atlas.Space / sf:0.00} (screen px); D from the gold plate: scale {k:0.000} (E cap {P01Atlas.CapHeight(gE) / sf:0.00} -> {P01Atlas.CapHeight(dE) / sf:0.00}), weight power {power:0.000}");
+        }
+        // The text laid out from the atlas on a blank plate, centred on (centre) in screen px relative to the texture's origin; one ink for each plate colour.
+        void LayText(Image dst, Rect2 originPx, string text, Color ink, Vector2 centre)
+        {
+            int canvasH = (int)(28 * sf);
+            var canvas = atlas.Compose(text, canvasH, out int cw); if (canvas is null) return;
+            int ox = (int)MathF.Round(centre.X * sf - cw / 2f - originPx.Position.X * sf), oy = (int)MathF.Round(centre.Y * sf - canvasH / 2f - originPx.Position.Y * sf);
+            for (int y = 0; y < canvasH; y++)
+                for (int x = 0; x < cw; x++)
+                {
+                    float a = canvas[y * cw + x]; int dx = ox + x, dy = oy + y;
+                    if (a <= 0f || dx < 0 || dy < 0 || dx >= dst.GetWidth() || dy >= dst.GetHeight()) continue;
                     var d = dst.GetPixel(dx, dy);
                     dst.SetPixel(dx, dy, new Color(d.R + (ink.R - d.R) * a, d.G + (ink.G - d.G) * a, d.B + (ink.B - d.B) * a, d.A));
                 }
         }
-        // Owner rule (2026-11-15): every label of one level renders identically. All five labels are therefore made the same way: each is the concept's own painted label (alpha from its own pixels against the blank plate),
-        // laid at the same centre, in the one ink of the dark plates (white of the concept's own dark-plate labels) or of the gold plate, on a blank plate. No label keeps its native pixels with the plate's own halo.
         var goldOrigin = new Rect2(PlateX0 - TexSide, SrcTop[0], tw, goldH);
-        int[] srcRow = [1, 0, 2, 3, 4];   // classic = row 1 (second plate), musou = gold plate (row 0), armoury = 2, options = 3, exit = 4
         var darkInk = Ink(2); var goldInk = Ink(0);
         for (int k = 0; k < ButtonLabels.Length; k++)
         {
-            var (id, _) = ButtonLabels[k];
-            int row = srcRow[k], plateRow = row == 0 ? 1 : row;
+            var (id, text) = ButtonLabels[k];
+            int plateRow = id switch { "armoury" => 2, "options" => 3, "exit" => 4, _ => id == "stop" ? 2 : 1 };
             var dark = Sheet(clean, plateRow); var o = new Rect2(PlateX0 - TexSide, SrcTop[plateRow] - TexDarkV, tw, darkH);
-            Lay(dark, o, row, darkInk, new Vector2(Panel01.LabelCx, SrcTop[plateRow] + PlateH / 2f + Panel01.DarkLabelDy));
-            var gold = Sheet(clean, 0);
-            Lay(gold, goldOrigin, row, goldInk, new Vector2(Panel01.LabelCx, Panel01.GoldLabelCy));
+            LayText(dark, o, text, darkInk, new Vector2(Panel01.LabelCxOf(id), SrcTop[plateRow] + PlateH / 2f + Panel01.LabelDyOf(id)));
+            var gold2 = Sheet(clean, 0);
+            LayText(gold2, goldOrigin, text, goldInk, new Vector2(Panel01.LabelCxOf(id), Panel01.GoldLabelCy));
             save("btn-" + id + "-dark", dark);
-            save("btn-" + id + "-gold", gold);
+            save("btn-" + id + "-gold", gold2);
         }
     }
 
