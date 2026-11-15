@@ -70,7 +70,7 @@ public partial class NetworkView
             return;
         }
         if (current is not null && IsDreadnoughtCharacter(current)) { result = current; return; }
-        if (_dreadLooks is null) DreadRegisterLightCaps();
+        if (_fx is not null && _fx.LightCaps.Count == 0) DreadRegisterLightCaps();   // per view (review): the caps go with this view's effect player
         _dreadLooks ??= new DreadnoughtLooks(_gameDir, DreadChaos);
         bool wasDone = _dreadLooks.Done;
         _dreadLooks.Step();

@@ -245,10 +245,11 @@ public partial class NetworkView
     void DreadPyreOut(DreadFeelState f) { foreach (var e in f.Pyre) e.Life = Math.Min(e.Life, e.Age); f.Pyre.Clear(); }
 
     /// <summary>Registers the reach of the Dreadnought's scaled-up effects' lights (<see cref="DreadnoughtFeel.LightReach"/>): the x12 power-up glow and the x3 force field lit the whole view red and purple, the x1.75 muzzle flash flickered it sepia.</summary>
-    static void DreadRegisterLightCaps()
+    void DreadRegisterLightCaps()
     {
-        foreach (var n in DreadnoughtArm.AllEffectNames()) FxPlayer.LightCaps[n] = DreadnoughtFeel.LightReach;
-        foreach (var n in new[] { DreadnoughtFeel.CannonMuzzle.Name, SmContent.Extras.Musou.Arsenal.Arsenal.ChaosMuzzleEffect }) FxPlayer.LightCaps[n] = DreadnoughtFeel.LightReach;
+        if (_fx is null) return;
+        foreach (var n in DreadnoughtArm.AllEffectNames()) _fx.LightCaps[n] = DreadnoughtFeel.LightReach;
+        foreach (var n in new[] { DreadnoughtFeel.CannonMuzzle.Name, SmContent.Extras.Musou.Arsenal.Arsenal.ChaosMuzzleEffect }) _fx.LightCaps[n] = DreadnoughtFeel.LightReach;
     }
 
     /// <summary>Overcharge's wave at the hit: the stomp's displace effects at the size of the 3 m wave, on the ground at the hand's place (not at hand height), one set per swing.</summary>

@@ -348,8 +348,8 @@ public sealed partial class FxPlayer : Node3D
     /// <paramref name="tint"/> recolours the effect (<see cref="FxEffect.Tint"/>; the Chaos plasma, <see cref="SmContent.PlasmaColour"/>); null: the data's colours.
     /// Returns null when the system is unknown or the player is not ready.
     /// </summary>
-    /// <summary>Effect names whose lights reach no further than the given metres (added content registers its scaled-up effects here; empty in Classic).</summary>
-    public static readonly Dictionary<string, float> LightCaps = new();
+    /// <summary>Effect names whose lights reach no further than the given metres (added content registers its scaled-up effects here; empty in Classic). Per player instance (review): it goes with the match's view, so a Classic match after a Musou one starts empty.</summary>
+    public readonly Dictionary<string, float> LightCaps = new();
     /// <summary>How much the effects' lights light the volumetric fog (Godot's per-light fog energy; 1 Classic). The Musou map's storm look sets <see cref="MusouLightFogEnergy"/> while it is up: a bright explosion light (energy up to 19) lit the 120 m of haze and tinted the whole view, sky included.</summary>
     public static float LightFogEnergy = 1f;
     public const float MusouLightFogEnergy = 0.1f;
