@@ -15,6 +15,7 @@
   <!-- The menus' font (DejaVu Sans Bold, licence in assets/fonts/LICENSE-DejaVu.txt): embedded, so no Godot import is needed and every build has it. -->
   <ItemGroup>
     <EmbeddedResource Include="assets/fonts/DejaVuSans-Bold.ttf" LogicalName="Fonts/DejaVuSans-Bold.ttf" />
+    <EmbeddedResource Include="assets/fonts/Oswald-wght.ttf" LogicalName="Fonts/Oswald-wght.ttf" />
     <EmbeddedResource Include="assets/ui/*.png" LogicalName="Ui/%(Filename)%(Extension)" />
   </ItemGroup>
 

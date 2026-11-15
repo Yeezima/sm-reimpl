@@ -107,7 +107,7 @@ public sealed partial class UiSelfTest
                 await Frames(3);
                 // Measured at the kit's base sizes (a headless window is tiny, so the theme's size, raised to stay readable there, is not the one at 1080p).
                 var cut = new System.Collections.Generic.List<string>();
-                float Need(string text) => UiKit.Font.GetStringSize(text, HorizontalAlignment.Left, -1, Steel.RowSize).X;
+                float Need(string text) => Steel.CondensedFont().GetStringSize(text, HorizontalAlignment.Left, -1, Steel.RowSize).X;
                 foreach (var l in AllLabels(options.Grid).Where(x => x.IsVisibleInTree() && x.ThemeTypeVariation == Steel.LabelType && x.GetParent() is UiKit.MenuSlider && !x.Name.ToString().EndsWith("Value", StringComparison.Ordinal)))
                     if (Need(l.Text) > OptionsView.LabelWidth - 8f) cut.Add($"{l.Text} {Need(l.Text):F0}");
                 foreach (var b in AllButtons(options.Grid).OfType<UiKit.MenuChoice>().Where(x => x.IsVisibleInTree()))

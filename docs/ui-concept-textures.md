@@ -60,3 +60,17 @@ godot.cmd -- --build-ui-textures <concept-4panel.jpg> --owner-crop <owner-ref-ma
 ```
 
 While the overlay shows, the video behind the menu is enlarged 1.3x from its left edge (`MenuVideoBackground.MainMenuFraming`) so the Marine and the battlefield stand clear of the overlay, which spans the full height and about 48 % of the width at 16:9.
+
+## Pass 2d: Real-ESRGAN upscale and Oswald (owner, 2026-11-15)
+
+Both were downloaded by the lead with the owner's permission and stay outside the repository (Real-ESRGAN ncnn Vulkan v0.2.5.0, model `realesrgan-x4plus`; run only on the owner's concept files and our cut pieces, never on game files). The exact steps:
+
+```
+realesrgan-ncnn-vulkan.exe -i owner-ref-main-menu-crop.png -o owner-crop-x4.png      -n realesrgan-x4plus -s 4     (522 x 606  -> 2088 x 2424)
+realesrgan-ncnn-vulkan.exe -i concept-4panel.jpg            -o concept-4panel-x4.png -n realesrgan-x4plus -s 4     (1600 x 960 -> 6400 x 3840)
+godot.cmd -- --build-ui-textures concept-4panel-x4.png --owner-crop owner-ref-main-menu-crop.png --upscaled owner-crop-x4.png
+```
+
+The builder takes the upscaled concept as its first argument (its factor F = width / 1600 scales every rectangle, thickness and chamfer; the pieces keep the same output size as before, now downsampled from the 4x detail, so they are crisper) and the upscaled crop as the overlay's source (`overlay-main.png` is 2088 x 2424, drawn at about 930 x 1080, so it holds at 4K). The plate, tab, pill, frame and title pieces stay at their 1:1 UI size (about 1.74x the concept); they are sharp at 1080p and soft at 4K.
+
+Font: Oswald (SIL OFL 1.1, variable weight, `client/assets/fonts/Oswald-wght.ttf`, licence `LICENSE-Oswald-OFL.txt`, noted in THIRD_PARTY_NOTICES.md), weight 600, for the kit's labels, tabs and buttons (`Steel.CondensedFont`); the kit's text sizes were raised to suit it (27 buttons, 23 tabs, 21 rows, 16 small). The squeezed DejaVu is the fallback if the file cannot be read.

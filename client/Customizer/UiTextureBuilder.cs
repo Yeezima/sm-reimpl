@@ -16,20 +16,25 @@ public static class UiTextureBuilder
     /// <summary>Output pixels per concept pixel: the concept's panels are 780 x 440 for a 1920 x 1080 screen (2.46x); the frames are drawn about 1.74x, so the pieces are made at that scale and drawn 1:1.</summary>
     public const float S = 1.74f;
 
+        /// <summary>Resolution of the concept image used relative to the original 1600 x 960 (1 for the JPEG, 4 for a 4x upscale); rectangles are scaled by it.</summary>
+    static float F = 1f;
+    static Rect2I U(int x, int y, int w, int h) => new((int)MathF.Round(x * F), (int)MathF.Round(y * F), (int)MathF.Round(w * F), (int)MathF.Round(h * F));
+
     public static int Run(string? conceptPath, string? outDir, string? cropPath = null, string? upscaledPath = null)
     {
         if (string.IsNullOrEmpty(conceptPath) || !System.IO.File.Exists(conceptPath)) { GD.PrintErr("build-ui-textures: give the concept image: --build-ui-textures <concept-4panel.jpg>"); return 2; }
         var src = Image.LoadFromFile(conceptPath);
         src.Convert(Image.Format.Rgba8);
+        F = src.GetWidth() / 1600f;   // an upscaled concept (Real-ESRGAN x4: 6400 wide) gives F = 4; every rectangle below is in concept pixels
         outDir ??= System.IO.Path.GetFullPath(System.IO.Path.Combine(ProjectSettings.GlobalizePath("res://"), "assets", "ui"));
         System.IO.Directory.CreateDirectory(outDir);
         void Save(string name, Image img) { img.SavePng(System.IO.Path.Combine(outDir, name + ".png")); GD.Print($"ui texture {name}: {img.GetWidth()} x {img.GetHeight()}"); }
 
         // ---- frame rings: one corner and the edge strips cut, the rest mirrored; the hole and the outside of the chamfer are transparent ----
         // Main menu (panel 01): top-left corner 63 x 60, top strip, left strip; ring thickness 27 (sides) and 24 (top and bottom).
-        Save("frame-main", Ring(src, new Rect2I(47, 200, 63, 60), new Rect2I(122, 200, 20, 60), new Rect2I(47, 300, 63, 30), 27, 24, 26, fromTopRight: false));
+        Save("frame-main", Ring(src, U(47, 200, 63, 60), U(122, 200, 20, 60), U(47, 300, 63, 30), (int)(27 * F), (int)(24 * F), 26f * F, fromTopRight: false));
         // Options (panel 04): top-right corner 66 x 53, top strip, right strip; ring thickness 17 (sides), 14 (top and bottom).
-        Save("frame-options", Ring(src, new Rect2I(1436, 582, 66, 53), new Rect2I(1380, 582, 40, 53), new Rect2I(1436, 670, 66, 40), 15, 14, 24, fromTopRight: true));
+        Save("frame-options", Ring(src, U(1436, 582, 66, 53), U(1380, 582, 40, 53), U(1436, 670, 66, 40), (int)(15 * F), (int)(14 * F), 24f * F, fromTopRight: true));
 
         // ---- the main menu's wall, frame and wordmark from the owner's sharper crop of panel 01 (522 x 606), when given ----
         if (!string.IsNullOrEmpty(cropPath) && System.IO.File.Exists(cropPath))
@@ -44,19 +49,19 @@ public static class UiTextureBuilder
         }
 
         // ---- buttons: the plate with its label removed ----
-        Save("button-dark", Plate(src, new Rect2I(96, 266, 239, 27), new Rect2I(158, 269, 120, 19), new Rect2I(116, 269, 40, 19), 8));
-        Save("button-gold", Plate(src, new Rect2I(96, 234, 239, 29), new Rect2I(154, 238, 126, 21), new Rect2I(112, 238, 40, 21), 8));
-        Save("tab-dark", Plate(src, new Rect2I(1080, 610, 118, 22), new Rect2I(1116, 612, 52, 16), new Rect2I(1170, 612, 18, 16), 6));
-        Save("tab-gold", Plate(src, new Rect2I(1324, 609, 132, 24), new Rect2I(1350, 611, 80, 18), new Rect2I(1332, 611, 16, 18), 6));
-        Save("pill", Plate(src, new Rect2I(1060, 684, 116, 20), new Rect2I(1090, 687, 58, 15), new Rect2I(1077, 687, 12, 15), 6));
-        Save("nameplate", Scaled(Chamfer(Cut(src, new Rect2I(114, 414, 200, 24)), 5f), S));
+        Save("button-dark", Plate(src, U(96, 266, 239, 27), U(158, 269, 120, 19), U(116, 269, 40, 19), 8));
+        Save("button-gold", Plate(src, U(96, 234, 239, 29), U(154, 238, 126, 21), U(112, 238, 40, 21), 8));
+        Save("tab-dark", Plate(src, U(1080, 610, 118, 22), U(1116, 612, 52, 16), U(1170, 612, 18, 16), 6));
+        Save("tab-gold", Plate(src, U(1324, 609, 132, 24), U(1350, 611, 80, 18), U(1332, 611, 16, 18), 6));
+        Save("pill", Plate(src, U(1060, 684, 116, 20), U(1090, 687, 58, 15), U(1077, 687, 12, 15), 6));
+        Save("nameplate", Scaled(Chamfer(Cut(src, U(114, 414, 200, 24)), 5f * F), S / F));
 
         // ---- ornaments ----
-        Save("crest", Scaled(ClearBottomSides(FloodKey(Cut(src, new Rect2I(1127, 537, 146, 31)), 26f), 22, 24), S * 1.15f));
-        Save("title-plate", Scaled(FloodKey(Cut(src, new Rect2I(1090, 566, 220, 37)), 26f), S));
-        if (string.IsNullOrEmpty(cropPath)) Save("wordmark", Scaled(SaturationKey(Cut(src, new Rect2I(45, 110, 350, 80))), S * 1.2f));
-        if (string.IsNullOrEmpty(cropPath)) Save("stone-main", Scaled(Cut(src, new Rect2I(10, 240, 37, 100)), S));
-        Save("stone-options", Scaled(FloodKey(Cut(src, new Rect2I(1496, 600, 42, 150)), 22f, 41, 75), S));
+        Save("crest", Scaled(ClearBottomSides(FloodKey(Cut(src, U(1127, 537, 146, 31)), 26f), (int)(22 * F), (int)(24 * F)), S * 1.15f / F));
+        Save("title-plate", Scaled(FloodKey(Cut(src, U(1090, 566, 220, 37)), 26f), S / F));
+        if (string.IsNullOrEmpty(cropPath)) Save("wordmark", Scaled(SaturationKey(Cut(src, U(45, 110, 350, 80))), S * 1.2f / F));
+        if (string.IsNullOrEmpty(cropPath)) Save("stone-main", Scaled(Cut(src, U(10, 240, 37, 100)), S / F));
+        Save("stone-options", Scaled(FloodKey(Cut(src, U(1496, 600, 42, 150)), 22f, (int)(41 * F), (int)(75 * F)), S / F));
         return 0;
     }
 
@@ -70,8 +75,8 @@ public static class UiTextureBuilder
     /// <summary>The owner's orange line (his marked image, 2026-11-15) in crop pixels: everything inside is kept, outside is transparent, the edge feathered.</summary>
     static readonly Vector2[] OverlayOutline =
     [
-        new(0, 0), new(43, 0), new(99, 52), new(101, 106), new(505, 110), new(512, 205), new(416, 219), new(479, 237), new(497, 262), new(497, 520),
-        new(485, 565), new(433, 577), new(133, 589), new(133, 606), new(0, 606),
+        new(0, 0), new(43, 0), new(99, 52), new(101, 106), new(505, 110), new(512, 205), new(416, 219), new(440, 237), new(466, 247), new(488, 276), new(488, 520),
+        new(482, 565), new(433, 577), new(133, 589), new(133, 606), new(0, 606),
     ];
 
     /// <summary>
@@ -117,7 +122,7 @@ public static class UiTextureBuilder
         var bandAlpha = new float[W * H];
         Array.Fill(bandAlpha, 1f);
         {
-            int y0 = (int)(98 * sfy), y1 = (int)(216 * sfy), x0 = (int)(102 * sf), x1 = (int)(514 * sf);
+            int y0 = (int)(98 * sfy), y1 = (int)(216 * sfy), x0 = (int)(28 * sf), x1 = (int)(514 * sf);
             var mask = new float[W * H];
             for (int y = y0; y < y1; y++)
                 for (int x = x0; x < x1; x++)
@@ -137,20 +142,31 @@ public static class UiTextureBuilder
                 {
                     // A one-pixel soft edge on the dilated mask.
                     float a = dil[y * W + x];
+                    if (x < (int)(104 * sf))
+                    {
+                        // Against the wall: dark stone stays, the concept's lighter sky between the letters goes.
+                        var q = img.GetPixel(x, y);
+                        if (Mathf.Max(q.R, Mathf.Max(q.G, q.B)) < 0.31f && q.B < q.R + 0.1f) a = 1f;
+                    }
                     bandAlpha[y * W + x] = a;
                 }
-            // Crest: flood-key its grey surround.
-            var crestRect = new Rect2I((int)(150 * sf), (int)(212 * sfy), (int)(226 * sf), (int)(34 * sfy));
-            var sub = FloodKey(img.GetRegion(crestRect), 34f, 2, 2);
+            // Under the wordmark, round the crest and along the frame's top: the concept's sky is keyed out (flood from the sky's own grey, generous tolerance); the letters' dark outline, the crest and the steel stay.
+            var skyRect = new Rect2I((int)(102 * sf), (int)(212 * sfy), (int)(396 * sf), (int)(44 * sfy));
+            var sub = FloodKey(img.GetRegion(skyRect), 48f, 2, 2);
             for (int y = 0; y < sub.GetHeight(); y++)
                 for (int x = 0; x < sub.GetWidth(); x++)
                 {
-                    // The key leaves a box of the concept's haze round the crest: an ellipse over the crest (centre 262, 240; radii 112 x 25 crop px) trims it.
-                    float ex = ((crestRect.Position.X + x) / sf - 262f) / 112f, ey = ((crestRect.Position.Y + y) / sfy - 238f) / 26f;
-                    float e = Mathf.Clamp((1.08f - Mathf.Sqrt(ex * ex + ey * ey)) / 0.12f, 0f, 1f);
-                    bandAlpha[(crestRect.Position.Y + y) * W + crestRect.Position.X + x] = sub.GetPixel(x, y).A * e;
+                    float cxp = (skyRect.Position.X + x) / sf, cyp = (skyRect.Position.Y + y) / sfy;
+                    float a = sub.GetPixel(x, y).A;
+                    // Round the crest, an ellipse over it (centre 262, 238; radii 112 x 25 crop px) trims what the key leaves.
+                    if (cxp > 148f && cxp < 378f && cyp < 246f)
+                    {
+                        float ex = (cxp - 262f) / 112f, ey = (cyp - 238f) / 26f;
+                        a *= Mathf.Clamp((1.08f - Mathf.Sqrt(ex * ex + ey * ey)) / 0.12f, 0f, 1f);
+                    }
+                    bandAlpha[(skyRect.Position.Y + y) * W + skyRect.Position.X + x] = a;
                 }
-            for (int y = y1; y < (int)(212 * sfy); y++) for (int x = x0; x < x1; x++) bandAlpha[y * W + x] = 1f;
+            for (int y = y1; y < skyRect.Position.Y; y++) for (int x = x0; x < x1; x++) bandAlpha[y * W + x] = 1f;
         }
         // The alpha: inside the owner's outline, feathered.
         float feather = 5f * sf;
@@ -584,7 +600,7 @@ public static class UiTextureBuilder
                 img.SetPixel(tx, ty, img.GetPixel(tx, ty).Lerp(fill, wgt));
             }
         }
-        return Scaled(Chamfer(img, chamfer), S);
+        return Scaled(Chamfer(img, chamfer * F), S / F);
     }
 
     /// <summary>A frame ring as a nine-patch image: corners (the cut one mirrored for the others), edge strips, a transparent hole. Ring thicknesses (concept px): sides, top, bottom.</summary>
@@ -597,7 +613,7 @@ public static class UiTextureBuilder
         var top = Cut(src, stripTop); var side = Cut(src, stripSide);
         if (fromTopRight) side.FlipX();
         top = MaskStrip(top, 0, thickTop); side = MaskStrip(side, thickSide, 0);
-        tl = Scaled(tl, S); top = Scaled(top, S); side = Scaled(side, S);
+        tl = Scaled(tl, S / F); top = Scaled(top, S / F); side = Scaled(side, S / F);
         int cw = tl.GetWidth(), ch = tl.GetHeight(), ew = top.GetWidth(), eh = side.GetHeight();
         // Edge strips are resized to the corner's thickness band, so the pieces butt together.
         top.Resize(ew, ch, Image.Interpolation.Lanczos); side.Resize(cw, eh, Image.Interpolation.Lanczos);

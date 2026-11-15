@@ -10,6 +10,12 @@ under the licences below. None of it is game content.
 - Licence: the DejaVu Fonts licence (Bitstream Vera and Arev terms: free to use, copy and bundle), full text in
   `client/assets/fonts/LICENSE-DejaVu.txt`.
 
+## Oswald (font, bundled)
+
+- Source: https://github.com/googlefonts/OswaldFont (the variable-weight `Oswald-wght.ttf`, unmodified), copyright 2016 The Oswald Project Authors.
+- Used in: the labels, tabs and buttons of the redesigned main menu and Options (`client/assets/fonts/`, embedded in the client assembly; weight 600).
+- Licence: SIL Open Font License 1.1, full text in `client/assets/fonts/LICENSE-Oswald-OFL.txt`. Downloaded with the owner's permission (2026-11-15).
+
 ## ww2ogg (port; codebook library downloaded, not distributed)
 
 - Source: https://github.com/hcs64/ww2ogg (version 0.24, tag `0.24`, commit `4b4ca8ec4079a42488aae6344c3c52165e210eec`),

@@ -72,7 +72,7 @@ public static partial class Steel
         FrameType = "SmSteelFrame", AmberFrameType = "SmSteelAmberFrame", RecessType = "SmSteelRecess", SmallType = "SmSteelSmall", PrimaryType = "SmSteelPrimary";
 
     /// <summary>Base text sizes (virtual 1920 x 1080 pixels) of the kit's text types; <see cref="UiKit.FitMenuText"/> raises them when the window is too small to read them.</summary>
-    public const int ButtonSize = 22, TabSize = 19, RowSize = 16, SmallSize = 14;
+    public const int ButtonSize = 27, TabSize = 23, RowSize = 21, SmallSize = 16;
 
     public static Color Mix(Color a, Color b, float t) => a.Lerp(b, Mathf.Clamp(t, 0f, 1f));
 
@@ -405,7 +405,28 @@ public static partial class Steel
     static FontVariation? _condensed;
 
     /// <summary>The kit's text face: the bundled DejaVu Sans Bold squeezed to 84 % in width (a condensed bold close to the concept's lettering; the concept's own face has no licence to bundle here).</summary>
-    public static FontVariation CondensedFont() => _condensed ??= new FontVariation { BaseFont = UiKit.Font.BaseFont, VariationTransform = new Transform2D(new Vector2(0.84f, 0f), new Vector2(0f, 1f), Vector2.Zero), VariationEmbolden = 0.12f, SpacingGlyph = -2 };
+    public static FontVariation CondensedFont() => _condensed ??= BuildFace();
+
+    /// <summary>Oswald (OFL, the concept's condensed lettering's nearest free face) at weight 600; the squeezed DejaVu Sans Bold if the file cannot be read.</summary>
+    static FontVariation BuildFace()
+    {
+        try
+        {
+            using var stream = typeof(Steel).Assembly.GetManifestResourceStream("Fonts/Oswald-wght.ttf");
+            if (stream is not null)
+            {
+                var bytes = new byte[stream.Length];
+                stream.ReadExactly(bytes);
+                var file = new FontFile { Data = bytes, Antialiasing = TextServer.FontAntialiasing.Gray, Hinting = TextServer.Hinting.Light, SubpixelPositioning = TextServer.SubpixelPositioning.Disabled };
+                var variation = new FontVariation { BaseFont = file, SpacingGlyph = 1 };
+                long tag = TextServerManager.GetPrimaryInterface().NameToTag("weight");
+                variation.VariationOpentype = new Godot.Collections.Dictionary { { tag, 600 } };
+                return variation;
+            }
+        }
+        catch (Exception e) when (e is System.IO.IOException or InvalidOperationException) { GD.PrintErr("menus: Oswald: " + e.Message); }
+        return new FontVariation { BaseFont = UiKit.Font.BaseFont, VariationTransform = new Transform2D(new Vector2(0.84f, 0f), new Vector2(0f, 1f), Vector2.Zero), VariationEmbolden = 0.12f, SpacingGlyph = -2 };
+    }
     static ImageTexture? _knob, _knobHot;
 
     /// <summary>The slider's knob, drawn once: a rounded steel bar with a lit top, gold when it is the focused one.</summary>
