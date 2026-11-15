@@ -29,8 +29,19 @@ public class AutocannonBlastDustTests
     public void The_client_mapping_gives_the_blast_no_dust_and_the_zero_share_keeps_nothing()
     {
         string text = File.ReadAllText(Path.Combine(Root(), "client", "Extras", "Musou", "Arsenal", "Autocannon", "NetworkView.AutocannonDust.cs"));
-        Assert.Contains("!restored && SmSim.AutocannonRules.LosesDust(radius) ? BlastDust : 1f", text);
+        Assert.Contains("!restored && SmSim.AutocannonRules.LosesDust(radius) ? BlastDust", text);
         Assert.Contains("internal const float BlastDust = 0f;", text);
         foreach (float roll in new[] { 0f, 0.3f, 0.999f }) Assert.False(FxAmount.Kept(0f, roll));
+    }
+
+    [Fact]
+    public void A_bolt_blast_and_the_autocannon_blast_both_lose_their_dust_by_default()
+    {
+        // The pure mapping the client applies (client/Extras/Musou/Arsenal/Autocannon/NetworkView.AutocannonDust.cs BlastDustShareOf): the autocannon blast radius loses dust, the bolt blast keeps none either.
+        Assert.True(AutocannonRules.LosesDust(3.5f));
+        Assert.False(AutocannonRules.LosesDust(1.5625f));
+        Assert.Equal(0f, SmContent.BoltSmoke.Share);
+        Assert.Equal(0f, SmContent.BoltSmoke.ShareFor("sm_mp_ranged_bolter", old: false));
+        Assert.Equal(1f, SmContent.BoltSmoke.ShareFor("sm_mp_ranged_bolter", old: true));
     }
 }

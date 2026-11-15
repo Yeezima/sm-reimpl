@@ -499,6 +499,7 @@ public partial class NetworkView
             var spot = point + away * (MathF.Max(o.Radius, 4f) * 0.88f);
             await TfwPathTo(spot, "walked onto the point", 45.0, () => Num.Vector2.Distance(new Num.Vector2(client.Predicted.Position.X, client.Predicted.Position.Y), new Num.Vector2(spot.X, spot.Y)) < 1.5f || !client.Predicted.Alive);
         }
+        if (CmdFlag("tfw-fight-fire")) _tfwTestButtons = InputButtons.Fire;   // --tfw-fight-fire (musou-bolt-smoke stills, 2026-11-15): the trigger held for the whole fight, into the crowd it looks at
         int shot = 1;
         // --tfw-fight-every <s> (expansion S3's capture of a Stormboy hop): a PNG this often instead of every 6 s.
         double every = double.TryParse(CmdArg("tfw-fight-every"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double e) && e > 0.0 ? e : 6.0;
@@ -512,6 +513,7 @@ public partial class NetworkView
             await TfwShot($"fight-{shot:00}");
             await TfwSwarmShots(shot++);   // --tfw-swarm-shots: overhead views too (NetworkView.TfwSwarmCam.cs)
         }
+        _tfwTestButtons = InputButtons.None;
         TfwCheck("the fight was filmed", shot > 1, TfwNow.Phase.ToString());
         if (CmdFlag("tfw-fight-weirdboy")) GD.Print($"TFWTEST note: Weirdboy bolts drawn {WeirdboyBoltsDrawn}");
         // hotfix/musou-server-lag: the own player's prediction errors over the run (a late or skipped server tick shows here as a snap back).

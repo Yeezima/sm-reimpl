@@ -42,6 +42,7 @@ public partial class NetworkView
         await AutocannonStill(3, "ac-close-right-idle");   // zoom-barrel pass: the barrel's join with the receiver, close
         await AutocannonStill(4, "ac-close-left-idle");
         await AutocannonStill(5, "ac-close-top-idle");
+        if (CmdFlag("ac-rapid")) { await AutocannonRapid(); return; }   // --ac-rapid (fx-cap-priority close stills, 2026-11-15)
         GD.Print($"ACCAPTURE mark fire t {_connectedFor:F3} frame {Engine.GetProcessFrames()}");
         int blasts = _tfwBoltBlastsShown;
         TfwAction(GameAction.Fire, true);
@@ -68,6 +69,31 @@ public partial class NetworkView
         GD.Print($"ACCAPTURE mark done t {_connectedFor:F3} frame {Engine.GetProcessFrames()}; blasts seen {_tfwBoltBlastsShown - blasts}, drawn this run {_tfwBoltBlastsDrawn}, burst of the heat {client.Predicted.Heat:F1} overheated {client.Predicted.Overheated}");
         TfwCheck("blasts came back", _tfwBoltBlastsShown > blasts, (_tfwBoltBlastsShown - blasts).ToString());
         await TfwWait(1.0);
+        GetTree().Quit(0);
+    }
+
+    /// <summary>
+    /// Test aid <c>--ac-rapid</c> (with the capture; any weapon in hand: the bolter and the stalker too): holds the trigger on the nearest Ork in sight and, once one is within 30 m, saves the own view every 4 frames
+    /// (<c>rapid-00</c> to <c>rapid-35</c>, a few frames on from each round's burst and its blast), for at most 25 s; quits 0. The close frames of the owner's smoke and dust checks.
+    /// </summary>
+    async Task AutocannonRapid()
+    {
+        var client = _client!;
+        TfwAction(GameAction.Fire, true);
+        double end = _connectedFor + 25.0;
+        int saved = 0;
+        while (_connectedFor < end && saved < 36)
+        {
+            AutocannonAim();
+            await TfwFrames(1);
+            var me = client.Predicted.Position;
+            if (_musouState.NearestTo(me, 30f, _ => true) is null) continue;
+            await TfwFrames(3);
+            await TfwShot($"rapid-{saved++:00}");
+        }
+        TfwAction(GameAction.Fire, false);
+        GD.Print($"ACCAPTURE rapid: {saved} stills, blasts seen {_tfwBoltBlastsShown}, drawn {_tfwBoltBlastsDrawn}");
+        await TfwWait(0.5);
         GetTree().Quit(0);
     }
 

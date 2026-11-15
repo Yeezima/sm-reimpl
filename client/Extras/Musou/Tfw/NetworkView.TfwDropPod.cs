@@ -194,7 +194,7 @@ public sealed partial class NetworkView
             {
                 pod.Started = true;
                 _tfwPodsPlayed++;
-                if (_fx is { } fx && tick < land) pod.Trail = fx.Play("drop_pod_trail", at + Vector3.Up * TfwDropPodRules.FallHeight, Basis.Identity, 1f, follow: () => pod.Root is { Visible: true } r ? (r.GlobalPosition + Vector3.Up * 10f, Basis.Identity) : null, repeat: true, priority: 3);
+                if (_fx is { } fx && tick < land) pod.Trail = fx.Play("drop_pod_trail", at + Vector3.Up * TfwDropPodRules.FallHeight, Basis.Identity, 1f, follow: () => pod.Root is { Visible: true } r ? (r.GlobalPosition + Vector3.Up * 10f, Basis.Identity) : null, repeat: true, priority: FxPriority.Special);
             }
             var node = pod.Root!;
             if (tick < land)
@@ -250,8 +250,8 @@ public sealed partial class NetworkView
         _tfwCloud?.Burst(at, distance < 120f ? 1f : 0.5f);
         if (_fx is { } fx)
         {
-            fx.Play("droppod_land_close", at + Vector3.Up * 0.2f, Basis.Identity, 1f, priority: 3);
-            fx.Play("drop_pod_landing_destruction", at + Vector3.Up * 0.2f, Basis.Identity, 1f, priority: 3);
+            fx.Play("droppod_land_close", at + Vector3.Up * 0.2f, Basis.Identity, 1f, priority: FxPriority.Special);
+            fx.Play("drop_pod_landing_destruction", at + Vector3.Up * 0.2f, Basis.Identity, 1f, priority: FxPriority.Special);
             fx.Play("droppod_engine_cooling_down", at + Vector3.Up * 1f, Basis.Identity, 1f, lifetime: 25f, priority: 1);
             fx.PlaceDataDecal("metal_crater_dif", at + Vector3.Up * 0.1f, Basis.Identity, 12f, 12f, 3f, 60f, PoundRing.Fade);
         }

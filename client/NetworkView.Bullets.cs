@@ -161,7 +161,7 @@ public partial class NetworkView
         // split at the join point like a headless beam (that played its rings, flash and light twice).
         if (IsMeltaBlast(p.Name))
         {
-            var blast = fx.Play(p.Name, from, AxesFromY((end - from).Normalized()), scale, target: end, lifetime: p.Lifetime, priority: 1, tint: tint, smokeRein: SmokeRein);
+            var blast = fx.Play(p.Name, from, AxesFromY((end - from).Normalized()), scale, target: end, lifetime: p.Lifetime, priority: own ? FxPriority.Own : FxPriority.Ally, tint: tint, smokeRein: SmokeRein);
             if (blast is not null) _fxTracers++;
             _meltaDataBlasts++;
             BulletDebugAdd(own, rayOrigin, end, from, null);
@@ -181,7 +181,7 @@ public partial class NetworkView
             // many effects as the straight tracer of before cost (a second beam per bullet doubled them and made the effect pool evict impacts), and the short muzzle
             // leg, a few metres crossed in a few milliseconds, as a pooled streak outside the effect pool.
             _bulletsBent++;
-            var e1 = fx.Play(p.Name, join.Value, AxesFromY((end - join.Value).Normalized()), scale, target: end, lifetime: p.Lifetime, delay: d1 / speed, priority: 1, tint: tint, smokeRein: SmokeRein);
+            var e1 = fx.Play(p.Name, join.Value, AxesFromY((end - join.Value).Normalized()), scale, target: end, lifetime: p.Lifetime, delay: d1 / speed, priority: own ? FxPriority.Own : FxPriority.Ally, tint: tint, smokeRein: SmokeRein);
             if (e1 is not null) { _fxTracers++; e1.HeadSpeed = speed; ThinBoltTracer(e1, p.Name, kraken); }
             StreakAdd(from, join.Value, join.Value, speed, kraken ? KrakenTint : null);
             BulletDebugAdd(own, rayOrigin, end, from, join);
@@ -195,16 +195,16 @@ public partial class NetworkView
             if (fx.ShotEffectCount > BentPoolLimit) { _bulletsFromJoin++; start = join.Value; join = null; }
             else _bulletsBent++;
             var first = join ?? end;
-            var e = fx.Play(p.Name, start, AxesFromY((first - start).Normalized()), scale, target: first, lifetime: p.Lifetime, priority: 1, tint: tint, smokeRein: SmokeRein);
+            var e = fx.Play(p.Name, start, AxesFromY((first - start).Normalized()), scale, target: first, lifetime: p.Lifetime, priority: own ? FxPriority.Own : FxPriority.Ally, tint: tint, smokeRein: SmokeRein);
             if (e is not null) _fxTracers++;
-            if (join is { } at) fx.Play(p.Name, at, AxesFromY((end - at).Normalized()), scale, target: end, lifetime: p.Lifetime, priority: 1, tint: tint, smokeRein: SmokeRein);
+            if (join is { } at) fx.Play(p.Name, at, AxesFromY((end - at).Normalized()), scale, target: end, lifetime: p.Lifetime, priority: own ? FxPriority.Own : FxPriority.Ally, tint: tint, smokeRein: SmokeRein);
             BulletDebugAdd(own, rayOrigin, end, start, join);
             return 0f;
         }
         bool bolt = PlasmaBoltOn && OldPlasmaLook && PlasmaBolt.IsBoltWeapon(w.Wargear);
         if (bolt) tint = PlasmaBoltTint(w.Wargear);
         bool original = OriginalPlasmaLook && PlasmaBolt.IsBoltWeapon(w.Wargear);   // plasma-original-fx: the data tracer as bound, its own colours and sizes
-        var straight = fx.Play(p.Name, from, AxesFromY((end - from).Normalized()), scale, target: end, lifetime: p.Lifetime, priority: 1, tint: tint, smokeRein: bolt ? PlasmaBolt.SmokeWidth : SmokeRein);
+        var straight = fx.Play(p.Name, from, AxesFromY((end - from).Normalized()), scale, target: end, lifetime: p.Lifetime, priority: own ? FxPriority.Own : FxPriority.Ally, tint: tint, smokeRein: bolt ? PlasmaBolt.SmokeWidth : SmokeRein);
         if (straight is not null)
         {
             _fxTracers++;

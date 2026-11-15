@@ -57,6 +57,7 @@ public static class LeanBot
         "tfw-zoom-capture",   // added content Musou (2026-11-12): the Librarian's zoom stills next to a Tactical's
         "dn-buff-probe", "dn-da-clean", "dn-da-death", "dn-da-film", "dn-da-overcharge", "dn-da-wreck", "dn-feel-log", "dn-film", "dn-fire-film", "dn-melee-film", "dn-pick", "dn-raw-strike", "dn-survive", "chaos-dreadnought",   // Musou Dreadnought film and capture aids (2026-11-15): a lean bot given one loads what it needs
         "tfw-dreadnought-capture",   // added content Musou (Dreadnought D2+, 2026-11-15): the Dreadnought's scripted stills and film
+        "log-fx-plays",   // effects (2026-11-15): logs every effect play for the bolt-smoke and autocannon-dust checks
         "tfw-pod-test",   // added content Musou (2026-11-12): the drop pod assault's scripted check (record, landing, marines, retreat) and its captures
         "tfw-feel-capture",   // added content Musou (combat feel): a short scripted fight for the before / after captures
         "tfw-weight-capture", "tfw-weight-pack", "tfw-weight-log", "log-musou-weight",   // added content Musou (weight pass 2026-11-10): the scripted baseline moves and their frame log

@@ -106,8 +106,9 @@ public class FxEvictionTests
     [InlineData(1, 2)]
     [InlineData(2, 3)]
     [InlineData(3, 4)]
-    [InlineData(9, 4)]
-    [InlineData(int.MaxValue, 4)]
+    [InlineData(4, 5)]
+    [InlineData(9, 5)]
+    [InlineData(int.MaxValue, 5)]
     public void The_counters_keep_minus_one_apart_from_zero(int priority, int slot)
     {
         Assert.Equal(slot, FxEviction.Slot(priority));
@@ -118,12 +119,66 @@ public class FxEvictionTests
     public void The_effect_player_uses_the_pick_and_the_slots()
     {
         string player = File.ReadAllText(Path.Combine(Root(), "client", "FxPlayer.cs"));
-        Assert.Contains("FxEviction.Victim(_effects, priority, static e => (e.Ambient, e.Priority, e.Age))", player);
+        Assert.Contains("FxEviction.Victim(_effects, priority, origin.DistanceTo(_camPos), _readVictim ??=", player);
         Assert.Contains("Refused[FxEviction.Slot(priority)]++", player);
         Assert.Contains("Evicted[FxEviction.Slot(_effects[victim].Priority)]++", player);
         Assert.Contains("new long[FxEviction.Slots]", player);
         Assert.DoesNotContain("|| _effects[i].Age > _effects[victim].Age", player);
     }
+
+    sealed record Placed(string Name, int Priority, float Metres, double Age, bool Ambient = false);
+
+    static int PickNear(IReadOnlyList<Placed> effects, int priority, float newMetres) =>
+        FxEviction.Victim(effects, priority, newMetres, static e => (e.Ambient, e.Priority, e.Metres, e.Age));
+
+    [Fact]
+    public void Within_one_priority_the_farthest_goes_then_the_oldest()
+    {
+        Placed[] same = [new("a young", 1, 40.5f, 0.2), new("a old", 1, 41.5f, 5.0), new("near", 1, 3f, 99.0)];
+        Assert.Equal("a old", same[PickNear(same, 1, 0f)].Name);           // within one distance step: the oldest
+        Placed[] apart = [new("near old", 1, 3f, 99.0), new("far young", 1, 40f, 0.1)];
+        Assert.Equal("far young", apart[PickNear(apart, 1, 0f)].Name);     // the farthest goes before an older, nearer one
+    }
+
+    [Fact]
+    public void A_new_own_weapon_effect_evicts_a_distant_crowd_effect_never_the_reverse()
+    {
+        Placed[] full = [new("crowd far", FxPriority.Crowd, 70f, 1.0), new("crowd near", FxPriority.Crowd, 8f, 6.0), new("ally", FxPriority.Ally, 15f, 9.0), new("boss", FxPriority.Special, 30f, 9.0)];
+        Assert.Equal("crowd far", full[PickNear(full, FxPriority.Own, 1f)].Name);
+        Placed[] own = [new("own muzzle", FxPriority.Own, 1f, 0.1), new("own impact", FxPriority.Own, 20f, 0.2), new("hit", FxPriority.Hit, 5f, 0.3)];
+        Assert.Equal(-1, PickNear(own, FxPriority.Crowd, 90f));   // the reverse: refused, nothing dropped
+        Assert.Equal(2, PickNear(own, FxPriority.Hit, 5f));   // a hit tier effect may only take another hit tier one, never an own one
+        Assert.True(PickNear(own, FxPriority.Own, 5f) >= 0);
+    }
+
+    [Fact]
+    public void Tiers_run_from_the_own_weapon_down_to_the_crowd_and_the_pick_follows_them()
+    {
+        Assert.True(FxPriority.Own > FxPriority.Hit && FxPriority.Hit > FxPriority.Special && FxPriority.Special > FxPriority.Ally && FxPriority.Ally > FxPriority.Crowd && FxPriority.Crowd > FxPriority.Puff);
+        var live = new List<Placed> { new("own", FxPriority.Own, 1f, 3.0), new("hit", FxPriority.Hit, 2f, 3.0), new("boss", FxPriority.Special, 2f, 3.0), new("ally", FxPriority.Ally, 2f, 3.0), new("crowd", FxPriority.Crowd, 2f, 3.0), new("puff", FxPriority.Puff, 2f, 3.0) };
+        var dropped = new List<string>();
+        for (int v; (v = PickNear(live, FxPriority.Own, 0f)) >= 0; live.RemoveAt(v)) dropped.Add(live[v].Name);
+        Assert.Equal(["puff", "crowd", "ally", "boss", "hit", "own"], dropped);
+    }
+
+    [Fact]
+    public void A_new_effect_farther_than_every_effect_of_its_priority_is_the_one_refused()
+    {
+        Placed[] live = [new("a", 0, 10f, 5.0), new("b", 0, 20f, 1.0)];
+        Assert.Equal(-1, PickNear(live, 0, 80f));    // the new one would be the first to go: nothing nearer is dropped for it
+        Assert.Equal(1, PickNear(live, 0, 12f));     // nearer than the farthest: the farthest goes
+        Assert.Equal(1, PickNear(live, 1, 80f));     // a higher priority is not refused for its distance
+    }
+
+    [Theory]
+    [InlineData(0f, 0)]
+    [InlineData(1.9f, 0)]
+    [InlineData(2f, 1)]
+    [InlineData(41.5f, 20)]
+    [InlineData(-3f, 0)]
+    [InlineData(float.NaN, 0)]
+    [InlineData(float.PositiveInfinity, 0)]
+    public void Distances_count_in_two_metre_steps(float metres, int bucket) => Assert.Equal(bucket, FxEviction.Bucket(metres));
 
     static IEnumerable<Fx[]> Permutations(Fx[] items)
     {

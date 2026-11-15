@@ -48,7 +48,7 @@ public class FxDustShareTests
             string text = File.ReadAllText(file);
             if (!setter.IsMatch(text)) continue;
             string rel = Path.GetRelativePath(client, file).Replace(Path.DirectorySeparatorChar, '/');
-            Assert.True(rel is "NetworkView.Fx.cs", rel);   // the core sets only what the Musou hook / argument hands it (1 everywhere else)
+            Assert.True(rel is "NetworkView.Fx.cs" or "Extras/Musou/Gore/NetworkView.OrkBlood.cs", rel);   // the core sets only what the Musou hook / argument hands it (1 everywhere else)
         }
         Assert.Contains("musou-old-autocannon-fx", File.ReadAllText(Path.Combine(Root(), "src/SmNet/LeanBot.cs")));
     }

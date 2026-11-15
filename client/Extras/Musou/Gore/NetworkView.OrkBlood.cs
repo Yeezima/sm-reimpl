@@ -199,14 +199,14 @@ public partial class NetworkView
     }
 
     /// <summary>Plays one blood effect at <paramref name="where"/> (Godot space) along <paramref name="axis"/>, scaled and thickened by the Musou factor; its ground decal on the floor under <paramref name="game"/>.</summary>
-    void OrkBloodPlay(string name, Vector3 where, Vector3 axis, float scale, Num.Vector3 game, int priority = 0)
+    void OrkBloodPlay(string name, Vector3 where, Vector3 axis, float scale, Num.Vector3 game, int priority = 0, bool smoke = true, bool noGrit = false)
     {
         if (_fx is null) return;
-        if (_fx.Play(name, where, AxesFromY(axis), scale * OrkBloodScale, priority: priority) is { } e) { e.Amount = OrkBloodScale; e.KeepSmoke = true; e.GammaColours = !OldBloodColours; _orkBloodPlays++; MusouGorePlayed(priority); }
+        if (_fx.Play(name, where, AxesFromY(axis), scale * OrkBloodScale, priority: priority) is { } e) { e.Amount = OrkBloodScale; e.KeepSmoke = smoke; e.NoGrit = noGrit; e.GammaColours = !OldBloodColours; _orkBloodPlays++; MusouGorePlayed(priority); }
         // The effect's dropper on the floor (the M41 rule: a dropper lands where it starts, so its copy is placed on the ground): the data's blood decal.
         if (!_orkBloodDroppers.Contains(name) || GoreGround(game) is not { } floor) return;
         var ground = ToGodot(new Num.Vector3(game.X, game.Y, floor + 0.02f));
-        if (_fx.Play(name, ground, AxesFromY(Vector3.Up), scale * OrkBloodScale, priority: priority) is { } g) { g.Collisions = true; g.GroundOnly = true; g.Amount = OrkBloodScale; g.KeepSmoke = true; g.GammaColours = !OldBloodColours; }
+        if (_fx.Play(name, ground, AxesFromY(Vector3.Up), scale * OrkBloodScale, priority: priority) is { } g) { g.Collisions = true; g.GroundOnly = true; g.Amount = OrkBloodScale; g.KeepSmoke = smoke; g.NoGrit = noGrit; g.GammaColours = !OldBloodColours; }
     }
 
     /// <summary>
@@ -226,9 +226,17 @@ public partial class NetworkView
             var p = plays[k];
             var axis = p.Direction is "reflect_hit_direction" or "negative_hit_direction" or "hitpoint_normal" ? -dir : p.TriggerPoint == "exit_wound" ? dir : -dir;
             var pos = p.TriggerPoint == "exit_wound" ? end + dir * 0.35f : end - dir * 0.05f;
-            OrkBloodPlay(p.Name, pos, axis, p.Scale <= 0f ? 1f : p.Scale, game, priority);
+            OrkBloodPlay(p.Name, pos, axis, p.Scale <= 0f ? 1f : p.Scale, game, priority, smoke: !NoShotSmoke(gun), noGrit: NoShotSmoke(gun));   // fx-cap-priority: a bolt weapon's or the autocannon's hit keeps its blood but not the smoke of the effect
         }
     }
+
+    /// <summary>
+    /// fx-cap-priority (owner 2026-11-15: "no black smoke clouds ... bolt weapons", "no dust ... autocannon"): whether the gun's hit on an Ork draws none of its smoke and dust cards. The blood effects are played with their smoke kept
+    /// (<see cref="FxEffect.KeepSmoke"/>: the original blood's dark mist); the weapons' tough_body and tough_head containers carry smoke clouds with it, which is what stood round an Ork a bolt round or a shell hit. The blood stays.
+    /// <c>--old-bolt-smoke</c> and <c>--musou-old-autocannon-fx</c> keep the smoke as before.
+    /// </summary>
+    bool NoShotSmoke(string gun)   // also the grit rule: no smoke cards and no dust or grit sprites (the blood stays)
+         => (!OldBoltSmoke && SmContent.BoltSmoke.IsBoltWeapon(gun)) || (!OldAutocannonDust && (SmSim.Extras.Musou.Arsenal.ArsenalRules.IsAutocannon(gun) || string.Equals(gun, SmContent.Extras.Musou.Arsenal.Arsenal.AutocannonTwinFile, StringComparison.OrdinalIgnoreCase)));
 
     /// <summary>The Ork blueprint's surface (<c>entity_ext/material_audio_visual</c> of <c>ork_coop_boy</c> and its zones: "flesh").</summary>
     const string OrkFleshSurface = "flesh";

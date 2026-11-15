@@ -73,11 +73,11 @@ public partial class NetworkView
 
     void DreadPlayEffect(DaEffect e, PlayerState s, DreadnoughtTrack t)
     {
-        if (DreadMarkerWorld(t, e.Marker) is { } real) { _fx?.Play(e.Name, real, Basis.Identity, e.Scale); return; }
+        if (DreadMarkerWorld(t, e.Marker) is { } real) { _fx?.Play(e.Name, real, Basis.Identity, e.Scale, priority: SmContent.FxPriority.Special); return; }
         var (h, side, fwd) = DreadMarker(e.Marker);
         var right = new Num.Vector3(MathF.Cos(s.Yaw), MathF.Sin(s.Yaw), 0f); var f = new Num.Vector3(-MathF.Sin(s.Yaw), MathF.Cos(s.Yaw), 0f);
         var p = s.Position + new Num.Vector3(0, 0, h) + right * side + f * fwd;
-        _fx?.Play(e.Name, ToGodot(p), Basis.Identity, e.Scale);
+        _fx?.Play(e.Name, ToGodot(p), Basis.Identity, e.Scale, priority: SmContent.FxPriority.Special);
     }
 
     /// <summary>The shake aimed at the own player: a stomp's or slam's area shake for a camera inside its 10 m.</summary>

@@ -66,6 +66,15 @@ public sealed class FxEffect
     public bool GroundOnly;
     /// <summary>fx/jump-flash (the owner, 2026-11-02): draw only the jump pack thrust's <c>quick flash</c>, no flame or trail.</summary>
     public bool FlashOnly;
+    /// <summary>
+    /// musou/autocannon-flash (owner 2026-11-15: "leave only the bright yellow explosive flash"): only the effect's short additive flash sprites are drawn (a sprite named flash or streaks, <see cref="SmContent.BrightFlash"/>);
+    /// its fire, fireball, smoke, dust and debris sprites are not (lights and decals stay). Musou's autocannon hit and blast.
+    /// </summary>
+    public bool BrightFlash;
+    /// <summary>With <see cref="BrightFlash"/>: false draws none of its sprites at all (its lights and decals stay): the hit container's flash when the blast's flash is played at the same point (one flash, not two).</summary>
+    public bool BrightSprites = true;
+    /// <summary>fx-cap-priority (owner 2026-11-15): alpha sprites that are dust or grit (<see cref="SmContent.BrightFlash.IsGrit"/>) are not drawn; blood stays. A bolt weapon's and the autocannon's hit on an Ork.</summary>
+    public bool NoGrit;
     /// <summary>fx/jumppack-jets (ours): 0..1, scales every sprite, beam, streamer and light colour of the effect (a smooth fade in or out while it keeps playing); 1: the data's.</summary>
     public float Opacity = 1f;
     /// <summary>fx/air-slash-landing: the effect's decals (crater, cracks) are not placed (the air slash's flash is the pound's burst without its ground marks).</summary>
@@ -153,6 +162,8 @@ public sealed partial class FxPlayer : Node3D
     Vector3 _camPos;
     Basis _camBasis = Basis.Identity;
     uint _nextSeed = 1;
+    Vector3 _victimEye;
+    Func<FxEffect, (bool Ambient, int Priority, float Metres, double Age)>? _readVictim;
     int _ambientCount;
     /// <summary>Live shot, hit and explosion effects (not the ambient map ones): what the <c>MaxEffects</c> cap counts.</summary>
     public int ShotEffectCount => _effects.Count - _ambientCount;
@@ -170,6 +181,8 @@ public sealed partial class FxPlayer : Node3D
     /// drawn; impacts keep their flash, sparks, debris and decal, explosions their fireball and flash. <c>--smoke on</c> (test aid, before / after) draws them as the data has them.
     /// </summary>
     /// <summary><c>--old-plasma-edges</c> (plasma-soft-visuals): the plasma ribbons keep their hard edges and the chambers' arcs their 2.5 m reach.</summary>
+    /// <summary><c>--log-fx-plays</c> (test aid): one <c>FXPLAY</c> line for every effect started (name, scale, priority, place), to find which effect draws what is on the screen.</summary>
+    static readonly bool LogPlays = Array.IndexOf(OS.GetCmdlineUserArgs(), "--log-fx-plays") >= 0;
     public static bool OldPlasmaEdges { get; set; } = Array.IndexOf(OS.GetCmdlineUserArgs(), "--old-plasma-edges") >= 0;
     public static bool ShowSmoke { get; set; } = SmokeRules.SwitchOn(OS.GetCmdlineUserArgs());
 
@@ -205,7 +218,7 @@ public sealed partial class FxPlayer : Node3D
     public int Live => _effects.Count;
     /// <summary>
     /// Effects dropped from a full player by their priority, and new effects refused by theirs (nothing lower or as low to drop); since the start. Slots by <see cref="FxEviction.Slot"/>:
-    /// priority -1 to 3, lower counted as -1 and higher as 3 (fix/fx-hud-leaks: 0 to 3 before, the weight pass's -1 puffs counted as 0).
+    /// priority -1 to 4, lower counted as -1 and higher as 4 (fx-cap-priority: -1 to 3 before; fix/fx-hud-leaks: 0 to 3 before that, the weight pass's -1 puffs counted as 0).
     /// </summary>
     public readonly long[] Evicted = new long[FxEviction.Slots], Refused = new long[FxEviction.Slots];
     public long Spawned { get; private set; }
@@ -305,13 +318,16 @@ public sealed partial class FxPlayer : Node3D
     {
         if (!IsReady || System(name) is not { } system) return null;
         if (!float.IsFinite(origin.X + origin.Y + origin.Z) || !float.IsFinite(scale)) return null;
+        if (LogPlays) GD.Print($"FXPLAY {name} scale {scale:F2} priority {priority} at ({origin.X:F1}, {origin.Y:F1}, {origin.Z:F1}) dist {origin.DistanceTo(_camPos):F1}");
         int ambientCount = _ambientCount, cap = MaxEffects;
         ExtrasFxCap(ref cap);   // EXTRAS-HOOK: Musou Mode's GPU sprays raise the cap (musou/gpu-particles)
         if (ambient ? ambientCount >= MaxAmbient : _effects.Count - ambientCount >= cap)
         {
             if (ambient) { Culled++; return null; }
-            // Drop the lowest priority at or below the new one's, the oldest of that priority (fix/fx-hud-leaks, polish item 27: "lower or older" dropped an older 0 before a younger -1).
-            int victim = FxEviction.Victim(_effects, priority, static e => (e.Ambient, e.Priority, e.Age));
+            // Drop the lowest priority at or below the new one's, the farthest from the camera of that priority, then the oldest (fix/fx-hud-leaks, polish item 27: "lower or older" dropped an older 0 before a younger -1;
+            // fx-cap-priority, owner 2026-11-15: the farthest first, and a new effect that is itself the farthest of its priority is the one refused).
+            _victimEye = _camPos;
+            int victim = FxEviction.Victim(_effects, priority, origin.DistanceTo(_camPos), _readVictim ??= e => (e.Ambient, e.Priority, e.Origin.DistanceTo(_victimEye), e.Age));
             if (victim < 0) { Culled++; Refused[FxEviction.Slot(priority)]++; return null; }
             Evicted[FxEviction.Slot(_effects[victim].Priority)]++;
             Release(_effects[victim]); _effects.RemoveAt(victim); Culled++;
@@ -603,6 +619,8 @@ public sealed partial class FxPlayer : Node3D
     void DrawNode(FxEffect e, CNode n, in Ctx c, double age, int depth, uint seed)
     {
         if (e.FlashOnly && n.Name is not ("quick flash" or "JET" or "")) return;
+        if (e.BrightFlash && n is CSprite bright && (!e.BrightSprites || !SmContent.BrightFlash.Keeps(bright.Additive, bright.Distortion, bright.Name))) return;   // musou/autocannon-flash
+        if (e.NoGrit && n is CSprite { Additive: false } grit && SmContent.BrightFlash.IsGrit(grit.Material.Name)) return;   // fx-cap-priority
         if (n.Hide || depth > MaxDepth || age < 0.0) return;
         // fx/no-smoke: smoke, dust, mist and haze are not drawn (the owner's change). A smoke sprite is not drawn; its collision content (a dropper collider's decal or debris) is
         // played by DrawSpray's collision path, not from here, so its parents are skipped whole only when that content is smoke too (SmokeOnly).
