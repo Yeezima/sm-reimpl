@@ -209,6 +209,9 @@ public sealed partial class OptionsView : UiKit.MenuPage
             b.SetMeta("painted_s", s);
             PaintedButtons.Apply(b, dark, gold, dp, gp, s, goldFocus, paintedText: false, goldRest: goldRest, noGlow: noGlow);
             PlateText(b, s, 15f, goldPressed: gold != dark, goldRest: goldRest);   // APPLY, REVERT and BACK: one lettering
+            if (b != _back)   // v2 sets APPLY and REVERT's lettering 2 px below the plate's centre
+                foreach (var st in new[] { "normal", "hover", "pressed", "hover_pressed", "focus", "disabled" })
+                    if (b.GetThemeStylebox(st) is StyleBoxTexture tb) { tb = (StyleBoxTexture)tb.Duplicate(); tb.ContentMarginTop = 3.8f * s; b.AddThemeStyleboxOverride(st, tb); }
         }
         Plate(_apply, UiTextureBuilder.V2Apply, "opt-apply-dark", "opt-apply-gold", new PaintedButtons.Pad(3, 4, 3, 4), new PaintedButtons.Pad(3, 4, 3, 5), false, goldRest: true);
         Plate(_revert, UiTextureBuilder.V2Revert, "opt-revert-dark", "opt-revert-gold", new PaintedButtons.Pad(3, 4, 3, 4), new PaintedButtons.Pad(3, 4, 3, 5), true, noGlow: false);

@@ -43,7 +43,7 @@ public static partial class UiKit
             if (_isSwitch) return ConceptSwitchW * s;
             var font = ConceptFont(); float w = 0f; int size = Mathf.RoundToInt(ConceptValueFont * s);
             foreach (var v in _values) w = Mathf.Max(w, font.GetStringSize(v, HorizontalAlignment.Left, -1, size).X);
-            return Mathf.Max(ConceptPillW * s, w + 62f * s);
+            return Mathf.Max(ConceptPillW * s, w + 36f * s);
         }
 
         public float ConceptLabelWidth(float s) => ConceptFont().GetStringSize(Text, HorizontalAlignment.Left, -1, Mathf.RoundToInt(ConceptLabelFont * s)).X;

@@ -12,7 +12,7 @@ namespace SmClient.FrontEnd;
 public sealed partial class OptionsView
 {
     /// <summary>The concept's row geometry (screen pixels): content left, column width and stride, the content's width, the first row's top below the rows area.</summary>
-    const float RowsLeft = 8f, ColWidth = 258f, ColStride = 284f, ContentWidth = 542f, RowsTop = 4.4f, SliderValueWidth = 32f;
+    const float RowsLeft = 8f, ColWidth = 272f, ColStride = 284f, ContentWidth = 542f, RowsTop = 4.4f, SliderValueWidth = 32f;
 
     /// <summary>The last layout the rows were given (the comparison tool and the self-test read it): columns, label column and control width in UI pixels.</summary>
     public (int Columns, float LabelWidth, float ColumnWidth) RowLayout { get; private set; }
@@ -23,28 +23,32 @@ public sealed partial class OptionsView
         _rowsScale = s;
         var rows = _grid.GetChildren().OfType<Control>().ToList();
         float LabelOf(Control r) => r switch { UiKit.MenuChoice c => c.ConceptLabelWidth(s), UiKit.MenuSlider sl => sl.ConceptLabelWidth(s), _ => 0f };
-        float pill = rows.OfType<UiKit.MenuChoice>().Select(c => c.ConceptControlWidth(s)).DefaultIfEmpty(0f).Max();
-        float ctlMin = Mathf.Max(pill, 88f * s + SliderValueWidth * s);
-        // Two columns when each column's labels leave room for the controls; each column has its own label width (the concept's first column is 104 wide).
+        float CtlNeed(Control r) => r switch { UiKit.MenuChoice c => c.ConceptControlWidth(s), UiKit.MenuSlider => (60f + SliderValueWidth + 4f) * s, _ => 0f };
+        // Two columns when both fit the rows area. Each column has its own label width (the concept's first is 104 wide) and the control width its widest row needs; the second column starts at the concept's stride (284)
+        // when it leaves room, else as far left as the first column allows.
         float[] Col(int n) => Enumerable.Range(0, n).Select(c => Mathf.Max(104f * s, rows.Where((_, i) => i % n == c).Select(LabelOf).DefaultIfEmpty(0f).Max() + 6f * s)).ToArray();
-        var two2 = Col(2);
-        bool two = rows.Count > 1 && two2.All(l => l + ctlMin <= ColWidth * s);
-        float colW = two ? ColWidth * s : (ContentWidth - RowsLeft - 12f) * s;
+        float[] Need(int n, float[] lab) => Enumerable.Range(0, n).Select(c => lab[c] + rows.Where((_, i) => i % n == c).Select(CtlNeed).DefaultIfEmpty(0f).Max()).ToArray();
+        var two2 = Col(2); var need2 = Need(2, two2);
+        float avail = (ContentWidth - RowsLeft - 6f) * s, gap = 8f * s;
+        bool two = rows.Count > 1 && need2[0] + gap + need2[1] <= avail;
+        if (Array.IndexOf(OS.GetCmdlineUserArgs(), "--dump-rows") >= 0) GD.Print($"options rows: need {need2[0] / s:0.0} + {need2[1] / s:0.0} + gap vs {avail / s:0.0}; labels {two2[0] / s:0.0} {two2[1] / s:0.0}");
+        float stride = two ? Mathf.Clamp(avail - need2[1], need2[0] + gap, ColStride * s) : 0f;
         var labelWs = two ? two2 : [Mathf.Max(Col(1)[0], 150f * s)];
+        var colWs = two ? new[] { need2[0], Mathf.Min(need2[1], avail - stride) } : [(ContentWidth - RowsLeft - 12f) * s];
         _grid.Columns = two ? 2 : 1;
-        _grid.AddThemeConstantOverride("h_separation", Mathf.RoundToInt((ColStride - ColWidth) * s)); _grid.AddThemeConstantOverride("v_separation", 0);
+        _grid.AddThemeConstantOverride("h_separation", two ? Mathf.RoundToInt(stride - colWs[0]) : 0); _grid.AddThemeConstantOverride("v_separation", 0);
         _rowsMargin.AddThemeConstantOverride("margin_left", Mathf.RoundToInt(RowsLeft * s)); _rowsMargin.AddThemeConstantOverride("margin_top", Mathf.RoundToInt(RowsTop * s));
         _rowsMargin.AddThemeConstantOverride("margin_right", 0); _rowsMargin.AddThemeConstantOverride("margin_bottom", Mathf.RoundToInt(6f * s));
-        RowLayout = (two ? 2 : 1, labelWs[0], colW);
+        RowLayout = (two ? 2 : 1, labelWs[0], colWs[0]);
         for (int i = 0; i < rows.Count; i++)
         {
-            var r = rows[i]; float labelW = labelWs[i % labelWs.Length], ctlW = colW - labelW;
+            var r = rows[i]; float labelW = labelWs[i % labelWs.Length], colW = colWs[i % colWs.Length], ctlW = colW - labelW;
             r.SizeFlagsHorizontal = SizeFlags.ShrinkBegin;
             switch (r)
             {
                 case UiKit.MenuChoice c: c.UseConcept(s, labelW, ctlW); break;
                 case UiKit.MenuSlider sl:
-                    float value = SliderValueWidth * s, track = Mathf.Clamp(ctlW - value - 2f * s, 80f * s, (two ? 140f : 220f) * s);
+                    float value = SliderValueWidth * s, track = Mathf.Clamp(ctlW - value - 8f * s, 56f * s, (two ? 140f : 220f) * s);
                     sl.UseConcept(s, labelW, track, value);
                     break;
             }

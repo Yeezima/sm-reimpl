@@ -190,9 +190,9 @@ public static partial class UiTextureBuilder
         const float V = 1f / GridPerV2;   // grid px -> v2 px (the pads below are in the page's grid px)
         // Painted labels to blank (v2 px).
         var tabBox = new Rect2[] { new(172f, 111.5f, 80f, 15.5f), new(322f, 111.5f, 76f, 15.5f), new(440f, 111.5f, 76f, 15.5f), new(576f, 111.4f, 80f, 15.4f) };
-        var applyBox = new Rect2(312f, 301.8f, 56f, 16.2f); var revertBox = new Rect2(434.5f, 301.5f, 78f, 16.5f); var backBox = new Rect2(768f, 433.5f, 40f, 13f);
-        var clean = BlankInk(up, sf, [tabBox[0], tabBox[1], tabBox[2], revertBox, backBox], 6, true);   // dark plates: the light letters refilled from the plate round them
-        clean = BlankInk(clean, sf, [tabBox[3], applyBox], 5, false);   // gold plates: the dark letters refilled from the plate round them (keeps the glow)
+        var applyBox = new Rect2(312f, 301.8f, 56f, 16.2f); var revertBox = new Rect2(437.6f, 301.6f, 82.4f, 16.4f); var backBox = new Rect2(768f, 433.5f, 40f, 13f);
+        var clean = BlankInk(up, sf, [tabBox[0], tabBox[1], tabBox[2], revertBox, backBox], 8, true);   // dark plates: the light letters refilled from the plate round them
+        clean = BlankInk(clean, sf, [tabBox[3], applyBox], 8, false);   // gold plates: the dark letters refilled from the plate round them (keeps the glow)
         float mh = 3f * V;   // texture margin round a plate (glow, bevel): 3 grid px
         Rect2 Pad(Rect2 r, float top, float bottom) => new(r.Position - new Vector2(mh, top * V), r.Size + new Vector2(2 * mh, (top + bottom) * V));
         // Tabs: every tab is a BLANK plate of its own width; the gold plate is INTERFACE's, the dark one AUDIO's (v2 has no other states), stretched by the nine-patch margins on the page.
@@ -248,13 +248,13 @@ public static partial class UiTextureBuilder
     {
         var pillRect = new Rect2(262f, 187f, 124.5f, 22.5f); var offRect = new Rect2(600f, 152.5f, 80f, 23.5f); var onRect = new Rect2(283f, 252.5f, 81.5f, 22.5f);
         var sliderRect = new Rect2(538.5f, 257f, 129.5f, 19f); var knobRect = new Rect2(629.3f, 257f, 16.5f, 19f);
-        var clean = BlankInk(up, sf, [new Rect2(292f, 191f, 68f, 14f), new Rect2(636f, 156.5f, 30f, 15.5f)], 6, true);
-        clean = BlankInk(clean, sf, [new Rect2(296f, 257.2f, 25f, 11.8f)], 5, false);
+        var clean = BlankInk(up, sf, [new Rect2(292f, 191f, 68f, 14f), new Rect2(636f, 156.5f, 30f, 15.5f)], 8, true);
+        clean = BlankInk(clean, sf, [new Rect2(296f, 257.2f, 25f, 11.8f)], 8, false);
         save("opt-pill", Cut4(clean, sf, pillRect, 0f)); save("opt-switch-off", Cut4(clean, sf, offRect, 0f)); save("opt-switch-on", Cut4(clean, sf, onRect, 0f));
         // The slider: the track with its gold fill replaced by the empty channel (the dark columns right of the knob, tiled), the gold fill on its own, and the knob.
         var track = Cut4(up, sf, sliderRect, 0f); int x0 = (int)MathF.Round(sliderRect.Position.X * sf);
         int Lx(float x) => (int)MathF.Round(x * sf) - x0;
-        int srcA = Lx(648f), srcB = Lx(660f), dstA = Lx(545f), dstB = Lx(629.3f);
+        int srcA = Lx(648f), srcB = Lx(660f), dstA = Lx(545f), dstB = Lx(660.5f);
         var profile = new Color[track.GetHeight()];
         for (int y = 0; y < profile.Length; y++) { Color c = default; for (int x = srcA; x < srcB; x++) { var q = track.GetPixel(x, y); c.R += q.R; c.G += q.G; c.B += q.B; } int n = srcB - srcA; profile[y] = new Color(c.R / n, c.G / n, c.B / n); }
         for (int x = dstA; x < dstB; x++) for (int y = 0; y < profile.Length; y++) track.SetPixel(x, y, profile[y]);
