@@ -75,7 +75,7 @@ public sealed class FxEffect
     public bool BrightSprites = true;
     /// <summary>fx-cap-priority (owner 2026-11-15): alpha sprites that are dust or grit (<see cref="SmContent.BrightFlash.IsGrit"/>) are not drawn; blood stays. A bolt weapon's and the autocannon's hit on an Ork.</summary>
     public bool NoGrit;
-    /// <summary>fx/bolt-smoke (owner 2026-11-15, "Thin the dark mist"): the blood effect's big dark-red mist cards (alpha sprites of <see cref="SmContent.BrightFlash.IsBloodMist"/>: <c>blood_breakup</c>) are not drawn; the red drops, beams, gibs and streamers stay. A bolt weapon's and the autocannon's hit and kill on a Musou Ork.</summary>
+    /// <summary>fx/bolt-smoke (owner 2026-11-15, "Thin the dark mist"): the blood effect's big dark-red mist cards (<see cref="SmContent.BrightFlash.IsMistSprite"/>: the alpha <c>blood_breakup</c>, <c>blood_beam_breakup</c> and <c>blood_exit_beam_soft</c> cards, and the additive <c>fire_anim</c> puff) are not drawn; the red drops, hard spikes, gibs and streamers stay. CPU (<c>DrawNode</c>) and GPU (<c>GpuShown</c>, plan mask bit 128) apply it alike. A bolt weapon's and the autocannon's hit and kill on a Musou Ork.</summary>
     public bool NoMist;
     /// <summary>fx/jumppack-jets (ours): 0..1, scales every sprite, beam, streamer and light colour of the effect (a smooth fade in or out while it keeps playing); 1: the data's.</summary>
     public float Opacity = 1f;

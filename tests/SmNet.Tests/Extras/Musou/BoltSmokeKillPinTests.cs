@@ -42,4 +42,14 @@ public class BoltSmokeKillPinTests
         Assert.Contains("static readonly bool BoltSceneClassic = CmdFlag(\"bolt-smoke-classic\")", scene);
         Assert.DoesNotContain("=> CmdFlag(\"bolt-smoke-scene\")", scene);
     }
+    [Fact]
+    public void The_cpu_and_gpu_paths_both_skip_the_mist_and_the_gpu_plan_mask_keys_it()
+    {
+        string cpu = File.ReadAllText(Path.Combine(Root(), "client", "FxPlayer.cs"));
+        string gpu = File.ReadAllText(Path.Combine(Root(), "client", "Extras", "Musou", "FxPlayer.MusouGpu.cs"));
+        const string check = "e.NoMist && n is CSprite mist && SmContent.BrightFlash.IsMistSprite(mist.Additive, mist.Material.Name)";
+        Assert.Contains(check, cpu);
+        Assert.Contains(check.Replace("n is", "node is"), gpu);
+        Assert.Contains("(e.NoMist ? 128 : 0)", gpu);
+    }
 }
