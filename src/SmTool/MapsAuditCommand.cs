@@ -12,6 +12,20 @@ public static class MapsAuditCommand
     public static int Run(string gameDir, string[] rest)
     {
         if (gameDir == "auto") gameDir = GameInstall.Locate();
+        if (rest.SkipWhile(a => a != "--lighting").Skip(1).FirstOrDefault() is { } lightMap)
+        {
+            // the map's authored lighting (l_lights): sun, environment regions (fog gradient, ambient) and the light count
+            var lighting = MapScene.Load(gameDir, lightMap).Lighting;
+            if (lighting is null) { Console.WriteLine($"{lightMap}: no lighting layer"); return 0; }
+            if (lighting.Sun is { } sun) Console.WriteLine($"sun colour {sun.Colour.X:0.00}/{sun.Colour.Y:0.00}/{sun.Colour.Z:0.00} power {sun.Power:0.0}");
+            foreach (var e in lighting.Environments.OrderBy(e => e.Priority))
+                Console.WriteLine($"region {e.Name} priority {e.Priority} size {e.Size.X:0}x{e.Size.Y:0}x{e.Size.Z:0}"
+                    + (e.Sun is { } es ? $"; sun {es.Colour.X:0.00}/{es.Colour.Y:0.00}/{es.Colour.Z:0.00} x{es.Power:0.0}" : "")
+                    + (e.Ambient is { } a ? $"; ambient up {a.Upper.X:0.00}/{a.Upper.Y:0.00}/{a.Upper.Z:0.00} low {a.Lower.X:0.00}/{a.Lower.Y:0.00}/{a.Lower.Z:0.00}" : "")
+                    + (e.Fog is { } f ? $"; fog near {f.NearColour.X:0.00}/{f.NearColour.Y:0.00}/{f.NearColour.Z:0.00}/{f.NearColour.W:0.00} far {f.FarColour.X:0.00}/{f.FarColour.Y:0.00}/{f.FarColour.Z:0.00}/{f.FarColour.W:0.00} range {f.Range:0}" : ""));
+            Console.WriteLine($"{lighting.Lights.Count} placed lights");
+            return 0;
+        }
         string chunks = Path.Combine(gameDir, "data", "chunks");
         var groups = new List<string>();
         foreach (var pattern in new[] { "mp_*.oppc", "cp_*.oppc" })

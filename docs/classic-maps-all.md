@@ -84,7 +84,7 @@ Legend: Y = run and passed; Y(a) = Annihilation only; "-" = not run (the PC was 
 
 | Map (archive) | Modes enabled | Spawns / start rooms | Two-bot run: collision, traversal, scoring, round end (Annihilation / Seize) | Objectives (Seize) | Visual QA | Salmon / yellow check |
 |---|---|---|---|---|---|---|
-| Shattered Bridge (`mp_tdm_17`) | both | 45 spots per side, exits found | Y / Y (kills scored, captures, match ended) | 3 points captured, scored | tours before and after the material fix; warm orange light and tan canyon-wall slabs, not emissive | no emissive board kit; lamps only; no set |
+| Shattered Bridge (`mp_tdm_17`) | both | 45 spots per side, exits found | Y / Y with a windowed full-load bot client (marines) and a headless bot client (chaos), 2-minute matches on protocol 79: both sides spawn, move and fight, kills scored, Seize points A, B and C captured and scored, match ended (Annihilation 1-2, Seize 182-262), the restart clock ran and a new match began | 3 points captured and scored | player-view and third-person bot stills, spawn rooms, the bridge, each control point and overviews, plus the Host panel's MAP row with Shattered Bridge (stills in the owner's media folder, `final`); after the sky fix | no emissive board kit, lamps only; the orange look is the map's own lighting data, see below |
 | Waste Management (`mp_tdm_01`) | both | 13 per side | Y / Y | 3 points | baseline and station views | salmon pipes, boards, keypads found (same as Manufactorum); set added; after-fix stills not captured (-) |
 | Basilica (`mp_tdm_11`) | both | 27 per side | Y / Y | 4 points | baseline tour, console views | dim red console lamps only; no set |
 | Hab Center (`mp_tdm_18`) | both | 25 per side | Y / Y | 4 points | baseline tour, panel views | amber window lamps; no set |
@@ -94,10 +94,14 @@ Legend: Y = run and passed; Y(a) = Annihilation only; "-" = not run (the PC was 
 | Aquila Canyon (`mp_dlc2_map2`) | both | 21 / 45 | server start only | - | baseline tour (desert, sepia) | one `console_dif`; no set |
 | Desolation (`mp_dlc2_map3`) | both | 21 / 21 | server start only | - | baseline partial | kit boards (orange tint) in audit; set added, no view (-) |
 | Dome Mechanicus (`mp_dlc2_map4`) | both | from data | - / - | - | - | kit boards in audit; set added, no view (-) |
-| Manufactorum (`mp_tdm_09`) | both (unchanged) | 15 per side | server start only | - | final-build view: no salmon | set unchanged (tests pin it); blend changes do not touch it (it has only blend 8 and 255) |
+| Manufactorum (`mp_tdm_09`) | both (unchanged) | 15 per side | Y / Y with two headless bots on protocol 79 (Annihilation: a kill scored, match ended; Seize: points A and C captured, match ended) | - | final-build view: no salmon | set unchanged (tests pin it); blend changes do not touch it (it has only blend 8 and 255) |
 | `mp_dlc3_map1..4` | none | no data in the install | - | - | - | - |
 
 Rotation: `--maps mp_tdm_17,mp_tdm_01`, two bots: match 1 ended by the time limit, the server exited, the bots rejoined on `mp_tdm_01` and played on (Y).
 
 Not verified: the Host panel row in a window (built, unit-tested pieces only); real clients (every run used lean bots plus one windowed observer); the "after" stills of the kit maps; Seize Ground and the second client on Station Tertius to Dome Mechanicus; the Manufactorum bot re-test; any comparison against the original game's own images (none available here).
 
+
+### Shattered Bridge's orange look is authored
+
+`smtool maps-audit auto --lighting mp_tdm_17` reads the map's `l_lights` layer: sun colour 1.00/0.75/0.46 at power 4.0 (Manufactorum: 1.00/0.86/0.68 at 3.0), ambient up 0.64/0.46/0.36 and low 0.35/0.35/0.54, and a fog gradient to 0.58/0.48/0.38 at 40 % over 200 m (Manufactorum's far fog is 0.75/0.64/0.54 at 27 %). So the warm orange sun, sky-side ambient and tan fog are in the data; our rendering adds nothing orange of its own. How the engine tonemaps and blends that fog is not known (the fog reading is ours, discovery.md "Fog re-read").

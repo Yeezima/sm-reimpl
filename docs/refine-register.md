@@ -28,8 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3226 spec table rows: **2373 tagged**, 594 not tagged (read from data with high confidence), 259 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 725 rows of the changes document.
-Scanned 3266 spec table rows: **2405 tagged**, 602 not tagged (read from data with high confidence), 259 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 726 rows of the changes document.
+Scanned 3275 spec table rows: **2410 tagged**, 606 not tagged (read from data with high confidence), 259 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 731 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -51,32 +50,21 @@ Scanned 3266 spec table rows: **2405 tagged**, 602 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 23 | 13 | 13 | 13 | 7 |
-| Core simulation (provisional values) | 706 | 666 | 503 | 183 | 1 |
-| General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 248 | 237 | 133 | 68 | 0 |
-| **All areas** | **2373** | 2098 | 1760 | 734 | 38 |
-| Core simulation (provisional values) | 720 | 677 | 512 | 187 | 1 |
+| Core simulation (provisional values) | 725 | 682 | 514 | 189 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 249 | 238 | 134 | 68 | 0 |
-| **All areas** | **2405** | 2124 | 1782 | 742 | 38 |
+| **All areas** | **2410** | 2129 | 1784 | 744 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1381 |
-| confidence: low | 841 |
-| confidence: medium | 790 |
-| notes: ours | 415 |
-| kind: interpretation | 385 |
-| notes: estimate | 199 |
-| kind: estimate | 158 |
-| kind: ours | 1397 |
-| confidence: low | 852 |
-| confidence: medium | 801 |
+| kind: ours | 1400 |
+| confidence: low | 853 |
+| confidence: medium | 802 |
 | notes: ours | 417 |
-| kind: interpretation | 388 |
-| notes: estimate | 203 |
+| kind: interpretation | 390 |
+| notes: estimate | 204 |
 | kind: estimate | 166 |
 | confidence: none (low) | 129 |
 | kind: provisional | 103 |
@@ -95,10 +83,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | notes: not reproduced (gap) | 13 |
 | notes: gap (not reproduced) | 10 |
 | kind: public (unverified) | 9 |
-| notes: guess | 5 |
-| kind: guess | 4 |
 | kind: guess | 5 |
-| notes: guess | 4 |
+| notes: guess | 5 |
 | kind: inferred | 3 |
 | section: approximation | 3 |
 | notes: unverified | 2 |
@@ -2500,8 +2486,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (706)
-### Core simulation (provisional values) (720)
+### Core simulation (provisional values) (725)
 
 *Spec section: Provisional values in use*
 
@@ -3108,12 +3093,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-18029A2F` | Objects not drawn on `mp_tdm_09` | definitions `backpanel_a/b/c`, `tech_panel_a/b/c`, `tech_panel_pipe_a/b/c`, `handle_bar_a`, `accessories_doorbutton` everywhere (82 placements: 37 + 17 + 20 + 4 + 4), and since 2026-11-07 `tech_panel_pipe_e` everywhere (49 placements, the monitor consoles'… (placements, m) | kind: ours; notes: estimate | owner 2026-11-04 (flat olive `backPanel` boards with salmon `tech_stations` and green keypad emissive surfaces, "jarring" against the dark map) | Objects not drawn on mp_tdm_09: compare with SM1 by feel or video. Ours: definitions backpanel_a/b/c, tech_panel_a/b/c, tech_panel_pipe_a/b/c… | ☐ |
 | `R-AD0893C1` | Switch | `--old-armoury-racks` draws them again | kind: ours | test aid | Switch: compare with SM1 by feel or video. Ours: --old-armoury-racks draws them again. | ☐ |
 
-*Spec section: Classic PvP maps: the roster, the rotation and the material reading (classic-maps-all, 2026-11-15; protocol 78)*
+*Spec section: Classic PvP maps: the roster, the rotation and the material reading (classic-maps-all, 2026-11-15; protocol 79)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-7AFFD7AF` | Rotation (`--maps all\|a,b,c`) | one match per map in the list's order, then round again; each match is one server process under a supervisor; the child stops answering joins 1 s before the 15 s restart clock runs out and exits 0.8 s later, and the supervisor starts the next map (order) | kind: ours | owner 2026-11-15 ("eligible for the dedicated server's configured rotation") | Rotation (--maps all\|a,b,c): compare with SM1 by turning the view at full speed with the same input settings and timing a half turn. Ours: one match per map in the list's order, then round again; each match… | ☐ |
-| `R-146B3658` | Rotation signal (protocol 78) | bit 5 of the match block's state byte (`MatchView.NextMap`) while an ended match is followed by another map; the client joins the same address again when the restart clock shows 30 ticks (1 s) or fewer; the server answers no join from then on and exits 0.8 s… (bit, ticks, s) | kind: ours; notes: estimate | ours | Rotation signal (protocol 78): compare with SM1 by turning the view at full speed with the same input settings and timing a half turn. Ours: bit 5 of the match block's state byte (MatchView.NextMap) while an… | ☐ |
+| `R-E318CCF0` | Rotation signal (protocol 79) | bit 5 of the match block's state byte (`MatchView.NextMap`) while an ended match is followed by another map; the client joins the same address again when the restart clock shows 30 ticks (1 s) or fewer; the server answers no join from then on and exits 0.8 s… (bit, ticks, s) | kind: ours; notes: estimate | ours | Rotation signal (protocol 79): compare with SM1 by turning the view at full speed with the same input settings and timing a half turn. Ours: bit 5 of the match block's state byte (MatchView.NextMap) while an… | ☐ |
 | `R-C661F575` | Lobby map choice | the Host panel's MAP row: Manufactorum (default), the other playable maps by their install names, ROTATION (ALL MAPS) | kind: ours | owner 2026-11-15 | Lobby map choice: compare with SM1 by feel or video. Ours: the Host panel's MAP row: Manufactorum (default), the other playable… | ☐ |
 | `R-415FBC68` | Material blend modes read | `BlendMode` 8 and 10: alpha cut-out (scissor at 0.5); 1: alpha blend (the vista cards, drawn unlit); 255: opaque. 10 is read like 8 | kind: interpretation; confidence: low; notes: guess | the other maps' materials (`smtool map-emissive --blend`); 8 as in M-materials | Material blend modes read: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: BlendMode 8 and 10: alpha cut-out (scissor at 0.5); 1: alpha blend… | ☐ |
 | `R-919221A1` | Sky boxes not drawn | surfaces whose material shader starts with `sky_` (`seq_NN_sky`, YCoCg textures) are not drawn as map geometry; the lighting's sky shows | kind: interpretation; confidence: medium | in-game views before and after (`smtool map-emissive --material Around,TopBottom`) | Sky boxes not drawn: compare with SM1 by feel or video. Ours: surfaces whose material shader starts with sky_ (seq_NN_sky, YCoCg… | ☐ |
@@ -5004,7 +4989,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-1620EEEE` | Manufactorum's wall stations: no olive boards, no salmon fittings (fix/manufactorum-fluorescent, 2026-11-04; client drawing only) | The two bases' wall stations (six: a row of flat wall boards with a helmet, tools, weapon silhouettes and a banner pinned on, a pair of tall keypads, and two small door-side stations) are placed and drawn | Not drawn: every placement of `backpanel_a/b/c`, `tech_panel_a/b/c`, `tech_panel_pipe_a/b/c`, `handle_bar_a` and `accessories_doorbutton`, the seals, scrolls, `tech_panel_pipe_g` and `tech_panel_tank_a` within 6 m of a board or cabinet, and the two olive `backPanel` plates of the `tech_interface_b` cabinets (their… | Owner's words, 2026-11-04: "remove all instances on the classic pvp manufactorum map of these 'fluorescent', opaque objects" (flat olive boards with salmon glowing shapes, "jarring" against the dark metal); our emissive-map approximation draws them bright and flat, and whether the original did is not known, so they… | Manufactorum's wall stations: no olive boards, no salmon…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-5884454A` | Manufactorum's console posts: no red-lit wall objects (owner, 2026-11-07: remove the red-lit wall objects on Manufactorum; client drawing only) | The monitor consoles at both bases and elsewhere carry short vertical posts (`tech_panel_pipe_e`, 49 placements in the `e_adm_dressing` layer: two glowing red-white dots, a red band, rows of red dashes and thin cable lines from their emissive surfaces) | Not drawn: every placement of `tech_panel_pipe_e` (`MapDecor.Always`); the monitors, cabinets and other consoles stay; no collision, simulation, server or protocol change. `--old-armoury-racks` draws it as before. Classic PvP and Musou Mode alike | Owner's words, 2026-11-07: the objects "look wrong" floating on the walls; these are original placed props, and whether the original showed them this bright is not known (our emissive-map approximation), so they are removed rather than retuned, as in the 2026-11-04 row above. Spec row: Objects not drawn on `mp_tdm_09`. | Manufactorum's console posts: no red-lit wall objects…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-83B3BF74` | Manufactorum's remaining salmon fittings: vertical pipe runs, tanks, the big pipe's collars, the consoles' glowing parts (fix/manufactorum-salmon-2, owner 2026-11-14: "remove this and all other remaining examples of salmon red objects that appear out of place"; client drawing only) | The `tech_stations` material (emissive map tinted salmon, EmissiveColor 0.55/0.14/0.12) also draws on objects away from the wall stations: the vertical pipe runs with glowing bands and elbows (`tech_panel_pipe_g`, 16 placements), the cylinder tanks with salmon panels (`tech_panel_tank_a`, 7), the big horizontal pipe's… | Not drawn: the `tech_stations` surface of `tech_panel_pipe_g`, `tech_panel_tank_a`, `Pipe_detail_A`, `tech_interface_a` and `tech_interface_b` (`MapDecorLists.Surfaces`; the dark pipes (66% and 75% of the pipe run's and tank's triangles), the big pipe and the consoles stay, so the collision still matches what is… | Owner's words and four screenshots, 2026-11-14; same reasoning as the rows above (our emissive-map approximation draws them bright and flat; whether the original did is not known, so they are removed rather than retuned). Spec row: Objects not drawn on `mp_tdm_09`. | Manufactorum's remaining salmon fittings: vertical pipe…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
-| `C-E0EB18DE` | Map rotation on the dedicated server (classic-maps-all, 2026-11-15; protocol 78) | The original's lobby host picks a map per match; the original's map vote is not reproduced | `server.cmd --maps all\|a,b,c`: one match per map in order, then round again; each match is a child server process (`--rotation-child`) and the clients rejoin the same address by themselves after the scoreboard (match block bit 5 `NextMap`, the loading screen shows the next map). The Host panel's MAP row offers every… | Owner's brief 2026-11-15 ("eligible for the dedicated server's configured rotation"). Spec "Classic PvP maps": rotation, rotation signal, lobby map choice. Ours: the signal, the 1 s / 0.8 s / 60 s timings | Map rotation on the dedicated server (classic-maps-all…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-FB58A4C7` | Map rotation on the dedicated server (classic-maps-all, 2026-11-15; protocol 79) | The original's lobby host picks a map per match; the original's map vote is not reproduced | `server.cmd --maps all\|a,b,c`: one match per map in order, then round again; each match is a child server process (`--rotation-child`) and the clients rejoin the same address by themselves after the scoreboard (match block bit 5 `NextMap`, the loading screen shows the next map). The Host panel's MAP row offers every… | Owner's brief 2026-11-15 ("eligible for the dedicated server's configured rotation"). Spec "Classic PvP maps": rotation, rotation signal, lobby map choice. Ours: the signal, the 1 s / 0.8 s / 60 s timings | Map rotation on the dedicated server (classic-maps-all…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-371F38DC` | The ten other competitive maps are playable (classic-maps-all, 2026-11-15) | Waste Management, Shattered Bridge, Hab Center, Basilica, Habs Ablaze, Station Tertius, Chem Refinery, Aquila Canyon, Desolation, Dome Mechanicus, each with Annihilation and Seize Ground | Read at runtime from the player's install like Manufactorum (collision, spawns, start areas, blockers, points, kill region by the generic loader; the scene by the generic scene reader). Capture the Flag, Capture and Control and Dreadnought Assault, in the maps' data too, are not implemented. `mp_dlc3_map1..4` are not… | Owner's brief 2026-11-15. `docs/classic-maps-all.md` (roster, per-map checklist); spec "Classic PvP maps" | The ten other competitive maps are playable…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-24A3C61F` | Material blend modes on the other maps (classic-maps-all, 2026-11-15; client drawing only) | The original's shaders read the materials' blend mode, the vista cards' painted silhouette and the water shader | `BlendMode` 10 is an alpha cut-out like 8 (walkway grates, fences); `BlendMode` 1 (the vista cards, drawn unlit) an alpha blend; the `water` shader (Waste Management's vista) a see-through surface at its OpacityMin. Before, they drew as opaque tan or orange sheets (a provisional approximation either way; the engine's… | Evidence: in-game views before and after (`smtool map-emissive --blend`, `--material`). Spec "Classic PvP maps": material blend modes read | Material blend modes on the other maps (classic-maps-all…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-0DAFD38D` | Waste Management's wall stations and fittings are not drawn (classic-maps-all, 2026-11-15; client drawing only) | The wall stations' boards and pipe runs draw with emissive maps tinted salmon (`tech_stations` 0.55/0.14/0.12) and olive (`backPanel`) | The Manufactorum removals (`MapDecorLists`) apply to `mp_tdm_01`, which uses the same objects and materials, plus `tech_panel_d`, the `console_dif` surface of `Pipe_Piece_A` and the `backPanel` surface of `tech_interface_a` (its own emissive audit). Other new maps hide nothing: their audits and in-game views are in… | Owner's brief 2026-11-15: the fixes reused where the same cause shows, not copied blindly. Same reasoning as Manufactorum's rows above | Waste Management's wall stations and fittings are not drawn…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
