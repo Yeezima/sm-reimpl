@@ -30,6 +30,13 @@ public static class PaintedButtons
         ExpandMarginLeft = grow * s, ExpandMarginTop = grow * s, ExpandMarginRight = grow * s, ExpandMarginBottom = grow * s,
     };
 
+    /// <summary>A tab that is already drawn as the gold plate shows its focus as that plate (no ring round it, which would not follow the plate's chamfers); a tab that is not selected keeps the ring.</summary>
+    public static void FocusAsPlate(Button b, bool plate)
+    {
+        if (b.GetMeta("pb_focus_gold", default) is not { VariantType: Variant.Type.Object } g || b.GetMeta("pb_focus_ring", default) is not { VariantType: Variant.Type.Object } r) return;
+        b.AddThemeStyleboxOverride("focus", (StyleBox)(plate ? g.AsGodotObject() : r.AsGodotObject()));
+    }
+
     /// <summary>Paints <paramref name="b"/>: rest = dark, hover = dark warmed, pressed = gold; focus = gold when <paramref name="goldFocus"/> (a plate with a gold twin), else a ring over the rest plate.</summary>
     public static bool Apply(Button b, string dark, string gold, Pad darkPad, Pad goldPad, float s, bool goldFocus, bool paintedText, bool goldRest = false, bool noGlow = true)
     {
@@ -39,7 +46,9 @@ public static class PaintedButtons
         b.AddThemeStyleboxOverride("hover", goldRest ? Box(g, goldPad, s, new Color(1.08f, 1.05f, 1f)) : Box(d, darkPad, s, ConceptArt.Warm));
         b.AddThemeStyleboxOverride("pressed", Box(g, goldPad, s, Colors.White));
         b.AddThemeStyleboxOverride("hover_pressed", Box(g, goldPad, s, Colors.White));
-        b.AddThemeStyleboxOverride("focus", goldFocus && !goldRest ? Box(g, goldPad, s, Colors.White) : Ring(s));
+        var focusGold = Box(g, goldPad, s, Colors.White); var focusRing = Ring(s);
+        b.AddThemeStyleboxOverride("focus", goldFocus && !goldRest ? focusGold : focusRing);
+        b.SetMeta("pb_focus_gold", focusGold); b.SetMeta("pb_focus_ring", focusRing);
         b.AddThemeStyleboxOverride("disabled", Box(d, darkPad, s, new Color(0.5f, 0.5f, 0.5f)));
         if (noGlow) b.SetMeta(FocusGlow.NoGlowMeta, true); else if (b.HasMeta(FocusGlow.NoGlowMeta)) b.RemoveMeta(FocusGlow.NoGlowMeta);
         if (paintedText)

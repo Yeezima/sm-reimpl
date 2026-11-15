@@ -20,7 +20,7 @@ public static partial class UiTextureBuilder
     static float F = 1f;
     static Rect2I U(int x, int y, int w, int h) => new((int)MathF.Round(x * F), (int)MathF.Round(y * F), (int)MathF.Round(w * F), (int)MathF.Round(h * F));
 
-    public static int Run(string? conceptPath, string? outDir, string? cropPath = null, string? upscaledPath = null, string? masonryPath = null, string? concept1xPath = null, string? panels = null)
+    public static int Run(string? conceptPath, string? outDir, string? cropPath = null, string? upscaledPath = null, string? masonryPath = null, string? concept1xPath = null, string? panels = null, string? panel04Path = null, string? panel04X4Path = null)
     {
         if (string.IsNullOrEmpty(conceptPath) || !System.IO.File.Exists(conceptPath)) { GD.PrintErr("build-ui-textures: give the concept image: --build-ui-textures <concept-4panel.jpg>"); return 2; }
         var src = Image.LoadFromFile(conceptPath);
@@ -53,7 +53,7 @@ public static partial class UiTextureBuilder
         if (!string.IsNullOrEmpty(concept1xPath) && System.IO.File.Exists(concept1xPath))
         {
             var one = Image.LoadFromFile(concept1xPath); one.Convert(Image.Format.Rgba8);
-            if (panels is null || panels.Contains("options")) OptionsTextures(one, src, outDir, Save);
+            if (panels is null || panels.Contains("options")) { if (!string.IsNullOrEmpty(panel04Path) && System.IO.File.Exists(panel04Path)) OptionsTexturesV2(panel04Path, panel04X4Path, Save); else OptionsTextures(one, src, outDir, Save); }   // phase 4b-2: the v2 reference (--panel04) is the source; without it the phase 4a/4b cut from the old 4-panel concept
         }
 
         // ---- buttons: the plate with its label removed ----

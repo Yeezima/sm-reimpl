@@ -12,7 +12,7 @@ namespace SmClient.Customizer;
 public static partial class UiKit
 {
     /// <summary>The concept's own sizes in its 780 x 440 screen: row pitch, label and value fonts, control heights and widths, in concept pixels.</summary>
-    public const float ConceptRowPitch = 31.2f, ConceptLabelFont = 14.3f, ConceptValueFont = 12.6f, ConceptPillW = 117f, ConceptPillH = 22f, ConceptSwitchW = 76f, ConceptSwitchH = 23f, ConceptSliderH = 17f;
+    public const float ConceptRowPitch = 31.2f, ConceptLabelFont = 14.3f, ConceptValueFont = 12.6f, ConceptPillW = 116.2f, ConceptPillH = 21f, ConceptSwitchW = 74.7f, ConceptSwitchH = 22f, ConceptSliderH = 17.7f;
 
     static readonly Dictionary<(string, int), ImageTexture> ScaledArt = new();
 
@@ -93,17 +93,18 @@ public static partial class UiKit
             var mod = Disabled ? new Color(0.5f, 0.5f, 0.5f) : lit ? ConceptArt.Warm : Colors.White;
             if (_isSwitch)
             {
-                if (ConceptArt.Get(_index == 1 ? "opt-switch-on" : "opt-switch-off") is { } tex) DrawTextureRect(tex, _index == 1 ? r.Grow(0f).GrowIndividual(1.5f * _cs, 0.5f * _cs, 1.5f * _cs, 0.5f * _cs) : r, false, mod);   // the concept's ON art is 79 x 24, its OFF art 76 x 23
+                if (ConceptArt.Get(_index == 1 ? "opt-switch-on" : "opt-switch-off") is { } tex) { var art = tex.GetSize() / 4f * UiTextureBuilder.GridPerV2 * _cs; DrawTextureRect(tex, new Rect2(r.GetCenter() - art / 2f, art), false, mod); }   // each art at its own size (v2: ON 76 x 21, OFF 75 x 22 in the page's pixels), centred on the control
                 var font = ConceptFont(); int size = Mathf.RoundToInt(12.2f * _cs);
                 string word = _values[_index];
-                float cx = r.Position.X + r.Size.X * (_index == 1 ? 0.375f : 0.65f);
+                float artW = (ConceptArt.Get(_index == 1 ? "opt-switch-on" : "opt-switch-off")?.GetWidth() ?? 320) / 4f * UiTextureBuilder.GridPerV2 * _cs;
+                float cx = r.GetCenter().X - artW / 2f + artW * (_index == 1 ? 0.307f : 0.631f);   // the word's centre on the concept's art (ON: 308 of 283..364.5, OFF: 650.5 of 600..680 in v2)
                 float w = font.GetStringSize(word, HorizontalAlignment.Left, -1, size).X;
                 var ink = Disabled ? Steel.TextOff : _index == 1 ? new Color(0.20f, 0.13f, 0.02f) : new Color(0.84f, 0.83f, 0.80f);
                 DrawString(font, new Vector2(cx - w / 2f, r.Position.Y + (r.Size.Y + font.GetAscent(size) - font.GetDescent(size)) / 2f), word, HorizontalAlignment.Left, -1, size, ink);
             }
-            else if (ConceptScaled("opt-pill", _cs / 4f) is { } pill)
+            else if (ConceptScaled("opt-pill", _cs * UiTextureBuilder.GridPerV2 / 4f) is { } pill)
             {
-                float k = _cs / 4f;
+                float k = _cs * UiTextureBuilder.GridPerV2 / 4f;
                 var patch = new StyleBoxTexture { Texture = pill, TextureMarginLeft = 72 * k, TextureMarginRight = 72 * k, TextureMarginTop = 8 * k, TextureMarginBottom = 8 * k, ModulateColor = mod, AxisStretchHorizontal = StyleBoxTexture.AxisStretchMode.Stretch, AxisStretchVertical = StyleBoxTexture.AxisStretchMode.Stretch };
                 patch.Draw(c, r);
             }
@@ -136,7 +137,7 @@ public static partial class UiKit
         public MenuSlider UseConcept(float s, float labelW, float trackW, float valueW)
         {
             UseSteel(labelW, valueW);
-            float k = s / 4f;
+            float k = s * UiTextureBuilder.GridPerV2 / 4f;   // the art is the v2 reference at x4 (v2 pixels are 14/15 of the page's grid pixels)
             if (ConceptScaled("opt-slider-track", k) is not { } track || ConceptScaled("opt-slider-fill", k) is not { } fill) return this;
             float h = ConceptSliderH * s;
             ConceptTrackRect = new Rect2(labelW, (ConceptRowPitch * s - h) / 2f + 3f * s, trackW, h);
@@ -150,13 +151,13 @@ public static partial class UiKit
                 AxisStretchHorizontal = StyleBoxTexture.AxisStretchMode.Stretch, AxisStretchVertical = StyleBoxTexture.AxisStretchMode.Stretch,
                 ContentMarginTop = h / 2f, ContentMarginBottom = h / 2f, ExpandMarginLeft = el, ExpandMarginRight = er,
             };
-            Slider.AddThemeStyleboxOverride("slider", Box(track, 56, 64, Colors.White, 7f * s, 9f * s));
+            Slider.AddThemeStyleboxOverride("slider", Box(track, 56, 64, Colors.White, 7f * s, 7.5f * s));
             Slider.AddThemeStyleboxOverride("grabber_area", Box(fill, 22, 6, Colors.White, 0f, 0f));
             Slider.AddThemeStyleboxOverride("grabber_area_highlight", Box(fill, 22, 6, ConceptArt.Warm, 0f, 0f));
             Slider.AddThemeIconOverride("grabber", ConceptKnob(s, false)); Slider.AddThemeIconOverride("grabber_highlight", ConceptKnob(s, true)); Slider.AddThemeIconOverride("grabber_disabled", ConceptKnob(s, false));
-            // The slider's own rectangle is the knob's travel (the track's caps stick out of it): from 7 px in to 9 px before the track's end.
+            // The slider's own rectangle is the knob's travel (the track's caps stick out of it): from 7 px in to 7.5 px before the track's end (v2: the knob sits flush with the channel's end).
             Slider.SetAnchorsPreset(LayoutPreset.TopLeft);
-            Slider.Position = new Vector2(labelW + 7f * s, (ConceptRowPitch * s - h) / 2f + 3f * s); Slider.Size = new Vector2(trackW - 16f * s, h);   // the concept's sliders hang 3 px below the label's centre
+            Slider.Position = new Vector2(labelW + 7f * s, (ConceptRowPitch * s - h) / 2f + 3f * s); Slider.Size = new Vector2(trackW - 14.5f * s, h);   // the concept's sliders hang 3 px below the label's centre
             _value.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(ConceptValueFont * s));
             _value.HorizontalAlignment = HorizontalAlignment.Left; _value.VerticalAlignment = VerticalAlignment.Center;
             _value.SetAnchorsPreset(LayoutPreset.TopLeft);

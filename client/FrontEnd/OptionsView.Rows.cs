@@ -65,8 +65,8 @@ public sealed partial class OptionsView
         tree.CreateTimer(1.2).Timeout += () =>
         {
             if (!IsInstanceValid(this)) return;
-            var (s, o) = PanelMap(); var origin = UiTextureBuilder.PanelScreen.Position;
-            Rect2 Sc(Control row, Rect2 local) { var p = (row.GlobalPosition - GlobalPosition + local.Position - o) / s - new Vector2(origin.X, origin.Y); return new Rect2(p, local.Size / s); }
+            var (s, o) = PanelMap();   // written in v2 pixels (the reference's own)
+            Rect2 Sc(Control row, Rect2 local) { var p = (row.GlobalPosition - GlobalPosition + local.Position - o) / (s * UiTextureBuilder.GridPerV2); return new Rect2(p, local.Size / (s * UiTextureBuilder.GridPerV2)); }
             var lines = new System.Collections.Generic.List<string>();
             foreach (var r in _grid.GetChildren().OfType<Control>())
             {

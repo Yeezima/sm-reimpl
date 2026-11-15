@@ -7,26 +7,26 @@ namespace SmClient.Customizer;
 
 /// <summary>
 /// The 1:1 check of a redesigned screen against its concept panel (phase 4): <c>godot.cmd -- --ui-compare-panel &lt;panel screen crop png&gt; --ours &lt;capture&gt; --screen options|armoury|hud --alpha &lt;overlay png&gt;
-/// [--alpha-origin x,y --alpha-scale k] [--out dir] [--tag name]</c>. The target is the concept's own 780 x 440 screen (panel coordinates minus (10, 26)); the capture (screen centred, scale = height / 440) is
+/// [--alpha-origin x,y --alpha-scale k] [--out dir] [--tag name]</c>. The target is the v2 reference's own 825 x 465 pixels (owner-ref-panel04-v2.png, no resampling of the target); the capture (the screen centred, scale = min(height / 465, width / 825)) is
 /// area-averaged onto that grid. Regions are the painted parts (frame, title and crest, side pieces, tabs, plates, chips); text and values that are live in our build (the rows, numbers, class names) and the
 /// background the screen sits on are left out, as are labels whose words differ from the concept's. A region is only the part of its polygon where our overlay is opaque, and the coverage column says how much
 /// of the polygon that is (so a part our overlay cut away shows as low coverage, not as a hidden miss). Deterministic.
 /// </summary>
 public static class UiComparePanel
 {
-    static int W = 780, H = 440;
+    static int W = 825, H = 465;
     sealed record Region(string Name, bool[] Mask, double Ssim = 0, double DeMean = 0, double DePixel = 0, int N = 0, double Cover = 1);
 
     static bool[] Rect(float x0, float y0, float x1, float y1)
     {
         var m = new bool[W * H];
-        for (int y = Math.Max(0, (int)MathF.Ceiling(y0 - 26)); y < Math.Min(H, y1 - 26); y++) for (int x = Math.Max(0, (int)MathF.Ceiling(x0 - 10)); x < Math.Min(W, x1 - 10); x++) m[y * W + x] = true;
+        for (int y = Math.Max(0, (int)MathF.Ceiling(y0)); y < Math.Min(H, y1); y++) for (int x = Math.Max(0, (int)MathF.Ceiling(x0)); x < Math.Min(W, x1); x++) m[y * W + x] = true;
         return m;
     }
 
     static bool[] Poly(params (float X, float Y)[] pts)
     {
-        var m = new bool[W * H]; var v = pts.Select(p => new Vector2(p.X - 10, p.Y - 26)).ToArray();
+        var m = new bool[W * H]; var v = pts.Select(p => new Vector2(p.X, p.Y)).ToArray();
         for (int y = 0; y < H; y++) for (int x = 0; x < W; x++) { bool inside = false; for (int i = 0, j = v.Length - 1; i < v.Length; j = i++) if ((v[i].Y > y + .5f) != (v[j].Y > y + .5f) && x + .5f < (v[j].X - v[i].X) * (y + .5f - v[i].Y) / (v[j].Y - v[i].Y) + v[i].X) inside = !inside; m[y * W + x] = inside; }
         return m;
     }
@@ -54,8 +54,8 @@ public static class UiComparePanel
         var t = Image.LoadFromFile(targetPath); t.Convert(Image.Format.Rgba8);
         var o = Image.LoadFromFile(oursPath); o.Convert(Image.Format.Rgba8);
         W = t.GetWidth(); H = t.GetHeight();
-        float s = o.GetHeight() / (float)H;
-        float ox = (o.GetWidth() - W * s) / 2f, oy = 0f;   // the screen is centred
+        float s = Math.Min(o.GetHeight() / (float)H, o.GetWidth() / (float)W);
+        float ox = (o.GetWidth() - W * s) / 2f, oy = (o.GetHeight() - H * s) / 2f;   // the screen is centred
         var ua = OS.GetCmdlineUserArgs(); int si = Array.IndexOf(ua, "--ours-shift");
         if (si >= 0 && si + 1 < ua.Length) { var sh = ua[si + 1].Split(','); ox += float.Parse(sh[0], System.Globalization.CultureInfo.InvariantCulture); oy += float.Parse(sh[1], System.Globalization.CultureInfo.InvariantCulture); }
         var T = new float[W * H * 3]; var O = new float[W * H * 3];
@@ -82,7 +82,7 @@ public static class UiComparePanel
             opaque = new bool[W * H];
             for (int y = 0; y < H; y++) for (int x = 0; x < W; x++)
                 {
-                    int px = (int)((x + 10 - alphaOrigin.X + 0.5f) * alphaScale), py = (int)((y + 26 - alphaOrigin.Y + 0.5f) * alphaScale);
+                    int px = (int)((x - alphaOrigin.X + 0.5f) * alphaScale), py = (int)((y - alphaOrigin.Y + 0.5f) * alphaScale);
                     opaque[y * W + x] = px >= 0 && py >= 0 && px < ov.GetWidth() && py < ov.GetHeight() && ov.GetPixel(px, py).A > 0.9f;
                 }
         }
@@ -136,9 +136,9 @@ public static class UiComparePanel
 
     static readonly Ctl[] ConceptControls =
     [
-        new("slider", "left cap", 231.5f, 152.5f, 140.5f, 16f, 'L', 231.5f, 152.5f, 20f, 16f), new("slider", "middle", 231.5f, 152.5f, 140.5f, 16f, 'M', 285f, 152.5f, 30f, 16f), new("slider", "knob and right cap", 231.5f, 152.5f, 140.5f, 16f, 'R', 338f, 152.5f, 34f, 16f),
-        new("pill", "left arrow", 250.5f, 176.5f, 116f, 21f, 'L', 250.5f, 176.5f, 30f, 21f), new("pill", "right arrow", 250.5f, 176.5f, 116f, 21f, 'R', 336.5f, 176.5f, 30f, 21f), new("pill", "top and bottom rim", 250.5f, 176.5f, 116f, 21f, 'M', 290f, 176.5f, 36f, 4f),
-        new("switch0", "OFF switch", 565f, 143f, 76f, 23f, 'L', 565f, 143f, 76f, 23f), new("switch1", "ON switch", 267f, 235f, 79f, 24f, 'L', 267f, 235f, 79f, 24f),
+        new("slider", "left cap", 243f, 163f, 147f, 18f, 'L', 243f, 163f, 20f, 18f), new("slider", "middle", 243f, 163f, 147f, 18f, 'M', 301.5f, 163f, 30f, 18f), new("slider", "knob and right cap", 243f, 163f, 147f, 18f, 'R', 358f, 163f, 32f, 18f),
+        new("pill", "left arrow", 262f, 187f, 124.5f, 22.5f, 'L', 262f, 187f, 30f, 22.5f), new("pill", "right arrow", 262f, 187f, 124.5f, 22.5f, 'R', 356.5f, 187f, 30f, 22.5f), new("pill", "top and bottom rim", 262f, 187f, 124.5f, 22.5f, 'M', 306f, 187f, 36f, 4f),
+        new("switch0", "OFF switch", 600f, 152.5f, 80f, 23.5f, 'L', 600f, 152.5f, 80f, 23.5f, (634f, 668f)), new("switch1", "ON switch", 283f, 252.5f, 81.5f, 22.5f, 'L', 283f, 252.5f, 81.5f, 22.5f, (293f, 331f)),
     ];
 
     /// <summary>The row controls (--rows &lt;dump from --dump-rows&gt;): the first of our controls of each kind, compared segment by segment with the concept's own.</summary>
@@ -197,23 +197,21 @@ public static class UiComparePanel
 
     static void OptionsRegions(List<(string, bool[], bool)> r)
     {
-        var interior = Rect(118, 150, 684, 300);
-        var tabs = new[] { new Rect2(150, 128, 126, 22), new Rect2(280, 128, 117.5f, 22), new Rect2(403f, 128, 117.5f, 22), new Rect2(524f, 126.5f, 132.5f, 25) };
-        var applyRevert = Rect(258, 300, 542, 332);
-        var title = Rect(290, 52, 512, 126);
-        var tabStrip = Rect(146, 124, 662, 154);
-        r.Add(("title plate and crest", And(title, Poly((300, 56), (500, 56), (512, 126), (290, 126))), true));
-        r.Add(("frame steel", Minus(Rect(98, 92, 704, 352), interior, title, tabStrip, applyRevert, Rect(60, 110, 100, 330), Rect(700, 110, 745, 330)), true));
-        r.Add(("stone and eagle, left", Rect(60, 112, 100, 326), true));
-        r.Add(("stone and eagle, right", Rect(700, 112, 742, 326), true));
+        // v2 pixels. The live lettering (tabs, APPLY, REVERT, BACK, rows) is masked out; only the painted parts are scored.
+        var title = Rect(288, 26, 538, 106);
+        var plateZone = Rect(261, 293, 563, 326);
+        r.Add(("title plate and crest", title, true));
+        r.Add(("frame steel", Minus(Or(Rect(93, 60, 731, 103), Rect(93, 103, 122, 335), Rect(702, 103, 731, 335), Rect(93, 326, 731, 352)), title), true));
+        r.Add(("stone and eagle, left", Rect(50, 88, 93, 320), true));
+        r.Add(("stone and eagle, right", Rect(731, 88, 775, 320), true));
         string[] names = ["tab GRAPHICS", "tab AUDIO (SOUND)", "tab CONTROLS", "tab INTERFACE (gold)"];
-        // Owner 2026-11-15 (text uniformity): every label is live lettering of one face now, so the concept's own lettering is masked out; only the plates are scored.
-        var tabLabels = new[] { Rect(180, 129, 246, 149), Rect(316, 129, 364, 149), Rect(425, 129, 498, 149), Rect(552, 129, 632, 149) };
+        var tabs = UiTextureBuilder.V2Tabs; var tabLabels = new[] { Rect(170, 111, 258, 129), Rect(312, 111, 396, 129), Rect(432, 111, 514, 129), Rect(565, 110, 665, 129) };   // the live lettering, masked
         for (int i = 0; i < 4; i++) r.Add((names[i], Minus(Rect(tabs[i].Position.X + 1, tabs[i].Position.Y + 1, tabs[i].End.X - 1, tabs[i].End.Y - 1), tabLabels[i]), false));
-        r.Add(("APPLY (gold)", Minus(Rect(264, 304, 398, 328), Rect(305, 306, 362, 326)), false));
-        r.Add(("REVERT", Minus(Rect(416, 304, 536, 328), Rect(446, 306, 506, 326)), false));
-        r.Add(("BACK", Minus(Rect(723, 431, 775, 446), Rect(729, 432, 770, 445)), false));
-        r.Add(("interior bands", Or(Minus(Rect(130, 154, 670, 160), Rect(0, 0, 0, 0)), Minus(Rect(130, 296, 670, 302), Rect(250, 290, 550, 305))), true));
+        var ap = UiTextureBuilder.V2Apply; var rv = UiTextureBuilder.V2Revert; var bk = UiTextureBuilder.V2Back;
+        r.Add(("APPLY (gold)", Minus(Rect(ap.Position.X + 1, ap.Position.Y + 1, ap.End.X - 1, ap.End.Y - 1), Rect(300, 301, 380, 320)), false));
+        r.Add(("REVERT", Minus(Rect(rv.Position.X + 1, rv.Position.Y + 1, rv.End.X - 1, rv.End.Y - 1), Rect(436, 302, 511, 321)), false));
+        r.Add(("BACK", Minus(Poly((761.5f, 430.2f), (808.5f, 430.2f), (813.8f, 435.2f), (813.8f, 443.6f), (808.5f, 448.6f), (761.5f, 448.6f), (756.2f, 443.6f), (756.2f, 435.2f)), Rect(764, 432, 808, 448.6f)), false));
+        r.Add(("interior bands", Or(Rect(124, 132, 702, 138), Minus(Rect(122, 284, 702, 305), plateZone)), true));
     }
 
     static float[] SsimMap(float[] a, float[] b)

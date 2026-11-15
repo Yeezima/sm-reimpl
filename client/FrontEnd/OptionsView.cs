@@ -164,54 +164,57 @@ public sealed partial class OptionsView : UiKit.MenuPage
         MoveChild(_frame, GetChildCount() - 1);
     }
 
-    /// <summary>The window's mapping of panel 04's own coordinates (the concept's 780 x 440 screen at 10, 26 in its 800 x 480 sheet): scale and offset.</summary>
+    /// <summary>The window's mapping of the v2 reference (825 x 465, the whole of it is the page's screen) in the page's grid units (v2 pixels x 14/15, the units the row sizes and lettering are in): scale and offset.</summary>
     (float S, Vector2 O) PanelMap()
     {
-        float s = Mathf.Min(Size.Y / UiTextureBuilder.PanelScreen.Size.Y, Size.X / UiTextureBuilder.PanelScreen.Size.X);
-        var o = new Vector2((Size.X - UiTextureBuilder.PanelScreen.Size.X * s) / 2f - UiTextureBuilder.PanelScreen.Position.X * s, (Size.Y - UiTextureBuilder.PanelScreen.Size.Y * s) / 2f - UiTextureBuilder.PanelScreen.Position.Y * s);
-        return (s, o);
+        var ps = UiTextureBuilder.V2Screen;
+        float s = Mathf.Min(Size.Y / ps.Size.Y, Size.X / ps.Size.X);
+        return (s, new Vector2((Size.X - ps.Size.X * s) / 2f, (Size.Y - ps.Size.Y * s) / 2f));
     }
 
     void PlaceConcept()
     {
         var (s, o) = PanelMap();
         Rect2 M(Rect2 r) => new(o + r.Position * s, r.Size * s);
+        Rect2 V(Rect2 v2) => M(UiTextureBuilder.G(v2));   // a v2 rectangle on the window
         _dim.Position = Vector2.Zero; _dim.Size = Size;
-        var ps = UiTextureBuilder.PanelScreen;
-        _frame.Position = o + new Vector2(ps.Position.X, ps.Position.Y) * s; _frame.Size = new Vector2(ps.Size.X, ps.Size.Y) * s;
-        var region = M(new Rect2(UiTextureBuilder.OptionsRegion.Position.X, UiTextureBuilder.OptionsRegion.Position.Y, UiTextureBuilder.OptionsRegion.Size.X, UiTextureBuilder.OptionsRegion.Size.Y));
+        var ps = UiTextureBuilder.V2Screen;
+        _frame.Position = o; _frame.Size = ps.Size * s;
+        var ro = UiTextureBuilder.V2OverlayRegion;
+        var region = V(new Rect2(ro.Position.X, ro.Position.Y, ro.Size.X, ro.Size.Y));
         _overlay.Position = region.Position; _overlay.Size = region.Size;
-        // Tabs (the host spans the tab strip; the plates are the concept's own rectangles).
-        var strip = M(new Rect2(146, 124, 516, 30));
+        // Tabs (the host spans the tab strip; the plates are v2's own rectangles).
+        var strip = V(new Rect2(140f, 104f, 552f, 32f));
         _tabHost.Position = strip.Position; _tabHost.Size = strip.Size;
         string[] ids = ["graphics", "sound", "controls", "interface"];
         for (int i = 0; i < 4; i++)
         {
-            var b = _tabs[Tabs[i]]; var r = M(UiTextureBuilder.OptionsTabs[i]);
+            var b = _tabs[Tabs[i]]; var r = V(UiTextureBuilder.V2Tabs[i]);
             b.CustomMinimumSize = Vector2.Zero; b.Position = r.Position - strip.Position; b.Size = r.Size;
             if (Mathf.IsEqualApprox((float)b.GetMeta("painted_s", 0f), s)) continue;
             b.SetMeta("painted_s", s);
             PaintedButtons.Apply(b, "opt-tab-" + ids[i] + "-dark", "opt-tab-" + ids[i] + "-gold", new PaintedButtons.Pad(3, 3, 3, 3), new PaintedButtons.Pad(3, 4, 3, 5), s, goldFocus: false, paintedText: false);
             PlateText(b, s, 13.4f, goldPressed: true);   // one lettering for all four tabs (owner 2026-11-15: text of one level renders identically)
+            PaintedButtons.FocusAsPlate(b, b.ButtonPressed);
         }
         // The rows scroll inside the content area.
-        var rows = M(new Rect2(130, 160, 542, 138));
+        var rows = V(UiTextureBuilder.V2Rows);
         _list.Position = rows.Position; _list.Size = rows.Size;
         StyleRows(s);
         // APPLY, REVERT, BACK.
         void Plate(Button b, Rect2 rect, string dark, string gold, PaintedButtons.Pad dp, PaintedButtons.Pad gp, bool goldFocus, bool goldRest = false, bool noGlow = true)
         {
-            var r = M(rect); b.CustomMinimumSize = Vector2.Zero; b.Position = r.Position; b.Size = r.Size;
+            var r = V(rect); b.CustomMinimumSize = Vector2.Zero; b.Position = r.Position; b.Size = r.Size;
             if (Mathf.IsEqualApprox((float)b.GetMeta("painted_s", 0f), s)) return;
             b.SetMeta("painted_s", s);
             PaintedButtons.Apply(b, dark, gold, dp, gp, s, goldFocus, paintedText: false, goldRest: goldRest, noGlow: noGlow);
             PlateText(b, s, 15f, goldPressed: gold != dark, goldRest: goldRest);   // APPLY, REVERT and BACK: one lettering
         }
-        Plate(_apply, UiTextureBuilder.OptionsApply, "opt-apply-dark", "opt-apply-gold", new PaintedButtons.Pad(3, 4, 3, 4), new PaintedButtons.Pad(3, 4, 3, 5), false, goldRest: true);
-        Plate(_revert, UiTextureBuilder.OptionsRevert, "opt-revert-dark", "opt-revert-gold", new PaintedButtons.Pad(3, 4, 3, 4), new PaintedButtons.Pad(3, 4, 3, 5), true, noGlow: false);
-        Plate(_back, UiTextureBuilder.OptionsBack, "opt-back-dark", "opt-back-dark", new PaintedButtons.Pad(0, 0, 0, 0), new PaintedButtons.Pad(0, 0, 0, 0), false, noGlow: false);
+        Plate(_apply, UiTextureBuilder.V2Apply, "opt-apply-dark", "opt-apply-gold", new PaintedButtons.Pad(3, 4, 3, 4), new PaintedButtons.Pad(3, 4, 3, 5), false, goldRest: true);
+        Plate(_revert, UiTextureBuilder.V2Revert, "opt-revert-dark", "opt-revert-gold", new PaintedButtons.Pad(3, 4, 3, 4), new PaintedButtons.Pad(3, 4, 3, 5), true, noGlow: false);
+        Plate(_back, UiTextureBuilder.V2Back, "opt-back-dark", "opt-back-dark", new PaintedButtons.Pad(0, 0, 0, 0), new PaintedButtons.Pad(0, 0, 0, 0), false, noGlow: false);
         // The toast chip.
-        var t = M(UiTextureBuilder.OptionsToast); _toast.Position = t.Position; _toast.Size = t.Size;
+        var t = V(UiTextureBuilder.V2Toast); _toast.Position = t.Position; _toast.Size = t.Size;
         if (_foot is { } foot) { foot.Position = new Vector2(24f, Size.Y - foot.GetCombinedMinimumSize().Y - 14f); foot.Size = new Vector2(Mathf.Min(Size.X - 48f, 1100f), foot.GetCombinedMinimumSize().Y); }
     }
 
@@ -230,7 +233,7 @@ public sealed partial class OptionsView : UiKit.MenuPage
     public void ShowTab(string tab)
     {
         Tab = tab;
-        foreach (var (name, b) in _tabs) b.SetPressedNoSignal(name == tab);
+        foreach (var (name, b) in _tabs) { b.SetPressedNoSignal(name == tab); PaintedButtons.FocusAsPlate(b, name == tab); }
         foreach (var box in new Container[] { _grid, _wide })
             foreach (var child in box.GetChildren()) { box.RemoveChild(child); child.QueueFree(); }
         switch (tab)
