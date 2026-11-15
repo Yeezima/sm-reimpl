@@ -29,7 +29,7 @@ public partial class NetworkView
         public bool WasAlive, EngineOn, Seen, ClassDread, HasPos, Corpse, StepDust, Placed;
         /// <summary>The character wearing his model (the markers' skeleton), set each frame he is posed.</summary>
         public CharacterViewer? Viewer;
-        public float PrevCooldown, PrevShotCd;
+        public float PrevCooldown, PrevShotCd, PrevMeltaCd;
         public string Label = "";
         public Vector3 PrevPos;
         public int PrevClip;
@@ -215,6 +215,8 @@ public partial class NetworkView
         t.PrevClip = s.Clip;
         // The cannon's own shot effects (owner 2026-11-15: DA's own flash, casings and tracer): the catalogue has no effect bindings for dread_assault_cannon ("no effect data" in the log), so each shot plays the wargear's named effects at the model's own markers.
         if (s.Slot == WeaponSlot.Ranged && s.Cooldown > t.PrevShotCd + 0.02f && !entering) DreadCannonShot(t, s);
+        if (s.Slot == WeaponSlot.Pistol && s.Cooldown > t.PrevMeltaCd + 0.05f && !entering) DreadMeltaShot(t, s);
+        t.PrevMeltaCd = s.Cooldown;
         t.PrevShotCd = s.Cooldown;
         if (t.StepDust)
         {

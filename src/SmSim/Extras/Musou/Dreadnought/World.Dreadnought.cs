@@ -28,6 +28,12 @@ public sealed partial class World
     /// <summary>Whether the war is in its hub (the troop bay): the only place a Dreadnought pick plays as a Tactical.</summary>
     bool DreadnoughtHub => _tfw is { Phase: SmSim.Extras.Musou.Campaign.TfwRunPhase.Hub };
 
+    /// <summary>Test aid (the server's <c>SM_DN_TEST_KILL</c>): kills a living Dreadnought through the ordinary death (<see cref="Combat.Killed"/>), so his death effects and wreck can be filmed.</summary>
+    public void DreadnoughtTestKill(int id)
+    {
+        if (_players.TryGetValue(id, out var p) && p.Alive && DreadnoughtRules.IsDreadnought(Config, p.Class)) _players[id] = Combat.Killed(p, Config) with { RespawnLeft = 14f };   // a long wait, so the wreck stays on screen
+    }
+
     /// <summary>The class index of the Dreadnought in this config, or -1.</summary>
     int DreadnoughtClassIndex() => Config.Classes.ToList().FindIndex(c => c.Name == DreadnoughtRules.ClassName);
 

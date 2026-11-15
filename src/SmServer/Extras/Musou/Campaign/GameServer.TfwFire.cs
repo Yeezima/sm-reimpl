@@ -23,6 +23,7 @@ public sealed partial class GameServer
 
     void SendTfwFire()
     {
+        DreadnoughtTestKillStep();   // the Dreadnought proof's kill on cue (GameServer.DreadnoughtTestKill.cs; off without SM_DN_TEST_KILL)
         if (World.Tfw is not { } run) return;
         if (TfwFireTest is { Length: > 0 } test) { run.Fire.TestCommands = true; TfwFireLog(run); }
         _tfwFireTaken.Clear();

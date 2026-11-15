@@ -79,4 +79,20 @@ public partial class NetworkView
         _dnCam = 0;
         GetTree().Quit(0);
     }
+
+    /// <summary><c>--dn-da-wreck</c> (server <c>SM_DN_TEST_KILL=&lt;s&gt;</c>; with <c>--write-movie</c>): after the landing he stands in the open from the side view until the server kills him, then 9 s of the wreck. <c>DNFILM seg death</c> marks the frame he died at.</summary>
+    async Task DnDaWreck()
+    {
+        var client = _client!;
+        await TfwWait(5.4);
+        _dnCam = 1;
+        double stop = _connectedFor + 60.0;
+        GD.Print($"DNFILM seg wait frame {Engine.GetFramesDrawn()} t {_connectedFor:F1}");
+        while (_connectedFor < stop && client.Predicted.Alive) await TfwFrames();
+        GD.Print($"DNFILM seg death frame {Engine.GetFramesDrawn()} t {_connectedFor:F1} alive {client.Predicted.Alive}");
+        await TfwWait(9.0);
+        GD.Print($"DNFILM seg end frame {Engine.GetFramesDrawn()}");
+        _dnCam = 0;
+        GetTree().Quit(0);
+    }
 }

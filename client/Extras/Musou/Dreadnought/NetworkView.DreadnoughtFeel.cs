@@ -194,11 +194,12 @@ public partial class NetworkView
     {
         if (f.Lights || _fx is null || Lean || !FxActive || t.Viewer is not { } v || _dreadLooks is null || _dreadLooks.Markers.Count == 0) return;
         f.Lights = true;
+        int noMarker = 0, noBone = 0, noPlay = 0;
         foreach (var e in DreadnoughtArm.Lights)
         {
-            if (!_dreadLooks.Markers.TryGetValue(e.Marker, out var m)) continue;
+            if (!_dreadLooks.Markers.TryGetValue(e.Marker, out var m)) { noMarker++; continue; }
             var sk = v.Skeleton; if (sk is null) continue;
-            int bone = sk.FindBone(m.Bone); if (bone < 0) continue;
+            int bone = sk.FindBone(m.Bone); if (bone < 0) { noBone++; continue; }
             var local = MarineAssets.ToGodot(m.Local);
             (Vector3 Position, Basis Axes)? Place()
             {
@@ -207,9 +208,9 @@ public partial class NetworkView
                 return (w.Origin, w.Basis.Orthonormalized());
             }
             if (Place() is not { } at) continue;
-            if (_fx.Play(e.Name, at.Position, at.Axes, e.Scale, null, Place, 0f, 0.0, repeat: true, priority: 1) is { } fx) f.Lit.Add(fx);
+            if (_fx.Play(e.Name, at.Position, at.Axes, e.Scale, null, Place, 0f, 0.0, repeat: true, priority: 1) is { } fx) f.Lit.Add(fx); else noPlay++;
         }
-        if (LogDreadFeel) GD.Print($"DNFEEL t {_connectedFor:F2} Lights player {s.PlayerId}: {f.Lit.Count} of {DreadnoughtArm.Lights.Length} playing");
+        if (LogDreadFeel) GD.Print($"DNFEEL t {_connectedFor:F2} Lights player {s.PlayerId}: {f.Lit.Count} of {DreadnoughtArm.Lights.Length} playing (marker missing {noMarker}, bone missing {noBone}, effect not played {noPlay})");
     }
 
     void DreadLightsOff(DreadFeelState f) { foreach (var e in f.Lit) e.Life = Math.Min(e.Life, e.Age); f.Lit.Clear(); f.Lights = false; }
@@ -235,6 +236,19 @@ public partial class NetworkView
         var casing = DreadMarkerWorld(t, DreadnoughtFeel.CannonCasing.Marker) ?? muzzle;
         _fx.Play(DreadnoughtFeel.CannonCasing.Name, casing, Basis.Identity, DreadnoughtFeel.CannonCasing.Scale);
         _fx.Play(DreadnoughtFeel.CannonTrail, muzzle, AxesFromY(gf), 1f, muzzle + gf * DreadnoughtFeel.TracerMetres);
+        if (LogDreadFeel && DreadMarkerWorld(t, DreadnoughtFeel.CannonMuzzle.Marker) is { } mk) GD.Print($"DNFEEL muzzle marker offset from the feet (godot x,y up,z): {mk - ToGodot(s.Position)}, aim {gf}, found casing marker {DreadMarkerWorld(t, DreadnoughtFeel.CannonCasing.Marker) is not null}");
         if (LogDreadFeel) GD.Print($"DNFEEL t {_connectedFor:F2} CannonShot {DreadnoughtFeel.CannonMuzzle.Name}x{DreadnoughtFeel.CannonMuzzle.Scale}, {DreadnoughtFeel.CannonCasing.Name}x{DreadnoughtFeel.CannonCasing.Scale}, {DreadnoughtFeel.CannonTrail}");
+    }
+
+    /// <summary>One melta shot's effects: the wargear's two cylinder blasts (<c>meltagun_cylinder_blast_3</c> and <c>_4</c>; Chaos' <c>csm_</c> copies) at the left hand's muzzle marker (the melta arm) along the aim. The catalogue has no bindings for <c>dread_melta</c> ("no effect data" in the log), so nothing else played before.</summary>
+    void DreadMeltaShot(DreadnoughtTrack t, PlayerState s)
+    {
+        if (_fx is null || Lean || !FxActive) return;
+        float cp = MathF.Cos(s.Pitch);
+        var fwd = new Num.Vector3(-MathF.Sin(s.Yaw) * cp, MathF.Cos(s.Yaw) * cp, MathF.Sin(s.Pitch));
+        var gf = new Vector3(fwd.X, fwd.Z, -fwd.Y);
+        var at = DreadMarkerWorld(t, DreadnoughtArm.LeftHand) ?? ToGodot(s.Position + new Num.Vector3(0, 0, 2.3f) + fwd * 2.2f);
+        foreach (var name in DreadChaos ? DreadnoughtFeel.ChaosMeltaEffects : DreadnoughtFeel.MeltaEffects) _fx.Play(name, at, AxesFromY(gf), 1f);
+        if (LogDreadFeel) GD.Print($"DNFEEL t {_connectedFor:F2} MeltaShot {string.Join(", ", DreadChaos ? DreadnoughtFeel.ChaosMeltaEffects : DreadnoughtFeel.MeltaEffects)}");
     }
 }
