@@ -5,7 +5,7 @@ using SmClient.Customizer;
 
 namespace SmClient.FrontEnd;
 
-// The main menu's video loop (the owner, 2026-11-10): the front end's background is the looping video beside the project, sized to cover the window at any aspect ratio
+// The main menu's video loop (the owner, 2026-11-10; the concept's 8 s video the default since 2026-11-15): the front end's background is the looping video beside the project, sized to cover the window at any aspect ratio
 // without a letterbox, not played headless; --menu-still (and a missing file) gives the still picture.
 public sealed partial class UiSelfTest
 {
@@ -13,10 +13,11 @@ public sealed partial class UiSelfTest
     {
         _front.ShowMainMenu();
         await Frames(3);
-        Check("menu video: the constant names one file", UiKit.MenuVideoPath == "res://assets/menu/menu-loop.ogv");
-        Check("menu video: the switch's name", UiKit.MenuStillSwitch == "menu-still");
-        string file = ProjectSettings.GlobalizePath(UiKit.MenuVideoPath);
+        Check("menu video: the constants name the concept's video (the default) and the older loop (--menu-video)", UiKit.MenuConceptVideoPath == "res://assets/menu/menu-concept-loop.ogv" && UiKit.MenuVideoPath == "res://assets/menu/menu-loop.ogv");
+        Check("menu video: the switches' names", UiKit.MenuStillSwitch == "menu-still" && UiKit.MenuVideoSwitch == "menu-video");
+        string file = ProjectSettings.GlobalizePath(UiKit.MenuOldVideo ? UiKit.MenuVideoPath : UiKit.MenuConceptVideoPath);
         Check("menu video: the file is beside the project", System.IO.File.Exists(file) && UiKit.MenuVideoFile() == file, file);
+        Check("menu video: the concept's video is committed and small (under 30 MB)", System.IO.File.Exists(ProjectSettings.GlobalizePath(UiKit.MenuConceptVideoPath)) && new System.IO.FileInfo(ProjectSettings.GlobalizePath(UiKit.MenuConceptVideoPath)).Length < 30_000_000);
 
         var background = _front.MenuBackground;
         if (UiKit.MenuStill)

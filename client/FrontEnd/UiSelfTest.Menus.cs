@@ -38,16 +38,18 @@ public sealed partial class UiSelfTest
             _front.ShowMainMenu();
             await Frames(4);
             var main = _front.MainPage!;
-            var wanted = new List<string> { "PLAYER VERSUS PLAYER" };
+            // ui/concept-redesign: the concept's order and words (MUSOU MODE first where added content is built; STOP MUSOU SERVER only while its server runs).
+            var wanted = new List<string>();
             if (ContentExtras.Compiled) wanted.Add("MUSOU MODE");
-            wanted.AddRange(["OPTIONS", "CUSTOMIZER", "QUIT"]);
+            wanted.AddRange(["CLASSIC PVP", "ARMOURY", "OPTIONS", "EXIT"]);
             Check("menu: the main menu's rows, in order", RowTexts(main).SequenceEqual(wanted), string.Join(", ", RowTexts(main)));
             Check("menu: the title is the project's name", main.TitleLabel.Text == "SM - REIMPL", main.TitleLabel.Text);
-            Check("menu: a first row has the focus", GetViewport().GuiGetFocusOwner() is Button { Text: "PLAYER VERSUS PLAYER" } || FindButton(main, b => b.Text == "PLAYER VERSUS PLAYER") is not null);
-            foreach (var row in new[] { "PLAYER VERSUS PLAYER", "OPTIONS" })
-                Check($"menu: {row} is transparent (no box)", FindButton(main, b => b.Text == row)?.GetThemeStylebox("normal") is StyleBoxEmpty);
+            Check("menu: a first row has the focus", GetViewport().GuiGetFocusOwner() is Button { Text: var focusedText } && focusedText == wanted[0] || FindButton(main, b => b.Text == wanted[0]) is not null);
+            foreach (var row in new[] { "CLASSIC PVP", "OPTIONS" })
+                Check($"menu: {row} is a dark-metal steel button", FindButton(main, b => b.Text == row) is { } rowButton && rowButton.ThemeTypeVariation == Steel.ButtonType && rowButton.GetThemeStylebox("normal") is Steel.SteelStyle { Kind: Steel.Kind.Dark });
+            Check("menu: the wordmark, the crest, the frame and the nameplate are there", main is ConceptMainPage page01 && page01.Frame.IsVisibleInTree() && page01.Wordmark.IsVisibleInTree() && main.FindChild("Crest", true, false) is not null && main.FindChild("Nameplate", true, false) is Label { Text: "ONE SOLDIER. MANY BATTLEFIELDS." });
 
-            await PressRow("PLAYER VERSUS PLAYER", main);
+            await PressRow("CLASSIC PVP", main);
             var lobby = _front.LobbyPage!;
             Check("menu: the lobby page opens", lobby.Visible && !_front.ShowsMainMenu);
             var lobbyRows = RowTexts(lobby);
@@ -242,8 +244,8 @@ public sealed partial class UiSelfTest
             }
 
             // The customizer stands on its own dark background.
-            await PressRow("CUSTOMIZER", main);
-            Check("menu: CUSTOMIZER opens the creator", _front.Creator!.Visible && !_front.ShowsMainMenu);
+            await PressRow("ARMOURY", main);
+            Check("menu: ARMOURY opens the creator", _front.Creator!.Visible && !_front.ShowsMainMenu);
             Check("menu: the customizer has the 3D preview", _front.Creator.Preview is not null);
             var dark = _front.Creator.GetChild(0) as TextureRect;
             Check("menu: the customizer's background is the dark one, not the image", dark is { } && dark.Texture is GradientTexture2D && dark.Name != "MenuBackground");
@@ -414,10 +416,14 @@ public sealed partial class UiSelfTest
         await Frames(4);
         var main = _front.MainPage!;
         float f = view.Size.Y / UiKit.VirtualHeight;
-        var firstRow = FindButton(main.Rows, b => b.Text == "PLAYER VERSUS PLAYER")!;
-        var quit = FindButton(main.Rows, b => b.Text == "QUIT")!;
-        Check($"fit {at}: the rows start at the reference's height", Mathf.Abs(firstRow.GetGlobalRect().GetCenter().Y - UiKit.MenuFirstRowCentre * f) < 1.5f && Mathf.Abs(firstRow.GlobalPosition.X - 119f) < 1.5f, firstRow.GetGlobalRect().ToString());
-        Check($"fit {at}: the rows are 22.5 apart", Mathf.Abs(quit.GlobalPosition.Y - firstRow.GlobalPosition.Y - 22.5f * (RowTexts(main).Count - 1)) < 1.5f);
+        var concept = (ConceptMainPage)main;
+        var firstRow = FindButton(main.Rows, b => b.Text == (ContentExtras.Compiled ? "MUSOU MODE" : "CLASSIC PVP"))!;
+        var exit = FindButton(main.Rows, b => b.Text == "EXIT")!;
+        Check($"fit {at}: the rows are steel buttons 62 apart plus the gap, all inside the frame", Mathf.Abs(exit.GlobalPosition.Y - firstRow.GlobalPosition.Y - (ConceptMainPage.RowHeight + ConceptMainPage.RowGap) * (RowTexts(main).Count - 1)) < 1.5f
+            && concept.Frame.GetGlobalRect().Encloses(firstRow.GetGlobalRect()) && concept.Frame.GetGlobalRect().Encloses(exit.GetGlobalRect()), firstRow.GetGlobalRect().ToString());
+        Check($"fit {at}: the wordmark, the crest and the frame are in the window and clear of the video's Marine (the right 55 %)", Encloses(view, concept.Frame.GetGlobalRect()) && Encloses(view, concept.Wordmark.GetGlobalRect())
+            && concept.Frame.GetGlobalRect().End.X <= view.Position.X + view.Size.X * 0.4f && concept.Wordmark.GetGlobalRect().End.X <= view.Position.X + view.Size.X * 0.45f, concept.Frame.GetGlobalRect().ToString());
+        Check($"fit {at}: the nameplate is on the frame's lower bar", concept.Frame.GetGlobalRect().Encloses(((Control)main.FindChild("Nameplate", true, false)!).GetGlobalRect()));
         int size = firstRow.GetThemeFontSize("font_size");
         float pixels = size * Mathf.Min(GetWindow().Size.X / (float)UiKit.VirtualWidth, GetWindow().Size.Y / (float)UiKit.VirtualHeight);
         Check($"fit {at}: the rows' text is drawn at {UiKit.MinMenuPixels} px or more", pixels >= UiKit.MinMenuPixels - 0.01f, pixels.ToString());
@@ -460,12 +466,20 @@ public sealed partial class UiSelfTest
         foreach (var b in AllButtons(page).Where(x => x.IsVisibleInTree()))
         {
             float need = UiKit.TextNeed(b);
-            float room = b is UiKit.MenuChoice ? UiKit.MenuValueColumn : b.Size.X;
+            float room = b is UiKit.MenuChoice { IsSteel: true } ? OptionsView.LabelWidth : b is UiKit.MenuChoice ? UiKit.MenuValueColumn : b.Size.X;
             if (need > room + 1f) cut.Add($"{b.Text} needs {need:F0}, has {room:F0}");
         }
         foreach (var l in AllLabels(page).Where(x => x.IsVisibleInTree() && !x.ClipText && x.Name.ToString() == "Value"))
             if (l.GetMinimumSize().X > l.Size.X + 1f) cut.Add($"{l.Text} needs {l.GetMinimumSize().X:F0}, has {l.Size.X:F0}");
         Check($"{name}: all text fits", cut.Count == 0, string.Join("; ", cut.Take(5)));
+        if (page is OptionsView options)
+        {
+            // ui/concept-redesign: the frame is in the window with its actions; only the rows scroll; the tabs, APPLY, REVERT and BACK are whole and in view.
+            Check($"{name}: the frame and its list are in the window", Encloses(view, options.Frame.GetGlobalRect()) && Encloses(view, options.List.GetGlobalRect()), $"frame {options.Frame.GetGlobalRect()} view {view}");
+            foreach (var action in new Control[] { options.ApplyButton, options.RevertButton, options.BackButton, options.TabRow })
+                Check($"{name}: {action.Name} is in the window and in the frame", Encloses(view, action.GetGlobalRect()) && options.Frame.GetGlobalRect().Encloses(action.GetGlobalRect()), action.GetGlobalRect().ToString());
+            return;
+        }
         var bottom = page.Rows.GetGlobalRect().End.Y;
         Check($"{name}: the rows end in the window", page.List.GetGlobalRect().End.Y <= view.End.Y + 0.5f && (bottom <= page.List.GetGlobalRect().End.Y + 0.5f), $"rows end {bottom:F0} list end {page.List.GetGlobalRect().End.Y:F0}");
         // The main menu's OPTIONS note (where the game was found, the builds' address) is the page's foot: under the list, whole in the window.

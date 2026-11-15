@@ -139,6 +139,7 @@ public static partial class UiKit
         t.SetColor("font_color", "TooltipLabel", White);
         t.SetFontSize("font_size", "TooltipLabel", CaptionSize);
         AddMenuTheme(t);
+        Steel.AddTheme(t);   // ui/concept-redesign: the steel kit's types (SteelKit.cs)
         return t;
     }
 

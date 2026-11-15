@@ -229,7 +229,7 @@ public sealed partial class FrontEndView : Control
         _message.Visible = false;
         _message.SetAnchorsPreset(LayoutPreset.BottomLeft);
         _message.GrowVertical = GrowDirection.Begin;
-        _message.OffsetLeft = UiKit.MenuLeft + 1f; _message.OffsetRight = UiKit.MenuLeft + 1f + 1100f; _message.OffsetBottom = -24f; _message.OffsetTop = -24f - 90f;
+        _message.OffsetLeft = ConceptMainPage.PillarWidth + 24f; _message.OffsetRight = ConceptMainPage.PillarWidth + 24f + 1100f; _message.OffsetBottom = -24f; _message.OffsetTop = -24f - 90f;
         AddChild(_message);
         if (_args.ContainsKey("ui-selftest")) AddChild(new UiSelfTest(this, _services));
         // The profile's own notices (a repaired, corrupt or read-only file) show once.
@@ -250,20 +250,24 @@ public sealed partial class FrontEndView : Control
         // The remembered Musou of an earlier build is not a lobby profile any more: MUSOU MODE is the way in (a --content musou launch keeps it).
         if (_services.Settings.ContentExtras.HasFlag(ContentExtras.Musou) && !CommandLineMusou) _services.SetContent(ContentExtras.All);
 
-        var main = new UiKit.MenuPage("MainMenu");
-        var joinRow = UiKit.MenuButton("Player versus Player", () => ShowPage(_lobby!));
+        // The main menu (ui/concept-redesign, panel 01): the concept's order and words. MUSOU MODE (added content) first, CLASSIC PVP (the lobby: join or host Annihilation / Seize Ground), ARMOURY (the
+        // customizer), OPTIONS, EXIT; STOP MUSOU SERVER still appears under MUSOU MODE while its server runs. The node names are the old rows' (the tests and test aids know them).
+        var main = new ConceptMainPage();
+        var joinRow = UiKit.SteelButton("Classic PvP", () => ShowPage(_lobby!), "Annihilation and Seize Ground: join a server, host one, or join a lobby", "MenuPlayerversusPlayer");
         _first[main] = joinRow;
-        main.Rows.AddChild(joinRow);
         if (ContentExtras.Compiled)   // added content: never in a faithful build
         {
-            main.Rows.AddChild(UiKit.MenuButton("Musou Mode", ShowMusouPage, "The war of the three fronts: alone on this PC, or up to 4 players together"));
-            _stopMusou = UiKit.MenuButton("Stop Musou server", StopMusou, "Stops the Musou server this game started on this PC");
+            var musouRow = UiKit.SteelButton("Musou Mode", ShowMusouPage, "The war of the three fronts: alone on this PC, or up to 4 players together", "MenuMusouMode");
+            _first[main] = musouRow;
+            main.Rows.AddChild(musouRow);
+            _stopMusou = UiKit.SteelButton("Stop Musou server", StopMusou, "Stops the Musou server this game started on this PC", "MenuStopMusouserver");
             _stopMusou.Visible = false;   // only while that server runs (SyncMusouRow)
             main.Rows.AddChild(_stopMusou);
         }
-        main.Rows.AddChild(UiKit.MenuButton("Options", () => ShowOptions()));
-        main.Rows.AddChild(UiKit.MenuButton("Customizer", ShowCreator, "Edit your loadouts and your armour"));
-        main.Rows.AddChild(UiKit.MenuButton("Quit", () => GetTree().Quit()));
+        main.Rows.AddChild(joinRow);
+        main.Rows.AddChild(UiKit.SteelButton("Armoury", ShowCreator, "Edit your loadouts and your armour", "MenuCustomizer"));
+        main.Rows.AddChild(UiKit.SteelButton("Options", () => ShowOptions(), null, "MenuOptions"));
+        main.Rows.AddChild(UiKit.SteelButton("Exit", () => GetTree().Quit(), null, "MenuQuit"));
         _main = main;
 
         var lobby = new UiKit.MenuPage("LobbyMenu", "Join or host lobby");

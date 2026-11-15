@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3266 spec table rows: **2405 tagged**, 602 not tagged (read from data with high confidence), 259 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 726 rows of the changes document.
+Scanned 3271 spec table rows: **2409 tagged**, 603 not tagged (read from data with high confidence), 259 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 729 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,22 +50,22 @@ Scanned 3266 spec table rows: **2405 tagged**, 602 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 23 | 13 | 13 | 13 | 7 |
-| Core simulation (provisional values) | 720 | 677 | 512 | 187 | 1 |
+| Core simulation (provisional values) | 724 | 681 | 516 | 187 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 249 | 238 | 134 | 68 | 0 |
-| **All areas** | **2405** | 2124 | 1782 | 742 | 38 |
+| **All areas** | **2409** | 2128 | 1786 | 742 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1397 |
+| kind: ours | 1399 |
 | confidence: low | 852 |
-| confidence: medium | 801 |
+| confidence: medium | 805 |
 | notes: ours | 417 |
 | kind: interpretation | 388 |
 | notes: estimate | 203 |
-| kind: estimate | 166 |
+| kind: estimate | 168 |
 | confidence: none (low) | 129 |
 | kind: provisional | 103 |
 | kind: user's knowledge | 56 |
@@ -2486,7 +2486,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (720)
+### Core simulation (provisional values) (724)
 
 *Spec section: Provisional values in use*
 
@@ -3392,6 +3392,15 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-5CD35826` | Menu video loop seam | the source's last frame does not meet its first (SSIM 0.94 where a frame step of its slow start is about 0.997, so debris and embers jump): its last 15 frames (0.5 s) fade into its first 15, its 16th plays unblended last and the loop starts on its 17th, so… (s, frames) | kind: ours; confidence: medium | ours | Menu video loop seam: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the source's last frame does not meet its first (SSIM 0.94 where a… | ☐ |
 | `R-4FAE2E57` | Menu video pause and fallback | paused while the customizer (its own dark background) covers it, going on where it was; not played under the headless display server; a video that shows no frame after 2.0 s of drawn frames (an unplayable file) gives way to the still picture; a missing file… (s) | kind: ours; confidence: medium | ours | Menu video pause and fallback: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: paused while the customizer (its own dark background) covers it… | ☐ |
 | `R-E5EA2A49` | Menu video cost | measured on the owner's PC (12 logical cores, a 60 fps cap, the menu idle, 30 s after warm-up): Forward+ 27 % of one core with the video, 9 % with the still; Compatibility (safe mode) 25 % and 7 %; no frame over 16.7 ms in either, the loop restart included… (% of one core, ms) | kind: ours; confidence: medium | measurement | Menu video cost: compare with SM1 by feel or video. Ours: measured on the owner's PC (12 logical cores, a 60 fps cap, the menu… | ☐ |
+
+*Spec section: UI concept redesign (2026-11-15, client only; branch `claude/ui-concept-redesign`)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-7804224F` | Main menu layout | a stone pillar down the left edge (120 UI px), the SM-REIMPL wordmark (640 px wide) and the winged crest above a steel frame 540 px wide with an amber-lit recess holding five 62 px dark-metal buttons 12 px apart (MUSOU MODE, CLASSIC PVP, ARMOURY, OPTIONS… (UI px (1920 x 1080 space)) | kind: estimate; confidence: medium | the concept art, panel 01 (measured by eye); order and words as the concept's (the rows were PLAYER VERSUS PLAYER, MUSOU MODE, OPTIONS, CUSTOMIZER, QUIT) | Main menu layout: compare with SM1 by feel or video. Ours: a stone pillar down the left edge (120 UI px), the SM-REIMPL wordmark… | ☐ |
+| `R-8F6E0963` | Options layout | a centred steel frame (at most 1340 px wide) with the winged crest and an OPTIONS plate over its top edge, wrapping category tabs (GRAPHICS, SOUND, CONTROLS), the rows in two columns (one below 1120 px) of a 300 px label and a value pill, in a scrolling… (UI px) | kind: estimate; confidence: medium | the concept art, panel 04 | Options layout: compare with SM1 by feel or video. Ours: a centred steel frame (at most 1340 px wide) with the winged crest… | ☐ |
+| `R-122DFD37` | Options APPLY, REVERT | APPLY keeps the options as they are (they apply and save at once, as before) as the point REVERT returns to and shows SETTINGS APPLIED for 3 s; REVERT puts every option the page edits (`GameOptions`, field of view, mouse sensitivity, reduce motion, others'… (s) | kind: ours; confidence: medium | the owner's brief ("distinct Apply/Revert/Back actions", "keep the existing settings and their current save/apply behavior"); the semantics are ours | Options APPLY, REVERT: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: APPLY keeps the options as they are (they apply and save at once, as… | ☐ |
+| `R-DD4EB753` | Steel kit | colours: gold (0.97, 0.76, 0.24) for focus and selection, dark gunmetal for inactive rows, amber (0.62, 0.34, 0.06) for the recess light, bone and steel for the crest; every plate, bevel, rivet, feather and stone block is drawn from code (`Steel.SteelStyle`… | kind: ours; confidence: medium | ours | Steel kit: compare with SM1 by feel or video. Ours: colours: gold (0.97, 0.76, 0.24) for focus and selection, dark… | ☐ |
 
 *Spec section: Musou rejoin (2026-11-07, client only)*
 
@@ -4898,6 +4907,14 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | ID | Area | What we do | What is unknown | Spec | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `C-12CF93EE` | Main menu video | Ours (the owner's request, "use this video loop as the main menu background in the next shipped release"): the main menu, its pages and the game folder setup play a looping 31.3 s video behind the menu (the owner's own cinematic of our Ashfall Citadel map, a Space Marine with a glowing power sword; owner-made… | — (ours: SM1's menu backgrounds are not reproduced) | Main menu video | Main menu video: compare with SM1 by feel or video. Ours: Ours (the owner's request, "use this video loop as the main menu… | ☐ |
+
+#### UI concept redesign (owner 2026-11-15; client only; phase 1: the main menu and Options)
+
+| ID | Area | What we do | What is unknown | Spec | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `C-C3FBE611` | Main menu video, default again | Ours (the owner's request: "make the referenced video image the background of the main menu"): the main menu, its pages and the game folder setup play his new 8 s clip (`menu-concept-loop.ogv`, 5.8 MB, Ogg Theora, no audio, looped) behind the menu; `--menu-still` shows the still forge-world picture (the 2026-11-14… | whether the owner wants the loading screen on the new video too (it keeps its own picture) | "UI concept redesign" | Main menu video, default again: compare with SM1 by feel or video. Ours: Ours (the owner's request: "make the referenced video image the… | ☐ |
+| `C-8C7073C7` | Main menu, concept layout | Ours (the owner's concept panel 01): a stone pillar, the SM-REIMPL wordmark, the winged crest, a heavy steel frame with an amber recess and five dark-metal buttons, the nameplate "ONE SOLDIER. MANY BATTLEFIELDS."; the rows are renamed to the concept's words and order (MUSOU MODE, CLASSIC PVP, ARMOURY, OPTIONS, EXIT… | the original's own front end looked different (the owner's choice) | "UI concept redesign" | Main menu, concept layout: compare with SM1 by feel or video. Ours: Ours (the owner's concept panel 01): a stone pillar, the SM-REIMPL… | ☐ |
+| `C-B88BBBFA` | Options, concept layout | Ours (the owner's concept panel 04): a centred steel frame, tabs, two columns of option rows (value pills with arrows, OFF / ON switches, amber sliders), APPLY, REVERT and BACK; every option and default is as before and still applies and saves at once; APPLY and REVERT are new buttons over that (APPLY keeps the… | the concept's INTERFACE tab names settings that do not exist; none was added | "UI concept redesign" | Options, concept layout: compare with SM1 by feel or video. Ours: Ours (the owner's concept panel 04): a centred steel frame, tabs, two… | ☐ |
 
 ### Not yet reproduced
 

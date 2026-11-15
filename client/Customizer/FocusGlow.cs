@@ -114,6 +114,7 @@ public sealed partial class FocusGlow : CanvasLayer
     public static Rect2 AreaOf(Control c)
     {
         var whole = new Rect2(Vector2.Zero, c.Size);
+        if (c is UiKit.MenuChoice { IsSteel: true } steel) return steel.PillRect;   // ui/concept-redesign: a steel option row glows round its value pill
         if (c is not Button { Icon: null } b || string.IsNullOrEmpty(b.Text) || b.Alignment != HorizontalAlignment.Left) return whole;
         var font = b.GetThemeFont("font");
         int size = b.GetThemeFontSize("font_size");

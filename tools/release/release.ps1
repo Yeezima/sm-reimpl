@@ -1247,9 +1247,9 @@ if (-not $SkipBuild) {
         if (-not (Test-Path -LiteralPath (Join-Path $exportDir 'sm-reimpl.exe'))) { Fail 'The export produced no sm-reimpl.exe.' }
         Get-ChildItem -LiteralPath $exportDir -Recurse -File | Where-Object { $_.Extension -in '.pdb', '.xml' } | Remove-Item -Force
 
-        # The owner's menu background, the loading screen's picture (2026-11-10), and the hub planet (the main menu's video loop, menu-loop.ogv, is no longer shipped since 2026-11-14)
+        # The owner's menu background, the loading screen's picture (2026-11-10), the main menu's video (menu-concept-loop.ogv, 6 MB, the default since 2026-11-15; the older 20 MB menu-loop.ogv stays out of the release since 2026-11-14) and the hub planet
         # are loaded as plain files, outside the Godot export (export_presets.cfg leaves them out): beside the exe.
-        foreach ($img in @('assets/menu/background.jpg', 'assets/menu/loading-background.jpg', 'assets/musou/planet.jpg')) {
+        foreach ($img in @('assets/menu/background.jpg', 'assets/menu/loading-background.jpg', 'assets/menu/menu-concept-loop.ogv', 'assets/musou/planet.jpg')) {
             $imgSrc = Join-Path $client $img
             if (-not (Test-Path -LiteralPath $imgSrc)) { Fail "Missing $img in the clean copy (it is committed)." }
             New-Item -ItemType Directory -Force -Path (Split-Path -Parent (Join-Path $exportDir $img)) | Out-Null
