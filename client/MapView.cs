@@ -30,13 +30,6 @@ public partial class MapView : Node3D
     public int TexturedSurfaces { get; private set; }
     public int Mirrored { get; private set; }
 
-    /// <summary>Edge of the culling cells (metres, game space; ours, a performance choice).</summary>
-    public const float CellMetres = 40f;
-
-    /// <summary>Whether a map's placements are grouped into culling cells: every map but Manufactorum, and never with <c>--old-map-cells</c> (before / after aid).</summary>
-    public static bool SplitsIntoCells(string map) => !OldCells && !map.Equals(MapDecorLists.Map, StringComparison.OrdinalIgnoreCase);
-    static bool OldCells => Array.IndexOf(OS.GetCmdlineUserArgs(), "--old-map-cells") >= 0;
-
     /// <summary>Builds the materials (diffuse, normal, specular, emissive maps); its counters say how many used each.</summary>
     public MapMaterials Materials { get; } = new();
     readonly Dictionary<(string, bool), Material> _materials = new();
@@ -54,8 +47,7 @@ public partial class MapView : Node3D
     void Populate(MapScene scene, List<string> notes)
     {
         // Group world transforms by (mesh, block, mirrored, casts shadows), remembering which placements each group draws.
-        var groups = new Dictionary<(string Mesh, int Block, bool Mirrored, bool Shadows, int CellX, int CellY), List<(Transform3D Transform, int Object)>>();
-        bool cells = SplitsIntoCells(scene.Map);
+        var groups = new Dictionary<(string Mesh, int Block, bool Mirrored, bool Shadows), List<(Transform3D Transform, int Object)>>();
         var decorHidden = MapDecor.Hidden(scene);   // fix/manufactorum-fluorescent: the olive boards and salmon fittings are not drawn
         if (decorHidden.Count > 0) notes.Add($"{decorHidden.Count} placements of Manufactorum's wall stations and salmon fittings are not drawn (owner's requests 2026-11-04, 2026-11-07, 2026-11-14; --old-armoury-racks draws them)");
         for (int o = 0; o < scene.Objects.Count; o++)
@@ -67,10 +59,7 @@ public partial class MapView : Node3D
             {
                 var world = part.NodeTransform * placed.Transform;
                 bool mirrored = world.GetDeterminant() < 0f;
-                // classic-maps-perf: one MultiMesh is one culling unit in Godot (its box is every placement's), so a mesh placed all over a large map was drawn whole whenever one placement
-                // was in view. The new maps split each group into 40 m cells (same pixels, culled per cell); Manufactorum's drawing stays as it was (SplitsIntoCells).
-                var key = (part.MeshName.ToLowerInvariant(), part.MeshId, mirrored, part.CastShadows,
-                           cells ? (int)MathF.Floor(world.M41 / CellMetres) : 0, cells ? (int)MathF.Floor(world.M42 / CellMetres) : 0);
+                var key = (part.MeshName.ToLowerInvariant(), part.MeshId, mirrored, part.CastShadows);
                 if (!groups.TryGetValue(key, out var list)) groups[key] = list = new List<(Transform3D, int)>();
                 list.Add((ToGodot(world), o));
             }
@@ -80,8 +69,8 @@ public partial class MapView : Node3D
 
         var drawn = new HashSet<(string, int)>();
         var missing = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var ((meshName, block, mirrored, shadows, cellX, cellY), placements) in groups.OrderBy(g => g.Key.Mesh, StringComparer.Ordinal)
-                     .ThenBy(g => g.Key.Block).ThenBy(g => g.Key.Mirrored).ThenBy(g => g.Key.Shadows).ThenBy(g => g.Key.CellX).ThenBy(g => g.Key.CellY))
+        foreach (var ((meshName, block, mirrored, shadows), placements) in groups.OrderBy(g => g.Key.Mesh, StringComparer.Ordinal)
+                     .ThenBy(g => g.Key.Block).ThenBy(g => g.Key.Mirrored).ThenBy(g => g.Key.Shadows))
         {
             var transforms = placements.Select(p => p.Transform).ToList();
             if (!scene.Meshes.TryGetValue(meshName, out var dcm)) { missing.Add(meshName); continue; }
@@ -104,7 +93,7 @@ public partial class MapView : Node3D
             for (int i = 0; i < transforms.Count; i++) multimesh.SetInstanceTransform(i, transforms[i]);
             AddChild(new MultiMeshInstance3D
             {
-                Name = $"{meshName}_{block}{(cells ? $"_c{cellX}_{cellY}" : "")}{(mirrored ? "_mirrored" : "")}{(shadows ? "" : "_noshadow")}", Multimesh = multimesh,
+                Name = $"{meshName}_{block}{(mirrored ? "_mirrored" : "")}{(shadows ? "" : "_noshadow")}", Multimesh = multimesh,
                 CastShadow = shadows ? GeometryInstance3D.ShadowCastingSetting.On : GeometryInstance3D.ShadowCastingSetting.Off,
             });
             Instances += transforms.Count;

@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3318 spec table rows: **2440 tagged**, 619 not tagged (read from data with high confidence), 259 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 737 rows of the changes document.
+Scanned 3320 spec table rows: **2442 tagged**, 619 not tagged (read from data with high confidence), 259 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 737 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -49,18 +49,18 @@ Scanned 3318 spec table rows: **2440 tagged**, 619 not tagged (read from data wi
 | Customizer and paint | 48 | 45 | 26 | 15 | 0 |
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
-| Networking and render smoothing | 23 | 13 | 13 | 13 | 7 |
+| Networking and render smoothing | 25 | 14 | 14 | 13 | 7 |
 | Core simulation (provisional values) | 748 | 703 | 533 | 188 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 249 | 238 | 134 | 68 | 0 |
-| **All areas** | **2440** | 2157 | 1808 | 743 | 38 |
+| **All areas** | **2442** | 2158 | 1809 | 743 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1426 |
-| confidence: low | 865 |
+| kind: ours | 1427 |
+| confidence: low | 866 |
 | confidence: medium | 814 |
 | notes: ours | 416 |
 | kind: interpretation | 390 |
@@ -2453,7 +2453,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-EC513790` | Look SSR by preset (fx/impact-pass review) | a look's `ssr.on` (the remaster's) turns screen-space reflections on at medium and high only; low and off never run SSR (older hardware is the next priority); high has SSR anyway. Off = the M40-T7 renderer features alone (no shadows, SSAO, SSIL, volumetric… | kind: ours | ours | Look SSR by preset (fx/impact-pass review): compare with SM1 with side-by-side screenshots in the same spot. Ours: a look's ssr.on (the remaster's) turns screen-space reflections on at… | ☐ |
 | `R-6E7116B1` | Effect checks after the review fixes (demo replays on Godot time, `--fixed-fps 30`, identical… | own bolter tracer and the enemy's shots from the follow camera, own lascannon beam: as bright as on main (the beam is an axis billboard: no edge-on fade; its fade size is its width); `FxTest --pound-test` crater, shockwave rings and dust as on main (flat… | confidence: medium | measured | Effect checks after the review fixes (demo replays on Godot…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: own bolter tracer and the enemy's shots from the follow camera, own… | ☐ |
 
-### Networking and render smoothing (23)
+### Networking and render smoothing (25)
 
 *Spec section: Time-faithful capture and the smoothed render clock (M40 T0, T2; client only, not simulated)*
 
@@ -2512,6 +2512,13 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
+
+*Spec section: Classic maps performance probe (classic-maps-perf, 2026-11-16; test aid only, nothing in the game changes)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-27330EFB` | Perf tour (`--perf-tour`) | with `--perf-probe` and `--observe-tour`, the observer's camera moves to the tour's next place at the end of each 5 s probe window and each `perf:` line names its place (s) | kind: ours | measurement aid | Perf tour (--perf-tour): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: with --perf-probe and --observe-tour, the observer's camera moves to… | ☐ |
+| `R-83C63D35` | Classic maps performance result | no new map clearly worse than Manufactorum: render CPU 2.2 to 5.0 ms (Manufactorum 3.0), server tick mean 0.64 to 1.06 ms with 17 clients; one run per map on a busy machine (frame times noisy by about 3 ms); no change made to any map's drawing (ms) | confidence: low | measured | Classic maps performance result: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: no new map clearly worse than Manufactorum: render CPU 2.2 to 5.0 ms… | ☐ |
 
 ### Core simulation (provisional values) (748)
 
