@@ -16,12 +16,12 @@ namespace SmClient.FrontEnd;
 /// </summary>
 public sealed partial class OptionsView : UiKit.MenuPage
 {
-    public const string Graphics = "GRAPHICS", Sound = "SOUND", Controls = "CONTROLS";
-    static readonly string[] Tabs = [Graphics, Sound, Controls];
+    public const string Graphics = "GRAPHICS", Sound = "SOUND", Controls = "CONTROLS", Interface = "INTERFACE";
+    static readonly string[] Tabs = [Graphics, Sound, Controls, Interface];
     static readonly string[] OffOn = ["OFF", "ON"];
 
     /// <summary>The label column of a row, the frame's greatest width and the room above it for the crest and the plate (UI pixels).</summary>
-    public const float LabelWidth = 300f, FrameMaxWidth = 1340f, TopRoom = 118f, FrameSide = 46f;
+    public const float LabelWidth = 300f, FrameMaxWidth = 1340f, TopRoom = 126f, FrameSide = 50f;
 
     readonly CustomizerServices _services;
     readonly Action _onBack, _onKeybinds;
@@ -33,9 +33,9 @@ public sealed partial class OptionsView : UiKit.MenuPage
     readonly PanelContainer _frame = new() { Name = "OptionsFrame", MouseFilter = MouseFilterEnum.Stop };
     readonly VBoxContainer _inner = new() { Name = "OptionsInner", MouseFilter = MouseFilterEnum.Ignore };
     readonly Label _plate = new() { Name = "OptionsPlate", Text = "OPTIONS", HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, MouseFilter = MouseFilterEnum.Ignore };
-    readonly UiKit.WingedCrest _crest = new(520f, 96f);
+    readonly UiKit.WingedCrest _crest = new(460f, 90f);
     readonly UiKit.WingedCrest _skull = new(70f, 54f, wings: false);
-    readonly UiKit.StonePillar _pillarLeft = new(112f, 3), _pillarRight = new(112f, 11);
+    readonly UiKit.StonePillar _pillarLeft = new(73f, 3, "stone-options", flip: true), _pillarRight = new(73f, 11, "stone-options");
     readonly ColorRect _dim = new() { Name = "OptionsDim", Color = new Color(0f, 0f, 0f, 0.42f), MouseFilter = MouseFilterEnum.Ignore };
     readonly Button _apply, _revert, _back;
     readonly Label _toast = new() { Name = "OptionsToast", HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, MouseFilter = MouseFilterEnum.Ignore, Visible = false };
@@ -64,7 +64,7 @@ public sealed partial class OptionsView : UiKit.MenuPage
         Visible = false;
         _title.Visible = false; _heading.Visible = false; _scroll.Visible = false;   // the base page's title and rows give way to the steel layout
         var style = new Steel.SteelStyle(Steel.Kind.Frame, 16f, FrameSide, 28f);
-        style.SetContentMargin(Side.Top, 52f); style.SetContentMargin(Side.Bottom, 50f);
+        style.SetContentMargin(Side.Top, 70f); style.SetContentMargin(Side.Bottom, 46f);
         _frame.AddThemeStyleboxOverride("panel", style);
         _frame.AddChild(_inner);
         // Category tabs: they wrap onto a second line when the frame is narrower than they are.
@@ -123,7 +123,13 @@ public sealed partial class OptionsView : UiKit.MenuPage
         _plate.AddThemeColorOverride("font_color", new Color(0.86f, 0.84f, 0.78f));
         _plate.AddThemeColorOverride("font_outline_color", new Color(0.02f, 0.02f, 0.02f));
         _plate.AddThemeConstantOverride("outline_size", 5);
-        _plate.AddThemeStyleboxOverride("normal", new Steel.SteelStyle(Steel.Kind.Plate, 10f, 30f, 6f));
+        if (ConceptArt.Patch("title-plate", new Vector2(60f, 20f), new Vector2(30f, 6f)) is { } plateArt)
+        {
+            _plate.AddThemeStyleboxOverride("normal", plateArt);
+            _plate.AddThemeColorOverride("font_color", Colors.Transparent);   // OPTIONS is in the painted plate (fixed text)
+            _plate.AddThemeColorOverride("font_outline_color", Colors.Transparent);
+        }
+        else _plate.AddThemeStyleboxOverride("normal", new Steel.SteelStyle(Steel.Kind.Plate, 10f, 30f, 6f));
         AddChild(_dim); MoveChild(_dim, 0);
         AddChild(_pillarLeft); AddChild(_pillarRight);
         AddChild(_frame); AddChild(_crest); AddChild(_plate); AddChild(_skull);
@@ -151,6 +157,7 @@ public sealed partial class OptionsView : UiKit.MenuPage
         {
             case Sound: BuildSound(); break;
             case Controls: BuildControls(); break;
+            case Interface: BuildInterface(); break;
             default: BuildGraphics(); break;
         }
         _grid.UpdateMinimumSize(); _wide.UpdateMinimumSize();
@@ -221,11 +228,13 @@ public sealed partial class OptionsView : UiKit.MenuPage
         float left = (w - frameW) / 2f;
         _dim.Position = Vector2.Zero; _dim.Size = Size;
         _frame.Position = new Vector2(left, top); _frame.Size = new Vector2(frameW, frameH);
-        _pillarLeft.Position = new Vector2(left - 78f, top + 36f); _pillarLeft.Size = new Vector2(112f, Mathf.Max(60f, frameH - 72f));
-        _pillarRight.Position = new Vector2(left + frameW - 34f, top + 36f); _pillarRight.Size = new Vector2(112f, Mathf.Max(60f, frameH - 72f));
-        _crest.Position = new Vector2((w - 520f) / 2f, top - 112f); _crest.Size = new Vector2(520f, 96f);
-        _plate.Size = new Vector2(380f, 74f); _plate.Position = new Vector2((w - 380f) / 2f, top - 40f);
-        _skull.Size = new Vector2(70f, 54f); _skull.Position = new Vector2((w - 70f) / 2f, top + frameH - 36f);
+        float plateW = ConceptArt.Get("title-plate") is { } pt ? pt.GetWidth() : 380f, plateH = ConceptArt.Get("title-plate") is { } ph ? ph.GetHeight() : 74f;
+        _pillarLeft.Position = new Vector2(left - 56f, top + 40f); _pillarLeft.Size = new Vector2(73f, Mathf.Max(60f, frameH - 80f));
+        _pillarRight.Position = new Vector2(left + frameW - 17f, top + 40f); _pillarRight.Size = new Vector2(73f, Mathf.Max(60f, frameH - 80f));
+        var crestSize = _crest.CustomMinimumSize;
+        _plate.Size = new Vector2(plateW, plateH); _plate.Position = new Vector2((w - plateW) / 2f, top - plateH * 0.55f);
+        _crest.Size = crestSize; _crest.Position = new Vector2((w - crestSize.X) / 2f, _plate.Position.Y - crestSize.Y + 18f);
+        _skull.Visible = false;
         if (_foot is { } foot) { foot.Position = new Vector2(left, top + frameH + 14f); foot.Size = new Vector2(frameW, foot.GetCombinedMinimumSize().Y); }
         // The draw order: the pillars behind the frame, the crest and the plate over its edge.
     }
@@ -292,13 +301,6 @@ public sealed partial class OptionsView : UiKit.MenuPage
         // ui/lighting-presets (the owner's request of 2026-11-06; ours, cosmetic): ten looks over the map's lighting, applied live (LightingGradeView); Faithful Remaster is today's look.
         Choice("Lighting preset", LightingPresets.Labels.Select(l => l.ToUpperInvariant()).ToArray(), (int)O.Lighting, i => Set(x => x with { Lighting = (LightingPresetChoice)i }),
             "The look of the light, haze and colour on every map. FAITHFUL REMASTER is the game's own look; the others only change the mood, never what you can see.");
-        Choice("Reduce motion", OffOn, _services.Settings.ReduceMotion ? 1 : 0, i => _services.UpdateSettings(x => x with { ReduceMotion = i == 1 }), "No camera moves, turntable or fades in the customizer; no artillery shake in Musou Mode.");
-        // combat feel (owner's brief, 2026-11-09): accessibility controls for the shake and the flashes; 100% is the game as before. The game has no controller vibration, so there is none to control.
-        Add(new UiKit.MenuSlider("Camera shake", 0, 1, GameOptions.AccessibilityStep, O.CameraShake, Percent, v => Set(x => x with { CameraShake = (float)v }), "CameraShakeSlider",
-            "How much the camera shakes and kicks at blasts, hits, landings and heavy shots. 100% is the game's own; 0% turns it off."));
-        Add(new UiKit.MenuSlider("Screen flashes", 0, 1, GameOptions.AccessibilityStep, O.ScreenFlashes, Percent, v => Set(x => x with { ScreenFlashes = (float)v }), "ScreenFlashesSlider",
-            "How strong the flashes over the whole screen are (a krak grenade close by, Musou Mode's call-outs) and the bursts of power weapon hits. 100% is the game's own; 0% turns them off."));
-        Choice("Show others' emblems", OffOn, _services.Settings.ShowOthersEmblems ? 1 : 0, i => _services.UpdateSettings(x => x with { ShowOthersEmblems = i == 1 }));
         var renderer = new Control { Name = "RendererRow", MouseFilter = MouseFilterEnum.Ignore, CustomMinimumSize = new Vector2(0f, 34f) };
         var caption = UiKit.MenuText("RENDERER", Steel.TextDim);
         caption.ThemeTypeVariation = Steel.LabelType;
@@ -308,6 +310,21 @@ public sealed partial class OptionsView : UiKit.MenuPage
         value.SetAnchorsPreset(LayoutPreset.FullRect); value.OffsetLeft = LabelWidth; value.OffsetRight = 0f;
         renderer.AddChild(caption); renderer.AddChild(value);
         AddWide(renderer);
+    }
+
+    /// <summary>
+    /// INTERFACE (owner 2026-11-15: "create a new interface tab"): the options that are about how the screen behaves rather than how it renders, moved here from GRAPHICS unchanged (same rows, defaults,
+    /// handlers and saves): REDUCE MOTION, CAMERA SHAKE, SCREEN FLASHES, SHOW OTHERS' EMBLEMS. No setting was added.
+    /// </summary>
+    void BuildInterface()
+    {
+        Choice("Reduce motion", OffOn, _services.Settings.ReduceMotion ? 1 : 0, i => _services.UpdateSettings(x => x with { ReduceMotion = i == 1 }), "No camera moves, turntable or fades in the customizer; no artillery shake in Musou Mode.");
+        // combat feel (owner's brief, 2026-11-09): accessibility controls for the shake and the flashes; 100% is the game as before. The game has no controller vibration, so there is none to control.
+        Add(new UiKit.MenuSlider("Camera shake", 0, 1, GameOptions.AccessibilityStep, O.CameraShake, Percent, v => Set(x => x with { CameraShake = (float)v }), "CameraShakeSlider",
+            "How much the camera shakes and kicks at blasts, hits, landings and heavy shots. 100% is the game's own; 0% turns it off."));
+        Add(new UiKit.MenuSlider("Screen flashes", 0, 1, GameOptions.AccessibilityStep, O.ScreenFlashes, Percent, v => Set(x => x with { ScreenFlashes = (float)v }), "ScreenFlashesSlider",
+            "How strong the flashes over the whole screen are (a krak grenade close by, Musou Mode's call-outs) and the bursts of power weapon hits. 100% is the game's own; 0% turns them off."));
+        Choice("Show others' emblems", OffOn, _services.Settings.ShowOthersEmblems ? 1 : 0, i => _services.UpdateSettings(x => x with { ShowOthersEmblems = i == 1 }));
     }
 
     void BuildSound()

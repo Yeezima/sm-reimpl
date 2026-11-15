@@ -19,12 +19,12 @@ its own 1080-high virtual space scaled by the window height, with panels anchore
 | 1 | Install search ("Reading your Space Marine install...", `FrontEndView.ShowLoading`) | start | yes | yes | keeps the video background; text in the steel palette | p2 |
 | 2 | Install read failed (`ShowFailure`: RETRY, QUIT) | start, no install | yes | yes | a steel frame with two steel buttons | p2 |
 | 3 | Game folder setup (`GameFolderSetup`: Browse, Retry, QUIT) | first run, no install found | yes | yes | steel frame, steel buttons, same fields | p2 |
-| 4 | **Main menu** (`ConceptMainPage`): MUSOU MODE (added content), CLASSIC PVP, ARMOURY, OPTIONS, EXIT, and STOP MUSOU SERVER while a Musou server of this client runs | start | yes | yes | the concept's panel 01 | **done** |
+| 4 | **Main menu** (`ConceptMainPage`): CLASSIC PVP (default focus), MUSOU MODE (added content), ARMOURY, OPTIONS, EXIT, and STOP MUSOU SERVER while a Musou server of this client runs | start | yes | yes | the concept's panel 01 | **done** |
 | 5 | Lobby, "Join or host lobby" (`LobbyMenu`): HOST LOCAL LOBBY, JOIN SERVER, JOIN LOCAL LOBBY, SIDE, CONTENT, SPECTATE, active loadout summary | CLASSIC PVP | yes | no | the main menu's frame layout with the same rows as steel buttons and option rows | p2 |
 | 6 | Host local lobby (`HostPanel`: mode, reach, port, bots, difficulty, HOST, STOP, JOIN YOUR SERVER) | lobby, Musou page | yes | yes (HOST MUSOU) | steel option rows in the Options frame's two columns | p2 |
 | 7 | Join local lobby (address field, CONNECT, BACK) | lobby, Musou page | yes | yes | steel frame, steel field, steel buttons | p2 |
 | 8 | Musou page (`MusouMenu`: PLAY ON THIS PC, HOST LOCAL LOBBY, JOIN LOCAL LOBBY, CUSTOMIZER, co-op note) | MUSOU MODE | no | yes | the main menu's frame layout | p2 |
-| 9 | **Options** (`OptionsView`): GRAPHICS, SOUND, CONTROLS | OPTIONS; Esc menu in a match | yes | yes | the concept's panel 04 | **done** (all three tabs; see section 2) |
+| 9 | **Options** (`OptionsView`): GRAPHICS, SOUND, CONTROLS, INTERFACE | OPTIONS; Esc menu in a match | yes | yes | the concept's panel 04 | **done** (all three tabs; see section 2) |
 | 10 | Keybinds (`ControlsView`: keyboard tab, controller tab, rebind capture, conflict prompt) | CONTROLS, KEYBINDS | yes | yes | steel frame and tabs | p2 |
 | 11 | Armoury = the class creator (`CreatorView`): DEFAULTS and CUSTOM 1 to 10, class tabs, steps CLASS, WEAPONS, EQUIPMENT, PERKS, (LOOK), (SUPPORT ABILITIES), preview, item card, action bar | ARMOURY (the old CUSTOMIZER); Esc menu, LOADOUT in a match | yes | yes (Musou layout: STANDARD MARINES, LIBRARIAN, HERETIC (not yet)) | the concept's panel 03 | p2 |
 | 12 | Appearance editor (`AppearanceView`: MY APPEARANCES, CHAPTER, ARMOUR, COLOURS, BADGES, EYES) | APPEARANCE... in the Armoury | yes | yes | steel frame and rows; the preview stays | p2 |
@@ -42,7 +42,7 @@ its own 1080-high virtual space scaled by the window height, with panels anchore
 All of these live in `frontend.json` beside the profile (`FrontEndSettings`, `GameOptions`) and are applied live by `OptionsHost` and the services as
 they change. That behaviour is unchanged: every row still applies and saves at once. The new APPLY and REVERT buttons sit on top of it (section 2.4).
 
-### 2.1 GRAPHICS (the densest tab: 16 controls and one information line = 17 rows)
+### 2.1 GRAPHICS (the densest tab: 12 controls and one information line = 13 rows since the INTERFACE tab was added; it was 17)
 
 | # | Row (label) | Control | Default | Saves / applies | New UI |
 |---|---|---|---|---|---|
@@ -58,10 +58,10 @@ they change. That behaviour is unchanged: every row still applies and saves at o
 | 10 | FIELD OF VIEW | slider, horizontal degrees at the window's shape; lowest = the original's | 0 (the data's look, "66 deg (ORIGINAL)") | `FovDegrees`; `FovMath` | steel slider (wider value column) |
 | 11 | BRIGHTNESS | slider 50 to 150 % | 100 % | `Options.Brightness`; the brightness pass | steel slider |
 | 12 | LIGHTING PRESET | choice, ten looks | FAITHFUL REMASTER | `Options.Lighting`; `LightingGradeView` | steel choice pill |
-| 13 | REDUCE MOTION | OFF / ON | OFF | `ReduceMotion`; `UiKit.ReduceMotion` | steel switch |
-| 14 | CAMERA SHAKE | slider 0 to 100 % | 100 % | `Options.CameraShake` | steel slider |
-| 15 | SCREEN FLASHES | slider 0 to 100 % | 100 % | `Options.ScreenFlashes` | steel slider |
-| 16 | SHOW OTHERS' EMBLEMS | OFF / ON | ON | `ShowOthersEmblems` | steel switch |
+| 13 | REDUCE MOTION | OFF / ON | OFF | `ReduceMotion`; `UiKit.ReduceMotion` | **moved to INTERFACE** (2.7) |
+| 14 | CAMERA SHAKE | slider 0 to 100 % | 100 % | `Options.CameraShake` | **moved to INTERFACE** (2.7) |
+| 15 | SCREEN FLASHES | slider 0 to 100 % | 100 % | `Options.ScreenFlashes` | **moved to INTERFACE** (2.7) |
+| 16 | SHOW OTHERS' EMBLEMS | OFF / ON | ON | `ShowOthersEmblems` | **moved to INTERFACE** (2.7) |
 | 17 | RENDERER | information line (not a control) | FORWARD+ or COMPATIBILITY | read-only (`SafeMode`) | dim line under the two columns |
 
 ### 2.2 SOUND (5 rows)
@@ -86,6 +86,17 @@ they change. That behaviour is unchanged: every row still applies and saves at o
 | 6 | INVERT GAMEPAD Y | OFF / ON | OFF | `Options.InvertPadY` | steel switch |
 | 7 | KEYBINDS | opens the keybind screen (row 10 of section 1) | - | `controls.json` | wide steel button under the rows |
 
+### 2.7 INTERFACE (new tab, owner 2026-11-15; 4 rows, all moved from GRAPHICS unchanged)
+
+| # | Row | Control | Default | Saves / applies |
+|---|---|---|---|---|
+| 1 | REDUCE MOTION | OFF / ON | OFF | `ReduceMotion`; `UiKit.ReduceMotion` |
+| 2 | CAMERA SHAKE | slider 0 to 100 % | 100 % | `Options.CameraShake` |
+| 3 | SCREEN FLASHES | slider 0 to 100 % | 100 % | `Options.ScreenFlashes` |
+| 4 | SHOW OTHERS' EMBLEMS | OFF / ON | ON | `ShowOthersEmblems` |
+
+No setting was added and no default changed; the concept's example INTERFACE rows (HUD scale, HUD visibility, objective markers, subtitles, colour blind mode, armour glint, UI brightness) do not exist in the game.
+
 ### 2.4 Behaviour of the new buttons (the only behavioural addition)
 
 The concept has APPLY, REVERT and BACK. The game's options already apply and save on every change, and that stays (the owner: "keep the existing settings and
@@ -108,7 +119,7 @@ were when the page was opened or last applied, applied and saved like any change
 
 ### 2.6 Absent from the concept art (and where it goes)
 
-* The concept's fourth tab INTERFACE (HUD scale, HUD visibility, objective markers, subtitles, colour blind mode, armour glint, UI brightness): **no such settings exist**. They are example labels. None is added. See "Needs approval" in the phase 1 report: the existing REDUCE MOTION, CAMERA SHAKE, SCREEN FLASHES and SHOW OTHERS' EMBLEMS could move to an INTERFACE tab; phase 1 leaves them where they are.
+* The concept's INTERFACE tab example rows (HUD scale, HUD visibility, objective markers, subtitles, colour blind mode, armour glint, UI brightness): **no such settings exist**. None is added. The tab exists (owner, 2026-11-15) and holds the four existing rows listed in 2.7.
 * AUDIO tab name: ours is SOUND. Kept.
 * The concept's "Apply" semantics are described in 2.4.
 
@@ -174,7 +185,7 @@ The Musou parts stay in `client/Extras/Musou/` and are reached through the exist
 ## 5. Counts
 
 * Routes and screens: 20 rows (section 1), of which 9 are in the main-menu tree (main, lobby, host, join local, Musou page, Options, Keybinds, Armoury, Appearance).
-* Options controls: GRAPHICS 16 + 1 information line, SOUND 5, CONTROLS 7 (6 + KEYBINDS) = 28 controls and one line. Not on the screen: 8 saved choices (2.5).
+* Options controls: GRAPHICS 12 + 1 information line, SOUND 5, CONTROLS 7 (6 + KEYBINDS), INTERFACE 4 = 28 controls and one line. Not on the screen: 8 saved choices (2.5).
 * HUD elements: 27 rows (section 3), of which 9 are Musou only.
 * Loadout controls: 14 rows (section 4).
 * In the art but not in the game: the INTERFACE tab and its seven example settings (2.6); a "UI DESIGN STUDY" legend; the MUSOU badge (display only, added).

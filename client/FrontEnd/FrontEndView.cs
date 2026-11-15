@@ -250,21 +250,19 @@ public sealed partial class FrontEndView : Control
         // The remembered Musou of an earlier build is not a lobby profile any more: MUSOU MODE is the way in (a --content musou launch keeps it).
         if (_services.Settings.ContentExtras.HasFlag(ContentExtras.Musou) && !CommandLineMusou) _services.SetContent(ContentExtras.All);
 
-        // The main menu (ui/concept-redesign, panel 01): the concept's order and words. MUSOU MODE (added content) first, CLASSIC PVP (the lobby: join or host Annihilation / Seize Ground), ARMOURY (the
+        // The main menu (ui/concept-redesign, panel 01): the concept's order and words. CLASSIC PVP first (the lobby: join or host Annihilation / Seize Ground; the default focus), MUSOU MODE (added content), ARMOURY (the
         // customizer), OPTIONS, EXIT; STOP MUSOU SERVER still appears under MUSOU MODE while its server runs. The node names are the old rows' (the tests and test aids know them).
         var main = new ConceptMainPage();
         var joinRow = UiKit.SteelButton("Classic PvP", () => ShowPage(_lobby!), "Annihilation and Seize Ground: join a server, host one, or join a lobby", "MenuPlayerversusPlayer");
-        _first[main] = joinRow;
+        _first[main] = joinRow;   // the default focus (owner 2026-11-15: CLASSIC PVP above MUSOU MODE)
+        main.Rows.AddChild(joinRow);
         if (ContentExtras.Compiled)   // added content: never in a faithful build
         {
-            var musouRow = UiKit.SteelButton("Musou Mode", ShowMusouPage, "The war of the three fronts: alone on this PC, or up to 4 players together", "MenuMusouMode");
-            _first[main] = musouRow;
-            main.Rows.AddChild(musouRow);
+            main.Rows.AddChild(UiKit.SteelButton("Musou Mode", ShowMusouPage, "The war of the three fronts: alone on this PC, or up to 4 players together", "MenuMusouMode"));
             _stopMusou = UiKit.SteelButton("Stop Musou server", StopMusou, "Stops the Musou server this game started on this PC", "MenuStopMusouserver");
             _stopMusou.Visible = false;   // only while that server runs (SyncMusouRow)
             main.Rows.AddChild(_stopMusou);
         }
-        main.Rows.AddChild(joinRow);
         main.Rows.AddChild(UiKit.SteelButton("Armoury", ShowCreator, "Edit your loadouts and your armour", "MenuCustomizer"));
         main.Rows.AddChild(UiKit.SteelButton("Options", () => ShowOptions(), null, "MenuOptions"));
         main.Rows.AddChild(UiKit.SteelButton("Exit", () => GetTree().Quit(), null, "MenuQuit"));
@@ -465,6 +463,7 @@ public sealed partial class FrontEndView : Control
             case "musouhost": ShowMusouPage(); ShowPage(_hostPage!); break;
             case "graphics": ShowOptions(OptionsView.Graphics); break;
             case "sound": ShowOptions(OptionsView.Sound); break;
+            case "interface": ShowOptions(OptionsView.Interface); break;
             case "controls" or "options": ShowOptions(OptionsView.Controls); break;
             default: ShowMainMenu(); break;
         }

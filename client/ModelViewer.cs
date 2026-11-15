@@ -133,6 +133,7 @@ public partial class ModelViewer : Node3D
         MarineAssets.PaintOverride = args.GetValueOrDefault("paint");
         EmblemFile = args.GetValueOrDefault("emblem-file");
         _screenshot = args.GetValueOrDefault("screenshot");
+        if (args.ContainsKey("build-ui-textures")) { GetTree().Quit(SmClient.Customizer.UiTextureBuilder.Run(args["build-ui-textures"], args.GetValueOrDefault("out"))); return; }   // dev tool: rebuilds client/assets/ui from the concept image (UiTextureBuilder)
         _quit = args.ContainsKey("quit");
         _onEffect = args.ContainsKey("screenshot-on-effect");
         _screenshotEvery = args.GetValueOrDefault("screenshot-every") is { } se && double.TryParse(se, System.Globalization.CultureInfo.InvariantCulture, out var every) && every > 0 ? every : null;

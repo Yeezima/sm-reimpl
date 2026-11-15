@@ -24,7 +24,12 @@ public static partial class UiKit
         l.AddThemeFontOverride("font", new FontVariation { BaseFont = BundledFont(), SpacingGlyph = 2 });
         l.AddThemeFontSizeOverride("font_size", Steel.SmallSize);
         l.AddThemeColorOverride("font_color", new Color(0.78f, 0.76f, 0.70f));
-        l.AddThemeStyleboxOverride("normal", new Steel.SteelStyle(Steel.Kind.Plate, 5f, 14f, 4f));
+        if (ConceptArt.Patch("nameplate", new Vector2(20f, 12f), new Vector2(14f, 4f)) is { } art)
+        {
+            l.AddThemeStyleboxOverride("normal", art);
+            l.AddThemeColorOverride("font_color", Colors.Transparent);   // the words are in the painted plate (fixed text)
+        }
+        else l.AddThemeStyleboxOverride("normal", new Steel.SteelStyle(Steel.Kind.Plate, 5f, 14f, 4f));
         return l;
     }
 }

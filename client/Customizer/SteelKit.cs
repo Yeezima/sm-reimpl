@@ -9,6 +9,52 @@ namespace SmClient.Customizer;
 /// crest, the stone pillar) every redesigned screen is built from. Nothing here is a picture: every plate, bevel, rivet and feather is drawn from code at the size it is asked for, so
 /// it is sharp at any window size and carries no art file. Ours (spec "UI concept redesign").
 /// </summary>
+/// <summary>
+/// The painted pieces cut from the owner's concept image (client/assets/ui/*.png, embedded in the assembly; rebuilt by <see cref="UiTextureBuilder"/>; docs/ui-concept-textures.md). A piece that
+/// is missing gives null, and the kit falls back to its code-drawn look.
+/// </summary>
+public static class ConceptArt
+{
+    static readonly Dictionary<string, Texture2D?> Cache = new();
+
+    public static Texture2D? Get(string name)
+    {
+        if (Cache.TryGetValue(name, out var cached)) return cached;
+        Texture2D? tex = null;
+        try
+        {
+            using var stream = typeof(ConceptArt).Assembly.GetManifestResourceStream("Ui/" + name + ".png");
+            if (stream is not null)
+            {
+                var bytes = new byte[stream.Length];
+                stream.ReadExactly(bytes);
+                var image = new Image();
+                if (image.LoadPngFromBuffer(bytes) == Error.Ok) { image.GenerateMipmaps(); tex = ImageTexture.CreateFromImage(image); }
+            }
+        }
+        catch (Exception e) when (e is System.IO.IOException or InvalidOperationException) { GD.PrintErr("ui texture " + name + ": " + e.Message); }
+        return Cache[name] = tex;
+    }
+
+    /// <summary>A nine-patch style of a painted piece, or null when the piece is missing. <paramref name="margin"/> is the stretchable-corner size in the texture's pixels, <paramref name="content"/> the text's margins.</summary>
+    public static StyleBoxTexture? Patch(string name, Vector2 margin, Vector2 content, Color? modulate = null, bool center = true)
+    {
+        if (Get(name) is not { } tex) return null;
+        var sb = new StyleBoxTexture
+        {
+            Texture = tex, TextureMarginLeft = margin.X, TextureMarginRight = margin.X, TextureMarginTop = margin.Y, TextureMarginBottom = margin.Y, ModulateColor = modulate ?? Colors.White,
+            DrawCenter = center, AxisStretchHorizontal = StyleBoxTexture.AxisStretchMode.Stretch, AxisStretchVertical = StyleBoxTexture.AxisStretchMode.Stretch,
+        };
+        sb.ContentMarginLeft = content.X; sb.ContentMarginRight = content.X; sb.ContentMarginTop = content.Y; sb.ContentMarginBottom = content.Y;
+        return sb;
+    }
+
+    /// <summary>The frame rings' corner sizes (texture pixels) and their ring thickness (UI pixels): the main menu's (panel 01) and Options' (panel 04), as UiTextureBuilder makes them.</summary>
+    public static readonly Vector2 MainCorner = new(110f, 104f), OptionsCorner = new(115f, 92f);
+    public static readonly Vector4 MainRing = new(47f, 42f, 47f, 42f), OptionsRing = new(26f, 24f, 26f, 24f);   // left, top, right, bottom
+    public static readonly Color Warm = new(1.32f, 1.16f, 0.9f);
+}
+
 public static partial class Steel
 {
     // Gold marks focus and selection; inactive rows stay dark (the owner's brief).
@@ -181,12 +227,42 @@ public static partial class Steel
             if (gold) Bevel(c, inner, ch - 2f, 1.6f, Gold, GoldDeep);
         }
 
+        StyleBoxTexture? _ring;
+
+        /// <summary>The painted frame (the concept's ring, a nine-patch with a transparent hole) over the recess: amber-lit for the main menu, dark for Options.</summary>
+        bool DrawPaintedFrame(Rid c, Rect2 r, bool amber, Texture2D art)
+        {
+            var ring = amber ? ConceptArt.MainRing : ConceptArt.OptionsRing;
+            var corner = amber ? ConceptArt.MainCorner : ConceptArt.OptionsCorner;
+            var rc = new Rect2(r.Position.X + ring.X - 2f, r.Position.Y + ring.Y - 2f, r.Size.X - ring.X - ring.Z + 4f, r.Size.Y - ring.Y - ring.W + 4f);
+            if (rc.Size.X > 8f && rc.Size.Y > 8f)
+            {
+                var floor = new Color(0.035f, 0.032f, 0.03f);
+                if (amber)
+                {
+                    // The amber light of the recess, from its rim inward, with the concept's fine horizontal scan lines.
+                    const int steps = 18;
+                    for (int i = 0; i < steps; i++) Plate(c, rc.Grow(-i * 3.4f), 3f, Mix(Amber, floor, Mathf.Pow(i / (float)steps, 0.5f)));
+                    for (float y = rc.Position.Y + 3f; y < rc.End.Y - 3f; y += 4f) Fill(c, new Rect2(rc.Position.X + 3f, y, rc.Size.X - 6f, 1f), new Color(0f, 0f, 0f, 0.28f));
+                }
+                else Plate(c, rc, 3f, floor);
+            }
+            _ring ??= new StyleBoxTexture
+            {
+                Texture = art, DrawCenter = false, TextureMarginLeft = corner.X, TextureMarginRight = corner.X, TextureMarginTop = corner.Y, TextureMarginBottom = corner.Y,
+                AxisStretchHorizontal = StyleBoxTexture.AxisStretchMode.Stretch, AxisStretchVertical = StyleBoxTexture.AxisStretchMode.Stretch,
+            };
+            _ring.Draw(c, r);
+            return true;
+        }
+
         /// <summary>
         /// The heavy stepped frame, its steps in proportion to the frame's side margin <c>m</c>: a dark edge, a lit outer step, a dark groove, a second lit step, then the recess (amber-lit from its edge
         /// when asked) and four notched corner brackets with a rivet each, rivets along the edges.
         /// </summary>
         void DrawFrame(Rid c, Rect2 r, bool amber)
         {
+            if (ConceptArt.Get(amber ? "frame-main" : "frame-options") is { } art && DrawPaintedFrame(c, r, amber, art)) return;
             float m = Mathf.Max(20f, Mathf.Min(GetMargin(Side.Left), GetMargin(Side.Top)));
             float ch = Mathf.Min(16f, m * 0.4f);
             Plate(c, r, ch, Edge);
@@ -248,30 +324,36 @@ public static partial class Steel
     /// </summary>
     public static void AddTheme(Theme t)
     {
+        var face = CondensedFont();
+        foreach (var type in new[] { ButtonType, TabType, RowType, LabelType, PrimaryType, SmallType }) t.SetFont("font", type, face);
         foreach (var (type, size, mx, my) in new[] { (ButtonType, ButtonSize, 22f, 10f), (TabType, TabSize, 18f, 7f) })
         {
             t.SetTypeVariation(type, "Button");
-            t.SetStylebox("normal", type, new SteelStyle(Kind.Dark, 7f, mx, my));
-            t.SetStylebox("hover", type, new SteelStyle(Kind.Hot, 7f, mx, my));
-            t.SetStylebox("pressed", type, new SteelStyle(Kind.Gold, 7f, mx, my));
-            t.SetStylebox("hover_pressed", type, new SteelStyle(Kind.Gold, 7f, mx, my));
-            t.SetStylebox("focus", type, type == TabType ? new SteelStyle(Kind.Rim, 7f, mx, my) : new SteelStyle(Kind.Gold, 7f, mx, my));
-            t.SetStylebox("disabled", type, new SteelStyle(Kind.Off, 7f, mx, my));
+            bool tab = type == TabType;
+            var cornerMargin = tab ? new Vector2(30f, 12f) : new Vector2(40f, 14f);
+            var contentMargin = new Vector2(mx, my);
+            string dark = tab ? "tab-dark" : "button-dark", gold = tab ? "tab-gold" : "button-gold";
+            t.SetStylebox("normal", type, (StyleBox?)ConceptArt.Patch(dark, cornerMargin, contentMargin) ?? new SteelStyle(Kind.Dark, 7f, mx, my));
+            t.SetStylebox("hover", type, (StyleBox?)ConceptArt.Patch(dark, cornerMargin, contentMargin, ConceptArt.Warm) ?? new SteelStyle(Kind.Hot, 7f, mx, my));
+            t.SetStylebox("pressed", type, (StyleBox?)ConceptArt.Patch(gold, cornerMargin, contentMargin) ?? new SteelStyle(Kind.Gold, 7f, mx, my));
+            t.SetStylebox("hover_pressed", type, (StyleBox?)ConceptArt.Patch(gold, cornerMargin, contentMargin) ?? new SteelStyle(Kind.Gold, 7f, mx, my));
+            t.SetStylebox("focus", type, tab ? new SteelStyle(Kind.Rim, 7f, mx, my) : (StyleBox?)ConceptArt.Patch(gold, cornerMargin, contentMargin) ?? new SteelStyle(Kind.Gold, 7f, mx, my));
+            t.SetStylebox("disabled", type, (StyleBox?)ConceptArt.Patch(dark, cornerMargin, contentMargin, new Color(0.5f, 0.5f, 0.5f)) ?? new SteelStyle(Kind.Off, 7f, mx, my));
             t.SetFontSize("font_size", type, size);
             t.SetColor("font_color", type, Text);
             t.SetColor("font_hover_color", type, White);
-            t.SetColor("font_focus_color", type, type == TabType ? Text : Ink);
-            t.SetColor("font_pressed_color", type, Ink);
-            t.SetColor("font_hover_pressed_color", type, Ink);
+            t.SetColor("font_focus_color", type, tab ? Text : White);
+            t.SetColor("font_pressed_color", type, tab ? Ink : White);   // the concept: dark lettering on the gold tab, white on the bronze plates
+            t.SetColor("font_hover_pressed_color", type, tab ? Ink : White);
             t.SetColor("font_disabled_color", type, TextOff);
         }
         // The primary action (APPLY, CONFIRM LOADOUT): gold at rest, the focus a ring over it.
         t.SetTypeVariation(PrimaryType, "Button");
-        foreach (var state in new[] { "normal", "hover", "pressed", "hover_pressed" }) t.SetStylebox(state, PrimaryType, new SteelStyle(Kind.Gold, 7f, 22f, 10f));
+        foreach (var state in new[] { "normal", "hover", "pressed", "hover_pressed" }) t.SetStylebox(state, PrimaryType, (StyleBox?)ConceptArt.Patch("button-gold", new Vector2(40f, 14f), new Vector2(22f, 10f)) ?? new SteelStyle(Kind.Gold, 7f, 22f, 10f));
         t.SetStylebox("focus", PrimaryType, new SteelStyle(Kind.Rim, 7f, 22f, 10f));
         t.SetStylebox("disabled", PrimaryType, new SteelStyle(Kind.Off, 7f, 22f, 10f));
         t.SetFontSize("font_size", PrimaryType, ButtonSize);
-        foreach (var colour in new[] { "font_color", "font_hover_color", "font_focus_color", "font_pressed_color", "font_hover_pressed_color" }) t.SetColor(colour, PrimaryType, Ink);
+        foreach (var colour in new[] { "font_color", "font_hover_color", "font_focus_color", "font_pressed_color", "font_hover_pressed_color" }) t.SetColor(colour, PrimaryType, White);
         t.SetColor("font_disabled_color", PrimaryType, TextOff);
         // An option's label: transparent, a gold text while it has the focus.
         t.SetTypeVariation(RowType, "Button");
@@ -313,6 +395,10 @@ public static partial class Steel
     }
 
     static readonly Color White = new(1f, 1f, 1f);
+    static FontVariation? _condensed;
+
+    /// <summary>The kit's text face: the bundled DejaVu Sans Bold squeezed to 84 % in width (a condensed bold close to the concept's lettering; the concept's own face has no licence to bundle here).</summary>
+    public static FontVariation CondensedFont() => _condensed ??= new FontVariation { BaseFont = UiKit.Font.BaseFont, VariationTransform = new Transform2D(new Vector2(0.84f, 0f), new Vector2(0f, 1f), Vector2.Zero), VariationEmbolden = 0.12f, SpacingGlyph = -2 };
     static ImageTexture? _knob, _knobHot;
 
     /// <summary>The slider's knob, drawn once: a rounded steel bar with a lit top, gold when it is the focused one.</summary>
@@ -364,6 +450,7 @@ public static partial class UiKit
         readonly string _text;
         readonly FontVariation _font;
         readonly Control _fill;
+        readonly Texture2D? _art;
         int _size = 100;
 
         public Wordmark(string text, float width)
@@ -372,6 +459,15 @@ public static partial class UiKit
             Name = "Wordmark";
             MouseFilter = MouseFilterEnum.Ignore;
             _font = new FontVariation { BaseFont = BundledFont(), VariationEmbolden = 0.55f, SpacingGlyph = 2 };
+            if (ConceptArt.Get("wordmark") is { } art)
+            {
+                // The painted lettering of the concept (fixed text SM-REIMPL).
+                _art = art;
+                CustomMinimumSize = new Vector2(width, width * art.GetHeight() / art.GetWidth());
+                _fill = new Control { Visible = false };
+                AddChild(_fill);
+                return;
+            }
             // The font size that makes the text as wide as asked.
             float unit = _font.GetStringSize(text, HorizontalAlignment.Left, -1, 100).X;
             _size = Mathf.Max(10, Mathf.FloorToInt(100f * (width - 16f) / Mathf.Max(unit, 1f)));
@@ -388,6 +484,7 @@ public static partial class UiKit
 
         public override void _Draw()
         {
+            if (_art is not null) { DrawTextureRect(_art, new Rect2(Vector2.Zero, Size), false); return; }
             var o = Origin();
             // The extrusion: the same lettering stepped down and to the right in a dark navy, under an outline.
             for (int i = 9; i >= 1; i--)
@@ -418,12 +515,15 @@ public static partial class UiKit
             Name = "Crest";
             MouseFilter = MouseFilterEnum.Ignore;
             CustomMinimumSize = new Vector2(width, height);
+            if (wings && ConceptArt.Get("crest") is { } art) CustomMinimumSize = new Vector2(width, width * art.GetHeight() / art.GetWidth());
         }
 
         public override void _Notification(int what) { if (what == NotificationResized) QueueRedraw(); }
 
         public override void _Draw()
         {
+            if (Wings && ConceptArt.Get("crest") is { } art) { DrawTextureRect(art, new Rect2(Vector2.Zero, Size), false); return; }
+            if (!Wings && ConceptArt.Get("crest") is not null) return;   // the painted crest has no separate skull; the frame's lower edge goes without
             float cx = Size.X / 2f, cy = Size.Y * 0.52f, s = Wings ? Mathf.Min(Size.Y / 84f, Size.X / 360f) : Mathf.Min(Size.Y / 50f, Size.X / 50f);
             if (Wings)
                 for (int side = -1; side <= 1; side += 2)
@@ -481,9 +581,13 @@ public static partial class UiKit
     {
         readonly int _seed;
 
-        public StonePillar(float width, int seed = 7)
+        readonly string? _art;
+        readonly bool _flip;
+
+        /// <param name="art">A painted piece to tile down the pillar (ConceptArt); null: the drawn blocks.</param>
+        public StonePillar(float width, int seed = 7, string? art = null, bool flip = false)
         {
-            _seed = seed;
+            _seed = seed; _art = art; _flip = flip;
             Name = "StonePillar";
             MouseFilter = MouseFilterEnum.Ignore;
             CustomMinimumSize = new Vector2(width, 0f);
@@ -494,6 +598,14 @@ public static partial class UiKit
 
         public override void _Draw()
         {
+            if (_art is not null && ConceptArt.Get(_art) is { } tile)
+            {
+                // The painted stone, tiled down the pillar at its own pixel size, mirrored for a left-hand pillar.
+                float k = Mathf.Max(1f, Size.X / tile.GetWidth()), tw = tile.GetWidth() * k, th = tile.GetHeight() * k;
+                for (float ty = 0f; ty < Size.Y; ty += th)
+                    DrawTextureRect(tile, _flip ? new Rect2(tw, ty, -tw, th) : new Rect2(0f, ty, tw, th), false);
+                return;
+            }
             var rng = new Random(_seed);
             DrawRect(new Rect2(Vector2.Zero, Size), new Color(0.07f, 0.065f, 0.06f));
             float y = -rng.Next(0, 30);

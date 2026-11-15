@@ -20,9 +20,9 @@ public sealed partial class UiSelfTest
             // ---- the kit ----
             var theme = UiKit.Theme;
             Check("concept: the theme has the steel types", new[] { Steel.ButtonType, Steel.TabType, Steel.RowType, Steel.SliderType, Steel.FrameType, Steel.AmberFrameType, Steel.PrimaryType }.All(t => theme.HasStylebox("normal", t) || theme.HasStylebox("panel", t) || theme.HasStylebox("slider", t)));
-            Check("concept: a button is gold when it has the focus or is pressed, dark otherwise", theme.GetStylebox("normal", Steel.ButtonType) is Steel.SteelStyle { Kind: Steel.Kind.Dark }
-                && theme.GetStylebox("focus", Steel.ButtonType) is Steel.SteelStyle { Kind: Steel.Kind.Gold } && theme.GetStylebox("pressed", Steel.TabType) is Steel.SteelStyle { Kind: Steel.Kind.Gold }
-                && theme.GetStylebox("focus", Steel.TabType) is Steel.SteelStyle { Kind: Steel.Kind.Rim });
+            bool Painted(string state, string type) => theme.GetStylebox(state, type) is StyleBoxTexture || theme.GetStylebox(state, type) is Steel.SteelStyle;
+            Check("concept: a button is a painted (or drawn) plate in every state, its focus and pressed plates gold, a tab's focus a ring", new[] { "normal", "hover", "pressed", "focus", "disabled" }.All(st => Painted(st, Steel.ButtonType) && Painted(st, Steel.TabType))
+                && (theme.GetStylebox("focus", Steel.ButtonType) is StyleBoxTexture { Texture: not null } || theme.GetStylebox("focus", Steel.ButtonType) is Steel.SteelStyle { Kind: Steel.Kind.Gold }) && theme.GetStylebox("focus", Steel.TabType) is Steel.SteelStyle { Kind: Steel.Kind.Rim });
 
             // ---- the main menu: keys and the pad ----
             _front.ShowMainMenu();
@@ -44,12 +44,12 @@ public sealed partial class UiSelfTest
             var options = _front.Options!;
             await Frames(4);
             Check("concept: OPTIONS opens with the focus on its tab", options.Visible && GetViewport().GuiGetFocusOwner() is Button { Text: "GRAPHICS" } && options.Tab == OptionsView.Graphics, GetViewport().GuiGetFocusOwner()?.Name ?? "none");
-            Check("concept: OPTIONS has three category tabs, the open one gold (pressed)", new[] { "GRAPHICS", "SOUND", "CONTROLS" }.All(t => FindButton(options, b => b.Text == t && b.ThemeTypeVariation == Steel.TabType) is not null)
+            Check("concept: OPTIONS has four category tabs, the open one gold (pressed)", new[] { "GRAPHICS", "SOUND", "CONTROLS", "INTERFACE" }.All(t => FindButton(options, b => b.Text == t && b.ThemeTypeVariation == Steel.TabType) is not null)
                 && FindButton(options, b => b.Text == "GRAPHICS")!.ButtonPressed && !FindButton(options, b => b.Text == "SOUND")!.ButtonPressed);
             Check("concept: the rows are in two columns on a wide window and every choice and slider wears the steel skin", options.Grid is GridContainer { Columns: 2 }
                 && AllButtons(options.Grid).OfType<UiKit.MenuChoice>().All(c => c.IsSteel) && options.Grid.GetChildren().OfType<UiKit.MenuSlider>().Any());
             int graphicsRows = options.Grid.GetChildCount() + options.FindChild("OptionsWide", true, false)!.GetChildCount();
-            Check("concept: GRAPHICS is the densest tab (16 rows and the renderer line)", graphicsRows == 17, graphicsRows.ToString());
+            Check("concept: GRAPHICS is the densest tab (12 rows and the renderer line, since the four interface rows moved to INTERFACE)", graphicsRows == 13, graphicsRows.ToString());
             await SendKey(Key.Right);
             Check("concept: Right on a tab moves to the next tab", GetViewport().GuiGetFocusOwner() is Button { Text: "SOUND" });
             await SendKey(Key.Left);
@@ -82,7 +82,11 @@ public sealed partial class UiSelfTest
                     && FrontEndSettings.Load(_services.SettingsDirectory).Options.Vsync == (applied == 1), $"row {after?.Index} applied {applied}");
                 Check("concept: REVERT says so and gives the focus to APPLY", options.Toast.Text.Contains("REVERTED", StringComparison.Ordinal) && options.ApplyButton.HasFocus(), options.Toast.Text);
             }
-            // A slider and a Settings-level option (not in GameOptions) revert too.
+            // A slider and a Settings-level option (not in GameOptions) revert too (on INTERFACE, where they live since 2026-11-15).
+            options.ShowTab(OptionsView.Interface);
+            await Frames(3);
+            Check("concept: INTERFACE has the four moved rows and GRAPHICS no longer has them", new[] { "REDUCE MOTION", "SHOW OTHERS' EMBLEMS" }.All(t => FindButton(options, b => b.Text == t) is UiKit.MenuChoice)
+                && options.FindChild("CameraShakeSlider", true, false) is HSlider && options.FindChild("ScreenFlashesSlider", true, false) is HSlider);
             var emblems = FindButton(options, b => b.Text == "SHOW OTHERS' EMBLEMS") as UiKit.MenuChoice;
             bool emblemsWere = _services.Settings.ShowOthersEmblems;
             emblems?.Step(1);
@@ -92,11 +96,12 @@ public sealed partial class UiSelfTest
             Check("concept: the Settings-level and slider changes land", _services.Settings.ShowOthersEmblems != emblemsWere && Mathf.IsEqualApprox(_services.Settings.Options.CameraShake, 0.4f));
             options.RevertButton.EmitSignal(BaseButton.SignalName.Pressed);
             await Frames(3);
+            Check("concept: REVERT keeps the tab it was on", options.Tab == OptionsView.Interface);
             Check("concept: REVERT undoes both", _services.Settings.ShowOthersEmblems == emblemsWere && Mathf.IsEqualApprox(_services.Settings.Options.CameraShake, (float)shakeWas)
                 && FrontEndSettings.Load(_services.SettingsDirectory).ShowOthersEmblems == emblemsWere, $"emblems {_services.Settings.ShowOthersEmblems} shake {_services.Settings.Options.CameraShake}");
 
             // Every label is whole in its column, on every tab (a label under the slider's track was cut, 2026-11-15).
-            foreach (var tab in new[] { OptionsView.Graphics, OptionsView.Sound, OptionsView.Controls })
+            foreach (var tab in new[] { OptionsView.Graphics, OptionsView.Sound, OptionsView.Controls, OptionsView.Interface })
             {
                 options.ShowTab(tab);
                 await Frames(3);

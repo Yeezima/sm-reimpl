@@ -319,7 +319,7 @@ public static partial class UiKit
         /// <summary>The value pill's rectangle in the row's own space (the focus glow hugs it).</summary>
         public Rect2 PillRect => Pill();
         float _labelWidth;
-        const float PillHeight = 30f, ArrowWidth = 30f;
+        const float PillHeight = 36f, ArrowWidth = 30f;
 
         /// <summary>
         /// Draws the row as the concept's option row: the label (the button's own text) in a column of <paramref name="labelWidth"/>, then a dark recessed pill with an arrow at each end and the
@@ -342,6 +342,9 @@ public static partial class UiKit
             return this;
         }
 
+        static StyleBoxTexture? _pillArt;
+        static StyleBoxTexture? PillArt() => _pillArt ??= ConceptArt.Patch("pill", new Vector2(40f, 14f), Vector2.Zero);
+
         Rect2 Pill() => new(_labelWidth, (Size.Y - PillHeight) / 2f, Mathf.Max(40f, Size.X - _labelWidth), PillHeight);
 
         public override void _Draw()
@@ -350,6 +353,13 @@ public static partial class UiKit
             var pill = Pill();
             bool focus = HasFocus(), lit = (focus || _hover) && !Disabled;
             var c = GetCanvasItem();
+            if (!_isSwitch && PillArt() is { } art)
+            {
+                // The concept's painted value pill (its arrows are in the picture); warm when it has the focus.
+                art.ModulateColor = Disabled ? new Color(0.5f, 0.5f, 0.5f) : lit ? ConceptArt.Warm : Colors.White;
+                art.Draw(c, pill);
+                return;
+            }
             Steel.Plate(c, pill, 5f, Disabled ? new Color(0.03f, 0.03f, 0.03f) : lit ? Steel.GoldDeep : Steel.Edge);
             Steel.Plate(c, pill.Grow(-1.4f), 4f, new Color(0.055f, 0.052f, 0.05f), new Color(0.10f, 0.095f, 0.09f));
             var arrowColour = Disabled ? Steel.TextOff : lit ? Steel.Gold : new Color(0.78f, 0.62f, 0.26f);
