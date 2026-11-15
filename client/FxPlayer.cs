@@ -183,6 +183,15 @@ public sealed partial class FxPlayer : Node3D
     /// <summary><c>--old-plasma-edges</c> (plasma-soft-visuals): the plasma ribbons keep their hard edges and the chambers' arcs their 2.5 m reach.</summary>
     /// <summary><c>--log-fx-plays</c> (test aid): one <c>FXPLAY</c> line for every effect started (name, scale, priority, place), to find which effect draws what is on the screen.</summary>
     static readonly bool LogPlays = Array.IndexOf(OS.GetCmdlineUserArgs(), "--log-fx-plays") >= 0;
+
+    /// <summary><c>--fx-skip name,name</c> (test aid, bolt-smoke proof 2026-11-15): the named effects are not played at all, to isolate which effect draws a cloud on the screen (with <c>--log-fx-plays</c>).</summary>
+    static readonly string[] SkipPlays = FxSkipNames();
+    static string[] FxSkipNames()
+    {
+        var args = OS.GetCmdlineUserArgs();
+        int at = Array.IndexOf(args, "--fx-skip");
+        return at >= 0 && at + 1 < args.Length ? args[at + 1].Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries) : [];
+    }
     public static bool OldPlasmaEdges { get; set; } = Array.IndexOf(OS.GetCmdlineUserArgs(), "--old-plasma-edges") >= 0;
     public static bool ShowSmoke { get; set; } = SmokeRules.SwitchOn(OS.GetCmdlineUserArgs());
 
@@ -318,6 +327,7 @@ public sealed partial class FxPlayer : Node3D
     {
         if (!IsReady || System(name) is not { } system) return null;
         if (!float.IsFinite(origin.X + origin.Y + origin.Z) || !float.IsFinite(scale)) return null;
+        if (SkipPlays.Length > 0 && Array.IndexOf(SkipPlays, name) >= 0) return null;   // --fx-skip (test aid)
         if (LogPlays) GD.Print($"FXPLAY {name} scale {scale:F2} priority {priority} at ({origin.X:F1}, {origin.Y:F1}, {origin.Z:F1}) dist {origin.DistanceTo(_camPos):F1}");
         int ambientCount = _ambientCount, cap = MaxEffects;
         ExtrasFxCap(ref cap);   // EXTRAS-HOOK: Musou Mode's GPU sprays raise the cap (musou/gpu-particles)
