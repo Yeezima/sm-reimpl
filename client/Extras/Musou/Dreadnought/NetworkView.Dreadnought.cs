@@ -19,6 +19,8 @@ namespace SmClient;
 public partial class NetworkView
 {
     const string DreadnoughtKey = "dreadnought";
+    /// <summary>Test aid <c>--chaos-dreadnought</c>: every Dreadnought wears the Chaos model and fires the reaper cannon's own sounds and effects (the sim's numbers are the same). Not in the customizer (Musou players are Imperial).</summary>
+    static readonly bool DreadChaos = CmdFlag("chaos-dreadnought");
     DreadnoughtLooks? _dreadLooks;
     readonly Dictionary<int, DreadnoughtTrack> _dreadTracks = new();
 
@@ -65,7 +67,7 @@ public partial class NetworkView
             return;
         }
         if (current is not null && IsDreadnoughtCharacter(current)) { result = current; return; }
-        _dreadLooks ??= new DreadnoughtLooks(_gameDir);
+        _dreadLooks ??= new DreadnoughtLooks(_gameDir, DreadChaos);
         bool wasDone = _dreadLooks.Done;
         _dreadLooks.Step();
         if (!wasDone && _dreadLooks.Done)

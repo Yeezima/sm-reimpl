@@ -28,15 +28,18 @@ public sealed class DreadnoughtLooks
     /// <summary>Height of the built model at scale 1 (metres, Z up); 0 before.</summary>
     public float Height { get; private set; }
 
-    public DreadnoughtLooks(string gameDir) { _gameDir = gameDir; _read = Task.Run(ReadAll); }
+    readonly bool _chaos;
+    public DreadnoughtLooks(string gameDir, bool chaos = false) { _gameDir = gameDir; _chaos = chaos; _read = Task.Run(ReadAll); }
+    RigProfile Prof => _chaos ? DreadnoughtRig.ChaosProfile : DreadnoughtRig.Profile;
+    string Visual => _chaos ? DreadnoughtRig.ChaosBodyVisual : DreadnoughtRig.BodyVisual;
 
     Read ReadAll()
     {
         var notes = new List<string>();
-        var rig = RigAssets.Load(_gameDir, DreadnoughtRig.Profile, notes);
-        string archive = DreadnoughtRig.Profile.ArchivePath(_gameDir);
-        var model = StaticModel.Load(archive, DreadnoughtRig.BodyVisual, notes);
-        var tree = ObjectTree.Load(archive, DreadnoughtRig.BodyVisual, notes) ?? throw new System.IO.FileNotFoundException($"no object tree '{DreadnoughtRig.BodyVisual}.O3d'");
+        var rig = RigAssets.Load(_gameDir, Prof, notes);
+        string archive = Prof.ArchivePath(_gameDir);
+        var model = StaticModel.Load(archive, Visual, notes);
+        var tree = ObjectTree.Load(archive, Visual, notes) ?? throw new System.IO.FileNotFoundException($"no object tree '{Visual}.O3d'");
         var drawn = tree.Visuals.Where(v => v.Renderable && v.NearLevel && v.MeshId >= 0 && v.MeshId < model.Mesh.Blocks.Count
                                             && !v.RefNode.Contains("wounded", StringComparison.OrdinalIgnoreCase)).ToList();
         var hidden = Enumerable.Range(0, model.Mesh.Blocks.Count).Where(b => drawn.All(v => v.MeshId != b)).ToHashSet();
@@ -44,7 +47,7 @@ public sealed class DreadnoughtLooks
         foreach (var v in drawn.Where(v => model.Mesh.Blocks[v.MeshId].Skin is null))
             if (tree.UnderBone(v.RefNode, rig.BoneNames.Contains) is { } placed) rigid[v.MeshId] = new RigidBlock(placed.Bone, placed.Local);
         notes.Add($"dreadnought: rig {DreadnoughtRig.Entry}: {rig.Rig.Skeleton.BoneNames.Count} bones, {rig.Rig.AnimationNames.Count} clips; {model.Mesh.Blocks.Count} blocks, {drawn.Count} drawn ({string.Join(", ", drawn.Select(v => v.RefNode))}); {rigid.Count} rigid");
-        return new Read(rig, new CharacterPiece("musou_" + DreadnoughtRig.BodyVisual, model, null) { Rigid = rigid, Hidden = hidden }, notes);
+        return new Read(rig, new CharacterPiece("musou_" + Visual, model, null) { Rigid = rigid, Hidden = hidden }, notes);
     }
 
     /// <summary>Builds the assets once the files are read (main thread, once); the assets when built this call, else null.</summary>

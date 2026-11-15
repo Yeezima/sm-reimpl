@@ -11,6 +11,12 @@ public static class DreadnoughtRig
     /// <summary>The rig profile (the Warboss's pattern: the model and rig readers only).</summary>
     public static readonly RigProfile Profile = new("dreadnought", Archive, Entry, BodyVisual);
 
+    /// <summary>The Chaos Dreadnought (the same archive and rig; model <c>chaos_dreadnought</c>), behind the client test aid <c>--chaos-dreadnought</c> (owner, 2026-11-15: bring it in, for later; Musou players are Imperial, so it is not in the customizer).</summary>
+    public const string ChaosBodyVisual = "chaos_dreadnought";
+    public static readonly RigProfile ChaosProfile = new("dreadnought_chaos", Archive, Entry, ChaosBodyVisual);
+    /// <summary>The Chaos cannon's wargear (the reaper cannon; its own sounds and effects) and hit container.</summary>
+    public const string ChaosCannonWargear = "dread_csm_assault_cannon";
+
     public const string Entrance = "DN_NAV_Entrance", Death = "DN_REC_Death_01", IdleAim = "DN_NAV_Idle_S_AimF_01", IdleMelta = "DN_NAV_Idle_S_LAimF_01",
         Sprint = "DN_NAV_Bullrush_F", SprintLeft = "DN_NAV_Bullrush_L", SprintRight = "DN_NAV_Bullrush_R", Collision = "DN_NAV_Bullrush_F_Collision",
         Reload = "DN_RNG_Reload", FireAdditive = "DN_RNG_FireIdle_S_01", FireMeltaAdditive = "DN_RNG_LFireIdle_S_01";
