@@ -46,9 +46,8 @@ public sealed class MeleeFov
         else if (respawn) Wide = false;
         else if (i.Aiming) { if (Wide) change = Change.Aimed; Wide = false; }
         else if (i.Throwing) { if (Wide) change = Change.Threw; Wide = false; }
+        else if (meleeStart) { if (!Wide) change = Change.Widened; Wide = true; }   // a melee start beats a fire press on the same frame (review)
         else if (fireEdge || (i.Fire && !i.Melee)) { if (Wide) change = Change.Shot; Wide = false; }
-        else if (meleeStart && !Wide) { Wide = true; change = Change.Widened; }
-        else if (meleeStart) { Wide = true; }
         _wasMelee = i.Melee; _wasFire = i.Fire; _wasAlive = i.Alive;
         float step = BlendSeconds > 0f && delta > 0f ? delta / BlendSeconds : (delta > 0f ? 1f : 0f);
         Progress = Math.Clamp(Progress + (Wide ? step : -step), 0f, 1f);
@@ -70,6 +69,4 @@ public sealed class MeleeFov
     public float Scale(float configuredHorizontal, float aspect) =>
         Progress <= 0f ? FovMath.Scale(configuredHorizontal, aspect) : FovMath.Scale(Horizontal(configuredHorizontal, aspect), aspect);
 
-    /// <summary>Back to the configured view at once (a new match).</summary>
-    public void Reset() { Wide = false; Progress = 0f; _wasMelee = _wasFire = false; _wasAlive = false; }
 }

@@ -132,4 +132,31 @@ public class MeleeFovTests
         f.Step(In(), Dt);
         Assert.Equal(MeleeFov.Change.Widened, f.Step(In(melee: true), Dt));
     }
+    [Fact]
+    public void AMeleeStartOnTheSameFrameAsAFirePressStillWidens()
+    {
+        var f = new MeleeFov();
+        f.Step(In(), Dt);
+        Assert.Equal(MeleeFov.Change.Widened, f.Step(In(melee: true, fire: true), Dt));
+        Run(f, In(melee: true, fire: true), 0.2f);
+        Assert.True(f.Wide);
+    }
+
+    [Theory]
+    [InlineData(4f / 3f)]
+    [InlineData(21f / 9f)]
+    public void TheCapHoldsAtOtherAspects(float aspect)
+    {
+        Assert.True(MeleeFov.WideTarget(115f, aspect) <= 120f + 1e-3f);
+        Assert.Equal(120f, MeleeFov.WideTarget(120f, aspect), 3);
+        Assert.Equal(FovMath.Clamp(80f, aspect) + 10f, MeleeFov.WideTarget(80f, aspect), 3);
+    }
+
+    [Fact]
+    public void ExclusionAfterWideningEndsIt()
+    {
+        var f = Widened();
+        Assert.Equal(MeleeFov.Change.Excluded, f.Step(In(excluded: true), Dt));
+        Assert.False(f.Wide);
+    }
 }
