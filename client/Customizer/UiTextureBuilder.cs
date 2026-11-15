@@ -107,17 +107,19 @@ public static class UiTextureBuilder
         {
             float edge = Mathf.Min(y - top, bottom - y) / (30f * sfy);
             float shade = Mathf.Lerp(0.72f, 1.04f, Mathf.SmoothStep(0f, 1f, edge));
-            bool line = (int)(y / (1.5f * sfy)) % 2 == 0;
-            float scan = line ? 0.86f : 1.0f;
+            float scan = 1f;   // a smooth glow (the concept's scan lines came out as dark streaks after the upscale)
             for (int x = (int)(rows.Position.X * sf); x < (int)(rows.End.X * sf); x++)
             {
                 // Soft sides so the patch meets the recess without a seam.
                 float side = Mathf.Min(x - rows.Position.X * sf, rows.End.X * sf - x) / (16f * sf);
                 var old = img.GetPixel(x, y);
-                var fill = new Color(Mathf.Clamp(amber.R * shade * scan, 0f, 1f), Mathf.Clamp(amber.G * shade * scan, 0f, 1f), Mathf.Clamp(amber.B * shade * scan, 0f, 1f), 1f);
+                float gx = (x / sf - 262f) / 170f, gy = (y / sfy - 395f) / 115f;
+                float glow = 1f + 0.16f * Mathf.Exp(-(gx * gx + gy * gy));
+                var fill = new Color(Mathf.Clamp(amber.R * shade * scan * glow, 0f, 1f), Mathf.Clamp(amber.G * shade * scan, 0f, 1f), Mathf.Clamp(amber.B * shade * scan, 0f, 1f), 1f);
                 img.SetPixel(x, y, old.Lerp(fill, Mathf.Clamp(side, 0f, 1f)));
             }
         }
+        SmoothRecess(img, new Rect2I((int)(68 * sf), (int)(274 * sfy), (int)(396 * sf), (int)(236 * sfy)), (int)(Mathf.Round(4f * sfy)));
         // Behind the wordmark and the crest the concept's grey sky would show as a box on our video: keep only the letters (with their outline and shadow) and the crest.
         var bandAlpha = new float[W * H];
         Array.Fill(bandAlpha, 1f);
@@ -168,18 +170,123 @@ public static class UiTextureBuilder
                 }
             for (int y = y1; y < skyRect.Position.Y; y++) for (int x = x0; x < x1; x++) bandAlpha[y * W + x] = 1f;
         }
-        // The alpha: inside the owner's outline, feathered.
-        float feather = 5f * sf;
+        // The grey haze at the frame's top-right corner and the thin strip down its right side: flooded out from the background's own grey.
+        foreach (var (rx, ry, rw, rh, bx, by, tol) in new[] { (410, 200, 100, 70, 95, 4, 34f), (452, 255, 60, 320, 57, 160, 28f) })
+        {
+            var rr = new Rect2I((int)(rx * sf), (int)(ry * sfy), (int)(rw * sf), (int)(rh * sfy));
+            var keyed = FloodKey(img.GetRegion(rr), tol, (int)(bx * sf), (int)(by * sfy));
+            for (int y = 0; y < keyed.GetHeight(); y++)
+                for (int x = 0; x < keyed.GetWidth(); x++)
+                {
+                    int i = (rr.Position.Y + y) * W + rr.Position.X + x;
+                    bandAlpha[i] = Mathf.Min(bandAlpha[i], keyed.GetPixel(x, y).A);
+                }
+        }
+        // The alpha: inside the owner's outline, with a wide soft feather.
+        float feather = 11f * sf;
+        var A = new float[W * H]; var D = new float[W * H];
         for (int y = 0; y < H; y++)
             for (int x = 0; x < W; x++)
             {
-                var pt = new Vector2(x / sf, y / sfy);
-                float d = SignedDistance(pt, OverlayOutline) * sf;   // positive inside
-                var p = img.GetPixel(x, y);
-                p.A = Mathf.Clamp(0.5f + d / feather, 0f, 1f) * bandAlpha[y * W + x];
-                img.SetPixel(x, y, p);
+                float d = SignedDistance(new Vector2(x / sf, y / sfy), OverlayOutline) * sf;   // positive inside
+                D[y * W + x] = d;
+                A[y * W + x] = Mathf.SmoothStep(0f, 1f, Mathf.Clamp(0.5f + d / feather, 0f, 1f)) * bandAlpha[y * W + x];
             }
+        FinishOverlay(img, A, D, sf, sfy);
         return img;
+    }
+
+    /// <summary>A vertical box blur over a rectangle (the recess's rim and sides, where the upscale left dark scan-line streaks).</summary>
+    static void SmoothRecess(Image img, Rect2I r, int radius)
+    {
+        if (radius < 1) return;
+        int w = r.Size.X, h = r.Size.Y;
+        var col = new Color[h];
+        for (int x = 0; x < w; x++)
+        {
+            for (int y = 0; y < h; y++) col[y] = img.GetPixel(r.Position.X + x, r.Position.Y + y);
+            for (int y = 0; y < h; y++)
+            {
+                float rr = 0, gg = 0, bb = 0; int n = 0;
+                for (int k = -radius; k <= radius; k++) { var c = col[Mathf.Clamp(y + k, 0, h - 1)]; rr += c.R; gg += c.G; bb += c.B; n++; }
+                img.SetPixel(r.Position.X + x, r.Position.Y + y, new Color(rr / n, gg / n, bb / n, 1f));
+            }
+        }
+    }
+
+    static float[] BoxBlur(float[] a, int W, int H, int r)
+    {
+        if (r < 1) return a;
+        var tmp = new float[a.Length]; var o = new float[a.Length];
+        for (int y = 0; y < H; y++)
+        {
+            float sum = 0f; int row = y * W;
+            for (int x = -r; x <= r; x++) sum += a[row + Mathf.Clamp(x, 0, W - 1)];
+            for (int x = 0; x < W; x++)
+            {
+                tmp[row + x] = sum / (2 * r + 1);
+                sum += a[row + Mathf.Min(W - 1, x + r + 1)] - a[row + Mathf.Max(0, x - r)];
+            }
+        }
+        for (int x = 0; x < W; x++)
+        {
+            float sum = 0f;
+            for (int y = -r; y <= r; y++) sum += tmp[Mathf.Clamp(y, 0, H - 1) * W + x];
+            for (int y = 0; y < H; y++)
+            {
+                o[y * W + x] = sum / (2 * r + 1);
+                sum += tmp[Mathf.Min(H - 1, y + r + 1) * W + x] - tmp[Mathf.Max(0, y - r) * W + x];
+            }
+        }
+        return o;
+    }
+
+    /// <summary>
+    /// Sits the overlay in the video's scene (owner 2026-11-15: "blend the overlaid additions to the main menu better"): the concept's flat grey daylight is graded toward the video's dark, warm sunset
+    /// (contrast up, haze down, a warm tint), the far left of the wall and the lower part darkened, a warm rim light on the edges that face the light (right and top), a little of the sunset's haze mixed
+    /// into the outer edge, and one soft contact shadow under everything (wall, frame, wordmark, crest), offset down and to the right. Fixed parameters, so the builder gives the same picture.
+    /// </summary>
+    static void FinishOverlay(Image img, float[] A, float[] D, float sf, float sfy)
+    {
+        int W = img.GetWidth(), H = img.GetHeight();
+        // Shadow: the alpha blurred and shifted down and right.
+        int sx = (int)(7 * sf), sy = (int)(9 * sfy);
+        var blurred = BoxBlur(A, W, H, (int)(9 * sf));
+        var haze = new Color(0.62f, 0.44f, 0.30f);
+        for (int y = 0; y < H; y++)
+            for (int x = 0; x < W; x++)
+            {
+                int i = y * W + x;
+                var p = img.GetPixel(x, y);
+                float u = x / (float)W, v = y / (float)H;
+                // Grade: darker mids, more contrast, less grey, a warm tint, a lower and a leftward fall-off.
+                float lum = p.R * 0.3f + p.G * 0.59f + p.B * 0.11f;
+                Color c = p;
+                c = new Color(lum + (c.R - lum) * 1.10f, lum + (c.G - lum) * 1.05f, lum + (c.B - lum) * 0.92f);
+                float Cur(float k) => Mathf.Clamp((k - 0.5f) * 1.22f + 0.5f, 0f, 1f);
+                c = new Color(Cur(c.R) * 1.05f, Cur(c.G) * 0.99f, Cur(c.B) * 0.9f);
+                float expo = Mathf.Lerp(0.72f, 1f, Mathf.SmoothStep(0f, 0.32f, u)) * Mathf.Lerp(1f, 0.72f, Mathf.SmoothStep(0.55f, 1f, v));
+                c = new Color(c.R * expo, c.G * expo, c.B * expo);
+                // Rim light on the edges facing the sun (right, and the top): warm, strongest at the edge itself.
+                float d = D[i];
+                float edge = Mathf.Clamp(1f - d / (9f * sf), 0f, 1f);
+                if (d > 0f && edge > 0f)
+                {
+                    float face = Mathf.Clamp(Mathf.SmoothStep(0.45f, 0.95f, u) + 0.5f * (1f - Mathf.SmoothStep(0f, 0.3f, v)), 0f, 1f);
+                    float rim = edge * edge * face;
+                    c = new Color(Mathf.Min(1f, c.R + 0.55f * rim), Mathf.Min(1f, c.G + 0.34f * rim), Mathf.Min(1f, c.B + 0.12f * rim));
+                    // The video's haze over the outer edge.
+                    c = c.Lerp(haze, 0.22f * edge * face);
+                }
+                // Composite over a soft contact shadow.
+                float a = A[i];
+                int si = Mathf.Clamp(y - sy, 0, H - 1) * W + Mathf.Clamp(x - sx, 0, W - 1);
+                float sh = 0.62f * blurred[si];
+                float outA = a + sh * (1f - a);
+                if (outA <= 0.0001f) { img.SetPixel(x, y, new Color(0, 0, 0, 0)); continue; }
+                float k = a / outA;
+                img.SetPixel(x, y, new Color(c.R * k, c.G * k, c.B * k, outA));
+            }
     }
 
     /// <summary>Distance from a point to a polygon's outline, positive inside and negative outside.</summary>
