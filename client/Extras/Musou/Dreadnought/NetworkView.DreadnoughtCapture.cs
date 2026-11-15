@@ -91,17 +91,20 @@ public partial class NetworkView
         TfwCheck("the cannon is in hand", held == DreadnoughtRules.CannonWargear, held);
         await TfwShot("dn-player-gun-ready");
         int clip0 = me.Clip;
+        float peakHeat0 = 0f;
         TfwAction(GameAction.Fire, true);
         double begun = _connectedFor;
         await TfwWait(0.5);
         await DnStill(1, "dn-side-fire-1");
-        while (_connectedFor < begun + 1.2) { AutocannonAim(); await TfwFrames(); }
+        while (_connectedFor < begun + 1.2) { AutocannonAim(); peakHeat0 = MathF.Max(peakHeat0, client.Predicted.Heat); await TfwFrames(); }
         await TfwShot("dn-player-fire");
         await DnStill(2, "dn-rear-fire");
-        while (_connectedFor < begun + 3.0) { AutocannonAim(); await TfwFrames(); }
+        float peakHeat = peakHeat0;
+        while (_connectedFor < begun + 3.0) { AutocannonAim(); peakHeat = MathF.Max(peakHeat, client.Predicted.Heat); await TfwFrames(); }
         TfwAction(GameAction.Fire, false);
         GD.Print($"DNCAPTURE t {_connectedFor:F2} after {(_connectedFor - begun):F1} s of fire: clip {client.Predicted.Clip} (was {clip0}), reload {client.Predicted.ReloadLeft:F2}");
-        TfwCheck("rounds were fired", client.Predicted.Clip < clip0 || client.Predicted.ReloadLeft > 0f, $"{clip0} -> {client.Predicted.Clip}");
+        // the cannon spends no round since the 2026-11-15 buff (owner: unlimited ammunition, a heat meter): the clip stays, the heat rose (it has cooled a little by now) or the gun overheated
+        TfwCheck("rounds were fired (heat rose, the clip did not move)", client.Predicted.Clip == clip0 && (client.Predicted.Heat > 0f || client.Predicted.Overheated || peakHeat > 0f), $"clip {clip0} -> {client.Predicted.Clip}, heat {client.Predicted.Heat:F1}, peak {peakHeat:F1}");
         await TfwWait(0.3);
         // the melta: Switch, then fire it at the crowd twice
         await TfwActionTap(GameAction.NextWeapon);
