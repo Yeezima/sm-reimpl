@@ -70,6 +70,7 @@ public partial class NetworkView
             return;
         }
         if (current is not null && IsDreadnoughtCharacter(current)) { result = current; return; }
+        if (_dreadLooks is null) DreadRegisterLightCaps();
         _dreadLooks ??= new DreadnoughtLooks(_gameDir, DreadChaos);
         bool wasDone = _dreadLooks.Done;
         _dreadLooks.Step();
@@ -218,7 +219,27 @@ public partial class NetworkView
             // The data names the cannon's flash on a list of markers (fx_muzzle_autocannon_top, then fx_muzzle_assault_cannon: the first the model has is used); the loyalist model has the second only, and the estimate above sat 2 m ahead of the barrel.
             var real = DreadMarkerWorld(tr, marker) ?? (DreadnoughtFeel.MarkerFallback.TryGetValue(marker, out var alt) ? DreadMarkerWorld(tr, alt) : null);
             if (real is { } at) place = (at, pl.Item2);
+            // The model's marker sits 1.4 m AHEAD of the barrel's tip (the film of 2026-11-15, measured: the tracer, which starts at the marker, began 1.5 m past the barrel), so every muzzle point is first brought back to the tip
+            // (DreadnoughtFeel.MarkerToTip, **ours**); and the flash effect is authored with its bloom ring, beams and light 0.7 to 1.4 m ahead of its own origin (x1.75: a core 1.4 m ahead), so its origin goes back that much further and its
+            // visible core sits at the tip (DreadnoughtFeel.FlashPullback). The tracer, casings and the melta keep their markers (the melta's fx_Muzzle is on the fist).
+            if (place is { } tip && DreadnoughtFeel.TipShift(marker, DreadChaos) is > 0f and var back) place = (tip.Item1 - tip.Item2.Y * back, tip.Item2);
+            if (DreadMuzzleLog) DreadMuzzleProbe(tr, s, marker, place!.Value.Item1);
         }   // the model's own muzzle marker when it has one (the estimate above is the fallback)
+    }
+
+    static readonly bool DreadMuzzleLog = CmdFlag("dn-muzzle-log");
+    /// <summary>Test aid <c>--dn-muzzle-log</c>: where the shot's effect marker sits in the Dreadnought's frame (forward, right, up from his feet) and how far the drawn model reaches forward and right, so a flash that starts in the air shows.</summary>
+    void DreadMuzzleProbe(DreadnoughtTrack tr, PlayerState s, string marker, Vector3 at)
+    {
+        if (tr.Viewer is not { } v || !IsInstanceValid(v)) return;
+        var gs = _gameSpace; if (gs is null) return;
+        var inv = (gs.GlobalTransform * new Transform3D(new Basis(new Vector3(0, 0, 1), s.Yaw), new Vector3(s.Position.X, s.Position.Y, s.Position.Z))).AffineInverse();
+        Vector3 Rel(Vector3 w) => inv * w;
+        float maxF = -99, maxR = -99, minR = 99; var stack = new Stack<Node>(); stack.Push(v);
+        while (stack.Count > 0) { var n = stack.Pop(); foreach (var c in n.GetChildren()) stack.Push(c);
+            if (n is MeshInstance3D mi && mi.Mesh is not null) { var a = mi.GetAabb(); for (int k = 0; k < 8; k++) { var cr = Rel(mi.GlobalTransform * (a.Position + new Vector3((k & 1) * a.Size.X, (k >> 1 & 1) * a.Size.Y, (k >> 2 & 1) * a.Size.Z))); maxF = MathF.Max(maxF, cr.Y); maxR = MathF.Max(maxR, cr.X); minR = MathF.Min(minR, cr.X); } } }
+        var m = Rel(at);
+        GD.Print($"DNMUZZLE {marker}: marker right {m.X:F2} forward {m.Y:F2} up {m.Z:F2}; model reaches forward {maxF:F2}, right {minR:F2}..{maxR:F2} (inverse frame: x right, y forward)");
     }
 
     /// <summary>A muzzle flash at the cannon for each frame the clip lost a round, and the footfall dust where the stride lands. Nothing for a lean bot.</summary>

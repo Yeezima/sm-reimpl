@@ -44,6 +44,8 @@ public sealed class FxEffect
     public bool Ambient;
     /// <summary>Draws no lights (a distant backdrop effect whose data lights, scaled up, would reach across the whole arena).</summary>
     public bool NoLights;
+    /// <summary>The longest reach (m) of this effect's lights (ours; <see cref="FxPlayer.LightCaps"/>): a scaled-up effect's data light would otherwise tint the whole view (the Dreadnought's x12 power-up glow, his x1.75 muzzle flash).</summary>
+    public float LightCap = float.PositiveInfinity;
     /// <summary>Stops soon after <see cref="Follow"/> is lost (a projectile's trail when it is gone).</summary>
     public bool StopOnLost;
     /// <summary>M40-T13 (ours): recolours the effect's sprites, beams and streamers to this hue at their own brightness (plasma); null: the data's colours.</summary>
@@ -313,6 +315,12 @@ public sealed partial class FxPlayer : Node3D
     /// <paramref name="tint"/> recolours the effect (<see cref="FxEffect.Tint"/>; the Chaos plasma, <see cref="SmContent.PlasmaColour"/>); null: the data's colours.
     /// Returns null when the system is unknown or the player is not ready.
     /// </summary>
+    /// <summary>Effect names whose lights reach no further than the given metres (added content registers its scaled-up effects here; empty in Classic).</summary>
+    public static readonly Dictionary<string, float> LightCaps = new();
+    /// <summary>How much the effects' lights light the volumetric fog (Godot's per-light fog energy; 1 Classic). The Musou map's storm look sets <see cref="MusouLightFogEnergy"/> while it is up: a bright explosion light (energy up to 19) lit the 120 m of haze and tinted the whole view, sky included.</summary>
+    public static float LightFogEnergy = 1f;
+    public const float MusouLightFogEnergy = 0.1f;
+
     public FxEffect? Play(string name, Vector3 origin, Basis axes, float scale, Vector3? target = null, Func<(Vector3 Position, Basis Axes)?>? follow = null,
                           float lifetime = 0f, double delay = 0.0, bool repeat = false, int priority = 0, bool ambient = false, Color? tint = null, float smokeRein = 1f, float followFor = float.PositiveInfinity)
     {
@@ -340,6 +348,7 @@ public sealed partial class FxPlayer : Node3D
         };
         if (repeat && system.Lifetime is { } rl && rl > 0.01f) e.Life = double.PositiveInfinity;
         if (repeat) e.Life = double.PositiveInfinity;
+        if (LightCaps.Count > 0 && LightCaps.TryGetValue(name, out var lightCap)) e.LightCap = lightCap;
         if (system.HasStreamer) e.History = new List<(double, Vector3)>();
         _effects.Add(e);
         if (ambient) _ambientCount++;
@@ -980,7 +989,7 @@ public sealed partial class FxPlayer : Node3D
         float t = n.Looping ? 0f : (float)(age / show);
         float intensity = At(n.Intensity, t, 1f) * At(n.Power, t, 1f);
         var col = Shade(n.Colour.IsEmpty ? Colors.White : Tint(n.Colour, t), e);   // the Chaos plasma's lights are purple too
-        float range = At(n.AttenEnd, t, 4f) * c.S;
+        float range = MathF.Min(At(n.AttenEnd, t, 4f) * c.S, e.LightCap);
         if (range < 0.3f || intensity <= 0f) return;
         var pos = c.Pos + c.B * (new Vector3(At(n.OffX, t, 0f), At(n.OffY, t, 0f), At(n.OffZ, t, 0f)) * c.S);
         if (!n.Looping && LightFilter is { } seen && !seen(pos)) return;
@@ -1004,6 +1013,7 @@ public sealed partial class FxPlayer : Node3D
             {
                 var l = _lights[i];
                 node.GlobalPosition = l.Pos; node.LightColor = l.Colour; node.LightEnergy = l.Energy; node.OmniRange = l.Range;
+                node.LightVolumetricFogEnergy = LightFogEnergy;
                 node.Visible = true;
             }
             else node.Visible = false;

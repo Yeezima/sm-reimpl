@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3311 spec table rows: **2433 tagged**, 619 not tagged (read from data with high confidence), 259 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 736 rows of the changes document.
+Scanned 3315 spec table rows: **2437 tagged**, 619 not tagged (read from data with high confidence), 259 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 736 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,22 +50,22 @@ Scanned 3311 spec table rows: **2433 tagged**, 619 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 23 | 13 | 13 | 13 | 7 |
-| Core simulation (provisional values) | 744 | 699 | 530 | 188 | 1 |
+| Core simulation (provisional values) | 748 | 703 | 533 | 188 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 249 | 238 | 134 | 68 | 0 |
-| **All areas** | **2433** | 2150 | 1803 | 743 | 38 |
+| **All areas** | **2437** | 2154 | 1806 | 743 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1419 |
+| kind: ours | 1423 |
 | confidence: low | 863 |
-| confidence: medium | 811 |
+| confidence: medium | 814 |
 | notes: ours | 416 |
 | kind: interpretation | 390 |
 | notes: estimate | 204 |
-| kind: estimate | 169 |
+| kind: estimate | 172 |
 | confidence: none (low) | 129 |
 | kind: provisional | 103 |
 | kind: user's knowledge | 56 |
@@ -2505,7 +2505,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (744)
+### Core simulation (provisional values) (748)
 
 *Spec section: Provisional values in use*
 
@@ -3704,7 +3704,11 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-473ACDA0` | Overcharge: length | 30 s: `DreadnoughtRules.BuffLifetime` (10 s, the data) x `MusouCombatRules.StimLifetimeScale` (3); one constant each (s) | kind: choice | the owner, 2026-11-15 | Overcharge: length: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 30 s: DreadnoughtRules.BuffLifetime (10 s, the data) x… | ☐ |
 | `R-F7194563` | Overcharge: the cannon builds no heat | while the power-up runs (`StimLeft` above 0) a round adds no heat (`StimSpec.NoHeat`, set on his `dread_buff` item only; `Stims.NoHeat`, `Combat` shot and burst round); the cannon still fires every 0.1 s with no ammunition spent; heat built before the use… (heat) | kind: choice | the owner, 2026-11-15 | Overcharge: the cannon builds no heat: compare with SM1 by feel or video. Ours: while the power-up runs (StimLeft above 0) a round adds no heat… | ☐ |
 | `R-2B1331FF` | Overcharge: the shockwave | every melee swing that strikes at least one enemy releases ONE shockwave at the nearest struck enemy's chest while the power-up runs (`DreadnoughtOvercharge`, once per resolved swing, however many Orks the swing struck): radius **3 m**, the stomp's blast… (m) | kind: ours; kind: estimate; confidence: low | the owner, 2026-11-15 ("about 3 m") | Overcharge: the shockwave: compare with SM1 by measuring on a flat spot of the same map. Ours: every melee swing that strikes at least one enemy releases ONE… | ☐ |
-| `R-BAAFEE65` | Overcharge: the wave's look and shake | the stomp's displace effects scaled down (`knockback_stomp_dmg_furied` x0.3, `interrupt_stomp_dmg` x0.4 at the left hand marker) and the stomp area's camera shake at a quarter of its amplitudes (`DreadnoughtFeel.OverchargeShake`), on each swing's hit beat… (scale) | kind: ours; kind: estimate; confidence: low | the owner, 2026-11-15 (the data's stomp values) | Overcharge: the wave's look and shake: compare with SM1 by feel or video. Ours: the stomp's displace effects scaled down (knockback_stomp_dmg_furied… | ☐ |
+| `R-BAAFEE65` | Overcharge: the wave's look and shake | the stomp's displace effects at the size of the 3 m wave (`knockback_stomp_dmg_furied` x0.5: its orange ring runs 1.165 to 6.218 m at scale 1, so it reaches 3 m; `interrupt_stomp_dmg` x0.5) plus the footfall's dust ring (`jump_land` x2), drawn ON THE GROUND… (scale) | kind: ours; kind: estimate; confidence: low | the owner, 2026-11-15 (the data's stomp values) | Overcharge: the wave's look and shake: compare with SM1 by feel or video. Ours: the stomp's displace effects at the size of the 3 m wave… | ☐ |
+| `R-90572D1E` | Dreadnought: the muzzle flash and tracer at the barrel's tip | the loyalist cannon's marker `fx_muzzle_assault_cannon` sits 1.4 m AHEAD of the model's drawn barrel tip (measured in the film of 2026-11-15: the tracer, which starts at the marker, began 1.5 m in the air), so the tracer's start is brought back 1.4 m along… (m) | kind: ours; kind: estimate; confidence: medium | the film of 2026-11-15 (clips 03, 05), the effect's offsets | Dreadnought: the muzzle flash and tracer at the barrel's tip: compare with SM1 by measuring on a flat spot of the same map. Ours: the loyalist cannon's marker fx_muzzle_assault_cannon sits 1.4 m… | ☐ |
+| `R-C3ADC386` | Dreadnought: lights of the scaled-up effects | a data light's range scales with its effect (`autocannon_muzzle` atten 10 x1.75, `powersource_glow` x11 and x12, `cl_force_field` x3) and lit the volumetric fog, tinting the whole view: a sepia flicker with each burst of the cannon, a red-orange wash for the… (m) | kind: ours; kind: estimate; confidence: medium | the film of 2026-11-15 (clips 03 to 05) | Dreadnought: lights of the scaled-up effects: compare with SM1 by measuring on a flat spot of the same map. Ours: a data light's range scales with its effect (autocannon_muzzle atten… | ☐ |
+| `R-3F132D6F` | Dreadnought: the entrance cue and the death | the entrance (`evt_spawn_in`: portal clouds, force field, krak and hammer-swing glows) plays when a LIVING body starts a life (0.3 s window, once), never on a corpse (`DreadnoughtFeel.EntryDue`: the film's respawn test aid stood him up 0.02 s after… (s) | kind: ours; kind: estimate; confidence: medium | docs/discovery.md "DA Dreadnought inventory"; the film's logs | Dreadnought: the entrance cue and the death: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the entrance (evt_spawn_in: portal clouds, force field, krak and… | ☐ |
+| `R-337A2379` | Dreadnought: film aids | server `SM_DN_TEST_GUARD=1` tops up every living Dreadnought's health each step (filming among the Orks only); client `--dn-da-close` (cannon, melta and head close-ups: camera modes 4 to 6), `--dn-muzzle-log` (the flash marker's place and the model's reach)… | kind: ours | this pass | Dreadnought: film aids: compare with SM1 by feel or video. Ours: server SM_DN_TEST_GUARD=1 tops up every living Dreadnought's health… | ☐ |
 
 ### General game design (7)
 

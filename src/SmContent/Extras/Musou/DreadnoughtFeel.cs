@@ -117,6 +117,32 @@ public static class DreadnoughtFeel
     public static readonly IReadOnlyDictionary<string, string> ChaosMeltaNames = new Dictionary<string, string> { [MeltaEffects[0]] = ChaosMeltaEffects[0], [MeltaEffects[1]] = ChaosMeltaEffects[1] };
     /// <summary>A marker the wargear's effect names first that the model lacks, and the model's own for it (the data lists <c>fx_muzzle_autocannon_top</c> then <c>fx_muzzle_assault_cannon</c> on the flash; the loyalist has the second, the Chaos model both). The melta's <c>fx_muzzle</c> is on the model as <c>fx_Muzzle</c> (names compare without case).</summary>
     public static readonly IReadOnlyDictionary<string, string> MarkerFallback = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { ["fx_muzzle_autocannon_top"] = "fx_muzzle_assault_cannon", ["fx_muzzle_autocannon_bottom"] = "fx_muzzle_assault_cannon" };
+    /// <summary>
+    /// The cannon's effect marker <c>fx_muzzle_assault_cannon</c> sits this far (m) ahead of the barrel's drawn tip along the aim (**ours**, measured in the film of 2026-11-15: the tracer, which starts at the marker, began 1.5 m past the barrel;
+    /// the model's barrels are shorter than the marker the data places effects on). Effects at the cannon's muzzle are brought back to the tip by it.
+    /// </summary>
+    public const float MarkerToTip = 1.4f;
+    /// <summary>
+    /// The flash's bright core (bloom ring offset 0.809 m at scale 1 times the data's 1.75, <c>autocannon_muzzle</c>; the beams and billboard volumes start 0.74 to 1.37 m ahead of the effect's origin too) is this far ahead of the effect's origin.
+    /// </summary>
+    public const float FlashCoreAhead = 0.809f * 1.75f;
+    /// <summary>The flash's origin goes back this far from the marker so that the core sits at the barrel's tip: the marker's distance to the tip plus the core's distance ahead of the origin.</summary>
+    public const float FlashPullback = MarkerToTip + FlashCoreAhead;
+    /// <summary>Whether <paramref name="marker"/> is the cannon flash's marker (the effect's own list names the top and bottom ones; the model has the assault cannon's).</summary>
+    public static bool IsFlashMarker(string marker) => marker.Equals("fx_muzzle_autocannon_top", StringComparison.OrdinalIgnoreCase) || marker.Equals("fx_muzzle_autocannon_bottom", StringComparison.OrdinalIgnoreCase);
+    /// <summary>
+    /// How far back along the aim a shot effect placed on <paramref name="marker"/> goes. Loyalist: the tracer's marker to the tip, the flash's (a fallback to the same marker) to the tip less the flash's own forward offset. Chaos twin: its model has the
+    /// flash markers on the barrel tips (the tracer shares them), so both go back only by the flash's forward offset (the flash core at the tip; the tracer starts inside the barrel). 0 for every other marker.
+    /// </summary>
+    public static float TipShift(string marker, bool chaos = false) =>
+        IsFlashMarker(marker) ? (chaos ? FlashCoreAhead : FlashPullback) : !chaos && marker.Equals("fx_muzzle_assault_cannon", StringComparison.OrdinalIgnoreCase) ? MarkerToTip : 0f;
+    /// <summary>The longest reach (m) of the lights of the Dreadnought's effects (**ours**): their data lights scale with the effect (x12 for the power-up glow), lit the volumetric fog and tinted the whole view.</summary>
+    public const float LightReach = 5f;
+    /// <summary>The death fire: the data's <c>amb_fire</c> 0.85 s after the death (<see cref="DeathFireDelay"/>); the client loops it on the wreck.</summary>
+    public const string DeathFireEffect = "amb_fire";
+    public const float DeathFireDelay = 0.85f;
+    /// <summary>The entrance cue is due: a living body (not a corpse) in the first 0.3 s of a life that has not played it yet.</summary>
+    public static bool EntryDue(bool alive, bool corpse, double sinceBorn, bool entered) => alive && !corpse && !entered && sinceBorn < 0.3;
     public const string MeltaPumpEvent = "play_melta_gun_pump";
     /// <summary>The pump sounds this long after the melta's shot (ours: the pump state follows the shot).</summary>
     public const float MeltaPumpDelay = 0.45f;

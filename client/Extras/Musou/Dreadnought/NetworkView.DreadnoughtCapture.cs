@@ -16,6 +16,9 @@ public partial class NetworkView
 {
     /// <summary>The third-person view the camera is put in: 0 none, 1 beside, 2 behind and above, 3 in front.</summary>
     int _dnCam;
+    /// <summary>Test aid <c>--dn-light-log</c>: every 0.1 s of a film the effect lights alive (colour, energy, range, place), to find what tints a frame.</summary>
+    static readonly bool DreadLightLog = CmdFlag("dn-light-log");
+    double _dnLightAt;
     string _dnDir = "";
 
     async Task DnStill(int cam, string name)
@@ -55,6 +58,7 @@ public partial class NetworkView
         if (CmdFlag("dn-da-death")) { await DnDaDeath(); return; }
         if (CmdFlag("dn-buff-probe")) { await DnBuffProbe(); return; }
         if (CmdFlag("dn-da-clean")) { await DnDaClean(); return; }
+        if (CmdFlag("dn-da-close")) { await DnDaClose(); return; }
         if (CmdFlag("dn-da-melta")) { await DnDaMelta(); return; }
         if (CmdFlag("dn-da-wreck")) { await DnDaWreck(); return; }
         if (CmdFlag("dn-da-overcharge")) { await DnDaOvercharge(); return; }
@@ -304,15 +308,19 @@ public partial class NetworkView
     void DreadnoughtCamFrame()
     {
         if (_dnCam == 0 || _camera is not { } camera || _gameSpace is null || _client is null) return;
+        if (DreadLightLog && _fx is not null && _connectedFor >= _dnLightAt) { _dnLightAt = _connectedFor + 0.1; GD.Print($"DNLIGHT frame {Engine.GetFramesDrawn()} t {_connectedFor:F2}: {_fx.LastLights} lights; {_fx.LightReport()}"); }
         var p = _client.Predicted.Position;
         var fwd = new Vector3(-MathF.Sin(_yaw), MathF.Cos(_yaw), 0f);
         var right = new Vector3(MathF.Cos(_yaw), MathF.Sin(_yaw), 0f);
         var feet = new Vector3(p.X, p.Y, p.Z);
-        var look = feet + Vector3.Back * 1.6f;
+        var look = _dnCam switch { 4 => feet + right * 1.4f + fwd * 2.4f + Vector3.Back * 2.5f, 5 => feet + Vector3.Back * 3.4f, 6 => feet - right * 0.9f + fwd * 2.2f + Vector3.Back * 2.3f, _ => feet + Vector3.Back * 1.6f };
         var eye = _dnCam switch
         {
             1 => feet + right * 7f + Vector3.Back * 2.2f,
             2 => feet - fwd * 7f + right * 1.0f + Vector3.Back * 4.0f,
+            4 => feet + right * 5.0f + fwd * 1.8f + Vector3.Back * 2.6f,       // the cannon's muzzle close up (his right side)
+            5 => feet + fwd * 4.6f + right * 0.6f + Vector3.Back * 3.9f,       // the head and its lights from the front
+            6 => feet - right * 5.0f + fwd * 1.8f + Vector3.Back * 2.4f,       // the melta's barrel close up (his left side)
             _ => feet + fwd * 7f + right * 1.5f + Vector3.Back * 2.2f,
         };
         camera.GlobalTransform = Transform3D.Identity.Translated(_gameSpace.ToGlobal(eye)).LookingAt(_gameSpace.ToGlobal(look), Vector3.Up);

@@ -10,8 +10,12 @@ public sealed partial class GameServer
     readonly Dictionary<int, double> _dnKillSince = new();
     readonly HashSet<int> _dnKilled = new();
 
+    /// <summary>Test aid <c>SM_DN_TEST_GUARD=1</c> (filming only): every living Dreadnought's health is topped up each step, so the Ork flood does not end a clip.</summary>
+    static readonly bool DreadnoughtTestGuard = Environment.GetEnvironmentVariable("SM_DN_TEST_GUARD") == "1";
+
     void DreadnoughtTestKillStep()
     {
+        if (DreadnoughtTestGuard) foreach (var id in World.Players.Keys.ToList()) World.DreadnoughtTestHeal(id);
         if (DreadnoughtTestKillAfter is not { } after) return;
         double now = World.Tick / (double)Math.Max(1, World.Config.TickRate);
         foreach (var (id, p) in World.Players)

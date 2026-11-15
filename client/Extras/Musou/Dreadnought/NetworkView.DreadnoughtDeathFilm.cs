@@ -81,6 +81,28 @@ public partial class NetworkView
         GetTree().Quit(0);
     }
 
+    /// <summary>
+    /// <c>--dn-da-close</c> (with <c>--write-movie</c>; the cannon, melta and head close-ups): after the landing, the cannon held for 3.5 s from a camera at his right muzzle, the melta (three shots) from his left, then the head and its lights from the front for 5 s.
+    /// The weapon-switch panel is left to time out (4 s) before each part. <c>DNFILM seg NAME frame N</c> marks each part.
+    /// </summary>
+    async Task DnDaClose()
+    {
+        var client = _client!;
+        void Seg(string name) => GD.Print($"DNFILM seg {name} frame {Engine.GetFramesDrawn()} t {_connectedFor:F1}");
+        await TfwWait(5.6);
+        _dnCam = 4; Seg("cannon");
+        TfwAction(GameAction.Fire, true); await TfwWait(3.5); TfwAction(GameAction.Fire, false);
+        await TfwWait(0.5);
+        await TfwActionTap(GameAction.NextWeapon); await TfwWait(4.0);
+        _dnCam = 6; Seg("melta");
+        for (int k = 0; k < 3; k++) { TfwAction(GameAction.Fire, true); await TfwWait(0.3); TfwAction(GameAction.Fire, false); await TfwWait(1.6); }
+        _dnCam = 5; Seg("head");
+        await TfwWait(5.0);
+        Seg("end");
+        _dnCam = 0;
+        GetTree().Quit(0);
+    }
+
     /// <summary><c>--dn-da-overcharge</c> (with <c>--write-movie</c>): the power-up (Overcharge): used at once, then the cannon held for 12 s (no heat), then eight melee swings into whatever stands in front. <c>DNFILM seg NAME frame N</c> marks each part; <c>DNOVER</c> lines log the heat.</summary>
     async Task DnDaOvercharge()
     {
@@ -95,11 +117,11 @@ public partial class NetworkView
         Seg("cannon");
         TfwAction(GameAction.Fire, true);
         double t0 = _connectedFor, log = t0;
-        while (client.Predicted.StimLeft > 9f && _connectedFor < t0 + 40.0) { await TfwFrames(); if (CmdFlag("dn-orks") && client.Predicted.Alive) AutocannonAim(); if (_connectedFor >= log) { log += 0.5; GD.Print($"DNOVER heat {client.Predicted.Heat:F2} overheated {client.Predicted.Overheated} stim {client.Predicted.StimLeft:F1} cooldown {client.Predicted.GrenadeCooldown:F1} grenades {client.Predicted.Grenades}"); } }
+        while (client.Predicted.StimLeft > 20f && _connectedFor < t0 + 40.0) { await TfwFrames(); if (CmdFlag("dn-orks") && client.Predicted.Alive) AutocannonAim(); if (_connectedFor >= log) { log += 0.5; GD.Print($"DNOVER heat {client.Predicted.Heat:F2} overheated {client.Predicted.Overheated} stim {client.Predicted.StimLeft:F1} cooldown {client.Predicted.GrenadeCooldown:F1} grenades {client.Predicted.Grenades}"); } }
         TfwAction(GameAction.Fire, false);
         await TfwWait(0.3);
         Seg("melee");
-        for (int k = 0; k < 8; k++) { if (CmdFlag("dn-orks")) TfwFaceCrowd(12f); await TfwActionTap(GameAction.Melee); await TfwWait(0.9); GD.Print($"DNOVER melee {k} stim {client.Predicted.StimLeft:F1}"); }
+        for (int k = 0; k < 8; k++) { if (CmdFlag("dn-orks")) TfwFaceCrowd(12f); await TfwActionTap(GameAction.Melee); await TfwWait(0.7); GD.Print($"DNOVER melee {k} stim {client.Predicted.StimLeft:F1}"); }
         Seg("end");
         _dnCam = 0;
         GetTree().Quit(0);
@@ -115,7 +137,14 @@ public partial class NetworkView
         GD.Print($"DNFILM seg wait frame {Engine.GetFramesDrawn()} t {_connectedFor:F1}");
         while (_connectedFor < stop && client.Predicted.Alive) await TfwFrames();
         GD.Print($"DNFILM seg death frame {Engine.GetFramesDrawn()} t {_connectedFor:F1} alive {client.Predicted.Alive}");
-        await TfwWait(9.0);
+        double end = _connectedFor + 9.0, nextLog = 0;
+        while (_connectedFor < end)
+        {
+            await TfwFrames();
+            if (_connectedFor < nextLog) continue;
+            nextLog = _connectedFor + 0.25;
+            if (_dreadTracks.TryGetValue(client.PlayerId, out var tr)) GD.Print($"DNWRECK t {_connectedFor:F2} predicted alive {client.Predicted.Alive} class {client.Predicted.Class} health {client.Predicted.Health:F0}; track corpse {tr.Corpse} wasAlive {tr.WasAlive} died {tr.Died:F2} born {tr.Born:F2}");
+        }
         GD.Print($"DNFILM seg end frame {Engine.GetFramesDrawn()}");
         _dnCam = 0;
         GetTree().Quit(0);
@@ -141,7 +170,7 @@ public partial class NetworkView
         _dnCam = 1;
         var point = _tfwState.Objectives[0].Position;
         await TfwPathTo(point, "dn melta: walked towards the Orks", 90.0, () => _musouState.MiddleNear(client.Predicted.Position, 40f) is not null);
-        await TfwActionTap(GameAction.NextWeapon); await TfwWait(1.0);
+        await TfwActionTap(GameAction.NextWeapon); await TfwWait(4.0);   // the weapon-switch panel times out before the shots
         GD.Print($"DNFILM seg melta frame {Engine.GetFramesDrawn()} t {_connectedFor:F1}");
         int shots = 0; double stop = _connectedFor + 70.0;
         while (shots < 6 && _connectedFor < stop && client.Predicted.Alive)

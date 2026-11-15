@@ -125,6 +125,7 @@ public partial class AshfallStorm : Node3D
 
     public override void _ExitTree()
     {
+        FxPlayer.LightFogEnergy = 1f;   // the effects' lights light the fog again outside this map
         // Put back what this look wrote, unless someone else wrote it since (the next map's lighting, applied before this node is freed).
         for (int i = _writes.Count - 1; i >= 0; i--)
         {
@@ -152,6 +153,7 @@ public partial class AshfallStorm : Node3D
         _quality = QualityScale();
         bool compat = SafeMode.Compatibility;
         bool volumetric = !compat && MapLightingView.Preset >= MapLightingView.LightingPreset.Medium;
+        if (volumetric) FxPlayer.LightFogEnergy = FxPlayer.MusouLightFogEnergy;   // the effects' lights barely light the volumetric haze here (ours): an Ork explosion's or the Dreadnought's power-up light tinted the whole view orange or red, sky included
         // Children in Godot's own frame (Y up): the parent is game space (Z up).
         _world = new Node3D { Name = "World", Basis = GameToGodot.Inverse() };
         AddChild(_world);

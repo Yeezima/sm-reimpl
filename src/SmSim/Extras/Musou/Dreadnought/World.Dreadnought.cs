@@ -31,7 +31,14 @@ public sealed partial class World
     /// <summary>Test aid (the server's <c>SM_DN_TEST_KILL</c>): kills a living Dreadnought through the ordinary death (<see cref="Combat.Killed"/>), so his death effects and wreck can be filmed.</summary>
     public void DreadnoughtTestKill(int id)
     {
-        if (_players.TryGetValue(id, out var p) && p.Alive && DreadnoughtRules.IsDreadnought(Config, p.Class)) _players[id] = Combat.Killed(p, Config) with { RespawnLeft = 14f };   // a long wait, so the wreck stays on screen
+        TfwDismissMarines();   // no retainer or allied marine is left to revive him: the wreck stays until the (long) respawn wait ends
+        if (_players.TryGetValue(id, out var p) && p.Alive && DreadnoughtRules.IsDreadnought(Config, p.Class)) _players[id] = Combat.Killed(p, Config) with { RespawnLeft = 60f };   // a long wait, so the wreck stays on screen (a movie run is several times slower than the server clock)
+    }
+
+    /// <summary>Test aid (the server's <c>SM_DN_TEST_GUARD=1</c>; filming only, never in a real match): a living Dreadnought's health back to full, so a clip among the Orks does not turn into a death scene.</summary>
+    public void DreadnoughtTestHeal(int id)
+    {
+        if (_players.TryGetValue(id, out var p) && p.Alive && DreadnoughtRules.IsDreadnought(Config, p.Class)) _players[id] = p with { Health = Config.For(p.Class).HealthMax, Shield = Config.For(p.Class).ShieldMax };
     }
 
     /// <summary>The class index of the Dreadnought in this config, or -1.</summary>

@@ -61,8 +61,8 @@ public static class DreadnoughtArm
     /// <summary>The share of a rumble played: none with Reduce motion, else the Camera shake option (the game has no vibration option of its own).</summary>
     public static float RumbleScale(float cameraShakeOption, bool reduceMotion) => DreadnoughtFeel.Scale(cameraShakeOption, reduceMotion);
 
-    /// <summary>Overcharge's wave at the hit (the stomp's displace effects scaled down: ours, an estimate), at the arm's hand marker; played on each swing's hit while the power-up runs.</summary>
-    public static readonly DaEffect[] OverchargeWave = [E("knockback_stomp_dmg_furied", 0.3f, LeftHand), E("interrupt_stomp_dmg", 0.4f, LeftHand)];
+    /// <summary>Overcharge's wave at the hit (the stomp's displace effects at the size of the 3 m wave: knockback_stomp_dmg_furied's orange ring runs 1.2 to 6.2 m at scale 1, so 0.5 reaches 3 m; plus the footfall's dust ring; ours, an estimate), at the arm's hand marker; played on each swing's hit while the power-up runs.</summary>
+    public static readonly DaEffect[] OverchargeWave = [E("knockback_stomp_dmg_furied", 0.5f, LeftHand), E("interrupt_stomp_dmg", 0.5f, LeftHand), E("jump_land", 2f, LeftHand)];
 
     // ---- lights and eyes (the blueprint's lifetime action; played while he lives, on the model's markers) ----
     public static readonly DaEffect[] Lights =
