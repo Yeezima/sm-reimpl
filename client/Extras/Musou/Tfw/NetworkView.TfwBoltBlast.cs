@@ -70,7 +70,7 @@ public partial class NetworkView
                 var shake = _shake;
                 bool detonated = FxDetonation(view, BoltBlastFxScale * BoltBlastSizeOf(fire.To.Y), BlastDustShare(fire.To.Y));   // musou/autocannon-dust: the autocannon's blast draws no dust (flash and fire stay)
                 if (detonated) _tfwBoltBlastsDrawn++;
-                if (detonated && BlastDustShare(fire.To.Y) < 1f) BlastDebris(fire.At, fire.To.Y, (int)fire.Tick * 31 + (int)fire.Subject, ref debrisBursts);   // and throws chunks of the ground (NetworkView.AutocannonDust.cs)
+                if (detonated && BlastChunks && BlastDustShare(fire.To.Y) < 1f) BlastDebris(fire.At, fire.To.Y, (int)fire.Tick * 31 + (int)fire.Subject, ref debrisBursts);   // and throws chunks of the ground (NetworkView.AutocannonDust.cs)
                 _shake = shake + (_shake - shake) * BoltBlastShake;
                 drawn++;
                 _tfwBoltDrawn.Add((_connectedFor, fire.At));

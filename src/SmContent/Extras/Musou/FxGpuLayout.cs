@@ -25,10 +25,12 @@ public static class FxGpuLayout
     public const int CurveRow = 1024;
 
     /// <summary>
-    /// The live-effect cap of the CPU path and of the GPU spray path (1,200; the owner's "Drop to 600 blood spray cap" of 2026-11-11 was rolled back the same day: "roll back the blood spray cap in musou mode"; the polish pass P3 measured the 200-death burst frame
+    /// The live-effect cap of the CPU path (160) and of the GPU spray path (3,000 since fx-cap-priority, owner 2026-11-15: "raise the cap even more"; 1,200 before; the burst frame is level with 1,200 at 2,000 and 3,000 and no
+    /// scene reaches the old cap: the 200-death burst keeps about 140 effects live, a 60-army clash about 220, because the gore budgets and the kill caps limit what is played; the walk costs by live effects, not by the cap).
+    /// Before: 1,200; the owner's "Drop to 600 blood spray cap" of 2026-11-11 was rolled back the same day: "roll back the blood spray cap in musou mode"; the polish pass P3 measured the 200-death burst frame
     /// at 38.8 ms with 1,200 and 32.4 ms with 400).
     /// </summary>
-    public const int CpuMaxEffects = 160, GpuMaxEffects = 1200;
+    public const int CpuMaxEffects = 160, GpuMaxEffects = 3000;
 
     /// <summary>
     /// Whether Musou Mode uses the GPU spray path: not with <c>--fx-cpu</c>, and not in safe mode (the Compatibility renderer or <c>--safe-mode</c>: an old GPU

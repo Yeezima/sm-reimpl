@@ -40,8 +40,8 @@ public static class MusouGorePriority
     /// <summary>Kills a frame that play their blood, by source (8 shared before; the rest play none).</summary>
     public static int KillsPerFrame(MusouGoreSource s) => s switch { MusouGoreSource.Own => 16, MusouGoreSource.Ally => 8, _ => 4 };
 
-    /// <summary>The effect player's priority of a blood or hit effect by source: the own above the allies above the rest (a full effect player replaces the oldest effect at or below the new one's priority).</summary>
-    public static int FxPriority(MusouGoreSource s) => s switch { MusouGoreSource.Own => 2, MusouGoreSource.Ally => 1, _ => 0 };
+    /// <summary>The effect player's priority of a blood or hit effect by source: the own (3: SmContent.FxPriority.Hit, below the own weapon's effects) above the allies above the rest (a full effect player replaces the farthest, then the oldest effect at or below the new one's priority).</summary>
+    public static int FxPriority(MusouGoreSource s) => s switch { MusouGoreSource.Own => 3, MusouGoreSource.Ally => 1, _ => 0 };
 
     /// <summary>The priority of the crowd's fire (Ork and Guardsmen tracers and muzzle flashes): the first to go when the effects are full (1 for the tracers before).</summary>
     public const int CrowdFirePriority = 0;

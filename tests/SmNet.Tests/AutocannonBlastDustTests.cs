@@ -29,8 +29,26 @@ public class AutocannonBlastDustTests
     public void The_client_mapping_gives_the_blast_no_dust_and_the_zero_share_keeps_nothing()
     {
         string text = File.ReadAllText(Path.Combine(Root(), "client", "Extras", "Musou", "Arsenal", "Autocannon", "NetworkView.AutocannonDust.cs"));
-        Assert.Contains("!restored && SmSim.AutocannonRules.LosesDust(radius) ? BlastDust : 1f", text);
+        Assert.Contains("!restored && SmSim.AutocannonRules.LosesDust(radius) ? BlastDust", text);
         Assert.Contains("internal const float BlastDust = 0f;", text);
         foreach (float roll in new[] { 0f, 0.3f, 0.999f }) Assert.False(FxAmount.Kept(0f, roll));
+    }
+
+    [Fact]
+    public void No_autocannon_shot_and_no_bolt_blast_draws_dust_or_smoke()
+    {
+        // musou/autocannon-flash and fx/bolt-smoke (owner 2026-11-15): these pins stand for "no smoke part on those effects" (the effects' data is the install's and never in a test).
+        string text = File.ReadAllText(Path.Combine(Root(), "client", "Extras", "Musou", "Arsenal", "Autocannon", "NetworkView.AutocannonDust.cs"));
+        Assert.Contains("internal const float DustShare = 0f;", text);       // the autocannon's hit and muzzle
+        Assert.Contains("internal const float BlastDust = 0f;", text);       // its blast
+        Assert.Contains("internal const float BoltBlastDust = 0f;", text);   // the bolt weapons' blast (the frag's detonation at the bolt blast's size)
+        Assert.Contains("internal const bool BlastChunks = false;", text);   // no thrown chunks of the ground
+        string player = File.ReadAllText(Path.Combine(Root(), "client", "NetworkView.Fx.cs"));
+        Assert.Contains("Extras" + "ImpactDustShare(w.Wargear, ref dust); played1.DustShare", player);   // the muzzle
+        Assert.Contains("Extras" + "TerrainBlast(w.Wargear, end, normal)", player);                          // a terrain hit plays the blast's flash
+        string terrain = text[text.IndexOf("partial void ExtrasTerrainBlast", StringComparison.Ordinal)..];
+        Assert.Contains("FxDetonation(", terrain);
+        Assert.Contains("BlastDustShare(radius)", terrain);
+        Assert.Equal(0f, SmContent.BoltSmoke.Share);
     }
 }

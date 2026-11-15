@@ -548,7 +548,8 @@ public partial class NetworkView
             {
                 Func<(Vector3 Position, Basis Axes)?>? follow = null;
                 if (p.Attached) { string marker = p.Marker; follow = () => FxPlace(shooter, marker); }
-                var played1 = fx.Play(p.Name, place.Position, place.Axes, p.Scale <= 0f ? 1f : p.Scale, null, follow, p.Lifetime, 0.0, false, 1, tint: RaceTint(w.Wargear, p.Name), smokeRein: SmokeRein, followFor: ShotFollowSeconds(w.Wargear));
+                var played1 = fx.Play(p.Name, place.Position, place.Axes, p.Scale <= 0f ? 1f : p.Scale, null, follow, p.Lifetime, 0.0, false, own ? FxPriority.Own : FxPriority.Ally, tint: RaceTint(w.Wargear, p.Name), smokeRein: SmokeRein, followFor: ShotFollowSeconds(w.Wargear));   // fx-cap-priority: the own muzzle goes last
+                if (played1 is not null) { float dust = 1f; ExtrasImpactDustShare(w.Wargear, ref dust); played1.DustShare = dust * BoltSmoke.ShareFor(w.Wargear, OldBoltSmokeFx); }   // EXTRAS-HOOK: musou/autocannon-dust: no dust or smoke from the muzzle either (1 for every other weapon)
                 if (played1 is not null && p.Attached) MeltaFollowNote(played1, shooter, p.Marker, w.Wargear);   // fx/melta-attached: --log-melta-follow
             }
         }
@@ -562,14 +563,14 @@ public partial class NetworkView
         if (!tracered && BulletsOn && stage == 0 && spec.Delivery == DeliveryKind.Raycast && rayOrigin is not null && (FxPlace(shooter, w.MuzzleMarker) ?? fallback) is var from && from.Position.DistanceTo(end) >= 0.4f)
             travel = PlayFallbackBullet(from.Position, end, rayOrigin, rayDir);
         if (!atFire) { TracerProbeShot(shooter, spec, end, normal, travel, tracered, projectileShot, ShotHit.None); return; }
-        FxImpact(w, se, hit, surface, end, normal, dir, travel, victim, armourUp);
+        FxImpact(w, se, hit, surface, end, normal, dir, travel, victim, armourUp, own);
         TracerProbeShot(shooter, spec, end, normal, travel, tracered, projectileShot, hit);
     }
 
     readonly HashSet<FxPlay> _fxPlayedScratch = new((IEqualityComparer<FxPlay>)ReferenceEqualityComparer.Instance);
 
     /// <summary>The impact effects of a hit by the container of the shot's hit effect, oriented by each effect's own direction rule (interpretation).</summary>
-    void FxImpact(WeaponEffects w, ShotEffects se, ShotHit hit, int surface, Vector3 end, Vector3 normal, Vector3 dir, double delay, int victim = -1, bool? armourUp = null)
+    void FxImpact(WeaponEffects w, ShotEffects se, ShotHit hit, int surface, Vector3 end, Vector3 normal, Vector3 dir, double delay, int victim = -1, bool? armourUp = null, bool own = false)
     {
         if (hit == ShotHit.None || _catalogue is null || _fx is null) return;
         // M38: a player hit on raised armour reads as ceramite armour (bullets breaking armour), on broken armour as the marine's own flesh-penetrating surface, and the victim shows the
@@ -587,6 +588,7 @@ public partial class NetworkView
         if (hit != ShotHit.World && hitFx) FxArmourHit(up, end, dir, victim, delay);
         if (hit != ShotHit.World && up && hitFx) ArmourSparks(end, dir, delay, victim);   // fx/bolt-tracer-impact
         if (hit != ShotHit.World && armourUp == false && hitFx) { if (HitBurstDrawn(hit)) BloodSplashAt(end, dir, delay, victim); else RedSparks(end, dir, delay); }   // owner 2026-11-13: Classic draws red sparks, not the large burst   // fx/red-glow-blood: no armour left, a red splash
+        if (hit == ShotHit.World) ExtrasTerrainBlast(w.Wargear, end, normal);   // EXTRAS-HOOK: musou/autocannon-flash (owner 2026-11-15)
         if (hit != ShotHit.World) CharacterFlashHit(victim, armourUp, end);   // fx/character-visuals (pvp-hit-fx: at the hit point): the victim's model flashes (NetworkView.CharacterFlash.cs); kept in Classic
         if (hit != ShotHit.World && MeltaBurnOnHit && MeltaBurnRules.IsMelta(w.Wargear))   // fix/melta-burn-onhit: the burn over the whole body, in the hit's own frame (NetworkView.MeltaBurn.cs); owner 2026-11-11: only a kill burns (MeltaKillBurn), unless --melta-burn-on-hit (which burns on every hit, in Classic PvP too, without --player-hit-fx)
         {
@@ -599,6 +601,8 @@ public partial class NetworkView
         if (plays.Count == 0) return;
         _fxImpacts++;
         if (hit != ShotHit.World) { _fxBodyImpacts++; if (up) _fxArmourImpacts++; else _fxFleshImpacts++; }
+        // fx-cap-priority (owner 2026-11-15): the own shot's impact goes last, then a hit on the player, then the rest.
+        int impactPriority = own ? FxPriority.Own : hit != ShotHit.World && victim >= 0 && victim == _client?.PlayerId ? FxPriority.Hit : FxPriority.Crowd;
         foreach (var p in plays)
         {
             var pos = end + normal * 0.02f;
@@ -613,13 +617,17 @@ public partial class NetworkView
             };
             var axes = AxesFromY(axis);
             if (p.TriggerPoint != "exit_wound") TracerProbeImpact(pos);   // fx/tracers-impact: --tracer-probe (the exit wound sits 0.35 m past the hit on purpose)
-            var impact = _fx.Play(p.Name, pos, axes, (p.Scale <= 0f ? 1f : p.Scale) * (hit != ShotHit.World ? HitFxParticleScale(end) : 1f), null, null, p.Lifetime, delay, false, 0, tint: RaceTint(w.Wargear, p.Name));   // onhit-range-intensity: a hit on a player keeps its size at range, x1.3
+            var impact = _fx.Play(p.Name, pos, axes, (p.Scale <= 0f ? 1f : p.Scale) * (hit != ShotHit.World ? HitFxParticleScale(end) : 1f), null, null, p.Lifetime, delay, false, impactPriority, tint: RaceTint(w.Wargear, p.Name));   // onhit-range-intensity: a hit on a player keeps its size at range, x1.3
             if (impact is not null && hit != ShotHit.World) impact.ReachCap = SparkReachCap;   // hit-sparks-flashes: a hit on a player's particles end within 4 m of the body
-            if (impact is not null) { float dust = 1f; ExtrasImpactDustShare(w.Wargear, ref dust); impact.DustShare = dust; }   // EXTRAS-HOOK: Musou's autocannon round throws half the dust (musou/autocannon-dust)
+            if (impact is not null) { float dust = 1f; ExtrasImpactDustShare(w.Wargear, ref dust); impact.DustShare = dust * BoltSmoke.ShareFor(w.Wargear, OldBoltSmokeFx); }   // EXTRAS-HOOK: Musou's autocannon round throws half the dust (musou/autocannon-dust)
         }
     }
 
     partial void ExtrasImpactDustShare(string wargear, ref float share);
+    /// <summary><c>--old-bolt-smoke</c> (fx/bolt-smoke, owner 2026-11-15; test aid): the bolt weapons' muzzle, hit and blast effects draw their smoke and debris sprites as the data has them (Classic PvP and Musou Mode).</summary>
+    static readonly bool OldBoltSmokeFx = CmdFlag("old-bolt-smoke") || CmdFlag("musou-old-bolt-smoke");
+    /// <summary>A Musou autocannon round that struck the level with no enemy: its blast's bright flash plays where it struck (<c>ExtrasTerrainBlast</c>; nothing without the added content).</summary>
+    partial void ExtrasTerrainBlast(string wargear, Vector3 end, Vector3 normal);
 
     /// <summary>Barrel smoke when a player stops firing (0.3 s without a shot).</summary>
     void FxStopFireSmoke()
@@ -635,7 +643,8 @@ public partial class NetworkView
             {
                 if (FxPlace(id, p.Marker) is not { } place) continue;
                 string marker = p.Marker;
-                _fx.Play(p.Name, place.Position, place.Axes, p.Scale <= 0f ? 1f : p.Scale, null, p.Attached ? () => FxPlace(id, marker) : null, p.Lifetime, 0.0, false, 0, tint: RaceTint(w.Wargear, p.Name), smokeRein: SmokeRein, followFor: AttachFollowSeconds);
+                var smoke = _fx.Play(p.Name, place.Position, place.Axes, p.Scale <= 0f ? 1f : p.Scale, null, p.Attached ? () => FxPlace(id, marker) : null, p.Lifetime, 0.0, false, 0, tint: RaceTint(w.Wargear, p.Name), smokeRein: SmokeRein, followFor: AttachFollowSeconds);
+                if (smoke is not null) { float dust = 1f; ExtrasImpactDustShare(w.Wargear, ref dust); smoke.DustShare = dust * BoltSmoke.ShareFor(w.Wargear, OldBoltSmokeFx); }   // EXTRAS-HOOK: the autocannon's share; musou/autocannon-dust
             }
         }
     }
@@ -727,11 +736,12 @@ public partial class NetworkView
         _fxDetonations++;
         _fxLastShotAt = _connectedFor; _fxLastEnd = pos; _fxLastFrom = pos;   // for --screenshot-on-effect
         string shooterWargear = ProjectileWargear(d);
+        int blastPriority = _camera is not null && _camera.GlobalPosition.DistanceTo(pos) <= FxPriority.NearBlastMetres ? FxPriority.Hit : FxPriority.Special;   // fx-cap-priority: a blast beside the player goes after the other blasts
         foreach (var p in plays)
-            if (_fx!.Play(p.Name, pos + Vector3.Up * 0.05f, Basis.Identity, (p.Scale <= 0f ? 1f : p.Scale) * scale, null, null, p.Lifetime, 0.0, false, 2, tint: RaceTint(shooterWargear, p.Name)) is { } played) played.DustShare = dustShare;
+            if (_fx!.Play(p.Name, pos + Vector3.Up * 0.05f, Basis.Identity, (p.Scale <= 0f ? 1f : p.Scale) * scale, null, null, p.Lifetime, 0.0, false, blastPriority, tint: RaceTint(shooterWargear, p.Name)) is { } played) played.DustShare = dustShare * BoltSmoke.ShareFor(shooterWargear, OldBoltSmokeFx);
         if (!d.Thrown && !OldChargedImpact) DetonationBodyHit(d);   // fx/tracers-impact: a projectile that struck a player shows the body hit (armour glow, flash) when it arrives
         foreach (var p in byMaterial)
-            if (_fx!.Play(p.Name, surfaceNormal is { } n ? surfacePoint + n * 0.02f : pos + Vector3.Up * 0.05f, surfaceNormal is { } sn ? AxesFromY(sn) : Basis.Identity, (p.Scale <= 0f ? 1f : p.Scale) * scale, null, null, p.Lifetime, 0.0, false, 2, tint: RaceTint(shooterWargear, p.Name)) is { } playedHit) playedHit.DustShare = dustShare;
+            if (_fx!.Play(p.Name, surfaceNormal is { } n ? surfacePoint + n * 0.02f : pos + Vector3.Up * 0.05f, surfaceNormal is { } sn ? AxesFromY(sn) : Basis.Identity, (p.Scale <= 0f ? 1f : p.Scale) * scale, null, null, p.Lifetime, 0.0, false, blastPriority, tint: RaceTint(shooterWargear, p.Name)) is { } playedHit) playedHit.DustShare = dustShare * BoltSmoke.ShareFor(shooterWargear, OldBoltSmokeFx);
         // Shake the camera by the distance, flash for a krak close by.
         if (_client is { } client)
         {

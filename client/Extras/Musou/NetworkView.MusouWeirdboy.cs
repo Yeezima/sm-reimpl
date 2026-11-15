@@ -30,7 +30,7 @@ public partial class NetworkView
     readonly Dictionary<ushort, Num.Vector3> _weirdboyAt = new();
     /// <summary>His bolt (muzzle, trail, hit) and his shield draw at priority 1 (ours, 2026-11-09): in a war's crowd the 160 live effects are full of gunfire, and at the default 0 the cap's eviction of
     /// the oldest lowest one took his shield bubble and could take a bolt in flight, as the Stormboy's jets and the Meks' sparks are kept.</summary>
-    const int WeirdboyFxPriority = 1;
+    const int WeirdboyFxPriority = SmContent.FxPriority.Special;   // fx-cap-priority: a boss's effects, above the crowd and the allies (1 before)
     /// <summary>His bolts drawn since the start (a capture's check).</summary>
     public int WeirdboyBoltsDrawn { get; private set; }
 

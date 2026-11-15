@@ -153,6 +153,8 @@ public sealed partial class FxPlayer : Node3D
     Vector3 _camPos;
     Basis _camBasis = Basis.Identity;
     uint _nextSeed = 1;
+    Vector3 _victimEye;
+    Func<FxEffect, (bool Ambient, int Priority, float Metres, double Age)>? _readVictim;
     int _ambientCount;
     /// <summary>Live shot, hit and explosion effects (not the ambient map ones): what the <c>MaxEffects</c> cap counts.</summary>
     public int ShotEffectCount => _effects.Count - _ambientCount;
@@ -310,8 +312,10 @@ public sealed partial class FxPlayer : Node3D
         if (ambient ? ambientCount >= MaxAmbient : _effects.Count - ambientCount >= cap)
         {
             if (ambient) { Culled++; return null; }
-            // Drop the lowest priority at or below the new one's, the oldest of that priority (fix/fx-hud-leaks, polish item 27: "lower or older" dropped an older 0 before a younger -1).
-            int victim = FxEviction.Victim(_effects, priority, static e => (e.Ambient, e.Priority, e.Age));
+            // Drop the lowest priority at or below the new one's, the farthest from the camera of that priority, then the oldest (fix/fx-hud-leaks, polish item 27: "lower or older" dropped an older 0 before a younger -1;
+            // fx-cap-priority, owner 2026-11-15: the farthest first, and a new effect that is itself the farthest of its priority is the one refused).
+            _victimEye = _camPos;
+            int victim = FxEviction.Victim(_effects, priority, origin.DistanceTo(_camPos), _readVictim ??= e => (e.Ambient, e.Priority, e.Origin.DistanceTo(_victimEye), e.Age));
             if (victim < 0) { Culled++; Refused[FxEviction.Slot(priority)]++; return null; }
             Evicted[FxEviction.Slot(_effects[victim].Priority)]++;
             Release(_effects[victim]); _effects.RemoveAt(victim); Culled++;
