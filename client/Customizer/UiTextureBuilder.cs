@@ -20,7 +20,7 @@ public static partial class UiTextureBuilder
     static float F = 1f;
     static Rect2I U(int x, int y, int w, int h) => new((int)MathF.Round(x * F), (int)MathF.Round(y * F), (int)MathF.Round(w * F), (int)MathF.Round(h * F));
 
-    public static int Run(string? conceptPath, string? outDir, string? cropPath = null, string? upscaledPath = null, string? masonryPath = null)
+    public static int Run(string? conceptPath, string? outDir, string? cropPath = null, string? upscaledPath = null, string? masonryPath = null, string? concept1xPath = null, string? panels = null)
     {
         if (string.IsNullOrEmpty(conceptPath) || !System.IO.File.Exists(conceptPath)) { GD.PrintErr("build-ui-textures: give the concept image: --build-ui-textures <concept-4panel.jpg>"); return 2; }
         var src = Image.LoadFromFile(conceptPath);
@@ -47,6 +47,13 @@ public static partial class UiTextureBuilder
             Save("wall-main", WallSynth(crop));
             Save("wordmark", WordmarkBuild(Cut(crop, new Rect2I(30, 122, 478, 94))));
             if (string.IsNullOrEmpty(cropPath)) Save("crest", Scaled(ClearBottomSides(FloodKey(Cut(crop, new Rect2I(150, 212, 226, 44)), 34f, 2, 2), 36, 30), 1.2f));
+        }
+
+        // ---- phase 4: panels 02, 03 and 04 from the concept's own pixels ----
+        if (!string.IsNullOrEmpty(concept1xPath) && System.IO.File.Exists(concept1xPath))
+        {
+            var one = Image.LoadFromFile(concept1xPath); one.Convert(Image.Format.Rgba8);
+            if (panels is null || panels.Contains("options")) OptionsTextures(one, src, outDir, Save);
         }
 
         // ---- buttons: the plate with its label removed ----

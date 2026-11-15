@@ -39,6 +39,10 @@ public sealed partial class OptionsView : UiKit.MenuPage
     readonly ColorRect _dim = new() { Name = "OptionsDim", Color = new Color(0f, 0f, 0f, 0.42f), MouseFilter = MouseFilterEnum.Ignore };
     readonly Button _apply, _revert, _back;
     readonly Label _toast = new() { Name = "OptionsToast", HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, MouseFilter = MouseFilterEnum.Ignore, Visible = false };
+    // Phase 4 (the owner's 1:1 order): the page is the concept's panel 04, one painted overlay with live controls on it (tabs, rows, APPLY, REVERT, BACK, the toast).
+    readonly TextureRect _overlay = new() { Name = "OptionsOverlay", MouseFilter = MouseFilterEnum.Ignore, ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, StretchMode = TextureRect.StretchModeEnum.Scale, TextureFilter = TextureFilterEnum.LinearWithMipmaps };
+    readonly Control _tabHost = new() { Name = "OptionsTabs", MouseFilter = MouseFilterEnum.Ignore };
+    bool _concept;
     FrontEndSettings _snapshot;
     public string Tab { get; private set; } = Graphics;
     UiKit.MenuChoice? _windowRow, _resolutionRow;   // the Graphics rows F11 changes behind the player's back
@@ -50,7 +54,7 @@ public sealed partial class OptionsView : UiKit.MenuPage
     public Button BackButton => _back;
     public Label Toast => _toast;
     public Control Frame => _frame;
-    public Control TabRow => _tabRow;
+    public Control TabRow => _concept ? _tabHost : _tabRow;
     public Control Grid => _grid;
 
     GameOptions O => _services.Settings.Options;
@@ -133,7 +137,85 @@ public sealed partial class OptionsView : UiKit.MenuPage
         AddChild(_dim); MoveChild(_dim, 0);
         AddChild(_pillarLeft); AddChild(_pillarRight);
         AddChild(_frame); AddChild(_crest); AddChild(_plate); AddChild(_skull);
+        if (ConceptArt.Get("overlay-options") is { } ov) EnterConceptLayout(ov);
         Foot = foot;   // under the frame (Place), outside its scroll list
+    }
+
+    /// <summary>Moves the live parts out of the old frame onto the painted overlay (panel 04) and gives the tabs, APPLY, REVERT, BACK and the toast their painted plates.</summary>
+    void EnterConceptLayout(Texture2D ov)
+    {
+        _concept = true;
+        _overlay.Texture = ov;
+        AddChild(_overlay); MoveChild(_overlay, 1);
+        _frame.AddThemeStyleboxOverride("panel", new StyleBoxEmpty());
+        _frame.MouseFilter = MouseFilterEnum.Ignore;
+        foreach (var c in new Control[] { _pillarLeft, _pillarRight, _crest, _plate, _skull }) c.Visible = false;
+        _frame.RemoveChild(_inner);
+        _inner.QueueFree();
+        AddChild(_tabHost);
+        foreach (var b in _tabs.Values) { _tabRow.RemoveChild(b); _tabHost.AddChild(b); }
+        _tabRow.Visible = false;
+        _list.GetParent()?.RemoveChild(_list); AddChild(_list);
+        foreach (var b in new[] { _apply, _revert, _back }) { b.GetParent()?.RemoveChild(b); AddChild(b); }
+        _toast.GetParent()?.RemoveChild(_toast); AddChild(_toast);
+        _toast.CustomMinimumSize = Vector2.Zero;
+        MoveChild(_frame, GetChildCount() - 1);
+    }
+
+    /// <summary>The window's mapping of panel 04's own coordinates (the concept's 780 x 440 screen at 10, 26 in its 800 x 480 sheet): scale and offset.</summary>
+    (float S, Vector2 O) PanelMap()
+    {
+        float s = Mathf.Min(Size.Y / UiTextureBuilder.PanelScreen.Size.Y, Size.X / UiTextureBuilder.PanelScreen.Size.X);
+        var o = new Vector2((Size.X - UiTextureBuilder.PanelScreen.Size.X * s) / 2f - UiTextureBuilder.PanelScreen.Position.X * s, (Size.Y - UiTextureBuilder.PanelScreen.Size.Y * s) / 2f - UiTextureBuilder.PanelScreen.Position.Y * s);
+        return (s, o);
+    }
+
+    void PlaceConcept()
+    {
+        var (s, o) = PanelMap();
+        Rect2 M(Rect2 r) => new(o + r.Position * s, r.Size * s);
+        _dim.Position = Vector2.Zero; _dim.Size = Size;
+        var ps = UiTextureBuilder.PanelScreen;
+        _frame.Position = o + new Vector2(ps.Position.X, ps.Position.Y) * s; _frame.Size = new Vector2(ps.Size.X, ps.Size.Y) * s;
+        var region = M(new Rect2(UiTextureBuilder.OptionsRegion.Position.X, UiTextureBuilder.OptionsRegion.Position.Y, UiTextureBuilder.OptionsRegion.Size.X, UiTextureBuilder.OptionsRegion.Size.Y));
+        _overlay.Position = region.Position; _overlay.Size = region.Size;
+        // Tabs (the host spans the tab strip; the plates are the concept's own rectangles).
+        var strip = M(new Rect2(146, 124, 516, 30));
+        _tabHost.Position = strip.Position; _tabHost.Size = strip.Size;
+        string[] ids = ["graphics", "sound", "controls", "interface"];
+        for (int i = 0; i < 4; i++)
+        {
+            var b = _tabs[Tabs[i]]; var r = M(UiTextureBuilder.OptionsTabs[i]);
+            b.CustomMinimumSize = Vector2.Zero; b.Position = r.Position - strip.Position; b.Size = r.Size;
+            if (Mathf.IsEqualApprox((float)b.GetMeta("painted_s", 0f), s)) continue;
+            b.SetMeta("painted_s", s);
+            PaintedButtons.Apply(b, "opt-tab-" + ids[i] + "-dark", "opt-tab-" + ids[i] + "-gold", new PaintedButtons.Pad(3, 3, 3, 3), new PaintedButtons.Pad(3, 4, 3, 5), s, goldFocus: false, paintedText: i != 1);
+            if (i == 1)
+            {
+                // SOUND has no painted label (the concept's is AUDIO): live Oswald at the painted labels' size, light on the dark plate, dark ink on the gold.
+                b.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(13.2f * s));
+                foreach (var c in new[] { "font_color", "font_hover_color", "font_focus_color" }) b.AddThemeColorOverride(c, new Color(0.80f, 0.79f, 0.76f));
+                foreach (var c in new[] { "font_pressed_color", "font_hover_pressed_color" }) b.AddThemeColorOverride(c, new Color(0.10f, 0.06f, 0.02f));
+            }
+        }
+        // The rows scroll inside the content area.
+        var rows = M(new Rect2(130, 160, 542, 138));
+        _list.Position = rows.Position; _list.Size = rows.Size;
+        _grid.Columns = rows.Size.X < 1100f ? 1 : 2;
+        // APPLY, REVERT, BACK.
+        void Plate(Button b, Rect2 rect, string dark, string gold, PaintedButtons.Pad dp, PaintedButtons.Pad gp, bool goldFocus, bool goldRest = false, bool noGlow = true)
+        {
+            var r = M(rect); b.CustomMinimumSize = Vector2.Zero; b.Position = r.Position; b.Size = r.Size;
+            if (Mathf.IsEqualApprox((float)b.GetMeta("painted_s", 0f), s)) return;
+            b.SetMeta("painted_s", s);
+            PaintedButtons.Apply(b, dark, gold, dp, gp, s, goldFocus, paintedText: true, goldRest: goldRest, noGlow: noGlow);
+        }
+        Plate(_apply, UiTextureBuilder.OptionsApply, "opt-apply-dark", "opt-apply-gold", new PaintedButtons.Pad(3, 4, 3, 4), new PaintedButtons.Pad(3, 4, 3, 5), false, goldRest: true);
+        Plate(_revert, UiTextureBuilder.OptionsRevert, "opt-revert-dark", "opt-revert-gold", new PaintedButtons.Pad(3, 4, 3, 4), new PaintedButtons.Pad(3, 4, 3, 5), true, noGlow: false);
+        Plate(_back, UiTextureBuilder.OptionsBack, "opt-back-dark", "opt-back-dark", new PaintedButtons.Pad(3, 2, 3, 2), new PaintedButtons.Pad(3, 2, 3, 2), false, noGlow: false);
+        // The toast chip.
+        var t = M(UiTextureBuilder.OptionsToast); _toast.Position = t.Position; _toast.Size = t.Size;
+        if (_foot is { } foot) { foot.Position = new Vector2(24f, Size.Y - foot.GetCombinedMinimumSize().Y - 14f); foot.Size = new Vector2(Mathf.Min(Size.X - 48f, 1100f), foot.GetCombinedMinimumSize().Y); }
     }
 
     /// <summary>Opens the page of a tab (null keeps the last one), takes the point REVERT goes back to, and puts the focus on its tab.</summary>
@@ -144,6 +226,7 @@ public sealed partial class OptionsView : UiKit.MenuPage
         _toast.Visible = false;
         ShowTab(tab ?? Tab);
         _tabs[Tab].FocusLater();
+        if (Array.IndexOf(OS.GetCmdlineUserArgs(), "--options-toast") >= 0) Apply();   // screenshot aid: the SETTINGS APPLIED chip
     }
 
     /// <summary>Shows a tab's rows.</summary>
@@ -185,6 +268,18 @@ public sealed partial class OptionsView : UiKit.MenuPage
     void ShowToast(string text)
     {
         _toast.Text = text; _toast.Visible = true;
+        if (_concept)
+        {
+            // The painted chip carries "SETTINGS APPLIED"; any other words (REVERTED) go on the blank chip in live text.
+            bool applied = text.Contains("APPLIED", StringComparison.Ordinal);
+            var tex = ConceptArt.Get(applied ? "opt-toast" : "opt-toast-blank");
+            if (tex is not null)
+            {
+                var (s, _) = PanelMap();
+                _toast.AddThemeStyleboxOverride("normal", new StyleBoxTexture { Texture = tex, ExpandMarginLeft = 2 * s, ExpandMarginRight = 2 * s, ExpandMarginTop = 2 * s, ExpandMarginBottom = 2 * s });
+                _toast.AddThemeColorOverride("font_color", applied ? Colors.Transparent : Steel.GoldHi);
+            }
+        }
         if (GetTree() is not { } tree) return;
         var timer = tree.CreateTimer(3.0);
         timer.Timeout += () => { if (IsInstanceValid(_toast) && _toast.Text == text) _toast.Visible = false; };
@@ -213,6 +308,7 @@ public sealed partial class OptionsView : UiKit.MenuPage
     protected override void Place()
     {
         if (_apply is null) return;   // the base class's constructor asks before the buttons exist
+        if (_concept) { PlaceConcept(); return; }
         float w = Size.X, h = Size.Y;
         float footH = _foot is { Visible: true } f ? f.GetCombinedMinimumSize().Y + 14f : 0f;
         float frameW = Mathf.Clamp(w - 2f * 150f, 700f, FrameMaxWidth);

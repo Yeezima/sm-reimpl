@@ -182,36 +182,42 @@ public static partial class UiTextureBuilder
         if (_bpCache is null || _bpKey != path)
         {
             var up = Image.LoadFromFile(path); up.Convert(Image.Format.Rgba8);
-            int w = crop.GetWidth(), h = crop.GetHeight(), k = up.GetWidth() / w, W = up.GetWidth(), H = up.GetHeight();
-            var u = new float[W * H * 3]; var c = new float[w * h * 3];
-            for (int y = 0; y < H; y++) for (int x = 0; x < W; x++) { var p = up.GetPixel(x, y); int i = (y * W + x) * 3; u[i] = p.R; u[i + 1] = p.G; u[i + 2] = p.B; }
-            for (int y = 0; y < h; y++) for (int x = 0; x < w; x++) { var p = crop.GetPixel(x, y); int i = (y * w + x) * 3; c[i] = p.R; c[i + 1] = p.G; c[i + 2] = p.B; }
-            var d = new float[w * h * 3];
-            for (int it = 0; it < 4; it++)
-            {
-                double worst = 0;
-                for (int y = 0; y < h; y++) for (int x = 0; x < w; x++)
-                    for (int ch = 0; ch < 3; ch++)
-                    {
-                        float sum = 0; for (int dy = 0; dy < k; dy++) for (int dx = 0; dx < k; dx++) sum += u[((y * k + dy) * W + x * k + dx) * 3 + ch];
-                        float diff = c[(y * w + x) * 3 + ch] - sum / (k * k); d[(y * w + x) * 3 + ch] = diff; worst = Math.Max(worst, Math.Abs(diff));
-                    }
-                GD.Print($"back-projection pass {it}: largest block error {worst:0.0000}");
-                for (int y = 0; y < H; y++)
-                    for (int x = 0; x < W; x++)
-                    {
-                        float fx = (x + 0.5f) / k - 0.5f, fy = (y + 0.5f) / k - 0.5f; int x0 = (int)MathF.Floor(fx), y0 = (int)MathF.Floor(fy); float tx = fx - x0, ty = fy - y0;
-                        int xa = Math.Clamp(x0, 0, w - 1), xb = Math.Clamp(x0 + 1, 0, w - 1), ya = Math.Clamp(y0, 0, h - 1), yb = Math.Clamp(y0 + 1, 0, h - 1);
-                        for (int ch = 0; ch < 3; ch++)
-                        {
-                            float v = Mathf.Lerp(Mathf.Lerp(d[(ya * w + xa) * 3 + ch], d[(ya * w + xb) * 3 + ch], tx), Mathf.Lerp(d[(yb * w + xa) * 3 + ch], d[(yb * w + xb) * 3 + ch], tx), ty);
-                            u[(y * W + x) * 3 + ch] = Mathf.Clamp(u[(y * W + x) * 3 + ch] + v, 0f, 1f);
-                        }
-                    }
-            }
-            for (int y = 0; y < H; y++) for (int x = 0; x < W; x++) { int i = (y * W + x) * 3; up.SetPixel(x, y, new Color(u[i], u[i + 1], u[i + 2], 1f)); }
+            BackProject(up, crop);
             _bpCache = up; _bpKey = path;
         }
         return (Image)_bpCache.Duplicate();
+    }
+
+    /// <summary>Iterative back-projection of <paramref name="up"/> (k times the size of <paramref name="crop"/>) onto the crop, in place.</summary>
+    public static void BackProject(Image up, Image crop)
+    {
+        int w = crop.GetWidth(), h = crop.GetHeight(), k = up.GetWidth() / w, W = up.GetWidth(), H = up.GetHeight();
+        var u = new float[W * H * 3]; var c = new float[w * h * 3];
+        for (int y = 0; y < H; y++) for (int x = 0; x < W; x++) { var p = up.GetPixel(x, y); int i = (y * W + x) * 3; u[i] = p.R; u[i + 1] = p.G; u[i + 2] = p.B; }
+        for (int y = 0; y < h; y++) for (int x = 0; x < w; x++) { var p = crop.GetPixel(x, y); int i = (y * w + x) * 3; c[i] = p.R; c[i + 1] = p.G; c[i + 2] = p.B; }
+        var d = new float[w * h * 3];
+        for (int it = 0; it < 4; it++)
+        {
+            double worst = 0;
+            for (int y = 0; y < h; y++) for (int x = 0; x < w; x++)
+                for (int ch = 0; ch < 3; ch++)
+                {
+                    float sum = 0; for (int dy = 0; dy < k; dy++) for (int dx = 0; dx < k; dx++) sum += u[((y * k + dy) * W + x * k + dx) * 3 + ch];
+                    float diff = c[(y * w + x) * 3 + ch] - sum / (k * k); d[(y * w + x) * 3 + ch] = diff; worst = Math.Max(worst, Math.Abs(diff));
+                }
+            GD.Print($"back-projection pass {it}: largest block error {worst:0.0000}");
+            for (int y = 0; y < H; y++)
+                for (int x = 0; x < W; x++)
+                {
+                    float fx = (x + 0.5f) / k - 0.5f, fy = (y + 0.5f) / k - 0.5f; int x0 = (int)MathF.Floor(fx), y0 = (int)MathF.Floor(fy); float tx = fx - x0, ty = fy - y0;
+                    int xa = Math.Clamp(x0, 0, w - 1), xb = Math.Clamp(x0 + 1, 0, w - 1), ya = Math.Clamp(y0, 0, h - 1), yb = Math.Clamp(y0 + 1, 0, h - 1);
+                    for (int ch = 0; ch < 3; ch++)
+                    {
+                        float v = Mathf.Lerp(Mathf.Lerp(d[(ya * w + xa) * 3 + ch], d[(ya * w + xb) * 3 + ch], tx), Mathf.Lerp(d[(yb * w + xa) * 3 + ch], d[(yb * w + xb) * 3 + ch], tx), ty);
+                        u[(y * W + x) * 3 + ch] = Mathf.Clamp(u[(y * W + x) * 3 + ch] + v, 0f, 1f);
+                    }
+                }
+        }
+        for (int y = 0; y < H; y++) for (int x = 0; x < W; x++) { int i = (y * W + x) * 3; up.SetPixel(x, y, new Color(u[i], u[i + 1], u[i + 2], 1f)); }
     }
 }
