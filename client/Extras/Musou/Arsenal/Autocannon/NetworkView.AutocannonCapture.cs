@@ -28,6 +28,7 @@ public partial class NetworkView
         var client = _client!;
         if (!await AutocannonDeploy()) return;
         await TfwWait(1.0);
+        if (CmdFlag("bolt-smoke-scene")) { await BoltSmokeSceneRun(); return; }   // fx/bolt-smoke proof: the deterministic scene (NetworkView.BoltSmokeScene.cs)
         var point = _tfwState.Objectives[0].Position;
         await TfwPathTo(point, "walked towards the Orks", 150.0, () => _musouState.MiddleNear(client.Predicted.Position, 26f) is not null);
         string held = _config is { } c && Loadouts.InHand(c, client.Predicted) is { } w ? w.Name : "?";
@@ -82,12 +83,13 @@ public partial class NetworkView
         TfwAction(GameAction.Fire, true);
         double end = _connectedFor + 25.0;
         int saved = 0;
+        float range = CmdFloat("ac-rapid-range") is var rg && float.IsFinite(rg) && rg > 0f ? rg : 30f;   // --ac-rapid-range <m>: stills only while an Ork is within this range (default 30; the bolt-smoke proof uses 14)
         while (_connectedFor < end && saved < 36)
         {
             AutocannonAim();
             await TfwFrames(1);
             var me = client.Predicted.Position;
-            if (_musouState.NearestTo(me, 30f, _ => true) is null) continue;
+            if (_musouState.NearestTo(me, range, _ => true) is null) continue;
             await TfwFrames(3);
             await TfwShot($"rapid-{saved++:00}");
         }

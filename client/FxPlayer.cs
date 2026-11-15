@@ -77,6 +77,8 @@ public sealed class FxEffect
     public bool BrightSprites = true;
     /// <summary>fx-cap-priority (owner 2026-11-15): alpha sprites that are dust or grit (<see cref="SmContent.BrightFlash.IsGrit"/>) are not drawn; blood stays. A bolt weapon's and the autocannon's hit on an Ork.</summary>
     public bool NoGrit;
+    /// <summary>fx/bolt-smoke (owner 2026-11-15, "Thin the dark mist"): the blood effect's big dark-red mist cards (<see cref="SmContent.BrightFlash.IsMistSprite"/>: the alpha <c>blood_breakup</c>, <c>blood_beam_breakup</c> and <c>blood_exit_beam_soft</c> cards, and the additive <c>fire_anim</c> puff) are not drawn; the red drops, hard spikes, gibs and streamers stay. CPU (<c>DrawNode</c>) and GPU (<c>GpuShown</c>, plan mask bit 128) apply it alike. A bolt weapon's and the autocannon's hit and kill on a Musou Ork.</summary>
+    public bool NoMist;
     /// <summary>fx/jumppack-jets (ours): 0..1, scales every sprite, beam, streamer and light colour of the effect (a smooth fade in or out while it keeps playing); 1: the data's.</summary>
     public float Opacity = 1f;
     /// <summary>fx/air-slash-landing: the effect's decals (crater, cracks) are not placed (the air slash's flash is the pound's burst without its ground marks).</summary>
@@ -185,7 +187,38 @@ public sealed partial class FxPlayer : Node3D
     /// <summary><c>--old-plasma-edges</c> (plasma-soft-visuals): the plasma ribbons keep their hard edges and the chambers' arcs their 2.5 m reach.</summary>
     /// <summary><c>--log-fx-plays</c> (test aid): one <c>FXPLAY</c> line for every effect started (name, scale, priority, place), to find which effect draws what is on the screen.</summary>
     static readonly bool LogPlays = Array.IndexOf(OS.GetCmdlineUserArgs(), "--log-fx-plays") >= 0;
-    public static bool OldPlasmaEdges { get; set; } = Array.IndexOf(OS.GetCmdlineUserArgs(), "--old-plasma-edges") >= 0;
+
+    /// <summary><c>--fx-skip name,name</c> (test aid, bolt-smoke proof 2026-11-15): the named effects are not played at all, to isolate which effect draws a cloud on the screen (with <c>--log-fx-plays</c>).</summary>
+    static readonly string[] SkipPlays = FxSkipNames();
+    static string[] FxSkipNames()
+    {
+        var args = OS.GetCmdlineUserArgs();
+        int at = Array.IndexOf(args, "--fx-skip");
+        return at >= 0 && at + 1 < args.Length ? args[at + 1].Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries) : [];
+    }
+    /// <summary><c>--fx-tree name,name</c> (test aid, bolt-smoke proof 2026-11-15): prints each named effect's node tree (kind, name, material, blend, duration) once, on its first play.</summary>
+    static readonly string[] TreeNames = FxTreeNames();
+    static string[] FxTreeNames()
+    {
+        var args = OS.GetCmdlineUserArgs();
+        int at = Array.IndexOf(args, "--fx-tree");
+        return at >= 0 && at + 1 < args.Length ? args[at + 1].Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries) : [];
+    }
+    readonly HashSet<string> _treeDumped = new();
+    void DumpTree(string name, CSystem system)
+    {
+        if (TreeNames.Length == 0 || Array.IndexOf(TreeNames, name) < 0 || !_treeDumped.Add(name)) return;
+        GD.Print($"FXTREE {name}");
+        void Walk(CNode n, int depth, string tag)
+        {
+            string mat = n is CSprite s ? $" mat {s.Material.Name} {(s.Additive ? "ADD" : s.Distortion ? "DIST" : "ALPHA")}" : "";
+            GD.Print($"FXTREE {new string(' ', depth * 2)}{tag}{n.GetType().Name} '{n.Name}' dur {n.Duration:F2} smoke {n.Smoke}/{n.SmokeOnly} hide {n.Hide}{mat}");
+            foreach (var c in n.Children) Walk(c, depth + 1, "");
+            foreach (var c in n.OnCollision) Walk(c, depth + 1, "[collision] ");
+        }
+        foreach (var r in system.Roots) Walk(r, 1, "");
+    }
+    public static bool OldPlasmaEdges { get; set; } =Array.IndexOf(OS.GetCmdlineUserArgs(), "--old-plasma-edges") >= 0;
     public static bool ShowSmoke { get; set; } = SmokeRules.SwitchOn(OS.GetCmdlineUserArgs());
 
     /// <summary>
@@ -326,6 +359,8 @@ public sealed partial class FxPlayer : Node3D
     {
         if (!IsReady || System(name) is not { } system) return null;
         if (!float.IsFinite(origin.X + origin.Y + origin.Z) || !float.IsFinite(scale)) return null;
+        if (SkipPlays.Length > 0 && Array.IndexOf(SkipPlays, name) >= 0) return null;   // --fx-skip (test aid)
+        DumpTree(name, system);
         if (LogPlays) GD.Print($"FXPLAY {name} scale {scale:F2} priority {priority} at ({origin.X:F1}, {origin.Y:F1}, {origin.Z:F1}) dist {origin.DistanceTo(_camPos):F1}");
         int ambientCount = _ambientCount, cap = MaxEffects;
         ExtrasFxCap(ref cap);   // EXTRAS-HOOK: Musou Mode's GPU sprays raise the cap (musou/gpu-particles)
@@ -630,6 +665,7 @@ public sealed partial class FxPlayer : Node3D
         if (e.FlashOnly && n.Name is not ("quick flash" or "JET" or "")) return;
         if (e.BrightFlash && n is CSprite bright && (!e.BrightSprites || !SmContent.BrightFlash.Keeps(bright.Additive, bright.Distortion, bright.Name))) return;   // musou/autocannon-flash
         if (e.NoGrit && n is CSprite { Additive: false } grit && SmContent.BrightFlash.IsGrit(grit.Material.Name)) return;   // fx-cap-priority
+        if (e.NoMist && n is CSprite mist && SmContent.BrightFlash.IsMistSprite(mist.Additive, mist.Material.Name)) return;   // fx/bolt-smoke
         if (n.Hide || depth > MaxDepth || age < 0.0) return;
         // fx/no-smoke: smoke, dust, mist and haze are not drawn (the owner's change). A smoke sprite is not drawn; its collision content (a dropper collider's decal or debris) is
         // played by DrawSpray's collision path, not from here, so its parents are skipped whole only when that content is smoke too (SmokeOnly).

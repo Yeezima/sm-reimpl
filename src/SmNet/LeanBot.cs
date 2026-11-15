@@ -37,7 +37,7 @@ public static class LeanBot
     /// </summary>
     public static readonly IReadOnlySet<string> PresentationAids = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase)
     {
-        "anim-probe", "tracer-probe", "fire-test", "log-power-glow", "old-kraken-tracer", "tfw-bay-capture", "log-melta-follow", "hip-probe", "yaw-probe", "pan-rate", "transition-probe", "transition-sweep", "camera-probe", "camera-selftest", "camera-back", "motion-probe",
+        "anim-probe", "log-fov", "fov-demo", "old-melee-fov", "tracer-probe", "fire-test", "log-power-glow", "old-kraken-tracer", "tfw-bay-capture", "log-melta-follow", "hip-probe", "yaw-probe", "pan-rate", "transition-probe", "transition-sweep", "camera-probe", "camera-selftest", "camera-back", "motion-probe",
         "frame-profile", "frame-stats", "look-churn", "look-log", "look-closeup", "picker-demo", "picker-on-death", "picker-deploy", "bot-change-loadout",
         "no-extra-transitions", "no-sprint-stop", "no-sprint-start", "no-turns", "log-sprint-edges", "feel-shots-dense",   // install transitions: the restore switches change what is drawn, so a lean bot would not show them
         "bot-gait", "gait-sweep", "action-sweep", "bot-turn-sweep", "turn-sweep-fire", "latency-probe", "bullet-probe", "show-shot-rays", "camera-hide-log",
@@ -62,7 +62,7 @@ public static class LeanBot
         "tfw-feel-capture",   // added content Musou (combat feel): a short scripted fight for the before / after captures
         "tfw-weight-capture", "tfw-weight-pack", "tfw-weight-log", "log-musou-weight",   // added content Musou (weight pass 2026-11-10): the scripted baseline moves and their frame log
         "tfw-fight-capture", "tfw-sound-capture", "tfw-sound-fire-seconds", "musou-own-layer-db", "musou-own-layers", "tfw-sound-capture-long", "log-musou-flinch",   // added content Musou (capture banners, sound A/B 2026-11-10): the banner flip and the mix captures
-        "tfw-arc-capture", "log-musou-arcs",   // added content Musou (swing arc 2026-11-10): the arc stills' scripted swings and the arc log
+        "tfw-arc-capture", "log-musou-arcs", "old-musou-arc", "tfw-arc-delay", "tfw-arc-scene",   // added content Musou (swing arc 2026-11-10; old-musou-arc 2026-11-15 restores the unlimited, unoccluded arc): the arc stills' scripted swings and the arc log
         "tfw-spear-capture", "claw-spear-test", "tfw-claw-capture", "old-claw-model", "no-claw-arcs", "tfw-spear-carry-film", "tfw-spear-film", "tfw-spear-spot", "tfw-spear-hide-others", "tfw-spear-film-kind",   // added content Musou (arsenal W3b, 2026-11-10; the films and their open spot, spear pass 4): the spear's in-match stills and films and the claw / spear preview stage
         "shimmer-probe", "shimmer-trace",   // added content Musou (ashfall/no-flicker): the kit gallery's shimmer measure
         "guard-demo", "guard-demo-at", "guard-no-vat", "tfw-deploy", "tfw-test", "tfw-test-downs", "tfw-test-win", "tfw-test-fight", "tfw-fight-seconds", "tfw-test-capture", "tfw-capture-seconds", "tfw-capture-weak", "tfw-fire-test", "tfw-fire-at", "tfw-fire-cam", "tfw-fire-cam-run", "tfw-reduce-motion", "tfw-orbital-test", "tfw-librarian", "librarian-demo",   // added content Musou (TF7a; the Librarian pass 2: the Stormbird pick, the capture script): the scripted Guardsmen, the skinned crowd only, a scripted Deploy
@@ -84,7 +84,7 @@ public static class LeanBot
         // fix/stow-right: the switch test view and its probe, the capture window, the bot that switches for the capture
         "switch-test", "switch-probe", "wait-switch-window", "bot-switch-every",
         // fx/character-visuals: the armour flash demo
-        "armour-flash-demo", "slash-cone-demo", "stim-glow-demo", "old-bolt-tracer", "old-bolt-fx", "bolt-fx-demo", "old-score-box", "old-pistol-tracer",
+        "armour-flash-demo", "slash-cone-demo", "stim-glow-demo", "old-bolt-tracer", "old-bolt-fx", "bolt-fx-demo", "bolt-smoke-scene", "bolt-smoke-classic", "bolt-smoke-dir", "fx-skip", "fx-tree", "old-score-box", "old-pistol-tracer",
         // anim/melee-interaction: the charge impact's log and the capture of its frames
         "log-charge-impact", "charge-shots",
         // feel/weight-impact: the weight pass before / after, whole and by part, and its log

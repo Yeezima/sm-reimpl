@@ -21,6 +21,40 @@ public class BrightFlashTests
     public void Only_additive_flash_and_streak_sprites_stay(bool additive, bool distortion, string name, bool kept) =>
         Assert.Equal(kept, BrightFlash.Keeps(additive, distortion, name));
 
+    // fx/bolt-smoke ("Thin the dark mist", "Flash only"): the blood mist cards and the fire puff go from a bolt or autocannon hit and kill on an Ork; the red spray, hard spikes, drops, gibs and flashes stay
+    [Theory]
+    [InlineData(false, "blood_breakup", true)]
+    [InlineData(false, "blood_beam_breakup", true)]
+    [InlineData(false, "blood_exit_beam_soft", true)]
+    [InlineData(true, "muzzle_fire_anim", true)]
+    [InlineData(false, "blood_exit_beam_hard", false)]
+    [InlineData(false, "blood_spec_ring_tp_01", false)]
+    [InlineData(false, "blood_meat", false)]
+    [InlineData(false, "blood_streamer", false)]
+    [InlineData(false, "blood_splat", false)]
+    [InlineData(true, "add_point", false)]            // the bright flash
+    [InlineData(true, "directional_flash_beam", false)]
+    [InlineData(true, "cloud_beam_warm", false)]
+    public void The_blood_mist_cards_and_the_fire_puff_are_the_mist_sprites(bool additive, string material, bool mist) =>
+        Assert.Equal(mist, BrightFlash.IsMistSprite(additive, material));
+
+    [Fact]
+    public void An_alpha_fire_named_material_is_no_mist_and_an_additive_blood_card_is_none()
+    {
+        Assert.False(BrightFlash.IsMistSprite(false, "muzzle_fire_anim"));
+        Assert.False(BrightFlash.IsMistSprite(true, "blood_breakup"));
+    }
+
+    [Theory]
+    [InlineData(false, false, false, true)]   // a bolt blast: flash only
+    [InlineData(false, false, true, false)]   // --old-bolt-smoke: the whole frag effect
+    [InlineData(true, false, false, true)]    // the autocannon's blast: flash only, as before
+    [InlineData(true, true, false, false)]    // --musou-old-autocannon-fx
+    [InlineData(true, true, true, false)]
+    [InlineData(false, true, false, true)]    // the autocannon restore does not bring the bolt blast's puff back
+    public void The_bolt_blast_draws_only_its_bright_flash_unless_restored(bool autocannonBlast, bool oldAutocannon, bool oldBolt, bool flashOnly) =>
+        Assert.Equal(flashOnly, BoltSmoke.BlastFlashOnly(autocannonBlast, oldAutocannon, oldBolt));
+
     [Theory]
     [InlineData("stone_chunks_small_00", true)]
     [InlineData("stone_chunks_00", true)]

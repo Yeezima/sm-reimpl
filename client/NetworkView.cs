@@ -652,6 +652,7 @@ public partial class NetworkView : Node3D
         UpdateSound(me, others, delta);   // M26b
         Ph("extras");   // musou/perf-pass: added content's frame is its own phase in --frame-profile (Musou Mode splits it further)
         ExtrasFrame(me, others, delta);   // EXTRAS-HOOK: added content's per-frame work after the sound (loyalist barks: barks and the FOR THE EMPEROR key)
+        BoltSmokeSceneFrame();   // test aid --bolt-smoke-scene (NetworkView.BoltSmokeScene.cs): after the added content's camera
         Ph("brace, stims, hits");
         UpdateBraceVent(me, others);   // fidelity gap 7: the brace's and the vent's sounds and effects
         UpdateStims(me, others);   // perks/inert-2: combat stims' sound and effects (NetworkView.Stims.cs)
@@ -735,6 +736,7 @@ public partial class NetworkView : Node3D
             _switchPending = false; _latch.Reset(); return new PlayerInput(tick, 0f, 0f, _yaw, InputButtons.None, _pitch);
         }
         if (_bot && BotSwitchEvery > 0 && _connectedFor > 4.0) return BotSwitchInput(tick);   // fix/stow-right test aid (NetworkView.UpperBody.cs)
+        if (_bot && FovDemo) return FovDemoInput(tick);   // camera/melee-fov-widen test aid (NetworkView.MeleeFov.cs)
         if (_bot && BotIdle) return new PlayerInput(tick, 0f, 0f, _yaw, InputButtons.None, _pitch);
         if (_bot && BotStimDemoEvery > 0 && StimOf(_client!.Predicted) is not null) return BotStimDemoInput(tick);   // stim-original test aid (NetworkView.Stims.cs)
         if (_bot && BarrelTest) return BarrelTestInput(tick);   // fx/barrel-origin test aid (NetworkView.Barrel.cs)

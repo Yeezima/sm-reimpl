@@ -114,6 +114,7 @@ public partial class NetworkView
     /// <summary>The ranged wargear a hit or a kill is by: <c>--ork-blood-weapon</c>, else the player's gun in hand, else (a retainer, the scripted feed) the bolter (ours).</summary>
     string OrkBloodGun(PlayerState? who)
     {
+        if (BoltSceneGun is { } sceneGun) return sceneGun;   // test aid --bolt-smoke-scene
         if (OrkBloodWeaponArg is { Length: > 0 } forced) return forced;
         if (who is { } s && _config is not null && Loadouts.InHand(_config, s) is { Delivery: not DeliveryKind.Cone } gun) return gun.Name;
         return "sm_mp_ranged_bolter";
@@ -157,7 +158,7 @@ public partial class NetworkView
         uint seed = (uint)(d.Id * 2654435761u) ^ (d.Tick * 40503u);
         float zoneRoll = (seed & 0xFFFF) / 65536f, chanceRoll = ((seed >> 16) & 0xFFFF) / 65536f;
         var kill = OrkBloodRules.Kill(data, type, d.Cause, OrkBloodLastHit(d.Id) == 2, zoneRoll, chanceRoll);
-        if (OrkBloodZoneArg is { } z && OrkBlood.Zones.ToList().IndexOf(z) is var zi and >= 0)
+        if ((_bsZone ?? OrkBloodZoneArg) is { } z && OrkBlood.Zones.ToList().IndexOf(z) is var zi and >= 0)
         {
             var row = data.Types.GetValueOrDefault(type);
             string point = row is null ? "" : OrkBloodRules.TakesWholeBody(d.Cause) ? row.NothingLeft : row.Zones[zi].Point;
@@ -186,6 +187,9 @@ public partial class NetworkView
         var right = new Num.Vector3(forward.Y, -forward.X, 0f);
         var basis = _gameSpace.GlobalTransform.Basis;
         Vector3 Dir(Num.Vector3 v) => (basis * new Vector3(v.X, v.Y, v.Z)).Normalized();
+        bool boltKill = BoltKillNoSmoke(d);
+        bool noMist = boltKill || AutocannonKillNoMist(d);
+        if (LogOrkBlood) GD.Print($"ORK BLOOD effects of {kill.Point}: {string.Join(", ", data.PointEffects(kill.Point).Select(x => x.Name))}; bolt kill {boltKill}");
         foreach (var p in data.PointEffects(kill.Point))
         {
             bool limb = p.Name.EndsWith("_limb", StringComparison.Ordinal) || p.Name.EndsWith("_drip", StringComparison.Ordinal);
@@ -193,20 +197,20 @@ public partial class NetworkView
             var off = OrkBloodRules.MarkerOffset(p.Marker) * size;
             var at = chest + right * off.X + forward * off.Y + new Num.Vector3(0f, 0f, off.Z);
             var axis = p.Direction switch { "negative_hit_direction" => Dir(-push), "hit_direction" => Dir(push), _ => Dir(Num.Vector3.UnitZ) };
-            OrkBloodPlay(p.Name, ToGodot(at), axis, (p.Scale <= 0f ? 1f : p.Scale) * size, at, priority);
+            OrkBloodPlay(p.Name, ToGodot(at), axis, (p.Scale <= 0f ? 1f : p.Scale) * size, at, priority, smoke: !boltKill, noMist: noMist);   // fx/bolt-smoke: a bolt weapon's kill keeps its blood, gibs and limbs but not the smoke and dark rings
         }
         return kill.WholeBody;
     }
 
     /// <summary>Plays one blood effect at <paramref name="where"/> (Godot space) along <paramref name="axis"/>, scaled and thickened by the Musou factor; its ground decal on the floor under <paramref name="game"/>.</summary>
-    void OrkBloodPlay(string name, Vector3 where, Vector3 axis, float scale, Num.Vector3 game, int priority = 0, bool smoke = true, bool noGrit = false)
+    void OrkBloodPlay(string name, Vector3 where, Vector3 axis, float scale, Num.Vector3 game, int priority = 0, bool smoke = true, bool noGrit = false, bool noMist = false)
     {
         if (_fx is null) return;
-        if (_fx.Play(name, where, AxesFromY(axis), scale * OrkBloodScale, priority: priority) is { } e) { e.Amount = OrkBloodScale; e.KeepSmoke = smoke; e.NoGrit = noGrit; e.GammaColours = !OldBloodColours; _orkBloodPlays++; MusouGorePlayed(priority); }
+        if (_fx.Play(name, where, AxesFromY(axis), scale * OrkBloodScale, priority: priority) is { } e) { e.Amount = OrkBloodScale; e.KeepSmoke = smoke; e.NoGrit = noGrit; e.NoMist = noMist; e.GammaColours = !OldBloodColours; _orkBloodPlays++; MusouGorePlayed(priority); }
         // The effect's dropper on the floor (the M41 rule: a dropper lands where it starts, so its copy is placed on the ground): the data's blood decal.
         if (!_orkBloodDroppers.Contains(name) || GoreGround(game) is not { } floor) return;
         var ground = ToGodot(new Num.Vector3(game.X, game.Y, floor + 0.02f));
-        if (_fx.Play(name, ground, AxesFromY(Vector3.Up), scale * OrkBloodScale, priority: priority) is { } g) { g.Collisions = true; g.GroundOnly = true; g.Amount = OrkBloodScale; g.KeepSmoke = smoke; g.NoGrit = noGrit; g.GammaColours = !OldBloodColours; }
+        if (_fx.Play(name, ground, AxesFromY(Vector3.Up), scale * OrkBloodScale, priority: priority) is { } g) { g.Collisions = true; g.GroundOnly = true; g.Amount = OrkBloodScale; g.KeepSmoke = smoke; g.NoGrit = noGrit; g.NoMist = noMist; g.GammaColours = !OldBloodColours; }
     }
 
     /// <summary>
@@ -226,16 +230,29 @@ public partial class NetworkView
             var p = plays[k];
             var axis = p.Direction is "reflect_hit_direction" or "negative_hit_direction" or "hitpoint_normal" ? -dir : p.TriggerPoint == "exit_wound" ? dir : -dir;
             var pos = p.TriggerPoint == "exit_wound" ? end + dir * 0.35f : end - dir * 0.05f;
-            OrkBloodPlay(p.Name, pos, axis, p.Scale <= 0f ? 1f : p.Scale, game, priority, smoke: !NoShotSmoke(gun), noGrit: NoShotSmoke(gun));   // fx-cap-priority: a bolt weapon's or the autocannon's hit keeps its blood but not the smoke of the effect
+            OrkBloodPlay(p.Name, pos, axis, p.Scale <= 0f ? 1f : p.Scale, game, priority, smoke: !NoShotSmoke(gun), noGrit: NoShotSmoke(gun), noMist: NoShotSmoke(gun));   // fx-cap-priority: a bolt weapon's or the autocannon's hit keeps its blood but not the smoke of the effect
         }
     }
+
+    /// <summary>
+    /// fx/bolt-smoke (owner 2026-11-15, "no black smoke clouds ... when shooting bolt weapons in musou mode"): whether the kill <paramref name="d"/> was by a bolt weapon's shot or its bolt blast, so that its gore draws no smoke and no
+    /// dark ring (<c>body_dismemberment_limb</c>'s <c>dark</c>, <c>body_explode</c>'s <c>smoke</c> and <c>smoke dissipating</c>) and no grit; the blood, gibs and limbs stay. Not the autocannon's, not the Dreadnought's cannon or melta (no &lt;bolt&gt; in their file names), not melee's. Known approximation: the killer's weapon is the one in hand when the death is shown, so a switch within a moment of the kill can misattribute it. <c>--old-bolt-smoke</c>: as before.
+    /// </summary>
+    bool BoltKillNoSmoke(in MusouDeathShown d)
+        => SmContent.BoltSmoke.KillDropsSmoke(OrkBloodGun(MusouPlayerState(d.Killer)), d.Cause is MusouDeathKind.Shot or MusouDeathKind.BoltBlast, OldBoltSmoke);
+
+    /// <summary>fx/bolt-smoke ("Thin the dark mist"): the autocannon's shot or blast kill draws no dark blood mist either (its hits already do, with its dust rule); its gore keeps the smoke it had.</summary>
+    bool AutocannonKillNoMist(in MusouDeathShown d)
+        => !OldAutocannonDust && d.Cause is MusouDeathKind.Shot or MusouDeathKind.BoltBlast && SmSim.Extras.Musou.Arsenal.ArsenalRules.IsAutocannon(OrkBloodGun(MusouPlayerState(d.Killer)));
+
+    string? _bsZone;
 
     /// <summary>
     /// fx-cap-priority (owner 2026-11-15: "no black smoke clouds ... bolt weapons", "no dust ... autocannon"): whether the gun's hit on an Ork draws none of its smoke and dust cards. The blood effects are played with their smoke kept
     /// (<see cref="FxEffect.KeepSmoke"/>: the original blood's dark mist); the weapons' tough_body and tough_head containers carry smoke clouds with it, which is what stood round an Ork a bolt round or a shell hit. The blood stays.
     /// <c>--old-bolt-smoke</c> and <c>--musou-old-autocannon-fx</c> keep the smoke as before.
     /// </summary>
-    bool NoShotSmoke(string gun)   // also the grit rule: no smoke cards and no dust or grit sprites (the blood stays)
+    bool NoShotSmoke(string gun)  // also the grit rule: no smoke cards and no dust or grit sprites (the blood stays)
          => (!OldBoltSmoke && SmContent.BoltSmoke.IsBoltWeapon(gun)) || (!OldAutocannonDust && (SmSim.Extras.Musou.Arsenal.ArsenalRules.IsAutocannon(gun) || string.Equals(gun, SmContent.Extras.Musou.Arsenal.Arsenal.AutocannonTwinFile, StringComparison.OrdinalIgnoreCase)));
 
     /// <summary>The Ork blueprint's surface (<c>entity_ext/material_audio_visual</c> of <c>ork_coop_boy</c> and its zones: "flesh").</summary>

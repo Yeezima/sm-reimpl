@@ -1,6 +1,7 @@
 using System;
 using System.Threading.Tasks;
 using Godot;
+using SmNet.Extras.Musou;
 using SmSim;
 using SmSim.Extras.Musou;
 using SmSim.Extras.Musou.Campaign;
@@ -26,11 +27,76 @@ public partial class NetworkView
 
     static readonly bool ArcFilm = CmdFlag("tfw-arc-film");
 
+    /// <summary><c>--tfw-arc-delay s</c> (2026-11-15): seconds after the predicted strike a still is taken (default <see cref="StillAfter"/>; 0.03 to 0.08 catches the sweep mid-way).</summary>
+    static readonly float ArcDelay = CmdFloat("tfw-arc-delay");
+
+    /// <summary><c>--tfw-arc-scene</c> (2026-11-15; with <c>--tfw-arc-capture</c>): before the swings, two synthetic arcs through the real arc view for the occlusion proof, no Orks needed: the own body between the camera and an arc, and an arc running through a wall.</summary>
+    static readonly bool ArcScene = CmdFlag("tfw-arc-scene");
+
+    /// <summary>The own-body case and the wall case: stills (or a film pass) of a 2 m arc behind the own model from the player's camera, and of an arc poking through the nearest wall.</summary>
+    async Task TfwArcScene()
+    {
+        var client = _client!;
+        if (_musouArcView is null) { _musouArcView = new MusouSlashArcView { Legacy = OldMusouArc, PlayerModels = MusouPlayerModels, WorldBlocks = MusouArcWorldBlocks }; AddChild(_musouArcView); }
+        var me = client.Predicted;
+        var path = MusouSlashArcPath.Level(1, MusouArcPathSegments);
+        void Spawn(Num.Vector3 centre, Num.Vector3 forward, Num.Vector3 left, float radius)
+        {
+            var o = ToGodot(centre);
+            _musouArcView!.Add(o, (ToGodot(centre + forward) - o).Normalized(), (ToGodot(centre + left) - o).Normalized(), default, radius, 0.16f, 1, MusouSlashColour.Blue, 1.35f, 0, null, false, path, float.PositiveInfinity);
+            _musouArcs++;
+        }
+        // 1. The own body between the camera and the arc: the game's own camera is behind the player; the arc stands 1.3 m in front of him at chest height.
+        var forward = new Num.Vector3(-MathF.Sin(me.Yaw), MathF.Cos(me.Yaw), 0f);
+        var left = new Num.Vector3(-MathF.Cos(me.Yaw), -MathF.Sin(me.Yaw), 0f);
+        TfwArcCamera(false);
+        for (int i = 0; i < 3; i++)
+        {
+            Spawn(me.Position + new Num.Vector3(0f, 0f, 1.2f), forward, left, 1.3f);
+            await TfwArcWait(float.IsFinite(ArcDelay) ? ArcDelay : 0.08);
+            if (!ArcFilm) await TfwShot($"arc-scene-body-{i + 1}");
+            await TfwArcWait(ArcFilm ? 0.9 : 0.5);
+        }
+        // 2. An arc through the nearest wall: found by rays round the player; the arc's middle on the wall's face, running along the wall's normal, so half of it is behind the wall.
+        var world = client.Collision;
+        Num.Vector3? wall = null; Num.Vector3 normal = default; float best = float.MaxValue;
+        for (int a = 0; a < 360 && world is not null; a += 15)
+        {
+            float r = a * MathF.PI / 180f;
+            var dir = new Num.Vector3(MathF.Cos(r), MathF.Sin(r), 0f);
+            var from = me.Position + new Num.Vector3(0f, 0f, 1.3f);
+            if (world.Weapons.Raycast(from, dir, 45f) is { } hit && hit.Distance > 2f && hit.Distance < best && MathF.Abs(hit.Normal.Z) < 0.3f) { best = hit.Distance; wall = from + dir * hit.Distance; normal = hit.Normal; }
+        }
+        GD.Print($"TFWARC scene wall {(wall is null ? "none found" : $"at {best:F1} m")}");
+        if (wall is { } w)
+        {
+            var n = new Num.Vector3(normal.X, normal.Y, 0f); n = Num.Vector3.Normalize(n);
+            var along = new Num.Vector3(-n.Y, n.X, 0f);
+            _arcShotCameraOn = true;
+            if (_arcShotCamera is null) { _arcShotCamera = new Camera3D { Name = "ArcShotCamera" }; AddChild(_arcShotCamera); }
+            _arcShotCamera.Fov = _camera!.Fov; _arcShotCamera.Near = _camera.Near; _arcShotCamera.Far = _camera.Far;
+            _arcShotCamera.GlobalPosition = ToGodot(w + n * 3.2f + along * 1.2f + new Num.Vector3(0f, 0f, 0.3f));
+            _arcShotCamera.LookAt(ToGodot(w), Vector3.Up);
+            _arcShotCamera.MakeCurrent();
+            for (int i = 0; i < 3; i++)
+            {
+                // The path runs along the arc's "left"; left = the wall's normal, so the line enters the wall; forward = along the wall.
+                Spawn(w, along, n, 0f);
+                await TfwArcWait(float.IsFinite(ArcDelay) ? ArcDelay : 0.08);
+                if (!ArcFilm) await TfwShot($"arc-scene-wall-{i + 1}");
+                await TfwArcWait(ArcFilm ? 0.9 : 0.5);
+            }
+            _arcShotCameraOn = false;
+            TfwArcCamera(false);
+        }
+    }
+
     async Task TfwArcCapture()
     {
         var client = _client!;
         if (!await TfwTestDeploy(TfwLane.B)) return;
         await TfwWait(1.0);
+        if (ArcScene) { await TfwArcScene(); GD.Print("TFWARC scene done"); GetTree().Quit(0); return; }
         var point = _tfwState.Objectives[0].Position;
         await TfwPathTo(point, "arc: walked towards the Orks", 45.0, () => _musouState.MiddleNear(client.Predicted.Position, 22f) is not null);
         string weapon = MeleeWargear(client.Predicted) ?? "-";
@@ -52,7 +118,7 @@ public partial class NetworkView
                 await TfwActionTap(heavy ? GameAction.StunStrike : GameAction.Melee);
                 await TfwUntil("arc: the strike", () => _musouLastStrikeAt > pressed, 1.5);
                 if (view == "third") TfwArcCamera(true);
-                await TfwArcWait(ArcFilm ? 0.9 : StillAfter);
+                await TfwArcWait(ArcFilm ? 0.9 : float.IsFinite(ArcDelay) ? ArcDelay : StillAfter);
                 if (!ArcFilm)
                 {
                     await TfwShot($"arc-{view}-{(heavy ? "heavy" : $"light{k + 1}")}");

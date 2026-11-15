@@ -25,7 +25,18 @@ public static class MusouSlashArcPath
         public float TiltDegrees;
         /// <summary>Degrees the line bows away from the straight chord at its widest (its curve).</summary>
         public float BowDegrees;
+        /// <summary>The limited fit's measure: degrees between the strike's first and last direction (BowDegrees then holds the sideways deviation from the great circle).</summary>
+        public float SweepDegrees;
+        /// <summary>The limited arc (owner 2026-11-15; <see cref="FitLimited"/>): null for the older full-swing path (<see cref="Fit"/>).</summary>
+        public Limited? Arc;
     }
+
+    /// <summary>
+    /// A swing's limited arc (owner, 2026-11-15): one clean stroke of fixed length (<see cref="ArcLength"/>) and constant curvature. <see cref="Mid"/> is the unit direction from the chest to the
+    /// stroke's middle, <see cref="Tangent"/> the unit direction of travel there, <see cref="Bow"/> the unit direction the stroke bulges toward (perpendicular to the tangent), <see cref="TurnDegrees"/>
+    /// the angle the stroke turns through end to end. Scale free: <see cref="Points"/> puts it out at a radius.
+    /// </summary>
+    public sealed record Limited(Vector3 Mid, Vector3 Tangent, Vector3 Bow, float TurnDegrees);
 
     /// <summary>
     /// Seconds of the animation before and after the strike's hit time the tip is sampled over, and the samples taken (evenly spaced in time). Wide on purpose: <see cref="ActiveSpan"/> then keeps
@@ -191,6 +202,7 @@ public static class MusouSlashArcPath
     /// <summary>The path's points at <paramref name="radius"/> metres from the chest (offsets from it, X forward, Y left, Z up): the swing's tilt, curve and direction at the cleave's distance.</summary>
     public static Vector3[] Scale(Path path, float radius, float maxDrop = float.PositiveInfinity)
     {
+        if (path.Arc is { } arc) return Points(arc, radius, path.Directions.Length - 1, maxDrop);   // the limited arc: 2 m long wherever the radius puts it
         var points = new Vector3[path.Directions.Length];
         for (int i = 0; i < points.Length; i++)
         {
@@ -235,6 +247,151 @@ public static class MusouSlashArcPath
         float azimuth = horizontal > 1e-4f ? MathF.Atan2(unit.Y, unit.X) : 0f;
         float c = MathF.Cos(elevation);
         return new Vector3(c * MathF.Cos(azimuth), c * MathF.Sin(azimuth), MathF.Sin(elevation));
+    }
+
+    // ---- The limited arc (owner, 2026-11-15) ----
+
+    /// <summary>
+    /// Seconds past the strike's hit time the arc still follows the tip (a short follow-through; never the recovery), the arc's fixed length (metres, along the curve), and the least and most the
+    /// stroke turns through (degrees, end to end: a gentle even bow). Owner 2026-11-15: release plus short follow-through, about 2 m, a gentle even bow; the numbers are ours.
+    /// </summary>
+    public const float FollowSeconds = 0.06f, ArcLength = 2f, MinTurnDegrees = 8f, MaxTurnDegrees = 40f, DefaultTurnDegrees = 20f, BowRatioFull = 0.5f;
+
+    /// <summary>The fewest usable samples and the least travel (degrees) the limited fit needs; below it the caller draws <see cref="Level"/>.</summary>
+    public const int MinLimitedSamples = 3;
+    public const float MinLimitedTravelDegrees = 4f;
+
+    /// <summary>
+    /// The samples <paramref name="tip"/> (evenly spaced in time from <paramref name="from"/> to <paramref name="to"/> seconds of the clip) that belong to the swing's released strike: none after
+    /// <paramref name="hitTime"/> + <see cref="FollowSeconds"/> (the recovery), and of those only the fast part (<see cref="ActiveSpan"/>: from the release, not the wind-up).
+    /// </summary>
+    public static IReadOnlyList<Vector3> ReleaseSpan(IReadOnlyList<Vector3> tip, float from, float to, float hitTime)
+    {
+        if (tip.Count < 3 || !(to > from) || !float.IsFinite(hitTime)) return tip;
+        float cutoff = hitTime + FollowSeconds;
+        var kept = new List<Vector3>(tip.Count);
+        for (int i = 0; i < tip.Count; i++)
+        {
+            float t = from + (to - from) * i / (tip.Count - 1);
+            kept.Add(tip[i]);
+            if (t >= cutoff) break;   // the first sample at or past the cutoff closes the strike
+        }
+        return ActiveSpan(kept);
+    }
+
+    /// <summary>
+    /// Fits one smooth stroke to the swing's released strike: the samples <paramref name="tip"/> (see <see cref="ReleaseSpan"/>) seen from <paramref name="chest"/> give the stroke's middle, its
+    /// direction of travel (first to last sample, so the swing's tilt and direction stay) and which side it bows to (the side the path strays farthest to; a hook or an S-bend collapses to its
+    /// larger lobe, so the curvature never changes sign), clamped to <see cref="MinTurnDegrees"/> .. <see cref="MaxTurnDegrees"/>. Null when too little is usable (the caller draws <see cref="Level"/>).
+    /// </summary>
+    public static Path? FitLimited(IReadOnlyList<Vector3> tip, Vector3 chest, int segments, float from, float to, float hitTime, float halfAngleDegrees = 180f)
+    {
+        if (tip is null || segments < 1 || !IsFinite(chest)) return null;
+        var kept = new List<Vector3>(tip.Count);
+        foreach (var p in ReleaseSpan(tip, from, to, hitTime))
+        {
+            if (!IsFinite(p)) continue;
+            var d = p - chest;
+            float length = d.Length();
+            if (length < MinReach) continue;
+            d = Clamp(d / length);
+            if (kept.Count > 0 && AngleBetween(kept[^1], d) < 0.5f * Rad) continue;
+            kept.Add(d);
+        }
+        if (halfAngleDegrees < 180f) kept = LongestRunInside(kept, halfAngleDegrees);
+        if (kept.Count < MinLimitedSamples) return null;
+        float travel = 0f;
+        for (int i = 1; i < kept.Count; i++) travel += AngleBetween(kept[i - 1], kept[i]);
+        if (!(travel >= MinLimitedTravelDegrees * Rad)) return null;
+        var chord = kept[^1] - kept[0];
+        float chordLength = chord.Length();
+        if (!(chordLength > 1e-4f)) return null;   // a swing that comes back to where it started has no direction
+        var u = chord / chordLength;
+        var midpoint = (kept[0] + kept[^1]) * 0.5f;
+        // The bow is measured against the great circle through the swing's first and last direction, not against the straight chord: seen from the chest every swing's directions lie on a
+        // sphere, so the chord of a plain level sweep already sags (0.5 of the sphere's radius for 120 degrees), which read as a 98 degree bow and hit the clamp on every swing (found 2026-11-15).
+        // What bows the line is the path's sideways deviation from that great circle.
+        var plane = Vector3.Cross(kept[0], kept[^1]);
+        float alpha = AngleBetween(kept[0], kept[^1]);
+        float beta = 0f;
+        Vector3 bow;
+        float turn;
+        var mid = Vector3.Normalize(midpoint);
+        if (plane.LengthSquared() > 1e-8f)
+        {
+            var n = Vector3.Normalize(plane);
+            float signed = 0f;
+            foreach (var d in kept) { float s = MathF.Asin(Math.Clamp(Vector3.Dot(d, n), -1f, 1f)); if (MathF.Abs(s) > MathF.Abs(signed)) signed = s; }
+            beta = MathF.Abs(signed);
+            bow = signed >= 0f ? n : -n;
+            mid = Clamp(Vector3.Normalize(mid + bow * MathF.Sin(beta)));
+        }
+        else bow = Vector3.UnitZ;
+        if (!IsFinite(mid)) return null;   // first and last directions opposite: no midpoint; the caller draws the level stroke (review)
+        if (beta < 2f * Rad)
+        {
+            // A path that stays on its great circle bows away from the chest, like a cleave's circle round the swinger, by the default turn.
+            var outward = mid - u * Vector3.Dot(mid, u);
+            bow = outward.LengthSquared() > 1e-8f ? Vector3.Normalize(outward) : Vector3.UnitZ;
+            turn = DefaultTurnDegrees;
+        }
+        else turn = MinTurnDegrees + (MaxTurnDegrees - MinTurnDegrees) * Math.Clamp(beta / MathF.Max(alpha, 1e-3f) / BowRatioFull, 0f, 1f);   // the real strikes sweep 120 to 165 degrees and stray 8 to 80 (logged): a straight tan() map hit the cap on 4 of 5
+        var fitted = Build(mid, u, bow, turn, segments);
+        fitted.BowDegrees = beta / Rad;
+        fitted.SweepDegrees = alpha / Rad;
+        return fitted;
+    }
+
+    /// <summary>The level default (no usable tip path): a stroke straight ahead at the line's height, bowed outward, travelling <paramref name="direction"/> (+1 right to left, -1 left to right).</summary>
+    public static Path Level(int direction, int segments)
+    {
+        var tangent = new Vector3(0f, direction >= 0 ? 1f : -1f, 0f);
+        return Build(Vector3.UnitX, tangent, Vector3.UnitX, DefaultTurnDegrees, segments);
+    }
+
+    static Path Build(Vector3 mid, Vector3 tangent, Vector3 bow, float turnDegrees, int segments)
+    {
+        tangent = Vector3.Normalize(tangent);
+        bow -= tangent * Vector3.Dot(bow, tangent);   // perpendicular to the tangent
+        bow = bow.LengthSquared() > 1e-8f ? Vector3.Normalize(bow) : Vector3.Normalize(Vector3.Cross(tangent, Vector3.UnitZ));
+        var limited = new Limited(mid, tangent, bow, turnDegrees);
+        var path = new Path { Arc = limited, TravelDegrees = turnDegrees };
+        var points = Points(limited, 2.5f, segments);
+        path.Directions = new Vector3[points.Length];
+        for (int i = 0; i < points.Length; i++) path.Directions[i] = Vector3.Normalize(points[i]);
+        Summarise(path);
+        return path;
+    }
+
+    /// <summary>
+    /// The limited arc's <paramref name="segments"/> + 1 points (offsets from the chest, X forward, Y left, Z up): a circular arc of <see cref="ArcLength"/> metres whose middle is at
+    /// <paramref name="radius"/> metres from the chest along <see cref="Limited.Mid"/>, bulging toward <see cref="Limited.Bow"/>, first point where the swing starts. Never lower than
+    /// <paramref name="maxDrop"/> below the chest: the whole stroke is lifted, so its shape is kept.
+    /// </summary>
+    public static Vector3[] Points(Limited arc, float radius, int segments, float maxDrop = float.PositiveInfinity)
+    {
+        float turn = Math.Clamp(arc.TurnDegrees, MinTurnDegrees, MaxTurnDegrees) * Rad;
+        float rho = ArcLength / turn;
+        var apex = arc.Mid * radius;
+        var centre = apex - arc.Bow * rho;
+        var points = new Vector3[segments + 1];
+        float lowest = float.MaxValue;
+        for (int k = 0; k <= segments; k++)
+        {
+            float phi = ((float)k / segments - 0.5f) * turn;
+            points[k] = centre + (arc.Bow * MathF.Cos(phi) + arc.Tangent * MathF.Sin(phi)) * rho;
+            lowest = MathF.Min(lowest, points[k].Z);
+        }
+        if (lowest < -maxDrop) { float lift = -maxDrop - lowest; for (int k = 0; k <= segments; k++) points[k].Z += lift; }
+        return points;
+    }
+
+    /// <summary>The length (metres) of a polyline.</summary>
+    public static float LengthOf(IReadOnlyList<Vector3> points)
+    {
+        float length = 0f;
+        for (int i = 1; i < points.Count; i++) length += Vector3.Distance(points[i - 1], points[i]);
+        return length;
     }
 
     static float AngleBetween(Vector3 a, Vector3 b) => MathF.Acos(Math.Clamp(Vector3.Dot(a, b), -1f, 1f));
