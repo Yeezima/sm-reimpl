@@ -364,9 +364,9 @@ public partial class ModelViewer : Node3D
     public override void _ExitTree() => HostedServer.Stop();
 
     /// <summary>Starts the networked view (M5) for <c>--connect</c> or for a Join from the front end; <paramref name="args"/> are the client's user arguments.</summary>
-    void StartNetwork(Dictionary<string, string?> args, string gameDir, bool rejoin = false)
+    void StartNetwork(Dictionary<string, string?> args, string gameDir, bool rejoin = false, bool keepOldForTest = false)
     {
-            if (_network is not null) DropNetwork();   // a view still running is never left behind a new one
+            if (_network is not null && !keepOldForTest) DropNetwork();   // (keepOldForTest: --leave-check-double leaves the old one in the tree to prove the sweep) a view still running is never left behind a new one
             _networkArgs = args;   // classic-maps-all: a rotation rejoins with the same arguments
             // M5: networked view. It draws its own overlay and decides when a screenshot is worth taking.
             bool bot = args.ContainsKey("bot");
@@ -411,7 +411,14 @@ public partial class ModelViewer : Node3D
     }
 
     /// <summary>"Leave match" in the in-match menu: back to the front end's main menu with a short note (deferred: it frees the view that asked), at the blink's black.</summary>
-    void LeaveMatch() => AtBlink(LeaveMatchNow, MenuBuilt);
+    void LeaveMatch()
+    {
+        if (_blinkChangePending && _network is not null) { _leaveQueued = true; return; }   // fix/leave-cleanup: a leave asked while another change waits for the black runs right after it, never dropped
+        AtBlink(LeaveMatchNow, MenuBuilt);
+    }
+
+    bool _leaveQueued;
+    int StrayDropped;   // views DropNetwork found beside the referenced one (the leave check reads it)
 
     void LeaveMatchNow()
     {
@@ -429,20 +436,18 @@ public partial class ModelViewer : Node3D
     {
         var views = new List<NetworkView>();
         if (_network is { } own) views.Add(own);
-        foreach (var child in GetChildren()) if (child is NetworkView stray && !views.Contains(stray)) { views.Add(stray); GD.Print("leave: a networked view outlived its reference; dropped too"); }
+        foreach (var child in GetChildren()) if (child is NetworkView stray && !views.Contains(stray)) { views.Add(stray); GD.Print("leave: a networked view outlived its reference; dropped too"); StrayDropped++; }
         foreach (var view in views)
         {
             view.LeaveNow();
             if (view.GetParent() is { } parent) parent.RemoveChild(view);
             view.QueueFree();
-            _droppedViews.Add(new WeakReference<NetworkView>(view));
         }
         _network = null;
         _backLayer?.QueueFree();
         _backLayer = null; _backHint = null;
     }
 
-    readonly List<WeakReference<NetworkView>> _droppedViews = new();
 
     static readonly string[] ViewerArguments = ["mesh", "archive", "anim", "time", "bones", "chaos", "stance", "clip-stats", "weapons", "worn", "hand", "view", "paint", "focus", "viewer", "keep-backpack"];
 
@@ -536,6 +541,7 @@ public partial class ModelViewer : Node3D
         _musouRetried = false;   // the next join from the menu is a new one
         FrontEndLaunch.Current = null;
         Input.MouseMode = Input.MouseModeEnum.Visible;
+        if (_frontEnd is { } oldFront) { oldFront.Release(); oldFront.GetParent()?.QueueFree(); _frontEnd = null; }   // fix/leave-cleanup: never two front ends
         _frontEnd = new FrontEndView(() => MakeServices(_launchArgs, _gameDir), JoinAtBlink, StartScreen.Join, _launchArgs, reason) { Name = "FrontEnd", GameFoundNote = _foundNote };
         var layer = new CanvasLayer { Name = "FrontEndLayer" };
         layer.AddChild(_frontEnd);
@@ -608,7 +614,11 @@ public partial class ModelViewer : Node3D
         if (_blink is null || !_blink.IsInsideTree()) { change(); return; }
         if (_blinkChangePending) return;
         _blinkChangePending = true;
-        _blink.Run(() => { _blinkChangePending = false; change(); }, ready);
+        _blink.Run(() =>
+        {
+            _blinkChangePending = false; change();
+            if (_leaveQueued) { _leaveQueued = false; if (_network is not null) CallDeferred(nameof(LeaveMatch)); }
+        }, ready);
     }
 
     /// <summary>The blink back to the menu opens once the menu's rows are up (the front end reads the install again first), within the blink's longest hold.</summary>

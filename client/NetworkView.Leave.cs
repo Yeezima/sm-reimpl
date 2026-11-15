@@ -16,6 +16,11 @@ public partial class NetworkView
     /// <summary>The connection's state (null: no client yet), and the seconds connected; for the front end's and the leave check's reading.</summary>
     public ClientStatus? ClientStatusNow => _client?.Status;
     public double ConnectedSeconds => _connectedFor;
+    /// <summary>The status line's text now (empty after a leave or while all is well).</summary>
+    public string StatusTextNow => StatusLine().Text;
+    /// <summary>Whether any HUD, loadout hint or picker layer of this view is still visible.</summary>
+    public bool AnyLayerVisible => AnyVisibleLayer(this);
+    static bool AnyVisibleLayer(Node n) { foreach (var c in n.GetChildren()) { if (c is CanvasLayer { Visible: true }) return true; if (AnyVisibleLayer(c)) return true; } return false; }
 
     /// <summary>The teardown; safe to call twice.</summary>
     public void LeaveNow()
