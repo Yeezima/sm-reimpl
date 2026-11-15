@@ -16,6 +16,20 @@ public static class BrightFlash
         return false;
     }
 
+    /// <summary>
+    /// fx/bolt-smoke (owner 2026-11-15, "Thin the dark mist"): the alpha sprites of the Ork blood that read as a dark-red cloud: the splash and splatter cards (<c>blood_breakup</c>, at Musou's 1.5x size and amount). The drops
+    /// (<c>blood_spec_ring_tp_01</c>), beams, streamers and gibs (<c>blood_meat</c>) are not.
+    /// </summary>
+    public static bool IsBloodMist(string material) =>
+        material.Equals("blood_breakup", StringComparison.OrdinalIgnoreCase) || material.Equals("blood_beam_breakup", StringComparison.OrdinalIgnoreCase) || material.Equals("blood_exit_beam_soft", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// fx/bolt-smoke ("Thin the dark mist", "Flash only"): a sprite a bolt or autocannon hit or kill on an Ork does not draw (<see cref="FxEffect.NoMist"/>): an alpha <see cref="IsBloodMist"/> card or soft beam, or the
+    /// additive fire puff (<c>muzzle_fire_anim</c>) of the gore's <c>explosion</c> ring. The bright flashes, the hard blood spikes, drops, streamers and gibs stay.
+    /// </summary>
+    public static bool IsMistSprite(bool additive, string material) =>
+        additive ? material.Contains("fire_anim", StringComparison.OrdinalIgnoreCase) : IsBloodMist(material);
+
     static readonly string[] GritWords = ["chunk", "debris", "pebble", "speck", "specs", "stone", "dirt", "dust", "rock", "gravel", "sand", "grit", "ground"];
 
     public static bool Keeps(bool additive, bool distortion, string name) =>

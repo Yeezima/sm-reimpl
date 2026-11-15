@@ -23,7 +23,8 @@ public class BoltSmokeKillPinTests
     {
         string src = Source();
         Assert.Matches(new Regex(@"bool boltKill = BoltKillNoSmoke\(d\);"), src);
-        Assert.Matches(new Regex(@"foreach \(var p in data\.PointEffects\(kill\.Point\)\)[\s\S]{0,900}?OrkBloodPlay\([^;]*smoke: !boltKill\)"), src);
+        Assert.Matches(new Regex(@"foreach \(var p in data\.PointEffects\(kill\.Point\)\)[\s\S]{0,900}?OrkBloodPlay\([^;]*smoke: !boltKill, noMist: noMist\)"), src);
+        Assert.Contains("bool noMist = boltKill || AutocannonKillNoMist(d);", src);
     }
 
     [Fact]
