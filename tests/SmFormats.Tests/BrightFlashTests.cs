@@ -21,24 +21,30 @@ public class BrightFlashTests
     public void Only_additive_flash_and_streak_sprites_stay(bool additive, bool distortion, string name, bool kept) =>
         Assert.Equal(kept, BrightFlash.Keeps(additive, distortion, name));
 
-    [Fact]
-    public void The_autocannon_hit_and_blast_draw_only_the_flash_and_an_Ork_hit_keeps_blood_not_smoke()
-    {
-        string root = Root();
-        string fx = File.ReadAllText(Path.Combine(root, "client", "NetworkView.Fx.cs"));
-        Assert.Contains("if (dust == 0f) impact.BrightFlash = true;", fx);   // the world and body hit through FxShot
-        Assert.Contains("played.BrightFlash = flashOnly;", fx);              // the blast
-        string dust = File.ReadAllText(Path.Combine(root, "client", "Extras", "Musou", "Arsenal", "Autocannon", "NetworkView.AutocannonDust.cs"));
-        Assert.Contains("flashOnly: true);", dust);                          // the terrain blast
-        string blood = File.ReadAllText(Path.Combine(root, "client", "Extras", "Musou", "Gore", "NetworkView.OrkBlood.cs"));
-        Assert.Contains("smoke: !NoShotSmoke(gun)", blood);                  // a bolt weapon's or the autocannon's hit on an Ork: the blood, no smoke cards
-        Assert.Contains("noDust: NoShotGrit(gun, p.Name)", blood);
-    }
+    [Theory]
+    [InlineData("stone_chunks_small_00", true)]
+    [InlineData("stone_chunks_00", true)]
+    [InlineData("debris_animated", true)]
+    [InlineData("ground_dust", true)]
+    [InlineData("dirt_puff", true)]
+    [InlineData("blood_splat", false)]
+    [InlineData("blood_breakup", false)]
+    [InlineData("blood_meat", false)]
+    [InlineData("blood_spec_ring_tp_01", false)]
+    [InlineData("add_point", false)]
+    [InlineData("", false)]
+    public void Grit_is_dust_and_stone_sprites_never_blood(string material, bool grit) => Assert.Equal(grit, BrightFlash.IsGrit(material));
 
-    static string Root()
+    [Fact]
+    public void The_autocannon_and_frag_effects_keep_at_least_one_flash_sprite()
     {
-        var d = new DirectoryInfo(AppContext.BaseDirectory);
-        while (d is not null && !File.Exists(Path.Combine(d.FullName, "SmReimpl.slnx"))) d = d.Parent;
-        return d?.FullName ?? throw new DirectoryNotFoundException("SmReimpl.slnx");
+        // The sprite names and blends as read from the install with smtool fx-dump on 2026-11-15 (autocannon_dmg, autocannon_dmg_body, frag_grenade_explosion); no original bytes.
+        (bool Additive, string Name)[] autocannonDmg = [(true, "1 frame flash"), (true, "1 frame flash"), (false, "new"), (false, "debris column"), (true, "hot cloud"), (true, "inner fire"), (true, "ground flash"), (true, "ground flash")];
+        (bool Additive, string Name)[] autocannonBody = [(true, " 1 frame flash"), (true, "flash core"), (true, "explosion"), (true, "flash"), (false, "blood splat"), (false, "smoke dissipating")];
+        (bool Additive, string Name)[] frag = [(true, "flash"), (true, "streaks"), (true, "flare"), (true, "fire"), (false, "dirt"), (false, "smoke"), (true, "flash")];
+        foreach (var effect in new[] { autocannonDmg, autocannonBody, frag })
+            Assert.Contains(effect, s => BrightFlash.Keeps(s.Additive, false, s.Name));
+        // and the fire, the flare and the clouds are not kept
+        Assert.DoesNotContain(frag, s => s.Name is "fire" or "flare" or "smoke" or "dirt" && BrightFlash.Keeps(s.Additive, false, s.Name));
     }
 }

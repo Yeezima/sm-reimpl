@@ -6,6 +6,18 @@ namespace SmContent;
 /// </summary>
 public static class BrightFlash
 {
+    /// <summary>
+    /// The alpha sprites that are dust or grit and not blood: a material naming chunks, debris, pebbles, specks, stone, dirt, dust, rock, gravel, sand, grit or the ground (the data's <c>stone_chunks_small_00</c>,
+    /// <c>debris_animated</c>, <c>ground_dust</c>); <see cref="FxEffect.NoGrit"/> drops them from an effect that keeps its blood (a bolt weapon's or the autocannon's hit on an Ork).
+    /// </summary>
+    public static bool IsGrit(string material)
+    {
+        foreach (var w in GritWords) if (material.Contains(w, StringComparison.OrdinalIgnoreCase)) return true;
+        return false;
+    }
+
+    static readonly string[] GritWords = ["chunk", "debris", "pebble", "speck", "specs", "stone", "dirt", "dust", "rock", "gravel", "sand", "grit", "ground"];
+
     public static bool Keeps(bool additive, bool distortion, string name) =>
         additive && !distortion && (name.Contains("flash", StringComparison.OrdinalIgnoreCase) || name.Contains("streaks", StringComparison.OrdinalIgnoreCase));
 }

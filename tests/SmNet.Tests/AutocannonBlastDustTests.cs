@@ -35,20 +35,13 @@ public class AutocannonBlastDustTests
     }
 
     [Fact]
-    public void No_autocannon_shot_and_no_bolt_blast_draws_dust_or_smoke()
+    public void A_bolt_blast_and_the_autocannon_blast_both_lose_their_dust_by_default()
     {
-        // musou/autocannon-flash and fx/bolt-smoke (owner 2026-11-15): these pins stand for "no smoke part on those effects" (the effects' data is the install's and never in a test).
-        string text = File.ReadAllText(Path.Combine(Root(), "client", "Extras", "Musou", "Arsenal", "Autocannon", "NetworkView.AutocannonDust.cs"));
-        Assert.Contains("internal const float DustShare = 0f;", text);       // the autocannon's hit and muzzle
-        Assert.Contains("internal const float BlastDust = 0f;", text);       // its blast
-        Assert.Contains("internal const float BoltBlastDust = 0f;", text);   // the bolt weapons' blast (the frag's detonation at the bolt blast's size)
-        Assert.Contains("internal const bool BlastChunks = false;", text);   // no thrown chunks of the ground
-        string player = File.ReadAllText(Path.Combine(Root(), "client", "NetworkView.Fx.cs"));
-        Assert.Contains("Extras" + "ImpactDustShare(w.Wargear, ref dust); played1.DustShare", player);   // the muzzle
-        Assert.Contains("Extras" + "TerrainBlast(w.Wargear, end, normal)", player);                          // a terrain hit plays the blast's flash
-        string terrain = text[text.IndexOf("partial void ExtrasTerrainBlast", StringComparison.Ordinal)..];
-        Assert.Contains("FxDetonation(", terrain);
-        Assert.Contains("BlastDustShare(radius)", terrain);
+        // The pure mapping the client applies (client/Extras/Musou/Arsenal/Autocannon/NetworkView.AutocannonDust.cs BlastDustShareOf): the autocannon blast radius loses dust, the bolt blast keeps none either.
+        Assert.True(AutocannonRules.LosesDust(3.5f));
+        Assert.False(AutocannonRules.LosesDust(1.5625f));
         Assert.Equal(0f, SmContent.BoltSmoke.Share);
+        Assert.Equal(0f, SmContent.BoltSmoke.ShareFor("sm_mp_ranged_bolter", old: false));
+        Assert.Equal(1f, SmContent.BoltSmoke.ShareFor("sm_mp_ranged_bolter", old: true));
     }
 }

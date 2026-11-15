@@ -57,14 +57,15 @@ public partial class NetworkView
     /// level with no enemy plays its blast's bright flash there (the frag detonation at the autocannon blast's drawn size, no dust: <see cref="BlastDust"/>); the server's blast, which does the area
     /// damage, still goes off only at an enemy the round struck, so a terrain hit is the picture alone. Restore switch <c>--musou-old-autocannon-fx</c>.
     /// </summary>
-    partial void ExtrasTerrainBlast(string wargear, Vector3 end, Vector3 normal)
+    partial void ExtrasTerrainBlast(string wargear, Vector3 end, Vector3 normal, bool own, double delay, ref bool played)
     {
         if (OldAutocannonDust || !MusouActive || _config is null || !(ArsenalRules.IsAutocannon(wargear) || string.Equals(wargear, Arsenal.AutocannonTwinFile, StringComparison.OrdinalIgnoreCase))) return;
         int frag = -1;
         for (int i = 0; i < _config.Thrown.Count && frag < 0; i++) if (SmSim.Extras.Musou.Campaign.TfwCombatRules.IsFrag(_config.Thrown[i])) frag = i;
         if (frag < 0) return;
         float radius = SmSim.AutocannonRules.BlastRadius * SmSim.Extras.Musou.MusouCombatRules.AutocannonAoeScale;
-        FxDetonation(new SmNet.ProjectileView(0, frag, 0, ToGame(end), SmNet.ProjectileFlags.Thrown), BoltBlastFxScale * BoltBlastSizeOf(radius), BlastDustShare(radius), flashOnly: true);
+        FxDetonation(new SmNet.ProjectileView(0, frag, 0, ToGame(end), SmNet.ProjectileFlags.Thrown), BoltBlastFxScale * BoltBlastSizeOf(radius), BlastDustShare(radius), flashOnly: true, pictureOnly: true, delay: delay, priority: own ? SmContent.FxPriority.Own : null);
+        played = true;
     }
 
     /// <summary>The dust share a blast of <paramref name="radius"/> metres is drawn with: <see cref="BlastDust"/> for the autocannon's (a radius above the bolt blast's), 1 for every other blast.</summary>

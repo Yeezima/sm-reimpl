@@ -21,7 +21,7 @@ and nothing nearer is dropped for it. An effect of higher priority than every li
 
 | Tier | Value | What |
 |---|---|---|
-| Own | 4 | the player's own weapon effects: muzzle flash, tracer, impact (Classic PvP and Musou) |
+| Own | 4 | the player's own weapon effects: muzzle flash, tracer, impact (Classic PvP and Musou). Not done: an own projectile trail (the projectile view carries no owner) stays at 1 |
 | Hit | 3 | hits on the player and by the player (armour and flesh hit glows on a player, Musou's own blood and hit effects), a blast within 15 m of the camera, power-weapon flashes |
 | Special | 2 | bosses, elites, abilities and specials: the Weirdboy (was 1), the drop pod (was 3), blasts (rokkit, squig, orbital, thrown grenades), the Meks, stomps, melee flares, death effects, jump-pack landings |
 | Ally | 1 | other players' and allies' muzzles and tracers, held effects of a fight (melee glows, jump trails, eye glow), Musou allies' hits |
@@ -38,6 +38,7 @@ Typical counts are from the 2026-11-15 runs (a 60-army clash: **224** live effec
 | Source | Where | Tier now (before) | Path | Capped | Typical in a big fight |
 |---|---|---|---|---|---|
 | Own muzzle flash, fire effects | `NetworkView.Fx.cs` FxShot | Own 4 (1) | CPU + GPU sprays | yes | 1 to 3 a shot |
+| Own stalker crater, own stop-fire smoke, own autocannon terrain flash | FxImpact, FxStopFireSmoke, `ExtrasTerrainBlast` | Own 4 (0) | CPU | yes | |
 | Own tracer | `NetworkView.Bullets.cs` PlayTracer | Own 4 (1) | CPU (beams) | yes | 1 a shot |
 | Own impact (world and body) | FxShot / FxImpact | Own 4 (0) | CPU + GPU sprays | yes | 1 to 3 a shot |
 | Other player's muzzle and tracer | same, `own` false | Ally 1 (1) | CPU + GPU | yes | Classic: up to 16 players |
@@ -54,7 +55,7 @@ Typical counts are from the 2026-11-15 runs (a 60-army clash: **224** live effec
 | Meks, squig, rokkit, melta burns, stormboy landings | `Musou*.cs` | Special 2 (2) | CPU | yes | |
 | Thunderhawk jets, shells, tracers | `TfwFireView.cs` | 2 / 1 (unchanged) | CPU | yes | |
 | Melee flares and power flashes, stomps, ground pounds | `MeleeFx.cs`, `PowerFlash.cs`, `GroundPoundFx.cs` | 3 / 2 / 1 (unchanged) | CPU + GPU | yes (the flashes are limited by their own swing budget) | |
-| Dreadnought muzzle and dust | `NetworkView.Dreadnought.cs` | 0 (unchanged: another worker's file; to raise to Special 2) | CPU | yes | |
+| Dreadnought footfall dust (his muzzle effect is gone from main) | `NetworkView.Dreadnought.cs` | Special 2 (0) | CPU | yes | |
 | Pickups' idle glows | `NetworkView.Pickups.cs` | 0 (unchanged) | CPU | yes (held, repeating) | |
 | Map ambient effects | `NetworkView.Fx.cs` | ambient, own cap 200 | CPU | apart | |
 

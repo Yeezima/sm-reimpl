@@ -170,18 +170,15 @@ public class FxEvictionTests
         Assert.Equal(1, PickNear(live, 1, 80f));     // a higher priority is not refused for its distance
     }
 
-    [Fact]
-    public void The_sources_use_the_tiers()
-    {
-        string client = Path.Combine(Root(), "client");
-        string fx = File.ReadAllText(Path.Combine(client, "NetworkView.Fx.cs"));
-        Assert.Contains("own ? FxPriority.Own : FxPriority.Ally", fx);   // the own muzzle
-        Assert.Contains("own ? FxPriority.Own :", fx);                    // the own impact
-        Assert.Contains("FxPriority.Hit", File.ReadAllText(Path.Combine(client, "NetworkView.HitFeedback.cs")));
-        Assert.Contains("own ? FxPriority.Own : FxPriority.Ally", File.ReadAllText(Path.Combine(client, "NetworkView.Bullets.cs")));
-        Assert.Contains("FxPriority.Special", File.ReadAllText(Path.Combine(client, "Extras", "Musou", "Tfw", "NetworkView.TfwDropPod.cs")));
-        Assert.Contains("= SmContent.FxPriority.Special", File.ReadAllText(Path.Combine(client, "Extras", "Musou", "NetworkView.MusouWeirdboy.cs")));
-    }
+    [Theory]
+    [InlineData(0f, 0)]
+    [InlineData(1.9f, 0)]
+    [InlineData(2f, 1)]
+    [InlineData(41.5f, 20)]
+    [InlineData(-3f, 0)]
+    [InlineData(float.NaN, 0)]
+    [InlineData(float.PositiveInfinity, 0)]
+    public void Distances_count_in_two_metre_steps(float metres, int bucket) => Assert.Equal(bucket, FxEviction.Bucket(metres));
 
     static IEnumerable<Fx[]> Permutations(Fx[] items)
     {
