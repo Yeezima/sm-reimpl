@@ -165,11 +165,12 @@ public partial class NetworkView
         CharacterViewer? model = attacker == 0 ? null : attacker == _client.PlayerId ? _local : (_remotes.TryGetValue(attacker, out var viewer) ? viewer : null);
         if (_musouArcView is null)
         {
-            _musouArcView = new MusouSlashArcView();
+            _musouArcView = new MusouSlashArcView { Legacy = OldMusouArc, PlayerModels = MusouPlayerModels, WorldBlocks = MusouArcWorldBlocks };
             AddChild(_musouArcView);
         }
         int direction = MusouSlashArcRules.Direction(heavy, stepIndex);
         var path = MusouArcPathOf(model, attacker, clips, step, wargear, shape.HalfAngleDegrees, out string pathNote);
+        if (path is null && !OldMusouArc) { path = MusouSlashArcPath.Level(direction, MusouArcPathSegments); pathNote += " [level 2 m stroke]"; }   // owner 2026-11-15: every arc is the fixed 2 m stroke
         _musouArcView.Add(origin, gForward, gLeft, shape, radius, MusouSlashArcRules.Width(heavy, stepIndex), direction, colour, style.Brightness, attacker, model, own: attacker == _client.PlayerId, path: path, maxDrop: MusouSlashArcPath.MaxDrop(height));
         _musouArcs++;
         if (LogMusouArcs)
@@ -182,6 +183,29 @@ public partial class NetworkView
 
     /// <summary>Test aid: <c>--no-musou-arc-path</c> draws every arc as the level circle segment again (before 2026-11-14).</summary>
     static readonly bool NoMusouArcPath = CmdFlag("no-musou-arc-path");
+
+    /// <summary>
+    /// Restore switch (owner 2026-11-15): <c>--old-musou-arc</c> brings back the arc as it was (the weapon tip's whole swing, stretched over the cleave, no depth test, drawn over every model but the
+    /// striker's own). Without it the arc is one smooth 2 m stroke from the swing's release through a short follow-through, hidden by every player and by the level.
+    /// </summary>
+    static readonly bool OldMusouArc = CmdFlag("old-musou-arc");
+
+    /// <summary>Every player character's model (own, other players, AI Marines, Dreadnoughts): what hides the arcs. Orks and NPCs are not among them.</summary>
+    IEnumerable<Node3D> MusouPlayerModels()
+    {
+        if (_local is not null) yield return _local;
+        foreach (var model in _remotes.Values) yield return model;
+    }
+
+    /// <summary>True when the level (a building, terrain: the weapons' collision mesh) stands between the eye and <paramref name="point"/> (Godot world space), with a 0.15 m margin so an arc grazing a wall is not cut.</summary>
+    bool MusouArcWorldBlocks(Vector3 eye, Vector3 point)
+    {
+        if (_client?.Collision is not { } world) return false;
+        var from = ToGame(eye);
+        var line = ToGame(point) - from;
+        float length = line.Length();
+        return length > 0.3f && world.Weapons.Raycast(from, line / length, length - 0.15f) is not null;
+    }
 
     /// <summary>The fitted tip path of each animation and weapon (null: the animation gave none, the level arc is drawn). Sampled once, then kept.</summary>
     readonly Dictionary<MusouSlashArcPath.Key, MusouSlashArcPath.Path?> _musouArcPaths = new();   // keys lower case
@@ -228,8 +252,13 @@ public partial class NetworkView
         if (_musouArcPaths.TryGetValue(key, out var known)) { note = known is null ? $"level ({pick.Clip}: no tip path)" : $"{pick.Clip} (cached){how}"; return known; }
         if (_assets.Animation(pick.Clip) is not { } anim || !MusouSlashArcPath.Window(step.HitTime * pick.Scale, anim.Animation.Duration, out float from, out float to)) { note = $"level ({pick.Clip}: no window)"; return null; }
         if (model.SampleMeleeTip(pick.Clip, from, to, MusouSlashArcPath.Samples) is not { } sampled) { note = $"level ({pick.Clip}: no weapon in hand yet)"; return null; }   // not kept: asked again at the next swing
-        var path = MusouSlashArcPath.Fit(sampled.Tip, sampled.Chest, MusouArcPathSegments, halfAngle);
-        if (path is not null) path = MusouSlashArcPath.Stretch(path, halfAngle * 2f);   // a short active window still covers the cleave's span
+        MusouSlashArcPath.Path? path;
+        if (OldMusouArc)
+        {
+            path = MusouSlashArcPath.Fit(sampled.Tip, sampled.Chest, MusouArcPathSegments, halfAngle);
+            if (path is not null) path = MusouSlashArcPath.Stretch(path, halfAngle * 2f);   // a short active window still covers the cleave's span
+        }
+        else path = MusouSlashArcPath.FitLimited(sampled.Tip, sampled.Chest, MusouArcPathSegments, from, to, step.HitTime * pick.Scale, halfAngle);   // owner 2026-11-15: release to a short follow-through, one 2 m bow
         _musouArcPaths[key] = path;
         note = path is null
             ? $"level ({pick.Clip}: no usable tip path)"
