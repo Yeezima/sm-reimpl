@@ -56,6 +56,7 @@ public static class LeanBot
         "tfw-autocannon-capture", "tfw-autocannon-impact-capture",   // added content Musou (arsenal W1, W1c, 2026-11-10): the autocannon's screenshot gate, a scripted fight; its impacts on a wall and the ground
         "tfw-zoom-capture",   // added content Musou (2026-11-12): the Librarian's zoom stills next to a Tactical's
         "tfw-dreadnought-capture",   // added content Musou (Dreadnought D2+, 2026-11-15): the Dreadnought's scripted stills and film
+        "log-fx-plays",   // effects (2026-11-15): logs every effect play for the bolt-smoke and autocannon-dust checks
         "tfw-pod-test",   // added content Musou (2026-11-12): the drop pod assault's scripted check (record, landing, marines, retreat) and its captures
         "tfw-feel-capture",   // added content Musou (combat feel): a short scripted fight for the before / after captures
         "tfw-weight-capture", "tfw-weight-pack", "tfw-weight-log", "log-musou-weight",   // added content Musou (weight pass 2026-11-10): the scripted baseline moves and their frame log
