@@ -10,14 +10,15 @@ public class DreadnoughtDefectTests
     const float BloomOffset = 0.809f;
 
     [Fact]
-    public void The_flash_core_and_the_tracers_start_sit_within_30_cm_of_the_barrels_tip()
+    public void The_flash_core_and_the_tracers_start_sit_within_half_a_metre_of_the_barrels_tip()
     {
         // the marker is MarkerToTip ahead of the tip; the tracer's start is the marker brought back by TipShift, the flash's origin likewise with its core ahead of it
         float tracerAtTip = DreadnoughtFeel.MarkerToTip - DreadnoughtFeel.TipShift("fx_muzzle_assault_cannon");
         float flashOrigin = DreadnoughtFeel.MarkerToTip - DreadnoughtFeel.TipShift("fx_muzzle_autocannon_top");   // marker-relative distance of the flash's origin ahead of the tip
         float core = flashOrigin + BloomOffset * DreadnoughtFeel.CannonMuzzle.Scale;
         Assert.InRange(MathF.Abs(tracerAtTip), 0f, 0.3f);
-        Assert.InRange(MathF.Abs(core), 0f, 0.3f);
+        Assert.InRange(MathF.Abs(core - DreadnoughtFeel.FlashSmearRelief), 0f, 0.05f);   // the core is left FlashSmearRelief (0.4 m) ahead of the tip, so the beams do not smear behind it
+        Assert.InRange(MathF.Abs(core), 0f, 0.5f);
         Assert.True(BloomOffset * DreadnoughtFeel.CannonMuzzle.Scale > 1.0f, "unpulled, the core is over a metre ahead of its origin (the detached flash of the film)");
     }
 
@@ -25,7 +26,7 @@ public class DreadnoughtDefectTests
     public void The_chaos_twins_flash_core_sits_at_its_marker_which_is_on_the_barrel_tip()
     {
         float origin = -DreadnoughtFeel.TipShift("fx_muzzle_autocannon_top", chaos: true);   // metres from the marker
-        Assert.InRange(MathF.Abs(origin + BloomOffset * DreadnoughtFeel.CannonMuzzle.Scale), 0f, 0.3f);
+        Assert.InRange(MathF.Abs(origin + BloomOffset * DreadnoughtFeel.CannonMuzzle.Scale), 0f, 0.5f);
         Assert.Equal(0f, DreadnoughtFeel.TipShift("fx_muzzle_assault_cannon", chaos: true));
     }
 

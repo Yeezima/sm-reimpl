@@ -253,6 +253,8 @@ public partial class NetworkView
     }
 
     static readonly bool OldDamageFlash = OS.GetCmdlineUserArgs().Contains("--old-damage-flash");
+    /// <summary>Test aid <c>--no-damage-flash</c> (film only): the full-screen damage flash is not drawn (the proof that a red or sepia wash in a Dreadnought film among the Orks is this cue held by a crowd's constant hits).</summary>
+    static readonly bool NoDamageFlash = OS.GetCmdlineUserArgs().Contains("--no-damage-flash");
 
     /// <summary>
     /// The age a flash restarts at when another hit lands (fix/spawn-room-light; ours: the original's rule for a hit during a flash is not known). A fresh hit starts at the peak, as always;
@@ -315,6 +317,7 @@ public partial class NetworkView
             }
         }
         _armourFlashAge += (float)delta; _healthFlashAge += (float)delta;
+        if (NoDamageFlash) { _damageRect.Visible = false; return; }
         float armourNow = me.Alive ? ArmourPeak * FlashEnvelope(_armourFlashAge) : 0f, healthNow = me.Alive ? HealthPeak * FlashEnvelope(_healthFlashAge) : 0f;   // the death vignette (M23) takes over when dead
         _damageRect.Visible = armourNow > 0.002f || healthNow > 0.002f;
         if (!_damageRect.Visible) return;

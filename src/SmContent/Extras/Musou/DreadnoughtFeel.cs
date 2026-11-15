@@ -127,7 +127,9 @@ public static class DreadnoughtFeel
     /// </summary>
     public const float FlashCoreAhead = 0.809f * 1.75f;
     /// <summary>The flash's origin goes back this far from the marker so that the core sits at the barrel's tip: the marker's distance to the tip plus the core's distance ahead of the origin.</summary>
-    public const float FlashPullback = MarkerToTip + FlashCoreAhead;
+    public const float FlashPullback = MarkerToTip + FlashCoreAhead - FlashSmearRelief;
+    /// <summary>The flash core is left this far (m) ahead of the tip (**ours**): the full pullback put the flash's long side beams 1.4 m behind the tip, where from the side they smeared over the hull.</summary>
+    public const float FlashSmearRelief = 0.4f;
     /// <summary>Whether <paramref name="marker"/> is the cannon flash's marker (the effect's own list names the top and bottom ones; the model has the assault cannon's).</summary>
     public static bool IsFlashMarker(string marker) => marker.Equals("fx_muzzle_autocannon_top", StringComparison.OrdinalIgnoreCase) || marker.Equals("fx_muzzle_autocannon_bottom", StringComparison.OrdinalIgnoreCase);
     /// <summary>
@@ -135,7 +137,7 @@ public static class DreadnoughtFeel
     /// flash markers on the barrel tips (the tracer shares them), so both go back only by the flash's forward offset (the flash core at the tip; the tracer starts inside the barrel). 0 for every other marker.
     /// </summary>
     public static float TipShift(string marker, bool chaos = false) =>
-        IsFlashMarker(marker) ? (chaos ? FlashCoreAhead : FlashPullback) : !chaos && marker.Equals("fx_muzzle_assault_cannon", StringComparison.OrdinalIgnoreCase) ? MarkerToTip : 0f;
+        IsFlashMarker(marker) ? (chaos ? FlashCoreAhead - FlashSmearRelief : FlashPullback) : !chaos && marker.Equals("fx_muzzle_assault_cannon", StringComparison.OrdinalIgnoreCase) ? MarkerToTip : 0f;
     /// <summary>The longest reach (m) of the lights of the Dreadnought's effects (**ours**): their data lights scale with the effect (x12 for the power-up glow), lit the volumetric fog and tinted the whole view.</summary>
     public const float LightReach = 5f;
     /// <summary>The death fire: the data's <c>amb_fire</c> 0.85 s after the death (<see cref="DeathFireDelay"/>); the client loops it on the wreck.</summary>

@@ -84,8 +84,12 @@ public sealed partial class Hud
     /// The own damage as a flash of the screen's edges (ours, owner 2026-10-30): the armour bar's colour when only the armour went down, the health bar's when the health did.
     /// A death, a respawn or a first frame starts nothing. Fades out over <see cref="VignetteSeconds"/>.
     /// </summary>
+    /// <summary>Test aid <c>--no-damage-vignette</c> (film only): the damage vignette is not drawn, to show that a full-screen red (health) or sepia (armour only) edge wash in a film is this cue under constant damage and nothing else.</summary>
+    static readonly bool NoDamageVignette = Array.IndexOf(OS.GetCmdlineUserArgs(), "--no-damage-vignette") >= 0;
+
     void DrawDamageVignette(Vector2 vs)
     {
+        if (NoDamageVignette) return;
         var d = Data;
         if (d.Alive && _vitalsAlive && (d.Health < _vitalsHealth - 0.01f || d.Shield < _vitalsShield - 0.01f))
         {

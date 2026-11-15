@@ -18,7 +18,7 @@ public partial class NetworkView
     int _dnCam;
     /// <summary>Test aid <c>--dn-light-log</c>: every 0.1 s of a film the effect lights alive (colour, energy, range, place), to find what tints a frame.</summary>
     static readonly bool DreadLightLog = CmdFlag("dn-light-log");
-    double _dnLightAt;
+    double _dnLightAt, _dnEnvAt;
     string _dnDir = "";
 
     async Task DnStill(int cam, string name)
@@ -308,7 +308,13 @@ public partial class NetworkView
     void DreadnoughtCamFrame()
     {
         if (_dnCam == 0 || _camera is not { } camera || _gameSpace is null || _client is null) return;
-        if (DreadLightLog && _fx is not null && _connectedFor >= _dnLightAt) { _dnLightAt = _connectedFor + 0.1; GD.Print($"DNLIGHT frame {Engine.GetFramesDrawn()} t {_connectedFor:F2}: {_fx.LastLights} lights; {_fx.LightReport()}"); }
+        if (DreadLightLog && _connectedFor >= _dnEnvAt)
+        {
+            _dnEnvAt = _connectedFor + 0.05;
+            var env = camera.Environment ?? camera.GetWorld3D()?.Environment;
+            if (env is not null) GD.Print($"DNENV frame {Engine.GetFramesDrawn()} exposure {env.TonemapExposure:F3} bright {env.AdjustmentBrightness:F3} contrast {env.AdjustmentContrast:F3} sat {env.AdjustmentSaturation:F3} fog {env.FogLightColor} fogE {env.FogLightEnergy:F2} dens {env.FogDensity:F4} amb {env.AmbientLightColor} ambE {env.AmbientLightEnergy:F2} bgE {env.BackgroundEnergyMultiplier:F2} glow {env.GlowIntensity:F2} camAttr {(camera.Attributes is null ? "none" : "set")}");
+        }
+        if (DreadLightLog && _fx is not null && _connectedFor >= _dnLightAt) { _dnLightAt = _connectedFor + 0.1; GD.Print($"DNLIGHT frame {Engine.GetFramesDrawn()} t {_connectedFor:F2} camera {camera.GlobalPosition.X:F1},{camera.GlobalPosition.Y:F1},{camera.GlobalPosition.Z:F1}: {_fx.LastLights} lights; {_fx.LightReport()}"); }
         var p = _client.Predicted.Position;
         var fwd = new Vector3(-MathF.Sin(_yaw), MathF.Cos(_yaw), 0f);
         var right = new Vector3(MathF.Cos(_yaw), MathF.Sin(_yaw), 0f);
