@@ -6,14 +6,17 @@ using Godot;
 namespace SmClient.Customizer;
 
 /// <summary>
-/// The 1:1 check of the main menu against the owner's concept crop (phase 3, owner 2026-11-15): <c>godot.cmd -- --ui-compare &lt;owner-ref-main-menu-crop.png&gt; --ours &lt;1080p capture&gt; [--out dir] [--tag name]</c>.
-/// The capture (a 1920 x 1080 main menu, overlay at the window's left edge, scale = height / 606) is area-averaged down onto the crop's 522 x 606 grid (a fixed transform, no fitting), then per region: SSIM (7 x 7 window on
+/// The 1:1 check of the main menu against the owner's panel 01 v2 reference (phase 5, owner 2026-11-15): <c>godot.cmd -- --ui-compare &lt;owner-ref-panel01-v2 as png&gt; --ours &lt;1080p capture&gt; [--out dir] [--tag name]</c>.
+/// The compared area is the screen's left 500 x 548 pixels of the reference (its own pixels, no resampling); the capture (a 1920 x 1080 main menu, overlay at the window's left edge, scale = height / 548) is area-averaged down onto that grid (a fixed transform, no fitting), then per region: SSIM (7 x 7 window on
 /// luminance), the difference of the regions' mean colours in Lab (dE76) and the mean per-pixel dE76. Regions leave out what the owner ordered different: the button order (the two swapped labels), the motto, the final L,
 /// and the background around the overlay (his video replaces the concept's grey ruins). Writes a heat map (|difference| x 4, excluded areas dimmed) and a side-by-side (target | ours | heat map, 2x). Deterministic.
 /// </summary>
 public static class UiCompare
 {
-    const int W = UiTextureBuilder.CropW, H = UiTextureBuilder.CropH;
+    const int W = Panel01.OverlayW, H = Panel01.ScreenH;
+    static float X(float u) => Panel01.X(u); static float Y(float v) => Panel01.Y(v);
+    /// <summary>A rectangle / polygon given in the phase 3 crop's numbers, carried into screen px by the registered similarity (<see cref="Panel01"/>).</summary>
+    static bool[] RU(float x0, float y0, float x1, float y1) => Rect(X(x0), Y(y0), X(x1), Y(y1));
 
     sealed record Region(string Name, bool[] Mask, double Ssim = 0, double DeMean = 0, double DePixel = 0, int N = 0);
 
@@ -61,8 +64,9 @@ public static class UiCompare
     }
 
     // Plate rectangles in the crop (the concept's own): the gold plate and the four dark ones.
-    static readonly (float Y0, float Y1)[] PlateY = [(287f, 327.5f), (334.6f, 370f), (376.7f, 412f), (419.7f, 455f), (462.9f, 499f)];
-    static readonly Rect2[] LabelBox = [new(190, 296, 152, 26), new(194, 339, 142, 24), new(213, 382, 109, 24), new(219, 424, 95, 24), new(239, 468, 53, 25)];
+    static readonly (float Y0, float Y1)[] PlateYu = [(287f, 327.5f), (334.6f, 370f), (376.7f, 412f), (419.7f, 455f), (462.9f, 499f)];
+    static (float Y0, float Y1)[] PlateY => PlateYu.Select(p => (Y(p.Y0), Y(p.Y1))).ToArray();
+    static readonly Rect2[] LabelBox = Panel01.SrcText;
 
     public static int Run(string targetPath, string? oursPath, string? outDir, string? tag)
     {
@@ -70,7 +74,8 @@ public static class UiCompare
         outDir ??= "."; System.IO.Directory.CreateDirectory(outDir); tag ??= "cmp";
         var t = Image.LoadFromFile(targetPath); t.Convert(Image.Format.Rgba8);
         var o = Image.LoadFromFile(oursPath); o.Convert(Image.Format.Rgba8);
-        if (t.GetWidth() != W || t.GetHeight() != H) { GD.PrintErr($"ui-compare: target must be {W} x {H}"); return 2; }
+        if (t.GetWidth() != 1006 || t.GetHeight() != 598) { GD.PrintErr("ui-compare: the target must be the panel 01 v2 reference, 1006 x 598"); return 2; }
+        t = t.GetRegion(new Rect2I(Panel01.Origin, new Vector2I(W, H)));
         float s = o.GetHeight() / (float)H;
         // Ours onto the crop's grid: each target pixel is the area average of the capture pixels it covers (fractional weights).
         var T = new float[W * H * 3]; var O = new float[W * H * 3];
@@ -92,39 +97,40 @@ public static class UiCompare
         var ssim = SsimMap(LT, LO);
 
         // ---- the regions ----
-        var outline = Poly(UiTextureBuilder.OverlayOutlinePoints.Select(p => (p.X, p.Y)).ToArray());
-        var motto = Rect(128, 545, 390, 570);
-        var labelRows12 = Or(Rect(188, 294, 344, 324), Rect(192, 337, 338, 365));
-        var letterL = Rect(436, 118, 512, 216);
-        var frameShape = Poly((43, 265), (67, 254), (90, 256), (100, 242), (150, 242), (157, 251), (358, 251), (362, 242), (405, 242), (427, 253), (443, 265), (470, 292), (488, 310), (488, 568), (478, 576), (76, 576), (27, 568), (25, 282));
-        var recessRect = Rect(70, 276, 460, 508);
-        var plates = Or(PlateY.Select(p => Rect(94, p.Y0, 430, p.Y1)).ToArray());
-        var wallShape = Or(Poly((0, 0), (43, 0), (99, 52), (101, 106), (0, 106)), Rect(0, 106, 26, 242), Rect(0, 282, 23, 576), Rect(0, 580, 130, 606));
+        var outline = Poly(Panel01.Outline.Select(p => (p.X, p.Y)).ToArray());
+        var motto = RU(128, 545, 390, 570);
+        var labelRows12 = Or(RU(188, 294, 344, 324), RU(192, 337, 338, 365));
+        var letterL = RU(436, 118, 512, 216);
+        var frameShape = Poly(Panel01.Frame.Select(p => (p.X, p.Y)).ToArray());
+        var recessRect = RU(70, 276, 460, 508);
+        var plates = Or(PlateY.Select(p => Rect(X(94), p.Y0, X(430), p.Y1)).ToArray());
+        var wallShape = Or(Poly((X(0), Y(0)), (X(43), Y(0)), (X(99), Y(52)), (X(101), Y(106)), (X(0), Y(106))), RU(0, 106, 26, 242), RU(0, 282, 23, 576), RU(0, 580, 130, 606), Rect(0, 0, X(0), H));
         var wall = Erode(And(And(wallShape, outline), Not(frameShape)), 2);
         // The wordmark: the target's own letter pixels (blue or the dark outline), left of the final L.
         // The letters (blue) and their dark outline (within 2 px of the blue); the soft drop shadow further out lies on the concept's grey ruins, which our video replaces (ordered difference d), so it is not compared.
         var blue = new bool[W * H];
-        for (int y = 118; y < 216; y++) for (int x = 30; x < 436; x++) { int i = (y * W + x) * 3; float r = T[i], b = T[i + 2]; blue[y * W + x] = b >= r + 0.10f; }
+        int wy0 = (int)Y(118), wy1 = (int)Y(216), wx0 = (int)X(30), wx1 = (int)X(436);
+        for (int y = wy0; y < wy1; y++) for (int x = wx0; x < wx1; x++) { int i = (y * W + x) * 3; float r = T[i], b = T[i + 2]; blue[y * W + x] = b >= r + 0.10f; }
         var letter = new bool[W * H]; var near = Dilate(blue, 2);
-        for (int y = 118; y < 216; y++) for (int x = 30; x < 436; x++) { int i = (y * W + x) * 3; float mx = Math.Max(T[i], Math.Max(T[i + 1], T[i + 2])); letter[y * W + x] = blue[y * W + x] || (near[y * W + x] && mx < 0.14f); }
+        for (int y = wy0; y < wy1; y++) for (int x = wx0; x < wx1; x++) { int i = (y * W + x) * 3; float mx = Math.Max(T[i], Math.Max(T[i + 1], T[i + 2])); letter[y * W + x] = blue[y * W + x] || (near[y * W + x] && mx < 0.14f); }
         var wordmark = Erode(Dilate(letter, 1), 1);
         var crestMetal = new bool[W * H];
-        for (int y = 212; y < 264; y++) for (int x = 148; x < 380; x++) { int i = (y * W + x) * 3; float r = T[i], b = T[i + 2], lum = LT[y * W + x]; float ex = (x - 262f) / 118f, ey = (y - 238f) / 27f; crestMetal[y * W + x] = ex * ex + ey * ey < 1f && ((r >= b + 0.035f && lum > 0.2f) || lum > 0.42f) && !(y > 249 && Math.Abs(x - 262) > 20); }
+        for (int y = (int)Y(212); y < (int)Y(264); y++) for (int x = (int)X(148); x < (int)X(380); x++) { int i = (y * W + x) * 3; float r = T[i], b = T[i + 2], lum = LT[y * W + x]; float ex = (x - X(262)) / Panel01.Z(118), ey = (y - Y(238)) / Panel01.Z(27); crestMetal[y * W + x] = ex * ex + ey * ey < 1f && ((r >= b + 0.035f && lum > 0.2f) || lum > 0.42f) && !(y > Y(249) && Math.Abs(x - X(262)) > Panel01.Z(20)); }
         var crest = Erode(Dilate(crestMetal, 1), 1);
         var frame = Erode(Minus(And(frameShape, outline), recessRect, motto), 2);
         var recess = Minus(recessRect, plates, Dilate(plates, 0));
-        var recessOnly = Erode(Minus(recessRect, Rect(90, 284, 434, 503)), 1);   // the amber the plates stand in (strips beside and above and below the plate zone)
+        var recessOnly = Erode(Minus(recessRect, RU(90, 284, 434, 503)), 1);   // the amber the plates stand in (strips beside and above and below the plate zone)
         var regions = new List<(string, bool[])>
         {
             ("wall", wall), ("wordmark", Minus(wordmark, letterL)), ("crest", crest), ("frame", frame), ("recess", recessOnly),
         };
         for (int i = 0; i < 5; i++)
         {
-            var rect = Rect(96, PlateY[i].Y0 + 1, 428, PlateY[i].Y1 - 1);
+            var rect = Rect(X(96), PlateY[i].Y0 + 1, X(428), PlateY[i].Y1 - 1);
             var lb = Rect(LabelBox[i].Position.X - 2, LabelBox[i].Position.Y - 2, LabelBox[i].End.X + 2, LabelBox[i].End.Y + 2);
             string[] names = ["gold plate (row 1)", "plate row 2", "plate ARMOURY", "plate OPTIONS", "plate EXIT"];
             regions.Add((names[i], Minus(rect, lb)));
-            if (i >= 2) regions.Add(("label " + new[] { "", "", "ARMOURY", "OPTIONS", "EXIT" }[i], And(lb, Rect(96, PlateY[i].Y0, 428, PlateY[i].Y1))));
+            if (i >= 2) regions.Add(("label " + new[] { "", "", "ARMOURY", "OPTIONS", "EXIT" }[i], And(lb, Rect(X(96), PlateY[i].Y0, X(428), PlateY[i].Y1))));
         }
         var full = Minus(Or(regions.Select(r => r.Item2).ToArray()), motto, labelRows12, letterL);
         regions.Add(("FULL", full));

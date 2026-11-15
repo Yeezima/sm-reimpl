@@ -98,21 +98,21 @@ public sealed partial class ConceptMainPage : UiKit.MenuPage
     void PlaceOverlay(float h)
     {
         // Full height at 16:9; on a narrower window no wider than half of it (the video's battlefield must stay visible).
-        float s = System.Math.Min(h / UiTextureBuilder.CropH, 0.5f * Size.X / UiTextureBuilder.CropW);
-        _overlay.Position = Vector2.Zero; _overlay.Size = new Vector2(UiTextureBuilder.CropW * s, UiTextureBuilder.CropH * s);
-        var wm = UiTextureBuilder.OverlayWordmark; var np = UiTextureBuilder.OverlayNameplate;
+        float s = System.Math.Min(h / Panel01.ScreenH, 0.5f * Size.X / Panel01.OverlayW);
+        _overlay.Position = Vector2.Zero; _overlay.Size = new Vector2(Panel01.OverlayW * s, Panel01.ScreenH * s);
+        var wm = Panel01.Wordmark; var np = Panel01.Nameplate;
         _wordmarkBox.Position = new Vector2(wm.Position.X * s, wm.Position.Y * s); _wordmarkBox.Size = new Vector2(wm.Size.X * s, wm.Size.Y * s);
         _nameplate.Position = new Vector2(np.Position.X * s, np.Position.Y * s); _nameplate.Size = new Vector2(np.Size.X * s, np.Size.Y * s);
         int n = System.Math.Max(1, VisibleRows());
-        const float areaTop = 286f, areaH = 217f, centre = UiTextureBuilder.PlateTop1 + (4f * UiTextureBuilder.PlatePitch + UiTextureBuilder.PlateH) / 2f;
-        float pitch = System.Math.Min(UiTextureBuilder.PlatePitch, (areaH - 4f) / n);
-        float k = pitch / UiTextureBuilder.PlatePitch, rowH = UiTextureBuilder.PlateH * k, used = (n - 1) * pitch + rowH;
+        const float areaTop = Panel01.RowsAreaTop, areaH = Panel01.RowsAreaH, centre = Panel01.PlateTop1 + (4f * Panel01.PlatePitch + Panel01.PlateH) / 2f;
+        float pitch = System.Math.Min(Panel01.PlatePitch, (areaH - 4f) / n);
+        float k = pitch / Panel01.PlatePitch, rowH = Panel01.PlateH * k, used = (n - 1) * pitch + rowH;
         Rows.RowHeight = rowH * s; Rows.RowGap = (pitch - rowH) * s;
-        float top = n == 5 ? UiTextureBuilder.PlateTop1 : System.Math.Max(areaTop, centre - used / 2f);
-        _scroll.Position = new Vector2(UiTextureBuilder.PlateX0 * s, top * s);
-        _scroll.Size = new Vector2((UiTextureBuilder.PlateX1 - UiTextureBuilder.PlateX0) * s, used * s);
+        float top = n == 5 ? Panel01.PlateTop1 : System.Math.Max(areaTop, centre - used / 2f);
+        _scroll.Position = new Vector2(Panel01.PlateX0 * s, top * s);
+        _scroll.Size = new Vector2((Panel01.PlateX1 - Panel01.PlateX0) * s, used * s);
         PaintButtons(s, k);
-        if (_foot is { } foot) { foot.Position = new Vector2(24f, UiTextureBuilder.CropH * s - 60f); foot.Size = new Vector2(UiTextureBuilder.CropW * s, foot.GetCombinedMinimumSize().Y); }
+        if (_foot is { } foot) { foot.Position = new Vector2(24f, Panel01.ScreenH * s - 60f); foot.Size = new Vector2(Panel01.OverlayW * s, foot.GetCombinedMinimumSize().Y); }
     }
 
     /// <summary>
@@ -128,11 +128,11 @@ public sealed partial class ConceptMainPage : UiKit.MenuPage
             if (id is null || ConceptArt.Get("btn-" + id + "-dark") is not { } dark || ConceptArt.Get("btn-" + id + "-gold") is not { } gold) continue;
             StyleBoxTexture Box(Texture2D tex, bool isGold, Color mod)
             {
-                float top = isGold ? UiTextureBuilder.TexGoldTop : UiTextureBuilder.TexDarkV, bottom = isGold ? UiTextureBuilder.TexGoldBottom : UiTextureBuilder.TexDarkV;
+                float top = isGold ? Panel01.TexGoldTop : Panel01.TexDarkV, bottom = isGold ? Panel01.TexGoldBottom : Panel01.TexDarkV;
                 return new StyleBoxTexture
                 {
                     Texture = tex, ModulateColor = mod, DrawCenter = true,
-                    ExpandMarginLeft = UiTextureBuilder.TexSide * s, ExpandMarginRight = UiTextureBuilder.TexSide * s, ExpandMarginTop = top * k * s, ExpandMarginBottom = bottom * k * s,
+                    ExpandMarginLeft = Panel01.TexSide * s, ExpandMarginRight = Panel01.TexSide * s, ExpandMarginTop = top * k * s, ExpandMarginBottom = bottom * k * s,
                     AxisStretchHorizontal = StyleBoxTexture.AxisStretchMode.Stretch, AxisStretchVertical = StyleBoxTexture.AxisStretchMode.Stretch,
                 };
             }
