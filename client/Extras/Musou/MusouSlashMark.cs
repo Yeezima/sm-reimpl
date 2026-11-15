@@ -31,7 +31,8 @@ public static class MusouSlashMark
         material = new ShaderMaterial
         {
             // Drawn before the strokes (the transparent pass sorts by priority), writing the reference; the colour is fully transparent.
-            RenderPriority = -10,
+            // The player twin (ref 200) writes first, an attacker's twin after it, so on the striker's own model the attacker's reference wins and its strokes stay hidden there (review).
+            RenderPriority = reference == PlayerReference ? -11 : -10,
             Shader = new Shader { Code = $"shader_type spatial;\nrender_mode unshaded, cull_disabled, depth_draw_never, blend_mix;\nstencil_mode write, compare_always, {reference};\nvoid fragment() {{ ALBEDO = vec3(0.0); ALPHA = 0.0; }}" },
         };
         return Materials[reference] = material;

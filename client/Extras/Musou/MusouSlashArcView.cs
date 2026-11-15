@@ -122,6 +122,7 @@ void fragment() {
         _playersNext = now + MusouSlashMark.RefreshSeconds;
         if (PlayerModels is null) return;
         _capsules.Clear();
+        _twinned.RemoveWhere(m => !GodotObject.IsInstanceValid(m));   // freed models leave the set (review)
         foreach (var model in PlayerModels())
         {
             if (!GodotObject.IsInstanceValid(model) || !model.IsInsideTree() || !model.Visible) continue;
@@ -178,10 +179,10 @@ void fragment() {
     }
 
     /// <summary>The cut of an arc: a ray at every <see cref="CutStride"/>th vertex (and the last), each vertex taking the nearest ray's answer.</summary>
-    bool[] CutOf(in Arc a, Vector3[] offsets, Vector3 eye)
+    bool[] CutOf(in Arc a, Vector3[] offsets, Vector3 eye, bool[]? reuse)
     {
         int n = offsets.Length;
-        var hid = new bool[n];
+        var hid = reuse is { } r && r.Length == n ? r : new bool[n];   // the arc's own array, reused (review: no allocation every 3rd frame)
         int last = -1;
         bool lastAnswer = false;
         for (int k = 0; k < n; k++)
@@ -306,7 +307,7 @@ void fragment() {
                 a.Age += (float)delta;
                 if (a.Age >= MusouSlashArcRules.Lifetime) { a.Live = false; group.Alive--; continue; }
                 if (!open) { group.Mesh.SurfaceBegin(Mesh.PrimitiveType.Triangles, group.Material); open = true; }
-                if (!Legacy && a.Offsets is { } offsets && (a.Hid is null || ++a.Stale >= CutEveryFrames)) { a.Hid = CutOf(a, offsets, eye); a.Stale = 0; }
+                if (!Legacy && a.Offsets is { } offsets && (a.Hid is null || ++a.Stale >= CutEveryFrames)) { a.Hid = CutOf(a, offsets, eye, a.Hid); a.Stale = 0; }
                 Emit(group.Mesh, a, eye, pull);
                 n++;
             }

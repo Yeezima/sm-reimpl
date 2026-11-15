@@ -327,6 +327,7 @@ public static class MusouSlashArcPath
             mid = Clamp(Vector3.Normalize(mid + bow * MathF.Sin(beta)));
         }
         else bow = Vector3.UnitZ;
+        if (!IsFinite(mid)) return null;   // first and last directions opposite: no midpoint; the caller draws the level stroke (review)
         if (beta < 2f * Rad)
         {
             // A path that stays on its great circle bows away from the chest, like a cleave's circle round the swinger, by the default turn.
