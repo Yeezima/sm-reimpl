@@ -62,6 +62,17 @@ public sealed partial class UiSelfTest
         Check("menu video: cover-fit at 16:9, 21:9, 4:3, 5:4, 16:10 and portrait", fits, worst);
         Check("menu video: an unknown video size fits as the converted one", MenuVideoBackground.CoverRect(new Vector2(2560, 1080), Vector2.Zero) == MenuVideoBackground.CoverRect(new Vector2(2560, 1080), MenuVideoBackground.ConvertedSize));
 
+        // The main menu's framing (the Marine, the tower and its god rays right of the overlay) covers the window at every aspect ratio, with no black edge.
+        bool framed = true;
+        string badFrame = "";
+        foreach (var box in new[] { new Vector2(1920, 1080), new Vector2(2560, 1080), new Vector2(3440, 1440), new Vector2(1920, 1440), new Vector2(1920, 1200), new Vector2(1920, 1536) })
+        {
+            var r = MenuVideoBackground.FramedRect(box, MenuVideoBackground.ConvertedSize);
+            if (r.Position.X > 0.01f || r.Position.Y > 0.01f || r.End.X < box.X - 0.01f || r.End.Y < box.Y - 0.01f) { framed = false; badFrame = $"{box}: {r}"; }
+        }
+        Check("menu video: the main menu's framing covers the window at 16:9, 21:9, 32:9, 4:3 and 16:10", framed, badFrame);
+        Check("menu video: the framing is a 1.6x zoom at 16:9 (less on wider windows)", Mathf.IsEqualApprox(MenuVideoBackground.MainMenuZoom, 1.6f));
+
         // The still picture on request (the switch's path), built and freed here.
         var still = UiKit.MenuBackground(video: false);
         bool hasImage = UiKit.MenuBackgroundImage() is not null;
