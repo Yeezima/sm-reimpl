@@ -178,9 +178,10 @@ public partial class NetworkView
         float aimFov = wc.ZoomFovs is { Count: > 0 } zooms ? zooms[_padZoom % zooms.Count] : aim.FieldOfView;   // R3 on the pad steps through the levels (NetworkView.Gamepad.cs)
         // ui/fov-slider (ours): the player's wider field of view scales the exploration and aim cameras; a scope's zoom level stays exactly the data's.
         var viewSize = GetViewport().GetVisibleRect().Size;
-        float fovScale = FovMath.Scale(FovOverride ?? FovMath.Selected, FovMath.Aspect(viewSize.X, viewSize.Y));
+        float fovScale = FovMath.Scale(FovOverride ?? FovMath.Selected, FovMath.Aspect(viewSize.X, viewSize.Y));   // the configured scale: the camera shift below keeps it (no sideways jump when melee widens the view)
+        float viewScale = MeleeFovScale(FovOverride ?? FovMath.Selected, FovMath.Aspect(viewSize.X, viewSize.Y));   // camera/melee-fov-widen (owner 2026-11-15): the configured scale widened in melee
         bool scoped = wc.ZoomFovs is { Count: > 0 };
-        float fov = Mathf.Lerp(FovMath.Apply(Finite(ex.FieldOfView, DefaultFov), fovScale), scoped ? Finite(aimFov, DefaultFov) : FovMath.Apply(Finite(aimFov, DefaultFov), fovScale), w);
+        float fov = Mathf.Lerp(FovMath.Apply(Finite(ex.FieldOfView, DefaultFov), viewScale), scoped ? Finite(aimFov, DefaultFov) : FovMath.Apply(Finite(aimFov, DefaultFov), viewScale), w);
         // ui/crosshair-fov-scale: the same camera state at the default setting, tracked beside fov (the crosshair's reference angle).
         float fovRef = Mathf.Lerp(Finite(ex.FieldOfView, DefaultFov), Finite(aimFov, DefaultFov), w);
 
@@ -211,7 +212,7 @@ public partial class NetworkView
                     _evadeCameraNote = $"{set.Name} blend {we:F2}: curve '{set.AnimationCurve}' not in the camera rig, exploration offset kept, field of view only";
                     if (!_evadeCurveNoted) { _evadeCurveNoted = true; _notes.Add(_evadeCameraNote); GD.Print("  camera note: " + _evadeCameraNote); }
                 }
-                fov = Mathf.Lerp(fov, float.IsFinite(set.FieldOfView) ? FovMath.Apply(set.FieldOfView, fovScale) : fov, we);
+                fov = Mathf.Lerp(fov, float.IsFinite(set.FieldOfView) ? FovMath.Apply(set.FieldOfView, viewScale) : fov, we);
                 fovRef = Mathf.Lerp(fovRef, float.IsFinite(set.FieldOfView) ? set.FieldOfView : fovRef, we);
                 if (_bot && !_evadeCamLogged && we > 0.5f)
                 {

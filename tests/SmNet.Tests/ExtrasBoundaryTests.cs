@@ -34,6 +34,7 @@ public class ExtrasBoundaryTests
         ("client/NetworkView.cs", "ExtrasDeadPlace"),        // NetworkView.ExtrasDeadPlace(CharacterViewer, PlayerState, bool, ref bool), TrackDeath for a dead player: added content shows its own corpse (Musou: the Dreadnought)
         ("client/NetworkView.Death.cs", "ExtrasDeath"),            // NetworkView.ExtrasDeath(CharacterViewer, ref bool), added content's own death, no ragdoll (Musou: the Dreadnought)
         ("client/NetworkView.cs", "ExtrasInputGate"),              // NetworkView.ExtrasInputGate(ref PlayerInput), on every live sampled input after ExtrasInput: added content's limits (Musou: the Dreadnought's sprint)
+        ("client/NetworkView.MeleeFov.cs", "ExtrasMeleeFovExcluded"),   // NetworkView.ExtrasMeleeFovExcluded(PlayerState, ref bool), a body that keeps its normal field of view in melee (Musou: the Dreadnought)
         ("client/NetworkView.Camera.cs", "ExtrasRigCamera"),       // NetworkView.ExtrasRigCamera(PlayerState, float, float, ref Vector3, ref Vector3, ref float, ref float), the rig camera's offset, pivot and fov (Musou: the Dreadnought)
         ("client/NetworkView.cs", "ExtrasInput"),                  // NetworkView.ExtrasInput(ref PlayerInput), on every sampled live input (loyalist barks: the FOR THE EMPEROR key)
         ("client/NetworkView.cs", "ExtrasFrame"),                  // NetworkView.ExtrasFrame(PlayerState, IReadOnlyList<PlayerState>, double), once a frame after the sound (loyalist barks: barks and the key's shouts)
