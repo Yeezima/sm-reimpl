@@ -67,6 +67,15 @@ public static partial class UiTextureBuilder
                 for (int x = tx0; x < tx1; x++) { var c = left.Lerp(right, (x - tx0) / (float)(tx1 - tx0)); clean.SetPixel(x, y, new Color(c.R, c.G, c.B, 1f)); }
             }
         }
+        // Row 2's plate carries a patch of scratches near its right end that the others lack (owner review): that patch is replaced by the same stretch of the OPTIONS plate (same offset from the plate's top), in the plate and its blank copy.
+        foreach (var img2 in new[] { up, clean })
+            for (int y = (int)(2f * sf); y < (int)(20f * sf); y++)
+                for (int x = (int)(377f * sf); x < (int)(417f * sf); x++)
+                {
+                    float wx = Mathf.SmoothStep(377f, 392f, x / sf) * (1f - Mathf.SmoothStep(410f, 417f, x / sf)), wy = Mathf.SmoothStep(0f, 5f, y / sf) * (1f - Mathf.SmoothStep(14f, 20f, y / sf));
+                    int yy = (int)(SrcTop[1] * sf) + y; var a = img2.GetPixel(x, yy); var b = up.GetPixel(x, (int)(SrcTop[3] * sf) + y);
+                    img2.SetPixel(x, yy, a.Lerp(b, wx * wy));
+                }
         Rect2I Px(float x, float y, float w, float h) => new((int)MathF.Round(x * sf), (int)MathF.Round(y * sf), (int)MathF.Round(w * sf), (int)MathF.Round(h * sf));
         float tw = PlateX1 - PlateX0 + 2f * TexSide, darkH = PlateH + 2f * TexDarkV, goldH = PlateH + TexGoldTop + TexGoldBottom - 0.0f;
         Image Sheet(Image from, int row)
@@ -144,7 +153,7 @@ public static partial class UiTextureBuilder
     /// </summary>
     static void FaithfulSeat(Image img, float[] alpha, int W, float sf, float sfy)
     {
-        int x0 = (int)(60 * sf), x1 = (int)(498 * sf), y0 = (int)(217 * sfy), y1 = (int)(262 * sfy);
+        int x0 = (int)(60 * sf), x1 = (int)(498 * sf), y0 = (int)(216 * sfy), y1 = (int)(262 * sfy);
         for (int y = y0; y < y1; y++)
             for (int x = x0; x < x1; x++)
             {

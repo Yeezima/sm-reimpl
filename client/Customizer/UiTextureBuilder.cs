@@ -164,7 +164,13 @@ public static partial class UiTextureBuilder
                         var q2 = img.GetPixel(x, y); float mx = Mathf.Max(q2.R, Mathf.Max(q2.G, q2.B));
                         a = Mathf.Max(a, 1f - Mathf.SmoothStep(0.15f, 0.26f, mx));
                     }
-                    if (x < (int)(94 * sf))
+                    if (faithful && x >= (int)(70 * sf) && x < (int)(102 * sf) && a < 1f)
+                    {
+                        // The wall's dark backing ends in a soft slope, not a step (it meets the faded part below the wordmark).
+                        var q = img.GetPixel(x, y);
+                        if (Mathf.Max(q.R, Mathf.Max(q.G, q.B)) < 0.31f && q.B < q.R + 0.1f) a = Mathf.Max(a, 1f - Mathf.SmoothStep(76f, 102f, x / sf));
+                    }
+                    else if (x < (int)(94 * sf))
                     {
                         // Against the wall: dark stone stays, the concept's lighter sky between the letters goes.
                         var q = img.GetPixel(x, y);
