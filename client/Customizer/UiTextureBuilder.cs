@@ -11,7 +11,7 @@ namespace SmClient.Customizer;
 /// for the blue wordmark. The labels of the buttons, tabs and the value pill are removed by tiling a blank stretch of the same plate over them (live Godot text goes on top). Frame corners are cut once
 /// and mirrored. Ours; the rectangles are in the concept's own 1600 x 960 pixels (docs/ui-concept-textures.md).
 /// </summary>
-public static class UiTextureBuilder
+public static partial class UiTextureBuilder
 {
     /// <summary>Output pixels per concept pixel: the concept's panels are 780 x 440 for a 1920 x 1080 screen (2.46x); the frames are drawn about 1.74x, so the pieces are made at that scale and drawn 1:1.</summary>
     public const float S = 1.74f;
@@ -41,6 +41,7 @@ public static class UiTextureBuilder
         {
             var crop = Image.LoadFromFile(cropPath);
             crop.Convert(Image.Format.Rgba8);
+            if (string.IsNullOrEmpty(masonryPath) && !string.IsNullOrEmpty(upscaledPath) && System.IO.File.Exists(upscaledPath)) FaithfulButtons(LoadBackProjected(upscaledPath, crop), Save);   // phase 3 (faithful): the concept's own plates and labels as button textures
             Save("overlay-main", MainOverlay(crop, upscaledPath, masonryPath));
             Save("frame-wall", WallFrame(crop));
             Save("wall-main", WallSynth(crop));
@@ -73,6 +74,8 @@ public static class UiTextureBuilder
     public static readonly Rect2I OverlayRows = new(92, 281, 341, 226), OverlayWordmark = new(30, 122, 478, 94), OverlayNameplate = new(118, 543, 265, 30);
 
     /// <summary>The owner's orange line (his marked image, 2026-11-15) in crop pixels: everything inside is kept, outside is transparent, the edge feathered.</summary>
+    /// <summary>The outline's points (the comparison tool uses them).</summary>
+    public static Vector2[] OverlayOutlinePoints => OverlayOutline;
     static readonly Vector2[] OverlayOutline =
     [
         new(0, 0), new(43, 0), new(99, 52), new(101, 106), new(505, 110), new(512, 205), new(416, 219), new(440, 237), new(462, 247), new(476, 262), new(478, 306), new(485, 312), new(485, 432), new(489, 446), new(489, 520),
@@ -89,13 +92,15 @@ public static class UiTextureBuilder
         Image img;
         if (!string.IsNullOrEmpty(upscaledPath) && System.IO.File.Exists(upscaledPath))
         {
-            img = Image.LoadFromFile(upscaledPath);
+            img = string.IsNullOrEmpty(masonryPath) ? LoadBackProjected(upscaledPath, crop) : Image.LoadFromFile(upscaledPath);
             img.Convert(Image.Format.Rgba8);
             GD.Print($"overlay: pre-upscaled input {img.GetWidth()} x {img.GetHeight()}");
         }
         else img = SmartUpscale(crop, 2);
         int W = img.GetWidth(), H = img.GetHeight();
         float sf = W / (float)CropW, sfy = H / (float)CropH;
+        bool faithful = string.IsNullOrEmpty(masonryPath);   // phase 3: the concept's own pixels (no grade, no regraded wall, painted plates as button textures); --masonry restores the graded pass 2h look
+        if (faithful) { FaithfulPlatesOut(img, sf, sfy); }
         // Paint the plates out: the recess's own amber, with its scan lines, from the clean strips beside the plates.
         var rows = OverlayRows;
         Color amber = default; int n = 0;
@@ -103,7 +108,7 @@ public static class UiTextureBuilder
             for (int x = (int)(72 * sf); x < (int)(88 * sf); x++) { var p = img.GetPixel(x, y); amber.R += p.R; amber.G += p.G; amber.B += p.B; n++; }
         amber = new Color(Mathf.Min(1f, amber.R / n * 1.45f), Mathf.Min(1f, amber.G / n * 1.4f), Mathf.Min(1f, amber.B / n * 1.2f));   // the strips beside the plates include the dark rim; the glow's own amber is brighter
         float top = rows.Position.Y * sfy, bottom = rows.End.Y * sfy;
-        for (int y = (int)top; y < (int)bottom; y++)
+        for (int y = (int)top; y < (int)bottom && !faithful; y++)
         {
             float edge = Mathf.Min(y - top, bottom - y) / (30f * sfy);
             float shade = Mathf.Lerp(0.72f, 1.04f, Mathf.SmoothStep(0f, 1f, edge));
@@ -119,7 +124,7 @@ public static class UiTextureBuilder
                 img.SetPixel(x, y, old.Lerp(fill, Mathf.Clamp(side, 0f, 1f)));
             }
         }
-        SmoothRecess(img, new Rect2I((int)(68 * sf), (int)(274 * sfy), (int)(396 * sf), (int)(236 * sfy)), (int)(Mathf.Round(4f * sfy)));
+        if (!faithful) SmoothRecess(img, new Rect2I((int)(68 * sf), (int)(274 * sfy), (int)(396 * sf), (int)(236 * sfy)), (int)(Mathf.Round(4f * sfy)));
         // Behind the wordmark and the crest the concept's grey sky would show as a box on our video: keep only the letters (with their outline and shadow) and the crest.
         var bandAlpha = new float[W * H];
         Array.Fill(bandAlpha, 1f);
@@ -140,11 +145,25 @@ public static class UiTextureBuilder
             var tmp = new float[W * H]; var dil = new float[W * H];
             for (int y = y0; y < y1; y++) for (int x = x0; x < x1; x++) { float v = 0f; for (int d = -r; d <= r; d++) v = Mathf.Max(v, mask[y * W + Mathf.Clamp(x + d, 0, W - 1)]); tmp[y * W + x] = v; }
             for (int y = y0; y < y1; y++) for (int x = x0; x < x1; x++) { float v = 0f; for (int d = -r; d <= r; d++) v = Mathf.Max(v, tmp[Mathf.Clamp(y + d, 0, H - 1) * W + x]); dil[y * W + x] = v; }
+            // Faithful: the letters' drop shadow (the concept's own dark pixels within a wider reach of the letters) is kept too, so the wordmark sits on the video as it sits on the concept.
+            float[]? dil2 = null;
+            if (faithful)
+            {
+                int r2 = (int)Mathf.Round(11f * sf);
+                var t2 = new float[W * H]; dil2 = new float[W * H];
+                for (int y = y0; y < y1; y++) for (int x = x0; x < x1; x++) { float v = 0f; for (int d = -r2; d <= r2; d += 2) v = Mathf.Max(v, mask[y * W + Mathf.Clamp(x + d, 0, W - 1)]); t2[y * W + x] = v; }
+                for (int y = y0; y < y1; y++) for (int x = x0; x < x1; x++) { float v = 0f; for (int d = -r2; d <= r2; d += 2) v = Mathf.Max(v, t2[Mathf.Clamp(y + d, 0, H - 1) * W + x]); dil2[y * W + x] = v; }
+            }
             for (int y = y0; y < y1; y++)
                 for (int x = x0; x < x1; x++)
                 {
                     // A one-pixel soft edge on the dilated mask.
                     float a = dil[y * W + x];
+                    if (dil2 is not null && a < 1f && dil2[y * W + x] > 0f)
+                    {
+                        var q2 = img.GetPixel(x, y); float mx = Mathf.Max(q2.R, Mathf.Max(q2.G, q2.B));
+                        a = Mathf.Max(a, 1f - Mathf.SmoothStep(0.15f, 0.26f, mx));
+                    }
                     if (x < (int)(94 * sf))
                     {
                         // Against the wall: dark stone stays, the concept's lighter sky between the letters goes.
@@ -172,7 +191,8 @@ public static class UiTextureBuilder
             for (int y = y1; y < skyRect.Position.Y; y++) for (int x = x0; x < x1; x++) bandAlpha[y * W + x] = 1f;
             // The sky band between the wordmark and the frame's top is gone completely; the crest is cut from the upscaled picture with its own matte (below) and sits over the video.
             for (int y = (int)(216 * sfy); y < (int)(243 * sfy); y++) for (int x = (int)(102 * sf); x < (int)(500 * sf); x++) bandAlpha[y * W + x] = 0f;
-            CrestMatte(img, bandAlpha, W, H, sf, sfy);
+            if (faithful) FaithfulSeat(img, bandAlpha, W, sf, sfy);
+            CrestMatte(img, bandAlpha, W, H, sf, sfy, faithful);
         }
         // The grey haze at the frame's top-right corner and the thin strip down its right side: flooded out from the background's own grey.
         foreach (var (rx, ry, rw, rh, bx, by, tol) in new[] { (410, 200, 100, 70, 95, 4, 34f), (452, 255, 60, 320, 57, 160, 28f) })
@@ -187,7 +207,7 @@ public static class UiTextureBuilder
                 }
         }
         // The alpha: inside the owner's outline, with a wide soft feather.
-        float feather = 11f * sf;
+        float feather = (faithful ? 3f : 11f) * sf;
         var A = new float[W * H]; var D = new float[W * H];
         for (int y = 0; y < H; y++)
             for (int x = 0; x < W; x++)
@@ -199,7 +219,8 @@ public static class UiTextureBuilder
         PaintOutNameplate(img, sf, sfy);
         if (!string.IsNullOrEmpty(masonryPath) && System.IO.File.Exists(masonryPath))
             GradeWall(img, A, bandAlpha, Image.LoadFromFile(masonryPath), sf, sfy);
-        FinishOverlay(img, A, D, sf, sfy);
+        if (faithful) FaithfulFinish(img, A, W, H);
+        else FinishOverlay(img, A, D, sf, sfy);
         return img;
     }
 
@@ -460,7 +481,7 @@ public static class UiTextureBuilder
     /// The skull and wings (owner: "match the concept's crest exactly"), matted from the upscaled crop: the crest is the warm or bright metal against the frame notch's dark grey backing, so a warm / bright test,
     /// closed over the eye sockets and feather gaps and softened a pixel, is its alpha. Same size and place as in the concept (wings x 150 to 375, y 214 to 262 in crop pixels), over the video.
     /// </summary>
-    static void CrestMatte(Image img, float[] alpha, int W, int H, float sf, float sfy)
+    static void CrestMatte(Image img, float[] alpha, int W, int H, float sf, float sfy, bool faithful = false)
     {
         int x0 = (int)(136 * sf), x1 = (int)(390 * sf), y0 = (int)(208 * sfy), y1 = (int)(266 * sfy);
         int w = x1 - x0, h = y1 - y0;
@@ -511,7 +532,7 @@ public static class UiTextureBuilder
             {
                 float sum = 0f;
                 for (int dy = -1; dy <= 1; dy++) for (int dx = -1; dx <= 1; dx++) sum += keep[Mathf.Clamp(y + dy, 0, h - 1) * w + Mathf.Clamp(x + dx, 0, w - 1)] ? 1f : 0f;
-                alpha[(y0 + y) * W + x0 + x] = Mathf.SmoothStep(0.15f, 0.85f, sum / 9f);
+                { float m9 = Mathf.SmoothStep(0.15f, 0.85f, sum / 9f); int ai = (y0 + y) * W + x0 + x; alpha[ai] = faithful ? Mathf.Max(alpha[ai], m9) : m9; }
             }
     }
 

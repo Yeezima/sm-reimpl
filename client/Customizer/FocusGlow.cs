@@ -69,7 +69,7 @@ public sealed partial class FocusGlow : CanvasLayer
         if (_demoDone || text is null || _elapsed < _demoAt) return;
         Button? row = null;
         foreach (var node in GetTree().Root.FindChildren("*", "Button", true, false))
-            if (node is Button b && Glows(b) && string.Equals(b.Text, text, StringComparison.OrdinalIgnoreCase)) { row = b; break; }
+            if (node is Button b && (Glows(b) || b.HasMeta(NoGlowMeta)) && string.Equals(b.Text, text, StringComparison.OrdinalIgnoreCase)) { row = b; break; }
         if (row is null) return;
         _demoDone = true;
         if (_demoHover is null) { row.GrabFocus(); GD.Print($"glow demo: focus on {row.Text}"); return; }
@@ -106,8 +106,11 @@ public sealed partial class FocusGlow : CanvasLayer
     }
 
     /// <summary>Whether <paramref name="c"/> is a control A or a left click would activate: an enabled button (choice rows, tabs, list rows included) or a slider, shown and focusable (scroll bars are not).</summary>
+    /// <summary>A control with this meta draws its own focus (the main menu's painted gold plate, phase 3 of the concept redesign): no white halo over it.</summary>
+    public const string NoGlowMeta = "sm_no_glow";
+
     public static bool Glows(Control? c) =>
-        c is not null && IsInstanceValid(c) && c.FocusMode != Control.FocusModeEnum.None && c.IsVisibleInTree()
+        c is not null && IsInstanceValid(c) && !c.HasMeta(NoGlowMeta) && c.FocusMode != Control.FocusModeEnum.None && c.IsVisibleInTree()
         && c is BaseButton { Disabled: false } or Slider { Editable: true };
 
     /// <summary>The area to glow around, in the control's own space: its words when it is a left-aligned text row much wider than them (with a choice row's value), else the whole control.</summary>

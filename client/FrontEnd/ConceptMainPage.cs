@@ -55,6 +55,7 @@ public sealed partial class ConceptMainPage : UiKit.MenuPage
             AddChild(_pillar); AddChild(_wordmark); AddChild(_crest); AddChild(_frame);
             AddChild(_nameplate);
         }
+        _scroll.ClipContents = false;   // the painted plates reach past their rows (glow, the gold plate's rim)
         MoveChild(_scroll, -1);   // the rows stand on the frame
         _scroll.VerticalScrollMode = ScrollContainer.ScrollMode.ShowNever;   // the page always has room (the window is never under 1080 UI pixels high)
         Place();
@@ -90,21 +91,59 @@ public sealed partial class ConceptMainPage : UiKit.MenuPage
         if (_foot is { } foot) { foot.Position = new Vector2(FrameLeft, frameTop + frameH + 24f); foot.Size = new Vector2(FrameWidth, foot.GetCombinedMinimumSize().Y); }
     }
 
-    /// <summary>The overlay at the window's height; the rows spread over the recess where the plates were (pitch 43 crop pixels, tighter for more rows).</summary>
+    /// <summary>
+    /// The overlay at the window's height. The rows stand on the recess where the concept's plates stood: with five rows exactly where the plates are (pitch 42.85 crop pixels), otherwise the same block
+    /// centred and tighter. Each of the five known labels draws the concept's own plate with its own painted label (<see cref="UiTextureBuilder.ButtonLabels"/>); other rows (STOP MUSOU SERVER) keep the blank plate and live text.
+    /// </summary>
     void PlaceOverlay(float h)
     {
         // Full height at 16:9; on a narrower window no wider than half of it (the video's battlefield must stay visible).
         float s = System.Math.Min(h / UiTextureBuilder.CropH, 0.5f * Size.X / UiTextureBuilder.CropW);
         _overlay.Position = Vector2.Zero; _overlay.Size = new Vector2(UiTextureBuilder.CropW * s, UiTextureBuilder.CropH * s);
-        var wm = UiTextureBuilder.OverlayWordmark; var np = UiTextureBuilder.OverlayNameplate; var area = UiTextureBuilder.OverlayRows;
+        var wm = UiTextureBuilder.OverlayWordmark; var np = UiTextureBuilder.OverlayNameplate;
         _wordmarkBox.Position = new Vector2(wm.Position.X * s, wm.Position.Y * s); _wordmarkBox.Size = new Vector2(wm.Size.X * s, wm.Size.Y * s);
         _nameplate.Position = new Vector2(np.Position.X * s, np.Position.Y * s); _nameplate.Size = new Vector2(np.Size.X * s, np.Size.Y * s);
         int n = System.Math.Max(1, VisibleRows());
-        float pitch = System.Math.Min(43f * s, area.Size.Y * s / n);
-        Rows.RowHeight = pitch * 0.84f; Rows.RowGap = pitch * 0.16f;
-        float used = n * pitch - Rows.RowGap;
-        _scroll.Position = new Vector2(area.Position.X * s, area.Position.Y * s + (area.Size.Y * s - used) / 2f);
-        _scroll.Size = new Vector2(area.Size.X * s, used);
+        const float areaTop = 286f, areaH = 217f, centre = UiTextureBuilder.PlateTop1 + (4f * UiTextureBuilder.PlatePitch + UiTextureBuilder.PlateH) / 2f;
+        float pitch = System.Math.Min(UiTextureBuilder.PlatePitch, (areaH - 4f) / n);
+        float k = pitch / UiTextureBuilder.PlatePitch, rowH = UiTextureBuilder.PlateH * k, used = (n - 1) * pitch + rowH;
+        Rows.RowHeight = rowH * s; Rows.RowGap = (pitch - rowH) * s;
+        float top = n == 5 ? UiTextureBuilder.PlateTop1 : System.Math.Max(areaTop, centre - used / 2f);
+        _scroll.Position = new Vector2(UiTextureBuilder.PlateX0 * s, top * s);
+        _scroll.Size = new Vector2((UiTextureBuilder.PlateX1 - UiTextureBuilder.PlateX0) * s, used * s);
+        PaintButtons(s, k);
         if (_foot is { } foot) { foot.Position = new Vector2(24f, UiTextureBuilder.CropH * s - 60f); foot.Size = new Vector2(UiTextureBuilder.CropW * s, foot.GetCombinedMinimumSize().Y); }
+    }
+
+    /// <summary>
+    /// Gives the five known rows their painted plates: a StyleBoxTexture per state from <c>btn-&lt;id&gt;-dark</c> (rest, hover warmed, disabled grey) and <c>-gold</c> (focus, pressed), expanded past the row's rectangle by the
+    /// textures' margins so neighbouring rows' glow meets (scaled by <paramref name="k"/> when the rows are tighter). The live text stays on the button (the tree, the tests and the screen reader) but is drawn transparent: the label is
+    /// in the picture.
+    /// </summary>
+    void PaintButtons(float s, float k)
+    {
+        foreach (var b in Rows.GetChildren().OfType<Button>())
+        {
+            var id = UiTextureBuilder.ButtonLabels.FirstOrDefault(l => l.Text == b.Text).Id;
+            if (id is null || ConceptArt.Get("btn-" + id + "-dark") is not { } dark || ConceptArt.Get("btn-" + id + "-gold") is not { } gold) continue;
+            StyleBoxTexture Box(Texture2D tex, bool isGold, Color mod)
+            {
+                float top = isGold ? UiTextureBuilder.TexGoldTop : UiTextureBuilder.TexDarkV, bottom = isGold ? UiTextureBuilder.TexGoldBottom : UiTextureBuilder.TexDarkV;
+                return new StyleBoxTexture
+                {
+                    Texture = tex, ModulateColor = mod, DrawCenter = true,
+                    ExpandMarginLeft = UiTextureBuilder.TexSide * s, ExpandMarginRight = UiTextureBuilder.TexSide * s, ExpandMarginTop = top * k * s, ExpandMarginBottom = bottom * k * s,
+                    AxisStretchHorizontal = StyleBoxTexture.AxisStretchMode.Stretch, AxisStretchVertical = StyleBoxTexture.AxisStretchMode.Stretch,
+                };
+            }
+            b.SetMeta(FocusGlow.NoGlowMeta, true);   // the gold plate is the focus: no white halo washing it out
+            b.AddThemeStyleboxOverride("normal", Box(dark, false, Colors.White));
+            b.AddThemeStyleboxOverride("hover", Box(dark, false, ConceptArt.Warm));
+            b.AddThemeStyleboxOverride("pressed", Box(gold, true, Colors.White));
+            b.AddThemeStyleboxOverride("hover_pressed", Box(gold, true, Colors.White));
+            b.AddThemeStyleboxOverride("focus", Box(gold, true, Colors.White));
+            b.AddThemeStyleboxOverride("disabled", Box(dark, false, new Color(0.5f, 0.5f, 0.5f)));
+            foreach (var colour in new[] { "font_color", "font_hover_color", "font_focus_color", "font_pressed_color", "font_hover_pressed_color", "font_disabled_color" }) b.AddThemeColorOverride(colour, Colors.Transparent);
+        }
     }
 }

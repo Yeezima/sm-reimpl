@@ -678,7 +678,7 @@ public sealed partial class FrontEndView : Control
     {
         if (_stopMusou is null) return;
         var (running, _, musou) = MusouServerState();
-        bool show = MusouLocal.ShowStopRow(running, musou);
+        bool show = MusouLocal.ShowStopRow(running, musou) || _args.ContainsKey("menu-stop-row-demo");   // the demo flag (screenshot aid) shows the row with no server
         if (_stopMusou.Visible == show) return;
         _stopMusou.Visible = show;
         if (!show && _stopMusou.HasFocus() && _main is not null) _first.GetValueOrDefault(_main)?.FocusLater();   // the focus must not be lost with the row
