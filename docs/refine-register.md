@@ -28,11 +28,11 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3329 spec table rows: **2368 tagged**, 618 not tagged (read from data with high confidence), 343 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 738 rows of the changes document.
+Scanned 3329 spec table rows: **2367 tagged**, 619 not tagged (read from data with high confidence), 343 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 738 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
-| Movement (critical) | 404 | 346 | 343 | 114 | 12 |
+| Movement (critical) | 403 | 346 | 343 | 113 | 12 |
 | Combat core (critical) | 21 | 12 | 19 | 14 | 8 |
 | Weapons (critical) | 119 | 73 | 106 | 52 | 3 |
 | Melee (critical) | 157 | 137 | 113 | 56 | 5 |
@@ -53,7 +53,7 @@ Scanned 3329 spec table rows: **2368 tagged**, 618 not tagged (read from data wi
 | Core simulation (provisional values) | 725 | 682 | 514 | 188 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 249 | 238 | 134 | 68 | 0 |
-| **All areas** | **2368** | 2101 | 1765 | 729 | 37 |
+| **All areas** | **2367** | 2101 | 1765 | 728 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -62,7 +62,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | kind: ours | 1381 |
 | confidence: low | 855 |
 | confidence: medium | 802 |
-| notes: ours | 403 |
+| notes: ours | 402 |
 | kind: interpretation | 383 |
 | notes: estimate | 203 |
 | kind: estimate | 164 |
@@ -91,7 +91,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 ## Part A: gameplay areas, critical first
 
-### Movement (gameplay-critical) (404)
+### Movement (gameplay-critical) (403)
 
 *Spec section: Extracted parameters*
 
@@ -150,7 +150,6 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-6050297A` | Who evades | Tactical and Chaos Tactical **roll** (`sm_mp_core_abil_evade`, `animation_set` "evade"); Devastator and Havoc do a **small hop** (`sm_mp_core_abil_heavy_evade`, "heavy_evade"; roll vs hop from the user's knowledge of the original); Assault and Raptor carry… | kind: interpretation; confidence: medium | `base_wargear` | Who evades: compare with SM1 by feel or video. Ours: Tactical and Chaos Tactical roll (sm_mp_core_abil_evade… | ☐ |
 | `R-30B9E75B` | Clip sets | "evade": `SM_Base_MP`'s "Ranged Evade Fwd/Back/Left/Right Sequencer" playing `SM_EVD_R2R_Roll_F_02_8m`, `_B_01_8m`, `_L_01_8m`, `_R_01_8m` (1.1667 s, 35 frames); "heavy_evade": the heavy bolter set `SM_EVD_TB_Evade_F/B/L/R_01` (0.9667 s, 29 frames; also in… (s) | kind: interpretation; confidence: low | graph sequencers | Clip sets: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: "evade": SM_Base_MP's "Ranged Evade Fwd/Back/Left/Right Sequencer"… | ☐ |
 | `R-059392B8` | Distance (clip extracted motion) | evade: forward 8.92, back 9.17, left 9.24, right 9.64 m (sideways drift under 0.15 m); heavy: forward 6.03, back 5.98, left 6.00, right 5.98 m; the path per frame (e.g. the forward roll 0.09, 0.69, 1.25, 1.61, 2.00 … 8.92 m) (m) | confidence: medium | `hkaDefaultAnimatedReferenceFrame` samples (up +Z, forward +Y) | Distance (clip extracted motion): compare with SM1 by measuring on a flat spot of the same map. Ours: evade: forward 8.92, back 9.17, left 9.24, right 9.64 m (sideways… | ☐ |
-| `R-3C5DC868` | Duration | evade 1.1667 s (35 ticks at 30 Hz), heavy 0.9667 s (29 ticks): the clip's length (`BRANCH_Evade_End` at 1.0) (s) | notes: ours | clip length | Duration: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: evade 1.1667 s (35 ticks at 30 Hz), heavy 0.9667 s (29 ticks): the… | ☐ |
 | `R-1E265688` | Control returns (`BRANCH_Run`, `BRANCH_ToRanged`) | evade 0.6667 s (7.1–7.3 m done), heavy 0.4525 s (4.3–5.2 m): from then the stick, Fire, Aim or a Grenade press end the evade and act in that tick; before, they are ignored (presses lost; `input_queue_time` 0). **Since protocol 51 Fire no longer ends the… (s) | kind: interpretation; confidence: low | branch tag starts × clip length; the evade state's exits in `SM_Base_MP` ("Bolter Evade": the stick, `FLT_Input_Nav_Speed` 0.5 or more, at `BRANCH_Run`; Fire… | Control returns (BRANCH_Run, BRANCH_ToRanged): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: evade 0.6667 s (7.1–7.3 m done), heavy 0.4525 s (4.3–5.2 m): from… | ☐ |
 | `R-4B05E3CC` | Switch (`BRANCH_To_Weapon_Switch`) | evade 0.7695 s; heavy: none (the clip's end) (s) | confidence: medium | branch tag; `Ranged - Bolter --if BOOL_Bolter == 0 branch BRANCH_To_Weapon_Switch--> TO Ranged Weapon Switch` (and the same for every weapon state; evidence-p0) | Switch (BRANCH_To_Weapon_Switch): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: evade 0.7695 s; heavy: none (the clip's end). | ☐ |
 | `R-43FF0AB5` | Melee (`BRANCH_Melee_Combo`) | evade 0.8 s; heavy 0.6333 s (back 0.7) (s) | kind: interpretation; confidence: low | branch tag | Melee (BRANCH_Melee_Combo): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: evade 0.8 s; heavy 0.6333 s (back 0.7). | ☐ |

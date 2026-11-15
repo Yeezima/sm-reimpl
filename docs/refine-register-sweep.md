@@ -61,3 +61,89 @@ The generator already groups Part A by area (critical areas first) and by spec s
 ## 7. Checks run (author's own, not independent QA)
 
 `dotnet build SmReimpl.slnx` and `dotnet build client/SmClient.csproj`: 0 errors. `smtool refine-register --check`: ok (3329 rows, 2433 tagged). Filtered `dotnet test` capped at `-m:4` (PublicText, RefineRegister, Spec, Evade): SmFormats.Tests 161 passed (includes `PublicTextGuardTests`, `RefineRegisterTests` with the two new cases), SmNet.Tests 143 passed. The full suite was not run.
+
+# Pass 2 (branch `claude/refine-register-sweep-2`, 2026-11-16)
+
+Second owner-approved pass over Part A, Classic PvP areas only (Musou and Ork rows untouched: the Ork area stays at 249). **No gameplay value and no code constant was changed**; the spec edits are Kind, Confidence and Source cells and one note. Honest scope: a full read of all 2184 Classic rows against code and install data was not possible in one pass. What was done: every row's kind, confidence and source cells were scanned by script for contradictions; every row whose subject is engineering, measurement or history was found by name, section and value patterns and read before closing; every `extracted`, `data` or `observed` row with a bare "medium" was read against the code and the data it cites. 66 rows closed; the rest need a human against SM1.
+
+## P2.1 Generator changes (`RefineRules`, tested in `RefineRegisterTests`)
+
+- **Kind `engineering measurement`** or **`engineering rule`** (the Kind cell starts with it): a cost, memory or frame-time reading of our own build, or a wire, snapshot, hardening or load-safety rule. Listed in the appendix; nothing in SM1 to compare with. The old kind stays in the cell: `engineering rule (was ours)`.
+- **`duplicate of R-XXXXXXXX`** at the start of any cell of a row (the Source or Where cell when the table has no Kind column): the row repeats another register row, which keeps the live tag. Listed in the appendix.
+
+## P2.2 Counts
+
+Part A rows (the generator's "Tagged rows"); before is the pass 1 tip (`730e71ad`):
+
+| Area | Before | After |
+|---|---:|---:|
+| Movement | 416 | 403 |
+| Combat core | 22 | 21 |
+| Weapons | 119 | 119 |
+| Melee | 158 | 157 |
+| Jump pack | 85 | 81 |
+| Charge | 59 | 59 |
+| Reactions | 25 | 25 |
+| Camera | 55 | 55 |
+| HUD and hit feedback | 73 | 73 |
+| Sound mix | 90 | 89 |
+| Effects | 98 | 95 |
+| Game modes | 46 | 45 |
+| Perks | 59 | 52 |
+| Death and ragdoll | 14 | 13 |
+| Customizer and paint | 48 | 46 |
+| Animation blending | 7 | 7 |
+| Lighting and rendering | 31 | 29 |
+| Networking and render smoothing | 25 | 17 |
+| Core simulation (Classic and Musou, mixed) | 747 | 725 |
+| General game design | 7 | 7 |
+| Ork faction | 249 | 249 |
+| **All areas** | **2433** | **2367** |
+
+Appendix 280 to 343 (+63: 66 rows left Part A; 3 of them, `R-3C5DC868`, `R-39C246EA` and `R-93B0A98E`, became untagged instead, so untagged is 616 to 619). Weapons, Charge, Reactions, Camera and HUD did not move: their open rows are real estimates or owner recollections.
+
+## P2.3 Rows closed
+
+**Closed by data (kind and confidence now say so)**
+
+| R-id | Row | Reason |
+|---|---|---|
+| `R-93B0A98E` | Max walkable slope | the value (60 degrees) is the install's `max_walkable_slope`, read at load by `GameplayTuning`; the only tag was a note that the controller rules around it are ours (those have their own rows) |
+| `R-3C5DC868` | Evade: Duration | confidence medium to high: 1.1667 s and 0.9667 s are the clips' lengths, read at load into `EvadeMove`; the per-tick basis is in its own cell |
+| `R-39C246EA` | Sprint stop: time | confidence medium to high: the clip, its branch tag and its length are the data's, read at load; 0.833 s applies only when the graph cannot be read |
+
+**Superseded (kind `superseded`)**: `R-44515378` Hit flinch: slot choice and `R-06EB519B` Death hit: choice, both replaced by the hit reactions of 2026-11-11 (the old rows are kept only behind `--old-hit-reactions`).
+
+**Duplicate**: `R-72F9868D` (Respawn time, "Provisional values in use") duplicates `R-BED2640F` (Teams and Annihilation). The Part C row `C-D2C7690E` is unchanged.
+
+**Engineering measurements (appendix)**: `R-EA55CD79`, `R-5587D429`, `R-49047B63` (animation pose cost), `R-60F22C0C`, `R-EF54CD93` (GPU frame time), `R-498FA589` (no-smoke cost), `R-8075DC70` (scope overlay cost), `R-BF10C7C3` (bot memory), `R-AC4906B9` (sound stream cost), `R-5FBBC333` (menu sound cost), `R-D2E922CC` (customizer look cost), `R-029F8653` (death effect cost), `R-E5EA2A49` (menu video cost). These are readings of our build; SM1's own frame cost is not something to match. Their kind was `measured`, `extracted`, `observed` or `ours`, with confidence medium.
+
+**Engineering rules (appendix)**
+- Wire, snapshot and prediction rules: `R-136EE8C9` kill feed, `R-6CD98EDA` death-view data, `R-B3B0DB48` perk kill cause, `R-5228203E` others' equipment, `R-F6252E69` own stim time at a reconcile, `R-981F38FA` emblem bytes, `R-F86598F9` emblem pulls, `R-D66C5B56` setup limits, `R-544497B2` True Grit log, `R-FBF08696` render clock test.
+- Server and client hardening: `R-D7526043` join rate, `R-0BFCE5E9` repeated Hello, `R-D9C2F998` tick catch-up, `R-2E8E90AA` crash isolation, `R-82B2FE16` UDP receive, `R-03B89F9B` respawn choice rate, `R-7BAED7ED` connect timeout, `R-F0EEFE25` hosting port check, `R-0F64DB7A` failure isolation of the gait data, `R-D7E578E8` looks built off the frame, `R-EDECAEC7` map load off the main thread.
+- Stall and log: `R-D29B5413`, `R-804365BD`, `R-A9B08743`, `R-ECF314B5`, `R-6F965540`, `R-599C739E`, `R-89EEAE92`, `R-96F42DFA`.
+- Performance settings: `R-9CEA0140`, `R-C6583162`, `R-96A0A21B` (lean bots), `R-9CBB7590`, `R-900DB710` (GC modes), `R-54E913E5` (ReadyToRun).
+- Display-name plumbing: `R-A40BE858` name seed, `R-4DE26DA6` name characters.
+- Test bots, which have no SM1 counterpart: `R-F831153D`, `R-25F3C186`, `R-8389442F`, `R-FB826BA2`, `R-261BAA24`, `R-F39784AA`, `R-BB28D290`. Kind `test aid` (their Source cell already said so): `R-FD9EB805`, `R-C10ACB8E`, `R-D196B53C`.
+
+**Kind corrected (still tagged)**: `R-40BF1F5D` "Respawn and death" (under "Evade cooldowns") was kind `interpretation`, confidence high, source ours. It is a rule of ours, tested: kind is now `ours (was interpretation: ...)`. `R-2A21D9CD` "Rotation sign reference" had the same contradiction and the same fix. Neither is closed: a tested rule of ours is still ours.
+
+## P2.4 Spec and code disagreements
+
+None found. Constants compared with `SimConfig`, `MatchRules` and `Loadouts`: tick rate 30, gravity 20, respawn 5 s and Rapid Deployment 3 s, capsule 0.45 / 1.9, step 0.4, fall speed 60, head and body hit volumes, melee reach 4, cone 60 degrees, vertical reach 1.5, Annihilation score limit 41 and time limit 600 s, capture 20 s, neutralise 10 s, Seize score interval 1 s. All agree. The install-read values (`GameplayTuning` overrides them at load) were not compared one by one.
+
+## P2.5 Why the other rows stay
+
+- **`extracted` rows at medium (46 outside Musou and Ork)**: read one by one. The medium is the stated caveat in most: the time unit of `delayed_action`, cooldown and lifetime values is assumed to be seconds, and the heat rate is assumed per second (cell text "seconds assumed" or "unit assumed"; the weapon and projectile rows in "Charged fire, projectiles and splash", "Thrown equipment and the melta cone" and "Blind grenade"). The code does read them at runtime (`WeaponTuning`, from the blueprints), so the values are right; the unit is what is unconfirmed. I did not raise any of them to high: that would assert the unit. One timing per class of value in SM1 would close the group (see P2.6).
+- **Units and timing basis**: nothing filled in. Every numeric Classic row already has a unit and a timing basis except `Max walkable slope` (timing basis empty; the data does not say) and `Shading gain` (no timing basis); the empty cells that remain are on non-numeric rule rows.
+- **`ours` at high confidence (90 rows)**: tested rules of ours, not contradictions (the owner may prefer a kind such as "ours, tested").
+- Owner recollections stay labelled as the owner's (`user's knowledge`, `owner's decision`, `owner recollection`).
+- The table "Provisional values in use" has no Kind column, so its engineering row `R-15CA0344` (controller constants) could not take the new kind; extending the generator to read the Source cell would close it and a few more.
+
+## P2.6 For the owner or a playtest, grouped for a playtester
+
+1. **One stopwatch session on time units** (closes about 40 weapon, projectile, grenade, heat and blind rows at once): in SM1 time the frag grenade cooldown (data 1), the melta cooldown (0.33), the plasma gun's charged shot (stage at 1.1 held), the heavy bolter's cooling (25 per second from 0.3 s after the last shot) and the grenade launcher's reload (0.6). If each matches seconds, the unit is confirmed and those rows go to high.
+2. **Frame-counted video of the evade and sprint stop**: the roll's end (1.1667 s), control return (0.667 s), the sprint stop clip (0.833 s); this checks the timing basis of the rows just closed at the value.
+3. **Owner decisions still open** (carried from pass 1): the charge's reach, the side charge's 25 degrees, the quickdraw's lead over the original, the evade ending on Aim and Grenade, the back-diagonal evade clips.
+4. **Gaps no data can close** (play the original): the perks `respawn_timer`, `enemy_info`, `secondary_weapon`, `friendly_spawn_target` and `snap_to_increase` (not in the data; the owner's descriptions stand), spawn protection (`R-956A1C89`), fall damage (`R-71FF1CE8`), players colliding with each other.
+5. **Sound, HUD, camera, effects** (about 410 rows, all ours or estimates against the original's look and sound): the Compare prompt of each row is the playtest; no row of these areas could be settled by data.
