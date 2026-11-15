@@ -148,4 +148,27 @@ public class DreadnoughtMeleeTests
         Assert.Equal((500f, 1000f, 125f, 75f, DreadnoughtMelee.Reach), (c.MeleeRush!.Primary.Damage, c.MeleeRush.Primary.ShieldDamage, c.MeleeRush.Secondary.Damage, c.MeleeRush.Secondary.ShieldDamage, c.MeleeRush.Range));
         Assert.Equal(75f, prepared.Classes[0].MeleeRush!.Primary.Damage);   // the Tactical's own is untouched
     }
+
+    /// <summary>DA's stomp (the arm's Y from rest, a foot hit in a 10 m sphere; owner 2026-11-15: "Musou's Orks react to the stomp's knockback and interrupt"): an Ork 5 m off takes the 50 and is pushed away or loses its footing; one 40 m away does not.</summary>
+    [Fact]
+    public void The_stomp_pushes_back_and_hurts_the_Orks_in_its_10_m_and_leaves_the_far_ones()
+    {
+        var w = Landed();
+        var at = Me(w).Position;
+        Boy(w, at + new Vector3(0f, 5f, 0f), out var near); Boy(w, at + new Vector3(0f, 40f, 0f), out var far);
+        w.Musou!.TryGet(near, out var n0);
+        float d0 = (n0.Position - at).Length();
+        Press(w, InputButtons.MeleeHeavy);
+        Assert.True(Me(w).MeleeStep > 0 && Me(w).MeleeHeavy);
+        float minHealth = n0.Health; bool displaced = false; MusouEnemyState seen = n0.State;
+        for (int k = 0; k < 30 * 3; k++)
+        {
+            w.Step(_ => new PlayerInput(0, 0f, 0f, 0f, InputButtons.None));
+            if (w.Musou!.TryGet(near, out var e)) { minHealth = MathF.Min(minHealth, e.Health); if ((e.Position - Me(w).Position).Length() > d0 + 0.3f || e.State != n0.State) displaced = true; }
+        }
+        Assert.True(minHealth <= n0.Health - 40f, $"the near Ork took {n0.Health - minHealth}");
+        Assert.True(displaced, "the near Ork neither moved away nor changed state under the stomp");
+        w.Musou!.TryGet(far, out var f);
+        Assert.True(f.Health > 99000f, "the far Ork was hurt");
+    }
 }

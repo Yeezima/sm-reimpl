@@ -215,6 +215,8 @@ public partial class NetworkView
     }
 
     // ---- sounds (D7): the install's own events from bank Weapon_Dreadnought through the sound system (the data's mix); none for a lean bot ----
+    /// <summary>The ground one footfall covers in the clips (**ours**, from the clips' cycles: walk 1.333 s for two steps at 3 m/s, run 0.8 s at 6.5, sprint 0.8 s at 11; the clips play faster with his 1.3x speeds, so the distance holds): the feel's footfalls (sound, dust, shake) follow the feet, not the sim's blast stride.</summary>
+    const float DreadWalkStride = 2.0f, DreadRunStride = 2.6f, DreadSprintStride = 4.4f;
     const string DreadEngineEvent = DreadnoughtFeel.EngineEvent, DreadFootEvent = "play_dreadnought_footstep", DreadSprintFootEvent = "play_dreadnought_sprint_footstep", DreadReloadEvent = "play_dreadnought_sm_weapon_reload";
     static readonly string[] DreadLightSwing = ["play_dreadnought_melee_swing_x1", "play_dreadnought_melee_swing_x2"], DreadHeavySwing = ["play_sm_stomp_displace", "play_dreadnought_melee_swing_y1"];
 
@@ -238,7 +240,8 @@ public partial class NetworkView
         {
             float moved = new Vector2(here.X - t.Last.X, here.Z - t.Last.Z).Length();   // Godot space: X, Z are the ground
             if (moved < 3f) t.Stride += moved;
-            if (t.Stride >= DreadnoughtRules.FootfallStride) { t.Stride -= DreadnoughtRules.FootfallStride; var foot = FeelOf(s.PlayerId); foot.Left = !foot.Left; bool sprint = speed > DreadnoughtRules.RunSpeed + 1.5f;
+            float strideNeeded = speed > DreadnoughtRules.RunSpeed + 1.5f ? DreadSprintStride : speed > DreadnoughtRig.RunFrom ? DreadRunStride : DreadWalkStride;
+            if (t.Stride >= strideNeeded) { t.Stride -= strideNeeded; var foot = FeelOf(s.PlayerId); foot.Left = !foot.Left; bool sprint = speed > DreadnoughtRules.RunSpeed + 1.5f;
                 DreadAct(sprint ? (foot.Left ? DreadAction.SprintFootLeft : DreadAction.SprintFootRight) : (foot.Left ? DreadAction.FootLeft : DreadAction.FootRight), s, t, own); }
         }
         t.Last = here;
@@ -265,7 +268,7 @@ public partial class NetworkView
         {
             if (speed > DreadnoughtRules.RunSpeed + 1.5f && forward > 0f)
             {
-                character.Stance("dn:sprint", null, DreadnoughtRig.Sprint, null, 0f, Math.Clamp(speed / DreadnoughtRules.SprintSpeed, 0.6f, 1.4f), 0.25f);
+                character.Stance("dn:sprint", null, DreadnoughtRig.Sprint, null, 0f, Math.Clamp(speed / DreadnoughtRules.DataSprintSpeed, 0.6f, 1.6f), 0.25f);
                 return;
             }
             int dir = DreadnoughtRig.DirectionIndex(MathF.Atan2(right, forward) * 180f / MathF.PI);

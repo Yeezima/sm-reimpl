@@ -52,6 +52,7 @@ public partial class NetworkView
         if (CmdFlag("dn-melee-film")) { await DnMeleeFilm(); return; }
         if (CmdFlag("dn-fire-film")) { await DnFireFilm(); return; }
         if (CmdFlag("dn-da-film")) { await DnDaFilm(); return; }
+        if (CmdFlag("dn-da-death")) { await DnDaDeath(); return; }
         GD.Print($"DNCAPTURE t {_connectedFor:F2} landed, class {client.Predicted.Class}, health {client.Predicted.Health:F0}, locked {DreadnoughtEntryText()}");
         await TfwWait(0.6);
         await DnStill(1, "dn-side-entrance-1");
