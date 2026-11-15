@@ -66,6 +66,11 @@ public sealed class FxEffect
     public bool GroundOnly;
     /// <summary>fx/jump-flash (the owner, 2026-11-02): draw only the jump pack thrust's <c>quick flash</c>, no flame or trail.</summary>
     public bool FlashOnly;
+    /// <summary>
+    /// musou/autocannon-flash (owner 2026-11-15: "leave only the bright yellow explosive flash"): only the effect's short additive flash sprites are drawn (a sprite named flash or streaks, <see cref="SmContent.BrightFlash"/>);
+    /// its fire, fireball, smoke, dust and debris sprites are not (lights and decals stay). Musou's autocannon hit and blast.
+    /// </summary>
+    public bool BrightFlash;
     /// <summary>fx/jumppack-jets (ours): 0..1, scales every sprite, beam, streamer and light colour of the effect (a smooth fade in or out while it keeps playing); 1: the data's.</summary>
     public float Opacity = 1f;
     /// <summary>fx/air-slash-landing: the effect's decals (crater, cracks) are not placed (the air slash's flash is the pound's burst without its ground marks).</summary>
@@ -172,6 +177,8 @@ public sealed partial class FxPlayer : Node3D
     /// drawn; impacts keep their flash, sparks, debris and decal, explosions their fireball and flash. <c>--smoke on</c> (test aid, before / after) draws them as the data has them.
     /// </summary>
     /// <summary><c>--old-plasma-edges</c> (plasma-soft-visuals): the plasma ribbons keep their hard edges and the chambers' arcs their 2.5 m reach.</summary>
+    /// <summary><c>--log-fx-plays</c> (test aid): one <c>FXPLAY</c> line for every effect started (name, scale, priority, place), to find which effect draws what is on the screen.</summary>
+    static readonly bool LogPlays = Array.IndexOf(OS.GetCmdlineUserArgs(), "--log-fx-plays") >= 0;
     public static bool OldPlasmaEdges { get; set; } = Array.IndexOf(OS.GetCmdlineUserArgs(), "--old-plasma-edges") >= 0;
     public static bool ShowSmoke { get; set; } = SmokeRules.SwitchOn(OS.GetCmdlineUserArgs());
 
@@ -307,6 +314,7 @@ public sealed partial class FxPlayer : Node3D
     {
         if (!IsReady || System(name) is not { } system) return null;
         if (!float.IsFinite(origin.X + origin.Y + origin.Z) || !float.IsFinite(scale)) return null;
+        if (LogPlays) GD.Print($"FXPLAY {name} scale {scale:F2} priority {priority} at ({origin.X:F1}, {origin.Y:F1}, {origin.Z:F1}) dist {origin.DistanceTo(_camPos):F1}");
         int ambientCount = _ambientCount, cap = MaxEffects;
         ExtrasFxCap(ref cap);   // EXTRAS-HOOK: Musou Mode's GPU sprays raise the cap (musou/gpu-particles)
         if (ambient ? ambientCount >= MaxAmbient : _effects.Count - ambientCount >= cap)
@@ -607,6 +615,7 @@ public sealed partial class FxPlayer : Node3D
     void DrawNode(FxEffect e, CNode n, in Ctx c, double age, int depth, uint seed)
     {
         if (e.FlashOnly && n.Name is not ("quick flash" or "JET" or "")) return;
+        if (e.BrightFlash && n is CSprite bright && !SmContent.BrightFlash.Keeps(bright.Additive, bright.Distortion, bright.Name)) return;   // musou/autocannon-flash
         if (n.Hide || depth > MaxDepth || age < 0.0) return;
         // fx/no-smoke: smoke, dust, mist and haze are not drawn (the owner's change). A smoke sprite is not drawn; its collision content (a dropper collider's decal or debris) is
         // played by DrawSpray's collision path, not from here, so its parents are skipped whole only when that content is smoke too (SmokeOnly).

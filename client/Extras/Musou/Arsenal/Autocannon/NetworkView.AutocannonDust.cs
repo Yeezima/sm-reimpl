@@ -64,10 +64,12 @@ public partial class NetworkView
         for (int i = 0; i < _config.Thrown.Count && frag < 0; i++) if (SmSim.Extras.Musou.Campaign.TfwCombatRules.IsFrag(_config.Thrown[i])) frag = i;
         if (frag < 0) return;
         float radius = SmSim.AutocannonRules.BlastRadius * SmSim.Extras.Musou.MusouCombatRules.AutocannonAoeScale;
-        FxDetonation(new SmNet.ProjectileView(0, frag, 0, ToGame(end), SmNet.ProjectileFlags.Thrown), BoltBlastFxScale * BoltBlastSizeOf(radius), BlastDustShare(radius));
+        FxDetonation(new SmNet.ProjectileView(0, frag, 0, ToGame(end), SmNet.ProjectileFlags.Thrown), BoltBlastFxScale * BoltBlastSizeOf(radius), BlastDustShare(radius), flashOnly: true);
     }
 
     /// <summary>The dust share a blast of <paramref name="radius"/> metres is drawn with: <see cref="BlastDust"/> for the autocannon's (a radius above the bolt blast's), 1 for every other blast.</summary>
+    /// <summary>musou/autocannon-flash: whether a blast of <paramref name="radius"/> metres draws only its bright flash (the autocannon's, not the bolt blast's; <c>--musou-old-autocannon-fx</c> restores the whole effect).</summary>
+    bool BlastFlashOnly(float radius) => !OldAutocannonDust && SmSim.AutocannonRules.LosesDust(radius);
     float BlastDustShare(float radius) => BlastDustShareOf(radius, OldAutocannonDust, OldBoltSmoke);
     /// <summary>The pure radius-to-share mapping (tested): <see cref="BlastDust"/> above the bolt blast's radius unless restored, else 1.</summary>
     internal static float BlastDustShareOf(float radius, bool restored, bool boltRestored = false) => restored && boltRestored ? 1f : !restored && SmSim.AutocannonRules.LosesDust(radius) ? BlastDust : boltRestored || SmSim.AutocannonRules.LosesDust(radius) ? 1f : BoltBlastDust;

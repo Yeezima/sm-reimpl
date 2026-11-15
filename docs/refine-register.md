@@ -28,8 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3278 spec table rows: **2411 tagged**, 608 not tagged (read from data with high confidence), 259 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 733 rows of the changes document.
-Scanned 3290 spec table rows: **2417 tagged**, 614 not tagged (read from data with high confidence), 259 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 732 rows of the changes document.
+Scanned 3293 spec table rows: **2418 tagged**, 616 not tagged (read from data with high confidence), 259 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 734 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -51,33 +50,22 @@ Scanned 3290 spec table rows: **2417 tagged**, 614 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 23 | 13 | 13 | 13 | 7 |
-| Core simulation (provisional values) | 726 | 684 | 516 | 188 | 1 |
+| Core simulation (provisional values) | 733 | 689 | 522 | 188 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 249 | 238 | 134 | 68 | 0 |
-| **All areas** | **2411** | 2131 | 1786 | 743 | 38 |
-| Core simulation (provisional values) | 732 | 687 | 520 | 189 | 1 |
-| General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 249 | 238 | 134 | 68 | 0 |
-| **All areas** | **2417** | 2134 | 1790 | 744 | 38 |
+| **All areas** | **2418** | 2136 | 1792 | 743 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1402 |
-| confidence: low | 852 |
-| confidence: medium | 805 |
+| kind: ours | 1407 |
+| confidence: low | 855 |
+| confidence: medium | 808 |
 | notes: ours | 416 |
 | kind: interpretation | 390 |
 | notes: estimate | 204 |
-| kind: estimate | 165 |
-| kind: ours | 1405 |
-| confidence: low | 856 |
-| confidence: medium | 805 |
-| notes: ours | 417 |
-| kind: interpretation | 390 |
-| notes: estimate | 204 |
-| kind: estimate | 168 |
+| kind: estimate | 167 |
 | confidence: none (low) | 129 |
 | kind: provisional | 103 |
 | kind: user's knowledge | 56 |
@@ -2498,8 +2486,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (726)
-### Core simulation (provisional values) (732)
+### Core simulation (provisional values) (733)
 
 *Spec section: Provisional values in use*
 
@@ -3547,7 +3534,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-0B92F2C9` | Autocannon: the fodder its blast kills (2026-11-11) | every Ork that is neither an elite nor a boss nor the Stormboy: the choppa Boy 85, the Shoota Boy 85, the Gretchin 30, the Rokkit Boy 85, the Bomb Squig 30 (any hit sets a Squig off); Musou's health of each, with no wave, difficulty, army or Guard scale on an… (health) | kind: interpretation; confidence: medium; notes: ours | owner 2026-11-11 ("any weak ork", "any fodder ork", "Stormboy is not fodder"); which other Orks count as fodder is ours (the elite and boss rules' complement) | Autocannon: the fodder its blast kills (2026-11-11): compare with SM1 by measuring on a flat spot of the same map. Ours: every Ork that is neither an elite nor a boss nor the Stormboy: the… | ☐ |
 | `R-F8A64DB4` | Autocannon: impact (W1c) | the rounds' hits on walls, the ground and every other level surface, and the body hits that fall back to the container's default entry, play `autocannon_dmg` in place of the twin's `chaos_autocannon_dmg` (white, lavender and purple flashes, sparks, hot crater… | kind: ours | owner 2026-11-10 ("Loyalist impact"); the names, scales and containers from the install (`material_effect_container`'s two `autocannon` files; `smtool fx-dump`… | Autocannon: impact (W1c): compare with SM1 by feel or video. Ours: the rounds' hits on walls, the ground and every other level surface… | ☐ |
 | `R-9FBB6416` | Autocannon: the blast's flash on a terrain hit (musou/autocannon-flash) | a Musou autocannon round that strikes the level (ground, wall, prop) with no enemy plays its blast's bright flash at the point (`ExtrasTerrainBlast`: the frag detonation at the blast's drawn size, 2.5 m x 1.4, no dust), where before only a round that struck… (effect at the hit point) | kind: ours; confidence: medium | owner 2026-11-15 ("trigger where the shot hits the terrain even when no enemy target is hit") | Autocannon: the blast's flash on a terrain hit…: compare with SM1 by measuring on a flat spot of the same map. Ours: a Musou autocannon round that strikes the level (ground, wall, prop)… | ☐ |
-| `R-EA707FDE` | Bolt weapons: no smoke or debris sprites on the muzzle, the hit and the blast (fx/bolt-smoke) | the bolter, bolt pistol, storm bolter, heavy bolter, stalker bolter and every other bolt weapon (a wargear name holding `bolt`, `stalker` or `sniper_rifle`, never the autocannon: `BoltSmoke.IsBoltWeapon`) draw **0** of the alpha-blended sprites of their… (share of sprites) | kind: ours; confidence: medium | owner 2026-11-15 ("ensure those black smoke effects from bolt weapons also aren't in classic pvp either") | Bolt weapons: no smoke or debris sprites on the muzzle, the…: compare with SM1 by measuring on a flat spot of the same map. Ours: the bolter, bolt pistol, storm bolter, heavy bolter, stalker bolter… | ☐ |
+| `R-EA707FDE` | Bolt weapons: no smoke or debris sprites on the muzzle, the hit and the blast (fx/bolt-smoke) | the bolter, bolt pistol, storm bolter, heavy bolter, stalker bolter and every other bolt weapon (their hit on a Musou Ork keeps its blood but not the smoke cards the original blood plays with: `NoShotSmoke`) (a wargear name holding `bolt`, `stalker` or… (share of sprites) | kind: ours; confidence: medium | owner 2026-11-15 ("ensure those black smoke effects from bolt weapons also aren't in classic pvp either") | Bolt weapons: no smoke or debris sprites on the muzzle, the…: compare with SM1 by measuring on a flat spot of the same map. Ours: the bolter, bolt pistol, storm bolter, heavy bolter, stalker bolter… | ☐ |
 | `R-4E72E136` | Autocannon: barrel length (W1c) | the muzzle **1.6 m** from the model's root along its length (`turret_aa`'s +Y; W1b's "2.6 m" is the install's `FX_muzzle` at 2.621 m), so the barrel reaches **0.53 m** past the receiver (was 1.55 m) and the gun is 1.77 m from stock to muzzle (was 2.79 m)… (m) | kind: ours; confidence: medium | owner 2026-11-10 ("shorten it to 1.6m, then show me a screenshot"); the positions measured on the install (`AutocannonContentTests`) | Autocannon: barrel length (W1c): compare with SM1 by measuring on a flat spot of the same map. Ours: the muzzle 1.6 m from the model's root along its length (turret_aa's… | ☐ |
 | `R-B4298678` | Autocannon: animations | the heavy bolter's (walk, sprint, hop, fall, hip fire, flinch: the campaign's carry graph uses the same navigation graph); the model is the install's `turret_aa` (1,883 triangles) with W1c's shorter barrel, held and stowed as the heavy bolter's | confidence: medium | design section 4 | Autocannon: animations: compare with SM1 by feel or video. Ours: the heavy bolter's (walk, sprint, hop, fall, hip fire, flinch: the… | ☐ |
 | `R-EF126E40` | Autocannon: customizer config | under a Musou content profile the customizer plans a Join with the configuration the match tuning builds for that profile (it lists the autocannon), read once on a worker; PLAY and JOIN wait for it | kind: ours | design section 11 | Autocannon: customizer config: compare with SM1 by feel or video. Ours: under a Musou content profile the customizer plans a Join with the… | ☐ |

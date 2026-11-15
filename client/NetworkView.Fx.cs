@@ -622,7 +622,7 @@ public partial class NetworkView
             if (p.TriggerPoint != "exit_wound") TracerProbeImpact(pos);   // fx/tracers-impact: --tracer-probe (the exit wound sits 0.35 m past the hit on purpose)
             var impact = _fx.Play(p.Name, pos, axes, (p.Scale <= 0f ? 1f : p.Scale) * (hit != ShotHit.World ? HitFxParticleScale(end) : 1f), null, null, p.Lifetime, delay, false, impactPriority, tint: RaceTint(w.Wargear, p.Name));   // onhit-range-intensity: a hit on a player keeps its size at range, x1.3
             if (impact is not null && hit != ShotHit.World) impact.ReachCap = SparkReachCap;   // hit-sparks-flashes: a hit on a player's particles end within 4 m of the body
-            if (impact is not null) { float dust = 1f; ExtrasImpactDustShare(w.Wargear, ref dust); impact.DustShare = dust * BoltSmoke.ShareFor(w.Wargear, OldBoltSmokeFx); }   // EXTRAS-HOOK: Musou's autocannon round throws half the dust (musou/autocannon-dust)
+            if (impact is not null) { float dust = 1f; ExtrasImpactDustShare(w.Wargear, ref dust); impact.DustShare = dust * BoltSmoke.ShareFor(w.Wargear, OldBoltSmokeFx); if (dust == 0f) impact.BrightFlash = true; }   // the autocannon alone gets 0 from the hook: only its bright flash   // EXTRAS-HOOK: Musou's autocannon round throws half the dust (musou/autocannon-dust)
         }
     }
 
@@ -727,7 +727,7 @@ public partial class NetworkView
     /// it hit). Returns whether the original explosion plays (the placeholder blast sphere is then not drawn). <paramref name="scale"/> sizes every effect it plays (1: the data's; Musou Mode's bolt
     /// blast alone passes less, NetworkView.TfwBoltBlast.cs).
     /// </summary>
-    bool FxDetonation(ProjectileView d, float scale = 1f, float dustShare = 1f)
+    bool FxDetonation(ProjectileView d, float scale = 1f, float dustShare = 1f, bool flashOnly = false)
     {
         if (!FxActive || _config is null) return false;
         var fx = FxProjectileOf(d);
@@ -744,10 +744,10 @@ public partial class NetworkView
         string shooterWargear = ProjectileWargear(d);
         int blastPriority = _camera is not null && _camera.GlobalPosition.DistanceTo(pos) <= FxPriority.NearBlastMetres ? FxPriority.Hit : FxPriority.Special;   // fx-cap-priority: a blast beside the player goes after the other blasts
         foreach (var p in plays)
-            if (_fx!.Play(p.Name, pos + Vector3.Up * 0.05f, Basis.Identity, (p.Scale <= 0f ? 1f : p.Scale) * scale, null, null, p.Lifetime, 0.0, false, blastPriority, tint: RaceTint(shooterWargear, p.Name)) is { } played) played.DustShare = dustShare * BoltSmoke.ShareFor(shooterWargear, OldBoltSmokeFx);
+            if (_fx!.Play(p.Name, pos + Vector3.Up * 0.05f, Basis.Identity, (p.Scale <= 0f ? 1f : p.Scale) * scale, null, null, p.Lifetime, 0.0, false, blastPriority, tint: RaceTint(shooterWargear, p.Name)) is { } played) { played.DustShare = dustShare * BoltSmoke.ShareFor(shooterWargear, OldBoltSmokeFx); played.BrightFlash = flashOnly; }
         if (!d.Thrown && !OldChargedImpact) DetonationBodyHit(d);   // fx/tracers-impact: a projectile that struck a player shows the body hit (armour glow, flash) when it arrives
         foreach (var p in byMaterial)
-            if (_fx!.Play(p.Name, surfaceNormal is { } n ? surfacePoint + n * 0.02f : pos + Vector3.Up * 0.05f, surfaceNormal is { } sn ? AxesFromY(sn) : Basis.Identity, (p.Scale <= 0f ? 1f : p.Scale) * scale, null, null, p.Lifetime, 0.0, false, blastPriority, tint: RaceTint(shooterWargear, p.Name)) is { } playedHit) playedHit.DustShare = dustShare * BoltSmoke.ShareFor(shooterWargear, OldBoltSmokeFx);
+            if (_fx!.Play(p.Name, surfaceNormal is { } n ? surfacePoint + n * 0.02f : pos + Vector3.Up * 0.05f, surfaceNormal is { } sn ? AxesFromY(sn) : Basis.Identity, (p.Scale <= 0f ? 1f : p.Scale) * scale, null, null, p.Lifetime, 0.0, false, blastPriority, tint: RaceTint(shooterWargear, p.Name)) is { } playedHit) { playedHit.DustShare = dustShare * BoltSmoke.ShareFor(shooterWargear, OldBoltSmokeFx); playedHit.BrightFlash = flashOnly; }
         // Shake the camera by the distance, flash for a krak close by.
         if (_client is { } client)
         {

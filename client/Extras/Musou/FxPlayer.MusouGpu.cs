@@ -206,6 +206,7 @@ public sealed partial class FxPlayer
     bool GpuShown(FxEffect e, CNode node, int depth)
     {
         if (e.FlashOnly && node.Name is not ("quick flash" or "JET" or "")) return false;
+        if (e.BrightFlash && node is CSprite bright && !SmContent.BrightFlash.Keeps(bright.Additive, bright.Distortion, bright.Name)) return false;   // musou/autocannon-flash
         if (node.Hide || depth > MaxDepth) return false;
         if (!ShowSmoke && !e.KeepSmoke && (node.SmokeOnly || node.Smoke)) return false;
         if (DecalsOnly && node is not (CCombo or CSpray or CDecal)) return false;
@@ -242,7 +243,7 @@ public sealed partial class FxPlayer
     /// <summary>The spray's plan for this effect's filters at this depth (built once per spray, depth and filter set).</summary>
     GpuPlan GpuPlanFor(FxEffect e, CSpray n, int depth)
     {
-        int mask = (e.FlashOnly ? 1 : 0) | (e.KeepSmoke ? 2 : 0) | (ShowSmoke ? 4 : 0) | (DecalsOnly ? 8 : 0);
+        int mask = (e.FlashOnly ? 1 : 0) | (e.KeepSmoke ? 2 : 0) | (ShowSmoke ? 4 : 0) | (DecalsOnly ? 8 : 0) | (e.BrightFlash ? 16 : 0);
         if (_gpuPlans.TryGetValue((n, depth, mask), out var known)) return known;
         var plan = new GpuPlan();
         var children = new List<GpuChild>();
