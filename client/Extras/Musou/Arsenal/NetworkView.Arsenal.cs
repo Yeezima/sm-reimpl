@@ -52,7 +52,9 @@ public partial class NetworkView
     /// </summary>
     partial void ExtrasPresentationSources(string wargear, ref IReadOnlyList<string>? sources)
     {
-        if (_config is null || !ArsenalRules.Shown(_config.Extras, wargear)) return;
+        if (_config is null) return;
+        wargear = SmContent.Extras.Musou.DreadnoughtPresentation.AsAutocannon(wargear);   // the Dreadnought's cannon shows the autocannon's effects (owner 2026-11-15)
+        if (!ArsenalRules.Shown(_config.Extras, wargear)) return;
         sources = Arsenal.PresentationSources(_config.Extras, wargear);
     }
 
@@ -62,7 +64,9 @@ public partial class NetworkView
     /// </summary>
     partial void ExtrasSoundSources(string wargear, ref IReadOnlyList<string>? sources)
     {
-        if (_config is null || !_config.Extras.HasFlag(ContentExtras.Musou) || !ArsenalRules.IsArsenal(wargear)) return;
+        if (_config is null || !_config.Extras.HasFlag(ContentExtras.Musou)) return;
+        wargear = SmContent.Extras.Musou.DreadnoughtPresentation.AsAutocannon(wargear);   // the Dreadnought's cannon sounds as the autocannon (owner 2026-11-15)
+        if (!ArsenalRules.IsArsenal(wargear)) return;
         sources = Arsenal.SoundSources(_config.Extras, wargear);
     }
 
@@ -75,7 +79,9 @@ public partial class NetworkView
     /// </summary>
     partial void ExtrasEffectNames(string wargear, ref IReadOnlyDictionary<string, string>? names)
     {
-        if (OldAutocannonFx || _config is null || !ArsenalRules.Shown(_config.Extras, wargear)) return;
+        if (OldAutocannonFx || _config is null) return;
+        wargear = SmContent.Extras.Musou.DreadnoughtPresentation.AsAutocannon(wargear);   // the Dreadnought's cannon: the autocannon's loyalist flash, tracer and impact (owner 2026-11-15)
+        if (!ArsenalRules.Shown(_config.Extras, wargear)) return;
         names = Arsenal.EffectNames(_config.Extras, wargear);
     }
 

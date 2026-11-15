@@ -9,3 +9,4 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Leave out changes a tester cannot notice (tooling, docs, refactors). Optional "### " headings group long lists.
 - Add your bullets in the same pull request as the change, when it merges.
 -->
+- Musou Mode, the Dreadnought is stronger. His arm swings 30% faster and every Ork inside the swing is hit; the swings now flow smoothly from one into the next instead of popping. His cannon fires like the Devastator's autocannon (same damage, explosions, sounds and flash) but ten shots a second, never runs out of ammunition, and has a heat bar: hold fire for about 5 seconds and it overheats, then cools. His melta is a bigger Tactical melta: 1.5 times the damage, longer reach, full damage all the way out, a faster reload and no running out of fuel. Try them all in a war as the Dreadnought and tell us how the heat bar and the melta's reach feel.

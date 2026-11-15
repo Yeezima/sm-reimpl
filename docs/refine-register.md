@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3275 spec table rows: **2410 tagged**, 606 not tagged (read from data with high confidence), 259 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 731 rows of the changes document.
+Scanned 3290 spec table rows: **2417 tagged**, 614 not tagged (read from data with high confidence), 259 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 732 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,22 +50,22 @@ Scanned 3275 spec table rows: **2410 tagged**, 606 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 23 | 13 | 13 | 13 | 7 |
-| Core simulation (provisional values) | 725 | 682 | 514 | 189 | 1 |
+| Core simulation (provisional values) | 732 | 687 | 520 | 189 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 249 | 238 | 134 | 68 | 0 |
-| **All areas** | **2410** | 2129 | 1784 | 744 | 38 |
+| **All areas** | **2417** | 2134 | 1790 | 744 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1400 |
-| confidence: low | 853 |
-| confidence: medium | 802 |
+| kind: ours | 1405 |
+| confidence: low | 856 |
+| confidence: medium | 805 |
 | notes: ours | 417 |
 | kind: interpretation | 390 |
 | notes: estimate | 204 |
-| kind: estimate | 166 |
+| kind: estimate | 168 |
 | confidence: none (low) | 129 |
 | kind: provisional | 103 |
 | kind: user's knowledge | 56 |
@@ -2486,7 +2486,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (725)
+### Core simulation (provisional values) (732)
 
 *Spec section: Provisional values in use*
 
@@ -3653,6 +3653,18 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-F38CEA95` | Dreadnought: sounds (D7) | the install's events of bank `Weapon_Dreadnought` posted by the client: `play_engine_sm_dreadnought` from the end of the entrance to his death (speed RTPC), `play_dreadnought_footstep` / `play_dreadnought_sprint_footstep` on the sim's 2.2 m stride… | kind: ours | `smtool audio-event` on each event | Dreadnought: sounds (D7): compare with SM1 by feel or video. Ours: the install's events of bank Weapon_Dreadnought posted by the client:… | ☐ |
 | `R-352ADBF8` | Dreadnought: balance in the war (D8) | a scripted Dreadnought (`--dn-survive`: into the crowd on lane B, cannon held, aimed at the nearest Ork, a reload at the empty clip) lived **109 s** in the thickest fight (the allied Guards and Marines fight beside him) and died once; health fell from 2000 to… (s, HP) | confidence: low | local capture, 2026-11-15 | Dreadnought: balance in the war (D8): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a scripted Dreadnought (--dn-survive: into the crowd on lane B… | ☐ |
 
+*Spec section: Musou Dreadnought buff: faster arm, the autocannon's cannon, the Tactical's melta scaled up (owner 2026-11-15; `MusouSim.Version` 58, `TfwRules.Version` 83; no protocol change; Musou only)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-42C548BB` | Dreadnought buff: cleave | every enemy inside a swing's cleave is struck, no cap: the war's cleave has no target cap since TfwRules 80 (`TfwCombatRules.CleaveTargets` = the pool), so the Dreadnought's swings strike all of them; the reach is the existing cleave's (the core's melee range… (enemies) | confidence: medium | owner 2026-11-15 ("cleave infinitely within their maximum range") | Dreadnought buff: cleave: compare with SM1 by feel or video. Ours: every enemy inside a swing's cleave is struck, no cap: the war's… | ☐ |
+| `R-400C1394` | Dreadnought buff: why the strike looked choppy (client) | the strike's clip was posed at the simulation's melee time, which stands still between two ticks (own player, predicted) or two snapshots (others) and jumps at the next, so the pose froze and popped at 30 Hz or less; it now runs on the frame-rate clip clocks… (s) | kind: ours; confidence: medium | owner 2026-11-15 ("sync, smooth, blend, and transition") | Dreadnought buff: why the strike looked choppy (client): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the strike's clip was posed at the simulation's melee time, which… | ☐ |
+| `R-3BE5AA30` | Dreadnought buff: the cannon's heat | the autocannon's meter (overheat at **15**, high at 9, recovery at 1, cools **4.5**/s after 0.41 s without a shot, no extra delay after an overheat: 3.3 s to cool from full) with the heat per shot **15 / 57 = 0.263** (the autocannon's 1): the autocannon's… (heat, s) | kind: ours | owner 2026-11-15 | Dreadnought buff: the cannon's heat: compare with SM1 by feel or video. Ours: the autocannon's meter (overheat at 15, high at 9, recovery at 1… | ☐ |
+| `R-D7461EBB` | Dreadnought buff: the cannon's look and sound | the autocannon's, by reference to its definitions: sounds the Stalker Bolter's (`Arsenal.SoundSources`), effects the loyalist `autocannon_muzzle`, `heavy_bolter_tracer` and impact (`Arsenal.EffectNames`), the muzzle flash at the autocannon's scale 1.5 (was… | confidence: medium | owner 2026-11-15 ("sounds, visual shot and muzzle flash effects should all match the autocannon") | Dreadnought buff: the cannon's look and sound: compare with SM1 by listening A/B at the same distance and state. Ours: the autocannon's, by reference to its definitions: sounds the Stalker… | ☐ |
+| `R-AE43AB10` | Dreadnought buff: the melta's range | the cone's length, apex and the weapon's range **1.5** times (the Tactical's 20 m cone is 30 m) (x) | kind: ours; kind: estimate; confidence: low | the owner gave "bigger range" with no number; 1.5 is the lead's suggestion and the same scale as the damage | Dreadnought buff: the melta's range: compare with SM1 by measuring on a flat spot of the same map. Ours: the cone's length, apex and the weapon's range 1.5 times (the… | ☐ |
+| `R-F856CC3B` | Dreadnought buff: the melta's reload | the clip's recharge delay and round time and the reload time **0.6** of the Tactical's (0.5 s delay and 12 s a round become 0.3 s and 7.2 s; with no ammunition spent the recharge never runs) (x) | kind: ours; kind: estimate; confidence: low | the owner gave "faster reload" with no number; 0.6 is the lead's suggestion | Dreadnought buff: the melta's reload: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the clip's recharge delay and round time and the reload time 0.6 of… | ☐ |
+| `R-9873E7EA` | Dreadnought buff: the melta's look and sound | unchanged: the melta's reticle and box and the Tactical's melta effects; not rescaled to his size | kind: ours; confidence: low | owner 2026-11-15 ("keep the melta's look and sound" in the lead's brief) | Dreadnought buff: the melta's look and sound: compare with SM1 by listening A/B at the same distance and state. Ours: unchanged: the melta's reticle and box and the Tactical's melta… | ☐ |
+
 ### General game design (7)
 
 *Spec section: Known behavior (public, unverified)*
@@ -4283,6 +4295,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-0079CDA8` | Musou Librarian: the chain lightning struck as drawn, +25 % range and damage (musou-balance, owner 2026-11-11; `MusouSim.Version` 41) | the owner (2026-11-11): "librarian chain lightning spell doesn't seem to be reliably delivering damage, increase its range, damage, and reliability of delivering damage", "+25% range and damage"; the rewind ours | 37.5 m and 112.5 dps (30 and 90); the server picks the chain on the crowd at the caster's input view tick, as his client draws it; restore switch `SM_LIBRARIAN_OLD=rewind` | Musou: chain lightning; the chain lightning struck as drawn | Musou Librarian: the chain lightning struck as drawn, +25 %…: compare with SM1 by counting hits to kill and by video of the health bar. Ours: the owner (2026-11-11): "librarian chain lightning spell doesn't seem… | ☐ |
 | `C-0CE1D512` | Musou Dreadnought class: a pick of the Musou war (claude/musou-dreadnought-d0-d1, owner 2026-11-14; `MusouSim.Version` 56, `TfwRules.Version` 81) | the owner's request ("Add a new class to Musou mode - next to librarian and heretic selection options in the customize UI - dreadnaught"; "matches exactly that of the loyalist space marine dreadnaught") and his decisions of the same day (any number of players, his own Musou health pool, the data's cannon clip and… | Musou only: a new class `sm - dreadnought` after the Librarian with the data's speeds, a health of 2000 (the data's 8000 would be immortal to ordinary Orks) regenerating 62.5 a second after 5 s (the data's share of it), a 1.0 m by 3.0 m capsule that the Orks crowd as a large body, and the data's 5 s entrance of no… | Dreadnought: the class; speeds; Musou health; Musou regeneration; the body; the Orks treat him as a large body; the entrance | Musou Dreadnought class: a pick of the Musou war…: compare with SM1 by feel or video. Ours: the owner's request ("Add a new class to Musou mode - next to… | ☐ |
 | `C-6EA5C6BB` | Musou Dreadnought, the finished class (claude/musou-dreadnought-d2-b93279, 2026-11-15; `MusouSim.Version` 56, `TfwRules.Version` 81, no protocol change) | the owner's request and decisions of 2026-11-14 and 2026-11-15 ("continue the dreadnaught work until its ready to be playtested in game") | Musou only: the class now has the real model and animations, the data's assault cannon (140 rounds, 2.5 s reload; 15 rounds a second on the 30 Hz tick) and melta (Switch), the arm's five strikes (X, X, stomp, slam of 500 in 10 m, the rush), footfall blasts of 25 in 10 m every 2.2 m walked (our estimate of which… | Dreadnought: the model and clips; the assault cannon; the melta; the arm's strikes; footfall blasts; the sprint limit; the buff; the camera and HUD; the customizer entry; sounds; balance in the war | Musou Dreadnought, the finished class…: compare with SM1 by feel or video. Ours: the owner's request and decisions of 2026-11-14 and 2026-11-15… | ☐ |
+| `C-EFE2968D` | Musou Dreadnought buff (claude/musou-dreadnought-buff, `MusouSim.Version` 58, `TfwRules.Version` 83; Musou only): the arm, the cannon and the melta | the owner's orders (2026-11-15: "buff the dreadnaught's weapons"); the melta's reach 1.5 x and reload 0.6 x are ours (estimates) | the arm runs 1.3 times as fast as the data's clips (clip played at that rate, frame-rate clip clock: no more choppy poses) and every enemy in a swing's cleave is struck; the cannon is the Musou autocannon (damage 101, blast, pierce, sounds and effects by reference) at the braced heavy bolter's 0.1 s, no ammunition, a… | spec "Musou Dreadnought buff" | Musou Dreadnought buff (claude/musou-dreadnought-buff…: compare with SM1 by feel or video. Ours: the owner's orders (2026-11-15: "buff the dreadnaught's weapons")… | ☐ |
 | `C-FB9704D4` | Musou Dreadnought: no sprint turn cap, and the landing at the Imperial base's centre (claude/integration, owner 2026-11-15; `MusouSim.Version` 57, `TfwRules.Version` 82, no protocol change) | the data's `dread_sprint` turns the sprinting Dreadnought at most 50 degrees a second; the original has no Musou Mode | Musou only: the cap is not applied ("Skip the turn cap"; the view yaw is also the aim); a Dreadnought pick lands at the centre of the landing zone (the Imperial base) and several stand 4 m apart (spacing ours, an estimate) | owner decisions 2026-11-15; spec "Added content: Musou Dreadnought" | Musou Dreadnought: no sprint turn cap, and the landing at…: compare with SM1 by timing a run over a known distance. Ours: the data's dread_sprint turns the sprinting Dreadnought at most 50… | ☐ |
 | `C-2E5D3E89` | Musou tuning of 2026-11-11 (musou-tuning-1111b; `MusouSim.Version` 42, `TfwRules.Version` 66) | the owner's answers (2026-11-11): "Drop to 600 blood spray cap"; "Widen the 8m jump and make the damage not falloff anymore - it always stays constant", "16 m (double)"; "Add it to orbital strikes and stack it with double damage yes" | the GPU sprays' live-effect cap 600 (1,200); the chain lightning's jump 16 m (8 m) and every enemy of the chain at the full 112.5 dps (x0.85 a jump), tag 16's jumps in 0.2 m bytes for it; a human player's orbital strike x1.2 on the enemies (a boss 36 a shell, 30), an AI caller x1, the kills still nobody's | Live-effect cap with the GPU sprays (Musou); Musou: chain lightning jump and fall-off; Musou combat: the players' ranged damage x1.2 | Musou tuning of 2026-11-11 (musou-tuning-1111b…: compare with SM1 by feel or video. Ours: the owner's answers (2026-11-11): "Drop to 600 blood spray cap"… | ☐ |
 | `C-B8F01CC3` | Musou: no range fall-off for any ranged weapon (claude/autocannon-pass-2, owner 2026-11-11; `TfwRules.Version` 68, `MusouSim.Version` 44) | the owner (2026-11-11): "There should be no damage falloff for any ranged weapon in Musou mode"; that the melta's cone distance fall-off counts, and that the AI Marines' shots are covered too, ours (his words: "any ranged weapon") | in the war every hit-scan shot on an Ork or a contraption deals its full damage at any distance it reaches (the weapons' x0.8 / x0.75 / x0.5 from 45 to 70 m and so on gone), the melta's cone its full 200 to its 20 m (x0.15 at 20 m before), the arsenal's too; a blast's fall-off from its centre, a pierced shot's 0.85… | Musou: no range fall-off | Musou: no range fall-off for any ranged weapon…: compare with SM1 by timing a run over a known distance. Ours: the owner (2026-11-11): "There should be no damage falloff for any… | ☐ |

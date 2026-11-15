@@ -13,7 +13,7 @@ public sealed partial class World
     partial void ArsenalShotBlast(WeaponSpec weapon, ref SplashSpec? blast)
     {
         // Musou only (review 2026-11-11): Classic's autocannon has no blast; its hit-scan path never reaches this hook, and the _musou check keeps it so.
-        if (_musou is not null && weapon.Name.Equals(ArsenalRules.Autocannon, StringComparison.OrdinalIgnoreCase)) blast = AutocannonRules.Blast;
+        if (_musou is not null && (weapon.Name.Equals(ArsenalRules.Autocannon, StringComparison.OrdinalIgnoreCase) || weapon.Name.Equals(SmSim.Extras.Musou.DreadnoughtRules.CannonWargear, StringComparison.OrdinalIgnoreCase))) blast = AutocannonRules.Blast;
     }
 }
 
@@ -72,7 +72,7 @@ public static class AutocannonRules
     /// shooting"): the autocannon's shots spend no round (<c>SimConfig.EndlessClip</c>, through the hook <c>ExtrasEndlessClip</c>, so the server and the client's prediction agree), so its clip never
     /// moves from <see cref="Clip"/>, nothing reloads it and the HUD shows the endless sign; its heat and overheat run as its data has them.
     /// </summary>
-    public static bool EndlessClip(WeaponSpec weapon) => ArsenalRules.IsAutocannon(weapon.Name);
+    public static bool EndlessClip(WeaponSpec weapon) => ArsenalRules.IsAutocannon(weapon.Name) || SmSim.Extras.Musou.DreadnoughtRules.IsEndless(weapon.Name);   // the Dreadnought's cannon and melta too (owner 2026-11-15)
 
     /// <summary>The blast as a splash for the enemies' blast (<c>World.MusouBlast</c>: enemies only, in sight of its centre), as the bolt blast's.</summary>
     public static readonly SplashSpec Blast = new(BlastRadius, new DamageSpec(BlastDamage, 0f, 1f, 1f, 1f, 1f, false) { Type = DamageType.Explosive },

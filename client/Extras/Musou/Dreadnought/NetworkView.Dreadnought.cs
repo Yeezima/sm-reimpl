@@ -34,6 +34,10 @@ public partial class NetworkView
         public float Stride;
         public int Strike;
         public float ReloadLeft;
+        /// <summary>The frame-rate clip clocks of the arm's strike (own player: <see cref="OwnClipClock"/>, others: <see cref="ClipClock"/>) and the last frame's heat and cooldown (shot detection).</summary>
+        public readonly OwnClipClock OwnStrike = new();
+        public readonly ClipClock OtherStrike = new();
+        public float PrevHeat, PrevCooldown;
     }
 
     /// <summary>The Dreadnought's class index in this match's config, or -1 (Classic and every config without him), found once: every per-frame hook returns at once when it is -1.</summary>
@@ -114,11 +118,35 @@ public partial class NetworkView
             if (state.MeleeStep > 0)
             {
                 var list = state.MeleeHeavy ? DreadnoughtRig.HeavyStrikes : DreadnoughtRig.LightStrikes;
-                if (state.MeleeStep <= list.Length && character.Pose(list[state.MeleeStep - 1], MathF.Max(0f, state.MeleeTime), 0.12f)) return;
+                if (state.MeleeStep <= list.Length && character.Pose(list[state.MeleeStep - 1], DreadnoughtStrikeClipTime(t, state, own), DreadnoughtStrikeBlend)) return;
             }
+            else { t.OwnStrike.Stop(); t.OtherStrike.Stop(); }
         }
         DreadnoughtLocomotion(character, state);
     }
+
+    /// <summary>
+    /// The seconds into the strike's clip to show this frame (owner, 2026-11-15: his melee "very choppy and poppy": "sync, smooth, blend, and transition"). The strike's time is the simulation's, which stands still between two
+    /// ticks (the own player's, predicted) or two snapshots (the others', interpolated), so the clip was posed at a stepped time and froze and jumped at 30 Hz or less; it now runs on the frame-rate clocks every other
+    /// strike uses (<see cref="OwnClipClock"/> for the own player, <see cref="ClipClock"/> for the others), then is multiplied by <see cref="DreadnoughtRules.MeleeSpeed"/>: the sim runs the strike 1.3 times as fast as the data's
+    /// clip, so the clip plays 1.3 times as fast and its hit frame is at the sim's hit time.
+    /// </summary>
+    float DreadnoughtStrikeClipTime(DreadnoughtTrack t, PlayerState s, bool own)
+    {
+        long key = ClipClock.Key(3, s.MeleeStep, s.MeleeHeavy ? 1 : 0, s.MeleeChoice);
+        float simTime = MathF.Max(0f, s.MeleeTime);
+        if (DreadRawStrike) return simTime * DreadnoughtRules.MeleeSpeed;   // test aid: the strike's time as the tick or snapshot carries it (the look before the smoothing)
+        float shown = own && _client is not null && _config is not null
+            ? t.OwnStrike.Step(key, simTime, _client.ClipFraction, _config.TickSeconds, float.MaxValue, _client.ClipLead)
+            : t.OtherStrike.Step(key, simTime, (float)GetProcessDeltaTime(), float.MaxValue);
+        return shown * DreadnoughtRules.MeleeSpeed;
+    }
+
+    /// <summary>Test aid <c>--dn-raw-strike</c>: the strike clip at the simulation's stepped time, not the frame-rate clock (the before of the smoothing's before-and-after clip).</summary>
+    static readonly bool DreadRawStrike = CmdFlag("dn-raw-strike");
+
+    /// <summary>The cross-fade into a strike (s): the data's 0.1 s entry and 0.167 s restart, taken at the clip rate; the viewer lengthens a fade to its floor (0.125 s) so no bone turns more than a frame's tolerance.</summary>
+    const float DreadnoughtStrikeBlend = 0.15f;
 
     /// <summary>A body that moves this far in one frame while alive was moved by the server (a redeploy, an extraction, a call-back): a new entrance (ours, a heuristic: the server's lock has no wire signal).</summary>
     const float DreadnoughtTeleportMetres = 6f;
@@ -149,16 +177,19 @@ public partial class NetworkView
     }
 
     // ---- effects (D7): the install's effects through the effect player ----
-    const string DreadMuzzleEffect = "autocannon_muzzle", DreadDustEffect = "jump_land";
-    /// <summary>The muzzle flash's scale (data: the cannon's effect binding 1.75) and the footfall dust's (ours, the size of his foot).</summary>
-    const float DreadMuzzleScale = 1.75f, DreadDustScale = 2.5f;
+    const string DreadMuzzleEffect = SmContent.Extras.Musou.Arsenal.Arsenal.LoyalistMuzzleEffect, DreadDustEffect = "jump_land";
+    /// <summary>The muzzle flash's scale (the autocannon's own binding, 1.5: owner 2026-11-15; the data's own cannon had 1.75) and the footfall dust's (ours, the size of his foot).</summary>
+    const float DreadMuzzleScale = 1.5f, DreadDustScale = 2.5f;
 
     /// <summary>A muzzle flash at the cannon for each frame the clip lost a round, and the footfall dust where the stride lands. Nothing for a lean bot.</summary>
     void DreadnoughtEffects(DreadnoughtTrack t, PlayerState s, bool entering)
     {
         if (_fx is null || Lean) { t.PrevClip = s.Clip; t.StepDust = false; return; }
         bool cannon = s.Slot == WeaponSlot.Ranged;
-        if (!entering && cannon && s.Clip < t.PrevClip && s.ReloadLeft <= 0f)
+        // A shot of the cannon: the cannon spends no round now (owner 2026-11-15: unlimited ammunition), so a round leaving shows as the shot cooldown starting again or the heat rising; the clip dropping still counts (the data's cannon).
+        bool shot = s.Clip < t.PrevClip || s.Cooldown > t.PrevCooldown + 1e-3f || s.Heat > t.PrevHeat + 0.02f;
+        t.PrevHeat = s.Heat; t.PrevCooldown = s.Cooldown;
+        if (!entering && cannon && shot && s.ReloadLeft <= 0f)
         {
             float cp = MathF.Cos(s.Pitch);
             var fwd = new Vector3(-MathF.Sin(s.Yaw) * cp, MathF.Cos(s.Yaw) * cp, MathF.Sin(s.Pitch));
