@@ -234,19 +234,19 @@ public partial class NetworkView
     }
 
     /// <summary>
-    /// fx-cap-priority (owner 2026-11-15: "no black smoke clouds ... bolt weapons", "no dust ... autocannon"): whether the gun's hit on an Ork draws none of its smoke and dust cards. The blood effects are played with their smoke kept
-    /// (<see cref="FxEffect.KeepSmoke"/>: the original blood's dark mist); the weapons' tough_body and tough_head containers carry smoke clouds with it, which is what stood round an Ork a bolt round or a shell hit. The blood stays.
-    /// <c>--old-bolt-smoke</c> and <c>--musou-old-autocannon-fx</c> keep the smoke as before.
-    /// </summary>
-    /// <summary>
     /// fx/bolt-smoke (owner 2026-11-15, "no black smoke clouds ... when shooting bolt weapons in musou mode"): whether the kill <paramref name="d"/> was by a bolt weapon's shot or its bolt blast, so that its gore draws no smoke and no
-    /// dark ring (<c>body_dismemberment_limb</c>'s <c>dark</c>, <c>body_explode</c>'s <c>smoke</c> and <c>smoke dissipating</c>) and no grit; the blood, gibs and limbs stay. Not the autocannon's, not melee's. <c>--old-bolt-smoke</c>: as before.
+    /// dark ring (<c>body_dismemberment_limb</c>'s <c>dark</c>, <c>body_explode</c>'s <c>smoke</c> and <c>smoke dissipating</c>) and no grit; the blood, gibs and limbs stay. Not the autocannon's, not the Dreadnought's cannon or melta (no &lt;bolt&gt; in their file names), not melee's. Known approximation: the killer's weapon is the one in hand when the death is shown, so a switch within a moment of the kill can misattribute it. <c>--old-bolt-smoke</c>: as before.
     /// </summary>
     bool BoltKillNoSmoke(in MusouDeathShown d)
         => SmContent.BoltSmoke.KillDropsSmoke(OrkBloodGun(MusouPlayerState(d.Killer)), d.Cause is MusouDeathKind.Shot or MusouDeathKind.BoltBlast, OldBoltSmoke);
 
     string? _bsZone;
 
+    /// <summary>
+    /// fx-cap-priority (owner 2026-11-15: "no black smoke clouds ... bolt weapons", "no dust ... autocannon"): whether the gun's hit on an Ork draws none of its smoke and dust cards. The blood effects are played with their smoke kept
+    /// (<see cref="FxEffect.KeepSmoke"/>: the original blood's dark mist); the weapons' tough_body and tough_head containers carry smoke clouds with it, which is what stood round an Ork a bolt round or a shell hit. The blood stays.
+    /// <c>--old-bolt-smoke</c> and <c>--musou-old-autocannon-fx</c> keep the smoke as before.
+    /// </summary>
     bool NoShotSmoke(string gun)  // also the grit rule: no smoke cards and no dust or grit sprites (the blood stays)
          => (!OldBoltSmoke && SmContent.BoltSmoke.IsBoltWeapon(gun)) || (!OldAutocannonDust && (SmSim.Extras.Musou.Arsenal.ArsenalRules.IsAutocannon(gun) || string.Equals(gun, SmContent.Extras.Musou.Arsenal.Arsenal.AutocannonTwinFile, StringComparison.OrdinalIgnoreCase)));
 

@@ -28,12 +28,14 @@ public partial class NetworkView
     double _bsT0;
 
     /// <summary>The wargear of the scene, or null when the aid is off.</summary>
-    internal string? BoltSceneGun => CmdFlag("bolt-smoke-scene") ? (CmdArg("bolt-smoke-scene") is { Length: > 0 } g && !g.StartsWith("--") ? g : "sm_mp_ranged_bolter") : null;
+    static readonly string? BoltSceneGunName = CmdFlag("bolt-smoke-scene") ? (CmdArg("bolt-smoke-scene") is { Length: > 0 } g && !g.StartsWith("--") ? g : "sm_mp_ranged_bolter") : null;   // read once: the flag is asked every frame and every shot
+    static readonly bool BoltSceneClassic = CmdFlag("bolt-smoke-classic");
+    internal string? BoltSceneGun => BoltSceneGunName;
 
     void BoltSmokeSceneFrame()
     {
         if (BoltSceneGun is null || _camera is null || _client is null) return;
-        if (!_bsStarted && CmdFlag("bolt-smoke-classic") && _client.Predicted.Alive && _connectedFor > 4.0) { _bsStarted = true; _ = BoltSmokeSceneRun(); }
+        if (!_bsStarted && BoltSceneClassic && _client.Predicted.Alive && _connectedFor > 4.0) { _bsStarted = true; _ = BoltSmokeSceneRun(); }
         if (_bsEye is { } eye && _bsLook is { } look)
         {
             _camera.GlobalTransform = new Transform3D(Basis.LookingAt((look - eye).Normalized(), Vector3.Up), eye);

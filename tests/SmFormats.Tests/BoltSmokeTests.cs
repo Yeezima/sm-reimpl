@@ -13,6 +13,11 @@ public class BoltSmokeTests
     [InlineData("csm_mp_exotic_heavy_bolter", true)]
     [InlineData("sm_mp_ranged_stalker_bolt_rifle", true)]
     [InlineData("sm_mp_exotic_sniper_rifle", true)]
+    [InlineData("sm_mp_exotic_las_cannon", false)]
+    [InlineData("csm_mp_exotic_las_cannon", false)]
+    [InlineData("dread_assault_cannon", false)]
+    [InlineData("dread_csm_assault_cannon", false)]
+    [InlineData("dread_melta", false)]
     [InlineData("sm_mp_exotic_auto_cannon", false)]
     [InlineData("csm_mp_exotic_auto_cannon", false)]
     [InlineData("sm_mp_ranged_plasma_gun", false)]
@@ -28,7 +33,10 @@ public class BoltSmokeTests
     [InlineData("sm_mp_ranged_sniper_rifle", true, false, true)]
     [InlineData("sm_mp_ranged_bolter", false, false, false)]     // melee, a charge, a grenade: the gore as the data has it
     [InlineData("sm_mp_exotic_auto_cannon", true, false, false)] // the autocannon has its own rule
-    [InlineData("sm_mp_ranged_plasma_gun", true, false, false)]
+    [InlineData("sm_mp_ranged_plasma_gun", true, false, false)]    // a bolt blast kill with a non-bolt weapon in hand
+    [InlineData("sm_mp_exotic_las_cannon", true, false, false)]
+    [InlineData("dread_assault_cannon", true, false, false)]     // the Dreadnought's cannon and melta keep their smoke
+    [InlineData("dread_melta", true, false, false)]
     [InlineData("sm_mp_ranged_bolter", true, true, false)]       // --old-bolt-smoke
     public void A_bolt_kills_gore_loses_its_smoke_only_for_a_bolt_shot_or_blast(string wargear, bool byShotOrBoltBlast, bool old, bool drops)
         => Assert.Equal(drops, BoltSmoke.KillDropsSmoke(wargear, byShotOrBoltBlast, old));
