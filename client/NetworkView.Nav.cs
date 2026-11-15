@@ -27,6 +27,27 @@ namespace SmClient;
 /// </summary>
 public partial class NetworkView
 {
+    /// <summary><c>--bot-old-jump-build</c> (test aid, before/after): a jump-pack bot's graph arrives whole, jump links included (the bot walks straight until then).</summary>
+    static readonly bool BotOldJumpBuild = CmdFlag("bot-old-jump-build");
+    /// <summary>Threads a bot client's jump-link build may use: a third of the cores (at least 2), so the build does not starve the frame loop or the other bots on the machine (ours).</summary>
+    static readonly int BotJumpBuildThreads = Math.Max(2, System.Environment.ProcessorCount / 3);
+    /// <summary><c>--bot-no-escape</c> (test aid, before/after): the Classic PvP bots' stuck rules of bots/new-maps off (no walk to the nearest cell from a spot the graph has none at, no giving up a drop that is stuck on; <see cref="BotNavigation.NewMapRules"/>).</summary>
+    static readonly bool BotNoEscape = CmdFlag("bot-no-escape");
+
+    /// <summary>
+    /// bots/new-maps: whether the jump-pack bot's dash, hop or jump toward <paramref name="to"/> has floor under it all the way (<see cref="NavGraph.FloorAlong"/>, a cell within 3 m of the line's height
+    /// every 2 m): the new maps have holes in their decks (Shattered Bridge) that the bots flew and dashed into. True on Manufactorum, on Musou Mode's maps, without the graph and with <c>--bot-no-escape</c>.
+    /// </summary>
+    bool BotFloorBetween(PlayerState me, V3 to) =>
+        BotNoEscape || !BotNavigation.NewMapRules(_navMap?.Name ?? "") || _nav is not { } graph || graph.FloorAlong(me.Position, to, 2f, 3f);
+
+    /// <summary>A bot's path follower over <paramref name="graph"/>; on a Classic PvP map (<c>mp_*</c>) with the off-graph escape (bots/new-maps), Musou Mode's maps without.</summary>
+    NavAgent NewNavAgent(NavGraph graph)
+    {
+        bool rules = !BotNoEscape && BotNavigation.NewMapRules(_navMap?.Name ?? "");
+        return new NavAgent(graph) { Background = true, EscapeOffGraph = rules, ExcludeStuckDrops = rules };
+    }
+
     const double NavLogEvery = 5.0;              // seconds between the bot's "nav:" log lines
     const float BotStrafeCheck = 1.5f;           // metres of walkable ground a strafe needs on its side (test script)
     const float BotRollCheck = 3f;               // metres of walkable ground an evade roll needs on its side (test script)
@@ -45,6 +66,9 @@ public partial class NetworkView
         public Task<(NavGraph? Graph, string Note)>? Task;
         public NavGraph? Graph;
         public NavAgent? Agent;
+        /// <summary>bots/new-maps: the jump links of a jump-pack class on a Classic PvP map, built or read after the plain walking graph is in use (null: none to build, or done).</summary>
+        public Task<(NavGraph? Graph, string Note)>? JumpTask;
+        public (MapContent Map, CollisionWorld World, SimConfig Config, Team Team, int PlayerClass)? JumpStart;
         public string Note = "building";
         /// <summary>M44a: the other side's spawn room as this side's bots see it (NetworkView.BotSpawn.cs).</summary>
         public SpawnRoomWatch? Watch;
@@ -102,11 +126,18 @@ public partial class NetworkView
                 else
                 {
                     var cancel = _navCancel.Token;
+                    // bots/new-maps: on a Classic PvP map a jump-pack bot walks on the plain graph at once and takes the jump links when they are ready (a first build on a big map takes
+                    // minutes, and the old order left the bot on its straight walk for all of them); Manufactorum, Musou Mode's maps and --bot-old-jump-build keep the old one-step build (BotNavigation.NewMapRules).
+                    bool walkFirst = pack != "" && !BotOldJumpBuild && BotNavigation.NewMapRules(map.Name);
                     slot.Task = Task.Run(() =>
                     {
-                        var graph = BotNavigation.LoadOrBuild(map, world, config, team, playerClass, BotNavigation.CacheDirectory, out string note, cancel);
-                        return ((NavGraph?)graph, $"side {team}{(pack == "" ? "" : ", pack " + pack)}: {note}");
+                        string walkNote;
+                        var graph = walkFirst
+                            ? BotNavigation.LoadOrBuildWalk(map, world, config, team, BotNavigation.CacheDirectory, out walkNote)
+                            : BotNavigation.LoadOrBuild(map, world, config, team, playerClass, BotNavigation.CacheDirectory, out walkNote, cancel);
+                        return ((NavGraph?)graph, $"side {team}{(pack == "" ? "" : ", pack " + pack)}: {walkNote}{(walkFirst ? "; jump links follow" : "")}");
                     }, cancel);
+                    if (walkFirst) slot.JumpStart = (map, world, config, team, playerClass);
                 }
             }
             _navCurrent = slot;
@@ -118,7 +149,32 @@ public partial class NetworkView
                 else slot.Note = $"build failed: {task.Exception?.GetBaseException().Message}";
                 _navNote = slot.Note;
                 if (_bot) GD.Print($"t {_connectedFor:F1} s: id {_client.PlayerId} nav graph (map {_navGeneration}) {slot.Note}");
-                if (slot.Graph is not null) slot.Agent = new NavAgent(slot.Graph) { Background = true };
+                if (slot.Graph is not null) slot.Agent = NewNavAgent(slot.Graph);
+                if (slot.Graph is not null && slot.JumpStart is { } js)
+                {
+                    slot.JumpStart = null;
+                    var jumpCancel = _navCancel.Token;
+                    var walk = slot.Graph;
+                    slot.JumpTask = Task.Run(() =>
+                    {
+                        var g = BotNavigation.WithJumpLinks(walk, js.Map, js.World, js.Config, js.Team, js.PlayerClass, BotNavigation.CacheDirectory, out string jumpNote, BotJumpBuildThreads, jumpCancel);
+                        return ((NavGraph?)g, jumpNote);
+                    }, jumpCancel);
+                }
+            }
+            // The jump links arrived: the same graph with them and a fresh agent (not while a flight is under way; the next tick then).
+            if (slot.JumpTask is { IsCompleted: true } jump && slot.Agent is { JumpInProgress: false })
+            {
+                slot.JumpTask = null;
+                if (jump.IsCompletedSuccessfully && jump.Result.Graph is { } withJumps)
+                {
+                    slot.Graph = withJumps;
+                    slot.Agent = NewNavAgent(withJumps);
+                    slot.Note += "; " + jump.Result.Note;
+                    _navNote = slot.Note;
+                    if (_bot) GD.Print($"t {_connectedFor:F1} s: id {_client.PlayerId} nav graph (map {_navGeneration}) jump links ready: {jump.Result.Note}");
+                }
+                else if (_bot) GD.Print($"t {_connectedFor:F1} s: id {_client.PlayerId} nav graph (map {_navGeneration}) jump links failed: {jump.Exception?.GetBaseException().Message}");
             }
             return slot.Graph;
         }
@@ -389,7 +445,7 @@ public partial class NetworkView
             ? $"path {p.Length:F0} m ({p.Waypoints.Count} waypoints{(p.Partial ? ", partial" : "")}), remaining {a.Remaining:F0} m ({a.Progress * 100f:F0}% of {a.LegLength:F0} m), waypoint {a.Waypoint}/{p.Waypoints.Count - 1}"
             : a is null ? "no graph yet (straight walk with detours)" : "no path";
         GD.Print($"t {_connectedFor:F1} s: id {_client.PlayerId} nav: {(me.Alive ? "" : "dead; ")}{(_navPurpose == "" ? "no goal" : $"goal {_navPurpose} at {_navGoal.X:F0},{_navGoal.Y:F0},{_navGoal.Z:F0}")}; {path}; " +
-                 $"plans {a?.Plans ?? 0} (failed {a?.Failures ?? 0}, {(a is { Plans: > 0 } ? a.PlanMilliseconds / a.Plans : 0):F1} ms mean, {a?.MaxPlanMilliseconds ?? 0:F0} ms max, off the frame loop; steering {a?.MaxSteerMilliseconds ?? 0:F1} ms max){(a is { Unreachable: true } ? ", goal unreachable" : "")}, stuck {a?.StuckCount ?? 0}, old detours {_botDetours}; jumps {a?.JumpsStarted ?? 0} (landed {a?.JumpsLanded ?? 0}, missed {a?.JumpsMissed ?? 0}); graph {(_nav is null ? _navCurrent?.Note ?? _navNote : $"{_nav.NodeCount:N0} cells{(_nav.Jumps is { } js ? $", {js.LinkCount:N0} jump links" : "")}")}");
+                 $"plans {a?.Plans ?? 0} (failed {a?.Failures ?? 0}, {(a is { Plans: > 0 } ? a.PlanMilliseconds / a.Plans : 0):F1} ms mean, {a?.MaxPlanMilliseconds ?? 0:F0} ms max, off the frame loop; steering {a?.MaxSteerMilliseconds ?? 0:F1} ms max){(a is { Unreachable: true } ? ", goal unreachable" : "")}, stuck {a?.StuckCount ?? 0} (escapes {a?.Escapes ?? 0}, drops given up {a?.ExcludedDrops ?? 0}), old detours {_botDetours}; jumps {a?.JumpsStarted ?? 0} (landed {a?.JumpsLanded ?? 0}, missed {a?.JumpsMissed ?? 0}); graph {(_nav is null ? _navCurrent?.Note ?? _navNote : $"{_nav.NodeCount:N0} cells{(_nav.Jumps is { } js ? $", {js.LinkCount:N0} jump links" : "")}")}");
         _navPurpose = "";
     }
 }

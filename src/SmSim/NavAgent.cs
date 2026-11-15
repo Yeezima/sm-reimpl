@@ -61,6 +61,30 @@ public sealed class NavAgent(NavGraph graph)
     public double RecoverSeconds { get; init; } = 0.8;
     /// <summary>Metres of walkable, linked ground a recovery step needs in its direction (M44a; the bots' strafe check uses 1.5).</summary>
     public float RecoverWalkCheck { get; init; } = 1.5f;
+    /// <summary>
+    /// bots/new-maps (2026-11-16; ours; off by default, a Classic PvP bot client turns it on): a bot that is stuck twice in a row on a spot the graph has no cell at (it stands on a ledge or rail narrower than
+    /// the cells' clearance, which the motor allows) walks for <see cref="EscapeSeconds"/> toward the graph cell nearest to it within <see cref="EscapeRadius"/> m that is at most
+    /// <see cref="EscapeDrop"/> m below and <see cref="EscapeRise"/> m above, the next-best sector at each further detection (the old recovery steps only looked within 1.5 m).
+    /// </summary>
+    public bool EscapeOffGraph { get; init; }
+    /// <summary>
+    /// bots/new-maps (ours; off by default): a drop link the bot stood on the edge of and could not get down for <see cref="DropStuckLimit"/> detections (a gap too narrow to fall through, a lip the graph does
+    /// not see) is no longer planned through by this agent, as a missed jump link is (<see cref="JumpMissLimit"/>).
+    /// </summary>
+    public bool ExcludeStuckDrops { get; init; }
+    public int DropStuckLimit { get; init; } = 2;
+    /// <summary>Metres (flat) round the stuck drop's origin within which every drop link is given up with it.</summary>
+    public float DropGiveUpRadius { get; init; } = 4f;
+    /// <summary>Drop links this agent no longer plans through (bots/new-maps).</summary>
+    public int ExcludedDrops { get; private set; }
+    readonly Dictionary<long, int> _dropStuck = new();
+    public float EscapeRadius { get; init; } = 5f;
+    public float EscapeDrop { get; init; } = 8f;
+    public float EscapeRise { get; init; } = 0.6f;
+    public double EscapeSeconds { get; init; } = 1.2;
+    /// <summary>Escapes started (bots/new-maps).</summary>
+    public int Escapes { get; private set; }
+
     /// <summary>Plans in a row that may find nothing while the old path is kept (M44a); the next failure drops it.</summary>
     public int MaxKeptFailures { get; init; } = 6;
     int _failStreak;
@@ -314,8 +338,36 @@ public sealed class NavAgent(NavGraph graph)
             {
                 StuckCount++;
                 _consecutiveStuck++;
+                if (ExcludeStuckDrops && grounded && Path is { } dp && Waypoint > 0 && Waypoint < dp.Waypoints.Count && dp.Waypoints[Waypoint].Kind == NavLinkKind.Drop)
+                {
+                    // Counted by the landing cell (the bot comes at a long ledge's drops one after another); at the limit every drop off the ledge round the origin is given up.
+                    long landing = dp.Waypoints[Waypoint].Node;
+                    int n = _dropStuck.GetValueOrDefault(landing) + 1;
+                    _dropStuck[landing] = n;
+                    if (n >= DropStuckLimit)
+                    {
+                        _dropStuck.Remove(landing);
+                        var origin = Graph.Position(dp.Waypoints[Waypoint - 1].Node);
+                        foreach (var (from, to) in Graph.DropLinksNear(origin, DropGiveUpRadius, 1.5f))
+                            if (_bad.Add(NavGraph.DropKey(from, to))) ExcludedDrops++;
+                    }
+                }
                 Plan(position, goal, now);
-                if (_consecutiveStuck >= 2)
+                bool escaped = false;
+                if (EscapeOffGraph && _consecutiveStuck >= 2 && Graph.Nearest(position, 1f, 0.6f) < 0)
+                {
+                    var cells = Graph.EscapeCells(position, EscapeRadius, EscapeDrop, EscapeRise, 8);
+                    if (cells.Count > 0)
+                    {
+                        var to = cells[(_consecutiveStuck - 2) % cells.Count];
+                        var dir = Toward(position, to);
+                        if (dir != Vector2.Zero)
+                        {
+                            _recoverDir = dir; _recoverUntil = now + EscapeSeconds; Escapes++; escaped = true;
+                        }
+                    }
+                }
+                if (_consecutiveStuck >= 2 && !escaped)
                 {
                     int node = Graph.Nearest(position, 1.5f, 1.5f);
                     var centre = node >= 0 ? Graph.Position(node) : position;

@@ -596,4 +596,18 @@ public class NavJumpTests(ITestOutputHelper output)
         Assert.True(path.Partial);
         Assert.DoesNotContain(path.Waypoints, w => w.Kind == NavLinkKind.Jump);
     }
+
+    /// <summary>bots/new-maps: a bot client caps the build's threads so it does not starve its own frame loop; that changes the time, never the key or the links found.</summary>
+    [Fact]
+    public void The_thread_cap_changes_neither_the_cache_key_nor_the_links()
+    {
+        var (world, graph) = Make(Gap());
+        var capped = new NavJumpOptions { Threads = 2 };
+        Assert.Equal(NavJumpSet.KeyFor(graph, Config, Assault, Options), NavJumpSet.KeyFor(graph, Config, Assault, capped));
+        var all = NavJumpSet.Build(graph, world, Team.None, Config, Assault, Options);
+        var two = NavJumpSet.Build(graph, world, Team.None, Config, Assault, capped);
+        Assert.Equal(all.LinkCount, two.LinkCount);
+        Assert.Equal(all.Key, two.Key);
+        for (int n = 0; n < graph.NodeCount; n += 5) Assert.Equal(all.From(n).ToList(), two.From(n).ToList());
+    }
 }

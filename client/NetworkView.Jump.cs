@@ -657,7 +657,7 @@ public partial class NetworkView
                     return null;
                 // 2026-11-08: during a melee push the jump onto the target waits until 16 m (the approach stays low with dashes and hops; NetworkView.BotPush.cs).
                 float jumpMax = _botPush is { Active: true } push && push.Target == target.PlayerId && _approachSafe ? BotHopper.JumpInRange : BotJumpMax;
-                bool atTarget = horizontal >= BotJumpMin && horizontal <= jumpMax && BotJumpClear(me, target);
+                bool atTarget = horizontal >= BotJumpMin && horizontal <= jumpMax && BotJumpClear(me, target) && BotFloorBetween(me, target.Position);
                 // --bot-jump-free (test aid): otherwise a jump toward the target every BotFreeJumpEvery s (on a map, over
                 // whatever is in the way; a ceiling simply stops the rise), with BotFreeJumpHold s of hold.
                 bool free = !atTarget && _botJumpFree && _connectedFor - _botLastJump >= BotFreeJumpEvery;
