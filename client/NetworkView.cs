@@ -441,7 +441,7 @@ public partial class NetworkView : Node3D
         UpdateLoadingScreen();   // NetworkView.Loading.cs
         HeavyReset();   // M40-T9: this frame's budget for first builds (characters, weapon rigs, corpses)
         if (FrameStatsLog) (_frameStats ??= new MapLightingView.FrameStats(GetViewport())).Add(delta);
-        if (PerfProbe.On) (_perfProbe ??= new PerfProbe(GetViewport())).Frame(delta, GetTree().Root);   // perf/pass-1 test aid (--perf-probe)
+        if (PerfProbe.On) (_perfProbe ??= new PerfProbe(GetViewport())).Frame(delta, GetTree().Root, ObserveTourPlace, ObserveTourAdvance);   // perf/pass-1 test aid (--perf-probe; --perf-tour walks the observer's tour)
         _readout?.Step(delta, _client, _client?.Status == ClientStatus.Connected && !LoadingShown);   // polish pass P1: the performance readout (HudReadout.cs)
         if (_blender is not null && _camera is not null) { var cp = _camera.GlobalPosition; _blender.Update(new System.Numerics.Vector3(cp.X, -cp.Z, cp.Y)); }   // Godot to game space
         _lightingGrade.Frame(_camera?.Environment ?? _environment, _sun);   // ui/lighting-presets: OPTIONS, GRAPHICS, LIGHTING PRESET on top of the map's look (LightingGradeView)

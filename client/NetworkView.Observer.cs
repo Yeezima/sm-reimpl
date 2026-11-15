@@ -36,6 +36,9 @@ public partial class NetworkView
     public string? ObserveTour { get; init; }
     int _tourIndex;
 
+    /// <summary>The current place of <see cref="ObserveTour"/>, 1-based (0 without a tour or before the camera is placed); the perf probe's <c>--perf-tour</c> label.</summary>
+    public int ObserveTourPlace() => ObserveTour is { Length: > 0 } && _obsPlaced ? _tourIndex + 1 : 0;
+
     /// <summary>The next place of <see cref="ObserveTour"/> (nothing after the last; no effect without a tour or before the camera is placed).</summary>
     public void ObserveTourAdvance()
     {

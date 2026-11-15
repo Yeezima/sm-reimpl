@@ -88,7 +88,15 @@ sealed class PerfProbe
 
     static double M(Performance.Monitor m) => Performance.GetMonitor(m);
 
-    public void Frame(double delta, Node root)
+    /// <summary>
+    /// classic-maps-perf test aid: <c>--perf-tour</c> (with <c>--perf-probe</c> and an observer's <c>--observe-tour</c>) moves the free camera to the tour's next place at the end of every 5 s window, and each
+    /// line says which place its window measured, so one run gives every place's frame time, draw calls and lights. Reads only; the game is not changed.
+    /// </summary>
+    public static readonly bool Tour = OS.GetCmdlineUserArgs().Contains("--perf-tour");
+
+    /// <param name="place">The observer's current tour place (1-based; 0 without a tour).</param>
+    /// <param name="advance">Moves the observer to the next place of its tour.</param>
+    public void Frame(double delta, Node root, Func<int>? place = null, Action? advance = null)
     {
         _total += delta; _elapsed += delta;
         float ms = (float)(delta * 1000.0);
@@ -116,13 +124,15 @@ sealed class PerfProbe
         int n = _samples;
         var (lights, shadowed, decals, particles, meshes) = CountScene(root);
         var size = _viewport.GetVisibleRect().Size;
-        string line = $"perf: {_total:F0} s: {size.X:F0}x{size.Y:F0}, vsync {DisplayServer.WindowGetVsyncMode()}, max fps {Engine.MaxFps}: {n} frames, mean {mean:F1} ms ({1000.0 / mean:F0} fps), p99 {p99:F1}, worst {sorted[^1]:F1}; render cpu {_cpuSum / n:F2} ms gpu {_gpuSum / n:F2} ms; "
+        int placeNow = Tour && place is not null ? place() : 0;
+        string line = $"perf: {_total:F0} s{(placeNow > 0 ? $" place {placeNow}" : "")}: {size.X:F0}x{size.Y:F0}, vsync {DisplayServer.WindowGetVsyncMode()}, max fps {Engine.MaxFps}: {n} frames, mean {mean:F1} ms ({1000.0 / mean:F0} fps), p99 {p99:F1}, worst {sorted[^1]:F1}; render cpu {_cpuSum / n:F2} ms gpu {_gpuSum / n:F2} ms; "
                       + $"draw calls {_drawSum / n:F0}, objects {_objSum / n:F0}, primitives {_primSum / n / 1000.0:F0}k; physics step {_physSum / n:F2} ms, active bodies {M(Performance.Monitor.Physics3DActiveObjects):F0}; "
                       + $"vram {M(Performance.Monitor.RenderVideoMemUsed) / 1048576.0:F0} MB (textures {M(Performance.Monitor.RenderTextureMemUsed) / 1048576.0:F0}, buffers {M(Performance.Monitor.RenderBufferMemUsed) / 1048576.0:F0}); "
                       + $"nodes {M(Performance.Monitor.ObjectNodeCount):F0}; lights {lights} ({shadowed} with shadows), decals {decals}, particle nodes {particles}, mesh instances {meshes}; "
                       + $"managed heap {GC.GetGCMemoryInfo().HeapSizeBytes / 1048576.0:F0} MB, allocated {(alloc - _allocStart) / (double)n / 1024.0:F1} KB/frame, gc gen0 +{gc0 - _gc0} gen2 +{gc2 - _gc2}; "
                       + $"working set {System.Environment.WorkingSet / 1048576.0:F0} MB";
         GD.Print(line);
+        if (Tour) advance?.Invoke();
         if (_total > WarmupSeconds) { _aAlloc += alloc - _allocStart; _aGc0 += gc0 - _gc0; _aGc2 += gc2 - _gc2; }
         _allocStart = alloc; _gc0 = gc0; _gc2 = gc2;
         if (Ab is not null && _total > WarmupSeconds)
