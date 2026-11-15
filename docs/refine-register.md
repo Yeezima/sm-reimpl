@@ -29,6 +29,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 ## Summary
 
 Scanned 3313 spec table rows: **2435 tagged**, 619 not tagged (read from data with high confidence), 259 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 736 rows of the changes document.
+Scanned 3312 spec table rows: **2434 tagged**, 619 not tagged (read from data with high confidence), 259 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 737 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -36,6 +37,7 @@ Scanned 3313 spec table rows: **2435 tagged**, 619 not tagged (read from data wi
 | Combat core (critical) | 22 | 12 | 20 | 15 | 9 |
 | Weapons (critical) | 121 | 73 | 106 | 54 | 3 |
 | Melee (critical) | 158 | 137 | 115 | 56 | 5 |
+| Melee (critical) | 157 | 136 | 113 | 56 | 5 |
 | Jump pack (critical) | 85 | 77 | 69 | 19 | 0 |
 | Charge (critical) | 61 | 51 | 49 | 25 | 0 |
 | Reactions (critical) | 25 | 22 | 23 | 12 | 0 |
@@ -54,6 +56,7 @@ Scanned 3313 spec table rows: **2435 tagged**, 619 not tagged (read from data wi
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 249 | 238 | 134 | 68 | 0 |
 | **All areas** | **2435** | 2152 | 1805 | 743 | 38 |
+| **All areas** | **2434** | 2151 | 1803 | 743 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -61,6 +64,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---:|
 | kind: ours | 1421 |
 | confidence: low | 865 |
+| kind: ours | 1420 |
+| confidence: low | 863 |
 | confidence: medium | 811 |
 | notes: ours | 416 |
 | kind: interpretation | 390 |
@@ -1045,6 +1050,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-125B93CF` | Dropped magazine physics | a `RigidBody3D` (layer none, mask: the level) with a box the size of the mesh, mass 0.4 kg, friction 0.7, bounce 0.3, linear damping 0.05, angular 0.6; initial velocity = the carrier's velocity + up to 0.6 m/s sideways (0.12 up) + up to 5 rad/s spin… (kg, m/s, rad/s, s) | kind: placeholder; confidence: none (low); notes: ours | ours | Dropped magazine physics: compare with SM1 by timing a run over a known distance. Ours: a RigidBody3D (layer none, mask: the level) with a box the size of… | ☐ |
 
 ### Melee (gameplay-critical) (158)
+### Melee (gameplay-critical) (157)
 
 *Spec section: Melee flow, the hammer in both hands and the transitions pass (anim/melee-flow; client only, not simulated, no protocol change)*
 
@@ -1338,6 +1344,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-C9581702` | Aerial tackle's momentum | the hop is the usual dash from the state of the press tick: the tackle's speed is not carried, the dash's own travel (about 16.4 m/s along the stick, forward without one) takes over; the rise starts from the body's height (m/s) | kind: ours; notes: estimate | ours | Aerial tackle's momentum: compare with SM1 by timing a run over a known distance. Ours: the hop is the usual dash from the state of the press tick: the… | ☐ |
 | `R-C7CF180E` | Musou Mode | the aerial tackle is off there (`AerialTackleOff`), so rule 3 never applies; the hop's cut of the melee wait is moot (Musou melee has no wait: `MeleeSpam`); rule 1 applies as in Classic (Musou already allowed it) | kind: ours | ours | Musou Mode: compare with SM1 by feel or video. Ours: the aerial tackle is off there (AerialTackleOff), so rule 3 never… | ☐ |
 | `R-73D9D80A` | Restore switch | `--old-hop-rules` (server and every client; config hash only when on): the protocol 71 rules | kind: ours | ours | Restore switch: compare with SM1 by feel or video. Ours: --old-hop-rules (server and every client; config hash only when on):… | ☐ |
+
+*Spec section: Musou Dreadnought power-up: Overcharge (claude/musou-dreadnought-da, 2026-11-15; `MusouSim.Version` 60, `TfwRules.Version` 85; no protocol change; Musou only)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-C778FFFB` | Melee field-of-view widening (camera/melee-fov-widen, owner 2026-11-15) | any melee action (swing, heavy strike, the charge incl. the sprint-RMB charge, the dash attack's lunge, the ground pound) adds 10 horizontal degrees to the configured field of view (`FovMath.Clamp`; unset = the data's look), capped at 120 (115 goes to 120… (horizontal degrees at the window's aspect; 0.3 s) | kind: ours | `MeleeFov`, `NetworkView.MeleeFov`, `NetworkView.RigCamera` | Melee field-of-view widening (camera/melee-fov-widen, owner…: compare with SM1 with an overlaid screenshot taken from the same position. Ours: any melee action (swing, heavy strike, the charge incl. the… | ☐ |
 
 ### Jump pack (gameplay-critical) (85)
 
@@ -5148,6 +5160,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-6AC0F6ED` | Musou Mode: melee heal cap 5 per swing (lead 25 integration, owner 2026-11-14; `MusouSim.Version` 55) | No Musou Mode in the original | Ours (added content, the owner's request, verbatim: "adjust the enemies triggering the heal effect per swing to be 5 instead of 3"): one melee swing heals for at most the first 5 enemies struck (was 3, 2026-11-12) | Musou Mode only; Classic PvP untouched | Musou Mode: melee heal cap 5 per swing (lead 25…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-2E5AA696` | Weapon visuals (fx/weapon-visuals, owner 2026-11-14; client only) | Original: only the thunder hammer binds an idle light; the combat knife's perk effect (`combat_knife_idle`, warm light and gold edges) is bound but never played here; Kraken Bolts change no tracer | Ours (the owner's request): every power weapon throws the hammer's blue light, the Serrated Combat Blade gives the knife a green light and green power-field overlay, Kraken Bolts bolters draw larger red tracers (both modes). The green, red and sizes are estimates | `--no-power-light`, `--old-kraken-tracer` restore the before; Musou's claw and spear are not touched | Weapon visuals (fx/weapon-visuals, owner 2026-11-14; client…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-4D927CA9` | Power sword F + F is a stab, not a stomp (sim/sword-ff-stab, owner 2026-11-14; Classic PvP only; config hash changes, no protocol bump here) | The original's sword Y,Y finisher is the foot stomp (`SM_MEL_CS_YATK_DSP_Stomp`, blast r 7, 25 + 50) | Ours (the owner's request, verbatim in spec "Power sword Y,Y finisher: the stab"): the second F plays the X,F strike's clip and timing without a blast and hits the primary target for 100 + 50 shield and a stagger (Furious Charge's bull rush entry, always, no perk needed), nothing for others; Musou Mode's sword keeps… | Spec "Power sword Y,Y finisher: the stab"; restore `SM_OLD_SWORD_FF=1` | Power sword F + F is a stab, not a stomp…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-1D3CB771` | Melee widens the field of view (camera/melee-fov-widen, owner 2026-11-15; client camera only, no protocol change; Classic PvP and Musou Mode) | The original's camera keeps one field of view through melee | Ours (the owner's request, verbatim: "when melee attacking as any class fov should be slightly expanded by 10 until a ranged attack is executed (left mouse button)"): any melee action (swing, heavy, charge, lunge, ground pound) widens the configured horizontal field of view by 10 degrees, capped at 120, until the… | spec "Melee field-of-view widening" | Melee widens the field of view (camera/melee-fov-widen…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 
 ## Appendix: not gameplay
 

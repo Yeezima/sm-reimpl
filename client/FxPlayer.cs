@@ -75,6 +75,8 @@ public sealed class FxEffect
     public bool BrightSprites = true;
     /// <summary>fx-cap-priority (owner 2026-11-15): alpha sprites that are dust or grit (<see cref="SmContent.BrightFlash.IsGrit"/>) are not drawn; blood stays. A bolt weapon's and the autocannon's hit on an Ork.</summary>
     public bool NoGrit;
+    /// <summary>fx/bolt-smoke (owner 2026-11-15, "Thin the dark mist"): the blood effect's big dark-red mist cards (<see cref="SmContent.BrightFlash.IsMistSprite"/>: the alpha <c>blood_breakup</c>, <c>blood_beam_breakup</c> and <c>blood_exit_beam_soft</c> cards, and the additive <c>fire_anim</c> puff) are not drawn; the red drops, hard spikes, gibs and streamers stay. CPU (<c>DrawNode</c>) and GPU (<c>GpuShown</c>, plan mask bit 128) apply it alike. A bolt weapon's and the autocannon's hit and kill on a Musou Ork.</summary>
+    public bool NoMist;
     /// <summary>fx/jumppack-jets (ours): 0..1, scales every sprite, beam, streamer and light colour of the effect (a smooth fade in or out while it keeps playing); 1: the data's.</summary>
     public float Opacity = 1f;
     /// <summary>fx/air-slash-landing: the effect's decals (crater, cracks) are not placed (the air slash's flash is the pound's burst without its ground marks).</summary>
@@ -654,6 +656,7 @@ public sealed partial class FxPlayer : Node3D
         if (e.FlashOnly && n.Name is not ("quick flash" or "JET" or "")) return;
         if (e.BrightFlash && n is CSprite bright && (!e.BrightSprites || !SmContent.BrightFlash.Keeps(bright.Additive, bright.Distortion, bright.Name))) return;   // musou/autocannon-flash
         if (e.NoGrit && n is CSprite { Additive: false } grit && SmContent.BrightFlash.IsGrit(grit.Material.Name)) return;   // fx-cap-priority
+        if (e.NoMist && n is CSprite mist && SmContent.BrightFlash.IsMistSprite(mist.Additive, mist.Material.Name)) return;   // fx/bolt-smoke
         if (n.Hide || depth > MaxDepth || age < 0.0) return;
         // fx/no-smoke: smoke, dust, mist and haze are not drawn (the owner's change). A smoke sprite is not drawn; its collision content (a dropper collider's decal or debris) is
         // played by DrawSpray's collision path, not from here, so its parents are skipped whole only when that content is smoke too (SmokeOnly).
