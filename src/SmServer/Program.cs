@@ -32,6 +32,10 @@ if (cli.Maps is not null)
     if (!RotationSupervisor.TryPlan(rotationInstall, cli, out var rotation, out var rotationError)) { Console.Error.WriteLine($"smserver: {rotationError}"); return 1; }
     return RotationSupervisor.Run(args, rotation);
 }
+#if SM_WARFRONT
+// Warfront: this process only supervises; each stage (one deployment's hub and battlefield) runs in a child server (WarfrontSupervisor.cs).
+if (cli.Content.HasFlag(ContentExtras.Warfront) && !cli.WarfrontStage) return WarfrontSupervisor.Run(args, cli);
+#endif
 bool customEmblems = cli.CustomEmblems;
 var unlocks = cli.Unlocks;
 int port = cli.Port;
@@ -586,6 +590,12 @@ while (true)
                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-ddTHH:mm:ssZ}] rotation: the match on {mapName} is over; the next map starts");
                 return ServerCommandLine.RotationExit;
             }
+        }
+        if (server.ExtrasRestartDue(out int restartCode))
+        {
+            // Warfront: the stage change is due (the next stage's map was prepared and the clients told); the supervisor starts it.
+            Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-ddTHH:mm:ssZ}] stage change: leaving with code {restartCode}");
+            return restartCode;
         }
         if (server.FatalError is { } fatal)
         {

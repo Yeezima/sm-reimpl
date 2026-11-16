@@ -5,7 +5,7 @@ using SmSim.Extras.Warfront.Campaign;
 
 namespace SmNet.Extras.Warfront;
 
-/// <summary>Where a stage change stands (the <c>Stage</c> section): Preparing = the server builds the target's maps while everyone is still connected; Go = rejoin the named map; Arrived = this process is the target's, landing under way.</summary>
+/// <summary>Where a stage change stands (the <c>Stage</c> section): None = no stage change, the status text then carries the last deploy refusal; Preparing = the server builds the target's maps while everyone is still connected; Go = rejoin the named map; Arrived = this process is the target's, landing under way.</summary>
 public enum WarfrontStageState : byte { None = 0, Preparing = 1, Go = 2, Arrived = 3 }
 
 /// <summary>The <c>Hub</c> section: the fields of the client's <c>WarfrontHubView</c> (that type lives in the client project; W5b builds it from this record). Keys in <see cref="Players"/> and <see cref="LeaderKey"/> are handles: the viewer's own key as it is, every other player's a one-way pseudonym (<see cref="WarfrontWire.Pseudonym"/>), so no client learns another's campaign key.</summary>
@@ -46,10 +46,12 @@ public static class WarfrontWire
 {
     /// <summary>The Warfront wire's own number; raised with <see cref="SmSim.Extras.Warfront.WarfrontRules.Version"/>.</summary>
     public const int Format = 1;
-    /// <summary>Envelope tags (gore 1, barks 2, Musou 3 to 18; 32 to 39 are kept for the squad wire).</summary>
+    /// <summary>
+    /// Envelope tags (gore 1, barks 2, Musou 3 to 18). Reserved for later slices: 32 to 34 the squad wire (W10), 44 and 45 progression (W8), 46 coop (W12); 35 to 39 and 47 up stay free.
+    /// </summary>
     public const byte HubTag = 40, StageTag = 41, DownTag = 42, ResultsTag = 43;
-    /// <summary>The command tag (its own namespace, client to server: Musou's is 7, the Librarian's 16).</summary>
-    public const byte CommandTag = 40;
+    /// <summary>The command tag (its own namespace, client to server: Musou's is 7, the Librarian's 16). 41 is the squad's (Rename, W10), 42 the coop's (ConfirmClass, Watch; W12): both admitted by the server and passed to those slices.</summary>
+    public const byte CommandTag = 40, SquadCommandTag = 41, CoopCommandTag = 42;
     public const int MaxName = 24, MaxMap = 32, MaxStatus = 48, MaxPlayers = 16, MaxTargets = 8, Lanes = 3;
     public const int MaxLane = 2;
 
@@ -210,7 +212,7 @@ public static class WarfrontWire
         {
             var r = new Rd(data);
             int state = r.U8(), kind = r.U8(), lane = (sbyte)r.U8(), percent = r.U8(), elapsed = r.U16(), arrived = r.U8(), expected = r.U8();
-            if (state < 1 || state > (int)WarfrontStageState.Arrived || kind > (int)WarfrontTargetKind.Fortress || lane < -1 || lane > MaxLane || percent > 100) return false;
+            if (state < 0 || state > (int)WarfrontStageState.Arrived || kind > (int)WarfrontTargetKind.Fortress || lane < -1 || lane > MaxLane || percent > 100) return false;
             if (!r.Str(MaxMap, out var map) || !r.Str(MaxStatus, out var status) || !r.End) return false;
             stage = new WarfrontStageWire((WarfrontStageState)state, (WarfrontTargetKind)kind, lane, map, percent, elapsed, arrived, expected, status);
             return true;
