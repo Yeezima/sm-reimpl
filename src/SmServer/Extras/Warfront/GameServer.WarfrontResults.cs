@@ -14,8 +14,8 @@ public sealed partial class GameServer
     WarfrontContributor WarfrontContributorFor(WarfrontServerState s, ulong key, int joinIndex)
     {
         var c = s.Campaign;
-        var l = c.Stats.ToLeaderboard(key, c.Player(key)?.Name ?? "", c.IsConnected(key), joinIndex);
-        var player = new WarfrontPlayerStats(l.Name, l.Connected, l.JoinIndex, l.Kills, l.EliteKills, l.BossKills, l.Assists, l.Deaths, l.Revives, l.Captures);
+        var l = c.Stats.ToPlayerStats(key);
+        var player = l with { Name = c.Player(key)?.Name ?? "", Connected = c.IsConnected(key), JoinIndex = joinIndex };
         return WarfrontContributor.Solo(player);
     }
 
