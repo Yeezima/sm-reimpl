@@ -37,6 +37,7 @@
   <!-- Warfront: the card picker's Godot-free model (client/Extras/Warfront/Progression) gets xUnit tests here. -->
   <ItemGroup Condition="'$(SmExtras)' == 'true' and '$(SmWarfront)' == 'true'">
     <Compile Include="..\..\client\Extras\Warfront\Progression\WarfrontProgressModel.cs" Link="ClientWarfront\WarfrontProgressModel.cs" />
+    <Compile Include="..\..\client\Extras\Warfront\WarfrontSquadClassOption.cs" Link="ClientWarfront\WarfrontSquadClassOption.cs" />   <!-- W5c: the row action stores the option -->
   </ItemGroup>
 
   <ItemGroup Condition="'$(SmExtras)' == 'true' and '$(SmWarfront)' == 'true'">

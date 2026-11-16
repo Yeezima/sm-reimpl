@@ -120,6 +120,8 @@ public class ExtrasBoundaryTests
         ("client/Customizer/CreatorView.cs", "ExtrasRefresh"),      // CreatorView.ExtrasRefresh(bool, ref bool), at the start of Refresh: the Librarian's and the Heretic's pages
         ("client/Customizer/CreatorView.cs", "ExtrasRoleLabel"),    // CreatorView.ExtrasRoleLabel(string, ref string), the class tabs and rows: the Space Marine name alone
         ("client/Customizer/CreatorView.cs", "ExtrasOwnPage"),      // CreatorView.ExtrasOwnPage(ref bool), AddedPage: the Librarian's / Heretic's page hides the slot (no rename, copy, reset, clear; step keys work)
+        ("client/NetworkView.Loadout.cs", "ExtrasPickerBusy"),       // PickerBusy ors in an added content's own panel that takes the game's input (Warfront W5c: the card picker, the squad panel)
+        ("client/NetworkView.Seize.cs", "ExtrasSpectateView"),       // SpectateCamera asks added content for its own spectator view first (Warfront W5c: a fallen player, a held joiner)
         ("client/Customizer/CreatorView.cs", "ExtrasStepCount"),    // CreatorView.ExtrasStepCount(ref int), the Librarian's five steps
         ("client/Customizer/CreatorView.cs", "ExtrasStepShown"),    // CreatorView.ExtrasStepShown(int, ref bool), StepShown: the marines' page adds SUPPORT after PERKS (Musou Mode)
         ("client/Customizer/CreatorView.cs", "ExtrasSupportRows"),  // CreatorView.ExtrasSupportRows(...), the SUPPORT step's rows (Musou Mode)

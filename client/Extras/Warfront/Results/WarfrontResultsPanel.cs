@@ -24,6 +24,7 @@ public sealed partial class WarfrontResultsPanel : Control
         ("K", 1160f, 100f), ("KO", 1260f, 80f), ("REV", 1340f, 80f), ("MEN", 1420f, 80f), ("TOTAL K", 1500f, 130f),
     };
     const int BodySize = 18, CaptionSize = 14, ButtonSize = 22;
+    const float ButtonWidth = 330f, ButtonPitch = 345f;
     static readonly Color Dim = new(0.6f, 0.6f, 0.6f);
 
     readonly WarfrontRunRecord _record;
@@ -38,12 +39,14 @@ public sealed partial class WarfrontResultsPanel : Control
     public Button ExportButton { get; }
     public Button HonorButton { get; }
     public Button CloseButton { get; }
+    /// <summary>The fifth action, NEW RUN (the leader's; null when the panel was built without it).</summary>
+    public Button? NewRunButton { get; }
     /// <summary>What the last copy put on the clipboard (null before the first).</summary>
     public string? LastCopied { get; private set; }
     public string StatusText => _status.Text;
     public bool ShowingHonorRoll { get; private set; }
 
-    public WarfrontResultsPanel(WarfrontRunRecord record, string warfrontDir, Action? close = null)
+    public WarfrontResultsPanel(WarfrontRunRecord record, string warfrontDir, Action? close = null, Action? newRun = null)
     {
         _record = record; _dir = warfrontDir; _close = close;
         Name = "WarfrontResultsPanel";
@@ -68,10 +71,12 @@ public sealed partial class WarfrontResultsPanel : Control
         BuildTable();
 
         _status = Line("ResultsStatus", "", Left, 905f, CaptionSize, 1500f, Dim);
-        CopyButton = Row("Copy for Discord", Copy, 940f);
-        ExportButton = Row("Export", Export, 940f, 500f);
-        HonorButton = Row("Honor roll", ToggleHonorRoll, 940f, 880f);
-        CloseButton = Row("Close", () => _close?.Invoke(), 940f, 1260f);
+        // five actions of one size in one row: COPY, EXPORT, HONOR ROLL, NEW RUN (when given), CLOSE
+        CopyButton = Row("Copy for Discord", Copy, 940f, Left + 0 * ButtonPitch, ButtonWidth);
+        ExportButton = Row("Export", Export, 940f, Left + 1 * ButtonPitch, ButtonWidth);
+        HonorButton = Row("Honor roll", ToggleHonorRoll, 940f, Left + 2 * ButtonPitch, ButtonWidth);
+        if (newRun is not null) { NewRunButton = Row("New run", newRun, 940f, Left + 3 * ButtonPitch, ButtonWidth); NewRunButton.Name = "WarfrontNewRun"; }
+        CloseButton = Row("Close", () => _close?.Invoke(), 940f, Left + 4 * ButtonPitch, ButtonWidth);
     }
 
     static void Place(Control c, float x, float y, float w, float h)

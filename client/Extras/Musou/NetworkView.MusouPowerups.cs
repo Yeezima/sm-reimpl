@@ -21,6 +21,7 @@ public partial class NetworkView
 {
     readonly uint[] _musouBuffEnd = new uint[5];
     bool _musouCarrySet;
+    partial void WarfrontCarry(ref PlayerState record);
     int _musouBuffsSeen;
     /// <summary>The newest snapshot tick at which the own player was seen dead or back alive after a death: a list of that tick or older lists no buff (they end with a life, as on the server).</summary>
     uint _musouBuffFloor;
@@ -53,7 +54,9 @@ public partial class NetworkView
             {
                 uint e = end(MusouPowerup.RapidFire);
                 float left = record.Alive && e > at ? (e - at) / rate : 0f;
-                return record with { FireBoostLeft = left };
+                record = record with { FireBoostLeft = left };
+                WarfrontCarry(ref record);   // WARFRONT-HOOK: the attack-speed cards' bonus (0 outside Warfront)
+                return record;
             };
         }
     }

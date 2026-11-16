@@ -64,6 +64,15 @@ public class WarfrontBoundaryTests
         ("src/SmSim/Extras/Musou/Campaign/World.TfwGuards.cs", "WarfrontFought"),
         ("src/SmSim/Extras/Musou/Campaign/TfwBattle.cs", "WarfrontStuck"),
         ("src/SmSim/Extras/Musou/MusouSim.cs", "WarfrontDamaged"),
+        // W5c: the client's hooks 2 (the two core lines are the EXTRAS-HOOK ExtrasPickerBusy and ExtrasSpectateView that call the first two)
+        ("client/Extras/NetworkView.Extras.cs", "WarfrontPickerBusy"),
+        ("client/Extras/NetworkView.Extras.cs", "WarfrontSpectateView"),
+        ("client/Extras/Musou/Tfw/TfwStations.cs", "WarfrontPeekWarMap"),
+        ("client/Extras/Musou/Tfw/TfwStations.cs", "WarfrontCustomizerOpened"),
+        ("client/Extras/Musou/Tfw/TfwStations.cs", "WarfrontCustomizerClosed"),
+        ("client/Extras/Musou/NetworkView.MusouPowerups.cs", "WarfrontCarry"),
+        ("client/Extras/Musou/Customizer/CreatorView.Musou.cs", "WarfrontRowAction"),
+        ("client/Extras/Musou/Customizer/CreatorView.Musou.cs", "WarfrontLibrarianRows"),
     ];
 
     /// <summary>Files outside the Warfront folders that may name the namespace.</summary>

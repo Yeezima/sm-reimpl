@@ -20,6 +20,9 @@ namespace SmClient;
 public partial class NetworkView
 {
     partial void WarfrontOpenWarMap(ref bool handled);
+    partial void WarfrontPeekWarMap(ref bool handled);
+    partial void WarfrontCustomizerOpened();
+    partial void WarfrontCustomizerClosed();
 
     TfwStation _tfwAt;
     bool _tfwUseWas, _tfwEquipment, _tfwMapHeld;
@@ -30,11 +33,11 @@ public partial class NetworkView
     {
         if (_bot) return;
         // Equipment's picker opens on the Esc menu's loadout screen; its BACK would land on that menu: from a station it goes back to the game.
-        if (_tfwEquipment && !PickerBusy) _tfwEquipment = false;
+        if (_tfwEquipment && !PickerBusy) TfwEquipmentEnded();
         if (_tfwEquipment && _pickerMenu is { } menu)
         {
             if (!_tfwEquipmentShown) { _tfwEquipmentShown = true; ShowPickerLoadout(); }
-            else if (menu.Visible) { _tfwEquipment = false; ClosePicker(); }
+            else if (menu.Visible) { TfwEquipmentEnded(); ClosePicker(); }
         }
 
         if (_tfwPanel is not null)
@@ -110,11 +113,19 @@ public partial class NetworkView
 
     bool _tfwEquipmentShown;
 
+    /// <summary>The Equipment picker is over (closed, or BACK to the Esc menu): the station mode ends.</summary>
+    void TfwEquipmentEnded()
+    {
+        _tfwEquipment = false;
+        WarfrontCustomizerClosed();   // WARFRONT-HOOK: the customizer closed on the ship
+    }
+
     void TfwOpenEquipment()
     {
         _tfwEquipment = true;
         _tfwEquipmentShown = false;
         if (!OpenPicker(forced: true)) _tfwEquipment = false;
+        else WarfrontCustomizerOpened();   // WARFRONT-HOOK: the customizer opened on the ship
         GD.Print($"t {_connectedFor:F1} s: war: Equipment opens the loadout picker");
     }
 
@@ -161,6 +172,9 @@ public partial class NetworkView
     /// <summary>M held: the map over the game, in the 1080-high space the HUD draws in (the window has no virtual space while it plays).</summary>
     void TfwPeekFrame(in TfwWarView war)
     {
+        bool warfrontPeek = false;
+        WarfrontPeekWarMap(ref warfrontPeek);   // WARFRONT-HOOK: a Warfront server holds its own war map under M
+        if (warfrontPeek) return;
         _tfwMapHeld = Input.IsPhysicalKeyPressed(Key.M) && !PickerBusy && !_bot;
         if (_tfwMapHeld && _tfwPeek is null)
         {
