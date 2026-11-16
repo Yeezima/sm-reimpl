@@ -28,8 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3545 spec table rows: **2538 tagged**, 655 not tagged (read from data with high confidence), 352 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 761 rows of the changes document.
-Scanned 3560 spec table rows: **2550 tagged**, 658 not tagged (read from data with high confidence), 352 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 761 rows of the changes document.
+Scanned 3565 spec table rows: **2555 tagged**, 658 not tagged (read from data with high confidence), 352 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 762 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -54,28 +53,21 @@ Scanned 3560 spec table rows: **2550 tagged**, 658 not tagged (read from data wi
 | Core simulation (provisional values) | 798 | 755 | 585 | 221 | 1 |
 | General game design | 39 | 39 | 31 | 9 | 0 |
 | Ork faction | 262 | 249 | 146 | 69 | 0 |
-| **All areas** | **2538** | 2266 | 1897 | 775 | 37 |
-| **All areas** | **2550** | 2273 | 1907 | 780 | 37 |
+| **All areas** | **2555** | 2278 | 1912 | 780 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1469 |
-| confidence: low | 923 |
-| confidence: medium | 865 |
-| notes: ours | 446 |
-| kind: interpretation | 411 |
-| kind: estimate | 210 |
 | kind: ours | 1472 |
-| confidence: low | 925 |
+| confidence: low | 930 |
 | confidence: medium | 873 |
 | notes: ours | 450 |
 | kind: interpretation | 414 |
-| kind: estimate | 213 |
+| kind: estimate | 215 |
 | notes: estimate | 204 |
 | confidence: none (low) | 109 |
-| kind: provisional | 105 |
+| kind: provisional | 106 |
 | kind: user's knowledge | 53 |
 | kind: choice | 44 |
 | notes: provisional | 41 |
