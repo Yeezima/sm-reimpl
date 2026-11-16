@@ -4,15 +4,17 @@ namespace SmSim;
 
 /// <summary>
 /// The owner's low-health rule for Classic PvP test bots (2026-11-08; test script, **ours**, not the original AI): "they should prioritize taking cover when their hp
-/// gets low to regenerate, then rejoin the fight." A retreat starts when health falls to <see cref="StartShare"/> of the class's maximum and ends when health and
-/// armour are back to <see cref="EndShare"/> of theirs (the sim's own regeneration: health after its delay, the armour after its own), or after <see cref="Timeout"/> s.
+/// gets low to regenerate, then rejoin the fight." A retreat starts when health falls to <see cref="StartShare"/> of the class's maximum (30 % since the owner's order of
+/// 2026-11-16: "change the threshhold to be 30% health for this action"; 60 % before) and ends when health and armour are back to <see cref="EndShare"/> of theirs (the
+/// sim's own regeneration: health after its delay, the armour after its own), but never before <see cref="MinHold"/> s and at the latest after <see cref="Timeout"/> s (owner,
+/// 2026-11-16: "reduce the 35 second timer on a bot returning to combat after hiding to 15 seconds at most, 5 seconds at minimum"; 35 s before, no minimum).
 /// </summary>
 public sealed class BotRetreat
 {
     /// <summary>Share of the health maximum at or below which a retreat starts, and the share of health and armour that ends it (ours).</summary>
-    public const float StartShare = 0.6f, EndShare = 0.9f;
-    /// <summary>The longest retreat (s; ours): a bot that cannot recover rejoins anyway.</summary>
-    public const double Timeout = 35;
+    public const float StartShare = 0.3f, EndShare = 0.9f;
+    /// <summary>The shortest retreat (s; owner 2026-11-16: 5 s at minimum) and the longest (owner 2026-11-16: 15 s at most; a bot that cannot recover rejoins anyway).</summary>
+    public const double MinHold = 5, Timeout = 15;
 
     double _since = double.NaN;
 
@@ -24,7 +26,8 @@ public sealed class BotRetreat
     {
         if (Active)
         {
-            if ((health >= EndShare && shield >= EndShare) || now - _since > Timeout) _since = double.NaN;
+            double held = now - _since;
+            if (held > Timeout || (held >= MinHold && health >= EndShare && shield >= EndShare)) _since = double.NaN;
             return Active;
         }
         if (health > StartShare) return false;

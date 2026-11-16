@@ -250,6 +250,7 @@ public partial class NetworkView
         int best = BotSeizePoint(me, layout, points);
         if (best < 0) { _botSeizeNote = "all points held"; return null; }
         var goal = layout.Points[best];
+        if (BotSeizeSurplusHunts(me, layout, goal)) { _botSeizeNote = $"surplus on point {PointLetter(best)}: hunting"; return null; }   // 2026-11-16 (NetworkView.BotHunt.cs)
         float bestDistance = new Vector2(goal.Center.X - me.Position.X, goal.Center.Y - me.Position.Y).Length();
         // Fight only an enemy it can see within BotFightRange (M19); otherwise it keeps walking without aiming at it.
         var target = BotFightTarget(me, out float targetDistance);
