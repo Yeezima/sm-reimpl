@@ -56,7 +56,8 @@ public sealed class ProcessBotLauncher(string exe, string? projectPath, int port
         {
             var process = Process.Start(info);
             if (process is null) { error = "the process did not start"; return null; }
-            DevBotJob.TryAssign(process);   // kill-on-close job: the bot dies with the server even on a hard kill or a crash
+            if (!DevBotJob.TryAssign(process) && OperatingSystem.IsWindows())   // kill-on-close job: the bot dies with the server even on a hard kill or a crash
+                Console.WriteLine($"dev tools: bot pid {process.Id} is not in the kill-on-close job; it may outlive a hard kill of this server");
             return new ChildBot(process, logPath);
         }
         catch (Exception e) when (e is System.ComponentModel.Win32Exception or InvalidOperationException or IOException)

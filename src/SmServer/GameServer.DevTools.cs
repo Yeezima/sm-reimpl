@@ -117,8 +117,8 @@ public sealed partial class GameServer
         string sideName = team == Team.Chaos ? "chaos" : "loyalists";
         if (World.Config.Extras.HasFlag(ContentExtras.Musou)) { Log?.Invoke($"dev tools: add bot ({sideName}) refused: not in Musou Mode"); Answer(DevNote.NotInThisMode); return; }
         if (_options.DevTools?.Launcher is not { } launcher) { Log?.Invoke($"dev tools: add bot ({sideName}) refused: no Godot executable was found for the bots (--dev-bot-exe)"); Answer(DevNote.LauncherMissing); return; }
+        BindToolBots();   // bind first: a bot that joined just before the join timeout is kept
         PruneToolBots();
-        BindToolBots();
         int starting = _toolBots.Count(b => b.Connection is null);
         int onSide = _peers.Values.Count(p => !p.Spectator && World.Players.TryGetValue(p.PlayerId, out var s) && s.Team == team) + _toolBots.Count(b => b.Connection is null && b.Team == team);
         int total = _peers.Values.Count(p => !p.Spectator) + starting;
@@ -140,8 +140,8 @@ public sealed partial class GameServer
     void RemoveToolBot(Peer peer, Team team)
     {
         string sideName = team == Team.Chaos ? "chaos" : "loyalists";
+        BindToolBots();   // bind first: a bot that joined just before the join timeout is kept
         PruneToolBots();
-        BindToolBots();
         var bot = _toolBots.LastOrDefault(b => b.Team == team);
         if (bot is null) { Log?.Invoke($"dev tools: remove bot ({sideName}): none of the tools' bots on that side"); Answer(DevNote.NoBotToRemove); return; }
         _toolBots.Remove(bot);
@@ -202,8 +202,8 @@ public sealed partial class GameServer
         if (_options.DevTools is null || !DevToolsOn) return;
         if (World.Tick % 10 == 0)
         {
-            PruneToolBots();
             BindToolBots();
+            PruneToolBots();
             int loyalists = 0, chaos = 0;
             foreach (var p in _peers.Values)
                 if (!p.Spectator && World.Players.TryGetValue(p.PlayerId, out var s)) { if (s.Team == Team.Chaos) chaos++; else if (s.Team == Team.SpaceMarines) loyalists++; }
