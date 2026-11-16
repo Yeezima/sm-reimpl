@@ -25,20 +25,28 @@ public class BotCoverTests
     static Vector3 EyeAt(Vector3 feet) => feet + new Vector3(0, 0, Config.EyeHeight);
 
     [Fact]
-    public void A_retreat_starts_at_60_percent_health_and_ends_at_90_percent_health_and_armour_or_on_timeout()
+    public void A_retreat_starts_at_30_percent_health_and_ends_at_90_percent_health_and_armour_after_5_s_at_least_and_15_s_at_most()
     {
+        Assert.Equal(0.3f, BotRetreat.StartShare);
+        Assert.Equal(5.0, BotRetreat.MinHold);
+        Assert.Equal(15.0, BotRetreat.Timeout);
         var r = new BotRetreat();
-        Assert.False(r.Step(0, 0.7f, 0f));
-        Assert.True(r.Step(1, 0.6f, 0f));
-        Assert.True(r.Step(5, 0.95f, 0.5f));    // armour not back yet
-        Assert.True(r.Step(6, 0.85f, 1f));      // health not back yet
-        Assert.False(r.Step(7, 0.9f, 0.9f));
+        Assert.False(r.Step(0, 0.6f, 0f));      // 60 % no longer starts one
+        Assert.False(r.Step(0.5, 0.31f, 0f));
+        Assert.True(r.Step(1, 0.3f, 0f));
+        Assert.True(r.Step(2, 1f, 1f));         // recovered, but not before 5 s
+        Assert.True(r.Step(5.9, 1f, 1f));
+        Assert.False(r.Step(6, 1f, 1f));        // 5 s held and recovered
         Assert.Equal(1, r.Retreats);
         Assert.True(r.Step(10, 0.1f, 0f));
-        Assert.True(r.Step(10 + BotRetreat.Timeout - 1, 0.2f, 0f));
-        Assert.False(r.Step(10 + BotRetreat.Timeout + 1, 0.2f, 0f));
-        Assert.True(r.Step(10 + BotRetreat.Timeout + 2, 0.2f, 0f));   // still low: a new retreat
-        Assert.Equal(3, r.Retreats);
+        Assert.True(r.Step(20, 0.95f, 0.5f));   // armour not back yet
+        Assert.True(r.Step(21, 0.85f, 1f));     // health not back yet
+        Assert.False(r.Step(22, 0.9f, 0.9f));
+        Assert.True(r.Step(30, 0.1f, 0f));
+        Assert.True(r.Step(30 + BotRetreat.Timeout - 1, 0.2f, 0f));
+        Assert.False(r.Step(30 + BotRetreat.Timeout + 1, 0.2f, 0f));   // 15 s at the latest
+        Assert.True(r.Step(30 + BotRetreat.Timeout + 2, 0.2f, 0f));    // still low: a new retreat
+        Assert.Equal(4, r.Retreats);
     }
 
     [Fact]

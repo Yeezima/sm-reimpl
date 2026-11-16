@@ -55,16 +55,18 @@ finally {
 }
 $sl = @(Get-Content -LiteralPath (Join-Path $out 'server.log') | Where-Object { $_ -match '^BOTSTATS' })
 $last = if ($sl.Count) { $sl[-1] } else { 'no BOTSTATS' }
-$stuck = 0; $unr = 0; $esc = 0; $pit = 0
+$stuck = 0; $unr = 0; $esc = 0; $pit = 0; $retreats = 0; $hunts = 0
 foreach ($f in Get-ChildItem $out -Filter 'bot-*.log') {
     $c = Get-Content -LiteralPath $f.FullName
     $stuck += @($c | Where-Object { $_ -match 'nav stuck #' }).Count
     $nl = $c | Where-Object { $_ -match 'escapes \d+, drops given up \d+, pit jumps \d+' } | Select-Object -Last 1
     if ($nl -match 'escapes (\d+), drops given up \d+, pit jumps (\d+)') { $esc += [int]$Matches[1]; $pit += [int]$Matches[2] }
     $unr += @($c | Where-Object { $_ -match 'unreachable' }).Count
+    $retreats += @($c | Where-Object { $_ -match ' retreat \d+ to cover' }).Count
+    $hunts += @($c | Where-Object { $_ -match ' hunt \d+ on P' }).Count
 }
 $falls = @(Get-Content -LiteralPath (Join-Path $out 'server.log') | Where-Object { $_ -match '^BOTFALL' }).Count
 $caps = @(Get-Content -LiteralPath (Join-Path $out 'server.log') | Where-Object { $_ -match 'point . .* (captured|neutralised) by' }).Count
-$res = "$Map $Mode tag $Tag : stuck $stuck, unreachable $unr, escapes $esc, pit jumps $pit, falls $falls, point events $caps | $last"
+$res = "$Map $Mode tag $Tag : stuck $stuck, unreachable $unr, retreats $retreats, hunts $hunts, escapes $esc, pit jumps $pit, falls $falls, point events $caps | $last"
 $res | Set-Content (Join-Path $out 'result.txt')
 Write-Host $res

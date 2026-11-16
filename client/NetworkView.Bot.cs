@@ -131,6 +131,7 @@ public partial class NetworkView
         // 2026-11-08: a ramp or balcony holder goes to its post and holds it instead of chasing (NetworkView.BotPosts.cs).
         if (BotPostInput(me, tick) is { } postInput) return postInput;
         var chased = BotChaseTarget(me);
+        chased ??= BotHuntTarget(me);   // 2026-11-16: nobody to chase: hunt an enemy outside its spawn room instead of patrolling (NetworkView.BotHunt.cs)
         if (chased is null && BotHoldInput(me, tick) is { } holdInput) return holdInput;
         // 2026-11-07, Annihilation: a life's first leg goes through its lane, so a side's bots leave the spawn by different routes (NetworkView.BotRoam.cs).
         if (BotLaneInput(me, tick, chased) is { } laneInput) return laneInput;

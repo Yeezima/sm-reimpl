@@ -11,9 +11,9 @@ namespace SmClient;
 
 /// <summary>
 /// The owner's low-health rule (2026-11-08; test script, **ours**, not the original AI; engine-free parts in <see cref="BotRetreat"/> and <see cref="BotCover"/>): "they
-/// should prioritize taking cover when their hp gets low to regenerate, then rejoin the fight." At 60 % health a Classic PvP bot walks (sprinting while unseen, else
+/// should prioritize taking cover when their hp gets low to regenerate, then rejoin the fight." At 30 % health (owner 2026-11-16; 60 % before) a Classic PvP bot walks (sprinting while unseen, else
 /// firing back as it goes) to the nearest cell the nearby enemies cannot see, planned off the frame loop and planned again when an enemy gets sight of it; there it waits
-/// for the sim's regeneration (firing only at an enemy that shows itself) and rejoins at 90 % health and armour, or after 35 s. An enemy within melee reach is fought
+/// for the sim's regeneration (firing only at an enemy that shows itself) and rejoins at 90 % health and armour, but not before 5 s and at the latest after 15 s (owner 2026-11-16; 35 s before, no minimum). An enemy within melee reach is fought
 /// instead. Musou bots return earlier (<c>ExtrasBotInput</c>). <c>--bot-no-retreat</c> turns it off.
 /// </summary>
 public partial class NetworkView
