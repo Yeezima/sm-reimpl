@@ -18,6 +18,7 @@ return args switch
     ["nav-around", var gameDir, .. var rest] => SmTool.NavAroundCommand.Run(gameDir, rest),
     ["nav-stats", var gameDir, .. var rest] => SmTool.NavCommands.Stats(gameDir, Opt(rest, "--map") ?? "mp_tdm_09", (Opt(rest, "--class") ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries), Opt(rest, "--cache"), int.TryParse(Opt(rest, "--top"), out var top) ? top : 0),
     ["maps-audit", var gameDir, .. var rest] => SmTool.MapsAuditCommand.Run(gameDir, rest),
+    ["sound-config", .. var rest] => SmTool.SoundConfigCommand.Run(rest),
     ["refine-register", .. var rest] => SmTool.RefineRegister.Run(rest),
     ["scan-package", .. var rest] => SmTool.PackageScanCommand.Run(rest),
     ["make-tar", .. var rest] => SmTool.TarPackage.Run(rest),

@@ -354,6 +354,12 @@ public partial class SoundSystem : Node
     /// </summary>
     public const string VoiceBusName = "SmVoice";
 
+    /// <summary>sound/mix-expand: the bus of raw voices (<see cref="SoundMixEffect.Raw"/>): straight into Master, no reverb, no limiter, no filters.</summary>
+    public const string RawBusName = "SmRaw";
+
+    /// <summary>The <see cref="Active.LpfLevel"/> of a voice on the raw bus (the filter levels are 0..<see cref="LpfBuses"/>, -1 = not set yet).</summary>
+    const int RawLevel = -2;
+
     /// <summary><c>--sound-mix-classic</c> (test aid): the mix before sound/mix-and-reloads (no fire and hit gains, no hit high-pass, master as set, no jump pack tail fade).</summary>
     public static readonly bool MixClassic = OS.GetCmdlineUserArgs().Contains("--sound-mix-classic");
 
@@ -456,6 +462,9 @@ public partial class SoundSystem : Node
         public double FadeUntil;
         /// <summary>sound/tuning-tool: the voice's <see cref="SoundTuningGroups"/> index (set at its start; -1 = none).</summary>
         public int Group = -1;
+        /// <summary>sound/mix-expand: what the F7 mix editor does to this voice (null: nothing), resolved when the voice starts and again after any change of <see cref="SoundMixConfig.Version"/>.</summary>
+        public SoundMixEffect? Fx;
+        public int FxVersion = -1;
     }
 
     static int _handles;
@@ -463,6 +472,9 @@ public partial class SoundSystem : Node
 
     public SoundSystem(AudioCatalog catalog) { _catalog = catalog; Name = "SoundSystem"; _masterDb = catalog?.MasterBusVolume ?? 0f; }
     public SoundSystem() : this(null!) { }
+
+    /// <summary>The sound system's clock, seconds (the live list stamps its rows with it).</summary>
+    public double Now => _now;
 
     public int ActiveCount => _active.Count(a => a.Player is not null);
     public int PendingCount => _pending.Count;
@@ -516,6 +528,14 @@ public partial class SoundSystem : Node
             AudioServer.AddBus();
             int index = AudioServer.BusCount - 1;
             AudioServer.SetBusName(index, VoiceBusName);
+            AudioServer.SetBusSend(index, "Master");
+        }
+        // sound/mix-expand: the raw bus (unused unless the owner turns on raw in the F7 mix editor).
+        if (AudioServer.GetBusIndex(RawBusName) < 0)
+        {
+            AudioServer.AddBus();
+            int index = AudioServer.BusCount - 1;
+            AudioServer.SetBusName(index, RawBusName);
             AudioServer.SetBusSend(index, "Master");
         }
         ApplyMasterVolume(SmClient.Customizer.Model.LiveOptions.Current.MasterVolume);
@@ -830,6 +850,8 @@ public partial class SoundSystem : Node
     {
         var v = p.Voice;
         if (ClassicAutocannonSound.Applies(Scape != ScapeMode.Old, p.Event, v)) { FreeSpeech(p.Event, p.Emitter); return; }   // sound/classic-autocannon: the shot's footstep body (a Dreadnought-like walking thud) is never played; the shot's own layers are
+        if (SoundMixLive.Enabled)   // sound/mix-expand: the F7 panel's live list (only while the panel is open; no allocation)
+            SoundMixLive.Note(p.Event, p.Emitter.Own ? SoundSource.Own : p.Emitter.Follow is not null ? SoundSource.Other : SoundSource.World, Distance(p.Emitter, IsSpeech(p.Event)) is var (_, liveD) ? liveD : 0f, _now);
         if (p.Emitter.AttenuationOverride is { } curve && ((v.Is3D && v.Attenuation is not null) || p.Emitter.Positioned)) v = v with { Attenuation = curve, Is3D = true };
         if (v.LoopCount == 0)
         {
@@ -873,9 +895,10 @@ public partial class SoundSystem : Node
     {
         var v = a.Voice;
         float? distance = null;
-        if (v.Is3D && v.Attenuation is not null && Distance(a.Emitter, IsSpeech(a.Event)) is var (_, d)) distance = Loudness.CurveDistance(d);   // the curve's end read as the mix reads it
+        var fx = FxOf(a);
+        if (v.Is3D && v.Attenuation is not null && Distance(a.Emitter, IsSpeech(a.Event), fx) is var (_, d)) distance = Loudness.CurveDistance(d);   // the curve's end read as the mix reads it
         bool tuned = a.Group >= 0 && SoundTuning.Live[a.Group].CustomFalloff;   // sound/tuning-tool: the group's own curve ends where the owner set it (silent past it), not at the data's end
-        return VoiceAudibility.IsAudible(v.Is3D, v.Attenuation is not null, tuned ? 0f : Loudness.MaxDistanceOf(v.Attenuation), distance, MixOf(a).VolumeDb + SoundTuning.Live.GainDb(a.Group), _masterDb,
+        return VoiceAudibility.IsAudible(v.Is3D, v.Attenuation is not null, tuned ? 0f : Loudness.MaxDistanceOf(v.Attenuation), distance, MixOf(a).VolumeDb + SoundTuning.Live.GainDb(a.Group) + SoundMixEffect.Gain(fx), _masterDb,
             v.Chain.Count > 0 ? v.Chain[0].BelowThreshold : (byte)1, v.Chain.Count > 0, a.Limited);
     }
 
@@ -1009,21 +1032,31 @@ public partial class SoundSystem : Node
         return p;
     }
 
-    /// <summary>The emitter's position and its distance from the listener (the current camera), or null without a camera.</summary>
-    (Vector3 Position, float Distance)? Distance(SoundEmitter e, bool speech = false)
+    /// <summary>sound/mix-expand: the voice's mix-editor effect, looked up again only when the config changed (an empty config costs one int compare).</summary>
+    SoundMixEffect? FxOf(Active a)
+    {
+        var config = SoundMixConfig.Live;
+        if (a.FxVersion != config.Version) { a.Fx = config.Resolve(a.Event, a.Emitter.Own); a.FxVersion = config.Version; }
+        return a.Fx;
+    }
+
+    /// <summary>The emitter's position and its distance from the listener (the current camera), or null without a camera. <paramref name="fx"/>: the mix editor's hearing distance divides the result.</summary>
+    (Vector3 Position, float Distance)? Distance(SoundEmitter e, bool speech = false, SoundMixEffect? fx = null)
     {
         var camera = GetViewport()?.GetCamera3D();
         var pos = e.Current;
         if (camera is null) return (pos, 0f);
         float d = camera.GlobalPosition.DistanceTo(pos);
         if (e.Own) d = Math.Min(d, OwnMinDistance);
-        return (pos, d * e.DistanceScale * (speech ? e.VoiceDistanceScale : 1f));
+        return (pos, SoundMixEffect.Distance(fx, d * e.DistanceScale * (speech ? e.VoiceDistanceScale : 1f)));
     }
 
     /// <summary>The voice's live mix: parent chain, buses, RTPCs (distance now, the emitter's parameters as at the start), attenuation, modifiers, and the loudness rule (<see cref="Loudness"/>).</summary>
     VoiceMix MixOf(Active a)
     {
-        float? distance = Distance(a.Emitter, IsSpeech(a.Event)) is var (_, d) ? d : null;
+        var fx = FxOf(a);
+        float? distance = Distance(a.Emitter, IsSpeech(a.Event), fx) is var (_, d) ? d : null;
+        if (fx is { Raw: true }) return new VoiceMix(distance is float rd && a.Voice.Is3D && a.Voice.Attenuation is { } curve ? curve.VolumeAt(Loudness.CurveDistance(rd)) : 0f, 0f, 0f);   // sound/mix-expand: raw = the sample as authored: only the data's distance volume curve (SoundMixEffect remarks)
         var mix = Loudness.Evaluate(a.Voice, Shielded(a) ? null : _mods, a.Emitter.Id, _now, distance, a.Params, RtpcCap);   // protected voices ignore the data's Set/Reset ducking   // the data's mix with the loudness rule (gain included)
         if (Scape != ScapeMode.Old && !a.Emitter.Own && a.Voice.Is3D && distance is float far)
         {
@@ -1055,26 +1088,29 @@ public partial class SoundSystem : Node
         return _listenerCam;
     }
 
-    float EffectiveNow(Active a) => MixOf(a).VolumeDb + GlobalGainDb + SoundTuning.Live.GainDb(a.Group);
+    float EffectiveNow(Active a) => MixOf(a).VolumeDb + GlobalGainDb + SoundTuning.Live.GainDb(a.Group) + SoundMixEffect.Gain(FxOf(a));
 
     void Volume(Active a)
     {
-        var mix = MixOf(a).With(a.Offset);
+        var fx = FxOf(a);
+        bool raw = fx is { Raw: true };   // sound/mix-expand: raw skips our passes, filters and effects (SoundMixEffect remarks)
+        var mix = raw ? MixOf(a) : MixOf(a).With(a.Offset);
         // ui/menu-rebuild: the Options menu's music, effects and voice volumes (0 dB at the default).
-        float db = mix.VolumeDb + GlobalGainDb + (a.Footstep ? FootstepGainDb : 0f) + SmClient.Customizer.Model.LiveOptions.GainDb(SmClient.Customizer.Model.GameOptions.CategoryOf(a.Event)) + SoundTuning.Live.GainDb(a.Group);   // sound/tuning-tool: the owner's group volume
-        db += SoundMixPass.TailGainDb(a.Offset.TailDb, _now - a.Started);   // sound/mix-and-reloads: the jump pack launch's tail
-        if (a.Emitter.Background) db += BackgroundDb;   // musou/soundscape-tuning: the far war ducks under close combat (0 outside Musou Mode)
+        float db = mix.VolumeDb + (raw ? 0f : GlobalGainDb + (a.Footstep ? FootstepGainDb : 0f)) + SmClient.Customizer.Model.LiveOptions.GainDb(SmClient.Customizer.Model.GameOptions.CategoryOf(a.Event)) + SoundTuning.Live.GainDb(a.Group);   // sound/tuning-tool: the owner's group volume
+        if (!raw) db += SoundMixPass.TailGainDb(a.Offset.TailDb, _now - a.Started);   // sound/mix-and-reloads: the jump pack launch's tail
+        if (a.Emitter.Background && !raw) db += BackgroundDb;   // musou/soundscape-tuning: the far war ducks under close combat (0 outside Musou Mode)
+        db += SoundMixEffect.Gain(fx);   // sound/mix-expand: the owner's per-sound volume (silenced: far under the floor)
         if (a.FadeUntil > 0) db += 20f * MathF.Log10(Math.Max(0.001f, (float)Math.Clamp((a.FadeUntil - _now) / KillFade, 0.0, 1.0)));   // killed by an instance limit: linear fade out
         if (a.Player is AudioStreamPlayer3D p3 && Distance(a.Emitter) is var (pos, _)) p3.GlobalPosition = pos;
         a.Effective = db;
         float clamped = Math.Clamp(db, -80f, 24f);
-        float pitch = Math.Clamp(mix.PitchScale, 0.05f, 16f);
-        int level = NoLowPass ? 0 : Math.Clamp((int)MathF.Round(mix.Lpf / LpfStep), 0, LpfBuses);   // musou/sound-ab: lowpass off
+        float pitch = Math.Clamp(SoundMixEffect.Pitch(fx, mix.PitchScale), 0.05f, 16f);
+        int level = raw ? RawLevel : NoLowPass ? 0 : Math.Clamp((int)MathF.Round(mix.Lpf / LpfStep), 0, LpfBuses);   // musou/sound-ab: lowpass off
         bool pitchChanged = MathF.Abs(pitch - a.AppliedPitch) > 1e-3f, busChanged = level != a.LpfLevel;
         if (pitchChanged) a.AppliedPitch = pitch;
         if (busChanged)
         {
-            if (a.LpfLevel < 0) { if (level > 0) FilteredStarts++; }
+            if (a.LpfLevel == -1) { if (level > 0) FilteredStarts++; }
             else FilterChanges++;
             a.LpfLevel = level;
         }
@@ -1107,6 +1143,7 @@ public partial class SoundSystem : Node
     /// <summary>The bus of a voice at a low-pass level: the protected voices' own (only when asked for), else as before.</summary>
     static string BusOf(Active a, int level, bool noHitFilter)
     {
+        if (level == RawLevel) return RawBusName;   // sound/mix-expand
         if (FullVoice(a) && level == 0) return VoiceBusName;
         return a.Offset.HighPass && !noHitFilter ? HitBusOf(level) : level == 0 ? BusName : LpfBusName(level);   // musou/sound-ab: hitfilter off
     }

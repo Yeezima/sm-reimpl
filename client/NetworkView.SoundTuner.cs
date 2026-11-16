@@ -15,9 +15,25 @@ public partial class NetworkView
     {
         string repo = System.IO.Path.GetFullPath(System.IO.Path.Combine(ProjectSettings.GlobalizePath("res://"), ".."));
         SoundTunerPanel.EnsureLoaded(repo);
+        if (_soundTriggers is not null) SoundMixCatalog.Register(_soundTriggers.EventNames());   // sound/mix-expand: every event the triggers can post is listed in the F7 editor from the start
         if (_tuner is not null) return;
-        AddChild(_tuner = new SoundTunerPanel(() => MusouActive));
+        AddChild(_tuner = new SoundTunerPanel(() => MusouActive, _sound, PreviewSound));
         if (SoundTunerArg) _tuner.SetOpen(true);
+    }
+
+    /// <summary>
+    /// sound/mix-expand: the editor's PLAY button. Posts the event once from where the selected side would be heard: your own (at the camera, as the own player's emitter) or another player's
+    /// (6 m ahead of the camera). A sound that loops is stopped after 4 s. It goes through the same mix as any sound, so the owner's changes are heard.
+    /// </summary>
+    void PreviewSound(string evt, bool own)
+    {
+        if (_sound is null) return;
+        var camera = GetViewport()?.GetCamera3D();
+        Vector3 at = camera is null ? Vector3.Zero : camera.GlobalPosition + (own ? Vector3.Zero : -camera.GlobalTransform.Basis.Z * 6f);
+        var emitter = new SoundEmitter { Position = at, OneShot = true, Own = own, Label = "preview", Follow = null };
+        if (own) emitter.Switches.Set(AudioCatalog.PlayerGroup, AudioCatalog.LocalPlayerValue);
+        _sound.Post(evt, emitter);
+        GetTree().CreateTimer(4.0).Timeout += () => { if (IsInstanceValid(this)) _sound?.StopEmitter(emitter); };
     }
 
     /// <summary>The panel is up: the game takes no input (<see cref="PickerBusy"/> includes it) and the mouse is free.</summary>
