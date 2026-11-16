@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3639 spec table rows: **2622 tagged**, 664 not tagged (read from data with high confidence), 353 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 767 rows of the changes document.
+Scanned 3642 spec table rows: **2625 tagged**, 664 not tagged (read from data with high confidence), 353 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 767 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -51,17 +51,17 @@ Scanned 3639 spec table rows: **2622 tagged**, 664 not tagged (read from data wi
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 47 | 37 | 21 | 12 | 7 |
 | Core simulation (provisional values) | 813 | 770 | 599 | 226 | 1 |
-| General game design | 77 | 76 | 55 | 15 | 0 |
+| General game design | 80 | 79 | 56 | 15 | 0 |
 | Ork faction | 263 | 250 | 147 | 69 | 0 |
-| **All areas** | **2622** | 2343 | 1963 | 792 | 37 |
+| **All areas** | **2625** | 2346 | 1964 | 792 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1520 |
+| kind: ours | 1523 |
 | confidence: low | 943 |
-| confidence: medium | 911 |
+| confidence: medium | 912 |
 | notes: ours | 461 |
 | kind: interpretation | 424 |
 | kind: estimate | 222 |
@@ -3897,7 +3897,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-98A893CB` | Picker protection | while an offer stands the player is invulnerable and their input is dropped, others play on; it ends on a valid pick, after 20 s (the server takes card 1) or when the player leaves (the pick stays pending and re-opens with the same cards) (s) | kind: estimate; confidence: medium; notes: ours | owner (protection); the 20 s ours | Picker protection: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: while an offer stands the player is invulnerable and their input is… | ☐ |
 | `R-2024CBEF` | Hard base | `OrkHealthBase` and `OrkDamageBase`, 1.0: the one knob for "hard" (owner answer 8) (multiplier) | kind: estimate; confidence: low; notes: ours | owner (hard, solo must play well, a squad needs teamwork); the value ours | Hard base: compare with SM1 by feel or video. Ours: OrkHealthBase and OrkDamageBase, 1.0: the one knob for "hard" (owner… | ☐ |
 
-### General game design (77)
+### General game design (80)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -4014,7 +4014,10 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-C12D24CE` | Preparing screen | "PREPARING THE BATTLEFIELD", the server's last `warfront:` line, the elapsed time M:SS, CANCEL; the menu stays responsive | kind: ours | brief item 4 | Preparing screen: compare with SM1 by feel or video. Ours: "PREPARING THE BATTLEFIELD", the server's last warfront: line, the… | ☐ |
 | `R-3A0EAFFB` | Failed join | the reason shows and the server stays for one retry; a second failure, or leaving the match, stops it (the message "You left the match." marks a leave) (joins) | kind: ours; confidence: medium | brief item 5 | Failed join: compare with SM1 by feel or video. Ours: the reason shows and the server stays for one retry; a second… | ☐ |
 | `R-323CA234` | Leaving | coming back to the menu stops the one process this game started (`HostedServer.Stop`: only that process, by its handle); closing the game stops it too, and a game that is killed takes it along (the kill-on-close job) | kind: ours; confidence: medium | brief item 6 | Leaving: compare with SM1 by feel or video. Ours: coming back to the menu stops the one process this game started… | ☐ |
-| `R-BA077DD6` | Customizer | the Musou profile's creator (as Musou's page opens it); its BACK returns to the main menu | kind: ours; confidence: medium | brief item 1 | Customizer: compare with SM1 by feel or video. Ours: the Musou profile's creator (as Musou's page opens it); its BACK… | ☐ |
+| `R-BA077DD6` | Customizer | the Musou profile's creator (as Musou's page opens it); its BACK returns to the main menu, not to the Warfront page (known difference: the creator's own back step is core; one hook there would fix it, through the lead) | kind: ours; confidence: medium | brief item 1 | Customizer: compare with SM1 by feel or video. Ours: the Musou profile's creator (as Musou's page opens it); its BACK… | ☐ |
+| `R-866C9C19` | Server running | while this game's Warfront server runs the page offers REJOIN CAMPAIGN and STOP SERVER only (never New or Continue, which could join the old campaign under a "new" label); another server running: STOP SERVER alone; nothing running: CONTINUE (with a run in… | kind: ours | review 1 finding 1 | Server running: compare with SM1 by feel or video. Ours: while this game's Warfront server runs the page offers REJOIN… | ☐ |
+| `R-08211600` | Profile after a match | coming back to the menu stops the server and puts the lobby's remembered content profile back (the rebuilt services start from the last joined profile); a failed join keeps both for one retry | kind: ours | review 1 finding 2 | Profile after a match: compare with SM1 by feel or video. Ours: coming back to the menu stops the server and puts the lobby's… | ☐ |
+| `R-29C4A94A` | Status row | the preparing screen shows the server's last lower-case `warfront:` line, cut with an ellipsis inside the column (the full line is the tooltip); the server's "Warfront: enabled" banner is not a status | kind: ours; confidence: medium | review 1 finding 8 | Status row: compare with SM1 by feel or video. Ours: the preparing screen shows the server's last lower-case warfront:… | ☐ |
 
 ## Part B: Ork faction
 

@@ -148,6 +148,7 @@ public sealed class WarfrontLocalTests : IDisposable
     {
         Assert.Equal("", WarfrontLocal.LastStatus(["smserver on UDP 1", "reading"]));
         Assert.Equal("warfront: walking graph 60 percent", WarfrontLocal.LastStatus(["12:00:01 warfront: layout built", "x", "12:00:50 warfront: walking graph 60 percent", "noise"]));
+        Assert.Equal("warfront: stage 1 on wf_b1 (Ship)", WarfrontLocal.LastStatus(["warfront: stage 1 on wf_b1 (Ship)", "Warfront: enabled (the persistent campaign on Musou Mode)"]));   // the banner is not a status
         Assert.Equal("0:00", WarfrontLocal.Elapsed(-3));
         Assert.Equal("2:05", WarfrontLocal.Elapsed(125.9));
         Assert.Equal("1:01:01", WarfrontLocal.Elapsed(3661));
@@ -170,4 +171,31 @@ public sealed class WarfrontLocalTests : IDisposable
     [InlineData(true, true, "Rejected: the squad is full (1 of 1).", 1, WarfrontLocal.MenuReturn.Stop)]   // then it stops
     public void A_failed_join_keeps_the_server_once_and_leaving_stops_it(bool ours, bool joined, string message, int retries, WarfrontLocal.MenuReturn expected) =>
         Assert.Equal(expected, WarfrontLocal.AtMenu(ours, joined, message, retries));
+
+    [Fact]
+    public void While_the_campaign_server_runs_only_rejoin_and_stop_are_offered()
+    {
+        var none = WarfrontRunInfo.NoRun;
+        var run = new WarfrontRunInfo(WarfrontRunKind.Continuable, "x");
+        var done = new WarfrontRunInfo(WarfrontRunKind.Finished, "");
+        Assert.Equal(["Rejoin campaign", "Stop server"], WarfrontLocal.Choices(run, serverRunning: true, warfrontServer: true));
+        Assert.Equal(["Rejoin campaign", "Stop server"], WarfrontLocal.Choices(none, true, true));
+        Assert.Equal(["Rejoin campaign", "Stop server"], WarfrontLocal.Choices(done, true, true));
+        Assert.Equal(["Stop server"], WarfrontLocal.Choices(run, true, false));   // another server (Musou, the Host panel's)
+        Assert.Equal(["Continue campaign", "New campaign"], WarfrontLocal.Choices(run));
+        Assert.Equal(["New campaign"], WarfrontLocal.Choices(none));
+        foreach (var r in new[] { none, run, done })
+            Assert.DoesNotContain("New campaign", WarfrontLocal.Choices(r, true, true));
+    }
+
+    /// <summary>The leave is told from a failure by the message <c>ModelViewer.BackToFrontEnd</c> is given: the pin reads that source line, not a copy.</summary>
+    [Fact]
+    public void The_left_the_match_text_is_the_one_the_core_passes()
+    {
+        var d = new DirectoryInfo(AppContext.BaseDirectory);
+        while (d is not null && !File.Exists(Path.Combine(d.FullName, "SmReimpl.slnx"))) d = d.Parent;
+        Assert.NotNull(d);
+        string source = File.ReadAllText(Path.Combine(d!.FullName, "client", "ModelViewer.cs"));
+        Assert.Contains("BackToFrontEnd(\"" + WarfrontLocal.LeftMatchText + "\");", source);
+    }
 }

@@ -207,18 +207,21 @@ public sealed partial class WarfrontLocalSelfTest : Node
         _front.ShowWarfrontPageForTest();
         await Frames(3);
         page = _front.WarfrontPage;
-        Check("another server running: the page says so and offers Stop server", Rows(page).Contains("STOP SERVER") && Texts(page).Contains("A SERVER IS RUNNING. STOP IT FIRST."), string.Join(" | ", Texts(page)));
-        await Press(page!, "CONTINUE CAMPAIGN");
-        Check("another server running: nothing starts", started is null);
+        Check("another server running: the page says so and offers Stop server alone", Rows(page).SequenceEqual(["STOP SERVER", "CUSTOMIZER", "BACK"]) && Texts(page).Contains("A SERVER IS RUNNING. STOP IT FIRST."), string.Join(" | ", Rows(page)) + " / " + string.Join(" | ", Texts(page)));
         _front.WarfrontStateForTest = (true, true, true);
-        await Press(page!, "CONTINUE CAMPAIGN");   // sets the Warfront profile; its configuration is read in the background (as while a real server starts)
+        _front.ShowWarfrontPageForTest();
+        await Frames(3);
+        page = _front.WarfrontPage;
+        Check("this game's Warfront server running: only Rejoin and Stop (no New, no Continue)", Rows(page).SequenceEqual(["REJOIN CAMPAIGN", "STOP SERVER", "CUSTOMIZER", "BACK"]) && Find(page!, "NEW CAMPAIGN") is null && Find(page!, "CONTINUE CAMPAIGN") is null, string.Join(", ", Rows(page)));
+        Check("this game's Warfront server running: the page says so first", Texts(page).FirstOrDefault() == "THE WARFRONT SERVER IS RUNNING.", string.Join(" | ", Texts(page)));
+        await Press(page!, "REJOIN CAMPAIGN");   // sets the Warfront profile; its configuration is read in the background (as while a real server starts)
         for (int i = 0; i < 1200 && !_front.ServicesReadyForTest; i++) await Frames(1);
         joined = null;
-        await Press(page!, "CONTINUE CAMPAIGN");
-        Check("a ready Warfront server is joined, never a second one", started is null && joined is { Content: { } c } && c == ContentProfiles.WarfrontProfile && joined.Host.StartsWith("127.0.0.1:", StringComparison.Ordinal), (joined?.Host ?? "null") + " / " + _front.MessageText);
+        await Press(page!, "REJOIN CAMPAIGN");
+        Check("a ready Warfront server is rejoined, never a second one, never a new campaign", started is null && joined is { Content: { } c } && c == ContentProfiles.WarfrontProfile && joined.Host.StartsWith("127.0.0.1:", StringComparison.Ordinal), (joined?.Host ?? "null") + " / " + _front.MessageText);
         joined = null;
         _front.WarfrontStateForTest = (true, false, true);
-        await Press(page!, "CONTINUE CAMPAIGN");
+        await Press(page!, "REJOIN CAMPAIGN");
         Check("a starting Warfront server is waited for: the preparing screen", _front.WarfrontPreparing is { Visible: true } && joined is null && started is null);
         _front.WarfrontStateForTest = null;
 
@@ -232,6 +235,24 @@ public sealed partial class WarfrontLocalSelfTest : Node
         await Still("preparing");
         await Press(prep!, "CANCEL");
         Check("Cancel stops watching and returns to the page", !_front.WarfrontWaiting && _front.WarfrontPage is { Visible: true } && _front.WarfrontPreparing is { Visible: false });
+        _front.WarfrontStateForTest = null;
+
+        // ---- back at the menu after a match: the server stops and the lobby's profile comes back; a failed join keeps the server once ----
+        _front.WarfrontStateForTest = (true, true, true);
+        _front.ContentForTest = ContentProfiles.WarfrontProfile;
+        _front.WarfrontJoinedForTest = true;
+        _front.WarfrontMessageForTest = WarfrontLocal.LeftMatchText;
+        _front.WarfrontAtMenuForTest();
+        Check("back at the menu after a match: the profile is the remembered one again", _front.ContentForTest == _front.SettingsContentForTest && !_front.WarfrontJoinedForTest, _front.ContentForTest.ToString());
+        _front.ContentForTest = ContentProfiles.WarfrontProfile;
+        _front.WarfrontJoinedForTest = true;
+        _front.WarfrontMessageForTest = "Rejected: no room.";
+        _front.WarfrontAtMenuForTest();
+        Check("a failed join keeps the server and the Warfront profile for one retry", _front.ContentForTest == ContentProfiles.WarfrontProfile && WarfrontMenuState.Retries == 1);
+        _front.WarfrontJoinedForTest = true;
+        _front.WarfrontAtMenuForTest();
+        Check("a second failure stops it and puts the profile back", _front.ContentForTest == _front.SettingsContentForTest && WarfrontMenuState.Retries == 0);
+        _front.WarfrontMessageForTest = null;
         _front.WarfrontStateForTest = null;
 
         // ---- a finished run: only New campaign, and the honor line ----

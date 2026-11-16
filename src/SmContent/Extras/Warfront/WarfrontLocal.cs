@@ -142,7 +142,7 @@ public static class WarfrontLocal
         foreach (var raw in lines)
         {
             string line = raw.Trim();
-            int at = line.IndexOf("warfront:", StringComparison.OrdinalIgnoreCase);
+            int at = line.IndexOf("warfront:", StringComparison.Ordinal);   // the server's own status lines are lower case; its "Warfront: enabled" banner is not one
             if (at >= 0) last = line[at..].Trim();
         }
         return last;
@@ -174,6 +174,15 @@ public static class WarfrontLocal
         return failed && retriesUsed == 0 ? MenuReturn.Keep : MenuReturn.Stop;
     }
 
-    /// <summary>What the page offers for a run state (the start rows, in order, before the Customizer and Back rows).</summary>
-    public static IReadOnlyList<string> Choices(WarfrontRunInfo run) => run.CanContinue ? ["Continue campaign", "New campaign"] : ["New campaign"];
+    public const string RejoinRow = "Rejoin campaign", StopRow = "Stop server", ContinueRow = "Continue campaign", NewRow = "New campaign";
+
+    /// <summary>
+    /// What the page offers before its Customizer and Back rows. While this game's Warfront server runs: only REJOIN CAMPAIGN (the join) and STOP SERVER, so no row can start a campaign that is
+    /// not the one running (a New campaign must never join the old one). While another server runs: STOP SERVER alone. With nothing running: CONTINUE CAMPAIGN (only with a run in progress) and NEW CAMPAIGN.
+    /// </summary>
+    public static IReadOnlyList<string> Choices(WarfrontRunInfo run, bool serverRunning = false, bool warfrontServer = false)
+    {
+        if (serverRunning) return warfrontServer ? [RejoinRow, StopRow] : [StopRow];
+        return run.CanContinue ? [ContinueRow, NewRow] : [NewRow];
+    }
 }

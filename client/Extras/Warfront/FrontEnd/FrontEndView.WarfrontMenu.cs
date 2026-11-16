@@ -27,6 +27,15 @@ public sealed partial class FrontEndView
 
     /// <summary>Self-test: the run folder the page reads (null: <see cref="WarfrontLocal.RunDir"/>).</summary>
     public string? WarfrontRunDirForTest { get; set; }
+    /// <summary>Self-test: stands in for the message the front end was given when it was built (null: the real one).</summary>
+    internal string? WarfrontMessageForTest { get; set; }
+    /// <summary>Self-test: the content profile the session is on.</summary>
+    internal ContentExtras ContentForTest { get => _services.Content; set => _services.Content = value; }
+    /// <summary>Self-test: what the front end does when it is built again after a match (stops this game's server, puts the profile back).</summary>
+    internal ContentExtras SettingsContentForTest => _services.Settings.ContentExtras;
+    internal void WarfrontAtMenuForTest() => WarfrontAtMenu();
+    internal bool WarfrontJoinedForTest { get => WarfrontMenuState.Joined; set => WarfrontMenuState.Joined = value; }
+
     /// <summary>Self-test: stands in for the server's state (running, ready, Warfront profile).</summary>
     public (bool Running, bool Ready, bool Warfront)? WarfrontStateForTest { get; set; }
     /// <summary>Self-test: the press stops before the server starts and reports the choice (true: a new campaign).</summary>
@@ -62,8 +71,9 @@ public sealed partial class FrontEndView
     /// <summary>The front end is built: a server this client started is stopped when the player left a match (a failed join keeps it for one retry).</summary>
     void WarfrontAtMenu()
     {
-        bool ours = HostedServer.Running && HostedServer.Options is { Content: ContentProfiles.Warfront };
-        switch (WarfrontLocal.AtMenu(ours, WarfrontMenuState.Joined, _startMessage, WarfrontMenuState.Retries))
+        var (running, _, warfront) = WarfrontServerState();
+        bool ours = running && warfront;
+        switch (WarfrontLocal.AtMenu(ours, WarfrontMenuState.Joined, WarfrontMessageForTest ?? _startMessage, WarfrontMenuState.Retries))
         {
             case WarfrontLocal.MenuReturn.Keep:
                 WarfrontMenuState.Retries++;
@@ -74,6 +84,7 @@ public sealed partial class FrontEndView
                 HostedServer.Stop();
                 WarfrontMenuState.Joined = false;
                 WarfrontMenuState.Retries = 0;
+                if (!CommandLineMusou) _services.Content = _services.Settings.ContentExtras;   // the rebuilt services start from the last joined profile (ModelViewer.MakeServices): the lobby's own comes back with the server's stop
                 if (_args.ContainsKey("warfront-quit-at-menu")) { GD.Print($"warfront: server running after stop: {HostedServer.Running}; quitting (test aid)"); Callable.From(() => GetTree().Quit()).CallDeferred(); }
                 break;
             default:
@@ -94,22 +105,32 @@ public sealed partial class FrontEndView
         _wfPage?.QueueFree();
         var page = new UiKit.MenuPage("WarfrontMenu", WarfrontLocal.PageTitle) { Visible = false };
         Control? first = null;
+        var choices = WarfrontLocal.Choices(run, running, warfront);
         if (running)
         {
             page.Rows.AddChild(UiKit.MenuText(warfront ? "THE WARFRONT SERVER IS RUNNING." : WarfrontLocal.OtherServerText.ToUpperInvariant(), UiKit.Grey));
-            first = UiKit.MenuButton("Stop server", WarfrontStopServer, "Stops the server this game started on this PC");
-            page.Rows.AddChild(first);
+            if (choices.Contains(WarfrontLocal.RejoinRow))
+            {
+                first = UiKit.MenuButton(WarfrontLocal.RejoinRow, () => WarfrontStart(newRun: false), "Joins the campaign that is running");
+                page.Rows.AddChild(first);
+            }
+            var stop = UiKit.MenuButton(WarfrontLocal.StopRow, WarfrontStopServer, "Stops the server this game started on this PC");
+            first ??= stop;
+            page.Rows.AddChild(stop);
         }
-        if (run.CanContinue)
+        else
         {
-            var cont = UiKit.MenuButton("Continue campaign", () => WarfrontStart(newRun: false), "Back to the campaign you left");
-            first ??= cont;
-            page.Rows.AddChild(cont);
-            page.Rows.AddChild(UiKit.MenuText(run.Line, UiKit.Grey).With(l => l.TooltipText = run.Line));
+            if (choices.Contains(WarfrontLocal.ContinueRow))
+            {
+                var cont = UiKit.MenuButton(WarfrontLocal.ContinueRow, () => WarfrontStart(newRun: false), "Back to the campaign you left");
+                first = cont;
+                page.Rows.AddChild(cont);
+                page.Rows.AddChild(UiKit.MenuText(run.Line, UiKit.Grey).With(l => l.TooltipText = run.Line));
+            }
+            var fresh = UiKit.MenuButton(WarfrontLocal.NewRow, () => WarfrontNew(run), "Starts a new campaign");
+            first ??= fresh;
+            page.Rows.AddChild(fresh);
         }
-        var fresh = UiKit.MenuButton("New campaign", () => WarfrontNew(run), "Starts a new campaign");
-        first ??= fresh;
-        page.Rows.AddChild(fresh);
         if (honor is not null) page.Rows.AddChild(UiKit.MenuText(honor, UiKit.Grey).With(l => l.TooltipText = honor));
         page.Rows.AddChild(UiKit.MenuGap(0.5f));
         page.Rows.AddChild(UiKit.MenuButton("Customizer", WarfrontCustomizer, "Your Musou loadouts: Standard Marines, the Librarian, the Heretic (not yet)"));
@@ -182,6 +203,8 @@ public sealed partial class FrontEndView
         if (port == 0) { Say("No free port was found on this PC.", true); return; }
         WarfrontMenuState.Retries = 0;
         WarfrontMenuState.Joined = false;
+        _wfLastStatus = "";
+        _wfLogged.Clear();
         _services.Content = ContentProfiles.WarfrontProfile;
         if (HostedServer.Start(exe, WarfrontLocal.Options(port, _services.GameDir, newRun)) is { } error)
         {
@@ -218,6 +241,7 @@ public sealed partial class FrontEndView
         var page = new UiKit.MenuPage("WarfrontPreparing", WarfrontLocal.PageTitle) { Visible = false };
         page.Rows.AddChild(UiKit.MenuText(WarfrontLocal.PreparingTitle, UiKit.White));
         _wfStatus = UiKit.MenuText(WarfrontLocal.StartingText.ToUpperInvariant(), UiKit.Grey);
+        _wfStatus.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;   // a long server line ends with an ellipsis inside the column (the full line is the tooltip)
         _wfElapsed = UiKit.MenuText("0:00", UiKit.Grey);
         page.Rows.AddChild(_wfStatus);
         page.Rows.AddChild(_wfElapsed);
@@ -266,9 +290,10 @@ public sealed partial class FrontEndView
         if (!_wfPending) return;
         WarfrontLogServerLines();
         double elapsed = Time.GetTicksMsec() / 1000.0 - _wfStartedAt;
+        WarfrontShotAid(elapsed);
         if (_wfStatus is { } status && _wfPrep is { Visible: true })
         {
-            string line = WarfrontLocal.LastStatus(HostedServer.LastLines(12).Split(" | "));
+            string line = _wfLastStatus;
             status.Text = (line.Length > 0 ? line : WarfrontLocal.StartingText).ToUpperInvariant();
             status.TooltipText = status.Text;
             if (_wfElapsed is { } el) el.Text = WarfrontLocal.Elapsed(elapsed);
@@ -297,14 +322,58 @@ public sealed partial class FrontEndView
         }
     }
 
+    int _wfShotStage, _wfShotFrame;
+
+    /// <summary>
+    /// Test aid <c>--warfront-prep-shot &lt;file stem&gt; [--warfront-prep-shot-at s]</c> (windowed run; a real start): once the start has run that many seconds (default 4) saves the preparing screen as it is (with
+    /// the server's own status line), then opens the main menu's HOST page while the server runs and saves that, logging the page's texts; then the preparing screen comes back. Files: <c>&lt;stem&gt;-prep-WxH.png</c>, <c>&lt;stem&gt;-host-WxH.png</c>.
+    /// </summary>
+    void WarfrontShotAid(double elapsed)
+    {
+        if (!_args.TryGetValue("warfront-prep-shot", out var stem) || stem is null || _wfShotStage >= 3) return;
+        double at = _args.TryGetValue("warfront-prep-shot-at", out var atText) && double.TryParse(atText, System.Globalization.CultureInfo.InvariantCulture, out var a) ? a : 4;
+        if (elapsed < at) return;
+        string Save(string what)
+        {
+            var image = GetViewport().GetTexture().GetImage();
+            string path = $"{stem}-{what}-{image.GetWidth()}x{image.GetHeight()}.png";
+            image.SavePng(path);
+            return path;
+        }
+        switch (_wfShotStage)
+        {
+            case 0:
+                GD.Print($"warfront: still {Save("prep")}; status row \"{_wfStatus?.Text}\", elapsed row \"{_wfElapsed?.Text}\"; server tail [{HostedServer.LastLines(12)}]");
+                ShowMenuPage("host");
+                _wfShotFrame = 0;
+                _wfShotStage = 1;
+                break;
+            case 1:
+                if (++_wfShotFrame < 20) return;
+                var labels = new List<string>();
+                if (_hostPage is not null) foreach (var n in _hostPage.FindChildren("*", "Label", true, false)) if (n is Label { Visible: true } l && l.IsVisibleInTree() && l.Text.Length > 0) labels.Add(l.Text);
+                var buttons = new List<string>();
+                if (_hostPage is not null) foreach (var n in _hostPage.FindChildren("*", "Button", true, false)) if (n is Button { Visible: true } b && b.IsVisibleInTree()) buttons.Add(b.Text);
+                GD.Print($"warfront: still {Save("host")}; host page labels [{string.Join(" | ", labels)}] buttons [{string.Join(" | ", buttons)}]");
+                ShowWarfrontPrep();
+                _wfShotStage = 3;
+                break;
+        }
+    }
+
     static readonly HashSet<string> _wfLogged = new();
+    static string _wfLastStatus = "";
 
     /// <summary>Copies the server's <c>warfront:</c> lines into the client's log once each (the hosted server has no console of its own; a proof reads the run's state hash from here).</summary>
     void WarfrontLogServerLines()
     {
         if (!HostedServer.Running) return;
         foreach (var raw in HostedServer.LastLines(12).Split(" | "))
-            if (raw.Contains("warfront:", StringComparison.OrdinalIgnoreCase) && _wfLogged.Add(raw)) GD.Print("hosted server: " + raw);
+        {
+            if (!raw.Contains("warfront:", StringComparison.OrdinalIgnoreCase) || !_wfLogged.Add(raw)) continue;
+            GD.Print("hosted server: " + raw);
+            if (WarfrontLocal.LastStatus([raw]) is { Length: > 0 } status) _wfLastStatus = status;   // the server's start-up lines scroll the 12-line tail within a second: keep the last status line here
+        }
     }
 
     /// <summary>Esc or B on Warfront's pages: Cancel on the preparing screen, BACK on the page; not while the confirmation is open (it answers No itself).</summary>
@@ -330,7 +399,7 @@ public sealed partial class FrontEndView
             if (screen == "prep")
             {
                 ShowWarfrontPrep();
-                _wfStatus!.Text = "WARFRONT: BUILDING THE WALKING GRAPH, 60 PERCENT";
+                _wfStatus!.Text = "WARFRONT: BUILDING THE WALKING GRAPH, 60 PERCENT, ".ToUpperInvariant() + "THE WHOLE LANE SLOT AND EVERY ONE OF ITS SITES ARE CHECKED ONE AFTER THE OTHER, WHICH TAKES A WHILE ON A SLOW PC";
                 _wfElapsed!.Text = WarfrontLocal.Elapsed(83);
             }
             else if (screen == "confirm") WarfrontNew(WarfrontLocal.ReadRun(WarfrontDir));
