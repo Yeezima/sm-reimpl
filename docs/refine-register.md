@@ -28,10 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3531 spec table rows: **2524 tagged**, 655 not tagged (read from data with high confidence), 352 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 759 rows of the changes document.
-Scanned 3484 spec table rows: **2491 tagged**, 643 not tagged (read from data with high confidence), 350 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 758 rows of the changes document.
-Scanned 3490 spec table rows: **2494 tagged**, 646 not tagged (read from data with high confidence), 350 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 757 rows of the changes document.
-Scanned 3495 spec table rows: **2499 tagged**, 646 not tagged (read from data with high confidence), 350 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 758 rows of the changes document.
+Scanned 3549 spec table rows: **2541 tagged**, 656 not tagged (read from data with high confidence), 352 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 762 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -53,44 +50,21 @@ Scanned 3495 spec table rows: **2499 tagged**, 646 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 47 | 37 | 21 | 12 | 7 |
-| Core simulation (provisional values) | 793 | 750 | 580 | 221 | 1 |
-| General game design | 30 | 30 | 26 | 7 | 0 |
+| Core simulation (provisional values) | 798 | 755 | 585 | 221 | 1 |
+| General game design | 42 | 42 | 34 | 12 | 0 |
 | Ork faction | 262 | 249 | 146 | 69 | 0 |
-| **All areas** | **2524** | 2252 | 1887 | 773 | 37 |
-| Core simulation (provisional values) | 777 | 734 | 564 | 211 | 1 |
-| General game design | 19 | 19 | 17 | 7 | 0 |
-| Ork faction | 260 | 247 | 144 | 69 | 0 |
-| **All areas** | **2491** | 2219 | 1856 | 761 | 37 |
-| Core simulation (provisional values) | 780 | 737 | 567 | 215 | 1 |
-| General game design | 24 | 24 | 20 | 7 | 0 |
-| Ork faction | 260 | 247 | 144 | 69 | 0 |
-| **All areas** | **2499** | 2227 | 1862 | 765 | 37 |
+| **All areas** | **2541** | 2269 | 1900 | 778 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1462 |
-| confidence: low | 916 |
-| confidence: medium | 862 |
-| notes: ours | 444 |
-| kind: interpretation | 410 |
-| kind: estimate | 207 |
-| kind: ours | 1446 |
-| confidence: low | 906 |
-| confidence: medium | 841 |
-| notes: ours | 433 |
-| kind: interpretation | 401 |
-| notes: estimate | 203 |
-| kind: estimate | 196 |
-| kind: ours | 1449 |
-| confidence: low | 902 |
-| confidence: medium | 848 |
-| kind: ours | 1454 |
-| confidence: low | 903 |
-| confidence: medium | 850 |
-| notes: ours | 436 |
-| kind: interpretation | 406 |
+| kind: ours | 1468 |
+| confidence: low | 923 |
+| confidence: medium | 868 |
+| notes: ours | 449 |
+| kind: interpretation | 412 |
+| kind: estimate | 213 |
 | notes: estimate | 204 |
 | confidence: none (low) | 109 |
 | kind: provisional | 105 |
@@ -2587,9 +2561,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-5B955167` | Panel | F8 shows or hides the grid (Esc closes) when the server has the tools; numbered "row.column" cells coloured by state, a bright border where the cell differs from the release default; the inspector (state, from, until, "data timing", the code's own value, note… (key) | kind: ours | the owner (F8 chosen: free in Classic PvP; Musou's Ashfall look keeps it there) | Panel: compare with SM1 by feel or video. Ours: F8 shows or hides the grid (Esc closes) when the server has the… | ☐ |
 | `R-BE15241E` | Export | writes `cancel-table-YYYYMMDD-HHMMSS.json` (the shipped file's format: every cell with note and source, then the overrides) to `%LOCALAPPDATA%\sm-reimpl\cancel-configs\`, never overwriting; import reads one back and applies it live; `smtool cancel-config diff`… | kind: ours | the owner ("hands changes over as an export file") | Export: compare with SM1 by feel or video. Ours: writes cancel-table-YYYYMMDD-HHMMSS.json (the shipped file's format:… | ☐ |
 
-### Core simulation (provisional values) (793)
-### Core simulation (provisional values) (777)
-### Core simulation (provisional values) (780)
+### Core simulation (provisional values) (798)
 
 *Spec section: Provisional values in use*
 
@@ -3854,8 +3826,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-98A893CB` | Picker protection | while an offer stands the player is invulnerable and their input is dropped, others play on; it ends on a valid pick, after 20 s (the server takes card 1) or when the player leaves (the pick stays pending and re-opens with the same cards) (s) | kind: estimate; confidence: medium; notes: ours | owner (protection); the 20 s ours | Picker protection: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: while an offer stands the player is invulnerable and their input is… | ☐ |
 | `R-2024CBEF` | Hard base | `OrkHealthBase` and `OrkDamageBase`, 1.0: the one knob for "hard" (owner answer 8) (multiplier) | kind: estimate; confidence: low; notes: ours | owner (hard, solo must play well, a squad needs teamwork); the value ours | Hard base: compare with SM1 by feel or video. Ours: OrkHealthBase and OrkDamageBase, 1.0: the one knob for "hard" (owner… | ☐ |
 
-### General game design (30)
-### General game design (24)
+### General game design (42)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -3916,6 +3887,18 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-BC6EDC4A` | Duplicate guard | a nonzero event id counts once per (counter, key, id); 0 is unguarded; the guard is saved with the run | kind: ours | `WarfrontStatsLedger` | Duplicate guard: compare with SM1 by feel or video. Ours: a nonzero event id counts once per (counter, key, id); 0 is… | ☐ |
 | `R-73F0A358` | What counts as an assist, and who is credited with a revive or capture | decided by the stage-flow feeder, not here (W3b `WarfrontDamaged`, W3 downed rule) | kind: ours; confidence: low | stage-flow slice | What counts as an assist, and who is credited with a revive…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: decided by the stage-flow feeder, not here (W3b WarfrontDamaged, W3… | ☐ |
 | `R-71E34088` | Persistence | per key, never reset by disconnect or rejoin; a new run starts empty | kind: ours | `WarfrontCampaign.Stats` | Persistence: compare with SM1 by feel or video. Ours: per key, never reset by disconnect or rejoin; a new run starts empty. | ☐ |
+
+*Spec section: Added content: Warfront, stage flow (W5a: `SmServer/Extras/Warfront`, `WarfrontWire`; `WarfrontRules.Version` 3; added content, Warfront only)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-1F697E30` | Identify wait | a player that sends no Identify is given a server-made key for the connection (s) | kind: estimate; confidence: medium; notes: ours | plan section 4, ours | Identify wait: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a player that sends no Identify is given a server-made key for the… | ☐ |
+| `R-FC94F8B0` | Arrival wait | a stage that loaded a save in Travel lands when every player of the deployment has rejoined, or this long after the first (s) | kind: estimate; confidence: medium; notes: ours | plan section 3, ours | Arrival wait: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a stage that loaded a save in Travel lands when every player of the… | ☐ |
+| `R-D99F5E4C` | Go linger | a stage that said Go keeps answering this long before it leaves (s) | kind: estimate; confidence: medium; notes: ours | ours | Go linger: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a stage that said Go keeps answering this long before it leaves. | ☐ |
+| `R-24EF5CE1` | Preparation progress | percent is an estimate once the graph starts: 30 rising to 95 over an expected 150 s; the work itself reports 0, 30, 100 (percent, s) | kind: estimate; confidence: low; notes: ours | ours (cold build 100 to 180 s per slot, measured by W2) | Preparation progress: compare with SM1 by feel or video. Ours: percent is an estimate once the graph starts: 30 rising to 95 over an… | ☐ |
+| `R-7AC525FA` | Stage repeat | Stage sections five times a second while they matter, the Hub on a change and every second, Results every 5 s while the run stands (Hz, s) | kind: interpretation; confidence: medium; notes: ours | ours (sections are unreliable datagrams) | Stage repeat: compare with SM1 by feel or video. Ours: Stage sections five times a second while they matter, the Hub on a… | ☐ |
+| `R-59709BC8` | Hub handles | the viewer sees its own key, every other player a one-way pseudonym | kind: interpretation | plan section 4 ("never sent to another client") | Hub handles: compare with SM1 by feel or video. Ours: the viewer sees its own key, every other player a one-way pseudonym. | ☐ |
+| `R-FB2FD11B` | Human cap | `--warfront-max-humans` 1 to 4, default 4 (humans) | kind: ours | plan section 8 | Human cap: compare with SM1 by feel or video. Ours: --warfront-max-humans 1 to 4, default 4. | ☐ |
 
 ## Part B: Ork faction
 
@@ -4638,6 +4621,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-2B640412` | Warfront progression (W7): XP from own and own squad's kills, shared elite/boss/capture XP, level-up cards, picker protection, retainer third, Ork scaling; not in SM1 | the owner's rules (2026-11-17); every number our estimate | four cards per level (three distinct stat types of five, slot 4 +1 Retainer or a fourth stat), +10 % attack speed / max HP / damage, -8 % cooldown (floor 40 %), +15 % max armour, Orks spawned +8 % HP and +5 % damage per highest level, +20 % HP per extra human | spec "Added content: Warfront, progression (W7)" | Warfront progression (W7): XP from own and own squad's…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the owner's rules (2026-11-17); every number our estimate. | ☐ |
 | `C-C5762AEB` | Warfront end of run (W15): one ranked leaderboard on victory and defeat, honor roll, records, Discord copy and export; not in SM1 | the owner's brief (2026-11-17); every weight and the layout ours (estimates) | score = kills 1, elite 5, boss 25, assists 0.5, captures 30, revives 15, squad kills 0.5, squad revives 15; deaths and knockouts never add; ties on captures, revives, fewer deaths, earlier join; nothing is posted | spec "Added content: Warfront, end of run" | Warfront end of run (W15): one ranked leaderboard on…: compare with SM1 by timing a run over a known distance. Ours: the owner's brief (2026-11-17); every weight and the layout ours… | ☐ |
 | `C-973022C6` | Warfront stats ledger (W4b): per-player kills by class, assists, deaths, revives, captures, battles, saved with the run; not in SM1 | feeds the end-of-run leaderboard; counters and guard ours | counted once per event id, kept across rejoins | spec "Warfront stats ledger" | Warfront stats ledger (W4b): per-player kills by class…: compare with SM1 by timing a run over a known distance. Ours: feeds the end-of-run leaderboard; counters and guard ours. | ☐ |
+| `C-F85B512C` | Warfront stage flow (W5a): one server process per deployment, `run.json` resume, identity by campaign key, leader-only deploy, the Warfront wire sections; not in SM1 | ours (plan sections 3 and 4); every number is an estimate | a supervisor starts a stage process per deployment, a kill at any moment resumes as the plan says, clients identify with a private campaign key | spec "Added content: Warfront, stage flow" | Warfront stage flow (W5a): one server process per…: compare with SM1 by timing a run over a known distance. Ours: ours (plan sections 3 and 4); every number is an estimate. | ☐ |
 
 ### Deliberate changes (owner's decisions)
 

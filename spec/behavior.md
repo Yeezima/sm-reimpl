@@ -6367,3 +6367,18 @@ Plan section 2, slot 11 (`wf_fortress`): an Ork fortress round an arena plaza fo
 | Duplicate guard | a nonzero event id counts once per (counter, key, id); 0 is unguarded; the guard is saved with the run | - | per event | `WarfrontStatsLedger` | shared events reach several peers | ours | high |
 | What counts as an assist, and who is credited with a revive or capture | decided by the stage-flow feeder, not here (W3b `WarfrontDamaged`, W3 downed rule) | - | - | stage-flow slice | - | ours | low |
 | Persistence | per key, never reset by disconnect or rejoin; a new run starts empty | - | run | `WarfrontCampaign.Stats` | owner (returning players keep their state) | ours | high |
+
+### Added content: Warfront, stage flow (W5a: `SmServer/Extras/Warfront`, `WarfrontWire`; `WarfrontRules.Version` 3; added content, Warfront only)
+
+How a Warfront campaign runs across processes (plan sections 3 and 4): one stage process per deployment, the run in `run.json`, the leader's deploy, the resume. All of it is ours: the owner asked for save and resume (answer 5) and the leader rule, not for these mechanics.
+
+| Parameter | Value | Units | Timing basis | Where | Source | Kind | Confidence |
+|---|---|---|---|---|---|---|---|
+| Identify wait | a player that sends no Identify is given a server-made key for the connection | s | from the join | `WarfrontIdentifySeconds` | plan section 4, ours | estimate | medium |
+| Arrival wait | a stage that loaded a save in Travel lands when every player of the deployment has rejoined, or this long after the first | s | from the first identified player | `WarfrontArrivalSeconds` | plan section 3, ours | estimate | medium |
+| Go linger | a stage that said Go keeps answering this long before it leaves | s | from Go | `WarfrontGoLingerSeconds` | ours | estimate | medium |
+| Preparation progress | percent is an estimate once the graph starts: 30 rising to 95 over an expected 150 s; the work itself reports 0, 30, 100 | percent, s | from the graph start | `WarfrontPrepareWatch` | ours (cold build 100 to 180 s per slot, measured by W2) | estimate | low |
+| Stage repeat | Stage sections five times a second while they matter, the Hub on a change and every second, Results every 5 s while the run stands | Hz, s | per tick | `WarfrontSend` | ours (sections are unreliable datagrams) | interpretation | medium |
+| Hub handles | the viewer sees its own key, every other player a one-way pseudonym | - | per Hub | `WarfrontWire.Pseudonym` | plan section 4 ("never sent to another client") | interpretation | high |
+| Resume | killed on the ship: as it was; in Travel: the stage continues to the target; in Battle: back on the ship before it, nothing rolled | - | at start | `WarfrontSave.Load`, `WarfrontSupervisor` | owner, answer 5; W4's rule | owner | high |
+| Human cap | `--warfront-max-humans` 1 to 4, default 4 | humans | at join | `WarfrontPlayerCap` | plan section 8 | ours | high |
