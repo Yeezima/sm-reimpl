@@ -29,6 +29,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 ## Summary
 
 Scanned 3350 spec table rows: **2382 tagged**, 625 not tagged (read from data with high confidence), 343 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 743 rows of the changes document.
+Scanned 3332 spec table rows: **2442 tagged**, 619 not tagged (read from data with high confidence), 271 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 738 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -5323,6 +5324,9 @@ Test aids, probes, demo and capture tooling, engineering decisions (protocol, wi
 | `R-2B988465` | Drop given up | Classic PvP bots on the ten imported maps (bots/new-maps, owner 2026-11-16; client and server test aids, no protocol or config-hash change) |
 | `R-294D52F9` | Floor under a dash, hop or jump | Classic PvP bots on the ten imported maps (bots/new-maps, owner 2026-11-16; client and server test aids, no protocol or config-hash change) |
 | `R-13A73A9B` | Jump out of a pit | Classic PvP bots on the ten imported maps (bots/new-maps, owner 2026-11-16; client and server test aids, no protocol or config-hash change) |
+| `R-17EC7B57` | Step given up (round 2, 2026-11-16) | Classic PvP bots on the ten imported maps (bots/new-maps, owner 2026-11-16; client and server test aids, no protocol or config-hash change) |
+| `R-5F258A7A` | Blocked square (round 2) | Classic PvP bots on the ten imported maps (bots/new-maps, owner 2026-11-16; client and server test aids, no protocol or config-hash change) |
+| `R-67D9A734` | Seize Ground point stand cell (round 2) | Classic PvP bots on the ten imported maps (bots/new-maps, owner 2026-11-16; client and server test aids, no protocol or config-hash change) |
 | `R-144ECF97` | Walk first, jump links after | Classic PvP bots on the ten imported maps (bots/new-maps, owner 2026-11-16; client and server test aids, no protocol or config-hash change) |
 | `R-794212D6` | Jump build threads | Classic PvP bots on the ten imported maps (bots/new-maps, owner 2026-11-16; client and server test aids, no protocol or config-hash change) |
 | `R-46A9E635` | Measuring aid | Classic PvP bots on the ten imported maps (bots/new-maps, owner 2026-11-16; client and server test aids, no protocol or config-hash change) |

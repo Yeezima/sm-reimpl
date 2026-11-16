@@ -252,4 +252,56 @@ public class BotNewMapsTests
         for (int k = 0; k < 600; k++) plain.Steer(on, true, new Vector3(-8, 0, 0), k * 0.033, null);
         Assert.Equal(0, asked);
     }
+
+    [Fact]
+    public void A_bot_stuck_at_the_foot_of_a_rise_gives_up_the_rising_links_and_gets_them_back_after_the_forget_time()
+    {
+        var (g, _, _) = LedgeLevel();
+        var foot = new Vector3(-5, -0.5f, 0);
+        var goal = new Vector3(-5, 7, 1.2f);
+        Assert.NotNull(g.FindPath(foot, goal));
+        var a = new NavAgent(g) { ExcludeStuckDrops = true };
+        double t = 0;
+        for (; t < 8; t += 0.033) a.Steer(foot, true, goal, t);
+        Assert.True(a.ExcludedSteps > 0, "the rising walk links round the foot are given up");
+        // Off (the old rules): nothing is given up.
+        var old = new NavAgent(g);
+        for (double u = 0; u < 8; u += 0.033) old.Steer(foot, true, goal, u);
+        Assert.Equal(0, old.ExcludedSteps);
+        // The entries decay once the bot moves about for longer than the forget time.
+        for (; t < 8 + 100; t += 0.033) a.Steer(new Vector3(-10f + (float)(t * 4.0 % 20.0), -5f, 0), true, new Vector3(10, -9, 0), t);
+        Assert.Equal(0, a.ExcludedSteps);
+    }
+
+    [Fact]
+    public void A_Seize_point_marker_floating_far_above_its_floor_still_has_a_stand_cell_inside_its_zone()
+    {
+        var level = new NavigationTests.Level().Floor(-12, -12, 12, 12, 0f);
+        var g = NavGraph.Build(level.Mesh(), null, Settings);
+        var marker = new Vector3(0, 0, 7f);   // 7 m above the floor, like Hab Center's point D
+        Assert.True(g.Nearest(marker, 10f, 6f) < 0, "the planner's own goal snap (6 m of height) finds no cell");
+        int n = g.NearestInCylinder(marker, 6f, 7.5f);
+        Assert.True(n >= 0);
+        Assert.InRange(g.Position(n).Z, -0.1f, 0.1f);
+        Assert.True(MathF.Abs(g.Position(n).X) < 0.6f && MathF.Abs(g.Position(n).Y) < 0.6f, "the cell under the marker");
+        Assert.True(g.FindPath(new Vector3(-8, -8, 0), g.Position(n)) is { Partial: false });
+        Assert.True(g.NearestInCylinder(marker, 6f, 3f) < 0, "a zone that does not reach the floor has none");
+    }
+
+    [Fact]
+    public void A_bot_that_does_not_get_on_over_flat_ground_gives_up_the_links_ahead_only_after_three_detections()
+    {
+        var g = NavGraph.Build(new NavigationTests.Level().Floor(-12, -12, 12, 12, 0f).Mesh(), null, Settings);
+        var here = new Vector3(0, 0, 0);
+        var goal = new Vector3(10, 0, 0);
+        var a = new NavAgent(g) { ExcludeStuckDrops = true };
+        double t = 0;
+        for (; t < 3.2; t += 0.033) a.Steer(here, true, goal, t);
+        Assert.True(a.StuckCount >= 1);
+        Assert.Equal(0, a.ExcludedSteps);
+        for (; t < 9; t += 0.033) a.Steer(here, true, goal, t);
+        Assert.True(a.ExcludedSteps > 0, "the links toward the goal round the bot are given up");
+        // Only the ones that lead its way: none of them runs backwards.
+        foreach (var (from, to) in g.RiseLinksNear(here, 2f, 1f, -1f, new Vector2(-1, 0), 0.5f).Take(1)) Assert.True(g.Position(to).X < g.Position(from).X);
+    }
 }
