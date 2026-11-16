@@ -151,7 +151,8 @@ public static class AshfallStairAccess
 
     /// <summary>Whether a placed structure is one of the authored exceptions (the stronghold and its pieces, the Imperial compound's walls, the bridges).</summary>
     public static bool IsAuthored(string group, string family, string asset) =>
-        family.StartsWith("stronghold", StringComparison.Ordinal) || family is "terrace" or "outerwall" || group == "keep bridge" || AshfallDraft5Pass.IsTransplanted(group) || AshfallDraft5Pass.BridgeIds.Contains(asset);
+        family.StartsWith("stronghold", StringComparison.Ordinal) || family is "terrace" or "outerwall" || group == "keep bridge" || AshfallDraft5Pass.IsTransplanted(group) || AshfallDraft5Pass.BridgeIds.Contains(asset)
+        || group.StartsWith("through ", StringComparison.Ordinal);   // the front pilot's through variants (the compound's walls with their gates, the north gate jamb, the keep's wings): authored as the fortress
 
     /// <summary>The grid cells joined to <paramref name="start"/> over ground with <see cref="FloodClearance"/>.</summary>
     static bool[] Flood(AshfallGrid g, Vector2 start)

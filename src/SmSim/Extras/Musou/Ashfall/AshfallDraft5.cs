@@ -215,7 +215,8 @@ internal static partial class AshfallDraft5Pass
             c.Flags.Add($"{id}: {n} collision boxes under {MinBox} m dropped as dust across its placements");
 
         if (field is not null) EnforceStairAccess(c, g5, field);   // draft 12: every stair reachable at both ends on the final collision
-        if (field is { Layout: AshfallLayout.Heights }) EnforceHighGround(c, g5, field);   // draft 13: no dead-end flight, no blocked foot or landing, no item in front of a door
+        if (field is { Layout: AshfallLayout.Heights } || (field is not null && field.Layout.IsFrontBand())) EnforceHighGround(c, g5, field!);   // draft 13: no dead-end flight, no blocked foot or landing, no item in front of a door (the front pilot's bands too)
+        if (field is not null && field.Layout.IsFrontBand()) EnforceFront(c, g5, field);   // the front pilot's gate B on the final collision
 
         var spawns = g5.Spawns.Select(s => s == g5.Points[0].Center ? points[0].Center : s).ToList();
         var level = new AshfallLevel(c.Parts, points, g5.Areas, spawns, AshfallMap.HashOf(c.Parts, field is null ? AshfallMap.Version : field.HashVersion)) { Layout = field is null ? AshfallLayout.Draft10 : field.Layout };
@@ -372,6 +373,9 @@ internal static partial class AshfallDraft5Pass
         "obelisk" => ["AC-029", "AC-010"],
         "wreck" => ["AC-030", "AC-028", "AC-027"],
         "bunker" => ["AC-005", "AC-030", "AC-028"],
+        "block" => ["AC-030", "AC-004", "AC-001", "AC-028"],   // the front pilot: a building without walkable upper floors (stairless masses)
+        "keepwing" => ["AC-044", "AC-052", "AC-005", "AC-030"],   // the front pilot: the keep's two wings either side of the through road
+        "berm" => RubbleMid,   // the front pilot's wasteland: a free-standing berm (loose debris, "rubble", keeps to the buildings)
         "bridge" => BridgeIds,
         "backdrop" => ["AC-052", "AC-044", "AC-048", "AC-043", "AC-010", "AC-005", "AC-030"],
         _ => Landmark,

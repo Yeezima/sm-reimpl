@@ -21,7 +21,12 @@ public static partial class AshfallMap
     static readonly Lazy<AshfallDraft5> FieldCache = new(() => AshfallDraft5Pass.Run(AshfallField.Default), LazyThreadSafetyMode.ExecutionAndPublication);
 
     /// <summary>The kit pass's result for a layout (draft 10: <see cref="BuildDraft5()"/>; the field: the battlefield ruleset's level with the default parameters), built once and shared.</summary>
-    public static AshfallDraft5 BuildDraft5(AshfallLayout layout) => layout switch { AshfallLayout.Field => FieldCache.Value, AshfallLayout.City => CityCache.Value, AshfallLayout.Heights => HeightsCache.Value, _ => Draft5Cache.Value };
+    public static AshfallDraft5 BuildDraft5(AshfallLayout layout) => layout switch
+    {
+        AshfallLayout.Field => FieldCache.Value, AshfallLayout.City => CityCache.Value, AshfallLayout.Heights => HeightsCache.Value,
+        AshfallLayout.FrontWasteland or AshfallLayout.FrontOutskirts or AshfallLayout.FrontCore => BuildFrontBand(AshfallFront.BandOf(layout)), AshfallLayout.Front => FrontCache.Value,   // the front pilot (its bands, and the composed world)
+        _ => Draft5Cache.Value,
+    };
 
     static readonly Lazy<AshfallDraft5> HeightsCache = new(() => AshfallDraft5Pass.Run(AshfallHeights.Default), LazyThreadSafetyMode.ExecutionAndPublication);
 

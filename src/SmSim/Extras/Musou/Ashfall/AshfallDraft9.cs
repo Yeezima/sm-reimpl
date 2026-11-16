@@ -622,7 +622,7 @@ internal static partial class AshfallDraft5Pass
 
     /// <summary>A building of the city: a ruin shell or corner, a facade, a tower, the bunker, a wall over cover height.</summary>
     static bool IsBuildingFamily(string family, float height) =>
-        family is "shell" or "shell2" or "corner" or "facade" or "tower" or "bunker" || (family == "wall" && height > LowWallHeight);
+        family is "shell" or "shell2" or "corner" or "facade" or "tower" or "bunker" or "block" or "keepwing" || (family == "wall" && height > LowWallHeight);   // block, keepwing: the front pilot's
 
     static bool NearBuilding(Ctx c, Vector3 min, Vector3 max)
     {

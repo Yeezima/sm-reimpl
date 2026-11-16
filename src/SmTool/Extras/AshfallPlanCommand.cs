@@ -30,6 +30,7 @@ static class AshfallPlanCommand
     {
         string? outPath = null, jsonPath = null, glbPath = null, reportPath = null, viewsDir = null;
         bool noRoadway = false, overlays = false;
+        int band = 0; uint? seed = null;   // the front pilot: --layout front --band 0|1|2 [--seed n]
         var layout = AshfallLayout.City;   // draft 12: the city is the map tfw_war loads
         for (int i = 0; i < rest.Length; i++)
         {
@@ -40,17 +41,28 @@ static class AshfallPlanCommand
             else if (rest[i] == "--layout" && i + 1 < rest.Length)   // draft 11/12: city (map tfw_war), field (map tfw_war_field) or draft10 (the rollback, tfw_war_draft10); the battlefield overlays come with it
             {
                 string v = rest[++i];
-                if (v is not ("city" or "field" or "draft10" or "heights")) { Console.Error.WriteLine($"ashfall-plan: --layout takes city, field, heights or draft10, not \"{v}\""); return 2; }
+                if (v is not ("city" or "field" or "draft10" or "heights" or "front")) { Console.Error.WriteLine($"ashfall-plan: --layout takes city, field, heights, draft10 or front, not \"{v}\""); return 2; }
                 layout = AshfallLayouts.Parse(v); overlays = true;
+            }
+            else if (rest[i] == "--band" && i + 1 < rest.Length)
+            {
+                if (!int.TryParse(rest[++i], NumberStyles.Integer, CultureInfo.InvariantCulture, out band) || band < 0 || band >= AshfallFront.BandCount) { Console.Error.WriteLine($"ashfall-plan: --band takes 0 (wasteland), 1 (outskirts) or 2 (urban core)"); return 2; }
+            }
+            else if (rest[i] == "--seed" && i + 1 < rest.Length)
+            {
+                if (!uint.TryParse(rest[++i], NumberStyles.Integer, CultureInfo.InvariantCulture, out uint s)) { Console.Error.WriteLine("ashfall-plan: --seed takes a whole number"); return 2; }
+                seed = s;
             }
             else if (rest[i] == "--overlays") overlays = true;
             else if (rest[i] == "--report" && i + 1 < rest.Length) { reportPath = Path.GetFullPath(rest[++i]); overlays = true; }
             else if (rest[i] == "--views" && i + 1 < rest.Length) { viewsDir = Path.GetFullPath(rest[++i]); overlays = true; }
-            else { Console.Error.WriteLine($"ashfall-plan: unknown argument \"{rest[i]}\" (usage: ashfall-plan [--layout city|field|draft10] [--overlays] [--report file.txt] [--views dir] [--out plan.svg] [--dressing-json file.json] [--graybox-glb file.glb] [--no-roadway-rule])"); return 2; }
+            else { Console.Error.WriteLine($"ashfall-plan: unknown argument \"{rest[i]}\" (usage: ashfall-plan [--layout city|field|heights|draft10|front] [--band 0|1|2] [--seed n] [--overlays] [--report file.txt] [--views dir] [--out plan.svg] [--dressing-json file.json] [--graybox-glb file.glb] [--no-roadway-rule])"); return 2; }
         }
         outPath ??= Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "sm-reimpl", "cache", "previews", "ashfall-plan.svg");
         outPath = Path.GetFullPath(outPath);
-        var (level, dressing) = AshfallMap.BuildWithDressing(layout);
+        AshfallFieldPlan? frontPlan = null;
+        if (layout == AshfallLayout.Front) layout = AshfallFront.LayoutOf(band);
+        var (level, dressing) = layout.IsFrontBand() ? FrontBand(band, seed, out frontPlan) : AshfallMap.BuildWithDressing(layout);
         if (noRoadway) { var before = AshfallMap.RebuildWithoutRoadwayRule(); (level, dressing) = (before.Level, before.Dressing); Console.WriteLine("ashfall-plan: WITHOUT the draft-8 roadway rule (report aid)"); }
         var (_, hub, _) = TfwMap.WithHub(AshfallContent.ToMapContent(level).ToCollisionWorld(), manufactorum: false);
         var range = TfwRange.For(AshfallContent.ToMapContent(level).ToCollisionWorld());
@@ -58,14 +70,24 @@ static class AshfallPlanCommand
         AshfallBattlefield? bf = null;
         if (overlays && !noRoadway)
         {
-            bf = new AshfallBattlefield(layout, level, dressing, layout.PlanOf());
+            bf = new AshfallBattlefield(layout, level, dressing, frontPlan ?? layout.PlanOf());
             string report = bf.Report() + (bf.Plan is { } pl ? "\nPlan notes:\n" + string.Join("\n", pl.Notes.Select(n => "  " + n)) + "\n" : "") + "\nPlacement flags:\n" + string.Join("\n", dressing.Flags.Where(f => f.StartsWith("draft", StringComparison.Ordinal)).Select(f => "  " + (f.Length > 400 ? f[..400] + " ..." : f)));
             Console.WriteLine(report);
             if (reportPath is not null) { Directory.CreateDirectory(Path.GetDirectoryName(reportPath)!); File.WriteAllText(reportPath, report, new UTF8Encoding(false)); Console.WriteLine($"ashfall-plan: report -> {reportPath}"); }
             if (viewsDir is not null)
                 foreach (var f in AshfallBattlefieldViews.Rasters(bf, viewsDir, layout.Key() + "-")) Console.WriteLine($"ashfall-plan: view -> {f}");
         }
-        File.WriteAllText(outPath, Render(level, dressing, hub, range, bf), new UTF8Encoding(false));
+        string? front = null;
+        if (frontPlan is not null && bf is not null)
+        {
+            var gateB = dressing.Flags.Where(f => f.StartsWith("front gate B rule ", StringComparison.Ordinal)).Select(f => f["front gate B rule ".Length..]).ToList();
+            Console.WriteLine($"front band {band}: gate A on the empty frame:\n  " + string.Join("\n  ", frontPlan.GateA) + $"\nfront band {band}: gate B on the final collision:\n  " + string.Join("\n  ", gateB));
+            front = AshfallFrontViews.Svg(bf, frontPlan, gateB, x => (x + 290f) * 1.5f, y => (290f - y) * 1.5f, 1.5f);
+            string png = Path.ChangeExtension(outPath, ".png");
+            AshfallFrontViews.Png(bf, frontPlan, png);
+            Console.WriteLine($"ashfall-plan: overhead PNG -> {png}");
+        }
+        File.WriteAllText(outPath, Render(level, dressing, hub, range, bf, front), new UTF8Encoding(false));
         Console.WriteLine($"ashfall-plan: {level.Parts.Count} parts, {level.SolidCorners().Length / 3} collision triangles, hash {level.Hash:X16} -> {outPath}");
         foreach (var g in level.Parts.Where(p => p.Solid).GroupBy(p => p.Kind).OrderBy(g => g.Key))
             Console.WriteLine($"  {g.Key,-10} {g.Count(),5} parts {g.Sum(p => p.Corners.Length / 3),7} triangles");
@@ -90,7 +112,19 @@ static class AshfallPlanCommand
 
     static string F(float v) => v.ToString("0.##", CultureInfo.InvariantCulture);
 
-    static string Render(AshfallLevel level, AshfallDressing dressing, TfwHub hub, TfwRange range, AshfallBattlefield? bf = null)
+    /// <summary>The front pilot's band <paramref name="band"/> (the default seed's cached build, or an uncached run of <paramref name="seed"/>) and its plan.</summary>
+    static (AshfallLevel, AshfallDressing) FrontBand(int band, uint? seed, out AshfallFieldPlan? plan)
+    {
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        plan = seed is { } s && s != AshfallFront.DefaultSeed ? AshfallFront.Plan(band, s) : AshfallFront.Default(band);
+        long planMs = watch.ElapsedMilliseconds;
+        var d = seed is { } s2 && s2 != AshfallFront.DefaultSeed ? AshfallMap.BuildFrontFrom(plan) : AshfallMap.BuildFrontBand(band);
+        Console.WriteLine($"front band {band} ({AshfallBandProfile.Front[band].Name}), seed {plan.Params.LayoutSeed}: plan and gate A {planMs} ms, kit pass and gate B {watch.ElapsedMilliseconds - planMs} ms");
+        foreach (var n in plan.Notes) Console.WriteLine("  " + n);
+        return (d.Level, d.Dressing);
+    }
+
+    static string Render(AshfallLevel level, AshfallDressing dressing, TfwHub hub, TfwRange range, AshfallBattlefield? bf = null, string? front = null)
     {
         // Canvas: the playable square, its backdrop, the Stormbird to the south and the range to the east.
         float x0 = -290f, x1 = range.Box.Max.X + 20f, y1 = 290f, y0 = hub.Box.Min.Y - 20f;
@@ -196,9 +230,10 @@ static class AshfallPlanCommand
             sb.AppendLine($"<rect x=\"{F(X(range.Box.Min.X))}\" y=\"{F(ly)}\" width=\"10\" height=\"10\" fill=\"#{r:x2}{g:x2}{b:x2}\" stroke=\"#222\" stroke-width=\"0.4\"/><text x=\"{F(X(range.Box.Min.X) + 14)}\" y=\"{F(ly + 9)}\" font-size=\"10\">{kind}</text>");
         }
         sb.AppendLine($"<text x=\"{F(X(range.Box.Min.X))}\" y=\"{F(Y(y1 - 20) + 8 + row * 14 + 14)}\" font-size=\"9\" fill=\"#444\">F6 / P15: floor or perch, top height m. Shade: higher is darker.</text>");
-        sb.AppendLine($"<text x=\"10\" y=\"16\" font-size=\"13\" font-weight=\"bold\">Ashfall Citadel {(level.Layout switch { AshfallLayout.Field => $"battlefield layout (draft 11, field version {AshfallField.Version})", AshfallLayout.City => $"city layout (draft 12, city version {AshfallCity.Version})", AshfallLayout.Heights => $"high-ground layout (draft 13, heights version {AshfallHeights.Version})", _ => $"graybox, version {AshfallMap.Version}" })}, hash {level.Hash:X16}, kit dressing {dressing.Version}: {dressing.Items.Count} items (ours: placeholder demonstration)</text>");
+        sb.AppendLine($"<text x=\"10\" y=\"16\" font-size=\"13\" font-weight=\"bold\">Ashfall Citadel {(level.Layout switch { AshfallLayout.Field => $"battlefield layout (draft 11, field version {AshfallField.Version})", AshfallLayout.City => $"city layout (draft 12, city version {AshfallCity.Version})", AshfallLayout.Heights => $"high-ground layout (draft 13, heights version {AshfallHeights.Version})", AshfallLayout.FrontWasteland or AshfallLayout.FrontOutskirts or AshfallLayout.FrontCore => $"Musou front pilot, band {AshfallFront.BandOf(level.Layout)} ({AshfallBandProfile.Front[AshfallFront.BandOf(level.Layout)].Name}), front version {AshfallFront.Version}", _ => $"graybox, version {AshfallMap.Version}" })}, hash {level.Hash:X16}, kit dressing {dressing.Version}: {dressing.Items.Count} items (ours: placeholder demonstration)</text>");
         sb.AppendLine($"<text x=\"10\" y=\"30\" font-size=\"11\"><tspan fill=\"#1f5fbf\">Skin {dressing.Items.Count(i => i.Role == AshfallDressRole.Skin)}</tspan>  <tspan fill=\"#4c8a6a\">Surface {dressing.Items.Count(i => i.Role == AshfallDressRole.Surface)}</tspan>  <tspan fill=\"#e07a10\">Decoration {dressing.Items.Count(i => i.Role == AshfallDressRole.Decoration)}</tspan>  <tspan fill=\"#c0189c\">Prop (filled) {dressing.Items.Count(i => i.Role == AshfallDressRole.Prop)}</tspan></text>");
         if (bf is not null) sb.Append(AshfallBattlefieldViews.Overlays(bf, X, Y, Scale));   // draft 11: protected areas, routes, pinch points, assembly zones, approaches, sightlines, travel times, failed constraints
+        if (front is not null) sb.Append(front);   // the front pilot: strongholds, capture points, primary and alternate routes, the gates
         sb.AppendLine("</svg>");
         return sb.ToString();
     }

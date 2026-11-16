@@ -38,12 +38,13 @@ internal static partial class AshfallDraft5Pass
     static void Transplant(Ctx c, AshfallDraft5 d10)
     {
         var items = d10.Dressing.Items; var ranges = d10.Dressing.ItemParts!;
-        int moved = 0, stairs = 0;
+        int moved = 0, stairs = 0, throughLeft = 0;
         foreach (var p in d10.Placements)
         {
             if (p.Item < 0 || !IsTransplanted(p.Group)) continue;
             var item = items[p.Item];
             var (first, count) = ranges[p.Item];
+            if (c.Field is { } ff && ff.Layout.IsFrontBand() && ThroughRoadMeets(d10.Level.Parts, first, count)) { throughLeft++; continue; }   // the front pilot's through variants: the avenue's strip stays open
             int index = c.Items.Count, start = c.Parts.Count;
             c.Items.Add(item);
             int yaw = ((int)MathF.Round(item.Yaw / (MathF.PI / 12f)) % 24 + 24) % 24;
@@ -72,6 +73,15 @@ internal static partial class AshfallDraft5Pass
             moved++;
         }
         c.Flags.Add($"draft 11: {moved} authored pieces (the stronghold, its twin towers and bridges, the Imperial compound's walls) taken from draft 10 as they stand there, the same collision bits ({stairs} stair ramps among them)");
+        if (throughLeft > 0) c.Flags.Add($"front pilot: {throughLeft} authored pieces left out where they met the through road (|x| < {AshfallFront.ThroughHalf} m across the base and the stronghold: the compound's north and south walls, the ring's gate and the middle of its north leg, the keep); the through pieces stand in their place");
+    }
+
+    /// <summary>Whether draft 10's parts <paramref name="first"/> to <paramref name="first"/> + <paramref name="count"/> meet the front's through road.</summary>
+    static bool ThroughRoadMeets(IReadOnlyList<AshfallPart> parts, int first, int count)
+    {
+        var min = new Vector3(float.MaxValue); var max = new Vector3(float.MinValue);
+        for (int k = first; k < first + count; k++) foreach (var v in parts[k].Corners) { min = Vector3.Min(min, v); max = Vector3.Max(max, v); }
+        return count > 0 && AshfallFront.InThroughRoad(min, max);
     }
 
     /// <summary>The way from a point to the nearest corridor's centreline, on the plan's axes (a building's front faces the route it stands beside).</summary>
