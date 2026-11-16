@@ -1,4 +1,5 @@
 using System.Numerics;
+using SmSim.Extras.Musou;
 
 namespace SmSim.Extras.Warfront.Squad;
 
@@ -34,6 +35,13 @@ public sealed record SquadLoadout
     public float HealthMax { get; init; } = SquadRules.DefaultHealth;
     public float ArmourMax { get; init; } = SquadRules.DefaultArmour;
     public SquadWeapon Weapon { get; init; } = new();
+    /// <summary>W11: seconds after the last hit before armour (the shield) and health regenerate, and how much a second; 0 rate: none (the W9 default). From the class data (<c>Loadouts.Body</c>).</summary>
+    public float ArmourRegenDelay { get; init; }
+    public float ArmourRegenRate { get; init; }
+    public float HealthRegenDelay { get; init; }
+    public float HealthRegenRate { get; init; }
+    /// <summary>W11: the class's jump pack (the Assault/Raptor); null: the Marine does not leap.</summary>
+    public SquadJump? Jump { get; init; }
 }
 
 /// <summary>One Marine's service record (the owner's list: kills, assists, revives, objectives, battles survived; plus times downed and the kill classes).</summary>
@@ -68,7 +76,7 @@ public sealed record SquadRosterSave(int NextName, IReadOnlyList<SquadOwnerSave>
 public readonly record struct SquadHuman(int Id, Vector3 Position, bool Alive, bool Fallen = false, int ReviveTarget = -1);
 
 /// <summary>A kill by a squad Marine this tick (for the owner's XP and score; W7, W15).</summary>
-public readonly record struct SquadKill(ulong Key, int Slot, ushort Enemy, SquadEnemyClass Class);
+public readonly record struct SquadKill(ulong Key, int Slot, ushort Enemy, SquadEnemyClass Class, MusouEnemyType? Type = null);
 
 /// <summary>A revive this tick: given by a human (<see cref="ByHuman"/>, else -1) or by a Marine (<see cref="ByMarine"/> index, else -1); received by Marine <see cref="Slot"/> of campaign key <see cref="Key"/>'s squad, or by human <see cref="HumanRevived"/> (else -1, and Key 0, Slot -1).</summary>
 public readonly record struct SquadRevive(int ByHuman, int ByMarine, ulong Key, int Slot, int HumanRevived);
@@ -77,4 +85,4 @@ public readonly record struct SquadRevive(int ByHuman, int ByMarine, ulong Key, 
 public readonly record struct SquadDown(ulong Key, int Slot);
 
 /// <summary>A Marine as the wire shows it (W10): ids, state, place, facing, health share, seconds left of the downed window.</summary>
-public readonly record struct SquadMarineView(int Index, ulong Key, int Slot, SquadState State, Vector3 Position, float Yaw, float HealthShare, float DownedLeft);
+public readonly record struct SquadMarineView(int Index, ulong Key, int Slot, SquadState State, Vector3 Position, float Yaw, float HealthShare, float DownedLeft, bool Firing = false, int Target = -1, float ReviveShare = 0f, bool Airborne = false);

@@ -20,6 +20,9 @@ public interface ISquadArena
     /// <summary>The place and class of an enemy that is alive and in play; false for a dead or unknown one.</summary>
     bool TryEnemy(ushort id, out Vector3 position, out SquadEnemyClass kind);
 
+    /// <summary>The Ork type of an enemy, alive or just killed (read before a blow so a kill can carry it); false when the arena does not know it (the default: a fake without types).</summary>
+    bool TryEnemyType(ushort id, out MusouEnemyType type) { type = default; return false; }
+
     /// <summary>Damage to an enemy for the squad (the owner is credited by the sim, not here). False with no effect for a dead or unknown enemy.</summary>
     bool DamageEnemy(ushort id, float amount, Vector3 push, out bool killed);
 
@@ -91,6 +94,12 @@ public sealed class MusouSquadArena : ISquadArena
         position = e.Position;
         kind = ClassOf(e.Type);
         return true;
+    }
+
+    public bool TryEnemyType(ushort id, out MusouEnemyType type)
+    {
+        if (_sim.TryGet(id, out var e)) { type = e.Type; return true; }
+        type = default; return false;
     }
 
     public bool DamageEnemy(ushort id, float amount, Vector3 push, out bool killed) => _sim.Damage(id, 0, amount, push, out killed);
