@@ -38,10 +38,13 @@ public partial class MusouCrowd : CrowdView
     protected override IReadOnlyList<int> Types => TypeIds;
     protected override MusouLooks.Look? LookOf(int type) => _looks.For((MusouEnemyType)type);
     protected override bool Loops(int clip) => MusouLooks.Loops(clip);
+    protected override int AltClipsFrom => NoOrkVariety ? -1 : MusouLooks.DeathAlt1;
+    /// <summary>The death clip this Ork dies in (<see cref="MusouLooks.Look.DeathClipFor"/>; the usual one with <c>--no-musou-ork-variety</c>).</summary>
+    int DeathClipOf(int id, int type) => NoOrkVariety ? MusouLooks.Death : _looks.For((MusouEnemyType)type)?.DeathClipFor(id) ?? MusouLooks.Death;
 
     /// <summary>A death to show: the body plays its death clip where the enemy was last seen, <paramref name="age"/> s into it (the time it waited to be handed out).</summary>
     public void AddBody(in MusouDeathShown death, float age = 0f, bool keepSkeleton = false) =>
-        AddBody(new Vector3(death.Position.X, death.Position.Y, death.Position.Z), death.Yaw, (int)death.Type, MusouLooks.Death, age, keepSkeleton ? death.Id : 0);
+        AddBody(new Vector3(death.Position.X, death.Position.Y, death.Position.Z), death.Yaw, (int)death.Type, DeathClipOf(death.Id, (int)death.Type), age, keepSkeleton ? death.Id : 0);
 
     /// <summary>Deaths the view has not handed out yet (night batch 2026-11-06, <see cref="MusouDeathRules"/>) and the seconds since each arrived: drawn where they fell, playing their death clip.</summary>
     public readonly List<(MusouDeathShown Death, float Age)> Dying = new();
@@ -50,7 +53,7 @@ public partial class MusouCrowd : CrowdView
     public void AddFlung(in MusouDeathShown d, Vector3 velocity, bool keepSkeleton = false)
     {
         var t = SmNet.Extras.Musou.MusouFling.Tumble(new System.Numerics.Vector3(velocity.X, velocity.Y, velocity.Z));
-        AddFlungBody(new Vector3(d.Position.X, d.Position.Y, d.Position.Z), d.Yaw, (int)d.Type, MusouLooks.Death, velocity, new Vector3(t.X, t.Y, t.Z), keepSkeleton ? d.Id : 0);
+        AddFlungBody(new Vector3(d.Position.X, d.Position.Y, d.Position.Z), d.Yaw, (int)d.Type, DeathClipOf(d.Id, (int)d.Type), velocity, new Vector3(t.X, t.Y, t.Z), keepSkeleton ? d.Id : 0);
     }
 
     /// <summary>Seconds a shot Ork's flinch plays, how soon a new shot restarts it, and how far it rocks him back (m). The owner, 2026-11-02: "add hit reactions to the orks getting shot". Drawn only: the simulation's Ork does not stop. Ours.</summary>
@@ -92,9 +95,20 @@ public partial class MusouCrowd : CrowdView
         if (!(size > 0f)) return;
         if (_blastKicked.TryGetValue(id, out float at) && _clock - at < 0.6f) return;   // the blast's own kick covers the server's reports of it
         _kick.TryGetValue(id, out var track);
-        track.Kick(away, size);
+        KickVaried(ref track, id, away, size);
         _kick[id] = track;
         Kicks++;
+    }
+
+    /// <summary>
+    /// Ork variety (owner 2026-11-16, <see cref="MusouOrkVariety"/>): the kick as this Ork takes it, its size, length, start and way its own, from its id. <c>--no-musou-ork-variety</c>: every Ork flinches alike, as before.
+    /// </summary>
+    public static bool NoOrkVariety { get; set; } = Array.IndexOf(OS.GetCmdlineUserArgs(), "--no-musou-ork-variety") >= 0;
+    static void KickVaried(ref MusouOrkFlinchTrack track, int id, System.Numerics.Vector2 away, float size)
+    {
+        if (NoOrkVariety) { track.Kick(away, size); return; }
+        var v = MusouOrkVariety.Flinch(id);
+        track.Kick(MusouOrkVariety.FlinchDirection(v, away), Math.Min(MusouOrkFlinchRules.MaxStrength, size * v.Strength), v);
     }
 
     /// <summary>A blast: the Ork <paramref name="id"/> takes the explosive's kick (<see cref="MusouOrkFlinchRules.BlastStrength"/> by its distance from the centre), away from it.</summary>
@@ -104,7 +118,7 @@ public partial class MusouCrowd : CrowdView
         float size = MusouOrkFlinchRules.Amplitude(MusouOrkFlinchRules.BlastStrength(distance, radius), type);
         if (!(size > 0f)) return;
         _kick.TryGetValue(id, out var track);
-        track.Kick(away, size);
+        KickVaried(ref track, id, away, size);
         _kick[id] = track;
         _blastKicked[id] = _clock;
         Kicks++;
@@ -127,6 +141,7 @@ public partial class MusouCrowd : CrowdView
         {
             var p = new Vector3(e.Position.X, e.Position.Y, e.Position.Z);
             int clip = GunClip(e, ClipOf(e.State));   // MusouCrowd.Guns.cs: a firing Shoota Boy aims
+            if (e.State == MusouEnemyState.Dying) clip = DeathClipOf(e.Id, (int)e.Type);   // Ork variety (2026-11-16): each Ork dies in a death clip of its own
             Quaternion turn = default;
             bool dizzy = IsDizzy(e);
             if (dizzy) { clip = MusouLooks.Idle; turn = Lean(e.StateSeconds); }   // MusouCrowd.Dizzy.cs: a stunned boss stands on its idle (the stagger clip turned it round), swaying; stars above
@@ -179,7 +194,7 @@ public partial class MusouCrowd : CrowdView
         {
             if (_seen.Contains(d.Id)) continue;   // the id is in play again
             var p = new Vector3(d.Position.X, d.Position.Y, d.Position.Z);
-            Items.Add(new Item { Key = d.Id, Type = (int)d.Type, Position = p, Yaw = d.Yaw, Time = age, Clip = MusouLooks.Death, Distance = p.DistanceTo(camera) });
+            Items.Add(new Item { Key = d.Id, Type = (int)d.Type, Position = p, Yaw = d.Yaw, Time = age, Clip = DeathClipOf(d.Id, (int)d.Type), Distance = p.DistanceTo(camera) });
         }
         _gone.Clear();
         foreach (var id in _clocks.Keys) if (!_seen.Contains(id)) _gone.Add(id);

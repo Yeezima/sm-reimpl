@@ -23,7 +23,7 @@ namespace SmClient;
 public sealed class MusouLooks
 {
     /// <summary>The clip indices of a look (<see cref="Look.Clips"/>).</summary>
-    public const int Run = 0, Idle = 1, Attack = 2, Stagger = 3, Death = 4, Sprint = 5, ClipCount = 6;   // Sprint: the charge (2026-11-09; the run where a look has none)
+    public const int Run = 0, Idle = 1, Attack = 2, Stagger = 3, Death = 4, Sprint = 5, DeathAlt1 = 6, DeathAlt2 = 7, ClipCount = 8;   // Sprint: the charge (2026-11-09; the run where a look has none); DeathAlt1/2: the boy rig's other deaths, an Ork's own pick (2026-11-16, MusouOrkVariety; null or the idle where a look has none)
     /// <summary>Whether a clip loops (the run and the idle) or holds its last frame (the attack, stagger and death follow the state's time).</summary>
     public static bool Loops(int clip) => clip is Run or Idle or Sprint;
 
@@ -38,6 +38,18 @@ public sealed class MusouLooks
         public int ReversedClip = -1;
         /// <summary>The time to sample <paramref name="clip"/> at, <paramref name="time"/> s into it (already held at its end): backwards for <see cref="ReversedClip"/>.</summary>
         public float SampleTime(int clip, float time) => clip == ReversedClip && Clips[clip] is { } c ? MathF.Max(0f, c.Animation.Duration - MathF.Min(time, c.Animation.Duration)) : time;
+        /// <summary>
+        /// The clip this Ork dies in (owner 2026-11-16, <see cref="SmNet.Extras.Musou.MusouOrkVariety.DeathClip"/>): the usual <see cref="Death"/> or one of the rig's other deaths, picked from its id; a look with no
+        /// other death of its own (the Warboss, the Weirdboy, the Chaos Marine ...; <see cref="Fill"/> or its rig left them the idle or nothing) always the usual one.
+        /// </summary>
+        public int DeathClipFor(int id)
+        {
+            if (ReversedClip == Death) return Death;
+            bool one = Has(DeathAlt1), two = Has(DeathAlt2);
+            int pick = SmNet.Extras.Musou.MusouOrkVariety.DeathClip(id, 1 + (one ? 1 : 0) + (two ? 1 : 0));
+            return pick == 0 ? Death : pick == 1 && one ? DeathAlt1 : DeathAlt2;
+        }
+        bool Has(int alt) => Clips.Length > alt && Clips[alt] is { } c && !ReferenceEquals(c, Clips[Idle]) && !ReferenceEquals(c, Clips[Run]) && !ReferenceEquals(c, Clips[Death]);
         public MusouVat.Baked? Vat;
         public Task<MusouVat.Baked?>? Baking;
         /// <summary>The bake failed or had nothing to bake: skinned only, never tried again.</summary>
@@ -292,6 +304,9 @@ public sealed class MusouLooks
         clips[Attack] = ranged ? Find(["BOY_2HR_RNG_Fire_S_01"], "Fire") : Find(["BOY_1HM_MEL_Cmbo_01_Atk01_1m", "BOY_1HM_MEL_Cmbo_01_Hvy01_1m"], "_Atk");
         clips[Stagger] = Find(["BOY_1HM_REC_Hvy_Front_Hi_L_01", "BOY_1HM_REC_Lt_Front_Hi_L_01"], "_REC_");
         clips[Death] = ranged ? Find(["BOY_2HR_DIE_Fall_Forward_01", "BOY_1HM_DIE_Basic_02"], "_DIE") : Find(["BOY_1HM_DIE_Basic_02", "BOY_1HM_DIE_Basic_03"], "_DIE");
+        // The other deaths of the boy rig (counted 2026-11-16: 1HM_DIE_Basic_01..03 and _Headshot_01; 2HR_DIE_B, _L, _R and _Fall_Forward_01): two more for each kind, an Ork's own pick (ours; kind: ours, low)
+        clips[DeathAlt1] = ranged ? Find(["BOY_2HR_DIE_B"], "#none") : Find(["BOY_1HM_DIE_Basic_01"], "#none");
+        clips[DeathAlt2] = ranged ? Find(["BOY_2HR_DIE_L"], "#none") : Find(["BOY_1HM_DIE_Basic_03"], "#none");
         // The charge (the owner, 2026-11-09: "sprint to 'charge' the enemy when they reach within 30m"): the boy rig's own sprint for the melee kinds; the gun kinds never charge (the run stands in)
         if (!ranged) clips[Sprint] = Find(["BOY_1HM_NAV_Sprint_F_01"], "Sprint_F");
         Fill(clips);
@@ -316,6 +331,6 @@ public sealed class MusouLooks
     {
         var any = clips[Idle] ?? clips[Run];
         clips[Sprint] ??= clips[Run];
-        for (int i = 0; i < clips.Length; i++) clips[i] ??= any;
+        for (int i = 0; i < DeathAlt1; i++) clips[i] ??= any;   // the other deaths are left null: DeathClipFor takes only those a look has of its own
     }
 }

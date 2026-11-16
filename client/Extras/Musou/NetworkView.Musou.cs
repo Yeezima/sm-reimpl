@@ -180,6 +180,7 @@ public partial class NetworkView
     {
         var push = MusouGoreRules.BlastThrow(d.Push, d.Id, d.Tick, d.Type);
         var velocity = new Vector3(push.X, push.Y, push.Z);
+        if (!MusouCrowd.NoOrkVariety) { var own = MusouOrkVariety.Throw(d.Id, push); velocity = new Vector3(own.X, own.Y, own.Z); }   // Ork variety (2026-11-16): this Ork's impulse (+/- 30 %) and a few degrees off straight away from the blast
         if (metres <= MusouRagdolls.Metres && MusouRagdolls.Fits(d.Type) && _musouRagdolls is { } dolls && _musouLooks?.For(d.Type) is { } look && dolls.Throw(d, look, velocity)) return;
         _musouCrowd!.AddFlung(d, velocity, keepSkeleton: !_musouOldDeaths);   // night batch 2026-11-06: the body keeps the skeleton that drew the Ork
     }

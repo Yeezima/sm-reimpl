@@ -121,6 +121,8 @@ public abstract partial class CrowdView : Node3D
     protected abstract IReadOnlyList<int> Types { get; }
     /// <summary>The look of a type (null: not built yet).</summary>
     protected abstract MusouLooks.Look? LookOf(int type);
+    /// <summary>The first of the looks' extra death clips (-1: the crowd has none; <see cref="MusouVat.Start"/>).</summary>
+    protected virtual int AltClipsFrom => -1;
     /// <summary>Whether a clip of this crowd's looks loops (otherwise it holds its last frame).</summary>
     protected abstract bool Loops(int clip);
 
@@ -215,7 +217,7 @@ public abstract partial class CrowdView : Node3D
             {
                 if (look.Vat is null && look.Baking is null && !look.BakeFailed && !NoVat)
                 {
-                    look.Baking = MusouVat.Start(look.Assets, look.Clips, Loops);
+                    look.Baking = MusouVat.Start(look.Assets, look.Clips, Loops, AltClipsFrom);
                     if (look.Baking is null) { look.BakeFailed = true; GD.Print($"{log}: {look.Name} has nothing to bake; skinned only"); }
                 }
                 if (look.Baking is { IsCompleted: true } done)
