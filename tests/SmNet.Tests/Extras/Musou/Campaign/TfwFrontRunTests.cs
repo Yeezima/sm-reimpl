@@ -134,6 +134,7 @@ public class TfwFrontRunTests
             var run = w.Tfw!;
             run.StartNode = node;
             Assert.Equal(band, run.ActiveBand);
+            Assert.Equal(WarRules.FrontStronghold - (node - 1), run.WinsNeededNow(lane));   // the run's progress counts from the aid's front
             var battle = TfwRig.Deploy(w, lane);
             OnBand(w, battle, band, Human);
             Assert.Equal(node == 4 ? TfwRunPhase.FinalAssault : TfwRunPhase.Battle, run.Phase);
@@ -156,6 +157,7 @@ public class TfwFrontRunTests
         var run = w.Tfw!;
         WinAndReturn(w, TfwLane.B);
         WinAndReturn(w, TfwLane.B);
+        Assert.Equal(WarRules.StartFrontB + 2, run.War.LaneState(TfwLane.B).Front);   // the front really moved before the new run
         TfwRig.Deploy(w, TfwLane.B);
         Assert.Equal(2, run.ActiveBand);
         // every human gone: the match goes back to warm-up with a new run

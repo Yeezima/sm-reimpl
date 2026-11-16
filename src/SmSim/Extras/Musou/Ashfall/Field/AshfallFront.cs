@@ -35,6 +35,8 @@ public static class AshfallFront
     public const float ShellHeight = 13f;
     /// <summary>The depth of a facade in the core's frontage row (m; ours: the city's facades were 3 m, a little more holds a facade model at street-wall height).</summary>
     public const float FacadeDepth = 5f;
+    /// <summary>The core's street wall pieces between the frontage buildings (m; ours: over a Marine's head, so the street reads closed between its breaches; 2.4 m before F5).</summary>
+    public const float StreetWallHeight = 6f;
 
     public static readonly Vector2 BaseCentre = new(0f, -188f), BaseGate = new(0f, -160f), StrongholdCentre = new(0f, 138f), StrongholdGate = new(0f, 112f);
 
@@ -94,7 +96,7 @@ public static class AshfallFront
         {
             0 => (150f, -96f, 20f, -20f, 84f),   // the wasteland: B north of the middle, A and C on the flanks south of it (long views across the trench field)
             1 => (150f, -96f, 0f, 50f, 84f),     // the outskirts: B at the crossing, A and C up the flanks
-            _ => (140f, -96f, -10f, 84f, 84f),   // the core: A and C where the north cross meets the flanks (three plazas)
+            _ => (140f, -96f, 10f, 84f, 84f),    // the core: A and C where the north cross meets the flanks (three plazas); B north of the middle so the avenue south of it runs between street walls (F5)
         };
         if (attempt == 0 && seed == DefaultSeed) return new(band, 0, f, s, c, p, n);
         uint h = AshfallBuilder.Mix(seed * 0x9E3779B1u + (uint)band * 0x85EBCA6Bu, (uint)attempt);
@@ -402,16 +404,18 @@ public static class AshfallFront
         float Cover(IEnumerable<AshfallFieldStructure> g) => g.Sum(s => s.Size.X * s.Size.Y);
         float Target(float y) => profile.Coverage + (profile.Next.Coverage - profile.Coverage) * AshfallBandProfile.BlendAt(y);
 
-        // 3. Rows (the core's street walls) along every corridor's sides outside the fortresses.
+        // 3. Rows along every corridor's sides outside the fortresses: the core's street walls (a frontage row on the corridor's edge, breaches every 30 to 50 m, two back rows), the outskirts' looser frontage (buildings with upper
+        // floors near the road, gaps between them). F5 (2026-11-16): from the avenue the bands read alike until the frontage stood on the road.
         int rows = 0, breaches = 0, walls = 0, row = 0;
-        if (profile.Fabric == AshfallFabric.Rows)
+        bool street = profile.Fabric == AshfallFabric.Rows;
+        if (profile.FrontageTiers > 0)
         {
             foreach (var k in frame.Corridors.Where(k => !k.Name.StartsWith("main avenue through", StringComparison.Ordinal)))
             {
                 var dir = Vector2.Normalize(k.B - k.A); var nrm = new Vector2(-dir.Y, dir.X);
                 bool alongX = MathF.Abs(dir.X) > 0.5f;
                 int yaw = alongX ? 0 : 6;
-                foreach (int tier in new[] { 0, 1, 2 })   // the frontage row (the street wall), then two back rows behind it, each across a 6 m alley
+                for (int tier = 0; tier < profile.FrontageTiers; tier++)   // the frontage row (the core's street wall), then the back rows behind it, each across a 6 m alley
                 foreach (int side in new[] { -1, 1 })
                 {
                     uint key = AshfallBuilder.Mix(seed * 0x9E37u + 41u, (uint)(row++));
@@ -430,7 +434,8 @@ public static class AshfallFront
                         float height = Height(prof, h, at);
                         string fam = Family(prof, h);
                         // the frontage row's stairless buildings are facades (the street wall reads as one: the kit's stairless masses are round heaps); the back row keeps the masses
-                        if (tier == 0 && fam == "block") { fam = "facade"; depth = FacadeDepth; }
+                        if (street && tier == 0 && fam == "block") { fam = "facade"; depth = FacadeDepth; }
+                        if (!street && ((h >> 19) ^ (h >> 7)) % 100u < (uint)(profile.FrontageGapShare * 100f)) { t += wdt; continue; }   // the outskirts: a gap in the frontage
                         var centre = k.A + dir * (t + wdt / 2f) + nrm * side * (line + depth / 2f);
                         var size = new Vector3(wdt, depth, height);
                         var fp = AshfallField.Footprint(centre, size, yaw);
@@ -442,7 +447,7 @@ public static class AshfallFront
                         }
                         else { t += 4f; continue; }
                         t += wdt;
-                        if (tier >= 1) { t += 6f; continue; }   // the back rows: alleys only
+                        if (tier >= 1 || !street) { t += street ? 6f : 8f + 2f * ((h >> 14) % 4u); continue; }   // the back rows and the outskirts: alleys only
                         if (sinceBreach >= nextBreach)
                         {
                             // a breach gap in the street wall (30 to 50 m apart): open ground through the row into the block behind
@@ -453,7 +458,7 @@ public static class AshfallFront
                         // a street wall piece between two buildings, 2.5 m breaks each side (over the 2.4 m narrow-gap rule)
                         float wl = 6f + 2f * ((h >> 12) % 3u);
                         var wc = k.A + dir * (t + 2.5f + wl / 2f) + nrm * side * (line + 0.75f);
-                        var wsize = new Vector3(wl, 1.5f, 2.4f);
+                        var wsize = new Vector3(wl, 1.5f, StreetWallHeight);
                         var wfp = AshfallField.Footprint(wc, wsize, yaw);
                         if (t + 2.5f + wl + 2.5f < len && Free(wfp, 2.45f)) { Add(new($"{k.Name} row {(side < 0 ? "left" : "right")} street wall {walls++}", "wall", wc, wsize, yaw, profile.Name)); t += 2.5f + wl + 2.5f; sinceBreach += wl; }
                         else t += 6f;

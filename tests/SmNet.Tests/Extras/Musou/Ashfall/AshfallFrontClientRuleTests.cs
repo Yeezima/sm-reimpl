@@ -42,7 +42,17 @@ public class AshfallFrontClientRuleTests
         }
         // the collision the server and the client predict with is the composed level's: closed, and its hash is today's
         var composed = AshfallMap.BuildDraft5(AshfallLayout.Front).Level;
+        var partsBefore = composed.Parts.ToArray();
+        foreach (var (bandLevel, _) in AshfallMap.SplitFront(composed, AshfallMap.BuildDraft5(AshfallLayout.Front).Dressing)) AshfallMap.OpenFrontEdges(bandLevel);
+        Assert.Equal(partsBefore, composed.Parts);   // drawing copies only: the composed level keeps every part, the walls closed
         var collision = AshfallContent.ToMapContent(composed).ToCollisionWorld();
+        for (int band = 0; band < AshfallFront.BandCount; band++)
+            foreach (float dir in new[] { 1f, -1f })   // a ray along the avenue out of each edge meets the boundary wall
+            {
+                var from = new Vector3(AshfallFront.OffsetOf(band), dir * (AshfallMap.Half - 5f), 2f);
+                var hit = collision.Character.Raycast(from, new Vector3(0f, dir, 0f), 20f);
+                Assert.True(hit is { } h && h.Distance <= 5.5f, $"band {band}: the avenue's {(dir > 0 ? "north" : "south")} exit is open in the collision");
+            }
         Assert.Equal(composed.Hash, AshfallContent.ToMapContent(composed).Hash);
         var gate = new Vector3(0f, AshfallMap.Half + 2f, 2f);   // in the north wall, on the avenue
         Assert.Contains(composed.Parts, p => p.Kind == AshfallKind.Boundary && p.Corners.Min(c => c.X) < 0f && p.Corners.Max(c => c.X) > 0f && p.Corners.Min(c => c.Y) <= gate.Y && p.Corners.Max(c => c.Y) >= gate.Y);

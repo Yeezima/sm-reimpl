@@ -156,7 +156,9 @@ public partial class NetworkView
             _tfwTestNav = nav;
         }
         double end = _connectedFor + seconds;
-        var path = _tfwTestNav.FindPath(client.Predicted.Position, at);
+        var nav0 = _tfwTestNav;
+        var from0 = client.Predicted.Position;
+        var path = await System.Threading.Tasks.Task.Run(() => nav0.FindPath(from0, at));   // off the main thread: on the front pilot's 2.5 million-node graph a search took seconds (F4 pass 2: 16-36 s stalls)
         if (path is null || path.Partial) { TfwCheck(what, false, $"no way from {client.Predicted.Position} to {at}"); return false; }
         var points = path.Waypoints;
         int replans = 0;
@@ -165,6 +167,7 @@ public partial class NetworkView
         await TfwFrames(2);
         int next = 0, stuckFrames = 0;
         var last = client.Predicted.Position;
+        var lastReplanAt = new Num.Vector3(float.NaN);
         while (next < points.Count && _connectedFor < end && over?.Invoke() != true)
         {
             var me = client.Predicted.Position;
@@ -179,13 +182,30 @@ public partial class NetworkView
             last = me;
             if (stuckFrames == 120) GD.Print($"TFWTEST note: held up at {me} on the way to {to}");
             // Off the way (held up against something): a new way from here, as a player would look again. 15 ticks' worth of standing still.
-            if (stuckFrames == 30 && replans < 8 && _tfwTestNav.FindPath(me, at) is { Partial: false } again)
+            if (stuckFrames == 30 && replans < 8)
             {
                 replans++;
-                points = again.Waypoints;
-                next = 0;
                 stuckFrames = 0;
-                GD.Print($"TFWTEST note: {what}: a new way from {me}, {points.Count} waypoints");
+                // Held up at the same spot as the last look: step back and aside first (the graph's way brushes something a capsule catches on, e.g. a rubble prop's corner at a corridor's edge).
+                if (Num.Vector3.Distance(me, lastReplanAt) < 0.5f)
+                {
+                    TfwKey(Key.W, false);
+                    TfwKey(Key.S, true); await TfwFrames(10); TfwKey(Key.S, false);
+                    var side = replans % 2 == 0 ? Key.A : Key.D;
+                    TfwKey(side, true); await TfwFrames(15); TfwKey(side, false);
+                    TfwKey(Key.W, true);
+                    GD.Print($"TFWTEST note: {what}: held up again at {me}: stepped back and to the {(side == Key.A ? "left" : "right")}");
+                }
+                lastReplanAt = me;
+                var nav = _tfwTestNav;
+                var from = client.Predicted.Position;
+                if (await System.Threading.Tasks.Task.Run(() => nav.FindPath(from, at)) is { Partial: false } again)   // off the main thread
+                {
+                    points = again.Waypoints;
+                    next = 0;
+                    GD.Print($"TFWTEST note: {what}: a new way from {from}, {points.Count} waypoints");
+                }
+                last = client.Predicted.Position;
             }
             await TfwFrames();
         }

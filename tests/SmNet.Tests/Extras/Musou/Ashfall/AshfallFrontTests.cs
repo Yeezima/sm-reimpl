@@ -16,7 +16,7 @@ namespace SmNet.Tests.Extras.Musou.Ashfall;
 public class AshfallFrontTests(ITestOutputHelper output)
 {
     /// <summary>The bands' level pins (front version 1, the default seed). After a change of the generator or a refit of the kit's collision, take the new values from this test's output.</summary>
-    public static readonly ulong[] PinnedBandHashes = [0xE92AC5053BF5DC0CUL, 0x6662E1FD10FCF3A6UL, 0x17C867AC429FF0DCUL];
+    public static readonly ulong[] PinnedBandHashes = [0xE92AC5053BF5DC0CUL, 0xA5FF5B3201FDF7C3UL, 0x2D6E92C60602DE4BUL];
 
     public static readonly TheoryData<uint> Seeds = new() { AshfallFront.DefaultSeed, 1u, 2u, 3u, 4u };
 

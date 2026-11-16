@@ -104,6 +104,9 @@ public sealed partial class TfwRun
     public bool VictoryWave { get; set; } = true;
 
     /// <summary>The wins a run needs on <paramref name="lane"/> from its start.</summary>
+    /// <summary>The wins this run needs on <paramref name="lane"/>: <see cref="WinsNeeded(TfwLane)"/>, or from the front the front pilot's <see cref="StartNode"/> test aid set (re-review of 2026-11-16).</summary>
+    public int WinsNeededNow(TfwLane lane) => _startNode is >= 1 and <= 4 && _field.Bands is { Count: > 0 } ? Math.Max(0, WarRules.FrontStronghold - (_startNode - 1)) : WinsNeeded(lane);
+
     public static int WinsNeeded(TfwLane lane) => WarRules.FrontStronghold - (lane switch { TfwLane.A => WarRules.StartFrontA, TfwLane.B => WarRules.StartFrontB, _ => WarRules.StartFrontC });
 
     /// <summary>Wall-clock milliseconds of the last landing and of its sites' draw (for the cost report).</summary>
@@ -253,7 +256,7 @@ public sealed partial class TfwRun
         foreach (int id in w.Players.Keys) if (!TfwContracts.IsPuppet(id)) _deployed.Add(id);
         _deployed.Sort();
         _dreadSlots.Clear();   // a new landing: every Dreadnought's place is chosen afresh (LandingAt)
-        Battle = new TfwBattle(w.Musou!, w.TfwGuards!, layout, state.Imperial, _deployed.Count, final, bonus, TfwBattleRules.EliteShare(TfwBattleRules.RunProgress(Wins, WinsNeeded(lane), final)), Guardsmen) { Patrols = Patrols, VictoryWave = VictoryWave, Armies = Armies };
+        Battle = new TfwBattle(w.Musou!, w.TfwGuards!, layout, state.Imperial, _deployed.Count, final, bonus, TfwBattleRules.EliteShare(TfwBattleRules.RunProgress(Wins, WinsNeededNow(lane), final)), Guardsmen) { Patrols = Patrols, VictoryWave = VictoryWave, Armies = Armies };
         Battle.Start();
         Score.BeginMap(lane, (byte)node, _deployed);
         _fighting = final ? TfwRunPhase.FinalAssault : TfwRunPhase.Battle;

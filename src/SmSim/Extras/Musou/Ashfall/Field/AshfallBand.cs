@@ -43,6 +43,9 @@ public sealed record AshfallBandProfile
     public required float BreachMax { get; init; }
     /// <summary>Rows: a breach gap's width (m).</summary>
     public required float BreachWidth { get; init; }
+    /// <summary>Rows of buildings along the corridors' sides (the frontage row on the corridor's edge, then back rows behind 6 m alleys; 0: none) and the share of the frontage left as gaps (the outskirts' looser fronts).</summary>
+    public required int FrontageTiers { get; init; }
+    public float FrontageGapShare { get; init; }
     /// <summary>Plazas (open squares kept round the capture points; the core's three) and their radius (m, from the point's centre).</summary>
     public required int Plazas { get; init; }
     public required float PlazaRadius { get; init; }
@@ -68,7 +71,7 @@ public sealed record AshfallBandProfile
     public static readonly AshfallBandProfile Wasteland = new()
     {
         Kind = AshfallBandKind.Wasteland, Name = "wasteland", Fabric = AshfallFabric.Islands,
-        CoverageMin = 0.05f, CoverageMax = 0.08f, IslandGap = 12f, ClusterGap = 6f, FillGap = 10f, Spacing = 16f,
+        CoverageMin = 0.05f, CoverageMax = 0.08f, IslandGap = 12f, ClusterGap = 6f, FillGap = 10f, Spacing = 16f, FrontageTiers = 0,
         HeightMin = 4f, HeightMax = 8f, TallHeight = 14f, LowMin = 1.2f, LowMax = 2.2f, UpperFloorShare = 0f, SideStreet = 12f,
         BreachMin = 30f, BreachMax = 50f, BreachWidth = 8f, Plazas = 0, PlazaRadius = 0f, BreachedBlocks = 0,
         Landmarks = [("wrecked hulk", "wreck", new(-84f, -44f), new(16f, 10f, 7f)), ("fallen saint", "monument", new(96f, 56f), new(9f, 9f, 14f))],
@@ -79,7 +82,7 @@ public sealed record AshfallBandProfile
     public static readonly AshfallBandProfile Outskirts = new()
     {
         Kind = AshfallBandKind.Outskirts, Name = "outskirts", Fabric = AshfallFabric.Islands,
-        CoverageMin = 0.20f, CoverageMax = 0.24f, IslandGap = 8f, ClusterGap = 6f, FillGap = 5f, Spacing = 12f,
+        CoverageMin = 0.20f, CoverageMax = 0.24f, IslandGap = 8f, ClusterGap = 6f, FillGap = 5f, Spacing = 12f, FrontageTiers = 1, FrontageGapShare = 0.35f,
         HeightMin = 10f, HeightMax = 13f, TallHeight = 26f, LowMin = 1.2f, LowMax = 2.2f, UpperFloorShare = 0.50f, SideStreet = 12f,
         BreachMin = 30f, BreachMax = 50f, BreachWidth = 8f, Plazas = 0, PlazaRadius = 0f, BreachedBlocks = 0,
         Landmarks = [("hab tower", "spire", new(-200f, -150f), new(16f, 16f, 30f)), ("hab tower east", "spire", new(200f, -150f), new(16f, 16f, 30f))],
@@ -90,9 +93,9 @@ public sealed record AshfallBandProfile
     public static readonly AshfallBandProfile Core = new()
     {
         Kind = AshfallBandKind.Core, Name = "urban core", Fabric = AshfallFabric.Rows,
-        CoverageMin = 0.34f, CoverageMax = 0.38f, IslandGap = 6f, ClusterGap = 6f, FillGap = 2.5f, Spacing = 10f,
+        CoverageMin = 0.34f, CoverageMax = 0.38f, IslandGap = 6f, ClusterGap = 6f, FillGap = 2.5f, Spacing = 10f, FrontageTiers = 3,
         HeightMin = 13f, HeightMax = 26f, TallHeight = 44f, LowMin = 1.2f, LowMax = 2.2f, UpperFloorShare = 0.35f, SideStreet = 12f,
-        BreachMin = 30f, BreachMax = 50f, BreachWidth = 8f, Plazas = 3, PlazaRadius = 44f, BreachedBlocks = 3,
+        BreachMin = 30f, BreachMax = 50f, BreachWidth = 8f, Plazas = 3, PlazaRadius = 36f, BreachedBlocks = 3,
         Landmarks = [("cathedral spire", "spire", new(-200f, 140f), new(20f, 20f, 42f)), ("manufactorum chimney tower", "spire", new(200f, 140f), new(20f, 20f, 42f))],
         PlatformTarget = 24, RouteBuffer = 2.5f,
     };
