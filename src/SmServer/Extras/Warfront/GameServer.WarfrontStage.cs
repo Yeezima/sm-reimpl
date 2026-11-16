@@ -133,6 +133,7 @@ public sealed partial class GameServer
         s.LandingTarget = target;
         s.Landing = true;
         s.LandingStartTick = s.LandingLastLog = World.Tick;
+        s.LandingEnqueued = 0;
         WarfrontTryLand(s);
     }
 
@@ -150,22 +151,32 @@ public sealed partial class GameServer
             return;
         }
         if (target.Kind != WarfrontTargetKind.Node || WarfrontSlots.ByName(s.Map) is not { } slot) { s.Landing = false; WfLog($"cannot land {target.Kind} on {s.Map}"); return; }
-        if (WarfrontLeaderPlayer() is not { } leader) { WarfrontLandingWait(s, "no identified leader"); return; }   // nobody identified yet: try again next tick
+        if (run.Phase != TfwRunPhase.Hub)
+        {
+            // the run took the Deploy (Travel, then the battle): the landing is under way
+            s.Landing = false;
+            s.Landed = true;
+            WfLog($"landing on {slot.Name}: slot {slot.Number}, lane {slot.Lane}, node {slot.Node}, band {slot.Band} ({slot.Profile}), seed {slot.Seed}; deployment {c.Deployments + 1}; fronts set to node {slot.Node}");
+            return;
+        }
+        // the run's Deploy is dropped silently unless the match is playing and the leader is alive inside the hub, so it is asked again each second until the run leaves the hub
+        if (World.State != MatchState.Playing) { WarfrontLandingWait(s, $"the match is {World.State}"); return; }
+        if (WarfrontLeaderPlayer() is not { } leader) { WarfrontLandingWait(s, "no identified leader"); return; }
+        if (!World.Players.TryGetValue(leader, out var lp) || !lp.Alive || !run.Field.Hub.Contains(lp.Position)) { WarfrontLandingWait(s, "the leader is not alive aboard yet"); return; }
+        if (s.LandingEnqueued != 0 && World.Tick - s.LandingEnqueued < (uint)WarfrontRate) return;
         run.War.SetFrontsForTests((sbyte)(slot.Node - 1));
         if (!run.Enqueue(leader, new TfwCommandRecord(++s.CommandSeq, TfwCommand.Deploy, (byte)slot.Lane))) { WarfrontLandingWait(s, "the run refused the Deploy"); return; }
-        s.Landing = false;
-        s.Landed = true;
-        WfLog($"landing on {slot.Name}: slot {slot.Number}, lane {slot.Lane}, node {slot.Node}, band {slot.Band} ({slot.Profile}), seed {slot.Seed}; deployment {c.Deployments + 1}; fronts set to node {slot.Node}");
+        s.LandingEnqueued = World.Tick;
     }
 
-    /// <summary>The landing could not start this tick: say so once a second, and after 10 s give the deployment up (back to the ship, nothing rolled).</summary>
+    /// <summary>The landing could not start this tick: say so once a second, and after 60 s give the deployment up (back to the ship, nothing rolled).</summary>
     void WarfrontLandingWait(WarfrontServerState s, string why)
     {
         int rate = WarfrontRate;
         if (World.Tick - s.LandingLastLog >= (uint)rate) { s.LandingLastLog = World.Tick; WfLog($"landing waits: {why} ({(World.Tick - s.LandingStartTick) / rate} s)"); }
-        if (World.Tick - s.LandingStartTick < (uint)(10 * rate)) return;
+        if (World.Tick - s.LandingStartTick < (uint)(60 * rate)) return;
         s.Landing = false;
-        WfLog($"landing given up after 10 s ({why}): back on the ship, nothing rolled");
+        WfLog($"landing given up after 60 s ({why}): back on the ship, nothing rolled");
         WarfrontRevertToShip(s);
     }
 

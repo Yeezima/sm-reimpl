@@ -46,7 +46,7 @@ public sealed partial class GameServer
         public bool Finished;
         public int? SupervisorPid;
         public uint NextAliveCheck, NextPlaySave;
-        public uint LandingStartTick, LandingLastLog;
+        public uint LandingStartTick, LandingLastLog, LandingEnqueued;
         public Prepare? TestPrep;
         // arrival (a stage that loaded a save in Travel)
         public bool Arriving;

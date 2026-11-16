@@ -28,9 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3549 spec table rows: **2541 tagged**, 656 not tagged (read from data with high confidence), 352 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 762 rows of the changes document.
-Scanned 3540 spec table rows: **2533 tagged**, 655 not tagged (read from data with high confidence), 352 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 760 rows of the changes document.
-Scanned 3583 spec table rows: **2571 tagged**, 660 not tagged (read from data with high confidence), 352 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 763 rows of the changes document.
+Scanned 3601 spec table rows: **2588 tagged**, 661 not tagged (read from data with high confidence), 352 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 764 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -53,39 +51,20 @@ Scanned 3583 spec table rows: **2571 tagged**, 660 not tagged (read from data wi
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 47 | 37 | 21 | 12 | 7 |
 | Core simulation (provisional values) | 798 | 755 | 585 | 221 | 1 |
-| General game design | 42 | 42 | 34 | 12 | 0 |
-| Ork faction | 262 | 249 | 146 | 69 | 0 |
-| **All areas** | **2541** | 2269 | 1900 | 778 | 37 |
-| Core simulation (provisional values) | 793 | 750 | 580 | 221 | 1 |
-| General game design | 39 | 39 | 31 | 9 | 0 |
-| Ork faction | 262 | 249 | 146 | 69 | 0 |
-| **All areas** | **2533** | 2261 | 1892 | 775 | 37 |
-| General game design | 51 | 50 | 39 | 10 | 0 |
+| General game design | 68 | 67 | 49 | 15 | 0 |
 | Ork faction | 263 | 250 | 147 | 69 | 0 |
-| **All areas** | **2571** | 2292 | 1924 | 782 | 37 |
+| **All areas** | **2588** | 2309 | 1934 | 787 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1468 |
-| confidence: low | 923 |
-| confidence: medium | 868 |
-| notes: ours | 449 |
-| kind: interpretation | 412 |
-| kind: estimate | 213 |
-| kind: ours | 1469 |
-| confidence: low | 918 |
-| confidence: medium | 865 |
-| notes: ours | 446 |
-| kind: interpretation | 411 |
-| kind: estimate | 208 |
-| kind: ours | 1485 |
-| confidence: low | 935 |
-| confidence: medium | 880 |
-| notes: ours | 451 |
-| kind: interpretation | 415 |
-| kind: estimate | 215 |
+| kind: ours | 1495 |
+| confidence: low | 938 |
+| confidence: medium | 887 |
+| notes: ours | 456 |
+| kind: interpretation | 417 |
+| kind: estimate | 220 |
 | notes: estimate | 204 |
 | confidence: none (low) | 109 |
 | kind: provisional | 106 |
@@ -3883,9 +3862,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-98A893CB` | Picker protection | while an offer stands the player is invulnerable and their input is dropped, others play on; it ends on a valid pick, after 20 s (the server takes card 1) or when the player leaves (the pick stays pending and re-opens with the same cards) (s) | kind: estimate; confidence: medium; notes: ours | owner (protection); the 20 s ours | Picker protection: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: while an offer stands the player is invulnerable and their input is… | ☐ |
 | `R-2024CBEF` | Hard base | `OrkHealthBase` and `OrkDamageBase`, 1.0: the one knob for "hard" (owner answer 8) (multiplier) | kind: estimate; confidence: low; notes: ours | owner (hard, solo must play well, a squad needs teamwork); the value ours | Hard base: compare with SM1 by feel or video. Ours: OrkHealthBase and OrkDamageBase, 1.0: the one knob for "hard" (owner… | ☐ |
 
-### General game design (42)
-### General game design (39)
-### General game design (51)
+### General game design (68)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -3958,15 +3935,11 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
-| `R-7F639869` | Kill classes | ordinary, elite, boss by `WarfrontXpLedger.Classify`; Kills = all three; EliteKills and BossKills are separate (disjoint) subsets of Kills, as W15 scores them (one Warboss kill = 25) (kills) | kind: ours | `WarfrontStatsLedger.OnKill`, `ToPlayerStats` | Kill classes: compare with SM1 by feel or video. Ours: ordinary, elite, boss by WarfrontXpLedger.Classify; Kills = all… | ☐ |
-| `R-CB58CF85` | Own kills only | the human's own body only; kills by that human's retainers go to the W9 service records (the leaderboard shows player and squad apart, so TOTAL K would show them twice) | kind: ours | feeder rule | Own kills only: compare with SM1 by feel or video. Ours: the human's own body only; kills by that human's retainers go to the… | ☐ |
-| `R-E865E464` | Other counters | assists, deaths, revives given (to the reviver), captures (A/B/C and D counted apart, the leaderboard shows the sum), battles fought (count) | kind: ours; confidence: medium | `OnAssist`, `OnDeath`, `OnRevive`, `OnCapture`, `OnBattle` | Other counters: compare with SM1 by feel or video. Ours: assists, deaths, revives given (to the reviver), captures (A/B/C and… | ☐ |
-| `R-BC6EDC4A` | Duplicate guard | a nonzero event id counts once per (counter, key, id); 0 is unguarded (ordinary kills: the pool reports each once); saved with the live run, dropped from the archive | kind: ours | `WarfrontStatsLedger` | Duplicate guard: compare with SM1 by feel or video. Ours: a nonzero event id counts once per (counter, key, id); 0 is unguarded… | ☐ |
-| `R-8713B82E` | Event id | `EventId(deployment, a, b)` = deployment << 40 or (a & 0xFFFFF) << 20 or (b & 0xFFFFF), unique across the run (the guard persists across battles and pool ids are reused): elite or boss kill (deployment, enemy id, tick mod 2^20), death and revive (deployment… (id) | kind: ours; confidence: medium | `WarfrontStatsLedger.EventId` | Event id: compare with SM1 by feel or video. Ours: EventId(deployment, a, b) = deployment << 40 or (a & 0xFFFFF) << 20… | ☐ |
-| `R-F010E043` | Assist window | an Ork dies and a human other than the killer damaged it within 5 s (W3b `WarfrontDamaged` tracker); a human's retainers' damage does not count for the human; one assist per human per Ork (s) | kind: estimate; confidence: low; notes: ours | W3b tracker | Assist window: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: an Ork dies and a human other than the killer damaged it within 5 s… | ☐ |
-| `R-2FA207B1` | Feeder rules | death = each time a human falls (enters the downed state), revived or not; revive = a human completes a revive of a human or any retainer (a retainer's revive goes to its service record); capture = every human standing or downed in the radius when a position… | kind: interpretation; confidence: low; notes: ours | stage-flow slice (W5a) | Feeder rules: compare with SM1 by feel or video. Ours: death = each time a human falls (enters the downed state), revived or… | ☐ |
-| `R-71E34088` | Persistence | per key, never reset by disconnect or rejoin; a new run starts empty; a restart mid-battle keeps figures already saved (a card pick) and the replayed battle adds to them (the guard stops the battle and captures counting twice; kills and deaths of the aborted… | kind: ours; confidence: medium | `WarfrontCampaign.Stats` | Persistence: compare with SM1 by feel or video. Ours: per key, never reset by disconnect or rejoin; a new run starts empty… | ☐ |
-| `R-66C0F4F6` | Archive | keys replaced by join index and the guard dropped (`WarfrontSave.KeylessJson`) | kind: ours | `KeylessJson` | Archive: compare with SM1 by feel or video. Ours: keys replaced by join index and the guard dropped… | ☐ |
+| `R-7F639869` | Kill classes | ordinary, elite, boss by `WarfrontXpLedger.Classify`; Kills = all three (kills) | kind: ours; confidence: medium | `WarfrontStatsLedger.OnKill` | Kill classes: compare with SM1 by feel or video. Ours: ordinary, elite, boss by WarfrontXpLedger.Classify; Kills = all three. | ☐ |
+| `R-E865E464` | Other counters | assists, deaths, revives given (to the reviver), captures (A/B/C and D counted apart, leaderboard shows the sum), battles fought (count) | kind: ours; confidence: medium | `OnAssist`, `OnDeath`, `OnRevive`, `OnCapture`, `OnBattle` | Other counters: compare with SM1 by feel or video. Ours: assists, deaths, revives given (to the reviver), captures (A/B/C and… | ☐ |
+| `R-BC6EDC4A` | Duplicate guard | a nonzero event id counts once per (counter, key, id); 0 is unguarded; the guard is saved with the run | kind: ours | `WarfrontStatsLedger` | Duplicate guard: compare with SM1 by feel or video. Ours: a nonzero event id counts once per (counter, key, id); 0 is… | ☐ |
+| `R-73F0A358` | What counts as an assist, and who is credited with a revive or capture | decided by the stage-flow feeder, not here (W3b `WarfrontDamaged`, W3 downed rule) | kind: ours; confidence: low | stage-flow slice | What counts as an assist, and who is credited with a revive…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: decided by the stage-flow feeder, not here (W3b WarfrontDamaged, W3… | ☐ |
+| `R-71E34088` | Persistence | per key, never reset by disconnect or rejoin; a new run starts empty | kind: ours | `WarfrontCampaign.Stats` | Persistence: compare with SM1 by feel or video. Ours: per key, never reset by disconnect or rejoin; a new run starts empty. | ☐ |
 
 *Spec section: Added content: Warfront, stage flow (W5a: `SmServer/Extras/Warfront`, `WarfrontWire`; `WarfrontRules.Version` 3; added content, Warfront only)*
 
@@ -3978,7 +3951,21 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-24EF5CE1` | Preparation progress | percent is an estimate once the graph starts: 30 rising to 95 over an expected 150 s; the work itself reports 0, 30, 100 (percent, s) | kind: estimate; confidence: low; notes: ours | ours (cold build 100 to 180 s per slot, measured by W2) | Preparation progress: compare with SM1 by feel or video. Ours: percent is an estimate once the graph starts: 30 rising to 95 over an… | ☐ |
 | `R-7AC525FA` | Stage repeat | Stage sections five times a second while they matter, the Hub on a change and every second, Results every 5 s while the run stands (Hz, s) | kind: interpretation; confidence: medium; notes: ours | ours (sections are unreliable datagrams) | Stage repeat: compare with SM1 by feel or video. Ours: Stage sections five times a second while they matter, the Hub on a… | ☐ |
 | `R-59709BC8` | Hub handles | the viewer sees its own key, every other player a one-way pseudonym | kind: interpretation | plan section 4 ("never sent to another client") | Hub handles: compare with SM1 by feel or video. Ours: the viewer sees its own key, every other player a one-way pseudonym. | ☐ |
+| `R-13E4DA8C` | Run duration | `WarfrontCampaign.PlaySeconds`: seconds of the run with at least one human connected, counted while the phase is Ship, Travel or Battle, saved in run.json (save version 3, older saves load with 0), written every 30 s and at each save point; the results record… (s) | kind: ours; confidence: medium | W5a review 1 finding 6, ours ("time with someone connected") | Run duration: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: WarfrontCampaign.PlaySeconds: seconds of the run with at least one… | ☐ |
+| `R-D200917A` | Made key | only a bot (Hello bot flag) that sends no Identify in 5 s gets a server-made key for its connection; a human stays held on the ship until its Identify arrives | kind: ours | W5a review 1 finding 2 | Made key: compare with SM1 by feel or video. Ours: only a bot (Hello bot flag) that sends no Identify in 5 s gets a… | ☐ |
+| `R-89085E8C` | Late join | a human not yet identified is not flown into a battle (`LateJoinAllowed`) | kind: ours | plan section 4 | Late join: compare with SM1 by feel or video. Ours: a human not yet identified is not flown into a battle… | ☐ |
+| `R-A38B6CF8` | Landing give-up | a landing waits for the match to be playing and the leader alive in the hub, asks the run's Deploy again each second until the run leaves the hub, logs each second, and is given up to the ship after this long (nothing rolled) (s) | kind: estimate; confidence: low | W5a review 1 finding 11 and the W5b real run | Landing give-up: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a landing waits for the match to be playing and the leader alive in… | ☐ |
+| `R-0E79FB89` | Supervisor watch | the stage child checks once a second that its supervisor process lives; if not it saves and leaves with code 0 (s) | kind: ours | W5a review 1 finding 5 | Supervisor watch: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the stage child checks once a second that its supervisor process… | ☐ |
 | `R-FB2FD11B` | Human cap | `--warfront-max-humans` 1 to 4, default 4 (humans) | kind: ours | plan section 8 | Human cap: compare with SM1 by feel or video. Ours: --warfront-max-humans 1 to 4, default 4. | ☐ |
+| `R-9176AB90` | Kill classes | ordinary, elite, boss by `WarfrontXpLedger.Classify`; Kills = all three; EliteKills and BossKills are separate (disjoint) subsets of Kills, as W15 scores them (one Warboss kill = 25) (kills) | kind: ours | W7 classes; W15 `Pts` | Kill classes: compare with SM1 by feel or video. Ours: ordinary, elite, boss by WarfrontXpLedger.Classify; Kills = all… | ☐ |
+| `R-7DD57BF8` | Own kills only | the human's own body only; kills by that human's retainers go to the W9 service records (the leaderboard shows player and squad apart, so TOTAL K would show them twice) | kind: ours | designer review | Own kills only: compare with SM1 by feel or video. Ours: the human's own body only; kills by that human's retainers go to the… | ☐ |
+| `R-D8E6F41F` | Other counters | assists, deaths, revives given (to the reviver), captures (A/B/C and D counted apart, the leaderboard shows the sum), battles fought (count) | kind: ours; confidence: medium | plan (leaderboard inputs) | Other counters: compare with SM1 by feel or video. Ours: assists, deaths, revives given (to the reviver), captures (A/B/C and… | ☐ |
+| `R-7DB752EB` | Duplicate guard | a nonzero event id counts once per (counter, key, id); 0 is unguarded (ordinary kills: the pool reports each once); saved with the live run, dropped from the archive | kind: ours | shared events reach several peers | Duplicate guard: compare with SM1 by feel or video. Ours: a nonzero event id counts once per (counter, key, id); 0 is unguarded… | ☐ |
+| `R-F4ECB865` | Event id | `EventId(deployment, a, b)` = deployment << 40 or (a & 0xFFFFF) << 20 or (b & 0xFFFFF), unique across the run (the guard persists across battles and pool ids are reused): elite or boss kill (deployment, enemy id, tick mod 2^20), death and revive (deployment… (id) | kind: ours; confidence: medium | designer review | Event id: compare with SM1 by feel or video. Ours: EventId(deployment, a, b) = deployment << 40 or (a & 0xFFFFF) << 20… | ☐ |
+| `R-3856D919` | Assist window | an Ork dies and a human other than the killer damaged it within 5 s (W3b `WarfrontDamaged` tracker); a human's retainers' damage does not count for the human; one assist per human per Ork (s) | kind: estimate; confidence: low; notes: ours | lead ruling (designer 1); the 5 s is ours | Assist window: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: an Ork dies and a human other than the killer damaged it within 5 s… | ☐ |
+| `R-D560FD6C` | Feeder rules | death = each time a human falls (enters the downed state), revived or not; revive = a human completes a revive of a human or any retainer (a retainer's revive goes to its service record); capture = every human standing or downed in the radius when a position… | kind: interpretation; confidence: low; notes: ours | designer review; our reading of the brief | Feeder rules: compare with SM1 by feel or video. Ours: death = each time a human falls (enters the downed state), revived or… | ☐ |
+| `R-7C9FC5C2` | Persistence | per key, never reset by disconnect or rejoin; a new run starts empty; a restart mid-battle keeps figures already saved (a card pick) and the replayed battle adds to them (the guard stops the battle and captures counting twice; kills and deaths of the aborted… | kind: ours; confidence: medium | owner (returning players keep their state); consistency with W4 | Persistence: compare with SM1 by feel or video. Ours: per key, never reset by disconnect or rejoin; a new run starts empty… | ☐ |
+| `R-5EDF5245` | Archive | keys replaced by join index and the guard dropped (`WarfrontSave.KeylessJson`) | kind: ours | W15 ruling: no archived file holds a key | Archive: compare with SM1 by feel or video. Ours: keys replaced by join index and the guard dropped… | ☐ |
 
 ## Part B: Ork faction
 
