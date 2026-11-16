@@ -73,10 +73,18 @@ public static class WarfrontSlots
     /// <summary>The slot of a lane's node (1 to 3).</summary>
     public static WarfrontSlot Of(TfwLane lane, int node) => All.First(s => s.Lane == lane && s.Node == node);
 
-    static readonly Lazy<WarfrontBuild>[] Builds = [.. All.Select(s => new Lazy<WarfrontBuild>(() => BuildFresh(s.Band, s.Seed, s), LazyThreadSafetyMode.ExecutionAndPublication))];
+    static readonly WarfrontBuild?[] Memo = new WarfrontBuild?[9];
+    static readonly object MemoGate = new();
 
-    /// <summary>The slot's build, once per process.</summary>
-    public static WarfrontBuild Build(WarfrontSlot slot) => Builds[slot.Number - 1].Value;
+    /// <summary>The slot's build, once per process until <see cref="Release"/> (a tool run over all nine would otherwise hold nine levels).</summary>
+    public static WarfrontBuild Build(WarfrontSlot slot)
+    {
+        lock (MemoGate)
+            return Memo[slot.Number - 1] ??= BuildFresh(slot.Band, slot.Seed, slot);
+    }
+
+    /// <summary>Drops the process's copy of a slot's build (the next <see cref="Build"/> generates again).</summary>
+    public static void Release(WarfrontSlot slot) { lock (MemoGate) Memo[slot.Number - 1] = null; }
 
     /// <summary>An uncached build of a band and seed (the walk's step): gate A inside <c>AshfallFront.Plan</c>, then the kit pass with gate B; <see cref="AshfallGateException"/> on a failure of either.</summary>
     public static WarfrontBuild BuildFresh(int band, uint seed, WarfrontSlot? slot = null)

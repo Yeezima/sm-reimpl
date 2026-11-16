@@ -17,7 +17,7 @@ static class WarfrontMapsCommand
 {
     public static int Run(string[] rest)
     {
-        bool hashes = false, walk = false, sites = false; string? overheads = null; string? only = null;
+        bool hashes = false, walk = false, sites = false, prebuild = false; string? overheads = null; string? only = null;
         for (int i = 0; i < rest.Length; i++)
         {
             switch (rest[i])
@@ -25,16 +25,18 @@ static class WarfrontMapsCommand
                 case "--hashes": hashes = true; break;
                 case "--walk": walk = true; break;
                 case "--sites": sites = true; break;
+                case "--prebuild": prebuild = true; break;
                 case "--overheads" when i + 1 < rest.Length: overheads = Path.GetFullPath(rest[++i]); break;
                 case "--slot" when i + 1 < rest.Length: only = rest[++i]; break;
                 default:
-                    Console.Error.WriteLine($"warfront-maps: unknown argument \"{rest[i]}\" (usage: warfront-maps [--hashes] [--walk] [--sites] [--overheads dir] [--slot wf_b2])");
+                    Console.Error.WriteLine($"warfront-maps: unknown argument \"{rest[i]}\" (usage: warfront-maps [--hashes] [--walk] [--sites] [--prebuild] [--overheads dir] [--slot wf_b2])");
                     return 2;
             }
         }
         var slots = WarfrontSlots.All.Where(s => only is null || s.Name == only).ToList();
         if (slots.Count == 0) { Console.Error.WriteLine($"warfront-maps: no slot named \"{only}\""); return 2; }
         if (walk) return Walk(slots);
+        if (prebuild) return Prebuild(slots);
         int failed = 0;
         foreach (var slot in slots)
         {
@@ -45,7 +47,7 @@ static class WarfrontMapsCommand
             long buildMs = watch.ElapsedMilliseconds;
             var data = WarfrontWorld.Compose(build.Level);
             string line = string.Create(CultureInfo.InvariantCulture, $"{slot.Name} lane={slot.Lane} node={slot.Node} band={slot.Band} seed={slot.Seed} level={build.Level.Hash:X16} map={data.Hash:X16}");
-            if (hashes) { Console.WriteLine(line); continue; }
+            if (hashes) { Console.WriteLine(line); WarfrontSlots.Release(slot); continue; }
             int aFail = build.Plan.GateA.Count(r => !r.Passed), bFail = build.GateB.Count(r => r.StartsWith("[FAIL]", StringComparison.Ordinal));
             Console.WriteLine($"{line}\n  {slot.Profile}: {build.Level.Parts.Count} parts, {build.Dressing.Items.Count} items, built in {buildMs / 1000.0:0.0} s; gate A {build.Plan.GateA.Count - aFail}/{build.Plan.GateA.Count} pass, gate B {build.GateB.Count - bFail}/{build.GateB.Count} pass");
             if (aFail + bFail > 0) failed++;
@@ -59,8 +61,31 @@ static class WarfrontMapsCommand
                 Console.WriteLine($"  overhead -> {png}");
             }
             if (sites && !Sites(slot, build, data)) failed++;
+            WarfrontSlots.Release(slot);   // a run over all nine does not keep nine levels
         }
         return failed == 0 ? 0 : 1;
+    }
+
+    /// <summary>
+    /// <c>--prebuild</c>: the layout cache file and the walking graph of every slot, one at a time with progress and timings (the private cache only; a warm run reads them back). A slot's world is released before the next.
+    /// A server's travel wait and a client's first join then find both warm.
+    /// </summary>
+    static int Prebuild(List<WarfrontSlot> slots)
+    {
+        var total = Stopwatch.StartNew();
+        int done = 0;
+        foreach (var slot in slots)
+        {
+            var watch = Stopwatch.StartNew();
+            var (level, _) = WarfrontLayoutCache.Build(slot, out string layoutNote);
+            long layoutMs = watch.ElapsedMilliseconds;
+            var data = WarfrontWorld.Compose(level);
+            var nav = WarfrontWorld.Nav(slot, data, new SimConfig(), out string navNote);
+            Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"[{++done}/{slots.Count}] {slot.Name}: layout {layoutMs / 1000.0:0.0} s ({layoutNote}); graph {nav.NodeCount:N0} nodes, {(watch.ElapsedMilliseconds - layoutMs) / 1000.0:0.0} s ({(navNote.Length > 90 ? navNote[..90] : navNote)}); slot total {watch.Elapsed.TotalSeconds:0.0} s; elapsed {total.Elapsed.TotalSeconds:0} s"));
+            WarfrontSlots.Release(slot); WarfrontLayoutCache.Forget(slot);
+        }
+        Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"warfront-maps --prebuild: {done} slots, {total.Elapsed.TotalSeconds:0.0} s in all (HQ and fortress maps do not exist yet; they join the list with W13 and W14)"));
+        return 0;
     }
 
     static bool Sites(WarfrontSlot slot, WarfrontBuild build, SmSim.Extras.Musou.Campaign.TfwMapData data)

@@ -11,7 +11,7 @@ namespace SmClient;
 /// <summary>
 /// A Warfront lane slot on the client (slice W2; plan section 2): one band, hub plus ONE battlefield. The client builds the slot's level from (profile, seed) through <see cref="WarfrontLayoutCache"/> (the host's generator, the same hash),
 /// predicts on its collision as the server does, and draws it the way the front pilot draws a band: the avenue's openings in the boundary wall, the kit look, the storm look and the pilot's outside scenery
-/// (<see cref="AshfallFrontScenery"/>: the 10-degree outside ground, the avenue running on, manufactorum stacks, the far cathedral spire). The neighbouring bands' massing copies are left out (a slot holds one band). Client only: nothing
+/// (<see cref="AshfallFrontScenery"/>: the 10-degree outside ground, the avenue running on, manufactorum stacks, the far cathedral spire). The neighbouring bands' massing copies are the same lane's adjacent slots, built or read through the layout cache. Client only: nothing
 /// here changes the collision, the hash or the wire. The map-name hooks (<see cref="WarfrontMapContent"/>, <see cref="WarfrontMapVisuals"/>, <see cref="WarfrontBandFrame"/>) are called from the stage flow (W5); no Musou file is changed here.
 /// </summary>
 public partial class NetworkView
@@ -21,8 +21,14 @@ public partial class NetworkView
     Node3D? _warfrontBand;
     bool _warfrontShown = true;
 
+    // The hooks W5 calls from the dispatchers (client/Extras/NetworkView.Extras.cs, Musou/Tfw/NetworkView.Tfw.cs): declared here as partial methods of this class, implemented below, so the
+    // file compiles without callers and an unused hook costs nothing; a build without Warfront (-p:SmWarfront=false) leaves this folder out and nothing refers to it.
+    partial void WarfrontMapContent(string name, ref MapContent? map);
+    partial void WarfrontMapVisuals(string name, ref bool drawn);
+    partial void WarfrontBandFrame(PlayerState me);
+
     /// <summary>The map content of a lane slot's name (null for any other map): the generated band as collision, from the layout cache.</summary>
-    void WarfrontMapContent(string name, ref MapContent? map)
+    partial void WarfrontMapContent(string name, ref MapContent? map)
     {
         if (WarfrontSlots.ByName(name) is not { } slot) return;
         var watch = System.Diagnostics.Stopwatch.StartNew();
@@ -34,7 +40,7 @@ public partial class NetworkView
     }
 
     /// <summary>Draws a lane slot's band (graybox, kit look, storm, outside scenery) under one node at the origin; any failure leaves the grey collision.</summary>
-    void WarfrontMapVisuals(string name, ref bool drawn)
+    partial void WarfrontMapVisuals(string name, ref bool drawn)
     {
         if (WarfrontSlots.ByName(name) is not { } slot || _warfrontLevel is null || _warfrontDressing is null || _gameSpace is null) return;
         try
@@ -47,10 +53,17 @@ public partial class NetworkView
             var view = AshfallView.Build(drawn1);
             node.AddChild(view);
             TfwFrontKit(drawn1, _warfrontDressing, view, node);
-            // the scenery takes the bands' list for its neighbours' copies; a slot has one band, so the other two are empty (no copies drawn)
+            // the scenery draws the neighbouring bands as massing copies: the same lane's adjacent slots (node - 1 south, node + 1 north), read through the layout cache; node 3 has none to the north (the spire and the stacks stand there)
             var empty = new AshfallDressing([], [], _warfrontDressing.Version);
             var bands = new (AshfallLevel Level, AshfallDressing Dressing)[AshfallFront.BandCount];
-            for (int k = 0; k < bands.Length; k++) bands[k] = k == slot.Band ? (_warfrontLevel, _warfrontDressing) : (_warfrontLevel, empty);
+            for (int k = 0; k < bands.Length; k++) bands[k] = (_warfrontLevel, empty);
+            bands[slot.Band] = (_warfrontLevel, _warfrontDressing);
+            foreach (int k in new[] { slot.Band - 1, slot.Band + 1 })
+            {
+                if (k < 0 || k >= AshfallFront.BandCount) continue;
+                try { bands[k] = WarfrontLayoutCache.Build(WarfrontSlots.Of(slot.Lane, k + 1), out _); }
+                catch (System.Exception e) when (e is not (System.StackOverflowException or System.AccessViolationException or System.OutOfMemoryException)) { GD.Print($"warfront: the neighbouring band {k} could not be built ({e.GetType().Name}: {e.Message}); no copy of it is drawn"); }
+            }
             node.AddChild(AshfallFrontScenery.Build(slot.Band, bands));
             if (_sun is not null && _environment is not null)
             {
@@ -76,7 +89,7 @@ public partial class NetworkView
     /// Once a frame on a lane slot: the band is drawn only while the player (and the camera) stand in its square, as the front pilot does (<see cref="FrontBandShown"/>): its outside ground reaches 1.2 km and would bury the hub (beyond the
     /// level's south edge) and the range.
     /// </summary>
-    void WarfrontBandFrame(PlayerState me)
+    partial void WarfrontBandFrame(PlayerState me)
     {
         if (_warfrontBand is null || !IsInstanceValid(_warfrontBand)) return;
         int shown = FrontBandShown(_client?.Predicted.Position ?? me.Position, _camera is null ? null : new System.Numerics.Vector3(_camera.GlobalPosition.X, -_camera.GlobalPosition.Z, _camera.GlobalPosition.Y));

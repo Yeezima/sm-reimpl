@@ -114,6 +114,9 @@ public static class WarfrontLayoutCache
 
     /// <summary>Forgets this process's copies (tests).</summary>
     public static void ForgetAll() { lock (Gate) Memo.Clear(); }
+
+    /// <summary>Forgets this process's copy of one slot.</summary>
+    public static void Forget(WarfrontSlot slot) { lock (Gate) Memo.Remove(slot.Name); }
 }
 
 /// <summary>
