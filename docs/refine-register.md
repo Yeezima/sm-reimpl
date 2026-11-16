@@ -28,8 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3428 spec table rows: **2444 tagged**, 636 not tagged (read from data with high confidence), 348 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 752 rows of the changes document.
-Scanned 3415 spec table rows: **2440 tagged**, 627 not tagged (read from data with high confidence), 348 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 752 rows of the changes document.
+Scanned 3436 spec table rows: **2452 tagged**, 636 not tagged (read from data with high confidence), 348 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 753 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -51,33 +50,22 @@ Scanned 3415 spec table rows: **2440 tagged**, 627 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 36 | 26 | 17 | 12 | 7 |
-| Core simulation (provisional values) | 756 | 713 | 544 | 202 | 1 |
+| Core simulation (provisional values) | 764 | 721 | 551 | 207 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 258 | 245 | 143 | 68 | 0 |
-| **All areas** | **2444** | 2172 | 1819 | 744 | 37 |
-| Core simulation (provisional values) | 752 | 709 | 539 | 201 | 1 |
-| General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 258 | 245 | 143 | 68 | 0 |
-| **All areas** | **2440** | 2168 | 1814 | 743 | 37 |
+| **All areas** | **2452** | 2180 | 1826 | 749 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1425 |
-| confidence: low | 879 |
+| kind: ours | 1426 |
+| confidence: low | 886 |
 | confidence: medium | 831 |
-| notes: ours | 417 |
+| notes: ours | 422 |
 | kind: interpretation | 400 |
 | notes: estimate | 203 |
-| kind: estimate | 175 |
-| kind: ours | 1421 |
-| confidence: low | 885 |
-| confidence: medium | 820 |
-| notes: ours | 416 |
-| kind: interpretation | 394 |
-| notes: estimate | 203 |
-| kind: estimate | 181 |
+| kind: estimate | 182 |
 | confidence: none (low) | 109 |
 | kind: provisional | 103 |
 | kind: user's knowledge | 53 |
@@ -2532,8 +2520,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-61F47DDE` | Bot difficulty | accuracy 0 to 100 % (the bots' `--bot-accuracy`), damage dealt 0 to 100 % (`World.SetDamageScale`, which only lowers; 100 % also removes the server's `--bot-damage-scale`; the panel starts at that option's value), fire range 5 to 1000 m (`--bot-range`); each… (% , m) | kind: ours | the owner | Bot difficulty: compare with SM1 by feel or video. Ours: accuracy 0 to 100 % (the bots' --bot-accuracy), damage dealt 0 to 100… | ☐ |
 | `R-010FCD37` | Time scale | 1, 1/2, 1/4, 1/10 or paused: the server's tick clock and every client's clock (prediction, interpolation, timeouts) and Godot's `Engine.TimeScale` (animation, effects, deltas) run at that fraction together, on the local client and on bots; sound is not… (factor) | kind: ours; confidence: medium | the owner | Time scale: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 1, 1/2, 1/4, 1/10 or paused: the server's tick clock and every… | ☐ |
 
-### Core simulation (provisional values) (756)
-### Core simulation (provisional values) (752)
+### Core simulation (provisional values) (764)
 
 *Spec section: Provisional values in use*
 
@@ -3735,6 +3722,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-B3999055` | Restart in a battle | the run resumes on the ship, nothing rolled or granted for that deployment; a restart in Travel keeps the phase and its target (each stage is a new process that loads the save in Travel) | kind: ours; confidence: medium | our choice | Restart in a battle: compare with SM1 by feel or video. Ours: the run resumes on the ship, nothing rolled or granted for that… | ☐ |
 | `R-5660ED7E` | Save location and format | `%LOCALAPPDATA%\sm-reimpl\warfront\run.json`, JSON version 1, written atomically (temp file then move) | kind: ours; confidence: medium | our choice | Save location and format: compare with SM1 by feel or video. Ours: %LOCALAPPDATA%\sm-reimpl\warfront\run.json, JSON version 1, written… | ☐ |
 | `R-1D6AA937` | Records | `records\<utc>-<won, lost or abandoned>.json` (a same-second name gets a suffix), written atomically and never read by a run | kind: ours; confidence: medium | owner (records only); "abandoned" ours | Records: compare with SM1 by feel or video. Ours: records\<utc>-<won, lost or abandoned>.json (a same-second name gets… | ☐ |
+
 *Spec section: Warfront HQ defense map profile (warfront/w13a, 2026-11-17, second pass after designer review 1; added content, Warfront only; generation only, no battle rules, no protocol or wire change; level version 1)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
