@@ -12,11 +12,11 @@ namespace SmSim.Extras.Warfront.Squad;
 /// within 6 m, revives it at full health), else out for the battle only. <see cref="AnyStanding"/> answers W3's spectator and wipe rule. Deterministic: agents in index order, every roll a
 /// hash of the tick and the Marine. Label: provisional approximation of player combat (no recoil, perks as numbers).
 /// </summary>
-public sealed class WarfrontSquadSim
+public sealed partial class WarfrontSquadSim
 {
     const int Max = SquadRules.MaxTotal;
 
-    sealed class Agent
+    sealed partial class Agent
     {
         public RosterMarine Marine = null!;
         public int Owner, OwnerSlot, Slot;   // Owner: the player id this battle; OwnerSlot: the fighting slot 0 to 3
@@ -118,6 +118,7 @@ public sealed class WarfrontSquadSim
         Array.Clear(_used);
         for (int i = 0; i < SquadRules.MaxOwners; i++) _path[i] = null;
         _notes.Clear(); _humanAttendant.Clear(); _humanProgress.Clear(); _kills.Clear(); _revives.Clear(); _downs.Clear(); _pendingDowns.Clear(); _pendingRevives.Clear();
+        ClassReset();   // W11
         int landed = 0;
         foreach (var (key, player, landing) in landings) landed += Land(key, player, landing);
         return landed;
@@ -151,9 +152,23 @@ public sealed class WarfrontSquadSim
             a.HealthMax = Math.Max(1f, m.Loadout.HealthMax * _healthScale[os]); a.ArmourMax = Math.Max(0f, m.Loadout.ArmourMax * _healthScale[os]);
             a.Health = a.HealthMax; a.Armour = a.ArmourMax;
             a.DownedLeft = 0; a.ReviveProgress = 0f; a.NextShot = 0; a.Target = 0; a.DutyMate = -1; a.DutyHuman = int.MinValue; a.Attendant = -1; a.ReviverMarine = -1; a.ReviverHuman = -1; a.Progressed = false;
+            ClassLand(a);   // W11: pack power, no flight
             landed++;
         }
         return landed;
+    }
+
+    /// <summary>
+    /// A returning player's new id for a squad already fighting (a mid-battle reconnect): only the binding changes; positions, health, armour, downed state and orders stay. False when the key is not fighting.
+    /// <see cref="Land"/> is for real landings (it stands the Marines up afresh).
+    /// </summary>
+    public bool Rebind(ulong key, int player)
+    {
+        int os = SlotOfKey(key);
+        if (os < 0) return false;
+        _player[os] = player;
+        for (int slot = 0; slot < SquadRules.MaxPerPlayer; slot++) { var a = _a[os * SquadRules.MaxPerPlayer + slot]; if (a.State != SquadState.Free) a.Owner = player; }
+        return true;
     }
 
     /// <summary>
@@ -169,6 +184,7 @@ public sealed class WarfrontSquadSim
             a.State = SquadState.Free; a.Attendant = -1;
         }
         _notes.Clear(); _humanAttendant.Clear(); _humanProgress.Clear();
+        ClassReset();   // W11
         Array.Clear(_used);
         return survived;
     }
@@ -192,7 +208,9 @@ public sealed class WarfrontSquadSim
     {
         if (index is < 0 or >= Max || _a[index].State == SquadState.Free) return null;
         var a = _a[index];
-        return new SquadMarineView(index, a.Key, a.Slot, a.State, a.Pos, a.Yaw, a.HealthMax > 0 ? Math.Clamp(a.Health / a.HealthMax, 0f, 1f) : 0f, a.State == SquadState.Downed ? a.DownedLeft * Dt : 0f);
+        return new SquadMarineView(index, a.Key, a.Slot, a.State, a.Pos, a.Yaw, a.HealthMax > 0 ? Math.Clamp(a.Health / a.HealthMax, 0f, 1f) : 0f, a.State == SquadState.Downed ? a.DownedLeft * Dt : 0f,
+            a.FiredAt == _tick && _tick != 0, a.Target != 0 ? a.Target : -1,
+            a.State == SquadState.Downed ? Math.Clamp(a.ReviveProgress / (a.ReviverHuman >= 0 ? SquadRules.PlayerReviveSeconds : SquadRules.MarineReviveSeconds), 0f, 1f) : 0f);
     }
 
     /// <summary>Every Marine in this battle as the wire shows it, in index order; the number written.</summary>
@@ -253,6 +271,7 @@ public sealed class WarfrontSquadSim
         if (i < 0 || _a[i].State != SquadState.Standing || !(damage > 0f)) return false;
         var a = _a[i];
         damage *= SquadRules.DamageTaken;
+        a.SinceHit = 0f;   // W11: regeneration waits after a hit
         float soak = Math.Min(a.Armour, damage);
         a.Armour -= soak; a.Health -= damage - soak;
         if (a.Health <= 0f) GoDown(i);
@@ -266,6 +285,7 @@ public sealed class WarfrontSquadSim
         a.DownedLeft = Math.Max(1, (int)MathF.Round(SquadRules.DownedSeconds * _arena.TickRate));
         a.DutyMate = -1; a.DutyHuman = int.MinValue;
         a.Marine.Record.TimesDowned++;
+        ClassDown(a);   // W11: out of the air
         _pendingDowns.Add(new SquadDown(a.Key, a.Slot));   // reported by the next Step (a Hit comes before it)
     }
 
@@ -311,6 +331,7 @@ public sealed class WarfrontSquadSim
         _inStep = true;
         _arena.Tick();
         RefreshPaths(humans);
+        ClassTick(humans);   // W11
         BeginDowned(humans, dt);
         for (int i = 0; i < Max; i++) if (_a[i].State == SquadState.Standing) StepAgent(i, humans, dt);
         EndDowned(humans);
@@ -368,6 +389,7 @@ public sealed class WarfrontSquadSim
     void StepAgent(int i, ReadOnlySpan<SquadHuman> humans, float dt)
     {
         var a = _a[i];
+        if (ClassStep(i, humans, dt)) return;   // W11: regeneration, flight, pound
         int os = a.OwnerSlot;
         var order = _order[os];
         bool ownerKnown = false; Vector3 ownerPos = a.Pos;
@@ -440,6 +462,7 @@ public sealed class WarfrontSquadSim
         if (Flat(to) > w.Range || _tick < a.NextShot) return;
         if (!w.Melee && !_arena.HasSight(a.Pos, tpos)) return;
         a.NextShot = _tick + (uint)Math.Max(1, (int)MathF.Round(w.Interval * _arena.TickRate));
+        a.FiredAt = _tick;   // W11 addition: the wire's Firing flag
         if (Roll(_tick, i, 1) >= w.HitChance) return;
         var push = Flat(to) > 0.01f ? Vector3.Normalize(new Vector3(to.X, to.Y, 0f)) : Vector3.Zero;
         float amount = w.Damage * _damageScale[os];
@@ -634,10 +657,10 @@ public sealed class WarfrontSquadSim
     {
         for (int i = 0; i < Max; i++)
         {
-            if (_a[i].State != SquadState.Standing) continue;
+            if (_a[i].State != SquadState.Standing || _a[i].Air) continue;
             for (int j = i + 1; j < Max; j++)
             {
-                if (_a[j].State != SquadState.Standing) continue;
+                if (_a[j].State != SquadState.Standing || _a[j].Air) continue;
                 var d = new Vector2(_a[j].Pos.X - _a[i].Pos.X, _a[j].Pos.Y - _a[i].Pos.Y);
                 float len = d.Length();
                 if (len >= SquadRules.Separation) continue;

@@ -34,6 +34,13 @@ public sealed record SquadLoadout
     public float HealthMax { get; init; } = SquadRules.DefaultHealth;
     public float ArmourMax { get; init; } = SquadRules.DefaultArmour;
     public SquadWeapon Weapon { get; init; } = new();
+    /// <summary>W11: seconds after the last hit before armour (the shield) and health regenerate, and how much a second; 0 rate: none (the W9 default). From the class data (<c>Loadouts.Body</c>).</summary>
+    public float ArmourRegenDelay { get; init; }
+    public float ArmourRegenRate { get; init; }
+    public float HealthRegenDelay { get; init; }
+    public float HealthRegenRate { get; init; }
+    /// <summary>W11: the class's jump pack (the Assault/Raptor); null: the Marine does not leap.</summary>
+    public SquadJump? Jump { get; init; }
 }
 
 /// <summary>One Marine's service record (the owner's list: kills, assists, revives, objectives, battles survived; plus times downed and the kill classes).</summary>
@@ -77,4 +84,4 @@ public readonly record struct SquadRevive(int ByHuman, int ByMarine, ulong Key, 
 public readonly record struct SquadDown(ulong Key, int Slot);
 
 /// <summary>A Marine as the wire shows it (W10): ids, state, place, facing, health share, seconds left of the downed window.</summary>
-public readonly record struct SquadMarineView(int Index, ulong Key, int Slot, SquadState State, Vector3 Position, float Yaw, float HealthShare, float DownedLeft);
+public readonly record struct SquadMarineView(int Index, ulong Key, int Slot, SquadState State, Vector3 Position, float Yaw, float HealthShare, float DownedLeft, bool Firing = false, int Target = -1, float ReviveShare = 0f);
