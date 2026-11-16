@@ -591,7 +591,7 @@ while (true)
                 return ServerCommandLine.RotationExit;
             }
         }
-        if (server.ExtrasRestartDue(out int restartCode))
+        if (server.ExtrasRestartDue(out int restartCode))   // EXTRAS-HOOK: Warfront stage change
         {
             // Warfront: the stage change is due (the next stage's map was prepared and the clients told); the supervisor starts it.
             Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-ddTHH:mm:ssZ}] stage change: leaving with code {restartCode}");
