@@ -33,6 +33,41 @@ public sealed record ObjectDefinition(string Name, IReadOnlyList<VisualPart> Vis
         return high.Count > 0 ? high : near;
     }
 
+    /// <summary>The parts the client draws: <see cref="HighestLod"/>, or <see cref="NearestLod"/> when <paramref name="oldRule"/> (<c>--old-lod-rule</c>).</summary>
+    public IEnumerable<VisualPart> DrawnParts(bool oldRule) => oldRule ? NearestLod() : HighestLod();
+
+    // A LOD suffix on a node name: _LODH, _LODM, _LODC, _LODL, with an optional underscore before the kind (lod_l), an optional number after it (_LODL01, _LODH2),
+    // a bare _LOD (read as low, like the old rule did), and a variant tag after it (_LODL_b, _LODH_A, _LODH_interior_B, LODHB: equal kinds with equal stems stay together); the stem is the name before it, possibly empty (a node named just LODH).
+    static readonly System.Text.RegularExpressions.Regex LodSuffix =
+        new(@"^(?<stem>.*?)_?lod_?(?<kind>[hmcl])?\d*[a-z]?(_[a-z0-9]+)*$", System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Compiled | System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+
+    /// <summary>The LOD family of a node name: its stem (lower case, without the suffix) and rank (0 H, 1 M, 2 C, 3 L or a bare LOD); null when the name carries no LOD suffix.</summary>
+    public static (string Stem, int Rank)? LodFamily(string node)
+    {
+        var m = LodSuffix.Match(node);
+        if (!m.Success) return null;
+        var kind = m.Groups["kind"].Success ? char.ToLowerInvariant(m.Groups["kind"].Value[0]) : 'l';
+        return (m.Groups["stem"].Value.ToLowerInvariant(), kind switch { 'h' => 0, 'm' => 1, 'c' => 2, _ => 3 });
+    }
+
+    /// <summary>
+    /// classic-maps-fidelity, **the client's default since the owner's choice of 2026-11-17** (<c>--old-lod-rule</c> uses <see cref="NearestLod"/> again): the parts of <see cref="NearestLod"/>, except that parts
+    /// whose node names share a stem and differ only in a LOD suffix (<see cref="LodFamily"/>: <c>_LODH</c>, <c>_LODM</c>, <c>_LODC</c>, <c>_LODL</c>, numbered or underscored variants) are one family of which only
+    /// the best-ranked member is kept (H, else M, else C, else L). Parts without such a suffix are kept as they are; a family of one member is kept.
+    /// Whether the suffixes name levels of detail of the same object is **not established** (spec "LOD-suffix family rule", medium). Computed once per definition.
+    /// </summary>
+    public IReadOnlyList<VisualPart> HighestLod() => _highest ??= ComputeHighestLod();
+    IReadOnlyList<VisualPart>? _highest;
+
+    List<VisualPart> ComputeHighestLod()
+    {
+        var parts = Visuals.Where(v => (v.LodLevel & 1) != 0).ToList();
+        var best = new Dictionary<string, int>();
+        foreach (var v in parts)
+            if (LodFamily(v.RefNode) is { } f) best[f.Stem] = best.TryGetValue(f.Stem, out var r) ? Math.Min(r, f.Rank) : f.Rank;
+        return parts.Where(v => LodFamily(v.RefNode) is not { } f || f.Rank == best[f.Stem]).ToList();
+    }
+
     static bool IsLowLodName(string node) =>
         node.Contains("lodl", StringComparison.OrdinalIgnoreCase) || node.EndsWith("_lod", StringComparison.OrdinalIgnoreCase);
 }
@@ -77,19 +112,19 @@ public sealed class MapScene
         Matrix4x4.CreateScale(scale) * Matrix4x4.CreateFromQuaternion(Rotation(rotationDegrees.X, rotationDegrees.Y, rotationDegrees.Z))
         * Matrix4x4.CreateTranslation(position);
 
-    public static MapScene Load(string gameDir, string map)
+    public static MapScene Load(string gameDir, string map, bool extendedLighting = true)
     {
         if (map.Length == 0 || map.Length > 64 || map.Any(c => !(char.IsAsciiLetterOrDigit(c) || c == '_')))
             throw new ArgumentException($"'{map}' is not a map name.", nameof(map));
         foreach (var region in new[] { "wrld", "r000_main" })
         {
             string path = Path.Combine(gameDir, "data", "chunks", $"{map}__{region}.oppc");
-            if (File.Exists(path)) return Read(path, map);
+            if (File.Exists(path)) return Read(path, map, extendedLighting);
         }
         throw new FileNotFoundException($"No region archive for '{map}'.");
     }
 
-    public static MapScene Read(string archivePath, string map)
+    public static MapScene Read(string archivePath, string map, bool extendedLighting = true)
     {
         var notes = new List<string>();
         var objects = new List<PlacedObject>();
@@ -106,7 +141,11 @@ public sealed class MapScene
                 if (archive.GroupName(e) == "Layer")
                 {
                     CollectObjects(root, e.FileName, Matrix4x4.Identity, objects, 0);
-                    if (e.FileName.Equals("l_lights", StringComparison.OrdinalIgnoreCase)) lighting = MapLighting.Read(root);
+                    if (extendedLighting ? e.FileName.StartsWith("l_lights", StringComparison.OrdinalIgnoreCase) : e.FileName.Equals("l_lights", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var read = MapLighting.Read(root, extendedLighting);
+                        lighting = lighting is null ? read : MapLighting.Combine([lighting, read]);
+                    }
                 }
                 else definitions.TryAdd(e.FileName, Definition(e.FileName, root));
             }

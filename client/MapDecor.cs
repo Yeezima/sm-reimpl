@@ -57,6 +57,24 @@ public static class MapDecor
     public static bool OldSkyBoxes => _oldSky ??= Array.IndexOf(OS.GetCmdlineUserArgs(), "--old-sky-boxes") >= 0;
     static bool? _oldSky;
 
+    /// <summary>classic-maps-fidelity: <c>--old-lod-rule</c> draws the parts of <see cref="ObjectDefinition.NearestLod"/> again (every node named like a low LOD dropped, _LodH and _LodM drawn together); by default one member of each LOD-suffix family is drawn (<see cref="ObjectDefinition.HighestLod"/>).</summary>
+    public static bool OldLodRule => _oldLod ??= Array.IndexOf(OS.GetCmdlineUserArgs(), "--old-lod-rule") >= 0;
+    static bool? _oldLod;
+
+    /// <summary>classic-maps-fidelity: <c>--old-map-lighting</c> reads only the layer <c>l_lights</c> and lowercase light classes, as before (every <c>MapScene.Load</c> of the client passes this).</summary>
+    public static bool OldMapLighting => _oldLight ??= Array.IndexOf(OS.GetCmdlineUserArgs(), "--old-map-lighting") >= 0;
+    static bool? _oldLight;
+
+    /// <summary>classic-maps-fidelity pass 2, test aid only: <c>--hide-layer a,b</c> does not draw the placements of those layers (default none).</summary>
+    public static HashSet<string> HiddenLayers => _hideLayers ??= ParseLayers();
+    static HashSet<string>? _hideLayers;
+    static HashSet<string> ParseLayers()
+    {
+        var args = OS.GetCmdlineUserArgs();
+        int i = Array.IndexOf(args, "--hide-layer");
+        return i >= 0 && i + 1 < args.Length ? args[i + 1].Split(',', StringSplitOptions.RemoveEmptyEntries).ToHashSet(StringComparer.OrdinalIgnoreCase) : new(StringComparer.OrdinalIgnoreCase);
+    }
+
     public static bool Old => _old ??= Array.IndexOf(OS.GetCmdlineUserArgs(), "--old-armoury-racks") >= 0;
     static bool? _old;
 

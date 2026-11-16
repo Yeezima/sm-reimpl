@@ -335,6 +335,7 @@ public partial class NetworkView : Node3D
             SetOwnLooks(clientOptions);   // customizer T7
             clientOptions = WithNetFeelArgs(clientOptions);   // net/responsive: the latency switches and the readout (NetworkView.Responsive.cs)
             _client = new GameClient(_config, fingerprint, clientTransport, clientClock, clientOptions, nonce: clientNonce);
+            _client.UnscaledClock = _devClock?.Real;   // dev-tools: the developer state's freshness runs on real time (a paused server repeats it every real second)
             DemoPrerollInReady();   // M40 T0: a replayed demo takes the Challenge (loads the map) and waits for the background loads before the first frame
             if (RequestedSide != Team.None) GD.Print($"--side: requesting the {SideName(RequestedSide)} side (the server may balance onto the other side)");
             GD.Print($"connecting to {endpoint}; tuning from {tuning.Source}; config {_config.Hash():X16}; idle animation {_idleAnimation ?? "none"}");
@@ -388,6 +389,7 @@ public partial class NetworkView : Node3D
             return;
         }
         if (!_bot && SoundTunerInput(e)) return;   // sound/tuning-tool: F7
+        if (!_bot && DevToolsInput(e)) return;   // dev-tools: F6 (NetworkView.DevTools.cs)
         if (Observe) { ObserverInput(e); return; }   // protocol 46: a spectator's keys and mouse (NetworkView.Observer.cs)
         if (_bot) return;
         PickupKey(e);   // fidelity gap 1: latch an E tap between input samples
@@ -463,6 +465,7 @@ public partial class NetworkView : Node3D
         DemoBeforeUpdate(delta);   // M40 T0: a replayed demo advances its clock by this frame and sets the recorded view
         LatencyProbeBeforeUpdate();   // feel/controls test aid (--latency-probe)
         _client.Update(SampleInput, EarlyTickWanted);   // feel/controls: an input edge runs the next tick now (NetworkView.Controls.cs)
+        DevToolsFrame();   // dev-tools (protocol 80): the panel, once a server announces the tools (NetworkView.DevTools.cs)
         StallFrameUpdated();   // fix/stall-keepalive
         DemoAfterUpdate(delta);    // M40 T0: records the view / ends the replay
         PadTestFrame();   // --pad-test (NetworkView.GamepadTest.cs)

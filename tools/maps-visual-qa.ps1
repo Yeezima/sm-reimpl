@@ -9,7 +9,7 @@
   eye height, each control point at eye height and from 4 m back and up (third person), and three long overviews. Stills: <OutDir>\<map>\<tag>_NNN.png,
   places.txt names them in order. Only the processes it starts are stopped, by PID. Bounded by --quit-after.
 #>
-param([Parameter(Mandatory)][string]$Map, [string]$Tag = 'before', [string]$OutDir = $env:SM_QA_MEDIA_DIR, [string]$PlaceRange = '', [string]$EngineArgs = '', [double]$Every = 2.5, [int]$Bots = 2, [string]$ClientArgs = '', [int]$Port = 0)
+param([Parameter(Mandatory)][string]$Map, [string]$Tag = 'before', [string]$OutDir = $env:SM_QA_MEDIA_DIR, [string]$PlaceRange = '', [string]$EngineArgs = '', [double]$Every = 2.5, [int]$Bots = 2, [string]$ClientArgs = '', [int]$Port = 0, [string]$CustomTour = '', [switch]$NoBots, [string]$TagB = '', [string]$ClientArgsB = '')
 $ErrorActionPreference = 'Stop'
 if (-not $OutDir) { throw 'pass -OutDir <folder> (or set SM_QA_MEDIA_DIR): stills show original assets and must stay outside the repository' }
 $RepoRoot = Split-Path -Parent $PSScriptRoot
@@ -64,6 +64,12 @@ if ($PlaceRange -match '^(\d+)-(\d+)$') {   # e.g. 19-22: the settle place plus 
     $keep = @(0) + @(($a - 1)..($b - 1) | Where-Object { $_ -lt $places.Count })
     $places = [System.Collections.Generic.List[string]]($keep | ForEach-Object { $places[$_] }); $names = [System.Collections.Generic.List[string]]($keep | ForEach-Object { $names[$_] })
 }
+if ($CustomTour) {   # classic-maps-fidelity pass 2: -CustomTour "label@x,y,z,yaw,pitch|label@..." replaces the generated places (a settle place is put first)
+    $places = [System.Collections.Generic.List[string]]::new(); $names = [System.Collections.Generic.List[string]]::new()
+    $items = @($CustomTour -split '\|' | Where-Object { $_ })
+    $names.Add('settle (dropped)'); $places.Add(($items[0] -split '@')[1])
+    foreach ($it in $items) { $p = $it -split '@'; $names.Add($p[0]); $places.Add($p[1]) }
+}
 $tour = ($places -join ';')
 $out = Join-Path $OutDir $Map
 New-Item -ItemType Directory -Force -Path $out | Out-Null
@@ -102,6 +108,13 @@ try {
     $eng = @(); if ($EngineArgs) { $eng = @($EngineArgs -split ' ' | Where-Object { $_ }) }
     $ga = @('--windowed') + $eng + @('--log', (Join-Path $logDir 'client.log'), '--')
     $ca = @('--connect', "127.0.0.1:$Port", '--observe', '--observe-tour', $tour, '--no-sound', '--no-hud', '--no-markers', '--screenshot', (Join-Path $out "$Tag.png"), '--screenshot-every', "$Every", '--quit-after', "$total") + $extra
+    if ($TagB) {   # classic-maps-fidelity pass 2: a second windowed observer on the same server with other client switches (the B image), same tour; only its pid is stopped
+        $extraB = @($ClientArgsB -split ' ' | Where-Object { $_ })
+        $gaB = @('--windowed', '--background') + $eng + @('--log', (Join-Path $logDir 'clientB.log'), '--')
+        $caB = @('--connect', "127.0.0.1:$Port", '--observe', '--observe-tour', $tour, '--no-sound', '--no-hud', '--no-markers', '--screenshot', (Join-Path $out "$TagB.png"), '--screenshot-every', "$Every", '--quit-after', "$total") + $extraB
+        $txtB = & (Join-Path $RepoRoot 'tools\godot.ps1') @gaB @caB *>&1 | Out-String
+        if ($txtB -match 'started pid (\d+)') { $pids += [int]$Matches[1] }
+    }
     & (Join-Path $RepoRoot 'tools\godot.ps1') @ga @ca *> $null
     Write-Host "client exited $LASTEXITCODE; stills in $out"
 }

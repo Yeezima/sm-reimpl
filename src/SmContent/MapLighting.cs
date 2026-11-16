@@ -75,16 +75,23 @@ public sealed class MapLighting
     public MapEnvironment? At(Vector3 p) =>
         Environments.Where(e => e.Contains(p)).OrderByDescending(e => e.Priority).FirstOrDefault() ?? Global;
 
-    public static MapLighting Read(BodValue root)
+    /// <summary>The union of several layers' lighting: the first sun, all environment regions, all lights.</summary>
+    public static MapLighting Combine(IEnumerable<MapLighting> parts)
+    {
+        var list = parts.ToList();
+        return new MapLighting { Sun = list.Select(p => p.Sun).FirstOrDefault(s => s is not null), Environments = list.SelectMany(p => p.Environments).ToList(), Lights = list.SelectMany(p => p.Lights).ToList() };
+    }
+
+    public static MapLighting Read(BodValue root, bool extended = true)
     {
         SunLight? sun = null;
         var environments = new List<MapEnvironment>();
         var lights = new List<MapLight>();
-        Walk(root, Matrix4x4.Identity, 0, ref sun, environments, lights);
+        Walk(root, Matrix4x4.Identity, 0, extended, ref sun, environments, lights);
         return new MapLighting { Sun = sun, Environments = environments, Lights = lights };
     }
 
-    static void Walk(BodValue value, Matrix4x4 parent, int depth, ref SunLight? sun, List<MapEnvironment> environments, List<MapLight> lights)
+    static void Walk(BodValue value, Matrix4x4 parent, int depth, bool extended, ref SunLight? sun, List<MapEnvironment> environments, List<MapLight> lights)
     {
         if (depth > 64) return;
         switch (value)
@@ -93,7 +100,8 @@ public sealed class MapLighting
             {
                 if (s["Disabled"] is BodBool { Value: true }) return;   // a disabled object hides its children too
                 var world = MapScene.Local(s) * parent;
-                switch (s.Class.Text)
+                string? cls = extended ? s.Class.Text?.ToLowerInvariant() : s.Class.Text;   // one spelling for the switch and the spot test
+                switch (cls)
                 {
                     case "base/sunlight":
                         sun ??= new SunLight(Forward(world), Vec3(s["Color"]) ?? Vector3.One, Num(s["Power"]) ?? 1f,
@@ -101,7 +109,7 @@ public sealed class MapLighting
                         break;
                     case "base/omnilight" or "base/spotlight" when s["Enabled"] is not BodBool { Value: false }:
                     {
-                        bool spot = s.Class.Text == "base/spotlight";
+                        bool spot = cls == "base/spotlight";
                         float end = Num(s["AttenEnd"]) ?? 10f;
                         lights.Add(new MapLight(spot ? MapLightKind.Spot : MapLightKind.Omni, (s["Name"] as BodString)?.Text ?? "",
                             new Vector3(world.M41, world.M42, world.M43), Forward(world), Vec3(s["Color"]) ?? Vector3.One, Num(s["Power"]) ?? 1f,
@@ -115,11 +123,11 @@ public sealed class MapLighting
                 }
                 foreach (var f in s.Fields)
                     if (f.Name.Text is "Root" or "Objects" or "ChildObjects")
-                        Walk(f.Value, f.Name.Text == "ChildObjects" ? world : parent, depth + 1, ref sun, environments, lights);
+                        Walk(f.Value, f.Name.Text == "ChildObjects" ? world : parent, depth + 1, extended, ref sun, environments, lights);
                 break;
             }
-            case BodList l: foreach (var item in l.Items) Walk(item.Value, parent, depth + 1, ref sun, environments, lights); break;
-            case BodRef r: Walk(r.Value, parent, depth + 1, ref sun, environments, lights); break;
+            case BodList l: foreach (var item in l.Items) Walk(item.Value, parent, depth + 1, extended, ref sun, environments, lights); break;
+            case BodRef r: Walk(r.Value, parent, depth + 1, extended, ref sun, environments, lights); break;
         }
     }
 

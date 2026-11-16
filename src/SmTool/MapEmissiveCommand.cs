@@ -14,6 +14,130 @@ public static class MapEmissiveCommand
         if (gameDir == "auto") gameDir = GameInstall.Locate();
         string map = rest.SkipWhile(a => a != "--map").Skip(1).FirstOrDefault() ?? "mp_tdm_09";
         bool all = rest.Contains("--all");
+        if (rest.SkipWhile(a => a != "--bod").Skip(1).FirstOrDefault() is { } bodArg)
+        {
+            // classic-maps-fidelity: prints one entry of the map's region archive as a tree, `--bod Layer:e_walls` or `--bod O3d:column_b` (group:file name); --depth n (default 6), --list-limit n (default 6) items per list
+            int maxDepth = int.TryParse(rest.SkipWhile(a => a != "--depth").Skip(1).FirstOrDefault(), out var md) ? md : 6;
+            int listLimit = int.TryParse(rest.SkipWhile(a => a != "--list-limit").Skip(1).FirstOrDefault(), out var ll) ? ll : 6;
+            string suffix = rest.SkipWhile(a => a != "--archive").Skip(1).FirstOrDefault(); string[] regions = suffix is null ? ["wrld", "r000_main"] : [suffix]; string path = regions.Select(r => Path.Combine(gameDir, "data", "chunks", $"{map}__{r}.oppc")).First(File.Exists);
+            using var arc = SmFormats.Obpk.ObpkArchive.Open(path);
+            var parts = bodArg.Split(':');
+            arc.ReadEntries(e => arc.GroupName(e).Equals(parts[0], StringComparison.OrdinalIgnoreCase) && e.FileName.Equals(parts[1], StringComparison.OrdinalIgnoreCase), (e, data) =>
+                { if (parts[0].Equals("lua", StringComparison.OrdinalIgnoreCase)) Console.WriteLine(System.Text.Encoding.Latin1.GetString(data).Replace("\0", ".")); else Dump(SmFormats.Bod.BodDocument.Read(data).Root, 0, "", maxDepth, listLimit); });
+            return 0;
+        }
+        if (rest.Contains("--visual-fields"))
+        {
+            // classic-maps-fidelity: every distinct value of the StaticMeshVisual fields LODType, FadeStartDistance, FadeEndDistance, DrawOrder, LODLevel, IsStatic, DecalReceiver and Renderable over the map's object
+            // definitions, with how many visuals carry it and example definitions (the fields the client does not read: which of them matter?)
+            string vpath = new[] { "wrld", "r000_main" }.Select(r => Path.Combine(gameDir, "data", "chunks", $"{map}__{r}.oppc")).First(File.Exists);
+            using var varc = SmFormats.Obpk.ObpkArchive.Open(vpath);
+            var seen = new SortedDictionary<string, (int N, List<string> Ex)>();
+            varc.ReadEntries(e => varc.GroupName(e) == "O3d", (e, data) =>
+            {
+                try
+                {
+                    var root = SmFormats.Bod.BodDocument.Read(data).Root as SmFormats.Bod.BodStruct;
+                    if (root?["Visuals"] is not SmFormats.Bod.BodList vl) return;
+                    foreach (var it in vl.Items)
+                        if (it.Value is SmFormats.Bod.BodStruct vs && vs.Class.Text == "StaticMeshVisual")
+                            foreach (var f in vs.Fields.Where(f => f.Name.Text is "LODType" or "FadeStartDistance" or "FadeEndDistance" or "DrawOrder" or "IsStatic" or "DecalReceiver" or "Renderable" or "MotionBlur"))
+                            {
+                                string val = f.Value switch { SmFormats.Bod.BodInt i => i.Value.ToString(), SmFormats.Bod.BodFloat fl => fl.Value.ToString("0.#"), SmFormats.Bod.BodBool b => b.Value.ToString(), _ => "?" };
+                                string key = $"{f.Name.Text}={val}"; var cur = seen.GetValueOrDefault(key, (0, new List<string>()));
+                                if (cur.Item2.Count < 4) cur.Item2.Add(e.FileName);
+                                seen[key] = (cur.Item1 + 1, cur.Item2);
+                            }
+                }
+                catch { }
+            });
+            foreach (var (k, (n, ex)) in seen) Console.WriteLine($"{k,-28} {n,5}  {string.Join(", ", ex)}");
+            return 0;
+        }
+        if (rest.Contains("--map-entry"))
+        {
+            // classic-maps-fidelity: the install's multiplayer_map entry of this map (front-end data: objectives per game type, layer lists if any), as a BAF tree
+            using var pa = SmFormats.Obpk.ObpkArchive.Open(Path.Combine(gameDir, "data", "packages", "multiplayer_map.oppc"));
+            pa.ReadEntries(e => pa.GroupName(e) == "attr_pc", (e, data) =>
+            {
+                var doc = SmFormats.Baf.BafDocument.Read(data);
+                if (doc.Root.String("map_name") == map) Console.WriteLine(SmTool.Dump.BafDump.Format(doc));
+            });
+            return 0;
+        }
+        if (rest.Contains("--archives"))
+        {
+            // classic-maps-fidelity: the map's archives in data/chunks (file names and sizes only) and, for each, its entries by group (count), and with --entries every entry name of the groups not Layer/dcm/dds/bmat/O3d
+            foreach (var f in Directory.GetFiles(Path.Combine(gameDir, "data", "chunks"), $"{map}*.oppc").Order())
+            {
+                Console.WriteLine($"{Path.GetFileName(f)} {new FileInfo(f).Length} bytes");
+                using var a = SmFormats.Obpk.ObpkArchive.Open(f);
+                var groups = new SortedDictionary<string, List<string>>();
+                a.ReadEntries(e => false, (e, d) => { });
+                foreach (var e in a.Entries) { var g = a.GroupName(e); if (!groups.TryGetValue(g, out var l)) groups[g] = l = []; l.Add(e.FileName); }
+                foreach (var (g, l) in groups)
+                    Console.WriteLine($"    {g,-12} {l.Count,5}  {(l.Count <= 40 && g is not ("dcm" or "dds" or "bmat" or "O3d") ? string.Join(",", l) : "")}");
+            }
+            return 0;
+        }
+        if (rest.Contains("--light-classes"))
+        {
+            // classic-maps-fidelity pass 2: per layer, the class names (exact spelling) of every object whose class mentions light, sun or environment, with counts: where the map's lights and environment regions are
+            string lpath = new[] { "wrld", "r000_main" }.Select(r => Path.Combine(gameDir, "data", "chunks", $"{map}__{r}.oppc")).First(File.Exists);
+            using var larc = SmFormats.Obpk.ObpkArchive.Open(lpath);
+            larc.ReadEntries(e => larc.GroupName(e) == "Layer", (e, data) =>
+            {
+                var tally = new SortedDictionary<string, int>();
+                void Walk(SmFormats.Bod.BodValue v, int depth)
+                {
+                    if (depth > 40) return;
+                    switch (v)
+                    {
+                        case SmFormats.Bod.BodStruct s:
+                            if (s.Class.Text is { } c && (c.Contains("light", StringComparison.OrdinalIgnoreCase) || c.Contains("sun", StringComparison.OrdinalIgnoreCase) || c.Contains("environment", StringComparison.OrdinalIgnoreCase)) && !c.EndsWith("Desc"))
+                                tally[c] = tally.GetValueOrDefault(c) + 1;
+                            foreach (var f in s.Fields) Walk(f.Value, depth + 1);
+                            break;
+                        case SmFormats.Bod.BodList l: foreach (var it in l.Items) Walk(it.Value, depth + 1); break;
+                        case SmFormats.Bod.BodRef r: Walk(r.Value, depth + 1); break;
+                    }
+                }
+                try { Walk(SmFormats.Bod.BodDocument.Read(data).Root, 0); } catch { return; }
+                if (tally.Count > 0) Console.WriteLine($"{e.FileName,-20} {string.Join("  ", tally.Select(t => $"{t.Key}={t.Value}"))}");
+            });
+            return 0;
+        }
+        if (rest.Contains("--flags"))
+        {
+            // classic-maps-fidelity: per layer, how many StaticObjects have each boolean flag set (Sky, DisableCollision, DisableShadow, DisableWorldOcclusion, Instanced...) and the layer's package names
+            string fpath = new[] { "wrld", "r000_main" }.Select(r => Path.Combine(gameDir, "data", "chunks", $"{map}__{r}.oppc")).First(File.Exists);
+            using var farc = SmFormats.Obpk.ObpkArchive.Open(fpath);
+            farc.ReadEntries(e => farc.GroupName(e) == "Layer", (e, data) =>
+            {
+                var tally = new SortedDictionary<string, int>(); var pkgs = new SortedDictionary<string, int>(); int total = 0;
+                void Walk(SmFormats.Bod.BodValue v, int depth)
+                {
+                    if (depth > 40) return;
+                    switch (v)
+                    {
+                        case SmFormats.Bod.BodStruct s:
+                            if (s.Class.Text == "StaticObject")
+                            {
+                                total++;
+                                foreach (var f in s.Fields) if (f.Value is SmFormats.Bod.BodBool { Value: true } && f.Name.Text is { } n && n != "Disabled" || f.Value is SmFormats.Bod.BodBool { Value: true } && f.Name.Text == "Disabled") tally[f.Name.Text!] = tally.GetValueOrDefault(f.Name.Text!) + 1;
+                                if ((s["PackageName"] as SmFormats.Bod.BodString)?.Text is { } pk) pkgs[pk] = pkgs.GetValueOrDefault(pk) + 1;
+                            }
+                            foreach (var f in s.Fields) Walk(f.Value, depth + 1);
+                            break;
+                        case SmFormats.Bod.BodList l: foreach (var it in l.Items) Walk(it.Value, depth + 1); break;
+                        case SmFormats.Bod.BodRef r: Walk(r.Value, depth + 1); break;
+                    }
+                }
+                try { Walk(SmFormats.Bod.BodDocument.Read(data).Root, 0); } catch { return; }
+                Console.WriteLine($"{e.FileName,-22} {total,5} objects  flags {string.Join(" ", tally.Select(t => $"{t.Key}={t.Value}"))}  packages {string.Join(",", pkgs.Take(6).Select(p => $"{p.Key}x{p.Value}"))}");
+            });
+            return 0;
+        }
         var scene = MapScene.Load(gameDir, map);
         if (rest.SkipWhile(a => a != "--surfaces").Skip(1).FirstOrDefault() is { } surf)
         {
@@ -63,6 +187,265 @@ public static class MapEmissiveCommand
                     }
                 }
             }
+            return 0;
+        }
+        if (rest.SkipWhile(a => a != "--objects").Skip(1).FirstOrDefault() is { } objArg && objArg.Split(',') is [var ox, var oy, var oz, var orad]
+            && float.TryParse(ox, out var ocx) && float.TryParse(oy, out var ocy) && float.TryParse(oz, out var ocz) && float.TryParse(orad, out var ocr))
+        {
+            // classic-maps-fidelity: every placement whose drawn world box comes within <r> metres of x,y,z (game metres): definition, layer, nesting depth, placement name, the transform's
+            // position and scale, and for each drawn part the mesh, its LOD mask, the world box and the material names. Finds what a view is made of.
+            var centre = new System.Numerics.Vector3(ocx, ocy, ocz);
+            foreach (var o in scene.Objects)
+            {
+                if (!scene.Definitions.TryGetValue(o.Definition, out var def)) continue;
+                foreach (var v in def.Visuals)
+                {
+                    if (!scene.Meshes.TryGetValue(v.MeshName, out var mesh)) continue;
+                    var lo = new System.Numerics.Vector3(float.MaxValue); var hi = new System.Numerics.Vector3(float.MinValue);
+                    var m = v.NodeTransform * o.Transform;
+                    var block = mesh.Blocks[Math.Min(v.MeshId, mesh.Blocks.Count - 1)];
+                    foreach (var p in block.Positions) { var w = System.Numerics.Vector3.Transform(p, m); lo = System.Numerics.Vector3.Min(lo, w); hi = System.Numerics.Vector3.Max(hi, w); }
+                    if (lo.X > hi.X) continue;
+                    var near = System.Numerics.Vector3.Clamp(centre, lo, hi);
+                    if ((near - centre).Length() > ocr) continue;
+                    var sc = new System.Numerics.Vector3(new System.Numerics.Vector3(o.Transform.M11, o.Transform.M12, o.Transform.M13).Length(), new System.Numerics.Vector3(o.Transform.M21, o.Transform.M22, o.Transform.M23).Length(), new System.Numerics.Vector3(o.Transform.M31, o.Transform.M32, o.Transform.M33).Length());
+                    var t = o.Transform.Translation; var sz = hi - lo;
+                    Console.WriteLine($"{o.Definition,-26} d{o.Depth} {o.Layer,-14} name {o.Name,-22} pos {t.X:0.0},{t.Y:0.0},{t.Z:0.0} scale {sc.X:0.##},{sc.Y:0.##},{sc.Z:0.##} | {v.MeshName} id{v.MeshId} node {v.RefNode} lod {v.LodLevel} box {sz.X:0.#}x{sz.Y:0.#}x{sz.Z:0.#} at {(lo.X + hi.X) / 2:0.#},{(lo.Y + hi.Y) / 2:0.#},{(lo.Z + hi.Z) / 2:0.#} | {string.Join(",", block.Materials.Select(r => r.Name).Distinct().Take(3))}");
+                }
+            }
+            return 0;
+        }
+        if (rest.SkipWhile(a => a != "--col-variants").Skip(1).FirstOrDefault() is { } variantDefs)
+        {
+            // classic-maps-fidelity: for the named definitions, each placement's parts drawn four ways (node chain then placement as now; placement only; node translation only; node rotation and scale
+            // only) and the share of each way's sampled vertices within 0.6 m of the character or weapon collision. The way whose share is highest is the one that matches the level's own collision.
+            var cw = MapContent.Load(gameDir, map).ToCollisionWorld();
+            var ds = new[] { System.Numerics.Vector3.UnitX, -System.Numerics.Vector3.UnitX, System.Numerics.Vector3.UnitY, -System.Numerics.Vector3.UnitY, System.Numerics.Vector3.UnitZ, -System.Numerics.Vector3.UnitZ };
+            if (variantDefs == "all")
+            {
+                // every part whose node transform is not the identity, aggregated by (definition, node): mean share per way over the placements; only (definition, node) pairs with at least 3 placements
+                var agg = new Dictionary<(string, string), (int N, float[] Sum)>();
+                foreach (var o in scene.Objects)
+                {
+                    if (!scene.Definitions.TryGetValue(o.Definition, out var def)) continue;
+                    foreach (var v in def.NearestLod())
+                    {
+                        if (v.NodeTransform.IsIdentity || !scene.Meshes.TryGetValue(v.MeshName, out var mesh)) continue;
+                        var block = mesh.Blocks[Math.Min(v.MeshId, mesh.Blocks.Count - 1)];
+                        var nt = v.NodeTransform; var rotOnly = nt; rotOnly.Translation = System.Numerics.Vector3.Zero;
+                        var variants = new[] { nt * o.Transform, o.Transform, System.Numerics.Matrix4x4.CreateTranslation(nt.Translation) * o.Transform, rotOnly * o.Transform };
+                        int step = Math.Max(1, block.Positions.Length / 60);
+                        var sh = variants.Select(m =>
+                        {
+                            int hit = 0, n = 0;
+                            for (int i = 0; i < block.Positions.Length; i += step)
+                            {
+                                var w = System.Numerics.Vector3.Transform(block.Positions[i], m); n++;
+                                foreach (var d in ds) if (cw.Character.Raycast(w, d, 0.6f) is not null || cw.Weapons.Raycast(w, d, 0.6f) is not null) { hit++; break; }
+                            }
+                            return n == 0 ? 0f : hit / (float)n;
+                        }).ToArray();
+                        var key = (o.Definition, v.RefNode);
+                        var cur = agg.GetValueOrDefault(key, (0, new float[4]));
+                        for (int k = 0; k < 4; k++) cur.Item2[k] += sh[k];
+                        agg[key] = (cur.Item1 + 1, cur.Item2);
+                    }
+                }
+                foreach (var ((d, node), (n, sum)) in agg.Where(a => a.Value.N >= 3).OrderByDescending(a => a.Value.N))
+                    Console.WriteLine($"{d,-30} node {node,-26} x{n,3}: node+placement {sum[0] / n:0.00}  placement only {sum[1] / n:0.00}  node translation only {sum[2] / n:0.00}  node rot/scale only {sum[3] / n:0.00}");
+                return 0;
+            }
+            var names = variantDefs.Split(',').ToHashSet(StringComparer.OrdinalIgnoreCase);
+            foreach (var o in scene.Objects.Where(o => names.Contains(o.Definition)))
+            {
+                if (!scene.Definitions.TryGetValue(o.Definition, out var def)) continue;
+                foreach (var v in def.Visuals)
+                {
+                    if (!scene.Meshes.TryGetValue(v.MeshName, out var mesh)) continue;
+                    var block = mesh.Blocks[Math.Min(v.MeshId, mesh.Blocks.Count - 1)];
+                    var nt = v.NodeTransform;
+                    var transOnly = System.Numerics.Matrix4x4.CreateTranslation(nt.Translation);
+                    var rotOnly = nt; rotOnly.Translation = System.Numerics.Vector3.Zero;
+                    var variants = new[] { nt * o.Transform, o.Transform, transOnly * o.Transform, rotOnly * o.Transform };
+                    int step = Math.Max(1, block.Positions.Length / 150);
+                    var shares = variants.Select(m =>
+                    {
+                        int hit = 0, n = 0;
+                        for (int i = 0; i < block.Positions.Length; i += step)
+                        {
+                            var w = System.Numerics.Vector3.Transform(block.Positions[i], m); n++;
+                            foreach (var d in ds) if (cw.Character.Raycast(w, d, 0.6f) is not null || cw.Weapons.Raycast(w, d, 0.6f) is not null) { hit++; break; }
+                        }
+                        return n == 0 ? 0 : hit / (float)n;
+                    }).ToArray();
+                    var t = o.Transform.Translation;
+                    Console.WriteLine($"{o.Definition} {o.Layer} at {t.X:0},{t.Y:0},{t.Z:0} {v.MeshName} id{v.MeshId} node {v.RefNode}: node+placement {shares[0]:0.00}, placement only {shares[1]:0.00}, node translation only {shares[2]:0.00}, node rot/scale only {shares[3]:0.00}");
+                }
+            }
+            return 0;
+        }
+        if (rest.Contains("--col-scale"))
+        {
+            // classic-maps-fidelity: placements with a non-uniform scale, drawn as now (scale in the object's own axes, then rotate: S*R*T) and the other way (rotate, then scale along the world axes: R*S*T),
+            // with the share of sampled vertices within 0.6 m of the level collision for each. Aggregated over all such placements and printed per definition.
+            var cw = MapContent.Load(gameDir, map).ToCollisionWorld();
+            var ds = new[] { System.Numerics.Vector3.UnitX, -System.Numerics.Vector3.UnitX, System.Numerics.Vector3.UnitY, -System.Numerics.Vector3.UnitY, System.Numerics.Vector3.UnitZ, -System.Numerics.Vector3.UnitZ };
+            var agg = new Dictionary<string, (int N, float A, float B, System.Numerics.Vector3 Scale, System.Numerics.Vector3 Rot)>();
+            foreach (var o in scene.Objects)
+            {
+                if (o.Depth != 0 || !scene.Definitions.TryGetValue(o.Definition, out var def)) continue;
+                if (!System.Numerics.Matrix4x4.Decompose(o.Transform, out var sc, out var rot, out var tr)) continue;
+                float lo = Math.Min(sc.X, Math.Min(sc.Y, sc.Z)), hi = Math.Max(sc.X, Math.Max(sc.Y, sc.Z));
+                if (lo <= 0 || hi / lo < 1.1f) continue;
+                var alt = System.Numerics.Matrix4x4.CreateFromQuaternion(rot) * System.Numerics.Matrix4x4.CreateScale(sc) * System.Numerics.Matrix4x4.CreateTranslation(tr);
+                foreach (var v in def.NearestLod())
+                {
+                    if (!scene.Meshes.TryGetValue(v.MeshName, out var mesh)) continue;
+                    var block = mesh.Blocks[Math.Min(v.MeshId, mesh.Blocks.Count - 1)];
+                    int step = Math.Max(1, block.Positions.Length / 60);
+                    float Share(System.Numerics.Matrix4x4 m)
+                    {
+                        int hit = 0, n = 0;
+                        for (int i = 0; i < block.Positions.Length; i += step)
+                        {
+                            var w = System.Numerics.Vector3.Transform(block.Positions[i], m); n++;
+                            foreach (var d in ds) if (cw.Character.Raycast(w, d, 0.6f) is not null || cw.Weapons.Raycast(w, d, 0.6f) is not null) { hit++; break; }
+                        }
+                        return n == 0 ? 0f : hit / (float)n;
+                    }
+                    float a = Share(v.NodeTransform * o.Transform), b = Share(v.NodeTransform * alt);
+                    var key = o.Definition + "|" + v.RefNode; var cur = agg.GetValueOrDefault(key, (0, 0f, 0f, sc, System.Numerics.Vector3.Zero));
+                    agg[key] = (cur.Item1 + 1, cur.Item2 + a, cur.Item3 + b, sc, cur.Item5);
+                }
+            }
+            foreach (var (k, (n, a, b, sc, _)) in agg.OrderByDescending(x => x.Value.N))
+                Console.WriteLine($"{k,-52} x{n,3} scale e.g. {sc.X:0.##},{sc.Y:0.##},{sc.Z:0.##}: S*R*T {a / n:0.00}   R*S*T {b / n:0.00}");
+            return 0;
+        }
+        if (rest.Contains("--col-audit"))
+        {
+            // classic-maps-fidelity: for every drawn placement (nearest LOD) with a large box, the share of sampled vertices that lie within 0.6 m of the level's character or weapon collision
+            // (six axis rays of 0.6 m). Large drawn geometry with none near it is either decor with no collision (vistas, rubble) or placed wrong; the list is for finding the second kind.
+            var world = MapContent.Load(gameDir, map).ToCollisionWorld();
+            float minSize = float.TryParse(rest.SkipWhile(a => a != "--min-size").Skip(1).FirstOrDefault(), out var ms) ? ms : 6f;
+            var dirs = new[] { System.Numerics.Vector3.UnitX, -System.Numerics.Vector3.UnitX, System.Numerics.Vector3.UnitY, -System.Numerics.Vector3.UnitY, System.Numerics.Vector3.UnitZ, -System.Numerics.Vector3.UnitZ };
+            var colRows = new List<(string Def, string Mesh, string Layer, float Share, System.Numerics.Vector3 Size, System.Numerics.Vector3 At, string Mats)>();
+            foreach (var o in scene.Objects)
+            {
+                if (!scene.Definitions.TryGetValue(o.Definition, out var def)) continue;
+                foreach (var v in def.NearestLod())
+                {
+                    if (!scene.Meshes.TryGetValue(v.MeshName, out var mesh)) continue;
+                    var block = mesh.Blocks[Math.Min(v.MeshId, mesh.Blocks.Count - 1)];
+                    var m = v.NodeTransform * o.Transform;
+                    var lo = new System.Numerics.Vector3(float.MaxValue); var hi = new System.Numerics.Vector3(float.MinValue);
+                    foreach (var p in block.Positions) { var w = System.Numerics.Vector3.Transform(p, m); lo = System.Numerics.Vector3.Min(lo, w); hi = System.Numerics.Vector3.Max(hi, w); }
+                    if (lo.X > hi.X) continue;
+                    var size = hi - lo;
+                    if (Math.Max(size.X, Math.Max(size.Y, size.Z)) < minSize) continue;
+                    int step = Math.Max(1, block.Positions.Length / 120), hit = 0, n = 0;
+                    for (int i = 0; i < block.Positions.Length; i += step)
+                    {
+                        var w = System.Numerics.Vector3.Transform(block.Positions[i], m); n++;
+                        foreach (var d in dirs)
+                            if (world.Character.Raycast(w, d, 0.6f) is not null || world.Weapons.Raycast(w, d, 0.6f) is not null) { hit++; break; }
+                    }
+                    colRows.Add((o.Definition, v.MeshName, o.Layer, n == 0 ? 0 : hit / (float)n, size, (hi + lo) / 2f, string.Join(",", block.Materials.Select(r => r.Name).Distinct().Take(3))));
+                }
+            }
+            float maxShare = float.TryParse(rest.SkipWhile(a => a != "--max-share").Skip(1).FirstOrDefault(), out var mx) ? mx : 0.05f;
+            foreach (var r in colRows.Where(r => r.Share <= maxShare).OrderByDescending(r => Math.Max(r.Size.X, Math.Max(r.Size.Y, r.Size.Z))))
+                Console.WriteLine($"{r.Def,-30} {r.Layer,-18} share {r.Share:0.00} size {r.Size.X,5:0}x{r.Size.Y,5:0}x{r.Size.Z,5:0} at {r.At.X,6:0},{r.At.Y,6:0},{r.At.Z,5:0}  {r.Mats}");
+            Console.WriteLine($"{colRows.Count} large parts, {colRows.Count(r => r.Share <= maxShare)} with at most {maxShare:0.00} of their vertices near collision");
+            return 0;
+        }
+        if (rest.Contains("--lod-names"))
+        {
+            // classic-maps-fidelity review: every visual node name containing "lod" (any case) of the definitions the map places, split by whether LodFamily reads a suffix from it
+            var placed = scene.Objects.Select(o => o.Definition).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var names = scene.Definitions.Values.Where(d => placed.Contains(d.Name)).SelectMany(d => d.Visuals.Select(v => v.RefNode)).Where(n => n.Contains("lod", StringComparison.OrdinalIgnoreCase)).ToList();
+            var unmatched = names.Where(n => ObjectDefinition.LodFamily(n) is null).GroupBy(n => n).OrderBy(g => g.Key).ToList();
+            Console.WriteLine($"{map}: {names.Count} node names with 'lod', {names.Count(n => ObjectDefinition.LodFamily(n) is not null)} read as family members, {unmatched.Sum(g => g.Count())} not read ({unmatched.Count} distinct){(unmatched.Count > 0 ? ": " + string.Join(", ", unmatched.Take(12).Select(g => g.Key)) : "")}");
+            return 0;
+        }
+        if (rest.Contains("--lod-families"))
+        {
+            // classic-maps-fidelity pass 2: per definition, visual parts whose node names share a stem and differ only in a LOD suffix (LODH, LODM, LODC, LODL, LOD<n>); prints each family's parts with
+            // mask, triangle count and local box, and totals (definitions, placements) for the map. Stem = node name with the suffix cut.
+            var counts2 = scene.Objects.GroupBy(o => o.Definition, StringComparer.OrdinalIgnoreCase).ToDictionary(g => g.Key, g => g.Count(), StringComparer.OrdinalIgnoreCase);
+int defs = 0, places = 0; bool quiet = rest.Contains("--summary");
+            foreach (var def in scene.Definitions.Values.Where(d => counts2.ContainsKey(d.Name)).OrderBy(d => d.Name))
+            {
+                var fam = def.Visuals.Select(v => (v, f: ObjectDefinition.LodFamily(v.RefNode))).Where(x => x.f is not null).GroupBy(x => x.f!.Value.Stem).Where(g => g.Select(x => x.f!.Value.Rank).Distinct().Count() > 1).ToList();
+                if (fam.Count == 0) continue;
+                defs++; places += counts2[def.Name];
+                if (quiet) continue;
+                Console.WriteLine($"{def.Name} x{counts2[def.Name]}");
+                foreach (var g in fam)
+                    foreach (var (v, _) in g)
+                    {
+                        string info = "mesh missing";
+                        if (scene.Meshes.TryGetValue(v.MeshName, out var mesh))
+                        {
+                            var b = mesh.Blocks[Math.Min(v.MeshId, mesh.Blocks.Count - 1)];
+                            var lo = new System.Numerics.Vector3(float.MaxValue); var hi = new System.Numerics.Vector3(float.MinValue);
+                            foreach (var p in b.Positions) { var w = System.Numerics.Vector3.Transform(p, v.NodeTransform); lo = System.Numerics.Vector3.Min(lo, w); hi = System.Numerics.Vector3.Max(hi, w); }
+                            info = $"tris {b.Materials.Sum(r => r.IndexCount / 3)} box {(hi - lo).X:0.#}x{(hi - lo).Y:0.#}x{(hi - lo).Z:0.#} at {(hi + lo).X / 2:0.#},{(hi + lo).Y / 2:0.#},{(hi + lo).Z / 2:0.#}";
+                        }
+                        Console.WriteLine($"    {v.RefNode,-40} id{v.MeshId} mask {v.LodLevel,3}  {info}");
+                    }
+            }
+            Console.WriteLine($"{defs} definitions with LOD-suffix families, {places} placements (map {map})");
+            // what the default rule (ObjectDefinition.HighestLod; --old-lod-rule is NearestLod) changes against the current NearestLod: per definition, parts dropped and parts added
+            int changedDefs = 0, changedPlacements = 0, droppedDraws = 0, addedDraws = 0;
+            foreach (var def in scene.Definitions.Values.Where(d => counts2.ContainsKey(d.Name)).OrderBy(d => d.Name))
+            {
+                var a = def.NearestLod().ToList(); var b = def.HighestLod().ToList();
+                var dropped = a.Except(b).ToList(); var added = b.Except(a).ToList();
+                if (dropped.Count == 0 && added.Count == 0) continue;
+                changedDefs++; changedPlacements += counts2[def.Name]; droppedDraws += dropped.Count * counts2[def.Name]; addedDraws += added.Count * counts2[def.Name];
+                if (!quiet) Console.WriteLine($"  B differs: {def.Name} x{counts2[def.Name]} drops [{string.Join(", ", dropped.Select(p => p.RefNode))}] adds [{string.Join(", ", added.Select(p => p.RefNode))}]");
+            }
+            Console.WriteLine($"B (HighestLod) differs from A (NearestLod) in {changedDefs} definitions, {changedPlacements} placements: {droppedDraws} part draws dropped, {addedDraws} added");
+            return 0;
+        }
+        if (rest.Contains("--lod-audit"))
+        {
+            // classic-maps-fidelity: definitions whose nearest-LOD selection (LODLevel bit 0, minus nodes named LODL) draws two or more parts with nearly the same local box (the same shape twice: a
+            // low LOD drawn on top of the high one). Prints the mask, node, triangle count and box of each part and the definition's placement count.
+            var counts = scene.Objects.GroupBy(o => o.Definition, StringComparer.OrdinalIgnoreCase).ToDictionary(g => g.Key, g => g.Count(), StringComparer.OrdinalIgnoreCase);
+            foreach (var def in scene.Definitions.Values.Where(d => counts.ContainsKey(d.Name)).OrderBy(d => d.Name))
+            {
+                var parts = def.NearestLod().Select(v =>
+                {
+                    if (!scene.Meshes.TryGetValue(v.MeshName, out var mesh)) return (v, tris: 0, lo: System.Numerics.Vector3.Zero, hi: System.Numerics.Vector3.Zero, ok: false);
+                    var b = mesh.Blocks[Math.Min(v.MeshId, mesh.Blocks.Count - 1)];
+                    var lo = new System.Numerics.Vector3(float.MaxValue); var hi = new System.Numerics.Vector3(float.MinValue);
+                    foreach (var p in b.Positions) { var w = System.Numerics.Vector3.Transform(p, v.NodeTransform); lo = System.Numerics.Vector3.Min(lo, w); hi = System.Numerics.Vector3.Max(hi, w); }
+                    return (v, tris: b.Materials.Sum(r => r.IndexCount / 3), lo, hi, ok: lo.X <= hi.X);
+                }).Where(p => p.ok).ToList();
+                var flagged = new HashSet<int>();
+                for (int i = 0; i < parts.Count; i++)
+                    for (int j = i + 1; j < parts.Count; j++)
+                    {
+                        var lo = System.Numerics.Vector3.Max(parts[i].lo, parts[j].lo); var hi = System.Numerics.Vector3.Min(parts[i].hi, parts[j].hi);
+                        var d = hi - lo; if (d.X <= 0 || d.Y <= 0 || d.Z <= 0) continue;
+                        float inter = d.X * d.Y * d.Z;
+                        float vi = (parts[i].hi - parts[i].lo).X * (parts[i].hi - parts[i].lo).Y * (parts[i].hi - parts[i].lo).Z, vj = (parts[j].hi - parts[j].lo).X * (parts[j].hi - parts[j].lo).Y * (parts[j].hi - parts[j].lo).Z;
+                        if (inter >= 0.7f * Math.Min(vi, vj) && parts[i].v.MeshName == parts[j].v.MeshName || inter >= 0.7f * Math.Min(vi, vj) && Math.Min(parts[i].tris, parts[j].tris) * 2 < Math.Max(parts[i].tris, parts[j].tris))
+                        { flagged.Add(i); flagged.Add(j); }
+                    }
+                if (flagged.Count == 0) continue;
+                Console.WriteLine($"{def.Name} x{counts[def.Name]}");
+                foreach (var i in flagged.Order()) { var p = parts[i]; Console.WriteLine($"    {p.v.MeshName} id{p.v.MeshId} node {p.v.RefNode} lod {p.v.LodLevel} tris {p.tris} box {(p.hi - p.lo).X:0.#}x{(p.hi - p.lo).Y:0.#}x{(p.hi - p.lo).Z:0.#}"); }
+            }
+            return 0;
+        }
+        if (rest.Contains("--layers"))
+        {
+            // classic-maps-fidelity: the placed objects per layer (layer name, placements, distinct definitions, the first few definitions by count)
+            foreach (var g in scene.Objects.GroupBy(o => o.Layer, StringComparer.OrdinalIgnoreCase).OrderBy(g => g.Key))
+                Console.WriteLine($"{g.Key,-22} {g.Count(),6} placements {g.Select(o => o.Definition).Distinct().Count(),4} defs  nested {g.Count(o => o.Depth > 0),5}  e.g. {string.Join(", ", g.GroupBy(o => o.Definition).OrderByDescending(x => x.Count()).Take(6).Select(x => $"{x.Key}x{x.Count()}"))}");
             return 0;
         }
         if (rest.Contains("--big"))
@@ -164,5 +547,31 @@ public static class MapEmissiveCommand
         }
         Console.WriteLine($"{rows.Select(r => r.Material).Distinct().Count()} materials, {rows.Count} mesh surfaces listed (map {map})");
         return 0;
+    }
+
+    static void Dump(SmFormats.Bod.BodValue v, int depth, string label, int maxDepth, int listLimit)
+    {
+        string pad = new(' ', depth * 2);
+        switch (v)
+        {
+            case SmFormats.Bod.BodStruct st:
+                Console.WriteLine($"{pad}{label}{st.Class.Text} {{");
+                if (depth >= maxDepth) { Console.WriteLine($"{pad}  ..."); Console.WriteLine($"{pad}}}"); break; }
+                foreach (var f in st.Fields) Dump(f.Value, depth + 1, $"{f.Name.Text} = ", maxDepth, listLimit);
+                Console.WriteLine($"{pad}}}");
+                break;
+            case SmFormats.Bod.BodList l:
+                Console.WriteLine($"{pad}{label}list[{l.Items.Count}]");
+                if (depth >= maxDepth) break;
+                foreach (var it in l.Items.Take(listLimit)) Dump(it.Value, depth + 1, "- ", maxDepth, listLimit);
+                break;
+            case SmFormats.Bod.BodRef r: Dump(r.Value, depth, label + "&ref ", maxDepth, listLimit); break;
+            case SmFormats.Bod.BodArray a: Console.WriteLine($"{pad}{label}[{string.Join(", ", a.Items.Take(8).Select(i => i is SmFormats.Bod.BodFloat f ? f.Value.ToString("0.###") : i.ToString()))}]"); break;
+            case SmFormats.Bod.BodString s: Console.WriteLine($"{pad}{label}\"{s.Text}\""); break;
+            case SmFormats.Bod.BodInt i: Console.WriteLine($"{pad}{label}{i.Value}"); break;
+            case SmFormats.Bod.BodFloat f: Console.WriteLine($"{pad}{label}{f.Value:0.###}"); break;
+            case SmFormats.Bod.BodBool b: Console.WriteLine($"{pad}{label}{b.Value}"); break;
+            default: Console.WriteLine($"{pad}{label}{v.GetType().Name}"); break;
+        }
     }
 }

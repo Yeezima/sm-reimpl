@@ -157,7 +157,7 @@ public partial class NetworkView
 
     void LoadScene(MapStage1 stage, string file)
     {
-        try { stage.Scene = MapScene.Load(_gameDir, file); }
+        try { stage.Scene = MapScene.Load(_gameDir, file, extendedLighting: !MapDecor.OldMapLighting); }
         catch (Exception e) when (e is not (StackOverflowException or AccessViolationException)) { stage.SceneError = $"{e.GetType().Name}: {e.Message}"; }
     }
 

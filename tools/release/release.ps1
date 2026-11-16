@@ -1265,6 +1265,17 @@ if (-not $SkipBuild) {
         Copy-Item -Path (Join-Path $kitModels '*.glb') -Destination $kitTo
         if ((Get-ChildItem -LiteralPath $kitTo -Filter *.glb).Count -ne 4) { Fail 'The owner kit did not copy: expected 4 GLBs.' }
 
+        # The owner's shipped sound mix (sound/mix-expand, 2026-11-17): config/sound-mix-defaults.json (and the older config/sound-tuning-defaults.json), when committed, go beside the exe as
+        # assets\<file> (the client reads them there first, then from config/ in a checkout). Neither file: the game's own sound, as before. `smtool sound-config diff <file>` lists what one changes.
+        foreach ($mixFile in @('sound-mix-defaults.json', 'sound-tuning-defaults.json')) {
+            $mixSrc = Join-Path $SrcCopy (Join-Path 'config' $mixFile)
+            if (Test-Path -LiteralPath $mixSrc) {
+                New-Item -ItemType Directory -Force -Path (Join-Path $exportDir 'assets') | Out-Null
+                Copy-Item -LiteralPath $mixSrc -Destination (Join-Path $exportDir (Join-Path 'assets' $mixFile))
+                Write-Host "  Sound mix defaults shipped: $mixFile"
+            }
+        }
+
         # Musou's Ashfall Citadel kit look (owner, 2026-11-06: the release carries Ashfall the same as the local playtests): the owner's generated models,
         # exactly the files the kit loads (smtool ashfall-kit-files), copied from his private library (read only) beside the exe as ashfall-kit\.
         # A missing library or file fails the build: a tester build without them would fall back to the graybox look.
