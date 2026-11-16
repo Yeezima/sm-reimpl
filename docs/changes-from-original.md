@@ -29,7 +29,7 @@ and gore are listed in their own design documents for now (the rest of section 0
 
 | What | Ours / the owner's | Value | Spec row |
 |---|---|---|---|
-| Ork fortress level and the `IWarfrontArena` interface (generation only) | ours (plan section 2, slot 11): not an SM1 map; generated in code behind an interface a handmade map can replace; every size an estimate | 300 x 320 m: an outer yard, a 12 m gate, eight street blocks, a 90 x 90 m plaza (radius 45 m) for the Warboss with a 16 m opening south and 12 m openings each side, three routes (centre and both flank lanes), every Ork opening at least 8 m wide and 10 m clear | Warfront fortress map profile and arena interface |
+| Ork fortress level and the `IWarfrontArena` interface (generation only) | ours (plan section 2, slot 11): not an SM1 map; generated in code behind an interface a handmade map can replace; every size an estimate | 300 x 320 m: an outer yard, a 12 m gate (14 m clear) and an 8 m west breach, eight street blocks, a 90 x 90 m plaza (radius 45 m) for the Warboss with open 16 m (south) and 12 m (side) openings, three routes (centre, east lane, west lane by the breach), every Ork opening at least 8 m wide | Warfront fortress map profile and arena interface |
 
 ### Controller (gamepad feature; spec "Controller (gamepad)")
 

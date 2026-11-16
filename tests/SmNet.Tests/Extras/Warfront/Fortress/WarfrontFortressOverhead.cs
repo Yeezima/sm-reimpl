@@ -14,7 +14,7 @@ internal static class WarfrontFortressOverhead
 {
     const float Scale = 2f;   // pixels per metre
 
-    public static void Write(string path, IWarfrontArena map, bool roofs, IReadOnlyList<Vector3>? route)
+    public static void Write(string path, WarfrontFortressBuild map, bool roofs, IReadOnlyList<Vector3>? route)
     {
         float x0 = map.WalkArea.Min.X, y1 = map.WalkArea.Max.Y;
         int w = (int)((map.WalkArea.Max.X - map.WalkArea.Min.X) * Scale), h = (int)((map.WalkArea.Max.Y - map.WalkArea.Min.Y) * Scale);

@@ -19,19 +19,19 @@ public sealed record WarfrontArenaDimension(string Name, float Value, string Uni
 public sealed record WarfrontArenaRoute(string Name, IReadOnlyList<Vector3> Via);
 
 /// <summary>
-/// Everything the final battle reads about the Ork fortress (plan section 2, "map interface"): the collision level (with its hash), the landing zone, the Warboss's spot, the Ork sources by stage,
+/// Everything the final battle reads about the Ork fortress (plan section 2, "map interface"): the collision world and its hash, the landing zone, the Warboss's spot, the Ork sources by stage,
 /// the posts, the routes and the widths of every opening an Ork walks. <see cref="WarfrontFortressMap"/> is the generated one; a handmade map (a Mapmaker export) that supplies the same members replaces it.
 /// </summary>
 public interface IWarfrontArena
 {
     /// <summary>The arena's name.</summary>
     string Name { get; }
-    /// <summary>The arena's version (raised with any change of its geometry or markers; folded into the level's hash by the arena).</summary>
+    /// <summary>The arena's version (raised with any change of its geometry or markers; folded into its hash).</summary>
     uint Version { get; }
-    /// <summary>The collision level; its <see cref="AshfallLevel.Hash"/> covers the geometry and every marker below.</summary>
-    AshfallLevel Level { get; }
+    /// <summary>The collision world the battle walks and shoots in (a handmade map's collision, or the generated level's).</summary>
+    CollisionWorld Collision { get; }
     /// <summary>The geometry and marker hash (the Challenge's map-hash check compares it).</summary>
-    ulong Hash => Level.Hash;
+    ulong Hash { get; }
     /// <summary>Where the Marines land.</summary>
     Vector3 LandingZone { get; }
     /// <summary>The centre of the Warboss's arena: where the Warboss stands.</summary>
@@ -46,8 +46,6 @@ public interface IWarfrontArena
     IReadOnlyList<WarfrontArenaRoute> Routes { get; }
     /// <summary>The widths of every opening an Ork walks, metres: each at least <see cref="WarfrontArenaGates.OrkOpening"/>.</summary>
     IReadOnlyList<WarfrontArenaDimension> RouteWidths { get; }
-    /// <summary>The roof parts of <see cref="Level"/> (hidden by a cutaway overhead).</summary>
-    IReadOnlyList<int> RoofParts { get; }
     /// <summary>The walking graph's area and seeds.</summary>
     NavArea WalkArea { get; }
 }
@@ -62,14 +60,6 @@ public static class WarfrontArenaGates
 
     /// <summary>The geometry hash of a part list at a version (what <see cref="MarkerHash"/> starts from).</summary>
     public static ulong GeometryHash(IReadOnlyList<AshfallPart> parts, uint version) => AshfallMap.HashOf(parts, version);
-
-    /// <summary>Axis-aligned solid boxes as level parts (for a small handmade arena or a test stub), made by the same builder the generated map uses.</summary>
-    public static List<AshfallPart> Boxes(params (AshfallKind Kind, float X0, float Y0, float Z0, float X1, float Y1, float Z1)[] boxes)
-    {
-        var b = new AshfallBuilder();
-        foreach (var x in boxes) b.Box(x.Kind, x.X0, x.Y0, x.Z0, x.X1, x.Y1, x.Z1);
-        return b.Parts;
-    }
 
     /// <summary>The geometry hash with the markers folded in, so a moved marker changes the level's hash.</summary>
     public static ulong MarkerHash(ulong h, IReadOnlyList<ControlPoint> points, IReadOnlyList<StartArea> areas, IReadOnlyList<WarfrontArenaSource> sources, IReadOnlyList<WarfrontArenaPost> posts,
@@ -87,7 +77,7 @@ public static class WarfrontArenaGates
         return h;
     }
 
-    /// <summary>The checks that need no walking graph: widths, route count, stages, the markers inside the walking area, the roofs real parts. One line per failure (empty: all pass).</summary>
+    /// <summary>The checks that need no walking graph: widths, route count, stages, the markers inside the walking area, One line per failure (empty: all pass).</summary>
     public static IReadOnlyList<string> CheckStructure(IWarfrontArena a)
     {
         var f = new List<string>();
@@ -109,8 +99,6 @@ public static class WarfrontArenaGates
             if (!Inside(s.Position)) f.Add($"source '{s.Name}' outside the walking area");
         foreach (var p in a.Posts)
             if (!Inside(p.Position)) f.Add($"post '{p.Name}' outside the walking area");
-        foreach (int r in a.RoofParts)
-            if (r < 0 || r >= a.Level.Parts.Count) f.Add($"roof part {r} does not exist");
         return f;
     }
 
