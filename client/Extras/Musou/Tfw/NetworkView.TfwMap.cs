@@ -22,9 +22,14 @@ public partial class NetworkView
 
     TfwMapView? _tfwHubView;
 
+    /// <summary>A Warfront lane slot's name (<c>wf_*</c>): generated in code like Ashfall, and a war map (client/Extras/Warfront/Stage).</summary>
+    partial void WarfrontIsGeneratedMap(string name, ref bool yes);
+
     void TfwMapFile(ref string file)
     {
-        if (TfwMap.IsAshfall(file)) { file = "none"; return; }   // Ashfall Citadel is generated in code: no install file (NetworkView.TfwAshfall.cs); "none" makes the readers of map files skip
+        bool warfrontMap = false;
+        WarfrontIsGeneratedMap(file, ref warfrontMap);   // WARFRONT-HOOK
+        if (TfwMap.IsAshfall(file) || warfrontMap) { file = "none"; return; }   // Ashfall Citadel is generated in code: no install file (NetworkView.TfwAshfall.cs); "none" makes the readers of map files skip
         if (file != TfwMap.ManufactorumName) return;
         if (!MapContent.Available(_gameDir).Contains(TfwMap.Battlefield)) throw new System.IO.FileNotFoundException(TfwWorld.Missing("the map is not in this install"));
         file = TfwMap.Battlefield;
@@ -32,7 +37,9 @@ public partial class NetworkView
 
     void TfwMapCollision(string name, ref CollisionWorld world, ref ulong hash)
     {
-        if (!TfwMap.IsWarMap(name)) return;
+        bool warfrontMap = false;
+        WarfrontIsGeneratedMap(name, ref warfrontMap);   // WARFRONT-HOOK
+        if (!TfwMap.IsWarMap(name) && !warfrontMap) return;
         bool manufactorum = name == TfwMap.ManufactorumName;
         TfwRangeArea = TfwRange.For(world);
         var (composed, hub, composedHash) = TfwMap.WithHub(world, manufactorum);
