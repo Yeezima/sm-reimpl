@@ -253,4 +253,98 @@ public class CancelEditorNetTests
         // a table is no different from itself
         Assert.Empty(t.DiffAgainst(t));
     }
+
+    // ---- review fixes ----
+
+    [Fact]
+    public void A_bot_and_a_spectator_cannot_edit_the_table()
+    {
+        var options = new ServerOptions { DevTools = new DevToolsSetup(IPAddress.Loopback, null) };
+        var h = new Harness(Link, seed: 9, 0, Own(), options);
+        var bot = h.AddClient(Own(), nonce: 601, options: new ClientOptions { Bot = true });
+        var watcher = h.AddClient(Own(), nonce: 602, options: new ClientOptions { Observer = true });
+        Settle(h, 2.0);
+        bot.SendCancelEdit(DevCancelOp.Apply, [Change("jp_hop", "light", new(CancelState.No))]);
+        watcher.SendCancelEdit(DevCancelOp.Apply, [Change("jp_hop", "heavy", new(CancelState.No))]);   // an observer's client refuses to send; the server would too
+        Settle(h, 1.5);
+        Assert.False(h.Server.World.Config.Cancel.Edited);
+        var human = h.AddClient(Own(), nonce: 603);
+        Settle(h, 2.0);
+        human.SendCancelEdit(DevCancelOp.Apply, [Change("jp_hop", "light", new(CancelState.No))]);
+        Settle(h, 1.5);
+        Assert.True(h.Server.World.Config.Cancel.Edited);   // a player still can
+    }
+
+    [Fact]
+    public void An_import_burst_still_works_while_the_server_is_paused()
+    {
+        var manual = new ManualClock();
+        var scalable = new ScalableClock(manual);
+        var net = new LoopbackNetwork(manual, Link, 5);
+        var server = new GameServer(Own(), Harness.Fingerprint, net.Server, scalable, new ServerOptions { DevTools = new DevToolsSetup(IPAddress.Loopback, null, scalable) }, null);
+        var client = new GameClient(Own(), Harness.Fingerprint, net.Connect(), manual, null, nonce: 7);
+        void Run(int ms) { for (int i = 0; i < ms; i++) { manual.Advance(TimeSpan.FromMilliseconds(1)); server.Update(); client.Update(t => new PlayerInput(t, 0, 0, 0, InputButtons.None)); } }
+        Run(2500);
+        Assert.Equal(ClientStatus.Connected, client.Status);
+        client.SendDevCommand(DevCommandKind.SetTimeScale, 4, true);   // paused: the scaled clock stands still
+        Run(500);
+        uint tick = server.World.Tick;
+        var changes = new List<CancelChange>();
+        for (int r = 0; r < CancelLayout.RowCount; r++)
+            for (int c = 0; c < CancelLayout.ColCount; c++)
+                if (CancelData.Shipped.Base(r, c).State != CancelState.NotApplicable) changes.Add(new(CancelScope.Any, r, c, new CancelCell(CancelState.No)));
+        client.SendCancelEdit(DevCancelOp.Apply, changes);   // 10 datagrams in a burst
+        Run(1500);
+        Assert.Equal(tick, server.World.Tick);   // still paused
+        Assert.Equal(changes.Count(c => CancelData.Shipped.Base(c.Row, c.Col).State != CancelState.No), server.World.Config.Cancel.Active.DiffFromShipped().Count);
+        Assert.True(server.World.Config.Cancel.Edited);
+    }
+
+    [Fact]
+    public void A_missing_malformed_or_foreign_default_table_falls_back_to_the_baseline_with_a_reason()
+    {
+        foreach (string bad in new[] { "", "not json", "{ \"format\": 1, \"rows\": [], \"cols\": [], \"cells\": {} }", "{ \"format\": 2 }" })
+        {
+            var t = CancelData.ResolveShipped(bad, out string error);
+            Assert.Equal(CancelData.Baseline.Hash, t.Hash);
+            Assert.False(t.DiffersFromBaseline);
+            Assert.StartsWith("shipped cancel table unusable", error);
+        }
+        var good = CancelData.ResolveShipped(CancelData.Shipped.ToJson("x"), out string none);
+        Assert.Equal("", none);
+        Assert.Equal(CancelData.Shipped.Hash, good.Hash);
+        Assert.Null(CancelData.ShippedError);   // the embedded file of this build is fine
+    }
+
+    [Fact]
+    public void Overrides_naming_a_class_or_weapon_the_build_lacks_are_found_and_dropped()
+    {
+        var c = Own();
+        string cls = c.Classes[0].Name, wpn = c.Weapons[0].Name;
+        var t = CancelData.Shipped
+            .With(new(cls, ""), Row("jp_hop"), Col("light"), new(CancelState.No))
+            .With(new("no such class", ""), Row("jp_hop"), Col("heavy"), new(CancelState.No))
+            .With(new("", "no such gun"), Row("reload"), Col("light"), new(CancelState.Yes))
+            .With(new("", wpn), Row("reload"), Col("heavy"), new(CancelState.Yes));
+        Assert.Equal(2, t.UnknownScopes(c).Count);
+        var kept = t.WithoutUnknownScopes(c, out var dropped);
+        Assert.Equal(2, dropped.Count);
+        Assert.Empty(kept.UnknownScopes(c));
+        Assert.Equal(2, kept.OverrideList().Count());
+        // the sync of the kept table is what a client builds: the hashes agree
+        Assert.Equal(kept.Hash, CancelData.FromShipped(kept.DiffFromShipped()).Hash);
+    }
+
+    [Fact]
+    public void A_window_with_no_times_is_open_the_whole_action_that_is_it_acts_as_yes()
+    {
+        SimConfig c;
+        c = CancelGateTests.Plays(MeleeCancelTests.Pack, CancelGateTests.Edit("reload", "light", new(CancelState.Window)));
+        Assert.True(CancelGate.Active(c));   // reload x light is no by default: a timeless window now opens it
+        var s = MeleeCancelTests.Fresh(c, 0) with { Clip = 5 };
+        s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 0f, 0f, InputButtons.Reload), c, out _);
+        Assert.True(s.ReloadLeft > 0f);
+        s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 0f, 0f, InputButtons.Melee), c, out _);
+        Assert.True(s.MeleeStep > 0 && s.ReloadLeft <= 0f);
+    }
 }

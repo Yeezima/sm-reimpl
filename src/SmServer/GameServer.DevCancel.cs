@@ -32,9 +32,10 @@ public sealed partial class GameServer
         if (!DevToolsOn) { NoteDevRefused("this server was not started with --dev-tools on a loopback address"); return; }
         var remote = _transport.EndPointOf(connection);
         if (!DevToolsGate.FromLoopback(remote)) { NoteDevRefused($"{remote?.Address} is not a loopback address"); return; }
-        if (peer.Spectator) return;
+        if (peer.Spectator || peer.Bot) return;   // a bot (or a spectator) never edits the table
+        var real = _options.DevTools?.Clock?.Real.Now ?? _clock.Now;   // real time: an edit works while the server is paused
         peer.CancelEdits ??= new TokenBucket(CancelEditRate, CancelEditBurst);
-        if (!peer.CancelEdits.TryTake(_clock.Now)) { Answer(DevNote.TooFast); SendDevStates(); return; }
+        if (!peer.CancelEdits.TryTake(real)) { Answer(DevNote.TooFast); SendDevStates(); return; }
         var table = CancelTable;
         int applied = 0, bad = 0;
         switch (edit.Op)

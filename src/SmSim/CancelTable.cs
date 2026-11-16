@@ -102,16 +102,19 @@ public sealed class CancelData
     }
 
     // ---- the two embedded files ----
-    static CancelData? _baseline, _shipped;
-    static CancelDoc? _doc;
-    static readonly object Gate = new();
+    static readonly Lazy<CancelData> BaselineLazy = new(LoadBaseline);
+    static readonly Lazy<CancelData> ShippedLazy = new(LoadShipped);
+    static CancelDoc _doc = new();
+    static string? _shippedError;
 
     /// <summary>The code's own behaviour (<c>Data/cancel-baseline.json</c>); the gate never changes a cell equal to it.</summary>
-    public static CancelData Baseline { get { lock (Gate) return _baseline ??= LoadBaseline(); } }
+    public static CancelData Baseline => BaselineLazy.Value;
     /// <summary>The release's default table (<c>config/cancel-table.json</c>, embedded); equal to <see cref="Baseline"/> until the owner's export is applied.</summary>
-    public static CancelData Shipped { get { lock (Gate) return _shipped ??= LoadShipped(); } }
+    public static CancelData Shipped => ShippedLazy.Value;   // lock-free once loaded (the hot path reads it once per player-tick)
+    /// <summary>Why the embedded default could not be used (it is malformed, missing or has another layout) and the baseline stands in for it; null when it loaded. The server says so at start.</summary>
+    public static string? ShippedError { get { _ = Shipped; return _shippedError; } }
     /// <summary>Labels, notes and sources of the shipped file.</summary>
-    public static CancelDoc Doc { get { _ = Shipped; lock (Gate) return _doc!; } }
+    public static CancelDoc Doc { get { _ = Shipped; return _doc; } }
 
     static string Embedded(string name)
     {
@@ -137,9 +140,31 @@ public sealed class CancelData
 
     static CancelData LoadShipped()
     {
-        var parsed = Parse(Embedded("cancel-table.json"), out string error, out var doc) ?? throw new InvalidOperationException("shipped cancel table: " + error);
+        string json;
+        try { json = Embedded("cancel-table.json"); }
+        catch (InvalidOperationException e) { json = ""; _shippedError = e.Message; }
+        var table = ResolveShipped(json, out string error, out var doc);
+        if (error.Length > 0) _shippedError = error;
         _doc = doc;
-        return parsed;
+        return table;
+    }
+
+    /// <summary>
+    /// The shipped default from the text of its file: the table, or, when the text is missing, malformed or has another layout, the baseline (the code's own behaviour) with <paramref name="error"/> saying why, so a bad
+    /// file never throws on every tick of every server.
+    /// </summary>
+    public static CancelData ResolveShipped(string json, out string error) => ResolveShipped(json, out error, out _);
+
+    static CancelData ResolveShipped(string json, out string error, out CancelDoc doc)
+    {
+        error = ""; doc = new CancelDoc();
+        CancelData? parsed = null;
+        if (json.Length > 0) parsed = Parse(json, out error, out doc);
+        if (parsed is not null) return parsed;
+        if (json.Length == 0) error = "the embedded default table is missing";
+        error = "shipped cancel table unusable, the code's own behaviour stands in: " + error;
+        doc = new CancelDoc();
+        return Baseline;
     }
 
     // ---- reading ----
@@ -236,6 +261,27 @@ public sealed class CancelData
         return list;
     }
 
+    /// <summary>The overrides that name a class or a weapon the config does not have (a file from another build or a typo); they could never apply, and a table with one never hashes the same on server and client.</summary>
+    public IReadOnlyList<CancelChange> UnknownScopes(SimConfig c)
+    {
+        var classes = c.Classes.Select(k => k.Name).ToHashSet(StringComparer.Ordinal);
+        var weapons = c.Weapons.Select(w => w.Name).ToHashSet(StringComparer.Ordinal);
+        return OverrideList().Where(o => (o.Scope.Class.Length > 0 && !classes.Contains(o.Scope.Class)) || (o.Scope.Weapon.Length > 0 && !weapons.Contains(o.Scope.Weapon))).ToList();
+    }
+
+    /// <summary>This table without the overrides <see cref="UnknownScopes"/> finds (listed in <paramref name="dropped"/>, in plain words).</summary>
+    public CancelData WithoutUnknownScopes(SimConfig c, out List<string> dropped)
+    {
+        dropped = [];
+        var t = this;
+        foreach (var o in UnknownScopes(c))
+        {
+            dropped.Add($"{CancelLayout.Number(o.Row, o.Col)} [{o.Scope}]");
+            t = t.With(o.Scope, o.Row, o.Col, new CancelCell(CancelState.Inherit));
+        }
+        return t;
+    }
+
     /// <summary>The changes against the shipped default (the panel's difference count and the wire's content).</summary>
     public IReadOnlyList<CancelChange> DiffFromShipped() => DiffAgainst(Shipped);
 
@@ -268,7 +314,7 @@ public sealed class CancelData
             if (!root.TryGetProperty("rows", out var rowsEl) || rowsEl.ValueKind != JsonValueKind.Array || !root.TryGetProperty("cols", out var colsEl) || colsEl.ValueKind != JsonValueKind.Array) { error = "rows or cols missing"; return null; }
             foreach (var r in rowsEl.EnumerateArray()) { rowIds.Add(Str(r, "id")); rowLabels.Add(Str(r, "label")); rowNotes.Add(Str(r, "note")); }
             foreach (var c in colsEl.EnumerateArray()) { colIds.Add(Str(c, "id")); colLabels.Add(Str(c, "label")); }
-            var b = _baseline ?? LoadBaseline();
+            var b = Baseline;
             if (!rowIds.SequenceEqual(b.RowIds) || !colIds.SequenceEqual(b.ColIds)) { error = $"a different matrix layout ({rowIds.Count} rows x {colIds.Count} columns; this build has {b.RowIds.Count} x {b.ColIds.Count}, or the ids differ)"; return null; }
             var cells = new CancelCell[rowIds.Count * colIds.Count];
             var notes = new string[cells.Length]; var srcs = new string[cells.Length];

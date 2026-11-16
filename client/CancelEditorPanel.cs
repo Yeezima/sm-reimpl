@@ -117,7 +117,7 @@ public partial class CancelEditorPanel : CanvasLayer
         stateRow.AddChild(_stateBox);
         (_from, _fromNatural) = TimeRow(side, "From (s)");
         (_until, _untilNatural) = TimeRow(side, "Until (s)");
-        side.AddChild(new Label { Text = "Times count seconds into the action; \"data timing\" keeps the clip's own. A window edited here replaces the data's window.", Modulate = new Color(0.65f, 0.65f, 0.65f), AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(420, 0) });
+        side.AddChild(new Label { Text = "Times count seconds into the action; \"data timing\" leaves that end open (from the start, to the end). A window edited here replaces the data's window.", Modulate = new Color(0.65f, 0.65f, 0.65f), AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(420, 0) });
         var cellBtns = new HBoxContainer(); side.AddChild(cellBtns);
         Btn(cellBtns, "RESET CELL", () => { if (_selRow >= 0) { _client()?.SendCancelEdit(DevCancelOp.ResetCell, [new CancelChange(_scope, _selRow, _selCol, new CancelCell(CancelState.Yes))]); Say($"reset {CancelLayout.Number(_selRow, _selCol)}"); } }, "Puts this cell back to the release default (at this scope).");
         _note = new Label { Modulate = new Color(0.78f, 0.78f, 0.78f), AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(420, 0) }; side.AddChild(_note);
@@ -210,9 +210,10 @@ public partial class CancelEditorPanel : CanvasLayer
     {
         var table = CancelConfigStore.Import(path, out string error);
         if (table is null) { Say($"import refused: {error}"); return; }
+        table = table.WithoutUnknownScopes(client.Config, out var dropped);
         client.SendCancelEdit(DevCancelOp.ResetAll, []);
         client.SendCancelEdit(DevCancelOp.Apply, table.DiffFromShipped());
-        Say($"imported {System.IO.Path.GetFileName(path)}: {table.DiffFromShipped().Count} change(s)");
+        Say($"imported {System.IO.Path.GetFileName(path)}: {table.DiffFromShipped().Count} change(s)" + (dropped.Count > 0 ? $"; dropped {dropped.Count} override(s) naming a class or weapon this build lacks ({string.Join(", ", dropped)})" : ""));
     }
 
     // ---- drawing ----

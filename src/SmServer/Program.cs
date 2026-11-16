@@ -364,6 +364,7 @@ var server = new GameServer(config, fingerprint, transport, serverClock, new Ser
     SnapshotRate = cli.SnapshotRate ?? new ServerOptions().SnapshotRate,   // net/responsive: 30 Hz (--snapshot-rate 20: before)
     DevTools = devSetup,                   // protocol 80: null unless --dev-tools on a loopback bind
 }, map: map);
+if (SmSim.CancelData.ShippedError is { } shippedCancelError) Console.WriteLine("cancel table: " + shippedCancelError);   // logged once, at start
 if (cli.CancelTableFile is { } cancelFile)
 {
     // cancel-editor: an exported table as the start-up table; only on a loopback-only --dev-tools server (a public server always plays by the shipped table).
@@ -371,6 +372,8 @@ if (cli.CancelTableFile is { } cancelFile)
     else if (!File.Exists(cancelFile)) { Console.WriteLine($"--cancel-table: file '{cancelFile}' not found"); return 2; }
     else if (SmSim.CancelData.Parse(File.ReadAllText(cancelFile), out string cancelError) is { } cancelTable)
     {
+        cancelTable = cancelTable.WithoutUnknownScopes(config, out var droppedScopes);
+        if (droppedScopes.Count > 0) Console.WriteLine($"--cancel-table: dropped {droppedScopes.Count} override(s) naming a class or weapon this build does not have: {string.Join(", ", droppedScopes)}");
         server.SetCancelTable(cancelTable);
         Console.WriteLine($"cancel table: {cancelTable.DiffFromShipped().Count} change(s) against the shipped default from {Path.GetFileName(cancelFile)} (hash {cancelTable.Hash:x8})");
     }
