@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3490 spec table rows: **2494 tagged**, 646 not tagged (read from data with high confidence), 350 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 757 rows of the changes document.
+Scanned 3507 spec table rows: **2505 tagged**, 651 not tagged (read from data with high confidence), 351 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 758 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -51,21 +51,21 @@ Scanned 3490 spec table rows: **2494 tagged**, 646 not tagged (read from data wi
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 47 | 37 | 21 | 12 | 7 |
 | Core simulation (provisional values) | 780 | 737 | 567 | 215 | 1 |
-| General game design | 19 | 19 | 17 | 7 | 0 |
+| General game design | 30 | 30 | 26 | 7 | 0 |
 | Ork faction | 260 | 247 | 144 | 69 | 0 |
-| **All areas** | **2494** | 2222 | 1859 | 765 | 37 |
+| **All areas** | **2505** | 2233 | 1868 | 765 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1449 |
-| confidence: low | 902 |
-| confidence: medium | 848 |
+| kind: ours | 1454 |
+| confidence: low | 908 |
+| confidence: medium | 851 |
 | notes: ours | 436 |
 | kind: interpretation | 406 |
 | notes: estimate | 204 |
-| kind: estimate | 194 |
+| kind: estimate | 200 |
 | confidence: none (low) | 109 |
 | kind: provisional | 104 |
 | kind: user's knowledge | 53 |
@@ -3784,7 +3784,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-98A893CB` | Picker protection | while an offer stands the player is invulnerable and their input is dropped, others play on; it ends on a valid pick, after 20 s (the server takes card 1) or when the player leaves (the pick stays pending and re-opens with the same cards) (s) | kind: estimate; confidence: medium; notes: ours | owner (protection); the 20 s ours | Picker protection: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: while an offer stands the player is invulnerable and their input is… | ☐ |
 | `R-2024CBEF` | Hard base | `OrkHealthBase` and `OrkDamageBase`, 1.0: the one knob for "hard" (owner answer 8) (multiplier) | kind: estimate; confidence: low; notes: ours | owner (hard, solo must play well, a squad needs teamwork); the value ours | Hard base: compare with SM1 by feel or video. Ours: OrkHealthBase and OrkDamageBase, 1.0: the one knob for "hard" (owner… | ☐ |
 
-### General game design (19)
+### General game design (30)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -3807,6 +3807,22 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-B52A43ED` | Kill floor | a kill box 6 m below the lowest solid piece's underside, 40 m deep and 200 m wider than the pieces all round, so open edges are safe (metres) | kind: ours; confidence: low | ours | Kill floor: compare with SM1 by feel or video. Ours: a kill box 6 m below the lowest solid piece's underside, 40 m deep… | ☐ |
 | `R-011AA592` | Declared modes | a document lists the modes it is made for (default annihilation and seize; any combination, unknown names kept for future modes); a declared mode is playable only when no error of that mode remains: Seize Ground needs at least one capture point (at most 8)… (modes) | kind: ours | owner's words 2026-11-17 | Declared modes: compare with SM1 by feel or video. Ours: a document lists the modes it is made for (default annihilation and… | ☐ |
 | `R-3DAFFBD3` | Bots on custom maps | the new-map bot rules (stuck escape, strict drops, walk-first jump build) apply to `cm_` maps (rule) | kind: ours; confidence: low | bots/new-maps rules | Bots on custom maps: compare with SM1 by feel or video. Ours: the new-map bot rules (stuck escape, strict drops, walk-first jump… | ☐ |
+
+*Spec section: Added content: Warfront, end of run (W15: `Extras/Warfront/Results`; pure, not yet wired to a server)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-5A75BA10` | Row columns | player kills, assists, deaths, revives, captures (group PLAYER); squad kills, knockouts, revives, members (group SQUAD); total kills (player plus squad); the squad's top retainer with a reason (count) | kind: ours; confidence: medium | owner brief (column set), layout ours | Row columns: compare with SM1 by feel or video. Ours: player kills, assists, deaths, revives, captures (group PLAYER)… | ☐ |
+| `R-4BF11DFE` | Kill, elite kill, boss kill | 1, 5, 25 points; elite and boss kills are subsets of kills and replace the plain kill (point) | kind: estimate; confidence: low | our estimate (plan section 7) | Kill, elite kill, boss kill: compare with SM1 by feel or video. Ours: 1, 5, 25 points; elite and boss kills are subsets of kills and… | ☐ |
+| `R-7E3B064D` | Assist | 0.5 points (point) | kind: estimate; confidence: low | our estimate | Assist: compare with SM1 by feel or video. Ours: 0.5 points. | ☐ |
+| `R-AAD7333D` | Capture | 30 points to the humans credited with a secured point (point) | kind: estimate; confidence: low | our estimate | Capture: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 30 points to the humans credited with a secured point. | ☐ |
+| `R-1AC1F6B9` | Revive | 15 points, for a human's and for a retainer's revive (point) | kind: estimate; confidence: low | our estimate | Revive: compare with SM1 by feel or video. Ours: 15 points, for a human's and for a retainer's revive. | ☐ |
+| `R-7E3FA074` | Squad kill | 0.5 points per retainer kill, elite and boss kills flat at 0.5 too; retainer assists 0; retainer captures 0 (a point secured with the squad standing on it would otherwise multiply the capture) (point) | kind: estimate; confidence: low | our estimate | Squad kill: compare with SM1 by feel or video. Ours: 0.5 points per retainer kill, elite and boss kills flat at 0.5 too… | ☐ |
+| `R-3B7F80B4` | Tie-breaks | total score, then captures (own and squad's), revives, fewer deaths, earlier join, then name; the order is a list in the weights table | kind: estimate; confidence: low | our estimate of the order (plan section 7) | Tie-breaks: compare with SM1 by feel or video. Ours: total score, then captures (own and squad's), revives, fewer deaths… | ☐ |
+| `R-54C7275A` | Top retainer | highest squad-weight score, then more kills, fewer knockouts, name, slot; the reason names the biggest component ("most kills: 212 (9 elite, 1 boss)", "most revives: 5"), "no score yet" at 0 | kind: ours; confidence: medium | owner brief; wording ours | Top retainer: compare with SM1 by feel or video. Ours: highest squad-weight score, then more kills, fewer knockouts, name… | ☐ |
+| `R-B9141926` | Honor roll | the best score, player kills, squad kills, revives, captures, best retainer, fastest victory (with that run's players) and a total-score table grouped by display name only (no keys exist in the records; two people with one name share a line), over every… | kind: ours; confidence: medium | owner brief ("tally and catalogue"); the list ours | Honor roll: compare with SM1 by feel or video. Ours: the best score, player kills, squad kills, revives, captures, best… | ☐ |
+| `R-AC3E0FC8` | Record | the run's result, UTC end, duration, battles, rolls, weights and rows as `records\<stem>.results.json` beside the archived run; it holds no campaign key, only display names and join order | kind: ours | ours | Record: compare with SM1 by feel or video. Ours: the run's result, UTC end, duration, battles, rolls, weights and rows… | ☐ |
+| `R-8F612117` | Copy and export | COPY FOR DISCORD puts a fixed-width block in a code fence on the clipboard (at most 2000 characters: retainer lines, then the formula, then low rows are dropped); EXPORT writes `exports\<utc>.txt` and `.md`; nothing is posted and no Discord integration… | kind: ours | owner brief ("no automatic posting"); format ours | Copy and export: compare with SM1 by feel or video. Ours: COPY FOR DISCORD puts a fixed-width block in a code fence on the… | ☐ |
 
 *Spec section: Warfront fortress map profile and arena interface (warfront/w14a, 2026-11-17; added content, Warfront only; generation only, no battle rules, no Warboss spawn, no server wiring, no map name, no protocol or wire change; level version 1; second pass after designer review 1)*
 
@@ -4530,6 +4546,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 |---|---|---|---|---|---|---|
 | `C-8EAA4069` | Warfront campaign (third mode): lanes, rolls, HQ defense, fortress, save and resume; not in SM1 | the owner's rules (2026-11-17); the cases they leave open ours (interpretation) | three lanes of three nodes, an Imperial HQ and an Ork fortress, up to four connected humans, a leader, and a run save that survives a restart | spec "Added content: Warfront — the campaign" | Warfront campaign (third mode): lanes, rolls, HQ defense…: compare with SM1 by feel or video. Ours: the owner's rules (2026-11-17); the cases they leave open ours… | ☐ |
 | `C-2B640412` | Warfront progression (W7): XP from own and own squad's kills, shared elite/boss/capture XP, level-up cards, picker protection, retainer third, Ork scaling; not in SM1 | the owner's rules (2026-11-17); every number our estimate | four cards per level (three distinct stat types of five, slot 4 +1 Retainer or a fourth stat), +10 % attack speed / max HP / damage, -8 % cooldown (floor 40 %), +15 % max armour, Orks spawned +8 % HP and +5 % damage per highest level, +20 % HP per extra human | spec "Added content: Warfront, progression (W7)" | Warfront progression (W7): XP from own and own squad's…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the owner's rules (2026-11-17); every number our estimate. | ☐ |
+| `C-C5762AEB` | Warfront end of run (W15): one ranked leaderboard on victory and defeat, honor roll, records, Discord copy and export; not in SM1 | the owner's brief (2026-11-17); every weight and the layout ours (estimates) | score = kills 1, elite 5, boss 25, assists 0.5, captures 30, revives 15, squad kills 0.5, squad revives 15; deaths and knockouts never add; ties on captures, revives, fewer deaths, earlier join; nothing is posted | spec "Added content: Warfront, end of run" | Warfront end of run (W15): one ranked leaderboard on…: compare with SM1 by timing a run over a known distance. Ours: the owner's brief (2026-11-17); every weight and the layout ours… | ☐ |
 
 ### Deliberate changes (owner's decisions)
 
@@ -5660,4 +5677,5 @@ Test aids, probes, demo and capture tooling, engineering decisions (protocol, wi
 | `R-4D8893ED` | Ledge jump: wire | Hop rules: the ledge jump after a charge, the hop cutting the melee wait, the hop out of the aerial tackle (sim/hop-rules; protocol 72, used by the simulation; Assault Marine and Raptor) |
 | `R-E82906C6` | Custom map wire name | Mapmaker custom maps (added content; ours, docs/mapmaker.md "Playing a map") |
 | `R-60F33AA0` | Custom map hash | Mapmaker custom maps (added content; ours, docs/mapmaker.md "Playing a map") |
+| `R-257C0C84` | Wire | Added content: Warfront, end of run (W15: `Extras/Warfront/Results`; pure, not yet wired to a server) |
 
