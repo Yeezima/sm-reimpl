@@ -72,6 +72,8 @@ public partial class NetworkView
         int given = 0, dolls = 0, candidates = 0, available = _musouRagdolls?.Available ?? 0;
         foreach (var (w, metres) in _musouDeathOrder)
         {
+            // Ork variety (owner 2026-11-16, MusouOrkVariety): a blast's thrown Orks do not all leave in the same instant: each waits its own 0 to 100 ms (it keeps its place, already dying, as any waiting death does).
+            if (!MusouCrowd.NoOrkVariety && MusouGoreRules.Thrown(w.Death.Cause) && _musouDeathNow - w.Arrived < MusouOrkVariety.ThrowDelay(w.Death.Id)) { _musouDeathQueue.Add(w); continue; }
             // Only as many as the pool can take become dolls (the nearest); the rest tumble as crowd bodies, which cost little and go out at once.
             bool doll = MusouDeathIsDoll(w.Death, metres) && ++candidates <= available;
             bool due = _musouDeathNow - w.Arrived >= MusouDeathRules.MaxWaitSeconds;

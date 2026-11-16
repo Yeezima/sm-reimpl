@@ -121,6 +121,8 @@ public abstract partial class CrowdView : Node3D
     protected abstract IReadOnlyList<int> Types { get; }
     /// <summary>The look of a type (null: not built yet).</summary>
     protected abstract MusouLooks.Look? LookOf(int type);
+    /// <summary>The first of the looks' extra death clips (-1: the crowd has none; <see cref="MusouVat.Start"/>).</summary>
+    protected virtual int AltClipsFrom => -1;
     /// <summary>Whether a clip of this crowd's looks loops (otherwise it holds its last frame).</summary>
     protected abstract bool Loops(int clip);
 
@@ -142,10 +144,10 @@ public abstract partial class CrowdView : Node3D
     }
 
     /// <summary>A body thrown by a blast: it leaves with <paramref name="velocity"/> (m/s, game space) tipping over about the one axis of <paramref name="spin"/> (rad/s, game space; <see cref="SmNet.Extras.Musou.MusouFling.Tumble"/>), plays its clip in the air, falls under gravity in one arc, stops at the walls (<see cref="SolidBetween"/>), lands without a bounce, rolls out of its tumble and slides to rest. It starts to sink only once it rests.</summary>
-    protected void AddFlungBody(Vector3 position, float yaw, int type, int clip, Vector3 velocity, Vector3 spin, int from = 0)
+    protected void AddFlungBody(Vector3 position, float yaw, int type, int clip, Vector3 velocity, Vector3 spin, int from = 0, float age = 0f)
     {
         MakeBodyRoom();
-        _bodies.Add(new Body { Position = position, Yaw = yaw, Type = type, Clip = clip, Serial = ++_bodySerial, Flung = true, Velocity = velocity, Spin = spin, Ground = position.Z });
+        _bodies.Add(new Body { Position = position, Yaw = yaw, Type = type, Clip = clip, Serial = ++_bodySerial, Flung = true, Velocity = velocity, Spin = spin, Ground = position.Z, Age = age });
         KeepSkinned(from);
     }
 
@@ -215,7 +217,7 @@ public abstract partial class CrowdView : Node3D
             {
                 if (look.Vat is null && look.Baking is null && !look.BakeFailed && !NoVat)
                 {
-                    look.Baking = MusouVat.Start(look.Assets, look.Clips, Loops);
+                    look.Baking = MusouVat.Start(look.Assets, look.Clips, Loops, AltClipsFrom);
                     if (look.Baking is null) { look.BakeFailed = true; GD.Print($"{log}: {look.Name} has nothing to bake; skinned only"); }
                 }
                 if (look.Baking is { IsCompleted: true } done)

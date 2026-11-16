@@ -118,16 +118,23 @@ public struct MusouOrkFlinchTrack
     Vector2 _from, _to;
     float _age;
     bool _active;
+    MusouFlinchVariant _variant;
+    bool _varied;
 
     public readonly bool Active => _active;
 
     /// <summary>A hit: the displacement goes to <paramref name="direction"/> (the unit direction away from the hit) times <paramref name="size"/> over the rise; the envelope restarts.</summary>
-    public void Kick(Vector2 direction, float size)
+    public void Kick(Vector2 direction, float size) => Kick(direction, size, MusouFlinchVariant.None);
+
+    /// <summary>A hit of an Ork with its own variation (<see cref="MusouOrkVariety.Flinch"/>): the same, started after the variant's delay, stretched by its duration, the direction and the rebound its way. The size and direction are the caller's (<see cref="MusouOrkVariety.FlinchDirection"/>).</summary>
+    public void Kick(Vector2 direction, float size, MusouFlinchVariant variant)
     {
         if (!(size > 0f) || direction.LengthSquared() < 1e-8f) return;
         _from = Current();
         _to = Vector2.Normalize(direction) * size;
         _age = 0f;
+        _variant = _active ? variant with { Delay = 0f } : variant;   // the start's delay only for a flinch that begins: a re-kick of one under way is at once, so rapid fire cannot hold the reaction back for ever
+        _varied = variant != MusouFlinchVariant.None;
         _active = true;
     }
 
@@ -136,7 +143,8 @@ public struct MusouOrkFlinchTrack
     {
         if (!_active) return false;
         _age += delta;
-        if (_age >= MusouOrkFlinchRules.Seconds) { _active = false; _from = _to = default; return false; }
+        float end = _varied ? _variant.Delay + MusouOrkVariety.FlinchSeconds(_variant) : MusouOrkFlinchRules.Seconds;
+        if (_age >= end) { _active = false; _from = _to = default; return false; }
         return true;
     }
 
@@ -144,6 +152,13 @@ public struct MusouOrkFlinchTrack
     public readonly Vector2 Current()
     {
         if (!_active) return default;
+        if (_varied)
+        {
+            float t = (_age - _variant.Delay) / _variant.Duration;
+            if (t <= 0f) return _from;   // the variant's delay: still where it was
+            if (t < MusouOrkFlinchRules.Rise) return Vector2.Lerp(_from, _to, MusouOrkVariety.FlinchShare(_variant, _age));
+            return _to * MusouOrkVariety.FlinchShare(_variant, _age);
+        }
         if (_age < MusouOrkFlinchRules.Rise) return Vector2.Lerp(_from, _to, MusouOrkFlinchRules.Envelope(_age));
         return _to * MusouOrkFlinchRules.Envelope(_age);
     }
