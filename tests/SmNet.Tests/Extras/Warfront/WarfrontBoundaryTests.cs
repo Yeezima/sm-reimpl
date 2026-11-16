@@ -29,6 +29,24 @@ public class WarfrontBoundaryTests
         ("src/SmSim/Extras/Musou/MusouSim.cs", "WarfrontSpawned"),
         ("src/SmSim/Extras/Musou/World.Musou.cs", "WarfrontOrkDamage"),
         ("src/SmSim/Extras/Musou/Campaign/World.TfwPuppets.cs", "WarfrontOrder"),
+        // W5a: the server's stage flow
+        ("src/SmServer/Extras/GameServer.Extras.cs", "WarfrontCreated"),
+        ("src/SmServer/Extras/GameServer.Extras.cs", "WarfrontSend"),
+        ("src/SmServer/Extras/GameServer.Extras.cs", "WarfrontCommand"),
+        ("src/SmServer/Extras/GameServer.Extras.cs", "WarfrontPlayerCap"),
+        ("src/SmServer/Extras/GameServer.Extras.cs", "WarfrontRestartDue"),
+        ("src/SmServer/Extras/Musou/Campaign/GameServer.Tfw.cs", "WarfrontGeneratedMap"),
+        ("src/SmServer/Extras/Musou/Campaign/GameServer.Tfw.cs", "WarfrontMapNote"),
+        ("src/SmServer/Extras/Musou/GameServer.TfwMap.cs", "WarfrontNav"),
+        // W5b: the client's stage flow (the band view's three hooks W2 wrote are declared beside their call sites too, so a build without Warfront still compiles the calls)
+        ("client/Extras/NetworkView.Extras.cs", "WarfrontMapContent"),
+        ("client/Extras/NetworkView.Extras.cs", "WarfrontMapVisuals"),
+        ("client/Extras/NetworkView.Extras.cs", "WarfrontEnvelope"),
+        ("client/Extras/NetworkView.Extras.cs", "WarfrontFrame"),
+        ("client/Extras/Musou/Tfw/NetworkView.Tfw.cs", "WarfrontBandFrame"),
+        ("client/Extras/Musou/Tfw/NetworkView.TfwMap.cs", "WarfrontIsGeneratedMap"),
+        ("client/Extras/Musou/Tfw/TfwStations.cs", "WarfrontOpenWarMap"),
+        ("src/SmServer/Extras/Musou/GameServer.Musou.cs", "WarfrontViewCentre"),
         ("src/SmSim/Extras/Musou/Campaign/World.Tfw.cs", "WarfrontStep"),
         ("src/SmSim/Extras/Musou/Campaign/World.Tfw.cs", "WarfrontKill"),
         ("src/SmSim/Extras/Musou/Campaign/TfwRun.cs", "WarfrontBattleChange"),
@@ -192,7 +210,7 @@ public class WarfrontBoundaryTests
     [Fact]
     public void The_build_symbol_is_used_only_in_the_pinned_files()
     {
-        var allowed = new HashSet<string> { "src/SmSim/ContentExtras.cs", "src/SmSim/Extras/SimConfig.Extras.cs", "src/SmTool/Program.cs" };   // SmTool: the warfront-* command routes
+        var allowed = new HashSet<string> { "src/SmSim/ContentExtras.cs", "src/SmSim/Extras/SimConfig.Extras.cs", "src/SmTool/Program.cs", "src/SmServer/Program.cs" };   // SmTool: the warfront-* command routes
         var offenders = new List<string>();
         foreach (var (path, lines) in Sources())
             for (int i = 0; i < lines.Length; i++)

@@ -23,9 +23,7 @@ public partial class NetworkView
 
     // The hooks W5 calls from the dispatchers (client/Extras/NetworkView.Extras.cs, Musou/Tfw/NetworkView.Tfw.cs): declared here as partial methods of this class, implemented below, so the
     // file compiles without callers and an unused hook costs nothing; a build without Warfront (-p:SmWarfront=false) leaves this folder out and nothing refers to it.
-    partial void WarfrontMapContent(string name, ref MapContent? map);
-    partial void WarfrontMapVisuals(string name, ref bool drawn);
-    partial void WarfrontBandFrame(PlayerState me);
+    // (declared in client/Extras/NetworkView.Extras.cs and client/Extras/Musou/Tfw/NetworkView.Tfw.cs with their call sites, W5b: a build without Warfront still compiles the calls)
 
     /// <summary>The map content of a lane slot's name (null for any other map): the generated band as collision, from the layout cache.</summary>
     partial void WarfrontMapContent(string name, ref MapContent? map)

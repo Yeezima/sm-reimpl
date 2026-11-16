@@ -103,6 +103,12 @@ public sealed record ServerArguments
     public string? CancelTableFile { get; init; }
     /// <summary>--dev-bot-project: the Godot project folder for those bots (default: the client folder of the checkout the server runs from; not needed for an exported game).</summary>
     public string? DevBotProject { get; init; }
+    /// <summary>--warfront-stage (Warfront, added content): this process is one stage child under the Warfront supervisor (one deployment's hub and battlefield; it exits with <see cref="ServerCommandLine.WarfrontStageExit"/> when the next stage is due).</summary>
+    public bool WarfrontStage { get; init; }
+    /// <summary>--warfront-new (Warfront): start a new run; an unfinished one is archived as abandoned.</summary>
+    public bool WarfrontNew { get; init; }
+    /// <summary>--warfront-max-humans (Warfront): humans admitted, 1 to 4 (default 4).</summary>
+    public int? WarfrontMaxHumans { get; init; }
     public bool Help { get; init; }
 }
 
@@ -112,6 +118,8 @@ public static class ServerCommandLine
     public const int UsageError = 2;
     /// <summary>Exit code of a rotation child: its match is over, the supervisor starts the next map.</summary>
     public const int RotationExit = 11;
+    /// <summary>Exit code of a Warfront stage child: the next stage is due, the Warfront supervisor starts it.</summary>
+    public const int WarfrontStageExit = 12;
 
     public const string Usage =
         """
@@ -167,13 +175,16 @@ public static class ServerCommandLine
           --limit-loopback              switch: apply --max-per-ip, --join-interval and --idle-kick to loopback (127.0.0.1) too;
                                         by default players on this machine (local bot playtests) are exempt
           --musou-aerial-tackle         switch: restore: Musou Mode keeps the Assault / Raptor aerial tackle (clients need it too)
+          --warfront-stage              switch: (--content warfront) this process is one stage child of the Warfront supervisor (internal)
+          --warfront-new                switch: (--content warfront) start a new campaign run; an unfinished one is archived as abandoned
+          --warfront-max-humans <1-4>   (--content warfront) humans admitted (default 4; 1 for a local campaign)
           --help, -h                    switch: this list
         """;
 
-    static readonly HashSet<string> Switches = ["--dev-tools", "--rotation-child", "--musou-aerial-tackle", "--no-custom-emblems", "--limit-loopback", "--honor-side-requests", "--ork-data", "--no-player-collision", "--no-charge-lock", "--old-body-contact", "--old-charge-cancel", "--old-ally-bump", "--old-stim-use", "--log-overlaps", "--help", "--old-charge-after-melee", "--old-charge-cancel-delay", "--old-charge-melee-chain", "--old-hop-rules", "--musou-melee-cooldown", "--musou-uncapped-melee-heal", "--musou-ork-swing-tracking"];
+    static readonly HashSet<string> Switches = ["--dev-tools", "--rotation-child", "--musou-aerial-tackle", "--no-custom-emblems", "--limit-loopback", "--honor-side-requests", "--ork-data", "--no-player-collision", "--no-charge-lock", "--old-body-contact", "--old-charge-cancel", "--old-ally-bump", "--old-stim-use", "--log-overlaps", "--help", "--old-charge-after-melee", "--old-charge-cancel-delay", "--old-charge-melee-chain", "--old-hop-rules", "--musou-melee-cooldown", "--musou-uncapped-melee-heal", "--musou-ork-swing-tracking", "--warfront-stage", "--warfront-new"];
     static readonly HashSet<string> Valued =
         ["--port", "--bind", "--game-dir", "--map", "--custom-map", "--maps", "--mode", "--score-limit", "--time-limit", "--friendly-fire", "--unlocks", "--countdown", "--pickup-test", "--bot-damage-scale", "--snapshot-rate",
-         "--name-seed", "--dev-bot-exe", "--dev-bot-project", "--max-per-ip", "--join-interval", "--idle-kick", "--ban-file", "--content", "--max-spectators"];
+         "--name-seed", "--dev-bot-exe", "--dev-bot-project", "--max-per-ip", "--join-interval", "--idle-kick", "--ban-file", "--content", "--max-spectators", "--warfront-max-humans"];
 
     /// <summary>Parses the arguments; false with a one-line <paramref name="error"/> for an unknown flag, a missing or invalid value, or a stray word.</summary>
     public static bool TryParse(IReadOnlyList<string> args, out ServerArguments result, out string error)
@@ -214,6 +225,8 @@ public static class ServerCommandLine
                     "--musou-aerial-tackle" => a with { AerialTackleRestored = true },
                     "--musou-ork-swing-tracking" => a with { MusouOrkSwingTracking = true },
                     "--log-overlaps" => a with { LogOverlaps = true },
+                    "--warfront-stage" => a with { WarfrontStage = true },
+                    "--warfront-new" => a with { WarfrontNew = true },
                     _ => a with { Help = true },
                 };
                 continue;
@@ -275,6 +288,9 @@ public static class ServerCommandLine
                     if (Number(value) is { } idle && idle is >= 0f and <= 86400f) a = a with { IdleKick = TimeSpan.FromSeconds(idle) }; else bad = "seconds from 0 (never) to 86400";
                     break;
                 case "--ban-file": a = a with { BanFile = value }; break;
+                case "--warfront-max-humans":
+                    if (Int(value) is { } humans && humans is >= 1 and <= 4) a = a with { WarfrontMaxHumans = humans }; else bad = "a whole number from 1 to 4";
+                    break;
                 case "--content":
                     if (!ContentProfiles.TryParse(value, out var extras, out string contentError)) { error = contentError; return false; }
                     a = a with { Content = extras };
@@ -301,6 +317,16 @@ public static class ServerCommandLine
                 error = $"{flag} '{value}': expected {bad}";
                 return false;
             }
+        }
+        if ((a.WarfrontStage || a.WarfrontNew || a.WarfrontMaxHumans is not null) && !a.Content.HasFlag(ContentExtras.Warfront))
+        {
+            error = "--warfront-stage, --warfront-new and --warfront-max-humans need --content warfront";
+            return false;
+        }
+        if (a.Maps is not null && a.Content.HasFlag(ContentExtras.Warfront))
+        {
+            error = "--maps is Classic PvP only; Warfront runs its own stages (leave --maps out with --content warfront)";
+            return false;
         }
         result = a;
         return true;

@@ -6437,6 +6437,31 @@ Plan section 2, slot 11 (`wf_fortress`): an Ork fortress round an arena plaza fo
 
 | Parameter | Value | Units | Timing basis | Source | Evidence | Kind | Confidence |
 |---|---|---|---|---|---|---|---|
+| Kill classes | ordinary, elite, boss by `WarfrontXpLedger.Classify`; Kills = all three | kills | per kill | `WarfrontStatsLedger.OnKill` | W7 classes; the subset convention is W15's | ours | medium |
+| Other counters | assists, deaths, revives given (to the reviver), captures (A/B/C and D counted apart, leaderboard shows the sum), battles fought | count | per event | `OnAssist`, `OnDeath`, `OnRevive`, `OnCapture`, `OnBattle` | plan (leaderboard inputs) | ours | medium |
+| Duplicate guard | a nonzero event id counts once per (counter, key, id); 0 is unguarded; the guard is saved with the run | - | per event | `WarfrontStatsLedger` | shared events reach several peers | ours | high |
+| What counts as an assist, and who is credited with a revive or capture | decided by the stage-flow feeder, not here (W3b `WarfrontDamaged`, W3 downed rule) | - | - | stage-flow slice | - | ours | low |
+| Persistence | per key, never reset by disconnect or rejoin; a new run starts empty | - | run | `WarfrontCampaign.Stats` | owner (returning players keep their state) | ours | high |
+
+### Added content: Warfront, stage flow (W5a: `SmServer/Extras/Warfront`, `WarfrontWire`; `WarfrontRules.Version` 3; added content, Warfront only)
+
+How a Warfront campaign runs across processes (plan sections 3 and 4): one stage process per deployment, the run in `run.json`, the leader's deploy, the resume. All of it is ours: the owner asked for save and resume (answer 5) and the leader rule, not for these mechanics.
+
+| Parameter | Value | Units | Timing basis | Where | Source | Kind | Confidence |
+|---|---|---|---|---|---|---|---|
+| Identify wait | a player that sends no Identify is given a server-made key for the connection | s | from the join | `WarfrontIdentifySeconds` | plan section 4, ours | estimate | medium |
+| Arrival wait | a stage that loaded a save in Travel lands when every player of the deployment has rejoined, or this long after the first | s | from the first identified player | `WarfrontArrivalSeconds` | plan section 3, ours | estimate | medium |
+| Go linger | a stage that said Go keeps answering this long before it leaves | s | from Go | `WarfrontGoLingerSeconds` | ours | estimate | medium |
+| Preparation progress | percent is an estimate once the graph starts: 30 rising to 95 over an expected 150 s; the work itself reports 0, 30, 100 | percent, s | from the graph start | `WarfrontPrepareWatch` | ours (cold build 100 to 180 s per slot, measured by W2) | estimate | low |
+| Stage repeat | Stage sections five times a second while they matter, the Hub on a change and every second, Results every 5 s while the run stands | Hz, s | per tick | `WarfrontSend` | ours (sections are unreliable datagrams) | interpretation | medium |
+| Hub handles | the viewer sees its own key, every other player a one-way pseudonym | - | per Hub | `WarfrontWire.Pseudonym` | plan section 4 ("never sent to another client") | interpretation | high |
+| Resume | killed on the ship: as it was; in Travel: the stage continues to the target; in Battle: back on the ship before it, nothing rolled | - | at start | `WarfrontSave.Load`, `WarfrontSupervisor` | owner, answer 5; W4's rule | owner | high |
+| Run duration | `WarfrontCampaign.PlaySeconds`: seconds of the run with at least one human connected, counted while the phase is Ship, Travel or Battle, saved in run.json (save version 3, older saves load with 0), written every 30 s and at each save point; the results record shows it | s | per tick | `WarfrontClocks`, `WarfrontCampaign.AddPlaySeconds` | W5a review 1 finding 6, ours ("time with someone connected") | ours | medium |
+| Made key | only a bot (Hello bot flag) that sends no Identify in 5 s gets a server-made key for its connection; a human stays held on the ship until its Identify arrives | - | from the join | `WarfrontIdentityTimeouts` | W5a review 1 finding 2 | ours | high |
+| Late join | a human not yet identified is not flown into a battle (`LateJoinAllowed`) | - | at the late join | `WarfrontCreated` | plan section 4 | ours | high |
+| Landing give-up | a landing waits for the match to be playing and the leader alive in the hub, asks the run's Deploy again each second until the run leaves the hub, logs each second, and is given up to the ship after this long (nothing rolled) | s | from the landing | `WarfrontLandingWait` | W5a review 1 finding 11 and the W5b real run | estimate | low |
+| Supervisor watch | the stage child checks once a second that its supervisor process lives; if not it saves and leaves with code 0 | s | per second | `WarfrontClocks` | W5a review 1 finding 5 | ours | high |
+| Human cap | `--warfront-max-humans` 1 to 4, default 4 | humans | at join | `WarfrontPlayerCap` | plan section 8 | ours | high |
 | Kill classes | ordinary, elite, boss by `WarfrontXpLedger.Classify`; Kills = all three; EliteKills and BossKills are separate (disjoint) subsets of Kills, as W15 scores them (one Warboss kill = 25) | kills | per kill | `WarfrontStatsLedger.OnKill`, `ToPlayerStats` | W7 classes; W15 `Pts` | ours | high |
 | Own kills only | the human's own body only; kills by that human's retainers go to the W9 service records (the leaderboard shows player and squad apart, so TOTAL K would show them twice) | - | per kill | feeder rule | designer review | ours | high |
 | Other counters | assists, deaths, revives given (to the reviver), captures (A/B/C and D counted apart, the leaderboard shows the sum), battles fought | count | per event | `OnAssist`, `OnDeath`, `OnRevive`, `OnCapture`, `OnBattle` | plan (leaderboard inputs) | ours | medium |

@@ -239,8 +239,8 @@ public sealed partial class HostPanel : UiKit.MenuColumn
         {
             int count = HostedBots.Count, pending = HostedBots.Pending;
             string bots = count > 0 ? HostBots.CountText(count) + (pending > 0 ? $" ({pending} more joining)" : "") : pending > 0 ? $"{pending} bots joining" : "no bots";
-            string hosted = o.Content == SmSim.ContentProfiles.Musou ? $"Musou (up to {MusouLocal.MaxPlayers} players)" : o.Mode == ServerLaunch.ModeSeize ? "Seize Ground" : "Annihilation";
-            if (MapRunningText(o) is { } mapText && o.Content != SmSim.ContentProfiles.Musou) hosted += ", " + mapText;
+            string hosted = SmSim.ContentProfiles.IsMusouFamily(o.Content) ? $"Musou (up to {MusouLocal.MaxPlayers} players)" : o.Mode == ServerLaunch.ModeSeize ? "Seize Ground" : "Annihilation";
+            if (MapRunningText(o) is { } mapText && !SmSim.ContentProfiles.IsMusouFamily(o.Content)) hosted += ", " + mapText;
             _runningText.Text = ($"Hosting {hosted} on port {o.Port}, {(o.LocalOnly ? "this PC only" : "all interfaces")}" + ", " + bots + (HostedServer.Ready ? "" : " (starting...)")).ToUpperInvariant();
         }
         _runningText.TooltipText = _runningText.Text;
@@ -350,7 +350,7 @@ public sealed partial class HostPanel : UiKit.MenuColumn
         if (_pendingJoin)
         {
             int port = HostedServer.Options?.Port ?? ServerLaunch.DefaultPort;
-            switch (HostStart.StateOf(HostedServer.Running, HostedServer.Ready, HostedServer.ExitCode, Time.GetTicksMsec() / 1000.0 - _startedAt, HostedServer.Options is { Content: SmSim.ContentProfiles.Musou } ? MusouLocal.StartLimitSeconds : HostStart.StartLimitSeconds))
+            switch (HostStart.StateOf(HostedServer.Running, HostedServer.Ready, HostedServer.ExitCode, Time.GetTicksMsec() / 1000.0 - _startedAt, HostedServer.Options is { Content: var hostedContent } && SmSim.ContentProfiles.IsMusouFamily(hostedContent) ? MusouLocal.StartLimitSeconds : HostStart.StartLimitSeconds))
             {
                 case HostStartState.Ready:
                     _pendingJoin = false;
