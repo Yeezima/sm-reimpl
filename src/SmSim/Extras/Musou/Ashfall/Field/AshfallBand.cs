@@ -82,7 +82,7 @@ public sealed record AshfallBandProfile
     public static readonly AshfallBandProfile Outskirts = new()
     {
         Kind = AshfallBandKind.Outskirts, Name = "outskirts", Fabric = AshfallFabric.Islands,
-        CoverageMin = 0.20f, CoverageMax = 0.24f, IslandGap = 8f, ClusterGap = 6f, FillGap = 5f, Spacing = 12f, FrontageTiers = 1, FrontageGapShare = 0.35f,
+        CoverageMin = 0.20f, CoverageMax = 0.24f, IslandGap = 8f, ClusterGap = 6f, FillGap = 5f, Spacing = 12f, FrontageTiers = 1, FrontageGapShare = 0.15f,
         HeightMin = 10f, HeightMax = 13f, TallHeight = 26f, LowMin = 1.2f, LowMax = 2.2f, UpperFloorShare = 0.50f, SideStreet = 12f,
         BreachMin = 30f, BreachMax = 50f, BreachWidth = 8f, Plazas = 0, PlazaRadius = 0f, BreachedBlocks = 0,
         Landmarks = [("hab tower", "spire", new(-200f, -150f), new(16f, 16f, 30f)), ("hab tower east", "spire", new(200f, -150f), new(16f, 16f, 30f))],
@@ -94,7 +94,7 @@ public sealed record AshfallBandProfile
     {
         Kind = AshfallBandKind.Core, Name = "urban core", Fabric = AshfallFabric.Rows,
         CoverageMin = 0.34f, CoverageMax = 0.38f, IslandGap = 6f, ClusterGap = 6f, FillGap = 2.5f, Spacing = 10f, FrontageTiers = 3,
-        HeightMin = 13f, HeightMax = 26f, TallHeight = 44f, LowMin = 1.2f, LowMax = 2.2f, UpperFloorShare = 0.35f, SideStreet = 12f,
+        HeightMin = 16f, HeightMax = 28f, TallHeight = 44f, LowMin = 1.2f, LowMax = 2.2f, UpperFloorShare = 0.35f, SideStreet = 12f,
         BreachMin = 30f, BreachMax = 50f, BreachWidth = 8f, Plazas = 3, PlazaRadius = 36f, BreachedBlocks = 3,
         Landmarks = [("cathedral spire", "spire", new(-200f, 140f), new(20f, 20f, 42f)), ("manufactorum chimney tower", "spire", new(200f, 140f), new(20f, 20f, 42f))],
         PlatformTarget = 24, RouteBuffer = 2.5f,

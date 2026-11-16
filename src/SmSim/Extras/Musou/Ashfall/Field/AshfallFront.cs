@@ -37,6 +37,8 @@ public static class AshfallFront
     public const float FacadeDepth = 5f;
     /// <summary>The core's street wall pieces between the frontage buildings (m; ours: over a Marine's head, so the street reads closed between its breaches; 2.4 m before F5).</summary>
     public const float StreetWallHeight = 6f;
+    /// <summary>The frontage's margin from the reserved places (m; the owner, 2026-11-16: "denser instead of reducing reserved space": the corridors, assembly areas, plazas and clear zones stay; the frontage stands this close; the other fabric keeps the profile's route buffer, 2.5 to 4 m). Over the roadway rule's 0.5 m.</summary>
+    public const float FrontBuffer = 1.5f;
 
     public static readonly Vector2 BaseCentre = new(0f, -188f), BaseGate = new(0f, -160f), StrongholdCentre = new(0f, 138f), StrongholdGate = new(0f, 112f);
 
@@ -346,20 +348,21 @@ public static class AshfallFront
         var points = frame.Points;
         var plazas = profile.Plazas > 0 ? points.Take(profile.Plazas).Select(q => (new Vector2(q.Center.X, q.Center.Y), profile.PlazaRadius)).ToList() : [];
 
-        string? FreeWhy(Vector4 r, float gap)
+        string? FreeWhy(Vector4 r, float gap, float buf)
         {
             if (r.X < -226f || r.Y < -226f || r.Z > 226f || r.W > 226f) return "boundary band";
-            foreach (var (zn, z) in frame.Protected) if (r.X < z.Z + p.RouteBuffer && r.Z > z.X - p.RouteBuffer && r.Y < z.W + p.RouteBuffer && r.W > z.Y - p.RouteBuffer) return "protected (" + zn + ")";
+            foreach (var (zn, z) in frame.Protected) if (r.X < z.Z + buf && r.Z > z.X - buf && r.Y < z.W + buf && r.W > z.Y - buf) return "protected (" + zn + ")";
             foreach (var pt in points)
-                if (DiscMeetsRect(new(pt.Center.X, pt.Center.Y), pt.Radius + p.ObjectiveClear + p.RouteBuffer, r)) return "a point's clear zone";
+                if (DiscMeetsRect(new(pt.Center.X, pt.Center.Y), pt.Radius + p.ObjectiveClear + buf, r)) return "a point's clear zone";
             foreach (var (c, rad) in plazas) if (DiscMeetsRect(c, rad, r)) return "a plaza";
-            foreach (var k in frame.Corridors) if (AshfallField.RectMeetsBox(r, k.Box(p.RouteBuffer))) return "a corridor";
+            foreach (var k in frame.Corridors) if (AshfallField.RectMeetsBox(r, k.Box(buf))) return "a corridor";
             foreach (var o in placed) if (AshfallPlacer.Gap(r, o) < gap) return "a neighbour";
             return null;
         }
-        bool Free(Vector4 r, float gap)
+        // the fabric keeps the profile's route buffer off the reserved places; the frontage stands closer (FrontBuffer: the reserved places themselves are unchanged)
+        bool Free(Vector4 r, float gap, float buf = -1f)
         {
-            string? w = FreeWhy(r, gap);
+            string? w = FreeWhy(r, gap, buf < 0f ? p.RouteBuffer : buf);
             if (w is not null) why[w] = why.GetValueOrDefault(w) + 1;
             return w is null;
         }
@@ -399,73 +402,98 @@ public static class AshfallFront
         float land = 0f;
         for (float x = -224f; x < 226f; x += 4f)
             for (float y = -224f; y < 226f; y += 4f)
-                if (FreeWhy(new Vector4(x - 0.01f, y - 0.01f, x + 0.01f, y + 0.01f), -1f) is null) land += 16f;
+                if (FreeWhy(new Vector4(x - 0.01f, y - 0.01f, x + 0.01f, y + 0.01f), -1f, p.RouteBuffer) is null) land += 16f;
         float covered = 0f;
         float Cover(IEnumerable<AshfallFieldStructure> g) => g.Sum(s => s.Size.X * s.Size.Y);
-        float Target(float y) => profile.Coverage + (profile.Next.Coverage - profile.Coverage) * AshfallBandProfile.BlendAt(y);
+        // the band-wide cover a new piece may still add to: the profile's, toward the next band's in the north fifth, but never past the profile's own ceiling outside the core (F6: the frontage fills the south and middle first)
+        float Target(float y) => MathF.Min(profile.Coverage + (profile.Next.Coverage - profile.Coverage) * AshfallBandProfile.BlendAt(y), profile.Fabric == AshfallFabric.Rows ? 1f : profile.CoverageMax - 0.005f);
 
-        // 3. Rows along every corridor's sides outside the fortresses: the core's street walls (a frontage row on the corridor's edge, breaches every 30 to 50 m, two back rows), the outskirts' looser frontage (buildings with upper
-        // floors near the road, gaps between them). F5 (2026-11-16): from the avenue the bands read alike until the frontage stood on the road.
+        // 3. Frontage (F5, F6: the owner, 2026-11-16, "Make the buildings around the roads denser instead of reducing reserved space"): rows of buildings on every corridor's edges, then round the assembly areas and the plazas (or the
+        // points' clear zones), FrontBuffer off them. The core's frontage is a street wall (facades and wall pieces between them, a breach every 30 to 50 m, back rows behind 6 m alleys); the outskirts' a looser row (buildings with upper
+        // floors, a few gaps). The reserved places (the corridors, assembly areas, plazas and clear zones) are as before; only the margin the frontage keeps from them is smaller.
         int rows = 0, breaches = 0, walls = 0, row = 0;
         bool street = profile.Fabric == AshfallFabric.Rows;
-        if (profile.FrontageTiers > 0)
+        void Frontage(string name, Vector2 a, Vector2 b, Vector2 outward, float baseLine, int tiers, float trim)
         {
-            foreach (var k in frame.Corridors.Where(k => !k.Name.StartsWith("main avenue through", StringComparison.Ordinal)))
+            var dir = Vector2.Normalize(b - a);
+            bool alongX = MathF.Abs(dir.X) > 0.5f;
+            int yaw = alongX ? 0 : 6;
+            float total = Vector2.Distance(a, b);
+            for (int tier = 0; tier < tiers; tier++)
             {
-                var dir = Vector2.Normalize(k.B - k.A); var nrm = new Vector2(-dir.Y, dir.X);
-                bool alongX = MathF.Abs(dir.X) > 0.5f;
-                int yaw = alongX ? 0 : 6;
-                for (int tier = 0; tier < profile.FrontageTiers; tier++)   // the frontage row (the core's street wall), then the back rows behind it, each across a 6 m alley
-                foreach (int side in new[] { -1, 1 })
+                uint key = AshfallBuilder.Mix(seed * 0x9E37u + 41u, (uint)(row++));
+                float line = baseLine + tier * (18f + 6f);
+                float t = trim, len = total - trim, sinceBreach = 0f, nextBreach = profile.BreachMin + key % (uint)(profile.BreachMax - profile.BreachMin + 1f);
+                int n = 0;
+                rows++;
+                while (t < len - 6f)
                 {
-                    uint key = AshfallBuilder.Mix(seed * 0x9E37u + 41u, (uint)(row++));
-                    float line = k.Width / 2f + p.RouteBuffer + 0.6f + tier * (18f + 6f);
-                    float t = 8f, len = k.Length - 8f, sinceBreach = 0f, nextBreach = profile.BreachMin + key % (uint)(profile.BreachMax - profile.BreachMin + 1f);
-                    int n = 0;
-                    rows++;
-                    while (t < len - 6f)
+                    uint h = AshfallBuilder.Mix(key, (uint)n++);
+                    var at = a + dir * t;
+                    var prof = Pick(profile, at.Y, h);
+                    float wdt = new[] { 18f, 22f, 26f }[h % 3u], depth = new[] { 14f, 16f, 18f }[(h >> 4) % 3u];
+                    if (t + wdt > len) wdt = len - t;
+                    if (wdt < 10f) break;
+                    float height = Height(prof, h, at);
+                    string fam = Family(prof, h);
+                    // the core's frontage: its stairless buildings are facades (the street wall reads as one: the kit's stairless masses are round heaps); the back rows keep the masses
+                    if (street && tier == 0 && fam == "block") { fam = "facade"; depth = FacadeDepth; }
+                    if (!street && ((h >> 19) ^ (h >> 7)) % 100u < (uint)(profile.FrontageGapShare * 100f)) { t += wdt; continue; }   // the outskirts: a gap in the frontage
+                    if (!street && covered >= profile.Coverage * land) break;   // the outskirts keep their 20-24 %: the fabric goes to the roads first (to the band's mid target), the rest of the land stays open
+                    var centre = a + dir * (t + wdt / 2f) + outward * (line + depth / 2f);
+                    var size = new Vector3(wdt, depth, height);
+                    var fp = AshfallField.Footprint(centre, size, yaw);
+                    if (Free(fp, tier == 0 ? 2.45f : 6f, tier == 0 ? FrontBuffer : p.RouteBuffer) && !Sight(fp, height))
                     {
-                        uint h = AshfallBuilder.Mix(key, (uint)n++);
-                        var at = k.A + dir * t;
-                        var prof = Pick(profile, at.Y, h);
-                        float wdt = new[] { 18f, 22f, 26f }[h % 3u], depth = new[] { 14f, 16f, 18f }[(h >> 4) % 3u];
-                        if (t + wdt > len) wdt = len - t;
-                        if (wdt < 10f) break;
-                        float height = Height(prof, h, at);
-                        string fam = Family(prof, h);
-                        // the frontage row's stairless buildings are facades (the street wall reads as one: the kit's stairless masses are round heaps); the back row keeps the masses
-                        if (street && tier == 0 && fam == "block") { fam = "facade"; depth = FacadeDepth; }
-                        if (!street && ((h >> 19) ^ (h >> 7)) % 100u < (uint)(profile.FrontageGapShare * 100f)) { t += wdt; continue; }   // the outskirts: a gap in the frontage
-                        var centre = k.A + dir * (t + wdt / 2f) + nrm * side * (line + depth / 2f);
-                        var size = new Vector3(wdt, depth, height);
-                        var fp = AshfallField.Footprint(centre, size, yaw);
-                        if (Free(fp, tier == 0 ? 2.45f : 6f) && !Sight(fp, height))
-                        {
-                            Add(new($"{k.Name} {(tier == 0 ? "row" : tier == 1 ? "back row" : "second back row")} {(side < 0 ? "left" : "right")} {fam} {n}", fam, centre, size, yaw, profile.Name));
-                            covered += wdt * depth;
-                            sinceBreach += wdt;
-                        }
-                        else { t += 4f; continue; }
-                        t += wdt;
-                        if (tier >= 1 || !street) { t += street ? 6f : 8f + 2f * ((h >> 14) % 4u); continue; }   // the back rows and the outskirts: alleys only
-                        if (sinceBreach >= nextBreach)
-                        {
-                            // a breach gap in the street wall (30 to 50 m apart): open ground through the row into the block behind
-                            t += profile.BreachWidth; breaches++; sinceBreach = 0f;
-                            nextBreach = profile.BreachMin + (h >> 8) % (uint)(profile.BreachMax - profile.BreachMin + 1f);
-                            continue;
-                        }
-                        // a street wall piece between two buildings, 2.5 m breaks each side (over the 2.4 m narrow-gap rule)
-                        float wl = 6f + 2f * ((h >> 12) % 3u);
-                        var wc = k.A + dir * (t + 2.5f + wl / 2f) + nrm * side * (line + 0.75f);
-                        var wsize = new Vector3(wl, 1.5f, StreetWallHeight);
-                        var wfp = AshfallField.Footprint(wc, wsize, yaw);
-                        if (t + 2.5f + wl + 2.5f < len && Free(wfp, 2.45f)) { Add(new($"{k.Name} row {(side < 0 ? "left" : "right")} street wall {walls++}", "wall", wc, wsize, yaw, profile.Name)); t += 2.5f + wl + 2.5f; sinceBreach += wl; }
-                        else t += 6f;
+                        Add(new($"{name} {(tier == 0 ? "row" : tier == 1 ? "back row" : "second back row")} {fam} {n}", fam, centre, size, yaw, profile.Name));
+                        covered += wdt * depth;
+                        sinceBreach += wdt;
                     }
+                    else { t += 4f; continue; }
+                    t += wdt;
+                    if (tier >= 1 || !street) { t += street ? 6f : 2.5f + 1.5f * ((h >> 14) % 3u); continue; }   // the back rows and the outskirts: alleys only (the outskirts' 2.5 to 5.5 m)
+                    if (sinceBreach >= nextBreach)
+                    {
+                        // a breach gap in the street wall (30 to 50 m apart): open ground through the row into the block behind
+                        t += profile.BreachWidth; breaches++; sinceBreach = 0f;
+                        nextBreach = profile.BreachMin + (h >> 8) % (uint)(profile.BreachMax - profile.BreachMin + 1f);
+                        continue;
+                    }
+                    // a street wall piece between two buildings, 2.5 m breaks each side (over the 2.4 m narrow-gap rule)
+                    float wl = 6f + 2f * ((h >> 12) % 3u);
+                    var wc = a + dir * (t + 2.5f + wl / 2f) + outward * (line + 0.75f);
+                    var wsize = new Vector3(wl, 1.5f, StreetWallHeight);
+                    var wfp = AshfallField.Footprint(wc, wsize, yaw);
+                    if (t + 2.5f + wl + 2.5f < len && Free(wfp, 2.45f, FrontBuffer)) { Add(new($"{name} street wall {walls++}", "wall", wc, wsize, yaw, profile.Name)); t += 2.5f + wl + 2.5f; sinceBreach += wl; }
+                    else t += 6f;
                 }
             }
-            notes.Add($"rows: {rows} frontage rows along the corridors, {walls} street wall pieces, {breaches} breach gaps ({profile.BreachMin:0}-{profile.BreachMax:0} m apart, {profile.BreachWidth:0} m wide)");
+        }
+        // the four outward edges of a rectangle (x0, y0, x1, y1), lined from outside
+        void Around(string name, Vector4 r, float off, int tiers)
+        {
+            Frontage($"{name} south", new(r.X, r.Y), new(r.Z, r.Y), new(0f, -1f), off, tiers, 0f);
+            Frontage($"{name} north", new(r.X, r.W), new(r.Z, r.W), new(0f, 1f), off, tiers, 0f);
+            Frontage($"{name} west", new(r.X, r.Y), new(r.X, r.W), new(-1f, 0f), off, tiers, 0f);
+            Frontage($"{name} east", new(r.Z, r.Y), new(r.Z, r.W), new(1f, 0f), off, tiers, 0f);
+        }
+        if (profile.FrontageTiers > 0)
+        {
+            // the assembly areas' and the plazas' (or clear zones') edges: the base exit and B framed by buildings
+            foreach (var (name, r) in frame.Assembly) Around(name, r, FrontBuffer + 0.1f, 1);
+            foreach (var pt in points)
+            {
+                float rad = plazas.Count > 0 ? MathF.Max(profile.PlazaRadius, pt.Radius + p.ObjectiveClear) : pt.Radius + p.ObjectiveClear;
+                var c = new Vector2(pt.Center.X, pt.Center.Y);
+                Around($"point {pt.Name}", new Vector4(c.X - rad, c.Y - rad, c.X + rad, c.Y + rad), FrontBuffer + 0.1f, 1);
+            }
+            foreach (var k in frame.Corridors.Where(k => !k.Name.StartsWith("main avenue through", StringComparison.Ordinal)))
+            {
+                var dir = Vector2.Normalize(k.B - k.A); var left = new Vector2(-dir.Y, dir.X);
+                Frontage($"{k.Name} left", k.A, k.B, left, k.Width / 2f + FrontBuffer + 0.1f, profile.FrontageTiers, 8f);
+                Frontage($"{k.Name} right", k.A, k.B, -left, k.Width / 2f + FrontBuffer + 0.1f, profile.FrontageTiers, 8f);
+            }
+            notes.Add($"frontage: {rows} rows along the corridors and round the assembly areas and the points, {walls} street wall pieces, {breaches} breach gaps ({profile.BreachMin:0}-{profile.BreachMax:0} m apart, {profile.BreachWidth:0} m wide), {FrontBuffer} m off the reserved places");
         }
 
         // 4. Islands on a jittered grid in seeded order, until the coverage target (the last fifth to the north blends toward the next band's profile and coverage).

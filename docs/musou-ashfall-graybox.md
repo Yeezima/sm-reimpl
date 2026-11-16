@@ -1108,6 +1108,15 @@ The F4 pass-2 shots showed the three bands alike at eye level from the avenue: a
 - Pins (seed 16): band 0 `0xE92AC5053BF5DC0C` (unchanged), band 1 `0xA5FF5B3201FDF7C3` (was `0x6662E1FD10FCF3A6`), band 2 `0x2D6E92C60602DE4B` (was `0x17C867AC429FF0DC`); 166,008 / 165,480 / 215,496 collision triangles; the composed world `0x85544EA11A1D9794`, 546,984 triangles.
 - Shots: `<media folder>\musou-front\f5\` (free-fly at eye level with `--front-band n`, camera at x = 600 n, y = -165, -70, 10 and 120; before: `f4\compare-d13-vs-front-bands-c1788520.png`).
 
+### F6: denser frontage, the reserved places unchanged (2026-11-16)
+The owner: "Make the buildings around the roads denser instead of reducing reserved space." The 24 m avenue, the side corridors, the 80 m assembly areas, the plazas and the clear zones keep their sizes; the frontage stands 1.5 m off them (`AshfallFront.FrontBuffer`; the other fabric keeps the profile's 2.5 to 4 m route buffer).
+- The edges of the assembly areas and of the points' plazas or clear zones are lined with a frontage row too (the base exit and B framed by buildings), before the corridors.
+- Outskirts: 15 % of the frontage places left as gaps (was 35 %), 2.5 to 5.5 m alleys, half the buildings with walkable upper floors; the frontage stops at the band's mid target, and no piece is added past the band's own ceiling (24 %), so the fabric goes to the roads and the rest of the land stays open.
+- Core: buildings 16-28 m (13-26 m before), the street walls on the corridors' edges with breaches every 30 to 50 m, two back rows.
+- Coverage over the five seeds: wasteland 6.6-7.0 %, outskirts 23.5-23.6 %, core 35.3-36.1 % (the core's islands stop at its target; its frontage is not capped). Gates A and B pass on every seed and band.
+- Pins (seed 16): band 0 `0xE92AC5053BF5DC0C` (unchanged), band 1 `0x127552340580823A`, band 2 `0x97D0EFE02100B3ED`; the composed world `0x2221482E5F700003`; 166,008 / 152,640 / 213,192 collision triangles, 356 / 261 / 394 props.
+- Shots: `<media folder>\musou-front\f6\` and `f6\compare-front-bands-f6.png` (the same places as F5).
+
 ### Test aids (front map only; nothing changes in normal play)
 - Server `SM_TFW_FRONT_NODE=1|2|3|4` (environment): every run starts with each lane's front at n - 1 (`TfwRun.StartNode`), so the first battle on any lane is node n on its band (4: the final assault on the core). For 200 v 200 runs per band with `tools/musou-perf.ps1 -Map tfw_war_front`.
 - Client `--front-band 0|1|2`: that band is drawn whatever the camera does (free-fly captures at x = 0, 600 or 1200).
