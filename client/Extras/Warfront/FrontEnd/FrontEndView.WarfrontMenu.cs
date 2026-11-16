@@ -74,6 +74,7 @@ public sealed partial class FrontEndView
                 HostedServer.Stop();
                 WarfrontMenuState.Joined = false;
                 WarfrontMenuState.Retries = 0;
+                if (_args.ContainsKey("warfront-quit-at-menu")) { GD.Print($"warfront: server running after stop: {HostedServer.Running}; quitting (test aid)"); Callable.From(() => GetTree().Quit()).CallDeferred(); }
                 break;
             default:
                 if (!ours) { WarfrontMenuState.Joined = false; WarfrontMenuState.Retries = 0; }
@@ -246,8 +247,15 @@ public sealed partial class FrontEndView
         int port = HostedServer.Options?.Port ?? ServerLaunch.DefaultPort;
         _services.Content = ContentProfiles.WarfrontProfile;
         WarfrontMenuState.Joined = true;
-        GD.Print($"warfront: joining 127.0.0.1:{port}");
+        GD.Print($"warfront: joining 127.0.0.1:{port}; the server listened {Time.GetTicksMsec() / 1000.0 - _wfStartedAt:0.0} s after the start");
+        WarfrontLogServerLines();
         TryJoin(ServerLaunch.LocalHost(port), remember: false);
+        // Test aid --warfront-leave-after <seconds>: leaves the match by itself (the Esc menu's LEAVE MATCH) that long after the join, so a proof can come back to the menu without a keyboard.
+        if (_args.TryGetValue("warfront-leave-after", out var after) && double.TryParse(after, System.Globalization.CultureInfo.InvariantCulture, out double seconds) && seconds > 0 && JoinOverride is null)
+        {
+            var tree = GetTree();
+            tree.CreateTimer(seconds).Timeout += () => { GD.Print("warfront: leaving the match (test aid)"); tree.CurrentScene?.CallDeferred("LeaveMatch"); };
+        }
     }
 
     /// <summary>Each frame: follows the server's start, fills the preparing screen, hides Warfront's pages when another page took over.</summary>
@@ -256,6 +264,7 @@ public sealed partial class FrontEndView
         if (_built) WarfrontAids();
         if (_page is not null) WarfrontHidePages();   // another page took over (the front end sets _page; Warfront's pages leave it null)
         if (!_wfPending) return;
+        WarfrontLogServerLines();
         double elapsed = Time.GetTicksMsec() / 1000.0 - _wfStartedAt;
         if (_wfStatus is { } status && _wfPrep is { Visible: true })
         {
@@ -286,6 +295,16 @@ public sealed partial class FrontEndView
                 Say("The server took too long to start and was stopped.", true);
                 break;
         }
+    }
+
+    static readonly HashSet<string> _wfLogged = new();
+
+    /// <summary>Copies the server's <c>warfront:</c> lines into the client's log once each (the hosted server has no console of its own; a proof reads the run's state hash from here).</summary>
+    void WarfrontLogServerLines()
+    {
+        if (!HostedServer.Running) return;
+        foreach (var raw in HostedServer.LastLines(12).Split(" | "))
+            if (raw.Contains("warfront:", StringComparison.OrdinalIgnoreCase) && _wfLogged.Add(raw)) GD.Print("hosted server: " + raw);
     }
 
     /// <summary>Esc or B on Warfront's pages: Cancel on the preparing screen, BACK on the page; not while the confirmation is open (it answers No itself).</summary>
