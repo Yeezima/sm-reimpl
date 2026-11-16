@@ -338,6 +338,7 @@ public sealed partial class GameClient
                 case Scoreboard b when Status == ClientStatus.Connected && (Scoreboard is null || b.ServerTick > Scoreboard.ServerTick): Scoreboard = b; OnScoreboardAppearances(b); NoteNames(b); break;
                 case Message m and (SetupAck or Appearance or BlobRequest or BlobChunk) when Status == ClientStatus.Connected: OnAppearanceMessage(m); break;
                 case EnemyBars eb when Status == ClientStatus.Connected: OnBars(eb); break;   // protocol 44 (GameClient.Bars.cs)
+                case DevCancelSync sync when Status == ClientStatus.Connected: OnDevCancelSync(sync); break;   // cancel-editor (GameClient.Dev.cs)
                 case DevState dev when Status == ClientStatus.Connected: OnDevState(dev); break;   // protocol 80 (GameClient.Dev.cs)
                 case PickupUpdate p when Status == ClientStatus.Connected: OnPickups(p); break;   // protocol 26 (GameClient.Pickups.cs)
                 case ExtrasUpdate x when Status == ClientStatus.Connected: OnExtras(x); break;   // added content's envelope (GameClient.Envelope.cs)

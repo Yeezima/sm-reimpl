@@ -117,7 +117,9 @@ public class ExtrasEnvelopeTests(ITestOutputHelper output)
         Assert.True(Protocol.IsKnownKind(19));   // protocol 58: SpawnRequest
         Assert.True(Protocol.IsKnownKind(20));   // protocol 80: DevCommand
         Assert.True(Protocol.IsKnownKind(21));   // protocol 80: DevState
-        Assert.False(Protocol.IsKnownKind(22));
+        Assert.True(Protocol.IsKnownKind(22));   // protocol 80: DevCancelEdit
+        Assert.True(Protocol.IsKnownKind(23));   // protocol 80: DevCancelSync
+        Assert.False(Protocol.IsKnownKind(24));
         Assert.False(Protocol.IsKnownKind(200));
         Assert.Equal(1195, Protocol.MaxSnapshotBytes);   // the envelope adds nothing to snapshots
         Assert.Equal(Protocol.SnapshotBudget, Protocol.MaxExtrasMessageBytes);
@@ -230,7 +232,7 @@ public class ExtrasEnvelopeTests(ITestOutputHelper output)
             if (!sessionWritten || i % 250 != 0) continue;
             if (h.Server.SendExtras(new ExtrasUpdate(h.Server.World.Tick, [(1, [(byte)sent])]))) sent++;
             writer.Packet(h.Clock.Now.TotalSeconds, [200, 1, 2, 3]);   // a kind from a later build
-            writer.Packet(h.Clock.Now.TotalSeconds, [22]);
+            writer.Packet(h.Clock.Now.TotalSeconds, [24]);
             unknown += 2;
         }
         writer.Close(h.Clock.Now.TotalSeconds);
@@ -240,7 +242,7 @@ public class ExtrasEnvelopeTests(ITestOutputHelper output)
 
         var demo = Demo.Read(ms.ToArray());
         Assert.Contains(demo.Packets, p => p.Data[0] == 16);   // the recorder kept the envelope as received
-        Assert.Equal(unknown, demo.Packets.Count(p => p.Data[0] is 200 or 22));
+        Assert.Equal(unknown, demo.Packets.Count(p => p.Data[0] is 200 or 24));
         var play = new DemoPlayback(demo);
         var replay = new GameClient(h.Config, Harness.Fingerprint, play.Transport, play.Clock, nonce: demo.Header.Nonce);
         var replayed = new List<int>();

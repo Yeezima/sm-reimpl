@@ -253,6 +253,7 @@ public static class Reaction
     /// </summary>
     public static bool CanReact(PlayerState s, SimConfig c)
     {
+        if (s.Alive && CancelGate.Active(c) && CancelGate.ReactDecision(s, c) is { } edited) return edited;   // cancel-editor: the owner's table says whether a hit reacts in this action
         if (!s.Alive || Evade.HyperArmour(s, c) || Rush.HyperArmour(s, c)) return false;
         if (Brace.ReactionImmune(s)) return false;   // fidelity gap 7: the heavy bolter's stance (owner's recollection: stuns and hits do not knock you out)
         if (Stims.WindUp(c, s)) return false;   // owner 2026-11-12: a stim's use is not cancelled by a hit before its release

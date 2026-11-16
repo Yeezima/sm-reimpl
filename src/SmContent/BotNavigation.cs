@@ -20,7 +20,8 @@ public static class BotNavigation
     /// apply on <paramref name="map"/>: every <c>mp_*</c> map but Manufactorum (<c>mp_tdm_09</c>, the owner's playtested alpha arena keeps its bots exactly as they were); never Musou Mode's maps.
     /// </summary>
     public static bool NewMapRules(string map) =>
-        map.StartsWith("mp_", StringComparison.OrdinalIgnoreCase) && !map.Equals("mp_tdm_09", StringComparison.OrdinalIgnoreCase);
+        (map.StartsWith("mp_", StringComparison.OrdinalIgnoreCase) && !map.Equals("mp_tdm_09", StringComparison.OrdinalIgnoreCase))
+        || map.StartsWith("cm_", StringComparison.Ordinal);   // Mapmaker maps (docs/mapmaker.md): the new-map rules too
 
     /// <summary>The graph's settings and area for <paramref name="map"/>; null when it has no spawns, points or start areas to build around.</summary>
     public static (NavSettings Settings, NavArea Area)? Setup(MapContent map, SimConfig config)
