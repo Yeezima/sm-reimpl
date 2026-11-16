@@ -11,10 +11,10 @@ namespace SmClient;
 /// bots leave patrol when no targets are found - they should look for and hunt down enemies that are not in the spawn area. the intent of this hunting is to clear space for
 /// their teammates to safely capture points or take up more powerful positions." The spawn area is the spawn room plus the 25 m no-loiter zone round it (owner 2026-11-07: a bot never loiters at the enemy's spawn); no enemy in it is hunted
 /// (<c>--bot-hunt-zone</c>, default off, also takes those outside the room). A bot with nobody to fight or chase hunts the nearest enemy outside the spawn area (<see cref="BotHunt"/>),
-/// by the same path walk and the same combat as a chase (so in Annihilation this is the chase itself, now counted and logged). A retreating bot does not hunt. A Seize Ground bot keeps its point
+/// by the same path walk and the same combat as a chase (the chase already takes every enemy outside the spawn area at any range, so by default this adds nothing in Annihilation). A retreating bot does not hunt. A Seize Ground bot keeps its point
 /// unless it is surplus there (<see cref="BotSeizeSurplus"/>: 2 lower-id teammates already inside), when it hunts an enemy near the points and goes back once none is left; with every point held it hunts as in Annihilation.
 /// What a bot knows: the snapshots give every client every player's state and the chase has always used it, so the hunt adds no channel and no tracking beyond that.
-/// Musou bots return earlier (<c>ExtrasBotInput</c>). <c>--bot-no-hunt</c> restores the old patrol (centre hold and roam).
+/// Musou bots return earlier (<c>ExtrasBotInput</c>). <c>--bot-no-hunt</c> turns off Seize Ground's surplus hunt and the zone hunt.
 /// </summary>
 public partial class NetworkView
 {
