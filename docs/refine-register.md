@@ -28,8 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3507 spec table rows: **2505 tagged**, 651 not tagged (read from data with high confidence), 351 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 758 rows of the changes document.
-Scanned 3503 spec table rows: **2505 tagged**, 647 not tagged (read from data with high confidence), 351 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 758 rows of the changes document.
+Scanned 3531 spec table rows: **2524 tagged**, 655 not tagged (read from data with high confidence), 352 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 759 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -51,32 +50,22 @@ Scanned 3503 spec table rows: **2505 tagged**, 647 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 47 | 37 | 21 | 12 | 7 |
-| Core simulation (provisional values) | 780 | 737 | 567 | 215 | 1 |
+| Core simulation (provisional values) | 793 | 750 | 580 | 221 | 1 |
 | General game design | 30 | 30 | 26 | 7 | 0 |
-| Ork faction | 260 | 247 | 144 | 69 | 0 |
-| **All areas** | **2505** | 2233 | 1868 | 765 | 37 |
-| Core simulation (provisional values) | 785 | 742 | 572 | 217 | 1 |
-| General game design | 19 | 19 | 17 | 7 | 0 |
 | Ork faction | 262 | 249 | 146 | 69 | 0 |
-| **All areas** | **2505** | 2233 | 1870 | 769 | 37 |
+| **All areas** | **2524** | 2252 | 1887 | 773 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1454 |
-| confidence: low | 908 |
-| confidence: medium | 851 |
-| notes: ours | 436 |
-| kind: interpretation | 406 |
+| kind: ours | 1462 |
+| confidence: low | 916 |
+| confidence: medium | 862 |
+| notes: ours | 444 |
+| kind: interpretation | 410 |
+| kind: estimate | 207 |
 | notes: estimate | 204 |
-| kind: estimate | 200 |
-| confidence: low | 909 |
-| confidence: medium | 852 |
-| notes: ours | 441 |
-| kind: interpretation | 405 |
-| notes: estimate | 203 |
-| kind: estimate | 201 |
 | confidence: none (low) | 109 |
 | kind: provisional | 104 |
 | kind: user's knowledge | 53 |
@@ -2572,8 +2561,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-5B955167` | Panel | F8 shows or hides the grid (Esc closes) when the server has the tools; numbered "row.column" cells coloured by state, a bright border where the cell differs from the release default; the inspector (state, from, until, "data timing", the code's own value, note… (key) | kind: ours | the owner (F8 chosen: free in Classic PvP; Musou's Ashfall look keeps it there) | Panel: compare with SM1 by feel or video. Ours: F8 shows or hides the grid (Esc closes) when the server has the… | ☐ |
 | `R-BE15241E` | Export | writes `cancel-table-YYYYMMDD-HHMMSS.json` (the shipped file's format: every cell with note and source, then the overrides) to `%LOCALAPPDATA%\sm-reimpl\cancel-configs\`, never overwriting; import reads one back and applies it live; `smtool cancel-config diff`… | kind: ours | the owner ("hands changes over as an export file") | Export: compare with SM1 by feel or video. Ours: writes cancel-table-YYYYMMDD-HHMMSS.json (the shipped file's format:… | ☐ |
 
-### Core simulation (provisional values) (780)
-### Core simulation (provisional values) (785)
+### Core simulation (provisional values) (793)
 
 *Spec section: Provisional values in use*
 
@@ -3801,6 +3789,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-10CD507B` | Spectator time | 60 s after the revive window ends (the other reading, 60 s from the fall, is not used): no body in play, no input, cannot be hit, respawn held; then a fresh life at the human's own landing place (s) | kind: interpretation; confidence: medium; notes: ours | owner ("respawn after 1 minute"); "from its end" our reading | Spectator time: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 60 s after the revive window ends (the other reading, 60 s from the… | ☐ |
 | `R-11524DAA` | Who counts as standing | a human alive in the field, or any retainer of any squad (the `AnyRetainerStanding` seam, none until W9); downed or spectating humans, the allied pair and the Guardsmen never count | kind: interpretation; confidence: medium; notes: ours | owner; our reading | Who counts as standing: compare with SM1 by feel or video. Ours: a human alive in the field, or any retainer of any squad (the… | ☐ |
 | `R-9FEF7708` | Wipe | the tick no human is alive, none is downed with an open window and no retainer stands: the battle ends at once as a loss, everyone to the hub, pending respawn timers dropped. A spectator whose 60 s end finds nobody standing waits (it is then a wipe) | kind: interpretation; confidence: medium; notes: ours | owner; our reading | Wipe: compare with SM1 by feel or video. Ours: the tick no human is alive, none is downed with an open window and no… | ☐ |
+
 *Spec section: Added content: Warfront: squads (W9: `WarfrontSquadSim`, `SquadRosters`; pure sim, not yet connected to World, the wire or the loadouts)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
