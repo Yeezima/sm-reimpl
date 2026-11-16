@@ -18,18 +18,34 @@ public sealed partial class TfwRun
     double _nextHqTransport;
     int _warTicks;
 
-    public TfwRun(TfwBattlefield field, TfwSites? sites = null)
+    /// <param name="bandSites">The front pilot: each band's places (<see cref="TfwBattlefield.Bands"/>, in band order); null builds them without a graph.</param>
+    public TfwRun(TfwBattlefield field, TfwSites? sites = null, IReadOnlyList<TfwSites>? bandSites = null)
     {
-        Field = field;
-        Sites = sites ?? new TfwSites(field, null, null);
+        _field = field;
+        _sites = sites ?? new TfwSites(field, null, null);
+        _bandSites = field.Bands is { Count: > 0 } bands ? bandSites ?? [.. bands.Select(b => new TfwSites(b, null, null))] : null;
         Reset();
         ReviveWindow = ReviveOpen;
     }
 
-    /// <summary>The places of the battlefield.</summary>
-    public TfwBattlefield Field { get; }
-    /// <summary>Where a battle's drawn places fall.</summary>
-    public TfwSites Sites { get; }
+    readonly TfwBattlefield _field;
+    readonly TfwSites _sites;
+    readonly IReadOnlyList<TfwSites>? _bandSites;
+
+    /// <summary>The places of the battlefield (the front pilot: the active band's).</summary>
+    public TfwBattlefield Field => _field.Bands is { Count: > 0 } bands ? bands[ActiveBand] : _field;
+    /// <summary>Where a battle's drawn places fall (the front pilot: on the active band).</summary>
+    public TfwSites Sites => _bandSites?[ActiveBand] ?? _sites;
+    /// <summary>The whole world's battlefield (the front pilot: every band; otherwise <see cref="Field"/>).</summary>
+    public TfwBattlefield WholeField => _field;
+    /// <summary>
+    /// The front pilot: the band the battle under way (or the last one) is fought on, set at each landing from the battle's node (<c>AshfallFront.BandForNode</c>'s rule: node 1 the wasteland, 2 the outskirts, 3 and the final
+    /// assault the urban core). Always 0 on a map without bands.
+    /// </summary>
+    public int ActiveBand { get; private set; }
+
+    /// <summary>The band of a war node on a map with <paramref name="bands"/> bands (lane B's positions 1 to 3 in order; lanes A and C start at node 2; the final assault, node 3, is on the last band).</summary>
+    public static int BandForNode(int node, int bands) => bands <= 0 ? 0 : Math.Clamp(node - 1, 0, bands - 1);
 
     /// <summary>The war of this run.</summary>
     public WarSim War { get; private set; } = new();
@@ -206,6 +222,7 @@ public sealed partial class TfwRun
         var state = War.LaneState(lane);
         bool final = state.Front == WarRules.FrontStronghold;
         int node = final ? WarRules.Positions : state.Front + 1;
+        ActiveBand = BandForNode(node, _field.Bands?.Count ?? 0);   // the front pilot: this battle's band (no change on any other map)
         long started = System.Diagnostics.Stopwatch.GetTimestamp();
         var layout = Sites.Layout(lane, node, w.Tick);
         LastSitesMilliseconds = System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds;

@@ -25,7 +25,9 @@ public sealed partial class World
     public bool StartTfw(NavGraph? nav, TfwBattlefield field)
     {
         if (!StartMusou(nav)) return false;
-        _tfw ??= new TfwRun(field, new TfwSites(field, nav, Collision));
+        _tfw ??= field.Bands is { Count: > 0 } bands
+            ? new TfwRun(field, null, [.. bands.Select(b => new TfwSites(b, nav, Collision, b.Bounds))])   // the front pilot: each band's places on its own part of the graph
+            : new TfwRun(field, new TfwSites(field, nav, Collision));
         _musou!.Swarm = MusouSwarmRules.Default;   // the 5-wave run never gets it (MusouSkirmishPinTests)
         _musou!.War = TfwCombatRules.Default;   // nor this
         _musou!.WidenBox(field.Hub.Box);   // the Stormbird lies outside the graph
