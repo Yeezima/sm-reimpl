@@ -19,6 +19,8 @@ namespace SmClient;
 /// </summary>
 public partial class NetworkView
 {
+    partial void WarfrontOpenWarMap(ref bool handled);
+
     TfwStation _tfwAt;
     bool _tfwUseWas, _tfwEquipment, _tfwMapHeld;
     WarMapPanel? _tfwPanel, _tfwPeek;
@@ -49,7 +51,12 @@ public partial class NetworkView
         bool press = use && !_tfwUseWas;
         _tfwUseWas = use;
         if (!press) return;
-        if (_tfwAt == TfwStation.Destination) TfwOpenWarMap(war);
+        if (_tfwAt == TfwStation.Destination)
+        {
+            bool warfront = false;
+            WarfrontOpenWarMap(ref warfront);   // WARFRONT-HOOK: a Warfront server opens its own war map
+            if (!warfront) TfwOpenWarMap(war);
+        }
         else if (_tfwAt == TfwStation.Equipment) TfwOpenEquipment();
         else if (_tfwAt == TfwStation.Range) TfwOpenRangeConfirm();
         else if (_tfwAt == TfwStation.Return)

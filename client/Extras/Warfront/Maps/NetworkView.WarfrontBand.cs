@@ -1,3 +1,4 @@
+using System.Linq;
 using Godot;
 using SmContent;
 using SmSim;
@@ -23,9 +24,7 @@ public partial class NetworkView
 
     // The hooks W5 calls from the dispatchers (client/Extras/NetworkView.Extras.cs, Musou/Tfw/NetworkView.Tfw.cs): declared here as partial methods of this class, implemented below, so the
     // file compiles without callers and an unused hook costs nothing; a build without Warfront (-p:SmWarfront=false) leaves this folder out and nothing refers to it.
-    partial void WarfrontMapContent(string name, ref MapContent? map);
-    partial void WarfrontMapVisuals(string name, ref bool drawn);
-    partial void WarfrontBandFrame(PlayerState me);
+    // (declared in client/Extras/NetworkView.Extras.cs and client/Extras/Musou/Tfw/NetworkView.Tfw.cs with their call sites, W5b: a build without Warfront still compiles the calls)
 
     /// <summary>The map content of a lane slot's name (null for any other map): the generated band as collision, from the layout cache.</summary>
     partial void WarfrontMapContent(string name, ref MapContent? map)
@@ -46,25 +45,33 @@ public partial class NetworkView
         try
         {
             var watch = System.Diagnostics.Stopwatch.StartNew();
+            var split = new System.Text.StringBuilder();
+            long mark = 0;
+            void Lap(string what) { split.Append($"{(split.Length > 0 ? ", " : "")}{what} {watch.ElapsedMilliseconds - mark} ms"); mark = watch.ElapsedMilliseconds; }
             var node = new Node3D { Name = $"WarfrontBand{slot.Band}" };
             _gameSpace.AddChild(node);
             _warfrontBand = node;
             var drawn1 = AshfallMap.OpenFrontEdges(_warfrontLevel);   // drawing only: the avenue's openings in the boundary wall (the collision stays closed)
+            Lap("open edges");
             var view = AshfallView.Build(drawn1);
             node.AddChild(view);
+            Lap("AshfallView.Build");
             TfwFrontKit(drawn1, _warfrontDressing, view, node);
+            Lap("TfwFrontKit");
             // the scenery draws the neighbouring bands as massing copies: the same lane's adjacent slots (node - 1 south, node + 1 north), read through the layout cache; node 3 has none to the north (the spire and the stacks stand there)
             var empty = new AshfallDressing([], [], _warfrontDressing.Version);
             var bands = new (AshfallLevel Level, AshfallDressing Dressing)[AshfallFront.BandCount];
             for (int k = 0; k < bands.Length; k++) bands[k] = (_warfrontLevel, empty);
             bands[slot.Band] = (_warfrontLevel, _warfrontDressing);
+            var drawnNeighbours = new System.Collections.Generic.List<int>();
             foreach (int k in new[] { slot.Band - 1, slot.Band + 1 })
             {
                 if (k < 0 || k >= AshfallFront.BandCount) continue;
-                try { bands[k] = WarfrontLayoutCache.Build(WarfrontSlots.Of(slot.Lane, k + 1), out _); }
+                try { bands[k] = WarfrontLayoutCache.Build(WarfrontSlots.Of(slot.Lane, k + 1), out string neighbourNote); Lap($"neighbour band {k} layout ({neighbourNote.Split(';')[0]})"); drawnNeighbours.Add(k); }
                 catch (System.Exception e) when (e is not (System.StackOverflowException or System.AccessViolationException or System.OutOfMemoryException)) { GD.Print($"warfront: the neighbouring band {k} could not be built ({e.GetType().Name}: {e.Message}); no copy of it is drawn"); }
             }
             node.AddChild(AshfallFrontScenery.Build(slot.Band, bands));
+            Lap("AshfallFrontScenery.Build");
             if (_sun is not null && _environment is not null)
             {
                 AshfallView.ApplyLook(_sun, _environment);
@@ -76,7 +83,16 @@ public partial class NetworkView
                     catch (System.Exception e) when (e is not (System.StackOverflowException or System.AccessViolationException or System.OutOfMemoryException)) { GD.Print($"warfront: the storm look failed ({e.GetType().Name}: {e.Message}); the plain look stays"); }
                 }
             }
+            Lap("look and storm");
             drawn = true;
+            GD.Print($"warfront: stall split for {slot.Name}: {split}");
+            {
+                float spireY = AshfallFrontScenery.SpireNorth;
+                var points = _warfrontLevel.Points.Select(c => $"{c.Name} {c.Center.X:F0},{c.Center.Y:F0} ({spireY - c.Center.Y:F0} m to the spire)");
+                var landing = _warfrontLevel.Spawns.Count > 0 ? $"{_warfrontLevel.Spawns[0].X:F0},{_warfrontLevel.Spawns[0].Y:F0} ({spireY - _warfrontLevel.Spawns[0].Y:F0} m to the spire)" : "none";
+                GD.Print($"warfront: {slot.Name} ({slot.Profile}): the spire stands {spireY:F0} m north of the origin whatever the band; first spawn {landing}; control points {string.Join("; ", points)}");
+            }
+            GD.Print($"warfront: {slot.Name} neighbour copies drawn: {(drawnNeighbours.Count == 0 ? "none" : string.Join(", ", drawnNeighbours.Select(k => "band " + k)))}");
             GD.Print($"warfront: {slot.Name} ({slot.Profile}, seed {slot.Seed}) drawn in {watch.ElapsedMilliseconds} ms (outside scenery {AshfallFrontScenery.LastTriangles:N0} triangles, client only)");
         }
         catch (System.Exception e) when (e is not (System.StackOverflowException or System.AccessViolationException))
