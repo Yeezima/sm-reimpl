@@ -90,6 +90,25 @@ public static class MapDecorLists
     /// </summary>
     public static bool SkipsSkyBoxes(string map, bool old) => !old && !map.Equals(Map, StringComparison.OrdinalIgnoreCase);
 
+    /// <summary>maps-visual-qa: whether a map's sky boxes are drawn as a sky decoded from their YCoCg texture: wherever <see cref="SkipsSkyBoxes"/> (never Manufactorum), unless <paramref name="off"/> (<c>--no-sky-textures</c>).</summary>
+    public static bool DrawsSkyTextures(string map, bool old, bool off) => !off && SkipsSkyBoxes(map, old);
+
+    /// <summary>
+    /// maps-visual-qa: shaders whose name starts with <c>diffuv1</c> (<c>diffuv1_vtxtint_normdtluv1_specuv1</c>: Aquila Canyon's and Desolation's rock plateaus, Dome Mechanicus' wall pieces) read their diffuse,
+    /// normal and specular maps through the mesh's SECOND UV set (the name's <c>uv1</c>; the detail normal takes the first, tiled one). Read through the first they showed one unique bake (a stack of blocks
+    /// laid out once over the whole rock) repeated as a knobby tile. Reading from the name is the evidence; Manufactorum has no such shader.
+    /// </summary>
+    public static bool UsesSecondUvSet(string? shader) => shader?.StartsWith("diffuv1", StringComparison.Ordinal) == true;
+
+    /// <summary>
+    /// maps-visual-qa: maps with no sky box whose floor grates and gaps show the engine's background below the level (Basilica: pure white slats through every floor grate). They get a dark floor
+    /// plane just under the lowest drawn geometry (ours; what the original showed there is not known), so the background does not show below the level. Per map, by observation.
+    /// </summary>
+    public static readonly string[] VoidFloorMaps = ["mp_tdm_11"];
+
+    /// <summary>Whether <paramref name="map"/> gets the dark floor plane (never with <paramref name="off"/>, <c>--no-void-floor</c>).</summary>
+    public static bool HasVoidFloor(string map, bool off) => !off && VoidFloorMaps.Contains(map, StringComparer.OrdinalIgnoreCase);
+
     /// <summary>The set for <paramref name="map"/>, or null (nothing is hidden there).</summary>
     public static DecorSet? For(string map) => Sets.TryGetValue(map, out var set) ? set : null;
 

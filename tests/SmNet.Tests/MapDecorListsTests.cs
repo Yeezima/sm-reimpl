@@ -110,6 +110,28 @@ public class MapDecorListsTests
         Assert.False(MapDecorLists.SkipsSkyBoxes(map, old: true));   // --old-sky-boxes restores the drawing everywhere
     }
 
+    [Theory]
+    [InlineData("mp_tdm_17", true), InlineData("mp_dlc1_map1", true), InlineData("mp_tdm_09", false), InlineData("MP_TDM_09", false)]
+    public void The_sky_boxes_are_drawn_as_a_sky_on_the_new_maps_only_and_the_switches_turn_it_off(string map, bool sky)
+    {
+        Assert.Equal(sky, MapDecorLists.DrawsSkyTextures(map, old: false, off: false));
+        Assert.False(MapDecorLists.DrawsSkyTextures(map, old: false, off: true));    // --no-sky-textures
+        Assert.False(MapDecorLists.DrawsSkyTextures(map, old: true, off: false));    // --old-sky-boxes
+    }
+
+    [Theory]
+    [InlineData("diffuv1_vtxtint_normdtluv1_specuv1", true), InlineData("diffuv1_vtxtint_normdtluv1_drvspec", true), InlineData("diff2_mskblenduv10_vtxtint_norm_drvspec", false), InlineData("diff_norm", false), InlineData(null, false)]
+    public void Only_the_diffuv1_shaders_read_their_base_maps_through_the_second_uv_set(string? shader, bool second) =>
+        Assert.Equal(second, MapDecorLists.UsesSecondUvSet(shader));
+
+    [Theory]
+    [InlineData("mp_tdm_11", true), InlineData("MP_TDM_11", true), InlineData("mp_tdm_09", false), InlineData("mp_tdm_17", false)]
+    public void Only_basilica_gets_the_dark_floor_plane_and_the_switch_removes_it(string map, bool floor)
+    {
+        Assert.Equal(floor, MapDecorLists.HasVoidFloor(map, off: false));
+        Assert.False(MapDecorLists.HasVoidFloor(map, off: true));
+    }
+
     [Fact]
     public void Only_the_engines_sky_shaders_count_as_sky()
     {

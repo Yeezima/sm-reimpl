@@ -67,6 +67,7 @@ public partial class MapView : Node3D
         var drawnObjects = new HashSet<int>();
         var meshCache = new Dictionary<(string, int, bool), ArrayMesh?>();
 
+        float minZ = float.MaxValue;
         var drawn = new HashSet<(string, int)>();
         var missing = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var ((meshName, block, mirrored, shadows), placements) in groups.OrderBy(g => g.Key.Mesh, StringComparer.Ordinal)
@@ -91,6 +92,7 @@ public partial class MapView : Node3D
                 InstanceCount = transforms.Count,
             };
             for (int i = 0; i < transforms.Count; i++) multimesh.SetInstanceTransform(i, transforms[i]);
+            { var box = mesh.GetAabb(); foreach (var t in transforms) minZ = Mathf.Min(minZ, (t * box).Position.Z); }   // the lowest drawn point (game Z), for the void floor
             AddChild(new MultiMeshInstance3D
             {
                 Name = $"{meshName}_{block}{(mirrored ? "_mirrored" : "")}{(shadows ? "" : "_noshadow")}", Multimesh = multimesh,
@@ -98,6 +100,15 @@ public partial class MapView : Node3D
             });
             Instances += transforms.Count;
             if (mirrored) Mirrored += transforms.Count;
+        }
+        if (MapDecor.HasVoidFloor(scene.Map) && minZ < float.MaxValue)
+        {
+            // maps-visual-qa: a dark unlit plane just under the lowest drawn geometry (see MapDecorLists.VoidFloorMaps); ours.
+            AddChild(new MeshInstance3D
+            {
+                Name = "VoidFloor", Mesh = new QuadMesh { Size = new Vector2(6000f, 6000f) }, Position = new Vector3(0f, 0f, minZ - 1.5f), CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+                MaterialOverride = new StandardMaterial3D { ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded, AlbedoColor = new Color(0.012f, 0.010f, 0.009f), CullMode = BaseMaterial3D.CullModeEnum.Disabled },
+            });
         }
         Meshes = drawn.Count;
         Objects = drawnObjects.Count;
@@ -117,7 +128,13 @@ public partial class MapView : Node3D
             if (MapDecor.HidesSurface(scene.Map, meshName, range.Name)) continue;
             // classic-maps-all: the engine's sky boxes (seq_NN_sky; shader sky_ycocg_bloomcontrol, YCoCg textures, no DiffuseMap) are drawn by the engine around the camera. Read as map geometry they
             // got the grey placeholder and stood in the level as big flat lit boxes (tan sides, violet top on Shattered Bridge). Not drawn on the new maps (never on Manufactorum, whose drawing stays as it was: MapDecorLists.SkipsSkyBoxes); the lighting's sky shows (MapLightingView).
-            if (MapDecor.SkipsSkyBoxes(scene.Map) && scene.Materials.TryGetValue(range.Name, out var skyMaterial) && MapDecorLists.IsSkyShader(skyMaterial.ShaderName)) continue;
+            bool isSky = false;
+            if (MapDecor.SkipsSkyBoxes(scene.Map) && scene.Materials.TryGetValue(range.Name, out var skyMaterial) && MapDecorLists.IsSkyShader(skyMaterial.ShaderName))
+            {
+                // maps-visual-qa: drawn as a sky around the camera from its YCoCg texture (MapSky) unless --no-sky-textures or the texture does not decode; else not drawn at all.
+                if (!MapDecor.DrawsSkyTextures(scene.Map)) continue;
+                isSky = true;
+            }
             int count = range.IndexCount - range.IndexCount % 3;
             if (count < 3 || range.StartIndex < 0 || range.StartIndex + count > block.Indices.Length) continue;
             // Vertex window of this range; fall back to the whole block if an index falls outside the declared window.
@@ -151,6 +168,8 @@ public partial class MapView : Node3D
                 if (block.Uv0.Length == vertexCount) uv[v] = new Vector2(block.Uv0[first + v].X, block.Uv0[first + v].Y);
                 if (block.Uv1.Length == vertexCount) uv2[v] = new Vector2(block.Uv1[first + v].X, block.Uv1[first + v].Y);
             }
+            // maps-visual-qa: shaders named diffuv1_* map their base maps through the second UV set (MapDecorLists.UsesSecondUvSet); --old-uv-sets restores the first-set reading.
+            if (!MapDecor.OldUvSets && block.Uv1.Length == vertexCount && scene.Materials.TryGetValue(range.Name, out var uvMaterial) && MapDecorLists.UsesSecondUvSet(uvMaterial.ShaderName)) uv = (Vector2[])uv2.Clone();
             var indices = new int[count];
             for (int i = 0; i < count; i += 3)
             {
@@ -167,12 +186,21 @@ public partial class MapView : Node3D
             arrays[(int)Mesh.ArrayType.Color] = colours;
             arrays[(int)Mesh.ArrayType.Index] = indices;
             mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, arrays);
-            var (material, textured) = MaterialFor(scene, range.Name, notes, block.Tangents.Length == vertexCount && block.Normals.Length == vertexCount);
+            var (material, textured) = isSky ? SkyMaterialFor(scene, range.Name, vertices) : MaterialFor(scene, range.Name, notes, block.Tangents.Length == vertexCount && block.Normals.Length == vertexCount);
             mesh.SurfaceSetMaterial(mesh.GetSurfaceCount() - 1, material);
             if (countSurfaces) { Surfaces++; if (textured) TexturedSurfaces++; }
         }
         if (mesh.GetSurfaceCount() == 0) { notes.Add($"mesh '{meshName}': no drawable range"); return null; }
         return mesh;
+    }
+
+    /// <summary>The sky-box surface's material (<see cref="MapSky"/>: the box's own centre as the draw centre); the neutral grey if the texture is missing (never drawn lit as geometry would be: it is hidden by the far-plane trick either way).</summary>
+    (Material Material, bool Textured) SkyMaterialFor(MapScene scene, string materialName, Vector3[] vertices)
+    {
+        Vector3 lo = vertices[0], hi = vertices[0];
+        foreach (var v in vertices) { lo = lo.Min(v); hi = hi.Max(v); }
+        var sky = scene.Materials.TryGetValue(materialName, out var bmat) ? MapSky.Build(bmat, scene.Textures, (lo + hi) / 2f) : null;
+        return (sky ?? (_neutral ??= new StandardMaterial3D { AlbedoColor = new Color(0.55f, 0.55f, 0.55f) }), sky is not null);
     }
 
     /// <param name="tangents">The block has normals and tangents for every vertex; without them a normal map would shade wrongly, so it is left off.</param>
