@@ -31,10 +31,10 @@ public static class LibrarianRules
 
     // ---- Chain lightning ----
     /// <summary>
-    /// It reaches this far from the eye, to the enemy best lined up with the aim within <see cref="AimConeDegrees"/> (ours; 37.5 m since the owner's "+25% range and damage" of 2026-11-11, was 30 m;
+    /// It reaches this far from the eye, to the enemy best lined up with the aim within <see cref="AimConeDegrees"/> (ours; 52.5 m since the owner's order of 2026-11-16, "+15 m" on the initial target only, was 37.5 m since the "+25% range and damage" of 2026-11-11, 30 m before;
     /// the jump radius is not part of it, our reading of "range").
     /// </summary>
-    public const float LightningRange = 37.5f, AimConeDegrees = 12f;
+    public const float LightningRange = 52.5f, AimConeDegrees = 12f;
     /// <summary>
     /// It jumps to the nearest enemy not yet struck within this (flat) of the last one, up to <see cref="MaxTargets"/> struck in all (16 m since the owner's "Widen the 8m jump", answer "16 m (double)",
     /// of 2026-11-11; was 8 m). The tag 16 jumps are bytes of 0.2 m for it (<c>LibrarianWire</c>: 25.4 m).
