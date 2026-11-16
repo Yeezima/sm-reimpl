@@ -400,4 +400,102 @@ public class DevToolsMatchTests
         Assert.Equal(0, client.Dev!.TimeScale);
         Assert.True(server.World.Tick > t2 + 20);
     }
+
+    [Fact]
+    public void A_paused_server_can_still_be_unpaused_after_many_requests_and_keeps_telling_clients_it_lives()
+    {
+        var manual = new ManualClock();
+        var scalable = new ScalableClock(manual);
+        var net = new LoopbackNetwork(manual, Link, 5);
+        var server = new GameServer(new SimConfig(), Harness.Fingerprint, net.Server, scalable, new ServerOptions { DevTools = new DevToolsSetup(IPAddress.Loopback, null, scalable) }, null);
+        var clientClock = new ScalableClock(manual);   // a client scales its own clock with the server's, as NetworkView does
+        var client = new GameClient(new SimConfig(), Harness.Fingerprint, net.Connect(), clientClock, null, nonce: 7) { UnscaledClock = manual };
+        void Run(int ms)
+        {
+            for (int i = 0; i < ms; i++)
+            {
+                manual.Advance(TimeSpan.FromMilliseconds(1)); server.Update(); client.Update(t => new PlayerInput(t, 0, 0, 0, InputButtons.None));
+                clientClock.Scale = client.Dev is { } d ? DevTools.TimeScales[d.TimeScale] : 1.0;
+            }
+        }
+        Run(2500);
+        client.SendDevCommand(DevCommandKind.SetTimeScale, 4, true);   // paused
+        Run(200);
+        Assert.Equal(4, client.Dev!.TimeScale);
+        // More requests than the bucket holds, while paused: the limit counts real time, so it refills.
+        for (int i = 0; i < 12; i++) { client.SendDevCommand(DevCommandKind.SetFlag, (byte)DevToolsFlags.Invincible, i % 2 == 0); Run(5); }
+        Run(2000);   // two real seconds: the bucket refills (6 a second) although the server's own clock stands still
+        client.SendDevCommand(DevCommandKind.SetFlag, (byte)DevToolsFlags.FreezeBots, true);
+        Run(200);
+        Assert.True(server.World.DevFlags.HasFlag(DevToolsFlags.FreezeBots), "a flag request after the refill is obeyed while paused");
+        // Changing the time scale is never limited: a burst of them, the last one wins.
+        for (int i = 0; i < 12; i++) { client.SendDevCommand(DevCommandKind.SetTimeScale, (byte)(i % 2 == 0 ? 4 : 0), true); Run(1); }
+        client.SendDevCommand(DevCommandKind.SetTimeScale, 0, true);
+        Run(200);
+        Assert.Equal(0, client.Dev!.TimeScale);
+        Assert.NotEqual(DevNote.TooFast, client.Dev.Note);
+        // Paused again: the state still arrives every real second (the keep-alive), so the client's copy stays fresh on real time.
+        client.SendDevCommand(DevCommandKind.SetTimeScale, 4, true);
+        Run(200);
+        uint tick = server.World.Tick;
+        Run(6000);
+        Assert.Equal(tick, server.World.Tick);
+        Assert.NotNull(client.Dev);   // 6 real seconds later, still fresh
+        client.SendDevCommand(DevCommandKind.SetTimeScale, 0, true);   // unpause: accepted
+        Run(1000);
+        Assert.Equal(0, client.Dev!.TimeScale);
+        Assert.True(server.World.Tick > tick + 20);
+    }
+
+    [Fact]
+    public void The_state_expires_on_real_time_when_the_server_stops_sending_it()
+    {
+        var manual = new ManualClock();
+        var scalable = new ScalableClock(manual);
+        var net = new LoopbackNetwork(manual, Link, 5);
+        var server = new GameServer(new SimConfig(), Harness.Fingerprint, net.Server, scalable, new ServerOptions { DevTools = new DevToolsSetup(IPAddress.Loopback, null, scalable) }, null);
+        var client = new GameClient(new SimConfig(), Harness.Fingerprint, net.Connect(), scalable, null, nonce: 7) { UnscaledClock = manual };
+        void Run(int ms, bool serverUp = true) { for (int i = 0; i < ms; i++) { manual.Advance(TimeSpan.FromMilliseconds(1)); if (serverUp) server.Update(); client.Update(t => new PlayerInput(t, 0, 0, 0, InputButtons.None)); } }
+        Run(2500);
+        client.SendDevCommand(DevCommandKind.SetTimeScale, 4, true);
+        Run(200);
+        scalable.Scale = 0;   // the client's own clock stands still too, as the client does on a paused server
+        Assert.NotNull(client.Dev);
+        Run(5000, serverUp: false);   // the server is gone
+        Assert.Null(client.Dev);   // expired on real time although the client's scaled clock never moved
+    }
+
+    [Fact]
+    public void A_bot_client_cannot_command_the_tools()
+    {
+        var (h, log, _) = Server(Setup(), Short with { TimeLimit = 0f }, clients: 0);
+        var human = h.AddClient(nonce: 11);
+        var bot = h.AddClient(nonce: 12, options: new ClientOptions { Bot = true });
+        Settle(h, 2.5);
+        bot.SendDevCommand(DevCommandKind.SetFlag, (byte)DevToolsFlags.Invincible, true);
+        bot.SendDevCommand(DevCommandKind.SetTimeScale, 2, true);
+        bot.SendDevCommand(DevCommandKind.EndMatch, 0, true);
+        Settle(h, 0.5);
+        Assert.Equal(DevToolsFlags.None, h.Server.World.DevFlags);
+        Assert.Equal(0, human.Dev!.TimeScale);
+        Assert.DoesNotContain(log, l => l.StartsWith("dev tools: invincible") || l.StartsWith("dev tools: time scale") || l.StartsWith("dev tools: end match"));
+        human.SendDevCommand(DevCommandKind.SetFlag, (byte)DevToolsFlags.Invincible, true);   // a human still can
+        Settle(h, 0.3);
+        Assert.Equal(DevToolsFlags.Invincible, h.Server.World.DevFlags);
+    }
+
+    [Fact]
+    public void A_restart_that_clears_the_indefinite_toggle_says_so()
+    {
+        var (h, log, _) = Server(Setup(), Short with { TimeLimit = 0f }, clients: 1);
+        h.AddClient(nonce: 12, options: new ClientOptions { RequestedSide = Team.Chaos });
+        Settle(h, 3);
+        var me = h.Clients[0];
+        me.SendDevCommand(DevCommandKind.SetFlag, (byte)DevToolsFlags.Indefinite, true);
+        Settle(h, 0.3);
+        me.SendDevCommand(DevCommandKind.RestartMatch, 0, true);
+        Settle(h, 0.5);
+        Assert.Contains(log, l => l.StartsWith("dev tools: indefinite match OFF (the match was restarted"));
+        Assert.Equal(DevToolsFlags.None, me.Dev!.Flags & DevToolsFlags.Indefinite);
+    }
 }

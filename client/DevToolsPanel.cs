@@ -45,6 +45,15 @@ public partial class DevToolsPanel : CanvasLayer
     Input.MouseModeEnum _previousMouse = Input.MouseModeEnum.Captured;
     byte _lastSerial;
     bool _serialSeen, _syncing;
+    readonly Dictionary<HSlider, (double Due, Action Send)> _pending = new();
+
+    public override void _Process(double delta)
+    {
+        if (_pending.Count == 0) return;
+        double now = Time.GetTicksMsec() / 1000.0;
+        foreach (var (slider, (due, send)) in _pending.ToList())
+            if (now >= due) { _pending.Remove(slider); send(); }
+    }
 
     public DevToolsPanel(Func<DevState?> state, Func<DevCommandKind, byte, bool, int, bool> send, Func<List<TeleportChoice>> targets)
     {
@@ -173,7 +182,8 @@ public partial class DevToolsPanel : CanvasLayer
         var slider = new HSlider { MinValue = min, MaxValue = max, Step = step, Value = min, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, CustomMinimumSize = new Vector2(220, 20) };
         var text = new Label { Text = "", CustomMinimumSize = new Vector2(70, 0), HorizontalAlignment = HorizontalAlignment.Right };
         slider.ValueChanged += v => text.Text = format(v);
-        slider.DragEnded += changed => { if (changed && !_syncing) send(slider.Value); };   // sent when the drag is let go, not on every step
+        slider.DragEnded += changed => { _pending.Remove(slider); if (changed && !_syncing) send(slider.Value); };   // sent when the drag is let go
+        slider.ValueChanged += _ => { if (!_syncing && slider.HasFocus()) _pending[slider] = (Time.GetTicksMsec() / 1000.0 + 0.4, () => send(slider.Value)); };   // a keyboard change: sent after a short pause
         row.AddChild(slider); row.AddChild(text);
         value = text;
         return slider;
@@ -302,9 +312,9 @@ public partial class DevToolsPanel : CanvasLayer
             for (int i = 0; i < _scaleButtons.Count; i++)
                 _scaleButtons[i].AddThemeColorOverride("font_color", i == s.TimeScale ? new Color(0.55f, 1f, 0.55f) : new Color(0.85f, 0.85f, 0.85f));
             // Sliders show what the server holds, unless one is being dragged (its own value is then the user's).
-            if (_acc is not null && _accValue is not null && !_acc.HasFocus()) { double v = s.BotAccuracy == Protocol.DevNoValue ? 97 : s.BotAccuracy / 10.0; _acc.SetValueNoSignal(v); _accValue.Text = s.BotAccuracy == Protocol.DevNoValue ? "own" : $"{v:0} %"; }
+            if (_acc is not null && _accValue is not null && !_acc.HasFocus()) { double v = s.BotAccuracy == Protocol.DevNoValue ? NetworkView.DefaultBotAccuracy * 100.0 : s.BotAccuracy / 10.0; _acc.SetValueNoSignal(v); _accValue.Text = s.BotAccuracy == Protocol.DevNoValue ? "bots' own" : $"{v:0} %"; }
             if (_dmg is not null && _dmgValue is not null && !_dmg.HasFocus()) { double v = s.BotDamage / 10.0; _dmg.SetValueNoSignal(v); _dmgValue.Text = $"{v:0} %"; }
-            if (_range is not null && _rangeValue is not null && !_range.HasFocus()) { double v = s.BotRange == 0 ? 100 : s.BotRange; _range.SetValueNoSignal(v); _rangeValue.Text = s.BotRange == 0 ? "own" : $"{v:0} m"; }
+            if (_range is not null && _rangeValue is not null && !_range.HasFocus()) { double v = s.BotRange == 0 ? 100 : s.BotRange; _range.SetValueNoSignal(v); _rangeValue.Text = s.BotRange == 0 ? "bots' own" : $"{v:0} m"; }
         }
         _syncing = false;
         if (s is not null && (!_serialSeen || s.NoteSerial != _lastSerial))
