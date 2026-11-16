@@ -261,29 +261,108 @@ public class WarfrontCampaignTests
     }
 
     [Fact]
-    public void A_late_joiner_gets_the_median_xp_once_and_a_returning_player_gets_his_own_state_back()
+    public void A_late_joiner_gets_the_median_xp_once_at_the_ship_stop_and_a_returning_player_keeps_his_own_state()
     {
         var c = Ship();
         c.Join(P2, out _);
         c.AddXp(P1, 10000);
         c.AddXp(P2, 4000);
-        c.Join(P3, out var kind);
+        c.Join(P3, "Three", out var kind);
         Assert.Equal(WarfrontJoinKind.New, kind);
         var p3 = c.Player(P3)!;
-        Assert.Equal(7000, p3.Xp); // mean of the two middle values
+        Assert.Equal(0, p3.Xp); // nothing at Join
+        Assert.False(p3.JoinGrantApplied);
+        Assert.Equal("Three", p3.Name);
+
+        Assert.True(c.ApplyJoinGrant(P3));
+        Assert.Equal(7000, p3.Xp); // mean of the two middle values (4000, 10000)
         Assert.True(p3.JoinGrantApplied);
         Assert.Equal(WarfrontCampaign.LevelForXp(7000), p3.Level);
+        Assert.False(c.ApplyJoinGrant(P3)); // one-shot
+        Assert.Equal(7000, p3.Xp);
 
-        // leave and rejoin in every phase: no second grant, nothing lost
         c.AddXp(P3, 500);
         Assert.True(c.TryTakePick(P3, 2));
         long xp = p3.Xp; int picks = p3.PicksTaken;
         c.Leave(P3);
         c.Join(P3, out kind);
         Assert.Equal(WarfrontJoinKind.Returning, kind);
+        Assert.False(c.ApplyJoinGrant(P3));
         Assert.Equal(xp, c.Player(P3)!.Xp);
         Assert.Equal(picks, c.Player(P3)!.PicksTaken);
         Assert.Equal(new[] { 2 }, c.Player(P3)!.Cards.ToArray());
+    }
+
+    [Fact]
+    public void The_grant_uses_connected_others_or_all_others_when_none_is_connected()
+    {
+        var c = Ship();
+        c.Join(P2, out _); c.Join(P3, out _);
+        c.AddXp(P1, 9000); c.AddXp(P2, 3000);
+        c.Leave(P1); // P1 away: the others of P3 that are connected = P2 only
+        Assert.True(c.ApplyJoinGrant(P3));
+        Assert.Equal(3000, c.Player(P3)!.Xp);
+
+        var d = Ship();
+        d.Join(P2, out _);
+        d.AddXp(P1, 6000);
+        d.Leave(P1);
+        d.Leave(P2); // nobody connected: all others count
+        d.Join(P3, out _); d.Leave(P3);
+        Assert.True(d.ApplyJoinGrant(P3));
+        Assert.Equal(3000, d.Player(P3)!.Xp); // (0 + 6000) / 2
+    }
+
+    [Fact]
+    public void The_first_player_is_granted_nothing_and_unknown_keys_are_refused_without_throwing()
+    {
+        var c = Ship();
+        Assert.False(c.ApplyJoinGrant(P1));
+        Assert.True(c.Player(P1)!.JoinGrantApplied);
+        Assert.False(c.AddXp(777, 5));
+        Assert.False(c.TryTakePick(777, 1));
+        Assert.False(c.ApplyJoinGrant(777));
+    }
+
+    [Fact]
+    public void Four_connected_refuse_a_fifth_new_or_returning_and_a_leaver_frees_a_seat()
+    {
+        var c = Ship(); // P1 connected
+        c.Join(P2, out _); c.Join(P3, out _); c.Join(304, out _);
+        Assert.False(c.Join(305, out _));
+        c.Leave(P3);
+        Assert.True(c.Join(305, out var k5)); // admitted with three connected
+        Assert.Equal(WarfrontJoinKind.New, k5);
+        Assert.Equal(5, c.JoinOrder.Count); // the leaver stays in the run
+        Assert.NotNull(c.Player(P3));
+        Assert.False(c.Join(P3, out var back)); // returning, but the cap holds
+        Assert.Equal(WarfrontJoinKind.Returning, back);
+        c.Leave(305);
+        Assert.True(c.Join(P3, out _));
+    }
+
+    [Fact]
+    public void The_cap_equals_musous_co_op_cap()
+    {
+        Assert.Equal(SmSim.Extras.Musou.Campaign.TfwCoop.MaxHumans, WarfrontCampaign.MaxHumans);
+    }
+
+    [Fact]
+    public void A_wipe_at_the_floor_is_recorded_in_the_history()
+    {
+        var c = Ship(false, false);
+        Fight(c, WarfrontTarget.Node(0), WarfrontOutcome.Wipe);
+        var h = c.History.Single();
+        Assert.Equal(1, h.Before);
+        Assert.Equal(1, h.After);
+        Assert.True(h.HeldAtFloor);
+
+        var d = Ship(false, false, false, false);
+        Fight(d, WarfrontTarget.Node(0), WarfrontOutcome.Win);
+        Fight(d, WarfrontTarget.Node(0), WarfrontOutcome.Wipe);
+        Assert.Equal(2, d.History[1].Before);
+        Assert.Equal(1, d.History[1].After);
+        Assert.False(d.History[1].HeldAtFloor);
     }
 
     [Fact]
@@ -305,13 +384,27 @@ public class WarfrontCampaignTests
         var c = Ship(true, true);
         Assert.True(c.TryDeploy(P1, WarfrontTarget.Node(0), out _));
         c.BeginBattle();
-        var json = c.ToJson();
-        var back = WarfrontSave.FromJson(json, new ForcedRolls());
+        var back = WarfrontSave.FromJson(c.ToJson(), new ForcedRolls());
         back.ResumeAfterRestart();
         Assert.Equal(WarfrontPhase.Ship, back.Phase);
         Assert.Equal(0, back.Deployments);
         Assert.Empty(back.Rolls);
         Assert.Null(back.CurrentTarget);
         Assert.Null(back.Leader);
+    }
+
+    [Fact]
+    public void A_travel_save_stays_in_travel_with_its_target_so_the_stage_process_can_land()
+    {
+        var c = Ship();
+        Assert.True(c.TryDeploy(P1, WarfrontTarget.Node(2), out _));
+        var back = WarfrontSave.FromJson(c.ToJson());
+        back.ResumeAfterRestart();
+        Assert.Equal(WarfrontPhase.Travel, back.Phase);
+        Assert.Equal(WarfrontTarget.Node(2), back.CurrentTarget);
+        back.Join(P1, out _);
+        back.BeginBattle();
+        back.Resolve(WarfrontOutcome.Win);
+        Assert.Equal(2, back.Front(2));
     }
 }

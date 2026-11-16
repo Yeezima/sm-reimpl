@@ -28,8 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3375 spec table rows: **2401 tagged**, 626 not tagged (read from data with high confidence), 348 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 747 rows of the changes document.
-Scanned 3397 spec table rows: **2422 tagged**, 627 not tagged (read from data with high confidence), 348 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 750 rows of the changes document.
+Scanned 3428 spec table rows: **2444 tagged**, 636 not tagged (read from data with high confidence), 348 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 752 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,33 +49,23 @@ Scanned 3397 spec table rows: **2422 tagged**, 627 not tagged (read from data wi
 | Customizer and paint | 46 | 43 | 26 | 15 | 0 |
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
-| Networking and render smoothing | 17 | 7 | 14 | 12 | 7 |
-| Core simulation (provisional values) | 742 | 699 | 530 | 195 | 1 |
-| General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 258 | 245 | 143 | 68 | 0 |
-| **All areas** | **2401** | 2129 | 1799 | 736 | 37 |
 | Networking and render smoothing | 36 | 26 | 17 | 12 | 7 |
-| Core simulation (provisional values) | 734 | 691 | 522 | 189 | 1 |
+| Core simulation (provisional values) | 756 | 713 | 544 | 202 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 258 | 245 | 143 | 68 | 0 |
-| **All areas** | **2422** | 2150 | 1797 | 731 | 37 |
+| **All areas** | **2444** | 2172 | 1819 | 744 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1390 |
-| confidence: low | 877 |
-| confidence: medium | 813 |
-| notes: ours | 410 |
-| kind: interpretation | 393 |
-| kind: ours | 1420 |
-| confidence: low | 868 |
-| confidence: medium | 820 |
-| notes: ours | 404 |
-| kind: interpretation | 394 |
+| kind: ours | 1425 |
+| confidence: low | 879 |
+| confidence: medium | 831 |
+| notes: ours | 417 |
+| kind: interpretation | 400 |
 | notes: estimate | 203 |
-| kind: estimate | 174 |
+| kind: estimate | 175 |
 | confidence: none (low) | 109 |
 | kind: provisional | 103 |
 | kind: user's knowledge | 53 |
@@ -2502,7 +2491,6 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-27330EFB` | Perf tour (`--perf-tour`) | with `--perf-probe` and `--observe-tour`, the observer's camera moves to the tour's next place at the end of each 5 s probe window and each `perf:` line names its place (s) | kind: ours | measurement aid | Perf tour (--perf-tour): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: with --perf-probe and --observe-tour, the observer's camera moves to… | ☐ |
 | `R-83C63D35` | Classic maps performance result | no new map clearly worse than Manufactorum: render CPU 2.0 to 4.7 ms (Manufactorum 3.1), server tick mean 0.64 to 1.06 ms with 17 clients; one run per map on a busy machine (frame times noisy by about 3 ms); no change made to any map's drawing (ms) | confidence: low | measured | Classic maps performance result: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: no new map clearly worse than Manufactorum: render CPU 2.0 to 4.7 ms… | ☐ |
 
-### Core simulation (provisional values) (742)
 *Spec section: Developer tools: the in-game test panel (dev-tools; owner 2026-11-17; protocol 80; test aid, ours, never on a public server)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
@@ -2532,7 +2520,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-61F47DDE` | Bot difficulty | accuracy 0 to 100 % (the bots' `--bot-accuracy`), damage dealt 0 to 100 % (`World.SetDamageScale`, which only lowers; 100 % also removes the server's `--bot-damage-scale`; the panel starts at that option's value), fire range 5 to 1000 m (`--bot-range`); each… (% , m) | kind: ours | the owner | Bot difficulty: compare with SM1 by feel or video. Ours: accuracy 0 to 100 % (the bots' --bot-accuracy), damage dealt 0 to 100… | ☐ |
 | `R-010FCD37` | Time scale | 1, 1/2, 1/4, 1/10 or paused: the server's tick clock and every client's clock (prediction, interpolation, timeouts) and Godot's `Engine.TimeScale` (animation, effects, deltas) run at that fraction together, on the local client and on bots; sound is not… (factor) | kind: ours; confidence: medium | the owner | Time scale: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 1, 1/2, 1/4, 1/10 or paused: the server's tick clock and every… | ☐ |
 
-### Core simulation (provisional values) (734)
+### Core simulation (provisional values) (756)
 
 *Spec section: Provisional values in use*
 
@@ -3718,6 +3706,23 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-3F132D6F` | Dreadnought: the entrance cue and the death | the entrance (`evt_spawn_in`: portal clouds, force field, krak and hammer-swing glows) plays when a LIVING body starts a life (0.3 s window, once), never on a corpse (`DreadnoughtFeel.EntryDue`: the film's respawn test aid stood him up 0.02 s after… (s) | kind: ours; kind: estimate; confidence: medium | docs/discovery.md "DA Dreadnought inventory"; the film's logs | Dreadnought: the entrance cue and the death: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the entrance (evt_spawn_in: portal clouds, force field, krak and… | ☐ |
 | `R-337A2379` | Dreadnought: film aids | server `SM_DN_TEST_GUARD=1` tops up every living Dreadnought's health each step (filming among the Orks only); client `--dn-da-close` (cannon, melta and head close-ups: camera modes 4 to 6), `--dn-muzzle-log` (the flash marker's place and the model's reach)… | kind: ours | this pass | Dreadnought: film aids: compare with SM1 by feel or video. Ours: server SM_DN_TEST_GUARD=1 tops up every living Dreadnought's health… | ☐ |
 
+*Spec section: Added content: Warfront — the campaign (W4: `WarfrontCampaign`, `WarfrontSave`; pure state machine, not yet driven by a server)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-EBF3973C` | Advanced after an HQ win | kept (the HQ reset does not clear it) (flag) | kind: interpretation; confidence: medium; notes: ours | our reading of the owner's rule | Advanced after an HQ win: compare with SM1 by feel or video. Ours: kept (the HQ reset does not clear it). | ☐ |
+| `R-DA47A5FF` | Rolls also after a wipe and after a fortress wipe | yes (never after an HQ defence, a fortress win or on the ship) (roll) | kind: interpretation; confidence: medium; notes: ours | our reading of the owner's rule | Rolls also after a wipe and after a fortress wipe: compare with SM1 by feel or video. Ours: yes (never after an HQ defence, a fortress win or on the ship). | ☐ |
+| `R-3C7D06B0` | Roll source | a deterministic hash (splitmix64 style) of run seed, deployment number and lane; a forced sequence replaces it in tests (bit) | kind: ours; confidence: medium | our choice | Roll source: compare with SM1 by feel or video. Ours: a deterministic hash (splitmix64 style) of run seed, deployment… | ☐ |
+| `R-647E37D3` | Cleared lane losing a roll | drops to node 3 and the fortress locks again unless another lane is cleared (node) | kind: interpretation; confidence: medium; notes: ours | our reading of the owner's rule | Cleared lane losing a roll: compare with SM1 by feel or video. Ours: drops to node 3 and the fortress locks again unless another lane is… | ☐ |
+| `R-4362B839` | Breakthrough | an Advanced lane at node 0 forces HQ defence as the next deployment (the only target offered); a wipe at node 1 counts (flag) | kind: interpretation; confidence: medium; notes: ours | owner; "a wipe at node 1 counts" our reading | Breakthrough: compare with SM1 by feel or video. Ours: an Advanced lane at node 0 forces HQ defence as the next deployment… | ☐ |
+| `R-FE7D569F` | HQ win | all three fronts to node 2, no roll, cleared lanes included, mandatory flag cleared (node) | kind: interpretation; confidence: medium; notes: ours | owner; the cleared-lane part our reading | HQ win: compare with SM1 by feel or video. Ours: all three fronts to node 2, no roll, cleared lanes included… | ☐ |
+| `R-173FB253` | Fortress access | any lane cleared (node 4); entered through that lane, one target per cleared lane | kind: ours; confidence: medium | owner; the lane naming ours | Fortress access: compare with SM1 by feel or video. Ours: any lane cleared (node 4); entered through that lane, one target per… | ☐ |
+| `R-1C89BB73` | Joiner XP | median of the other players' XP, once, applied at the next ship stop (not at join); "others" are the connected others, or all others when none is connected; an even count takes the mean of the two middle values rounded down; never lowers a player's own XP (XP) | kind: interpretation; confidence: medium; notes: ours | owner; the connected-others rule, the even-count mean and the no-lowering rule our reading | Joiner XP: compare with SM1 by feel or video. Ours: median of the other players' XP, once, applied at the next ship stop… | ☐ |
+| `R-E515D7E3` | XP per level | 1500 + 500 x (level - 1) from one level to the next (level 2 at 1500, level 10 at 31500 in all) (XP) | kind: estimate; confidence: low | our estimate, to tune in a playtest | XP per level: compare with SM1 by feel or video. Ours: 1500 + 500 x (level - 1) from one level to the next (level 2 at 1500… | ☐ |
+| `R-B3999055` | Restart in a battle | the run resumes on the ship, nothing rolled or granted for that deployment; a restart in Travel keeps the phase and its target (each stage is a new process that loads the save in Travel) | kind: ours; confidence: medium | our choice | Restart in a battle: compare with SM1 by feel or video. Ours: the run resumes on the ship, nothing rolled or granted for that… | ☐ |
+| `R-5660ED7E` | Save location and format | `%LOCALAPPDATA%\sm-reimpl\warfront\run.json`, JSON version 1, written atomically (temp file then move) | kind: ours; confidence: medium | our choice | Save location and format: compare with SM1 by feel or video. Ours: %LOCALAPPDATA%\sm-reimpl\warfront\run.json, JSON version 1, written… | ☐ |
+| `R-1D6AA937` | Records | `records\<utc>-<won, lost or abandoned>.json` (a same-second name gets a suffix), written atomically and never read by a run | kind: ours; confidence: medium | owner (records only); "abandoned" ours | Records: compare with SM1 by feel or video. Ours: records\<utc>-<won, lost or abandoned>.json (a same-second name gets… | ☐ |
+
 ### General game design (7)
 
 *Spec section: Known behavior (public, unverified)*
@@ -4416,6 +4421,12 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-B101E8C1` | One back every 30 s; Favor of the Armory: 2 | owner's (D9); data (Favor) | Grenades come back every 15 s. | One back every 30 s; Favor of the Armory: 2: compare with SM1 by timing a run over a known distance. Ours: owner's (D9); data (Favor). | ☐ |
 | `C-C68717FE` | The melta bomb's model | owner's (D21) | The data's model is the Ork stikkbomb. | The melta bomb's model: compare with SM1 by feel or video. Ours: owner's (D21). | ☐ |
 | `C-2DA54F6D` | It sticks to a contraption (riding on it) and to a shield dome's surface from outside | ours | The core would set it off at the contraption or the dome. | It sticks to a contraption (riding on it) and to a shield…: compare with SM1 by counting hits to kill and by video of the health bar. Ours: ours. | ☐ |
+
+#### Warfront (third mode; spec "Added content: Warfront — the campaign")
+
+| ID | What | Ours / the owner's | Value | Spec row | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `C-8EAA4069` | Warfront campaign (third mode): lanes, rolls, HQ defense, fortress, save and resume; not in SM1 | the owner's rules (2026-11-17); the cases they leave open ours (interpretation) | three lanes of three nodes, an Imperial HQ and an Ork fortress, up to four connected humans, a leader, and a run save that survives a restart | spec "Added content: Warfront — the campaign" | Warfront campaign (third mode): lanes, rolls, HQ defense…: compare with SM1 by feel or video. Ours: the owner's rules (2026-11-17); the cases they leave open ours… | ☐ |
 
 ### Deliberate changes (owner's decisions)
 

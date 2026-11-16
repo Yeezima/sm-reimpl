@@ -24,7 +24,8 @@ public class WarfrontSaveTests : IDisposable
         c.TryDeploy(11, WarfrontTarget.Node(1), out _);
         c.BeginBattle();
         c.Resolve(WarfrontOutcome.Win);
-        c.Join(13, out _);
+        c.Join(13, "Thirteen", out _);
+        c.ApplyJoinGrant(13);
         return c;
     }
 
@@ -60,7 +61,22 @@ public class WarfrontSaveTests : IDisposable
         back.Join(11, out _);
         Assert.Equal(c.Player(11)!.Xp, back.Player(11)!.Xp);
         Assert.Equal(c.Player(11)!.PicksTaken, back.Player(11)!.PicksTaken);
+        Assert.Equal("Thirteen", back.Player(13)!.Name);
+        Assert.False(back.ApplyJoinGrant(13));
+        Assert.Equal(xp13, back.Player(13)!.Xp);
         Assert.Equal(11UL, back.Leader);
+    }
+
+    [Fact]
+    public void Archive_in_the_same_second_gets_a_suffix_and_never_overwrites()
+    {
+        var c = Busy();
+        var t = new DateTime(2026, 11, 17, 12, 0, 0, DateTimeKind.Utc);
+        var a = WarfrontSave.Archive(_dir, c, t);
+        var b = WarfrontSave.Archive(_dir, c, t);
+        Assert.NotEqual(a, b);
+        Assert.True(File.Exists(a) && File.Exists(b));
+        Assert.Empty(Directory.GetFiles(Path.Combine(_dir, WarfrontSave.RecordsDir), "*.tmp"));
     }
 
     [Fact]

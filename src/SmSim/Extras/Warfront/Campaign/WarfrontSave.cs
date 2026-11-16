@@ -29,7 +29,7 @@ public static class WarfrontSave
         File.Move(tmp, path, overwrite: true);
     }
 
-    /// <summary>Loads <c>run.json</c> for Continue and applies the restart rule; null when there is no save. Never looks at <c>records\</c>.</summary>
+    /// <summary>Loads <c>run.json</c> for Continue and applies the restart rule (a Battle returns to the ship; Travel stays); null when there is no save. Never looks at <c>records\</c>.</summary>
     public static WarfrontCampaign? Load(string dir, IWarfrontRollSource? rolls = null)
     {
         var path = Path.Combine(dir, RunFile);
@@ -48,8 +48,12 @@ public static class WarfrontSave
         var rec = Path.Combine(dir, RecordsDir);
         Directory.CreateDirectory(rec);
         var result = c.Phase == WarfrontPhase.Won ? "won" : c.Phase == WarfrontPhase.Lost ? "lost" : "abandoned";
-        var path = Path.Combine(rec, utc.ToUniversalTime().ToString("yyyyMMdd'T'HHmmss'Z'") + "-" + result + ".json");
-        File.WriteAllText(path, c.ToJson());
+        var stem = utc.ToUniversalTime().ToString("yyyyMMdd'T'HHmmss'Z'") + "-" + result;
+        var path = Path.Combine(rec, stem + ".json");
+        for (int n = 2; File.Exists(path); n++) path = Path.Combine(rec, stem + "-" + n + ".json");
+        var tmp = path + ".tmp";
+        File.WriteAllText(tmp, c.ToJson());
+        File.Move(tmp, path);
         var run = Path.Combine(dir, RunFile);
         if (File.Exists(run)) File.Delete(run);
         return path;

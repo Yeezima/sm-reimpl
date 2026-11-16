@@ -1,6 +1,8 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
+using SmSim.Extras.Musou.Campaign;
 
 namespace SmSim.Extras.Warfront.Campaign;
 
@@ -21,7 +23,8 @@ public readonly record struct WarfrontTarget(WarfrontTargetKind Kind, int Lane)
 /// <summary>One roll against one other lane after a deployment. <see cref="HeldAtFloor"/>: lost, but the lane was never advanced and sat at node 1.</summary>
 public sealed record WarfrontRollRecord(int Deployment, int Lane, bool Lost, bool HeldAtFloor, int Before, int After);
 
-public sealed record WarfrontHistoryEntry(int Deployment, WarfrontTarget Target, WarfrontOutcome Outcome);
+/// <summary>One finished deployment. <see cref="Before"/>, <see cref="After"/> and <see cref="HeldAtFloor"/> describe the played lane (HQ: lane -1, both 0); HeldAtFloor = a wipe the never-advanced node-1 floor absorbed.</summary>
+public sealed record WarfrontHistoryEntry(int Deployment, WarfrontTarget Target, WarfrontOutcome Outcome, int Before = 0, int After = 0, bool HeldAtFloor = false);
 
 /// <summary>Source of the end-of-deployment lane rolls. <see cref="Lost"/> true = the lane loses a node. Tests swap in <see cref="ForcedRolls"/>.</summary>
 public interface IWarfrontRollSource
@@ -70,13 +73,15 @@ public sealed class WarfrontRetainerRecord
 /// <summary>Per-player in-run state, keyed by the campaign key. Nothing here is granted twice: <see cref="JoinGrantApplied"/> is one-shot and picks are counted per level.</summary>
 public sealed class WarfrontPlayerState
 {
-    public ulong Key { get; set; }
-    public long Xp { get; set; }
-    public int Level { get; set; } = 1;
-    public int PicksTaken { get; set; }
-    public List<int> Cards { get; set; } = new();
-    public List<WarfrontRetainerRecord> Squad { get; set; } = new();
-    public bool JoinGrantApplied { get; set; }
+    [JsonInclude] public ulong Key { get; internal set; }
+    /// <summary>Display name for the leaderboard (disconnected players are listed too). The campaign key must never appear in an export.</summary>
+    [JsonInclude] public string Name { get; internal set; } = "";
+    [JsonInclude] public long Xp { get; internal set; }
+    [JsonInclude] public int Level { get; internal set; } = 1;
+    [JsonInclude] public int PicksTaken { get; internal set; }
+    [JsonInclude] public List<int> Cards { get; internal set; } = new();
+    [JsonInclude] public List<WarfrontRetainerRecord> Squad { get; internal set; } = new();
+    [JsonInclude] public bool JoinGrantApplied { get; internal set; }
 
     /// <summary>Level-ups earned and not yet picked (one pick per level above 1).</summary>
     public int PendingPicks => Math.Max(0, Level - 1 - PicksTaken);
@@ -93,7 +98,8 @@ public sealed class WarfrontCampaign
     /// <summary>Local save-format version (W1's WarfrontRules.Version is separate).</summary>
     public const int SaveVersion = 1;
     public const int Lanes = 3;
-    public const int MaxHumans = 4;
+    /// <summary>Same cap as Musou's co-op (a test holds them equal).</summary>
+    public const int MaxHumans = TfwCoop.MaxHumans;
 
     readonly int[] _front = { 1, 1, 1 };
     readonly bool[] _advanced = new bool[Lanes];
@@ -136,30 +142,47 @@ public sealed class WarfrontCampaign
     // ---- players and leadership -------------------------------------------------------------------------------------------------------------
 
     /// <summary>
-    /// A player connects. A first-time key is appended to the join order (once, ever) and gets state; if other players exist the one-shot catch-up grant sets XP to the
-    /// median of the others' XP (the mean of the two middle values, rounded down, when even). A returning key gets exactly its saved state back and no grant.
-    /// Returns false when a fifth human tries to join.
+    /// A player connects. A first-time key is appended to the join order (once, ever) and gets state (no XP grant here: see <see cref="ApplyJoinGrant"/>); a returning
+    /// key gets exactly its saved state back. The cap is <see cref="MaxHumans"/> CONNECTED humans, for new and returning keys alike; every key ever joined stays in the run
+    /// (the leaderboard lists disconnected players). Returns false when the cap refuses.
     /// </summary>
-    public bool Join(ulong key, out WarfrontJoinKind kind)
+    public bool Join(ulong key, string name, out WarfrontJoinKind kind)
     {
-        if (_players.ContainsKey(key))
+        bool known = _players.TryGetValue(key, out var existing);
+        kind = known ? WarfrontJoinKind.Returning : WarfrontJoinKind.New;
+        if (_connected.Contains(key)) return true;
+        if (_connected.Count >= MaxHumans) return false;
+        if (known)
         {
-            kind = WarfrontJoinKind.Returning;
-            _connected.Add(key);
-            return true;
+            if (!string.IsNullOrEmpty(name)) existing!.Name = name;
         }
-        kind = WarfrontJoinKind.New;
-        if (_players.Count >= MaxHumans) return false;
-        var p = new WarfrontPlayerState { Key = key };
-        if (_players.Count > 0)
+        else
         {
-            p.Xp = MedianXp(_players.Values);
-            p.Level = LevelForXp(p.Xp);
-            p.JoinGrantApplied = true;
+            _players[key] = new WarfrontPlayerState { Key = key, Name = name ?? "" };
+            _joinOrder.Add(key);
         }
-        _players[key] = p;
-        _joinOrder.Add(key);
         _connected.Add(key);
+        return true;
+    }
+
+    public bool Join(ulong key, out WarfrontJoinKind kind) => Join(key, "", out kind);
+
+    /// <summary>
+    /// The one-shot catch-up grant, called at the ship stop (not at join): XP becomes the median of the other CONNECTED players' XP (all other players if none is connected;
+    /// interpretation), the mean of the two middle values rounded down when even, never lowering the player's own XP. Returns whether XP changed; a second call is a no-op.
+    /// A run's first player has nobody to catch up to: the flag is set and nothing is granted.
+    /// </summary>
+    public bool ApplyJoinGrant(ulong key)
+    {
+        if (!_players.TryGetValue(key, out var p) || p.JoinGrantApplied) return false;
+        p.JoinGrantApplied = true;
+        var others = _players.Values.Where(o => o.Key != key && _connected.Contains(o.Key)).ToList();
+        if (others.Count == 0) others = _players.Values.Where(o => o.Key != key).ToList();
+        if (others.Count == 0) return false;
+        long median = MedianXp(others);
+        if (median <= p.Xp) return false;
+        p.Xp = median;
+        p.Level = LevelForXp(median);
         return true;
     }
 
@@ -197,18 +220,18 @@ public sealed class WarfrontCampaign
         return l;
     }
 
-    public void AddXp(ulong key, long xp)
+    public bool AddXp(ulong key, long xp)
     {
-        var p = _players[key];
+        if (!_players.TryGetValue(key, out var p)) return false;
         p.Xp += xp;
         p.Level = LevelForXp(p.Xp);
+        return true;
     }
 
     /// <summary>Takes one pending pick with the chosen card. False when nothing is pending (so a repeated pick is never granted twice).</summary>
     public bool TryTakePick(ulong key, int card)
     {
-        var p = _players[key];
-        if (p.PendingPicks <= 0) return false;
+        if (!_players.TryGetValue(key, out var p) || p.PendingPicks <= 0) return false;
         p.PicksTaken++;
         p.Cards.Add(card);
         return true;
@@ -255,6 +278,9 @@ public sealed class WarfrontCampaign
     {
         if (Phase != WarfrontPhase.Battle || CurrentTarget is not { } t) return;
         int dep = Deployments + 1;
+        int playedBefore = t.Lane >= 0 ? _front[t.Lane] : 0;
+        bool heldAtFloor = false;
+        int historyAt = _history.Count;
         _history.Add(new WarfrontHistoryEntry(dep, t, outcome));
         Deployments = dep;
         CurrentTarget = null;
@@ -282,9 +308,10 @@ public sealed class WarfrontCampaign
                     _front[t.Lane] = Math.Min(4, _front[t.Lane] + 1);
                     _advanced[t.Lane] = true;
                 }
-                else DropLane(t.Lane);
+                else heldAtFloor = !DropLane(t.Lane);
                 break;
         }
+        if (t.Lane >= 0) _history[historyAt] = _history[historyAt] with { Before = playedBefore, After = _front[t.Lane], HeldAtFloor = heldAtFloor };
 
         for (int l = 0; l < Lanes; l++)
         {
@@ -309,12 +336,13 @@ public sealed class WarfrontCampaign
     }
 
     /// <summary>
-    /// After a server restart: nobody is connected, and a deployment that was in Travel or Battle is replayed from the ship (nothing rolled or granted for it).
+    /// After a server restart: nobody is connected. A Battle is replayed from the ship (nothing rolled or granted for it). A Travel save keeps its phase and target: each
+    /// deployment runs in a new stage process that loads the save in Travel. W5: call <see cref="BeginBattle"/> and then save, so a crash mid-battle is seen as Battle.
     /// </summary>
     public void ResumeAfterRestart()
     {
         _connected.Clear();
-        if (Phase is WarfrontPhase.Travel or WarfrontPhase.Battle) { Phase = WarfrontPhase.Ship; CurrentTarget = null; }
+        if (Phase == WarfrontPhase.Battle) { Phase = WarfrontPhase.Ship; CurrentTarget = null; }
     }
 
     // ---- snapshot, hash ---------------------------------------------------------------------------------------------------------------------

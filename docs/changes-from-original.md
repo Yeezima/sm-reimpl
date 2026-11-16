@@ -200,6 +200,12 @@ Added content, Musou Mode only; every rule below is ours or the owner's (docs/ne
 | The melta bomb's model | owner's (D21) | The data's model is the Ork stikkbomb. |
 | It sticks to a contraption (riding on it) and to a shield dome's surface from outside | ours | The core would set it off at the contraption or the dome. |
 
+### Warfront (third mode; spec "Added content: Warfront — the campaign")
+
+| What | Ours / the owner's | Value | Spec row |
+|---|---|---|---|
+| Warfront campaign (third mode): lanes, rolls, HQ defense, fortress, save and resume; not in SM1 | the owner's rules (2026-11-17); the cases they leave open ours (interpretation) | three lanes of three nodes, an Imperial HQ and an Ork fortress, up to four connected humans, a leader, and a run save that survives a restart | spec "Added content: Warfront — the campaign" |
+
 ## 1. Deliberate changes (owner's decisions)
 
 The original's behaviour is known (or believed known) and we chose to differ.
