@@ -153,7 +153,8 @@ public partial class NetworkView
             GD.Print($"demo: playing {play}: {demo.Packets.Count} packets, {demo.Inputs.Count} inputs, {demo.Views.Count} views, {demo.Duration:F1} s{(demo.Truncated ? " (cut off)" : "")}, session {(demo.Session is { } s ? $"player {s.PlayerId}, handshake {s.RoundTripMs} ms" : "never connected")}");
             return (_demoPlayback.Transport, _demoPlayback.Clock, demo.Header.Nonce);
         }
-        var clock = new SystemClock();
+        _devClock = new ScalableClock(new SystemClock());   // dev-tools: slow motion and pause scale the client clock with the server's (protocol 80); at scale 1 it reads the system clock exactly
+        IClock clock = _devClock;
         _demoClock = clock;
         uint nonce = (uint)System.Security.Cryptography.RandomNumberGenerator.GetInt32(1, int.MaxValue);
         if (DevArg("--dev-bot-token") is { } token && uint.TryParse(token, out uint tokenNonce) && tokenNonce != 0) nonce = tokenNonce;   // dev-tools: the server's tie between a bot it started and its player (GameServer.DevTools.cs)

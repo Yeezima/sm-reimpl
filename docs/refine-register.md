@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3377 spec table rows: **2402 tagged**, 627 not tagged (read from data with high confidence), 348 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 748 rows of the changes document.
+Scanned 3387 spec table rows: **2412 tagged**, 627 not tagged (read from data with high confidence), 348 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 749 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -49,19 +49,19 @@ Scanned 3377 spec table rows: **2402 tagged**, 627 not tagged (read from data wi
 | Customizer and paint | 46 | 43 | 26 | 15 | 0 |
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
-| Networking and render smoothing | 26 | 16 | 16 | 12 | 7 |
+| Networking and render smoothing | 36 | 26 | 17 | 12 | 7 |
 | Core simulation (provisional values) | 734 | 691 | 522 | 189 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 258 | 245 | 143 | 68 | 0 |
-| **All areas** | **2402** | 2130 | 1793 | 730 | 37 |
+| **All areas** | **2412** | 2140 | 1794 | 730 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1400 |
+| kind: ours | 1410 |
 | confidence: low | 868 |
-| confidence: medium | 816 |
+| confidence: medium | 817 |
 | notes: ours | 404 |
 | kind: interpretation | 394 |
 | notes: estimate | 203 |
@@ -2422,7 +2422,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-EC513790` | Look SSR by preset (fx/impact-pass review) | a look's `ssr.on` (the remaster's) turns screen-space reflections on at medium and high only; low and off never run SSR (older hardware is the next priority); high has SSR anyway. Off = the M40-T7 renderer features alone (no shadows, SSAO, SSIL, volumetric… | kind: ours | ours | Look SSR by preset (fx/impact-pass review): compare with SM1 with side-by-side screenshots in the same spot. Ours: a look's ssr.on (the remaster's) turns screen-space reflections on at… | ☐ |
 | `R-6E7116B1` | Effect checks after the review fixes (demo replays on Godot time, `--fixed-fps 30`, identical… | own bolter tracer and the enemy's shots from the follow camera, own lascannon beam: as bright as on main (the beam is an axis billboard: no edge-on fade; its fade size is its width); `FxTest --pound-test` crater, shockwave rings and dust as on main (flat… | confidence: medium | measured | Effect checks after the review fixes (demo replays on Godot…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: own bolter tracer and the enemy's shots from the follow camera, own… | ☐ |
 
-### Networking and render smoothing (26)
+### Networking and render smoothing (36)
 
 *Spec section: Time-faithful capture and the smoothed render clock (M40 T0, T2; client only, not simulated)*
 
@@ -2489,6 +2489,21 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-4D6D2B4C` | Add bot | a headless `client --bot` process of the server's machine (Godot console build, on `127.0.0.1:<port>`) on the chosen side (Loyalists = Space Marines, Chaos), the class next in `HostBots` order; refused when the server holds 16 players or the side 8, when 3… (players) | kind: ours | the owner | Add bot: compare with SM1 by feel or video. Ours: a headless client --bot process of the server's machine (Godot… | ☐ |
 | `R-DEEA4AE0` | Remove bot | stops the newest bot the tools started on the chosen side (only that process, held by its handle, with its Godot child) and removes its player at once; bots started by `bots.cmd` or the Host panel are never touched; all of the tools' bots stop when the server… | kind: ours | the owner | Remove bot: compare with SM1 by feel or video. Ours: stops the newest bot the tools started on the chosen side (only that… | ☐ |
 | `R-43BAA82F` | Request rate | at most 6 requests a second per player (burst 6) (requests/s) | kind: ours; confidence: medium | ours (a guard) | Request rate: compare with SM1 by feel or video. Ours: at most 6 requests a second per player (burst 6). | ☐ |
+
+*Spec section: Developer tools, second batch: match, teleport, kill, bot difficulty and time scale (dev-tools; owner 2026-11-17; protocol 80, extended in place before release; test aid, ours, never on a public server)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-CDE3A43B` | Indefinite match | a toggle: while on the match clock stands (the time limit never runs out) and the score limit never ends the match; ending by a side emptying and the End button still work; the world clears it when the match leaves its end screen or is restarted, so the next… | kind: ours | the owner | Indefinite match: compare with SM1 by feel or video. Ours: a toggle: while on the match clock stands (the time limit never runs… | ☐ |
+| `R-1C2E06D1` | End match now | ends a match that is being played or counted down by the score (higher wins, equal is a draw), as the time limit would: the normal end screen, then the normal restart or next map | kind: ours | the owner | End match now: compare with SM1 by feel or video. Ours: ends a match that is being played or counted down by the score… | ☐ |
+| `R-31116DD9` | Restart match | same map, scores and points to zero, everyone respawns, the countdown first when the rules have one; clears the indefinite toggle; with a side empty it waits in warm-up as always | kind: ours | the owner | Restart match: compare with SM1 by feel or video. Ours: same map, scores and points to zero, everyone respawns, the countdown… | ☐ |
+| `R-F9C8E586` | Skip to next | ends the match as End does and cuts the end screen's clock to 30 ticks (1 s), so the next match starts, or on a `--maps` server the rotation's restart runs and clients rejoin the next map (ticks) | kind: ours | the owner | Skip to next: compare with SM1 by feel or video. Ours: ends the match as End does and cuts the end screen's clock to 30… | ☐ |
+| `R-CFF83ACF` | Teleport | moves the requester only, never anyone else: to a side's spawn room (the next free spot of `TryStartAreaSpawn`, else the shared spawn markers), to a control point (`PointSpot`: on the floor, a capsule fitting, outside kill volumes, clear of players), or to… | kind: ours | the owner; the spots are the world's existing spawn searches | Teleport: compare with SM1 by feel or video. Ours: moves the requester only, never anyone else: to a side's spawn room… | ☐ |
+| `R-62D2E243` | Kill me | the in-match Deploy's suicide: a death on the scoreboard, no killer, respawn the tick after | kind: ours | the owner | Kill me: compare with SM1 by feel or video. Ours: the in-match Deploy's suicide: a death on the scoreboard, no killer… | ☐ |
+| `R-1A53BF8E` | Kill bots | the same for every bot of the Loyalists, Chaos or both | kind: ours | the owner | Kill bots: compare with SM1 by feel or video. Ours: the same for every bot of the Loyalists, Chaos or both. | ☐ |
+| `R-558ACE53` | Instant respawn | a toggle: after each tick every dead player's death timer is 0, so it respawns on the next tick | kind: ours | the owner | Instant respawn: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a toggle: after each tick every dead player's death timer is 0, so it… | ☐ |
+| `R-61F47DDE` | Bot difficulty | accuracy 0 to 100 % (the bots' `--bot-accuracy`), damage dealt 0 to 100 % (`World.SetDamageScale`, which only lowers; 100 % also removes the server's `--bot-damage-scale`; the panel starts at that option's value), fire range 5 to 1000 m (`--bot-range`); each… (% , m) | kind: ours | the owner | Bot difficulty: compare with SM1 by feel or video. Ours: accuracy 0 to 100 % (the bots' --bot-accuracy), damage dealt 0 to 100… | ☐ |
+| `R-010FCD37` | Time scale | 1, 1/2, 1/4, 1/10 or paused: the server's tick clock and every client's clock (prediction, interpolation, timeouts) and Godot's `Engine.TimeScale` (animation, effects, deltas) run at that fraction together, on the local client and on bots; sound is not… (factor) | kind: ours; confidence: medium | the owner | Time scale: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 1, 1/2, 1/4, 1/10 or paused: the server's tick clock and every… | ☐ |
 
 ### Core simulation (provisional values) (734)
 
@@ -5132,6 +5147,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-1D3CB771` | Melee widens the field of view (camera/melee-fov-widen, owner 2026-11-15; client camera only, no protocol change; Classic PvP and Musou Mode) | The original's camera keeps one field of view through melee | Ours (the owner's request, verbatim: "when melee attacking as any class fov should be slightly expanded by 10 until a ranged attack is executed (left mouse button)"): any melee action (swing, heavy, charge, lunge, ground pound) widens the configured horizontal field of view by 10 degrees, capped at 120, until the… | spec "Melee field-of-view widening" | Melee widens the field of view (camera/melee-fov-widen…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-2CF9C68E` | Classic PvP bots: retreat at 30 %, back in 5 to 15 s, and hunting instead of patrolling (bots/classic-hunt, owner 2026-11-16; test bots, no protocol or config-hash change) | Multiplayer had no bots | Ours (owner's words verbatim in spec "Hunt when nobody is left to chase" and "Cover at low health"): a retreating bot starts at 30 % health (60 % before) and rejoins at 90 % health and armour but not before 5 s and at the latest after 15 s (35 s before; Seize Ground and, since the owner's "classic pvp seize ground and… | Spec "Hunt when nobody is left to chase", "Cover at low health" | Classic PvP bots: retreat at 30 %, back in 5 to 15 s, and…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-2A54A495` | Developer tools panel (dev-tools, owner 2026-11-17; protocol 80; test aid) | Multiplayer had no developer tools | Ours (the owner's request, verbatim in spec "Developer tools: the in-game test panel"): F6 opens a panel for invincible players and bots, frozen bots, infinite ammunition (heat and overheat included, our choice), infinite jump pack fuel, and adding or removing a test bot per side; the server applies everything, and… | Real-match rules, a public server and the Host panel's LAN / Internet mode stay exactly as they were; with the switch off the tick loop pays one null check and no packet differs (the protocol number moved 79 to 80 for the two new messages) | Developer tools panel (dev-tools, owner 2026-11-17…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-CE9CC037` | Developer tools, second batch (dev-tools, owner 2026-11-17; protocol 80; test aid) | Multiplayer had no developer tools | Ours (the owner's picks, spec "Developer tools, second batch"): an indefinite match (this match only), end now, restart and skip, teleport (requester only, onto the world's own spawn, point and Teleport Homer spots), instant respawn, kill me and kill bots, live bot accuracy, damage and range, and a time scale with… | A real match is unchanged; the time scale wraps the clocks only on such a server and on clients of it (a client's clock is a pass-through at scale 1) | Developer tools, second batch (dev-tools, owner 2026-11-17…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 
 ## Appendix: not gameplay
 

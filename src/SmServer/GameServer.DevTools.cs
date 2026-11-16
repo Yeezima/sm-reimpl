@@ -5,8 +5,8 @@ using SmSim;
 
 namespace SmServer;
 
-/// <summary>The developer tools' setup (protocol 80): the address the server listens on (the gate needs loopback) and the launcher of the tools' bots (null: bots cannot be added).</summary>
-public sealed record DevToolsSetup(IPAddress Bind, IDevBotLauncher? Launcher);
+/// <summary>The developer tools' setup (protocol 80): the address the server listens on (the gate needs loopback), the launcher of the tools' bots (null: bots cannot be added) and the scalable clock the server runs on (null: the time scale is recorded and sent but changes nothing).</summary>
+public sealed record DevToolsSetup(IPAddress Bind, IDevBotLauncher? Launcher, ScalableClock? Clock = null);
 
 public sealed partial record ServerOptions
 {
@@ -56,6 +56,9 @@ public sealed partial class GameServer
     readonly HashSet<string> _devRefusals = new();
     readonly Dictionary<Team, int> _toolBotsStarted = new();
     bool _devDirty;
+    int _devTimeScale, _devAccuracy = Protocol.DevNoValue, _devDamage = -1, _devRange;
+    bool _devDamageSet;
+    DevToolsFlags _lastDevFlags;
     byte _devNoteSerial;
     DevNote _devNote;
     TimeSpan _nextDevState;
@@ -95,12 +98,104 @@ public sealed partial class GameServer
             case DevCommandKind.SetFlag: SetDevFlag(peer, (DevToolsFlags)cmd.Argument, cmd.Value); break;
             case DevCommandKind.AddBot when cmd.Argument <= DevSides.Chaos: AddToolBot(peer, cmd.Argument == DevSides.Chaos ? Team.Chaos : Team.SpaceMarines); break;
             case DevCommandKind.RemoveBot when cmd.Argument <= DevSides.Chaos: RemoveToolBot(peer, cmd.Argument == DevSides.Chaos ? Team.Chaos : Team.SpaceMarines); break;
+            case DevCommandKind.EndMatch:
+                if (World.DevEndMatch()) { Log?.Invoke($"dev tools: end match now (player {peer.PlayerId}): {World.State}, winner {World.Winner}"); Answer(DevNote.Applied); }
+                else Answer(DevNote.NotPlaying);
+                break;
+            case DevCommandKind.SkipMatch:
+                if (World.DevSkipMatch(MatchFlowWire.RotationRejoinTicks)) { Log?.Invoke($"dev tools: skip to the next match{(World.Rules is { RotatesAfterMatch: true } ? " (the next map in the rotation)" : "")} (player {peer.PlayerId})"); Answer(DevNote.Applied); }
+                else Answer(DevNote.NotPlaying);
+                break;
+            case DevCommandKind.RestartMatch:
+                if (World.DevRestartMatch()) { Log?.Invoke($"dev tools: restart match, same map, fresh scores (player {peer.PlayerId}): {World.State}"); Answer(DevNote.Applied); }
+                else Answer(DevNote.NotPlaying);
+                break;
+            case DevCommandKind.KillMe:
+                if (World.DevKill(peer.PlayerId)) { Log?.Invoke($"dev tools: kill me (player {peer.PlayerId})"); Answer(DevNote.Applied); }
+                else Answer(DevNote.NotPlaying);
+                break;
+            case DevCommandKind.KillBots when cmd.Argument <= 2: KillBots(peer, cmd.Argument); break;
+            case DevCommandKind.Teleport: TeleportRequester(peer, cmd); break;
+            case DevCommandKind.SetTimeScale: SetTimeScale(peer, cmd.Argument); break;
+            case DevCommandKind.SetBotAccuracy or DevCommandKind.SetBotDamage or DevCommandKind.SetBotRange: SetBotTuning(peer, cmd); break;
+            default: Answer(DevNote.BadValue); break;
         }
+        _devDirty = true;
+        if (DevToolsOn) SendDevStates();   // at once, not at the next tick: a paused server runs no ticks
+    }
+
+    void KillBots(Peer peer, byte which)
+    {
+        int killed = 0;
+        foreach (var p in _peers.Values)
+        {
+            if (!p.Bot || p.Spectator || !World.Players.TryGetValue(p.PlayerId, out var s)) continue;
+            if (which == 0 && s.Team != Team.SpaceMarines || which == 1 && s.Team != Team.Chaos) continue;
+            if (World.DevKill(p.PlayerId)) killed++;
+        }
+        Log?.Invoke($"dev tools: kill bots ({(which == 0 ? "loyalists" : which == 1 ? "chaos" : "both sides")}): {killed} killed (player {peer.PlayerId})");
+        Answer(DevNote.Applied);
+    }
+
+    void TeleportRequester(Peer peer, DevCommand cmd)
+    {
+        if (cmd.Argument > (byte)DevTeleportKind.Player) { Answer(DevNote.BadValue); return; }
+        var kind = (DevTeleportKind)cmd.Argument;
+        string target = kind switch { DevTeleportKind.SpawnRoom => $"spawn room ({(cmd.Extra == 1 ? "chaos" : "loyalists")})", DevTeleportKind.ControlPoint => $"control point {cmd.Extra}", _ => $"player {cmd.Extra}" };
+        if (World.DevTeleport(peer.PlayerId, kind, cmd.Extra, out string why) && World.Players.TryGetValue(peer.PlayerId, out var now))
+        {
+            Log?.Invoke($"dev tools: teleport player {peer.PlayerId} to {target}: {now.Position.X:0.#},{now.Position.Y:0.#},{now.Position.Z:0.##}");
+            Answer(DevNote.Applied);
+        }
+        else { Log?.Invoke($"dev tools: teleport player {peer.PlayerId} to {target} refused: {why}"); Answer(DevNote.TeleportBlocked); }
+    }
+
+    void SetTimeScale(Peer peer, int index)
+    {
+        if (index < 0 || index >= DevTools.TimeScales.Length) { Answer(DevNote.BadValue); return; }
+        _devTimeScale = index;
+        float scale = DevTools.TimeScales[index];
+        if (_options.DevTools?.Clock is { } clock) clock.Scale = scale;
+        Log?.Invoke($"dev tools: time scale {(scale == 0f ? "0 (paused)" : scale.ToString("0.##"))} (player {peer.PlayerId})");
+        Answer(DevNote.Applied);
+    }
+
+    void SetBotTuning(Peer peer, DevCommand cmd)
+    {
+        int v = cmd.Extra;
+        switch (cmd.Kind)
+        {
+            case DevCommandKind.SetBotAccuracy:
+                if (v != Protocol.DevNoValue && v > 1000) { Answer(DevNote.BadValue); return; }
+                _devAccuracy = v;
+                Log?.Invoke(v == Protocol.DevNoValue ? $"dev tools: bot accuracy back to each bot's own (player {peer.PlayerId})" : $"dev tools: bot accuracy {v / 1000f:0.###} (player {peer.PlayerId})");
+                break;
+            case DevCommandKind.SetBotDamage:
+                if (v > 1000) { Answer(DevNote.BadValue); return; }
+                _devDamage = v; _devDamageSet = true;
+                ApplyBotDamage();
+                Log?.Invoke($"dev tools: bot damage x {v / 1000f:0.###} (player {peer.PlayerId})");
+                break;
+            default:
+                if (v != 0 && (v < 5 || v > 1000)) { Answer(DevNote.BadValue); return; }
+                _devRange = v;
+                Log?.Invoke(v == 0 ? $"dev tools: bot range back to each weapon's own (player {peer.PlayerId})" : $"dev tools: bot range {v} m (player {peer.PlayerId})");
+                break;
+        }
+        Answer(DevNote.Applied);
+    }
+
+    /// <summary>The damage every bot deals, as the tools set it (the sim only ever lowers it: 1000 is full damage and removes the server's <c>--bot-damage-scale</c> too).</summary>
+    void ApplyBotDamage()
+    {
+        if (!_devDamageSet) return;
+        foreach (var p in _peers.Values)
+            if (p.Bot && !p.Spectator) World.SetDamageScale(p.PlayerId, _devDamage / 1000f);
     }
 
     static string FlagName(DevToolsFlags flag) => flag switch
     {
-        DevToolsFlags.Invincible => "invincible", DevToolsFlags.FreezeBots => "freeze bots", DevToolsFlags.InfiniteAmmo => "infinite ammunition", DevToolsFlags.InfiniteJump => "infinite jump pack", _ => flag.ToString(),
+        DevToolsFlags.Invincible => "invincible", DevToolsFlags.FreezeBots => "freeze bots", DevToolsFlags.InfiniteAmmo => "infinite ammunition", DevToolsFlags.InfiniteJump => "infinite jump pack", DevToolsFlags.Indefinite => "indefinite match", DevToolsFlags.InstantRespawn => "instant respawn", _ => flag.ToString(),
     };
 
     void SetDevFlag(Peer peer, DevToolsFlags flag, bool on)
@@ -108,6 +203,7 @@ public sealed partial class GameServer
         if (!DevTools.IsSingleFlag(flag)) return;
         bool was = (World.DevFlags & flag) != 0;
         World.DevFlags = on ? World.DevFlags | flag : World.DevFlags & ~flag;
+        _devFlagsSetByCommand = World.DevFlags; _lastDevFlags = World.DevFlags;
         if (was != on) Log?.Invoke($"dev tools: {FlagName(flag)} {(on ? "ON" : "OFF")} (player {peer.PlayerId})");
         Answer(DevNote.Applied);
     }
@@ -194,7 +290,8 @@ public sealed partial class GameServer
     }
 
     /// <summary>Test seam: the state a player on a loopback address is sent now.</summary>
-    internal DevState DevStateNow() => new(World.DevFlags, _devCounts.ToolLoyalists, _devCounts.ToolChaos, _devCounts.Loyalists, _devCounts.Chaos, _devNote, _devNoteSerial);
+    internal DevState DevStateNow() => new(World.DevFlags, _devCounts.ToolLoyalists, _devCounts.ToolChaos, _devCounts.Loyalists, _devCounts.Chaos, _devNote, _devNoteSerial,
+        _devTimeScale, _devAccuracy, _devDamage >= 0 ? _devDamage : (int)Math.Round(Math.Clamp(_options.BotDamageScale, 0f, 1f) * 1000f), _devRange);
 
     /// <summary>Once a tick (one null check with the tools off): the bookkeeping of the tools' bots and the state to the panels, once a second and on every change.</summary>
     void DevToolsTick()
@@ -209,13 +306,31 @@ public sealed partial class GameServer
                 if (!p.Spectator && World.Players.TryGetValue(p.PlayerId, out var s)) { if (s.Team == Team.Chaos) chaos++; else if (s.Team == Team.SpaceMarines) loyalists++; }
             var counts = (loyalists, chaos, _toolBots.Count(b => b.Team == Team.SpaceMarines), _toolBots.Count(b => b.Team == Team.Chaos));
             if (counts != _devCounts) { _devCounts = counts; _devDirty = true; }
+            ApplyBotDamage();   // a bot that joined after the tools set the damage gets it
         }
-        var now = _clock.Now;
-        if (!_devDirty && now < _nextDevState) return;
+        var flags = World.DevFlags;
+        if (flags != _lastDevFlags)
+        {
+            // The world itself cleared a flag: the indefinite match ends with the match (the next one is not indefinite).
+            if ((_lastDevFlags & DevToolsFlags.Indefinite) != 0 && (flags & DevToolsFlags.Indefinite) == 0)
+                Log?.Invoke("dev tools: indefinite match OFF (the next match started)");
+            _lastDevFlags = flags; _devDirty = true;
+        }
+        _devFlagsSetByCommand = flags;
+        if (!_devDirty && _clock.Now < _nextDevState) return;
+        SendDevStates();
+    }
+
+    DevToolsFlags _devFlagsSetByCommand;
+
+    /// <summary>Sends the state to every player and bot on a loopback address (a bot takes the bot values and the time scale from it).</summary>
+    void SendDevStates()
+    {
         _devDirty = false;
-        _nextDevState = now + TimeSpan.FromSeconds(1);
+        _nextDevState = _clock.Now + TimeSpan.FromSeconds(1);
+        _lastDevFlags = World.DevFlags;
         var packet = Protocol.Write(DevStateNow());
         foreach (var (connection, peer) in _peers)
-            if (!peer.Spectator && !peer.Bot && DevToolsGate.FromLoopback(_transport.EndPointOf(connection))) _transport.Send(connection, packet);
+            if (!peer.Spectator && DevToolsGate.FromLoopback(_transport.EndPointOf(connection))) _transport.Send(connection, packet);
     }
 }

@@ -347,13 +347,14 @@ catch (Exception e) when (e is IOException or InvalidDataException or Unauthoriz
 }
 string? buildHint = ServerCommandLine.BuildHint(install);
 DevToolsSetup? devSetup = null;
+IClock serverClock = devTools ? new ScalableClock(clock) : clock;   // dev-tools: the server's tick clock can be slowed or paused (protocol 80); the plain clock otherwise
 if (devTools)
 {
     var (botExe, botProject) = ProcessBotLauncher.Locate(cli.DevBotExe, cli.DevBotProject, AppContext.BaseDirectory);
-    devSetup = new DevToolsSetup(bind, botExe is null ? null : new ProcessBotLauncher(botExe, botProject, port, ContentProfiles.Name(contentExtras), ProcessBotLauncher.DefaultLogFolder()));
+    devSetup = new DevToolsSetup(bind, botExe is null ? null : new ProcessBotLauncher(botExe, botProject, port, ContentProfiles.Name(contentExtras), ProcessBotLauncher.DefaultLogFolder()), serverClock as ScalableClock);
     Console.WriteLine($"developer tools: ON (--dev-tools, loopback only): invincible, freeze bots, infinite ammunition, infinite jump pack, add / remove bots (F6 in the client); bots {(botExe is null ? "unavailable: no Godot executable found (--dev-bot-exe)" : $"run {Path.GetFileName(botExe)}{(botProject is null ? "" : " with the client project")}, logs in " + ProcessBotLauncher.DefaultLogFolder())}; requests from other addresses are ignored");
 }
-var server = new GameServer(config, fingerprint, transport, clock, new ServerOptions
+var server = new GameServer(config, fingerprint, transport, serverClock, new ServerOptions
 {
     DefaultClass = defaultClass, Match = match, AppearanceRules = appearanceRules, CustomEmblems = customEmblems, Unlocks = unlocks,
     MaxPlayersPerAddress = cli.MaxPerIp, JoinInterval = cli.JoinInterval, IdleKick = cli.IdleKick, BanFile = cli.BanFile, BuildHint = buildHint, LimitLoopback = cli.LimitLoopback,

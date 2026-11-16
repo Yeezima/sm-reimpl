@@ -28,10 +28,10 @@ public sealed partial class GameClient
     PlayerState DevTopUp(PlayerState s) => _dev is null ? s : DevTools.TopUp(s, _config, DevPredicted);
 
     /// <summary>Sends a developer-tools request (one datagram, unacknowledged: the panel shows the server's state, so a lost click shows as no change). False, and nothing sent, unless connected as a player.</summary>
-    public bool SendDevCommand(DevCommandKind kind, byte argument, bool value)
+    public bool SendDevCommand(DevCommandKind kind, byte argument, bool value, int extra = 0)
     {
         if (Status != ClientStatus.Connected || _options.Observer) return false;
-        _transport.Send(Protocol.Write(new DevCommand(_session, kind, argument, value)));
+        _transport.Send(Protocol.Write(new DevCommand(_session, kind, argument, value, extra)));
         return true;
     }
 }

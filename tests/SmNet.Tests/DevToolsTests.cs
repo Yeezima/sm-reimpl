@@ -75,7 +75,7 @@ public class DevToolsTests
         var state = new DevState(DevToolsFlags.Invincible | DevToolsFlags.InfiniteJump, 2, 3, 5, 4, DevNote.SideFull, 9);
         Assert.Equal(state, Protocol.Read(Protocol.Write(state)));
         Assert.Equal(Protocol.DevStateBytes, Protocol.Write(state).Length);
-        var bad = Protocol.Write(command); bad[5] = 9;   // an unknown command kind
+        var bad = Protocol.Write(command); bad[5] = 99;   // an unknown command kind
         Assert.Null(Protocol.Read(bad));
         var badValue = Protocol.Write(command); badValue[7] = 2;
         Assert.Null(Protocol.Read(badValue));
@@ -212,7 +212,7 @@ public class DevToolsTests
             var humanStart = h.Server.World.Players[human.PlayerId].Position;
             h.Run(TimeSpan.FromSeconds(2), (i, t) => new PlayerInput(t, 0, 1, 0, InputButtons.None));   // everyone pushes forward
             Assert.True(Vector3.Distance(humanStart, h.Server.World.Players[human.PlayerId].Position) > 1f, "a human is never frozen");
-            Assert.Null(bot.Dev);   // a bot is never sent the tools' state
+            Assert.NotNull(bot.Dev);   // a bot gets the state too: it takes the bot values and the time scale from it
             return h.Server.World.Players[bot.PlayerId].Position - botStart;
         }
         var frozen = Run(freeze: true);
