@@ -54,6 +54,7 @@ public partial class NetworkView
         _wfProgressionStage = stage;
         _wfProgressionRejoin = rejoin;
         host.Picker.Enabled = WarfrontPickerLive || (_bot && WarfrontBotFlag);
+        host.Model.PickerHidden = !host.Picker.Enabled;
         host.Frame((float)dt);
     }
 }

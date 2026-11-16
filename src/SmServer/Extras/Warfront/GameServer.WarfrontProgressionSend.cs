@@ -1,4 +1,5 @@
 using SmNet;
+using SmSim;
 using SmNet.Extras.Warfront;
 using SmSim.Extras.Musou.Campaign;
 using SmSim.Extras.Warfront.Campaign;
@@ -96,6 +97,10 @@ public sealed class WarfrontProgressionSender
 /// <summary>Warfront's progression sections on the server (slice W8s): fills <see cref="WarfrontProgressionSnapshot"/> per identified human from the campaign, the picker and the run phase and sends what <see cref="WarfrontProgressionSender"/> returns.</summary>
 public sealed partial class GameServer
 {
+    /// <summary>A Pick command's decision (W5a's handler calls it): the wire carries the pick index modulo 256 and answers the standing offer only; a refusal (no offer, stale index, slot out of range) changes nothing.</summary>
+    internal static bool WarfrontPickFromWire(World world, int player, int slot, int wirePick) =>
+        world.WarfrontOffer(player) is { } offer && (offer.PickIndex & 0xFF) == wirePick && world.WarfrontPick(player, slot, offer.PickIndex);
+
     readonly WarfrontProgressionSender _wfProgression = new();
     readonly HashSet<ulong> _wfXpAidGiven = new();
     readonly Dictionary<int, (int Index, double Left, int Taken)> _wfOfferLog = new();
@@ -103,6 +108,14 @@ public sealed partial class GameServer
     /// <summary>Test aid <c>SM_WF_XP=&lt;n&gt;</c>: every identified player gets n XP once per process (a scripted run levels up without fighting). Logged when used.</summary>
     void WarfrontXpAid(WarfrontServerState s, ulong key)
     {
+        if (Environment.GetEnvironmentVariable("SM_WF_XP") is not { Length: > 0 }) return;
+        var args = Environment.GetCommandLineArgs();
+        int at = Array.IndexOf(args, "--bind");
+        if (at < 0 || at + 1 >= args.Length || !System.Net.IPAddress.TryParse(args[at + 1], out var bound) || !System.Net.IPAddress.IsLoopback(bound))
+        {
+            if (_wfXpAidGiven.Add(0)) WfLog("test aid SM_WF_XP refused: the server is not bound to 127.0.0.1 (--bind 127.0.0.1)");
+            return;
+        }
         if (Environment.GetEnvironmentVariable("SM_WF_XP") is not { Length: > 0 } v || !long.TryParse(v, out long xp) || xp <= 0 || !_wfXpAidGiven.Add(key)) return;
         s.Campaign.AddXp(key, xp);
         WfLog($"test aid SM_WF_XP: +{xp} XP for P{s.KeyOf.First(k => k.Value == key).Key}, now level {s.Campaign.Player(key)?.Level}");
@@ -114,9 +127,11 @@ public sealed partial class GameServer
         int rate = WarfrontRate;
         uint tick = World.Tick;
         bool aboard = World.Tfw is { } run && run.Phase is TfwRunPhase.Hub or TfwRunPhase.Travel;
-        double now = tick / (double)rate;
+        double now = tick / (double)Math.Max(1, World.Config.TickRate);   // the picker's own clock (World.WarfrontStep: Tick / Config.TickRate)
         var ids = s.KeyOf.ToList();
-        _wfProgression.Keep(ids.Select(p => p.Key).ToList());
+        var live = ids.Select(p => p.Key).ToList();
+        _wfProgression.Keep(live);
+        foreach (int gone in _wfOfferLog.Keys.Where(k => !live.Contains(k)).ToList()) _wfOfferLog.Remove(gone);
         foreach (var (id, key) in ids)
         {
             WarfrontXpAid(s, key);
