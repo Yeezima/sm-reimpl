@@ -79,6 +79,7 @@ if ($Port -eq 0) {
 }
 $pids = @()
 $serverDll = Join-Path $RepoRoot (Join-Path "src" "SmServer/bin/Release/net10.0/SmServer.dll")
+$runStart = Get-Date
 $server = Start-QuietProcess -FilePath (Get-Command dotnet).Source -ArgumentList @($serverDll, '--bind', '127.0.0.1', '--port', "$Port", '--map', $Map, '--mode', 'annihilation', '--honor-side-requests') -WorkingDirectory $RepoRoot -StdOut (Join-Path $logDir 'server.log')
 try {
     $deadline = (Get-Date).AddSeconds(120)
@@ -110,6 +111,8 @@ finally {
     # HasExited proved unreliable for the quiet-launched server (31 leaked): always kill by its own PID, ignore 'not found'.
     & taskkill.exe /PID $server.Id /T /F 2>$null | Out-Null
     Get-Process -Id $server.Id -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
-    # the recorded PID did not always match the real server (31 leaked): also stop the dotnet process that holds this run's own port, found by its command line (only this run's port).
-    Get-CimInstance Win32_Process -Filter "Name = 'dotnet.exe'" | Where-Object { $_.CommandLine -match [regex]::Escape("SmServer.dll --bind 127.0.0.1 --port $Port ") -or $_.CommandLine -match [regex]::Escape("SmServer.dll") -and $_.CommandLine -match "--port $Port --map $Map " } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+    # the recorded PID did not always match the real server (31 leaked): also stop the server this run started, found by its exact command line
+    # (this run's port AND map) and only if it was created after this run began, so a server someone else runs on the same port is never touched.
+    $mine = [regex]::Escape("SmServer.dll --bind 127.0.0.1 --port $Port --map $Map ")
+    Get-CimInstance Win32_Process -Filter "Name = 'dotnet.exe'" | Where-Object { $_.CommandLine -match $mine -and $_.CreationDate -ge $runStart.AddSeconds(-1) } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
 }

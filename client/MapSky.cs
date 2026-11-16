@@ -8,8 +8,8 @@ using SmFormats.Bod;
 /// maps-visual-qa: the engine's sky boxes (<c>seq_NN_sky</c>, shader <c>sky_ycocg_bloomcontrol</c>) drawn as a sky: the <c>YCoCg</c> texture (DXT5, the usual packing: Co in R, Cg in G, a scale in B, the luma Y in alpha;
 /// read from the pictures: a sunset with a sun disc comes out) is decoded in an unlit shader, and the box is drawn around the camera, not in the world (the engine does the same; the boxes are 133 m to 1.2 km across
 /// and placed away from the play area): the vertex stage keeps the box's own shape and the camera's rotation, drops its translation and puts every vertex on the far plane, so the sky sits behind all geometry. Drawn first in the
-/// opaque pass (render priority -128) writing a depth just in front of the far plane (DEPTH), so everything else draws over it and Godot's own sky background, drawn at the far plane, does not paint over it; the same in
-/// the reversed-Z renderers and the Compatibility one. Not the lighting's sky (<c>MapLightingView</c> keeps that for ambient and
+/// opaque pass (render priority -128) writing a depth just in front of the far plane (DEPTH), so everything else draws over it and Godot's own sky background, drawn at the far plane, does not paint over it (Forward+ and Mobile,
+/// reversed-Z). Not drawn in the Compatibility renderer: there the sky textures are skipped and the haze stays (<c>DrawsSkyTextures</c>). Not the lighting's sky (<c>MapLightingView</c> keeps that for ambient and
 /// reflections). Provisional approximation: the <c>BloomControlGrayscale</c> texture (a bloom mask) is not used, and brightness is the texture's own.
 /// </summary>
 public static class MapSky
