@@ -28,8 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3374 spec table rows: **2400 tagged**, 626 not tagged (read from data with high confidence), 348 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 747 rows of the changes document.
-Scanned 3368 spec table rows: **2393 tagged**, 627 not tagged (read from data with high confidence), 348 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 747 rows of the changes document.
+Scanned 3377 spec table rows: **2402 tagged**, 627 not tagged (read from data with high confidence), 348 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 748 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -51,28 +50,18 @@ Scanned 3368 spec table rows: **2393 tagged**, 627 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 26 | 16 | 16 | 12 | 7 |
-| Core simulation (provisional values) | 732 | 689 | 520 | 188 | 1 |
-| General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 258 | 245 | 143 | 68 | 0 |
-| **All areas** | **2400** | 2128 | 1791 | 729 | 37 |
-| Networking and render smoothing | 17 | 7 | 14 | 12 | 7 |
 | Core simulation (provisional values) | 734 | 691 | 522 | 189 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 258 | 245 | 143 | 68 | 0 |
-| **All areas** | **2393** | 2121 | 1791 | 730 | 37 |
+| **All areas** | **2402** | 2130 | 1793 | 730 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1399 |
-| confidence: low | 867 |
-| confidence: medium | 815 |
-| notes: ours | 403 |
-| kind: interpretation | 393 |
-| kind: ours | 1391 |
+| kind: ours | 1400 |
 | confidence: low | 868 |
-| confidence: medium | 814 |
+| confidence: medium | 816 |
 | notes: ours | 404 |
 | kind: interpretation | 394 |
 | notes: estimate | 203 |
@@ -2501,7 +2490,6 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-DEEA4AE0` | Remove bot | stops the newest bot the tools started on the chosen side (only that process, held by its handle, with its Godot child) and removes its player at once; bots started by `bots.cmd` or the Host panel are never touched; all of the tools' bots stop when the server… | kind: ours | the owner | Remove bot: compare with SM1 by feel or video. Ours: stops the newest bot the tools started on the chosen side (only that… | ☐ |
 | `R-43BAA82F` | Request rate | at most 6 requests a second per player (burst 6) (requests/s) | kind: ours; confidence: medium | ours (a guard) | Request rate: compare with SM1 by feel or video. Ours: at most 6 requests a second per player (burst 6). | ☐ |
 
-### Core simulation (provisional values) (732)
 ### Core simulation (provisional values) (734)
 
 *Spec section: Provisional values in use*
