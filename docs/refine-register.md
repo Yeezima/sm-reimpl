@@ -28,8 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3344 spec table rows: **2376 tagged**, 625 not tagged (read from data with high confidence), 343 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 738 rows of the changes document.
-Scanned 3335 spec table rows: **2448 tagged**, 619 not tagged (read from data with high confidence), 268 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 743 rows of the changes document.
+Scanned 3350 spec table rows: **2382 tagged**, 625 not tagged (read from data with high confidence), 343 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 743 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -51,37 +50,23 @@ Scanned 3335 spec table rows: **2448 tagged**, 619 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 17 | 7 | 14 | 12 | 7 |
-| Core simulation (provisional values) | 726 | 683 | 515 | 188 | 1 |
+| Core simulation (provisional values) | 732 | 689 | 520 | 188 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 249 | 238 | 134 | 68 | 0 |
-| **All areas** | **2376** | 2106 | 1775 | 729 | 37 |
-| Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
-| Networking and render smoothing | 25 | 14 | 14 | 13 | 7 |
-| Core simulation (provisional values) | 754 | 709 | 538 | 188 | 1 |
-| General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 249 | 238 | 134 | 68 | 0 |
-| **All areas** | **2448** | 2164 | 1814 | 743 | 38 |
+| **All areas** | **2382** | 2112 | 1780 | 729 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1381 |
-| confidence: low | 857 |
-| confidence: medium | 809 |
+| kind: ours | 1383 |
+| confidence: low | 860 |
+| confidence: medium | 811 |
 | notes: ours | 403 |
-| kind: interpretation | 389 |
+| kind: interpretation | 393 |
 | notes: estimate | 203 |
 | kind: estimate | 164 |
 | confidence: none (low) | 109 |
-| kind: ours | 1429 |
-| confidence: low | 869 |
-| confidence: medium | 816 |
-| notes: ours | 416 |
-| kind: interpretation | 394 |
-| notes: estimate | 204 |
-| kind: estimate | 172 |
-| confidence: none (low) | 129 |
 | kind: provisional | 103 |
 | kind: user's knowledge | 53 |
 | kind: choice | 42 |
@@ -2491,8 +2476,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-27330EFB` | Perf tour (`--perf-tour`) | with `--perf-probe` and `--observe-tour`, the observer's camera moves to the tour's next place at the end of each 5 s probe window and each `perf:` line names its place (s) | kind: ours | measurement aid | Perf tour (--perf-tour): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: with --perf-probe and --observe-tour, the observer's camera moves to… | ☐ |
 | `R-83C63D35` | Classic maps performance result | no new map clearly worse than Manufactorum: render CPU 2.0 to 4.7 ms (Manufactorum 3.1), server tick mean 0.64 to 1.06 ms with 17 clients; one run per map on a busy machine (frame times noisy by about 3 ms); no change made to any map's drawing (ms) | confidence: low | measured | Classic maps performance result: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: no new map clearly worse than Manufactorum: render CPU 2.0 to 4.7 ms… | ☐ |
 
-### Core simulation (provisional values) (726)
-### Core simulation (provisional values) (754)
+### Core simulation (provisional values) (732)
 
 *Spec section: Provisional values in use*
 
