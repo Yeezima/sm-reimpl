@@ -93,7 +93,7 @@ public sealed record AshfallBandProfile
     public static readonly AshfallBandProfile Core = new()
     {
         Kind = AshfallBandKind.Core, Name = "urban core", Fabric = AshfallFabric.Rows,
-        CoverageMin = 0.34f, CoverageMax = 0.38f, IslandGap = 6f, ClusterGap = 6f, FillGap = 2.5f, Spacing = 10f, FrontageTiers = 3,
+        CoverageMin = 0.34f, CoverageMax = 0.38f, IslandGap = 6f, ClusterGap = 6f, FillGap = 3f, Spacing = 10f, FrontageTiers = 3,
         HeightMin = 16f, HeightMax = 28f, TallHeight = 44f, LowMin = 1.2f, LowMax = 2.2f, UpperFloorShare = 0.35f, SideStreet = 12f,
         BreachMin = 30f, BreachMax = 50f, BreachWidth = 8f, Plazas = 3, PlazaRadius = 36f, BreachedBlocks = 3,
         Landmarks = [("cathedral spire", "spire", new(-200f, 140f), new(20f, 20f, 42f)), ("manufactorum chimney tower", "spire", new(200f, 140f), new(20f, 20f, 42f))],

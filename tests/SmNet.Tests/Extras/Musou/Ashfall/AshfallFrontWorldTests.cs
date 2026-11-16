@@ -15,7 +15,7 @@ namespace SmNet.Tests.Extras.Musou.Ashfall;
 public class AshfallFrontWorldTests(ITestOutputHelper output)
 {
     /// <summary>The composed world's level hash (front version 1, the default seed; after F6). Re-pin with the band pins after a generator change.</summary>
-    public const ulong PinnedComposedHash = 0x2221482E5F700003UL;
+    public const ulong PinnedComposedHash = 0x7C6215275845282BUL;
 
     [Fact]
     [Trait("Speed", "Slow")]   // builds the default bands (cached in the process) and one other seed's wasteland

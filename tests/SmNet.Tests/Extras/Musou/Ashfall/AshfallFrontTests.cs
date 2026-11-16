@@ -16,7 +16,7 @@ namespace SmNet.Tests.Extras.Musou.Ashfall;
 public class AshfallFrontTests(ITestOutputHelper output)
 {
     /// <summary>The bands' level pins (front version 1, the default seed). After a change of the generator or a refit of the kit's collision, take the new values from this test's output.</summary>
-    public static readonly ulong[] PinnedBandHashes = [0xE92AC5053BF5DC0CUL, 0x127552340580823AUL, 0x97D0EFE02100B3EDUL];
+    public static readonly ulong[] PinnedBandHashes = [0xE7A6FF365DCF4781UL, 0xB1D5368D814763FDUL, 0x8D0209A6ED22294BUL];
 
     public static readonly TheoryData<uint> Seeds = new() { AshfallFront.DefaultSeed, 1u, 2u, 3u, 4u };
 
@@ -79,7 +79,24 @@ public class AshfallFrontTests(ITestOutputHelper output)
                 Assert.True(r.X >= -226f && r.Z <= 226f && r.Y >= -226f && r.W <= 226f, s.Name);
             }
             // the owner, 2026-11-16: the outskirts 20-24 %, the core 34-38 % (and since F6 the core may go over it: its street walls are not capped), the wasteland 5-8 %
-            Assert.True(plan.Coverage >= prof.CoverageMin && plan.Coverage <= (band == 2 ? 0.5f : prof.CoverageMax), $"cover {plan.Coverage:P1}, target {prof.CoverageMin:P0}-{prof.CoverageMax:P0}");
+            Assert.True(plan.Coverage >= prof.CoverageMin && plan.Coverage <= prof.CoverageMax, $"cover {plan.Coverage:P1}, target {prof.CoverageMin:P0}-{prof.CoverageMax:P0}");
+            // the owner, 2026-11-16 ("around the roads"): the corridors carry their frontage in the outskirts and the core
+            if (band >= 1)
+            {
+                int corridorRows = plan.Structures.Count(s => plan.Corridors.Any(k => s.Name.StartsWith(k.Name + " left row ", StringComparison.Ordinal) || s.Name.StartsWith(k.Name + " right row ", StringComparison.Ordinal)));
+                output.WriteLine($"  corridor frontage: {corridorRows} buildings; {plan.Notes.FirstOrDefault(n => n.StartsWith("frontage:", StringComparison.Ordinal))}");
+                Assert.True(corridorRows >= 15, $"{corridorRows} corridor frontage buildings");
+            }
+            // no gap or alley narrower than the passage (the Dreadnought's 2 m body and a metre) between any two pieces of the fabric (the authored through pieces aside)
+            var fabric = plan.Structures.Where(s => !Through(s)).Select(s => (s.Name, R: AshfallField.Footprint(s.Centre, s.Size, s.YawStep))).ToList();
+            for (int i = 0; i < fabric.Count; i++)
+                for (int j = i + 1; j < fabric.Count; j++)
+                {
+                    var (ra, rb) = (fabric[i].R, fabric[j].R);
+                    float dx = MathF.Max(MathF.Max(ra.X - rb.Z, rb.X - ra.Z), 0f), dy = MathF.Max(MathF.Max(ra.Y - rb.W, rb.Y - ra.W), 0f);
+                    float gap = MathF.Sqrt(dx * dx + dy * dy);
+                    Assert.True(gap >= AshfallFront.PassageWidth - 0.02f, $"{fabric[i].Name} and {fabric[j].Name}: {gap:0.00} m apart");
+                }
             Assert.Equal(6, plan.Structures.Count(Through));   // the compound's four walls and the keep's two wings; no jamb: the north gate is about 34 m, the owner's choice (2026-11-16)
             Assert.DoesNotContain(plan.Structures, s => s.Name.Contains("jamb", StringComparison.Ordinal));
             if (band == 2) Assert.Contains(plan.Structures, s => s.Name.Contains(" breached block ", StringComparison.Ordinal));

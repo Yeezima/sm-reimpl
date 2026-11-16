@@ -214,6 +214,8 @@ public partial class NetworkView
                         float d = Num.Vector3.Distance(points[k].Position, now);
                         if (d < best) { best = d; next = k; }
                     }
+                    // never one already passed: when the walker stands nearer the following waypoint than the nearest one does, it is past the nearest (indices of the new way, not the old one's)
+                    if (next + 1 < points.Count && Num.Vector3.Distance(now, points[next + 1].Position) < Num.Vector3.Distance(points[next].Position, points[next + 1].Position)) next++;
                     GD.Print($"TFWTEST note: {what}: a new way from {from}, {points.Count} waypoints, going on from waypoint {next}");
                 }
                 TfwKey(Key.W, true);

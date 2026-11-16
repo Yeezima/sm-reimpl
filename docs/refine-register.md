@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3374 spec table rows: **2400 tagged**, 626 not tagged (read from data with high confidence), 348 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 747 rows of the changes document.
+Scanned 3375 spec table rows: **2401 tagged**, 626 not tagged (read from data with high confidence), 348 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 747 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,22 +50,22 @@ Scanned 3374 spec table rows: **2400 tagged**, 626 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 17 | 7 | 14 | 12 | 7 |
-| Core simulation (provisional values) | 741 | 698 | 529 | 194 | 1 |
+| Core simulation (provisional values) | 742 | 699 | 530 | 195 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 258 | 245 | 143 | 68 | 0 |
-| **All areas** | **2400** | 2128 | 1798 | 735 | 37 |
+| **All areas** | **2401** | 2129 | 1799 | 736 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
 | kind: ours | 1390 |
-| confidence: low | 876 |
+| confidence: low | 877 |
 | confidence: medium | 813 |
-| notes: ours | 409 |
+| notes: ours | 410 |
 | kind: interpretation | 393 |
 | notes: estimate | 203 |
-| kind: estimate | 173 |
+| kind: estimate | 174 |
 | confidence: none (low) | 109 |
 | kind: provisional | 103 |
 | kind: user's knowledge | 53 |
@@ -2476,7 +2476,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-27330EFB` | Perf tour (`--perf-tour`) | with `--perf-probe` and `--observe-tour`, the observer's camera moves to the tour's next place at the end of each 5 s probe window and each `perf:` line names its place (s) | kind: ours | measurement aid | Perf tour (--perf-tour): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: with --perf-probe and --observe-tour, the observer's camera moves to… | ☐ |
 | `R-83C63D35` | Classic maps performance result | no new map clearly worse than Manufactorum: render CPU 2.0 to 4.7 ms (Manufactorum 3.1), server tick mean 0.64 to 1.06 ms with 17 clients; one run per map on a busy machine (frame times noisy by about 3 ms); no change made to any map's drawing (ms) | confidence: low | measured | Classic maps performance result: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: no new map clearly worse than Manufactorum: render CPU 2.0 to 4.7 ms… | ☐ |
 
-### Core simulation (provisional values) (741)
+### Core simulation (provisional values) (742)
 
 *Spec section: Provisional values in use*
 
@@ -2620,7 +2620,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-611F63B2` | Musou front pilot: gate B (final collision) | after every kit-pass rule (drafts 7 to 13, the stair-access and high-ground clean-ups included), the battlefield measure's formation rules and the through road (>= 20 m along x = 0, inside the base and the stronghold too) on the band's final collision; where… (m, count) | kind: estimate; confidence: low; notes: ours | owner-approved plan 2026-11-16 ("remove at pinch points, up to 8 rounds, else fail"); values ours | Musou front pilot: gate B (final collision): compare with SM1 by feel or video. Ours: after every kit-pass rule (drafts 7 to 13, the stair-access and… | ☐ |
 | `R-BA6EEDAF` | Musou front pilot: band profiles | wasteland: islands, cover 5-8 % of the free land, 12 m island gap, 16 m grid, trench walls and berms 1.2-2.2 m, low ruins 4-8 m (stairless), no upper floors, landmarks a wrecked hulk (-84, -44) and a fallen saint (96, 56), 10 platforms; outskirts: islands… (m, share, count) | kind: estimate; confidence: low | estimates from today's data (draft 11's field 3-14 %, draft 12's city 23-39 %, draft 13's heights); owner-approved plan 2026-11-16 | Musou front pilot: band profiles: compare with SM1 by feel or video. Ours: wasteland: islands, cover 5-8 % of the free land, 12 m island gap, 16… | ☐ |
 | `R-17CB1059` | Musou front pilot: frontage margin (F6) | the frontage rows stand 1.5 m off the reserved places (the corridors, the assembly areas, the plazas and the points' clear zones), which keep their sizes; the other fabric keeps the profile's route buffer (2.5 m core, 4 m elsewhere); 1.5 m is over the roadway… (m) | kind: estimate; confidence: low; notes: ours | the owner, 2026-11-16: "Make the buildings around the roads denser instead of reducing reserved space"; value ours | Musou front pilot: frontage margin (F6): compare with SM1 by measuring on a flat spot of the same map. Ours: the frontage rows stand 1.5 m off the reserved places (the corridors… | ☐ |
-| `R-833F6AF4` | Musou front pilot: blend | the last 20 % of each band toward its north edge (y > 144 m) blends toward the next band: a structure there takes the next band's profile with the share (y - 144) / 96, and the coverage target lerps the same way; the core blends into itself (share) | kind: estimate; confidence: low | owner-approved plan 2026-11-16 ("last ~20 % of each map blends toward the next band") | Musou front pilot: blend: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the last 20 % of each band toward its north edge (y > 144 m) blends… | ☐ |
+| `R-74758C52` | Musou front pilot: frontage passages | the least gap between two frontage pieces and the least alley: 3 m (the widest player body, the Dreadnought's 2 m capsule, and a metre); the core's fill pieces keep 3 m too; the big Orks (up to a 3.4 m ring) walk the corridors and breaches, not between… (m) | kind: estimate; confidence: low; notes: ours | re-review of 2026-11-16 (the gaps were 2.45-2.5 m); `DreadnoughtRules.CapsuleRadius`; value ours | Musou front pilot: frontage passages: compare with SM1 by measuring on a flat spot of the same map. Ours: the least gap between two frontage pieces and the least alley: 3 m… | ☐ |
+| `R-833F6AF4` | Musou front pilot: blend | the last 20 % of each band toward its north edge (y > 144 m) blends toward the next band: a structure there takes the next band's profile with the share (y - 144) / 96, and the coverage target lerps the same way, but outside the core never past the band's own… (share) | kind: estimate; confidence: low | owner-approved plan 2026-11-16 ("last ~20 % of each map blends toward the next band") | Musou front pilot: blend: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the last 20 % of each band toward its north edge (y > 144 m) blends… | ☐ |
 | `R-9108ED5A` | Musou front pilot: outside scenery (client) | client only, no collision, not in any hash: the ground beyond each band's boundary out to 1200 m from its centre, flat along the front's line (x within +-244 m) and rising at 10 degrees east and west of it; the main avenue drawn on out of both edges, through… (m, degrees) | kind: estimate; confidence: low; notes: ours | owner-approved plan 2026-11-16 ("the ground rises at ~10 degrees out to ~1.2 km ... low-LOD kit copies of neighbouring bands, manufactorum stacks along the… | Musou front pilot: outside scenery (client): compare with SM1 with an overlaid screenshot taken from the same position. Ours: client only, no collision, not in any hash: the ground beyond each… | ☐ |
 | `R-39BE64FA` | Ashfall drawn-box rule (draft 9) | no two placed models' drawn boxes (the whole model's bounds as placed) meet deeper than 0.3 m (the overlap rule's tolerance and moves: the later one moves, shrinks, takes the pool's next model, else is left out); bridges on their supports and the stronghold's… (m) | kind: ours; confidence: low | owner's late batch 2026-11-06 (stream F: "no stacked 3D objects; scale one object instead"); the tolerance and exemptions ours | Ashfall drawn-box rule (draft 9): compare with SM1 by measuring on a flat spot of the same map. Ours: no two placed models' drawn boxes (the whole model's bounds as… | ☐ |
 | `R-40B787AC` | Ashfall rubble props (draft 9) | AR-001..003 (separate small rubble piles, metre scale) placed at the feet of standing walls and buildings and along the plaza's edge and the avenues' kerbs: candidates every 6 m (8 m on the edges) in a seeded order, at most 60, 10 m apart, each leaning on its… (m) | kind: ours; confidence: low | the look lead's request (2026-11-06), the owner's "rubble as separate small props, not fused into buildings"; counts, spacing and pushes ours | Ashfall rubble props (draft 9): compare with SM1 by measuring on a flat spot of the same map. Ours: AR-001..003 (separate small rubble piles, metre scale) placed at the… | ☐ |

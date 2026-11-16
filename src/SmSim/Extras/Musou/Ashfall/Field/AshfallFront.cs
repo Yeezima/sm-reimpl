@@ -39,6 +39,12 @@ public static class AshfallFront
     public const float StreetWallHeight = 6f;
     /// <summary>The frontage's margin from the reserved places (m; the owner, 2026-11-16: "denser instead of reducing reserved space": the corridors, assembly areas, plazas and clear zones stay; the frontage stands this close; the other fabric keeps the profile's route buffer, 2.5 to 4 m). Over the roadway rule's 0.5 m.</summary>
     public const float FrontBuffer = 1.5f;
+    /// <summary>
+    /// The least gap the frontage leaves between two of its pieces and the least alley (m): the widest walking body the war's players bring, the Dreadnought (capsule radius 1.0 m, 2 m across), and a metre (re-review of 2026-11-16: the
+    /// frontage's gaps and alleys were 2.45 to 2.5 m, at the 2.4 m narrow-gap rule). The big Orks (a Boss Ork's or the Warboss's scaled ring, up to 3.4 m) are not given a way between two frontage buildings: they walk the corridors
+    /// and breaches (the armies on ways a formation fits, <c>TfwArmyRules.RouteHalfWidth</c>) and the existing wall push keeps a single one off a wall (<c>BossWallPush</c>).
+    /// </summary>
+    public const float PassageWidth = 3f;
 
     public static readonly Vector2 BaseCentre = new(0f, -188f), BaseGate = new(0f, -160f), StrongholdCentre = new(0f, 138f), StrongholdGate = new(0f, 112f);
 
@@ -413,6 +419,7 @@ public static class AshfallFront
         // floors, a few gaps). The reserved places (the corridors, assembly areas, plazas and clear zones) are as before; only the margin the frontage keeps from them is smaller.
         int rows = 0, breaches = 0, walls = 0, row = 0;
         bool street = profile.Fabric == AshfallFabric.Rows;
+        float frontCap = profile.Coverage, coveredCorridors = 0f, coveredRings = 0f;
         void Frontage(string name, Vector2 a, Vector2 b, Vector2 outward, float baseLine, int tiers, float trim)
         {
             var dir = Vector2.Normalize(b - a);
@@ -439,11 +446,11 @@ public static class AshfallFront
                     // the core's frontage: its stairless buildings are facades (the street wall reads as one: the kit's stairless masses are round heaps); the back rows keep the masses
                     if (street && tier == 0 && fam == "block") { fam = "facade"; depth = FacadeDepth; }
                     if (!street && ((h >> 19) ^ (h >> 7)) % 100u < (uint)(profile.FrontageGapShare * 100f)) { t += wdt; continue; }   // the outskirts: a gap in the frontage
-                    if (!street && covered >= profile.Coverage * land) break;   // the outskirts keep their 20-24 %: the fabric goes to the roads first (to the band's mid target), the rest of the land stays open
+                    if (!street && covered >= frontCap * land) break;   // the outskirts keep their 20-24 %: the corridors' frontage first (to the band's mid target), then the rings (to its ceiling); the rest of the land stays open
                     var centre = a + dir * (t + wdt / 2f) + outward * (line + depth / 2f);
                     var size = new Vector3(wdt, depth, height);
                     var fp = AshfallField.Footprint(centre, size, yaw);
-                    if (Free(fp, tier == 0 ? 2.45f : 6f, tier == 0 ? FrontBuffer : p.RouteBuffer) && !Sight(fp, height))
+                    if (Free(fp, tier == 0 ? PassageWidth : 6f, tier == 0 ? FrontBuffer : p.RouteBuffer) && !Sight(fp, height))
                     {
                         Add(new($"{name} {(tier == 0 ? "row" : tier == 1 ? "back row" : "second back row")} {fam} {n}", fam, centre, size, yaw, profile.Name));
                         covered += wdt * depth;
@@ -451,7 +458,7 @@ public static class AshfallFront
                     }
                     else { t += 4f; continue; }
                     t += wdt;
-                    if (tier >= 1 || !street) { t += street ? 6f : 2.5f + 1.5f * ((h >> 14) % 3u); continue; }   // the back rows and the outskirts: alleys only (the outskirts' 2.5 to 5.5 m)
+                    if (tier >= 1 || !street) { t += street ? 6f : PassageWidth + 1.5f * ((h >> 14) % 3u); continue; }   // the back rows and the outskirts: alleys only (the outskirts' 3 to 6 m)
                     if (sinceBreach >= nextBreach)
                     {
                         // a breach gap in the street wall (30 to 50 m apart): open ground through the row into the block behind
@@ -459,12 +466,12 @@ public static class AshfallFront
                         nextBreach = profile.BreachMin + (h >> 8) % (uint)(profile.BreachMax - profile.BreachMin + 1f);
                         continue;
                     }
-                    // a street wall piece between two buildings, 2.5 m breaks each side (over the 2.4 m narrow-gap rule)
+                    // a street wall piece between two buildings, a passage (PassageWidth) each side
                     float wl = 6f + 2f * ((h >> 12) % 3u);
-                    var wc = a + dir * (t + 2.5f + wl / 2f) + outward * (line + 0.75f);
+                    var wc = a + dir * (t + PassageWidth + wl / 2f) + outward * (line + 0.75f);
                     var wsize = new Vector3(wl, 1.5f, StreetWallHeight);
                     var wfp = AshfallField.Footprint(wc, wsize, yaw);
-                    if (t + 2.5f + wl + 2.5f < len && Free(wfp, 2.45f, FrontBuffer)) { Add(new($"{name} street wall {walls++}", "wall", wc, wsize, yaw, profile.Name)); t += 2.5f + wl + 2.5f; sinceBreach += wl; }
+                    if (t + PassageWidth + wl + PassageWidth < len && Free(wfp, PassageWidth - 0.01f, FrontBuffer)) { Add(new($"{name} street wall {walls++}", "wall", wc, wsize, yaw, profile.Name)); t += PassageWidth + wl + PassageWidth; sinceBreach += wl; }
                     else t += 6f;
                 }
             }
@@ -479,6 +486,14 @@ public static class AshfallFront
         }
         if (profile.FrontageTiers > 0)
         {
+            foreach (var k in frame.Corridors.Where(k => !k.Name.StartsWith("main avenue through", StringComparison.Ordinal)))
+            {
+                var dir = Vector2.Normalize(k.B - k.A); var left = new Vector2(-dir.Y, dir.X);
+                Frontage($"{k.Name} left", k.A, k.B, left, k.Width / 2f + FrontBuffer + 0.1f, profile.FrontageTiers, 8f);
+                Frontage($"{k.Name} right", k.A, k.B, -left, k.Width / 2f + FrontBuffer + 0.1f, profile.FrontageTiers, 8f);
+            }
+            coveredCorridors = covered;
+            frontCap = profile.CoverageMax - 0.005f;   // the rings round the assembly areas and the points may add up to the band's ceiling (the outskirts' fabric then stops)
             // the assembly areas' and the plazas' (or clear zones') edges: the base exit and B framed by buildings
             foreach (var (name, r) in frame.Assembly) Around(name, r, FrontBuffer + 0.1f, 1);
             foreach (var pt in points)
@@ -487,13 +502,8 @@ public static class AshfallFront
                 var c = new Vector2(pt.Center.X, pt.Center.Y);
                 Around($"point {pt.Name}", new Vector4(c.X - rad, c.Y - rad, c.X + rad, c.Y + rad), FrontBuffer + 0.1f, 1);
             }
-            foreach (var k in frame.Corridors.Where(k => !k.Name.StartsWith("main avenue through", StringComparison.Ordinal)))
-            {
-                var dir = Vector2.Normalize(k.B - k.A); var left = new Vector2(-dir.Y, dir.X);
-                Frontage($"{k.Name} left", k.A, k.B, left, k.Width / 2f + FrontBuffer + 0.1f, profile.FrontageTiers, 8f);
-                Frontage($"{k.Name} right", k.A, k.B, -left, k.Width / 2f + FrontBuffer + 0.1f, profile.FrontageTiers, 8f);
-            }
-            notes.Add($"frontage: {rows} rows along the corridors and round the assembly areas and the points, {walls} street wall pieces, {breaches} breach gaps ({profile.BreachMin:0}-{profile.BreachMax:0} m apart, {profile.BreachWidth:0} m wide), {FrontBuffer} m off the reserved places");
+            coveredRings = covered - coveredCorridors;
+            notes.Add($"frontage: {rows} rows along the corridors and round the assembly areas and the points, {walls} street wall pieces, {breaches} breach gaps ({profile.BreachMin:0}-{profile.BreachMax:0} m apart, {profile.BreachWidth:0} m wide), {FrontBuffer} m off the reserved places; cover from the corridors' frontage {coveredCorridors / land:P1}, from the rings round the assembly areas and the points {coveredRings / land:P1}");
         }
 
         // 4. Islands on a jittered grid in seeded order, until the coverage target (the last fifth to the north blends toward the next band's profile and coverage).
@@ -553,7 +563,9 @@ public static class AshfallFront
         uint t = (key >> 4) % 100u;
         int yaw = (int)((key >> 12) % 2u) * 6;
         var list = new List<AshfallFieldStructure>();
-        void Add(string fam, float dx, float dy, Vector3 size, int y = -1) => list.Add(new("", fam, at + new Vector2(dx, dy), size, y < 0 ? yaw : y, prof.Name));
+        // the template's pieces turn with it: their offsets as well as their own yaw (a quarter turn moved the pieces but not their offsets before the re-review: a facade pair overlapped)
+        void Add(string fam, float dx, float dy, Vector3 size, int y = -1) =>
+            list.Add(new("", fam, at + (yaw == 6 ? new Vector2(-dy, dx) : new Vector2(dx, dy)), size, y < 0 ? yaw : (y + yaw) % 12, prof.Name));
         float low(uint s) => prof.LowMin + (prof.LowMax - prof.LowMin) * (s % 3u) / 2f;
         float g = prof.ClusterGap;
         switch (prof.Kind)
