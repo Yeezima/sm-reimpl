@@ -72,6 +72,8 @@ ulong fingerprint = ContentFingerprint.Compute(install);
 var contentExtras = cli.Content;
 Console.WriteLine($"content: {ContentProfiles.Describe(contentExtras)}{(contentExtras == ContentExtras.None ? " (SM1 multiplayer alone: no added content)" : "")}; " +
     $"build {(ContentExtras.Compiled ? "with" : "without")} added content; clients need --content {ContentProfiles.Name(contentExtras)}");
+if (contentExtras.HasFlag(ContentExtras.Warfront))
+    Console.WriteLine($"Warfront: enabled (the persistent campaign on Musou Mode; profile {ContentProfiles.Name(contentExtras)}, extras wire {ContentExtras.WireVersion}; its rules version is in the config hash)");
 // Musou (added content, experimental): the mode comes from the profile alone (there is no --mode musou). It plays on Annihilation's rules, endless (no score
 // or time limit: its own flow ends a round); any other --mode is refused.
 if (contentExtras.HasFlag(ContentExtras.Musou))
