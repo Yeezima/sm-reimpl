@@ -157,8 +157,7 @@ public partial class NetworkView
 
     void LoadScene(MapStage1 stage, string file)
     {
-        MapLighting.ExtendedReading = !CmdFlag("old-map-lighting");   // classic-maps-fidelity: the real reading is the default; --old-map-lighting restores the old one
-        try { stage.Scene = MapScene.Load(_gameDir, file); }
+        try { stage.Scene = MapScene.Load(_gameDir, file, extendedLighting: !MapDecor.OldMapLighting); }
         catch (Exception e) when (e is not (StackOverflowException or AccessViolationException)) { stage.SceneError = $"{e.GetType().Name}: {e.Message}"; }
     }
 

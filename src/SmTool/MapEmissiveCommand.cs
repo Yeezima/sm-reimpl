@@ -359,22 +359,30 @@ public static class MapEmissiveCommand
             Console.WriteLine($"{colRows.Count} large parts, {colRows.Count(r => r.Share <= maxShare)} with at most {maxShare:0.00} of their vertices near collision");
             return 0;
         }
+        if (rest.Contains("--lod-names"))
+        {
+            // classic-maps-fidelity review: every visual node name containing "lod" (any case) of the definitions the map places, split by whether LodFamily reads a suffix from it
+            var placed = scene.Objects.Select(o => o.Definition).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var names = scene.Definitions.Values.Where(d => placed.Contains(d.Name)).SelectMany(d => d.Visuals.Select(v => v.RefNode)).Where(n => n.Contains("lod", StringComparison.OrdinalIgnoreCase)).ToList();
+            var unmatched = names.Where(n => ObjectDefinition.LodFamily(n) is null).GroupBy(n => n).OrderBy(g => g.Key).ToList();
+            Console.WriteLine($"{map}: {names.Count} node names with 'lod', {names.Count(n => ObjectDefinition.LodFamily(n) is not null)} read as family members, {unmatched.Sum(g => g.Count())} not read ({unmatched.Count} distinct){(unmatched.Count > 0 ? ": " + string.Join(", ", unmatched.Take(12).Select(g => g.Key)) : "")}");
+            return 0;
+        }
         if (rest.Contains("--lod-families"))
         {
             // classic-maps-fidelity pass 2: per definition, visual parts whose node names share a stem and differ only in a LOD suffix (LODH, LODM, LODC, LODL, LOD<n>); prints each family's parts with
             // mask, triangle count and local box, and totals (definitions, placements) for the map. Stem = node name with the suffix cut.
             var counts2 = scene.Objects.GroupBy(o => o.Definition, StringComparer.OrdinalIgnoreCase).ToDictionary(g => g.Key, g => g.Count(), StringComparer.OrdinalIgnoreCase);
-            var rx = new System.Text.RegularExpressions.Regex(@"^(?<stem>.*?)[_]?(?<suf>lod[hmcl]|lod\d?|lodh\d)$", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-            int defs = 0, places = 0; bool quiet = rest.Contains("--summary");
+int defs = 0, places = 0; bool quiet = rest.Contains("--summary");
             foreach (var def in scene.Definitions.Values.Where(d => counts2.ContainsKey(d.Name)).OrderBy(d => d.Name))
             {
-                var fam = def.Visuals.Select(v => (v, m: rx.Match(v.RefNode))).Where(x => x.m.Success).GroupBy(x => x.m.Groups["stem"].Value.ToLowerInvariant()).Where(g => g.Select(x => x.m.Groups["suf"].Value.ToLowerInvariant()).Distinct().Count() > 1).ToList();
+                var fam = def.Visuals.Select(v => (v, f: ObjectDefinition.LodFamily(v.RefNode))).Where(x => x.f is not null).GroupBy(x => x.f!.Value.Stem).Where(g => g.Select(x => x.f!.Value.Rank).Distinct().Count() > 1).ToList();
                 if (fam.Count == 0) continue;
                 defs++; places += counts2[def.Name];
                 if (quiet) continue;
                 Console.WriteLine($"{def.Name} x{counts2[def.Name]}");
                 foreach (var g in fam)
-                    foreach (var (v, m) in g)
+                    foreach (var (v, _) in g)
                     {
                         string info = "mesh missing";
                         if (scene.Meshes.TryGetValue(v.MeshName, out var mesh))
