@@ -21,7 +21,7 @@ public sealed partial class GameServer
             return;
         }
         if (tag == WarfrontWire.SquadCommandTag) { bool done = false; WarfrontSquadCommand(player, tag, payload, ref done); handled = true; return; }
-        if (tag == WarfrontWire.CoopCommandTag) { bool done = false; WarfrontCoopCommand(player, tag, payload, ref done); handled = true; return; }
+        if (tag == WarfrontWire.CoopCommandTag) { bool done = false; WarfrontCoopCommand(player, tag, payload, ref done); handled = true; return; }   // tag 42 (the co-op rules)
         if (tag != WarfrontWire.CommandTag) return;
         handled = true;
         if (!WarfrontWire.TryDecode(payload, out WarfrontClientCommand command)) { WarfrontCommandsDropped++; return; }
@@ -51,13 +51,11 @@ public sealed partial class GameServer
         var old = s.Campaign;
         if (!old.IsOver) { WfLog($"NewRun from P{player} refused: the run is not over"); return; }
         if (old.Leader != key) { WfLog($"NewRun from P{player} refused: only the leader starts a new run"); return; }
+        // The wiring, the progression and the co-op rules belong to one campaign: a new run is a new stage process on the empty run (the supervisor reads it; the clients rejoin through Stage Go).
+        try { File.Delete(Path.Combine(s.Dir, WarfrontSquadsFile)); } catch (IOException) { }
         var fresh = WarfrontRunFiles.NewRun(s.Dir);
-        s.Finished = false;
-        s.ResultsBytes = null;
-        WarfrontReplaceCampaign(s, fresh);
-        WfSave(s);
-        WfLog($"a new run (seed {fresh.RunSeed:X}) on the ship; {s.KeyOf.Count} player(s) carried over");
-        if (!WarfrontStagePlan.HasShip(s.Map)) WarfrontStartGo(s, WarfrontStagePlan.FirstMap, null);
-        else WarfrontCoopShipStop();
+        s.Leaving = true;
+        WfLog($"a new run (seed {fresh.RunSeed:X}) on the ship: this stage restarts on it");
+        WarfrontStartGo(s, WarfrontStagePlan.HasShip(s.Map) ? s.Map : WarfrontStagePlan.FirstMap, null);
     }
 }

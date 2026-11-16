@@ -28,19 +28,12 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3601 spec table rows: **2588 tagged**, 661 not tagged (read from data with high confidence), 352 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 764 rows of the changes document.
-Scanned 3597 spec table rows: **2581 tagged**, 662 not tagged (read from data with high confidence), 354 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 764 rows of the changes document.
-
-| Area | Tagged rows | by kind | by confidence | by notes | by section text |
-|---|---:|---:|---:|---:|---:|
-| Movement (critical) | 406 | 348 | 346 | 114 | 12 |
-| Combat core (critical) | 24 | 15 | 22 | 17 | 8 |
-Scanned 3628 spec table rows: **2612 tagged**, 662 not tagged (read from data with high confidence), 354 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 765 rows of the changes document.
+Scanned 3662 spec table rows: **2641 tagged**, 665 not tagged (read from data with high confidence), 356 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 767 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
 | Movement (critical) | 407 | 349 | 347 | 114 | 12 |
-| Combat core (critical) | 24 | 15 | 22 | 15 | 8 |
+| Combat core (critical) | 24 | 15 | 22 | 17 | 8 |
 | Weapons (critical) | 119 | 73 | 106 | 52 | 3 |
 | Melee (critical) | 158 | 138 | 114 | 57 | 5 |
 | Jump pack (critical) | 81 | 73 | 67 | 17 | 0 |
@@ -57,43 +50,22 @@ Scanned 3628 spec table rows: **2612 tagged**, 662 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 47 | 37 | 21 | 12 | 7 |
-| Core simulation (provisional values) | 798 | 755 | 585 | 221 | 1 |
-| General game design | 68 | 67 | 49 | 15 | 0 |
+| Core simulation (provisional values) | 823 | 778 | 609 | 229 | 1 |
+| General game design | 84 | 83 | 63 | 17 | 0 |
 | Ork faction | 263 | 250 | 147 | 69 | 0 |
-| **All areas** | **2588** | 2309 | 1934 | 787 | 37 |
-| Core simulation (provisional values) | 808 | 763 | 595 | 224 | 1 |
-| General game design | 51 | 50 | 39 | 10 | 0 |
-| Ork faction | 263 | 250 | 147 | 69 | 0 |
-| **All areas** | **2581** | 2300 | 1934 | 789 | 37 |
-| Core simulation (provisional values) | 813 | 770 | 599 | 226 | 1 |
-| General game design | 65 | 64 | 52 | 12 | 0 |
-| Ork faction | 263 | 250 | 147 | 69 | 0 |
-| **All areas** | **2612** | 2333 | 1962 | 789 | 37 |
+| **All areas** | **2641** | 2360 | 1983 | 801 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1495 |
-| confidence: low | 938 |
-| confidence: medium | 887 |
-| notes: ours | 456 |
-| kind: interpretation | 417 |
-| kind: estimate | 220 |
-| kind: ours | 1492 |
-| confidence: low | 942 |
-| confidence: medium | 883 |
-| notes: ours | 452 |
-| kind: interpretation | 419 |
-| kind: estimate | 213 |
+| kind: ours | 1531 |
+| confidence: low | 957 |
+| confidence: medium | 917 |
+| notes: ours | 464 |
+| kind: interpretation | 428 |
+| kind: estimate | 225 |
 | notes: estimate | 210 |
-| kind: ours | 1512 |
-| confidence: low | 947 |
-| confidence: medium | 906 |
-| notes: ours | 458 |
-| kind: interpretation | 422 |
-| kind: estimate | 222 |
-| notes: estimate | 204 |
 | confidence: none (low) | 109 |
 | kind: provisional | 106 |
 | kind: user's knowledge | 53 |
@@ -2652,8 +2624,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-5B955167` | Panel | F8 shows or hides the grid (Esc closes) when the server has the tools; numbered "row.column" cells coloured by state, a bright border where the cell differs from the release default; the inspector (state, from, until, "data timing", the code's own value, note… (key) | kind: ours | the owner (F8 chosen: free in Classic PvP; Musou's Ashfall look keeps it there) | Panel: compare with SM1 by feel or video. Ours: F8 shows or hides the grid (Esc closes) when the server has the… | ☐ |
 | `R-BE15241E` | Export | writes `cancel-table-YYYYMMDD-HHMMSS.json` (the shipped file's format: every cell with note and source, then the overrides) to `%LOCALAPPDATA%\sm-reimpl\cancel-configs\`, never overwriting; import reads one back and applies it live; `smtool cancel-config diff`… | kind: ours | the owner ("hands changes over as an export file") | Export: compare with SM1 by feel or video. Ours: writes cancel-table-YYYYMMDD-HHMMSS.json (the shipped file's format:… | ☐ |
 
-### Core simulation (provisional values) (808)
-### Core simulation (provisional values) (813)
+### Core simulation (provisional values) (823)
 
 *Spec section: Provisional values in use*
 
@@ -3953,8 +3924,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-98A893CB` | Picker protection | while an offer stands the player is invulnerable and their input is dropped, others play on; it ends on a valid pick, after 20 s (the server takes card 1) or when the player leaves (the pick stays pending and re-opens with the same cards) (s) | kind: estimate; confidence: medium; notes: ours | owner (protection); the 20 s ours | Picker protection: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: while an offer stands the player is invulnerable and their input is… | ☐ |
 | `R-2024CBEF` | Hard base | `OrkHealthBase` and `OrkDamageBase`, 1.0: the one knob for "hard" (owner answer 8) (multiplier) | kind: estimate; confidence: low; notes: ours | owner (hard, solo must play well, a squad needs teamwork); the value ours | Hard base: compare with SM1 by feel or video. Ours: OrkHealthBase and OrkDamageBase, 1.0: the one knob for "hard" (owner… | ☐ |
 
-### General game design (68)
-### General game design (65)
+### General game design (84)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -4048,6 +4018,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-89085E8C` | Late join | a human not yet identified is not flown into a battle (`LateJoinAllowed`) | kind: ours | plan section 4 | Late join: compare with SM1 by feel or video. Ours: a human not yet identified is not flown into a battle… | ☐ |
 | `R-A38B6CF8` | Landing give-up | a landing waits for the match to be playing and the leader alive in the hub, asks the run's Deploy again each second until the run leaves the hub, logs each second, and is given up to the ship after this long (nothing rolled) (s) | kind: estimate; confidence: low | W5a review 1 finding 11 and the W5b real run | Landing give-up: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a landing waits for the match to be playing and the leader alive in… | ☐ |
 | `R-0E79FB89` | Supervisor watch | the stage child checks once a second that its supervisor process lives; if not it saves and leaves with code 0 (s) | kind: ours | W5a review 1 finding 5 | Supervisor watch: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the stage child checks once a second that its supervisor process… | ☐ |
+| `R-624D2AD1` | Squads file | `squads.json` (rosters, class picks) is written before `run.json` at every save point and deleted when the run ends or a new run starts; killed between the two, a pick is offered again (at worst one Marine too many) instead of a paid card with no Marine | kind: ours | W9b review routing | Squads file: compare with SM1 by feel or video. Ours: squads.json (rosters, class picks) is written before run.json at… | ☐ |
+| `R-98F383C1` | New run | the leader's NewRun writes an empty run and the stage restarts on it (Stage Go), because the squad wiring, the progression and the co-op rules belong to one campaign object | kind: ours; confidence: medium | ours | New run: compare with SM1 by timing a run over a known distance. Ours: the leader's NewRun writes an empty run and the stage restarts on it… | ☐ |
 | `R-FB2FD11B` | Human cap | `--warfront-max-humans` 1 to 4, default 4 (humans) | kind: ours | plan section 8 | Human cap: compare with SM1 by feel or video. Ours: --warfront-max-humans 1 to 4, default 4. | ☐ |
 | `R-9176AB90` | Kill classes | ordinary, elite, boss by `WarfrontXpLedger.Classify`; Kills = all three; EliteKills and BossKills are separate (disjoint) subsets of Kills, as W15 scores them (one Warboss kill = 25) (kills) | kind: ours | W7 classes; W15 `Pts` | Kill classes: compare with SM1 by feel or video. Ours: ordinary, elite, boss by WarfrontXpLedger.Classify; Kills = all… | ☐ |
 | `R-7DD57BF8` | Own kills only | the human's own body only; kills by that human's retainers go to the W9 service records (the leaderboard shows player and squad apart, so TOTAL K would show them twice) | kind: ours | designer review | Own kills only: compare with SM1 by feel or video. Ours: the human's own body only; kills by that human's retainers go to the… | ☐ |

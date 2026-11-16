@@ -22,8 +22,7 @@ public sealed partial class GameServer
         if (c.Phase != WarfrontPhase.Ship) { WfLog($"deploy from P{player} refused: the campaign is in {c.Phase}"); return; }
         if (c.Leader != key) { WfLog($"deploy from P{player} refused: only the leader deploys"); return; }
         if (!c.AvailableTargets().Contains(target)) { WfLog($"deploy from P{player} refused: {target.Kind} lane {target.Lane} is not an available target"); return; }
-        string? refusal = null;
-        WarfrontDeployGate(ref refusal);
+        string? refusal = WarfrontCoopDeployGate();   // the co-op rules: a joiner still choosing a class or picking cards holds the deployment
         if (refusal is not null) { WfLog($"deploy from P{player} refused: {refusal}"); s.GateRefusal = refusal; s.GateRefusalTick = World.Tick; return; }
 
         string map = WarfrontStagePlan.MapOf(c, target);
@@ -186,9 +185,11 @@ public sealed partial class GameServer
         var node = System.Text.Json.Nodes.JsonNode.Parse(s.Campaign.ToJson())!.AsObject();
         node["Phase"] = "Ship";
         node["CurrentTarget"] = null;
-        var next = WarfrontSave.FromJson(node.ToJsonString(), s.Campaign.RollSource);
-        WarfrontReplaceCampaign(s, next);
-        WfSave(s);
+        var reverted = WarfrontSave.FromJson(node.ToJsonString(), s.Campaign.RollSource);
+        WarfrontSaveSquads(s);
+        WarfrontSave.Write(s.Dir, reverted);   // the wiring and the progression are built once per process, so the stage restarts on the reverted run
+        s.Leaving = true;
+        WarfrontStartGo(s, s.Map, null);
     }
 
     /// <summary>When the run's battle has begun, the campaign's Travel becomes Battle and is saved (a kill now resumes on the ship, nothing rolled).</summary>
@@ -249,7 +250,7 @@ public sealed partial class GameServer
         WfSave(s);
         s.HubDirty = true;
         if (c.IsOver) { WarfrontFinishRun(s); return; }
-        WarfrontCoopShipStop();
+        WarfrontCoopRules?.ShipStop();
         if (!WarfrontStagePlan.HasShip(s.Map))
         {
             string ship = WarfrontRunFiles.ReadStage(s.Dir)?.Ship is { } last && WarfrontStagePlan.HasShip(last) ? last : WarfrontStagePlan.FirstMap;

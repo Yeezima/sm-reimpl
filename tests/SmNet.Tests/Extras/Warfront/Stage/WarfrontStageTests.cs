@@ -69,7 +69,7 @@ public class WarfrontStageTests : IDisposable
         void Drain()
         {
             foreach (var c in H.Clients)
-                foreach (var s in c.TakeExtras()) if (s.Tag is >= 40 and <= 43) Heard.Add((s.Tag, s.Payload));
+                foreach (var s in c.TakeExtras()) if (s.Tag is >= 40 and <= 46) Heard.Add((s.Tag, s.Payload));
         }
 
         public void Send(int client, WarfrontClientCommand cmd) => Assert.True(H.Clients[client].SendExtrasCommand(WarfrontWire.CommandTag, WarfrontWire.Encode(cmd)));
@@ -330,9 +330,18 @@ public class WarfrontStageTests : IDisposable
         byte[]? whole = null;
         foreach (var x in s.Heard.Where(x => x.Tag == WarfrontWire.ResultsTag)) whole = chunks.Add(x.Payload) ?? whole;
         Assert.Equal(321, SmNet.Extras.Warfront.Results.WarfrontResultsWire.Decode(whole!).DurationSeconds);   // the saved play time, not this process's uptime
+        // the leader starts a new run: an empty run on disk and a stage change to it
+        s.Send(0, new WarfrontClientCommand(WarfrontClientCommandKind.NewRun));
+        s.Tick(1);
+        Assert.True(File.Exists(Path.Combine(_dir, "run.json")));
+        Assert.Equal(WarfrontPhase.Ship, WarfrontSave.Load(_dir)!.Phase);
+        s.Tick(3);
+        Assert.True(s.Server.RestartDue(out int newRunCode));
+        Assert.Equal(ServerCommandLine.WarfrontStageExit, newRunCode);
+        File.Delete(Path.Combine(_dir, "run.json"));
         s.H.Clients[0].Leave();
         s.Tick(2);
-        Assert.False(File.Exists(Path.Combine(_dir, "run.json")));   // the finished campaign is not written back
+        Assert.False(File.Exists(Path.Combine(_dir, "run.json")));   // nothing writes the old run back
         Assert.Single(Directory.GetFiles(Path.Combine(_dir, "records"), "*.json").Where(f => !f.EndsWith(".results.json")));
     }
 
@@ -350,5 +359,23 @@ public class WarfrontStageTests : IDisposable
         var old = System.Text.Json.Nodes.JsonNode.Parse(c.ToJson())!.AsObject();
         old["Version"] = 2; old.Remove("PlaySeconds");
         Assert.Equal(0, WarfrontSave.FromJson(old.ToJsonString()).PlaySeconds);   // an older save loads with 0
+    }
+
+    [Fact]
+    public void The_squad_wiring_and_the_co_op_rules_are_built_once_and_the_squads_are_saved()
+    {
+        var s = StartStage("wf_b1", 1);
+        var rules = s.Server.World.Tfw!.Warfront!;
+        Assert.NotNull(rules.SquadStep);   // the wiring's seam, subscribed at construction
+        var progression = rules.Progression;
+        s.Identify(0, 4242, "Alpha");
+        s.Tick(2);
+        Assert.Same(progression, rules.Progression);   // never replaced
+        Assert.True(File.Exists(Path.Combine(_dir, "squads.json")));
+        Assert.True(File.Exists(Path.Combine(_dir, "run.json")));
+        Assert.Contains(s.Heard, h => h.Tag == 46);   // the co-op section reaches the identified client
+        // a restart reads the squads back
+        var again = StartStage("wf_b1", 0);
+        Assert.NotNull(again.Server.World.Tfw!.Warfront!.SquadStep);
     }
 }

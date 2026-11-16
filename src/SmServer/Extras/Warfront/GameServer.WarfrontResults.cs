@@ -16,7 +16,7 @@ public sealed partial class GameServer
         var c = s.Campaign;
         var l = c.Stats.ToPlayerStats(key);
         var player = l with { Name = c.Player(key)?.Name ?? "", Connected = c.IsConnected(key), JoinIndex = joinIndex };
-        return WarfrontContributor.Solo(player);
+        return new WarfrontContributor(player, _wfWiring?.RecordsOf(key) ?? []);
     }
 
     /// <summary>
@@ -54,5 +54,6 @@ public sealed partial class GameServer
             WfLog($"the end of the run could not be archived: {e.Message}; run.json stays and the next start finishes it");
         }
         try { File.Delete(Path.Combine(s.Dir, WarfrontRunFiles.StageFile)); } catch (IOException) { }   // it holds campaign keys; the run is over
+        try { File.Delete(Path.Combine(s.Dir, WarfrontSquadsFile)); } catch (IOException) { }
     }
 }
