@@ -28,8 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3363 spec table rows: **2391 tagged**, 625 not tagged (read from data with high confidence), 347 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 744 rows of the changes document.
-Scanned 3354 spec table rows: **2382 tagged**, 626 not tagged (read from data with high confidence), 346 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 744 rows of the changes document.
+Scanned 3364 spec table rows: **2391 tagged**, 626 not tagged (read from data with high confidence), 347 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 745 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
