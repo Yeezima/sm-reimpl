@@ -29,6 +29,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 ## Summary
 
 Scanned 3452 spec table rows: **2462 tagged**, 642 not tagged (read from data with high confidence), 348 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 754 rows of the changes document.
+Scanned 3417 spec table rows: **2439 tagged**, 628 not tagged (read from data with high confidence), 350 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 752 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -43,7 +44,7 @@ Scanned 3452 spec table rows: **2462 tagged**, 642 not tagged (read from data wi
 | HUD and hit feedback (critical) | 73 | 68 | 53 | 11 | 0 |
 | Sound mix (critical) | 99 | 93 | 78 | 12 | 0 |
 | Effects (critical) | 95 | 87 | 79 | 41 | 0 |
-| Game modes | 45 | 41 | 42 | 19 | 1 |
+| Game modes | 46 | 42 | 43 | 19 | 1 |
 | Perks | 52 | 43 | 30 | 24 | 0 |
 | Death and ragdoll | 13 | 10 | 12 | 9 | 0 |
 | Customizer and paint | 46 | 43 | 26 | 15 | 0 |
@@ -54,6 +55,11 @@ Scanned 3452 spec table rows: **2462 tagged**, 642 not tagged (read from data wi
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 260 | 247 | 144 | 69 | 0 |
 | **All areas** | **2462** | 2190 | 1835 | 754 | 37 |
+| Networking and render smoothing | 47 | 37 | 21 | 12 | 7 |
+| Core simulation (provisional values) | 734 | 691 | 522 | 189 | 1 |
+| General game design | 12 | 12 | 10 | 1 | 0 |
+| Ork faction | 258 | 245 | 143 | 68 | 0 |
+| **All areas** | **2439** | 2167 | 1806 | 732 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -64,6 +70,11 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | confidence: medium | 834 |
 | notes: ours | 427 |
 | kind: interpretation | 401 |
+| kind: ours | 1437 |
+| confidence: low | 871 |
+| confidence: medium | 826 |
+| notes: ours | 404 |
+| kind: interpretation | 394 |
 | notes: estimate | 203 |
 | kind: estimate | 188 |
 | confidence: none (low) | 109 |
@@ -76,6 +87,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | notes: user's knowledge | 30 |
 | kind: approximation | 26 |
 | notes: interpretation | 26 |
+| notes: interpretation | 27 |
+| kind: approximation | 25 |
 | kind: placeholder | 23 |
 | kind: gap (not reproduced) | 19 |
 | notes: open question | 19 |
@@ -2143,7 +2156,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-0E49FD3A` | Large burst on a hit player (Classic PvP; reverses the burst part of the row above) | owner 2026-11-13 (verbatim, after the first preview): "classic pvp mode: keep all on hit effects except the one in this reference image" and "there should only be large explosive visual effects on ranged weapon shots in musou mode. in classic pvp mode its… | kind: ours | the owner (2026-11-13); the red sparks are ours | Large burst on a hit player (Classic PvP; reverses the…: compare with SM1 with side-by-side video of the same action. Ours: owner 2026-11-13 (verbatim, after the first preview): "classic pvp… | ☐ |
 | `R-6540FEFF` | Glow and sparks for every damage on a player (Classic PvP and Musou Mode; protocol 71) | owner 2026-11-13 (verbatim): "any melee damage should also trigger the glows", "charge/bull rush, air slash landing, ground pound, light melee combo, F stun strike moves, any sort of damage should trigger the sparks and glows". Driven only by damage the… | kind: ours; confidence: medium | the owner (2026-11-13); the 0.25 s, the counter's width and the reading of the bits are ours | Glow and sparks for every damage on a player (Classic PvP…: compare with SM1 by counting hits to kill and by video of the health bar. Ours: owner 2026-11-13 (verbatim): "any melee damage should also trigger… | ☐ |
 
-### Game modes (45)
+### Game modes (46)
 
 *Spec section: Teams and Annihilation (M15, used by the simulation)*
 
@@ -2224,6 +2237,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-AD26426F` | Classic autocannon: accuracy (claude/autocannon-accuracy, 2026-11-14) | the autocannon's scatter in Classic PvP is the **Stalker Bolter's** (`sm_mp_ranged_sniper_rifle`), read from the install's `climb_sway_scatter` sets as `SpreadTuning` gives them (copied: initial half-widths, growth per shot, maximum, decrease rate and delay… (deg; deg/shot; deg/s; s) | kind: ours; confidence: medium | owner 2026-11-14: "classic pvp mode only - the autocannon also needs to have much better accuracy - it should be equivalent to the stalker at range in terms of… | Classic autocannon: accuracy (claude/autocannon-accuracy…: compare with SM1 by feel or video. Ours: the autocannon's scatter in Classic PvP is the Stalker Bolter's… | ☐ |
 | `R-51E9F716` | Classic autocannon: ammunition boxes | each death drop gives the autocannon what it gives the Space Marine heavy bolter (its amount at the heavy bolter's index), into the clip as for every weapon without a reserve, capped at the 120; one amount for both sides (the Space Marine heavy bolter's, also… (rounds) | kind: ours; confidence: medium | the lead's brief 2026-11-11 ("refilled by ammo boxes"); the heavy bolter's amount ours | Classic autocannon: ammunition boxes: compare with SM1 by feel or video. Ours: each death drop gives the autocannon what it gives the Space Marine… | ☐ |
 | `R-E67DC240` | Classic autocannon: customizer | the profile is read with the data's catalogue plus the Classic autocannon's row (so a slot saved under extended keeps it whichever profile the front end opens with); a page shows its own profile's catalogue; a Join on an extended page is planned with the… | kind: ours; confidence: medium | 2026-11-11 | Classic autocannon: customizer: compare with SM1 by feel or video. Ours: the profile is read with the data's catalogue plus the Classic… | ☐ |
+
+*Spec section: Mapmaker custom maps (added content; ours, docs/mapmaker.md "Playing a map")*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-0024C0C2` | Spawn spots | the simulation's own grid (2 m apart, 1 m in from the edge) over the area; the check counts them with the same rule (metres) | kind: ours; confidence: medium | `World.StartAreaSpots` | Spawn spots: compare with SM1 by feel or video. Ours: the simulation's own grid (2 m apart, 1 m in from the edge) over the… | ☐ |
 
 ### Perks (52)
 
@@ -2437,7 +2456,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-EC513790` | Look SSR by preset (fx/impact-pass review) | a look's `ssr.on` (the remaster's) turns screen-space reflections on at medium and high only; low and off never run SSR (older hardware is the next priority); high has SSR anyway. Off = the M40-T7 renderer features alone (no shadows, SSAO, SSIL, volumetric… | kind: ours | ours | Look SSR by preset (fx/impact-pass review): compare with SM1 with side-by-side screenshots in the same spot. Ours: a look's ssr.on (the remaster's) turns screen-space reflections on at… | ☐ |
 | `R-6E7116B1` | Effect checks after the review fixes (demo replays on Godot time, `--fixed-fps 30`, identical… | own bolter tracer and the enemy's shots from the follow camera, own lascannon beam: as bright as on main (the beam is an axis billboard: no edge-on fade; its fade size is its width); `FxTest --pound-test` crater, shockwave rings and dust as on main (flat… | confidence: medium | measured | Effect checks after the review fixes (demo replays on Godot…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: own bolter tracer and the enemy's shots from the follow camera, own… | ☐ |
 
-### Networking and render smoothing (36)
+### Networking and render smoothing (47)
 
 *Spec section: Time-faithful capture and the smoothed render clock (M40 T0, T2; client only, not simulated)*
 
@@ -2521,6 +2540,23 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-010FCD37` | Time scale | 1, 1/2, 1/4, 1/10 or paused: the server's tick clock and every client's clock (prediction, interpolation, timeouts) and Godot's `Engine.TimeScale` (animation, effects, deltas) run at that fraction together, on the local client and on bots; sound is not… (factor) | kind: ours; confidence: medium | the owner | Time scale: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 1, 1/2, 1/4, 1/10 or paused: the server's tick clock and every… | ☐ |
 
 ### Core simulation (provisional values) (772)
+*Spec section: Cancel table: the live animation cancel matrix editor (cancel-editor; owner 2026-11-17; protocol 80, extended in place; test aid, ours, never on a public server)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-1D8F95CF` | Baseline and default | two embedded files: the baseline is what the code does (never edited; the gate leaves a cell equal to it alone, so with the default table the simulation runs exactly as before), the shipped default is what a release plays by (equal to the baseline until the… | kind: ours | ours | Baseline and default: compare with SM1 by feel or video. Ours: two embedded files: the baseline is what the code does (never edited… | ☐ |
+| `R-72F31736` | Scopes | a base cell, and overrides per class, per weapon in hand, or per class and weapon; the most specific wins (class + weapon, then weapon, then class, then base) | kind: ours | the owner ("per class, and per weapon") | Scopes: compare with SM1 by feel or video. Ours: a base cell, and overrides per class, per weapon in hand, or per… | ☐ |
+| `R-DB204FCA` | Yes | the input ends the action in progress (the data's own cancel state change: melee, charge, evade, jump-pack phase, reload, switch, raise, throw, brace, vent, charged shot, hit reaction) and starts its own, in the same tick | kind: ours; confidence: medium | the owner | Yes: compare with SM1 by feel or video. Ours: the input ends the action in progress (the data's own cancel state… | ☐ |
+| `R-6C9A5254` | No | the input is ignored while the action is in progress; its key counts as held, so it does not fire when the cell is edited back, and nothing is buffered | kind: ours | the owner | No: compare with SM1 by feel or video. Ours: the input is ignored while the action is in progress; its key counts… | ☐ |
+| `R-53A2DB96` | Window | yes from `from` to `until` seconds into the action, no outside; a window with no from or until is open from the start (no from) or to the end (no until) of the action, i.e. a cell edited to window with no times acts as yes (a default cell that is window with… (s) | kind: ours; confidence: medium | the owner | Window: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: yes from from to until seconds into the action, no outside; a window… | ☐ |
+| `R-12CE9027` | Queued | the input is kept in the input buffer (0.3 s window, the buffer's own replay rules) and starts when the action allows; only the six buffered presses (light, heavy or charge, jump, reload, switch, grenade) can queue, on a held input (fire, aim, sprint, the… | kind: ours; confidence: medium | the owner | Queued: compare with SM1 by feel or video. Ours: the input is kept in the input buffer (0.3 s window, the buffer's own… | ☐ |
+| `R-06C4C2B1` | Hit columns | hit stun: whether a hit may start a reaction in the action (`Reaction.CanReact`: yes forces it, no resists, a window by time); hit damage: a damage that starts no reaction ends the action (`Combat.ApplyDamage`) | kind: ours; confidence: medium | the owner | Hit columns: compare with SM1 by feel or video. Ours: hit stun: whether a hit may start a reaction in the action… | ☐ |
+| `R-AE38C31D` | Gate | edits are `DevCancelEdit` requests through the developer tools' gate (`--dev-tools`, loopback bind, loopback requester; 60 requests burst, 30 a second); the server's `World.Config.Cancel` is replaced at once (the next tick plays by it) and sent to every… | kind: ours | ours (a guard) | Gate: compare with SM1 by feel or video. Ours: edits are DevCancelEdit requests through the developer tools' gate… | ☐ |
+| `R-162331D1` | Added content | the gate does nothing with any added content (`SimConfig.Extras` not none): Musou Mode and the Ork's extras are untouched | kind: ours | the owner ("Classic PvP only") | Added content: compare with SM1 by feel or video. Ours: the gate does nothing with any added content (SimConfig.Extras not… | ☐ |
+| `R-5B955167` | Panel | F8 shows or hides the grid (Esc closes) when the server has the tools; numbered "row.column" cells coloured by state, a bright border where the cell differs from the release default; the inspector (state, from, until, "data timing", the code's own value, note… (key) | kind: ours | the owner (F8 chosen: free in Classic PvP; Musou's Ashfall look keeps it there) | Panel: compare with SM1 by feel or video. Ours: F8 shows or hides the grid (Esc closes) when the server has the… | ☐ |
+| `R-BE15241E` | Export | writes `cancel-table-YYYYMMDD-HHMMSS.json` (the shipped file's format: every cell with note and source, then the overrides) to `%LOCALAPPDATA%\sm-reimpl\cancel-configs\`, never overwriting; import reads one back and applies it live; `smtool cancel-config diff`… | kind: ours | the owner ("hands changes over as an export file") | Export: compare with SM1 by feel or video. Ours: writes cancel-table-YYYYMMDD-HHMMSS.json (the shipped file's format:… | ☐ |
+
+### Core simulation (provisional values) (734)
 
 *Spec section: Provisional values in use*
 
@@ -3750,6 +3786,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-2024CBEF` | Hard base | `OrkHealthBase` and `OrkDamageBase`, 1.0: the one knob for "hard" (owner answer 8) (multiplier) | kind: estimate; confidence: low; notes: ours | owner (hard, solo must play well, a squad needs teamwork); the value ours | Hard base: compare with SM1 by feel or video. Ours: OrkHealthBase and OrkDamageBase, 1.0: the one knob for "hard" (owner… | ☐ |
 
 ### General game design (7)
+### General game design (12)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -3762,6 +3799,16 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-84387C90` | Exterminatus | Online co-op wave mode (post-launch update) against Orks and Chaos; `cp_maps__*` / `cp_map_*` arenas and `ebp_sets__mp_coop_*` installed | kind: public (unverified); confidence: medium | Wave and AI data | Exterminatus: compare with SM1 by feel or video. Ours: Online co-op wave mode (post-launch update) against Orks and Chaos… | ☐ |
 | `R-BCC47AF0` | Classes | Tactical, Assault, Devastator (and Chaos counterparts) | kind: public (unverified); confidence: medium | wargear and blueprint data | Classes: compare with SM1 by feel or video. Ours: Tactical, Assault, Devastator (and Chaos counterparts). | ☐ |
 | `R-33E73F5A` | Progression | Unlocks by multiplayer level | kind: public (unverified); confidence: low | Data files | Progression: compare with SM1 by feel or video. Ours: Unlocks by multiplayer level. | ☐ |
+
+*Spec section: Mapmaker custom maps (added content; ours, docs/mapmaker.md "Playing a map")*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-A08BBB82` | Collision of solid pieces | one triangle mesh for characters and shots from the unit shapes (box, wedge, 12-sided column) moved by each piece's world matrix; no surface materials (triangles) | kind: ours; confidence: low; notes: interpretation | interpretation of "a map's collision" | Collision of solid pieces: compare with SM1 by feel or video. Ours: one triangle mesh for characters and shots from the unit shapes (box… | ☐ |
+| `R-788CF7B9` | Marker pieces | spawn area = start area box centred half its height above the piece position; spawn door = spawn-room blocker box; capture point = cylinder (X scale diameter, Z scale height) centred half its height up; kill zone = box; facing = the piece's +Y measured as the… (metres, radians) | kind: ours; confidence: medium | the install's marker conventions (`MapContent`) | Marker pieces: compare with SM1 by feel or video. Ours: spawn area = start area box centred half its height above the piece… | ☐ |
+| `R-B52A43ED` | Kill floor | a kill box 6 m below the lowest solid piece's underside, 40 m deep and 200 m wider than the pieces all round, so open edges are safe (metres) | kind: ours; confidence: low | ours | Kill floor: compare with SM1 by feel or video. Ours: a kill box 6 m below the lowest solid piece's underside, 40 m deep… | ☐ |
+| `R-011AA592` | Declared modes | a document lists the modes it is made for (default annihilation and seize; any combination, unknown names kept for future modes); a declared mode is playable only when no error of that mode remains: Seize Ground needs at least one capture point (at most 8)… (modes) | kind: ours | owner's words 2026-11-17 | Declared modes: compare with SM1 by feel or video. Ours: a document lists the modes it is made for (default annihilation and… | ☐ |
+| `R-3DAFFBD3` | Bots on custom maps | the new-map bot rules (stuck escape, strict drops, walk-first jump build) apply to `cm_` maps (rule) | kind: ours; confidence: low | bots/new-maps rules | Bots on custom maps: compare with SM1 by feel or video. Ours: the new-map bot rules (stuck escape, strict drops, walk-first jump… | ☐ |
 
 ## Part B: Ork faction
 
@@ -5238,6 +5285,8 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-293081FC` | The F7 sound mix editor: per-sound volume, pitch, hearing distance, mute, solo and raw, with export and shipped defaults (sound/mix-expand, owner 2026-11-17; client only, no protocol, wire, rules or config-hash change; every mode) | The original had no sound tuning | Ours (the owner's request, verbatim in spec "The sound mix editor"): off until the owner changes something, a shipped `config/sound-mix-defaults.json` would make a release sound different on purpose; raw plays a sample without the filters, effects and mix passes | Sound mix | The F7 sound mix editor: per-sound volume, pitch, hearing…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-2A54A495` | Developer tools panel (dev-tools, owner 2026-11-17; protocol 80; test aid) | Multiplayer had no developer tools | Ours (the owner's request, verbatim in spec "Developer tools: the in-game test panel"): F6 opens a panel for invincible players and bots, frozen bots, infinite ammunition (heat and overheat included, our choice), infinite jump pack fuel, and adding or removing a test bot per side; the server applies everything, and… | Real-match rules, a public server and the Host panel's LAN / Internet mode stay exactly as they were; with the switch off the tick loop pays one null check and no packet differs (the protocol number moved 79 to 80 for the two new messages) | Developer tools panel (dev-tools, owner 2026-11-17…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-CE9CC037` | Developer tools, second batch (dev-tools, owner 2026-11-17; protocol 80; test aid) | Multiplayer had no developer tools | Ours (the owner's picks, spec "Developer tools, second batch"): an indefinite match (this match only), end now, restart and skip, teleport (requester only, onto the world's own spawn, point and Teleport Homer spots), instant respawn, kill me and kill bots, live bot accuracy, damage and range, and a time scale with… | A real match is unchanged; the time scale wraps the clocks only on such a server and on clients of it (a client's clock is a pass-through at scale 1) | Developer tools, second batch (dev-tools, owner 2026-11-17…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-61593002` | Mapmaker custom maps in Classic PvP (mapmaker-ux, owner 2026-11-17; added content, `--custom-map`; no protocol or config-hash change) | The original shipped its own maps only; no tester-made maps | Ours (the owner's request): a `.smmap` file made in the Mapmaker (solid pieces, spawn areas, doors, capture points, kill zones, declared modes) is played by the server (`--custom-map`) and by clients that find the file by its `cm_` name; the map hash is the first 8 bytes of SHA-256(compiler version + the file's… | Spec "Mapmaker custom maps" | Mapmaker custom maps in Classic PvP (mapmaker-ux, owner…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-544A2A28` | Cancel matrix editor (cancel-editor, owner 2026-11-17; protocol 80; test aid) | Multiplayer had no editor for its animation cancel rules | Ours (the owner's request, verbatim in spec "Cancel table"): F8, on the developer tools' gate (`--dev-tools`, loopback), edits the Classic PvP cancel table (state, from and until seconds, per class and weapon) live; the default table changes nothing (the gate acts only on a cell that differs from what the code does)… | Ours | Cancel matrix editor (cancel-editor, owner 2026-11-17…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 
 ## Appendix: not gameplay
 
@@ -5593,4 +5642,6 @@ Test aids, probes, demo and capture tooling, engineering decisions (protocol, wi
 | `R-060A8DDF` | Musou weight: puff budget | Musou weight and impact pass (claude/musou-weight, 2026-11-10; client only, no simulation, wire, protocol, config-hash or rules-version change; Musou Mode only) |
 | `R-B20A1288` | Classic autocannon: config hash | Added content: Classic PvP's autocannon — the Musou autocannon in Annihilation and Seize Ground (extended profile only; owner 2026-11-11) |
 | `R-4D8893ED` | Ledge jump: wire | Hop rules: the ledge jump after a charge, the hop cutting the melee wait, the hop out of the aerial tackle (sim/hop-rules; protocol 72, used by the simulation; Assault Marine and Raptor) |
+| `R-E82906C6` | Custom map wire name | Mapmaker custom maps (added content; ours, docs/mapmaker.md "Playing a map") |
+| `R-60F33AA0` | Custom map hash | Mapmaker custom maps (added content; ours, docs/mapmaker.md "Playing a map") |
 

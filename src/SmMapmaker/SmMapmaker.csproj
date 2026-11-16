@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The Mapmaker's shared core (docs/mapmaker.md): added content. Every source file lives under Extras/, so a build without added content
+    (-p:SmExtras=false, Directory.Build.targets) compiles an empty assembly and ships none of it.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>SmMapmaker</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SmFormats\SmFormats.csproj" />
+    <ProjectReference Include="..\SmContent\SmContent.csproj" />
+  </ItemGroup>
+
+</Project>

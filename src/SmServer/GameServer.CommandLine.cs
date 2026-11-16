@@ -15,6 +15,8 @@ public sealed record ServerArguments
     public string? GameDir { get; init; }
     /// <summary>A map name, "none" for the flat placeholder ground, or null for the default (mp_tdm_09 when installed).</summary>
     public string? Map { get; init; }
+    /// <summary>--custom-map (Mapmaker, added content; docs/mapmaker.md "Playing a map"): a `.smmap` file to play instead of an install map (the server names it cm_... on the wire; clients find the file by that name).</summary>
+    public string? CustomMap { get; init; }
     /// <summary>--maps (classic-maps-all): a rotation, "all" (every playable competitive map the install lists) or a comma list of map names; the server plays them in turn, one match each (<see cref="RotationChild"/>).</summary>
     public IReadOnlyList<string>? Maps { get; init; }
     /// <summary>--rotation-child (internal): this process is one match's server under a rotation supervisor (Program.cs): it exits with <see cref="ServerCommandLine.RotationExit"/> a second before the next match would start.</summary>
@@ -97,6 +99,8 @@ public sealed record ServerArguments
     public bool DevTools { get; init; }
     /// <summary>--dev-bot-exe: the Godot console executable the tools' bots run (default: the one the repository's tools download).</summary>
     public string? DevBotExe { get; init; }
+    /// <summary>--cancel-table FILE (cancel-editor, protocol 80): start with this cancel table (an export of the F8 panel) instead of the shipped default. Only with --dev-tools on a loopback bind; ignored otherwise, so a public server always plays by the shipped table.</summary>
+    public string? CancelTableFile { get; init; }
     /// <summary>--dev-bot-project: the Godot project folder for those bots (default: the client folder of the checkout the server runs from; not needed for an exported game).</summary>
     public string? DevBotProject { get; init; }
     public bool Help { get; init; }
@@ -118,6 +122,7 @@ public static class ServerCommandLine
           --game-dir <dir>              the game install (default: the located install, SM_GAME_DIR, config/local.json)
           --maps all|<a,b,c>            a rotation: every competitive map the install lists (all) or those named, one match each, in order and round again (the server restarts itself between maps; clients rejoin at once); not with --map
           --map <name|none>             multiplayer map (default mp_tdm_09 when installed; none = flat placeholder ground; --content musou: tfw_war, Ashfall Citadel, generated; tfw_war_m09 restores the old Manufactorum war; both need --content musou)
+          --custom-map <file.smmap>     play a Mapmaker map (added content; not with --map or --maps; clients need the same file, found by name in their maps folder, or --custom-map)
           --mode annihilation|seize|ffa match rules (default annihilation)
           --score-limit <1-65535>       score limit (default per mode; provisional)
           --time-limit <minutes>        time limit, 0 = none (provisional)
@@ -167,7 +172,7 @@ public static class ServerCommandLine
 
     static readonly HashSet<string> Switches = ["--dev-tools", "--rotation-child", "--musou-aerial-tackle", "--no-custom-emblems", "--limit-loopback", "--honor-side-requests", "--ork-data", "--no-player-collision", "--no-charge-lock", "--old-body-contact", "--old-charge-cancel", "--old-ally-bump", "--old-stim-use", "--log-overlaps", "--help", "--old-charge-after-melee", "--old-charge-cancel-delay", "--old-charge-melee-chain", "--old-hop-rules", "--musou-melee-cooldown", "--musou-uncapped-melee-heal", "--musou-ork-swing-tracking"];
     static readonly HashSet<string> Valued =
-        ["--port", "--bind", "--game-dir", "--map", "--maps", "--mode", "--score-limit", "--time-limit", "--friendly-fire", "--unlocks", "--countdown", "--pickup-test", "--bot-damage-scale", "--snapshot-rate",
+        ["--port", "--bind", "--game-dir", "--map", "--custom-map", "--maps", "--mode", "--score-limit", "--time-limit", "--friendly-fire", "--unlocks", "--countdown", "--pickup-test", "--bot-damage-scale", "--snapshot-rate",
          "--name-seed", "--dev-bot-exe", "--dev-bot-project", "--max-per-ip", "--join-interval", "--idle-kick", "--ban-file", "--content", "--max-spectators"];
 
     /// <summary>Parses the arguments; false with a one-line <paramref name="error"/> for an unknown flag, a missing or invalid value, or a stray word.</summary>
@@ -235,8 +240,10 @@ public static class ServerCommandLine
                     break;
                 case "--game-dir": a = a with { GameDir = value }; break;
                 case "--dev-bot-exe": a = a with { DevBotExe = value }; break;
+                case "--cancel-table": a = a with { CancelTableFile = value }; break;
                 case "--dev-bot-project": a = a with { DevBotProject = value }; break;
                 case "--map": a = a with { Map = value }; break;
+                case "--custom-map": a = a with { CustomMap = value }; break;
                 case "--maps": a = a with { Maps = value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries) }; break;
                 case "--mode":
                     if (value is "annihilation" or "seize" or "ffa")
