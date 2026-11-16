@@ -28,8 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3375 spec table rows: **2401 tagged**, 626 not tagged (read from data with high confidence), 348 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 747 rows of the changes document.
-Scanned 3397 spec table rows: **2422 tagged**, 627 not tagged (read from data with high confidence), 348 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 750 rows of the changes document.
+Scanned 3415 spec table rows: **2440 tagged**, 627 not tagged (read from data with high confidence), 348 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 752 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,33 +49,23 @@ Scanned 3397 spec table rows: **2422 tagged**, 627 not tagged (read from data wi
 | Customizer and paint | 46 | 43 | 26 | 15 | 0 |
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
-| Networking and render smoothing | 17 | 7 | 14 | 12 | 7 |
-| Core simulation (provisional values) | 742 | 699 | 530 | 195 | 1 |
-| General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 258 | 245 | 143 | 68 | 0 |
-| **All areas** | **2401** | 2129 | 1799 | 736 | 37 |
 | Networking and render smoothing | 36 | 26 | 17 | 12 | 7 |
-| Core simulation (provisional values) | 734 | 691 | 522 | 189 | 1 |
+| Core simulation (provisional values) | 752 | 709 | 539 | 201 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 258 | 245 | 143 | 68 | 0 |
-| **All areas** | **2422** | 2150 | 1797 | 731 | 37 |
+| **All areas** | **2440** | 2168 | 1814 | 743 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1390 |
-| confidence: low | 877 |
-| confidence: medium | 813 |
-| notes: ours | 410 |
-| kind: interpretation | 393 |
-| kind: ours | 1420 |
-| confidence: low | 868 |
+| kind: ours | 1421 |
+| confidence: low | 885 |
 | confidence: medium | 820 |
-| notes: ours | 404 |
+| notes: ours | 416 |
 | kind: interpretation | 394 |
 | notes: estimate | 203 |
-| kind: estimate | 174 |
+| kind: estimate | 181 |
 | confidence: none (low) | 109 |
 | kind: provisional | 103 |
 | kind: user's knowledge | 53 |
@@ -2502,7 +2491,6 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-27330EFB` | Perf tour (`--perf-tour`) | with `--perf-probe` and `--observe-tour`, the observer's camera moves to the tour's next place at the end of each 5 s probe window and each `perf:` line names its place (s) | kind: ours | measurement aid | Perf tour (--perf-tour): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: with --perf-probe and --observe-tour, the observer's camera moves to… | ☐ |
 | `R-83C63D35` | Classic maps performance result | no new map clearly worse than Manufactorum: render CPU 2.0 to 4.7 ms (Manufactorum 3.1), server tick mean 0.64 to 1.06 ms with 17 clients; one run per map on a busy machine (frame times noisy by about 3 ms); no change made to any map's drawing (ms) | confidence: low | measured | Classic maps performance result: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: no new map clearly worse than Manufactorum: render CPU 2.0 to 4.7 ms… | ☐ |
 
-### Core simulation (provisional values) (742)
 *Spec section: Developer tools: the in-game test panel (dev-tools; owner 2026-11-17; protocol 80; test aid, ours, never on a public server)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
@@ -2532,7 +2520,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-61F47DDE` | Bot difficulty | accuracy 0 to 100 % (the bots' `--bot-accuracy`), damage dealt 0 to 100 % (`World.SetDamageScale`, which only lowers; 100 % also removes the server's `--bot-damage-scale`; the panel starts at that option's value), fire range 5 to 1000 m (`--bot-range`); each… (% , m) | kind: ours | the owner | Bot difficulty: compare with SM1 by feel or video. Ours: accuracy 0 to 100 % (the bots' --bot-accuracy), damage dealt 0 to 100… | ☐ |
 | `R-010FCD37` | Time scale | 1, 1/2, 1/4, 1/10 or paused: the server's tick clock and every client's clock (prediction, interpolation, timeouts) and Godot's `Engine.TimeScale` (animation, effects, deltas) run at that fraction together, on the local client and on bots; sound is not… (factor) | kind: ours; confidence: medium | the owner | Time scale: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 1, 1/2, 1/4, 1/10 or paused: the server's tick clock and every… | ☐ |
 
-### Core simulation (provisional values) (734)
+### Core simulation (provisional values) (752)
 
 *Spec section: Provisional values in use*
 
@@ -3718,6 +3706,19 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-3F132D6F` | Dreadnought: the entrance cue and the death | the entrance (`evt_spawn_in`: portal clouds, force field, krak and hammer-swing glows) plays when a LIVING body starts a life (0.3 s window, once), never on a corpse (`DreadnoughtFeel.EntryDue`: the film's respawn test aid stood him up 0.02 s after… (s) | kind: ours; kind: estimate; confidence: medium | docs/discovery.md "DA Dreadnought inventory"; the film's logs | Dreadnought: the entrance cue and the death: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the entrance (evt_spawn_in: portal clouds, force field, krak and… | ☐ |
 | `R-337A2379` | Dreadnought: film aids | server `SM_DN_TEST_GUARD=1` tops up every living Dreadnought's health each step (filming among the Orks only); client `--dn-da-close` (cannon, melta and head close-ups: camera modes 4 to 6), `--dn-muzzle-log` (the flash marker's place and the model's reach)… | kind: ours | this pass | Dreadnought: film aids: compare with SM1 by feel or video. Ours: server SM_DN_TEST_GUARD=1 tops up every living Dreadnought's health… | ☐ |
 
+*Spec section: Warfront HQ defense map profile (warfront/w13a, 2026-11-17; added content, Warfront only; generation only, no battle rules, no protocol or wire change; level version 1)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-272EC57B` | HQ map extent | 300 wide (x -150..150) by 420 long (y -210..210), a 64 m boundary wall outside (m) | kind: estimate; confidence: low | plan section 2 ("about 300 x 420 m") | HQ map extent: compare with SM1 by measuring on a flat spot of the same map. Ours: 300 wide (x -150..150) by 420 long (y -210..210), a 64 m boundary… | ☐ |
+| `R-C3ED7416` | HQ assembly ground and approach ramp | assembly ground flat at z 0, y -210..-130 (80 m deep); ramp 30 m wide (x -15..15), y -130..-46 (84 m run), rising 12 m (about 8.1 degrees), solid wedge, strips beside it stay at z 0 (m, degrees) | kind: estimate; confidence: low | plan section 2 (30 m wide, 12 m, about 8 degrees); the 84 m run follows from them (the brief's "30 m ramp" read as the plan's 30 m width) | HQ assembly ground and approach ramp: compare with SM1 with an overlaid screenshot taken from the same position. Ours: assembly ground flat at z 0, y -210..-130 (80 m deep); ramp 30 m wide… | ☐ |
+| `R-8C7174AF` | HQ plateau, retaining wall and fortress wall | plateau (courtyard and keep floor) z 12; below the wall a 12 m cliff; the fortress wall y -46..-40 (6 m thick), top z 26 (14 m above the plateau), between curtain masses at x +-90 (40 m tall, rock); one gate x -6..6 (12 m wide) and 10 m high, a 4 m lintel… (m) | kind: estimate; confidence: low; notes: ours | plan section 2 (14 m wall, 12 m gate); thickness, gate height and curtain placement ours | HQ plateau, retaining wall and fortress wall: compare with SM1 by measuring on a flat spot of the same map. Ours: plateau (courtyard and keep floor) z 12; below the wall a 12 m cliff… | ☐ |
+| `R-FF17AC6B` | HQ parapet and its stairs | walkway between two 0.5 m x 1.2 m parapets (5 m clear); two stairs on the courtyard side only (x 40..68 east, -40..-68 west; 4 m wide, 0.25 m risers, 0.5 m treads, 56 steps, 28 m run, rise 14 m from the plateau), the inner parapet open x 64..72 / -72..-64 at… (m) | kind: estimate; confidence: low; notes: ours | plan section 2 ("a walkable parapet reached by stairs from inside"); every size ours | HQ parapet and its stairs: compare with SM1 by measuring on a flat spot of the same map. Ours: walkway between two 0.5 m x 1.2 m parapets (5 m clear); two stairs on… | ☐ |
+| `R-F8A81779` | HQ courtyard and keep | courtyard x +-90, y -40..40 (80 m deep) with low cover (6 m x 1.2 m walls at x +-70, y -20 and 10); keep x +-50, y 40..100 (100 x 60), 4 m walls, top z 26 (14 m), hall clear 12 m under a 2 m roof slab, two 8 m wide 8 m high doors in the front (x -30..-22… (m) | kind: estimate; confidence: low; notes: ours | plan section 2 (keep with two 8 m doors); sizes ours | HQ courtyard and keep: compare with SM1 by measuring on a flat spot of the same map. Ours: courtyard x +-90, y -40..40 (80 m deep) with low cover (6 m x 1.2 m… | ☐ |
+| `R-C1BC28B3` | HQ caves and last-stand chamber | two roofed tunnels 8 m wide, 6 m clear, 50 m long (y 100..150), centre lines x +-22, a 36 m rock pillar between them; the chamber x +-34 (68 m wide), y 150..200 (50 m deep), 10 m clear, three low cover walls; landing zone (0, 188) (m) | kind: estimate; confidence: low; notes: ours | plan section 2 (tunnels 8 m wide, 6 m clear, roofed, meeting in a last-stand chamber); lengths and chamber size ours | HQ caves and last-stand chamber: compare with SM1 by measuring on a flat spot of the same map. Ours: two roofed tunnels 8 m wide, 6 m clear, 50 m long (y 100..150)… | ☐ |
+| `R-46CEB424` | HQ defence position markers | W (0, -34, 12) radius 16 (gate, wall walk and the courtyard behind it); K (0, 70, 12) radius 24 (the hall); V (0, 176, 12) radius 22 (the chamber); held and lost in that order; K and V each have two approaches, W one (the gate, by design); 14 defender posts… (m) | kind: estimate; confidence: low; notes: ours | plan section 2 (three positions W, K, V); places and radii ours | HQ defence position markers: compare with SM1 by measuring on a flat spot of the same map. Ours: W (0, -34, 12) radius 16 (gate, wall walk and the courtyard behind… | ☐ |
+| `R-7E8BF98B` | HQ own gates | the build is deterministic (same hash twice and across processes: pinned); a walking graph connects assembly -> W -> K -> V -> landing; every opening on the Ork route is at least 8 m (graph rows of 7.0 to 29.5 m of nodes: a body radius of 0.4 m a side); the… | kind: ours | plan section 2 "own gates" | HQ own gates: compare with SM1 by feel or video. Ours: the build is deterministic (same hash twice and across processes:… | ☐ |
+
 ### General game design (7)
 
 *Spec section: Known behavior (public, unverified)*
@@ -4256,6 +4257,12 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 |---|---|---|---|---|---|---|
 | `C-5D4355E6` | Compatibility renderer on old cards | the owner's decision (2026-10-30): Godot has no DirectX 9, so cards without Vulkan run the OpenGL 3.3 renderer | automatic when Forward+ cannot start, or the launcher's "Old GPU / safe mode"; lighting low, anti-aliasing off, no volumetric fog, SSR, SSIL, SSAO, SDFGI. Looks plainer; no gameplay value changes. The default look is unchanged | none (no gameplay value) | Compatibility renderer on old cards: compare with SM1 by feel or video. Ours: the owner's decision (2026-10-30): Godot has no DirectX 9, so cards… | ☐ |
 | `C-40FC47B2` | Ashfall kit detail: arena models high detail, old-GPU mode low (Musou Mode) | the owner's requests of 2026-11-09 ("ensure all the 3d assets used in the main play map are high res") and 2026-11-10 ("Use low detail ashfall textures for old gpu mode users"); thresholds ours | in Forward+ the kit models placed inside the arena load 2048 px textures (re-baked from the source at arena scale) and draw finer LODs (bias 4); in old-GPU mode (safe mode: the Compatibility renderer, automatic or the OPTIONS toggle, or `--safe-mode`) and with `--ashfall-kit-detail old` every model loads at 1024 px… | none (no gameplay value) | Ashfall kit detail: arena models high detail, old-GPU mode…: compare with SM1 by feel or video. Ours: the owner's requests of 2026-11-09 ("ensure all the 3d assets used in… | ☐ |
+
+#### Warfront HQ defense map (warfront/w13a; spec "Warfront HQ defense map profile")
+
+| ID | What | Ours / the owner's | Value | Spec row | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `C-F0B68338` | HQ defense level (Helm's Deep style) | ours (plan section 2): not an SM1 map; generated in code, every size an estimate | 300 x 420 m: assembly ground, a 30 m wide ramp rising 12 m, a 14 m wall with a 12 m gate and a parapet reached only from inside, a courtyard, the keep (two 8 m doors) and two roofed tunnels (8 m wide, 6 m clear) to the last-stand chamber; defence positions W, K, V | Warfront HQ defense map profile | HQ defense level (Helm's Deep style): compare with SM1 by feel or video. Ours: ours (plan section 2): not an SM1 map; generated in code, every size… | ☐ |
 
 #### Controller (gamepad feature; spec "Controller (gamepad)")
 
