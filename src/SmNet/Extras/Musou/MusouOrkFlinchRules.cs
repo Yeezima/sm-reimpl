@@ -133,7 +133,7 @@ public struct MusouOrkFlinchTrack
         _from = Current();
         _to = Vector2.Normalize(direction) * size;
         _age = 0f;
-        _variant = variant;
+        _variant = _active ? variant with { Delay = 0f } : variant;   // the start's delay only for a flinch that begins: a re-kick of one under way is at once, so rapid fire cannot hold the reaction back for ever
         _varied = variant != MusouFlinchVariant.None;
         _active = true;
     }

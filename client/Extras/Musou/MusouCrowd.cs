@@ -50,10 +50,10 @@ public partial class MusouCrowd : CrowdView
     public readonly List<(MusouDeathShown Death, float Age)> Dying = new();
 
     /// <summary>A blast death with no ragdoll to spare, or far off: the body flies one arc along <paramref name="velocity"/>, tipping over about one axis (<see cref="SmNet.Extras.Musou.MusouFling.Tumble"/>; the owner, 2026-11-08: no corkscrew), and falls where it lands (<see cref="MusouRagdolls"/> throws the near ones).</summary>
-    public void AddFlung(in MusouDeathShown d, Vector3 velocity, bool keepSkeleton = false)
+    public void AddFlung(in MusouDeathShown d, Vector3 velocity, bool keepSkeleton = false, float age = 0f)
     {
         var t = SmNet.Extras.Musou.MusouFling.Tumble(new System.Numerics.Vector3(velocity.X, velocity.Y, velocity.Z));
-        AddFlungBody(new Vector3(d.Position.X, d.Position.Y, d.Position.Z), d.Yaw, (int)d.Type, DeathClipOf(d.Id, (int)d.Type), velocity, new Vector3(t.X, t.Y, t.Z), keepSkeleton ? d.Id : 0);
+        AddFlungBody(new Vector3(d.Position.X, d.Position.Y, d.Position.Z), d.Yaw, (int)d.Type, DeathClipOf(d.Id, (int)d.Type), velocity, new Vector3(t.X, t.Y, t.Z), keepSkeleton ? d.Id : 0, age);   // age: the wait the throw's own start delay took (its clip goes on from there, no pop)
     }
 
     /// <summary>Seconds a shot Ork's flinch plays, how soon a new shot restarts it, and how far it rocks him back (m). The owner, 2026-11-02: "add hit reactions to the orks getting shot". Drawn only: the simulation's Ork does not stop. Ours.</summary>
@@ -149,7 +149,7 @@ public partial class MusouCrowd : CrowdView
             float time, rate = 1f;
             if (clip == MusouLooks.Run && !OldGait) (clip, rate) = Gait(e, p, delta);   // 2026-11-09: the run follows his drawn speed, the idle when he stands (MusouGaitRules)
             if (MusouLooks.Loops(clip)) { _clocks.TryGetValue(e.Id, out time); time += delta * rate; _clocks[e.Id] = time; }
-            else time = e.State == MusouEnemyState.Knocked ? KnockedTime(e) : e.StateSeconds;
+            else time = e.State == MusouEnemyState.Knocked ? KnockedTime(e, clip) : e.StateSeconds;
             if (_flinch.TryGetValue(e.Id, out float flinch) && e.Type != MusouEnemyType.Warboss && !MusouBossOrks.Is(e.Type) && e.State is MusouEnemyState.Seek or MusouEnemyState.WindUp or MusouEnemyState.Recover)
             {
                 clip = MusouLooks.Stagger; time = flinch;
@@ -207,8 +207,8 @@ public partial class MusouCrowd : CrowdView
     }
 
     /// <summary>A knocked Ork plays his death clip, lies at its last frame, and plays it backwards to stand (the crowd has no get-up clip baked).</summary>
-    float KnockedTime(in MusouShown e) =>
-        SmSim.Extras.Musou.Campaign.TfwCombatRules.Default.FallClipTime(e.StateSeconds, _looks.For(e.Type)?.Clips[MusouLooks.Death]?.Animation.Duration ?? 1f);
+    float KnockedTime(in MusouShown e, int clip = MusouLooks.Death) =>
+        SmSim.Extras.Musou.Campaign.TfwCombatRules.Default.FallClipTime(e.StateSeconds, _looks.For(e.Type)?.Clips[clip]?.Animation.Duration ?? 1f);   // the drawn clip's length
 
     /// <summary>Test aid (<c>--musou-old-big-orks</c>): the big Orks as before 2026-11-09's deaths and gait (torn apart by a blast, the Warboss's blast reaction for a death, the full scale's stride; <see cref="SmNet.Extras.Musou.MusouBigOrkRules"/>).</summary>
     public static bool OldBigOrks { get; set; } = Array.IndexOf(OS.GetCmdlineUserArgs(), "--musou-old-big-orks") >= 0;

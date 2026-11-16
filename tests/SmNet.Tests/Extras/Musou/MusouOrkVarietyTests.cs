@@ -10,16 +10,33 @@ namespace SmNet.Tests.Extras.Musou;
 public class MusouOrkVarietyTests
 {
     [Fact]
-    public void Strength_duration_and_delay_of_neighbouring_ids_differ_by_at_least_30_percent_of_the_nominal()
+    public void Ids_one_to_five_apart_but_not_three_differ_by_at_least_30_percent_of_the_nominal()
     {
         for (int id = 1; id < 5000; id++)
+            foreach (int gap in new[] { 1, 2, 4, 5 })
+            {
+                var a = MusouOrkVariety.Flinch(id);
+                var b = MusouOrkVariety.Flinch(id + gap);
+                Assert.True(MathF.Abs(a.Strength - b.Strength) >= 0.30f, $"strength {id}+{gap}: {a.Strength} {b.Strength}");   // nominal strength is 1
+                Assert.True(MathF.Abs(a.Duration - b.Duration) >= 0.30f, $"duration {id}+{gap}: {a.Duration} {b.Duration}");   // nominal duration is 1
+                Assert.True(MathF.Abs(a.Delay - b.Delay) >= 0.30f * MusouOrkVariety.DelayMax - 1e-4f, $"delay {id}+{gap}: {a.Delay} {b.Delay}");   // 30 % of its range
+            }
+    }
+
+    [Fact]
+    public void A_re_kick_of_a_delayed_flinch_under_way_does_not_wait_again()
+    {
+        var v = new MusouFlinchVariant(1f, 1f, 0.08f, MusouFlinchMode.Away);
+        var track = new MusouOrkFlinchTrack();
+        track.Kick(new Num.Vector2(1f, 0f), 1f, v);
+        float most = 0f;
+        for (int k = 0; k < 120; k++)   // a kick every 30 ms, for a second
         {
-            var a = MusouOrkVariety.Flinch(id);
-            var b = MusouOrkVariety.Flinch(id + 1);
-            Assert.True(MathF.Abs(a.Strength - b.Strength) >= 0.30f, $"strength {id}: {a.Strength} {b.Strength}");   // nominal strength is 1
-            Assert.True(MathF.Abs(a.Duration - b.Duration) >= 0.30f, $"duration {id}: {a.Duration} {b.Duration}");   // nominal duration is 1
-            Assert.True(MathF.Abs(a.Delay - b.Delay) >= 0.30f * MusouOrkVariety.DelayMax - 1e-4f, $"delay {id}: {a.Delay} {b.Delay}");   // 30 % of its range
+            if (k % 7 == 0 && k > 0) track.Kick(new Num.Vector2(1f, 0f), 1f, v);
+            track.Step(1f / 240f);
+            most = MathF.Max(most, track.Current().Length());
         }
+        Assert.True(most > 0.5f);   // it showed
     }
 
     [Fact]

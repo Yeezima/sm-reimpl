@@ -18,17 +18,19 @@ public readonly record struct MusouFlinchVariant(float Strength, float Duration,
 /// Client presentation only: no simulation, wire, protocol or hash change, and nothing here runs outside Musou Mode (Classic PvP never reaches it). Every Ork's variation is deterministic from
 /// its entity id: the same Ork reacts the same way on every client and every run. Every number is ours (kind: ours; confidence: low until a playtest; spec "Musou Mode: Ork variety").
 /// <para>
-/// The flinch's strength, duration and delay are low-discrepancy sequences over the id (a Weyl sequence with a fixed step), not dice: ids next to each other (the Orks of one wave get ids
-/// in a row) are at least <see cref="NeighbourSpread"/> of the range apart, so no two neighbours can roll alike, which a random roll cannot promise.
+/// The flinch's strength, duration and delay take one of three levels by the id's remainder mod 3 (each attribute its own order of the levels) plus a small jitter from the id's hash. Musou enemy
+/// ids are the sim's slot index plus one, and a free slot is reused, so the Orks of a wave have ids close together: any two ids that are not a multiple of 3 apart (gaps 1, 2, 4, 5 ...) are
+/// therefore at least 30 % apart on all three (30 % of the nominal size and length, and of the delay's range), which a random roll cannot promise. Only four points fit 30 % apart in a range, so
+/// ids a multiple of 3 apart differ only by the jitter.
 /// </para>
 /// </summary>
 public static class MusouOrkVariety
 {
     // ---- the flinch
     /// <summary>The range of the share of the kick's size an Ork takes (ours; a stronger one is held at <see cref="MusouOrkFlinchRules.MaxStrength"/>).</summary>
-    public const float StrengthMin = 0.55f, StrengthMax = 1.2f;
+    public const float StrengthMin = 0.5f, StrengthMax = 1.4f;
     /// <summary>The range of the share of the reaction's duration (ours).</summary>
-    public const float DurationMin = 0.65f, DurationMax = 1.45f;
+    public const float DurationMin = 0.6f, DurationMax = 1.5f;
     /// <summary>The longest wait (s) before an Ork's flinch starts: the phase (ours; the reference's rise is 42 ms, so up to two frames of 24 fps).</summary>
     public const float DelayMax = 0.08f;
     /// <summary>The share of Orks that flinch sideways (half to each side) or away and back instead of straight away from the hit (ours, an estimate: the owner asked for "a few").</summary>
@@ -37,11 +39,11 @@ public static class MusouOrkVariety
     public const float SideDegrees = 90f;
     /// <summary>Where a back-and-forth flinch comes back: the reaction's share where it starts to rebound, where it is done, and the rebound's depth against the first swing (ours).</summary>
     public const float ReboundStart = 0.35f, ReboundEnd = 0.85f, ReboundDepth = 0.85f;
-    /// <summary>The smallest gap between two ids in a row, as a share of the range (the Weyl steps below make it at least this).</summary>
-    public const float NeighbourSpread = 0.38f;
+    /// <summary>The smallest gap between two ids in a row, as a share of the range (the three levels below make it at least this for ids not a multiple of 3 apart).</summary>
+    public const float NeighbourSpread = 0.30f;
 
-    // The steps: the distance to the nearest whole number is the least gap between two consecutive ids (0.4641 for strength, 0.4142 for duration, 0.382 for the delay).
-    const double StrengthStep = 0.4641016151, DurationStep = 0.4142135624, DelayStep = 0.3819660113;
+    /// <summary>The jitter (a share of the range, each way) round a level's centre: the levels are 0.4 of the nominal apart, so two ids on different levels stay at least 0.3 apart.</summary>
+    const float Jitter = 0.045f;
 
     /// <summary>The seed of an Ork (a well-mixed 32 bits from its id).</summary>
     public static uint Seed(int id)
@@ -59,18 +61,16 @@ public static class MusouOrkVariety
         return (x >> 8) / 16777216f;
     }
 
-    static float Weyl(int id, double step, int salt)
-    {
-        double u = id * step + Roll(0, salt);
-        return (float)(u - Math.Floor(u));
-    }
+    /// <summary>A level of three (0, 1, 2) of the range 0 to 1: centres at 0.05, 0.5 and 0.95 of the span, the jitter of <paramref name="id"/> inside +/- <see cref="Jitter"/> / 0.9 of it.</summary>
+    static float Level(int id, int level, int salt) => 0.05f + 0.45f * level + (Roll(id, salt) * 2f - 1f) * (Jitter / 0.9f) * 1f;
 
     /// <summary>This Ork's flinch.</summary>
     public static MusouFlinchVariant Flinch(int id)
     {
-        float strength = StrengthMin + (StrengthMax - StrengthMin) * Weyl(id, StrengthStep, 11);
-        float duration = DurationMin + (DurationMax - DurationMin) * Weyl(id, DurationStep, 12);
-        float delay = DelayMax * Weyl(id, DelayStep, 13);
+        int r = (int)(((long)id % 3 + 3) % 3);
+        float strength = StrengthMin + (StrengthMax - StrengthMin) * Level(id, r, 11);
+        float duration = DurationMin + (DurationMax - DurationMin) * Level(id, (2 * r) % 3, 12);
+        float delay = DelayMax * Level(id, (r + 1) % 3, 13);
         float pick = Roll(id, 14);
         var mode = pick < SideShare * 0.5f ? MusouFlinchMode.SideLeft
             : pick < SideShare ? MusouFlinchMode.SideRight
