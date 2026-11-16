@@ -279,15 +279,15 @@ public class MusouLibrarianReliabilityTests(ITestOutputHelper output)
     // ---------------------------------------------------------------- +25 % range and damage
 
     [Fact]
-    public void The_chain_reaches_37_and_a_half_metres_and_its_first_target_takes_112_and_a_half_a_second()
+    public void The_chain_reaches_52_and_a_half_metres_and_its_first_target_takes_112_and_a_half_a_second()
     {
-        Assert.Equal(37.5f, LibrarianRules.LightningRange);
+        Assert.Equal(52.5f, LibrarianRules.LightningRange);   // owner 2026-11-16: +15 m on the first target (37.5 m before)
         Assert.Equal(112.5f, LibrarianRules.PrimaryDps);
-        Assert.Equal(30f * 1.25f, LibrarianRules.LightningRange);
+        Assert.Equal(30f * 1.25f + 15f, LibrarianRules.LightningRange);
         Assert.Equal(90f * 1.25f, LibrarianRules.PrimaryDps);
         Assert.Equal(16f, LibrarianRules.JumpRadius);   // not the range (our reading); doubled on its own by the owner's "16 m (double)" of 2026-11-11 (MusouTuning1111bTests)
 
-        foreach (var (distance, reached) in new[] { (35f, true), (37f, true), (39f, false) })
+        foreach (var (distance, reached) in new[] { (50f, true), (52f, true), (54f, false) })
         {
             var sim = new MusouSim(null) { TickRate = Rate };
             ushort boy = sim.Spawn(MusouEnemyType.Boy, new Vector3(0f, distance, 0f), 0f, 1e6f);

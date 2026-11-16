@@ -194,7 +194,7 @@ public class MusouLibrarianTests
         var near = r.Add(MusouEnemyType.Boy, 0f, 10f, 1000f);
         var second = r.Add(MusouEnemyType.Boy, 0f, 25f, 1000f);   // 15 m on: in reach of the 16 m jump (owner 2026-11-11; 8 m before)
         var third = r.Add(MusouEnemyType.Boy, 0f, 42f, 1000f);    // 17 m on: past it
-        var far = r.Add(MusouEnemyType.Boy, 0f, 80f, 1000f);      // beyond 37.5 m from him
+        var far = r.Add(MusouEnemyType.Boy, 0f, 80f, 1000f);      // beyond 52.5 m from him
         r.Cast(Hold);
         Assert.Equal(2, r.Psyker.LastStruck);
         Assert.True(r.Get(near).Health < 1000f && r.Get(second).Health < 1000f);

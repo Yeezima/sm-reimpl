@@ -139,8 +139,8 @@ public sealed class LibrarianPsyker
         {
             ushort id = _chainIds[k];
             if (!sim.AliveNow(id) || (sight is not null && !sight.Same(_chain[k], sim))) continue;   // died since he saw it (or its slot is another enemy's now): a link, no damage
-            var push = new Vector3(Flat(sim.FeetNow(id) - c.Feet), 0.2f);
-            if (sim.Damage(id, c.PlayerId, damage, push, out _, marker: 1, cause: MusouDeathKind.Blast)) LastStruck++;   // a blast so the Weirdboy's shield wears down (a shot would be stopped whole)
+            var push = new Vector3(Flat(sim.FeetNow(id) - c.Feet), 0f);   // flat: no lift in the death's direction
+            if (sim.Damage(id, c.PlayerId, damage, push, out _, marker: 1, cause: MusouDeathKind.BoltBlast)) LastStruck++;   // a blast-type hit so the Weirdboy's shield wears down (a shot would be stopped whole); BoltBlast, not Blast: a kill is torn apart where he stands, never thrown into the air (owner 2026-11-16: the chain never lifts an Ork); no knockback either: no Drive, no Stagger push
         }
     }
 
