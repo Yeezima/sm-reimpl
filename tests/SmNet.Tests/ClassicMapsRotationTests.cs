@@ -12,9 +12,9 @@ public sealed class ClassicMapsRotationTests
     static Snapshot WithMatch(MatchView m) => new(1, 1, 1, [], Match: m);
 
     [Fact]
-    public void Protocol_is_79_and_the_next_map_bit_travels_with_the_ended_match()
+    public void Protocol_is_80_and_the_next_map_bit_travels_with_the_ended_match()
     {
-        Assert.Equal(79, Protocol.Version);
+        Assert.Equal(80, Protocol.Version);
         var ended = new MatchView(MatchState.Ended, Team.Chaos, 12, 41, 7, GameMode.SeizeGround, NextMap: true);
         var back = Assert.IsType<Snapshot>(Protocol.Read(Protocol.Write(WithMatch(ended))));
         Assert.Equal(ended, back.Match);

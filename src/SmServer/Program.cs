@@ -50,7 +50,10 @@ bool teams = cli.Teams;
 var mode = cli.Mode;
 int? scoreLimit = cli.ScoreLimit;
 
-rules = rules with { Mode = mode, ScoreLimit = scoreLimit ?? MatchRules.For(mode).ScoreLimit, HonorSideRequests = cli.HonorSideRequests, RotatesAfterMatch = cli.RotationChild };
+// --dev-tools (protocol 80): obeyed only on a server that listens on loopback alone; bots the tools add ask for a side, so it keeps requested sides too.
+bool devTools = cli.DevTools && System.Net.IPAddress.IsLoopback(bind);
+if (cli.DevTools && !devTools) Console.WriteLine($"--dev-tools: IGNORED, this server listens on {(bind.Equals(System.Net.IPAddress.Any) ? "every interface" : bind.ToString())}; the developer tools need --bind 127.0.0.1 (a public server never has them)");
+rules = rules with { Mode = mode, ScoreLimit = scoreLimit ?? MatchRules.For(mode).ScoreLimit, HonorSideRequests = cli.HonorSideRequests || devTools, RotatesAfterMatch = cli.RotationChild };
 if (cli.HonorSideRequests) Console.WriteLine("--honor-side-requests: a joining client's requested side is kept up to the per-side limit; balancing applies only to joins that name no side (test aid, ours)");
 
 string install;
@@ -343,6 +346,13 @@ catch (Exception e) when (e is IOException or InvalidDataException or Unauthoriz
     Console.WriteLine($"appearances: catalogue unreadable ({e.Message}); codes are checked for their structure only");
 }
 string? buildHint = ServerCommandLine.BuildHint(install);
+DevToolsSetup? devSetup = null;
+if (devTools)
+{
+    var (botExe, botProject) = ProcessBotLauncher.Locate(cli.DevBotExe, cli.DevBotProject, AppContext.BaseDirectory);
+    devSetup = new DevToolsSetup(bind, botExe is null ? null : new ProcessBotLauncher(botExe, botProject, port, ContentProfiles.Name(contentExtras), ProcessBotLauncher.DefaultLogFolder()));
+    Console.WriteLine($"developer tools: ON (--dev-tools, loopback only): invincible, freeze bots, infinite ammunition, infinite jump pack, add / remove bots (F6 in the client); bots {(botExe is null ? "unavailable: no Godot executable found (--dev-bot-exe)" : $"run {Path.GetFileName(botExe)}{(botProject is null ? "" : " with the client project")}, logs in " + ProcessBotLauncher.DefaultLogFolder())}; requests from other addresses are ignored");
+}
 var server = new GameServer(config, fingerprint, transport, clock, new ServerOptions
 {
     DefaultClass = defaultClass, Match = match, AppearanceRules = appearanceRules, CustomEmblems = customEmblems, Unlocks = unlocks,
@@ -351,7 +361,9 @@ var server = new GameServer(config, fingerprint, transport, clock, new ServerOpt
     NameSeed = cli.NameSeed,               // names/bot-lore
     MaxSpectators = cli.MaxSpectators,     // protocol 46 (observer tooling)
     SnapshotRate = cli.SnapshotRate ?? new ServerOptions().SnapshotRate,   // net/responsive: 30 Hz (--snapshot-rate 20: before)
+    DevTools = devSetup,                   // protocol 80: null unless --dev-tools on a loopback bind
 }, map: map);
+AppDomain.CurrentDomain.ProcessExit += (_, _) => server.StopToolBots();   // the developer tools' bots never outlive the server
 Console.WriteLine($"snapshots: {server.SnapshotRate} a second{(cli.SnapshotRate is null ? "" : " (--snapshot-rate)")}");
 server.Log += line => Console.WriteLine("note: " + line);
 if (contentExtras.HasFlag(ContentExtras.Musou)) Console.WriteLine($"musou: co-op, at most {server.PlayerCap} players on one side against the Orks");   // the owner, 2026-11-06

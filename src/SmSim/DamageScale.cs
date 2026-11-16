@@ -39,6 +39,7 @@ public sealed partial class World
     /// </summary>
     public float DamageTakenScale(int target)
     {
+        if ((DevFlags & DevToolsFlags.Invincible) != 0) return 0f;   // developer tools (DevTools.cs): a loopback-only --dev-tools server's "invincible"; never set otherwise
         float scale = 1f;
         ExtrasDamageTaken(target, ref scale);   // EXTRAS-HOOK
         return scale;

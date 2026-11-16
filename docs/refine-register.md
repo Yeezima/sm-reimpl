@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3365 spec table rows: **2391 tagged**, 626 not tagged (read from data with high confidence), 348 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 746 rows of the changes document.
+Scanned 3374 spec table rows: **2400 tagged**, 626 not tagged (read from data with high confidence), 348 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 747 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -49,19 +49,19 @@ Scanned 3365 spec table rows: **2391 tagged**, 626 not tagged (read from data wi
 | Customizer and paint | 46 | 43 | 26 | 15 | 0 |
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
-| Networking and render smoothing | 17 | 7 | 14 | 12 | 7 |
+| Networking and render smoothing | 26 | 16 | 16 | 12 | 7 |
 | Core simulation (provisional values) | 732 | 689 | 520 | 188 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 258 | 245 | 143 | 68 | 0 |
-| **All areas** | **2391** | 2119 | 1789 | 729 | 37 |
+| **All areas** | **2400** | 2128 | 1791 | 729 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1390 |
+| kind: ours | 1399 |
 | confidence: low | 867 |
-| confidence: medium | 813 |
+| confidence: medium | 815 |
 | notes: ours | 403 |
 | kind: interpretation | 393 |
 | notes: estimate | 203 |
@@ -2422,7 +2422,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-EC513790` | Look SSR by preset (fx/impact-pass review) | a look's `ssr.on` (the remaster's) turns screen-space reflections on at medium and high only; low and off never run SSR (older hardware is the next priority); high has SSR anyway. Off = the M40-T7 renderer features alone (no shadows, SSAO, SSIL, volumetric… | kind: ours | ours | Look SSR by preset (fx/impact-pass review): compare with SM1 with side-by-side screenshots in the same spot. Ours: a look's ssr.on (the remaster's) turns screen-space reflections on at… | ☐ |
 | `R-6E7116B1` | Effect checks after the review fixes (demo replays on Godot time, `--fixed-fps 30`, identical… | own bolter tracer and the enemy's shots from the follow camera, own lascannon beam: as bright as on main (the beam is an axis billboard: no edge-on fade; its fade size is its width); `FxTest --pound-test` crater, shockwave rings and dust as on main (flat… | confidence: medium | measured | Effect checks after the review fixes (demo replays on Godot…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: own bolter tracer and the enemy's shots from the follow camera, own… | ☐ |
 
-### Networking and render smoothing (17)
+### Networking and render smoothing (26)
 
 *Spec section: Time-faithful capture and the smoothed render clock (M40 T0, T2; client only, not simulated)*
 
@@ -2475,6 +2475,20 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27330EFB` | Perf tour (`--perf-tour`) | with `--perf-probe` and `--observe-tour`, the observer's camera moves to the tour's next place at the end of each 5 s probe window and each `perf:` line names its place (s) | kind: ours | measurement aid | Perf tour (--perf-tour): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: with --perf-probe and --observe-tour, the observer's camera moves to… | ☐ |
 | `R-83C63D35` | Classic maps performance result | no new map clearly worse than Manufactorum: render CPU 2.0 to 4.7 ms (Manufactorum 3.1), server tick mean 0.64 to 1.06 ms with 17 clients; one run per map on a busy machine (frame times noisy by about 3 ms); no change made to any map's drawing (ms) | confidence: low | measured | Classic maps performance result: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: no new map clearly worse than Manufactorum: render CPU 2.0 to 4.7 ms… | ☐ |
+
+*Spec section: Developer tools: the in-game test panel (dev-tools; owner 2026-11-17; protocol 80; test aid, ours, never on a public server)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-5BE18908` | Gate | the server obeys a developer-tools request only when started with `--dev-tools` (default off) AND `--bind` is a loopback address (127.0.0.1 or ::1) AND the request's source address is loopback; any other server ignores every request, sends no state, and logs… | kind: ours | the owner ("only usable on local server") | Gate: compare with SM1 by feel or video. Ours: the server obeys a developer-tools request only when started with… | ☐ |
+| `R-109C5105` | Panel | F6 in a match shows or hides it (Esc closes), in the sound tuner's style; the toggles show the server's reported state, never their own; on a server without the tools F6 only says "DEV TOOLS OFF" for 3.5 s (key) | kind: ours | the owner ("similar to the in game sound mix tool F7"); F6 chosen because it was free | Panel: compare with SM1 by feel or video. Ours: F6 in a match shows or hides it (Esc closes), in the sound tuner's… | ☐ |
+| `R-F4BF60E4` | Invincible | every hit any player takes is scaled by 0 (shots, projectiles, blasts, melee, charges; health and armour alike), so a hit still lands, flinches and marks but takes nothing; falling out of the level and kill volumes still kill (factor) | kind: ours | the owner | Invincible: compare with SM1 by feel or video. Ours: every hit any player takes is scaled by 0 (shots, projectiles… | ☐ |
+| `R-62E80BB9` | Freeze bots | a client that said it is a test bot (its Hello's bot flag) gets a neutral input from the server every tick: it does not move, aim or fire (gravity and anything already in the air still play out); humans are never frozen | kind: ours | the owner | Freeze bots: compare with SM1 by feel or video. Ours: a client that said it is a test bot (its Hello's bot flag) gets a… | ☐ |
+| `R-38F4DB44` | Infinite ammunition | after every tick every living player's clips and reserves (in hand and both holstered weapons) are full, every heat gauge is 0 and no weapon is overheated (our choice: a plasma gun then never overheats), and thrown items are at least their spawn count; a… | kind: ours; confidence: medium | the owner; the heat rule is ours | Infinite ammunition: compare with SM1 by feel or video. Ours: after every tick every living player's clips and reserves (in hand… | ☐ |
+| `R-CEEF778C` | Infinite jump pack fuel | after every tick every living jump-pack player's power is the pack's maximum, so the pack never runs low (the landing and take-off locks stay) | kind: ours | the owner | Infinite jump pack fuel: compare with SM1 by feel or video. Ours: after every tick every living jump-pack player's power is the pack's… | ☐ |
+| `R-4D6D2B4C` | Add bot | a headless `client --bot` process of the server's machine (Godot console build, on `127.0.0.1:<port>`) on the chosen side (Loyalists = Space Marines, Chaos), the class next in `HostBots` order; refused when the server holds 16 players or the side 8, when 3… (players) | kind: ours | the owner | Add bot: compare with SM1 by feel or video. Ours: a headless client --bot process of the server's machine (Godot… | ☐ |
+| `R-DEEA4AE0` | Remove bot | stops the newest bot the tools started on the chosen side (only that process, held by its handle, with its Godot child) and removes its player at once; bots started by `bots.cmd` or the Host panel are never touched; all of the tools' bots stop when the server… | kind: ours | the owner | Remove bot: compare with SM1 by feel or video. Ours: stops the newest bot the tools started on the chosen side (only that… | ☐ |
+| `R-43BAA82F` | Request rate | at most 6 requests a second per player (burst 6) (requests/s) | kind: ours; confidence: medium | ours (a guard) | Request rate: compare with SM1 by feel or video. Ours: at most 6 requests a second per player (burst 6). | ☐ |
 
 ### Core simulation (provisional values) (732)
 
@@ -5114,6 +5128,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-4D927CA9` | Power sword F + F is a stab, not a stomp (sim/sword-ff-stab, owner 2026-11-14; Classic PvP only; config hash changes, no protocol bump here) | The original's sword Y,Y finisher is the foot stomp (`SM_MEL_CS_YATK_DSP_Stomp`, blast r 7, 25 + 50) | Ours (the owner's request, verbatim in spec "Power sword Y,Y finisher: the stab"): the second F plays the X,F strike's clip and timing without a blast and hits the primary target for 100 + 50 shield and a stagger (Furious Charge's bull rush entry, always, no perk needed), nothing for others; Musou Mode's sword keeps… | Spec "Power sword Y,Y finisher: the stab"; restore `SM_OLD_SWORD_FF=1` | Power sword F + F is a stab, not a stomp…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-1D3CB771` | Melee widens the field of view (camera/melee-fov-widen, owner 2026-11-15; client camera only, no protocol change; Classic PvP and Musou Mode) | The original's camera keeps one field of view through melee | Ours (the owner's request, verbatim: "when melee attacking as any class fov should be slightly expanded by 10 until a ranged attack is executed (left mouse button)"): any melee action (swing, heavy, charge, lunge, ground pound) widens the configured horizontal field of view by 10 degrees, capped at 120, until the… | spec "Melee field-of-view widening" | Melee widens the field of view (camera/melee-fov-widen…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-2CF9C68E` | Classic PvP bots: retreat at 30 %, back in 5 to 15 s, and hunting instead of patrolling (bots/classic-hunt, owner 2026-11-16; test bots, no protocol or config-hash change) | Multiplayer had no bots | Ours (owner's words verbatim in spec "Hunt when nobody is left to chase" and "Cover at low health"): a retreating bot starts at 30 % health (60 % before) and rejoins at 90 % health and armour but not before 5 s and at the latest after 15 s (35 s before; Seize Ground and, since the owner's "classic pvp seize ground and… | Spec "Hunt when nobody is left to chase", "Cover at low health" | Classic PvP bots: retreat at 30 %, back in 5 to 15 s, and…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-2A54A495` | Developer tools panel (dev-tools, owner 2026-11-17; protocol 80; test aid) | Multiplayer had no developer tools | Ours (the owner's request, verbatim in spec "Developer tools: the in-game test panel"): F6 opens a panel for invincible players and bots, frozen bots, infinite ammunition (heat and overheat included, our choice), infinite jump pack fuel, and adding or removing a test bot per side; the server applies everything, and… | Real-match rules, a public server and the Host panel's LAN / Internet mode stay exactly as they were; with the switch off the tick loop pays one null check and no packet differs (the protocol number moved 79 to 80 for the two new messages) | Developer tools panel (dev-tools, owner 2026-11-17…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 
 ## Appendix: not gameplay
 

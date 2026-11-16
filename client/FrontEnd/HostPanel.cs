@@ -16,7 +16,7 @@ namespace SmClient.FrontEnd;
 /// ADD CHAOS BOT count up one side each (no bots is the default in every reach, never remembered; left arrow or a right click takes one off, CLEAR BOTS all), one difficulty for all of them;
 /// the numbers apply when the server starts (stop the server and host again to change them); Easy scales their damage (<see cref="HostedBots"/>, rules <see cref="HostBots"/>).
 /// Test aids (all optional): <c>--auto-host</c> presses the button once, with <c>--host-mode annihilation|seize</c>, <c>--host-port N</c>, <c>--host-lan</c>, <c>--host-emblems</c>,
-/// <c>--host-bots 0..15|none|4v4|8v8</c> and <c>--host-difficulty easy|normal</c> (neither saved); <c>--host-stop-others</c> presses STOP SERVER once a server of this install started elsewhere is seen.
+/// <c>--host-bots 0..15|none|4v4|8v8</c> and <c>--host-difficulty easy|normal</c> (neither saved), <c>--host-dev-tools</c> (This PC only: the server starts with the in-game developer tools, F6); <c>--host-stop-others</c> presses STOP SERVER once a server of this install started elsewhere is seen.
 /// </summary>
 public sealed partial class HostPanel : UiKit.MenuColumn
 {
@@ -302,7 +302,11 @@ public sealed partial class HostPanel : UiKit.MenuColumn
         ExtrasHostMap(ref map);   // EXTRAS-HOOK: Musou Mode's Ashfall layout choice (--ashfall-layout field, draft 11; HostPanel.AshfallLayout.cs); null = the server's default map
         var (chosenMap, chosenMaps) = ChosenMap();   // classic-maps-all: the MAP row (Manufactorum: neither; Musou keeps its own map)
         map ??= chosenMap;
-        var options = new HostOptions(_mode, port, _localOnly, _gameDir, _emblems, content, bots is null ? 0 : plan.Count, Difficulty, map, map is null ? chosenMaps : null);
+        // dev-tools (protocol 80): the test aid --host-dev-tools starts the server with the in-game developer tools (F6), This PC only; the bots they add run this game's own console build.
+        bool devTools = _args.ContainsKey("host-dev-tools") && _localOnly && !musou;
+        string? devExe = devTools ? HostBots.BotExecutable(OS.GetExecutablePath()) : null;
+        string? devProject = devTools && !OS.HasFeature("template") ? ProjectSettings.GlobalizePath("res://").TrimEnd('/', '\\') : null;
+        var options = new HostOptions(_mode, port, _localOnly, _gameDir, _emblems, content, bots is null ? 0 : plan.Count, Difficulty, map, map is null ? chosenMaps : null, devTools, devExe, devProject);
         if (HostedServer.Start(_exe, options, bots) is { } error) { Say(error, true); return; }
         GD.Print($"host: server started on UDP {port} ({(_localOnly ? "this PC only" : "all interfaces")}); kill-on-close job: {HostedServer.Guarded}; bots planned: {plan.Count} ({options.Difficulty})");
         _pendingJoin = true;

@@ -530,7 +530,9 @@ public static partial class Protocol
     // 78 (sim/lascannon-tap-reload; the owner 2026-11-15, experimental): no layout change. Classic PvP's lascannon reloads one round per tap in 0.4 s (no shot meanwhile); Musou Mode and other weapons unchanged.
     //     Client prediction must agree, hence the bump (renumbered from 77 at integration after the charge rules). Restore switch (config hash): --old-lascannon-reload.
     // 79 (classic-maps-all; the owner 2026-11-15): bit 5 of the match block's state byte is MatchView.NextMap: set while a match has ended on a server that runs a map rotation (--maps); the client then rejoins the same address when the restart clock runs out and plays the next map (its Challenge names it). No other layout change. (renumbered from 78 at integration, after the lascannon.)
-    public const ushort Version = 79;
+    // 80 (dev-tools; the owner 2026-11-17): two new messages, DevCommand (client to server, kind 20) and DevState (server to client, kind 21; Protocol.Dev.cs): the in-game developer tools' panel (F6). A server obeys a request only when started with --dev-tools,
+    //     listening on loopback alone, from a loopback address; it sends DevState only then, so a normal server's traffic is unchanged. No other layout change, no simulation change with the tools off.
+    public const ushort Version = 80;
     /// <summary>The kill-feed cause code of a weapon kill on the head (protocol 64; <see cref="KillView.Headshot"/>).</summary>
     public const int HeadshotCauseCode = 6;
     /// <summary>Most spectators a server admits and a Scoreboard lists (protocol 46), so the Scoreboard stays within one packet.</summary>
@@ -649,6 +651,10 @@ public static partial class Protocol
         ExtrasCommand = 17,
         /// <summary>Protocol 58: client to server, the classic PvP respawn choice (Protocol.Spawn.cs).</summary>
         SpawnRequest = 19,
+        /// <summary>Protocol 80: client to server, a developer-tools request (Protocol.Dev.cs).</summary>
+        DevCommand = 20,
+        /// <summary>Protocol 80: server to client, the developer tools' state (Protocol.Dev.cs); only from a loopback-only --dev-tools server.</summary>
+        DevState = 21,
     }
 
     /// <summary>
@@ -922,6 +928,8 @@ public static partial class Protocol
             }
             case EnemyBars eb: WriteBars(w, eb); break;   // protocol 44 (Protocol.Bars.cs)
             case SpawnRequest sr: WriteSpawnRequest(w, sr); break;   // protocol 58 (Protocol.Spawn.cs)
+            case DevCommand dc: WriteDevCommand(w, dc); break;   // protocol 80 (Protocol.Dev.cs)
+            case DevState ds: WriteDevState(w, ds); break;   // protocol 80 (Protocol.Dev.cs)
             case PickupUpdate p: WritePickups(w, p); break;   // protocol 26 (Protocol.Pickups.cs)
             case ExtrasUpdate x: WriteExtras(w, x); break;   // added content's envelope (Protocol.Envelope.cs; extras wire 2)
             case ExtrasCommandMessage c: WriteExtrasCommand(w, c); break;   // added content's commands, client to server (Protocol.Envelope.cs)
@@ -945,6 +953,8 @@ public static partial class Protocol
                     r.U8(), r.U8(), ReadCode(ref r), ReadCode(ref r), r.U8(), r.U8(), r.U8()),
                 Kind.Setup => new Setup(r.U32(), r.U16(), ReadChoice(ref r), ReadCode(ref r), ReadCode(ref r), r.U8(), r.U8()) is { } setup && (setup.Flags & ~Setup.KnownFlags) == 0 ? setup : null,
                 Kind.SpawnRequest => ReadSpawnRequest(ref r),   // protocol 58 (Protocol.Spawn.cs)
+                Kind.DevCommand => ReadDevCommand(ref r),   // protocol 80 (Protocol.Dev.cs)
+                Kind.DevState => ReadDevState(ref r),
                 Kind.SetupAck => ReadSetupAck(ref r),
                 Kind.AppearanceQuery => ReadAppearanceQuery(ref r),
                 Kind.Appearance => ReadAppearance(ref r),
