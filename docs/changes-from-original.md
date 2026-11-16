@@ -23,7 +23,7 @@ and gore are listed in their own design documents for now (the rest of section 0
 
 | What | Ours / the owner's | Value | Spec row |
 |---|---|---|---|
-| HQ defense level (Helm's Deep style) | ours (plan section 2): not an SM1 map; generated in code, every size an estimate | 300 x 420 m: assembly ground, a 30 m wide ramp rising 12 m, a 14 m wall with a 12 m gate and a parapet reached only from inside, a courtyard, the keep (two 8 m doors) and two roofed tunnels (8 m wide, 6 m clear) to the last-stand chamber; defence positions W, K, V | Warfront HQ defense map profile |
+| HQ defense level (Helm's Deep style) | ours (plan section 2): not an SM1 map; generated in code, every size an estimate | 300 x 420 m: assembly ground, a 30 m wide ramp rising 12 m, a 14 m wall with a 12 m gate and a parapet reached only from inside, a courtyard, the keep (two 8 m doors) and two roofed tunnels (8 m wide, 8 m clear, a cross passage halfway) to the last-stand chamber; defence positions W, K, V | Warfront HQ defense map profile |
 
 ### Controller (gamepad feature; spec "Controller (gamepad)")
 

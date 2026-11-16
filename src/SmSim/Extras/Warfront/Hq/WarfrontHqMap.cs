@@ -30,7 +30,7 @@ public sealed record WarfrontHqBuild(
 /// <summary>
 /// Warfront's HQ defense map (plan section 2, "Helm's Deep"; every size ours, an estimate): about 300 x 420 m, south to north: the Ork assembly ground; an approach ramp 30 m wide rising 12 m at about 8 degrees; a retaining
 /// wall (12 m cliff, 14 m wall above it) with one gate 12 m wide and a walkable parapet reached by two stairs from the courtyard only; a courtyard and the keep (two 8 m doors in front, two 8 m openings behind); two roofed
-/// cave tunnels (8 m wide, 6 m clear) into the last-stand chamber where the landing zone is. W (wall and gate), K (keep) and V (caves) are the three defence positions; each is a place defenders really stand and fight from.
+/// cave tunnels (8 m wide, 8 m clear, joined by a cross passage halfway) into the last-stand chamber where the landing zone is. W (wall and gate), K (keep) and V (caves) are the three defence positions; each is a place defenders really stand and fight from.
 /// Built with <see cref="AshfallBuilder"/> (read-only use), deterministic: no random numbers, no trigonometry, the same bits on every machine. The battle rules, the server wiring and the map name are W13b's.
 /// </summary>
 public static class WarfrontHqMap
@@ -47,7 +47,8 @@ public static class WarfrontHqMap
     public const float StairRise = 14f, StairWidth = 4f, StairFootX = 40f, ParapetThickness = 0.5f, ParapetHeight = 1.2f;
     public const float CurtainX = 90f;
     public const float KeepHalfWidth = 50f, KeepSouth = 40f, KeepNorth = 100f, KeepWall = 4f, KeepTop = 26f, DoorWidth = 8f, DoorHeight = 8f;
-    public const float TunnelWidth = 8f, TunnelClear = 6f, TunnelSouth = 100f, TunnelNorth = 150f, TunnelCentreX = 22f;
+    public const float TunnelWidth = 8f, TunnelClear = 8f, TunnelSouth = 100f, TunnelNorth = 150f, TunnelCentreX = 22f;
+    public const float CrossSouth = 121f, CrossNorth = 129f, CrossClear = 8f;   // the passage between the two tunnels, halfway (review 1, item 5)
     public const float ChamberHalfWidth = 34f, ChamberNorth = 200f, ChamberClear = 10f, MassTop = 30f;
 
     /// <summary>The widths of every opening on the Ork route, metres (the ramp, the gate, the doors, the openings behind the hall, the tunnels): each at least 8.</summary>
@@ -75,9 +76,9 @@ public static class WarfrontHqMap
         new("keep width", KeepHalfWidth * 2f, "m"), new("keep depth (y 40..100)", KeepNorth - KeepSouth, "m"), new("keep wall thickness", KeepWall, "m"),
         new("keep top above the plateau", KeepTop - PlateauZ, "m"), new("door and opening clear height", DoorHeight, "m"),
         new("hall clear height", KeepTop - 2f - PlateauZ, "m"),
-        new("tunnel clear height", TunnelClear, "m"), new("tunnel length (y 100..150)", TunnelNorth - TunnelSouth, "m"), new("tunnel centre lines (x +-22)", TunnelCentreX, "m"),
+        new("tunnel clear height (a Boss Nob is about 6.9 m)", TunnelClear, "m"), new("cross passage (y 121..129, between the tunnels): width x clear height", CrossNorth - CrossSouth, "m"), new("cross passage clear height", CrossClear, "m"), new("tunnel length (y 100..150)", TunnelNorth - TunnelSouth, "m"), new("tunnel centre lines (x +-22)", TunnelCentreX, "m"),
         new("chamber width", ChamberHalfWidth * 2f, "m"), new("chamber depth (y 150..200)", ChamberNorth - TunnelNorth, "m"), new("chamber clear height", ChamberClear, "m"),
-        new("position W marker radius (centre 0, -34)", 16f, "m"), new("position K marker radius (centre 0, 70)", 24f, "m"), new("position V marker radius (centre 0, 176)", 22f, "m"),
+        new("position W marker radius (centre 0, -34, 20; half height 9)", 20f, "m"), new("position K marker radius (centre 0, 70)", 24f, "m"), new("position V marker radius (centre 0, 160)", 40f, "m"),
         new("landing zone marker (0, 188)", 188f, "m north"),
     ];
 
@@ -128,12 +129,17 @@ public static class WarfrontHqMap
         // the caves: two tunnels (8 m wide, 6 m clear) in a rock mass, meeting in the last-stand chamber
         const float tn = TunnelNorth, ts = TunnelSouth;
         b.Box(Wall, -CurtainX, ts, P, -(TunnelCentreX + 4f), tn, MassTop);
-        b.Box(Wall, -(TunnelCentreX - 4f), ts, P, TunnelCentreX - 4f, tn, MassTop);
+        b.Box(Wall, -(TunnelCentreX - 4f), ts, P, TunnelCentreX - 4f, CrossSouth, MassTop);
+        b.Box(Wall, -(TunnelCentreX - 4f), CrossNorth, P, TunnelCentreX - 4f, tn, MassTop);
         b.Box(Wall, TunnelCentreX + 4f, ts, P, CurtainX, tn, MassTop);
         roofs.Add(b.Parts.Count);
         b.Box(Wall, -(TunnelCentreX + 4f), ts, P + TunnelClear, -(TunnelCentreX - 4f), tn, MassTop);
         roofs.Add(b.Parts.Count);
         b.Box(Wall, TunnelCentreX - 4f, ts, P + TunnelClear, TunnelCentreX + 4f, tn, MassTop);
+        roofs.Add(b.Parts.Count);
+        b.Box(Wall, -(TunnelCentreX - 4f), CrossSouth, P + CrossClear, TunnelCentreX - 4f, CrossNorth, MassTop);   // the cross passage's roof
+        b.Box(Cover, -16f, CrossNorth - 1.5f, P, -8f, CrossNorth - 0.2f, P + 1.2f);   // cover in the passage, out of the Ork line down the tunnels
+        b.Box(Cover, 8f, CrossNorth - 1.5f, P, 16f, CrossNorth - 0.2f, P + 1.2f);
         b.Box(Wall, -CurtainX, tn, P, -ChamberHalfWidth, NorthEdge, MassTop);
         b.Box(Wall, ChamberHalfWidth, tn, P, CurtainX, NorthEdge, MassTop);
         b.Box(Wall, -ChamberHalfWidth, ChamberNorth, P, ChamberHalfWidth, NorthEdge, MassTop);
@@ -145,6 +151,8 @@ public static class WarfrontHqMap
         b.Box(Cover, -8f, 195f, P, 8f, 196.5f, P + 1.2f);
         foreach (float sx in new[] { -1f, 1f })
         {
+            foreach (var (cx, cy) in new[] { (45f, -8f), (45f, 26f), (82f, -5f), (82f, 22f) })   // the second row (review 1, item 6): out of the 8 m corridors from the gate to the doors
+                b.Box(Cover, sx * cx - 3f, cy, P, sx * cx + 3f, cy + 1.5f, P + 1.2f);
             b.Box(Cover, sx * 70f - 3f, -20f, P, sx * 70f + 3f, -18.5f, P + 1.2f);
             b.Box(Cover, sx * 70f - 3f, 10f, P, sx * 70f + 3f, 11.5f, P + 1.2f);
         }
@@ -157,8 +165,8 @@ public static class WarfrontHqMap
         b.Box(Boundary, H, SouthEdge, -2f, O, NorthEdge, T);
 
         // markers
-        Vector3 w = new(0f, -34f, P), k = new(0f, 70f, P), v = new(0f, 176f, P), lz = new(0f, 188f, P), asm = new(0f, -170f, 0f);
-        ControlPoint[] points = [new("W", w, 16f, 8f), new("K", k, 24f, 8f), new("V", v, 22f, 8f)];
+        Vector3 w = new(0f, -34f, P), k = new(0f, 70f, P), v = new(0f, 160f, P), lz = new(0f, 188f, P), asm = new(0f, -170f, 0f);
+        ControlPoint[] points = [new("W", new Vector3(0f, -34f, 20f), 20f, 9f), new("K", k, 24f, 8f), new("V", new Vector3(0f, 160f, P), 40f, 8f)];
         StartArea[] areas =
         [
             new(Team.SpaceMarines, lz, new Vector3(40f, 16f, 8f), 0f),
@@ -173,14 +181,29 @@ public static class WarfrontHqMap
         ];
         WarfrontHqPost[] posts =
         [
-            new("parapet west", new(-20f, -43f, WallTop), 0), new("parapet west far", new(-56f, -43f, WallTop), 0), new("parapet east", new(20f, -43f, WallTop), 0), new("parapet east far", new(56f, -43f, WallTop), 0),
+            new("parapet west", new(-16f, -43f, WallTop), 0), new("parapet west gate", new(-8f, -43f, WallTop), 0), new("parapet east gate", new(8f, -43f, WallTop), 0), new("parapet east", new(16f, -43f, WallTop), 0),
             new("gate west", new(-12f, -30f, P), 0), new("gate east", new(12f, -30f, P), 0),
-            new("hall west door", new(-26f, 52f, P), 1), new("hall east door", new(26f, 52f, P), 1), new("hall west", new(-30f, 70f, P), 1), new("hall east", new(30f, 70f, P), 1),
-            new("tunnel west", new(-22f, 126f, P), 2), new("tunnel east", new(22f, 126f, P), 2), new("chamber west", new(-20f, 176f, P), 2), new("chamber east", new(20f, 176f, P), 2),
+            new("hall west door", new(-18f, 58f, P), 1), new("hall east door", new(18f, 58f, P), 1), new("hall west", new(-18f, 76f, P), 1), new("hall east", new(18f, 76f, P), 1),
+            new("cross passage west mouth", new(-14f, 125f, P), 2), new("cross passage east mouth", new(14f, 125f, P), 2), new("tunnel west", new(-22f, 140f, P), 2), new("tunnel east", new(22f, 140f, P), 2),
+            new("chamber west", new(-20f, 176f, P), 2), new("chamber east", new(20f, 176f, P), 2),
         ];
         Vector3[] spawns = [asm, w, k, v, lz, .. sources.Select(s => s.Position), .. posts.Select(p => p.Position)];
         var area = new NavArea(new Vector2(-H, SouthEdge), new Vector2(H, NorthEdge), spawns);
-        var level = new AshfallLevel(b.Parts, points, areas, spawns, AshfallMap.HashOf(b.Parts, Version));
+        var level = new AshfallLevel(b.Parts, points, areas, spawns, MarkerHash(AshfallMap.HashOf(b.Parts, Version), points, areas, sources, posts, spawns));
         return new WarfrontHqBuild(level, w, k, v, lz, asm, sources, posts, roofs, area);
+    }
+
+    /// <summary>The geometry hash with the markers folded in (points, areas, sources, posts, spawns: names, places, radii, stages), so a moved marker changes the level's hash.</summary>
+    static ulong MarkerHash(ulong h, ControlPoint[] points, StartArea[] areas, WarfrontHqSource[] sources, WarfrontHqPost[] posts, Vector3[] spawns)
+    {
+        ulong F(ulong x, float f) => Geometry.Fnv(x, BitConverter.SingleToUInt32Bits(f));
+        ulong V3(ulong x, Vector3 v) => F(F(F(x, v.X), v.Y), v.Z);
+        ulong S(ulong x, string t) { foreach (char c in t) x = Geometry.Fnv(x, (uint)c); return x; }
+        foreach (var p in points) h = F(F(V3(S(h, p.Name), p.Center), p.Radius), p.HalfHeight);
+        foreach (var a in areas) h = F(V3(V3(Geometry.Fnv(h, (uint)a.Side), a.Center), a.Size), a.Yaw);
+        foreach (var s in sources) h = Geometry.Fnv(V3(S(h, s.Name), s.Position), (uint)s.Stage);
+        foreach (var q in posts) h = Geometry.Fnv(V3(S(h, q.Name), q.Position), (uint)q.DefencePosition);
+        foreach (var v in spawns) h = V3(h, v);
+        return h;
     }
 }

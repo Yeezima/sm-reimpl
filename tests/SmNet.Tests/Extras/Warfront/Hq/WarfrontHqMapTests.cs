@@ -13,7 +13,7 @@ namespace SmNet.Tests.Extras.Warfront.Hq;
 public class WarfrontHqMapTests(ITestOutputHelper output)
 {
     /// <summary>The level's hash, pinned: it is the same on every machine and in every process (the test passes in a fresh process each run).</summary>
-    const ulong PinnedHash = 0x82783DD44184FE11UL;
+    const ulong PinnedHash = 0xBFEE19CA85F8E28EUL;
 
     static readonly Lazy<(WarfrontHqBuild Map, NavGraph Nav)> World = new(() =>
     {
@@ -121,7 +121,7 @@ public class WarfrontHqMapTests(ITestOutputHelper output)
             ("gate", Extent(nav, -43f, P, -10f, 10f)),
             ("west door", Extent(nav, 42f, P, -36f, -16f)), ("east door", Extent(nav, 42f, P, 16f, 36f)),
             ("west hall opening", Extent(nav, 98f, P, -34f, -10f)), ("east hall opening", Extent(nav, 98f, P, 10f, 34f)),
-            ("west tunnel", Extent(nav, 125f, P, -34f, -10f)), ("east tunnel", Extent(nav, 125f, P, 10f, 34f)),
+            ("west tunnel", Extent(nav, 112f, P, -34f, -10f)), ("east tunnel", Extent(nav, 112f, P, 10f, 34f)),
         };
         foreach (var (name, e) in rows) output.WriteLine($"{name}: {e:0.0} m of walkable nodes");
         Assert.All(rows, r => Assert.True(r.Extent >= needed, $"{r.Name}: {r.Extent:0.0} m"));
@@ -152,11 +152,27 @@ public class WarfrontHqMapTests(ITestOutputHelper output)
         var m = WarfrontHqMap.Build();
         float P = WarfrontHqMap.PlateauZ;
         var roofs = m.RoofParts.Select(i => m.Level.Parts[i]).ToList();
-        Assert.Equal(4, roofs.Count);   // the hall's slab, two tunnel roofs, the chamber roof
-        float[] clear = [WarfrontHqMap.KeepTop - 2f - P, WarfrontHqMap.TunnelClear, WarfrontHqMap.TunnelClear, WarfrontHqMap.ChamberClear];
+        Assert.Equal(5, roofs.Count);   // the hall's slab, two tunnel roofs, the cross passage roof, the chamber roof
+        float[] clear = [WarfrontHqMap.KeepTop - 2f - P, WarfrontHqMap.TunnelClear, WarfrontHqMap.TunnelClear, WarfrontHqMap.CrossClear, WarfrontHqMap.ChamberClear];
         for (int i = 0; i < roofs.Count; i++)
             Assert.Equal(P + clear[i], roofs[i].Corners.Min(c => c.Z), 3);
-        Assert.True(WarfrontHqMap.TunnelClear >= 6f);
+        Assert.True(WarfrontHqMap.TunnelClear >= 8f && WarfrontHqMap.CrossClear >= 8f);   // a Boss Nob stands about 6.9 m
+    }
+
+    [Fact]
+    [Trait("Speed", "Slow")]
+    public void The_cross_passage_joins_the_tunnels_halfway_and_the_posts_stand_in_its_mouths()
+    {
+        var (m, nav) = World.Value;
+        float P = WarfrontHqMap.PlateauZ;
+        var path = nav.FindPath(new Vector3(-22f, 125f, P), new Vector3(22f, 125f, P), goalSnap: 1.5f);
+        Assert.NotNull(path);
+        Assert.False(path!.Partial);
+        Assert.True(path.Length < 50f, $"{path.Length:0.0} m: not straight through the passage");
+        Assert.Contains(m.Posts, p => p.DefencePosition == 2 && p.Position.Y is > 121f and < 129f);
+        Assert.True(nav.Nearest(new Vector3(0f, 125f, P), 1f, 1f) >= 0);
+        // the courtyard's second row: eight cover walls in all
+        Assert.True(m.Level.Parts.Count(q => q.Kind == SmSim.Extras.Musou.Ashfall.AshfallKind.Cover) >= 12);
     }
 
     [Fact]
@@ -196,7 +212,7 @@ public class WarfrontHqMapTests(ITestOutputHelper output)
         {
             var pt = m.Level.Points[post.DefencePosition];
             float d = Vector2.Distance(new Vector2(post.Position.X, post.Position.Y), new Vector2(pt.Center.X, pt.Center.Y));
-            Assert.True(d <= 60f, $"{post.Name} is {d:0} m from {pt.Name}");
+            Assert.True(d <= pt.Radius, $"{post.Name} is {d:0} m from {pt.Name}");
             Assert.True(nav.Nearest(post.Position, 1f, 1f) >= 0);
         }
         output.WriteLine($"{m.Posts.Count} posts, {m.Sources.Count} sources");
@@ -210,3 +226,4 @@ public class WarfrontHqMapTests(ITestOutputHelper output)
         WarfrontHqOverhead.Write(Path.Combine(dir, "hq-overhead-cutaway-route.png"), m, roofs: false, route: route);
     }
 }
+
