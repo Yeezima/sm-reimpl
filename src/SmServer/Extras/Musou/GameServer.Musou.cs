@@ -19,6 +19,9 @@ namespace SmServer;
 public sealed partial class GameServer
 {
     string _musouNote = "";
+
+    /// <summary>Warfront: the position a spectating client's crowd data is centred on (the watch target's); untouched otherwise. Called wherever a client's interest centre is chosen (Musou's send, the war's, the elite bars).</summary>
+    partial void WarfrontViewCentre(int player, ref Vector3? centre);
     bool _musouLogged;
 
     /// <summary>The Musou set-up's one-line note (the nav graph and the mode), or "" when the match is not Musou.</summary>
@@ -142,6 +145,7 @@ public sealed partial class GameServer
             if (!MusouOldCoreBudget) interest.CoreBytes += TakeCoreBytes(connection);   // += since crowd-smooth: the war's overdraw of the last tick is in it already   // the owner's "count it" (GameServer.MusouCoreBytes.cs); SM_MUSOU_OLD_CORE_BUDGET=1: not counted
             // The client's player, else (a spectator) the first living player: the crowd near the action stays fresh.
             Vector3? viewer = World.Players.TryGetValue(peer.PlayerId, out var me) ? me.Position : anyone;
+            WarfrontViewCentre(peer.PlayerId, ref viewer);   // WARFRONT-HOOK
             var planned = interest.Plan(tick, World.Config.TickRate, enemies, viewer, box, director, events, MusouOldHitRank ? 0 : peer.PlayerId);   // musou-net-budget: the client's own hits and kills first in its stream
             MusouDropSection(peer.PlayerId, tick, box, planned);   // MU-D: the client's own drops (tag 6), into the tick's messages
             foreach (var sections in planned)

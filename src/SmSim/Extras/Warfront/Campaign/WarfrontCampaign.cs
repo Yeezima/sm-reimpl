@@ -96,7 +96,7 @@ public enum WarfrontJoinKind { New, Returning }
 public sealed class WarfrontCampaign
 {
     /// <summary>Local save-format version (W1's WarfrontRules.Version is separate).</summary>
-    public const int SaveVersion = 2;
+    public const int SaveVersion = 3;   // 3: PlaySeconds (W5a second pass; older saves load with 0)
     /// <summary>The first format (no stats ledger); still loads, with an empty ledger.</summary>
     public const int OldestLoadableVersion = 1;
     public const int Lanes = 3;
@@ -136,6 +136,17 @@ public sealed class WarfrontCampaign
     public WarfrontPlayerState? Player(ulong key) => _players.GetValueOrDefault(key);
     public bool IsConnected(ulong key) => _connected.Contains(key);
     public bool IsOver => Phase is WarfrontPhase.Won or WarfrontPhase.Lost;
+
+    /// <summary>Seconds of the run with someone connected (ours: "time with someone connected"): added while the phase is Ship, Travel or Battle and at least one human is connected. Saved; older saves load with 0.</summary>
+    public double PlaySeconds { get; private set; }
+
+    /// <summary>Adds <paramref name="seconds"/> of play when the run is not over and a human is connected; returns whether it counted.</summary>
+    public bool AddPlaySeconds(double seconds)
+    {
+        if (seconds <= 0 || !double.IsFinite(seconds) || _connected.Count == 0 || Phase is not (WarfrontPhase.Ship or WarfrontPhase.Travel or WarfrontPhase.Battle)) return false;
+        PlaySeconds += seconds;
+        return true;
+    }
 
     /// <summary>Lobby to the ship. Does nothing in any other phase.</summary>
     public void Embark()
@@ -360,6 +371,7 @@ public sealed class WarfrontCampaign
         public bool[] Advanced { get; set; } = Array.Empty<bool>();
         public bool HqMandatory { get; set; }
         public int Deployments { get; set; }
+        public double PlaySeconds { get; set; }
         public WarfrontTarget? CurrentTarget { get; set; }
         public List<ulong> JoinOrder { get; set; } = new();
         public List<WarfrontPlayerState> Players { get; set; } = new();
@@ -378,7 +390,7 @@ public sealed class WarfrontCampaign
     internal Snapshot ToSnapshot() => new()
     {
         RunSeed = RunSeed, Phase = Phase, Fronts = (int[])_front.Clone(), Advanced = (bool[])_advanced.Clone(), HqMandatory = HqMandatory,
-        Deployments = Deployments, CurrentTarget = CurrentTarget, JoinOrder = new(_joinOrder),
+        Deployments = Deployments, PlaySeconds = PlaySeconds, CurrentTarget = CurrentTarget, JoinOrder = new(_joinOrder),
         Players = _joinOrder.Select(k => _players[k]).ToList(), Rolls = new(_rolls), History = new(_history), Stats = Stats.ToState(),
     };
 
@@ -393,6 +405,7 @@ public sealed class WarfrontCampaign
         c._rolls.AddRange(s.Rolls);
         c._history.AddRange(s.History);
         c.Stats = WarfrontStatsLedger.FromState(s.Stats);
+        c.PlaySeconds = s.Version >= 3 && double.IsFinite(s.PlaySeconds) && s.PlaySeconds > 0 ? s.PlaySeconds : 0;
         return c;
     }
 

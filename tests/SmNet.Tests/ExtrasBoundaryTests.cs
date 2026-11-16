@@ -109,6 +109,7 @@ public class ExtrasBoundaryTests
         ("client/NetworkView.cs", "ExtrasMapVisuals"),             // NetworkView.ExtrasMapVisuals(string, MapContent, ref bool), in LoadMap for a generated map (tfw_war: the graybox view)
         ("client/NetworkView.cs", "ExtrasMapCollisionVisuals"),    // polish pass P2: NetworkView.ExtrasMapCollisionVisuals(), in the map load's main-thread stage (NetworkView.MapLoad.cs Stage2Visuals): the nodes of what ExtrasMapCollision composed on the worker (tfw_war: the Stormbird and the Firing Range)
         // Musou Mode co-op (2026-11-06): up to 4 players.
+        ("src/SmServer/GameServer.Envelope.cs", "ExtrasRestartDue"),   // GameServer.RestartDue(out int), once a loop turn in Program.cs: Warfront's stage change (exit code for the supervisor)
         ("src/SmServer/GameServer.cs", "ExtrasPlayerCap"),         // GameServer.ExtrasPlayerCap(ref int), in PlayerCap when Extras is not None (Musou: at most 4 players)
         ("client/NetworkView.cs", "ExtrasBotInput"),               // NetworkView.ExtrasBotInput(PlayerState, uint, ref PlayerInput?), in BotInput after the countdown (Musou Mode: the co-op bot fights the Orks)
         ("client/NetworkView.Death.cs", "ExtrasCorpseHold"),      // NetworkView.ExtrasCorpseHold(Ragdoll, Vector3?, ref bool), before a Marine ragdoll is dropped (Musou Mode: the corpse floor holds it 10 s)

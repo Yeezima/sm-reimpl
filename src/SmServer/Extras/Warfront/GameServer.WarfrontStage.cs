@@ -30,7 +30,7 @@ public sealed partial class GameServer
         if (map == s.Map && World.Tfw is not null)
         {
             if (!c.TryDeploy(key, target, out string? error)) { WfLog($"deploy refused: {error}"); return; }
-            WarfrontSave.Write(s.Dir, c);
+            WfSave(s);
             s.HubDirty = true;
             WfLog($"deploy {target.Kind} lane {target.Lane} on this map ({map}): landing at once, no restart");
             WarfrontLand(s, target);
@@ -70,7 +70,7 @@ public sealed partial class GameServer
             string? error = "no leader";
             if (c.Leader is not { } leader || !c.TryDeploy(leader, p.Target, out error)) { WfLog($"the deployment to {p.Map} is no longer valid ({error}); staying on the ship"); return; }
             WfLog($"{p.Note}; prepared in {elapsed:0.#} s");
-            WarfrontSave.Write(s.Dir, c);
+            WfSave(s);
             s.HubDirty = true;
             WarfrontStartGo(s, p.Map, p.Target);
             return;
@@ -132,7 +132,8 @@ public sealed partial class GameServer
     {
         s.LandingTarget = target;
         s.Landing = true;
-        s.LandingNoticeTick = World.Tick;
+        s.LandingStartTick = s.LandingLastLog = World.Tick;
+        s.LandingEnqueued = 0;
         WarfrontTryLand(s);
     }
 
@@ -144,18 +145,50 @@ public sealed partial class GameServer
         {
             // HQ and fortress: no hub and no battle rules before W13b and W14b; the battle begins at once and only SM_WF_RESOLVE ends it.
             s.Landing = false;
-            c.BeginBattle(); WarfrontSave.Write(s.Dir, c);
+            c.BeginBattle(); WfSave(s);
             WfLog($"battle begins on {s.Map} (deployment {c.Deployments + 1}); this map has no battle rules yet: it ends under SM_WF_RESOLVE only");
             WarfrontArmResolve(s);
             return;
         }
         if (target.Kind != WarfrontTargetKind.Node || WarfrontSlots.ByName(s.Map) is not { } slot) { s.Landing = false; WfLog($"cannot land {target.Kind} on {s.Map}"); return; }
-        if (WarfrontLeaderPlayer() is not { } leader) return;   // nobody identified yet: try again next tick
+        if (run.Phase != TfwRunPhase.Hub)
+        {
+            // the run took the Deploy (Travel, then the battle): the landing is under way
+            s.Landing = false;
+            s.Landed = true;
+            WfLog($"landing on {slot.Name}: slot {slot.Number}, lane {slot.Lane}, node {slot.Node}, band {slot.Band} ({slot.Profile}), seed {slot.Seed}; deployment {c.Deployments + 1}; fronts set to node {slot.Node}");
+            return;
+        }
+        // the run's Deploy is dropped silently unless the match is playing and the leader is alive inside the hub, so it is asked again each second until the run leaves the hub
+        if (World.State != MatchState.Playing) { WarfrontLandingWait(s, $"the match is {World.State}"); return; }
+        if (WarfrontLeaderPlayer() is not { } leader) { WarfrontLandingWait(s, "no identified leader"); return; }
+        if (!World.Players.TryGetValue(leader, out var lp) || !lp.Alive || !run.Field.Hub.Contains(lp.Position)) { WarfrontLandingWait(s, "the leader is not alive aboard yet"); return; }
+        if (s.LandingEnqueued != 0 && World.Tick - s.LandingEnqueued < (uint)WarfrontRate) return;
         run.War.SetFrontsForTests((sbyte)(slot.Node - 1));
-        if (!run.Enqueue(leader, new TfwCommandRecord(++s.CommandSeq, TfwCommand.Deploy, (byte)slot.Lane))) return;
+        if (!run.Enqueue(leader, new TfwCommandRecord(++s.CommandSeq, TfwCommand.Deploy, (byte)slot.Lane))) { WarfrontLandingWait(s, "the run refused the Deploy"); return; }
+        s.LandingEnqueued = World.Tick;
+    }
+
+    /// <summary>The landing could not start this tick: say so once a second, and after 60 s give the deployment up (back to the ship, nothing rolled).</summary>
+    void WarfrontLandingWait(WarfrontServerState s, string why)
+    {
+        int rate = WarfrontRate;
+        if (World.Tick - s.LandingLastLog >= (uint)rate) { s.LandingLastLog = World.Tick; WfLog($"landing waits: {why} ({(World.Tick - s.LandingStartTick) / rate} s)"); }
+        if (World.Tick - s.LandingStartTick < (uint)(60 * rate)) return;
         s.Landing = false;
-        s.Landed = true;
-        WfLog($"landing on {slot.Name}: slot {slot.Number}, lane {slot.Lane}, node {slot.Node}, band {slot.Band} ({slot.Profile}), seed {slot.Seed}; deployment {c.Deployments + 1}; fronts set to node {slot.Node}");
+        WfLog($"landing given up after 60 s ({why}): back on the ship, nothing rolled");
+        WarfrontRevertToShip(s);
+    }
+
+    /// <summary>The campaign back on the ship before this deployment (a Travel that cannot land): through its own save format, since the phase has no setter.</summary>
+    void WarfrontRevertToShip(WarfrontServerState s)
+    {
+        var node = System.Text.Json.Nodes.JsonNode.Parse(s.Campaign.ToJson())!.AsObject();
+        node["Phase"] = "Ship";
+        node["CurrentTarget"] = null;
+        var next = WarfrontSave.FromJson(node.ToJsonString(), s.Campaign.RollSource);
+        WarfrontReplaceCampaign(s, next);
+        WfSave(s);
     }
 
     /// <summary>When the run's battle has begun, the campaign's Travel becomes Battle and is saved (a kill now resumes on the ship, nothing rolled).</summary>
@@ -167,7 +200,8 @@ public sealed partial class GameServer
         {
             s.Landed = false;
             c.BeginBattle();
-            WarfrontSave.Write(s.Dir, c);
+            WfSave(s);
+            if (WarfrontStagePlan.HasShip(s.Map)) WarfrontRunFiles.WriteStage(s.Dir, new(s.Map, [], s.Map));   // the ship of this stage: a kill in this battle resumes on it
             s.HubDirty = true;
             WfLog($"battle begins (deployment {c.Deployments + 1}, {c.CurrentTarget?.Kind} lane {c.CurrentTarget?.Lane}); saved");
             WarfrontArmResolve(s);
@@ -203,7 +237,7 @@ public sealed partial class GameServer
         if (forced is null && result == TfwMapResult.Left && s.KeyOf.Count == 0)
         {
             c.ResumeAfterRestart();
-            WarfrontSave.Write(s.Dir, c);
+            WfSave(s);
             WfLog("the battle was left with nobody connected: no result, back on the ship, nothing rolled");
             return;
         }
@@ -212,7 +246,7 @@ public sealed partial class GameServer
         c.Resolve(outcome);
         string rolls = string.Join(", ", c.Rolls.Where(r => r.Deployment == dep).Select(r => $"lane {(char)('A' + r.Lane)} {(r.Lost ? (r.HeldAtFloor ? "lost, held at the floor" : "lost") : "held")} ({r.Before}->{r.After})"));
         WfLog($"battle {dep} ended: {outcome}; fronts {c.Front(0)}/{c.Front(1)}/{c.Front(2)}; rolls: {(rolls.Length == 0 ? "none" : rolls)}; phase {c.Phase}{(c.HqMandatory ? "; HQ defense is mandatory" : "")}");
-        WarfrontSave.Write(s.Dir, c);
+        WfSave(s);
         s.HubDirty = true;
         if (c.IsOver) { WarfrontFinishRun(s); return; }
         WarfrontCoopShipStop();

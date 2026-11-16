@@ -18,10 +18,16 @@ public sealed partial class GameServer
         foreach (var (id, key) in s.KeyOf.ToList())
         {
             var sections = new List<(byte Tag, byte[] Payload)>(3);
-            byte[] hub = WarfrontWire.Encode(WarfrontWire.HubFor(s.Campaign, key));
-            bool changed = !s.LastHub.TryGetValue(id, out var last) || !last.AsSpan().SequenceEqual(hub);
-            if (changed || (tick + (uint)id) % (uint)rate == 0) { sections.Add((WarfrontWire.HubTag, hub)); s.LastHub[id] = hub; }
-            if (stage is not null && (stageNow || changed)) sections.Add((WarfrontWire.StageTag, stage));
+            bool repeat = (tick + (uint)id) % (uint)rate == 0;
+            bool changed = false;
+            if (s.HubDirty || repeat || !s.LastHub.ContainsKey(id))   // encoded only when something may have changed, or on the one-second repeat
+            {
+                byte[] hub = WarfrontWire.Encode(WarfrontWire.HubFor(s.Campaign, key));
+                changed = !s.LastHub.TryGetValue(id, out var last) || !last.AsSpan().SequenceEqual(hub);
+                if (changed || repeat) { sections.Add((WarfrontWire.HubTag, hub)); s.LastHub[id] = hub; }
+            }
+            var mine = stage ?? WarfrontNoticeSection(s, id);
+            if (mine is not null && (stageNow || changed)) sections.Add((WarfrontWire.StageTag, mine));
             if (World.Tfw is { } run)
             {
                 var d = run.WarfrontDownState(id);
@@ -34,8 +40,9 @@ public sealed partial class GameServer
         }
         s.HubDirty = false;
         // players not yet identified still hear a stage change (a stage that says Go reaches everyone)
-        if (stage is not null && stageNow)
-            foreach (int id in s.Waiting.Keys.ToList()) SendExtras(new ExtrasUpdate(tick, [(WarfrontWire.StageTag, stage)]), id);
+        if (stageNow)
+            foreach (int id in s.Waiting.Keys.ToList())
+                if ((stage ?? WarfrontNoticeSection(s, id)) is { } text) SendExtras(new ExtrasUpdate(tick, [(WarfrontWire.StageTag, text)]), id);
         if (s.ResultsBytes is { } results && tick >= s.NextResultsTick)
         {
             s.NextResultsTick = tick + (uint)(5 * rate);
@@ -45,6 +52,14 @@ public sealed partial class GameServer
         WarfrontSendProgression();
         WarfrontSendSquad();
         WarfrontSendCoop();
+    }
+
+    /// <summary>A player's own notice (a refused Identify) as a Stage None section, or null.</summary>
+    byte[]? WarfrontNoticeSection(WarfrontServerState s, int id)
+    {
+        if (!s.Notices.TryGetValue(id, out var n)) return null;
+        if (World.Tick >= n.Until) { s.Notices.Remove(id); return null; }
+        return WarfrontWire.Encode(new WarfrontStageWire(WarfrontStageState.None, WarfrontTargetKind.Node, -1, s.Map, 0, 0, 0, 0, n.Text));
     }
 
     /// <summary>The Stage section now, or null when there is nothing to say.</summary>

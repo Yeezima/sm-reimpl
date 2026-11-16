@@ -32,6 +32,7 @@ public sealed partial class World
         int n = 0;
         foreach (int id in _musouIds) { var p = _players[id]; _musouTargets[n++] = new MusouTarget(id, p.Position, p.Alive); }
         n += guards.AppendTargets(_musouTargets.AsSpan(n));
+        WarfrontTargets(ref _musouTargets, ref n);   // WARFRONT-HOOK
         if (_tfw!.Battle is { } battle) n += battle.AppendGoals(_musouTargets.AsSpan(n));
 
         if (playing) MusouPlayerShots();
@@ -43,6 +44,7 @@ public sealed partial class World
         section = SimProfile.Begin();
         foreach (var attack in _musouAttacks) MusouHit(attack);
         SimProfile.End("tfw: ork hits", section);
+        WarfrontFought();   // WARFRONT-HOOK
         MusouStormboyCrashes();   // World.MusouStormboy.cs: shot-down Stormboys that struck the ground (expansion S3)
         if (playing) TfwShoves();   // World.TfwMelee.cs
         section = SimProfile.Begin();
@@ -51,6 +53,12 @@ public sealed partial class World
         TfwCreditKills();
         musou.LastStepMilliseconds = System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds;
     }
+
+    /// <summary>Warfront: appends the standing squad Marines to the Orks' targets (growing the array if it is short).</summary>
+    partial void WarfrontTargets(ref MusouTarget[] targets, ref int n);
+
+    /// <summary>Warfront: the squads' tick, after the Orks moved and struck.</summary>
+    partial void WarfrontFought();
 
     /// <summary>
     /// An enemy's attack on a Guard squad: the squad's man nearest the attacker takes it (no player multipliers). A Boss Ork's blow cleaves (owner, 2026-11-06): it strikes every man in its arc, any

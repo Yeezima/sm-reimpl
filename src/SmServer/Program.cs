@@ -369,6 +369,9 @@ if (devTools)
     devSetup = new DevToolsSetup(bind, botExe is null ? null : new ProcessBotLauncher(botExe, botProject, port, ContentProfiles.Name(contentExtras), ProcessBotLauncher.DefaultLogFolder()), serverClock as ScalableClock);
     Console.WriteLine($"developer tools: ON (--dev-tools, loopback only; F6 in the client): invincible, freeze bots, infinite ammunition and jump pack, indefinite match, end / restart / skip match, teleport, instant respawn, kill me / kill bots, add / remove bots, bot difficulty, time scale and pause; bots {(botExe is null ? "unavailable: no Godot executable found (--dev-bot-exe)" : $"run {Path.GetFileName(botExe)}{(botProject is null ? "" : " with the client project")}, logs in " + ProcessBotLauncher.DefaultLogFolder())}; requests from other addresses are ignored");
 }
+#if SM_WARFRONT
+WarfrontRunFiles.MaxHumans = cli.WarfrontMaxHumans ?? 4;
+#endif
 var server = new GameServer(config, fingerprint, transport, serverClock, new ServerOptions
 {
     DefaultClass = defaultClass, Match = match, AppearanceRules = appearanceRules, CustomEmblems = customEmblems, Unlocks = unlocks,
@@ -591,7 +594,7 @@ while (true)
                 return ServerCommandLine.RotationExit;
             }
         }
-        if (server.ExtrasRestartDue(out int restartCode))   // EXTRAS-HOOK: Warfront stage change
+        if (server.RestartDue(out int restartCode))
         {
             // Warfront: the stage change is due (the next stage's map was prepared and the clients told); the supervisor starts it.
             Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-ddTHH:mm:ssZ}] stage change: leaving with code {restartCode}");

@@ -323,6 +323,11 @@ public static class ServerCommandLine
             error = "--warfront-stage, --warfront-new and --warfront-max-humans need --content warfront";
             return false;
         }
+        if (a.Maps is not null && a.Content.HasFlag(ContentExtras.Warfront))
+        {
+            error = "--maps is Classic PvP only; Warfront runs its own stages (leave --maps out with --content warfront)";
+            return false;
+        }
         result = a;
         return true;
     }

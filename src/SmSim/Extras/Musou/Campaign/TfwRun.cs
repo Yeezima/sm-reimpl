@@ -177,6 +177,9 @@ public sealed partial class TfwRun
     /// <summary>Warfront: the battle was left with <paramref name="result"/>.</summary>
     partial void WarfrontLeft(World w, TfwMapResult result);
 
+    /// <summary>Warfront: what the battle's step changed (a position secured, the node won), right after it.</summary>
+    partial void WarfrontBattleChange(TfwBattleChange change);
+
     /// <summary>One tick in play, before the fight.</summary>
     internal void Step(World w)
     {
@@ -364,6 +367,7 @@ public sealed partial class TfwRun
         int humans = 0;
         foreach (int id in w.Players.Keys) if (!TfwContracts.IsPuppet(id)) humans++;
         var change = battle.Step(_feet.AsSpan(0, n), humans);
+        WarfrontBattleChange(change);   // WARFRONT-HOOK
         if (change.HasFlag(TfwBattleChange.DepotSecured))
         {
             Transport += TfwBattleRules.DepotTransport;

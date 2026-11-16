@@ -19,24 +19,40 @@ public sealed partial class GameServer
         return WarfrontContributor.Solo(player);
     }
 
+    /// <summary>
+    /// The end of the run, once: the record is built and set for the clients first (its own failure is logged and nothing else is lost), then archived in its own try. <see cref="WarfrontServerState.Finished"/>
+    /// stops every later save from writing the finished campaign back over the archive. A run that is over when a stage starts (the archive did not complete) is finished here too.
+    /// </summary>
     void WarfrontFinishRun(WarfrontServerState s)
     {
+        if (s.Finished) return;
+        s.Finished = true;
         var c = s.Campaign;
+        WarfrontRunRecord? record = null;
         try
         {
             var stats = new Dictionary<ulong, WarfrontContributor>();
             for (int i = 0; i < c.JoinOrder.Count; i++) stats[c.JoinOrder[i]] = WarfrontContributorFor(s, c.JoinOrder[i], i);
             var weights = WarfrontScoreWeights.LoadOverride(s.Dir, WfLog);
-            var record = WarfrontResults.Build(c, stats, DateTime.UtcNow - s.StartedUtc, DateTime.UtcNow, weights);
-            string path = WarfrontResultsArchive.Archive(s.Dir, c, record, DateTime.UtcNow);
+            record = WarfrontResults.Build(c, stats, TimeSpan.FromSeconds(c.PlaySeconds), DateTime.UtcNow, weights);
             s.ResultsBytes = WarfrontResultsWire.Encode(record);
             s.ResultsTransfer++;
             s.NextResultsTick = 0;
-            WfLog($"the run is over ({record.Result}); archived as {Path.GetFileName(path)}; the record ({s.ResultsBytes.Length} bytes) goes to every client, and to anyone who joins while it stands");
+            WfLog($"the run is over ({record.Result}, {(int)c.PlaySeconds} s played); the record ({s.ResultsBytes.Length} bytes) goes to every client, and to anyone who joins while it stands");
+        }
+        catch (Exception e) when (e is ArgumentException or InvalidDataException or InvalidOperationException)
+        {
+            WfLog($"the record of the run could not be built: {e.Message}");
+        }
+        try
+        {
+            string path = record is null ? WarfrontSave.Archive(s.Dir, c, DateTime.UtcNow) : WarfrontResultsArchive.Archive(s.Dir, c, record, DateTime.UtcNow);
+            WfLog($"archived as {Path.GetFileName(path)}");
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException or ArgumentException or InvalidDataException)
         {
-            WfLog($"the end of the run could not be archived: {e.Message}");
+            WfLog($"the end of the run could not be archived: {e.Message}; run.json stays and the next start finishes it");
         }
+        try { File.Delete(Path.Combine(s.Dir, WarfrontRunFiles.StageFile)); } catch (IOException) { }   // it holds campaign keys; the run is over
     }
 }

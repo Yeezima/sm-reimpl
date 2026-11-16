@@ -19,6 +19,12 @@ static class WarfrontRunFiles
     /// <summary>Tests: the run folder, and the walking-graph cache folder (so a test arena never touches the private cache).</summary>
     internal static string? DirOverride, NavCacheOverride;
 
+    /// <summary>Humans admitted (<c>--warfront-max-humans</c>), set by Program.cs before the server is built; one source for the stage child and the tests.</summary>
+    internal static int MaxHumans = 4;
+
+    /// <summary>The environment variable the supervisor gives its child: its own process id. The child leaves (saved, exit code 0) when that process is gone.</summary>
+    public const string SupervisorPidVariable = "SM_WF_SUPERVISOR_PID";
+
     /// <summary>The private run folder (<c>%LOCALAPPDATA%\sm-reimpl\warfront</c>), or <c>SM_WF_DIR</c>.</summary>
     public static string Dir
     {
@@ -184,6 +190,7 @@ static class WarfrontSupervisor
             string map = WarfrontStagePlan.NextMap(run, lastShip ?? WarfrontRunFiles.ReadStage(dir)?.Ship);
             if (WarfrontStagePlan.HasShip(map)) lastShip = map;
             var info = new ProcessStartInfo(exe) { UseShellExecute = false };
+            info.Environment[WarfrontRunFiles.SupervisorPidVariable] = Environment.ProcessId.ToString(CultureInfo.InvariantCulture);
             foreach (var h in host) info.ArgumentList.Add(h);
             foreach (var a in ChildArguments(args, map)) info.ArgumentList.Add(a);
             Console.WriteLine($"warfront: stage {stage} on {map} ({(run is null ? "no run" : run.Phase.ToString())})");

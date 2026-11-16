@@ -33,6 +33,8 @@ public static class SquadRules
     public const float DefaultHealth = 200f, DefaultArmour = 100f;
     /// <summary>The default ranged weapon when no loadout is mirrored yet: range m, damage per round, seconds between rounds, hit chance [placeholder estimate].</summary>
     public const float DefaultRange = 35f, DefaultDamage = 18f, DefaultInterval = 0.25f, DefaultHitChance = 0.7f;
+    /// <summary>The squad's damage dealt, a multiplier on every Marine's weapon and pound damage: the one knob for squad strength (W11 review 1) [estimate: 1].</summary>
+    public const float DamageDealt = 1f;
     /// <summary>A Marine's body radius as the Orks target it (metres) [ours/estimate].</summary>
     public const float BodyRadius = 0.5f;
     /// <summary>Squad targets are <see cref="TargetBase"/> + index, negated: the Guard squads use -2 to -41, so this range (-1000 to -1035) is its own.</summary>
