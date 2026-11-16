@@ -150,7 +150,32 @@ public sealed partial class TfwRun
         _warTicks = 0;
         Rewards.NewRun();
         Score.NewRun();
+        WarfrontReset();   // WARFRONT-HOOK
     }
+
+    /// <summary>Warfront: clears the battle state of a new run. No-op without the Warfront object.</summary>
+    partial void WarfrontReset();
+
+    /// <summary>Warfront: a command of the queue, before the switch; <paramref name="handled"/> true takes it out of the run's own rules.</summary>
+    partial void WarfrontCommand(World w, int player, TfwCommandRecord c, int rate, ref bool handled);
+
+    /// <summary>Warfront: whether the Musou war's clock runs this tick (false: Warfront's war does not move by itself).</summary>
+    partial void WarfrontWarClock(ref bool tick);
+
+    /// <summary>Warfront: a node battle is built, before it starts.</summary>
+    partial void WarfrontBattleCreated(World w, TfwBattle battle, TfwLane lane, int node);
+
+    /// <summary>Warfront: whether a human's retainer is landed (false: none).</summary>
+    partial void WarfrontRetainer(int player, ref bool spawn);
+
+    /// <summary>Warfront: a won battle leaves at once (<paramref name="handled"/>).</summary>
+    partial void WarfrontBattleWon(World w, ref bool handled);
+
+    /// <summary>Warfront: the fallen, spectator and wipe rule in place of <c>Downed</c> (<paramref name="handled"/>).</summary>
+    partial void WarfrontDowned(World w, int rate, ref bool handled);
+
+    /// <summary>Warfront: the battle was left with <paramref name="result"/>.</summary>
+    partial void WarfrontLeft(World w, TfwMapResult result);
 
     /// <summary>One tick in play, before the fight.</summary>
     internal void Step(World w)
@@ -158,7 +183,9 @@ public sealed partial class TfwRun
         int rate = Math.Max(1, w.Config.TickRate);
         Commands(w, rate);
         if (Ended) return;
-        if (++_warTicks >= rate)
+        bool warTick = true;
+        WarfrontWarClock(ref warTick);   // WARFRONT-HOOK
+        if (warTick && ++_warTicks >= rate)
         {
             _warTicks = 0;
             War.Step();
@@ -178,6 +205,9 @@ public sealed partial class TfwRun
         while (TryDequeue(out int player, out var c))
         {
             if (w is null || Ended) continue;
+            bool taken = false;
+            WarfrontCommand(w, player, c, rate, ref taken);   // WARFRONT-HOOK
+            if (taken) continue;
             switch (c.Command)
             {
                 case TfwCommand.Deploy: Deploy(w, player, c.Argument, rate); break;
@@ -257,6 +287,7 @@ public sealed partial class TfwRun
         _deployed.Sort();
         _dreadSlots.Clear();   // a new landing: every Dreadnought's place is chosen afresh (LandingAt)
         Battle = new TfwBattle(w.Musou!, w.TfwGuards!, layout, state.Imperial, _deployed.Count, final, bonus, TfwBattleRules.EliteShare(TfwBattleRules.RunProgress(Wins, WinsNeededNow(lane), final)), Guardsmen) { Patrols = Patrols, VictoryWave = VictoryWave, Armies = Armies };
+        WarfrontBattleCreated(w, Battle, lane, node);   // WARFRONT-HOOK
         Battle.Start();
         Score.BeginMap(lane, (byte)node, _deployed);
         _fighting = final ? TfwRunPhase.FinalAssault : TfwRunPhase.Battle;
@@ -268,7 +299,9 @@ public sealed partial class TfwRun
             var at = LandingAt(w, layout, id, k);
             _landingSlots[id] = k;   // TfwRun.Flow.cs: a redeploy comes back here
             w.TfwRespawnAt(id, at, yaw);
-            w.TfwSpawnRetainer(id, Ashore(w, layout, at - layout.LandingZone + new Vector3(0f, -2f, 0f)), yaw);   // each human's own retainer (restored 2026-11-08)
+            bool retainer = true;
+            WarfrontRetainer(id, ref retainer);   // WARFRONT-HOOK
+            if (retainer) w.TfwSpawnRetainer(id, Ashore(w, layout, at - layout.LandingZone + new Vector3(0f, -2f, 0f)), yaw);   // each human's own retainer (restored 2026-11-08)
         }
         w.TfwPlaceCrates(Sites.Crates(layout, w.Tick), _deployed);
         if (Allies) w.TfwSpawnAllies(layout.LandingZone, yaw);   // the owner, 2026-11-08: two allied Marines besides the retainers, whatever the number of players (no lord or Defender)
@@ -339,6 +372,9 @@ public sealed partial class TfwRun
         if (change.HasFlag(TfwBattleChange.Won))
         {
             if (_fighting == TfwRunPhase.FinalAssault) { PickupTicks = 0; War.Enter(TfwRunPhase.Won); return; }
+            bool leftAtOnce = false;
+            WarfrontBattleWon(w, ref leftAtOnce);   // WARFRONT-HOOK
+            if (leftAtOnce) return;
             Wins++;
             War.PlayerWon(War.BattleLane);
         }
@@ -354,6 +390,9 @@ public sealed partial class TfwRun
     /// </summary>
     void Downed(World w, int rate)
     {
+        bool taken = false;
+        WarfrontDowned(w, rate, ref taken);   // WARFRONT-HOOK
+        if (taken) return;
         bool fighting = false, waiting = false;
         foreach (int id in _deployed)
         {
@@ -404,6 +443,7 @@ public sealed partial class TfwRun
         _deployed.Clear();
         _reviveTicks.Clear();
         War.Enter(TfwRunPhase.Hub, War.BattleLane);
+        WarfrontLeft(w, result);   // WARFRONT-HOOK
     }
 
     /// <summary>Test aid: the battle is left at once.</summary>

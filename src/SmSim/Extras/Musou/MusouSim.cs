@@ -112,6 +112,7 @@ public sealed partial class MusouSim
         if (!keepYaw && SpawnCentre is { } centre && new Vector2(centre.X - position.X, centre.Y - position.Y) is { } way && way.LengthSquared() > 1f) yaw = MathF.Atan2(-way.X, way.Y);
         if (_free.Count == 0 || !float.IsFinite(health) || !float.IsFinite(yaw) || !float.IsFinite(position.X) || !float.IsFinite(position.Y) || !float.IsFinite(position.Z)) return 0;
         if ((int)type >= Rules.Types.Count) return 0;
+        WarfrontSpawn(type, ref health);   // WARFRONT-HOOK
         int i = _free.Dequeue();
         _used[i] = true;
         _type[i] = type; _state[i] = MusouEnemyState.Spawning;
@@ -121,8 +122,15 @@ public sealed partial class MusouSim
         _target[i] = 0; _stateTicks[i] = 0; _token[i] = 0;
         SpawnedAi(i);
         Count++; Alive++;
+        WarfrontSpawned((ushort)(i + 1));   // WARFRONT-HOOK
         return (ushort)(i + 1);
     }
+
+    /// <summary>Warfront: the health an enemy spawns with (a multiplier). No-op without the Warfront object.</summary>
+    partial void WarfrontSpawn(MusouEnemyType type, ref float health);
+
+    /// <summary>Warfront: an enemy took slot <paramref name="id"/>; its damage multiplier is remembered.</summary>
+    partial void WarfrontSpawned(ushort id);
 
     /// <summary>
     /// <see cref="Spawn"/> for a leashed defender (Musou Mode, design section D): it stands at home until a target comes within <paramref name="aggro"/> metres of that home

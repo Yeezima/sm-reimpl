@@ -34,8 +34,12 @@ public sealed partial class World
         _musou!.WidenBox(field.Bounds);   // a jump goes above it
         if (field.Range is { } range) _musou!.WidenBox(range.Box);   // the Firing Range stands apart too
         _musou!.Director = default;   // no 5-wave director to show (nothing is sent until the first deploy: TfwShowDirector)
+        WarfrontStarted();   // WARFRONT-HOOK
         return true;
     }
+
+    /// <summary>Warfront (docs/added-content.md section 11): the run exists; with the Warfront flag its battle rules are attached. No-op without it.</summary>
+    partial void WarfrontStarted();
 
     /// <summary>The input of an AI Marine (<see cref="TfwRun.PuppetBrain"/>; none: it stands still, keeping its heading). Other players stay with the server's input source.</summary>
     void TfwPlayerInput(int id, ref PlayerInput input, ref bool handled)
