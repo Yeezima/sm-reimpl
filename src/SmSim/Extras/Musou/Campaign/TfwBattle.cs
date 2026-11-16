@@ -327,7 +327,22 @@ public sealed partial class TfwBattle
     }
 
     /// <summary>Whether <paramref name="index"/> (a position, or 3 the HQ) sends Orks: a position only while Held, the HQ from the commander's coming until victory; all four in the final assault.</summary>
-    public bool SourceActive(int index) => !Won && (_final || (index < Positions ? _objectives[index].State == TfwPositionState.Held : _commander));
+    public bool SourceActive(int index)
+    {
+        bool active = false, handled = false;
+        WarfrontSourceActive(index, ref active, ref handled);   // WARFRONT-HOOK
+        if (handled) return active;
+        return !Won && (_final || (index < Positions ? _objectives[index].State == TfwPositionState.Held : _commander));
+    }
+
+    /// <summary>Warfront: which Ork sources are open (HQ and fortress open them by stage); <paramref name="handled"/> true takes <paramref name="active"/> as the answer.</summary>
+    partial void WarfrontSourceActive(int source, ref bool active, ref bool handled);
+
+    /// <summary>Warfront: whether a Secured position with Orks alone on it may lose progress toward Held (HQ and fortress: only the front-most position still held).</summary>
+    partial void WarfrontRetake(int position, ref bool allowed);
+
+    /// <summary>Warfront: the battle's own opening (the defence); <paramref name="handled"/> true skips <see cref="Start"/>'s.</summary>
+    partial void WarfrontStart(ref bool handled);
 
     /// <summary>The secured positions as places for the Orks to retake (<see cref="MusouTarget.Goal"/>), written from <paramref name="into"/>'s start; the number written.</summary>
     public int AppendGoals(Span<MusouTarget> into)
@@ -342,6 +357,9 @@ public sealed partial class TfwBattle
     /// <summary>The start: the crowds part-grown at their points, the field's squads at the landing zone and, in the final assault, the Warboss.</summary>
     public void Start()
     {
+        bool opened = false;
+        WarfrontStart(ref opened);   // WARFRONT-HOOK
+        if (opened) return;
         for (int k = 0; k < Positions; k++) _objectives[k] = new TfwObjective((byte)k, _final ? TfwPositionState.Secured : TfwPositionState.Held, _final ? 1f : 0f, _layout.Positions[k], _layout.Radius(k));
         _objectives[CommanderObjective] = new TfwObjective(CommanderObjective, TfwPositionState.Locked, 0f, _layout.Hq, TfwMap.HqRadius);
         int field = Math.Min(Squads, _final ? TfwBattleRules.FinalFieldSquads : TfwBattleRules.FieldSquads);
@@ -659,7 +677,9 @@ public sealed partial class TfwBattle
         {
             bool imperial = capturers || _guards.CountInside(o.Position, _layout.Radius(k)) > 0 || (Armies && ArmyGuardsOn(k));
             float change = Dt / TfwBattleRules.RetakeSeconds;
-            float held = orks && !imperial ? o.Progress - change : MathF.Min(1f, o.Progress + change);
+            bool retake = true;
+            WarfrontRetake(k, ref retake);   // WARFRONT-HOOK
+            float held = orks && !imperial && retake ? o.Progress - change : MathF.Min(1f, o.Progress + change);
             if (held > 0f) { _objectives[k] = o with { Progress = held }; return TfwBattleChange.None; }
             _objectives[k] = o with { State = TfwPositionState.Held, Progress = 0f };
             Secured--;

@@ -55,6 +55,11 @@ public class WarfrontBoundaryTests
         ("src/SmSim/Extras/Musou/Campaign/World.TfwGuards.cs", "WarfrontFought"),
         ("src/SmSim/Extras/Musou/Campaign/TfwBattle.cs", "WarfrontStuck"),
         ("src/SmSim/Extras/Musou/MusouSim.cs", "WarfrontDamaged"),
+        // W13b: the battle plan, the defence's opening, retake and source gates
+        ("src/SmSim/Extras/Musou/Campaign/TfwRun.cs", "WarfrontBattlePlan"),
+        ("src/SmSim/Extras/Musou/Campaign/TfwBattle.cs", "WarfrontStart"),
+        ("src/SmSim/Extras/Musou/Campaign/TfwBattle.cs", "WarfrontRetake"),
+        ("src/SmSim/Extras/Musou/Campaign/TfwBattle.cs", "WarfrontSourceActive"),
     ];
 
     /// <summary>Files outside the Warfront folders that may name the namespace.</summary>

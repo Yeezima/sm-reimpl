@@ -162,6 +162,9 @@ public sealed partial class TfwRun
     /// <summary>Warfront: whether the Musou war's clock runs this tick (false: Warfront's war does not move by itself).</summary>
     partial void WarfrontWarClock(ref bool tick);
 
+    /// <summary>Warfront: the battle's plan, after Musou's own layout and elite share and before the battle is built: HQ and fortress supply their own layout, the fortress sets <paramref name="final"/>, every Warfront battle sets its elite share.</summary>
+    partial void WarfrontBattlePlan(World w, TfwLane lane, int node, ref TfwLayout layout, ref bool final, ref float elite);
+
     /// <summary>Warfront: a node battle is built, before it starts.</summary>
     partial void WarfrontBattleCreated(World w, TfwBattle battle, TfwLane lane, int node);
 
@@ -282,6 +285,8 @@ public sealed partial class TfwRun
         ActiveBand = BandForNode(node, _field.Bands?.Count ?? 0);   // the front pilot: this battle's band (no change on any other map)
         long started = System.Diagnostics.Stopwatch.GetTimestamp();
         var layout = Sites.Layout(lane, node, w.Tick);
+        float elite = TfwBattleRules.EliteShare(TfwBattleRules.RunProgress(Wins, WinsNeededNow(lane), final));
+        WarfrontBattlePlan(w, lane, node, ref layout, ref final, ref elite);   // WARFRONT-HOOK
         LastSitesMilliseconds = System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds;
         var bonus = final ? War.FinalBonus(lane) : default;
         w.TfwClearField();
@@ -289,7 +294,7 @@ public sealed partial class TfwRun
         foreach (int id in w.Players.Keys) if (!TfwContracts.IsPuppet(id)) _deployed.Add(id);
         _deployed.Sort();
         _dreadSlots.Clear();   // a new landing: every Dreadnought's place is chosen afresh (LandingAt)
-        Battle = new TfwBattle(w.Musou!, w.TfwGuards!, layout, state.Imperial, _deployed.Count, final, bonus, TfwBattleRules.EliteShare(TfwBattleRules.RunProgress(Wins, WinsNeededNow(lane), final)), Guardsmen) { Patrols = Patrols, VictoryWave = VictoryWave, Armies = Armies };
+        Battle = new TfwBattle(w.Musou!, w.TfwGuards!, layout, state.Imperial, _deployed.Count, final, bonus, elite, Guardsmen) { Patrols = Patrols, VictoryWave = VictoryWave, Armies = Armies };
         WarfrontBattleCreated(w, Battle, lane, node);   // WARFRONT-HOOK
         Battle.Start();
         Score.BeginMap(lane, (byte)node, _deployed);
