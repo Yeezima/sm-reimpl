@@ -176,9 +176,9 @@ public class MusouCombatTests
             float a = k * MathF.Tau / 6f;
             pack.Add(sim.Spawn(MusouEnemyType.Boy, at + new Vector3(MathF.Cos(a), MathF.Sin(a), 0f) * 1.5f, 0f, 85f));
         }
-        var survivorAt = at + new Vector3(4f, 0f, 0f);
+        var survivorAt = at + new Vector3(10f, 0f, 0f);   // 0.4 of the reach, as 8 of 20 m was: 10 m of the data, x2 (owner 2026-11-09), x1.25 more (AoE pass 2026-11-14) = 25 m
         ushort survivor = sim.Spawn(MusouEnemyType.Boy, survivorAt, 0f, 85f);
-        ushort outside = sim.Spawn(MusouEnemyType.Boy, at + new Vector3(-6.5f, 0f, 0f), 0f, 85f);
+        ushort outside = sim.Spawn(MusouEnemyType.Boy, at + new Vector3(-31f, 0f, 0f), 0f, 85f);   // past the 25 m reach
         var events = new List<MusouEvent>();
         for (int t = 0; t < 60 && w.Projectiles.Count > 0; t++) { w.Step(_ => default); events.AddRange(sim.Events); }
         Assert.Empty(w.Projectiles);
@@ -186,7 +186,7 @@ public class MusouCombatTests
         Assert.All(events.Where(e => e.Kind == MusouEventKind.Death), e => Assert.Equal(((ushort)1, (byte)MusouDeathKind.Blast), (e.Player, e.Value)));
         Assert.Equal(6, w.Scores[1].Kills);
         Assert.Equal(6, w.MusouDirector!.Scores[1].Kos);
-        // The survivor: half the damage at 4 m, staggered, knocked away from the blast (half the 2 m).
+        // The survivor: the same share of the damage as before (0.4 of the reach), staggered, knocked away from the blast (half the 2 m).
         Assert.True(sim.TryGet(survivor, out var s));
         Assert.Equal(85f - 60f, s.Health, 2);
         Assert.Equal(MusouEnemyState.Stagger, s.State);
@@ -203,21 +203,101 @@ public class MusouCombatTests
         players[1] = players[1] with { Health = health };
     }
 
+    /// <summary>The owner, 2026-11-06: "the heal effect should heal for every enemy you hit, not just one time for each landed melee swing" (was 5 % once a swing, 2026-11-02).</summary>
     [Fact]
-    public void A_melee_attack_that_strikes_anybody_gives_back_five_percent_of_the_health_once()
+    public void A_melee_attack_gives_back_five_percent_of_the_health_for_every_enemy_it_strikes()
     {
         var w = NewWorld();
         var body = Loadouts.Body(w.Config, w.Players[1]);
         SetHealth(w, body.HealthMax * 0.5f);
         var me = Me(w);
-        for (int k = 0; k < 4; k++) w.Musou!.Spawn(MusouEnemyType.Boy, me + new Vector3(k * 0.3f - 0.5f, 1.5f, 0f), 0f, 85f);
+        for (int k = 0; k < 3; k++) w.Musou!.Spawn(MusouEnemyType.Boy, me + new Vector3(k * 0.4f - 0.4f, 1.5f, 0f), 0f, 85f);
         Run(w, 20, InputButtons.Melee);
-        Assert.Equal(body.HealthMax * 0.55f, w.Players[1].Health, 2);
+        Assert.Equal(body.HealthMax * (0.5f + 3 * 0.05f), w.Players[1].Health, 2);   // three Orks struck: 3 x 5 %
 
         var alone = NewWorld();
         SetHealth(alone, 50f);
         Run(alone, 20, InputButtons.Melee);
         Assert.Equal(50f, alone.Players[1].Health);                      // a swing at nobody heals nothing
+
+        var nearlyFull = NewWorld();
+        var full = Loadouts.Body(nearlyFull.Config, nearlyFull.Players[1]).HealthMax;
+        SetHealth(nearlyFull, full * 0.95f);
+        for (int k = 0; k < 4; k++) nearlyFull.Musou!.Spawn(MusouEnemyType.Boy, Me(nearlyFull) + new Vector3(k * 0.3f - 0.5f, 1.5f, 0f), 0f, 85f);
+        Run(nearlyFull, 20, InputButtons.Melee);
+        Assert.Equal(full, nearlyFull.Players[1].Health, 2);             // never over the most
+    }
+
+    [Fact]
+    public void An_enemy_in_a_steps_stomp_and_cleave_heals_once()
+    {
+        var splash = new SplashSpec(3f, Plain with { Damage = 30f }, [new(0f, 1f), new(3f, 1f)], false, true, "target_all");
+        var w = NewWorld(config: Config(cls: c => c with { MeleeHeavy = [Heavy with { Stomp = splash }] }));
+        var body = Loadouts.Body(w.Config, w.Players[1]);
+        SetHealth(w, body.HealthMax * 0.5f);
+        var me = Me(w);
+        w.Musou!.Spawn(MusouEnemyType.Boy, me + new Vector3(0f, 1.5f, 0f), 0f, 85f);    // stomp and cleave
+        w.Musou!.Spawn(MusouEnemyType.Boy, me + new Vector3(0f, -1.5f, 0f), 0f, 85f);   // the stomp only
+        Run(w, 20, InputButtons.MeleeHeavy);
+        Assert.Equal(body.HealthMax * (0.5f + 2 * 0.05f), w.Players[1].Health, 2);   // two enemies: 2 x 5 %
+    }
+
+    static void TenBoys(World w)
+    {
+        for (int k = 0; k < 10; k++) w.Musou!.Spawn(MusouEnemyType.Boy, Me(w) + new Vector3(k * 0.25f - 1.1f, 1.5f, 0f), 0f, 85f);
+    }
+
+    /// <summary>musou/melee-heal-cap (owner 2026-11-12): one swing (a strike step) heals at most MeleeHealsPerSwing times (5 since the owner's 2026-11-14 change, was 3), whatever the enemies struck.</summary>
+    [Fact]
+    public void One_swing_through_ten_Orks_heals_exactly_three_times_and_two_swings_heal_three_each()
+    {
+        var w = NewWorld();
+        var body = Loadouts.Body(w.Config, w.Players[1]);
+        SetHealth(w, body.HealthMax * 0.2f);
+        TenBoys(w);
+        Run(w, 20, InputButtons.Melee);
+        Assert.Equal(body.HealthMax * (0.2f + MusouCombatRules.MeleeHealsPerSwing * 0.05f), w.Players[1].Health, 2);   // ten struck, three healed
+        Run(w, 20, InputButtons.Melee);
+        Assert.Equal(body.HealthMax * (0.2f + 2 * MusouCombatRules.MeleeHealsPerSwing * 0.05f), w.Players[1].Health, 2);   // a second swing heals three more
+        Assert.Equal(5, MusouCombatRules.MeleeHealsPerSwing);   // owner 2026-11-14 (was 3)
+    }
+
+    [Fact]
+    public void The_air_slash_landing_heal_stays_uncapped_next_to_a_capped_swing()
+    {
+        var w = NewWorld();
+        var body = Loadouts.Body(w.Config, w.Players[1]);
+        SetHealth(w, body.HealthMax * 0.2f);
+        TenBoys(w);
+        Run(w, 20, InputButtons.Melee);
+        Assert.Equal(body.HealthMax * (0.2f + MusouCombatRules.MeleeHealsPerSwing * 0.05f), w.Players[1].Health, 2);   // the swing: capped
+        typeof(World).GetMethod("MusouSlashLandHeal", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.Invoke(w, [1]);
+        Assert.Equal(body.HealthMax * (0.2f + MusouCombatRules.MeleeHealsPerSwing * 0.05f + MusouCombatRules.SlashLandHealthShare), w.Players[1].Health, 2);   // the landing: its whole 25 %, outside the cap
+    }
+
+    [Fact]
+    public void A_heavy_swing_with_a_stomp_through_ten_Orks_heals_three_times_in_all()
+    {
+        var splash = new SplashSpec(3f, Plain with { Damage = 30f }, [new(0f, 1f), new(3f, 1f)], false, true, "target_all");
+        var w = NewWorld(config: Config(cls: c => c with { MeleeHeavy = [Heavy with { Stomp = splash }] }));
+        var body = Loadouts.Body(w.Config, w.Players[1]);
+        SetHealth(w, body.HealthMax * 0.2f);
+        TenBoys(w);
+        Run(w, 20, InputButtons.MeleeHeavy);
+        Assert.Equal(body.HealthMax * (0.2f + MusouCombatRules.MeleeHealsPerSwing * 0.05f), w.Players[1].Health, 2);   // the stomp and its cleave are one swing: three heals, not three plus three
+    }
+
+    [Fact]
+    public void The_restore_switch_gives_the_heal_for_every_enemy_struck_and_is_hashed_only_in_Musou()
+    {
+        var uncapped = NewWorld(config: Config() with { MusouUncappedMeleeHeal = true });
+        var body = Loadouts.Body(uncapped.Config, uncapped.Players[1]);
+        SetHealth(uncapped, body.HealthMax * 0.2f);
+        TenBoys(uncapped);
+        Run(uncapped, 20, InputButtons.Melee);
+        Assert.Equal(body.HealthMax * (0.2f + 8 * 0.05f), uncapped.Players[1].Health, 2);   // --musou-uncapped-melee-heal: every enemy struck heals (the cleave strikes eight of the ten in this setup)
+        Assert.NotEqual(Config().Hash(), (Config() with { MusouUncappedMeleeHeal = true }).Hash());
+        Assert.Equal((Config() with { Extras = ContentExtras.Orks }).Hash(), (Config() with { Extras = ContentExtras.Orks, MusouUncappedMeleeHeal = true }).Hash());   // Classic: the switch is not hashed
     }
 
     [Fact]
@@ -418,7 +498,25 @@ public class MusouCombatTests
     [Fact]
     public void A_charges_last_move_before_it_stops_on_a_player_still_hits_the_enemies()
     {
-        LastMoveHits(() => NewWorld(players: 2), w => { var d = w.Players[2].Position - w.Players[1].Position; return MathF.Atan2(-d.X, d.Y); });
+        // The charge stops on an ally only with the restore switch (charge-ally-slide, protocol 67: a charge passes an ally otherwise, Musou Mode included).
+        LastMoveHits(() => NewWorld(config: Config(0) with { ChargeAllyBump = false }, players: 2), w => { var d = w.Players[2].Position - w.Players[1].Position; return MathF.Atan2(-d.X, d.Y); });
+    }
+
+    [Fact]
+    public void A_charge_passes_an_ally_in_Musou_Mode_too()
+    {
+        // charge-ally-slide (protocol 67; the owner 2026-11-11): no contact, no stop, nothing on the ally (Musou Mode has no rule of its own).
+        var w = NewWorld(players: 2);
+        var other = w.Players[2];
+        float heading = MathF.Atan2(-(other.Position.X - Me(w).X), other.Position.Y - Me(w).Y);
+        for (int t = 0; t < 45; t++)
+        {
+            bool held = t < 2;
+            w.Step(_ => new PlayerInput(0, 0f, held ? 1f : 0f, heading, held ? InputButtons.Sprint | (t == 1 ? InputButtons.MeleeHeavy : 0) : 0));
+            Assert.Empty(w.LastRushes);
+            Assert.NotEqual(RushPhase.Collision, w.Players[1].Rush);
+            Assert.Equal((other.Shield, ReactionKind.None), (w.Players[2].Shield, w.Players[2].Reaction));
+        }
     }
 
     [Theory]
@@ -477,5 +575,80 @@ public class MusouCombatTests
         Assert.True(blast);
         Assert.True(w.Musou!.TryGet(boy, out var hurt));
         Assert.False(hurt.Alive);
+    }
+
+    // ---------------------------------------------------------------- bosses and melee stuns (owner 2026-11-12: unstunnable in any form, but susceptible to melee attack stuns)
+
+    static (World W, ushort Boss) WarWithBoss(Vector3 offset, MusouEnemyType type = MusouEnemyType.Warboss, int primary = 0, SimConfig? config = null, bool puppet = false)
+    {
+        var w = NewWorld(primary, config);
+        int who = 1;
+        if (puppet) { who = global::SmSim.Extras.Musou.Campaign.TfwContracts.PuppetIdFirst; w.Spawn(who, w.AssignClass(0)); w.Step(_ => default); }
+        w.Musou!.War = global::SmSim.Extras.Musou.Campaign.TfwCombatRules.Default;
+        ushort boss = w.Musou.Spawn(type, w.Players[who].Position + offset, 0f, 1e6f);
+        for (int t = 0; t < 120; t++) w.Step(_ => new PlayerInput(0, 0f, 0f, 0f, 0));   // out of its spawn stand
+        return (w, boss);
+    }
+
+    static bool StunnedDuring(World w, ushort boss, int ticks, Func<int, PlayerInput> input, int only = 0)
+    {
+        bool stunned = false;
+        for (int t = 0; t < ticks; t++)
+        {
+            w.Step(id => only == 0 || id == only ? input(t) : default);
+            stunned |= w.Musou!.BossStunned(boss);
+        }
+        return stunned;
+    }
+
+    [Theory]
+    [InlineData(MusouEnemyType.Warboss)]
+    [InlineData(MusouEnemyType.BossNob)]
+    [InlineData(MusouEnemyType.BossBoy)]
+    public void A_heavy_melee_step_stuns_a_boss_and_a_light_one_does_not(MusouEnemyType type)
+    {
+        var (light, lb) = WarWithBoss(new Vector3(0f, 2f, 0f), type);
+        Assert.False(StunnedDuring(light, lb, 30, t => new PlayerInput(0, 0f, 0f, 0f, t == 0 ? InputButtons.Melee : 0)));
+        var (heavy, hb) = WarWithBoss(new Vector3(0f, 2f, 0f), type);
+        Assert.True(StunnedDuring(heavy, hb, 30, t => new PlayerInput(0, 0f, 0f, 0f, t == 0 ? InputButtons.MeleeHeavy : 0)));
+        Assert.True(heavy.Musou!.BossStuns >= 1);
+    }
+
+    [Fact]
+    public void A_charge_stuns_a_boss_on_its_path()
+    {
+        var (w, boss) = WarWithBoss(new Vector3(0.3f, 4f, 0f), MusouEnemyType.BossNob);
+        Assert.True(StunnedDuring(w, boss, 45, t => { bool held = t < 2; return new PlayerInput(0, 0f, held ? 1f : 0f, 0f, held ? InputButtons.Sprint | (t == 1 ? InputButtons.MeleeHeavy : 0) : 0); }));
+    }
+
+    [Fact]
+    public void A_ground_pound_stuns_a_boss_within_its_blast()
+    {
+        var splash = new SplashSpec(3f, Plain with { Damage = 30f }, [new(0f, 1f), new(3f, 1f)], false, true, "target_all");
+        var (w, boss) = WarWithBoss(new Vector3(0f, 1.5f, 0f), MusouEnemyType.BossArdBoy, config: Config(cls: c => c with { MeleeHeavy = [Heavy with { Stomp = splash, PrimaryReaction = default }] }));
+        Assert.True(StunnedDuring(w, boss, 30, t => new PlayerInput(0, 0f, 0f, 0f, t == 0 ? InputButtons.MeleeHeavy : 0)));
+    }
+
+    [Fact]
+    public void A_rocket_blast_a_flamer_and_a_shot_never_stun_a_boss()
+    {
+        foreach (int primary in new[] { 0, 1, 2 })
+        {
+            var (w, boss) = WarWithBoss(new Vector3(0f, 8f, 0f), MusouEnemyType.Warboss, primary);
+            Assert.False(StunnedDuring(w, boss, 60, _ => new PlayerInput(0, 0f, 0f, 0f, InputButtons.Fire)));
+            Assert.True(w.Musou!.TryGet(boss, out var e) && e.Health < 1e6f, $"primary {primary} hit it");
+            Assert.Equal(0, w.Musou.BossStuns);
+        }
+    }
+
+    [Fact]
+    public void An_AI_Marines_heavy_swing_and_charge_never_stun_a_boss()
+    {
+        var (heavy, hb) = WarWithBoss(new Vector3(0f, 2f, 0f), MusouEnemyType.BossNob, puppet: true);
+        Assert.False(StunnedDuring(heavy, hb, 30, t => new PlayerInput(0, 0f, 0f, 0f, t == 0 ? InputButtons.MeleeHeavy : 0), global::SmSim.Extras.Musou.Campaign.TfwContracts.PuppetIdFirst));
+        Assert.True(heavy.Musou!.TryGet(hb, out var hurt) && hurt.Health < 1e6f, "the swing landed");   // it hurt, it did not stun
+        var (w, boss) = WarWithBoss(new Vector3(0.3f, 4f, 0f), MusouEnemyType.BossNob, puppet: true);
+        Assert.False(StunnedDuring(w, boss, 45, t => { bool held = t < 2; return new PlayerInput(0, 0f, held ? 1f : 0f, 0f, held ? InputButtons.Sprint | (t == 1 ? InputButtons.MeleeHeavy : 0) : 0); }, global::SmSim.Extras.Musou.Campaign.TfwContracts.PuppetIdFirst));
+        Assert.True(w.Musou!.TryGet(boss, out var charged) && charged.Health < 1e6f, "the charge landed");
     }
 }

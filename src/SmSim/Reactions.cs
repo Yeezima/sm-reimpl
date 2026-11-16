@@ -255,6 +255,7 @@ public static class Reaction
     {
         if (!s.Alive || Evade.HyperArmour(s, c) || Rush.HyperArmour(s, c)) return false;
         if (Brace.ReactionImmune(s)) return false;   // fidelity gap 7: the heavy bolter's stance (owner's recollection: stuns and hits do not knock you out)
+        if (Stims.WindUp(c, s)) return false;   // owner 2026-11-12: a stim's use is not cancelled by a hit before its release
         if (Stims.ReactionImmune(c, s)) return false;   // perks/inert-2: combat stims (mp_reaction_immunity while they work)
         if (s.Jump is JumpPhase.Ascent or JumpPhase.Hang or JumpPhase.Fall or JumpPhase.Dive) return false;
         if (ClipOf(s, c) is { } clip && Time(s, c) + Eps < clip.ReactAt) return false;
@@ -292,7 +293,7 @@ public static class Reaction
             Charging = false, ChargeTime = 0f, PendingShot = 0, PendingLeft = 0f, Throwing = false, ThrowTime = 0f,   // sim/reload-keeps: a reload runs on through the reaction
             EvadeTicks = 0, EvadeDirection = EvadeDirection.Forward, EvadeLanded = false, JumpDashDirection = keepJump ? s.JumpDashDirection : EvadeDirection.Forward, Aiming = false, Rush = RushPhase.None, RushTicks = 0,
             Jump = keepJump ? s.Jump : JumpPhase.None, JumpTicks = keepJump ? s.JumpTicks : 0, JumpMark = keepJump ? s.JumpMark : 0,
-            JumpHolding = false, JumpLandMoving = false, JumpCut = false, JumpSmall = false, JumpSlash = false,
+            JumpHolding = false, JumpLandMoving = false, JumpCut = false, JumpSmall = false, JumpAirOpen = false, JumpSlash = false,
             Velocity = new Vector3(0f, 0f, s.Velocity.Z), SprintStop = false,
         };
     }

@@ -24,6 +24,10 @@ the rule for new added content: `docs/added-content.md`.
   weapons, armour customization and paint, progression and unlocks, front-end flow to get into a match.
 - **Out:** the singleplayer campaign (chapters, cinematics, story sequences, campaign-only characters and AI). Touch
   singleplayer content only when multiplayer depends on it, and note the dependency.
+  Noted dependencies: Musou Mode's Warboss draws the campaign's `warboss_regular` body and `cinematic_warboss` head
+  (`ebp_sets__sequence2_core_units`; docs/discovery.md "Warboss model"); Musou's Stormboy uses the campaign's `boy_stormboy` +
+  `havok_stormboy` from `ebp_sets__s002-001` (docs/discovery.md "Exterminatus Ork roster").
+  Musou's Ashfall wind bed plays `play_wind_open` from the campaign region bank `rgn_onthetrail_r100_player_01` (no wind in the MP banks; musou/soundscape 2026-11-12).
 - Content map (Verified-local by archive names): PvP = `data/chunks/mp_*`, `ebp_sets__mp_versus_set`,
   `wargear__mp_sm`/`wargear__mp_csm`, `data/packages/*_mp_*`; Exterminatus = `data/chunks/cp_maps__*`/`cp_map_*`,
   `ebp_sets__mp_coop_*`, `ork_core_units`/`chaos_core_units`; shared = `player_set`, packages `sm_*`/`csm_*`,
@@ -51,6 +55,7 @@ the rule for new added content: `docs/added-content.md`.
 - Private cache: `%LOCALAPPDATA%\sm-reimpl\cache` (outside the repo). Never commit or package it.
 - No original bytes in tests. Generate synthetic fixtures (`SyntheticObpkWriter`).
 - No absolute local paths or account IDs in committed files. The machine path goes in `config/local.json` (git-ignored).
+  That covers docs, comments, spec rows and release notes too (owner, 2026-11-10: "Scrub local pc folder paths ands any other sensitive or identifying information from public view"): write `<media folder>\...`, `%LOCALAPPDATA%\sm-reimpl\...` or "the owner's media folder", never an expanded local path (`PublicTextGuardTests` enforces it).
 - Out of scope: executable decompilation, binary patching, DRM circumvention, replacing online services.
   Do not reuse code from tools without a usable license (e.g. smbod, which is decompiled).
 - Do not push, publish, or spend money unless the user asks.
@@ -73,6 +78,10 @@ ship.cmd [-DryRun] [-Playtest]        :: owner's one-command playtest release (d
 ```
 The full reference of every command, flag and test aid is in `docs/commands.md`.
 
+Tool choice: use the Graphify MCP server (`graphify.cmd`, docs/commands.md "Graphify (code graph)") for impact, caller and implementer questions across
+projects and partial classes before changing shared sim or net code; its edges are name-based leads, so confirm every one with Grep; the `Extras*`
+partial-method hooks are a blind spot. Not for single-file or text work (Grep and Read). The lead refreshes the index (`graphify.cmd index`) after each ff of `main`.
+
 ## Alpha scope (set by the user, 2026-10-27)
 Only Annihilation and Seize Ground; no other modes for now (Exterminatus deferred). Customizer: in since 2026-10-28 (owner's
 request): a custom-class creator with 10 slots and a character (armour) customizer, matching the original in all but style.
@@ -81,7 +90,7 @@ Only the map Manufactorum (`mp_tdm_09`) is developed further; it is the alpha ar
 
 ## Current state (2026-10-29)
 A playable pre-alpha ships to playtesters through the SM Reimpl Launcher (releases repository Yeezima/sm-reimpl-releases): Annihilation and
-Seize Ground on Manufactorum, the six classes plus the Ork Boy (added content), customizer, perks, bots, the launcher and updater. Protocol 51 (since 2026-11-01: no firing while sprinting). Musou Mode (added content; `Tfw` in code) runs a whole run on a real server, with test aids leaving out the fighting (milestones TF9); no human has played it.
+Seize Ground on Manufactorum, the six classes plus the Ork Boy (added content), customizer, perks, bots, the launcher and updater. Protocol 59 (since 2026-11-06: solid bodies, classic PvP deploy and spawn choice, then the swing step, lock-on lunge and Classic air-jump changes). Musou Mode (added content; `Tfw` in code) runs a whole run on a real server, with test aids leaving out the fighting (milestones TF9); no human has played it.
 The history of every milestone and fix (formats, systems, decisions, test aids, the switches that restore old behaviour) is in
 `docs/milestones.md`; search it for a system's name before changing that system. Add a short paragraph there after each milestone.
 This repository was published fresh on 2026-10-29 (one root commit); never merge a branch from the older private history.

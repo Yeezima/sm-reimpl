@@ -14,6 +14,84 @@ public sealed partial record SimConfig
     {
         // Musou: its own version (simulation and wire sections), so a Musou-only change never touches ContentExtras.WireVersion or the extended hash.
         // Musou Mode's war rules: their version sits in the same block.
-        if (Extras.HasFlag(ContentExtras.Musou)) { w.Write("musou"); w.Write(MusouSim.Version); w.Write(SmSim.Extras.Musou.Campaign.TfwRules.Version); }
+        if (Extras.HasFlag(ContentExtras.Musou)) { w.Write("musou"); w.Write(MusouSim.Version); w.Write(SmSim.Extras.Musou.Campaign.TfwRules.Version); if (AerialTackleRestored) w.Write("aerial-tackle"); }
+        if (Extras.HasFlag(ContentExtras.Musou) && MusouUncappedMeleeHeal) w.Write("uncapped-melee-heal");   // musou/melee-heal-cap: the restore switch --musou-uncapped-melee-heal, only when on
+        if (Extras.HasFlag(ContentExtras.Musou) && MusouMeleeCooldown) w.Write("melee-cooldown");   // musou/melee-spam: the restore switch --musou-melee-cooldown, only when on
+        if (Extras.HasFlag(ContentExtras.Musou) && MusouOrkSwingTracking) w.Write("ork-swing-tracking");   // musou/ork-swing-commit: the restore switch --musou-ork-swing-tracking, only when on
+    }
+
+    /// <summary>musou/melee-heal-cap restore switch (<c>--musou-uncapped-melee-heal</c> on the server and every client; config hash, only when on): true gives back the heal for every enemy a melee swing strikes (no cap of <see cref="MusouCombatRules.MeleeHealsPerSwing"/>).</summary>
+    public bool MusouUncappedMeleeHeal { get; init; }
+
+    // musou/no-aerial-tackle (owner, 2026-11-12, temporary): Musou Mode has no aerial tackle; a melee press in a hop is the light attack at once. --musou-aerial-tackle (AerialTackleRestored) restores the tackle.
+    partial void ExtrasAerialTackleOff(ref bool off)
+    {
+        if (Extras.HasFlag(ContentExtras.Musou) && !AerialTackleRestored) off = true;
+    }
+
+    // sim/air-jumps (owner, 2026-11-06): only Musou Mode keeps the jump-pack classes' full jumps in the air (feel/melee-cancels); Classic PvP gets the hop alone.
+    partial void ExtrasAirJumps(ref bool allowed)
+    {
+        if (Extras.HasFlag(ContentExtras.Musou)) allowed = true;
+    }
+
+    // librarian zoom (owner, 2026-11-12): the Librarian carries no gun, but the Aim key zooms him like every class (his cast keys are Fire, Grenade and Reload).
+    partial void ExtrasAimWithoutWeapon(int classIndex, ref bool aims)
+    {
+        if (SmSim.Extras.Musou.LibrarianRules.IsLibrarian(this, classIndex)) aims = true;
+    }
+
+    // musou/melee-spam (owner, 2026-11-12): in Musou Mode a light attack has no cooldown or delay (the restore switch --musou-melee-cooldown brings the old waits back).
+    partial void ExtrasMeleeSpam(ref bool on)
+    {
+        if (Extras.HasFlag(ContentExtras.Musou) && !MusouMeleeCooldown) on = true;
+    }
+
+    // sim/sprint-melee-charge (owner, 2026-11-15): Musou Mode keeps its input, a light press while sprinting swings.
+    partial void ExtrasSprintMeleeKept(ref bool on)
+    {
+        if (Extras.HasFlag(ContentExtras.Musou)) on = true;
+    }
+
+    // musou/no-spread (owner, 2026-11-06): Musou Mode's shots have no spread at all.
+    partial void ExtrasNoBulletSpread(ref bool off)
+    {
+        if (Extras.HasFlag(ContentExtras.Musou)) off = true;
+    }
+
+    // night batch 2026-11-06 (owner): Musou Mode keeps the owner's jump-pack capacity (300); Classic PvP has the data's.
+    partial void ExtrasJumpPackOwnerCapacity(ref bool owner)
+    {
+        if (Extras.HasFlag(ContentExtras.Musou)) owner = true;
+    }
+
+    // musou/combat-rules (owner, 2026-11-09): Musou Mode's combat stims last 3x, hit 2x, swing and fire 20 % faster, and spend no ammunition; its frag blasts reach 2x.
+    partial void ExtrasStimBoost(ref StimBoost boost)
+    {
+        if (Extras.HasFlag(ContentExtras.Musou)) boost = new StimBoost(MusouCombatRules.StimLifetimeScale, MusouCombatRules.StimMeleeDamage, MusouCombatRules.StimAttackSpeed, true);
+    }
+
+    partial void ExtrasFireBoost(ref float rate, ref float cap)
+    {
+        if (!Extras.HasFlag(ContentExtras.Musou)) return;
+        rate = SmSim.Extras.Musou.MusouPowerupRules.FireRate;   // the Rapid Fire powerup (owner 2026-11-10)
+        cap = SmSim.Extras.Musou.MusouPowerupRules.Cap;         // with a stim's speed never above x2 (owner 2026-11-10: "Cap at x2")
+    }
+
+    // the autocannon pass 2 (owner, 2026-11-11: "No clip in Musou mode - just infinite shooting"): Musou's autocannon spends no round, so its clip never moves and nothing reloads it.
+    // Classic PvP's autocannon (ContentExtras.Autocannon, never with Musou) spends its clip of 120.
+    partial void ExtrasEndlessClip(WeaponSpec weapon, ref bool endless)
+    {
+        if (Extras.HasFlag(ContentExtras.Musou) && AutocannonRules.EndlessClip(weapon)) endless = true;
+    }
+
+    partial void ExtrasThrownBlastScale(ThrownSpec? item, ref float scale)
+    {
+        if (!Extras.HasFlag(ContentExtras.Musou)) return;
+        // musou/aoe-pass (owner 2026-11-14): a null item is a launched (not thrown) projectile's blast; every player weapon's reach x WeaponAoeScale, a frag's on top of its x2.
+        if (item is not null && SmSim.Extras.Musou.Campaign.TfwCombatRules.IsFrag(item)) scale = MusouCombatRules.FragReachScale * MusouCombatRules.WeaponAoeScale;
+        else if (item is not null && item.Name.Equals(SmSim.Extras.Musou.Arsenal.ArsenalRules.RemoteDetonators, StringComparison.OrdinalIgnoreCase))
+            scale = SmSim.Extras.Musou.Arsenal.DemolitionChargeRules.CentreStretch;   // a "blast reach" contract: the charge has no splash today; one added later would be scaled x1.6 on the server too   // W4: the client's one centre effect at the 16 m blast (x1.6 of the data's 10 m); the item has no splash, so the server's blasts are untouched
+        else scale = MusouCombatRules.WeaponAoeScale;
     }
 }

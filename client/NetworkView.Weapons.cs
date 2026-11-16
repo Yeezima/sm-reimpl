@@ -62,6 +62,7 @@ public partial class NetworkView
         if (assets is null || _config is null || character.Skeleton is null || state.PlayerId <= 0) return;   // id 0: the state before the first snapshot
         var rig = character.Weapons ??= new WeaponRig(character.Skeleton, assets);
         if (rig.Faulted) return;
+        rig.Content = _config.Extras;   // added content's own weapon models only under its content (Musou's arsenal)
         try
         {
             int primary = Loadouts.WeaponIndex(_config, state, WeaponSlot.Ranged), pistol = Loadouts.WeaponIndex(_config, state, WeaponSlot.Pistol);
@@ -92,6 +93,7 @@ public partial class NetworkView
             bool hasLoco = _loco.TryGetValue(state.PlayerId, out var loco);
             if (hasLoco && state.MeleeStep == 0) loco!.MeleeWeight = 1f;   // the handed-over swing's fade ends with it: the next swing never starts hidden
             bool meleeShown = state.Alive && state.MeleeStep > 0 && (hasLoco ? loco!.MeleeWeight : 1f) > MeleeVisibleWeight;
+            if (HoldMeleeDemo && state.Alive && ReferenceEquals(character, _local)) meleeShown = true;   // fx/weapon-visuals capture aid: --hold-melee
             rig.Update(state.Slot, meleeShown, state.Alive, delta, _config.WeaponSwitchTime, release, take);
         }
         catch (Exception ex) when (ex is not (OutOfMemoryException or StackOverflowException or AccessViolationException))
@@ -104,8 +106,12 @@ public partial class NetworkView
         if (!rig.Faulted) ReloadSyncSafe(character, rig, state, ReferenceEquals(character, _local), delta);   // M35 (NetworkView.Reload.cs)
     }
 
-    /// <summary>fix/stim-knife-visuals (ours): below this upper-body weight a handed-over strike no longer shows its melee weapon in the hand.</summary>
-    const float MeleeVisibleWeight = 0.25f;
+    /// <summary>
+    /// fix/stim-knife-visuals (ours): below this upper-body weight a handed-over strike no longer shows its melee weapon in the hand. fix/versatility-knife-stow (owner, 2026-11-07: the knife
+    /// "points straight up in front of the chest" when a light combo ends): 0.25 let the knife ride the exit's blend to the rifle-posed arm for most of its 0.333 s; now it leaves the hand as
+    /// the exit starts (the knife is hidden when stowed, as the data's <c>hide_on_stow</c>).
+    /// </summary>
+    const float MeleeVisibleWeight = 0.85f;
     int _weaponFaults;
     readonly Dictionary<int, Color> _packLogged = new();   // per player: the pack colour last logged (--bot / --look-log)
 
@@ -135,7 +141,7 @@ public partial class NetworkView
         if ((_bot || _showInfo) && _connectedFor - _wLogAt >= 10.0 && _wFrames > 60)
         {
             _wLogAt = _connectedFor;
-            GD.Print($"t {_connectedFor:F0} s: frame time avg {_wFrameSum / _wFrames * 1000:F1} ms, max {_wFrameMax * 1000:F1} ms over {_wFrames} frames; {WeaponStats()}; {MuzzleLog()}; {ReloadStats()}; {StimStats()}; {FallStats()}; {UpperStats()}; {SprintEdgeStats()}");
+            GD.Print($"t {_connectedFor:F0} s: frame time avg {_wFrameSum / _wFrames * 1000:F1} ms, max {_wFrameMax * 1000:F1} ms over {_wFrames} frames; {WeaponStats()}; {MuzzleLog()}; {ReloadStats()}; {ThrowFollowStats()}; {OwnBallStats()}; {StimStats()}; {FallStats()}; {UpperStats()}; {SprintEdgeStats()}");
             _wFrameSum = 0; _wFrameMax = 0; _wFrames = 0;
         }
     }

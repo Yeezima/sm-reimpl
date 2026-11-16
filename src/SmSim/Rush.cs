@@ -301,8 +301,12 @@ public static class Rush
             bool dashAfter = s.Rush is RushPhase.DashHit or RushPhase.DashCollision or RushPhase.DashStop;
             float evadeAt = scaled ? c.LockTime(move.EvadeAt) : move.EvadeAt, moveAt = scaled ? c.LockTime(move.MoveAt) : move.MoveAt;
             float meleeAt = dashAfter ? c.LockTime(move.MeleeAt) : move.MeleeAt;
-            bool over = At(move.End) || (jumpPress && At(evadeAt)) || ((meleePress || heavyPress) && At(meleeAt)) || (otherInput && At(moveAt));
+            // charge-responsive (protocol 69): S held back (firmly: ChargeCancel.InstantBackStick) ends the bull rush from its second tick on, not from the branch.
+            bool backNow = s.Rush == RushPhase.Rush && c.ChargeBackCancel && c.ChargeInstantCancel && ChargeCancel.BackInstant(input.Sanitized());
+            bool over = At(move.End) || (jumpPress && At(evadeAt)) || ((meleePress || heavyPress) && At(meleeAt)) || (otherInput && At(moveAt)) || backNow;
             if (!over) return new(true, false, false, s with { RushTicks = Math.Min(s.RushTicks + 1, MaxTicks) });
+            if (backNow && !At(moveAt) && !At(move.End) && !(jumpPress && At(evadeAt)) && !((meleePress || heavyPress) && At(meleeAt)))
+                return new(false, false, false, Landed(s, c));   // an early cancel: the clip's opening burst (28 to 41 m/s) is not carried on, the speed is capped as after a landing (ours)
             // The dash attack's lunge ends into its run-out ("Dash to Idle" on BRANCH_toIdle), which plays from this tick.
             if (s.Rush == RushPhase.DashAttack && At(move.End) && Loadouts.JumpPack(c, s)?.DashAttack is not null)
                 return new(true, false, false, s with { Rush = RushPhase.DashStop, RushTicks = 1 });
@@ -380,8 +384,10 @@ public static class Rush
     /// </summary>
     public static bool CanDashAttack(PlayerState s, SimConfig c, CollisionWorld? world)
     {
+        if (c.AerialTackleOff) return false;   // musou/no-aerial-tackle (owner 2026-11-12): added content turns the tackle off; a melee press in a hop is the light attack (MeleeCancel)
         if (!s.Alive || s.Reaction != ReactionKind.None || s.Rush != RushPhase.None || s.EvadeTicks <= 0 || s.EvadeLanded) return false;
         if (Loadouts.JumpPack(c, s)?.DashAttack is not { } dash || Loadouts.Evade(c, s) is not { Dash: true } evade) return false;
+        if (Loadouts.Melee(c, s) is { Count: > 0 } light && light[0].HopSwing) return false;   // sim/hop-swing (owner, 2026-11-07): the hammer and the maul swing there instead (MeleeCancel)
         if (!(Evade.Time(s, c) + Eps >= evade.Move(s.EvadeDirection).DashAttackAt)) return false;
         return JumpPack.AboveGround(s, world) <= dash.MaxHeight + Eps;
     }
@@ -506,8 +512,21 @@ public static class Rush
     /// within the half-angle of the heading as seen from the move's start (so a player beside or behind, even overlapping,
     /// is not reached; one exactly at the start counts as ahead), the feet within the melee vertical reach.
     /// </summary>
-    public static float? Contact(Vector3 from, Vector3 to, float yaw, Vector3 target, RushSpec spec, SimConfig c)
+    /// <remarks>
+    /// fix/charge-player-collision (protocol 57, <see cref="SimConfig.SolidBodies"/>; the owner's playtest of 2026-11-06: "sometimes you can charge through an enemy instead of
+    /// impacting on them ... the collision of the models works from a center point rather than an outer hitbox"): the move is a sweep, not a closest approach. A body already within
+    /// reach when the tick's move starts is met at once, under the old cone from the start; any other is met where the swept reach first touches it (the first touch, so the
+    /// earliest body along the move is the one met), when it lies anywhere in front of the charger there (the front half: a shoulder clipping a shoulder at the side of the reach
+    /// counts, as the models' outer edges meet). Before, the 45 degree cone was measured from wherever the tick's move began, so a body 0.85 to 1.2 m off the line connected or
+    /// not by the tick's phase (a 30 to 40 m/s burst moves 1 to 1.3 m a tick), and a charger passed a body it had grazed. Ours.
+    /// </remarks>
+    public static float? Contact(Vector3 from, Vector3 to, float yaw, Vector3 target, RushSpec spec, SimConfig c) => Contact(from, to, yaw, target, spec, c, c.SolidBodies);
+
+    /// <summary>As <see cref="Contact(Vector3, Vector3, float, Vector3, RushSpec, SimConfig)"/>, the rule chosen: <paramref name="swept"/> the sweep (an opponent with
+    /// <see cref="SimConfig.SolidBodies"/>: <see cref="ChargeLock.Find"/>), else the protocol 56 closest approach and cone from the move's start (an ally).</summary>
+    public static float? Contact(Vector3 from, Vector3 to, float yaw, Vector3 target, RushSpec spec, SimConfig c, bool swept)
     {
+        if (swept) return SweptContact(from, to, yaw, target, spec, c);
         if (MathF.Abs(target.Z - to.Z) > c.MeleeVerticalReach) return null;
         var a = new Vector2(from.X, from.Y); var b = new Vector2(to.X, to.Y); var p = new Vector2(target.X, target.Y);
         var ab = b - a;
@@ -522,5 +541,36 @@ public static class Rush
         float l = offset.Length();
         if (l > 1e-4f && Vector2.Dot(offset / l, forward) < MathF.Cos(spec.ContactHalfAngle * MathF.PI / 180f)) return null;
         return t;
+    }
+
+    /// <summary>The contact of <see cref="Contact"/> with <see cref="SimConfig.SolidBodies"/>: the first touch of the swept reach (see its remarks); null when not met.</summary>
+    static float? SweptContact(Vector3 from, Vector3 to, float yaw, Vector3 target, RushSpec spec, SimConfig c)
+    {
+        if (!(MathF.Abs(target.Z - to.Z) <= c.MeleeVerticalReach)) return null;
+        var a = new Vector2(from.X, from.Y); var b = new Vector2(to.X, to.Y); var p = new Vector2(target.X, target.Y);
+        float reach = 2f * c.CapsuleRadius + spec.ContactMargin;
+        var forward = new Vector2(-MathF.Sin(yaw), MathF.Cos(yaw));
+        var start = p - a;
+        float startSq = start.LengthSquared();
+        if (startSq <= reach * reach)
+        {
+            // Within reach before the move: met at once when ahead within the cone from here (a player beside or behind, even overlapping, is not reached).
+            float l = MathF.Sqrt(startSq);
+            if (l > 1e-4f && Vector2.Dot(start / l, forward) < MathF.Cos(spec.ContactHalfAngle * MathF.PI / 180f)) return null;
+            return 0f;
+        }
+        var ab = b - a;
+        float aa = ab.LengthSquared();
+        if (!(aa > 1e-10f)) return null;
+        var w = a - p;
+        float half = Vector2.Dot(w, ab);
+        if (half >= 0f) return null;   // moving away from it
+        float disc = half * half - aa * (startSq - reach * reach);
+        if (disc < 0f) return null;    // passes by out of reach
+        float t = (-half - MathF.Sqrt(disc)) / aa;
+        if (!(t <= 1f)) return null;   // not reached this tick
+        t = MathF.Max(0f, t);
+        var touch = a + ab * t;
+        return Vector2.Dot(p - touch, forward) >= -1e-4f ? t : null;   // in front of the charger where the reach touches it
     }
 }

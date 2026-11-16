@@ -127,9 +127,10 @@ public class AllyNavTests
         Assert.True(w.StartTfw(Graph(mesh), TfwTestArena.Field));
         w.Spawn(1, w.AssignClass(0));
         for (int k = 0; k < 60 && w.State != MatchState.Playing; k++) w.Step(_ => default);
-        int marine = w.TfwSpawnRetainer(1, new Vector3(10f, 10f, 0f))!.Value;
+        int marine = w.TfwSpawnAlly(new Vector3(10f, 10f, 0f))!.Value;
         var to = new Vector3(50f, 10f, 0f);
-        Assert.True(w.TfwOrderMarines(1, new TfwCommandRecord(1, TfwCommand.Attack, 0, to)));
+        w.Tfw!.Idle = true;   // no battle: the pair goes to the run's active position
+        w.Tfw.ActivePosition = to;
         for (int k = 0; k < 40 * 30 && MarineBrain.Flat(w.Players[marine].Position, to) > MarineRules.ArriveRadius; k++) w.Step(_ => default);
         Assert.True(MarineBrain.Flat(w.Players[marine].Position, to) <= MarineRules.ArriveRadius + 1f, $"stopped at {w.Players[marine].Position}");
     }
@@ -149,7 +150,7 @@ public class AllyNavTests
     }
 
     [Fact]
-    public void Squads_go_for_the_nearest_position_not_secured_and_a_secured_one_keeps_a_squad()
+    public void Squads_hold_the_landing_zone_then_hold_a_secured_position()
     {
         var w = TfwRig.War();
         var battle = TfwRig.Deploy(w);
@@ -158,7 +159,7 @@ public class AllyNavTests
         Assert.Equal(battle.Layout.Positions.OrderBy(p => Vector3.Distance(p, lz)).First(), battle.GoalFrom(lz));
         Assert.All(battle.Objectives.Take(3), o => Assert.Equal(TfwPositionState.Held, o.State));
         TfwRig.Seconds(w, 2f);
-        for (int s = 0; s < GuardSim.MaxSquads; s++) if (guards.AliveIn(s) > 0) Assert.False(guards.Arrived(s));   // nobody waits at the landing zone
+        for (int s = 0; s < GuardSim.MaxSquads; s++) if (guards.AliveIn(s) > 0) Assert.Equal(TfwBattle.LandingGoal, battle.SquadPost(s));   // since 2026-11-06 they take no position: they wait at the landing zone
         TfwRig.Secure(w, battle, 0);
         Assert.Equal(battle.Layout.Positions[1], battle.ActivePosition);
         TfwRig.Teleport(w, lz);

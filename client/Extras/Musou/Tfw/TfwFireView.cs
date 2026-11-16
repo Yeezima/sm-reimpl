@@ -28,7 +28,7 @@ namespace SmClient;
 public partial class NetworkView
 {
     /// <summary>The effects this view plays (<c>master_fx</c>).</summary>
-    static readonly string[] FxNames = ["artillery_explosion", "oob_explosion_huge", "thunderhawk_jet", "heavy_bolter_thunderhawk_tracer"];
+    static readonly string[] FxNames = ["artillery_explosion", "oob_explosion_huge", "thunderhawk_jet", "heavy_bolter_thunderhawk_tracer", "drop_pod_trail", "droppod_land_close", "drop_pod_landing_destruction", "droppod_engine_cooling_down"];   // the last four: the drop pod assault (NetworkView.TfwDropPod.cs)
     /// <summary>A Thunderhawk run's flyby (paused, played only by <see cref="TfwRunBegins"/>), best first: the aircraft's own (needs the campaign's bank), then the Valkyrie's.</summary>
     static readonly string[] FlybyEvents = ["play_thunderhawk_pass", "play_ig_valkyrie_flyby", "play_valkyrie_s13_flyby"];
     /// <summary>Shells: near, far.</summary>
@@ -105,6 +105,7 @@ public partial class NetworkView
         if (Lean || _client is null || _config is null) { _tfwFireIn.Clear(); return; }
         TfwFireTestFrame(war, delta);
         TfwOrbitalTestFrame(war);
+        TfwPodTestFrame(war);   // NetworkView.TfwDropPod.cs
         bool draw = DisplayServer.GetName() != "headless" && !_musouNoDraw;
         TfwFireAssets(draw);
         TfwFireBanks();
@@ -116,6 +117,7 @@ public partial class NetworkView
                 case TfwFireKind.Shell: _tfwShells.Add((f, false)); _tfwOrbitalSeen.Add(f); break;
                 case TfwFireKind.Run: TfwRunBegins(f, tick); break;
                 case TfwFireKind.Round: _tfwRoundsDue.Add((f, ToGodot(f.To))); break;
+                case TfwFireKind.Pod: TfwPodRecord(f); break;   // NetworkView.TfwDropPod.cs
             }
         _tfwFireIn.Clear();
         int rate = Math.Max(1, _config.TickRate);
@@ -123,8 +125,10 @@ public partial class NetworkView
         TfwRoundsFrame(tick);
         TfwAircraftFrame(tick, rate, (float)delta);
         TfwShockFrame();
+        TfwPodsFrame(tick, rate, TfwHudModel.InBattle(war.Phase) || war.Phase == TfwRunPhase.Hub);   // NetworkView.TfwDropPod.cs
         _tfwCloud?.Frame((float)delta);
         TfwWarSoundFrame(war);
+        TfwBattleAmbienceFrame(war);   // musou/battle-ambience: the far battle (NetworkView.TfwBattleAmbience.cs)
         if (_connectedFor >= _tfwFireLogAt && (_tfwShellsPlayed + _tfwRoundsPlayed + _tfwWarPlayed) > 0)
         {
             _tfwFireLogAt = _connectedFor + 10.0;
@@ -412,7 +416,7 @@ public partial class NetworkView
     /// <summary>The war round the walls: a far sound every moment or so, muffled, from a bearing of its own; more muffled inside the Stormbird.</summary>
     void TfwWarSoundFrame(in TfwWarView war)
     {
-        if (_sound is null || !_tfwBanksLoaded || _camera is not { } camera || _connectedFor < _tfwWarNext) return;
+        if (_sound is null || !_tfwBanksLoaded || _camera is not { } camera || _connectedFor < _tfwWarNext || MusouSoundIsOff(MusouSoundOff.Ambience)) return;   // musou/sound-ab: ambience off (the war bed too)
         _tfwWarNext = _connectedFor + WarGapMin + _tfwRoll.NextSingle() * (WarGapMax - WarGapMin);
         bool inside = war.Phase is TfwRunPhase.Hub or TfwRunPhase.Travel;
         float total = WarEvents.Sum(e => e.Weight), roll = _tfwRoll.NextSingle() * total;
@@ -421,8 +425,12 @@ public partial class NetworkView
         float bearing = _tfwRoll.NextSingle() * MathF.Tau, far = WarNear + _tfwRoll.NextSingle() * (WarFar - WarNear);
         var at = camera.GlobalPosition + new Vector3(MathF.Cos(bearing) * far, 6f, MathF.Sin(bearing) * far);
         var offset = new VoiceOffset(GainDb: (inside ? HubGainDb : WarGainDb) + pick.Gain, PitchCents: (_tfwRoll.NextSingle() - 0.5f) * 300f - 150f, Lpf: inside ? HubLpf : WarLpf);
-        var emitter = new SoundEmitter { Position = at, OneShot = true, Label = "tfw war" };
-        if (TfwPost(pick.Event, emitter, 0f, offset)) _tfwWarPlayed++;
+        var emitter = new SoundEmitter { Position = at, OneShot = true, Label = "tfw war", Background = true };   // Background: ducks under close combat (musou/soundscape-tuning)
+        if (TfwPost(pick.Event, emitter, 0f, offset))
+        {
+            _tfwWarPlayed++;
+            if (!inside && MusouAmbienceRules.IsArtillery(pick.Event)) TfwArtilleryShake(MusouAmbienceRules.ArtilleryShake);   // musou/battle-ambience: an artillery boom shakes a tiny bit
+        }
         else _tfwWarSilent++;
     }
 
@@ -514,13 +522,13 @@ public partial class NetworkView
                 centre /= Math.Max(1, _tfwOrbitalSeen.Count);
                 float off = new Num.Vector2(centre.X - _tfwOrbitalChosen.X, centre.Y - _tfwOrbitalChosen.Y).Length();
                 TfwOrbitalCheck($"the barrage's centre ({centre.X:F1}, {centre.Y:F1}) is {off:F1} m from the crosshair's point", off < 2f * TfwFireRules.Scatter);
-                TfwOrbitalCheck($"no cooldown: {war.Own.OrbitalSeconds} s, {TfwHudModel.OrbitalText}", war.Own.OrbitalSeconds == 0);
+                TfwOrbitalCheck($"cooldown after the strike: {war.Own.OrbitalSeconds} s, {TfwHudModel.OrbitalTextFor(false, war.Own.OrbitalSeconds)}", war.Own.OrbitalSeconds is > 40 and <= 60);
                 _tfwOrbitalSeen.Clear();
                 _tfwState.Commands.Issue(TfwCommand.Orbital, 0, _tfwOrbitalChosen);
                 _tfwOrbitalStage = 3; _tfwOrbitalAt = _connectedFor + 3.0;
                 break;
             case 3:
-                TfwOrbitalCheck("the server took a second call at once", _tfwOrbitalSeen.Count > 0);
+                TfwOrbitalCheck("the server refused a second call within the cooldown (contracts 25)", _tfwOrbitalSeen.Count == 0);
                 GD.Print($"TFWTEST orbital done: {_tfwOrbitalFailed} failed; posted: {string.Join(", ", _tfwFirePosted.Select(kv => $"{kv.Key} {kv.Value}"))}");
                 GetTree().Quit(_tfwOrbitalFailed == 0 ? 0 : 1);
                 _tfwOrbitalStage = 4;

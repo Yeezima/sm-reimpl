@@ -34,12 +34,23 @@ public static class MeleeInteraction
     public const float SourceRange = 4.5f;
 
     /// <summary>Ours: the own charge's victim is drawn at the lock spot until its reaction shows, then the override fades over this long (seconds); at most this long in all.</summary>
-    public const float LockDrawFade = 0.2f, LockDrawMax = 0.8f;
+    public const float LockDrawFade = 0.2f, LockDrawMax = 1.2f;   // feel/charge-clash: 0.8 to 1.2 s (the shove's 0.2 s plus a round trip at 300 ms before the snapshots catch up)
 
     /// <summary>
     /// The weight of the lock-spot override on the own charge's victim <paramref name="since"/> seconds after the predicted contact, <paramref name="sinceReacted"/> seconds after its drawn
     /// reaction began (negative: not yet): 1, then a smooth fade over <see cref="LockDrawFade"/> once it reacts or as <see cref="LockDrawMax"/> runs out.
     /// </summary>
+    /// <summary>feel/charge-clash: how near the drawn victim must come to the lock spot before the override lets go (metres, ours).</summary>
+    public const float LockSpotTolerance = 0.15f;
+
+    /// <summary>feel/charge-clash: whether the interpolated victim has reached the lock spot (horizontally within <see cref="LockSpotTolerance"/>).</summary>
+    public static bool LockSpotReached(System.Numerics.Vector3 drawn, System.Numerics.Vector3 spot) =>
+        System.Numerics.Vector2.Distance(new(drawn.X, drawn.Y), new(spot.X, spot.Y)) <= LockSpotTolerance;
+
+    /// <summary>feel/charge-clash: the lock spot carried with the charger: <paramref name="distance"/> in front of <paramref name="charger"/> along <paramref name="yaw"/> (yaw 0 faces +Y).</summary>
+    public static System.Numerics.Vector3 CarriedSpot(System.Numerics.Vector3 charger, float yaw, float distance) =>
+        charger + new System.Numerics.Vector3(-MathF.Sin(yaw), MathF.Cos(yaw), 0f) * distance;
+
     public static float LockDrawWeight(float since, float sinceReacted)
     {
         if (!(since >= 0f)) return 0f;

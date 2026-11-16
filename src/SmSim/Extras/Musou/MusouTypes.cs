@@ -45,6 +45,16 @@ public sealed record MusouTypeSpec(MusouEnemyType Type, float Health, float Spee
     public bool Hybrid => Melee && Ranged;
     /// <summary>A hybrid goes for melee within this distance of its target.</summary>
     public float HybridMeleeDistance { get; init; } = 6f;
+
+    /// <summary>
+    /// Above 0: each round is a bolt, not a rolled hit. It is aimed at the target's feet as it stands when fired, flies there at <see cref="RangedBoltSpeed"/> and bursts with this radius, hurting every
+    /// target in it (so a player who moves on dodges it). The Weirdboy's frazzle.
+    /// </summary>
+    public float RangedBlastRadius { get; init; }
+    /// <summary>A bolt's speed (metres a second).</summary>
+    public float RangedBoltSpeed { get; init; } = 40f;
+    /// <summary>Above 0: an energy shield of this many points that bullets cannot get through (melee and blasts wear it down; <see cref="MusouWeirdboy"/>).</summary>
+    public float ShieldMax { get; init; }
 }
 
 /// <summary>
@@ -116,9 +126,9 @@ public sealed record MusouRules
     public float ChainMax { get; init; } = 3f;
 
     /// <summary>The Warboss's hit points at one player, times the wave scale (design: 4000) and its model scale (design: 1.25).</summary>
-    public float BossHealth { get; init; } = 4000f;
-    /// <summary>The Warboss's body and model scale: 1.6 (owner, 2026-11-01: "always a large orc, never small"; was 1.25; kind: ours). The client draws the largest Ork body at this scale.</summary>
-    public float BossScale { get; init; } = 3f;   // the owner, 2026-11-02: "3x larger in scale than original" (was 1.6)
+    public float BossHealth { get; init; } = 15000f;   // the owner, 2026-11-06: "the final boss should have even more health" than the Boss Orks (was 4000)
+    /// <summary>The Warboss's body and model scale: 4.5 (owner, 2026-11-01: "always a large orc, never small", 1.6; 2026-11-02: 3; late batch 2026-11-06: 1.5x that; kind: ours). The client draws his model as tall as the Nob body at this scale.</summary>
+    public float BossScale { get; init; } = 4.5f;   // the owner, 2026-11-02: "3x larger in scale than original" (was 1.6); late batch 2026-11-06: the Warboss model 1.5x its size (3 to 4.5)
 
     /// <summary>The players' attacks on the enemies (MU3: the cleave, the staggers, the knockbacks; <see cref="MusouCombatRules"/>).</summary>
     public MusouCombatRules Combat { get; init; } = MusouCombatRules.Default;
@@ -138,27 +148,60 @@ public sealed record MusouRules
     /// <summary>The tuning of one type.</summary>
     public MusouTypeSpec Of(MusouEnemyType type) => Types[(int)type];
 
+    // First: static fields initialise in order, and DefaultTypes reads these.
+    static MusouTypeSpec Base(MusouEnemyType type) => BaseTypes[(int)type];
+
+    /// <summary>The first five kinds (Boy to Nob), which the Boss Orks are made from.</summary>
+    static readonly MusouTypeSpec[] BaseTypes =
+    [
+        new(MusouEnemyType.Boy, 85f, 5.2f, 0.4f, 1.9f, 10) { MeleeDamage = 8f, MeleePeriod = 1.4f },
+        new(MusouEnemyType.ShootaBoy, 85f, 4.8f, 0.4f, 1.9f, 10) { RangedDamage = 3f, RangedRounds = 3, RangedPeriod = 1.6f, RangedMin = 12f, RangedMax = 20f },
+        new(MusouEnemyType.ArdBoy, 170f, 4.4f, 0.45f, 1.95f, 20) { MeleeDamage = 10f, MeleePeriod = 1.5f },
+        new(MusouEnemyType.Gretchin, 30f, 6.2f, 0.3f, 1.2f, 5) { MeleeDamage = 4f, MeleePeriod = 1.0f, MeleeRange = 1.3f },
+        new(MusouEnemyType.Nob, 600f, 4.4f, 0.6f, 2.3f, 100) { MeleeDamage = 25f, MeleePeriod = 2.0f, MeleeRange = 2.2f, MeleeStaggers = true },
+    ];
+
     static readonly MusouTypeSpec[] DefaultTypes =
     [
-        // Boy (choppa), boy_melee: 85 hit points (data); the rest ours.
-        new(MusouEnemyType.Boy, 85f, 5.2f, 0.4f, 1.9f, 10) { MeleeDamage = 8f, MeleePeriod = 1.4f },
-        // Shoota Boy, boy_ranged: 85 (data); holds 12-20 m, 3-damage rounds in bursts of 3 (design); a weak bash up close.
-        new(MusouEnemyType.ShootaBoy, 85f, 4.8f, 0.4f, 1.9f, 10) { RangedDamage = 3f, RangedRounds = 3, RangedPeriod = 1.6f, RangedMin = 12f, RangedMax = 20f },
-        // 'Ard Boy, boy_melee_pro: 170 (design), slower.
-        new(MusouEnemyType.ArdBoy, 170f, 4.4f, 0.45f, 1.95f, 20) { MeleeDamage = 10f, MeleePeriod = 1.5f },
-        // Gretchin: 30 (design), fast and frail.
-        new(MusouEnemyType.Gretchin, 30f, 6.2f, 0.3f, 1.2f, 5) { MeleeDamage = 4f, MeleePeriod = 1.0f, MeleeRange = 1.3f },
-        // Nob: 600 (design), a heavy staggering swing.
-        new(MusouEnemyType.Nob, 600f, 4.4f, 0.6f, 2.3f, 100) { MeleeDamage = 25f, MeleePeriod = 2.0f, MeleeRange = 2.2f, MeleeStaggers = true },
+        // Boy (choppa), boy_melee: 85 hit points (data); the rest ours. Shoota Boy, boy_ranged: 85 (data); holds 12-20 m, 3-damage rounds in bursts of 3 (design);
+        // a weak bash up close. 'Ard Boy, boy_melee_pro: 170 (design), slower. Gretchin: 30 (design), fast and frail. Nob: 600 (design), a heavy staggering swing.
+        // The numbers are in BaseTypes (above), which the Boss Orks are made from too.
+        BaseTypes[0], BaseTypes[1], BaseTypes[2], BaseTypes[3], BaseTypes[4],
         // Chaos Marine (the PvP model): 250 (design), melee and a bolter.
         new(MusouEnemyType.ChaosMarine, 250f, 4.8f, 0.5f, 2.1f, 50)
         {
             MeleeDamage = 15f, MeleePeriod = 1.4f, MeleeRange = 1.8f,
             RangedDamage = 5f, RangedRounds = 3, RangedPeriod = 1.8f, RangedMin = 8f, RangedMax = 25f, RangedHitNear = 0.4f, RangedHitFar = 0.2f,
         },
-        // Warboss: a scaled Nob for now (MU3: the slam, the charge, the Waaagh!, the enrage); health from BossHealth.
-        new(MusouEnemyType.Warboss, 4000f, 4.6f, 0.75f, 2.9f, 2000) { MeleeDamage = 40f, MeleePeriod = 2.2f, MeleeRange = 2.8f, MeleeStaggers = true },
+        // Warboss: a scaled Nob for now (MU3: the slam, the charge, the Waaagh!, the enrage); health from BossHealth. The owner, 2026-11-06: noticeably stronger than the Boss Orks, 1.5x damage (swing 40 to 60).
+        // Late batch 2026-11-06 (his body 1.5x, BossScale 3 to 4.5): the players are now kept off his drawn body (the ring at his scaled radius, 3.4 m), so his swing reaches 1.15 m past that
+        // ring as before (2.8 m from a 1.65 m ring then; 5.4 m from 4.3 m now; ours, an estimate).
+        new(MusouEnemyType.Warboss, 15000f, 4.6f, 0.75f, 2.9f, 2000) { MeleeDamage = 60f * MusouBossRules.DangerScale, MeleePeriod = 2.2f, MeleeRange = 5.4f, MeleeStaggers = true },
+        // The Boss Orks (owner, 2026-11-06): each from its base above (MusouBossOrks.From), in the enum's order.
+        MusouBossOrks.From(MusouEnemyType.BossBoy, Base(MusouEnemyType.Boy)),
+        MusouBossOrks.From(MusouEnemyType.BossShootaBoy, Base(MusouEnemyType.ShootaBoy)),
+        MusouBossOrks.From(MusouEnemyType.BossArdBoy, Base(MusouEnemyType.ArdBoy)),
+        MusouBossOrks.From(MusouEnemyType.BossNob, Base(MusouEnemyType.Nob)),
+        // The Weirdboy (Musou Mode only; MusouWeirdboy, spec "Musou Mode: the Weirdboy"). From ork_coop_weirdboy: health 50, run 6, the staff's swing 20 within 5 m, the frazzle's burst
+        // r 3, 40 m/s, 70 explosive (x0.5 on heavy armour: 35), its ideal band 20 to 50 m. Ours: the shield's 300 (the data's 1500 against co-op shield damage the Musou hits do not carry),
+        // a bolt every 2.5 s, the points, the body (radius 0.5, height 2.3: the model's bounds are 2.46 m in its bind pose, client log 2026-11-07).
+        new(MusouEnemyType.Weirdboy, 50f, 6f, 0.5f, 2.3f, 300)
+        {
+            MeleeDamage = 20f, MeleePeriod = 1.6f, MeleeRange = 1.8f, HybridMeleeDistance = 5f,
+            RangedDamage = 35f, RangedRounds = 1, RangedPeriod = 2.5f, RangedMin = 20f, RangedMax = 50f, RangedBlastRadius = 3f, RangedBoltSpeed = 40f,
+            ShieldMax = 300f,
+        },
+        // Expansion S1 (docs/musou-expansion.md, rules Bomb Squig, Rokkit Boy, Stormboys, Big Shoota Nob, Scrap Meks; every value ours / owner brief 2026-11-07): PLACEHOLDER rows in the enum's order.
+        // Health from the plan (Squig 30, Rokkit 85, Stormboy 120, Big Shoota 600, Mek 250); nothing spawns these until S2 to S4, which set their attacks (the fields below the health are stand-ins).
+        // S2 (MusouSquigRules, MusouRokkitRules): the Squig runs at 7.5 m/s (30 hp; no attack of its own: its burst); the Rokkit Boy holds 25-45 m and fires one rocket every 5 s (the round's damage
+        // stands for the rocket's blast, MusouRokkitRules.Blast; the hit chances are not used: a rocket hits what it meets).
+        new(MusouEnemyType.BombSquig, 30f, 7.5f, 0.3f, 0.8f, 5),
+        new(MusouEnemyType.RokkitBoy, 85f, 4.8f, 0.4f, 1.9f, 20) { RangedDamage = 120f, RangedRounds = 1, RangedPeriod = 5f, RangedMin = 25f, RangedMax = 45f },
+        new(MusouEnemyType.Stormboy, 120f, 5.2f, 0.4f, 1.9f, 20) { MeleeDamage = 8f, MeleePeriod = 1.4f },
+        new(MusouEnemyType.BigShootaNob, 600f, 4.0f, 0.6f, 2.3f, 150) { RangedDamage = 4f, RangedRounds = 3, RangedPeriod = 1.6f, RangedMin = 12f, RangedMax = 30f },
+        new(MusouEnemyType.ScrapMek, 250f, 4.8f, 0.45f, 1.9f, 50),
     ];
+
 
     static readonly MusouWaveSpec[] DefaultWaves =
     [

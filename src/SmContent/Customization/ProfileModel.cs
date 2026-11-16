@@ -88,14 +88,63 @@ public sealed record AppearanceProfile(string Id, string Race, string Name, stri
 }
 
 /// <summary>
+/// A named set of custom-class slots with a selection of its own, kept beside the profile's own slots (<see cref="CustomizationProfile.Sets"/>): an added mode's loadouts
+/// (Musou Mode's, set "musou"). Its classes follow every rule of the profile's own (slots 1..<see cref="CustomizationProfile.MaxCustomClasses"/>, the catalogue's roles and items, the
+/// profile's looks); only the screens that show the set edit it.
+/// </summary>
+public sealed record LoadoutSet(Selection Selected, IReadOnlyList<CustomClass> Classes)
+{
+    public CustomClass? ClassAt(int slot) => Classes.FirstOrDefault(c => c.Slot == slot);
+}
+
+/// <summary>
 /// The whole profile. <see cref="ReadOnly"/> is set when the file on disk has a newer schema than this build knows: the store never overwrites it.
 /// </summary>
 public sealed record CustomizationProfile(int Schema, Selection Selected, IReadOnlyList<CustomClass> Classes, IReadOnlyList<AppearanceProfile> Appearances)
 {
     public const int CurrentSchema = 1, MaxCustomClasses = 10, MaxAppearancesPerRace = 10;
     public const int MaxNameLength = 24, MaxIdLength = 32;
+    /// <summary>The most <see cref="Sets"/> and <see cref="Extras"/> entries a profile keeps, and the longest name of one (lower-case letters, digits and '-').</summary>
+    public const int MaxSets = 8, MaxSetNameLength = 32;
 
     public bool ReadOnly { get; init; }
+
+    static readonly IReadOnlyDictionary<string, LoadoutSet> NoSets = new Dictionary<string, LoadoutSet>(StringComparer.Ordinal);
+    static readonly IReadOnlyDictionary<string, string> NoExtras = new Dictionary<string, string>(StringComparer.Ordinal);
+
+    /// <summary>
+    /// Further sets of custom-class slots by name (musou/loadout-slots, 2026-11-10: Musou Mode's own loadouts, set "musou"), each with its own selection; the profile's own <see cref="Classes"/>
+    /// and <see cref="Selected"/> stay Classic PvP's. An optional field: schema 1 stays; written only when there is one (a profile without it reads and writes byte for byte as before).
+    /// </summary>
+    public IReadOnlyDictionary<string, LoadoutSet> Sets { get; init; } = NoSets;
+
+    /// <summary>
+    /// Added content's own profile data by name (musou/loadout-slots: "musou" holds the Librarian's loadout), each the text of one JSON object. The store keeps it as it was read (a build
+    /// without that content writes it back unchanged); the added content reads and repairs its own. Optional: written only when there is one.
+    /// </summary>
+    public IReadOnlyDictionary<string, string> Extras { get; init; } = NoExtras;
+
+    /// <summary>Whether <paramref name="name"/> can name a set or an extras entry: 1..<see cref="MaxSetNameLength"/> lower-case letters, digits and '-'.</summary>
+    public static bool IsSetName(string? name) => name is { Length: > 0 and <= MaxSetNameLength } && name.All(ch => ch is >= 'a' and <= 'z' or >= '0' and <= '9' or '-');
+
+    /// <summary>The set of that name, or null.</summary>
+    public LoadoutSet? Set(string name) => Sets.TryGetValue(name, out var set) ? set : null;
+
+    /// <summary>The profile with the set <paramref name="name"/> replaced (null: removed).</summary>
+    public CustomizationProfile WithSet(string name, LoadoutSet? set)
+    {
+        var sets = new Dictionary<string, LoadoutSet>(Sets, StringComparer.Ordinal);
+        if (set is null) sets.Remove(name); else sets[name] = set;
+        return this with { Sets = sets };
+    }
+
+    /// <summary>The profile with the extras entry <paramref name="name"/> replaced (null: removed); <paramref name="json"/> is the text of one JSON object.</summary>
+    public CustomizationProfile WithExtra(string name, string? json)
+    {
+        var extras = new Dictionary<string, string>(Extras, StringComparer.Ordinal);
+        if (json is null) extras.Remove(name); else extras[name] = json;
+        return this with { Extras = extras };
+    }
 
     /// <summary>
     /// The look the player wears as the Ork Boy (ui/customizer-ork, Ork O9; added content): 0..<see cref="SmSim.Races.OrkLooks"/>-1 (<see cref="OrkLookRules.Names"/>), null =

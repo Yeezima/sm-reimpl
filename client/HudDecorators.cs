@@ -124,7 +124,7 @@ public sealed partial class Hud
     /// <summary>
     /// The decorators over players (Decorator.gfx's <c>PlayerDecorator</c>: the race icon and the name; the movie's health and armour bars
     /// need the other players' health on the wire, which it does not carry). A friend: the gold race icon (aquila or Chaos star, the movie's
-    /// <c>icon_mc</c> frames <c>imperial</c> / <c>chaos</c>) over the name in gold; a foe: the name alone in red. The client adds only the aimed player (ui/hud-3, owner's decision of 2026-10-30). Size follows the distance (ours).
+    /// <c>icon_mc</c> frames <c>imperial</c> / <c>chaos</c>) over the name in gold; a foe: the name alone in red. The client adds every ally in view in Classic PvP (owner, 2026-11-14) and the aimed foe; Musou Mode only the aimed player (ui/hud-3, 2026-10-30). Size follows the distance (ours).
     /// </summary>
     void DrawPlayerDecorators(Vector2 vs)
     {

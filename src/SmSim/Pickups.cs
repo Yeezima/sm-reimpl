@@ -307,6 +307,7 @@ public sealed partial class World
             foreach (int victim in active ? aliveBefore : [])
             {
                 if (!_players.TryGetValue(victim, out var dead) || dead.Alive) continue;
+                if (_deployDeaths.Contains(victim)) continue;   // fix/pvp-deploy-spawn: a Deploy's suicide drops nothing
                 DropPickup(spec, victim, dead.Position);
             }
         }

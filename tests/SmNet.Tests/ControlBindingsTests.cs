@@ -137,6 +137,7 @@ public class ControlBindingsTests
     [InlineData(BindDevice.Keyboard, "Key:Escape")]
     [InlineData(BindDevice.Keyboard, "Key:F1")]
     [InlineData(BindDevice.Keyboard, "Pad:A")]
+    [InlineData(BindDevice.Keyboard, "Key:F3")]   // polish pass P1: the performance readout
     [InlineData(BindDevice.Controller, "Pad:Start")]
     [InlineData(BindDevice.Controller, "Key:W")]
     [InlineData(BindDevice.Keyboard, "")]

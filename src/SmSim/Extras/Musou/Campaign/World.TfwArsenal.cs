@@ -284,10 +284,14 @@ public sealed partial class World
         }
     }
 
-    /// <summary>A KO may leave an ammunition or equipment box (owner's item 3): the core's own pickup, drawn and collected by its own rules; only the chance is ours (<see cref="TfwRewardRules"/>).</summary>
+    /// <summary>Whether an enemy's KO may leave a box here (<see cref="TfwRewardRules.KillBoxes"/>; tests of the boxes turn it on).</summary>
+    public bool TfwKillBoxes { get; set; } = TfwRewardRules.KillBoxes;
+
+    /// <summary>A KO may leave an ammunition or equipment box (owner's item 3): the core's own pickup, drawn and collected by its own rules; only the chance is ours (<see cref="TfwRewardRules"/>). Off since 2026-11-08 (<see cref="TfwRewardRules.KillBoxes"/>).</summary>
     void TfwDropBox(MusouKill kill)
     {
-        if (Config.Pickups is not { } spec || !PickupsActive || kill.Cause == MusouDeathKind.World || !TfwRewardRules.Boxes(kill.Type, Tick, kill.Enemy)) return;
+        // TfwKillBoxes: the switch (TfwRewardRules.KillBoxes, off since 2026-11-08); tests of the boxes themselves turn it on.
+        if (!TfwKillBoxes || Config.Pickups is not { } spec || !PickupsActive || kill.Cause == MusouDeathKind.World || !TfwRewardRules.Boxes(kill.Type, Tick, kill.Enemy)) return;
         if (_musou!.TryGet(kill.Enemy, out var enemy)) DropPickup(spec, TfwRewardRules.BoxDropperBase + kill.Enemy, enemy.Position);
     }
 

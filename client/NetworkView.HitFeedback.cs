@@ -114,6 +114,7 @@ public partial class NetworkView
         var layers = HitSoundRules.Of(armoured, CombinedHitSounds);
         at.Switches.Set(AudioCatalog.MaterialType, Fnv.Hash32(layers == HitLayers.Flesh ? "flesh" : "ceramite_armour"));
         var before = BeginImpactState(flesh: layers != HitLayers.Armour);
+        offset = offset.Plus(SoundMixPass.Hit(SoundSystem.MixClassic));   // sound/mix-and-reloads: on-hit sounds louder, no bass
         var play = _sound.Post(hitSound, at, offset: offset);
         EndImpactState(before);
         LogImpact($"body hit ({layers.ToString().ToLowerInvariant()})", hitSound, at, offset, play);
@@ -130,6 +131,7 @@ public partial class NetworkView
     {
         if (_sound is null) return;
         var before = BeginImpactState(flesh: false);
+        offset = offset.Plus(SoundMixPass.Hit(SoundSystem.MixClassic));   // sound/mix-and-reloads: on-hit sounds louder, no bass
         var play = _sound.Post(hitSound, at, offset: offset);
         EndImpactState(before);
         LogImpact("impact", hitSound, at, offset, play);
@@ -182,15 +184,16 @@ public partial class NetworkView
         }
         foreach (var p in plays)
         {
-            float scale = p.Scale <= 0f ? 1f : p.Scale;
+            float scale = (p.Scale <= 0f ? 1f : p.Scale) * HitFxParticleScale(end);   // onhit-range-intensity: kept at range, x1.3
             if (p.TriggerPoint == "hitpoint")
             {
                 if (own) continue;
-                if (_fx.Play(p.Name, end, AxesFromY(-dir), scale, null, null, p.Lifetime, delay, false, 0) is not null) _fxArmourFx++;
+                var hitAxes = AxesFromY(-dir);
+                if (_fx.Play(p.Name, end, hitAxes, scale, null, null, p.Lifetime, delay, false, FxPriority.Hit) is { } fxe) { fxe.ReachCap = SparkReachCap; _fxArmourFx++; }   // hit-sparks-flashes: 4 m cap; fx-cap-priority: a hit on a player is a hit tier effect
             }
             else if (glows && p.Marker.Length > 0 && BodyMarker(victim, p.Marker) is { } follow && follow() is { } place)
             {
-                if (_fx.Play(p.Name, place.Position, Basis.Identity, scale, null, follow, p.Lifetime, delay, false, 0) is not null) _fxArmourFx++;
+                if (_fx.Play(p.Name, place.Position, Basis.Identity, scale, null, follow, p.Lifetime, delay, false, FxPriority.Hit) is { } fxe) { fxe.ReachCap = SparkReachCap; _fxArmourFx++; }
             }
         }
     }
@@ -250,6 +253,8 @@ public partial class NetworkView
     }
 
     static readonly bool OldDamageFlash = OS.GetCmdlineUserArgs().Contains("--old-damage-flash");
+    /// <summary>Test aid <c>--no-damage-flash</c> (film only): the full-screen damage flash is not drawn (the proof that a red or sepia wash in a Dreadnought film among the Orks is this cue held by a crowd's constant hits).</summary>
+    static readonly bool NoDamageFlash = OS.GetCmdlineUserArgs().Contains("--no-damage-flash");
 
     /// <summary>
     /// The age a flash restarts at when another hit lands (fix/spawn-room-light; ours: the original's rule for a hit during a flash is not known). A fresh hit starts at the peak, as always;
@@ -312,6 +317,7 @@ public partial class NetworkView
             }
         }
         _armourFlashAge += (float)delta; _healthFlashAge += (float)delta;
+        if (NoDamageFlash) { _damageRect.Visible = false; return; }
         float armourNow = me.Alive ? ArmourPeak * FlashEnvelope(_armourFlashAge) : 0f, healthNow = me.Alive ? HealthPeak * FlashEnvelope(_healthFlashAge) : 0f;   // the death vignette (M23) takes over when dead
         _damageRect.Visible = armourNow > 0.002f || healthNow > 0.002f;
         if (!_damageRect.Visible) return;

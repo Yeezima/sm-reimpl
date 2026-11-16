@@ -61,6 +61,75 @@ public sealed class NavAgent(NavGraph graph)
     public double RecoverSeconds { get; init; } = 0.8;
     /// <summary>Metres of walkable, linked ground a recovery step needs in its direction (M44a; the bots' strafe check uses 1.5).</summary>
     public float RecoverWalkCheck { get; init; } = 1.5f;
+    /// <summary>
+    /// bots/new-maps (2026-11-16; ours; off by default, a Classic PvP bot client turns it on): a bot that is stuck twice in a row on a spot the graph has no cell at (it stands on a ledge or rail narrower than
+    /// the cells' clearance, which the motor allows) walks for <see cref="EscapeSeconds"/> toward the graph cell nearest to it within <see cref="EscapeRadius"/> m that is at most
+    /// <see cref="EscapeDrop"/> m below and <see cref="EscapeRise"/> m above, the next-best sector at each further detection (the old recovery steps only looked within 1.5 m).
+    /// </summary>
+    public bool EscapeOffGraph { get; init; }
+    /// <summary>
+    /// bots/new-maps (ours; off by default): a drop link the bot stood on the edge of and could not get down for <see cref="DropStuckLimit"/> detections (a gap too narrow to fall through, a lip the graph does
+    /// not see) is no longer planned through by this agent, as a missed jump link is (<see cref="JumpMissLimit"/>).
+    /// </summary>
+    public bool ExcludeStuckDrops { get; init; }
+    public int DropStuckLimit { get; init; } = 2;
+    /// <summary>Metres (flat) round the stuck drop's origin within which every drop link is given up with it.</summary>
+    public float DropGiveUpRadius { get; init; } = 4f;
+    /// <summary>Drop links this agent no longer plans through (bots/new-maps).</summary>
+    public int ExcludedDrops => _dropExpiry.Count;
+    /// <summary>Seconds a give-up and a stuck count last (bots/new-maps review): a body in the way or a fight is not a drop that cannot be taken, so the entries decay.</summary>
+    public double DropForgetSeconds { get; init; } = 25.0;
+    /// <summary>Metres from the drop's origin within which a stuck detection counts against the drop (the bot must be at the edge, not shoved elsewhere).</summary>
+    public float DropStuckNear { get; init; } = 3f;
+    readonly Dictionary<long, (int Count, double At)> _dropStuck = new();
+    /// <summary>
+    /// bots/new-maps round 2 (ours; with <see cref="ExcludeStuckDrops"/>): a bot stuck <see cref="StepStuckLimit"/> detections in a row on the ground with its next walk waypoint at least <see cref="StepStuckRise"/> m
+    /// above it (a 0.65 m curb that the graph reads as a 0.3 m slope: Dome Mechanicus' hotspot) gives up every walk link that rises at least <see cref="StepGiveUpMinRise"/> m
+    /// from a cell within <see cref="StepGiveUpRadius"/> m of it for <see cref="StepForgetSeconds"/> s (a curb does not change; a body in the way does, so the entry still decays).
+    /// </summary>
+    public int StepStuckLimit { get; init; } = 2;
+    public float StepStuckRise { get; init; } = 0.25f;
+    public float StepGiveUpRadius { get; init; } = 2.5f;
+    public float StepGiveUpMinRise { get; init; } = 0.12f;
+    public double StepForgetSeconds { get; init; } = 90.0;
+    /// <summary>Detections in a row (and radius of the links given up, heading only) for the low-hump case of the same rule: the next waypoint is not higher but the bot does not get on.</summary>
+    public int BlockedStuckLimit { get; init; } = 3;
+    public double BlockedWindow { get; init; } = 60.0;
+    readonly Dictionary<long, (int Count, double At)> _blockedAt = new();
+    /// <summary>Seconds the low-hump give-up lasts: shorter than a curb's, since a body in the way looks the same.</summary>
+    public double BlockedForgetSeconds { get; init; } = 45.0;
+    public float BlockedRadius { get; init; } = 4f;
+    /// <summary>Walk links given up as steps the motor does not climb (bots/new-maps round 2).</summary>
+    public int ExcludedSteps => _stepExpiry.Count;
+    readonly List<(long Key, double At)> _stepExpiry = new();
+    readonly List<(long Key, double At)> _dropExpiry = new();
+
+    /// <summary>
+    /// bots/new-maps (review M1): for a jump-pack bot stuck <see cref="PitJumpStuck"/> detections in a row on a spot with no graph cell (a pit the walk cannot leave): asks this callback for a jump out, given the
+    /// bot's feet: the landing (a graph cell), the heading (<see cref="NavJumpFlight.Directions"/>), the hold in ticks and the power it needs; null when none lands on a cell. The jump is then flown as a link.
+    /// </summary>
+    public Func<Vector3, (Vector3 Landing, int Direction, int Hold, float Power)?>? PitJump { get; init; }
+    public int PitJumpStuck { get; init; } = 3;
+    /// <summary>Jumps out of a pit started (bots/new-maps).</summary>
+    public int PitJumps { get; private set; }
+
+    void ForgetDrops(double now)
+    {
+        if (_blockedAt.Count > 64) foreach (var k in _blockedAt.Where(kv => now - kv.Value.At > BlockedWindow).Select(kv => kv.Key).ToList()) _blockedAt.Remove(k);
+        for (int i = _stepExpiry.Count - 1; i >= 0; i--)
+            if (now > _stepExpiry[i].At) { _bad.Remove(_stepExpiry[i].Key); _stepExpiry.RemoveAt(i); }
+        if (_dropExpiry.Count == 0 && _dropStuck.Count == 0) return;
+        for (int i = _dropExpiry.Count - 1; i >= 0; i--)
+            if (now - _dropExpiry[i].At > DropForgetSeconds) { _bad.Remove(_dropExpiry[i].Key); _dropExpiry.RemoveAt(i); }
+        foreach (var k in _dropStuck.Where(kv => now - kv.Value.At > DropForgetSeconds).Select(kv => kv.Key).ToList()) _dropStuck.Remove(k);
+    }
+    public float EscapeRadius { get; init; } = 5f;
+    public float EscapeDrop { get; init; } = 8f;
+    public float EscapeRise { get; init; } = 0.6f;
+    public double EscapeSeconds { get; init; } = 1.2;
+    /// <summary>Escapes started (bots/new-maps).</summary>
+    public int Escapes { get; private set; }
+
     /// <summary>Plans in a row that may find nothing while the old path is kept (M44a); the next failure drops it.</summary>
     public int MaxKeptFailures { get; init; } = 6;
     int _failStreak;
@@ -142,6 +211,7 @@ public sealed class NavAgent(NavGraph graph)
         _recoverUntil = double.NegativeInfinity;
         _flying = false;
         _waitStart = double.NaN;
+        _pressCancelled = false;
     }
 
     /// <summary>
@@ -220,13 +290,33 @@ public sealed class NavAgent(NavGraph graph)
     {
         long started = System.Diagnostics.Stopwatch.GetTimestamp();
         var steer = SteerCore(position, grounded, goal, now, body);
-        if (!OnJumpLink) _waitStart = double.NaN;   // a wait at a take-off cell does not survive leaving the link
+        if (!OnJumpLink) { _waitStart = double.NaN; _pressCancelled = false; }   // a wait at a take-off cell (or a held-back press) does not survive leaving the link
         _resting = steer.Arrived;
         MaxSteerMilliseconds = Math.Max(MaxSteerMilliseconds, System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds);
         return steer;
     }
 
     long _flyKey;
+
+    /// <summary>Take-off presses a caller held back (<see cref="CancelTakeOff"/>).</summary>
+    public int TakeOffsCancelled { get; private set; }
+    bool _pressCancelled;
+
+    /// <summary>
+    /// bot-grenade-safety (ours): the caller held back the take-off press of the flight under way (the bot's own grenade in the way), and the body is still on the ground with no jump
+    /// begun: the flight is dropped without counting a miss (so the link is not excluded after two held presses, as a press that never takes would be; <see cref="JumpMissLimit"/>),
+    /// the stand counts as on purpose (not stuck), and the link is tried again from its take-off cell on the next <see cref="Steer"/>. False (nothing done) once the body is in a
+    /// jump or in the air, or when no flight is under way.
+    /// </summary>
+    public bool CancelTakeOff(JumpPhase phase, bool grounded, Vector3 position, double now)
+    {
+        if (!_flying || !grounded || phase != JumpPhase.None) return false;
+        _flying = false;
+        _pressCancelled = true;   // the press never left: the next press on this link is the same start, not a new one
+        TakeOffsCancelled++;
+        _checkPos = position; _checkAt = now;
+        return true;
+    }
 
     /// <summary>Counts <paramref name="n"/> misses of a link; at <see cref="JumpMissLimit"/> this agent stops planning through it.</summary>
     void Miss(long key, int n)
@@ -240,6 +330,7 @@ public sealed class NavAgent(NavGraph graph)
     NavSteer SteerCore(Vector3 position, bool grounded, Vector3 goal, double now, NavBody? body)
     {
         OnJumpLink = false;
+        ForgetDrops(now);
         if (now - _lastSteer > 0.5) { _checkPos = position; _checkAt = now; _consecutiveStuck = 0; }
         _lastSteer = now;
         // A background search that finished: its path from now on (the advance and off-path checks below catch up with
@@ -293,8 +384,77 @@ public sealed class NavAgent(NavGraph graph)
             {
                 StuckCount++;
                 _consecutiveStuck++;
+                if (ExcludeStuckDrops && grounded && Path is { } dp && Waypoint > 0 && Waypoint < dp.Waypoints.Count && dp.Waypoints[Waypoint].Kind == NavLinkKind.Drop
+                    && Flat(position, dp.Waypoints[Waypoint - 1].Position) <= DropStuckNear)
+                {
+                    // Counted by the landing cell (the bot comes at a long ledge's drops one after another), only while it stands at the drop's origin; at the limit every drop off the ledge
+                    // round the origin is given up for DropForgetSeconds.
+                    long landing = dp.Waypoints[Waypoint].Node;
+                    var seen = _dropStuck.GetValueOrDefault(landing);
+                    int n = (now - seen.At > DropForgetSeconds ? 0 : seen.Count) + 1;
+                    _dropStuck[landing] = (n, now);
+                    if (n >= DropStuckLimit)
+                    {
+                        _dropStuck.Remove(landing);
+                        var origin = Graph.Position(dp.Waypoints[Waypoint - 1].Node);
+                        foreach (var (from, to) in Graph.DropLinksNear(origin, DropGiveUpRadius, 1.5f))
+                        {
+                            long key = NavGraph.DropKey(from, to);
+                            if (_bad.Add(key)) _dropExpiry.Add((key, now));
+                        }
+                    }
+                }
+                bool blockedHere = false;
+                if (ExcludeStuckDrops && grounded && Path is { } bp && Waypoint > 0 && Waypoint < bp.Waypoints.Count && bp.Waypoints[Waypoint].Kind != NavLinkKind.Jump)
+                {
+                    // The same 4 m square stuck BlockedStuckLimit times within BlockedWindow s (not only in a row: the recovery steps move the bot between detections).
+                    long rk = ((long)(int)MathF.Floor(position.X / 4f) << 32) ^ (uint)(int)MathF.Floor(position.Y / 4f);
+                    var seen = _blockedAt.GetValueOrDefault(rk);
+                    int n = (now - seen.At > BlockedWindow ? 0 : seen.Count) + 1;
+                    _blockedAt[rk] = (n, now);
+                    if (n >= BlockedStuckLimit) { _blockedAt.Remove(rk); blockedHere = true; }
+                }
+                if (ExcludeStuckDrops && grounded && Path is { } sp && Waypoint > 0 && Waypoint < sp.Waypoints.Count && sp.Waypoints[Waypoint].Kind != NavLinkKind.Jump
+                    && ((_consecutiveStuck >= StepStuckLimit && sp.Waypoints[Waypoint].Kind == NavLinkKind.Walk && sp.Waypoints[Waypoint].Position.Z - position.Z >= StepStuckRise) || blockedHere))
+                {
+                    // A curb (the next waypoint well above): every rising link round the bot. A low hump, lip or rail the motor does not cross though the graph walks it (Desolation along x = 79: a 0.2 m
+                    // tall lip 12 m long, 18 detections by one bot, 100 in a run): the links that lead the way it was heading, round the bot.
+                    bool curb = sp.Waypoints[Waypoint].Kind == NavLinkKind.Walk && sp.Waypoints[Waypoint].Position.Z - position.Z >= StepStuckRise;
+                    var ahead = Toward(position, sp.Waypoints[Waypoint].Position);
+                    foreach (var (from, to) in curb ? Graph.RiseLinksNear(position, StepGiveUpRadius, 1f, StepGiveUpMinRise) : Graph.RiseLinksNear(position, BlockedRadius, 1f, -1f, ahead, 0.5f))
+                    {
+                        long key = NavGraph.WalkKey(from, to);
+                        if (_bad.Add(key)) _stepExpiry.Add((key, now + (curb ? StepForgetSeconds : BlockedForgetSeconds)));
+                    }
+                }
                 Plan(position, goal, now);
-                if (_consecutiveStuck >= 2)
+                if (EscapeOffGraph && PitJump is { } pitJump && body is { Pack: not null } && grounded && !_flying && _consecutiveStuck >= PitJumpStuck && Graph.Nearest(position, 1f, 0.6f) < 0
+                    && pitJump(position) is { } hop)
+                {
+                    // A jump out of the pit, flown as a one-link path from here.
+                    int landNode = Graph.Nearest(hop.Landing, 1f, 1f);
+                    var there = new NavWaypoint(position, NavLinkKind.Walk, -1);
+                    var land = new NavWaypoint(hop.Landing, NavLinkKind.Jump, landNode, new NavJumpMove(-1, (byte)hop.Direction, (byte)hop.Hold, hop.Power));
+                    Path = new NavPath([there, land], Flat(position, hop.Landing), false, 0, 2);
+                    Waypoint = 1; PlannedGoal = goal; _plannedAt = now; PitJumps++;
+                    _consecutiveStuck = 0; _checkPos = position; _checkAt = now;
+                    return SteerJump(Path, position, grounded, body.Value, now);
+                }
+                bool escaped = false;
+                if (EscapeOffGraph && _consecutiveStuck >= 2 && Graph.Nearest(position, 1f, 0.6f) < 0)
+                {
+                    var cells = Graph.EscapeCells(position, EscapeRadius, EscapeDrop, EscapeRise, 8);
+                    if (cells.Count > 0)
+                    {
+                        var to = cells[(_consecutiveStuck - 2) % cells.Count];
+                        var dir = Toward(position, to);
+                        if (dir != Vector2.Zero)
+                        {
+                            _recoverDir = dir; _recoverUntil = now + EscapeSeconds; Escapes++; escaped = true;
+                        }
+                    }
+                }
+                if (_consecutiveStuck >= 2 && !escaped)
                 {
                     int node = Graph.Nearest(position, 1.5f, 1.5f);
                     var centre = node >= 0 ? Graph.Position(node) : position;
@@ -444,7 +604,8 @@ public sealed class NavAgent(NavGraph graph)
         _flying = true; _flyStart = now; _flyFrom = position; _flyTo = wp.Position;
         _flyKey = NavGraph.JumpKey(move.From, wp.Node);
         _planTask = null;   // a search under way would land after the lift-off; it is dropped (the plan is the one being flown)
-        JumpsStarted++;
+        if (!_pressCancelled) JumpsStarted++;   // a press again after one held back (CancelTakeOff) is the same start
+        _pressCancelled = false;
         return new NavSteer(heading, 0f, false, true, false, false) { Jump = true, Flying = true };
     }
 }

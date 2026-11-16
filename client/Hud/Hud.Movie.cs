@@ -180,6 +180,9 @@ public sealed partial class Hud
     double _braceOnAt = double.NegativeInfinity, _braceOffAt = double.NegativeInfinity;
     bool _wasBraced;
 
+    /// <summary>W0b, added content: the movie reticle of a weapon only it carries (<paramref name="spec"/> left as the rules gave it without added content or for a weapon of the data).</summary>
+    partial void ExtrasReticle(string wargear, ref ReticleSpec? spec);
+
     /// <summary>
     /// The original reticle of the weapon in hand at the screen centre <paramref name="c"/>: its family's idle reticle, the active one with an enemy under the crosshair; the spread
     /// families' ticks at the frame of the current scatter (<see cref="ReticleRules"/>), the plasma weapons' charge clip by the charge, the heavy bolter's brace clip at 30 fps.
@@ -194,7 +197,9 @@ public sealed partial class Hud
         // The weapon in hand is always a ranged weapon (melee is a button, not a slot); a type the rules do not know shows no reticle (ReticleRules), and no weapon at all
         // shows the movie's small default_mc dot.
         if (!d.HasWeapon) return DrawDefaultReticle(hud, c);
-        if (ReticleRules.For(d.WeaponWargear, _art?.Art?.WeaponType(d.WeaponWargear)) is not { } spec) return true;
+        var reticle = ReticleRules.For(d.WeaponWargear, _art?.Art?.WeaponType(d.WeaponWargear));
+        ExtrasReticle(d.WeaponWargear, ref reticle);   // EXTRAS-HOOK added content (Musou's autocannon): the movie's reticle of a weapon only it carries
+        if (reticle is not { } spec) return true;
         string name = d.AimedAtEnemy && spec.Active is { } active ? active : spec.Idle;
         string path = $"{ReticleRules.Container}/{name}";
         int top = 0;
@@ -226,7 +231,8 @@ public sealed partial class Hud
             int count = hud.FrameCount(ch);
             top = spec.Family switch
             {
-                "plasma_gun" or "plasma_pistol" or "plasma_cannon" => ChargeFrame(labels, count),
+                // Owner, 2026-11-06: the plasma reticle stays still (its first frame) while charging; only the charge and heat arcs move. --old-plasma-spin plays the clip's charge frames (the rotation).
+                "plasma_gun" or "plasma_pistol" or "plasma_cannon" => OldPlasmaSpin ? ChargeFrame(labels, count) : 0,
                 "heavy_bolter" => BraceFrame(labels, count),
                 _ => 0,
             };
@@ -234,11 +240,16 @@ public sealed partial class Hud
         }
         int topFrame = top;
         var pic = _movieArt.Get(key, (m, s) => m.Hud?.RenderAt(path, ReticleRules.Container, s, topFrame, nested));
+        DrawPlasmaHeat(hud, spec, c);   // fix/plasma-visuals: the heat arc under the reticle (Hud.Plasma.cs)
         if (pic is not null) DrawReticlePic(pic, c);
+        DrawPlasmaCharge(hud, spec, c);   // and the charge arc over it
         return true;
     }
 
-    void DrawReticlePic(HudMovieArt.Pic pic, Vector2 c) => DrawPic(pic, c + ReticleContainer * StageToVirtual);
+    /// <summary>ui/crosshair-fov-scale: the crosshair's size factor for this frame (1 at the default FOV; text and panels never use it).</summary>
+    float ReticleScale => float.IsFinite(Data.ReticleScale) && Data.ReticleScale > 0f ? Data.ReticleScale : 1f;
+
+    void DrawReticlePic(HudMovieArt.Pic pic, Vector2 c) => DrawPic(pic, c + ReticleContainer * StageToVirtual * ReticleScale, null, ReticleScale);
 
     /// <summary>The movie's <c>default_mc</c> (a small dot at half alpha): the reticle with no weapon in hand.</summary>
     bool DrawDefaultReticle(HudMovie hud, Vector2 c)
@@ -310,7 +321,7 @@ public sealed partial class Hud
         string path = $"{ReticleRules.Container}/{ReticleRules.HitMarker}";
         var pic = _movieArt.Get("hit", (m, s) => m.Hud?.RenderAt(path, ReticleRules.Container, s, 1));
         if (pic is null) return true;
-        DrawPic(pic, c + ReticleContainer * StageToVirtual, new Color(1f, 1f, 1f, alpha));
+        DrawPic(pic, c + ReticleContainer * StageToVirtual * ReticleScale, new Color(1f, 1f, 1f, alpha), ReticleScale);
         return true;
     }
 }

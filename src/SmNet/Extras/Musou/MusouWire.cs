@@ -11,12 +11,15 @@ public readonly record struct MusouEntity(ushort Id, Vector3 Position, float Yaw
 /// <summary>One weapon drop as it travels (tag 6): id, position (quantised over the director's box), item (<see cref="MusouDropItem"/>) and state.</summary>
 public readonly record struct MusouDropRecord(ushort Id, Vector3 Position, ushort Item, MusouDropState State, bool Crate = false);
 
+/// <summary>One of the drops' player's active powerups as it travels after tag 6's drops (owner, 2026-11-10): its kind and the ticks it still works from the section's tick.</summary>
+public readonly record struct MusouBuffRecord(MusouPowerup Kind, ushort TicksLeft);
+
 /// <summary>
 /// Added content "Musou" on the wire (design section C): three sections of the extras envelope (message kind 16), no protocol bump, sent only by a server whose
 /// match runs <see cref="ContentExtras.Musou"/> (whose config hashes differently from every other profile). Values are little-endian.
 /// <list type="bullet">
-/// <item>Tag 3, entities: <c>[u8 n]</c> then n records of 10 bytes <c>[u16 id][u16 x][u16 y][u16 z][u8 yaw][u8 type:4|state:4]</c> (type in the high
-/// nibble); x, y, z quantised to 0..65535 over the director's <see cref="MusouBox"/>, yaw to 256 steps of a turn; at most <see cref="MaxEntities"/>
+/// <item>Tag 3, entities: <c>[u8 n]</c> then n records of 11 bytes <c>[u16 id][u16 x][u16 y][u16 z][u8 yaw][u8 state][u8 type]</c> (the type a full byte since
+/// Musou version 13, the state's high nibble spare); x, y, z quantised to 0..65535 over the director's <see cref="MusouBox"/>, yaw to 256 steps of a turn; at most <see cref="MaxEntities"/>
 /// (one full payload).</item>
 /// <item>Tag 4, events: <c>[u8 n]</c> then n records of 16 bytes <c>[u8 kind][u32 tick][u16 enemy][u16 player][u8 value][3 x 16-bit vector]</c>; the vector
 /// is a direction (signed, 1/32767) for <see cref="MusouEventKind.Death"/>'s push and a position (quantised over the box, as the entities) for every other
@@ -25,7 +28,8 @@ public readonly record struct MusouDropRecord(ushort Id, Vector3 Position, ushor
 /// [f32 boss health][f32 boss max][u8 lives][f32 x6 box min, max]</c>.</item>
 /// <item>Tag 6, drops (MU-D; sent to the drops' own player only): <c>[u8 n]</c> then n records of 11 bytes <c>[u16 id][u16 x][u16 y][u16 z][u16 item][u8 state]</c>,
 /// the player's whole list (live drops, and ended ones for a second: picked or expired); a client drops what a newer list leaves out. Positions as tag 3;
-/// at most <see cref="MaxDrops"/>.</item>
+/// at most <see cref="MaxDrops"/>. Since Musou version 40 (the powerups) the drops may be followed by the player's active buffs: <c>[u8 m]</c> then m records of 3 bytes <c>[u8 kind][u16 ticks left]</c>
+/// (at most <see cref="MaxBuffs"/>, each kind once); without any the section ends after the drops, as before.</item>
 /// </list>
 /// MU0 fixes the layouts and their round trips; the server's sends (interest, priorities, resends) come in MU2.
 /// </summary>
@@ -36,12 +40,12 @@ public static class MusouWire
 
     /// <summary>The envelope tags (gore 1, loyalist barks 2).</summary>
     public const byte EntitiesTag = 3, EventsTag = 4, DirectorTag = 5, DropsTag = 6;
-    public const int EntityBytes = 10, EventBytes = 16, DirectorBytes = 44, DropBytes = 11;
+    public const int EntityBytes = 11, EventBytes = 16, DirectorBytes = 44, DropBytes = 11, BuffBytes = 3, MaxBuffs = 4;
     /// <summary>The state byte's top bit in tag 6: a Musou Mode weapon crate (M6).</summary>
     const int DropCrateBit = 0x80;
     /// <summary>Most drops in one section: (1191 - 1) / 11 = 108.</summary>
     public const int MaxDrops = (Protocol.MaxExtrasPayloadBytes - 1) / DropBytes;
-    /// <summary>Most entities in one section: (1191 - 1) / 10 = 119 (one section alone in a full message).</summary>
+    /// <summary>Most entities in one section: (1191 - 1) / 11 = 108 (one section alone in a full message).</summary>
     public const int MaxEntities = (Protocol.MaxExtrasPayloadBytes - 1) / EntityBytes;
     /// <summary>Most events in one section: (1191 - 1) / 16 = 74.</summary>
     public const int MaxEvents = (Protocol.MaxExtrasPayloadBytes - 1) / EventBytes;
@@ -51,14 +55,10 @@ public static class MusouWire
 
     // ---------------------------------------------------------------- quantisation
 
-    static ushort Quantise(float v, float min, float max)
-    {
-        float span = max - min;
-        if (!(span > 0f) || !float.IsFinite(v)) return 0;
-        return (ushort)MathF.Round(Math.Clamp((v - min) / span, 0f, 1f) * ushort.MaxValue);
-    }
+    // musou/boss-collision: one quantisation for the wire and the server's record of the big Orks' bodies (MusouSolids.Quantised), so the two agree to the bit.
+    static ushort Quantise(float v, float min, float max) => MusouSolids.Quantise(v, min, max);
 
-    static float Dequantise(ushort q, float min, float max) => min + q / (float)ushort.MaxValue * (max - min);
+    static float Dequantise(ushort q, float min, float max) => MusouSolids.Dequantise(q, min, max);
 
     static void WritePosition(Span<byte> s, Vector3 p, MusouBox box)
     {
@@ -91,7 +91,7 @@ public static class MusouWire
 
     /// <summary>
     /// The entities payload of <paramref name="entities"/> (the first <see cref="MaxEntities"/>; split larger sets over several sections). Throws
-    /// ArgumentException for a type or state that does not fit 4 bits.
+    /// ArgumentException for a state that does not fit 4 bits (the type is a full byte).
     /// </summary>
     public static byte[] WriteEntities(IReadOnlyList<MusouEntity> entities, MusouBox box)
     {
@@ -101,12 +101,13 @@ public static class MusouWire
         for (int i = 0; i < n; i++)
         {
             var e = entities[i];
-            if ((byte)e.Type > 15 || (byte)e.State > 15) throw new ArgumentException($"Musou entity {e.Id}: type {e.Type} or state {e.State} does not fit 4 bits.");
+            if ((byte)e.State > 15) throw new ArgumentException($"Musou entity {e.Id}: state {e.State} does not fit 4 bits.");
             var s = bytes.AsSpan(1 + i * EntityBytes, EntityBytes);
             BinaryPrimitives.WriteUInt16LittleEndian(s, e.Id);
             WritePosition(s[2..], e.Position, box);
             s[8] = QuantiseYaw(e.Yaw);
-            s[9] = (byte)(((byte)e.Type << 4) | (byte)e.State);
+            s[9] = (byte)e.State;
+            s[10] = (byte)e.Type;
         }
         return bytes;
     }
@@ -124,8 +125,8 @@ public static class MusouWire
         {
             var s = payload.Slice(1 + i * EntityBytes, EntityBytes);
             ushort id = BinaryPrimitives.ReadUInt16LittleEndian(s);
-            var type = (MusouEnemyType)(s[9] >> 4);
-            var state = (MusouEnemyState)(s[9] & 0x0F);
+            var type = (MusouEnemyType)s[10];
+            var state = (MusouEnemyState)s[9];
             if (id == 0 || id > MusouSim.Capacity || !Enum.IsDefined(type) || !Enum.IsDefined(state)) return null;
             int bit = id - 1;
             if ((seen[bit >> 6] & (1UL << (bit & 63))) != 0) return null;
@@ -231,11 +232,26 @@ public static class MusouWire
     // ---------------------------------------------------------------- tag 6: drops
 
     /// <summary>The drops payload of <paramref name="drops"/> (the first <see cref="MaxDrops"/>).</summary>
-    public static byte[] WriteDrops(IReadOnlyList<MusouDropRecord> drops, MusouBox box)
+    public static byte[] WriteDrops(IReadOnlyList<MusouDropRecord> drops, MusouBox box) => WriteDrops(drops, box, Array.Empty<MusouBuffRecord>());
+
+    /// <summary>The drops payload of <paramref name="drops"/> followed by the player's <paramref name="buffs"/> (none: the drops alone; the drops are cut to leave the buffs room).</summary>
+    public static byte[] WriteDrops(IReadOnlyList<MusouDropRecord> drops, MusouBox box, IReadOnlyList<MusouBuffRecord> buffs)
     {
-        int n = Math.Min(drops.Count, MaxDrops);
-        var bytes = new byte[1 + n * DropBytes];
+        int m = Math.Min(buffs.Count, MaxBuffs);
+        int trailer = m > 0 ? 1 + m * BuffBytes : 0;
+        int n = Math.Min(drops.Count, Math.Min(MaxDrops, (Protocol.MaxExtrasPayloadBytes - 1 - trailer) / DropBytes));
+        var bytes = new byte[1 + n * DropBytes + trailer];
         bytes[0] = (byte)n;
+        if (m > 0)
+        {
+            int at = 1 + n * DropBytes;
+            bytes[at] = (byte)m;
+            for (int k = 0; k < m; k++)
+            {
+                bytes[at + 1 + k * BuffBytes] = (byte)buffs[k].Kind;
+                BinaryPrimitives.WriteUInt16LittleEndian(bytes.AsSpan(at + 2 + k * BuffBytes), buffs[k].TicksLeft);
+            }
+        }
         for (int i = 0; i < n; i++)
         {
             var d = drops[i];
@@ -248,12 +264,31 @@ public static class MusouWire
         return bytes;
     }
 
-    /// <summary>The drops of a payload; null for a malformed one (wrong length, id 0, an id twice, an unknown state).</summary>
-    public static MusouDropRecord[]? ReadDrops(ReadOnlySpan<byte> payload, MusouBox box)
+    /// <summary>The drops of a payload; null for a malformed one (wrong length, id 0, an id twice, an unknown state, a malformed buff list).</summary>
+    public static MusouDropRecord[]? ReadDrops(ReadOnlySpan<byte> payload, MusouBox box) => ReadDrops(payload, box, out _);
+
+    /// <summary>The drops of a payload and the buffs after them (empty when the section has none); null for a malformed one.</summary>
+    public static MusouDropRecord[]? ReadDrops(ReadOnlySpan<byte> payload, MusouBox box, out MusouBuffRecord[] buffs)
     {
+        buffs = Array.Empty<MusouBuffRecord>();
         if (payload.Length < 1) return null;
         int n = payload[0];
-        if (n > MaxDrops || payload.Length != 1 + n * DropBytes) return null;
+        int end = 1 + n * DropBytes;
+        if (n > MaxDrops || payload.Length < end) return null;
+        if (payload.Length > end)
+        {
+            int m = payload[end];
+            if (m == 0 || m > MaxBuffs || payload.Length != end + 1 + m * BuffBytes) return null;
+            var read = new MusouBuffRecord[m];
+            for (int k = 0; k < m; k++)
+            {
+                var kind = (MusouPowerup)payload[end + 1 + k * BuffBytes];
+                if (kind == MusouPowerup.None || !Enum.IsDefined(kind)) return null;
+                for (int j = 0; j < k; j++) if (read[j].Kind == kind) return null;
+                read[k] = new MusouBuffRecord(kind, BinaryPrimitives.ReadUInt16LittleEndian(payload[(end + 2 + k * BuffBytes)..]));
+            }
+            buffs = read;
+        }
         var list = new MusouDropRecord[n];
         for (int i = 0; i < n; i++)
         {

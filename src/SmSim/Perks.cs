@@ -231,7 +231,7 @@ public static class Perks
     {
         Loadouts.RapidDeploymentPerk => "Respawn time 5 s → 3 s.",
         Loadouts.SecondWeaponPerk => "A third weapon slot on key 3 (Tactical Marine only): a second primary.",
-        Loadouts.TeleportHomerPerk => "Allies respawn next to you while you live.",
+        Loadouts.TeleportHomerPerk => "Allies may choose to respawn next to you while you live.",
         Loadouts.TacticalReadoutPerk => "Shows enemies' health and armour bars (no names).",
         Loadouts.SignumLinkPerk => "Shows enemies' health and armour bars (no names), as Tactical Readout.",
         _ => null,

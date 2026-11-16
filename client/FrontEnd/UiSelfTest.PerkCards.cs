@@ -18,10 +18,13 @@ public sealed partial class UiSelfTest
     bool _perkCardShotTaken;
 
     /// <summary>The <c>--perk-card-shot</c> file, or null; a path inside the repository or the game install (or not a .png) is refused with a message.</summary>
-    static string? PerkCardShot()
+    static string? PerkCardShot() => ShotArgument("--perk-card-shot");
+
+    /// <summary>A screenshot file named by a selftest argument (<c>--perk-card-shot</c>, <c>--appearance-slots-shot</c>), or null; a path inside the repository or the game install (or not a .png) is refused with a message.</summary>
+    static string? ShotArgument(string flag)
     {
         var args = OS.GetCmdlineUserArgs();
-        int i = Array.IndexOf(args, "--perk-card-shot");
+        int i = Array.IndexOf(args, flag);
         if (i < 0 || i + 1 >= args.Length) return null;
         string path = System.IO.Path.GetFullPath(args[i + 1]);
         static bool Inside(string file, string? root)
@@ -36,7 +39,7 @@ public sealed partial class UiSelfTest
                 if (System.IO.File.Exists(System.IO.Path.Combine(d.FullName, "SmReimpl.slnx"))) repo = d.FullName;
         string? install = GameInstall.TryLocate()?.Dir;
         string? why = !path.EndsWith(".png", StringComparison.OrdinalIgnoreCase) ? "it is not a .png file" : Inside(path, install) ? "it is inside the game install" : Inside(path, repo) ? "it is inside the repository" : null;
-        if (why is not null) { GD.PrintErr($"--perk-card-shot refused ({why}): {path}"); return null; }
+        if (why is not null) { GD.PrintErr($"{flag} refused ({why}): {path}"); return null; }
         return path;
     }
 

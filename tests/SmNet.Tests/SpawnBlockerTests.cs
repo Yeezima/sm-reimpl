@@ -369,7 +369,7 @@ public class SpawnBlockerTests(ITestOutputHelper output)
         var spawns = new[] { new SpawnPoint(new Vector3(0, -6, 0), 0f), new SpawnPoint(new Vector3(0, 6, 0), 1f), new SpawnPoint(new Vector3(-1, 0, 0), 2f), new SpawnPoint(new Vector3(1, 2, 0), 3f) };
         var map = new GameMap("blocker_yard", level, spawns, 81);
         var link = new LinkConditions(TimeSpan.FromMilliseconds(75), TimeSpan.FromMilliseconds(10), 0.05);
-        var h = new Harness(link, seed, 0, NetConfig, new ServerOptions { PeerTimeout = TimeSpan.FromMinutes(5), Match = new MatchRules { TimeLimit = 0f } }, map: map);
+        var h = new Harness(link, seed, 0, NetConfig, new ServerOptions { PeerTimeout = TimeSpan.FromMinutes(5), Match = new MatchRules { TimeLimit = 0f }, BodyGuard = false }, map: map);
         int[] classes = [0, 2, 1, 3];
         for (int i = 0; i < classes.Length; i++)
             h.AddClient(nonce: (uint)(100 + i), options: new ClientOptions { RequestedClass = (byte)classes[i], LoadMap = _ => new LoadedMap(level, 81) });

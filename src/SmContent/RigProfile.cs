@@ -102,6 +102,8 @@ public sealed record FootBones(string LeftToe, string RightToe, string LeftAnkle
     public static readonly FootBones Marine = new(ClipGait.LeftToe, ClipGait.RightToe, ClipGait.LeftAnkle, ClipGait.RightAnkle);
     /// <summary>The Ork boy's (<c>RIG_LLeg_Toe_1</c> ...; <c>smtool graph-dump --bones --rig ork</c>).</summary>
     public static readonly FootBones OrkBoy = new("RIG_LLeg_Toe_1", "RIG_RLeg_Toe_1", "RIG_LLeg_Foot", "RIG_RLeg_Foot");
+    /// <summary>The Musou Warboss's rig (<c>havok_warboss_regular__hkxx</c>: <c>RIG_LLegToe1</c>, <c>RIG_LLegAnkle</c> ...; <c>smtool graph-dump --bones</c>).</summary>
+    public static readonly FootBones Warboss = new("RIG_LLegToe1", "RIG_RLegToe1", "RIG_LLegAnkle", "RIG_RLegAnkle");
 }
 
 /// <summary>A weapon's animation families on a rig: hip fire (movement and recoil), reload (null: no reload clip) and sprint.</summary>

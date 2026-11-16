@@ -12,13 +12,24 @@ public static class TfwSendRules
     /// <summary>The war goes out every this many seconds, and on any change (design).</summary>
     public const int WarEverySeconds = 1;
     /// <summary>The most a client gets for the Guardsmen and the war's other sections (design: 20 KB/s).</summary>
-    public const int GuardBudgetBytesPerSecond = 20_000;
+    public static readonly int GuardBudgetBytesPerSecond = MusouSendRules.OldBudget ? 20_000 : 35_000;   // 35 since musou-net-budget (2026-11-09): the design's 20 scaled with the client's stream
     /// <summary>The most a client gets for Musou's and the war's sections together (ours: under the design's 60 KB/s). Musou spends first, the war gets what is left, up to its own budget.</summary>
-    public const int ClientBudgetBytesPerSecond = 58_000;
+    /// <remarks>
+    /// The owner, 2026-11-09: a 120 KB/s stream (58 before; <c>SM_MUSOU_OLD_BUDGET=1</c>). 104 here, set by measurement (clash 500 on Ashfall, one client): the stream ran over this sum by
+    /// the core snapshot (about 7 KB/s), the sections sent outside both budgets (meks, bars, armies: about 3 KB/s) and Musou's spending as <see cref="TfwGuardInterest.MusouBytes"/> reads it
+    /// (low when Musou's bucket is not empty): 120 measured 125-135 KB/s, 112 measured 118-132, 104 measured 105-128 (1,055 to 1,424 Orks); the old 58 measured 56-68.
+    /// </remarks>
+    public static readonly int ClientBudgetBytesPerSecond = MusouSendRules.OldBudget ? 58_000 : 104_000;
+    /// <summary>
+    /// crowd-smooth (2026-11-08, ours): the least the Guardsmen's bucket refills whatever Musou spent. Under a crowd that fills Musou's 55 KB/s the war got the 3 KB/s left of the client's 58, so a
+    /// Guardsman 60 m off had a record about every 48 ticks and was drawn standing, then jumping. What the war spends above Musou's leftover is charged to Musou's next refill
+    /// (<see cref="TfwGuardInterest.TakeOverdraw"/>, <see cref="MusouInterest.CoreBytes"/>), so the client's total stays where it was. Server <c>SM_TFW_OLD_GUARD_SHARE=1</c>: no floor (test aid).
+    /// </summary>
+    public static readonly int GuardFloorBytesPerSecond = MusouSendRules.OldBudget ? 8_000 : 15_000;   // 15 since musou-net-budget (the Guardsmen's records filled 6-17 KB/s under a full crowd)
     /// <summary>Most envelope messages of the war to one client in one tick, on top of Musou's (ours).</summary>
-    public const int MaxMessagesPerTick = 2;
+    public static readonly int MaxMessagesPerTick = MusouSendRules.OldBudget ? 2 : 3;
     /// <summary>Most budget a client saves (ours: one tick of full messages).</summary>
-    public const int BurstBytes = MaxMessagesPerTick * Protocol.MaxExtrasMessageBytes;
+    public static readonly int BurstBytes = MaxMessagesPerTick * Protocol.MaxExtrasMessageBytes;
     /// <summary>The share of a tick's budget the events may take (ours, as Musou's): the rest is the Guardsmen's.</summary>
     public const float EventShare = 0.35f;
     /// <summary>A death goes in this many messages (ours, as Musou's events); a shot or a hurt man once: a lost tracer is not missed, and the shots are many.</summary>
@@ -32,8 +43,8 @@ public static class TfwSendRules
     public static int EventsPerTick(int tickRate) =>
         Math.Clamp((int)(GuardBudgetBytesPerSecond / (float)Math.Max(1, tickRate) * EventShare / TfwWire.GuardEventBytes), 1, TfwWire.MaxGuardEvents);
 
-    /// <summary>How many messages a fire record goes in (tag 11, M8; ours): a lost shell or run is missed, a lost tracer is not.</summary>
-    public static int FireCopies(TfwFireKind kind) => kind == TfwFireKind.Round ? 1 : DeathRepeat;
+    /// <summary>How many messages a fire record goes in (tag 11, M8; ours): a lost shell or run is missed, a lost tracer or bolt blast is not.</summary>
+    public static int FireCopies(TfwFireKind kind) => kind is TfwFireKind.Round or TfwFireKind.BoltBlast or TfwFireKind.Burn ? 1 : DeathRepeat;
 
     /// <summary>How many messages an event of <paramref name="kind"/> goes in.</summary>
     public static int Copies(TfwGuardEventKind kind) => kind == TfwGuardEventKind.Death ? DeathRepeat : 1;
@@ -118,7 +129,7 @@ public sealed class TfwEventWindow
 /// <summary>
 /// One client's share of the war (design section H, the second interest): the Guardsmen by distance as <see cref="MusouInterest"/> does the enemies (same bands, a changed state at once) and the war's
 /// other sections, within <see cref="TfwSendRules.MaxMessagesPerTick"/> messages and a token bucket. The bucket refills with what the client's Musou sections left of
-/// <see cref="TfwSendRules.ClientBudgetBytesPerSecond"/>, up to <see cref="TfwSendRules.GuardBudgetBytesPerSecond"/>, so the two together stay under the design's 60 KB/s. Engine-free and deterministic.
+/// <see cref="TfwSendRules.ClientBudgetBytesPerSecond"/>, up to <see cref="TfwSendRules.GuardBudgetBytesPerSecond"/>, so the two together stay near the client's stream (the design's 60 KB/s; about 120 since musou-net-budget). Engine-free and deterministic.
 /// </summary>
 public sealed class TfwGuardInterest
 {
@@ -132,6 +143,13 @@ public sealed class TfwGuardInterest
     readonly List<TfwGuardEvent> _events = new();
     float _tokens = TfwSendRules.BurstBytes;
     float _musouTokens = MusouSend.Burst;
+    float _overdraw;
+
+    /// <summary>Test aid (server <c>SM_TFW_OLD_GUARD_SHARE=1</c>): the share before 2026-11-08, without <see cref="TfwSendRules.GuardFloorBytesPerSecond"/>.</summary>
+    public bool OldShare { get; init; }
+
+    /// <summary>The bytes this client was sent for the war beyond what Musou's spending left of the client's budget, since the last call (then 0): the server charges them to Musou's next refill.</summary>
+    public float TakeOverdraw() { float o = _overdraw; _overdraw = 0f; return o; }
     byte[]? _lastWar;
     uint _lastWarTick, _lastObjectivesTick;
     bool _objectivesSent;
@@ -164,7 +182,11 @@ public sealed class TfwGuardInterest
     {
         float second = Math.Max(1, tickRate);
         float left = MathF.Max(0f, TfwSendRules.ClientBudgetBytesPerSecond / second - musouBytes);
-        _tokens = MathF.Min(TfwSendRules.BurstBytes, _tokens + MathF.Min(TfwSendRules.GuardBudgetBytesPerSecond / second, left));
+        float leftRefill = MathF.Min(TfwSendRules.GuardBudgetBytesPerSecond / second, left);
+        float refill = OldShare ? leftRefill : MathF.Max(leftRefill, MathF.Min(TfwSendRules.GuardFloorBytesPerSecond, TfwSendRules.GuardBudgetBytesPerSecond) / second);
+        float added = MathF.Min(TfwSendRules.BurstBytes, _tokens + refill) - _tokens;
+        _tokens += added;
+        if (!OldShare) _overdraw += Math.Clamp(added - leftRefill, 0f, refill - leftRefill);   // the floor's top-up that went into the bucket: Musou's next refill pays it back
 
         var messages = new List<List<(byte, byte[])>>();
         var sizes = new List<int>();

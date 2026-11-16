@@ -93,7 +93,8 @@ public partial class NetworkView
         if (!t.ThrowHand && HandoffMoving(s)) t.ThrowHand = true;
         if (!t.ThrowHand) return false;
         PlaceHandedOver(character, s, own);
-        character.SetPoseLayer(clip, throwTime, ActionHandoff.ThrowWeight(_config.ThrowDuration, throwTime), additive: false, mask);
+        float clipTime = TossClipTime(throwTime);   // feel/grenades-quickdraw: the wind-up fitted to the release; the weight by the clip's own end
+        character.SetPoseLayer(clip, clipTime, ActionHandoff.ThrowWeight(TossClipEnd, clipTime), additive: false, mask);
         return true;
     }
 }

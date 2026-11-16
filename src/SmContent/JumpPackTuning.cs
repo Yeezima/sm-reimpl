@@ -122,7 +122,7 @@ public static class JumpPackTuning
     {
         float capacity = OwnerCapacity * spec.MaxPower / MathF.Max(baseMax, 1e-3f);
         notes.Add($"{spec.Name}: max_power {spec.MaxPower} becomes {capacity} (the owner's baseline {OwnerCapacity} for the base entry's {baseMax}; owner's decision 2026-10-29)");
-        return spec with { MaxPower = capacity };
+        return spec with { MaxPower = capacity, DataMaxPower = spec.MaxPower };
     }
 
     /// <summary>

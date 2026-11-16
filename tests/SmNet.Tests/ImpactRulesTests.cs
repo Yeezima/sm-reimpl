@@ -189,9 +189,13 @@ public class ArmourBreakRingTests
         t.Hit(2, 0.0, armourUp: true, regenDelay: 7f);
         t.Broke(2, 1.0, 7f);
         Assert.True(t.At(2, 1.0).Break > 0.9f);
-        Assert.True(t.BreakRing(2, 1.0));
+        Assert.False(t.BreakRing(2, 1.0));          // pvp-hit-fx: the engulfing glow by default
+        ArmourFlashTracker.Ring = true;              // --old-break-ring
+        try { Assert.True(t.BreakRing(2, 1.0)); } finally { ArmourFlashTracker.Ring = false; }
+        Assert.True(t.TryTakeBreak(out _));
         t.Broke(2, 2.5, 7f);                       // still down: no new break
         Assert.False(t.BreakRing(2, 2.5));
+        Assert.False(t.TryTakeBreak(out _));
     }
 }
 
@@ -303,4 +307,376 @@ public class MeleeHitSynthTests
     [InlineData("")]
     [InlineData(null)]
     public void Other_weapons_keep_their_own(string? wargear) => Assert.Null(MeleeHitSynth.Replaces(wargear));
+}
+
+/// <summary>fix/melta-burn-onhit: the melta's whole-body burn starts on the hit, not on death.</summary>
+public class MeltaBurnRulesTests
+{
+    [Fact]
+    public void A_melta_body_hit_on_another_player_starts_the_burn_at_once()
+        => Assert.True(MeltaBurnRules.Due(MeltaBurnRules.IsMelta("wargear_sm_meltagun"), bodyHit: true, victim: 3, ownId: 1, now: 10.0, lastAt: double.NegativeInfinity));
+
+    [Theory]
+    [InlineData(false, true, 3, 1, 10.0, -1e9)]   // not a melta
+    [InlineData(true, false, 3, 1, 10.0, -1e9)]   // a wall
+    [InlineData(true, true, -1, 1, 10.0, -1e9)]   // no victim
+    [InlineData(true, true, 1, 1, 10.0, -1e9)]    // the own body
+    [InlineData(true, true, 3, 1, 10.1, 10.0)]    // inside the gap
+    public void Other_events_do_not_start_it(bool melta, bool body, int victim, int own, double now, double last)
+        => Assert.False(MeltaBurnRules.Due(melta, body, victim, own, now, last));
+
+    [Fact]
+    public void It_starts_again_after_the_gap_and_covers_head_to_feet_and_arms()
+    {
+        Assert.True(MeltaBurnRules.Due(true, true, 3, 1, 10.3, 10.0));
+        Assert.Contains("rig_head", MeltaBurnRules.Bones);
+        Assert.Contains("rig_rfoot", MeltaBurnRules.Bones);
+        Assert.Contains("rig_lupperarm", MeltaBurnRules.Bones);
+        Assert.Contains("rig_rhand", MeltaBurnRules.Bones);
+        Assert.True(MeltaBurnRules.IsMelta("wargear_csm_meltagun") && !MeltaBurnRules.IsMelta("wargear_sm_bolter"));
+    }
+}
+
+/// <summary>fix/hit-decals-map-only (owner, 2026-11-08): a ranged shot that hits a player leaves no decal; one that strikes the map does.</summary>
+public class MeltaKillAttributionTests
+{
+    static readonly string[] Names = ["wargear_sm_bolter", "wargear_sm_meltagun", "wargear_csm_meltagun"];
+
+    [Theory]
+    [InlineData(SmSim.KillCause.Weapon, 1, true)]
+    [InlineData(SmSim.KillCause.Weapon, 2, true)]
+    [InlineData(SmSim.KillCause.Weapon, 0, false)]    // another gun
+    [InlineData(SmSim.KillCause.Weapon, 3, false)]    // index out of range
+    [InlineData(SmSim.KillCause.Weapon, -1, false)]
+    [InlineData(SmSim.KillCause.Thrown, 1, false)]    // the melta bomb is a thrown item: its index is into the thrown list, never the weapons
+    [InlineData(SmSim.KillCause.Melee, 1, false)]
+    [InlineData(SmSim.KillCause.JumpPack, 1, false)]
+    [InlineData(SmSim.KillCause.Perk, 1, false)]
+    [InlineData(SmSim.KillCause.World, 1, false)]
+    public void Only_a_weapon_kill_by_a_melta_burns(SmSim.KillCause cause, int index, bool burns) => Assert.Equal(burns, MeltaBurnRules.KillBurns(cause, index, Names));
+
+    [Theory]
+    [InlineData(true, "wargear_sm_meltagun", true)]
+    [InlineData(true, "wargear_csm_meltagun", true)]
+    [InlineData(true, "wargear_sm_bolter", false)]
+    [InlineData(true, null, false)]
+    [InlineData(false, "wargear_sm_meltagun", false)]   // a blast, a melee or a barrage death
+    public void The_crowds_burn_needs_a_shot_and_a_melta_in_the_killers_hand(bool shot, string? inHand, bool burns) => Assert.Equal(burns, MeltaBurnRules.CrowdKillBurns(shot, inHand));
+}
+
+public class HitDecalRulesTests
+{
+    [Theory]
+    [InlineData(SmSim.ShotHit.Body, 3, false)]
+    [InlineData(SmSim.ShotHit.Head, 7, false)]
+    [InlineData(SmSim.ShotHit.World, -1, true)]
+    [InlineData(SmSim.ShotHit.Body, -1, true)]   // a Musou enemy (no player id): unchanged
+    public void Player_hit_draws_no_decal_world_hit_does(SmSim.ShotHit hit, int victim, bool decal) =>
+        Assert.Equal(decal, HitDecalRules.DrawsContainer(hit, victim));
+}
+
+/// <summary>classic-no-player-hit-fx (owner, 2026-11-11): Classic PvP draws no on-hit effects on a player a shot struck; Musou Mode and the restore flag draw them all.</summary>
+public class PlayerHitFxRulesTests
+{
+    const SmSim.ContentExtras Faithful = SmSim.ContentExtras.None;
+    const SmSim.ContentExtras Extended = SmSim.ContentExtras.Orks | SmSim.ContentExtras.Gore | SmSim.ContentExtras.LoyalistBarks;
+    const SmSim.ContentExtras Musou = SmSim.ContentExtras.Musou;
+
+    [Theory]
+    [InlineData(SmSim.ShotHit.Body, Faithful)]
+    [InlineData(SmSim.ShotHit.Head, Faithful)]
+    [InlineData(SmSim.ShotHit.Body, Extended)]   // Annihilation or Seize Ground with added content (the Ork Boy) is Classic too
+    [InlineData(SmSim.ShotHit.Head, Extended)]
+    public void Classic_draws_no_hit_effects_on_a_player(SmSim.ShotHit hit, SmSim.ContentExtras extras)
+    {
+        Assert.True(PlayerHitFxRules.Classic(extras));
+        Assert.False(PlayerHitFxRules.DrawsHitFx(hit, extras, restore: false));
+    }
+
+    [Theory]
+    [InlineData(SmSim.ShotHit.Body)]
+    [InlineData(SmSim.ShotHit.Head)]
+    [InlineData(SmSim.ShotHit.World)]
+    public void Musou_draws_them_all(SmSim.ShotHit hit)
+    {
+        Assert.False(PlayerHitFxRules.Classic(Musou));
+        Assert.True(PlayerHitFxRules.DrawsHitFx(hit, Musou, restore: false));
+        Assert.True(PlayerHitFxRules.DrawsBreakFx(melee: false, Musou, restore: false));
+    }
+
+    [Theory]
+    [InlineData(Faithful)]
+    [InlineData(Extended)]
+    [InlineData(Musou)]
+    public void A_shot_on_the_map_keeps_its_effects_in_every_mode(SmSim.ContentExtras extras)
+    {
+        Assert.True(PlayerHitFxRules.DrawsHitFx(SmSim.ShotHit.World, extras, restore: false));
+        Assert.True(PlayerHitFxRules.DrawsHitFx(SmSim.ShotHit.None, extras, restore: false));
+    }
+
+    [Theory]
+    [InlineData(SmSim.ShotHit.Body, Faithful)]
+    [InlineData(SmSim.ShotHit.Head, Extended)]
+    public void The_restore_flag_brings_them_back_in_Classic(SmSim.ShotHit hit, SmSim.ContentExtras extras)
+    {
+        Assert.Equal("player-hit-fx", PlayerHitFxRules.RestoreFlag);
+        Assert.Contains(PlayerHitFxRules.RestoreFlag, SmNet.LeanBot.PresentationAids);   // a bot given it loads the presentation, like the other before / after switches
+        Assert.True(PlayerHitFxRules.DrawsHitFx(hit, extras, restore: true));
+        Assert.True(PlayerHitFxRules.DrawsBreakFx(melee: false, extras, restore: true));
+    }
+
+    [Fact]
+    public void A_break_a_shot_caused_plays_its_break_effect_in_Classic_again_the_old_look_switch_drops_it()
+    {
+        // owner's answers 2026-11-11: break particles appear when a shot breaks armour.
+        Assert.True(PlayerHitFxRules.DrawsBreakFx(melee: false, Faithful, restore: false));
+        Assert.True(PlayerHitFxRules.DrawsBreakFx(melee: false, Extended, restore: false));
+        Assert.Equal("old-classic-hit-fx", PlayerHitFxRules.OldLookFlag);
+        Assert.Contains(PlayerHitFxRules.OldLookFlag, SmNet.LeanBot.PresentationAids);
+        Assert.False(PlayerHitFxRules.DrawsBreakFx(melee: false, Faithful, restore: false, oldLook: true));
+        Assert.True(PlayerHitFxRules.DrawsBreakFx(melee: true, Faithful, restore: false, oldLook: true));
+    }
+
+    [Fact]
+    public void The_bare_armour_model_flash_is_back_in_Classic_not_with_the_old_look_or_the_burst_restore()
+    {
+        Assert.True(PlayerHitFxRules.BareHitFlash(Faithful, restore: false, oldLook: false, oldHealthHit: false));
+        Assert.True(PlayerHitFxRules.BareHitFlash(Extended, restore: false, oldLook: false, oldHealthHit: false));
+        Assert.False(PlayerHitFxRules.BareHitFlash(Musou, restore: false, oldLook: false, oldHealthHit: false));   // Musou keeps pvp-hit-fx's burst instead
+        Assert.False(PlayerHitFxRules.BareHitFlash(Faithful, restore: true, oldLook: false, oldHealthHit: false));
+        Assert.False(PlayerHitFxRules.BareHitFlash(Faithful, restore: false, oldLook: true, oldHealthHit: false));
+        Assert.True(PlayerHitFxRules.BareHitFlash(Musou, restore: false, oldLook: false, oldHealthHit: true));   // --old-health-hit: the old re-flash everywhere
+    }
+
+    [Fact]
+    public void The_new_presentation_switches_load_the_presentation_for_a_bot()
+    {
+        Assert.Contains("melta-burn-on-hit", SmNet.LeanBot.PresentationAids);
+        Assert.Contains("old-pack-death-flash", SmNet.LeanBot.PresentationAids);
+        Assert.Contains("old-pack-death-thrust", SmNet.LeanBot.PresentationAids);
+        Assert.Contains("log-pack-death", SmNet.LeanBot.PresentationAids);
+    }
+
+    [Fact]
+    public void A_classic_body_hit_is_bare_whatever_the_victim_id_while_the_map_rule_is_unchanged()
+    {
+        // HitDecalRules keeps drawing the container for a body hit with no player id (a Musou enemy); the Classic rule stops it first for any body or head hit.
+        Assert.True(HitDecalRules.DrawsContainer(SmSim.ShotHit.Body, -1));
+        Assert.False(PlayerHitFxRules.DrawsHitFx(SmSim.ShotHit.Body, Faithful, restore: false));
+        Assert.True(PlayerHitFxRules.OnPlayer(SmSim.ShotHit.Head) && !PlayerHitFxRules.OnPlayer(SmSim.ShotHit.World) && !PlayerHitFxRules.OnPlayer(SmSim.ShotHit.None));
+    }
+}
+
+/// <summary>onhit-range-intensity (owner, 2026-11-13): the hit effects keep their size on screen at range and are 30 % stronger.</summary>
+public class HitFxScaleRulesTests
+{
+    [Fact]
+    public void Hit_sparks_never_end_farther_than_four_metres_from_the_body()   // hit-sparks-flashes
+    {
+        Assert.Equal(4f, HitFxScaleRules.SparkReach);
+        float worst = 0f;
+        foreach (float speed in new[] { 5f, 30f, 120f, 600f })
+        foreach (float drag in new[] { 0f, 0.5f, 3f })
+        for (float tau = 0f; tau <= 5f; tau += 0.02f)
+        {
+            float raw = drag > 1e-4f ? speed * (1f - MathF.Exp(-drag * tau)) / drag : speed * tau;   // the particle's path length from FxPlayer.ParticlePos (gravity only adds to it)
+            float capped = HitFxScaleRules.LimitReach(raw, HitFxScaleRules.SparkReach);
+            worst = MathF.Max(worst, capped);
+            Assert.True(capped <= HitFxScaleRules.SparkReach, $"speed {speed} drag {drag} tau {tau}: {capped}");
+        }
+        Assert.True(worst > 3.9f);   // the cap is reached, not undershot
+        Assert.Equal(2f, HitFxScaleRules.LimitReach(2f, 4f));   // a short flight is untouched
+        Assert.Equal(1e9f, HitFxScaleRules.LimitReach(1e9f, 0f));   // 0: no cap (--old-hit-spark-reach)
+        Assert.True(HitFxScaleRules.LimitReach(3.5f, 4f) > HitFxScaleRules.LimitReach(3.2f, 4f));   // still ordered
+    }
+
+    [Fact]
+    public void Flash_magnitude_is_forty_percent_more_in_brightness_and_size_for_both_colours()   // hit-sparks-flashes: one factor feeds the yellow and red flashes
+    {
+        Assert.Equal(1.4f, HitFxScaleRules.FlashMagnitude);
+        Assert.Equal(1.3f * 1.4f, HitFxScaleRules.FlashBrightness(false, false), 3);
+        Assert.Equal(1.3f, HitFxScaleRules.FlashBrightness(false, true), 3);
+        Assert.Equal(1.4f, HitFxScaleRules.FlashBrightness(true, false), 3);
+        Assert.Equal(1.4f, HitFxScaleRules.FlashSize(1f, false), 3);
+        Assert.Equal(2.1f, HitFxScaleRules.FlashSize(1.5f, false), 3);
+        Assert.Equal(1.5f, HitFxScaleRules.FlashSize(1.5f, true), 3);
+    }
+
+    [Fact]
+    public void At_the_reference_distance_and_view_nothing_grows_and_the_intensity_is_thirty_percent()
+    {
+        Assert.Equal(1f, HitFxScaleRules.RangeScale(HitFxScaleRules.RefDistance, HitFxScaleRules.RefFov, HitFxScaleRules.MaxSpot), 3);
+        Assert.Equal(1f, HitFxScaleRules.RangeScale(5f, 70f, 6f));   // closer than the reference: never smaller than the data's size
+        Assert.Equal(1.3f, HitFxScaleRules.Intensity);
+        Assert.Equal(1.3f, HitFxScaleRules.ParticleScale(12f, 70f, oldRange: false, oldIntensity: false), 3);
+    }
+
+    [Fact]
+    public void A_hip_view_grows_with_distance_up_to_each_cap_and_a_scope_is_already_magnified()
+    {
+        float at40 = HitFxScaleRules.RangeScale(40f, 70f, HitFxScaleRules.MaxSpot), at80 = HitFxScaleRules.RangeScale(80f, 70f, HitFxScaleRules.MaxSpot);
+        Assert.Equal(40f / 12f, at40, 2);
+        Assert.Equal(HitFxScaleRules.MaxSpot, HitFxScaleRules.RangeScale(500f, 70f, HitFxScaleRules.MaxSpot));
+        Assert.True(at80 > at40);
+        Assert.Equal(HitFxScaleRules.MaxGlow, HitFxScaleRules.RangeScale(80f, 70f, HitFxScaleRules.MaxGlow));
+        Assert.True(HitFxScaleRules.RangeScale(80f, 10f, HitFxScaleRules.MaxSpot) < at80 / 4f);   // the Stalker's 10 degrees at 80 m
+    }
+
+    [Fact]
+    public void The_restore_switches_each_remove_their_part_and_nonsense_views_change_nothing()
+    {
+        Assert.Equal(1.3f, HitFxScaleRules.ParticleScale(80f, 70f, oldRange: true, oldIntensity: false), 3);
+        Assert.Equal(HitFxScaleRules.MaxParticle, HitFxScaleRules.ParticleScale(80f, 70f, oldRange: false, oldIntensity: true), 3);
+        Assert.Equal(1f, HitFxScaleRules.ParticleScale(80f, 70f, oldRange: true, oldIntensity: true));
+        Assert.Equal(1f, HitFxScaleRules.RangeScale(float.NaN, 70f, 6f));
+        Assert.Equal(1f, HitFxScaleRules.RangeScale(80f, 0f, 6f));
+    }
+
+    [Fact]
+    public void The_caps_hold_for_the_spot_the_particles_and_the_glow_card_and_the_old_switches_give_one()
+    {
+        Assert.Equal(6f, HitFxScaleRules.RangeScale(1000f, 70f, HitFxScaleRules.MaxSpot));
+        Assert.Equal(3f, HitFxScaleRules.RangeScale(1000f, 70f, HitFxScaleRules.MaxParticle));
+        Assert.Equal(1.5f, HitFxScaleRules.RangeScale(1000f, 70f, HitFxScaleRules.MaxGlow));
+        Assert.Equal(3f * 1.3f, HitFxScaleRules.ParticleScale(1000f, 70f, false, false), 3);
+        Assert.Equal(1f, HitFxScaleRules.ParticleScale(1000f, 70f, oldRange: true, oldIntensity: true));
+        Assert.Equal(1f, HitFxScaleRules.ParticleScale(0f, 70f, oldRange: false, oldIntensity: true));
+    }
+}
+
+/// <summary>onhit-range-intensity (owner 2026-11-13): the look of a hit on a player by damage kind and mode: Classic gets the glows and sparks, never the large burst; Musou keeps the burst on ranged hits.</summary>
+public class HitLookRulesTests
+{
+    const SmSim.ContentExtras Faithful = SmSim.ContentExtras.None;
+    const SmSim.ContentExtras Extended = SmSim.ContentExtras.Orks | SmSim.ContentExtras.Gore | SmSim.ContentExtras.LoyalistBarks;
+    const SmSim.ContentExtras Musou = SmSim.ContentExtras.Musou;
+    const PlayerHitFxRules.HitLook GlowsSparks = PlayerHitFxRules.HitLook.Glows | PlayerHitFxRules.HitLook.Sparks;
+
+    [Theory]
+    [InlineData(PlayerHitFxRules.DamageKind.Ranged, Faithful)]
+    [InlineData(PlayerHitFxRules.DamageKind.Ranged, Extended)]
+    [InlineData(PlayerHitFxRules.DamageKind.Melee, Faithful)]
+    [InlineData(PlayerHitFxRules.DamageKind.Charge, Faithful)]
+    [InlineData(PlayerHitFxRules.DamageKind.Pound, Faithful)]
+    [InlineData(PlayerHitFxRules.DamageKind.Slash, Extended)]
+    [InlineData(PlayerHitFxRules.DamageKind.Blast, Faithful)]
+    public void Classic_shows_the_glows_and_sparks_for_every_damage_and_never_the_large_burst(PlayerHitFxRules.DamageKind kind, SmSim.ContentExtras extras) =>
+        Assert.Equal(GlowsSparks, PlayerHitFxRules.LookFor(kind, extras, particles: true, burstRestore: false));
+
+    [Fact]
+    public void Musou_keeps_the_large_burst_on_ranged_hits_only()
+    {
+        Assert.Equal(GlowsSparks | PlayerHitFxRules.HitLook.Burst, PlayerHitFxRules.LookFor(PlayerHitFxRules.DamageKind.Ranged, Musou, true, false));
+        Assert.Equal(GlowsSparks, PlayerHitFxRules.LookFor(PlayerHitFxRules.DamageKind.Melee, Musou, true, false));
+        Assert.Equal(GlowsSparks, PlayerHitFxRules.LookFor(PlayerHitFxRules.DamageKind.Blast, Musou, true, false));
+    }
+
+    [Fact]
+    public void The_restore_switches_each_change_only_their_part()
+    {
+        Assert.Equal(PlayerHitFxRules.HitLook.Glows, PlayerHitFxRules.LookFor(PlayerHitFxRules.DamageKind.Ranged, Faithful, particles: false, burstRestore: false));   // --no-player-hit-fx: glows only
+        Assert.Equal(PlayerHitFxRules.HitLook.Glows, PlayerHitFxRules.LookFor(PlayerHitFxRules.DamageKind.Melee, Extended, false, false));
+        Assert.Equal(GlowsSparks | PlayerHitFxRules.HitLook.Burst, PlayerHitFxRules.LookFor(PlayerHitFxRules.DamageKind.Ranged, Faithful, true, burstRestore: true));   // --player-hit-burst
+        Assert.Equal(GlowsSparks, PlayerHitFxRules.LookFor(PlayerHitFxRules.DamageKind.Melee, Faithful, true, burstRestore: true));   // a melee hit never had a burst
+        Assert.Equal("no-player-hit-fx", PlayerHitFxRules.NoParticlesFlag);
+        Assert.Equal("player-hit-burst", PlayerHitFxRules.BurstFlag);
+        Assert.Contains(PlayerHitFxRules.BurstFlag, SmNet.LeanBot.PresentationAids);
+        Assert.Contains("no-damage-glow", SmNet.LeanBot.PresentationAids);
+    }
+}
+
+/// <summary>onhit-range-intensity (owner 2026-11-13): the glow of a server-confirmed damage on a player: armour or health colour, one per event, not on the own body, from a hit report or a started reaction.</summary>
+public class DamageEventGlowRulesTests
+{
+    [Theory]
+    [InlineData(10f, 0f, true)]    // armour took it: yellow
+    [InlineData(10f, 20f, true)]   // armour took some, health too: yellow
+    [InlineData(0f, 15f, false)]   // only health: red
+    public void The_damage_split_picks_yellow_or_red(float shield, float health, bool up) => Assert.Equal(up, PlayerHitFxRules.ArmourUpOfDamage(shield, health));
+
+    [Fact]
+    public void No_damage_is_no_glow() => Assert.Null(PlayerHitFxRules.ArmourUpOfDamage(0f, 0f));
+
+    [Fact]
+    public void One_glow_per_damage_event_within_the_window()
+    {
+        Assert.True(PlayerHitFxRules.DedupePasses(10.0, double.NegativeInfinity));
+        Assert.False(PlayerHitFxRules.DedupePasses(10.1, 10.0));   // the same event seen twice (report and reaction)
+        Assert.False(PlayerHitFxRules.DedupePasses(10.24, 10.0));
+        Assert.True(PlayerHitFxRules.DedupePasses(10.26, 10.0));   // the next blow of a combo
+    }
+
+    [Fact]
+    public void Another_players_model_glows_but_not_the_own_body_or_nobody()
+    {
+        Assert.True(PlayerHitFxRules.ShowsOnModel(victim: 3, ownPlayer: 1));
+        Assert.False(PlayerHitFxRules.ShowsOnModel(victim: 1, ownPlayer: 1));
+        Assert.False(PlayerHitFxRules.ShowsOnModel(victim: 0, ownPlayer: 1));
+    }
+
+    [Fact]
+    public void A_reaction_that_starts_or_restarts_confirms_a_damage_and_a_running_one_does_not()
+    {
+        var none = SmSim.ReactionKind.None;
+        var kind = System.Enum.GetValues<SmSim.ReactionKind>().First(k => k != none);
+        var other = System.Enum.GetValues<SmSim.ReactionKind>().First(k => k != none && k != kind);
+        Assert.True(PlayerHitFxRules.ReactionStarted(none, 0, kind, 1));       // began
+        Assert.True(PlayerHitFxRules.ReactionStarted(kind, 9, kind, 2));       // restarted: ticks counted up again
+        Assert.True(PlayerHitFxRules.ReactionStarted(kind, 9, other, 9));      // another kind
+        Assert.False(PlayerHitFxRules.ReactionStarted(kind, 2, kind, 3));      // still running
+        Assert.False(PlayerHitFxRules.ReactionStarted(kind, 2, none, 0));      // ended: nothing to show
+    }
+
+    [Theory]
+    [InlineData(true, false, 1, true)]    // melee damage the own player dealt
+    [InlineData(false, true, 1, true)]    // splash damage
+    [InlineData(false, false, 1, false)]  // a plain shot: it has its own record
+    [InlineData(true, false, 0, false)]   // no hit
+    public void A_report_needs_a_glow_only_for_melee_or_splash_damage(bool melee, bool splash, int hits, bool expected) => Assert.Equal(expected, PlayerHitFxRules.ReportNeedsGlow(melee, splash, hits));
+
+    [Fact]
+    public void Classic_and_Musou_pick_the_same_glow_for_a_melee_damage_and_differ_only_in_the_ranged_burst()
+    {
+        var classic = PlayerHitFxRules.LookFor(PlayerHitFxRules.DamageKind.Melee, SmSim.ContentExtras.None, true, false);
+        var musou = PlayerHitFxRules.LookFor(PlayerHitFxRules.DamageKind.Melee, SmSim.ContentExtras.Musou, true, false);
+        Assert.Equal(classic, musou);
+        Assert.NotEqual(PlayerHitFxRules.LookFor(PlayerHitFxRules.DamageKind.Ranged, SmSim.ContentExtras.None, true, false), PlayerHitFxRules.LookFor(PlayerHitFxRules.DamageKind.Ranged, SmSim.ContentExtras.Musou, true, false));
+    }
+}
+
+/// <summary>hit-sparks-flashes wiring (source-level: the client cannot be loaded here): every shot-hit particle source on a player is reach-capped, the GPU path leaves capped effects to the CPU, and the own model's flash gets the same size factor as another player's.</summary>
+public class HitSparksFlashesWiringTests
+{
+    static string Src(params string[] parts)
+    {
+        var d = new DirectoryInfo(AppContext.BaseDirectory);
+        while (d is not null && !File.Exists(Path.Combine(d.FullName, "SmReimpl.slnx"))) d = d.Parent;
+        return File.ReadAllText(Path.Combine(new[] { d!.FullName, "client" }.Concat(parts).ToArray()));
+    }
+
+    static int Count(string text, string what) => System.Text.RegularExpressions.Regex.Matches(text, System.Text.RegularExpressions.Regex.Escape(what)).Count;
+
+    [Fact]
+    public void Every_shot_hit_particle_source_on_a_player_gets_the_reach_cap()
+    {
+        Assert.Equal(2, Count(Src("NetworkView.BoltFx.cs"), "ReachCap = cap"));      // both spark copies, yellow and red
+        Assert.Equal(2, Count(Src("NetworkView.HitFeedback.cs"), "ReachCap = SparkReachCap"));   // armour-hit and inactive-hit effects
+        Assert.Equal(2, Count(Src("NetworkView.PvpHitFx.cs"), "ReachCap = SparkReachCap"));      // health-hit burst, armour break effect
+        Assert.Equal(1, Count(Src("NetworkView.Fx.cs"), "hit != ShotHit.World) impact.ReachCap = SparkReachCap"));   // the weapon's own hit effects
+        Assert.Contains("ParticlePos", Src("FxPlayer.cs"));
+        Assert.Contains("c.Cap > 0f", Src("FxPlayer.cs"));
+    }
+
+    [Fact]
+    public void A_capped_effect_is_not_handed_to_the_gpu_sprays()
+        => Assert.Contains("e.ReachCap > 0f", Src("Extras", "Musou", "FxPlayer.MusouGpu.cs"));
+
+    [Fact]
+    public void Own_and_remote_flashes_take_the_same_size_and_brightness_factors()
+    {
+        var f = Src("NetworkView.CharacterFlash.cs");
+        Assert.Equal(2, Count(f, "_local.SetArmourFlash("));   // the demo call and the game call; the off-switch call is `_local?.`
+        Assert.Contains("spotScale: ownSpot, glowScale: ownGlow, intensity: FlashBrightness", f);
+        Assert.Contains("spotScale, glowScale, FlashBrightness", f);
+    }
 }

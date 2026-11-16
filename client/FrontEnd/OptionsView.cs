@@ -51,7 +51,7 @@ public sealed partial class OptionsView : UiKit.MenuPage
         Rows.AddChild(_page);
         Rows.AddChild(UiKit.MenuGap(0.5f));
         Rows.AddChild(UiKit.MenuButton("Back", () => _onBack()));
-        if (foot is not null) { Rows.AddChild(UiKit.MenuGap()); Rows.AddChild(foot); }
+        Foot = foot;   // under the rows, outside their scroll list (MenuPage.Foot): GRAPHICS's 17 rows fill the list
     }
 
     /// <summary>Opens the page of a tab (null keeps the last one) and puts the focus on its tab.</summary>
@@ -106,17 +106,52 @@ public sealed partial class OptionsView : UiKit.MenuPage
         Choice("Vsync", OffOn, O.Vsync ? 1 : 0, i => Set(x => x with { Vsync = i == 1 }));
         var caps = GameOptions.FpsCaps;
         Choice("FPS cap", caps.Select(c => c == 0 ? "UNLIMITED" : c.ToString()).ToArray(), Array.IndexOf(caps, O.FpsCap), i => Set(x => x with { FpsCap = caps[i] }));
-        Add(new UiKit.MenuSlider("Render scale", GameOptions.MinRenderScale, GameOptions.MaxRenderScale, GameOptions.RenderScaleStep, O.RenderScale, Percent, v => Set(x => x with { RenderScale = (float)v }), "RenderScaleSlider",
-            "The 3D picture's resolution as a part of the window's; lower runs faster, the menus and the HUD stay sharp."));
+        // musou/perf-pass (the owner's brief, ours): FSR 2 upscaling, default off. On, its preset sets the 3D scale and it is the anti-aliasing, so the render scale and anti-aliasing rows rest.
+        var upscales = Enum.GetValues<UpscaleChoice>();
+        bool fsrOk = RenderQuality.Fsr2Supported;
+        UiKit.MenuSlider? scaleRow = null;
+        UiKit.MenuChoice? aaRow = null;
+        void Rest()
+        {
+            bool fsr = fsrOk && O.Upscale != UpscaleChoice.Off;
+            scaleRow?.SetDisabled(fsr);
+            aaRow?.SetDisabled(fsr || RenderQuality.AaFromCommandLine);
+        }
+        var upscaleRow = new UiKit.MenuChoice("Upscaling", upscales.Select(Upscaling.Name).ToArray(), Math.Max(0, Array.IndexOf(upscales, O.Upscale)), i => { Set(x => x with { Upscale = upscales[i] }); Rest(); },
+            fsrOk ? "AMD FSR 2: renders the 3D picture smaller and rebuilds it at full size (QUALITY, BALANCED, PERFORMANCE), or at full size as its own anti-aliasing (NATIVE AA). The menus and the HUD stay sharp. OFF uses the render scale and the anti-aliasing below. Cut-out edges (grates, fences) follow the change when the next map loads."
+                  : "FSR 2 needs the Forward+ renderer; the Compatibility renderer (old GPU / safe mode) has none.");
+        upscaleRow.Name = "UpscalingRow";
+        upscaleRow.SetDisabled(!fsrOk || RenderQuality.UpscaleFromCommandLine);
+        Add(upscaleRow);
+        scaleRow = new UiKit.MenuSlider("Render scale", GameOptions.MinRenderScale, GameOptions.MaxRenderScale, GameOptions.RenderScaleStep, O.RenderScale, Percent, v => Set(x => x with { RenderScale = (float)v }), "RenderScaleSlider",
+            "The 3D picture's resolution as a part of the window's; lower runs faster, the menus and the HUD stay sharp. With FSR 2 on, its preset sets the scale.");
+        Add(scaleRow);
         Choice("Shadow quality", ["DEFAULT", "LOW", "MEDIUM", "HIGH"], (int)O.Shadows, i => Set(x => x with { Shadows = (ShadowChoice)i }), "DEFAULT follows the lighting preset. Takes effect on the sun's shadows at once.");
         var aa = RenderQuality.Choices;
-        var aaRow = new UiKit.MenuChoice("Anti-aliasing", aa.Select(RenderQuality.ChoiceName).ToArray(), Math.Max(0, Array.IndexOf(aa, O.Aa)), i => Set(x => x with { Aa = aa[i] }),
-            "Cut-out edges (grates, fences) follow the new choice when the next map loads.");
-        aaRow.SetDisabled(RenderQuality.AaFromCommandLine);
+        aaRow = new UiKit.MenuChoice("Anti-aliasing", aa.Select(RenderQuality.ChoiceName).ToArray(), Math.Max(0, Array.IndexOf(aa, O.Aa)), i => Set(x => x with { Aa = aa[i] }),
+            "Cut-out edges (grates, fences) follow the new choice when the next map loads. With FSR 2 on, FSR 2 is the anti-aliasing.");
         Add(aaRow);
+        Rest();
+        // musou/perf-pass, the owner's "option in Graphics" (2026-11-08): Ashfall's grime as an overlay pass (exact, the default) or folded into the kit's materials (faster on weak GPUs, close but not exact).
+        // polish pass P1 (2026-11-10): in safe mode (the Compatibility renderer) the grime is always FAST (SafeMode.GrimeFoldedInSafeMode, a core flag: nothing from Extras/ here); the row shows it and rests.
+        bool grimeForced = SafeMode.GrimeFoldedInSafeMode;
+        var grimeRow = new UiKit.MenuChoice("Ashfall grime", ["EXACT (OVERLAY)", "FAST (FOLDED, WEAK GPUS)"], grimeForced || O.GrimeFast ? 1 : 0, i => Set(x => x with { GrimeFast = i == 1 }),
+            grimeForced ? "Musou Mode's Ashfall only. In old GPU / safe mode the grime is always FAST (worked into the ruins' own materials): the extra overlay pass is what the Compatibility renderer pays most for."
+                        : "Musou Mode's Ashfall only. EXACT draws the dirt and soot as an extra pass over the ruins. FAST works it into the ruins' own materials: the ruins are drawn once instead of three times, the look is close but not exact. Takes effect at once.");
+        grimeRow.Name = "AshfallGrimeRow";
+        grimeRow.SetDisabled(grimeForced);
+        Add(grimeRow);
         Add(UiKit.FovRow(_services.Settings.FovDegrees, f => _services.UpdateSettings(x => x with { FovDegrees = f })));   // ui/fov-slider (ours)
         Add(new UiKit.MenuSlider("Brightness", GameOptions.MinBrightness, GameOptions.MaxBrightness, GameOptions.BrightnessStep, O.Brightness, Percent, v => Set(x => x with { Brightness = (float)v }), "BrightnessSlider", "A gamma curve over the whole picture. 100% leaves it untouched."));
+        // ui/lighting-presets (the owner's request of 2026-11-06; ours, cosmetic): ten looks over the map's lighting, applied live (LightingGradeView); Faithful Remaster is today's look.
+        Choice("Lighting preset", LightingPresets.Labels.Select(l => l.ToUpperInvariant()).ToArray(), (int)O.Lighting, i => Set(x => x with { Lighting = (LightingPresetChoice)i }),
+            "The look of the light, haze and colour on every map. FAITHFUL REMASTER is the game's own look; the others only change the mood, never what you can see.");
         Choice("Reduce motion", OffOn, _services.Settings.ReduceMotion ? 1 : 0, i => _services.UpdateSettings(x => x with { ReduceMotion = i == 1 }), "No camera moves, turntable or fades in the customizer; no artillery shake in Musou Mode.");
+        // combat feel (owner's brief, 2026-11-09): accessibility controls for the shake and the flashes; 100% is the game as before. The game has no controller vibration, so there is none to control.
+        Add(new UiKit.MenuSlider("Camera shake", 0, 1, GameOptions.AccessibilityStep, O.CameraShake, Percent, v => Set(x => x with { CameraShake = (float)v }), "CameraShakeSlider",
+            "How much the camera shakes and kicks at blasts, hits, landings and heavy shots. 100% is the game's own; 0% turns it off."));
+        Add(new UiKit.MenuSlider("Screen flashes", 0, 1, GameOptions.AccessibilityStep, O.ScreenFlashes, Percent, v => Set(x => x with { ScreenFlashes = (float)v }), "ScreenFlashesSlider",
+            "How strong the flashes over the whole screen are (a krak grenade close by, Musou Mode's call-outs) and the bursts of power weapon hits. 100% is the game's own; 0% turns them off."));
         Choice("Show others' emblems", OffOn, _services.Settings.ShowOthersEmblems ? 1 : 0, i => _services.UpdateSettings(x => x with { ShowOthersEmblems = i == 1 }));
         var renderer = new Control { Name = "RendererRow", MouseFilter = MouseFilterEnum.Ignore };
         var caption = UiKit.MenuText("RENDERER", UiKit.Grey);

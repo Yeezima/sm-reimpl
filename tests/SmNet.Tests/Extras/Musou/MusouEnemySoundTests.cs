@@ -20,6 +20,13 @@ public class MusouEnemySoundTests
     };
 
     [Fact]
+    public void The_ork_voices_keep_their_own_distance_curves_by_default()
+    {
+        // The owner, 2026-11-08: "revert the request ... use the original game's exterminatus sound levels" (the weapon-fire curve of 2026-11-06 is a test aid only).
+        Assert.False(MusouSoundRules.VoicesOnWeaponCurve);
+    }
+
+    [Fact]
     public void A_group_posts_up_to_its_burst_then_refills_at_its_rate()
     {
         var budget = new MusouSoundBudget();
@@ -62,6 +69,24 @@ public class MusouEnemySoundTests
     {
         Assert.True(MusouSoundRules.MaxVoices * 2 < 48);
         Assert.True(MusouSoundRules.Stepping <= MusouSoundRules.Slots);
+    }
+
+    [Fact]
+    public void The_big_shoota_jams_with_its_own_pulling_grunt_and_cocks_when_ready()
+    {
+        var body = new SoundFile("ork_coop_nob_bigshoota", [Bind("evt_left_foot", "step")]);
+        var axe = new SoundFile("ork_coop_nob_uge_axe", [Bind("actn_huge_swing", "whoosh")]);
+        var gun = new SoundFile("ork_coop_nob_big_shoota", [Bind("fire_audio", "big_fire", "ability_ranged_primary"), Bind("actn_snd_wep_cock", "gun_cock")])
+        {
+            Speech = [Say("actn_snd_wep_gun_jam", "effort_big_pull")],
+        };
+        var set = MusouSoundSet.Build(new MusouSoundFiles(MusouEnemyType.BigShootaNob, "ork_coop_nob_bigshoota", "ork_coop_nob_uge_axe", Gun: "ork_coop_nob_big_shoota"),
+            Triggers("ork_nob", body, axe, gun), _ => true);
+        var jam = Assert.Single(set.Jam.Options);
+        Assert.Empty(jam.Events);
+        Assert.Equal("effort_big_pull", Assert.Single(jam.Lines).Type);
+        Assert.Equal("gun_cock", Assert.Single(Assert.Single(set.GunReady.Options).Events).StartEvent);
+        Assert.Contains(set.Cues, c => c.Name == "jam");
     }
 
     [Fact]

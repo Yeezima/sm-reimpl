@@ -30,10 +30,25 @@ public sealed partial class UiSelfTest : Node
 
     async Task Frames(int count = 3) { for (int i = 0; i < count; i++) await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame); }
 
-    void Check(string name, bool ok, string detail = "")
+    /// <summary>
+    /// Waits frames until <paramref name="ready"/> holds (at least <paramref name="minFrames"/>), at most <paramref name="seconds"/> of wall time; true when it held. A frame count is no
+    /// measure of time: a loaded machine draws few frames while a background thread builds art, a headless run with nothing to draw a thousand a second.
+    /// </summary>
+    async Task<bool> Until(Func<bool> ready, double seconds = 10, int minFrames = 1)
+    {
+        ulong start = Time.GetTicksMsec();
+        for (int frame = 0; ; frame++)
+        {
+            if (frame >= minFrames && ready()) return true;
+            if ((Time.GetTicksMsec() - start) / 1000.0 > seconds) return ready();
+            await Frames(1);
+        }
+    }
+
+    void Check(string name, bool ok, string? detail = "")
     {
         if (ok) _passed++; else _failed++;
-        GD.Print($"SELFTEST {(ok ? "PASS" : "FAIL")} {name}{(detail.Length > 0 && !ok ? " - " + detail : "")}");
+        GD.Print($"SELFTEST {(ok ? "PASS" : "FAIL")} {name}{(detail is { Length: > 0 } && !ok ? " - " + detail : "")}");
     }
 
     static Button? FindButton(Node root, Func<Button, bool> match)
@@ -286,6 +301,7 @@ public sealed partial class UiSelfTest : Node
         Check("both pads show the newest emblem and the plan carries it", withEmblem is { UsesEmblem: true } && withEmblem.SpaceMarineLook.Emblem == emblem && withEmblem.SpaceMarineLook.LeftDecal == withEmblem.SpaceMarineLook.RightDecal);
         Check("the profile saves with the look and the emblem", session.Save() is null);
 
+        await AppearanceSlotChecks();   // ui/appearance-slots: MY APPEARANCES, ten saved looks per side (UiSelfTest.AppearanceSlots.cs)
         await LoadoutChecks();
         await MouseChecks();
         await DefaultsChecks();
@@ -297,10 +313,14 @@ public sealed partial class UiSelfTest : Node
         await ControlsChecks();   // ui/keybinds (UiSelfTest.Controls.cs)
         await PadBackChecks();   // ui/pad-b-back: B on the controller backs out of menus (UiSelfTest.PadBack.cs)
         await MenuChecks();   // ui/menu-rebuild: the tree, JOIN SERVER, the bot buttons (UiSelfTest.Menus.cs)
+        await MenuVideoChecks();   // the main menu's video loop (UiSelfTest.MenuVideo.cs)
         await OptionsChecks();   // ui/menu-rebuild: the options' rows, effects and persistence
+        await PresetsGlowChecks();   // ui/lighting-presets, ui/focus-glow (UiSelfTest.PresetsGlow.cs)
         await FitChecks();
         await ArmourBarChecks();   // ui/armour-bar-fix: one armour bar layer (UiSelfTest.ArmourBar.cs)
+        await HeadshotMedalChecks();
         await ScoreBoxChecks();   // ui/score-box-center: the HUD score box holds its block (UiSelfTest.ScoreBox.cs)
+        ScreenBlinkChecks();   // ui/loading-blink: the blink's timing and the loading picture's file (UiSelfTest.ScreenBlink.cs)
     }
 
     /// <summary>

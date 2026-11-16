@@ -15,11 +15,15 @@ public partial class NetworkView
     static readonly bool TransitionSweep = OS.GetCmdlineUserArgs().Contains("--transition-sweep");
 
     /// <summary>One segment of a leg: its length, the stick (x right, y forward), the buttons held and the buttons pressed for one tick at its start.</summary>
-    sealed record SweepSegment(float Seconds, float X, float Y, InputButtons Hold, InputButtons Press = InputButtons.None);
+    sealed record SweepSegment(float Seconds, float X, float Y, InputButtons Hold, InputButtons Press = InputButtons.None, float TurnDegrees = 0f);
     sealed record TransitionLeg(string Name, SweepSegment[] Segments);
 
     static readonly TransitionLeg[] TransitionLegs =
     [
+        // install transitions (2026-11-12): a sprint let go inside the start's window (the half-speed stop), and the view whipped round as the sprint starts (the 180-degree turn).
+        new("sprint tap, let go", [new(0.75f, 0f, 1f, InputButtons.Sprint), new(1.8f, 0f, 0f, InputButtons.None)]),
+        new("view whip 180, sprint, let go", [new(0.1f, 0f, 0f, InputButtons.None, InputButtons.None, 180f), new(1.8f, 0f, 1f, InputButtons.Sprint), new(1.8f, 0f, 0f, InputButtons.None)]),
+        new("view whip 135, sprint tap, let go", [new(0.1f, 0f, 0f, InputButtons.None, InputButtons.None, -135f), new(0.8f, 0f, 1f, InputButtons.Sprint), new(1.8f, 0f, 0f, InputButtons.None)]),
         new("sprint start, let go", [new(2.0f, 0f, 1f, InputButtons.Sprint), new(1.8f, 0f, 0f, InputButtons.None)]),
         new("run, let go", [new(1.5f, 0f, 1f, InputButtons.None), new(1.5f, 0f, 0f, InputButtons.None)]),
         new("sprint, run on, let go", [new(1.8f, 0f, 1f, InputButtons.Sprint), new(1.2f, 0f, 1f, InputButtons.None), new(1.2f, 0f, 0f, InputButtons.None)]),
@@ -38,6 +42,7 @@ public partial class NetworkView
         new("stand, stun strike x2", [new(0.1f, 0f, 0f, InputButtons.None, InputButtons.MeleeHeavy), new(0.6f, 0f, 0f, InputButtons.None), new(0.1f, 0f, 0f, InputButtons.None, InputButtons.MeleeHeavy), new(2.4f, 0f, 0f, InputButtons.None)]),
     ];
 
+    int _tsTurnDone = -1;
     int _tsLeg = -1, _tsSegment, _tsPhase;   // _tsPhase: 0 the leg, 1 back to the start, 2 rest
     uint _tsTick;
 
@@ -62,6 +67,7 @@ public partial class NetworkView
                 var seg = leg.Segments[_tsSegment];
                 x = seg.X; y = seg.Y; buttons = seg.Hold;
                 if (inSeg < dt * 1.5) buttons |= seg.Press;
+                if (_tsTurnDone != _tsSegment + _tsLeg * 16 && seg.TurnDegrees != 0f) { _tsTurnDone = _tsSegment + _tsLeg * 16; _yaw += seg.TurnDegrees * MathF.PI / 180f; }   // the view whip, once per segment
                 if (inSeg >= seg.Seconds)
                 {
                     _tsTick = tick;

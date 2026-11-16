@@ -35,7 +35,7 @@ public sealed partial class FrontEndView : Control
     CreatorView? _creator;
     AppearanceView? _appearance;
     ControlsView? _controls;
-    UiKit.MenuPage? _main, _lobby, _hostPage, _joinLocalPage, _page;
+    UiKit.MenuPage? _main, _lobby, _hostPage, _joinLocalPage, _musouPage, _page;
     OptionsView? _options;
     readonly Dictionary<UiKit.MenuPage, Control> _first = new();
     LineEdit? _address;
@@ -48,6 +48,8 @@ public sealed partial class FrontEndView : Control
     public UiKit.MenuPage? LobbyPage => _lobby;
     public UiKit.MenuPage? HostPage => _hostPage;
     public UiKit.MenuPage? JoinLocalPage => _joinLocalPage;
+    /// <summary>MUSOU MODE's page (co-op, 2026-11-06): play on this PC, host a lobby for up to 4 players, join one by address.</summary>
+    public UiKit.MenuPage? MusouPage => _musouPage;
     public OptionsView? Options => _options;
     /// <summary>The Host panel, or null when no server executable was found.</summary>
     public HostPanel? JoinHostPanel => _hostPanel;
@@ -59,9 +61,19 @@ public sealed partial class FrontEndView : Control
     static bool _autoJoined;   // --auto-join (test aid) joins once per run: a join that fails returns to this screen and must not retry
     int _scriptFrame;
 
+    /// <summary>The menus are built (the install has been read) or the read failed and says so: what the blink back to the menu waits for (ui/loading-blink).</summary>
+    public bool Built => _built || (_services.Failed && _frames > 2);
+
     /// <summary>A screenshot may be taken: the install is read, the screen is built and its preview (if any) has drawn.</summary>
-    public bool ReadyForScreenshot => _services.Failed ? _frames > 30 : _built && _scripted && _frames > _scriptFrame + 25 && (CurrentPreview?.Loaded ?? true)
-        && (!_args.ContainsKey("preview-switch-to") || _switchChecked);
+    public bool ReadyForScreenshot => _services.Failed ? _frames > 30 : _built && _scripted && _frames > _scriptFrame + 25 && (CurrentPreview is not { } preview || !preview.Visible || preview.Loaded)
+        && (!_args.ContainsKey("preview-switch-to") || _switchChecked) && !ScreenshotHeld();   // EXTRAS-HOOK: a scripted weapon cycle (Musou arsenal) holds the shot until it ends
+    /// <summary>Hook for added content (client/Extras/Musou/Customizer/FrontEndView.WeaponCycle.cs): a scripted preview run is under way, so the screenshot waits. False without one.</summary>
+    bool ScreenshotHeld() { bool hold = false; ExtrasScreenshotHold(ref hold); return hold; }   // EXTRAS-HOOK
+    partial void ExtrasScreenshotHold(ref bool hold);
+
+    /// <summary>Hook for added content: one frame of its scripted preview run (test aid <c>--preview-weapon-cycle</c>); nothing without it.</summary>
+    partial void ExtrasPreviewScript();
+
     int _switchedAt, _switchPhase;
     bool _switchChecked;
     PreviewStage? CurrentPreview => _creator?.Visible == true ? _creator.Preview : _appearance?.Visible == true ? _appearance.Preview : null;
@@ -85,11 +97,18 @@ public sealed partial class FrontEndView : Control
         Theme = UiKit.Theme;
     }
 
+    /// <summary>The screen's background: the looping video (2026-11-10) or, with <c>--menu-still</c>, the still picture.</summary>
+    public Control? MenuBackground => _background;
+    Control? _background;
+    PerfProbe? _perfProbe;
+
     public override void _Ready()
     {
         UiKit.EnterVirtualSpace(GetWindow());
-        AddChild(UiKit.MenuBackground().With(n => n.SetAnchorsPreset(LayoutPreset.FullRect)));
+        _background = UiKit.MenuBackground().With(n => n.SetAnchorsPreset(LayoutPreset.FullRect));
+        AddChild(_background);
         ShowLoading("Reading your Space Marine install...");
+        if (PerfProbe.On) TreeExiting += () => _perfProbe?.PrintSummary();
     }
 
     /// <summary>Gives the window back to the game (the match draws in real pixels).</summary>
@@ -135,6 +154,9 @@ public sealed partial class FrontEndView : Control
     public override void _Process(double delta)
     {
         _frames++;
+        if (PerfProbe.On) (_perfProbe ??= new PerfProbe(GetViewport())).Frame(delta, GetTree().Root);   // perf/pass-1 test aid (--perf-probe), the menu's frames too (menu video, 2026-11-10)
+        // The video pauses under the customizer, whose own dark background covers it.
+        if (_background is MenuVideoBackground video) video.Covered = _creator?.Visible == true || _appearance?.Visible == true;
         if (!_built)
         {
             if (_services.Failed && _loading is not null && _loadingText is not null) { ShowFailure(_services.Error ?? "unknown error"); _loadingText = null; }
@@ -147,6 +169,7 @@ public sealed partial class FrontEndView : Control
         if (!_scripted && _frames > 3) { _scripted = true; _scriptFrame = _frames; RunScript(); }
         else if (_scripted && !_autoJoined && _args.ContainsKey("auto-join") && _frames > _scriptFrame + 10) { _autoJoined = true; JoinLocal(); }
         if (_scripted && _args.GetValueOrDefault("preview-switch-to") is { } to) SwitchCheck(to);
+        ExtrasPreviewScript();   // EXTRAS-HOOK: the scripted weapon cycle of the added arsenal (test aid)
     }
 
     /// <summary>
@@ -192,7 +215,7 @@ public sealed partial class FrontEndView : Control
         _loading?.QueueFree();
         _loading = null;
         BuildPages();
-        _creator = new CreatorView(_services, ShowMainMenu, ShowAppearance) { Visible = false };
+        _creator = new CreatorView(_services, CreatorBack, ShowAppearance) { Visible = false };
         _appearance = new AppearanceView(_services, ShowCreatorAgain) { Visible = false };
         AddChild(_creator);
         AddChild(_appearance);
@@ -233,7 +256,7 @@ public sealed partial class FrontEndView : Control
         main.Rows.AddChild(joinRow);
         if (ContentExtras.Compiled)   // added content: never in a faithful build
         {
-            main.Rows.AddChild(UiKit.MenuButton("Musou Mode", StartMusou, "The war of the three fronts, on this PC"));
+            main.Rows.AddChild(UiKit.MenuButton("Musou Mode", ShowMusouPage, "The war of the three fronts: alone on this PC, or up to 4 players together"));
             _stopMusou = UiKit.MenuButton("Stop Musou server", StopMusou, "Stops the Musou server this game started on this PC");
             _stopMusou.Visible = false;   // only while that server runs (SyncMusouRow)
             main.Rows.AddChild(_stopMusou);
@@ -270,7 +293,7 @@ public sealed partial class FrontEndView : Control
         var host = new UiKit.MenuPage("HostMenu", "Host local lobby");
         if (serverExe is not null)
         {
-            _hostPanel = new HostPanel(serverExe, _services.GameDir, _args, ConnectToHost, Say, () => _services.Content, _services, () => ShowPage(_lobby!));
+            _hostPanel = new HostPanel(serverExe, _services.GameDir, _args, ConnectToHost, Say, () => _services.Content, _services, () => ShowPage(UpPage));
             _hostPanel.SizeFlagsHorizontal = SizeFlags.ExpandFill;
             host.Rows.AddChild(_hostPanel);
         }
@@ -284,15 +307,39 @@ public sealed partial class FrontEndView : Control
         joinLocal.Rows.AddChild(UiKit.MenuText("HOST OR HOST:PORT (DEFAULT PORT 27015)", UiKit.Grey));
         joinLocal.Rows.AddChild(UiKit.MenuGap(0.5f));
         joinLocal.Rows.AddChild(UiKit.MenuButton("Connect", JoinLocal));
-        joinLocal.Rows.AddChild(UiKit.MenuButton("Back", () => ShowPage(_lobby!)));
+        joinLocal.Rows.AddChild(UiKit.MenuButton("Back", () => ShowPage(UpPage)));
         _joinLocalPage = joinLocal;
+
+        // MUSOU MODE (co-op, the owner 2026-11-06): the same three ways in as PLAYER VERSUS PLAYER's local lobby, on the Musou profile. PLAY ON THIS PC is the one-press start of
+        // 2026-11-01 (this PC only, joined by itself); HOST LOCAL LOBBY is the Host panel with its reach choice (THIS PC ONLY or LAN / INTERNET, up to 4 players); JOIN LOCAL LOBBY
+        // types a friend's address. Only built with added content (the main menu's row is too).
+        if (ContentExtras.Compiled)
+        {
+            var musouPage = new UiKit.MenuPage("MusouMenu", "Musou Mode");
+            var playHere = UiKit.MenuButton("Play on this PC", StartMusou, "Starts a Musou server on this PC only and joins it");
+            _first[musouPage] = playHere;
+            musouPage.Rows.AddChild(playHere);
+            var musouHost = UiKit.MenuButton("Host local lobby", () => ShowPage(_hostPage!), $"Host Musou Mode for up to {MusouLocal.MaxPlayers} players: this PC only, or LAN / Internet for friends");
+            if (serverExe is null) { musouHost.Disabled = true; musouHost.TooltipText = "No server was found next to the game."; }
+            musouPage.Rows.AddChild(musouHost);
+            musouPage.Rows.AddChild(UiKit.MenuButton("Join local lobby", () => ShowPage(_joinLocalPage!), "A Musou lobby hosted on another PC: type its address"));
+            // Musou Mode's customizer (owner 2026-11-10): the creator on the Musou profile shows Standard Marines, Librarian and Heretic in place of the factions; BACK returns here.
+            // The main menu's CUSTOMIZER stays Classic's. --musou-old-customizer (restore switch) leaves the row out, as before.
+            if (!_args.ContainsKey("musou-old-customizer"))
+                musouPage.Rows.AddChild(UiKit.MenuButton("Customizer", ShowCreator, "Your Musou loadouts: Standard Marines, the Librarian, the Heretic (not yet)"));
+            musouPage.Rows.AddChild(UiKit.MenuGap(0.5f));
+            musouPage.Rows.AddChild(UiKit.MenuText(MusouLocal.CoopNote.ToUpperInvariant(), UiKit.Grey).With(l => l.TooltipText = MusouLocal.CoopNote));
+            musouPage.Rows.AddChild(UiKit.MenuGap(0.5f));
+            musouPage.Rows.AddChild(UiKit.MenuButton("Back", () => ShowMainMenu()));
+            _musouPage = musouPage;
+        }
 
         var foot = UiKit.VBox(2);
         if (GameFoundNote is { Length: > 0 }) foot.AddChild(UiKit.MenuText(GameFoundNote, UiKit.Grey).With(l => l.TooltipText = GameFoundNote));
         foot.AddChild(new LinkButton { Text = "Builds and issues: " + ServerLaunch.ReleasesUrl.Replace("https://", ""), Uri = ServerLaunch.ReleasesUrl }.With(l => { l.AddThemeFontSizeOverride("font_size", UiKit.MenuTextSize); l.AddThemeColorOverride("font_color", UiKit.Grey); l.AddThemeColorOverride("font_hover_color", UiKit.White); }));
         _options = new OptionsView(_services, () => ShowMainMenu(), ShowControls, foot);
 
-        foreach (var page in new Control[] { _main, _lobby, _hostPage, _joinLocalPage, _options }) { page.Visible = false; AddChild(page); }
+        foreach (var page in new Control?[] { _main, _lobby, _hostPage, _joinLocalPage, _musouPage, _options }) { if (page is null) continue; page.Visible = false; AddChild(page); }
         RefreshContent();
     }
 
@@ -324,7 +371,7 @@ public sealed partial class FrontEndView : Control
         if (hosting == _contentLocked) return;
         _contentLocked = hosting;
         _contentRow.SetDisabled(hosting);
-        if (!hosting && _services.Content.HasFlag(ContentExtras.Musou) && !CommandLineMusou) _services.Content = _services.Settings.ContentExtras;   // a stopped Musou server ends the session's Musou
+        if (!hosting && _services.Content.HasFlag(ContentExtras.Musou) && !CommandLineMusou && !_inMusou) _services.Content = _services.Settings.ContentExtras;   // a stopped Musou server ends the session's Musou (not while on MUSOU MODE's pages)
         RefreshContent();
     }
 
@@ -368,7 +415,7 @@ public sealed partial class FrontEndView : Control
 
     void HideAll()
     {
-        foreach (var page in new Control?[] { _main, _lobby, _hostPage, _joinLocalPage, _options }) if (page is not null) page.Visible = false;
+        foreach (var page in new Control?[] { _main, _lobby, _hostPage, _joinLocalPage, _musouPage, _options }) if (page is not null) page.Visible = false;
         _controls?.Close();
         _creator!.Visible = false; _appearance!.Visible = false;
         _page = null;
@@ -391,6 +438,7 @@ public sealed partial class FrontEndView : Control
     public void ShowMainMenu()
     {
         if (!_built) return;
+        _inMusou = false;
         if (_services.Content.HasFlag(ContentExtras.Musou) && !CommandLineMusou && !HostedServer.Running) _services.Content = _services.Settings.ContentExtras;
         SyncMusouRow();
         string kept = _message?.Text ?? "";
@@ -409,6 +457,8 @@ public sealed partial class FrontEndView : Control
             case "lobby": ShowPage(_lobby!); break;
             case "host": ShowPage(_hostPage!); break;
             case "joinlocal": ShowPage(_joinLocalPage!); break;
+            case "musou": ShowMusouPage(); break;
+            case "musouhost": ShowMusouPage(); ShowPage(_hostPage!); break;
             case "graphics": ShowOptions(OptionsView.Graphics); break;
             case "sound": ShowOptions(OptionsView.Sound); break;
             case "controls" or "options": ShowOptions(OptionsView.Controls); break;
@@ -444,6 +494,13 @@ public sealed partial class FrontEndView : Control
         _creator!.Visible = true;
         _creator.Reenter();
         _creator.FocusList();
+    }
+
+    /// <summary>The creator's BACK: to MUSOU MODE's page when it was opened from there (the session stays Musou), else the main menu.</summary>
+    void CreatorBack()
+    {
+        if (_inMusou && _musouPage is not null) ShowMusouPage();
+        else ShowMainMenu();
     }
 
     void ShowCreatorAgain()
@@ -493,7 +550,7 @@ public sealed partial class FrontEndView : Control
     {
         if (_page is null || _page == _main || !_page.IsVisibleInTree() || !PadHost.IsBack(e)) return;
         GetViewport().SetInputAsHandled();
-        if (_page == _lobby) ShowMainMenu(); else ShowPage(_lobby!);
+        if (_page == _lobby || _page == _musouPage) ShowMainMenu(); else ShowPage(UpPage);
     }
 
     // ---- joining ----
@@ -524,7 +581,7 @@ public sealed partial class FrontEndView : Control
         if (JoinOverride is { } test) test(request); else _join(request);
     }
 
-    /// <summary>MUSOU MODE (the owner, 2026-11-01): Musou Mode as the Host panel's Musou path starts it: this PC only, <c>--content musou</c>, joined by itself. The lobby's remembered profile is not touched.</summary>
+    /// <summary>MUSOU MODE's PLAY ON THIS PC (the owner, 2026-11-01; the main menu's one press until the co-op page of 2026-11-06): Musou Mode as the Host panel's Musou path starts it: this PC only, <c>--content musou</c>, joined by itself. The lobby's remembered profile is not touched.</summary>
     void StartMusou()
     {
         var (running, ready, musou) = MusouServerState();
@@ -542,8 +599,8 @@ public sealed partial class FrontEndView : Control
         }
         _services.Content = ContentExtras.Musou;
         if (MusouOverride is { } test) { test(); return; }
-        _hostPanel!.StartHosting();
-        if (!HostedServer.Running) _services.Content = _services.Settings.ContentExtras;   // it could not start: the message says why
+        _hostPanel!.StartHosting(thisPcOnly: true);   // PLAY ON THIS PC: 127.0.0.1 only, whatever the Host panel's reach row says
+        if (!HostedServer.Running && !_inMusou) _services.Content = _services.Settings.ContentExtras;   // it could not start: the message says why (MUSOU MODE's page keeps the session Musou)
     }
 
     /// <summary>
@@ -571,6 +628,24 @@ public sealed partial class FrontEndView : Control
         GetTree().Quit();
     }
 
+    /// <summary>
+    /// MUSOU MODE on the main menu: its page, with the session on the Musou profile (the Host panel hosts Musou and a join is a Musou join from here on; the lobby's remembered profile is
+    /// not touched). A running server of another profile keeps its own (the Host panel shows it; a Musou join is still possible).
+    /// </summary>
+    void ShowMusouPage()
+    {
+        if (_musouPage is null) { StartMusou(); return; }
+        var (running, _, musou) = MusouServerState();
+        if (!running || musou) _services.Content = ContentExtras.Musou;
+        _inMusou = true;
+        ShowPage(_musouPage);
+    }
+
+    /// <summary>The page one step up from the Host panel and JOIN LOCAL LOBBY: MUSOU MODE's while the session is Musou, else PLAYER VERSUS PLAYER's.</summary>
+    bool _inMusou;   // on MUSOU MODE's pages (the page, its Host panel or JOIN LOCAL LOBBY): the session stays Musou there
+
+    UiKit.MenuPage UpPage => _musouPage is not null && _inMusou ? _musouPage : _lobby!;
+
     /// <summary>The server this client started: running, listening, and Musou. (Self-test: <see cref="MusouStateForTest"/> stands in.)</summary>
     (bool Running, bool Ready, bool Musou) MusouServerState() =>
         MusouStateForTest ?? (HostedServer.Running, HostedServer.Ready, HostedServer.Options is { Content: ContentProfiles.Musou });
@@ -583,6 +658,16 @@ public sealed partial class FrontEndView : Control
         _hostPanel?.StopHosted(MusouLocal.StoppedText);   // HostedServer.Stop: the one process started here; the Host panel's own state is reset with it
         if (!CommandLineMusou) _services.Content = _services.Settings.ContentExtras;
         SyncMusouRow();
+    }
+
+    /// <summary>
+    /// STOP MUSOU SERVER's work without the menu (a join's silent retry, <c>ModelViewer</c>, 2026-11-07): stops the server this client started (<see cref="HostedServer.Stop"/>: only that
+    /// process, by its handle) and puts the lobby's remembered profile back, as <see cref="StopMusou"/> does. <paramref name="commandLineMusou"/>: <c>--content musou</c> keeps the profile.
+    /// </summary>
+    public static void StopOwnMusouServer(CustomizerServices services, bool commandLineMusou)
+    {
+        HostedServer.Stop();
+        if (!commandLineMusou) services.Content = services.Settings.ContentExtras;
     }
 
     /// <summary>The row follows the server: it is shown while a Musou server of this client runs, wherever the player came from (a match, the Host panel) and when the server dies by itself.</summary>
@@ -709,6 +794,8 @@ public sealed partial class FrontEndView : Control
         p = LoadoutEdits.Rename(p, 2, "Heavy support").Profile;
         p = LoadoutEdits.Create(p, 3, roles.Contains("assault") ? "assault" : roles[0], catalog).Profile;
         p = LoadoutEdits.Rename(p, 3, "Jump trooper").Profile;
+        if (_args.GetValueOrDefault("demo-melee") is { Length: > 0 } demoMelee) p = LoadoutEdits.SetItem(p, 3, "melee", demoMelee, catalog).Profile;   // --demo-melee <neutral name>: slot 3's melee weapon (a screenshot aid for added content's items)
+        if (_args.GetValueOrDefault("demo-primary") is { Length: > 0 } demoPrimary) p = LoadoutEdits.SetItem(p, 2, "primary", demoPrimary, catalog).Profile;   // --demo-primary <neutral name>: slot 2 (the Devastator)'s primary weapon (autocannon screenshots)
         p = LoadoutEdits.Select(p, Selection.CustomSlot(1));
         session.Seed(p);
         RefreshSummary();

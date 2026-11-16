@@ -50,7 +50,23 @@ public partial class TransitionProbe : Node
         public readonly float[] BobZ = new float[BobFrames], BobX = new float[BobFrames];
         public int BobRun;
         public readonly Vector3[] BobAt = new Vector3[BobFrames];
+        // anim/strafe-blend: the movement direction events (DirectionStep).
+        public Vector3 LastOrigin; public bool HasOrigin;
+        public Vector2 GVel;                                 // smoothed ground velocity in the character's own frame (m/s)
+        public float Anchor = float.NaN;                     // the steady heading (degrees) before an event
+        public readonly float[] Heads = new float[StableFrames];
+        public int HeadCount;
+        public readonly float[] PreJerk = new float[PreFrames];
+        public int PreCount;
+        public bool DOpen; public double DFor; public string DFrom = ""; public float DJerk, DRot; public string DBone = ""; public int DFrames;
     }
+
+    /// <summary>anim/strafe-blend: frames of history a direction event includes from before it opened (0.15 s at 60 fps) and frames the heading must hold still to close it (0.1 s).</summary>
+    const int PreFrames = 9, StableFrames = 6;
+    /// <summary>anim/strafe-blend: ground speed (m/s) from which a heading is defined; heading change (degrees) that opens a direction event; the hold that closes it; most seconds an event stays open.</summary>
+    const float DirSpeed = 1.5f, DirOpenDegrees = 25f, DirHoldDegrees = 4f;
+    const double DirMaxSeconds = 1.2;
+    readonly Dictionary<string, Stat> _directions = new(StringComparer.Ordinal);
 
     /// <summary>anim/feel-pass: frames of one steady state the pelvis bob is measured over (0.8 s at 60 fps: about one run cycle, 0.87 s at the clip's rate).</summary>
     const int BobFrames = 48;
@@ -200,6 +216,8 @@ public partial class TransitionProbe : Node
             }
             bool measured = t.Have >= 2;
             t.Have = Math.Min(t.Have + 1, 2);
+            if (measured) DirectionStep(character, t, label, origin, (float)delta, jerk, rot, skeleton.GetBoneName(jerkBone));
+            else { t.HasOrigin = false; t.DOpen = false; t.Anchor = float.NaN; }
             if (label != t.Label && t.Label.Length > 0)
             {
                 Close(t);
@@ -228,6 +246,67 @@ public partial class TransitionProbe : Node
         if (_since >= ReportSeconds) { _since = 0; Report("TPROBE"); }
     }
 
+    static float AngleDiff(float a, float b) { float d = (a - b) % 360f; if (d > 180f) d -= 360f; if (d < -180f) d += 360f; return d; }
+
+    /// <summary>
+    /// anim/strafe-blend (<c>--transition-probe</c>): direction events. The character's drawn ground velocity in its own frame (smoothed over about 0.04 s) gives a heading while it moves at
+    /// <see cref="DirSpeed"/> m/s or more. An event opens when the heading leaves the steady one by <see cref="DirOpenDegrees"/>, or the speed drops under <see cref="DirSpeed"/> (a reversal
+    /// passes through zero); it closes when the heading has held within <see cref="DirHoldDegrees"/> for <see cref="StableFrames"/> frames at speed (dropped when the heading came back
+    /// within 20 degrees: a slowdown; or after <see cref="DirMaxSeconds"/>: a stop). The event keeps the largest bone jerk (cm/f^2) from <see cref="PreFrames"/> frames before it
+    /// opened to its close, keyed by the state labels and the heading change rounded to 45 degrees.
+    /// </summary>
+    void DirectionStep(CharacterViewer character, Track t, string label, Vector3 origin, float delta, float jerk, float rot, string bone)
+    {
+        if (!t.HasOrigin || !(delta > 1e-4f)) { t.LastOrigin = origin; t.HasOrigin = true; return; }
+        var local = character.GlobalTransform.Basis.Orthonormalized().Inverse() * (origin - t.LastOrigin);   // orthonormalised: the Ork rig is scaled
+        t.LastOrigin = origin;
+        var v = new Vector2(local.X, local.Y) / delta;
+        if (v.Length() > 30f) { t.GVel = Vector2.Zero; t.Anchor = float.NaN; t.DOpen = false; return; }   // a teleport or respawn
+        t.GVel += (v - t.GVel) * (1f - MathF.Exp(-delta / 0.04f));
+        float speed = t.GVel.Length();
+        float head = Mathf.RadToDeg(MathF.Atan2(t.GVel.X, t.GVel.Y));
+        bool moving = speed >= DirSpeed;
+        t.Heads[t.HeadCount % StableFrames] = moving ? head : float.NaN; t.HeadCount++;
+        bool stable = moving && t.HeadCount >= StableFrames;
+        if (stable) for (int i = 0; i < StableFrames; i++) if (!float.IsFinite(t.Heads[i]) || MathF.Abs(AngleDiff(t.Heads[i], head)) > DirHoldDegrees) { stable = false; break; }
+        if (t.DOpen)
+        {
+            t.DFor += delta; t.DFrames++;
+            if (jerk > t.DJerk) { t.DJerk = jerk; t.DBone = bone; }
+            t.DRot = MathF.Max(t.DRot, rot);
+            if (stable && t.DFrames >= StableFrames)
+            {
+                float change = AngleDiff(head, t.Anchor);
+                if (MathF.Abs(change) >= 20f)
+                {
+                    int cls = (int)MathF.Round(MathF.Abs(change) / 45f) * 45;
+                    string own = character.HasMeta(OwnMeta) && character.GetMeta(OwnMeta).AsBool() ? "own" : "remote";
+                    string key = $"{t.DFrom} -> {label} {cls}";
+                    if (!_directions.TryGetValue(key, out var st)) _directions[key] = st = new Stat();
+                    st.Jerk.Add(t.DJerk); st.Rot.Add(t.DRot); st.Pos.Add(0f);
+                    if (DirectionLines) GD.Print($"DPROBE event {t.Name} ({own}) {key}: heading {t.Anchor:0} -> {head:0} deg, jerk {t.DJerk:0.0} cm/f2 at {t.DBone}, turn {t.DRot:0.0} deg/f, {t.DFrames} frames");
+                    _csv?.WriteLine($"{Engine.GetProcessFrames()},{t.Name},dir:{t.DFrom}:{t.Anchor:0},dir:{label}:{head:0},{t.DJerk:0.0},{t.DRot:0.0},0,{t.DBone},");
+                }
+                t.DOpen = false; t.Anchor = head;
+            }
+            else if (t.DFor > DirMaxSeconds) { t.DOpen = false; t.Anchor = stable ? head : float.NaN; }
+        }
+        else if (float.IsFinite(t.Anchor) && (!moving || MathF.Abs(AngleDiff(head, t.Anchor)) > DirOpenDegrees))
+        {
+            t.DOpen = true; t.DFor = 0; t.DFrames = 0; t.DFrom = label; t.DRot = rot; t.DJerk = 0f; t.DBone = bone;
+            int have = Math.Min(t.PreCount, PreFrames);
+            for (int i = 0; i < have; i++) t.DJerk = MathF.Max(t.DJerk, t.PreJerk[i]);
+            if (jerk > t.DJerk) { t.DJerk = jerk; t.DBone = bone; }
+        }
+        else if (stable) t.Anchor = head;
+        t.PreJerk[t.PreCount % PreFrames] = jerk; t.PreCount++;
+    }
+
+    /// <summary>anim/strafe-blend: the character meta the networked view sets on the own marine (the probe's lines say own / remote).</summary>
+    public const string OwnMeta = "probe_own";
+    /// <summary><c>--transition-probe-directions</c> (anim/strafe-blend): one DPROBE line per direction event as it closes (the summary lines are printed either way).</summary>
+    static readonly bool DirectionLines = OS.GetCmdlineUserArgs().Contains("--transition-probe-directions");
+
     void Close(Track t)
     {
         if (t.From.Length == 0) return;
@@ -254,6 +333,8 @@ public partial class TransitionProbe : Node
             GD.Print($"{tag} switch {key}: n {s.Jerk.Count}, jerk med {Q(s.Jerk, 0.5):0.0} p90 {Q(s.Jerk, 0.9):0.0} max {s.Jerk.Max():0.0} cm/f2; turn med {Q(s.Rot, 0.5):0.0} max {s.Rot.Max():0.0} deg/f; step max {s.Pos.Max():0.0} cm/f");
         foreach (var (key, s) in _steady.OrderByDescending(kv => kv.Value.Jerk.Count))
             GD.Print($"{tag} steady {key}: {s.Jerk.Count} frames, jerk p50 {Q(s.Jerk, 0.5):0.0} p99 {Q(s.Jerk, 0.99):0.0} max {s.Jerk.Max():0.0} cm/f2; turn p99 {Q(s.Rot, 0.99):0.0} deg/f");
+        foreach (var (key, s) in _directions.OrderByDescending(kv => kv.Value.Jerk.Count))
+            GD.Print($"{tag} direction {key}: n {s.Jerk.Count}, jerk med {Q(s.Jerk, 0.5):0.0} p90 {Q(s.Jerk, 0.9):0.0} max {s.Jerk.Max():0.0} cm/f2; turn med {Q(s.Rot, 0.5):0.0} max {s.Rot.Max():0.0} deg/f");
         foreach (var (key, b) in _bob.Where(kv => kv.Value.Z.Count >= 5).OrderByDescending(kv => kv.Value.Z.Count))
             GD.Print($"{tag} bob {key}: {b.Z.Count} windows of {BobFrames} frames, pelvis height range med {Q(b.Z, 0.5):0.0} p90 {Q(b.Z, 0.9):0.0} cm, sideways med {Q(b.X, 0.5):0.0} p90 {Q(b.X, 0.9):0.0} cm");
     }

@@ -5,9 +5,11 @@ namespace SmSim.Extras.Musou;
 /// <summary>
 /// A target as the enemies see it in a tick (<see cref="MusouSim.Step"/>): its id, feet and whether it is alive. A player, or in Musou Mode a Guard squad (a negative id,
 /// <c>TfwContracts.GuardTargetId</c>; never 0, which is "no target"). <paramref name="Radius"/>: how far round its position a target reaches (a squad's men; a player 0). <paramref name="Goal"/>: a place to go to, not to fight
-/// (Musou Mode: a secured point the Orks retake), which the flow field leads to and nobody strikes.
+/// (Musou Mode: a secured point the Orks retake), which the flow field leads to and nobody strikes. <paramref name="Ring"/>: a goal's capture ring (m, flat); above 0 each Ork takes its own spot across it
+/// (<c>MusouSim.Hold.cs</c>), at 0 it stands within <see cref="MusouSwarmRules.GoalStand"/> of the centre as before.
+/// <paramref name="Body"/>: a player's capsule radius beyond a marine's (a big body: the Dreadnought; 0 for everyone else): the Orks keep their ring, reach and hold at that much more.
 /// </summary>
-public readonly record struct MusouTarget(int Id, Vector3 Position, bool Alive, float Radius = 0f, bool Goal = false);
+public readonly record struct MusouTarget(int Id, Vector3 Position, bool Alive, float Radius = 0f, bool Goal = false, float Ring = 0f, float Body = 0f);
 
 /// <summary>
 /// An enemy's attack that landed this tick (<see cref="MusouSim.Step"/>), for the World to apply: the enemy, the player, the damage (before the player's own
@@ -96,9 +98,16 @@ public sealed partial class MusouSim
     {
         _cooldown[i] = 0; _burst[i] = 0; _roundTicks[i] = 0; _losTick[i] = 0; _los[i] = false;
         _blocked[i] = 0; _flowTicks[i] = 0; _transit[i] = -1; _aim[i] = -1;
-        _aggro[i] = float.PositiveInfinity; _group[i] = 0;
+        _aggro[i] = float.PositiveInfinity; _group[i] = 0; _homeVelocity[i] = Vector2.Zero;
         SpawnedCombat(i);   // MU3 (MusouCombat.cs): no script, no drive
         SpawnedSwarm(i);
+        SpawnedWeirdboy(i);   // MusouSim.Weirdboy.cs: the shield, the cooldowns
+        SpawnedBossStun(i);   // MusouSim.BossStun.cs: the bosses' stun windows
+        SpawnedSquig(i);   // MusouSim.Squig.cs: the fuse, the kick
+        SpawnedStormboy(i); SpawnedBigShoota(i);   // expansion S3 (MusouSim.Stormboy.cs, MusouSim.BigShoota.cs)
+        SpawnedMek(i);   // expansion S4 (MusouSim.Mek.cs)
+        SpawnedMovement(i);   // MusouSim.Movement.cs: the eased heading and push, a Stormboy's stand at his place
+        _prefer[i] = false;
         _relocations[i] = 0;
         _ring[i] = Rules.CircleMin + (Rules.CircleMax - Rules.CircleMin) * Unit(Mix((uint)i * 2654435761u, 0x9E3779B9u));
         if (Walk is not null && _node[i] < 0) _node[i] = Walk.Nearest(_position[i]);
@@ -114,6 +123,9 @@ public sealed partial class MusouSim
     public void Step(ReadOnlySpan<MusouTarget> targets, CollisionWorld? collision, bool fight, List<MusouAttack> attacks)
     {
         for (int i = 0; i < Capacity; i++) if (_used[i]) _trail[i * TrailLength + (int)(Tick % TrailLength)] = _position[i];
+        if (_bolts.Count > 0) LandBolts(targets, fight, attacks);   // the Weirdboy's bolts (MusouSim.Weirdboy.cs)
+        if (_rockets.Count > 0) StepRockets(targets, collision);   // the Rokkit Boyz' rockets (MusouSim.Rokkit.cs)
+        EndFearCount();   // MusouSim.Powerups.cs: the last step's fleeing count
         if (Frozen) { LastLosChecks = 0; return; }
         int nt = targets.Length;
         if (_targetNode.Length < nt) Grow(nt);
@@ -140,6 +152,7 @@ public sealed partial class MusouSim
             if (_token[i] == MeleeToken) _meleeHeld[t]++; else _shotHeld[t]++;
         }
         _grid.Build(_gridPos, _gridSlot, gn);
+        TallyPacks();   // MusouSim.Pack.cs (a war's alone)
 
         _dead.Clear();
         Span<int> near = stackalloc int[64];
@@ -150,30 +163,43 @@ public sealed partial class MusouSim
             var state = _state[i];
             if (state == MusouEnemyState.Dying)
             {
+                if (_falling[i]) { StepFall(i); continue; }   // a shot-down Stormboy falls, then crashes (MusouSim.Stormboy.cs)
                 if (_stateTicks[i] >= Ticks(Rules.DyingSeconds)) _dead.Add(i);
                 continue;
             }
+            if (_type[i] == MusouEnemyType.BombSquig) { StepSquig(i, targets, near, fight); continue; }   // its fall, run, fuse and kick (MusouSim.Squig.cs)
             if (state == MusouEnemyState.Spawning)
             {
                 if (_stateTicks[i] >= Ticks(Rules.SpawnSeconds)) SetState(i, MusouEnemyState.Seek);
                 continue;
             }
             if (state == MusouEnemyState.Knocked) { StepKnocked(i, targets, near); continue; }   // Campaign/MusouSim.Knock.cs: only a war's fodder falls
+            if (state == MusouEnemyState.Airborne) { StepAirborne(i); continue; }   // a Stormboy's hop (MusouSim.Stormboy.cs)
+            if (_type[i] == MusouEnemyType.ScrapMek) { StepMek(i, targets, near); continue; }   // he runs, hides and builds (MusouSim.Mek.cs)
+            if (_stunLeft[i] > 0 && StepBossStun(i)) { if (_cooldown[i] > 0) _cooldown[i]--; continue; }   // a boss's stun window (MusouSim.BossStun.cs)
+            if (_type[i] == MusouEnemyType.Weirdboy && StepWeirdboy(i, targets, near, fight)) { if (_cooldown[i] > 0) _cooldown[i]--; continue; }   // his stun, cast and fade (MusouSim.Weirdboy.cs)
             if (_cooldown[i] > 0) _cooldown[i]--;
+            if (StepFeared(i, targets, near)) continue;   // the Fear powerup: it runs from a feared player (MusouSim.Powerups.cs)
+            _faceWant[i] = Vector2.Zero;   // MusouSim.Facing.cs: Behave sets it while the Ork engages
             var spec = Rules.Of(_type[i]);
+            if (_type[i] == MusouEnemyType.Stormboy && StepOrdered(i, targets, near, spec)) continue;   // under his squad's orders (MusouSim.Stormboy.cs)
+            if (_type[i] == MusouEnemyType.BigShootaNob && float.IsPositiveInfinity(_aggro[i]) && StepBigShoota(i, targets, near, spec, fight, attacks)) continue;   // his gun's cycle (MusouSim.BigShoota.cs)
             bool leashed = !float.IsPositiveInfinity(_aggro[i]) && !_scripted[i], woken = leashed && Woken(i, targets);
-            if (woken && Swarm is not null) { _aggro[i] = float.PositiveInfinity; _group[i] = 0; }   // once woken it never walks home: no yo-yo
+            if (woken && Swarm is not null) { _pack[i] = PackFor(_group[i]); _aggro[i] = float.PositiveInfinity; _group[i] = 0; }   // once woken it never walks home: no yo-yo
             if (leashed && !woken)
             {
                 // A leashed defender (SpawnLeashed) with nobody near its home: no target, no token, back to its place; the failsafe leaves it alone.
                 _target[i] = 0; _token[i] = 0; _burst[i] = 0; _aim[i] = -1;
                 if (state != MusouEnemyState.Seek) SetState(i, MusouEnemyState.Seek);
-                Move(i, spec, HomeWay(i, spec), targets, near);
+                var home = HomeWay(i, spec);
+                Move(i, spec, home, targets, near);
+                if (Swarm is { } idle && home == Vector2.Zero && _homeVelocity[i] == Vector2.Zero) LookAround(i, targets, Vector2.Zero, threats: false, idle);   // MusouSim.Hold.cs: a post's Ork looks round
                 _headwayTick[i] = Tick; _anchor[i] = _position[i];
                 continue;
             }
             int t = Target(i, targets);
             Vector2 desired = Vector2.Zero;
+            _charging[i] = false;   // MusouSim.Charge.cs: Behave decides it again
             if (_scripted[i]) { }   // MU3: the boss's ability drives it (MusouBoss)
             else if (t < 0)
             {
@@ -219,6 +245,7 @@ public sealed partial class MusouSim
     /// <summary>The way back to a leashed enemy's home at its speed (none within half a metre, so a packed group does not shuffle).</summary>
     Vector2 HomeWay(int i, MusouTypeSpec spec)
     {
+        if (_homeVelocity[i] != Vector2.Zero) return MarchWay(i, spec);   // a patrol's moving home (MusouSim.Patrol.cs)
         var way = new Vector2(_home[i].X - _position[i].X, _home[i].Y - _position[i].Y);
         float distance = way.Length();
         return distance > 0.5f ? way / distance * spec.Speed : Vector2.Zero;
@@ -284,7 +311,10 @@ public sealed partial class MusouSim
         if (i < 0 || i >= Capacity || !_used[i] || _state[i] == MusouEnemyState.Dying || !float.IsFinite(position.X) || !float.IsFinite(position.Y) || !float.IsFinite(position.Z)) return false;
         _position[i] = position; _node[i] = node; _velocity[i] = Vector2.Zero;
         _token[i] = 0; _burst[i] = 0; _transit[i] = -1; _aim[i] = -1; _blocked[i] = 0; _flowTicks[i] = 0;
+        _pack[i] = 0; _slotFor[i] = 0;   // moved away from its pack: it goes alone
+        ForgetHold(i);   // MusouSim.Hold.cs: a fresh spot and look
         SpawnedCombat(i);   // MU3: no script, no drive (a Warboss moved mid-ability starts afresh; MusouBoss sees the relocation)
+        if (_state[i] == MusouEnemyState.Stunned) _shield[i] = MathF.Min(Rules.Of(_type[i]).ShieldMax, MusouWeirdboy.ShieldRestore);   // a Weirdboy moved mid-stun: his stun ends here, so his shield comes back
         if (Walk is not null && _node[i] < 0) _node[i] = Walk.Nearest(position);
         if (Walk is not null && _node[i] >= 0) _position[i] = position with { Z = Walk.Z(_node[i]) };
         SetState(i, MusouEnemyState.Seek);
@@ -300,6 +330,11 @@ public sealed partial class MusouSim
         _lastNode.Clear();
         _stranded.Clear();
         _losCursor = 0;
+        _bolts.Clear();   // the Weirdboy's bolts in flight
+        _rockets.Clear(); _rocketBlasts.Clear(); _detonations.Clear();   // expansion S2
+        _openPack.Clear();
+        Array.Clear(_packMembers);
+        _lastPack = 0;
     }
 
     void Grow(int n)
@@ -328,11 +363,14 @@ public sealed partial class MusouSim
     /// an enemy no player can be walked to from has no target (it holds, and the failsafe moves it). Off the graph: the nearest straight (height x 3),
     /// switched to only when much nearer.
     /// </summary>
+    readonly bool[] _prefer = new bool[Capacity];   // its target is a kind preference other than the nearest: walked to directly within MusouTargetRules.PreferRange
+
     int Target(int i, ReadOnlySpan<MusouTarget> targets)
     {
         int current = IndexOf(targets, _target[i]);
         bool look = current < 0 || (_token[i] == 0 && (Tick + (uint)i) % 15u == 0u);
         if (!look) return current;
+        _prefer[i] = false;
         int best = -1, second = -1; float bestScore = float.MaxValue, secondScore = float.MaxValue, currentScore = float.MaxValue;
         for (int t = 0; t < targets.Length; t++)
         {
@@ -348,6 +386,13 @@ public sealed partial class MusouSim
             if (flank != current) { _token[i] = 0; _burst[i] = 0; _losTick[i] = 0; }
             _target[i] = TargetKey(targets[flank].Id);
             return flank;
+        }
+        if (War is not null && MusouTargetRules.Choose(_type[i], _position[i], targets, current) is var preferred and >= 0)   // expansion S1: Musou Mode's target preference by kind
+        {
+            if (preferred != current) { _token[i] = 0; _burst[i] = 0; _losTick[i] = 0; }
+            _prefer[i] = preferred != best;   // a choice other than the nearest is walked to directly (Approach); the nearest keeps the flow field
+            _target[i] = TargetKey(targets[preferred].Id);
+            return preferred;
         }
         if (Flow is { Ready: true } && _node[i] >= 0 && !(bestScore <= Rules.DirectSeekDistance * Rules.DirectSeekDistance))
         {
@@ -375,19 +420,20 @@ public sealed partial class MusouSim
         var flat = new Vector2(d.X, d.Y);
         float distance = flat.Length();
         var toward = distance > 1e-4f ? flat / distance : Forward(_yaw[i]);
-        float reach = MathF.Max(0f, distance - target.Radius);   // a squad is reached at its men, not at its centre
+        float reach = MathF.Max(0f, distance - target.Radius - target.Body);   // a squad is reached at its men, not at its centre; a big body (the Dreadnought) at the edge of his wider capsule
         var swarm = Swarm;
         if (swarm is not null) _spread[i] = distance > swarm.SpreadBeyond;
         switch (_state[i])
         {
             case MusouEnemyState.WindUp:
-                Face(i, toward);
+                if (SwingRules) TrackSwing(i, toward, Ticks(spec.MeleeWindUp));   // MusouSim.Swing.cs: bounded early tracking, then the direction is locked
+                else Face(i, toward);   // before 2026-11-12 (and the 5-wave run): faces the target every tick up to the contact check
                 if (_stateTicks[i] >= Ticks(spec.MeleeWindUp))
                 {
                     SetState(i, MusouEnemyState.Strike);
                     // The strike lands only on a target still in reach and in front (a step back or aside dodges it).
                     bool inCone = distance <= 1e-4f || Vector2.Dot(toward, Forward(_yaw[i])) >= MathF.Cos(spec.MeleeConeDegrees * MathF.PI / 180f);
-                    if (fight && reach <= spec.MeleeRange + 0.3f && MathF.Abs(d.Z) <= 1.5f && inCone)
+                    if (fight && reach <= spec.MeleeRange + 0.3f && MathF.Abs(d.Z) <= LevelReachOf(i) && inCone)   // MusouSim.BigBodies.cs: a big body reaches higher
                     {
                         attacks.Add(new MusouAttack((ushort)(i + 1), target.Id, spec.MeleeDamage, true, spec.MeleeStaggers, _position[i]));
                         AddEvent(new MusouEvent(MusouEventKind.Strike, Tick, (ushort)(i + 1), (ushort)Math.Clamp(target.Id, 0, ushort.MaxValue), 0, target.Position));
@@ -409,13 +455,19 @@ public sealed partial class MusouSim
         {
             // A place to retake: no token, no blow, just go and stand on it.
             _token[i] = 0; _burst[i] = 0;
-            if (swarm is null || distance <= swarm.GoalStand) return Vector2.Zero;
+            if (swarm is null) return Vector2.Zero;
+            if (GoalSpotWay(i, target, d, spec.Speed, targets, swarm) is { } spot) return spot;   // MusouSim.Hold.cs: its own spot across the ring, looking round (owner, 2026-11-08)
+            if (distance <= swarm.GoalStand) { LookAround(i, targets, distance > 1e-4f ? -flat / distance : Vector2.Zero, threats: true, swarm); return Vector2.Zero; }
             return SwarmWay(i, t, target, d, spec.Speed, slot: false, hold: false, swarm);
         }
+        if (_type[i] == MusouEnemyType.Weirdboy && fight && WeirdboyActs(i, target, distance, toward)) return Vector2.Zero;   // a teleport or a summons (MusouSim.Weirdboy.cs)
         bool melee = spec.Melee && (!spec.Hybrid || distance <= spec.HybridMeleeDistance);
         bool ranged = spec.Ranged && !melee;
+        if (ranged && _type[i] == MusouEnemyType.Weirdboy && !OldWeirdboyBolt) return WeirdboyRanged(i, t, target, d, distance, toward, spec, fight, collision);   // his bolt, outside the crowd's shooter tokens (MusouSim.Weirdboy.cs)
+        if (melee) DecideCharge(i, target, reach);   // MusouSim.Charge.cs: within 30 m a melee Ork sprints at his enemy
         if ((_token[i] == ShooterToken && !ranged) || (_token[i] == MeleeToken && !melee)) { _token[i] = 0; _burst[i] = 0; }
-        bool level = MathF.Abs(d.Z) <= 1.5f;
+        bool level = MathF.Abs(d.Z) <= LevelReachOf(i);   // MusouSim.BigBodies.cs (2026-11-09): 1.5 m for a Boy, up to 4.5 m for a big body
+        if (melee && distance <= MusouFacingRules.MeleeEngageRange) _faceWant[i] = toward;   // a close melee Ork faces its target while it closes in
         if (melee)
         {
             if (_token[i] == MeleeToken)
@@ -425,15 +477,16 @@ public sealed partial class MusouSim
                 {
                     SetState(i, MusouEnemyState.WindUp);
                     _cooldown[i] = Ticks(spec.MeleePeriod);
-                    Face(i, toward);
+                    if (!SwingRules) Face(i, toward);   // MusouSim.Swing.cs: the committed swing turns from where the Ork stands at a bounded rate, no entry snap; the marker below shows that early aim
                     AddEvent(new MusouEvent(MusouEventKind.Telegraph, Tick, (ushort)(i + 1), (ushort)Math.Clamp(target.Id, 0, ushort.MaxValue), MeleeWindUpTelegraph,
                         _position[i] + new Vector3(Forward(_yaw[i]) * spec.MeleeRange, 0f)));
                     return Vector2.Zero;
                 }
-                if (reach <= spec.MeleeRange * 0.8f && level) { Face(i, toward); return Vector2.Zero; }   // in reach: wait for the cooldown
+                if (reach <= MeleeHold(i, spec, target) && level) { Face(i, toward); return Vector2.Zero; }   // in reach: wait for the cooldown (MusouSim.Movement.cs: past the player's ring)
                 return Approach(i, t, d, spec.Speed);
             }
-            if (reach <= Rules.MeleeTokenDistance && MathF.Abs(d.Z) <= (swarm is null ? 2.5f : 1.5f) && reach < _meleeWantD[t]) { _meleeWantD[t] = reach; _meleeWant[t] = i; }
+            if (TakeOwnToken(i, reach, level)) return Approach(i, t, d, spec.Speed);   // MusouSim.Elites.cs: a Nob or a Boss Ork takes a token of his own
+            if (reach <= Rules.MeleeTokenDistance && MathF.Abs(d.Z) <= (swarm is null ? 2.5f : LevelReachOf(i)) && reach < _meleeWantD[t]) { _meleeWantD[t] = reach; _meleeWant[t] = i; }
             return swarm is null ? Circle(i, t, d, spec.Speed) : SwarmWay(i, t, target, d, spec.Speed, slot: true, hold: true, swarm);
         }
         if (!ranged) return swarm is null ? Approach(i, t, d, spec.Speed) : SwarmWay(i, t, target, d, spec.Speed, slot: true, hold: false, swarm);
@@ -446,7 +499,9 @@ public sealed partial class MusouSim
             {
                 if (_burst[i] > 0)
                 {
-                    Face(i, toward);
+                    // Turn to the target first; a round leaves only with the gun within the cone of it (MusouSim.Facing.cs).
+                    bool aimed = TurnTo(i, toward, MusouFacingRules.ShooterTurnDegrees) <= MusouFacingRules.FireConeRadians;
+                    if (!aimed) return Vector2.Zero;
                     if (_roundTicks[i] > 0) _roundTicks[i]--;
                     else
                     {
@@ -461,22 +516,26 @@ public sealed partial class MusouSim
                     _burst[i] = (byte)Math.Clamp(spec.RangedRounds, 1, 255);
                     _roundTicks[i] = 0;
                     _cooldown[i] = Ticks(spec.RangedPeriod);
-                    Face(i, toward);
+                    TurnTo(i, toward, MusouFacingRules.ShooterTurnDegrees);
+                    if (MusouGunBurst.Synthesized(_type[i])) AddEvent(new MusouEvent(MusouEventKind.Telegraph, Tick, (ushort)(i + 1), (ushort)Math.Clamp(target.Id, 0, ushort.MaxValue), MusouGunBurst.Cue, target.Position + new Vector3(0f, 0f, 1.2f)));   // the client draws this burst's rounds (MusouGunBurst)
                     return Vector2.Zero;
                 }
             }
         }
         else if (distance <= spec.RangedMax * 1.2f && distance < _shotWantD[t]) { _shotWantD[t] = distance; _shotWant[t] = i; }
         // The band: closer backs off, farther or blind closes in, else holds facing the target.
+        if (distance <= spec.RangedMax * MusouFacingRules.ShooterEngageScale) _faceWant[i] = toward;   // engaged: the body faces the target while it moves
         if (distance > spec.RangedMax || (fresh && !_los[i])) return swarm is null ? Approach(i, t, d, spec.Speed) : SwarmWay(i, t, target, d, spec.Speed, slot: false, hold: false, swarm);
-        if (distance < spec.RangedMin) return -toward * spec.Speed * 0.6f;
-        Face(i, toward);
+        if (distance < spec.RangedMin) { _faceWant[i] = toward; return -toward * spec.Speed * 0.6f; }   // backs off still facing the target
+        TurnTo(i, toward, MusouFacingRules.ShooterTurnDegrees);
         return KeepOutWay(i, spec.Speed);
     }
 
     /// <summary>One round of a burst: the hit roll by distance (a hash of the tick and the enemy), the tracer, and the damage on a hit.</summary>
     void Fire(int i, MusouTarget target, float distance, MusouTypeSpec spec, List<MusouAttack> attacks, bool fight)
     {
+        if (spec.RangedBlastRadius > 0f) { ThrowBolt(i, target, spec, fight); return; }
+        if (_type[i] == MusouEnemyType.RokkitBoy) { FireRocket(i, target, fight); return; }   // a real rocket (MusouSim.Rokkit.cs)   // a bolt that bursts where it was aimed (MusouSim.Weirdboy.cs)
         float span = MathF.Max(1e-3f, spec.RangedMax - spec.RangedMin);
         float chance = spec.RangedHitNear + (spec.RangedHitFar - spec.RangedHitNear) * Math.Clamp((distance - spec.RangedMin) / span, 0f, 1f);
         uint roll = Mix(Tick, (uint)i * 0x85EBCA6Bu + _burst[i]);
@@ -500,7 +559,7 @@ public sealed partial class MusouSim
     {
         var flat = new Vector2(d.X, d.Y);
         float distance = flat.Length();
-        bool direct = Walk is null || Flow is null || (_flowTicks[i] == 0 && distance <= Rules.DirectSeekDistance && MathF.Abs(d.Z) < 1.5f);
+        bool direct = Walk is null || Flow is null || (_flowTicks[i] == 0 && (distance <= Rules.DirectSeekDistance || (_prefer[i] && distance <= MusouTargetRules.PreferRange)) && MathF.Abs(d.Z) < 1.5f);
         if (!direct && _node[i] >= 0)
         {
             int next = Flow!.Next(_node[i]);
@@ -587,22 +646,36 @@ public sealed partial class MusouSim
             var away = new Vector2(p.X - o.X, p.Y - o.Y);
             float gap = (Rules.Of(_type[j]).Radius + spec.Radius) * spread, dist = keptDist[k];
             var dir = dist > 1e-4f ? away / dist : Forward((i - j) * 2.399963f);
-            push += dir * (gap - dist) * Rules.SeparationStrength;
+            push += dir * (gap - dist) * Rules.SeparationStrength * PushShareOf(Body(_type[i]).Radius, Body(_type[j]).Radius);   // MusouSim.Elites.cs: a big body wades through small ones (the drawn bodies: the Warboss's is scaled)
         }
         foreach (var target in targets)
         {
-            if (!target.Alive || target.Goal || target.Radius > 0f || MathF.Abs(target.Position.Z - p.Z) > 1.5f) continue;
+            if (!target.Alive || target.Goal || target.Radius > 0f || MathF.Abs(target.Position.Z - p.Z) > LevelReachOf(i)) continue;
             var away = new Vector2(p.X - target.Position.X, p.Y - target.Position.Y);
-            float gap = Rules.PlayerRing + spec.Radius, dist = away.Length();
+            float gap = Rules.PlayerRing + target.Body + Body(_type[i]).Radius, dist = away.Length();   // the Warboss's scaled body (late batch 2026-11-06); every other type's is its own radius
             if (dist >= gap) continue;
             var dir = dist > 1e-4f ? away / dist : Forward(i * 2.399963f);
             push += dir * (gap - dist) * Rules.SeparationStrength * 2f;
         }
+        push = EasePush(i, push);   // MusouSim.Movement.cs (2026-11-09): the push apart eased, so it does not flip the move tick to tick
         var v = desired + push;
         float max = spec.Speed * 1.5f * SpeedScale(i), len = v.Length();
         if (len > max) v *= max / len;
         v += Driven(i);   // MU3: a knockback or the boss's charge, over the clamp
-        if (desired.LengthSquared() > 0.01f && _state[i] == MusouEnemyState.Seek) Face(i, Vector2.Normalize(desired));
+        bool boss = MusouBossOrks.Is(_type[i]), faceMove = false;
+        if (boss && Walk is { } nav && _node[i] >= 0 && _state[i] == MusouEnemyState.Seek)
+        {
+            // A Boss Ork's body is 3x wide but the graph keeps only a normal Ork's margin off the walls: lean away from a wall nearer than its radius, so it does not grind along it (ours).
+            float room = nav.EdgeDistance(_node[i]), want = BossWallRoom(spec.Radius);
+            if (room < want) v = LeanAdded(v, desired, nav.EdgeGradient(_node[i]) * (want - room) / want * spec.Speed * BossWallPush);   // MusouSim.BigBodies.cs: the lean never slows his way
+        }
+        if (!boss && desired.LengthSquared() > 0.01f && _state[i] == MusouEnemyState.Seek)
+        {
+            if (_faceWant[i] != Vector2.Zero) TurnTo(i, _faceWant[i], MusouFacingRules.EngageTurnDegrees);   // MusouSim.Facing.cs: engaged, it moves facing its target
+            else if (OldOrkMovement || Swarm is null) Face(i, Vector2.Normalize(desired));   // the 5-wave run (no Swarm) as pinned
+            else faceMove = true;   // MusouSim.Movement.cs (2026-11-09): after the move it faces the way it actually goes
+            _lookSet[i] = false;
+        }
         if (v.LengthSquared() < 1e-6f) { _velocity[i] = Vector2.Zero; return; }
 
         var step = v * Dt;
@@ -616,6 +689,7 @@ public sealed partial class MusouSim
             {
                 int node = Walk.MoveTo(_node[i], p.X + step.X, p.Y + step.Y, _aim[i]);
                 var at = new Vector2(p.X + step.X, p.Y + step.Y);
+                if (node < 0 && SlideAlongWall(i, p, step, out var slid) is var along and >= 0) { node = along; at = slid; }   // MusouSim.BigBodies.cs: a big body slides along the wall at full speed
                 if (node < 0) { node = Walk.MoveTo(_node[i], p.X + step.X, p.Y); at = new Vector2(p.X + step.X, p.Y); }
                 if (node < 0) { node = Walk.MoveTo(_node[i], p.X, p.Y + step.Y); at = new Vector2(p.X, p.Y + step.Y); }
                 if (node < 0 && push != Vector2.Zero)
@@ -639,6 +713,34 @@ public sealed partial class MusouSim
         if (_flowTicks[i] > 0) _flowTicks[i]--;
         _velocity[i] = new Vector2(moved.X - p.X, moved.Y - p.Y) / Dt;
         _position[i] = moved;
+        if (boss && _state[i] == MusouEnemyState.Seek) FaceBoss(i, desired);   // MusouSim.Elites.cs: engaged, he faces his target
+        else if (faceMove) FaceMove(i, desired);
+    }
+
+    /// <summary>A Boss Ork's turn rate while it runs (rad/s, ours): about a third of a turn a second, so a 3x body swings round instead of snapping.</summary>
+    public const float BossTurnRate = 6f;
+    /// <summary>Slower than this (m/s) a running Boss Ork keeps its facing: pressed against a wall it does not turn to face the wall.</summary>
+    public const float BossFaceSpeed = 0.8f;
+    /// <summary>How hard a Boss Ork leans off a wall nearer than <see cref="BossWallRoom"/>: a share of its speed at the wall itself (ours).</summary>
+    public const float BossWallPush = 0.9f;
+    /// <summary>The room a body of <paramref name="radius"/> wants beside a wall beyond the graph's own margin (the graph keeps a 0.4 m body off walls).</summary>
+    public static float BossWallRoom(float radius) => MathF.Max(0f, radius - 0.4f);
+
+    /// <summary>The share of a tick's velocity taken into a Boss Ork's smoothed heading (about 0.3 s to settle): a body that shuffles to and fro keeps the way it is getting on, not the way of each step.</summary>
+    public const float BossHeadingBlend = 0.1f;
+    readonly Vector2[] _bossHeading = new Vector2[Capacity];
+
+    /// <summary>A running Boss Ork faces the way it is actually getting on (its smoothed velocity), turning at <see cref="BossTurnRate"/>; standing, sliding along a wall or shuffling it keeps its facing.</summary>
+    void TurnToVelocity(int i)
+    {
+        _bossHeading[i] += (_velocity[i] - _bossHeading[i]) * BossHeadingBlend;
+        var v = _bossHeading[i];
+        if (v.LengthSquared() < BossFaceSpeed * BossFaceSpeed) return;
+        float want = MathF.Atan2(-v.X, v.Y), diff = want - _yaw[i];
+        while (diff > MathF.PI) diff -= 2f * MathF.PI;
+        while (diff < -MathF.PI) diff += 2f * MathF.PI;
+        float max = BossTurnRate * Dt;
+        _yaw[i] += Math.Clamp(diff, -max, max);
     }
 
     void Face(int i, Vector2 direction)
@@ -662,7 +764,7 @@ public sealed partial class MusouSim
             if (t < 0) continue;
             checks++;
             _losTick[i] = Math.Max(1u, Tick);
-            var eye = _position[i] + new Vector3(0f, 0f, 1.5f);
+            var eye = _position[i] + new Vector3(0f, 0f, EyeOf(i));   // MusouSim.BigBodies.cs: a big shooter looks out from his own height
             var chest = targets[t].Position + new Vector3(0f, 0f, 1.2f);
             var ray = chest - eye;
             float length = ray.Length();

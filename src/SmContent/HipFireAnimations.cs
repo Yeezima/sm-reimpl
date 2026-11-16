@@ -113,7 +113,9 @@ public sealed record HipFireAnimations(IReadOnlyList<HipFireSet> Sets)
     /// (<see cref="MpClasses.WithRaise"/> with <see cref="MpClasses.AnimationSetOf"/>), the client's animations match the names
     /// (<c>NetworkView.AnimationFamilyOf</c>); an install test (<c>PistolAnimationSetInstallTests</c>) pins that the two agree.
     /// </summary>
-    public static HipFireWeaponClass FamilyOf(string weaponName) =>
+    public static HipFireWeaponClass FamilyOf(string weaponName) => FamilyOfName(AnimationAlias.Of(weaponName));   // AnimationAlias: an added weapon's borrowed name (Musou's arsenal)
+
+    static HipFireWeaponClass FamilyOfName(string weaponName) =>
         weaponName.Contains("bolt_pistol", StringComparison.OrdinalIgnoreCase) || weaponName.Contains("plasma_pistol", StringComparison.OrdinalIgnoreCase) ? HipFireWeaponClass.Pistol
         : weaponName.Contains("heavy_bolter", StringComparison.OrdinalIgnoreCase) ? HipFireWeaponClass.Heavy
         : HipFireWeaponClass.Rifle;

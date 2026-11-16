@@ -259,7 +259,7 @@ public static class RefineRules
     static readonly Regex Dash = Rx.New(@"^[\s—–\-/.]*$|^n/?a$");
 
     // Engineering subjects: wire formats, budgets, uploads, caches, old clients. Decided by the row's subject (its name), not its source alone.
-    static readonly Regex EngineeringSubject = Rx.New(@"^(protocol \d+\b|map hash\b)|\b(wire|budgets?|uploads?|blob|bytes?|appearance code|model key|caches?|hash|handshake|packets?|blob chunks?|versions|old clients?|prefetch|loading)\b");
+    static readonly Regex EngineeringSubject = Rx.New(@"^(protocol( \d+\b|\s*$)|map hash\b|server log\s*$)|\b(wire|budgets?|uploads?|blob|bytes?|appearance code|model key|caches?|hash|handshake|packets?|blob chunks?|versions|old clients?|prefetch|loading)\b");
 
     public static string Plain(string s) => s.Replace("**", "").Replace("’", "'").Replace("`", "");
 
@@ -294,6 +294,23 @@ public static class RefineRules
     }
 
     public static bool IsTestAid(string kind) => Rx.Is(Plain(kind), @"\btest aid\b");
+
+    /// <summary>A row whose Kind cell starts with "superseded": history of behaviour a later row replaced or removed (the replacement carries the live tag). Listed in the appendix only.</summary>
+    public static bool IsSuperseded(string kind) => Rx.Is(Plain(kind).Trim(), @"^superseded\b");
+
+    /// <summary>A row whose Kind cell starts with "engineering measurement" (a cost, memory or frame-time reading of our own build) or "engineering rule" (a wire, snapshot or load-safety rule). Nothing in SM1 to compare it with; listed in the appendix.</summary>
+    public static bool IsEngineeringMeasurement(string kind) => Rx.Is(Plain(kind).Trim(), @"^engineering (measurement|rule)\b");
+
+    /// <summary>"duplicate of R-XXXXXXXX" at the start of any cell of the row (a table without a Kind column carries the note in its Source or Where cell): the row repeats another register row, which carries the live tag.</summary>
+    public static string? DuplicateOf(IReadOnlyList<string> cells)
+    {
+        foreach (var c in cells)
+        {
+            var m = Rx.New(@"^duplicate of (R-[0-9A-F]{8})\b").Match(Plain(c).Trim());
+            if (m.Success) return m.Groups[1].Value;
+        }
+        return null;
+    }
 
     public static bool LooksNonGameplayName(string name) => NonGameplayName.IsMatch(Plain(name));
 
@@ -562,6 +579,22 @@ public static class RefineRegister
                 if (RefineRules.ConfidenceLevel(Cell(roles.Confidence)) != "high")
                     foreach (var sr in leadInReasons) if (!reasons.Contains(sr)) reasons.Add(sr);
                 bool testAid = RefineRules.IsTestAid(Cell(roles.Kind));
+                if (RefineRules.IsSuperseded(Cell(roles.Kind)))
+                {
+                    model.Appendix.Add(Entry(id, table, roles, row, RefineAreas.Appendix, ["superseded (history)"]));
+                    continue;
+                }
+                var dupOf = RefineRules.DuplicateOf(cells);
+                if (dupOf != null)
+                {
+                    model.Appendix.Add(Entry(id, table, roles, row, RefineAreas.Appendix, ["duplicate of " + dupOf]));
+                    continue;
+                }
+                if (RefineRules.IsEngineeringMeasurement(Cell(roles.Kind)))
+                {
+                    model.Appendix.Add(Entry(id, table, roles, row, RefineAreas.Appendix, ["engineering measurement or rule"]));
+                    continue;
+                }
                 if (testAid || area == RefineAreas.Appendix || RefineRules.LooksNonGameplayName(name) || RefineRules.IsEngineering(name, Cell(roles.Source), Cell(roles.Kind)))
                 {
                     model.Appendix.Add(Entry(id, table, roles, row, RefineAreas.Appendix, reasons.Count == 0 ? ["test aid"] : reasons));
@@ -794,7 +827,7 @@ public static class RefineRegister
 
         // Appendix
         sb.AppendLine("## Appendix: not gameplay").AppendLine();
-        sb.AppendLine("Test aids, probes, demo and capture tooling, and engineering decisions (protocol, wire formats, budgets, uploads, caches, load order). Listed so nothing is lost; no SM1 comparison needed.").AppendLine();
+        sb.AppendLine("Test aids, probes, demo and capture tooling, engineering decisions (protocol, wire formats, budgets, uploads, caches, load order), superseded rows (kind `superseded`: history of behaviour a later row replaced or removed), duplicates (a cell reading `duplicate of R-...`; the named row carries the live tag) and engineering measurements and rules (kind `engineering measurement`: cost, memory and frame-time readings of our own build; `engineering rule`: wire, snapshot and load-safety rules). Listed so nothing is lost; no SM1 comparison needed.").AppendLine();
         if (model.Appendix.Count == 0) sb.AppendLine("None.").AppendLine();
         else
         {
@@ -867,6 +900,12 @@ public static class RefineRegister
             rendered = Render(model, changes, specName, changesName);
             var dups = DuplicateIds(model.Tagged.Concat(model.Appendix).Select(e => e.Id).Concat(ChangeIds(changes).SelectMany(a => a)));
             if (dups.Count > 0) throw new InvalidOperationException("refine-register: duplicate IDs: " + string.Join(", ", dups));
+            // A "duplicate of R-..." cell must name another row that exists; a typo would otherwise hide a live row in the appendix.
+            var allIds = model.Tagged.Concat(model.Appendix).Select(e => e.Id).ToHashSet();
+            var badDups = model.Appendix.SelectMany(e => e.Reasons.Where(r => r.StartsWith("duplicate of ", StringComparison.Ordinal))
+                    .Select(r => (e.Id, Target: r["duplicate of ".Length..])))
+                .Where(d => d.Target == d.Id || !allIds.Contains(d.Target)).Select(d => $"{d.Id} -> {d.Target}").ToList();
+            if (badDups.Count > 0) throw new InvalidOperationException("refine-register: 'duplicate of' names no other row: " + string.Join(", ", badDups));
         }
         catch (InvalidOperationException e)
         {

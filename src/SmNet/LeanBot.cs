@@ -37,34 +37,60 @@ public static class LeanBot
     /// </summary>
     public static readonly IReadOnlySet<string> PresentationAids = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase)
     {
-        "anim-probe", "hip-probe", "yaw-probe", "pan-rate", "transition-probe", "transition-sweep", "camera-probe", "camera-selftest", "camera-back", "motion-probe",
-        "frame-profile", "frame-stats", "look-churn", "look-log", "look-closeup", "picker-demo", "picker-on-death", "picker-deploy", "bot-change-loadout",
+        "anim-probe", "log-fov", "fov-demo", "old-melee-fov", "tracer-probe", "fire-test", "log-power-glow", "old-kraken-tracer", "tfw-bay-capture", "log-melta-follow", "hip-probe", "yaw-probe", "pan-rate", "transition-probe", "transition-sweep", "camera-probe", "camera-selftest", "camera-back", "motion-probe",
+        "frame-profile", "frame-stats", "perf-tour", "look-churn", "look-log", "look-closeup", "picker-demo", "picker-on-death", "picker-deploy", "bot-change-loadout",
+        "no-extra-transitions", "no-sprint-stop", "no-sprint-start", "no-turns", "log-sprint-edges", "feel-shots-dense",   // install transitions: the restore switches change what is drawn, so a lean bot would not show them
         "bot-gait", "gait-sweep", "action-sweep", "bot-turn-sweep", "turn-sweep-fire", "latency-probe", "bullet-probe", "show-shot-rays", "camera-hide-log",
-        "slash-trace", "run-start-log", "log-sound", "log-footsteps", "reload-capture", "reload-probe", "ork-capture", "screenshot", "screenshot-every",
-        "record-demo", "spectate", "ragdoll-debug", "damage-demo", "aim-test", "hud-demo", "hud-rewards-demo", "hud-score-demo", "hud-vitals-demo", "hud-switch-demo", "hud-launcher-demo", "scope-spread-demo", "pound-marker-demo",
+        "slash-trace", "claw-crackle-demo", "claw-glow-test", "run-start-log", "log-sound", "log-footsteps", "reload-capture", "reload-probe", "ork-capture", "screenshot", "screenshot-every",
+        "record-demo", "spectate", "ragdoll-debug", "death-orbit-test", "no-shader-sweep", "hit-reaction-test", "damage-demo", "aim-test", "hud-demo", "hud-rewards-demo", "hud-headshot-demo", "hud-score-demo", "hud-vitals-demo", "hud-clip-demo", "hud-plasma-demo", "hud-switch-demo", "hud-launcher-demo", "scope-spread-demo", "pound-marker-demo",
         "power-flash-demo", "log-power-flash", "power-flash-at",   // fx/power-flash: the hit flash demo and its log
+        "pvp-hit-fx-demo", "pvp-hit-fx-every", "log-hit-fx",   // pvp-hit-fx: the shot-look demo on the nearest other player and its log
+        "player-hit-fx", "no-player-hit-fx", "player-hit-burst", "no-damage-glow", "old-classic-hit-fx", "melta-burn-on-hit", "old-pack-death-flash", "old-pack-death-thrust", "jump-test-die", "log-pack-death",   // classic-no-player-hit-fx (owner 2026-11-11): Classic PvP's on-hit effects on players back (the before look)
         "musou-hud-demo",   // added content Musou (MU3): the Musou HUD and telegraphs with made-up values
         "musou-gore-demo",   // added content Musou (pass 2 M10): the scripted feed of the gore
-        "guard-demo", "guard-demo-at", "guard-no-vat", "tfw-deploy", "tfw-test", "tfw-test-downs", "tfw-test-win", "tfw-test-fight", "tfw-fight-seconds", "tfw-test-capture", "tfw-capture-seconds", "tfw-capture-weak", "tfw-fire-test", "tfw-fire-at", "tfw-fire-cam", "tfw-fire-cam-run", "tfw-reduce-motion", "tfw-orbital-test",   // added content Musou (TF7a): the scripted Guardsmen, the skinned crowd only, a scripted Deploy
+        "musou-death-spike-test",   // added content Musou (night batch 2026-11-06): the whole scripted crowd dies at once, the frame times measured
+        "log-ork-blood",   // added content Musou (gore-original): the original blood's per-kill log
+        "feel-probe", "log-musou-contact",   // added content Musou (combat feel 2026-11-09): the contact timing and the predicted contacts, read where the crowd is drawn
+        "spear-probe", "demo-melee", "demo-primary", "preview-weapon-cycle", "preview-weapon-rounds", "preview-yaw", "preview-zoom",   // added content Musou (arsenal W3, 2026-11-10): the spear's carry-grip measurement (--viewer) and the demo profile's melee weapon (--customizer)
+        "musou-old-autocannon-fx",   // added content Musou (musou/autocannon-dust 2026-11-12): the autocannon's full dust and no chunks, the before look
+        "tfw-autocannon-capture", "tfw-autocannon-impact-capture",   // added content Musou (arsenal W1, W1c, 2026-11-10): the autocannon's screenshot gate, a scripted fight; its impacts on a wall and the ground
+        "tfw-zoom-capture",   // added content Musou (2026-11-12): the Librarian's zoom stills next to a Tactical's
+        "dn-buff-probe", "dn-da-clean", "dn-da-close", "dn-da-death", "dn-da-film", "dn-da-overcharge", "dn-da-wreck", "dn-feel-log", "dn-muzzle-log", "no-damage-vignette", "no-damage-flash", "dn-light-log", "dn-orks", "dn-da-melta", "dn-film", "dn-fire-film", "dn-melee-film", "dn-pick", "dn-raw-strike", "dn-survive", "chaos-dreadnought",   // Musou Dreadnought film and capture aids (2026-11-15): a lean bot given one loads what it needs
+        "tfw-dreadnought-capture",   // added content Musou (Dreadnought D2+, 2026-11-15): the Dreadnought's scripted stills and film
+        "log-fx-plays",   // effects (2026-11-15): logs every effect play for the bolt-smoke and autocannon-dust checks
+        "tfw-pod-test",   // added content Musou (2026-11-12): the drop pod assault's scripted check (record, landing, marines, retreat) and its captures
+        "tfw-feel-capture",   // added content Musou (combat feel): a short scripted fight for the before / after captures
+        "tfw-weight-capture", "tfw-weight-pack", "tfw-weight-log", "log-musou-weight",   // added content Musou (weight pass 2026-11-10): the scripted baseline moves and their frame log
+        "tfw-fight-capture", "tfw-sound-capture", "tfw-sound-fire-seconds", "musou-own-layer-db", "musou-own-layers", "tfw-sound-capture-long", "log-musou-flinch",   // added content Musou (capture banners, sound A/B 2026-11-10): the banner flip and the mix captures
+        "tfw-arc-capture", "log-musou-arcs", "old-musou-arc", "tfw-arc-delay", "tfw-arc-scene",   // added content Musou (swing arc 2026-11-10; old-musou-arc 2026-11-15 restores the unlimited, unoccluded arc): the arc stills' scripted swings and the arc log
+        "tfw-spear-capture", "claw-spear-test", "tfw-claw-capture", "old-claw-model", "no-claw-arcs", "tfw-spear-carry-film", "tfw-spear-film", "tfw-spear-spot", "tfw-spear-hide-others", "tfw-spear-film-kind",   // added content Musou (arsenal W3b, 2026-11-10; the films and their open spot, spear pass 4): the spear's in-match stills and films and the claw / spear preview stage
+        "shimmer-probe", "shimmer-trace",   // added content Musou (ashfall/no-flicker): the kit gallery's shimmer measure
+        "guard-demo", "guard-demo-at", "guard-no-vat", "tfw-deploy", "tfw-test", "tfw-test-downs", "tfw-test-win", "tfw-test-fight", "tfw-fight-seconds", "tfw-test-capture", "tfw-capture-seconds", "tfw-capture-weak", "tfw-fire-test", "tfw-fire-at", "tfw-fire-cam", "tfw-fire-cam-run", "tfw-reduce-motion", "tfw-orbital-test", "tfw-librarian", "librarian-demo",   // added content Musou (TF7a; the Librarian pass 2: the Stormbird pick, the capture script): the scripted Guardsmen, the skinned crowd only, a scripted Deploy
         // review round (L2): the remaining probes, logs, captures and sweeps of the client
         "pose-pop-probe", "turn-probe", "turn-probe-events", "turn-probe-trace", "transition-probe-csv", "transition-probe-trace", "anim-probe-csv", "motion-probe-worst",
-        "gait-sweep-fire", "ui-sound-probe", "log-fall", "log-falls", "log-upper", "log-sprint-edges", "log-death-fx", "bot-ledge", "ledge-charge",
+        "gait-sweep-fire", "ui-sound-probe", "log-fall", "log-falls", "log-upper", "log-sprint-edges", "log-death-fx", "bot-ledge", "ledge-charge", "ledge-jump", "hop-rules-test", "hop-rules-cycle", "hop-rules-at",
         "ragdoll", "ragdoll-rest", "ragdoll-delay", "screenshot-at", "screenshot-on-effect", "demo-look", "demo-profile", "demo-no-quit", "play-demo",
-        "jump-test", "slash-test", "dash-wall-test", "pound-test", "stomp-test", "stomp-move-test", "swing-test", "swing-trace", "log-lunge", "carry-test", "camera-test", "log-melee-fx", "laser-test", "shot-test", "barrel-test", "barrel-probe", "old-barrel", "reload-test", "ork-test", "guard-test", "emblem-test", "appearance-test", "ui-selftest", "lock-demo",
+        "jump-test", "slash-test", "dash-wall-test", "pound-test", "stomp-test", "stomp-move-test", "swing-test", "swing-trace", "log-lunge", "carry-test", "camera-test", "log-melee-fx", "log-plasma-fx", "laser-test", "shot-test", "barrel-test", "barrel-probe", "old-barrel", "reload-test", "ork-test", "guard-test", "warboss-test", "musou-crowd-test", "emblem-test", "appearance-test", "ui-selftest", "lock-demo",
         // the screenshot waits
         "wait-players", "wait-melee", "wait-blast", "wait-jump", "wait-match-end", "wait-death", "wait-fall", "wait-fall-land", "wait-flinch", "wait-frames", "wait-switch",
         // gamepad: the synthetic controller script (a human client; a bot takes no pad)
         "pad-test",
         // anim/melee-flow: the probe's clip labels, the foot lock's trace, the stun-strike shake's log
         "transition-probe-clips", "clip-lock-trace", "log-stun-shake",
+        // night batch 2026-11-06 anim/sword-legs: the leg probe and its trace, the old legs and the stride cap sweep
+        "leg-probe", "leg-trace", "old-sword-legs", "stride-cap",
+        // anim/strafe-blend: the direction-change bot script and the probe's per-event lines
+        "direction-sweep", "transition-probe-directions",
         // fix/stow-right: the switch test view and its probe, the capture window, the bot that switches for the capture
         "switch-test", "switch-probe", "wait-switch-window", "bot-switch-every",
         // fx/character-visuals: the armour flash demo
-        "armour-flash-demo", "slash-cone-demo", "stim-glow-demo", "old-bolt-tracer", "old-bolt-fx", "bolt-fx-demo", "old-score-box", "old-pistol-tracer",
+        "armour-flash-demo", "slash-cone-demo", "stim-glow-demo", "old-bolt-tracer", "old-bolt-fx", "bolt-fx-demo", "bolt-smoke-scene", "bolt-smoke-classic", "bolt-smoke-dir", "fx-skip", "fx-tree", "old-score-box", "old-pistol-tracer",
         // anim/melee-interaction: the charge impact's log and the capture of its frames
         "log-charge-impact", "charge-shots",
         // feel/weight-impact: the weight pass before / after, whole and by part, and its log
-        "old-feel", "old-camera-impulse", "old-landing-settle", "old-recoil-weight", "old-flinch-weight", "old-strike-entry", "old-heavy-footfall", "log-weight-feel", "feel-shots", "jump-test-pound",
+        "old-feel", "old-camera-impulse", "old-landing-settle", "old-recoil-weight", "old-flinch-weight", "old-strike-entry", "old-heavy-footfall", "log-weight-feel", "feel-shots", "jump-test-pound", "old-pack-idle", "old-air-legs", "log-air-legs", "jump-test-air-melee",
+        // jump-pack death (2026-11-11): the mid-air death's before (the ragdoll at once)
+        "no-jump-death",
     };
 
     /// <summary>
@@ -73,7 +99,8 @@ public static class LeanBot
     /// </summary>
     /// <remarks>perf/pass-1's <c>--perf-probe</c> only reads the engine's and runtime's counters (frame times, renderer, memory, GC), so a lean bot keeps it: it
     /// measures the lean bot itself.</remarks>
-    public static readonly IReadOnlySet<string> LeanSafeAids = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase) { "tfw-bot", "bot-trace", "test-window", "perf-probe" };
+    public static readonly IReadOnlySet<string> LeanSafeAids = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase) { "tfw-no-capture-hud", "musou-old-capture-ui", "tfw-bot", "bot-trace", "test-window", "perf-probe",
+        "old-bot-throws" };   // bot-grenade-safety (owner 2026-11-11): the Classic PvP bots' old throws and no holds (it steers the bot, it draws nothing)
 
     /// <summary>A flag name that reads like a test aid (a probe, log, trace, capture, sweep, test, screenshot, wait or demo): each must be classified (tested).</summary>
     public static bool LooksLikeAid(string name) =>

@@ -120,20 +120,26 @@ public sealed class OwnClipClock
     /// <summary>True while a clip is being followed.</summary>
     public bool Active { get; private set; }
 
-    /// <summary>The drawn time for a clip whose predicted time is <paramref name="predicted"/> (a tick back plus the fraction).</summary>
-    public static float Time(float predicted, float fraction, float tickSeconds)
+    /// <summary>
+    /// The drawn time for a clip whose predicted time is <paramref name="predicted"/> (a tick back plus the fraction). net/responsive: <paramref name="lead"/> ticks
+    /// later (<see cref="GameClient.ClipLead"/>: 1 while the own marine is drawn a tick ahead), never past the predicted time plus the lead.
+    /// </summary>
+    public static float Time(float predicted, float fraction, float tickSeconds, float lead = 0f)
     {
         if (!float.IsFinite(predicted)) return 0f;
         float f = float.IsFinite(fraction) ? Math.Clamp(fraction, 0f, 1f) : 1f;
-        return Math.Clamp(predicted - (1f - f) * MathF.Max(tickSeconds, 0f), 0f, MathF.Max(predicted, 0f));
+        float l = Lead(lead), tick = MathF.Max(tickSeconds, 0f);
+        return Math.Clamp(predicted - (1f - f - l) * tick, 0f, MathF.Max(predicted + l * tick, 0f));
     }
 
+    static float Lead(float lead) => float.IsFinite(lead) ? Math.Clamp(lead, 0f, 1f) : 0f;
+
     /// <summary>The drawn time this frame; <paramref name="key"/> names the clip (a change, or the predicted time going back, restarts it).</summary>
-    public float Step(long key, float predicted, float fraction, float tickSeconds, float length = float.MaxValue)
+    public float Step(long key, float predicted, float fraction, float tickSeconds, float length = float.MaxValue, float lead = 0f)
     {
-        float shown = Time(predicted, fraction, tickSeconds);
+        float shown = Time(predicted, fraction, tickSeconds, lead);
         bool restart = !Active || key != _key || predicted < _lastPredicted - 1e-4f;
-        if (!restart) shown = MathF.Max(shown, MathF.Min(_lastShown, MathF.Max(predicted, 0f)));
+        if (!restart) shown = MathF.Max(shown, MathF.Min(_lastShown, MathF.Max(predicted + Lead(lead) * MathF.Max(tickSeconds, 0f), 0f)));
         shown = Math.Clamp(shown, 0f, MathF.Max(length, 0f));
         Active = true; _key = key; _lastShown = shown; _lastPredicted = predicted;
         return shown;

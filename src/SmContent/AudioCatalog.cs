@@ -20,6 +20,8 @@ public sealed class SoundSwitches
 
     public SoundSwitches Set(string group, string value) => Set(Fnv.Hash32(group), Fnv.Hash32(value));
 
+    public bool Remove(uint group) => _values.Remove(group);
+
     public SoundSwitches Clone()
     {
         var c = new SoundSwitches();
@@ -359,6 +361,18 @@ public sealed class AudioCatalog : IDisposable
             : [Fnv.Hash32(character), Fnv.Hash32(type), Fnv.Hash32(state), Fnv.Hash32(threat)];
         if (d.Resolve(values) is uint node)
             Visit(node, 0f, switches, emitter, new List<uint>(), play, new Dictionary<uint, NodeDraw>(), 0);
+        return play;
+    }
+
+    /// <summary>musou/battle-ambience: the audio nodes of a dialogue event under a path of keys (<see cref="HircDialogueEvent.LeavesUnder"/>); empty without the event.</summary>
+    public IReadOnlyList<uint> DialogueLeaves(uint dialogueEvent, IReadOnlyList<uint> prefix) =>
+        _lib.Find(dialogueEvent) is HircDialogueEvent d ? d.LeavesUnder(prefix) : [];
+
+    /// <summary>musou/battle-ambience: plays one audio node of a dialogue event (a leaf from <see cref="DialogueLeaves"/>) like any container.</summary>
+    public SoundPlay PostNode(uint node, SoundSwitches switches, ulong emitter = 0)
+    {
+        var play = new SoundPlay { EventId = node, Found = _lib.Find(node) is not null };
+        if (play.Found) Visit(node, 0f, switches, emitter, new List<uint>(), play, new Dictionary<uint, NodeDraw>(), 0);
         return play;
     }
 

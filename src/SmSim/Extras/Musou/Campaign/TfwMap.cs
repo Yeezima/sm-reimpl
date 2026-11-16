@@ -187,8 +187,10 @@ public sealed record TfwRange(Vector3 Centre)
 /// <summary>
 /// The fixed places of the battlefield, read from the map once (design section A): the Stormbird, the Seize Ground points A, B and C (position 1, the depot, position 3), the Chaos start
 /// area, where the commander stands, the Space Marine start area, one possible landing zone, and the map's own markers, which seed the enemies' graph (never the Stormbird).
+/// <paramref name="BaseLanding"/>: every battle lands at the Space Marine start area (Ashfall Citadel's Imperial base in the south centre; the owner, 2026-11-08: "you should always spawn
+/// in at the imperial base in the south center of the ashfall map in musou mode"); false (the Manufactorum composition), the landing zone is drawn as before (<see cref="TfwSites"/>).
 /// </summary>
-public sealed record TfwBattlefield(TfwHub Hub, IReadOnlyList<TfwPoint> Points, Vector3 Commander, Vector3 MarineStart, IReadOnlyList<Vector3> WalkSeeds, MusouBox Bounds, TfwRange? Range = null)
+public sealed record TfwBattlefield(TfwHub Hub, IReadOnlyList<TfwPoint> Points, Vector3 Commander, Vector3 MarineStart, IReadOnlyList<Vector3> WalkSeeds, MusouBox Bounds, TfwRange? Range = null, bool BaseLanding = false)
 {
     /// <summary>Where the enemies walk: around the map's own markers. No cell of the Stormbird: no marker is there and the box leaves it out.</summary>
     public NavArea WalkArea() => NavArea.Around(WalkSeeds, TfwMap.WalkMargin);
@@ -204,12 +206,36 @@ public sealed record TfwBattlefield(TfwHub Hub, IReadOnlyList<TfwPoint> Points, 
 /// </summary>
 public static class TfwMap
 {
-    /// <summary>The map's name (it travels in the Challenge).</summary>
+    /// <summary>The map's name (it travels in the Challenge): Ashfall Citadel (G1, docs/musou-ashfall-graybox.md), generated in code.</summary>
     public const string Name = "tfw_war";
+    /// <summary>The restore switch: the old war map, Manufactorum from the install with the Stormbird and the range (<see cref="ManufactorumVersion"/>'s composition).</summary>
+    public const string ManufactorumName = "tfw_war_m09";
+    /// <summary>
+    /// Draft 11's battlefield layout of Ashfall Citadel (docs/musou-ashfall-graybox.md "Draft 11 battlefield layout"): the same war on the battlefield ruleset's level (<c>AshfallLayout.Field</c>). <see cref="Name"/> keeps the
+    /// draft-10 layout (the rollback path). The name travels in the Challenge, so a client builds the level the server runs, and the level's hash is in the map hash: mismatched builds are told apart.
+    /// </summary>
+    public const string FieldName = "tfw_war_field";
+    /// <summary>
+    /// Draft 12's rollback switch (owner, 2026-11-09: the draft-10 redo keeps the current version as a path to roll back to): the shipped draft-10 level (hash <c>0xA47761F67B43DC1C</c>). From draft 12 until 2026-11-14, <see cref="Name"/>
+    /// built the city layout (now <see cref="CityName"/>; <see cref="Name"/> builds draft 13) (<c>AshfallLayout.City</c>, docs/musou-ashfall-graybox.md "Draft 12 city layout").
+    /// </summary>
+    public const string Draft10Name = "tfw_war_draft10";
+    /// <summary>Draft 13's high-ground layout (owner, 2026-11-14; <c>AshfallLayout.Heights</c>, docs/musou-ashfall-graybox.md "Draft 13 heights"): the city's rules with large buildings and reachable high ground. Since the 2026-11-14 ship (owner: "ensure that the newest ashfall version is included") <see cref="Name"/> builds it too.</summary>
+    public const string HeightsName = "tfw_war_heights";
+    /// <summary>Draft 12's rollback switch since <see cref="Name"/> builds draft 13 (2026-11-14): the city layout (<c>AshfallLayout.City</c>, docs/musou-ashfall-graybox.md "Draft 12 city layout").</summary>
+    public const string CityName = "tfw_war_city";
+    /// <summary>Whether <paramref name="name"/> is one of the war's maps (<see cref="Name"/>, <see cref="FieldName"/>, <see cref="Draft10Name"/> or <see cref="ManufactorumName"/>).</summary>
+    public static bool IsWarMap(string? name) => name is Name or FieldName or Draft10Name or HeightsName or CityName or ManufactorumName;
+    /// <summary>Whether <paramref name="name"/> is an Ashfall Citadel map (generated in code: <see cref="Name"/>, <see cref="FieldName"/> or <see cref="Draft10Name"/>).</summary>
+    public static bool IsAshfall(string? name) => name is Name or FieldName or Draft10Name or HeightsName or CityName;
+    /// <summary>The Ashfall layout of a map name (<see cref="FieldName"/>: the field; <see cref="Draft10Name"/>: draft 10; <see cref="CityName"/>: the city, draft 12; anything else, <see cref="Name"/> included: the heights, draft 13).</summary>
+    public static SmSim.Extras.Musou.Ashfall.AshfallLayout LayoutOf(string? name) => name switch { FieldName => SmSim.Extras.Musou.Ashfall.AshfallLayout.Field, Draft10Name => SmSim.Extras.Musou.Ashfall.AshfallLayout.Draft10, CityName => SmSim.Extras.Musou.Ashfall.AshfallLayout.City, _ => SmSim.Extras.Musou.Ashfall.AshfallLayout.Heights };
     /// <summary>The install's map every battle is fought on.</summary>
-    public const string Battlefield = "mp_tdm_09";
-    /// <summary>Raised with any change of how the world is composed (hashed into <see cref="TfwMapData.Hash"/>; 2: TF1's arena and Stormbird replace TF0's flat slab; 3: Manufactorum replaces the empty arena; 4: the Thunderhawk's interior replaces the Stormbird's box).</summary>
-    public const uint Version = 7;
+    public const string Battlefield = "mp_tdm_09";   // Manufactorum: the 5-wave test aid's map and the battlefield of ManufactorumName
+    /// <summary>Raised with any change of how the world is composed (hashed into <see cref="TfwMapData.Hash"/>; 2: TF1's arena and Stormbird replace TF0's flat slab; 3: Manufactorum replaces the empty arena; 4: the Thunderhawk's interior replaces the Stormbird's box; 8: Ashfall Citadel replaces Manufactorum under <see cref="Name"/>; the Manufactorum composition keeps <see cref="ManufactorumVersion"/>).</summary>
+    public const uint Version = 8;
+    /// <summary>The version term of the Manufactorum composition's hash (<see cref="ManufactorumName"/>): it stays what it was, so that composition's hash is unchanged.</summary>
+    public const uint ManufactorumVersion = 7;
     /// <summary>"tfw_war_", the hash's salt.</summary>
     const ulong HashSalt = 0x7466775F7761725FUL;
 
@@ -248,32 +274,35 @@ public static class TfwMap
 
     /// <summary>
     /// <paramref name="level"/> with the Stormbird beside it and, for the handshake, the hash of the whole (<c>collision ^ salt ^ version</c>). The kill volumes and props stay. The
-    /// spawn-room blockers go: the commander stands in the Chaos room and the war's Marines must reach him.
+    /// spawn-room blockers go: the commander stands in the Chaos room and the war's Marines must reach him. <paramref name="manufactorum"/>: the level is Manufactorum, whose backdrop
+    /// (tanks and slopes) stands in the Firing Range's place and gets collision there (<see cref="TfwRange.Collision"/>, hash term <see cref="ManufactorumVersion"/>, as before); false (Ashfall
+    /// Citadel): the range has its own floor and walls only (hash term <see cref="Version"/>).
     /// </summary>
-    public static (CollisionWorld World, TfwHub Hub, ulong Hash) WithHub(CollisionWorld level)
+    public static (CollisionWorld World, TfwHub Hub, ulong Hash) WithHub(CollisionWorld level, bool manufactorum)
     {
         var hub = TfwHub.Beyond(level);
-        var world = level.WithSolids([.. hub.Corners(), .. TfwRange.For(level).Collision()]);   // the Firing Range stands beside the level
-        return (world, hub, world.ContentHash ^ HashSalt ^ Version);
+        var range = TfwRange.For(level);
+        var world = level.WithSolids([.. hub.Corners(), .. (manufactorum ? range.Collision() : range.Corners())]);   // the Firing Range stands beside the level
+        return (world, hub, world.ContentHash ^ HashSalt ^ (manufactorum ? ManufactorumVersion : Version));
     }
 
     /// <summary>
     /// The war's world on <paramref name="level"/>; the same on every machine (no random numbers). <paramref name="points"/>: the map's Seize Ground points, in the map's order;
-    /// <paramref name="areas"/>: its start areas; <paramref name="spawns"/>: its own spawn markers. An <see cref="InvalidDataException"/> for a map without three points or a start area for each side.
+    /// <paramref name="areas"/>: its start areas; <paramref name="spawns"/>: its own spawn markers; <paramref name="manufactorum"/>: see <see cref="WithHub"/>. An <see cref="InvalidDataException"/> for a map without three points or a start area for each side.
     /// </summary>
-    public static TfwMapData Compose(CollisionWorld level, IReadOnlyList<ControlPoint> points, IReadOnlyList<StartArea> areas, IReadOnlyList<Vector3> spawns)
+    public static TfwMapData Compose(CollisionWorld level, IReadOnlyList<ControlPoint> points, IReadOnlyList<StartArea> areas, IReadOnlyList<Vector3> spawns, bool manufactorum = true)
     {
         if (points.Count < PointsNeeded) throw new InvalidDataException($"the map has {points.Count} capture points; Musou Mode needs {PointsNeeded}");
         if (areas.FirstOrDefault(a => a.Side == Team.SpaceMarines) is not { } marines || areas.FirstOrDefault(a => a.Side == Team.Chaos) is not { } chaos)
             throw new InvalidDataException("the map has no start area for each side; Musou Mode needs them");
-        var (world, hub, hash) = WithHub(level);
+        var (world, hub, hash) = WithHub(level, manufactorum);
         var seeds = spawns.Concat(points.Select(p => p.Center)).Concat(areas.Select(a => a.Center)).ToArray();
         var margin = new Vector3(WalkMargin, WalkMargin, 0f);
         var low = seeds.Aggregate(seeds[0], Vector3.Min) - margin;
         var high = seeds.Aggregate(seeds[0], Vector3.Max) + margin;
         var bounds = new MusouBox(low with { Z = MathF.Min(low.Z, level.Character.Min.Z) }, high with { Z = MathF.Max(high.Z, level.Character.Max.Z) });
         var range = TfwRange.For(level);
-        var field = new TfwBattlefield(hub, points.Take(PointsNeeded).Select(p => new TfwPoint(p.Center, p.Radius, p.HalfHeight)).ToArray(), chaos.Center, marines.Center, [.. seeds, range.Centre], bounds, range);   // the range's seed last: its own part of the graph
+        var field = new TfwBattlefield(hub, points.Take(PointsNeeded).Select(p => new TfwPoint(p.Center, p.Radius, p.HalfHeight)).ToArray(), chaos.Center, marines.Center, [.. seeds, range.Centre], bounds, range, BaseLanding: !manufactorum);   // the range's seed last: its own part of the graph; Ashfall always lands at its Imperial base (owner, 2026-11-08)
         return new TfwMapData(world, hub.Spawns, [hub.Area, chaos], hash, field);
     }
 }

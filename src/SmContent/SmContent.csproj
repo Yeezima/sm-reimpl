@@ -7,6 +7,16 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- Polish pass P2 re-review: the Ashfall layout cache's disk tests use its internal folder-and-kind entry points (a temporary folder, never the real cache). -->
+    <InternalsVisibleTo Include="SmFormats.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Blender-authored strike data (tools/blender/spear_hew_author.py; original keys, no install bytes); Extras/** is removed from a faithful build by Directory.Build.targets. -->
+    <EmbeddedResource Include="Extras\Musou\Authored\*.json" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\SmFormats\SmFormats.csproj" />
     <ProjectReference Include="..\SmSim\SmSim.csproj" />
   </ItemGroup>

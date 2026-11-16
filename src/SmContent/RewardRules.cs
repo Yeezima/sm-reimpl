@@ -1,7 +1,10 @@
 namespace SmContent;
 
-/// <summary>A reward the HUD shows on a reward line (ui/hud-2): its experience, the HUD movie's icon frame, and the name's locale id (with an English fallback for an install without the file).</summary>
-public sealed record RewardSpec(string Key, string Name, int NameId, string Frame, int Experience);
+/// <summary>
+/// A reward the HUD shows on a reward line (ui/hud-2): its experience, the HUD movie's icon frame, and the name's locale id (with an English fallback for an install without the file).
+/// <paramref name="DescriptionId"/> (headshot medal, 2026-11-07): the data's <c>display_description</c> locale id shown under the line (0: none); the text comes only from the install.
+/// </summary>
+public sealed record RewardSpec(string Key, string Name, int NameId, string Frame, int Experience, int DescriptionId = 0);
 
 /// <summary>One reward earned: <see cref="Spec"/> and, for a kill streak, the streak's length.</summary>
 public sealed record RewardEarned(RewardSpec Spec, int Count = 0);
@@ -27,9 +30,10 @@ public static class RewardTable
     public static readonly RewardSpec Headshot = new("headshot", "Headshot", 105720, "mp_bonus_headshot", 35);
     /// <summary>
     /// A headshot kill's one line (owner, 2026-10-30): the headshot's icon and name instead of the plain kill line, with the experience of both (the data grants the kill's 50 and the headshot's 35;
-    /// ours: shown as one line of 85).
+    /// the owner, 2026-11-07: "+50 points" for the headshot, <see cref="SmSim.ScoreRules.HeadshotScore"/>: one line of 100) and the data's description (105721) under it. The server says which
+    /// kill was a headshot (protocol 64).
     /// </summary>
-    public static readonly RewardSpec HeadshotKill = new("headshot kill", "Headshot", 105720, "mp_bonus_headshot", Kill.Experience + Headshot.Experience);
+    public static readonly RewardSpec HeadshotKill = new("headshot kill", "Headshot", 105720, "mp_bonus_headshot", SmSim.ScoreRules.KillScore + SmSim.ScoreRules.HeadshotScore, DescriptionId: 105721);
     public static readonly RewardSpec DoubleKill = new("double kill", "Double Kill", 105730, "player_track_doublekill", 100);
     public static readonly RewardSpec TripleKill = new("triple kill", "Triple Kill", 105731, "mp_bonus_multikill", 300);
     public static readonly RewardSpec QuadKill = new("quad kill", "Quad Kill", 105732, "player_track_quadkill", 400);

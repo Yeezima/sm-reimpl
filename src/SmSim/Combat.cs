@@ -24,6 +24,10 @@ public readonly record struct SelfEvents(bool Fired, int ShotStage, int MeleeHit
 /// </summary>
 public static class Combat
 {
+    /// <summary>The blast with its reach (radius and fall-off distances) times <paramref name="scale"/> (Musou Mode's doubled frag, owner 2026-11-09; <see cref="SimConfig.ThrownBlastScale"/>); damage and shares unchanged.</summary>
+    public static SplashSpec ScaledReach(SplashSpec splash, float scale) =>
+        splash with { Radius = splash.Radius * scale, FallOff = splash.FallOff.Select(pt => pt with { Distance = pt.Distance * scale }).ToArray() };
+
     /// <summary>
     /// A fresh life for the player's class and loadout (<see cref="PlayerState.Class"/> and the choices, kept; a choice
     /// not valid for the class becomes the class default): full health, shield and ammunition for both weapons, no heat,
@@ -45,12 +49,12 @@ public static class Combat
             Slot = slot, Clip = inHand?.ClipSize ?? 0, Reserve = inHand?.ReserveSize ?? 0,
             OtherClip = other?.ClipSize ?? 0, OtherReserve = other?.ReserveSize ?? 0, SwitchLeft = 0,
             ThirdClip = third?.ClipSize ?? 0, ThirdReserve = third?.ReserveSize ?? 0, ThirdHeat = 0, ThirdOverheated = false, ThirdSinceHeat = 0,
-            Cooldown = 0, ReloadLeft = 0, OtherReloadLeft = 0, ThirdReloadLeft = 0, SinceDamage = 0, RespawnLeft = 0, Velocity = Vector3.Zero, Grounded = true,
+            Cooldown = 0, OtherCooldown = 0, ThirdCooldown = 0, ReloadLeft = 0, OtherReloadLeft = 0, ThirdReloadLeft = 0, SinceDamage = 0, HealthRegenWaived = false, RespawnLeft = 0, Velocity = Vector3.Zero, Grounded = true,
             MeleeStep = 0, MeleeTime = 0, MeleeQueued = false, MeleeDirection = EvadeDirection.Forward, MeleeLock = 0f,
             Heat = 0, Overheated = false, SinceHeat = 0, OtherHeat = 0, OtherOverheated = false, OtherSinceHeat = 0,
             Charging = false, ChargeTime = 0, PendingShot = 0, PendingLeft = 0,
-            Grenades = Loadouts.Equipment(c, s)?.SpawnCount ?? 0, GrenadeCooldown = 0, Throwing = false, ThrowTime = 0, StimLeft = 0,
-            Jump = JumpPhase.None, JumpTicks = 0, JumpMark = 0, JumpHolding = false, JumpLandMoving = false, JumpCut = false, JumpSmall = false, JumpSlash = false, Aiming = false,
+            Grenades = Loadouts.Equipment(c, s)?.SpawnCount ?? 0, GrenadeCooldown = 0, Throwing = false, ThrowTime = 0, StimLeft = 0, FireBoostLeft = 0,
+            Jump = JumpPhase.None, JumpTicks = 0, JumpMark = 0, JumpHolding = false, JumpLandMoving = false, JumpCut = false, JumpSmall = false, JumpAirOpen = false, JumpSlash = false, Aiming = false,
             JumpPower = Loadouts.JumpPack(c, s)?.MaxPower ?? 0f,
             EvadeTicks = 0, EvadeDirection = EvadeDirection.Forward, EvadeLock = 0, EvadeLanded = false, JumpDashDirection = EvadeDirection.Forward,
             MeleeHeavy = false, MeleeQueuedHeavy = false,
@@ -113,8 +117,8 @@ public static class Combat
         Rush = RushPhase.None, RushTicks = 0, RushLock = 0,
         Alive = false, Health = 0f, Shield = 0f, RespawnLeft = Loadouts.RespawnTime(c, s), Velocity = Vector3.Zero, ReloadLeft = 0f, OtherReloadLeft = 0f, ThirdReloadLeft = 0f, SwitchLeft = 0f,
         MeleeStep = 0, MeleeTime = 0f, MeleeQueued = false, MeleeDirection = EvadeDirection.Forward, MeleeLock = 0f,   // fix/dead-melee-direction: it outlived the attack and the reader refuses that
-        Charging = false, ChargeTime = 0f, PendingShot = 0, PendingLeft = 0f, Throwing = false, ThrowTime = 0f, StimLeft = 0f,
-        Jump = JumpPhase.None, JumpTicks = 0, JumpMark = 0, JumpHolding = false, JumpLandMoving = false, JumpCut = false, JumpSmall = false, JumpSlash = false, Aiming = false,
+        Charging = false, ChargeTime = 0f, PendingShot = 0, PendingLeft = 0f, Throwing = false, ThrowTime = 0f, StimLeft = 0f, FireBoostLeft = 0f,
+        Jump = JumpPhase.None, JumpTicks = 0, JumpMark = 0, JumpHolding = false, JumpLandMoving = false, JumpCut = false, JumpSmall = false, JumpAirOpen = false, JumpSlash = false, Aiming = false,
         EvadeTicks = 0, EvadeDirection = EvadeDirection.Forward, EvadeLock = 0, EvadeLanded = false, JumpDashDirection = EvadeDirection.Forward,
         Brace = BracePhase.None, BraceTicks = 0, Venting = false,
         Buffered = BufferedAction.None, BufferTicks = 0, BufferedCharge = false, SprintStop = false,
@@ -324,7 +328,8 @@ public static class Combat
     /// tap's basic shot when it ends). While a raise runs the weapon neither reloads nor fires otherwise and the Sprint bit is not applied.
     /// A shot, a charge, a raise or aim mode keep the weapon up for <see cref="SimConfig.ReadyHold"/>; an always-ready weapon is kept up every
     /// tick. Lowered at once (ready and raise cleared): a sprint (the Sprint bit applied with the stick forward on the ground), a weapon
-    /// switch, a melee attack, a throw, an evade, a jump-pack jump's start, a ground pound, a reaction and the charge (bull rush).
+    /// switch, a melee attack, a throw, an evade, a jump-pack jump's start, a ground pound, a reaction and the charge (bull rush). With <see cref="SimConfig.QuickdrawSwitch"/>
+    /// (feel/grenades-quickdraw, the owner's feel) a switch does not lower it: the weapon it takes is kept up through the switch, so the first shot after it needs no raise.
     /// </para>
     /// <para>
     /// Brace and vent (fidelity gap 7; <see cref="Brace"/>, <see cref="Vent"/>): with a brace weapon in hand (the heavy bolter) Reload changes
@@ -340,6 +345,7 @@ public static class Combat
     public static PlayerState StepPlayer(PlayerState s, PlayerInput input, SimConfig c, out SelfEvents events, CollisionWorld? world = null,
         IReadOnlyDictionary<int, PlayerState>? others = null)
     {
+        if (s.DamageFresh) s = s with { DamageFresh = false };   // protocol 71: a new tick, a new damage mark (the server's tick and the client's prediction alike)
         // feel/buffer-speed: a buffered press is replayed into the tick (InputBuffer.Begin) and the buffer updated from what started (InputBuffer.End).
         // A replayed melee press goes through the melee lock like a fresh one (the input's MeleeTarget is the tick's own).
         var buffer = InputBuffer.Begin(s, input, c);
@@ -360,6 +366,12 @@ public static class Combat
         bool fired = false, detonate = false, hitHeavy = false;
         int shotStage = 0, meleeHitStep = 0;
         float dt = c.TickSeconds;
+        float attackSpeed = Stims.AttackSpeed(c, s);   // Musou Mode's combat stims (owner 2026-11-09): 1.2 while they work, 1 everywhere else
+        bool noHeat = Stims.NoHeat(c, s);               // the Dreadnought's Overcharge: the gun builds no heat while the power-up runs (heat built before cools as usual)
+        bool freeAmmo = Stims.FreeAmmo(c, s);          // … and no round leaves the magazine
+        // Added content's fire boost (Musou Mode's Rapid Fire powerup, owner 2026-11-10; PlayerState.FireBoostLeft): the guns fire SimConfig.FireBoost times as fast and spend nothing. 1 and never set in Classic PvP.
+        float fireBoost = s.Alive && s.FireBoostLeft > 0f ? c.FireBoost : 1f;
+        if (fireBoost > 1f) freeAmmo = true;
         var realButtons = input.Buttons;
         // The heavy bolter's braced stance (Brace; fidelity gap 7): its transition this tick, and the input as the stance lets it act
         // (the presses it takes are lost, as in a reaction; the held flags follow the real buttons, below).
@@ -402,7 +414,7 @@ public static class Combat
                 RespawnLeft = MathF.Max(0f, s.RespawnLeft - dt), Velocity = Vector3.Zero, MeleeHeld = meleeDown, MeleeStep = 0, MeleeTime = 0f, MeleeQueued = false, MeleeLock = 0f,
                 FireHeld = fireDown, SwitchHeld = switchDown, SlotPistolHeld = slotPistolDown, SlotPrimaryHeld = slotPrimaryDown, SlotSecondHeld = slotSecondDown, SwitchLeft = 0f,
                 ReloadHeld = reloadDown, Charging = false, ChargeTime = 0f, PendingShot = 0, PendingLeft = 0f, ReadyTicks = 0, RaiseTicks = 0,
-                DetonateHeld = reloadBlocked, GrenadeHeld = grenadeDown, Throwing = false, ThrowTime = 0f, StimLeft = 0f, JumpHeld = jumpDown,
+                DetonateHeld = reloadBlocked, GrenadeHeld = grenadeDown, Throwing = false, ThrowTime = 0f, StimLeft = 0f, FireBoostLeft = 0f, JumpHeld = jumpDown,
                 GrenadeCooldown = MathF.Max(0f, s.GrenadeCooldown - dt), Aiming = false,
                 MeleeHeavyHeld = heavyDown, MeleeHeavy = false, MeleeQueuedHeavy = false,
             };
@@ -414,6 +426,10 @@ public static class Combat
         // sim/evade-cooldowns: a Jump press the evade's cooldown refuses ends nothing and starts nothing (it only waits in the input buffer): not a reaction or a
         // charge at their Jump branches, not a take-off that a tap would leave with no dash.
         bool jumpPressed = jumpDown && !s.JumpHeld && !Evade.RefusesJump(s, Loadouts.JumpPack(c, s), longJump);
+        // sim/jump-escape (protocol 62; the owner 2026-11-06): the Assault / Raptor's fresh Jump press ends any reaction and any throw at once (JumpEscape), even one the evade's
+        // cooldown refuses (the press then waits in the input buffer as before); the melee attack and the charge follow below.
+        bool jumpEscape = jumpDown && !s.JumpHeld && JumpEscape.Eligible(c, s);
+        s = JumpEscape.Apply(s, c, jumpEscape);
         var (reacting, reacted) = Reaction.Begin(s, c, jumpPressed, meleePress || heavyPress, sanitized.MoveX != 0f || sanitized.MoveY != 0f,
             anyInput: sanitized.MoveX != 0f || sanitized.MoveY != 0f || input.Buttons != InputButtons.None);
         s = reacted with { RushLock = Math.Max(0, reacted.RushLock - 1) };   // the charge's spacing counts down every living tick, as the evade's
@@ -421,24 +437,54 @@ public static class Combat
         // Protocol 30: also the dash attack (a melee press in a jump-pack dash's window), and a charge held in the air (Rush.Held).
         bool rushing = false, rushHeld = false, fireDropped = false, cancelStart = false;
         float cancelLock = 0f;
+        // sim/hop-rules (protocol 72; the owner 2026-11-14): a fresh Jump press of a jump-pack class that ends a bull rush held in the air (a charge off a ledge) opens the air jump, and one that ends the
+        // aerial tackle (the dash attack, any of its phases) starts the hop at once, past the hop's spacing (MeleeCancel clears both below).
+        bool chargeOffLedge = false, tackleCancel = false;
         if (!reacting)
         {
+            if (c.HopRules && jumpEscape) { chargeOffLedge = s.Rush == RushPhase.Rush && !s.Grounded; tackleCancel = Rush.IsDash(s.Rush); }
             // BR-02: the Tactical classes' charge is not ended by Fire (and fires nothing; below); every other class's is, as before.
             // sim/combat-2 (item 31, owner's decision 2026-10-30): W did not end the bull rush. feel/charge-no-cancel (protocol 53, the owner 2026-11-02: "movement keys should not end
             // the animation of the charge - the only way to end a charge movement is for it to hit an enemy or wall"): no stick direction ends the bull rush any more. What ends it
             // is still the clip's end, a hit or wall (its recoil), Jump, melee, a grenade, a reaction or death; the stick still ends the recoil, the dash attack's hit and its run-out.
-            bool stickEnds = (sanitized.MoveX != 0f || sanitized.MoveY != 0f) && s.Rush != RushPhase.Rush;
+            // charge-cancel (protocol 66): S (the stick held back) ends the bull rush again, a grenade nothing (below).
             // sim/no-fire-charging-all (protocol 48; owner 2026-10-31): neither Fire nor Aim ends the charge (for every class); only the stick (not W), a grenade, Jump,
             // melee or the clip's end do. They are ignored while it plays: no shot, no aim state (the camera stays), nothing buffered.
-            bool other = stickEnds || grenadePress;
+            // charge-cancel (protocol 66; the owner 2026-11-11): S held back ends the bull rush from its stick branch, tapped or held, and a Grenade press ends no charge phase
+            // any more (with or without a grenade left: the press waits in the input buffer); SimConfig.ChargeBackCancel false: the protocol 65 rule (ChargeCancel.EndsAtBranch).
+            bool other = ChargeCancel.EndsAtBranch(s, sanitized, grenadePress, c);
             // feel/melee-cancels (protocol 54): a melee press ends the hop or the bull rush and swings at once; the swing after it waits for the cancelled clip's end (MeleeCancel).
-            if (MeleeCancel.Apply(s, c, meleePress, jumpPressed, world) is { } cancel) { s = cancel.State; cancelLock = cancel.Lock; cancelStart = meleePress; }
+            // charge-melee-chain (protocol 70; the owner 2026-11-12: "if I charge, then right click for melee light attack mid charge, it should happen immediately"): a light press ends the bull rush on that very
+            // tick (any class, any tick of it, its last included) and the swing starts at once, with no wait after it (MeleeCancel's cancel wait and the melee wait both skipped).
+            // sim/sprint-melee-charge (protocol 77; the owner's recollection 2026-11-15, Classic PvP): a light press with Shift and W held on the ground is a charge press, never a swing (the swing needs Shift let go).
+            bool sprintCharge = ChargeCancel.SprintMeleeStarts(c, s, input, meleePress);
+            // sim/ledge-charge-cancel (protocol 77; the owner's recollection 2026-11-15, every mode): a light press in a charge held in the air (off a ledge) ends the charge's momentum at once; the swing's step goes the stick's way (the view without one).
+            if (meleePress && ChargeCancel.MeleeEndsCharge(c, s) && Loadouts.Melee(c, s).Count > 0)
+            {
+                bool ledge = ChargeCancel.LedgeCancels(c, s);
+                s = Rush.Cleared(s);
+                if (ledge) s = s with { Velocity = new Vector3(0f, 0f, s.Velocity.Z) };
+                cancelStart = true;
+            }
+            else if (MeleeCancel.Apply(s, c, meleePress, jumpPressed || jumpEscape, world) is { } cancel) { s = cancel.State; cancelLock = cancel.Lock; cancelStart = meleePress; }
+            // charge-responsive (protocol 69; the owner 2026-11-12): a charge press once the attack under way has hit ends the attack and its combo and charges at once; the melee wait ends with it.
+            if ((heavyPress || sprintCharge) && ChargeCancel.CanChargeFromMelee(c, s) && Loadouts.Rush(c, s) is { } meleeRush && s.RushLock == 0)
+            {
+                var ended = s with { MeleeStep = 0, MeleeTime = 0f, MeleeQueued = false, MeleeHeavy = false, MeleeQueuedHeavy = false, MeleeLock = 0f };
+                if (Rush.CanStart(ended, input, meleeRush, c)) s = ended;
+            }
             var rushBefore = s;
-            var rush = Rush.Begin(s, input, c, heavyPress, jumpPressed, meleePress, other, world);
+            var rush = Rush.Begin(s, input, c, heavyPress || sprintCharge, jumpPressed, meleePress, other, world);
             (rushing, rushHeld, s) = (rush.Active, rush.Held, rush.State);
+            if (sprintCharge)
+            {
+                if (rush.Started) used |= InputBuffer.Bit(BufferedAction.Melee);   // the press was the charge
+                else if (!rush.Active) meleePress = false;   // refused (spacing, a swing under way): no swing; the press waits in the input buffer for Shift to be let go or the charge to be allowed
+            }
             // A charge ended this tick by the stick, a grenade, Jump or melee before its clip's end is still the charge's tick: the trigger fires nothing in it.
             fireDropped = !rushing && rushBefore.Rush != RushPhase.None && Loadouts.Rush(c, rushBefore) is not null && Rush.MoveOf(c, rushBefore) is { } endMove
                 && Rush.Time(rushBefore, c) + 1e-5f < endMove.End;
+            if (rush.Started && c.ChargeAfterMelee && s.MeleeLock > 0f) s = s with { MeleeLock = 0f };   // charge-responsive: a swing may follow the charge at once (a melee press cancelling it keeps its own cancel wait)
             if (rush.Started) used |= InputBuffer.Bit(s.Rush == RushPhase.Rush ? BufferedAction.MeleeHeavy : BufferedAction.Melee);   // the bull rush or the dash attack
             // feel/melee-lock (protocol 32): the bull rush steers to its locked target, inside the charge's cone, while it still connects.
             if (rushing && !rushHeld && s.Rush == RushPhase.Rush && s.Grounded && Rush.Connecting(s, c)
@@ -464,7 +510,9 @@ public static class Combat
         // feel/locks-sprint-stop: a Jump press from an attack's (scaled) BRANCH_Evade ends the attack, so the evade or the jump-pack take-off below starts in
         // this tick (MeleeEvadeOpen); the attack is kept when neither starts.
         var beforeJumpBranch = s;
-        bool meleeJumpBranch = jumpDown && !s.JumpHeld && s.MeleeStep > 0 && MeleeStepOf(c, s) is { } branchStep && MeleeEvadeOpen(branchStep, s.MeleeTime, c);
+        // sim/jump-escape (protocol 62): the Assault / Raptor's Jump press ends any attack at any time of its clip, and the attack is not given back when nothing takes the press.
+        bool escapeMelee = jumpEscape && s.MeleeStep > 0;
+        bool meleeJumpBranch = escapeMelee || (jumpDown && !s.JumpHeld && s.MeleeStep > 0 && MeleeStepOf(c, s) is { } branchStep && MeleeEvadeOpen(branchStep, s.MeleeTime, c));
         if (meleeJumpBranch) s = s with { MeleeStep = 0, MeleeTime = 0f, MeleeQueued = false, MeleeHeavy = false, MeleeQueuedHeavy = false };
 
         // Jump pack (JumpPack): timers, power, take-off, lift-off and pound start; in a jump melee presses start no attack.
@@ -476,7 +524,8 @@ public static class Combat
         // feel/jump-pack: a slash press buffered in the take-off also probes (JumpPack.Begin; it fires on the tick after the lift-off).
         bool heldOver = s.JumpSlash && pack?.Slash is { Snappy: true } && s.Jump == JumpPhase.Ascent;
         float aboveGround = (meleePress || heldOver) && pack?.Slash is not null && JumpPack.InFlight(s.Jump) ? JumpPack.AboveGround(s, world) : float.PositiveInfinity;
-        var jump = JumpPack.Begin(s, pack, jumpDown, jumpPressed && Evade.JumpAllowed(s, evadeSpec, c), meleePress, s.MeleeStep > 0, c, dashAt, aboveGround, longJump);
+        var jump = JumpPack.Begin(s, pack, jumpDown, jumpPressed && Evade.JumpAllowed(s, evadeSpec, c), meleePress, s.MeleeStep > 0, c, dashAt, aboveGround, longJump, escape: jumpEscape,
+            airOpen: c.HopRules && (s.JumpAirOpen || chargeOffLedge), hopNow: tackleCancel);
         if (jump.Started) used |= InputBuffer.Bit(BufferedAction.Jump);
         if (meleePress && (jump.PoundStart || (jump.Buffered && !(s.JumpSlash && s.Jump == JumpPhase.TakeOff)))) used |= InputBuffer.Bit(BufferedAction.Melee);   // the pound, the slash or its take-off buffer
         if (jump.BlocksMelee) { meleePress = false; heavyPress = false; }
@@ -489,8 +538,8 @@ public static class Combat
         // trigger does not end the evade at the data's BRANCH_ToRanged (RangedAt) any more; Aim and a grenade still do, the stick at BRANCH_Run as before.
         bool roll = IsRoll(evadeSpec);
         var evade = Evade.Begin(s, evadeSpec, input.Sanitized(), jumpDown && !s.JumpHeld, meleePress || heavyPress, switchPress, (fireDown && !roll) || aimDown || grenadePress, c,
-            jump.DashStart, jump.Started, dashDirection, world);
-        if (meleeJumpBranch && !jump.Started && !evade.Started) s = beforeJumpBranch;   // nothing took the press: the attack goes on
+            jump.DashStart, jump.Started, dashDirection, world, ignoreLock: tackleCancel && jump.DashStart);
+        if (meleeJumpBranch && !escapeMelee && !jump.Started && !evade.Started) s = beforeJumpBranch;   // nothing took the press: the attack goes on (not for the jump escape)
         bool evading = evade.Active;
         if (evade.Started) used |= InputBuffer.Bit(BufferedAction.Jump);
         if (evading) { meleePress = false; heavyPress = false; switchPress = false; grenadePress = false; }
@@ -522,6 +571,10 @@ public static class Combat
         float meleeLock = MathF.Max(0f, s.MeleeLock - dt);   // Musou never sets it but through a cancel (feel/melee-cancels)
         meleeLock = MathF.Max(meleeLock, cancelLock);
         if (meleeLock <= TimeEpsilon) meleeLock = 0f;
+        bool spam = c.MeleeSpam;   // Musou Mode (hook; the owner 2026-11-12): light attacks have no cooldown or delay
+        if (spam) meleeLock = 0f;
+        // sim/hop-rules (protocol 72; the owner 2026-11-14: "keep the cooldown on light combo attack melee swings but make a hop reduce it"): the hop's start cuts the melee wait still running (HopTuning.HopLock).
+        if (c.HopRules && evade.Started && pack is not null && evadeSpec is { Dash: true }) meleeLock = HopTuning.HopLock(meleeLock);
         bool queuedHeavy = queued && s.MeleeQueuedHeavy;
         // sim/no-fire-while-sprinting (protocol 51; the owner 2026-11-01: "you should not be able to shoot while sprinting"): while the sprint is applied (Sprint held with
         // the stick forward, on the ground; not in aim mode, a jump-pack phase, an evade, a reaction, the charge, a brace, or a melee attack's movement lock) the trigger does
@@ -529,7 +582,7 @@ public static class Combat
         // a burst's later rounds) is cancelled below, so a release during the sprint fires nothing. The held trigger no longer takes the sprint away (M27's rule, superseded).
         // Whether the button is held stays the real one, so after the sprint a semi-automatic or charge weapon needs a new press; a full-auto trigger fires on.
         bool sprintNoFire = (input.Buttons & InputButtons.Sprint) != 0 && sanitized.MoveY > 0f && s.Grounded && !reacting && !rushing && !evading
-            && jump.Phase == JumpPhase.None && !jump.Started && !(aimDown && weapon is not null) && !(step > 0 && time < MoveAtOf(steps[step - 1], c));
+            && jump.Phase == JumpPhase.None && !jump.Started && !(aimDown && (weapon is not null || c.AimsWithoutWeapon(s.Class))) && !(step > 0 && time < MoveAtOf(steps[step - 1], c));
         // sim/roll-fire-pitch (protocol 51; the owner 2026-11-01: "ensure you can never shoot while the roll animation is playing"): for the whole roll the trigger does
         // nothing for every weapon (no shot, no charge start, no raise; nothing buffered), and in the tick the stick, Aim or a grenade cuts the roll short (before its clip's
         // end) neither, as the charge's fireDropped. A charge or pending charged shot held into the roll is cancelled at its start (the M21 rule, below), a raise and a
@@ -539,6 +592,7 @@ public static class Combat
         bool rollNoFire = roll && (evading || rollCut);
         bool fireHeldThroughSprint = (sprintNoFire || rollNoFire) && fireDown;
         if (sprintNoFire || rollNoFire) fireDown = firePress = chargeDown = chargePress = basicDown = basicPress = shotWanted = false;
+        bool stompReleased = false;   // sim/stomp-release: the stomp ended this tick (the weapon comes up with it, below)
         bool startedNow = false;   // sim/combat-2 (item 39): an attack (from rest, or the next of a string) began in this very tick
         MeleeStep? motionStep = null;   // feel/melee-lock: the attack whose root motion and alignment this tick covers, over (motionFrom, motionTo]
         float motionFrom = 0f, motionTo = 0f;
@@ -546,18 +600,38 @@ public static class Combat
         {
             var m = steps[step - 1];
             float before = time;
-            time += dt;
-            if (m.Reach is not null) (motionStep, motionFrom, motionTo) = (m, MathF.Min(before + dt, m.Duration), MathF.Min(time + dt, m.Duration));   // sim/combat-2: one tick ahead of the clock (below)
+            time += dt * attackSpeed;   // Musou Mode's combat stims: +20 % attack speed (Stims.Speed; 1 elsewhere)
+            if (m.Reach is not null) (motionStep, motionFrom, motionTo) = (m, MathF.Min(before + dt * attackSpeed, m.Duration), MathF.Min(time + dt * attackSpeed, m.Duration));   // sim/combat-2: one tick ahead of the clock (below)
             if (before < m.HitTime && m.HitTime <= time) { meleeHitStep = step; hitHeavy = heavy; }
+            // sim/stomp-release (the owner 2026-11-14: "allow a devastator/havoc player ... to be able to act after a stomp move (F) 1.2 seconds into the animation"): the in-place stomp ends 1.2 s into its clip
+            // (after its hit); the attack is over in this tick, so a shot, aim, move, switch, reload, throw, melee press or charge of this very tick acts as from rest (the label below starts a swing).
+            if (c.StompRelease && StompTuning.Released(m, time, TimeEpsilon))
+            {
+                step = 0; time = 0f; queued = false; queuedHeavy = false; heavy = false; steps = lightSteps; motionStep = null; stompReleased = true;
+                goto stringReset;
+            }
             // sim/stomp-uninterruptible (protocol 51; the owner 2026-11-01: "devastator/havoc stomp can only be cancelled by a hop move. shooting, aim down sight, or any
             // other action should never interrupt a stomp animation"): the heavy classes' stomp (MeleeStep.InPlace) queues no next attack, so it always plays to its end;
             // only the hop (a Jump press from its BRANCH_Evade, above) ends it early. The presses are left unused (the input buffer's own rules decide a replay).
             if (m.InPlace) { meleePress = false; heavyPress = false; }
+            // sim/string-reset (protocol 62; the owner's batch of 2026-11-06 late): a light attack takes a new string from its BRANCH_Melee_String_Reset (MeleeStep.StringResetAt;
+            // the hammer's and the maul's X3 at 1.544 s of 2.333 s, X1 and X2 at their combo window's close): a light or heavy press from there that nothing queued ends it, and the
+            // press starts attack 1 or heavy strike 1 from rest below in this same tick (the melee lock, set at the attack's start up to its combo window, is over by then).
+            // sim/slam-recovery (the owner, 2026-11-07): the hammer's and the maul's Y,Y slam too (a heavy strike with a StringResetAt: its hit + the light combo's 0.633 s), so mashing
+            // (presses kept by the input buffer) starts the next swing or stun strike on the reset's tick.
+            if (!queued && (meleePress || heavyPress) && time + TimeEpsilon >= m.StringResetAt)
+            {
+                step = 0; time = 0f; queuedHeavy = false; heavy = false; steps = lightSteps; motionStep = null;
+                goto stringReset;
+            }
             // Buffering (M28 adds heavy presses): before the combo window closes a press is kept for the next attack; a heavy
             // press during a light attack replaces a buffered light one; heavy presses during a heavy strike do nothing, except in
             // its Y-chain window (Weapons C: the Y,Y finishers, MeleeStep.YNext). A light press after an attack that ends the string does nothing.
             // feel/musou-melee-spam (the owner 2026-11-02; Musou Mode only): a light press once the swing's hit has landed starts a new attack at once, a random other swing of the
             // weapon's light chain (MeleeChain.MusouSwing; a press before the hit queues as usual); the heavy strikes and the in-place stomp keep their rules.
+            // Musou melee spam (MeleeSpam, the owner 2026-11-12: "spam melee attacks with no cooldown or delay"): a light press before the hit lands queues (whatever the combo window) and the next swing starts on the
+            // tick the hit lands; a press after it starts the next swing at once (the rule above).
+            if (spam && meleePress && !heavy && !m.InPlace && time < m.HitTime) { queued = true; queuedHeavy = false; meleePress = false; used |= InputBuffer.Bit(BufferedAction.Melee); }
             if (musou && meleePress && !heavy && !m.InPlace && time >= m.HitTime)
             {
                 used |= InputBuffer.Bit(BufferedAction.Melee);
@@ -575,7 +649,7 @@ public static class Combat
             if (queuedHeavy && heavyTarget == 0) { queued = false; queuedHeavy = false; }
             // The next attack starts only once this one's hit has landed (no data has a hit after its combo window opens).
             var (open, close) = MeleeChain.Window(m, heavy, queuedHeavy);
-            if (queued && time >= open && before < close && time >= m.HitTime)
+            if (queued && time >= m.HitTime && ((spam && !queuedHeavy) || (time >= open && before < close)))
             {
                 if (queuedHeavy) { step = heavyTarget; heavy = true; }
                 else { step = musou ? MeleeChain.MusouSwing(lightSteps, heavy ? 0 : step, input.Tick, s.PlayerId) : heavy ? 1 : step % lightSteps.Count + 1; heavy = false; }   // after a heavy strike, light attack 1
@@ -585,6 +659,7 @@ public static class Combat
             }
             else if (time >= m.Duration) { step = 0; time = 0f; queued = false; queuedHeavy = false; heavy = false; steps = lightSteps; }
         }
+        stringReset:
         // From rest a heavy press starts heavy strike 1 (it wins over a light press in the same tick), a light press attack 1.
         if (step == 0 && !s.Throwing && (meleeLock <= 0f || cancelStart) && ((heavyPress && heavySteps.Count > 0) || (meleePress && lightSteps.Count > 0)))
         {
@@ -595,6 +670,7 @@ public static class Combat
             time = 0f; queued = false; queuedHeavy = false; startedNow = true;
             if (steps[step - 1].HitTime <= 0f) { meleeHitStep = step; hitHeavy = heavy; }
         }
+        if (startedNow && c.ChargeMeleeChain && s.RushLock > 0) s = s with { RushLock = 0 };   // charge-melee-chain: a melee attack between two charges lifts the 1 s spacing (the owner 2026-11-12)
         if (startedNow && !musou) meleeLock = MathF.Max(MathF.Max(0f, steps[step - 1].ComboOpen), cancelLock);   // the lock runs from the attack's start (this very tick) to its combo window, a cancel's to its clip's end
         // sim/combat-2 (item 39; the owner's decision of 2026-10-30: "the step forward of melee swings and F stun strikes starts the instant the button is pressed"):
         // the body's root motion runs one tick ahead of the attack's clock (the tick covering (t, t + dt] moves the body by the clip's (t + dt, t + 2dt]), so the press
@@ -614,6 +690,11 @@ public static class Combat
         // ground pound, reaction or charge ends the reload in hand; it runs on through them (below). A switch stores it with its weapon (sim/combat-pass, item 10).
         float reloadLeft = s.ReloadLeft;
         float otherReloadLeft = s.OtherReloadLeft, thirdReloadLeft = s.ThirdReloadLeft;   // sim/combat-pass: reloads of the holstered weapons
+        // sim/holstered-cooldown (protocol 62): each weapon's shot cooldown runs down in or out of hand and follows its weapon through a switch (below).
+        // Musou Mode's combat stims: the fire rate rises with the attack speed. With added content's fire boost (Musou's Rapid Fire) the two together never pass SimConfig.FireBoostCap
+        // (owner 2026-11-10: "Cap at x2"); without it (always in Classic PvP) the stims' alone, the expression as before.
+        float fireDt = fireBoost > 1f ? dt * MathF.Min(attackSpeed * fireBoost, c.FireBoostCap) : dt * attackSpeed;
+        float cooldown = MathF.Max(0f, s.Cooldown - fireDt), otherCooldown = MathF.Max(0f, s.OtherCooldown - fireDt), thirdCooldown = MathF.Max(0f, s.ThirdCooldown - fireDt);
         bool charging = s.Charging && charge is not null;
         float chargeTime = charging ? s.ChargeTime : 0f;
         int pending = weapon is not null && Shots.ChargeShotOf(weapon, s.PendingShot) is not null ? s.PendingShot : 0;
@@ -621,12 +702,11 @@ public static class Combat
         int projectilesOut = s.ProjectilesOut;
         if (step > 0 || evade.Started || noFire || sprintNoFire || rollNoFire) { charging = false; chargeTime = 0f; pending = 0; pendingLeft = 0f; }   // a melee attack, an evade or a sprint cancels them (and a raise: below)
         if (jump.PoundStart) { charging = false; chargeTime = 0f; pending = 0; pendingLeft = 0f; }   // and so does a ground pound (not a reload: sim/reload-keeps)
-        // Venting (Vent; fidelity gap 7): on Reload or by itself while overheated, while the player stands or walks and does nothing else (owner's
-        // recollection: everything but walking stops it); it adds to the in-hand weapon's cooling and takes the weapon (no shot, charge or reload).
+        // Venting (Vent; fidelity gap 7): on Reload or by itself while overheated, while the player does nothing else but may aim and sprint (owner 2026-11-06); it adds to the in-hand weapon's cooling and takes the weapon (no shot, charge or reload).
         bool switching = switchPress && step == 0 && !s.Throwing && !jumpBusy && weapon is not null && holstered is not null;
         bool ventFree = Vent.Free(reacting || rushing || step > 0 || s.Throwing || grenadePress || evading || switching || switchLeft > 0f || jumpBusy || pending > 0
-            || (aimDown && weapon is not null) || jump.Started || jump.Phase != JumpPhase.None
-            || (charging && !(reloadPress && !reloadBlocked && charge!.ReloadCancels)), input, s, c);
+            || jump.Started || jump.Phase != JumpPhase.None
+            || (charging && !(reloadPress && !reloadBlocked && charge!.ReloadCancels)));
         bool venting = Vent.Runs(weapon, s, ventFree, reloadPress && !reloadBlocked, fireDown);
         if (venting && !s.Venting && reloadPress) used |= InputBuffer.Bit(BufferedAction.Reload);
         if (venting) { charging = false; chargeTime = 0f; }
@@ -646,13 +726,13 @@ public static class Combat
             slot = switchTo.Value;
             // sim/combat-pass (item 10, owner's recollection 2026-10-30): a reload in progress is not lost; the holstered weapon's runs on (below) and a weapon
             // taken back in hand has what is left of its own.
-            var stores = new (int Clip, int Reserve, float Heat, bool Overheated, float SinceHeat, float Reload)[3];
-            stores[(int)from] = (clip, reserve, heat, overheated, sinceHeat, reloadLeft);
-            stores[(int)Loadouts.Other(from)] = (otherClip, otherReserve, otherHeat, otherOverheated, otherSinceHeat, otherReloadLeft);
-            stores[(int)Loadouts.Third(from)] = (thirdClip, thirdReserve, thirdHeat, thirdOverheated, thirdSinceHeat, thirdReloadLeft);
-            (clip, reserve, heat, overheated, sinceHeat, reloadLeft) = stores[(int)slot];
-            (otherClip, otherReserve, otherHeat, otherOverheated, otherSinceHeat, otherReloadLeft) = stores[(int)Loadouts.Other(slot)];
-            (thirdClip, thirdReserve, thirdHeat, thirdOverheated, thirdSinceHeat, thirdReloadLeft) = stores[(int)Loadouts.Third(slot)];
+            var stores = new (int Clip, int Reserve, float Heat, bool Overheated, float SinceHeat, float Reload, float Cooldown)[3];
+            stores[(int)from] = (clip, reserve, heat, overheated, sinceHeat, reloadLeft, cooldown);
+            stores[(int)Loadouts.Other(from)] = (otherClip, otherReserve, otherHeat, otherOverheated, otherSinceHeat, otherReloadLeft, otherCooldown);
+            stores[(int)Loadouts.Third(from)] = (thirdClip, thirdReserve, thirdHeat, thirdOverheated, thirdSinceHeat, thirdReloadLeft, thirdCooldown);
+            (clip, reserve, heat, overheated, sinceHeat, reloadLeft, cooldown) = stores[(int)slot];   // sim/holstered-cooldown: the cooldown goes with its weapon
+            (otherClip, otherReserve, otherHeat, otherOverheated, otherSinceHeat, otherReloadLeft, otherCooldown) = stores[(int)Loadouts.Other(slot)];
+            (thirdClip, thirdReserve, thirdHeat, thirdOverheated, thirdSinceHeat, thirdReloadLeft, thirdCooldown) = stores[(int)Loadouts.Third(slot)];
             weapon = next;
             switchLeft = c.WeaponSwitchTime;
             if (switchLeft <= 1e-6f) switchLeft = 0f;
@@ -669,7 +749,7 @@ public static class Combat
             if (hLeft <= 0f) return;
             hLeft -= dt;
             if (hLeft > (w.Recharge is null ? 1e-6f : TimeEpsilon)) return;
-            int moved = Math.Min(w.Recharge is null ? w.ClipSize - hClip : Math.Min(1, w.ClipSize - hClip), hReserve);
+            int moved = Math.Min(w.Recharge is null && !LascannonTapTuning.Applies(c, w) ? w.ClipSize - hClip : Math.Min(1, w.ClipSize - hClip), hReserve);
             hClip += Math.Max(0, moved); hReserve -= Math.Max(0, moved);
             hLeft = w.Recharge is { } r && hClip < w.ClipSize && hReserve > 0 ? r.RoundTime : 0f;   // a recharging clip goes on round by round
         }
@@ -683,6 +763,7 @@ public static class Combat
         float throwTime = throwing ? s.ThrowTime : 0f;
         float releaseAt = item?.ReleaseAt(c) ?? c.ThrowRelease, useEnd = item?.DurationOf(c) ?? c.ThrowDuration;   // perks/inert-2: a stim's use has its own times
         float stimLeft = s.StimLeft > dt + TimeEpsilon ? s.StimLeft - dt : 0f;   // perks/inert-2: the stim's modifiers wear off
+        float fireBoostLeft = s.FireBoostLeft > dt + TimeEpsilon ? s.FireBoostLeft - dt : 0f;   // added content's fire boost wears off the same way
         if (throwing)
         {
             float before = throwTime;
@@ -704,33 +785,36 @@ public static class Combat
             grenades--;
             grenadeCooldown = item!.Cooldown;
             threw = true;
-            if (item.Stim is { } stim) stimLeft = stim.Lifetime;   // perks/inert-2: the stim works from its release (nothing is launched)
+            if (item.Stim is { } stim) stimLeft = Stims.LifetimeOf(c, stim);   // perks/inert-2: the stim works from its release (nothing is launched)
         }
 
         // Aim mode (protocol 12; interpretation, spec/behavior.md): the Aim button held with a ranged weapon in hand, outside
         // melee attacks, throws, jump-pack jumps and dives, and evades.
-        bool aiming = aimDown && weapon is not null && step == 0 && !throwing && !threw
+        bool aiming = aimDown && (weapon is not null || c.AimsWithoutWeapon(s.Class)) && step == 0 && !throwing && !threw
             && !JumpPack.Pounding(jump.Phase) && !evading;   // the owner, 2026-11-02: zoom in the air as on the ground
         // Raising the weapon (M31; see the summary): what lowered it this tick, the raise under way, and whether it is up.
-        bool lowering = reacting || rushing || step > 0 || throwing || threw || evading || switched || jump.Started || jump.PoundStart || jumpBusy
+        bool lowerOther = reacting || rushing || step > 0 || throwing || threw || evading || jump.Started || jump.PoundStart || jumpBusy
             || sprintNoFire;   // sim/no-fire-while-sprinting: the sprint drops a raise and its waiting shot, and a burst's later rounds
+        bool lowering = lowerOther || switched;
         int raise = lowering || weapon is null ? 0 : s.RaiseTicks;
-        bool raised = weapon is null || !weapon.WaitsToRaise || aiming || (!lowering && s.ReadyTicks > 0);
+        bool raised = weapon is null || !weapon.WaitsToRaise || aiming || stompReleased || (!lowering && s.ReadyTicks > 0);   // sim/stomp-release: the released stomp leaves the weapon up (the pistol fires at 1.2 s)
 
         float since = s.SinceDamage + dt;
         var body = Loadouts.Body(c, s);   // M43: the perks' regeneration and shield (Larraman's Blessing, Iron Halo, Artificer Armor)
+        // sim/stim-regen-now (owner's recollection, 2026-11-14): using a combat stim cancels the rest of the health regeneration delay, so
+        // regeneration (the normal rate, or Larraman's Blessing's) starts on the next tick. Both modes share this step.
+        bool regenWaived = s.HealthRegenWaived || (threw && item!.Stim is not null);   // the armour keeps SinceDamage and its own delay (owner: health only)
         float shield = s.SinceDamage >= body.ShieldRegenDelay ? MathF.Min(body.ShieldMax, s.Shield + body.ShieldRegenRate * dt) : s.Shield;
-        float health = s.SinceDamage >= body.HealthRegenDelay ? MathF.Min(body.HealthMax, s.Health + body.HealthRegenRate * dt) : s.Health;
-        float cooldown = MathF.Max(0f, s.Cooldown - dt);
+        float health = s.SinceDamage >= body.HealthRegenDelay || s.HealthRegenWaived ? MathF.Min(body.HealthMax, s.Health + body.HealthRegenRate * dt) : s.Health;
         // A burst under way (M43, Burst Fire): lost with the weapon in hand changing or being lowered, or without a burst weapon.
         int burstLeft = weapon is { Bursts: true } && !lowering && !switched ? s.BurstLeft : 0;
 
         void BasicShot(WeaponSpec w)
         {
-            clip -= Math.Min(Math.Max(1, w.AmmoPerShot), clip);
+            if (!freeAmmo && !c.EndlessClip(w)) clip -= Math.Min(Math.Max(1, w.AmmoPerShot), clip);   // EndlessClip: added content's weapon with no clip (Musou's autocannon); false in Classic PvP
             cooldown += w.ShotCooldown;
             fired = true; shotStage = 0;
-            (heat, overheated, sinceHeat) = AddShotHeat(w.Heat, heat, overheated);
+            if (!noHeat) (heat, overheated, sinceHeat) = AddShotHeat(w.Heat, heat, overheated);
             if (Shots.RemoteDetonated(w)) projectilesOut = Math.Min(projectilesOut + 1, w.Projectile!.MaxActive);
             if (w.Bursts) burstLeft = w.BurstLength - 1;   // the burst's later rounds follow (BurstRound)
         }
@@ -741,9 +825,9 @@ public static class Combat
             int number = w.BurstLength - burstLeft;   // 1 for the second round
             // Once the cooldown has run out every round is due (never a locked weapon, whatever the data).
             if (cooldown > TimeEpsilon && w.ShotCooldown - cooldown + TimeEpsilon < number * w.BurstInterval) return false;
-            clip -= Math.Min(Math.Max(1, w.AmmoPerShot), clip);
+            if (!freeAmmo && !c.EndlessClip(w)) clip -= Math.Min(Math.Max(1, w.AmmoPerShot), clip);
             fired = true; shotStage = 0;
-            (heat, overheated, sinceHeat) = AddShotHeat(w.Heat, heat, overheated);
+            if (!noHeat) (heat, overheated, sinceHeat) = AddShotHeat(w.Heat, heat, overheated);
             burstLeft--;
             return true;
         }
@@ -756,7 +840,7 @@ public static class Combat
         void ChargedShot(WeaponSpec w, int stage)
         {
             var shot = Shots.ChargeShotOf(w, stage)!;
-            clip -= Math.Min(Math.Max(0, shot.AmmoCost), clip);
+            if (!freeAmmo && !c.EndlessClip(w)) clip -= Math.Min(Math.Max(0, shot.AmmoCost), clip);
             cooldown += shot.ShotCooldown;
             fired = true; shotStage = stage;
             if (w.Heat is { } hs && shot.HeatPerShot > 0f)
@@ -783,7 +867,8 @@ public static class Combat
             if (reloadLeft <= (w.Recharge is null ? 1e-6f : TimeEpsilon))
             {
                 // A recharging clip gets one round per recharge; a reload fills the clip.
-                int moved = Math.Min(w.Recharge is null ? w.ClipSize - clip : Math.Min(1, w.ClipSize - clip), reserve);
+                bool oneRound = w.Recharge is not null || LascannonTapTuning.Applies(c, w);   // sim/lascannon-tap-reload: one round per reload
+                int moved = Math.Min(!oneRound ? w.ClipSize - clip : Math.Min(1, w.ClipSize - clip), reserve);
                 clip += moved; reserve -= moved; reloadLeft = 0f;
             }
         }
@@ -875,7 +960,7 @@ public static class Combat
                 bool shootsNow = weapon.Recharge is not null && shotWanted && clip > 0 && cooldown <= 1e-6f;
                 if (wantsReload && !shootsNow && clip < weapon.ClipSize && reserve > 0)
                 {
-                    reloadLeft = weapon.Recharge?.RoundTime ?? weapon.ReloadTime;
+                    reloadLeft = LascannonTapTuning.Applies(c, weapon) ? LascannonTapTuning.ReloadTime : weapon.Recharge?.RoundTime ?? weapon.ReloadTime;   // sim/lascannon-tap-reload
                     if (reloadPress && !reloadUsed) used |= InputBuffer.Bit(BufferedAction.Reload);
                 }
                 else if (chargePress && charge is not null && cooldown <= 1e-6f && clip >= Math.Max(1, charge.AmmoToStart))
@@ -913,6 +998,10 @@ public static class Combat
         bool newAttack = step > 0 && startedNow;
         var meleeDirection = step == 0 ? EvadeDirection.Forward : newAttack ? Evade.DirectionOf(sanitized.MoveX, sanitized.MoveY, diagonals: true) : s.MeleeDirection;
         float meleeTurn = Rush.DashOffset(meleeDirection);
+        // sim/slam-steer (the owner, 2026-11-07): a steered strike (the hammer's and the maul's Y,Y slam) begins along its strike facing, holds it until its steering window, turns
+        // toward the view there at its rate (MeleeSteer; at most 185 degrees in all) and keeps the facing it reached; no locked target's alignment acts on it.
+        float SteeredHeading(MeleeStep m, float previous) =>
+            startedNow ? sanitized.Yaw + meleeTurn : MeleeSteer.Heading(m, previous, sanitized.Yaw + meleeTurn, MathF.Max(0f, time - dt), time);
         if (step > 0 && time < MoveAtOf(steps[step - 1], c)) moveInput = moveInput with { Yaw = sanitized.Yaw + meleeTurn };   // while the stick is held off (a stick that moves the body keeps the view's frame)
         if (s.MeleeStep == 0 && step > 0 && sanitized.MeleeTarget > 0
             && MeleeLock.Target(s, sanitized, sanitized.MeleeTarget, others, c, world, MeleeLock.Phase.MeleeStart) is not null)
@@ -920,7 +1009,10 @@ public static class Combat
         // A sprint lowers the weapon (M31): the Sprint bit applied with the stick forward, walking on the ground (no aim mode).
         bool sprinting = !reacting && !rushing && !evading && !aiming && jump.Phase == JumpPhase.None && s.Grounded
             && (moveInput.Buttons & InputButtons.Sprint) != 0 && moveInput.Sanitized().MoveY > 0f;
-        bool weaponUp = fired || charging || pending > 0 || raise > 0 || aiming || (weapon is { WaitsToRaise: false } && !lowering && !sprinting);
+        // feel/grenades-quickdraw (the owner, 2026-11-06: "near instant, like a quickdraw"): with SimConfig.QuickdrawSwitch the weapon a switch takes comes up during the
+        // switch, so it is up on the tick the switch ends (no raise before the first shot); anything else that lowers it still does.
+        bool quickdraw = c.QuickdrawSwitch && weapon is not null && (switched || switchLeft > 0f) && !lowerOther && !sprinting;
+        bool weaponUp = fired || stompReleased || charging || pending > 0 || raise > 0 || aiming || quickdraw || (weapon is { WaitsToRaise: false } && !lowering && !sprinting);
         int readyTicks = weapon is null ? 0 : weaponUp ? c.ReadyHoldTicks : lowering || sprinting ? 0 : Math.Max(0, s.ReadyTicks - 1);
         // Planting the feet (fidelity gap 7): the press tick of a brace stops the body at once (ours, after the owner: "could not walk"; the entry
         // clip has no root motion), so a sprint does not slide on through the entry.
@@ -935,33 +1027,56 @@ public static class Combat
         {
             Vector2? toTarget = MeleeLock.Target(s, sanitized, sanitized.MeleeTarget, others, c, world, s.MeleeStep == 0 ? MeleeLock.Phase.MeleeStart : MeleeLock.Phase.Melee) is { } target ? MeleeLock.Offset(s, target) : null;
             // The press tick starts from the strike's facing (the view turned by the stick's way; before, the next tick started from it), later ticks from the heading they hold.
-            float heading = MeleeLock.Align(startedNow ? sanitized.Yaw + meleeTurn : s.Yaw, sanitized.Yaw + meleeTurn, attack, motionFrom, motionTo, toTarget, c);
+            float heading = attack.Steers ? SteeredHeading(attack, s.Yaw)   // sim/slam-steer: the turret turn replaces the alignment
+                : MeleeLock.Align(startedNow ? sanitized.Yaw + meleeTurn : s.Yaw, sanitized.Yaw + meleeTurn, attack, motionFrom, motionTo, toTarget, c);
             float lunge = MeleeLock.LungeStep(attack, motionFrom, motionTo, heading, toTarget, c);
             meleeGlide = (heading, MeleeLock.Forward(heading) * (lunge / dt));
+        }
+        // sim/hop-cancel-momentum (protocol 62; the owner 2026-11-06): an Assault / Raptor swing in the air outside a jump (after a hop cancelled by melee, MeleeCancel.HopCarry) moves
+        // horizontally: the carried speed in the state's velocity rides on until the ground, plus the swing's own step or lock-on lunge (as on the ground, while its motion runs);
+        // gravity brings the body down from where it was (the cancel kept no upward speed).
+        Vector2? airCarry = null;
+        // sim/ledge-charge-cancel (protocol 77): a charging class's swing in the air rides the same way (after a ledge charge the carried speed is zero: the step alone moves the body).
+        if (meleeGlide is null && step > 0 && !s.Grounded && ((pack is not null && evadeSpec is { Dash: true }) || (c.LedgeChargeCancel && Loadouts.Rush(c, s) is not null)) && !reacting && !rushing && !evading
+            && jump.Phase == JumpPhase.None && !jump.Started && !steps[step - 1].InPlace)
+        {
+            var carry = new Vector2(s.Velocity.X, s.Velocity.Y);
+            if (!float.IsFinite(carry.X) || !float.IsFinite(carry.Y)) carry = Vector2.Zero;
+            float heading = steps[step - 1].Steers ? SteeredHeading(steps[step - 1], s.Yaw) : startedNow ? sanitized.Yaw + meleeTurn : s.Yaw;
+            var lungeVelocity = Vector2.Zero;
+            if (motionStep is { } airAttack && motionTo > motionFrom
+                && (motionFrom - (startedNow ? 0f : dt) + TimeEpsilon < MoveAtOf(airAttack, c) || (sanitized.MoveX == 0f && sanitized.MoveY == 0f)))
+            {
+                Vector2? toTarget = MeleeLock.Target(s, sanitized, sanitized.MeleeTarget, others, c, world, s.MeleeStep == 0 ? MeleeLock.Phase.MeleeStart : MeleeLock.Phase.Melee) is { } target ? MeleeLock.Offset(s, target) : null;
+                if (!airAttack.Steers) heading = MeleeLock.Align(heading, sanitized.Yaw + meleeTurn, airAttack, motionFrom, motionTo, toTarget, c);
+                lungeVelocity = MeleeLock.Forward(heading) * (MeleeLock.LungeStep(airAttack, motionFrom, motionTo, heading, toTarget, c) / dt);
+            }
+            meleeGlide = (heading, carry + lungeVelocity);
+            airCarry = carry;
         }
         var beforeMove = s;
         s = (reacting || rushing ? (reacting ? Reaction.Move(s, input.Sanitized().Yaw, c, world) : Rush.Move(s, c, world, rushHeld)) with
             {
-                JumpPower = pack is not null ? jump.Power : s.JumpPower, Jump = JumpPhase.None, JumpTicks = 0, JumpMark = 0, JumpHolding = false, JumpLandMoving = false, JumpCut = false, JumpSmall = false,
+                JumpPower = pack is not null ? jump.Power : s.JumpPower, Jump = JumpPhase.None, JumpTicks = 0, JumpMark = 0, JumpHolding = false, JumpLandMoving = false, JumpCut = false, JumpSmall = false, JumpAirOpen = false,
                 JumpSlash = false,
             }
             : evading ? Evade.Step(s, evadeSpec!, evade, c, world, out wallHit, out dashLanded) with
             {
                 // M44: a dash (jump-pack classes) keeps the pack's power and recharge; no jump runs during it.
-                JumpPower = pack is not null ? jump.Power : s.JumpPower, Jump = JumpPhase.None, JumpTicks = 0, JumpMark = 0, JumpHolding = false, JumpLandMoving = false, JumpCut = false, JumpSmall = false,
+                JumpPower = pack is not null ? jump.Power : s.JumpPower, Jump = JumpPhase.None, JumpTicks = 0, JumpMark = 0, JumpHolding = false, JumpLandMoving = false, JumpCut = false, JumpSmall = false, JumpAirOpen = false,
                 JumpSlash = false,
             }
             : pack is not null ? JumpPack.Move(s, moveInput, c, pack, world, speedScale, jump, out jumpEvent, aiming) : Movement.Step(s, moveInput, c, world, speedScale, aiming))
             with { Pitch = input.Pitch, Aiming = aiming };
         // sim/combat-pass (review note): the chosen direction holds through the hit even when the hit comes after the move-on time (the walk then uses the view's frame, the body keeps the strike's facing).
         if (step > 0 && meleeGlide is null && !reacting && !rushing && !evading && time < MathF.Max(MoveAtOf(steps[step - 1], c), steps[step - 1].HitTime + dt + TimeEpsilon))
-            s = s with { Yaw = sanitized.Yaw + meleeTurn };
+            s = s with { Yaw = steps[step - 1].Steers ? SteeredHeading(steps[step - 1], beforeMove.Yaw) : sanitized.Yaw + meleeTurn };
         if (meleeGlide is { } glide)
         {
             // The attack's motion replaces the walk (the jump pack's bookkeeping of the walk tick stays).
             var glided = Movement.Glide(beforeMove, glide.Yaw, glide.Velocity, c, world);
             // The clip's speed is not momentum: a lunge that left the ground drops from there (the walk-off rule) instead of flying on at the lunge's speed.
-            var velocity = glided.Grounded ? glided.Velocity : new Vector3(0f, 0f, glided.Velocity.Z);
+            var velocity = glided.Grounded ? glided.Velocity : airCarry is { } kept ? new Vector3(kept.X, kept.Y, glided.Velocity.Z) : new Vector3(0f, 0f, glided.Velocity.Z);
             s = s with { Position = glided.Position, Velocity = velocity, Yaw = glided.Yaw, Grounded = glided.Grounded };
         }
         // sim/stomp-in-place (protocol 49; owner, 2026-10-31): the heavy classes' stomp keeps the body exactly where it stands until the strike lets movement return
@@ -986,8 +1101,8 @@ public static class Combat
         events = new SelfEvents(fired, shotStage, meleeHitStep, detonate, threw, jumpEvent, hitHeavy, JumpPack.SlashHits(s, pack, c));
         var result = s with
         {
-            SinceDamage = since, Shield = shield, Health = health, Cooldown = cooldown,
-            ReloadLeft = reloadLeft, OtherReloadLeft = otherReloadLeft, ThirdReloadLeft = thirdReloadLeft, Clip = clip, Reserve = reserve,
+            SinceDamage = since, HealthRegenWaived = regenWaived, Shield = shield, Health = health, Cooldown = cooldown,
+            ReloadLeft = reloadLeft, OtherReloadLeft = otherReloadLeft, ThirdReloadLeft = thirdReloadLeft, OtherCooldown = otherCooldown, ThirdCooldown = thirdCooldown, Clip = clip, Reserve = reserve,
             Slot = slot, OtherClip = otherClip, OtherReserve = otherReserve, SwitchLeft = switchLeft,
             ThirdClip = thirdClip, ThirdReserve = thirdReserve, ThirdHeat = thirdHeat, ThirdOverheated = thirdOverheated, ThirdSinceHeat = thirdSinceHeat,
             Heat = heat, Overheated = overheated, SinceHeat = sinceHeat, OtherHeat = otherHeat, OtherOverheated = otherOverheated, OtherSinceHeat = otherSinceHeat,
@@ -997,8 +1112,9 @@ public static class Combat
             ReadyTicks = readyTicks, RaiseTicks = raise, BurstLeft = burstLeft,
             DetonateHeld = (detonate || reloadBlocked) && reloadDown,
             ProjectilesOut = projectilesOut,
-            Grenades = grenades, GrenadeCooldown = grenadeCooldown, Throwing = throwing, ThrowTime = throwTime, GrenadeHeld = grenadeDown, StimLeft = stimLeft,
+            Grenades = grenades, GrenadeCooldown = grenadeCooldown, Throwing = throwing, ThrowTime = throwTime, GrenadeHeld = grenadeDown, StimLeft = stimLeft, FireBoostLeft = fireBoostLeft,
             JumpHeld = jumpDown,
+            JumpAirOpen = c.HopRules && (chargeOffLedge || s.JumpAirOpen) && !s.Grounded && !reacting && jump.Phase == JumpPhase.None && !jump.Started && !evading,   // sim/hop-rules: the air jump stays open until landing or another phase
             EvadeTicks = evadeTicks, EvadeDirection = evadeDirection, EvadeLock = evade.Lock, EvadeLanded = evadeLanded,
             JumpDashDirection = dashAt is not null && s.Jump == JumpPhase.TakeOff ? dashDirection : EvadeDirection.Forward,
             MeleeHeavy = step > 0 && heavy, MeleeQueuedHeavy = queued && queuedHeavy, MeleeHeavyHeld = heavyDown,
@@ -1057,7 +1173,7 @@ public static class Combat
     public static bool SprintApplies(PlayerState s, PlayerInput input, SimConfig c)
     {
         if ((input.Buttons & InputButtons.Sprint) == 0) return false;
-        return !(Loadouts.InHand(c, s) is not null && (input.Buttons & InputButtons.Aim) != 0);
+        return !((Loadouts.InHand(c, s) is not null || c.AimsWithoutWeapon(s.Class)) && (input.Buttons & InputButtons.Aim) != 0);
     }
 
     /// <summary>
@@ -1249,7 +1365,18 @@ public static class Combat
         }
         float healthDamage = MathF.Max(0f, raw) * healthMultiplier;
         float health = s.Health - healthDamage;
-        var after = s with { Shield = s.Shield - shieldDamage, Health = MathF.Max(0f, health), SinceDamage = 0f };
+        var after = s with { Shield = s.Shield - shieldDamage, Health = MathF.Max(0f, health), SinceDamage = 0f, HealthRegenWaived = false };
+        if (shieldDamage > 0f || healthDamage > 0f)
+        {
+            // protocol 71: the damage mark: the counter rises at most once per tick per victim (a many-pellet weapon cannot wrap it), the shield and health bits of the tick's damages are ORed;
+            // a damage that took nothing (zero multipliers) leaves the mark alone.
+            bool fresh = s.DamageFresh;
+            after = after with
+            {
+                DamageCount = fresh ? s.DamageCount : (byte)((s.DamageCount + 1) & 7), DamageFresh = true,
+                DamageShield = (fresh && s.DamageShield) || shieldDamage > 0f, DamageHealth = (fresh && s.DamageHealth) || healthDamage > 0f,
+            };
+        }
         if (health <= 0f) after = Killed(after, c);
         return (after, shieldDamage, healthDamage);
     }

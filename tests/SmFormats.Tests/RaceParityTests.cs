@@ -318,10 +318,47 @@ public class RaceParityTests
     }
 
     [Fact]
+    public void Chaos_plasma_light_shot_tracer_takes_the_one_chaos_hue_near_the_muzzle_flash_and_the_loyalist_one_stays_as_the_data_has_it()
+    {
+        // fx/chaos-plasma-tracer: the Chaos gun's and pistol's light shot plays chaos_plasma_gun_tracer, whose core streak is the loyalist teal; it is tinted magenta-purple.
+        foreach (string chaos in new[] { "csm_mp_ranged_plasma_gun", "csm_mp_pistol_plasma_pistol" })
+            Assert.Equal(PlasmaColour.ChaosPurple, PlasmaColour.TintFor(chaos, "chaos_plasma_gun_tracer"));
+        // The charged shot's trail is the Chaos file's own purple and pink keys: not recoloured.
+        Assert.Null(PlasmaColour.TintFor("csm_mp_ranged_plasma_gun", "chaos_plasma_gun_trail"));
+        // The loyalist plasma, gun and pistol, light shot included, is never tinted.
+        foreach (string loyal in new[] { "sm_mp_ranged_plasma_gun", "sm_mp_pistol_plasma_pistol" })
+        {
+            Assert.Null(PlasmaColour.TintFor(loyal, "plasma_gun_tracer"));
+            Assert.Null(PlasmaColour.TintFor(loyal, "chaos_plasma_gun_tracer"));
+            Assert.Null(PlasmaColour.TintFor(loyal, "plasma_gun_charged_trail"));
+        }
+        // One hue: near the mean of the Chaos muzzle flash's keys (255, 96, 200) and (195, 115, 254) (within 0.12 per channel), and the Compatibility streak's.
+        var (r, g, b) = PlasmaColour.ChaosPurple;
+        Assert.InRange(r, 0.88f - 0.12f, 0.88f + 0.12f); Assert.InRange(g, 0.41f - 0.12f, 0.41f + 0.12f); Assert.InRange(b, 0.89f - 0.12f, 0.89f + 0.12f);
+    }
+
+    [Fact]
+    public void The_plasma_trails_teal_texture_is_dropped_for_chaos_plasma_effects_and_tinted_ones_only()
+    {
+        // Chaos plasma effects (the data's own purple keys): the teal plasma_tracer / plasma_trail textures draw neutral.
+        foreach (string chaos in new[] { "chaos_plasma_gun_tracer", "chaos_plasma_gun_trail", "csm_plasma_cannon_primary_trail", "csm_plasma_cannon_secondary_trail" })
+            foreach (string material in new[] { "plasma_tracer", "plasma_trail" })
+                Assert.True(PlasmaColour.NeutralTexture(chaos, material, tinted: false));
+        // A loyalist-named effect a Chaos weapon plays recoloured counts as tinted.
+        Assert.True(PlasmaColour.NeutralTexture("plasma_gun_charged_dmg", "plasma_trail", tinted: true));
+        // The loyalist effects (untinted) and other materials never do.
+        foreach (string loyal in new[] { "plasma_gun_tracer", "plasma_gun_charged_trail", "plasma_cannon_primary_trail" })
+            foreach (string material in new[] { "plasma_tracer", "plasma_trail" })
+                Assert.False(PlasmaColour.NeutralTexture(loyal, material, tinted: false));
+        foreach (string other in new[] { "add_trail_soft", "alpha_trail_soft", "beam_gradient", "add_volume_soft" })
+            Assert.False(PlasmaColour.NeutralTexture("chaos_plasma_gun_trail", other, tinted: true));
+    }
+
+    [Fact]
     public void Chaos_plasma_is_purple_and_the_loyalist_plasma_is_not_recoloured()
     {
         // The Chaos files' own plasma effects are purple already: never recoloured.
-        foreach (string own in new[] { "chaos_plasma_gun_muzzle", "chaos_plasma_gun_tracer", "chaos_plasma_gun_trail", "csm_plasma_cannon_primary_trail", "csm_plasma_charging_ready", "chaos_plasma_gun_dmg_body" })
+        foreach (string own in new[] { "chaos_plasma_gun_muzzle", "chaos_plasma_gun_trail", "csm_plasma_cannon_primary_trail", "csm_plasma_charging_ready", "chaos_plasma_gun_dmg_body" })
             Assert.Null(PlasmaColour.TintFor("csm_mp_ranged_plasma_gun", own));
         // The loyalist-named plasma effects their containers share (the charged blast, the impacts) are tinted purple when a Chaos plasma weapon plays them.
         foreach (string wargear in new[] { "csm_mp_ranged_plasma_gun", "csm_mp_pistol_plasma_pistol", "csm_mp_exotic_plasma_cannon" })
@@ -367,7 +404,7 @@ public class RaceParityTests
         var played = effects.Bindings.Where(b => b.Play is not null).Select(b => b.Play!.Name).ToList();
         Assert.Equal(["chaos_plasma_gun_muzzle", "chaos_plasma_gun_tracer", "plasma_gun_charged_dmg", "bolter_dmg_husk"], played);
         var tinted = played.Where(n => PlasmaColour.TintFor(effects.Wargear, n) is not null).ToList();
-        Assert.Equal(["plasma_gun_charged_dmg"], tinted);
+        Assert.Equal(["chaos_plasma_gun_tracer", "plasma_gun_charged_dmg"], tinted);   // fx/chaos-plasma-tracer: the light shot's core is recoloured too
         Assert.All(played, n => Assert.Null(PlasmaColour.TintFor("sm_mp_ranged_plasma_gun", n)));
     }
 }

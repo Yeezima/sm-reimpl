@@ -9,7 +9,11 @@ namespace SmServer;
 /// <summary>Server tuning. Provisional prototype defaults (docs/architecture.md), not original values.</summary>
 public sealed partial record ServerOptions
 {
-    public int SnapshotRate { get; init; } = 20;
+    /// <summary>
+    /// Snapshots a second to every client (net/responsive, ours: 30, one every tick; 20 before, <c>--snapshot-rate 20</c>). The clients' adaptive interpolation delay
+    /// follows it (two snapshot intervals: 67 ms at 30 Hz, the old 100 ms at 20 Hz).
+    /// </summary>
+    public int SnapshotRate { get; init; } = 30;
     /// <summary>
     /// Test aid (<c>--bot-damage-scale</c>; owner, 2026-10-29): every hit dealt by a client whose Hello marks it a test bot (<see cref="Hello.Bot"/>,
     /// protocol 37) is scaled by this (<see cref="World.SetDamageScale"/>); 1 (default): off.
@@ -113,6 +117,9 @@ public sealed partial class GameServer
         public uint Nonce { get; } = nonce;
         public uint Session { get; } = session;
         public SortedDictionary<uint, PlayerInput> Inputs { get; } = new();
+        /// <summary>Protocol 65: when each buffered input first arrived, and the least slack (ms) of the ticks run since the last snapshot (int.MaxValue: none).</summary>
+        public Dictionary<uint, TimeSpan> ArrivedAt { get; } = new();
+        public int SlackMs = int.MaxValue;
         public PlayerInput LastApplied;
         public uint LastAppliedFromClient;
         public uint NewestReceived;
@@ -154,6 +161,8 @@ public sealed partial class GameServer
         public RttEstimator Rtt { get; } = new();
         /// <summary>Added content's commands (message kind 17): this peer's rate, made at its first command.</summary>
         public TokenBucket? Commands;
+        /// <summary>Protocol 58: the rate of respawn choices taken from this peer (<see cref="OnSpawnRequest"/>).</summary>
+        public TokenBucket? SpawnRequests;
     }
 
     /// <summary>Ticks of snapshot send times kept per peer for the ping (protocol 50): 64 ticks, 2.1 s at 30 Hz; an acknowledgement of an older snapshot gives no sample.</summary>
@@ -199,9 +208,9 @@ public sealed partial class GameServer
             throw new ArgumentException("Seize Ground needs a map with control points.");
         foreach (var p in map?.ControlPoints ?? [])
             if (!Protocol.IsMapName(p.Name)) throw new ArgumentException($"Control point name '{p.Name}' cannot travel (letters, digits, '_'; at most {Protocol.MaxMapName}).");
-        World = new World(config, map?.Collision, map?.Spawns) { BoundBodies = true, Rules = _options.Match, ControlPoints = map?.ControlPoints ?? [], StartAreas = map?.StartAreas ?? [], SpawnBlockers = map?.Blockers ?? map?.Collision?.Blockers ?? [] };
+        World = new World(config, map?.Collision, map?.Spawns) { BoundBodies = true, SolidGuard = _options.BodyGuard, Rules = _options.Match, ControlPoints = map?.ControlPoints ?? [], StartAreas = map?.StartAreas ?? [], SpawnBlockers = map?.Blockers ?? map?.Collision?.Blockers ?? [] };
         _emblems = new EmblemCache(Math.Max(1, _options.MaxCachedEmblems));
-        _contentFingerprint = contentFingerprint; _transport = Counted(transport); _clock = clock;
+        _contentFingerprint = contentFingerprint; _transport = Counted(CoreCounted(transport)); _clock = clock;
         if (config.Extras != ContentExtras.None) ExtrasCreated();   // EXTRAS-HOOK: added content's set-up of this server's match (Musou: the nav graph, the mode)
     }
 
@@ -250,19 +259,28 @@ public sealed partial class GameServer
         _nextTickAt ??= now;
         _nextSnapshotAt ??= now;
         _nextScoreboardAt ??= now;
-        for (int ran = 0; now >= _nextTickAt; ran++)
+        int ran = 0;
+        for (; now >= _nextTickAt; ran++)
         {
             if (_options.MaxCatchUpTicks > 0 && ran >= _options.MaxCatchUpTicks) { SkipLateTicks(now, tickLength); break; }
             long tickStarted = TickStatsBegin();   // test aid SM_TICK_STATS (GameServer.TickStats.cs)
+            long section = SmSim.SimProfile.Begin();   // musou/perf-pass: SM_TICK_STATS's sections (nothing without it)
             GuardTick();   // a fault is logged; too many in a row stop the server for its supervisor (GameServer.Guard.cs)
+            SmSim.SimProfile.End("world step", section);
+            Guard("bot stats", BotStatsTick);   // test aid SM_BOT_STATS (GameServer.BotStats.cs)
             _nextTickAt += tickLength;
-            if (_nextTickAt > _nextSnapshotAt) { Guard("snapshots", SendSnapshots); _nextSnapshotAt += snapshotLength; }
+            section = SmSim.SimProfile.Begin();
+            if (_nextTickAt > _nextSnapshotAt) { Guard("snapshots", SendSnapshots); _nextSnapshotAt += snapshotLength; TickStatsSnapshot(); }
             if (_nextTickAt > _nextScoreboardAt) { Guard("scoreboards", SendScoreboards); _nextScoreboardAt += _options.ScoreboardInterval; }
             Guard("bars", SendBars);   // protocol 44: Tactical Readout / Signum Link (GameServer.Bars.cs)
             Guard("pickups", SendPickups);   // protocol 26: dropped pickups, outside the snapshots (GameServer.Pickups.cs)
+            SmSim.SimProfile.End("send: core", section);
+            section = SmSim.SimProfile.Begin();
             Guard("extras", SendExtrasDue);   // added content's envelope, never on a faithful server (GameServer.Envelope.cs)
+            SmSim.SimProfile.End("send: extras", section);
             TickStatsEnd(tickStarted);
         }
+        TickStatsUpdate(ran);
     }
 
     /// <summary>Handles one received packet; <see cref="Update"/> catches a throw and drops only that sender (hardening M3).</summary>
@@ -281,12 +299,20 @@ public sealed partial class GameServer
             case BlobRequest r when _peers.TryGetValue(connection, out var pulling) && r.Session == pulling.Session: OnBlobRequest(connection, pulling, r); break;
             case BlobChunk c when _peers.ContainsKey(connection): OnBlobChunk(connection, c); NoteActivity(connection); break;
             case ExtrasCommandMessage x when _peers.TryGetValue(connection, out var commanding) && x.Session == commanding.Session: OnExtrasCommand(commanding, x); break;
+            case SpawnRequest sr when _peers.TryGetValue(connection, out var spawning) && sr.Session == spawning.Session: OnSpawnRequest(spawning, sr); break;   // protocol 58
             case null: RefuseOldHello(connection, packet); break;
         }
     }
 
+    /// <summary>classic-maps-all: the server follows an ended match with the next map of its rotation (--maps) and is about to exit: it answers no join any more (the clients ask again until the next map's server is up).</summary>
+    public bool RotationDue => RotationDueFor(World);
+
+    /// <summary>The rule of <see cref="RotationDue"/> for a world: a rotating server's ended match whose restart clock shows at most <see cref="MatchFlowWire.RotationRejoinTicks"/> ticks.</summary>
+    public static bool RotationDueFor(World world) => world.Rules is { RotatesAfterMatch: true } && world.State == MatchState.Ended && world.TicksLeft <= MatchFlowWire.RotationRejoinTicks;
+
     void OnHello(int connection, Hello h)
     {
+        if (RotationDue) return;   // classic-maps-all: the next map's server answers joins, not this one
         if (h.Cookie != Cookie(connection, h.Nonce))
         {
             // First contact (or a stale cookie): no state, and nothing larger than the request goes back to an address
@@ -315,7 +341,7 @@ public sealed partial class GameServer
         {
             if (Math.Min(_options.MaxSpectators, Protocol.MaxSpectators) <= _peers.Values.Count(p => p.Spectator)) { Refuse(connection, RejectReason.ServerFull, h.Nonce); return; }
         }
-        else if (_peers.Values.Count(p => !p.Spectator) >= _options.MaxPlayers) { Refuse(connection, RejectReason.ServerFull, h.Nonce); return; }
+        else if (_peers.Values.Count(p => !p.Spectator) >= PlayerCap) { Refuse(connection, RejectReason.ServerFull, h.Nonce); return; }
 
         var peer = new Peer(NextPlayerId(), h.Nonce, BinaryPrimitives.ReadUInt32LittleEndian(RandomNumberGenerator.GetBytes(4)) | 1)
         {
@@ -337,6 +363,7 @@ public sealed partial class GameServer
         var spawned = World.Spawn(peer.PlayerId, playerClass, Choice(h.RequestedPrimary), Choice(h.RequestedPistol), Choice(h.RequestedMelee),
             Choice(h.RequestedEquipment), Choice(h.RequestedPerk1), Choice(h.RequestedPerk2), team: team, secondChoice: Choice(h.RequestedSecond));
         NotePistolDefault(peer.PlayerId, playerClass, Choice(h.RequestedPistol), spawned.Pistol);
+        World.SetBotClient(peer.PlayerId, h.Bot);   // information for added content (Musou Mode: a bot client takes a tenth of every hit)
         if (h.Bot && _options.BotDamageScale != 1f)   // test aid (--bot-damage-scale)
         {
             World.SetDamageScale(peer.PlayerId, _options.BotDamageScale);
@@ -431,9 +458,9 @@ public sealed partial class GameServer
 
     /// <summary>
     /// Ids no joining player gets, on any profile: added content's players without a peer live here (Musou Mode's AI Marines; a test pins these to its contract, which the
-    /// core cannot name). A plain range, not a hook: skipping 8 of 65535 ids changes nothing a faithful match can see.
+    /// core cannot name). A plain range, not a hook: skipping 12 of 65535 ids changes nothing a faithful match can see (8 until Musou expansion S6 widened the range down; the allied pair of 2026-11-08 needs two).
     /// </summary>
-    internal const int ReservedPlayerIdFirst = 65520, ReservedPlayerIdLast = 65527;
+    internal const int ReservedPlayerIdFirst = 65516, ReservedPlayerIdLast = 65527;
 
     int NextPlayerId()
     {
@@ -473,7 +500,7 @@ public sealed partial class GameServer
             RejectReason.ContentMismatch => ContentMismatchDetail(),
             RejectReason.ConfigMismatch => ConfigMismatchDetail(World.Config.Extras),
             RejectReason.MapMismatch => $"map '{Map?.Name}' could not be loaded or differs from the server's",
-            _ => "server is full",
+            _ => PlayerCap < _options.MaxPlayers ? $"server is full (this match takes {PlayerCap} players)" : "server is full",
         };
         _transport.Send(connection, Protocol.Write(new Reject(reason, detail, nonce)));
     }
@@ -521,6 +548,7 @@ public sealed partial class GameServer
             if ((World.Config.Extras & ContentExtras.ActionKeyUsers) == 0) clean = clean with { Buttons = clean.Buttons & ~InputButtons.ExtraAction };
             peer.Inputs[input.Tick] = clean;
             peer.AckAt.TryAdd(input.Tick, peer.AckedSnapshot);
+            peer.ArrivedAt.TryAdd(input.Tick, _clock.Now);   // protocol 65: the input slack
             peer.NewestReceived = Math.Max(peer.NewestReceived, input.Tick);
         }
     }
@@ -534,6 +562,7 @@ public sealed partial class GameServer
             var peer = byPlayer[id];
             if (peer.Inputs.Remove(tick, out var input))
             {
+                if (peer.ArrivedAt.Remove(tick, out var arrived)) peer.SlackMs = Math.Min(peer.SlackMs, (int)Math.Round((_clock.Now - arrived).TotalMilliseconds));   // protocol 65
                 peer.LastApplied = input; peer.LastAppliedFromClient = tick;
                 peer.LastAppliedAck = peer.AckAt.Remove(tick, out uint ack) ? ack : peer.AckedSnapshot;
             }
@@ -541,6 +570,7 @@ public sealed partial class GameServer
                 peer.LastApplied = new PlayerInput(tick, 0, 0, peer.LastApplied.Yaw, InputButtons.None);
             else
             {
+                peer.SlackMs = Math.Min(peer.SlackMs, -(int)Math.Round(World.Config.TickSeconds * 1000));   // protocol 65: this tick ran without the input
                 // A repeated input keeps its view relative to its own tick, so the rewind does not grow while packets are lost.
                 var last = peer.LastApplied;
                 peer.LastApplied = last with { Tick = tick, ViewTick = last.ViewTick == 0 ? 0 : last.ViewTick + (tick - last.Tick),
@@ -552,6 +582,7 @@ public sealed partial class GameServer
         {
             foreach (var stale in peer.Inputs.Keys.TakeWhile(t => t <= World.Tick).ToList()) peer.Inputs.Remove(stale);
             foreach (var stale in peer.AckAt.Keys.Where(t => t <= World.Tick).ToList()) peer.AckAt.Remove(stale);
+            foreach (var stale in peer.ArrivedAt.Keys.Where(t => t <= World.Tick).ToList()) peer.ArrivedAt.Remove(stale);
         }
         CountHits(byPlayer);
         PromoteAppearances();   // protocol 22: respawned players take their pending appearance
@@ -705,14 +736,16 @@ public sealed partial class GameServer
         if (kills.Length > 0) peer.SentKills[World.Tick] = kills[^1].Sequence;
         while (peer.SentKills.Count > 256) peer.SentKills.Remove(peer.SentKills.Keys.Min());
         NoteSnapshotSent(peer, World.Tick);   // protocol 50: the ping's send time
+        int slack = peer.SlackMs == int.MaxValue ? Protocol.NoSlack : peer.SlackMs;   // protocol 65
+        peer.SlackMs = int.MaxValue;
         _transport.Send(connection, Protocol.Write(new Snapshot(World.Tick, peer.LastAppliedFromClient, lead, players, Self: peer.PlayerId,
             Projectiles: ProjectilesFor(World, viewer), Match: match, Kills: kills, Points: points, Hits: peer.Spectator ? null : peer.Hits,
-            Shots: ShotsFor(_pendingShots, peer.PlayerId, viewer, World.Tick))));
+            Shots: ShotsFor(_pendingShots, peer.PlayerId, viewer, World.Tick), InputSlack: slack)));
     }
 
     /// <summary>The match block every snapshot carries.</summary>
     public static MatchView MatchOf(World world) =>
-        new(MatchFlowWire.ToWire(world.State), world.Winner, world.TicksLeft, world.ScoreOf(Team.SpaceMarines), world.ScoreOf(Team.Chaos), world.Rules?.Mode ?? GameMode.Annihilation);
+        new(MatchFlowWire.ToWire(world.State), world.Winner, world.TicksLeft, world.ScoreOf(Team.SpaceMarines), world.ScoreOf(Team.Chaos), world.Rules?.Mode ?? GameMode.Annihilation, world.State == MatchState.Ended && world.Rules is { RotatesAfterMatch: true });
 
     /// <summary>Every control point's state (protocol 11): in Seize Ground only (Annihilation and free-for-all send none).</summary>
     public static ControlPointView[] PointsOf(World world) => world.Rules is { Mode: GameMode.SeizeGround }
@@ -732,7 +765,7 @@ public sealed partial class GameServer
     /// </summary>
     public static KillView[] KillsFor(World world, int acked) =>
         world.KillLog.Where(k => k.Sequence > acked).Take(Protocol.MaxSnapshotKills)
-            .Select(k => new KillView(k.Sequence & 0xFFFF, k.Killer, k.Victim, k.Cause, k.Index, k.Direction)).ToArray();
+            .Select(k => new KillView(k.Sequence & 0xFFFF, k.Killer, k.Victim, k.Cause, k.Index, k.Direction, k.Headshot)).ToArray();   // protocol 64: the headshot
 
     /// <summary>The scoreboard every client gets: the rules and each player's side, class, kills and deaths (by id), and its ping (protocol 50).</summary>
     public Scoreboard ScoreboardOf() => new(World.Tick, World.Rules is not null, World.Rules?.ScoreLimit ?? 0, World.Rules?.TimeLimit ?? 0f, World.Rules?.FriendlyFire ?? true,
@@ -745,9 +778,31 @@ public sealed partial class GameServer
             return new ScoreEntry(p.PlayerId, p.Team, p.Class, s.Kills, s.Deaths, peer is not null ? peer.Appearance.Version : PeerlessLook(p.PlayerId)?.Version ?? 0,
                 Loadouts.EquipmentIndex(World.Config, p),   // protocol 40 (perks/inert-2)
                 name,                                      // protocol 41 (names/bot-lore)
-                peer?.Rtt.Ms ?? -1);                       // protocol 50 (net/scoreboard-ping): -1 not measured yet
+                peer?.Rtt.Ms ?? -1,                        // protocol 50 (net/scoreboard-ping): -1 not measured yet
+                World.ClassicPvp && World.CarriesHomer(p.PlayerId),   // protocol 58 (fix/pvp-deploy-spawn): a classic PvP spawn choice for its allies
+                s.Headshots, s.Assists);                   // protocol 64 (headshot medal, scoreboard)
         }).ToArray(), SeizeOf(World),
         Spectators: _peers.Values.Where(p => p.Spectator).OrderBy(p => p.PlayerId).Take(Protocol.MaxSpectators).Select(p => new SpectatorEntry(p.PlayerId, p.Name)).ToArray() is { Length: > 0 } listed ? listed : null);   // protocol 46
+
+    /// <summary>
+    /// The most players (spectators aside) this match admits: <see cref="ServerOptions.MaxPlayers"/>, which added content may lower (<see cref="ExtrasPlayerCap"/>; Musou Mode: 4, the owner's
+    /// co-op of 2026-11-06). A faithful or Extended match keeps <see cref="ServerOptions.MaxPlayers"/>.
+    /// </summary>
+    /// <summary>Snapshots a second to every client (net/responsive: <see cref="ServerOptions.SnapshotRate"/>).</summary>
+    public int SnapshotRate => _options.SnapshotRate;
+
+    public int PlayerCap
+    {
+        get
+        {
+            int cap = _options.MaxPlayers;
+            if (World.Config.Extras != ContentExtras.None) ExtrasPlayerCap(ref cap);   // EXTRAS-HOOK: added content's player cap (Musou Mode: 4)
+            return cap;
+        }
+    }
+
+    /// <summary>Hook for added content: may lower <paramref name="cap"/>, the players a match admits. Implemented in an <c>Extras/</c> folder; returns at once unless its feature runs.</summary>
+    partial void ExtrasPlayerCap(ref int cap);
 
     /// <summary>Hook for added content: the scoreboard name of player <paramref name="id"/> ("" reads as P&lt;id&gt;). Implemented in an <c>Extras/</c> folder; returns at once unless its feature runs.</summary>
     partial void ExtrasPlayerName(int id, ref string name);

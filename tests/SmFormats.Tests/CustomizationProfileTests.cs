@@ -12,7 +12,7 @@ namespace SmFormats.Tests;
 /// The customization profile (T4): the store with its repair rules, the wire mapping to simulation indices and appearance codes, and the appearance
 /// resolver, on a synthetic install and hand-built simulation configs (names, tables and counts are made up; no original data).
 /// </summary>
-public class CustomizationProfileTests : IDisposable
+public partial class CustomizationProfileTests : IDisposable
 {
     readonly string _dir = Path.Combine(Path.GetTempPath(), "sm-prof-" + Guid.NewGuid().ToString("N"));
     readonly string _profileDir;

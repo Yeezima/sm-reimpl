@@ -129,7 +129,9 @@ public partial class NetworkView
     /// </summary>
     void SoundMeleeOthers(PlayerState me, IReadOnlyList<PlayerState> others)
     {
-        if (_client is null || _config is null || _soundTriggers is null || _sound is null || NoMeleeSounds) return;
+        // Hit reactions (2026-11-11): the inferred hits also start the victims' light-melee flinch (NetworkView.UpperBody.cs RandomFlinch), so they are found with the sounds off too.
+        bool sound = _soundTriggers is not null && _sound is not null && !NoMeleeSounds;
+        if (_client is null || _config is null || (!sound && (NoFlinch || OldHitReactions || Lean))) return;
         double now = _connectedFor;
         int ownId = _client.PlayerId;
         var all = _meleeSoundAll;
@@ -182,7 +184,8 @@ public partial class NetworkView
             if (a < 0 || v < 0) continue;
             var strike = _meleeHitStrikes.GetValueOrDefault((hit.Attacker, hit.Victim), (Heavy: all[a].MeleeHeavy, Step: all[a].MeleeStep));
             _meleeHitStrikes.Remove((hit.Attacker, hit.Victim));
-            PostMeleeHit(all[a], hit.Victim, pool[v].Position, hit.Charge, hit.Dash, "inferred from the snapshots", strike.Heavy, strike.Step);
+            if (sound) PostMeleeHit(all[a], hit.Victim, pool[v].Position, hit.Charge, hit.Dash, "inferred from the snapshots", strike.Heavy, strike.Step);
+            if (!strike.Heavy && !hit.Charge) RandomFlinch(hit.Victim, $"light melee hit by P{hit.Attacker}, inferred from the snapshots");   // a strike that reacts (stun, stagger) shows its reaction instead
         }
         _meleeSoundGate.Prune(_meleeSoundPresent.Contains);
         _meleeConfirm.Prune(_meleeSoundPresent.Contains);
@@ -197,7 +200,7 @@ public partial class NetworkView
     {
         if (wargear is null || _soundTriggers is null || _audio is null) return null;
         if (_humCache.TryGetValue(wargear, out var known)) return known;
-        var hum = MeleeIdleSounds.For(wargear, _soundTriggers.File, _audio.HasEvent);
+        var hum = MeleeIdleSounds.For(PresentedAs(wargear), _soundTriggers.File, _audio.HasEvent);   // W0b: an added weapon's hum by its source's name (the claw: the sword's, quieter)
         _humCache[wargear] = hum;
         if (LogSound("melee"))
             GD.Print($"MELEE HUM {wargear}: {(hum is null ? "none (the file names no idle event that is in a bank: not reproducible)" : $"{hum.Start} / stop '{hum.Stop}', {hum.GainDb:+0.#;-0.#;0} dB{(hum.Substitute ? ", substitute (ours)" : "")}")}");

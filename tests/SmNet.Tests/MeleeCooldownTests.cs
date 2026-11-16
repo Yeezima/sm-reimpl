@@ -131,13 +131,13 @@ public class MeleeCooldownTests
     // ---------------------------------------------------------------- feel/charge-no-cancel
 
     [Theory]
-    [InlineData(0f, -1f)]   // S
-    [InlineData(1f, 0f)]    // D
-    [InlineData(-1f, 0f)]   // A
-    [InlineData(1f, 1f)]    // W + D
-    public void No_movement_key_ends_the_bull_rush_before_its_clip_ends(float moveX, float moveY)
+    [InlineData(0f, -1f, false)]   // S, with the restore switch --old-charge-cancel (charge-cancel, protocol 66: S ends it otherwise; ChargeCancelTests)
+    [InlineData(1f, 0f, true)]     // D
+    [InlineData(-1f, 0f, true)]    // A
+    [InlineData(1f, 1f, true)]     // W + D
+    public void No_movement_key_ends_the_bull_rush_before_its_clip_ends(float moveX, float moveY, bool backCancel)
     {
-        var c = RushTests.Config;
+        var c = RushTests.Config with { ChargeBackCancel = backCancel };
         var s = Combat.Respawned(new PlayerState(1, Vector3.Zero, Vector3.Zero, 0f, true) { Class = 0 }, c);
         s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 1f, 0f, InputButtons.MeleeHeavy | InputButtons.Sprint), c, out _);
         Assert.Equal(RushPhase.Rush, s.Rush);

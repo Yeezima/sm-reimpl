@@ -53,11 +53,18 @@ public sealed partial class OptionsHost : CanvasLayer
         _applied = options;
         var root = Tree?.Root;
         if (root is null) return;
+        SmClient.Customizer.FocusGlow.Ensure(root);   // ui/focus-glow: the focused control's soft white glow, every menu
         if (options.FpsCap != before.FpsCap) Engine.MaxFps = options.FpsCap;
-        if (options.RenderScale != before.RenderScale) root.Scaling3DScale = options.RenderScale;
-        if (options.Aa != before.Aa && RenderQuality.Choose(options.Aa)) GD.Print(RenderQuality.Apply(root));
+        // musou/perf-pass: the upscaler decides the scaling and, when FSR 2 is on, stands in for the anti-aliasing, so either change applies both (RenderQuality.Apply).
+        RenderQuality.RenderScale = options.RenderScale;
+        bool upscale = options.Upscale != before.Upscale && RenderQuality.ChooseUpscale(options.Upscale);
+        bool aa = options.Aa != before.Aa && RenderQuality.Choose(options.Aa);
+        if (upscale || aa) { GD.Print(RenderQuality.Apply(root)); VisualOverhaul.ApplyViewport(root); }
+        else if (options.RenderScale != before.RenderScale) RenderQuality.ApplyScaling(root, options.RenderScale);
         if (options.Shadows != before.Shadows) MapLightingView.ApplyShadowChoice(options.Shadows);
-        if (options.MasterVolume != before.MasterVolume) AudioServer.SetBusVolumeDb(0, GameOptions.VolumeDb(options.MasterVolume));
+        if (options.GrimeFast != before.GrimeFast) AshfallGrime.SetFolded(options.GrimeFast);   // musou/perf-pass, the owner's "option in Graphics" (AshfallGrime.Folded.cs)
+        HudReadout.Choice = options.Readout;   // polish pass P1: the match's performance readout, saved by F3 (HudReadout.cs; --readout wins)
+        if (options.MasterVolume != before.MasterVolume) SoundSystem.ApplyMasterVolume(options.MasterVolume);   // sound/mix-and-reloads: with the 10 % master boost
         if (options.Brightness != 1f && _current is null) Ensure(root);
         _current?.ShowBrightness(options.Brightness);
         if (options.MuteUnfocused) Ensure(root);

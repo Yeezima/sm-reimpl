@@ -87,9 +87,9 @@ public static class ReticleRules
     /// How far the next shot's scatter is between the stance's narrowest and widest (0..1, <b>ours</b>): the horizontal half-width now against the smallest initial half-width and the
     /// largest maximum of the weapon's sets for that stance over the three movement bands (so walking and running open the reticle, and shooting blooms it). 0 without spread.
     /// </summary>
-    public static float SpreadFraction(WeaponSpec? weapon, PlayerState s, float speedScale = 1f, int stage = 0)
+    public static float SpreadFraction(WeaponSpec? weapon, PlayerState s, float speedScale = 1f, int stage = 0, bool noSpread = false)
     {
-        if (weapon?.Spread is not { } spec) return 0f;
+        if (noSpread || weapon?.Spread is not { } spec) return 0f;   // musou/no-spread: the reticle stays closed
         var stances = spec.For(stage);
         var stance = s.Aiming ? SpreadStance.Aiming : SpreadStance.Standing;
         float lo = float.MaxValue, hi = float.MinValue;

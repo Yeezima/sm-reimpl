@@ -123,7 +123,9 @@ public class JumpPackDashTuningTests
         Assert.Equal(10f, pack.RechargeRate);   // the data's
         Assert.Contains(notes, n => n.Contains("becomes 300"));
         Assert.Equal(pack, JumpPackTuning.WithFullJumps(pack, notes));   // M44's rule (kept for the record) changes nothing at 300
-        var config = new SimConfig { Classes = [new ClassLoadout("assault", -1, -1, SimConfig.PlaceholderMeleeSteps) { JumpPack = 0 }], JumpPacks = [pack] };
+        // Night batch 2026-11-06: 300 is Musou Mode's capacity now; Classic PvP holds the data's 100 (JumpPackCapacityModeTests).
+        if (!ContentExtras.Compiled) return;   // a build without added content has no Musou Mode (faithful-build): the rest needs it
+        var config = new SimConfig { Classes = [new ClassLoadout("assault", -1, -1, SimConfig.PlaceholderMeleeSteps) { JumpPack = 0 }], JumpPacks = [pack], Extras = ContentExtras.Musou };
         var s = Combat.Respawned(new PlayerState(1, Vector3.Zero, Vector3.Zero, 0f, true) { Class = 0 }, config);
         Assert.Equal(300f, s.JumpPower);
         int launches = 0, refused = 0;

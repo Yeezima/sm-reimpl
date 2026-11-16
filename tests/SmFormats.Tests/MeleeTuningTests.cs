@@ -65,6 +65,29 @@ public class MeleeTuningTests
         MeleeTuning.From([new BehaviorGraph("MP_Test", [], sequencers)], _ => 2f, Wargear(), Weapon);
 
     [Fact]
+    public void A_maps_clip_speed_divides_every_step_time_and_every_data_map_has_none()
+    {
+        // W0, Musou's arsenal (docs/new-weapons-design.md section 8, hook 6): an added map's clip speed shortens each strike by that factor, damage untouched.
+        var plain = Tune(Full("CK 1 Sequence"), Full("CK 2 Sequence"));
+        var faster = MeleeTuning.From([new BehaviorGraph("MP_Test", [], [Full("CK 1 Sequence"), Full("CK 2 Sequence")])], _ => 2f, Wargear(), Weapon with { ClipSpeed = 1.25f });
+        Assert.Equal(1f, Weapon.ClipSpeed);
+        Assert.Equal(plain.Steps.Count, faster.Steps.Count);
+        for (int i = 0; i < plain.Steps.Count; i++)
+        {
+            var (a, b) = (plain.Steps[i], faster.Steps[i]);
+            Assert.Equal(a.Duration / 1.25f, b.Duration, 4);
+            Assert.Equal(a.HitTime / 1.25f, b.HitTime, 4);
+            Assert.Equal(a.ComboOpen / 1.25f, b.ComboOpen, 4);
+            Assert.Equal(a.ComboClose / 1.25f, b.ComboClose, 4);
+            Assert.Equal(a.MoveAt / 1.25f, b.MoveAt, 4);
+            Assert.Equal(a.Damage, b.Damage);
+        }
+        // Every map of the data plays its clips at the graph's own speed, so its reads stay byte-identical.
+        foreach (var suffix in MpClasses.SimulatedMeleeSuffixes) Assert.Equal(1f, MpClasses.MeleeMapFor("sm" + suffix)!.ClipSpeed);
+        Assert.Equal(plain.Steps[0], Tune(Full("CK 1 Sequence"), Full("CK 2 Sequence")).Steps[0]);
+    }
+
+    [Fact]
     public void Tags_become_seconds_with_the_chosen_clip_and_its_playback_speed()
     {
         var t = Tune(Full("CK 1 Sequence"), Full("CK 2 Sequence"));

@@ -82,6 +82,7 @@ public sealed partial class World
         foreach (int id in aliveBefore)
         {
             if (!_players.TryGetValue(id, out var dead) || dead.Alive) continue;
+            if (_deployDeaths.Contains(id)) continue;   // fix/pvp-deploy-spawn: a Deploy's suicide sets off no death blast
             var centre = dead.Position + new Vector3(0, 0, ChestOf(dead));
             foreach (var u in Loadouts.PlayerUpgradesOf(Config, dead))
             {

@@ -15,6 +15,10 @@ public sealed record ServerArguments
     public string? GameDir { get; init; }
     /// <summary>A map name, "none" for the flat placeholder ground, or null for the default (mp_tdm_09 when installed).</summary>
     public string? Map { get; init; }
+    /// <summary>--maps (classic-maps-all): a rotation, "all" (every playable competitive map the install lists) or a comma list of map names; the server plays them in turn, one match each (<see cref="RotationChild"/>).</summary>
+    public IReadOnlyList<string>? Maps { get; init; }
+    /// <summary>--rotation-child (internal): this process is one match's server under a rotation supervisor (Program.cs): it exits with <see cref="ServerCommandLine.RotationExit"/> a second before the next match would start.</summary>
+    public bool RotationChild { get; init; }
     public GameMode Mode { get; init; } = GameMode.Annihilation;
     /// <summary>False for --mode ffa (no teams).</summary>
     public bool Teams { get; init; } = true;
@@ -35,6 +39,8 @@ public sealed record ServerArguments
     /// <summary>--bot-damage-scale (test aid, owner 2026-10-29: "reduce all bot damage by 66% temporarily for testing purposes"): every hit a test bot deals (shots, projectiles,
     /// blasts, melee, the charge; health and shield) is scaled by this; 1 (default) off. Bots say they are bots in their Hello (protocol 37).</summary>
     public float BotDamageScale { get; init; } = 1f;
+    /// <summary>--snapshot-rate (net/responsive): snapshots a second, 1 to the tick rate (default <see cref="ServerOptions.SnapshotRate"/>, 30; 20 restores the rate before).</summary>
+    public int? SnapshotRate { get; init; }
     /// <summary>--name-seed (names/bot-lore): the seed of the test bots' names (<see cref="ServerOptions.NameSeed"/>); null: random at start.</summary>
     public uint? NameSeed { get; init; }
     /// <summary>--honor-side-requests (M44a test aid, ours): a requested side is kept up to the per-side limit; the balance applies only to joins that name no side.</summary>
@@ -47,6 +53,42 @@ public sealed record ServerArguments
     public bool NoPlayerCollision { get; init; }
     /// <summary>anim/melee-interaction (test aid, before / after): the M29 charge contact and stop, no lock (config hash; clients need it too).</summary>
     public bool NoChargeLock { get; init; }
+    /// <summary>fix/charge-player-collision (test aid, before / after): the protocol 56 body and charge contact rules (<see cref="SimConfig.SolidBodies"/>; config hash: clients need it too).</summary>
+    public bool OldBodyContact { get; init; }
+    /// <summary>feel/charge-clash (test aid, before / after): the protocol 58 stop, no clash (<see cref="SimConfig.ChargeClash"/>; config hash: clients need it too).</summary>
+    public bool NoChargeClash { get; init; }
+    /// <summary>charge-cancel (restore switch, before / after): the protocol 65 charge cancel: a Grenade press ends the charge, S does not (<see cref="SimConfig.ChargeBackCancel"/>; config hash: clients need it too).</summary>
+    public bool OldChargeCancel { get; init; }
+    /// <summary>charge-ally-bump (restore switch, before / after): the protocol 65 collision stop on an ally (<see cref="SimConfig.ChargeAllyBump"/>; config hash: clients need it too).</summary>
+    public bool OldAllyBump { get; init; }
+    /// <summary>charge-responsive (restore switch): a charge waits for a melee attack under way to end (<see cref="SimConfig.ChargeAfterMelee"/>; config hash: clients need it too).</summary>
+    public bool OldChargeAfterMelee { get; init; }
+    /// <summary>charge-responsive (restore switch): the S cancel waits for the rush's stick branch (<see cref="SimConfig.ChargeInstantCancel"/>; config hash: clients need it too).</summary>
+    public bool OldChargeCancelDelay { get; init; }
+    /// <summary>charge-melee-chain (restore switch): the protocol 69 charge and melee rules (<see cref="SimConfig.ChargeMeleeChain"/>; config hash: clients need it too).</summary>
+    public bool OldChargeMeleeChain { get; init; }
+    /// <summary>sim/hop-rules (restore switch): the protocol 71 jump and hop rules (<see cref="SimConfig.HopRules"/>; config hash: clients need it too).</summary>
+    public bool OldHopRules { get; init; }
+    /// <summary>sim/stomp-release (restore switch): the stomp locks the player to the end of its clip (<see cref="SimConfig.StompRelease"/>; config hash: clients need it too).</summary>
+    public bool OldStompRelease { get; init; }
+    /// <summary>sim/kick-push (restore switch): the heavy classes' kick pushes with the data's full knockback (<see cref="SimConfig.KickPushCut"/>; config hash: clients need it too).</summary>
+    public bool OldKickPush { get; init; }
+    /// <summary>sim/sprint-melee-charge (restore switch): a light press while sprinting swings (<see cref="SimConfig.SprintMeleeCharge"/>; config hash: clients need it too).</summary>
+    public bool OldSprintMelee { get; init; }
+    /// <summary>sim/ledge-charge-cancel (restore switch): a light press keeps a ledge charge's momentum (<see cref="SimConfig.LedgeChargeCancel"/>; config hash: clients need it too).</summary>
+    public bool OldLedgeCancel { get; init; }
+    /// <summary>sim/lascannon-tap-reload (restore switch): the lascannon's full reload (<see cref="SimConfig.LascannonTapReload"/>; config hash: clients need it too).</summary>
+    public bool OldLascannonReload { get; init; }
+    /// <summary>musou/melee-spam (restore switch): Musou Mode keeps the melee waits (<see cref="SimConfig.MusouMeleeCooldown"/>; config hash: clients need it too).</summary>
+    public bool MusouMeleeCooldown { get; init; }
+    /// <summary>musou/melee-heal-cap (restore switch): no cap of 3 heals per melee swing in Musou Mode (<see cref="SimConfig.MusouUncappedMeleeHeal"/>; config hash: clients need it too).</summary>
+    public bool MusouUncappedMeleeHeal { get; init; }
+    /// <summary>stims-classic (restore switch): the earlier 9-tick stim press and the hit cancel before the release (<see cref="SimConfig.StimReliable"/>; config hash: clients need it too).</summary>
+    public bool OldStimUse { get; init; }
+    /// <summary>musou/no-aerial-tackle (restore switch): Musou Mode keeps the Assault's and Raptor's aerial tackle (SimConfig.AerialTackleRestored, added content; config hash: clients need it too).</summary>
+    public bool AerialTackleRestored { get; init; }
+    /// <summary>musou/ork-swing-commit (restore switch): a melee Ork's wind-up faces its target every tick up to the blow, as before 2026-11-12 (SimConfig.MusouOrkSwingTracking, added content; config hash: clients need it too).</summary>
+    public bool MusouOrkSwingTracking { get; init; }
     /// <summary>--log-overlaps (sim/player-collision test aid): every 10 s, how close the living players' capsules came and how often they overlapped.</summary>
     public bool LogOverlaps { get; init; }
     /// <summary>--max-spectators (protocol 46; ours, observer tooling): spectators admitted besides the players, 0 none (default <see cref="Protocol.MaxSpectators"/>).</summary>
@@ -58,6 +100,8 @@ public static class ServerCommandLine
 {
     /// <summary>Exit code for a command-line error.</summary>
     public const int UsageError = 2;
+    /// <summary>Exit code of a rotation child: its match is over, the supervisor starts the next map.</summary>
+    public const int RotationExit = 11;
 
     public const string Usage =
         """
@@ -66,7 +110,8 @@ public static class ServerCommandLine
           --port <1-65535>              UDP port (default 27015)
           --bind <ip>                   listen on this address only (default every interface; 127.0.0.1 for test runs)
           --game-dir <dir>              the game install (default: the located install, SM_GAME_DIR, config/local.json)
-          --map <name|none>             multiplayer map (default mp_tdm_09 when installed; none = flat placeholder ground; --content musou: tfw_war, generated, unless named)
+          --maps all|<a,b,c>            a rotation: every competitive map the install lists (all) or those named, one match each, in order and round again (the server restarts itself between maps; clients rejoin at once); not with --map
+          --map <name|none>             multiplayer map (default mp_tdm_09 when installed; none = flat placeholder ground; --content musou: tfw_war, Ashfall Citadel, generated; tfw_war_m09 restores the old Manufactorum war; both need --content musou)
           --mode annihilation|seize|ffa match rules (default annihilation)
           --score-limit <1-65535>       score limit (default per mode; provisional)
           --time-limit <minutes>        time limit, 0 = none (provisional)
@@ -74,14 +119,28 @@ public static class ServerCommandLine
           --countdown <seconds>         "MATCH BEGINS" countdown before play, 0 = none (default 5, at most 600; ours)
           --pickup-test <seconds>       test aid: one drop of each type in front of every living player this often
           --bot-damage-scale <f>        test aid: scale all damage dealt by test bots (client --bot) by f, 0 to 1 (default 1 = off; e.g. 0.34 = 66% less)
+          --snapshot-rate <hz>          snapshots a second to every client, 1 to 30 (default 30, every tick; 20 = the rate before net/responsive)
           --name-seed <0-4294967295>    the seed of the test bots' names (per-race pools, ours; default random, printed at start): the same seed and join order give the same names
           --honor-side-requests         switch: keep the side a client asks for up to the per-side limit (test aid for bot fills; the balance applies only to joins with no side)
-          --content <profile>           added content: faithful (SM1 alone), extended (every added content: the Ork, gore), musou (the experimental
-                                        Musou Mode, alone; Annihilation rules only) or a list such as orks,gore
+          --content <profile>           added content: faithful (SM1 alone), extended (every added content: the Ork, the barks, the autocannon), musou (the
+                                        experimental Musou Mode, alone; Annihilation rules only) or a list such as orks,autocannon
                                         (default extended; a build without extras runs faithful only); clients need the same --content
           --ork-data                    switch: test aid: the Ork Boy with the data's values instead of the Tactical parity (clients need --ork-data too)
           --no-player-collision         switch: test aid: players pass through each other as before protocol 43 (clients need --no-player-collision too)
           --no-charge-lock              switch: test aid: the charge contact and stop as before anim/melee-interaction (clients need --no-charge-lock too)
+          --old-body-contact            switch: test aid: no guard against bodies passing through each other, the charge contact and stop as in protocol 56 (clients need --old-body-contact too)
+          --old-charge-cancel           switch: restore: a Grenade press ends the charge from its branch and S does not, as in protocol 65 (clients need --old-charge-cancel too)
+          --old-stim-use                switch: restore: a stim press is kept 9 ticks and a hit before its release cancels the use (clients need --old-stim-use too)
+          --old-charge-after-melee      switch: restore: a charge waits for a melee attack under way to end (clients need --old-charge-after-melee too)
+          --old-charge-cancel-delay     switch: restore: S cancels the charge only from the rush's stick branch, about 0.47 s in (clients need --old-charge-cancel-delay too)
+          --old-charge-melee-chain     switch: restore: no instant melee cancel of a charge and no spacing reset by a melee attack (clients need --old-charge-melee-chain too)
+          --old-sprint-melee           switch: restore: a light press while sprinting swings instead of charging (clients need --old-sprint-melee too)
+          --old-ledge-cancel           switch: restore: a light press keeps a ledge charge's momentum (clients need --old-ledge-cancel too)
+          --old-hop-rules              switch: restore: no ledge jump after a charge, no shortening of the melee wait by a hop, no hop out of the aerial tackle (clients need --old-hop-rules too)
+          --old-stomp-release          switch: restore: the Devastator's and Havoc's stomp locks them to the end of its clip instead of 1.2 s (clients need --old-stomp-release too)
+          --musou-melee-cooldown       switch: restore: Musou Mode melee keeps the combo waits instead of spam (clients need --musou-melee-cooldown too)
+          --musou-uncapped-melee-heal  switch: restore: Musou Mode melee heals for every enemy struck, no cap of 3 per swing (clients need --musou-uncapped-melee-heal too)
+          --old-ally-bump               switch: restore: a charge that meets an ally plays the collision stop, as in protocol 65 (clients need --old-ally-bump too)
           --log-overlaps                switch: test aid: every 10 s, the closest the living players' capsules came and how many ticks they overlapped
           --unlocks all                 unlock mode (only 'all': no progression yet)
           --no-custom-emblems           switch: no custom emblem is pulled, kept or served
@@ -92,12 +151,13 @@ public static class ServerCommandLine
           --ban-file <path>             one IP or CIDR range per line ('#' comments); re-read when it changes; banned sources get no reply
           --limit-loopback              switch: apply --max-per-ip, --join-interval and --idle-kick to loopback (127.0.0.1) too;
                                         by default players on this machine (local bot playtests) are exempt
+          --musou-aerial-tackle         switch: restore: Musou Mode keeps the Assault / Raptor aerial tackle (clients need it too)
           --help, -h                    switch: this list
         """;
 
-    static readonly HashSet<string> Switches = ["--no-custom-emblems", "--limit-loopback", "--honor-side-requests", "--ork-data", "--no-player-collision", "--no-charge-lock", "--log-overlaps", "--help", "-h"];
+    static readonly HashSet<string> Switches = ["--rotation-child", "--musou-aerial-tackle", "--no-custom-emblems", "--limit-loopback", "--honor-side-requests", "--ork-data", "--no-player-collision", "--no-charge-lock", "--old-body-contact", "--old-charge-cancel", "--old-ally-bump", "--old-stim-use", "--log-overlaps", "--help", "--old-charge-after-melee", "--old-charge-cancel-delay", "--old-charge-melee-chain", "--old-hop-rules", "--musou-melee-cooldown", "--musou-uncapped-melee-heal", "--musou-ork-swing-tracking"];
     static readonly HashSet<string> Valued =
-        ["--port", "--bind", "--game-dir", "--map", "--mode", "--score-limit", "--time-limit", "--friendly-fire", "--unlocks", "--countdown", "--pickup-test", "--bot-damage-scale",
+        ["--port", "--bind", "--game-dir", "--map", "--maps", "--mode", "--score-limit", "--time-limit", "--friendly-fire", "--unlocks", "--countdown", "--pickup-test", "--bot-damage-scale", "--snapshot-rate",
          "--name-seed", "--max-per-ip", "--join-interval", "--idle-kick", "--ban-file", "--content", "--max-spectators"];
 
     /// <summary>Parses the arguments; false with a one-line <paramref name="error"/> for an unknown flag, a missing or invalid value, or a stray word.</summary>
@@ -112,12 +172,31 @@ public static class ServerCommandLine
             {
                 a = flag switch
                 {
+                    "--rotation-child" => a with { RotationChild = true },
                     "--no-custom-emblems" => a with { CustomEmblems = false },
                     "--limit-loopback" => a with { LimitLoopback = true },
                     "--honor-side-requests" => a with { HonorSideRequests = true },
                     "--ork-data" => a with { OrkData = true },
                     "--no-player-collision" => a with { NoPlayerCollision = true },
                     "--no-charge-lock" => a with { NoChargeLock = true },
+                    "--old-body-contact" => a with { OldBodyContact = true },
+                    "--no-charge-clash" => a with { NoChargeClash = true },
+                    "--old-charge-cancel" => a with { OldChargeCancel = true },
+                    "--old-ally-bump" => a with { OldAllyBump = true },
+                    "--old-charge-after-melee" => a with { OldChargeAfterMelee = true },
+                    "--old-charge-cancel-delay" => a with { OldChargeCancelDelay = true },
+                    "--old-charge-melee-chain" => a with { OldChargeMeleeChain = true },
+                    "--old-hop-rules" => a with { OldHopRules = true },
+                    "--old-stomp-release" => a with { OldStompRelease = true },
+                    "--old-kick-push" => a with { OldKickPush = true },
+                    "--old-sprint-melee" => a with { OldSprintMelee = true },
+                    "--old-ledge-cancel" => a with { OldLedgeCancel = true },
+                    "--old-lascannon-reload" => a with { OldLascannonReload = true },
+                    "--musou-melee-cooldown" => a with { MusouMeleeCooldown = true },
+                    "--musou-uncapped-melee-heal" => a with { MusouUncappedMeleeHeal = true },
+                    "--old-stim-use" => a with { OldStimUse = true },
+                    "--musou-aerial-tackle" => a with { AerialTackleRestored = true },
+                    "--musou-ork-swing-tracking" => a with { MusouOrkSwingTracking = true },
                     "--log-overlaps" => a with { LogOverlaps = true },
                     _ => a with { Help = true },
                 };
@@ -145,6 +224,7 @@ public static class ServerCommandLine
                     break;
                 case "--game-dir": a = a with { GameDir = value }; break;
                 case "--map": a = a with { Map = value }; break;
+                case "--maps": a = a with { Maps = value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries) }; break;
                 case "--mode":
                     if (value is "annihilation" or "seize" or "ffa")
                         a = a with { Teams = value != "ffa", Mode = value == "seize" ? GameMode.SeizeGround : GameMode.Annihilation };
@@ -188,6 +268,9 @@ public static class ServerCommandLine
                     break;
                 case "--name-seed":
                     if (uint.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out uint seed)) a = a with { NameSeed = seed }; else bad = "a whole number from 0 to 4294967295";
+                    break;
+                case "--snapshot-rate":
+                    if (Int(value) is { } rate && rate >= 1 && rate <= 30) a = a with { SnapshotRate = rate }; else bad = "a whole number from 1 to 30 (snapshots a second)";
                     break;
                 case "--bot-damage-scale":
                     if (Number(value) is { } scale && scale >= 0f && scale <= 1f) a = a with { BotDamageScale = scale }; else bad = "a factor from 0 to 1 (1 = off; a bot's flag is its own word, so it may only lower damage)";

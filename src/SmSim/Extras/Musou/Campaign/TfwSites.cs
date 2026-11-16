@@ -206,11 +206,14 @@ public sealed class TfwSites
         return node >= 0 ? _nav.Position(node) : p;
     }
 
-    /// <summary>A third of the time the Space Marine start area; else two draws of open ground away from every point, the farther from all of them winning.</summary>
+    /// <summary>
+    /// The Space Marine start area on a map that always lands there (<see cref="TfwBattlefield.BaseLanding"/>: Ashfall Citadel's Imperial base in the south centre, owner 2026-11-08); else a
+    /// third of the time the start area and otherwise two draws of open ground away from every point, the farther from all of them winning.
+    /// </summary>
     Vector3 Landing(ref ulong dice)
     {
         var start = OnGraph(_field.MarineStart);
-        if (_nav is null || Next(ref dice) % 3 == 0) return start;
+        if (_field.BaseLanding || _nav is null || Next(ref dice) % 3 == 0) return start;
         Func<Vector3, bool> away = at =>
         {
             foreach (var p in _field.Points) if (Flat(at, p.Centre) < LandingFromPoints) return false;

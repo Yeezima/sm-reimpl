@@ -90,6 +90,10 @@ public sealed class SoundModifiers
         return e.Offset ? own + w * v : own + w * (v - own);
     }
 
+    /// <summary>The live entries (a test aid's log, musou/sound-ab): property, target, scope, the value now and its blend weight now (0..1).</summary>
+    public IEnumerable<(SoundProperty Property, uint Target, ulong Scope, float Value, float Weight)> Live(double now) =>
+        _entries.Select(kv => (kv.Key.Property, kv.Key.Target, kv.Key.Scope, ValueOf(kv.Value, now), WeightOf(kv.Value, now)));
+
     /// <summary>Drops every entry scoped to one emitter (it is gone: a finished one-shot place, a player who left).</summary>
     public void ForgetEmitter(ulong emitter)
     {
@@ -118,12 +122,14 @@ public readonly record struct VoiceMix(float VolumeDb, float PitchCents, float L
 /// What a post adds to every voice it starts, on top of the data's mix (ours: the owner's footstep level, the deeper impacts and the soft hit confirm of
 /// sound/impacts): volume (dB), pitch (cents) and low-pass (Wwise's 0..100 units, added like a node's LPF).
 /// </summary>
-public readonly record struct VoiceOffset(float GainDb = 0f, float PitchCents = 0f, float Lpf = 0f)
+/// <remarks>sound/mix-and-reloads (<see cref="SoundMixPass"/>): <see cref="HighPass"/> routes the voice through the on-hit high-pass bus; <see cref="TailDb"/> (0 = none, negative)
+/// fades the voice down to that level after the jump pack's hold (<see cref="SoundMixPass.TailGainDb"/>).</remarks>
+public readonly record struct VoiceOffset(float GainDb = 0f, float PitchCents = 0f, float Lpf = 0f, bool HighPass = false, float TailDb = 0f, ScapeClass Scape = ScapeClass.None)
 {
     public static VoiceOffset None => default;
-    public bool IsNone => GainDb == 0f && PitchCents == 0f && Lpf == 0f;
-    public VoiceOffset Plus(VoiceOffset o) => new(GainDb + o.GainDb, PitchCents + o.PitchCents, Lpf + o.Lpf);
-    public override string ToString() => IsNone ? "none" : $"{GainDb:+0.#;-0.#;0} dB {PitchCents:+0;-0;0} c lpf {Lpf:+0;-0;0}";
+    public bool IsNone => GainDb == 0f && PitchCents == 0f && Lpf == 0f && !HighPass && TailDb == 0f && Scape == ScapeClass.None;
+    public VoiceOffset Plus(VoiceOffset o) => new(GainDb + o.GainDb, PitchCents + o.PitchCents, Lpf + o.Lpf, HighPass || o.HighPass, Math.Min(TailDb, o.TailDb), o.Scape != ScapeClass.None ? o.Scape : Scape);
+    public override string ToString() => IsNone ? "none" : $"{GainDb:+0.#;-0.#;0} dB {PitchCents:+0;-0;0} c lpf {Lpf:+0;-0;0}{(HighPass ? " hp" : "")}{(TailDb < 0f ? $" tail {TailDb:0.#} dB" : "")}{(Scape != ScapeClass.None ? $" scape {Scape}" : "")}";
 }
 
 /// <summary>

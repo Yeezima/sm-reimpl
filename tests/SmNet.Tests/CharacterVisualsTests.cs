@@ -17,8 +17,8 @@ public class CharacterVisualsTests
         Assert.Equal(0f, t.At(7, 10.0 + ArmourFlashTracker.HitSeconds + 0.01).Hit);
         t.Hit(7, 11.0, armourUp: false, regenDelay: 5f);
         Assert.True(t.At(7, 11.05).Break > 0.5f);
-        t.Hit(7, 11.2, armourUp: false, regenDelay: 5f);   // already down: no second break flash, but the red glow re-flashes (fx/red-glow-blood)
-        Assert.True(t.At(7, 11.21).Break > t.At(7, 11.15).Break);
+        t.Hit(7, 11.2, armourUp: false, regenDelay: 5f);   // already down: no second break flash; pvp-hit-fx: no re-flash either (the burst at the hit point shows it)
+        Assert.True(t.At(7, 11.21).Break < t.At(7, 11.15).Break);
     }
 
     [Fact]
@@ -51,7 +51,32 @@ public class CharacterVisualsTests
     }
 
     [Fact]
-    public void Damage_with_no_armour_reflashes_the_red_glow()
+    public void Damage_with_no_armour_reflashes_the_red_glow_under_the_old_health_hit_switch()
+    {
+        ArmourFlashTracker.Reflash = true;
+        try { Reflashes(); } finally { ArmourFlashTracker.Reflash = false; }
+    }
+
+    [Fact]
+    public void Damage_with_no_armour_shows_no_body_glow_now_and_a_break_is_queued_once()
+    {
+        // pvp-hit-fx (owner 2026-11-06): health hits show the burst at the hit point instead of the body re-flash; each break is handed out once for the data's break effect.
+        var t = new ArmourFlashTracker();
+        t.Hit(2, 5.0, true, 5f);
+        t.Hit(2, 6.0, false, 5f);   // up before, down now: the break
+        Assert.True(t.At(2, 6.05).Break > 0.7f);
+        Assert.True(t.TryTakeBreak(out int id) && id == 2);
+        Assert.False(t.TryTakeBreak(out _));
+        t.Hit(2, 8.0, false, 5f);   // a further hit with no armour
+        Assert.Equal(0f, t.At(2, 8.02).Break);
+        Assert.False(t.TryTakeBreak(out _));
+        t.OwnShield(1, 0.0, 50f, 100f, true, 100f);
+        t.OwnShield(1, 1.0, 0f, 100f, true, 100f);
+        Assert.True(t.TryTakeBreak(out int own) && own == 1);
+        Assert.False(t.BreakRing(1, 1.05));   // the engulfing glow, not the ring
+    }
+
+    static void Reflashes()
     {
         var t = new ArmourFlashTracker();
         t.OwnShield(1, 0.0, 0f, 100f, true, 100f);

@@ -9,7 +9,7 @@ using SmSim;
 namespace SmClient;
 
 /// <summary>
-/// M23: the death screen. While the own player is dead it has no control (no input is sampled or sent, the mouse look is frozen),
+/// M23: the death screen. While the own player is dead it has no control (no input is sampled or sent, the view is frozen; since late-g the mouse and the right stick orbit the death camera),
 /// the camera watches the own ragdoll and a strong vignette darkens the screen; every player who dies, own or remote, turns into a
 /// physics ragdoll (<see cref="Ragdoll"/>) that starts from the last animated pose and the body's velocity, pushed away from the
 /// killer, and lies on the map's collision until the player respawns. The death screen's look (loss of control, ragdoll, vignette,
@@ -60,11 +60,30 @@ public partial class NetworkView
     float _deathFov, _deathAz, _deathRadius, _deathEl;
     Vector3 _deathFocus;
     readonly SmNet.CameraBoom _deathFraction = new();       // M40-T6: the death camera's place along the cast from the focus (NetworkView.Spectate.cs)
+    readonly SmNet.DeathOrbit _deathOrbit = new();          // late-g: the mouse and right stick orbit the death camera round the body (SmNet.DeathOrbit)
+    float _deathBaseEl;                                     // the death camera's own elevation this frame (before the orbit), for the orbit's limits
+    double _deathOrbitLogAt;
+
+    /// <summary><c>--no-death-orbit</c>: the death camera ignores the mouse and the right stick, as before late-g (the fixed, slowly rising view).</summary>
+    static readonly bool NoDeathOrbit = CmdFlag("no-death-orbit");
+    /// <summary><c>--death-orbit-test &lt;deg/s&gt;</c> (test aid, bots too): while dead the orbit turns by that rate as if the view turned right, with a slow pitch sweep; DEATHORBIT log lines.</summary>
+    static readonly float? DeathOrbitTest = CmdArg("death-orbit-test") is { } dot && float.TryParse(dot, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var rate) && float.IsFinite(rate) ? rate : null;   // read here, not in ModelViewer.cs (kept out of the shared file)
+
+    /// <summary>
+    /// late-g: a look delta while dead (from the mouse or the right stick, in the alive view's terms: positive yaw turns left, positive pitch looks up)
+    /// orbits the death camera instead of turning the frozen view. False when the orbit is not active (alive, a spectator, the picker open, switched off).
+    /// </summary>
+    bool DeathOrbitLook(float viewYaw, float viewPitch)
+    {
+        if (NoDeathOrbit || !OwnDead || PickerBusy || !_deathCameraOn) return false;
+        _deathOrbit.Look(viewYaw, viewPitch, _deathBaseEl);
+        return true;
+    }
 
     /// <summary>The own player is dead (connected, no control until the respawn).</summary>
     bool OwnDead => _client is { Status: ClientStatus.Connected } c && !c.Predicted.Alive && Spectate is null;
 
-    Ragdoll? OwnRagdoll => _client is null ? null : _ragdolls.LastOrDefault(r => r.Own && IsInstanceValid(r));
+    Ragdoll? OwnRagdoll => _client is null ? null : _ragdolls.LastOrDefault(r => r.Own && !r.Orphan && IsInstanceValid(r));
 
     const string VignetteShader = """
         shader_type canvas_item;
@@ -124,11 +143,12 @@ public partial class NetworkView
     {
         bool wasAlive = _aliveSeen.GetValueOrDefault(id);
         _aliveSeen[id] = state.Alive;
+        _deadKept = false;
         if (state.Alive)
         {
             if (!wasAlive) UpperReset(id);   // pass 2: a respawn (or the first sight) starts afresh
-            RemoveRagdolls(id);   // also drops a death still queued for this id
             var pos = new Vector3(state.Position.X, state.Position.Y, state.Position.Z);
+            RemoveRagdolls(id, aliveAt: pos);   // also drops a death still queued for this id
             Vector3 vel;
             if (own) vel = new Vector3(state.Velocity.X, state.Velocity.Y, state.Velocity.Z);
             else if (_motion.TryGetValue(id, out var prev) && delta > 1e-4f)
@@ -149,9 +169,16 @@ public partial class NetworkView
             _pendingDeaths.Add((id, character, state, own, v));
         }
         UpperReset(id);   // pass 2: dead
-        if (own) character.Visible = false;
+        ExtrasDeadPlace(character, state, own, ref _deadKept);   // EXTRAS-HOOK: added content shows its own dead character (Musou: the Dreadnought's death clip)
+        if (own && !_deadKept) character.Visible = false;
         return false;
     }
+
+    /// <summary>Set by <see cref="TrackDeath"/> for the player it was last called for: added content keeps this dead character visible.</summary>
+    bool _deadKept;
+
+    /// <summary>Hook for added content: <paramref name="handled"/> set when the character's death is its own (no ragdoll is made).</summary>
+    partial void ExtrasDeath(CharacterViewer character, ref bool handled);
 
     /// <summary>Turns this frame's deaths into ragdolls (their kill events have been noted by now).</summary>
     void ProcessDeaths()
@@ -170,6 +197,9 @@ public partial class NetworkView
             var (id, character, state, own, velocity) = _deathBatch[index];
             if (index > 0 && !own && !HeavyLeft) { _pendingDeaths.Add(_deathBatch[index]); continue; }
             if (!_aliveSeen.TryGetValue(id, out var aliveNow) || aliveNow) continue;   // respawned, or left the match, while it waited
+            bool extraDeath = false;
+            ExtrasDeath(character, ref extraDeath);   // EXTRAS-HOOK: added content's own death (Musou: the Dreadnought plays his clip and gets no ragdoll)
+            if (extraDeath) continue;
             // Ork O7c (NetworkView.OrkActions.cs): an Ork plays its death clip until the graph hands the body to the ragdoll; the death waits (queued again) meanwhile.
             if (IsInstanceValid(character) && IsOrkCharacter(character) && OrkDeathHold(id, character, state, own)) { _pendingDeaths.Add(_deathBatch[index]); continue; }
             // Animation pass 2 (NetworkView.UpperBody.cs): a marine plays the graph's death clip for the blow until the clip's powered-ragdoll tag; the ragdoll starts from that pose.
@@ -185,6 +215,7 @@ public partial class NetworkView
                 RemoveRagdolls(id, keepDeathState: true);   // one player never has two corpses
                 KillView? kill = _deathCauses.TryGetValue(id, out var c) && _connectedFor - c.At < 3.0 ? c.Kill : null;
                 var kick = DeathKick(state, kill, out string why);   // Ork O7a: the push keeps the marine mass (parity) until the Ork blueprint's own push is read: spec "The networked Ork"
+                if (JumpDeathHeld(id)) { kick = Vector3.Zero; why = "jump death: no push at its hand-over (ours)"; }   // the blow came seconds ago; the body has fallen since (NetworkView.JumpDeath.cs)
                 // The body's own velocity is capped like the remote players' (a teleport or a dive must not fire the ragdoll through the map).
                 var rawVelocity = velocity;
                 velocity = HeldVelocity(id, velocity);   // pass 2: the held body has slid on and slowed meanwhile
@@ -192,27 +223,30 @@ public partial class NetworkView
                 // Make room: the cap counts ragdolls simulating or lying; the oldest goes (lying ones and other players' first, the own last).
                 while (_ragdolls.Count >= RagdollCap)
                 {
-                    var oldest = _ragdolls.FirstOrDefault(r => !r.Simulating && !r.Own) ?? _ragdolls.FirstOrDefault(r => !r.Own) ?? _ragdolls[0];
+                    var oldest = _ragdolls.FirstOrDefault(r => !r.Simulating && !r.Own && !CorpseHeld(r)) ?? _ragdolls.FirstOrDefault(r => !r.Simulating && !r.Own) ?? _ragdolls.FirstOrDefault(r => !r.Own) ?? _ragdolls[0];
+                    if (CorpseHeld(oldest) && RagdollSlotFree()) break;   // EXTRAS-HOOK (via CorpseHeld): added content keeps a young corpse and lets the count grow while a physics slot is free
                     RemoveRagdoll(oldest);
                 }
-                int slot = Enumerable.Range(0, Ragdoll.MaxSlots).First(s => !_ragdolls.Any(r => r.Simulating && r.Slot == s));
+                int slot = Enumerable.Range(0, Ragdoll.MaxSlots).FirstOrDefault(s => !_ragdolls.Any(r => r.Simulating && r.Slot == s), -1);
+                if (slot < 0) { MarineDeathForget(id); continue; }   // every physics slot simulating (only when added content keeps more corpses than the cap): this death gets no ragdoll
                 EnsureRagdollWorld();
-                rd = new Ragdoll { Name = $"Ragdoll{id}", PlayerId = id, Own = own };
+                rd = new Ragdoll { Name = $"Ragdoll{id}", PlayerId = id, Own = own, StartedAt = _connectedFor };
                 _gameSpace.AddChild(rd);
                 var spawnWatch = System.Diagnostics.Stopwatch.StartNew();
-                rd.Start(def, character, slot, _gameSpace.Basis * start, _gameSpace.Basis * kick);
+                var motion = IsOrkCharacter(character) ? null : DeathClipMotion(id);   // hit reactions: the death clip's motion carries on into the ragdoll
+                rd.Start(def, character, slot, _gameSpace.Basis * start, _gameSpace.Basis * kick, motion?.From, motion?.Seconds ?? 0f);
                 spawnWatch.Stop();
                 if (spawnWatch.Elapsed.TotalMilliseconds > 30) GD.Print($"t {_connectedFor:F1} s: slow ragdoll start for P{id}: {spawnWatch.Elapsed.TotalMilliseconds:F0} ms ({Ragdoll.LastSplits})");
                 if (character.Overlay is { } overlay) rd.Character?.SetOverlay(overlay);
                 _ragdolls.Add(rd);
                 _ragdollsStarted++;
                 double deathSeenAgo = _connectedFor - DeathSeenAt(id, _connectedFor);
-                try { ScheduleDeathFx(id, character, state, own, kill, rd); }   // F-D1: the data's death effects (queued; played in later frames, so the death frame costs nothing more)
+                try { if (!JumpDeathHandOver(id, rd)) ScheduleDeathFx(id, character, state, own, kill, rd); }   // F-D1: the data's death effects (queued; played in later frames, so the death frame costs nothing more); a held jump death's were queued at its death and move on to this ragdoll
                 catch (Exception ex) when (ex is not (StackOverflowException or AccessViolationException or OutOfMemoryException)) { if (_fxNoted.Add("deathfx-fault")) GD.PrintErr($"death effects failed: {ex}"); }
                 MarineDeathForget(id);   // pass 2: the hold is over, its state was used above
                 if (own) _cameraPlaced = false;
                 if (_bot || own || FrameProfileOn) GD.Print($"t {_connectedFor:F1} s: id {_client.PlayerId} ragdoll for P{id}{(own ? " (own)" : "")} at {state.Position.X:F1},{state.Position.Y:F1},{state.Position.Z:F1}: " +
-                                          $"body velocity {start.X:F1},{start.Y:F1},{start.Z:F1} m/s (raw {rawVelocity.X:F1},{rawVelocity.Y:F1},{rawVelocity.Z:F1}; death seen {deathSeenAgo:F2} s ago), push {kick.X:F1},{kick.Y:F1},{kick.Z:F1} m/s ({why}); slot {slot}, {_ragdolls.Count} ragdoll(s); corpse weapons {rd.Character?.Weapons?.WeaponCount ?? 0} ({string.Join(", ", rd.Character?.Weapons?.Description ?? [])}); built in {spawnWatch.Elapsed.TotalMilliseconds:F1} ms");
+                                          $"body velocity {start.X:F1},{start.Y:F1},{start.Z:F1} m/s (raw {rawVelocity.X:F1},{rawVelocity.Y:F1},{rawVelocity.Z:F1}; death seen {deathSeenAgo:F2} s ago), push {kick.X:F1},{kick.Y:F1},{kick.Z:F1} m/s ({why}); slot {slot}, {_ragdolls.Count} ragdoll(s); corpse weapons {rd.Character?.Weapons?.WeaponCount ?? 0} ({string.Join(", ", rd.Character?.Weapons?.Description ?? [])}); death clip's motion {(motion is { } mo ? $"over {mo.Seconds * 1000f:F0} ms" : "none")}; built in {spawnWatch.Elapsed.TotalMilliseconds:F1} ms");
             }
             catch (Exception ex) when (ex is not (StackOverflowException or AccessViolationException or OutOfMemoryException))
             {
@@ -304,12 +338,11 @@ public partial class NetworkView
     // ---- the world the ragdolls lie on ----
 
     /// <summary>Called from <see cref="LoadMap"/>: the map's character collision (layers "2" and "8") as one static trimesh for the ragdolls.</summary>
-    void BuildRagdollWorld(MapContent map)
+    void BuildRagdollWorld(MapContent map) => BuildRagdollWorld(RagdollWorldFaces(map));
+
+    /// <summary>polish pass P2: the ragdoll world's triangles from the map's character layers (any thread; the heavy half of the build), for <see cref="BuildRagdollWorld(List{Vector3})"/>.</summary>
+    static List<Vector3> RagdollWorldFaces(MapContent map)
     {
-        _ragdollWorld?.QueueFree();
-        _ragdollWorld = null;
-        if (_gameSpace is null) return;
-        var watch = System.Diagnostics.Stopwatch.StartNew();
         var faces = new List<Vector3>();
         foreach (var name in MapContent.CharacterLayers)
         {
@@ -320,6 +353,20 @@ public partial class NetworkView
                 faces.Add(new Vector3(a.X, a.Y, a.Z)); faces.Add(new Vector3(b.X, b.Y, b.Z)); faces.Add(new Vector3(c.X, c.Y, c.Z));
             }
         }
+        return faces;
+    }
+
+    /// <summary>
+    /// Main thread: the static body of the ragdoll world from its gathered triangles. The concave shape is made here, never on the load's worker: polish pass P3 tried that and
+    /// the client then crashed during the load on the Compatibility renderer in about half of the Musou joins (signal 11 between frames: 10 of 18 joins, none of 6 with the shape
+    /// made here), so the shape's 1.2 s on Ashfall (0.3 s on Manufactorum) stays in the load's main-thread frame.
+    /// </summary>
+    void BuildRagdollWorld(List<Vector3> faces)
+    {
+        _ragdollWorld?.QueueFree();
+        _ragdollWorld = null;
+        if (_gameSpace is null) return;
+        var watch = System.Diagnostics.Stopwatch.StartNew();
         if (faces.Count == 0) { _ragdollWorldNote = "map has no character collision; flat floor"; return; }
         float lowest = faces.Min(f => f.Z);   // game z up = Godot Y
         Ragdoll.LostBelowY = (_gameSpace.Transform * new Vector3(0, 0, lowest - 50f)).Y;
@@ -344,13 +391,40 @@ public partial class NetworkView
 
     // ---- bookkeeping ----
 
-    void RemoveRagdolls(int playerId, bool keepDeathState = false)
+    void RemoveRagdolls(int playerId, bool keepDeathState = false, Vector3? aliveAt = null)
     {
         if (_pendingDeaths.Count > 0) _pendingDeaths.RemoveAll(d => d.Id == playerId);   // a death still queued for a player who is alive again or gone (M40-T9)
         OrkDeathForget(playerId);   // Ork O7c: a death clip under way is over
         if (!keepDeathState) MarineDeathForget(playerId);   // pass 2: so is a marine's (ProcessDeaths keeps it until the ragdoll exists: the slide's velocity and the death's seen time are read from it)
         for (int i = _ragdolls.Count - 1; i >= 0; i--)
-            if (_ragdolls[i].PlayerId == playerId) RemoveRagdoll(_ragdolls[i]);
+            if (_ragdolls[i].PlayerId == playerId && !_ragdolls[i].Orphan)
+            {
+                if (CorpseHeld(_ragdolls[i], aliveAt)) _ragdolls[i].Orphan = true;   // EXTRAS-HOOK (via CorpseHeld): added content keeps the corpse until its own age frees it
+                else RemoveRagdoll(_ragdolls[i]);
+            }
+    }
+
+    /// <summary>Whether added content keeps this corpse a while yet (Musou Mode's corpse floor); false without added content, so the faithful game removes it as before.</summary>
+    bool CorpseHeld(Ragdoll rd, Vector3? aliveAt = null)
+    {
+        bool hold = false;
+        ExtrasCorpseHold(rd, aliveAt, ref hold);   // EXTRAS-HOOK: Musou Mode holds a Marine corpse 10 s (NetworkView.MusouCorpses.cs)
+        return hold;
+    }
+
+    /// <summary>
+    /// Added content's corpse floor (Musou Mode): <paramref name="hold"/> true keeps <paramref name="rd"/> although its player respawned or left, or the cap is full. <paramref name="aliveAt"/>: where
+    /// its player stands alive again (game space; null: he left, or the cap asks).
+    /// </summary>
+    partial void ExtrasCorpseHold(Ragdoll rd, Vector3? aliveAt, ref bool hold);
+
+    bool RagdollSlotFree() => Enumerable.Range(0, Ragdoll.MaxSlots).Any(s => !_ragdolls.Any(r => r.Simulating && r.Slot == s));
+
+    /// <summary>The orphaned corpses (kept by added content past their player) whose hold is over go.</summary>
+    void ReleaseOrphanRagdolls()
+    {
+        for (int i = _ragdolls.Count - 1; i >= 0; i--)
+            if (_ragdolls[i].Orphan && !CorpseHeld(_ragdolls[i])) RemoveRagdoll(_ragdolls[i]);
     }
 
     void RemoveRagdoll(Ragdoll rd)
@@ -363,6 +437,7 @@ public partial class NetworkView
     /// <summary>Frame bookkeeping: settled ragdolls, frame-time statistics and (bots) a periodic log line.</summary>
     void UpdateRagdolls(double delta)
     {
+        ReleaseOrphanRagdolls();
         PrewarmFrame();   // M40-T9: the weapon models and one hidden ragdoll a little after joining, so the first real death and the first weapon rig are not the first builds
         bool simulating = false;
         foreach (var rd in _ragdolls)
@@ -403,6 +478,7 @@ public partial class NetworkView
     /// </summary>
     bool DeathCamera(PlayerState me, float delta)
     {
+        _lascannonScope = 0f;   // sim/lascannon-steady-zoom: no scope while dead
         if (_camera is null || _gameSpace is null || Spectate is not null) return false;
         if (me.Alive)
         {
@@ -417,7 +493,7 @@ public partial class NetworkView
         }
         var feet = _gameSpace.Transform * new Vector3(me.Position.X, me.Position.Y, me.Position.Z);
         var rd = OwnRagdoll;
-        var focus = rd is not null ? rd.FocusPoint : feet + Vector3.Up * 1.2f;
+        var focus = rd is not null ? rd.FocusPoint : JumpDeathFocus(me.PlayerId) ?? feet + Vector3.Up * 1.2f;   // a jump death in mid-air: the falling body (NetworkView.JumpDeath.cs)
         if (!_deathCameraOn)
         {
             _deathCameraOn = true;
@@ -431,6 +507,8 @@ public partial class NetworkView
             _deathRadius = Math.Clamp(length, 2.5f, 5f);
             _deathFocus = focus;
             _deathFraction.Reset();
+            _deathOrbit.Reset();   // late-g: each death starts from the last camera
+            _deathBaseEl = _deathEl;
             _aimBlend = 0f; _evadeBlend = 0f;
         }
         _deathAge += delta;
@@ -440,6 +518,12 @@ public partial class NetworkView
         blend = blend * blend * (3f - 2f * blend);
         float az = _deathAz + 0.04f * Math.Min(t, 4f);   // almost still: the starting side is known to be clear of walls, a wider swing met props that have no collision shape in the install's data (the M39 crates and buttons do)
         float el = Mathf.Lerp(_deathEl, Math.Max(_deathEl, 0.4f), Math.Clamp(t / 1.5f, 0f, 1f));
+        _deathBaseEl = el;
+        if (DeathOrbitTest is { } rate && !NoDeathOrbit)   // test aid: a steady right turn and a slow pitch sweep (0.25 rad either way over 8 s)
+            _deathOrbit.Look(-Mathf.DegToRad(rate) * delta, 0.25f * MathF.Tau / 8f * MathF.Cos(t * MathF.Tau / 8f) * delta, el);
+        // late-g (the owner, 2026-11-06): the player's orbit on top (the mouse and the right stick, DeathOrbitLook); the casts below keep it out of walls.
+        az = _deathOrbit.Azimuth(az);
+        el = _deathOrbit.Elevation(el);
         float radius = Mathf.Lerp(_deathRadius, _deathRadius + 1.2f, Math.Clamp(t / 3f, 0f, 1f));
         var wanted = _deathFocus + new Vector3(MathF.Cos(el) * MathF.Cos(az), MathF.Sin(el), MathF.Cos(el) * MathF.Sin(az)) * radius;
         // M40-T6: the blend from the last camera to the orbit is smoothed (a smoothstep over DeathBlendSeconds), the sphere cast from
@@ -454,8 +538,29 @@ public partial class NetworkView
         _camera.GlobalTransform = new Transform3D(_deathStart.Basis.Orthonormalized().Slerp(look, blend), position);
         _camera.Fov = Mathf.Lerp(_deathFov, 60f, blend);
         _cameraOffset = position - feet;
-        _cameraInfo = $"death camera (after the user's description): orbit {az:F2} rad, elevation {el:F2}, {radius:F1} m, blend {blend:F2}, ragdoll {(rd is null ? "none" : rd.Simulating ? "simulating" : "lying")}";
+        _cameraInfo = $"death camera (after the user's description): orbit {az:F2} rad, elevation {el:F2}, {radius:F1} m, blend {blend:F2}, player orbit {(NoDeathOrbit ? "off" : $"yaw {_deathOrbit.Yaw:F2} rad, {(_deathOrbit.Moved ? $"elevation {_deathOrbit.Pitch:F2}" : "elevation untouched")}")}, ragdoll {(rd is null ? "none" : rd.Simulating ? "simulating" : "lying")}";
+        if (DeathOrbitTest is not null && _connectedFor - _deathOrbitLogAt >= 0.5)
+        {
+            _deathOrbitLogAt = _connectedFor;
+            GD.Print($"DEATHORBIT t {_deathAge:F2} s: orbit yaw {_deathOrbit.Yaw:F2} rad, {(_deathOrbit.Moved ? $"elevation held {_deathOrbit.Pitch:F2}" : "elevation untouched")}; azimuth {az:F2}, elevation {el:F2} rad; wanted {radius:F2} m, camera {(position - _deathFocus).Length():F2} m from the body; " +
+                     $"clearance {CameraClearance(position):F2} m, body {(CastClear(position, _deathFocus, 0.02f) >= position.DistanceTo(_deathFocus) - 0.05f ? "in sight" : "hidden")}");
+        }
         return true;
+    }
+
+    /// <summary>For the DEATHORBIT line: the distance (m, capped at 1) from <paramref name="p"/> (Godot space) to the nearest level surface along 26 rays.</summary>
+    float CameraClearance(Vector3 p)
+    {
+        if (_client?.Collision is not { } world || _gameSpace is null) return 1f;
+        var g = _gameSpace.Transform.AffineInverse() * p;
+        var origin = new System.Numerics.Vector3(g.X, g.Y, g.Z);
+        float best = 1f;
+        foreach (var dir in FanDirs)
+        {
+            if (world.Weapons.Raycast(origin, dir, 1f) is { } a) best = MathF.Min(best, a.Distance);
+            if (world.Character.Raycast(origin, dir, 1f) is { } b) best = MathF.Min(best, b.Distance);
+        }
+        return best;
     }
 
     /// <summary>For --screenshot-on-effect: a ragdoll that died in the last 3 s is in the camera's view.</summary>

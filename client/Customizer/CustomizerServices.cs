@@ -17,7 +17,7 @@ namespace SmClient.Customizer;
 /// the screens wait for <see cref="Ready"/>. The profile lives in Godot's user directory (<c>%APPDATA%\sm-reimpl</c>; project setting) unless <c>--profile</c>
 /// names a file: then the profile, its emblems and the front-end settings stay next to that file. Never the repository, never the game install.
 /// </summary>
-public sealed class CustomizerServices
+public sealed partial class CustomizerServices
 {
     public string GameDir { get; }
     public string SettingsDirectory { get; }
@@ -32,11 +32,74 @@ public sealed class CustomizerServices
     /// <see cref="ContentProfiles.DefaultName"/>, extended: the owner's decision of 2026-10-29). The lobby menu's CONTENT row changes it (<see cref="SetContent"/>); the
     /// in-match picker sets it to the match's own flags. The customizer offers only the factions it allows (<see cref="Factions"/>), and a Join never asks for more.
     /// </summary>
-    public ContentExtras Content { get; set; }
+    public ContentExtras Content
+    {
+        get => _content;
+        set { _content = value; ApplyProfileView(); }
+    }
+    ContentExtras _content;
+    readonly object _viewLock = new();
 
-    public CustomizationCatalog? Catalog { get; private set; }
+    /// <summary>
+    /// Puts the profile view of the content profile into the session (musou/loadout-slots, 2026-11-10): an added mode's own loadout slots (<see cref="ExtrasProfileView"/>), or none (the profile's own
+    /// slots, Classic PvP). Called when the content profile changes, when the profile is loaded, and by a screen that changes what its view shows.
+    /// </summary>
+    public void ApplyProfileView() => ApplyProfileView(Session);
+
+    void ApplyProfileView(ProfileSession? session)
+    {
+        if (session is null) return;
+        lock (_viewLock)
+        {
+            IProfileView? view = null;
+            ExtrasProfileView(ref view);   // EXTRAS-HOOK: Musou Mode's own loadout slots
+            session.UseView(view);
+        }
+    }
+
+    /// <summary>
+    /// Hook for added content (docs/added-content.md; client/Extras/Musou/Customizer/CustomizerServices.Musou.cs): the view of the profile the screens edit for this content profile. Leaves it null (the
+    /// profile's own slots) unless its content profile is on.
+    /// </summary>
+    partial void ExtrasProfileView(ref IProfileView? view);
+
+    CustomizationCatalog? _catalog;
+    (ContentExtras Content, CustomizationCatalog Data, CustomizationCatalog Shown)? _contentCatalog;
+
+    /// <summary>
+    /// The catalogue as the content profile in effect (<see cref="Content"/>) offers it: <see cref="CustomizationCatalog.For"/>, so Musou's profile lists its arsenal's items (W0, docs/new-weapons-design.md
+    /// section 8, hook 3) and every other profile the data's catalogue itself. The profile is read and repaired with the data's (<see cref="ProfileSession.Catalog"/>). Kept per content profile.
+    /// </summary>
+    public CustomizationCatalog? Catalog
+    {
+        get
+        {
+            if (_catalog is not { } data) return null;
+            var content = Content;
+            if (_contentCatalog is { } known && known.Content == content && ReferenceEquals(known.Data, data)) return known.Shown;
+            var shown = data.For(content);
+            _contentCatalog = (content, data, shown);
+            return shown;
+        }
+        private set => _catalog = value;
+    }
     public ProfileSession? Session { get; private set; }
-    public SimConfig? Config { get; private set; }
+    SimConfig? _config;
+    /// <summary>
+    /// The configuration the customizer plans a Join with: the data's, or (added content, <see cref="ExtrasConfig"/>) the one of the content profile in effect, so a name its arsenal adds (Musou's autocannon)
+    /// resolves to an index. Null while that configuration is still being read, so <see cref="Ready"/> waits for it.
+    /// </summary>
+    public SimConfig? Config
+    {
+        get { var config = _config; ExtrasConfig(ref config); return config; }   // EXTRAS-HOOK: Musou's own config for a Musou profile (client/Extras/Musou/Arsenal/CustomizerServices.Arsenal.cs)
+        private set => _config = value;
+    }
+
+    /// <summary>Hook for added content: replaces <paramref name="config"/> (the data's) by the one its content profile plays with; null while that is read. Leaves it alone unless its content profile is on.</summary>
+    partial void ExtrasConfig(ref SimConfig? config);
+
+    /// <summary>Hook for added content: runs at the end of the load, on its worker, so what the content profile needs beyond the data's configuration is read before <see cref="LoadTask"/> completes (a caller that waits on it then finds <see cref="Ready"/> true).</summary>
+    partial void ExtrasLoaded();
     /// <summary>Whether each perk does anything in the simulation (the creator's NOT ACTIVE YET / PARTLY ACTIVE words); read once with the config.</summary>
     public IReadOnlyDictionary<string, PerkStatus>? PerkActivities { get; private set; }
     public string? Error { get; private set; }
@@ -47,6 +110,9 @@ public sealed class CustomizerServices
 
     /// <summary>The services are used by the in-match picker (<c>C</c>): the 3D preview then draws no eye glow, since the match has its own effects and a second library would load beside it.</summary>
     public bool InMatch { get; set; }
+
+    /// <summary>These services were made for a match's picker (<c>NetworkView.OfMatch</c>) and stay so: unlike <see cref="InMatch"/> it is never reset, so what only the front end needs (Musou's own configuration for a Join, <see cref="ExtrasConfig"/>) is never read for a match.</summary>
+    public bool MadeForMatch { get; set; }
 
     public PreviewAssets Previews { get; }
 
@@ -100,12 +166,19 @@ public sealed class CustomizerServices
             // ui/customizer-ork: a build with added content reads the Ork Boy too (appended as the last class, so the six classes' indices and values are the
             // same), so the creator and a Join can name his class; the content profile decides whether he is offered (ContentGate, JoinPlan.Build).
             var tuning = ContentExtras.Compiled ? GameplayTuning.LoadForMatch(GameDir, ContentExtras.Orks) : GameplayTuning.Load(GameDir);
-            var session = ProfileSession.Open(catalog, Store);
+            // The profile is read and repaired with the data's catalogue plus the items a Classic profile with added content offers (Classic PvP's autocannon, 2026-11-11: catalog.For adds them only
+            // in a build with added content), so a slot saved under Extended keeps its autocannon whichever profile the front end opens with; what a page shows is still Catalog (its own profile's).
+            var session = ProfileSession.Open(catalog.For(ContentExtras.Autocannon), Store);
             lock (Notes) { Notes.AddRange(notes); Notes.AddRange(tuning.Notes); }
             PerkActivities = PerkStatuses.Of(tuning.Config);
             Config = tuning.Config;
-            Session = session;
+            lock (_viewLock)
+            {
+                Session = session;
+                ApplyProfileView(session);   // before any screen listens: the content profile's view from the start
+            }
             Catalog = catalog;
+            ExtrasLoaded();   // EXTRAS-HOOK: the added content's own reads finish before LoadTask does (Musou's own configuration)
         }
         catch (Exception ex) when (ex is not (OutOfMemoryException or StackOverflowException or AccessViolationException))
         {
@@ -159,7 +232,7 @@ public sealed class CustomizerServices
     /// </summary>
     public IReadOnlyList<(string Race, string Label)> Factions()
     {
-        var list = new List<(string, string)>();
+        var list = new List<(string Race, string Label)>();
         foreach (var race in ContentGate.Factions(Content))
         {
             if (ProfileWire.RaceName(race) is not { } name) continue;
@@ -167,8 +240,15 @@ public sealed class CustomizerServices
             if (race == Race.Orks ? !HasOrkClass : Catalog?.Race(name) is null) continue;
             list.Add((name, race switch { Race.Chaos => "Chaos", Race.Orks => "Orks", _ => "Space Marines" }));
         }
+        ExtrasFactions(ref list);   // EXTRAS-HOOK: an added mode that plays one side only (Musou Mode: the Space Marines)
         return list;
     }
+
+    /// <summary>
+    /// Hook for added content (docs/added-content.md; client/Extras/Musou/Customizer/CustomizerServices.Musou.cs): the factions the customizer's screens offer, after the profile's own. Returns at once
+    /// unless its content profile is on.
+    /// </summary>
+    partial void ExtrasFactions(ref List<(string Race, string Label)> factions);
 
     /// <summary>The configuration this run read has the Ork Boy's class (a build with added content whose Ork read worked).</summary>
     public bool HasOrkClass => Config?.Classes.Any(c => c.Race == Race.Orks) == true;

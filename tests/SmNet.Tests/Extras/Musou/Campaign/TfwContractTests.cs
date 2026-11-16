@@ -61,19 +61,21 @@ public class TfwContractTests
     }
 
     [Theory]
-    [InlineData(ContentExtras.Musou, null, true, TfwMap.Name)]        // Musou Mode is the war
-    [InlineData(ContentExtras.Musou, TfwMap.Name, true, TfwMap.Name)]
-    [InlineData(ContentExtras.Musou, "mp_tdm_09", false, "mp_tdm_09")]   // the 5-wave run's test aid
-    [InlineData(ContentExtras.Musou, "none", false, "none")]
-    [InlineData(ContentExtras.None, null, false, null)]
-    [InlineData(ContentExtras.Orks | ContentExtras.Gore | ContentExtras.LoyalistBarks, "mp_tdm_09", false, "mp_tdm_09")]
-    public void A_server_generates_the_war_map_for_musou_alone(ContentExtras extras, string? asked, bool generated, string? named)
+    [InlineData(ContentExtras.Musou, null, false, true, TfwMap.Name)]        // Musou Mode is the war, on Ashfall Citadel: generated, nothing needed from the install
+    [InlineData(ContentExtras.Musou, TfwMap.Name, false, true, TfwMap.Name)]
+    [InlineData(ContentExtras.Musou, TfwMap.ManufactorumName, true, false, TfwMap.ManufactorumName)]   // the restore switch needs the install's Manufactorum (this install has none)
+    [InlineData(ContentExtras.Musou, "mp_tdm_09", false, false, "mp_tdm_09")]   // the 5-wave run's test aid
+    [InlineData(ContentExtras.Musou, "none", false, false, "none")]
+    [InlineData(ContentExtras.None, null, false, false, null)]
+    [InlineData(ContentExtras.Orks | ContentExtras.Gore | ContentExtras.LoyalistBarks, "mp_tdm_09", false, false, "mp_tdm_09")]
+    public void A_server_generates_the_war_map_for_musou_alone(ContentExtras extras, string? asked, bool refused, bool composed, string? named)
     {
         string? name = asked;
         var map = GameServer.GeneratedMap(extras, NoInstall, ref name, out string? error);
-        Assert.Equal(generated, error is not null);   // the map would be composed: this install has no Manufactorum
-        if (generated) Assert.Contains(TfwMap.Battlefield, error);
-        Assert.Null(map);
+        Assert.Equal(refused, error is not null);
+        if (refused) Assert.Contains(TfwMap.Battlefield, error);
+        Assert.Equal(composed, map is not null);
+        if (map is not null) Assert.Equal(named, map.Name);
         Assert.Equal(named, name);
     }
 
@@ -83,9 +85,12 @@ public class TfwContractTests
     [InlineData(ContentExtras.Orks)]
     public void The_war_map_without_musou_is_refused(ContentExtras extras)
     {
-        string? name = TfwMap.Name;
-        Assert.Null(GameServer.GeneratedMap(extras, NoInstall, ref name, out string? error));
-        Assert.Contains("--content musou", error);
+        foreach (string war in new[] { TfwMap.Name, TfwMap.ManufactorumName })
+        {
+            string? name = war;
+            Assert.Null(GameServer.GeneratedMap(extras, NoInstall, ref name, out string? error));
+            Assert.Contains("--content musou", error);
+        }
     }
 
     [Fact]
@@ -259,8 +264,8 @@ public class TfwContractTests
     public void The_wars_tags_are_its_own_and_a_command_round_trips()
     {
         for (int tag = 0; tag <= 255; tag++)
-            Assert.Equal(tag is >= 7 and <= 15, TfwWire.Owns((byte)tag));
-        for (byte tag = 7; tag <= 15; tag++) Assert.False(MusouWire.Owns(tag));
+            Assert.Equal(tag is >= 7 and <= 18, TfwWire.Owns((byte)tag));   // 17: S4 Meks, 18: S6 armies
+        for (byte tag = 7; tag <= 18; tag++) Assert.False(MusouWire.Owns(tag));
         var c = new TfwCommandRecord(0xABCD, TfwCommand.Attack, 3);
         Assert.Equal(c, TfwWire.ReadCommand(TfwWire.WriteCommand(c)));
         Assert.Null(TfwWire.ReadCommand([1, 2, 3]));

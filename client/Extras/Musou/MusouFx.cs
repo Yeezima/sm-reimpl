@@ -16,7 +16,7 @@ namespace SmClient;
 /// <list type="bullet">
 /// <item>Hit feedback: the match HUD's hit marker for the own hits on enemies (a head hit in its warm colour) and the kill marker for an own KO; at enemy hits
 /// within <see cref="FxRange"/> the red splash of a body hit (<see cref="BloodSplashAt"/>) and, for an own shot, the weapon's own impact on broken armour (the
-/// flesh-penetrating variant, <see cref="EffectCatalogue.Impact"/>), at most <see cref="FxPerSecond"/> a second.</item>
+/// flesh-penetrating variant, <see cref="EffectCatalogue.Impact"/>), within the gore budget by source (<see cref="MusouGoreBudget"/>, NetworkView.MusouGoreBudget.cs; 16 a second shared before musou-net-budget).</item>
 /// <item>Telegraphs (<see cref="MusouTelegraphs"/>): a faint wedge on the ground in front of an enemy winding up a melee blow (its reach and cone, filling over the
 /// wind-up); the Warboss's Ground Slam as a ring of its radius filling over its wind-up, its Charge as a lane of its width to its end point; Waaagh! and the
 /// enrage as call-outs with a screen flash. Their sounds are <c>NetworkView.MusouSounds.cs</c>.</item>
@@ -32,8 +32,6 @@ public partial class NetworkView
 {
     /// <summary>Enemy hits farther than this from the camera get no blood or impact (m, ours).</summary>
     const float FxRange = 30f;
-    /// <summary>Most hit effects a second (a token bucket of <see cref="FxBurst"/>; ours).</summary>
-    const float FxPerSecond = 16f, FxBurst = 8f;
     MusouHud? _musouHud;
     int _musouLivesMax;
     uint _musouRunTick;
@@ -42,7 +40,6 @@ public partial class NetworkView
     double _musouDirectorAt;
     bool _musouEnraged;
     ushort _musouBossId;
-    float _musouFxTokens = FxBurst;
     int _musouHitFx, _musouHitMarkers;
     readonly MusouScoreTracker _musouScore = new();
     string? _musouDemo;
@@ -104,7 +101,9 @@ public partial class NetworkView
         var boss = rules.Boss;
         int ownId = client.PlayerId;
         var camera = _camera is null ? Num.Vector3.Zero : new Num.Vector3(_camera.GlobalPosition.X, -_camera.GlobalPosition.Z, _camera.GlobalPosition.Y);   // Godot to game space
-        _musouFxTokens = MathF.Min(FxBurst, _musouFxTokens + FxPerSecond * delta);
+        _musouGore.Refill((float)delta);   // musou-net-budget: the gore budget by source (NetworkView.MusouGoreBudget.cs)
+        MusouGoreBudgetLog();
+        MusouContactFrame(delta);   // combat feel: budgets, expiry, the log (NetworkView.MusouContact.cs)
         bool present = _musouHud is not null && _musouTelegraphs is not null;
 
         // The director: a new run forgets the crowd's enemies, the run's own counts and the telegraphs.
@@ -134,9 +133,13 @@ public partial class NetworkView
             switch (e.Kind)
             {
                 case MusouEventKind.Hit:
+                    if (e.Player == ownId && e.Player != 0 && _musouHud is { } own && own.IsBoss(e.Enemy)) own.Data.HitAt[e.Enemy] = now;   // the boss column's priority: the own player's hits on bosses only (MusouHud.BossColumn.cs)
                     if (!present) break;
                     if (e.Player == ownId) { _hudView?.ShowHitMarker(false, e.Value == 2); _musouHitMarkers++; }
+                    if (MusouWeirdboyShieldHit(e, shown)) break;   // the Weirdboy's shield took it: its pulse, no blood (NetworkView.MusouWeirdboy.cs)
                     MusouHitFx(e, shown, camera, own: e.Player == ownId, me);
+                    MusouRecoil(e, shown, me);   // combat feel: the rank and file pushed back from the blow (NetworkView.MusouContact.cs)
+                    MusouOrkFlinchHit(e, shown, me);   // Ork hit reactions (owner 2026-11-13): the Ork flinches away from the hit (NetworkView.MusouOrkFlinch.cs)
                     break;
                 case MusouEventKind.Death:
                     var (_, type) = MusouDeathOf(e);
@@ -157,9 +160,15 @@ public partial class NetworkView
 
         // The match HUD's score box: Musou has no team scores (the owner, 2026-11-01: removed; the KOs and points are in the run panel).
         if (_hudView is not null) _hudView.Data.NoScorePanel = true;
+        // The owner, 2026-11-10 ("Bottom left, approve"): the own armour and health bar bottom left, over the Boss Ork bars (MusouHudLayout); --musou-old-hud: the original's top centre.
+        if (_hudView is not null) _hudView.Data.VitalsCorner = MusouHudLayout.Old ? null : MusouHudLayout.VitalsCorner;
+        // The owner, 2026-11-12: the weapon and equipment panel in the bottom right corner, the same distance from the edges as the own bar's from the bottom left (MusouHudLayout.CornerMargin);
+        // --musou-old-hud-layout and --musou-old-hud: the match HUD's place.
+        if (_hudView is not null) _hudView.Data.WeaponBoxCorner = MusouHudLayout.WeaponBoxCorner;
 
         // The HUD's frame.
         var f = _musouHud.Data;
+        f.Now = now;
         f.Director = d;
         f.Alive = me.Alive;
         float rate = Math.Max(1, _config.TickRate);
@@ -189,7 +198,12 @@ public partial class NetworkView
             shown = _musouDemoShown;
         }
 
+        _musouTelegraphs.Wedges = _tfwState.War is null;   // the owner, 2026-11-06: no melee wedges under the Orks in Musou Mode (the 5-wave run keeps them; the boss's rings and lanes stay)
         _musouTelegraphs.Frame(shown, camera, rules, delta);
+        MusouWeirdboyFrame(shown);   // his shield and his coming (NetworkView.MusouWeirdboy.cs)
+        MusouS2Frame(shown, delta);   // the rockets, the warning, the fuses (NetworkView.MusouSquigRokkit.cs)
+        MusouStormboyFrame(shown);   // expansion S3: the Stormboys' packs and thrust (NetworkView.MusouStormboy.cs)
+        MusouMekFrame(shown, delta);   // expansion S4: the Meks' wrenches and their contraptions (Meks/NetworkView.MusouMeks.cs)
     }
 
     /// <summary>Whether the director went from <paramref name="prev"/> into a new run: back to waiting, out of a won or lost run, or the wave counting back.</summary>
@@ -232,21 +246,36 @@ public partial class NetworkView
         if (i >= 0 && at.Z < shown[i].Position.Z + 0.5f) at = new Num.Vector3(at.X, at.Y, shown[i].Position.Z + 1.1f);
         else if (i < 0 && own) at = new Num.Vector3(at.X, at.Y, at.Z + 1.1f);
         bool? material = _musouTypeOf.TryGetValue(e.Enemy, out var hitType) ? MusouFleshRule.Material(hitType) : null;   // owner 2026-11-04: an unarmoured Ork's hit is always the flesh case
-        if (e.Value == 3) { MusouPowerFlash(e, at, camera, me); MusouMeleeHitSound(e, at, camera, me, material); }   // fx/power-flash: a power weapon's cleave (the swing's budget caps the bursts)
+        bool predicted = own && MusouContactShown(e);   // combat feel (2026-11-09): this contact was shown at the prediction (NetworkView.MusouContact.cs): no second slash, flash, shake, impact or sound
+        if (e.Value == 3 && !predicted) MusouMeleeSlash(e, at, camera, own, me);   // the red / blue slash and the small own-hit shake (NetworkView.MusouSlash.cs)
+        if (e.Value == 3 && !predicted) { MusouPowerFlash(e, at, camera, me); MusouMeleeHitSound(e, at, camera, me, material); }   // fx/power-flash: a power weapon's cleave (the swing's budget caps the bursts)
         // The own weapon's hit sound on the enemy (hit-scan weapons; the killing blow included): the flesh case for an unarmoured Ork, the usual armour rule otherwise (owner 2026-11-04).
-        if (own && e.Value is 1 or 2 && !NoSound && Loadouts.InHand(_config!, me) is { Delivery: DeliveryKind.Raycast } gun && _soundTriggers?.HitSound(gun.Name) is { } gunHit)
+        // Combat feel: one sound a shot and a budget a second (a piercing shot or a burst no longer stacks identical sounds), none for a contact already sounded.
+        if (own && !predicted && e.Value is 1 or 2 && !NoSound && Loadouts.InHand(_config!, me) is { Delivery: DeliveryKind.Raycast } gun && _soundTriggers?.HitSound(gun.Name) is { } gunHit
+            && (MusouOldContact || MusouGunSoundTake(e.Tick)))
         {
             var emitter = new SoundEmitter { Position = ToGodot(at), Label = "musou enemy hit", OneShot = true };
             PostPlayerHitSound(gunHit, emitter, ImpactSounds.ImpactOffset(ImpactTreatmentArg, gunHit, hitScan: true), material);
             CountSound("body hit");
+            MusouStalkerConfirm(gun.Name, material == true);   // sound/stalker-hit-confirm: the stalker's confirm on the shooter
+            MusouBolterFirstHit(gun.Name, emitter.Position);   // musou/audio-pass: a bolter rifle's wet smack, then the explosion, on the first Ork the shot hits (once a shot, as the hit sound)
         }
-        if (_musouFxTokens < 1f || Num.Vector3.DistanceSquared(at, camera) > FxRange * FxRange) return;
-        _musouFxTokens -= 1f;
+        if (predicted && e.Value is 1 or 2) return;   // the shot's impact was drawn at the shot (a kill's gore is the death's, elsewhere)
+        var source = MusouGoreSourceOf(e.Player);
+        _musouGoreHits[(int)source]++;
+        float reach = MusouOldGoreBudget ? FxRange : MusouGorePriority.HitMetres(source);   // musou-net-budget: the own hits reach 60 m, the allies' 40 (30 for all before)
+        if (Num.Vector3.DistanceSquared(at, camera) > reach * reach) { _musouGoreHitsFar[(int)source]++; return; }
+        if (!_musouGore.TakeHit(source)) return;   // musou-net-budget: the own hits first, then the allies', then the rest (one shared bucket of 16 a second before)
         _musouHitFx++;
         var end = ToGodot(at);
         var from = _camera?.GlobalPosition ?? end + Vector3.Up;
         var dir = (end - from).Normalized();
         if (GoreOff) BloodSplashAt(end, dir, 0.0);   // the gore draws the blood (dark, from the same hit); the faithful red glow only when the gore is off
+        if (OrkBloodOn)   // gore-original: every shooter's hit plays its weapon's own impact for the Ork's flesh (NetworkView.OrkBlood.cs)
+        {
+            if (e.Value is 1 or 2 && e.Player != 0) OrkBloodHit(own ? me : MusouPlayerState(e.Player), e.Value == 2, _musouTypeOf.TryGetValue(e.Enemy, out var shotType) && shotType == MusouEnemyType.ChaosMarine, end, dir, at, MusouGoreFxPriority(source));
+            return;
+        }
         if (!own || e.Value == 3 || _fx is null || _catalogue is null || Loadouts.InHand(_config!, me) is not { } weapon) return;
         var plays = _catalogue.Impact(weapon.Name, e.Value == 2 ? ShotHit.Head : ShotHit.Body, 0, armourUp: false);
         for (int k = 0; k < plays.Count; k++)
@@ -321,8 +350,9 @@ public partial class NetworkView
     {
         if (!MusouActive || _config is null) return;
         var rules = MusouCombatRules.Default;
-        float reach = _config.MeleeRange + rules.CleaveExtraRange + (step.TrackToHit ? MusouCombatRules.CleaveTrackRange : 0f);
+        float reach = rules.CleaveRange(_config.MeleeRange, step.TrackToHit);
         float minCos = MathF.Cos(MathF.Min(180f, _config.MeleeConeDegrees * rules.CleaveConeScale) * MathF.PI / 180f);
+        if (_tfwState.War is not null) { reach *= SmSim.Extras.Musou.Campaign.TfwCombatRules.Default.CleaveReachScale * SmSim.Extras.Musou.Campaign.TfwCombatRules.Default.PlayerCleaveReachScale; minCos = SmSim.Extras.Musou.Campaign.TfwCombatRules.Default.CleaveMinCos; }   // owner 2026-11-09; x0.6, owner 2026-11-11
         var forward = new Num.Vector2(-MathF.Sin(me.Yaw), MathF.Cos(me.Yaw));
         float best = float.PositiveInfinity;
         for (int i = 0; i < _tfwShown.Count; i++)
@@ -348,6 +378,11 @@ public partial class NetworkView
     /// <summary>A telegraph: the boss's ring, lane and call-outs.</summary>
     void MusouTelegraph(in MusouEvent e, IReadOnlyList<MusouShown> shown, Num.Vector3 camera, MusouBossRules boss)
     {
+        if (e.Value == MusouGunBurst.Cue || e.Value == MusouBigShoota.BurstCue) return;   // a gun Ork's burst begins: its rounds are built in NetworkView.MusouGuns.cs
+        if (MusouWeirdboyCue(e, shown)) return;   // the Weirdboy's bolts, shield, teleport and summons (NetworkView.MusouWeirdboy.cs)
+        if (MusouS2Cue(e, shown)) return;   // expansion S2: the Bomb Squig's and the Rokkit Boy's cues (NetworkView.MusouSquigRokkit.cs)
+        if (MusouStormboyCue(e, shown)) return;
+        if (MusouMekCue(e, shown)) return;   // expansion S4: the Scrap Meks' contraptions (Meks/NetworkView.MusouMeks.cs)   // expansion S3: the Stormboys' hops and crashes, the Big Shoota's steam (NetworkView.MusouStormboy.cs)
         int i = MusouFind(shown, e.Enemy);
         var from = i >= 0 ? shown[i].Position : e.Vector;
         switch ((MusouBossAbility)e.Value)
@@ -371,8 +406,8 @@ public partial class NetworkView
     }
 
     /// <summary>The note for the 10 s log line.</summary>
-    string MusouPresentNote() => _musouHud is null ? "hud none" : $"hud on, hit markers {_musouHitMarkers}, hit fx {_musouHitFx}, " +
-                                                                  $"telegraphs {_musouTelegraphs?.Shown ?? 0}, KOs {_musouScore.Kos} pts {_musouScore.Points}";
+    string MusouPresentNote() => (_musouHud is null ? "hud none" : $"hud on, hit markers {_musouHitMarkers}, hit fx {_musouHitFx}, " +
+                                                                  $"telegraphs {_musouTelegraphs?.Shown ?? 0}, KOs {_musouScore.Kos} pts {_musouScore.Points}") + "; " + MusouStormboyNote() + "; " + MusouMekNote() + "; " + MusouPowerupsInfoLine();
 
     /// <summary><c>--musou-hud-demo</c>: made-up values for screenshots (the phase held, or wave, break, boss, won, lost in turn every 4 s).</summary>
     void MusouDemo(MusouHud.Frame f, PlayerState me, MusouRules rules, double now)
@@ -383,6 +418,16 @@ public partial class NetworkView
         _musouDemoPhase = phase;
         _musouDemoCycle = cycle;
         var box = f.Director?.Box ?? new MusouBox(new Num.Vector3(-100f), new Num.Vector3(100f));
+        if (phase == "campaign")
+        {
+            // Musou Mode's battle with every element of its HUD on (2026-11-10, the edge layout's screenshots): the real director with a made-up commander, the chain and a
+            // call-out every 4 s; the Boss Orks, the on-point bar and the drop prompt are the war's (MusouHudDemoCampaign, Tfw/NetworkView.Tfw.cs).
+            if (f.Director is { } real) f.Director = real with { BossId = 77, BossHealth = 2480f, BossMaxHealth = 4000f };
+            f.Kos = 214; f.Points = 3120;
+            f.Chain = 6; f.Multiplier = MathF.Min(rules.ChainMax, 1f + rules.ChainStep * 6); f.ChainLeft = 0.65f;
+            if (fresh) _musouHud?.CallOut(cycle % 2 == 0 ? "BOSS ORK INCOMING" : "WAAAGH!", new Color(1f, 0.45f, 0.05f), 3.8);
+            return;
+        }
         f.Director = phase switch
         {
             "break" => new MusouDirectorView(2, 5, MusouPhase.Break, (ushort)(12 * _config!.TickRate), 0, 0, 0, 0f, 0f, 5, box),
@@ -479,6 +524,9 @@ void fragment() {
     /// <summary>Marks drawn in the last frame (rings, lanes and wedges).</summary>
     public int Shown { get; private set; }
 
+    /// <summary>Whether the melee wind-ups' wedges show (false in Musou Mode: the owner, 2026-11-06, "remove the small red attack incoming indicators that appear under them when they are melee attacking").</summary>
+    public bool Wedges { get; set; } = true;
+
     Mark NewMark(float shape, Color tint)
     {
         _shader ??= new Shader { Code = ShaderCode };
@@ -558,7 +606,7 @@ void fragment() {
             count++;
         }
         int w = 0;
-        for (int i = 0; i < shown.Count && w < MaxWedges; i++)
+        for (int i = 0; i < shown.Count && w < MaxWedges && Wedges; i++)
         {
             var e = shown[i];
             if (e.State != MusouEnemyState.WindUp || (int)e.Type >= rules.Types.Count || e.Type == MusouEnemyType.Warboss && count > 0) continue;

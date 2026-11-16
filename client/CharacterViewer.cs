@@ -159,6 +159,7 @@ public partial class CharacterViewer : Node3D
         Live.Add(this);
         PosePopProbe.EnsureStarted(this);   // --pose-pop-probe (M40-T3)
         AnimProbe.EnsureStarted(this);      // --anim-probe (M40-T1)
+        LegProbe.EnsureStarted(this);       // --leg-probe (night batch 2026-11-06 anim/sword-legs)
         TurnProbe.EnsureStarted(this);      // --anim-probe too (M40-T5)
         PoseHashProbe.EnsureStarted(this);  // --pose-hash <file> (animation pass 1)
         TransitionProbe.EnsureStarted(this); // --transition-probe (animation pass 3)
@@ -371,6 +372,9 @@ public partial class CharacterViewer : Node3D
         _stanceMode = true;
     }
 
+    /// <summary>anim/jump-pack-blend: set around the call that starts a stance fade, its shortest length (s; 0: the usual); the caller clears it.</summary>
+    public float StanceFadeFloorOnce;
+
     /// <summary>Makes a layer the one fading in (the others fade out); the fade time applies when it was not the target before.</summary>
     void SelectLayer(Layer layer, float fadeSeconds)
     {
@@ -379,6 +383,8 @@ public partial class CharacterViewer : Node3D
         if (selected)
         {
             float seconds = float.IsFinite(fadeSeconds) ? Math.Clamp(fadeSeconds, NoP3 ? 0.02f : SmoothMinStanceFadeSeconds, 2f) : StanceFadeSeconds;
+            if (StanceFadeFloorOnce > seconds) seconds = StanceFadeFloorOnce;   // anim/jump-pack-blend: a landing's exit fades to the run or idle over longer
+            ExtrasBlendSeconds(ref seconds, stance: true);   // EXTRAS-HOOK: added content's blend floor (Musou weight pass: longer stance cross-fades)
             foreach (var l in _layers) l.FadeSeconds = seconds;
         }
     }
@@ -639,6 +645,7 @@ public partial class CharacterViewer : Node3D
         ApplyTurnLayer();     // M40-T5 (CharacterViewer.Turn.cs): the turn clip on the pelvis and legs, the spine twist
         ApplySpineTwist();
         ApplyPoseLayer(stanceMode: true);
+        ExtrasPoseOverlay();   // EXTRAS-HOOK: added content's procedural pose over the layers (Musou: the Librarian's cast pose)
         ApplyFootPins();
         RecordApplied();   // animation pass 3 (CharacterViewer.Transitions.cs)
         DrawBones();
@@ -823,6 +830,16 @@ public partial class CharacterViewer : Node3D
     /// <summary>Applies the current pose to the bones at once (test aids that read bone poses in the same frame).</summary>
     public void ForcePose() => ApplyPose();
 
+    /// <summary>
+    /// Added content's procedural pose, laid over the stances or clip and every pose layer, before the feet are pinned (Musou Mode: the Librarian's cast pose,
+    /// <c>Extras/Musou/Librarian/CharacterViewer.LibrarianCast.cs</c>). Unimplemented in a build without added content; the implementation returns at once for a viewer
+    /// that carries no such pose (every character outside Musou Mode).
+    /// </summary>
+    partial void ExtrasPoseOverlay();
+
+    /// <summary>An added mode's cross-fade length (s) for a stance change (Musou Mode's weight pass: a floor so stance changes do not snap); none leaves it.</summary>
+    partial void ExtrasBlendSeconds(ref float seconds, bool stance);
+
     void ApplyPose()
     {
         if (_stanceMode && _skeleton is not null) { ApplyStances(); return; }
@@ -855,6 +872,7 @@ public partial class CharacterViewer : Node3D
         if (_entryFootLock) { if (keep > 0f) EntryFootLock(local); else _entryFootLock = false; }
         _clipEntryKeep = keep;   // anim/melee-flow: the melee variant layer fades in with the entry (CharacterViewer.Layers.cs)
         ApplyPoseLayer(stanceMode: false);
+        ExtrasPoseOverlay();   // EXTRAS-HOOK: added content's procedural pose over the layers (Musou: the Librarian's cast pose)
         _lockSampled = local; _lockSampledAnimation = _animation;
         ApplyClipFootLock();   // anim/melee-flow (CharacterViewer.ClipFootLock.cs): the feet the clip puts down stay where they were put down
         RecordApplied();   // animation pass 3 (CharacterViewer.Transitions.cs)

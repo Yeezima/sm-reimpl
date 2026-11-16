@@ -17,7 +17,8 @@ public readonly record struct RushEvent(uint Tick, int Player, int Target, bool 
 /// (and its hyper armour, <see cref="Rush.HyperArmour"/>) for every contact of that tick whatever the player order.
 /// If the attacker may harm that player it takes the rush's primary hit (shield part, then the damage) and reaction (the stun,
 /// unless hyper armour or flight; <see cref="TryReact"/>), and every other living player it may harm within the ability's reach
-/// in front (the melee cone, a clear line from the eye) the secondary hit; an ally (without friendly fire) only stops it.
+/// in front (the melee cone, a clear line from the eye) the secondary hit; an ally it cannot harm is passed (protocol 67, <c>ChargeCancel.AllyPasses</c>); under <c>--old-ally-bump</c> it only stops the charge.
+/// (With no match rules friendly fire counts as on, so an ally is harmed as an enemy.)
 /// </summary>
 public sealed partial class World
 {
@@ -33,9 +34,17 @@ public sealed partial class World
         var seen = SeenBy(input);
         // anim/melee-interaction (ChargeLock.cs): the seen picture or the body that blocked the move, whichever the move reaches first; the lock line for the stop.
         if (ChargeLock.Find(attacker, before.Position, state.Position, state.Yaw, spec, Config, seen, Config.ChargeLock ? BodiesFor(attacker, input) : null, Collision,
-                id => _players.TryGetValue(id, out var current) && current.Alive) is not { } contact) return false;
+                id => _players.TryGetValue(id, out var current) && current.Alive, SolidGuard ? _moves : null, state.Team, passAllies: AllyPasses) is not { } contact) return false;
         int target = contact.Target;
         var lockLine = ChargeLock.Direction(before.Position, state.Position, state.Yaw, contact, spec);
+        // fix/charge-player-collision: the charger stops at the point of its move where it met an opponent (as the own client predicts it), not a tick's move beyond.
+        if (Config.SolidBodies && contact.T < 1f && _players.TryGetValue(attacker, out var mover) && mover.Alive && _players.TryGetValue(target, out var met) && Hostile(state.Team, met.Team))
+        {
+            var at = SolidBodies.AtContact(before, state, contact.T, Config, Collision);
+            state = state with { Position = at.Position, Grounded = at.Grounded };
+            _players[attacker] = mover with { Position = at.Position, Grounded = at.Grounded };
+            if (_moves.TryGetValue(attacker, out var m)) _moves[attacker] = (m.From, at.Position, m.Class, m.Team);
+        }
         _chargeLines[attacker] = lockLine;
         bool harmed = Harms(attacker, target);
         _rushes.Add(new RushEvent(Tick, attacker, target, harmed));
@@ -45,6 +54,8 @@ public sealed partial class World
             _players[target] = ChargeLock.Pull(victim, state.Position, lockLine, Config, Collision,
                 _players.Where(kv => kv.Key != attacker && kv.Key != target && kv.Value.Alive).Select(kv => kv.Value.Position));   // review: not into a third player
         RushHit(attacker, target, state, spec.Primary, spec.PrimaryReaction);
+        // feel/charge-clash: a bull rush whose victim reacts locks the two through the collision stop's shove (opened after the stops: OpenClashes).
+        if (state.Rush == RushPhase.Rush && _players.TryGetValue(target, out var hit) && hit.Alive && hit.Reaction != ReactionKind.None) _clashContacts[attacker] = target;
         // Others in reach in front: the secondary hit.
         var forward = new Vector2(-MathF.Sin(state.Yaw), MathF.Cos(state.Yaw));
         float minCos = MathF.Cos(Config.MeleeConeDegrees * MathF.PI / 180f);
@@ -81,6 +92,11 @@ public sealed partial class World
 
     /// <summary>anim/melee-interaction: each connecting charger's lock line this tick (<see cref="ChargeLock.Direction"/>), for its stop.</summary>
     readonly Dictionary<int, Vector2> _chargeLines = new();
+    /// <summary>
+    /// charge-ally-slide (protocol 67; the owner 2026-11-11): the charge passes the players of its own side (<see cref="ChargeLock.Find"/>'s <c>passAllies</c>) unless match rules let it harm them
+    /// (none: everyone is harmed). The match's state does not enter (the own client cannot see it).
+    /// </summary>
+    bool AllyPasses => ChargeCancel.AllyPasses(Config, friendlyFire: Rules is not { FriendlyFire: false });
 
     void StopRushesLocked(IEnumerable<int> chargers, IReadOnlyDictionary<int, RushPhase>? landed)
     {
@@ -104,10 +120,10 @@ public sealed partial class World
         bool armoured = victim.Shield > 0f;   // before this hit (hit feedback, protocol 22)
         // M43: the target's received-damage perks (the charge is melee unless its file says otherwise).
         var type = damage.Type == DamageType.Unknown ? DamageType.Melee : damage.Type;
-        float received = Loadouts.Body(Config, victim).Received(type) * DamageScaleOf(attacker)   // test aid: --bot-damage-scale
+        float received = Loadouts.Body(Config, victim).Received(type) * DamageScaleOf(attacker) * DamageTakenScale(target)   // test aid: --bot-damage-scale; added content's taken scale (1 in Classic PvP)
             * Stims.MeleeDealt(Config, state);   // perks/inert-2: the charger's combat stims
         float shieldOnly = MathF.Min(victim.Shield, MathF.Max(0f, damage.ShieldDamage * received));
-        if (shieldOnly > 0f) victim = victim with { Shield = victim.Shield - shieldOnly, SinceDamage = 0f };
+        if (shieldOnly > 0f) victim = victim with { Shield = victim.Shield - shieldOnly, SinceDamage = 0f, HealthRegenWaived = false };
         var (after, shieldDamage, healthDamage) = Combat.ApplyDamage(victim, damage.Damage * received, damage.ShieldBodyMultiplier,
             damage.BodyMultiplier * Stims.HealthTaken(Config, before, type), Config);   // perks/inert-2: the target's stims, health part only
         _players[target] = after;

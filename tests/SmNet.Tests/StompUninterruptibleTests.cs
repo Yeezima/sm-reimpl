@@ -13,28 +13,28 @@ namespace SmNet.Tests;
 public class StompUninterruptibleTests(ITestOutputHelper output)
 {
     /// <summary>The kick (melee): a light attack that chains to the stomp.</summary>
-    static readonly MeleeStep Kick = new(1.667f, 0.367f, 0.567f, 1.0f, 0.9f, 1.33f, 30f, 10f, 2f) { StringEnd = true, HeavyNext = 1 };
+    internal static readonly MeleeStep Kick = new(1.667f, 0.367f, 0.567f, 1.0f, 0.9f, 1.33f, 30f, 10f, 2f) { StringEnd = true, HeavyNext = 1 };
 
     /// <summary>
     /// The stomp (stun strike): 1.667 s, blast at 0.767 s, a shot would have ended it from 0.9 s (RangedAt), movement back at 1.333 s, the hop from 0.5 s; a combo
     /// window (1.0 to 1.4 s, ours for the test) through which a melee press would have chained the next attack before the stomp's end.
     /// </summary>
-    static readonly MeleeStep Stomp = new(1.6666666f, 0.767f, 1.0f, 1.4f, 0.9f, 1.333f, 0f, 0f, 3.5f)
+    internal static readonly MeleeStep Stomp = new(1.6666666f, 0.767f, 1.0f, 1.4f, 0.9f, 1.333f, 0f, 0f, 3.5f)
     {
         InPlace = true, EvadeAt = 0.5f,
         Stomp = new SplashSpec(7f, new DamageSpec(25f, 50f, 1f, 1f, 1f, 1f, false), [new(0f, 1f), new(7f, 0.15f)], true, true, "target_all"),
     };
 
-    static readonly WeaponSpec HeavyBolter = new("heavy_bolter", WeaponSlot.Ranged, TriggerKind.FullAuto, 35f, 0.233f, 400, 0, 1.5f, 250f, 250f, 250f, 1f, 1f, 1f, 0.7f, 0.7f)
+    internal static readonly WeaponSpec HeavyBolter = new("heavy_bolter", WeaponSlot.Ranged, TriggerKind.FullAuto, 35f, 0.233f, 400, 0, 1.5f, 250f, 250f, 250f, 1f, 1f, 1f, 0.7f, 0.7f)
     {
         AlwaysReady = true, Brace = new BraceSpec(0.1f, 1.8f) { EnterTime = 1.433f, ExitTime = 1.3f },
     };
-    static readonly WeaponSpec BoltPistol = new("bolt_pistol", WeaponSlot.Pistol, TriggerKind.SemiAuto, 40f, 0.25f, 10, 80, 0.75f, 250f, 30f, 40f, 0.78f, 2.5f, 1f, 0.5f, 0.5f)
+    internal static readonly WeaponSpec BoltPistol = new("bolt_pistol", WeaponSlot.Pistol, TriggerKind.SemiAuto, 40f, 0.25f, 10, 80, 0.75f, 250f, 30f, 40f, 0.78f, 2.5f, 1f, 0.5f, 0.5f)
     {
         RaiseDelay = 1f / 6f,
     };
 
-    static readonly SimConfig Config = new()
+    internal static readonly SimConfig Config = new()
     {
         Weapons = [HeavyBolter, BoltPistol],
         Thrown = [GrenadeTests.Frag],
@@ -45,6 +45,7 @@ public class StompUninterruptibleTests(ITestOutputHelper output)
         Evades = [EvadeTests.Hop],
         RunSpeed = 6.5f, StrafeSpeed = 6f, BackSpeed = 4.5f, SprintSpeed = 10f, AimRunSpeed = 3f, AimStrafeSpeed = 3f, AimBackSpeed = 2f,
         GroundTimeToMaxSpeed = 0.2f, MaxAcceleration = 100f, HealthMax = 1e6f,
+        StompRelease = false,   // sim/stomp-release (2026-11-14) is off here: these tests pin the protocol 51 rule, the stomp playing to its clip's end (StompReleaseTests: the 1.2 s release)
     };
 
     static PlayerState Fresh() => Combat.Respawned(new PlayerState(1, Vector3.Zero, Vector3.Zero, 0f, true) { Team = Team.SpaceMarines, Class = 0 }, Config);

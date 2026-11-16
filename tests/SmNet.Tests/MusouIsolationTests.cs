@@ -54,11 +54,17 @@ public class MusouIsolationTests(ITestOutputHelper output)
 
     // ---------------------------------------------------------------- the goldens (captured on main 35deb39, before MU0's hooks)
 
-    const ulong FixtureFaithfulHash = 0x2235C9DFF926583FUL, FixtureExtendedHash = 0x54B88195AFC434B4UL, DefaultFaithfulHash = 0xA57B097C29D78EABUL, DefaultExtendedHash = 0x0CA292E1A0338C00UL;
+    const ulong FixtureFaithfulHash = 0x2235C9DFF926583FUL, FixtureExtendedHash = 0xA3A5F813DCFC7B6BUL, DefaultFaithfulHash = 0xA57B097C29D78EABUL, DefaultExtendedHash = 0xC14C777D6C269AB0UL;
+    // claude/autocannon-pass (2026-11-11): Classic PvP's autocannon joined the extended profile (ContentExtras.Autocannon in ContentExtras.All), so both extended pins moved with the flags
+    // (0x54B88195AFC434B4 and 0x0CA292E1A0338C00 before); a Classic change, not a Musou one: the faithful pins are as they were.
     // sim/light-melee-flinch (protocol 52): the classic baseline changed (the script's 49 light melee hits now flinch instead of interrupting), so both goldens moved together
     // (05F93BCF… before); faithful and extended still replay to the same hash. feel/melee-cooldown and feel/charge-no-cancel (protocol 53, 2026-11-02): the melee lock and the stick no longer ending a charge moved both again.
     // sim/reload-keeps (protocol 56, 2026-11-03) leaves both as they were: the script never reloads into a throw, a melee attack or a charge.
-    const string FaithfulReplay = "0B11EC110AD62700E689E1945CF81B1DECA645C46C2A533DD7AD967788AA5044", ExtendedReplay = "0B11EC110AD62700E689E1945CF81B1DECA645C46C2A533DD7AD967788AA5044";
+    // fix/charge-player-collision (protocol 57, 2026-11-06): the charge's swept contact and its stop at the contact point moved both together (0B11EC11… before; the script's 15 charges).
+    // feel/charge-clash (protocol 59, 2026-11-06): the clash's shove carrying the stunned victim and the 0.9 m charge guard moved both together (B63061B6… before; 17 charges).
+    // sim/holstered-cooldown and sim/string-reset (protocol 62, stream B, 2026-11-07): each weapon keeping its own shot cooldown (the replay's states carry the holstered ones) moved both together (F6EC1813… before).
+    // charge-melee-chain (protocol 70, 2026-11-12): a light press ends a charge at once and a melee start lifts the spacing; the script's melee and charges moved both together (7F4A657B... before; faithful and extended still equal).
+    const string FaithfulReplay = "8A5833FDFB6C629D0E09BB2F4B84F8CECFE4C9E51142F31118C7D1F8CB1D5EBB", ExtendedReplay = "8A5833FDFB6C629D0E09BB2F4B84F8CECFE4C9E51142F31118C7D1F8CB1D5EBB";
 
     [Fact]
     public void The_faithful_and_extended_config_hashes_are_unchanged()
@@ -93,10 +99,10 @@ public class MusouIsolationTests(ITestOutputHelper output)
     [Fact]
     public void Musou_changes_neither_the_protocol_version_nor_the_extended_profile()
     {
-        Assert.Equal(56u, (uint)Protocol.Version);   // 56: sim/reload-keeps; 55: the hammer needs no pound delay; 54: feel/melee-cancels; 53: feel/melee-cooldown (the melee lock); 52: sim/light-melee-flinch (the flinch byte); 51: sim/no-fire-while-sprinting and sim/movement-fixes (50: the scoreboard's ping), not Musou
+        Assert.Equal(79u, (uint)Protocol.Version);   // 78: sim/lascannon-tap-reload (Classic PvP only); 77: sim/sprint-melee-charge (Classic only) and sim/ledge-charge-cancel (every mode); 76: sim/kick-push (every mode: the heavy kick pushes 40 %); 75: sim/stim-regen-now (every mode: a stim ends the health regen delay); 74: sim/stomp-release (every mode: the heavy stomp releases at 1.2 s); 73: sim/pound-any-weapon (every mode: no weapon waits for the pound delay); 72: sim/hop-rules (every mode: the ledge jump after a charge, the hop cutting the melee wait, the hop out of the aerial tackle); 71: onhit-damage-mark (every mode: a damage counter in every record); 70: charge-melee-chain (every mode; Musou melee spam on top); 69: charge-responsive (every mode: a charge after a swing, S cancels at once); 68: stims-classic (every mode: the reliable stim use; Musou had it already); 67: charge-ally-slide (every mode, Musou too: a charge passes an ally it cannot harm); 66: charge-cancel (every mode: S ends the bull rush, a grenade no charge phase) and charge-ally-bump (Classic only; replaced by the slide); 65: net/responsive input slack in the snapshot header (every mode; no gameplay change); 64: headshot kill flag, scoreboard headshots and assists (every mode; no gameplay change); 63: stream B (holstered cooldowns, every mode; the hammer string reset); 62: sim/jump-escape, sim/hop-cancel-momentum (every mode) and sim/descent-recharge (Classic only); 61: night batch classic jump-pack capacity (Classic only, Musou keeps 300); 60: feel/charge-clash (classic PvP charges); 59: sim/swing-step, sim/lock-reach (every mode) and sim/air-jumps (Classic loses the air jump, Musou keeps it); 58: fix/pvp-deploy-spawn (classic PvP only); 57: fix/charge-player-collision; 56: sim/reload-keeps; 55: the hammer needs no pound delay; 54: feel/melee-cancels; 53: feel/melee-cooldown (the melee lock); 52: sim/light-melee-flinch (the flinch byte); 51: sim/no-fire-while-sprinting and sim/movement-fixes (50: the scoreboard's ping), not Musou
         Assert.Equal(2u, ContentExtras.WireVersion);
         Assert.False(ContentExtras.All.HasFlag(ContentExtras.Musou));
-        Assert.Equal(ContentExtras.Orks | ContentExtras.Gore | ContentExtras.LoyalistBarks, ContentExtras.All);
+        Assert.Equal(ContentExtras.Orks | ContentExtras.Gore | ContentExtras.LoyalistBarks | ContentExtras.Autocannon, ContentExtras.All);   // Classic PvP's autocannon joined extended on 2026-11-11 (a Classic change, not Musou's)
         if (ContentExtras.Compiled)
         {
             Assert.True(ContentProfiles.TryParse(ContentProfiles.Extended, out var extended, out _));
@@ -156,7 +162,7 @@ public class MusouIsolationTests(ITestOutputHelper output)
             var now = w.Players;
             w.Step(id => Script(k, id, now) with { ViewTick = view, BodyTick = body });
             var players = w.Players.Values.OrderBy(p => p.PlayerId).ToArray();
-            foreach (var p in players) sha.AppendData(Protocol.Write(new Snapshot(w.Tick, 0, 0, players, Self: p.PlayerId)));
+            foreach (var p in players) sha.AppendData(Protocol.Write(new Snapshot(w.Tick, 0, 0, players, Self: p.PlayerId, InputSlack: 0)));   // protocol 65: lead 0 and slack 0 are the old 4-byte lead 0, so the golden hashes stand
             BitConverter.TryWriteBytes(tail.AsSpan(0), (int)w.State);
             BitConverter.TryWriteBytes(tail.AsSpan(4), w.TicksLeft);
             BitConverter.TryWriteBytes(tail.AsSpan(8), w.ScoreOf(Team.SpaceMarines));

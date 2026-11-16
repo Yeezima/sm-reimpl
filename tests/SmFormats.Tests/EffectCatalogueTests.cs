@@ -14,7 +14,7 @@ namespace SmFormats.Tests;
 /// material effect containers with their fall-backs and Space Marine / Chaos duplicates, surfaces, the player's surface,
 /// map fx objects and the effects library. Synthetic files shaped like the install's (names and values invented).
 /// </summary>
-public class EffectCatalogueTests
+public partial class EffectCatalogueTests
 {
     static (string, object)[] PlayFx(string name, float scale, string marker = "", bool attached = false, string target = "", string direction = "negative_hit_direction") =>
     [
@@ -233,12 +233,14 @@ public class EffectCatalogueTests
                 ("armourshield_material", "ceramite_armour"),
                 ("armourshield_hit", new (string, object)[] { ("commands", new (string, object)[] { ("play_fx", PlayFx("test_armour_hit", 1f)) }) }),
                 ("armourshield_inactive_hit", new (string, object)[] { ("commands", new (string, object)[] { ("play_fx", PlayFx("test_armour_down_hit", 0.5f)) }) }),
+                ("armourshield_broken", new (string, object)[] { ("commands", new (string, object)[] { ("play_fx", PlayFx("test_armour_break", 1f)) }) }),
             }) }) }),
         }));
         var player = CharacterSurface.Read(BafDocument.Read(blueprint))!;
         Assert.Equal("ceramite_armour", player.ArmourSurface);
         Assert.Equal(["test_armour_hit"], player.ArmourHit.Select(p => p.Name));
         Assert.Equal(["test_armour_down_hit"], player.ArmourInactiveHit.Select(p => p.Name));
+        Assert.Equal(["test_armour_break"], player.ArmourBroken.Select(p => p.Name));   // pvp-hit-fx
         // Armour up: the armour surface; down or unknown: the entity's own (the choice before M38).
         Assert.Equal(("ceramite_armour", "default_body"), player.For(HitZone.Body, armourUp: true));
         Assert.Equal(("broken_ceramite", "default_body"), player.For(HitZone.Body, armourUp: false));

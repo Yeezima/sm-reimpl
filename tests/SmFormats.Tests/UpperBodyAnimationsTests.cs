@@ -179,24 +179,24 @@ public class UpperBodyAnimationsTests
     }
 
     [Fact]
-    public void A_death_picks_its_clip_by_the_blow_the_weapon_and_the_victims_motion()
+    public void Animation_pass_2s_death_choice_is_kept_for_the_old_switch()
     {
         // Along the facing = travelling the way the victim faces = from behind.
-        Assert.Equal(MarineDeathKind.DefaultFront, DeathRules.Choose(false, false, false, WeaponDeath.Bolter, true, -1f, 0f));
-        Assert.Equal(MarineDeathKind.DefaultBack, DeathRules.Choose(false, false, false, WeaponDeath.Bolter, true, 1f, 0f));
-        Assert.Equal(MarineDeathKind.DefaultFront, DeathRules.Choose(false, false, false, WeaponDeath.Bolter, false, 0f, 0f));   // no direction: the front
-        Assert.Equal(MarineDeathKind.HeadshotFront, DeathRules.Choose(false, false, true, WeaponDeath.Bolter, true, -1f, 0f));
-        Assert.Equal(MarineDeathKind.HeadshotBack, DeathRules.Choose(false, false, true, WeaponDeath.Bolter, true, 1f, 0f));
-        Assert.Equal(MarineDeathKind.Sprint, DeathRules.Choose(true, false, false, WeaponDeath.Bolter, true, -1f, 0f));
-        Assert.Equal(MarineDeathKind.Bullrush, DeathRules.Choose(true, true, false, WeaponDeath.Bolter, true, -1f, 0f));
-        Assert.Equal(MarineDeathKind.Plasma, DeathRules.Choose(false, false, false, WeaponDeath.Plasma, true, -1f, 0f));
+        Assert.Equal(MarineDeathKind.DefaultFront, DeathRules.ChoosePass2(false, false, false, WeaponDeath.Bolter, true, -1f, 0f));
+        Assert.Equal(MarineDeathKind.DefaultBack, DeathRules.ChoosePass2(false, false, false, WeaponDeath.Bolter, true, 1f, 0f));
+        Assert.Equal(MarineDeathKind.DefaultFront, DeathRules.ChoosePass2(false, false, false, WeaponDeath.Bolter, false, 0f, 0f));   // no direction: the front
+        Assert.Equal(MarineDeathKind.HeadshotFront, DeathRules.ChoosePass2(false, false, true, WeaponDeath.Bolter, true, -1f, 0f));
+        Assert.Equal(MarineDeathKind.HeadshotBack, DeathRules.ChoosePass2(false, false, true, WeaponDeath.Bolter, true, 1f, 0f));
+        Assert.Equal(MarineDeathKind.Sprint, DeathRules.ChoosePass2(true, false, false, WeaponDeath.Bolter, true, -1f, 0f));
+        Assert.Equal(MarineDeathKind.Bullrush, DeathRules.ChoosePass2(true, true, false, WeaponDeath.Bolter, true, -1f, 0f));
+        Assert.Equal(MarineDeathKind.Plasma, DeathRules.ChoosePass2(false, false, false, WeaponDeath.Plasma, true, -1f, 0f));
         // Lascannon wedges: front within 55 degrees of the facing, back beyond 125, the sides between (a blow travelling to the victim's right comes from its left).
-        Assert.Equal(MarineDeathKind.LasFront, DeathRules.Choose(false, false, false, WeaponDeath.Las, true, -1f, 0.3f));
-        Assert.Equal(MarineDeathKind.LasBack, DeathRules.Choose(false, false, false, WeaponDeath.Las, true, 1f, 0.3f));
-        Assert.Equal(MarineDeathKind.LasLeft, DeathRules.Choose(false, false, false, WeaponDeath.Las, true, 0f, 1f));
-        Assert.Equal(MarineDeathKind.LasRight, DeathRules.Choose(false, false, false, WeaponDeath.Las, true, 0f, -1f));
-        Assert.Equal(MarineDeathKind.MeltaFront, DeathRules.Choose(false, false, false, WeaponDeath.Melta, false, 0f, 0f));
-        Assert.Equal(MarineDeathKind.MeltaRight, DeathRules.Choose(false, false, false, WeaponDeath.Melta, true, 0f, -1f));
+        Assert.Equal(MarineDeathKind.LasFront, DeathRules.ChoosePass2(false, false, false, WeaponDeath.Las, true, -1f, 0.3f));
+        Assert.Equal(MarineDeathKind.LasBack, DeathRules.ChoosePass2(false, false, false, WeaponDeath.Las, true, 1f, 0.3f));
+        Assert.Equal(MarineDeathKind.LasLeft, DeathRules.ChoosePass2(false, false, false, WeaponDeath.Las, true, 0f, 1f));
+        Assert.Equal(MarineDeathKind.LasRight, DeathRules.ChoosePass2(false, false, false, WeaponDeath.Las, true, 0f, -1f));
+        Assert.Equal(MarineDeathKind.MeltaFront, DeathRules.ChoosePass2(false, false, false, WeaponDeath.Melta, false, 0f, 0f));
+        Assert.Equal(MarineDeathKind.MeltaRight, DeathRules.ChoosePass2(false, false, false, WeaponDeath.Melta, true, 0f, -1f));
         Assert.Equal(WeaponDeath.Las, DeathRules.WeaponOf("sm_mp_exotic_plasma_cannon"));
         Assert.Equal(WeaponDeath.Melta, DeathRules.WeaponOf("sm_mp_exotic_melta"));
         Assert.Equal(WeaponDeath.Plasma, DeathRules.WeaponOf("sm_mp_pistol_plasma_pistol"));

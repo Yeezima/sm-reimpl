@@ -1,3 +1,4 @@
+using SmSim.Extras.Musou;
 using System.Globalization;
 using System.Numerics;
 using SmSim;
@@ -129,7 +130,8 @@ public static class TfwHudModel
     public static string ObjectiveLabel(in TfwObjective o, bool final, int orksOn = 0) => $"{ObjectiveName(o.Index, final)}  {ObjectiveState(o)}{ClearingNote(o, orksOn)}";
 
     /// <summary>
-    /// What stops a capture, said where the player looks: a position being cleared shows how many Orks the client knows standing in it (" - 7 ORKS"); a point is taken with none alive inside its volume, whatever they are doing.
+    /// Who contests a capture, said where the player looks: a position being cleared shows how many Orks the client knows standing in it (" - 7 ORKS"); since 2026-11-06 (owner) they no longer stop it, the progress
+    /// grows while a player or a retainer stands on the point (the allied pair never captures).
     /// The count is the client's own (the enemies it was sent, inside the radius and <see cref="ClearingReach"/> up and down), a hint and not the server's count.
     /// </summary>
     public static string ClearingNote(in TfwObjective o, int orksOn) => o.State == TfwPositionState.Clearing && orksOn > 0 ? $" - {orksOn} ORK{(orksOn == 1 ? "" : "S")}" : "";
@@ -142,21 +144,25 @@ public static class TfwHudModel
     {
         TfwPositionState.Locked => "LOCKED",
         TfwPositionState.Held => "HELD",
-        TfwPositionState.Clearing => "CLEARING",
+        TfwPositionState.Clearing => string.Create(CultureInfo.InvariantCulture, $"CLEARING {MathF.Floor(o.Progress * 100f):0}%"),   // since 2026-11-06 the capture goes on with Orks on it
         TfwPositionState.Securing => string.Create(CultureInfo.InvariantCulture, $"SECURING {MathF.Floor(o.Progress * 100f):0}%"),
         _ => "SECURED",
     };
 
     /// <summary>The Guardsmen's line.</summary>
-    /// <summary>The orbital strike's line: always ready, there is no cooldown.</summary>
+    /// <summary>The orbital strike's line when it is ready.</summary>
     public const string OrbitalText = "B ORBITAL STRIKE READY";
 
-    /// <summary>The same line with the controller's prompt (left on the D-pad) when the pad is the scheme.</summary>
-    public static string OrbitalTextFor(bool pad) => pad ? "D-PAD LEFT ORBITAL STRIKE READY" : OrbitalText;
+    /// <summary>
+    /// The same line with the controller's prompt (left on the D-pad) when the pad is the scheme; with <paramref name="cooldownSeconds"/> left (contracts 25, the owner 2026-11-06: 60 s
+    /// after a battle strike) the countdown instead of READY.
+    /// </summary>
+    public static string OrbitalTextFor(bool pad, int cooldownSeconds = 0) =>
+        (pad ? "D-PAD LEFT" : "B") + (cooldownSeconds > 0 ? $" ORBITAL STRIKE IN {cooldownSeconds} S" : " ORBITAL STRIKE READY");
 
     public static string GuardsText(in TfwOwnView own) => own.Guards == 0 && own.Squads == 0 && own.Reserves == 0 ? "" : $"GUARDS {own.Guards}, {own.Squads} SQUADS + {own.Reserves} IN RESERVE";
 
-    /// <summary>The retainer's line: its state and the order in force.</summary>
+    /// <summary>The retainer's line: its state and the order in force (restored 2026-11-08 beside the allied pair, which no player orders).</summary>
     public static string RetainerText(in TfwOwnView own) => own.Retainer switch
     {
         TfwRetainerState.Ready => $"RETAINER: {OrderText(own.Order)}",
@@ -180,8 +186,10 @@ public static class TfwHudModel
         }
         if (!alive)
         {
-            if (own.ReviveSeconds > 0 && own.ReviveTenths > 0) return $"YOUR RETAINER REVIVES YOU: {own.ReviveTenths * 10}%";
-            if (own.ReviveSeconds > 0) return $"YOUR RETAINER IS COMING: {own.ReviveSeconds} S";
+            // The own retainer when it stands, else the allied pair (2026-11-08: both revive; the wire tells only the retainer's state).
+            bool retainer = own.Retainer is TfwRetainerState.Ready or TfwRetainerState.Reviving;
+            if (own.ReviveSeconds > 0 && own.ReviveTenths > 0) return (retainer ? "YOUR RETAINER REVIVES YOU: " : "THE ALLIED MARINES REVIVE YOU: ") + $"{own.ReviveTenths * 10}%";
+            if (own.ReviveSeconds > 0) return (retainer ? "YOUR RETAINER IS COMING: " : "THE ALLIED MARINES ARE COMING: ") + $"{own.ReviveSeconds} S";
             if (own.ExtractionSeconds > 0)
             {
                 if (!own.BattleWon && war.Supplies < TfwBattleRules.ExtractionSupplies) return $"NO SUPPLIES FOR AN EXTRACTION: THE WAR IS LOST IN {own.ExtractionSeconds} S";
@@ -202,8 +210,40 @@ public static class TfwHudModel
         _ => "",
     };
 
-    /// <summary>The boss bar's name: the battle's commander, or the Warboss in the final assault.</summary>
-    public static string BossName(in TfwWarView war, IReadOnlyList<TfwObjective> objectives) => war.Phase == TfwRunPhase.FinalAssault || objectives.Count == 0 ? "ORK WARBOSS" : "ORK COMMANDER";
+    /// <summary>The boss bar's name: the Warboss, in a battle (the commander is the Warboss since the owner's "replace him with the warboss", 2026-11-06) and in the final assault alike.</summary>
+    public static string BossName(in TfwWarView war, IReadOnlyList<TfwObjective> objectives) => "ORK WARBOSS";
+
+    /// <summary>A Boss Ork's bar name (2026-11-06): BOSS and its base kind.</summary>
+    public static string BossOrkName(MusouEnemyType type) => MusouBossOrks.BaseOf(type) switch
+    {
+        MusouEnemyType.Boy => "BOSS BOY",
+        MusouEnemyType.ShootaBoy => "BOSS SHOOTA BOY",
+        MusouEnemyType.ArdBoy => "BOSS 'ARD BOY",
+        MusouEnemyType.Nob => "BOSS NOB",
+        _ => "BOSS ORK",
+    };
+
+    /// <summary>
+    /// The fallen player's line under the prompt (late batch 2026-11-06, the owner: "choosing deploy after dying respawns the player at the original start spawn and costs 1 supply"): the key
+    /// (Enter, or A on the pad) and the price while the run holds this player's respawn; what is missing when the supplies are short; empty alive or outside the battle.
+    /// </summary>
+    public static string RedeployText(in TfwWarView war, bool alive, bool pad = false)
+    {
+        if (alive || !RunHoldsRespawn(war)) return "";
+        int cost = TfwBattleRules.RedeployCost;
+        return war.Supplies >= cost
+            ? $"{(pad ? "A" : "ENTER")}: DEPLOY AT THE LANDING ZONE ({cost} {(cost == 1 ? "SUPPLY" : "SUPPLIES")})"
+            : "NO SUPPLIES TO DEPLOY AGAIN";
+    }
+
+    /// <summary>Whether a redeploy can be asked for now (the server decides all the same).</summary>
+    public static bool CanRedeploy(in TfwWarView war, bool alive) => !alive && RunHoldsRespawn(war) && war.Supplies >= TfwBattleRules.RedeployCost;
+
+    /// <summary>Whether <paramref name="self"/> is the match's host (<see cref="TfwRun.HostOf"/> over the scoreboard's ids), who may call the Stormbird back from a battle.</summary>
+    public static bool IsHost(int self, IEnumerable<int> players) => self >= 0 && TfwRun.HostOf(players) == self;
+
+    /// <summary>The Esc menu's row for the host's recall, shown while a battle is under way.</summary>
+    public const string ReturnToShipText = "Back to Stormbird";
 
     /// <summary>What an extraction takes now: its price, or after a won battle what is left of it.</summary>
     public static int ExtractionCost(in TfwWarView war) => Math.Min((int)war.Supplies, TfwBattleRules.ExtractionSupplies);

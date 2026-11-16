@@ -57,12 +57,21 @@ public static class TfwFireRules
     /// <summary>Candidates a gun tries before it holds its fire this volley: each needs a clear line.</summary>
     public const int RoundTries = 5;
 
+    /// <summary>
+    /// Seconds after a player's orbital strike in a battle before that player may call the next (the owner, 2026-11-06: "add a cooldown of 1 minute to the artillery strike. in musou mode.
+    /// except at the firing range. it should still be infinite and spammable at the firing range"). A strike at the Firing Range neither waits for it nor starts it.
+    /// </summary>
+    public const float OrbitalCooldownSeconds = 60f;
+
     /// <summary>Records of tag 11 kept for a server that takes none (a test, a run with no client).</summary>
     public const int MaxEvents = 256;
 }
 
-/// <summary>A shell on its way: the landing tick, its number in the barrage, the impact, whether its record has gone out.</summary>
-public readonly record struct TfwShell(uint Tick, ushort Subject, Vector3 At, bool Sent);
+/// <summary>
+/// A shell on its way: the landing tick, its number in the barrage, the impact, whether its record has gone out, and the player whose orbital strike it is (0: none, a test aid's barrage). The caller
+/// scales its damage on the enemies (<c>World.MusouRangedDealt</c>: x1.2 for a human, owner 2026-11-11) and nothing else: the kills still carry no player.
+/// </summary>
+public readonly record struct TfwShell(uint Tick, ushort Subject, Vector3 At, bool Sent, int Caller = 0);
 
 /// <summary>A Thunderhawk run under way: its number, the first tick, the path.</summary>
 public readonly record struct TfwStrafe(ushort Subject, uint Start, Vector3 From, Vector3 To, Vector3 Direction, Vector3 Side, float Length);
@@ -76,9 +85,10 @@ public sealed class TfwFire
 {
     readonly List<TfwShell> _shells = new();
     readonly List<TfwFireEvent> _events = new();
+    readonly Dictionary<int, uint> _orbitalReady = new();   // per player: the first tick of the next battle strike (absent: ready)
     object? _battle;
     uint _nextRun;
-    ushort _runs, _rounds;
+    ushort _runs, _rounds, _boltBlasts;
 
     /// <summary>The seed mixed into every roll (the balance harness; 0 otherwise).</summary>
     public ulong Salt { get; set; }
@@ -154,6 +164,14 @@ public sealed class TfwFire
 
     internal void AddShell(in TfwShell shell) => _shells.Add(shell);
 
+    /// <summary>Ticks until <paramref name="player"/> may call a battle strike again on <paramref name="tick"/> (0: ready; <see cref="TfwFireRules.OrbitalCooldownSeconds"/>).</summary>
+    public uint OrbitalTicksLeft(int player, uint tick) => _orbitalReady.TryGetValue(player, out uint ready) && ready > tick ? ready - tick : 0u;
+
+    /// <summary>A battle strike by <paramref name="player"/> on <paramref name="tick"/>: the cooldown starts (a strike at the Firing Range does not call this).</summary>
+    /// <summary>Test aid: the player's support cooldown is over (as after 60 s, without running them).</summary>
+    public void OrbitalClearForTests(int player) => _orbitalReady.Remove(player);
+    internal void OrbitalCalled(int player, uint tick, int rate) => _orbitalReady[player] = tick + (uint)MathF.Ceiling(TfwFireRules.OrbitalCooldownSeconds * rate - 1e-3f);
+
     internal void Started(uint tick)
     {
         Barrages++;
@@ -210,6 +228,15 @@ public sealed class TfwFire
         if (hit) RoundsHit++;
         Add(new TfwFireEvent(TfwFireKind.Round, tick, ++_rounds, muzzle, impact));
     }
+
+    /// <summary>A bolt weapon's blast at <paramref name="at"/> (the owner, 2026-11-07): the effect of thrown item <paramref name="item"/> (a frag; -1: none found), reaching <paramref name="radius"/> m.</summary>
+    internal void BoltBlast(uint tick, Vector3 at, int item, float radius) => Add(new TfwFireEvent(TfwFireKind.BoltBlast, tick, ++_boltBlasts, at, new Vector3(item, radius, 0f)));
+
+    /// <summary>An enemy is burning from a plasma hit (owner, 2026-11-08): <paramref name="enemy"/> at <paramref name="at"/>; the clients draw the flame for the burn's length.</summary>
+    internal void Burn(uint tick, ushort enemy, Vector3 at) => Add(new TfwFireEvent(TfwFireKind.Burn, tick, enemy, at));
+
+    /// <summary>A drop pod called by <paramref name="caller"/> lands at <paramref name="at"/> on <paramref name="tick"/> (<paramref name="gone"/> false), or its wreck goes on <paramref name="tick"/> (true): the clients draw the fall, trail, impact and doors, and take the wreck away.</summary>
+    internal void Pod(uint tick, int caller, Vector3 at, bool gone) => Add(new TfwFireEvent(TfwFireKind.Pod, tick, (ushort)caller, at, gone ? Vector3.UnitX : default));
 
     void Add(in TfwFireEvent e)
     {

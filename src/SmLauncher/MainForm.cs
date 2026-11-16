@@ -391,7 +391,7 @@ sealed class MainForm : Form
         if (_args.Has("self-updated")) SelfUpdate.ConfirmStarted(_args["self-updated"]);
         else SelfUpdate.CleanOld();
         var pending = _updater?.ReadState();
-        if (!_firstRun && pending is { Source: "download", Phase: >= UpdatePhase.Verifying } && (_newest is null || _newest.Tag == pending.Tag))
+        if (!_firstRun && pending is { IsDownload: true, Phase: >= UpdatePhase.Verifying } && (_newest is null || _newest.Tag == pending.Tag))
             await UpdateAsync();                                       // an interrupted update with nothing left to download: finish it now
         else if (_args.Has("auto-update") && !_firstRun && _btnUpdate.Visible) await UpdateAsync();
         if (_args.Has("auto-update-launcher") && !_firstRun) { OfferLauncherUpdate(ask: false); if (IsDisposed || _handedOver) return; }
@@ -539,17 +539,17 @@ sealed class MainForm : Form
         if (_checkProblem is not null)
         {
             string text = (p.Current is not null ? "Offline: the installed build can be played. " : "") + _checkProblem;
-            if (pending is { Source: "download" }) { text += " An unfinished update is kept and continues when GitHub is reachable."; }
+            if (pending is { IsDownload: true }) { text += " An unfinished update is kept and continues when GitHub is reachable."; }
             SetLine(text, Warn);
             return;
         }
         if (_newest is null) { SetLine("No playtest build is published right now. The installed build can be played.", Muted); return; }
         if (p.Current == _newest.Tag) { SetLine($"You have the newest build (published {_newest.PublishedAt.LocalDateTime:d MMM yyyy}).", Good); return; }
-        bool resume = pending is { Source: "download" } && pending.Tag == _newest.Tag;
+        bool resume = pending is { IsDownload: true } && pending.Tag == _newest.Tag;
         string size = _updater.IsUsable(_newest.Tag) ? "installed already, no download"
             : resume && pending!.AssetName is { } a && File.Exists(_updater.Layout.PartFile(a))
-            ? $"{Format.Mb(new FileInfo(_updater.Layout.PartFile(a)).Length)} of {Format.Mb(_newest.Asset.Size)} downloaded"
-            : $"{Format.Mb(_newest.Asset.Size)} download";
+            ? (_newest.Asset is { } z && pending.Source == "download" ? $"{Format.Mb(new FileInfo(_updater.Layout.PartFile(a)).Length)} of {Format.Mb(z.Size)} downloaded" : "partly downloaded")
+            : Format.Offer(_newest);
         bool older = UpdateOffer.Classify(p.Current, p.Current is null ? null : p.Versions.GetValueOrDefault(p.Current), _newest) == OfferKind.Older;
         SetLine(older
             ? $"The current playtest build is {_newest.Tag}, published {_newest.PublishedAt.LocalDateTime:d MMM yyyy} ({size}); yours is newer. Everyone in a match needs the same build."
@@ -569,7 +569,7 @@ sealed class MainForm : Form
 
     void UpdateSetupChoices()
     {
-        if (_newest is not null) _rbDownload.Text = $"Download the newest build: {_newest.Tag} ({Format.Mb(_newest.Asset.Size)})";
+        if (_newest is not null) _rbDownload.Text = $"Download the newest build: {_newest.Tag} ({Format.Offer(_newest)})";
         else _rbDownload.Text = "Download the newest build (GitHub cannot be reached right now)";
         _rbDownload.Enabled = _newest is not null;
         if (_newest is null && !_rbAdopt.Visible) _rbDownload.Checked = true;

@@ -120,6 +120,7 @@ public partial class NetworkView : Node3D
     MapLightingView.FrameStats? _frameStats;
     PerfProbe? _perfProbe;
     MapLightingView.EnvironmentBlender? _blender;
+    readonly LightingGradeView _lightingGrade = new();
     string? _mapNote;
     readonly bool _showCollision;
     readonly bool _waitMelee;
@@ -152,7 +153,7 @@ public partial class NetworkView : Node3D
     readonly HashSet<int> _liveProjectiles = new();   // M40-T9: reused every frame
     readonly List<int> _goneProjectiles = new();
     readonly Stack<MeshInstance3D> _projectilePool = new();
-    readonly Dictionary<string, (Mesh Mesh, Material Material)> _projectileLooks = new();
+    readonly Dictionary<string, (Mesh Mesh, Material? Material)> _projectileLooks = new();
     readonly List<(MeshInstance3D Node, StandardMaterial3D Material, double Age, float Radius, float Alpha)> _blasts = new();
     readonly Stack<(MeshInstance3D Node, StandardMaterial3D Material)> _blastPool = new();
     readonly HashSet<int> _projectileIdsSeen = new();
@@ -167,11 +168,11 @@ public partial class NetworkView : Node3D
     // ---- M13: thrown equipment and the melta cone (placeholder demonstration) ----
     const string DefaultTossAnimation = "SM_RNG_GrenadeToss_01";   // the toss sequencer's clip on the install (docs/discovery.md)
     const double ConeFlashSeconds = 0.15;       // how long a melta cone shot is drawn (client-side, not an original value)
-    const float BotThrowMin = 6f;               // metres (horizontal) beyond which the bot throws (test script)
+    const float BotThrowMin = BotGrenadeSafety.OldThrowMin;   // metres (horizontal) beyond which the bot throws stims and blind grenades (all items with --old-bot-throws; test script)
     /// <summary>Metres (horizontal) within which the bot throws: 20, or <c>--bot-throw-max</c> (test aid for big maps).</summary>
     readonly float _botThrowMax;
     const double BotThrowEvery = 4.0;           // seconds between the bot's throw presses at most (test script)
-    const float BotThrowShort = 8f;             // metres short of the target the bot aims a throw at the ground (test script)
+    const float BotThrowShort = BotGrenadeSafety.OldThrowShort;   // metres short of the target the bot aimed a throw at the ground (blind grenades and --old-bot-throws; test script)
     /// <summary>The toss clip when the rig has it and it decodes, else null (throws keep the idle/run animation).</summary>
     string? _tossAnimation;
     /// <summary>Remote players' throws: connected time at which their slim Throwing flag rose (the clip is posed from there).</summary>
@@ -186,7 +187,7 @@ public partial class NetworkView : Node3D
     /// True once the view is worth capturing: connected, enough players visible, settled for a few seconds and, with
     /// <c>--wait-melee</c>, a melee attack shown past its hit time (or given up).
     /// </summary>
-    public bool ReadyForScreenshot =>
+    public bool ReadyForScreenshot => LoadingWorthCapturing ||   // --loading-shot (NetworkView.Loading.cs)
         (_client?.Status == ClientStatus.Connected && 1 + _remotes.Count >= _waitPlayers && _connectedFor >= Math.Max(4.0, _screenshotAt ?? 0.0)
          && (!_waitMelee || _attackSeen) && (!_waitBlast || BlastWorthCapturing) && (!_waitJump || JumpWorthCapturing) && (!WaitMatchEnd || MatchEndWorthCapturing) && FallWorthCapturing && UpperWorthCapturing) ||
         _client?.Status is ClientStatus.Rejected or ClientStatus.Disconnected or ClientStatus.NoAnswer || _error != "" || _elapsed > Math.Max(WaitMatchEnd ? 600.0 : 30.0, (_screenshotAt ?? 0.0) + 25.0);
@@ -242,6 +243,7 @@ public partial class NetworkView : Node3D
     public override void _Ready()
     {
         DemoReadArgs();   // M40 T0: the demo flags, read once
+        AddLoadingScreen();   // the owner, 2026-11-07: black with LOADING until connected (NetworkView.Loading.cs)
         StartJitPrewarm();   // M40-T9: compiles the client's methods in the background (NetworkView.Prewarm.cs)
         // Game space (Z up) to Godot (Y up): x → x, y → −z, z → y. Characters live inside it, so server states need no conversion.
         _gameSpace = new Node3D { Name = "GameSpace", Basis = new Basis(new Vector3(1, 0, 0), new Vector3(0, 0, -1), new Vector3(0, 1, 0)) };
@@ -275,6 +277,7 @@ public partial class NetworkView : Node3D
             GD.Print($"content: {ContentProfiles.Describe(content)}");
             MemStep("start"); var tuning = GameplayTuning.LoadForMatch(_gameDir, content, OrkData); MemStep("tuning");
             _config = WithPlayerCollisionArg(tuning.Config);   // sim/player-collision: --no-player-collision (NetworkView.Bodies.cs)
+            _config = WithOrkSwingTrackingArg(WithAerialTackleRestoredArg(_config));   // musou/no-aerial-tackle restore switch (NetworkView.AerialTackle.cs)
             _tuningSource = tuning.Placeholders.Any(p => p is nameof(SimConfig.Damage) or nameof(SimConfig.ClipSize) or nameof(SimConfig.HealthMax) or nameof(SimConfig.MeleeSteps) or nameof(SimConfig.Classes))
                 ? "partly placeholders (see server log)" : "from the install";
             _notes.AddRange(tuning.Notes);
@@ -299,6 +302,7 @@ public partial class NetworkView : Node3D
             SetUpFx();   // M25b
             SetUpSound();     // M26b (loads in the background)
             SetUpPickups();   // fidelity gap 1: the drops' looks and prompts (loads in the background)
+            SetUpGrenadeModels();   // feel/grenades-quickdraw: the thrown items' original models (the blueprints read in the background)
             SetUpBraceVent();   // fidelity gap 7: the brace's and the vent's clips and texts (loads in the background)
             LoadCameraRig(); MemStep("weapons, fx, sound, pickups, brace, camera");
             if (_className is not null)
@@ -312,22 +316,24 @@ public partial class NetworkView : Node3D
             var (clientTransport, clientClock, clientNonce) = DemoNetwork(endpoint, fingerprint);   // M40 T0: live UDP (recording on request) or a replayed demo
             var clientOptions = new ClientOptions
             {
-                LoadMap = LoadMap, RequestedClass = _requestedClass,
+                LoadMap = LoadMap, BeginLoadMap = BeginLoadMap, RequestedClass = _requestedClass,
                 RequestedPrimary = _requestedPrimary, RequestedPistol = _requestedPistol, RequestedMelee = _requestedMelee,
                 RequestedEquipment = _requestedEquipment, RequestedSide = RequestedSide,
                 SmoothRenderClock = !OldRenderClock,
                 // anim/feel-pass: a replay's Welcome comes at its recorded time, however long the recording's map load took (a demo recorded beside other loading clients waited
                 // more than the 10 s live timeout for it, and the replay gave up with NoAnswer); the live timeout stays for live connections.
-                ConnectTimeout = DemoPlayPath is not null ? TimeSpan.FromMinutes(10) : ConnectFailure.DefaultTimeout,
+                ConnectTimeout = DemoPlayPath is not null ? TimeSpan.FromMinutes(10) : PatientConnect ? TimeSpan.FromMinutes(1) : ConnectFailure.DefaultTimeout,
                 MeleeLock = !NoMeleeLock,   // feel/melee-lock (NetworkView.MeleeLock.cs)
                 Bot = _bot,   // protocol 37: the Hello marks a test bot (the server's --bot-damage-scale)
                 Observer = Observe,   // protocol 46: a spectator (NetworkView.Observer.cs)
                 StallKeepAlive = !NoStallKeepAlive,   // fix/stall-keepalive: a blocked main thread no longer gets the player timed out (NetworkView.Stall.cs)
+                ReviseOnMap = BotPresetWanted() ? BotPresetOnMap : null,   // 2026-11-07: a Classic PvP bot's fixed random loadout (NetworkView.BotLoadout.cs)
             };
             // The front end's perks, looks and emblems (customizer, T8); a replayed demo keeps its recorded Hello.
             if (_demoPlayback is null) clientOptions = SmClient.FrontEnd.FrontEndLaunch.WithProfile(clientOptions);
             if (_demoPlayback is null) clientOptions = WithPerkArgs(clientOptions);   // perks/inert-2 test aid: --perks a,b
             SetOwnLooks(clientOptions);   // customizer T7
+            clientOptions = WithNetFeelArgs(clientOptions);   // net/responsive: the latency switches and the readout (NetworkView.Responsive.cs)
             _client = new GameClient(_config, fingerprint, clientTransport, clientClock, clientOptions, nonce: clientNonce);
             DemoPrerollInReady();   // M40 T0: a replayed demo takes the Challenge (loads the map) and waits for the background loads before the first frame
             if (RequestedSide != Team.None) GD.Print($"--side: requesting the {SideName(RequestedSide)} side (the server may balance onto the other side)");
@@ -354,11 +360,13 @@ public partial class NetworkView : Node3D
 
     public override void _ExitTree()
     {
+        LoadDraws3D(true);   // polish P3 review: a map load left between its build and its last warm-up never leaves the window's 3D off
         // Tell the server right away (best effort); otherwise it would drop this player only after its timeout.
         PadTeardown();
         _watchdog?.Dispose();
         _watchdog?.Profile?.PrintSummary();   // M40-T9
         _perfProbe?.PrintSummary();   // perf/pass-1 (--perf-probe)
+        if (_sound is not null && LogSound("footstep")) { GD.Print($"sound at exit: {_sound.Summary()}"); if (_sound.LimitNodesReport() is { Length: > 0 } nodes) GD.Print(nodes); }   // polish pass P1: the A/B's numbers
         if (_watchdog?.Profile is not null) GD.Print($"profile: {HeavyReport()}; {_jit?.Report ?? "jit prewarm off"}");
         _jit?.Stop(); _animationCancel.Cancel();
         LooksExit();   // customizer T7: the shared assets must not keep asking this view for emblems
@@ -379,13 +387,17 @@ public partial class NetworkView : Node3D
             if (_overlay is not null) _overlay.Visible = _showInfo;
             return;
         }
+        if (!_bot && SoundTunerInput(e)) return;   // sound/tuning-tool: F7
         if (Observe) { ObserverInput(e); return; }   // protocol 46: a spectator's keys and mouse (NetworkView.Observer.cs)
         if (_bot) return;
         PickupKey(e);   // fidelity gap 1: latch an E tap between input samples
         if (LoadoutInput(e)) return;   // customizer T7: C on the death screen; while the picker is open nothing else sees the mouse and keys
+        if (SpawnChoiceInput(e)) return;   // fix/pvp-deploy-spawn: the death screen's respawn choice (NetworkView.SpawnChoice.cs)
         LatencyProbeEvent(e);   // feel/controls test aid (--latency-probe): the delivery frame
         ControlEvent(e);   // feel/controls: presses and releases for the tap latch and the early tick (NetworkView.Controls.cs)
-        if (e is InputEventMouseMotion motion && MouseCaptured && !OwnDead)
+        if (e is InputEventMouseMotion deadMotion && MouseCaptured && OwnDead)
+            DeathOrbitLook(-deadMotion.Relative.X * MouseYawPerPixel * MouseLook, -deadMotion.Relative.Y * SmClient.Customizer.Model.LiveOptions.MouseVertical * MouseYawPerPixel * MouseLook);   // late-g: dead, the mouse orbits the death camera (NetworkView.Death.cs); the view itself stays frozen (M23)
+        else if (e is InputEventMouseMotion motion && MouseCaptured && !OwnDead)
         {
             _yaw -= motion.Relative.X * MouseYawPerPixel * MouseLook;   // mouse right turns right (clockwise seen from above)
             _pitch = Math.Clamp(_pitch - motion.Relative.Y * SmClient.Customizer.Model.LiveOptions.MouseVertical * MouseYawPerPixel * MouseLook, _pitchMin, _pitchMax);   // mouse up aims up
@@ -426,10 +438,13 @@ public partial class NetworkView : Node3D
     void ProcessFrame(double delta)
     {
         _elapsed += delta;
+        UpdateLoadingScreen();   // NetworkView.Loading.cs
         HeavyReset();   // M40-T9: this frame's budget for first builds (characters, weapon rigs, corpses)
         if (FrameStatsLog) (_frameStats ??= new MapLightingView.FrameStats(GetViewport())).Add(delta);
-        if (PerfProbe.On) (_perfProbe ??= new PerfProbe(GetViewport())).Frame(delta, GetTree().Root);   // perf/pass-1 test aid (--perf-probe)
+        if (PerfProbe.On) (_perfProbe ??= new PerfProbe(GetViewport())).Frame(delta, GetTree().Root, ObserveTourPlace, ObserveTourAdvance);   // perf/pass-1 test aid (--perf-probe; --perf-tour walks the observer's tour)
+        _readout?.Step(delta, _client, _client?.Status == ClientStatus.Connected && !LoadingShown);   // polish pass P1: the performance readout (HudReadout.cs)
         if (_blender is not null && _camera is not null) { var cp = _camera.GlobalPosition; _blender.Update(new System.Numerics.Vector3(cp.X, -cp.Z, cp.Y)); }   // Godot to game space
+        _lightingGrade.Frame(_camera?.Environment ?? _environment, _sun);   // ui/lighting-presets: OPTIONS, GRAPHICS, LIGHTING PRESET on top of the map's look (LightingGradeView)
         if (_client is null || _config is null || _assets is null) { UpdateOverlay(); return; }
 
         if (!_bot && !OwnDead && !PickerBusy && _demoPlayback is null)   // dead: the view is frozen (M23); a replayed demo has the recorded view
@@ -441,7 +456,9 @@ public partial class NetworkView : Node3D
             PanView(delta);   // M36 test aid (--pan-rate)
             PadLook(delta);   // controller: the right stick turns the view (NetworkView.Gamepad.cs)
         }
+        else if (!_bot && OwnDead && !PickerBusy && _demoPlayback is null) PadLook(delta, deathOrbit: true);   // late-g: dead, the right stick orbits the death camera
 
+        if (LoadingWaitsForBlink()) { UpdateOverlay(); return; }   // ui/loading-blink: the handshake (and the map load) starts once the blink has opened on the loading screen (NetworkView.Loading.cs)
         Ph("client update (input, network)");
         DemoBeforeUpdate(delta);   // M40 T0: a replayed demo advances its clock by this frame and sets the recorded view
         LatencyProbeBeforeUpdate();   // feel/controls test aid (--latency-probe)
@@ -489,6 +506,7 @@ public partial class NetworkView : Node3D
         var shown = OwnShownState(me, delta);   // M36: position between ticks and view pitch for the model and the camera (NetworkView.Turning.cs)
         // On (re)spawn the server places the player at a spawn point facing its yaw; take that facing as the view.
         if (me.Alive && !_wasAlive) { _yaw = me.Yaw; _pitch = 0f; }
+        TfwSpawnFacingFrame(me);   // musou/spawn-facing: the landing and a redeploy take the server's yaw (NetworkView.TfwSpawnFacing.cs)
         _wasAlive = me.Alive;
         if (!me.Alive) _cameraPlacedValid = false;   // feel/controls: no fresh-aim turn from a camera placed before the death (FreshCenterRay)
         HipFireBegin(me);   // M27: drains the own events and the others' shots once, notes who fired
@@ -504,7 +522,7 @@ public partial class NetworkView : Node3D
         TrackEvade(me, own: true, (float)delta);
         // Dead (M23): the character is not placed or animated any more; its ragdoll (NetworkView.Death.cs) took over.
         if (TrackDeath(_client.PlayerId, _local, me, own: true, (float)delta))
-            Place(_local, shown, OwnThrowTime(me), own: true, smooth: SmoothOwnClip(me));   // feel/controls: own clips at the frame rate
+            Place(_local, shown, ThrowShown(_local, me, OwnThrowTime(me)), own: true, smooth: SmoothOwnClip(me));   // stream B: the toss plays out after the release (NetworkView.ThrowFollow.cs)   // feel/controls: own clips at the frame rate
         ApplyTeamLook(_local, _client.PlayerId, me.Team);
         Ph("own model: weapons");
         SyncWeapons(_local, me, (float)delta);   // M24
@@ -547,7 +565,7 @@ public partial class NetworkView : Node3D
             Ph("remote players: death tracking");
             bool placed = TrackDeath(state.PlayerId, character, state, own: false, (float)delta);
             Ph("remote players: place");
-            if (placed) Place(character, state, remoteThrow, smooth: state.Alive ? SmoothRemoteClip(state, (float)delta) : null);
+            if (placed) Place(character, state, ThrowShown(character, state, remoteThrow), smooth: state.Alive ? SmoothRemoteClip(state, (float)delta) : null);
             Ph("remote players: team look");
             ApplyTeamLook(character, state.PlayerId, state.Team);
             Ph("remote players: weapons");
@@ -559,7 +577,7 @@ public partial class NetworkView : Node3D
                 if (starting) HeavyEnd(rigStart);
             }
             Ph("remote players: bookkeeping");
-            character.Visible = state.Alive;   // a dead marine's living model is hidden: its ragdoll lies there instead (M23)
+            character.Visible = state.Alive || _deadKept;   // a dead marine's living model is hidden: its ragdoll lies there instead (M23); added content may keep its own (Musou: the Dreadnought's corpse)
             // Slim records carry only whether a player is charging (protocol 7): count the starts for the log.
             bool wasCharging = _remoteCharging.GetValueOrDefault(state.PlayerId);
             if (state.Charging && !wasCharging)
@@ -632,7 +650,10 @@ public partial class NetworkView : Node3D
         WeaponFrame(delta);   // M24
         Ph("sound");
         UpdateSound(me, others, delta);   // M26b
+        Ph("extras");   // musou/perf-pass: added content's frame is its own phase in --frame-profile (Musou Mode splits it further)
         ExtrasFrame(me, others, delta);   // EXTRAS-HOOK: added content's per-frame work after the sound (loyalist barks: barks and the FOR THE EMPEROR key)
+        BoltSmokeSceneFrame();   // test aid --bolt-smoke-scene (NetworkView.BoltSmokeScene.cs): after the added content's camera
+        Ph("brace, stims, hits");
         UpdateBraceVent(me, others);   // fidelity gap 7: the brace's and the vent's sounds and effects
         UpdateStims(me, others);   // perks/inert-2: combat stims' sound and effects (NetworkView.Stims.cs)
         UpdateHits();
@@ -677,15 +698,29 @@ public partial class NetworkView : Node3D
     /// </summary>
     partial void ExtrasInput(ref PlayerInput input);
 
+    /// <summary>Hook for added content: may take buttons off a live sampled input before it is sent and predicted (the server applies the same rule). Implemented in an <c>Extras/</c> folder.</summary>
+    partial void ExtrasInputGate(ref PlayerInput input);
+
+    /// <summary>
+    /// Hook for added content: the test bot's input when added content gives it something else to do than the players' fight (Musou Mode: the Orks). Left null, the bot plays as ever.
+    /// Implemented in an <c>Extras/</c> folder; returns at once unless its feature runs.
+    /// </summary>
+    partial void ExtrasBotInput(PlayerState me, uint tick, ref PlayerInput? input);
+
     /// <summary>Hook for added content: once a frame after the sound (<see cref="UpdateSound"/>), with the own and the other players' shown states.</summary>
     partial void ExtrasFrame(PlayerState me, IReadOnlyList<PlayerState> others, double delta);
+
+    /// <summary>An added mode's clip time for a marine's strike (Musou Mode's weight pass: the hit and end kept, the wind-up and strike retimed); none leaves it.</summary>
+    partial void ExtrasAttackTime(PlayerState state, bool own, ref float attackTime);
 
     PlayerInput SampleInput(uint tick)
     {
         Ph("input sampling");
         var input = _demoPlayback is not null ? DemoSampleInput(tick) : SampleInputCore(tick);   // M40 T0: replayed demos answer from the recording
         if (_demoPlayback is null) ExtrasInput(ref input);   // EXTRAS-HOOK: added content's keys on a live input (loyalist barks: the FOR THE EMPEROR key)
+        if (_demoPlayback is null) ExtrasInputGate(ref input);   // EXTRAS-HOOK: added content's limits on a live input (Musou: the Dreadnought's sprint, the same rule as the server's)
         DemoRecordInput(input);
+        _ownStickHeld = input.MoveX != 0f || input.MoveY != 0f;   // anim/jump-pack-blend: the sim's landing is the run landing when the stick is held at the touchdown
         NoteSentInput(input);   // feel/bullets: the shot of this tick is drawn on the ray this input carries (NetworkView.Bullets.cs)
         Ph("client update (tick step)");   // the prediction step and the send follow in GameClient.Update
         return input;
@@ -695,9 +730,15 @@ public partial class NetworkView : Node3D
     {
         _sampledYaw = _yaw; _sampledPitch = _pitch;   // M36: the view this input takes (NetworkView.Turning.cs)
         // Dead (M23): no control until the respawn - neither movement, look, fire nor abilities are sent.
-        if (OwnDead || PickerBusy) { _switchPending = false; _latch.Reset(); return new PlayerInput(tick, 0f, 0f, _yaw, InputButtons.None, _pitch); }
+        if (OwnDead || PickerBusy)
+        {
+            if (_bot && OwnDead) BotNoteDead();   // 2026-11-08: BotInput is not called while dead, so the lives and the push learn of the death here (NetworkView.BotRoam.cs)
+            _switchPending = false; _latch.Reset(); return new PlayerInput(tick, 0f, 0f, _yaw, InputButtons.None, _pitch);
+        }
         if (_bot && BotSwitchEvery > 0 && _connectedFor > 4.0) return BotSwitchInput(tick);   // fix/stow-right test aid (NetworkView.UpperBody.cs)
+        if (_bot && FovDemo) return FovDemoInput(tick);   // camera/melee-fov-widen test aid (NetworkView.MeleeFov.cs)
         if (_bot && BotIdle) return new PlayerInput(tick, 0f, 0f, _yaw, InputButtons.None, _pitch);
+        if (_bot && BotStimDemoEvery > 0 && StimOf(_client!.Predicted) is not null) return BotStimDemoInput(tick);   // stim-original test aid (NetworkView.Stims.cs)
         if (_bot && BarrelTest) return BarrelTestInput(tick);   // fx/barrel-origin test aid (NetworkView.Barrel.cs)
         if (_bot && BotGait) return BotGaitInput(tick);   // M36 test aid
         if (_bot && AimTest && BotBackup) return BotBackupInput(tick);   // feel/camera-hitstop test aid (--bot-backup): backs into the wall behind
@@ -708,6 +749,7 @@ public partial class NetworkView : Node3D
             var scripted = BotPickupInput(BotApplyAim(BotInput(tick)), tick);   // M44a: aim error on ranged shots at enemies (NetworkView.BotAim.cs); fidelity gap 1: E in reach of a pickup; --bot-pickups walks to one
             scripted = BotBraceVentInput(scripted);   // fidelity gap 7 test aid (--bot-brace): brace and vent with Reload
             scripted = BotTurnLimit(scripted);   // anim/melee-flow test aid (--bot-turn-rate): the view turns like a hand on a mouse, not in one tick (NetworkView.MeleeFlow.cs)
+            scripted = BotGrenadeHold(scripted);   // bot-grenade-safety (Classic PvP): no move, jump or charge into its own live grenade; out of it when inside (NetworkView.BotGrenades.cs)
             if (AimTest) LogConvergence(scripted);
             // --bot-slot pistol|primary (test aid): one press of that slot key (protocol 14) a few seconds after joining.
             if (BotSlot is { Length: > 0 } && _connectedFor is >= 3.0 and < 3.2)
@@ -759,19 +801,30 @@ public partial class NetworkView : Node3D
         double t = tick * (double)_config!.TickSeconds + id * 3.7;
         double phase = t % 10.0;
         var me = _client!.Predicted;
+        _botExtrasTick = false;
+        BotHazards(me);   // bot-grenade-safety: the bot's own live grenades and waiting rounds this tick (NetworkView.BotGrenades.cs)
         if (JumpTest && JumpTestInput(me, tick) is { } jumpTest) return jumpTest;   // M44 test aid (NetworkView.JumpFx.cs)
         if (SlashTestInput(me, tick) is { } slashTest) return slashTest;   // feel/jump-pack test aid --slash-test (NetworkView.DashAttack.cs)
+        if (HopRulesTestInput(me, tick) is { } hopRules) return hopRules;   // sim/hop-rules capture aid --hop-rules-test (NetworkView.HopRulesTest.cs)
         if (SwingTestInput(me, tick) is { } swingTest) return swingTest;   // anim/hammer-swing test aid --swing-test (NetworkView.SwingTest.cs)
         if (StompMoveTestInput(me, tick) is { } stompMove) return stompMove;   // anim/stomp-to-move test aid --stomp-move-test (NetworkView.StompMoveTest.cs)
         if (CameraTestInput(me, tick) is { } cameraTest) return cameraTest;   // camera/hop-and-walls test aid --camera-test (NetworkView.CameraTest.cs)
+        if (FireTestInput(me, tick) is { } fireTest) return fireTest;   // fx/weapon-visuals capture aid --fire-test (NetworkView.PowerGlow.cs)
         if (CarryTestInput(me, tick) is { } carry) return carry;   // anim/relic-bolter-idle test aid --carry-test (NetworkView.CarryTest.cs)
         if (DashWallTestInput(me, tick) is { } dashWall) return dashWall;   // feel/jump-pack-2 test aid --dash-wall-test (NetworkView.DashAttack.cs)
         // A navigation jump in flight keeps its checked controls (NetworkView.Nav.cs).
         if (BotNavFlightInput(me, tick) is { } flightInput) return flightInput;
+        BotTrackLife(me);   // 2026-11-07: lives for the lane legs and the idle cycle (NetworkView.BotRoam.cs)
+        if (!SeizeGround) BotPushStep(me);   // 2026-11-08: the periodic melee push, Annihilation (NetworkView.BotPush.cs)
         // M44a: during the match's "MATCH BEGINS" countdown (attacks do not work yet) the bot holds still in its spawn room: no wasted shots, no stale path.
         if (_client.Match.Effective() == MatchState.Countdown) { _botNote = "countdown: holding"; _navAgent?.Reset(); return new PlayerInput(tick, 0f, 0f, _yaw, InputButtons.None, _pitch); }
         // Seize Ground (M16): go to a point not held, fight on the way and hold it (NetworkView.Seize.cs).
         _botNote = "";
+        PlayerInput? extrasBot = null;
+        ExtrasBotInput(me, tick, ref extrasBot);   // EXTRAS-HOOK: added content's own bot (Musou Mode co-op: deploy with the team, fight the Orks)
+        if (extrasBot is { } extrasInput) { _botExtrasTick = true; return extrasInput; }   // bot-grenade-safety: the hold leaves added content's bot alone
+        // 2026-11-08: at low health, cover first, then back into the fight (Classic PvP, both modes; NetworkView.BotCover.cs).
+        if (BotRetreatInput(me, tick) is { } retreatInput) return retreatInput;
         if (BotSeizeInput(me, tick, phase) is { } seizeInput) { _botNote = _botSeizeNote; return seizeInput; }
         // M19: on a map it fights only an enemy it sees within BotFightRange; otherwise it chases (NetworkView.Bot.cs).
         if (me.Alive && BotFightTarget(me, out _) is { } target)
@@ -780,25 +833,35 @@ public partial class NetworkView : Node3D
             float dz = target.Position.Z + BotTargetHeight - (me.Position.Z + _config.EyeHeight);
             _yaw = MathF.Atan2(-dx, dy);   // direction (-sin yaw, cos yaw)
             _pitch = Math.Clamp(MathF.Atan2(dz, MathF.Sqrt(dx * dx + dy * dy)), -MaxPitchDown, MaxPitchUp);
+            _botTickEnemy = target;   // stream C: the strafing and straight-run measurements (NetworkView.BotTactics.cs)
+            BotNoteFight();   // 2026-11-07: the lane leg ends; afterwards the idle cycle starts at the hold again (NetworkView.BotRoam.cs)
             // Jump pack (assault classes): jump at targets 8-30 m away and pound from above (NetworkView.Jump.cs).
             if (BotDashAttackInput(me, target, tick) is { } dashInput) return dashInput;   // protocol 30 test aid --bot-dash-attack (NetworkView.DashAttack.cs)
             if (BotJumpInput(me, target, tick) is { } jumpInput) return jumpInput;
+            // 2026-11-08: a melee push keeps closing in sight instead of strafing until the jump, charge or melee range (NetworkView.BotPush.cs).
+            if (BotPushFightInput(me, target, tick, MathF.Sqrt(dx * dx + dy * dy)) is { } pushInput) return pushInput;
             // Evade roll (Tactical / Devastator classes): sideways every ~6 s (NetworkView.Evade.cs).
-            if (BotEvadeInput(me, tick) is { } evadeInput) return evadeInput;
+            if (BotPostOf(me) is null && BotEvadeInput(me, tick) is { } evadeInput) return evadeInput;   // 2026-11-08: no rolls off a post's edge
             bool hasMelee = Loadouts.Melee(_config, me).Count > 0;
             // perks/inert-2: a bot carrying combat stims uses them once it has a target within 20 m (melee bots too; ours, test script).
-            if (StimOf(me) is not null && BotThrow(me, MathF.Sqrt(dx * dx + dy * dy)) is var stimPress and not InputButtons.None)
+            if (StimOf(me) is not null && BotThrow(me, target, MathF.Sqrt(dx * dx + dy * dy)) is var stimPress and not InputButtons.None)
                 return new PlayerInput(tick, 0f, 1f, _yaw, stimPress, _pitch);
             // The charge (M29): sometimes, at 4-9 m, run at the target and press F once moving fast enough (NetworkView.Reactions.cs).
-            if (BotRushInput(me, tick, dx * dx + dy * dy) is { } rushInput) return rushInput;
             // Same floor only: a target more than BotMeleeHeight above or below is not in reach (QA 2026-10-28: bots swung at an
             // enemy 5 m below a ledge for 40 s).
             bool sameFloor = MathF.Abs(target.Position.Z - me.Position.Z) <= BotMeleeHeight;
+            // Night batch 2026-11-06: a reaction time before the first melee action or charge on an enemy in reach (NetworkView.BotAim.cs), also before answering its attack; an action under way goes on.
+            bool meleeActive = me.MeleeStep > 0 || me.MeleeHeld || me.MeleeHeavyHeld || me.MeleeQueued;
+            bool meleeReady = BotMeleeReady(target, sameFloor && dx * dx + dy * dy <= 81f, MathF.Sqrt(dx * dx + dy * dy));
+            // bot-grenade-safety: no charge into the bot's own live grenade (the target inside its blast, or the run through it; NetworkView.BotGrenades.cs).
+            bool chargeHeld = me.Rush == RushPhase.None && BotChargeIntoOwnBlast(me, target);
+            if (!chargeHeld && (meleeReady || me.Rush != RushPhase.None || _botChargeRunSince >= 0) && BotRushInput(me, tick, dx * dx + dy * dy) is { } rushInput) return rushInput;
             if (hasMelee && sameFloor && dx * dx + dy * dy <= BotMeleeDistance * BotMeleeDistance)
             {
                 // Press on a released key unless a press is already buffered; the next tick releases it. During the second light
                 // attack the press is the heavy strike (M28: X X Y, the combo's third heavy strike), when the class has one.
-                bool press = !me.MeleeHeld && !me.MeleeHeavyHeld && !me.MeleeQueued;
+                // bot-grenade-safety: no new swing (and its lunge) at a target inside the bot's own live grenade's blast; the hold backs the bot out.
+                bool press = !me.MeleeHeld && !me.MeleeHeavyHeld && !me.MeleeQueued && (meleeReady || meleeActive) && !BotMeleeIntoOwnBlast(me, target);
                 // Weapons C: a single-attack combo (the Devastator's kick) goes on to its heavy strike (the stomp), and a heavy strike with a
                 // Y,Y finisher chains into it.
                 int heavies = Loadouts.MeleeHeavy(_config, me).Count;
@@ -807,39 +870,56 @@ public partial class NetworkView : Node3D
                     || (me.MeleeStep == 2 && !me.MeleeHeavy && heavies >= 3)
                     || (me.MeleeStep == 1 && !me.MeleeHeavy && Loadouts.Melee(_config, me).Count == 1 && heavies >= 1)
                     || (me.MeleeHeavy && Combat.MeleeStepOf(_config, me) is { YNext: > 0 });
-                return new PlayerInput(tick, 0f, 0f, _yaw, press ? heavy ? InputButtons.MeleeHeavy : InputButtons.Melee : InputButtons.None, _pitch);
+                // Stream C: some swings are deliberately missed (the view turned off the target for that attack; NetworkView.BotTactics.cs).
+                return new PlayerInput(tick, 0f, 0f, BotSwingYaw(me, press, MathF.Sqrt(dx * dx + dy * dy)), press ? heavy ? InputButtons.MeleeHeavy : InputButtons.Melee : InputButtons.None, _pitch);
             }
             if (_botMelee) return new PlayerInput(tick, 0f, 1f, _yaw, dx * dx + dy * dy > 36f ? InputButtons.Sprint : InputButtons.None, _pitch);
             // Strafe only onto walkable ground (navigation graph, NetworkView.Nav.cs): the other side or none otherwise.
-            float strafe = BotWalkableStrafe(me, phase >= 8.0 ? 0f : id % 2 == 0 ? 1f : -1f);
+            // Stream C: left and right in legs, toward a flank while an ally engages the same enemy (NetworkView.BotTactics.cs); --bot-old-tactics: one side, standing 2 s of every 10.
+            float strafe = BotOldTactics ? BotWalkableStrafe(me, phase >= 8.0 ? 0f : id % 2 == 0 ? 1f : -1f) : BotStrafe(me, target);
             float horizontal = MathF.Sqrt(dx * dx + dy * dy);
-            var grenade = BotThrow(me, horizontal);
-            // Throwing (pressed now or under way until the release): aim at the ground BotThrowShort m short of the target,
-            // since a grenade keeps going after it lands (test script heuristic, not the original's aim).
+            var grenade = BotThrow(me, target, horizontal);
+            // Throwing (pressed now or under way until the release). bot-grenade-safety (Classic PvP, a damaging item): at the predicted landing point, under way never nearer than
+            // the one checked at the press (NetworkView.BotGrenades.cs); else (--old-bot-throws, stims, the blind grenade) at the ground BotThrowShort m short of the target, from
+            // before the 2026-10-29 bounce rule (test script heuristic).
             if (grenade != InputButtons.None || (me.Throwing && me.ThrowTime <= _config.ThrowRelease + 0.05f))
-                _pitch = Math.Clamp(MathF.Atan2(target.Position.Z - (me.Position.Z + _config.EyeHeight), MathF.Max(2f, horizontal - BotThrowShort)), -MaxPitchDown, MaxPitchUp);
+            {
+                if (BotThrowAimPoint(me, target) is { } landing) { _botThrowAim = landing; BotAimThrow(me, landing); }
+                else _pitch = Math.Clamp(MathF.Atan2(target.Position.Z - (me.Position.Z + _config.EyeHeight), BotGrenadeSafety.OldAimDistance(horizontal)), -MaxPitchDown, MaxPitchUp);
+            }
+            else if (!me.Throwing) { _botThrowPressAim = null; _botThrowAim = null; }   // no throw under way: a press's landing (and an aborted throw's aim) does not outlive it
             // The melta only reaches its cone length: beyond it, run at the target (no fire) instead of strafing.
             if (Loadouts.InHand(_config, me) is { Delivery: DeliveryKind.Cone, Cone: { } cone } && horizontal > cone.Length * 0.9f)
-                return new PlayerInput(tick, 0f, 1f, _yaw, grenade, _pitch);
+                return BotOldTactics ? new PlayerInput(tick, 0f, 1f, _yaw, grenade, _pitch) : BotMoveInput(tick, BotWeave(me, new Vector2(-MathF.Sin(_yaw), MathF.Cos(_yaw)), horizontal), grenade);   // stream C: weaving
             // A switch in the same tick would win and swallow the throw (and its 4 s spacing), so a throw drops the switch.
             var weaponButtons = BotWeaponButtons(me, tick, target);
             if (grenade != InputButtons.None) weaponButtons &= ~InputButtons.Switch;
+            // Stream C: a gunfight at range with a primary weapon is fought in aim mode, as a person does (the data's tighter aiming spread; aiming speeds), not while throwing.
+            if (grenade == InputButtons.None && !me.Throwing) weaponButtons |= BotAimButton(me, horizontal);
             // M44a: a ranged shot at an enemy gets the aim error (BotApplyAim); a throw keeps the exact aim.
             _botAimNow = grenade == InputButtons.None && !me.Throwing;
             _botAimTarget = target.PlayerId;   // the trigger discipline's reaction delay (NetworkView.BotAim.cs)
             BotNoteEngagement(horizontal);
             // M44a: far from the target (more than BotAdvanceBeyond m) the bot keeps firing and walks toward it along its path, so that long-range
             // fights close up (no sprint: it would stop the fire). Without a graph, or at the end of the path, it strafes as before.
-            if (horizontal > BotAdvanceBeyond && Nav is not null)
+            // 2026-11-08: a bot with a post (ramp top, balcony) fights from there, stepping back onto it while firing (NetworkView.BotPosts.cs).
+            if (BotPostReturn(me) is { } postSpot && Nav is not null)
+            {
+                var (back, backSpeed, _, _) = BotSteer(me, postSpot, "back to post");
+                if (back.LengthSquared() > 1e-6f) return BotMoveInput(tick, back * backSpeed, grenade | weaponButtons | _navJump);
+            }
+            if (horizontal > BotAdvanceBeyond && Nav is not null && BotPostOf(me) is null)
             {
                 var (advance, speed, _, _) = BotSteer(me, BotPathGoal(target.Position), $"advance on P{target.PlayerId}");
                 // Not along a path that flies a jump link (the take-off needs the bot still); drops are fine (a spawn room's exit is one).
                 bool flies = _navAgent?.Path is { } adv && adv.Waypoints.Skip(Math.Max(_navAgent.Waypoint, 0)).Take(6).Any(w => w.Kind == NavLinkKind.Jump);
                 if (advance.LengthSquared() > 1e-6f && !flies)
-                    return BotMoveInput(tick, advance * speed, grenade | weaponButtons | _navJump);
+                    return BotMoveInput(tick, BotWeave(me, advance, horizontal) * speed, grenade | weaponButtons | _navJump);   // stream C: weaving, not a straight line
             }
             return new PlayerInput(tick, strafe, 0f, _yaw, grenade | weaponButtons, _pitch);
         }
+        _botMeleeReaction?.Step(_config.TickSeconds, null);   // no target in sight: the melee reaction forgets it
+        _botTargetSwinging = false;
         // --bot-goal / --bot-route (test aid): walk the route instead of chasing (NetworkView.Nav.cs).
         if (BotRouteInput(me, tick) is { } routeInput) return routeInput;
         if (!(BotFireWalls && NearestLivingTarget(me) is null) && BotChaseInput(me, tick) is { } chaseInput) return chaseInput;   // --bot-fire-walls: stays in its room when alone
@@ -873,7 +953,9 @@ public partial class NetworkView : Node3D
     InputButtons BotWeaponButtons(PlayerState me, uint tick, PlayerState? target)
     {
         var c = _config!;
-        if (BotWantsSwitch(me)) return me.SwitchHeld ? InputButtons.None : InputButtons.Switch;   // press edge; released on the next tick
+        // bot-grenade-safety (Classic PvP): a splash weapon held at close range gives way to a loaded pistol, back when the range allows (NetworkView.BotGrenades.cs); else the old rule.
+        var splashSwitch = BotSplashSwitch(me, target);
+        if (splashSwitch == true || (splashSwitch is null && BotWantsSwitch(me))) return me.SwitchHeld ? InputButtons.None : InputButtons.Switch;   // press edge; released on the next tick
         if (Loadouts.InHand(c, me) is not { } weapon) return InputButtons.None;
         var buttons = InputButtons.None;
 
@@ -896,38 +978,76 @@ public partial class NetworkView : Node3D
                 // A tap releases at once (the basic shot); a hold lasts until the firing stage (aimed: the bot turns to the target every tick).
                 if (_botTap) return buttons;
                 bool ready = lastFiring > 0 && Combat.ChargeStage(charge, me.ChargeTime, firing: true) >= lastFiring;
-                if (ready) return buttons;
+                // bot-grenade-safety (Classic PvP): a charged shot that would burst within its own blast of the bot is held on (an overheat ends the charge unfired).
+                if (ready && !BotSplashShotHeld(me, weapon, lastFiring, target)) return buttons;
                 return buttons | InputButtons.Fire;
             }
             if (me.FireHeld || me.Overheated) return buttons;   // release first: a charge starts on a press edge
-            bool chargeNow = (tick * (double)c.TickSeconds + Math.Max(_client?.PlayerId ?? 0, 0) * 1.3) % BotChargeCycle >= BotChargeCycle - BotChargeWindow;
+            bool chargeNow = BotChargeAll || (tick * (double)c.TickSeconds + Math.Max(_client?.PlayerId ?? 0, 0) * 1.3) % BotChargeCycle >= BotChargeCycle - BotChargeWindow;
+            // bot-grenade-safety (Classic PvP; NetworkView.BotGrenades.cs): a charged shot that would burst within its own blast of the bot is not charged (the tap's basic shot instead),
+            // and a basic shot that would is not fired.
+            if (chargeNow && lastFiring > 0 && BotSplashShotHeld(me, weapon, lastFiring, target, note: false)) chargeNow = false;
+            if (BotSplashShotHeld(me, weapon, 0, target)) return buttons;
             // Too little in the clip to start a charge (the lascannon needs 2) but some in reserve: reload first.
             if (chargeNow && me.Clip > 0 && me.Clip < Math.Max(1, charge.AmmoToStart) && me.Reserve > 0 && me.ReloadLeft <= 0f)
                 return buttons | (me.ReloadHeld ? InputButtons.None : InputButtons.Reload);
             _botTap = !chargeNow;
             return buttons | InputButtons.Fire;
         }
+        if (BotSplashShotHeld(me, weapon, 0, target)) return buttons;   // bot-grenade-safety (Classic PvP): not a projectile that would burst within its own blast of the bot (the grenade launcher)
         return buttons | (weapon.Trigger == TriggerKind.FullAuto || !me.FireHeld ? InputButtons.Fire : InputButtons.None);
     }
 
     /// <summary>
     /// The bot's throw: a Grenade press (on a released key) when it carries one, the item's cooldown is over, nothing else
-    /// is under way (throw, melee, switch, charge or pending shot), the target is <see cref="BotThrowMin"/> to
-    /// <see cref="_botThrowMax"/> m away (horizontally) and its last throw press was <see cref="BotThrowEvery"/> s ago or more.
+    /// is under way (throw, melee, switch, charge or pending shot), its last throw press was <see cref="BotThrowEvery"/> s ago or more and the distance rule allows it:
+    /// bot-grenade-safety (Classic PvP, a damaging item, <see cref="BotGrenadeSafety"/>): the target's chest and the predicted landing point at least the item's blast radius
+    /// + margin from the bot's chest (3D) and the target within <see cref="_botThrowMax"/> m horizontally; else (stims, the blind grenade, <c>--old-bot-throws</c>)
+    /// <see cref="BotThrowMin"/> to <see cref="_botThrowMax"/> m away horizontally (stims at any distance).
     /// </summary>
-    InputButtons BotThrow(PlayerState me, float distance)
+    InputButtons BotThrow(PlayerState me, PlayerState target, float distance)
     {
         if (me.GrenadeHeld || me.Grenades <= 0 || me.GrenadeCooldown > 0f || me.Throwing || me.MeleeStep > 0 || me.SwitchLeft > 0f
-            || me.Charging || me.PendingShot > 0 || (distance < BotThrowMin && StimOf(me) is null) || distance > _botThrowMax || _connectedFor - _botLastThrow < BotThrowEvery)   // perks/inert-2: stims at any distance
+            || me.Charging || me.PendingShot > 0 || _connectedFor - _botLastThrow < BotThrowEvery)
             return InputButtons.None;
+        bool stim = StimOf(me) is not null;
+        if (!stim && BotThrowSafety(me) is { } safe)
+        {
+            var verdict = BotThrowCheck(me, target, safe.Item, safe.Safety, out var landing);
+            if (verdict != BotGrenadeSafety.ThrowVerdict.Throw)
+            {
+                // A refusal is counted when the old rule would have thrown (at most once per BotThrowEvery), so the count is the throws avoided.
+                if (verdict != BotGrenadeSafety.ThrowVerdict.OutOfRange && BotGrenadeSafety.OldThrowAllowed(distance, false, _botThrowMax) && _connectedFor - _botLastRefusal >= BotThrowEvery)
+                {
+                    _throwsRefused++; _botLastRefusal = _connectedFor;
+                    BotSafetyLog($"no throw at P{target.PlayerId} ({verdict}: target {V3Distance(BotChest(me), BotChest(target)):F1} m, landing {V3Distance(BotChest(me), landing):F1} m, safety {safe.Safety:F1} m)");
+                }
+                return InputButtons.None;
+            }
+            _botLastThrow = _connectedFor;
+            _botThrowAim = landing; _botThrowPressAim = landing;
+            GD.Print($"t {_connectedFor:F1} s: id {_client!.PlayerId} bot presses throw at a target {distance:F1} m away ({ThrowText(me)} 3D {V3Distance(BotChest(me), BotChest(target)):F1} m, " +
+                     $"landing {V3Distance(BotChest(me), landing):F1} m from the chest; safety {safe.Safety:F1} m)");
+            return InputButtons.Grenade;
+        }
+        if (!BotGrenadeSafety.OldThrowAllowed(distance, stim, _botThrowMax)) return InputButtons.None;   // perks/inert-2: stims at any distance
         _botLastThrow = _connectedFor;
         GD.Print($"t {_connectedFor:F1} s: id {_client!.PlayerId} bot presses throw at a target {distance:F1} m away ({ThrowText(me)})");
         return InputButtons.Grenade;
     }
 
+    double _botLastRefusal = double.NegativeInfinity;
+    static float V3Distance(System.Numerics.Vector3 a, System.Numerics.Vector3 b) => System.Numerics.Vector3.Distance(a, b);
+
     /// <summary>Why the bot's grenades should go off now (see <see cref="BotWeaponButtons"/>), or null.</summary>
     string? BotWantsDetonation(PlayerState me, WeaponSpec weapon, PlayerState? target)
     {
+        // bot-grenade-safety: never with the bot's chest inside a waiting round's blast reach (NetworkView.BotGrenades.cs).
+        if (BotDetonationHeld(me, weapon) is { } near)
+        {
+            if (_connectedFor - _botLastDetonationHold >= 1.0) { _detonationsHeld++; _botLastDetonationHold = _connectedFor; BotSafetyLog($"no detonation: a waiting round {near:F1} m from the chest"); }
+            return null;
+        }
         if (target is { } t && _client is not null && GrenadeNear(me, weapon, t) is { } g)
             return $"grenade #{g.Id} at {g.Position.X:F1},{g.Position.Y:F1},{g.Position.Z:F1}{((g.Flags & ProjectileFlags.Stuck) != 0 ? " stuck" : (g.Flags & ProjectileFlags.Attached) != 0 ? " attached" : "")} near P{t.PlayerId} at {t.Position.X:F1},{t.Position.Y:F1},{t.Position.Z:F1}";
         return _grenadesOutFor >= BotDetonateAfter ? $"out for {_grenadesOutFor:F1} s" : null;
@@ -1033,12 +1153,13 @@ public partial class NetworkView : Node3D
             if (node.MaterialOverride != material) node.MaterialOverride = material;
             var drawn = BarrelDrawn(q);   // fx/barrel-origin: leaves the barrel, joins the server's path within 3 m (NetworkView.Barrel.cs)
             node.Position = new Vector3(drawn.X, drawn.Y, drawn.Z);
+            GrenadeTumble(node, q, material is null);   // feel/grenades-quickdraw: a grenade model rolls with its travel (NetworkView.Grenades.cs)
             // M25b: with the original trail drawing it, the placeholder ball stays only for grenades (their model is not drawn yet).
             Ph("projectiles: effects");
             bool trail = FxProjectile(q, ToGodot(drawn));
             Ph("projectiles and blasts");
             string label = q.Thrown ? "grenade" : q.Weapon >= 0 && q.Weapon < _config.Weapons.Count ? _config.Weapons[q.Weapon].Name : "";
-            node.Visible = !(trail && !(q.Thrown || (label.Contains("grenade", StringComparison.OrdinalIgnoreCase) && !label.Contains("plasma", StringComparison.OrdinalIgnoreCase)))) || (trail && IsPlasmaShot(q.Weapon, q.Thrown) && !OldPlasmaBall);   // wfx: a plasma shot's solid ball shows with the data's trail around it
+            node.Visible = !(trail && !(q.Thrown || (label.Contains("grenade", StringComparison.OrdinalIgnoreCase) && !label.Contains("plasma", StringComparison.OrdinalIgnoreCase)))) || (trail && IsPlasmaShot(q.Weapon, q.Thrown) && PlasmaBallMeshShownFor(q.Weapon));   // plasma-original-fx: the original charged shot has no mesh (invisible_projectile), only its data trail   // wfx: a plasma shot's solid ball shows with the data's trail around it
         }
         _goneProjectiles.Clear();
         foreach (var id in _projectileNodes.Keys) if (!live.Contains(id)) _goneProjectiles.Add(id);
@@ -1046,6 +1167,7 @@ public partial class NetworkView : Node3D
         {
             var node = _projectileNodes[id];
             node.Visible = false;
+            GrenadeForget(id, node);
             FxProjectileGone(id);
             BarrelForget(id);
             _projectileNodes.Remove(id);
@@ -1054,7 +1176,7 @@ public partial class NetworkView : Node3D
 
         // Blasts: each detonation once, when the interpolated view reaches it; one sphere per damaging blast
         // (ProjectileSpec.AllSplashes), and a disc for the lifetime of a lingering one (the melta bomb's; not offered).
-        foreach (var d in _client.TakeDetonations())
+        foreach (var d in _client.TakeDetonations(OldChargedImpact ? null : DrawnAhead))   // fx/tracers-impact: an own ball drawn from the newest snapshot blasts when it is gone
         {
             _detonationsSeen++;
             if (d.Stage > 0) _chargedDetonationsSeen++;
@@ -1067,18 +1189,20 @@ public partial class NetworkView : Node3D
                                $"blast radius {(splashes.Count == 0 ? "none" : string.Join(" + ", splashes.Select(x => x.Radius.ToString("F1") + (x.Lifetime > 0f && x.Period > 0f ? $" lingering {x.Lifetime:F0} s" : ""))))} (detonations seen {_detonationsSeen}, thrown {_thrownDetonationsSeen})");
             Ph("blasts: sound");
             SoundDetonation(d);   // M26b
+            ExtrasThrownDetonated(d);   // EXTRAS-HOOK added content (Musou's Remote Detonators): the ring of a charge starts from its detonation
             var colour = d.Thrown ? ThrownBlastColour(d.Weapon) : ProjectileColour(weapon, d.Stage);
             var position = new Vector3(d.Position.X, d.Position.Y, d.Position.Z);
             // M25b: the original explosion replaces the placeholder blast spheres (lingering areas stay; --placeholder-fx keeps the spheres).
             Ph("blasts: effects");
-            bool original = FxDetonation(d);
+            float reach = d.Thrown && d.Weapon >= 0 && d.Weapon < _config.Thrown.Count ? _config.ThrownBlastScale(_config.Thrown[d.Weapon]) : 1f;   // Musou Mode's frag: 2x (owner 2026-11-09), the effect as large as the blast
+            bool original = FxDetonation(d, reach);
             Ph("projectiles and blasts");
             // Without a splash (none read), a small flash so the detonation is still visible.
             if (splashes.Count == 0 && !original) AddBlast(position, colour, 0.5f);
             foreach (var splash in splashes)
             {
                 if (splash.Lifetime > 0f && splash.Period > 0f) AddArea(position, colour, splash.Radius, splash.Lifetime);
-                else if (!original) AddBlast(position, colour, splash.Radius > 0f ? splash.Radius : 0.5f);
+                else if (!original) AddBlast(position, colour, splash.Radius > 0f ? splash.Radius * reach : 0.5f);
             }
         }
     }
@@ -1195,17 +1319,18 @@ public partial class NetworkView : Node3D
     /// (<paramref name="thrown"/>: <paramref name="weaponIndex"/> indexes <see cref="SimConfig.Thrown"/>): a small sphere,
     /// dark green for the frag grenade, grey for the krak grenade, dark red for the melta bomb (placeholders).
     /// </summary>
-    (Mesh Mesh, Material Material) ProjectileLook(int weaponIndex, int stage, bool thrown = false)
+    (Mesh Mesh, Material? Material) ProjectileLook(int weaponIndex, int stage, bool thrown = false)
     {
         string key = $"{(thrown ? "t" : "")}{weaponIndex}:{stage}";
         if (_projectileLooks.TryGetValue(key, out var look)) return look;
+        if (thrown && GrenadeModel(weaponIndex) is { } model) return model;   // feel/grenades-quickdraw: the original model (NetworkView.Grenades.cs); cached there
         if (thrown)
         {
             string item = weaponIndex >= 0 && weaponIndex < _config!.Thrown.Count ? _config.Thrown[weaponIndex].Name.ToLowerInvariant() : "";
             var albedo = item.Contains("krak") ? new Color(0.45f, 0.46f, 0.48f) : item.Contains("melta") ? new Color(0.35f, 0.08f, 0.05f) : new Color(0.12f, 0.25f, 0.1f);
             look = (new SphereMesh { Radius = 0.15f, Height = 0.3f, RadialSegments = 12, Rings = 6 },
                     new StandardMaterial3D { AlbedoColor = albedo, Metallic = 0.3f, Roughness = 0.6f, EmissionEnabled = true, Emission = albedo, EmissionEnergyMultiplier = 0.4f });
-            _projectileLooks[key] = look;
+            if (GrenadeModelSettled(weaponIndex)) _projectileLooks[key] = look;   // feel/grenades-quickdraw: not while the original model may still come
             return look;
         }
         var weapon = weaponIndex >= 0 && weaponIndex < _config!.Weapons.Count ? _config.Weapons[weaponIndex] : null;
@@ -1218,9 +1343,9 @@ public partial class NetworkView : Node3D
             material = new StandardMaterial3D { AlbedoColor = new Color(0.12f, 0.13f, 0.12f), Metallic = 0.4f, Roughness = 0.5f,
                                                 EmissionEnabled = true, Emission = new Color(0.9f, 0.3f, 0.1f), EmissionEnergyMultiplier = 0.12f };
         }
-        else if (IsPlasmaShot(weaponIndex, false) && !OldPlasmaBall) material = PlasmaBallMaterial(ProjectileColour(weapon, stage), radius);   // wfx (owner's item 25): a solid-ish roiling ball
+        else if (IsPlasmaShot(weaponIndex, false) && PlasmaBallMeshShownFor(weaponIndex)) material = PlasmaBallMaterial(ProjectileColour(weapon, stage), radius);   // wfx (owner's item 25): a solid-ish roiling ball
         else material = GlowMaterial(ProjectileColour(weapon, stage), stage > 0 ? 4f : 2.5f);
-        bool plasmaBall = IsPlasmaShot(weaponIndex, false) && !OldPlasmaBall;
+        bool plasmaBall = IsPlasmaShot(weaponIndex, false) && PlasmaBallMeshShownFor(weaponIndex);
         look = (new SphereMesh { Radius = radius, Height = 2f * radius, RadialSegments = plasmaBall ? 32 : 12, Rings = plasmaBall ? 16 : 6 }, material);
         _projectileLooks[key] = look;
         return look;
@@ -1275,6 +1400,7 @@ public partial class NetworkView : Node3D
         {
             _throwsReleased += p.Grenades - me.Grenades;
             if (_bot) GD.Print($"t {_connectedFor:F1} s: id {_client!.PlayerId} releases a grenade ({ThrowText(me)} released {_throwsReleased}; predicted)");
+            if (_bot) BotNoteOwnRelease(me);   // bot-grenade-safety: its grenade is a hazard until it goes off (NetworkView.BotGrenades.cs)
         }
         // A recharged round that arrives and is fired within one frame leaves the clip unchanged but the reserve lower.
         bool shot = me.Clip < p.Clip || (me.Reserve < p.Reserve && me.Clip <= p.Clip);
@@ -1412,6 +1538,15 @@ public partial class NetworkView : Node3D
         EmissionEnergyMultiplier = energy,
     };
 
+    /// <summary>Hook for added content: <paramref name="handled"/> set when the character was posed by it (Musou: the Dreadnought's rig).</summary>
+    partial void ExtrasPlace(CharacterViewer character, PlayerState state, bool own, ref bool handled);
+
+    /// <summary>
+    /// Hook for added content: called by <see cref="TrackDeath"/> for a player who is not alive; <paramref name="keep"/> set when the added content poses and shows the dead character itself (Musou: the Dreadnought's
+    /// death clip and corpse), so it stays visible instead of being hidden for a ragdoll.
+    /// </summary>
+    partial void ExtrasDeadPlace(CharacterViewer character, PlayerState state, bool own, ref bool keep);
+
     /// <summary>Positions are game space (metres, Z up); yaw rotates about +Z, and yaw 0 faces +Y like the model.</summary>
     /// <param name="throwTime">Seconds into a throw under way (own player: the simulation's ThrowTime; others: since their
     /// slim Throwing flag rose), or null when not throwing: the toss clip is posed at that time when the rig has it.</param>
@@ -1421,7 +1556,15 @@ public partial class NetworkView : Node3D
         // qc/reference-pass: the transition probe measures the melee prop bones (RIG_Prop_M_*) only where a mesh can hang on them: a marine with a two-handed melee weapon, and every
         // Ork (the boy's shoota rides RIG_Prop_M_Chest); on other marines they carry nothing.
         LungeLogSample(state);   // anim/hammer-swing test aid (NetworkView.LungeLog.cs)
-        if (TransitionProbe.Enabled) character.SetMeta(TransitionProbe.TwoHandedMeta, IsOrkCharacter(character) || MeleeWargear(state)?.Contains("_2hand_", StringComparison.OrdinalIgnoreCase) == true);
+        if (LegProbe.Enabled) LegProbeMeta(character, state);   // --leg-probe (client/LegProbe.cs)
+        if (TransitionProbe.Enabled)
+        {
+            character.SetMeta(TransitionProbe.TwoHandedMeta, IsOrkCharacter(character) || (MeleeWargear(state) is { } twoHand && AnimationAlias.Of(twoHand).Contains("_2hand_", StringComparison.OrdinalIgnoreCase)));   // AnimationAlias (W0b): Musou's spear is two-handed
+            character.SetMeta(TransitionProbe.OwnMeta, own);   // anim/strafe-blend: the direction events say own / remote
+        }
+        bool extraPlaced = false;
+        ExtrasPlace(character, state, own, ref extraPlaced);   // EXTRAS-HOOK: added content poses its own rigs (Musou: the Dreadnought)
+        if (extraPlaced) return;
         if (IsOrkCharacter(character)) { PlaceOrk(character, state, throwTime, own, smooth); return; }   // Ork O7a (NetworkView.Ork.cs): the boy's rig has its own clips
         character.ClearPoseLayers();  // M27: the recoil layer is laid again by PlaceLocomotion when it applies (animation pass 1: every layer slot, CharacterViewer.Layers.cs; the fall slots by FallLayers)
         character.ClearTurnPose();    // M40-T5: so are the turn layer and the spine twist
@@ -1436,7 +1579,7 @@ public partial class NetworkView : Node3D
         float yaw = BodyYawFor(character, state, own, aimYaw, throwTime);   // M40-T5 (NetworkView.TurnInPlace.cs): the body is planted while the aim moves; else the aim's yaw
         if (TurnProbe.Enabled) character.SetMeta("aim_yaw", aimYaw);   // the probe compares the chest with the aim
         character.Transform = new Transform3D(new Basis(new Vector3(0, 0, 1), yaw), new Vector3(state.Position.X, state.Position.Y, state.Position.Z - hop));
-        if (character.GetNodeOrNull<Node3D>("ChargeGlow") is { } glow) glow.Visible = state.Alive && state.Charging && !NoMarkers;
+        if (character.GetNodeOrNull<Node3D>("ChargeGlow") is { } glow) glow.Visible = state.Alive && state.Charging && !NoMarkers && !HasDataChargeFx(state);   // fix/plasma-visuals: the plasma weapons play their own charge build
         // Reacting (M28): the reaction clip at the reaction's time; a reaction ends any attack, throw, evade or jump on the ground.
         character.ClipFootLock = false;   // anim/melee-flow: only the strikes and the charge below hold their put-down feet (CharacterViewer.ClipFootLock.cs)
         character.ClipStrideScale = 1f;   // anim/hammer-swing: only a hammer strike below stretches the clip's stride (NetworkView.HammerSwing.cs)
@@ -1449,7 +1592,10 @@ public partial class NetworkView : Node3D
         character.ClipRootSpeed = float.NaN;
         if (!(ChargeHeldInAir(state) && fallTrack.ChargeFall) && !rebashHeld && RushPose(state) is { } rush)   // sim/combat-pass: the held charge keeps its clip until FallRules.ChargeFallDelay
         {
-            var (rushClip, rushTime) = HammerRush(state, rush.Clip, smooth is { Kind: ClipKind.Rush } sh ? sh.Time : rush.Time);   // anim/melee-flow: the hammer's own sprint attack
+            float rushShown = smooth is { Kind: ClipKind.Rush } sh ? sh.Time : rush.Time;
+            float rushRate = MoveClipSpeed(state);   // W0b: the charge's and the dash attack's clip at the weapon's clip speed (1 but for Musou's claw and spear); the smoothing stays in the simulation's time
+            if (rushRate != 1f) rushShown = MathF.Min(rushShown * rushRate, ClipLength(rush.Clip, rushShown * rushRate));
+            var (rushClip, rushTime) = HammerRush(state, rush.Clip, rushShown);   // anim/melee-flow: the hammer's own sprint attack
             rushTime = MathF.Max(0f, rushTime - HitStopHold(state.PlayerId));   // anim/melee-interaction: the charge connect's hit-stop holds the collision stop too
             if (character.Pose(rushClip, rushTime, ClipBlends.RushFor(rush.Clip))) return;
         }
@@ -1462,7 +1608,9 @@ public partial class NetworkView : Node3D
         if (AttackClip(state) is { } clip)
         {
             float attackTime = MathF.Max(0f, (smooth is { Kind: ClipKind.Attack } sa ? sa.Time : state.MeleeTime) - HitStopHold(state.PlayerId));
-            var (baseClip, baseTime, overClip, overTime, overWeight) = AttackVariants(state, own, clip, attackTime);
+            float drawnTime = attackTime;   // the clip time drawn; attackTime stays the simulation's for the hand-over and foot-lock gates
+            ExtrasAttackTime(state, own, ref drawnTime);   // EXTRAS-HOOK: added content's drawn strike time (Musou: the weight pass retimes the wind-up and strike and holds the own pose; the power spear shows its strike clip at the drawn time)
+            var (baseClip, baseTime, overClip, overTime, overWeight) = AttackVariants(state, own, clip, drawnTime);
             character.ClipRootSpeed = NoMeleeFlow ? float.NaN : MeleeRootSpeed(state, attackTime, ClipLength(baseClip, 0f));   // anim/melee-flow: the clip foot lock's still-foot test
             // anim/melee-flow (NetworkView.MeleeFlow.cs): the blend into the strike from its graph (entry or chain); noted every frame the strike shows, handed over or not.
             float entryBlend = NoMeleeFlow ? ClipBlends.Melee(state.MeleeStep) : MeleeEntryBlend(state);
@@ -1481,7 +1629,7 @@ public partial class NetworkView : Node3D
         // sim/movement-fixes: a roll or hop falling off a drop shows the fall pose after FallRules.ChargeFallDelay in the air (NetworkView.Fall.cs).
         if (!(EvadeFallingInAir(state) && fallTrack.ChargeFall) && EvadePose(state) is { } roll && character.Pose(roll.Clip, roll.Time, ClipBlends.Evade)) return;
         // Throwing: the toss clip at the throw's time (the simulation ends the throw at ThrowDuration, before the clip's end).
-        if (throwTime is { } tt && _tossAnimation is not null && TossShown(state) && (HandoffThrow(character, state, own, _tossAnimation, tt) || character.Pose(_tossAnimation, tt, ClipBlends.Throw))) return;
+        if (throwTime is { } tt && _tossAnimation is not null && TossShown(state) && (HandoffThrow(character, state, own, _tossAnimation, tt) || character.Pose(_tossAnimation, TossClipTime(tt), ClipBlends.Throw))) return;   // feel/grenades-quickdraw: the wind-up fitted to the release
         // anim/feel-pass (NetworkView.Feel.cs): a slash whose marine moved on keeps its follow-through on the upper body over the strike's exit.
         if (SlashHandoff(character, state, own)) return;
         // ... the landing and the pound's get-up lose to it.
@@ -1490,7 +1638,9 @@ public partial class NetworkView : Node3D
         if (BracePose(character, state, own)) return;
         // Aim mode (held aim, every player's flag): the weapon class's aim stance bent by the pitch; else the idle / run choice.
         // A falling marine stands in the air (the graph's Dropping state has no direction or speed): the locomotion is posed with no horizontal velocity, the fall's layers go over it.
+        character.StanceFadeFloorOnce = JumpExitFade(state);   // anim/jump-pack-blend: the fade out of a landing
         PlaceLocomotion(character, FallBaseState(state, fallTrack), own);
+        character.StanceFadeFloorOnce = 0f;
         FallLayers(character, state, fallTrack);
         ReloadPose(character, state);   // M35: the reload clip over the legs' movement
         SwitchLayer(character, state, fallTrack);   // pass 2: the weapon switch over the upper body
@@ -1543,7 +1693,9 @@ public partial class NetworkView : Node3D
         foreach (var combo in config.Classes.Where(k => k.Race != Race.Orks).SelectMany(k => k.MeleeChoices))   // Ork O7c: the Ork's choppa is not a marine-rig clip set
         {
             if (_meleeAnimationsByWeapon.ContainsKey(combo.Wargear)) continue;
-            if (!_classes.MeleeAnimationsByWeapon.TryGetValue(combo.Wargear, out var clips))
+            // Musou's arsenal (W0, the animation seam): an added weapon with no clips of its own plays the clips of the data weapon it borrows from (AnimationAlias: the claw the power
+            // sword's, the spear the thunder hammer's) as stand-ins; a custom clip replaces one per strike (ExtrasMeleeClip, NetworkView.MeleeLock.cs). Every data name is its own.
+            if (!_classes.MeleeAnimationsByWeapon.TryGetValue(combo.Wargear, out var clips) && !_classes.MeleeAnimationsByWeapon.TryGetValue(AnimationAlias.Of(combo.Wargear), out clips))
             {
                 _notes.Add($"melee weapon {combo.Wargear}: no animations named; its attacks use its class's default clips");
                 continue;
@@ -1793,6 +1945,7 @@ public partial class NetworkView : Node3D
     /// <summary>The connection status: text and whether it is an error (rejection, disconnect, load error, map not loaded); empty while all is well.</summary>
     (string Text, bool IsError) StatusLine()
     {
+        if (Left) return ("", false);   // fix/leave-cleanup: after a deliberate leave nothing of the match says anything
         if (_error != "") return ($"Error: {_error}", true);
         if (_client is null) return ("Not started", false);
         return _client.Status switch
@@ -1873,6 +2026,8 @@ public partial class NetworkView : Node3D
         f.Status = statusText; f.StatusIsError = statusError;
         _hudView.ShowHint = !_showInfo && !_bot && Spectate is null && !NoOverlay;
         _hudView.Data = f;
+        _hudView.RewardDescriptions = MusouActive;   // the headshot medal's description line: Musou Mode only, never in Classic PvP (owner, 2026-11-08)
+        _hudView.Content = _config?.Extras ?? ContentExtras.None;   // W0b: added content's HUD hooks act only under the match's content (Musou's autocannon reticle and box)
         if (_client?.Status != ClientStatus.Connected || _config is null) { _scopeView?.Hide(); _scopeSince = -1; return; }   // feel/scope-lascannon: no overlay without a match
         var me = _client.Predicted;
         var c = _config;
@@ -1900,6 +2055,7 @@ public partial class NetworkView : Node3D
             f.Venting = me.Venting;
             if (f.WeaponState.Length == 0) f.WeaponState = braceState ?? braceHint ?? "";
             (f.Charge, f.ChargeText, f.ChargeReady) = ChargeMeter(me, inHand);
+            f.ChargeToFull = PlasmaChargeToFull(me, inHand);   // fix/plasma-visuals (NetworkView.PlasmaFx.cs)
             if (Shots.RemoteDetonated(inHand) && inHand.Projectile is { } projectile)
                 f.GrenadesOutText = $"Grenades out {me.ProjectilesOut} / {projectile.MaxActive}{(me.ProjectilesOut > 0 ? " (R detonates)" : "")}";
         }
@@ -1958,10 +2114,11 @@ public partial class NetworkView : Node3D
                     f.AimedBar = true; f.AimedHealth = bar.Health / 255f; f.AimedShield = bar.Shield / 255f; f.AimedHealthMax = 1f; f.AimedShieldMax = 1f;
                 }
             }
-            FillDecorators(f, me, centre.Hit);   // ui/hud-3: the name over the aimed player only (NetworkView.Match.cs)
+            FillDecorators(f, me, centre.Hit);   // the allies in view (Classic) and the aimed foe; Musou: the aimed player only (NetworkView.Match.cs)
             f.SpreadRadius = SpreadPixels(me, c);   // weapons/spread: the crosshair ticks open with the scatter (NetworkView.Spread.cs)
+            f.ReticleScale = _reticleFovScale;   // ui/crosshair-fov-scale: the crosshair covers the same angle at every FOV (ReticleFovScale)
             // ui/hud-fidelity: the original reticle's spread frame, aim mode and the brace (Hud.Movie.cs).
-            f.SpreadFraction = ReticleRules.SpreadFraction(inHand, me, c.MoveSpeedScale);
+            f.SpreadFraction = ReticleRules.SpreadFraction(inHand, me, c.MoveSpeedScale, noSpread: c.NoBulletSpread);
             f.Aiming = me.Aiming; f.Braced = me.Brace is BracePhase.Entering or BracePhase.Braced;
         }
         f.Prompt = me.Alive ? _hudPrompt : "";   // ui/hud-fidelity (NetworkView.Pickups.cs)
@@ -2074,114 +2231,12 @@ public partial class NetworkView : Node3D
         SetUpScope(layer);   // feel/scope-lascannon: under the HUD (NetworkView.Scope.cs)
         _hudView = new Hud { GameDir = Lean ? null : _gameDir };   // M44: the original HUD art is read from the install (perf/lean-bots: not by a lean bot)
         layer.AddChild(_hudView);
+        if (!_bot || HudReadout.Override is not null) layer.AddChild(_readout = new HudReadout());   // polish pass P1: the performance readout (F3 cycles it; --readout pins it, a bot too for screenshots), hidden unless chosen
     }
 
-    /// <summary>
-    /// Called by <see cref="GameClient"/> when the server names its map: loads the collision from this install for
-    /// prediction and draws the map with its original meshes and diffuse textures (<see cref="MapView"/>), replacing the
-    /// flat checker ground. The grey character collision is drawn instead if the visuals fail or nothing could be drawn,
-    /// and in addition with --show-collision.
-    /// </summary>
-    LoadedMap? LoadMap(string name)
-    {
-        var watch = System.Diagnostics.Stopwatch.StartNew();
-        string file = MapFileOf(name);
-        Ph("map load: collision and content");
-        MemStep("before map"); var map = MapContent.Load(_gameDir, file); MemStep("map content");
-        var world = map.ToCollisionWorld(); MemStep("collision world");
-        ulong hash = map.Hash;
-        ExtrasMapCollision(name, ref world, ref hash);   // EXTRAS-HOOK: added content's solids beside the level, and the hash of the whole (Musou Mode's Stormbird)
-        if (!Lean) BuildRagdollWorld(map);
-        PrepareNavigation(map, world); MemStep("navigation");
-        _mapCentre = map.Spawns.Count > 0 ? new Vector2(map.Spawns.Average(sp => sp.Position.X), map.Spawns.Average(sp => sp.Position.Y)) : null;
-        long collisionMs = watch.ElapsedMilliseconds;
-        if (Lean) return LeanMapLoaded(name, hash, world, collisionMs, watch);   // perf/lean-bots: collision, navigation and the jump ground only (NetworkView.Lean.cs)
-        _gameSpace?.GetNodeOrNull("MapCollision")?.QueueFree();
-        _gameSpace?.GetNodeOrNull("MapVisuals")?.QueueFree();
+    HudReadout? _readout;
 
-        // The map's look: original meshes and diffuse textures (MapView). Failure falls back to the grey collision.
-        string? visualsError = null;
-        MapView? view = null;
-        string lightingNote = "lighting: provisional approximation (warm sun, fog, SSAO)";
-        var visualNotes = new List<string>();
-        try
-        {
-            Ph("map load: visuals");
-            var scene = MapScene.Load(_gameDir, file);
-            visualNotes.AddRange(scene.Notes);
-            view = MapView.Build(scene, visualNotes);
-            if (view.Instances == 0)
-            {
-                visualsError = "no part of the map could be drawn";
-                view.Free();
-                view = null;
-            }
-            else
-            {
-                _gameSpace?.AddChild(view);
-                try
-                {
-                    if (_sun is not null && _environment is not null
-                        && MapLightingView.Apply(scene.Lighting, _sun, _environment, visualNotes, out lightingNote, out _blender) is { } placed)
-                        _gameSpace?.AddChild(placed);
-                }
-                catch (Exception e) when (e is not (StackOverflowException or AccessViolationException))
-                {
-                    // The map stays drawn with the provisional sun and fog; the half-built lights were freed by Apply.
-                    _blender = null;
-                    visualNotes.Add($"the map's lighting failed ({e.GetType().Name}: {e.Message}); the provisional look stays");
-                }
-            }
-        }
-        catch (Exception e) when (e is not (StackOverflowException or AccessViolationException))
-        {
-            visualsError = $"{e.GetType().Name}: {e.Message}";
-            view = null;   // MapView.Build frees a half-built view itself
-        }
-        foreach (var note in visualNotes) GD.Print("  map note: " + note);
-
-        if ((view is null || _showCollision) && map.Layer(MapContent.CharacterLayer) is { } layer && _gameSpace is not null)
-        {
-            var vertices = new Vector3[layer.Indices.Length];
-            var normals = new Vector3[layer.Indices.Length];
-            for (int t = 0; t < layer.Indices.Length; t += 3)
-            {
-                var a = layer.Vertices[layer.Indices[t]]; var b = layer.Vertices[layer.Indices[t + 1]]; var c = layer.Vertices[layer.Indices[t + 2]];
-                var n = System.Numerics.Vector3.Normalize(System.Numerics.Vector3.Cross(b - a, c - a));
-                if (!float.IsFinite(n.X)) n = System.Numerics.Vector3.UnitZ;
-                // Godot's front faces wind clockwise; the game's winding is not known, so both sides are drawn.
-                vertices[t] = new(a.X, a.Y, a.Z); vertices[t + 1] = new(c.X, c.Y, c.Z); vertices[t + 2] = new(b.X, b.Y, b.Z);
-                normals[t] = normals[t + 1] = normals[t + 2] = new(n.X, n.Y, n.Z);
-            }
-            var arrays = new Godot.Collections.Array();
-            arrays.Resize((int)Mesh.ArrayType.Max);
-            arrays[(int)Mesh.ArrayType.Vertex] = vertices;
-            arrays[(int)Mesh.ArrayType.Normal] = normals;
-            var mesh = new ArrayMesh();
-            mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, arrays);
-            var material = (StandardMaterial3D)_groundMaterial!.Duplicate();
-            material.CullMode = BaseMaterial3D.CullModeEnum.Disabled;
-            _gameSpace.AddChild(new MeshInstance3D { Name = "MapCollision", Mesh = mesh, MaterialOverride = material });
-        }
-        if (GetNodeOrNull<Node3D>("Ground") is { } ground) ground.Visible = false;
-        DrawBlockers(world);
-        DrawProps(world);
-        _mapNote = view is not null
-            ? $"map {name}: original meshes and textures from the install ({view.Objects:N0} objects, {view.Meshes} meshes, {view.TexturedSurfaces}/{view.Surfaces} surfaces textured, {view.Materials.NormalMapped} with normal maps, {view.Materials.Specular} with specular maps, {view.Materials.Emissive} emissive, {view.Materials.Layered} two-layer, {view.Materials.CutOut} cut-out, {view.Materials.Tinted} vertex-tinted); {lightingNote}, shaders: placeholder"
-              + (_showCollision ? "; collision shown in grey" : "")
-            : $"map {name}: collision geometry only, placeholder grey (visuals failed: {visualsError})";
-        GD.Print($"{_mapNote}; collision {collisionMs} ms, total {watch.ElapsedMilliseconds} ms");
-        // The default look of every class and the own look, built now so no player's first look stalls a frame (customizer T7).
-        Ph("map load: looks");
-        _warmClock = System.Diagnostics.Stopwatch.StartNew();   // Ork O7a: one deadline for the marines' and the Ork's warm-up
-        WarmLooks();
-        WarmOrk();   // Ork O7a: an Ork player's own look and weapons (NetworkView.Ork.cs)
-        PrewarmWeaponDefaults();   // M40-T9: the weapon models of every class's default loadout
-        PrewarmPickups();   // perf/pass-1: the drops' models (the first drop cost a 100 ms frame); a lean bot returned above (LeanMapLoaded) and warms none
-        PrewarmCollision(world);   // M40-T9: the crosshair's first ray
-        _jumpGround = world;   // M45: the flight pose's height above the ground
-        return new LoadedMap(world, hash);
-    }
+    // The map load (LoadMap, Stage1, Stage2): NetworkView.MapLoad.cs (polish pass P2: the reading and computing off the main thread).
 
     /// <summary>The install's map behind the server's map name: the name itself, unless added content composes that map from another (every read of map files goes through this).</summary>
     string MapFileOf(string name)
@@ -2193,8 +2248,17 @@ public partial class NetworkView : Node3D
     /// <summary>Hook for added content: replaces <paramref name="file"/> with the install's map behind a map it composes. Implemented in an <c>Extras/</c> folder.</summary>
     partial void ExtrasMapFile(ref string file);
 
+    /// <summary>Hook for added content, in <see cref="LoadMap"/> before any map file is read: sets <paramref name="map"/> for a map it generates in code. Implemented in an <c>Extras/</c> folder.</summary>
+    partial void ExtrasMapContent(string name, ref MapContent? map);
+
+    /// <summary>Hook for added content, in <see cref="LoadMap"/> for a generated map: draws it (and sets its sun and fog) and sets <paramref name="drawn"/>. Implemented in an <c>Extras/</c> folder.</summary>
+    partial void ExtrasMapVisuals(string name, MapContent map, ref bool drawn);
+
     /// <summary>Hook for added content, in <see cref="LoadMap"/> after the level's collision: replaces <paramref name="world"/> and <paramref name="hash"/> for a map it composes. Implemented in an <c>Extras/</c> folder.</summary>
     partial void ExtrasMapCollision(string name, ref SmSim.CollisionWorld world, ref ulong hash);
+
+    /// <summary>Hook for added content (polish pass P2): the nodes of what <see cref="ExtrasMapCollision"/> composed, built on the main thread in the load's second stage. Implemented in an <c>Extras/</c> folder.</summary>
+    partial void ExtrasMapCollisionVisuals();
 
     void AddGroundCameraAndLights()
     {

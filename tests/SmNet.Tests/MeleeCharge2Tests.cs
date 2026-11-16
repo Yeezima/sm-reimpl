@@ -87,11 +87,11 @@ public class MeleeCharge2Tests(ITestOutputHelper output)
     public void With_W_held_the_second_F_neither_stomps_nor_charges_mid_combo()
     {
         // The first F with W held is the charge (protocol 39); from rest without W the backhand. W pressed during the backhand: the second F stomps.
-        var s = Fresh(YConfig);
-        s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 0f, 0f, InputButtons.MeleeHeavy), YConfig, out _);
+        var s = Fresh((YConfig with { ChargeAfterMelee = false }));
+        s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 0f, 0f, InputButtons.MeleeHeavy), (YConfig with { ChargeAfterMelee = false }), out _);
         Assert.Equal((1, true, RushPhase.None), (s.MeleeStep, s.MeleeHeavy, s.Rush));
         for (int k = 1; k < 25; k++)
-            s = Combat.StepPlayer(s, new PlayerInput((uint)k, 0f, 1f, 0f, k == 15 ? InputButtons.Sprint | InputButtons.MeleeHeavy : InputButtons.None), YConfig, out _);
+            s = Combat.StepPlayer(s, new PlayerInput((uint)k, 0f, 1f, 0f, k == 15 ? InputButtons.Sprint | InputButtons.MeleeHeavy : InputButtons.None), (YConfig with { ChargeAfterMelee = false }), out _);
         Assert.Equal(RushPhase.None, s.Rush);
         // sim/combat-pass (review note, owner's rule 2026-10-30): W + F is never a stun strike, the Y,Y stomp included; no input buffer here, so nothing follows.
         Assert.NotEqual((4, true), (s.MeleeStep, s.MeleeHeavy));
@@ -341,7 +341,7 @@ public class MeleeCharge2Tests(ITestOutputHelper output)
             WeaponSwitchTime = 0.48f, InputBufferWindow = 0.3f,
         };
         var link = new LinkConditions(TimeSpan.FromMilliseconds(75), TimeSpan.FromMilliseconds(10), 0.05);
-        var h = new Harness(link, seed, 2, config, new ServerOptions { PeerTimeout = TimeSpan.FromMinutes(5) });
+        var h = new Harness(link, seed, 2, config, new ServerOptions { PeerTimeout = TimeSpan.FromMinutes(5), BodyGuard = false });
         var truth = new SortedDictionary<uint, Dictionary<int, PlayerState>>();
         var predicted = new[] { new Dictionary<uint, PlayerState>(), new Dictionary<uint, PlayerState>() };
         PlayerInput Input(int i, uint t)
@@ -415,7 +415,7 @@ public class MeleeCharge2Tests(ITestOutputHelper output)
         var c = tuning.Config;
         var data = GameplayTuning.Load(Game.Value!, ownerFeel: false).Config;
         Assert.Equal((GameplayTuning.OwnerLungeScale, 1f), (c.MeleeLungeScale, data.MeleeLungeScale));
-        Assert.Equal(0.6f * GameplayTuning.OwnerSwitchScale, c.WeaponSwitchTime, 4);
+        Assert.Equal(GameplayTuning.OwnerQuickdrawTime, c.WeaponSwitchTime, 4);   // feel/grenades-quickdraw (2026-11-06) replaced 0.6 × OwnerSwitchScale
         Assert.Equal(0.6f, data.WeaponSwitchTime, 4);
         Assert.True(c.MeleeLock.AlignEase && c.MeleeLock.Hysteresis == 15f);
         output.WriteLine($"weapon switch {data.WeaponSwitchTime:0.000} s → {c.WeaponSwitchTime:0.000} s ({MathF.Ceiling(data.WeaponSwitchTime * 30f - 1e-3f)} → {MathF.Ceiling(c.WeaponSwitchTime * 30f - 1e-3f)} ticks)");

@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "graphify": {
+      "command": "cmd",
+      "args": ["/c", ".\\graphify.cmd", "serve"]
+    }
+  }
+}

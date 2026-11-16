@@ -18,6 +18,12 @@ public sealed partial class Hud
     /// <summary>Deaths seen in the feed, waiting 0.3 s (the own kill's call comes after the feed's): whoever was owed revenge and died is no longer.</summary>
     readonly List<(string Victim, double At)> _pendingDied = new();
 
+    /// <summary>
+    /// Whether a reward line's description (the headshot medal's "Kill an opponent with a headshot.") is drawn under it. Off in Classic PvP (owner, 2026-11-08: the text is to be removed there;
+    /// the "+100 Headshot" line and icon stay); <c>NetworkView</c> turns it on only in Musou Mode, whose HUD is unchanged.
+    /// </summary>
+    public bool RewardDescriptions;
+
     double _ownDiedAt = double.NegativeInfinity;
     bool _rewardAliveKnown, _rewardAlive;
     int _rewardScore = -1;
@@ -70,17 +76,19 @@ public sealed partial class Hud
     /// </summary>
     void RunRewardsDemo()
     {
-        _rewardsDemo ??= Array.IndexOf(OS.GetCmdlineUserArgs(), "--hud-rewards-demo") >= 0;
+        _rewardsDemo ??= Array.IndexOf(OS.GetCmdlineUserArgs(), "--hud-rewards-demo") >= 0 || Array.IndexOf(OS.GetCmdlineUserArgs(), "--hud-headshot-demo") >= 0;
         if (_rewardsDemo != true || !Data.InGame) return;
         if (_rewardsDemoAt < 0) _rewardsDemoAt = _time + 3.0;
         if (_time < _rewardsDemoAt) return;
         double since = _time - _rewardsDemoAt;
-        string[] victims = ["P4", "P5", "P6"];
+        // --hud-headshot-demo: a single headshot kill (the medal line and its description alone).
+        string[] victims = Array.IndexOf(OS.GetCmdlineUserArgs(), "--hud-headshot-demo") >= 0 ? ["P4"] : ["P4", "P5", "P6"];
         double[] at = [0.0, 0.8, 1.6];
         if (_rewardsDemoStep < victims.Length && since >= at[_rewardsDemoStep])
         {
-            if (_rewardsDemoStep == victims.Length - 1) ShowHitMarker(true, true);   // the last demo kill is a headshot kill: its own line instead of the kill line
-            AddEvent("+ Kill " + victims[_rewardsDemoStep]);
+            bool head = _rewardsDemoStep == victims.Length - 1;   // the last demo kill is a headshot kill: the medal's line instead of the kill line
+            if (head) ShowHitMarker(true, true);
+            AddOwnKill(victims[_rewardsDemoStep], head);
             _rewardsDemoStep++;
         }
         else if (since >= 10.0) { _rewardsDemoAt = _time + 3.0; _rewardsDemoStep = 0; _rewards.Reset(); }
@@ -102,13 +110,25 @@ public sealed partial class Hud
         return _rewardNames is not null && _rewardNames.TryGetValue(spec.NameId, out var name) && name.Length > 0 ? name : spec.Name;
     }
 
+    /// <summary>The reward's description from the install's locale (headshot medal, 2026-11-07); empty without one or before the locale is read (no text from the code).</summary>
+    internal string RewardDescription(RewardSpec spec)
+    {
+        if (!RewardDescriptions || spec.DescriptionId <= 0) return "";
+        RewardName(spec);   // starts or collects the locale read
+        return _rewardNames is not null && _rewardNames.TryGetValue(spec.DescriptionId, out var text) ? text : "";
+    }
+
     static Dictionary<int, string> ReadRewardNames(string gameDir)
     {
         var names = new Dictionary<int, string>();
         try
         {
             var locale = SmFormats.Locale.LocaleTable.Open(Path.Combine(gameDir, "data", "locale", "english", "ucs.pc"));
-            foreach (var spec in RewardTable.All) if (locale.Get(spec.NameId) is { Length: > 0 } text) names[spec.NameId] = text;
+            foreach (var spec in RewardTable.All)
+            {
+                if (locale.Get(spec.NameId) is { Length: > 0 } text) names[spec.NameId] = text;
+                if (spec.DescriptionId > 0 && locale.Get(spec.DescriptionId) is { Length: > 0 } description) names[spec.DescriptionId] = description;   // headshot medal: its description
+            }
         }
         catch (Exception e) when (e is IOException or InvalidDataException or UnauthorizedAccessException) { GD.PrintErr("reward names: locale not read (" + e.Message + "); the code's English names are used"); }
         return names;

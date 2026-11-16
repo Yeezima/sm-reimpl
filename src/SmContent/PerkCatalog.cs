@@ -107,7 +107,7 @@ public sealed class UnlockChallenges
 /// classes, the wargear files they name). Engine-free; read once. The simulation owner defines its own spec types from this: <see cref="PerkInfo"/> is
 /// the stable interface (names, upgrade strings, kinds, levels).
 /// </summary>
-public sealed class PerkCatalog
+public sealed partial class PerkCatalog
 {
     /// <summary>
     /// The melee weapons the simulation has combos for today (wargear name suffixes; the one list, <see cref="MpClasses.SimulatedMeleeSuffixes"/>).
@@ -125,6 +125,28 @@ public sealed class PerkCatalog
     }
 
     readonly Dictionary<string, PerkInfo> _perks;
+
+    /// <summary>
+    /// The catalogue as the content profile <paramref name="content"/> offers it: this one, unless an added content lists items of its own in some classes' slots (Musou's arsenal,
+    /// docs/new-weapons-design.md section 8, hook 3: the autocannon, the claw, the spear and the Remote Detonators, all Musou only), through <see cref="ExtrasItems"/>. A profile without
+    /// that content gets this catalogue itself, so its slots and lists never show those items.
+    /// </summary>
+    public PerkCatalog For(ContentExtras content)
+    {
+        var catalog = this;
+        ExtrasItems(content, ref catalog);   // EXTRAS-HOOK added content (Musou's arsenal): its own items in the classes' slots
+        return catalog;
+    }
+
+    /// <summary>A copy whose classes are <paramref name="change"/>d (added content's <see cref="For"/>: items appended to a slot); the perks and notes as here. Itself when nothing changes.</summary>
+    public PerkCatalog WithClasses(Func<ClassOptions, ClassOptions> change)
+    {
+        var classes = Classes.Select(change).ToList();
+        return classes.SequenceEqual(Classes, ReferenceEqualityComparer.Instance) ? this : new PerkCatalog(classes, All, Notes);
+    }
+
+    /// <summary>Added content: the catalogue a content profile offers (<see cref="For"/>); nothing without added content.</summary>
+    partial void ExtrasItems(ContentExtras content, ref PerkCatalog catalog);
 
     /// <summary>The classes in the data's order (assault, tactical, devastator, raptor, chaos tactical, havoc).</summary>
     public IReadOnlyList<ClassOptions> Classes { get; }

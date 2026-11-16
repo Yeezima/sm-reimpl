@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Godot;
 using SmContent;
+using SmContent.Extras.Musou;
 using SmFormats.Havok;
 using SmSim.Extras.Musou;
 
@@ -16,15 +17,15 @@ namespace SmClient;
 /// same archive, read on a worker); the Chaos Marine is the PvP Chaos model the networked view has already built. Read from the player's install at run time only.
 /// <para>
 /// Which mesh and clip each kind uses, and the scales, are **ours** (interpretation: the install has no Musou): Boy boy_melee, Shoota Boy boy_ranged, 'Ard Boy
-/// boy_ardboy, Gretchin boy_melee at 0.7 (no Gretchin mesh verified), Nob nob_melee (else boy_melee_pro at 1.2), Warboss nob_melee at the sim's BossScale, 3 (else boy_melee_pro, else the Boy, at the same; the owner, 2026-11-01: "always a large orc, never small", and 2026-11-02: 3x).
+/// boy_ardboy, Weirdboy his own elite_boy_weirdboy and staff on their rig (WeirdboyLooks; else the Boy's look), Gretchin boy_melee at 0.7 (no Gretchin mesh verified), Nob nob_melee (else boy_melee_pro at 1.2), Warboss nob_melee at the sim's BossScale, 4.5 since the late batch of 2026-11-06 (else boy_melee_pro, else the Boy, at the same; the owner, 2026-11-01: "always a large orc, never small", and 2026-11-02: 3x).
 /// </para>
 /// </summary>
 public sealed class MusouLooks
 {
     /// <summary>The clip indices of a look (<see cref="Look.Clips"/>).</summary>
-    public const int Run = 0, Idle = 1, Attack = 2, Stagger = 3, Death = 4, ClipCount = 5;
+    public const int Run = 0, Idle = 1, Attack = 2, Stagger = 3, Death = 4, Sprint = 5, DeathAlt1 = 6, DeathAlt2 = 7, ClipCount = 8;   // Sprint: the charge (2026-11-09; the run where a look has none); DeathAlt1/2: the boy rig's other deaths, an Ork's own pick (2026-11-16, MusouOrkVariety; null or the idle where a look has none)
     /// <summary>Whether a clip loops (the run and the idle) or holds its last frame (the attack, stagger and death follow the state's time).</summary>
-    public static bool Loops(int clip) => clip is Run or Idle;
+    public static bool Loops(int clip) => clip is Run or Idle or Sprint;
 
     /// <summary>One kind's look.</summary>
     public sealed class Look
@@ -33,6 +34,22 @@ public sealed class MusouLooks
         public required MarineAssets Assets;
         public required float Scale;
         public required HavokBoundAnimation?[] Clips;
+        /// <summary>A clip played backwards (its last frame first), or -1: the Warboss's death is his get-up run in reverse (musou-big-ork-deaths, 2026-11-09; <see cref="WarbossRig.DeathReversed"/>).</summary>
+        public int ReversedClip = -1;
+        /// <summary>The time to sample <paramref name="clip"/> at, <paramref name="time"/> s into it (already held at its end): backwards for <see cref="ReversedClip"/>.</summary>
+        public float SampleTime(int clip, float time) => clip == ReversedClip && Clips[clip] is { } c ? MathF.Max(0f, c.Animation.Duration - MathF.Min(time, c.Animation.Duration)) : time;
+        /// <summary>
+        /// The clip this Ork dies in (owner 2026-11-16, <see cref="SmNet.Extras.Musou.MusouOrkVariety.DeathClip"/>): the usual <see cref="Death"/> or one of the rig's other deaths, picked from its id; a look with no
+        /// other death of its own (the Warboss, the Weirdboy, the Chaos Marine ...; <see cref="Fill"/> or its rig left them the idle or nothing) always the usual one.
+        /// </summary>
+        public int DeathClipFor(int id)
+        {
+            if (ReversedClip == Death) return Death;
+            bool one = Has(DeathAlt1), two = Has(DeathAlt2);
+            int pick = SmNet.Extras.Musou.MusouOrkVariety.DeathClip(id, 1 + (one ? 1 : 0) + (two ? 1 : 0));
+            return pick == 0 ? Death : pick == 1 && one ? DeathAlt1 : DeathAlt2;
+        }
+        bool Has(int alt) => Clips.Length > alt && Clips[alt] is { } c && !ReferenceEquals(c, Clips[Idle]) && !ReferenceEquals(c, Clips[Run]) && !ReferenceEquals(c, Clips[Death]);
         public MusouVat.Baked? Vat;
         public Task<MusouVat.Baked?>? Baking;
         /// <summary>The bake failed or had nothing to bake: skinned only, never tried again.</summary>
@@ -42,7 +59,11 @@ public sealed class MusouLooks
     /// <summary>The Warboss's model scale: the sim's body (<see cref="MusouRules.BossScale"/>), so what is drawn is what is shot.</summary>
     static readonly float BossScale = new MusouRules().BossScale;
 
-    sealed record Wanted(MusouEnemyType Type, string Mesh, float Scale, string? Fallback, float FallbackScale, bool Ranged);
+    sealed record Wanted(MusouEnemyType Type, string Mesh, float Scale, string? Fallback, float FallbackScale, bool Ranged)
+    {
+        /// <summary>The archive the mesh is read from (null: the Ork boy's); the mesh is still drawn on the Ork boy's rig.</summary>
+        public RigProfile? From { get; init; }
+    }
 
     static readonly Wanted[] Plan =
     [
@@ -51,15 +72,46 @@ public sealed class MusouLooks
         new(MusouEnemyType.ArdBoy, "boy_ardboy", 1f, "boy_melee_pro", 1f, false),
         new(MusouEnemyType.Gretchin, "boy_melee", 0.7f, null, 0.7f, false),
         new(MusouEnemyType.Nob, "nob_melee", 1f, "boy_melee_pro", 1.2f, false),
+        // Expansion S2: the Rokkit Boy is the co-op set's boy_ranged_pro (ork_coop_boy_2hand_shoota_pro) with the rokkit launcha in his hands (MusouOrkGunRules), else the Shoota's body.
+        new(MusouEnemyType.RokkitBoy, "boy_ranged_pro", 1f, "boy_ranged", 1f, true),
+        // The Boss Orks (owner, 2026-11-06): the base kind's body at 3x (MusouBossOrks.BodyScale), as the sim's body is.
+        new(MusouEnemyType.BossBoy, "boy_melee", BossOrkScale, null, BossOrkScale, false),
+        new(MusouEnemyType.BossShootaBoy, "boy_ranged", BossOrkScale, "boy_melee", BossOrkScale, true),
+        new(MusouEnemyType.BossArdBoy, "boy_ardboy", BossOrkScale, "boy_melee_pro", BossOrkScale, false),
+        new(MusouEnemyType.BossNob, "nob_melee", BossOrkScale, "boy_melee_pro", 1.2f * BossOrkScale, false),
+        // Expansion S3: the Big Shoota Nob, the co-op set's nob_ranged (the Nob's body when it cannot be had), with the Shoota Boy's clips and gun effects (MusouOrkGunRules).
+        new(MusouEnemyType.BigShootaNob, "nob_ranged", 1f, "nob_melee", 1f, true),
+        // Expansion S3 (owner, 2026-11-08: "the stormboys body should go on the ordinary boy rig"): the campaign's boy_stormboy, read from its own archive, skinned to the Ork boy's rig so he runs,
+        // swings and dies with the Boy's clips; when it binds bones the boy's rig lacks, his own flight rig (StormboyLooks) stands in, else a Boy with a placeholder pack.
+        new(MusouEnemyType.Stormboy, "boy_stormboy", 1f, null, 1f, false) { From = StormboyRig.Profile },
+        // Expansion S4 (owner, 2026-11-08: "Yes, use these"): the Scrap Mek is the co-op set's nob_ranged_pro (his kit backpack and antenna), drawn at a Boy's height (Nob 3.0 m, Boy 2.15 m), else a Boy.
+        new(MusouEnemyType.ScrapMek, "nob_ranged_pro", MekScale, "boy_melee", 1f, false),
+        // Last, so nothing waits on the Warboss model's read: the Warboss model first (WarbossLooks); this is its fallback.
         new(MusouEnemyType.Warboss, "nob_melee", BossScale, "boy_melee_pro", BossScale, false),
     ];
+
+    const float BossOrkScale = MusouBossOrks.BodyScale;
+    /// <summary>The Scrap Mek's Nob body brought to a Boy's height (2.15 / 3.0; ours).</summary>
+    const float MekScale = 2.15f / 3f;
+    /// <summary>The Nob model's height (Boy 2.15 m, Nob 3.0 m, docs/discovery.md) when its own mesh cannot be measured: the Warboss model is sized to it times <see cref="BossScale"/>.</summary>
+    const float NobDrawnHeight = 3f;
 
     readonly string _gameDir;
     readonly OrkAssets _orks;
     readonly Dictionary<string, Task<(StaticModel? Model, ObjectTree? Tree, Exception? Failure)>> _reads = new(StringComparer.OrdinalIgnoreCase);
     readonly Dictionary<string, MarineAssets?> _meshes = new(StringComparer.OrdinalIgnoreCase);
-    readonly Look?[] _looks = new Look?[16];
+    readonly Look?[] _looks = new Look?[Enum.GetValues<MusouEnemyType>().Max(t => (int)t) + 1];
     readonly Func<MarineAssets?> _chaos;
+    /// <summary>The ranged Orks' guns (null: <c>--no-musou-guns</c>, unarmed as before).</summary>
+    public MusouGunModels? Guns { get; }
+    readonly WarbossLooks? _warboss;
+    readonly WeirdboyLooks? _weirdboy;
+    readonly SquigLooks? _squig;
+    /// <summary>The Bomb Squig's placeholder when its own model cannot be had (*placeholder demonstration*): the Boy's body this small (ours).</summary>
+    public const float SquigPlaceholderScale = 0.4f;
+    readonly StormboyLooks? _stormboy;
+    /// <summary>Whether the Stormboy is drawn with his own campaign model (false: a Boy, with the placeholder jump pack the view adds).</summary>
+    public bool StormboyOwnLook => _looks[(int)MusouEnemyType.Stormboy]?.Name.StartsWith("Stormboy:", StringComparison.Ordinal) == true;
     int _next;
     bool _chaosTried;
 
@@ -68,14 +120,23 @@ public sealed class MusouLooks
     public bool Done { get; private set; }
 
     /// <param name="chaos">The Chaos Marine's model when the view has built it (null: not yet, or none).</param>
-    public MusouLooks(string gameDir, OrkAssets orks, Func<MarineAssets?> chaos)
+    public MusouLooks(string gameDir, OrkAssets orks, Func<MarineAssets?> chaos, bool guns = true)
     {
         _gameDir = gameDir; _orks = orks; _chaos = chaos;
-        foreach (var w in Plan) { Start(w.Mesh); if (w.Fallback is not null) Start(w.Fallback); }
+        if (guns) Guns = new MusouGunModels(gameDir, orks.Rig.Rig.Skeleton.BoneNames);   // the guns in the ranged Orks' hands (MusouGunModels.cs)
+        try { _warboss = new WarbossLooks(gameDir); }
+        catch (Exception ex) when (ex is not OutOfMemoryException) { Notes.Add($"musou: the Warboss model was not started: {ex.Message}"); }
+        try { _weirdboy = new WeirdboyLooks(gameDir); }   // Musou Mode's Weirdboy: his own body, staff and rig (WeirdboyLooks.cs)
+        catch (Exception ex) when (ex is not OutOfMemoryException) { Notes.Add($"musou: the Weirdboy model was not started: {ex.Message}"); }
+        try { _squig = new SquigLooks(gameDir); }   // expansion S2: the Bomb Squig on its own rig (SquigLooks.cs)
+        catch (Exception ex) when (ex is not OutOfMemoryException) { Notes.Add($"musou: the Squig model was not started: {ex.Message}"); }
+        try { _stormboy = new StormboyLooks(gameDir); }   // expansion S3: the campaign's Stormboy, his own body and rig (StormboyLooks.cs)
+        catch (Exception ex) when (ex is not OutOfMemoryException) { Notes.Add($"musou: the Stormboy model was not started: {ex.Message}"); }
+        foreach (var w in Plan) { Start(w.Mesh, w.From); if (w.Fallback is not null) Start(w.Fallback); }
     }
 
     /// <summary>The look of a kind (null: not built yet; the crowd then draws the Boy's, or nothing).</summary>
-    public Look? For(MusouEnemyType type) => _looks[(int)type] ?? (type is MusouEnemyType.ChaosMarine or MusouEnemyType.Warboss or MusouEnemyType.Nob ? null : _looks[(int)MusouEnemyType.Boy]);   // the big ones wait for their own body: never a small Boy standing in (owner, 2026-11-01)
+    public Look? For(MusouEnemyType type) => _looks[(int)type] ?? (type is MusouEnemyType.ChaosMarine or MusouEnemyType.Warboss or MusouEnemyType.Nob or MusouEnemyType.BombSquig or MusouEnemyType.BigShootaNob || MusouBossOrks.Is(type) ? null : _looks[(int)MusouEnemyType.Boy]);   // the big ones wait for their own body: never a small Boy standing in (owner, 2026-11-01)
 
     /// <summary>Builds at most one look a call (main thread) once its files are read; returns the one built, or null.</summary>
     public Look? Step()
@@ -84,8 +145,21 @@ public sealed class MusouLooks
         if (_next < Plan.Length)
         {
             var w = Plan[_next];
+            if (w.Type == MusouEnemyType.Warboss && _warboss is { } wb)   // the owner, 2026-11-06: the Warboss model, as tall as the old 3x Nob body; the Nob body only when it cannot be had
+            {
+                if (!wb.Done && wb.Step() is null && !wb.Done) return null;
+                Notes.AddRange(wb.Notes); wb.Notes.Clear();
+                if (wb.Look is { } own)
+                {
+                    float nob = Height(_looks[(int)MusouEnemyType.Nob]) is > 0.5f and var h ? h / (_looks[(int)MusouEnemyType.Nob]!.Scale) : NobDrawnHeight;
+                    own.Scale = wb.Height > 0.5f ? BossScale * nob / wb.Height : BossScale;
+                    Notes.Add($"musou: Warboss drawn as {WarbossRig.BodyVisual} x{own.Scale:0.##} (model {wb.Height:0.##} m, the Nob's {nob:0.##} m x{BossScale:0.##})");
+                    _next++;
+                    return _looks[(int)MusouEnemyType.Warboss] = own;
+                }
+            }
             var mesh = Mesh(w.Mesh, out bool ready);
-            if (!ready) return null;
+            if (!ready || Guns?.IsReady(w.Type) == false) return null;
             float scale = w.Scale;
             if (mesh is null && w.Fallback is not null)
             {
@@ -97,8 +171,37 @@ public sealed class MusouLooks
             _next++;
             if (mesh is null) { Notes.Add($"musou: no look for {w.Type}"); return null; }
             var look = new Look { Name = $"{w.Type}:{(scale == w.Scale ? w.Mesh : w.Fallback)}", Assets = mesh, Scale = scale, Clips = OrkClips(mesh, w.Ranged) };
+            Guns?.Arm(look, w.Type, _orks.Pieces, Notes);
             return _looks[(int)w.Type] = look;
         }
+        if (_weirdboy is { Done: false } weird)   // the Weirdboy's own look, once its files are read (a Boy stands in until then, and for good if it cannot be had)
+        {
+            var mine = weird.Step();
+            if (mine is null && !weird.Done) return null;
+            Notes.AddRange(weird.Notes); weird.Notes.Clear();
+            if (mine is not null) return _looks[(int)MusouEnemyType.Weirdboy] = mine;
+        }
+        if (_squig is { Done: false } squig)   // the Squig's own look; a small labelled placeholder until then, and for good if it cannot be had
+        {
+            var mine = squig.Step();
+            if (mine is null && !squig.Done) return null;
+            Notes.AddRange(squig.Notes); squig.Notes.Clear();
+            if (mine is not null) return _looks[(int)MusouEnemyType.BombSquig] = mine;
+        }
+        if (_looks[(int)MusouEnemyType.BombSquig] is null && _looks[(int)MusouEnemyType.Boy] is { } boySquig)
+        {
+            Notes.Add($"musou: BombSquig drawn as a PLACEHOLDER (boy_melee x{SquigPlaceholderScale:0.##}): its own model could not be had");
+            _looks[(int)MusouEnemyType.BombSquig] = new Look { Name = "BombSquig:placeholder", Assets = boySquig.Assets, Scale = SquigPlaceholderScale, Clips = boySquig.Clips };
+        }
+        if (_looks[(int)MusouEnemyType.Stormboy] is null && _stormboy is { Done: false } storm)   // the Stormboy's own flight rig, when his body would not go on the boy's rig (a Boy with a placeholder pack stands in until then, and for good if it cannot be had)
+        {
+            var mine = storm.Step();
+            if (mine is null && !storm.Done) return null;
+            Notes.AddRange(storm.Notes); storm.Notes.Clear();
+            if (mine is not null) return _looks[(int)MusouEnemyType.Stormboy] = mine;
+        }
+        if (_looks[(int)MusouEnemyType.BigShootaNob] is null && _looks[(int)MusouEnemyType.Nob] is { } nobGun)   // no Nob mesh at all: the Nob's stand-in
+            _looks[(int)MusouEnemyType.BigShootaNob] = nobGun;
         if (_looks[(int)MusouEnemyType.Warboss] is null && _looks[(int)MusouEnemyType.Boy] is { } boy)   // no Nob and no pro mesh to be had: the Boy's body, big
             _looks[(int)MusouEnemyType.Warboss] = new Look { Name = "Warboss:boy_melee", Assets = boy.Assets, Scale = BossScale, Clips = boy.Clips };
         if (_looks[(int)MusouEnemyType.Nob] is null && _looks[(int)MusouEnemyType.Boy] is { } boyNob)   // the same for the Nob: never left invisible
@@ -113,13 +216,13 @@ public sealed class MusouLooks
     }
 
     /// <summary>Gives up waiting for the Chaos model (the view has none): the Chaos Marine is drawn as a Boy.</summary>
-    public void StopWaiting() { if (_next >= Plan.Length && !_chaosTried) { _chaosTried = true; Done = true; Notes.Add("musou: no Chaos model built; Chaos Marines drawn as Boyz"); } }
+    public void StopWaiting() { if (_next >= Plan.Length && !_chaosTried && _weirdboy is not { Done: false } && _squig is not { Done: false } && (_stormboy is not { Done: false } || _looks[(int)MusouEnemyType.Stormboy] is not null)) { _chaosTried = true; Done = true; Notes.Add("musou: no Chaos model built; Chaos Marines drawn as Boyz"); } }
 
-    void Start(string mesh)
+    void Start(string mesh, RigProfile? from = null)
     {
         if (OrkAssets.LookName(mesh) is not null) { _orks.Prefetch(mesh); return; }
         if (_reads.ContainsKey(mesh)) return;
-        string archive = RigProfiles.OrkBoy.ArchivePath(_gameDir);
+        string archive = (from ?? RigProfiles.OrkBoy).ArchivePath(_gameDir);
         _reads[mesh] = Task.Run(() =>
         {
             try
@@ -181,6 +284,15 @@ public sealed class MusouLooks
             asset.Surfaces.Count(s => s.HasDiffuse), asset.Surfaces.Count, _orks.Pieces.Notes);
     }
 
+    /// <summary>A look's model height at its scale (metres, game axes: the pieces' bounds in Z); 0 for none.</summary>
+    static float Height(Look? look)
+    {
+        if (look is null) return 0f;
+        float top = float.NegativeInfinity, bottom = float.PositiveInfinity;
+        foreach (var piece in look.Assets.Pieces) { var box = piece.Mesh.GetAabb(); top = MathF.Max(top, box.End.Z); bottom = MathF.Min(bottom, box.Position.Z); }
+        return top > bottom ? (top - bottom) * look.Scale : 0f;
+    }
+
     // ---------------------------------------------------------------- clips (ours: the nearest original clips to what a crowd member does)
 
     static HavokBoundAnimation?[] OrkClips(MarineAssets a, bool ranged)
@@ -192,6 +304,11 @@ public sealed class MusouLooks
         clips[Attack] = ranged ? Find(["BOY_2HR_RNG_Fire_S_01"], "Fire") : Find(["BOY_1HM_MEL_Cmbo_01_Atk01_1m", "BOY_1HM_MEL_Cmbo_01_Hvy01_1m"], "_Atk");
         clips[Stagger] = Find(["BOY_1HM_REC_Hvy_Front_Hi_L_01", "BOY_1HM_REC_Lt_Front_Hi_L_01"], "_REC_");
         clips[Death] = ranged ? Find(["BOY_2HR_DIE_Fall_Forward_01", "BOY_1HM_DIE_Basic_02"], "_DIE") : Find(["BOY_1HM_DIE_Basic_02", "BOY_1HM_DIE_Basic_03"], "_DIE");
+        // The other deaths of the boy rig (counted 2026-11-16: 1HM_DIE_Basic_01..03 and _Headshot_01; 2HR_DIE_B, _L, _R and _Fall_Forward_01): two more for each kind, an Ork's own pick (ours; kind: ours, low)
+        clips[DeathAlt1] = ranged ? Find(["BOY_2HR_DIE_B"], "#none") : Find(["BOY_1HM_DIE_Basic_01"], "#none");
+        clips[DeathAlt2] = ranged ? Find(["BOY_2HR_DIE_L"], "#none") : Find(["BOY_1HM_DIE_Basic_03"], "#none");
+        // The charge (the owner, 2026-11-09: "sprint to 'charge' the enemy when they reach within 30m"): the boy rig's own sprint for the melee kinds; the gun kinds never charge (the run stands in)
+        if (!ranged) clips[Sprint] = Find(["BOY_1HM_NAV_Sprint_F_01"], "Sprint_F");
         Fill(clips);
         return clips;
     }
@@ -213,6 +330,7 @@ public sealed class MusouLooks
     static void Fill(HavokBoundAnimation?[] clips)
     {
         var any = clips[Idle] ?? clips[Run];
-        for (int i = 0; i < clips.Length; i++) clips[i] ??= any;
+        clips[Sprint] ??= clips[Run];
+        for (int i = 0; i < DeathAlt1; i++) clips[i] ??= any;   // the other deaths are left null: DeathClipFor takes only those a look has of its own
     }
 }

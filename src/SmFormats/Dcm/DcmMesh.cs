@@ -28,6 +28,9 @@ public sealed class DcmMesh
 
     DcmMesh(IReadOnlyList<DcmBlock> blocks) => Blocks = blocks;
 
+    /// <summary>A mesh of these blocks (a decoded mesh with blocks changed in memory, e.g. a skin bound to another rig's bones; nothing is written).</summary>
+    public static DcmMesh FromBlocks(IReadOnlyList<DcmBlock> blocks) => new(blocks);
+
     /// <exception cref="InvalidDataException">The mesh is truncated or inconsistent (sizes, offsets, indices, records).</exception>
     /// <exception cref="NotSupportedException">A block type or layout not decoded yet (unknown types, other type-2 layouts,
     /// static strides other than 60).</exception>

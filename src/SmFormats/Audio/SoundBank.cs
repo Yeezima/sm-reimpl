@@ -417,7 +417,8 @@ public sealed class SoundBank
             }
         }
 
-        // Advanced settings: virtual queue, kill newest, use virtual, max instances, global limit, below threshold, 2 overrides.
+        // Advanced settings, 9 bytes, read as: kill newest, virtual behaviour, ignore the parents' max instances, u16 max instances, global limit, below threshold, 2 override flags.
+        // The names of the first three bytes are an interpretation of the v56 layout (docs/discovery.md, the sound object record), not verified by listening.
         bool killNewest = r.U8() != 0;
         byte virtualBehavior = r.U8();
         bool ignoreParentMax = r.U8() != 0;

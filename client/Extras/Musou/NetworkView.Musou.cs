@@ -32,8 +32,16 @@ public partial class NetworkView
 
     /// <summary>Enemy deaths the client has been told of (a test aid's count).</summary>
     internal long MusouDeathsSeen { get; private set; }
+    /// <summary>Deaths far and out of view given no body (musou/perf-pass; the log's count).</summary>
+    long _musouUnseenDeaths;
+
+    /// <summary>The pound's and the slash landing's drawn reach against the data's (1.5 in Musou Mode, owner 2026-11-14; 1 in Classic PvP): the ring, the chunks and the shake follow the server's blast.</summary>
+    float PoundRingScale => SmSim.Extras.Musou.MusouCombatRules.PoundReach(_config?.Extras ?? ContentExtras.None);
 
     bool MusouActive => _config is { } c && c.Extras.HasFlag(ContentExtras.Musou);
+
+    /// <summary>net/responsive: the interpolation delay's floor in Musou Mode (the 100 ms before the adaptive delay; its crowd's far records come every 5th tick).</summary>
+    static readonly System.TimeSpan MusouCrowdInterpolationFloor = System.TimeSpan.FromMilliseconds(100);
 
     /// <summary>The latest director the server sent (null: none yet, or not a Musou match).</summary>
     public MusouDirectorView? MusouDirector => _musouState.Director;
@@ -44,32 +52,53 @@ public partial class NetworkView
     void MusouFrame(PlayerState me, IReadOnlyList<PlayerState> others, double delta, IReadOnlyList<ExtrasSection> sections)
     {
         if (!MusouActive || _client is not { } client) { if (_musouHud is not null) _musouHud.Visible = false; return; }
+        if (client.ExtrasSolids is null && _config is { } solidConfig) client.ExtrasSolids = new MusouSolidView(_musouState, solidConfig);
+        client.InterpolationFloor ??= MusouCrowdInterpolationFloor;   // net/responsive: the crowd is drawn at the render tick; it keeps the 100 ms of before   // musou/boss-collision: the big Orks are solid and lockable in the own prediction
+        MusouDeathSpikeStart();   // --musou-death-spike-test (NetworkView.MusouDeathSpike.cs)
+        MusouArcOwnFrame(me);   // the swing arc: when the own player last started a charge or a landing (NetworkView.MusouSlashArc.cs)
+        Ph("musou: state");   // musou/perf-pass: --frame-profile's Musou phases
         double now = Time.GetTicksUsec() / 1e6;
+        MusouMotionSections(sections);   // NetworkView.MusouMotion.cs: --musou-old-far-motion, and the measure's bytes
         foreach (var section in MusouGoreFeed(me, sections, delta)) if (!MusouDropSection(section)) _musouState.Apply(section, now);   // MU-D: tag 6 to the drops (MusouDrops.cs); M10: --musou-gore-demo replaces the server's sections
         var (renderTick, _) = client.RemotePlayers();
         renderTick = MusouGoreRenderTick(renderTick);
         var shown = _musouState.Sample(renderTick > 0 ? renderTick : _musouState.NewestTick, now);
         _tfwShown = shown;   // the scripted class test finds the elites here (Tfw/NetworkView.TfwClassTest.cs)
+        MusouMotionFrame(me, shown, delta);   // --musou-motion-log: the shown crowd's motion by distance
 
         if (!_musouDrawChecked)
         {
             _musouDrawChecked = true;
-            _musouNoDraw = Lean || DisplayServer.GetName() == "headless";
+            _musouNoDraw = (Lean || DisplayServer.GetName() == "headless") && !MusouDeathSpikeTest;   // the death-spike test draws headless (NetworkView.MusouDeathSpike.cs)
             GD.Print($"musou: crowd {(_musouNoDraw ? "not drawn (headless or lean)" : "drawn")}");
         }
         if (!_musouNoDraw)
         {
-            foreach (var d in _musouState.NewDeaths) _musouDeaths.Add(d);
-            if (_musouDeaths.Count > MusouCrowd.MaxBodies) _musouDeaths.RemoveRange(0, _musouDeaths.Count - MusouCrowd.MaxBodies);
+            MusouDeathsArrive(_musouState.NewDeaths, now);   // night batch 2026-11-06: a burst is handed out over a few frames (NetworkView.MusouDeathSpread.cs)
+            Ph("musou: crowd, deaths, ragdolls");
             if (_gameSpace is not null) MusouDraw(shown, (float)delta);
+            Ph("musou: hud, fx, sounds");
+            ulong t0 = SpikeMark();
+            MusouRoundsFrame(shown);   // the gun Orks' rounds: the server's, and those built from burst cues (NetworkView.MusouGuns.cs)
+            MusouVolleysFrame(me, others, shown);   // musou-net-budget: the client's own volleys join them (NetworkView.MusouVolleys.cs)
             MusouPresent(me, shown, (float)delta);   // MU3: the HUD, hit feedback and telegraphs (MusouFx.cs)
             MusouSoundsFrame(me, shown, (float)delta);   // the enemies' original sounds (NetworkView.MusouSounds.cs)
+            _spikeSoundsMs += SpikeMs(t0);
             TfwMeleeCount(shown);   // Tfw/NetworkView.TfwMelee.cs: the test aid's counts, nothing without it
+            Ph("musou: gore");
+            t0 = SpikeMark();
             MusouGoreFrame(me, shown, (float)delta);   // M10: gibs, sprays, pools and the cleave slashes (Gore/NetworkView.MusouGore.cs)
+            _spikeGoreMs += SpikeMs(t0);
         }
+        Ph("musou: drops, log");
+        MusouDeathSpikeFrame(_musouState.NewDeaths.Count);   // --musou-death-spike-test (NetworkView.MusouDeathSpike.cs)
+        TfwCoopBotDeaths();   // Tfw/NetworkView.TfwCoopBot.cs: co-op's --bot counts its kills
         MusouDeathsSeen += _musouState.NewDeaths.Count;   // the Firing Range script counts the strike's kills
+        SpearImpaleEvents(_musouState.NewEvents);   // the power spear's impale evidence: the landing's impale only on a hit (Arsenal/Spear/NetworkView.SpearPose.cs)
         _musouState.TakeNew();
         MusouDropsFrame(me, (float)delta);   // MU-D: the own weapon drops (MusouDrops.cs)
+        Ph("musou: weight");
+        MusouWeightFrame(me, others);   // the weight pass: ground contacts (Weight/NetworkView.MusouWeight.cs)
         MusouLog(delta, shown.Count);
     }
 
@@ -91,12 +120,13 @@ public partial class NetworkView
     void MusouDraw(IReadOnlyList<MusouShown> shown, float delta)
     {
         if (_fx is not null) _fx.LightFilter ??= MusouLightSeen;
+        _fx?.MusouGpuEnable();   // musou/gpu-particles: the sprays' particles on the GPU (--fx-cpu: the CPU path; FxPlayer.MusouGpu.cs)
         if (_musouStarted < 0) _musouStarted = _connectedFor;
         if (_musouLooks is null)
         {
             if (Orks() is not { } orks) return;
-            _musouLooks = new MusouLooks(_gameDir, orks, MusouChaosLook);
-            _musouCrowd = new MusouCrowd(_musouLooks) { Visible = MusouArg("musou-visible") ?? MusouCrowd.DefaultVisible, NoVat = CmdFlag("musou-no-vat"), SolidBetween = MusouSolidBetween };
+            _musouLooks = new MusouLooks(_gameDir, orks, MusouChaosLook, guns: MusouGunsOn);
+            _musouCrowd = new MusouCrowd(_musouLooks) { Visible = MusouArg("musou-visible") ?? MusouCrowd.DefaultVisible, NoVat = CmdFlag("musou-no-vat"), SolidBetween = MusouSolidBetween, OldTierSwitch = CmdFlag("musou-old-crowd-motion") };
             _gameSpace!.AddChild(_musouCrowd);
         }
         var watch = System.Diagnostics.Stopwatch.StartNew();
@@ -107,20 +137,42 @@ public partial class NetworkView
         _musouLooks.Notes.Clear();
 
         var camera = _camera is null ? Vector3.Zero : new Vector3(_camera.GlobalPosition.X, -_camera.GlobalPosition.Z, _camera.GlobalPosition.Y);   // Godot to game space
+        ulong t0 = SpikeMark();
+        MusouDeathsTake(camera);   // this frame's share of the deaths waiting (NetworkView.MusouDeathSpread.cs)
+        _musouDeathsHanded.Clear();
+        _musouDeathsHanded.AddRange(_musouDeaths);   // their yells and falls (NetworkView.MusouSounds.cs)
         foreach (var d in _musouDeaths)
         {
             float metres = new Vector3(d.Position.X, d.Position.Y, d.Position.Z).DistanceTo(camera);
-            bool gibbed = MusouGoreRegister(d, camera);   // M10: a gibbed body leaves no corpse
+            _musouGoreKills[(int)MusouGoreSourceOf(d.Killer)]++;   // musou-net-budget: the gore log's kills by source
+            // The owner, 2026-11-08 ("if a player cannot see it, it doesn't ever get drawn, unless the player is close by"; ours as to the distance): a death beyond the battle flow's near distance and
+            // outside the view leaves no body, gore or ragdoll (its yell still plays). --army-far-bodies (test aid) keeps them all.
+            // The corpse floor (the owner, 2026-11-09: "they should always leave a corpse for at least 10 seconds before disappearing"; the new floor wins over 2026-11-08's): every death is handled at
+            // any distance, seen or not; a body out of the view costs a few floats a frame and is drawn once the view turns to it. --musou-old-corpses restores the rule above.
+            if (!MusouCorpseRules.HandlesUnseenFar(CrowdView.OldCorpses) && metres > SmSim.Extras.Musou.Campaign.TfwArmyRules.CoreMetres && !ArmyFarBodies && _camera is { } eye
+                && !eye.IsPositionInFrustum(_gameSpace!.Transform * new Vector3(d.Position.X, d.Position.Y, d.Position.Z + 1f))) { _musouUnseenDeaths++; _musouGoreKillsUnseen[(int)MusouGoreSourceOf(d.Killer)]++; continue; }
+            bool gibbed = MusouGoreRegister(d, camera, out bool burstDrawn);   // M10: a gibbed body leaves no corpse (its pieces instead); the corpse floor: only when its burst is drawn
+            if (MusouBigOrkRules.KeepsBody(d.Type, MusouCrowd.OldBigOrks)) gibbed = false;   // musou-big-ork-deaths (2026-11-09): an elite or boss is never torn apart; it falls with its death clip
             if (MusouGoreRules.Thrown(d.Cause)) MusouThrow(d, metres);   // a blast or barrage death always leaves a body, thrown through the gore's burst: a ragdoll near, else a tumbling body
-            else if (!gibbed) _musouCrowd!.AddBody(d);
+            else if (MusouCorpseRules.LeavesBody(gibbed, burstDrawn, farUnseen: false, CrowdView.OldCorpses)) _musouCrowd!.AddBody(d, MusouDeathWaited(d.Id), keepSkeleton: !_musouOldDeaths);
+            MusouMeltaBurn(d, metres);   // the owner, 2026-11-11: the melta burns the body of a target it kills (NetworkView.MusouMeltaBurn.cs)
             var at = new Vector3(d.Position.X, d.Position.Y, d.Position.Z + 1.1f);
             if (GoreOff && at.DistanceTo(camera) <= MusouCrowd.NearMetres)   // the dark gore draws the death blood; the red glow only with --no-musou-gore
                 BloodSplashAt(_gameSpace!.Transform * at, -(_gameSpace.Transform.Basis * new Vector3(d.Push.X, d.Push.Y, d.Push.Z)), 0.0);
         }
         _musouDeaths.Clear();
-        foreach (var e in _musouState.NewEvents) if (e.Kind == MusouEventKind.Hit && e.Value is 1 or 2) _musouCrowd!.Flinch(e.Enemy);   // markers 1 and 2: a shot's hit
-        _musouCrowd!.Frame(shown, camera, delta);
+        _musouDeathAge.Clear();
+        _spikeDeathsMs += SpikeMs(t0);
+        // The shot Orks' flinch is off (the owner, 2026-11-06: it read as a 180-degree turn; "for now, simply remove those hit reactions completely"); --musou-ork-flinch brings it back.
+        if (MusouOrkFlinch) foreach (var e in _musouState.NewEvents) if (e.Kind == MusouEventKind.Hit && e.Value is 1 or 2) _musouCrowd!.Flinch(e.Enemy);   // markers 1 and 2: a shot's hit
+        MusouGunsFrame(shown, camera, delta);   // the ranged Orks' shots: flash, tracer, impact (NetworkView.MusouGuns.cs)
+        t0 = SpikeMark();
+        MusouDeathsWaitingItems();   // the deaths not yet handed out keep their place in the crowd, already dying
+        _musouCrowd!.Frame(TfwArmyOrks(shown, camera, delta), camera, delta);   // with the distant armies' impostors (Tfw/NetworkView.TfwArmies.cs, expansion S6)
+        _spikeCrowdMs += SpikeMs(t0);
+        t0 = SpikeMark();
         _musouRagdolls?.Frame(delta, MusouCrowd.SinkSeconds, MusouCrowd.SinkDepth);
+        _spikeDollsMs += SpikeMs(t0);
     }
 
     /// <summary>A blast death's body: a <see cref="MusouRagdolls"/> doll when there is one to use, else the crowd's tumbling body.</summary>
@@ -128,14 +180,15 @@ public partial class NetworkView
     {
         var push = MusouGoreRules.BlastThrow(d.Push, d.Id, d.Tick, d.Type);
         var velocity = new Vector3(push.X, push.Y, push.Z);
+        if (!MusouCrowd.NoOrkVariety) { var own = MusouOrkVariety.Throw(d.Id, push); velocity = new Vector3(own.X, own.Y, own.Z); }   // Ork variety (2026-11-16): this Ork's impulse (+/- 30 %) and a few degrees off straight away from the blast
         if (metres <= MusouRagdolls.Metres && MusouRagdolls.Fits(d.Type) && _musouRagdolls is { } dolls && _musouLooks?.For(d.Type) is { } look && dolls.Throw(d, look, velocity)) return;
-        _musouCrowd!.AddFlung(d, velocity);
+        _musouCrowd!.AddFlung(d, velocity, keepSkeleton: !_musouOldDeaths, age: MusouDeathWaited(d.Id));   // night batch 2026-11-06: the body keeps the skeleton that drew the Ork
     }
 
     /// <summary>Makes the pool of ragdolls once the boy's look is built, one doll a frame. <c>--no-musou-ragdolls</c>: the tumbling bodies only.</summary>
     void MusouRagdollsBuild()
     {
-        if (_musouRagdolls is { } dolls) { dolls.BuildStep(); return; }
+        if (_musouRagdolls is { } dolls) { dolls.BuildStep(); MusouRagdollsPrewarm(dolls); return; }
         if (_musouRagdollsTried || CmdFlag("no-musou-ragdolls") || _musouLooks?.For(MusouEnemyType.Boy) is not { } boy) return;
         _musouRagdollsTried = true;
         if (OrkRagdollDefinition(boy.Assets) is not { } def || boy.Clips[MusouLooks.Run] is not { } clip) { GD.Print("musou: no ragdolls (no Ork ragdoll to be had); blast deaths tumble"); return; }
@@ -172,7 +225,7 @@ public partial class NetworkView
     {
         var args = OS.GetCmdlineUserArgs();
         int at = Array.IndexOf(args, "--" + name);
-        return at >= 0 && at + 1 < args.Length && int.TryParse(args[at + 1], out int v) ? Math.Clamp(v, 0, 1000) : null;
+        return at >= 0 && at + 1 < args.Length && int.TryParse(args[at + 1], out int v) ? Math.Clamp(v, 0, 2000) : null;
     }
 
     void MusouLog(double delta, int known)
@@ -186,7 +239,7 @@ public partial class NetworkView
         double fps = sorted.Length / (sorted.Sum() / 1000.0);
         var c = _musouCrowd;
         GD.Print($"musou: t {_connectedFor:F0} s: {sorted.Length} frames, {fps:F1} fps, frame p50 {P(0.5):F1} ms p99 {P(0.99):F1} ms max {sorted[^1]:F1} ms; " +
-                 $"enemies known {known}, drawn {(c is null ? "-" : $"{c.ShownSkinned} skinned + {c.ShownVat} vat, {c.LeftOut} left out, {c.Bodies} bodies ({c.Flung} flung), {_musouRagdolls?.Active ?? 0} ragdolls ({_musouRagdolls?.Thrown ?? 0} thrown of {_musouRagdolls?.Built ?? 0} built, highest {_musouRagdolls?.Highest ?? 0f:F1} m)")}; " +
+                 $"enemies known {known}, drawn {(c is null ? "-" : $"{c.ShownSkinned} skinned + {c.ShownVat} vat, {c.LeftOut} left out, {c.Bodies} bodies ({c.Flung} flung, most {c.BodiesMost}, under the floor dropped {c.FloorBroken}), {_musouRagdolls?.Active ?? 0} ragdolls ({_musouRagdolls?.Thrown ?? 0} thrown of {_musouRagdolls?.Built ?? 0} built, highest {_musouRagdolls?.Highest ?? 0f:F1} m)")}; " +
                  $"sections {_musouState.SectionsRead} ({_musouState.SectionsMalformed} malformed), events {_musouState.EventsPlayed} (+{_musouState.EventCopies} copies), " +
                  $"silent drops {_musouState.DroppedSilent}; {MusouPresentNote()}; director {(_musouState.Director is { } d ? $"wave {d.Wave}/{d.Waves} {d.Phase}" : "none")}");
         _musouFrames.Clear();

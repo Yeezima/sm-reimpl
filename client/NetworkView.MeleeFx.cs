@@ -93,6 +93,7 @@ public partial class NetworkView
         foreach (var id in _swordFlareAt.Keys) if (!_meleeFxPresent.Contains(id)) _meleeFxGone.Add(id);
         foreach (var id in _swordSwing.Keys) if (!_meleeFxPresent.Contains(id)) _meleeFxGone.Add(id);
         foreach (var id in _meleeFxGone) { _swordGlowMesh.Remove(id); _swordFlareAt.Remove(id); _swordSwing.Remove(id); }
+        PowerGlowPrune(_meleeFxPresent);
         _meleeFxGate.Prune(_meleeFxPresent.Contains);
     }
 
@@ -135,6 +136,7 @@ public partial class NetworkView
         var loaded = _meleeFxLoad.Result;
         _fx!.Preload(loaded.Systems, loaded.Decals);
         if (PowerBlade.BuildFlare(loaded.Systems.Values) is { } flare) _fx.Preload(new Dictionary<string, CSystem> { [PowerBlade.FlareName] = flare }, new Dictionary<string, byte[]>());
+        _fx.Preload(PowerGlow.Lights(), new Dictionary<string, byte[]>());   // fx/weapon-visuals: the power weapons' light
         if (PowerFlash.Build(loaded.Systems.Values) is { } powerCloud) _fx.Preload(new Dictionary<string, CSystem> { [PowerFlash.CloudName] = powerCloud }, new Dictionary<string, byte[]>());
         if (StompFx.Build(loaded.Systems.Values, CmdArg("stomp-ring")) is { } shockwave) _fx.Preload(new Dictionary<string, CSystem> { [StompFx.ShockwaveName] = shockwave }, new Dictionary<string, byte[]>());
         _meleeFx = loaded.Data;
@@ -148,8 +150,9 @@ public partial class NetworkView
     void MeleeFxFor(PlayerState s, bool own, List<PlayerState> all)
     {
         var character = own ? _local : _remotes.GetValueOrDefault(s.PlayerId);
-        string? wargear = MeleeWargear(s);
+        string? wargear = PresentedAs(MeleeWargear(s));   // W0b: an added weapon's effects by its source's name (the claw: the power sword's glow, flare and flash); the name itself for the data's
         SwordFrame(s, character, wargear);
+        PowerGlowFrame(s, character);   // fx/weapon-visuals: every power weapon's light, the serrated knife's green field
         if (!s.Alive || s.MeleeStep <= 0 || Combat.MeleeStepOf(_config!, s) is not { } step) { _meleeFxGate.Idle(s.PlayerId); return; }
         // Once per attack (review): the attack is keyed on its start tick (own: the prediction's tick; others: the newest snapshot's), so a reconcile rewind of any size
         // does not fire it again, and a player first seen mid-attack does not fire for a hit time already passed.
@@ -158,6 +161,7 @@ public partial class NetworkView
         long start = ImpactRules.MeleeHitGate.StartTick(tick, s.MeleeTime, _config!.TickSeconds);
         if (!_meleeFxGate.Passed(s.PlayerId, s.MeleeStep, s.MeleeHeavy, GateTime(s, step), FxTime(step), start)) return;   // sim/stomp-in-place: the drawn pose's time (the foot's landing), not the state's
         if (own) OwnStrikeHitSound(s, step, all);
+        if (own) ExtrasOwnStrikeContact(s, step);   // EXTRAS-HOOK: an added mode shows the own strike's contact on its own enemies at the predicted hit (Musou Mode, combat feel 2026-11-09)
         if (step.Stomp is { } blast && !NoStompFx) PlayStomp(s, own, character, wargear, blast);
         if (ImpactRules.PowerFlashRules.KindOf(wargear) is not null && !(PowerBlade.IsPowerSword(wargear) && NoSwordFx) && character is not null)
         {
@@ -206,6 +210,8 @@ public partial class NetworkView
 
     // ---- the power sword ----
 
+    partial void ExtrasSwordOverlay(PlayerState s, WeaponModel model, ref ShaderMaterial? overlay);
+
     void SwordFrame(PlayerState s, CharacterViewer? character, string? wargear)
     {
         bool isSword = PowerBlade.IsPowerSword(wargear);
@@ -222,6 +228,7 @@ public partial class NetworkView
             _swordGlowMesh[s.PlayerId] = h.Mesh;
             // The blade's glow and flare (ours).
             var overlay = PowerBlade.OverlayFor(h.Model);
+            ExtrasSwordOverlay(s, h.Model, ref overlay);   // EXTRAS-HOOK: Musou's Librarian swaps in his force sword's glow (Extras/Musou/ForceBlade.cs)
             if (!ReferenceEquals(h.Mesh.MaterialOverlay, overlay)) h.Mesh.MaterialOverlay = overlay;
             float flare = _swordFlareAt.TryGetValue(s.PlayerId, out double hitAt) ? PowerBlade.FlareAt((float)(_connectedFor - hitAt)) : 0f;
             // fx/character-visuals (owner, 2026-10-30): the blade flares up while it swings, in every attack shown (a hit's flare stays on top).

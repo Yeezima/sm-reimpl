@@ -87,3 +87,26 @@ static class PerkCommands
         return map;
     }
 }
+
+/// <summary>
+/// <c>smtool bot-loadouts &lt;game-dir|auto&gt;</c> (2026-11-07): the owner's fixed bot loadouts (<see cref="BotLoadouts"/>) resolved against every class of the
+/// install, by wargear name, with anything that does not match or is not legal. Read-only. Exit 1 when a preset has a problem.
+/// </summary>
+static class BotLoadoutCommands
+{
+    public static int List(string gameDir)
+    {
+        if (gameDir == "auto") gameDir = GameInstall.Locate();
+        var c = GameplayTuning.Load(gameDir).Config;
+        int bad = 0;
+        for (int k = 0; k < c.Classes.Count; k++)
+            foreach (var preset in BotLoadouts.For(c.Classes[k].Role))
+            {
+                var pick = BotLoadouts.Resolve(c, k, preset);
+                if (!pick.Legal) bad++;
+                Console.WriteLine($"class {k} {BotLoadouts.Describe(c, pick)}");
+            }
+        Console.WriteLine(bad == 0 ? "all presets legal" : $"{bad} preset(s) with problems");
+        return bad == 0 ? 0 : 1;
+    }
+}

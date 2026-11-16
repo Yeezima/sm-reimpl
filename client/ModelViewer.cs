@@ -96,8 +96,11 @@ public partial class ModelViewer : Node3D
 
     FrontEndView? _frontEnd;
     bool _fromFrontEnd;          // the networked view was started by the front end's Join: a failed join can go back to it
+    bool _musouRetried;          // this join was already retried once after stopping the own Musou server (MusouJoinRetry)
     CanvasLayer? _backLayer;
     Label? _backHint;
+    ScreenBlink? _blink;          // the blink between screens (ScreenBlink.cs); null for bots and with --no-screen-blink
+    bool _blinkChangePending;     // a screen change waits for the blink's black: a second one (a double Join, a repeated Esc) is dropped
     string _gameDir = "";
     Dictionary<string, string?> _launchArgs = new();
 
@@ -126,6 +129,7 @@ public partial class ModelViewer : Node3D
         }
         GD.Print(SafeMode.Describe());   // hotfix/old-gpu: the renderer and whether safe mode is on (one line)
         GD.Print(RenderQuality.Apply(GetViewport()));   // M40-T7 / M42: anti-aliasing (--aa) for every view, not only the networked one
+        if (VisualOverhaul.ApplyViewport(GetViewport()) is { } overhaulNote) GD.Print(overhaulNote);   // visual-overhaul proposal (--visual-overhaul on; default off)
         MarineAssets.PaintOverride = args.GetValueOrDefault("paint");
         EmblemFile = args.GetValueOrDefault("emblem-file");
         _screenshot = args.GetValueOrDefault("screenshot");
@@ -134,6 +138,8 @@ public partial class ModelViewer : Node3D
         _screenshotEvery = args.GetValueOrDefault("screenshot-every") is { } se && double.TryParse(se, System.Globalization.CultureInfo.InvariantCulture, out var every) && every > 0 ? every : null;
         _quitAfter = args.GetValueOrDefault("quit-after") is { } qa && double.TryParse(qa, System.Globalization.CultureInfo.InvariantCulture, out var after) ? after : null;
         string repoRoot = System.IO.Path.GetFullPath(System.IO.Path.Combine(ProjectSettings.GlobalizePath("res://"), ".."));
+        // The owner, 2026-11-10: menu, loading screen and match change with a blink (ScreenBlink.cs); bots draw nothing, --no-screen-blink changes at once as before.
+        if (!args.ContainsKey("bot") && !args.ContainsKey(ScreenBlink.OffSwitch)) AddChild(_blink = new ScreenBlink());
 
         // Added content E2: an invalid --content is refused the same way on every path (front end and --connect): a message, no start.
         if (args.ContainsKey("content") && !SmSim.ContentProfiles.TryParse(args["content"], out _, out string contentError))
@@ -156,6 +162,9 @@ public partial class ModelViewer : Node3D
                 BeginLocate(args, repoRoot);
                 return;
             }
+            bool testAidHandled = false;
+            ExtrasTestAid(args, ref testAidHandled);   // EXTRAS-HOOK added content's own test views (Ashfall kit gallery): they need no game install
+            if (testAidHandled) return;
             var found = GameInstall.TryLocate(args.GetValueOrDefault("game-dir"), repoRoot) ?? throw new System.IO.DirectoryNotFoundException(GameInstall.NotFoundMessage);
             string gameDir = found.Dir;
             _foundNote = FoundNote(found);
@@ -168,6 +177,7 @@ public partial class ModelViewer : Node3D
             }
             if (args.ContainsKey("reload-test")) { AddChild(new ReloadTestView(gameDir, args) { Name = "ReloadTest" }); return; }   // M35 test aid
             if (args.ContainsKey("switch-test")) { AddChild(new SwitchTestView(gameDir, args) { Name = "SwitchTest" }); return; }   // fix/stow-right test aid
+            if (args.ContainsKey("hit-reaction-test")) { AddChild(new HitReactionTestView(gameDir, args) { Name = "HitReactionTest" }); return; }   // hit reactions test aid (deaths, flinches)
             if (args.ContainsKey("appearance-test")) { AddChild(new AppearanceTestView(gameDir, args) { Name = "AppearanceTest" }); return; }   // customizer T6 test aid
             if (args.ContainsKey("ork-test")) { AddChild(new OrkTestView(gameDir, args) { Name = "OrkTest" }); return; }   // Ork O3 test aid
             if (args.ContainsKey("guard-test")) { AddChild(new GuardsmanTestView(gameDir, args) { Name = "GuardsmanTest" }); return; }   // Guardsman asset check (Musou Mode dependency)
@@ -176,6 +186,7 @@ public partial class ModelViewer : Node3D
                 // M44: "Leave match" in the in-match menu goes back to the front end from a plain --connect too. A copy taken before ApplyProfileLoadout adds the class and item
                 // arguments of the profile's loadout to args: the Join that follows must use the player's saved choice, not these.
                 _gameDir = gameDir; _launchArgs = new Dictionary<string, string?>(args, args.Comparer);
+                LeaveCheckSetup(args);
                 ApplyProfileLoadout(args, gameDir);
                 StartNetwork(args, gameDir);
                 return;
@@ -214,13 +225,16 @@ public partial class ModelViewer : Node3D
                     string? Given(int i) => i < given.Length && given[i].Trim().Length > 0 ? given[i].Trim() : null;
                     var worn = (args.GetValueOrDefault("worn") ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries);
                     var weaponNotes = new List<string>();
-                    var all = given.Concat(worn).Where(n => n.Trim().Length > 0).Select(n => n.Trim());
+                    var all = given.Concat(worn).Where(n => n.Trim().Length > 0).Select(n => n.Trim()).Concat(args.ContainsKey("content") ? ["sm_mp_melee_2hand_thunder_hammer", "sm_mp_melee_powersword"] : []);   // --content: the thunder hammer's and the power sword's models are loaded too (Musou's power spear is drawn through them)
                     var weaponAssets = WeaponAssets.Load(gameDir, character.Assets!, all, weaponNotes);
                     var rig = new WeaponRig(character.Skeleton!, weaponAssets);
-                    rig.Configure((0, 0, 0, "viewer", null), Given(0), Given(1), Given(2), worn, worn.Length > 0);
+                    if (args.GetValueOrDefault("content") is { } viewerContent && SmSim.ContentProfiles.TryParse(viewerContent, out var viewerExtras, out _)) rig.Content = viewerExtras;   // --content musou: added content's own weapon models (Musou's arsenal) in this view
+                    rig.Configure((0, 0, 0, "viewer", null), Given(0), Given(1), Given(2), worn, worn.Length > 0 || args.ContainsKey("always-melee"), second: Given(3));   // --always-melee: the melee weapon in hand at rest (the jump-pack classes' carry; a --hand melee strike shows it swung)   // --weapons primary,pistol,melee,second (the fourth: Weapon Versatility's second primary; with --hand melee the selected primary hangs on the left thigh)
                     string hand = args.GetValueOrDefault("hand") ?? "primary";
+                    if (args.GetValueOrDefault("grip") is { } grip && float.TryParse(grip, System.Globalization.CultureInfo.InvariantCulture, out var slide)) { rig.GripSlide = slide; rig.GripSlideDriven = true; }   // --grip 0..1: Musou's power spear carried with the fist high (0) or low (1) on the shaft
                     rig.Update(hand == "pistol" ? SmSim.WeaponSlot.Pistol : SmSim.WeaponSlot.Ranged, hand == "melee", true, 0f, 0.6f);
                     character.Weapons = rig;
+                    if (args.ContainsKey("spear-probe")) GetTree().CreateTimer(1.0).Timeout += () => { if (rig.MeleeAxisPoints(-1.05f, 0.29f, 1.8f) is { } p) { float low = float.MaxValue; var sk = character.Skeleton!; for (int b = 0; b < sk.GetBoneCount(); b++) low = Math.Min(low, (sk.GlobalTransform * sk.GetBoneGlobalPose(b)).Origin.Y); GD.Print($"SPEARPROBE lowest_bone_y {low:F3} root_y {character.GlobalPosition.Y:F3} butt {p[0].X:F3} {p[0].Y:F3} {p[0].Z:F3} hand {p[1].X:F3} {p[1].Y:F3} {p[1].Z:F3} tip {p[2].X:F3} {p[2].Y:F3} {p[2].Z:F3}"); } };   // test aid: the spear's butt (-1.05), high grip (0.29, PowerSpearModel.SpearGripHigh) and tip (1.8) in world space (the carry grip's measurement)
                     if (worn.Length > 0) character.SetBackpackHidden(args.GetValueOrDefault("keep-backpack") is null && rig.WornCount > 0);
                     notes.AddRange(weaponNotes);
                     GD.Print("weapons: " + string.Join(", ", rig.Description) + $"; {rig.WornCount} worn nodes; {weaponAssets.ModelsLoaded} models in {weaponAssets.LoadMilliseconds:F0} ms");
@@ -256,6 +270,9 @@ public partial class ModelViewer : Node3D
         Finish(status, notes);
     }
 
+    /// <summary>Added content's test views that start without the game install (implemented under Extras/, absent from a faithful build).</summary>
+    partial void ExtrasTestAid(Dictionary<string, string?> args, ref bool handled);
+
     string? _foundNote;
     System.Threading.Tasks.Task<GameLocation?>? _locating;
     CanvasLayer? _lookingLayer;
@@ -263,7 +280,7 @@ public partial class ModelViewer : Node3D
     string _lookRepoRoot = "";
 
     /// <summary>Test views that need the install before they start (they keep the synchronous lookup).</summary>
-    static readonly string[] FrontEndExcluded = ["fx", "pound-test", "stomp-test", "reload-test", "switch-test", "appearance-test", "guard-test"];
+    static readonly string[] FrontEndExcluded = ["fx", "pound-test", "stomp-test", "reload-test", "switch-test", "hit-reaction-test", "appearance-test", "guard-test", "ashfall-kit-gallery", "warboss-test", "musou-crowd-test", "mek-gallery", "claw-spear-test"];
 
     void BeginLocate(Dictionary<string, string?> args, string repoRoot)
     {
@@ -316,7 +333,7 @@ public partial class ModelViewer : Node3D
         GD.Print(_foundNote);
         PadHost.Ensure(this);   // controller: the device node (client/Gamepad)
         UiSounds.Ensure(this, gameDir, args.ContainsKey("no-sound"));   // the menus' sounds (fidelity gap 9); one node for the app, handed to the match when one starts
-        _frontEnd = new FrontEndView(() => MakeServices(args, gameDir), OnJoin, args.ContainsKey("appearance") ? StartScreen.Appearance : args.ContainsKey("customizer") ? StartScreen.Creator : StartScreen.Join, args) { Name = "FrontEnd", GameFoundNote = _foundNote };
+        _frontEnd = new FrontEndView(() => MakeServices(args, gameDir), JoinAtBlink, args.ContainsKey("appearance") ? StartScreen.Appearance : args.ContainsKey("customizer") ? StartScreen.Creator : StartScreen.Join, args) { Name = "FrontEnd", GameFoundNote = _foundNote };
         var layer = new CanvasLayer { Name = "FrontEndLayer" };
         layer.AddChild(_frontEnd);
         AddChild(layer);
@@ -347,8 +364,10 @@ public partial class ModelViewer : Node3D
     public override void _ExitTree() => HostedServer.Stop();
 
     /// <summary>Starts the networked view (M5) for <c>--connect</c> or for a Join from the front end; <paramref name="args"/> are the client's user arguments.</summary>
-    void StartNetwork(Dictionary<string, string?> args, string gameDir)
+    void StartNetwork(Dictionary<string, string?> args, string gameDir, bool rejoin = false, bool keepOldForTest = false)
     {
+            if (_network is not null && !keepOldForTest) DropNetwork();   // (keepOldForTest: --leave-check-double leaves the old one in the tree to prove the sweep) a view still running is never left behind a new one
+            _networkArgs = args;   // classic-maps-all: a rotation rejoins with the same arguments
             // M5: networked view. It draws its own overlay and decides when a screenshot is worth taking.
             bool bot = args.ContainsKey("bot");
             bool lean = SmNet.LeanBot.Decide(bot, DisplayServer.GetName(), OS.GetCmdlineUserArgs());   // perf/lean-bots + perf/pass-1: a headless bot (NetworkView.Lean.cs, BotLean)
@@ -359,6 +378,13 @@ public partial class ModelViewer : Node3D
             {
                 try { System.Runtime.GCSettings.LatencyMode = System.Runtime.GCLatencyMode.SustainedLowLatency; }
                 catch (Exception e) when (e is ArgumentOutOfRangeException or NotSupportedException or InvalidOperationException) { GD.Print($"gc: latency mode not set ({e.Message}); the runtime's default stays"); }
+            }
+            // polish pass P1 (2026-11-10, measurement aid): --physics-ticks <n> sets the engine's physics steps a second for a human client (Godot's default 60; a lean bot's 30 is
+            // BotLean's). The baseline measured a 1.65 ms physics step a frame on Manufactorum with no active body; this aid measures what a lower rate saves before any default changes.
+            if (!bot && args.GetValueOrDefault("physics-ticks") is { } pt && int.TryParse(pt, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out int physicsTicks) && physicsTicks is >= 10 and <= 240)
+            {
+                Engine.PhysicsTicksPerSecond = physicsTicks;
+                GD.Print($"physics: {physicsTicks} steps a second (--physics-ticks; the default is 60)");
             }
             int wait = args.GetValueOrDefault("wait-players") is { } w && int.TryParse(w, out var n) ? n : bot ? 2 : 1;
             var side = NetworkView.ParseSide(args.GetValueOrDefault("side"));
@@ -373,10 +399,10 @@ public partial class ModelViewer : Node3D
                                       args.GetValueOrDefault("bot-throw-max") is { } tm && float.TryParse(tm, System.Globalization.CultureInfo.InvariantCulture, out var throwMax) ? throwMax : 20f,
                                       args.ContainsKey("wait-jump"), args.ContainsKey("bot-jump-free"))
                                       {
-                                          Name = "Network", RequestedSide = side ?? SmSim.Team.None,
+                                          Name = "Network", RequestedSide = side ?? SmSim.Team.None, PatientConnect = rejoin,
                                           ShowScoreboard = args.ContainsKey("show-scoreboard"), WaitMatchEnd = args.ContainsKey("wait-match-end"),
                                           Spectate = args.GetValueOrDefault("spectate") ?? (args.ContainsKey("spectate") ? "action" : args.ContainsKey("observe") ? "observe" : null),
-                                          Observe = args.ContainsKey("observe"), ObservePose = args.GetValueOrDefault("observe-pose"), ObserveFollow = args.ContainsKey("observe-follow"),   // protocol 46: a spectator (NetworkView.Observer.cs)
+                                          Observe = args.ContainsKey("observe"), ObservePose = args.GetValueOrDefault("observe-pose"), ObserveTour = args.GetValueOrDefault("observe-tour"), ObserveFollow = args.ContainsKey("observe-follow"),   // protocol 46: a spectator (NetworkView.Observer.cs)
                                           ShowInfo = args.ContainsKey("show-info"), HudDemo = args.ContainsKey("hud-demo"), AimTest = args.ContainsKey("aim-test"), BotSlot = args.GetValueOrDefault("bot-slot"), BotStand = args.ContainsKey("bot-stand"), BotIdle = args.ContainsKey("bot-idle"), BotFireWalls = args.ContainsKey("bot-fire-walls"), RagdollDebug = args.ContainsKey("ragdoll-debug"), RagdollRest = args.GetValueOrDefault("ragdoll-rest") is { } rr && float.TryParse(rr, System.Globalization.CultureInfo.InvariantCulture, out var restSeconds) ? restSeconds : null, PlaceholderFx = args.ContainsKey("placeholder-fx"), FxSlow = args.GetValueOrDefault("fx-slow") is { } fs && float.TryParse(fs, System.Globalization.CultureInfo.InvariantCulture, out var slow) ? slow : 1f, NoFx = args.ContainsKey("no-fx") || lean, NoHud = args.ContainsKey("no-hud"), NoWeapons = args.ContainsKey("no-weapons"), NoOverlay = args.ContainsKey("no-overlay") || args.ContainsKey("no-markers"), NoMarkers = args.ContainsKey("no-markers"), ShowMarkers = args.ContainsKey("show-markers"), BotGoal = args.GetValueOrDefault("bot-goal"), BotRoute = args.GetValueOrDefault("bot-route"), FrameStatsLog = args.ContainsKey("frame-stats"), NoSound = args.ContainsKey("no-sound"), MapSounds = args.ContainsKey("map-sounds"), HitArmour = args.GetValueOrDefault("hit-armour"), DamageDemo = args.ContainsKey("damage-demo") ? args.GetValueOrDefault("damage-demo") ?? "cycle" : null, SoundGainDb = args.GetValueOrDefault("sound-gain") is { } soundGainText && float.TryParse(soundGainText, System.Globalization.CultureInfo.InvariantCulture, out var soundGain) && float.IsFinite(soundGain) ? soundGain : 0f, NoHipFire = args.ContainsKey("no-hip-fire"), NoLocomotion = args.ContainsKey("no-locomotion"), YawProbe = args.ContainsKey("yaw-probe"), NoViewSmoothing = args.ContainsKey("no-view-smoothing"), PanRate = args.GetValueOrDefault("pan-rate") is { } pr && float.TryParse(pr, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var panRate) ? panRate : 0f, BotGait = args.ContainsKey("bot-gait"), HipProbe = args.ContainsKey("hip-probe"), PerWeaponSprint = args.ContainsKey("per-weapon-sprint"),
                                       };
             if (side is null) GD.PrintErr($"--side '{args.GetValueOrDefault("side")}' is not marines or chaos; the class's side is used");
@@ -384,13 +410,44 @@ public partial class ModelViewer : Node3D
             AddChild(_network);
     }
 
-    /// <summary>"Leave match" in the in-match menu: back to the front end's main menu with a short note (deferred: it frees the view that asked).</summary>
+    /// <summary>"Leave match" in the in-match menu: back to the front end's main menu with a short note (deferred: it frees the view that asked), at the blink's black.</summary>
     void LeaveMatch()
+    {
+        if (_blinkChangePending && _network is not null) { _leaveQueued = true; return; }   // fix/leave-cleanup: a leave asked while another change waits for the black runs right after it, never dropped
+        AtBlink(LeaveMatchNow, MenuBuilt);
+    }
+
+    bool _leaveQueued;
+    int StrayDropped;   // views DropNetwork found beside the referenced one (the leave check reads it)
+
+    void LeaveMatchNow()
     {
         if (_network is null) return;   // already leaving
         foreach (var key in LoadoutArguments.Append("loadout")) _launchArgs.Remove(key);   // a stale --class / --loadout must not override the saved choice on the next Join
         BackToFrontEnd("You left the match.");
     }
+
+    /// <summary>
+    /// fix/leave-cleanup (owner, 2026-11-15): the one teardown of the networked view, for every way out of a match (leave, back from a failed join, a retry or a rotation rejoin, a new join):
+    /// the view marks itself left, closes its connection, stops its sounds and hides, then leaves the tree at once (not at the frame's end), together with any other networked view
+    /// that outlived a lost reference. Only then does the front end or the next view show.
+    /// </summary>
+    void DropNetwork()
+    {
+        var views = new List<NetworkView>();
+        if (_network is { } own) views.Add(own);
+        foreach (var child in GetChildren()) if (child is NetworkView stray && !views.Contains(stray)) { views.Add(stray); GD.Print("leave: a networked view outlived its reference; dropped too"); StrayDropped++; }
+        foreach (var view in views)
+        {
+            view.LeaveNow();
+            if (view.GetParent() is { } parent) parent.RemoveChild(view);
+            view.QueueFree();
+        }
+        _network = null;
+        _backLayer?.QueueFree();
+        _backLayer = null; _backHint = null;
+    }
+
 
     static readonly string[] ViewerArguments = ["mesh", "archive", "anim", "time", "bones", "chaos", "stance", "clip-stats", "weapons", "worn", "hand", "view", "paint", "focus", "viewer", "keep-backpack"];
 
@@ -407,7 +464,7 @@ public partial class ModelViewer : Node3D
             _lastContent is { } last ? SmSim.ContentProfiles.Name(last) : args.GetValueOrDefault("content"));
 
     /// <summary>The Join button: leaves the front end and starts the networked view with the active loadout (the same arguments <c>--connect</c> takes).</summary>
-    void OnJoin(JoinRequest request)
+    void OnJoin(JoinRequest request, bool rejoin = false)
     {
         var args = new Dictionary<string, string?>(_launchArgs, StringComparer.OrdinalIgnoreCase) { ["connect"] = request.Host };
         foreach (var (key, value) in request.Plan.ToArgs()) args[key] = value;
@@ -419,7 +476,7 @@ public partial class ModelViewer : Node3D
         _frontEnd = null;
         request.Services.Previews.Clear();   // the preview's models are not needed in the match
         _fromFrontEnd = true;
-        StartNetwork(args, _gameDir);
+        StartNetwork(args, _gameDir, rejoin);
         // A hint that stays until the join has worked: Esc goes back to the menu (a wrong address, a rejection or a lost server must not strand the player).
         _backLayer = new CanvasLayer { Name = "BackHint", Layer = 50 };
         _backHint = new Label { Text = "Esc: back to the menu", Visible = false, Position = new Vector2(24, 0) };
@@ -433,18 +490,59 @@ public partial class ModelViewer : Node3D
         AddChild(_backLayer);
     }
 
+    /// <summary>
+    /// The owner, 2026-11-07: a Classic PvP join refused with "Enable extended mode" while this client's own Musou server runs (the server kept the session on the Musou profile) stops that
+    /// server through the front end's stop path (<see cref="FrontEndView.StopOwnMusouServer"/>: the process this client started, by its handle; never one found by name) and joins the same
+    /// address again with the lobby's own profile, silently: the loading screen stays, no message. Once per join; a retry that fails shows its normal error. The rule: <see cref="SmNet.MusouJoinRetry"/>.
+    /// </summary>
+    bool TryMusouRetry()
+    {
+        if (!_fromFrontEnd || _network is not { ConnectionFailed: true } failed || FrontEndLaunch.Current is not { } request) return false;
+        var services = request.Services;
+        var joined = request.Content ?? services.Content;
+        bool commandLineMusou = _launchArgs.GetValueOrDefault("content") == SmSim.ContentProfiles.Musou;
+        var hosted = HostedServer.Options;
+        var decision = SmNet.MusouJoinRetry.Decide(failed.RejectedBecause, HostedServer.Running, hosted is { Content: SmSim.ContentProfiles.Musou },
+            joined.HasFlag(SmSim.ContentExtras.Musou), services.Settings.ContentExtras.HasFlag(SmSim.ContentExtras.Musou), commandLineMusou,
+            hosted is { } h && SmNet.MusouJoinRetry.IsHostedTarget(request.Host, h.Port), _musouRetried);
+        if (decision != SmNet.JoinRetryDecision.StopMusouAndRetry) return false;
+        int? pid = HostedServer.ProcessId;
+        FrontEndView.StopOwnMusouServer(services, commandLineMusou);
+        var plan = services.PlanFor() ?? request.Plan;
+        var retry = request with { Plan = plan, Content = services.Content };
+        GD.Print($"join: {request.Host} refused the Musou profile while this client's Musou server (pid {pid}) ran; stopped it (running now: {HostedServer.Running}) and joining again with {SmSim.ContentProfiles.Name(services.Content)}");
+        DropNetwork();
+        OnJoin(retry);
+        _musouRetried = true;   // after OnJoin: a failure of this retry shows the normal error
+        return true;
+    }
+
+    Dictionary<string, string?>? _networkArgs;   // the arguments the running networked view was started with (a rotation rejoin reuses them)
+
+    /// <summary>
+    /// classic-maps-all (protocol 79): the networked view saw the end of a match on a server that rotates its maps (<see cref="NetworkView.RotateRequested"/>): it is replaced by a new one
+    /// joining the same address (from the front end's Join, the same request; from <c>--connect</c>, the same arguments). The Challenge of the new join names the next map.
+    /// </summary>
+    bool TryRotationRejoin()
+    {
+        if (_network is not { } rotating || !(rotating.RotateRequested || rotating.RotationConnectionLost) || _networkArgs?.ContainsKey("play-demo") == true) return false;
+        DropNetwork();
+        if (_fromFrontEnd && FrontEndLaunch.Current is { } request) OnJoin(request, rejoin: true);
+        else if (_networkArgs is { } args) StartNetwork(args, _gameDir, rejoin: true);
+        return true;
+    }
+
     /// <summary>Esc while the join is going nowhere (still connecting, rejected, disconnected, load error): back to the front end with the reason on its Join screen.</summary>
     void BackToFrontEnd(string? reasonOverride = null)
     {
         string reason = reasonOverride ?? (_network?.FailureText is { Length: > 0 } text ? text : "Could not connect to the server.");
-        _network?.QueueFree();
-        _network = null;
-        _backLayer?.QueueFree();
-        _backLayer = null; _backHint = null;
+        DropNetwork();
         _fromFrontEnd = false;
+        _musouRetried = false;   // the next join from the menu is a new one
         FrontEndLaunch.Current = null;
         Input.MouseMode = Input.MouseModeEnum.Visible;
-        _frontEnd = new FrontEndView(() => MakeServices(_launchArgs, _gameDir), OnJoin, StartScreen.Join, _launchArgs, reason) { Name = "FrontEnd", GameFoundNote = _foundNote };
+        if (_frontEnd is { } oldFront) { oldFront.Release(); oldFront.GetParent()?.QueueFree(); _frontEnd = null; }   // fix/leave-cleanup: never two front ends
+        _frontEnd = new FrontEndView(() => MakeServices(_launchArgs, _gameDir), JoinAtBlink, StartScreen.Join, _launchArgs, reason) { Name = "FrontEnd", GameFoundNote = _foundNote };
         var layer = new CanvasLayer { Name = "FrontEndLayer" };
         layer.AddChild(_frontEnd);
         AddChild(layer);
@@ -456,6 +554,7 @@ public partial class ModelViewer : Node3D
     /// </summary>
     public override void _Input(InputEvent e)
     {
+        if (e is InputEventKey { Pressed: true, Echo: false, PhysicalKeycode: Key.F3 }) { GetViewport().SetInputAsHandled(); CycleReadout(); return; }
         if (e is not InputEventKey { Pressed: true, Echo: false, PhysicalKeycode: Key.F11 }) return;
         GetViewport().SetInputAsHandled();
         bool captured = Input.MouseMode == Input.MouseModeEnum.Captured;
@@ -475,6 +574,19 @@ public partial class ModelViewer : Node3D
         if (captured) CallDeferred(MethodName.RecaptureMouse, true);
     }
 
+    /// <summary>
+    /// polish pass P1 (2026-11-10, ours; a tester aid, not an option row: the owner keeps the original's options): F3 cycles the match's performance readout OFF, FPS, FPS + NETWORK
+    /// (<see cref="HudReadout"/>) anywhere, and remembers it in the profile's options (<c>performanceReadout</c>) when a profile is in use. <c>--readout</c> pins it for a run.
+    /// </summary>
+    void CycleReadout()
+    {
+        var next = (Customizer.Model.ReadoutChoice)(((int)HudReadout.Choice + 1) % 3);   // the saved choice cycles even while --readout pins what is shown
+        HudReadout.Choice = next;
+        try { CustomizerServices.Latest?.UpdateSettings(x => x with { Options = x.Options with { Readout = next } }); }
+        catch (Exception ex) when (ex is not (OutOfMemoryException or StackOverflowException or AccessViolationException)) { GD.PrintErr("F3: the readout choice was not saved: " + ex.Message); }
+        GD.Print($"F3: performance readout {next}{(HudReadout.Override is { } pinned ? $" (pinned to {pinned} by --readout for this run)" : "")}");
+    }
+
     /// <summary>A window mode change can drop the operating system's hold on the cursor: capture the mouse again (now, and once more when the new window has settled), unless the player has freed it since.</summary>
     void RecaptureMouse(bool again)
     {
@@ -489,9 +601,34 @@ public partial class ModelViewer : Node3D
         if (_fromFrontEnd && _network is { } n && (n.ConnectionFailed || n.StillConnecting) && (e is InputEventKey { Pressed: true, Echo: false, PhysicalKeycode: Key.Escape } || e is InputEventJoypadButton { Pressed: true, ButtonIndex: JoyButton.B }))
         {
             GetViewport().SetInputAsHandled();
-            BackToFrontEnd();
+            BackAtBlink();
         }
     }
+
+    /// <summary>
+    /// Runs a screen change at the blink's full black (ScreenBlink.cs), at once without the blink. While one waits for the black, another is dropped (a double Join, Esc pressed
+    /// twice): the first decides.
+    /// </summary>
+    void AtBlink(Action change, Func<bool>? ready = null)
+    {
+        if (_blink is null || !_blink.IsInsideTree()) { change(); return; }
+        if (_blinkChangePending) return;
+        _blinkChangePending = true;
+        _blink.Run(() =>
+        {
+            _blinkChangePending = false; change();
+            if (_leaveQueued) { _leaveQueued = false; if (_network is not null) CallDeferred(nameof(LeaveMatch)); }
+        }, ready);
+    }
+
+    /// <summary>The blink back to the menu opens once the menu's rows are up (the front end reads the install again first), within the blink's longest hold.</summary>
+    bool MenuBuilt() => _frontEnd is not { } front || front.Built;
+
+    /// <summary>The front end's Join: the menu blinks into the loading screen (the join itself, with its synchronous load, runs at full black).</summary>
+    void JoinAtBlink(JoinRequest request) => AtBlink(() => OnJoin(request));
+
+    /// <summary>Esc (or <c>--auto-back</c>) on a join still connecting or failed: back to the menu at the blink's black, if the join has not got through in the meantime.</summary>
+    void BackAtBlink() => AtBlink(() => { if (_fromFrontEnd && _network is { } n && (n.ConnectionFailed || n.StillConnecting)) BackToFrontEnd(); }, MenuBuilt);
 
     static readonly string[] ScriptedArguments = ["test-window", "screenshot", "quit-after", "spectate", "observe", "hud-demo", "aim-test"];
 
@@ -549,11 +686,16 @@ public partial class ModelViewer : Node3D
         PollLocate();
         if (_locating is not null) return;   // still looking for the game: nothing to show or capture yet
         // The networked view waits until it is connected and the players are in view.
-        if (_backHint is not null) _backHint.Visible = _network is { } hinted && (hinted.ConnectionFailed || hinted.StillConnecting);
+        // The loading screen (2026-11-07: black and LOADING alone) covers a join still connecting; the hint shows once the join failed (Esc works in both).
+        if (_backHint is not null) _backHint.Visible = _network is { } hinted && hinted.ConnectionFailed;
+        LeaveCheckStep();   // fix/leave-cleanup test aid (ModelViewer.LeaveCheck.cs)
+        if (TryMusouRetry()) return;   // a Classic PvP join refused because of the own Musou server: stopped, joined again (no message)
+        if (TryRotationRejoin()) return;   // classic-maps-all: the server moves on to its next map: join the same address again
         // --auto-back <seconds> (test aid): the Esc of a join that goes nowhere, pressed after that long.
         if (_fromFrontEnd && _launchArgs.GetValueOrDefault("auto-back") is { } autoBack && double.TryParse(autoBack, System.Globalization.CultureInfo.InvariantCulture, out var backAfter)
-            && _network is { } stuck && (stuck.ConnectionFailed || stuck.StillConnecting) && _elapsed > backAfter) BackToFrontEnd();
+            && _network is { } stuck && (stuck.ConnectionFailed || stuck.StillConnecting) && _elapsed > backAfter) BackAtBlink();
         if (_screenshot is null) return;
+        if (_blink is { Busy: true }) return;   // no capture of a half-black frame
         if (_network is not null ? !_network.ReadyForScreenshot : _frontEnd is not null ? !_frontEnd.ReadyForScreenshot : ++_frames != 10) return;
         // --screenshot-every (showcase aid): a numbered series from the first ready frame until --quit-after.
         if (_screenshotEvery is not null && (_elapsed < _nextSeriesShot || (_onEffect && _network is { EffectInView: false }))) return;
@@ -574,7 +716,7 @@ public partial class ModelViewer : Node3D
         System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(path)!);
         var err = GetViewport().GetTexture().GetImage().SavePng(path);
         GD.Print(err == Error.Ok ? $"screenshot -> {path}" : $"screenshot failed: {err}");
-        if (_screenshotEvery is { } interval) { _nextSeriesShot = _elapsed + interval; return; }
+        if (_screenshotEvery is { } interval) { _nextSeriesShot = _elapsed + interval; _network?.ObserveTourAdvance(); return; }
         _screenshot = null;
         if (_quit && _quitAfter is null) GetTree().Quit(err == Error.Ok ? 0 : 1);
     }

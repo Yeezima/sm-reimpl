@@ -291,6 +291,8 @@ public sealed partial class SoundTriggers
         if (map is not null)
         {
             string ability = step <= 0 ? map.AbilityOf(false, 1) : map.AbilityOf(heavy, step);
+            // sim/sword-ff-stab: the stab finisher sounds as the X,F strike it copies (Classic only: Musou's read keeps its stomp finisher and never sets the flag).
+            if (ability.Length == 0 && heavy && map.StabHeavy > 0 && MeleeTuning.StabApplied && step == map.HeavySequencers.Length + 1) ability = map.AbilityOf(true, map.StabHeavy);
             if (ability.Length == 0 && heavy && step > 0 && $"ability_melee_y{(step == 1 ? "" : step.ToString(System.Globalization.CultureInfo.InvariantCulture))}" is var y && Has(y)) return y;
             return ability;
         }
@@ -314,6 +316,49 @@ public sealed partial class SoundTriggers
 
     public SoundFile? File(string name) => Files.GetValueOrDefault(name);
 
+    /// <summary>
+    /// W0b: the triggers in which each name of <paramref name="sources"/> sounds as the first of its candidates whose file was read with any sound command: that file's entry, its hit,
+    /// shot-hit, melee-hit and charge-hit containers and its melee abilities' hit containers are copied under the name, replacing the name's own (Musou's arsenal: the claw sounds as the
+    /// power sword, the spear as the thunder hammer, the autocannon as its install twin, then the heavy bolter). A copied <see cref="SoundFile"/> keeps its own <see cref="SoundFile.Name"/>.
+    /// The triggers themselves when the map is empty or no candidate was read, so triggers without sources are the same object.
+    /// </summary>
+    public SoundTriggers WithSources(IReadOnlyDictionary<string, IReadOnlyList<string>> sources)
+    {
+        if (sources.Count == 0) return this;
+        var picked = new List<(string Name, string Source)>();
+        var notes = new List<string>();
+        foreach (var (name, candidates) in sources.OrderBy(kv => kv.Key, StringComparer.Ordinal))
+        {
+            if (candidates.FirstOrDefault(c => Files.TryGetValue(c, out var f) && f.Bindings.Count > 0) is { } source) { picked.Add((name, source)); notes.Add($"{name}: the sounds of {source}"); }
+            else notes.Add($"{name}: none of {string.Join(", ", candidates)} was read with sounds; none posted");
+        }
+        if (picked.Count == 0) return this;
+        var files = new Dictionary<string, SoundFile>(Files, StringComparer.OrdinalIgnoreCase);
+        Dictionary<string, string> Copy(IReadOnlyDictionary<string, string> from)
+        {
+            var to = new Dictionary<string, string>(from, StringComparer.OrdinalIgnoreCase);
+            foreach (var (name, source) in picked)
+                if (from.TryGetValue(source, out var v)) to[name] = v;
+                else to.Remove(name);
+            return to;
+        }
+        var abilities = new Dictionary<(string, string, bool), IReadOnlyList<string>>(AbilityKeyComparer.Instance);
+        var named = picked.Select(p => p.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var (key, value) in MeleeAbilityContainers) if (!named.Contains(key.Wargear)) abilities[key] = value;
+        foreach (var (name, source) in picked)
+        {
+            files[name] = Files[source];
+            foreach (var (key, value) in MeleeAbilityContainers)
+                if (string.Equals(key.Wargear, source, StringComparison.OrdinalIgnoreCase)) abilities[(name, key.Ability, key.Secondary)] = value;
+        }
+        return new SoundTriggers
+        {
+            Files = files, ContainerSounds = ContainerSounds, HitContainers = Copy(HitContainers), ShotHitContainers = Copy(ShotHitContainers), MeleeHitContainers = Copy(MeleeHitContainers),
+            ChargeHitContainers = Copy(ChargeHitContainers), MeleeAbilityContainers = abilities, ContainerEventChoices = ContainerEventChoices, ClipTags = ClipTags, Notes = [.. Notes, .. notes],
+            OrkOnlyClips = OrkOnlyClips, BlueprintCharacters = BlueprintCharacters, SpeechCharacters = SpeechCharacters,
+        };
+    }
+
     /// <summary>The player blueprints of both sides and the Ork Boy's (their sounds: footsteps, death, spawn, armour, landing; the Ork's: Ork O8, <see cref="OrkSounds"/>).</summary>
     public static readonly IReadOnlyList<string> PlayerBlueprints = [GameplayTuning.MarineBlueprint, GameplayTuning.ChaosBlueprint, OrkSounds.Blueprint];
 
@@ -321,6 +366,16 @@ public sealed partial class SoundTriggers
     public static IReadOnlyList<string> WargearNames(SmSim.SimConfig c) =>
         c.Weapons.Select(w => w.Name).Concat(c.Thrown.Select(t => t.Name)).Concat(c.JumpPacks.Select(j => j.Name)).Concat(c.Evades.Select(e => e.Name))
             .Concat(c.Classes.SelectMany(k => k.MeleeChoices.Select(m => m.Wargear))).Where(n => !string.IsNullOrEmpty(n)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+
+    /// <summary>A reload clip (its name holds <c>reload</c>): the clips <see cref="ReloadTags"/> picks from.</summary>
+    public static bool IsReloadClip(string clip) => clip.Contains("reload", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Whether a clip's behaviour tags post their sounds as the animation crosses them (sound/mix-and-reloads): every clip but a reload clip. A reload's sounds come from the
+    /// reload's own schedule only (<see cref="ReloadTags"/> over the simulation's reload time, once per reload: <see cref="ReloadSoundGuard"/>); the reload clip laid over the
+    /// upper body posted them a second time, at the clip's own timing, and the stop events those posts owed cut the reload's sounds when the layer ended or its time jumped back.
+    /// </summary>
+    public static bool ClipTagsPostSounds(string clip) => !IsReloadClip(clip);
 
     /// <summary>
     /// A weapon's reload sounds in time (M26b): the clip named <c>*reload*</c> whose action tags match the most of the file's
@@ -334,7 +389,7 @@ public sealed partial class SoundTriggers
         int bestScore = 0;
         foreach (var (clip, tags) in ClipTags.OrderBy(kv => kv.Key, StringComparer.Ordinal))
         {
-            if (!clip.Contains("reload", StringComparison.OrdinalIgnoreCase) || OrkOnlyClips.Contains(clip) != orkRig) continue;
+            if (!IsReloadClip(clip) || OrkOnlyClips.Contains(clip) != orkRig) continue;
             var matching = tags.Where(t => weapon.Tag(t.Tag).Count > 0).ToList();
             if (matching.Count > bestScore) { best = matching; bestScore = matching.Count; }
         }

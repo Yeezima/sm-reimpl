@@ -6,7 +6,12 @@ public static class TfwRewardRules
     /// <summary>The reward cards after a won map: switched off by the owner (2026-11-01: "temporarily disable the end of run rewards"). While false no offer is rolled or sent and the client has nothing to wait for; the code stays. Set it true to bring the cards back. The score panel is separate and stays.</summary>
     public static readonly bool Enabled = false;
 
-    /// <summary>The chance a KO leaves an ammunition or equipment box (ours: the owner said "a chance"; the original's drop on every player death would bury the map at 100 Orks).</summary>
+    /// <summary>
+    /// Whether an Ork's KO leaves a box at all: off since the owner, 2026-11-08 ("remove the ammo box drops from ork kills in musou mode"; Musou already has endless ammunition and a grenade back every
+    /// 30 s). The rule below stays for a switch back. A player's own death drop (the core's <c>StepPickups</c>) is a different path and is unchanged.
+    /// </summary>
+    public static readonly bool KillBoxes = false;
+    /// <summary>The chance a KO leaves an ammunition or equipment box when <see cref="KillBoxes"/> is on (ours: the owner said "a chance"; the original's drop on every player death would bury the map at 100 Orks).</summary>
     public const float FodderBoxChance = 0.08f, EliteBoxChance = 0.40f;
     /// <summary>Extra primary slots (keys 3, 4, 5; owner's item 26).</summary>
     public const int ExtraSlots = 3, FirstExtraKey = 3;
@@ -14,11 +19,12 @@ public static class TfwRewardRules
     public const int BoxDropperBase = 0x10000;
 
     /// <summary>Whether a KO of <paramref name="type"/> counts as an elite for the boxes.</summary>
-    public static bool Elite(MusouEnemyType type) => type is MusouEnemyType.ArdBoy or MusouEnemyType.Nob or MusouEnemyType.ChaosMarine or MusouEnemyType.Warboss;
+    public static bool Elite(MusouEnemyType type) => type is MusouEnemyType.ArdBoy or MusouEnemyType.Nob or MusouEnemyType.ChaosMarine or MusouEnemyType.Warboss || MusouBossOrks.Is(type);
 
     /// <summary>Whether this KO leaves a box: a roll of its own (a hash of the tick and the enemy, not the core draw's seed), deterministic.</summary>
     public static bool Boxes(MusouEnemyType type, uint tick, ushort enemy)
     {
+        if (MusouBossOrks.Is(type)) return true;   // a Boss Ork always leaves one (ours, 2026-11-06: the weapon drops are off in Musou Mode, so the box is its sure drop)
         float roll = (Pickups.Seed(tick, ~(int)enemy) >> 40) / (float)(1UL << 24);
         return roll < (Elite(type) ? EliteBoxChance : FodderBoxChance);
     }
@@ -105,7 +111,7 @@ public sealed class TfwRewards
         TfwRewardCard Card(TfwRewardKind kind, ushort? item) => item is { } i ? new TfwRewardCard(kind, i) : default;
 
         var weapon = Card(TfwRewardKind.Weapon, Pick(Pool(c, home, kit), h & 0xFFFF));
-        var equipmentPool = Loadouts.EquipmentChoices(c, home.Class).Where(e => e != Loadouts.EquipmentIndex(c, home) && Loadouts.ValidEquipment(c, home.Class, e)).Select(e => (ushort)e).ToList();
+        var equipmentPool = Loadouts.EquipmentChoices(c, home.Class).Where(e => e != Loadouts.EquipmentIndex(c, home) && Loadouts.ValidEquipment(c, home.Class, e) && !(e >= 0 && e < c.Thrown.Count && SmSim.Extras.Musou.Arsenal.ArsenalRules.IsArsenal(c.Thrown[e].Name))).Select(e => (ushort)e).ToList();   // the arsenal's items are not offered (lead, 2026-11-10)
         var equipment = Card(TfwRewardKind.Equipment, Pick(equipmentPool, (h >> 16) & 0xFFFF));
         var perk = Card(TfwRewardKind.Perk, Pick(PerkPool(c, home).Select(p => (ushort)p).ToList(), (h >> 32) & 0xFFFF));
         _offers.Remove(player);

@@ -61,7 +61,8 @@ public partial class NetworkView
         foreach (var combo in marineClasses.SelectMany(k => k.MeleeChoices))
         {
             if (_heavyAnimationsByWeapon.ContainsKey(combo.Wargear) || combo.Heavy.Count == 0) continue;
-            _classes.MeleeHeavyAnimationsByWeapon.TryGetValue(combo.Wargear, out var clips);
+            if (!_classes.MeleeHeavyAnimationsByWeapon.TryGetValue(combo.Wargear, out var clips))
+                _classes.MeleeHeavyAnimationsByWeapon.TryGetValue(AnimationAlias.Of(combo.Wargear), out clips);   // Musou's arsenal: the borrowed weapon's heavies as stand-ins (NetworkView.cs)
             var result = new string?[combo.Heavy.Count];
             for (int i = 0; i < result.Length; i++)
             {
@@ -118,7 +119,7 @@ public partial class NetworkView
     PlayerInput? BotRushInput(PlayerState me, uint tick, float distanceSquared)
     {
         if (Loadouts.Rush(_config!, me) is not { } spec || !me.Alive) return null;
-        if (me.Rush != RushPhase.None) { _botChargeRunSince = -1; return new PlayerInput(tick, 0f, 0f, _yaw, InputButtons.None, _pitch); }
+        if (me.Rush != RushPhase.None) { _botChargeRunSince = -1; return new PlayerInput(tick, 0f, 0f, BotRushYaw(me, false), InputButtons.None, _pitch); }   // stream C: a missed charge keeps its turn
         bool dirs = BotChargeDirs;
         // --bot-charge-dirs runs away from the target during its run-up, so it starts at 3 to 30 m (it needs no target in reach).
         if (_connectedFor < _botRushNext || (dirs ? distanceSquared is < 9f or > 900f : distanceSquared is < 16f or > 81f) || me.RushLock > 0) { _botChargeRunSince = -1; return null; }
@@ -135,7 +136,8 @@ public partial class NetworkView
         var (x, keys) = dirs ? ChargeDirs[_botChargeDir++ % ChargeDirs.Length] : (0f, "W+Shift");
         NotePress(_yaw, keys, forward);
         GD.Print($"t {_connectedFor:F1} s: id {_client!.PlayerId} presses F with {keys} at {forward:F2} m/s forward (protocol 49: Shift + W; F without Shift is the stun strike)");
-        return press with { MoveX = x, Buttons = press.Buttons | (me.MeleeHeavyHeld ? InputButtons.None : InputButtons.MeleeHeavy) };
+        // Stream C: some charges are deliberately started off the target (NetworkView.BotTactics.cs); not with --bot-charge-dirs (it measures the directions).
+        return press with { MoveX = x, Yaw = dirs ? _yaw : BotRushYaw(me, true), Buttons = press.Buttons | (me.MeleeHeavyHeld ? InputButtons.None : InputButtons.MeleeHeavy) };
     }
 
     /// <summary>

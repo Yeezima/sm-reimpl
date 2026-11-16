@@ -68,7 +68,7 @@ public partial class NetworkView
             if (LogSound("melee")) GD.Print($"MELEE HIT SOUND t {_connectedFor:F3} P{attacker.PlayerId} melee on {target} ({source}) wargear {wargear ?? "-"} strike {strike} ability {(ability.Length > 0 ? ability : "-")} rank {rank}: no hit sound in the data");
             return null;
         }
-        foreach (var evt in events) PostPlayerHitSound(evt, new SoundEmitter { Position = at, Label = $"melee hit on {target}", OneShot = true }, default, armoured);
+        foreach (var evt in events) PostPlayerHitSound(evt, new SoundEmitter { Position = at, Label = $"melee hit on {target}", OneShot = true }, LoudnessArg.MeleeHit, armoured);   // sound/louder-farther: melee hits x2
         CountSound(secondary ? "melee hit secondary" : "melee hit");
         _meleeHitPosts++;
         string joined = string.Join("+", events);
@@ -81,7 +81,7 @@ public partial class NetworkView
     {
         if (OldMeleeHitSound || !GeneratedMeleeHitSound || _config is null) return null;
         if (charge) return null;   // every charge keeps its original sound (hotfix 2026-11-01)
-        return MeleeHitSynth.Replaces(MeleeWargear(attacker));
+        return MeleeHitSynth.Replaces(PresentedAs(MeleeWargear(attacker)));   // W0b: an added weapon by its source's name
     }
 
     /// <summary>Seconds after the own strike's sound during which the server's reports of that swing stay silent: past a normal round trip, short of the next swing's hit (ours).</summary>
@@ -93,6 +93,9 @@ public partial class NetworkView
 
     /// <summary>An added mode's own melee targets (Musou's enemies): the nearest one this strike should reach, at its chest (game space).</summary>
     partial void ExtrasMeleeTarget(PlayerState me, MeleeStep step, ref System.Numerics.Vector3? at, ref bool? armoured);
+
+    /// <summary>An added mode's contact feedback for the own strike at its predicted hit (Musou Mode: the slash, flash and shake on the Orks in reach; combat feel 2026-11-09).</summary>
+    partial void ExtrasOwnStrikeContact(PlayerState me, MeleeStep step);
 
     /// <summary>
     /// The owner, 2026-11-02: the sound was late. A server's hit report comes a round trip after the blow, so the own swing's hit sound plays on the frame its hit time passes (the moment the
@@ -173,8 +176,11 @@ public partial class NetworkView
         _hitSoundCount++; _proceduralHits++;
         var player = new AudioStreamPlayer3D
         {
-            Stream = stream, Bus = SoundSystem.BusName, PitchScale = pitch, VolumeDb = db + SoundGainDb + HitVolumeScaleDb, GlobalPosition = at,
-            AttenuationModel = AudioStreamPlayer3D.AttenuationModelEnum.InverseDistance, UnitSize = 8f, MaxDistance = 90f,
+            Stream = stream, Bus = SoundSystem.MixClassic ? SoundSystem.BusName : SoundSystem.HitBusName, PitchScale = pitch, GlobalPosition = at,
+            // sound/louder-farther: the loudness rule and the melee hit gain; the distance (inverse from 8 m times the range scale, never under the floor) set once at the start, Godot's model off.
+            VolumeDb = db + SoundGainDb + HitVolumeScaleDb + SoundMixPass.Hit(SoundSystem.MixClassic).GainDb + LoudnessArg.GainDb + LoudnessArg.MeleeHitGainDb
+                       + LoudnessArg.InverseDistanceDb(GetViewport()?.GetCamera3D() is { } cam ? cam.GlobalPosition.DistanceTo(at) : 0f, 8f),
+            AttenuationModel = AudioStreamPlayer3D.AttenuationModelEnum.Disabled, MaxDistance = 0f,
         };
         player.Finished += player.QueueFree;
         AddChild(player);

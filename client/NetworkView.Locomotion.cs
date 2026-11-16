@@ -81,6 +81,7 @@ public partial class NetworkView
         public int DirFamily = -1, Dir;   // the direction last shown (hysteresis against flicker at the sector borders)
         public readonly VelocityDamper Damper = new();   // M40-T4: the ground velocity the blend space follows (NetworkView.GaitBlend.cs)
         public double GaitAt = double.NegativeInfinity;   // _connectedFor at the last blend update
+        public readonly Dictionary<string, GaitSmoothing> Smoothers = new();   // anim/strafe-blend: per blend space (its set's key), the smoothed weights (NetworkView.GaitBlend.cs)
         // The action-clip hand-off (NetworkView.Handoff.cs): the locomotion has the legs under the attack / the throw in progress.
         public bool AttackHand, HandHeavy, ThrowHand;
         /// <summary>fix/stim-knife-visuals: the strike's upper-body weight as last posed (1 whole; falls to 0 over the hand-over's exit): the melee weapon leaves the hand with it.</summary>
@@ -116,6 +117,10 @@ public partial class NetworkView
         public float SettleWeight;   // feel/weight-impact: the share of the landing crouch a softer landing shows (0: none)
         public double FlinchAt = double.NegativeInfinity, FlinchLast = double.NegativeInfinity, HeadHitAt = double.NegativeInfinity;
         public bool WasSprint, WasCharging, WasAirborne;
+        // Hit reactions (2026-11-11): the last living frame's rush phase and jump-pack jump, the own record's light-melee flinch counter.
+        public RushPhase WasRush;
+        public bool WasJumpActive;
+        public int FlinchTicksSeen;
         public float SprintBlend; public double SprintBlendAt = double.NegativeInfinity;   // animation pass 3: the damped strafe blend of the sprint
         public string? WeaponName;
     }
@@ -212,7 +217,8 @@ public partial class NetworkView
         float forward = s.Velocity.X * fx + s.Velocity.Y * fy, right = s.Velocity.X * fy - s.Velocity.Y * fx;
         float angle = MathF.Atan2(right, forward) * 180f / MathF.PI;
         // Animation pass 3: a sprint start under way holds the sprint while the body is still going forward faster than a run's start (its speed dips around the threshold).
-        bool startHolds = !CharacterViewer.NoP3 && SprintStartActive(s.PlayerId) && s.Grounded && forward > RunThreshold && !SimSprintStopping(s);
+        // Install transitions: through the 180 turn the drawn body is turned away from the travel (BodyYawFor), so "forward" is the aim's, not the body's: the speed alone holds it.
+        bool startHolds = !CharacterViewer.NoP3 && SprintStartActive(s.PlayerId) && s.Grounded && (forward > RunThreshold || (SprintTurnActive(s.PlayerId) && speed > RunThreshold)) && !SimSprintStopping(s);
         if ((LocoSprinting(s, t, speed, forward) || startHolds) && ((GaitSprint && GaitSprintPlace(character, s, hip, data, t, own)) || SprintPlace(character, s, hip, data, angle, speed, own))) return true;
         // A marine enters the movement poses above RunThreshold (raw simulation speed). With the blend space (it carries the idle pose as a share) it stays in
         // them while its damped speed (GaitPlace) is above GaitLeaveSpeed, so a reversal through zero speed, or a speed hovering at the threshold (a remote
@@ -390,6 +396,7 @@ public partial class NetworkView
         if (TurnSweepOn) return BotTurnSweepInput(tick);   // M40-T5 (NetworkView.TurnSweep.cs)
         if (LedgeWalk) return BotLedgeInput(tick);         // animation pass 1 (NetworkView.Ledge.cs): walks off ledges
         if (TransitionSweep) return BotTransitionInput(tick);   // animation pass 3 (NetworkView.TransitionSweep.cs): state switches for the transition probe
+        if (DirectionSweepOn) return BotDirectionInput(tick);   // anim/strafe-blend (NetworkView.DirectionSweep.cs): direction changes for the transition probe
         if (GaitSweep) return BotSweepInput(tick);
         if (ActionSweep) return BotActionInput(tick);
         var me = _client!.Predicted;

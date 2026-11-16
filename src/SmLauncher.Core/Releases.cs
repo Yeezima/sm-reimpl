@@ -5,15 +5,22 @@ using System.Text.RegularExpressions;
 
 namespace SmLauncher.Core;
 
-/// <summary>The playtest zip of a release: its name, size, download link and the SHA-256 GitHub computed on upload (the asset's "digest"), if any.</summary>
+/// <summary>A download of a release (the playtest zip or the parts manifest): its name, size, download link and the SHA-256 GitHub computed on upload (the asset's "digest"), if any.</summary>
 public sealed record ReleaseAsset(string Name, long Size, string DownloadUrl, string? ApiSha256);
 
-/// <summary>A published release of the releases repository with its one playtest zip.</summary>
-public sealed record ReleaseInfo(string Tag, string Title, DateTimeOffset PublishedAt, string HtmlUrl, string Body, bool Prerelease, ReleaseAsset Asset)
+/// <summary>
+/// A published release of the releases repository with its playtest zip, its parts manifest (<see cref="PartsManifest"/>), or both. A build with a parts
+/// manifest is installed from parts (only the changed ones are downloaded); the zip, when the release has one, is the fallback.
+/// </summary>
+public sealed record ReleaseInfo(string Tag, string Title, DateTimeOffset PublishedAt, string HtmlUrl, string Body, bool Prerelease, ReleaseAsset? Asset, ReleaseAsset? Parts = null)
 {
     /// <summary>The zip's SHA-256 as the release description states it (the "Download check" section), or null.</summary>
-    public string? BodySha256 => ReleaseNotes.FindZipHash(Body, Asset.Name);
+    public string? BodySha256 => Asset is null ? null : ReleaseNotes.FindZipHash(Body, Asset.Name);
+    /// <summary>The parts manifest's SHA-256 as the description states it, or null.</summary>
+    public string? PartsBodySha256 => Parts is null ? null : ReleaseNotes.FindZipHash(Body, Parts.Name);
     public string WhatsNew => ReleaseNotes.WhatsNew(Body);
+    /// <summary>What an update fetches first: the parts manifest when the release has one, else the zip.</summary>
+    public ReleaseAsset Primary => Parts ?? Asset ?? throw new InvalidDataException("The release has no playtest download.");
 }
 
 /// <summary>Names that come from the network or from disk and become folder or file names: checked before use.</summary>
@@ -22,6 +29,8 @@ public static class Names
     // \z, not $: "$" also matches before a final newline.
     static readonly Regex TagPattern = new(@"^[A-Za-z0-9][A-Za-z0-9._-]{0,99}\z", RegexOptions.CultureInvariant);
     static readonly Regex AssetPattern = new(@"^SM-Reimpl-Playtest-[A-Za-z0-9._-]{1,100}-Windows\.zip\z", RegexOptions.CultureInvariant);
+    static readonly Regex PartsManifestPattern = new(@"^SM-Reimpl-Playtest-[A-Za-z0-9._-]{1,100}-Windows\.parts\.json\z", RegexOptions.CultureInvariant);
+    static readonly Regex PartAssetPattern = new(@"^sm-reimpl-part-[a-z0-9][a-z0-9-]{0,31}-[0-9a-f]{16}\.zip\z", RegexOptions.CultureInvariant);
     static readonly string[] ReservedSuffixes = [".staging", ".replaced", ".tmp", ".part"];
 
     /// <summary>
@@ -38,6 +47,12 @@ public static class Names
 
     /// <summary>The playtest zip's asset name (SM-Reimpl-Playtest-&lt;date&gt;-&lt;version&gt;-Windows.zip); other assets are ignored.</summary>
     public static bool IsPlaytestAsset(string? name) => name is not null && AssetPattern.IsMatch(name);
+
+    /// <summary>A build's parts manifest (SM-Reimpl-Playtest-&lt;date&gt;-&lt;version&gt;-Windows.parts.json).</summary>
+    public static bool IsPartsManifest(string? name) => name is not null && PartsManifestPattern.IsMatch(name);
+
+    /// <summary>A part zip of the parts release (sm-reimpl-part-&lt;part&gt;-&lt;16 hex digits&gt;.zip).</summary>
+    public static bool IsPartAsset(string? name) => name is not null && PartAssetPattern.IsMatch(name);
 }
 
 /// <summary>Picks the release to offer from GitHub's release list (GET /repos/{repo}/releases).</summary>
@@ -77,20 +92,26 @@ public static class ReleaseFeed
         if (!Names.IsTag(tag)) { why = $"the release tag '{Shorten(tag)}' is not one the launcher accepts"; return null; }
         if (!r.TryGetProperty("assets", out var assets) || assets.ValueKind != JsonValueKind.Array) return null;
         var zips = new List<ReleaseAsset>();
+        var manifests = new List<ReleaseAsset>();
         foreach (var a in assets.EnumerateArray())
         {
             string? name = Str(a, "name");
-            if (!Names.IsPlaytestAsset(name)) continue;
+            bool isZip = Names.IsPlaytestAsset(name), isManifest = Names.IsPartsManifest(name);
+            if (!isZip && !isManifest) continue;
             if (!a.TryGetProperty("size", out var sizeEl) || !sizeEl.TryGetInt64(out long size) || size <= 0) continue;
             string? url = Str(a, "browser_download_url");
             if (url is null || !Uri.TryCreate(url, UriKind.Absolute, out _)) continue;
             string? state = Str(a, "state");
             if (state is not null && state != "uploaded") continue;
-            zips.Add(new ReleaseAsset(name!, size, url, Hashes.FromDigest(Str(a, "digest"))));
+            var asset = new ReleaseAsset(name!, size, url, Hashes.FromDigest(Str(a, "digest")));
+            if (isZip) zips.Add(asset);
+            else if (size <= PartsManifest.MaxManifestBytes) manifests.Add(asset);
         }
-        if (zips.Count == 0) return null;                          // no playtest zip: not a tester build, nothing to say
+        if (zips.Count == 0 && manifests.Count == 0) return null;  // no playtest download: not a tester build, nothing to say
         if (zips.Count > 1) { why = $"release {tag} has {zips.Count} playtest zips, so the launcher cannot tell which one to install"; return null; }
-        return new ReleaseInfo(tag!, Str(r, "name") ?? tag!, published, Str(r, "html_url") ?? "", Str(r, "body") ?? "", Bool(r, "prerelease") == true, zips[0]);
+        if (manifests.Count > 1) { why = $"release {tag} has {manifests.Count} parts lists, so the launcher cannot tell which one to install"; return null; }
+        return new ReleaseInfo(tag!, Str(r, "name") ?? tag!, published, Str(r, "html_url") ?? "", Str(r, "body") ?? "", Bool(r, "prerelease") == true,
+            zips.Count == 1 ? zips[0] : null, manifests.Count == 1 ? manifests[0] : null);
     }
 
     static string Shorten(string? s) => s is null ? "" : s.Length > 40 ? s[..40] + "..." : s;

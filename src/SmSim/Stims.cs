@@ -31,6 +31,8 @@ public sealed record StimSpec(float Lifetime, float UseRelease, float UseDuratio
     public float MeleeDamage { get; init; } = 1f;
     /// <summary>Whether the stim applies <c>mp_reaction_immunity</c> for its lifetime.</summary>
     public bool ReactionImmune { get; init; }
+    /// <summary>Whether the stim stops the gun in hand building heat for its lifetime (added content: the Dreadnought's Overcharge, owner 2026-11-15; false for every stim of the data).</summary>
+    public bool NoHeat { get; init; }
     /// <summary>The use's clip (client only; not hashed): the "Equip - StimPack" sequencer's.</summary>
     public string Animation { get; init; } = "";
 
@@ -51,6 +53,7 @@ public sealed record StimSpec(float Lifetime, float UseRelease, float UseDuratio
     {
         foreach (float f in new[] { s.Lifetime, s.UseRelease, s.UseDuration, s.ReceivedWorld, s.ReceivedRanged, s.ReceivedMelee, s.ReceivedExplosive, s.MeleeDamage }) w.Write(f);
         w.Write(s.ReactionImmune);
+        if (s.NoHeat) w.Write(true);   // only when set: a config without an Overcharge hashes as before
     }
 }
 
@@ -65,7 +68,29 @@ public static class Stims
     public static float HealthTaken(SimConfig c, PlayerState victim, DamageType type) => Active(c, victim)?.Received(type) ?? 1f;
 
     /// <summary>The multiplier on the melee damage <paramref name="attacker"/> deals (1 without a stim).</summary>
-    public static float MeleeDealt(SimConfig c, PlayerState attacker) => Active(c, attacker)?.MeleeDamage ?? 1f;
+    public static float MeleeDealt(SimConfig c, PlayerState attacker) => Active(c, attacker) is { } stim ? MathF.Max(stim.MeleeDamage, c.StimBoost.Melee) : 1f;
+
+    /// <summary>Seconds a use of <paramref name="stim"/> works: its lifetime times Musou Mode's <see cref="StimBoost.Lifetime"/> (owner 2026-11-09: x3; 1 elsewhere).</summary>
+    public static float LifetimeOf(SimConfig c, StimSpec stim) => stim.Lifetime * c.StimBoost.Lifetime;
+
+    /// <summary>The speed of melee swings and the fire rate of <paramref name="s"/> now (1 without a stim, or outside Musou Mode).</summary>
+    public static float AttackSpeed(SimConfig c, PlayerState s) => s.StimLeft > 0f && Active(c, s) is not null ? c.StimBoost.Speed : 1f;
+
+    /// <summary>Whether the gun in hand builds no heat now (the Dreadnought's Overcharge: <see cref="StimSpec.NoHeat"/>); heat already built cools as usual.</summary>
+    public static bool NoHeat(SimConfig c, PlayerState s) => Active(c, s)?.NoHeat == true;
+
+    /// <summary>Whether firing a gun spends no ammunition now (Musou Mode's stims).</summary>
+    public static bool FreeAmmo(SimConfig c, PlayerState s) => s.StimLeft > 0f && Active(c, s) is not null && c.StimBoost.FreeAmmo;
+
+    /// <summary>Whether the reliable use of stims (<see cref="SimConfig.StimReliable"/>, every mode unless <c>--old-stim-use</c>) applies to <paramref name="s"/>: the item is a stim.</summary>
+    public static bool Reliable(SimConfig c, PlayerState s) => c.StimReliable && Loadouts.Equipment(c, s)?.Stim is not null;
+
+    /// <summary>
+    /// Whether <paramref name="s"/> is in the use's wind-up (Throwing, before the stim's release) with the reliable use on: no hit reaction starts then (<see cref="Reaction.CanReact"/>), so a hit does not
+    /// cancel the use ("before its release nothing is spent", <see cref="Reaction.Start"/>) and lose the press (every mode; the restore switch <c>--old-stim-use</c> keeps the cancel).
+    /// </summary>
+    public static bool WindUp(SimConfig c, PlayerState s) =>
+        s.Throwing && Reliable(c, s) && Loadouts.Equipment(c, s)?.Stim is { } stim && s.ThrowTime + 1e-4f < stim.UseRelease;
 
     /// <summary>Whether a stim keeps <paramref name="s"/> out of hit reactions now.</summary>
     public static bool ReactionImmune(SimConfig c, PlayerState s) => Active(c, s)?.ReactionImmune == true;
@@ -83,12 +108,97 @@ public static class Stims
         if (!record.Alive || Loadouts.Equipment(c, record) is not { Stim: { } stim } item) return record with { StimLeft = 0f };
         if (record.GrenadeCooldown > 0f)
         {
-            float left = stim.Lifetime - (item.Cooldown - record.GrenadeCooldown);
-            return record with { StimLeft = left > 1e-4f ? MathF.Min(left, stim.Lifetime) : 0f };
+            float life = LifetimeOf(c, stim), left = life - (item.Cooldown - record.GrenadeCooldown);
+            return record with { StimLeft = left > 1e-4f ? MathF.Min(left, life) : 0f };
         }
         bool agrees = predicted is { } p && p.Alive && p.Class == record.Class && p.Equipment == record.Equipment
-            && p.Grenades == record.Grenades && p.GrenadeCooldown <= 0f;
-        float tail = MathF.Max(0f, stim.Lifetime - item.Cooldown);
+            && (p.Grenades == record.Grenades || (c.StimBoost.Lifetime > 1f && record.Grenades > p.Grenades)) && p.GrenadeCooldown <= 0f;   // Musou: the war's supply refills the item (the prediction does not run it) while a x3 stim still works: a record with more is no disagreement. Before, the Dreadnought's 30 s power-up showed 0 on the own client when the refill came, about 14 s in
+        float tail = MathF.Max(0f, LifetimeOf(c, stim) - item.Cooldown);
         return record with { StimLeft = agrees ? Math.Clamp(predicted!.Value.StimLeft, 0f, tail) : 0f };
     }
+}
+
+/// <summary>
+/// What added content changes about combat stims (<see cref="SimConfig.StimBoost"/>; Musou Mode only, owner 2026-11-09). <see cref="None"/> is the faithful game's.
+/// </summary>
+/// <param name="Lifetime">Times the stim's lifetime.</param>
+/// <param name="Melee">The melee damage multiplier while it works (the larger of this and the data's).</param>
+/// <param name="Speed">Times the speed of melee swings and the fire rate.</param>
+/// <param name="FreeAmmo">Whether firing spends no ammunition.</param>
+public readonly record struct StimBoost(float Lifetime, float Melee, float Speed, bool FreeAmmo)
+{
+    public static StimBoost None => new(1f, 1f, 1f, false);
+}
+
+public sealed partial record SimConfig
+{
+    /// <summary>
+    /// stims-classic (owner 2026-11-12: "ensure it's more reliably working the first time you press the button", "Classic too"): a press of the use key with a stim equipped is kept
+    /// <see cref="InputBuffer.MaxTicks"/> ticks (0.5 s) instead of the buffer's 9, and a hit before the stim's release starts no reaction (<see cref="Stims.Reliable"/>, <see cref="Stims.WindUp"/>).
+    /// False (restore switch <c>--old-stim-use</c> on the server and every client; config hash): the earlier 9-tick press and the hit cancel. Hashed only when false.
+    /// </summary>
+    public bool StimReliable { get; init; } = true;
+
+    /// <summary>The added content's changes to combat stims (<see cref="StimBoost.None"/> in the faithful game and Classic PvP). Not hashed itself: Musou's block covers it.</summary>
+    public StimBoost StimBoost
+    {
+        get
+        {
+            var boost = StimBoost.None;
+            ExtrasStimBoost(ref boost);   // EXTRAS-HOOK
+            return boost;
+        }
+    }
+
+    partial void ExtrasStimBoost(ref StimBoost boost);
+
+    /// <summary>How much faster the guns fire while <see cref="PlayerState.FireBoostLeft"/> runs (added content's Rapid Fire; 1 in the faithful game and Classic PvP). Not hashed itself: Musou's block covers it.</summary>
+    public float FireBoost
+    {
+        get
+        {
+            float rate = 1f, cap = float.PositiveInfinity;
+            ExtrasFireBoost(ref rate, ref cap);   // EXTRAS-HOOK
+            return rate;
+        }
+    }
+
+    /// <summary>
+    /// The most the fire rate reaches while the boost runs, a stim's attack speed with it (added content: Musou's x2, the owner's "Cap at x2" of 2026-11-10; no bound elsewhere, where the boost never runs).
+    /// Not hashed itself: Musou's block covers it.
+    /// </summary>
+    public float FireBoostCap
+    {
+        get
+        {
+            float rate = 1f, cap = float.PositiveInfinity;
+            ExtrasFireBoost(ref rate, ref cap);   // EXTRAS-HOOK
+            return cap;
+        }
+    }
+
+    partial void ExtrasFireBoost(ref float rate, ref float cap);
+
+    /// <summary>
+    /// Whether a shot of <paramref name="weapon"/> spends no round in this config (added content: Musou Mode's autocannon has no clip, the owner's "No clip in Musou mode - just infinite shooting" of
+    /// 2026-11-11). False for every weapon in the faithful game and Classic PvP, where the hook does nothing. Not hashed itself: Musou's block covers it.
+    /// </summary>
+    public bool EndlessClip(WeaponSpec weapon)
+    {
+        bool endless = false;
+        ExtrasEndlessClip(weapon, ref endless);   // EXTRAS-HOOK
+        return endless;
+    }
+
+    partial void ExtrasEndlessClip(WeaponSpec weapon, ref bool endless);
+
+    /// <summary>The scale on the reach of the blasts of thrown <paramref name="item"/> (1 in the faithful game; Musou Mode doubles the frag's, owner 2026-11-09).</summary>
+    public float ThrownBlastScale(ThrownSpec? item)
+    {
+        float scale = 1f;
+        ExtrasThrownBlastScale(item, ref scale);   // EXTRAS-HOOK
+        return scale;
+    }
+
+    partial void ExtrasThrownBlastScale(ThrownSpec? item, ref float scale);
 }

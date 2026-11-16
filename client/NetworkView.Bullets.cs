@@ -67,7 +67,11 @@ public partial class NetworkView
     /// <summary><c>--bullet-speed m/s</c>: the bright head's speed for every bullet tracer (0: the data's, at least crossing in <c>MaxTracerFlight</c>).</summary>
     float BulletSpeedOverride => _bulletSpeedFlag ??= FloatArg("bullet-speed") ?? 0f;
 
-    int _bulletsBent, _bulletsFromJoin, _bulletsOffRay, _bulletPeakLive;
+    int _bulletsBent, _bulletsFromJoin, _bulletsOffRay, _bulletPeakLive, _bulletsStraight;
+
+    bool? _bentBullets;
+    /// <summary><c>--bent-bullets</c> (fx/tracers-impact's before aid): the tracer bends onto the damaging ray 3 m out, as feel/bullets drew it, instead of one straight line from the muzzle to the impact.</summary>
+    bool BentBullets => _bentBullets ??= CmdFlag("bent-bullets");
 
     // ---- the input that was sent, by tick ----
 
@@ -140,16 +144,29 @@ public partial class NetworkView
         _bulletPeakLive = Math.Max(_bulletPeakLive, fx.ShotEffectCount);
         float scale = p.Scale <= 0f ? 1f : p.Scale;
         var tint = RaceTint(w.Wargear, p.Name);
+        bool kraken = KrakenShot(w.Wargear, p.Name, shooter);   // fx/weapon-visuals: Kraken Bolts' red, larger tracer
+        if (kraken) tint = KrakenTint;
         float headSpeed = TracerHeadSpeed(p.Name);
         Vector3? join = null;
-        if (BulletsOn && rayOrigin is { } ro && rayDir is { } rd && BulletPaths.JoinPoint(N(from), N(ro), N(rd), N(end)) is { } j) join = G(j);
+        // fx/tracers-impact: one straight line from the muzzle to the end point (where the impact and its decal are painted); --bent-bullets: the bend onto the ray of feel/bullets.
+        if (TracerRules.Path(N(from), N(end), rayOrigin is { } ro ? N(ro) : null, rayDir is { } rd ? N(rd) : null, bent: BulletsOn && BentBullets).Via is { } j) join = G(j);
         float d1 = join is { } j1 ? from.DistanceTo(j1) : from.DistanceTo(end), d2 = join is { } j2 ? j2.DistanceTo(end) : 0f;
         float total = d1 + d2;
         float speed = 0f;
         if (headSpeed > 1f) speed = BulletSpeedOverride > 0f ? BulletSpeedOverride : MathF.Max(headSpeed, total / MaxTracerFlight);
         float travel = speed > 0f ? total / speed : 0f;
-        // wfx (owner's item 25): the melta's blast is a distinct cone, not the data's haze of rings (NetworkView.WeaponFx.cs).
-        if (IsMeltaBlast(p.Name) && !OldMeltaFx) { MeltaConeAdd(from, end); BulletDebugAdd(own, rayOrigin, end, from, null); return 0f; }
+        // wfx (owner's item 25): the drawn cone instead of the data's rings, only with --melta-cone since fx/melta-original (NetworkView.WeaponFx.cs).
+        if (IsMeltaBlast(p.Name) && MeltaConeFx) { MeltaConeAdd(from, end); BulletDebugAdd(own, rayOrigin, end, from, null); return 0f; }
+        // fx/melta-original: the data's blast is one effect at the muzzle aimed at the hit point (its wargear entry: attached at fx_muzzle, target "hitpoint"), never
+        // split at the join point like a headless beam (that played its rings, flash and light twice).
+        if (IsMeltaBlast(p.Name))
+        {
+            var blast = fx.Play(p.Name, from, AxesFromY((end - from).Normalized()), scale, target: end, lifetime: p.Lifetime, priority: own ? FxPriority.Own : FxPriority.Ally, tint: tint, smokeRein: SmokeRein);
+            if (blast is not null) _fxTracers++;
+            _meltaDataBlasts++;
+            BulletDebugAdd(own, rayOrigin, end, from, null);
+            return 0f;
+        }
         // The lascannon's beam: the owner's hard red beam instead of the data's soft stack of beams, in world space where it was fired (NetworkView.Laser.cs).
         if (IsLaserTracer(p.Name) && !OldLaser)
         {
@@ -157,16 +174,16 @@ public partial class NetworkView
             BulletDebugAdd(own, rayOrigin, end, from, join);
             return 0f;
         }
-        if (join is null) { _bulletsOffRay++; }
+        if (join is null) { if (BentBullets) _bulletsOffRay++; else _bulletsStraight++; }
         else if (speed > 0f)
         {
             // A bullet with a head (feel/bullets-2): ONE pooled tracer effect from the join point (on the true ray) to the end, starting when the head gets there, as
             // many effects as the straight tracer of before cost (a second beam per bullet doubled them and made the effect pool evict impacts), and the short muzzle
             // leg, a few metres crossed in a few milliseconds, as a pooled streak outside the effect pool.
             _bulletsBent++;
-            var e1 = fx.Play(p.Name, join.Value, AxesFromY((end - join.Value).Normalized()), scale, target: end, lifetime: p.Lifetime, delay: d1 / speed, priority: 1, tint: tint, smokeRein: SmokeRein);
-            if (e1 is not null) { _fxTracers++; e1.HeadSpeed = speed; ThinBoltTracer(e1, p.Name); }
-            StreakAdd(from, join.Value, join.Value, speed);
+            var e1 = fx.Play(p.Name, join.Value, AxesFromY((end - join.Value).Normalized()), scale, target: end, lifetime: p.Lifetime, delay: d1 / speed, priority: own ? FxPriority.Own : FxPriority.Ally, tint: tint, smokeRein: SmokeRein);
+            if (e1 is not null) { _fxTracers++; e1.HeadSpeed = speed; ThinBoltTracer(e1, p.Name, kraken); }
+            StreakAdd(from, join.Value, join.Value, speed, kraken ? KrakenTint : null);
             BulletDebugAdd(own, rayOrigin, end, from, join);
             return travel;
         }
@@ -178,15 +195,33 @@ public partial class NetworkView
             if (fx.ShotEffectCount > BentPoolLimit) { _bulletsFromJoin++; start = join.Value; join = null; }
             else _bulletsBent++;
             var first = join ?? end;
-            var e = fx.Play(p.Name, start, AxesFromY((first - start).Normalized()), scale, target: first, lifetime: p.Lifetime, priority: 1, tint: tint, smokeRein: SmokeRein);
+            var e = fx.Play(p.Name, start, AxesFromY((first - start).Normalized()), scale, target: first, lifetime: p.Lifetime, priority: own ? FxPriority.Own : FxPriority.Ally, tint: tint, smokeRein: SmokeRein);
             if (e is not null) _fxTracers++;
-            if (join is { } at) fx.Play(p.Name, at, AxesFromY((end - at).Normalized()), scale, target: end, lifetime: p.Lifetime, priority: 1, tint: tint, smokeRein: SmokeRein);
+            if (join is { } at) fx.Play(p.Name, at, AxesFromY((end - at).Normalized()), scale, target: end, lifetime: p.Lifetime, priority: own ? FxPriority.Own : FxPriority.Ally, tint: tint, smokeRein: SmokeRein);
             BulletDebugAdd(own, rayOrigin, end, start, join);
             return 0f;
         }
-        var straight = fx.Play(p.Name, from, AxesFromY((end - from).Normalized()), scale, target: end, lifetime: p.Lifetime, priority: 1, tint: tint, smokeRein: SmokeRein);
-        if (straight is not null) { _fxTracers++; if (speed > 0f) straight.HeadSpeed = speed; ThinBoltTracer(straight, p.Name); }
+        bool bolt = PlasmaBoltOn && OldPlasmaLook && PlasmaBolt.IsBoltWeapon(w.Wargear);
+        if (bolt) tint = PlasmaBoltTint(w.Wargear);
+        bool original = OriginalPlasmaLook && PlasmaBolt.IsBoltWeapon(w.Wargear);   // plasma-original-fx: the data tracer as bound, its own colours and sizes
+        var straight = fx.Play(p.Name, from, AxesFromY((end - from).Normalized()), scale, target: end, lifetime: p.Lifetime, priority: own ? FxPriority.Own : FxPriority.Ally, tint: tint, smokeRein: bolt ? PlasmaBolt.SmokeWidth : SmokeRein);
+        if (straight is not null)
+        {
+            _fxTracers++;
+            if (speed > 0f) straight.HeadSpeed = speed;
+            // fx/plasma-tracers-safe-mode: in the Compatibility renderer the bolt is also drawn as a pooled streak (plain unshaded mesh, no sprite shader), the path the bolter's muzzle leg uses.
+            if (bolt && PlasmaBolt.UsesPooledStreak(SafeMode.Compatibility)) StreakAdd(from, end, end, speed > 0f ? speed : FallbackStreakSpeed, new Color(tint!.Value.R, tint.Value.G, tint.Value.B, 1f), bolt: true);
+            if (original)
+            {
+                _plasmaOriginalTracers++;
+                // fx/plasma-tracers-safe-mode's mitigation kept (ours): in the Compatibility renderer a thin pooled streak in the data tracer's smoke colour under the data tracer.
+                if (PlasmaBolt.UsesPooledStreak(SafeMode.Compatibility)) { var (r, g, b) = PlasmaOriginalLook.SafeStreakColour(PlasmaColour.IsChaosPlasma(w.Wargear)); StreakAdd(from, end, end, speed > 0f ? speed : FallbackStreakSpeed, new Color(r, g, b, 1f), bolt: true); }
+            }
+            ThinBoltTracer(straight, p.Name, kraken);
+            if (bolt) { straight.TracerWidthScale = PlasmaBolt.WidthScale; straight.TracerTrailScale = PlasmaBolt.TrailScale; _plasmaBolts++; }
+        }
         BulletDebugAdd(own, rayOrigin, end, from, null);
+        TracerProbeNote(straight, from, end);
         return travel;
     }
 
@@ -197,10 +232,11 @@ public partial class NetworkView
     float PlayFallbackBullet(Vector3 from, Vector3 end, Vector3? rayOrigin, Vector3? rayDir)
     {
         Vector3? join = null;
-        if (BulletsOn && rayOrigin is { } ro && rayDir is { } rd && BulletPaths.JoinPoint(N(from), N(ro), N(rd), N(end)) is { } j) join = G(j);
+        if (TracerRules.Path(N(from), N(end), rayOrigin is { } ro ? N(ro) : null, rayDir is { } rd ? N(rd) : null, bent: BulletsOn && BentBullets).Via is { } j) join = G(j);   // fx/tracers-impact: straight
         float total = join is { } j1 ? from.DistanceTo(j1) + j1.DistanceTo(end) : from.DistanceTo(end);
         float speed = BulletSpeedOverride > 0f ? BulletSpeedOverride : MathF.Max(FallbackStreakSpeed, total / MaxTracerFlight);   // the M31 cap: across a shot in at most 0.1 s, like a tracer head
         StreakAdd(from, join ?? end, end, speed);
+        TracerProbeNote(true, from, end, join);
         return total / speed;
     }
 
@@ -212,7 +248,7 @@ public partial class NetworkView
 
     // ---- pooled streaks and debug rays: one immediate mesh, rebuilt each frame while something is on ----
 
-    struct Streak { public Vector3 From, Via, To; public float Speed; public double Start; public bool Live, Shown; public Color? Tint; }
+    struct Streak { public Vector3 From, Via, To; public float Speed; public double Start; public bool Live, Shown; public Color? Tint; public float Tail, Width; public bool Bolt; }
     struct DebugRay { public bool Own; public Vector3 Origin, End, Muzzle, Join; public bool HasOrigin, HasJoin; public double Start; public bool Live; }
     readonly Streak[] _streaks = new Streak[32];
     readonly DebugRay[] _debugRays = new DebugRay[24];
@@ -222,9 +258,9 @@ public partial class NetworkView
     ImmediateMesh? _bulletMesh;
     int _fallbackStreaks;
 
-    void StreakAdd(Vector3 from, Vector3 via, Vector3 to, float speed, Color? tint = null)
+    void StreakAdd(Vector3 from, Vector3 via, Vector3 to, float speed, Color? tint = null, bool bolt = false)
     {
-        _streaks[_streakNext] = new Streak { From = from, Via = via, To = to, Speed = speed, Start = _connectedFor, Live = true, Tint = tint };
+        _streaks[_streakNext] = new Streak { From = from, Via = via, To = to, Speed = speed, Start = _connectedFor, Live = true, Tint = tint, Tail = bolt ? PlasmaBolt.SafeTail : 2.5f, Width = bolt ? PlasmaBolt.SafeWidthScale : 1f, Bolt = bolt };
         _streakNext = (_streakNext + 1) % _streaks.Length;
         _fallbackStreaks++;
     }
@@ -269,12 +305,14 @@ public partial class NetworkView
             if (!s.Live) continue;
             float legA = s.From.DistanceTo(s.Via), legB = s.Via.DistanceTo(s.To);
             float head = s.Speed * (float)(_connectedFor - s.Start);
-            const float tail = 2.5f;
+            float tail = s.Tail > 0f ? s.Tail : 2.5f;
+            _streakWidth = s.Width > 0f ? s.Width : 1f;
             // Gone once its tail has left the path, but never before it has been drawn once (a leg crossed in a few milliseconds is shown whole in the first frame).
             // wfx (owner's item 27, ours): the muzzle leg stays in the world as a fading line for MuzzleLegGlowSeconds after the head has crossed it, so that the tracer is seen to start at the barrel
             // (before: the leg was crossed in a few milliseconds and the tracer effect, which starts at the join point 3 m out, looked as if it left the air in front of the gun).
             if (s.Shown && head - tail > legA + legB)
             {
+                if (s.Bolt) { s.Live = false; continue; }   // fx/plasma-tracers-safe-mode: the bolt leaves no glow behind
                 float since = (head - tail - legA - legB) / MathF.Max(1f, s.Speed);
                 float glow = OldMuzzleLeg ? 0f : 1f - since / MuzzleLegGlowSeconds;
                 if (glow <= 0f || _connectedFor - s.Start > 2.0) { s.Live = false; continue; }
@@ -302,6 +340,7 @@ public partial class NetworkView
             if (r.HasJoin) { Ribbon(camera, r.Muzzle, r.Join, 0.03f, orange, orange); Ribbon(camera, r.Join, r.End, 0.03f, orange, orange); }
             else Ribbon(camera, r.Muzzle, r.End, 0.03f, orange, orange);
         }
+        _streakWidth = 1f;
         if (_bulletSurfaceOpen) _bulletMesh.SurfaceEnd();   // an empty surface is an engine error (a frame where every live streak was skipped)
         _bulletSurfaceOpen = false;
     }
@@ -327,7 +366,7 @@ public partial class NetworkView
     }
 
     /// <summary>The F1 and log text.</summary>
-    string BulletStats() => $"bullets {(BulletsOn ? "on" : "off")}: bent {_bulletsBent}, from the join (pool pressure) {_bulletsFromJoin}, off the ray {_bulletsOffRay} (no ray or the end within the convergence), fallback streaks {_fallbackStreaks}, peak live shot effects {_bulletPeakLive}/160";
+    string BulletStats() => $"bullets {(BulletsOn ? "on" : "off")}{(BentBullets ? " (bent)" : "")}: straight muzzle to impact {_bulletsStraight}, plasma bolts {_plasmaBolts}, bent {_bulletsBent}, from the join (pool pressure) {_bulletsFromJoin}, off the ray {_bulletsOffRay} (no ray or the end within the convergence), fallback streaks {_fallbackStreaks}, peak live shot effects {_bulletPeakLive}/160";
 
     // ---- probe (--bullet-probe) ----
 

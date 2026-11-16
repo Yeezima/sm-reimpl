@@ -18,7 +18,7 @@ public sealed class ActionProgress<T>(Action<T> action) : IProgress<T>
 /// versions\&lt;tag&gt;; current.json is replaced atomically after that, and only versions that are neither current nor previous are ever deleted.
 /// update.json records the phase, so <see cref="Recover"/> resumes or cleans up after a crash or a power cut. Callers hold the <see cref="RootLock"/>.
 /// </summary>
-public sealed class Updater(InstallLayout layout, Downloader? downloader, Action<string>? log = null)
+public sealed partial class Updater(InstallLayout layout, Downloader? downloader, Action<string>? log = null)
 {
     readonly Action<string> _log = log ?? (_ => { });
 
@@ -136,13 +136,14 @@ public sealed class Updater(InstallLayout layout, Downloader? downloader, Action
         }
         if (Directory.Exists(layout.DownloadsDir))
         {
-            // Only the launcher's own files: <playtest zip name>.part. Anything else someone put in downloads\ stays.
-            string? keep = state is { Source: "download", AssetName: { } a } && Names.IsPlaytestAsset(a) ? layout.PartFile(a) : null;
+            // Only the launcher's own files: <playtest zip or parts list name>.part and downloads\parts\. Anything else someone put in downloads\ stays.
+            string? keep = state is { IsDownload: true, AssetName: { } a } && (Names.IsPlaytestAsset(a) || Names.IsPartsManifest(a)) ? layout.PartFile(a) : null;
             foreach (var f in Directory.EnumerateFiles(layout.DownloadsDir, "*.part"))
             {
-                string name = Path.GetFileName(f);
-                if (Names.IsPlaytestAsset(name[..^".part".Length]) && !string.Equals(f, keep, StringComparison.OrdinalIgnoreCase)) TryDelete(f);
+                string name = Path.GetFileName(f)[..^".part".Length];
+                if ((Names.IsPlaytestAsset(name) || Names.IsPartsManifest(name)) && !string.Equals(f, keep, StringComparison.OrdinalIgnoreCase)) TryDelete(f);
             }
+            if (state is not { Source: "parts" }) CleanPartsDir();
         }
     }
 
@@ -219,8 +220,10 @@ public sealed class Updater(InstallLayout layout, Downloader? downloader, Action
     public async Task<string> InstallAsync(ReleaseInfo release, IProgress<UpdateStatus>? progress, CancellationToken ct, bool repair = false)
     {
         Names.CheckTag(release.Tag);
-        if (!Names.IsPlaytestAsset(release.Asset.Name)) throw new InvalidDataException("The release's file is not a playtest zip.");
-        _ = new Uri(release.Asset.DownloadUrl);
+        if (release.Asset is null && release.Parts is null) throw new InvalidDataException("The release has no playtest download.");
+        if (release.Asset is not null && !Names.IsPlaytestAsset(release.Asset.Name)) throw new InvalidDataException("The release's file is not a playtest zip.");
+        if (release.Parts is not null && !Names.IsPartsManifest(release.Parts.Name)) throw new InvalidDataException("The release's parts list has an unexpected name.");
+        _ = new Uri(release.Primary.DownloadUrl);
         Directory.CreateDirectory(layout.VersionsDir);
         Directory.CreateDirectory(layout.DownloadsDir);
         var pointer = ReadPointer();
@@ -235,7 +238,7 @@ public sealed class Updater(InstallLayout layout, Downloader? downloader, Action
             {
                 var existing = ReadState();
                 if (existing is not null && existing.Tag == release.Tag) Store.ClearState(layout);
-                var meta = pointer.Versions.GetValueOrDefault(release.Tag) ?? UpdateState.For(release).ToInstalled();
+                var meta = pointer.Versions.GetValueOrDefault(release.Tag) ?? UpdateState.For(release, parts: release.Asset is null).ToInstalled();
                 SwitchPointer(release.Tag, meta);
                 CleanupOldVersions();
                 _log($"switched to the installed {release.Tag}");
@@ -246,6 +249,19 @@ public sealed class Updater(InstallLayout layout, Downloader? downloader, Action
 
         var state = ReadState();
         if (state is not null && !state.SameDownload(release)) { Discard(state); state = null; }
+        if (release.Parts is not null && state is not { Source: "download" })
+        {
+            state ??= UpdateState.For(release, parts: true);
+            try { return await RunPartsAsync(state, progress, ct).ConfigureAwait(false); }
+            catch (Exception e) when (release.Asset is not null && e is VerificationException or DownloadFailedException or InvalidDataException)
+            {
+                // The parts could not be fetched or did not check out: the release's full zip, when it has one, is the fallback.
+                _log($"parts update of {release.Tag} failed ({e.Message}); falling back to the full zip");
+                Discard(state);
+                state = null;
+            }
+        }
+        if (release.Asset is null) throw new InvalidDataException("The release has no playtest zip.");
         state ??= UpdateState.For(release);
         return await RunAsync(state, progress, ct).ConfigureAwait(false);
     }
@@ -254,7 +270,8 @@ public sealed class Updater(InstallLayout layout, Downloader? downloader, Action
     public async Task<string?> ResumeAsync(IProgress<UpdateStatus>? progress, CancellationToken ct)
     {
         var state = ReadState();
-        if (state is null || state.Source != "download" || state.AssetName is null || state.Url is null) return null;
+        if (state is null || !state.IsDownload || state.AssetName is null || state.Url is null) return null;
+        if (state.Source == "parts") return await RunPartsAsync(state, progress, ct).ConfigureAwait(false);
         return await RunAsync(state, progress, ct).ConfigureAwait(false);
     }
 
@@ -395,7 +412,8 @@ public sealed class Updater(InstallLayout layout, Downloader? downloader, Action
     {
         SwitchPointer(state.Tag, state.ToInstalled());
         Store.ClearState(layout);
-        if (state.Source == "download" && state.AssetName is { } a && Names.IsPlaytestAsset(a)) TryDelete(layout.PartFile(a));
+        if (state.IsDownload && state.AssetName is { } a && (Names.IsPlaytestAsset(a) || Names.IsPartsManifest(a))) TryDelete(layout.PartFile(a));
+        if (state.Source == "parts") CleanPartsDir();
         TryDeleteDir(layout.ReplacedDir(state.Tag));
         CleanupOldVersions();
     }
@@ -418,7 +436,8 @@ public sealed class Updater(InstallLayout layout, Downloader? downloader, Action
     /// <summary>Drops an update that will not be continued: its .part file and its staging folder.</summary>
     void Discard(UpdateState state)
     {
-        if (state.AssetName is { } a && Names.IsPlaytestAsset(a)) TryDelete(layout.PartFile(a));
+        if (state.AssetName is { } a && (Names.IsPlaytestAsset(a) || Names.IsPartsManifest(a))) TryDelete(layout.PartFile(a));
+        if (state.Source == "parts") CleanPartsDir();
         if (Names.IsTag(state.Tag)) TryDeleteDir(layout.StagingDir(state.Tag));
         Store.ClearState(layout);
         _log($"dropped the unfinished update to {state.Tag}");

@@ -129,6 +129,17 @@ public sealed class CustomizationCatalog
     public IReadOnlyList<string> Notes { get; }
 
     public ClassCustomization? Class(string key) => Classes.FirstOrDefault(c => c.Key.Equals(key, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>
+    /// The catalogue as the content profile <paramref name="content"/> offers it (<see cref="PerkCatalog.For"/>: added content's own items, Musou's arsenal): this one when the creator's lists are
+    /// the same, else a copy that differs only in <see cref="Perks"/>.
+    /// </summary>
+    public CustomizationCatalog For(ContentExtras content)
+    {
+        var perks = Perks.For(content);
+        return ReferenceEquals(perks, Perks) ? this : new CustomizationCatalog(_races, Palette, Classes, Unlocks, Cameras, perks, Paint, Notes);
+    }
+
     public CustomizerCamera? Camera(string tab) => Cameras.FirstOrDefault(c => c.Tab.Equals(tab, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>

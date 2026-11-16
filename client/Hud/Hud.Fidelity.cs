@@ -104,12 +104,13 @@ public sealed partial class Hud
         int xpClip = hud.Find("score_mc/xp_event_1_mc/xp_mc")?.Placement.Character ?? -1;
         int nameClip = hud.Find("score_mc/xp_event_1_mc/name_offset_mc/name_mc")?.Placement.Character ?? -1;
         int n = 0;
+        double below = 0;   // headshot medal: a line with a description pushes the older lines down by the description's height
         for (int i = _events.Count - 1; i >= 0 && n < 4; i--, n++)
         {
             var (text, at, line) = _events[i];
             var spec = line ?? RewardTable.Kill;
             double age = _time - at;
-            var m = line1.ToStage; m = m with { Ty = m.Ty + step * n };
+            var m = line1.ToStage; m = m with { Ty = m.Ty + step * n + below };
             // ui/hud-3 (owner 2026-10-30): the centre announcements a little smaller, about the screen's middle line and the first line's top (ours).
             var root = stage * new Transform2D(0f, new Vector2(RewardScale, RewardScale), 0f, new Vector2(640f * (1f - RewardScale), (float)line1.ToStage.Ty * (1f - RewardScale))) * ToXf(m);
             int Clip(int sprite, string path)
@@ -134,6 +135,15 @@ public sealed partial class Hud
             }, ch => ch == iconSprite,
                 path => path.EndsWith("xp_txt", StringComparison.Ordinal) ? $"+{spec.Experience}" : path.EndsWith("name_txt", StringComparison.Ordinal) ? name : null,
                 fontScale: RewardFontScale);
+            if (RewardDescription(spec) is { Length: > 0 } description)
+            {
+                // Headshot medal (the owner, 2026-11-07): the data's description (display_description) under the line, centred on the screen, white like the name, fading with the line (ours: the
+                // HUD movie has no description field; the original's reward screens show these texts).
+                float a = (float)(Math.Clamp(EventSeconds - age, 0.0, 0.5) / 0.5 * Math.Clamp(age / 0.25, 0.0, 1.0));
+                var under = root * new Vector2(0f, (float)step * 1.45f);
+                Txt(description, vs.X / 2f, under.Y, Math.Max(14, (int)MathF.Round(vs.Y / 1080f * 22f)), new Color(1f, 1f, 1f, a), 0, 3, 0);
+                below += step * 0.9;
+            }
         }
         return true;
     }
@@ -314,9 +324,13 @@ public sealed partial class Hud
     /// <summary><c>--hud-launcher-demo</c> (screenshot aid): the launcher display counts its rounds down and up (two a second) instead of showing the rounds left.</summary>
     static readonly bool LauncherDemo = Array.IndexOf(OS.GetCmdlineUserArgs(), "--hud-launcher-demo") >= 0;
 
+    /// <summary>W0b, added content: the weapon box of a weapon only it carries (<paramref name="spec"/> left as the rules gave it without added content or for a weapon of the data).</summary>
+    partial void ExtrasWeaponBox(string wargear, bool chaos, ref WeaponBoxSpec? spec);
+
     // The box's path sets, built once (not every frame).
     static readonly HashSet<string> OptionalPaths = new(WeaponBoxRules.Optional, StringComparer.Ordinal), NoPaths = new(StringComparer.Ordinal);
-    static readonly Dictionary<IReadOnlyList<string>, HashSet<string>> ShowSets = new(ReferenceEqualityComparer.Instance);
+    // fix/fx-hud-leaks (polish item 30): keyed by the paths, not the list's identity (one set per display; keyed by identity it gained a set a frame).
+    static readonly WeaponBoxShowSets ShowSets = new();
 
     /// <summary>
     /// The weapon box from <c>Hud.gfx</c> (<c>weaponInfo_Slide</c> at the end of its slide-in, bottom right): the frame with the winged skull (with or without the grenade column),
@@ -333,6 +347,7 @@ public sealed partial class Hud
         if (hud.Find(Box, id => id == slideSprite ? slideEnd : null) is not { } box) return false;
         bool chaos = d.OwnTeam == Team.Chaos;
         var spec = WeaponBoxRules.For(d.WeaponWargear, _art?.Art?.WeaponType(d.WeaponWargear), chaos);
+        ExtrasWeaponBox(d.WeaponWargear, chaos, ref spec);   // EXTRAS-HOOK added content (Musou's autocannon): the weapon box of a weapon only it carries
         var root = Stage(vs, 1) * ToXf(box.ToStage);
         // Turned and enlarged about the frame's top-left corner (box pixels 28, 18): the footage's box is 1.12 times the movie's, its top-left corner where the movie puts it.
         root *= new Transform2D(Mathf.DegToRad(BoxTilt), new Vector2(BoxScale, BoxScale), 0f, new Vector2(28f, 18f)) * new Transform2D(0f, new Vector2(-28f, -18f));
@@ -349,11 +364,13 @@ public sealed partial class Hud
             };
             if (d.WeaponBarFull >= 0f) full = d.WeaponBarFull;   // ui/hud-3: the melta's progress between shots
             barFrame = WeaponBoxRules.BarFrame(full, hud.FrameCount(barSprite));
+            // fix/bolter-hud-last-round: an empty clip shows the strip's last frame (no white tick left), not the one before it.
+            if (spec.Value == WeaponBoxBar.Spent && WeaponBoxRules.UsesEmptyBarFrame(spec.Family) && d.WeaponBarFull < 0f && WeaponBoxRules.ClipEmpty(d.Clip, d.ClipMax)) barFrame = WeaponBoxRules.EmptyBarFrame(hud.FrameCount(barSprite));
         }
-        bool reserve = d.ReserveMax > 0 || d.Reserve > 0;
+        bool reserve = (d.ReserveMax > 0 || d.Reserve > 0) && !HudRules.EndlessReserve(d.Reserve);   // an endless reserve (the Dreadnought's cannon) shows the clip
         int count = reserve ? d.Reserve : d.Clip;
         bool empty = count == 0 && d.Clip == 0;
-        var show = spec is null ? NoPaths : ShowSets.TryGetValue(spec.Show, out var known) ? known : ShowSets[spec.Show] = new HashSet<string>(spec.Show, StringComparer.Ordinal);
+        IReadOnlySet<string> show = spec is null ? NoPaths : ShowSets.Get(spec.Show);
         var optional = OptionalPaths;
         string equipment = d.GrenadeWargear.Contains("krak", StringComparison.OrdinalIgnoreCase) || d.GrenadeWargear.Contains("blind", StringComparison.OrdinalIgnoreCase) ? "blind_grenade_mc"
             : d.GrenadeWargear.Contains("stim", StringComparison.OrdinalIgnoreCase) ? "stimpack_mc" : "grenade_mc";

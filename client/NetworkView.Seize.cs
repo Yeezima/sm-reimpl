@@ -3,8 +3,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Godot;
+using SmContent;
 using SmNet;
 using SmSim;
+using V3 = System.Numerics.Vector3;
 
 namespace SmClient;
 
@@ -248,6 +250,7 @@ public partial class NetworkView
         int best = BotSeizePoint(me, layout, points);
         if (best < 0) { _botSeizeNote = "all points held"; return null; }
         var goal = layout.Points[best];
+        if (BotSeizeSurplusHunts(me, layout, goal)) { _botSeizeNote = $"surplus on point {PointLetter(best)}: hunting"; return null; }   // 2026-11-16 (NetworkView.BotHunt.cs)
         float bestDistance = new Vector2(goal.Center.X - me.Position.X, goal.Center.Y - me.Position.Y).Length();
         // Fight only an enemy it can see within BotFightRange (M19); otherwise it keeps walking without aiming at it.
         var target = BotFightTarget(me, out float targetDistance);
@@ -260,7 +263,7 @@ public partial class NetworkView
             return new PlayerInput(tick, 0f, 0f, _yaw, InputButtons.None, 0f);              // hold the point
         }
         // On the way: path following to the point (NetworkView.Nav.cs; until the graph is built, straight with detours).
-        var (to, speed, _, dropAhead) = BotSteer(me, goal.Center, $"point {PointLetter(best)}");
+        var (to, speed, _, dropAhead) = BotSteer(me, BotPointStand(best, goal), $"point {PointLetter(best)}");
         if (to.LengthSquared() < 1e-6f) to = new Vector2(goal.Center.X - me.Position.X, goal.Center.Y - me.Position.Y).Normalized();
         InputButtons buttons = InputButtons.None;
         if (fight && target is { } enemy)
@@ -270,7 +273,7 @@ public partial class NetworkView
             float dz = enemy.Position.Z + BotTargetHeight - (me.Position.Z + _config!.EyeHeight);
             _yaw = MathF.Atan2(-dx, dy);
             _pitch = Math.Clamp(MathF.Atan2(dz, targetDistance), -MaxPitchDown, MaxPitchUp);
-            buttons = BotWeaponButtons(me, tick, enemy);
+            buttons = BotWeaponButtons(me, tick, enemy) | BotAimButton(me, targetDistance);   // stream C: aim mode in a gunfight (NetworkView.BotTactics.cs)
             _botAimNow = true;                  // M44a: the aim error applies to this ranged shot (NetworkView.BotAim.cs)
             _botAimTarget = enemy.PlayerId;     // the trigger discipline's reaction delay
             BotNoteEngagement(targetDistance);
@@ -284,6 +287,25 @@ public partial class NetworkView
         // On a jump link (slowing to the take-off cell, standing, pressing) the agent's speed counts; else full speed as before.
         return BotMoveInput(tick, _navAgent is { OnJumpLink: true } ? to * speed : to, buttons | _navJump);
     }
+
+    /// <summary>
+    /// bots/new-maps round 2 (ours): where a Seize Ground bot walks to for point <paramref name="index"/>: on the new maps the graph cell nearest the marker inside the capture zone (the marker can float far above the
+    /// floor: Hab Center's point D, 7 m, which the planner's 6 m height limit read as off the graph, and its bots stood at their spawn rooms for the whole match); the marker itself elsewhere (Manufactorum, no graph).
+    /// </summary>
+    V3 BotPointStand(int index, ControlPointInfo goal)
+    {
+        if (BotNoEscape || !BotNavigation.NewMapRules(_navMap?.Name ?? "") || _nav is not { } graph) return goal.Center;
+        if (!ReferenceEquals(graph, _botStandGraph)) { _botStandGraph = graph; _botStand.Clear(); }
+        if (!_botStand.TryGetValue(index, out var stand))
+        {
+            int n = graph.NearestInCylinder(goal.Center, goal.Radius * BotPointInside, goal.HalfHeight);
+            _botStand[index] = stand = n >= 0 ? graph.Position(n) : goal.Center;
+        }
+        return stand;
+    }
+
+    NavGraph? _botStandGraph;
+    readonly Dictionary<int, V3> _botStand = new();
 
     /// <summary>The point the Seize Ground bot heads for (sticky while still wanted).</summary>
     int _botSeizeTarget = -1;
@@ -345,6 +367,12 @@ public partial class NetworkView
         var layout = _client?.Scoreboard?.Seize?.Points;
         // "inspect" (M34 capture aid): a slow orbit close around the own weapon in hand (its middle, a little behind the muzzle),
         // a little above it; without a ranged weapon in hand the "action" view below shows.
+        // "inspect-melee" (fx/weapon-visuals capture aid, with --hold-melee): the same orbit round the own melee weapon's grip.
+        if (mode == "inspect-melee" && _local?.Weapons is { } meleeRig && meleeRig.TryMeleeMarker("RIG_Prop_RHand", out var grip))
+        {
+            float turn2 = (float)(_spectateAngle * InspectTurnSpeed);
+            return (grip.Origin + new Vector3(MathF.Cos(turn2) * 1.6f, 0.5f, MathF.Sin(turn2) * 1.6f), grip.Origin);
+        }
         if (mode == "inspect" && _client is not null && MuzzleWorld(_client.PlayerId) is { } muzzle)
         {
             var weapon = muzzle.Position - muzzle.Direction * InspectBehindMuzzle;

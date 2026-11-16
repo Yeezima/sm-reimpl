@@ -144,4 +144,16 @@ public class HammerSwingTests(ITestOutputHelper output)
         Assert.Equal(length, HammerSlashPose.ImpactTime(10f, float.NaN, length), 4);
         Assert.Equal((length - HammerSlashPose.ImpactStart) / 0.8f, HammerSlashPose.AfterImpact(length), 4);
     }
+
+    [Fact]
+    public void A_light_strikes_stride_is_capped_so_the_swords_legs_are_not_flung_and_the_hammers_is_untouched()
+    {
+        // night batch 2026-11-06 (anim/sword-legs): the swords' lunge is 2.9 times the clip's motion, the hammer's 1.12.
+        Assert.Equal(1.12f, ClipFootLockRules.StrideFactor(1.12f, heavy: false), 5);
+        Assert.Equal(1.2f, ClipFootLockRules.StrideFactor(2.925f, heavy: false), 5);
+        Assert.Equal(2.925f, ClipFootLockRules.StrideFactor(2.925f, heavy: true), 5);   // heavy and stun strikes keep their stretch
+        Assert.Equal(1f, ClipFootLockRules.StrideFactor(0.8f, heavy: false), 5);
+        Assert.Equal(1f, ClipFootLockRules.StrideFactor(float.NaN, heavy: false), 5);
+        Assert.Equal(1f, ClipFootLockRules.StrideFactor(3f, heavy: false, excessCap: -1f), 5);
+    }
 }

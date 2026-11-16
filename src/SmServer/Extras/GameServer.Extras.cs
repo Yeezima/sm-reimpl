@@ -15,6 +15,7 @@ public sealed partial class GameServer
         SendLoyalistBarks();
         SendMusou();
         SendTfw();
+        LogTfwCoop();   // Musou Mode co-op: late joins in the log
     }
 
     /// <summary>At the end of the constructor (only with added content): Musou's set-up, or on the war's map the war's.</summary>
@@ -25,13 +26,20 @@ public sealed partial class GameServer
     }
 
     /// <summary>A client's command (message kind 17, only under <c>ContentExtras.CommandUsers</c>): Musou Mode's.</summary>
-    partial void ExtrasCommand(int player, byte tag, byte[] payload) => OnTfwCommand(player, tag, payload);
+    partial void ExtrasCommand(int player, byte tag, byte[] payload)
+    {
+        if (OnLibrarianCommand(player, tag, payload)) return;   // Musou: the Librarian's cast at the press (Librarian/GameServer.TfwLibrarian.cs)
+        OnTfwCommand(player, tag, payload);
+    }
 
     /// <summary>A scoreboard name: Musou Mode's AI Marines.</summary>
     partial void ExtrasPlayerName(int id, ref string name) => TfwPlayerName(id, ref name);
 
-    /// <summary>The look of a player without a peer: Musou Mode's retainers wear their owner's.</summary>
+    /// <summary>The look of a player without a peer: Musou Mode's retainers wear their owner's, the allied pair the host's.</summary>
     partial void ExtrasPuppetAppearance(int playerId, ref (ushort Version, Race Race, AppearanceCode Code)? look) => TfwPuppetAppearance(playerId, ref look);
+
+    /// <summary>The players a match admits: Musou Mode's co-op takes at most 4.</summary>
+    partial void ExtrasPlayerCap(ref int cap) => TfwPlayerCap(ref cap);
 
     /// <summary>A map generated in code: Musou Mode's.</summary>
     static partial void ExtrasGeneratedMap(ContentExtras extras, string install, ref string? name, ref GameMap? map, ref string? error) => TfwGeneratedMap(extras, install, ref name, ref map, ref error);

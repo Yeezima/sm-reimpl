@@ -21,6 +21,17 @@ if (!ServerCommandLine.TryParse(args, out var cli, out var cliError))
     return ServerCommandLine.UsageError;
 }
 if (cli.Help) { Console.WriteLine(ServerCommandLine.Usage); return 0; }
+if (cli.Maps is not null)
+{
+    // classic-maps-all: a rotation. This process only supervises; each match runs in a child server on one map of the list (RotationSupervisor.cs).
+    if (cli.Map is not null || cli.RotationChild) { Console.Error.WriteLine("smserver: --maps replaces --map; give one of them"); return ServerCommandLine.UsageError; }
+    if (cli.Content.HasFlag(ContentExtras.Musou)) { Console.Error.WriteLine("smserver: --maps is Classic PvP only; Musou Mode plays its own map (leave --maps out with --content musou)"); return ServerCommandLine.UsageError; }
+    string rotationInstall;
+    try { rotationInstall = GameInstall.Locate(cli.GameDir); }
+    catch (DirectoryNotFoundException) { Console.Error.WriteLine($"smserver: game not found. {GameInstall.NotFoundMessage}"); return 1; }
+    if (!RotationSupervisor.TryPlan(rotationInstall, cli, out var rotation, out var rotationError)) { Console.Error.WriteLine($"smserver: {rotationError}"); return 1; }
+    return RotationSupervisor.Run(args, rotation);
+}
 bool customEmblems = cli.CustomEmblems;
 var unlocks = cli.Unlocks;
 int port = cli.Port;
@@ -39,7 +50,7 @@ bool teams = cli.Teams;
 var mode = cli.Mode;
 int? scoreLimit = cli.ScoreLimit;
 
-rules = rules with { Mode = mode, ScoreLimit = scoreLimit ?? MatchRules.For(mode).ScoreLimit, HonorSideRequests = cli.HonorSideRequests };
+rules = rules with { Mode = mode, ScoreLimit = scoreLimit ?? MatchRules.For(mode).ScoreLimit, HonorSideRequests = cli.HonorSideRequests, RotatesAfterMatch = cli.RotationChild };
 if (cli.HonorSideRequests) Console.WriteLine("--honor-side-requests: a joining client's requested side is kept up to the per-side limit; balancing applies only to joins that name no side (test aid, ours)");
 
 string install;
@@ -91,6 +102,39 @@ var config = tuning.Config;
 if (cli.NoPlayerCollision) config = config with { PlayerBodies = false };
 // anim/melee-interaction: --no-charge-lock (test aid) restores the M29 charge contact and stop (config hash).
 if (cli.NoChargeLock) config = config with { ChargeLock = false };
+// fix/charge-player-collision: --old-body-contact (test aid) restores the protocol 56 body and charge contact rules (config hash).
+if (cli.OldBodyContact) config = config with { SolidBodies = false };
+// feel/charge-clash: --no-charge-clash (test aid) restores the protocol 58 stop (config hash).
+if (cli.NoChargeClash) config = config with { ChargeClash = false };
+// charge-cancel / charge-ally-bump (protocol 66): --old-charge-cancel and --old-ally-bump (restore switches) bring back the protocol 65 rules (config hash).
+if (cli.OldChargeCancel) config = config with { ChargeBackCancel = false };
+if (cli.OldAllyBump) config = config with { ChargeAllyBump = false };
+// charge-responsive (protocol 69): --old-charge-after-melee and --old-charge-cancel-delay (restore switches; config hash).
+if (cli.OldChargeAfterMelee) config = config with { ChargeAfterMelee = false };
+if (cli.OldChargeCancelDelay) config = config with { ChargeInstantCancel = false };
+// charge-melee-chain (protocol 70): --old-charge-melee-chain and --musou-melee-cooldown (restore switches; config hash).
+if (cli.OldChargeMeleeChain) config = config with { ChargeMeleeChain = false };
+if (cli.OldHopRules) config = config with { HopRules = false };   // sim/hop-rules (protocol 72): restore switch, config hash
+if (cli.OldLascannonReload) config = config with { LascannonTapReload = false };   // sim/lascannon-tap-reload (protocol 78): restore switch, config hash
+if (cli.OldKickPush) config = config with { KickPushCut = false };   // sim/kick-push (2026-11-14): restore switch, config hash
+if (cli.OldSprintMelee) config = config with { SprintMeleeCharge = false };   // sim/sprint-melee-charge (protocol 77): restore switch, config hash
+if (cli.OldLedgeCancel) config = config with { LedgeChargeCancel = false };   // sim/ledge-charge-cancel (protocol 77): restore switch, config hash
+if (cli.OldStompRelease) config = config with { StompRelease = false };   // sim/stomp-release (2026-11-14): restore switch, config hash
+if (cli.MusouMeleeCooldown) config = config with { MusouMeleeCooldown = true };
+if (cli.MusouUncappedMeleeHeal) config = config with { MusouUncappedMeleeHeal = true };   // musou/melee-heal-cap (owner 2026-11-12): restore switch, config hash
+Console.WriteLine(config.ChargeAfterMelee ? "charge after melee: a charge starts once the attack under way has hit (owner 2026-11-12)" : "charge after melee: OLD (--old-charge-after-melee, restore switch; clients need it too): the charge waits for the attack's end");
+Console.WriteLine(config.ChargeInstantCancel ? "charge cancel: S from the charge's second tick (owner 2026-11-12)" : "charge cancel: OLD delay (--old-charge-cancel-delay, restore switch; clients need it too): S from the rush's stick branch");
+// stims-classic (protocol 68): --old-stim-use (restore switch) brings back the 9-tick stim press and the hit cancel (config hash).
+if (cli.OldStimUse) config = config with { StimReliable = false };
+// musou/no-aerial-tackle (owner 2026-11-12): --musou-aerial-tackle (restore switch) keeps the aerial tackle in Musou Mode (config hash).
+if (cli.AerialTackleRestored) config = config with { AerialTackleRestored = true };
+// musou/ork-swing-commit (owner 2026-11-12): --musou-ork-swing-tracking (restore switch) keeps the Orks' wind-up facing the target to the blow (config hash).
+if (cli.MusouOrkSwingTracking) config = config with { MusouOrkSwingTracking = true };
+Console.WriteLine(config.StimReliable ? "stim use: reliable (the press kept 0.5 s, no hit cancel before the release; owner 2026-11-12)" : "stim use: OLD (--old-stim-use, restore switch; clients need --old-stim-use too): the press kept 0.3 s, a hit before the release cancels");
+Console.WriteLine(config.ChargeBackCancel ? "charge cancel: S (the stick held back) from the rush's stick branch; a Grenade press ends no charge phase (owner 2026-11-11)" : "charge cancel: OLD (--old-charge-cancel, restore switch; clients need --old-charge-cancel too): a Grenade press ends the charge from its branch, S does not");
+Console.WriteLine(config.ChargeAllyBump ? "ally slide: a charge passes an ally it cannot harm, no contact and no collision stop (owner 2026-11-11; the slide ours)" : "ally slide: OLD (--old-ally-bump, restore switch; clients need --old-ally-bump too): the collision stop on an ally");
+Console.WriteLine(config.SolidBodies ? $"solid bodies: on (no move closer than {SolidBodies.GuardDistance(config, false):0.##} m between bodies as they stand, {SolidBodies.GuardDistance(config, true):0.##} m with a charger; the charge's contact swept, stopped where it meets; ours)" : "solid bodies: OFF (--old-body-contact, test aid; clients need --old-body-contact too)");
+Console.WriteLine(config.ChargeClash && config.ChargeLock ? "charge clash: on (a stunned victim is carried by the charger's collision-stop shove, the pair locked at the capsules' touch; ours, the shove from the data)" : "charge clash: OFF (--no-charge-clash, test aid; clients need --no-charge-clash too)");
 Console.WriteLine(config.ChargeLock ? "charge lock: on (contact with the blocking body too; charger turned to the victim, victim at 0.9 m; ours)" : "charge lock: OFF (--no-charge-lock, test aid; clients need --no-charge-lock too)");
 Console.WriteLine(config.PlayerBodies
     ? $"player collision: on (capsules r {config.CapsuleRadius} m, h {config.CapsuleHeight} m block each other; push apart {PlayerCollision.SeparationSpeed} m/s, slide off a head {PlayerCollision.SlideOffSpeed} m/s; ours)"
@@ -206,7 +250,7 @@ static string Describe(ProjectileSpec p, float blindView = 180f)
         $"{p.MaxBounces} bounces{(p.MaxActive > 0 ? $", max {p.MaxActive} active" : "")}; {blast}{direct}";
 }
 var available = MapContent.Available(install);
-// Added content may compose its map (docs/added-content.md section 8: Musou's tfw_war, also its default map: Manufactorum from the install and a generated room).
+// Added content may compose its map (docs/added-content.md section 8: Musou's tfw_war, also its default map: Ashfall Citadel, generated in code; tfw_war_m09: Manufactorum from the install, the restore switch).
 var generatedMap = GameServer.GeneratedMap(contentExtras, install, ref mapName, out string? mapError);
 if (mapError is not null)
 {
@@ -306,8 +350,11 @@ var server = new GameServer(config, fingerprint, transport, clock, new ServerOpt
     BotDamageScale = cli.BotDamageScale,   // test aid (fix/hitboxes-grenades-bots)
     NameSeed = cli.NameSeed,               // names/bot-lore
     MaxSpectators = cli.MaxSpectators,     // protocol 46 (observer tooling)
+    SnapshotRate = cli.SnapshotRate ?? new ServerOptions().SnapshotRate,   // net/responsive: 30 Hz (--snapshot-rate 20: before)
 }, map: map);
+Console.WriteLine($"snapshots: {server.SnapshotRate} a second{(cli.SnapshotRate is null ? "" : " (--snapshot-rate)")}");
 server.Log += line => Console.WriteLine("note: " + line);
+if (contentExtras.HasFlag(ContentExtras.Musou)) Console.WriteLine($"musou: co-op, at most {server.PlayerCap} players on one side against the Orks");   // the owner, 2026-11-06
 Console.WriteLine($"names: test bots are named from per-race pools (ours), seed {server.NameSeed}{(cli.NameSeed is null ? " (random; --name-seed fixes it)" : " (--name-seed)")}; other players show as P<id>");
 if (cli.BotDamageScale != 1f) Console.WriteLine($"--bot-damage-scale {cli.BotDamageScale:0.###}: every hit a test bot (client --bot) deals is scaled by it (test aid, not the original)");
 // Joins and leaves with addresses, refusals, bans, idle kicks, caught faults, skipped ticks (UTC time for the operator).
@@ -357,13 +404,31 @@ var blockerNames = mapBlockers.Select(b => (Name: b.Name, Box: b.ToSim())).ToArr
 var pressing = new HashSet<(int Player, int Blocker)>();
 var insideBox = new HashSet<(int Player, int Blocker)>();
 var overlaps = cli.LogOverlaps ? new OverlapProbe() : null;
+// feel/charge-clash: the same probe on the pairs of opponents where either is in a charge phase (the rush, its stop, the dash attack), and on the clash pairs.
+var chargeOverlaps = cli.LogOverlaps ? new OverlapProbe() : null;
+var clashOverlaps = cli.LogOverlaps ? new OverlapProbe() : null;
+var pairFeet = new System.Numerics.Vector3[2];
 server.Stepped += world =>
 {
     // --log-overlaps (sim/player-collision test aid): the closest the living players' capsules came, every 10 s.
     if (overlaps is not null)
     {
         overlaps.Add(world.Players.Values, world.Config);
-        if (world.Tick % (uint)(10 * world.Config.TickRate) == 0) Console.WriteLine($"tick {world.Tick}: overlaps: {overlaps.Summary()}");
+        var living = world.Players.Values.Where(p => p.Alive).OrderBy(p => p.PlayerId).ToList();
+        for (int i = 0; i < living.Count; i++)
+            for (int j = i + 1; j < living.Count; j++)
+            {
+                var a = living[i]; var b = living[j];
+                if (!World.Hostile(a.Team, b.Team) || (a.Rush == RushPhase.None && b.Rush == RushPhase.None)) continue;
+                pairFeet[0] = a.Position; pairFeet[1] = b.Position;
+                chargeOverlaps!.Add(pairFeet, world.Config);
+                if (world.ClashVictim(a.PlayerId) == b.PlayerId || world.ClashVictim(b.PlayerId) == a.PlayerId) clashOverlaps!.Add(pairFeet, world.Config);
+            }
+        if (world.Tick % (uint)(10 * world.Config.TickRate) == 0)
+        {
+            Console.WriteLine($"tick {world.Tick}: overlaps: {overlaps.Summary()}");
+            Console.WriteLine($"tick {world.Tick}: charge overlaps (opponents, either charging or in a charge's stop): {chargeOverlaps!.Summary()}; clash pairs: {clashOverlaps!.Summary()}; clashes opened {world.ClashesOpened}");
+        }
     }
     // --pickup-test: test drops in front of every living player (the server's own SpawnPickup; the ground under the point as for a death).
     if (pickupTest > 0f && world.Config.Pickups is { } drops && world.Tick % (uint)Math.Max(1, MathF.Round(pickupTest * world.Config.TickRate)) == 0)
@@ -452,6 +517,19 @@ server.Stepped += world =>
 Console.WriteLine($"smserver on UDP {port}; protocol {Protocol.Version}; content {fingerprint:X16}; config {config.Hash():X16}; {config.TickRate} Hz");
 Console.CancelKeyPress += (_, e) => { e.Cancel = true; Environment.Exit(0); };
 var lastReport = TimeSpan.Zero;
+TimeSpan? rotationDueAt = null;
+// hotfix/musou-server-lag: on Windows the loop's 1 ms pause is a high-resolution timer (Thread.Sleep(1) slept 15.6 ms or, with the PC busy, far longer) and the process
+// runs above normal priority; pacing only (LoopPacing.cs; SM_OLD_LOOP_PACING=1 restores the old loop for tests).
+LoopPacing.Start();
+Console.WriteLine($"loop pacing: {LoopPacing.Describe}");
+// polish pass P1 (2026-11-10): the server's GC runs its full collections in the background (SustainedLowLatency: no blocking gen2 unless memory runs low), as the human
+// client's does since perf/pass-1; before, the default Interactive mode (a blocking gen2 could sit inside a tick). SM_OLD_SERVER_RUNTIME=1 keeps the runtime's default.
+if (Environment.GetEnvironmentVariable("SM_OLD_SERVER_RUNTIME") != "1")
+{
+    try { System.Runtime.GCSettings.LatencyMode = System.Runtime.GCLatencyMode.SustainedLowLatency; }
+    catch (Exception e) when (e is ArgumentOutOfRangeException or NotSupportedException or InvalidOperationException) { Console.WriteLine($"gc: latency mode not set ({e.Message}); the runtime's default stays"); }
+}
+Console.WriteLine($"runtime: {(System.Runtime.GCSettings.IsServerGC ? "server" : "workstation")} GC, {System.Runtime.GCSettings.LatencyMode}; {System.Runtime.JitInfo.GetCompiledMethodCount()} methods jitted so far");
 // GameServer.Update isolates packet handlers and ticks itself (hardening M3); a fault anywhere else in the loop is logged and the
 // loop goes on. A crash of the process is for a restart supervisor (docs/dedicated-server.md).
 while (true)
@@ -459,6 +537,17 @@ while (true)
     try
     {
         server.Update();
+        // classic-maps-all: a rotation child's match is over and its clients were told (protocol 79); it answers no more joins (RotationDue) and leaves a moment later for the supervisor's next map.
+        if (!server.RotationDue) rotationDueAt = null;   // a rotation that is no longer due (a player joined an empty restart, say) starts its 0.8 s afresh
+        if (cli.RotationChild && server.RotationDue)
+        {
+            rotationDueAt ??= clock.Now;
+            if (clock.Now - rotationDueAt > TimeSpan.FromMilliseconds(800))
+            {
+                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-ddTHH:mm:ssZ}] rotation: the match on {mapName} is over; the next map starts");
+                return ServerCommandLine.RotationExit;
+            }
+        }
         if (server.FatalError is { } fatal)
         {
             // Exit code 4: the simulation keeps failing (ServerOptions.MaxConsecutiveTickFaults); a supervisor restarts the server.
@@ -480,7 +569,7 @@ while (true)
         Console.Error.WriteLine($"[{DateTime.UtcNow:yyyy-MM-ddTHH:mm:ssZ}] server loop error: {e}");
         Thread.Sleep(100);   // a fault that repeats every pass must not flood the log at full speed
     }
-    Thread.Sleep(1);
+    LoopPacing.Wait();
 }
 
 // Metres of open view from a spot along a facing, at eye height, against the character collision (up to 100 m).

@@ -147,7 +147,7 @@ public partial class NetworkView
     /// last two predicted ticks by the fraction of a tick elapsed (as the own model's position, M36), so it does not step at 30 Hz.
     /// </summary>
     double BraceElapsed(PlayerState state, bool own, BraceTrack t) =>
-        own ? Math.Max(0.0, (state.BraceTicks - 1 + (_client?.ClipFraction ?? 1f)) * _config!.TickSeconds) : _connectedFor - t.PhaseSince;
+        own ? Math.Max(0.0, (state.BraceTicks - 1 + (_client?.ClipLead ?? 0f) + (_client?.ClipFraction ?? 1f)) * _config!.TickSeconds) : _connectedFor - t.PhaseSince;   // net/responsive: the clip lead
 
     /// <summary>
     /// From <see cref="Place"/>, after the throw and before the landing poses: the stance's pose (see the class summary). False when the player is

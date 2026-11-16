@@ -64,6 +64,22 @@ public static class ImpactSounds
     public static VoiceOffset HitConfirmOffset(bool armoured, bool kill) =>
         new(kill ? -7f : -10f, armoured ? -500f : -700f, 45f);
 
+    /// <summary>The distance up to which the shooter's hit confirmation plays at full volume (night/weapon-fx; owner 2026-11-06: near full volume only for point-blank shots), m. Estimate.</summary>
+    public const float HitConfirmFullRange = 2f;
+    /// <summary>The distance from which it stays at its floor, m, and the floor, dB (about 0.125 linear): never silent. Estimates.</summary>
+    public const float HitConfirmFloorRange = 40f, HitConfirmFloorDb = -18f;
+
+    /// <summary>
+    /// The shooter's hit confirmation's distance attenuation in dB (0 or less): 0 up to <see cref="HitConfirmFullRange"/>, then falling with the logarithm of the distance
+    /// (-18 dB x ln(d/2) / ln(20)), to <see cref="HitConfirmFloorDb"/> at <see cref="HitConfirmFloorRange"/> and beyond. Ours (the owner gave the shape, not the numbers).
+    /// </summary>
+    public static float HitConfirmDistanceDb(float metres)
+    {
+        if (!float.IsFinite(metres) || metres <= HitConfirmFullRange) return 0f;
+        if (metres >= HitConfirmFloorRange) return HitConfirmFloorDb;
+        return HitConfirmFloorDb * MathF.Log(metres / HitConfirmFullRange) / MathF.Log(HitConfirmFloorRange / HitConfirmFullRange);
+    }
+
     /// <summary>The material the data's confirm event plays for a hit (its switch has <c>ceramite_armour</c> and <c>flesh</c> cases): the victim's armour or flesh. Interpretation.</summary>
     public static string ConfirmMaterial(bool armoured) => armoured ? "ceramite_armour" : "flesh";
 

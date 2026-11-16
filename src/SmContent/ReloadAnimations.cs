@@ -91,6 +91,7 @@ public sealed record ReloadAnimations(IReadOnlyList<ReloadClip> Clips)
     /// </summary>
     public static ReloadFamily? FamilyOf(string wargear)
     {
+        wargear = AnimationAlias.Of(wargear);   // AnimationAlias: an added weapon's borrowed name (Musou's arsenal)
         bool Has(string text) => wargear.Contains(text, StringComparison.OrdinalIgnoreCase);
         if (Has("heavy_bolter")) return null;   // heat, no reserve: no reload (its name contains "bolter")
         if (Has("bolt_pistol")) return ReloadFamily.BoltPistol;

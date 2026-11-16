@@ -19,7 +19,8 @@ namespace SmClient;
 /// the door the first such cell, and the hold points reachable cells 8 to 15 m from the door with a clear line to it. Here:
 /// <list type="bullet">
 /// <item>an enemy standing in the room (<see cref="InEnemyRoom"/>) is neither chased nor shot (no spawn killing through the blockers, which shots pass);</item>
-/// <item>with no other enemy to go for, the bot walks to a hold point (its id picks one, so a side's bots spread) and stands there facing the door;</item>
+/// <item>with no other enemy to go for, the bot walks to a hold point (its id picks one, so a side's bots spread) and stands there facing the door; since 2026-11-07 only
+/// with <c>--bot-door-wait</c>: by default it roams and holds the map centre instead (NetworkView.BotRoam.cs);</item>
 /// <item>when the enemy walks out (its cell is no longer in the room) the normal fight and chase resume.</item>
 /// </list>
 /// The watch is built once per side and graph on the thread pool; until ready, or without teams, blockers or a graph, the bot behaves as before.
@@ -29,6 +30,11 @@ public partial class NetworkView
 {
     /// <summary><c>--bot-no-spawn-wait</c> (test aid): the old chase, hugging the blocker outside the other side's spawn room.</summary>
     static readonly bool BotNoSpawnWait = CmdFlag("bot-no-spawn-wait");
+    /// <summary>
+    /// <c>--bot-door-wait</c> (test aid, before/after): the M44a wait at a hold point 8 to 15 m from the other side's spawn door. Off by default since 2026-11-07 (owner:
+    /// "the bot should never wait directly outside the spawn area of the enemy"); the bots roam and hold the centre instead (NetworkView.BotRoam.cs).
+    /// </summary>
+    static readonly bool BotDoorWait = CmdFlag("bot-door-wait");
 
     /// <summary>The current side's spawn watch once its build has finished (null before, or when none could be built).</summary>
     SpawnRoomWatch? Watch
@@ -70,14 +76,17 @@ public partial class NetworkView
     bool InEnemyRoom(PlayerState me, PlayerState enemy) =>
         me.Team != Team.None && Watch is { } w && enemy.Team == w.Enemy && w.InRoom(enemy.Position);
 
-    /// <summary>The nearest living enemy that is not in its spawn room (the chase target); null when there is none.</summary>
+    /// <summary>
+    /// The nearest living enemy that is not in its spawn room nor, since 2026-11-07, in the no-loiter zone around it (<see cref="BotMapPlan.InNoLoiterZone"/>): the
+    /// chase target; null when there is none.
+    /// </summary>
     PlayerState? BotChaseTarget(PlayerState me)
     {
         PlayerState? best = null;
         float bestDistance = float.MaxValue;
         foreach (var other in _lastOthers)
         {
-            if (!other.Alive || (me.Team != Team.None && !World.Hostile(me.Team, other.Team)) || InEnemyRoom(me, other)) continue;
+            if (!other.Alive || (me.Team != Team.None && !World.Hostile(me.Team, other.Team)) || InEnemyRoom(me, other) || InEnemyZone(me, other)) continue;
             float d = V3.DistanceSquared(other.Position, me.Position);
             if (d < bestDistance) { bestDistance = d; best = other; }
         }
@@ -93,7 +102,7 @@ public partial class NetworkView
     /// </summary>
     PlayerInput? BotHoldInput(PlayerState me, uint tick)
     {
-        if (!me.Alive || Watch is not { Door: { } door, Holds.Count: > 0 } w) return null;
+        if (!BotDoorWait || !me.Alive || Watch is not { Door: { } door, Holds.Count: > 0 } w) return null;
         PlayerState? sealedEnemy = null;
         foreach (var o in _lastOthers) if (o.Alive && World.Hostile(me.Team, o.Team) && InEnemyRoom(me, o)) { sealedEnemy = o; break; }
         if (sealedEnemy is not { } waitingFor) return null;

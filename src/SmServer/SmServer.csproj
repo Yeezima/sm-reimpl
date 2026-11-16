@@ -5,6 +5,10 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <!-- polish pass P1 (2026-11-10): a published server (the release's `dotnet publish -r <rid>`, tools/release) is compiled ahead of time (ReadyToRun), so its
+         first ticks of a match no longer wait for the JIT (measured before: a 65 ms tick at the first join, 47 ms of it the world step's first run; tiered
+         compilation still re-jits the hot methods). Plain builds (dotnet build, server.cmd) are unaffected; -p:SmReadyToRun=false publishes JIT-only as before. -->
+    <PublishReadyToRun Condition="'$(RuntimeIdentifier)' != '' and '$(SmReadyToRun)' != 'false'">true</PublishReadyToRun>
   </PropertyGroup>
 
   <ItemGroup>

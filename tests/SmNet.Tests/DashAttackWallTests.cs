@@ -147,12 +147,13 @@ public class DashAttackWallTests(ITestOutputHelper output)
         Assert.Equal(RushPhase.DashCollision, s.Rush);
         while (!s.Grounded) Step(InputButtons.None);
         // Jump on every other tick (fresh presses) until the stop lets it go.
-        int ticks = 0;
-        for (int k = 0; k < 60 && s.Rush == RushPhase.DashCollision; k++) { int before = s.RushTicks; Step(k % 2 == 0 ? InputButtons.Jump : InputButtons.None); ticks = before; }
+        int ticks = 0, presses = 0;
+        for (int k = 0; k < 60 && s.Rush == RushPhase.DashCollision; k++) { int before = s.RushTicks; if (k % 2 == 0) presses++; Step(k % 2 == 0 ? InputButtons.Jump : InputButtons.None); ticks = before; }
         Assert.NotEqual(RushPhase.DashCollision, s.Rush);
         float evadeAt = Rush.MoveOf(Config, s with { Rush = RushPhase.DashCollision })!.EvadeAt;
         output.WriteLine($"scale {scale}: Jump left the wall stop with {ticks} ticks played ({ticks / 30f:F3} s; the branch {evadeAt:F3} s x {scale} = {evadeAt * scale:F3} s)");
-        Assert.InRange(ticks / 30f, evadeAt * scale - 1e-4f, evadeAt * scale + 2f / 30f);
+        // sim/jump-escape (protocol 62; the owner 2026-11-06): the Assault's first Jump press ends the stop at once, whatever the branch and the scale.
+        Assert.Equal(1, presses);
     }
 
     // ---------------------------------------------------------------- the review: an enemy just in front of the wall
@@ -181,12 +182,12 @@ public class DashAttackWallTests(ITestOutputHelper output)
     /// distances, which lost the hit before (the contact was tested only for a charge still charging after its move). Returns the charger's state
     /// after the contact, the hit (or null) and whether the contact came on the wall's tick.
     /// </summary>
-    static (PlayerState Charger, HitEvent? Hit, bool SameTick, ReactionKind Reaction) AtTheWall(bool dash, float wall)
+    static (PlayerState Charger, HitEvent? Hit, bool SameTick, ReactionKind Reaction) AtTheWall(bool dash, float wall, bool solid = true)
     {
         var fast = new RushMove("lunge", FastLine(180f, 60), 2f, 25f / 30f, 25f / 30f, 25f / 30f, 25f / 30f);
         var pack = Config.JumpPacks[0] with { DashAttack = JumpPackAttackTests.DashAttack with { Charge = JumpPackAttackTests.DashAttack.Charge with { Rush = fast } } };
         var rush = RushTests.Spec with { Rush = fast, WallFrom = 0f, WallHitAngle = 60f, ContactUntil = 25f / 30f };
-        var c = Config with { JumpPacks = [pack], Classes = [Config.Classes[0], Config.Classes[1] with { MeleeRush = rush }] };
+        var c = Config with { JumpPacks = [pack], Classes = [Config.Classes[0], Config.Classes[1] with { MeleeRush = rush }], SolidBodies = solid };
         // The dash attack starts 1.7 m up in the dash and flies level: its enemy stands on a 1.5 m pedestal against the wall (within the 1.5 m vertical reach).
         var world = Boxes((new(-40f, wall, 0f), new(40f, wall + 1f, 6f)), dash ? (new(-1f, wall - 1.4f, 0f), new(1f, wall, 1.5f)) : (new(-1f, -50f, -2f), new(1f, -49f, -1f)));
         var w = new World(c, world, [new SpawnPoint(Vector3.Zero, 0f), new SpawnPoint(new Vector3(0f, wall - 1f, dash ? 1.5f : 0f), MathF.PI)]);
@@ -227,10 +228,20 @@ public class DashAttackWallTests(ITestOutputHelper output)
     [InlineData(false)]
     public void An_enemy_a_metre_in_front_of_a_wall_is_hit_and_the_hit_wins_over_the_wall_stop(bool dash)
     {
+        // fix/charge-player-collision (protocol 57): the swept contact meets the enemy at the first touch of the reach, always before the wall's tick here (the enemy stands 1 m in
+        // front of it); the same-tick precedence is pinned with the protocol 56 contact (allies still use it), and every placement must still hit under the new rules.
+        for (float wall = 12f; wall <= 18f; wall += 0.25f)
+        {
+            var (charger, hit, _, reaction) = AtTheWall(dash, wall);
+            Assert.NotNull(hit);
+            Assert.Equal(100f, hit!.Value.ShieldDamage + hit.Value.HealthDamage, 3);
+            Assert.Equal(ReactionKind.Stun, reaction);
+            Assert.Equal(dash ? RushPhase.DashHit : RushPhase.Collision, charger.Rush);
+        }
         int same = 0;
         for (float wall = 12f; wall <= 18f; wall += 0.25f)
         {
-            var (charger, hit, sameTick, reaction) = AtTheWall(dash, wall);
+            var (charger, hit, sameTick, reaction) = AtTheWall(dash, wall, solid: false);
             output.WriteLine($"{(dash ? "dash attack" : "bull rush")}, wall {wall:F2} m, enemy {wall - 1f:F2} m: {(hit is { } h ? $"hit {h.ShieldDamage + h.HealthDamage:F0}" : "no hit")}, charger {charger.Rush} at {charger.Position.Y:F2}{(sameTick ? " (on the wall's tick)" : "")}, enemy {reaction}");
             Assert.NotNull(hit);
             Assert.Equal(100f, hit!.Value.ShieldDamage + hit.Value.HealthDamage, 3);

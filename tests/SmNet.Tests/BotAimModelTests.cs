@@ -119,4 +119,16 @@ public class BotAimModelTests
         Assert.False(new BotAimModel(-1f, 1).IsPerfect);   // clamped to 0: the widest error
         Assert.True(BotAimModel.SigmaFor(0f) > BotAimModel.SigmaFor(0.25f));
     }
+
+    [Fact]
+    public void The_error_scale_keeps_the_body_hit_chance_the_same_at_every_range()
+    {
+        Assert.Equal(1f, BotAimModel.DistanceScale(BotAimModel.ReferenceDistance), 3);
+        Assert.Equal(0.25f, BotAimModel.DistanceScale(60f), 3);
+        Assert.Equal(BotAimModel.MaxScale, BotAimModel.DistanceScale(0.5f));          // point blank: limited
+        Assert.Equal(BotAimModel.MinScale, BotAimModel.DistanceScale(1000f));          // far: limited
+        float sigma = BotAimModel.SigmaFor(0.7f);
+        foreach (float d in new[] { 6f, 15f, 30f, 60f })
+            Assert.Equal(0.7f, BotAimModel.HitChance(sigma * BotAimModel.DistanceScale(d), d), 2);
+    }
 }

@@ -325,7 +325,7 @@ public class MovementFixesTests(ITestOutputHelper output)
         h = h with { EvadeLock = 3 };
         h = Step(h, InputButtons.Jump, 0f, Platform); h = Step(h, InputButtons.None, 0f, Platform);
         for (int k = 0; k < 10; k++) { h = Step(h, InputButtons.Jump, 0f, Platform); Assert.Equal(0, h.EvadeTicks); }
-        Assert.Equal(JumpPhase.Ascent, h.Jump);   // feel/melee-cancels (protocol 54): the hold is the pack jump in the air, not a long press kept for the landing
+        Assert.NotEqual(JumpPhase.Ascent, h.Jump);   // sim/air-jumps (protocol 59): in Classic PvP the hold no longer lifts the pack in the air (feel/melee-cancels' air start is Musou Mode's alone)
     }
 
     [Fact]

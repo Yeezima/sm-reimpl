@@ -310,6 +310,15 @@ public sealed partial class World
             float along = d / relativeLength * length;   // the same fraction of the tick along the projectile's own path
             if (along < best) { best = along; target = id; zone = z; targetDisplacement = displacement; }
         }
+        float stop = float.PositiveInfinity;
+        ExtrasProjectileStop(p, direction, MathF.Min(best, length), ref stop);   // EXTRAS-HOOK added content (Musou Mode): a shield dome or a contraption stops it
+        if (stop <= length && stop <= best)   // a tie with a player: the contraption (already struck by the hook) stops it
+        {
+            var at = p.Position + direction * MathF.Max(0f, stop - 0.05f);
+            _projectiles[i] = p with { Velocity = velocity, Position = at, Travelled = p.Travelled + stop };
+            Detonate(p.Id, at, -1, HitZone.None);
+            return false;
+        }
         p = p with { Velocity = velocity };
         if (target >= 0)
         {
@@ -434,13 +443,18 @@ public sealed partial class World
             ApplyHit(p.Owner, direct, blastDirect, zone == HitZone.None ? HitZone.Body : zone, 0f, 1f, p.Id, false, weapon: p.Weapon, thrownItem: p.Thrown,
                 direction: BlastPush(point, direct, p.Velocity));
         // Every damaging blast in file order; a lingering one is applied now and stays (StepAreas).
-        foreach (var splash in spec.AllSplashes)
+        // EXTRAS-HOOK via SimConfig.ThrownBlastScale: Musou Mode's frag blasts reach twice as far (owner 2026-11-09); 1 everywhere else, so Classic PvP is untouched.
+        // musou/aoe-pass (owner 2026-11-14): a launched projectile of a player (a null item) is scaled too, every player weapon's reach x1.25 in Musou Mode (1 elsewhere); an enemy's (Ork rocket) never.
+        float reach = p.Thrown ? (p.Weapon >= 0 && p.Weapon < Config.Thrown.Count ? Config.ThrownBlastScale(Config.Thrown[p.Weapon]) : 1f)
+            : _players.ContainsKey(p.Owner) ? Config.ThrownBlastScale(null) : 1f;
+        foreach (var splash0 in spec.AllSplashes)
         {
+            var splash = reach == 1f ? splash0 : Combat.ScaledReach(splash0, reach);
             ApplyBlast(p.Owner, p.Id, point, splash, weapon: p.Weapon, thrownItem: p.Thrown);
             if (splash.Lingers) _areas.Add(new LingeringArea(p.Id, p.Owner, p.Weapon, p.Thrown, point, splash) { Applications = 1 });
         }
         var dealt = _hits.Skip(first).ToList();
-        var e = new DetonationEvent(Tick, p.Id, p.Owner, p.Weapon, p.Stage, point, spec.AllSplashes.Select(x => x.Radius).DefaultIfEmpty(0f).Max(),
+        var e = new DetonationEvent(Tick, p.Id, p.Owner, p.Weapon, p.Stage, point, spec.AllSplashes.Select(x => x.Radius).DefaultIfEmpty(0f).Max() * reach,
             dealt.Select(h => h.Target).Distinct().Count(), dealt.Sum(h => h.ShieldDamage), dealt.Sum(h => h.HealthDamage), dealt.Count(h => h.Killed)) { Thrown = p.Thrown };
         _detonations.Add(e);
         _recentDetonations.Add(e);
@@ -480,6 +494,8 @@ public sealed partial class World
     /// feature runs.
     /// </summary>
     partial void ExtrasBlast(int owner, Vector3 point, SplashSpec splash, bool melee);
+    /// <summary>Added content: how far along a projectile's step (from its place, unit <paramref name="direction"/>, at most <paramref name="max"/>) something stops it; it detonates there.</summary>
+    partial void ExtrasProjectileStop(in ProjectileState p, Vector3 direction, float max, ref float stop);
 
     /// <summary>
     /// A blast's push on a player (M23, for the ragdoll; ours): from the blast point to the player's body centre; when they

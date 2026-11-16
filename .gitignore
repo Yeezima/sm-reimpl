@@ -66,7 +66,10 @@ TestResults/
 # Claude Code session data and agent worktrees (local only)
 .claude/
 CLAUDE.local.md
-.mcp.json
+# .mcp.json (the graphify server only) is committed but not pre-approved: each checkout approves it locally (docs/commands.md "Graphify")
+
+# Graphify index (docs/commands.md): local, rebuilt by graphify.cmd index
+graphify-out/
 
 # Log files anywhere in the tree; local working notes and playtest reports at the root only (docs/playtest/ is tracked)
 *.log
@@ -76,3 +79,7 @@ CLAUDE.local.md
 # Godot writes a .uid next to every C# script it imports (only ModelViewer.cs.uid is tracked)
 client/**/*.cs.uid
 client/SmClient.sln
+
+# Python bytecode (tools/blender scripts)
+__pycache__/
+*.pyc

@@ -158,6 +158,11 @@ public partial class NetworkView
         t.AimYaw = aimYaw;
         _bodyThrowTime = throwTime;
         if (NoTurns || TurnData() is not { } data || !s.Alive || (own && OwnDead)) { t.Body.Snap(aimYaw); t.Stand = null; t.StandRig = null; t.PrevStanding = t.WasStanding = false; character.CancelSettle(); return aimYaw; }
+        // Install transitions (NetworkView.SprintEdges.cs): through the 180-degree turn into a sprint the drawn body turns with the clip's root rotation, from where it is when the sprint is shown to the aim.
+        if (SprintTurnYaw(s, aimYaw) is float turnYaw)
+        {
+            t.Body.Snap(turnYaw); t.Stand = null; t.StandRig = null; t.PrevStanding = t.WasStanding = false; character.CancelSettle(); return t.Body.Yaw;
+        }
         // feel/charge-directions (protocol 39): through a charge (the bull rush turned by A / D, the dash attack's lunge any of eight ways) the body is the
         // simulation's heading at once: the forward clips play along the travel, never turned toward it at the follow rate (a backward lunge spun 0.25 s).
         if (s.Rush != RushPhase.None)

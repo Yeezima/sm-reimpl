@@ -11,10 +11,10 @@ namespace SmSim;
 /// <list type="bullet">
 /// <item>Hit-scan rays (<see cref="ShotEvent"/> with an origin, no projectile): tested from the origin to where the core ended them against the enemies
 /// (<see cref="MusouSim.Raycast"/>: a body cylinder and a head sphere); the nearest takes the shot's damage at its distance
-/// (<see cref="Combat.DamageAt(float, WeaponSpec)"/>, or a charged stage's) times the weapon's head or body multiplier, and the tracer ends on it. The weapon
+/// (<see cref="MusouShotDamage"/>: <see cref="Combat.DamageAt(float, WeaponSpec)"/> in the 5-wave run, the full damage at any range in the war; or a charged stage's) times the weapon's head or body multiplier, and the tracer ends on it. The weapon
 /// is the one the shooter carries (its perk variant, as the core fired it).</item>
 /// <item>Cones: every enemy the cone covers (<see cref="MusouSim.ConeCoverage"/>) with a clear line from the eye to its chest takes the cone's damage times
-/// its fall-off and coverage multiplier (<see cref="Cones.Multiplier"/>), on the body, at most <see cref="MusouCombatRules.ConeTargets"/> nearest first;
+/// its fall-off and coverage multiplier (<see cref="MusouConeMultiplier"/>: the coverage alone in the war), on the body, at most <see cref="MusouCombatRules.ConeTargets"/> nearest first;
 /// the shot's hit kind becomes a body hit.</item>
 /// <item>Projectiles: each flying one's move this tick (from where it was after the last tick) is tested against the enemies; the first it meets takes its
 /// direct damage (and its detonation damage); one that detonates on contact goes off there (its blast through <see cref="ExtrasBlast"/>), any other stops
@@ -74,11 +74,12 @@ public sealed partial class World
                     _shots[k] = shot with { Hit = ShotHit.Body, Surface = -1, Target = 0, Armoured = false };
                 continue;
             }
+            if (musou.War is not null) { TfwMekShot(k, ref shot, weapon, direction, ref length); if (!(length > 1e-3f)) continue; }   // Campaign/World.TfwMeks.cs: the domes and the contraptions (expansion S4)
             if (musou.War is { } war) { TfwPierceShot(k, shot, weapon, direction, length, war); continue; }   // Campaign/World.TfwMelee.cs: Musou Mode's shots go through
             ushort enemy = musou.Raycast(shot.Origin, direction, length, out float distance, out bool head);
             if (enemy == 0) continue;
-            var spec = Shots.ChargeShotOf(weapon, shot.Stage)?.Damage ?? weapon.DirectDamage with { Damage = Combat.DamageAt(distance, weapon) };
-            float damage = spec.Damage * (head ? spec.HeadMultiplier : spec.BodyMultiplier);
+            var spec = MusouShotDamage(weapon, shot.Stage, distance, shot.Shooter);
+            float damage = spec.Damage * (head ? spec.HeadMultiplier : spec.BodyMultiplier) * MusouRangedDealt(shot.Shooter);
             musou.Damage(enemy, shot.Shooter, damage, direction, out _, marker: head ? (byte)2 : (byte)1, cause: MusouDeathKind.Shot);
             // The tracer ends on the enemy (the wire carries the end and the hit kind; no player is named).
             _shots[k] = shot with { End = shot.Origin + direction * distance, Hit = head ? ShotHit.Head : ShotHit.Body, Surface = -1, Target = 0, Armoured = false };
@@ -86,6 +87,43 @@ public sealed partial class World
         MusouProjectiles();
         MusouCharges();
     }
+
+    /// <summary>
+    /// The scale on <paramref name="attacker"/>'s ranged damage on the enemies (owner, 2026-11-11: "increase all ranged attack damage by 20%"): <see cref="Extras.Musou.Campaign.TfwCombatRules.PlayerRangedDamageScale"/>
+    /// in Musou Mode's war for a human player's character (<see cref="Extras.Musou.Campaign.TfwCombatRules.ScalesPlayer"/>: an AI Marine keeps his damage), 1 in the 5-wave run and for anyone else.
+    /// Every such gun, projectile, splash and charge hit on the enemies and the contraptions multiplies by it, and since 2026-11-11 the shells of the orbital strike a player called (the owner: "Add it to orbital
+    /// strikes"; <c>TfwShellLands</c>, by <see cref="Extras.Musou.Campaign.TfwShell.Caller"/>); the Librarian's spells and the Orks' own explosions do not.
+    /// </summary>
+    float MusouRangedDealt(int attacker) =>
+        _musou?.War is { } war && _players.ContainsKey(attacker) && Extras.Musou.Campaign.TfwCombatRules.ScalesPlayer(attacker) ? war.PlayerRangedDamageScale : 1f;
+
+    /// <summary>
+    /// The range fall-off on the enemies for a shot of <paramref name="weapon"/> that went <paramref name="distance"/> metres: 1 in Musou Mode's war (the owner, 2026-11-11: "There should be no damage
+    /// falloff for any ranged weapon in Musou mode"; <see cref="Extras.Musou.Campaign.TfwCombatRules.RangeFallOff"/>) for a human player's shots (owner 2026-11-11: AI Marines keep their fall-off), every weapon; otherwise the weapon's own fall-off
+    /// (<see cref="Combat.FallOff(float, WeaponSpec)"/>) in the 5-wave run (pinned replay). The one place every Musou shot path asks (<see cref="MusouShotDamage"/>, <see cref="MusouConeMultiplier"/>).
+    /// </summary>
+    float MusouRangeFallOff(WeaponSpec weapon, float distance, int shooter) => MusouNoRangeFallOff(shooter) ? 1f : Combat.FallOff(distance, weapon);
+
+    /// <summary>
+    /// Whether <paramref name="shooter"/>'s shots lose no damage with range (<see cref="MusouRangeFallOff"/>): in the war a human player's (owner, 2026-11-11: "alliedmarine should not lose range falloff":
+    /// an AI Marine's gun keeps its own fall-off, <see cref="Extras.Musou.Campaign.TfwCombatRules.ScalesPlayer"/>), never in the 5-wave run.
+    /// </summary>
+    bool MusouNoRangeFallOff(int shooter) => _musou?.War is { RangeFallOff: false } && Extras.Musou.Campaign.TfwCombatRules.ScalesPlayer(shooter);
+
+    /// <summary>
+    /// A hit-scan shot's damage on an enemy or a contraption <paramref name="distance"/> metres away: its charged stage's (which has no fall-off of its own), else the weapon's damage times
+    /// <see cref="MusouRangeFallOff"/> (in the 5-wave run exactly <see cref="Combat.DamageAt(float, WeaponSpec)"/>). The 5-wave run's rays, the war's piercing rays and the contraptions' shots read it.
+    /// </summary>
+    DamageSpec MusouShotDamage(WeaponSpec weapon, int stage, float distance, int shooter) =>
+        Shots.ChargeShotOf(weapon, stage)?.Damage ?? weapon.DirectDamage with { Damage = weapon.Damage * MusouRangeFallOff(weapon, distance, shooter) };
+
+    /// <summary>
+    /// A cone's multiplier on an enemy <paramref name="distance"/> metres away with <paramref name="coverage"/>: in the war its coverage multiplier alone (no distance fall-off: the melta's full damage
+    /// to the end of its cone, <see cref="MusouRangeFallOff"/>'s rule), else <see cref="Cones.Multiplier"/> (the 5-wave run).
+    /// </summary>
+    float MusouConeMultiplier(ConeSpec cone, float distance, float coverage, int shooter) =>
+        !MusouNoRangeFallOff(shooter) ? Cones.Multiplier(cone, distance, coverage)
+        : coverage <= 0f ? 0f : cone.CoverageFallOff.Count == 0 ? 1f : Combat.PointValue(cone.CoverageFallOff, coverage);   // Cones.Multiplier without its distance factor
 
     /// <summary>The weapon a shot left as its shooter carries it (the perk variant the core fired, <see cref="Loadouts.InHand"/>), else the config's.</summary>
     WeaponSpec MusouWeaponOf(in ShotEvent shot) =>
@@ -107,12 +145,12 @@ public sealed partial class World
             float coverage = MusouSim.ConeCoverage(cone, origin, direction, e.Position, radius, height);
             if (coverage <= 0f) continue;
             var chest = MusouSim.Chest(e.Position, height);
-            if (Blocked(origin, chest)) continue;
+            if (Blocked(origin, chest) || TfwShielded(origin, chest)) continue;   // TfwShielded: a dome from outside (expansion S4)
             float distance = Vector3.Distance(origin, chest);
-            float multiplier = Cones.Multiplier(cone, distance, coverage);
+            float multiplier = MusouConeMultiplier(cone, distance, coverage, shooter);   // no distance fall-off in the war (owner 2026-11-11)
             if (multiplier <= 0f) continue;
             covered++;
-            if (musou.Damage(e.Id, shooter, cone.Damage.Damage * multiplier * cone.Damage.BodyMultiplier, chest - origin, out _, marker: 1, cause: MusouDeathKind.Shot)) any = true;
+            if (musou.Damage(e.Id, shooter, cone.Damage.Damage * multiplier * cone.Damage.BodyMultiplier * MusouRangedDealt(shooter), chest - origin, out _, marker: 1, cause: MusouDeathKind.Shot)) any = true;
         }
         return any;
     }
@@ -143,12 +181,13 @@ public sealed partial class World
             ushort enemy = musou.War is not null && !p.Thrown ? TfwPierceProjectile(p, from, direction, length, out distance, out head) : musou.Raycast(from, direction, length, out distance, out head);
             if (enemy == 0 || (_musouProjectileStruck.TryGetValue(id, out var struck) && struck == enemy)) continue;
             var point = from + direction * distance;
+            bool stays = false; ArsenalProjectileMeets(id, enemy, 0, point, ref stays);   // Arsenal/World.Arsenal.cs: a projectile of the arsenal meeting an enemy (W4, the sticking charge); a no-op until then
             var spec = SpecOf(p);
             if (!p.Thrown && Shots.DirectDamageOf(WeaponOf(p), p.Stage) is { } direct)
-                musou.Damage(enemy, p.Owner, direct.Damage * (head ? direct.HeadMultiplier : direct.BodyMultiplier), direction, out _, marker: head ? (byte)2 : (byte)1, cause: spec.DetonateOnCollision ? MusouDeathKind.Blast : MusouDeathKind.Shot);   // a launcher's or plasma round that bursts on him kills as a blast
+                musou.Damage(enemy, p.Owner, direct.Damage * (head ? direct.HeadMultiplier : direct.BodyMultiplier) * MusouRangedDealt(p.Owner), direction, out _, marker: head ? (byte)2 : (byte)1, cause: spec.DetonateOnCollision ? MusouDeathKind.Blast : MusouDeathKind.Shot);   // a launcher's or plasma round that bursts on him kills as a blast
             if (spec.DetonateOnCollision)
             {
-                if (spec.DetonateDamage is { } blast) musou.Damage(enemy, p.Owner, blast.Damage * blast.BodyMultiplier, direction, out _, cause: MusouDeathKind.Blast);
+                if (spec.DetonateDamage is { } blast) musou.Damage(enemy, p.Owner, blast.Damage * blast.BodyMultiplier * MusouRangedDealt(p.Owner), direction, out _, cause: MusouDeathKind.Blast);
                 Detonate(id, point, -1, HitZone.None);   // its splash reaches the enemies through ExtrasBlast
                 continue;
             }
@@ -184,6 +223,12 @@ public sealed partial class World
     /// </summary>
     void MusouCharges()
     {
+        if (_musouHealTick.Count > 0)   // a removed player's heal counters go with him (as _musouCharged's below)
+        {
+            _musouStale.Clear();
+            foreach (int id in _musouHealTick.Keys) if (!_players.ContainsKey(id)) _musouStale.Add(id);
+            foreach (int id in _musouStale) { _musouHealTick.Remove(id); _musouHealCount.Remove(id); _musouHealed.RemoveWhere(h => h.Attacker == id); }
+        }
         _history.TryGetValue(Tick - 1, out var start);   // every player as this tick began
         bool any = _rushes.Count > 0 || _musouCharged.Count > 0;
         foreach (var p in _players.Values) any |= p.Rush != RushPhase.None;
@@ -214,17 +259,17 @@ public sealed partial class World
             var forward = line.LengthSquared() > 1e-8f ? Vector2.Normalize(line) : new Vector2(-MathF.Sin(p.Yaw), MathF.Cos(p.Yaw));
             for (int k = 0; k < n && hit.Count < rules.ChargeTargets; k++)
             {
-                if (hit.Contains(_musouNear[k]) || !musou.TryGet(_musouNear[k], out var e)) continue;
+                if (hit.Contains(_musouNear[k]) || !musou.TryGet(_musouNear[k], out var e) || !e.Alive) continue;   // !Alive: one a Weirdboy's burst killed earlier in this loop
                 var (radius, _) = musou.Body(e.Type);
                 if (MusouSim.FlatDistanceToSegment(e.Position, from, p.Position) > radius + Config.CapsuleRadius + spec.ContactMargin) continue;
                 hit.Add(e.Id);
                 var side = new Vector2(e.Position.X - p.Position.X, e.Position.Y - p.Position.Y);
                 var push = forward + (side.LengthSquared() > 1e-8f ? Vector2.Normalize(side) * 0.5f : Vector2.Zero);
-                float damage = spec.Primary.Damage * spec.Primary.BodyMultiplier * Stims.MeleeDealt(Config, p);
+                float damage = spec.Primary.Damage * spec.Primary.BodyMultiplier * MusouMeleeDealt(id, p);   // a stim's melee, held with the powerups' under x2 (World.MusouPowerups.cs)
                 musou.Damage(e.Id, id, damage, new Vector3(push, 0f), out bool killed, marker: 3, cause: MusouDeathKind.Melee);
                 if (killed) continue;
                 if (musou.War is { } war && MusouSim.Fodder(e.Type)) musou.KnockDown(e.Id, push, war.ChargePush, id, war.ChargeDeath);   // Musou Mode's fodder falls
-                else musou.Stagger(e.Id, push, rules.HeavyKnockback);
+                else musou.StaggerMelee(e.Id, push, rules.HeavyKnockback, id);   // a charge staggers a boss too (melee stuns land on bosses, MusouSim.BossStun.cs)
             }
         }
         if (_musouCharged.Count > 0)
@@ -235,31 +280,43 @@ public sealed partial class World
         }
     }
 
+    /// <summary>Where the last <see cref="MusouCleave"/> struck an enemy (the nearest one's chest), null when it struck none: the point of the Dreadnought's Overcharge shockwave.</summary>
+    Vector3? _musouCleaveHit;
+
     /// <summary>The cleave of one melee step (see the class summary).</summary>
     void MusouCleave(int attacker, PlayerState state, MeleeStep step)
     {
+        _musouCleaveHit = null;   // every swing starts with no hit point: an early return below must not leave the last swing's (or another player's) for the Overcharge wave
         if (_state != MatchState.Playing) return;
         MusouBeginTick();
         var musou = _musou!;
         var rules = musou.Rules.Combat;
         bool heavy = MusouSim.Heavy(state, step);
-        float damage = step.Damage * step.HealthMultiplier * Stims.MeleeDealt(Config, state);
+        float damage = step.Damage * step.HealthMultiplier * MusouMeleeDealt(attacker, state);   // a stim's melee, held with the powerups' under x2 (World.MusouPowerups.cs)
         if (!(damage > 0f) && !heavy) return;
-        float range = Config.MeleeRange + rules.CleaveExtraRange + (step.TrackToHit ? MusouCombatRules.CleaveTrackRange : 0f);
+        float range = rules.CleaveRange(Config.MeleeRange, step.TrackToHit, war: musou.War is not null);   // x1.5 (owner 2026-11-08)
         float minCos = MathF.Cos(MathF.Min(180f, Config.MeleeConeDegrees * rules.CleaveConeScale) * MathF.PI / 180f);
+        if (musou.War is { } volume) { range *= volume.CleaveReachScale; minCos = volume.CleaveMinCos; }   // owner 2026-11-09: a longer, wider flat cone in the war
+        int most = musou.War?.CleaveTargets ?? rules.CleaveTargets;
+        if (Extras.Musou.DreadnoughtRules.IsDreadnought(Config, state.Class)) most = MusouSim.Capacity;   // the buff (owner 2026-11-15: "cleave infinitely"): no cap for him in the 5-wave run either (its CleaveTargets is 8)
+        ArsenalCleave(attacker, state, step, ref range, ref minCos, ref most, ref damage);   // Arsenal/World.Arsenal.cs: a weapon's own cleave (W3: the power spear's sweeps, Arsenal/World.Spear.cs)
+        if (musou.War is { } trim && Extras.Musou.Campaign.TfwCombatRules.ScalesPlayer(attacker)) range *= trim.PlayerCleaveReachScale;   // owner 2026-11-11: "reduce melee attack cleave range by 40%", humans only (after each weapon's shape; MusouCleaveShape draws the same)
+        MusouSuperchargedCleave(attacker, ref range, ref minCos);   // the Supercharged Melee powerup: a wider, longer cleave (World.MusouPowerups.cs)
         var forward = new Vector2(-MathF.Sin(state.Yaw), MathF.Cos(state.Yaw));
         var eye = state.Position + new Vector3(0, 0, Config.EyeHeight);
         int n = musou.Query(state.Position, range, _musouNear, Config.MeleeVerticalReach);
         int struck = 0;
-        int most = musou.War?.CleaveTargets ?? rules.CleaveTargets;
+        float nearest = float.MaxValue;   // the Dreadnought's Overcharge: where the swing struck (the nearest enemy hit)
         for (int k = 0; k < n && struck < most; k++)
         {
-            if (!musou.TryGet(_musouNear[k], out var e)) continue;
+            if (!musou.TryGet(_musouNear[k], out var e) || !e.Alive) continue;   // !Alive: one a Weirdboy's burst killed earlier in this loop
             var flat = new Vector2(e.Position.X - state.Position.X, e.Position.Y - state.Position.Y);
             float distance = flat.Length();
             if (distance > 1e-4f && Vector2.Dot(flat / distance, forward) < minCos) continue;   // overlapping counts as in front, as the core's
             if (Blocked(eye, MusouSim.Chest(e.Position, musou.Body(e.Type).Height))) continue;
             struck++;
+            if (distance < nearest) { nearest = distance; _musouCleaveHit = MusouSim.Chest(e.Position, musou.Body(e.Type).Height); }
+            MusouMeleeHeal(attacker, e.Id);   // the owner 2026-11-06: a heal for every enemy hit (one already healed for by this tick's stomp is not counted twice)
             var push = distance > 1e-4f ? flat / distance : forward;
             bool killed = false;
             // The lead's rule (MU3a review): an enemy inside the step's stomp and its cleave takes the larger of the two, not both.
@@ -267,59 +324,124 @@ public sealed partial class World
             if (damage > stomped) musou.Damage(e.Id, attacker, damage - stomped, new Vector3(push, 0f), out killed, marker: 3, cause: MusouDeathKind.Melee);
             if (killed) continue;
             if (musou.War is { } war && MusouSim.Fodder(e.Type)) musou.KnockDown(e.Id, push, war.MeleePush, attacker, war.MeleeDeath);   // Musou Mode's fodder falls to any melee hit
-            else if (heavy) musou.Stagger(e.Id, push, rules.HeavyKnockback);
+            else if (heavy) musou.StaggerMelee(e.Id, push, rules.HeavyKnockback, attacker);   // a heavy swing, the spear's and the claw's included, stuns a boss too (MusouSim.BossStun.cs)
         }
         _musouStomped.Clear();
-        if (struck > 0) MusouMeleeHeal(attacker);
         if (musou.War is not null) TfwBestCleave = Math.Max(TfwBestCleave, struck);
     }
 
     /// <summary>
-    /// The owner, 2026-11-02: "regerate 5% of your health every time your melee attack hits at least 1 opponent": once a tick, however many it struck (a stomp and its cleave are one attack). Of the player's whole
-    /// health, never over it; the armour shield is left alone.
+    /// The owner, 2026-11-02: "regerate 5% of your health every time your melee attack hits at least 1 opponent"; 2026-11-06: "in musou mode the heal effect should heal for every enemy you hit,
+    /// not just one time for each landed melee swing": 5 % for each enemy <paramref name="enemy"/> the attack strikes, each enemy once a tick (a stomp and its cleave are one attack, so an enemy
+    /// in both heals once). Of the player's whole health, never over it; the armour shield is left alone.
     /// </summary>
-    void MusouMeleeHeal(int attacker)
+    void MusouMeleeHeal(int attacker, int enemy)
     {
-        if (_musouHealTick.TryGetValue(attacker, out uint last) && last == Tick) return;
         if (!_players.TryGetValue(attacker, out var p) || !p.Alive) return;
-        _musouHealTick[attacker] = Tick;
-        float most = Loadouts.Body(Config, p).HealthMax;
-        _players[attacker] = p with { Health = MathF.Min(most, p.Health + most * MusouCombatRules.MeleeHealShare) };
+        if (!_musouHealTick.TryGetValue(attacker, out uint last) || last != Tick) { _musouHealTick[attacker] = Tick; _musouHealed.RemoveWhere(h => h.Attacker == attacker); _musouHealCount[attacker] = 0; }
+        if (!_musouHealed.Add((attacker, enemy))) return;
+        // musou/melee-heal-cap (owner 2026-11-12): one swing = one attacker's strike step, resolved in one tick (a stomp and its cleave, or a spear impale); only the first MeleeHealsPerSwing enemies struck heal.
+        int healed = _musouHealCount.GetValueOrDefault(attacker);
+        if (!Config.MusouUncappedMeleeHeal && healed >= MusouCombatRules.MeleeHealsPerSwing) return;
+        _musouHealCount[attacker] = healed + 1;
+        // musou/combat-rules (owner, 2026-11-09): every strike also gives back 5 % of the armour; while a combat stim works a strike gives 25 % health and 20 % armour INSTEAD of the 5 % and 5 %.
+        bool stim = Stims.Active(Config, p) is not null;
+        MusouRestore(attacker, stim ? MusouCombatRules.StimStrikeHealthShare : MusouCombatRules.MeleeHealShare, stim ? MusouCombatRules.StimStrikeArmourShare : MusouCombatRules.MeleeArmourShare);
     }
 
-    readonly Dictionary<int, uint> _musouHealTick = new();
+    /// <summary>Gives <paramref name="attacker"/> back these shares of his whole health and armour, never over the maximum.</summary>
+    void MusouRestore(int attacker, float healthShare, float armourShare)
+    {
+        if (!_players.TryGetValue(attacker, out var p) || !p.Alive) return;
+        var body = Loadouts.Body(Config, p);
+        _players[attacker] = p with
+        {
+            Health = MathF.Min(body.HealthMax, p.Health + body.HealthMax * healthShare),
+            Shield = MathF.Min(body.ShieldMax, p.Shield + body.ShieldMax * armourShare),
+        };
+    }
 
-    /// <summary>A blast on the enemies (see the class summary).</summary>
-    void MusouBlast(int owner, Vector3 point, SplashSpec splash, bool melee)
+    /// <summary>The air slash's landing (owner, 2026-11-09): 25 % of the health and 10 % of the armour, once per landing, whether or not it struck anybody.</summary>
+    void MusouSlashLandHeal(int player) => MusouRestore(player, MusouCombatRules.SlashLandHealthShare, MusouCombatRules.SlashLandArmourShare);
+
+    readonly Dictionary<int, uint> _musouHealTick = new();
+    readonly Dictionary<int, int> _musouHealCount = new();   // heals given this tick (_musouHealTick) to each attacker: the cap per swing
+    readonly HashSet<(int Attacker, int Enemy)> _musouHealed = new();
+
+    /// <summary>
+    /// A blast on the enemies (see the class summary). <paramref name="bolt"/>: a Musou Mode bolt blast (<see cref="TfwCombatRules.BoltBlastKnocksDown"/>, owner 2026-11-08): a kill is
+    /// <see cref="MusouDeathKind.BoltBlast"/> (torn apart, not thrown); one hurt and alive falls where he stands (fodder) or staggers with no knockback (the rest).
+    /// </summary>
+    void MusouBlast(int owner, Vector3 point, SplashSpec splash, bool melee, bool bolt = false)
     {
         if (_state != MatchState.Playing || splash.BlindOnly || !(splash.Radius > 0f)) return;
         MusouBeginTick();
         var musou = _musou!;
         var rules = musou.Rules.Combat;
         int n = musou.Query(point, splash.Radius, _musouNear, verticalReach: splash.Radius + 3f);
+        // Corpse cap (the owner, 2026-11-08: "limit the number of flying orks per grenade throw to 20. the rest get knocked down or if they died explode"): a blast's kills nearest it
+        // first; of one throw (its frags' blasts within MusouCombatRules.BlastThrowWindowSeconds of the first, the same owner) the first MusouCombatRules.BlastThrownMax die as Blast
+        // (thrown), the later ones as BoltBlast (torn apart where they stand, no corpse).
+        bool capped = !melee && !bolt;
+        if (capped) SortNearest(musou, point, n);
+        int thrownLeft = capped ? ThrownLeft(owner, rules) : 0;
+        float ranged = melee ? 1f : MusouRangedDealt(owner);   // a player's splash (a burst, a frag, a bolt or autocannon blast) x1.2 in the war; a stomp is melee
         for (int k = 0; k < n; k++)
         {
-            if (!musou.TryGet(_musouNear[k], out var e)) continue;
+            if (!musou.TryGet(_musouNear[k], out var e) || !e.Alive) continue;   // !Alive: one a Weirdboy's burst killed earlier in this loop
             var chest = MusouSim.Chest(e.Position, musou.Body(e.Type).Height);
             float distance = Vector3.Distance(chest, point);
             if (distance > splash.Radius) continue;
             if (splash.LineOfSight && Blocked(point, chest)) continue;
+            if (TfwShielded(point, chest)) continue;   // Campaign/World.TfwMeks.cs: a dome stops a blast from outside (expansion S4)
             float intensity = Combat.SplashIntensity(splash.FallOff, distance);
             if (!(intensity > 0f)) continue;
             var away = new Vector2(e.Position.X - point.X, e.Position.Y - point.Y);
             var push = away.LengthSquared() > 1e-8f ? Vector2.Normalize(away) : new Vector2(-MathF.Sin(e.Yaw), MathF.Cos(e.Yaw));
-            float damage = splash.Damage.Damage * intensity * splash.Damage.BodyMultiplier;
+            float damage = splash.Damage.Damage * intensity * splash.Damage.BodyMultiplier * ranged;
             bool killed = false;
-            if (damage > 0f) musou.Damage(e.Id, owner, damage, new Vector3(push, 0.3f), out killed, cause: melee ? MusouDeathKind.Melee : MusouDeathKind.Blast);
+            if (damage > 0f) musou.Damage(e.Id, owner, damage, new Vector3(push, 0.3f), out killed, cause: melee ? MusouDeathKind.Melee : bolt || thrownLeft <= 0 ? MusouDeathKind.BoltBlast : MusouDeathKind.Blast);
+            if (killed && capped && thrownLeft > 0) thrownLeft--;
             if (melee && damage > 0f)
             {
-                MusouMeleeHeal(owner);
+                MusouMeleeHeal(owner, e.Id);
                 // A stomp: the step's cleave follows at once (ResolveMelee) and gives each enemy only what it adds to this.
                 if (_musouStompTick != Tick || _musouStompBy != owner) { _musouStomped.Clear(); _musouStompTick = Tick; _musouStompBy = owner; }
                 _musouStomped[e.Id] = _musouStomped.GetValueOrDefault(e.Id) + damage;
             }
-            if (!killed && intensity >= rules.BlastStaggerIntensity) musou.Stagger(e.Id, push, rules.BlastKnockback * MathF.Min(1f, intensity));
+            if (bolt)
+            {
+                // Knocked down on the spot, never thrown: no throw distance, no death roll; one already down stays down. Not a fodder Ork: a stagger in place.
+                if (!killed && damage > 0f && musou.TryGet(e.Id, out var hurt) && hurt.Alive && !musou.KnockDown(e.Id, push, 0f, owner, 0f)) musou.Stagger(e.Id, push, 0f);
+                continue;
+            }
+            if (killed || intensity < rules.BlastStaggerIntensity) continue;
+            float knock = rules.BlastKnockback * MathF.Min(1f, intensity);
+            // Corpse cap: in Musou Mode's war a fodder Ork the blast leaves alive is knocked down (thrown back as before, then on the ground); the rest stagger as before.
+            if (capped && musou.KnockDown(e.Id, push, knock, owner, 0f)) continue;
+            if (melee) musou.StaggerMelee(e.Id, push, knock, owner);   // a ground pound stuns a boss too (MusouSim.BossStun.cs)
+            else musou.Stagger(e.Id, push, knock);   // no other stagger moves a boss
         }
+        if (capped) _musouThrowBudget[owner] = (_musouThrowBudget[owner].First, rules.BlastThrownMax - thrownLeft);
+    }
+
+    readonly Dictionary<int, (uint First, int Thrown)> _musouThrowBudget = new();
+
+    /// <summary>How many more of <paramref name="owner"/>'s blast kills may die thrown: a blast after the throw's window starts a new throw (<see cref="MusouCombatRules.BlastThrownMax"/>).</summary>
+    int ThrownLeft(int owner, MusouCombatRules rules)
+    {
+        uint window = (uint)MathF.Max(1f, MathF.Round(rules.BlastThrowWindowSeconds * Config.TickRate));
+        if (!_musouThrowBudget.TryGetValue(owner, out var b) || Tick - b.First > window) _musouThrowBudget[owner] = b = (Tick, 0);
+        return Math.Max(0, rules.BlastThrownMax - b.Thrown);
+    }
+
+    readonly float[] _musouNearMetres = new float[MusouSim.Capacity];
+
+    /// <summary>The first <paramref name="n"/> of <see cref="_musouNear"/> ordered nearest <paramref name="point"/> first (the enemy's place; ties by id, so the order is repeatable).</summary>
+    void SortNearest(MusouSim musou, Vector3 point, int n)
+    {
+        for (int k = 0; k < n; k++) _musouNearMetres[k] = musou.TryGet(_musouNear[k], out var e) ? Vector3.DistanceSquared(e.Position, point) + _musouNear[k] * 1e-7f : float.MaxValue;
+        Array.Sort(_musouNearMetres, _musouNear, 0, n);
     }
 
     /// <summary>
@@ -336,14 +458,6 @@ public sealed partial class World
             _musouBoss = new MusouBoss(_musou!, director, director.BossId, director.BossMaxHealth, Config.CapsuleRadius);
         _musouBossStrikes.Clear();
         _musouBoss.Step(targets, fight, _musouBossStrikes);
-        foreach (var strike in _musouBossStrikes)
-        {
-            if (!_players.TryGetValue(strike.Player, out var before) || !before.Alive) continue;
-            MusouHit(new MusouAttack(_musouBoss.Id, strike.Player, strike.Damage, Melee: true, Staggers: strike.Knockback <= 0f, strike.From));
-            // The charge: the core's stagger with a knockback, when the hit landed (an enemy's damage scale of 0 hurts nobody and throws nobody).
-            if (strike.Knockback > 0f && _players[strike.Player] is { Alive: true } after && (after.Health < before.Health || after.Shield < before.Shield))
-                TryReact(0, strike.Player, new ReactionEntry(0f, ReactionKind.Stagger, Backward: strike.Knockback, Duration: _musou!.Rules.Boss.ChargeKnockbackSeconds),
-                    strike.From, strike.Push);
-        }
+        foreach (var strike in _musouBossStrikes) MusouBossHit(_musouBoss.Id, strike);   // World.Musou.cs: the damage, the slam's stagger and the charge's knockback
     }
 }

@@ -26,6 +26,13 @@ public enum ContentExtras : uint
     /// and its config hash are unchanged), and <c>--content musou</c> only alone (never combined with another flag).
     /// </summary>
     Musou = 8,
+    /// <summary>
+    /// The autocannon in Classic PvP (the owner, 2026-11-11: "add the autocannon to classic pvp mode with everything the same except: no aoe blast radius / simply higher single shot
+    /// damage to be the same as the stalker - with the original games headshot bonus value"): Musou's arsenal autocannon as a Devastator and Havoc heavy weapon in Annihilation and
+    /// Seize Ground, with the Stalker Bolter's shot damage and head multipliers, no blast, its data's ammunition and its original sounds (<c>SmContent.Extras.Musou.Arsenal.Arsenal.WithClassicAutocannon</c>).
+    /// In <see cref="ContentExtrasInfo.All"/>, so <c>extended</c> has it (and its config hash changed with it, 2026-11-11); <c>--content autocannon</c> alone; never with Musou.
+    /// </summary>
+    Autocannon = 16,
 }
 
 /// <summary>The build-wide facts about <see cref="ContentExtras"/> (C# 14 static extension members: <c>ContentExtras.WireVersion</c>, <c>ContentExtras.Compiled</c>).</summary>
@@ -67,7 +74,7 @@ public static class ContentExtrasInfo
         /// Every added content of the <c>extended</c> profile. <see cref="ContentExtras.Musou"/> is a mode of its own and not in it (its profile is
         /// <c>musou</c> alone); <see cref="Known"/> has every flag.
         /// </summary>
-        public static ContentExtras All => ContentExtras.Orks | ContentExtras.Gore | ContentExtras.LoyalistBarks;
+        public static ContentExtras All => ContentExtras.Orks | ContentExtras.Gore | ContentExtras.LoyalistBarks | ContentExtras.Autocannon;   // the Classic autocannon since 2026-11-11 (the extended hash moved with it)
 
         /// <summary>Every flag this source tree knows: <see cref="All"/> and <see cref="ContentExtras.Musou"/>.</summary>
         public static ContentExtras Known => ContentExtras.All | ContentExtras.Musou;
@@ -95,7 +102,8 @@ public static class ContentProfiles
     public static ContentExtras Default => ContentExtras.Compiled && TryParse(DefaultName, out var extras, out _) ? extras : ContentExtras.None;
 
     /// <summary>The flag names of a list (lower case, as <c>--content</c> takes them).</summary>
-    static readonly (string Name, ContentExtras Flag)[] Flags = [("orks", ContentExtras.Orks), ("gore", ContentExtras.Gore), ("loyalist-barks", ContentExtras.LoyalistBarks), (Musou, ContentExtras.Musou)];
+    static readonly (string Name, ContentExtras Flag)[] Flags =
+        [("orks", ContentExtras.Orks), ("gore", ContentExtras.Gore), ("loyalist-barks", ContentExtras.LoyalistBarks), ("autocannon", ContentExtras.Autocannon), (Musou, ContentExtras.Musou)];
 
     /// <summary>
     /// Parses a <c>--content</c> value: <c>faithful</c>, <c>extended</c>, <c>musou</c> or flags such as <c>orks,gore</c> (case and spaces ignored). False
@@ -158,9 +166,14 @@ public static class ContentProfiles
         return string.Join(",", names);
     }
 
-    /// <summary>The profile and extras wire version for a log line or refusal: "faithful", or "extended (orks,gore; extras wire 1)".</summary>
+    /// <summary>
+    /// The profile and extras wire version for a log line or refusal: "faithful", "extended (orks,gore,loyalist-barks,autocannon; extras wire 2)" (extended names its flags), or a list as its name
+    /// alone, "orks,gore (extras wire 2)" (2026-11-11: no longer repeated, so the server's refusal of any profile fits its 200 characters with the fourth Classic flag).
+    /// </summary>
     public static string Describe(ContentExtras extras) =>
-        extras == ContentExtras.None ? Faithful : $"{Name(extras)} ({string.Join(",", Flags.Where(f => extras.HasFlag(f.Flag)).Select(f => f.Name))}; extras wire {ContentExtras.WireVersion})";
+        extras == ContentExtras.None ? Faithful
+        : extras == ContentExtras.All ? $"{Name(extras)} ({string.Join(",", Flags.Where(f => extras.HasFlag(f.Flag)).Select(f => f.Name))}; extras wire {ContentExtras.WireVersion})"
+        : $"{Name(extras)} (extras wire {ContentExtras.WireVersion})";
 }
 
 public sealed partial record SimConfig
@@ -176,4 +189,116 @@ public sealed partial record SimConfig
     /// <see cref="ContentExtras.WireVersion"/>; called only when <see cref="Extras"/> is not None. Implemented in an <c>Extras/</c> folder.
     /// </summary>
     partial void ExtrasHash(BinaryWriter w);
+
+    /// <summary>
+    /// sim/air-jumps (owner, 2026-11-06: "only in musou mode should the assault marine/raptor have extra/infinite jumps. in classic pvp mode the assault marine/raptor
+    /// class should not be able to jump full height during an existing jump. they should only be able to hop with space bar + WASD"): whether a jump-pack class with a dash
+    /// may start a full jump while airborne (a Space hold while falling, after a jump's apex, after an air hop or in a charge held in the air: feel/melee-cancels, protocol 54).
+    /// False in Classic PvP (and every non-Musou match): in the air only the hop (the dash, sim/movement-fixes C) starts. Set by added content through
+    /// <see cref="ExtrasAirJumps"/> (Musou Mode: true). Not hashed itself: Musou's own hash block covers it, and a Classic match never sets it.
+    /// </summary>
+    public bool JumpPackAirJumps
+    {
+        get
+        {
+            bool allowed = false;
+            ExtrasAirJumps(ref allowed);   // EXTRAS-HOOK
+            return allowed;
+        }
+    }
+
+    /// <summary>Hook for added content (docs/added-content.md): sets <paramref name="allowed"/> when an extra lets the jump-pack classes jump again in the air (<see cref="JumpPackAirJumps"/>).</summary>
+    partial void ExtrasAirJumps(ref bool allowed);
+
+    /// <summary>
+    /// Whether the Aim key puts class <paramref name="classIndex"/> in aim mode (zoom) although he holds no weapon (owner, 2026-11-12: "Add a zoom to the librarian - he should have the same zoom as the other classes").
+    /// Always false in Classic PvP (every class there has a weapon): aim mode needs a ranged weapon in hand, as ever. Set by added content through <see cref="ExtrasAimWithoutWeapon"/>.
+    /// </summary>
+    public bool AimsWithoutWeapon(int classIndex)
+    {
+        bool aims = false;
+        ExtrasAimWithoutWeapon(classIndex, ref aims);   // EXTRAS-HOOK
+        return aims;
+    }
+
+    /// <summary>Hook for added content (docs/added-content.md): sets <paramref name="aims"/> when a weaponless class zooms with the Aim key (<see cref="AimsWithoutWeapon"/>).</summary>
+    partial void ExtrasAimWithoutWeapon(int classIndex, ref bool aims);
+
+    /// <summary>
+    /// musou/no-spread (owner, 2026-11-06: "in musou mode only completely remove bullet spread"): every shot goes exactly along its aim (no scatter, no bloom, no melee flinch scatter) and the
+    /// reticle stays closed. False in Classic PvP (and every non-Musou match). Set by added content through <see cref="ExtrasNoBulletSpread"/>; not hashed itself (Musou's block covers it).
+    /// </summary>
+    public bool NoBulletSpread
+    {
+        get
+        {
+            bool off = false;
+            ExtrasNoBulletSpread(ref off);   // EXTRAS-HOOK
+            return off;
+        }
+    }
+
+    /// <summary>Hook for added content (docs/added-content.md): sets <paramref name="off"/> when an extra removes the bullet spread (<see cref="NoBulletSpread"/>).</summary>
+    partial void ExtrasNoBulletSpread(ref bool off);
+
+    /// <summary>
+    /// musou/melee-spam (owner, 2026-11-12: "In Musou mode only, a player should be able to spam melee attacks with no cooldown or delay"): light melee attacks have no cooldown, wait or combo window (a press
+    /// before the swing's hit queues the next swing for the hit's tick, a press after it swings at once). False in Classic PvP. Set by added content through <see cref="ExtrasMeleeSpam"/>; Musou's block covers it.
+    /// </summary>
+    public bool MeleeSpam
+    {
+        get
+        {
+            bool on = false;
+            ExtrasMeleeSpam(ref on);   // EXTRAS-HOOK
+            return on;
+        }
+    }
+
+    /// <summary>Hook for added content (docs/added-content.md): sets <paramref name="on"/> when an extra lets light melee attacks be spammed (<see cref="MeleeSpam"/>).</summary>
+    partial void ExtrasMeleeSpam(ref bool on);
+
+    /// <summary>
+    /// sim/sprint-melee-charge (owner 2026-11-15, decided for Musou the same day): true when added content keeps a light press while sprinting a swing (Musou Mode's input), so the sprint charge
+    /// (<see cref="SprintMeleeCharge"/>) is Classic PvP only. False in Classic PvP. Set through <see cref="ExtrasSprintMeleeKept"/>.
+    /// </summary>
+    public bool SprintMeleeKept
+    {
+        get
+        {
+            bool on = false;
+            ExtrasSprintMeleeKept(ref on);   // EXTRAS-HOOK
+            return on;
+        }
+    }
+
+    /// <summary>Hook for added content (docs/added-content.md): sets <paramref name="on"/> when an extra keeps the light press while sprinting a swing (<see cref="SprintMeleeKept"/>).</summary>
+    partial void ExtrasSprintMeleeKept(ref bool on);
+
+    /// <summary>
+    /// night batch 2026-11-06 (owner: "in classic pvp mode return the maximum jump pack fuel capacity to exactly the same as the original game"): whether the jump pack
+    /// holds the owner's capacity (<c>JumpPackTuning.OwnerCapacity</c>, 300) instead of the data's <c>max_power</c> (100, <see cref="JumpPackSpec.DataMaxPower"/>). False in Classic PvP
+    /// (and every non-Musou match); set by added content through <see cref="ExtrasJumpPackOwnerCapacity"/> (Musou Mode: true, as before). Not hashed itself (Musou's block covers it).
+    /// </summary>
+    public bool JumpPackOwnerCapacity
+    {
+        get
+        {
+            bool owner = false;
+            ExtrasJumpPackOwnerCapacity(ref owner);   // EXTRAS-HOOK
+            return owner;
+        }
+    }
+
+    /// <summary>Hook for added content (docs/added-content.md): sets <paramref name="owner"/> when an extra keeps the owner's jump-pack capacity (<see cref="JumpPackOwnerCapacity"/>).</summary>
+    partial void ExtrasJumpPackOwnerCapacity(ref bool owner);
+
+    /// <summary>
+    /// sim/descent-recharge (protocol 62; the owner 2026-11-06: "ensure that a assault marine/raptor in classic pvp can jump twice before regenerating fuel. he should be able to jump a 3rd
+    /// time shortly after ... make it match the game data of the original game"): the jump pack also recharges in a jump's hang and fall (after the apex, the pack no longer lifting), at the
+    /// data's <c>recharge_rate</c>. With the data's <c>max_power</c> 100 and costs (35 a short jump, 55 a full one) two full jumps fit back to back and a third short one follows about 1.8 s
+    /// after the second landing. When the original recharges is not in the data (an interpretation; spec "Fuel: recharge in the descent"). Classic PvP only: true wherever the pack holds
+    /// the data's capacity (<see cref="JumpPackOwnerCapacity"/> false); Musou Mode keeps its ground-only recharge. Not hashed itself (follows the hashed content flags).
+    /// </summary>
+    public bool JumpPackDescentRecharge => !JumpPackOwnerCapacity;
 }

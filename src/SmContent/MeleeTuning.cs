@@ -26,6 +26,12 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
     /// </summary>
     public sealed record WeaponMap(string Wargear, string Graph, string[] Sequencers, string[] Abilities)
     {
+        /// <summary>
+        /// Musou's arsenal (W0; docs/new-weapons-design.md section 8, hook 6): every strike's clip plays this many times faster (the claw 1.25 on the sword's map, the spear 0.85 on the hammer's),
+        /// so each step's duration, hit and windows are the graph's divided by it; the client poses a strike's clip at the same rate (<c>NetworkView.MeleeClipSpeed</c>). 1 for every map of the
+        /// data, whose reads stay byte-identical; only added content's maps (<c>MpClasses.ExtrasMeleeMap</c>) set it. Applied over the graph's own speed and a perk's (Fast Stomp).
+        /// </summary>
+        public float ClipSpeed { get; init; } = 1f;
         public string[] HeavySequencers { get; init; } = [];
         public string[] HeavyAbilities { get; init; } = [];
         /// <summary>The branches after which the attacker moves again (the earliest present); the Ork's combos have <c>BRANCH_Run</c>.</summary>
@@ -57,8 +63,43 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
         /// (<see cref="MeleeStep.LungeFactor"/>); 1: none. The thunder hammer's and the daemon maul's: <see cref="HammerLightLungeFactor"/>.
         /// </summary>
         public float LightLungeFactor { get; init; } = 1f;
+        /// <summary>
+        /// sim/swing-step (owner, 2026-11-06: "for all melee weapons except thunder hammer/daemon maul: increase the distance of the step-forward during a melee swing by 50%.
+        /// for the thunder hammer reduce that step-forward during the swing by 30%"): a further factor on the forward lunge of this weapon's light strikes (its swings; the
+        /// heavy list is the stun attacks and finishers, unchanged), multiplied into <see cref="MeleeStep.LungeFactor"/> with <see cref="LightLungeFactor"/>. 1 (the default,
+        /// synthetic maps and the heavy classes' kick): none. Every melee weapon map: <see cref="OwnerSwingStep"/>; the thunder hammer's and the daemon maul's: <see cref="OwnerHammerSwingStep"/>.
+        /// </summary>
+        public float SwingStepFactor { get; init; } = 1f;
+        /// <summary>
+        /// sim/instant-step (owner, 2026-11-06: "the step forward distance on all melee weapons should be boosted by 20%"): a further factor on the forward lunge of every strike of this
+        /// weapon, light and heavy, multiplied into <see cref="MeleeStep.LungeFactor"/>. 1 (the default, synthetic maps and the heavy classes' kick): none. Every melee weapon map: <see cref="OwnerStepBoost"/>.
+        /// </summary>
+        public float StepBoost { get; init; } = 1f;
         /// <summary>feel/melee-reliability: every strike of this weapon is a <see cref="MeleeStep.TrackToHit"/> one.</summary>
         public bool TrackToHit { get; init; }
+        /// <summary>
+        /// sim/string-reset (stream B of the owner's batch of 2026-11-06 late: after the hammer's light combo "you should be able to start a new combo approximately 1 shot sooner"):
+        /// each light attack frees a new string from its sequencer's <c>BRANCH_Melee_String_Reset</c> on (<see cref="MeleeStep.StringResetAt"/>; the hammer's X1, X2 and X3 at
+        /// 0.72, 0.8548 and 0.6618 of the clip, each at or after its combo window's close) instead of its clip's end. False (the default): the clip's end, as before. Only the thunder hammer's map (the daemon maul shares it);
+        /// the other weapons' string ends are a question for the owner. <c>SM_OLD_STRING_RESET=1</c> (test aid) turns it off.
+        /// </summary>
+        public bool StringReset { get; init; }
+        /// <summary>
+        /// sim/string-reset, the owner's answer (2026-11-06: "hamer/maul combo 1 shot sooner means 1 second"): the string's last attack frees a new string this many seconds before
+        /// its clip's end (X3: 2.333 - 1 = 1.333 s) instead of at its <c>BRANCH_Melee_String_Reset</c> (1.544 s, 0.79 s sooner). 0 (the default): the data's tag. An **estimate (owner's
+        /// request)** to check in a playtest. Never before the hit.
+        /// </summary>
+        public float StringEndRecoveryCut { get; init; }
+        /// <summary>
+        /// sim/slam-recovery (the owner, 2026-11-07: "make the cooldown after a stun strike combo ... shorter - match the cooldown between executing a new light attack combo after a previous light
+        /// attack combo"): the Y,Y finishers free a new string (<see cref="MeleeStep.StringResetAt"/>) as long after their hit as the light combo's last swing does after its own (X3: 1.333 − 0.700 =
+        /// 0.633 s). False (the default): the finisher plays to its clip's end. <c>SM_OLD_SLAM_RECOVERY=1</c> (test aid) turns it off.
+        /// </summary>
+        public bool FinisherRecoveryAsLight { get; init; }
+        /// <summary>sim/slam-steer: the Y,Y finishers are steered (<see cref="MeleeStep.SteerFrom"/>, <see cref="SlamSteerDegrees"/>, <see cref="SlamSteerRate"/>). <c>SM_OLD_SLAM_STEER=1</c> turns it off.</summary>
+        public bool SteerFinishers { get; init; }
+        /// <summary>sim/hop-swing: a melee press anywhere in the hop swings this weapon (<see cref="MeleeStep.HopSwing"/> on attack 1). <c>SM_OLD_HOP_SWING=1</c> turns it off.</summary>
+        public bool HopSwing { get; init; }
         /// <summary>
         /// Weapons C: per light attack, the heavy strike (1-based) a heavy press in its combo window chains to; 0 (or missing): the old rule
         /// (strike n + 1 after attack n), -1: none (<see cref="MeleeStep.HeavyNext"/>; read off the graph's <c>BTN_Melee_Stun</c> transitions).
@@ -70,6 +111,12 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
         /// </summary>
         public string[] FinisherSequencers { get; init; } = [];
         public string[] FinisherAbilities { get; init; } = [];
+        /// <summary>
+        /// sim/sword-ff-stab (owner, 2026-11-14): the Y,Y finisher (the first of <see cref="FinisherSequencers"/>) is the stab of the weapon's X,Y strike (the heavy list's strike
+        /// <see cref="StabHeavy"/>, 1-based; Musou's light strike 1, then F: the forward thrust) instead of its own blast: that strike's clip, timing, window and reach, no blast, the primary target takes the
+        /// weapon's charge hit as the Furious Charge perk's entry gives it (<see cref="StabPerk"/>: 100 + 50 shield, its stagger), nothing for the others. 0 (the default): the finisher as read.
+        /// </summary>
+        public int StabHeavy { get; init; }
         /// <summary>
         /// Weapons C: per heavy strike (the heavy list: heavies then finishers), the strike (1-based) a heavy press in its
         /// <see cref="YComboBranches"/> window chains to; 0 (or missing): none (<see cref="MeleeStep.YNext"/>).
@@ -98,6 +145,21 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
 
     /// <summary>The heavy combo's stomp: the sequencer's action tag and the wargear's triggered action it fires.</summary>
     public const string StompTag = "DISPLACE_FootStomp", StompAction = "displace_footstomp";
+    /// <summary>The perk whose upgrade string makes the charge's entry the Furious Charge one (<c>mp_perk_improved_bullrush</c>: <c>ability_bullrush_01</c> 100 + 50, stagger).</summary>
+    public const string StabPerk = "mp_perk_improved_bullrush";
+    /// <summary>Test aid: <c>SM_OLD_SWORD_FF=1</c> (server and client alike) restores the power sword's F + F stomp before sim/sword-ff-stab.</summary>
+    static readonly bool OldSwordFf = Environment.GetEnvironmentVariable("SM_OLD_SWORD_FF") == "1";
+    [ThreadStatic] static bool _noStab;
+    /// <summary>
+    /// sim/sword-ff-stab is Classic PvP's: until the result is disposed this thread reads the F + F finisher as the data's stomp again (<see cref="GameplayTuning.LoadForMatch"/> under
+    /// <c>ContentExtras.Musou</c>: Musou's sword, the Librarian's included, keeps its blast to clear a crowd).
+    /// </summary>
+    public static IDisposable WithoutSwordStab() { bool before = _noStab; _noStab = true; return new Restore(before); }
+    sealed class Restore(bool before) : IDisposable { public void Dispose() => _noStab = before; }
+    /// <summary>Whether a read on this thread makes the sword's finisher the stab (<see cref="OldSwordFf"/> and <see cref="WithoutSwordStab"/> turn it off).</summary>
+    /// <summary>Set once a read made a finisher the stab (the match's tuning is one read: the sounds then take the stab's ability for it, <see cref="WeaponMap.AbilityOf"/>'s caller <c>SoundTriggers.MeleeHitAbility</c>).</summary>
+    public static volatile bool StabApplied;
+    public static bool SwordStabOn => !OldSwordFf && !_noStab;
     /// <summary>The heavy classes' kick ability (sim/light-melee-flinch: <see cref="MeleeStep.Kick"/>).</summary>
     public const string KickAbility = "ability_displace_kick";
 
@@ -111,6 +173,8 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
     public static readonly WeaponMap CombatKnife = new("sm_mp_melee_combat_knife", "MP_SM_MEL_CombatKnife",
         ["CK 1 Sequence", "CK 2 Sequence", "CK 3 Sequence"], ["ability_melee_ck1", "ability_melee_ck2", "ability_melee_ck3"])
     {
+        SwingStepFactor = OwnerSwingStep,   // sim/swing-step (owner, 2026-11-06)
+        StepBoost = OwnerStepBoost,   // sim/instant-step (owner, 2026-11-06)
         HeavySequencers = ["CK Y1 Sequence", "CK Y2 Sequence", "CK Y3 Sequence", "CK Y4 Sequence"],
         HeavyAbilities = ["ability_melee_y", "ability_melee_y2", "ability_melee_y3", ""],
         // feel/melee-charge-2 (protocol 42; the owner: "normal combo is backhand > stomp"): the graph's "CK Default Combo End 1 ( Y ) Backhand", "End 2 ( X , Y ) Kick"
@@ -129,6 +193,8 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
     public static readonly WeaponMap OrkChoppa = new("ork_coop_boy_choppa", "Base_MELEE_Coop",
         ["Combo Start Sequencer", "Combo 2 Sequencer"], ["ability_melee_light", "ability_melee_light"])
     {
+        SwingStepFactor = OwnerSwingStep,   // sim/swing-step (owner, 2026-11-06)
+        StepBoost = OwnerStepBoost,   // sim/instant-step (owner, 2026-11-06)
         HeavySequencers = ["Combo Heavy Attack Sequencer"],
         HeavyAbilities = ["ability_melee_heavy"],
         MoveBranches = ["BRANCH_Run"], DefaultTargetDistance = 1f,
@@ -138,6 +204,8 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
     public static readonly WeaponMap OrkChoppaSet2 = new("ork_coop_boy_choppa", "Base_MELEE_Coop",
         ["Combo Set 2 Start Sequencer", "Combo Set 2 Follow Sequencer"], ["ability_melee_light", "ability_melee_light"])
     {
+        SwingStepFactor = OwnerSwingStep,   // sim/swing-step (owner, 2026-11-06)
+        StepBoost = OwnerStepBoost,   // sim/instant-step (owner, 2026-11-06)
         HeavySequencers = ["Combo Heavy Attack 2 Sequencer"],
         HeavyAbilities = ["ability_melee_heavy"],
         MoveBranches = ["BRANCH_Run"], DefaultTargetDistance = 1f,
@@ -155,11 +223,14 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
     public static readonly WeaponMap PowerSword = new("sm_mp_melee_powersword", "MP_SM_MEL_PowerSword",
         ["Sequencer_X1", "Sequencer_X2", "Sequencer_X3", "Sequencer_X4"], ["ability_melee_x1", "ability_melee_x2", "ability_melee_x3", "ability_melee_x4"])
     {
+        SwingStepFactor = OwnerSwingStep,   // sim/swing-step (owner, 2026-11-06)
+        StepBoost = OwnerStepBoost,   // sim/instant-step (owner, 2026-11-06)
         HeavySequencers = ["CS Y Atk Sequencer00", "Sequencer27", "Sequencer28", "Sequencer31"],
         HeavyAbilities = ["ability_melee_y", "ability_melee_y2", "ability_melee_y3", "ability_melee_y4"],
         LoopLights = false, LightHeavyNext = [0, 0, 0, -1],
         FinisherSequencers = ["Sequencer30"], FinisherAbilities = [""],
         YNext = [5, 5, 5, 5, 0],
+        StabHeavy = 2,   // sim/sword-ff-stab (owner, 2026-11-14): F + F is the X,F stab (Musou's overhead light strike 1, then F: the forward thrust) at the Furious Charge's damage
         ExtendedRules = true,
     };
 
@@ -174,6 +245,8 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
         ["SequencerGenerator_PA_Default_1", "SequencerGenerator_PA_Default_2B", "SequencerGenerator_PA_Default_3B", "PA Default 4 Sequence"],
         ["ability_melee_x1", "ability_melee_x2", "ability_melee_x3", "ability_melee_x4"])
     {
+        SwingStepFactor = OwnerSwingStep,   // sim/swing-step (owner, 2026-11-06)
+        StepBoost = OwnerStepBoost,   // sim/instant-step (owner, 2026-11-06)
         HeavySequencers = ["Sequencer19", "Sequencer22", "Sequencer23", "Sequencer31"],
         HeavyAbilities = ["ability_melee_y", "ability_melee_y2", "ability_melee_y3", "ability_melee_y4"],
         ComboBranches = ["BRANCH_Melee_Combo", "BRANCH_Melee_Combo_MISS"],
@@ -195,6 +268,8 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
     public static readonly WeaponMap ThunderHammer = new("sm_mp_melee_2hand_thunder_hammer", "MP_SM_MEL_ThunderHammer",
         ["SequencerGenerator_TH_1", "SequencerGenerator05", "SequencerGenerator15"], ["ability_melee_x1", "ability_melee_x2", "ability_melee_x3"])
     {
+        SwingStepFactor = OwnerHammerSwingStep,   // sim/swing-step (owner, 2026-11-06)
+        StepBoost = OwnerStepBoost,   // sim/instant-step (owner, 2026-11-06)
         HeavySequencers = ["Sequencer16", "SequencerGenerator18", "SequencerGenerator23"],
         HeavyAbilities = ["ability_melee_y", "ability_melee_y2", "ability_melee_y3"],
         LoopLights = false, LightHeavyNext = [0, 0, -1],
@@ -204,7 +279,57 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
         ExtendedRules = true,
         LightLungeFactor = HammerLightLungeFactor,
         TrackToHit = true,
+        StringReset = true,   // sim/string-reset: each light swing's BRANCH_Melee_String_Reset (X1 1.92 s, X2 1.995 s) instead of its clip's end
+        StringEndRecoveryCut = OwnerHammerRecoveryCut,   // X3: 1 s before its end (1.333 s), the owner's "1 second" (the data's tag: 1.544 s)
+        FinisherRecoveryAsLight = true,   // sim/slam-recovery (owner, 2026-11-07): the slam frees a new string 0.633 s after its hit, as X3 after its own
+        SteerFinishers = true,   // sim/slam-steer (owner, 2026-11-07): the slam turns like a turret, up to 185 degrees
+        HopSwing = true,   // sim/hop-swing (owner, 2026-11-07): a press anywhere in the hop swings the hammer, never the dash attack
     };
+
+    /// <summary>
+    /// sim/slam-steer (the owner, 2026-11-07: "steered 185 degrees around in a circle from the original point of aim"): the most the Y,Y slam turns from the facing it begins its steering with,
+    /// degrees. **Owner's value.** Reached by <see cref="SlamSteerRate"/> over the steering window, which therefore opens 185 / 300 = 0.617 s before the slam's hit (0.483 s of the hammer's 1.1 s).
+    /// </summary>
+    public const float SlamSteerDegrees = 185f;
+    /// <summary>
+    /// sim/slam-steer: the slam's top turn rate, degrees a second. **Measured** on the owner's recording of the original (2026-11-07, 60 fps): the marine's body turned about 100 degrees in
+    /// 0.33 s (frames 64–84) and about 120 degrees in 0.43 s (frames 258–284) while the slam wound up and came down, so about 280–300 degrees a second; by eye from the body's
+    /// silhouette, confidence low. Spec "Hammer slam: steering".
+    /// </summary>
+    public const float SlamSteerRate = 300f;
+    static readonly bool OldSlamSteer = Environment.GetEnvironmentVariable("SM_OLD_SLAM_STEER") == "1";
+    static readonly bool OldSlamRecovery = Environment.GetEnvironmentVariable("SM_OLD_SLAM_RECOVERY") == "1";
+    static readonly bool OldHopSwing = Environment.GetEnvironmentVariable("SM_OLD_HOP_SWING") == "1";
+
+    /// <summary>The weapon's charge hit under the Furious Charge perk (<see cref="StabPerk"/> granted): its primary damage and reaction (<c>ability_bullrush_01</c>), or null with a note.</summary>
+    static (Hit Primary, ReactionEntry Reaction)? StabHit(BafDocument wargear, IReadOnlyDictionary<string, string>? mapping, List<string> notes)
+    {
+        using var grant = UpgradeScope.Grant([StabPerk]);
+        var actions = wargear.Root.Table($"ability_data/ability_definitions/{RushTuning.Ability}")?.Table("primary_target_actions/hit_sim/actions");
+        if (DefaultDamage(actions) is not { } damage) { notes.Add($"sword stab: no {RushTuning.Ability} primary damage; the finisher stays the stomp"); return null; }
+        return (damage, ReactionTuning.HitReaction(actions, mapping));
+    }
+
+    /// <summary>
+    /// sim/slam-recovery and sim/slam-steer (the owner, 2026-11-07): a Y,Y finisher's rules from the weapon's last light swing. <paramref name="recovery"/>: it frees a new string
+    /// (<see cref="MeleeStep.StringResetAt"/>) as long after its hit as <paramref name="lastLight"/> does after its own (the hammer: X3 1.333 − 0.700 = 0.633 s, so the slam at 1.1 + 0.633 =
+    /// 1.733 s); none when the light swing has no reset or the time falls past the clip. <paramref name="steer"/>: it steers (<see cref="MeleeStep.SteerFrom"/>) at <see cref="SlamSteerRate"/>
+    /// over the last <see cref="SlamSteerDegrees"/> / <see cref="SlamSteerRate"/> seconds before its hit (never before its start).
+    /// </summary>
+    public static MeleeStep Finisher(MeleeStep finisher, MeleeStep lastLight, bool recovery, bool steer, List<string>? notes = null)
+    {
+        var f = finisher;
+        if (recovery)
+        {
+            float gap = float.IsFinite(lastLight.StringResetAt) ? lastLight.StringResetAt - lastLight.HitTime : float.NaN;
+            float at = f.HitTime + gap;
+            if (gap >= 0f && float.IsFinite(at) && at < f.Duration) f = f with { StringResetAt = at };
+            else notes?.Add($"finisher: no light-combo recovery to match (gap {gap}); it plays to its clip's end");
+        }
+        if (steer && f.HitTime > 0f)
+            f = f with { SteerFrom = MathF.Max(0f, f.HitTime - SlamSteerDegrees / SlamSteerRate), SteerTo = f.HitTime, SteerRate = SlamSteerRate };
+        return f;
+    }
 
     /// <summary>
     /// anim/hammer-swing (owner, 2026-11-01: "the step forward distance for the standard melee swings needs to be reduced slightly, maybe by 1 to 2 meters. You can also judge it"):
@@ -213,6 +338,33 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
     /// (1.4, 1.5 and 1.3 m less; over a whole clip 1.8, 1.7 and 1.3 m less). An **estimate (owner's knowledge of the size, our value)**, to review in a playtest.
     /// </summary>
     public const float HammerLightLungeFactor = 0.82f;
+
+    /// <summary>
+    /// sim/swing-step (owner, 2026-11-06): the step-forward of every melee weapon's swings (light strikes) but the thunder hammer's and the daemon maul's, × 1.5 (+50 %).
+    /// An **estimate (owner's request)**, to review in a playtest.
+    /// </summary>
+    public const float OwnerSwingStep = 1.5f;
+    /// <summary>
+    /// sim/instant-step (owner, 2026-11-06): every melee weapon's strikes (light and heavy, the hammer and the maul too) step forward 20 % further than before. An **estimate
+    /// (owner's request)**, to review in a playtest. Test aid: <c>SM_OLD_STEP_BOOST=1</c> (server and client alike) restores the distance.
+    /// </summary>
+    public const float OwnerStepBoost = 1.2f;
+    static readonly bool OldStepBoost = Environment.GetEnvironmentVariable("SM_OLD_STEP_BOOST") == "1";
+    /// <summary>
+    /// sim/swing-step (owner, 2026-11-06: "for the thunder hammer reduce that step-forward during the swing by 30%"): the hammer's swings × 0.7 on top of
+    /// <see cref="HammerLightLungeFactor"/> (0.82 × 0.7 = 0.574 of the lunge every melee weapon has). The daemon maul (the Chaos hammer, one map) takes it too: **our
+    /// assumption** (the owner named only the hammer). An **estimate (owner's request)**, to review in a playtest.
+    /// </summary>
+    public const float OwnerHammerSwingStep = 0.7f;
+
+    /// <summary>Test aid: the environment variable <c>SM_OLD_SWING_STEP=1</c> (server and client alike) restores the swings' step-forward before sim/swing-step (factor 1).</summary>
+    static readonly bool OldSwingStep = Environment.GetEnvironmentVariable("SM_OLD_SWING_STEP") == "1";
+    /// <summary>The owner's "1 second" sooner after the hammer's and maul's light combo (2026-11-06; estimate to check in a playtest): <see cref="WeaponMap.StringEndRecoveryCut"/>.</summary>
+    public const float OwnerHammerRecoveryCut = 1f;
+    /// <summary><c>SM_OLD_STRING_RESET=1</c> (test aid): the hammer's string ends at its last clip's end again (before sim/string-reset).</summary>
+    static readonly bool OldStringReset = Environment.GetEnvironmentVariable("SM_OLD_STRING_RESET") == "1";
+    /// <summary>The branch from which the attack state takes a new string (sim/string-reset).</summary>
+    public const string StringResetBranch = "BRANCH_Melee_String_Reset";
 
     /// <summary>Test aid: the environment variable <c>SM_OLD_HAMMER_LUNGE=1</c> (set for the server and the client alike) restores the hammer's lunge before anim/hammer-swing (factor 1), for before / after runs on one build.</summary>
     static readonly bool OldHammerLunge = Environment.GetEnvironmentVariable("SM_OLD_HAMMER_LUNGE") == "1";
@@ -275,7 +427,16 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
             var (step, animation) = Step(weapon.Sequencers[i], weapon.Abilities[i]);
             // Weapons C: where the graph leaves this attack for a heavy strike, and whether a light press goes on from it.
             int heavyNext = i < weapon.LightHeavyNext.Length ? weapon.LightHeavyNext[i] : 0;
-            step = step with { HeavyNext = Math.Max(-1, heavyNext), StringEnd = !weapon.LoopLights && i == weapon.Sequencers.Length - 1, LungeFactor = OldHammerLunge ? 1f : weapon.LightLungeFactor, TrackToHit = weapon.TrackToHit };
+            step = step with { HeavyNext = Math.Max(-1, heavyNext), StringEnd = !weapon.LoopLights && i == weapon.Sequencers.Length - 1, LungeFactor = (OldHammerLunge ? 1f : weapon.LightLungeFactor) * (OldSwingStep ? 1f : weapon.SwingStepFactor) * (OldStepBoost ? 1f : weapon.StepBoost), TrackToHit = weapon.TrackToHit };
+            if (weapon.StringReset && !OldStringReset)
+            {
+                // sim/string-reset: the first BRANCH_Melee_String_Reset window's start; none (or not before the clip's end): the clip's end, as before.
+                var reset = seqOf(weapon.Sequencers[i]).Tags.Where(t => t.Kind == "Branch" && t.Name == StringResetBranch).OrderBy(t => t.Start).FirstOrDefault();
+                float at = reset is null ? float.NaN : reset.Start * step.Duration;
+                if (step.StringEnd && weapon.StringEndRecoveryCut > 0f) at = MathF.Max(step.HitTime, step.Duration - weapon.StringEndRecoveryCut);   // the owner's 1 s (estimate)
+                if (float.IsFinite(at) && at >= step.HitTime && at < step.Duration) step = step with { StringResetAt = at };
+                else notes.Add($"{weapon.Sequencers[i]}: no usable {StringResetBranch}; the string ends with the clip");
+            }
             steps.Add(step);
             animations.Add(animation);
         }
@@ -289,6 +450,7 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
             try
             {
                 var (step, animation) = Step(heavySequencers[i], heavyAbilities[i]);
+                if (!OldStepBoost && weapon.StepBoost != 1f) step = step with { LungeFactor = step.LungeFactor * weapon.StepBoost };   // sim/instant-step: the heavy strikes step 20 % further too
                 int yNext = i < weapon.YNext.Length ? weapon.YNext[i] : 0;
                 if (yNext > 0)
                 {
@@ -313,11 +475,34 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
             }
             catch (InvalidDataException e) { notes.Add($"heavy strike {i + 1}: {e.Message}; the heavy chain stops before it"); break; }
         }
+        // sim/sword-ff-stab: the finisher is the weapon's stab (see WeaponMap.StabHeavy).
+        if (weapon.StabHeavy > 0) StabApplied = false;   // this read decides (the last read of the match's tuning wins)
+        if (weapon.StabHeavy > 0 && SwordStabOn && heavy.Count == weapon.HeavySequencers.Length + weapon.FinisherSequencers.Length && weapon.StabHeavy <= weapon.HeavySequencers.Length
+            && StabHit(wargear, mapping, notes) is { } stabHit)
+        {
+            int f = weapon.HeavySequencers.Length;
+            heavy[f] = heavy[weapon.StabHeavy - 1] with
+            {
+                Stomp = null, YNext = 0, YComboOpen = 0f, YComboClose = 0f,
+                Damage = stabHit.Primary.Damage, ShieldDamage = stabHit.Primary.ShieldDamage, HealthMultiplier = stabHit.Primary.HealthMultiplier, ShieldMultiplier = stabHit.Primary.ShieldMultiplier,
+                DamageType = stabHit.Primary.Type == DamageType.Unknown ? DamageType.Melee : stabHit.Primary.Type,
+                PrimaryReaction = stabHit.Reaction, SecondaryDamage = 0f, SecondaryShieldDamage = 0f, SecondaryReaction = default,
+            };
+            heavyAnimations[f] = heavyAnimations[weapon.StabHeavy - 1];
+            StabApplied = true;
+        }
         // A chain into a strike that could not be read is dropped (the simulation also checks the bounds).
         for (int i = 0; i < steps.Count; i++)
             if (steps[i].HeavyNext > heavy.Count) steps[i] = steps[i] with { HeavyNext = -1 };
         for (int i = 0; i < heavy.Count; i++)
             if (heavy[i].YNext > heavy.Count) heavy[i] = heavy[i] with { YNext = 0, YComboOpen = 0f, YComboClose = 0f };
+        // sim/slam-recovery and sim/slam-steer (the owner, 2026-11-07): the Y,Y finishers (the heavy list after the weapon's own heavies).
+        if (steps.Count > 0 && ((weapon.FinisherRecoveryAsLight && !OldSlamRecovery) || (weapon.SteerFinishers && !OldSlamSteer)))
+        {
+            for (int i = weapon.HeavySequencers.Length; i < heavy.Count; i++)
+                heavy[i] = Finisher(heavy[i], steps[^1], weapon.FinisherRecoveryAsLight && !OldSlamRecovery, weapon.SteerFinishers && !OldSlamSteer, notes);
+        }
+        if (weapon.HopSwing && !OldHopSwing && steps.Count > 0) steps[0] = steps[0] with { HopSwing = true };   // sim/hop-swing
         if (range <= 0f) { notes.Add("no ability max_range; using 4"); range = 4f; }
         return new MeleeTuning(weapon.Wargear, steps, animations, range, notes) { Heavy = heavy, HeavyAnimations = heavyAnimations };
 
@@ -340,6 +525,7 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
             if (speedUpgrades?.FirstOrDefault(u => u.Graph.Equals(weapon.Graph, StringComparison.OrdinalIgnoreCase) && u.Animation.Equals(animation, StringComparison.OrdinalIgnoreCase)
                     && UpgradeScope.Current.Contains(u.Upgrade, StringComparer.OrdinalIgnoreCase)) is { } faster && float.IsFinite(faster.Speed) && faster.Speed > 0f)
                 speed = faster.Speed;
+            if (weapon.ClipSpeed != 1f && float.IsFinite(weapon.ClipSpeed) && weapon.ClipSpeed > 0f) speed *= weapon.ClipSpeed;   // Musou's arsenal: an added map's clip speed (1 for the data's: untouched)
             float duration = animationLength(animation) / speed;
             if (!float.IsFinite(duration) || duration <= 0f) throw new InvalidDataException($"{seq.Name}: animation '{animation}' has no usable length.");
             if (seq.Animations.Select(animationLength).Distinct().Count() > 1) notes.Add($"{seq.Name}: blended clips differ in length; using {animation}");

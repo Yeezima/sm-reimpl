@@ -10,11 +10,42 @@ public enum WindowChoice { Windowed, Borderless, Fullscreen }
 /// <summary>The anti-aliasing choice of the Options menu; <see cref="Default"/> leaves <c>--aa</c> (and its default) alone.</summary>
 public enum AaChoice { Default, Off, Msaa, MsaaSmaa, Taa }
 
+/// <summary>
+/// The upscaler of the Options menu (musou/perf-pass, ours): <see cref="Off"/> renders the 3D picture at the render scale with plain (bilinear) scaling, as before; the others use Godot's built-in
+/// AMD FSR 2.2 at its preset scale (Native AA 1.0, Quality 0.67, Balanced 0.59, Performance 0.5), which is also the picture's anti-aliasing. Forward+ renderer only.
+/// </summary>
+public enum UpscaleChoice { Off, Fsr2Native, Fsr2Quality, Fsr2Balanced, Fsr2Performance }
+
+/// <summary>The upscaler's preset scales (AMD's recommended values, as Godot's documentation gives them; engine-free).</summary>
+public static class Upscaling
+{
+    /// <summary>The 3D picture's scale of a FSR 2 preset (null: <see cref="UpscaleChoice.Off"/>, the render scale applies).</summary>
+    public static float? Scale(UpscaleChoice choice) => choice switch
+    {
+        UpscaleChoice.Fsr2Native => 1f, UpscaleChoice.Fsr2Quality => 0.67f, UpscaleChoice.Fsr2Balanced => 0.59f, UpscaleChoice.Fsr2Performance => 0.5f, _ => null,
+    };
+
+    public static string Name(UpscaleChoice choice) => choice switch
+    {
+        UpscaleChoice.Fsr2Native => "FSR 2 NATIVE AA", UpscaleChoice.Fsr2Quality => "FSR 2 QUALITY", UpscaleChoice.Fsr2Balanced => "FSR 2 BALANCED", UpscaleChoice.Fsr2Performance => "FSR 2 PERFORMANCE", _ => "OFF",
+    };
+
+    /// <summary>A command line's <c>--fsr</c> value (off, native, quality, balanced, performance; null when not known).</summary>
+    public static UpscaleChoice? Parse(string? text) => text?.ToLowerInvariant() switch
+    {
+        "off" or "none" => UpscaleChoice.Off, "native" or "nativeaa" or "aa" => UpscaleChoice.Fsr2Native, "quality" => UpscaleChoice.Fsr2Quality,
+        "balanced" => UpscaleChoice.Fsr2Balanced, "performance" => UpscaleChoice.Fsr2Performance, _ => null,
+    };
+}
+
 /// <summary>The shadow choice of the Options menu; <see cref="Default"/> keeps what the lighting preset asks for.</summary>
 public enum ShadowChoice { Default, Low, Medium, High }
 
 /// <summary>Which volume slider a sound follows.</summary>
 public enum SoundCategory { Effects, Music, Voice }
+
+/// <summary>polish pass P1 (2026-11-10, ours): the match's performance readout (F3 cycles it; saved, no Options row): off, frames a second and the frame time, or those plus the network's numbers.</summary>
+public enum ReadoutChoice { Off, Fps, Network }
 
 /// <summary>
 /// The Options menu's settings (ui/menu-rebuild, client only: ours; no simulation, protocol or config-hash meaning): saved in <c>frontend.json</c> under <c>"options"</c>. Every default is
@@ -24,7 +55,9 @@ public sealed record GameOptions(
     int WindowWidth = 0, int WindowHeight = 0, WindowChoice Window = WindowChoice.Windowed, bool Vsync = true, int FpsCap = 0, float RenderScale = 1f,
     ShadowChoice Shadows = ShadowChoice.Default, AaChoice Aa = AaChoice.Default, float Brightness = 1f,
     float MasterVolume = 1f, float MusicVolume = 1f, float EffectsVolume = 1f, float VoiceVolume = 1f, bool MuteUnfocused = false,
-    bool InvertY = false, float AimSensitivity = 1f, float PadLookSensitivity = 1f, bool InvertPadY = false, float PadAimSensitivity = 1f)
+    bool InvertY = false, float AimSensitivity = 1f, float PadLookSensitivity = 1f, bool InvertPadY = false, float PadAimSensitivity = 1f,
+    LightingPresetChoice Lighting = LightingPresetChoice.FaithfulRemaster, UpscaleChoice Upscale = UpscaleChoice.Off, bool GrimeFast = false,
+    float CameraShake = 1f, float ScreenFlashes = 1f, ReadoutChoice Readout = ReadoutChoice.Off)
 {
     public static GameOptions Default => new();
 
@@ -35,6 +68,8 @@ public sealed record GameOptions(
     public const float MinBrightness = 0.5f, MaxBrightness = 1.5f, BrightnessStep = 0.05f;
     public const float VolumeStep = 0.05f;
     public const float MinLook = 0.25f, MaxLook = 3f, LookStep = 0.05f;
+    /// <summary>Accessibility (combat feel, 2026-11-09, ours): the camera shake and the screen-wide flashes as a share of the game's own, 0 (none) to 1 (as before), in steps of 5 %.</summary>
+    public const float AccessibilityStep = 0.05f;
 
     /// <summary>A value limited to its range and snapped to its step; a non-finite one is <paramref name="fallback"/>.</summary>
     public static float Snap(float value, float min, float max, float step, float fallback)
@@ -62,6 +97,10 @@ public sealed record GameOptions(
         MasterVolume = Snap(MasterVolume, 0f, 1f, VolumeStep, 1f), MusicVolume = Snap(MusicVolume, 0f, 1f, VolumeStep, 1f),
         EffectsVolume = Snap(EffectsVolume, 0f, 1f, VolumeStep, 1f), VoiceVolume = Snap(VoiceVolume, 0f, 1f, VolumeStep, 1f),
         AimSensitivity = Snap(AimSensitivity, MinLook, MaxLook, LookStep, 1f), PadLookSensitivity = Snap(PadLookSensitivity, MinLook, MaxLook, LookStep, 1f), PadAimSensitivity = Snap(PadAimSensitivity, MinLook, MaxLook, LookStep, 1f),
+        Lighting = Enum.IsDefined(Lighting) ? Lighting : LightingPresetChoice.FaithfulRemaster,
+        Upscale = Enum.IsDefined(Upscale) ? Upscale : UpscaleChoice.Off,
+        CameraShake = Snap(CameraShake, 0f, 1f, AccessibilityStep, 1f), ScreenFlashes = Snap(ScreenFlashes, 0f, 1f, AccessibilityStep, 1f),
+        Readout = Enum.IsDefined(Readout) ? Readout : ReadoutChoice.Off,
     };
 
     /// <summary>Reads the <c>"options"</c> object of <c>frontend.json</c>; missing or wrong values are their defaults.</summary>
@@ -74,7 +113,9 @@ public sealed record GameOptions(
         T E<T>(string name, T fallback) where T : struct, Enum => o[name] is JsonValue v && v.TryGetValue<string>(out var s) && Enum.TryParse<T>(s, true, out var e) && Enum.IsDefined(e) ? e : fallback;
         return new GameOptions(I("windowWidth"), I("windowHeight"), E("window", WindowChoice.Windowed), B("vsync", true), I("fpsCap"), F("renderScale", 1f), E("shadows", ShadowChoice.Default), E("antiAliasing", AaChoice.Default),
             F("brightness", 1f), F("masterVolume", 1f), F("musicVolume", 1f), F("effectsVolume", 1f), F("voiceVolume", 1f), B("muteUnfocused", false),
-            B("invertY", false), F("aimSensitivity", 1f), F("padLookSensitivity", 1f), B("invertPadY", false), F("padAimSensitivity", 1f)).Clamped();
+            B("invertY", false), F("aimSensitivity", 1f), F("padLookSensitivity", 1f), B("invertPadY", false), F("padAimSensitivity", 1f),
+            E("lightingPreset", LightingPresetChoice.FaithfulRemaster), E("upscaling", UpscaleChoice.Off), B("ashfallGrimeFast", false),
+            F("cameraShake", 1f), F("screenFlashes", 1f), E("performanceReadout", ReadoutChoice.Off)).Clamped();
     }
 
     /// <summary>The object saved in <c>frontend.json</c>.</summary>
@@ -84,6 +125,8 @@ public sealed record GameOptions(
         ["shadows"] = Shadows.ToString(), ["antiAliasing"] = Aa.ToString(), ["brightness"] = Math.Round(Brightness, 3),
         ["masterVolume"] = Math.Round(MasterVolume, 3), ["musicVolume"] = Math.Round(MusicVolume, 3), ["effectsVolume"] = Math.Round(EffectsVolume, 3), ["voiceVolume"] = Math.Round(VoiceVolume, 3), ["muteUnfocused"] = MuteUnfocused,
         ["invertY"] = InvertY, ["aimSensitivity"] = Math.Round(AimSensitivity, 3), ["padLookSensitivity"] = Math.Round(PadLookSensitivity, 3), ["invertPadY"] = InvertPadY, ["padAimSensitivity"] = Math.Round(PadAimSensitivity, 3),
+        ["lightingPreset"] = Lighting.ToString(), ["upscaling"] = Upscale.ToString(), ["ashfallGrimeFast"] = GrimeFast,
+        ["cameraShake"] = Math.Round(CameraShake, 3), ["screenFlashes"] = Math.Round(ScreenFlashes, 3), ["performanceReadout"] = Readout.ToString(),
     };
 
     /// <summary>A slider value (0 to 1) as decibels: 1 is 0 dB, 0 is silence (-80 dB).</summary>
@@ -121,6 +164,12 @@ public static class LiveOptions
 
     /// <summary>The factor on the right stick's turn rates: <see cref="GameOptions.PadAimSensitivity"/> on top of the look factor while aiming down sights (1 = as before).</summary>
     public static float PadLookAim(bool aiming) => aiming ? Current.PadLookSensitivity * Current.PadAimSensitivity : Current.PadLookSensitivity;
+
+    /// <summary>The share of the camera shakes and kicks drawn (the Options menu's camera shake; 1 = the game's own).</summary>
+    public static float CameraShake => Current.CameraShake;
+
+    /// <summary>The share of the screen-wide flashes drawn (the Options menu's screen flashes; 1 = the game's own).</summary>
+    public static float ScreenFlashes => Current.ScreenFlashes;
 
     /// <summary>The sign of the right stick's vertical turn (-1 with Invert gamepad Y).</summary>
     public static float PadVertical => Current.InvertPadY ? -1f : 1f;

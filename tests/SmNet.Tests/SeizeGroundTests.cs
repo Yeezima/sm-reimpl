@@ -405,8 +405,8 @@ public class SeizeGroundTests(ITestOutputHelper output)
     [Fact]
     public void Protocol_11_carries_the_mode_and_the_points_within_the_budget_and_refuses_malformed_ones()
     {
-        Assert.Equal(56, Protocol.Version);
-        Assert.Equal(1199, Protocol.MaxSnapshotBytes);   // protocol 21: + 1 ready-tick byte; protocol 12: + the 12-byte hit block; protocol 13: + 18 evade bytes − 1 projectile record; 16: − 3 projectile records + 5 shot records; 17: + 4 reaction bytes − 1 shot record
+        Assert.Equal(79, Protocol.Version);
+        Assert.Equal(1195, Protocol.MaxSnapshotBytes);   // protocol 21: + 1 ready-tick byte; protocol 12: + the 12-byte hit block; protocol 13: + 18 evade bytes − 1 projectile record; 16: − 3 projectile records + 5 shot records; 17: + 4 reaction bytes − 1 shot record
         Assert.Equal(8, Protocol.MaxSnapshotPoints);
         ControlPointView[] points =
         [
@@ -443,7 +443,7 @@ public class SeizeGroundTests(ITestOutputHelper output)
         // The mode: 1 is Seize Ground, 2 and 3 are refused.
         int state = 13 + 1 + 1;
         Assert.Equal((int)MatchState.Playing | (1 << 4), bytes[state]);
-        Assert.Null(Protocol.Read(Patch(bytes, state, (int)MatchState.Playing | (2 << 4))));
+        Assert.Null(Protocol.Read(Patch(bytes, state, (int)MatchState.Playing | (4 << 4))));
         for (int n = 0; n < bytes.Length; n++) Assert.Null(Protocol.Read(bytes.AsSpan(0, n)));
     }
 
@@ -459,7 +459,7 @@ public class SeizeGroundTests(ITestOutputHelper output)
         Assert.Equal(seize.Points, back.Seize.Points);
         Assert.Equal(board.Players, back.Players);
         int layout = 1 + 4 + 1 + 2 + 4 + 4 + 4 + 2 + 4 + 1;
-        Assert.Equal(layout + (1 + 15 + 20) + (1 + 9 + 20) + 1 + 16, bytes.Length);   // protocol 22: 12-byte rows; protocol 40: 13; protocol 41: 14 (an empty name); protocol 50: 16 (the ping)
+        Assert.Equal(layout + (1 + 15 + 20) + (1 + 9 + 20) + 1 + 19, bytes.Length);   // protocol 64: 19 (headshots, assists); protocol 58: 17 (the flags byte); protocol 22: 12-byte rows; protocol 40: 13; protocol 41: 14 (an empty name); protocol 50: 16 (the ping)
         Assert.Equal(GameMode.Annihilation, Assert.IsType<Scoreboard>(Protocol.Read(Protocol.Write(board with { Seize = null }))).Mode);
 
         Assert.Null(Protocol.Read(Patch(bytes, layout - 1, 9)));            // 9 points

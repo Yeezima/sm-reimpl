@@ -19,8 +19,12 @@ public sealed partial class MusouRagdolls : Node3D
 {
     /// <summary>Dolls in the pool, the distance from the camera within which one is used, and the seconds of physics, stillness and lying (ours).</summary>
     public const int Dolls = 20;
-    public const float Metres = 45f, MaxPhysicsSeconds = 6f, StillSeconds = 0.6f, LieSeconds = 3f;
-    const float StillLinear = 0.4f, StillAngular = 2.5f, JointFrictionDamping = 1f, LimbScatter = 1.5f, LimbSpin = 8f;
+    public const float Metres = 45f, MaxPhysicsSeconds = 6f, StillSeconds = 0.6f;
+    /// <summary>Seconds a settled doll lies before it sinks: the corpse floor's 10 s (the owner, 2026-11-09), 3 s before it (<c>--musou-old-corpses</c>).</summary>
+    public static float LieSeconds => SmNet.Extras.Musou.MusouCorpseRules.LieSeconds(CrowdView.OldCorpses);
+    const float StillLinear = 0.4f, StillAngular = 2.5f, JointFrictionDamping = 1f;
+    /// <summary>Corpse arcs (the owner, 2026-11-08: no corkscrew): the angular damping every part shares in the flight (the same for all, so the doll turns as one), and the extra seconds after the arc's own before the parts take their own damping and gravity back (ours).</summary>
+    const float FlightAngularDamp = 0.5f, FlightSlack = 0.15f;
 
     sealed class Doll
     {
@@ -30,7 +34,8 @@ public sealed partial class MusouRagdolls : Node3D
         public readonly Dictionary<MusouLooks.Look, Node3D> Worn = new(ReferenceEqualityComparer.Instance);
         public Node3D? Showing;
         public bool InUse, Frozen;
-        public float Age, Still, Lying, Scale, StartZ;
+        public float Age, Still, Lying, Scale, StartZ, FlightEnd;
+        public bool Flying;
         public int Serial;
     }
 
@@ -47,6 +52,11 @@ public sealed partial class MusouRagdolls : Node3D
     public float Highest { get; private set; }
     public int Built => _dolls.Count;
     public int Active { get { int n = 0; foreach (var d in _dolls) if (d.InUse) n++; return n; } }
+    /// <summary>Dolls <see cref="Throw"/> could take now: free, or lying still (the one lying longest makes way).</summary>
+    public int Available { get { int n = 0; foreach (var d in _dolls) if (!d.InUse || Retakable(d)) n++; return n; } }
+
+    /// <summary>A lying doll a new throw may take (the corpse floor, 2026-11-09: only once it has lain past the floor since its throw; before it any lying one, the longest first).</summary>
+    static bool Retakable(Doll d) => d.Frozen && SmNet.Extras.Musou.MusouCorpseRules.MayRetake(d.Age, CrowdView.OldCorpses);
 
     public MusouRagdolls(RagdollDef def, MarineAssets rig, HavokBoundAnimation startClip)
     {
@@ -175,12 +185,17 @@ public sealed partial class MusouRagdolls : Node3D
         foreach (var c in _dolls)
         {
             if (!c.InUse) { doll = c; break; }
-            if (c.Frozen && (doll is null || c.Serial < doll.Serial)) doll = c;   // all busy: the one lying longest makes way
+            if (Retakable(c) && (doll is null || c.Serial < doll.Serial)) doll = c;   // all busy: the one lying longest makes way (once past the corpse floor; else the crowd throws a tumbling body)
         }
         if (doll is null) return false;
 
         var place = new Transform3D(new Basis(new Vector3(0f, 0f, 1f), d.Yaw), new Vector3(d.Position.X, d.Position.Y, d.Position.Z));
         var toWorld = GlobalBasis;
+        // Corpse arcs (the owner, 2026-11-08): the doll leaves as ONE rigid body: every part the throw's velocity plus the one tumble's turn about the chest (MusouFling.Tumble), the same gravity,
+        // no linear damping and one angular damping, so nothing pulls the parts apart or twists them in the air. Before: each part its own 1.5 m/s scatter and 8 rad/s spin, which wound the joints into a corkscrew.
+        var t = SmNet.Extras.Musou.MusouFling.Tumble(new System.Numerics.Vector3(velocity.X, velocity.Y, velocity.Z));
+        var tumble = new Vector3(t.X, t.Y, t.Z);
+        var chest = (place * _startBody[_def.FocusBody]).Origin;
         for (int i = 0; i < doll.Bodies.Length; i++)
         {
             var body = doll.Bodies[i];
@@ -188,11 +203,12 @@ public sealed partial class MusouRagdolls : Node3D
             body.CollisionMask = Ragdoll.WorldLayer;
             body.Freeze = false;
             body.Sleeping = false;
-            uint seed = d.Tick + (uint)i * 7u + 1u;
-            var scatter = new Vector3(Signed(d.Id, seed), Signed(d.Id, seed + 1u), Signed(d.Id, seed + 2u));
-            body.LinearVelocity = toWorld * (velocity + scatter * LimbScatter);
-            body.AngularVelocity = toWorld * (new Vector3(Signed(d.Id, seed + 3u), Signed(d.Id, seed + 4u), Signed(d.Id, seed + 5u)) * LimbSpin);
+            body.LinearDamp = 0f; body.AngularDamp = FlightAngularDamp; body.GravityScale = 1f;
+            body.LinearVelocity = toWorld * (velocity + tumble.Cross(body.Transform.Origin - chest));
+            body.AngularVelocity = toWorld * tumble;
         }
+        doll.Flying = true;
+        doll.FlightEnd = SmNet.Extras.Musou.MusouFling.FlightSeconds(new System.Numerics.Vector3(velocity.X, velocity.Y, velocity.Z)) + FlightSlack;
         Wear(doll, look);
         doll.InUse = true; doll.Frozen = false; doll.Age = 0f; doll.Still = 0f; doll.Lying = 0f; doll.Scale = look.Scale; doll.Serial = ++_serial;
         doll.StartZ = d.Position.Z;
@@ -202,22 +218,39 @@ public sealed partial class MusouRagdolls : Node3D
         return true;
     }
 
-    static float Signed(ushort id, uint tick) => GoreRules.Roll(id, tick) * 2f - 1f;
+    static Node3D Dress(Doll doll, MusouLooks.Look look)
+    {
+        var meshes = new Node3D { Name = look.Name };
+        foreach (var piece in look.Assets.Pieces)
+        {
+            var mesh = new MeshInstance3D { Name = piece.Name, Mesh = piece.Mesh, Skin = piece.Skin, Skeleton = new NodePath("../.."), ExtraCullMargin = 2f };
+            for (int i = 0; i < piece.Overrides.Count; i++) if (piece.Overrides[i] is { } m) mesh.SetSurfaceOverrideMaterial(i, m);
+            meshes.AddChild(mesh);
+        }
+        doll.Skeleton.AddChild(meshes);
+        doll.Worn[look] = meshes;
+        return meshes;
+    }
+
+    /// <summary>
+    /// Night batch 2026-11-06: once the pool is made, one doll a frame gets <paramref name="look"/>'s meshes ahead of need (hidden), so a blast's first throws build no nodes
+    /// (they did: the first burst of a match cost about twice a later one). False when every doll wears it already.
+    /// </summary>
+    public bool Prewarm(MusouLooks.Look look)
+    {
+        if (_dolls.Count < Dolls || look.Assets.Model.Rig.Skeleton.BoneNames.Count != _startBone.Length) return false;
+        foreach (var doll in _dolls)
+        {
+            if (doll.InUse || doll.Worn.ContainsKey(look)) continue;
+            Dress(doll, look).Visible = false;
+            return true;
+        }
+        return false;
+    }
 
     static void Wear(Doll doll, MusouLooks.Look look)
     {
-        if (!doll.Worn.TryGetValue(look, out var meshes))
-        {
-            meshes = new Node3D { Name = look.Name };
-            foreach (var piece in look.Assets.Pieces)
-            {
-                var mesh = new MeshInstance3D { Name = piece.Name, Mesh = piece.Mesh, Skin = piece.Skin, Skeleton = new NodePath("../.."), ExtraCullMargin = 2f };
-                for (int i = 0; i < piece.Overrides.Count; i++) if (piece.Overrides[i] is { } m) mesh.SetSurfaceOverrideMaterial(i, m);
-                meshes.AddChild(mesh);
-            }
-            doll.Skeleton.AddChild(meshes);
-            doll.Worn[look] = meshes;
-        }
+        if (!doll.Worn.TryGetValue(look, out var meshes)) meshes = Dress(doll, look);
         if (doll.Showing is not null) doll.Showing.Visible = false;
         meshes.Visible = true;
         doll.Showing = meshes;
@@ -238,6 +271,7 @@ public sealed partial class MusouRagdolls : Node3D
                 continue;
             }
             Sync(doll, 0f);
+            if (doll.Flying && doll.Age >= doll.FlightEnd) Land(doll);
             float linear = 0f, angular = 0f;
             foreach (var b in doll.Bodies)
             {
@@ -249,6 +283,17 @@ public sealed partial class MusouRagdolls : Node3D
             Highest = MathF.Max(Highest, chest.Transform.Origin.Z - doll.StartZ);
             if (chest.GlobalPosition.Y < Ragdoll.LostBelowY) { Release(doll); continue; }
             if (doll.Still >= StillSeconds || doll.Age >= MaxPhysicsSeconds) Settle(doll);
+        }
+    }
+
+    /// <summary>The arc is over: every part takes back its own damping and gravity from the original ragdoll, to lie and settle as before.</summary>
+    void Land(Doll doll)
+    {
+        doll.Flying = false;
+        for (int i = 0; i < doll.Bodies.Length; i++)
+        {
+            var b = _def.Bodies[i];
+            doll.Bodies[i].LinearDamp = b.LinearDamp; doll.Bodies[i].AngularDamp = b.AngularDamp + JointFrictionDamping; doll.Bodies[i].GravityScale = b.GravityScale;
         }
     }
 

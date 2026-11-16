@@ -655,7 +655,7 @@ public sealed record ClassLoadout(string Name, int Primary, int Pistol, IReadOnl
 /// class default when the list is empty.
 /// </para>
 /// </summary>
-public static class Loadouts
+public static partial class Loadouts
 {
     /// <summary>The class at <paramref name="playerClass"/>, or null when the index is out of range.</summary>
     public static ClassLoadout? ClassOf(SimConfig c, int playerClass)
@@ -1043,22 +1043,36 @@ public static class Loadouts
 
     /// <summary>The class's jump pack (<see cref="ClassLoadout.JumpPack"/> when in range of <see cref="SimConfig.JumpPacks"/>), or null.</summary>
     public static JumpPackSpec? JumpPack(SimConfig c, int playerClass) =>
-        ClassOf(c, playerClass) is { JumpPack: var i } && i >= 0 && i < c.JumpPacks.Count ? c.JumpPacks[i] : null;
+        ClassOf(c, playerClass) is { JumpPack: var i } && i >= 0 && i < c.JumpPacks.Count ? Capacity(c, c.JumpPacks[i]) : null;
+
+    /// <summary>Night batch 2026-11-06: Classic PvP's pack holds the data's <c>max_power</c> (100), Musou Mode the owner's 300 (<see cref="SimConfig.JumpPackOwnerCapacity"/>).</summary>
+    static JumpPackSpec Capacity(SimConfig c, JumpPackSpec p) => c.JumpPackOwnerCapacity || p.DataMaxPower <= 0f ? p : p with { MaxPower = p.DataMaxPower };
 
     /// <summary>The player's jump pack (its class's) as its perks change it (M43: <see cref="JumpPackSpec.With"/>), or null.</summary>
     public static JumpPackSpec? JumpPack(SimConfig c, PlayerState s)
     {
         if (JumpPack(c, s.Class) is not { } pack) return null;
-        var worn = pack.Variants.Count == 0 ? pack : pack.With(Upgrades(c, s));
-        return worn.PoundDelay > 0f && WieldsHammer(c, s) ? worn with { PoundDelay = 0f } : worn;
+        var worn = pack.Variants.Count == 0 ? pack : Capacity(c, pack.With(Upgrades(c, s)));
+        // sim/pound-any-weapon (protocol 73; the owner 2026-11-14): no melee weapon waits for the pound's smash_available_delay (Air-Cooled Thrusters' 2 s): a press above the slash's height pounds at once, in the ascent too.
+        return worn.PoundDelay > 0f ? worn with { PoundDelay = 0f } : worn;
     }
 
     /// <summary>
     /// The thunder hammer or the daemon maul in hand. The owner, 2026-11-02 (classic PvP and Musou Mode): the hammer's air slash and ground pound by "the same rules ... that exist for power sword": nothing in a pack's rules
     /// looks at the weapon, so the one delay a player can meet is the pound's 2 s under Air-Cooled Thrusters (<c>smash_available_delay</c>), which a hammer does not wait for (protocol 55; ours, an interpretation).
     /// </summary>
-    public static bool WieldsHammer(SimConfig c, PlayerState s) =>
-        MeleeChoiceOf(c, s) is var i and >= 0 && ClassOf(c, s.Class)!.MeleeChoices[i].Wargear is { } w && (w.EndsWith("_mp_melee_2hand_thunder_hammer", StringComparison.OrdinalIgnoreCase) || w.EndsWith("_mp_melee_2hand_power_mace", StringComparison.OrdinalIgnoreCase));
+    /// <remarks>Added content (Musou's arsenal, docs/new-weapons-design.md section 8): a weapon only added content carries may take the hammer's rules (<see cref="ExtrasWieldsHammer"/>; the power spear).</remarks>
+    public static bool WieldsHammer(SimConfig c, PlayerState s)
+    {
+        int i = MeleeChoiceOf(c, s);
+        if (i < 0 || ClassOf(c, s.Class)!.MeleeChoices[i].Wargear is not { } w) return false;
+        bool hammer = w.EndsWith("_mp_melee_2hand_thunder_hammer", StringComparison.OrdinalIgnoreCase) || w.EndsWith("_mp_melee_2hand_power_mace", StringComparison.OrdinalIgnoreCase);
+        if (!hammer) ExtrasWieldsHammer(c, w, ref hammer);   // EXTRAS-HOOK added content (Musou's arsenal): a weapon of its own with the hammer's rules
+        return hammer;
+    }
+
+    /// <summary>Added content: whether a melee weapon of its own (<paramref name="wargear"/>, none of the data's hammers) takes the hammer's rules; nothing without added content.</summary>
+    static partial void ExtrasWieldsHammer(SimConfig c, string wargear, ref bool hammer);
 
     /// <summary>
     /// The class's evade (<see cref="ClassLoadout.Evade"/> when in range of <see cref="SimConfig.Evades"/>), or null; for a class with

@@ -24,8 +24,15 @@ public static partial class UiKit
     public static readonly Color MenuIdle = new(0.9f, 0.9f, 0.9f);
     public const string MenuButtonType = "SmMenuButton", MenuLabelType = "SmMenuLabel";
 
-    /// <summary>Where the background image is read from (the file is optional: without it the menus are plain dark). Not imported by Godot: read as a file.</summary>
+    /// <summary>Where the still background image is read from (the file is optional: without it the menus are plain dark; behind the menus only with <c>--menu-still</c> or without the
+    /// video since 2026-11-10, see <see cref="MenuVideoPath"/>). Not imported by Godot: read as a file.</summary>
     public const string MenuBackgroundPath = "res://assets/menu/background.jpg";
+
+    /// <summary>
+    /// The loading screen's picture (the owner, 2026-11-10: "i want the old main menu screen to be the new loading screen background"): the main menu's picture of before 2026-11-09
+    /// (3840 x 2160), read like <see cref="MenuBackgroundPath"/>. Optional: without it the loading screen is black.
+    /// </summary>
+    public const string LoadingBackgroundPath = "res://assets/menu/loading-background.jpg";
 
     static Texture2D? _menuBackground;
     static bool _menuBackgroundRead;
@@ -35,29 +42,40 @@ public static partial class UiKit
     {
         if (_menuBackgroundRead) return _menuBackground;
         _menuBackgroundRead = true;
+        if (ReadMenuPicture(MenuBackgroundPath, "menu background") is { } image) _menuBackground = ImageTexture.CreateFromImage(image);
+        return _menuBackground;
+    }
+
+    /// <summary>
+    /// The loading screen's picture, read for each loading screen and not kept (at full size it is a 33 MB texture the match does not need), halved (a box filter) while it is at
+    /// least twice the window's height, so a 1080p window draws a 1920 x 1080 copy; null when the file is missing or unreadable.
+    /// </summary>
+    public static Texture2D? LoadingBackgroundImage(float windowHeight)
+    {
+        if (ReadMenuPicture(LoadingBackgroundPath, "loading background") is not { } image) return null;
+        while (image.GetHeight() >= 2f * Mathf.Max(windowHeight, 360f)) image.ShrinkX2();
+        return ImageTexture.CreateFromImage(image);
+    }
+
+    /// <summary>One of the pictures in <c>assets/menu</c> (a folder Godot does not import): beside the project in a development run, beside the game in an exported one.</summary>
+    static Image? ReadMenuPicture(string resPath, string what)
+    {
         try
         {
             string exeDir = System.IO.Path.GetDirectoryName(OS.GetExecutablePath()) ?? "";
-            foreach (string path in new[] { ProjectSettings.GlobalizePath(MenuBackgroundPath), System.IO.Path.Combine(exeDir, "assets", "menu", "background.jpg") })
+            foreach (string path in new[] { ProjectSettings.GlobalizePath(resPath), System.IO.Path.Combine(exeDir, "assets", "menu", System.IO.Path.GetFileName(resPath)) })
             {
                 if (!System.IO.File.Exists(path)) continue;
                 var image = Image.LoadFromFile(path);
                 if (image is null || image.IsEmpty()) continue;
-                _menuBackground = ImageTexture.CreateFromImage(image);
-                break;
+                return image;
             }
         }
-        catch (Exception e) when (e is ArgumentException or System.IO.IOException or NotSupportedException) { GD.PrintErr("menu background: " + e.Message); }
-        return _menuBackground;
+        catch (Exception e) when (e is ArgumentException or System.IO.IOException or NotSupportedException) { GD.PrintErr(what + ": " + e.Message); }
+        return null;
     }
 
-    /// <summary>The full-screen background of every menu but the customizer and the in-match menu: the image, covering the window without stretching, or the plain dark background.</summary>
-    public static Control MenuBackground()
-    {
-        if (MenuBackgroundImage() is not { } image) return Background();
-        var root = new TextureRect { Name = "MenuBackground", Texture = image, StretchMode = TextureRect.StretchModeEnum.KeepAspectCovered, ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, MouseFilter = Control.MouseFilterEnum.Ignore };
-        return root;
-    }
+    // The full-screen background of every menu but the customizer and the in-match menu (MenuBackground, the looping video since 2026-11-10, or the still picture): MenuVideo.cs.
 
     /// <summary>Keeps the rows' text readable: their size follows the window's scale on the virtual space, never under <see cref="MinMenuPixels"/> real pixels.</summary>
     public static void FitMenuText(Vector2 windowPixels)
@@ -151,6 +169,28 @@ public static partial class UiKit
 
         public string Heading { get => _heading.Text; set { _heading.Text = value.ToUpperInvariant(); _heading.Visible = value.Length > 0; } }
 
+        Control? _foot;
+
+        /// <summary>
+        /// A note under the rows that is not one of them (the main menu's OPTIONS: where the game was found, the builds' address). It sits one row under the last row shown, outside the
+        /// scroll list, so it never makes the rows scroll, and stays <see cref="FootMargin"/> inside the window, the list stopping above it when the rows are too many. ui-selftest fix
+        /// (2026-11-10): as the column's last rows it pushed OPTIONS, GRAPHICS past the window once that tab had 17 rows (2026-11-09), so the page scrolled and the note was hidden.
+        /// </summary>
+        public Control? Foot
+        {
+            get => _foot;
+            set
+            {
+                if (_foot is not null) { _foot.MinimumSizeChanged -= Place; RemoveChild(_foot); }
+                _foot = value;
+                if (value is not null) { AddChild(value); value.MinimumSizeChanged += Place; }
+                Place();
+            }
+        }
+
+        /// <summary>The least room under a <see cref="Foot"/>, in the 1080-high UI space.</summary>
+        public const float FootMargin = 12f;
+
         public MenuPage(string name, string heading = "")
         {
             Name = name;
@@ -171,10 +211,12 @@ public static partial class UiKit
             AddChild(_scroll);
             Resized += Place;
             VisibilityChanged += Place;
+            Rows.MinimumSizeChanged += Place;   // a tab's rows changed: the foot follows them
         }
 
         public override void _Ready()
         {
+            FocusGlow.Ensure(this);   // ui/focus-glow: the one glow for every menu
             Place();
             var viewport = GetViewport();
             viewport.SizeChanged += OnWindowChanged;
@@ -195,7 +237,19 @@ public static partial class UiKit
             _heading.Position = new Vector2(MenuLeft + 1f, rowsTop - MenuRowHeight * 1.2f);
             _heading.Size = new Vector2(MenuWidth, MenuRowHeight);
             _scroll.Position = new Vector2(MenuLeft + 1f, rowsTop);
-            _scroll.Size = new Vector2(Mathf.Clamp(Size.X - MenuLeft * 2f, 200f, MenuWidth), Mathf.Max(MenuRowHeight * 4f, Size.Y - rowsTop - 56f));
+            float width = Mathf.Clamp(Size.X - MenuLeft * 2f, 200f, MenuWidth);
+            float listHeight = Mathf.Max(MenuRowHeight * 4f, Size.Y - rowsTop - 56f);
+            if (_foot is { } foot)
+            {
+                // One row under the last row shown (where it stood as the column's last rows), never past the window's bottom; the list ends half a row above it.
+                float footHeight = foot.GetCombinedMinimumSize().Y;
+                float shown = Mathf.Min(Rows.GetCombinedMinimumSize().Y, listHeight);
+                float footTop = Mathf.Min(rowsTop + shown + MenuRowHeight, Size.Y - FootMargin - footHeight);
+                listHeight = Mathf.Clamp(footTop - MenuRowHeight * 0.5f - rowsTop, MenuRowHeight * 4f, listHeight);
+                foot.Position = new Vector2(MenuLeft + 1f, footTop);
+                foot.Size = new Vector2(width, footHeight);
+            }
+            _scroll.Size = new Vector2(width, listHeight);
         }
     }
 
@@ -301,6 +355,14 @@ public static partial class UiKit
 
         /// <summary>Sets the words beside the slider (a range that moved with the window).</summary>
         public void ShowValue(string text) => _value.Text = text;
+
+        /// <summary>A slider that rests (musou/perf-pass: the render scale while FSR 2 sets the scale): not editable, drawn faded.</summary>
+        public void SetDisabled(bool disabled)
+        {
+            Slider.Editable = !disabled;
+            Slider.FocusMode = disabled ? FocusModeEnum.None : FocusModeEnum.All;
+            Modulate = disabled ? new Color(1f, 1f, 1f, 0.45f) : Colors.White;
+        }
     }
 
     /// <summary>A row with a text field: the label, then the field.</summary>

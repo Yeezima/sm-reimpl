@@ -32,9 +32,13 @@ public partial class NetworkView
     double _bloodAt = double.NegativeInfinity;
     const float BloodSize = 1.0f;
 
-    /// <summary>fx/red-glow-blood: the red splash of a hit on a body whose armour is gone, at the hit point, sprayed back toward the shooter.</summary>
-    void BloodSplashAt(Vector3 end, Vector3 dir, double delay)
+    /// <summary>
+    /// fx/red-glow-blood: the red splash of a hit on a body whose armour is gone, at the hit point, sprayed back toward the shooter. pvp-hit-fx (owner, 2026-11-06): replaced by the randomized
+    /// red-orange burst with dark smoke (<see cref="HealthHitBurst"/>); <c>--old-health-hit</c> keeps the splash (and the body re-flash).
+    /// </summary>
+    void BloodSplashAt(Vector3 end, Vector3 dir, double delay, int victim = -1)
     {
+        if (!OldHealthHitFlag) { HealthBurstAt(end, dir, delay, victim); return; }
         if (OldBreakGlowFlag) return;
         if (_connectedFor - _bloodAt < 0.05) return;   // rapid fire does not stack streaks on streaks
         _bloodAt = _connectedFor;
@@ -42,13 +46,19 @@ public partial class NetworkView
         _blood.Spawn(end, -dir, BloodSize, delay);
     }
 
-    /// <summary>A shot struck <paramref name="victim"/> (another player's model) whose armour was up (<paramref name="armourUp"/>; null: not known, read as up).</summary>
-    void CharacterFlashHit(int victim, bool? armourUp)
+    /// <summary>
+    /// A shot struck <paramref name="victim"/> (another player's model) whose armour was up (<paramref name="armourUp"/>; null: not known, read as up), at <paramref name="point"/>
+    /// (pvp-hit-fx: the yellow glow is brightest there; kept in the model's own frame so it rides with him).
+    /// </summary>
+    void CharacterFlashHit(int victim, bool? armourUp, Vector3? point = null)
     {
         if (victim <= 0 || _client is null || victim == _client.PlayerId || _config is null || NoArmourFlash) return;
+        if (point is { } at && _remotes.TryGetValue(victim, out var model) && GodotObject.IsInstanceValid(model) && model.IsInsideTree())
+            _hitPoints[victim] = (model.ToLocal(at), _connectedFor);
         float delay = 5f;
         foreach (var o in _lastOthers) if (o.PlayerId == victim) { delay = HitBars.BodyOf(_config, o.Class).ShieldRegenDelay; break; }
         _armourFlash.Hit(victim, _connectedFor, armourUp ?? true, delay);
+        _damageGlowAt[victim] = _connectedFor;   // onhit-range-intensity: one glow per damage event (NetworkView.PlayerDamageGlow.cs)
     }
 
     /// <summary>An own hit left <paramref name="victim"/> with no armour (the hit report's shield after the hit): its red ring at once.</summary>
@@ -66,6 +76,14 @@ public partial class NetworkView
         if (_client is null || _config is null || _client.Status != ClientStatus.Connected) return;
         int own = _client.PlayerId;
         var me = _client.Predicted;
+        CharacterViewer.OldHitGlow = OldHitGlowFlag;
+        CharacterViewer.OldRegenGlow = OldRegenGlowFlag;
+        CharacterViewer.SoftBreak = !OldBreakRingFlag && !OldHealthHitFlag;
+        ArmourFlashTracker.Ring = OldBreakRingFlag;
+        ArmourFlashTracker.Reflash = BareHitFlashOn;   // owner 2026-11-11: back in Classic PvP (NetworkView.ClassicHitFx.cs)
+        PvpHitFxDemo();
+        while (_armourFlash.TryTakeBreak(out int broke)) ArmourBreakFxIfDrawn(broke);   // classic-no-player-hit-fx: not for a break a shot caused in Classic PvP (NetworkView.ClassicHitFx.cs)
+        _meleeBreaks.Clear();
         CharacterViewer.OldFlashOutline = OldFlashOutlineFlag;
         CharacterViewer.OldBreakGlow = ArmourFlashTracker.Old = OldBreakGlowFlag;
         if (NoArmourFlash)
@@ -80,16 +98,22 @@ public partial class NetworkView
             if (ArmourFlashDemoMode is { Length: > 0 } demo)
             {
                 var d = demo switch { "hit" => (0.6f, 0f, 0f), "break" => (0f, 0.6f, 0f), "glow" => (0f, 0f, 0.6f), _ => ArmourFlashDemoAt(_connectedFor) };
-                _local.SetArmourFlash(d.Item1, d.Item2, d.Item3, ring: true);
+                _local.SetArmourFlash(d.Item1, d.Item2, d.Item3, ring: true, spotScale: HitFxScaleRules.FlashSize(1f, OldFlashMagnitude), glowScale: HitFxScaleRules.FlashSize(1f, OldFlashMagnitude), intensity: FlashBrightness);   // demo: the same x1.4 as a real hit
             }
-            else { var f = _armourFlash.At(own, _connectedFor); _local.SetArmourFlash(f.Hit, f.Break, f.Glow, _armourFlash.BreakRing(own, _connectedFor)); }
+            else
+            {
+                var f = _armourFlash.At(own, _connectedFor);
+                var (ownSpot, ownGlow) = f.Hit > 0.001f || f.Break > 0.001f ? HitFxModelScale(_local.GlobalPosition + Vector3.Up * 1.2f) : (1f, 1f);   // hit-sparks-flashes: the same size factor as another player's model
+                _local.SetArmourFlash(f.Hit, f.Break, f.Glow, _armourFlash.BreakRing(own, _connectedFor), spotScale: ownSpot, glowScale: ownGlow, intensity: FlashBrightness);
+            }
         }
         foreach (var state in _lastOthers)
         {
             if (!state.Alive) { _armourFlash.Reset(state.PlayerId); }
             if (!_remotes.TryGetValue(state.PlayerId, out var character)) continue;
             var f = state.Alive ? _armourFlash.At(state.PlayerId, _connectedFor) : (0f, 0f, 0f);
-            character.SetArmourFlash(f.Item1, f.Item2, f.Item3, _armourFlash.BreakRing(state.PlayerId, _connectedFor));
+            var (spotScale, glowScale) = f.Item1 > 0.001f || f.Item2 > 0.001f ? HitFxModelScale(character.GlobalPosition + Vector3.Up * 1.2f) : (1f, 1f);   // onhit-range-intensity: size kept at range
+            character.SetArmourFlash(f.Item1, f.Item2, f.Item3, _armourFlash.BreakRing(state.PlayerId, _connectedFor), f.Item1 > 0.001f ? HitPointOf(state.PlayerId, character) : null, spotScale, glowScale, FlashBrightness);   // hit-sparks-flashes: x1.4 brightness and size
         }
         _armourFlash.Prune(id => id == own || _remotes.ContainsKey(id));
     }

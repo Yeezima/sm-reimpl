@@ -21,64 +21,64 @@ namespace SmClient;
 /// <para>
 /// The list is by object definition name. <see cref="Always"/> names definitions used only by these stations (or, backpanel_c, as the
 /// same boards elsewhere). <see cref="Near"/> names definitions that also dress other things (the console stations' cabling and
-/// domes): they are removed only where they sit within <see cref="NearRadius"/> metres (horizontally) of a board or a <c>tech_interface_b</c> cabinet, so the monitor
-/// consoles keep their cabling. The console stations themselves (<c>tech_interface_*</c>, <c>tech_panel_pipe_e</c>) stay. <c>--old-armoury-racks</c>
+/// domes): they are removed only where they sit within <see cref="MapDecorLists.NearRadius"/> metres (horizontally) of a board or a <c>tech_interface_b</c> cabinet, so the monitor
+/// consoles keep their cabling. The console stations themselves (<c>tech_interface_*</c>, the monitors) stay; their <c>tech_panel_pipe_e</c> posts are removed (owner, 2026-11-07). <c>--old-armoury-racks</c>
 /// draws everything as before.
 /// </para>
 /// </summary>
 public static class MapDecor
 {
-    public const string Map = "mp_tdm_09";
-    /// <summary>Object definitions removed wherever they are placed.</summary>
-    public static readonly string[] Always =
-    [
-        "backpanel_a", "backpanel_b", "backpanel_c",
-        "tech_panel_a", "tech_panel_b", "tech_panel_c",
-        "tech_panel_pipe_a", "tech_panel_pipe_b", "tech_panel_pipe_c",
-        "handle_bar_a", "accessories_doorbutton",
-    ];
-    /// <summary>Object definitions removed only near a board (see the class remarks): the fittings' pipes and dome, and the seals and scrolls pinned on the boards.</summary>
-    public static readonly string[] Near = ["tech_panel_pipe_g", "tech_panel_tank_a", "acc_seal_01", "acc_seal_02", "acc_seal_03", "acc_scroll_01", "acc_scroll_02"];
-    /// <summary>
-    /// Surfaces removed from meshes that stay: the cabinet <c>tech_interface_b</c> carries two olive <c>backPanel</c> plates in its front.
-    /// (mesh name, material name); the cabinet's other surfaces stay.
-    /// </summary>
-    public static readonly (string Mesh, string Material)[] Surfaces = [("tech_interface_b", "backPanel")];
-
+    public const string Map = MapDecorLists.Map;
+    // The lists (engine-free, so the tests can read them) are in MapDecorLists/MapDecorLists.cs.
+    public static string[] Always => MapDecorLists.Always;
+    public static string[] Near => MapDecorLists.Near;
+    public static (string Mesh, string Material)[] Surfaces => MapDecorLists.Surfaces;
     /// <summary>Whether the material range <paramref name="material"/> of <paramref name="mesh"/> is not drawn on <paramref name="map"/>.</summary>
-    public static bool HidesSurface(string map, string mesh, string material) =>
-        !Old && map.Equals(Map, StringComparison.OrdinalIgnoreCase)
-        && Surfaces.Any(s => s.Mesh.Equals(mesh, StringComparison.OrdinalIgnoreCase) && s.Material.Equals(material, StringComparison.OrdinalIgnoreCase));
-    /// <summary>How close to a board (horizontal metres) a <see cref="Near"/> definition counts as part of the station.</summary>
-    public const float NearRadius = 6f;
+    public static bool HidesSurface(string map, string mesh, string material) => MapDecorLists.HidesSurface(map, mesh, material, Old);
 
     /// <summary><c>--old-armoury-racks</c>: draw the boards and their fittings as before (before / after aid).</summary>
+    /// <summary>Whether the engine's sky-box surfaces (shader <c>sky_*</c>) are not drawn on <paramref name="map"/>: every map but Manufactorum, and never with <c>--old-sky-boxes</c>.</summary>
+    public static bool SkipsSkyBoxes(string map) => MapDecorLists.SkipsSkyBoxes(map, OldSkyBoxes);
+
+    /// <summary>Whether the sky boxes are drawn as a decoded sky around the camera (<see cref="MapSky"/>) rather than not at all: the maps that skip them, unless <c>--no-sky-textures</c>.</summary>
+    public static bool DrawsSkyTextures(string map) => MapDecorLists.DrawsSkyTextures(map, OldSkyBoxes, NoSkyTextures, RenderingServer.GetCurrentRenderingMethod() == "gl_compatibility");
+    /// <summary><c>--no-sky-textures</c>: the sky boxes are not drawn, as after classic-maps-all (before / after aid).</summary>
+    public static bool NoSkyTextures => _noSkyTex ??= Array.IndexOf(OS.GetCmdlineUserArgs(), "--no-sky-textures") >= 0;
+    static bool? _noSkyTex;
+
+    /// <summary><c>--old-uv-sets</c>: the diffuv1 shaders' base maps through the first UV set again (before / after aid).</summary>
+    public static bool OldUvSets => _oldUv ??= Array.IndexOf(OS.GetCmdlineUserArgs(), "--old-uv-sets") >= 0;
+    static bool? _oldUv;
+
+    /// <summary>Whether <paramref name="map"/> gets the dark floor plane under the level (<see cref="MapDecorLists.VoidFloorMaps"/>); <c>--no-void-floor</c> turns it off (before / after aid).</summary>
+    public static bool HasVoidFloor(string map) => MapDecorLists.HasVoidFloor(map, Array.IndexOf(OS.GetCmdlineUserArgs(), "--no-void-floor") >= 0);
+
+    /// <summary><c>--old-sky-boxes</c>: draw the sky boxes as map geometry again, as before classic-maps-all (before / after aid).</summary>
+    public static bool OldSkyBoxes => _oldSky ??= Array.IndexOf(OS.GetCmdlineUserArgs(), "--old-sky-boxes") >= 0;
+    static bool? _oldSky;
+
+    /// <summary>classic-maps-fidelity: <c>--old-lod-rule</c> draws the parts of <see cref="ObjectDefinition.NearestLod"/> again (every node named like a low LOD dropped, _LodH and _LodM drawn together); by default one member of each LOD-suffix family is drawn (<see cref="ObjectDefinition.HighestLod"/>).</summary>
+    public static bool OldLodRule => _oldLod ??= Array.IndexOf(OS.GetCmdlineUserArgs(), "--old-lod-rule") >= 0;
+    static bool? _oldLod;
+
+    /// <summary>classic-maps-fidelity: <c>--old-map-lighting</c> reads only the layer <c>l_lights</c> and lowercase light classes, as before (every <c>MapScene.Load</c> of the client passes this).</summary>
+    public static bool OldMapLighting => _oldLight ??= Array.IndexOf(OS.GetCmdlineUserArgs(), "--old-map-lighting") >= 0;
+    static bool? _oldLight;
+
+    /// <summary>classic-maps-fidelity pass 2, test aid only: <c>--hide-layer a,b</c> does not draw the placements of those layers (default none).</summary>
+    public static HashSet<string> HiddenLayers => _hideLayers ??= ParseLayers();
+    static HashSet<string>? _hideLayers;
+    static HashSet<string> ParseLayers()
+    {
+        var args = OS.GetCmdlineUserArgs();
+        int i = Array.IndexOf(args, "--hide-layer");
+        return i >= 0 && i + 1 < args.Length ? args[i + 1].Split(',', StringSplitOptions.RemoveEmptyEntries).ToHashSet(StringComparer.OrdinalIgnoreCase) : new(StringComparer.OrdinalIgnoreCase);
+    }
+
     public static bool Old => _old ??= Array.IndexOf(OS.GetCmdlineUserArgs(), "--old-armoury-racks") >= 0;
     static bool? _old;
 
     /// <summary>The indices (into <see cref="MapScene.Objects"/>) of the placements not to draw; empty on other maps or with the old switch.</summary>
-    public static HashSet<int> Hidden(MapScene scene)
-    {
-        var hidden = new HashSet<int>();
-        if (Old || !scene.Map.Equals(Map, StringComparison.OrdinalIgnoreCase)) return hidden;
-        var always = new HashSet<string>(Always, StringComparer.OrdinalIgnoreCase);
-        var near = new HashSet<string>(Near, StringComparer.OrdinalIgnoreCase);
-        var boards = new List<System.Numerics.Vector3>();
-        for (int i = 0; i < scene.Objects.Count; i++)
-        {
-            var o = scene.Objects[i];
-            // The boards' places (backpanel_*, and the cabinets whose plates are not drawn) anchor the Near rule.
-            if (o.Definition.StartsWith("backpanel", StringComparison.OrdinalIgnoreCase) || o.Definition.Equals("tech_interface_b", StringComparison.OrdinalIgnoreCase))
-                boards.Add(o.Transform.Translation);
-            if (always.Contains(o.Definition)) hidden.Add(i);
-        }
-        for (int i = 0; i < scene.Objects.Count; i++)
-        {
-            var o = scene.Objects[i];
-            if (!near.Contains(o.Definition)) continue;
-            var p = o.Transform.Translation;
-            if (boards.Any(b => (b.X - p.X) * (b.X - p.X) + (b.Y - p.Y) * (b.Y - p.Y) <= NearRadius * NearRadius)) hidden.Add(i);
-        }
-        return hidden;
-    }
+    public static HashSet<int> Hidden(MapScene scene) =>
+        MapDecorLists.Hidden(scene.Map, Old, scene.Objects.Select(o => (o.Definition, o.Transform.Translation.X, o.Transform.Translation.Y)).ToList());
 }

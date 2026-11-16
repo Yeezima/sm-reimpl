@@ -21,9 +21,9 @@ namespace SmClient;
 public partial class NetworkView
 {
     /// <summary>Metres from the camera within which a shot plays its muzzle flash, and its tracer (ours: a crowd's fire beyond that is not worth its effects).</summary>
-    const float GuardMuzzleMetres = 45f, GuardTracerMetres = 90f;
+    const float GuardMuzzleMetres = 70f, GuardTracerMetres = 120f;   // 45 / 90 until musou-net-budget (2026-11-09)
     /// <summary>Shots given effects in one frame (ours: <see cref="FxPlayer"/> keeps at most 160 effects).</summary>
-    const int GuardFxPerFrame = 12;
+    const int GuardFxPerFrame = 24;   // 12 until musou-net-budget (2026-11-09)
 
     readonly TfwClientState _tfwState = new();
     GuardLooks? _guardLooks;
@@ -53,7 +53,9 @@ public partial class NetworkView
             renderTick = demo.RenderTick;
         }
         var shown = _tfwState.Sample(renderTick, now);
-        if (!_musouNoDraw && _gameSpace is not null && (shown.Count > 0 || _guardLooks is not null))
+        MusouVolleyGuards(shown);   // musou-net-budget: the Guardsmen are targets for the client's own volleys (NetworkView.MusouVolleys.cs)
+        // musou/perf-pass: the Guardsmen's look, crowd and effects are made from the war's first frame (in the Stormbird), not when the first men come into sight at the landing (part of the landing's 430 ms frame).
+        if (!_musouNoDraw && _gameSpace is not null && (shown.Count > 0 || _guardLooks is not null || _tfwState.Armies.Count > 0 || _tfwState.War is not null))
         {
             var watch = System.Diagnostics.Stopwatch.StartNew();
             GuardsDraw(shown, (uint)renderTick, (float)delta);
@@ -113,7 +115,7 @@ public partial class NetworkView
         {
             _guardLooks = new GuardLooks(_gameDir);
             int visible = MusouArg("guard-visible") ?? (SafeMode.Active ? GuardCrowd.LowVisible : GuardCrowd.DefaultVisible);
-            _guardCrowd = new GuardCrowd(_guardLooks, visible) { NoVat = CmdFlag("guard-no-vat") };
+            _guardCrowd = new GuardCrowd(_guardLooks, visible) { NoVat = CmdFlag("guard-no-vat"), OldTierSwitch = CmdFlag("musou-old-crowd-motion") };
             _gameSpace!.AddChild(_guardCrowd);
         }
         if (_guardLooks.Step() is { } look) GD.Print($"guards: look ready ({OrkAssets.Describe(look.Assets)}; muzzle at {_guardLooks.Muzzle})");
@@ -131,7 +133,7 @@ public partial class NetworkView
         int played = 0;
         foreach (var e in _tfwState.NewEvents)
             if (e.Kind == TfwGuardEventKind.Shot) { if (played < GuardFxPerFrame && GuardShotFx(e, camera)) played++; }
-        _guardCrowd!.Frame(shown, tick, camera, delta);
+        _guardCrowd!.Frame(TfwArmyGuards(shown, camera, delta), tick, camera, delta);   // with the distant armies' impostors (NetworkView.TfwArmies.cs, expansion S6)
         GuardsLog();
     }
 
@@ -165,7 +167,7 @@ public partial class NetworkView
         if (length < 0.4f) return false;
         var axes = AxesFromY(line / length);
         if (distance <= GuardMuzzleMetres) fx.Play(GuardRig.MuzzleEffect, from, axes, GuardRig.MuzzleEffectScale, priority: 0, smokeRein: SmokeRein);
-        var tracer = fx.Play(GuardRig.TracerEffect, from, axes, 1f, target: end, priority: 1, smokeRein: SmokeRein);
+        var tracer = fx.Play(GuardRig.TracerEffect, from, axes, 1f, target: end, priority: MusouCrowdFirePriority, smokeRein: SmokeRein);   // musou-net-budget: below the own and allied gore (1 before)
         if (tracer is not null && TracerHeadSpeed(GuardRig.TracerEffect) is > 1f and var head) tracer.HeadSpeed = MathF.Max(head, length / MaxTracerFlight);
         _guardFxPlayed++;
         return true;

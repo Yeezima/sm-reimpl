@@ -176,12 +176,14 @@ public class NoFireInChargeTests(ITestOutputHelper output)
         s = Tick(s, c, InputButtons.Sprint | InputButtons.MeleeHeavy).S;
         int clip = s.Clip;
         bool shot = false;
-        // A grenade press ends the charge from its move-on time (a stick no longer does: feel/charge-no-cancel); Fire pressed on the same tick fires nothing, and released it is gone.
+        // S ends the charge from its move-on time (charge-cancel, protocol 66: no other stick does since feel/charge-no-cancel, and a grenade press no longer does); Fire pressed on
+        // the same tick fires nothing, and released it is gone.
         for (int k = 1; k < 60 && s.Rush != RushPhase.None; k++)
         {
-            var (n, f) = Tick(s, c, InputButtons.Fire | (k % 2 == 1 ? InputButtons.Grenade : InputButtons.None));
+            var (n, f) = Tick(s, c, InputButtons.Fire, k % 2 == 1 ? -1f : 1f);   // S on the odd ticks, W on the even ones
             shot |= f; s = n;
         }
+        Assert.True(s.RushTicks == 0 && s.Rush == RushPhase.None);
         Assert.False(shot);
         Assert.Equal(clip, s.Clip);
         var (idle, fired) = Tick(s, c, InputButtons.None);
@@ -219,11 +221,12 @@ public class NoFireInChargeTests(ITestOutputHelper output)
     }
 
     [Theory]
-    [InlineData(InputButtons.Grenade)]
-    [InlineData(InputButtons.Jump)]
-    public void A_grenade_or_a_jump_ending_the_charge_early_fires_nothing_that_tick_and_fire_is_normal_after(InputButtons ender)
+    [InlineData(InputButtons.Grenade, false)]   // charge-cancel's restore switch (--old-charge-cancel): the protocol 65 grenade cancel
+    [InlineData(InputButtons.Jump, true)]
+    [InlineData(InputButtons.None, true)]       // charge-cancel (protocol 66): S, held on the ender's ticks
+    public void S_a_jump_or_the_old_grenade_cancel_ending_the_charge_early_fires_nothing_that_tick_and_fire_is_normal_after(InputButtons ender, bool backCancel)
     {
-        var c = Config("tactical");
+        var c = Config("tactical") with { ChargeBackCancel = backCancel };
         var s = Fresh(c, Assault, 1, false);
         for (int k = 0; k < 6; k++) s = Tick(s, c, InputButtons.None).S;
         s = Tick(s, c, InputButtons.Sprint | InputButtons.MeleeHeavy).S;
@@ -232,7 +235,7 @@ public class NoFireInChargeTests(ITestOutputHelper output)
         for (int k = 1; k < 60 && !ended; k++)
         {
             // Fire alone is ignored; the ender with Fire pressed together ends the charge at the move-on time and fires nothing in that tick.
-            var (n, f) = Tick(s, c, (k % 2 == 1 ? ender : InputButtons.None) | InputButtons.Fire, 0f);   // the ender is pressed afresh every other tick
+            var (n, f) = Tick(s, c, (k % 2 == 1 ? ender : InputButtons.None) | InputButtons.Fire, ender == InputButtons.None && k % 2 == 1 ? -1f : 0f);   // the ender is pressed afresh every other tick
             shot |= f;
             ended = n.Rush == RushPhase.None;
             s = n;

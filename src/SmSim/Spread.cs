@@ -163,6 +163,7 @@ public static class Spread
     /// </summary>
     public static (float Horizontal, float Vertical) HalfWidths(WeaponSpec? weapon, PlayerState s, int stage = 0, float speedScale = 1f, SimConfig? c = null)
     {
+        if (c is not null && c.NoBulletSpread) return (0f, 0f);   // musou/no-spread
         float flinch = c is null ? 0f : FlinchDegrees(c, s.FlinchTicks);
         if (SetFor(weapon, s, stage, speedScale)?.Scatter is not { } sc) return weapon is null ? (0f, 0f) : (flinch, flinch);
         float bloom = MathF.Max(0f, s.SpreadBloom);
@@ -254,6 +255,7 @@ public static class Spread
             since = 0f;
         }
         if (reset && !events.Fired) { yaw = 0f; pitch = 0f; }
+        if (c.NoBulletSpread) { yaw = 0f; pitch = 0f; bloom = 0f; }   // musou/no-spread: every shot along its aim, nothing blooms
         return next with { SpreadBloom = bloom, SpreadSince = since, SpreadYaw = yaw, SpreadPitch = pitch, FlinchTicks = Math.Max(0, flinchLeft - 1) };
     }
 

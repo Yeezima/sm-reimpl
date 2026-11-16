@@ -25,8 +25,10 @@ internal static class TfwRig
         var map = TfwTestArena.Build();
         var w = new World(config ?? Config, map.Collision, TfwTestArena.Spawns) { Rules = new MatchRules { CountdownTime = 0.1f, TimeLimit = 0f, ScoreLimit = int.MaxValue / 2, RestartDelay = 2f }, StartAreas = TfwTestArena.Data.StartAreas };
         Assert.True(w.StartTfw(nav, TfwTestArena.Field));
-        w.Tfw!.RetainerUp = _ => false;   // the tests of the extraction; those of the revive set their own
+        w.Tfw!.AllyUp = _ => false;   // the tests of the extraction; those of the revive set their own
         w.Tfw.Guardsmen = true;   // these tests are of the battle with its squads; TfwOrkTests of the switch
+        w.Tfw.Patrols = false;    // and of the crowds as they count; TfwPatrolTests of the columns
+        w.TfwMeksOn = false;      // the Scrap Meks too (MusouExpansionS4Tests turns them on)
         w.Spawn(Human, w.AssignClass(0));
         Steps(w, 30);
         Assert.Equal(MatchState.Playing, w.State);
@@ -103,7 +105,7 @@ public class TfwBattleTests
     {
         var w = TfwRig.War();
         var battle = TfwRig.Deploy(w);
-        Assert.Equal(TfwTestArena.StartAlive, w.Musou!.Alive);
+        Assert.Equal(TfwTestArena.StartAlive + battle.Pooled(0) + battle.Pooled(1) + battle.Pooled(2), w.Musou!.Alive);   // the garrisons, and the first of each crowd (one every 4 ticks)
         var at = new MusouEnemy[MusouSim.Capacity];
         int n = w.Musou.CopyTo(at);
         Assert.All(at.Take(n), e => Assert.True(w.Musou.Leashed(e.Id)));
@@ -115,34 +117,29 @@ public class TfwBattleTests
     }
 
     [Fact]
-    public void A_position_waits_for_a_player_its_defenders_and_a_guardsman()
+    public void A_position_is_taken_by_a_player_under_fire_and_never_by_the_guardsmen()
     {
         var w = TfwRig.War();
         var battle = TfwRig.Deploy(w);
         TfwRig.Seconds(w, 1f);
         Assert.Equal(TfwPositionState.Held, battle.Objectives[0].State);   // nobody near
         TfwRig.Teleport(w, battle.Layout.Positions[0]);
-        TfwRig.Steps(w, 2);
+        w.Musou!.Frozen = true;                                            // the garrison stands on it
+        TfwRig.Seconds(w, 2f);
         Assert.Equal(TfwPositionState.Clearing, battle.Objectives[0].State);
+        Assert.True(battle.Objectives[0].Progress > 0f);                   // the owner, 2026-11-06: progress with Orks still on it
+        w.Musou.Frozen = false;
         TfwRig.KillAll(w);
         TfwRig.Steps(w, 3);
         Assert.Equal(TfwPositionState.Securing, battle.Objectives[0].State);
-        TfwRig.Teleport(w, battle.Layout.LandingZone);                     // the Guardsmen's to take
-        int ticks = 0;
-        for (; ticks < 240 * 30 && w.TfwGuards!.CountInside(battle.Layout.Positions[0], TfwTestArena.CaptureRadius) == 0; ticks++) { TfwRig.KillAll(w); w.Step(_ => default); }
-        for (int t = 0; t < 5; t++) { TfwRig.KillAll(w); w.Step(_ => default); }
-        Assert.True(battle.Objectives[0].Progress > 0f);
-        Assert.True(w.TfwGuards!.CountInside(battle.Layout.Positions[0], TfwTestArena.CaptureRadius) > 0);
-        var ork = w.Musou!.Spawn(MusouEnemyType.Boy, battle.Layout.Positions[0], 0f, 1e6f);   // all the squads may be here: it must outlive their fire
-        w.Musou.Frozen = true;
-        TfwRig.Steps(w, 2);
-        float paused = battle.Objectives[0].Progress;
-        TfwRig.Steps(w, 30);
-        Assert.Equal(paused, battle.Objectives[0].Progress);               // an Ork inside pauses it
-        w.Musou.Frozen = false;
-        w.Musou.Damage(ork, 0, 1e7f, Vector3.Zero, out _);                 // a Guardsman's KO names no player
+        float made = battle.Objectives[0].Progress;
+        TfwRig.Teleport(w, battle.Layout.LandingZone);
+        var guards = w.TfwGuards!;
+        Assert.True(guards.SpawnSquad(battle.Layout.Positions[0]) >= 0);   // a squad put on it by hand (their posts would never send one)
         for (int t = 0; t < 30; t++) { TfwRig.KillAll(w); w.Step(_ => default); }
-        Assert.True(battle.Objectives[0].Progress > paused);
+        Assert.True(guards.CountInside(battle.Layout.Positions[0], TfwTestArena.CaptureRadius) > 0);
+        Assert.Equal(TfwPositionState.Held, battle.Objectives[0].State);   // Guardsmen never capture
+        Assert.True(battle.Objectives[0].Progress < made);
     }
 
     [Fact]
@@ -169,12 +166,12 @@ public class TfwBattleTests
     }
 
     [Fact]
-    public void With_no_guardsman_on_it_a_player_or_marine_secures_at_half_rate()
+    public void With_no_guardsman_on_it_a_player_or_marine_secures_at_the_full_rate_with_an_ork_on_it_too()
     {
         var sim = new MusouSim(null);
         var guards = new GuardSim(sim);
         var layout = TfwTestArena.Layout(TfwLane.A, 1);
-        var battle = new TfwBattle(sim, guards, layout, 10.0, 1) { Trickle = false };     // 4 squads, all in the field
+        var battle = new TfwBattle(sim, guards, layout, 10.0, 1) { Trickle = false, Patrols = false };     // 4 squads, all in the field
         battle.Start();
         Assert.Equal(0, battle.Reserves);
         Vector3[] at = [layout.Positions[0]], away = [layout.LandingZone];
@@ -189,11 +186,11 @@ public class TfwBattleTests
         Assert.Equal(0f, battle.Objectives[0].Progress);
         ushort ork = sim.Spawn(MusouEnemyType.Boy, layout.Positions[0], 0f, 85f);
         for (int k = 0; k < 30; k++) battle.Step(at);
-        Assert.Equal(0f, battle.Objectives[0].Progress);                     // an Ork pauses it
+        Assert.InRange(battle.Objectives[0].Progress, 1f / 25f - 0.001f, 1f / 25f + 0.001f);   // an Ork no longer pauses it (owner, 2026-11-06)
         sim.Damage(ork, 1, 1e6f, Vector3.Zero, out _);
-        for (int k = 0; k < 25 * 30; k++) { ClearAll(sim); battle.Step(at); }
-        Assert.InRange(battle.Objectives[0].Progress, 0.499f, 0.501f);       // half the rate
-        for (int k = 0; k < 25 * 30 + 2; k++) { ClearAll(sim); battle.Step(at); }
+        for (int k = 0; k < 11 * 30; k++) { ClearAll(sim); battle.Step(at); }
+        Assert.InRange(battle.Objectives[0].Progress, 0.479f, 0.481f);       // the full rate (no half rate since 2026-11-06)
+        for (int k = 0; k < 13 * 30 + 2; k++) { ClearAll(sim); battle.Step(at); }
         Assert.Equal(TfwPositionState.Secured, battle.Objectives[0].State);
     }
 
@@ -209,16 +206,50 @@ public class TfwBattleTests
     {
         var w = TfwRig.War();
         var battle = TfwRig.Deploy(w);
+        battle.BossOrksOn = false; battle.WeirdboyzOn = false;   // the roaming bosses come sooner since 2026-11-10 (half the waits): only the commander's own here
         for (int k = 0; k < 3; k++) TfwRig.Secure(w, battle, k);
         Assert.NotEqual((ushort)0, battle.BossId);
-        Assert.Equal(TfwBattleRules.CommanderHealth, battle.BossMaxHealth);
+        Assert.Equal(w.Musou!.Rules.BossHealth, battle.BossMaxHealth);   // the commander is the Warboss (owner, 2026-11-06)
         Assert.True(w.Musou!.TryGet(battle.BossId, out var boss));
-        Assert.Equal(MusouEnemyType.Nob, boss.Type);
+        Assert.Equal(MusouEnemyType.Warboss, boss.Type);
         TfwRig.Steps(w, 1);
         Assert.Equal(MusouPhase.Campaign, w.Musou.Director.Phase);
         Assert.Equal(battle.BossId, w.Musou.Director.BossId);
-        Assert.Equal(TfwBattleRules.CommanderHealth, w.Musou.Director.BossMaxHealth);
-        Assert.Equal(7, w.Musou.Alive);                                    // him, a Nob and five 'Ard Boyz
+        Assert.Equal(w.Musou.Rules.BossHealth, w.Musou.Director.BossMaxHealth);
+        int escort = TfwBattleRules.CommanderNobs * TfwBattleRules.BigTwins + TfwBattleRules.CommanderArds;   // two Nobs since 2026-11-10 (a big Ork twice), five 'Ard Boyz
+        Assert.Equal(1 + escort, w.Musou.Alive);                           // him and his escort
+    }
+
+    /// <summary>
+    /// Review fix 2026-11-10: with every slot of the pool taken (the armies' twins, refilled crowds, the dying keeping theirs) the last position's capture still brings the commander: room is made for him
+    /// (the ordinary Ork farthest from the HQ goes) and he is tried again each tick, so the battle can always be won.
+    /// </summary>
+    [Fact]
+    public void A_full_pool_still_brings_the_commander_when_the_last_position_falls()
+    {
+        var w = TfwRig.War();
+        var battle = TfwRig.Deploy(w);
+        battle.BossOrksOn = false; battle.WeirdboyzOn = false;
+        for (int k = 0; k < 2; k++) TfwRig.Secure(w, battle, k);
+        var point = battle.Layout.Positions[2];
+        TfwRig.Teleport(w, point);
+        var filler = battle.Layout.Sources[0];
+        var near = new ushort[MusouSim.Capacity];
+        bool fullAtCapture = false;
+        for (int t = 0; t < 120 * 30 && battle.Objectives[2].State != TfwPositionState.Secured; t++)
+        {
+            int n = w.Musou!.Query(point, battle.Layout.Radius(2) + 6f, near);
+            for (int i = 0; i < n; i++) w.Musou.Damage(near[i], TfwRig.Human, 1e6f, Vector3.Zero, out _);   // the point kept clear
+            while (w.Musou.SpawnLeashed(MusouEnemyType.Boy, filler, 0f, 85f, 250, 0.01f) != 0) { }    // every other slot taken, far off
+            fullAtCapture = w.Musou.Count == MusouSim.Capacity;
+            w.Step(_ => default);
+        }
+        Assert.Equal(TfwPositionState.Secured, battle.Objectives[2].State);
+        Assert.True(fullAtCapture, "the pool was full when the last position fell");
+        for (int t = 0; t < 3 && battle.BossId == 0; t++) w.Step(_ => default);
+        Assert.NotEqual((ushort)0, battle.BossId);
+        Assert.True(w.Musou!.TryGet(battle.BossId, out var boss) && boss.Alive && boss.Type == MusouEnemyType.Warboss);
+        Assert.True(battle.RoomMade > 0, "room was made for him");
     }
 
     [Fact]
@@ -226,19 +257,20 @@ public class TfwBattleTests
     {
         var w = TfwRig.War();
         var battle = TfwRig.Deploy(w);
+        battle.BossOrksOn = false; battle.WeirdboyzOn = false;   // as above: the commander alone against the squad
         for (int k = 0; k < 3; k++) TfwRig.Secure(w, battle, k);
         var guards = w.TfwGuards!;
         int squad = guards.SpawnSquad(battle.Layout.Hq + new Vector3(0f, -3f, 0f));
         Assert.True(squad >= 0);
         int before = guards.Lost;
         bool slam = false, hurt = false;
-        for (int t = 0; t < 12 * 30 && !(slam && hurt); t++)
+        for (int t = 0; t < 30 * 30 && !(slam && hurt); t++)   // 20 s until 2026-11-10: with the crowds back at 100 % (a crowd Ork every 4 ticks) he first takes a field squad, the slam lands at about 23 s
         {
             w.Step(_ => default);
             slam |= w.Musou!.Events.Any(e => e.Kind == MusouEventKind.Strike && e.Enemy == battle.BossId && e.Value == (byte)MusouBossAbility.GroundSlam);
             hurt |= guards.Events.Any(e => e.Kind is GuardEventKind.Hurt or GuardEventKind.Death);
         }
-        Assert.True(slam, "the slam met a squad");
+        Assert.True(slam, $"the slam met a squad (men {guards.AliveIn(squad)}, lost {guards.Lost - before}; it lands at about 23 s)");
         Assert.True(hurt, "and hurt a man");
     }
 
@@ -246,12 +278,12 @@ public class TfwBattleTests
     public void A_waaagh_brings_its_boyz_from_the_sources()
     {
         var sim = new MusouSim(null);
-        var battle = new TfwBattle(sim, new GuardSim(sim), TfwTestArena.Layout(TfwLane.A, 1), 100.0, 1) { Trickle = false };
+        var battle = new TfwBattle(sim, new GuardSim(sim), TfwTestArena.Layout(TfwLane.A, 1), 100.0, 1) { Trickle = false, Patrols = false };
         battle.Start();
         int before = sim.Alive;
         battle.NoteWaaaghs(1);
         for (int k = 0; k < 5; k++) battle.Step([]);
-        Assert.Equal(before + sim.Rules.Boss.WaaaghBoyz, sim.Alive);
+        Assert.Equal(before + sim.Rules.Boss.WaaaghBoyz + battle.Pooled(0) + battle.Pooled(1) + battle.Pooled(2), sim.Alive);   // and the crowds' first (one every 4 ticks)
     }
 
     [Fact]
@@ -264,7 +296,7 @@ public class TfwBattleTests
         var guards = new GuardSim(sim);
         var near = new Vector3(35f, 2f, 0f);
         var layout = new TfwLayout(near, [new(10f, 10f, 0f), new(10f, 12f, 0f), new(10f, 14f, 0f)], new Vector3(10f, 16f, 0f), [new(8f, 8f, 0f), new(8f, 8f, 0f), new(8f, 8f, 0f), new(8f, 8f, 0f)]);
-        var battle = new TfwBattle(sim, guards, layout, 100.0, 1) { Trickle = false };
+        var battle = new TfwBattle(sim, guards, layout, 100.0, 1) { Trickle = false, Patrols = false };
         ushort id = sim.SpawnLeashed(MusouEnemyType.Boy, new Vector3(10f, 2f, 0f), 0f, 85f, 9, TfwBattleRules.DefenderAggro);
         MusouTarget[] targets = [new(1, near, true)];
         var attacks = new List<MusouAttack>();
@@ -289,9 +321,9 @@ public class TfwBattleTests
     public void The_full_cap_holds_back_the_arrivals()
     {
         var sim = new MusouSim(null) { Frozen = true };
-        var battle = new TfwBattle(sim, new GuardSim(sim), TfwTestArena.Layout(TfwLane.A, 1), 100.0, 1) { Trickle = false };
+        var battle = new TfwBattle(sim, new GuardSim(sim), TfwTestArena.Layout(TfwLane.A, 1), 100.0, 1) { Trickle = false, Patrols = false };
         battle.Start();
         for (int k = 0; k < 400 * 30; k++) battle.Step([]);
-        Assert.Equal(TfwBattleRules.AliveCapSolo + 3 * TfwBattleRules.Garrison, sim.Alive);   // the crowds and swarms are the cap; the garrisons stand beside it
+        Assert.Equal(TfwBattleRules.AliveCapSolo + 3 * TfwBattleRules.Garrison, sim.Alive - battle.ArmyOrksAlive - battle.BigsAlive);   // the crowds and swarms are the cap; the garrisons and the armies' real Orks stand beside it
     }
 }

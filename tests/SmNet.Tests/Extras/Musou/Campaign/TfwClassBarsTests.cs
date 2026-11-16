@@ -54,14 +54,11 @@ public class TfwClassBarsTests(ITestOutputHelper output)
         Assert.True(CustomFixture.RunUntil(h, () => Settled(h, client), TimeSpan.FromSeconds(10)));
         var owner = h.Server.AppearanceOf(client.PlayerId)!.Value;
         Assert.NotEqual(0, owner.Version);
-        int retainer = h.Server.World.TfwSpawnRetainer(client.PlayerId, h.Server.World.Players[client.PlayerId].Position) ?? throw new Xunit.Sdk.XunitException("no retainer");
-        var lord = h.Server.World.TfwSpawnLord(TfwLane.A, h.Server.World.Players[client.PlayerId].Position) ?? throw new Xunit.Sdk.XunitException("no lord");
-        Assert.Equal(owner, h.Server.AppearanceOf(retainer));               // the server's answer: the owner's version, race and code
-        Assert.Null(h.Server.AppearanceOf(lord));                           // a lord keeps the default look
+        int retainer = h.Server.World.TfwSpawnAlly(h.Server.World.Players[client.PlayerId].Position) ?? throw new Xunit.Sdk.XunitException("no retainer");
+        Assert.Equal(owner, h.Server.AppearanceOf(retainer));               // the server's answer: the host's version, race and code (alone, this player is the host)
         Assert.True(CustomFixture.RunUntil(h, () => client.AppearanceOf(retainer) is not null, TimeSpan.FromSeconds(10)));
         Assert.Equal(new RemoteAppearance(owner.Version, Race.SpaceMarines, look), client.AppearanceOf(retainer));
         Assert.Equal(owner.Version, client.Scoreboard!.Players.Single(r => r.PlayerId == retainer).AppearanceVersion);   // the snapshot path: the scoreboard row names the version
-        Assert.Null(client.AppearanceOf(lord));
         output.WriteLine($"retainer {retainer} wears version {owner.Version}");
     }
 
@@ -70,7 +67,7 @@ public class TfwClassBarsTests(ITestOutputHelper output)
     {
         var h = WarServer(out var client);
         Assert.True(CustomFixture.RunUntil(h, () => Settled(h, client), TimeSpan.FromSeconds(10)));
-        int retainer = h.Server.World.TfwSpawnRetainer(client.PlayerId, h.Server.World.Players[client.PlayerId].Position)!.Value;
+        int retainer = h.Server.World.TfwSpawnAlly(h.Server.World.Players[client.PlayerId].Position)!.Value;
         Assert.Null(h.Server.AppearanceOf(retainer));
         h.Run(TimeSpan.FromSeconds(1));
         Assert.Null(client.AppearanceOf(retainer));
@@ -153,7 +150,7 @@ public class TfwClassBarsTests(ITestOutputHelper output)
     public void A_puppet_cannot_change_class()
     {
         var w = TfwRig.War(config: Config);
-        int retainer = w.TfwSpawnRetainer(Human, w.Players[Human].Position)!.Value;
+        int retainer = w.TfwSpawnAlly(w.Players[Human].Position)!.Value;
         w.SetNextLoadout(retainer, LoadoutChoice.Default with { Class = 1 });
         w.Tfw!.Enqueue(retainer, new TfwCommandRecord(1, TfwCommand.ChangeClass, 0));
         TfwRig.Steps(w, 2);
@@ -176,7 +173,7 @@ public class TfwClassBarsTests(ITestOutputHelper output)
         Assert.True(CustomFixture.RunUntil(h, () => Settled(h, a) && Settled(h, b), TimeSpan.FromSeconds(10)));
         var fire = new List<TfwFireEvent>();
         void Collect() { foreach (var s in b.TakeExtras()) if (s.Tag == TfwWire.FireTag && TfwWire.ReadFire(s.Payload) is { } records) fire.AddRange(records); }
-        int retainer = h.Server.World.TfwSpawnRetainer(a.PlayerId, h.Server.World.Players[a.PlayerId].Position)!.Value;
+        int retainer = h.Server.World.TfwSpawnAlly(h.Server.World.Players[a.PlayerId].Position)!.Value;
         Assert.True(CustomFixture.RunUntil(h, () => b.AppearanceOf(retainer) is not null, TimeSpan.FromSeconds(10)));
         var oldVersion = h.Server.AppearanceOf(a.PlayerId)!.Value.Version;
 

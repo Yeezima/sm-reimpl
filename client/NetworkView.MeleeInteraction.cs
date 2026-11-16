@@ -21,7 +21,7 @@ namespace SmClient;
 /// near it: a faint shake).</item>
 /// <item><b>Reactions turned to the attacker</b>: a body in a hit reaction turns so the clip's side points at whoever put it there (the charger, else the attacker nearest it), eased.</item>
 /// <item><b>The own hit lands on the hit frame</b>: an own melee hit predicted this frame starts the victim's data flinch at once (the server's reaction arrives a round trip later and
-/// takes over; <see cref="FlinchHit"/>).</item>
+/// takes over; since the hit reactions of 2026-11-11 the graph's random flinch, <see cref="RandomFlinch"/>; <c>--old-hit-reactions</c>: the ranged set, <see cref="FlinchHit"/>).</item>
 /// </list>
 /// Test aids: <c>--no-charge-impact</c> (no hit-stop, kick, impact effects or sound layer: the earlier 0.5 degree charge shake instead), <c>--no-reaction-facing</c>, <c>--no-hit-flinch</c>,
 /// <c>--log-charge-impact</c>; the simulation's lock: <c>--no-charge-lock</c> (server and client).
@@ -68,6 +68,8 @@ public partial class NetworkView
             ChargeShotsBegin();
             if (me.Alive && StateOfPlayer(target, me) is { } victim)
             {
+                // feel/charge-clash: a frame that lands in the shove has the spot ahead of where the own body is now (the contact tick's spot is behind it).
+                if (ChargeClash.Carried(me, _config)) spot = MeleeInteraction.CarriedSpot(me.Position, me.Yaw, ChargeLock.LockDistance(_config));
                 if (!NoLockDraw) _lockDraw = (target, spot, now, -1.0);
                 ChargeImpact(me, victim with { Position = NoLockDraw ? victim.Position : new Num.Vector3(spot.X, spot.Y, victim.Position.Z) }, me, ownId);
             }
@@ -90,7 +92,7 @@ public partial class NetworkView
         {
             var was = _ciReaction.GetValueOrDefault(p.PlayerId);
             if (!p.Alive || p.Reaction == ReactionKind.None) { _ciReaction.Remove(p.PlayerId); if (_reactionSource.TryGetValue(p.PlayerId, out var r) && now - r.At > 0.5) _reactionSource.Remove(p.PlayerId); continue; }
-            bool started = was.Kind == ReactionKind.None || p.ReactionTicks < was.Ticks || p.Reaction != was.Kind;
+            bool started = PlayerHitFxRules.ReactionStarted(was.Kind, was.Ticks, p.Reaction, p.ReactionTicks);
             _ciReaction[p.PlayerId] = (p.Reaction, p.ReactionTicks);
             if (!started) continue;
             if (_reactionSource.TryGetValue(p.PlayerId, out var known) && known.Charge && now - known.At < 0.5) continue;
@@ -105,7 +107,8 @@ public partial class NetworkView
                 int victim = MeleePresentation.Victim(me, others, _config, _client.MeleeLockTarget);
                 if (victim <= 0) continue;
                 double flinchBefore = _loco.TryGetValue(victim, out var before) ? before.FlinchAt : double.NegativeInfinity;
-                FlinchHit(victim, me.PlayerId, false, me);
+                if (OldHitReactions) FlinchHit(victim, me.PlayerId, false, me);
+                else RandomFlinch(victim, "own melee hit, on its hit frame");   // hit reactions: a melee hit shows the graph's random flinch (the ranged sets are for shots)
                 FeelShotTrigger("melee");
                 if (!OldFlinchWeight && _loco.TryGetValue(victim, out var flinched) && flinched.FlinchAt != flinchBefore) flinched.FlinchPeak = WeightFeel.FlinchMeleePeak;   // feel/weight-impact
                 _reactionSource[victim] = (me.PlayerId, now, false);
@@ -192,7 +195,12 @@ public partial class NetworkView
     /// snapshots still have it a round trip behind; once the drawn victim shows its reaction (the snapshots reached the contact) the override fades over
     /// <see cref="MeleeInteraction.LockDrawFade"/> (the server's position is the spot by then), or after <see cref="MeleeInteraction.LockDrawMax"/> (no stun: hyper armour).
     /// </summary>
-    IReadOnlyList<PlayerState> LockDrawn(IReadOnlyList<PlayerState> drawn)
+    /// <remarks>
+    /// feel/charge-clash: while the own collision stop shoves (<see cref="ChargeClash.Carried"/>) the spot rides with the own drawn body (the lock distance in front of it along the predicted
+    /// heading, as the server carries the victim), and the override lets go only once the drawn victim both shows its reaction and has reached the spot
+    /// (<see cref="MeleeInteraction.LockSpotReached"/>: the snapshots caught up with the shove), so the interpolated victim, a round trip behind, is never drawn inside the own body.
+    /// </remarks>
+    IReadOnlyList<PlayerState> LockDrawn(IReadOnlyList<PlayerState> drawn, PlayerState me, PlayerState shown)
     {
         if (_lockDraw.Victim <= 0) return drawn;
         double now = _connectedFor;
@@ -200,10 +208,13 @@ public partial class NetworkView
         for (int i = 0; i < drawn.Count; i++) if (drawn[i].PlayerId == _lockDraw.Victim) { index = i; break; }
         if (index < 0 || !drawn[index].Alive) { _lockDraw.Victim = 0; return drawn; }
         var v = drawn[index];
-        if (_lockDraw.ReactedAt < 0 && v.Reaction != ReactionKind.None) _lockDraw.ReactedAt = now;
+        if (_config is { } cfg && me.Alive && ChargeClash.Carried(me, cfg))
+            _lockDraw.Spot = MeleeInteraction.CarriedSpot(shown.Position, me.Yaw, ChargeLock.LockDistance(cfg));
+        bool clash = _config is { ChargeClash: true };
+        if (_lockDraw.ReactedAt < 0 && v.Reaction != ReactionKind.None && (!clash || MeleeInteraction.LockSpotReached(v.Position, _lockDraw.Spot))) _lockDraw.ReactedAt = now;
         float w = MeleeInteraction.LockDrawWeight((float)(now - _lockDraw.At), _lockDraw.ReactedAt < 0 ? -1f : (float)(now - _lockDraw.ReactedAt));
         if (w <= 0f) { _lockDraw.Victim = 0; return drawn; }
-        var list = drawn as List<PlayerState> ?? drawn.ToList();
+        var list = drawn.ToList();   // feel/charge-clash: a copy (it now runs on the interpolated list itself, before the separation)
         var at = new Num.Vector3(_lockDraw.Spot.X, _lockDraw.Spot.Y, v.Position.Z);
         list[index] = v with { Position = Num.Vector3.Lerp(v.Position, at, w) };
         return list;

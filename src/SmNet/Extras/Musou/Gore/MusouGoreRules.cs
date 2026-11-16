@@ -14,20 +14,24 @@ public static class MusouGoreRules
     /// <summary>How solid a gore cloud is at its thickest in Musou Mode (the owner, 2026-11-02: "slightly more see through"; the shared cloud's is <see cref="GoreRules.CloudAlpha"/>).</summary>
     public const float CloudAlpha = 0.58f;
 
-    /// <summary>Whether a death throws the body (the owner, 2026-11-02): artillery, a frag, a launcher's or a plasma cannon's blast. A lascannon shot still bursts with no corpse.</summary>
-    public static bool Thrown(MusouDeathKind cause) => cause is MusouDeathKind.Blast or MusouDeathKind.Barrage;
+    /// <summary>Whether a death throws the body (the owner, 2026-11-02): artillery, a frag, a launcher's or a plasma cannon's blast. A lascannon shot still bursts with no corpse, and so does a
+    /// bolt blast (<see cref="MusouDeathKind.BoltBlast"/>: owner 2026-11-08, torn apart on the spot, no ragdoll).</summary>
+    public static bool Thrown(MusouDeathKind cause) => cause is MusouDeathKind.Blast or MusouDeathKind.Barrage or MusouDeathKind.OrkBlast;
 
     /// <summary>
     /// The velocity (m/s) a blast gives a body: one of three throws by a repeatable roll, mostly up, mostly sideways or both, away from the blast along <paramref name="push"/> (no push: a direction
-    /// by id) give or take 35 degrees; small bodies fly further, big ones less. Every number is ours (spec "Flung corpses").
+    /// by id) give or take <see cref="ThrowSpreadDegrees"/>; small bodies fly further, big ones less. Every number is ours (spec "Flung corpses").
     /// </summary>
+    /// <summary>How far a throw's flat direction may turn from straight away from the blast, each way (degrees; was 35 until the owner's corpse arcs, 2026-11-08: "a natural looking straight line parabolic arc away from the explosion"). Ours.</summary>
+    public const float ThrowSpreadDegrees = 8f;
+
     public static Vector3 BlastThrow(Vector3 push, ushort id, uint tick, MusouEnemyType type)
     {
-        float kind = GoreRules.Roll(id, tick), a = GoreRules.Roll(id, tick + 1u), b = GoreRules.Roll(id, tick + 2u), turn = (GoreRules.Roll(id, tick + 3u) * 2f - 1f) * 35f * MathF.PI / 180f;
+        float kind = GoreRules.Roll(id, tick), a = GoreRules.Roll(id, tick + 1u), b = GoreRules.Roll(id, tick + 2u), turn = (GoreRules.Roll(id, tick + 3u) * 2f - 1f) * ThrowSpreadDegrees * MathF.PI / 180f;
         var (side, up) = kind < 0.3f ? (1.5f + 2.5f * a, 11f + 4f * b) : kind < 0.6f ? (11f + 5f * a, 1.5f + 2f * b) : (8f + 4f * a, 8f + 4f * b);
         var flat = new Vector2(push.X, push.Y);
         float angle = flat.LengthSquared() > 0.0025f ? MathF.Atan2(flat.Y, flat.X) + turn : id * 2.399963f;
-        float weight = type switch
+        float weight = MusouBossOrks.Is(type) ? 0.4f : type switch   // a Boss Ork as the Warboss
         {
             MusouEnemyType.Gretchin => 1.3f,
             MusouEnemyType.ArdBoy => 0.9f,
@@ -46,13 +50,13 @@ public static class MusouGoreRules
     public static GoreClass Classify(MusouDeathKind cause, int killer, bool killerHasLascannon) => cause switch
     {
         MusouDeathKind.World => GoreClass.None,
-        MusouDeathKind.Barrage or MusouDeathKind.Blast => GoreClass.Explosion,
+        MusouDeathKind.Barrage or MusouDeathKind.Blast or MusouDeathKind.OrkBlast or MusouDeathKind.BoltBlast => GoreClass.Explosion,
         MusouDeathKind.Strafe => GoreClass.Gore,
         _ => killer <= 0 ? GoreClass.None : killerHasLascannon && cause == MusouDeathKind.Shot ? GoreClass.Explosion : GoreClass.Gore,
     };
 
     /// <summary>How big an enemy is for gore: a Gretchin half a Boy, the Warboss four.</summary>
-    public static float Weight(MusouEnemyType type) => type switch
+    public static float Weight(MusouEnemyType type) => MusouBossOrks.Is(type) ? 4f : type switch   // a Boss Ork as the Warboss (3x the body)
     {
         MusouEnemyType.Gretchin => 0.5f,
         MusouEnemyType.Boy or MusouEnemyType.ShootaBoy => 1f,

@@ -117,7 +117,9 @@ public sealed record LocomotionAnimations(IReadOnlyList<RelaxedMoveSet> Relaxed,
     /// (<c>SM_Base_MP</c> "Heavy Bolter Sprint", "PlasmaCannon Sprint" and <c>MP_SM_LasCannon</c> "LasCannon Sprint"); every other weapon
     /// (the bolt pistol's "BoltPistol Sprint" included) references <c>MP_SM_Bolter_NuSprint</c>.
     /// </summary>
-    public static SprintFamily SprintFamilyOf(string weaponName) =>
+    public static SprintFamily SprintFamilyOf(string weaponName) => SprintFamilyOfName(AnimationAlias.Of(weaponName));   // AnimationAlias: an added weapon's borrowed name (Musou's arsenal)
+
+    static SprintFamily SprintFamilyOfName(string weaponName) =>
         weaponName.Contains("heavy_bolter", StringComparison.OrdinalIgnoreCase) ? SprintFamily.Heavy
         : weaponName.Contains("las_cannon", StringComparison.OrdinalIgnoreCase) || weaponName.Contains("lascannon", StringComparison.OrdinalIgnoreCase)
           || weaponName.Contains("plasma_cannon", StringComparison.OrdinalIgnoreCase) ? SprintFamily.Cannon

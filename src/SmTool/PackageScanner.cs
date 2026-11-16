@@ -73,8 +73,13 @@ public sealed class PackageScanner
     /// </summary>
     public List<string> SourceArchivePrefixes { get; } = [];
 
-    /// <summary>Binary files the source offer may hold (the added content's own sounds and images); every other non-text file in it is refused.</summary>
-    public static readonly string[] SourceMediaExtensions = [".ogg", ".png", ".jpg", ".jpeg", ".webp", ".ttf", ".otf", ".ico"];
+    /// <summary>Binary files the source offer may hold (the added content's own sounds and images, the main menu's video loop: our own media, 2026-11-10); every other non-text file in it is refused.</summary>
+    public static readonly string[] SourceMediaExtensions = [".ogg", ".ogv", ".png", ".jpg", ".jpeg", ".webp", ".ttf", ".otf", ".ico"];
+
+    /// <summary>The source offer's one binary exception besides <see cref="SourceMediaExtensions"/>: the owner's Thunderhawk kit models (<c>.glb</c> under <c>client/assets/owner-kit/</c>),
+    /// which he cleared for the repository and the tester builds (2026-11-14; the troop bay's wall stations). A .glb anywhere else in the source offer is still refused; the content rules still scan it.</summary>
+    public static bool IsOwnerKitModel(string entry, string ext) =>
+        ext.Equals(".glb", StringComparison.OrdinalIgnoreCase) && entry.Replace('\\', '/').Contains("/client/assets/owner-kit/", StringComparison.OrdinalIgnoreCase) && !entry.Contains("..", StringComparison.Ordinal);
 
     /// <summary>Nested zips are opened at most this deep (a zip in a zip in the package); deeper is refused.</summary>
     const int MaxNestDepth = 2;
@@ -105,17 +110,17 @@ public sealed class PackageScanner
     public static readonly string[] AllowedBareNames = ["LICENSE", "SmServer", "createdump", "COPYRIGHT", "smbots"];
 
 
-    static readonly Regex UserPath = new(@"[A-Za-z]:[\\/]+Users[\\/]+(?<name>[^\\/\s""'<>|*?:\x00-\x1f]{1,64})", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-    static readonly Regex HomePath = new(@"(?<![\w.])/(?:home|Users)/(?<name>[A-Za-z_][A-Za-z0-9_.-]{0,31})/", RegexOptions.Compiled);
+    internal static readonly Regex UserPath = new(@"[A-Za-z]:[\\/]+Users[\\/]+(?<name>[^\\/\s""'<>|*?:\x00-\x1f]{1,64})", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    internal static readonly Regex HomePath = new(@"(?<![\w.])/(?:home|Users)/(?<name>[A-Za-z_][A-Za-z0-9_.-]{0,31})/", RegexOptions.Compiled);
     // A webhook is a snowflake id and a 60+ character token in reality; the shortest shape accepted here is 17 digits and 30 characters,
     // so test fixtures such as "webhooks/123/abc" are not flagged.
-    static readonly Regex Webhook = new(@"discord(?:app)?\.com/api(?:/v\d+)?/webhooks/(?<id>\d{17,20})/(?<token>[A-Za-z0-9_-]{30,})", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-    static readonly Regex BotToken = new(@"(?<![A-Za-z0-9_-])[MNO][A-Za-z0-9_-]{23,25}\.[A-Za-z0-9_-]{6}\.[A-Za-z0-9_-]{27,}", RegexOptions.Compiled);
+    internal static readonly Regex Webhook = new(@"discord(?:app)?\.com/api(?:/v\d+)?/webhooks/(?<id>\d{17,20})/(?<token>[A-Za-z0-9_-]{30,})", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    internal static readonly Regex BotToken = new(@"(?<![A-Za-z0-9_-])[MNO][A-Za-z0-9_-]{23,25}\.[A-Za-z0-9_-]{6}\.[A-Za-z0-9_-]{27,}", RegexOptions.Compiled);
 
-    static readonly Regex Email = new(@"(?<![A-Za-z0-9._%+-])[A-Za-z0-9._%+-]+@(?<domain>[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,})", RegexOptions.Compiled);
+    internal static readonly Regex Email = new(@"(?<![A-Za-z0-9._%+-])[A-Za-z0-9._%+-]+@(?<domain>[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,})", RegexOptions.Compiled);
 
     /// <summary>Addresses that may appear in a public package: GitHub's noreply addresses, the commit trailer's noreply@anthropic.com, reserved example domains.</summary>
-    static bool IsPublicEmailDomain(string domain) =>
+    internal static bool IsPublicEmailDomain(string domain) =>
         domain.Equals("users.noreply.github.com", StringComparison.OrdinalIgnoreCase) || domain.Equals("noreply.github.com", StringComparison.OrdinalIgnoreCase) ||
         domain.Equals("anthropic.com", StringComparison.OrdinalIgnoreCase) || domain.EndsWith(".invalid", StringComparison.OrdinalIgnoreCase) ||
         domain.Equals("example.com", StringComparison.OrdinalIgnoreCase) || domain.Equals("example.org", StringComparison.OrdinalIgnoreCase) || domain.Equals("example.net", StringComparison.OrdinalIgnoreCase);
@@ -322,7 +327,7 @@ public sealed class PackageScanner
         if (_inSourceArchive)
         {
             if (archive is not null || ext == ".zip") Add("archive-in-source", "an archive inside the source offer");
-            else if (!SourceMediaExtensions.Contains(ext) && IsBinary(open)) Add("binary-in-source", $"a non-text file ('{(ext.Length > 0 ? ext : "no extension")}') inside the source offer");
+            else if (!SourceMediaExtensions.Contains(ext) && !IsOwnerKitModel(name, ext) && IsBinary(open)) Add("binary-in-source", $"a non-text file ('{(ext.Length > 0 ? ext : "no extension")}') inside the source offer");
         }
         if (AllowedExtensions is { } allowed && !sourceArchive)
         {
@@ -492,6 +497,11 @@ public sealed class PackageScanner
         using (var s = open()) s.ReadExactly(data);
         bool looksLikePack = standalone || (data.Length >= 4 && data[^4] == 'G' && data[^3] == 'D' && data[^2] == 'P' && data[^1] == 'C');
         if (!looksLikePack && !isClientExe) return;       // some other executable: nothing embedded to check
+        // tools/release-parts: the Windows client is exported with its pack beside it (sm-reimpl.pck, checked as a standalone pack), so the engine
+        // stays the same file from build to build. Such an exe is accepted only when it provably embeds nothing Godot could load: a well-formed PE
+        // with no GDPC trailer whose pack section is still the template's empty placeholder. Anything else (not a PE, a grown pack section or one
+        // holding a pack, a damaged header) is refused as before.
+        if (!looksLikePack && ext == ".exe" && PeHasPackSection(data) == false) return;
         var listing = ParsePack(data, embedded: !standalone);
         if (!listing.Ok) { add("pack-unverifiable", $"the Godot pack cannot be verified: {listing.Error}"); return; }
         foreach (var expected in ExpectedPackEntries)
@@ -499,6 +509,38 @@ public sealed class PackageScanner
         _verifiedPacks++;
         var problems = listing.Names.Select(PackNameProblem).Where(p => p is not null).Distinct().ToList();
         foreach (var p in problems.Take(5)) add("game-content-in-pack", p!);
+    }
+
+    /// <summary>The most a pack-named PE section may hold to count as Godot's empty placeholder (the template's "pck" section is 8 bytes, zero).</summary>
+    const int PackSectionPlaceholder = 16;
+
+    /// <summary>
+    /// Whether a Windows executable has a section that can hold an embedded Godot pack: one named like a pack ("pck" in any case, anywhere in the name;
+    /// Godot's export grows its template's 8-byte "pck" section over the pack it embeds and finds the pack there without the trailer) that is larger than
+    /// the placeholder, or whose data starts with the GDPC magic. Null when the bytes are not a well-formed PE (MZ header, PE signature, a section table
+    /// and the pack section's data inside the file).
+    /// </summary>
+    internal static bool? PeHasPackSection(byte[] data)
+    {
+        if (data.Length < 0x40 || data[0] != 'M' || data[1] != 'Z') return null;
+        int pe = BitConverter.ToInt32(data, 0x3C);
+        if (pe < 0x40 || pe > data.Length - 24) return null;
+        if (data[pe] != 'P' || data[pe + 1] != 'E' || data[pe + 2] != 0 || data[pe + 3] != 0) return null;
+        int sections = BitConverter.ToUInt16(data, pe + 6);
+        int optional = BitConverter.ToUInt16(data, pe + 20);
+        long table = (long)pe + 24 + optional;
+        if (sections == 0 || table + 40L * sections > data.Length) return null;
+        for (int i = 0; i < sections; i++)
+        {
+            int at = (int)(table + 40L * i);
+            string name = System.Text.Encoding.ASCII.GetString(data, at, 8).TrimEnd('\0');
+            if (!name.Contains("pck", StringComparison.OrdinalIgnoreCase)) continue;
+            uint virtualSize = BitConverter.ToUInt32(data, at + 8), rawSize = BitConverter.ToUInt32(data, at + 16), rawPointer = BitConverter.ToUInt32(data, at + 20);
+            if (virtualSize > PackSectionPlaceholder) return true;
+            if (rawSize > 0 && (long)rawPointer + Math.Min(rawSize, 4u) > data.Length) return null;
+            if (rawSize >= 4 && data[rawPointer] == 'G' && data[rawPointer + 1] == 'D' && data[rawPointer + 2] == 'P' && data[rawPointer + 3] == 'C') return true;
+        }
+        return false;
     }
 
     /// <summary>Licence and notice texts of third parties name their authors by e-mail address; the personal-address rule skips them.</summary>
@@ -509,11 +551,151 @@ public sealed class PackageScanner
                new[] { "LICENSE", "THIRD", "NOTICE", "COPYING" }.Any(p => file.StartsWith(p, StringComparison.OrdinalIgnoreCase));
     }
 
+    /// <summary>Whether a .glb's JSON chunk holds an e-mail address of a non-public domain; a file that is not a well-formed glTF binary is read whole as text.</summary>
+    internal static bool GlbJsonHasEmail(Func<Stream> open)
+    {
+        using var stream = open();
+        var header = new byte[20];
+        int got = 0;
+        while (got < header.Length) { int n = stream.Read(header, got, header.Length - got); if (n <= 0) break; got += n; }
+        byte[] json;
+        if (got == 20 && BitConverter.ToUInt32(header, 0) == 0x46546C67 && BitConverter.ToUInt32(header, 16) == 0x4E4F534A && BitConverter.ToUInt32(header, 12) is var length and <= 64u * 1024 * 1024)
+        {
+            json = new byte[length];
+            int read = 0;
+            while (read < json.Length) { int n = stream.Read(json, read, json.Length - read); if (n <= 0) break; read += n; }
+        }
+        else
+        {
+            using var all = new MemoryStream();
+            all.Write(header, 0, got);
+            stream.CopyTo(all);
+            json = all.ToArray();
+        }
+        string text = System.Text.Encoding.Latin1.GetString(json);
+        foreach (Match m in Email.Matches(text))
+            if (!IsPublicEmailDomain(m.Groups["domain"].Value)) return true;
+        return false;
+    }
+
+    /// <summary>
+    /// The header packets of an Ogg file (the main menu's video loop, .ogv, 2026-11-10): each stream's identification, comment and setup headers (Theora, Vorbis) or head and
+    /// tags (Opus), where an Ogg file keeps its metadata (the comment header's vendor string and tags). Null, so that every rule scans the whole file, unless the file is
+    /// nothing but whole Ogg pages, each stream of a known codec, every header packet complete and no header packet after a stream's first data packet.
+    /// </summary>
+    internal static byte[]? OggHeaderBytes(Func<Stream> open, int maxHeaderBytes = 4 * 1024 * 1024)
+    {
+        using var stream = open();
+        static int Fill(Stream s, byte[] b, int count)
+        {
+            int got = 0;
+            while (got < count) { int n = s.Read(b, got, count - got); if (n <= 0) break; got += n; }
+            return got;
+        }
+        var page = new byte[27];
+        var lacing = new byte[255];
+        var segment = new byte[255];
+        var codec = new Dictionary<uint, char>();              // 't' Theora, 'v' Vorbis, 'o' Opus
+        var pending = new Dictionary<uint, MemoryStream>();    // a stream's header packet being assembled (still in its headers)
+        var done = new HashSet<uint>();                        // streams past their headers
+        var atStart = new Dictionary<uint, bool>();            // the next segment starts a packet
+        var opusHeaders = new Dictionary<uint, int>();
+        var headers = new MemoryStream();
+        bool anyPage = false;
+        while (true)
+        {
+            int got = Fill(stream, page, 27);
+            if (got == 0) break;
+            if (got < 27 || page[0] != (byte)'O' || page[1] != (byte)'g' || page[2] != (byte)'g' || page[3] != (byte)'S' || page[4] != 0) return null;
+            anyPage = true;
+            uint serial = BitConverter.ToUInt32(page, 14);
+            bool bos = (page[5] & 0x02) != 0;
+            if (bos == (codec.ContainsKey(serial) || pending.ContainsKey(serial))) return null;   // a stream starts once, on its first page
+            if (bos) { pending[serial] = new MemoryStream(); atStart[serial] = true; }
+            int count = page[26];
+            if (Fill(stream, lacing, count) < count) return null;
+            for (int i = 0; i < count; i++)
+            {
+                int length = lacing[i];
+                if (Fill(stream, segment, length) < length) return null;
+                bool ends = length < 255;
+                if (done.Contains(serial))
+                {
+                    // Past the headers: a Theora or Vorbis packet that reads as a header is a malformed stream.
+                    if (atStart[serial] && length > 0 && codec[serial] is var c && (c == 't' && (segment[0] & 0x80) != 0 || c == 'v' && (segment[0] & 0x01) != 0)) return null;
+                    atStart[serial] = ends;
+                    continue;
+                }
+                var packet = pending[serial];
+                packet.Write(segment, 0, length);
+                if (headers.Length + packet.Length > maxHeaderBytes) return null;
+                atStart[serial] = ends;
+                if (!ends) continue;
+                byte[] p = packet.ToArray();
+                packet.SetLength(0);
+                if (!codec.ContainsKey(serial))
+                {
+                    if (p.Length >= 7 && p[0] == 0x80 && System.Text.Encoding.ASCII.GetString(p, 1, 6) == "theora") codec[serial] = 't';
+                    else if (p.Length >= 7 && p[0] == 0x01 && System.Text.Encoding.ASCII.GetString(p, 1, 6) == "vorbis") codec[serial] = 'v';
+                    else if (p.Length >= 8 && System.Text.Encoding.ASCII.GetString(p, 0, 8) == "OpusHead") codec[serial] = 'o';
+                    else return null;   // a codec this rule does not know
+                }
+                bool header = codec[serial] switch
+                {
+                    't' => p.Length > 0 && (p[0] & 0x80) != 0,
+                    'v' => p.Length > 0 && (p[0] & 0x01) != 0,
+                    _ => (opusHeaders[serial] = opusHeaders.GetValueOrDefault(serial) + 1) <= 2,
+                };
+                if (header) headers.Write(p, 0, p.Length);
+                else { done.Add(serial); pending.Remove(serial); }
+            }
+        }
+        if (!anyPage || pending.Values.Any(p => p.Length > 0)) return null;   // nothing, or a header packet cut off at the end
+        return headers.ToArray();
+    }
+
     void ScanContent(string name, string ext, bool licenceText, Func<Stream> open, Action<string, string> add)
     {
         bool userPath = false, homePath = false, webhook = false, token = false, email = false;
         var secretHit = new HashSet<int>();
         bool binary = BinaryExtensions.Contains(ext);
+        // An Ogg video (the main menu's video loop, our own media, 2026-11-10): its metadata sits in its streams' header packets, before the compressed frames, in which random
+        // bytes read as an address (the 20 MB loop: three false findings); the e-mail and /home/ path rules look at the header packets only (OggHeaderBytes), and at the whole
+        // file when it is not plain, well-formed Ogg. Every other rule scans the whole file.
+        if (ext.Equals(".ogv", StringComparison.OrdinalIgnoreCase) && !licenceText && OggHeaderBytes(open) is { } oggHeaders)
+        {
+            var bytes = new List<byte>(oggHeaders.Length);
+            foreach (byte b in oggHeaders) if (b != 0) bytes.Add(b);   // as the loop below reads text: Latin-1, the zero bytes dropped
+            var ht = System.Text.Encoding.Latin1.GetString(bytes.ToArray());
+            foreach (Match m in Email.Matches(ht))
+                if (!IsPublicEmailDomain(m.Groups["domain"].Value)) { email = true; break; }
+            foreach (Match m in HomePath.Matches(ht))
+                if (!IsPlaceholderUser(m.Groups["name"].Value)) { homePath = true; break; }
+            binary = true;
+        }
+        // A glTF binary (.glb, the owner's Ashfall kit models): e-mail addresses are looked for in its JSON chunk only (where metadata lives); its binary
+        // chunk is compressed image and mesh data, in which random bytes read as an address (a letter, an at sign, a short made-up domain; 2026-11-06: 20 false findings). Every other rule scans the whole file.
+        if (ext.Equals(".glb", StringComparison.OrdinalIgnoreCase) && !licenceText)
+        {
+            email = GlbJsonHasEmail(open);
+            binary = true;   // the loop below skips the e-mail rule (and the /home/ path rule, also prone to random bytes; the C:\Users rule still runs)
+        }
+        // A JPEG (the owner's Ashfall storm sky, in the ashfall-kit folder): metadata (EXIF, comment) sits in the first segments, before the entropy-coded scan data,
+        // in which random bytes read as an address; the e-mail and /home/ path rules look at the first 64 KB only. Only for a JPEG in ashfall-kit\ (review: every other JPEG
+        // keeps the full scan). Every other rule scans the whole file.
+        if ((ext.Equals(".jpg", StringComparison.OrdinalIgnoreCase) || ext.Equals(".jpeg", StringComparison.OrdinalIgnoreCase)) && !licenceText
+            && name.Replace('\\', '/').Contains("ashfall-kit/", StringComparison.OrdinalIgnoreCase))
+        {
+            using var head = open();
+            var hb = new byte[64 * 1024];
+            int hg = 0;
+            while (hg < hb.Length) { int n = head.Read(hb, hg, hb.Length - hg); if (n <= 0) break; hg += n; }
+            var ht = System.Text.Encoding.Latin1.GetString(hb, 0, hg);
+            foreach (Match m in Email.Matches(ht))
+                if (!IsPublicEmailDomain(m.Groups["domain"].Value)) { email = true; break; }
+            if (HomePath.IsMatch(ht)) homePath = true;
+            binary = true;
+        }
         var buffer = new byte[ReadBufferBytes];
         var chars = new char[buffer.Length];
         using var stream = open();
@@ -555,6 +737,6 @@ public sealed class PackageScanner
         if (secretHit.Count > 0) add("local-secret-value", $"contains {secretHit.Count} value(s) read from the local config (not printed)");
     }
 
-    static bool IsPlaceholderUser(string name) =>
+    internal static bool IsPlaceholderUser(string name) =>
         PlaceholderUsers.Contains(name) || name.StartsWith('<') || name.StartsWith('%') || name.StartsWith('{') || name.StartsWith('$') || name.StartsWith('[') || name.StartsWith('*') || name.StartsWith("...", StringComparison.Ordinal);
 }

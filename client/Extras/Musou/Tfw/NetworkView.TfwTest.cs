@@ -224,7 +224,7 @@ public partial class NetworkView
         TfwCheck("Enter on DEPLOY sends a command", _tfwPanel is null && (_tfwState.Commands.Pending > waiting || TfwNow.Phase != TfwRunPhase.Hub), $"pending {_tfwState.Commands.Pending}");
         if (!await TfwUntil("the server echoes it: travel", () => TfwNow.Phase == TfwRunPhase.Travel, 5.0)) return false;
         var battle = final ? TfwRunPhase.FinalAssault : TfwRunPhase.Battle;
-        return await TfwUntil($"the Stormbird lands: {battle}", () => TfwNow.Phase == battle && _tfwState.Objectives.Count == TfwBattle.CommanderObjective + 1, 10.0);
+        return await TfwUntil($"the Stormbird lands: {battle}", () => TfwNow.Phase == battle && _tfwState.Objectives.Count == TfwBattle.CommanderObjective + 1, CmdFloat("--tfw-landing-wait", 10f));   // test aid: a fixed-rate recording runs the client faster than the server's travel
     }
 
     /// <summary>One battle won on <paramref name="lane"/>: the player walks to each position in turn, it is secured, the commander comes and falls (<c>SM_TFW_WIN_TEST</c>), and the free pickup brings it home.</summary>
@@ -252,7 +252,7 @@ public partial class NetworkView
         }
         if (!await TfwUntil($"battle {number}: the commander stands at the HQ", () => _tfwState.Objectives[TfwBattle.CommanderObjective].State >= TfwPositionState.Held, 5.0)) return false;
         await TfwFrames(3);
-        TfwCheck($"battle {number}: the boss bar names the commander", TfwHudModel.BossName(TfwNow, _tfwState.Objectives) == "ORK COMMANDER");
+        TfwCheck($"battle {number}: the boss bar names the commander, the Warboss", TfwHudModel.BossName(TfwNow, _tfwState.Objectives) == "ORK WARBOSS");   // the commander is the Warboss (owner, 2026-11-06)
         await TfwShot($"commander-{number}");
         if (!await TfwPathTo(_tfwState.Objectives[TfwBattle.CommanderObjective].Position, $"battle {number}: walked to the HQ", 90.0)) return false;
         if (!await TfwUntil($"battle {number}: the commander falls and the battle is won", () => TfwNow.Own.BattleWon, 15.0)) return false;
@@ -467,7 +467,7 @@ public partial class NetworkView
 
     /// <summary>
     /// Test aid <c>--tfw-test-fight</c> (with <c>--tfw-test &lt;dir&gt;</c>): the player deploys, walks to the point nearest it and stands near it looking at it (<c>--tfw-fight-hold</c>: stays at the landing), for <c>--tfw-fight-seconds</c> (default 90), and a PNG goes to the
-    /// folder every 6 s of a windowed run. It fires nothing: the fight on the screen is the allies' and the Orks'.
+    /// folder every 6 s (<c>--tfw-fight-every</c> s) of a windowed run. It fires nothing: the fight on the screen is the allies' and the Orks'.
     /// </summary>
     async Task TfwTestFight()
     {
@@ -487,16 +487,54 @@ public partial class NetworkView
         var point = Nearest();
         if (!CmdFlag("tfw-fight-hold"))   // --tfw-fight-hold: stay where the landing put the player (the crowds' swarms come to it)
             await TfwPathTo(point, "walked towards the nearest point", 45.0, () => Num.Vector3.Distance(client.Predicted.Position, point) < 26f || !client.Predicted.Alive);
+        // --tfw-fight-capture (capture banners, 2026-11-10): onto the point, 88 % of its radius from the banner, looking at it, so the capture's circle and the flip's smoke are in the picture.
+        bool capture = CmdFlag("tfw-fight-capture");
+        if (capture)
+        {
+            var o = _tfwState.Objectives[0];
+            for (int k = 1; k < TfwBattle.CommanderObjective; k++) if (_tfwState.Objectives[k].Position == point) o = _tfwState.Objectives[k];
+            var me0 = client.Predicted.Position;
+            var away = new Num.Vector3(me0.X - point.X, me0.Y - point.Y, 0f);
+            away = away.LengthSquared() > 1e-4f ? Num.Vector3.Normalize(away) : Num.Vector3.UnitY;
+            var spot = point + away * (MathF.Max(o.Radius, 4f) * 0.88f);
+            await TfwPathTo(spot, "walked onto the point", 45.0, () => Num.Vector2.Distance(new Num.Vector2(client.Predicted.Position.X, client.Predicted.Position.Y), new Num.Vector2(spot.X, spot.Y)) < 1.5f || !client.Predicted.Alive);
+        }
+        if (CmdFlag("tfw-fight-fire")) _tfwTestButtons = InputButtons.Fire;   // --tfw-fight-fire (musou-bolt-smoke stills, 2026-11-15): the trigger held for the whole fight, into the crowd it looks at
         int shot = 1;
+        // --tfw-fight-every <s> (expansion S3's capture of a Stormboy hop): a PNG this often instead of every 6 s.
+        double every = double.TryParse(CmdArg("tfw-fight-every"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double e) && e > 0.0 ? e : 6.0;
         while (_connectedFor - start < seconds && TfwNow.Phase == TfwRunPhase.Battle)
         {
             var me = client.Predicted.Position;
-            var look = _musouState.MiddleNear(me, 45f) ?? point;   // towards the crowd
+            var look = capture ? point + new Num.Vector3(0f, 0f, 2.5f) : WeirdboyLook(me) ?? (CmdFlag("tfw-fight-meks") ? MekLook(me) : null) ?? TfwFightArmyLook(me) ?? _musouState.MiddleNear(me, 45f) ?? point;   // towards the crowd (--tfw-fight-weirdboy: the nearest Weirdboy, NetworkView.MusouWeirdboy.cs; --tfw-fight-meks: the Meks' contraptions, Meks/NetworkView.MusouMeks.cs; --tfw-fight-look-armies: the nearest army, expansion S6)
             _yaw = MathF.Atan2(-(look.X - me.X), look.Y - me.Y);
-            await TfwWait(6.0);
-            await TfwShot($"fight-{shot++:00}");
+            if (capture) _pitch = MathF.Atan2(look.Z - (me.Z + 1.8f), MathF.Max(0.5f, new Num.Vector2(look.X - me.X, look.Y - me.Y).Length())) - 0.12f;   // at the banner, with the circle on the floor in view
+            await TfwWait(every);
+            await TfwShot($"fight-{shot:00}");
+            await TfwSwarmShots(shot++);   // --tfw-swarm-shots: overhead views too (NetworkView.TfwSwarmCam.cs)
         }
+        _tfwTestButtons = InputButtons.None;
         TfwCheck("the fight was filmed", shot > 1, TfwNow.Phase.ToString());
+        if (CmdFlag("tfw-fight-weirdboy")) GD.Print($"TFWTEST note: Weirdboy bolts drawn {WeirdboyBoltsDrawn}");
+        // hotfix/musou-server-lag: the own player's prediction errors over the run (a late or skipped server tick shows here as a snap back).
+        var errors = client.CorrectionErrors.OrderBy(x => x).ToList();
+        if (errors.Count > 0)
+            GD.Print(System.FormattableString.Invariant($"TFWTEST note: prediction corrections {errors.Count} sampled, {errors.Count(x => x > 0.05f)} above 5 cm, {errors.Count(x => x > 0.5f)} above 50 cm, p99 {errors[System.Math.Clamp((int)System.Math.Ceiling(0.99 * errors.Count) - 1, 0, errors.Count - 1)]:F3} m, max {errors[^1]:F3} m"));
+    }
+
+    /// <summary>Capture aid <c>--tfw-fight-look-armies</c> (expansion S6): the middle of the nearest army (tag 18) within 150 m, so a rally or a clash stays in the picture; null without the flag or an army.</summary>
+    Num.Vector3? TfwFightArmyLook(Num.Vector3 me)
+    {
+        if (!CmdFlag("tfw-fight-look-armies")) return null;
+        Num.Vector3? best = null;
+        float bestD = 150f;
+        foreach (var a in _tfwState.Armies)
+        {
+            var at = _armyImpostors.Of(a.Id)?.Anchor ?? a.Anchor;
+            float d = Num.Vector3.Distance(at, me);
+            if (d < bestD) { bestD = d; best = at; }
+        }
+        return best;
     }
 
     /// <summary>
@@ -556,6 +594,20 @@ public partial class NetworkView
         if (!await TfwUntil("the war is on, in the hub", () => client.Match.State == MatchState.Playing && _tfwState.War is { Phase: TfwRunPhase.Hub } && client.Predicted.Alive, 60.0)) return;
         if (CmdFlag("tfw-test-fight")) { await TfwTestFight(); return; }
         if (CmdFlag("tfw-test-melee")) { await TfwTestMelee(); return; }
+        if (CmdFlag("tfw-test-charge")) { await TfwTestCharge(); return; }   // W4, the Remote Detonators (Arsenal/Charge/NetworkView.ChargeTest.cs)
+        if (CmdFlag("tfw-zoom-capture")) { await TfwZoomCapture(); return; }   // the Librarian's zoom against another class's (Librarian/NetworkView.ZoomCapture.cs)
+        if (CmdFlag("tfw-dreadnought-capture")) { await TfwDreadnoughtCapture(); return; }   // the Dreadnought's stills (Dreadnought/NetworkView.DreadnoughtCapture.cs)
+        if (CmdFlag("tfw-autocannon-capture")) { await TfwAutocannonCapture(); return; }   // W1 (2026-11-10): the autocannon's screenshot gate (Arsenal/Autocannon/NetworkView.AutocannonCapture.cs)
+        if (CmdFlag("tfw-autocannon-impact-capture")) { await TfwAutocannonImpactCapture(); return; }   // W1c: the autocannon's impacts on a wall and the ground (Arsenal/Autocannon/NetworkView.AutocannonImpactCapture.cs)
+        if (CmdFlag("tfw-spear-capture")) { await TfwSpearCapture(); return; }   // the power spear's approved clips in a match (Arsenal/Spear/NetworkView.SpearCapture.cs)
+        if (CmdFlag("tfw-claw-capture")) { await TfwClawCapture(); return; }   // the lightning claw's gauntlet in the open (Arsenal/Claw/NetworkView.ClawCapture.cs)
+        if (CmdFlag("tfw-spear-carry-film")) { await TfwSpearCarryFilm(); return; }   // spear pass 3: the carry standing, running, strafing, sprinting, for a recording
+        if (CmdFlag("tfw-spear-film")) { if (CmdArg("tfw-spear-film-kind") is { Length: > 0 }) await TfwSpearStrikeFilm(); else await TfwSpearFilm(); return; }   // the spear's light hews in a match, for a recording (Arsenal/Spear/NetworkView.SpearCapture.cs)
+        if (CmdFlag("tfw-feel-capture")) { await TfwFeelCapture(); return; }   // combat feel (2026-11-09): a short fight for the before / after captures (Tfw/NetworkView.TfwMelee.cs)
+        if (CmdFlag("tfw-weight-capture")) { await TfwWeightCapture(); return; }   // musou weight pass (2026-11-10): the baseline moves (Tfw/NetworkView.TfwWeightCapture.cs)
+        if (CmdFlag("tfw-arc-capture")) { await TfwArcCapture(); return; }   // musou swing arc (2026-11-10): before / after stills (Tfw/NetworkView.TfwArcCapture.cs)
+        if (CmdFlag("tfw-sound-capture")) { await TfwSoundCapture(); return; }   // musou/sound-ab (2026-11-10): the same short fight for each clip of the sound A/B (Tfw/NetworkView.TfwSoundCapture.cs)
+        if (CmdFlag("tfw-bay-capture")) { await TfwBayCapture(); return; }   // the troop bay's wall assets used through the real keys (Tfw/Bay/NetworkView.TfwBayCapture.cs)
         if (CmdFlag("tfw-test-capture")) { await TfwTestCapture(); return; }
         var start = TfwNow;
         TfwCheck("the reserves are the run's", start.Transport == TfwBattleRules.StartTransport && start.Supplies == TfwBattleRules.StartSupplies, $"{start.Transport}, {start.Supplies}");

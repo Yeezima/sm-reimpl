@@ -65,6 +65,14 @@ public sealed partial record GameplayTuning(SimConfig Config, string Source, IRe
             config = config with { ActionLockScale = OwnerLockScale, SprintStopTime = classes?.SprintStop?.FinishedAt ?? SprintStopTuning.FallbackTime };
         if (ownerFeel)   // feel/melee-charge-2: longer melee lunges and a faster weapon switch (both estimates, owner's requests)
             config = config with { MeleeLungeScale = OwnerLungeScale, WeaponSwitchTime = config.WeaponSwitchTime * OwnerSwitchScale };
+        if (ownerFeel)   // sim/lock-reach (owner, 2026-11-06): the lock-on's lunge 30 % shorter (an estimate, owner's request)
+            config = config with { MeleeLock = config.MeleeLock with { LungeReach = OwnerLockLungeReach, StepFront = OldInstantStep ? 0f : OwnerInstantStep } };
+        if (ownerFeel)   // feel/grenades-quickdraw (the owner, 2026-11-06): the quickdraw switch and the quicker throw that frees the player at the release (estimates)
+            config = config with
+            {
+                WeaponSwitchTime = OwnerQuickdrawTime, QuickdrawSwitch = true,
+                ThrowRelease = config.ThrowRelease * OwnerThrowReleaseScale, ThrowDuration = config.ThrowRelease * OwnerThrowReleaseScale,
+            };
         return new GameplayTuning(config, $"{BlueprintPackage}: {MarineBlueprint}", placeholders, notes) { Melee = melee, Classes = classes };
     }
 
@@ -83,6 +91,8 @@ public sealed partial record GameplayTuning(SimConfig Config, string Source, IRe
     /// </summary>
     public static GameplayTuning LoadForMatch(string gameDir, ContentExtras extras, bool orkData = false)
     {
+        // sim/sword-ff-stab is Classic PvP's: Musou's sword keeps its stomp blast (MeleeTuning.WithoutSwordStab).
+        using var stab = extras.HasFlag(ContentExtras.Musou) ? MeleeTuning.WithoutSwordStab() : null;
         var tuning = Load(gameDir, extras.HasFlag(ContentExtras.Orks) ? MatchOrk(orkData) : null);
         if (extras == ContentExtras.None) return tuning;
         var config = tuning.Config with { Extras = extras };
@@ -118,11 +128,42 @@ public sealed partial record GameplayTuning(SimConfig Config, string Source, IRe
     public const float OwnerLungeScale = 1.625f;
 
     /// <summary>
+    /// sim/lock-reach (the owner's request of 2026-11-06: "for all melee weapons reduce the lunge distance of the lock on by 30%"): <see cref="MeleeLockSpec.LungeReach"/>, the share
+    /// of the gap to the separation a locked attack's lunge closes (1 before: the whole gap). An **estimate (owner's request)**, to review in a playtest; every melee weapon, every mode.
+    /// </summary>
+    public const float OwnerLockLungeReach = 0.7f;
+
+    /// <summary>
+    /// sim/instant-step (the owner's request of 2026-11-06: "step forward when swinging a melee weapon should always begin the instant you start the swing"):
+    /// <see cref="MeleeLockSpec.StepFront"/>, how far each strike's forward motion is re-shaped to start on the first tick (1: wholly). An **estimate (owner's request)**, to review in a
+    /// playtest; every melee weapon, every mode. Test aid: <c>SM_OLD_INSTANT_STEP=1</c> (server and client alike) restores the clips' own profile.
+    /// </summary>
+    public const float OwnerInstantStep = 1f;
+    static readonly bool OldInstantStep = Environment.GetEnvironmentVariable("SM_OLD_INSTANT_STEP") == "1";
+
+    /// <summary>
     /// feel/melee-charge-2 (the owner's request of 2026-10-29: "weapon switching is slightly faster ... make a note that this is an estimation and needs to be
     /// measured against the original"): the factor on <see cref="SimConfig.WeaponSwitchTime"/> (the 0.6 s placeholder × 0.8 = 0.48 s). An **estimate (owner's
-    /// request)**, to measure against the original; the raise after a switch is unchanged.
+    /// request)**, to measure against the original; the raise after a switch is unchanged. Superseded with the owner's feel by <see cref="OwnerQuickdrawTime"/> (2026-11-06); kept for
+    /// the record and the comparison aids.
     /// </summary>
     public const float OwnerSwitchScale = 0.8f;
+
+    /// <summary>
+    /// feel/grenades-quickdraw (the owner's request of 2026-11-06: "there is currently a slight delay when switching weapons and firing the next one ... it should be near instant,
+    /// like a quickdraw"): <see cref="SimConfig.WeaponSwitchTime"/> with the owner's feel, seconds from the switch press to the first shot of the new weapon (3 ticks at 30 Hz), and
+    /// <see cref="SimConfig.QuickdrawSwitch"/> on (no raise after it). Replaces 0.48 s (<see cref="OwnerSwitchScale"/>) plus the rifle's 0.2 s raise (0.68 s in all). An **estimate
+    /// (owner's request)**, to review in a playtest.
+    /// </summary>
+    public const float OwnerQuickdrawTime = 0.1f;
+
+    /// <summary>
+    /// feel/grenades-quickdraw (the owner's request of 2026-11-06: "make them more responsive to throw (less delay between pressing the keybind and the grenade releasing), and you're
+    /// free to act immediately and start a new action once the grenade leaves the hand"): the factor on the toss graph's release time (<see cref="SimConfig.ThrowRelease"/>, 0.2 s on the
+    /// install → 0.1 s), and the throw ends at the release (<see cref="SimConfig.ThrowDuration"/> = the release; the graph's 0.667 s end no longer locks). An **estimate (owner's
+    /// request)**, to review in a playtest.
+    /// </summary>
+    public const float OwnerThrowReleaseScale = 0.5f;
 
     /// <summary>The melee weapon read by <see cref="MeleeTuning"/> (combat knife), or null when it could not be read.</summary>
     public MeleeTuning? Melee { get; init; }

@@ -38,7 +38,7 @@ public sealed partial class World
     {
         if (!Config.Extras.HasFlag(ContentExtras.Musou) || Rules is null) return false;
         if (_musou is not null) return true;
-        _musou = new MusouSim(nav, Config.MusouRules) { TickRate = Config.TickRate };
+        _musou = new MusouSim(nav, Config.MusouRules) { TickRate = Config.TickRate, OldSwingTracking = Config.MusouOrkSwingTracking };   // MusouSim.Swing.cs
         _musouDirector = new MusouDirector(_musou, _spawns.Select(s => s.Position).ToList());
         // The Warboss comes out of the Chaos spawn room (owner, 2026-10-31): the spot of the map's Chaos start area nearest its centre.
         int chaosArea = Array.FindIndex(_startAreas, a => a.Side == Team.Chaos);
@@ -50,7 +50,10 @@ public sealed partial class World
     partial void ExtrasStep()
     {
         if (_musou is null || _musouDirector is null) return;
-        if (_tfw is not null) { TfwStep(); return; }   // Campaign/World.Tfw.cs: the war, not the 5-wave run
+        LibrarianStep();   // Librarian/World.Librarian.cs: a Librarian's powers (nobody else has any)
+        DreadnoughtStep();   // Dreadnought/World.Dreadnought.cs: a Dreadnought's entrance (nobody else has one)
+        ArsenalStep();   // Arsenal/World.Arsenal.cs: the arsenal's own timers (W4, the charge's fuse and ring); a no-op until then
+        if (_tfw is not null) { long whole = SimProfile.Begin(); TfwStep(); SimProfile.End("tfw: whole step", whole); return; }   // Campaign/World.Tfw.cs: the war, not the 5-wave run (musou/perf-pass: SM_TICK_STATS section)
         long started = System.Diagnostics.Stopwatch.GetTimestamp();
         var director = _musouDirector;
         MusouBeginTick();   // World.MusouCombat.cs: once a tick (a cleave or a blast earlier in the tick may have begun it)
@@ -63,7 +66,7 @@ public sealed partial class World
         _musouIds.Clear();
         foreach (int id in _players.Keys) _musouIds.Add(id);
         _musouIds.Sort();
-        foreach (int id in _musouIds) { var p = _players[id]; _musouTargets[n++] = new MusouTarget(id, p.Position, p.Alive); }
+        foreach (int id in _musouIds) { var p = _players[id]; _musouTargets[n++] = new MusouTarget(id, p.Position, p.Alive, Body: DreadnoughtBodyRing(p)); }
         var targets = _musouTargets.AsSpan(0, n);
 
         if (playing)
@@ -131,8 +134,14 @@ public sealed partial class World
         if (!_players.TryGetValue(attack.Player, out var before) || !before.Alive) return;
         if (_tfw is { } run && run.InRange.Contains(attack.Player)) return;   // the owner, 2026-11-02: at the Firing Range the Orks deal no damage
         var type = attack.Melee ? DamageType.Melee : DamageType.Ranged;
-        float damage = attack.Damage * _musou!.Rules.PlayerDamageScale * Loadouts.Body(Config, before).Received(type);
+        float damage = attack.Damage * _musou!.Rules.PlayerDamageScale * Loadouts.Body(Config, before).Received(type) * DamageTakenScale(attack.Player);   // Musou Mode: an AI Marine takes a tenth
         if (!(damage > 0f)) return;
+        // Owner, 2026-11-12: the bosses hit harder "but not 1 shotting the player": one boss hit takes at most MaxHitShare of the target's full health plus armour, after every multiplier above.
+        if (attack.Enemy != 0 && _musou.TryGet(attack.Enemy, out var striker) && MusouPowerupRules.Boss(striker.Type))
+        {
+            var body = Loadouts.Body(Config, before);
+            damage = MathF.Min(damage, MusouBossRules.MaxHitShare * (body.HealthMax + body.ShieldMax));
+        }
         var push = before.Position - attack.From;
         var direction = new Vector3(push.X, push.Y, 0f);
         direction = direction.LengthSquared() > 1e-8f ? Vector3.Normalize(direction) : Vector3.UnitY;
@@ -141,9 +150,34 @@ public sealed partial class World
         _hits.Add(new HitEvent(Tick, 0, attack.Player, HitZone.Body, Vector3.Distance(before.Position, attack.From), shieldDamage, healthDamage, Killed: false,
             Melee: attack.Melee, Direction: direction, Armoured: before.Shield > 0f));
         ShieldBroke(attack.Player, before, after, shieldDamage);
-        if (after.Alive && attack.Staggers)
+        if (after.Alive && attack.Staggers && (attack.Enemy == 0 || EnemiesImpede))   // an enemy's (Enemy above 0) only when the war's rule allows it; the barrage (0) keeps its stagger
             TryReact(0, attack.Player, new ReactionEntry(0f, ReactionKind.Stagger), attack.From, new Vector2(direction.X, direction.Y));
     }
+
+    /// <summary>
+    /// Whether an enemy's attack may put a player in a reaction: always in the 5-wave run (as before); in Musou Mode only by <see cref="Extras.Musou.Campaign.TfwCombatRules.EnemiesImpede"/>
+    /// (the owner, 2026-11-06: no Ork ever stuns, staggers or knocks a player back; their damage stays).
+    /// </summary>
+    bool EnemiesImpede => _musou?.War is not { } war || war.EnemiesImpede;
+
+    /// <summary>
+    /// A boss's strike (the Warboss's slam or charge) on a living player: its damage, the slam's stagger (a strike without a knockback) and the charge's knockback (the core's stagger with a push, when the hit
+    /// landed: an enemy's damage scale of 0 hurts nobody and throws nobody); both only while <see cref="EnemiesImpede"/>.
+    /// </summary>
+    void MusouBossHit(ushort boss, MusouBossStrike strike)
+    {
+        if (!_players.TryGetValue(strike.Player, out var before) || !before.Alive) return;
+        MusouHit(new MusouAttack(boss, strike.Player, strike.Damage, Melee: true, Staggers: strike.Knockback <= 0f, strike.From));
+        if (!EnemiesImpede || strike.Knockback <= 0f) return;
+        if (_players[strike.Player] is { Alive: true } after && (after.Health < before.Health || after.Shield < before.Shield))
+            TryReact(0, strike.Player, new ReactionEntry(0f, ReactionKind.Stagger, Backward: strike.Knockback, Duration: _musou!.Rules.Boss.ChargeKnockbackSeconds), strike.From, strike.Push);
+    }
+
+    /// <summary>Test aid: <paramref name="attack"/> lands as an enemy's landed attack does (<see cref="MusouSim.Step"/>'s list); nothing without Musou.</summary>
+    public void MusouLandAttack(MusouAttack attack) { if (_musou is not null) MusouHit(attack); }
+
+    /// <summary>Test aid: boss <paramref name="boss"/>'s <paramref name="strike"/> lands as one of its abilities' does; nothing without Musou.</summary>
+    public void MusouLandBossStrike(ushort boss, MusouBossStrike strike) { if (_musou is not null) MusouBossHit(boss, strike); }
 
     /// <summary>
     /// The shared lives pool: each respawn this tick takes a life (the core places it, in the Space Marines' spawn room); while the pool cannot cover every
@@ -211,6 +245,18 @@ public sealed partial class World
         }
     }
 
+    partial void ExtrasSampled(int id, in PlayerInput input) => LibrarianSampled(id, input);
+
+    partial void ExtrasInputLocked(int id, ref bool locked)
+    {
+        if (_musou is not null) DreadnoughtInputLocked(id, ref locked);   // Dreadnought/World.Dreadnought.cs: the entrance clip
+    }
+
+    partial void ExtrasInputFilter(int id, ref PlayerInput input)
+    {
+        if (_musou is not null) DreadnoughtFilterInput(id, ref input);   // Dreadnought/World.Dreadnought.cs: the sprint's 6 s and 1 s gap
+    }
+
     partial void ExtrasPlayerInput(int id, ref PlayerInput input, ref bool handled)
     {
         if (_tfw is null) return;
@@ -220,13 +266,48 @@ public sealed partial class World
     partial void ExtrasMelee(int attacker, PlayerState state, MeleeStep step)
     {
         if (_musou is null) return;
+        int librarian = LibrarianMeleeBegin(attacker);   // Librarian/World.Librarian.cs: a swing that strikes takes stress off
         MusouCleave(attacker, state, step);   // World.MusouCombat.cs
+        DreadnoughtOvercharge(attacker, state);   // Dreadnought/World.Dreadnought.cs: the power-up's shockwave at the hit, once per swing
+        TfwMekMelee(attacker, state, step);   // Campaign/World.TfwMeks.cs: the contraptions (expansion S4)
+        LibrarianMeleeEnd(attacker, librarian);
+    }
+
+    partial void ExtrasJump(int player, JumpEventKind kind)
+    {
+        if (_musou is null) return;
+        ArsenalJump(player, kind);   // Arsenal/World.Arsenal.cs: the arsenal's jump rules (W3, the impaling dive on Impact); a no-op until then
+        if (kind != JumpEventKind.SlashLand) return;
+        MusouSlashLandHeal(player);   // World.MusouCombat.cs
+    }
+
+    /// <summary>musou/aoe-pass (owner 2026-11-14): the ground pound's and the air slash landing's blast reaches x1.5 (the fall-off distances with it, so the rim keeps its share) and deals x1.5 (the centre's too).</summary>
+    partial void ExtrasJumpBlast(JumpEventKind kind, ref SplashSpec? blast)
+    {
+        if (_musou is null || blast is null || kind is not (JumpEventKind.Impact or JumpEventKind.SlashLand)) return;
+        blast = MusouPoundBlast(blast);
+    }
+
+    /// <summary>The blast scaled as the pound and the slash landing are in Musou Mode: reach x <see cref="MusouCombatRules.PoundReachScale"/>, every damage figure x <see cref="MusouCombatRules.PoundDamageScale"/>.</summary>
+    internal static SplashSpec MusouPoundBlast(SplashSpec blast)
+    {
+        var scaled = Combat.ScaledReach(blast, MusouCombatRules.PoundReachScale);
+        var d = scaled.Damage;
+        return scaled with { Damage = d with { Damage = d.Damage * MusouCombatRules.PoundDamageScale, ShieldDamage = d.ShieldDamage * MusouCombatRules.PoundDamageScale } };
     }
 
     partial void ExtrasBlast(int owner, Vector3 point, SplashSpec splash, bool melee)
     {
         if (_musou is null) return;
         MusouBlast(owner, point, splash, melee);   // World.MusouCombat.cs
+        TfwMekBlast(owner, point, splash, melee);   // Campaign/World.TfwMeks.cs: the contraptions (expansion S4)
+    }
+
+    partial void ExtrasDamageTaken(int target, ref float scale)
+    {
+        if (_musou is not null) DreadnoughtDamageTaken(target, ref scale);   // Dreadnought/World.Dreadnought.cs: no damage during the entrance
+        if (_tfw is null) return;
+        TfwDamageTaken(target, ref scale);   // Campaign/World.TfwSupply.cs: the AI Marines take a tenth
     }
 
     partial void ExtrasJoinSide(ref Team want, ref bool forced)
@@ -258,6 +339,7 @@ public sealed partial class World
                 else if (--TicksLeft == 0)
                 {
                     _projectiles.Clear(); _areas.Clear(); _perkBlasts.Clear();
+                    ArsenalReset();   // Arsenal/World.Charge.cs
                     CountProjectilesOut();
                     StartRound(respawn: false);
                 }

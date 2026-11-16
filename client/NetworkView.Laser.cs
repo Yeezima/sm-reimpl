@@ -44,6 +44,44 @@ public partial class NetworkView
     bool OldLaser => _oldLaser ??= CmdFlag("old-laser");
     float AttachFollowSeconds => (_oldFollow ??= CmdFlag("old-follow")) ? float.PositiveInfinity : ShotAttachSeconds;
 
+    bool? _oldMeltaFollow;
+    /// <summary>
+    /// fx/melta-attached (the owner, 2026-11-06: "when firing melta this small red glow and blue gas venting to the sides should stick to the player's melta gun exactly. hard attached to it.
+    /// only the weapon shot effect that extends out from the barrel to the target should be indepedent of the weapon position"): how long a shot's attached (non-beam) effect follows its
+    /// marker. The melta's (<c>melta_gun_venting</c> at <c>fx_l_muzzle_vent</c> / <c>fx_r_muzzle_vent</c>, <c>light_led_red_1</c> at <c>fx_light_red</c>) for their whole life, i.e. the data's
+    /// <c>attached</c> rule; every other weapon's for <see cref="ShotAttachSeconds"/> (the owner's change of 2026-10-29). <c>--old-melta-follow</c>: the melta's too for that moment only.
+    /// The beam (<c>meltagun_cylinder_blast_*</c>, a target effect) is placed in the world at the shot either way.
+    /// </summary>
+    bool? _logMeltaFollow;
+    readonly System.Collections.Generic.List<(FxEffect Effect, int Shooter, string Marker, string Name)> _meltaFollowWatch = [];
+
+    /// <summary><c>--log-melta-follow</c> (fx/melta-attached check): watches a melta or plasma shot's attached effect; <see cref="MeltaFollowFrame"/> logs how far it is from its marker 0.5 s on (or at 80 % of a shorter life).</summary>
+    void MeltaFollowNote(FxEffect effect, int shooter, string marker, string wargear)
+    {
+        if (!(_logMeltaFollow ??= CmdFlag("log-melta-follow")) || !(wargear.Contains("melta", StringComparison.OrdinalIgnoreCase) || wargear.Contains("plasma", StringComparison.OrdinalIgnoreCase)) || _meltaFollowWatch.Count > 64) return;
+        _meltaFollowWatch.Add((effect, shooter, marker, effect.Name));
+    }
+
+    void MeltaFollowFrame()
+    {
+        for (int i = _meltaFollowWatch.Count - 1; i >= 0; i--)
+        {
+            var (e, shooter, marker, name) = _meltaFollowWatch[i];
+            if (e.Age < Math.Min(0.5, e.Life * 0.8) && !e.Dead) continue;   // a short effect (a plasma flash) is measured near its end
+            _meltaFollowWatch.RemoveAt(i);
+            string gap = FxPlace(shooter, marker) is { } m ? $"{e.Origin.DistanceTo(m.Position):F3} m" : "marker gone";
+            GD.Print($"melta-follow: t {_connectedFor:F1} s: P{shooter} {name} at {marker}, age {e.Age:F2} s: {gap} from the marker ({(e.Follow is null ? "released" : "attached")})");
+        }
+    }
+
+    bool? _oldPlasmaFollow;
+    /// <summary>fx/plasma-attached (the owner, 2026-11-06: "Attach plasma too"): the plasma gun's, pistol's and cannon's attached shot effects (muzzle flash, glow, vent) follow their
+    /// markers for their whole life too; their bolts and blasts stay in the world. <c>--old-plasma-follow</c>: the 0.08 s of the 2026-10-29 rule.</summary>
+    float ShotFollowSeconds(string wargear) =>
+        wargear.Contains("melta", StringComparison.OrdinalIgnoreCase) && !(_oldMeltaFollow ??= CmdFlag("old-melta-follow")) ? float.PositiveInfinity
+        : wargear.Contains("plasma", StringComparison.OrdinalIgnoreCase) && !(_oldPlasmaFollow ??= CmdFlag("old-plasma-follow")) ? float.PositiveInfinity
+        : AttachFollowSeconds;
+
     /// <summary>Whether an effect is a lascannon beam (the Space Marine and the Chaos ones, basic and charged).</summary>
     static bool IsLaserTracer(string effect) =>
         effect.Contains("lascannon", StringComparison.OrdinalIgnoreCase) && effect.Contains("tracer", StringComparison.OrdinalIgnoreCase);

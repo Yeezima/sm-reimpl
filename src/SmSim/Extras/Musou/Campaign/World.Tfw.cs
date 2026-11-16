@@ -8,7 +8,7 @@ namespace SmSim;
 /// Musou Mode in the World (TF0: the contract and stubs; the owner's decision of 2026-11-01: this war is Musou Mode). <see cref="World.Musou"/> and its pool run a war
 /// too; <see cref="_tfw"/>, set only by <see cref="StartTfw"/>, sends the World's Musou hooks here instead of the 5-wave director, which stays reachable as a test aid
 /// (<c>--map mp_tdm_09</c>). Without a war every method here returns at once and the Skirmish replay is unchanged (<c>MusouSkirmishPinTests</c>).
-/// /// <c>_tfw!.RetainerOf(id) is { } m &amp;&amp; _players.TryGetValue(m.Id, out var p) &amp;&amp; p.Alive</c>.
+/// The 5-wave run lands no AI Marine: the retainers and the allied pair (<see cref="AllyRules"/>) need a war.
 /// </summary>
 public sealed partial class World
 {
@@ -53,15 +53,28 @@ public sealed partial class World
         MusouBeginTick();
         MusouArm();
         TfwGiveFrags();   // World.TfwMelee.cs
-        TfwFrags();
+        TfwBurnStep();   // World.TfwPlasma.cs: the plasma burns' ticks (their KOs are credited just below)
         TfwCreditKills();   // the strikes and blasts earlier in the tick: a battle may end below
         TfwBoxAmmo();   // World.TfwArsenal.cs: last tick's ammunition boxes reach the weapons in the bank
+        long section = SimProfile.Begin();   // musou/perf-pass: SM_TICK_STATS's sections (nothing without it)
         if (_state == MatchState.Playing && !run.Idle) run.Step(this);
         else if (!run.Idle) run.Commands(null, Config.TickRate);
+        SimProfile.End("tfw: run and battle", section);
         TfwGuardsStep();   // World.TfwGuards.cs
+        section = SimProfile.Begin();
+        TfwSquigsStep();   // World.TfwSquigs.cs: expansion S2's drops, kicks and Ork blasts
+        SimProfile.End("tfw: squigs", section); section = SimProfile.Begin();
+        TfwMeksStep();   // World.TfwMeks.cs: expansion S4's Scrap Meks and their contraptions
+        SimProfile.End("tfw: meks", section); section = SimProfile.Begin();
         TfwBossStep();
+        SimProfile.End("tfw: boss", section); section = SimProfile.Begin();
         TfwFireStep();   // World.TfwFire.cs: the barrages and the Thunderhawk (their KOs are credited next tick)
+        SimProfile.End("tfw: fire", section);
+        section = SimProfile.Begin();
         TfwPuppetsStep();
+        SimProfile.End("tfw: puppets (AI Marines)", section);
+        TfwEndlessAmmo();   // World.TfwSupply.cs: the owner's endless ammunition (2026-11-06)
+        TfwGrenadeRefill();   // and a grenade back every 30 s
         MusouDropsStep();   // World.MusouDrops.cs: pickups (E), expiry
         TfwSlotsStep();   // World.TfwArsenal.cs: a key pressed during a strike waits for its end
         run.HoldRespawns(this);
@@ -119,7 +132,7 @@ public sealed partial class World
         foreach (int id in _players.Keys) _musouIds.Add(id);
         _musouIds.Sort();
         int n = 0;
-        foreach (int id in _musouIds) { var p = _players[id]; _musouTargets[n++] = new MusouTarget(id, p.Position, p.Alive); }
+        foreach (int id in _musouIds) { var p = _players[id]; _musouTargets[n++] = new MusouTarget(id, p.Position, p.Alive, Body: DreadnoughtBodyRing(p)); }
         n += guards.AppendTargets(_musouTargets.AsSpan(n));
         if (_musouBoss is null || _musouBoss.Id != battle.BossId)
             _musouBoss = new MusouBoss(_musou!, null, battle.BossId, battle.BossMaxHealth, Config.CapsuleRadius);
@@ -128,29 +141,25 @@ public sealed partial class World
         foreach (var strike in _musouBossStrikes)
         {
             if (TfwContracts.IsGuardTarget(strike.Player)) { MusouHit(new MusouAttack(_musouBoss.Id, strike.Player, strike.Damage, true, false, strike.From)); continue; }
-            if (!_players.TryGetValue(strike.Player, out var before) || !before.Alive) continue;
-            MusouHit(new MusouAttack(_musouBoss.Id, strike.Player, strike.Damage, Melee: true, Staggers: strike.Knockback <= 0f, strike.From));
-            if (strike.Knockback > 0f && _players[strike.Player] is { Alive: true } after && (after.Health < before.Health || after.Shield < before.Shield))
-                TryReact(0, strike.Player, new ReactionEntry(0f, ReactionKind.Stagger, Backward: strike.Knockback, Duration: _musou!.Rules.Boss.ChargeKnockbackSeconds), strike.From, strike.Push);
+            MusouBossHit(_musouBoss.Id, strike);   // World.Musou.cs: the owner, 2026-11-06, no stagger or knockback in Musou Mode (TfwCombatRules.EnemiesImpede)
         }
         battle.NoteWaaaghs(_musouBoss.Waaaghs);
     }
 
-    /// <summary>The field is empty: no enemy, Guardsman, drop or AI Marine (recoveries and orders stay). A new round does not clear the Guardsmen by itself.</summary>
+    /// <summary>The field is empty: no enemy, Guardsman, drop or AI Marine. A new round does not clear the Guardsmen by itself.</summary>
     internal void TfwClearField()
     {
+        _musou!.SpawnCentre = null;   // no battle: nothing faces its centre (set again by the next TfwBattle)
         _musou!.Clear();   // the enemies fire no projectile: their rounds are rolled hits (MusouSim.Fire)
         TfwGuards!.Clear();
         _projectiles.Clear(); _areas.Clear(); _perkBlasts.Clear();   // the players' own: nothing of this battle lands in the next or in the Stormbird
+        ArsenalReset();   // Arsenal/World.Charge.cs: no charge, fuse or ring goes on into the next
         CountProjectilesOut();
         MusouClearDrops();
         ClearPickups();   // the boxes stay with their battle (no events: the clients drop what the next message no longer lists)
         TfwDismissMarines();
         _musouBoss = null;
     }
-
-    /// <summary>Whether <paramref name="id"/>'s retainer stands and can revive it.</summary>
-    internal bool TfwRetainerUp(int id) => _tfw!.RetainerOf(id) is { } m && _players.TryGetValue(m.Id, out var p) && p.Alive;
 
     /// <summary>A dead player waits (the core's timer would bring it back in the Stormbird).</summary>
     internal void TfwHoldRespawn(int id)
@@ -176,7 +185,11 @@ public sealed partial class World
         var near = new ushort[MusouSim.Capacity];
         int n = enemies.Query(at, radius, near), fell = 0;
         for (int k = 0; k < n; k++)
-            if (enemies.TryGet(near[k], out var e) && e.Alive && enemies.Damage(near[k], by, e.Health, Vector3.Zero, out bool killed, marker: 0) && killed) fell++;
+        {
+            if (!enemies.TryGet(near[k], out var e) || !e.Alive) continue;
+            if (enemies.ShieldOf(near[k]) > 0f) enemies.Damage(near[k], by, enemies.ShieldOf(near[k]), Vector3.Zero, out _, marker: 0, cause: MusouDeathKind.Blast);   // a Weirdboy's shield first (shots cannot touch it)
+            if (enemies.TryGet(near[k], out e) && e.Alive && enemies.Damage(near[k], by, e.Health, Vector3.Zero, out bool killed, marker: 0) && killed) fell++;
+        }
         return fell;
     }
 
@@ -234,6 +247,7 @@ public sealed partial class World
                 else if (--TicksLeft == 0)
                 {
                     _projectiles.Clear(); _areas.Clear(); _perkBlasts.Clear();
+                    ArsenalReset();   // Arsenal/World.Charge.cs
                     CountProjectilesOut();
                     StartRound(respawn: false);
                 }
@@ -279,11 +293,13 @@ public sealed partial class World
     /// <see cref="LastRespawns"/> gets it so the server promotes the pending look; the next <see cref="MusouArm"/> gives it the run's kit (<see cref="TfwArmAll"/>). Call it inside the step
     /// (<see cref="TfwStep"/>): <see cref="LastRespawns"/> is cleared when a tick begins. False, and nothing changed, outside a war or for an unknown player.
     /// </summary>
-    public bool TfwRespawnAt(int id, Vector3 at, float yaw)
+    public bool TfwRespawnAt(int id, Vector3 at, float yaw, bool faceCentre = true)
     {
         if (_tfw is null || !_players.TryGetValue(id, out var p)) return false;
+        if (faceCentre && _tfw.Battle?.Layout is { } layout) yaw = layout.FaceCentre(at);   // owner 2026-11-09: in a battle every unit spawns facing the map's centre (the Stormbird and the Range keep their own facing)
         if (_nextLoadouts.ContainsKey(id) && _tfwArsenals.TryGetValue(id, out var arsenal)) arsenal.LoadedPrimary = arsenal.LoadedPistol = -1;   // a Setup's choice stands: no extra is left to send home
-        _players[id] = Combat.Respawned(WithNextLoadout(p) with { Position = at, Yaw = yaw }, Config);
+        bool chose = _nextLoadouts.ContainsKey(id);
+        _players[id] = Combat.Respawned(DreadnoughtAtRespawn(id, WithNextLoadout(p), chose) with { Position = at, Yaw = yaw }, Config);   // Dreadnought/World.Dreadnought.cs: the hub rule and the new entrance
         _respawns.Add(id);
         _musouArmed.Remove(id);
         _tfwFragged.Remove(id);

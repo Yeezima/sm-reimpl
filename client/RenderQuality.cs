@@ -58,8 +58,64 @@ public static class RenderQuality
         return true;
     }
 
-    /// <summary>True when the cut-out materials should use alpha-to-coverage (needs MSAA).</summary>
-    public static bool AlphaToCoverage => Aa is AaMode.Msaa or AaMode.MsaaSmaa;
+    /// <summary>True when the cut-out materials should use alpha-to-coverage (needs MSAA, which FSR 2 replaces).</summary>
+    public static bool AlphaToCoverage => Aa is AaMode.Msaa or AaMode.MsaaSmaa && !Fsr2;
+
+    /// <summary>
+    /// The upscaler (musou/perf-pass, ours; the owner's brief: FSR 2 in the graphics settings, default off). <c>--fsr off|native|quality|balanced|performance</c> (test aid) wins over the Options menu.
+    /// FSR 2 is Godot's own (Forward+ only): on the Compatibility renderer, or any other, the choice is kept but nothing changes (<see cref="Fsr2Supported"/>).
+    /// </summary>
+    public static Customizer.Model.UpscaleChoice Upscale { get; private set; } = ParseUpscale(Args.GetValueOrDefault("fsr"));
+
+    /// <summary><c>--fsr</c> was given: it wins over the Options menu.</summary>
+    public static bool UpscaleFromCommandLine => Args.ContainsKey("fsr");
+
+    /// <summary>Godot's FSR 2 runs on this renderer: Forward+ only (not Mobile, not Compatibility).</summary>
+    public static bool Fsr2Supported { get; } = !SafeMode.Compatibility && RenderingServer.GetCurrentRenderingMethod() == "forward_plus";
+
+    /// <summary>FSR 2 is on: chosen and supported. It is then the anti-aliasing too (a temporal one): MSAA, SMAA and TAA stay off, whatever the anti-aliasing choice says.</summary>
+    public static bool Fsr2 => Upscale != Customizer.Model.UpscaleChoice.Off && Fsr2Supported;
+
+    static Customizer.Model.UpscaleChoice ParseUpscale(string? text)
+    {
+        if (text is null) return Customizer.Model.UpscaleChoice.Off;
+        if (Customizer.Model.Upscaling.Parse(text) is { } c) return c;
+        GD.PrintErr($"--fsr '{text}' is not known (off, native, quality, balanced, performance); FSR 2 stays off");
+        return Customizer.Model.UpscaleChoice.Off;
+    }
+
+    /// <summary>Test aid (<c>--perf-ab fsr</c>): the upscaler whatever holds it; a caller applies it with <see cref="Apply"/>.</summary>
+    public static void ForceUpscale(Customizer.Model.UpscaleChoice choice) => Upscale = choice;
+
+    /// <summary>The Options menu's upscaler; false when <c>--fsr</c> holds it. A caller applies it with <see cref="Apply"/>.</summary>
+    public static bool ChooseUpscale(Customizer.Model.UpscaleChoice choice)
+    {
+        if (UpscaleFromCommandLine) return false;
+        Upscale = choice;
+        return true;
+    }
+
+    /// <summary>The Options menu's render scale (set by <c>OptionsHost</c>; 1 until then): plain scaling's scale while FSR 2 is off.</summary>
+    public static float RenderScale { get; set; } = 1f;
+
+    /// <summary>
+    /// The 3D picture's scaling on the game's window: FSR 2 at its preset's scale when on, else plain scaling at <paramref name="renderScale"/> (the Options menu's render scale; 1 is native). The HUD and the
+    /// menus are 2D and stay at the window's resolution either way. A sub-viewport (the customizer's preview) is left as it is.
+    /// </summary>
+    public static void ApplyScaling(Viewport viewport, float renderScale)
+    {
+        if (viewport is not Window) return;
+        if (Fsr2)
+        {
+            viewport.Scaling3DMode = Viewport.Scaling3DModeEnum.Fsr2;
+            viewport.Scaling3DScale = Customizer.Model.Upscaling.Scale(Upscale) ?? 1f;
+        }
+        else
+        {
+            viewport.Scaling3DMode = Viewport.Scaling3DModeEnum.Bilinear;
+            viewport.Scaling3DScale = renderScale;
+        }
+    }
 
     /// <summary><c>--look classic</c>: the lighting constants from before M40-T7.</summary>
     public static bool ClassicLook { get; } = string.Equals(Args.GetValueOrDefault("look"), "classic", StringComparison.OrdinalIgnoreCase);
@@ -102,15 +158,20 @@ public static class RenderQuality
     /// <summary>Applies the anti-aliasing mode to a viewport and returns a one-line description for the log.</summary>
     public static string Apply(Viewport viewport)
     {
-        bool msaa = Aa is AaMode.Msaa or AaMode.MsaaSmaa;
+        // musou/perf-pass: FSR 2 is a temporal anti-aliasing of its own; MSAA, SMAA or TAA on top would only cost (TAA is redundant, Godot's docs), so they stay off while it is on.
+        bool fsr = Fsr2 && viewport is Window;
+        bool msaa = !fsr && Aa is AaMode.Msaa or AaMode.MsaaSmaa;
+        bool smaa = !fsr && Aa == AaMode.MsaaSmaa, taa = !fsr && Aa == AaMode.Taa;
         viewport.Msaa3D = msaa ? Viewport.Msaa.Msaa4X : Viewport.Msaa.Disabled;
-        viewport.ScreenSpaceAA = Aa == AaMode.MsaaSmaa ? Viewport.ScreenSpaceAAEnum.Smaa : Viewport.ScreenSpaceAAEnum.Disabled;
-        viewport.UseTaa = Aa == AaMode.Taa;
+        viewport.ScreenSpaceAA = smaa ? Viewport.ScreenSpaceAAEnum.Smaa : Viewport.ScreenSpaceAAEnum.Disabled;
+        viewport.UseTaa = taa;
+        ApplyScaling(viewport, RenderScale);
         // Specular anti-aliasing: Godot's screen-space roughness limiter raises the roughness where the normal map or the geometry
         // changes faster than a pixel (armour, painted and map materials alike).
-        RenderingServer.ScreenSpaceRoughnessLimiterSetActive(Aa != AaMode.Off, 0.25f, 0.18f);
-        return $"aa: {Aa} (MSAA {(msaa ? "4x" : "off")}, SMAA {(Aa == AaMode.MsaaSmaa ? "on" : "off")}, TAA {(Aa == AaMode.Taa ? "on" : "off")}, "
-               + $"alpha-to-coverage {(AlphaToCoverage ? "on" : "off")}, roughness limiter {(Aa != AaMode.Off ? "on" : "off")})";
+        RenderingServer.ScreenSpaceRoughnessLimiterSetActive(Aa != AaMode.Off || fsr, 0.25f, 0.18f);
+        return $"aa: {(fsr ? $"FSR 2 ({Customizer.Model.Upscaling.Name(Upscale)}, scale {viewport.Scaling3DScale:0.##}) in place of {Aa}" : Aa.ToString())} (MSAA {(msaa ? "4x" : "off")}, SMAA {(smaa ? "on" : "off")}, TAA {(taa ? "on" : "off")}, "
+               + $"alpha-to-coverage {(AlphaToCoverage ? "on" : "off")}, roughness limiter {(Aa != AaMode.Off || fsr ? "on" : "off")})"
+               + (Upscale != Customizer.Model.UpscaleChoice.Off && !Fsr2Supported ? "; FSR 2 chosen but this renderer has none (Forward+ only): plain scaling" : "");
     }
 
     /// <summary>Cut-out standard materials use alpha-to-coverage with MSAA (smooth edges on grates and fences).</summary>

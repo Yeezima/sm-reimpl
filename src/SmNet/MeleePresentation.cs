@@ -51,6 +51,14 @@ public static class MeleePresentation
     /// away (null: no target, the graph's start blend): the attacker has already closed the blended clip's root motion to that time, so
     /// D0 = distanceNow + F(D0, time) (<see cref="MeleeReach.StartDistance"/>, the blend the simulation's lunge follows).
     /// </summary>
+    public static float StartDistance(MeleeStep step, float time, float? distanceNow, SimConfig config)
+    {
+        if (step.Reach is not { } reach) return 0f;
+        var (low, high) = reach.Range;
+        return distanceNow is float d && float.IsFinite(d) ? MeleeLock.StartBlend(step, time, d, config) : Math.Clamp(reach.DefaultDistance, low, high);   // sim/instant-step: the strike's profile, as the lunge follows it
+    }
+
+    /// <summary>The clip's own timing (see <see cref="StartDistance(MeleeStep, float, float?, SimConfig)"/> for the strike's profile).</summary>
     public static float StartDistance(MeleeReach reach, float duration, float time, float? distanceNow)
     {
         var (low, high) = reach.Range;
@@ -63,12 +71,12 @@ public static class MeleePresentation
     /// the heading (forward or back) or nearly still.
     /// </summary>
     /// <param name="scale">feel/melee-charge-2: the config's lunge scale (<see cref="SimConfig.LungeScale"/>): the body moves that much faster than the clip forward.</param>
-    public static bool RootDriven(MeleeStep step, float time, Vector2 velocity, float yaw, float tick, float blendDistance, float scale = 1f)
+    public static bool RootDriven(MeleeStep step, float time, Vector2 velocity, float yaw, float tick, float blendDistance, float scale = 1f, Func<float, float>? motion = null)
     {
         if (step.Reach is not { Variants.Count: > 0 } reach) return false;
         float h = MathF.Max(tick, 1e-3f);
         float k = float.IsFinite(scale) && scale > 1f ? scale : 1f;
-        float root = k * MathF.Abs(reach.ForwardAt(time + h, step.Duration, blendDistance) - reach.ForwardAt(time - h, step.Duration, blendDistance)) / (2f * h);
+        float root = k * MathF.Abs(motion is null ? reach.ForwardAt(time + h, step.Duration, blendDistance) - reach.ForwardAt(time - h, step.Duration, blendDistance) : motion(time + h) - motion(time - h)) / (2f * h);   // sim/instant-step: motion = the strike's profile
         float speed = velocity.Length();
         if (speed > root + 0.75f) return false;
         if (speed < 0.3f) return true;

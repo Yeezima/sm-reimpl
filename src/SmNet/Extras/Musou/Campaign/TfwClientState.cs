@@ -71,6 +71,9 @@ public sealed class TfwCommandSender
 /// </summary>
 public sealed class TfwClientState
 {
+    /// <summary>Test aid (client <c>--musou-old-crowd-motion</c>): the crowd's drawn motion before 2026-11-08 (crowd-smooth).</summary>
+    public bool OldCrowdMotion { get; set; }
+
     /// <summary>An id without a record for this long is dropped (as Musou's: 2 s).</summary>
     public const double SilenceSeconds = 2.0;
     /// <summary>Sections held before the first box (as Musou's).</summary>
@@ -91,6 +94,7 @@ public sealed class TfwClientState
         public readonly byte[] States = new byte[History];
         public int Count;
         public double Heard;
+        public DrawnMotion Motion;   // crowd-smooth: the drawn place and facing
     }
 
     readonly Dictionary<ushort, Track> _tracks = new();
@@ -101,7 +105,7 @@ public sealed class TfwClientState
     readonly List<TfwGuardShown> _shown = new();
     TfwObjective[] _objectives = [];
     Vector3[] _sites = [];
-    uint? _warTick, _objectivesTick, _scoreOwnTick, _scoreOthersTick, _scoreHistoryTick, _barsTick, _arsenalTick;
+    uint? _warTick, _objectivesTick, _scoreOwnTick, _scoreOthersTick, _scoreHistoryTick, _barsTick, _arsenalTick, _librarianTick, _mekTick;
     double _now;
     readonly Dictionary<(TfwFireKind, uint, ushort), double> _firePlayed = new();
     readonly List<TfwFireEvent> _newFire = new();
@@ -118,6 +122,14 @@ public sealed class TfwClientState
     public TfwRewardOffer? Reward { get; private set; }
     /// <summary>The server tick of the last copy of <see cref="Reward"/>: a standing offer repeats every second, one no longer heard is gone.</summary>
     public uint RewardTick { get; private set; }
+    /// <summary>The newest Librarians heard (tag 16): their stress, cooldowns, casts and links.</summary>
+    public IReadOnlyList<LibrarianView> Librarians { get; private set; } = [];
+    /// <summary>The newest contraptions heard (tag 17, expansion S4): the Scrap Meks' shield generators, beacons, turrets and traps.</summary>
+    public IReadOnlyList<MusouContraption> Contraptions { get; private set; } = [];
+    /// <summary>The newest armies heard (tag 18, expansion S6) and the server tick they are of.</summary>
+    public IReadOnlyList<TfwArmyView> Armies { get; private set; } = [];
+    public uint ArmiesTick { get; private set; }
+    uint? _armiesTick;
     /// <summary>The newest extra slots heard (tag 15).</summary>
     public TfwArsenalView Arsenal { get; private set; } = TfwArsenalView.Empty;
 
@@ -169,7 +181,7 @@ public sealed class TfwClientState
             foreach (var s in held) Read(s, known);
         }
         if (section.Tag == TfwWire.WarTag) return ReadWar(section);
-        if (section.Tag is >= TfwWire.FireTag and <= TfwWire.ArsenalTag) return ReadBoxless(section);
+        if (section.Tag is >= TfwWire.FireTag and <= TfwWire.MekTag or TfwWire.ArmiesTag) return ReadBoxless(section);
         if (box is { } ready) return Read(section, ready);
 
         // No box yet: hold it (the oldest goes first when full), after the length checks.
@@ -234,6 +246,21 @@ public sealed class TfwClientState
                 Reward = offer;
                 RewardTick = section.ServerTick;
                 return true;
+            case TfwWire.LibrarianTag:
+                if (LibrarianWire.Read(section.Payload) is not { } librarians) break;
+                Heard(section);
+                if (!Stale(ref _librarianTick, section.ServerTick)) Librarians = librarians;
+                return true;
+            case TfwWire.MekTag:
+                if (MekWire.Read(section.Payload) is not { } contraptions) break;
+                Heard(section);
+                if (!Stale(ref _mekTick, section.ServerTick)) Contraptions = contraptions;
+                return true;
+            case TfwWire.ArmiesTag:
+                if (TfwArmyWire.Read(section.Payload) is not { } armies) break;
+                Heard(section);
+                if (!Stale(ref _armiesTick, section.ServerTick)) { Armies = armies; ArmiesTick = section.ServerTick; }
+                return true;
             case TfwWire.ArsenalTag:
                 if (TfwWire.ReadArsenal(section.Payload) is not { } arsenal) break;
                 Heard(section);
@@ -255,8 +282,8 @@ public sealed class TfwClientState
     void ForgetBoxless()
     {
         _firePlayed.Clear(); _newFire.Clear();
-        _scoreOwnTick = _scoreOthersTick = _scoreHistoryTick = _barsTick = _arsenalTick = null;
-        ScoreOwn = null; ScoreOthers = []; ScoreHistory = []; Bars = []; Reward = null; RewardTick = 0; Arsenal = TfwArsenalView.Empty;
+        _scoreOwnTick = _scoreOthersTick = _scoreHistoryTick = _barsTick = _arsenalTick = _librarianTick = _mekTick = _armiesTick = null;
+        ScoreOwn = null; ScoreOthers = []; ScoreHistory = []; Bars = []; Reward = null; RewardTick = 0; Arsenal = TfwArsenalView.Empty; Librarians = []; Contraptions = []; Armies = [];
     }
 
     bool Read(in ExtrasSection section, MusouBox box)
@@ -352,6 +379,7 @@ public sealed class TfwClientState
             if (t.Count == 0) continue;
             int after = 0;
             while (after < t.Count && t.Ticks[after] < renderTick) after++;
+            if (!OldCrowdMotion) { _shown.Add(Smoothed(t, after, renderTick)); continue; }
             if (after == 0 || after == t.Count)
             {
                 int only = after == 0 ? 0 : t.Count - 1;
@@ -365,6 +393,44 @@ public sealed class TfwClientState
         }
         _shown.Sort(static (a, b) => a.Id.CompareTo(b.Id));
         return _shown;
+    }
+
+    /// <summary>
+    /// crowd-smooth (2026-11-08): a man interpolated between his records around <paramref name="renderTick"/>; a marching man past his newest record is carried on along his last step
+    /// (<see cref="CrowdMotionRules.CarryFor"/>, as the far Orks), and his drawn place and facing glide onto the sampled ones (<see cref="DrawnMotion"/>), so a sparse record is not a stop and a jump.
+    /// <paramref name="after"/>: his first record at or past the tick.
+    /// </summary>
+    TfwGuardShown Smoothed(Track t, int after, double renderTick)
+    {
+        Vector3 p, velocity = Vector3.Zero;
+        float yaw; byte state;
+        if (after == 0) { p = t.Positions[0]; yaw = t.Yaws[0]; state = t.States[0]; }
+        else if (after == t.Count)
+        {
+            int last = t.Count - 1;
+            p = t.Positions[last]; yaw = t.Yaws[last]; state = t.States[last];
+            uint step = last >= 1 ? t.Ticks[last] - t.Ticks[last - 1] : 0;
+            if (last >= 1 && state == t.States[last - 1] && state == (byte)GuardState.Moving && CrowdMotionRules.CarryFor(step) is var most and > 0)
+            {
+                var perTick = (t.Positions[last] - t.Positions[last - 1]) / step;
+                float ahead = (float)Math.Min(renderTick - t.Ticks[last], most);
+                p += perTick * ahead;
+                if (ahead < most) velocity = perTick;
+            }
+        }
+        else
+        {
+            int before = after - 1;
+            float span = Math.Max(1f, t.Ticks[after] - t.Ticks[before]);
+            float alpha = Math.Clamp((float)((renderTick - t.Ticks[before]) / span), 0f, 1f);
+            float turn = MathF.IEEERemainder(t.Yaws[after] - t.Yaws[before], 2f * MathF.PI);
+            p = Vector3.Lerp(t.Positions[before], t.Positions[after], alpha);
+            yaw = t.Yaws[before] + turn * alpha;
+            state = alpha < 1f ? t.States[before] : t.States[after];
+            velocity = (t.Positions[after] - t.Positions[before]) / span;
+        }
+        (p, yaw) = t.Motion.Step(p, velocity, yaw, renderTick, glide: true);
+        return new TfwGuardShown(t.Id, p, yaw, state);
     }
 
     /// <summary>Forgets everything (the match left the war, or the view was rebuilt).</summary>

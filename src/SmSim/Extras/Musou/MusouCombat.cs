@@ -12,8 +12,41 @@ public sealed record MusouCombatRules
     public float CleaveExtraRange { get; init; } = 0.5f;
     /// <summary>The share of a player's whole health a melee attack that strikes anybody gives back (the owner, 2026-11-02).</summary>
     public const float MeleeHealShare = 0.05f;
+    /// <summary>musou/melee-heal-cap (owner, 2026-11-12: "cap it at 3 instances of healing per 1 melee swing"): one melee swing (one strike step: its stomp and cleave together; a spear impale) gives at most this many heals, whatever the enemies struck; the first this many struck heal, the rest give none. Restore switch <c>--musou-uncapped-melee-heal</c>.</summary>
+    public const int MeleeHealsPerSwing = 5;   // owner 2026-11-14: "adjust the enemies triggering the heal effect per swing to be 5 instead of 3" (was 3, 2026-11-12)
+    // ---- musou/combat-rules (owner, 2026-11-09; all kind: ours, Musou Mode only; Classic PvP never reads them)
+    /// <summary>The share of a player's whole armour a melee strike gives back, per enemy struck (owner: "make all melee attacks restore 5% armor").</summary>
+    public const float MeleeArmourShare = 0.05f;
+    /// <summary>The air slash's landing gives back this share of the player's health and armour, once per landing, hit or not (owner: 25 % health, 10 % armour).</summary>
+    public const float SlashLandHealthShare = 0.25f, SlashLandArmourShare = 0.10f;
+    /// <summary>While a combat stim works, each enemy a melee attack strikes gives back this share of health and armour, in place of the 5 % and 5 % above (owner: 25 % and 20 % per strike).</summary>
+    public const float StimStrikeHealthShare = 0.25f, StimStrikeArmourShare = 0.20f;
+    /// <summary>Combat stims: lifetime x3, melee damage x2 (total, replacing the data's x1.35), attack speed x1.2 (melee swings and fire rate), no ammunition spent.</summary>
+    public const float StimLifetimeScale = 3f, StimMeleeDamage = 2f, StimAttackSpeed = 1.2f;
+    /// <summary>The frag grenade's blast radius (and its fall-off distances) times this: 2x "size".</summary>
+    public const float FragReachScale = 2f;
+    /// <summary>musou/aoe-pass (owner 2026-11-14: "increase the aoe size of all weapons in musou mode by 25%"): every player weapon's blast reach (radius and fall-off distances) times this on top of the above (a frag: 2 x 1.25): thrown items, launchers, plasma, melta and the bolt blast. Ork weapons are not scaled. Kind: owner.</summary>
+    public const float WeaponAoeScale = 1.25f;
+    /// <summary>The autocannon's burst reach times this in place of <see cref="WeaponAoeScale"/> (owner: "increase autocannon aoe burst size by 40%"; the lead reads it as x1.4 on its own 2.5 m, to confirm: 1.75 is a one-line change here). Kind: owner, reading unconfirmed.</summary>
+    public const float AutocannonAoeScale = 1.4f;
+    /// <summary>The assault Marine's ground pound and air slash landing in Musou Mode: blast radius (fall-off distances with it) times <see cref="PoundReachScale"/>, damage (so the centre's) times <see cref="PoundDamageScale"/> (owner 2026-11-14: "50% large aoe", "increase the damage at the center ... by 50%").</summary>
+    public const float PoundReachScale = 1.5f, PoundDamageScale = 1.5f;
+    /// <summary>The reach scale of the pound and the slash landing for a match's content: <see cref="PoundReachScale"/> in Musou Mode, 1 in Classic PvP (what the client draws its ring and shake at).</summary>
+    public static float PoundReach(ContentExtras extras) => extras.HasFlag(ContentExtras.Musou) ? PoundReachScale : 1f;
     /// <summary>A <see cref="MeleeStep.TrackToHit"/> strike's cleave reaches this much farther (ours, feel/melee-reliability: enemies carry no player lock).</summary>
     public const float CleaveTrackRange = 1f;
+    /// <summary>
+    /// The cleave's radius scale (owner, 2026-11-08: "increase the aoe cleave radius of all melee weapons", no number given; ours: 1.5x, low confidence, refine by playtest): the whole reach
+    /// (core range + <see cref="CleaveExtraRange"/> + the track bonus) times this, for every melee weapon alike (<see cref="CleaveRange"/>). 1 restores the old reach.
+    /// </summary>
+    public float CleaveRadiusScale { get; init; } = 1.5f;
+
+    /// <summary>
+    /// The cleave's reach from the attacker's feet: (<paramref name="meleeRange"/> + the extra range + the track bonus) times <see cref="CleaveRadiusScale"/> in Musou Mode's war
+    /// (<paramref name="war"/>); the 5-wave skirmish keeps the old reach (its replay is pinned, MusouSkirmishPinTests).
+    /// </summary>
+    public float CleaveRange(float meleeRange, bool trackToHit = false, bool war = true) => (meleeRange + CleaveExtraRange + (trackToHit ? CleaveTrackRange : 0f)) * (war ? CleaveRadiusScale : 1f);
+
     /// <summary>… within the core's <see cref="SimConfig.MeleeConeDegrees"/> times this (design: 1.5) …</summary>
     public float CleaveConeScale { get; init; } = 1.5f;
     /// <summary>… on at most this many enemies, nearest first (design: 8).</summary>
@@ -29,6 +62,10 @@ public sealed record MusouCombatRules
     public float NobKnockbackScale { get; init; } = 0.5f;
     /// <summary>A blast staggers only from this intensity (ours: the outer ring only hurts).</summary>
     public float BlastStaggerIntensity { get; init; } = 0.25f;
+    /// <summary>The most of one blast's kills (a frag, a launcher's or a plasma burst) that die thrown, nearest it first; the later ones are torn apart, no corpse (the owner, 2026-11-08: "limit the number of flying orks per grenade throw to 20").</summary>
+    public int BlastThrownMax { get; init; } = 20;
+    /// <summary>Blasts of one owner within this many seconds of the first count as one throw for <see cref="BlastThrownMax"/> (a throw's fan of frags goes off together; ours).</summary>
+    public float BlastThrowWindowSeconds { get; init; } = 0.5f;
     /// <summary>Most enemies one charge hits (ours: as the cleave).</summary>
     public int ChargeTargets { get; init; } = 8;
     /// <summary>Most enemies one cone shot covers, nearest first (ours; MU3a review: a cost cap).</summary>
@@ -59,7 +96,7 @@ public sealed partial class MusouSim
         _scripted[i] = false; _drive[i] = Vector2.Zero; _driveTicks[i] = 0;
     }
 
-    float SpeedScale(int i) => _frenzyTicks > 0 && _type[i] != MusouEnemyType.Warboss ? _frenzyScale : 1f;
+    float SpeedScale(int i) => (_frenzyTicks > 0 && _type[i] != MusouEnemyType.Warboss ? _frenzyScale : 1f) * PaceOf(i);   // MusouSim.Charge.cs: the Orks' pace and charge (2026-11-09)
 
     /// <summary>The drive of this tick (and one tick less of it).</summary>
     Vector2 Driven(int i)
@@ -80,13 +117,13 @@ public sealed partial class MusouSim
     /// <summary>
     /// Staggers an enemy alive (a spawning one too, which ends its stand): <see cref="MusouEnemyState.Stagger"/> for <see cref="MusouCombatRules.StaggerSeconds"/> (a wind-up
     /// or burst is lost, so is its attack token) and a knockback of <paramref name="distance"/> along <paramref name="push"/> (a Nob a share of it). False for
-    /// the Warboss (stagger-immune) and anything dying or unknown.
+    /// the Warboss and the Boss Orks (stagger-immune) and anything dying or unknown.
     /// </summary>
     public bool Stagger(ushort id, Vector2 push, float distance)
     {
         int i = id - 1;
-        if (i < 0 || i >= Capacity || !_used[i] || _state[i] == MusouEnemyState.Dying || _type[i] == MusouEnemyType.Warboss) return false;
-        if (_state[i] != MusouEnemyState.Knocked) SetState(i, MusouEnemyState.Stagger);   // one on the ground stays down: a war's fodder (MusouSim.Knock.cs)
+        if (i < 0 || i >= Capacity || !_used[i] || _state[i] is MusouEnemyState.Dying or MusouEnemyState.Airborne || _type[i] == MusouEnemyType.Warboss || MusouBossOrks.Is(_type[i])) return false;   // in a hop he cannot be staggered (S3); a Boss Ork too (owner, 2026-11-06: hyper armour)
+        if (_state[i] is not (MusouEnemyState.Knocked or MusouEnemyState.Stunned)) SetState(i, MusouEnemyState.Stagger);   // one on the ground stays down: a war's fodder (MusouSim.Knock.cs); a stunned Weirdboy stays stunned
         _token[i] = 0; _burst[i] = 0;
         if (_type[i] == MusouEnemyType.Nob) distance *= Rules.Combat.NobKnockbackScale;
         Knock(i, push, distance);
@@ -145,9 +182,15 @@ public sealed partial class MusouSim
     /// An enemy's body as a shot sees it: the height of the model drawn (Boy 2.15 m, Nob 3.0 m, docs/discovery.md; the type's <see cref="MusouTypeSpec.Height"/> is its walking size, and the top of the model was
     /// left without a body), <see cref="ShotRadiusScale"/> wide.
     /// </summary>
-    public (float Radius, float Height) ShotBody(MusouEnemyType type)
+    public (float Radius, float Height) ShotBody(MusouEnemyType type) => ShotBodyOf(Rules, type);
+
+    /// <summary><see cref="ShotBody"/> for any rules (the client's predicted shot, combat feel 2026-11-09, uses the same body as the server).</summary>
+    public static (float Radius, float Height) ShotBodyOf(MusouRules rules, MusouEnemyType type)
     {
-        var (radius, height) = Body(type);
+        var spec = rules.Of(type);
+        float scale = type == MusouEnemyType.Warboss ? rules.BossScale : 1f;
+        float radius = spec.Radius * scale, height = spec.Height * scale;
+        if (MusouBossOrks.Is(type)) return (radius * ShotRadiusScale, ShotBodyOf(rules, MusouBossOrks.BaseOf(type)).Height * MusouBossOrks.BodyScale);   // its base's drawn height, 3x
         height = type switch
         {
             MusouEnemyType.Boy or MusouEnemyType.ShootaBoy or MusouEnemyType.ArdBoy => 2.15f,

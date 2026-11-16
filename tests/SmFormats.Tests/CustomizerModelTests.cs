@@ -694,6 +694,89 @@ public class CustomizerModelTests : IDisposable
         Assert.Equal("Look", AppearanceEdits.Rename(Look(), "").Name);
     }
 
+    // ===== appearance slots (ui/appearance-slots) =========================================================================================
+
+    [Fact]
+    public void Looks_saved_per_loadout_become_slots_without_any_change_to_the_file()
+    {
+        // A profile as the per-loadout editor left it: three loadouts, each with its own look (the ids sm-1..sm-3), one of them also with a Chaos look.
+        var store = NewStore();
+        var preset = Catalog.SpaceMarines.Presets.First(p => p.Name == "sm_x");
+        var p = CustomizationProfile.Default(Catalog);
+        foreach (int slot in new[] { 2, 5, 9 })
+        {
+            p = LoadoutEdits.Create(p, slot, "tactical", Catalog).Profile;
+            var (withLook, look) = AppearanceEdits.EnsureLook(p, slot, "space_marine");
+            p = AppearanceEdits.ReplaceAppearance(withLook, AppearanceEdits.SetPreset(look!, preset, Catalog));
+        }
+        p = AppearanceEdits.EnsureLook(p, 5, "chaos").Profile;
+        store.Save(p);
+        var (back, repairs) = store.Load(Catalog);
+        Assert.DoesNotContain(repairs, r => !r.Informational);
+        Assert.Equal(ProfileStore.Serialize(p), ProfileStore.Serialize(back));                                        // nothing to migrate: the library is the slots
+        var layout = AppearanceSlots.Layout(back, "space_marine");
+        Assert.Equal(["sm-1", "sm-2", "sm-3", null, null, null, null, null, null, null], layout.Select(a => a?.Id));
+        Assert.Equal([2], AppearanceSlots.WornBy(back, "space_marine", "sm-1"));
+        Assert.Equal([9], AppearanceSlots.WornBy(back, "space_marine", "sm-3"));
+        Assert.Equal(1, AppearanceSlots.SlotOf(back, "chaos", back.ClassAt(5)!.Appearance.Chaos));
+        Assert.Equal(0, AppearanceSlots.SlotOf(back, "chaos", "sm-1"));                                                 // another side's look is in no Chaos slot
+    }
+
+    [Fact]
+    public void A_look_saved_into_a_slot_can_be_worn_by_any_loadout()
+    {
+        var p = CustomizationProfile.Default(Catalog);
+        foreach (int slot in new[] { 1, 2, 3 }) p = LoadoutEdits.Create(p, slot, "tactical", Catalog).Profile;
+        var (withLook, look) = AppearanceEdits.EnsureLook(p, 1, "space_marine");
+        p = AppearanceEdits.ReplaceAppearance(withLook, AppearanceEdits.SetPreset(look!, Catalog.SpaceMarines.Presets.First(x => x.Name == "sm_x"), Catalog));
+        p = AppearanceEdits.EnsureLook(p, 2, "chaos").Profile;                                                          // loadout 2's Chaos look must stay
+
+        // Saved into empty slot 7: a copy with the slot's id and name, worn by loadout 1; slot 1 keeps the original.
+        var (saved, id) = AppearanceSlots.SaveInto(p, "space_marine", 7, p.Appearance("sm-1")!, wearer: 1);
+        Assert.Equal("sm-7", id);
+        Assert.Equal("Appearance 7", saved.Appearance(id)!.Name);
+        Assert.Equal(p.Appearance("sm-1")!.PresetApplied, saved.Appearance(id)!.PresetApplied);
+        Assert.Equal("sm-7", saved.ClassAt(1)!.Appearance.SpaceMarine);
+        Assert.Equal(7, AppearanceSlots.SlotOf(saved, "space_marine", id));
+        Assert.Equal(1, AppearanceSlots.SlotOf(saved, "space_marine", "sm-1"));
+
+        var all = AppearanceSlots.ApplyToAll(saved, "space_marine", id!);
+        Assert.All(all.Classes, c => Assert.Equal("sm-7", c.Appearance.SpaceMarine));
+        Assert.Equal("csm-1", all.ClassAt(2)!.Appearance.Chaos);
+        Assert.Equal("loadouts 1, 2 and 3", AppearanceSlots.LoadoutList(AppearanceSlots.WornBy(all, "space_marine", id)));
+        var off = AppearanceSlots.SetWorn(all, 3, "space_marine", id!, on: false);
+        Assert.Null(off.ClassAt(3)!.Appearance.SpaceMarine);
+        Assert.Same(off, AppearanceSlots.SetWorn(off, 3, "space_marine", id!, on: false));                              // taking off a look it does not wear changes nothing
+
+        // Saved over a filled slot: the slot keeps its id and name and takes the look; its wearers see it.
+        var over = AppearanceSlots.SaveInto(all, "space_marine", 7, AppearanceProfile.Empty("", "space_marine", "x")).Profile;
+        Assert.Equal("Appearance 7", over.Appearance("sm-7")!.Name);
+        Assert.Null(over.Appearance("sm-7")!.PresetApplied);
+        Assert.Equal(2, over.AppearancesFor("space_marine").Count());
+        Assert.Null(AppearanceSlots.SaveInto(over, "space_marine", 11, over.Appearance("sm-1")!).Id);
+        Assert.Null(AppearanceSlots.NewIn(over, "space_marine", 7).Id);                                                 // taken
+        Assert.Equal("sm-4", AppearanceSlots.NewIn(over, "space_marine", 4).Id);
+
+        // The slot survives a save and a load.
+        var store = NewStore();
+        store.Save(over);
+        Assert.Equal(7, AppearanceSlots.SlotOf(store.Load(Catalog).Profile, "space_marine", "sm-7"));
+    }
+
+    [Fact]
+    public void Looks_with_ids_of_another_form_take_the_free_slots_in_file_order()
+    {
+        var odd = AppearanceProfile.Empty("mine", "space_marine", "Mine");
+        var third = AppearanceProfile.Empty("sm-3", "space_marine", "Third");
+        var other = AppearanceProfile.Empty("old_look", "space_marine", "Old");
+        var p = CustomizationProfile.Default(Catalog) with { Appearances = [odd, third, other] };
+        Assert.Equal(["mine", "old_look", "sm-3"], AppearanceSlots.Layout(p, "space_marine").Take(3).Select(a => a?.Id));
+        var (saved, id) = AppearanceSlots.SaveInto(p, "space_marine", 4, third);
+        Assert.Equal("sm-4", id);
+        Assert.Equal(4, AppearanceSlots.SlotOf(saved, "space_marine", id));
+        Assert.Equal("Appearance 4", saved.Appearance(id)!.Name);
+    }
+
     // ===== emblems =======================================================================================================================
 
     [Theory]

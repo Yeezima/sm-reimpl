@@ -21,6 +21,13 @@ public static class SafeMode
     /// <summary>Safe mode: the Compatibility renderer or <c>--safe-mode</c>.</summary>
     public static bool Active => Compatibility || Flag;
 
+    /// <summary>
+    /// polish pass P1 (2026-11-10): in safe mode added content's Ashfall grime is folded into the kit's materials (FAST) whatever the Graphics option says, the overlay pass being what the
+    /// Compatibility renderer pays most for; <c>--ashfall-grime-exact-safe</c> keeps the option's choice. A core-side flag so the Options view needs nothing from <c>Extras/</c>
+    /// (the faithful build has no <c>AshfallGrime</c>); <c>AshfallGrime.FoldedForSafeMode</c> reads it.
+    /// </summary>
+    public static bool GrimeFoldedInSafeMode { get; } = Active && Array.IndexOf(OS.GetCmdlineUserArgs(), "--ashfall-grime-exact-safe") < 0;
+
     static bool DetectCompatibility()
     {
         try { return string.Equals(RenderingServer.GetCurrentRenderingMethod(), "gl_compatibility", StringComparison.OrdinalIgnoreCase); }

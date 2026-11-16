@@ -163,7 +163,23 @@ public partial class NetworkView
     void HandoffEnded(int id) { if (_flow.TryGetValue(id, out var t)) t.HandFrom = -1f; }
 
     /// <summary>Whether a strike's or a charge's clip holds its put-down feet (on the ground, alive, not the Ork's rig).</summary>
-    bool ClipFootLockFor(PlayerState s, bool melee) => !NoMeleeFlow && s.Alive && (s.Jump is JumpPhase.None or JumpPhase.Landed or JumpPhase.Recover) && (melee || s.Grounded);   // a strike holds its feet over a step or a curb too (the body may leave the ground for a tick)
+    /// <remarks>fx/jumppack-jets (<see cref="AirLegRules"/>): a strike in the air (past the curb-step grace) no longer holds feet in the world (the legs warped toward them); <c>--old-air-legs</c> = before.</remarks>
+    bool ClipFootLockFor(PlayerState s, bool melee)
+    {
+        if (s.Grounded) _groundSeenAt[s.PlayerId] = _connectedFor;
+        if (melee && !s.Grounded && s.Alive && s.MeleeStep != 0 && _client is not null && s.PlayerId == _client.PlayerId) FeelShotTrigger("air-melee");   // capture aid: the frames of an own strike in the air
+        if (NoMeleeFlow) return false;
+        if (OldAirLegs || !melee) return s.Alive && (s.Jump is JumpPhase.None or JumpPhase.Landed or JumpPhase.Recover) && (melee || s.Grounded);
+        double air = s.Grounded ? 0.0 : _connectedFor - _groundSeenAt.GetValueOrDefault(s.PlayerId, double.NegativeInfinity);
+        bool locks = AirLegRules.FootLock(s.Alive, s.Jump, s.Grounded, (float)Math.Min(air, 1e6));
+        if (!locks && s.Alive && !s.Grounded && AttackClip(s) is not null && _airStrikeLogged.Add((s.PlayerId, s.MeleeStep, s.MeleeHeavy)) && (_bot || LogAirLegs))
+            GD.Print($"t {_connectedFor:F2} s: P{s.PlayerId} air strike step {s.MeleeStep}{(s.MeleeHeavy ? " heavy" : "")}: legs follow the clip (no foot lock, {air:F2} s in the air)");
+        return locks;
+    }
+    readonly Dictionary<int, double> _groundSeenAt = new();
+    readonly HashSet<(int, int, bool)> _airStrikeLogged = new();
+    static readonly bool OldAirLegs = OS.GetCmdlineUserArgs().Contains("--old-air-legs");
+    static readonly bool LogAirLegs = OS.GetCmdlineUserArgs().Contains("--log-air-legs");   // a strike holds its feet over a step or a curb too (the body may leave the ground for a tick)
 
     /// <summary>
     /// The strike's extracted root speed forward (m/s per second of the clip <paramref name="clipLength"/> long, posed for <paramref name="time"/> s of the attack) at the blend the
@@ -175,7 +191,7 @@ public partial class NetworkView
         float blend = _meleeShows.TryGetValue(s.PlayerId, out var show) && show.Step == s.MeleeStep && show.Heavy == s.MeleeHeavy
             ? show.StartDistance : Math.Clamp(reach.DefaultDistance, reach.Range.Min, reach.Range.Max);
         const float h = 1f / 60f;
-        float From(float t) => reach.ForwardAt(MeleeLock.MotionTime(step, t, _config), step.Duration, blend);   // the body's motion, as the simulation runs it
+        float From(float t) => MeleeLock.MotionAt(step, t, blend, _config);   // the body's motion, as the simulation runs it
         float perSecond = (From(time + h) - From(MathF.Max(0f, time - h))) / (time + h - MathF.Max(0f, time - h));
         return float.IsFinite(perSecond) ? perSecond * step.Duration / clipLength : float.NaN;
     }
@@ -218,7 +234,7 @@ public partial class NetworkView
     /// </summary>
     bool HammerStance(PlayerState s) =>
         !NoMeleeFlow && s.Alive && !PistolUp(s) && _config is not null
-        && MeleeWargear(s) is { } w && w.Contains("_2hand_", StringComparison.OrdinalIgnoreCase) && Loadouts.ClassOf(_config, s.Class)?.Race != Race.Orks;
+        && MeleeWargear(s) is { } w && AnimationAlias.Of(w).Contains("_2hand_", StringComparison.OrdinalIgnoreCase) && Loadouts.ClassOf(_config, s.Class)?.Race != Race.Orks;   // AnimationAlias: Musou's spear holds as the hammer
 
     /// <summary>
     /// The pistol is up: aim mode, or the simulation holding the weapon ready after a shot, raising it, charging or with a shot pending. Not <see cref="HipReady"/>, which is also false
@@ -274,7 +290,7 @@ public partial class NetworkView
     /// </summary>
     (string Clip, float Time) HammerRush(PlayerState s, string clip, float time)
     {
-        if (NoMeleeFlow || !s.Alive || MeleeWargear(s) is not { } w || !w.Contains("_2hand_", StringComparison.OrdinalIgnoreCase) || !clip.StartsWith("SM_BUL_Hit_M_", StringComparison.OrdinalIgnoreCase)) return (clip, time);
+        if (NoMeleeFlow || !s.Alive || MeleeWargear(s) is not { } w || !AnimationAlias.Of(w).Contains("_2hand_", StringComparison.OrdinalIgnoreCase) || !clip.StartsWith("SM_BUL_Hit_M_", StringComparison.OrdinalIgnoreCase)) return (clip, time);   // AnimationAlias (W0b): Musou's spear charges as the hammer
         string hammer = clip.EndsWith("2.5m", StringComparison.OrdinalIgnoreCase) ? "SM_TH_BUL_Hit_M_2.5" : "SM_TH_BUL_Hit_M_5";
         float from = ClipLength(clip, 0f), to = ClipLength(hammer, 0f);
         return from > 1e-3f && to > 1e-3f ? (hammer, time * to / from) : (clip, time);
@@ -283,7 +299,7 @@ public partial class NetworkView
     /// <summary>Whether the pistol goes to its holster: the hammer stance (from the draw clip's stow point on while it plays), or a strike with the hammer (both hands on it).</summary>
     bool HammerHoldsBothHands(PlayerState s)
     {
-        if (NoMeleeFlow || !s.Alive || MeleeWargear(s) is not { } w || !w.Contains("_2hand_", StringComparison.OrdinalIgnoreCase)) return false;
+        if (NoMeleeFlow || !s.Alive || MeleeWargear(s) is not { } w || !AnimationAlias.Of(w).Contains("_2hand_", StringComparison.OrdinalIgnoreCase)) return false;   // AnimationAlias (W0b): both hands on the spear
         if (s.MeleeStep > 0) return true;
         if (!HammerStance(s)) return false;
         if (_hammerDraw.TryGetValue(s.PlayerId, out var draw) && double.IsFinite(draw.Since))

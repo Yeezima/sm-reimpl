@@ -327,6 +327,7 @@ public partial class NetworkView
     {
         if (_camera is null || _gameSpace is null) return;
         _camProbeSource = "placeholder";
+        MeleeFovUpdate(me, delta);   // camera/melee-fov-widen: before the death camera so a death ends the widening
         if (DeathCamera(me, delta)) return;   // dead: the view of the own ragdoll (NetworkView.Death.cs)
         if (RigCameraWanted && RigCamera(me, delta)) return;   // the original rig (NetworkView.Camera.cs); else the placeholder below
         _camera.Fov = DefaultFov;
@@ -475,7 +476,7 @@ public partial class NetworkView
             eye = DampFraction(_specFraction, !(first || teleported || SpectateCuts), castFrom, eye, delta, _aheadFrom, _aheadTo, SpectatePullMaxSpeed);
         }
         else _specFraction.Reset();
-        if (mode != "inspect") eye = ClearOfBodies(eye, me, includeOwn: true, _specTarget, delta);
+        if (mode != "inspect" && mode != "inspect-melee") eye = ClearOfBodies(eye, me, includeOwn: true, _specTarget, delta);
         eye = Depenetrate(eye);
         _cameraPlaced = true;
         var toTarget = _specTarget - eye;

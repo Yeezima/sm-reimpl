@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 using Godot;
+using SmContent;
 using SmNet;
 using SmSim;
 
@@ -39,6 +40,11 @@ public partial class NetworkView
         public float Fraction = float.NaN;
         public double FractionAt;
         public bool Low;
+        // anim/jump-pack-blend: the steady flight keys (direction, aim) and when a remote's flight was last seen (a dropped snapshot is no landing).
+        public readonly JumpAirBlend.KeyState Keys = new();
+        public double LastAirAt = double.NegativeInfinity;
+        public double ExitAt = double.NegativeInfinity;   // when a landing or a pound's get-up ended into the locomotion
+
         // Animation pass 2: the pound's get-up window (JumpGetupDecide): decided once per pound; the run get-up when moving.
         public bool GetupDecided, GetupRun;
         // Protocol 30: the dive (and its impact and get-up) is the sword slash's; when the dive started (connected time).
@@ -63,6 +69,9 @@ public partial class NetworkView
     const string GetupClipName = "SM_JMP_GP_ReturnToIdle";
     const string LandRunClipName = "SM_JMP_Landing_LowRun";
     const string LandIdleClipName = "SM_JMP_Landing_Low";
+    // Install transitions (2026-11-12): MP_SM_NAV_JP_Sim's "Hammer Run Land" / "Hammer Idle Land" (BOOL_Thunderhammer) play these instead of the non-hammer pair.
+    const string LandRunClipNameTh = "SM_JMP_TH_Landing_LowRun";
+    const string LandIdleClipNameTh = "SM_JMP_TH_Landing_Low";
     /// <summary>The take-off clip's <c>BRANCH_To_Jump</c> (s after the press): the flight clips take over from here.</summary>
     const float TakeOffBranch = FlightPoseRules.TakeOffBranch;
     /// <summary>Pitch (radians) beyond which a flight clip's aim is up or down rather than level (client choice).</summary>
@@ -81,7 +90,7 @@ public partial class NetworkView
     readonly bool _botJumpFree;
     const float BotJumpClearance = 8f;               // metres free above the head the bot wants before jumping (on a map)
 
-    string? _jmpTakeOff, _jmpDive, _jmpImpact, _jmpGetup, _jmpLandRun, _jmpLandIdle;
+    string? _jmpTakeOff, _jmpDive, _jmpImpact, _jmpGetup, _jmpLandRun, _jmpLandIdle, _jmpLandRunTh, _jmpLandIdleTh;
     readonly Dictionary<(char Dir, char Aim), string> _jmpFlight = new();
     /// <summary>M45: the low flight set (<c>SM_JMP_ZeroLo_*</c>, the graph's 'Jump Move Blend' weight 9) beside the high one above (<c>SM_JMP_Zero_*</c>, weight 18).</summary>
     readonly Dictionary<(char Dir, char Aim), string> _jmpFlightLo = new();
@@ -93,6 +102,7 @@ public partial class NetworkView
     readonly Dictionary<int, JumpTrack> _jumpTracks = new();
     readonly List<(MeshInstance3D Node, StandardMaterial3D Material, double Age)> _rings = new();
     readonly bool _waitJump;
+    bool _ownStickHeld;   // anim/jump-pack-blend: the own sampled input's stick is off centre (NetworkView.cs, SampleInput)
     uint _botJumpHoldUntil;
     bool _botJumpHolding;
     double _botLastJump = double.NegativeInfinity;
@@ -123,6 +133,8 @@ public partial class NetworkView
         _jmpGetup = Resolve(GetupClipName, "pound get-up");
         _jmpLandRun = Resolve(LandRunClipName, "run landing");
         _jmpLandIdle = Resolve(LandIdleClipName, "idle landing");
+        _jmpLandRunTh = Resolve(LandRunClipNameTh, "hammer run landing");
+        _jmpLandIdleTh = Resolve(LandIdleClipNameTh, "hammer idle landing");
         // M45: the high set (SM_JMP_Zero_*) and the low set (SM_JMP_ZeroLo_*) apart; before M45 the shortest name of either won (the high set).
         var pattern = new Regex(@"^SM_JMP_Zero(Lo)?_.*?([FBLRU])_Aim_([UFD])(_\d+)?$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
         foreach (var n in names.Where(n => !n.Contains("_TH_", StringComparison.OrdinalIgnoreCase)).OrderBy(n => n.Length))
@@ -143,7 +155,7 @@ public partial class NetworkView
     /// <summary>The jump clips chosen, for the start-up log.</summary>
     string JumpClipsText() =>
         $"take-off {_jmpTakeOff ?? "none"}, dive {_jmpDive ?? "none"}, impact {_jmpImpact ?? "none"}, get-up {_jmpGetup ?? "none"}, " +
-        $"landing run {_jmpLandRun ?? "none"} / idle {_jmpLandIdle ?? "none"}, flight {_jmpFlight.Count} high + {_jmpFlightLo.Count} low (posed by the vertical angle{(LoopFlight ? "; --loop-flight: looping instead" : "")}): " +
+        $"landing run {_jmpLandRun ?? "none"} / idle {_jmpLandIdle ?? "none"} (hammer {_jmpLandRunTh ?? "none"} / {_jmpLandIdleTh ?? "none"}), flight {_jmpFlight.Count} high + {_jmpFlightLo.Count} low (posed by the vertical angle{(LoopFlight ? "; --loop-flight: looping instead" : "")}): " +
         string.Join(", ", _jmpFlight.OrderBy(k => k.Key.Dir).ThenBy(k => k.Key.Aim).Select(k => $"{k.Key.Dir}{k.Key.Aim}={k.Value}"));
 
     float ClipLength(string? clip, float fallback) => clip is not null && _assets?.Animation(clip) is { } a ? a.Animation.Duration : fallback;
@@ -158,6 +170,24 @@ public partial class NetworkView
         if (low && _jmpFlightLo.Count > 0) return FlightClipIn(_jmpFlightLo, s);
         return FlightClipIn(_jmpFlight, s);
     }
+
+    /// <summary>anim/jump-pack-blend: <see cref="FlightClip"/> with the drawn keys held steady (<see cref="JumpAirBlend.Choose"/>); <c>--old-jump-blend</c> or no track: the plain rule.</summary>
+    string? FlightClipSteady(JumpTrack t, PlayerState s, bool low)
+    {
+        var set = low && _jmpFlightLo.Count > 0 ? _jmpFlightLo : _jmpFlight;
+        if (set.Count == 0) return null;
+        if (OldJumpBlend) return FlightClipIn(set, s);
+        float fx = -MathF.Sin(s.Yaw), fy = MathF.Cos(s.Yaw);
+        float forward = s.Velocity.X * fx + s.Velocity.Y * fy, right = s.Velocity.X * fy - s.Velocity.Y * fx;
+        var (dir, aim) = JumpAirBlend.Choose(t.Keys, forward, right, s.Pitch, _connectedFor);
+        _jumpOppositeNow = t.Keys.ChangedOpposite;
+        foreach (var key in new[] { (dir, aim), (dir, 'F'), ('U', aim), ('U', 'F') })
+            if (set.TryGetValue(key, out var clip)) return clip;
+        return set.Values.First();
+    }
+
+    /// <summary>anim/jump-pack-blend test aid <c>--old-jump-blend</c>: the flight's keys, landing lead, snapshot debounce and blend times as before (before / after recordings).</summary>
+    static readonly bool OldJumpBlend = OS.GetCmdlineUserArgs().Contains("--old-jump-blend");
 
     string? FlightClipIn(Dictionary<(char Dir, char Aim), string> set, PlayerState s)
     {
@@ -195,6 +225,12 @@ public partial class NetworkView
             : JumpPack.Pounding(s.Jump) ? (s.Grounded ? JumpView.Impact : JumpView.Dive)
             : JumpView.None;
         var prev = t.View;
+        // anim/jump-pack-blend: a remote's flight flag that drops for a moment while it is still off the ground is a dropped snapshot, not a landing (it flashed the landing clip).
+        if (!own && !OldJumpBlend)
+        {
+            if (raw == JumpView.Air) t.LastAirAt = now;
+            else if (raw == JumpView.None && prev == JumpView.Air && !s.Grounded && JumpAirBlend.HoldsAir(now, t.LastAirAt)) raw = JumpView.Air;
+        }
         // anim/feel-pass: a remote pound's dive and recovery share one flag, told apart by the grounded bit; a recovery that leaves the ground for a tick (the slash's landing
         // lunge over an edge, a step) went back to the dive and restarted the slash clip at its wind-up. Once landed, the pound stays landed until its flag drops.
         if (!own && !CharacterViewer.NoFeel && raw == JumpView.Dive && prev is JumpView.Impact) raw = JumpView.Impact;
@@ -212,6 +248,7 @@ public partial class NetworkView
         if (next != prev)
         {
             t.Since = now; t.Fraction = float.NaN;   // M45: a new view starts its flight pose at the target
+            t.Keys.Reset();                          // anim/jump-pack-blend: and its flight keys by the plain rule
             if (next != JumpView.Getup) { t.GetupDecided = false; t.GetupRun = false; }   // pass 2: a new pound decides again
             string who = own ? $"id {_client!.PlayerId}" : $"id {_client!.PlayerId} sees P{s.PlayerId}";
             var pack = Loadouts.JumpPack(_config!, s);
@@ -253,7 +290,7 @@ public partial class NetworkView
                     t.Slash |= s.JumpSlash;
                     if (t.Slash) { SlashLanded(s, own, pack, MathF.Max(0f, t.ApexZ - s.Position.Z)); break; }   // protocol 30: no pound blast, crater or ring
                     if (own) _impacts++; else _remoteImpacts++;
-                    if (pack?.Pound is { } pound) AddRing(s.Position, pound.Radius, new Color(1f, 0.45f, 0.15f));   // the placeholder ring: --show-markers only
+                    if (pack?.Pound is { } pound) AddRing(s.Position, pound.Radius * PoundRingScale, new Color(1f, 0.45f, 0.15f));   // the placeholder ring: --show-markers only
                     PoundImpactPresentation(s, own, pack);   // M41: the original impact effect, the dark ring, the chunks (NetworkView.PoundImpact.cs)
                     if (_bot) GD.Print($"t {now:F1} s: {who} pound impact at {s.Position.X:F1},{s.Position.Y:F1},{s.Position.Z:F1} after a {t.ApexZ - s.Position.Z:F1} m drop " +
                                        $"(blast radius {(pack?.Pound is { } b ? b.Radius.ToString("F1") : "none")}; impacts {(own ? _impacts : _remoteImpacts)}{(own ? "; predicted" : " seen; inferred from the flags")})");
@@ -289,16 +326,17 @@ public partial class NetworkView
         }
 
         // Endings timed on the client.
+        var viewBefore = t.View;
         double age = now - t.Since;
         if (t.View == JumpView.Landing)
         {
             var pack = Loadouts.JumpPack(_config!, s);
             float moveLock = pack is null ? 0f : JumpPack.MoveLock(pack, t.LandMoving, _config);
-            if (age >= ClipLength(t.LandMoving ? _jmpLandRun : _jmpLandIdle, 0.9f) || (age >= moveLock && speed > RunThreshold)) t.View = JumpView.None;
+            if (age >= ClipLength(t.LandMoving ? LandRunOf(s) : LandIdleOf(s), 0.9f) || (age >= moveLock && speed > RunThreshold)) t.View = JumpView.None;
         }
         else if (t.View == JumpView.Getup)
         {
-            double sinceImpact = now - t.ImpactAt;
+            double sinceImpact = (now - t.ImpactAt) * MoveClipSpeed(s);   // W0b: clip seconds since the impact (1 per second but for Musou's claw and spear, NetworkView.Presentation.cs)
             if (t.Slash)
             {
                 double slashEnds = SlashAfterImpact(s);   // feel/jump-pack-2: the clip from the impact's crop start to its end
@@ -315,6 +353,7 @@ public partial class NetworkView
                 else if (sinceImpact >= ClipLength(_jmpImpact, 1.067f) + ClipLength(_jmpGetup, 0f) || (speed > RunThreshold && (UpperJump is null || t.GetupDecided))) t.View = JumpView.None;
             }
         }
+        if (viewBefore is JumpView.Landing or JumpView.Getup && t.View == JumpView.None) t.ExitAt = now;   // anim/jump-pack-blend: the exit's fade (JumpExitFade)
     }
 
     /// <summary>
@@ -326,7 +365,7 @@ public partial class NetworkView
     {
         if (!_jumpTracks.TryGetValue(s.PlayerId, out var t) || !s.Alive) return null;
         double now = _connectedFor;
-        float sincePress = (float)(now - t.PressAt), sinceImpact = (float)(now - t.ImpactAt);
+        float sincePress = (float)(now - t.PressAt), sinceImpact = (float)((now - t.ImpactAt) * MoveClipSpeed(s));   // W0b: the pound's and the slash's impact and get-up at the weapon's clip speed
         switch (t.View)
         {
             case JumpView.TakeOff when _jmpTakeOff is not null:
@@ -341,8 +380,17 @@ public partial class NetworkView
                     float target = SmContent.JumpFlightPose.Target(s.Velocity.Z, horizontal);
                     t.Fraction = SmContent.JumpFlightPose.Damp(t.Fraction, target, (float)(now - t.FractionAt));
                     t.FractionAt = now;
-                    t.Low = SmContent.JumpFlightPose.Low(AboveGround(s), t.Low);
-                    if (FlightClip(s, t.Low) is { } flight)
+                    float ground = AboveGround(s);   // one probe a frame: the low / high set and the landing lead both use it
+                    t.Low = SmContent.JumpFlightPose.Low(ground, t.Low);
+                    // anim/jump-pack-blend: just before the ground the landing clip starts fading in, so the pose has arrived at the touchdown (it began there: late, a pop).
+                    // Own player: the Fall phase only (the hang's gravity is lower), the run landing when the stick is held (the simulation's rule); others: a fall of RemoteMinFallSpeed or more, run above the run speed.
+                    if (!OldJumpBlend && Loadouts.JumpPack(_config!, s) is { } landPack
+                        && JumpAirBlend.LeadApplies(s.PlayerId == _client?.PlayerId, s.Jump, float.IsFinite(ground) ? ground : _jumpGround is null ? MathF.Max(0f, s.Position.Z) : float.PositiveInfinity, s.Velocity.Z, landPack.FallingGravity))
+                    {
+                        string? landNext = JumpAirBlend.LeadMoving(s.PlayerId == _client?.PlayerId, _ownStickHeld, horizontal, RunThreshold) ? LandRunOf(s) ?? LandIdleOf(s) : LandIdleOf(s) ?? LandRunOf(s);
+                        if (landNext is not null) return (landNext, 0f);
+                    }
+                    if (FlightClipSteady(t, s, t.Low) is { } flight)
                     {
                         if (_bot && s.PlayerId == _client?.PlayerId && (int)(t.Fraction * 10f) != _lastPoseDecile)
                         {
@@ -357,10 +405,12 @@ public partial class NetworkView
             // end), fitted to the dive; the impact the impact sequencer's part, the strike, from its crop start. (feel/jump-pack held frame 0 through the
             // dive and restarted the clip at 0 on landing: the landing showed the wind-up, the blade rising, as the swing seen backwards.)
             case JumpView.Dive when t.Slash && SlashClipOf(s) is { } slashDive:
+                _jumpDiveEntry = true;
                 return (slashDive, SlashDiveTimeOf(s, (float)(now - t.DiveAt), t.DiveExpected));   // anim/air-slash-character: the strike curve (NetworkView.Feel.cs)
             case JumpView.Impact when t.Slash && SlashClipOf(s) is { } slashImpact:
                 return (slashImpact, SlashImpactTime(s, sinceImpact, t.LandedClip, t.LandedRate));
             case JumpView.Dive when _jmpDive is not null:
+                _jumpDiveEntry = true;
                 return (_jmpDive, null);
             case JumpView.Impact when _jmpImpact is not null:
                 return (_jmpImpact, sinceImpact);
@@ -368,7 +418,7 @@ public partial class NetworkView
         if (airborneOnly) return null;
         switch (t.View)
         {
-            case JumpView.Landing when (t.LandMoving ? _jmpLandRun ?? _jmpLandIdle : _jmpLandIdle ?? _jmpLandRun) is { } land:
+            case JumpView.Landing when (t.LandMoving ? LandRunOf(s) ?? LandIdleOf(s) : LandIdleOf(s) ?? LandRunOf(s)) is { } land:
                 return (land, (float)(now - t.Since));
             case JumpView.Getup when t.Slash && SlashClipOf(s) is { } slashGetup:
                 return (slashGetup, SlashImpactTime(s, sinceImpact));
@@ -382,6 +432,18 @@ public partial class NetworkView
         }
         return null;
     }
+
+    /// <summary>anim/jump-pack-blend (ours): the shortest fade (s) from a landing or get-up into the run or idle when it ended this frame (0: not just ended; <c>--old-jump-blend</c>: 0).</summary>
+    float JumpExitFade(PlayerState s) => !OldJumpBlend && _jumpTracks.TryGetValue(s.PlayerId, out var t) && _connectedFor - t.ExitAt < 0.1 ? JumpAirBlend.LandingExitFade : 0f;
+
+    /// <summary>Install transitions: the run landing of the marine's weapon: the thunder hammer's (<c>SM_JMP_TH_Landing_LowRun</c>, 1.133 s) when it carries the hammer, else the plain one (0.9 s). <c>--no-extra-transitions</c>: the plain one.</summary>
+    string? LandRunOf(PlayerState s) => MeleeFallChoice.Landing(CarriedAlias(s), NoExtraTransitions, _jmpLandRun, _jmpLandRunTh);
+
+    /// <summary>Install transitions: the idle landing of the marine's weapon (<c>SM_JMP_TH_Landing_Low</c> for the hammer, 1.2 s as the plain one).</summary>
+    string? LandIdleOf(PlayerState s) => MeleeFallChoice.Landing(CarriedAlias(s), NoExtraTransitions, _jmpLandIdle, _jmpLandIdleTh);
+
+    /// <summary>Install transitions: the marine's melee wargear by animation alias (Musou's spear is the hammer's), null without a configuration (<see cref="MeleeFallChoice"/>).</summary>
+    string? CarriedAlias(PlayerState s) => _config is not null && MeleeWargear(s) is { } w ? AnimationAlias.Of(w) : null;
 
     /// <summary>feel/jump-pack-2: the player's sword slash spec (its clip's crops), or null.</summary>
     SlashSpec? SlashOf(PlayerState s) => _config is null ? null : Loadouts.JumpPack(_config, s)?.Slash;
@@ -412,11 +474,17 @@ public partial class NetworkView
     }
 
     /// <summary>Shows a jump clip (posed at its time, or looping); false when it cannot be shown.</summary>
-    static bool ShowJumpPose(CharacterViewer character, (string Clip, float? Time)? pose)
+    bool _jumpDiveEntry;     // anim/jump-pack-blend: this frame's JumpPose is the pound's or the slash's dive
+    bool _jumpOppositeNow;   // anim/jump-pack-blend: the flight keys turned to their opposite on this frame's JumpPose
+
+    bool ShowJumpPose(CharacterViewer character, (string Clip, float? Time)? pose)
     {
         if (pose is not { } p) return false;
-        if (p.Time is { } time) return character.Pose(p.Clip, time, ClipBlends.Jump(p.Clip));
-        character.Play(p.Clip, ClipBlends.Jump(p.Clip));
+        float blend = _jumpOppositeNow && !OldJumpBlend && p.Clip.StartsWith("SM_JMP_Zero", StringComparison.OrdinalIgnoreCase) ? JumpAirBlend.EntryBlend(true)
+            : _jumpDiveEntry && !OldJumpBlend ? JumpAirBlend.DiveEntry : ClipBlends.Jump(p.Clip);   // the flight into the pound's or the slash's dive fades over DiveEntry
+        _jumpOppositeNow = false; _jumpDiveEntry = false;
+        if (p.Time is { } time) return character.Pose(p.Clip, time, blend);
+        character.Play(p.Clip, blend);
         return string.Equals(character.Playing, p.Clip, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -552,30 +620,49 @@ public partial class NetworkView
         switch (me.Jump)
         {
             case JumpPhase.TakeOff:
+                _botPoundMiss = null;
                 return new PlayerInput(tick, 0f, 1f, _yaw, jump, _pitch);
             case JumpPhase.Ascent or JumpPhase.Hang or JumpPhase.Fall:
             {
                 float stick = horizontal > BotPoundDistance * 0.5f ? 1f : 0f;
-                if (pack.PoundEnabled && horizontal <= BotPoundDistance && above >= BotPoundMinHeight && !me.MeleeHeld)
+                // bot-grenade-safety (Classic PvP): over its own live grenade the bot steers out of the blast, a target inside it is not flown at or pounded (NetworkView.BotGrenades.cs).
+                if (BotAirStick(me, target) is { } away)
                 {
-                    if (_bot) GD.Print($"t {_connectedFor:F1} s: id {_client!.PlayerId} bot presses pound {above:F1} m above P{target.PlayerId}, {horizontal:F1} m away horizontally");
-                    return new PlayerInput(tick, 0f, stick, _yaw, jump | InputButtons.Melee, _pitch);
+                    var keep = BotWeaponButtons(me, tick, target) & ~(InputButtons.Melee | InputButtons.Switch);
+                    if (pack.PoundEnabled && horizontal <= BotPoundDistance && above >= BotPoundMinHeight) BotPoundIntoOwnBlast(target);   // counted and logged
+                    if (!BotOldTactics) { _botAimNow = true; _botAimTarget = target.PlayerId; BotNoteEngagement(horizontal); }
+                    return new PlayerInput(tick, away.X, away.Y, _yaw, jump | keep, _pitch);
+                }
+                if (pack.PoundEnabled && horizontal <= BotPoundDistance && above >= BotPoundMinHeight && !me.MeleeHeld && !BotPoundIntoOwnBlast(target))
+                {
+                    // Stream C: some pounds are deliberately aimed beside the target (NetworkView.BotTactics.cs).
+                    var (poundYaw, poundPitch) = BotPoundPress(me, target);
+                    if (_bot) GD.Print($"t {_connectedFor:F1} s: id {_client!.PlayerId} bot presses pound {above:F1} m above P{target.PlayerId}, {horizontal:F1} m away horizontally{(_botPoundMiss is null ? "" : " (a miss)")}");
+                    return new PlayerInput(tick, 0f, stick, poundYaw, jump | InputButtons.Melee, poundPitch);
                 }
                 var weapon = BotWeaponButtons(me, tick, target) & ~(InputButtons.Melee | InputButtons.Switch);
+                // Stream C (owner: "when jumping in the air they ALWAYS hit bolt pistol headshots"): shots in the air get the aim error, doubled in BotApplyAim (BotAirAimScale).
+                if (!BotOldTactics) { _botAimNow = true; _botAimTarget = target.PlayerId; BotNoteEngagement(horizontal); }
                 return new PlayerInput(tick, 0f, stick, _yaw, jump | weapon, _pitch);
             }
             case JumpPhase.Dive or JumpPhase.Recover:
-                return new PlayerInput(tick, 0f, 0f, _yaw, InputButtons.None, _pitch);
+            {
+                var (diveYaw, divePitch) = BotPoundAim();   // a missed pound keeps its aim through the dive
+                return new PlayerInput(tick, 0f, 0f, diveYaw, InputButtons.None, divePitch);
+            }
             case JumpPhase.None:
             {
                 if (!me.Grounded || me.JumpHeld || me.JumpPower + 1e-3f < pack.CostAt(0f)
                     || me.MeleeStep > 0 || me.Throwing || me.SwitchLeft > 0f || me.Charging || me.PendingShot > 0 || _connectedFor - _botLastJump < BotJumpEvery)
                     return null;
-                bool atTarget = horizontal >= BotJumpMin && horizontal <= BotJumpMax && BotJumpClear(me, target);
+                // 2026-11-08: during a melee push the jump onto the target waits until 16 m (the approach stays low with dashes and hops; NetworkView.BotPush.cs).
+                float jumpMax = _botPush is { Active: true } push && push.Target == target.PlayerId && _approachSafe ? BotHopper.JumpInRange : BotJumpMax;
+                bool atTarget = horizontal >= BotJumpMin && horizontal <= jumpMax && BotJumpClear(me, target) && BotFloorBetween(me, target.Position);
                 // --bot-jump-free (test aid): otherwise a jump toward the target every BotFreeJumpEvery s (on a map, over
                 // whatever is in the way; a ceiling simply stops the rise), with BotFreeJumpHold s of hold.
                 bool free = !atTarget && _botJumpFree && _connectedFor - _botLastJump >= BotFreeJumpEvery;
                 if (!atTarget && !free) return null;
+                if (BotJumpIntoOwnBlast(target)) return null;   // bot-grenade-safety (Classic PvP): not onto a target inside its own live grenade's blast (NetworkView.BotGrenades.cs)
                 // M45: a release while rising cuts the rise, so the hold scales over the whole ascent (the full jump: JumpPack.FullRiseTicks).
                 float longest = pack.ReleaseCut ? JumpPack.FullRiseTicks(pack, c) * c.TickSeconds : pack.MaxHold;
                 float wanted = atTarget ? Math.Clamp((horizontal - BotJumpMin) / (BotJumpMax - BotJumpMin), 0f, 1f) * longest : BotFreeJumpHold;

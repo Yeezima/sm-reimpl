@@ -39,7 +39,9 @@ static class Cli
                 var newest = new ReleaseSource(http).GetNewestAsync(cts.Token).GetAwaiter().GetResult();
                 PrintStatus(updater);
                 if (newest is null) { Console.WriteLine("newest: none published"); return 0; }
-                Console.WriteLine($"newest: {newest.Tag} published {newest.PublishedAt:yyyy-MM-dd HH:mm} UTC, {newest.Asset.Name} {newest.Asset.Size} bytes, api sha256 {newest.Asset.ApiSha256 ?? "-"}, description sha256 {newest.BodySha256 ?? "-"}");
+                Console.WriteLine($"newest: {newest.Tag} published {newest.PublishedAt:yyyy-MM-dd HH:mm} UTC");
+                if (newest.Parts is { } m) Console.WriteLine($"  parts list: {m.Name} {m.Size} bytes, api sha256 {m.ApiSha256 ?? "-"}, description sha256 {newest.PartsBodySha256 ?? "-"}");
+                if (newest.Asset is { } z) Console.WriteLine($"  full zip: {z.Name} {z.Size} bytes, api sha256 {z.ApiSha256 ?? "-"}, description sha256 {newest.BodySha256 ?? "-"}");
                 Console.WriteLine(updater.ReadPointer().Current == newest.Tag ? "up to date" : "update available");
                 Console.WriteLine("what's new:\n" + newest.WhatsNew);
                 return 0;
@@ -88,6 +90,26 @@ static class Cli
                 }
                 Console.WriteLine(outcome == SelfUpdate.Outcome.NotNewer ? "not newer than the installed launcher: nothing changed"
                     : $"installed launcher {SelfUpdate.FileVersionOf(newer)} at {layout.LauncherExe}");
+                return 0;
+            }
+            case "install-parts":
+            {
+                // The release smoke test: install a build from its parts list and part zips in a local folder (no network), with every check of a
+                // real parts update (the list's hash, each part's hash, each file's hash, the build's own file list).
+                string manifestPath = Path.GetFullPath(a["install-parts"] ?? throw new ArgumentException("--install-parts needs the build's .parts.json."));
+                var manifest = PartsManifest.Parse(File.ReadAllText(manifestPath));
+                string name = Path.GetFileName(manifestPath);
+                long size = new FileInfo(manifestPath).Length;
+                string sha = Hashes.Sha256File(manifestPath);
+                var local = new ReleaseInfo(manifest.Tag, $"sm-reimpl {manifest.Version}", DateTimeOffset.UtcNow, "", "", true, null,
+                    new ReleaseAsset(name, size, $"https://github.com/{ReleaseSource.DefaultRepo}/releases/download/{manifest.Tag}/{name}", sha));
+                var localUpdater = new Updater(layout, null, s => { log.Write(s); }) { LocalPartsDir = Path.GetDirectoryName(manifestPath) };
+                string tag = localUpdater.InstallAsync(local, ConsoleProgress(), cts.Token).GetAwaiter().GetResult();
+                if (localUpdater.LastPartsPlan is { } plan)
+                    Console.WriteLine($"parts: {plan.Download.Count} unpacked ({string.Join(", ", plan.Download.Select(x => x.Name))}), {plan.Reuse.Count} taken from the installed build ({string.Join(", ", plan.Reuse.Select(x => x.Name))})");
+                Console.WriteLine($"installed: {tag}");
+                Console.WriteLine($"folder: {layout.VersionDir(tag)}");
+                PrintStatus(localUpdater);
                 return 0;
             }
             case "adopt":
@@ -173,6 +195,8 @@ static class Cli
         if (RangeResume.Decide(206, 10, 100, new System.Net.Http.Headers.ContentRangeHeaderValue(10, 99, 100), 90).Action != RangeAction.Append) problems.Add("range rule");
         const string sample = """[{"draft":true,"tag_name":"d","published_at":"2026-10-30T00:00:00Z","assets":[]},{"draft":false,"prerelease":true,"tag_name":"tester-2026-10-29-abcdef1","published_at":"2026-10-29T00:00:00Z","assets":[{"name":"x.txt","size":1,"browser_download_url":"https://github.com/x"},{"name":"SM-Reimpl-Playtest-2026-10-29-abcdef1-Windows.zip","size":5,"browser_download_url":"https://github.com/y","digest":"sha256:0000000000000000000000000000000000000000000000000000000000000000"}]}]""";
         if (ReleaseFeed.SelectNewest(sample) is not { Tag: "tester-2026-10-29-abcdef1", Asset.ApiSha256: not null }) problems.Add("release selection rule");
+        if (!Names.IsPartsManifest("SM-Reimpl-Playtest-2026-10-29-abcdef1-Windows.parts.json") || !Names.IsPartAsset("sm-reimpl-part-client-0123456789abcdef.zip") ||
+            Names.IsPartAsset("sm-reimpl-part-../x-0123456789abcdef.zip")) problems.Add("parts name rule");
         if (!NetPolicy.GitHub.IsAllowed(new Uri("https://api.github.com/x")) || NetPolicy.GitHub.IsAllowed(new Uri("http://github.com/x")) || NetPolicy.GitHub.IsAllowed(new Uri("https://example.com/x")))
             problems.Add("network policy");
     }
@@ -181,6 +205,9 @@ static class Cli
 static class Format
 {
     public static string Mb(long bytes) => $"{bytes / 1048576.0:0.0} MB";
+
+    /// <summary>The download an offered build costs: a parts build fetches only what changed (known once its parts list is read), a zip its size.</summary>
+    public static string Offer(ReleaseInfo r) => r.Parts is not null ? "only the changed parts are downloaded" : r.Asset is { } z ? $"{Mb(z.Size)} download" : "download";
 
     public static string Download(DownloadProgress d)
     {

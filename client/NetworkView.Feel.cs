@@ -128,7 +128,7 @@ public partial class NetworkView
         if (CharacterViewer.NoFeel || SlashClipOf(s) is not { } slashClip || !_jumpTracks.TryGetValue(s.PlayerId, out var t) || double.IsNaN(t.SlashHandAt)) return false;
         float since = (float)(_connectedFor - t.SlashHandAt);
         float exit = OldSlashWindup ? MeleeExitBlendOf(s, slashClip) ?? NavConduitBlend : SlashRunBlend;   // anim/air-slash-character: the jump-pack graph's impact-to-run blend
-        float clipTime = SlashImpactTime(s, (float)(_connectedFor - t.SlashHandImpactAt));
+        float clipTime = SlashImpactTime(s, (float)((_connectedFor - t.SlashHandImpactAt) * MoveClipSpeed(s)));   // W0b: at the weapon's clip speed, as the get-up view
         if (!s.Alive || t.View != JumpView.None || since < 0f || since >= exit || clipTime >= ClipLength(slashClip, 1.733f) || ActionMask() is not { } mask)
         {
             t.SlashHandAt = double.NaN;

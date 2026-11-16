@@ -238,7 +238,7 @@ public static class PerkValues
         if (v.RechargeRate != b.RechargeRate)
             p.Add($"power recharge {Change(b.RechargeRate, v.RechargeRate, "/s")}" + (b.MaxPower > 0f && b.RechargeRate > 0f && v.RechargeRate > 0f
                 ? $", empty to full in {N(b.MaxPower / b.RechargeRate)} → {N(v.MaxPower / v.RechargeRate)} s" : ""));
-        if (v.PoundDelay != b.PoundDelay) p.Add($"ground pound from {Change(b.PoundDelay, v.PoundDelay, " s")} after take-off");
+        // (the pound's delay is not listed: no weapon waits for it, sim/pound-any-weapon, protocol 73)
         if (v.TakeOffBlasts.Count > 0 && b.TakeOffBlasts.Count == 0) foreach (var t in v.TakeOffBlasts.Where(Damaging)) p.Add($"take-off {Blast(t)}");
         if (v.Pound is { } vp && b.Pound is { } bp)
         {

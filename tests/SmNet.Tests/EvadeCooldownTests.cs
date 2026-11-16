@@ -220,7 +220,8 @@ public class EvadeCooldownTests(ITestOutputHelper output)
             return s.Reaction == ReactionKind.None;
         }
         Assert.True(Breaks(0));
-        Assert.False(Breaks(30));
+        // sim/jump-escape (protocol 62; the owner 2026-11-06): the Assault / Raptor jumps out of any stun, so its press breaks it even in the hop's cooldown.
+        Assert.Equal(cls == Assault, Breaks(30));
     }
 
     [Fact]

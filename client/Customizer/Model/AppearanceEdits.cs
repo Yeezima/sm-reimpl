@@ -219,7 +219,9 @@ public static class AppearanceEdits
     public static (CustomizationProfile Profile, string? Id) AddAppearance(CustomizationProfile profile, string race)
     {
         if (profile.AppearancesFor(race).Count() >= CustomizationProfile.MaxAppearancesPerRace) return (profile, null);
-        string id = profile.NewAppearanceId(race);
+        // The first free slot's id (ui/appearance-slots), so a new look never moves a look with a hand-edited id to another slot.
+        int free = Array.IndexOf(AppearanceSlots.Layout(profile, race), null) + 1;
+        string id = free > 0 && profile.Appearance(AppearanceSlots.Prefix(race) + free) is null ? AppearanceSlots.Prefix(race) + free : profile.NewAppearanceId(race);
         int n = 1;
         while (profile.AppearancesFor(race).Any(a => a.Name.Equals($"Appearance {n}", StringComparison.OrdinalIgnoreCase))) n++;   // never two looks of one name
         var look = AppearanceProfile.Empty(id, race, $"Appearance {n}");
@@ -229,16 +231,11 @@ public static class AppearanceEdits
     public static CustomizationProfile ReplaceAppearance(CustomizationProfile profile, AppearanceProfile look) =>
         profile with { Appearances = profile.Appearances.Select(a => a.Id == look.Id ? look : a).ToList() };
 
-    /// <summary>Removes an appearance; classes that wore it fall back to the race's default look.</summary>
-    public static CustomizationProfile RemoveAppearance(CustomizationProfile profile, string id) =>
-        profile with
-        {
-            Appearances = profile.Appearances.Where(a => a.Id != id).ToList(),
-            Classes = profile.Classes.Select(c => c with
-            {
-                Appearance = new AppearanceRefs(c.Appearance.SpaceMarine == id ? null : c.Appearance.SpaceMarine, c.Appearance.Chaos == id ? null : c.Appearance.Chaos),
-            }).ToList(),
-        };
+    /// <summary>
+    /// Removes an appearance; classes that wore it fall back to the race's default look, in the profile's own slots, in every loadout set and in added content's data
+    /// (<see cref="ProfileViews.RemoveLook"/>, musou/loadout-slots review).
+    /// </summary>
+    public static CustomizationProfile RemoveAppearance(CustomizationProfile profile, string id) => ProfileViews.RemoveLook(profile, id);
 
     /// <summary>Makes a custom class wear an appearance of a race (null: the default look).</summary>
     public static CustomizationProfile Assign(CustomizationProfile profile, int slot, string race, string? id) =>

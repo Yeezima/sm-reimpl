@@ -3,7 +3,7 @@ using SmSim.Extras.Musou;
 namespace SmContent;
 
 /// <summary>The kinds of sound Musou's enemies make; each has a budget of its own (<see cref="MusouSoundRules"/>).</summary>
-public enum MusouSoundGroup : byte { Footstep, Grunt, Bark, Effort, Swing, MeleeHit, Gun, GunImpact, Hurt, Stun, Death, Bodyfall, Boss, Celebrate }
+public enum MusouSoundGroup : byte { Footstep, Grunt, Bark, Effort, Swing, MeleeHit, Gun, GunImpact, Hurt, Stun, Death, Bodyfall, Boss, Celebrate, Waaagh }
 
 /// <summary>Why a sound was or was not posted.</summary>
 public enum MusouSoundVerdict : byte { Post, TooFar, OverRate, VoiceCap, SpeechCap }
@@ -19,16 +19,27 @@ public readonly record struct MusouSoundLimit(float Range, float PerSecond, floa
 public static class MusouSoundRules
 {
     /// <summary>Emitters bound to the nearest enemies (the Warboss always has one), and how many of the nearest step aloud (Nobs and the Warboss always do).</summary>
-    public const int Slots = 16, Stepping = 6;
+    public const int Slots = 24, Stepping = 6;   // the owner, 2026-11-06: "constant grunting, shouting, yelling" near, muffled further away (16 and 30 m before)
     /// <summary>The farthest enemy that gets an emitter (m).</summary>
-    public const float SlotRange = 30f;
+    public const float SlotRange = 45f;
+    /// <summary>
+    /// The event whose distance curves (dry volume and low-pass) the Orks' voices take instead of their own (the owner, 2026-11-06: further away "muffled, similar to weapons fire sound effects in
+    /// classic pvp mode"): the bolter's, which every gun of the multiplayer banks shares (-6 dB at 10 m, -13 at 20, -25 at 40 with low-pass 17; the voices' own: -21, -49, -81). Ours.
+    /// Off since 2026-11-08 (the owner: "revert the request ... use the original game's exterminatus sound levels"): the voices keep their own curves; only the test aid
+    /// <c>--musou-ork-voice-curve weapon</c> uses this event.
+    /// </summary>
+    public const string VoiceCurveEvent = "play_sm_bolter_fire";
+    /// <summary>Whether the voices take <see cref="VoiceCurveEvent"/>'s curves by default: false since 2026-11-08 (their own curves, the original Exterminatus levels).</summary>
+    public const bool VoicesOnWeaponCurve = false;
+    /// <summary>Of a running bark, the shares that are a roar and a taunt (celebration line) instead of the bark cue (ours: Exterminatus-like "scream, yell, and taunt often").</summary>
+    public const float BarkRoarShare = 0.25f, BarkTauntShare = 0.2f;
     /// <summary>
     /// The crowd's voices above which nothing new posts (of <c>SoundSystem.Max3D</c>, 48; a soft cap, one post can hold up to 11 voices, so the live count goes a little over), and likewise its character
     /// lines (design section D's 6). Measured under 300 enemies: docs/discovery.md, "Musou enemy sounds".
     /// </summary>
-    public const int MaxVoices = 22, MaxSpeech = 12;   // the owner, 2026-11-02: "make the orks yell and shout more" (14 and 6)
+    public const int MaxVoices = 23, MaxSpeech = 18;   // the owner, 2026-11-02: "make the orks yell and shout more" (14 and 6); 2026-11-06 more lines (22 and 12; the voices stay under half the pool of 48)
     /// <summary>Seconds between one enemy's running grunts (the data's clips carry one about every 1.2 s; thinned for a crowd) and between its barks (no such tag in the data's timing: a clip's).</summary>
-    public const float GruntEveryMin = 1.2f, GruntEveryMax = 2.5f, BarkEveryMin = 2f, BarkEveryMax = 5f;
+    public const float GruntEveryMin = 0.8f, GruntEveryMax = 2f, BarkEveryMin = 1.5f, BarkEveryMax = 4f;   // 2026-11-06 (1.2-2.5 and 2-5 s before)
     /// <summary>Seconds between one enemy's grunts for being hit.</summary>
     public const double HurtSpacing = 0.4;
     /// <summary>Seconds an emitter stays with an enemy that left the nearest ones, so a line is not cut.</summary>
@@ -39,19 +50,20 @@ public static class MusouSoundRules
     static readonly MusouSoundLimit[] Limits =
     [
         new(14f, 14f, 6f),                // Footstep
-        new(12f, 2.5f, 3f, Speech: true), // Grunt
-        new(14f, 0.8f, 2f, Speech: true), // Bark
-        new(12f, 3f, 3f, Speech: true),   // Effort
+        new(35f, 6f, 6f, Speech: true),   // Grunt (2026-11-06; 12 m, 2.5/s, 3 before: the voices now carry on the weapon curve)
+        new(45f, 3f, 4f, Speech: true),   // Bark (14 m, 0.8/s, 2)
+        new(30f, 4f, 4f, Speech: true),   // Effort (12 m, 3/s, 3)
         new(18f, 5f, 3f),                 // Swing
-        new(20f, 6f, 4f),                 // MeleeHit
+        new(50f, 6f, 4f),                 // MeleeHit (2026-11-08, the owner: melee hits with the guns' distance treatment; 20 m before)
         new(50f, 6f, 4f),                 // Gun
         new(15f, 6f, 3f),                 // GunImpact
-        new(12f, 4f, 3f, Speech: true),   // Hurt
-        new(12f, 1f, 1f, Speech: true),   // Stun
-        new(20f, 4f, 3f, Speech: true),   // Death
+        new(30f, 4f, 3f, Speech: true),   // Hurt (12 m)
+        new(30f, 1.5f, 2f, Speech: true), // Stun (12 m, 1/s, 1)
+        new(40f, 4f, 3f, Speech: true),   // Death (20 m)
         new(20f, 5f, 3f),                 // Bodyfall
         new(80f, 20f, 8f),                // Boss: never held by the caps
-        new(25f, 0.5f, 1f, Speech: true), // Celebrate
+        new(45f, 1f, 2f, Speech: true),   // Celebrate (25 m, 0.5/s, 1): also the running taunts
+        new(300f, 1.5f, 3f, Speech: true),  // Waaagh (expansion S6): a wave's war cry carries across the field; WaaaghBarkPlanner keeps it to 3 voices
     ];
 
     public static MusouSoundLimit LimitOf(MusouSoundGroup g) => Limits[(int)g];
@@ -59,19 +71,49 @@ public static class MusouSoundRules
     /// <summary>Metres between two footfalls (ours: a run of about 2.5 steps a second at the type's speed; the crowd's clips are not read for this).</summary>
     public static float StepMetres(MusouEnemyType t) => t switch
     {
-        MusouEnemyType.Gretchin => 1.4f, MusouEnemyType.Nob => 2.4f, MusouEnemyType.ChaosMarine => 2.2f, MusouEnemyType.Warboss => 3f, _ => 2f,
+        MusouEnemyType.Gretchin => 1.4f, MusouEnemyType.Nob => 2.4f, MusouEnemyType.ChaosMarine => 2.2f, MusouEnemyType.Warboss => 3f, _ when MusouBossOrks.Is(t) => 3f, _ => 2f,
     };
 
     /// <summary>Whether a type always steps aloud with an emitter, however many are nearer.</summary>
-    public static bool HeavyStep(MusouEnemyType t) => t is MusouEnemyType.Nob or MusouEnemyType.Warboss;
+    public static bool HeavyStep(MusouEnemyType t) => t is MusouEnemyType.Nob or MusouEnemyType.Warboss || MusouBossOrks.Is(t);
+}
+
+/// <summary>
+/// musou/npc-voices-only (owner, 2026-11-12: "Remove the ambient voices and yells from Musou mode. Only actual in game npcs should make noise. Just make it so you can hear everyone from further
+/// away."). Musou Mode only, client presentation only. The voices that are not an actual body's (the far battle's Ork mobs, the armies' Waaagh! war cries) are off, and the voices that are (the crowd
+/// Orks', the other players' and the own) carry <see cref="Reach"/> times farther. Every number is **ours** (spec "Musou NPC voices only").
+/// </summary>
+public static class MusouVoiceRules
+{
+    /// <summary>Restore switch: the ambient voices (far Ork mobs, army Waaagh!) play again, as before 2026-11-12.</summary>
+    public const string AmbientVoicesFlag = "--musou-ambient-voices";
+    /// <summary>Test aid: the voices' reach as before (1x).</summary>
+    public const string NoReachFlag = "--no-musou-voice-reach";
+    /// <summary>
+    /// How many times farther an NPC's or player's voice is heard (ours, provisional: the voice's distance curve is read at 1/<see cref="Reach"/> of the real distance and the crowd's speech ranges and
+    /// emitter range are <see cref="Reach"/> times longer: an Ork line 26 dB down at 12 m is that at 21 m). The voice caps are unchanged.
+    /// </summary>
+    public const float Reach = 1.75f;
+
+    /// <summary>Whether the ambient voices play (only with the restore switch).</summary>
+    public static bool AmbientVoices(IReadOnlyCollection<string> args) => args.Contains(AmbientVoicesFlag);
+
+    /// <summary>The reach to use: <see cref="Reach"/>, or 1 with the test aid.</summary>
+    public static float ReachFor(IReadOnlyCollection<string> args) => args.Contains(NoReachFlag) ? 1f : Reach;
+
+    /// <summary>Whether a far-battle kind is a voice (the Ork mobs' yells), not a sound effect.</summary>
+    public static bool IsAmbientVoice(MusouAmbienceKind kind) => kind == MusouAmbienceKind.OrkMob;
 }
 
 /// <summary>The crowd's budget: <see cref="Refill"/> each frame, <see cref="Take"/> for each sound. Counts what it passed and held, by group.</summary>
 public sealed class MusouSoundBudget
 {
-    const int Groups = (int)MusouSoundGroup.Celebrate + 1, Verdicts = (int)MusouSoundVerdict.SpeechCap + 1;
+    const int Groups = (int)MusouSoundGroup.Waaagh + 1, Verdicts = (int)MusouSoundVerdict.SpeechCap + 1;
     readonly float[] _tokens = new float[Groups];
     readonly long[,] _count = new long[Groups, Verdicts];
+
+    /// <summary>musou/npc-voices-only: how many times farther the voice groups (speech groups other than the Waaagh, which is gone) are heard (<see cref="MusouVoiceRules.Reach"/>; 1 = as before).</summary>
+    public float VoiceReach { get; set; } = 1f;
 
     public MusouSoundBudget() { for (int g = 0; g < Groups; g++) _tokens[g] = MusouSoundRules.LimitOf((MusouSoundGroup)g).Burst; }
 
@@ -88,7 +130,8 @@ public sealed class MusouSoundBudget
     public MusouSoundVerdict Take(MusouSoundGroup group, float distance, int voices, int speech)
     {
         var l = MusouSoundRules.LimitOf(group);
-        var verdict = distance > l.Range ? MusouSoundVerdict.TooFar
+        float range = l.Speech && group != MusouSoundGroup.Waaagh ? l.Range * VoiceReach : l.Range;
+        var verdict = distance > range ? MusouSoundVerdict.TooFar
             : group != MusouSoundGroup.Boss && voices >= MusouSoundRules.MaxVoices ? MusouSoundVerdict.VoiceCap
             : group != MusouSoundGroup.Boss && l.Speech && speech >= MusouSoundRules.MaxSpeech ? MusouSoundVerdict.SpeechCap
             : _tokens[(int)group] < 1f ? MusouSoundVerdict.OverRate : MusouSoundVerdict.Post;
@@ -136,6 +179,20 @@ public sealed class MusouSoundSet
         new(MusouEnemyType.Nob, "ork_coop_nob", "ork_coop_nob_uge_axe", Charge: "ork_coop_nob_bullrush"),
         new(MusouEnemyType.ChaosMarine, GameplayTuning.ChaosBlueprint, "chaos_coop_chainaxe", Gun: "chaos_coop_bolter", VoiceClass: "csm - tactical"),
         new(MusouEnemyType.Warboss, "ork_coop_warboss", "ork_coop_warboss_power_klaw", Charge: "ork_coop_warboss_bullrush", VoiceBlueprint: "ork_coop_nob_pro"),
+        // The Boss Orks (2026-11-06): their base kind's files (the data has no giant Orks).
+        new(MusouEnemyType.BossBoy, OrkSounds.Blueprint, "ork_coop_boy_choppa"),
+        new(MusouEnemyType.BossShootaBoy, "ork_coop_boy_2hand_shoota", "ork_coop_boy_choppa", Gun: "ork_coop_boy_2hand_shoota_rapid"),
+        new(MusouEnemyType.BossArdBoy, "ork_coop_boy_pro", "ork_coop_boy_choppa_pro"),
+        new(MusouEnemyType.BossNob, "ork_coop_nob", "ork_coop_nob_uge_axe", Charge: "ork_coop_nob_bullrush"),
+        // The Weirdboy (Musou Mode only): his own blueprint and staff (its swing, and its fire for the bolt).
+        new(MusouEnemyType.Weirdboy, "ork_coop_weirdboy", "ork_coop_weirdboy_staff", Gun: "ork_coop_weirdboy_staff"),
+        // Expansion S1 (docs/musou-expansion.md): PLACEHOLDER sound sets until S2 to S4 give the new kinds their own: the Squig the Gretchin's, the Rokkit Boy, Stormboy and Mek a Boy's, the Big Shoota Nob the Nob's with the Shoota's gun.
+        // Expansion S2: the Squig's own blueprint (its steps, roar and burst: play_or_squig_*; no melee wargear of its own, the grot's stands in); the Rokkit Boy's (boy_2hand_shoota_pro) with the launcha.
+        new(MusouEnemyType.BombSquig, "ork_coop_squig_bomb", "ork_coop_grot_choppa"),
+        new(MusouEnemyType.RokkitBoy, "ork_coop_boy_2hand_shoota_pro", "ork_coop_boy_choppa", Gun: "ork_coop_boy_rokkit_launcha"),
+        new(MusouEnemyType.Stormboy, OrkSounds.Blueprint, "ork_coop_boy_choppa"),
+        new(MusouEnemyType.BigShootaNob, "ork_coop_nob_bigshoota", "ork_coop_nob_uge_axe", Gun: "ork_coop_nob_big_shoota", Charge: "ork_coop_nob_bullrush"),   // expansion S3: his own blueprint and gun
+        new(MusouEnemyType.ScrapMek, OrkSounds.Blueprint, "ork_coop_boy_choppa"),
     ];
 
     /// <summary>Every file <see cref="Files"/> names, for <see cref="SoundTriggers.Load(string, IEnumerable{string}, IEnumerable{string}, IReadOnlyList{SmFormats.Havok.BehaviorGraph}?, IReadOnlyList{SmFormats.Havok.BehaviorGraph}?)"/>.</summary>
@@ -168,6 +225,9 @@ public sealed class MusouSoundSet
     public MusouSoundCue SlamHit { get; } = new();
     public MusouSoundCue ChargeStart { get; } = new();
     public MusouSoundCue ChargeHit { get; } = new();
+    /// <summary>The gun jams (the Big Shoota Nob's overheat): the gun's own <c>actn_snd_wep_gun_jam</c> (in the data an exertion, <c>effort_big_pull</c>), and its cock when it is ready again (<c>actn_snd_wep_cock</c>).</summary>
+    public MusouSoundCue Jam { get; } = new();
+    public MusouSoundCue GunReady { get; } = new();
     /// <summary>Commands of the data this type would play that no loaded bank holds (reported at start-up and by <c>smtool musou-sounds</c>).</summary>
     public SortedSet<string> Missing { get; } = new(StringComparer.OrdinalIgnoreCase);
 
@@ -177,6 +237,7 @@ public sealed class MusouSoundSet
         ("grunt", Grunt), ("bark", Bark), ("roar", Roar), ("step left", StepLeft), ("step right", StepRight), ("wind-up", WindUp), ("effort", Effort), ("swing", Swing), ("melee hit", MeleeHit), ("fire", Fire),
         ("gun impact", GunImpact), ("hurt small", HurtSmall), ("hurt big", HurtBig), ("stun", Stun), ("death yell", DeathYell), ("fall", Fall), ("knocked", Knocked), ("land", Land), ("celebrate", Celebrate),
         ("slam wind-up", SlamWindUp), ("slam hit", SlamHit), ("charge start", ChargeStart), ("charge hit", ChargeHit),
+        ("jam", Jam), ("gun ready", GunReady),
     };
 
     /// <summary>The set of <paramref name="files"/>; <paramref name="inBanks"/> says whether an event can be posted.</summary>
@@ -263,6 +324,8 @@ public sealed class MusouSoundSet
         if (melee is not null) AddOption(set.SlamHit, melee.Of("actn_smash"), []);
         First(set.ChargeStart, charge, "weaponflare");
         First(set.ChargeHit, charge, "actn_bullrush_warboss", "actn_huge_swing");
+        First(set.Jam, gun, "actn_snd_wep_gun_jam");
+        First(set.GunReady, gun, "actn_snd_wep_cock");
         return set;
     }
 }

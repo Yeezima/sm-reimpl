@@ -24,11 +24,32 @@ namespace SmClient;
 public partial class NetworkView
 {
     /// <summary>
-    /// Fraction of shots meant to hit at medium range when <c>--bot-accuracy</c> is not given (ours: bots miss most shots, for footage; lowered
-    /// from 0.25 to 0.03 on the owner's request of 2026-10-28, "the bots ... still absolutely obliterate me", together with the trigger discipline
-    /// <see cref="BotFireDiscipline"/> and the data's weapon spread; the owner kept the result, about 7% hits and 72% less damage; spec "Test bots").
+    /// Fraction of shots meant to land on the target's body, at every range (<see cref="BotAimModel.DistanceScale"/>), when <c>--bot-accuracy</c> is not given. Night batch 2026-11-06,
+    /// the owner: "increase the bots ranged weapon accuracy to 49%" (first said 50%). Was 0.03 at 15 m with a fixed error angle (the owner's 2026-10-28 "about 7% hits"). The weapon's own
+    /// spread and the target's movement come on top, so this input is higher than the 49 % hit rate it is calibrated to give in a bot-vs-bot run (spec "Test bots", measured there).
     /// </summary>
-    public const float DefaultBotAccuracy = 0.03f;
+    public const float DefaultBotAccuracy = 0.97f;
+    /// <summary>
+    /// Stream C (owner: "when jumping in the air they ALWAYS hit bolt pistol headshots. make them miss the same % of the time as they do when shooting on the ground"):
+    /// the factor on the aim error of a shot from the air (ours, an estimate from measured runs: at the default accuracy the aim's own chance of landing goes from 97 to about 58 %).
+    /// </summary>
+    public const float BotAirAimScale = 2f;
+    /// <summary>
+    /// The shot offsets (yaw, pitch; radians) that take back <see cref="BotTactics.HeavyScatterCancel"/> of the scatter the simulation will give this tick's shot, for a
+    /// heavy-role bot (Devastator, Havoc) firing its primary weapon in Classic PvP. The scatter is deterministic (<see cref="Spread.Draw"/> of the player id and
+    /// the input's tick, scaled by the half-widths of the set in use), so the bot predicts it as the client's own prediction does; the bloom and stance used here are
+    /// this tick's before the step, so the take-back is close but not exact. No weapon, server or protocol change: the bot aims the other way, through the
+    /// protocol's shot offsets. Zero for every other bot, with <c>--bot-old-tactics</c> and with a perfect aim.
+    /// </summary>
+    (float Yaw, float Pitch) BotHeavySpreadCancel(PlayerInput input)
+    {
+        if (BotOldTactics || _config is null || _client is null || _botAim is not { IsPerfect: false }) return (0f, 0f);
+        var me = _client.Predicted;
+        if (Loadouts.ClassOf(_config, me.Class) is not { Role: "heavy" } || Loadouts.InHand(_config, me) is not { Slot: not WeaponSlot.Pistol } weapon) return (0f, 0f);
+        var (h, v) = Spread.HalfWidths(weapon, me, 0, _config.MoveSpeedScale, _config);
+        return BotTactics.ScatterTakeBack(Spread.Draw(me.PlayerId, input.Tick), h, v, BotTactics.HeavyScatterCancel);
+    }
+
     /// <summary>Metres beyond which a firing bot also advances toward its target (ours; the bot strafes closer than this).</summary>
     public const float BotAdvanceBeyond = 40f;
 
@@ -46,6 +67,24 @@ public partial class NetworkView
     /// <summary>The trigger discipline (reaction delay, bursts and pauses; <see cref="BotFireDiscipline"/>); off with a perfect aim or <c>--bot-no-discipline</c>.</summary>
     BotFireDiscipline? _botDiscipline;
     int _botDisciplineHeld;
+    /// <summary>The melee reaction time (night batch 2026-11-06; <see cref="BotMeleeReaction"/>); off with a perfect aim (the probe flags) or <c>--bot-no-discipline</c>.</summary>
+    BotMeleeReaction? _botMeleeReaction;
+    bool _botTargetSwinging;
+
+    /// <summary>
+    /// Whether the bot may start a melee action (or a charge) this tick: its reaction time to an enemy in reach has passed. <paramref name="inReach"/>: the target is in melee or charge reach;
+    /// otherwise the timer sees no enemy. Always true with a perfect aim or <c>--bot-no-discipline</c> (test aids that need the action at once).
+    /// </summary>
+    bool BotMeleeReady(PlayerState target, bool inReach, float horizontal)
+    {
+        ReadBotAimFlags();
+        if (BotAccuracy >= BotAimModel.Perfect || CmdFlag("bot-no-discipline")) return true;
+        _botMeleeReaction ??= new BotMeleeReaction(Math.Max(_client!.PlayerId, 0) * 15485863 + 11);
+        bool swinging = target.MeleeStep > 0;
+        bool began = swinging && !_botTargetSwinging && horizontal <= BotMeleeDistance + 1f;
+        _botTargetSwinging = swinging;
+        return _botMeleeReaction.Step(_config!.TickSeconds, inReach ? target.PlayerId : null, began);
+    }
 
     /// <summary>Flags of probes and test aids that measure or photograph shots and need them to land: with one of these present a bot's default accuracy is 1 (an explicit <c>--bot-accuracy</c> still wins).</summary>
     static readonly string[] ProbeFlags = ["aim-test", "bot-stand", "hip-probe", "reload-capture", "reload-test", "look-closeup", "look-churn", "look-log", "camera-probe", "camera-selftest",
@@ -90,6 +129,7 @@ public partial class NetworkView
     {
         ReadBotAimFlags();
         BotTrace(input);
+        BotNoteMove(input);   // stream C measurements (NetworkView.BotTactics.cs)
         bool aimed = _botAimNow;
         int? aimTarget = _botAimTarget;
         _botAimNow = false; _botAimTarget = null;
@@ -106,6 +146,13 @@ public partial class NetworkView
         if (!aimed) { if (!_botAim.IsPerfect) _botAim.StepParts(_config.TickSeconds, false); return input; }
         bool firing = (input.Buttons & InputButtons.Fire) != 0;
         var (dy, dp, sy, sp) = _botAim.StepParts(_config.TickSeconds, firing);
+        // Night batch 2026-11-06: the error angle scales with the range so the accuracy holds at every distance (BotAimModel.DistanceScale).
+        float scale = BotAimModel.DistanceScale(_botAimDistance);
+        // Stream C: in the air the error is doubled (BotAirAimScale): with the same error a shot from a jump, mostly close and down onto a ground target, landed about 1.5 to 2.3 times as often as one on the ground.
+        if (!BotOldTactics && (_client.Predicted.Jump != JumpPhase.None || !_client.Predicted.Grounded)) scale *= BotAirAimScale;
+        (dy, dp, sy, sp) = (dy * scale, dp * scale, sy * scale, sp * scale);
+        // Stream C (owner's choice 2026-11-07: "Tighten for bots"): a heavy-role bot's primary weapon has part of its scatter taken back (BotHeavySpreadCancel, BotTactics.HeavyScatterCancel).
+        if (firing) { var (cy, cp) = BotHeavySpreadCancel(input); sy += cy; sp += cp; }
         if (dy == 0f && dp == 0f && sy == 0f && sp == 0f) return input;
         // Turning the view by dy turns the move vector with it; rotate the stick the other way to keep the body's direction.
         float c = MathF.Cos(dy), s = MathF.Sin(dy);
@@ -169,6 +216,7 @@ public partial class NetworkView
     /// <summary>A hit report of this bot's own shots: ranged hits (not melee or blast) count toward the distance band of the target it was aiming at.</summary>
     void BotNoteHits(HitReport hits)
     {
+        if (_bot) BotNoteTacticsHits(hits);   // stream C measurements
         if (!_bot || hits.LastMelee || hits.LastSplash || hits.Hits <= 0) return;
         _botBandHits[Band(_botAimDistance)] += hits.Hits;
         _botRangedDamage += hits.ShieldDamage + hits.HealthDamage;
@@ -182,7 +230,7 @@ public partial class NetworkView
     {
         if (!_bot) return;
         int fired = _hipOwnShots;
-        for (int shots = fired - _botHipShotsSeen; shots > 0; shots--) _botBandShots[Band(_botAimDistance)]++;
+        for (int shots = fired - _botHipShotsSeen; shots > 0; shots--) { _botBandShots[Band(_botAimDistance)]++; BotNoteShot(_client!.Predicted); }
         if (fired > _botHipShotsSeen) _botMaxShotDistance = MathF.Max(_botMaxShotDistance, _botAimDistance);
         _botHipShotsSeen = fired;
         if (_connectedFor - _botAimLogAt < 10.0) return;
@@ -193,5 +241,6 @@ public partial class NetworkView
         float engaged = _botBandTicks.Sum() * (_config?.TickSeconds ?? 1f / 30f);
         GD.Print($"t {_connectedFor:F1} s: id {_client!.PlayerId} aim: shots {totalShots}, hits {totalHits} ({(totalShots > 0 ? 100f * totalHits / totalShots : 0f):F1}%), " +
                  $"ranged damage {_botRangedDamage:F0} over {engaged:F0} s aimed at enemies ({(engaged > 0f ? _botRangedDamage / engaged : 0f):F1} per s), trigger held back {_botDisciplineHeld} ticks, farthest shot {_botMaxShotDistance:F0} m; {bands}");
+        LogBotTactics();
     }
 }

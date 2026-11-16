@@ -29,6 +29,7 @@ public partial class NetworkView
         // A match started without the front end (--connect) has no menu node yet: make one to carry the picker's sounds (not for a bot: it has no menu).
         var ui = UiSounds.Current ?? (_bot ? null : UiSounds.Ensure(GetParent() ?? this, _gameDir, NoSound));
         ui?.Redirect(e => PostUiEvent(e, "ui"), this);
+        if (!_bot) SmClient.Customizer.FocusGlow.Ensure(this);   // ui/focus-glow: the in-match menus' glow (a --connect run has no front end)
         if (CmdFlag("ui-sound-probe")) ui?.Play(UiSoundRules.Select);   // test aid: one menu sound through the redirect, for --log-sound ui
     }
 

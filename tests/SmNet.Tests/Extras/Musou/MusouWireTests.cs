@@ -21,7 +21,7 @@ public class MusouWireTests
         Assert.True(MusouWire.Owns(3) && MusouWire.Owns(4) && MusouWire.Owns(5) && MusouWire.Owns(6));   // MU-D: 6, the drops
         Assert.False(MusouWire.Owns(1) || MusouWire.Owns(2) || MusouWire.Owns(7) || MusouWire.Owns(0));
         Assert.Equal(MusouSim.Version, MusouWire.Version);
-        Assert.Equal(119, MusouWire.MaxEntities);
+        Assert.Equal(108, MusouWire.MaxEntities);
         Assert.Equal(74, MusouWire.MaxEvents);
     }
 
@@ -118,9 +118,9 @@ public class MusouWireTests
         Assert.Null(MusouWire.ReadEntities(zeroId, Box));                                    // id 0 is "none"
         var badState = (byte[])entity.Clone(); badState[10] = 0x0F;
         Assert.Null(MusouWire.ReadEntities(badState, Box));                                  // state 15 unknown
-        var badType = (byte[])entity.Clone(); badType[10] = 0xF1;
-        Assert.Null(MusouWire.ReadEntities(badType, Box));                                   // type 15 unknown
-        Assert.Throws<ArgumentException>(() => MusouWire.WriteEntities([new MusouEntity(1, Vector3.Zero, 0f, (MusouEnemyType)16, MusouEnemyState.Seek)], Box));
+        var badType = (byte[])entity.Clone(); badType[11] = 0xF1;
+        Assert.Null(MusouWire.ReadEntities(badType, Box));                                   // type 241 unknown
+        Assert.Throws<ArgumentException>(() => MusouWire.WriteEntities([new MusouEntity(1, Vector3.Zero, 0f, MusouEnemyType.Boy, (MusouEnemyState)16)], Box));   // a state beyond its nibble
 
         var ev = MusouWire.WriteEvents([new MusouEvent(MusouEventKind.Hit, 1, 1, 1, 1, Vector3.Zero)], Box);
         Assert.Null(MusouWire.ReadEvents(ev[..^1], Box));

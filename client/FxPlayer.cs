@@ -6,6 +6,7 @@ using System.IO;
 using Godot;
 using SmContent;
 using SmFormats.Fx;
+using SmClient.Bullets;
 
 namespace SmClient;
 
@@ -16,6 +17,12 @@ public sealed class FxEffect
     public Vector3 Origin;
     public Basis Axes = Basis.Identity;
     public float Scale = 1f;
+    /// <summary>hit-sparks-flashes (ours): when above 0, no particle of this effect ends farther than this many metres from <see cref="Origin"/> (<c>HitFxScaleRules.LimitReach</c>); 0: no cap.</summary>
+    public float ReachCap;
+    /// <summary>plasma-soft-visuals (owner 2026-11-14, ours): when above 0, a spray's spawn offset (its emit offset and volume, after the effect's scale) is cut to this many metres, so the plasma chambers' crawling arcs (the data lets them wander up to 2.5 m up) stay on the gun; 0: no cut.</summary>
+    public float SprayLeash;
+    /// <summary>plasma-soft-visuals (ours): a plasma effect: its beam and streamer quads fade out across the width and a ribbon fades out at its tail (<c>PlasmaSoftEdges</c>).</summary>
+    public bool SoftEdges;
     /// <summary>Where a beam-type effect ends (tracers, the melta blast); beams whose axis is the effect's axis span the distance to it.</summary>
     public Vector3? Target;
     /// <summary>Called each frame for an attached effect: the marker's world place, or null when it is gone (the effect then stays where it was).</summary>
@@ -37,6 +44,8 @@ public sealed class FxEffect
     public bool Ambient;
     /// <summary>Draws no lights (a distant backdrop effect whose data lights, scaled up, would reach across the whole arena).</summary>
     public bool NoLights;
+    /// <summary>The longest reach (m) of this effect's lights (ours; <see cref="FxPlayer.LightCaps"/>): a scaled-up effect's data light would otherwise tint the whole view (the Dreadnought's x12 power-up glow, his x1.75 muzzle flash).</summary>
+    public float LightCap = float.PositiveInfinity;
     /// <summary>Stops soon after <see cref="Follow"/> is lost (a projectile's trail when it is gone).</summary>
     public bool StopOnLost;
     /// <summary>M40-T13 (ours): recolours the effect's sprites, beams and streamers to this hue at their own brightness (plasma); null: the data's colours.</summary>
@@ -45,6 +54,11 @@ public sealed class FxEffect
     public float HeadSpeed;
     /// <summary>fx/visuals-2 (ours): scales the width of a clamped bright-head beam (a bolt tracer's streak) and the length of the streak's trail (metres per U); 1: the data's. Other beams are untouched.</summary>
     public float TracerWidthScale = 1f, TracerTrailScale = 1f;
+    /// <summary>fix/plasma-trail-slab (owner, 2026-11-09: "too blocky"; then "the original data look, softened"): this effect's streamers keep the data's look but their head is rounded and faded in over its first <see cref="SoftHeadShare"/> of the length instead of starting as a hard-edged rectangle (a plasma ball's trail).</summary>
+    public bool SoftHead;
+    public const float SoftHeadShare = 0.4f;
+    /// <summary>plasma-original-fx (interpretation): this effect's streamers read their width keys along the ribbon, head to tail, like their colour keys (<see cref="SmClient.Bullets.PlasmaOriginalLook.StreamerWidth"/>), instead of over the element's loop time with our 0.3 taper.</summary>
+    public bool WidthAlongTrail;
     /// <summary>M41: run the collision descriptions (<see cref="CNode.OnCollision"/>): a "dropper" particle touches the level where it starts and starts what it holds (the ground pound's impact). The effect must be placed on the ground, its +Y along the surface normal.</summary>
     public bool Collisions;
     /// <summary>
@@ -54,6 +68,19 @@ public sealed class FxEffect
     public bool GroundOnly;
     /// <summary>fx/jump-flash (the owner, 2026-11-02): draw only the jump pack thrust's <c>quick flash</c>, no flame or trail.</summary>
     public bool FlashOnly;
+    /// <summary>
+    /// musou/autocannon-flash (owner 2026-11-15: "leave only the bright yellow explosive flash"): only the effect's short additive flash sprites are drawn (a sprite named flash or streaks, <see cref="SmContent.BrightFlash"/>);
+    /// its fire, fireball, smoke, dust and debris sprites are not (lights and decals stay). Musou's autocannon hit and blast.
+    /// </summary>
+    public bool BrightFlash;
+    /// <summary>With <see cref="BrightFlash"/>: false draws none of its sprites at all (its lights and decals stay): the hit container's flash when the blast's flash is played at the same point (one flash, not two).</summary>
+    public bool BrightSprites = true;
+    /// <summary>fx-cap-priority (owner 2026-11-15): alpha sprites that are dust or grit (<see cref="SmContent.BrightFlash.IsGrit"/>) are not drawn; blood stays. A bolt weapon's and the autocannon's hit on an Ork.</summary>
+    public bool NoGrit;
+    /// <summary>fx/bolt-smoke (owner 2026-11-15, "Thin the dark mist"): the blood effect's big dark-red mist cards (<see cref="SmContent.BrightFlash.IsMistSprite"/>: the alpha <c>blood_breakup</c>, <c>blood_beam_breakup</c> and <c>blood_exit_beam_soft</c> cards, and the additive <c>fire_anim</c> puff) are not drawn; the red drops, hard spikes, gibs and streamers stay. CPU (<c>DrawNode</c>) and GPU (<c>GpuShown</c>, plan mask bit 128) apply it alike. A bolt weapon's and the autocannon's hit and kill on a Musou Ork.</summary>
+    public bool NoMist;
+    /// <summary>fx/jumppack-jets (ours): 0..1, scales every sprite, beam, streamer and light colour of the effect (a smooth fade in or out while it keeps playing); 1: the data's.</summary>
+    public float Opacity = 1f;
     /// <summary>fx/air-slash-landing: the effect's decals (crater, cracks) are not placed (the air slash's flash is the pound's burst without its ground marks).</summary>
     public bool NoDecals;
     /// <summary>feel/muzzle-smoke (owner's change of 2026-10-29, ours): 1 plays the data's look; below 1 a weapon's smoke elements (smoke trail beams and streamers, smoke puffs, sprays that emit them) keep this fraction of their width, radius and sideways speed. Set by the networked view for weapon fire, tracer and stop-fire effects only.</summary>
@@ -72,6 +99,26 @@ public sealed class FxEffect
     public float TrailScale;
     /// <summary>fx/impact-pass (ours): scales the length of the effect's beams that have no target (a jump pack thrust's <c>rocket</c> flame); 1: the data's length.</summary>
     public float BeamScale = 1f;
+    /// <summary>
+    /// gore-original (Musou Mode, the owner's 1.5x; ours): above 1, every spray that throws alpha-blended sprites (the blood, not the additive flashes) draws this many copies of each
+    /// particle on average (<see cref="SmContent.FxAmount.Copies"/>: the whole part always, the rest by a seeded roll), each copy on its own seed. 1: the data's count (every
+    /// effect but Musou's blood).
+    /// </summary>
+    public float Amount = 1f;
+    /// <summary>gore-original (Musou Mode's blood mist): the effect's smoke-classed sprites are drawn even with the owner's no-smoke rule on (the blood cloud is no smoke).</summary>
+    public bool KeepSmoke;
+    /// <summary>
+    /// musou/autocannon-dust (ours; the owner, 2026-11-12: "kick up 50% less dust"): the share of the effect's dust and debris that is drawn. Below 1 each particle of a spray that throws alpha-blended
+    /// sprites is kept by a seeded roll (<see cref="SmContent.FxAmount.Kept"/>) and each alpha-blended sprite outside a spray (a debris beam or ring) has its alpha scaled by it; additive sprites (flash, fire,
+    /// sparks), decals and lights stay. 1: the data's look (every effect but Musou's autocannon).
+    /// </summary>
+    public float DustShare = 1f;
+    /// <summary>
+    /// gore-original (Musou Mode's blood; ours): the data's colours are read as display (sRGB) values, as the original's gamma-space blending showed them, and turned linear
+    /// before they tint the sprite (the batch's pipeline is linear, so the raw values showed lighter: the blood mist's (98, 21, 17) as a salmon pink). False: the raw values
+    /// as before (every other effect, classic PvP's included).
+    /// </summary>
+    public bool GammaColours;
 }
 
 /// <summary>
@@ -97,7 +144,14 @@ public sealed partial class FxPlayer : Node3D
     /// <summary>A leaf shorter than this still shows this long (one frame of a 0.001 s flash would be missed at 30 fps).</summary>
     public const float MinShow = 0.045f;
     /// <summary>Effects alive at once (shots, hits, explosions); the map's ambient ones are counted apart (<see cref="MaxAmbient"/>).</summary>
-    const int MaxEffects = 160;
+    static readonly int MaxEffects = FxCapArg() ?? 160;
+    /// <summary><c>--fx-cap N</c> (measurement aid, 2026-11-09): the live-effect cap for this run instead of 160 (16 to 20000).</summary>
+    static int? FxCapArg()
+    {
+        var a = OS.GetCmdlineUserArgs();
+        int k = Array.IndexOf(a, "--fx-cap");
+        return k >= 0 && k + 1 < a.Length && int.TryParse(a[k + 1], out int n) ? Math.Clamp(n, 16, 20000) : null;
+    }
     const int MaxAmbient = 200;
     const int MaxLights = 6;
     /// <summary>Alpha decals (Godot Decal boxes) and additive glows (flat quads) alive at once; the oldest fade out when more come (M38: 36 shared before).</summary>
@@ -112,6 +166,8 @@ public sealed partial class FxPlayer : Node3D
     Vector3 _camPos;
     Basis _camBasis = Basis.Identity;
     uint _nextSeed = 1;
+    Vector3 _victimEye;
+    Func<FxEffect, (bool Ambient, int Priority, float Metres, double Age)>? _readVictim;
     int _ambientCount;
     /// <summary>Live shot, hit and explosion effects (not the ambient map ones): what the <c>MaxEffects</c> cap counts.</summary>
     public int ShotEffectCount => _effects.Count - _ambientCount;
@@ -121,13 +177,48 @@ public sealed partial class FxPlayer : Node3D
     readonly OmniLight3D[] _lightNodes = new OmniLight3D[MaxLights];
     readonly Dictionary<string, Texture2D?> _decalTextures = new(StringComparer.OrdinalIgnoreCase);
     readonly HashSet<string> _missing = new(StringComparer.Ordinal);
-    readonly Vector3[] _scratch = new Vector3[16];
+    readonly Vector3[] _scratch = new Vector3[32];   // plasma-original-fx: 31 segments for a ribbon whose width runs along it
     int _frameQuads;
 
     /// <summary>
     /// fx/no-smoke (the owner, 2026-10-29, a deliberate change from the original): smoke, dust, mist and haze sprites (<see cref="CNode.Smoke"/>, <see cref="SmContent.SmokeRules"/>) are not
     /// drawn; impacts keep their flash, sparks, debris and decal, explosions their fireball and flash. <c>--smoke on</c> (test aid, before / after) draws them as the data has them.
     /// </summary>
+    /// <summary><c>--old-plasma-edges</c> (plasma-soft-visuals): the plasma ribbons keep their hard edges and the chambers' arcs their 2.5 m reach.</summary>
+    /// <summary><c>--log-fx-plays</c> (test aid): one <c>FXPLAY</c> line for every effect started (name, scale, priority, place), to find which effect draws what is on the screen.</summary>
+    static readonly bool LogPlays = Array.IndexOf(OS.GetCmdlineUserArgs(), "--log-fx-plays") >= 0;
+
+    /// <summary><c>--fx-skip name,name</c> (test aid, bolt-smoke proof 2026-11-15): the named effects are not played at all, to isolate which effect draws a cloud on the screen (with <c>--log-fx-plays</c>).</summary>
+    static readonly string[] SkipPlays = FxSkipNames();
+    static string[] FxSkipNames()
+    {
+        var args = OS.GetCmdlineUserArgs();
+        int at = Array.IndexOf(args, "--fx-skip");
+        return at >= 0 && at + 1 < args.Length ? args[at + 1].Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries) : [];
+    }
+    /// <summary><c>--fx-tree name,name</c> (test aid, bolt-smoke proof 2026-11-15): prints each named effect's node tree (kind, name, material, blend, duration) once, on its first play.</summary>
+    static readonly string[] TreeNames = FxTreeNames();
+    static string[] FxTreeNames()
+    {
+        var args = OS.GetCmdlineUserArgs();
+        int at = Array.IndexOf(args, "--fx-tree");
+        return at >= 0 && at + 1 < args.Length ? args[at + 1].Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries) : [];
+    }
+    readonly HashSet<string> _treeDumped = new();
+    void DumpTree(string name, CSystem system)
+    {
+        if (TreeNames.Length == 0 || Array.IndexOf(TreeNames, name) < 0 || !_treeDumped.Add(name)) return;
+        GD.Print($"FXTREE {name}");
+        void Walk(CNode n, int depth, string tag)
+        {
+            string mat = n is CSprite s ? $" mat {s.Material.Name} {(s.Additive ? "ADD" : s.Distortion ? "DIST" : "ALPHA")}" : "";
+            GD.Print($"FXTREE {new string(' ', depth * 2)}{tag}{n.GetType().Name} '{n.Name}' dur {n.Duration:F2} smoke {n.Smoke}/{n.SmokeOnly} hide {n.Hide}{mat}");
+            foreach (var c in n.Children) Walk(c, depth + 1, "");
+            foreach (var c in n.OnCollision) Walk(c, depth + 1, "[collision] ");
+        }
+        foreach (var r in system.Roots) Walk(r, 1, "");
+    }
+    public static bool OldPlasmaEdges { get; set; } =Array.IndexOf(OS.GetCmdlineUserArgs(), "--old-plasma-edges") >= 0;
     public static bool ShowSmoke { get; set; } = SmokeRules.SwitchOn(OS.GetCmdlineUserArgs());
 
     /// <summary>
@@ -160,6 +251,11 @@ public sealed partial class FxPlayer : Node3D
     public FxLibrary? Library => _library;
     public string Status { get; private set; } = "not loaded";
     public int Live => _effects.Count;
+    /// <summary>
+    /// Effects dropped from a full player by their priority, and new effects refused by theirs (nothing lower or as low to drop); since the start. Slots by <see cref="FxEviction.Slot"/>:
+    /// priority -1 to 4, lower counted as -1 and higher as 4 (fx-cap-priority: -1 to 3 before; fix/fx-hud-leaks: 0 to 3 before that, the weight pass's -1 puffs counted as 0).
+    /// </summary>
+    public readonly long[] Evicted = new long[FxEviction.Slots], Refused = new long[FxEviction.Slots];
     public long Spawned { get; private set; }
     public long Culled { get; private set; }
     public int LastQuads => _frameQuads;
@@ -252,30 +348,42 @@ public sealed partial class FxPlayer : Node3D
     /// <paramref name="tint"/> recolours the effect (<see cref="FxEffect.Tint"/>; the Chaos plasma, <see cref="SmContent.PlasmaColour"/>); null: the data's colours.
     /// Returns null when the system is unknown or the player is not ready.
     /// </summary>
+    /// <summary>Effect names whose lights reach no further than the given metres (added content registers its scaled-up effects here; empty in Classic). Per player instance (review): it goes with the match's view, so a Classic match after a Musou one starts empty.</summary>
+    public readonly Dictionary<string, float> LightCaps = new();
+    /// <summary>How much the effects' lights light the volumetric fog (Godot's per-light fog energy; 1 Classic). The Musou map's storm look sets <see cref="MusouLightFogEnergy"/> while it is up: a bright explosion light (energy up to 19) lit the 120 m of haze and tinted the whole view, sky included.</summary>
+    public static float LightFogEnergy = 1f;
+    public const float MusouLightFogEnergy = 0.1f;
+
     public FxEffect? Play(string name, Vector3 origin, Basis axes, float scale, Vector3? target = null, Func<(Vector3 Position, Basis Axes)?>? follow = null,
                           float lifetime = 0f, double delay = 0.0, bool repeat = false, int priority = 0, bool ambient = false, Color? tint = null, float smokeRein = 1f, float followFor = float.PositiveInfinity)
     {
         if (!IsReady || System(name) is not { } system) return null;
         if (!float.IsFinite(origin.X + origin.Y + origin.Z) || !float.IsFinite(scale)) return null;
-        int ambientCount = _ambientCount;
-        if (ambient ? ambientCount >= MaxAmbient : _effects.Count - ambientCount >= MaxEffects)
+        if (SkipPlays.Length > 0 && Array.IndexOf(SkipPlays, name) >= 0) return null;   // --fx-skip (test aid)
+        DumpTree(name, system);
+        if (LogPlays) GD.Print($"FXPLAY {name} scale {scale:F2} priority {priority} at ({origin.X:F1}, {origin.Y:F1}, {origin.Z:F1}) dist {origin.DistanceTo(_camPos):F1}");
+        int ambientCount = _ambientCount, cap = MaxEffects;
+        ExtrasFxCap(ref cap);   // EXTRAS-HOOK: Musou Mode's GPU sprays raise the cap (musou/gpu-particles)
+        if (ambient ? ambientCount >= MaxAmbient : _effects.Count - ambientCount >= cap)
         {
             if (ambient) { Culled++; return null; }
-            // Drop the oldest of the lowest priority.
-            int victim = -1;
-            for (int i = 0; i < _effects.Count; i++)
-                if (!_effects[i].Ambient && _effects[i].Priority <= priority && (victim < 0 || _effects[i].Priority < _effects[victim].Priority || _effects[i].Age > _effects[victim].Age)) victim = i;
-            if (victim < 0) { Culled++; return null; }
+            // Drop the lowest priority at or below the new one's, the farthest from the camera of that priority, then the oldest (fix/fx-hud-leaks, polish item 27: "lower or older" dropped an older 0 before a younger -1;
+            // fx-cap-priority, owner 2026-11-15: the farthest first, and a new effect that is itself the farthest of its priority is the one refused).
+            _victimEye = _camPos;
+            int victim = FxEviction.Victim(_effects, priority, origin.DistanceTo(_camPos), _readVictim ??= e => (e.Ambient, e.Priority, e.Origin.DistanceTo(_victimEye), e.Age));
+            if (victim < 0) { Culled++; Refused[FxEviction.Slot(priority)]++; return null; }
+            Evicted[FxEviction.Slot(_effects[victim].Priority)]++;
             Release(_effects[victim]); _effects.RemoveAt(victim); Culled++;
         }
         var e = new FxEffect
         {
             System = system, Origin = origin, Axes = axes, Scale = scale, Target = target, Follow = follow, Age = -delay, Repeat = repeat, Priority = priority,
-            Seed = _nextSeed++ * 2654435761u, Name = name, Ambient = ambient, Tint = tint, SmokeRein = smokeRein, FollowFor = followFor,
+            Seed = _nextSeed++ * 2654435761u, Name = name, Ambient = ambient, SoftEdges = !OldPlasmaEdges && PlasmaSoftEdges.Applies(name), Tint = tint, SmokeRein = smokeRein, FollowFor = followFor,
             Life = lifetime > 0f ? lifetime : system.Lifetime is { } l ? l + 0.05 : repeat ? 8.0 : 3.0,
         };
         if (repeat && system.Lifetime is { } rl && rl > 0.01f) e.Life = double.PositiveInfinity;
         if (repeat) e.Life = double.PositiveInfinity;
+        if (LightCaps.Count > 0 && LightCaps.TryGetValue(name, out var lightCap)) e.LightCap = lightCap;
         if (system.HasStreamer) e.History = new List<(double, Vector3)>();
         _effects.Add(e);
         if (ambient) _ambientCount++;
@@ -300,7 +408,9 @@ public sealed partial class FxPlayer : Node3D
         _camera = camera;
         _camPos = camera.GlobalPosition;
         _camBasis = camera.GlobalBasis;
+        _frustum = CullOffScreen ? camera.GetFrustum() : null;
         _batch.Begin(_camPos);
+        ExtrasFxBegin(dt);   // EXTRAS-HOOK: Musou Mode's GPU sprays advance their clock (musou/gpu-particles)
         _lights.Clear();
         _frameQuads = 0;
         BeginMeshes();
@@ -325,6 +435,7 @@ public sealed partial class FxPlayer : Node3D
         }
         DebugDraw?.Invoke(_batch);
         _batch.End();
+        ExtrasFxEnd();   // EXTRAS-HOOK: Musou Mode's GPU sprays upload what changed (musou/gpu-particles)
         QuadSum += _batch.AdditiveLastFrame + _batch.AlphaLastFrame; AlphaQuadSum += _batch.AlphaLastFrame;
         QuadMax = Math.Max(QuadMax, _batch.AdditiveLastFrame + _batch.AlphaLastFrame);
         FlushMeshes();
@@ -340,7 +451,29 @@ public sealed partial class FxPlayer : Node3D
     {
         e.PlacedDecals = null;   // M38: its decals stay (they have their own clocks)
         e.Dead = true;           // M40-T13: owners of long-lived effects (the eye glow) see an evicted or cleared effect
+        ExtrasFxRelease(e);      // EXTRAS-HOOK: Musou Mode's GPU sprays free the effect's records (musou/gpu-particles)
     }
+
+    // musou/gpu-particles (Musou Mode, added content): hooks of the GPU spray path (client/Extras/Musou/FxPlayer.MusouGpu.cs); without it they compile away and
+    // every effect plays on the CPU path as before.
+    /// <summary>The live-effect cap for a new effect (<c>MaxEffects</c>, or the GPU path's own).</summary>
+    partial void ExtrasFxCap(ref int cap);
+    /// <summary>A frame starts (after the batch's Begin): the GPU clock advances by <paramref name="dt"/>.</summary>
+    partial void ExtrasFxBegin(double dt);
+    /// <summary>A frame ends (after the batch's End): the GPU path hides the sprays not drawn this frame and uploads what changed.</summary>
+    partial void ExtrasFxEnd();
+    /// <summary>An effect is gone (dead, evicted or cleared): the GPU path frees its records.</summary>
+    partial void ExtrasFxRelease(FxEffect e);
+    /// <summary>
+    /// A spray is drawn: <paramref name="gpu"/> 1 when the GPU path draws its ring children (the CPU draws the rest), 2 when it draws all of it (nothing left for
+    /// the CPU), 0 (unchanged) when the CPU draws it all.
+    /// </summary>
+    partial void ExtrasSpray(FxEffect e, CSpray n, in Ctx c, double age, int depth, uint seed, ref int gpu);
+    /// <summary>The GPU path's counts for the effects log line (empty without it).</summary>
+    partial void ExtrasFxStats(ref string text);
+
+    /// <summary>musou/gpu-particles: the GPU spray path's counts for the log ("" when it is off).</summary>
+    public string ExtraStats { get { string text = ""; ExtrasFxStats(ref text); return text; } }   // EXTRAS-HOOK
 
     // ------------------------------------------------------------------------------------------------ evaluation
 
@@ -354,14 +487,17 @@ public sealed partial class FxPlayer : Node3D
         public readonly bool InParticle;
         public readonly Vector3 P0, Dir;
         public readonly float Speed, Drag, Gravity, Tau;
+        /// <summary>hit-sparks-flashes: the effect's reach cap (m) and origin; 0: none.</summary>
+        public readonly float Cap;
+        public readonly Vector3 CapOrigin;
 
-        public Ctx(Vector3 pos, Basis b, float s, uint seed, Vector3 p0, Vector3 dir, float speed, float drag, float gravity, float tau) : this(pos, b, s, seed)
+        public Ctx(Vector3 pos, Basis b, float s, uint seed, Vector3 p0, Vector3 dir, float speed, float drag, float gravity, float tau, float cap = 0f, Vector3 capOrigin = default) : this(pos, b, s, seed)
         {
-            InParticle = true; P0 = p0; Dir = dir; Speed = speed; Drag = drag; Gravity = gravity; Tau = tau;
+            InParticle = true; P0 = p0; Dir = dir; Speed = speed; Drag = drag; Gravity = gravity; Tau = tau; Cap = cap; CapOrigin = capOrigin;
         }
 
         public Ctx With(Vector3 pos, Basis b, float s, uint seed) => InParticle
-            ? new Ctx(pos, b, s, seed, P0, Dir, Speed, Drag, Gravity, Tau)
+            ? new Ctx(pos, b, s, seed, P0, Dir, Speed, Drag, Gravity, Tau, Cap, CapOrigin)
             : new Ctx(pos, b, s, seed);
     }
 
@@ -369,7 +505,16 @@ public sealed partial class FxPlayer : Node3D
     {
         float d = c.Drag;
         float disp = d > 1e-4f ? c.Speed * (1f - MathF.Exp(-d * tau)) / d : c.Speed * tau;
-        return c.P0 + c.Dir * disp + new Vector3(0f, -Drop(c.Gravity, d, tau), 0f);
+        var p = c.P0 + c.Dir * disp + new Vector3(0f, -Drop(c.Gravity, d, tau), 0f);
+        return c.Cap > 0f ? LimitToReach(p, c.CapOrigin, c.Cap) : p;
+    }
+
+    /// <summary>The place a particle that would be at <paramref name="p"/> is drawn at under a reach cap: along the same line from the origin, never farther than the cap.</summary>
+    internal static Vector3 LimitToReach(Vector3 p, Vector3 origin, float cap)
+    {
+        var off = p - origin;
+        float r = off.Length();
+        return r <= 1e-6f ? p : origin + off * (SmClient.ImpactRules.HitFxScaleRules.LimitReach(r, cap) / r);
     }
 
     /// <summary>How far a particle with gravity <paramref name="g"/> and drag <paramref name="d"/> has fallen after <paramref name="tau"/> seconds.</summary>
@@ -409,6 +554,15 @@ public sealed partial class FxPlayer : Node3D
     /// <summary>M40-T13: <paramref name="tint"/>'s hue at the colour's brightest channel (alpha kept); the colour itself without a tint.</summary>
     static Color Recolour(Color c, Color? tint) => tint is { } t ? new Color(t.R * Math.Max(c.R, Math.Max(c.G, c.B)), t.G * Math.Max(c.R, Math.Max(c.G, c.B)), t.B * Math.Max(c.R, Math.Max(c.G, c.B)), c.A) : c;
 
+    /// <summary>fx/jumppack-jets: <see cref="Recolour"/> then the effect's <see cref="FxEffect.Opacity"/> on every channel (additive and blended sprites both fade).</summary>
+    static Color Shade(Color c, FxEffect e)
+    {
+        var r = Recolour(c, e.Tint);
+        if (e.GammaColours) r = new Color(r.SrgbToLinear().R, r.SrgbToLinear().G, r.SrgbToLinear().B, r.A);
+        float o = Math.Clamp(e.Opacity, 0f, 1f);
+        return o >= 1f ? r : new Color(r.R * o, r.G * o, r.B * o, r.A * o);
+    }
+
     static Color Tint(FxColourCurve c, float t, float alphaScale = 1f)
     {
         var v = c.Evaluate(t);
@@ -430,23 +584,47 @@ public sealed partial class FxPlayer : Node3D
         return age >= 0 && age <= Math.Max(dur, MinShow);
     }
 
+    /// <summary>
+    /// musou/perf-pass (ours; a trial, off): an effect wholly outside the view is not evaluated that frame (its age runs on, so it is where it should be when the view turns back). Kept whatever the view: one within
+    /// <see cref="CullNear"/> m, a beam (it spans to its target), and one whose sprays touch the ground (their decals are placed while they are evaluated). Measured in a 200 v 200 battle (<c>--perf-ab fxcull</c>):
+    /// about 600 effects a second skipped, but no frame-time gain beyond the noise, so it stays off; <c>--fx-cull</c> (test aid) turns it on.
+    /// </summary>
+    public static bool CullOffScreen { get; set; } = Array.IndexOf(OS.GetCmdlineUserArgs(), "--fx-cull") >= 0;
+    /// <summary>The distance within which an effect is always evaluated, and an effect's reach round its origin per unit of scale (m, ours: generous, so nothing at a view's edge is cut).</summary>
+    public const float CullNear = 8f, CullReach = 12f;
+    Godot.Collections.Array<Plane>? _frustum;
+    readonly Dictionary<CSystem, bool> _grounded = new(ReferenceEqualityComparer.Instance);
+    /// <summary>Effects left out as off-screen, summed over frames (the log's).</summary>
+    public long OffScreenSkips { get; private set; }
+
+    bool OffScreen(FxEffect e, float dist)
+    {
+        if (_frustum is not { } planes || dist <= CullNear || e.Target is not null || e.Collisions) return false;
+        if (!_grounded.TryGetValue(e.System, out bool grounded)) _grounded[e.System] = grounded = e.System.Roots.Any(HoldsDropper);
+        if (grounded) return false;
+        float reach = CullReach * MathF.Max(1f, e.Scale);
+        foreach (var p in planes) if (p.DistanceTo(e.Origin) > reach) return true;
+        return false;
+    }
+
     void DrawEffect(FxEffect e)
     {
-        if (e.Hidden) return;
+        if (e.Hidden || e.Opacity <= 0.002f) return;
         float dist = _camPos.DistanceTo(e.Origin);
         // Distance culling (map ambience much farther than a hit spark).
         if (dist > (e.Ambient ? 100f : 220f)) return;
+        if (OffScreen(e, dist)) { e.QuadsThisFrame = 0; OffScreenSkips++; return; }
         double age = e.Age;
         if (e.Repeat && e.System.Lifetime is { } l && l > 0.05f && !e.System.HasStreamer) age %= l + 0.05;
         var root = new Ctx(e.Origin, e.Axes, e.Scale, e.Seed);
         int before = _frameQuads;
-        if (_batch is not null) _batch.SoftGround = e.SoftGround;
+        if (_batch is not null) { _batch.SoftGround = e.SoftGround; _batch.SoftEdge = e.SoftEdges; }
         foreach (var node in e.System.Roots)
         {
             if (e.GroundOnly && !HoldsDropper(node)) continue;
             DrawNode(e, node, root, age, 0, Mix(e.Seed, 1));
         }
-        if (_batch is not null) _batch.SoftGround = false;
+        if (_batch is not null) { _batch.SoftGround = false; _batch.SoftEdge = false; }
         e.QuadsThisFrame = _frameQuads - before;
     }
 
@@ -464,6 +642,15 @@ public sealed partial class FxPlayer : Node3D
     }
 
     readonly Dictionary<CNode, bool> _holdsDropper = new();
+    readonly Dictionary<CNode, bool> _holdsAlpha = new();
+
+    /// <summary>gore-original: whether a node or one under it (collision content included) is an alpha-blended sprite (cached): a spray of blood, not of flashes.</summary>
+    bool HoldsAlpha(CNode n)
+    {
+        if (_holdsAlpha.TryGetValue(n, out bool known)) return known;
+        bool found = n is CSprite { Additive: false, Distortion: false } || n.Children.Any(HoldsAlpha) || n.OnCollision.Any(HoldsAlpha);
+        return _holdsAlpha[n] = found;
+    }
 
     /// <summary>Whether a node or one of its children (not its collision content) is a dropper spray (cached).</summary>
     bool HoldsDropper(CNode n)
@@ -476,10 +663,13 @@ public sealed partial class FxPlayer : Node3D
     void DrawNode(FxEffect e, CNode n, in Ctx c, double age, int depth, uint seed)
     {
         if (e.FlashOnly && n.Name is not ("quick flash" or "JET" or "")) return;
+        if (e.BrightFlash && n is CSprite bright && (!e.BrightSprites || !SmContent.BrightFlash.Keeps(bright.Additive, bright.Distortion, bright.Name))) return;   // musou/autocannon-flash
+        if (e.NoGrit && n is CSprite { Additive: false } grit && SmContent.BrightFlash.IsGrit(grit.Material.Name)) return;   // fx-cap-priority
+        if (e.NoMist && n is CSprite mist && SmContent.BrightFlash.IsMistSprite(mist.Additive, mist.Material.Name)) return;   // fx/bolt-smoke
         if (n.Hide || depth > MaxDepth || age < 0.0) return;
         // fx/no-smoke: smoke, dust, mist and haze are not drawn (the owner's change). A smoke sprite is not drawn; its collision content (a dropper collider's decal or debris) is
         // played by DrawSpray's collision path, not from here, so its parents are skipped whole only when that content is smoke too (SmokeOnly).
-        if (!ShowSmoke && (n.SmokeOnly || n.Smoke)) return;
+        if (!ShowSmoke && !e.KeepSmoke && (n.SmokeOnly || n.Smoke)) return;
         if (DecalsOnly && n is not (CCombo or CSpray or CDecal)) return;   // test aid
         switch (n)
         {
@@ -509,15 +699,35 @@ public sealed partial class FxPlayer : Node3D
         if (n.OneAtRandom && n.Children.Length > 0)
         {
             int pick = Math.Min(n.Children.Length - 1, (int)(R(seed, 4) * n.Children.Length));
+            if (depth + 1 == _gpuLeafDepth && GpuLeaf(n.Children[pick])) return;   // musou/gpu-particles
             DrawNode(e, n.Children[pick], cc, age, depth + 1, Mix(seed, pick + 11));
             return;
         }
-        for (int i = 0; i < n.Children.Length; i++) DrawNode(e, n.Children[i], cc, age, depth + 1, Mix(seed, i + 11));
+        for (int i = 0; i < n.Children.Length; i++)
+            if (depth + 1 != _gpuLeafDepth || !GpuLeaf(n.Children[i])) DrawNode(e, n.Children[i], cc, age, depth + 1, Mix(seed, i + 11));   // musou/gpu-particles: the GPU's leaves left out
     }
 
     void DrawSpray(FxEffect e, CSpray n, in Ctx c, double age, int depth, uint seed)
     {
         if (n.Spawns.Length == 0 || n.Children.Length == 0) return;
+        int gpu = 0;
+        ExtrasSpray(e, n, c, age, depth, seed, ref gpu);   // EXTRAS-HOOK: Musou Mode's GPU sprays draw the ring and streamer particles (musou/gpu-particles)
+        if (gpu == 2) return;
+        // musou/gpu-particles: while this spray's particles are drawn, the rings and streamers the GPU drew (its children, and the children of a combo child) are left out here.
+        int savedLeafSkip = _gpuLeafDepth;
+        _gpuLeafDepth = gpu != 0 ? depth + 2 : -1;
+        try { DrawSprayParticles(e, n, c, age, depth, seed, gpu); }
+        finally { _gpuLeafDepth = savedLeafSkip; }
+    }
+
+    /// <summary>musou/gpu-particles: the depth at which a combo's ring and streamer children are drawn by the GPU sprays (-1: none; set by <see cref="DrawSpray"/>).</summary>
+    int _gpuLeafDepth = -1;
+
+    /// <summary>Whether a node at <paramref name="depth"/> (a spray particle's leaf, or a combo's leaf under one) is drawn by the GPU sprays instead.</summary>
+    static bool GpuLeaf(CNode n) => n is CRing or CStreamer;
+
+    void DrawSprayParticles(FxEffect e, CSpray n, in Ctx c, double age, int depth, uint seed, int gpu)
+    {
         float duration = MathF.Max(n.Duration, 0.001f);
         float life = MathF.Max(n.ChildLife, 0.02f);
         int cycleMin = 0, cycleMax = 0;
@@ -529,12 +739,18 @@ public sealed partial class FxPlayer : Node3D
         }
         for (int cycle = cycleMin; cycle <= cycleMax; cycle++)
         {
+            // gore-original: Musou's blood draws more of each blood spray's particles (Amount; 1 everywhere else).
+            bool more = e.Amount > 1f && HoldsAlpha(n);
+            bool thin = e.DustShare < 1f && HoldsAlpha(n);   // musou/autocannon-dust
             for (int i = 0; i < n.Spawns.Length; i++)
+            for (int copy = 0, copies = more ? SmContent.FxAmount.Copies(e.Amount, R(Mix(seed, cycle * 97 + i), 77)) : 1; copy < copies; copy++)
             {
+                bool dropDust = thin && !SmContent.FxAmount.Kept(e.DustShare, R(Mix(seed, cycle * 97 + i), 91));   // musou/autocannon-dust: only the particle's alpha (dust) sprites go; its additive flash and fire stay
                 double spawn = cycle * (double)duration + n.Spawns[i];
                 float tau = (float)(age - spawn);
                 if (tau < 0f || tau > life) continue;
                 uint ps = Mix(Mix(seed, cycle * 97 + i), 31);
+                if (copy > 0) ps = Mix(ps, 1000 + copy);
                 float te = Math.Clamp(n.Spawns[i] / duration, 0f, 1f);
                 // Direction: uniform over the cone between the inner and the outer deviation about the local +Y axis.
                 float devMax = Math.Clamp(At(n.Deviation, te, 0f), 0f, MathF.PI), devMin = Math.Clamp(At(n.Inner, te, 0f), 0f, devMax);
@@ -545,9 +761,11 @@ public sealed partial class FxPlayer : Node3D
                 // feel/muzzle-smoke (owner's change, NetworkView.Smoke.cs): a gun's smoke puffs keep their forward speed and lose part of their sideways speed.
                 var moveDir = e.SmokeRein < 1f && HoldsSmoke(n) ? c.B * new Vector3(local.X * e.SmokeRein, local.Y, local.Z * e.SmokeRein) : dir;
                 float speed = At(n.Speed, te, 0f) * (n.ScaleSpeed ? c.S : 1f);
-                var origin = c.Pos + c.B * (new Vector3(At(n.OffX, te, 0f), At(n.OffY, te, 0f), At(n.OffZ, te, 0f)) * c.S);
+                var spawnOff = new Vector3(At(n.OffX, te, 0f), At(n.OffY, te, 0f), At(n.OffZ, te, 0f)) * c.S;
                 if (!n.FromPoint)
-                    origin += c.B * (new Vector3(R(ps, 3) - 0.5f, R(ps, 4) - 0.5f, R(ps, 5) - 0.5f) * new Vector3(At(n.VolX, te, 0f), At(n.VolY, te, 0f), At(n.VolZ, te, 0f)) * c.S);
+                    spawnOff += new Vector3(R(ps, 3) - 0.5f, R(ps, 4) - 0.5f, R(ps, 5) - 0.5f) * new Vector3(At(n.VolX, te, 0f), At(n.VolY, te, 0f), At(n.VolZ, te, 0f)) * c.S;
+                if (e.SprayLeash > 0f && spawnOff.Length() > e.SprayLeash) spawnOff = spawnOff.Normalized() * e.SprayLeash;   // plasma-soft-visuals
+                var origin = c.Pos + c.B * spawnOff;
                 if (e.Collisions && n.Collides)
                 {
                     // M41: the dropper lands where it starts (the effect sits on the ground): its collision descriptions play in the surface's frame (+Y = the normal),
@@ -562,11 +780,12 @@ public sealed partial class FxPlayer : Node3D
                     continue;
                 }
                 float g = n.Gravity;
-                var pc = new Ctx(origin, FromY(dir, R(ps, 6) * MathF.Tau), c.S, ps, origin, moveDir, speed, n.Drag, g, tau);
+                var pc = new Ctx(origin, FromY(dir, R(ps, 6) * MathF.Tau), c.S, ps, origin, moveDir, speed, n.Drag, g, tau, e.ReachCap, e.Origin);
                 var pos = ParticlePos(pc, tau);
                 float scale = c.S * At(n.ParticleScale, Math.Clamp(tau / life, 0f, 1f), 1f);
-                var kid = new Ctx(pos, pc.B, scale, ps, origin, moveDir, speed, n.Drag, g, tau);
-                for (int k = 0; k < n.Children.Length; k++) DrawNode(e, n.Children[k], kid, tau, depth + 1, Mix(ps, k + 5));
+                var kid = new Ctx(pos, pc.B, scale, ps, origin, moveDir, speed, n.Drag, g, tau, e.ReachCap, e.Origin);
+                for (int k = 0; k < n.Children.Length; k++)
+                    if ((gpu == 0 || !GpuLeaf(n.Children[k])) && !(dropDust && HoldsAlpha(n.Children[k]))) DrawNode(e, n.Children[k], kid, tau, depth + 1, Mix(ps, k + 5));
             }
         }
     }
@@ -593,7 +812,7 @@ public sealed partial class FxPlayer : Node3D
         float radius = At(n.Radius, t, 0.1f) * c.S * Jitter(n.EpsRadius, seed, 8);
         if (e.SmokeRein < 1f && IsSmoke(n)) radius *= e.SmokeRein;   // feel/muzzle-smoke
         if (radius <= 0.0005f) return;
-        var colour = Recolour(Final(n, t, seed), e.Tint);
+        var colour = Shade(Final(n, t, seed, n.Additive ? 1f : e.DustShare), e);   // musou/autocannon-dust: an alpha sprite's density
         if (!_batch.Sprite(n.Material, CellFor(n, t, seed), out var rect)) { if (!n.Material.IsEmpty) _missing.Add("sprite:" + n.Material.Name); return; }
         var centre = c.Pos + c.B * (new Vector3(At(n.OffX, t, 0f), At(n.OffY, t, 0f), At(n.OffZ, t, 0f)) * c.S);
         float D = MathF.PI / 180f;
@@ -649,7 +868,9 @@ public sealed partial class FxPlayer : Node3D
             float angle = MathF.Acos(Math.Clamp(cosA, 0f, 1f)) * 180f / MathF.PI;
             alphaScale = Math.Clamp(angle / MathF.Max(1f, n.FadeAngle), 0f, 1f);
         }
-        var colour = Recolour(Final(n, t, seed, alphaScale), e.Tint);
+        if (!n.Additive) alphaScale *= e.DustShare;   // musou/autocannon-dust
+        if (e.SoftEdges) alphaScale *= PlasmaSoftEdges.EndOn(MathF.Abs(axis.Dot((mid - _camPos).Normalized())));   // plasma-soft-visuals: a beam seen end-on is a thin straight line
+        var colour = Shade(Final(n, t, seed, alphaScale), e);
         // U range: the texture's metres per U, its scroll and offset.
         float u0, u1; int mode;
         bool clamp = n.Material.UAddressMode == 1;
@@ -684,9 +905,10 @@ public sealed partial class FxPlayer : Node3D
         // M42: what the quad is, for FxBatch's fades (no edge-on fade on axis billboards; god rays get their own soft, end and near fades).
         var kind = n.GodRayFade ? (n.Billboard ? FxBatch.QuadKind.GodRayAxis : FxBatch.QuadKind.GodRay)
                                 : (n.Billboard ? FxBatch.QuadKind.AxisBillboard : FxBatch.QuadKind.FlatCard);
+        bool neutral = PlasmaColour.NeutralTexture(e.Name, n.Material.Name, e.Tint is not null);   // fx/chaos-plasma-tracer
         if (!tapered)
         {
-            if (_batch.Add(n.Additive, mid, axis * length, side * width, colour, rect, u0, u1, mode, kind)) _frameQuads++;
+            if (_batch.Add(n.Additive, mid, axis * length, side * width, colour, rect, u0, u1, mode, kind, neutral: neutral)) _frameQuads++;   // fx/chaos-plasma-tracer
             return;
         }
         const int segments = 8;
@@ -696,7 +918,13 @@ public sealed partial class FxPlayer : Node3D
             float w = width * MathF.Max(0f, n.WidthOverLength.Evaluate(fm));
             if (w <= 0.0005f) continue;
             var centre = start + axis * (length * fm);
-            if (_batch.Add(n.Additive, centre, axis * (length / segments), side * w, colour, rect, Mathf.Lerp(u0, u1, f0), Mathf.Lerp(u0, u1, f1), mode, kind)) _frameQuads++;
+            if (e.SoftEdges && _batch.SoftEdge)
+            {
+                // plasma-soft-visuals: the same tent cross-fade as a streamer's steps (twice as long, fading along it), so a tapered beam's steps meet without a line.
+                float ua = Mathf.Lerp(u0, u1, f0), ub = Mathf.Lerp(u0, u1, f1), du = (ub - ua) * 0.5f;
+                if (_batch.Add(n.Additive, centre, axis * (length / segments) * 2f, side * w, colour, rect, ua - du, ub + du, mode, kind, neutral: neutral, tent: true)) _frameQuads++;
+            }
+            else if (_batch.Add(n.Additive, centre, axis * (length / segments), side * w, colour, rect, Mathf.Lerp(u0, u1, f0), Mathf.Lerp(u0, u1, f1), mode, kind, neutral: neutral)) _frameQuads++;
         }
     }
 
@@ -704,7 +932,7 @@ public sealed partial class FxPlayer : Node3D
     {
         if (n.Distortion || _batch is null || !_batch.HasRoom) return;
         if (!LeafTime(n, age, seed, out float t, out float dur)) return;
-        const int N = 8;
+        int N = e.WidthAlongTrail ? 30 : (e.SoftHead ? 14 : e.SoftEdges ? 24 : 8);   // fix/plasma-trail-slab: a finer ribbon for the rounded, faded head; plasma-original-fx: for the widening along the ribbon (each quad is one width and one colour: 30 keeps the steps small)
         float trail = At(n.Length, t, 0.3f);
         if (trail <= 0.001f) return;
         float seconds = n.LengthAsSeconds ? trail : trail / MathF.Max(2f, c.InParticle ? MathF.Abs(c.Speed) : 4f);
@@ -733,8 +961,12 @@ public sealed partial class FxPlayer : Node3D
             else pts[j] = c.Pos;
         }
         float master = n.MasterColour.IsEmpty ? 1f : n.MasterColour.Evaluate(t).W;
-        float width0 = At(n.Width, t, 0.1f) * c.S;
-        if (e.SmokeRein < 1f && IsSmoke(n)) width0 *= e.SmokeRein;   // feel/muzzle-smoke
+        float widthScale = c.S;
+        if (e.SmokeRein < 1f && IsSmoke(n)) widthScale *= e.SmokeRein;   // feel/muzzle-smoke
+        float width0 = At(n.Width, t, 0.1f) * widthScale;
+        bool neutral = PlasmaColour.NeutralTexture(e.Name, n.Material.Name, e.Tint is not null);   // fx/chaos-plasma-tracer: the Chaos trails' streamers
+        float ribbonLength = 0f;
+        if (e.SoftEdges) for (int j = 0; j < N; j++) ribbonLength += pts[j].DistanceTo(pts[j + 1]);
         float u = 0f;
         for (int j = 0; j < N; j++)
         {
@@ -747,12 +979,26 @@ public sealed partial class FxPlayer : Node3D
             var side = ax.Cross(_camPos - mid);
             side = side.LengthSquared() < 1e-8f ? _camBasis.X : side.Normalized();
             float f = (j + 0.5f) / N;
-            float width = width0 * (1f - 0.7f * f);
-            var col = Recolour(n.Colour.IsEmpty ? Colors.White : Tint(n.Colour, f, master), e.Tint);
+            float width = e.WidthAlongTrail ? MathF.Max(0f, At(n.Width, f, 0.1f)) * widthScale : width0 * (1f - 0.7f * f);   // plasma-original-fx: the width keys along the ribbon (PlasmaOriginalLook.StreamerWidth)
+            var col = Shade(n.Colour.IsEmpty ? Colors.White : Tint(n.Colour, f, master), e);
+            if (e.SoftHead && f < FxEffect.SoftHeadShare)
+            {
+                // fix/plasma-trail-slab (owner, 2026-11-09: the original data look, softened): the ribbon's head swells from a point and fades in instead of starting as a hard-edged rectangle.
+                float k = f / FxEffect.SoftHeadShare, round = MathF.Max(0.05f, MathF.Sqrt(1f - (1f - k) * (1f - k)));
+                width *= round; col = new Color(col.R * round, col.G * round, col.B * round, col.A * round);   // additive: the colour fades too, not only its alpha
+            }
+            if (e.SoftHead && f > 0.6f) { float fade = MathF.Max(0f, (1f - f) / 0.4f); col = new Color(col.R * fade, col.G * fade, col.B * fade, col.A * fade); }   // the tail fades out too: a young ball's trail ends where it was launched, not as a cut-off rectangle
+            if (e.SoftEdges) { float tail = PlasmaSoftEdges.Ribbon(f, ribbonLength) * PlasmaSoftEdges.EndOn(MathF.Abs(ax.Dot((mid - _camPos).Normalized()))); col = n.Additive ? new Color(col.R * tail, col.G * tail, col.B * tail, col.A * tail) : new Color(col.R, col.G, col.B, col.A * tail); }   // plasma-soft-visuals: the ribbon fades in from its head and out toward its tail
             float u0 = u, u1 = n.MeterPerU > 0.001f ? u + len / n.MeterPerU : (j + 1f) / N;
             if (n.MeterPerU <= 0.001f) u0 = (float)j / N;
             u = u1;
-            if (_batch.Add(n.Additive, mid, d, side * width, col, rect, u0, u1, 1, FxBatch.QuadKind.AxisBillboard)) _frameQuads++;
+            if (e.SoftEdges && _batch.SoftEdge)
+            {
+                // plasma-soft-visuals: each step is drawn twice as long with a tent fade along it, so neighbouring steps (each one width, one colour) cross-fade instead of meeting in a straight line.
+                float du = (u1 - u0) * 0.5f;
+                if (_batch.Add(n.Additive, mid, d * 2f, side * width, col, rect, u0 - du, u1 + du, 1, FxBatch.QuadKind.AxisBillboard, neutral, tent: true)) _frameQuads++;
+            }
+            else if (_batch.Add(n.Additive, mid, d, side * width, col, rect, u0, u1, 1, FxBatch.QuadKind.AxisBillboard, neutral)) _frameQuads++;
         }
     }
 
@@ -767,7 +1013,7 @@ public sealed partial class FxPlayer : Node3D
         for (int j = 0; j <= count; j++) pts[j] = new Vector3(points[j].X, points[j].Y, points[j].Z) + offset;
     }
 
-    readonly System.Numerics.Vector3[] _trailScratch = new System.Numerics.Vector3[16];
+    readonly System.Numerics.Vector3[] _trailScratch = new System.Numerics.Vector3[32];
 
     void DrawLight(FxEffect e, CLight n, in Ctx c, double age, uint seed)
     {
@@ -778,8 +1024,8 @@ public sealed partial class FxPlayer : Node3D
         // A looping light (the map's lamps) stays on at its first key; the flash fades out.
         float t = n.Looping ? 0f : (float)(age / show);
         float intensity = At(n.Intensity, t, 1f) * At(n.Power, t, 1f);
-        var col = Recolour(n.Colour.IsEmpty ? Colors.White : Tint(n.Colour, t), e.Tint);   // the Chaos plasma's lights are purple too
-        float range = At(n.AttenEnd, t, 4f) * c.S;
+        var col = Shade(n.Colour.IsEmpty ? Colors.White : Tint(n.Colour, t), e);   // the Chaos plasma's lights are purple too
+        float range = MathF.Min(At(n.AttenEnd, t, 4f) * c.S, e.LightCap);
         if (range < 0.3f || intensity <= 0f) return;
         var pos = c.Pos + c.B * (new Vector3(At(n.OffX, t, 0f), At(n.OffY, t, 0f), At(n.OffZ, t, 0f)) * c.S);
         if (!n.Looping && LightFilter is { } seen && !seen(pos)) return;
@@ -787,6 +1033,10 @@ public sealed partial class FxPlayer : Node3D
         float energy = intensity * 1.6f * fade;
         _lights.Add(new LightRequest { Pos = pos, Colour = new Color(col.R, col.G, col.B), Energy = energy, Range = range, Priority = energy * range / (1f + _camPos.DistanceTo(pos)) });
     }
+
+    /// <summary>Capture aid: the live pooled light nodes (colour, energy, range, attenuation, shadow, position).</summary>
+    public string LightReport() => string.Join(" | ", _lightNodes.Where(n => n is not null && n.Visible).Select(n =>
+        $"{n.Name} colour {n.LightColor.R:F2},{n.LightColor.G:F2},{n.LightColor.B:F2} energy {n.LightEnergy:F2} range {n.OmniRange:F2} atten {n.OmniAttenuation:F2} shadow {n.ShadowEnabled} at {n.GlobalPosition.X:F2},{n.GlobalPosition.Y:F2},{n.GlobalPosition.Z:F2}")) is { Length: > 0 } r ? r : "none";
 
     void ApplyLights()
     {
@@ -799,6 +1049,7 @@ public sealed partial class FxPlayer : Node3D
             {
                 var l = _lights[i];
                 node.GlobalPosition = l.Pos; node.LightColor = l.Colour; node.LightEnergy = l.Energy; node.OmniRange = l.Range;
+                node.LightVolumetricFogEnergy = LightFogEnergy;
                 node.Visible = true;
             }
             else node.Visible = false;

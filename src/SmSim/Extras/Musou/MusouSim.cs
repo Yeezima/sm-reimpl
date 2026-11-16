@@ -15,9 +15,9 @@ public sealed partial class MusouSim
     /// The Musou version: its simulation rules and its wire sections (<c>MusouWire.Version</c> is this). Hashed into the config only under
     /// <see cref="ContentExtras.Musou"/> (<c>SimConfig.Extras.cs</c>); raise it for any Musou-only change (never <see cref="ContentExtras.WireVersion"/>).
     /// </summary>
-    public const uint Version = 7;   // 2: MU3's combat and the Warboss's abilities; 3: the Nobs' weapon drops (wire tag 6); 4: Chaos Marines drop too; 5: Musou Mode (TfwRules.Version in the same hash block, phase 6, command kind 17); 6: the crowd's rules, MusouSim.Swarm (a war's alone: the 5-wave run is unchanged); 7: a pool of 1024 (the wire takes ids up to it)
-    /// <summary>The pool's slots (design: 512; 1024 since the owner's "double the amount of orks" of 2026-11-03, for Musou Mode's battle; the hard cap of enemies alive is lower).</summary>
-    public const int Capacity = 1024;
+    public const uint Version = 61;   // 61: the Librarian's chain lightning never lifts or knocks back an Ork (kills die as BoltBlast, not thrown) and reaches 52.5 m to its first target (owner 2026-11-16; with TfwRules 86; claude/musou-chain-lightning). 60: the Dreadnought power-up Overcharge (owner 2026-11-15: no cannon heat, a 3 m shockwave per melee hit). 59: the Dreadnought becomes the Dreadnought Assault Dreadnought (owner 2026-11-15): speeds 1.3x (run, sprint), his own presentation (with TfwRules 84; claude/musou-dreadnought-da); 58: the Dreadnought buff (owner 2026-11-15): melee x1.3 faster, his cannon the autocannon's numbers at the braced heavy bolter's rate with a heat meter, his melta the Tactical's x1.5 damage, 0.6 reload, 1.5 reach, no fall-off, no ammo (with TfwRules 83; claude/musou-dreadnought-buff); 57: a Dreadnought lands at the Imperial base's centre, several spread 4 m apart (owner 2026-11-15; DreadnoughtRules.LandingOffset; with TfwRules 82; claude/integration); 56: the Dreadnought class (D1, owner 2026-11-14; sm - dreadnought appended after the Librarian, its own body with a big capsule, 5 s entrance invulnerability; Dreadnought/DreadnoughtRules.cs; with TfwRules 81; claude/musou-dreadnought-d0-d1); 55: a melee swing heals at most 5 times (was 3; owner 2026-11-14; MusouCombatRules.MeleeHealsPerSwing; with TfwRules 80); 54: AoE pass + drop pod recast (owner 2026-11-14; with TfwRules 79; claude/musou-aoe-droppod-recast): see TfwRules 79; 53: a melee Ork's swing commits to a direction: it turns toward its target for the first 30 % of the wind-up (540 deg/s), then the facing is locked and the blow needs the target within reach and the 60 degree cone of it (owner 2026-11-12; MusouSim.Swing.cs, restore --musou-ork-swing-tracking, with TfwRules 78; claude/musou-ork-swing-commit, to be renumbered at integration) (renumbered 52 -> 53 at integration); 52: a melee swing heals at most 3 times, whatever the enemies struck (owner 2026-11-12; restore switch --musou-uncapped-melee-heal; MusouCombatRules.MeleeHealsPerSwing; with TfwRules 77); 51: the bosses' health-threshold stun windows rolled back; a boss is stunned by a player's melee stagger only (owner 2026-11-12: "bosses should remain unstunnable in any form", "susceptible to melee attack stuns though"; MusouSim.BossStun.cs; with TfwRules 76; claude/musou-boss-stun-rollback); 50: Musou melee spam: a light press after the hit starts the next swing at once, no melee wait (owner 2026-11-12; claude/charge-melee-chain, restore --musou-melee-cooldown); 49: no aerial tackle in Musou Mode: a melee press in a hop is the light attack at once, no wait after it (owner 2026-11-12, temporary; restore switch --musou-aerial-tackle; SimConfig.AerialTackleOff; with TfwRules 74; claude/musou-no-aerial-tackle, to be renumbered at integration); 48: the bosses' danger x1.5 with a cap per hit, their stun windows at 80/60/40/20 % (state Stunned, 5 s, MusouSim.BossStun.cs; war only) (owner 2026-11-12; claude/musou-bosses-drops, to be renumbered at integration; with TfwRules 71); 47: the Librarian aims (zoom) with the Aim key like every class (owner 2026-11-12; claude/librarian-zoom-ac-barrel); 46: the stims' reliable use and the players' cleave reach x1.2 (owner 2026-11-12: "ensure it's more reliably working the first time you press the button", "Increase all melee attacks cleave distance by 20%"): in Musou Mode a press of the stim key is kept 0.5 s (was 0.3), a hit cannot cancel the use before its release, and PlayerCleaveReachScale is 0.72 (was 0.6) (with TfwRules 70; claude/stims-key-cleave, to be renumbered at integration); 45: the damage answers (owner 2026-11-11): an AI Marine's guns keep their range fall-off in the war, a human's shot loses nothing per Ork it passes through (with TfwRules 69; claude/musou-damage-answers, to be renumbered at integration); 44: the autocannon pass 2 (owner 2026-11-11): no range fall-off in the war, the Stormboy out of the fodder (blast 71, round 101), no clip for the autocannon (SimConfig.EndlessClip; with TfwRules 68; claude/autocannon-pass-2, to be renumbered at integration); 43: the autocannon pass (owner 2026-11-11): its blast's damage and shape and its endless clip in the war (with TfwRules 67; claude/autocannon-pass, to be renumbered at integration); 42: the chain lightning's jump 16 m (was 8) and no fall-off down the chain, every link 112.5 a second (owner 2026-11-11: "Widen the 8m jump and make the damage not falloff anymore", "16 m (double)"); tag 16's jump bytes count in 0.2 m (LibrarianWire.JumpStep, was decimetres: 25.4 m a byte for the 16 m jump) (musou-tuning-1111b, to be renumbered at integration); 41: the chain lightning (musou-balance, owner 2026-11-11: "+25% range and damage", 37.5 m and 112.5 a second) picked on the crowd as the caster's client drew it at his input's view tick (LibrarianHistory, LibrarianChain shared with the client's foresight), struck where alive now (to be renumbered at integration); 40: the powerups (owner 2026-11-10; musou/powerups, was 38 on its branch, renumbered at the merge of main 39): drops hold powerups (MusouPowerupRules: item 0x4000 | kind) from elites (10 %) and bosses (always), wire tag 6 carries the own buffs after its drops, Fear makes Orks run, the damage scales, PlayerState.FireBoostLeft; with the review (claude/musou-powerups-2): no multiplier past x2 on melee or the fire rate (MusouPowerupRules.Cap, stims included) and a 0.5 s hold of the use key to take one; 39: the Remote Detonators (W4: its fuse, centre blast and ring, 40 flying corpses, deaths past the event cap deferred to later ticks; owner 2026-11-10; renumbered 38 to 39 at the merge of main's W3); 38: musou/arsenal-w3 (2026-11-10): the power spear's sweeps and impale (SpearRules; a player with the spear). 37: the Librarian pass 3 (owner 2026-11-10): the Warp Pull removed and the marines' equipment given to him, the Shockwave 60 m and 300 damage, ordinary Orks thrown 40 to 50 m, elites 15 to 20 m, bosses staggered (librarian-lightning; renumbered 34 -> 37 at integration); 36: the Orks' pace and charge (owner, 2026-11-09: "make orks run 20% faster, and sprint to 'charge' the enemy when they reach within 30m"): every Ork on foot 1.2x, a melee Ork within 30 m of an enemy sprints (MusouSim.Charge.cs; musou-big-ork-deaths, to be renumbered at integration) (renumbered 35 -> 36 at integration); 35: the big Orks against the map (owner, 2026-11-09: "boss enemies are getting stuck along objects and moving in slow motion"): the level reach and the shooters' eye grow with the body (up to 3x: 4.5 m), a Boss Ork's wall lean never slows his way, a big body's blocked step slides along the wall (MusouSim.BigBodies.cs; musou-big-ork-deaths, to be renumbered at integration) (renumbered 34 -> 35 at integration); 34: the Weirdboy's bolt is his own, outside the crowd's shooter tokens, after a 0.5 s cast (Casting), from beyond his staff's reach (musou-weirdboy-bolt, owner 2026-11-09: "the weird boy currently does nothing"; renumber at integration); 33: every Musou Mode spawn faces the map centre, the middle capture point (musou/spawn-facing, owner 2026-11-09) (renumbered 28 -> 33 at integration); 32: the gun Orks announce a burst with one cue and their per-round Tracer events are not sent (client-built tracers, 2026-11-09; renumber at integration). 27: the Stormboy hop cue carries its flight in ticks in the event's player field (crowd-smooth, 2026-11-08) (renumbered 22 -> 27 at integration) (renumbered 28 -> 32 at integration); 31: who is solid (owner, 2026-11-09): a player meets only the Warboss and the Boss Orks, and no player body in Musou (MusouSolids.Blocks; to be renumbered at integration). 29: elite and Boss Orks in the fight (owner, 2026-11-09): the leaders take a melee token of their own, a big body wades through small ones, a Boss Ork faces his target while engaged (MusouSim.Elites.cs; to be renumbered at integration). 28: Ork movement (owner, 2026-11-09): a running Ork faces his actual move, the crowd's push eased, a melee Ork waits outside the player's ring, a Stormboy stands at his ordered place until pushed off it (MusouSim.Movement.cs; musou-ork-movement, to be renumbered at integration) (renumbered 30 -> 31 at integration); 29: Ork movement (owner, 2026-11-09): a running Ork faces his actual move, the crowd's push eased, a melee Ork waits outside the player's ring, a Stormboy stands at his ordered place until pushed off it (MusouSim.Movement.cs; musou-ork-movement, to be renumbered at integration) (renumbered 28 -> 29 at integration); 28: musou/combat-rules (owner 2026-11-09): combat stims x3 lifetime, melee x2, attack speed x1.2, no ammunition spent; frag blasts 2x reach; air slash landing heal (renumbered at integration); 27: the Stormboy hop cue carries its flight in ticks in the event's player field (crowd-smooth, 2026-11-08) (renumbered 22 -> 27 at integration); 26: musou/boss-collision (owner 2026-11-08): the big Orks (Warboss, Nobs, Boss Orks, Big Shoota Nob, Weirdboy, Scrap Mek) solid to the players and taken by the melee lock (MusouSolids; 22 and 23 are taken on integration/playtest-2026-11-08b) (renumbered 24 -> 26 at integration); 25: Damage's quiet flag (a plasma burn's ticks leave no Hit event; musou/plasma-pierce-burn, owner 2026-11-08; the integration is at 23); 21:the death kind BoltBlast (7) on the wire (hotfix/bolt-blast-nerf, owner 2026-11-08) (renumbered 24 -> 25 at integration); 24: at most 20 of a blast's kills thrown, the rest torn apart, survivors knocked down (claude/corpse-arcs, owner 2026-11-08) (renumbered 22 -> 24 at integration); 23: Orks face their target: gunners turn at 720 deg/s and fire only within 30 deg of it, engaged Orks move facing it (MusouSim.Facing.cs, owner 2026-11-08) (ork-facing-dc3c3c; renumbered 22 -> 23 at integration); 22: grenades back to vanilla, no three big frags (owner 2026-11-08; musou/grenades-vanilla); 21: the death kind BoltBlast (7) on the wire (hotfix/bolt-blast-nerf, owner 2026-11-08); 20: Orks retaking a point spread over its ring and look round, a post's Orks look round (MusouSim.Hold.cs, owner 2026-11-08); 19: expansion S6: a pool of 2560 (the battle flow's armies use the last 512; TfwBattleRules.CrowdPool), the wire takes ids up to it; 18: expansion S4 (the Scrap Mek: state Building 11, his flight, hiding and builds; the contraptions, their cues 38 to 45 and the turret's rocket; MusouMeks, MusouSim.Mek.cs; wire tag 17); 17: the Librarian pass 2 (tag 16 carries all 40 links as 3-byte jumps, and is sent in the 5-wave run too); 16: expansion S3 (the states Airborne and Overheated; the Stormboy's hop, orders, landing shove and crash; the Big Shoota Nob's burst and overheat; MusouStormboy, MusouBigShoota); 15: expansion S2 (the Bomb Squig and the Rokkit Boy: the Squig's drop, fuse, kick and burst, the rocket projectile, their Telegraph cues 24 to 29; MusouSim.Squig.cs, MusouSim.Rokkit.cs); 14: the Librarian (class appended under Musou, tag 16; Librarian/LibrarianRules.cs); 13: expansion S1 (the entity record's type a full byte, 11 bytes; types 12 to 16 BombSquig to ScrapMek, not yet spawned; target preference by kind and the Ork blast in Tfw battles; MusouTargetRules); 12: the Weirdboy (type 11, the states Stunned, Casting and Vanishing; his shield, bolts, teleport and summons; MusouSim.Weirdboy.cs); 11: the Warboss 1.5x (BossScale 4.5), his reach, slam, charge path and the players' ring with him (late batch 2026-11-06); 8: the melee heal per enemy struck (owner 2026-11-06); 2: MU3's combat and the Warboss's abilities; 3: the Nobs' weapon drops (wire tag 6); 4: Chaos Marines drop too; 5: Musou Mode (TfwRules.Version in the same hash block, phase 6, command kind 17); 6: the crowd's rules, MusouSim.Swarm (a war's alone: the 5-wave run is unchanged); 7: a pool of 1024 (the wire takes ids up to it); 9: a pool of 2048 (the owner's third doubling, 2026-11-06); 10: the Boss Orks' four kinds (types 7 to 10 on the wire) and the Warboss's 15000 health and 1.5x damage (owner, 2026-11-06)
+    /// <summary>The pool's slots (design: 512; 1024 since the owner's "double the amount of orks" of 2026-11-03, 2048 since his "double the amount of orks on the map again" of 2026-11-06, for Musou Mode's battle; the hard cap of enemies alive is lower).</summary>
+    public const int Capacity = 2560;   // 2048 until expansion S6: the battle flow's armies alone use the last 512 (TfwBattleRules.CrowdPool keeps every other spawner at 2048)
     /// <summary>The most events one tick keeps (ours; more are dropped and counted in <see cref="EventsDropped"/>).</summary>
     public const int MaxEventsPerTick = 1024;
 
@@ -44,6 +44,7 @@ public sealed partial class MusouSim
         Rules = rules ?? MusouRules.Default;
         for (int i = 0; i < Capacity; i++) _free.Enqueue(i);
         Walk = nav is { NodeCount: > 0 } ? new MusouNav(nav) : null;
+        Walk?.PrepareEdges();   // musou/perf-pass: the edge distances off the tick, before a Mek or a Boss Ork asks
         Flow = Walk is null ? null : new FlowField(Walk);
         Box = Walk?.Box() ?? new MusouBox(new Vector3(-64f, -64f, -2f), new Vector3(64f, 64f, 8f));
         _grid = new SpatialGrid(Box, Rules.SeparationCell);
@@ -79,21 +80,42 @@ public sealed partial class MusouSim
     {
         Tick = tick;
         _events.Clear();
+        // Deaths that did not fit under the cap in an earlier tick come out now, up to DeathDrainPerTick of them, stamped with this tick (so the send window does not age them out); the rest wait.
+        // They come on top of the tick's own room (<see cref="MaxEventsPerTick"/>), never in place of a Telegraph, a Strike or a Hit.
+        _drained = 0;
+        while (_drained < DeathDrainPerTick && _deferredDeaths.Count > 0) { _events.Add(_deferredDeaths.Dequeue() with { Tick = tick }); _drained++; }
     }
+
+    int _drained;   // the deferred deaths at the head of this tick's events: outside the cap
+
+    /// <summary>
+    /// Death events past <see cref="MaxEventsPerTick"/> wait here and play out over the next ticks (owner, 2026-11-10, "spread deaths over ticks": a charge killing 1,500 Orks used to lose 523 death events).
+    /// Only deaths wait; every other kind is dropped over the cap as before. The kill and its credit are the simulation's, immediate; only the event the clients play is later. No wire change.
+    /// </summary>
+    readonly Queue<MusouEvent> _deferredDeaths = new();
+    /// <summary>Most deferred deaths drained into one tick (half the tick's cap, ours, so the tick's own events still fit), and most kept waiting (the pool is 2,560).</summary>
+    public const int DeathDrainPerTick = 512, DeferredDeathsMax = 4096;
+    /// <summary>Death events deferred to a later tick since the start, and those still waiting (test aids).</summary>
+    public int DeathsDeferred { get; private set; }
+    public int DeathsWaiting => _deferredDeaths.Count;
+
+    /// <summary>Musou Mode's battle (<c>TfwBattle</c>) sets the map's centre here: every enemy then spawns facing it, whatever yaw the caller gave (owner, 2026-11-09); null (the 5-wave run, the hub) leaves the caller's yaw.</summary>
+    public Vector3? SpawnCentre { get; set; }
 
     /// <summary>
     /// Takes a free slot for an enemy of <paramref name="type"/> at <paramref name="position"/> with <paramref name="health"/> hit points, in
     /// <see cref="MusouEnemyState.Spawning"/>; its id, or 0 when the pool is full or a value is not finite (the director keeps the lower cap of enemies alive,
     /// <see cref="MusouRules.HardCap"/>).
     /// </summary>
-    public ushort Spawn(MusouEnemyType type, Vector3 position, float yaw, float health, int node = -1)
+    public ushort Spawn(MusouEnemyType type, Vector3 position, float yaw, float health, int node = -1, bool keepYaw = false)
     {
+        if (!keepYaw && SpawnCentre is { } centre && new Vector2(centre.X - position.X, centre.Y - position.Y) is { } way && way.LengthSquared() > 1f) yaw = MathF.Atan2(-way.X, way.Y);
         if (_free.Count == 0 || !float.IsFinite(health) || !float.IsFinite(yaw) || !float.IsFinite(position.X) || !float.IsFinite(position.Y) || !float.IsFinite(position.Z)) return 0;
         if ((int)type >= Rules.Types.Count) return 0;
         int i = _free.Dequeue();
         _used[i] = true;
         _type[i] = type; _state[i] = MusouEnemyState.Spawning;
-        _position[i] = position; _velocity[i] = Vector2.Zero; _yaw[i] = yaw;
+        _position[i] = position; _velocity[i] = Vector2.Zero; _bossHeading[i] = Vector2.Zero; _yaw[i] = yaw;
         Array.Fill(_trail, position, i * TrailLength, TrailLength);
         _health[i] = MathF.Max(1f, health); _node[i] = node;
         _target[i] = 0; _stateTicks[i] = 0; _token[i] = 0;
@@ -107,10 +129,10 @@ public sealed partial class MusouSim
     /// (flat), goes back when none is, and is free for good once any member of <paramref name="group"/> (above 0) is hurt or <see cref="ReleaseGroup"/> is called. Its id, or 0 as
     /// <see cref="Spawn"/>, or for a group that is not above 0 or an aggro that is not 0 or more. A plain <see cref="Spawn"/> has no leash (aggro infinite), so the 5-wave run is unchanged.
     /// </summary>
-    public ushort SpawnLeashed(MusouEnemyType type, Vector3 position, float yaw, float health, int group, float aggro, int node = -1)
+    public ushort SpawnLeashed(MusouEnemyType type, Vector3 position, float yaw, float health, int group, float aggro, int node = -1, bool keepYaw = false)
     {
         if (group <= 0 || !(aggro >= 0f)) return 0;
-        ushort id = Spawn(type, position, yaw, health, node);
+        ushort id = Spawn(type, position, yaw, health, node, keepYaw);
         if (id == 0) return 0;
         _home[id - 1] = _position[id - 1];   // as the graph placed it
         _aggro[id - 1] = aggro;
@@ -118,17 +140,19 @@ public sealed partial class MusouSim
         return id;
     }
 
-    /// <summary>Frees every member of a leashed <paramref name="group"/> for good, in id order; the number freed.</summary>
+    /// <summary>Frees every member of a leashed <paramref name="group"/> for good, in id order; the number freed. In a war they go as one pack, with any of the group woken before them (<c>MusouSim.Pack.cs</c>).</summary>
     public int ReleaseGroup(int group)
     {
         if (group <= 0) return 0;
-        int n = 0;
+        int n = 0, pack = 0;
         for (int i = 0; i < Capacity; i++)
         {
             if (!_used[i] || _group[i] != group) continue;
             _group[i] = 0; _aggro[i] = float.PositiveInfinity;
+            if (Swarm is not null) _pack[i] = pack = pack != 0 ? pack : PackFor(group);   // a war's: they go as one pack (MusouSim.Pack.cs)
             n++;
         }
+        ClosePack(group);
         return n;
     }
 
@@ -155,21 +179,29 @@ public sealed partial class MusouSim
     /// <paramref name="marker"/>, and at 0 it dies (<see cref="MusouEnemyState.Dying"/>, a <see cref="MusouEventKind.Death"/> with the push). False, and
     /// nothing changed, for an unknown, dying or dead enemy or no damage. The slot stays used until <see cref="Remove"/>.
     /// </summary>
-    public bool Damage(ushort id, int attacker, float amount, Vector3 push, out bool killed, byte marker = 1, MusouDeathKind cause = MusouDeathKind.Shot)
+    public bool Damage(ushort id, int attacker, float amount, Vector3 push, out bool killed, byte marker = 1, MusouDeathKind cause = MusouDeathKind.Shot, bool quiet = false)
     {
         killed = false;
         int i = id - 1;
         if (i < 0 || i >= Capacity || !_used[i] || _state[i] == MusouEnemyState.Dying || !(amount > 0f)) return false;
+        amount *= AttackerScale(attacker, cause);   // the powerups' damage (Double Damage, Supercharged Melee; MusouSim.Powerups.cs)
+        if (_type[i] == MusouEnemyType.BombSquig && cause != MusouDeathKind.World) amount = MathF.Max(amount, _health[i]);   // expansion S2: any hit sets a Squig off (MusouSim.Squig.cs)
+        if (MekDemo && _type[i] == MusouEnemyType.ScrapMek) return false;   // expansion S4's capture aid only (MusouSim.Mek.cs)
+        if (_shield[i] > 0f && ShieldTakes(i, attacker, amount, cause)) return true;   // the Weirdboy's shield (MusouSim.Weirdboy.cs)
         _health[i] = MathF.Max(0f, _health[i] - amount);
         if (_group[i] != 0) ReleaseGroup(_group[i]);   // a hurt defender wakes its whole group (MusouSim.Ai.cs)
-        AddEvent(new MusouEvent(MusouEventKind.Hit, Tick, id, (ushort)Math.Clamp(attacker, 0, ushort.MaxValue), marker, _position[i]));
+        if (!quiet) AddEvent(new MusouEvent(MusouEventKind.Hit, Tick, id, (ushort)Math.Clamp(attacker, 0, ushort.MaxValue), marker, _position[i]));   // quiet: a burn's tick (no flinch, blood or pain cue per tick); a kill still reports
         if (_health[i] > 0f) return true;
         killed = true;
+        bool airborne = _state[i] == MusouEnemyState.Airborne;
         _state[i] = MusouEnemyState.Dying; _stateTicks[i] = 0; _velocity[i] = Vector2.Zero; _token[i] = 0;
         Alive--;
         _kills.Add(new MusouKill(id, _type[i], attacker, cause));
         float length = push.Length();
         AddEvent(new MusouEvent(MusouEventKind.Death, Tick, id, (ushort)Math.Clamp(attacker, 0, ushort.MaxValue), (byte)cause, length > 1f ? push / length : push));
+        if (airborne) BeginFall(i, attacker);   // shot down: he falls and crashes (MusouSim.Stormboy.cs)
+        if (_type[i] == MusouEnemyType.BombSquig && cause != MusouDeathKind.World) SquigDied(i, attacker);   // its burst, for the World (MusouSim.Squig.cs)
+        if (_type[i] == MusouEnemyType.Weirdboy && cause != MusouDeathKind.World) PsychicBurst(i, attacker);   // his death's burst (MusouSim.Weirdboy.cs); the failsafe's removal is silent
         return true;
     }
 
@@ -180,6 +212,7 @@ public sealed partial class MusouSim
         if (i < 0 || i >= Capacity || !_used[i]) return false;
         if (_state[i] != MusouEnemyState.Dying) Alive--;
         _used[i] = false;
+        _falling[i] = false;
         Count--;
         _free.Enqueue(i);
         return true;
@@ -191,8 +224,11 @@ public sealed partial class MusouSim
         for (int i = 0; i < Capacity; i++) if (_used[i]) Remove((ushort)(i + 1));
         _frenzyTicks = 0;   // MU3: the Waaagh!'s speed ends with the round
         _events.Clear();
+        _deferredDeaths.Clear();
+        _drained = 0;
         _kills.Clear();
         EventsDropped = 0;
+        DeathsDeferred = 0;
         ResetAi();
     }
 
@@ -264,7 +300,12 @@ public sealed partial class MusouSim
     /// <summary>Records an event of this tick (dropped and counted over <see cref="MaxEventsPerTick"/>).</summary>
     public void AddEvent(MusouEvent e)
     {
-        if (_events.Count >= MaxEventsPerTick) { EventsDropped++; return; }
+        if (_events.Count - _drained >= MaxEventsPerTick)
+        {
+            if (e.Kind == MusouEventKind.Death && _deferredDeaths.Count < DeferredDeathsMax) { _deferredDeaths.Enqueue(e); DeathsDeferred++; return; }
+            EventsDropped++;
+            return;
+        }
         _events.Add(e);
     }
 }

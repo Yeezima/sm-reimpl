@@ -22,9 +22,11 @@ public sealed partial class World
             (byte)Math.Clamp(MathF.Ceiling(run.ReviveProgress(id, rate) * 10f), 0f, 10f), battle?.Won ?? false, TfwRetainerOf(id, run), run.Orders.Of(id),
             (ushort)Math.Clamp(MathF.Ceiling(run.RecoveryLeft(id)), 0f, ushort.MaxValue),
             (byte)Math.Clamp(guards?.Alive ?? 0, 0, byte.MaxValue), (byte)Math.Clamp(guards?.SquadsAlive ?? 0, 0, byte.MaxValue),
-            (byte)Math.Clamp(battle?.Reserves ?? 0, 0, byte.MaxValue), (byte)Math.Clamp(battle?.Secured ?? 0, 0, WarRules.Positions), run.InField.Contains(id));
+            (byte)Math.Clamp(battle?.Reserves ?? 0, 0, byte.MaxValue), (byte)Math.Clamp(battle?.Secured ?? 0, 0, WarRules.Positions), run.InField.Contains(id),
+            Seconds((int)Math.Min(run.Fire.OrbitalTicksLeft(id, Tick), int.MaxValue), rate));   // contracts 25: the orbital strike's cooldown
     }
 
+    /// <summary><paramref name="id"/>'s own retainer as its HUD shows it (restored 2026-11-08): up (reviving this player or not), down and recovering, or none. The allied pair is not on this line.</summary>
     TfwRetainerState TfwRetainerOf(int id, TfwRun run)
     {
         if (run.RetainerOf(id) is { } m && _players.TryGetValue(m.Id, out var p) && p.Alive) return m.ReviveTicks > 0 ? TfwRetainerState.Reviving : TfwRetainerState.Ready;

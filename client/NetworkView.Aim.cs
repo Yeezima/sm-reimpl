@@ -155,6 +155,7 @@ public partial class NetworkView
         _standFade = 0f;
         s = s with { Yaw = BodyYawOf(s) };   // M40-T5 (NetworkView.TurnInPlace.cs): the poses compare the velocity with the shown body's heading
         var hip = HipOf(s.PlayerId);   // M27 (NetworkView.HipFire.cs): ready posture after a shot, recoil per shot
+        QuickdrawNote(s, hip);   // feel/grenades-quickdraw (NetworkView.Quickdraw.cs)
         if (AimStance(s) is { } aim && character.Stance(aim.Key, aim.Low, aim.Mid, aim.High, aim.PitchT, aim.Rate))
         {
             hip.Kind = PoseKind.Aim;

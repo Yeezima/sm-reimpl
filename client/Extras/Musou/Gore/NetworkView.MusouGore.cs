@@ -43,12 +43,13 @@ public partial class NetworkView
     /// <summary>The sections the Musou frame applies: the server's, or with <c>--musou-gore-demo</c> only the scripted feed's (its ticks are its own).</summary>
     IEnumerable<ExtrasSection> MusouGoreFeed(PlayerState me, IReadOnlyList<ExtrasSection> real, double delta)
     {
+        if (MusouDeathSpikeTest && !_goreDemoChecked && (_camera is null || _connectedFor < 6.0)) return real;   // the death-spike test starts in front of the settled camera
         if (!_goreDemoChecked)
         {
             _goreDemoChecked = true;
-            if (CmdFlag("musou-gore-demo") && !GoreOff)
+            if ((CmdFlag("musou-gore-demo") || MusouDeathSpikeTest) && !GoreOff)
             {
-                var at = me.Position;
+                var at = MusouDeathSpikeTest ? MusouDeathSpikeCentre(me.Position) : me.Position;
                 var args = OS.GetCmdlineUserArgs();
                 int i = Array.IndexOf(args, "--musou-gore-at");
                 if (i >= 0 && i + 1 < args.Length)
@@ -57,7 +58,9 @@ public partial class NetworkView
                     var inv = System.Globalization.CultureInfo.InvariantCulture;
                     if (p.Length == 3 && float.TryParse(p[0], inv, out float x) && float.TryParse(p[1], inv, out float y) && float.TryParse(p[2], inv, out float z)) at = new Num.Vector3(x, y, z);
                 }
-                _goreDemo = new MusouGoreDemoFeed(MusouArg("musou-gore-demo") ?? 60, at, CmdArg("musou-gore-case"), MusouArg("musou-gore-window") ?? 8);
+                _goreDemo = MusouDeathSpikeTest   // night batch 2026-11-06: the whole crowd dies by a blast in one tick, every 4 s (NetworkView.MusouDeathSpike.cs)
+                    ? new MusouGoreDemoFeed(MusouArg("musou-death-spike-test") ?? 60, at, "burst", 4)
+                    : new MusouGoreDemoFeed(MusouArg("musou-gore-demo") ?? 60, at, CmdArg("musou-gore-case"), MusouArg("musou-gore-window") ?? 8);
                 GD.Print($"musou gore: scripted feed of {_goreDemo.Box.Max.X - _goreDemo.Box.Min.X:F0} m box at ({at.X:F1} {at.Y:F1} {at.Z:F1}) (--musou-gore-demo)");
             }
         }
@@ -85,7 +88,7 @@ public partial class NetworkView
 
     GoreView? GoreView()
     {
-        if (GoreOff || _gameSpace is null) return null;
+        if (GoreOff || OrkBloodOn || _gameSpace is null) return null;   // gore-original: the dark gore only with --old-musou-gore
         if (_gore is null)
         {
             _gore = new GoreView { CloudAlpha = MusouGoreRules.CloudAlpha };
@@ -100,15 +103,20 @@ public partial class NetworkView
     /// A death the crowd is about to draw as a body: queues its burst and says whether the body is gibbed (an explosion, or a gore death rolled to leave nothing): then no
     /// corpse is drawn. False when this death makes no gore (nothing queued, the body stays).
     /// </summary>
-    bool MusouGoreRegister(in MusouDeathShown d, Vector3 camera)
+    bool MusouGoreRegister(in MusouDeathShown d, Vector3 camera) => MusouGoreRegister(d, camera, out _);
+
+    /// <summary>As above; <paramref name="burstDrawn"/>: whether its burst (or the original's point) will be drawn (the corpse floor, 2026-11-09: a gibbed death with nothing drawn keeps its body).</summary>
+    bool MusouGoreRegister(in MusouDeathShown d, Vector3 camera, out bool burstDrawn)
     {
+        burstDrawn = false;
         if (GoreOff || _gameSpace is null) return false;
+        if (OrkBloodOn) return OrkBloodDeath(d, camera, out burstDrawn);   // gore-original: the original's own Ork blood (NetworkView.OrkBlood.cs)
         bool lascannon = MusouKillerHasLascannon(d.Killer);
         float metres = Num.Vector3.Distance(d.Position, new Num.Vector3(camera.X, camera.Y, camera.Z));
         var plan = MusouGoreRules.Plan(d.Cause, d.Type, d.Killer, lascannon, metres, 1f, d.Id, d.Tick);
         if (plan.Class == GoreClass.None) return false;
         GoreView();
-        if (plan.Lod != GoreLod.None) _goreQueue.Add(new GoreWork(d, lascannon, metres));
+        if (plan.Lod != GoreLod.None) { _goreQueue.Add(new GoreWork(d, lascannon, metres)); burstDrawn = true; }
         if (plan.Gibbed) _goreGibbed++;
         return plan.Gibbed;
     }
@@ -119,7 +127,7 @@ public partial class NetworkView
         return false;
     }
 
-    static float GoreChestHeight(MusouEnemyType type) => type switch
+    static float GoreChestHeight(MusouEnemyType type) => MusouBossOrks.Is(type) ? GoreChestHeight(MusouBossOrks.BaseOf(type)) * MusouBossOrks.BodyScale : type switch   // a Boss Ork: its base's, 3x
     {
         MusouEnemyType.Gretchin => 0.7f,
         MusouEnemyType.Nob => 1.4f,
@@ -142,6 +150,7 @@ public partial class NetworkView
     /// <summary>This frame's gore (the client draws): the cleave slashes and shot sprays from the hit events, the queued bursts, the field's step. Before the crowd state's events are taken.</summary>
     void MusouGoreFrame(PlayerState me, IReadOnlyList<MusouShown> shown, float delta)
     {
+        if (OrkBloodOn) { OrkBloodData(); OrkBloodLog(); return; }   // gore-original: starts the data's load early; the blood plays from the deaths and hits
         if (GoreView() is not { } view) return;
         if (_goreDemo?.TakeReset() == true) { view.Field.Clear(); _goreQueue.Clear(); }
         var watch = System.Diagnostics.Stopwatch.StartNew();
@@ -152,7 +161,7 @@ public partial class NetworkView
         for (int i = 0; i < events.Count; i++)
         {
             var e = events[i];
-            if (e.Kind != MusouEventKind.Hit) continue;
+            if (e.Kind != MusouEventKind.Hit || e.Value == MusouWeirdboy.ShieldMarker) continue;   // a hit the Weirdboy's shield took draws no blood
             // Who makes gore: the player's, a retainer's or a Marine's attack (player above 0), and fire support, which counts as the player's (player 0, marker 0: the orbital
             // strike and the Thunderhawk's rounds; a failsafe removal is the same pair but dies of cause World in the same batch).
             bool fire = e.Player == 0 && e.Value == 0;
@@ -168,7 +177,7 @@ public partial class NetworkView
             var from = cam;
             if (e.Player == ownId) from = me.Position;
             else if (e.Player > 0) foreach (var o in _lastOthers) if (o.PlayerId == e.Player) { from = o.Position; break; }
-            if (e.Value == 3) MusouCleaveSlash(chest, from);
+            // The slash itself is NetworkView.MusouSlash.cs now (red / blue, whatever the gore); the dark gore keeps its ink drops below.
             if (_goreFrameSprays >= GoreRules.HitsPerFrame) continue;
             _goreFrameSprays++; _goreSprays++;
             view.Field.HitCloud(chest, fire ? Num.Vector3.Zero : chest - from, e.Value == 3 ? GoreField.HitKind.Melee : fire ? GoreField.HitKind.Fire : e.Value == 2 ? GoreField.HitKind.Head : GoreField.HitKind.Shot, view.Field.LoadScale());

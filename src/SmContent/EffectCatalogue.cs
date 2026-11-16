@@ -47,6 +47,11 @@ public sealed record FxBinding(string Path, string Event, string Ability, IReadO
 {
     public bool IsDefault => RequiredUpgrades.Count == 0;
     public bool InDelivery => Path.Contains("/delivery/", StringComparison.Ordinal);
+    /// <summary>
+    /// fx/plasma-blast: the command sits in an <c>area_of_effect</c>'s <c>hit_actions</c>, so it runs once per entity the blast reaches (at that entity), not at the blast point
+    /// (the charged plasma cannon's <c>hit_from_player_highlight</c>, the krak grenade's screen effects).
+    /// </summary>
+    public bool OnAreaTarget => Path.Contains("/area_of_effect/hit_actions/", StringComparison.Ordinal);
     /// <summary>The charge state the command sits in (the table under <c>charge_states</c>, e.g. "3.charge_medium"), empty outside one.</summary>
     public string ChargeStage
     {
@@ -180,7 +185,8 @@ public static class Surfaces
 /// </para>
 /// </summary>
 public sealed record CharacterSurface(string Surface, string DamageClass, IReadOnlyDictionary<string, (string Surface, string DamageClass)> Zones,
-    string ArmourSurface = "ceramite_armour", IReadOnlyList<FxPlay>? ArmourHitEffects = null, IReadOnlyList<FxPlay>? ArmourInactiveHitEffects = null)
+    string ArmourSurface = "ceramite_armour", IReadOnlyList<FxPlay>? ArmourHitEffects = null, IReadOnlyList<FxPlay>? ArmourInactiveHitEffects = null,
+    IReadOnlyList<FxPlay>? ArmourBrokenEffects = null)
 {
     public static readonly CharacterSurface Unknown = new("broken_ceramite", "default_body", new Dictionary<string, (string, string)>());
 
@@ -188,6 +194,11 @@ public sealed record CharacterSurface(string Surface, string DamageClass, IReadO
     public IReadOnlyList<FxPlay> ArmourHit => ArmourHitEffects ?? [];
     /// <summary>Effects on the victim of a hit that struck broken armour (empty when the blueprint names none).</summary>
     public IReadOnlyList<FxPlay> ArmourInactiveHit => ArmourInactiveHitEffects ?? [];
+    /// <summary>
+    /// pvp-hit-fx: the effects the blueprint plays on the body when the armour breaks (<c>armourshield_broken</c>, default variant, not the local-player-only screen effects):
+    /// <c>sm_armor_break_shoulders</c> on <c>rig_spined</c> for the MP marines (empty when the blueprint names none).
+    /// </summary>
+    public IReadOnlyList<FxPlay> ArmourBroken => ArmourBrokenEffects ?? [];
 
     public static CharacterSurface? Read(BafDocument blueprint)
     {
@@ -199,7 +210,7 @@ public sealed record CharacterSurface(string Surface, string DamageClass, IReadO
                 zones.TryAdd(zone, (o.String("material_audio_visual") ?? surface, o.String("material_simulation") ?? cls));
         // health_ext/armourshield_info holds one entry (named armourshield_info again; the default variant is the first).
         string armour = "ceramite_armour";
-        IReadOnlyList<FxPlay> hit = [], inactive = [];
+        IReadOnlyList<FxPlay> hit = [], inactive = [], broken = [];
         if (blueprint.Root.Table("extensions/health_ext/armourshield_info") is { } info
             && info.Entries.FirstOrDefault(x => x.Type == BafType.Table) is { } first)
         {
@@ -207,8 +218,9 @@ public sealed record CharacterSurface(string Surface, string DamageClass, IReadO
             armour = entry.String("armourshield_material") is { Length: > 0 } m ? m : armour;
             hit = Plays(entry.Table("armourshield_hit"));
             inactive = Plays(entry.Table("armourshield_inactive_hit"));
+            broken = Plays(entry.Table("armourshield_broken")).Where(p => !p.OnlyIfOnPlayer).ToList();
         }
-        return new CharacterSurface(surface, cls, zones, armour, hit, inactive);
+        return new CharacterSurface(surface, cls, zones, armour, hit, inactive, broken);
 
         static IReadOnlyList<FxPlay> Plays(BafTable? t) => t is not { } table ? [] : FxBinding.Collect(table).Where(b => b.Play is not null && b.IsDefault).Select(b => b.Play!).ToList();
     }
@@ -231,7 +243,12 @@ public sealed record ProjectileEffects(string Blueprint, IReadOnlyList<FxBinding
     public IReadOnlyList<FxPlay> Trail => Bindings.Where(b => b.IsDefault && b.Event == "lifetime_action" && b.Play is not null).Select(b => b.Play!).ToList();
     public IReadOnlyList<FxPlay> Detonation => Bindings.Where(b => b.IsDefault && b.Event == "detonate_action" && b.Play is not null).Select(b => b.Play!).ToList();
     /// <summary>The detonation's material effect container (the grenade launcher's: explosion by the surface it lands on), or null.</summary>
-    public FxMaterialTrigger? DetonationMaterial => Bindings.FirstOrDefault(b => b.IsDefault && b.Event == "detonate_action" && b.Material is not null)?.Material;
+    /// <remarks>fx/plasma-blast: a container under the blast's <c>area_of_effect/hit_actions</c> (<see cref="FxBinding.OnAreaTarget"/>, per entity hit) is skipped: the charged plasma
+    /// cannon lists <c>hit_from_player_highlight</c> there before its own <c>plasma_cannon_charged_mp</c>, and that container has no entry for stone or metal, so the blast
+    /// drew the placeholder sphere instead of the original explosion.</remarks>
+    public FxMaterialTrigger? DetonationMaterial => Bindings.FirstOrDefault(b => b.IsDefault && b.Event == "detonate_action" && b.Material is not null && !b.OnAreaTarget)?.Material;
+    /// <summary>The choice before fx/plasma-blast: the first detonation container, a per-victim one included (client <c>--old-plasma-blast</c>).</summary>
+    public FxMaterialTrigger? DetonationMaterialOld => Bindings.FirstOrDefault(b => b.IsDefault && b.Event == "detonate_action" && b.Material is not null)?.Material;
 }
 
 /// <summary>
@@ -428,16 +445,41 @@ public sealed class EffectCatalogue
     }
 
     /// <summary>
+    /// The projectile effects of shot <paramref name="stage"/> of weapon <paramref name="wargear"/> (the projectile whose blueprint leaf matches the one the simulation launches,
+    /// <paramref name="blueprint"/>; the basic shot's when none matches), or null for an unknown weapon. The client's lookup (<c>NetworkView.FxProjectileOf</c>).
+    /// </summary>
+    public ProjectileEffects? ProjectileFor(string wargear, string? blueprint)
+    {
+        if (Weapon(wargear) is not { } w) return null;
+        if (blueprint is null) return w.Projectile;
+        string leaf = Leaf(blueprint);
+        return w.Projectiles.FirstOrDefault(p => Leaf(p.Blueprint).Equals(leaf, StringComparison.OrdinalIgnoreCase)) ?? w.Projectile;
+    }
+
+    /// <summary>
+    /// fx/plasma-blast: what a detonation of <paramref name="projectile"/> on level surface <paramref name="surface"/> plays: its own detonation effects (at the blast point) and the
+    /// explosion its material container picks for that surface (on the surface). Both empty: the client draws the placeholder blast sphere instead.
+    /// </summary>
+    /// <param name="oldRule">The choice before fx/plasma-blast (<see cref="ProjectileEffects.DetonationMaterialOld"/>; client <c>--old-plasma-blast</c>).</param>
+    public (IReadOnlyList<FxPlay> Plays, IReadOnlyList<FxPlay> ByMaterial) DetonationPlays(ProjectileEffects projectile, int surface, bool oldRule = false) =>
+        (projectile.Detonation, Resolve(oldRule ? projectile.DetonationMaterialOld : projectile.DetonationMaterial, ShotHit.World, surface));
+
+    /// <summary>
     /// The catalogue for every wargear file the MP classes name (both sides), with the projectile blueprints, containers,
     /// surface order and the player blueprint from the install.
     /// </summary>
-    public static EffectCatalogue Load(string gameDir)
+    /// <param name="extraWargear">
+    /// W0b: more wargear files to read beside the classes' (null or empty: none, the catalogue as before). Musou's arsenal passes the install files its items take their
+    /// presentation from (the autocannon's twin <c>csm_mp_exotic_auto_cannon</c>, which no class names); a name the install lacks is left out.
+    /// </param>
+    public static EffectCatalogue Load(string gameDir, IEnumerable<string>? extraWargear = null)
     {
         BafDocument? global = null;
         using (var archive = ObpkArchive.Open(Path.Combine(gameDir, MpClasses.GlobalPackage)))
             archive.ReadEntries(e => archive.GroupName(e) == "attr_pc" && e.FileName == "global", (_, d) => global = BafDocument.Read(d));
         if (global is null) throw new FileNotFoundException($"global not found in {MpClasses.GlobalPackage}.");
         var names = MpClasses.ReadClasses(global).SelectMany(c => c.BaseWargear.Concat(c.StartupWargear)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (extraWargear is not null) foreach (var n in extraWargear) if (n.Length > 0) names.Add(n);
         var wargear = new Dictionary<string, BafDocument>(StringComparer.OrdinalIgnoreCase);
         using (var archive = ObpkArchive.Open(Path.Combine(gameDir, GameplayTuning.WargearPackage)))
             archive.ReadEntries(e => archive.GroupName(e) == "attr_pc" && names.Contains(e.FileName), (e, d) => wargear[e.FileName] = BafDocument.Read(d));
@@ -511,6 +553,190 @@ public sealed class EffectCatalogue
             Weapons = weapons, Thrown = thrown, Containers = tables, SurfaceOrder = order ?? Surfaces.Default, Player = surface ?? CharacterSurface.Unknown, Notes = notes,
             JumpPacks = jumpPacks, Dashes = dashes, FinishFalling = player is null ? FallLanding.None : FallLanding.Read(player),
         };
+    }
+
+    /// <summary>
+    /// W0b: the catalogue in which each name of <paramref name="sources"/> shows the effects of the first of its candidates that has any (a weapon file with bindings, else a thrown
+    /// item's): that entry is copied under the name, replacing the name's own (Musou's arsenal: the claw takes the power sword's, the autocannon its install twin's, then the heavy
+    /// bolter's). A copied entry keeps its own <see cref="WeaponEffects.Wargear"/>, the file the effects come from. The catalogue itself when the map is empty or no candidate has any,
+    /// so a catalogue without sources is the same object.
+    /// </summary>
+    public EffectCatalogue WithSources(IReadOnlyDictionary<string, IReadOnlyList<string>> sources)
+    {
+        if (sources.Count == 0) return this;
+        Dictionary<string, WeaponEffects>? weapons = null;
+        Dictionary<string, ThrownEffects>? thrown = null;
+        var notes = new List<string>();
+        foreach (var (name, candidates) in sources.OrderBy(kv => kv.Key, StringComparer.Ordinal))
+        {
+            if (candidates.FirstOrDefault(c => Weapons.TryGetValue(c, out var w) && w.Bindings.Count > 0) is { } weapon)
+            {
+                weapons ??= new Dictionary<string, WeaponEffects>(Weapons, StringComparer.OrdinalIgnoreCase);
+                weapons[name] = Weapons[weapon];
+                notes.Add($"{name}: the effects of {weapon}");
+            }
+            else if (candidates.FirstOrDefault(c => Thrown.TryGetValue(c, out var t) && t.Bindings.Count > 0) is { } item)
+            {
+                thrown ??= new Dictionary<string, ThrownEffects>(Thrown, StringComparer.OrdinalIgnoreCase);
+                thrown[name] = Thrown[item];
+                notes.Add($"{name}: the effects of {item}");
+            }
+            else notes.Add($"{name}: none of {string.Join(", ", candidates)} has effects; none shown");
+        }
+        if (weapons is null && thrown is null) return this;
+        return new EffectCatalogue
+        {
+            Weapons = weapons ?? Weapons, Thrown = thrown ?? Thrown, Containers = Containers, SurfaceOrder = SurfaceOrder, Player = Player, Notes = [.. Notes, .. notes],
+            JumpPacks = JumpPacks, Dashes = Dashes, FinishFalling = FinishFalling,
+        };
+    }
+
+    /// <summary>
+    /// W1c: the catalogue in which each weapon or thrown item named in <paramref name="names"/> plays other effects of the effects package in place of some of its own: every effect command of
+    /// its entry and of its projectiles whose effect name is a key of its map plays the mapped name instead; everything else of the command (marker, scale, length, target, rotation) stays as it is.
+    /// The hit containers its commands name are shared tables (every weapon naming one plays it), so they are never changed: when one plays a mapped name, the entry gets its own copy with those
+    /// effects renamed (<see cref="CopyKey"/>, every other surface, class, command and the hit sound kept) and its commands name the copy. Musou's arsenal: the autocannon shows its Chaos twin's
+    /// commands with the loyalist muzzle flash, tracer and world impact (the owner's choices of 2026-11-10). Only the named entries change; the file the effects came from keeps its own, and its
+    /// containers, under its own name. The catalogue itself when the map is empty or nothing is renamed, so a catalogue without names is the same object.
+    /// </summary>
+    public EffectCatalogue WithEffectNames(IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> names)
+    {
+        if (names.Count == 0) return this;
+        Dictionary<string, WeaponEffects>? weapons = null;
+        Dictionary<string, ThrownEffects>? thrown = null;
+        Dictionary<string, MaterialEffectTable>? containers = null;
+        var notes = new List<string>();
+        foreach (var (name, map) in names.OrderBy(kv => kv.Key, StringComparer.Ordinal))
+        {
+            if (map.Count == 0) continue;
+            var renamer = new EffectRenamer(name, map, Containers);
+            if (Weapons.TryGetValue(name, out var w) && renamer.Weapon(w) is var renamedWeapon && !ReferenceEquals(renamedWeapon, w))
+            {
+                weapons ??= new Dictionary<string, WeaponEffects>(Weapons, StringComparer.OrdinalIgnoreCase);
+                weapons[name] = renamedWeapon;
+            }
+            if (Thrown.TryGetValue(name, out var t) && renamer.Thrown(t) is var renamedItem && !ReferenceEquals(renamedItem, t))
+            {
+                thrown ??= new Dictionary<string, ThrownEffects>(Thrown, StringComparer.OrdinalIgnoreCase);
+                thrown[name] = renamedItem;
+            }
+            foreach (var (key, copy) in renamer.Copies)
+            {
+                containers ??= new Dictionary<string, MaterialEffectTable>(Containers, StringComparer.OrdinalIgnoreCase);
+                containers[key] = copy;
+            }
+            string pairs = string.Join(", ", map.OrderBy(kv => kv.Key, StringComparer.Ordinal).Select(kv => $"{kv.Key} -> {kv.Value}"));
+            string impacts = renamer.Impacts > 0 ? $", {renamer.Impacts} impact effect(s) in its own copy of {string.Join(", ", renamer.Copies.Keys.Order(StringComparer.Ordinal))}" : "";
+            notes.Add(renamer.Commands + renamer.Impacts > 0 ? $"{name}: {renamer.Commands} effect command(s) renamed{impacts} ({pairs})"
+                : $"{name}: no command plays {string.Join(", ", map.Keys)}; nothing renamed");
+        }
+        if (weapons is null && thrown is null) return this;
+        return new EffectCatalogue
+        {
+            Weapons = weapons ?? Weapons, Thrown = thrown ?? Thrown, Containers = containers ?? Containers, SurfaceOrder = SurfaceOrder, Player = Player, Notes = [.. Notes, .. notes],
+            JumpPacks = JumpPacks, Dashes = Dashes, FinishFalling = FinishFalling,
+        };
+    }
+
+    /// <summary>
+    /// The key under which <see cref="WithEffectNames"/> keeps <paramref name="entry"/>'s own copy of the container at <paramref name="path"/>: the entry's name and <c>#</c> before the path, so the
+    /// key's last part is still the container's file name (<see cref="FxMaterialTrigger.ContainerName"/>) and no path of the install can be one (its paths hold no <c>#</c>).
+    /// </summary>
+    public static string CopyKey(string entry, string path) => $"{entry}#{path}";
+
+    /// <summary>One entry's renaming for <see cref="WithEffectNames"/>: its commands' plays and, through copies of their own, the hit containers those commands name (each copied once).</summary>
+    sealed class EffectRenamer(string entry, IReadOnlyDictionary<string, string> map, IReadOnlyDictionary<string, MaterialEffectTable> containers)
+    {
+        /// <summary>The effect commands renamed, and the commands of copied containers renamed.</summary>
+        public int Commands, Impacts;
+        /// <summary>Material commands moved to a copy of their container.</summary>
+        int _retargeted;
+        /// <summary>The entry's container copies by key (<see cref="CopyKey"/>).</summary>
+        public Dictionary<string, MaterialEffectTable> Copies { get; } = new(StringComparer.OrdinalIgnoreCase);
+        /// <summary>Each container path met: the key its commands name now (the path itself when nothing in it is renamed).</summary>
+        readonly Dictionary<string, string> _keys = new(StringComparer.OrdinalIgnoreCase);
+
+        int Changes => Commands + _retargeted;
+
+        string? To(string name) => map.TryGetValue(name, out var to) && to.Length > 0 && !to.Equals(name, StringComparison.Ordinal) ? to : null;
+
+        /// <summary>The bindings with each mapped play renamed and each material command on a renamed copy of its container; the same list when none changes.</summary>
+        IReadOnlyList<FxBinding> Bindings(IReadOnlyList<FxBinding> bindings)
+        {
+            List<FxBinding>? list = null;
+            for (int i = 0; i < bindings.Count; i++)
+            {
+                var b = bindings[i];
+                FxBinding? changed = null;
+                if (b.Play is { } play && To(play.Name) is { } to) { changed = b with { Play = play with { Name = to } }; Commands++; }
+                else if (b.Material is { } trigger && Material(trigger) is var moved && !ReferenceEquals(moved, trigger)) { changed = b with { Material = moved }; _retargeted++; }
+                if (changed is null) continue;
+                list ??= [.. bindings];
+                list[i] = changed;
+            }
+            return list ?? bindings;
+        }
+
+        /// <summary>The trigger on the entry's copy of its container when that container plays a mapped name, else the trigger itself.</summary>
+        FxMaterialTrigger Material(FxMaterialTrigger trigger)
+        {
+            if (!_keys.TryGetValue(trigger.Container, out var key))
+            {
+                key = trigger.Container;
+                if (containers.TryGetValue(trigger.Container, out var table) && Renamed(table) is { } copy)
+                {
+                    key = CopyKey(entry, trigger.Container);
+                    Copies[key] = copy;
+                }
+                _keys[trigger.Container] = key;
+            }
+            return key.Equals(trigger.Container, StringComparison.Ordinal) ? trigger : trigger with { Container = key };
+        }
+
+        /// <summary>A copy of <paramref name="table"/> with each mapped play renamed (counted), every other part kept; null when it plays none.</summary>
+        MaterialEffectTable? Renamed(MaterialEffectTable table)
+        {
+            int before = Impacts;
+            var effects = new Dictionary<string, IReadOnlyDictionary<string, IReadOnlyList<FxPlay>>>(StringComparer.Ordinal);
+            foreach (var (surface, classes) in table.Effects)
+            {
+                var copied = new Dictionary<string, IReadOnlyList<FxPlay>>(StringComparer.Ordinal);
+                foreach (var (cls, plays) in classes)
+                {
+                    var list = new List<FxPlay>(plays.Count);
+                    foreach (var p in plays)
+                    {
+                        if (To(p.Name) is { } to) { list.Add(p with { Name = to }); Impacts++; }
+                        else list.Add(p);
+                    }
+                    copied[cls] = list;
+                }
+                effects[surface] = copied;
+            }
+            return Impacts == before ? null : table with { Effects = effects };
+        }
+
+        ProjectileEffects Projectile(ProjectileEffects p) => Bindings(p.Bindings) is var b && !ReferenceEquals(b, p.Bindings) ? p with { Bindings = b } : p;
+
+        public WeaponEffects Weapon(WeaponEffects w)
+        {
+            int before = Changes;
+            var bindings = Bindings(w.Bindings);
+            var projectiles = new List<ProjectileEffects>(w.Projectiles.Count);
+            foreach (var p in w.Projectiles) projectiles.Add(Projectile(p));
+            int basic = -1;
+            for (int i = 0; i < w.Projectiles.Count && w.Projectile is not null; i++) if (ReferenceEquals(w.Projectiles[i], w.Projectile)) { basic = i; break; }
+            var projectile = w.Projectile is null ? null : basic >= 0 ? projectiles[basic] : Projectile(w.Projectile);
+            return Changes == before ? w : w with { Bindings = bindings, Projectile = projectile, Projectiles = projectiles };
+        }
+
+        public ThrownEffects Thrown(ThrownEffects t)
+        {
+            int before = Changes;
+            var bindings = Bindings(t.Bindings);
+            var projectile = t.Projectile is null ? null : Projectile(t.Projectile);
+            return Changes == before ? t : t with { Bindings = bindings, Projectile = projectile };
+        }
     }
 
     static string Leaf(string path) => path.Split('\\', '/')[^1];

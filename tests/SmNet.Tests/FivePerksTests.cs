@@ -201,11 +201,13 @@ public class FivePerksTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public void An_ally_respawns_next_to_a_living_Teleport_Homer_carrier_and_normally_when_none_lives()
+    public void An_ally_who_chose_a_living_Teleport_Homer_carrier_respawns_next_to_it_and_normally_when_none_lives()
     {
+        // fix/pvp-deploy-spawn: in classic PvP the carrier is a choice (World.SetSpawnChoice), no longer automatic (PvpDeploySpawnTests; Musou Mode keeps the automatic rule).
         var fast = Config with { RespawnTime = 0.5f };
         SpawnPoint[] points = [new(new Vector3(0, 0, 0), 0f), new(new Vector3(0, 5, 0), 0f), new(new Vector3(100, 100, 0), 1.25f), new(new Vector3(-100, 100, 0), 0f)];
         var w = Arena(fast, points, (1, SmTac, -1), (2, CsmTac, -1), (3, CsmTac, ChHomer));
+        Assert.True(w.SetSpawnChoice(2, new SpawnChoice(SpawnChoiceKind.Homer, 3)));
         ShootDead(w, 2);
         for (int k = 0; k < 40 && !w.Players[2].Alive; k++) w.Step(Idle);
         var back = w.Players[2];

@@ -76,6 +76,12 @@ deferred joins, ban-file reloads, caught faults (the first 20 are logged, the fi
 10 s with a count of those not logged), skipped ticks, and `FATAL` before exit code 4. The 10-second status line adds the fault,
 skip, idle-kick, deferral and banned-packet counters once any is non-zero.
 
+## Map rotation (`--maps all|a,b,c`)
+
+One match per map in the list's order, then round again. The process you start only supervises: each match runs in a child server (`--map m --rotation-child`) on the same port. When a match has ended the child tells its clients (the match block's `NextMap` bit), stops answering joins one second before the restart clock runs out, and exits 0.8 s later with code 11; the supervisor then starts the next map, and the clients rejoin the same address by themselves (they wait up to a minute for the new map to load). Any other child exit code ends the supervisor with that code, so a restart supervisor (below) should watch the supervisor process. The mode is the same for every map; a named map without data or without that mode is an error at start. `--maps` is Classic PvP only: it is refused with `--content musou`.
+
+Residual risk: the child is an ordinary child process, not in a job object. If the supervisor is killed hard (not Ctrl+C, which stops both), the running child keeps serving its current map, then exits code 11 after that match and nothing starts the next one; stop the orphan by its PID before starting the supervisor again (it holds the port).
+
 ## Keep it running (restart supervisor)
 
 Packet handlers, snapshots and ticks are isolated inside the server: one bad packet, one recipient's failing snapshot or a bug in one

@@ -71,6 +71,8 @@ public partial class NetworkView
         public int Shots;
         public bool Walk;                                  // hysteresis between the walk and run bands
         public int DirFamily = -1, Dir;                    // the direction last shown (hysteresis against flicker at the sector borders)
+        public double SwitchSeenAt = double.NegativeInfinity;   // feel/grenades-quickdraw: the last frame a switch was under way (NetworkView.Quickdraw.cs)
+        public WeaponSlot LastSlot;                        // the slot last seen (a switch shorter than a frame still counts)
     }
 
     /// <summary>One resolved moving ready stance: <see cref="CharacterViewer.Stance"/> arguments.</summary>
@@ -196,7 +198,7 @@ public partial class NetworkView
     void HipFireOthers(PlayerState me, IReadOnlyList<PlayerState> others, bool snapshotSeen)
     {
         if (_client is null || _config is null) return;
-        _frameProjectiles = _client.Projectiles();   // once per frame; UpdateProjectiles reads it too
+        _frameProjectiles = WithOwnPlasmaAhead(_client.Projectiles());   // once per frame; UpdateProjectiles reads it too
         double now = _connectedFor;
         foreach (var o in others)
         {
@@ -301,6 +303,7 @@ public partial class NetworkView
         // Also after a clip pose (jump, roll, melee, throw, reaction dropped the stances): the weapon is brought up again from that pose.
         bool entering = t.Kind != PoseKind.Hip || character.StanceKey is null;
         float fade = _fadeOverride > 0f ? _fadeOverride : entering && t.Kind != PoseKind.Aim ? set.RelaxedToReadyBlend ?? set.NavToFireBlend ?? CharacterViewer.StanceFadeSeconds : CharacterViewer.StanceFadeSeconds;
+        if (entering && _fadeOverride <= 0f && QuickdrawEntering(t)) fade = QuickdrawFadeSeconds;   // feel/grenades-quickdraw: the gun snaps up after a switch (NetworkView.Quickdraw.cs)
         float pitchDegrees = s.Pitch * 180f / MathF.PI;
         // M40-T4: a marine in the ready run's blend stays in it until its damped speed is below GaitLeaveSpeed (the blend carries the standing aim pose as a share),
         // so a reversal through zero speed does not swap the blend for the standing stance and back.
@@ -378,10 +381,17 @@ public partial class NetworkView
         return result;
     }
 
+    /// <summary>EXTRAS-HOOK (docs/added-content.md): an added weapon's own recoil; sets <paramref name="handled"/> when it shows it (no clip layer is laid).</summary>
+    partial void ExtrasHipRecoil(CharacterViewer character, PlayerState s, HipTrack t, ref bool handled);
+
     /// <summary>Lays the recoil of the last shot over the pose (or removes the layer when none runs).</summary>
     void HipRecoil(CharacterViewer character, PlayerState s, HipTrack t)
     {
+        bool kicked = false;
+        ExtrasHipRecoil(character, s, t, ref kicked);   // EXTRAS-HOOK added content (Musou's arsenal): the autocannon's kick replaces the heavy bolter's clip
+        if (kicked) { character.ClearPoseLayer(); return; }
         if (_hipAnims is null || !s.Alive || HipFamilyOf(s) is not { } family || HipRecoilOf(s, family) is not { } recoil) { character.ClearPoseLayer(); return; }
+        if (!OldRecoilWeight && _config is not null && Loadouts.InHand(_config, s) is { } held && WeightFeel.NoBodyRecoil(held.Name)) { character.ClearPoseLayer(); return; }   // night/weapon-fx: the plasma gun's arms do not recoil
         float age = (float)(_connectedFor - t.RecoilAt);
         if (age < 0f || age >= recoil.Length) { character.ClearPoseLayer(); return; }
         if (recoil.Additive) character.SetPoseLayer(recoil.Clip, age, RecoilWeight(s), additive: true);

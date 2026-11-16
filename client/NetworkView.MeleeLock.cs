@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Godot;
+using SmContent;
 using SmNet;
 using SmSim;
 using V2 = System.Numerics.Vector2;
@@ -96,27 +97,65 @@ public partial class NetworkView
     /// The attack's clips to pose at <paramref name="time"/>: the variant below the start distance (posed) and the one above with its weight (laid over it),
     /// each at its own time: the simulation spreads every variant's root motion over the attack's duration, so a clip of another length is posed at the
     /// same fraction of itself (the chainsword's third attack has variants of different lengths). Or the single clip <paramref name="fallback"/> at
-    /// <paramref name="time"/> (no reach data, a variant the rig cannot decode, <c>--no-melee-variants</c>). Notes the start distance when a new attack begins.
+    /// <paramref name="time"/> (no reach data, a variant the rig cannot decode, <c>--no-melee-variants</c>), times the weapon's clip speed (<see cref="MeleeClipSpeed"/>: 1 but for Musou's
+    /// arsenal, whose steps are that much shorter than their clips). Notes the start distance when a new attack begins.
     /// </summary>
     (string Base, float BaseTime, string? Over, float OverTime, float Weight) AttackVariants(PlayerState s, bool own, string fallback, float time)
     {
-        if (NoMeleeVariants || _config is null || _assets is null || Combat.MeleeStepOf(_config, s) is not { Reach: { Variants.Count: > 1 } reach } step) return (fallback, time, null, 0f, 0f);
+        if (OwnStrikeClip(s, time) is { } custom) return (custom.Clip, custom.Time, null, 0f, 0f);   // Musou's arsenal: a custom clip of this strike, posed alone at its own rate
+        float single = time * MeleeClipSpeed(s);   // the single clip's time: the variants below are scaled to the step's duration already
+        if (NoMeleeVariants || _config is null || _assets is null || Combat.MeleeStepOf(_config, s) is not { Reach: { Variants.Count: > 1 } reach } step) return (fallback, single, null, 0f, 0f);
         var show = ShowOf(s.PlayerId);
         if (show.Step != s.MeleeStep || show.Heavy != s.MeleeHeavy || s.MeleeTime + 1e-4f < show.Time)
         {
             show.Step = s.MeleeStep; show.Heavy = s.MeleeHeavy;
-            show.StartDistance = MeleePresentation.StartDistance(reach, step.Duration, MeleeLock.MotionTime(step, s.MeleeTime, _config), TargetDistance(s, own));
+            show.StartDistance = MeleePresentation.StartDistance(step, s.MeleeTime, TargetDistance(s, own), _config);
             if (own && _bot && _client is not null) { if (_client.MeleeLockTarget > 0) _meleeLockSwings++; }
         }
         show.Time = s.MeleeTime;
         var (low, high, w) = reach.Blend(show.StartDistance);
-        if (low is null || ClipLength(low.Clip) is not float lowLength) return (fallback, time, null, 0f, 0f);
+        if (low is null || ClipLength(low.Clip) is not float lowLength) return (fallback, single, null, 0f, 0f);
         float Scaled(float length) => step.Duration > 1e-4f ? time * length / step.Duration : time;
         if (high is null || w < 0.02f || ClipLength(high.Clip) is not float highLength) return (low.Clip, Scaled(lowLength), null, 0f, 0f);
         if (w > 0.98f) return (high.Clip, Scaled(highLength), null, 0f, 0f);
         return (low.Clip, Scaled(lowLength), high.Clip, Scaled(highLength), w);
 
         float? ClipLength(string clip) => clip.Length > 0 && _assets.Animation(clip) is { } anim ? anim.Animation.Duration : null;
+    }
+
+    /// <summary>
+    /// W0, Musou's arsenal: the animation seam (docs/new-weapons-design.md section 11). A strike of the player's weapon that added content gives a clip of its own (<see cref="ExtrasMeleeClip"/>:
+    /// the claw's and the spear's custom animations, once the owner approves them) is posed with that clip alone, at the attack's time times its rate (1: authored to the simulation's own
+    /// timing, the design's hit times); null for every other strike, which plays its weapon's clips as before (the claw and the spear: the sword's and the hammer's as stand-ins). Nothing of the
+    /// simulation reads it, so a custom clip changes no hit, window or duration.
+    /// </summary>
+    (string Clip, float Time)? OwnStrikeClip(PlayerState s, float time)
+    {
+        if (_config is null || s.MeleeStep <= 0 || MeleeWargear(s) is not { } wargear) return null;
+        string? clip = null;
+        float rate = 1f;
+        ExtrasMeleeClip(wargear, s.MeleeHeavy, s.MeleeStep, ref clip, ref rate);   // EXTRAS-HOOK added content (Musou's arsenal): a strike's custom clip
+        return clip is null || _assets?.Animation(clip) is null || !float.IsFinite(rate) || rate <= 0f ? null : (clip, time * rate);
+    }
+
+    /// <summary>
+    /// Added content: the clip strike <paramref name="step"/> (1-based; <paramref name="heavy"/>: of the heavy list) of <paramref name="wargear"/> is posed with instead of its weapon's, and the
+    /// rate of its time to the attack's; leaves <paramref name="clip"/> null without added content or a clip of its own.
+    /// </summary>
+    partial void ExtrasMeleeClip(string wargear, bool heavy, int step, ref string? clip, ref float rate);
+
+    readonly Dictionary<string, float> _meleeClipSpeed = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// W0, Musou's arsenal (docs/new-weapons-design.md section 8, hook 6): how many times faster than its clip the player's melee weapon strikes (<see cref="MeleeTuning.WeaponMap.ClipSpeed"/>:
+    /// the claw 1.25, the spear 0.85); 1 for every weapon of the data, so their strikes are posed exactly as before. Read once per weapon.
+    /// </summary>
+    float MeleeClipSpeed(PlayerState s)
+    {
+        if (_config is null || MeleeWargear(s) is not { } wargear) return 1f;
+        if (_meleeClipSpeed.TryGetValue(wargear, out float known)) return known;
+        float speed = MpClasses.MeleeMapFor(wargear) is { ClipSpeed: var k } && float.IsFinite(k) && k > 0f ? k : 1f;
+        return _meleeClipSpeed[wargear] = speed;
     }
 
     /// <summary>The flat distance to the target an attack began on: own, the lock the client sent; others, the enemy the lock search takes along their heading; null: none.</summary>
@@ -127,7 +166,7 @@ public partial class NetworkView
         {
             if (_client.MeleeLockTarget <= 0) return null;
             foreach (var o in _lastOthers) if (o.PlayerId == _client.MeleeLockTarget && o.Alive) return MeleeLock.Offset(s, o).Length();
-            return null;
+            return _client.LockTargetShown() is { } extra ? MeleeLock.Offset(s, extra).Length() : null;   // musou/boss-collision: a big Ork's lock (GameClient.ExtrasSolids)
         }
         var view = new Dictionary<int, PlayerState>();
         foreach (var o in _lastOthers) if (o.PlayerId != s.PlayerId) view[o.PlayerId] = o;
@@ -144,7 +183,7 @@ public partial class NetworkView
         // The blend shown (AttackVariants' start distance for this attack), else the start blend.
         float blend = _meleeShows.TryGetValue(s.PlayerId, out var show) && show.Step == s.MeleeStep && show.Heavy == s.MeleeHeavy
             ? show.StartDistance : Math.Clamp(reach.DefaultDistance, reach.Range.Min, reach.Range.Max);
-        return MeleePresentation.RootDriven(step, time, new V2(s.Velocity.X, s.Velocity.Y), s.Yaw, _config.TickSeconds, blend, _config.LungeScale * step.LungeFactorApplied);
+        return MeleePresentation.RootDriven(step, time, new V2(s.Velocity.X, s.Velocity.Y), s.Yaw, _config.TickSeconds, blend, _config.LungeScale * step.LungeFactorApplied, t => MeleeLock.MotionAt(step, t, blend, _config));
     }
 
     void MeleeLockForget(int id) { _meleeShows.Remove(id); _hitStops.Remove(id); }

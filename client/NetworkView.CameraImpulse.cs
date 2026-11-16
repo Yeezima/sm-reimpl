@@ -34,7 +34,10 @@ public partial class NetworkView
     static readonly string? FeelShotsDir = ArgAfter("--feel-shots");
     static readonly string FeelShotsOn = ArgAfter("--feel-shots-on") ?? "";
     static readonly int FeelShotsMax = (int)(FloatArg("feel-shots-max") ?? 3f);
-    static readonly double[] FeelShotTimes = [0.0, 0.033, 0.067, 0.1, 0.15, 0.2, 0.3, 0.45, 0.7];
+    /// <summary><c>--feel-shots-dense</c> (install transitions, 2026-11-12): a frame every 0.033 s up to 1.4 s after the event (the 180 turn and the half-speed stop: <c>--feel-shots-on turn | interrupt | stop</c>), for an MP4 of the event.</summary>
+    static readonly double[] FeelShotTimes = OS.GetCmdlineUserArgs().Contains("--feel-shots-dense")
+        ? Enumerable.Range(0, 43).Select(i => i * 0.033).ToArray()
+        : [0.0, 0.033, 0.067, 0.1, 0.15, 0.2, 0.3, 0.45, 0.7];
     double _feelShotAt = double.NegativeInfinity;
     int _feelShotNext, _feelShotSet;
 
@@ -90,10 +93,16 @@ public partial class NetworkView
     bool HeavyClass(PlayerState s) =>
         _config is not null && Loadouts.ClassOf(_config, s.Class)?.Name is { } name && (name.Contains("devastator", StringComparison.OrdinalIgnoreCase) || name.Contains("havoc", StringComparison.OrdinalIgnoreCase));
 
+    /// <summary>The scoped lascannon's aim blend (0..1; 0 for any other view), set by the camera each frame.</summary>
+    float _lascannonScope;
+
+    /// <summary>Whether the scoped lascannon's view is steady: the walking-synced footfall kick is then skipped (a half-blended scope already counts).</summary>
+    internal static bool LascannonScopeSteady(float scope) => CameraBoom.ScopeSteady(scope);
+
     /// <summary>A footfall of the own Devastator or Havoc on the move: the sound is the data's and is not touched.</summary>
     void HeavyFootfall(PlayerState s)
     {
-        if (OldHeavyFootfall || !s.Grounded || !HeavyClass(s)) return;
+        if (OldHeavyFootfall || !s.Grounded || !HeavyClass(s) || LascannonScopeSteady(_lascannonScope)) return;   // sim/lascannon-steady-zoom: no walking-synced sway in the lascannon's scope
         float speed = MathF.Sqrt(s.Velocity.X * s.Velocity.X + s.Velocity.Y * s.Velocity.Y);
         if (speed < 1f) return;
         CameraKick(speed > 7f ? WeightFeel.FootfallSprintDegrees : WeightFeel.FootfallRunDegrees, "heavy footfall");

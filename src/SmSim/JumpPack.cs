@@ -63,6 +63,8 @@ public sealed record JumpPackSpec(string Name, IReadOnlyList<DistancePoint> Heig
 {
     /// <summary><c>smash_can_be_used</c> and an <c>ability_groundpound</c>: a melee press in flight starts the ground pound.</summary>
     public bool PoundEnabled { get; init; }
+    /// <summary>The data's <c>max_power</c> for this entry (before the owner's capacity replaced <see cref="MaxPower"/>); 0: unknown. Classic PvP uses it (<c>Loadouts.JumpPack</c>).</summary>
+    public float DataMaxPower { get; init; }
     /// <summary><c>smash_available_delay</c>: seconds after the lift-off before a pound may start (interpretation of the reference point).</summary>
     public float PoundDelay { get; init; }
     /// <summary><c>smash_gravity</c>: the dive's gravity.</summary>
@@ -273,8 +275,15 @@ public static partial class JumpPack
     /// small jump (its hold and cost; the dash's decision is skipped: <c>mark</c> is the decision tick, ahead of the tick count), still growing toward the full
     /// jump while Jump stays down (<see cref="LongJump.Held"/>). With too little power for the small jump it starts as a normal press.
     /// </param>
+    /// <param name="airOpen">
+    /// sim/hop-rules (protocol 72): the air jump is open for this press (<see cref="PlayerState.JumpAirOpen"/>, or a Jump press ended a bull rush held in the air this very tick): the long press lifts the pack in the air
+    /// as <see cref="SimConfig.JumpPackAirJumps"/> allows in Musou Mode, in Classic PvP too.
+    /// </param>
+    /// <param name="hopNow">
+    /// sim/hop-rules (protocol 72): a fresh Jump press that ended the aerial tackle (the dash attack): the hop starts in this tick with no decision wait (<see cref="Tick.DashStart"/>; the evade's spacing is passed over by its caller).
+    /// </param>
     internal static Tick Begin(PlayerState s, JumpPackSpec? pack, bool jumpDown, bool jumpPress, bool meleePress, bool meleeBusy, SimConfig c, float? dashAt = null,
-        float aboveGround = float.PositiveInfinity, LongJump longJump = LongJump.None)
+        float aboveGround = float.PositiveInfinity, LongJump longJump = LongJump.None, bool escape = false, bool airOpen = false, bool hopNow = false)
     {
         if (pack is null) return default;
         float dt = c.TickSeconds;
@@ -287,7 +296,9 @@ public static partial class JumpPack
         if (phase == JumpPhase.Landed && T(ticks) + Eps >= MathF.Max(MoveLock(pack, landMoving, c), JumpLock(pack, landMoving, c)))
         { phase = JumpPhase.None; ticks = 0; landMoving = false; }
         else if (phase == JumpPhase.Recover && T(ticks) + Eps >= (s.JumpSlash && pack.Slash is { } recovering ? recovering.Recovery : pack.PoundRecovery)) { phase = JumpPhase.None; ticks = 0; }
-        if (phase is JumpPhase.None or JumpPhase.Landed or JumpPhase.Recover) power = MathF.Min(pack.MaxPower, power + pack.RechargeRate * dt);
+        // sim/descent-recharge (protocol 62; Classic PvP: SimConfig.JumpPackDescentRecharge): the pack also recharges after a jump's apex (the hang and the fall: the pack no longer lifts).
+        bool recharging = phase is JumpPhase.None or JumpPhase.Landed or JumpPhase.Recover || (c.JumpPackDescentRecharge && phase is JumpPhase.Hang or JumpPhase.Fall);
+        if (recharging) power = MathF.Min(pack.MaxPower, power + pack.RechargeRate * dt);
         // The hang covers the ticks after the apex tick: HangTime / dt of them (15 at 30 Hz) under HangGravity, then the fall.
         // sim/jump-hang: the small jump's hang is SmallHangTime longer (PlayerState.JumpSmall).
         if (phase == JumpPhase.Hang && T(ticks - mark - 1) + Eps >= pack.HangTime + (s.JumpSmall ? pack.SmallHangTime : 0f)) phase = JumpPhase.Fall;
@@ -299,10 +310,13 @@ public static partial class JumpPack
         // feel/melee-cancels (protocol 54; the owner 2026-11-02: "jump with space bar hold when falling, or charging at any time no restrictions"): with a dash (the Assault and Raptor) a Space
         // press in the air while falling (no phase, or after a jump's apex: hang or fall) starts the take-off as on the ground, the tap still the dash and the hold the jump (the lift-off launches in the air);
         // the pack's power and the dash's spacing still apply.
-        bool airLong = dashAt is not null && !s.Grounded && longJump != LongJump.None;   // a press held past the dash's decision, replayed from the buffer (BufferedAction.JumpLong)
+        // sim/air-jumps (owner, 2026-11-06): only Musou Mode keeps these air starts (SimConfig.JumpPackAirJumps); in Classic PvP a jump-pack class in the air gets the hop (the air dash, below) alone.
+        bool airLong = dashAt is not null && !s.Grounded && longJump != LongJump.None && (c.JumpPackAirJumps || (c.HopRules && airOpen));   // a press held past the dash's decision, replayed from the buffer (BufferedAction.JumpLong)
         bool airFall = airLong && phase is JumpPhase.Hang or JumpPhase.Fall;
-        bool canStart = phase == JumpPhase.None || airFall || (phase == JumpPhase.Landed && T(ticks) + Eps >= JumpLock(pack, landMoving, c));
-        if (canStart && jumpPress && (s.Grounded || airLong) && !meleeBusy && !meleePress && (dashAt is not null || power + Eps >= pack.CostAt(0f)))
+        // sim/jump-escape (protocol 62): the Assault / Raptor's press (escape) cuts the landing's locks and the pound's or slash's recovery: the take-off starts at once.
+        bool canStart = phase == JumpPhase.None || airFall || (phase == JumpPhase.Landed && (escape || T(ticks) + Eps >= JumpLock(pack, landMoving, c)))
+            || (escape && phase == JumpPhase.Recover);
+        if (canStart && jumpPress && (s.Grounded || (airLong && (!c.HopRules || power + Eps >= pack.CostAt(0f)))) && !meleeBusy && !meleePress && (dashAt is not null || power + Eps >= pack.CostAt(0f)))
         {
             phase = JumpPhase.TakeOff; ticks = 0; mark = 0; landMoving = false; started = true;
             if (dashAt is null) power = MathF.Max(0f, power - pack.CostAt(0f));   // with a dash: spent when the jump commits (below)
@@ -328,6 +342,10 @@ public static partial class JumpPack
         bool airTap = jumpPress && s.Buffered == BufferedAction.Jump;   // the buffered tap replayed (a fresh press has nothing buffered before it)
         if (dashAt is not null && !started && airTap && !s.Grounded && phase is JumpPhase.None or JumpPhase.Hang or JumpPhase.Fall
             && !meleeBusy && !meleePress && Evade.CanDashInAir(s, c))
+        { phase = JumpPhase.None; ticks = 0; mark = 0; holding = false; landMoving = false; dashStart = true; }
+
+        // sim/hop-rules (protocol 72; the owner 2026-11-14: the aerial tackle cancels into a hop): the press that ended the dash attack starts the hop at once (no take-off, no tap-or-hold decision), from the stick of this tick.
+        if (hopNow && c.HopRules && dashAt is not null && !started && !dashStart && !meleeBusy && !meleePress && phase is JumpPhase.None or JumpPhase.Hang or JumpPhase.Fall)
         { phase = JumpPhase.None; ticks = 0; mark = 0; holding = false; landMoving = false; dashStart = true; }
 
         float oldHold = MathF.Min(T(mark), pack.MaxHold);
@@ -382,7 +400,9 @@ public static partial class JumpPack
         if (phase == JumpPhase.TakeOff && T(ticks) + Eps >= pack.TakeOffDelay)
         {
             // Lift-off needs the ground: a player who left it during the take-off (walked off a ledge) just falls (power stays spent).
-            if (s.Grounded) { phase = JumpPhase.Ascent; launch = true; }
+            // sim/hop-rules (protocol 72; the owner 2026-11-14: a full jump when charging off a ledge): a take-off pressed on the last grounded ticks (the charge's run reached the edge) still lifts off in the
+            // air when its delay is over; before, it fell straight down with the power spent.
+            if (s.Grounded || c.HopRules) { phase = JumpPhase.Ascent; launch = true; }
             else { phase = JumpPhase.Fall; holding = false; mark = ticks; }
         }
 

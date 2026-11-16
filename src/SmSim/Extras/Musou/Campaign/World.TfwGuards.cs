@@ -37,14 +37,51 @@ public sealed partial class World
         if (playing) MusouPlayerShots();
         TfwCreditKills();
         _musouAttacks.Clear();
+        long section = SimProfile.Begin();   // musou/perf-pass: SM_TICK_STATS's sections
         musou.Step(_musouTargets.AsSpan(0, n), Collision, playing, _musouAttacks);
+        SimProfile.End("tfw: ork ai", section);
+        section = SimProfile.Begin();
         foreach (var attack in _musouAttacks) MusouHit(attack);
+        SimProfile.End("tfw: ork hits", section);
+        MusouStormboyCrashes();   // World.MusouStormboy.cs: shot-down Stormboys that struck the ground (expansion S3)
         if (playing) TfwShoves();   // World.TfwMelee.cs
+        section = SimProfile.Begin();
         guards.Step(playing);
+        SimProfile.End("tfw: guards", section);
         TfwCreditKills();
         musou.LastStepMilliseconds = System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds;
     }
 
-    /// <summary>An enemy's attack on a Guard squad: the squad's man nearest the attacker takes it (no player multipliers).</summary>
-    void TfwGuardsHit(MusouAttack attack) => TfwGuards?.Hit(TfwContracts.SquadOf(attack.Player), attack.Damage, attack.From);
+    /// <summary>
+    /// An enemy's attack on a Guard squad: the squad's man nearest the attacker takes it (no player multipliers). A Boss Ork's blow cleaves (owner, 2026-11-06): it strikes every man in its arc, any
+    /// squad's, as the players' cleave strikes Orks (<see cref="TfwGuardCleave"/>).
+    /// </summary>
+    void TfwGuardsHit(MusouAttack attack)
+    {
+        if (TfwGuards is not { } guards) return;
+        if (attack.Melee && _musou!.TryGet(attack.Enemy, out var e) && e.Alive && MusouBossOrks.Is(e.Type) && TfwGuardCleave(guards, e, attack.Damage) > 0) return;
+        guards.Hit(TfwContracts.SquadOf(attack.Player), attack.Damage, attack.From);
+    }
+
+    /// <summary>
+    /// A Boss Ork's cleave on the Guardsmen, by the players' cleave's rules (<see cref="MusouCleave"/>): its reach is its own melee reach plus its body, a Guardsman's and
+    /// <see cref="MusouCombatRules.CleaveExtraRange"/>; its arc the core's melee cone times <see cref="MusouCombatRules.CleaveConeScale"/>; at most <see cref="TfwCombatRules.BossCleaveTargets"/>, nearest first;
+    /// each falls or dies as a fodder Ork the players strike (<see cref="GuardSim.Cleave"/>). How many it struck (0: none in its arc, and the blow lands as any other).
+    /// </summary>
+    int TfwGuardCleave(GuardSim guards, in MusouEnemy boss, float damage)
+    {
+        var musou = _musou!;
+        var spec = musou.Rules.Of(boss.Type);
+        var combat = musou.Rules.Combat;
+        var war = musou.War ?? TfwCombatRules.Default;
+        float reach = spec.MeleeRange + spec.Radius + guards.Rules.Radius + combat.CleaveExtraRange;
+        float minCos = MathF.Cos(MathF.Min(180f, Config.MeleeConeDegrees * combat.CleaveConeScale) * MathF.PI / 180f);
+        var forward = new System.Numerics.Vector2(-MathF.Sin(boss.Yaw), MathF.Cos(boss.Yaw));
+        int struck = guards.Cleave(boss.Position, forward, reach, minCos, war.BossCleaveTargets, damage, war);
+        TfwBestGuardCleave = Math.Max(TfwBestGuardCleave, struck);
+        return struck;
+    }
+
+    /// <summary>The most Guardsmen one Boss Ork blow has struck (the server's log, tests).</summary>
+    public int TfwBestGuardCleave { get; private set; }
 }

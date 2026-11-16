@@ -34,6 +34,21 @@ public class GamepadTests
     }
 
     [Fact]
+    public void The_aerial_tackle_is_on_Y_in_the_dash_window_and_X_keeps_its_strike_outside_it()
+    {
+        // In the window: Y becomes the melee press the simulation starts the dash attack on; X alone does not start it.
+        Assert.Equal(InputButtons.Melee, GamepadRules.AerialTackleOnY(InputButtons.MeleeHeavy, true));
+        Assert.Equal(InputButtons.None, GamepadRules.AerialTackleOnY(InputButtons.Melee, true));
+        Assert.Equal(InputButtons.Melee | InputButtons.Fire, GamepadRules.AerialTackleOnY(InputButtons.MeleeHeavy | InputButtons.Fire, true));
+        // Outside the window nothing changes: X is the strike, Y the stun / charge.
+        Assert.Equal(InputButtons.Melee, GamepadRules.AerialTackleOnY(InputButtons.Melee, false));
+        Assert.Equal(InputButtons.MeleeHeavy, GamepadRules.AerialTackleOnY(InputButtons.MeleeHeavy, false));
+        // The table still has X and Y on their own actions.
+        Assert.Equal(PadControl.X, GamepadRules.Bindings.Single(b => b.Action.StartsWith("Strike")).Control);
+        Assert.Equal(PadControl.Y, GamepadRules.Bindings.Single(b => b.Action.StartsWith("Stun")).Control);
+    }
+
+    [Fact]
     public void Every_row_has_a_note_and_no_control_has_two_actions()
     {
         Assert.All(GamepadRules.Bindings, b => { Assert.False(string.IsNullOrWhiteSpace(b.Note)); Assert.False(string.IsNullOrWhiteSpace(b.Action)); });

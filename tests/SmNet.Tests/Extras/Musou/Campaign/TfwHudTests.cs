@@ -68,14 +68,13 @@ public class TfwHudTests
         Assert.False(w.TfwOwn(TfwRig.Human).Deployed);                       // the hub
         TfwRig.Deploy(w);
         Assert.True(w.TfwOwn(TfwRig.Human).Deployed);
-        w.Spawn(2, w.AssignClass(0));                                        // joins mid-battle
+        w.Spawn(2, w.AssignClass(0));                                        // joins mid-battle: co-op (2026-11-06) flies it in (TfwCoopTests)
         TfwRig.Steps(w, 2);
-        Assert.False(w.TfwOwn(2).Deployed);
+        Assert.True(w.TfwOwn(2).Deployed);
         Assert.True(w.TfwKillForTests(2));
         TfwRig.Steps(w, 2);
         var joiner = w.Tfw!.War.View() with { Own = w.TfwOwn(2) };
-        Assert.False(TfwHudModel.RunHoldsRespawn(joiner));
-        Assert.True(w.Players[2].RespawnLeft > TfwBattleRules.RespawnHold);  // not held: the core's timer runs
+        Assert.True(TfwHudModel.RunHoldsRespawn(joiner));                   // one of the team now: the run holds its respawn
         Assert.True(w.TfwKillForTests(TfwRig.Human));
         TfwRig.Steps(w, 2);
         Assert.True(TfwHudModel.RunHoldsRespawn(w.Tfw.War.View() with { Own = w.TfwOwn(TfwRig.Human) }));
@@ -101,7 +100,7 @@ public class TfwHudTests
         run.Enqueue(TfwRig.Human, new TfwCommandRecord(8, TfwCommand.RequestPickup, 0));
         TfwRig.Steps(w, 2);
         own = w.TfwOwn(TfwRig.Human);
-        Assert.Equal(MarineOrder.Hold, own.Order);
+        Assert.Equal(MarineOrder.Hold, own.Order);                            // the retainer's order (restored 2026-11-08)
         Assert.Equal(20, own.PickupSeconds);
     }
 
@@ -110,7 +109,10 @@ public class TfwHudTests
     {
         var w = TfwRig.War();
         TfwRig.Deploy(w);
-        Assert.True(w.TfwKillForTests(w.Tfw!.RetainerOf(TfwRig.Human)!.Id));
+        foreach (var m in w.Tfw!.Pair.ToList()) Assert.True(w.TfwKillForTests(m.Id));   // the allied pair is not on the retainer's line
+        TfwRig.Steps(w, 2);
+        Assert.Equal(TfwRetainerState.Ready, w.TfwOwn(TfwRig.Human).Retainer);
+        Assert.True(w.TfwKillForTests(w.Tfw.RetainerOf(TfwRig.Human)!.Id));
         TfwRig.Steps(w, 2);
         var own = w.TfwOwn(TfwRig.Human);
         Assert.Equal(TfwRetainerState.Recovering, own.Retainer);
@@ -167,8 +169,8 @@ public class TfwHudTests
         Assert.Equal("", TfwHudModel.Prompt(War(TfwRunPhase.Hub), true));
         Assert.Contains("LANDS IN 3", TfwHudModel.Prompt(War(TfwRunPhase.Travel, new TfwOwnView { TravelSeconds = 3 }), true));
         Assert.Contains("PICKUP IN 17", TfwHudModel.Prompt(War(TfwRunPhase.Pickup, new TfwOwnView { PickupSeconds = 17 }), true));
-        Assert.Contains("IS COMING: 22", TfwHudModel.Prompt(War(TfwRunPhase.Battle, new TfwOwnView { ReviveSeconds = 22 }), false));
-        Assert.Contains("REVIVES YOU: 40%", TfwHudModel.Prompt(War(TfwRunPhase.Battle, new TfwOwnView { ReviveSeconds = 20, ReviveTenths = 4 }), false));
+        Assert.Contains("ARE COMING: 22", TfwHudModel.Prompt(War(TfwRunPhase.Battle, new TfwOwnView { ReviveSeconds = 22 }), false));
+        Assert.Contains("REVIVE YOU: 40%", TfwHudModel.Prompt(War(TfwRunPhase.Battle, new TfwOwnView { ReviveSeconds = 20, ReviveTenths = 4 }), false));
         Assert.Contains("EMERGENCY EXTRACTION IN 2", TfwHudModel.Prompt(War(TfwRunPhase.Battle, new TfwOwnView { ExtractionSeconds = 2 }), false));
         Assert.Contains("THE WAR IS LOST IN 2", TfwHudModel.Prompt(War(TfwRunPhase.Battle, new TfwOwnView { ExtractionSeconds = 2 }, supplies: 1), false));
         Assert.Contains("IT COSTS 2 SUPPLIES", TfwHudModel.Prompt(War(TfwRunPhase.Battle, new TfwOwnView { ExtractionSeconds = 2 }), false));
@@ -212,17 +214,29 @@ public class TfwHudTests
     }
 
     [Fact]
+    public void TheRevivePromptNamesTheRetainerWhenItStandsElseTheAlliedPair()
+    {
+        static string Prompt(TfwRetainerState retainer, byte tenths) =>
+            TfwHudModel.Prompt(new TfwWarView(TfwRunPhase.Battle, TfwLane.B, 1f, 1f, 1, 3, 0, default, default, default,
+                new TfwOwnView { ReviveSeconds = 20, ReviveTenths = tenths, Retainer = retainer, Deployed = true }), alive: false);
+        Assert.Contains("YOUR RETAINER IS COMING", Prompt(TfwRetainerState.Ready, 0));
+        Assert.Contains("YOUR RETAINER REVIVES YOU: 40%", Prompt(TfwRetainerState.Reviving, 4));
+        Assert.Contains("THE ALLIED MARINES ARE COMING", Prompt(TfwRetainerState.Recovering, 0));
+        Assert.Contains("THE ALLIED MARINES REVIVE YOU: 60%", Prompt(TfwRetainerState.None, 6));
+    }
+
+    [Fact]
     public void Each_position_is_named_by_a_letter_with_its_state_for_the_hud_and_the_world()
     {
         TfwObjective O(int i, TfwPositionState s, float p = 0f) => new((byte)i, s, p, default);
         Assert.Equal(["A", "B  DEPOT", "C", "COMMANDER"], Enumerable.Range(0, 4).Select(i => TfwHudModel.ObjectiveName(i, false)));
         Assert.Equal("WARBOSS", TfwHudModel.ObjectiveName(3, true));
         Assert.Equal("A  HELD", TfwHudModel.ObjectiveLabel(O(0, TfwPositionState.Held), false));
-        Assert.Equal("B  DEPOT  CLEARING", TfwHudModel.ObjectiveLabel(O(1, TfwPositionState.Clearing), false));
+        Assert.Equal("B  DEPOT  CLEARING 0%", TfwHudModel.ObjectiveLabel(O(1, TfwPositionState.Clearing), false));
         Assert.Equal("C  SECURING 42%", TfwHudModel.ObjectiveLabel(O(2, TfwPositionState.Securing, 0.42f), false));
         Assert.Equal("A  SECURED", TfwHudModel.ObjectiveLabel(O(0, TfwPositionState.Secured, 1f), false));
-        Assert.Equal("A  CLEARING - 7 ORKS", TfwHudModel.ObjectiveLabel(O(0, TfwPositionState.Clearing), false, 7));
-        Assert.Equal("A  CLEARING - 1 ORK", TfwHudModel.ObjectiveLabel(O(0, TfwPositionState.Clearing), false, 1));
+        Assert.Equal("A  CLEARING 0% - 7 ORKS", TfwHudModel.ObjectiveLabel(O(0, TfwPositionState.Clearing), false, 7));
+        Assert.Equal("A  CLEARING 0% - 1 ORK", TfwHudModel.ObjectiveLabel(O(0, TfwPositionState.Clearing), false, 1));
         Assert.Equal("A  HELD", TfwHudModel.ObjectiveLabel(O(0, TfwPositionState.Held), false, 7));   // only a position being cleared says it
     }
 

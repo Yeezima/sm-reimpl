@@ -1,4 +1,4 @@
-﻿using System.Text;
+using System.Text;
 using SmFormats.Obpk;
 
 // smtool: read-only inspection of original game archives.
@@ -14,21 +14,39 @@ return args switch
     ["synth-fixture", var output] => SynthFixture(output),
     ["graph-dump", .. var rest] => SmTool.GraphDump.Run(rest),
     ["weapon-parts", .. var rest] => SmTool.WeaponCommands.Parts(rest),
+    ["bot-posts", var gameDir, .. var rest] => SmTool.NavCommands.Posts(gameDir, Opt(rest, "--map") ?? "mp_tdm_09", Opt(rest, "--cache"), rest.Contains("--grid")),
+    ["nav-around", var gameDir, .. var rest] => SmTool.NavAroundCommand.Run(gameDir, rest),
     ["nav-stats", var gameDir, .. var rest] => SmTool.NavCommands.Stats(gameDir, Opt(rest, "--map") ?? "mp_tdm_09", (Opt(rest, "--class") ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries), Opt(rest, "--cache"), int.TryParse(Opt(rest, "--top"), out var top) ? top : 0),
+    ["maps-audit", var gameDir, .. var rest] => SmTool.MapsAuditCommand.Run(gameDir, rest),
     ["refine-register", .. var rest] => SmTool.RefineRegister.Run(rest),
     ["scan-package", .. var rest] => SmTool.PackageScanCommand.Run(rest),
     ["make-tar", .. var rest] => SmTool.TarPackage.Run(rest),
+    ["release-parts", .. var rest] => SmTool.ReleasePartsCommand.Run(rest),
     ["whats-new", .. var rest] => SmTool.WhatsNew.Run(rest),
     ["perks", var gameDir] => SmTool.PerkCommands.List(gameDir),
+    ["bot-loadouts", var gameDir] => SmTool.BotLoadoutCommands.List(gameDir),
     ["ork-balance", var gameDir, .. var rest] => SmTool.OrkCommands.Balance(gameDir, rest),
     ["ork-actions", var gameDir] => SmTool.OrkCommands.Actions(gameDir),
     ["ork-sounds", var gameDir, .. var rest] => SmTool.OrkSoundCommands.Run(gameDir, rest),
     ["melee-hit-sounds", .. var rest] => SmTool.MeleeHitSoundsCommand.Run(rest),
     ["ranged-hit-confirms", .. var rest] => SmTool.RangedConfirmsCommand.Run(rest),
+    ["stalker-confirm-preview", .. var rest] => SmTool.StalkerConfirmPreviewCommand.Run(rest),
     ["listen-page", .. var rest] => SmTool.ListenPageCommand.Run(rest),
 #if SM_EXTRAS
     ["musou-sounds", var musouDir, .. var musouRest] => SmTool.MusouSoundCommands.Run(musouDir, musouRest),
     ["map", .. var mapRest] => SmTool.MapCommand.Run(mapRest),
+    ["dreadnought-dump", .. var dreadRest] => SmTool.DreadnoughtDumpCommand.Run(dreadRest),
+    ["ork-blood", var bloodDir] => SmTool.OrkBloodCommand.Run(bloodDir),
+    ["ashfall-plan", .. var planRest] => SmTool.AshfallPlanCommand.Run(planRest),
+    ["ashfall-clash", .. var clashRest] => SmTool.AshfallClashCommand.Run(clashRest),
+    ["ashfall-kit-collision", .. var kitRest] => SmTool.AshfallKitCollisionCommand.Run(kitRest),
+    ["ashfall-kit-files"] => SmTool.AshfallKitFilesCommand.Run(),
+    ["ashfall-kit-bake-scales", .. var bakeRest] => SmTool.AshfallKitBakeScalesCommand.Run(bakeRest),
+    ["ashfall-kit-stairs", .. var stairRest] => SmTool.AshfallKitStairsCommand.Run(stairRest),
+    ["musou-guard-route", .. var routeRest] => SmTool.MusouGuardRouteCommand.Run(routeRest),
+    ["musou-army-routes", .. var armyRest] => SmTool.MusouArmyRoutesCommand.Run(armyRest),
+    ["musou-guard-vantage", .. var vantageRest] => SmTool.MusouGuardVantageCommand.Run(vantageRest),
+    ["spear-rig-dump", .. var rigRest] => SmTool.SpearRigDumpCommand.Run(rigRest),
 #endif
     ["weapon-dps", var gameDir, .. var rest] => SmTool.DpsCommands.Run(gameDir, rest),
     ["melee-steps", var gameDir, .. var rest] => SmTool.MeleeStepsCommand.Run(gameDir, rest),
@@ -37,6 +55,7 @@ return args switch
     ["armour-audit", var gameDir, .. var rest] => SmTool.ArmourAuditCommand.Run(gameDir, rest),
     ["fx-smoke", var gameDir, .. var rest] => SmTool.FxSmokeCommands.Run(gameDir, rest),
     ["fx-dump", var gameDir, .. var rest] => SmTool.FxDumpCommands.Run(gameDir, rest),
+    ["map-emissive", var gameDir, .. var rest] => SmTool.MapEmissiveCommand.Run(gameDir, rest),
     ["gfx-dump", var gameDir, .. var rest] => SmTool.GfxDumpCommand.Run(gameDir, rest),
     [var dump, .. var rest] when dump is "baf-dump" or "locale" or "customization-dump" && SmTool.DumpCommands.Run(dump, rest) is var dumpCode && dumpCode >= 0 => dumpCode,
     [var audio, .. var rest] when audio.StartsWith("audio-") && AudioCommands.Run(audio, rest) is var code && code >= 0 => code,
@@ -57,7 +76,12 @@ static int Usage()
                                                     run the M1 acceptance checks and write a Markdown summary
           smtool nav-stats <game-dir|auto> [--map mp_tdm_09] [--class assault,raptor] [--cache <dir>]
                                                     build or read the test bots' navigation graphs per side (and jump links); sizes and timings
+          smtool ashfall-plan [--out plan.svg]      Musou Mode's generated battlefield (Ashfall Citadel) as a top-down SVG plan (default: the private cache's previews folder)
+          smtool ashfall-kit-collision [--source <dir>] [--res 40] [--max-boxes 32] [--out <file>] [--report <file>] [--obj-dir <dir>]
+          smtool ashfall-kit-stairs [--source <dir>] [--out <file>]   the walkable kit models' stairs found in their meshes -> AshfallKitStairs.g.cs (late batch F)
+                                                    fits collision boxes to each Ashfall kit model (owner's library, read only); writes AshfallKitCollision.g.cs, a report and OBJs
           smtool perks <game-dir|auto>              the perks: upgrade strings, classes, simulation status, perk variants (M43)
+          smtool bot-loadouts <game-dir|auto>       the owner's fixed bot loadouts resolved against every class (2026-11-07)
           smtool armour-audit <game-dir|auto> [--all] [--packages]
                                                     every class's default look, every armour set worn whole and every offered piece of both races,
                                                     resolved and loaded as the client draws them: what fails, explained gaps, free-hanging cloth
@@ -66,11 +90,17 @@ static int Usage()
                                                     the release content guard: fails (exit 1) when a package holds game data, private files, user paths or secrets;
                                                     exit 2 when an input could not be used (missing folder, unreadable secrets file, install required but not indexed);
                                                     --index-cache keeps the comparison trees' fingerprints there (path, size, write time, 7 days; ignored inside a tree); --rehash uses none
+          smtool release-parts build <playtest folder> --parts-dir <dir> --manifest <x.parts.json> --tag <t> --version <v> [--commit <sha>] [--built <date>]
+          smtool release-parts plan <x.parts.json> --remote <assets.json> [--digest <asset>=<sha256>]... [--write <x.parts.json>]
+                                                    a release in parts (docs/releasing.md "Parts"): build the part zips and the manifest; plan which parts the
+                                                    parts release lacks (UPLOAD/REUSE lines) and write the manifest with the reused zips' hashes
           smtool make-tar <folder> <out.tar.gz> --prefix <top folder> [--exec a,b,...]
                                                     the Linux server package (tar.gz keeps the 0755 mode of the listed files)
           smtool ork-balance <game-dir|auto> [--mode parity|data|both]
                                                     the Ork Boy's balance (Ork O4): data, Tactical reference, rule, factor and result per stat,
                                                     the sustained-damage checks, hit-volume areas and the config hashes with and without the Ork
+          smtool dreadnought-dump [<game-dir|auto>]  the Musou Dreadnought's data from the install (body, weapons, arm, sprint, buff, entrance), each number with its source entry (D0)
+          smtool ork-blood <game-dir|auto>          Musou Mode's original blood: the Ork's dismemberment table, the points' effects, each MP weapon's dismemberment types
           smtool ork-actions <game-dir|auto>        the Ork's action clips and timings (Ork O7b / O7c): reactions, reload, recoil, toss release, death clips, choppa, charge, hop
           smtool ork-sounds <game-dir|auto> [--clips] [--all-tags]
                                                     the Ork Boy's sounds and barks (Ork O8): each sound and speech command of the boy's blueprint and
@@ -111,6 +141,7 @@ static int Usage()
           smtool audio-verify <streamingaudio-dir>  parse every package and bank, report HIRC decoding coverage
           smtool melee-hit-sounds [--game <dir>] [--out <dir>] [--render] [--count k]   what the data plays on every melee hit (table.txt; --render: WAV previews + index.html in the private cache)
           smtool ranged-hit-confirms [--game <dir>] [--out <dir>] [--count k]   the shooter hit-confirm event of every MP gun, now (soft) and planned (data) as WAV previews
+          smtool stalker-confirm-preview [--game <dir>] [--out <dir>] [--count k]   the Stalker / Daemon Eye Bolter's hit confirm before and after sound/stalker-hit-confirm (Classic, Musou) as WAV previews
           smtool listen-page [--game <dir>] [--out <dir>] [--count k]   curated listen.html: per weapon, NOW and PLANNED players
           smtool audio-render <event> [--out <dir>] [--seed n] [--count k] [--material armour|flesh] [--local] [--mono]   offline WAV preview of one post (no 3D attenuation, no bus effects)
           smtool audio-coverage [--map <name>]       M26b: sound triggers of the MP files and the map, resolved against the banks

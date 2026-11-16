@@ -360,6 +360,49 @@ public class ProjectileTests(ITestOutputHelper output)
 
     // ---------------------------------------------------------------- network
 
+    /// <summary>
+    /// fx/tracers-impact: a detonation of a projectile the client draws from the newest snapshot (<c>TakeDetonations(drawnAhead)</c>) is handed out as soon as it
+    /// arrives; every other detonation still waits for the interpolated view. Two observers of the same shots: the one that names every id gets each blast no later than
+    /// the one that names none, and earlier for at least one; both get the same blasts, each once.
+    /// </summary>
+    [Fact]
+    public void A_detonation_drawn_ahead_is_handed_out_on_arrival_others_wait_for_the_interpolated_view()
+    {
+        var harmless = Launcher with { Damage = 0f, Projectile = Grenade with { Splash = GrenadeBlast with { Damage = GrenadeBlast.Damage with { Damage = 0f } } }, ReserveSize = 2000 };
+        var config = ConfigWith(harmless);
+        var link = new LinkConditions(TimeSpan.FromMilliseconds(40), TimeSpan.FromMilliseconds(5), 0.0);
+        var h = new Harness(link, 82, 3, config, new ServerOptions { PeerTimeout = TimeSpan.FromMinutes(5) });
+        var ahead = new Dictionary<int, int>();
+        var behind = new Dictionary<int, int>();
+        int step = 0, twiceAhead = 0, twiceBehind = 0;
+        PlayerInput Input(int i, uint t)
+        {
+            uint phase = t % 120;
+            var b = i == 0 && phase % 12 == 0 && phase < 60 ? InputButtons.Fire : InputButtons.None;
+            if (i == 0 && phase is 90 or 91) b |= InputButtons.Reload;
+            return new PlayerInput(t, 0, 0, i * 3f, b, -0.5f);
+        }
+        h.Run(TimeSpan.FromSeconds(10), Input, () =>
+        {
+            step++;
+            if (h.Clients[1].Status == ClientStatus.Connected)
+                foreach (var d in h.Clients[1].TakeDetonations(_ => true)) if (!ahead.TryAdd(d.Id, step)) twiceAhead++;
+            if (h.Clients[2].Status == ClientStatus.Connected)
+                foreach (var d in h.Clients[2].TakeDetonations(_ => false)) if (!behind.TryAdd(d.Id, step)) twiceBehind++;
+        });
+        Assert.True(ahead.Count >= 3, $"blasts seen: {ahead.Count}");
+        Assert.Equal(0, twiceAhead);
+        Assert.Equal(0, twiceBehind);
+        int earlier = 0;
+        foreach (var (id, at) in behind)
+        {
+            Assert.True(ahead.TryGetValue(id, out int first), $"blast #{id} not handed out ahead");
+            Assert.True(first <= at, $"blast #{id}: ahead at step {first}, behind at {at}");
+            if (first < at) earlier++;
+        }
+        Assert.True(earlier > 0, "no blast was handed out earlier");
+    }
+
     [Fact]
     public void Prediction_of_the_grenade_count_stays_exact_and_clients_see_projectiles_and_detonations()
     {
@@ -430,7 +473,7 @@ public class ProjectileTests(ITestOutputHelper output)
             Points: [.. Enumerable.Repeat(new ControlPointView(Team.Chaos, Team.Chaos, 1f, true), Protocol.MaxSnapshotPoints)], Shots: ShotTests.ManyShots(players, Protocol.MaxSnapshotShots)));
         output.WriteLine($"16 players and {projectiles.Length} projectiles (protocol {Protocol.Version}): {bytes.Length} bytes");
         Assert.Equal(Protocol.MaxSnapshotBytes, bytes.Length);   // protocol 16: 16 projectile records (19 in 13-15, 20 in 10-12, 26 before), the other blocks and the shot records that fit
-        Assert.Equal(1199, bytes.Length);   // protocol 45: 14 projectile records and the own record's 8 reload bytes (44: 1200); protocol 23: + the 2-byte perk word, exactly the budget (21, 22: 1198); protocol 21: 16 projectile records, 4 shot records, the own record's reaction and raise bytes (ready ticks in 2), 2 under the 1200-byte budget (20: 1197; 17-19: 1195; 16: 1199; 15: 1195; 13: 1191; 12: 1187; 11: 1175)
+        Assert.Equal(1195, bytes.Length);   // protocol 45: 14 projectile records and the own record's 8 reload bytes (44: 1200); protocol 23: + the 2-byte perk word, exactly the budget (21, 22: 1198); protocol 21: 16 projectile records, 4 shot records, the own record's reaction and raise bytes (ready ticks in 2), 2 under the 1200-byte budget (20: 1197; 17-19: 1195; 16: 1199; 15: 1195; 13: 1191; 12: 1187; 11: 1175)
         Assert.True(bytes.Length <= UdpServerTransport.MaxPacket);
         var back = Assert.IsType<Snapshot>(Protocol.Read(bytes));
         Assert.Equal(players.Select(p => p.PlayerId == 7 ? p : Protocol.Slim(p)), back.Players);

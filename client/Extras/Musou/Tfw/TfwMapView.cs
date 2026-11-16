@@ -42,17 +42,29 @@ public partial class TfwMapView : Node3D
             ship = new MeshInstance3D { Name = "Stormbird", Mesh = Shell(hub), MaterialOverride = material };
         }
         view.AddChild(ship);
-        view.AddStation(hub.DestinationStation, DestinationColor);
-        view.AddStation(hub.EquipmentStation, EquipmentColor);
-        view.AddStation(hub.RangeStation, RangeColor);
-        view.AddChild(new MeshInstance3D   // the Firing Range's button on the wall: a small lit plate (placeholder demonstration)
+        // The three coloured floor pads and the green wall button are replaced by the owner's kit models on the walls (TfwBay, 2026-11-14); --bay-plain draws them as they were.
+        if (!OwnerKit.BayEnabled)
         {
-            Name = "RangeButton",
-            Mesh = new BoxMesh { Size = new Vector3(0.1f, 0.5f, 0.35f) },
-            MaterialOverride = new StandardMaterial3D { AlbedoColor = RangeColor, EmissionEnabled = true, Emission = RangeColor, EmissionEnergyMultiplier = 2f, ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded },
-            Position = new Vector3(hub.RangeButton.X, hub.RangeButton.Y, hub.RangeButton.Z),
-            Rotation = new Vector3(0f, 0f, hub.ToWorld(new Num.Vector3(1f, 0f, 0f)).X < hub.ToWorld(Num.Vector3.Zero).X ? MathF.PI : 0f),
-        });
+            view.AddStation(hub.DestinationStation, DestinationColor);
+            view.AddStation(hub.EquipmentStation, EquipmentColor);
+            view.AddStation(hub.RangeStation, RangeColor);
+            view.AddChild(new MeshInstance3D   // the Firing Range's button on the wall: a small lit plate (placeholder demonstration)
+            {
+                Name = "RangeButton",
+                Mesh = new BoxMesh { Size = new Vector3(0.1f, 0.5f, 0.35f) },
+                MaterialOverride = new StandardMaterial3D { AlbedoColor = RangeColor, EmissionEnabled = true, Emission = RangeColor, EmissionEnergyMultiplier = 2f, ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded },
+                Position = new Vector3(hub.RangeButton.X, hub.RangeButton.Y, hub.RangeButton.Z),
+                Rotation = new Vector3(0f, 0f, hub.ToWorld(new Num.Vector3(1f, 0f, 0f)).X < hub.ToWorld(Num.Vector3.Zero).X ? MathF.PI : 0f),
+            });
+        }
+        else
+        {
+            var notes2 = new List<string>();
+            var bay = TfwBay.Build(hub, notes2);
+            view.AddChild(bay);
+            foreach (var note in notes2) notes.Add("bay: " + note);
+            notes.Add($"bay: {bay.Props} wall props from the owner's kit ({bay.StandIns} drawn stand-ins)");
+        }
         view.AddLights(hub);
         var body = new StaticBody3D { Name = "HubRagdollWorld", CollisionLayer = Ragdoll.WorldLayer, CollisionMask = 0 };
         body.AddChild(new CollisionShape3D { Shape = new ConcavePolygonShape3D { Data = hub.Corners().Select(v => new Vector3(v.X, v.Y, v.Z)).ToArray(), BackfaceCollision = true } });

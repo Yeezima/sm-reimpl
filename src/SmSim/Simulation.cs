@@ -205,8 +205,29 @@ public readonly record struct PlayerState(int PlayerId, Vector3 Position, Vector
     public EvadeDirection MeleeDirection { get; init; }
     /// <summary>Protocol 45: the same for the second holstered weapon (<see cref="ThirdClip"/> family).</summary>
     public float ThirdReloadLeft { get; init; }
+    /// <summary>
+    /// Protocol 62 (sim/holstered-cooldown; the owner 2026-11-06: the bolt pistol fired late after a switch from the lascannon): the first holstered weapon's own shot cooldown
+    /// (seconds). Each weapon keeps its cooldown when it is put away and it runs down there; the one taken in hand brings its own (<see cref="Cooldown"/>). Before, the one
+    /// <see cref="Cooldown"/> stayed with the player, so the lascannon's 1 s held the pistol after the switch.
+    /// </summary>
+    public float OtherCooldown { get; init; }
+    /// <summary>Protocol 62: the same for the second holstered weapon (<see cref="ThirdClip"/> family).</summary>
+    public float ThirdCooldown { get; init; }
     /// <summary>Seconds since this player last took damage (drives regeneration).</summary>
     public float SinceDamage { get; init; }
+    /// <summary>Protocol 75 (sim/stim-regen-now): a combat stim was used since the last damage, so health regenerates without waiting for the health delay (armour keeps <see cref="SinceDamage"/> and its delay). Cleared wherever <see cref="SinceDamage"/> resets. Bit 6 of the damage byte on the wire.</summary>
+    public bool HealthRegenWaived { get; init; }
+    /// <summary>
+    /// Protocol 71 (onhit-damage-mark; the owner 2026-11-13: "any sort of damage should trigger the sparks and glows"): a counter, modulo 8, that <see cref="Combat.ApplyDamage(PlayerState, float, float, float, SimConfig)"/> raises on
+    /// every damage this player takes (every weapon, melee kind, blast, rush and Musou enemy hit pass through it). Every player's record carries it, so any client can show a hit on any player:
+    /// a change in the counter is one or more damages since the last record, however many snapshots were lost. Not simulated, not predicted; presentation only.
+    /// </summary>
+    public byte DamageCount { get; init; }
+    /// <summary>Protocol 71 (bit 5 of the damage byte): this player has already taken damage this tick, so a second damage in the same tick (a multi-pellet or multi-victim effect) keeps the counter and adds its bits; cleared at the start of every player tick (<c>Combat.StepPlayer</c>: the server and the client prediction alike).</summary>
+    public bool DamageFresh { get; init; }
+    /// <summary>Protocol 71: whether the damage of the last tick that took any took some shield and some health (the bits of every damage of one tick are ORed); both can be set; the client reads red when health was hit, else yellow.</summary>
+    public bool DamageShield { get; init; }
+    public bool DamageHealth { get; init; }
     /// <summary>Seconds until a dead player respawns.</summary>
     public float RespawnLeft { get; init; }
     public float Pitch { get; init; }
@@ -300,6 +321,11 @@ public readonly record struct PlayerState(int PlayerId, Vector3 Position, Vector
     /// down each tick, 0 at death and respawn). Not on the wire: the client keeps its prediction (<see cref="Stims.Carry"/>).
     /// </summary>
     public float StimLeft { get; init; }
+    /// <summary>
+    /// Added content's fire boost (Musou Mode's Rapid Fire powerup, owner 2026-11-10): seconds the guns still fire <see cref="SimConfig.FireBoost"/> times as fast and spend no round; counted down each tick,
+    /// 0 at death and respawn, set only by added content (always 0 in Classic PvP). Not on the wire: the client sets it from its own powerup state at a reconcile (<c>GameClient.ExtrasCarry</c>).
+    /// </summary>
+    public float FireBoostLeft { get; init; }
 
     // ---- jump pack (see JumpPack; protocol 9). Canonical zeros for players without a pack. ----
     /// <summary>Where the player is in a jump-pack jump.</summary>
@@ -323,6 +349,11 @@ public readonly record struct PlayerState(int PlayerId, Vector3 Position, Vector
     public bool JumpCut { get; init; }
     /// <summary>sim/jump-hang: in <see cref="JumpPhase.Hang"/>, the jump is the small jump (a medium hold), which hangs <see cref="JumpPackSpec.SmallHangTime"/> longer. False in every other phase.</summary>
     public bool JumpSmall { get; init; }
+    /// <summary>
+    /// sim/hop-rules (protocol 72; <see cref="SimConfig.HopRules"/>): a Jump press ended a bull rush held in the air (a charge off a ledge) and the body has not landed or begun another jump-pack phase or a hop since,
+    /// so the long press may still lift the pack in the air (<see cref="JumpPack.Begin"/>'s <c>airOpen</c>), in Classic PvP too. False in every other state. Wire: the jump byte's bit 6, in phase None.
+    /// </summary>
+    public bool JumpAirOpen { get; init; }
     /// <summary>
     /// Protocol 30: the <see cref="JumpPhase.Dive"/> or <see cref="JumpPhase.Recover"/> is the sword slash's (<see cref="SlashSpec"/>), not the ground
     /// pound's. Protocol 31 (feel/jump-pack): in the take-off and on the lift-off tick (phase Ascent), a slash press is buffered (<see cref="JumpPack"/>). False in every
@@ -548,6 +579,14 @@ public sealed partial record SimConfig
     public IReadOnlyList<ClassLoadout> Classes { get => _classes ?? [new ClassLoadout("default", 0, -1, MeleeSteps)]; init => _classes = value; }
     /// <summary>Seconds to switch between primary and pistol (placeholder; the original value is not decoded).</summary>
     public float WeaponSwitchTime { get; init; } = 0.6f;
+    /// <summary>
+    /// feel/grenades-quickdraw (the owner's request of 2026-11-06: "make the player point his gun at the crosshair faster (bring it up faster), so shooting any weapon after
+    /// swapping feels more responsive. it should be near instant, like a quickdraw"; a **deliberate change from the original**, an **estimate (owner's request)**): the weapon a
+    /// switch takes in hand comes up during the switch, so it is up (<see cref="PlayerState.ReadyTicks"/>) on the tick the switch ends and the first shot needs no raise
+    /// (<see cref="WeaponSpec.RaiseDelay"/>). False (the default, synthetic configs): the M31/M32 rule, the first shot after a switch waits for the raise. The content loader sets it
+    /// with <see cref="WeaponSwitchTime"/> = 0.1 s (<c>GameplayTuning.OwnerQuickdrawTime</c>). Hashed when true.
+    /// </summary>
+    public bool QuickdrawSwitch { get; init; }
     /// <summary>
     /// Seconds the weapon stays up after a shot, a charge or aim mode before it is lowered again (M31; <see cref="PlayerState.ReadyTicks"/>).
     /// M32: 10 s, the **owner's rough estimate, unverified (to check in the original)**: "the gun stays up after a shot for approximately
@@ -801,6 +840,8 @@ public sealed partial record SimConfig
             w.Write("blind-view"); w.Write(BlindViewHalfAngle);   // owner's decision 2026-10-28: the blind grenade by facing
             if (!PlayerBodies) w.Write("no-player-bodies");   // sim/player-collision: only when off (older hashes unchanged)
             if (!ChargeLock) w.Write("no-charge-lock");   // anim/melee-interaction: only when off (older hashes unchanged)
+            if (!ChargeClash) w.Write("no-charge-clash");   // feel/charge-clash: only when off (older hashes unchanged)
+            if (!SolidBodies) w.Write("no-solid-bodies");   // fix/charge-player-collision: only when off (older hashes unchanged)
             if (StraightDropAbove != 1f) { w.Write("straight-drop"); w.Write(StraightDropAbove); }   // protocol 30: only when not the default (older hashes unchanged)
             if (MeleeLock != MeleeLockSpec.Default) { w.Write("melee-lock"); MeleeLock.Write(w); }   // feel/melee-lock: only when not the default (older hashes unchanged)
             if (FlightHitVolumes is { } flight) { w.Write("flight-volumes"); flight.Write(w); }   // fix/hitboxes (protocol 37): only when set (older hashes unchanged)
@@ -808,8 +849,21 @@ public sealed partial record SimConfig
             if (InputBufferTicks > 0) { w.Write("input-buffer"); w.Write(InputBufferWindow); }   // feel/buffer-speed: only when on
             if (ActionLockScale != 1f) { w.Write("lock-scale"); w.Write(ActionLockScale); }   // feel/locks-sprint-stop: only when not the default (older hashes unchanged)
             if (SprintStopTime > 0f) { w.Write("sprint-stop"); w.Write(SprintStopTime); }   // feel/locks-sprint-stop: only when on
+            if (QuickdrawSwitch) w.Write("quickdraw-switch");   // feel/grenades-quickdraw: only when on (older hashes unchanged)
             if (MeleeLungeScale != 1f) { w.Write("lunge-scale"); w.Write(MeleeLungeScale); }   // feel/melee-charge-2: only when not the default (older hashes unchanged)
             if (MeleeFlinchDegrees != 6f || MeleeFlinchSeconds != 0.5f) { w.Write("melee-flinch"); w.Write(MeleeFlinchDegrees); w.Write(MeleeFlinchSeconds); }   // sim/light-melee-flinch: only when not the default
+            if (!ChargeBackCancel) w.Write("old-charge-cancel");   // charge-cancel (protocol 66): only when off (older hashes unchanged)
+            if (!StimReliable) w.Write("old-stim-use");   // stims-classic (protocol 68): only when off (older hashes unchanged)
+            if (!ChargeAfterMelee) w.Write("old-charge-after-melee");   // charge-responsive (protocol 69): only when off (older hashes unchanged)
+            if (!ChargeInstantCancel) w.Write("old-charge-cancel-delay");   // charge-responsive (protocol 69): only when off
+            if (!ChargeMeleeChain) w.Write("old-charge-melee-chain");   // charge-melee-chain (protocol 70): only when off
+            if (!HopRules) w.Write("old-hop-rules");   // sim/hop-rules (protocol 72): only when off
+            if (!StompRelease) w.Write("old-stomp-release");   // sim/stomp-release (2026-11-14): only when off
+            if (!KickPushCut) w.Write("old-kick-push");   // sim/kick-push (protocol 76): only when off
+            if (!SprintMeleeCharge) w.Write("old-sprint-melee");   // sim/sprint-melee-charge (protocol 77): only when off
+            if (!LedgeChargeCancel) w.Write("old-ledge-cancel");   // sim/ledge-charge-cancel (protocol 77): only when off
+            if (!LascannonTapReload) w.Write("old-lascannon-reload");   // sim/lascannon-tap-reload (protocol 78): only when off
+            if (!ChargeAllyBump) w.Write("old-ally-bump");          // charge-ally-bump (protocol 66): only when off (older hashes unchanged)
             // Added content (ContentExtras.cs): only when any is on, so a faithful config hashes byte for byte as before the switch.
             if (Extras != ContentExtras.None) { w.Write("extras"); w.Write((uint)Extras); w.Write(ContentExtras.WireVersion); ExtrasHash(w); }   // EXTRAS-HOOK
         }
@@ -1025,7 +1079,9 @@ public sealed partial class World(SimConfig config, CollisionWorld? collision = 
     {
         _players.Remove(playerId);   // a re-spawned id is counted afresh for sides
         _nextLoadouts.Remove(playerId);
+        ForgetSpawnChoice(playerId);   // fix/pvp-deploy-spawn: a new join starts in the spawn room
         _damageScale.Remove(playerId);   // test aid (--bot-damage-scale): a new join of the id starts unscaled
+        _botClients.Remove(playerId);    // and is no bot until the server says so
         ForgetFlightView(playerId);
         var classSide = playerClass >= 0 && playerClass < Config.Classes.Count ? Config.Classes[playerClass].Side : Team.None;
         var side = Rules is not null && classSide == Team.None && team is Team.SpaceMarines or Team.Chaos ? team.Value : TeamFor(playerClass);
@@ -1090,8 +1146,11 @@ public sealed partial class World(SimConfig config, CollisionWorld? collision = 
         _players.Remove(playerId);
         _jumpApex.Remove(playerId);
         _scores.Remove(playerId);
+        _lifeDamage.Remove(playerId);   // assists (Teams.cs)
         _nextLoadouts.Remove(playerId);
+        ForgetSpawnChoice(playerId);
         _damageScale.Remove(playerId);
+        _botClients.Remove(playerId);
         ForgetFlightView(playerId);
         RemoveProjectilesOf(playerId);
         _perkBlasts.RemoveAll(b => b.Owner == playerId);
@@ -1157,6 +1216,7 @@ public sealed partial class World(SimConfig config, CollisionWorld? collision = 
         _flinches.Clear();
         _rushes.Clear();
         _respawns.Clear();
+        _deployDeaths.Clear();
         _pickupSpawns.Clear(); _pickupEvents.Clear();   // fidelity gap 1 (Pickups.cs)
         BeginProjectileTick();
         var aliveBefore = BeginMatchTick();
@@ -1175,23 +1235,37 @@ public sealed partial class World(SimConfig config, CollisionWorld? collision = 
             bool extraHandled = false;
             ExtrasPlayerInput(id, ref extraInput, ref extraHandled);   // EXTRAS-HOOK: added content's players without a client (Musou Mode's AI Marines)
             var sampled = extraHandled ? extraInput : inputFor(id);
-            var input = (State == MatchState.Countdown ? MatchFlow.Locked(sampled) : sampled).Sanitized() with { Tick = Tick };   // no attacks before the match begins (ours)
+            bool inputLocked = State == MatchState.Countdown;
+            ExtrasInputLocked(id, ref inputLocked);   // EXTRAS-HOOK: added content may lock a player's input as the countdown does (Musou: the Dreadnought's entrance)
+            var input = (inputLocked ? MatchFlow.Locked(sampled) : sampled).Sanitized() with { Tick = Tick };   // no attacks before the match begins (ours)
+            ExtrasInputFilter(id, ref input);   // EXTRAS-HOOK: added content may take buttons off a player's sanitized input (Musou: the Dreadnought's sprint limit)
+            ExtrasSampled(id, input);   // EXTRAS-HOOK: added content reads the sanitized input (Musou: the Librarian's powers)
             NoteInteract(id, input);   // fidelity gap 1: pickups (Pickups.cs)
             PlayerState next;
             SelfEvents events;
-            using (PlayerCollision.Use(BodiesFor(id, input)))   // sim/player-collision: the others' capsules as this player's client knew them (WorldBodies.cs)
-                next = Combat.StepPlayer(_players[id], input, Config, out events, Collision, SeenBy(input));   // feel/melee-lock: the lock in the attacker's view
+            bool deployed = TakeDeploy(id);   // fix/pvp-deploy-spawn: the in-match Deploy's suicide (classic PvP; SpawnChoice.cs)
+            if (deployed)
+            {
+                next = Combat.Killed(_players[id], Config) with { RespawnLeft = 0f };   // no respawn delay: back the next tick with the waiting loadout
+                events = default;
+                _deployDeaths.Add(id);
+            }
+            else
+            using (PlayerCollision.Use(ClashBodies(id, BodiesFor(id, input))))   // feel/charge-clash: less its clash victim while it shoves; sim/player-collision: the others' capsules as this player's client knew them (WorldBodies.cs)
+                next = Combat.StepPlayer(_players[id], input, Config, out events, Collision, LockView(id, input));   // feel/melee-lock: the lock in the attacker's view (musou/boss-collision: and added content's targets)
             bool fired = events.Fired;
             int meleeHitStep = events.MeleeHitStep;
             var before = _players[id];
             if (Collision is not null && next.Alive && (next.Position.Z < Collision.Character.Min.Z - Config.KillDepth
                     || (before.Alive && Collision.KillsPlayer(before.Position, next.Position, Config.CapsuleHeight))))
                 next = Combat.Killed(next, Config);   // fell out of the level, or into one of its kill volumes (M18)
-            if (!next.Alive && next.RespawnLeft <= 0f)
+            if (!next.Alive && next.RespawnLeft <= 0f && !deployed)   // a Deploy's death shows for one tick (the kill feed, the scoreboard) before the respawn
             {
                 next = WithNextLoadout(next);   // a loadout change waiting for this respawn
                 _respawns.Add(id);
-                if (TryHomerSpawn(next, out var homerAt, out var homerYaw))   // Teleport Homer: next to a living carrier on the side
+                // fix/pvp-deploy-spawn: classic PvP spawns where the player chose (a held point, a living Teleport Homer carrier; else the spawn room); Musou Mode keeps
+                // the automatic Teleport Homer spawn next to the nearest living carrier.
+                if (ClassicPvp ? TryChosenSpawn(next, out var homerAt, out var homerYaw) : TryHomerSpawn(next, out homerAt, out homerYaw))
                     next = Combat.Respawned(next with { Position = homerAt, Yaw = homerYaw }, Config);
                 else if (TryStartAreaSpawn(id, next.Team, out var areaAt, out var areaYaw))
                     next = Combat.Respawned(next with { Position = areaAt, Yaw = areaYaw }, Config);
@@ -1227,6 +1301,13 @@ public sealed partial class World(SimConfig config, CollisionWorld? collision = 
             else if (Rush.LandedFrom(before, next) is { } landed && Rush.Connecting(landed, Config)) { rushes.Add((id, input, before, landed)); (landedCharges ??= new())[id] = landed.Rush; }
             TrackJump(id, next, events.Jump, jumps);
         }
+        // fix/charge-player-collision: no body moves through another as they really stand (SolidBodies.cs); the charges test the moves it leaves.
+        CarryClashes(_history[Tick - 1]);   // feel/charge-clash: each shove carries its victim (ChargeClash.cs)
+        GuardBodies(_history[Tick - 1]);
+        HoldClashes(_history[Tick - 1]);   // feel/charge-clash: a pair the guard cut differently keeps the lock distance
+        for (int k = 0; k < rushes.Count; k++)
+            if (_players.TryGetValue(rushes[k].Player, out var guarded) && guarded.Position != rushes[k].State.Position)
+                rushes[k] = rushes[k] with { State = rushes[k].State with { Position = guarded.Position, Velocity = guarded.Velocity } };
         StepFlightViews();   // fix/hitboxes: the jump poses viewers see now that everyone moved (RewindFraction.cs)
         // Projectiles: remote detonations asked this tick, then launches (in player order), then every projectile moves.
         foreach (int id in detonations) DetonateRemotely(id);
@@ -1248,6 +1329,7 @@ public sealed partial class World(SimConfig config, CollisionWorld? collision = 
         var connected = new List<int>();   // M29: charges, after melee; M32: their stops once all have resolved
         foreach (var (player, input, before, state) in rushes) if (ResolveRush(player, input, before, state)) connected.Add(player);
         StopRushes(connected, landedCharges);
+        OpenClashes();   // feel/charge-clash: the connects whose victim reacts lock the two through the shove
         foreach (var (player, kind, state, drop) in jumps) ResolveJump(player, kind, state, drop);
         ApplyPerkBlasts();   // M43: armour-break blasts of this tick and death blasts now due
         ExtrasStep();   // EXTRAS-HOOK: added content's own simulation after every player's attacks (Musou: its enemies)
@@ -1324,12 +1406,13 @@ public sealed partial class World(SimConfig config, CollisionWorld? collision = 
                 var meleeType = step.DamageType == DamageType.Unknown ? DamageType.Melee : step.DamageType;
                 float received = Loadouts.Body(Config, before).Received(meleeType)   // M43: Feel No Pain
                     * DamageScaleOf(attacker)   // test aid: --bot-damage-scale
+                    * DamageTakenScale(target)   // added content's (Musou: the AI Marines take a tenth); 1 in Classic PvP
                     * Stims.MeleeDealt(Config, state);   // perks/inert-2: the attacker's combat stims (the whole hit, its shield part too)
                 damage *= received;
                 // Weapons C: the armour-shield part first, off the shield only (as a blast's and the charge's), then the damage.
                 var victim = before;
                 float shieldOnly = MathF.Min(victim.Shield, MathF.Max(0f, shieldPart * received));
-                if (shieldOnly > 0f) victim = victim with { Shield = victim.Shield - shieldOnly, SinceDamage = 0f };
+                if (shieldOnly > 0f) victim = victim with { Shield = victim.Shield - shieldOnly, SinceDamage = 0f, HealthRegenWaived = false };
                 var (after, shieldDamage, healthDamage) = Combat.ApplyDamage(victim, damage, step.ShieldMultiplier,
                     step.HealthMultiplier * Stims.HealthTaken(Config, before, meleeType), Config);   // perks/inert-2: the target's stims, health part only
                 shieldDamage += shieldOnly;
@@ -1341,7 +1424,7 @@ public sealed partial class World(SimConfig config, CollisionWorld? collision = 
             }
             if (!_players[target].Alive) continue;
             if (light) Flinch(attacker, target);   // sim/light-melee-flinch: the aim thrown off, nothing else
-            else TryReact(attacker, target, reaction, state.Position, new Vector2(pushDirection.X, pushDirection.Y));
+            else TryReact(attacker, target, step.Kick ? KickTuning.WithPush(reaction, Config) : reaction, state.Position, new Vector2(pushDirection.X, pushDirection.Y));
         }
         if (step.Stomp is { } stomp)
             ApplyBlast(attacker, 0, state.Position + new Vector3(0, 0, ChestOf(state)), stomp, melee: true);   // a stomp kill is a melee kill
@@ -1360,6 +1443,9 @@ public sealed partial class World(SimConfig config, CollisionWorld? collision = 
     /// <c>Extras/</c> folder; returns at once unless its feature runs.
     /// </summary>
     partial void ExtrasPlayerInput(int id, ref PlayerInput input, ref bool handled);
+    partial void ExtrasSampled(int id, in PlayerInput input);
+    partial void ExtrasInputLocked(int id, ref bool locked);
+    partial void ExtrasInputFilter(int id, ref PlayerInput input);
 
     /// <summary>
     /// Hook for added content: at the end of <see cref="ResolveMelee"/> (after the players it hit and its stomp), with the attacker's state this tick
@@ -1462,9 +1548,9 @@ public sealed partial class World(SimConfig config, CollisionWorld? collision = 
         // M43: the target's received-damage perks (Feel No Pain, Impenetrable) scale the whole hit, its shield part included
         // (interpretation). The type is the file's damagetype, else a blast's explosive, melee's melee, a shot's ranged.
         var type = spec.Type != DamageType.Unknown ? spec.Type : splash ? DamageType.Explosive : melee ? DamageType.Melee : DamageType.Ranged;
-        intensity *= Loadouts.Body(Config, victim).Received(type) * DamageScaleOf(shooter);   // test aid: --bot-damage-scale (1 unless set)
+        intensity *= Loadouts.Body(Config, victim).Received(type) * DamageScaleOf(shooter) * DamageTakenScale(target);   // test aid: --bot-damage-scale (1 unless set)
         float shieldOnly = MathF.Min(victim.Shield, MathF.Max(0f, spec.ShieldDamage * intensity));
-        if (shieldOnly > 0f) victim = victim with { Shield = victim.Shield - shieldOnly, SinceDamage = 0f };
+        if (shieldOnly > 0f) victim = victim with { Shield = victim.Shield - shieldOnly, SinceDamage = 0f, HealthRegenWaived = false };
         bool head = zone == HitZone.Head;
         float stim = Stims.HealthTaken(Config, victim, type);   // perks/inert-2: combat stims scale the health part only
         var (after, shieldDamage, healthDamage) = Combat.ApplyDamage(victim, spec.Damage * intensity,

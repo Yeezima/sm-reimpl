@@ -57,6 +57,9 @@ public static class WeightFeel
         return 1.15f;
     }
 
+    /// <summary>night/weapon-fx (owner, 2026-11-06: "the arms should not recoil at all when firing the plasma rifle"): the plasma gun lays no recoil clip over the body (the camera kick is unchanged).</summary>
+    public static bool NoBodyRecoil(string weaponName) => weaponName.Contains("plasma_gun", StringComparison.OrdinalIgnoreCase);
+
     /// <summary>The upward kick of the own camera per shot (degrees) for the heavy weapons, 0 for the others; a charged plasma gun shot kicks too. Half of it while aiming (the view is narrower).</summary>
     public static float CameraRecoilDegrees(string weaponName, int chargeStage, bool aiming)
     {

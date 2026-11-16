@@ -162,6 +162,95 @@ public sealed class PackageScannerTests : IDisposable
         Assert.Empty(Scan(Zip(("AUTHORS.txt", Text("1234+Yeezima@users.noreply.github.com and noreply@anthropic.com and a@example.com")))));
     }
 
+    /// <summary>A synthetic glTF binary: the JSON chunk, then a binary chunk.</summary>
+    static byte[] Glb(string json, byte[] bin)
+    {
+        while (json.Length % 4 != 0) json += " ";
+        var j = Encoding.ASCII.GetBytes(json);
+        using var ms = new MemoryStream();
+        using var w = new BinaryWriter(ms);
+        w.Write(0x46546C67u); w.Write(2u); w.Write((uint)(12 + 8 + j.Length + 8 + bin.Length));
+        w.Write((uint)j.Length); w.Write(0x4E4F534Au); w.Write(j);
+        w.Write((uint)bin.Length); w.Write(0x004E4942u); w.Write(bin);
+        w.Flush();
+        return ms.ToArray();
+    }
+
+    [Fact]
+    public void A_glb_is_checked_for_email_in_its_json_chunk_only()
+    {
+        // Random image bytes that read as an address in the binary chunk (the Ashfall kit's 20 false findings, 2026-11-06) are not a finding...
+        var noisy = Glb("{\"asset\":{\"generator\":\"pygltflib@v1.16.5\",\"version\":\"2.0\"}}", Text(Fix("\u0001ab%AT%xH.Fp\u0002cd%AT%B.Nj")));
+        Assert.Empty(Scan(Zip(("game/ashfall-kit/m.glb", noisy))));
+        // ...an address in its metadata still is.
+        var tagged = Glb(Fix("{\"asset\":{\"generator\":\"jane.doe%AT%gmail.com\",\"version\":\"2.0\"}}"), [1, 2, 3, 4]);
+        Assert.Contains(Scan(Zip(("game/ashfall-kit/m.glb", tagged))), f => f.Rule == "personal-email");
+    }
+
+    /// <summary>A synthetic Ogg page of one stream (no CRC: the guard does not check it); packets of 255 bytes or more are laced over several segments.</summary>
+    static byte[] OggPage(uint serial, uint sequence, byte flags, params byte[][] packets)
+    {
+        var lacing = new List<byte>();
+        var body = new List<byte>();
+        foreach (var p in packets)
+        {
+            int n = p.Length;
+            while (n >= 255) { lacing.Add(255); n -= 255; }
+            lacing.Add((byte)n);
+            body.AddRange(p);
+        }
+        var page = new List<byte>();
+        page.AddRange("OggS"u8.ToArray());
+        page.Add(0); page.Add(flags);
+        page.AddRange(new byte[8]);
+        page.AddRange(BitConverter.GetBytes(serial)); page.AddRange(BitConverter.GetBytes(sequence));
+        page.AddRange(new byte[4]);
+        page.Add((byte)lacing.Count); page.AddRange(lacing); page.AddRange(body);
+        return page.ToArray();
+    }
+
+    /// <summary>A synthetic Ogg Theora file: the three headers (the comment header holding <paramref name="comment"/>), then the given frame packets (high bit clear) on their own page.</summary>
+    static byte[] TheoraOgg(string comment, params byte[][] frames) =>
+    [
+        .. OggPage(7, 0, 0x02, [0x80, .. "theora"u8, 3, 2, 1]),
+        .. OggPage(7, 1, 0x00, [0x81, .. "theora"u8, .. Encoding.ASCII.GetBytes(comment)], [0x82, .. "theora"u8, .. Filler(300, 0x11)]),
+        .. OggPage(7, 2, 0x04, frames),
+    ];
+
+    [Fact]
+    public void An_ogv_is_checked_for_email_and_home_paths_in_its_header_packets_only()
+    {
+        // Compressed frame bytes that read as an address or a home path (the main menu's video loop: three false findings, 2026-11-10) are not a finding...
+        var noisy = TheoraOgg("Lavf62", [0x00, .. Text(Fix("\u0001ab4euX%AT%T.uU\u0002 /%H%/jdoe/x"))], [0x00, .. Filler(600, 0x22)]);
+        Assert.Empty(Scan(Zip(("game/assets/menu/menu-loop.ogv", noisy))));
+        Assert.NotNull(PackageScanner.OggHeaderBytes(() => new MemoryStream(noisy)));
+        // ...an address or a home path in its comment header still is.
+        Assert.Contains(Scan(Zip(("game/assets/menu/menu-loop.ogv", TheoraOgg(Fix("ARTIST=jane.doe%AT%gmail.com"), [0x00, 1, 2])))), f => f.Rule == "personal-email");
+        Assert.Contains(Scan(Zip(("game/assets/menu/menu-loop.ogv", TheoraOgg(Fix("SOURCE=/%H%/jdoe/clip.mp4"), [0x00, 1, 2])))), f => f.Rule == "absolute-user-path");
+        // Every other rule still reads the whole file: a C:\Users path in a frame packet is a finding.
+        Assert.Contains(Scan(Zip(("game/assets/menu/menu-loop.ogv", TheoraOgg("Lavf62", [0x00, .. Text(Fix(@"C:\%U%\jdoe\clip"))])))), f => f.Rule == "absolute-user-path");
+    }
+
+    [Fact]
+    public void An_ogv_that_is_not_plain_well_formed_ogg_is_scanned_whole()
+    {
+        byte[] frame = [0x00, .. Text(Fix("x4euX%AT%T.uU and more"))];   // the cut-off case below drops the last 3 bytes
+        var good = TheoraOgg("Lavf62", frame);
+        // Not Ogg at all, bytes after the last page, a cut-off page, a header packet after a data packet, an unknown codec: the e-mail rule reads everything.
+        byte[] notOgg = [.. Text("RIFF...."), .. frame];
+        byte[] trailing = [.. good, .. Text("tail")];
+        byte[] cut = good[..^3];
+        byte[] lateHeader = [.. good, .. OggPage(7, 3, 0x00, [0x81, .. "theora"u8, .. Text("x")])];
+        byte[] unknown = [.. OggPage(9, 0, 0x02, [.. "fishead\0"u8]), .. OggPage(9, 1, 0x04, frame)];
+        foreach (var bytes in new[] { notOgg, trailing, cut, lateHeader, unknown })
+        {
+            Assert.Null(PackageScanner.OggHeaderBytes(() => new MemoryStream(bytes)));
+            Assert.Contains(Scan(Zip(("game/assets/menu/menu-loop.ogv", bytes))), f => f.Rule == "personal-email");
+        }
+        // Another type keeps the whole-file scan whatever its bytes (the rule is for .ogv only).
+        Assert.Contains(Scan(Zip(("game/assets/menu/clip.ogg", good))), f => f.Rule == "personal-email");
+    }
+
     [Fact]
     public void ShortTestFixtureWebhooksAreNotFlagged()
     {
@@ -245,8 +334,11 @@ public sealed class PackageScannerTests : IDisposable
     public void ExtensionsOutsideTheAllowlistAreRefusedInTheBinaryProfile()
     {
         void Profile(PackageScanner s) => s.AllowedExtensions = new HashSet<string>(PackageScanCommand.BinaryProfileExtensions, StringComparer.OrdinalIgnoreCase);
-        var findings = Scan(Zip(("a/x.dll", Filler(100)), ("a/run.sh", Text("echo")), ("a/LICENSE", Text("x")), ("a/SmServer", Filler(100)), ("a/odd.xyz", Filler(100)), ("a/noext", Filler(100))), Profile);
-        Assert.Equal(2, findings.Count(f => f.Rule == "unexpected-type"));
+        // game/assets/menu/menu-loop.ogv: the main menu's video loop is no longer shipped (owner, 2026-11-14), so a binary package holding an .ogv is refused.
+        var findings = Scan(Zip(("a/x.dll", Filler(100)), ("a/run.sh", Text("echo")), ("a/LICENSE", Text("x")), ("a/SmServer", Filler(100)), ("a/odd.xyz", Filler(100)), ("a/noext", Filler(100)),
+            ("game/assets/menu/menu-loop.ogv", [0x4F, 0x67, 0x67, 0x53, 0, 2, 0, 0])), Profile);
+        Assert.Equal(3, findings.Count(f => f.Rule == "unexpected-type"));
+        Assert.Contains(findings, f => f.Entry == "game/assets/menu/menu-loop.ogv");
         Assert.Contains(findings, f => f.Entry == "a/odd.xyz");
         Assert.Contains(findings, f => f.Entry == "a/noext");
     }
@@ -308,6 +400,55 @@ public sealed class PackageScannerTests : IDisposable
         Refused(Filler(10).Concat(Text("GDPC")).ToArray());                       // a trailer that does not fit
         // an executable that is not the client's and has no pack is simply not a pack
         Assert.Empty(Scan(Zip(("SmServer.exe", Filler(5000)))));
+    }
+
+    /// <summary>
+    /// A minimal PE: MZ header, PE signature, a COFF header with no optional header, and one section per (name, virtual size, first bytes of its data);
+    /// each section's data is 512 bytes inside the file.
+    /// </summary>
+    static byte[] Pe(params (string Name, uint VirtualSize, byte[] Data)[] sections)
+    {
+        int dataAt = 0x400;
+        var b = new byte[dataAt + 512 * sections.Length];
+        b[0] = (byte)'M'; b[1] = (byte)'Z';
+        BitConverter.GetBytes(0x80).CopyTo(b, 0x3C);
+        b[0x80] = (byte)'P'; b[0x81] = (byte)'E';
+        BitConverter.GetBytes((ushort)sections.Length).CopyTo(b, 0x80 + 6);
+        BitConverter.GetBytes((ushort)0).CopyTo(b, 0x80 + 20);
+        for (int i = 0; i < sections.Length; i++)
+        {
+            int h = 0x80 + 24 + 40 * i, raw = dataAt + 512 * i;
+            System.Text.Encoding.ASCII.GetBytes(sections[i].Name).CopyTo(b, h);
+            BitConverter.GetBytes(sections[i].VirtualSize).CopyTo(b, h + 8);
+            BitConverter.GetBytes(512u).CopyTo(b, h + 16);
+            BitConverter.GetBytes((uint)raw).CopyTo(b, h + 20);
+            sections[i].Data.CopyTo(b, raw);
+        }
+        return b;
+    }
+
+    static (string, uint, byte[]) Sec(string name, uint size = 4096, byte[]? data = null) => (name, size, data ?? []);
+
+    [Fact]
+    public void TheClientExeWithItsPackBesideItIsAcceptedOnlyWhenItEmbedsNothing()
+    {
+        string[] fine = ["project.binary", "Main.tscn.remap"];
+        void Require(PackageScanner s) { s.RequireVerifiedPack = true; s.AllowedExtensions = BinaryProfile(); }
+        // tools/release-parts: the engine part holds the exe alone: a PE whose "pck" section is still the template's 8-byte placeholder (zero), no
+        // trailer: nothing embedded, nothing to refuse (Godot 4.7's Windows template has exactly such a section)
+        Assert.Empty(Scan(Zip(("game/sm-reimpl.exe", Pe(Sec(".text"), Sec(".rdata"), Sec("pck", 8), Sec(".rsrc"))))));
+        Assert.Empty(Scan(Zip(("game/sm-reimpl.exe", Pe(Sec(".text"), Sec(".rsrc"))))));
+        // a pack section grown over a pack, or holding the GDPC magic, could still be loaded by Godot without the trailer: refused
+        Assert.Contains(Scan(Zip(("game/sm-reimpl.exe", Pe(Sec(".text"), Sec("pck", 700_000))))), f => f.Rule == "pack-unverifiable");
+        Assert.Contains(Scan(Zip(("game/sm-reimpl.exe", Pe(Sec(".text"), Sec("pck", 8, Text("GDPC")))))), f => f.Rule == "pack-unverifiable");
+        Assert.Contains(Scan(Zip(("game/sm-reimpl.exe", Pe(Sec(".text"), Sec(".PCK0", 4096))))), f => f.Rule == "pack-unverifiable");
+        // a damaged PE (section table outside the file) is refused as before
+        var cut = Pe(Sec(".text"));
+        BitConverter.GetBytes((ushort)60000).CopyTo(cut, 0x80 + 6);
+        Assert.Contains(Scan(Zip(("game/sm-reimpl.exe", cut))), f => f.Rule == "pack-unverifiable");
+        // the client part: the standalone pack satisfies --require-pack; the exe alone does not
+        Assert.Empty(Scan(Zip(("game/sm-reimpl.pck", GodotExe(4, 2, false, false, fine).Skip(500).ToArray()), ("game/data_x/SmClient.dll", Filler(100))), Require));
+        Assert.Contains(Scan(Zip(("game/sm-reimpl.exe", Pe(Sec(".text"), Sec("pck", 8)))), Require), f => f.Rule == "no-verified-pack");
     }
 
     [Fact]
@@ -547,8 +688,13 @@ public sealed class PackageScannerTests : IDisposable
         Assert.Contains(Scan(Zip(("source/s.zip", withZip)), Source), f => f.Rule == "archive-in-source" && f.Entry == "source/s.zip!/s/more.zip");
         byte[] withDll = ZipBytes(("s/tool.cs", [0x4D, 0x5A, 0x90, 0, 3, 0, 0, 0]));
         Assert.Contains(Scan(Zip(("source/s.zip", withDll)), Source), f => f.Rule == "binary-in-source");
-        byte[] withOgg = ZipBytes(("s/assets/bark.ogg", [0x4F, 0x67, 0x67, 0x53, 0, 2, 0, 0]), ("s/a.cs", Text("class A {}")));
+        byte[] withOgg = ZipBytes(("s/assets/bark.ogg", [0x4F, 0x67, 0x67, 0x53, 0, 2, 0, 0]), ("s/client/assets/menu/menu-loop.ogv", [0x4F, 0x67, 0x67, 0x53, 0, 2, 0, 0]), ("s/a.cs", Text("class A {}")));
         Assert.Empty(Scan(Zip(("source/s.zip", withOgg)), Source));
+        // The owner's kit models (2026-11-14) pass under client/assets/owner-kit/ only; a .glb elsewhere in the source offer is still a binary.
+        byte[] glb = [0x67, 0x6C, 0x54, 0x46, 2, 0, 0, 0, 0, 0, 0, 0];
+        Assert.Empty(Scan(Zip(("source/s.zip", ZipBytes(("s/client/assets/owner-kit/thunderhawk-classic/models/Armory.glb", glb)))), Source));
+        Assert.Contains(Scan(Zip(("source/s.zip", ZipBytes(("s/client/assets/other/Armory.glb", glb)))), Source), f => f.Rule == "binary-in-source");
+        Assert.Contains(Scan(Zip(("source/s.zip", ZipBytes(("s/client/assets/owner-kit/../../x.glb", glb)))), Source), f => f.Rule == "binary-in-source");
         // Outside the source offer the binary rule does not apply (a package's own .dll files are fine).
         Assert.Empty(Scan(Zip(("game/x.dll", [0x4D, 0x5A, 0x90, 0, 3, 0, 0, 0]))));
     }

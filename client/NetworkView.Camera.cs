@@ -62,6 +62,7 @@ public partial class NetworkView
     string _switchKey = "";
     System.Numerics.Vector3 _switchCam, _switchPivot, _lastCam, _lastPivot;
     float _switchFov, _lastFov, _switchT = 1f, _switchTime = 0.25f;
+    float _switchFovRef, _lastFovRef, _reticleFovScale = 1f;   // ui/crosshair-fov-scale (ReticleFovScale)
     float _evadeBlend;                     // 0 .. 1 toward the evade roll's camera set
     string _evadeCameraNote = "";
     bool _evadeCurveNoted;
@@ -125,7 +126,10 @@ public partial class NetworkView
     }
 
     /// <summary>Whether the follow camera is the rig's: human views (and the bot's with <c>--aim-test</c>), not the spectator cameras.</summary>
-    bool RigCameraWanted => Spectate is null && (!_bot || AimTest || SlashTest && float.IsFinite(SlashViewPitch) || StompMoveTest || SwingTest || CarryTest || CameraTest) && _cameraRig is not null && _cameraTuning is not null;   // anim/air-slash-character: --slash-view-pitch gives the slash test the human camera; anim/stomp-to-move: --stomp-move-test too; anim/relic-bolter-idle: --carry-test too
+    bool RigCameraWanted => Spectate is null && (!_bot || AimTest || SlashTest && float.IsFinite(SlashViewPitch) || StompMoveTest || SwingTest || CarryTest || CameraTest || TransitionSweep && FeelShotsDir is not null) && _cameraRig is not null && _cameraTuning is not null;   // anim/air-slash-character: --slash-view-pitch gives the slash test the human camera; anim/stomp-to-move: --stomp-move-test too; anim/relic-bolter-idle: --carry-test too
+
+    /// <summary>Hook for added content: the rig's camera offset, pivot and field of view for this frame (<paramref name="aimBlend"/>: 0 hip, 1 aimed) may be changed (Musou: the Dreadnought's data fields of view and a camera scaled to his size).</summary>
+    partial void ExtrasRigCamera(PlayerState me, float aimBlend, float delta, ref System.Numerics.Vector3 cam, ref System.Numerics.Vector3 pivot, ref float fov, ref float fovRef);
 
     static float Finite(float v, float fallback) => float.IsFinite(v) ? v : fallback;
 
@@ -135,6 +139,7 @@ public partial class NetworkView
     /// </summary>
     bool RigCamera(PlayerState me, float delta)
     {
+        _lascannonScope = 0f;   // sim/lascannon-steady-zoom: recomputed below; never left stale when the rig returns early
         _cameraPlacedValid = false;   // feel/controls: set again by NoteCameraPlaced when the rig places the camera this frame
         if (_camera is null || _gameSpace is null || _config is null || _cameraRig is null || CameraFor(me) is not { } wc) return false;
         var ex = wc.Exploration; var aim = wc.Aim;
@@ -173,9 +178,12 @@ public partial class NetworkView
         float aimFov = wc.ZoomFovs is { Count: > 0 } zooms ? zooms[_padZoom % zooms.Count] : aim.FieldOfView;   // R3 on the pad steps through the levels (NetworkView.Gamepad.cs)
         // ui/fov-slider (ours): the player's wider field of view scales the exploration and aim cameras; a scope's zoom level stays exactly the data's.
         var viewSize = GetViewport().GetVisibleRect().Size;
-        float fovScale = FovMath.Scale(FovOverride ?? FovMath.Selected, FovMath.Aspect(viewSize.X, viewSize.Y));
+        float fovScale = FovMath.Scale(FovOverride ?? FovMath.Selected, FovMath.Aspect(viewSize.X, viewSize.Y));   // the configured scale: the camera shift below keeps it (no sideways jump when melee widens the view)
+        float viewScale = MeleeFovScale(FovOverride ?? FovMath.Selected, FovMath.Aspect(viewSize.X, viewSize.Y));   // camera/melee-fov-widen (owner 2026-11-15): the configured scale widened in melee
         bool scoped = wc.ZoomFovs is { Count: > 0 };
-        float fov = Mathf.Lerp(FovMath.Apply(Finite(ex.FieldOfView, DefaultFov), fovScale), scoped ? Finite(aimFov, DefaultFov) : FovMath.Apply(Finite(aimFov, DefaultFov), fovScale), w);
+        float fov = Mathf.Lerp(FovMath.Apply(Finite(ex.FieldOfView, DefaultFov), viewScale), scoped ? Finite(aimFov, DefaultFov) : FovMath.Apply(Finite(aimFov, DefaultFov), viewScale), w);
+        // ui/crosshair-fov-scale: the same camera state at the default setting, tracked beside fov (the crosshair's reference angle).
+        float fovRef = Mathf.Lerp(Finite(ex.FieldOfView, DefaultFov), Finite(aimFov, DefaultFov), w);
 
         // Evade roll (M21): blend to the roll's camera set (the ability's camera_curve, e.g. evade_default_mp) over its blend-in
         // time (back out over the exploration set's). Position from the set's rig curve (pitch clamped to the set's range for the
@@ -204,7 +212,8 @@ public partial class NetworkView
                     _evadeCameraNote = $"{set.Name} blend {we:F2}: curve '{set.AnimationCurve}' not in the camera rig, exploration offset kept, field of view only";
                     if (!_evadeCurveNoted) { _evadeCurveNoted = true; _notes.Add(_evadeCameraNote); GD.Print("  camera note: " + _evadeCameraNote); }
                 }
-                fov = Mathf.Lerp(fov, float.IsFinite(set.FieldOfView) ? FovMath.Apply(set.FieldOfView, fovScale) : fov, we);
+                fov = Mathf.Lerp(fov, float.IsFinite(set.FieldOfView) ? FovMath.Apply(set.FieldOfView, viewScale) : fov, we);
+                fovRef = Mathf.Lerp(fovRef, float.IsFinite(set.FieldOfView) ? set.FieldOfView : fovRef, we);
                 if (_bot && !_evadeCamLogged && we > 0.5f)
                 {
                     _evadeCamLogged = true;
@@ -214,12 +223,14 @@ public partial class NetworkView
         }
         else { _lastEvadeSet = null; _evadeCamLogged = false; }
 
+        ExtrasRigCamera(me, w, delta, ref cam, ref pivot, ref fov, ref fovRef);   // EXTRAS-HOOK: added content's own camera for a body of another size (Musou: the Dreadnought)
+
         // Weapon switch: when the weapon's camera sets change (bolt pistol <-> primary), the rig offsets and the field of view blend from the last placed camera to the new one over the new
         // exploration set's blend_in_time (data: 0.25 s for exploration_default_mp and exploration_pistol), smoothstep, instead of jumping.
         string switchKey = $"{ex.Name}/{aim.Name}/{aimFov}";
         if (_switchKey.Length > 0 && switchKey != _switchKey && me.Alive && _cameraPlaced)
         {
-            _switchCam = _lastCam; _switchPivot = _lastPivot; _switchFov = _lastFov; _switchT = 0f;
+            _switchCam = _lastCam; _switchPivot = _lastPivot; _switchFov = _lastFov; _switchFovRef = _lastFovRef; _switchT = 0f;
             _switchTime = Finite(ex.BlendInTime, 0.25f);
         }
         _switchKey = switchKey;
@@ -230,8 +241,10 @@ public partial class NetworkView
             cam = System.Numerics.Vector3.Lerp(_switchCam, cam, ws);
             pivot = System.Numerics.Vector3.Lerp(_switchPivot, pivot, ws);
             fov = Mathf.Lerp(_switchFov, fov, ws);
+            fovRef = Mathf.Lerp(_switchFovRef, fovRef, ws);
         }
-        _lastCam = cam; _lastPivot = pivot; _lastFov = fov;   // what was placed (a switch during a blend continues from here)
+        _reticleFovScale = ReticleFovScale.Between(fovRef, fov);   // ui/crosshair-fov-scale: read by FillHud
+        _lastCam = cam; _lastPivot = pivot; _lastFov = fov; _lastFovRef = fovRef;   // what was placed (a switch during a blend continues from here)
 
         // camera/right-shoulder-fov (ours, owner 2026-11-02): a wider field of view draws the character nearer the crosshair, so the camera and its pivot sit further right (FovMath.CameraShift).
         // The view stays parallel, so the crosshair's ray moves with the camera and the converged shot (Converged) with it. A scope's zoom is not widened: no shift there.
@@ -319,8 +332,24 @@ public partial class NetworkView
         var aimGame = Combat.AimDirection(_yaw, pitch);
         var look = (_gameSpace.Basis * new Vector3(aimGame.X, aimGame.Y, aimGame.Z)).Normalized();
         // camera/hop-and-walls: the crosshair stays on the world point the uncollided rig camera looks at while the boom is short (CameraBoom.StableLook, NetworkView.CameraAim.cs).
+        var plainLook = look;
         var focusPoint = OldCameraCollision && !CameraTest ? position : RigFocusPoint(wanted, look, head, delta);   // the extra cast only where it is used
-        if (!OldCameraCollision) look = StableLook(wanted, position, look);
+        // sim/lascannon-steady-zoom (owner 2026-11-15: "no bob when zoomed in - just a steady stable crosshair"): the scoped weapons' (lascannon, stalker bolter: the one ZoomFovs switch) zoomed view looks
+        // exactly along the view (yaw, pitch): the focus-point turn (StableLook) re-aims the camera as the walking body moves it and the boom's wall casts re-place it, which at the scope's narrow field of view
+        // shows as the crosshair swaying. The turn fades out with the scope's blend (w).
+        // The lascannon only (owner asked for it alone): the scoped look is the plain view, whatever --old-camera-collision says (the stable look below is skipped under it, and then the old camera's own look stays).
+        _lascannonScope = scoped && Loadouts.InHand(_config, me) is { } inHand && LascannonTapTuning.IsLascannon(inHand) ? w : 0f;
+        if (!OldCameraCollision)
+        {
+            var stable = StableLookOf(wanted, position, look);
+            look = new Vector3(stable.X, stable.Y, stable.Z);
+        }
+        if (_lascannonScope > 0f)
+        {
+            var scopedLook = CameraBoom.ScopedLook(new System.Numerics.Vector3(look.X, look.Y, look.Z), new System.Numerics.Vector3(plainLook.X, plainLook.Y, plainLook.Z), _lascannonScope);
+            look = new Vector3(scopedLook.X, scopedLook.Y, scopedLook.Z);
+        }
+        look = look.Normalized();
         _camera.GlobalTransform = new Transform3D(Basis.LookingAt(look, Vector3.Up), position);
         if (CameraTest) CameraTestCost(System.Diagnostics.Stopwatch.GetTimestamp() - castsFrom);
         CameraTestNote(me, position, wanted, look, (focusPoint - position).Cross(look).Length());   // --camera-test (NetworkView.CameraTest.cs)
@@ -410,12 +439,21 @@ public partial class NetworkView
     /// <summary>Per hit report of the local player (<see cref="GameClient.TakeHits"/>): the hit marker and the target's health for the bar.</summary>
     void UpdateHits()
     {
+        PredictedHitsLife();   // net/responsive: the predictions are forgotten on a respawn or a new connection
         if (_client?.TakeHits() is not { } hits || _config is null) return;
-        _hudView?.ShowHitMarker(hits.Kills > 0 || hits.LastKilled, hits.LastHead);
+        // net/responsive: hits a prediction already showed (NetworkView.Responsive.cs) show no second marker and play no second confirmation; a kill or an
+        // unpredicted headshot still shows its marker but plays no second confirmation (review M1).
+        var feedback = ReportFeedbackOf(hits);
+        if (feedback.Marker) { _hudView?.ShowHitMarker(hits.Kills > 0 || hits.LastKilled, hits.LastHead); _client.NoteHitMarker(predicted: false); }
         BotNoteHits(hits);   // M44a: the bot's hit statistics
         FlinchNoteOwnHit(hits);   // animation pass 2: the victim flinches
-        SoundHits(hits);   // M26b
-        if (hits.ShieldDamage > 0f && hits.VictimShield <= 0f && !hits.LastKilled) CharacterFlashBroke(hits.LastVictim);   // the armour just went: its red ring at once
+        OwnHitReportGlow(hits);   // onhit-range-intensity: the glow and sparks of the own melee or blast damage the server confirmed
+        SoundHits(hits, rangedConfirm: feedback.Sound);   // M26b
+        if (hits.ShieldDamage > 0f && hits.VictimShield <= 0f && !hits.LastKilled)
+        {
+            if (hits.LastMelee) NoteMeleeBreak(hits.LastVictim);   // classic-no-player-hit-fx: a melee break keeps the break effect (NetworkView.ClassicHitFx.cs)
+            CharacterFlashBroke(hits.LastVictim);   // the armour just went: its red ring at once
+        }
         _lastVictim = hits.LastVictim; _lastVictimHealth = hits.VictimHealth; _lastVictimShield = hits.VictimShield;
         _lastHitAt = _connectedFor;
         if (_bot) GD.Print($"t {_connectedFor:F1} s: id {_client.PlayerId} hit report: {hits.Hits} hit(s), shield {hits.ShieldDamage:F1} health {hits.HealthDamage:F1}, kills {hits.Kills}, last P{hits.LastVictim}{(hits.LastHead ? " head" : "")}{(hits.LastKilled ? " killed" : "")}{(hits.LastMelee ? " melee" : "")}{(hits.LastSplash ? " splash" : "")}, victim {hits.VictimHealth:F0}/{hits.VictimShield:F0}");

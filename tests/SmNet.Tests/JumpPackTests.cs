@@ -65,6 +65,9 @@ public class JumpPackTests(ITestOutputHelper output)
         Assert.Equal(JumpPhase.None, s.Jump);
     }
 
+    /// <summary>The power on the last tick of the latest <see cref="Apex"/> run's take-off or rise (protocol 62: Classic PvP recharges from the apex on, so a jump's cost is read here).</summary>
+    [ThreadStatic] static float risePower;
+
     static float Apex(PlayerState s, Func<int, InputButtons> buttons, out PlayerState after, out int ticks)
     {
         float apex = 0f;
@@ -72,6 +75,7 @@ public class JumpPackTests(ITestOutputHelper output)
         for (int k = 0; k < 400; k++)
         {
             Step(ref s, buttons(k));
+            if (s.Jump is JumpPhase.TakeOff or JumpPhase.Ascent) risePower = s.JumpPower;
             apex = MathF.Max(apex, s.Position.Z);
             ticks++;
             if (s.Jump == JumpPhase.Landed) break;
@@ -93,7 +97,8 @@ public class JumpPackTests(ITestOutputHelper output)
         output.WriteLine($"held {heldTicks} ticks: apex {apex:F2} m (model {height}), power {after.JumpPower:F2}");
         // Discrete integration loses about half a tick of rise speed: within 0.6 m of the model height.
         Assert.InRange(apex, height - 0.6f, height + 0.05f);
-        Assert.Equal(100f - cost, after.JumpPower, 3);
+        Assert.Equal(100f - cost, risePower, 3);
+        Assert.True(after.JumpPower > risePower, "protocol 62: the hang and the fall recharge (Classic PvP)");
     }
 
     [Fact]
@@ -112,7 +117,7 @@ public class JumpPackTests(ITestOutputHelper output)
         // stops at 7 ticks (0.2333 s: 12 m) and nothing more is spent.
         float apex = Apex(s, _ => InputButtons.Jump, out var after, out _);
         Assert.InRange(apex, 11.4f, 12.05f);
-        Assert.Equal(0.6f, after.JumpPower, 3);
+        Assert.Equal(0.6f, risePower, 3);   // protocol 62: nothing more spent up to the apex; the descent then recharges (Classic PvP)
         // On the ground it recharges at 10 per second up to the maximum.
         var g = Fresh() with { JumpPower = 90f };
         for (int k = 0; k < 60; k++) Step(ref g, InputButtons.None);
@@ -417,7 +422,7 @@ public class JumpPackTests(ITestOutputHelper output)
         };
         var link = new LinkConditions(TimeSpan.FromMilliseconds(75), TimeSpan.FromMilliseconds(10), 0.05);
         var h = new Harness(link, seed, 0, config, new ServerOptions { PeerTimeout = TimeSpan.FromMinutes(5) });
-        for (int i = 0; i < 3; i++) h.AddClient(nonce: (uint)(100 + i), options: new ClientOptions { RequestedClass = (byte)(i < 2 ? Assault : Tactical) });
+        for (int i = 0; i < 3; i++) h.AddClient(nonce: (uint)(100 + i), options: new ClientOptions { RequestedClass = (byte)(i < 2 ? Assault : Tactical), SmoothInputLead = false });   // net/responsive: the old lead steering (a lead of about 5): this checks determinism through 5 % loss, which needs inputs that survive several losses in a row
         int n = h.Clients.Count;
         var truth = new SortedDictionary<uint, Dictionary<int, PlayerState>>();
         var predicted = Enumerable.Range(0, n).Select(_ => new Dictionary<uint, PlayerState>()).ToArray();
@@ -513,6 +518,8 @@ public class JumpPackTests(ITestOutputHelper output)
     [Fact]
     public void Leaving_the_ground_during_the_take_off_turns_the_jump_into_a_fall_with_the_power_spent()
     {
+        // sim/hop-rules (protocol 72): the take-off now lifts off in the air (HopRulesMoreTests); this is the protocol 71 rule, the restore switch --old-hop-rules.
+        var old = Config with { HopRules = false };
         // A 5 m ledge ending at y = 0.5, the floor below.
         var level = Mesh(Floor(5f, y1: 0.5f), Floor(0f, y0: 0.5f), (new(-300, 0.5f, 0), new(300, 0.5f, 0), new(300, 0.5f, 5), new(-300, 0.5f, 5)));
         var s = Fresh(at: new Vector3(0, 0.3f, 5f)) with { Velocity = new Vector3(0, 5f, 0) };
@@ -520,7 +527,7 @@ public class JumpPackTests(ITestOutputHelper output)
         float top = 0f;
         for (int k = 0; k < 120 && s.Jump != JumpPhase.Landed; k++)
         {
-            events.Add(Step(ref s, k == 0 ? InputButtons.Jump : InputButtons.None, my: 1f, world: level).Jump);
+            events.Add(Step(ref s, k == 0 ? InputButtons.Jump : InputButtons.None, old, my: 1f, world: level).Jump);
             top = MathF.Max(top, s.Position.Z);
             if (k == 6) Assert.Equal(JumpPhase.Fall, s.Jump);
         }
@@ -528,10 +535,10 @@ public class JumpPackTests(ITestOutputHelper output)
         Assert.True(top <= 5.001f, $"rose to {top}");
         Assert.Equal(JumpPhase.Landed, s.Jump);
         Assert.Equal(0f, s.Position.Z, 3);
-        Assert.Equal(65f, s.JumpPower, 3);
+        Assert.True(s.JumpPower > 65f && s.JumpPower < 100f, $"power {s.JumpPower}");   // 35 spent at the press; protocol 62: the fall recharges (Classic PvP)
         // Control: far from the edge it lifts off.
         var g = Fresh(at: new Vector3(0, -10f, 5f));
-        for (int k = 0; k < 7; k++) Step(ref g, k == 0 ? InputButtons.Jump : InputButtons.None, world: level);
+        for (int k = 0; k < 7; k++) Step(ref g, k == 0 ? InputButtons.Jump : InputButtons.None, old, world: level);
         Assert.Equal(JumpPhase.Ascent, g.Jump);
     }
 
@@ -697,7 +704,7 @@ public class JumpPackTests(ITestOutputHelper output)
     [Fact]
     public void Protocol_9_carries_the_jump_state_in_full_and_flags_in_slim_records_within_1200_bytes()
     {
-        Assert.Equal(56, Protocol.Version);
+        Assert.Equal(79, Protocol.Version);
         PlayerState Loaded(int id) => new(id, new Vector3(1e4f), new Vector3(100f), 3f, false)
         {
             Alive = true, Health = 1e3f, Shield = 1e3f, Class = Protocol.MaxClasses - 1, Slot = WeaponSlot.Pistol, Clip = 65535, Reserve = 65535, OtherClip = 65535, OtherReserve = 65535,
@@ -744,10 +751,10 @@ public class JumpPackTests(ITestOutputHelper output)
         Assert.Equal(JumpPhase.Fall, Assert.IsType<Snapshot>(Protocol.Read(control)).Players[0].Jump);
         // Slim: both jump flags at once are refused; flag 128 is aiming since protocol 12.
         var slim = Protocol.Write(new Snapshot(1, 1, 1, [me with { PlayerId = 4 }]));
-        Assert.Equal(32, slim[^35] & 96);   // the flags byte: 9 bytes of the slim record and the evade byte (protocol 13) follow it
-        var both = (byte[])slim.Clone(); both[^35] |= 64;
+        Assert.Equal(32, slim[^36] & 96);   // the flags byte: 9 bytes of the slim record and the evade byte (protocol 13) follow it
+        var both = (byte[])slim.Clone(); both[^36] |= 64;
         Assert.Null(Protocol.Read(both));
-        var high = (byte[])slim.Clone(); high[^35] |= 128;
+        var high = (byte[])slim.Clone(); high[^36] |= 128;
         Assert.True(Assert.IsType<Snapshot>(Protocol.Read(high)).Players[0].Aiming);
         var pound = Protocol.Write(new Snapshot(1, 1, 1, [me with { PlayerId = 4, Jump = JumpPhase.Recover }]));
         Assert.Equal(JumpPhase.Dive, Assert.IsType<Snapshot>(Protocol.Read(pound)).Players[0].Jump);

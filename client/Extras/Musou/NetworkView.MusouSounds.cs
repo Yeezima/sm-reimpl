@@ -33,6 +33,8 @@ public partial class NetworkView
     sealed class MusouSoundSlot
     {
         public readonly SoundEmitter Emitter = new() { Group = MusouSoundEmitters };
+        /// <summary>The enemy's voice (its lines, grunts, barks, roars): its own emitter so it can take the weapon-fire distance curve while steps and swings keep theirs.</summary>
+        public readonly SoundEmitter Mouth = new() { Group = MusouSoundEmitters };
         public ushort Enemy;
         public MusouSoundSet Set = null!;
         public MusouEnemyState State;
@@ -43,8 +45,15 @@ public partial class NetworkView
         public bool Bound => Enemy != 0;
     }
 
-    readonly MusouSoundSlot[] _musouSlots = Enumerable.Range(0, MusouSoundRules.Slots).Select(i => new MusouSoundSlot { Emitter = { Label = $"musou slot {i}" } }).ToArray();
-    readonly MusouSoundBudget _musouBudget = new();
+    readonly MusouSoundSlot[] _musouSlots = Enumerable.Range(0, MusouSoundRules.Slots).Select(i => new MusouSoundSlot { Emitter = { Label = $"musou slot {i}" }, Mouth = { Label = $"musou voice {i}" } }).ToArray();
+    /// <summary>
+    /// The distance curves the voices take; null (the default since 2026-11-08, the owner: "revert ... use the original game's exterminatus sound levels"): their own, as the banks have them.
+    /// Test aid <c>--musou-ork-voice-curve weapon</c>: the weapon-fire curves of <see cref="MusouSoundRules.VoiceCurveEvent"/> (musou/ork-voices, 2026-11-06).
+    /// </summary>
+    SmFormats.Audio.WwiseAttenuation? _musouVoiceCurve;
+    /// <summary>musou/npc-voices-only: how many times farther voices carry (<see cref="MusouVoiceRules.Reach"/>).</summary>
+    static readonly float MusouVoiceReach = MusouVoiceRules.ReachFor(OS.GetCmdlineUserArgs());
+    readonly MusouSoundBudget _musouBudget = new() { VoiceReach = MusouVoiceReach };
     readonly Random _musouSoundRoll = new(7);
     readonly List<(float Distance, int Index)> _musouNear = new();
     readonly Dictionary<ushort, int> _musouRank = new();
@@ -52,11 +61,15 @@ public partial class NetworkView
     MusouSoundSet?[]? _musouSets;
     bool _musouSoundFailed;
     double _musouChooseAt, _musouSoundLogAt;
+    float _musouNearestSq = float.PositiveInfinity;
     int _musouLiveVoices, _musouLiveSpeech, _musouPeakVoices, _musouPeakSpeech, _musouAllPeakStart;
     bool _musouOwnAlive = true;
     double _musouSoundMs, _musouSoundMaxMs;
     int _musouSoundFrames;
 
+    /// <summary>Test aid <c>--musou-ork-flinch</c>: the drawn flinch of a shot Ork (off since 2026-11-06).</summary>
+    bool MusouOrkFlinch => _musouOrkFlinch ??= CmdFlag("musou-ork-flinch");
+    bool? _musouOrkFlinch;
     bool MusouOrkSoundsOff => _musouOrkSoundsOff ??= CmdFlag("no-musou-ork-sounds");
     bool? _musouOrkSoundsOff;
     VoiceOffset MusouOrkOffset => _musouOrkOffset ??= new VoiceOffset(float.TryParse(CmdArg("musou-ork-gain"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float db) && float.IsFinite(db) ? db : 0f);
@@ -78,7 +91,7 @@ public partial class NetworkView
         }
         var triggers = _musouSoundLoad.Result;
         foreach (var n in triggers.Notes) GD.Print("musou sounds: note: " + n);
-        var sets = new MusouSoundSet?[(int)MusouEnemyType.Warboss + 1];
+        var sets = new MusouSoundSet?[Enum.GetValues<MusouEnemyType>().Max(t => (int)t) + 1];   // the Boss Orks' kinds too (2026-11-06)
         var events = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var files in MusouSoundSet.Files)
         {
@@ -99,6 +112,9 @@ public partial class NetworkView
         _sound.Prefetch(wems);
         GD.Print($"musou sounds: ready, prefetch {wems.Count} wems of {events.Count} events");
         _musouAllPeakStart = _sound.PeakActive;
+        _musouVoiceCurve = (CmdArg("musou-ork-voice-curve") is { } curveArg ? curveArg == "weapon" : MusouSoundRules.VoicesOnWeaponCurve) ? _sound.AttenuationOf(MusouSoundRules.VoiceCurveEvent) : null;
+        GD.Print($"musou sounds: voices on {(_musouVoiceCurve is null ? "their own distance curve" : "the weapon-fire distance curve of " + MusouSoundRules.VoiceCurveEvent)}");
+        foreach (var s in _musouSlots) s.Mouth.AttenuationOverride = _musouVoiceCurve;
         _musouSets = sets;
         return true;
     }
@@ -111,6 +127,7 @@ public partial class NetworkView
         double now = _connectedFor;
         var camera = new Num.Vector3(cam.GlobalPosition.X, -cam.GlobalPosition.Z, cam.GlobalPosition.Y);   // Godot to game space, as MusouPresent
         _musouBudget.Refill(delta);
+        MusouSoundscapeFrame(me, shown, cam, delta);   // musou/soundscape-tuning: the threat cues' state, the far war's duck, the wind and fire bed (NetworkView.MusouSoundscape.cs)
         (_musouLiveVoices, _musouLiveSpeech) = _sound.GroupVoices(MusouSoundEmitters);
         _musouPeakVoices = Math.Max(_musouPeakVoices, _musouLiveVoices);
         _musouPeakSpeech = Math.Max(_musouPeakSpeech, _musouLiveSpeech);
@@ -118,9 +135,13 @@ public partial class NetworkView
         foreach (var slot in _musouSlots) if (slot.Bound) MusouSlotFrame(slot, shown, camera, now);
 
         var events = _musouState.NewEvents;
-        for (int i = 0; i < events.Count; i++) MusouSoundEvent(events[i], shown, camera, now);
-        var deaths = _musouState.NewDeaths;
+        for (int i = 0; i < events.Count; i++) if (events[i].Kind != MusouEventKind.Tracer) MusouSoundEvent(events[i], shown, camera, now);
+        for (int i = 0; i < _musouRoundsNow.Count; i++) MusouSoundEvent(_musouRoundsNow[i], shown, camera, now);   // the gun Orks' rounds (NetworkView.MusouGuns.cs)
+        IReadOnlyList<MusouDeathShown> deaths = _musouOldDeaths ? _musouState.NewDeaths : _musouDeathsHanded;   // night batch 2026-11-06: a death's sound with its body (NetworkView.MusouDeathSpread.cs)
         for (int i = 0; i < deaths.Count; i++) MusouSoundDeath(deaths[i], camera);
+        _musouDeathsHanded.Clear();
+        TfwWaaaghFrame(camera, now);   // the waves' Waaagh! (Tfw/NetworkView.TfwArmies.cs, expansion S6)
+        MusouMarineBarksFrame(me, shown, camera, now);   // musou/battle-ambience: the Marines' campaign barks (NetworkView.MusouMarineBarks.cs)
         // A Marine down: the nearest Ork with something to say about it.
         if (_musouOwnAlive && !me.Alive && _musouNear.Count > 0 && shown.Count > _musouNear[0].Index && MusouSetOf(shown[_musouNear[0].Index].Type) is { } nearest
             && MusouSlotOf(shown[_musouNear[0].Index].Id) is { } speaker) MusouCue(nearest.Celebrate, nearest, speaker.Emitter, MusouSoundGroup.Celebrate, MathF.Sqrt(_musouNear[0].Distance), "celebrate");
@@ -142,13 +163,15 @@ public partial class NetworkView
     void MusouChooseSlots(IReadOnlyList<MusouShown> shown, Num.Vector3 camera, double now)
     {
         _musouNear.Clear();
-        float range = MusouSoundRules.SlotRange * MusouSoundRules.SlotRange;
+        float range = MusouSoundRules.SlotRange * MusouVoiceReach * MusouSoundRules.SlotRange * MusouVoiceReach;
+        _musouNearestSq = float.PositiveInfinity;
         for (int i = 0; i < shown.Count; i++)
         {
             var e = shown[i];
             if (e.State == MusouEnemyState.Dying) continue;
             float d = Num.Vector3.DistanceSquared(e.Position, camera);
-            if (e.Type == MusouEnemyType.Warboss) d = 0f;
+            _musouNearestSq = MathF.Min(_musouNearestSq, d);
+            if (e.Type == MusouEnemyType.Warboss || MusouBossOrks.Is(e.Type)) d = 0f;   // the bosses always have an emitter
             else if (d > range) continue;
             _musouNear.Add((d, i));
         }
@@ -159,7 +182,7 @@ public partial class NetworkView
         {
             if (!slot.Bound) continue;
             if (_musouRank.ContainsKey(slot.Enemy)) slot.Unwanted = now;
-            else if (now - slot.Unwanted >= MusouSoundRules.SlotHold && !_sound!.SpeechBusy(slot.Emitter)) slot.Enemy = 0;
+            else if (now - slot.Unwanted >= MusouSoundRules.SlotHold && !_sound!.SpeechBusy(slot.Mouth)) slot.Enemy = 0;
         }
         for (int k = 0; k < _musouNear.Count && k < MusouSoundRules.Slots; k++)
         {
@@ -171,7 +194,7 @@ public partial class NetworkView
             slot.NextGrunt = now + _musouSoundRoll.NextDouble() * MusouSoundRules.GruntEveryMax;
             slot.NextBark = now + _musouSoundRoll.NextDouble() * MusouSoundRules.BarkEveryMax;
             slot.NextSurface = now;
-            slot.Emitter.Position = ToGodot(e.Position) + Vector3.Up * 1.2f;
+            slot.Emitter.Position = slot.Mouth.Position = ToGodot(e.Position) + Vector3.Up * 1.2f;
         }
     }
 
@@ -188,8 +211,8 @@ public partial class NetworkView
         float stepped = new Num.Vector2(e.Position.X - slot.Last.X, e.Position.Y - slot.Last.Y).Length();
         if (stepped > 3f) stepped = 0f;   // a jump in the records is not a walk
         slot.Last = e.Position;
-        emitter.Position = ToGodot(e.Position) + Vector3.Up * 1.2f;
-        emitter.Parameters[VoiceMixer.Speed] = (_config?.MusouRules ?? MusouRules.Default).Types[(int)e.Type].Speed;
+        emitter.Position = slot.Mouth.Position = ToGodot(e.Position) + Vector3.Up * 1.2f;
+        emitter.Parameters[VoiceMixer.Speed] = slot.Mouth.Parameters[VoiceMixer.Speed] = (_config?.MusouRules ?? MusouRules.Default).Types[(int)e.Type].Speed;   // the voice reads it as the body did
         float distance = Num.Vector3.Distance(e.Position, camera);
 
         if (e.State != slot.State)
@@ -199,11 +222,11 @@ public partial class NetworkView
             switch (e.State)
             {
                 case MusouEnemyState.WindUp:
-                    MusouCue(set.WindUp, set, emitter, MusouSoundGroup.Swing, distance, "wind-up");
+                    MusouCue(set.WindUp, set, emitter, MusouSoundGroup.Swing, distance, "wind-up", threat: MusouThreatOf(e));
                     MusouCue(set.Effort, set, emitter, MusouSoundGroup.Effort, distance, "effort");
                     break;
                 case MusouEnemyState.Strike:
-                    MusouCue(set.Swing, set, emitter, MusouSoundGroup.Swing, distance, "swing");
+                    MusouCue(set.Swing, set, emitter, MusouSoundGroup.Swing, distance, "swing", threat: MusouThreatOf(e));
                     break;
                 case MusouEnemyState.Stagger:
                     MusouCue(set.Stun, set, emitter, MusouSoundGroup.Stun, distance, "stun");
@@ -217,6 +240,21 @@ public partial class NetworkView
                     break;
             }
         }
+        // The running voice (2026-11-06: "constant grunting, shouting, yelling"): while it closes in, winds up or strikes, not only on the move.
+        bool fighting = e.State is MusouEnemyState.WindUp or MusouEnemyState.Strike;
+        if ((fighting || e.State == MusouEnemyState.Seek && stepped > 0f) && now >= slot.NextGrunt)
+        {
+            slot.NextGrunt = now + MusouNext(MusouSoundRules.GruntEveryMin, MusouSoundRules.GruntEveryMax);
+            MusouCue(set.Grunt, set, emitter, MusouSoundGroup.Grunt, distance, "grunt");
+        }
+        if ((fighting || e.State == MusouEnemyState.Seek) && now >= slot.NextBark)
+        {
+            slot.NextBark = now + MusouNext(MusouSoundRules.BarkEveryMin, MusouSoundRules.BarkEveryMax);
+            float pick = _musouSoundRoll.NextSingle();
+            if (pick < MusouSoundRules.BarkTauntShare && !set.Celebrate.Empty) MusouCue(set.Celebrate, set, emitter, MusouSoundGroup.Celebrate, distance, "taunt");
+            else if (pick < MusouSoundRules.BarkTauntShare + MusouSoundRules.BarkRoarShare && !set.Roar.Empty) MusouCue(set.Roar, set, emitter, MusouSoundGroup.Bark, distance, "roar");
+            else MusouCue(set.Bark, set, emitter, MusouSoundGroup.Bark, distance, "bark");
+        }
         if (e.State != MusouEnemyState.Seek) return;
         slot.Walked += stepped;
         if (slot.Walked >= MusouSoundRules.StepMetres(e.Type))
@@ -228,16 +266,6 @@ public partial class NetworkView
                 if (now >= slot.NextSurface) { slot.NextSurface = now + 1.0; MusouSurface(emitter, e.Position); }
                 MusouCue(slot.LeftFoot ? set.StepLeft : set.StepRight, set, emitter, MusouSoundGroup.Footstep, distance, "step");
             }
-        }
-        if (stepped > 0f && now >= slot.NextGrunt)
-        {
-            slot.NextGrunt = now + MusouNext(MusouSoundRules.GruntEveryMin, MusouSoundRules.GruntEveryMax);
-            MusouCue(set.Grunt, set, emitter, MusouSoundGroup.Grunt, distance, "grunt");
-        }
-        if (now >= slot.NextBark)
-        {
-            slot.NextBark = now + MusouNext(MusouSoundRules.BarkEveryMin, MusouSoundRules.BarkEveryMax);
-            MusouCue(set.Bark, set, emitter, MusouSoundGroup.Bark, distance, "bark");
         }
     }
 
@@ -251,12 +279,13 @@ public partial class NetworkView
     }
 
     /// <summary>A sound at one place (a shot, a hit, a fall), on an emitter of its own; none is made for what the budget would refuse by distance.</summary>
-    void MusouCueAt(MusouSoundCue cue, MusouSoundSet set, Num.Vector3 at, MusouSoundGroup group, float distance, string what, string surface = "stone")
+    void MusouCueAt(MusouSoundCue cue, MusouSoundSet set, Num.Vector3 at, MusouSoundGroup group, float distance, string what, string surface = "stone", bool threat = false)
     {
-        if (cue.Empty || distance > MusouSoundRules.LimitOf(group).Range) return;
+        if (cue.Empty || distance > MusouSoundRules.LimitOf(group).Range * (MusouSoundRules.LimitOf(group).Speech && group != MusouSoundGroup.Waaagh ? MusouVoiceReach : 1f)) return;
         var emitter = new SoundEmitter { Position = ToGodot(at) + Vector3.Up * 1.2f, OneShot = true, Label = "musou " + what, Group = MusouSoundEmitters };
         emitter.Switches.Set(AudioCatalog.MaterialType, Fnv.Hash32(surface));
-        MusouCue(cue, set, emitter, group, distance, what);
+        if (MusouVoiceGroup(group, cue, set)) emitter.AttenuationOverride = _musouVoiceCurve;
+        MusouCue(cue, set, emitter, group, distance, what, threat);
     }
 
     /// <summary>What the crowd's events sound like.</summary>
@@ -275,7 +304,23 @@ public partial class NetworkView
                 break;
             case MusouEventKind.Strike:
                 var cue = e.Value switch { (byte)MusouBossAbility.GroundSlam => set.SlamHit, (byte)MusouBossAbility.Charge => set.ChargeHit, _ => set.MeleeHit };
-                MusouCueAt(cue, set, e.Vector, e.Value != 0 ? MusouSoundGroup.Boss : MusouSoundGroup.MeleeHit, Num.Vector3.Distance(e.Vector, camera), "strike", "armour");
+                MusouCueAt(cue, set, e.Vector, e.Value != 0 ? MusouSoundGroup.Boss : MusouSoundGroup.MeleeHit, Num.Vector3.Distance(e.Vector, camera), "strike", "armour", threat: e.Value != 0 && MusouThreatClose(MusouSoundscape.Threat.BossAttack, enemy.Position, enemy.Yaw));
+                break;
+            case MusouEventKind.Hit when e.Value == MusouWeirdboy.ShieldMarker:   // the Weirdboy's shield took it: no pain
+                break;
+            case MusouEventKind.Telegraph when e.Value == MusouWeirdboy.BoltCue:   // his bolt: the staff's fire
+                if (MusouSlotOf(enemy.Id) is { } caster) MusouCue(set.Fire, set, caster.Emitter, MusouSoundGroup.Gun, distance, "fire");
+                else MusouCueAt(set.Fire, set, enemy.Position, MusouSoundGroup.Gun, distance, "fire");
+                break;
+            case MusouEventKind.Telegraph when e.Value == MusouWeirdboy.ShieldBreakCue:   // his shield breaks: the stun
+                if (MusouSlotOf(enemy.Id) is { } stunned) MusouCue(set.Stun, set, stunned.Emitter, MusouSoundGroup.Hurt, distance, "stun");
+                break;
+            case MusouEventKind.Telegraph when e.Value is MusouBigShoota.OverheatCue or MusouBigShoota.VentCue:   // the Big Shoota jams: his gun's own jam (a pulling grunt), then its cock when ready
+                var gunCue = e.Value == MusouBigShoota.OverheatCue ? set.Jam : set.GunReady;
+                if (MusouSlotOf(enemy.Id) is { } jammed) MusouCue(gunCue, set, jammed.Emitter, MusouSoundGroup.Effort, distance, e.Value == MusouBigShoota.OverheatCue ? "jam" : "gun ready");
+                else MusouCueAt(gunCue, set, enemy.Position, MusouSoundGroup.Effort, distance, e.Value == MusouBigShoota.OverheatCue ? "jam" : "gun ready");
+                break;
+            case MusouEventKind.Telegraph when e.Value >= MusouWeirdboy.BoltCue:   // his other cues are effects only
                 break;
             case MusouEventKind.Hit:
                 if (MusouSlotOf(enemy.Id) is not { } hurt || now - hurt.LastHurt < MusouSoundRules.HurtSpacing) break;
@@ -285,10 +330,11 @@ public partial class NetworkView
             case MusouEventKind.Telegraph when e.Value != MusouSim.MeleeWindUpTelegraph:
                 var emitter = MusouSlotOf(enemy.Id)?.Emitter;
                 if (emitter is null) break;
-                _sound!.StopSpeech(emitter);   // the boss's roar takes the place of what he was saying
-                MusouCue(set.Roar, set, emitter, MusouSoundGroup.Boss, distance, "boss roar");
-                if (e.Value == (byte)MusouBossAbility.GroundSlam) MusouCue(set.SlamWindUp, set, emitter, MusouSoundGroup.Boss, distance, "slam wind-up");
-                else if (e.Value == (byte)MusouBossAbility.Charge) MusouCue(set.ChargeStart, set, emitter, MusouSoundGroup.Boss, distance, "charge start");
+                _sound!.StopSpeech(MusouMouthOf(emitter));   // the boss's roar takes the place of what he was saying
+                bool bossThreat = MusouThreatClose(MusouSoundscape.Threat.BossAttack, enemy.Position, enemy.Yaw);   // musou/soundscape-tuning: his wind-up, slam and charge, close or aimed at the player
+                MusouCue(set.Roar, set, emitter, MusouSoundGroup.Boss, distance, "boss roar", bossThreat);
+                if (e.Value == (byte)MusouBossAbility.GroundSlam) MusouCue(set.SlamWindUp, set, emitter, MusouSoundGroup.Boss, distance, "slam wind-up", bossThreat);
+                else if (e.Value == (byte)MusouBossAbility.Charge) MusouCue(set.ChargeStart, set, emitter, MusouSoundGroup.Boss, distance, "charge start", bossThreat);
                 break;
         }
     }
@@ -301,7 +347,7 @@ public partial class NetworkView
         var group = d.Type == MusouEnemyType.Warboss ? MusouSoundGroup.Boss : MusouSoundGroup.Death;
         if (MusouSlotOf(d.Id) is { } slot)
         {
-            _sound!.StopSpeech(slot.Emitter);
+            _sound!.StopSpeech(slot.Mouth);
             MusouCue(set.DeathYell, set, slot.Emitter, group, distance, "death");
             MusouCue(set.Fall, set, slot.Emitter, d.Type == MusouEnemyType.Warboss ? group : MusouSoundGroup.Bodyfall, distance, "fall");
             slot.Enemy = 0;
@@ -312,13 +358,29 @@ public partial class NetworkView
     }
 
     /// <summary>Plays one option of a cue if the budget lets it; true when something posted. A line for an enemy still speaking is dropped before it costs the budget.</summary>
-    bool MusouCue(MusouSoundCue cue, MusouSoundSet set, SoundEmitter emitter, MusouSoundGroup group, float distance, string what)
+    bool MusouCue(MusouSoundCue cue, MusouSoundSet set, SoundEmitter emitter, MusouSoundGroup group, float distance, string what, bool threat = false)
     {
         if (cue.Empty || _sound is null) return false;
+        bool voice = MusouVoiceGroup(group, cue, set);
+        if (voice)
+        {
+            if (MusouSoundIsOff(MusouSoundOff.CrowdVoices)) return false;   // musou/sound-ab: crowdvoices off
+            emitter = MusouMouthOf(emitter);
+            emitter.DistanceScale = 1f / MusouVoiceReach;   // musou/npc-voices-only: heard farther
+        }
         var option = cue.Pick(_musouSoundRoll);
+        // musou/soundscape-tuning: a close threat cue is posted on an emitter of its own (outside the crowd's group: the crowd's voice and speech caps, its token buckets and its stealing never touch it),
+        // about +3 dB, never stolen, cut or ducked, with no instance limit. A cue the threat bucket has no token for plays as any other.
+        if (threat && !(option.Events.Count == 0 && option.Lines.Count == 0) && _musouThreatBudget.Take())
+        {
+            var te = new SoundEmitter { Position = emitter.Current, OneShot = true, Label = "musou threat " + what, Threat = true, Follow = () => emitter.Current, Switches = emitter.Switches, DistanceScale = voice ? 1f / MusouVoiceReach : 1f };
+            if (emitter.AttenuationOverride is not null) te.AttenuationOverride = emitter.AttenuationOverride;
+            return MusouThreatPost(option, set, te, what, group, distance);
+        }
         if (option.Events.Count == 0 && _sound.SpeechBusy(emitter)) return false;
         if (_musouBudget.Take(group, distance, _musouLiveVoices, _musouLiveSpeech) != MusouSoundVerdict.Post) return false;
         var offset = MusouOrkOffset;
+        if (group == MusouSoundGroup.MeleeHit) offset = offset.Plus(LoudnessArg.MeleeHit);   // sound/louder-farther: melee hits x2 (owner 2026-11-08, all modes)
         int voices = 0, lines = 0;
         string events = "";
         foreach (var b in option.Events)
@@ -345,12 +407,22 @@ public partial class NetworkView
         return voices + lines > 0;
     }
 
+    /// <summary>Whether a cue is the enemy's voice (it plays from the slot's mouth, on the weapon-fire curve): the speech groups and the roars.</summary>
+    static bool MusouVoiceGroup(MusouSoundGroup group, MusouSoundCue cue, MusouSoundSet set) => MusouSoundRules.LimitOf(group).Speech || ReferenceEquals(cue, set.Roar);
+
+    /// <summary>A slot's voice emitter for its body emitter (itself for any other emitter).</summary>
+    SoundEmitter MusouMouthOf(SoundEmitter emitter)
+    {
+        foreach (var s in _musouSlots) if (ReferenceEquals(s.Emitter, emitter)) return s.Mouth;
+        return emitter;
+    }
+
     void MusouSoundLog(int known)
     {
         if (_sound is null) return;
         var parts = Enum.GetValues<MusouSoundGroup>().Select(g => (g, posted: _musouBudget.Count(g, MusouSoundVerdict.Post), rate: _musouBudget.Count(g, MusouSoundVerdict.OverRate), cap: _musouBudget.Count(g, MusouSoundVerdict.VoiceCap) + _musouBudget.Count(g, MusouSoundVerdict.SpeechCap), far: _musouBudget.Count(g, MusouSoundVerdict.TooFar)))
             .Where(p => p.posted + p.rate + p.cap + p.far > 0).Select(p => $"{p.g} {p.posted} (rate {p.rate}, cap {p.cap}, far {p.far})");
-        GD.Print($"musou sounds: t {_connectedFor:F0} s: enemies {known}, slots {_musouSlots.Count(s => s.Bound)}, crowd voices now {_musouLiveVoices} peak {_musouPeakVoices} of {MusouSoundRules.MaxVoices} (lines peak {_musouPeakSpeech} of {MusouSoundRules.MaxSpeech}), " +
+        GD.Print($"musou sounds: t {_connectedFor:F0} s: enemies {known} (nearest {MathF.Sqrt(_musouNearestSq):F0} m), slots {_musouSlots.Count(s => s.Bound)}, crowd voices now {_musouLiveVoices} peak {_musouPeakVoices} of {MusouSoundRules.MaxVoices} (lines peak {_musouPeakSpeech} of {MusouSoundRules.MaxSpeech}), " +
                  $"all voices now {_sound.ActiveCount} peak {_sound.PeakActive} of {SoundSystem.Max3D}+{SoundSystem.Max2D}, steals {_sound.Steals}, late {_sound.Late}, cost mean {_musouSoundMs / Math.Max(1, _musouSoundFrames):F2} ms max {_musouSoundMaxMs:F2} ms; {string.Join(", ", parts)}");
     }
 }

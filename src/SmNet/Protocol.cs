@@ -65,8 +65,14 @@ public sealed record Hello(ushort ProtocolVersion, ulong ContentFingerprint, ulo
 /// <paramref name="OrkLook"/> (protocol 28): as in the Hello. A class change to or from the Ork Boy changes the race at the next respawn.
 /// </summary>
 public sealed record Setup(uint Session, ushort Sequence, LoadoutChoice Loadout, AppearanceCode SpaceMarineAppearance, AppearanceCode ChaosAppearance,
-    byte OrkLook = Races.OrkLookAutomatic) : Message
+    byte OrkLook = Races.OrkLookAutomatic, byte Flags = 0) : Message
 {
+    /// <summary>Protocol 58 (fix/pvp-deploy-spawn): the in-match customizer's DEPLOY: in classic PvP a living player dies at once and respawns with this loadout.</summary>
+    public const byte DeployNow = 1;
+    /// <summary>The flags this protocol knows.</summary>
+    public const byte KnownFlags = DeployNow;
+    public bool Deploy => (Flags & DeployNow) != 0;
+
     public AppearanceCode AppearanceFor(Team side) => side == Team.Chaos ? ChaosAppearance : SpaceMarineAppearance;
     /// <summary>The appearance for a race (protocol 28; as <see cref="Hello.AppearanceFor(Race)"/>).</summary>
     public AppearanceCode AppearanceFor(Race race) => Protocol.CodeFor(race, SpaceMarineAppearance, ChaosAppearance, OrkLook);
@@ -140,6 +146,12 @@ public sealed record GameMap(string Name, CollisionWorld Collision, IReadOnlyLis
 }
 /// <summary>What a client's map loader returns: the collision to predict with and the hash the server checks.</summary>
 public sealed record LoadedMap(CollisionWorld Collision, ulong Hash);
+
+/// <summary>Polish pass P2: a map load in progress (<see cref="ClientOptions.BeginLoadMap"/>). <see cref="Poll"/> returns false while it runs; true with the map, or with the error, once it is done.</summary>
+public interface IMapLoad
+{
+    bool Poll(out LoadedMap? loaded, out string? error);
+}
 /// <summary>
 /// Server → client. <paramref name="EchoSentMs"/> echoes the Hello's send time, so the client measures the round trip of
 /// the Hello actually answered. <paramref name="Session"/> must accompany every input batch.
@@ -172,8 +184,11 @@ public sealed record Leave(uint Session) : Message;
 /// <see cref="Protocol.MaxSnapshotShots"/>, and only while the snapshot stays within <see cref="Protocol.SnapshotBudget"/>
 /// bytes; at least <see cref="Protocol.MinSnapshotShots"/> always fit), and leaves out any whose shooter has no record in
 /// <paramref name="Players"/>. Null reads as none.
+/// <paramref name="InputSlack"/> (protocol 65, net/responsive): for the recipient's inputs of the ticks run since the previous snapshot, the least time in ms from an
+/// input's first arrival to the run of its tick (negative: a tick ran without it, the server repeated the last one), or <see cref="Protocol.NoSlack"/>. Lead and slack
+/// travel as 16-bit values (±32767, clamped).
 public sealed record Snapshot(uint ServerTick, uint LastInputTick, int InputLead, PlayerState[] Players, int Self = 0, ProjectileView[]? Projectiles = null,
-    MatchView? Match = null, KillView[]? Kills = null, ControlPointView[]? Points = null, HitView? Hits = null, ShotView[]? Shots = null) : Message;
+    MatchView? Match = null, KillView[]? Kills = null, ControlPointView[]? Points = null, HitView? Hits = null, ShotView[]? Shots = null, int InputSlack = Protocol.NoSlack) : Message;
 
 /// <summary>
 /// A shot for effects (protocol 16, 9 bytes): who fired (<paramref name="Shooter"/>, a player id that has a record in the same
@@ -209,9 +224,9 @@ public readonly record struct HitView(int Hits, int ShieldTenths, int HealthTent
 /// <summary>
 /// The match as snapshots carry it (protocol 10, 9 bytes): state, the winner of an ended match (<see cref="Team.None"/>: a
 /// draw), <paramref name="TicksLeft"/> (playing: until the time limit, <see cref="uint.MaxValue"/> for none; ended: until the
-/// restart) and the two team scores (0..65535). Protocol 11: the mode in bits 4..5 of the state byte.
+/// restart) and the two team scores (0..65535). Protocol 11: the mode in bit 4 of the state byte. Protocol 79: bit 5 = <paramref name="NextMap"/> (an ended match that the server follows with another map of its rotation: clients rejoin).
 /// </summary>
-public readonly record struct MatchView(MatchState State, Team Winner, uint TicksLeft, int MarineScore, int ChaosScore, GameMode Mode = GameMode.Annihilation);
+public readonly record struct MatchView(MatchState State, Team Winner, uint TicksLeft, int MarineScore, int ChaosScore, GameMode Mode = GameMode.Annihilation, bool NextMap = false);
 
 /// <summary>
 /// A control point as snapshots carry it (protocol 11, 2 bytes): owner (None: neutral), the side whose progress counts,
@@ -236,8 +251,10 @@ public sealed record SeizeGroundInfo(float CaptureTime, float NeutraliseTime, in
 /// (<see cref="KillEvent.Direction"/>; unit, world space, zero: none), as yaw in 256 steps (the simulation's yaw: forward
 /// (−sin, cos)) and pitch in 15 steps either side of level (6°), carried in the cause byte's top 5 bits (0: no direction).
 /// Use <see cref="Protocol.Quantize(KillView)"/> to compare with a received entry.
+/// <paramref name="Headshot"/> (protocol 64, headshot medal): a weapon kill whose killing hit was on the head (<see cref="KillEvent.Headshot"/>); on the wire the cause code
+/// <see cref="Protocol.HeadshotCauseCode"/> (6) instead of <see cref="KillCause.Weapon"/> (1), so the entry keeps its 9 bytes. Only a weapon kill can carry it.
 /// </summary>
-public readonly record struct KillView(int Sequence, int Killer, int Victim, KillCause Cause, int Index, Vector3 Direction = default)
+public readonly record struct KillView(int Sequence, int Killer, int Victim, KillCause Cause, int Index, Vector3 Direction = default, bool Headshot = false)
 {
     public bool HasDirection => Direction != Vector3.Zero;
 }
@@ -252,8 +269,14 @@ public readonly record struct KillView(int Sequence, int Killer, int Victim, Kil
 /// Protocol 50 (net/scoreboard-ping; ours): the player's round-trip time as the server measures it (<see cref="RttEstimator"/>), whole milliseconds
 /// 0..<see cref="RttEstimator.MaxMs"/>, or -1 when not known yet (<see cref="Protocol.UnknownPing"/> on the wire).
 /// </summary>
+/// Protocol 64 (headshot medal, scoreboard): the player's headshot kills and assists this round (0..255 each, <see cref="PlayerScore"/>); the score follows from the counts
+/// (<see cref="Score"/>, <see cref="ScoreRules.Of"/>).
 public readonly record struct ScoreEntry(int PlayerId, Team Team, int Class, int Kills, int Deaths, ushort AppearanceVersion = 0, int Equipment = -1, string Name = "",
-    int PingMs = -1);
+    int PingMs = -1, bool Homer = false, int Headshots = 0, int Assists = 0)
+{
+    /// <summary>The player's score: <see cref="ScoreRules.Of"/> of the server's counts.</summary>
+    public int Score => ScoreRules.Of(Kills, Headshots);
+}   // protocol 58: Homer, alive and carrying Teleport Homer (a classic PvP spawn choice for its allies)
 
 /// <summary>A spectator listed in the scoreboard (protocol 46): its id and display name ("" none: shown as "Spectator &lt;id&gt;"); spectators have no team, class or score.</summary>
 public readonly record struct SpectatorEntry(int PlayerId, string Name = "");
@@ -455,13 +478,67 @@ public static partial class Protocol
     //     (PlayerState.MeleeLock, now also in Musou Mode) for the cancelled clip's end; a pack class's Space press in the air while falling starts the take-off (the lift-off launches in the air).
     // 56 (sim/reload-keeps; the owner 2026-11-03: "reloads should not be cancelled by anything other than switching weapons"): no wire change. A melee attack, a throw,
     //     a ground pound, a reaction or a charge no longer ends the reload in hand; it runs on through them. A switch still stores it with its weapon.
-    public const ushort Version = 56;
+    // 57 (fix/charge-player-collision; the owner's playtest of 2026-11-06: "players never pass directly through other players"): no wire change. The charge's contact is a sweep met
+    //     at the first touch of its reach anywhere in front, and the charger stops at that point of its move (both predicted); the server stops bodies passing through each other as
+    //     they really stand and lets a charge meet a body it really runs into (not predicted: a client whose picture was wrong is corrected).
+    // 58 (fix/pvp-deploy-spawn, merged after 57; the owner 2026-11-06, classic PvP): a Setup ends with a flags byte (bit 0: DEPLOY now: the living player dies and respawns at once with the
+    //     loadout); a new client message SpawnRequest (19: session, kind, target u16) sets the respawn choice (spawn room, a held control point, a living Teleport Homer
+    //     carrier); each scoreboard row carries a flags byte before its name (bit 0: alive and carrying Teleport Homer). The automatic spawn next to a carrier is Musou only.
+    //     Fullest scoreboard 1161 bytes (16 rows + 16); snapshots unchanged (worst case 1199)
+    // 59 (sim/swing-step, sim/lock-reach, sim/air-jumps; the owner 2026-11-06): no wire change. Every melee weapon's swings step forward × 1.5 (the thunder hammer's and the daemon maul's
+    //     × 0.7), a locked attack's lunge closes 70 % of the gap to the separation, and in Classic PvP a jump-pack class in the air only hops (the full air jump is Musou Mode's alone).
+    // 60 (feel/charge-clash; the owner's recording of the original, 2026-11-06): no layout change. A bull rush that stuns locks charger and victim through the collision stop's forward
+    //     shove (the data's 1.83 m in 0.2 s): the charger's step ignores the victim's body (predicted), the world carries the victim with it; a charger meets any body at the capsules' edge.
+    // 61 (night batch 2026-11-06, classic bots and jump pack; owner): no layout change. Classic PvP's jump pack holds the data's max_power (100) again instead of the owner's 300 (Musou Mode keeps 300).
+    // 62 (sim/jump-escape, sim/hop-cancel-momentum, sim/descent-recharge; the owner 2026-11-06): no layout change. The Assault / Raptor's Jump press ends any reaction, attack, throw, charge
+    //     phase, landing lock or pound recovery at once (every mode); a hop cancelled by melee keeps no upward speed and carries 0.4 of its horizontal speed under the air swing (every mode);
+    //     in Classic PvP the pack also recharges in a jump's hang and fall (two full jumps back to back from the data's 100).
+    // 63 (sim/holstered-cooldown, stream B of the owner's batch of 2026-11-06 late: "there is a delay when you are able to shoot bolt pistol after swapping to bolt pistol from lascannon"):
+    //     each weapon keeps its own shot cooldown (PlayerState.OtherCooldown / ThirdCooldown: 8 more bytes in the own record, right after the melee lock; at most 13 projectile
+    //     records, worst case 1193); the hammer's and the maul's last light swing frees a new string at the data's BRANCH_Melee_String_Reset (MeleeStep.StringResetAt, config hash).
+    //     Renumbered 62 -> 63 at integration (2026-11-07): stream A took 62.
+    // 64 (headshot medal and scoreboard; the owner 2026-11-07: "add a +50 points to score as well as a headshot medal icon"): a kill-feed entry's cause code 6 is a weapon
+    //     kill on the head (KillView.Headshot; the entry stays 9 bytes, snapshots unchanged); each scoreboard row carries the player's headshot kills and assists (u8 each, after
+    //     the flags byte; fullest scoreboard 1161 -> 1193 bytes). The score (50 a kill, 50 more a headshot: ScoreRules) follows from the counts.
+    // 65 (net/responsive; the owner 2026-11-09: "buffering as low as it can go while still playing well"): the snapshot's 4-byte input lead becomes a 2-byte lead and a
+    //     2-byte input slack (Snapshot.InputSlack: ms between the arrival of the recipient's input for each tick and that tick's run, the least since the previous snapshot;
+    //     negative: a tick ran without it), so the client steers its lead to a tick plus the measured jitter. Snapshot size unchanged.
+    // 66 (charge-cancel, charge-ally-bump; the owner 2026-11-11): no layout change. S held back ends the bull rush from its stick branch and a Grenade press ends no charge phase
+    //     (every mode); in Classic PvP a charge that meets an ally it cannot harm ends there with no collision stop. Restore switches (config hash): --old-charge-cancel, --old-ally-bump.
+    // 67 (charge-ally-slide; the owner 2026-11-11: "when a charge hits an ally it should slide past"): no layout change. A charge passes an ally it cannot harm (no contact, no stop, no turn; replaces protocol 66's
+    //     ally bump, Musou Mode included); the player collision still keeps the bodies apart. Restore switch --old-ally-bump (the protocol 65 collision stop on an ally) unchanged.
+    // 68 (stims-classic; the owner 2026-11-12: "Classic too"): no layout change. A press of the use key with a stim equipped is kept 15 ticks (0.5 s) instead of 9 and a hit before the stim's release starts
+    //     no reaction, in every mode (Musou Mode had it since its own pass). Restore switch (config hash): --old-stim-use.
+    // 69 (charge-responsive; the owner 2026-11-12): no layout change. A charge (Shift + W + F) starts in the middle of a melee attack or combo once its hit has landed, and S (the stick held back) cancels the
+    //     bull rush from its second tick, not from its stick branch, in every mode. Restore switches (config hash): --old-charge-after-melee, --old-charge-cancel-delay.
+    // 70 (charge-melee-chain; the owner 2026-11-12): no layout change. A light melee press cancels a bull rush at once on any tick (any class, no wait after the swing) and any melee attack lifts the 1 s spacing between
+    //     charges, so charge > melee > charge chains with no delay, in every mode; in Musou Mode light melee attacks have no cooldown or delay. Restore switches (config hash): --old-charge-melee-chain, --musou-melee-cooldown.
+    // 71 (onhit-damage-mark; the owner 2026-11-13: "any sort of damage should trigger the sparks and glows"): every player's record gains one byte after the evade byte: a damage counter (bits 0..2, modulo 8, raised once per tick in which the player took any damage)
+    //     and whether the damages of that tick took shield (bit 3) and health (bit 4), and (bit 5) that the player was already damaged this tick (so round trips are exact); bits 5..7 zero. Presentation only: the config hash does not change. Clients show the glow and sparks on a change.
+    // 72 (sim/hop-rules; the owner 2026-11-14): no size change. The jump byte's bit 6 in phase None says the air jump is open (a Jump press ended a bull rush held in the air: a charge off a ledge; PlayerState.JumpAirOpen). Rules, every mode where the
+    //     Assault Marine / Raptor play: a charge off a ledge can be jumped out of with a full jump (the long press lifts the pack in the air); a hop cuts the light-combo wait still running to half of what is left, not below 0.25 s;
+    //     a Jump press ends the aerial tackle and hops at once. Restore switch (config hash): --old-hop-rules.
+    // 73 (sim/pound-any-weapon; the owner 2026-11-14: swords could not pound in the ascent): no layout change. No melee weapon waits for the pound's smash_available_delay (Air-Cooled Thrusters' 2 s; the hammers already did, protocol 55):
+    //     a melee press above the slash's height (8 m) pounds at once, in the ascent too. Every mode. Client prediction must agree, hence the bump.
+    // 74 (sim/stomp-release; the owner 2026-11-14): no layout change. The Devastator's and Havoc's stomp (the in-place heavy evade melee) releases the player 1.2 s into its clip (after its 0.767 s blast): from then fire, aim, move,
+    //     switch, reload, throw, melee and the hop start and end the stomp; before it only the hop cancels (protocol 51). Every mode. Client prediction must agree, hence the bump. Restore switch (config hash): --old-stomp-release.
+    // 75 (sim/stim-regen-now; the owner's recollection 2026-11-14): bit 6 of the damage byte (every record) is the health-regen waiver. Using a combat stim ends the health regeneration delay at the stim's release (regeneration at the normal or Larraman's rate from the next tick). Every mode. Client prediction must agree, hence the bump.
+    // 76 (sim/kick-push; the owner 2026-11-14): no layout change. The Devastator's and Havoc's kick (the heavy classes' light melee attack) knocks its target back 40 % as far (x0.4); the stomp and Musou's enemies unchanged. Every mode.
+    //     Client prediction must agree, hence the bump (renumbered from 75 at integration, after sim/stim-regen-now). Restore switch (config hash): --old-kick-push.
+    // 77 (sim/sprint-melee-charge and sim/ledge-charge-cancel; the owner's recollection 2026-11-15): no layout change. A light melee press (RMB) with Shift and W held on the ground is the charge, not a swing (Classic PvP; the swing needs Shift let go);
+    //     a light press in a charge held in the air zeroes its momentum and the swing steps the stick's way or the view's (every mode). Client prediction must agree, hence the bump. Restore switches (config hash): --old-sprint-melee, --old-ledge-cancel.
+    // 78 (sim/lascannon-tap-reload; the owner 2026-11-15, experimental): no layout change. Classic PvP's lascannon reloads one round per tap in 0.4 s (no shot meanwhile); Musou Mode and other weapons unchanged.
+    //     Client prediction must agree, hence the bump (renumbered from 77 at integration after the charge rules). Restore switch (config hash): --old-lascannon-reload.
+    // 79 (classic-maps-all; the owner 2026-11-15): bit 5 of the match block's state byte is MatchView.NextMap: set while a match has ended on a server that runs a map rotation (--maps); the client then rejoins the same address when the restart clock runs out and plays the next map (its Challenge names it). No other layout change. (renumbered from 78 at integration, after the lascannon.)
+    public const ushort Version = 79;
+    /// <summary>The kill-feed cause code of a weapon kill on the head (protocol 64; <see cref="KillView.Headshot"/>).</summary>
+    public const int HeadshotCauseCode = 6;
     /// <summary>Most spectators a server admits and a Scoreboard lists (protocol 46), so the Scoreboard stays within one packet.</summary>
     public const int MaxSpectators = 4;
     /// <summary>Bytes of a Hello (protocol 22: 49 + 2 perk choices + 2 appearance codes; protocol 28: + the Ork look).</summary>
     public const int HelloBytes = 54 + 2 * AppearanceCode.Size;
     /// <summary>Bytes of a Setup message (protocol 28: + the Ork look).</summary>
-    public const int SetupBytes = 1 + 4 + 2 + ChoiceBytes + 2 * AppearanceCode.Size + 1;
+    public const int SetupBytes = 1 + 4 + 2 + ChoiceBytes + 2 * AppearanceCode.Size + 1 + 1;   // protocol 58: + the flags
     /// <summary>Bytes of a SetupAck message.</summary>
     public const int SetupAckBytes = 1 + 2 + ChoiceBytes + 1 + 2;
     /// <summary>Bytes of an Appearance message.</summary>
@@ -475,8 +552,8 @@ public static partial class Protocol
     /// <summary>Most player ids in one <see cref="AppearanceQuery"/>.</summary>
     public const int MaxAppearanceQuery = 16;
     /// <summary>Bytes of a Scoreboard row without its name (protocol 22: 10 + the appearance version; protocol 40: + the equipment item; protocol 41: + the
-    /// name's length byte; protocol 50: + the u16 ping). The name's bytes follow (at most <see cref="PlayerNames.MaxLength"/>).</summary>
-    public const int ScoreRowBytes = 16;
+    /// name's length byte; protocol 50: + the u16 ping; protocol 58: + the flags byte). The name's bytes follow (at most <see cref="PlayerNames.MaxLength"/>).</summary>
+    public const int ScoreRowBytes = 19;   // protocol 64: + headshots and assists
     /// <summary>A scoreboard row's ping on the wire when the server has no measurement yet (protocol 50).</summary>
     public const ushort UnknownPing = ushort.MaxValue;
     /// <summary>Shot offsets travel as signed 16-bit integers in 1/10000 rad (±3.2767 rad).</summary>
@@ -502,7 +579,7 @@ public static partial class Protocol
     /// the recipient's full one of <see cref="FullRecordBytes"/>) a snapshot is at most
     /// 13 + 1 + 16 × 14 + 1 + 15 × 47 + 144 + 9 (match) + 1 + 4 × 9 (kill feed) + 1 + 8 × 2 (points) + 12 (hits) + 1 + 4 × 9 (shots) = <see cref="MaxSnapshotBytes"/> bytes (full record 138 in protocol 17, 139 in 18 and 19, 141 in 20, 142 in 21 and 22, 144 since protocol 23).
     /// </summary>
-    public const int MaxSnapshotProjectiles = 14;   // protocol 45: 14 (the holstered reloads' 8 bytes took one record's room)
+    public const int MaxSnapshotProjectiles = 12;   // protocol 71: 12 (the damage mark's byte in 16 records took one record's room); protocol 62: 13 (the holstered cooldowns' 8 bytes); protocol 45: 14
     /// <summary>The packet size snapshots must not exceed (bytes, the UDP payload budget).</summary>
     public const int SnapshotBudget = 1200;
     /// <summary>Bytes of a shot record (protocol 16; <see cref="ShotView"/>).</summary>
@@ -523,17 +600,17 @@ public static partial class Protocol
     /// <summary>Bytes of a kill-feed entry (protocol 10: 8; protocol 15: + the direction's yaw byte).</summary>
     public const int KillEntryBytes = 9;
     /// <summary>Bytes of a slim player record (protocol 13: 46 + the evade byte).</summary>
-    public const int SlimRecordBytes = 47;
+    public const int SlimRecordBytes = 48;   // protocol 71: + the damage mark byte (and one projectile record fewer)
     /// <summary>Bytes of the recipient's full record (protocol 13: the slim part, 85 more, and 2 evade bytes; protocol 17: 4 reaction bytes; 18: the charge lock; 20: ready and raise ticks; 21: ready ticks in 2 bytes; 23: the perk word).</summary>
-    public const int FullRecordBytes = SlimRecordBytes + 97 + 14 + 8 + 1 + 4;   // protocol 44: + the third weapon's 14 bytes (and one projectile record fewer); protocol 52: + the flinch byte; protocol 53: + the melee lock
+    public const int FullRecordBytes = SlimRecordBytes + 97 + 14 + 8 + 1 + 4 + 8;   // protocol 44: + the third weapon's 14 bytes (and one projectile record fewer); protocol 52: + the flinch byte; protocol 53: + the melee lock; protocol 62: + the holstered cooldowns
     /// <summary>Most kill-feed entries in one snapshot (protocol 10; the server sends the newest).</summary>
     public const int MaxSnapshotKills = 4;
     /// <summary>
     /// The largest snapshot with every other block full: 1200 bytes (protocol 11: 1175; protocol 12: + the 12-byte hit block =
     /// 1187; protocol 13: + 16 evade bytes in the player records + 2 in the own record − one 14-byte projectile record = 1191;
     /// protocol 15: + 4 kill-feed direction bytes = 1195; protocol 16: − three projectile records (42) + the shot count and
-    /// five shot records (46) = 1199; protocol 17: + 4 reaction bytes in the own record − one guaranteed shot record (9) = 1194; protocol 18: + 1 charge-lock byte = 1195; protocol 20: + 2 raise bytes = 1197; protocol 21: ready ticks in 2 bytes = 1198; protocol 23: + the 2-byte perk word = 1200; protocol 44: + 14 bytes, - one projectile record = 1200; protocol 45: + 8 bytes, - one projectile record = 1194; protocol 52: + the flinch byte = 1195; protocol 53: + the melee lock's 4 bytes = 1199),
-    /// at most the 1200-byte <see cref="SnapshotBudget"/> (1 byte of headroom since protocol 53). A smaller snapshot
+    /// five shot records (46) = 1199; protocol 17: + 4 reaction bytes in the own record − one guaranteed shot record (9) = 1194; protocol 18: + 1 charge-lock byte = 1195; protocol 20: + 2 raise bytes = 1197; protocol 21: ready ticks in 2 bytes = 1198; protocol 23: + the 2-byte perk word = 1200; protocol 44: + 14 bytes, - one projectile record = 1200; protocol 45: + 8 bytes, - one projectile record = 1194; protocol 52: + the flinch byte = 1195; protocol 53: + the melee lock's 4 bytes = 1199; protocol 62: + 8 bytes, - one projectile record = 1193),
+    /// at most the 1200-byte <see cref="SnapshotBudget"/> (7 bytes of headroom since protocol 62). A smaller snapshot
     /// carries more shot records, up to <see cref="MaxSnapshotShots"/>, but never more than the budget.
     /// </summary>
     public const int MaxSnapshotBytes = 13 + 1 + MaxSnapshotProjectiles * 14 + 1 + (MaxPlayers - 1) * SlimRecordBytes + FullRecordBytes + 9 + 1 + MaxSnapshotKills * KillEntryBytes
@@ -554,6 +631,10 @@ public static partial class Protocol
     public const int MaxMapName = 24;
     public const int MaxInputsPerBatch = 16;
     public const int NoLead = int.MinValue;
+    /// <summary>A snapshot's input slack when no input of the recipient's was due since the previous snapshot (protocol 65).</summary>
+    public const int NoSlack = int.MinValue;
+    static short ToWire16(int value, int none) => value == none ? short.MinValue : (short)Math.Clamp(value, -short.MaxValue, short.MaxValue);
+    static int FromWire16(short value, int none) => value == short.MinValue ? none : value;
 
     enum Kind : byte
     {
@@ -566,6 +647,8 @@ public static partial class Protocol
         Extras = 16,
         /// <summary>Client to server, added content's commands (Protocol.Envelope.cs): sent only by a client whose match runs added content that reads them (ContentExtras.CommandUsers).</summary>
         ExtrasCommand = 17,
+        /// <summary>Protocol 58: client to server, the classic PvP respawn choice (Protocol.Spawn.cs).</summary>
+        SpawnRequest = 19,
     }
 
     /// <summary>
@@ -622,7 +705,7 @@ public static partial class Protocol
                 w.U8(h.RequestedPrimary); w.U8(h.RequestedPistol); w.U8(h.RequestedMelee); w.U8(h.RequestedEquipment); w.U8(h.RequestedSide);
                 w.U8(h.RequestedPerk1); w.U8(h.RequestedPerk2); WriteCode(w, h.SpaceMarineAppearance); WriteCode(w, h.ChaosAppearance); w.U8(h.OrkLook); w.U8(h.Flags); w.U8(h.RequestedSecond); break;
             case Setup x: w.U8((byte)Kind.Setup); w.U32(x.Session); w.U16(x.Sequence); WriteChoice(w, x.Loadout); WriteCode(w, x.SpaceMarineAppearance); WriteCode(w, x.ChaosAppearance);
-                w.U8(x.OrkLook); break;
+                w.U8(x.OrkLook); w.U8((byte)(x.Flags & Setup.KnownFlags)); break;
             case SetupAck a: w.U8((byte)Kind.SetupAck); w.U16(a.Sequence); WriteChoice(w, a.Loadout); w.U8((byte)(a.Flags & SetupFlags.All)); w.U16(a.AppearanceVersion); break;
             case AppearanceQuery q:
                 if (q.PlayerIds.Length > MaxAppearanceQuery) throw new ArgumentException($"At most {MaxAppearanceQuery} ids in an appearance query.");
@@ -666,7 +749,7 @@ public static partial class Protocol
                 }
                 break;
             case Snapshot s:
-                w.U8((byte)Kind.Snapshot); w.U32(s.ServerTick); w.U32(s.LastInputTick); w.I32(s.InputLead);
+                w.U8((byte)Kind.Snapshot); w.U32(s.ServerTick); w.U32(s.LastInputTick); w.I16(ToWire16(s.InputLead, NoLead)); w.I16(ToWire16(s.InputSlack, NoSlack));   // protocol 65
                 // Projectiles (14 bytes each): id u16, weapon u8, stage u8, flags u8, position 3 × i24 (1/64 m).
                 var projectiles = s.Projectiles ?? [];
                 int count = Math.Min(projectiles.Length, MaxSnapshotProjectiles);
@@ -692,6 +775,7 @@ public static partial class Protocol
                     var (meleeByte, meleeTime) = MeleeField(p);
                     w.U8(meleeByte); w.F32(meleeTime);   // protocol 17: heavy flag or a reaction (see MeleeField)
                     w.U8(EvadeByte(p));   // protocol 13: direction (bits 0..1) << 6 | ticks (0..63; 0 not evading); bit 2 in the slot byte (14)
+                    w.U8((byte)((p.DamageCount & 7) | (p.DamageShield ? 8 : 0) | (p.DamageHealth ? 16 : 0) | (p.DamageFresh ? 32 : 0) | (p.HealthRegenWaived ? 64 : 0)));   // protocol 71: the damage mark (bits 0..5; bit 5: damaged this tick already); protocol 75: bit 6, the stim's health-regen waiver
                     if (!full) continue;
                     // The recipient's own player: everything its prediction replays from (97 more bytes). Protocol 23 (M43): first the
                     // perk word: perk 1 (bits 0..6), perk 2 (bits 7..13; 127 none) and a burst's rounds left (bits 14..15).
@@ -703,6 +787,7 @@ public static partial class Protocol
                     w.F32(p.OtherReloadLeft); w.F32(p.ThirdReloadLeft);   // protocol 45: the holstered weapons' reloads (8 bytes)
                     w.U8((byte)Math.Clamp(p.FlinchTicks, 0, Spread.MaxFlinchTicks));   // protocol 52 (sim/light-melee-flinch): the flinch's ticks left; here so the tail keeps its offsets
                     w.F32(p.MeleeLock);   // protocol 53 (feel/melee-cooldown)
+                    w.F32(p.OtherCooldown); w.F32(p.ThirdCooldown);   // protocol 62 (sim/holstered-cooldown): the holstered weapons' shot cooldowns (8 bytes)
                     w.F32(p.Health); w.F32(p.Shield);
                     w.U16(Ammo(p.Clip)); w.U16(Ammo(p.Reserve)); w.U16(Ammo(p.OtherClip)); w.U16(Ammo(p.OtherReserve));
                     w.F32(p.Cooldown); w.F32(p.ReloadLeft); w.F32(p.SinceDamage); w.F32(p.RespawnLeft); w.F32(p.SwitchLeft);
@@ -715,7 +800,7 @@ public static partial class Protocol
                     // Protocol 27 (M45): in the ascent, bit 6 says the rise is cut (Jump let go; the mark is then the cut's tick).
                     w.U8((byte)(((int)p.Jump & 7) | (p.JumpHeld ? 8 : 0) | (p.JumpHolding ? 16 : 0)
                         | (p.Jump == JumpPhase.TakeOff ? ((int)p.JumpDashDirection & 7) << 5 : p.JumpLandMoving ? 32 : 0)
-                        | (p.Jump == JumpPhase.Ascent && p.JumpCut ? 64 : 0) | (p.Jump == JumpPhase.Hang && p.JumpSmall ? 64 : 0)));   // sim/jump-hang: in the hang, bit 6 says the small jump's longer hang
+                        | (p.Jump == JumpPhase.Ascent && p.JumpCut ? 64 : 0) | (p.Jump == JumpPhase.Hang && p.JumpSmall ? 64 : 0) | (p.Jump == JumpPhase.None && p.JumpAirOpen ? 64 : 0)));   // protocol 72: in phase None, bit 6 says the air jump is open (sim/hop-rules)   // sim/jump-hang: in the hang, bit 6 says the small jump's longer hang
                     w.U16((ushort)Math.Clamp(p.JumpTicks, 0, JumpPack.MaxTicks)); w.U16((ushort)Math.Clamp(p.JumpMark, 0, JumpPack.MaxTicks)); w.F32(p.JumpPower);
                     // Evade (protocol 13; 2 bytes): the exact ticks and the spacing lock.
                     w.U8((byte)Math.Clamp(p.EvadeTicks, 0, Evade.MaxTicks)); w.U8((byte)Math.Clamp(p.EvadeLock, 0, Evade.MaxTicks));
@@ -739,7 +824,7 @@ public static partial class Protocol
                 // Match (protocol 10; 9 bytes): state | winner << 2, ticks left, team scores.
                 var match = s.Match ?? default;
                 if (match.State == MatchState.Countdown) throw new ArgumentException("MatchState.Countdown has no wire value: send it through MatchFlowWire.ToWire (Warmup with ticks left).");
-                w.U8((byte)(((int)match.State & 3) | (((int)match.Winner & 3) << 2) | (((int)match.Mode & 1) << 4))); w.U32(match.TicksLeft);
+                w.U8((byte)(((int)match.State & 3) | (((int)match.Winner & 3) << 2) | (((int)match.Mode & 1) << 4) | (match.NextMap ? 32 : 0))); w.U32(match.TicksLeft);
                 w.U16(Count(match.MarineScore)); w.U16(Count(match.ChaosScore));
                 // Kill feed (protocol 10; 9 bytes each since 15): sequence, killer, victim (u16 each), cause | pitch code << 3, index, yaw byte.
                 var kills = s.Kills ?? [];
@@ -749,7 +834,7 @@ public static partial class Protocol
                 {
                     var e = kills[k];
                     var (yaw, pitch) = KillDirection(e.Direction);
-                    w.U16((ushort)e.Sequence); w.U16(Id16(e.Killer)); w.U16(Id16(e.Victim)); w.U8((byte)(((int)e.Cause & 7) | (pitch << 3))); w.U8(Index(e.Index)); w.U8(yaw);
+                    w.U16((ushort)e.Sequence); w.U16(Id16(e.Killer)); w.U16(Id16(e.Victim)); w.U8((byte)(KillCauseCode(e) | (pitch << 3))); w.U8(Index(e.Index)); w.U8(yaw);
                 }
                 // Control points (protocol 11; 2 bytes each): owner | side << 2 | contested << 4, progress in 1/255.
                 var points = s.Points ?? [];
@@ -787,7 +872,7 @@ public static partial class Protocol
             {
                 // Scoreboard (protocol 10): tick, flags (1 teams, 2 friendly fire, 4 Seize Ground: protocol 11), score limit,
                 // time limit, [Seize Ground block], rows of 12 bytes (protocol 22: + the appearance version; protocol 40: 13, + the equipment item;
-                // protocol 41: + the display name, a length byte and 0..24 Latin-1 bytes; protocol 50: the u16 ping before the name).
+                // protocol 41: + the display name, a length byte and 0..24 Latin-1 bytes; protocol 50: the u16 ping before the name; protocol 58: a flags byte after the ping).
                 w.U8((byte)Kind.Scoreboard); w.U32(b.ServerTick); w.U8((byte)((b.Teams ? 1 : 0) | (b.FriendlyFire ? 2 : 0) | (b.Seize is null ? 0 : 4) | (b.Spectators is { Length: > 0 } ? 8 : 0)));
                 w.U16(Count(b.ScoreLimit)); w.F32(float.IsFinite(b.TimeLimit) ? Math.Max(0f, b.TimeLimit) : 0f);
                 if (b.Seize is { } seize)
@@ -816,6 +901,8 @@ public static partial class Protocol
                     w.U16(Count(e.Kills)); w.U16(Count(e.Deaths)); w.U16(e.AppearanceVersion);
                     w.U8(e.Equipment is >= 0 and < 255 ? (byte)e.Equipment : (byte)255);   // protocol 40: the equipment item (255: none)
                     w.U16(e.PingMs < 0 ? UnknownPing : (ushort)Math.Min(e.PingMs, RttEstimator.MaxMs));   // protocol 50: the ping (ms; 65535 not known)
+                    w.U8((byte)(e.Homer ? 1 : 0));   // protocol 58: the row's flags (bit 0: a living Teleport Homer carrier)
+                    w.U8((byte)Math.Clamp(e.Headshots, 0, 255)); w.U8((byte)Math.Clamp(e.Assists, 0, 255));   // protocol 64: headshot kills and assists
                     var name = Encoding.Latin1.GetBytes(PlayerNames.Sanitise(e.Name));   // protocol 41: the display name (0..24 Latin-1 bytes)
                     w.U8((byte)name.Length); w.Bytes(name);
                 }
@@ -834,6 +921,7 @@ public static partial class Protocol
                 break;
             }
             case EnemyBars eb: WriteBars(w, eb); break;   // protocol 44 (Protocol.Bars.cs)
+            case SpawnRequest sr: WriteSpawnRequest(w, sr); break;   // protocol 58 (Protocol.Spawn.cs)
             case PickupUpdate p: WritePickups(w, p); break;   // protocol 26 (Protocol.Pickups.cs)
             case ExtrasUpdate x: WriteExtras(w, x); break;   // added content's envelope (Protocol.Envelope.cs; extras wire 2)
             case ExtrasCommandMessage c: WriteExtrasCommand(w, c); break;   // added content's commands, client to server (Protocol.Envelope.cs)
@@ -855,7 +943,8 @@ public static partial class Protocol
             {
                 Kind.Hello => new Hello(r.U16(), r.U64(), r.U64(), r.U32(), r.U32(), r.U64(), r.U64(), r.U8(), r.U8(), r.U8(), r.U8(), r.U8(), r.U8(),
                     r.U8(), r.U8(), ReadCode(ref r), ReadCode(ref r), r.U8(), r.U8(), r.U8()),
-                Kind.Setup => new Setup(r.U32(), r.U16(), ReadChoice(ref r), ReadCode(ref r), ReadCode(ref r), r.U8()),
+                Kind.Setup => new Setup(r.U32(), r.U16(), ReadChoice(ref r), ReadCode(ref r), ReadCode(ref r), r.U8(), r.U8()) is { } setup && (setup.Flags & ~Setup.KnownFlags) == 0 ? setup : null,
+                Kind.SpawnRequest => ReadSpawnRequest(ref r),   // protocol 58 (Protocol.Spawn.cs)
                 Kind.SetupAck => ReadSetupAck(ref r),
                 Kind.AppearanceQuery => ReadAppearanceQuery(ref r),
                 Kind.Appearance => ReadAppearance(ref r),
@@ -959,7 +1048,7 @@ public static partial class Protocol
 
     static Snapshot? ReadSnapshot(ref Reader r)
     {
-        uint tick = r.U32(), last = r.U32(); int lead = r.I32();
+        uint tick = r.U32(), last = r.U32(); int lead = FromWire16(r.I16(), NoLead), slack = FromWire16(r.I16(), NoSlack);   // protocol 65
         int m = r.U8();
         if (m > MaxSnapshotProjectiles) return null;
         var projectiles = new ProjectileView[m];
@@ -995,6 +1084,8 @@ public static partial class Protocol
             if (FromMeleeField(meleeByte, meleeTime) is not { } melee) return null;   // unknown bits, kind 0, or ticks not a whole number 0..255
             int evade = r.U8(), evadeTicks = evade & Evade.MaxSlimTicks;
             if (evadeTicks == 0 && (evade != 0 || diagonal != 0 || landed)) return null;   // a direction or a landing without an evade
+            int damageMark = r.U8();   // protocol 71 damage mark (bits 0..5) + protocol 75 health-regen waiver (bit 6)
+            if ((damageMark & 0x80) != 0) return null;   // unknown bits
             var p = new PlayerState(id, position, velocity, yaw, (flags & 1) != 0)
             {
                 Pitch = pitch, Alive = (flags & 2) != 0, Charging = (flags & 8) != 0, Throwing = (flags & 16) != 0, Aiming = (flags & 128) != 0,
@@ -1004,6 +1095,7 @@ public static partial class Protocol
                 MeleeChoice = meleeChoice, Team = (Team)(classAndTeam >> 6),
                 Primary = slot == (int)WeaponSlot.Ranged ? inHand : -1, Pistol = slot == (int)WeaponSlot.Pistol ? inHand : -1,
                 EvadeTicks = evadeTicks, EvadeDirection = (EvadeDirection)((evade >> 6) | (diagonal << 2)), EvadeLanded = landed,
+                DamageCount = (byte)(damageMark & 7), DamageShield = (damageMark & 8) != 0, DamageHealth = (damageMark & 16) != 0, DamageFresh = (damageMark & 32) != 0, HealthRegenWaived = (damageMark & 64) != 0,   // protocol 71 mark, protocol 75 waiver
                 ReadyTicks = up ? 1 : 0,   // slim: a representative value (the own record below has the exact ticks)
                 Brace = bracePhase, Venting = venting, JumpSlash = slash,
             };
@@ -1026,6 +1118,9 @@ public static partial class Protocol
                 float meleeLock = r.F32();   // protocol 53 (feel/melee-cooldown)
                 if (!(meleeLock >= 0f && meleeLock <= 10f)) return null;
                 p = p with { MeleeLock = meleeLock };
+                float otherCooldown = r.F32(), thirdCooldown = r.F32();   // protocol 62 (sim/holstered-cooldown)
+                if (!(otherCooldown >= 0f && otherCooldown < 1e3f) || !(thirdCooldown >= 0f && thirdCooldown < 1e3f)) return null;
+                p = p with { OtherCooldown = otherCooldown, ThirdCooldown = thirdCooldown };
                 p = p with
                 {
                     Health = r.F32(), Shield = r.F32(), Clip = r.U16(), Reserve = r.U16(), OtherClip = r.U16(), OtherReserve = r.U16(),
@@ -1037,7 +1132,7 @@ public static partial class Protocol
                 p = p with { ChargeTime = r.F32(), PendingLeft = r.F32(), PendingShot = r.U8(), ProjectilesOut = r.U8() };
                 int jump = r.U8();
                 var phase = (JumpPhase)(jump & 7);
-                if (phase != JumpPhase.TakeOff && jump > (phase is JumpPhase.Ascent or JumpPhase.Hang ? 127 : 63)) return null;   // unknown flags (protocol 24: bits 5..7 are the dash direction while taking off; 27: bit 6 the ascent's cut)
+                if (phase != JumpPhase.TakeOff && jump > (phase is JumpPhase.Ascent or JumpPhase.Hang or JumpPhase.None ? 127 : 63)) return null;   // unknown flags (protocol 24: bits 5..7 are the dash direction while taking off; 27: bit 6 the ascent's cut)
                 if (phase == JumpPhase.Ascent && (jump & 64) != 0 && (jump & 16) != 0) return null;   // a cut rise is not holding
                 if (JumpPack.Jumping(phase) != ((flags & 32) != 0) || JumpPack.Pounding(phase) != ((flags & 64) != 0)) return null;   // disagrees with the slim flags
                 if (slash && phase is JumpPhase.Hang or JumpPhase.Fall) return null;   // protocol 31: the buffered press only in the take-off and on the lift-off tick
@@ -1045,7 +1140,7 @@ public static partial class Protocol
                 {
                     Jump = phase, JumpHeld = (jump & 8) != 0, JumpHolding = (jump & 16) != 0,
                     JumpLandMoving = phase != JumpPhase.TakeOff && (jump & 32) != 0, JumpDashDirection = phase == JumpPhase.TakeOff ? (EvadeDirection)(jump >> 5) : EvadeDirection.Forward,
-                    JumpCut = phase == JumpPhase.Ascent && (jump & 64) != 0, JumpSmall = phase == JumpPhase.Hang && (jump & 64) != 0,
+                    JumpCut = phase == JumpPhase.Ascent && (jump & 64) != 0, JumpSmall = phase == JumpPhase.Hang && (jump & 64) != 0, JumpAirOpen = phase == JumpPhase.None && (jump & 64) != 0,
                     JumpTicks = r.U16(), JumpMark = r.U16(), JumpPower = r.F32(),
                 };
                 int exactTicks = r.U8(), evadeLock = r.U8();
@@ -1087,8 +1182,8 @@ public static partial class Protocol
             players[i] = p;
         }
         int state = r.U8();
-        if (state > 31 || ((state >> 2) & 3) > (int)Team.Chaos) return null;   // unknown state bits or mode, or winner 3
-        var match = new MatchView((MatchState)(state & 3), (Team)((state >> 2) & 3), r.U32(), r.U16(), r.U16(), (GameMode)(state >> 4));
+        if (state > 63 || ((state >> 2) & 3) > (int)Team.Chaos) return null;   // unknown state bits or mode, or winner 3
+        var match = new MatchView((MatchState)(state & 3), (Team)((state >> 2) & 3), r.U32(), r.U16(), r.U16(), (GameMode)((state >> 4) & 1), (state & 32) != 0);
         int killCount = r.U8();
         if (killCount > MaxSnapshotKills) return null;
         var kills = new KillView[killCount];
@@ -1096,10 +1191,12 @@ public static partial class Protocol
         {
             int sequence = r.U16(), killer = r.U16(), victim = r.U16(), causeByte = r.U8(), index = FromIndex(r.U8()), yaw = r.U8();
             int cause = causeByte & 7, pitch = causeByte >> 3;
+            bool headshot = cause == HeadshotCauseCode;   // protocol 64: a weapon kill on the head
+            if (headshot) cause = (int)KillCause.Weapon;
             if (cause > (int)KillCause.Perk) return null;   // protocol 23: perk kills (5)
             if (pitch == 0 && yaw != 0) return null;   // no direction travels as zeros
             for (int j = 0; j < k; j++) if (kills[j].Sequence == sequence) return null;   // one entry per death
-            kills[k] = new KillView(sequence, killer, victim, (KillCause)cause, index, KillDirection(yaw, pitch));
+            kills[k] = new KillView(sequence, killer, victim, (KillCause)cause, index, KillDirection(yaw, pitch), headshot);
         }
         int pointCount = r.U8();
         if (pointCount > MaxSnapshotPoints) return null;
@@ -1129,7 +1226,7 @@ public static partial class Protocol
             if (armoured && (ShotHit)hit is not (ShotHit.Body or ShotHit.Head)) return null;       // only player hits strike armour
             shots[k] = new ShotView(players[index].PlayerId, weapon, stage, (ShotHit)hit, surface == UnknownSurface ? -1 : surface, players[index].Position + offset, age, armoured);
         }
-        return new Snapshot(tick, last, lead, players, self, projectiles, match, kills, points, hits, shots);
+        return new Snapshot(tick, last, lead, players, self, projectiles, match, kills, points, hits, shots, slack);
     }
 
     /// <summary>Whether a shot can travel: a weapon index 0..254, a stage 0..7, a known hit kind and a finite end point.</summary>
@@ -1173,8 +1270,12 @@ public static partial class Protocol
     public static KillView Quantize(KillView k)
     {
         var (yaw, pitch) = KillDirection(k.Direction);
-        return new KillView(k.Sequence & 0xFFFF, Id16(k.Killer), Id16(k.Victim), (KillCause)((int)k.Cause & 7), FromIndex(Index(k.Index)), KillDirection(yaw, pitch));
+        var cause = (KillCause)((int)k.Cause & 7);
+        return new KillView(k.Sequence & 0xFFFF, Id16(k.Killer), Id16(k.Victim), cause, FromIndex(Index(k.Index)), KillDirection(yaw, pitch), k.Headshot && cause == KillCause.Weapon);
     }
+
+    /// <summary>A kill-feed entry's cause code (3 bits): the cause, or <see cref="HeadshotCauseCode"/> for a weapon kill on the head (protocol 64).</summary>
+    static int KillCauseCode(KillView k) => k.Headshot && k.Cause == KillCause.Weapon ? HeadshotCauseCode : (int)k.Cause & 7;
 
     /// <summary>
     /// A kill direction on the wire: yaw byte (2π/256 steps, the simulation's yaw = atan2(−x, y)) and a pitch code 1..31
@@ -1292,12 +1393,15 @@ public static partial class Protocol
             int equipment = r.U8();   // protocol 40
             int ping = r.U16();   // protocol 50: ms, or UnknownPing
             if (ping > RttEstimator.MaxMs && ping != UnknownPing) return null;
+            int rowFlags = r.U8();   // protocol 58
+            if (rowFlags > 1) return null;
+            int headshots = r.U8(), assists = r.U8();   // protocol 64
             int nameLength = r.U8();   // protocol 41: the display name
             if (nameLength > PlayerNames.MaxLength) return null;
             string name = PlayerNames.Sanitise(Encoding.Latin1.GetString(r.Bytes(nameLength)));
             if (team > (int)Team.Chaos || playerClass >= MaxClasses) return null;
             for (int j = 0; j < k; j++) if (rows[j].PlayerId == id) return null;   // one row per player
-            rows[k] = new ScoreEntry(id, (Team)team, playerClass, kills, deaths, appearance, equipment == 255 ? -1 : equipment, name, ping == UnknownPing ? -1 : ping);
+            rows[k] = new ScoreEntry(id, (Team)team, playerClass, kills, deaths, appearance, equipment == 255 ? -1 : equipment, name, ping == UnknownPing ? -1 : ping, (rowFlags & 1) != 0, headshots, assists);
         }
         SpectatorEntry[]? spectators = null;
         if ((flags & 8) != 0)
@@ -1363,6 +1467,7 @@ public static partial class Protocol
             MeleeStep = melee.Step, MeleeTime = melee.Time, MeleeHeavy = melee.Heavy,
             Reaction = melee.Reaction, ReactionDirection = melee.Direction, ReactionTicks = melee.Ticks, Rush = melee.Rush, RushTicks = melee.RushTicks,
             SprintStop = melee.SprintStop,   // protocol 36
+            DamageCount = (byte)(p.DamageCount & 7), DamageShield = p.DamageShield, DamageHealth = p.DamageHealth, DamageFresh = p.DamageFresh, HealthRegenWaived = p.HealthRegenWaived,   // protocol 71 mark, protocol 75 waiver
             Primary = p.Slot == WeaponSlot.Ranged ? FromIndex(Index(p.Primary)) : -1,
             Pistol = p.Slot == WeaponSlot.Pistol ? FromIndex(Index(p.Pistol)) : -1,
             MeleeChoice = FromIndex(Index(p.MeleeChoice)),

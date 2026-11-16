@@ -31,7 +31,7 @@ public partial class NetworkView
     static bool LogSound(string kind) => LogSoundKinds.Count > 0 && LogSoundKinds.Contains(kind);
 
     /// <summary>
-    /// <c>--sound-limits none|footsteps|all</c> (footsteps fix): which posts get the banks' "limit sound instances" and the 2D volume threshold: none = exactly the behaviour before the fix, footsteps (default) = footstep and landing posts only, all = every post (see <see cref="SoundSystem.Limits"/>).
+    /// <c>--sound-limits none|footsteps|all</c> (footsteps fix): which posts get the banks' "limit sound instances" and the 2D volume threshold: none = exactly the behaviour before the fix, footsteps = footstep and landing posts only (the default until the polish pass P1), all (the default since P1, the owner's decision of 2026-11-10 after the A/B) = every post (see <see cref="SoundSystem.Limits"/>).
     /// </summary>
     static readonly InstanceLimits SoundLimitsMode = ParseSoundLimits();
 
@@ -40,6 +40,9 @@ public partial class NetworkView
 
     /// <summary><c>--rtpc-volume-cap peak|node|voice|off</c> (sound/footsteps-2; default peak): see <see cref="SoundSystem.RtpcCap"/>.</summary>
     static readonly RtpcVolumeCap RtpcCapArg = ParseRtpcCap();
+
+    /// <summary><c>--loudness-gain &lt;dB&gt;</c>, <c>--loudness-range &lt;x&gt;</c>, <c>--loudness-original</c> (sound/louder-farther, owner 2026-11-08): see <see cref="SoundSystem.Loudness"/>.</summary>
+    static readonly SoundLoudness LoudnessArg = SoundLoudness.FromArgs(OS.GetCmdlineUserArgs(), s => GD.PrintErr(s));
 
     static RtpcVolumeCap ParseRtpcCap()
     {
@@ -74,7 +77,7 @@ public partial class NetworkView
         if (e.Own) distance = Math.Min(distance, SoundSystem.OwnMinDistance);
         var voices = play.Voices.Select(v =>
         {
-            var mix = VoiceMixer.Evaluate(v, null, e.Id, 0, v.Is3D ? distance : null, e.Parameters, RtpcCapArg).With(offset);
+            var mix = LoudnessArg.Evaluate(v, null, e.Id, 0, v.Is3D ? distance : null, e.Parameters, RtpcCapArg).With(offset);
             return $"wem {v.WemId} {(v.Is3D ? "3D" : "2D")} {mix.VolumeDb:F1}dB {mix.PitchCents:F0}c lpf{mix.Lpf:F0}";
         });
         return $"dist {distance:F1} m, {play.Voices.Count} voices: " + string.Join("; ", voices);
@@ -107,9 +110,9 @@ public partial class NetworkView
                 // Names only: Enum.TryParse would take "1" or "2" too.
                 var name = Enum.GetNames<InstanceLimits>().FirstOrDefault(n => n.Equals(args[i + 1], StringComparison.OrdinalIgnoreCase));
                 if (name is not null) return Enum.Parse<InstanceLimits>(name);
-                GD.PrintErr($"--sound-limits {args[i + 1]}: not one of none, footsteps, all; using footsteps");
+                GD.PrintErr($"--sound-limits {args[i + 1]}: not one of none, footsteps, all; using all");
             }
-        return InstanceLimits.Footsteps;
+        return InstanceLimits.All;   // polish pass P1: every post (the owner's decision of 2026-11-10 after the A/B); footsteps was the default from the footsteps fix to P1
     }
 
     /// <summary>The name of a surface switch value (the surfaces' hashes), or its hex.</summary>

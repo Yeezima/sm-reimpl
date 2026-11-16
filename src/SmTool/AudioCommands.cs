@@ -51,6 +51,7 @@ static class AudioCommands
                 "audio-tags" => TagReport(rest),
                 "audio-levels" => LevelReport(rest),
                 "audio-objects" when rest.Length >= 1 => ObjectList(rest[0], rest[1..]),
+                "audio-speech" => SpeechTrees(rest),
                 _ => -1,
             };
         }
@@ -309,6 +310,67 @@ static class AudioCommands
     // ---------------------------------------------------------------- audio-objects
 
     /// <summary>Lists the Hierarchy objects of one type (name or number, e.g. Bus, FxShareSet, FxCustom) of the loaded banks with their payload bytes in hex (a test aid for layouts that are kept raw).</summary>
+    /// <summary>
+    /// musou/battle-ambience: the speech bank's dialogue events (HIRC 15) as trees: each event's arguments, then per first-level key (the character) the second-level keys (the
+    /// exertion or action type) with the number of leaves under each, names resolved from the install's blueprint strings (<see cref="LoadNames"/>) and <c>--names file</c>.
+    /// <c>--character re</c> keeps matching characters; <c>--packages a,b</c> (default speech_01).
+    /// </summary>
+    static int SpeechTrees(string[] rest)
+    {
+        string gameDir = GameInstall.Locate(Opt(rest, "--game"), RepoRoot());
+        if (rest.Contains("--bark-sets"))
+        {
+            // musou/battle-ambience: the Marine barks' line sets per character, each line's voices and length (MusouMarineBarkRules).
+            using var catalog = AudioCatalog.Open(gameDir, null, repoRoot: RepoRoot(), log: Console.Error);
+            foreach (var character in new[] { "titus", "sidonus", "leandros" })
+                foreach (var (evt, prefix) in MusouMarineBarkRules.LineSets(character))
+                {
+                    var leaves = catalog.DialogueLeaves(evt, prefix);
+                    var lengths = leaves.Select(n => catalog.PostNode(n, new SoundSwitches())).Select(p => p.Voices.Count == 0 ? "-" : $"{p.Voices.Max(v => catalog.Duration(v.WemId)):0.0}s");
+                    Console.WriteLine($"{character} {evt:x8}/{string.Join("/", prefix.Skip(1).Select(k => k.ToString("x8")))}: {leaves.Count} lines [{string.Join(" ", leaves.Zip(lengths, (n, l) => $"{n:x8}:{l}"))}]");
+                    if (rest.Contains("--wems"))
+                        foreach (var n in leaves) Console.WriteLine($"    {n:x8}: wems {string.Join(",", catalog.PostNode(n, new SoundSwitches()).Voices.Select(v => v.WemId).Distinct())}");
+                }
+            return 0;
+        }
+        var names = LoadNames(gameDir, Opt(rest, "--names"));
+        foreach (var n in new[] { "speech_exertion", "speech_action", "character", "exertion_type", "action_type", "action_state", "threat_level", "high", "low", "Low", "start", "end" }) names.Add(n);
+        var filter = Opt(rest, "--character") is { } re ? new System.Text.RegularExpressions.Regex(re, System.Text.RegularExpressions.RegexOptions.IgnoreCase) : null;
+        using var lib = WwiseLibrary.Open(Path.Combine(gameDir, "streamingaudio"), (Opt(rest, "--packages") ?? "speech_01").Split(','), out _);
+        var seen = new HashSet<uint>();
+        foreach (var b in lib.Banks)
+            foreach (var d in b.Bank.Objects.OfType<HircDialogueEvent>())
+            {
+                if (!seen.Add(d.Id)) continue;
+                Console.WriteLine($"dialogue {names.Name(d.Id)} [{b.PackageName}]: arguments {string.Join(", ", d.ArgumentIds.Select(names.Name))}; {d.Nodes.Count} nodes");
+                if (d.Nodes.Count == 0) continue;
+                var root = d.Nodes[0];
+                for (int c = 0; c < root.ChildCount; c++)
+                {
+                    var ch = d.Nodes[root.ChildIndex + c];
+                    string chName = ch.Key == 0 ? "(any)" : names.Name(ch.Key);
+                    if (filter is not null && !filter.IsMatch(chName)) continue;
+                    var types = new List<string>();
+                    for (int k = 0; k < ch.ChildCount && d.ArgumentIds.Count > 1; k++)
+                    {
+                        var t = d.Nodes[ch.ChildIndex + k];
+                        types.Add($"{(t.Key == 0 ? "(any)" : names.Name(t.Key))}:{Leaves(d, ch.ChildIndex + k)}");
+                    }
+                    Console.WriteLine($"  {chName}: {string.Join(" ", types)}");
+                }
+            }
+        return 0;
+
+        static int Leaves(HircDialogueEvent d, int i)
+        {
+            var n = d.Nodes[i];
+            if (n.ChildCount == 0 || n.ChildIndex >= d.Nodes.Count || n.ChildIndex <= i) return 1;
+            int sum = 0;
+            for (int k = 0; k < n.ChildCount && n.ChildIndex + k < d.Nodes.Count; k++) sum += Leaves(d, n.ChildIndex + k);
+            return sum;
+        }
+    }
+
     static int ObjectList(string typeText, string[] rest)
     {
         string gameDir = GameInstall.Locate(Opt(rest, "--game"), RepoRoot());
@@ -507,16 +569,28 @@ static class AudioCommands
         }
         if (Opt(rest, "--state") is { } stateEvent) catalog.Post(stateEvent, new SoundSwitches());   // e.g. play_set_state_death_armored before a confirm
         var parameters = new Dictionary<uint, float> { [VoiceMixer.Speed] = speed };
+        // sound/louder-farther: --loudness applies the client's loudness rule (SoundLoudness.Default, or --loudness-gain / --loudness-range); without it the data's mix.
+        var loudness = rest.Contains("--loudness") || rest.Contains("--loudness-gain") || rest.Contains("--loudness-range") ? SoundLoudness.FromArgs(rest, Console.Error.WriteLine) : SoundLoudness.Original;
+        // --speech <character>/<exertion type>: a character's exertion line (speech_exertion) instead of an event, e.g. tactical_marine/effort_short_stab, ork_boy_2/damage_small.
+        string? speech = Opt(rest, "--speech");
+        var scape = Opt(rest, "--scape") switch { "movement" => ScapeClass.Movement, "movement-far" => ScapeClass.MovementFar, "gunfire" => ScapeClass.Gunfire, "reload" => ScapeClass.Reload, _ => ScapeClass.None };
+        // --melee-hit: a melee weapon's on-hit post as the client posts it: the mix pass's on-hit +4 dB (SoundMixPass.Hit) and the rule's melee hit gain.
+        if (rest.Contains("--melee-hit")) offset = offset.Plus(SoundMixPass.Hit(false)).Plus(loudness.MeleeHit);
         Console.WriteLine($"event {eventName}: {(rest.Contains("--local") ? "local player" : "remote player")}, surface {Opt(rest, "--surface") ?? "(default)"}, speed {speed:0.##} m/s, distance {distance:0.#} m, master bus {catalog.MasterBusVolume:0.#} dB, rtpc volume cap {cap}" +
-                          (offset.IsNone ? "" : $", offset {offset} included"));
+                          (offset.IsNone ? "" : $", offset {offset} included") + $", loudness {loudness}");
         for (int n = 0; n < posts; n++)
         {
-            var play = catalog.Post(eventName, sw, 1);
+            var play = speech is { } sp && sp.Split('/') is [var character, var type]
+                ? catalog.PostSpeech(SpeechKind.Exertion, character, type, "", "high", sw, 1)
+                : catalog.Post(eventName, sw, 1);
             if (!play.Found) { Console.Error.WriteLine("event not found"); return 1; }
             Console.WriteLine($"post {n + 1}: {play.Voices.Count} voices, {play.Stops.Count} stops, {play.Properties.Count} property actions");
             foreach (var v in play.Voices)
             {
-                var mix = VoiceMixer.Evaluate(v, null, 1, 0, v.Is3D ? distance : null, parameters, cap).With(offset);
+                var mix = loudness.Evaluate(v, null, 1, 0, v.Is3D ? distance : null, parameters, cap);
+                // sound/classic-soundscape: --scape movement|movement-far|gunfire|reload applies the Classic soundscape's class for another player (ClassicSoundscape.Apply); without it the old mix.
+                if (scape != ScapeClass.None && v.Is3D) mix = ClassicSoundscape.Apply(scape, mix, loudness.Evaluate(v, null, 1, 0, 0f, parameters, cap), distance);
+                mix = mix.With(offset);
                 float dur = catalog.Duration(v.WemId);
                 var rtpcs = v.Chain.SelectMany(c => c.Rtpcs).Where(r => r.RtpcId == VoiceMixer.Speed).Select(r => $"p{r.ParamId}={r.Evaluate(speed):0.#}");
                 Console.WriteLine($"  wem {v.WemId,10} {dur,5:0.00} s  {(v.Is3D ? "3D" : "2D")}  vol {mix.VolumeDb,6:0.0} dB (at post {v.VolumeDb:0.0}, buses {v.BusVolumeDb:0.0})  pitch {mix.PitchCents,6:0} c  lpf {mix.Lpf,4:0.#}  speed-rtpc [{string.Join(" ", rtpcs)}]  bus chain [{string.Join(" > ", v.Buses.Select(b => $"{b.Id:x8}:{b.Volume:0.#}"))}]");
@@ -533,7 +607,7 @@ static class AudioCommands
         if (i < 0) return true;
         if (RtpcVolumeCaps.TryParse(i + 1 < rest.Length ? rest[i + 1] : null, out cap, out string? error)) return true;
         Console.Error.WriteLine($"--cap: {error}");
-        Console.Error.WriteLine("usage: smtool audio-mix <event> [--local] [--surface s] [--speed v] [--distance d] [--posts n] [--cap peak|node|voice|off] [--step] [--treatment impact|confirm-armour|confirm-flesh|confirm-kill] [--state <set-state event>]; smtool audio-levels [--speed v] [--posts n] [--cap ...]");
+        Console.Error.WriteLine("usage: smtool audio-mix <event> [--local] [--surface s] [--speed v] [--distance d] [--posts n] [--cap peak|node|voice|off] [--step] [--treatment impact|confirm-armour|confirm-flesh|confirm-kill] [--state <set-state event>] [--loudness [--loudness-gain dB] [--loudness-range x]] [--speech character/type] [--melee-hit] [--scape movement|movement-far|gunfire|reload]; smtool audio-levels [--speed v] [--posts n] [--cap ...]");
         return false;
     }
 

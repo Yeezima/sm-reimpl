@@ -31,7 +31,7 @@ public partial class NetworkView
     {
         if (_ringsRequested || _config is null) return;
         _ringsRequested = true;
-        foreach (var pack in _config.JumpPacks) if (pack.Pound is { } pound) PoundRing.Request(pound.Radius);
+        foreach (var pack in _config.JumpPacks) if (pack.Pound is { } pound) PoundRing.Request(pound.Radius * PoundRingScale);
     }
 
     /// <summary>
@@ -70,7 +70,7 @@ public partial class NetworkView
         if (!FxActive || _fx is null || _catalogue is null || pack is null) return;
         if (_catalogue.JumpPack(pack.Name) is not { } effects) { if (_fxNoted.Add("jumppack:" + pack.Name)) GD.Print($"  effects: no ground effects for jump pack '{pack.Name}'"); return; }
         var (point, normal, surface) = GroundUnder(s.Position);
-        float radius = pack.Pound?.Radius ?? 0f;   // the simulation's pound blast: the hit-detection radius the ring marks
+        float radius = (pack.Pound?.Radius ?? 0f) * PoundRingScale;   // the simulation's pound blast: the hit-detection radius the ring marks
         bool near = _camera is not { } camNear || camNear.GlobalPosition.DistanceTo(point) <= PoundDetailRange;   // far away: the effect only, no ring or chunks
         int started = GroundPoundFx.Play(_fx, GroundPoundFx.WithDust(effects.Pound, effects.LightLanding, near ? effects.LandingFor(float.MaxValue) : null), point, normal, near ? radius : 0f, NoShards || !near ? null : GroundShardsNode(), _catalogue.SurfaceName(surface), s.PlayerId * 31 + _poundFx).Count;
         if (started == 0) return;

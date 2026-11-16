@@ -14,12 +14,10 @@ It is not affiliated with, endorsed by or supported by Relic Entertainment, SEGA
 
 **Already using the launcher?** Just start **SM Reimpl Launcher**: it offers this build, downloads and checks it, and keeps your profile and settings.
 
-1. Download **`@ZIP@`** (@ZIPSIZE@) from **Assets** below. It is the only download you need.
-2. Right-click the zip > **Properties** > tick **Unblock** > **OK**. The programs are not code-signed; this stops Windows from blocking every file inside.
-3. Right-click the zip > **Extract All...** to a folder of your choice. Keep the folders as they are.
-4. Open the folder and run **`@LAUNCHER@`**. Run the launcher; it keeps you up to date: it installs the build into its own folder, looks for new builds each time it starts, downloads and checks them, and starts the game. From then on, start **SM Reimpl Launcher** from the desktop or the Start menu. (Or run **`@PLAY@`** directly, as before.)
-5. If Windows shows "Windows protected your PC", click **More info** > **Run anyway**. The programs are not code-signed, so SmartScreen warns once.
-6. The game finds your Steam install by itself; if it cannot, it asks for the game folder.
+@GETIT@
+
+- If Windows shows "Windows protected your PC", click **More info** > **Run anyway**. The programs are not code-signed, so SmartScreen warns once.
+- The game finds your Steam install by itself; if it cannot, it asks for the game folder.
 
 The folder holds these files, in the order you use them:
 
@@ -31,6 +29,8 @@ The folder holds these files, in the order you use them:
 | `@HOST@` | Starts a server only this PC can join (no bots) |
 | `@JOIN@` | Asks for a server address and joins it directly (just Enter = this PC) |
 | `@HOSTLAN@` | Starts a server other PCs can join (your network, or the internet) |
+| `@MUSOU@` | Starts a Musou Mode server only this PC can join (co-op, up to 4 players) |
+| `@MUSOULAN@` | Starts a Musou Mode server other PCs can join (up to 4 players together) |
 
 The folders `game`, `server`, `source` and `notes` hold the program, the bundled server, the source code and the notes. You never need to open them.
 
@@ -40,6 +40,8 @@ The folders `game`, `server`, `source` and `notes` hold the program, the bundled
 - **Play on your own:** in `@PLAY@` choose **This PC only** and press **HOST A MATCH** (it starts the server and joins it). Hosting starts no bots; to play against bots, set **BOTS** with **-** / **+** (1 to 15; Easy or Normal) before you press **HOST A MATCH**. Each bot uses about 0.27 GB of memory, so on a PC with 8 GB keep to about 4; to change the number, stop the server and host again. Or run `@HOST@` (no bots), then `@JOIN@` and press Enter.
 - **Stop a server:** **STOP SERVER** in the HOST panel stops the server you hosted (and its bots), or one started by `@HOST@`. If the port is taken by another program, the menu says so and does not join.
 - **Host for friends:** run `@HOSTLAN@`, or in `@PLAY@` choose **LAN / Internet** and press **HOST A MATCH**. Windows Firewall asks once: allow it. Friends on your network join your PC's address with port 27015 (the `@HOSTLAN@` window lists this PC's addresses). Over the internet, forward UDP port 27015 on your router to your PC; that does not work behind carrier-grade NAT (CGNAT), where a VPN such as Tailscale or ZeroTier does.
+
+- **Musou Mode together (up to 4 players):** in `@PLAY@` choose **MUSOU MODE**. **PLAY ON THIS PC** starts a Musou server for you alone; **HOST LOCAL LOBBY** works as for a match (**This PC only** or **LAN / Internet**, then **HOST MUSOU**), and friends choose **MUSOU MODE**, **JOIN LOCAL LOBBY** and type your address (port 27015). Or run `@MUSOULAN@` (`@MUSOU@` for this PC only). Everyone is a Space Marine on one side; a Deploy takes the whole team, and a friend who joins during a battle lands at the landing zone.
 
 Everyone in a match must use this same build: different versions refuse each other on purpose.
 
@@ -86,7 +88,7 @@ Every key and controller binding can be changed in CONTROLS (the Join screen, or
 - One map (Manufactorum) and two modes. Exterminatus (co-op) is not playable yet.
 - No matchmaking, server list, lobby, voice or text chat: you type an address.
 - HUD art and fonts are placeholders; lighting and some effects are approximations.
-- Some perks do nothing yet, and many values are estimates to check against the original. The zip's `notes` folder lists them (`refine-register.md`) and the deliberate differences (`changes-from-original.md`).
+- Some perks do nothing yet, and many values are estimates to check against the original. The build's `notes` folder lists them (`refine-register.md`) and the deliberate differences (`changes-from-original.md`).
 - The game runs on Windows only (the dedicated server also runs on Linux).
 - This is an early test build: expect bugs, crashes and freezes.
 
@@ -96,14 +98,10 @@ Open an issue in the [**Issues** tab](https://github.com/Yeezima/sm-reimpl-relea
 
 ## Source code
 
-GPL-3.0. The complete source code of this build is inside the zip: `source\@SOURCEZIP@`. Licences: `notes\LICENSE.txt` and `notes\THIRD_PARTY_NOTICES.md`.
+GPL-3.0. The complete source code of this build comes with it: `source\@SOURCEZIP@` in the build's folder. Licences: `notes\LICENSE.txt` and `notes\THIRD_PARTY_NOTICES.md`.
 @SERVERASSETS@
 ## Download check
 
-SHA-256 of `@ZIP@`:
-```
-@SHA256@
-```
-In PowerShell: `Get-FileHash .\@ZIP@`
+@CHECK@
 
 Version **@VERSION@** · protocol @PROTOCOL@ · built @DATE@

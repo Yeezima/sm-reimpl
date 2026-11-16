@@ -34,6 +34,16 @@ public sealed record NavSettings
     public float MaxDrop { get; init; } = 8f;
     /// <summary>Farthest (metres, horizontally) past a ledge a drop link may land.</summary>
     public float MaxDropReach { get; init; } = 1.5f;
+    /// <summary>
+    /// bots/new-maps (2026-11-16; ours; off by default, so Musou Mode's and Manufactorum's graphs and cache keys are unchanged): leave out the cells no walk or drop leads back from to a seed (a pit a
+    /// drop falls into, with no way out for a class that cannot jump: the bots stood in them for minutes) and the drops into them.
+    /// </summary>
+    public bool PruneTraps { get; init; }
+    /// <summary>
+    /// bots/new-maps (ours; off by default, hashed only when on): a drop link is kept only where the whole capsule falls: the floor 1.4 body radii ahead of the drop point and to each side of it must be
+    /// as low as the landing (a slit or hole narrower than the body is no drop: the capsule bridges it, and the bots walked back and forth over them for minutes, 127 stuck detections in one run on Chem Refinery).
+    /// </summary>
+    public bool StrictDrops { get; init; }
 
     /// <summary>Settings from the simulation's capsule and motor (radius x 0.9, height, step, slope).</summary>
     public static NavSettings From(SimConfig c) => new()
@@ -47,6 +57,8 @@ public sealed record NavSettings
         ulong h = Geometry.FnvOffset;
         foreach (float f in new[] { CellSize, Radius, Height, StepHeight, MaxSlopeDegrees, MaxDrop, MaxDropReach })
             h = Geometry.Fnv(h, BitConverter.SingleToUInt32Bits(f));
+        if (PruneTraps) h = Geometry.Fnv(h, 0x50525554u);   // only when on: the keys of graphs built without it stay as they were
+        if (StrictDrops) h = Geometry.Fnv(h, 0x53445250u);
         return h;
     }
 }
@@ -98,7 +110,7 @@ public sealed record NavPath(IReadOnlyList<NavWaypoint> Waypoints, float Length,
 /// paths from there to the rest of the map are partial; kill volumes themselves are never cells. <see cref="FindPath"/> runs A* and pulls the
 /// string through straight walkable lines. Thread-safe for reading once built.
 /// </summary>
-public sealed class NavGraph
+public sealed partial class NavGraph
 {
     // ************************************************************************************************************
     // Bump FormatVersion on ANY change to how the graph is built or written that the constants below do not capture
@@ -172,6 +184,12 @@ public sealed class NavGraph
 
     /// <summary>The key of the jump link from <paramref name="from"/> to <paramref name="to"/> (for <see cref="FindPath"/>'s exclusions).</summary>
     public static long JumpKey(int from, int to) => ((long)from << 32) | (uint)to;
+
+    /// <summary>The key of the drop link <paramref name="from"/> to <paramref name="to"/> in the set of excluded links (<see cref="FindPath"/>): a <see cref="JumpKey"/> with the top bit set, so it never meets a jump link's.</summary>
+    public static long DropKey(int from, int to) => JumpKey(from, to) | long.MinValue;
+
+    /// <summary>bots/new-maps round 2: the key of the walk link <paramref name="from"/> to <paramref name="to"/> in the set of excluded links: a <see cref="JumpKey"/> with bit 62 set (a step the motor does not climb, a curb the graph thinks a slope).</summary>
+    public static long WalkKey(int from, int to) => JumpKey(from, to) | (1L << 62);
 
     /// <summary>The same graph with <paramref name="jumps"/> (found for exactly this graph's nodes) usable by <see cref="FindPath"/>.</summary>
     public NavGraph WithJumps(NavJumpSet jumps)
@@ -315,6 +333,7 @@ public sealed class NavGraph
             for (int i = 0; i < n; i++) if (state[i] == 1) { reached[i] = true; frontier.Add(i); }
         }
         var adjacency = new List<(int To, float Cost, byte Kind)>[n];
+        var seedNodes = settings.PruneTraps ? frontier.ToArray() : [];
         while (frontier.Count > 0)
         {
             var current = frontier;
@@ -347,6 +366,23 @@ public sealed class NavGraph
             }
             frontier = next;
         }
+        int trapped = 0;
+        if (settings.PruneTraps && seedNodes.Length > 0)
+        {
+            // Cells a seed can be walked or dropped back to: a reverse search from the seeds over the links found. A reached cell outside it is a trap.
+            var reverse = new List<int>[n];
+            for (int a = 0; a < n; a++)
+                if (reached[a] && adjacency[a] is { } outgoing)
+                    foreach (var l in outgoing) (reverse[l.To] ??= new List<int>()).Add(a);
+            var back = new bool[n];
+            var stack = new Stack<int>();
+            foreach (int s in seedNodes) if (!back[s]) { back[s] = true; stack.Push(s); }
+            while (stack.Count > 0)
+                foreach (int from in reverse[stack.Pop()] ?? (IEnumerable<int>)Array.Empty<int>())
+                    if (!back[from]) { back[from] = true; stack.Push(from); }
+            for (int a = 0; a < n; a++)
+                if (reached[a] && !back[a]) { reached[a] = false; trapped++; }
+        }
         long linksMs = watch.ElapsedMilliseconds;
         int tested = 0;
         foreach (byte st in state) if (st != 0) tested++;
@@ -368,7 +404,7 @@ public sealed class NavGraph
                 {
                     if (index[a] < 0) continue;
                     zs2[k] = zs[a]; cols2[k] = c;
-                    adjacency2[k] = adjacency[a].Select(l => (index[l.To], l.Cost, l.Kind)).ToList();
+                    adjacency2[k] = adjacency[a].Where(l => index[l.To] >= 0).Select(l => (index[l.To], l.Cost, l.Kind)).ToList();
                     k++;
                 }
             }
@@ -376,7 +412,7 @@ public sealed class NavGraph
             (colStart, zs, cols, adjacency, n) = (colStart2, zs2, cols2, adjacency2, kept);
         }
         string note = $"{w} x {h} columns, {candidates} floor candidates, {tested} clearance-tested, {kept} kept" +
-                      (area is { Seeds.Count: > 0 } ? $" (reached from {area.Seeds.Count} seeds)" : "") +
+                      (area is { Seeds.Count: > 0 } ? $" (reached from {area.Seeds.Count} seeds)" : "") + (trapped > 0 ? $", {trapped} trap cells left out" : "") +
                       $"; floors {floorsMs} ms, links {linksMs - floorsMs} ms";
 
         var linkStart = new int[n + 1];
@@ -487,6 +523,7 @@ public sealed class NavGraph
             float gz = ground.Point.Z;
             float fall = za - gz;
             if (fall <= s.StepHeight + DropMinFall) continue;   // ground at about the same height: not a drop
+            if (s.StrictDrops && !BodyFalls(mesh, s, p, dir, za, gz)) continue;   // a hole narrower than the body: it stands on the rim
             int cx = (int)MathF.Round((p.X - x0) / cell), cy = (int)MathF.Round((p.Y - y0) / cell);
             if (cx < 0 || cy < 0 || cx >= w || cy >= h) return null;
             int landing = -1;
@@ -507,6 +544,21 @@ public sealed class NavGraph
             return (landing, reach + fall * 0.5f + 1f);
         }
         return null;
+    }
+
+    /// <summary>
+    /// bots/new-maps (<see cref="NavSettings.StrictDrops"/>): whether the floor 1.4 body radii ahead of <paramref name="p"/> (along <paramref name="dir"/>) and to each side is no more than a metre above the
+    /// landing's <paramref name="landingZ"/>. The side behind is not asked: it is the ledge the body leaves.
+    /// </summary>
+    static bool BodyFalls(StaticMesh mesh, NavSettings s, Vector3 p, Vector3 dir, float za, float landingZ)
+    {
+        Span<Vector2> sides = [new(dir.X, dir.Y), new(-dir.Y, dir.X), new(dir.Y, -dir.X)];
+        foreach (var side in sides)
+        {
+            var q = new Vector3(p.X + side.X * s.Radius * 1.4f, p.Y + side.Y * s.Radius * 1.4f, za + DropProbeLift);
+            if (mesh.Raycast(q, -Vector3.UnitZ, s.MaxDrop + DropProbeLift) is { } hit && hit.Point.Z > landingZ + 1f) return false;
+        }
+        return true;
     }
 
     // ------------------------------------------------------------------ jump-link builder helpers
@@ -604,6 +656,142 @@ public sealed class NavGraph
             if (best >= 0 && bestScore < (r - 1) * _cell) break;
         }
         return best;
+    }
+
+    /// <summary>
+    /// bots/new-maps: whether there is floor all the way from <paramref name="from"/> to <paramref name="to"/> on the ground plane: a graph cell at every <paramref name="step"/> m within
+    /// <paramref name="maxDz"/> m of the height of the cell before it (the height follows the floor, so a ramp or stairs are floor and a hole with a deck far below is not; the line's own height
+    /// is ignored: a dash up a ramp ends higher than it starts). The jump-pack bots' dashes, hops and jumps at a target are held back over a floor that fails it.
+    /// </summary>
+    public bool FloorAlong(Vector3 from, Vector3 to, float step, float maxDz)
+    {
+        float length = new Vector2(to.X - from.X, to.Y - from.Y).Length();
+        int steps = Math.Max(1, (int)MathF.Ceiling(length / MathF.Max(0.5f, step)));
+        float z = from.Z;
+        for (int i = 1; i <= steps; i++)
+        {
+            float t = (float)i / steps;
+            int n = Nearest(new Vector3(from.X + (to.X - from.X) * t, from.Y + (to.Y - from.Y) * t, z), 0.5f, maxDz);
+            if (n < 0) return false;
+            z = _z[n];
+        }
+        return true;
+    }
+
+    /// <summary>
+    /// bots/new-maps: the drop links (origin, landing) that leave a cell within <paramref name="radius"/> m (flat) and <paramref name="maxDz"/> m of height of <paramref name="p"/>: a ledge whose drops
+    /// cannot be taken fails along its whole length, not at one link.
+    /// </summary>
+    public List<(int From, int To)> DropLinksNear(Vector3 p, float radius, float maxDz)
+    {
+        var found = new List<(int From, int To)>();
+        int cx = (int)MathF.Round((p.X - _x0) / _cell), cy = (int)MathF.Round((p.Y - _y0) / _cell);
+        int rings = (int)MathF.Ceiling(radius / _cell);
+        for (int y = Math.Max(0, cy - rings); y <= Math.Min(_h - 1, cy + rings); y++)
+            for (int x = Math.Max(0, cx - rings); x <= Math.Min(_w - 1, cx + rings); x++)
+            {
+                float hx = _x0 + x * _cell - p.X, hy = _y0 + y * _cell - p.Y;
+                if (hx * hx + hy * hy > radius * radius) continue;
+                int c = x + y * _w;
+                for (int i = _colStart[c]; i < _colStart[c + 1]; i++)
+                {
+                    if (MathF.Abs(_z[i] - p.Z) > maxDz) continue;
+                    for (int l = _linkStart[i]; l < _linkStart[i + 1]; l++)
+                        if (_linkKind[l] == (byte)NavLinkKind.Drop) found.Add((i, _linkTo[l]));
+                }
+            }
+        return found;
+    }
+
+    /// <summary>
+    /// bots/new-maps round 2: the graph cell nearest (3D) to <paramref name="centre"/> among those inside the vertical cylinder of <paramref name="radius"/> m (flat) and <paramref name="halfHeight"/> m round it (a Seize
+    /// Ground point's capture zone: the marker of Hab Center's point D floats 7 m above its floor, so a plain nearest-cell search within 6 m of height found none), or -1.
+    /// </summary>
+    public int NearestInCylinder(Vector3 centre, float radius, float halfHeight)
+    {
+        int cx = (int)MathF.Round((centre.X - _x0) / _cell), cy = (int)MathF.Round((centre.Y - _y0) / _cell);
+        int rings = (int)MathF.Ceiling(radius / _cell);
+        int best = -1;
+        float bestD = float.MaxValue;
+        for (int y = Math.Max(0, cy - rings); y <= Math.Min(_h - 1, cy + rings); y++)
+            for (int x = Math.Max(0, cx - rings); x <= Math.Min(_w - 1, cx + rings); x++)
+            {
+                float hx = _x0 + x * _cell - centre.X, hy = _y0 + y * _cell - centre.Y;
+                if (hx * hx + hy * hy > radius * radius) continue;
+                int c = x + y * _w;
+                for (int i = _colStart[c]; i < _colStart[c + 1]; i++)
+                {
+                    float dz = _z[i] - centre.Z;
+                    if (MathF.Abs(dz) > halfHeight || _linkStart[i + 1] == _linkStart[i]) continue;
+                    float d = hx * hx + hy * hy + dz * dz;
+                    if (d < bestD) { bestD = d; best = i; }
+                }
+            }
+        return best;
+    }
+
+    /// <summary>
+    /// bots/new-maps round 2: the walk links (origin, target) that rise at least <paramref name="minRise"/> m and leave a cell within <paramref name="radius"/> m (flat) and <paramref name="maxDz"/> m of height of
+    /// <paramref name="p"/>: a curb the graph reads as a slope fails along its whole length, not at one link. With <paramref name="heading"/> only the links within <paramref name="minDot"/> (cosine) of that direction.
+    /// </summary>
+    public List<(int From, int To)> RiseLinksNear(Vector3 p, float radius, float maxDz, float minRise, Vector2? heading = null, float minDot = 0.5f)
+    {
+        var found = new List<(int From, int To)>();
+        int cx = (int)MathF.Round((p.X - _x0) / _cell), cy = (int)MathF.Round((p.Y - _y0) / _cell);
+        int rings = (int)MathF.Ceiling(radius / _cell);
+        for (int y = Math.Max(0, cy - rings); y <= Math.Min(_h - 1, cy + rings); y++)
+            for (int x = Math.Max(0, cx - rings); x <= Math.Min(_w - 1, cx + rings); x++)
+            {
+                float hx = _x0 + x * _cell - p.X, hy = _y0 + y * _cell - p.Y;
+                if (hx * hx + hy * hy > radius * radius) continue;
+                int c = x + y * _w;
+                for (int i = _colStart[c]; i < _colStart[c + 1]; i++)
+                {
+                    if (MathF.Abs(_z[i] - p.Z) > maxDz) continue;
+                    for (int l = _linkStart[i]; l < _linkStart[i + 1]; l++)
+                    {
+                        if (_linkKind[l] != (byte)NavLinkKind.Walk || _z[_linkTo[l]] - _z[i] < minRise) continue;
+                        if (heading is { } h)
+                        {
+                            int t = _linkTo[l];
+                            var d = new Vector2(Position(t).X - Position(i).X, Position(t).Y - Position(i).Y);
+                            if (d.LengthSquared() < 1e-6f || Vector2.Dot(Vector2.Normalize(d), h) < minDot) continue;
+                        }
+                        found.Add((i, _linkTo[l]));
+                    }
+                }
+            }
+        return found;
+    }
+
+    /// <summary>
+    /// bots/new-maps: up to <paramref name="limit"/> graph cells to step or drop onto from a spot the graph has no cell at (a ledge or rail narrower than the cells' clearance): within
+    /// <paramref name="radius"/> m horizontally, at most <paramref name="maxRise"/> m above and <paramref name="maxDrop"/> m below <paramref name="p"/> (feet), the nearest in each of eight
+    /// 45 degree sectors about <paramref name="p"/>, nearest first (a rise counts double so a drop is preferred).
+    /// </summary>
+    public List<Vector3> EscapeCells(Vector3 p, float radius, float maxDrop, float maxRise, int limit)
+    {
+        var best = new (float Score, int Node)[8];
+        for (int k = 0; k < 8; k++) best[k] = (float.MaxValue, -1);
+        int cx = (int)MathF.Round((p.X - _x0) / _cell), cy = (int)MathF.Round((p.Y - _y0) / _cell);
+        int rings = (int)MathF.Ceiling(radius / _cell);
+        for (int y = Math.Max(0, cy - rings); y <= Math.Min(_h - 1, cy + rings); y++)
+            for (int x = Math.Max(0, cx - rings); x <= Math.Min(_w - 1, cx + rings); x++)
+            {
+                float hx = _x0 + x * _cell - p.X, hy = _y0 + y * _cell - p.Y;
+                float flat = MathF.Sqrt(hx * hx + hy * hy);
+                if (flat < 0.4f || flat > radius) continue;
+                int sector = (int)((MathF.Atan2(hy, hx) + MathF.PI) / (2f * MathF.PI) * 8f) % 8;
+                int c = x + y * _w;
+                for (int i = _colStart[c]; i < _colStart[c + 1]; i++)
+                {
+                    float dz = _z[i] - p.Z;   // positive: the cell is above the feet
+                    if (dz > maxRise || dz < -maxDrop) continue;
+                    float score = flat + (dz > 0f ? dz * 2f : -dz * 0.25f);
+                    if (score < best[sector].Score) best[sector] = (score, i);
+                }
+            }
+        return best.Where(b => b.Node >= 0).OrderBy(b => b.Score).Take(limit).Select(b => Position(b.Node)).ToList();
     }
 
     /// <summary>
@@ -723,6 +911,8 @@ public sealed class NavGraph
             {
                 int nb = _linkTo[l];
                 if (sc.Closed[nb] == gen) continue;
+                if (_linkKind[l] == (byte)NavLinkKind.Drop && excludedJumps is { Count: > 0 } && excludedJumps.Contains(DropKey(cur, nb))) continue;   // bots/new-maps: a drop a bot found impassable
+                if (_linkKind[l] == (byte)NavLinkKind.Walk && excludedJumps is { Count: > 0 } && excludedJumps.Contains(WalkKey(cur, nb))) continue;   // bots/new-maps round 2: a step a bot found impassable
                 float g = gc + _linkCost[l];
                 if (sc.Stamp[nb] == gen && sc.G[nb] <= g) continue;
                 sc.Stamp[nb] = gen; sc.G[nb] = g; sc.Parent[nb] = cur; sc.Via[nb] = _linkKind[l]; sc.ViaJump[nb] = -1;

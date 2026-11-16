@@ -49,6 +49,16 @@ public partial class NetworkView
     /// <summary>A marine already in the blend goes back to the idle stance only below this speed (m/s; ours; <see cref="NetworkView.RunThreshold"/> enters).</summary>
     const float GaitLeaveSpeed = 0.2f;
 
+    /// <summary><c>--old-gait-snap</c> (test aid, anim/strafe-blend): the blend space's weights follow the damped velocity at once again (a reversal flips the clips in one frame).</summary>
+    static readonly bool OldGaitSnap = OS.GetCmdlineUserArgs().Contains("--old-gait-snap");
+
+    /// <summary>anim/strafe-blend: one blend space's smoothed cell weights for one marine, and the render clock of its last step.</summary>
+    sealed class GaitSmoothing
+    {
+        public readonly GaitWeightSmoother Weights = new();
+        public double At = double.NegativeInfinity;
+    }
+
     GaitLibrary? _gaits;
     readonly Dictionary<string, GaitFamily?> _gaitFamilies = new();
     readonly HashSet<string> _gaitNoted = new();
@@ -226,28 +236,42 @@ public partial class NetworkView
         var w = fam.Weights;
         Array.Clear(w);
         int bands = fam.Space.BandCount;
-        for (int i = 0; i < n; i++)
+        // anim/strafe-blend: the direction x band cells and the idle share first (one weight each), smoothed over time for the pose (GaitWeightSmoother: a reversal's heading turns
+        // 180 degrees between two frames); the aim pitch is laid on them afterwards, at once.
+        int cells = fam.Space.DirectionCount * bands;
+        Span<float> share = stackalloc float[cells + 1];
+        for (int i = 0; i < n; i++) { var g = fam.Solution[i]; share[g.Direction * bands + g.Band] += g.Weight * moving; }
+        share[cells] = fam.IdleStart >= 0 ? 1f - moving : 0f;
+        if (!OldGaitSnap)
         {
-            var g = fam.Solution[i];
-            int cell = g.Direction * bands + g.Band;
-            if (fam.Slots == 1) { w[cell] += g.Weight * moving; continue; }
+            if (!t.Smoothers.TryGetValue(fam.Set.Key, out var smoother)) t.Smoothers[fam.Set.Key] = smoother = new GaitSmoothing();
+            float sdt = double.IsFinite(smoother.At) ? (float)Math.Max(0.0, _connectedFor - smoother.At) : float.PositiveInfinity;
+            smoother.At = _connectedFor;
+            smoother.Weights.Step(share, sdt, share);
+        }
+        float pitchDegrees = pitchRadians * 180f / MathF.PI;
+        for (int cell = 0; cell < cells; cell++)
+        {
+            float cw = share[cell];
+            if (!(cw > 0f)) continue;
+            if (fam.Slots == 1) { w[cell] += cw; continue; }
             var p = fam.Pitch[cell];
-            float pitchDegrees = pitchRadians * 180f / MathF.PI;
             float pitchT = pitchDegrees >= 0f ? (p.HasHigh ? pitchDegrees / p.HighDegrees : 0f) : (p.HasLow ? pitchDegrees / p.LowDegrees * -1f : 0f);
             pitchT = Math.Clamp(pitchT, -1f, 1f);
             float low = p.HasLow ? MathF.Max(0f, -pitchT) : 0f, high = p.HasHigh ? MathF.Max(0f, pitchT) : 0f;
-            w[cell * 3] += g.Weight * moving * low;
-            w[cell * 3 + 1] += g.Weight * moving * (1f - low - high);
-            w[cell * 3 + 2] += g.Weight * moving * high;
+            w[cell * 3] += cw * low;
+            w[cell * 3 + 1] += cw * (1f - low - high);
+            w[cell * 3 + 2] += cw * high;
         }
-        if (fam.IdleStart >= 0 && moving < 1f)
+        float idleShare = share[cells];
+        if (fam.IdleStart >= 0 && idleShare > 0f)
         {
-            if (fam.IdleSlots == 1) w[fam.IdleStart] = 1f - moving;
+            if (fam.IdleSlots == 1) w[fam.IdleStart] = idleShare;
             else
             {
                 float t3 = Math.Clamp(pitchRadians / AimPitchRange, -1f, 1f);
                 float low = fam.Set.Clips[fam.IdleStart].Clip is null ? 0f : MathF.Max(0f, -t3), high = fam.Set.Clips[fam.IdleStart + 2].Clip is null ? 0f : MathF.Max(0f, t3);
-                w[fam.IdleStart] = (1f - moving) * low; w[fam.IdleStart + 1] = (1f - moving) * (1f - low - high); w[fam.IdleStart + 2] = (1f - moving) * high;
+                w[fam.IdleStart] = idleShare * low; w[fam.IdleStart + 1] = idleShare * (1f - low - high); w[fam.IdleStart + 2] = idleShare * high;
             }
         }
         if (!character.BlendStance(fam.Set, w, cadence, fadeSeconds)) return false;

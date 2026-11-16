@@ -76,8 +76,18 @@ public sealed partial class GameServer
     }
 
     readonly Dictionary<int, MusouInterest> _musouInterest = new();
-    readonly MusouEventWindow _musouEvents = new();
+    static readonly bool MusouOldHitRank = Environment.GetEnvironmentVariable("SM_MUSOU_OLD_HIT_RANK") == "1";
+    readonly MusouEventWindow _musouEvents = new() { OldOrder = MusouOldNearSend, OldHitRank = MusouOldHitRank };   // musou-net-budget: the players' hits before the crowd's tracers
     readonly MusouEnemy[] _musouEnemies = new MusouEnemy[MusouSim.Capacity];
+    /// <summary>Test aid: <c>SM_MUSOU_OLD_FAR_SEND=1</c> sends the crowd in the order before 2026-11-06 (no <see cref="MusouSendRules.MaxWaitTicks"/>).</summary>
+    static readonly bool MusouOldFarSend = Environment.GetEnvironmentVariable("SM_MUSOU_OLD_FAR_SEND") == "1";
+    /// <summary>Test aid (musou/perf-pass): <c>SM_MUSOU_OLD_CORE_BUDGET=1</c>, the core messages are not counted in the Musou budget (as before the owner's "count it").</summary>
+    static readonly bool MusouOldCoreBudget = Environment.GetEnvironmentVariable("SM_MUSOU_OLD_CORE_BUDGET") == "1";
+    /// <summary>Test aid <c>SM_TFW_OLD_GUARD_SHARE=1</c>: the Guardsmen get only what Musou left of the client's budget, as before crowd-smooth (<see cref="SmNet.Extras.Musou.Campaign.TfwSendRules.GuardFloorBytesPerSecond"/>).</summary>
+    static readonly bool MusouOldNearRate = Environment.GetEnvironmentVariable("SM_MUSOU_OLD_NEAR_RATE") == "1";   // test aid: without MusouSendRules.NearMaxWaitTicks (crowd-smooth)
+    static readonly bool TfwOldGuardShare = Environment.GetEnvironmentVariable("SM_TFW_OLD_GUARD_SHARE") == "1";
+    /// <summary>Test aid: <c>SM_MUSOU_OLD_NEAR_SEND=1</c> sends without the night batch's near-first order (<see cref="MusouSendRules.NearChangeFirst"/>, <see cref="MusouSendRules.TelegraphFirst"/>).</summary>
+    static readonly bool MusouOldNearSend = Environment.GetEnvironmentVariable("SM_MUSOU_OLD_NEAR_SEND") == "1";
     readonly List<int> _musouGone = new();
     MusouBox? _musouNavBox;
     bool _musouNavBoxRead;
@@ -93,6 +103,20 @@ public sealed partial class GameServer
     /// This feature's part of the envelope hook (called by the dispatcher <c>GameServer.Extras.cs</c>): per client, the director (on a change, else every 10
     /// ticks), the events of the last 3 ticks (each in 3 messages) and the enemies due by that client's interest.
     /// </summary>
+    /// <summary>Test aid <c>SM_MUSOU_TRACER_EVENTS=1</c>: the gun Orks' per-round Tracer events are sent again (before client-built tracers, 2026-11-09).</summary>
+    static readonly bool MusouTracerEvents = Environment.GetEnvironmentVariable("SM_MUSOU_TRACER_EVENTS") == "1";
+    readonly List<MusouEvent> _musouWireEvents = new();
+
+    /// <summary>The tick's events as they go on the wire: without the per-round Tracer events of the gun Orks, whose rounds each client draws from the burst cue (<see cref="MusouGunBurst"/>).</summary>
+    IReadOnlyList<MusouEvent> WireEvents(MusouSim sim)
+    {
+        if (MusouTracerEvents) return sim.Events;
+        _musouWireEvents.Clear();
+        foreach (var e in sim.Events)
+            if (!(e.Kind == MusouEventKind.Tracer && sim.TryGet(e.Enemy, out var shooter) && MusouGunBurst.Synthesized(shooter.Type))) _musouWireEvents.Add(e);
+        return _musouWireEvents;
+    }
+
     void SendMusou()
     {
         if (World.Musou is not { } sim) return;
@@ -101,22 +125,24 @@ public sealed partial class GameServer
         int n = sim.CopyTo(_musouEnemies);
         PoseMusouDummies(_musouEnemies.AsSpan(0, n));
         LogMusouDirector(sim.Director);
-        var events = _musouEvents.Step(sim.Tick, sim.Events, MusouSendRules.EventsPerTick(World.Config.TickRate));
+        var events = _musouEvents.Step(sim.Tick, WireEvents(sim), MusouSendRules.EventsPerTick(World.Config.TickRate));
         if (n == 0 && events.Count == 0 && sim.Director == default) return;   // nothing in play: MU0's state sends nothing
 
         if (!_musouNavBoxRead) { _musouNavBoxRead = true; _musouNavBox = MusouSend.BoundsOf(sim.Nav); }
         var box = MusouSend.EffectiveBox(sim.Director.Box, _musouNavBox);
+        sim.WireBox = box;   // musou/boss-collision: the players' bodies record of the big Orks is quantised as these records are (MusouSolids)
         var director = MusouWire.WriteDirector(sim.Director with { Box = box });
         uint tick = World.Tick;
         var enemies = new ReadOnlySpan<MusouEnemy>(_musouEnemies, 0, n);
         Vector3? anyone = null;
         foreach (var p in World.Players.Values) if (p.Alive) { anyone = p.Position; break; }
-        foreach (var peer in _peers.Values)
+        foreach (var (connection, peer) in _peers)
         {
-            if (!_musouInterest.TryGetValue(peer.PlayerId, out var interest)) _musouInterest[peer.PlayerId] = interest = new MusouInterest();
+            if (!_musouInterest.TryGetValue(peer.PlayerId, out var interest)) _musouInterest[peer.PlayerId] = interest = new MusouInterest { OldFarSend = MusouOldFarSend, OldNearSend = MusouOldNearSend, OldNearRate = MusouOldNearRate };
+            if (!MusouOldCoreBudget) interest.CoreBytes += TakeCoreBytes(connection);   // += since crowd-smooth: the war's overdraw of the last tick is in it already   // the owner's "count it" (GameServer.MusouCoreBytes.cs); SM_MUSOU_OLD_CORE_BUDGET=1: not counted
             // The client's player, else (a spectator) the first living player: the crowd near the action stays fresh.
             Vector3? viewer = World.Players.TryGetValue(peer.PlayerId, out var me) ? me.Position : anyone;
-            var planned = interest.Plan(tick, World.Config.TickRate, enemies, viewer, box, director, events);
+            var planned = interest.Plan(tick, World.Config.TickRate, enemies, viewer, box, director, events, MusouOldHitRank ? 0 : peer.PlayerId);   // musou-net-budget: the client's own hits and kills first in its stream
             MusouDropSection(peer.PlayerId, tick, box, planned);   // MU-D: the client's own drops (tag 6), into the tick's messages
             foreach (var sections in planned)
                 SendExtras(new ExtrasUpdate(tick, sections), peer.PlayerId);
@@ -135,7 +161,16 @@ public sealed partial class GameServer
     /// <summary>Test aid (MU-D): with this set to 1 the server lays a drop 3 m in front of every living player that has none (to see and take one at once).</summary>
     public const string MusouDropTestVariable = "SM_MUSOU_DROP_TEST";
     bool? _musouDropTest;
-    readonly Dictionary<int, (uint Version, uint Tick)> _musouDropSent = new();
+    /// <summary>
+    /// Capture aid <c>SM_MUSOU_POWERUP_TEST=&lt;s&gt;</c> (the powerups, 2026-11-10): every s seconds of play each living human gets the next powerup's buff in turn (Double Damage, Fear, Supercharged,
+    /// Rapid Fire) and a drop of the one after it replaces the player's last, 4 m ahead and 2 m right, and 1.4 m ahead, in turn (in view; in reach, its prompt) (in reach: its prompt shows). Off in every match.
+    /// </summary>
+    public const string MusouPowerupTestVariable = "SM_MUSOU_POWERUP_TEST";
+    float? _musouPowerupTest;
+    readonly Dictionary<int, (uint At, int Step)> _musouPowerupTestNext = new();
+    /// <summary>What a client was last sent of its drops and buffs: the combined version, the tick, the buffs' own version, and the tick before which a buff change is still being resent.</summary>
+    readonly Dictionary<int, (uint Version, uint Tick, uint BuffVersion, uint SettleUntil)> _musouDropSent = new();
+    readonly List<MusouBuffRecord> _musouBuffRecords = new();
     readonly List<MusouDrop> _musouDropList = new();
     readonly List<MusouDropRecord> _musouDropRecords = new();
     /// <summary>Drop sections (tag 6) sent, and their records (all clients; tests).</summary>
@@ -160,30 +195,68 @@ public sealed partial class GameServer
 
     /// <summary>A client's drop list is sent again every this many ticks while it is not empty (ours: a lost message is mended within half a second).</summary>
     const uint MusouDropRefreshTicks = 15;
+    /// <summary>
+    /// After a change of the buffs (taken, or ended by a death or the round) the section is sent again every <see cref="MusouBuffResendTicks"/> ticks for <see cref="MusouBuffSettleSeconds"/>
+    /// (the review of 2026-11-10: the one empty list after a death or a round could be lost and the client kept the old buffs; ours: about six copies in that second).
+    /// </summary>
+    const uint MusouBuffResendTicks = 5;
+    const float MusouBuffSettleSeconds = 1f;
 
     /// <summary>
-    /// Player <paramref name="playerId"/>'s drops (only its own: the drops are per player) as one tag 6 section, when its list changed since the last one sent
-    /// or every <see cref="MusouDropRefreshTicks"/> ticks while not empty; added to the tick's last message when it has room, else as a new message within
-    /// the cap of <see cref="MusouSendRules.MaxMessagesPerTick"/>; with no room it waits for the next tick (the change is still unsent).
+    /// Player <paramref name="playerId"/>'s drops (only its own: the drops are per player) and its buffs as one tag 6 section, when either changed since the last one sent,
+    /// every <see cref="MusouDropRefreshTicks"/> ticks while not empty, and every <see cref="MusouBuffResendTicks"/> ticks for a second after a buff change; added to the tick's last message
+    /// when it has room, else as a new message within the cap of <see cref="MusouSendRules.MaxMessagesPerTick"/>; with no room it waits for the next tick (the change is still unsent).
     /// </summary>
     void MusouDropSection(int playerId, uint tick, MusouBox box, List<(byte Tag, byte[] Payload)[]> messages)
     {
         if (_musouDropTest ??= Environment.GetEnvironmentVariable(MusouDropTestVariable) == "1")
             if (World.State == MatchState.Playing && World.Players.TryGetValue(playerId, out var p) && p.Alive && World.MusouDropsOf(playerId, _musouDropList) == 0 && World.MusouSpawnTestDrop(playerId, 4f) is { } test)
                 Log?.Invoke($"musou: test aid {MusouDropTestVariable}: drop {test.Id} for player {playerId} at {test.Position.X:F1},{test.Position.Y:F1},{test.Position.Z:F1}, item {test.Item}");
-        uint version = World.MusouDropVersion(playerId);
+        // The powerups (owner 2026-11-10): the player's buffs travel after its drops; a change of either sends the section, and it is refreshed while either is there.
+        MusouPowerupTestStep(playerId);
+        uint buffVersion = World.MusouBuffVersion(playerId);
+        uint version = World.MusouDropVersion(playerId) * 65599u + buffVersion;
         int n = World.MusouDropsOf(playerId, _musouDropList);
+        var buffs = World.MusouBuffsOf(playerId);
+        bool any = n > 0 || buffs.Any(World.Tick);
         bool known = _musouDropSent.TryGetValue(playerId, out var sent);
-        bool changed = known ? sent.Version != version : n > 0;
-        bool refresh = n > 0 && known && (tick - sent.Tick >= MusouDropRefreshTicks || tick < sent.Tick);
+        bool changed = known ? sent.Version != version : any;
+        bool buffChanged = known ? sent.BuffVersion != buffVersion : buffs.Any(World.Tick);
+        bool rewound = known && tick < sent.Tick;
+        bool settling = known && !rewound && tick < sent.SettleUntil;   // review item 1: a buff change is resent for a second
+        bool refresh = known && (rewound || (any && tick - sent.Tick >= MusouDropRefreshTicks) || (settling && tick - sent.Tick >= MusouBuffResendTicks));
         if (!changed && !refresh) return;
         _musouDropRecords.Clear();
         foreach (var d in _musouDropList) _musouDropRecords.Add(new MusouDropRecord(d.Id, d.Position, d.Item, d.State, d.Crate));
-        (byte, byte[]) section = (MusouWire.DropsTag, MusouWire.WriteDrops(_musouDropRecords, box));
+        _musouBuffRecords.Clear();
+        foreach (var kind in MusouPowerupRules.All)
+            if (buffs.Active(kind, World.Tick)) _musouBuffRecords.Add(new MusouBuffRecord(kind, (ushort)Math.Min(ushort.MaxValue, buffs.EndOf(kind) - World.Tick)));
+        (byte, byte[]) section = (MusouWire.DropsTag, MusouWire.WriteDrops(_musouDropRecords, box, _musouBuffRecords));
         if (!AppendMusouSection(messages, section, tick)) return;   // no room this tick: sent the next
-        _musouDropSent[playerId] = (version, tick);
+        uint settleUntil = buffChanged ? tick + (uint)MathF.Max(1f, MathF.Round(MusouBuffSettleSeconds * World.Config.TickRate)) : rewound ? 0u : sent.SettleUntil;
+        _musouDropSent[playerId] = (version, tick, buffVersion, settleUntil);
         MusouDropSections++;
         MusouDropRecordsSent += _musouDropRecords.Count;
+    }
+
+    void MusouPowerupTestStep(int playerId)
+    {
+        _musouPowerupTest ??= float.TryParse(Environment.GetEnvironmentVariable(MusouPowerupTestVariable), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float s) && s > 0f ? s : 0f;
+        if (_musouPowerupTest is not > 0f || World.State != MatchState.Playing || !World.Players.TryGetValue(playerId, out var p) || !p.Alive) return;
+        if (SmSim.Extras.Musou.Campaign.TfwContracts.IsPuppet(playerId)) return;
+        var next = _musouPowerupTestNext.GetValueOrDefault(playerId);
+        if (World.Tick < next.At) return;
+        var all = MusouPowerupRules.All;
+        var give = all[next.Step % all.Length];
+        var lay = all[(next.Step + 1) % all.Length];
+        World.MusouGiveBuff(playerId, give);
+        var forward = new System.Numerics.Vector3(-MathF.Sin(p.Yaw), MathF.Cos(p.Yaw), 0f);
+        var right = new System.Numerics.Vector3(MathF.Cos(p.Yaw), MathF.Sin(p.Yaw), 0f);
+        World.MusouExpireDrops(playerId);   // one at a time, laid where the player looks now
+        bool view = next.Step % 2 == 0;   // in turn: in clear view (beside the third-person camera's line past the player), and in reach (its prompt)
+        var drop = World.MusouSpawnDrop(playerId, p.Position + forward * (view ? 4f : 1.4f) + right * (view ? 2f : 0.3f), MusouPowerupRules.Item(lay));
+        _musouPowerupTestNext[playerId] = (World.Tick + (uint)MathF.Max(1f, MathF.Round(_musouPowerupTest.Value * World.Config.TickRate)), next.Step + 1);
+        Log?.Invoke($"musou: test aid {MusouPowerupTestVariable}: player {playerId} buff {give}, drop {drop?.Id} {lay}");
     }
 
     MusouDirectorView _musouLoggedDirector;

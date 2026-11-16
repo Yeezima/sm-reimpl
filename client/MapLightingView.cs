@@ -77,6 +77,7 @@ public static class MapLightingView
     static Dictionary<string, float> MergeOverrides()
     {
         var merged = new Dictionary<string, float>(LookPresets.For(RenderQuality.LookPreset), StringComparer.OrdinalIgnoreCase);
+        foreach (var (key, value) in VisualOverhaul.LookOverrides) merged[key] = value;   // visual-overhaul proposal: over the look, under --look-set
         foreach (var (key, value) in RenderQuality.ParseOverrides(RenderQuality.LookOverrides)) merged[key] = value;
         return merged;
     }

@@ -18,7 +18,7 @@ namespace SmClient;
 public partial class NetworkView
 {
     /// <summary>Per player: whether a use was seen under way, when it was seen to start (connected time) and whether its release was played.</summary>
-    sealed class StimTrack { public bool Using; public double Since; public bool Released; public double Until; }
+    sealed class StimTrack { public bool Using; public double Since; public bool Released; public double Until; public readonly List<FxEffect> Effects = new(); }
     readonly Dictionary<int, StimTrack> _stimTracks = new();
     int _stimUsesSeen, _stimRemoteUses, _stimFx, _stimSounds;
 
@@ -64,7 +64,7 @@ public partial class NetworkView
     void StimPlayer(PlayerState s, bool own)
     {
         if (!_stimTracks.TryGetValue(s.PlayerId, out var t)) _stimTracks[s.PlayerId] = t = new StimTrack();
-        if (!s.Alive) { t.Until = 0; t.Released = false; t.Using = false; }   // fx/visuals-2: a death ends the glow (a respawn must not show the rest of the old stim)
+        if (!s.Alive) { t.Until = 0; t.Released = false; t.Using = false; StimEndEffects(t); }   // fx/visuals-2: a death ends the glow (a respawn must not show the rest of the old stim)
         var stim = StimOf(s);
         bool usingNow = s.Alive && s.Throwing && stim is not null;
         if (usingNow && !t.Using) { t.Since = _connectedFor - (own ? s.ThrowTime : 0f); t.Released = false; _stimUsesSeen++; if (!own) _stimRemoteUses++; }
@@ -77,7 +77,8 @@ public partial class NetworkView
         StimRelease(s, own, ItemOf(s)!.Name);
     }
 
-    bool NoStimGlow => _noStimGlow ??= CmdFlag("no-stim-glow");
+    /// <summary>fx/stim-original (owner, 2026-11-14): the procedural red aura and cross (ours, fx/visuals-2) are off; the stim shows the data's own effects only. <c>--old-stim-glow</c> restores them (before / after aid).</summary>
+    bool NoStimGlow => _noStimGlow ??= CmdFlag("no-stim-glow") || !CmdFlag("old-stim-glow");
     bool? _noStimGlow;
     /// <summary><c>--stim-glow-demo</c> (test aid): the own model shows the stim glow all the time.</summary>
     bool StimGlowDemo => _stimGlowDemo ??= CmdFlag("stim-glow-demo");
@@ -113,12 +114,49 @@ public partial class NetworkView
         }
         if (NoStims || _fx is null || _catalogue?.Thrown.GetValueOrDefault(wargear) is not { } fx) return;
         int id = s.PlayerId;
-        foreach (var p in fx.Bindings.Where(x => x.IsDefault && x.Play is not null && x.Path.Contains("/" + StimTuning.Action + "/", StringComparison.OrdinalIgnoreCase)).Select(x => x.Play!))
+        foreach (var p in StimPlays(fx, own ? s : null))
         {
-            if (FxPlace(id, p.Marker) is not { } place) continue;
+            if (StimPlace(id, p.Marker) is not { } place) continue;
             string marker = p.Marker;
-            if (_fx.Play(p.Name, place.Position, place.Axes, p.Scale <= 0f ? 1f : p.Scale, null, p.Attached ? () => FxPlace(id, marker) : null, p.Lifetime) is not null) _stimFx++;
+            if (_fx.Play(p.Name, place.Position, place.Axes, p.Scale <= 0f ? 1f : p.Scale, null, p.Attached ? () => StimPlace(id, marker) : null, p.Lifetime) is { } played)
+            {
+                _stimFx++;
+                if (_stimTracks.TryGetValue(id, out var track)) { track.Effects.RemoveAll(e => e.Age > e.Life); track.Effects.Add(played); }
+            }
         }
+    }
+
+    /// <summary>A death ends the stim's effects (they stop emitting, as the data's <c>on_stop_policy</c> says) instead of burning on over the body for the rest of the lifetime.</summary>
+    static void StimEndEffects(StimTrack t)
+    {
+        foreach (var e in t.Effects) e.Life = Math.Min(e.Life, e.Age + 0.4);
+        t.Effects.Clear();
+    }
+
+    /// <summary>
+    /// fx/stim-original: the effects of the action's entry the player's upgrades choose (<c>actions_by_upgrade</c>: the default entry's five effects; Master-Crafted Wargear
+    /// (<c>mp_perk_equipment_effectiveness</c>) has bigger ones and 7 s). <paramref name="own"/> is the own state (its perks are known); another player's perks are not on the wire, so the default entry.
+    /// </summary>
+    IReadOnlyList<FxPlay> StimPlays(ThrownEffects fx, PlayerState? own)
+    {
+        var have = new List<string>();
+        if (own is { } me && _config is not null && Loadouts.Upgrades(_config, me) is var up) { if (up.First is { } a) have.Add(a); if (up.Second is { } b) have.Add(b); }
+        return StimTuning.Effects(fx, have);
+    }
+
+    /// <summary>
+    /// A stim effect's place: the data's marker on the body (a catalogue marker such as <c>fx_torso</c> or <c>fx_head</c>, or a bone such as <c>rig_r_clavicle</c>); <c>fx_cntr</c>, the
+    /// entity's centre, is the model's origin at the feet (the icon's own offset lifts it 2.6 m x its scale). Upright axes (the effects are camera-facing). Null when the model is not there.
+    /// </summary>
+    (Vector3 Position, Basis Axes)? StimPlace(int id, string marker)
+    {
+        CharacterViewer? c = _client is not null && id == _client.PlayerId ? _local : _remotes.GetValueOrDefault(id);
+        if (c is null || !GodotObject.IsInstanceValid(c) || !c.IsInsideTree()) return null;
+        if (marker.Length == 0 || marker.Equals(StimTuning.CentreMarker, StringComparison.OrdinalIgnoreCase)) return (c.GlobalPosition, Basis.Identity);
+        if (BodyMarkerWorld(c, marker) is { } at) return (at, Basis.Identity);
+        if (c.Skeleton is { } skeleton && skeleton.FindBone(_weaponAssets?.CanonicalBone(marker) ?? marker) is var bone and >= 0)
+            return ((skeleton.GlobalTransform * skeleton.GetBoneGlobalPose(bone)).Origin, Basis.Identity);
+        return null;
     }
 
     /// <summary>
@@ -169,6 +207,19 @@ public partial class NetworkView
         if (index < 0 || index >= SmNet.Protocol.DefaultChoice) { _notes.Add($"--second '{args[at + 1]}' matches no primary of class {playerClass}; skipped"); return options; }
         GD.Print($"--second '{args[at + 1]}': requesting second primary choice {index} '{labels[index]}' (class {playerClass})");
         return options with { RequestedSecond = (byte)index };
+    }
+
+    /// <summary><c>--bot-stim-every &lt;s&gt;</c> (test aid, stim-original captures): a standing bot with stims presses the item key 3 s after joining and again every that many seconds (at least the 6 s cooldown).</summary>
+    double BotStimDemoEvery => _botStimEvery ??= OS.GetCmdlineUserArgs() is var a && Array.IndexOf(a, "--bot-stim-every") is var i and >= 0 && i + 1 < a.Length
+        && double.TryParse(a[i + 1], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var v) ? v : 0.0;
+    double? _botStimEvery;
+    double _botStimLast = double.NegativeInfinity;
+
+    PlayerInput BotStimDemoInput(uint tick)
+    {
+        bool press = _connectedFor >= 3.0 && _connectedFor - _botStimLast >= Math.Max(BotStimDemoEvery, 6.5);
+        if (press) _botStimLast = _connectedFor;
+        return new PlayerInput(tick, 0f, 0f, _yaw, press ? InputButtons.Grenade : InputButtons.None, _pitch);
     }
 
     /// <summary>The bot log's stim counters.</summary>

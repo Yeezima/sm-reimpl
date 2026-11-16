@@ -6,8 +6,14 @@ using SmFormats.Obpk;
 
 namespace SmContent;
 
-/// <summary>The weapon families whose navigation graphs hold a different fall: the rifle graph (<c>SM_Bolter_NAV</c>, which the bolt pistol and the rest of the multiplayer weapons use here) and the heavy bolter's (<c>SM_TB_NAV</c>).</summary>
-public enum FallFamily { Rifle, Heavy }
+/// <summary>The weapon families whose navigation graphs hold a different fall: the rifle graph (<c>SM_Bolter_NAV</c>, which the bolt pistol and the rest of the multiplayer weapons use here) and the heavy bolter's (<c>SM_TB_NAV</c>), plus (install transitions, 2026-11-12) the thunder hammer's (<c>SM_TH_NAV</c>) and the chainsword's (<c>SM_Pistol_NAV</c>).</summary>
+public enum FallFamily { Rifle, Heavy, Hammer, Chainsword }
+
+/// <summary>Install transitions (2026-11-12): the families whose fall is the heavy bolter's shape (one whole-body drop clip from 1 m above the ground, the landing clip from 0.5 m whatever the speed): the heavy bolter, the thunder hammer and the chainsword.</summary>
+public static class FallFamilies
+{
+    public static bool WholeBodyDrop(this FallFamily family) => family != FallFamily.Rifle;
+}
 
 /// <summary>A clip of a fall state: its name, length in seconds at the graph's playback speed and, for a layered clip, the bone weights it is blended in with (null: the whole body).</summary>
 public sealed record FallClip(string Clip, float Length, IReadOnlyDictionary<string, float>? Mask);
@@ -111,6 +117,9 @@ public sealed record FallAnimations(IReadOnlyList<FallSet> Sets, IReadOnlySet<st
     [
         new(FallFamily.Rifle, "SM_Bolter_NAV", "Fall Behaviors", "Dropping", "Land"),
         new(FallFamily.Heavy, "SM_TB_NAV", "Heavy Drop Down", "Drop", "Land"),
+        // Install transitions (2026-11-12): the thunder hammer's own navigation graph and the chainsword's state in the pistol graph (the same drop / land shape as the heavy bolter's).
+        new(FallFamily.Hammer, "SM_TH_NAV", "Drop Down", "Drop", "Land"),
+        new(FallFamily.Chainsword, "SM_Pistol_NAV", "Drop Down", "CS Drop", "CS Land"),
     ];
 
     /// <summary>The upgrade string whose <c>lifetime_actions</c> shortens the landing recovery.</summary>
@@ -170,7 +179,11 @@ public sealed record FallAnimations(IReadOnlyList<FallSet> Sets, IReadOnlySet<st
         // The inner machine (the state itself for the rifle, under a modifier for the heavy bolter).
         BehaviorStateMachine? inner = null;
         foreach (var at in Walk(g, fall.State.Generator))
-            if (g.MachineAt(at) is { } m) { inner = m; break; }
+            if (g.MachineAt(at) is { } m)
+            {
+                inner ??= m;   // the first machine (the rifle's and the heavy bolter's); install transitions: the pistol graph nests the chainsword's drop two machines down, so the first one that holds both states wins
+                if (m.States.Any(x => x.Name == map.DropState) && m.States.Any(x => x.Name == map.LandState)) { inner = m; break; }
+            }
         var drop = inner?.States.FirstOrDefault(s => s.Name == map.DropState);
         var land = inner?.States.FirstOrDefault(s => s.Name == map.LandState);
         if (inner is null || drop is null || land is null) { notes.Add($"{where}: no '{map.DropState}' / '{map.LandState}' states"); return null; }

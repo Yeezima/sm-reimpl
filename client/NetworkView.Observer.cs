@@ -29,6 +29,36 @@ public partial class NetworkView
     /// <summary><c>--observe-pose x,y,z,yaw,pitch</c> (capture aid): the free camera's first place in game space (metres, Z up; yaw and pitch in degrees, yaw 0 faces +Y), instead of the overview.</summary>
     public string? ObservePose { get; init; }
 
+    /// <summary>
+    /// <c>--observe-tour "x,y,z,yaw,pitch;x,y,z,yaw,pitch;..."</c> (capture aid, classic-maps-all): the free camera's places in turn, the first as <c>--observe-pose</c> would; the next place is taken after
+    /// each screenshot of a <c>--screenshot-every</c> series (<see cref="ObserveTourAdvance"/>), so one windowed run captures a map from every listed place.
+    /// </summary>
+    public string? ObserveTour { get; init; }
+    int _tourIndex;
+
+    /// <summary>The current place of <see cref="ObserveTour"/>, 1-based (0 without a tour or before the camera is placed); the perf probe's <c>--perf-tour</c> label.</summary>
+    public int ObserveTourPlace() => ObserveTour is { Length: > 0 } && _obsPlaced ? _tourIndex + 1 : 0;
+
+    /// <summary>The next place of <see cref="ObserveTour"/> (nothing after the last; no effect without a tour or before the camera is placed).</summary>
+    public void ObserveTourAdvance()
+    {
+        if (ObserveTour is not { Length: > 0 } tour || !_obsPlaced) return;
+        var places = tour.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (_tourIndex + 1 >= places.Length) return;
+        if (TryPose(places[++_tourIndex], out var pos, out var yaw, out var pitch)) { _obsPos = pos; _obsYaw = _obsYawShown = yaw; _obsPitch = _obsPitchShown = pitch; _obsVel = Vector3.Zero; }
+        GD.Print($"observe tour: place {_tourIndex + 1} of {places.Length}: {places[_tourIndex]}");
+    }
+
+    bool TryPose(string text, out Vector3 pos, out float yaw, out float pitch)
+    {
+        pos = Vector3.Zero; yaw = pitch = 0f;
+        var f = text.Split(',').Select(s => float.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out var x) ? x : float.NaN).ToArray();
+        if (f.Length != 5 || !f.All(float.IsFinite)) return false;
+        pos = SpectateG(new System.Numerics.Vector3(f[0], f[1], f[2]));
+        yaw = Mathf.DegToRad(f[3]); pitch = Mathf.DegToRad(f[4]);
+        return true;
+    }
+
     /// <summary><c>--observe-follow</c> (capture aid): follows the first living player (lowest id) as soon as there is one, as F does.</summary>
     public bool ObserveFollow { get; init; }
 
@@ -38,12 +68,21 @@ public partial class NetworkView
     const float ObsBaseSpeed = 12f, ObsMinSpeed = 0.5f, ObsMaxSpeed = 250f, ObsFastFactor = 4f, ObsSlowFactor = 0.2f;   // m/s; ours
     const float ObsFovMin = 15f, ObsFovMax = 110f, ObsFovRate = 30f;   // degrees; degrees per second held
     const float ObsMoveSmooth = 3.5f, ObsLookSmooth = 7f;              // 1/s: the smoothing's exponential rates
+    /// <summary>Capture aid <c>--observe-distance m</c> (anim/jump-pack-blend): the follow camera's starting distance (metres, within the keys' range); default 3.4.</summary>
+    static float ObservedFollowDistance()
+    {
+        var args = OS.GetCmdlineUserArgs();
+        int i = Array.IndexOf(args, "--observe-distance");
+        return i >= 0 && i + 1 < args.Length && float.TryParse(args[i + 1], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var d)
+            ? Math.Clamp(d, ObsFollowMin, ObsFollowMax) : ObsFollowDistance;
+    }
+
     const float ObsFollowDistance = 3.4f, ObsFollowMin = 1.2f, ObsFollowMax = 12f;   // metres behind the shoulder pivot
     const float ObsFeedSeconds = 8f;
 
     Vector3 _obsPos, _obsVel;
     float _obsYaw, _obsPitch, _obsYawShown, _obsPitchShown;   // radians in Godot space (yaw 0 faces -Z); the first pair is what the mouse sets
-    float _obsSpeed = ObsBaseSpeed, _obsFov = DefaultFov, _obsFollowDist = ObsFollowDistance;
+    float _obsSpeed = ObsBaseSpeed, _obsFov = DefaultFov, _obsFollowDist = ObservedFollowDistance();
     bool _obsHud = true, _obsSmooth, _obsPlaced, _obsFollowAsked;
     int _obsFollow;                       // the followed player's id; 0 free-fly
     float _obsOrbitYaw, _obsOrbitPitch;   // the mouse's turn around the followed player
@@ -259,6 +298,11 @@ public partial class NetworkView
     void ObserverPlace(IReadOnlyList<PlayerState> others)
     {
         _obsPlaced = true;
+        if (ObserveTour is { Length: > 0 } tour0 && TryPose(tour0.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)[0], out var tp, out var ty, out var tpi))
+        {
+            _obsPos = tp; _obsYaw = _obsYawShown = ty; _obsPitch = _obsPitchShown = tpi;
+            return;
+        }
         if (ObservePose is { Length: > 0 } text)
         {
             var f = text.Split(',').Select(s => float.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out var x) ? x : float.NaN).ToArray();

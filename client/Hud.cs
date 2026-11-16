@@ -25,6 +25,12 @@ namespace SmClient;
 /// </summary>
 public sealed partial class Hud : Control
 {
+    /// <summary>
+    /// W0b: the match's content profile (<see cref="NetworkView"/> sets it each frame from the match's config; None outside a match). Added content's HUD hooks (the reticle and the weapon box
+    /// of a weapon only it carries) act only under it.
+    /// </summary>
+    public ContentExtras Content { get; set; }
+
     /// <summary>A player's or point's relation to the viewer: none (no teams / neutral), own side (gold) or enemy (red).</summary>
     public enum Rel { None, Own, Enemy }
 
@@ -72,6 +78,8 @@ public sealed partial class Hud : Control
         public int ThirdClip, ThirdClipMax, ThirdReserve;
         /// <summary>Charge fill 0..1 or negative when not charging, and whether a release fires the charged shot (the bar overlay and charge mark turn gold). <see cref="ChargeText"/> is not drawn since M44 (changes-from-original §3).</summary>
         public float Charge = -1f;
+        /// <summary>fix/plasma-visuals: the charge toward the last stage with a shot, 0..1 (negative when not charging); drives the plasma charge arc at the crosshair.</summary>
+        public float ChargeToFull = -1f;
         public string ChargeText = "";
         public bool ChargeReady;
         // Equipment (thrown item).
@@ -99,6 +107,16 @@ public sealed partial class Hud : Control
         public int OwnScore, EnemyScore, ScoreLimit;
         /// <summary>Added content sets this: the mode has its own HUD, and no team score panel is drawn.</summary>
         public bool NoScorePanel;
+        /// <summary>
+        /// Added content sets this: the armour and health bar's place instead of the original's top centre: X its box's left edge, Y its box's bottom edge measured up from the screen's bottom
+        /// (virtual units), Z its scale. Null (the default, and always in Classic PvP): the original's place (Hud.Vitals.cs).
+        /// </summary>
+        public Vector3? VitalsCorner;
+        /// <summary>
+        /// Added content sets this: the weapon and equipment panel's place instead of the original's: the distances (virtual units) from the screen's right and bottom edges to the outermost visible pixels of its
+        /// gold frame; the jump pack meter and the "no grenades" line then stand over the panel instead of under it. Null (the default, and always in Classic PvP): the original's place.
+        /// </summary>
+        public Vector2? WeaponBoxCorner;
         public string Clock = "";
         /// <summary>Centre banner: warm-up or match over; empty while playing.</summary>
         public string Banner = "";
@@ -114,6 +132,8 @@ public sealed partial class Hud : Control
         // Crosshair.
         /// <summary>weapons/spread: how far (virtual units) the crosshair's ticks move out for the next shot's scatter; 0 without spread.</summary>
         public float SpreadRadius;
+        /// <summary>ui/crosshair-fov-scale: factor on the crosshair's size (1 at the default FOV, below 1 wider); 0 = unset = 1.</summary>
+        public float ReticleScale;
         /// <summary>feel/scope-lascannon: the scope overlay (stalker bolter, lascannon) is on screen: it has its own reticle, so the normal crosshair is not drawn.</summary>
         public bool Scoped;
         /// <summary>ui/hud-fidelity: how far the next shot's scatter is between the stance's narrowest and widest (0..1, <see cref="ReticleRules.SpreadFraction"/>): picks the reticle's spread frame.</summary>
@@ -207,11 +227,7 @@ public sealed partial class Hud : Control
         _hitAt = _time;
         _hitKill = kill;
         _hitHead = head && !kill;
-        if (kill && head) { _headKillAt = _time; _headKillAimed = Data.AimedName; }   // ui/hud-2: a killing head hit and who was under the crosshair, for the headshot reward line
     }
-
-    double _headKillAt = double.NegativeInfinity;
-    string _headKillAimed = "";
 
     /// <summary>Opens the weapon-switch cards (the HUD also opens them itself when the weapon in hand changes).</summary>
     public void ShowSwitchPopup() => _popupAt = _time;
@@ -225,22 +241,24 @@ public sealed partial class Hud : Control
     }
 
     /// <summary>
-    /// Adds the reward lines of an own kill ("+ Kill P3": the client's call for every kill by the own player): the kill's own line and, from the kills the HUD has seen (<see cref="RewardTracker"/>,
-    /// ui/hud-2), the headshot, revenge, avenger, grudge, victory in death, double to mega kill and killstreak lines it earned. Any other text is shown as it is.
+    /// Adds the reward lines of an own kill of <paramref name="victim"/> (the client's call for every kill by the own player): the kill's own line, or with <paramref name="headshot"/>
+    /// (protocol 64: the server's word, <c>KillView.Headshot</c>) the headshot medal's line instead, and, from the kills the HUD has seen (<see cref="RewardTracker"/>, ui/hud-2), the
+    /// revenge, avenger, grudge, victory in death, double to mega kill and killstreak lines it earned.
     /// </summary>
+    public void AddOwnKill(string victim, bool headshot)
+    {
+        string text = victim.Length > 0 ? "+ Kill " + victim : "+ Kill";
+        foreach (var earned in _rewards.OwnKill(victim, _time, headshot, Data.Alive))
+            _events.Add(new EventLine(earned.Spec == RewardTable.Kill ? text : "+ " + earned.Spec.Name, _time, earned.Spec));
+        while (_events.Count > 4) _events.RemoveAt(0);
+    }
+
+    /// <summary>Adds a line as it is; "+ Kill P3" is an own kill without a headshot (<see cref="AddOwnKill"/>).</summary>
     public void AddEvent(string text)
     {
         const string kill = "+ Kill ";
-        if (text.StartsWith(kill, StringComparison.Ordinal) || text == "+ Kill")
-        {
-            string victim = text.Length > kill.Length ? text[kill.Length..] : "";
-            // A headshot belongs to the one the head hit was on: the player under the crosshair then (when the HUD knew one), and the hit counts once.
-            bool head = _time - _headKillAt <= 1.0 && (_headKillAimed.Length == 0 || victim.Length == 0 || _headKillAimed.Contains(victim, StringComparison.Ordinal));
-            if (head) _headKillAt = double.NegativeInfinity;
-            foreach (var earned in _rewards.OwnKill(victim, _time, head, Data.Alive))
-                _events.Add(new EventLine(earned.Spec == RewardTable.Kill ? text : "+ " + earned.Spec.Name, _time, earned.Spec));
-        }
-        else _events.Add(new EventLine(text, _time));
+        if (text.StartsWith(kill, StringComparison.Ordinal) || text == "+ Kill") { AddOwnKill(text.Length > kill.Length ? text[kill.Length..] : "", false); return; }
+        _events.Add(new EventLine(text, _time));
         while (_events.Count > 4) _events.RemoveAt(0);
     }
 
@@ -253,6 +271,8 @@ public sealed partial class Hud : Control
         TrackRewards();
         RunRewardsDemo();
         RunVitalsDemo();   // ui/armour-bar-fix (Hud/Hud.Vitals.cs)
+        RunClipDemo();   // fix/bolter-hud-last-round (Hud/Hud.ClipDemo.cs)
+        RunPlasmaDemo();   // fix/plasma-visuals (Hud/Hud.Plasma.cs)
         RunScoreDemo();   // ui/score-box-center (Hud/Hud.ScoreBox.cs)
         if (SwitchCardsDemo && Data.InGame) _popupAt = _time - 1.0;   // --hud-switch-demo (test aid): the switch cards stay open for screenshots
         TrackPoints();
@@ -540,7 +560,7 @@ public sealed partial class Hud : Control
         bool movie = DrawMovieRewards(vs);   // ui/hud-fidelity: the movie's reward lines (Hud.Fidelity.cs)
         if (movie) y = 250f + 49f * _events.Count;   // under the movie's reward lines (32.65 stage pixels apart)
         if (!movie)
-        foreach (var (text, at, _) in _events)
+        foreach (var (text, at, spec) in _events)
         {
             float a = (float)Math.Clamp(EventSeconds - (_time - at), 0.0, 0.6) / 0.6f;
             string line = text.StartsWith("+ ", StringComparison.Ordinal) ? text[2..] : text;
@@ -549,6 +569,7 @@ public sealed partial class Hud : Control
             if (!SpriteAt(HudSprites.KillMedal, new Vector2(x + 20f, y - 10f), 1.15f, new Color(1f, 1f, 1f, a))) Skull(new Vector2(x + 20f, y - 12f), 13f, new Color(Gold, a));
             Txt(line, x + 52f, y, 28, new Color(1f, 1f, 1f, a), -1, 4, 2);
             y += 44f;
+            if (RewardDescription(spec ?? RewardTable.Kill) is { Length: > 0 } description) { Txt(description, cx, y - 8f, 20, new Color(1f, 1f, 1f, a), 0, 3, 0); y += 30f; }   // headshot medal: its description
         }
         if (d.Banner.Length > 0) Txt(d.Banner, vs.X / 2f, d.Alive ? Math.Max(y + 12f, 275f) : 430f, 28, Gold, 0, 5, 2);
     }
@@ -602,17 +623,18 @@ public sealed partial class Hud : Control
         var c = vs / 2f;
         var col = d.AimedAtEnemy ? new Color(0.95f, 0.1f, 0.08f) : new Color(1f, 1f, 1f, 0.9f);
         var shadow = new Color(0f, 0f, 0f, 0.55f);
-        const float r = 18f;
+        float rs = ReticleScale;   // ui/crosshair-fov-scale
+        float r = 18f * rs;
         // ui/hud-fidelity: the original reticle (Hud.Movie.cs); the M44 circle with --old-hud or without the movie.
         if (!d.Scoped && (OldHud || !DrawMovieReticle(c)))   // feel/scope-lascannon: the scope overlay has its own reticle (the name, hit marker and cards below stay)
         {
         DrawArc(c, r, 0f, MathF.Tau, 40, shadow, 4f, true);
-        DrawArc(c, r, 0f, MathF.Tau, 40, col, 1.8f, true);
+        DrawArc(c, r, 0f, MathF.Tau, 40, col, 1.8f, true);   // line widths stay; the open part is already an angle at the live FOV (NetworkView.Spread.cs)
         float open = Math.Clamp(float.IsFinite(d.SpreadRadius) ? d.SpreadRadius : 0f, 0f, 120f);   // weapons/spread: the ticks open with the scatter (ours)
         foreach (var dir in new[] { new Vector2(1, 0), new Vector2(-1, 0), new Vector2(0, 1), new Vector2(0, -1) })
         {
-            DrawLine(c + dir * (r - 5f + open), c + dir * (r + 6f + open), shadow, 4.5f);
-            DrawLine(c + dir * (r - 4f + open), c + dir * (r + 5f + open), col, 2f);
+            DrawLine(c + dir * (r - 5f * rs + open), c + dir * (r + 6f * rs + open), shadow, 4.5f);
+            DrawLine(c + dir * (r - 4f * rs + open), c + dir * (r + 5f * rs + open), col, 2f);
         }
         }
         // The enemy under the crosshair (owner's decision of 2026-10-30): no name; with Tactical Readout or Signum Link, its health and shield as a thin
@@ -635,7 +657,7 @@ public sealed partial class Hud : Control
         {
             float a = (float)(1.0 - since / life);
             var hc = _hitKill ? new Color(0.95f, 0.1f, 0.08f, a) : _hitHead ? new Color(1f, 0.9f, 0.45f, a) : new Color(1f, 1f, 1f, a);
-            float r0 = 12f + (float)since * 20f, r1 = r0 + 12f;
+            float r0 = (12f + (float)since * 20f) * rs, r1 = r0 + 12f * rs;
             foreach (var dir in new[] { new Vector2(1, 1), new Vector2(-1, 1), new Vector2(1, -1), new Vector2(-1, -1) })
             {
                 var n = dir.Normalized();

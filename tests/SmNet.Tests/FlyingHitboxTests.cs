@@ -502,6 +502,9 @@ public class FlyingHitboxTests
         var plainBot = off.AddClient(nonce: 100, options: new ClientOptions { Bot = true });
         off.Run(TimeSpan.FromSeconds(1));
         Assert.Equal(1f, off.Server.World.DamageScaleOf(plainBot.PlayerId));
+        // The server keeps who is a bot client for added content (Musou Mode's damage cut, stream D); the core never reads it.
+        Assert.True(h.Server.World.IsBotClient(bot.PlayerId) && off.Server.World.IsBotClient(plainBot.PlayerId));
+        Assert.False(h.Server.World.IsBotClient(human.PlayerId));
     }
 
     [Fact]

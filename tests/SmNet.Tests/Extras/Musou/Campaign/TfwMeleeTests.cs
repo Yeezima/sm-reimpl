@@ -223,43 +223,37 @@ public class TfwMeleeTests
     }
 
     [Fact]
-    public void One_throw_is_three_frags_in_a_fan_for_one_grenade()
+    public void One_throw_is_one_vanilla_frag_with_the_datas_blast_for_one_grenade()
     {
         var w = War();
         int carried = w.Players[Human].Grenades;
-        Assert.True(carried > 0);
+        Assert.Equal(Frag.SpawnCount, carried);
         Throw(w);
-        Assert.Equal(3, w.Projectiles.Count);
+        Assert.Single(w.Projectiles);
         Assert.Equal(carried - 1, w.Players[Human].Grenades);
-        Assert.Equal(3, w.Projectiles.Select(p => p.Id).Distinct().Count());
-        var headings = w.Projectiles.Select(p => MathF.Atan2(p.Velocity.X, p.Velocity.Y) * 180f / MathF.PI).OrderBy(a => a).ToArray();
-        Assert.Equal(TfwCombatRules.Default.FragSpreadDegrees, headings[1] - headings[0], 1f);
-        Assert.Equal(TfwCombatRules.Default.FragSpreadDegrees, headings[2] - headings[1], 1f);
-        Assert.All(w.Projectiles, p => Assert.Equal(Frag.Projectile.Splash!.Radius * 2f, p.Spec!.Splash!.Radius));
+        var p = w.Projectiles[0];
+        Assert.Equal(Frag.Projectile.Splash!.Radius, (p.Spec ?? Frag.Projectile).Splash!.Radius);
+        Assert.False((p.Spec ?? Frag.Projectile).Splash!.IgnoreSelf);   // the thrower is not spared
     }
 
     [Fact]
-    public void A_frags_blast_reaches_twice_as_far_tells_the_clients_and_spares_the_thrower()
+    public void A_frags_blast_is_twice_the_datas_size_and_sends_no_big_blast_record()
     {
         var w = War();
         w.Musou!.Frozen = true;
         Throw(w);
-        var fuse = w.Projectiles[0];
         ushort far = 0;
         int blasts = 0;
-        float health = w.Players[Human].Health + w.Players[Human].Shield;
         for (int k = 0; k < 300 && w.Projectiles.Count > 0; k++)
         {
-            // 14 m from where it will land: outside the data's 10 m, inside the 20.
-            if (far == 0 && w.Projectiles[0].Position.Z < 1.5f) far = Boy(w, w.Projectiles[0].Position with { Z = 0f } + new Vector3(14f, 0f, 0f), health: 10000f);
+            // 30 m from where it will land: outside the data's 10 m at 2.5x (owner 2026-11-09: 2x; AoE pass 2026-11-14: x1.25 more).
+            if (far == 0 && w.Projectiles[0].Position.Z < 1.5f) far = Boy(w, w.Projectiles[0].Position with { Z = 0f } + new Vector3(30f, 0f, 0f), health: 10000f);
             Tick(w);
             blasts += w.LastDetonations.Count(d => d.Thrown);
         }
-        Assert.Equal(3, blasts);
-        Assert.True(w.Musou.TryGet(far, out var e) && e.Health < 10000f, "the blast reached past the data's radius");
-        Assert.Equal(health, w.Players[Human].Health + w.Players[Human].Shield);
-        Assert.Equal(3, w.Tfw!.Smoke.Count(f => f.Kind == TfwFireKind.Frag));
-        Assert.All(w.Tfw.Smoke, f => Assert.Equal(20f, f.To.Y));
+        Assert.Equal(1, blasts);
+        Assert.True(w.Musou.TryGet(far, out var e) && e.Health >= 10000f, "the blast stays within the doubled radius");
+        Assert.Empty(w.Tfw!.Smoke.Where(f => f.Kind == TfwFireKind.Frag));
     }
 
     [Fact]
@@ -278,14 +272,14 @@ public class TfwMeleeTests
     [Theory]
     [InlineData(InputButtons.Melee)]
     [InlineData(InputButtons.MeleeHeavy)]
-    public void A_swing_reaches_twenty_enemies_and_draws_each_a_slash(InputButtons press)
+    public void A_swing_strikes_every_enemy_in_its_cleave_and_draws_each_a_slash(InputButtons press)
     {
         var w = War();
         w.Musou!.Frozen = true;
         var me = w.Players[Human].Position;
-        for (int k = 0; k < 30; k++)
+        for (int k = 0; k < 50; k++)
         {
-            float angle = (k - 14.5f) * 0.06f, ring = 1.6f + k % 3 * 0.25f;
+            float angle = (k - 24.5f) * 0.06f, ring = 1.6f + k % 3 * 0.25f;
             Boy(w, me + new Vector3(MathF.Sin(angle) * ring, MathF.Cos(angle) * ring, 0f), k % 5 == 0 ? MusouEnemyType.ArdBoy : MusouEnemyType.Boy);
         }
         int slashes = 0;
@@ -294,8 +288,71 @@ public class TfwMeleeTests
             Tick(w, buttons: t < 3 ? press : InputButtons.None);
             slashes = Math.Max(slashes, w.Musou.Events.Count(e => e.Kind == MusouEventKind.Hit && e.Value == 3));
         }
-        Assert.Equal(TfwCombatRules.Default.CleaveTargets, slashes);
-        Assert.Equal(20, w.TfwBestCleave);
+        Assert.Equal(50, slashes);   // owner 2026-11-14: no cap (was 40)
+        Assert.Equal(50, w.TfwBestCleave);
+    }
+
+    /// <summary>Owner 2026-11-14: no cleave cap. A swing into a packed crowd of 400 strikes every one inside the cleave, in a bounded time (a guard, generous for a loaded machine).</summary>
+    [Fact]
+    public void A_swing_into_four_hundred_strikes_them_all_quickly()
+    {
+        var w = War();
+        w.Musou!.Frozen = true;
+        var me = w.Players[Human].Position;   // yaw 0: forward is +Y; the light step's war reach is 6.3 m, 120 degrees each side
+        for (int k = 0; k < 400; k++)
+        {
+            float degrees = (k % 41 - 20) * 4.5f, metres = 1.2f + (k / 41) * 0.45f;   // -90..90 degrees, 1.2..5.25 m
+            Boy(w, me + new Vector3(-MathF.Sin(degrees * MathF.PI / 180f) * metres, MathF.Cos(degrees * MathF.PI / 180f) * metres, 0f));
+        }
+        var hit = new HashSet<int>();
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        for (int t = 0; t < 12; t++)
+        {
+            Tick(w, buttons: t < 3 ? InputButtons.Melee : InputButtons.None);
+            foreach (var e in w.Musou.Events) if (e.Kind == MusouEventKind.Hit && e.Value == 3) hit.Add(e.Enemy);
+        }
+        watch.Stop();
+        Assert.Equal(400, hit.Count);
+        Assert.True(watch.ElapsedMilliseconds < 3000, $"12 ticks with a 400-Ork swing took {watch.ElapsedMilliseconds} ms");
+    }
+
+    static HashSet<int> StruckBySwing(World w, params ushort[] ids)
+    {
+        var hit = new HashSet<int>();
+        for (int t = 0; t < 12; t++)
+        {
+            Tick(w, buttons: t < 3 ? InputButtons.Melee : InputButtons.None);
+            foreach (var e in w.Musou!.Events) if (e.Kind == MusouEventKind.Hit && e.Value == 3) hit.Add(e.Enemy);
+        }
+        return hit;
+    }
+
+    /// <summary>
+    /// owner 2026-11-09: the players' melee volume in the war is a longer, wider, flat cone (reach x1.3 since the owner's 2026-11-09 reduction from x1.5, 120 degrees to each side, the core's 1.5 m height
+    /// band); owner 2026-11-11: the whole reach x0.6 ("reduce melee attack cleave range by 40%"), the angles as they were.
+    /// </summary>
+    [Fact]
+    public void The_war_cleave_is_a_longer_wider_flat_cone()
+    {
+        var w = War();
+        w.Musou!.Frozen = true;
+        var me = w.Players[Human].Position;   // yaw 0: forward is +Y
+        Vector3 Polar(float degrees, float metres, float up = 0f) => me + new Vector3(-MathF.Sin(degrees * MathF.PI / 180f) * metres, MathF.Cos(degrees * MathF.PI / 180f) * metres, up);
+        ushort far = Boy(w, Polar(0f, 5.0f));          // 6.75 x1.3 = 8.8 m before the owner's x0.6 (2026-11-11): 5.27 m now
+        ushort tooFar = Boy(w, Polar(0f, 8.2f));       // past 7.7 (the track-to-hit reach 10.7 x0.72; owner 2026-11-12: x1.2 of the x0.6 before)
+        ushort wide = Boy(w, Polar(105f, 3f));         // outside the old 90 degrees
+        ushort behind = Boy(w, Polar(150f, 3f));       // outside the new 120
+        ushort high = Boy(w, Polar(20f, 4f, 2.0f));    // above the 1.5 m height band
+        var hit = StruckBySwing(w);
+        Assert.Contains((int)far, hit);
+        Assert.Contains((int)wide, hit);
+        Assert.DoesNotContain((int)tooFar, hit);
+        Assert.DoesNotContain((int)behind, hit);
+        Assert.DoesNotContain((int)high, hit);
+        Assert.Equal(1.3f, TfwCombatRules.Default.CleaveReachScale);
+        Assert.Equal(0.72f, TfwCombatRules.Default.PlayerCleaveReachScale);
+        Assert.Equal(120f, TfwCombatRules.Default.CleaveHalfAngleDegrees);
+        Assert.Equal(MusouSim.Capacity, TfwCombatRules.Default.CleaveTargets);
     }
 
     [Fact]
@@ -334,13 +391,15 @@ public class TfwMeleeTests
     {
         var w = War();
         w.Musou!.Frozen = true;
+        w.Musou.War = w.Musou.War! with { BoltBlasts = false };   // the pierce alone (the bolt blasts: below)
         var me = w.Players[Human].Position;
         var line = Enumerable.Range(0, 5).Select(k => Boy(w, me + new Vector3(0f, 6f + k * 2f, 0f))).ToArray();
         Tick(w, buttons: InputButtons.Fire);
         for (int k = 0; k < 10 && w.LastShots.Count == 0; k++) Tick(w, buttons: InputButtons.Fire);
         var healths = line.Select(id => { w.Musou.TryGet(id, out var e); return e.Health; }).ToArray();
         Assert.Equal(1 + TfwCombatRules.Pierced(Rifle), healths.Count(h => h < 1000f));
-        Assert.True(1000f - healths[1] < 1000f - healths[0] && 1000f - healths[2] < 1000f - healths[1], string.Join(", ", healths));
+        // A human's shot loses nothing for each Ork it goes through (owner 2026-11-11: "but only for the players"; an AI Marine's keeps the 0.85, MusouRangeFallOffTests).
+        Assert.True(1000f - healths[0] > 0f && Math.Abs(healths[1] - healths[0]) < 0.01f && Math.Abs(healths[2] - healths[0]) < 0.01f, string.Join(", ", healths));
         Assert.Equal(1000f, healths[3]);
         Assert.Equal(3, w.TfwBestPierce);
         Assert.InRange(w.LastShots[^1].End.Y - me.Y, 9.3f, 11f);
@@ -361,5 +420,196 @@ public class TfwMeleeTests
         }
         Assert.NotNull(burst);
         Assert.InRange(burst!.Value.Position.Y - me.Y, 10f, 12f);   // the third of the line, past the launcher's two
+    }
+
+    // ---- the bolt blasts (the owner, 2026-11-07)
+
+    [Theory]
+    [InlineData("sm_mp_ranged_bolter", true)]
+    [InlineData("csm_mp_ranged_bolter", true)]
+    [InlineData("sm_mp_pistol_bolt_pistol", true)]
+    [InlineData("csm_mp_pistol_bolt_pistol", true)]
+    [InlineData("sm_mp_pistol_bolter", true)]
+    [InlineData("sm_mp_pistol_bolter_gold", true)]
+    [InlineData("sm_mp_ranged_storm_bolter", true)]
+    [InlineData("sm_mp_exotic_heavy_bolter", true)]
+    [InlineData("sm_mp_ranged_sniper_rifle", true)]
+    [InlineData("sm_mp_ranged_plasma_gun", false)]
+    [InlineData("sm_mp_ranged_melta", false)]
+    [InlineData("sm_mp_exotic_las_cannon", false)]
+    [InlineData("sm_mp_pistol_plasma_pistol", false)]
+    public void The_bolt_weapons_are_every_bolter_and_the_stalker(string name, bool bolt) =>
+        Assert.Equal(bolt, TfwCombatRules.IsBolt(Rifle with { Name = name }));
+
+    static float HealthOf(World w, ushort id) => w.Musou!.TryGet(id, out var e) ? e.Health : 0f;
+
+    /// <summary>Fires the rifle until a shot goes out.</summary>
+    static void Shoot(World w)
+    {
+        Tick(w, buttons: InputButtons.Fire);
+        for (int k = 0; k < 10 && w.LastShots.Count == 0; k++) Tick(w, buttons: InputButtons.Fire);
+        Assert.NotEmpty(w.LastShots);
+    }
+
+    [Fact]
+    public void A_bolter_shot_blows_up_at_every_enemy_it_goes_through_and_tells_the_clients()
+    {
+        var w = War();
+        w.Musou!.Frozen = true;
+        var me = w.Players[Human].Position;
+        float mine = w.Players[Human].Health + w.Players[Human].Shield;
+        var line = Enumerable.Range(0, 3).Select(k => Boy(w, me + new Vector3(0f, 6f + k * 4f, 0f))).ToArray();
+        // Beside each one struck, inside the blast's reach (1.25 m since the owner's nerf, 2026-11-08); at 1.6 m (inside the old 2.5 m reach) untouched; and one well outside every blast.
+        var beside = line.Select(id => { w.Musou.TryGet(id, out var e); return Boy(w, e.Position + new Vector3(0.75f, -0.6f, 0f)); }).ToArray();
+        var past = line.Select(id => { w.Musou.TryGet(id, out var e); return Boy(w, e.Position + new Vector3(-1.6f, 0f, 0f)); }).ToArray();
+        ushort away = Boy(w, me + new Vector3(6f, 10f, 0f));
+        Shoot(w);
+        var war = w.Musou.War!;
+        Assert.Equal(3, w.TfwBoltBlastsOut);   // the bolter goes through 2 and stops on the third: a blast at each
+        var records = w.Tfw!.Fire.Events.Where(f => f.Kind == TfwFireKind.BoltBlast).ToArray();
+        Assert.Equal(3, records.Length);
+        Assert.Equal(3, records.Select(f => f.Subject).Distinct().Count());
+        for (int k = 0; k < 3; k++)
+        {
+            Assert.True(MathF.Abs(records[k].At.Y - me.Y - (6f + k * 4f)) < 1f, $"blast {k} at {records[k].At}");
+            Assert.Equal(war.BoltBlastRadius * SmSim.Extras.Musou.MusouCombatRules.WeaponAoeScale, records[k].To.Y, 3);   // AoE pass 2026-11-14
+            Assert.Equal(0f, records[k].To.X);   // the frag's effect: thrown item 0
+            Assert.InRange(1000f - HealthOf(w, beside[k]), war.BoltBlastDamage * 0.3f * war.PlayerRangedDamageScale, war.BoltBlastDamage * war.PlayerRangedDamageScale);   // a blast only: the shot's ray passes beside him (x1.2, owner 2026-11-11)
+            Assert.Equal(1000f, HealthOf(w, past[k]));   // past the halved reach
+        }
+        Assert.Equal(1000f, HealthOf(w, away));
+        Assert.Equal(mine, w.Players[Human].Health + w.Players[Human].Shield);   // the blasts hurt enemies only
+    }
+
+    [Fact]
+    public void A_shot_of_a_weapon_that_is_no_bolter_sets_off_no_blast()
+    {
+        var map = TfwTestArena.Build();
+        var config = Config() with { Weapons = [Rifle with { Name = "sm_mp_ranged_plasma_gun" }, Launcher] };
+        var w = new World(config, map.Collision, map.Spawns) { Rules = new MatchRules { CountdownTime = 0.1f, TimeLimit = 0f, ScoreLimit = int.MaxValue / 2 } };
+        Assert.True(w.StartTfw(null, TfwTestArena.Field));
+        w.Tfw!.Idle = true;
+        w.Spawn(Human, 0);
+        for (int k = 0; k < 60 && w.State != MatchState.Playing; k++) Tick(w);
+        w.TfwRespawnAt(Human, At, 0f);
+        Tick(w);
+        w.Musou!.Frozen = true;
+        var me = w.Players[Human].Position;
+        var line = Enumerable.Range(0, 3).Select(k => Boy(w, me + new Vector3(0f, 6f + k * 4f, 0f))).ToArray();
+        ushort beside = Boy(w, me + new Vector3(1.6f, 6f, 0f));
+        Shoot(w);
+        Assert.Equal(3, line.Count(id => HealthOf(w, id) < 1000f));   // it still goes through
+        Assert.Equal(0, w.TfwBoltBlastsOut);
+        Assert.DoesNotContain(w.Tfw.Fire.Events, f => f.Kind == TfwFireKind.BoltBlast);
+        Assert.Equal(1000f, HealthOf(w, beside));
+    }
+
+    [Fact]
+    public void The_switch_turns_the_bolt_blasts_off()
+    {
+        var w = War();
+        w.Musou!.Frozen = true;
+        w.Musou.War = w.Musou.War! with { BoltBlasts = false };
+        var me = w.Players[Human].Position;
+        Boy(w, me + new Vector3(0f, 6f, 0f));
+        ushort beside = Boy(w, me + new Vector3(1.6f, 6f, 0f));
+        Shoot(w);
+        Assert.Equal(0, w.TfwBoltBlastsOut);
+        Assert.Equal(1000f, HealthOf(w, beside));
+    }
+
+    // ---- the bolt blast nerf (owner, 2026-11-08: half the reach, no ragdoll; a kill torn apart, a survivor knocked down)
+
+    [Fact]
+    public void The_bolt_blast_reach_is_half_the_old_one()
+    {
+        var war = TfwCombatRules.Default;
+        Assert.Equal(1.25f, war.BoltBlastRadius);
+        Assert.Equal(war.BoltBlastRadius, war.BoltBlast().Radius);
+        Assert.Equal(war.BoltBlastRadius, war.BoltBlastFallOff[^1].Distance);
+        Assert.Equal(15f, war.BoltBlastDamage);   // halved too (owner, 2026-11-08: "halve the damage as well yes")
+        Assert.Equal(0.3f, Combat.SplashIntensity(war.BoltBlastFallOff, 1.25f), 3);
+        Assert.Equal(0f, Combat.SplashIntensity(war.BoltBlastFallOff, 1.3f));
+    }
+
+    [Fact]
+    public void An_Ork_the_bolt_blast_kills_is_torn_apart_where_he_stands_not_thrown()
+    {
+        var w = War();
+        w.Musou!.Frozen = true;
+        var me = w.Players[Human].Position;
+        ushort struck = Boy(w, me + new Vector3(0f, 8f, 0f));
+        w.Musou.TryGet(struck, out var s);
+        ushort victim = Boy(w, s.Position + new Vector3(0.75f, -0.6f, 0f), health: 5f);   // the shot passes beside him: the blast alone kills him
+        Shoot(w);
+        Assert.Equal(1, w.TfwBoltBlastsOut);
+        var death = Assert.Single(w.Musou.Events, e => e.Kind == MusouEventKind.Death && e.Enemy == victim);
+        var cause = (MusouDeathKind)death.Value;
+        Assert.Equal(MusouDeathKind.BoltBlast, cause);
+        Assert.False(SmNet.Extras.Musou.MusouGoreRules.Thrown(cause));   // no ragdoll, no flung body
+        Assert.Equal(SmNet.Extras.Gore.GoreClass.Explosion, SmNet.Extras.Musou.MusouGoreRules.Classify(cause, Human, false));   // burst on the spot
+        Assert.True(SmNet.Extras.Musou.MusouGoreRules.Plan(cause, MusouEnemyType.Boy, Human, false, 5f, 1f, victim, death.Tick).Gibbed);
+        Assert.True(SmNet.Extras.Musou.MusouGoreRules.Thrown(MusouDeathKind.Blast));   // a frag's blast still throws
+    }
+
+    [Fact]
+    public void A_fodder_Ork_the_bolt_blast_hurts_falls_where_he_stands_and_an_elite_staggers_in_place()
+    {
+        var w = War();
+        w.Musou!.Frozen = true;
+        var me = w.Players[Human].Position;
+        ushort boy = Boy(w, me + new Vector3(0f, 8f, 0f));
+        w.Musou.TryGet(boy, out var before);
+        Shoot(w);
+        Assert.True(HealthOf(w, boy) < 1000f && HealthOf(w, boy) > 0f);
+        Assert.Equal(MusouEnemyState.Knocked, State(w, boy));
+        w.Musou.Frozen = false;
+        for (int k = 0; k < 15; k++) Tick(w);
+        w.Musou.TryGet(boy, out var after);
+        Assert.True(Vector3.Distance(before.Position, after.Position) < 0.05f, $"thrown {Vector3.Distance(before.Position, after.Position):F2} m");
+
+        var w2 = War();
+        w2.Musou!.Frozen = true;
+        var me2 = w2.Players[Human].Position;
+        ushort ard = Boy(w2, me2 + new Vector3(0f, 8f, 0f), MusouEnemyType.ArdBoy);
+        w2.Musou.TryGet(ard, out var ardBefore);
+        Shoot(w2);
+        Assert.Equal(MusouEnemyState.Stagger, State(w2, ard));
+        w2.Musou.Frozen = false;
+        for (int k = 0; k < 15; k++) Tick(w2);
+        w2.Musou.TryGet(ard, out var ardAfter);
+        Assert.True(Vector3.Distance(ardBefore.Position, ardAfter.Position) < 0.05f, $"pushed {Vector3.Distance(ardBefore.Position, ardAfter.Position):F2} m");
+    }
+
+    [Fact]
+    public void One_grenade_throw_throws_at_most_twenty_bodies_the_other_kills_are_torn_apart_and_survivors_fall()
+    {
+        // The owner, 2026-11-08: "limit the number of flying orks per grenade throw to 20. the rest get knocked down or if they died explode."
+        var w = War();
+        w.Musou!.Frozen = true;
+        Throw(w);
+        var victims = new List<ushort>();
+        var tough = new List<ushort>();
+        var causes = new Dictionary<ushort, MusouDeathKind>();
+        for (int k = 0; k < 300 && w.Projectiles.Count > 0; k++)
+        {
+            if (victims.Count == 0 && w.Projectiles[0].Position.Z < 1.5f)
+            {
+                var ground = w.Projectiles[0].Position with { Z = 0f };
+                for (int i = 0; i < 40; i++)
+                {
+                    float a = i * 2.39996f, r = 0.8f + i % 5 * 0.5f;
+                    victims.Add(Boy(w, ground + new Vector3(MathF.Cos(a) * r, MathF.Sin(a) * r, 0f), health: 5f));
+                }
+                for (int i = 0; i < 3; i++) tough.Add(Boy(w, ground + new Vector3(4.5f * MathF.Cos(i * 2.1f), 4.5f * MathF.Sin(i * 2.1f), 0f), health: 100000f));
+            }
+            Tick(w);
+            foreach (var e in w.Musou.Events) if (e.Kind == MusouEventKind.Death) causes[e.Enemy] = (MusouDeathKind)e.Value;
+        }
+        Assert.Equal(40, victims.Count(v => causes.ContainsKey(v)));
+        int thrown = causes.Values.Count(SmNet.Extras.Musou.MusouGoreRules.Thrown);
+        Assert.Equal(MusouCombatRules.Default.BlastThrownMax, thrown);
+        Assert.Equal(40 - thrown, victims.Count(v => causes[v] == MusouDeathKind.BoltBlast));   // the rest explode where they stand
+        Assert.All(tough, t => Assert.Equal(MusouEnemyState.Knocked, State(w, t)));   // the blast's survivors fall
     }
 }

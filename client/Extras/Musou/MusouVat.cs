@@ -46,8 +46,23 @@ public static class MusouVat
     }
 
     /// <summary>Reads what the bake needs from <paramref name="assets"/> (main thread) and starts the bake on a worker; null when there is nothing to bake.</summary>
-    public static Task<Baked?>? Start(MarineAssets assets, HavokBoundAnimation?[] clips, Func<int, bool>? loops = null)
+    /// <param name="altFrom">The first slot of the look's other deaths (2026-11-16, <see cref="MusouLooks.DeathAlt1"/>; -1: none): a slot that is empty or the idle's or the run's shares the usual death's rows, and a look too large with the other deaths baked is baked without them (they play the usual one).</param>
+    public static Task<Baked?>? Start(MarineAssets assets, HavokBoundAnimation?[] clips, Func<int, bool>? loops = null, int altFrom = -1)
     {
+        HavokBoundAnimation?[]? plain = null;
+        if (altFrom >= 0 && altFrom < clips.Length)
+        {
+            clips = (HavokBoundAnimation?[])clips.Clone();
+            plain = (HavokBoundAnimation?[])clips.Clone();
+            bool distinct = false;
+            for (int c = altFrom; c < clips.Length; c++)
+            {
+                if (clips[c] is null || ReferenceEquals(clips[c], clips[MusouLooks.Idle]) || ReferenceEquals(clips[c], clips[MusouLooks.Run])) clips[c] = clips[MusouLooks.Death];
+                else distinct = true;
+                plain[c] = clips[MusouLooks.Death];
+            }
+            if (!distinct) plain = null;
+        }
         if (assets.Pieces.Count == 0) return null;
         var skeleton = assets.Model.Rig.Skeleton;
         int boneCount = skeleton.BoneNames.Count;
@@ -79,7 +94,12 @@ public static class MusouVat
             }
         }
         if (surfaces.Count == 0) return null;
-        return Task.Run(() => Bake(parents, rest, surfaces.ToArray(), bindBones.ToArray(), bindPoses.ToArray(), clips, loops ?? MusouLooks.Loops));
+        var loop = loops ?? MusouLooks.Loops;
+        return Task.Run(() =>
+        {
+            var all = surfaces.ToArray(); var bb = bindBones.ToArray(); var bp = bindPoses.ToArray();
+            return Bake(parents, rest, all, bb, bp, clips, loop) ?? (plain is null ? null : Bake(parents, rest, all, bb, bp, plain, loop));
+        });
     }
 
     static Baked? Bake(int[] parents, Transform3D[] rest, SurfaceData[] surfaces, int[][] bindBones, Transform3D[][] bindPoses, HavokBoundAnimation?[] clips, Func<int, bool> loops)
@@ -92,8 +112,12 @@ public static class MusouVat
         int rowsPerFrame = (vertices + Width - 1) / Width;
         var rows = new ClipRows[clips.Length];
         int frames = 0;
+        var same = new int[clips.Length];   // a clip filling two slots (the sprint falling back to the run, 2026-11-09) is baked once: its rows shared
         for (int c = 0; c < clips.Length; c++)
         {
+            same[c] = -1;
+            for (int e = 0; e < c && clips[c] is not null; e++) if (ReferenceEquals(clips[e], clips[c]) && loops(e) == loops(c)) { same[c] = e; break; }
+            if (same[c] >= 0) { rows[c] = rows[same[c]]; continue; }
             float duration = clips[c]?.Animation.Duration ?? 0f;
             int n = Math.Max(2, (int)MathF.Ceiling(duration * Fps));
             rows[c] = new ClipRows(frames, n, MathF.Max(duration, 1e-3f), loops(c));
@@ -111,6 +135,7 @@ public static class MusouVat
         for (int s = 0; s < surfaces.Length; s++) skinning[s] = new Transform3D[bindBones[s].Length];
         for (int c = 0; c < clips.Length; c++)
         {
+            if (same[c] >= 0) continue;
             var clip = clips[c];
             var r = rows[c];
             for (int f = 0; f < r.Frames; f++)

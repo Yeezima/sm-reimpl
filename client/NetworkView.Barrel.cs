@@ -53,6 +53,39 @@ public partial class NetworkView
         if (_barrelNotes.Count > 64) _barrelNotes.RemoveAt(0);
     }
 
+    // night/weapon-fx: the own plasma shots (a charged release) are drawn from the newest snapshot, not the interpolated one (100 ms behind): the ball shows the frame the server's
+    // snapshot holds it. An own shot is told by the prediction's barrel note (shooter = me, same weapon, near its origin).
+    readonly HashSet<int> _ownPlasmaDecided = new(), _ownPlasmaIds = new();
+    readonly List<SmNet.ProjectileView> _ownPlasmaMerged = new();
+    bool? _oldPlasmaRelease;
+    bool OldPlasmaRelease => _oldPlasmaRelease ??= CmdFlag("old-plasma-release");
+
+    IReadOnlyList<SmNet.ProjectileView> WithOwnPlasmaAhead(IReadOnlyList<SmNet.ProjectileView> shown)
+    {
+        if (_client is null || OldPlasmaRelease || OldBarrel) return shown;
+        var merged = _ownPlasmaMerged;
+        merged.Clear();
+        merged.AddRange(shown);
+        var ids = new HashSet<int>();
+        foreach (var q in _client.NewestProjectiles())
+        {
+            ids.Add(q.Id);
+            if (_ownPlasmaDecided.Add(q.Id) && !q.Thrown && IsPlasmaShot(q.Weapon, false))
+            {
+                var at = new Num.Vector3(q.Position.X, q.Position.Y, q.Position.Z);
+                foreach (var n in _barrelNotes)
+                    if (n.Shooter == _client.PlayerId && n.Weapon == q.Weapon && _connectedFor - n.At <= BarrelNoteSeconds && Num.Vector3.DistanceSquared(n.Origin, at) < BarrelMatchReach * BarrelMatchReach)
+                    { _ownPlasmaIds.Add(q.Id); break; }
+            }
+            if (!_ownPlasmaIds.Contains(q.Id)) continue;
+            int i = merged.FindIndex(x => x.Id == q.Id);
+            if (i >= 0) merged[i] = q; else merged.Add(q);
+        }
+        if (_ownPlasmaDecided.Count > 2048) { _ownPlasmaDecided.IntersectWith(ids); _ownPlasmaIds.IntersectWith(ids); }
+        OwnBallsMerge(merged, _ownPlasmaIds, ids);   // stream B: the predicted own ball stands for the server's (NetworkView.OwnBall.cs)
+        return merged;
+    }
+
     /// <summary>The displaced (drawn) game-space position of projectile <paramref name="q"/>; the snapshot position when it has no note.</summary>
     Num.Vector3 BarrelDrawn(SmNet.ProjectileView q)
     {
@@ -148,7 +181,7 @@ public partial class NetworkView
         try
         {
             var spec = _config.Weapons[q.Weapon];
-            if (FxWeapon(spec.Name) is not { } w || FxPlace(shooter.PlayerId, w.MuzzleMarker) is not { } muzzle) return;
+            if (FxWeapon(EffectsWargear(shooter.PlayerId, spec.Name)) is not { } w || FxPlace(shooter.PlayerId, w.MuzzleMarker) is not { } muzzle) return;
             var at = ToGodot(q.Position);
             var dir = at - muzzle.Position;
             dir = dir.LengthSquared() > 1e-4f ? dir.Normalized() : muzzle.Axes.Y;

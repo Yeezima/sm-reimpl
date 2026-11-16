@@ -1,5 +1,7 @@
 using System;
 using Godot;
+using SmClient.Bullets;
+using SmClient.ImpactRules;
 
 namespace SmClient;
 
@@ -23,8 +25,25 @@ public partial class NetworkView
     static bool IsBoltTracer(string effect) =>
         effect.Contains("bolter", StringComparison.OrdinalIgnoreCase) || effect.Contains("stalker", StringComparison.OrdinalIgnoreCase) || effect.Contains("bolt_pistol", StringComparison.OrdinalIgnoreCase);
 
-    void ThinBoltTracer(FxEffect e, string effect)
+    /// <summary>fx/weapon-visuals (owner, 2026-11-14): the Kraken Bolts tracer's red (ours; <see cref="KrakenTracer.Red"/>).</summary>
+    static readonly Color KrakenTint = new(KrakenTracer.Red.R, KrakenTracer.Red.G, KrakenTracer.Red.B);
+    int _krakenTracers;
+
+    /// <summary><c>--old-kraken-tracer</c> (before / after): Kraken Bolts' tracer drawn as a plain bolter's.</summary>
+    bool OldKrakenTracer => _oldKrakenTracer ??= CmdFlag("old-kraken-tracer");
+    bool? _oldKrakenTracer;
+
+    /// <summary>Whether a shot draws the Kraken tracer: a bolt tracer of a bolter that can take the perk, fired by a player who has it (every player seen, both modes).</summary>
+    bool KrakenShot(string wargear, string effect, int shooter)
     {
+        if (OldKrakenTracer || _config is null || _client?.Predicted is not { } me || !IsBoltTracer(effect) || !KrakenTracer.CanTake(wargear)) return false;
+        var state = StateOfPlayer(shooter, me);
+        return state is { } st && KrakenTracer.Applies(wargear, SmSim.Loadouts.Upgrades(_config, st).Has(KrakenTracer.Upgrade));
+    }
+
+    void ThinBoltTracer(FxEffect e, string effect, bool kraken = false)
+    {
+        if (kraken && !OldBoltTracer) { e.TracerWidthScale = KrakenTracer.WidthScale; e.TracerTrailScale = KrakenTracer.TrailScale; _krakenTracers++; return; }
         if (OldBoltTracer || !IsBoltTracer(effect)) return;
         e.TracerWidthScale = OldBoltFx ? BoltTracerWidth : BoltTracerWidthNow;   // fx/bolt-tracer-impact: thinner and shorter again (--old-bolt-fx: the values of #30)
         e.TracerTrailScale = OldBoltFx ? BoltTracerTrail : BoltTracerTrailNow;

@@ -23,6 +23,10 @@ namespace SmContent;
 public static class StimTuning
 {
     public const string Ability = "ability_stimpack", Action = "actn_stims_activated";
+    /// <summary>The effects' marker for the entity's centre (the stim icon's: <c>stimpack_heal_icon_looping</c> at <c>fx_cntr</c>), not a rig marker.</summary>
+    public const string CentreMarker = "fx_cntr";
+    /// <summary>The effects the stim's action plays (the data's own): the aura <see cref="GlowEffect"/> at four body markers and the icon <see cref="IconEffect"/> over the head.</summary>
+    public const string GlowEffect = "stimpack_heal_looping", IconEffect = "stimpack_heal_icon_looping";
     public const string Graph = "SM_Base_MP", ReleaseEvent = "StartAction", EndBranch = "BRANCH_UseEquipment_End";
     /// <summary>The upgrade string the stim applies that keeps its user out of hit reactions.</summary>
     public const string ReactionImmunity = "mp_reaction_immunity";
@@ -31,6 +35,19 @@ public static class StimTuning
     public static bool IsStim(BafDocument item) =>
         item.Root.Table("ability_data/ability_definitions/" + Ability) is not null
         && item.Root.Table("ability_data/ability_definitions/ability_utility/delivery") is null;
+
+    /// <summary>
+    /// fx/stim-original: the effects the stim's action plays (<c>actn_stims_activated</c>'s <c>play_fx</c> commands, the data's own: <see cref="GlowEffect"/> at the torso, both clavicles and the head and
+    /// <see cref="IconEffect"/> at <see cref="CentreMarker"/>, for the action's lifetime) from the entry <c>actions_by_upgrade</c> chooses for <paramref name="upgrades"/>: an entry whose required upgrades the
+    /// player has (Master-Crafted Wargear's bigger effects), else the default entry. Empty when the file names none.
+    /// </summary>
+    public static IReadOnlyList<FxPlay> Effects(ThrownEffects effects, IReadOnlyCollection<string> upgrades)
+    {
+        var all = effects.Bindings.Where(b => b.Play is not null && b.Path.Contains("/" + Action + "/", StringComparison.OrdinalIgnoreCase)).ToList();
+        var chosen = all.Where(b => !b.IsDefault && b.RequiredUpgrades.All(r => upgrades.Contains(r, StringComparer.OrdinalIgnoreCase))).ToList();
+        if (chosen.Count == 0) chosen = all.Where(b => b.IsDefault).ToList();
+        return chosen.Select(b => b.Play!).ToList();
+    }
 
     /// <summary>The use's timing (release, end; seconds) from the player graph, or null with a note.</summary>
     public static (float Release, float End, string Animation)? ReadTiming(IReadOnlyList<BehaviorGraph> graphs, Func<string, float> animationLength, List<string> notes)

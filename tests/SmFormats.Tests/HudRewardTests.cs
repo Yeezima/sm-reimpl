@@ -24,7 +24,8 @@ public class HudRewardTests
     {
         var r = new RewardTracker().OwnKill("P2", 1.0, headshot: true, ownAlive: true);
         Assert.Equal(["headshot kill"], Names(r));   // ui/hud-camera-2: one line, not the kill line as well
-        Assert.Equal(85, r[0].Spec.Experience);
+        Assert.Equal(100, r[0].Spec.Experience);   // the owner, 2026-11-07: the kill 50 and +50 for the headshot (data: 35)
+        Assert.Equal(105721, r[0].Spec.DescriptionId);   // the data's display_description, shown under the medal line
     }
 
     [Fact]

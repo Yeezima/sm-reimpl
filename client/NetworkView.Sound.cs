@@ -56,6 +56,8 @@ public partial class NetworkView
     SoundTriggers? _soundTriggers;
     SoundSystem? _sound;
     MapAudio? _mapAudio;
+    /// <summary>polish pass P3: the map's audio the map load read ahead (its file, the audio, the read's notes); null: <see cref="SetUpMapSound"/> reads it.</summary>
+    (string File, MapAudio Audio, List<string> Notes)? _mapAudioAhead;
     string _soundNote = "not loaded";
     string? _soundMap;
     readonly Dictionary<int, SoundTrack> _soundTracks = new();
@@ -108,6 +110,8 @@ public partial class NetworkView
         {
             var graphs = HavokBehavior.Read(_assets.Model.Rig.Pack);
             var wargear = SoundTriggers.WargearNames(_config);
+            var sources = SoundSourceMap();   // W0b: an added weapon sounds as install files (Musou's arsenal; the autocannon as the Stalker Bolter); empty without added content: the triggers as before
+            if (sources.Count > 0) wargear = [.. wargear.Where(n => !sources.ContainsKey(n)).Concat(sources.Values.SelectMany(v => v)).Distinct(StringComparer.OrdinalIgnoreCase)];
             bool orkClass = Enumerable.Range(0, _config.Classes.Count).Any(i => Races.Of(_config, i, Team.None) == Race.Orks);   // Ork O8: the Ork rig's clip tags too
             string gameDir = _gameDir;
             string repo = System.IO.Path.GetFullPath(System.IO.Path.Combine(ProjectSettings.GlobalizePath("res://"), ".."));
@@ -117,7 +121,7 @@ public partial class NetworkView
                 var sw = Stopwatch.StartNew();
                 var catalog = AudioCatalog.Open(gameDir, null, repoRoot: repo);
                 var orkGraphs = orkClass ? OrkGraphsOrNull(gameDir) : null;   // read here, on the worker: its own rig object
-                var triggers = SoundTriggers.Load(gameDir, wargear, SoundTriggers.PlayerBlueprints, graphs, orkGraphs);
+                var triggers = SoundTriggers.Load(gameDir, wargear, SoundTriggers.PlayerBlueprints, graphs, orkGraphs).WithSources(sources);
                 return (catalog, triggers, sw.Elapsed.TotalMilliseconds);
             });
         }
@@ -143,12 +147,15 @@ public partial class NetworkView
                 return false;
             }
             (_audio, _soundTriggers, double ms) = load.Result;
-            _sound = new SoundSystem(_audio) { GlobalGainDb = SoundGainDb, Limits = SoundLimitsMode, FootstepGainDb = FootstepGainDbArg, RtpcCap = RtpcCapArg, LimitLog = LogSound("footstep") ? GD.Print : null };
+            _sound = new SoundSystem(_audio) { Scape = ClassicScape, GlobalGainDb = SoundGainDb, Limits = SoundLimitsMode, FootstepGainDb = FootstepGainDbArg, RtpcCap = RtpcCapArg, Loudness = LoudnessArg, LimitLog = LogSound("footstep") ? GD.Print : null };
             PrewarmHitSounds();
             AddChild(_sound);
+            SetUpSoundTuner();   // sound/tuning-tool: the owner's saved mixer settings, and the F7 panel
             _worldEmitter = new SoundEmitter { Label = "world" };
             _soundNote = $"{_audio.LoadedPackages.Count} packages, {_audio.Library.ObjectCount:N0} objects, {_soundTriggers.Files.Count} files, " +
                          $"{_soundTriggers.Files.Values.Sum(f => f.Bindings.Count)} commands, {_soundTriggers.ClipTags.Count} tagged clips; loaded in {ms:F0} ms";
+            GD.Print($"sound: loudness {LoudnessArg} (sound/louder-farther; --loudness-original for the data's levels)");
+            GD.Print($"sound: classic soundscape {ClassicScape} (sound/classic-soundscape; --sound-natural-position: softer positioning, --old-classic-mix: the old mix; Old also under Musou Mode)");
             GD.Print("sound: " + _soundNote + (_audio.MissingPackages.Count > 0 ? $"; packages not in the install: {string.Join(", ", _audio.MissingPackages)}" : ""));
             foreach (var n in _soundTriggers.Notes) GD.Print("  sound note: " + n);
         }
@@ -172,7 +179,9 @@ public partial class NetworkView
             if (map != "none")
             {
                 var notes = new List<string>();
-                _mapAudio = MapAudio.Load(_gameDir, map, notes);
+                if (_mapAudioAhead is { } ahead && ahead.File == map) { _mapAudio = ahead.Audio; notes.AddRange(ahead.Notes); }   // P3: read by the map load
+                else _mapAudio = MapAudio.Load(_gameDir, map, notes);
+                _mapAudioAhead = null;
                 foreach (var n in notes) GD.Print("  sound note: " + n);
                 foreach (var e in _mapAudio.Emitters)
                 {
@@ -188,7 +197,9 @@ public partial class NetworkView
         {
             GD.Print($"sound: map audio of {map} not read: {ex.Message}");
         }
+        long readMs = sw.ElapsedMilliseconds;
         PrefetchSounds();
+        GD.Print($"sound: map {map}: read in {readMs} ms, prefetch asked in {sw.ElapsedMilliseconds - readMs} ms (main thread; polish pass P3's timing)");
         if (!MapSounds) GD.Print($"sound: map {map}: the map's own sounds are off (M38; --map-sounds plays its {_mapAudio?.Emitters.Count ?? 0} emitters and trigger regions); {_mapAudio?.Regions.Count ?? 0} regions kept for reverb");
         else GD.Print($"sound: map {map}: region bank {(bank ? "added" : "not found")}, {started} emitters started, {missing} emitters name events not in the banks, " +
                  $"{_mapAudio?.Regions.Count ?? 0} regions; {sw.ElapsedMilliseconds} ms");
@@ -230,16 +241,18 @@ public partial class NetworkView
     void CountSound(string kind) => _soundKinds[kind] = _soundKinds.GetValueOrDefault(kind) + 1;
 
     /// <summary>Posts a binding's start event (unless it is for the local player only and this is not it) after its delay.</summary>
-    SoundPlay? PostBinding(SoundBinding b, SoundEmitter e, bool own, string kind, float extraDelay = 0f)
+    SoundPlay? PostBinding(SoundBinding b, SoundEmitter e, bool own, string kind, float extraDelay = 0f, VoiceOffset extra = default)
     {
         if (_sound is null || b.StartEvent.Length == 0 || (b.OnlyIfOnPlayer && !own)) return null;
-        float gain = FootstepLevel.GainDb(b);
+        // sound/classic-soundscape (owner 2026-11-13: "others louder, own as now"): the -3 dB footstep level stays for the own player only; others' posts carry a class (ranged, protected, panned).
+        float gain = own || ClassicScape == ScapeMode.Old ? FootstepLevel.GainDb(b) : 0f;
+        extra = extra.Plus(ScapeOffset(kind, own));
         if (!RegenSoundOld && (kind == "armour regen" || kind == "armour restored"))   // owner decision 2026-10-31: half volume, 20 ft range for others' (none are posted today)
         {
             var camera = GetViewport()?.GetCamera3D();
             gain += RegenSoundLevel.GainDb(own, camera is null ? 0f : camera.GlobalPosition.DistanceTo(e.Current));
         }
-        var play = _sound.Post(b.StartEvent, e, extraDelay + b.DelaySeconds, footstep: b.IsFootstep, offset: new VoiceOffset(gain));
+        var play = _sound.Post(b.StartEvent, e, extraDelay + b.DelaySeconds, footstep: b.IsFootstep, offset: new VoiceOffset(gain).Plus(extra));
         CountSound(kind);
         if (LogSoundKinds.Count > 0) LogBindingPost(b, e, kind, play);
         if (kind.StartsWith("armour", StringComparison.Ordinal) && LogSound("armour"))
@@ -247,9 +260,9 @@ public partial class NetworkView
         return play;
     }
 
-    void PostAll(IEnumerable<SoundBinding> bindings, SoundEmitter e, bool own, string kind, float extraDelay = 0f)
+    void PostAll(IEnumerable<SoundBinding> bindings, SoundEmitter e, bool own, string kind, float extraDelay = 0f, VoiceOffset extra = default)
     {
-        foreach (var b in bindings) PostBinding(b, e, own, kind, extraDelay);
+        foreach (var b in bindings) PostBinding(b, e, own, kind, extraDelay, extra);
     }
 
     // ------------------------------------------------------------------ per frame
@@ -257,13 +270,18 @@ public partial class NetworkView
     /// <summary>Called once per frame after the characters are placed.</summary>
     void UpdateSound(PlayerState me, IReadOnlyList<PlayerState> others, double delta)
     {
-        if (_client is null || _config is null || !SoundReady() || _sound is null || _soundTriggers is null) return;
+        if (_client is null || _config is null) return;
+        if (!SoundReady() || _sound is null || _soundTriggers is null) { SoundMeleeOthers(me, others); return; }   // hit reactions: others' inferred melee hits still flinch their victims without sound
+        ClassicRecordMixFrame();   // --record-mix (test aid)
         int ownId = _client.PlayerId;
         foreach (var (_, ev) in _frameOwnEvents) OwnSoundEvents(me, ev);   // drained once per frame in HipFireBegin (M27)
         foreach (var shot in _frameShots) SoundShot(shot);
+        Ph("sound: own player");   // polish pass P3: the sound phase by its parts in the frame profile
         if (_local is not null) SoundPlayer(ownId, _local, me, own: true, (float)delta);
+        Ph("sound: other players");
         foreach (var s in others)
             if (_remotes.TryGetValue(s.PlayerId, out var c)) SoundPlayer(s.PlayerId, c, s, own: false, (float)delta);
+        Ph("sound: hits, projectiles, regions");
         SoundMeleeOthers(me, others);   // fx/melee-presentation: others' melee and charge hits
         ConnectUiSounds();
         SoundSeize(me);   // fidelity gap 9: the Seize Ground capture tick, objective noise and score tick
@@ -287,11 +305,21 @@ public partial class NetworkView
         }
     }
 
+    /// <summary>An added mode's treatment of a player's sound emitter (Musou Mode: the own character's lines are never ducked, stolen or muffled, musou/audio-pass); none leaves it as it is.</summary>
+    partial void ExtrasTrackEmitter(SoundEmitter emitter, bool own);
+
+    /// <summary>An added mode's use of a clip tag the sound's tag pass admitted (Musou Mode's weight pass: the foot tags' ground contacts); none ignores it.</summary>
+    partial void ExtrasFootfall(string tag, PlayerState s, bool own, string? clip);
+
+    /// <summary>An added mode's extra layers under a weapon's fire sound (Musou Mode: the bolter rifles' deep copy and thump, musou/audio-pass).</summary>
+    partial void ExtrasFireLayers(WeaponSpec spec, SoundEmitter e, bool own);
+
     SoundTrack Track(int id, bool own)
     {
         if (_soundTracks.TryGetValue(id, out var t)) return t;
         var emitter = new SoundEmitter { Own = own, Label = $"P{id}", Follow = () => PlayerSoundPoint(id) };
         if (own) emitter.Switches.Set(AudioCatalog.PlayerGroup, AudioCatalog.LocalPlayerValue);
+        ExtrasTrackEmitter(emitter, own);   // EXTRAS-HOOK: an added mode protects the own character's voice lines (Musou Mode, musou/audio-pass)
         _soundTracks[id] = t = new SoundTrack { Emitter = emitter };
         return t;
     }
@@ -364,6 +392,7 @@ public partial class NetworkView
             SoundCharge(t, s, p, own);
             SoundMeleeBarks(t, s, p);
             SoundJump(t, s, p, own, delta);
+            if (!own) SoundRoll(t, s, p);   // sound/classic-soundscape: others' evade rolls
             if (own) SoundOwnState(t, s, p);
             // Others' throws: the toss sound at the release time (own throws come from the prediction's Threw event).
             // perks/inert-2: only a known thrown item (a stim's sound comes at its release, NetworkView.Stims.cs; an unknown remote item: none).
@@ -394,7 +423,7 @@ public partial class NetworkView
         if (t.Clip is null) { t.Clip = ct.Clip; t.Fraction = f; return; }
         bool same = string.Equals(ct.Clip, t.Clip, StringComparison.OrdinalIgnoreCase);
         if (!same || (f < t.Fraction && !ct.Looping)) EndTagSounds(t);   // the action ended or restarted (before this frame's tags start the next)
-        if (_soundTriggers.ClipTags.TryGetValue(ct.Clip, out var tags))
+        if (_soundTriggers.ClipTags.TryGetValue(ct.Clip, out var tags) && SoundTriggers.ClipTagsPostSounds(ct.Clip))   // sound/mix-and-reloads: a reload's sounds come from its schedule only
         {
             foreach (var (tag, at) in tags)
             {
@@ -460,7 +489,7 @@ public partial class NetworkView
         float f = Math.Clamp(layer.Time / layer.Duration, 0f, 1f);
         if (t.Clip is null) { t.Clip = layer.Clip; t.Fraction = f; return; }
         if (!string.Equals(layer.Clip, t.Clip, StringComparison.OrdinalIgnoreCase) || f < t.Fraction) EndTagSounds(t);
-        if (string.Equals(layer.Clip, t.Clip, StringComparison.OrdinalIgnoreCase) && _soundTriggers!.ClipTags.TryGetValue(layer.Clip, out var tags))
+        if (string.Equals(layer.Clip, t.Clip, StringComparison.OrdinalIgnoreCase) && SoundTriggers.ClipTagsPostSounds(layer.Clip) && _soundTriggers!.ClipTags.TryGetValue(layer.Clip, out var tags))   // sound/mix-and-reloads: the reload layer posts nothing (its schedule does)
             foreach (var (tag, at) in tags)
                 if (f >= t.Fraction ? at > t.Fraction && at <= f : at <= f) TagSound(tag, t, s, own);
         t.Clip = layer.Clip;
@@ -492,6 +521,7 @@ public partial class NetworkView
             if (LogFootsteps) GD.Print($"TAG P{s.PlayerId} t {_connectedFor:F3} {tag} dropped: the same foot posted under {FootstepLevel.SameFootMinSeconds:F2} s ago");
             return;
         }
+        ExtrasFootfall(tag, s, own, t.Clip);   // EXTRAS-HOOK: added content's ground contacts from the foot tags (Musou weight pass: the dust and debris puffs)
         bool any = false;
         foreach (var file in PlayerFiles(s))
         {
@@ -521,7 +551,7 @@ public partial class NetworkView
     void Bark(SpeechBinding b, SoundTrack t, PlayerState s, string kind)
     {
         if (_sound is null || SpeechCharacterOf(s) is not { } character) return;
-        var result = _sound.PostSpeech(b, character, t.Emitter);
+        var result = _sound.PostSpeech(b, character, t.Emitter, offset: ScapeOffset("bark", t.Emitter.Own));   // sound/classic-soundscape: others' grunts and barks are movement sounds
         if (LogSoundKinds.Count > 0) LogBark(b, t, s, kind, character, result);
         string key = $"{kind} {b.Type}" + (result == SpeechResult.Started ? "" : result == SpeechResult.Busy ? " (busy: dropped)" : " (no line)");
         _barkKinds[key] = _barkKinds.GetValueOrDefault(key) + 1;
@@ -567,10 +597,10 @@ public partial class NetworkView
         var pack = Loadouts.JumpPack(_config!, s) is { } j ? _soundTriggers!.File(j.Name) : null;
         if (pack is not null)
         {
-            if (JumpPack.Jumping(s.Jump) && !wasUp) { t.TopZ = s.Position.Z; PostAll(pack.Of("action_ascending"), t.Emitter, own, "jump launch"); }
+            if (SmContent.JumpLaunchSoundRules.LaunchesNow(p.Jump, s.Jump)) { t.TopZ = s.Position.Z; PostAll(pack.Of("action_ascending"), t.Emitter, own, "jump launch", extra: SoundMixPass.JumpTail(SoundSystem.MixClassic)); }   // sound/mix-and-reloads: the first burst stays, the tail fades
             // M45: the own player's thrust ends at the release that cuts the rise (SmContent.ThrustEndRules), as its effect does; others' at the apex.
             if (SmContent.ThrustEndRules.EndsNow(JumpPack.Jumping(s.Jump), p.Velocity.Z, s.Velocity.Z, own && p.JumpCut, own && s.JumpCut))
-                PostAll(pack.Of("action_apex"), t.Emitter, own, s.JumpCut ? "jump thrust cut" : "jump apex");
+                PostAll(pack.Of("action_apex"), t.Emitter, own, s.JumpCut ? "jump thrust cut" : "jump apex", extra: SoundMixPass.JumpTail(SoundSystem.MixClassic));
             if (JumpPack.Pounding(s.Jump) && !JumpPack.Pounding(p.Jump)) PostAll(pack.Of("action_descending_smash"), t.Emitter, own, "jump dive");
             // M41: the impact sound plays once per pound, when it reaches the ground (own: the dive turns into the recovery; others: the pound flag with the player on the ground), not at
             // the end of the recovery 0.36 s later; the end of the pound plays it only when the impact was never seen (a snapshot gap). The rule is SmContent.PoundSoundRules (tested).
@@ -644,16 +674,17 @@ public partial class NetworkView
         if (wf is not null && s.Overheated && !p.Overheated && s.Slot == p.Slot) PostAll(wf.Of("overheat"), t.Emitter, true, "overheat");
         // A reload that ended early (switch or death since sim/reload-keeps: slot changed, dead, or the time left was more than a tick) is cancelled: its pending sounds drop and a new reload plays normally.
         if (p.ReloadLeft > 0f && (s.Slot != p.Slot || !s.Alive || (s.ReloadLeft <= 0f && p.ReloadLeft > c.TickSeconds * 1.5f))) _ownReloadSounds.Cancel((int)p.Slot);
-        if (wf is not null && weapon is not null && s.ReloadLeft > 0f && p.ReloadLeft <= 0f && s.Slot == p.Slot && _ownReloadSounds.Start((int)s.Slot, _connectedFor, Math.Max(0.1f, weapon.ReloadTime)) is int instance)
+        if (wf is not null && weapon is not null && s.ReloadLeft > 0f && p.ReloadLeft <= 0f && s.Slot == p.Slot && _ownReloadSounds.Start((int)s.Slot, _connectedFor, Math.Max(0.1f, LascannonTapTuning.Time(c, weapon))) is int instance)
         {
-            float length = Math.Max(0.1f, weapon.ReloadTime);
+            float length = Math.Max(0.1f, LascannonTapTuning.Time(c, weapon));
             int slotKey = (int)s.Slot;
             // ui/hud-camera-2 (owner, 2026-10-30): one reload, one set of sounds. A start seen again before the sounds' time is over (a press during the reload, a prediction
             // corrected by a snapshot that replays the press) schedules nothing.
-            foreach (var (tag, at) in ReloadTagsOnce(wf, IsOrkVoice(s)))
+            // sound/mix-and-reloads: from where the reload is (a reload picked up again after a correction plays only what is left, once).
+            foreach (var (tag, delay) in ReloadSoundGuard.Remaining(ReloadTagsOnce(wf, IsOrkVoice(s)), length, length - s.ReloadLeft, c.TickSeconds * 1.5))
             {
                 var file = wf;
-                _soundSchedule.Add((_connectedFor + at * length, () =>
+                _soundSchedule.Add((_connectedFor + delay, () =>
                 {
                     if (_client is not { } cl || !cl.Predicted.Alive || cl.Predicted.ReloadLeft <= 0f || !_ownReloadSounds.Current(slotKey, instance)) return;   // cancelled by a switch or death, or replaced
                     PostAll(file.Tag(tag), t.Emitter, true, "reload");
@@ -729,7 +760,8 @@ public partial class NetworkView
         string? stageName = stage > 0 && spec.Charge is { } ch && stage - 1 < ch.Stages.Count ? ch.Stages[stage - 1].Name : null;
         // Fidelity gap 7: a braced shot posts the braced ability's fire sound (NetworkView.Brace.cs).
         var bindings = braced && stage == 0 && BracedFireSounds(spec.Name) is { } braceFire ? braceFire : file.Fire(stageName);
-        PostAll(bindings, e, own, own ? "fire own" : "fire other");
+        PostAll(bindings, e, own, own ? "fire own" : "fire other", extra: SoundMixPass.Fire(SoundSystem.MixClassic));   // sound/mix-and-reloads: shots louder
+        if (stage == 0) ExtrasFireLayers(spec, e, own);   // EXTRAS-HOOK: Musou Mode's bolter rifles fire deeper (musou/audio-pass)
     }
 
     /// <summary>An added mode's own target material for another player's shot (Musou Mode: armoured Orks null = armour and flesh, the others flesh); unchanged when no added content answers.</summary>
@@ -760,7 +792,7 @@ public partial class NetworkView
     }
 
     /// <summary>Own hit reports (from <see cref="UpdateHits"/>): the weapon's hit confirmation, a melee hit.</summary>
-    void SoundHits(HitReport hits)
+    void SoundHits(HitReport hits, bool rangedConfirm = true)
     {
         if (_client is null || _config is null || _soundTriggers is null || _sound is null) return;
         var me = _client.Predicted;
@@ -802,11 +834,15 @@ public partial class NetworkView
                 else if (LogSound("melee")) GD.Print($"MELEE HIT SOUND t {_connectedFor:F3} P{me.PlayerId} report on P{hits.LastVictim}: already sounded at the strike");
             }
         }
-        else if (!hits.LastSplash && Loadouts.InHand(_config, me) is { } w && _soundTriggers.File(w.Name) is { } wf && wf.Of("player_hit_something_action").FirstOrDefault() is { } confirm)
-            HitConfirmSound(confirm, hits);
+        else if (rangedConfirm && !hits.LastSplash && Loadouts.InHand(_config, me) is { } w && _soundTriggers.File(w.Name) is { } wf && wf.Of("player_hit_something_action").FirstOrDefault() is { } confirm)
+            HitConfirmSound(confirm, hits, w.Name);
     }
 
     readonly HitConfirmGate _hitConfirmGate = new();
+    /// <summary><c>--old-hit-confirm-distance</c>: the hit confirmation plays at the same volume at any distance.</summary>
+    static readonly bool OldHitConfirmDistance = OS.GetCmdlineUserArgs().Contains("--old-hit-confirm-distance");
+    /// <summary><c>--old-stalker-hit-confirm</c>: the Stalker / Daemon Eye Bolter's confirm takes the distance falloff and mix pass again, and Musou plays the bolter smack for it (before sound/stalker-hit-confirm).</summary>
+    static readonly bool OldStalkerHitConfirm = OS.GetCmdlineUserArgs().Contains("--old-stalker-hit-confirm");
 
     /// <summary>
     /// The shooter's hit confirmation for a ranged hit on a player (sound/impacts). The data binds the weapon's <c>player_hit_something_action</c> (bolters:
@@ -816,14 +852,22 @@ public partial class NetworkView
     /// change; the default until sound/original-hits, now `--hit-confirm soft`) plays only the smack layer (no material) pitched down, low-passed and 10 dB quieter, once per <see cref="ImpactSounds.HitConfirmCooldown"/>, and on a
     /// kill the data's kill layer as well (the death state set as the data's own <c>play_set_state_death_*</c> events do).
     /// </summary>
-    void HitConfirmSound(SoundBinding confirm, HitReport hits)
+    void HitConfirmSound(SoundBinding confirm, HitReport hits, string? wargear = null)
     {
         if (_client is null || _audio is null || _sound is null || HitConfirmArg == HitConfirmMode.Off || confirm.StartEvent.Length == 0) return;
+        // sound/stalker-hit-confirm (owner 2026-11-09): the Stalker / Daemon Eye Bolter's confirm is the data's play_stalker_smack at the data's level, on the shooter.
+        wargear = SoundNameOf(wargear);   // an added weapon by its sound source's name (the autocannon: the Stalker's confirm)
+        bool stalker = !OldStalkerHitConfirm && HitConfirmArg == HitConfirmMode.Data && StalkerHitConfirm.Is(wargear);
+        string confirmEvent = stalker ? StalkerHitConfirm.EventFor(wargear, confirm.StartEvent)! : confirm.StartEvent;
         bool kill = hits.LastKilled || hits.Kills > 0, armoured = hits.LastArmoured;
         int ownId = _client.PlayerId;
         var at = new SoundEmitter { Own = true, Follow = () => PlayerSoundPoint(ownId), Label = "hit confirm", OneShot = true };
         at.Switches.Set(AudioCatalog.PlayerGroup, AudioCatalog.LocalPlayerValue);
         var offset = VoiceOffset.None;
+        // night/weapon-fx: the further the victim, the quieter the confirmation (never silent; full only point-blank).
+        float distanceDb = 0f;
+        if (!OldHitConfirmDistance && hits.LastVictim > 0 && _lastOthers.FirstOrDefault(o => o.PlayerId == hits.LastVictim) is { } far && far.PlayerId == hits.LastVictim)
+            distanceDb = ImpactSounds.HitConfirmDistanceDb(System.Numerics.Vector3.Distance(_client.Predicted.Position, far.Position));
         // Data mode: the data's event as it is (no cooldown; the kill layer plays only when the data itself set a death state, i.e. the Ork Boy's death_action).
         if (HitConfirmArg == HitConfirmMode.Data) at.Switches.Set(AudioCatalog.MaterialType, Fnv.Hash32(ImpactSounds.ConfirmMaterial(armoured)));
         else
@@ -831,14 +875,20 @@ public partial class NetworkView
             if (!_hitConfirmGate.Admit(_connectedFor, kill)) { if (LogSound("hitconfirm")) GD.Print($"HIT CONFIRM t {_connectedFor:F3} held back (cooldown {ImpactSounds.HitConfirmCooldown:F2} s)"); return; }
             offset = ImpactSounds.HitConfirmOffset(armoured, kill);
         }
+        if (stalker) offset = StalkerHitConfirm.Offset;   // no distance falloff, no mix-pass gain or high-pass: the data's 2D smack as it is
+        else
+        {
+            if (distanceDb < 0f) offset = offset.Plus(new VoiceOffset(distanceDb));
+            offset = offset.Plus(SoundMixPass.Hit(SoundSystem.MixClassic));   // sound/mix-and-reloads: on-hit sounds louder, no bass
+        }
         // The death state (group 0x47e2171c) is global: set for this post only and put back after it (review fix), so no smack event without the reset and no Ork death leaves a death_* state behind.
         uint? stateBefore = _audio.State(ImpactSounds.DeathStateGroup);
         _audio.SetState(ImpactSounds.DeathStateGroup, ImpactSounds.StateBeforeConfirm(HitConfirmArg, stateBefore, kill, armoured));
-        var play = _sound.Post(confirm.StartEvent, at, offset: offset);
+        var play = _sound.Post(confirmEvent, at, offset: offset);
         _audio.SetState(ImpactSounds.DeathStateGroup, ImpactSounds.StateAfterConfirm(HitConfirmArg, stateBefore, _audio.State(ImpactSounds.DeathStateGroup)));
         CountSound("hit confirm");
         if (LogSound("hitconfirm"))
-            GD.Print($"HIT CONFIRM t {_connectedFor:F3} mode {HitConfirmArg} event {confirm.StartEvent} victim P{hits.LastVictim} {(armoured ? "armour" : "flesh")}{(kill ? " kill" : "")} offset {offset} | {VoiceMixText(play, at, offset)}");
+            GD.Print($"HIT CONFIRM t {_connectedFor:F3} mode {HitConfirmArg} event {confirmEvent}{(stalker ? " (stalker rule)" : "")} victim P{hits.LastVictim} {(armoured ? "armour" : "flesh")}{(kill ? " kill" : "")} offset {offset} | {VoiceMixText(play, at, offset)}");
     }
 
     string? ProjectileFile(int weapon, int stage, bool thrown)
@@ -883,13 +933,23 @@ public partial class NetworkView
         }
     }
 
-    /// <summary>A detonation (from <see cref="UpdateProjectiles"/>): the projectile blueprint's detonate sounds and its impact container's.</summary>
-    void SoundDetonation(ProjectileView d)
+    /// <summary>Detonation sounds posted, by source (<c>projectile</c>: a real projectile's; an added mode names its own, e.g. Musou's <c>bolt blast</c>): a test aid's count (musou/sound-ab).</summary>
+    internal readonly Dictionary<string, int> DetonationSounds = new(StringComparer.Ordinal);
+    readonly HashSet<string> _detonationsLogged = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// A detonation (from <see cref="UpdateProjectiles"/>): the projectile blueprint's detonate sounds and its impact container's. <paramref name="source"/> names who asked (counted, and the emitter's
+    /// label when it is not a real projectile's: <c>projectile</c> keeps the label <c>detonation</c>, as before).
+    /// </summary>
+    void SoundDetonation(ProjectileView d, string source = "projectile")
     {
         if (_soundTriggers is null || _sound is null) return;
         var name = ProjectileFile(d.Weapon, d.Stage, d.Thrown);
         var file = name is null ? null : _soundTriggers.File(name);
-        var at = new SoundEmitter { Position = ToGodot(d.Position), Label = "detonation", OneShot = true };
+        DetonationSounds[source] = DetonationSounds.GetValueOrDefault(source) + 1;
+        if ((LogSound("detonation") || LogSound("mixab")) && _detonationsLogged.Add(source + "|" + name))
+            GD.Print($"DETONATION source {source}: projectile file {name ?? "none"}, detonate_action events {string.Join(", ", file?.Of("detonate_action").Select(b => b.StartEvent).Where(e => e.Length > 0) ?? [])}, hit sound {(name is null ? "none" : _soundTriggers.HitSound(name) ?? "none")}");
+        var at = new SoundEmitter { Position = ToGodot(d.Position), Label = source == "projectile" ? "detonation" : source + " detonation", OneShot = true };
         string surface = MaterialEffectTable.DefaultKey;
         if (_client?.Collision is { } world && world.Weapons.Raycast(d.Position + new System.Numerics.Vector3(0, 0, 0.5f), new System.Numerics.Vector3(0, 0, -1), 3f) is { } hit)
             surface = Surfaces.NameOf(world.Weapons.MaterialOf(hit.Triangle));

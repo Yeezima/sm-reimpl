@@ -19,6 +19,28 @@ public sealed class GameOptionsTests
         Assert.Equal(AaChoice.Default, o.Aa);
         Assert.Equal(ShadowChoice.Default, o.Shadows);
         Assert.Equal(0f, GameOptions.VolumeDb(1f));
+        Assert.Equal(1f, o.CameraShake);     // combat feel (2026-11-09): the game's own shake and flashes by default
+        Assert.Equal(1f, o.ScreenFlashes);
+    }
+
+    [Fact]
+    public void Camera_shake_and_screen_flashes_save_snap_and_clamp()
+    {
+        string dir = Directory.CreateTempSubdirectory("sm-options").FullName;
+        try
+        {
+            var options = GameOptions.Default with { CameraShake = 0.35f, ScreenFlashes = 0f };
+            var settings = FrontEndSettings.Default with { Options = options };
+            Assert.Null(settings.Save(dir));
+            var back = FrontEndSettings.Load(dir).Options;
+            Assert.Equal(0.35f, back.CameraShake, 3);
+            Assert.Equal(0f, back.ScreenFlashes);
+        }
+        finally { Directory.Delete(dir, true); }
+        var wild = (GameOptions.Default with { CameraShake = 7f, ScreenFlashes = float.NaN }).Clamped();
+        Assert.Equal(1f, wild.CameraShake);
+        Assert.Equal(1f, wild.ScreenFlashes);
+        Assert.Equal(0.35f, (GameOptions.Default with { CameraShake = 0.36f }).Clamped().CameraShake, 3);
     }
 
     [Fact]
@@ -88,6 +110,19 @@ public sealed class GameOptionsTests
     {
         Assert.Equal("64.177.51.188:27015", JoinTargets.PublicServer);
         Assert.Null(FrontEndSettings.ValidateHost(JoinTargets.PublicServer));
+    }
+
+    [Fact]
+    public void Performance_readout_is_off_by_default_saves_and_rejects_an_unknown_choice()
+    {
+        // polish pass P1: F3 cycles the readout (no Options row); the choice is saved as performanceReadout and a damaged file falls back to OFF.
+        Assert.Equal(ReadoutChoice.Off, GameOptions.Default.Readout);
+        Assert.Equal(ReadoutChoice.Off, GameOptions.Read(null).Readout);
+        var o = GameOptions.Default with { Readout = ReadoutChoice.Network };
+        Assert.Equal("Network", (string?)o.Write()["performanceReadout"]);
+        Assert.Equal(ReadoutChoice.Network, GameOptions.Read(o.Write()).Readout);
+        Assert.Equal(ReadoutChoice.Off, GameOptions.Read(new System.Text.Json.Nodes.JsonObject { ["performanceReadout"] = "Sideways" }).Readout);
+        Assert.Equal(ReadoutChoice.Off, (GameOptions.Default with { Readout = (ReadoutChoice)9 }).Clamped().Readout);
     }
 
     [Fact]

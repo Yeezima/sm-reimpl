@@ -112,7 +112,8 @@ public class ChargeLockTests(ITestOutputHelper output)
         PlayerInput Runner(int tick, int id) => new(0, 0f, 1f, MathF.PI, InputButtons.None);
         var w = Arena(Config, (Marine, Vector3.Zero), (Chaos, new Vector3(0f, 9f, 0f)));
         var on = Run(w, 40, 6, lag: 10, other: Runner);
-        var o = Arena(Config with { ChargeLock = false }, (Marine, Vector3.Zero), (Chaos, new Vector3(0f, 9f, 0f)));
+        // The control is the M29 contact (fix/charge-player-collision's swept contact off too: its reach meets the seen picture as early as the lock's body).
+        var o = Arena(Config with { ChargeLock = false, SolidBodies = false }, (Marine, Vector3.Zero), (Chaos, new Vector3(0f, 9f, 0f)));
         var off = Run(o, 40, 6, lag: 10, other: Runner);
         output.WriteLine($"with the lock: contact at tick {on?.Tick.ToString() ?? "none"} apart {(on is { } a ? Flat(a.Charger.Position, a.Victim.Position) : 0f):F2} m; without: {off?.Tick.ToString() ?? "none"} apart {(off is { } b ? Flat(b.Charger.Position, b.Victim.Position) : 0f):F2} m");
         Assert.NotNull(on);
@@ -121,13 +122,18 @@ public class ChargeLockTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public void An_ally_only_stops_the_charge_and_is_not_moved()
+    public void An_ally_is_passed_by_the_charge_and_is_not_moved()
     {
-        var w = Arena(Config, (Marine, Vector3.Zero), (Marine, new Vector3(0.4f, 6f, 0f)));
-        var c = Run(w, 40, 5);
-        Assert.NotNull(c);
-        Assert.Equal(new Vector3(0.4f, 6f, 0f), c.Value.Victim.Position);
-        Assert.Equal((RushPhase.Collision, ReactionKind.None), (c.Value.Charger.Rush, c.Value.Victim.Reaction));
+        // charge-ally-slide (protocol 67; the owner 2026-11-11: "when a charge hits an ally it should slide past"): no contact at all, the charge plays on; --old-ally-bump: the stop, as before.
+        foreach (bool slide in new[] { true, false })
+        {
+            var w = Arena(Config with { ChargeAllyBump = slide }, (Marine, Vector3.Zero), (Marine, new Vector3(0.4f, 6f, 0f)));
+            var c = Run(w, 40, 5);
+            Assert.Equal(new Vector3(0.4f, 6f, 0f), w.Players[2].Position);
+            Assert.Equal(ReactionKind.None, w.Players[2].Reaction);
+            if (slide) { Assert.Null(c); Assert.True(w.Players[1].Position.Y > 6f, "the charger ran past the ally"); }
+            else { Assert.NotNull(c); Assert.Equal(RushPhase.Collision, c.Value.Charger.Rush); }
+        }
     }
 
     [Theory]

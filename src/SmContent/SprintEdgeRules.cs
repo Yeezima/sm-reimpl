@@ -141,6 +141,21 @@ public sealed class SprintStartTracker
     public float Travel { get; private set; }
     public double StandAt { get; private set; } = double.NegativeInfinity;
     bool _used;
+
+    /// <summary>Whether the sprint was armed for this standing (shown within <see cref="ArmSeconds"/> of it): the entry state of the graph is, or was, under way. Reset the moment the marine stands again.</summary>
+    public bool Armed => _used;
+
+    /// <summary>The 180-degree turn took the sprint's start (<see cref="SprintTurnTracker"/>): no start clip follows for this standing.</summary>
+    public void Consume() => _used = true;
+
+    /// <summary>The seconds since the marine last stood (the entry state's clock: the graph is in its start state from the sprint's first frame). Only meaningful while <see cref="Armed"/>.</summary>
+    public double SinceStand(double now) => now - StandAt;
+
+    /// <summary>
+    /// Whether the sprint is being let go inside the graph's entry state, so that its interrupt edge plays the half-speed stop (<see cref="SprintInterruptRules"/>): armed for this standing and
+    /// within the window.
+    /// </summary>
+    public bool InStartWindow(double now, SprintStartWindow? window) => _used && window is not null && SprintInterruptRules.Applies((float)SinceStand(now), window);
     double _frameAt = double.NegativeInfinity;
     long _placeFrame = -1;
 
@@ -250,4 +265,91 @@ public static class PoseBlendMath
         float wa = MathF.Sin((1f - t) * angle) / sin, wb = MathF.Sin(t * angle) / sin;
         return (Quaternion.Normalize(new Quaternion(from.X * wa + to.X * wb, from.Y * wa + to.Y * wb, from.Z * wa + to.Z * wb, from.W * wa + to.W * wb)), to);
     }
+}
+
+
+/// <summary>
+/// The graph's interrupt edge out of the sprint start (engine-free, tested): in <c>MP_SM_Bolter_NuSprint</c> (and the heavy, cannon and hammer sprint graphs) the entry state ("Transition To Idle") leaves for
+/// "Transition To Idle on Interrupt" (<c>SM_NAV_Bullrush2Idle_F_HalfSpeed_01</c>, 0.9 s, over the 10 frame blend 0.333 s) when <c>!BOOL_SprintIsActive</c> while its <c>BRANCH_Sprint_Interrupt</c> window is open
+/// (from 0.4286 of the state); the same edge from the 180 turn's state. The base graph's stick-held edge out of the sprint state is faster and is not this one: this stop plays only with the stick at rest, as the
+/// full stop's does (<c>SprintTransitions</c>). Which clip a stop plays: this one when the sprint was let go inside the entry window, else the family's full stop.
+/// </summary>
+public static class SprintInterruptRules
+{
+    /// <summary>The entry window's tolerance past the clip's end (s; ours: the first sprint frame is drawn a frame or two after the last standing one, and the stop flag arrives with the snapshot).</summary>
+    public const float Slack = 0.15f;
+
+    /// <summary>Whether a stop that begins <paramref name="sinceStand"/> s after the marine stood is the interrupt: inside [InterruptAt, Length + <see cref="Slack"/>] of the entry state.</summary>
+    public static bool Applies(float sinceStand, SprintStartWindow window) => sinceStand >= window.InterruptAt && sinceStand <= window.Length + Slack;
+}
+
+/// <summary>
+/// The 180-degree turn into a sprint (engine-free, tested): the graph's entry state chooses "180 Idle to Sprint" (<c>SM_TRN_BO/CS/HB/TH_180Turn_to_Sprint</c>, 1.233 s) over the plain start when
+/// <c>FLT_Aim_Horizontal_Deg</c> is outside the window [-100, 100] of the standing aim-offset idle (the dump prints the two conditions the other way round; the clips' own root motion, which turns 180 degrees
+/// at 0.3 to 0.4 s and travels away from where it began, shows the turn is the far-off-aim case: interpretation). Here: the body's angle to the aim at the last standing frame
+/// (<see cref="Applies"/>), then the clip plays in real time from the sprint's first frame to its end (<c>BRANCH_Idle2SprintLoop</c> at 1.0), the body's heading turning with the clip's root turn
+/// (<see cref="Residual"/>), then the loop takes over at its right foot.
+/// </summary>
+public sealed class SprintTurnTracker
+{
+    /// <summary>The graph's aim window (degrees): a body further off the aim than this turns.</summary>
+    public const float EnterDegrees = 100f;
+    /// <summary>The time backstop of the staleness (s), used only without frame numbers.</summary>
+    public const double StaleBackstopSeconds = 0.5;
+    /// <summary>The loop's right foot (<c>EVT_Right_Foot_Rush</c> at 0.9444 of the loop); the 180 clip's right foot is at 0.973, the start's at 1.0.</summary>
+    public const float LoopSeedFraction = SprintStartTracker.LoopSeedFraction;
+
+    public bool Active { get; private set; }
+    public float Time { get; private set; }
+    /// <summary>The signed angle (radians) the body was off the aim when the turn began; the turn takes it to 0.</summary>
+    public float StartOffset { get; private set; }
+    double _frameAt = double.NegativeInfinity;
+    long _placeFrame = -1;
+
+    /// <summary>Whether a body this far off the aim (radians, either way) turns before it sprints.</summary>
+    public static bool Applies(float offsetRadians) => MathF.Abs(offsetRadians) > EnterDegrees * MathF.PI / 180f;
+
+    /// <summary>The wrapped angle from the aim to the body, radians in (-pi, pi].</summary>
+    public static float Offset(float bodyYaw, float aimYaw)
+    {
+        float d = bodyYaw - aimYaw;
+        while (d > MathF.PI) d -= 2f * MathF.PI;
+        while (d <= -MathF.PI) d += 2f * MathF.PI;
+        return d;
+    }
+
+    /// <summary>Starts the turn at the sprint's first frame, from a body <paramref name="offsetRadians"/> off the aim, <paramref name="startTime"/> s into the clip (the time the marine has already been moving).</summary>
+    public void Begin(float offsetRadians, float startTime = 0f)
+    {
+        Active = true; Time = MathF.Max(0f, startTime); StartOffset = offsetRadians; _frameAt = double.NegativeInfinity; _placeFrame = -1;
+    }
+
+    /// <summary>
+    /// A frame the sprint is shown while a turn runs: true while the clip shows (at <see cref="Time"/>, real time), false when it ended or went stale (<paramref name="seedFraction"/> is set when it ended
+    /// by itself, for the loop's first frame). Skipped frames end it like the start's (<see cref="SprintEdgeStaleness"/>).
+    /// </summary>
+    public bool Place(double now, SprintEdgeClip clip, out float? seedFraction, long frame = -1)
+    {
+        seedFraction = null;
+        if (!Active) return false;
+        bool first = double.IsNegativeInfinity(_frameAt);
+        if (!first && SprintEdgeStaleness.Stale(now, _frameAt, frame, _placeFrame, StaleBackstopSeconds)) { Active = false; return false; }
+        float dt = first ? 0f : (float)Math.Clamp(now - _frameAt, 0.0, 0.1);
+        Time += dt;
+        _frameAt = now; _placeFrame = frame;
+        if (Time >= clip.BranchAt - 1e-3f) { Active = false; seedFraction = LoopSeedFraction; return false; }
+        return true;
+    }
+
+    /// <summary>The angle between the drawn body and the aim now (radians): the offset at the start times what the clip's root has not turned yet.</summary>
+    public float Residual(SprintEdgeClip clip) => Active ? StartOffset * (1f - clip.TurnProgress(Time)) : 0f;
+
+    /// <summary>Every placed frame: a turn not placed on the frame before (more than <see cref="SprintEdgeStaleness.MaxSkippedFrames"/> frames skipped: a stop, an action clip or a respawn took the body) is over.</summary>
+    public void Track(double now, long frame = -1)
+    {
+        if (Active && !double.IsNegativeInfinity(_frameAt) && SprintEdgeStaleness.Stale(now, _frameAt, frame, _placeFrame, StaleBackstopSeconds)) Active = false;
+    }
+
+    /// <summary>The turn has given way to something else this frame.</summary>
+    public void Drop() => Active = false;
 }

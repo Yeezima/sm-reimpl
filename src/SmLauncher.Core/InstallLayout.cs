@@ -35,7 +35,11 @@ public sealed class InstallLayout(string root)
     public string StagingDir(string tag) => VersionDir(tag) + ".staging";
     public string ReplacedDir(string tag) => VersionDir(tag) + ".replaced";
     public string PartFile(string assetName) =>
-        Names.IsPlaytestAsset(assetName) ? Path.Combine(DownloadsDir, assetName + ".part") : throw new InvalidDataException($"'{assetName}' is not a playtest zip name.");
+        Names.IsPlaytestAsset(assetName) || Names.IsPartsManifest(assetName) ? Path.Combine(DownloadsDir, assetName + ".part") : throw new InvalidDataException($"'{assetName}' is not a playtest zip name.");
+    /// <summary>downloads\parts\: the part zips of a parts update while it runs (deleted when it is installed or dropped).</summary>
+    public string PartsDir => Path.Combine(DownloadsDir, "parts");
+    public string PartZip(string assetName) =>
+        Names.IsPartAsset(assetName) ? Path.Combine(PartsDir, assetName) : throw new InvalidDataException($"'{assetName}' is not a part's name.");
 
     /// <summary>
     /// A folder that already is a launcher install: it holds one of the launcher's own files (current.json, update.json while an update runs, or
@@ -78,7 +82,7 @@ public sealed class UpdateState
 {
     public string Tag { get; set; } = "";
     public UpdatePhase Phase { get; set; }
-    /// <summary>"download" or "adopt".</summary>
+    /// <summary>"download" (the playtest zip), "parts" (the parts manifest and the changed parts) or "adopt".</summary>
     public string Source { get; set; } = "download";
     public string? AssetName { get; set; }
     public string? Url { get; set; }
@@ -93,17 +97,29 @@ public sealed class UpdateState
     public string? AdoptFrom { get; set; }
     public DateTimeOffset StartedAt { get; set; }
 
-    public static UpdateState For(ReleaseInfo r) => new()
+    /// <summary>An update of the release's zip, or with <paramref name="parts"/> of its parts manifest (<see cref="Source"/> "parts").</summary>
+    public static UpdateState For(ReleaseInfo r, bool parts = false)
     {
-        Tag = r.Tag, Phase = UpdatePhase.Downloading, AssetName = r.Asset.Name, Url = r.Asset.DownloadUrl, Size = r.Asset.Size,
-        ApiSha256 = r.Asset.ApiSha256, BodySha256 = r.BodySha256, Title = r.Title, PublishedAt = r.PublishedAt, HtmlUrl = r.HtmlUrl,
-        WhatsNew = r.WhatsNew, StartedAt = DateTimeOffset.UtcNow,
-    };
+        var a = (parts ? r.Parts : r.Asset) ?? throw new InvalidDataException("The release has no such download.");
+        return new()
+        {
+            Tag = r.Tag, Phase = UpdatePhase.Downloading, Source = parts ? "parts" : "download", AssetName = a.Name, Url = a.DownloadUrl, Size = a.Size,
+            ApiSha256 = a.ApiSha256, BodySha256 = parts ? r.PartsBodySha256 : r.BodySha256, Title = r.Title, PublishedAt = r.PublishedAt, HtmlUrl = r.HtmlUrl,
+            WhatsNew = r.WhatsNew, StartedAt = DateTimeOffset.UtcNow,
+        };
+    }
+
+    /// <summary>A download from GitHub (the zip or the parts), as opposed to a folder being adopted.</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool IsDownload => Source is "download" or "parts";
 
     /// <summary>The same release (tag, file, size and hashes): a .part of it may be resumed.</summary>
-    public bool SameDownload(ReleaseInfo r) =>
-        Source == "download" && Tag == r.Tag && AssetName == r.Asset.Name && Size == r.Asset.Size &&
-        ApiSha256 == r.Asset.ApiSha256 && BodySha256 == r.BodySha256;
+    public bool SameDownload(ReleaseInfo r)
+    {
+        var a = Source == "parts" ? r.Parts : Source == "download" ? r.Asset : null;
+        return a is not null && Tag == r.Tag && AssetName == a.Name && Size == a.Size &&
+            ApiSha256 == a.ApiSha256 && BodySha256 == (Source == "parts" ? r.PartsBodySha256 : r.BodySha256);
+    }
 
     public InstalledVersion ToInstalled() => new()
     {

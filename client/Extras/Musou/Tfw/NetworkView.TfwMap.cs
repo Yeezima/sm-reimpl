@@ -24,22 +24,34 @@ public partial class NetworkView
 
     void TfwMapFile(ref string file)
     {
-        if (file != TfwMap.Name) return;
+        if (TfwMap.IsAshfall(file)) { file = "none"; return; }   // Ashfall Citadel is generated in code: no install file (NetworkView.TfwAshfall.cs); "none" makes the readers of map files skip
+        if (file != TfwMap.ManufactorumName) return;
         if (!MapContent.Available(_gameDir).Contains(TfwMap.Battlefield)) throw new System.IO.FileNotFoundException(TfwWorld.Missing("the map is not in this install"));
         file = TfwMap.Battlefield;
     }
 
     void TfwMapCollision(string name, ref CollisionWorld world, ref ulong hash)
     {
-        if (name != TfwMap.Name) return;
+        if (!TfwMap.IsWarMap(name)) return;
+        bool manufactorum = name == TfwMap.ManufactorumName;
         TfwRangeArea = TfwRange.For(world);
-        var (composed, hub, composedHash) = TfwMap.WithHub(world);
+        var (composed, hub, composedHash) = TfwMap.WithHub(world, manufactorum);
         world = composed;
         hash = composedHash;
         TfwHub = hub;
+        TfwPagePanel.Battlefield = name == TfwMap.ManufactorumName ? "MANUFACTORUM" : "ASHFALL CITADEL";
         _tfwAboard = false;   // a new map (a new camera) gets the hub sky again
-        GD.Print($"map {name}: {TfwMap.Battlefield} from the install and the Stormbird at {hub.Centre}; map hash {hash:X16}");
-        if (Lean) return;
+        GD.Print($"map {name}: {(manufactorum ? TfwMap.Battlefield + " from the install" : "Ashfall Citadel generated in code")} and the Stormbird at {hub.Centre}; map hash {hash:X16}");
+        _tfwHubVisualsPending = !Lean;   // polish pass P2: this hook may run on the map load's worker; the nodes are built by TfwMapCollisionVisuals on the main thread
+    }
+
+    bool _tfwHubVisualsPending;
+
+    /// <summary>Main thread (the map load's second stage): the Stormbird's interior and the Firing Range drawn for the hub the collision hook composed.</summary>
+    void TfwMapCollisionVisuals()
+    {
+        if (!_tfwHubVisualsPending || TfwHub is not { } hub) return;
+        _tfwHubVisualsPending = false;
         _gameSpace?.GetNodeOrNull("TfwHub")?.QueueFree();
         if (_gameSpace is null || _groundMaterial is null) return;
         var notes = new System.Collections.Generic.List<string>();
@@ -49,6 +61,8 @@ public partial class NetworkView
         _gameSpace.AddChild(_tfwHubView);
         _gameSpace.GetNodeOrNull("TfwRange")?.QueueFree();
         _gameSpace.AddChild(TfwMapView.BuildRange(TfwRangeArea, _groundMaterial));
+        // polish pass P3: the hub's sky is made here, behind the loading screen, not in the first frame aboard (measured: `tfw: hub` 139 to 166 ms of that frame). --hub-sky-in-play restores.
+        if (!CmdFlag("hub-sky-in-play")) _tfwHubEnvironment ??= TfwHubSky.Build();
     }
 
     Godot.Environment? _tfwHubEnvironment;

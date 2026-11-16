@@ -148,7 +148,7 @@ Output: `%LOCALAPPDATA%\sm-reimpl\release\<version>\` (never inside the reposito
 `SM-Reimpl-Playtest-<date>-<ver>-Windows.zip`, whose top level holds only the numbered entry points
 (`0 - SM Reimpl Launcher.exe`, the launcher and updater that keeps testers up to date (`src/SmLauncher`; not code-signed, so Windows SmartScreen warns
 once; [docs/releasing.md](docs/releasing.md), "The launcher"), `1 - READ ME FIRST.txt`, `2 - Play.cmd` (the front end), `3 - Host a match on this PC.cmd`, `4 - Join a server by address.cmd`,
-`5 - Host a match for friends (LAN).cmd`) and four folders: `game\` (the Godot Windows export, self-contained .NET, and `Launcher.ps1`),
+`5 - Host a match for friends (LAN).cmd`, `6 - Host Musou Mode on this PC.cmd`, `7 - Host Musou Mode for friends (LAN).cmd`) and four folders: `game\` (the Godot Windows export, self-contained .NET, and `Launcher.ps1`),
 `server\` (the win64 SmServer; the front end's HOST A MATCH finds it beside `game\`), `source\` (`sm-reimpl-source-<ver>.zip`, the GPL source offer)
 and `notes\` (`VERSION.txt`, `LICENSE.txt`, `THIRD_PARTY_NOTICES.md`, `licenses\`, `changes-from-original.md`, `refine-register.md`, the tester kit
 `playtest\` and `CONTENTS-SHA256.txt`). The names live in `$TopFiles` in `tools/release/release.ps1`; the templates (`tools/release/package/`) refer to them

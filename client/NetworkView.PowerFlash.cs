@@ -33,7 +33,8 @@ public partial class NetworkView
         var axes = AxesFromY(outward.LengthSquared() > 1e-6f ? outward.Normalized() : Vector3.Up);
         // fx/power-flash (owner, 2026-11-01): a camera close to the burst sees a smaller one, so the screen is never whited out.
         float dist = _camera is null ? float.PositiveInfinity : _camera.GlobalPosition.DistanceTo(contact);
-        float scale = PowerFlashRules.Scale(kind) * (lead ? 1f : PowerFlashRules.SmallScale) * PowerFlashRules.CloseFactor(dist);
+        float scale = PowerFlashRules.Scale(kind) * (lead ? 1f : PowerFlashRules.SmallScale) * PowerFlashRules.CloseFactor(dist) * SmClient.Customizer.Model.LiveOptions.ScreenFlashes;   // the Options menu's screen flashes (1 = as before)
+        if (scale <= 0f) return;
         var tint = PowerFlash.Tint(kind);
         int started = 0;
         // A slam (a strike with a blast) brings the data's own displace flash, ball and cloud: no second copy of the hammer's hit effects on top, and a smaller cloud.

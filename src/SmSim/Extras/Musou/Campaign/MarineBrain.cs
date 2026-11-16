@@ -12,92 +12,143 @@ public static class MarineRules
     /// <summary>An enemy this near is struck, not shot.</summary>
     public const float MeleeRange = 2.5f;
 
-    /// <summary>Follow keeps the owner within this band (the design's 4 to 8 m).</summary>
+    /// <summary>A retainer's Follow keeps its owner within this band (the design's 4 to 8 m).</summary>
     public const float FollowMin = 4f, FollowMax = 8f;
-    /// <summary>Where Follow steers: it stands between these, inside the band, so a moving owner and a stopping puppet stay within it.</summary>
+    /// <summary>Where a retainer's Follow steers: it stands between these, inside the band, so a moving owner and a stopping puppet stay within it.</summary>
     public const float FollowStandNear = 4.5f, FollowStandFar = 6.5f;
-    /// <summary>Follow shoots enemies within this of the puppet, without leaving the owner.</summary>
+    /// <summary>The pair's follower and a following retainer shoot enemies within this of themselves, without leaving whom they follow.</summary>
     public const float FollowEngage = 20f;
-    /// <summary>Hold shoots enemies within this of the place it holds.</summary>
+    /// <summary>A retainer's Hold shoots enemies within this of the place it holds.</summary>
     public const float HoldRadius = 25f;
-    /// <summary>How far from the held place a puppet stands.</summary>
+    /// <summary>How far from the held place a retainer stands.</summary>
     public const float HoldStand = 1f;
-    /// <summary>Attack, and the lords, see enemies this far.</summary>
+    /// <summary>The pair's leader and an attacking retainer see enemies this far.</summary>
     public const float AttackSight = 40f;
-    /// <summary>Within this of the active position a puppet has arrived and turns on the enemies.</summary>
+    /// <summary>Within this of its goal the leader has arrived and turns on the enemies.</summary>
     public const float ArriveRadius = 8f;
     /// <summary>A puppet with a primary closes on an enemy to this far; one without closes to strike.</summary>
     public const float GunStandOff = 12f, StrikeStandOff = 1.5f;
     /// <summary>A puppet without a primary leaves its way to strike an enemy within this.</summary>
     public const float StrikeChase = 10f;
-    /// <summary>A puppet takes up a new way when its goal has moved this far from the last (a follower behind a walking owner).</summary>
+    /// <summary>A puppet takes up a new way when its goal has moved this far from the last (a follower behind a walking leader).</summary>
     public const float WayRefresh = 5f;
     /// <summary>A puppet's target is the nearest of this many enemies in its sight.</summary>
     public const int SightCandidates = 4;
     /// <summary>A puppet sprints when it has this far to go and nobody to shoot.</summary>
     public const float SprintBeyond = 12f;
 
-    /// <summary>The revive: the retainer steers to this far from the body, and within <see cref="ReviveRadius"/> holds it for <see cref="ReviveSeconds"/>.</summary>
+    /// <summary>The revive: a retainer (its owner) or the pair's leader (the nearest fallen human) steers to this far from the body, and within <see cref="ReviveRadius"/> holds it for <see cref="ReviveSeconds"/>.</summary>
     public const float ReviveApproach = 1.5f, ReviveRadius = 2f, ReviveSeconds = 3f;
-    /// <summary>The window a dead player waits in with a retainer alive (TF4 opens it, <see cref="TfwRun.ReviveWindow"/>).</summary>
-    public const float ReviveWindowSeconds = 25f;
     /// <summary>A revived player comes back with this share of its health and shield.</summary>
     public const float ReviveShare = 0.5f;
     /// <summary>A retainer dead in battle recovers for this many war seconds (3 war-minutes).</summary>
     public const float RetainerRecoverySeconds = 180f;
-    /// <summary>The respawn timer a dead puppet is kept at: only this file brings one back.</summary>
+    /// <summary>The respawn timer a dead puppet is kept at: only its own rule (a retainer's recovery, the pair's respawn) brings one back.</summary>
     public const float DeadHold = 1f;
-
-    /// <summary>The puppets a node battle and the final assault hold (the player's retainer, then a lord and his retainer per lane in play).</summary>
-    public const int MaxInBattle = 3, MaxInFinal = 7;
 }
 
-/// <summary>A player's order to its retainers.</summary>
+/// <summary>
+/// The allied AI Marines of a Musou battle (owner 2026-11-08: "nerf all non-player allied space marines. reduce their total count to 2, and they roam the map together attacking and defending"):
+/// two, whatever the number of players, landed at the landing zone, a leader and a follower. The count is the owner's and the 30 s respawn expansion S6's Defender rule, kept; every other value is
+/// ours (refine register). They replace the lane lords and their retainers and expansion S6's six Defenders; each human's own retainer is back beside them (owner 2026-11-08: "return the player
+/// retainer bots with orders as well"). A change here raises <see cref="TfwRules.Version"/>.
+/// </summary>
+public static class AllyRules
+{
+    /// <summary>The allied Marines a battle lands (the owner), and the seconds a dead one waits before he is back at the landing zone.</summary>
+    public const int Count = 2;
+    public const float RespawnSeconds = 30f;
+    /// <summary>The co-op's humans at most (SmContent's <c>MusouLocal.MaxPlayers</c>): a retainer each and the pair are six puppets, well inside the World's 16 players and the puppet id range.</summary>
+    public const int HumansMost = 4;
+    /// <summary>The pair's goal is looked at this often.</summary>
+    public const float GoalSeconds = 1f;
+    /// <summary>A secured position's threat counts the Orks this near it (up to <see cref="ThreatMost"/>) and every man of an Ork army on its way to it or attacking it.</summary>
+    public const float ThreatRadius = 40f;
+    public const int ThreatMost = 64;
+    /// <summary>A secured position with this threat is defended (the pair leaves its attack for it); the one it defends is kept while the threat stays at half of this.</summary>
+    public const float DefendAt = 8f;
+    /// <summary>The follower stands this far from its leader (the owner's "together": within a few metres), and sprints after him beyond <see cref="FollowSprint"/>.</summary>
+    public const float FollowNear = 2f, FollowFar = 4f, FollowSprint = 6f;
+    /// <summary>The leader waits (fighting where he stands) while his follower is farther than this, and never sprints while his follower lives.</summary>
+    public const float LeaderWait = 8f;
+    /// <summary>The pair's classes and placeholder names, in landing order (the leader first; labelled so, as the lords' were).</summary>
+    public static readonly (string Role, string Name)[] Roster = [("tactical", "Brother Varro"), ("heavy", "Brother Calix")];
+}
+
+/// <summary>A player's order to its retainer (the allied pair takes none).</summary>
 public enum MarineOrder : byte { Follow = 0, Hold = 1, Attack = 2 }
 
-/// <summary>What a puppet is: a player's retainer, a lane's lord (autonomous), or a lord's retainer (his alone: no player orders it).</summary>
-public enum MarineRole : byte { Retainer = 0, Lord = 1, LordRetainer = 2 }
+/// <summary>What a puppet is: a player's retainer (takes that player's orders, revives it, recovers 180 war seconds after a death), or a Marine of the allied pair (autonomous, back in 30 s).</summary>
+/// <summary>A retainer, one of the allied pair, or a Marine a called drop pod brought (<see cref="TfwPod"/>; Musou Mode's second support ability).</summary>
+public enum MarineRole : byte { Retainer = 0, Ally = 1, Pod = 2 }
 
 /// <summary>One AI Marine (a real World player, <see cref="TfwContracts.PuppetIdFirst"/> up): what the brain remembers between ticks.</summary>
-public sealed class Marine(int id, MarineRole role, int owner, TfwLane lane, string name)
+public sealed class Marine(int id, int slot, string name, MarineRole role = MarineRole.Ally, int owner = 0)
 {
     public int Id { get; } = id;
+    /// <summary>A Marine of the pair or a retainer.</summary>
     public MarineRole Role { get; } = role;
-    /// <summary>A retainer's owner (a human's id, or its lord's); a lord has none (0).</summary>
+    /// <summary>A retainer's owner (a human's id); 0 for the pair.</summary>
     public int Owner { get; } = owner;
-    /// <summary>A lord's lane, and his retainer's.</summary>
-    public TfwLane Lane { get; } = lane;
+    /// <summary>Its place in the pair's roster (0 or 1; -1 a retainer).</summary>
+    public int Slot { get; } = slot;
+    /// <summary>The place a retainer's Hold holds.</summary>
+    public Vector3 HoldAt { get; set; }
+    /// <summary>Where its player's Attack sent a retainer (null: the battle's goal from where it stands).</summary>
+    public Vector3? AttackAt { get; set; }
     /// <summary>The scoreboard name.</summary>
     public string Name { get; } = name;
-    /// <summary>The place a Hold order holds.</summary>
-    public Vector3 HoldAt { get; set; }
-    /// <summary>Where its player's Attack sent it (null: the battle's active position).</summary>
-    public Vector3? AttackAt { get; set; }
+    /// <summary>Whether it leads the pair (the other follows it): a lone survivor leads, and one back from the dead follows a living partner.</summary>
+    public bool Leads { get; set; }
     /// <summary>The graph node and the place its way leads to (-1: none yet).</summary>
     public int WayGoal { get; set; } = -1;
     public Vector3 WayPoint { get; set; }
     /// <summary>The enemy it is after (0: none).</summary>
     public ushort Target { get; set; }
-    /// <summary>Ticks in a row within reach of the body it revives.</summary>
+    /// <summary>The fallen human it goes to revive (0: none), and its ticks in a row within reach of the body.</summary>
+    public int ReviveOf { get; set; }
     public int ReviveTicks { get; set; }
-    /// <summary>Dead, and its death already dealt with.</summary>
+    /// <summary>Dead, and its death already dealt with; ticks until it is back.</summary>
     public bool Down { get; set; }
+    public int RespawnTicks { get; set; }
+    /// <summary>A pod Marine's pod (null for the others), and the ticks since he fell (0: standing).</summary>
+    public TfwPod? Pod { get; set; }
+    public int FallenTicks { get; set; }
 }
 
 /// <summary>Where a puppet wants to be: within <see cref="Near"/> to <see cref="Far"/> of <see cref="Point"/>, flat (it stands inside the band, and backs off under it). <see cref="Via"/>: the next place on the way there (the walking graph's; none: straight).</summary>
 public readonly record struct MarineGoal(Vector3 Point, float Near, float Far, bool Sprint, Vector3? Via = null);
 
-/// <summary>What <see cref="MarineBrain.Plan"/> weighs: the order in force, the places, a body to revive, the enemy, and whether the puppet has no primary.</summary>
-public readonly record struct MarineSituation(MarineOrder Order, Vector3 Self, Vector3? Owner, bool Revive, Vector3 HoldAt, Vector3? Objective, Vector3? Enemy, bool StrikesOnly);
+/// <summary>
+/// What <see cref="MarineBrain.Plan"/> weighs: the leader to keep to (a follower; null: it leads), a body to revive, the pair's goal, the enemy, whether the puppet has no primary, and whether a leader
+/// may sprint (only alone).
+/// </summary>
+public readonly record struct MarineSituation(Vector3 Self, Vector3? Leader, Vector3? Revive, Vector3? Objective, Vector3? Enemy, bool StrikesOnly, bool MaySprint = true);
+
+/// <summary>What <see cref="MarineBrain.PlanRetainer"/> weighs (a retainer, as before the pair): the order in force, the places, whether to revive its owner, the enemy, and whether it has no primary.</summary>
+public readonly record struct RetainerSituation(MarineOrder Order, Vector3 Self, Vector3? Owner, bool Revive, Vector3 HoldAt, Vector3? Objective, Vector3? Enemy, bool StrikesOnly);
 
 /// <summary>
 /// The AI Marines' decisions (design section E): pure and deterministic. <see cref="Plan"/> picks where to go, <see cref="Decide"/> turns that and the enemy into a tick's input, the same
-/// input a client sends (no shortcut: the core moves it, fires it and limits it as anyone's). A revive comes before any order.
+/// input a client sends (no shortcut: the core moves it, fires it and limits it as anyone's). A follower keeps to its leader; a leader revives first, then goes to the pair's goal.
 /// </summary>
 public static class MarineBrain
 {
     /// <summary>Where the puppet goes this tick; null: it stays.</summary>
     public static MarineGoal? Plan(in MarineSituation s)
+    {
+        if (s.Leader is { } leader)
+            return new MarineGoal(leader, AllyRules.FollowNear, AllyRules.FollowFar, s.Enemy is null && Flat(s.Self, leader) > AllyRules.FollowSprint);
+        if (s.Revive is { } body)
+            return new MarineGoal(body, 0f, MarineRules.ReviveApproach, s.MaySprint && Flat(s.Self, body) > MarineRules.SprintBeyond);
+        if (s.StrikesOnly && s.Enemy is { } near && Flat(s.Self, near) <= MarineRules.StrikeChase) return Engage(near, true);
+        if (s.Objective is { } goal && Flat(s.Self, goal) > MarineRules.ArriveRadius)
+            return new MarineGoal(goal, 0f, MarineRules.ArriveRadius * 0.75f, s.MaySprint && s.Enemy is null && Flat(s.Self, goal) > MarineRules.SprintBeyond);
+        return s.Enemy is { } enemy ? Engage(enemy, s.StrikesOnly) : null;
+    }
+
+    /// <summary>Where a retainer goes this tick (its owner's order; a revive of its owner comes before any order); null: it stays.</summary>
+    public static MarineGoal? PlanRetainer(in RetainerSituation s)
     {
         if (s.Revive && s.Owner is { } body)
             return new MarineGoal(body, 0f, MarineRules.ReviveApproach, Flat(s.Self, body) > MarineRules.SprintBeyond);
@@ -184,12 +235,12 @@ public static class MarineBrain
     public static float Flat(Vector3 a, Vector3 b) => new Vector2(a.X - b.X, a.Y - b.Y).Length();
 }
 
-/// <summary>A player's orders to its retainers (TF5): the last order per player, deduplicated by the command's sequence (a client resends until echoed).</summary>
+/// <summary>A player's orders to its retainer (TF5): the last order per player, deduplicated by the command's sequence (a client resends until echoed).</summary>
 public sealed class MarineOrders
 {
     readonly Dictionary<int, (MarineOrder Order, ushort Sequence)> _orders = new();
 
-    /// <summary>The order in force for <paramref name="player"/>'s retainers (Follow until told otherwise).</summary>
+    /// <summary>The order in force for <paramref name="player"/>'s retainer (Follow until told otherwise).</summary>
     public MarineOrder Of(int player) => _orders.TryGetValue(player, out var o) ? o.Order : MarineOrder.Follow;
 
     /// <summary>The newest order sequence applied for <paramref name="player"/>, 0 before any.</summary>
@@ -215,46 +266,61 @@ public sealed class MarineOrders
     public void Clear() => _orders.Clear();
 }
 
-/// <summary>The AI Marines' part of the run (TF5). The run's own milestone (TF4) meets it here: it opens the revive window, names the active position, sets the war's time scale and hears of a fallen lord.</summary>
+/// <summary>The AI Marines' part of the run (TF5). The run's own milestone (TF4) meets it here: it opens the revive window, names the active position and sets the war's time scale.</summary>
 public sealed partial class TfwRun
 {
     readonly List<Marine> _marines = new();
+    readonly List<Marine> _allies = new();
     readonly Dictionary<int, float> _recovery = new();
     readonly List<int> _recovered = new();
 
-    /// <summary>The AI Marines in the world, in id order.</summary>
+    /// <summary>The AI Marines in the world (the players' retainers and the allied pair), in id order.</summary>
     public IReadOnlyList<Marine> Marines => _marines;
+
+    /// <summary>The allied pair alone (<see cref="MarineRole.Ally"/>), in id order.</summary>
+    public IReadOnlyList<Marine> Pair => _allies;
 
     /// <summary>The players' orders to their retainers.</summary>
     public MarineOrders Orders { get; } = new();
 
-    /// <summary>Where the lords and an attacking retainer go: the battle's active position, then the commander (TF4 sets it; null: they fight what they see).</summary>
-    public Vector3? ActivePosition { get; set; }
-
     /// <summary>The war's time scale, which a retainer's recovery runs on (TF4 sets it from <see cref="WarSim.TimeScale"/>).</summary>
     public float WarTimeScale { get; set; } = 1f;
 
-    /// <summary>Whether a dead player's revive window is open (TF4: it holds the respawn and times the <see cref="MarineRules.ReviveWindowSeconds"/>). Null: never.</summary>
+    /// <summary>The battle's active position (TF4 sets it): where the pair goes outside a battle's own choice (tests; null: they fight what they see).</summary>
+    public Vector3? ActivePosition { get; set; }
+
+    /// <summary>The pair's goal now (the World looks at it every <see cref="AllyRules.GoalSeconds"/>): a battle's position, its HQ or landing zone, else <see cref="ActivePosition"/>.</summary>
+    public Vector3? AllyGoal { get; internal set; }
+    /// <summary>The battle's index of that goal (<see cref="TfwBattle.AllyGoal"/>; -1 the landing zone, -2 none yet).</summary>
+    public int AllyGoalIndex { get; internal set; } = -2;
+
+    /// <summary>Whether a dead player's revive window is open (TF4: it holds the respawn and times the window). Null: never.</summary>
     public Func<int, bool>? ReviveWindow { get; set; }
 
-    /// <summary>A lord fell in battle (TF4: <see cref="WarSim.WoundLord"/>).</summary>
-    public Action<TfwLane>? LordFallen { get; set; }
-
-    /// <summary>Whether <paramref name="player"/>, dead, waits for its retainer.</summary>
+    /// <summary>Whether <paramref name="player"/>, dead, waits for the pair.</summary>
     public bool ReviveWanted(int player) => ReviveWindow?.Invoke(player) ?? false;
 
     /// <summary>How far the revive of <paramref name="player"/> has come, 0 to 1 (the HUD's prompt).</summary>
     public float ReviveProgress(int player, int tickRate)
     {
+        float best = 0f;
         foreach (var m in _marines)
-            if (m.Role == MarineRole.Retainer && m.Owner == player) return Math.Clamp(m.ReviveTicks / (MarineRules.ReviveSeconds * Math.Max(1, tickRate)), 0f, 1f);
-        return 0f;
+            if (m.ReviveOf == player) best = MathF.Max(best, Math.Clamp(m.ReviveTicks / (MarineRules.ReviveSeconds * Math.Max(1, tickRate)), 0f, 1f));
+        return best;
     }
 
     /// <summary>The puppet of <paramref name="id"/>, if it is a registered AI Marine.</summary>
     public Marine? MarineOf(int id)
     {
         foreach (var m in _marines) if (m.Id == id) return m;
+        return null;
+    }
+
+    /// <summary>The other Marine of the pair (null for a retainer).</summary>
+    public Marine? PartnerOf(Marine marine)
+    {
+        if (marine.Role != MarineRole.Ally) return null;
+        foreach (var m in _allies) if (!ReferenceEquals(m, marine)) return m;
         return null;
     }
 
@@ -265,35 +331,41 @@ public sealed partial class TfwRun
         return null;
     }
 
-    /// <summary>The lord of <paramref name="lane"/> in the world (one lord per lane, the owner 2026-11-01).</summary>
-    public Marine? LordOf(TfwLane lane)
-    {
-        foreach (var m in _marines) if (m.Role == MarineRole.Lord && m.Lane == lane) return m;
-        return null;
-    }
-
     /// <summary>War seconds until the retainer of <paramref name="owner"/> is back; 0: it is not recovering.</summary>
     public float RecoveryLeft(int owner) => _recovery.GetValueOrDefault(owner);
 
     internal void AddMarine(Marine marine)
     {
-        int at = 0;
-        while (at < _marines.Count && _marines[at].Id < marine.Id) at++;
-        _marines.Insert(at, marine);
+        Insert(_marines, marine);
+        if (marine.Role == MarineRole.Ally) Insert(_allies, marine);
     }
 
-    internal bool RemoveMarine(Marine marine) => _marines.Remove(marine);
+    static void Insert(List<Marine> into, Marine marine)
+    {
+        int at = 0;
+        while (at < into.Count && into[at].Id < marine.Id) at++;
+        into.Insert(at, marine);
+    }
+
+    internal bool RemoveMarine(Marine marine)
+    {
+        _allies.Remove(marine);
+        return _marines.Remove(marine);
+    }
 
     internal void StartRecovery(int owner) => _recovery[owner] = MarineRules.RetainerRecoverySeconds;
 
     internal void ForgetMarines()
     {
         _marines.Clear();
+        _allies.Clear();
         _recovery.Clear();
         Orders.Clear();
+        AllyGoal = null;
+        AllyGoalIndex = -2;
     }
 
-    /// <summary>One tick of the recoveries, on the war clock; they run whether or not a battle is on.</summary>
+    /// <summary>One tick of the retainers' recoveries, on the war clock; they run whether or not a battle is on.</summary>
     internal void StepRecovery(float dt)
     {
         if (_recovery.Count == 0) return;

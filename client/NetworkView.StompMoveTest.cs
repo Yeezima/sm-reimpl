@@ -26,6 +26,19 @@ public partial class NetworkView
     {
         if (!StompMoveTest || !me.Alive) { _stompMoveStart = -1; return null; }
         if (_stompMoveStart < 0) { _stompMoveStart = _connectedFor + 1.0; _stompMoveYaw = _yaw; }
+        // sim/stomp-release capture mode (--stomp-move-test release; the owner 2026-11-14): the bolt pistol in hand, F every 4 s, then the fire button tapped every 0.2 s from 0.6 s on: nothing leaves until the
+        // stomp frees the player 1.2 s into its clip, then the pistol fires and a walk starts at 2.2 s.
+        if (StompMoveTestMode == "release")
+        {
+            if (me.Slot != WeaponSlot.Pistol) { _stompMoveStart = _connectedFor + 3.0; return new PlayerInput(tick, 0f, 0f, _stompMoveYaw, InputButtons.SlotPistol, StompMovePitch); }
+            double rt = _connectedFor - _stompMoveStart;
+            if (rt < 0) return new PlayerInput(tick, 0f, 0f, _stompMoveYaw, InputButtons.None, StompMovePitch);
+            double ph = rt - Math.Floor(rt / 4.0) * 4.0;
+            _yaw = _stompMoveYaw; _pitch = StompMovePitch;
+            var rb = ph < 0.12 && me.MeleeStep == 0 ? InputButtons.MeleeHeavy : InputButtons.None;
+            if (ph is >= 0.6 and < 2.2 && ((int)(ph * 5.0) % 2 == 0)) rb |= InputButtons.Fire;
+            return new PlayerInput(tick, 0f, ph is >= 2.2 and < 3.2 ? 1f : 0f, _stompMoveYaw, rb, StompMovePitch);
+        }
         double t = _connectedFor - _stompMoveStart;
         if (t < 0) return new PlayerInput(tick, 0f, 0f, _stompMoveYaw, InputButtons.None, StompMovePitch);
         int cycle = (int)(t / 5.0);

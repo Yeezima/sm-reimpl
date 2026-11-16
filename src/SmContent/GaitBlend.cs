@@ -190,6 +190,63 @@ public static class GaitBlend
 }
 
 /// <summary>
+/// anim/strafe-blend (the owner, 2026-11-06: "when changing strafe or run direction there are many times an animation snaps to another instantly"): a smoothing of a blend's clip
+/// weights over time, for the pose only (the movement is never delayed). The blend space's weights follow the damped velocity's <b>heading</b>, and a reversal (strafe left to right,
+/// forward to back, one diagonal to the opposite) takes the velocity straight through zero, where its heading turns 180 degrees between two frames: the weights jumped from one
+/// direction's clips to the opposite's in one frame (the idle share below 0.35 to 1 m/s covered one to three frames of it). Each weight here follows its target as a critically damped
+/// spring of time constant <see cref="Seconds"/> (half way in about 0.08 s, 95 % in about 0.24 s; no overshoot from rest, and no kink at the start, so the pose has no velocity jump
+/// either); the result is kept non-negative and renormalised to the target's sum. It snaps to the target on the first step, after a gap of more than <see cref="GapSeconds"/>, or when
+/// the number of weights changes. Ours (an estimate; the original's graphs damp their blend parameters, <c>FLT_Nav_Motion_Angle_DAMPED</c>, with times not read).
+/// </summary>
+public sealed class GaitWeightSmoother
+{
+    /// <summary>Time constant (s) of the critically damped spring (1 / its angular rate). Ours, an estimate.</summary>
+    public const float Seconds = 0.05f;
+    public const float GapSeconds = 0.25f;
+
+    float[] _value = [], _rate = [];
+    bool _has;
+
+    /// <summary>The smoothed weights (as many as the last target).</summary>
+    public ReadOnlySpan<float> Value => _value;
+
+    /// <summary>Forgets the state: the next step snaps to its target.</summary>
+    public void Reset() => _has = false;
+
+    /// <summary>One step of <paramref name="dt"/> seconds toward <paramref name="target"/>; writes the smoothed weights to <paramref name="output"/> (the same length; may be the target span).</summary>
+    public void Step(ReadOnlySpan<float> target, float dt, Span<float> output, float seconds = Seconds)
+    {
+        int n = target.Length;
+        if (output.Length < n) throw new ArgumentException("output shorter than target");
+        float sum = 0f;
+        for (int i = 0; i < n; i++) sum += float.IsFinite(target[i]) ? Math.Max(0f, target[i]) : 0f;
+        if (!_has || _value.Length != n || !(dt >= 0f) || !float.IsFinite(dt) || dt > GapSeconds || !(seconds > 0f))
+        {
+            if (_value.Length != n) { _value = new float[n]; _rate = new float[n]; }
+            for (int i = 0; i < n; i++) { _value[i] = float.IsFinite(target[i]) ? Math.Max(0f, target[i]) : 0f; _rate[i] = 0f; output[i] = _value[i]; }
+            _has = true;
+            return;
+        }
+        float omega = 1f / seconds, decay = MathF.Exp(-omega * dt);
+        float total = 0f;
+        for (int i = 0; i < n; i++)
+        {
+            float goal = float.IsFinite(target[i]) ? Math.Max(0f, target[i]) : 0f;
+            // Exact step of x'' = -2 omega x' - omega^2 x with x the offset from the goal: x(t) = (x0 + (v0 + omega x0) t) e^(-omega t).
+            float x0 = _value[i] - goal, v0 = _rate[i];
+            float c = v0 + omega * x0;
+            float x = (x0 + c * dt) * decay;
+            _rate[i] = (v0 - omega * c * dt) * decay;
+            _value[i] = goal + x;
+            if (_value[i] < 0f) { _value[i] = 0f; if (_rate[i] < 0f) _rate[i] = 0f; }
+            total += _value[i];
+        }
+        float scale = total > 1e-6f ? sum / total : 0f;
+        for (int i = 0; i < n; i++) output[i] = total > 1e-6f ? _value[i] * scale : (float.IsFinite(target[i]) ? Math.Max(0f, target[i]) : 0f);
+    }
+}
+
+/// <summary>
 /// A low-pass filter on the body's ground velocity (M40-T4): the blend parameters (heading and speed) come from this instead of the raw velocity, so the
 /// 30 Hz steps of the simulation and the snapshots, and a reversal's jump from one heading to the opposite, do not make the pose flicker. An exponential
 /// filter of time constant <see cref="Seconds"/>; it snaps to the target after a gap of more than <see cref="GapSeconds"/> (no frames drawn: the player
