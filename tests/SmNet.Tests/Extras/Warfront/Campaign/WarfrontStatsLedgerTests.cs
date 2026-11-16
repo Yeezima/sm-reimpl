@@ -1,6 +1,7 @@
 using SmSim.Extras.Musou;
 using SmSim.Extras.Warfront.Campaign;
 using SmSim.Extras.Warfront.Progression;
+using SmSim.Extras.Warfront.Results;
 using Xunit;
 
 namespace SmNet.Tests.Extras.Warfront.Campaign;
@@ -115,13 +116,61 @@ public class WarfrontStatsLedgerTests
     }
 
     [Fact]
-    public void MapsToLeaderboardShape()
+    public void MapsToPlayerStats_ElitesAndBossesAreDisjointSubsets_AndScoreMatches()
     {
         var c = Run();
         c.Stats.OnAssist(11);
-        var rows = c.Stats.ToLeaderboard(c);
-        Assert.Equal(new WarfrontLedgerStats("Alpha", Connected: true, JoinIndex: 0, Kills: 2, EliteKills: 1, BossKills: 0, Assists: 1, Deaths: 0, Revives: 0, Captures: 1), rows[0]);
-        Assert.Equal(new WarfrontLedgerStats("Bravo", true, 1, 1, 1, 1, 0, 0, 1, 0), rows[1]);
-        Assert.Equal(0, c.Stats.ToLeaderboard(99, "x", false, 2).Kills);
+        Assert.Equal(new WarfrontPlayerStats("", Kills: 2, EliteKills: 1, BossKills: 0, Assists: 1, Captures: 1), c.Stats.ToPlayerStats(11));
+        Assert.Equal(new WarfrontPlayerStats("", Kills: 1, EliteKills: 0, BossKills: 1, Revives: 1), c.Stats.ToPlayerStats(12));
+        Assert.Equal(0, c.Stats.ToPlayerStats(99).Kills);
+
+        var l = new WarfrontStatsLedger();
+        l.OnKill(1, MusouEnemyType.Boy); l.OnKill(1, MusouEnemyType.Boy); l.OnKill(1, MusouEnemyType.Nob); l.OnKill(1, MusouEnemyType.Warboss);
+        Assert.Equal(2 + 5 + 25, WarfrontLeaderboard.PlayerScore(l.ToPlayerStats(1), WarfrontScoreWeights.Default));
+    }
+
+    [Fact]
+    public void EventIds_AreUniqueAcrossDeployments_AndTheSameTripleCountsOnce()
+    {
+        var l = new WarfrontStatsLedger();
+        Assert.True(l.OnKill(1, MusouEnemyType.Nob, WarfrontStatsLedger.EventId(1, 40, 900)));
+        Assert.True(l.OnKill(1, MusouEnemyType.Nob, WarfrontStatsLedger.EventId(2, 40, 900)));
+        Assert.False(l.OnKill(1, MusouEnemyType.Nob, WarfrontStatsLedger.EventId(2, 40, 900)));
+        Assert.Equal(2, l.Player(1)!.EliteKills);
+        Assert.NotEqual(WarfrontStatsLedger.EventId(1, 2, 3), WarfrontStatsLedger.EventId(1, 3, 2));
+    }
+
+    [Fact]
+    public void FromState_ToleratesNullListsAndKeyZero()
+    {
+        var l = WarfrontStatsLedger.FromState(new WarfrontStatsLedger.State { Players = null, Seen = null });
+        Assert.Empty(l.Players);
+        var s = new WarfrontStatsLedger.State();
+        s.Players!.Add(new WarfrontPlayerLedger());
+        Assert.Empty(WarfrontStatsLedger.FromState(s).Players);
+    }
+
+    [Fact]
+    public void ArchiveHoldsNoKeys_AndFiguresMatchPerJoinIndex()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "wfstats-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            var c = new WarfrontCampaign(5);
+            c.Join(987654321, "A", out _); c.Join(555123456, "B", out _);
+            c.Stats.OnKill(987654321, MusouEnemyType.Nob, WarfrontStatsLedger.EventId(1, 7, 8));
+            c.Stats.OnRevive(555123456, WarfrontStatsLedger.EventId(1, 1, 2));
+            c.Stats.OnDeath(777000111);
+            var rec = WarfrontSave.Archive(dir, c, new DateTime(2026, 11, 17, 12, 0, 0, DateTimeKind.Utc));
+            var text = File.ReadAllText(rec);
+            foreach (var k in new[] { "987654321", "555123456", "777000111" }) Assert.DoesNotContain(k, text);
+            var st = System.Text.Json.Nodes.JsonNode.Parse(text)!["Stats"]!;
+            int Field(int idx, string name) => st["Players"]!.AsArray().Single(p => (int)p!["Key"]! == idx)![name]!.GetValue<int>();
+            Assert.Equal(1, Field(0, "EliteKills"));
+            Assert.Equal(1, Field(1, "Revives"));
+            Assert.Equal(1, Field(2, "Deaths"));
+            Assert.Empty(st["Seen"]!.AsArray());
+        }
+        finally { try { Directory.Delete(dir, true); } catch { } }
     }
 }
