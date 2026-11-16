@@ -21,6 +21,7 @@ public class IsolationPins
         double clock = run.War.Clock;
         var battle = TfwRig.Deploy(w);
         Assert.False(battle.WarfrontNode);
+        Assert.Null(run.Warfront);   // the object itself is absent, so no seam of it exists
         Assert.Null(run.Warfront?.SquadStep);   // W9b: no squad seam exists without the Warfront object (every one of them hangs on it)
         Assert.Null(run.Warfront?.SquadTargets);
         Assert.Null(run.Warfront?.AnyRetainerStanding);

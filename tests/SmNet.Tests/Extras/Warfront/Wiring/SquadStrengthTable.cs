@@ -31,7 +31,7 @@ public class SquadStrengthTable(ITestOutputHelper output)
     };
 
     /// <summary>One scene: <paramref name="marines"/> Marines (index order, one owner) against a wave; the owner absent (no human in the list) or reviving (walks to the nearest downed Marine and holds Use, takes no damage, never shoots).</summary>
-    static (double WipedAt, int Standing, int Kills, int Downs) Scene(int level, int boyz, int nobz, int marines, SquadWeapon weapon, bool ownerReviving, double maxSeconds, float spawnRing = 32f)
+    static (double WipedAt, int Standing, int Kills, int Downs) Scene(int level, int boyz, int nobz, int marines, SquadWeapon weapon, bool ownerReviving, double maxSeconds, float spawnRing = 32f, bool respawn = false, int ownerLevel = 1)
     {
         var pool = new MusouSim(null);
         var rosters = new SquadRosters();
@@ -42,13 +42,20 @@ public class SquadStrengthTable(ITestOutputHelper output)
         squad.BeginBattle([(1UL, 1, Vector3.Zero)]);
         squad.Order(1, new SmSim.Extras.Musou.Campaign.TfwCommandRecord(1, SmSim.Extras.Musou.Campaign.TfwCommand.Hold, 0));   // the squad holds its landing: the Orks come to it
         var scale = WarfrontOrkScaling.For(level, 1);
+        // the owner's picks beyond the Retainer cards are stat cards, a balanced build (damage, attack speed, max HP in turn): the retainer third of them is the squad's scale
+        var cards = WarfrontTuningTable.BalancedCards(Math.Max(0, ownerLevel - 1 - (marines - 1)));
+        var third = WarfrontStatBonuses.ForRetainer(cards);
+        squad.SetScale(1UL, third.Damage * third.AttackSpeed, third.MaxHp, third.MaxArmor);
+        squad.BeginBattle([(1UL, 1, Vector3.Zero)]);   // lands again with the scale
+        squad.Order(1, new SmSim.Extras.Musou.Campaign.TfwCommandRecord(2, SmSim.Extras.Musou.Campaign.TfwCommand.Hold, 0));
         int total = boyz + nobz;
-        for (int i = 0; i < total; i++)
+        var slots = new ushort[total]; var kinds = new MusouEnemyType[total];
+        ushort Place(int i, int salt)
         {
-            var type = i < boyz ? MusouEnemyType.Boy : MusouEnemyType.Nob;
-            float angle = i * 2.399963f, ring = spawnRing + (i % 5) * 2f;
-            pool.Spawn(type, new Vector3(MathF.Cos(angle) * ring, MathF.Sin(angle) * ring, 0f), 0f, pool.Rules.Of(type).Health * scale.Health);
+            float angle = i * 2.399963f + salt * 0.7f, ring = spawnRing + (i % 5) * 2f;
+            return pool.Spawn(kinds[i], new Vector3(MathF.Cos(angle) * ring, MathF.Sin(angle) * ring, 0f), 0f, pool.Rules.Of(kinds[i]).Health * scale.Health);
         }
+        for (int i = 0; i < total; i++) { kinds[i] = i < boyz ? MusouEnemyType.Boy : MusouEnemyType.Nob; slots[i] = Place(i, 0); }
         var targets = new MusouTarget[64];
         var attacks = new List<MusouAttack>();
         var human = new Vector3(-1f, 0f, 0f);
@@ -79,11 +86,14 @@ public class SquadStrengthTable(ITestOutputHelper output)
             pool.BeginTick(++tick);
             attacks.Clear();
             pool.Step(targets.AsSpan(0, n), null, true, attacks);
-            foreach (var a in attacks) squad.Hit(a.Player, a.Damage * scale.Damage, a.From);
+            foreach (var a in attacks) squad.Hit(a.Player, a.Damage * (1f + (scale.Damage - 1f) * SquadRules.OrkLevelDamageShare), a.From);   // T1: a Marine takes none of the level's damage
+            if (respawn)
+                for (int i = 0; i < total; i++)
+                    if (!pool.TryGet(slots[i], out var e) || !e.Alive) slots[i] = Place(i, k + 1);   // a busy wave: what dies is spawned again on the ring
             squad.Step(tick, ownerReviving ? humans : []);
             kills += squad.Kills.Count; downs += squad.Downs.Count;
             if (wiped < 0 && !squad.AnyStanding) { wiped = (k + 1) / (double)Rate; if (!ownerReviving || !squad.AnyReviveWindowOpen) break; }
-            if (wiped < 0 && pool.Alive == 0) break;
+            if (wiped < 0 && pool.Alive == 0 && !respawn) break;
         }
         int standing = Enumerable.Range(0, marines).Count(i => squad.StateOf(i) == SquadState.Standing);
         return (wiped, standing, kills, downs);
@@ -118,15 +128,26 @@ public class SquadStrengthTable(ITestOutputHelper output)
             output.WriteLine($"  level {level,2}: five Boyz {Show(five.WipedAt)}  one Nob {Show(nob.WipedAt)}");
             Assert.True(five.WipedAt > 0 && nob.WipedAt > 0, "a lone Marine is downed inside five minutes");
         }
-        output.WriteLine("A full squad of nine against a wave of 40 Boyz and 4 Nobz (target: owner absent 60 to 150 s until the last Marine is down; owner reviving: holds at level 1, falls slowly at level 20):");
-        foreach (var (name, w) in Classes)
-            foreach (int level in new[] { 1, 10, 20 })
+        output.WriteLine("Sustained pressure (tuning ruling T1 to T4): the pool is kept at 24 Boyz and 2 Nobz alive (what dies is spawned again on the 32 to 40 m ring, health at the level's scale), the squad holds its landing, 300 s. Marines = 1 + Retainer cards, the owner's other picks are a balanced stat build (a third of each applies).");
+        output.WriteLine("Owner level | Marines | owner absent: last Marine down (target) | owner reviving, not shooting (target)");
+        var rows = new (int Level, int Marines, string Absent, double Lo, double Hi, string Revive, double Hold)[]
+        {
+            (1, 1, "8 to 20 s", 8, 20, "-", 0), (5, 3, "20 to 45 s", 20, 45, "-", 0), (10, 5, "40 to 90 s", 40, 90, "holds 120 s or more", 120),
+            (10, 9, "90 s or more (may hold)", 90, 1e9, "holds 300 s", 300), (15, 9, "75 to 150 s", 75, 150, "holds 180 s or more", 180), (20, 9, "60 to 120 s", 60, 120, "falls inside 300 s", -1),
+        };
+        foreach (var (name, w) in Classes.Take(2))
+        {
+            output.WriteLine($"  {name}:");
+            foreach (var row in rows)
             {
-                var absent = Scene(level, 40, 4, 9, w, false, 300);
-                var revive = Scene(level, 40, 4, 9, w, true, 300);
-                string target = absent.WipedAt < 0 ? "outlasts the run" : absent.WipedAt is >= 60 and <= 150 ? "in range" : "OUTSIDE 60-150 s";
-                output.WriteLine($"  {name,-36} level {level,2}: owner absent: last Marine down at {Show(absent.WipedAt)} ({absent.Kills} Ork kills, {absent.Downs} knockdowns, {absent.Standing} standing at the end) [{target}]; owner reviving: {(revive.WipedAt < 0 ? $"holds ({revive.Standing} standing at 300 s, {revive.Kills} kills, {revive.Downs} knockdowns)" : $"all down at {Show(revive.WipedAt)} ({revive.Kills} kills)")}");
+                var absent = Scene(row.Level, 24, 2, row.Marines, w, false, 300, respawn: true, ownerLevel: row.Level);
+                var revive = Scene(row.Level, 24, 2, row.Marines, w, true, 300, respawn: true, ownerLevel: row.Level);
+                string aMark = absent.WipedAt < 0 ? (row.Hi >= 1e9 ? "holds" : "HOLDS, over range") : absent.WipedAt < row.Lo ? "UNDER range" : absent.WipedAt > row.Hi ? "OVER range" : "in range";
+                string rMark = row.Hold == 0 ? "" : row.Hold < 0 ? (revive.WipedAt >= 0 ? "falls: ok" : "HOLDS, target was falls") : (revive.WipedAt < 0 || revive.WipedAt >= row.Hold ? "ok" : "FALLS EARLY");
+                output.WriteLine($"    level {row.Level,2}, {row.Marines} Marine(s): absent {Show(absent.WipedAt)} ({absent.Kills} kills, {absent.Downs} knockdowns) target {row.Absent} [{aMark}]; reviving {(revive.WipedAt < 0 ? $"holds ({revive.Standing} standing at 300 s, {revive.Downs} knockdowns)" : $"all down at {Show(revive.WipedAt)}")} target {row.Revive} [{rMark}]");
             }
+        }
+        output.WriteLine("  Assault (placeholder blow; printed, no target): " + string.Join("; ", rows.Select(r => { var a = Scene(r.Level, 24, 2, r.Marines, Classes[2].Weapon, false, 300, respawn: true, ownerLevel: r.Level); return $"level {r.Level} x{r.Marines}: {Show(a.WipedAt)}"; })));
     }
 
     static string Show(double seconds) => seconds < 0 ? "never" : $"{seconds:0.0} s";

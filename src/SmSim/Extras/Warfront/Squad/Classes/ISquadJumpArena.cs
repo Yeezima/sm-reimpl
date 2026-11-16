@@ -28,9 +28,15 @@ public sealed class MusouSquadJumpArena(NavGraph? nav) : ISquadJumpArena
     {
         if (nav is null) return null;
         RoutesBuilt++;
-        if (nav.FindPath(from, to, 10f, MaxExpanded) is not { Partial: false } path) return null;
+        if (nav.FindPath(from, to, 10f, MaxExpanded) is not { } path) return null;
         var steps = new List<SquadRouteStep>(path.Waypoints.Count);
         foreach (var w in path.Waypoints) steps.Add(new SquadRouteStep(w.Position, w.Kind != NavLinkKind.Walk));
+        if (path.Partial && steps.Count > 0)
+        {
+            var end = steps[^1].Position;   // a partial route is kept only with progress (W9b review 1), as the walking path
+            float gain = MathF.Sqrt((from.X - to.X) * (from.X - to.X) + (from.Y - to.Y) * (from.Y - to.Y)) - MathF.Sqrt((end.X - to.X) * (end.X - to.X) + (end.Y - to.Y) * (end.Y - to.Y));
+            if (gain < SquadRules.PartialProgress) return null;
+        }
         return steps;
     }
 }
