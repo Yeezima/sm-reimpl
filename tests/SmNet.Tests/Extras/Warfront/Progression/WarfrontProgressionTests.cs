@@ -25,10 +25,10 @@ public class WarfrontProgressionTests
     {
         var c = Squad(A, B);
         var x = new WarfrontXpLedger(c);
-        Assert.Equal([A], x.Kill(A, 10, WarfrontKillClass.Ordinary, "k1"));
+        Assert.Equal([A], x.Kill(A, 10, WarfrontKillClass.Ordinary, 1));
         Assert.Equal(10, c.Player(A)!.Xp);
         Assert.Equal(0, c.Player(B)!.Xp);
-        Assert.Empty(x.Kill(0, 10, WarfrontKillClass.Ordinary, "k2"));   // nobody's kill
+        Assert.Empty(x.Kill(0, 10, WarfrontKillClass.Ordinary, 2));   // nobody's kill
     }
 
     [Fact]
@@ -36,15 +36,15 @@ public class WarfrontProgressionTests
     {
         var c = Squad(A, B, C);
         var x = new WarfrontXpLedger(c);
-        Assert.Equal(3, x.Kill(A, 100, WarfrontKillClass.Elite, "nob1").Count);
+        Assert.Equal(3, x.Kill(A, 100, WarfrontKillClass.Elite, 11).Count);
         Assert.Equal(100, c.Player(A)!.Xp);   // not 200: shared only, no personal on top
         Assert.Equal(100, c.Player(B)!.Xp);
-        Assert.Empty(x.Kill(A, 100, WarfrontKillClass.Elite, "nob1"));   // the same event again
+        Assert.Empty(x.Kill(A, 100, WarfrontKillClass.Elite, 11));   // the same event again
         Assert.Equal(100, c.Player(A)!.Xp);
-        x.Kill(B, 2000, WarfrontKillClass.Boss, "boss");
+        x.Kill(B, 2000, WarfrontKillClass.Boss, 12);
         Assert.Equal(2100, c.Player(C)!.Xp);
-        Assert.Equal(3, x.Capture(400, "cap-A").Count);
-        Assert.Empty(x.Capture(400, "cap-A"));
+        Assert.Equal(3, x.Capture(400, 21).Count);
+        Assert.Empty(x.Capture(400, 21));
         Assert.Equal(2500, c.Player(A)!.Xp);
     }
 
@@ -54,7 +54,7 @@ public class WarfrontProgressionTests
         var c = Squad(A, B);
         c.Leave(B);
         var x = new WarfrontXpLedger(c);
-        Assert.Equal([A], x.Capture(400, "cap"));
+        Assert.Equal([A], x.Capture(400, 22));
         Assert.Equal(0, c.Player(B)!.Xp);
     }
 
@@ -63,7 +63,7 @@ public class WarfrontProgressionTests
     {
         var c = Squad(A);
         var x = new WarfrontXpLedger(c);
-        x.Capture((int)WarfrontCampaign.XpForLevel(2), "big");
+        x.Capture((int)WarfrontCampaign.XpForLevel(2), 23);
         var ups = x.Drain();
         Assert.Single(ups);
         Assert.Equal(new WarfrontLevelUp(A, 1, 2), ups[0]);
@@ -79,6 +79,7 @@ public class WarfrontProgressionTests
         Assert.Equal(WarfrontKillClass.Elite, WarfrontXpLedger.Classify(MusouEnemyType.ScrapMek));
         Assert.Equal(WarfrontKillClass.Boss, WarfrontXpLedger.Classify(MusouEnemyType.Warboss));
         Assert.Equal(WarfrontKillClass.Boss, WarfrontXpLedger.Classify(MusouEnemyType.BossNob));
+        Assert.Equal(WarfrontKillClass.Elite, WarfrontXpLedger.Classify(MusouEnemyType.Weirdboy));
         Assert.Equal(WarfrontKillClass.Ordinary, WarfrontXpLedger.Classify(MusouEnemyType.Boy));
     }
 
@@ -157,10 +158,10 @@ public class WarfrontProgressionTests
     {
         var (c, p) = WithPending(3, A);
         Assert.NotNull(p.TryOpen(A, 100, false, true, 1, false));
-        Assert.True(p.TryPick(A, 0, out _, out _));
+        Assert.True(p.TryPick(A, 0, 0, out _, out _));
         Assert.Null(p.TryOpen(A, 120, false, true, 1, false));   // 20 s later: queued
         Assert.NotNull(p.TryOpen(A, 145, false, true, 1, false));
-        Assert.True(p.TryPick(A, 1, out _, out _));
+        Assert.True(p.TryPick(A, 1, 1, out _, out _));
         Assert.NotNull(p.TryOpen(A, 146, aboard: true, lull: false, 1, false));   // aboard: at once
         Assert.Equal(1, c.Player(A)!.PendingPicks);
     }
@@ -169,23 +170,23 @@ public class WarfrontProgressionTests
     public void Server_rejects_wrong_index_wrong_player_and_no_open_offer()
     {
         var (c, p) = WithPending(1, A, B);
-        Assert.False(p.TryPick(A, 0, out _, out var e1, null));   // nothing open
+        Assert.False(p.TryPick(A, 0, 0, out _, out var e1));   // nothing open
         Assert.Equal("no open offer", e1);
         p.TryOpen(A, 0, true, false, 1, false);
-        Assert.False(p.TryPick(B, 0, out _, out var e2));   // B has no offer
+        Assert.False(p.TryPick(B, 0, 0, out _, out var e2));   // B has no offer
         Assert.Equal("no open offer", e2);
-        Assert.False(p.TryPick(999, 0, out _, out _));   // unknown player
-        Assert.False(p.TryPick(A, 4, out _, out var e3));
+        Assert.False(p.TryPick(999, 0, 0, out _, out _));   // unknown player
+        Assert.False(p.TryPick(A, 4, 0, out _, out var e3));
         Assert.Equal("no such card", e3);
-        Assert.False(p.TryPick(A, -1, out _, out _));
-        Assert.False(p.TryPick(A, 0, out _, out var e4, expectedPickIndex: 5));
+        Assert.False(p.TryPick(A, -1, 0, out _, out _));
+        Assert.False(p.TryPick(A, 0, 5, out _, out var e4));
         Assert.Equal("stale offer", e4);
         Assert.True(p.Protected(A));   // nothing above changed the state
         Assert.Equal(1, c.Player(A)!.PendingPicks);
-        Assert.True(p.TryPick(A, 2, out var r, out _, expectedPickIndex: 0));
+        Assert.True(p.TryPick(A, 2, 0, out var r, out _));
         Assert.Equal(1, c.Player(A)!.PicksTaken);
         Assert.Equal((int)r.Card, c.Player(A)!.Cards[0]);
-        Assert.False(p.TryPick(A, 2, out _, out _));   // never twice
+        Assert.False(p.TryPick(A, 2, 0, out _, out _));   // never twice
         Assert.Equal(1, c.Player(A)!.PicksTaken);
     }
 
@@ -196,7 +197,7 @@ public class WarfrontProgressionTests
         p.TryOpen(A, 0, true, false, 1, false);
         p.TryOpen(B, 5, true, false, 1, false);
         Assert.True(p.Protected(A) && p.Protected(B));
-        Assert.True(p.TryPick(A, 1, out _, out _));
+        Assert.True(p.TryPick(A, 1, 0, out _, out _));
         Assert.False(p.Protected(A));
         Assert.True(p.Protected(B));
         Assert.Empty(p.Tick(24.9));   // B opened at 5: 19.9 s
@@ -278,18 +279,35 @@ public class WarfrontProgressionTests
     }
 
     [Fact]
-    public void Living_orks_are_never_modified_and_new_spawns_use_the_new_level()
+    public void Spawn_scale_is_fixed_until_the_id_spawns_again()
     {
         var t = new WarfrontOrkScaleTracker();
         var first = t.OnSpawn(1, 3, 1);
         var second = t.OnSpawn(2, 10, 2);   // a later spawn, the party has levelled
         Assert.NotEqual(first, second);
-        Assert.Equal(first, t.OnSpawn(1, 20, 4));   // same id again: the recorded scale stands
-        Assert.Equal(first, t.Of(1));
-        Assert.Equal(WarfrontOrkScaling.For(3, 1), t.Of(1));
+        Assert.Equal(WarfrontOrkScaling.For(3, 1), t.Of(1));   // nothing but a spawn writes: it stays
+        Assert.Equal(WarfrontOrkScaling.For(20, 4), t.OnSpawn(1, 20, 4));   // pool ids are reused: a new spawn of the id overwrites
+        Assert.Equal(WarfrontOrkScaling.For(20, 4), t.Of(1));
         t.OnRemove(1);
         Assert.Equal(WarfrontOrkScale.One, t.Of(1));
-        Assert.Equal(WarfrontOrkScaling.For(20, 4), t.OnSpawn(1, 20, 4));   // the id reused by a new Ork
+    }
+
+    [Fact]
+    public void Damage_taken_rule_uses_armour_while_the_shield_stands_else_hp()
+    {
+        var b = WarfrontStatBonuses.For([(int)WarfrontCard.MaxHp, (int)WarfrontCard.MaxHp, (int)WarfrontCard.MaxArmor]);
+        Assert.Equal(1f / 1.15f, WarfrontStatBonuses.DamageTaken(50f, b), 4);
+        Assert.Equal(1f / 1.2f, WarfrontStatBonuses.DamageTaken(0f, b), 4);
+        Assert.Equal(1f, WarfrontStatBonuses.DamageTaken(10f, WarfrontStatBonuses.None));
+    }
+
+    [Fact]
+    public void Leaving_clears_the_opening_gap()
+    {
+        var (_, p) = WithPending(2, A);
+        p.TryOpen(A, 100, false, true, 1, false);
+        p.Leave(A);
+        Assert.NotNull(p.TryOpen(A, 101, false, true, 1, false));
     }
 
     // ---- tuning table ---------------------------------------------------------------------------------------------------------------------

@@ -52,15 +52,15 @@ public sealed class WarfrontPicker
     }
 
     /// <summary>
-    /// A selection from <paramref name="key"/>'s client: <paramref name="slot"/> 0 to 3, and optionally the pick index the client believes is standing. Rejects a player with no open offer, an index out of range
+    /// A selection from <paramref name="key"/>'s client: <paramref name="slot"/> 0 to 3, and the pick index the client echoes (required). Rejects a player with no open offer, an index out of range
     /// and a stale pick index; nothing changes on a rejection. A Retainer card is taken like any other; the roster change is the caller's (W9) business, signalled by the returned card.
     /// </summary>
-    public bool TryPick(ulong key, int slot, out WarfrontPickResult result, out string? error, int? expectedPickIndex = null)
+    public bool TryPick(ulong key, int slot, int expectedPickIndex, out WarfrontPickResult result, out string? error)
     {
         result = default; error = null;
         if (!_open.TryGetValue(key, out var offer)) { error = "no open offer"; return false; }
         if (slot < 0 || slot >= offer.Cards.Length) { error = "no such card"; return false; }
-        if (expectedPickIndex is { } want && want != offer.PickIndex) { error = "stale offer"; return false; }
+        if (expectedPickIndex != offer.PickIndex) { error = "stale offer"; return false; }
         return Take(offer, slot, false, out result, out error);
     }
 
@@ -84,7 +84,7 @@ public sealed class WarfrontPicker
     }
 
     /// <summary>The player left (or was removed): the offer and its protection go; the pick stays pending and re-opens identically on return.</summary>
-    public void Leave(ulong key) => _open.Remove(key);
+    public void Leave(ulong key) { _open.Remove(key); _lastOpened.Remove(key); }
 
     public void Clear() { _open.Clear(); _lastOpened.Clear(); }
 }

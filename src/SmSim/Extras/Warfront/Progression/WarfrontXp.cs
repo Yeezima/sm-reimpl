@@ -18,7 +18,7 @@ public enum WarfrontKillClass { Ordinary, Elite, Boss }
 public sealed class WarfrontXpLedger
 {
     readonly WarfrontCampaign _campaign;
-    readonly HashSet<string> _events = new();
+    readonly HashSet<long> _sharedKills = new(), _captures = new();
     readonly List<WarfrontLevelUp> _levelUps = new();
 
     public WarfrontXpLedger(WarfrontCampaign campaign) => _campaign = campaign;
@@ -29,29 +29,29 @@ public sealed class WarfrontXpLedger
     public List<WarfrontLevelUp> Drain() { var l = new List<WarfrontLevelUp>(_levelUps); _levelUps.Clear(); return l; }
 
     /// <summary>Forget the dedupe set (a new battle; event ids are unique within one).</summary>
-    public void ResetEvents() => _events.Clear();
+    public void ResetEvents() { _sharedKills.Clear(); _captures.Clear(); }
 
-    /// <summary>The kill class of an enemy type: Nob, Big Shoota Nob and Scrap Mek are elite; the Warboss and the Boss Orks are boss; everything else ordinary (plan section 5; the Weirdboy stays ordinary [interpretation]).</summary>
+    /// <summary>The kill class of an enemy type: Nob, Big Shoota Nob, Scrap Mek and Weirdboy are elite; the Warboss and the Boss Orks are boss; everything else ordinary (plan section 5; the Weirdboy, a 300-point shielded special, is elite too).</summary>
     public static WarfrontKillClass Classify(MusouEnemyType type) =>
         type == MusouEnemyType.Warboss || MusouBossOrks.Is(type) ? WarfrontKillClass.Boss
-        : type is MusouEnemyType.Nob or MusouEnemyType.BigShootaNob or MusouEnemyType.ScrapMek ? WarfrontKillClass.Elite
+        : type is MusouEnemyType.Nob or MusouEnemyType.BigShootaNob or MusouEnemyType.ScrapMek or MusouEnemyType.Weirdboy ? WarfrontKillClass.Elite
         : WarfrontKillClass.Ordinary;
 
     /// <summary>
-    /// An enemy died. <paramref name="creditedKey"/>: the player who killed it, or the owner of the retainer that did (0 or unknown: nobody). <paramref name="eventId"/> identifies this one death (e.g. battle serial + enemy id).
-    /// Returns the keys paid. A repeated <paramref name="eventId"/> pays nothing.
+    /// An enemy died. <paramref name="creditedKey"/>: the player who killed it, or the owner of the retainer that did (0 or unknown: nobody). <paramref name="eventKey"/> identifies one shared death (e.g. battle number << 16 | enemy id); it is only checked for elite and boss kills, an ordinary kill is reported once by the pool.
+    /// Returns the keys paid. A repeated shared <paramref name="eventKey"/> pays nothing.
     /// </summary>
-    public IReadOnlyList<ulong> Kill(ulong creditedKey, int points, WarfrontKillClass cls, string eventId)
+    public IReadOnlyList<ulong> Kill(ulong creditedKey, int points, WarfrontKillClass cls, long eventKey)
     {
-        if (points <= 0 || !_events.Add("kill:" + eventId)) return [];
+        if (points <= 0) return [];
         if (cls == WarfrontKillClass.Ordinary)
             return _campaign.Player(creditedKey) is not null && Grant(creditedKey, points) ? [creditedKey] : [];
-        return Shared(points);
+        return _sharedKills.Add(eventKey) ? Shared(points) : [];
     }
 
     /// <summary>A capture (A/B/C 400, D 800, HQ stage held 400): every connected player once.</summary>
-    public IReadOnlyList<ulong> Capture(int points, string eventId) =>
-        points > 0 && _events.Add("capture:" + eventId) ? Shared(points) : [];
+    public IReadOnlyList<ulong> Capture(int points, long eventKey) =>
+        points > 0 && _captures.Add(eventKey) ? Shared(points) : [];
 
     List<ulong> Shared(int points)
     {

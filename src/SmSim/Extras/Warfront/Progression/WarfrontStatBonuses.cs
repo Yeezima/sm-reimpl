@@ -46,4 +46,10 @@ public readonly record struct WarfrontStatBonuses(
     /// stretches the shield; a stop-gap the lead can wire through <c>ExtrasDamageTaken</c> until a body-level seam exists.
     /// </summary>
     public float EffectiveDamageTakenScale => 1f / MaxHp;
+
+    /// <summary>
+    /// The pure rule W3b calls from <c>ExtrasDamageTaken</c> (provisional approximation of max HP / max armour cards; bars stay unscaled): while the target's shield is above 0 a hit is scaled by
+    /// 1 / the max-armour multiplier, otherwise by 1 / the max-HP multiplier. Multiply into the scale already there.
+    /// </summary>
+    public static float DamageTaken(float shield, in WarfrontStatBonuses b) => shield > 0f ? 1f / b.MaxArmor : 1f / b.MaxHp;
 }

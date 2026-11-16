@@ -23,17 +23,19 @@ static class WarfrontTuningCommand
         Console.WriteLine($"warfront-tuning: levels 1..{levels}, {humans} human(s); Ork HP x (1 + {WarfrontProgressionRules.OrkHealthPerLevel:0.##}(L-1)) x (1 + {WarfrontProgressionRules.OrkHealthPerExtraHuman:0.##}(humans-1)), damage x (1 + {WarfrontProgressionRules.OrkDamagePerLevel:0.##}(L-1)); estimates.");
         Console.WriteLine("Weapons: spec rows (bolter 22 / 0.133 s, heavy bolter 35 / 0.233 s); TTK in s, 100 % accuracy, no reload; balanced = damage, attack speed, max HP in turn; hits-to-down on 100 health + 100 armour.");
         Console.WriteLine();
-        Console.WriteLine("Level  HP x  Dmg x");
+        Console.WriteLine("Level  HP x (1 human)  HP x (4 humans)  Dmg x");
         var rows = WarfrontTuningTable.Build(levels, humans);
-        foreach (var r in rows) Console.WriteLine(string.Create(inv, $"{r.Level,5}  {r.HpMult,4:0.00}  {r.DmgMult,5:0.00}"));
+        var rows4 = WarfrontTuningTable.Build(levels, 4);
+        for (int i = 0; i < rows.Count; i++) Console.WriteLine(string.Create(inv, $"{rows[i].Level,5}  {WarfrontTuningTable.Build(levels, 1)[i].HpMult,14:0.00}  {rows4[i].HpMult,15:0.00}  {rows[i].DmgMult,5:0.00}"));
         foreach (var ork in WarfrontTuningTable.Orks)
         {
             Console.WriteLine();
-            Console.WriteLine($"{ork.Name}: level | HP | dmg/hit | bolter TTK none / balanced / all-damage | heavy TTK none | hits to down none / balanced");
+            Console.WriteLine($"{ork.Name}: level | HP | dmg/hit | bolter TTK none / balanced / all-damage | heavy TTK none | hits to down none / balanced || the same Ork with 4 humans (HP x1.6 on top)");
             foreach (var r in rows)
             {
                 var o = r.Orks.First(x => x.Type == ork.Type);
-                Console.WriteLine(string.Create(inv, $"  {r.Level,3} | {o.Hp,7:0.#} | {o.Hit,5:0.#} | {o.BolterTtkNone,5:0.00} / {o.BolterTtkBalanced,5:0.00} / {o.BolterTtkDamage,5:0.00} | {o.HeavyTtkNone,5:0.00} | {o.HitsToDownNone,3} / {o.HitsToDownBalanced,3}"));
+                var o4 = rows4[r.Level - 1].Orks.First(x => x.Type == ork.Type);
+                Console.WriteLine(string.Create(inv, $"  {r.Level,3} | {o.Hp,7:0.#} | {o.Hit,5:0.#} | {o.BolterTtkNone,5:0.00} / {o.BolterTtkBalanced,5:0.00} / {o.BolterTtkDamage,5:0.00} | {o.HeavyTtkNone,5:0.00} | {o.HitsToDownNone,3} / {o.HitsToDownBalanced,3} || 4 humans: HP {o4.Hp,7:0.#}, bolter TTK {o4.BolterTtkNone,5:0.00} / {o4.BolterTtkBalanced,5:0.00} / {o4.BolterTtkDamage,5:0.00}, heavy {o4.HeavyTtkNone,5:0.00}"));
             }
         }
         return 0;
