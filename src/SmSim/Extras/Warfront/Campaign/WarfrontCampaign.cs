@@ -96,7 +96,9 @@ public enum WarfrontJoinKind { New, Returning }
 public sealed class WarfrontCampaign
 {
     /// <summary>Local save-format version (W1's WarfrontRules.Version is separate).</summary>
-    public const int SaveVersion = 1;
+    public const int SaveVersion = 2;
+    /// <summary>The first format (no stats ledger); still loads, with an empty ledger.</summary>
+    public const int OldestLoadableVersion = 1;
     public const int Lanes = 3;
     /// <summary>Same cap as Musou's co-op (a test holds them equal).</summary>
     public const int MaxHumans = TfwCoop.MaxHumans;
@@ -116,6 +118,8 @@ public sealed class WarfrontCampaign
     }
 
     public ulong RunSeed { get; }
+    /// <summary>Per-player run stats (W4b), saved in run.json.</summary>
+    public WarfrontStatsLedger Stats { get; private set; } = new();
     public IWarfrontRollSource RollSource { get; set; }
     public WarfrontPhase Phase { get; private set; } = WarfrontPhase.Lobby;
     public bool HqMandatory { get; private set; }
@@ -361,6 +365,7 @@ public sealed class WarfrontCampaign
         public List<WarfrontPlayerState> Players { get; set; } = new();
         public List<WarfrontRollRecord> Rolls { get; set; } = new();
         public List<WarfrontHistoryEntry> History { get; set; } = new();
+        public WarfrontStatsLedger.State? Stats { get; set; }
     }
 
     internal static readonly JsonSerializerOptions Json = new()
@@ -374,12 +379,12 @@ public sealed class WarfrontCampaign
     {
         RunSeed = RunSeed, Phase = Phase, Fronts = (int[])_front.Clone(), Advanced = (bool[])_advanced.Clone(), HqMandatory = HqMandatory,
         Deployments = Deployments, CurrentTarget = CurrentTarget, JoinOrder = new(_joinOrder),
-        Players = _joinOrder.Select(k => _players[k]).ToList(), Rolls = new(_rolls), History = new(_history),
+        Players = _joinOrder.Select(k => _players[k]).ToList(), Rolls = new(_rolls), History = new(_history), Stats = Stats.ToState(),
     };
 
     internal static WarfrontCampaign FromSnapshot(Snapshot s, IWarfrontRollSource? rolls)
     {
-        if (s.Version != SaveVersion) throw new InvalidDataException("unsupported warfront save version " + s.Version);
+        if (s.Version < OldestLoadableVersion || s.Version > SaveVersion) throw new InvalidDataException("unsupported warfront save version " + s.Version);
         if (s.Fronts.Length != Lanes || s.Advanced.Length != Lanes) throw new InvalidDataException("bad lane arrays");
         var c = new WarfrontCampaign(s.RunSeed, rolls) { Phase = s.Phase, HqMandatory = s.HqMandatory, Deployments = s.Deployments, CurrentTarget = s.CurrentTarget };
         for (int l = 0; l < Lanes; l++) { c._front[l] = s.Fronts[l]; c._advanced[l] = s.Advanced[l]; }
@@ -387,6 +392,7 @@ public sealed class WarfrontCampaign
         foreach (var p in s.Players) c._players[p.Key] = p;
         c._rolls.AddRange(s.Rolls);
         c._history.AddRange(s.History);
+        c.Stats = WarfrontStatsLedger.FromState(s.Stats);
         return c;
     }
 
