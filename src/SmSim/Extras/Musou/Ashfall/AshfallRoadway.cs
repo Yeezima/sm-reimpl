@@ -21,7 +21,7 @@ public static class AshfallRoadway
     public static List<AshfallBox> Strips(AshfallLevel level, float margin = Margin, float top = 1000f)
     {
         var list = new List<AshfallBox>();
-        if (level.Layout.PlanOf() is { } plan)
+        if (level.PlanOf() is { } plan)
         {
             // draft 11 and 12: the army corridors and the fortresses' aprons are the roadways (the default plan's: the game loads only that one)
             return FieldStrips(plan, margin, top);

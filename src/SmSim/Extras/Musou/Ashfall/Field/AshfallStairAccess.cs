@@ -145,7 +145,7 @@ public static class AshfallStairAccess
         var auth = new HashSet<int>();
         foreach (var p in d.Placements)
             if (p.Item >= 0 && IsAuthored(p.Group, p.Family, p.Asset)) auth.Add(p.Item);
-        var start = d.Level.Layout.PlanOf() is { } plan ? new Vector2((plan.Assembly[0].Rect.X + plan.Assembly[0].Rect.Z) / 2f, (plan.Assembly[0].Rect.Y + plan.Assembly[0].Rect.W) / 2f) : new Vector2(0f, -150f);
+        var start = d.Level.PlanOf() is { } plan ? new Vector2((plan.Assembly[0].Rect.X + plan.Assembly[0].Rect.Z) / 2f, (plan.Assembly[0].Rect.Y + plan.Assembly[0].Rect.W) / 2f) : new Vector2(0f, -150f);
         return Check(d.Level, d.Dressing, auth.Contains, start);
     }
 

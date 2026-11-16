@@ -22,6 +22,12 @@ public static class AshfallLayouts
         _ => null,
     };
 
+    /// <summary>
+    /// The plan a level's corridors, aprons and assembly areas come from: a front band's own frame, read back from the level (<see cref="AshfallFront.FrameOf"/>: cheap, and right for any seed; review of 2026-11-16), else
+    /// <see cref="PlanOf(AshfallLayout)"/>. The readers of a built level (the roadway strips, the atmosphere's clear ground, the stair-access start) use this.
+    /// </summary>
+    public static AshfallFieldPlan? PlanOf(this AshfallLevel level) => level.Layout.IsFrontBand() ? AshfallFront.FrameOf(level) : level.Layout.PlanOf();
+
     /// <summary>The layout's name in the tools' and the client's switches (<c>--layout</c>, <c>--ashfall-layout</c>).</summary>
     public static AshfallLayout Parse(string? name) => name switch
     {

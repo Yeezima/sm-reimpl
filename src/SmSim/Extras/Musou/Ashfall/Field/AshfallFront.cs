@@ -187,6 +187,24 @@ public static class AshfallFront
         LayoutSeed = seed, DressSeed = 1, SurfaceSeed = 1,
     };
 
+    static readonly System.Runtime.CompilerServices.ConditionalWeakTable<AshfallLevel, AshfallFieldPlan> Frames = new();
+
+    /// <summary>
+    /// The frame plan of a built band level, read back from it (no gate A, no fabric, no draft-10 build: the client calls this on its main thread after a join from the layout cache): the skeleton's lines from the points
+    /// (A at (-F, PointY), B at (0, CrossY)) and the frame's spawn markers (the sixth is the south junction, the seventh the north one), any seed. Its corridors, aprons, assembly areas and protected areas are the band's;
+    /// its fabric is empty and its layout seed the default (neither is read from a built level). Null for a level that is not a front band.
+    /// </summary>
+    public static AshfallFieldPlan? FrameOf(AshfallLevel level)
+    {
+        int band = BandOf(level.Layout);
+        if (band < 0 || level.Points.Count < 3 || level.Spawns.Count < 7) return null;
+        return Frames.GetValue(level, l =>
+        {
+            var k = new Skeleton(band, -1, -l.Points[0].Center.X, l.Spawns[5].Y, l.Points[1].Center.Y, l.Points[0].Center.Y, l.Spawns[6].Y);
+            return FramePlan(AshfallBandProfile.Front[band], k, DefaultSeed) with { Skeleton = k };
+        });
+    }
+
     // ---------------------------------------------------------------- gate A (the empty frame)
 
     /// <summary>

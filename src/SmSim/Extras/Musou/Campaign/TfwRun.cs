@@ -118,6 +118,7 @@ public sealed partial class TfwRun
         _landingSlots.Clear();
         Redeploys = 0;
         Deployed = false;
+        ActiveBand = 0;   // the front pilot: a new run starts on the first band (review of 2026-11-16)
         Wins = 0;
         ActivePosition = null;
         _deployed.Clear();

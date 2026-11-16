@@ -123,7 +123,14 @@ public static partial class AshfallGrime
     /// <summary>Applies the grime to the kit look under <paramref name="root"/> (the map's game space); returns how many ground materials took it. Models that load later get the overlay as they arrive.</summary>
     public static int Apply(Node? root, float quality, bool compat)
     {
-        if (Off || root?.FindChild("KitLook", true, false) is not Node kit) return 0;
+        if (Off || root is null) return 0;
+        int all = 0;
+        foreach (var kit in root.FindChildren("KitLook", "", true, false)) all += ApplyTo(kit, quality, compat);   // the front pilot draws a kit look a band (an option toggle later re-dresses the last one's items only)
+        return all;
+    }
+
+    static int ApplyTo(Node kit, float quality, bool compat)
+    {
         int ground = 0;
         bool darken = Darken;
         if (kit.GetNodeOrNull("Remainder") is { } remainder)

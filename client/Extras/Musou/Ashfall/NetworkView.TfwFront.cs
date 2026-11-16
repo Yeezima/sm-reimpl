@@ -68,16 +68,31 @@ public partial class NetworkView
         }
     }
 
-    /// <summary>Once a frame: the band the player stands in is the one drawn (inside its square and boundary; anywhere else, in the Stormbird or the Firing Range, the last band stays).</summary>
+    /// <summary>
+    /// Once a frame: the band the player stands in is the one drawn (inside its square and boundary). Anywhere else (the Stormbird, the Firing Range, the flight between) and whenever the camera is aboard the Stormbird, no band
+    /// is drawn: a band's outside ground and its neighbours' copies reach 1.2 km and would bury the hub (south of the composed world) and the range (east of it). Review of 2026-11-16.
+    /// </summary>
     void TfwFrontFrame(PlayerState me)
     {
         if (_frontBands is null) return;
-        var at = _client?.Predicted.Position ?? me.Position;
-        int band = AshfallFront.BandAt(at.X);
-        if (System.MathF.Abs(at.X - AshfallFront.OffsetOf(band)) > AshfallMap.Half + 20f || System.MathF.Abs(at.Y) > AshfallMap.Half + 20f || band == _frontActive) return;
+        int band = FrontBandShown(_client?.Predicted.Position ?? me.Position, _camera is null ? null : new System.Numerics.Vector3(_camera.GlobalPosition.X, -_camera.GlobalPosition.Z, _camera.GlobalPosition.Y));
+        if (band == _frontActive) return;
         for (int k = 0; k < _frontBands.Length; k++) if (IsInstanceValid(_frontBands[k])) _frontBands[k].Visible = k == band;
-        if (_frontStorm is not null && IsInstanceValid(_frontStorm)) _frontStorm.Position = new Vector3(AshfallFront.OffsetOf(band), 0f, 0f);
+        if (_frontStorm is not null && IsInstanceValid(_frontStorm))
+        {
+            _frontStorm.Visible = band >= 0;
+            if (band >= 0) _frontStorm.Position = new Vector3(AshfallFront.OffsetOf(band), 0f, 0f);
+        }
         _frontActive = band;
-        GD.Print($"ashfall front: band {band} ({AshfallBandProfile.Front[band].Name}) shown");
+        GD.Print(band >= 0 ? $"ashfall front: band {band} ({AshfallBandProfile.Front[band].Name}) shown" : "ashfall front: no band shown (outside every band: the Stormbird, the Firing Range or the flight)");
+    }
+
+    /// <summary>The band to draw for a player at <paramref name="at"/> with the camera at <paramref name="camera"/> (game space): the band whose square holds the player, or -1 outside every square or with the camera in the Stormbird.</summary>
+    internal int FrontBandShown(System.Numerics.Vector3 at, System.Numerics.Vector3? camera)
+    {
+        if (camera is { } cam && TfwHub is { } hub && hub.Contains(cam)) return -1;
+        int band = AshfallFront.BandAt(at.X);
+        bool inside = System.MathF.Abs(at.X - AshfallFront.OffsetOf(band)) <= AshfallMap.Half + 20f && System.MathF.Abs(at.Y) <= AshfallMap.Half + 20f;
+        return inside ? band : -1;
     }
 }

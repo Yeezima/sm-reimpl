@@ -14,9 +14,31 @@ namespace SmNet.Tests.Extras.Musou.Ashfall;
 /// </summary>
 public class AshfallFrontWorldTests(ITestOutputHelper output)
 {
+    [Fact]
+    [Trait("Speed", "Slow")]   // builds the default bands (cached in the process) and one other seed's wasteland
+    public void A_built_bands_frame_is_read_back_from_the_level_for_any_seed()
+    {
+        // review of 2026-11-16: the readers of a built level (roadways, the storm's clear ground, the stair-access start) take the band's own frame from the level, not the default seed's plan
+        var cases = Enumerable.Range(0, 3).Select(b => (AshfallMap.BuildFrontBand(b).Level, AshfallFront.Default(b))).ToList();
+        var other = AshfallFront.Plan(0, 2u);   // seed 2's wasteland took gate A retries: other lines than the default's
+        cases.Add((AshfallMap.BuildFrontFrom(other).Level, other));
+        foreach (var (level, plan) in cases)
+        {
+            var frame = level.PlanOf()!;
+            Assert.Same(frame, level.PlanOf());   // read once, kept
+            Assert.Equal(plan.Skeleton! with { Attempt = -1 }, frame.Skeleton);
+            Assert.Equal(plan.Corridors, frame.Corridors);
+            Assert.Equal(plan.Assembly, frame.Assembly);
+            Assert.Equal(plan.Aprons, frame.Aprons);
+        }
+        Assert.NotEqual(cases[0].Item2.Corridors, cases[3].Item2.Corridors);
+        Assert.Null(AshfallMap.BuildDraft5(AshfallLayout.Heights).Level.PlanOf()!.Skeleton);   // other layouts: their plan as before
+    }
+
     // ---------------------------------------------------------------- the composed world and the run's bands (F2)
 
     [Fact]
+    [Trait("Speed", "Slow")]   // the three bands and the composed world (about a minute and a half on a cold build)
     public void Tfw_war_front_composes_the_three_bands_side_by_side_and_the_run_fights_each_node_on_its_band()
     {
         Assert.Equal(AshfallLayout.Front, TfwMap.LayoutOf(TfwMap.FrontName));

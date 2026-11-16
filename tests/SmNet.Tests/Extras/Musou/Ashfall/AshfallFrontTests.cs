@@ -47,6 +47,7 @@ public class AshfallFrontTests(ITestOutputHelper output)
     // ---------------------------------------------------------------- gate A and the fabric
 
     [Theory, MemberData(nameof(Seeds))]
+    [Trait("Speed", "Slow")]   // fifteen plans with gate A (about a minute and a half)
     public void Every_band_passes_gate_A_and_its_fabric_keeps_off_the_routes_points_and_protected_areas(uint seed)
     {
         for (int band = 0; band < AshfallFront.BandCount; band++)
@@ -104,6 +105,7 @@ public class AshfallFrontTests(ITestOutputHelper output)
     // ---------------------------------------------------------------- gate B (the final collision)
 
     [Theory, MemberData(nameof(Seeds))]
+    [Trait("Speed", "Slow")]   // fifteen kit passes with gate B (several minutes)
     public void Every_band_passes_gate_B_on_its_final_collision(uint seed)
     {
         for (int band = 0; band < AshfallFront.BandCount; band++)
@@ -125,9 +127,24 @@ public class AshfallFrontTests(ITestOutputHelper output)
         }
     }
 
+    [Fact]
+    [Trait("Speed", "Slow")]   // one kit pass and up to eight rounds of the battlefield measure (about a minute)
+    public void Gate_B_stops_the_build_naming_the_rule_it_cannot_meet()
+    {
+        // An impossible formation rule (nine approaches a point) on the wasteland's plan: gate A is not asked again, the kit pass runs, gate B removes at the pinch points round after round, then fails naming the rule.
+        var plan = AshfallFront.Default(0);
+        var bad = plan with { Params = plan.Params with { ApproachCount = 9 } };
+        var e = Assert.Throws<AshfallGateException>(() => AshfallMap.BuildFrontFrom(bad));
+        output.WriteLine(e.Message);
+        Assert.Contains("gate B (the final collision) failed", e.Message);
+        Assert.Contains("distinct formation-capable approaches", e.Message);
+        Assert.Contains("front band 0", e.Message);
+    }
+
     // ---------------------------------------------------------------- pins, determinism, today's maps untouched
 
     [Fact]
+    [Trait("Speed", "Slow")]   // three bands built twice (about two and a half minutes)
     public void The_default_bands_are_deterministic_and_pinned_and_draft_13_stays_the_default()
     {
         for (int band = 0; band < AshfallFront.BandCount; band++)
