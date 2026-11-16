@@ -1,4 +1,5 @@
 using System.Numerics;
+using SmSim.Extras.Musou;
 using SmSim.Extras.Musou.Campaign;
 
 namespace SmSim.Extras.Warfront.Squad;
@@ -31,7 +32,14 @@ public sealed partial class WarfrontSquadSim
     readonly bool[] _ownerSeen = new bool[SquadRules.MaxOwners], _ownerAir = new bool[SquadRules.MaxOwners], _ownerPound = new bool[SquadRules.MaxOwners];
     readonly List<SquadPoundImpact> _impacts = [];
     readonly ushort[] _blast = new ushort[SquadClassRules.BlastMax];
-    int _routeBudget;
+    // one route search per squad per second at most, its answer (the first jump link's far side, or none) kept until the owner has moved PathMoved
+    readonly uint[] _routeTick = new uint[SquadRules.MaxOwners];
+    readonly bool[] _routeKept = new bool[SquadRules.MaxOwners];
+    readonly Vector3[] _routeOwner = new Vector3[SquadRules.MaxOwners];
+    readonly Vector3?[] _routeFar = new Vector3?[SquadRules.MaxOwners];
+
+    /// <summary>Route searches made so far (the bench and the tests count them).</summary>
+    public int RouteSearches { get; private set; }
 
     /// <summary>The route search with jump links (optional): lets an Assault/Raptor follow by a jump link the walking path stops at.</summary>
     public ISquadJumpArena? JumpArena { get; set; }
@@ -54,12 +62,13 @@ public sealed partial class WarfrontSquadSim
     {
         a.Air = a.Pending = a.Pound = a.PoundOnLand = false; a.Walk = null; a.RecoverLeft = 0; a.SinceHit = 1e6f; a.FiredAt = 0;
         a.Fuel = a.Marine.Loadout.Jump?.MaxPower ?? 0f;
+        _routeKept[a.OwnerSlot] = false;
     }
 
     void ClassReset()
     {
         foreach (var a in _a) { a.Air = a.Pending = a.Pound = a.PoundOnLand = false; a.Walk = null; a.RecoverLeft = 0; }
-        Array.Clear(_ownerSeen); Array.Clear(_ownerAir); Array.Clear(_ownerPound);
+        Array.Clear(_ownerSeen); Array.Clear(_ownerAir); Array.Clear(_ownerPound); Array.Clear(_routeKept);
         _impacts.Clear();
     }
 
@@ -74,7 +83,6 @@ public sealed partial class WarfrontSquadSim
     void ClassTick(ReadOnlySpan<SquadHuman> humans)
     {
         _impacts.Clear();
-        _routeBudget = SquadClassRules.RoutesPerTick;
         float dt = Dt;
         for (int os = 0; os < SquadRules.MaxOwners; os++)
         {
@@ -136,7 +144,13 @@ public sealed partial class WarfrontSquadSim
         a.Fuel = MathF.Max(0f, a.Fuel - cost);
         var d = to - a.Pos;
         if (Flat(d) > 0.01f) a.Yaw = MathF.Atan2(d.Y, d.X);
+        // a roof over the middle of the flight (the HQ's tunnels are 8 m clear): a low arc instead of the full height
+        var mid = Vector3.Lerp(a.Pos, to, 0.5f);
+        if (a.Apex > SquadClassRules.RoofedApex && !_arena.HasSight(mid, mid + new Vector3(0f, 0f, a.Apex))) a.Apex = SquadClassRules.RoofedApex;
     }
+
+    /// <summary>The ticks the view's <c>Firing</c> flag is held after a round (<see cref="SquadClassRules.FireHold"/>).</summary>
+    int FireHoldTicks => Math.Max(1, (int)MathF.Ceiling(SquadClassRules.FireHold * _arena.TickRate - 1e-4f));
 
     void StepFlight(int i, SquadJump j)
     {
@@ -168,9 +182,10 @@ public sealed partial class WarfrontSquadSim
                 if (!_arena.TryEnemy(id, out var pos, out var kind)) continue;
                 var away = new Vector3(pos.X - a.Pos.X, pos.Y - a.Pos.Y, 0f);
                 var push = away.LengthSquared() > 1e-6f ? Vector3.Normalize(away) : Vector3.Zero;
-                if (!_arena.DamageEnemy(id, j.PoundDamage * _damageScale[a.OwnerSlot], push, out bool killed)) continue;
+                MusouEnemyType? type = _arena.TryEnemyType(id, out var et) ? et : null;
+                if (!_arena.DamageEnemy(id, j.PoundDamage * _damageScale[a.OwnerSlot] * SquadRules.DamageDealt, push, out bool killed)) continue;
                 hits++;
-                if (killed) Killed(i, id, kind); else Note(id, i);
+                if (killed) Killed(i, id, kind, type); else Note(id, i);
             }
         }
         _impacts.Add(new SquadPoundImpact(a.Key, a.Slot, i, a.Pos, _tick, hits));
@@ -191,26 +206,40 @@ public sealed partial class WarfrontSquadSim
         Vector3 floor = Snap(ownerPos);
         var home = floor + Ring(a.Slot, MarineRules.FollowStandNear + a.Slot % 3, 0f);
         // the place it wants: its own spot by the owner, else as far as the pack flies toward it
-        if (!TryLanding(i, a.Pos, home, j, out var land))
+        bool found = TryLanding(i, a.Pos, home, j, out var land);
+        if (!found)
         {
             var toward = home - a.Pos; float len = Flat(toward);
-            if (len > 0.01f && !TryLanding(i, a.Pos, a.Pos + new Vector3(toward.X, toward.Y, 0f) / len * (j.Range * 0.9f), j, out land)) land = default;
+            found = len > 0.01f && TryLanding(i, a.Pos, a.Pos + new Vector3(toward.X, toward.Y, 0f) / len * (j.Range * 0.9f), j, out land);
         }
-        if (land == default && JumpArena is not null && _routeBudget > 0)
-        {
-            _routeBudget--;
-            // the walk stops at a jump link: leap to the first one's far side
-            if (JumpArena.FindRoute(a.Pos, ownerPos) is { } route)
-                foreach (var step in route)
-                    if (step.Jump) { if (!TryLanding(i, a.Pos, step.Position, j, out land)) land = default; break; }
-        }
-        if (land == default) return false;
+        // the walk stops at a jump link: leap to the first one's far side (one search a second per squad, kept until the owner moves)
+        if (!found && RouteFar(os, a.Pos, ownerPos) is { } linkFar) found = TryLanding(i, a.Pos, linkFar, j, out land);
+        if (!found) return false;
         float d = Flat(land - a.Pos);
         float share = Math.Clamp(d / j.Range, SquadClassRules.MinCostShare, 1f);
         float cost = j.FullCost * share;
         if (a.Fuel < cost - 1e-3f) return false;
         Launch(i, land, j.Height * share, FlightTicksOf(j, d, false), cost, false);
         return true;
+    }
+
+    /// <summary>
+    /// The far side of the first jump or drop link on the route from the squad's walk to the owner, or null (no link, no route, or no <see cref="JumpArena"/>). A squad searches at most once a second, and
+    /// keeps the answer (a failed search too) until the owner has moved <see cref="SquadRules.PathMoved"/> m, the rule the walking path uses.
+    /// </summary>
+    Vector3? RouteFar(int os, Vector3 from, Vector3 ownerPos)
+    {
+        if (JumpArena is null) return null;
+        bool moved = !_routeKept[os] || Flat(ownerPos - _routeOwner[os]) > SquadRules.PathMoved;
+        bool due = !_routeKept[os] || (int)(_tick - _routeTick[os]) >= _arena.TickRate;
+        if (moved && due)
+        {
+            _routeKept[os] = true; _routeTick[os] = _tick; _routeOwner[os] = ownerPos; _routeFar[os] = null;
+            RouteSearches++;
+            if (JumpArena.FindRoute(from, ownerPos) is { } route)
+                foreach (var step in route) if (step.Jump) { _routeFar[os] = step.Position; break; }
+        }
+        return _routeFar[os];
     }
 
     /// <summary>

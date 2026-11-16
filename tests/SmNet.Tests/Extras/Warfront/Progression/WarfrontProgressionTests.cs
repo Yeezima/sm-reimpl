@@ -279,17 +279,14 @@ public class WarfrontProgressionTests
     }
 
     [Fact]
-    public void Spawn_scale_is_fixed_until_the_id_spawns_again()
+    public void The_level_scale_is_the_level_part_alone_and_the_humans_factor_stays_with_the_battle()
     {
-        var t = new WarfrontOrkScaleTracker();
-        var first = t.OnSpawn(1, 3, 1);
-        var second = t.OnSpawn(2, 10, 2);   // a later spawn, the party has levelled
-        Assert.NotEqual(first, second);
-        Assert.Equal(WarfrontOrkScaling.For(3, 1), t.Of(1));   // nothing but a spawn writes: it stays
-        Assert.Equal(WarfrontOrkScaling.For(20, 4), t.OnSpawn(1, 20, 4));   // pool ids are reused: a new spawn of the id overwrites
-        Assert.Equal(WarfrontOrkScaling.For(20, 4), t.Of(1));
-        t.OnRemove(1);
-        Assert.Equal(WarfrontOrkScale.One, t.Of(1));
+        Assert.Equal(WarfrontOrkScale.One, WarfrontOrkScaling.LevelScale(1));
+        var l5 = WarfrontOrkScaling.LevelScale(5);
+        Assert.Equal(WarfrontOrkScaling.For(5, 1), l5);
+        Assert.Equal(1.32f, l5.Health, 3);
+        Assert.Equal(WarfrontOrkScaling.For(5, 4).Damage, l5.Damage);
+        Assert.Equal(1.6f * l5.Health, WarfrontOrkScaling.For(5, 4).Health, 4);   // For() is the level part times the humans' (the tuning table); the battle reads the two apart
     }
 
     [Fact]

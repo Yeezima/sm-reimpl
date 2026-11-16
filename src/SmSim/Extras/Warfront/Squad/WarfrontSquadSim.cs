@@ -209,8 +209,9 @@ public sealed partial class WarfrontSquadSim
         if (index is < 0 or >= Max || _a[index].State == SquadState.Free) return null;
         var a = _a[index];
         return new SquadMarineView(index, a.Key, a.Slot, a.State, a.Pos, a.Yaw, a.HealthMax > 0 ? Math.Clamp(a.Health / a.HealthMax, 0f, 1f) : 0f, a.State == SquadState.Downed ? a.DownedLeft * Dt : 0f,
-            a.FiredAt == _tick && _tick != 0, a.Target != 0 ? a.Target : -1,
-            a.State == SquadState.Downed ? Math.Clamp(a.ReviveProgress / (a.ReviverHuman >= 0 ? SquadRules.PlayerReviveSeconds : SquadRules.MarineReviveSeconds), 0f, 1f) : 0f);
+            a.FiredAt != 0 && _tick >= a.FiredAt && _tick - a.FiredAt < (uint)FireHoldTicks, a.Target != 0 ? a.Target : -1,
+            a.State == SquadState.Downed ? Math.Clamp(a.ReviveProgress / (a.ReviverHuman >= 0 ? SquadRules.PlayerReviveSeconds : SquadRules.MarineReviveSeconds), 0f, 1f) : 0f,
+            a.Air);
     }
 
     /// <summary>Every Marine in this battle as the wire shows it, in index order; the number written.</summary>
@@ -465,20 +466,21 @@ public sealed partial class WarfrontSquadSim
         a.FiredAt = _tick;   // W11 addition: the wire's Firing flag
         if (Roll(_tick, i, 1) >= w.HitChance) return;
         var push = Flat(to) > 0.01f ? Vector3.Normalize(new Vector3(to.X, to.Y, 0f)) : Vector3.Zero;
-        float amount = w.Damage * _damageScale[os];
+        float amount = w.Damage * _damageScale[os] * SquadRules.DamageDealt;
+        MusouEnemyType? type = _arena.TryEnemyType(a.Target, out var et) ? et : null;
         if (!_arena.DamageEnemy(a.Target, amount, push, out bool killed)) return;
-        if (killed) Killed(i, a.Target, kind);
+        if (killed) Killed(i, a.Target, kind, type);
         else Note(a.Target, i);
         if (killed) a.Target = 0;
     }
 
-    void Killed(int i, ushort enemy, SquadEnemyClass kind)
+    void Killed(int i, ushort enemy, SquadEnemyClass kind, MusouEnemyType? type = null)
     {
         var a = _a[i];
         var r = a.Marine.Record;
         r.Kills++;
         if (kind == SquadEnemyClass.Elite) r.EliteKills++; else if (kind == SquadEnemyClass.Boss) r.BossKills++;
-        _kills.Add(new SquadKill(a.Key, a.Slot, enemy, kind));
+        _kills.Add(new SquadKill(a.Key, a.Slot, enemy, kind, type));
         PayAssists(enemy, i);
     }
 

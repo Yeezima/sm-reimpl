@@ -132,6 +132,9 @@ public sealed partial class MusouSim
     /// <summary>Warfront: an enemy took slot <paramref name="id"/>; its damage multiplier is remembered.</summary>
     partial void WarfrontSpawned(ushort id);
 
+    /// <summary>Warfront: a hit by <paramref name="attacker"/> (a player id; 0 for none) on the enemy <paramref name="enemy"/>, before it is applied (the assists' record).</summary>
+    partial void WarfrontDamaged(ushort enemy, int attacker);
+
     /// <summary>
     /// <see cref="Spawn"/> for a leashed defender (Musou Mode, design section D): it stands at home until a target comes within <paramref name="aggro"/> metres of that home
     /// (flat), goes back when none is, and is free for good once any member of <paramref name="group"/> (above 0) is hurt or <see cref="ReleaseGroup"/> is called. Its id, or 0 as
@@ -193,6 +196,7 @@ public sealed partial class MusouSim
         int i = id - 1;
         if (i < 0 || i >= Capacity || !_used[i] || _state[i] == MusouEnemyState.Dying || !(amount > 0f)) return false;
         amount *= AttackerScale(attacker, cause);   // the powerups' damage (Double Damage, Supercharged Melee; MusouSim.Powerups.cs)
+        WarfrontDamaged(id, attacker);   // WARFRONT-HOOK
         if (_type[i] == MusouEnemyType.BombSquig && cause != MusouDeathKind.World) amount = MathF.Max(amount, _health[i]);   // expansion S2: any hit sets a Squig off (MusouSim.Squig.cs)
         if (MekDemo && _type[i] == MusouEnemyType.ScrapMek) return false;   // expansion S4's capture aid only (MusouSim.Mek.cs)
         if (_shield[i] > 0f && ShieldTakes(i, attacker, amount, cause)) return true;   // the Weirdboy's shield (MusouSim.Weirdboy.cs)

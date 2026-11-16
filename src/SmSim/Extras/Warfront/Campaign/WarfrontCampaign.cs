@@ -82,6 +82,10 @@ public sealed class WarfrontPlayerState
     [JsonInclude] public List<int> Cards { get; internal set; } = new();
     [JsonInclude] public List<WarfrontRetainerRecord> Squad { get; internal set; } = new();
     [JsonInclude] public bool JoinGrantApplied { get; internal set; }
+    /// <summary>W12: the number of completed deployments when this key first joined (0: a founder who joined before the first battle).</summary>
+    [JsonInclude] public int JoinedAtDeployment { get; internal set; }
+    /// <summary>W12: the key has confirmed its class through the customizer (or the 90 s gate confirmed it). True for a founder and for every key of a save older than version 3 (the default; a missing field keeps it).</summary>
+    [JsonInclude] public bool ClassConfirmed { get; internal set; } = true;
 
     /// <summary>Level-ups earned and not yet picked (one pick per level above 1).</summary>
     public int PendingPicks => Math.Max(0, Level - 1 - PicksTaken);
@@ -96,8 +100,8 @@ public enum WarfrontJoinKind { New, Returning }
 public sealed class WarfrontCampaign
 {
     /// <summary>Local save-format version (W1's WarfrontRules.Version is separate).</summary>
-    public const int SaveVersion = 2;
-    /// <summary>The first format (no stats ledger); still loads, with an empty ledger.</summary>
+    public const int SaveVersion = 4;
+    /// <summary>The first format (no stats ledger); still loads, with an empty ledger. Version 2 (no co-op fields) loads too, every key with <c>ClassConfirmed</c> true.</summary>
     public const int OldestLoadableVersion = 1;
     public const int Lanes = 3;
     /// <summary>Same cap as Musou's co-op (a test holds them equal).</summary>
@@ -135,6 +139,8 @@ public sealed class WarfrontCampaign
     public IReadOnlyCollection<WarfrontPlayerState> Players => _players.Values;
     public WarfrontPlayerState? Player(ulong key) => _players.GetValueOrDefault(key);
     public bool IsConnected(ulong key) => _connected.Contains(key);
+    /// <summary>W12: the run's first deployment has begun (one is finished, or one is in Travel or Battle): a first-time key that joins from now on must confirm its class and take its catch-up cards before the squad deploys.</summary>
+    public bool FirstDeploymentBegun => Deployments > 0 || Phase is WarfrontPhase.Travel or WarfrontPhase.Battle;
     public bool IsOver => Phase is WarfrontPhase.Won or WarfrontPhase.Lost;
 
     /// <summary>Lobby to the ship. Does nothing in any other phase.</summary>
@@ -162,7 +168,7 @@ public sealed class WarfrontCampaign
         }
         else
         {
-            _players[key] = new WarfrontPlayerState { Key = key, Name = name ?? "" };
+            _players[key] = new WarfrontPlayerState { Key = key, Name = name ?? "", JoinedAtDeployment = Deployments, ClassConfirmed = !FirstDeploymentBegun };
             _joinOrder.Add(key);
         }
         _connected.Add(key);
@@ -176,12 +182,19 @@ public sealed class WarfrontCampaign
     /// interpretation), the mean of the two middle values rounded down when even, never lowering the player's own XP. Returns whether XP changed; a second call is a no-op.
     /// A run's first player has nobody to catch up to: the flag is set and nothing is granted.
     /// </summary>
-    public bool ApplyJoinGrant(ulong key)
+    public bool ApplyJoinGrant(ulong key) => ApplyJoinGrant(key, null);
+
+    /// <summary>
+    /// <see cref="ApplyJoinGrant(ulong)"/> with <paramref name="ignore"/>: keys left out of the median (W12: the other joiners whose own grant is still pending at the same ship stop, so one stop's grants
+    /// all read the same figures whatever their order).
+    /// </summary>
+    public bool ApplyJoinGrant(ulong key, ICollection<ulong>? ignore)
     {
         if (!_players.TryGetValue(key, out var p) || p.JoinGrantApplied) return false;
         p.JoinGrantApplied = true;
-        var others = _players.Values.Where(o => o.Key != key && _connected.Contains(o.Key)).ToList();
-        if (others.Count == 0) others = _players.Values.Where(o => o.Key != key).ToList();
+        bool Counts(WarfrontPlayerState o) => o.Key != key && ignore?.Contains(o.Key) != true;
+        var others = _players.Values.Where(o => Counts(o) && _connected.Contains(o.Key)).ToList();
+        if (others.Count == 0) others = _players.Values.Where(Counts).ToList();
         if (others.Count == 0) return false;
         long median = MedianXp(others);
         if (median <= p.Xp) return false;
@@ -389,7 +402,11 @@ public sealed class WarfrontCampaign
         var c = new WarfrontCampaign(s.RunSeed, rolls) { Phase = s.Phase, HqMandatory = s.HqMandatory, Deployments = s.Deployments, CurrentTarget = s.CurrentTarget };
         for (int l = 0; l < Lanes; l++) { c._front[l] = s.Fronts[l]; c._advanced[l] = s.Advanced[l]; }
         foreach (var k in s.JoinOrder) c._joinOrder.Add(k);
-        foreach (var p in s.Players) c._players[p.Key] = p;
+        foreach (var p in s.Players)
+        {
+            if (s.Version < 4) p.ClassConfirmed = true;   // saves before version 4 know no gate: nobody is asked again
+            c._players[p.Key] = p;
+        }
         c._rolls.AddRange(s.Rolls);
         c._history.AddRange(s.History);
         c.Stats = WarfrontStatsLedger.FromState(s.Stats);

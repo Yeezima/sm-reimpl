@@ -1,0 +1,157 @@
+using Godot;
+using SmClient.Customizer;
+using SmSim.Extras.Warfront.Progression;
+
+namespace SmClient.Extras.Warfront.Progression;
+
+/// <summary>
+/// The card picker (slice W8; brief "Behaviour" 3 to 5): four cards in a row over a dimmed field, shown while the model's offer stands and hidden when it closes. Each card: its slot number, name, one line of effect
+/// and how many are already owned; a countdown bar from the wire's seconds left, "CARD 1 IS TAKEN WHEN THE TIME RUNS OUT" and "YOU CANNOT BE HARMED WHILE CHOOSING" (the protection is the server's; the client does not
+/// block its own input, the server drops it). Input: keys 1 to 4 pick at once (the panel marks them handled, so they do not also switch weapons here); D-pad left and right move the highlight, D-pad down or A
+/// takes it, D-pad up does nothing; a click on a card picks it. Text styles: heading 28 and body 20, every label live, boxes and bars drawn with crisp equal frames. Laid out in the 1920 by 1080 space, ours.
+/// </summary>
+public sealed partial class WarfrontPickerPanel : Control
+{
+    public const int HeadingSize = 28, BodySize = 20;
+    public const float Left = 164f, CardWidth = 380f, CardHeight = 300f, CardGap = 24f, CardTop = 310f, HeaderTop = 250f;
+    public const float BarTop = 640f, BarHeight = 16f, NotesTop = 676f, NoteStep = 34f;
+    public static float CardLeft(int i) => Left + i * (CardWidth + CardGap);
+    public static float RowWidth => 4 * CardWidth + 3 * CardGap;
+
+    readonly WarfrontProgressModel _model;
+    readonly Label _header, _timeout, _protected, _hint, _seconds;
+    readonly Label[] _slot = new Label[4], _name = new Label[4], _effect = new Label[4], _owned = new Label[4];
+    readonly Control[] _hit = new Control[4];
+    readonly Draw _draw;
+
+    public WarfrontProgressModel Model => _model;
+    public Label HeaderLabel => _header;
+    public Label SlotLabel(int i) => _slot[i];
+    public Label NameLabel(int i) => _name[i];
+    public Label EffectLabel(int i) => _effect[i];
+    public Label OwnedLabel(int i) => _owned[i];
+    public Control CardHit(int i) => _hit[i];
+    public Label TimeoutLabel => _timeout;
+    public Label ProtectedLabel => _protected;
+
+    public System.Collections.Generic.IEnumerable<Label> Labels()
+    {
+        foreach (var n in GetChildren()) if (n is Label l) yield return l;
+    }
+
+    sealed partial class Draw : Control
+    {
+        readonly WarfrontProgressModel _m;
+        public Draw(WarfrontProgressModel m) { _m = m; Name = "WarfrontPickerDraw"; MouseFilter = MouseFilterEnum.Ignore; }
+
+        public override void _Draw()
+        {
+            for (int i = 0; i < 4; i++)
+            {
+                var box = new Rect2(CardLeft(i), CardTop, CardWidth, CardHeight);
+                bool hi = _m.Highlight == i;
+                bool sent = _m.Sent == i;
+                DrawRect(box, hi ? new Color(WarfrontProgressDraw.Gold, 0.22f) : new Color(1f, 1f, 1f, 0.07f));
+                WarfrontProgressDraw.Frame(this, box, 2f, hi || sent ? WarfrontProgressDraw.Gold : new Color(1f, 1f, 1f, 0.8f));
+            }
+            WarfrontProgressDraw.Bar(this, new Rect2(Left, BarTop, RowWidth, BarHeight), _m.TimeFraction, WarfrontProgressDraw.Gold);
+        }
+    }
+
+    public WarfrontPickerPanel(WarfrontProgressModel model)
+    {
+        Name = "WarfrontPickerPanel";
+        _model = model;
+        SetAnchorsPreset(LayoutPreset.FullRect);
+        MouseFilter = MouseFilterEnum.Ignore;
+        Visible = false;
+        var dim = new ColorRect { Name = "WarfrontPickerDim", Color = new Color(0f, 0f, 0f, 0.6f), MouseFilter = MouseFilterEnum.Ignore };
+        dim.SetAnchorsPreset(LayoutPreset.FullRect);
+        AddChild(dim);
+        _draw = new Draw(model);
+        _draw.SetAnchorsPreset(LayoutPreset.FullRect);
+        AddChild(_draw);
+
+        var white = UiKit.White;
+        _header = WarfrontProgressDraw.Text(this, "WarfrontPickerHeader", Left, HeaderTop, 900f, HeadingSize, white);
+        for (int i = 0; i < 4; i++)
+        {
+            int slot = i;
+            float x = CardLeft(i) + 20f, w = CardWidth - 40f;
+            _slot[i] = WarfrontProgressDraw.Text(this, "WarfrontPickerSlot" + i, x, CardTop + 16f, w, HeadingSize, WarfrontProgressDraw.Gold);
+            _name[i] = WarfrontProgressDraw.Text(this, "WarfrontPickerName" + i, x, CardTop + 64f, w, HeadingSize, white);
+            _effect[i] = WarfrontProgressDraw.Text(this, "WarfrontPickerEffect" + i, x, CardTop + 124f, w, BodySize, white, lines: 2);
+            _owned[i] = WarfrontProgressDraw.Text(this, "WarfrontPickerOwned" + i, x, CardTop + CardHeight - 44f, w, BodySize);
+            var hit = new Control { Name = "WarfrontPickerHit" + i, MouseFilter = MouseFilterEnum.Stop, MouseDefaultCursorShape = CursorShape.PointingHand };
+            hit.SetAnchorsPreset(LayoutPreset.TopLeft);
+            hit.Position = new Vector2(CardLeft(i), CardTop);
+            hit.Size = new Vector2(CardWidth, CardHeight);
+            hit.MouseEntered += () => _model.SetHighlight(slot);
+            hit.GuiInput += e => { if (e is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left }) _model.Pick(slot); };
+            AddChild(hit);
+            _hit[i] = hit;
+        }
+        _timeout = WarfrontProgressDraw.Text(this, "WarfrontPickerTimeout", Left, NotesTop, 900f, BodySize);
+        _protected = WarfrontProgressDraw.Text(this, "WarfrontPickerProtected", Left, NotesTop + NoteStep, 900f, BodySize);
+        _hint = WarfrontProgressDraw.Text(this, "WarfrontPickerHint", Left, NotesTop + 2 * NoteStep, 1200f, BodySize);
+        _seconds = WarfrontProgressDraw.Text(this, "WarfrontPickerSeconds", Left + RowWidth - 140f, HeaderTop, 140f, HeadingSize, white, HorizontalAlignment.Right);
+        _timeout.Text = WarfrontProgressModel.TimeoutNote;
+        _protected.Text = WarfrontProgressModel.ProtectedNote;
+        _hint.Text = WarfrontProgressModel.HintNote;
+        model.Changed += Refresh;
+        TreeExited += () => model.Changed -= Refresh;
+        Refresh();
+    }
+
+    public void Refresh()
+    {
+        var m = _model;
+        if (Visible != m.OfferOpen) Visible = m.OfferOpen;
+        if (!m.OfferOpen) return;
+        WarfrontProgressDraw.Set(_header, m.Header);
+        for (int i = 0; i < 4; i++)
+        {
+            var c = m.Cards[i];
+            WarfrontProgressDraw.Set(_slot[i], (i + 1).ToString());
+            WarfrontProgressDraw.Set(_name[i], WarfrontProgressModel.CardName(c));
+            WarfrontProgressDraw.Set(_effect[i], WarfrontProgressModel.CardEffect(c) + '\n' + m.CardTotal(c));
+            WarfrontProgressDraw.Set(_owned[i], m.OwnedText(c));
+        }
+        _draw.QueueRedraw();
+    }
+
+    public override void _Process(double delta)
+    {
+        if (!Visible) return;
+        _draw.QueueRedraw();
+        WarfrontProgressDraw.Set(_seconds, Mathf.CeilToInt(_model.SecondsLeft) + " S");
+    }
+
+    /// <summary>Keys 1 to 4 and the D-pad while the offer stands; everything the panel uses is marked handled.</summary>
+    public override void _Input(InputEvent e)
+    {
+        if (!Visible || !_model.OfferOpen) return;
+        switch (e)
+        {
+            case InputEventKey { Pressed: true } k:
+            {
+                int slot = k.PhysicalKeycode switch { Key.Key1 or Key.Kp1 => 0, Key.Key2 or Key.Kp2 => 1, Key.Key3 or Key.Kp3 => 2, Key.Key4 or Key.Kp4 => 3, _ => -1 };
+                if (slot < 0) return;
+                if (!k.Echo) _model.Pick(slot);
+                GetViewport().SetInputAsHandled();
+                break;
+            }
+            case InputEventJoypadButton { Pressed: true } b:
+                switch (b.ButtonIndex)
+                {
+                    case JoyButton.DpadLeft: _model.MoveHighlight(-1); break;
+                    case JoyButton.DpadRight: _model.MoveHighlight(1); break;
+                    case JoyButton.DpadDown: case JoyButton.A: _model.ConfirmHighlight(); break;
+                    case JoyButton.DpadUp: break;
+                    default: return;
+                }
+                GetViewport().SetInputAsHandled();
+                break;
+        }
+    }
+}
