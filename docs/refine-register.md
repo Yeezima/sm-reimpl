@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3436 spec table rows: **2452 tagged**, 636 not tagged (read from data with high confidence), 348 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 753 rows of the changes document.
+Scanned 3446 spec table rows: **2459 tagged**, 639 not tagged (read from data with high confidence), 348 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 753 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,21 +50,21 @@ Scanned 3436 spec table rows: **2452 tagged**, 636 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 36 | 26 | 17 | 12 | 7 |
-| Core simulation (provisional values) | 764 | 721 | 551 | 207 | 1 |
+| Core simulation (provisional values) | 771 | 728 | 558 | 211 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 258 | 245 | 143 | 68 | 0 |
-| **All areas** | **2452** | 2180 | 1826 | 749 | 37 |
+| **All areas** | **2459** | 2187 | 1833 | 753 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1426 |
-| confidence: low | 886 |
-| confidence: medium | 831 |
-| notes: ours | 422 |
-| kind: interpretation | 400 |
-| notes: estimate | 203 |
+| kind: ours | 1429 |
+| confidence: low | 887 |
+| confidence: medium | 837 |
+| notes: ours | 425 |
+| kind: interpretation | 404 |
+| notes: estimate | 204 |
 | kind: estimate | 182 |
 | confidence: none (low) | 109 |
 | kind: provisional | 103 |
@@ -2520,7 +2520,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-61F47DDE` | Bot difficulty | accuracy 0 to 100 % (the bots' `--bot-accuracy`), damage dealt 0 to 100 % (`World.SetDamageScale`, which only lowers; 100 % also removes the server's `--bot-damage-scale`; the panel starts at that option's value), fire range 5 to 1000 m (`--bot-range`); each… (% , m) | kind: ours | the owner | Bot difficulty: compare with SM1 by feel or video. Ours: accuracy 0 to 100 % (the bots' --bot-accuracy), damage dealt 0 to 100… | ☐ |
 | `R-010FCD37` | Time scale | 1, 1/2, 1/4, 1/10 or paused: the server's tick clock and every client's clock (prediction, interpolation, timeouts) and Godot's `Engine.TimeScale` (animation, effects, deltas) run at that fraction together, on the local client and on bots; sound is not… (factor) | kind: ours; confidence: medium | the owner | Time scale: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 1, 1/2, 1/4, 1/10 or paused: the server's tick clock and every… | ☐ |
 
-### Core simulation (provisional values) (764)
+### Core simulation (provisional values) (771)
 
 *Spec section: Provisional values in use*
 
@@ -3735,6 +3735,18 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-C1BC28B3` | HQ caves and last-stand chamber | two roofed tunnels 8 m wide, 8 m clear (a Boss Nob stands about 6.9 m; review 1), 50 m long (y 100..150), centre lines x +-22, a 36 m rock pillar between them cut halfway by an 8 m wide, 8 m clear cross passage (y 121..129) with two 8 m low cover walls on its… (m) | kind: estimate; confidence: low; notes: ours | plan section 2 (tunnels 8 m wide, 6 m clear, roofed, meeting in a last-stand chamber); lengths and chamber size ours | HQ caves and last-stand chamber: compare with SM1 by measuring on a flat spot of the same map. Ours: two roofed tunnels 8 m wide, 8 m clear (a Boss Nob stands about 6.9… | ☐ |
 | `R-46CEB424` | HQ defence position markers | W (0, -34, 20) radius 20, half height 9 (so the gate, the ground behind it and the wall walk over the gate count); K (0, 70, 12) radius 24 (the hall); V (0, 160, 12) radius 40 (the cross passage, the tunnels' north half and the chamber); held and lost in that… (m) | kind: estimate; confidence: low; notes: ours | plan section 2 (three positions W, K, V); places and radii ours | HQ defence position markers: compare with SM1 by measuring on a flat spot of the same map. Ours: W (0, -34, 20) radius 20, half height 9 (so the gate, the ground… | ☐ |
 | `R-7E8BF98B` | HQ own gates | the build is deterministic (same hash twice and across processes: pinned; the hash covers the geometry and every marker, source, post and spawn); a walking graph connects assembly -> W -> K -> V -> landing; every opening on the Ork route is at least 8 m… | kind: ours | plan section 2 "own gates" | HQ own gates: compare with SM1 by feel or video. Ours: the build is deterministic (same hash twice and across processes:… | ☐ |
+
+*Spec section: Added content: Warfront — the node battle (W3: hook seams and node rules; `WarfrontRules.Version` 2; added content, Warfront only)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-AED5F6D9` | D (objective 3) | at `TfwLayout.Hq`, radius `TfwMap.HqRadius` (15 m); Locked until A, B and C have each been secured (a later retake does not lock it again, as the commander came in Musou), then Held; captured by the same rule as A to C (progress at the full rate with a… (m, s) | kind: ours; confidence: medium | plan section 2 | D (objective 3): compare with SM1 by feel or video. Ours: at TfwLayout.Hq, radius TfwMap.HqRadius (15 m); Locked until A, B and… | ☐ |
+| `R-1F6C4A1F` | D's garrison | the commander's escort as Musou spawns it (2 Nobz as the twins rule makes them, 5 'Ard Boyz; leashed, aggro 30 m) plus 1 Boss Nob 6 m from the centre, no Warboss; spawned when D unlocks; the HQ source sends Orks from then on as it did for the commander (Orks) | kind: ours; confidence: low; notes: estimate | plan section 2 | D's garrison: compare with SM1 by feel or video. Ours: the commander's escort as Musou spawns it (2 Nobz as the twins rule… | ☐ |
+| `R-503A1530` | Musou costs bypassed | deploy (leader only) costs no transport; pickup, cancel, redeploy and the host's recall are dropped; the depot gives no transport or supplies; the war clock does not tick; no extraction prompt or supply cost | kind: interpretation; confidence: medium | plan section 3 | Musou costs bypassed: compare with SM1 by feel or video. Ours: deploy (leader only) costs no transport; pickup, cancel, redeploy and… | ☐ |
+| `R-5FDBEE7A` | Revive window | 25 s (Musou's `ReviveWindowSeconds`), always open in Warfront, whoever stands; no puppet (allied pair) revives a fallen human; a teammate's or retainer's revive is `TfwRun.WarfrontRevive` (no input bound) (s) | kind: ours; confidence: medium | owner (25 s the decided default) | Revive window: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 25 s (Musou's ReviveWindowSeconds), always open in Warfront, whoever… | ☐ |
+| `R-10CD507B` | Spectator time | 60 s after the revive window ends (the other reading, 60 s from the fall, is not used): no body in play, no input, cannot be hit, respawn held; then a fresh life at the human's own landing place (s) | kind: interpretation; confidence: medium; notes: ours | owner ("respawn after 1 minute"); "from its end" our reading | Spectator time: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 60 s after the revive window ends (the other reading, 60 s from the… | ☐ |
+| `R-11524DAA` | Who counts as standing | a human alive in the field, or any retainer of any squad (the `AnyRetainerStanding` seam, none until W9); downed or spectating humans, the allied pair and the Guardsmen never count | kind: interpretation; confidence: medium; notes: ours | owner; our reading | Who counts as standing: compare with SM1 by feel or video. Ours: a human alive in the field, or any retainer of any squad (the… | ☐ |
+| `R-9FEF7708` | Wipe | the tick no human is alive, none is downed with an open window and no retainer stands: the battle ends at once as a loss, everyone to the hub, pending respawn timers dropped. A spectator whose 60 s end finds nobody standing waits (it is then a wipe) | kind: interpretation; confidence: medium; notes: ours | owner; our reading | Wipe: compare with SM1 by feel or video. Ours: the tick no human is alive, none is downed with an open window and no… | ☐ |
 
 ### General game design (7)
 

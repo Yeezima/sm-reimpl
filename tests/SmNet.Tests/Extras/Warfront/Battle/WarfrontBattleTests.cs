@@ -244,6 +244,11 @@ public class WarfrontBattleTests
         Assert.True(w.Musou.TryGet(b, out var later));
         Assert.Equal(320f, later.Health, 2);        // the new one takes the new level on top of the humans' 1.6
         Assert.Equal(3f, rules.DamageScaleOf(b));
+        rules.OrkLevelScale = () => (1f, 1f);
+        ushort boss = w.Musou.SpawnLeashed(MusouEnemyType.BossNob, battle.Layout.LandingZone + new Vector3(34f, 0f, 0f), 0f, 3000f, 1, 10f);   // a boss, by the leashed path: the same one multiplier
+        Assert.True(w.Musou.TryGet(boss, out var bossNob));
+        Assert.Equal(4800f, bossNob.Health, 2);
+        Assert.Equal(1f, rules.DamageScaleOf(boss));   // a reused id is overwritten at each spawn
     }
 
     [Fact]

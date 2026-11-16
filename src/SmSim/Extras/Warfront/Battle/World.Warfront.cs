@@ -11,6 +11,7 @@ public sealed partial class World
         if (!Config.Extras.HasFlag(ContentExtras.Warfront) || _tfw is not { } run || _musou is not { } enemies || run.Warfront is not null) return;
         var rules = new WarfrontBattleRules();
         run.Warfront = rules;
+        run.ReviveWindow = _ => false;   // no puppet revives a fallen human (the allied pair never counts): a revive is WarfrontRevive's, for a teammate or a squad's retainer
         enemies.Warfront = rules;
     }
 
