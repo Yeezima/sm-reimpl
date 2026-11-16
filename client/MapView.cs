@@ -52,12 +52,14 @@ public partial class MapView : Node3D
         var groups = new Dictionary<(string Mesh, int Block, bool Mirrored, bool Shadows), List<(Transform3D Transform, int Object)>>();
         var decorHidden = MapDecor.Hidden(scene);   // fix/manufactorum-fluorescent: the olive boards and salmon fittings are not drawn
         if (decorHidden.Count > 0) notes.Add($"{decorHidden.Count} placements of Manufactorum's wall stations and salmon fittings are not drawn (owner's requests 2026-11-04, 2026-11-07, 2026-11-14; --old-armoury-racks draws them)");
+        int layerHidden = 0;
         for (int o = 0; o < scene.Objects.Count; o++)
         {
             if (decorHidden.Contains(o)) continue;
             var placed = scene.Objects[o];
+            if (MapDecor.HiddenLayers.Count > 0 && MapDecor.HiddenLayers.Contains(placed.Layer)) { layerHidden++; continue; }   // pass 2 test aid (--hide-layer)
             if (!scene.Definitions.TryGetValue(placed.Definition, out var definition)) continue;
-            foreach (var part in definition.NearestLod())
+            foreach (var part in definition.DrawnParts(MapDecor.OldLodRule))   // classic-maps-fidelity: one member per LOD-suffix family (--old-lod-rule: the old rule)
             {
                 var world = part.NodeTransform * placed.Transform;
                 bool mirrored = world.GetDeterminant() < 0f;
@@ -66,6 +68,8 @@ public partial class MapView : Node3D
                 list.Add((ToGodot(world), o));
             }
         }
+        if (layerHidden > 0) notes.Add($"test aid --hide-layer: {layerHidden} placements of {string.Join(",", MapDecor.HiddenLayers)} not drawn");
+        if (!MapDecor.OldLodRule) notes.Add("LOD rule: one member per LOD-suffix family is drawn (--old-lod-rule restores the earlier rule)");
         var drawnObjects = new HashSet<int>();
         var meshCache = new Dictionary<(string, int, bool), ArrayMesh?>();
 
