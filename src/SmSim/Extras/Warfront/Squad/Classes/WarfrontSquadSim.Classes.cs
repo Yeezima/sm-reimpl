@@ -34,7 +34,7 @@ public sealed partial class WarfrontSquadSim
     readonly ushort[] _blast = new ushort[SquadClassRules.BlastMax];
     // one route search per squad per second at most, its answer (the first jump link's far side, or none) kept until the owner has moved PathMoved
     readonly uint[] _routeTick = new uint[SquadRules.MaxOwners];
-    readonly bool[] _routeKept = new bool[SquadRules.MaxOwners];
+    readonly bool[] _routeKept = new bool[SquadRules.MaxOwners], _routeFailed = new bool[SquadRules.MaxOwners];
     readonly Vector3[] _routeOwner = new Vector3[SquadRules.MaxOwners];
     readonly Vector3?[] _routeFar = new Vector3?[SquadRules.MaxOwners];
 
@@ -62,13 +62,13 @@ public sealed partial class WarfrontSquadSim
     {
         a.Air = a.Pending = a.Pound = a.PoundOnLand = false; a.Walk = null; a.RecoverLeft = 0; a.SinceHit = 1e6f; a.FiredAt = 0;
         a.Fuel = a.Marine.Loadout.Jump?.MaxPower ?? 0f;
-        _routeKept[a.OwnerSlot] = false;
+        _routeKept[a.OwnerSlot] = false; _failed[a.OwnerSlot] = _stranded[a.OwnerSlot] = false;
     }
 
     void ClassReset()
     {
         foreach (var a in _a) { a.Air = a.Pending = a.Pound = a.PoundOnLand = false; a.Walk = null; a.RecoverLeft = 0; }
-        Array.Clear(_ownerSeen); Array.Clear(_ownerAir); Array.Clear(_ownerPound); Array.Clear(_routeKept);
+        Array.Clear(_ownerSeen); Array.Clear(_ownerAir); Array.Clear(_ownerPound); Array.Clear(_routeKept); Array.Clear(_routeFailed); Array.Clear(_failed); Array.Clear(_stranded);
         _impacts.Clear();
     }
 
@@ -112,7 +112,7 @@ public sealed partial class WarfrontSquadSim
         var l = a.Marine.Loadout;
         a.SinceHit += dt;
         if (a.Armour < a.ArmourMax && l.ArmourRegenRate > 0f && a.SinceHit >= l.ArmourRegenDelay) a.Armour = MathF.Min(a.ArmourMax, a.Armour + l.ArmourRegenRate * dt);
-        if (a.Health < a.HealthMax && l.HealthRegenRate > 0f && a.SinceHit >= l.HealthRegenDelay) a.Health = MathF.Min(a.HealthMax, a.Health + l.HealthRegenRate * dt);
+        if (SquadClassRules.HealthRegen && a.Health < a.HealthMax && l.HealthRegenRate > 0f && a.SinceHit >= l.HealthRegenDelay) a.Health = MathF.Min(a.HealthMax, a.Health + l.HealthRegenRate * dt);
         if (l.Jump is not { } j) return false;
         a.Fuel = MathF.Min(j.MaxPower, a.Fuel + j.Recharge * dt);
         if (a.Air) { StepFlight(i, j); return true; }
@@ -230,14 +230,28 @@ public sealed partial class WarfrontSquadSim
     Vector3? RouteFar(int os, Vector3 from, Vector3 ownerPos)
     {
         if (JumpArena is null) return null;
-        bool moved = !_routeKept[os] || Flat(ownerPos - _routeOwner[os]) > SquadRules.PathMoved;
-        bool due = !_routeKept[os] || (int)(_tick - _routeTick[os]) >= _arena.TickRate;
-        if (moved && due)
+        bool due, moved;
+        if (!_routeKept[os]) { due = moved = true; }
+        else if (_routeFailed[os])
         {
-            _routeKept[os] = true; _routeTick[os] = _tick; _routeOwner[os] = ownerPos; _routeFar[os] = null;
+            // a failed search waits 3 s, or until the owner has moved 10 m (W9b)
+            moved = true;
+            due = (int)(_tick - _routeTick[os]) >= (int)MathF.Round(SquadRules.FailedRetrySeconds * _arena.TickRate) || Flat(ownerPos - _routeOwner[os]) >= SquadRules.FailedMoved;
+        }
+        else
+        {
+            moved = Flat(ownerPos - _routeOwner[os]) > SquadRules.PathMoved;
+            due = (int)(_tick - _routeTick[os]) >= _arena.TickRate;
+        }
+        if (moved && due && ClaimSearch())   // one search a tick for the whole system: when this tick's is taken the answer waits for the next
+        {
+            _routeKept[os] = true; _routeTick[os] = _tick; _routeOwner[os] = ownerPos; _routeFar[os] = null; _routeFailed[os] = false;
             RouteSearches++;
             if (JumpArena.FindRoute(from, ownerPos) is { } route)
+            {
                 foreach (var step in route) if (step.Jump) { _routeFar[os] = step.Position; break; }
+            }
+            else _routeFailed[os] = true;
         }
         return _routeFar[os];
     }

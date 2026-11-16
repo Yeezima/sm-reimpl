@@ -56,6 +56,31 @@ public sealed partial class WarfrontSquadSim
     readonly ushort[] _one = new ushort[1];
     uint _tick;
     bool _inStep;
+    // the search budget (W9b bench item): one path or route search a tick for the whole system, round robin over the squads, a failed one remembered per squad
+    bool _searched;
+    int _searchCursor;
+    readonly bool[] _failed = new bool[SquadRules.MaxOwners];
+    readonly uint[] _failTick = new uint[SquadRules.MaxOwners];
+    readonly Vector3[] _failOwner = new Vector3[SquadRules.MaxOwners];
+    readonly bool[] _stranded = new bool[SquadRules.MaxOwners];
+    readonly uint[] _strandedSince = new uint[SquadRules.MaxOwners];
+    uint _lastRelocate;
+    bool _relocated;
+
+    /// <summary>Path and route searches made so far (this sim's own count; the arena's counters say the same).</summary>
+    public int SearchesMade { get; private set; }
+    /// <summary>Squads relocated by the stranded failsafe so far.</summary>
+    public int Relocations { get; private set; }
+    /// <summary>The stranded failsafe's log seam (W9b): one record per Marine brought to its owner; the wiring writes them to the stuck log.</summary>
+    public Action<SquadStuck>? StuckSink { get; set; }
+
+    /// <summary>Takes this tick's one search; false when it was already taken.</summary>
+    bool ClaimSearch()
+    {
+        if (_searched) return false;
+        _searched = true; SearchesMade++;
+        return true;
+    }
 
     public WarfrontSquadSim(SquadRosters rosters, ISquadArena arena)
     {
@@ -330,8 +355,10 @@ public sealed partial class WarfrontSquadSim
         _downs.Clear(); _downs.AddRange(_pendingDowns); _pendingDowns.Clear();
         float dt = Dt;
         _inStep = true;
+        _searched = false;
         _arena.Tick();
         RefreshPaths(humans);
+        RelocateStranded(humans);
         ClassTick(humans);   // W11
         BeginDowned(humans, dt);
         for (int i = 0; i < Max; i++) if (_a[i].State == SquadState.Standing) StepAgent(i, humans, dt);
@@ -597,21 +624,95 @@ public sealed partial class WarfrontSquadSim
     void RefreshPaths(ReadOnlySpan<SquadHuman> humans)
     {
         uint every = (uint)Math.Max(1, _arena.TickRate / SquadRules.PathRefreshPerSecond);
-        for (int os = 0; os < SquadRules.MaxOwners; os++)
+        uint retry = (uint)Math.Max(1, (int)MathF.Round(SquadRules.FailedRetrySeconds * _arena.TickRate));
+        for (int n = 0; n < SquadRules.MaxOwners; n++)
         {
-            if (!_used[os] || _point[os] is not null || _order[os] == SquadOrder.Hold) { _path[os] = null; continue; }
+            int os = (_searchCursor + n) % SquadRules.MaxOwners;   // round robin: the squad after the last one searched goes first
+            if (!_used[os] || _point[os] is not null || _order[os] == SquadOrder.Hold) { _path[os] = null; _failed[os] = _stranded[os] = false; continue; }
             if (_pathBuilt[os] != 0 && (int)(_tick - _pathBuilt[os]) < (int)every) continue;
             bool known = false; Vector3 dest = default;
             foreach (var h in humans) if (h.Id == _player[os] && h.Alive) { known = true; dest = h.Position; break; }
             if (!known) { _path[os] = null; continue; }
             if (_path[os] is not null && Flat(dest - _pathTo[os]) <= SquadRules.PathMoved) continue;
-            Vector3 sum = default; int n = 0;
-            for (int k = 0; k < SquadRules.MaxPerPlayer; k++) { var a = _a[os * SquadRules.MaxPerPlayer + k]; if (a.State == SquadState.Standing) { sum += a.Pos; n++; } }
-            if (n == 0) { _path[os] = null; continue; }
+            if (_failed[os] && _tick - _failTick[os] < retry && Flat(dest - _failOwner[os]) < SquadRules.FailedMoved) continue;   // a failed search waits 3 s, or until the owner has moved 10 m
+            Vector3 sum = default; int count = 0;
+            for (int k = 0; k < SquadRules.MaxPerPlayer; k++) { var a = _a[os * SquadRules.MaxPerPlayer + k]; if (a.State == SquadState.Standing) { sum += a.Pos; count++; } }
+            if (count == 0) { _path[os] = null; continue; }
+            if (!ClaimSearch()) continue;   // this tick's search is taken: the squad stays due and the cursor moves on
+            _searchCursor = (os + 1) % SquadRules.MaxOwners;
             _pathBuilt[os] = (_pathBuilt[os] == 0 ? _tick + (uint)(os * (every / 4)) : _tick); _pathTo[os] = dest;   // the first rebuild of each squad is staggered so the searches do not land on one tick
-            var found = _arena.FindPath(sum / n, dest);
+            var found = _arena.FindPath(sum / count, dest);
             _path[os] = found is null ? null : [.. found];
+            if (found is null)
+            {
+                _failed[os] = true; _failTick[os] = _tick; _failOwner[os] = dest;
+                if (!_stranded[os]) { _stranded[os] = true; _strandedSince[os] = _tick; }
+            }
+            else { _failed[os] = _stranded[os] = false; }
         }
+    }
+
+    /// <summary>
+    /// The stranded failsafe (ruling of 2026-11-17): a squad whose owner has been unreachable for <see cref="SquadRules.StrandedSeconds"/> with the owner more than <see cref="SquadRules.StrandedDistance"/> m away has its standing,
+    /// grounded Marines brought to the nearest graph floor <see cref="SquadRules.RelocateNear"/> to <see cref="SquadRules.RelocateFar"/> m from the owner on the squad's side, out of every human's sight when such places exist,
+    /// one squad a second at most. A jump-pack Marine's leap (<c>ClassStep</c>, every 10 ticks) runs first: a leap that lands brings it within range and clears the case.
+    /// </summary>
+    void RelocateStranded(ReadOnlySpan<SquadHuman> humans)
+    {
+        if (_searched) return;   // a search took this tick's time: the relocation waits for the next (the squad stays flagged)
+        uint gap = (uint)Math.Max(1, (int)MathF.Round(SquadRules.RelocateGapSeconds * _arena.TickRate));
+        uint wait = (uint)Math.Max(1, (int)MathF.Round(SquadRules.StrandedSeconds * _arena.TickRate));
+        if (_relocated && _tick - _lastRelocate < gap) return;
+        for (int os = 0; os < SquadRules.MaxOwners; os++)
+        {
+            if (!_used[os] || !_stranded[os] || _tick - _strandedSince[os] < wait || !OwnerAt(humans, _player[os], out var owner)) continue;
+            Vector3 sum = default; int count = 0;
+            for (int k = 0; k < SquadRules.MaxPerPlayer; k++) { var a = _a[os * SquadRules.MaxPerPlayer + k]; if (a.State == SquadState.Standing && !a.Air) { sum += a.Pos; count++; } }
+            if (count == 0 || Flat(sum / count - owner) <= SquadRules.StrandedDistance) continue;
+            var toward = sum / count - owner;
+            var places = RelocationPlaces(owner, MathF.Atan2(toward.Y, toward.X), humans);   // one scan of the ring for the whole squad
+            int moved = 0, next = 0;
+            for (int k = 0; k < SquadRules.MaxPerPlayer && next < places.Count; k++)
+            {
+                var a = _a[os * SquadRules.MaxPerPlayer + k];
+                if (a.State != SquadState.Standing || a.Air) continue;
+                var place = places[next++];
+                a.Pos = place; a.HoldAt = place; a.Target = 0; a.DutyMate = -1; a.DutyHuman = int.MinValue; a.Progressed = false;
+                StuckSink?.Invoke(new SquadStuck(a.Key, a.Slot, place));
+                moved++;
+            }
+            _strandedSince[os] = _tick; _failed[os] = false; _path[os] = null;   // the 10 s start again from the new place
+            if (moved == 0) continue;
+            Relocations++; _relocated = true; _lastRelocate = _tick;
+            return;   // one squad a second
+        }
+    }
+
+    /// <summary>
+    /// Places for a stranded squad: graph floor 8 to 12 m from <paramref name="owner"/> (the squad's side first, fanning out), reachable by a straight walk from the owner and apart from each other, those in no human's sight first. At most
+    /// <see cref="SquadRules.MaxPerPlayer"/>; fewer when the ring has no more floor.
+    /// </summary>
+    List<Vector3> RelocationPlaces(Vector3 owner, float baseAngle, ReadOnlySpan<SquadHuman> humans)
+    {
+        var hidden = new List<Vector3>(); var seen = new List<Vector3>();
+        for (int t = 0; t < 36 && hidden.Count < SquadRules.MaxPerPlayer; t++)
+        {
+            float angle = baseAngle + (t % 2 == 0 ? 1 : -1) * ((t + 1) / 2) * 0.3f;
+            float radius = SquadRules.RelocateNear + (SquadRules.RelocateFar - SquadRules.RelocateNear) * (t % 3) / 2f;
+            var want = owner + new Vector3(MathF.Cos(angle) * radius, MathF.Sin(angle) * radius, 0f);
+            if (!_arena.Ground(want, out var g) || Flat(g - want) > 2f || !_arena.CanWalkLine(owner, g) || NearAny(hidden, g) || NearAny(seen, g)) continue;
+            bool visible = false;
+            foreach (var h in humans) if (h.Alive && _arena.HasSight(h.Position, g)) { visible = true; break; }
+            (visible ? seen : hidden).Add(g);
+        }
+        foreach (var g in seen) { if (hidden.Count >= SquadRules.MaxPerPlayer) break; hidden.Add(g); }
+        return hidden;
+    }
+
+    static bool NearAny(List<Vector3> places, Vector3 g)
+    {
+        foreach (var p in places) if (Flat(p - g) < SquadRules.Separation) return true;
+        return false;
     }
 
     /// <summary>The next place a Marine should walk to for a goal it cannot walk to straight: the squad's flow field to a fixed point, else the shared path; null when neither has one.</summary>

@@ -86,3 +86,6 @@ public readonly record struct SquadDown(ulong Key, int Slot);
 
 /// <summary>A Marine as the wire shows it (W10): ids, state, place, facing, health share, seconds left of the downed window.</summary>
 public readonly record struct SquadMarineView(int Index, ulong Key, int Slot, SquadState State, Vector3 Position, float Yaw, float HealthShare, float DownedLeft, bool Firing = false, int Target = -1, float ReviveShare = 0f, bool Airborne = false);
+
+/// <summary>A Marine brought to its owner by the stranded failsafe (W9b): its roster key and slot and the place it was put (the wiring writes it to the stuck log).</summary>
+public readonly record struct SquadStuck(ulong Key, int Slot, Vector3 At);

@@ -76,7 +76,7 @@ public class SquadClassesTests
     static readonly string[] HeavyPerks = ["mp_perk_melee_damage_resistance", "mp_perk_iron_halo", "mp_perk_shield_regen_delay"];
 
     /// <summary>Space Marine classes 0 tactical, 1 assault (jump pack), 2 devastator; the Chaos side is left out (the squad is Space Marines).</summary>
-    static SimConfig Make(float packPower = 100f)
+    internal static SimConfig Make(float packPower = 100f)
     {
         var weapons = new List<WeaponSpec>();
         var perks = TacticalPerks.Concat(AssaultPerks).Concat(HeavyPerks).Select(Perk).ToList();
@@ -281,7 +281,7 @@ public class SquadClassesTests
         var (r, _, sim, _) = Setup(Make(), SquadOwnerLoadout.Standard(new LoadoutChoice(0)));
         sim.Land(Key, 1, Vector3.Zero);
         var human = Owner(Vector3.Zero);
-        Assert.True(sim.Hit(SquadRules.TargetId(0), 600f, Vector3.Zero));   // 60 after the puppet share: all of it on the armour
+        Assert.True(sim.Hit(SquadRules.TargetId(0), 60f / SquadRules.DamageTaken, Vector3.Zero));   // 60 after the share: all of it on the armour
         Assert.Equal(60f, sim.BodyOf(0).Armour, 1);
         Run(sim, 60, human);                                                 // 2 s: inside the 3 s delay
         Assert.Equal(60f, sim.BodyOf(0).Armour, 1);
