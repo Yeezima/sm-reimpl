@@ -41,6 +41,7 @@ public class ClassicMatchPin(ITestOutputHelper output)
         HealthMax = 150f, ShieldMax = 50f, RespawnTime = 2f,
     };
 
+    // None and All hash identically: the fixture has no weapon, class or rule that an extended flag changes (the Classic extras only add content that this fixture lacks).
     const string NoneReplay = "8A5833FDFB6C629D0E09BB2F4B84F8CECFE4C9E51142F31118C7D1F8CB1D5EBB", AllReplay = "8A5833FDFB6C629D0E09BB2F4B84F8CECFE4C9E51142F31118C7D1F8CB1D5EBB";
 
     [Fact]
