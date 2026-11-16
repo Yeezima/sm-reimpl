@@ -128,6 +128,9 @@ public sealed partial class World
     /// </summary>
     public bool TfwOrderMarines(int player, TfwCommandRecord command)
     {
+        bool taken = false;
+        WarfrontOrder(player, command, ref taken);   // WARFRONT-HOOK
+        if (taken) return false;
         if (_tfw is not { } run || !run.Orders.Apply(player, command)) return false;
         var order = run.Orders.Of(player);
         foreach (var m in run.Marines)
@@ -139,6 +142,9 @@ public sealed partial class World
         }
         return true;
     }
+
+    /// <summary>Warfront: an order goes to the squad seam instead of a retainer (<paramref name="handled"/>).</summary>
+    partial void WarfrontOrder(int player, TfwCommandRecord command, ref bool handled);
 
     /// <summary>Whether <paramref name="id"/>'s retainer stands and can revive it.</summary>
     internal bool TfwRetainerUp(int id) => _tfw is { } run && run.RetainerOf(id) is { } m && _players.TryGetValue(m.Id, out var p) && p.Alive;
