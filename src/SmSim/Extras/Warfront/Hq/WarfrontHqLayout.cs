@@ -3,7 +3,7 @@ using SmSim.Extras.Musou.Campaign;
 
 namespace SmSim.Extras.Warfront.Hq;
 
-/// <summary>The HQ defense's places as a battle layout (slice W13b): the chamber as the landing zone, W, K and V as the three positions with the build's markers' radii and half heights, V as the Hq, the build's sources in stage order.</summary>
+/// <summary>The HQ defense's places as a battle layout (slice W13b): the chamber as the landing zone, W, K and V as the three positions with the build's markers' radii and half heights, V as the Hq, the build's sources with the assembly ground's last (the stranded-Ork failsafe moves an Ork to the last source when none is active: back to the assembly ground, never into the keep).</summary>
 public static class WarfrontHqLayout
 {
     static readonly Lazy<WarfrontHqBuild> Cached = new(WarfrontHqMap.Build);
@@ -19,7 +19,7 @@ public static class WarfrontHqLayout
         Vector3[] positions = [pts[0].Center, pts[1].Center, pts[2].Center];
         float[] radii = [pts[0].Radius, pts[1].Radius, pts[2].Radius];
         float[] heights = [pts[0].HalfHeight, pts[1].HalfHeight, pts[2].HalfHeight];
-        return new TfwLayout(b.LandingZone, positions, b.V, [.. b.Sources.OrderBy(s => s.Stage).Select(s => s.Position)], radii, heights);
+        return new TfwLayout(b.LandingZone, positions, b.V, [.. b.Sources.OrderByDescending(s => s.Stage).Select(s => s.Position)], radii, heights);
     }
 
     /// <summary>The real radius of position <paramref name="k"/> (0 W, 1 K, 2 V) of the map.</summary>

@@ -34,7 +34,9 @@ public sealed partial class TfwBattle
     readonly bool[] _hqFallen = new bool[Positions];
     readonly int[] _hqGoal = new int[GuardSim.MaxSquads];   // the post (position) of each Guard squad this defence placed
     const int HqSquadOwner = 250;    // _squadArmy's mark for a squad this defence owns (the armies are off in an HQ defence, so nothing else reads it)
-    const int HqWaveGroupFirst = 40;
+    const int HqWaveGroupFirst = 1000;   // group of wave w chunk c: 1000 + 100 w + c
+    int _hqChunksReleased;
+    static int HqGroup(int wave, int chunk) => HqWaveGroupFirst + 100 * wave + chunk;
     int _hqMustered, _hqMessageTicks, _hqRepostTicks;
     float _hqEliteOwed;
     uint _hqMade;
@@ -190,17 +192,36 @@ public sealed partial class TfwBattle
     /// <summary>The waves: a wave musters (leashed) on the assembly ground <see cref="WarfrontHqBattleRules.MusterLeadSeconds"/> before it leaves, and is let go at its time; from then each open stage sends its share at once.</summary>
     void StepHqWaves(float t, ReadOnlySpan<Vector3> players)
     {
+        HqReleaseChunks(t);   // the chunks of the wave being let go (the earlier wave's rest goes on while the next one musters)
         int wave = HqWavesSent + 1;
         float leaves = WarfrontHqBattleRules.WaveLeaves(wave);
         if (leaves >= WarfrontHqBattleRules.SurviveSeconds) return;
         if (_hqMustered < wave && t >= leaves - WarfrontHqBattleRules.MusterLeadSeconds) HqMuster(wave);
         if (_hqMustered != wave || t < leaves) return;
-        _enemies.ReleaseGroup(HqWaveGroupFirst + wave);
         HqWavesSent = wave;
+        _hqReleasing = wave;
+        _hqChunksReleased = 0;
         HqSay(WarfrontHqBattleRules.MessageWave);
         for (int stage = 1; stage <= 2; stage++)
             if (HqSourceOpen(stage)) HqSpawnAtStage(stage, HqStageShare(wave), players);
+        HqReleaseChunks(t);
     }
+
+    int _hqReleasing;
+
+    /// <summary>Lets the next chunk of the wave leaving go when its time has come (<see cref="WarfrontHqBattleRules.ChunkGapSeconds"/> apart).</summary>
+    void HqReleaseChunks(float t)
+    {
+        int wave = _hqReleasing;
+        if (wave == 0) return;
+        float leaves = WarfrontHqBattleRules.WaveLeaves(wave);
+        int chunks = _hqChunks;
+        while (_hqChunksReleased < chunks && t >= leaves + _hqChunksReleased * WarfrontHqBattleRules.ChunkGapSeconds)
+            _enemies.ReleaseGroup(HqGroup(wave, _hqChunksReleased++));
+        if (_hqChunksReleased >= chunks) _hqReleasing = 0;
+    }
+
+    int _hqChunks;
 
     static int HqStageShare(int wave) => (int)MathF.Round(WarfrontHqBattleRules.WaveSize(wave) * WarfrontHqBattleRules.StageShare);
     int HqStageOrks(int wave) => HqStageShare(wave) * ((HqSourceOpen(1) ? 1 : 0) + (HqSourceOpen(2) ? 1 : 0));
@@ -210,19 +231,19 @@ public sealed partial class TfwBattle
     {
         _hqMustered = wave;
         int size = WarfrontHqBattleRules.WaveSize(wave) - HqStageOrks(wave);
-        int group = HqWaveGroupFirst + wave;
         var sources = WarfrontHqLayout.SourcesOf(0).ToArray();
         int cap = TfwBattleRules.AliveCap(_humansNow);
         for (int n = 0; n < size; n++)
         {
             if (Counted() >= cap || PoolUsed >= TfwBattleRules.CrowdPoolRoom) { HqOrksSkipped += size - n; break; }
-            HqSpawnOne(sources[n % sources.Length], leashed: true, group);
+            HqSpawnOne(sources[n % sources.Length], leashed: true, HqGroup(wave, n / WarfrontHqBattleRules.ChunkSize));
         }
+        _hqChunks = Math.Max(1, (size + WarfrontHqBattleRules.ChunkSize - 1) / WarfrontHqBattleRules.ChunkSize);
         if (wave < WarfrontHqBattleRules.BossWave) return;
         for (int n = 0; n < WarfrontHqBattleRules.BossNobsPerHuman * _humansNow; n++)
         {
             var at = DiscSpot(sources[n % sources.Length]);
-            ushort id = _enemies.SpawnLeashed(MusouEnemyType.BossNob, at, FaceCentre(at), Health(MusouEnemyType.BossNob), group, TfwBattleRules.CrowdAggro);
+            ushort id = _enemies.SpawnLeashed(MusouEnemyType.BossNob, at, FaceCentre(at), Health(MusouEnemyType.BossNob), HqGroup(wave, 0), TfwBattleRules.CrowdAggro);
             if (id == 0) continue;
             TrackBig(id);
             HqOrksMade++;

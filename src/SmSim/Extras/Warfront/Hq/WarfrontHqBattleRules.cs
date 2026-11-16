@@ -16,6 +16,9 @@ public static class WarfrontHqBattleRules
     public const float WaveIntervalSeconds = 150f;
     /// <summary>How long before it leaves a wave stands mustered (leashed) on the assembly ground, seconds.</summary>
     public const float MusterLeadSeconds = 20f;
+    /// <summary>A wave leaves in chunks of this many Orks, one chunk every <see cref="ChunkGapSeconds"/> (about 170 an minute, under the gate's measured 214), so the 12 m gate is never jammed by a whole wave arriving at once (measured: a 300-Ork rush jammed it and 31 % of the Orks stood without headway).</summary>
+    public const int ChunkSize = 20;
+    public const float ChunkGapSeconds = 7f;
     /// <summary>The waves' sizes (Orks); a later wave is as big as the last listed.</summary>
     public static readonly int[] WaveSizes = [150, 200, 250];
     /// <summary>The waves scheduled inside <see cref="SurviveSeconds"/> (the HUD's "OF n").</summary>

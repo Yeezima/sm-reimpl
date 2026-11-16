@@ -92,6 +92,7 @@ static class WarfrontHqCommand
         int ticks = seconds * 30;
         for (int t = 0; t < ticks && run.Battle is not null; t++)
         {
+            if (waves && !w.Players[1].Alive) w.TfwRevive(1);   // the measuring human never stays down: the tick cost is read with the whole schedule on the field
             long start = Stopwatch.GetTimestamp();
             w.Step(_ => default);
             double ms = (Stopwatch.GetTimestamp() - start) * 1000.0 / Stopwatch.Frequency;
@@ -136,6 +137,7 @@ static class WarfrontHqCommand
             Console.WriteLine($"stuck-log records: {stuck.Count} ({stuck.Count / 3.0:0.0} % of 300): " + string.Join(", ", stuck.GroupBy(s => Band(s.At.Y)).OrderBy(g => g.Key).Select(g => $"{g.Key}: {g.Count()} ({string.Join("/", g.GroupBy(s => s.Why).Select(h => $"{h.Key} {h.Count()}"))})")));
         }
         else Console.WriteLine($"stuck-log records: {stuck.Count}: " + string.Join(", ", stuck.GroupBy(s => Band(s.At.Y)).OrderBy(g => g.Key).Select(g => $"{g.Key}: {g.Count()}")));
+        foreach (var r in stuck.Take(12)) Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"  stuck: {r.Type} {r.Why} at ({r.At.X:0}, {r.At.Y:0}, {r.At.Z:0})"));
         Report("tick cost, whole run", steps);
         if (waves) Report("tick cost, third wave on the field", stepsBig);
         return 0;
