@@ -28,12 +28,11 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3548 spec table rows: **2538 tagged**, 658 not tagged (read from data with high confidence), 352 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 760 rows of the changes document.
-Scanned 3540 spec table rows: **2533 tagged**, 655 not tagged (read from data with high confidence), 352 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 760 rows of the changes document.
+Scanned 3573 spec table rows: **2561 tagged**, 659 not tagged (read from data with high confidence), 353 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 761 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
-| Movement (critical) | 404 | 347 | 344 | 114 | 12 |
+| Movement (critical) | 405 | 348 | 345 | 114 | 12 |
 | Combat core (critical) | 23 | 14 | 21 | 14 | 8 |
 | Weapons (critical) | 119 | 73 | 106 | 52 | 3 |
 | Melee (critical) | 158 | 138 | 114 | 57 | 5 |
@@ -41,7 +40,7 @@ Scanned 3540 spec table rows: **2533 tagged**, 655 not tagged (read from data wi
 | Charge (critical) | 59 | 49 | 48 | 24 | 0 |
 | Reactions (critical) | 25 | 22 | 23 | 13 | 0 |
 | Camera (critical) | 63 | 56 | 52 | 22 | 0 |
-| HUD and hit feedback (critical) | 73 | 68 | 53 | 11 | 0 |
+| HUD and hit feedback (critical) | 74 | 69 | 54 | 11 | 0 |
 | Sound mix (critical) | 99 | 93 | 78 | 12 | 0 |
 | Effects (critical) | 95 | 87 | 79 | 41 | 0 |
 | Game modes | 46 | 42 | 43 | 19 | 1 |
@@ -52,27 +51,20 @@ Scanned 3540 spec table rows: **2533 tagged**, 655 not tagged (read from data wi
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 47 | 37 | 21 | 12 | 7 |
 | Core simulation (provisional values) | 793 | 750 | 580 | 221 | 1 |
-| General game design | 39 | 39 | 31 | 9 | 0 |
+| General game design | 51 | 50 | 42 | 11 | 0 |
 | Ork faction | 262 | 249 | 146 | 69 | 0 |
-| **All areas** | **2538** | 2262 | 1899 | 777 | 37 |
-| **All areas** | **2533** | 2261 | 1892 | 775 | 37 |
+| **All areas** | **2561** | 2284 | 1917 | 781 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1465 |
-| confidence: low | 921 |
-| confidence: medium | 869 |
-| notes: ours | 447 |
-| kind: interpretation | 413 |
-| kind: estimate | 210 |
-| kind: ours | 1469 |
-| confidence: low | 918 |
-| confidence: medium | 865 |
-| notes: ours | 446 |
-| kind: interpretation | 411 |
-| kind: estimate | 208 |
+| kind: ours | 1480 |
+| confidence: low | 929 |
+| confidence: medium | 879 |
+| notes: ours | 451 |
+| kind: interpretation | 414 |
+| kind: estimate | 216 |
 | notes: estimate | 204 |
 | confidence: none (low) | 109 |
 | kind: provisional | 105 |
@@ -99,7 +91,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 ## Part A: gameplay areas, critical first
 
-### Movement (gameplay-critical) (404)
+### Movement (gameplay-critical) (405)
 
 *Spec section: Extracted parameters*
 
@@ -804,6 +796,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-48398FB1` | Movement | walks 5.5 m/s, sprints 8 m/s when far from its place with nobody to shoot; every step (walking and the push between Marines closer than 0.9 m) is taken only if it stays on the walking graph, the height taken from the floor, sliding along a wall on one axis… (m/s, m) | kind: estimate; confidence: low; notes: ours | ours | Movement: compare with SM1 by timing a run over a known distance. Ours: walks 5.5 m/s, sprints 8 m/s when far from its place with nobody to… | ☐ |
+
+*Spec section: Warfront squad wire and client view (warfront/w10, 2026-11-17; added content, Warfront only; `SquadWire`, `WarfrontSquadSender`/`WarfrontSquadCommands`, `client/Extras/Warfront/Squad`; the server hooks wait for W5a/W5b/W3b)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-812D3E25` | Jump-pound command | the sender is in a battle and alive, the class has a jump pack, the mark within 60 m and on the graph, one a second (m, s) | kind: estimate; confidence: low | the brief | Jump-pound command: compare with SM1 by feel or video. Ours: the sender is in a battle and alive, the class has a jump pack, the… | ☐ |
 
 ### Combat core (gameplay-critical) (23)
 
@@ -1702,7 +1700,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-76328A88` | Perk texts that no perk file uses | locale 111538 "Quicker Stomp", 111540 "Mission Specialist" ("Capture points faster in Domination, your kills in TDM count as two for scoring purposes, +20% Score in Co-Op"), 111542 "Super Kick" ("15% to instantly explode enemies with a kick"), 111544… | confidence: medium | `ucs.pc` locale, `wargear.oppc` | Perk texts that no perk file uses: compare with SM1 with side-by-side screenshots in the same spot. Ours: locale 111538 "Quicker Stomp", 111540 "Mission Specialist" ("Capture… | ☐ |
 | `R-A93496E7` | Painting: `pattern_enabled` | in the 80 preset schemes (`custom_paint_scheme`), `pattern_enabled` appears 599 times (True 161, False 438; 519 piece entries with three colours each) beside a `decals` list per scheme: a per-piece flag of a preset, with the data's meaning not stated (the… | confidence: medium | `custom_paint_scheme.oppc` | Painting: pattern_enabled: compare with SM1 with side-by-side screenshots in the same spot. Ours: in the 80 preset schemes (custom_paint_scheme), pattern_enabled… | ☐ |
 
-### HUD and hit feedback (gameplay-critical) (73)
+### HUD and hit feedback (gameplay-critical) (74)
 
 *Spec section: Scoreboard ping on the HUD scoreboard (net/scoreboard-ping; protocol 50; ours)*
 
@@ -1846,6 +1844,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-D69BECA2` | Dreadnought: the camera and HUD (D6) | the rig camera's offset and pivot x **2.2** (the marine's data curves x the model's size ratio; the data's `dn_*` curves were not found) with the data's fields of view: 42 exploring, 20 aimed, 55 sprinting (blended in 0.5 s); the autocannon reticle and the… (fov degrees, ratio) | kind: estimate; confidence: low | camera tuning; wargear `ui_data` | Dreadnought: the camera and HUD (D6): compare with SM1 with an overlaid screenshot taken from the same position. Ours: the rig camera's offset and pivot x 2.2 (the marine's data curves x… | ☐ |
+
+*Spec section: Warfront squad wire and client view (warfront/w10, 2026-11-17; added content, Warfront only; `SquadWire`, `WarfrontSquadSender`/`WarfrontSquadCommands`, `client/Extras/Warfront/Squad`; the server hooks wait for W5a/W5b/W3b)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-68B3D32A` | Squad HUD line | "SQUAD standing/roster", "N DOWN" while any is downed; under the XP HUD | kind: ours; confidence: medium | the brief | Squad HUD line: compare with SM1 with side-by-side screenshots in the same spot. Ours: "SQUAD standing/roster", "N DOWN" while any is downed; under the XP… | ☐ |
 
 ### Sound mix (gameplay-critical) (99)
 
@@ -3848,7 +3852,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-98A893CB` | Picker protection | while an offer stands the player is invulnerable and their input is dropped, others play on; it ends on a valid pick, after 20 s (the server takes card 1) or when the player leaves (the pick stays pending and re-opens with the same cards) (s) | kind: estimate; confidence: medium; notes: ours | owner (protection); the 20 s ours | Picker protection: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: while an offer stands the player is invulnerable and their input is… | ☐ |
 | `R-2024CBEF` | Hard base | `OrkHealthBase` and `OrkDamageBase`, 1.0: the one knob for "hard" (owner answer 8) (multiplier) | kind: estimate; confidence: low; notes: ours | owner (hard, solo must play well, a squad needs teamwork); the value ours | Hard base: compare with SM1 by feel or video. Ours: OrkHealthBase and OrkDamageBase, 1.0: the one knob for "hard" (owner… | ☐ |
 
-### General game design (39)
+### General game design (51)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -3913,6 +3917,23 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-2FA207B1` | Feeder rules | death = each time a human falls (enters the downed state), revived or not; revive = a human completes a revive of a human or any retainer (a retainer's revive goes to its service record); capture = every human standing or downed in the radius when a position… | kind: interpretation; confidence: low; notes: ours | stage-flow slice (W5a) | Feeder rules: compare with SM1 by feel or video. Ours: death = each time a human falls (enters the downed state), revived or… | ☐ |
 | `R-71E34088` | Persistence | per key, never reset by disconnect or rejoin; a new run starts empty; a restart mid-battle keeps figures already saved (a card pick) and the replayed battle adds to them (the guard stops the battle and captures counting twice; kills and deaths of the aborted… | kind: ours; confidence: medium | `WarfrontCampaign.Stats` | Persistence: compare with SM1 by feel or video. Ours: per key, never reset by disconnect or rejoin; a new run starts empty… | ☐ |
 | `R-66C0F4F6` | Archive | keys replaced by join index and the guard dropped (`WarfrontSave.KeylessJson`) | kind: ours | `KeylessJson` | Archive: compare with SM1 by feel or video. Ours: keys replaced by join index and the guard dropped… | ☐ |
+
+*Spec section: Warfront squad wire and client view (warfront/w10, 2026-11-17; added content, Warfront only; `SquadWire`, `WarfrontSquadSender`/`WarfrontSquadCommands`, `client/Extras/Warfront/Squad`; the server hooks wait for W5a/W5b/W3b)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-1174BD3B` | SquadState rate | 10 (Hz) | kind: estimate; confidence: low | plan section 6 | SquadState rate: compare with SM1 by feel or video. Ours: 10. | ☐ |
+| `R-19DE686B` | SquadState record | 13 bytes a Marine: index, flags (state 2 bits, firing, melee, being revived, order 2 bits, airborne), x and y at 5 cm (i16), z at 2 cm (i16), yaw 256 steps, health 255 steps, aux, target u16; 36 Marines = 471 bytes with the 3-byte header (bytes) | kind: ours; confidence: medium | the brief's layout | SquadState record: compare with SM1 by feel or video. Ours: 13 bytes a Marine: index, flags (state 2 bits, firing, melee, being… | ☐ |
+| `R-512D7466` | Split in halves | when the extras message has less room than the full list, one half goes each send by phase parity (lower indices, then the rest); the client keeps each index's last record | kind: ours; confidence: medium | plan risk 4 | Split in halves: compare with SM1 by feel or video. Ours: when the extras message has less room than the full list, one half… | ☐ |
+| `R-51A9317E` | Roster rotation | one owner every 2 s in turn, plus on a change of names, loadouts, records, held or count, and to a client that joins; handles: the viewer's own key for his roster, `WarfrontWire.Pseudonym` for the others (s) | kind: estimate; confidence: low | the brief | Roster rotation: compare with SM1 by turning the view at full speed with the same input settings and timing a half turn. Ours: one owner every 2 s in turn, plus on a change of names, loadouts… | ☐ |
+| `R-1A965ACC` | Names | at most 24 UTF-8 bytes on the wire (the roster keeps 24 characters; a longer name is cut at a character on the wire) (bytes) | kind: ours | a rename command must fit 64 bytes | Names: compare with SM1 by feel or video. Ours: at most 24 UTF-8 bytes on the wire (the roster keeps 24 characters; a… | ☐ |
+| `R-F58DB144` | Render delay | 100 ms behind the newest record; a Marine unseen for 1 s is dropped; a move over 12 m is not slid (s, m) | kind: estimate; confidence: low; notes: ours | as the Guardsmen's; the rest ours | Render delay: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 100 ms behind the newest record; a Marine unseen for 1 s is dropped… | ☐ |
+| `R-429FD8D1` | Name distances | the own squad's names within 25 m, other squads' within 8 m; the downed marker within 40 m (own always) (m) | kind: ours; confidence: medium | the brief | Name distances: compare with SM1 by measuring on a flat spot of the same map. Ours: the own squad's names within 25 m, other squads' within 8 m; the… | ☐ |
+| `R-898B64CF` | Full-detail distance (LOD) | 40 m; beyond it a Marine's pose is applied one frame in four (7.5 Hz at 30 fps) (m) | kind: estimate; confidence: low; notes: ours | the brief; the stride ours | Full-detail distance (LOD): compare with SM1 by measuring on a flat spot of the same map. Ours: 40 m; beyond it a Marine's pose is applied one frame in four (7.5 Hz… | ☐ |
+| `R-342000A5` | Cost of 36 characters | 3.2 to 5.2 ms of frame time above the empty scene at 1600x900 (the poses; drawing alone about 0.5 ms); the far stride saves about 3.5 ms when all are beyond 40 m (ms) | confidence: low | one shared machine (CPU 70 to 80 % busy), one GPU, no vsync | Cost of 36 characters: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 3.2 to 5.2 ms of frame time above the empty scene at 1600x900 (the… | ☐ |
+| `R-A6EB6542` | Revive prompt | "Hold [Use] to revive NAME" within 2 m of a downed Marine, with a progress ring from the revive share (m) | kind: ours; confidence: medium | `SquadRules.PlayerReviveReach`; the revive itself is the server's | Revive prompt: compare with SM1 by measuring on a flat spot of the same map. Ours: "Hold [Use] to revive NAME" within 2 m of a downed Marine, with a… | ☐ |
+| `R-18DD73E8` | Feed lines | five kept, five seconds each: "Brother X is down", "revived by NAME", "is out", "joins the squad" (s) | kind: ours; confidence: medium | the brief | Feed lines: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: five kept, five seconds each: "Brother X is down", "revived by NAME"… | ☐ |
+| `R-D2E3CAE7` | Keys | F4 opens the squad panel aboard the ship, J sends the jump-pound mark for an Assault or Raptor in a battle ("[J] JUMP ASSAULT" on the HUD line); neither is bound elsewhere in the client | kind: ours; confidence: medium | the brief ("pick a free key") | Keys: compare with SM1 by feel or video. Ours: F4 opens the squad panel aboard the ship, J sends the jump-pound mark… | ☐ |
 
 ## Part B: Ork faction
 
@@ -5767,4 +5788,5 @@ Test aids, probes, demo and capture tooling, engineering decisions (protocol, wi
 | `R-E82906C6` | Custom map wire name | Mapmaker custom maps (added content; ours, docs/mapmaker.md "Playing a map") |
 | `R-60F33AA0` | Custom map hash | Mapmaker custom maps (added content; ours, docs/mapmaker.md "Playing a map") |
 | `R-257C0C84` | Wire | Added content: Warfront, end of run (W15: `Extras/Warfront/Results`; pure, not yet wired to a server) |
+| `R-035F1A34` | Aux byte | Warfront squad wire and client view (warfront/w10, 2026-11-17; added content, Warfront only; `SquadWire`, `WarfrontSquadSender`/`WarfrontSquadCommands`, `client/Extras/Warfront/Squad`; the server hooks wait for W5a/W5b/W3b) |
 
