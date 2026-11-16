@@ -33,14 +33,20 @@ public static class SquadRules
     public const float DefaultHealth = 200f, DefaultArmour = 100f;
     /// <summary>The default ranged weapon when no loadout is mirrored yet: range m, damage per round, seconds between rounds, hit chance [placeholder estimate].</summary>
     public const float DefaultRange = 35f, DefaultDamage = 18f, DefaultInterval = 0.25f, DefaultHitChance = 0.7f;
-    /// <summary>The squad's damage dealt, a multiplier on every Marine's weapon and pound damage: the one knob for squad strength (W11 review 1) [estimate: 1].</summary>
-    public const float DamageDealt = 1f;
+    /// <summary>The squad's damage dealt, a multiplier on every Marine's weapon and pound damage: the one knob for squad strength (W11 review 1; ruling of 2026-11-17: 1 to 0.40, one Marine deals 0.08 to 0.25 of a bolter player) [ours, estimate, low].</summary>
+    public const float DamageDealt = 0.40f;
     /// <summary>A Marine's body radius as the Orks target it (metres) [ours/estimate].</summary>
     public const float BodyRadius = 0.5f;
     /// <summary>Squad targets are <see cref="TargetBase"/> + index, negated: the Guard squads use -2 to -41, so this range (-1000 to -1035) is its own.</summary>
     public const int TargetBase = 1000;
-    /// <summary>The share of an Ork hit a Marine takes: Musou's puppet Marines take a tenth (<c>TfwSupplyRules.BotDamageTaken</c>, owner 2026-11-06) [estimate: reused as the starting value]. The per-Ork level multiplier is applied by W3b's hook, not here.</summary>
-    public const float DamageTaken = 0.10f;
+    /// <summary>The share of an Ork hit a Marine takes (ruling of 2026-11-17: 0.10, Musou's puppet Marines' share, to 0.35, so a busy wave drops Marines in sequence) [ours, estimate, low]. The per-Ork level multiplier is applied by W3b's hook, not here.</summary>
+    public const float DamageTaken = 0.35f;
+    /// <summary>A search for a path or a route expands at most this many nodes; farther is "no way" for a follow [ours, estimate].</summary>
+    public const int SearchNodes = 8_000;
+    /// <summary>A failed search is not repeated for this long, or until the owner has moved <see cref="FailedMoved"/> m, whichever comes first (seconds, metres) [ours, estimate].</summary>
+    public const float FailedRetrySeconds = 3f, FailedMoved = 10f;
+    /// <summary>The relocate failsafe: a squad whose owner is unreachable for <see cref="StrandedSeconds"/> with the owner farther than <see cref="StrandedDistance"/> is put <see cref="RelocateNear"/> to <see cref="RelocateFar"/> m from the owner; one squad a second at most [ours, estimate].</summary>
+    public const float StrandedSeconds = 10f, StrandedDistance = 40f, RelocateNear = 8f, RelocateFar = 12f, RelocateGapSeconds = 1f;
     /// <summary>A shared path is rebuilt at most this many times a second per squad, and only when its target moved this far (metres) [ours/estimate].</summary>
     public const int PathRefreshPerSecond = 2;
     public const float PathMoved = 2f;

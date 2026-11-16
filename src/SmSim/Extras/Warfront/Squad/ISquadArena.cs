@@ -134,7 +134,7 @@ public sealed class MusouSquadArena : ISquadArena
     {
         if (_nav is null) return [to];
         PathsBuilt++;
-        if (_nav.FindPath(from, to, 10f, 60_000) is not { } path) return null;
+        if (_nav.FindPath(from, to, 10f, SquadRules.SearchNodes) is not { Partial: false } path) return null;   // a partial path (the goal not reached, or past the node cap) is "no way" for a follow
         var points = new List<Vector3>(path.Waypoints.Count);
         foreach (var w in path.Waypoints)
         {

@@ -21,6 +21,9 @@ public class IsolationPins
         double clock = run.War.Clock;
         var battle = TfwRig.Deploy(w);
         Assert.False(battle.WarfrontNode);
+        Assert.Null(run.Warfront?.SquadStep);   // W9b: no squad seam exists without the Warfront object (every one of them hangs on it)
+        Assert.Null(run.Warfront?.SquadTargets);
+        Assert.Null(run.Warfront?.AnyRetainerStanding);
         foreach (var psyker in w.Librarians.Values) Assert.Equal(1f, psyker.CooldownScale);   // the Librarian's cooldown scale stays 1
         Assert.Equal(TfwBattleRules.StartTransport - TfwBattleRules.DeployCost, run.Transport);   // the deploy cost stands
         TfwRig.Seconds(w, 2f);

@@ -21,14 +21,14 @@ public sealed class MusouSquadJumpArena(NavGraph? nav) : ISquadJumpArena
     /// <summary>Routes searched so far.</summary>
     public int RoutesBuilt { get; private set; }
 
-    /// <summary>Nodes one search may expand at most: a jump link worth following is near, so a search for an unreachable owner stops early (bench: 60 000 cost up to 72 ms).</summary>
-    public const int MaxExpanded = 12_000;
+    /// <summary>Nodes one search may expand at most (<see cref="SquadRules.SearchNodes"/>, the walking path's too): a jump link worth following is near, so a search for an unreachable owner stops early (bench: 60 000 cost up to 72 ms).</summary>
+    public const int MaxExpanded = SquadRules.SearchNodes;
 
     public IReadOnlyList<SquadRouteStep>? FindRoute(Vector3 from, Vector3 to)
     {
         if (nav is null) return null;
         RoutesBuilt++;
-        if (nav.FindPath(from, to, 10f, MaxExpanded) is not { } path) return null;
+        if (nav.FindPath(from, to, 10f, MaxExpanded) is not { Partial: false } path) return null;
         var steps = new List<SquadRouteStep>(path.Waypoints.Count);
         foreach (var w in path.Waypoints) steps.Add(new SquadRouteStep(w.Position, w.Kind != NavLinkKind.Walk));
         return steps;

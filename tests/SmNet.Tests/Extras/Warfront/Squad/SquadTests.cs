@@ -321,10 +321,10 @@ public class SquadTests
         Assert.Equal(SquadRules.TargetId(0), targets[0].Id);
         Assert.Equal(0, SquadRules.IndexOfTarget(targets[0].Id));
         Assert.Equal(-1, SquadRules.IndexOfTarget(-5));   // a Guard squad's id is not ours
-        Assert.True(sim.Hit(targets[0].Id, 300f, Vector3.Zero));   // a tenth: 30
+        Assert.True(sim.Hit(targets[0].Id, 40f / SquadRules.DamageTaken, Vector3.Zero));   // 40 after the share: 10 armour left
         Assert.Equal(1f, sim.View(0)!.Value.HealthShare);   // armour took it
-        Assert.True(sim.Hit(targets[0].Id, 600f, Vector3.Zero));   // 60: 20 armour left, 40 health
-        Assert.Equal(0.6f, sim.View(0)!.Value.HealthShare, 3);
+        Assert.True(sim.Hit(targets[0].Id, 60f / SquadRules.DamageTaken, Vector3.Zero));   // 60: 10 armour gone, 50 health
+        Assert.Equal(0.5f, sim.View(0)!.Value.HealthShare, 3);
         Assert.False(sim.Hit(-5, 10f, Vector3.Zero));
     }
 
@@ -528,7 +528,7 @@ public class SquadTests
         Land(sim, Vector3.Zero, 1);
         arena.Add(new Vector3(10, 0, 0), 1000f);
         Run(sim, 2, Owner(Vector3.Zero));   // one shot at tick 1 or 2
-        Assert.Equal(980f, arena.Orks[0].Health);
+        Assert.Equal(1000f - 10f * 2f * SquadRules.DamageDealt, arena.Orks[0].Health, 2);   // the stat scale x the squad's damage dealt (ruling of 2026-11-17: 0.40)
         Down(sim, 0);   // 150 health: the Hit above 100000 downs it anyway; check the share instead
         Land(sim, Vector3.Zero, 1);
         Assert.True(sim.Hit(SquadRules.TargetId(0), 100f, Vector3.Zero));

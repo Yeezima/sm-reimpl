@@ -7,6 +7,7 @@ using SmSim.Extras.Musou.Campaign;
 using SmSim.Extras.Warfront;
 using SmSim.Extras.Warfront.Campaign;
 using SmSim.Extras.Warfront.Maps;
+using SmSim.Extras.Warfront.Coop;
 
 namespace SmServer;
 
@@ -44,6 +45,8 @@ public sealed partial class GameServer
         public int ExitCode = ServerCommandLine.WarfrontStageExit;
         /// <summary>The run is over and its end was handled: no later save writes the finished campaign back.</summary>
         public bool Finished;
+        /// <summary>This process is about to leave on a rewritten run (a new run, a deployment that could not land): nothing may write the old campaign back.</summary>
+        public bool Leaving;
         public int? SupervisorPid;
         public uint NextAliveCheck, NextPlaySave;
         public uint LandingStartTick, LandingLastLog, LandingEnqueued;
@@ -148,6 +151,7 @@ public sealed partial class GameServer
         {
             var data = new TfwMapData(Map.Collision, Map.Spawns, Map.StartAreas ?? [], Map.Hash, field);
             nav = WarfrontWorld.Nav(slot, data, World.Config, out string built, WarfrontRunFiles.NavCacheOverride);
+            _wfNav = nav;
             note = $"{built}, {nav.NodeCount} nodes";
         }
         catch (Exception e) when (e is not OutOfMemoryException)
@@ -179,25 +183,14 @@ public sealed partial class GameServer
     void WarfrontBindProgression(WarfrontServerState s)
     {
         if (World.Tfw?.Warfront is not { } rules) return;
-        rules.Progression = new WarfrontProgressionRuntime(s.Campaign) { KeyOf = id => s.KeyOf.TryGetValue(id, out ulong k) ? k : null };
-    }
-
-    /// <summary>Replaces the run's campaign (a new run; a deployment that could not land): the progression is rebuilt on it and the identified players join it again.</summary>
-    void WarfrontReplaceCampaign(WarfrontServerState s, WarfrontCampaign next)
-    {
-        var old = s.Campaign;
-        s.Campaign = next;
-        foreach (var k in old.JoinOrder)
-            if (s.KeyOf.ContainsValue(k) && old.Player(k) is { } p) next.Join(k, p.Name, out _);
-        WarfrontBindProgression(s);
-        s.HubDirty = true;
-        s.LastHub.Clear();
+        rules.Progression = new WarfrontProgressionRuntime(s.Campaign) { KeyOf = id => s.KeyOf.TryGetValue(id, out ulong k) ? k : null };   // built once per process, never replaced
     }
 
     /// <summary>Writes run.json unless the run was finished (the archive removed it; a finished campaign must never be written back).</summary>
     void WfSave(WarfrontServerState s)
     {
-        if (s.Finished) return;
+        if (s.Finished || s.Leaving) return;
+        WarfrontSaveSquads(s);   // the squads first, then the run: killed between the two, a pick is offered again instead of a paid card with no Marine
         try { WarfrontSave.Write(s.Dir, s.Campaign); }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException) { WfLog($"run.json could not be written: {e.Message}"); }
     }
@@ -240,6 +233,7 @@ public sealed partial class GameServer
             rules.LateJoinAllowed = id => state.KeyOf.ContainsKey(id);   // a human not yet identified is not flown into a battle (W12 adds its own condition on top)
             rules.StuckSink = r => _wfStuck.Record(Map.Name, r.Type.ToString(), r.At, r.Why == WarfrontStuckWhy.Removed ? WarfrontStuckAction.Removed : WarfrontStuckAction.Relocated, r.Why == WarfrontStuckWhy.Cleared ? "position-clearing" : "stranded");
             WarfrontBindProgression(state);
+            WarfrontBuildSquads(state, rules);
         }
         else WfLog($"{Map.Name} has no hub and no battle rules yet (W13b and W14b): a deployment here runs under SM_WF_RESOLVE only");
 
@@ -264,6 +258,7 @@ public sealed partial class GameServer
         {
             WarfrontSync(s);
             WarfrontClocks(s);
+            WarfrontCoopTick(s);
             WarfrontIdentityTimeouts(s);
             WarfrontArrivalStep(s);
             WarfrontBattleWatch(s);
@@ -293,8 +288,12 @@ public sealed partial class GameServer
             s.Known.Remove(id); s.Waiting.Remove(id); s.LastHub.Remove(id);
             if (s.KeyOf.Remove(id, out ulong key))
             {
-                s.Campaign.Leave(key);
-                WarfrontCoopLeft(id, key);
+                var down = World.Tfw?.WarfrontDownState(id) ?? default;
+                var state = s.Campaign.Phase != WarfrontPhase.Battle ? WarfrontLeaveState.NotInBattle
+                    : down.Phase == WarfrontDownPhase.Spectator ? WarfrontLeaveState.Spectating
+                    : down.Phase == WarfrontDownPhase.Downed ? WarfrontLeaveState.Downed : WarfrontLeaveState.Alive;
+                if (WarfrontCoopRules is { } coop) coop.Left(key, state, down.SecondsLeft);
+                else s.Campaign.Leave(key);
                 WfLog($"P{id} (key {KeyTail(key)}) left; leader is now {(s.Campaign.Leader is { } l ? KeyTail(l) : "nobody")}");
                 WfSave(s);
                 s.HubDirty = true;
@@ -332,9 +331,17 @@ public sealed partial class GameServer
         if (s.KeyOf.TryGetValue(player, out ulong have)) { if (have != key) WfLog($"P{player} sent a second Identify with another key: ignored"); return; }
         if (s.KeyOf.ContainsValue(key)) { WfLog($"P{player} identified with a key already connected ({KeyTail(key)}): refused"); WarfrontNotice(s, player, "that campaign key is already connected"); return; }
         string shown = string.IsNullOrWhiteSpace(name) ? $"P{player}" : name.Trim();
-        if (!s.Campaign.Join(key, shown, out var kind)) { WfLog($"P{player} could not join the campaign: it is full"); WarfrontNotice(s, player, "the campaign is full"); return; }
+        WarfrontJoinKind kind;
+        if (WarfrontCoopRules is { } coop)
+        {
+            var joined = coop.Connect(key, shown, player);   // in place of Campaign.Join: the roles, the hold, the grants
+            if (!joined.Admitted) { WfLog($"P{player} was refused: {joined.Refusal}"); WarfrontNotice(s, player, joined.Refusal ?? "the campaign is full"); return; }
+            kind = joined.Kind;
+            if (joined.SpectatorSeconds > 0) WfLog($"P{player} returns as a fallen player's spectator for {joined.SpectatorSeconds:0} s");
+        }
+        else if (!s.Campaign.Join(key, shown, out kind)) { WfLog($"P{player} could not join the campaign: it is full"); WarfrontNotice(s, player, "the campaign is full"); return; }
         s.KeyOf[player] = key;
-        WarfrontCoopJoined(player, key, kind);
+        _wfSender?.ClientJoined(player);
         s.Waiting.Remove(player);
         s.FirstIdentifiedTick ??= World.Tick;
         WfLog($"P{player} identified as a {(kind == WarfrontJoinKind.New ? "new" : "returning")} player (key {KeyTail(key)}, \"{shown}\"); leader {(s.Campaign.Leader is { } l ? KeyTail(l) : "nobody")}");
@@ -345,14 +352,6 @@ public sealed partial class GameServer
 
     // ---- seams for the later slices (plain partial voids, no behaviour; W8 progression, W10 squad, W12 coop implement them in their own files) ---------------------------------
 
-    /// <summary>W12: an identified player joined the campaign (<paramref name="kind"/> New or Returning).</summary>
-    partial void WarfrontCoopJoined(int player, ulong key, WarfrontJoinKind kind);
-    /// <summary>W12: an identified player left.</summary>
-    partial void WarfrontCoopLeft(int player, ulong key);
-    /// <summary>W12: a ship stop: a battle resolved and everyone is aboard again.</summary>
-    partial void WarfrontCoopShipStop();
-    /// <summary>W12: set <paramref name="refusal"/> to a text to refuse the leader's deploy (the text goes out as the Stage status); default: allowed.</summary>
-    partial void WarfrontDeployGate(ref string? refusal);
     /// <summary>W12: while a client spectates, the position its crowd data is centred on (default: untouched). Declared in GameServer.Musou.cs, called where Musou, the war and the elite bars choose each client's centre.</summary>
     /// <summary>W8, W10, W12: each sends its own envelope sections from the Warfront send.</summary>
     partial void WarfrontSendProgression();
