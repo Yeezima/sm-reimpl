@@ -30,11 +30,12 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 Scanned 3549 spec table rows: **2541 tagged**, 656 not tagged (read from data with high confidence), 352 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 762 rows of the changes document.
 Scanned 3540 spec table rows: **2533 tagged**, 655 not tagged (read from data with high confidence), 352 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 760 rows of the changes document.
+Scanned 3583 spec table rows: **2571 tagged**, 660 not tagged (read from data with high confidence), 352 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 763 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
-| Movement (critical) | 404 | 347 | 344 | 114 | 12 |
-| Combat core (critical) | 23 | 14 | 21 | 14 | 8 |
+| Movement (critical) | 406 | 348 | 346 | 114 | 12 |
+| Combat core (critical) | 24 | 15 | 22 | 15 | 8 |
 | Weapons (critical) | 119 | 73 | 106 | 52 | 3 |
 | Melee (critical) | 158 | 138 | 114 | 57 | 5 |
 | Jump pack (critical) | 81 | 73 | 67 | 17 | 0 |
@@ -47,7 +48,7 @@ Scanned 3540 spec table rows: **2533 tagged**, 655 not tagged (read from data wi
 | Game modes | 46 | 42 | 43 | 19 | 1 |
 | Perks | 52 | 43 | 30 | 24 | 0 |
 | Death and ragdoll | 13 | 10 | 12 | 9 | 0 |
-| Customizer and paint | 46 | 43 | 26 | 15 | 0 |
+| Customizer and paint | 63 | 55 | 41 | 20 | 0 |
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 47 | 37 | 21 | 12 | 7 |
@@ -59,6 +60,9 @@ Scanned 3540 spec table rows: **2533 tagged**, 655 not tagged (read from data wi
 | General game design | 39 | 39 | 31 | 9 | 0 |
 | Ork faction | 262 | 249 | 146 | 69 | 0 |
 | **All areas** | **2533** | 2261 | 1892 | 775 | 37 |
+| General game design | 51 | 50 | 39 | 10 | 0 |
+| Ork faction | 263 | 250 | 147 | 69 | 0 |
+| **All areas** | **2571** | 2292 | 1924 | 782 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -76,21 +80,27 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | notes: ours | 446 |
 | kind: interpretation | 411 |
 | kind: estimate | 208 |
+| kind: ours | 1485 |
+| confidence: low | 935 |
+| confidence: medium | 880 |
+| notes: ours | 451 |
+| kind: interpretation | 415 |
+| kind: estimate | 215 |
 | notes: estimate | 204 |
 | confidence: none (low) | 109 |
-| kind: provisional | 105 |
+| kind: provisional | 106 |
 | kind: user's knowledge | 53 |
 | kind: choice | 44 |
-| notes: provisional | 41 |
+| notes: provisional | 42 |
 | section: provisional | 37 |
 | section: placeholder | 34 |
 | notes: user's knowledge | 30 |
+| kind: approximation | 27 |
 | notes: interpretation | 27 |
-| kind: approximation | 26 |
 | kind: placeholder | 23 |
+| notes: placeholder | 20 |
 | kind: gap (not reproduced) | 19 |
 | notes: open question | 19 |
-| notes: placeholder | 19 |
 | notes: not reproduced (gap) | 13 |
 | notes: gap (not reproduced) | 10 |
 | kind: public (unverified) | 9 |
@@ -99,10 +109,11 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | kind: inferred | 3 |
 | section: approximation | 3 |
 | notes: unverified | 2 |
+| notes: approximation | 1 |
 
 ## Part A: gameplay areas, critical first
 
-### Movement (gameplay-critical) (404)
+### Movement (gameplay-critical) (406)
 
 *Spec section: Extracted parameters*
 
@@ -808,7 +819,14 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-48398FB1` | Movement | walks 5.5 m/s, sprints 8 m/s when far from its place with nobody to shoot; every step (walking and the push between Marines closer than 0.9 m) is taken only if it stays on the walking graph, the height taken from the floor, sliding along a wall on one axis… (m/s, m) | kind: estimate; confidence: low; notes: ours | ours | Movement: compare with SM1 by timing a run over a known distance. Ours: walks 5.5 m/s, sprints 8 m/s when far from its place with nobody to… | ☐ |
 
-### Combat core (gameplay-critical) (23)
+*Spec section: Added content: Warfront, progression in the node battle (W3b; `WarfrontRules.Version` 3; added content, Warfront only; the W7 library wired in)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-8E33AFE7` | Cards: attack speed | `PlayerState.AttackSpeedBonus` = 0.10 per card, set each tick; `Stims.AttackSpeed` multiplies by (1 + bonus) on top of a stim, for melee swings and fire rate; not on the wire and in no hash; 0 outside Warfront. The client does not predict it yet (a later… (multiplier) | confidence: medium | owner; the core edit approved by the lead | Cards: attack speed: compare with SM1 by feel or video. Ours: PlayerState.AttackSpeedBonus = 0.10 per card, set each tick… | ☐ |
+| `R-469260E1` | Attack speed and Rapid Fire | while Rapid Fire runs the fire rate is min(attack speed x Rapid Fire, x2) (`SimConfig.FireBoostCap`, a core rule), so the attack-speed card does not raise it past x2 then; it counts in full without Rapid Fire and in melee. Not changed (a core edit): proposed… (multiplier) | kind: ours; confidence: low | finding | Attack speed and Rapid Fire: compare with SM1 by feel or video. Ours: while Rapid Fire runs the fire rate is min(attack speed x Rapid Fire… | ☐ |
+
+### Combat core (gameplay-critical) (24)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -891,7 +909,13 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-00D02E43` | Damage taken | a Marine takes a tenth of an Ork hit (Musou's puppet Marines take 0.10, `TfwSupplyRules.BotDamageTaken`); the per-Ork level multiplier is applied by W3b's hook, not here (x) | kind: estimate; confidence: low | Musou's puppet value (owner 2026-11-06), reused as the starting value | Damage taken: compare with SM1 by counting hits to kill and by video of the health bar. Ours: a Marine takes a tenth of an Ork hit (Musou's puppet Marines take… | ☐ |
-| `R-4A8E78D2` | Known gap: no armour or health recovery | a Marine's armour and health come back only by a revive (players' armour regenerates); W11 | kind: ours; confidence: low | designer review 1 (left for W11) | Known gap: no armour or health recovery: compare with SM1 by counting hits to kill and by video of the health bar. Ours: a Marine's armour and health come back only by a revive (players'… | ☐ |
+| `R-9CFAB832` | Armour and health recovery (closed by W11) | a Marine's armour and health come back only by a revive (players' armour regenerates); closed by W11: regeneration after the class delay, see "Warfront: squad classes" | kind: ours; confidence: low | designer review 1 (left for W11) | Armour and health recovery (closed by W11): compare with SM1 by counting hits to kill and by video of the health bar. Ours: a Marine's armour and health come back only by a revive (players'… | ☐ |
+
+*Spec section: Added content: Warfront, progression in the node battle (W3b; `WarfrontRules.Version` 3; added content, Warfront only; the W7 library wired in)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-B6869371` | Cards: damage | x(1 + 0.10 per card) on every hit he deals to Orks, multiplied into any power-up's scale (melee and other), and the owner's x2 melee cap (power-ups and stims) is raised by the same factor, so the cards multiply on top of the cap (`WarfrontMeleeCap`)… (multiplier) | kind: interpretation; confidence: medium; notes: ours | owner; the stacking with power-ups ours | Cards: damage: compare with SM1 by counting hits to kill and by video of the health bar. Ours: x(1 + 0.10 per card) on every hit he deals to Orks, multiplied into… | ☐ |
 
 ### Weapons (gameplay-critical) (119)
 
@@ -1352,7 +1376,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
-| `R-6278E792` | Ranged and melee damage (placeholder until W11 mirrors the weapon) | ranged: 35 m, 18 per round, one round per 0.25 s, 70 % of rounds hit by a deterministic roll; melee: 2.5 m, 60 per blow a second, 90 % (m, damage, s) | kind: estimate; confidence: low; notes: ours | ours | Ranged and melee damage (placeholder until W11 mirrors the…: compare with SM1 by counting hits to kill and by video of the health bar. Ours: ranged: 35 m, 18 per round, one round per 0.25 s, 70 % of rounds hit… | ☐ |
+| `R-09FC97BC` | Ranged and melee damage (the fallback when a Marine has no mirrored loadout; W11 fills the real… | ranged: 35 m, 18 per round, one round per 0.25 s, 70 % of rounds hit by a deterministic roll; melee: 2.5 m, 60 per blow a second, 90 % (m, damage, s) | kind: estimate; confidence: low; notes: ours | ours | Ranged and melee damage (the fallback when a Marine has no…: compare with SM1 by counting hits to kill and by video of the health bar. Ours: ranged: 35 m, 18 per round, one round per 0.25 s, 70 % of rounds hit… | ☐ |
 
 ### Jump pack (gameplay-critical) (81)
 
@@ -2355,7 +2379,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-5AED6E4D` | Ragdoll lifecycle (client) | simulates until every body has been still (< 0.3 m/s and < 2 rad/s) for 3 s (the user's request), or 12 s at most, or the chest falls below −300 m; then the pose is kept and the physics freed; at most 16 corpses (simulating or lying; the oldest lying one goes… (s) | kind: provisional; confidence: none (low); notes: ours | user's request (3 s); the rest ours | Ragdoll lifecycle (client): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: simulates until every body has been still (< 0.3 m/s and < 2 rad/s)… | ☐ |
 | `R-42969A4B` | Death camera and vignette (client) | after the user's description of the original: the camera blends in 0.3 s (smoothstep) from the last view to a third-person orbit of the own ragdoll's chest, then rises to at least 0.4 rad elevation over 1.5 s and pulls back 1.2 m over 3 s (FOV to 60°), kept… (s) | kind: placeholder; confidence: none (low); notes: ours | after the user's description of the original; numbers ours | Death camera and vignette (client): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: after the user's description of the original: the camera blends in… | ☐ |
 
-### Customizer and paint (46)
+### Customizer and paint (63)
 
 *Spec section: Armour paint (client only; not simulated)*
 
@@ -2417,6 +2441,28 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-4AB4F632` | SET ACTIVE in the match (fix/class-change-in-match; the owner's playtest 2026-10-28: "when i set my… | In the match menu (Esc or C), **SET ACTIVE sends the loadout for the next respawn** as DEPLOY does (marks it active, saves the profile, `ChangeSetup`), but the menu stays open; it is enabled for every filled loadout, also the one already active (a match… | kind: ours; notes: provisional | the owner's playtest report; tests `ClassChangeInMatchTests` | SET ACTIVE in the match (fix/class-change-in-match; the…: compare with SM1 with side-by-side screenshots in the same spot. Ours: In the match menu (Esc or C), SET ACTIVE sends the loadout for the… | ☐ |
 | `R-B1F0038C` | The creator's lists and the DEFAULTS copy (fix/customizer-weapons-perks; the owner, 2026-10-29: "i… | The catalogue, the creator's rows and the server's choice lists agree for every class of the install (pinned by `CustomizerServerAgreementTests`: the 25 offered items per side reach the server as the same item; every perk of every class goes into both perk… | kind: ours; notes: provisional | the owner's report; the server's log line of a Join with a Power Sword and two perks | The creator's lists and the DEFAULTS copy…: compare with SM1 with side-by-side screenshots in the same spot. Ours: The catalogue, the creator's rows and the server's choice lists agree… | ☐ |
 | `R-2E01F836` | What the death screen says | "[ESC] CHANGE LOADOUT" under the respawn countdown; then the server's answer to the change: "Sending your loadout..." (still resent; "has not answered yet" after 3 s), "Loadout accepted: applies when you respawn" (since fix/class-change-in-match: "Devastator… | kind: ours | `SetupAck` | What the death screen says: compare with SM1 with side-by-side screenshots in the same spot. Ours: "[ESC] CHANGE LOADOUT" under the respawn countdown; then the server's… | ☐ |
+
+*Spec section: Added content: Warfront: squad classes (W11: `Extras/Warfront/Squad/Classes`; pure sim, not yet wired to the ship's customizer or the wire)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-117D7026` | Body numbers | health, armour (shield), their regeneration delays and rates as `Loadouts.Body` leaves them after the perks (HP, s) | confidence: medium; notes: placeholder | the class data (replaces the W9 placeholders) | Body numbers: compare with SM1 with side-by-side screenshots in the same spot. Ours: health, armour (shield), their regeneration delays and rates as… | ☐ |
+| `R-51459746` | Armour and health regeneration | after the class's delay with no hit, armour (and health) regenerate at the class's rate up to their maximum; a hit restarts the delay; a downed Marine does not; a revive refills (HP/s) | kind: interpretation; confidence: medium | class data (players' regeneration) | Armour and health regeneration: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: after the class's delay with no hit, armour (and health) regenerate… | ☐ |
+| `R-4A316E89` | Weapon profile | ranged: the wargear's range (at most 60 m), damage x body multiplier x burst length (a projectile adds half its blast's damage), seconds per pull = shot cooldown + reload / clip; hit chance 65 % full-auto, 80 % semi-auto, 75 % projectile or blast; no-primary… (m, damage, s) | kind: estimate; confidence: low; notes: ours | wargear numbers read; the hit chances, the cap and the blast share ours | Weapon profile: compare with SM1 with side-by-side screenshots in the same spot. Ours: ranged: the wargear's range (at most 60 m), damage x body multiplier… | ☐ |
+| `R-E58DFC7A` | Provisional approximation | no recoil, spread, heat, ammunition or perk effects other than the body numbers: a retainer is a number mirror of the player's gun | kind: provisional; kind: approximation; confidence: low | plan section 6 | Provisional approximation: compare with SM1 with side-by-side screenshots in the same spot. Ours: no recoil, spread, heat, ammunition or perk effects other than the… | ☐ |
+| `R-12300EDC` | Armour and colours in the loadout | `Armour`: `class:<role>` plus, for a standard retainer, the player's `set:` and `<slot>:<piece>` entries; `Colours`: nine packed palette triples (primary, secondary, tertiary) of the player's look; the client resolves the Marine's look from them | confidence: medium | owner ("class-appropriate armor in the player's colors") | Armour and colours in the loadout: compare with SM1 by counting hits to kill and by video of the health bar. Ours: Armour: class:<role> plus, for a standard retainer, the player's set:… | ☐ |
+| `R-153513EF` | Librarian squad class | whole squad Assault/Raptor, Tactical or Devastator/Havoc (no mixed squads); each Marine rolls one of the owner's valid Classic PvP bot presets for the class (the first legal preset from the seed's pick), seeded by a 64-bit mix of run seed, campaign key… | kind: ours; confidence: medium | owner; the seeding ours | Librarian squad class: compare with SM1 with side-by-side screenshots in the same spot. Ours: whole squad Assault/Raptor, Tactical or Devastator/Havoc (no mixed… | ☐ |
+| `R-0815F713` | Jump pack | a class with a jump pack: its power, recharge, the full jump's cost and height, a range and airtime from the pack's physics (forward speed x the rise, hang, fall and take-off times), and the ground pound's radius, damage and recovery (power, m, s) | confidence: medium | class data; range and airtime derived | Jump pack: compare with SM1 with side-by-side screenshots in the same spot. Ours: a class with a jump pack: its power, recharge, the full jump's cost… | ☐ |
+| `R-46A46F4B` | Jump follow | an Assault/Raptor Marine on Follow leaps to its place by the owner when the owner is farther than 12 m (or airborne and beyond the follow band), checked every 10 ticks; the landing is the graph's floor within 1 m of its spot (on the graph), in the pack's… (m, s) | kind: interpretation; confidence: low; notes: ours | plan section 6 (12 m); the rest ours | Jump follow: compare with SM1 with side-by-side screenshots in the same spot. Ours: an Assault/Raptor Marine on Follow leaps to its place by the owner… | ☐ |
+| `R-D446885C` | Jump follow along a route | where the walking path stops at a jump or drop link, the Marine leaps to that link's far side when it is a valid landing in range; ONE route search a second per squad at most, its answer (the far side, or none: a failed search too) kept until the owner has… (s, m) | kind: interpretation; confidence: low; notes: ours | owner ("follow by jump where feasible"); the budget ours (review 1) | Jump follow along a route: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: where the walking path stops at a jump or drop link, the Marine leaps… | ☐ |
+| `R-74674E41` | Pound with the owner | a Marine in flight lands as a ground pound when its owner is airborne (1.5 m above the floor) and falling faster than 12 m/s (the owner's pound), else a plain landing (m, m/s) | kind: estimate; confidence: low | owner ("try to mirror a normal player ground pound") | Pound with the owner: compare with SM1 by timing a run over a known distance. Ours: a Marine in flight lands as a ground pound when its owner is airborne… | ☐ |
+| `R-F5D10F78` | Jump-pound order | max jump then a ground pound round the marked point: each jump-pack Marine gets its own landing within 5 m of the mark's floor, at least 1.2 m from every other, on the graph, in range, with a clear line of flight, tried over 24 spiral places; a Marine with… (m, s) | kind: estimate; confidence: medium; notes: ours | owner (5 m, stagger, validation, ability limits, no stacking); 1.2 m and 0.15 s plan section 6; the rest ours | Jump-pound order: compare with SM1 with side-by-side screenshots in the same spot. Ours: max jump then a ground pound round the marked point: each jump-pack… | ☐ |
+| `R-23B72622` | Ability limits kept | a jump needs the pack's power, power recharges at the pack's rate, a pound has its recovery; Marines do not collide in the air | confidence: medium | owner ("keep existing ability limits") | Ability limits kept: compare with SM1 with side-by-side screenshots in the same spot. Ours: a jump needs the pack's power, power recharges at the pack's rate, a… | ☐ |
+| `R-3A68B229` | Squad damage dealt | every Marine's weapon and pound damage is multiplied by `SquadRules.DamageDealt` (1): the one knob for squad strength, with `DamageTaken` (0.1) the other; the strength table (squad damage per second, time to kill, time to be downed at levels 1, 10, 20) is in… (x) | kind: estimate; confidence: low | review 1 finding 4 | Squad damage dealt: compare with SM1 by counting hits to kill and by video of the health bar. Ours: every Marine's weapon and pound damage is multiplied by… | ☐ |
+| `R-05F3F4F3` | Side | a Warfront owner carries his side (`SquadOwnerLoadout.Side`, default Space Marines): a Chaos Librarian's squad rolls Raptors and Havocs from the Chaos classes; a standard retainer mirrors the player's own class whatever the side | confidence: medium | owner text (Raptor, Havoc); review 1 finding 5 | Side: compare with SM1 with side-by-side screenshots in the same spot. Ours: a Warfront owner carries his side (SquadOwnerLoadout.Side, default… | ☐ |
+| `R-55704A69` | Leap under a roof | a flight whose middle has no clear line straight up (the HQ's tunnels, 8 m clear) keeps an apex of 2.5 m instead of the pack's height (m) | kind: estimate; confidence: low | review 1 finding 7 | Leap under a roof: compare with SM1 by measuring on a flat spot of the same map. Ours: a flight whose middle has no clear line straight up (the HQ's… | ☐ |
+| `R-C66B5369` | Rebind (mid-battle reconnect) | `Rebind(key, player)` changes only the player id the squad answers to; positions, health, armour, downed state and orders stay; `Land` is for real landings and stands everyone up at full strength | kind: ours | lead 29, defect found in W9 | Rebind (mid-battle reconnect): compare with SM1 with side-by-side screenshots in the same spot. Ours: Rebind(key, player) changes only the player id the squad answers to… | ☐ |
+| `R-8046E721` | Marine view fields | `Firing` (a round was taken, held 0.3 s so a 10 Hz wire sample sees it), `Target` (the Ork id or -1), `ReviveShare` (0 to 1 of the revive hold), `Airborne` (in a leap or a pound's jump: the client plays the flight and does not ground-snap it; the pound itself… | kind: ours | lead 29 and review 1 (for W10's wire) | Marine view fields: compare with SM1 with side-by-side screenshots in the same spot. Ours: Firing (a round was taken, held 0.3 s so a 10 Hz wire sample sees… | ☐ |
 
 ### Animation blending (7)
 
@@ -3818,7 +3864,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-2160BA77` | Battles survived | counted for a Marine standing when the battle ends (downed or out: not) | kind: interpretation; confidence: medium; notes: ours | our reading | Battles survived: compare with SM1 by feel or video. Ours: counted for a Marine standing when the battle ends (downed or out:… | ☐ |
 | `R-424FE662` | Paths | Follow (and an Attack without a point): ONE path per squad from its centre to its owner (`NavGraph.FindPath`, walk links only; it ends at the first jump or drop), rebuilt at most twice a second and only when the owner moved 2 m, first rebuilds staggered per… (per s, m) | kind: ours; confidence: medium | designer review 1 | Paths: compare with SM1 by feel or video. Ours: Follow (and an Attack without a point): ONE path per squad from its… | ☐ |
 | `R-0491F66D` | Retarget | the nearest enemy within the order's sight with a line of sight, every 3 ticks (staggered per Marine) (ticks) | kind: estimate; confidence: low; notes: ours | ours | Retarget: compare with SM1 by feel or video. Ours: the nearest enemy within the order's sight with a line of sight… | ☐ |
-| `R-4E677F18` | Marine body (placeholder until W11) | 200 health, 100 armour (armour first), target radius 0.5 m (HP) | kind: estimate; confidence: low; notes: ours | ours | Marine body (placeholder until W11): compare with SM1 by feel or video. Ours: 200 health, 100 armour (armour first), target radius 0.5 m. | ☐ |
+| `R-339AABF5` | Marine body (the fallback when a Marine has no mirrored loadout; W11 fills the class numbers) | 200 health, 100 armour (armour first), target radius 0.5 m (HP) | kind: estimate; confidence: low; notes: ours | ours | Marine body (the fallback when a Marine has no mirrored…: compare with SM1 by feel or video. Ours: 200 health, 100 armour (armour first), target radius 0.5 m. | ☐ |
 | `R-F698749A` | Revive by a player | hold Use within 2 m for 2 s; any player, any Marine; full health and armour (m, s) | kind: estimate; confidence: medium; notes: ours | owner (any player, full health); 2 m and 2 s ours (plan section 6) | Revive by a player: compare with SM1 by feel or video. Ours: hold Use within 2 m for 2 s; any player, any Marine; full health and… | ☐ |
 | `R-39E61109` | Revive by a Marine | a standing Marine revives a downed member of its own squad, or a fallen human whose window is open (any squad), standing within 2 m for 2 s, only when no Ork is within 6 m of the body (checked every tick); one Marine per body (m, s) | kind: ours; confidence: medium | owner ("a retainer can help downed members of its own squad when safe"); the human case and the numbers ours (plan section 6) | Revive by a Marine: compare with SM1 by feel or video. Ours: a standing Marine revives a downed member of its own squad, or a… | ☐ |
 | `R-BCF793A2` | Who stands | `AnyStanding`: a Marine neither downed nor out; a downed Marine in its window does not stand (`AnyReviveWindowOpen` tells the cases apart) | kind: interpretation; confidence: medium | W3's rule ("any retainer is standing"); downed not counting ours | Who stands: compare with SM1 by feel or video. Ours: AnyStanding: a Marine neither downed nor out; a downed Marine in its… | ☐ |
@@ -3839,6 +3885,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 ### General game design (42)
 ### General game design (39)
+### General game design (51)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -3861,6 +3908,23 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-B52A43ED` | Kill floor | a kill box 6 m below the lowest solid piece's underside, 40 m deep and 200 m wider than the pieces all round, so open edges are safe (metres) | kind: ours; confidence: low | ours | Kill floor: compare with SM1 by feel or video. Ours: a kill box 6 m below the lowest solid piece's underside, 40 m deep… | ☐ |
 | `R-011AA592` | Declared modes | a document lists the modes it is made for (default annihilation and seize; any combination, unknown names kept for future modes); a declared mode is playable only when no error of that mode remains: Seize Ground needs at least one capture point (at most 8)… (modes) | kind: ours | owner's words 2026-11-17 | Declared modes: compare with SM1 by feel or video. Ours: a document lists the modes it is made for (default annihilation and… | ☐ |
 | `R-3DAFFBD3` | Bots on custom maps | the new-map bot rules (stuck escape, strict drops, walk-first jump build) apply to `cm_` maps (rule) | kind: ours; confidence: low | bots/new-maps rules | Bots on custom maps: compare with SM1 by feel or video. Ours: the new-map bot rules (stuck escape, strict drops, walk-first jump… | ☐ |
+
+*Spec section: Added content: Warfront, progression in the node battle (W3b; `WarfrontRules.Version` 3; added content, Warfront only; the W7 library wired in)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-0C424AE2` | Capture XP | A, B, C 400 each and D 800, to every connected human, once per position per battle (a retaken position secured again pays nothing); read from the battle's changes (XP) | kind: ours; confidence: medium | plan section 5 | Capture XP: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: A, B, C 400 each and D 800, to every connected human, once per… | ☐ |
+| `R-7AC0E4F1` | Picker opening | aboard (the run's phase is the hub or the way down; every battle, node, HQ or fortress, is the field) at once; in the field when no damage taken and no kill credited for 3 s and no Ork within 12 m, and not twice within 45 s (s, m) | kind: ours; confidence: low | owner (a lull); the 3 s, 12 m and 45 s ours | Picker opening: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: aboard (the run's phase is the hub or the way down; every battle… | ☐ |
+| `R-FB4B343D` | Picker protection | while an offer stands the human takes no damage (received scale 0) and his input is locked; others are untouched; ends on the pick, after 20 s (the server takes card 1) or when he leaves (s) | kind: ours; confidence: medium | owner; 20 s ours | Picker protection: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: while an offer stands the human takes no damage (received scale 0)… | ☐ |
+| `R-5CA10AC4` | Cards: max HP and max armour | provisional approximation: the damage he takes is scaled by 1 / (armour multiplier) while his shield is above 0 and by 1 / (HP multiplier) otherwise; the bars themselves stay at 100 + 100 (multiplier) | kind: ours; confidence: low; notes: approximation; notes: provisional | designer; no body-level seam exists | Cards: max HP and max armour: compare with SM1 by counting hits to kill and by video of the health bar. Ours: provisional approximation: the damage he takes is scaled by 1 /… | ☐ |
+| `R-A9A0BC08` | Cards: cooldown | the support strike (orbital and drop pod, 60 s) and the grenade refill period are scaled by 1 - 0.08 per card, never below 40 % (multiplier) | confidence: medium | owner | Cards: cooldown: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the support strike (orbital and drop pod, 60 s) and the grenade… | ☐ |
+| `R-DBA6335C` | Cooldown: the Librarian | the Shockwave's and the pull's cooldowns take the same factor (`LibrarianPsyker.CooldownScale`, 1 elsewhere, set each tick) (multiplier) | kind: ours; confidence: medium | designer ruling | Cooldown: the Librarian: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the Shockwave's and the pull's cooldowns take the same factor… | ☐ |
+| `R-3B6C5E78` | Cooldowns not covered | the jump pack's fuel and the Dreadnought's heat | kind: ours | designer ruling | Cooldowns not covered: compare with SM1 by feel or video. Ours: the jump pack's fuel and the Dreadnought's heat. | ☐ |
+| `R-9CF15C46` | XP in every battle | kills of a human pay XP in any battle of a Warfront run (node, HQ, fortress); the capture payments stay A, B, C 400 and D 800 (the fortress's win must not pay D's 800: W14b) (XP) | kind: ours; confidence: medium | designer ruling | XP in every battle: compare with SM1 by feel or video. Ours: kills of a human pay XP in any battle of a Warfront run (node, HQ… | ☐ |
+| `R-D8382CC9` | Cards: retainer | the +1 Retainer cards are only counted (`WarfrontProgressionRuntime.Retainers`); W9 reads the count (cards) | kind: ours | plan section 6 | Cards: retainer: compare with SM1 by feel or video. Ours: the +1 Retainer cards are only counted… | ☐ |
+| `R-19A69D32` | Assists | the last two human attackers of an Ork are kept for 5 s; when another one (a human, a squad or a Guardsman) lands the kill each has one assist (`AssistsOf`, the `Assisted` event) (s) | kind: ours; confidence: low | designer (W15 review); 5 s ours | Assists: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the last two human attackers of an Ork are kept for 5 s; when another… | ☐ |
+| `R-E2C45F92` | Squad seams | no-op defaults on `WarfrontBattleRules` (W9): `SquadTargets` (appends up to 36 Marines to the Orks' targets), `SquadHit` (an attack on an id -1000 to -1035 goes there with the Ork's damage multiplier applied, never to the Guardsmen), `SquadStep` (after the… | kind: ours | designer (W9 review) | Squad seams: compare with SM1 by feel or video. Ours: no-op defaults on WarfrontBattleRules (W9): SquadTargets (appends up… | ☐ |
+| `R-4F409D89` | Stuck-unit record | a failsafe that removes or relocates an Ork of a node battle first reports lane, node, id, type, position and which failsafe to `StuckSink` (W5 connects `WarfrontStuckLog`) | kind: ours | W2 review | Stuck-unit record: compare with SM1 by feel or video. Ours: a failsafe that removes or relocates an Ork of a node battle first… | ☐ |
 
 *Spec section: Added content: Warfront, end of run (W15: `Extras/Warfront/Results`; pure, not yet wired to a server)*
 
@@ -4442,6 +4506,12 @@ The Orks are an addition the owner keeps (the original multiplayer had Space Mar
 | `R-DA34275D` | Ork scaling | at spawn from the highest player's level L: HP x (1 + 0.08 (L-1)), damage x (1 + 0.05 (L-1)); living Orks never change (`WarfrontOrkScaleTracker`) (multiplier) | kind: estimate; confidence: low; notes: ours | owner (rule); the +8 % and +5 % ours | Ork scaling: compare with SM1 by feel or video. Ours: at spawn from the highest player's level L: HP x (1 + 0.08 (L-1))… | ☐ |
 | `R-ECCA33E8` | Ork HP per extra human: single owner | `WarfrontOrkScaling.For(level, humans)` is the one function the spawn hook calls, once per Ork (level x humans x base); nothing else applies the humans factor; a spawn overwrites the id's recorded scale (pool ids are reused) | kind: ours | designer review 2026-11-17 | Ork HP per extra human: single owner: compare with SM1 by feel or video. Ours: WarfrontOrkScaling.For(level, humans) is the one function the spawn… | ☐ |
 
+*Spec section: Added content: Warfront, progression in the node battle (W3b; `WarfrontRules.Version` 3; added content, Warfront only; the W7 library wired in)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-853AED62` | Ork level scale | the level part alone (health x(1 + 0.08 (L-1)), damage x(1 + 0.05 (L-1)), L the highest connected human's level) read at each spawn in a node battle; the humans' x(1 + 0.20 (humans-1)) stays W3's; living Orks and the hub's and the range's Orks are never scaled (multiplier) | kind: ours; confidence: low | owner rule, our curve | Ork level scale: compare with SM1 by feel or video. Ours: the level part alone (health x(1 + 0.08 (L-1)), damage x(1 + 0.05… | ☐ |
+
 ## Part C: Deliberate changes (keep or revert after playtest)
 
 Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our choices where the original is unknown, and what is not reproduced yet. Nothing is classified here; every row is listed. The prompt says what to ask after the playtest.
@@ -4634,7 +4704,9 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 |---|---|---|---|---|---|---|
 | `C-8EAA4069` | Warfront campaign (third mode): lanes, rolls, HQ defense, fortress, save and resume; not in SM1 | the owner's rules (2026-11-17); the cases they leave open ours (interpretation) | three lanes of three nodes, an Imperial HQ and an Ork fortress, up to four connected humans, a leader, and a run save that survives a restart | spec "Added content: Warfront — the campaign" | Warfront campaign (third mode): lanes, rolls, HQ defense…: compare with SM1 by feel or video. Ours: the owner's rules (2026-11-17); the cases they leave open ours… | ☐ |
 | `C-D655B9CF` | Warfront squads (W9): nine lightweight retainers per player, 36 in all; not in SM1 | the owner's rules (2026-11-17: counts, 20 s downed window, out for the battle only, names and records kept, fireteam orders); the lightweight combat, revive numbers, targeting ids and defaults ours | each retainer an agent (not a World player): rule-driven ranged or melee damage by a deterministic roll, Ork targets and hits in their own id range, a revive by any player or by a safe squad-mate, service records | spec "Added content: Warfront: squads" | Warfront squads (W9): nine lightweight retainers per…: compare with SM1 by feel or video. Ours: the owner's rules (2026-11-17: counts, 20 s downed window, out for… | ☐ |
+| `C-F76AF8D6` | Warfront squad classes (W11): retainers mirror their player's class, the Librarian's squad-class option, the Dreadnought hold and free retainer, jump-follow and the jump-pound order; not in SM1 | the owner's rules (2026-11-17: mirror, hold, one free retainer, whole-squad class with Classic bot loadouts, jump follow, a 5 m staggered pound with validated landings, existing ability limits); the weapon profile, hit chances, follow and landing numbers ours | each retainer wears the player's class numbers read from the Classic data, regenerates armour after the class delay, an Assault/Raptor leaps after a far owner and pounds in a ring round a marked point | spec "Added content: Warfront: squad classes" | Warfront squad classes (W11): retainers mirror their…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the owner's rules (2026-11-17: mirror, hold, one free retainer… | ☐ |
 | `C-2B640412` | Warfront progression (W7): XP from own and own squad's kills, shared elite/boss/capture XP, level-up cards, picker protection, retainer third, Ork scaling; not in SM1 | the owner's rules (2026-11-17); every number our estimate | four cards per level (three distinct stat types of five, slot 4 +1 Retainer or a fourth stat), +10 % attack speed / max HP / damage, -8 % cooldown (floor 40 %), +15 % max armour, Orks spawned +8 % HP and +5 % damage per highest level, +20 % HP per extra human | spec "Added content: Warfront, progression (W7)" | Warfront progression (W7): XP from own and own squad's…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the owner's rules (2026-11-17); every number our estimate. | ☐ |
+| `C-EDF67DCA` | Warfront progression in the node battle (W3b): XP and levels from kills and captures, level-up refill, the picker with its protection, the five stat cards (damage, attack speed, max HP and armour as a damage-taken approximation, cooldowns), Ork scaling by level, assists; not in SM1 | the owner's rules (2026-11-17); every number our estimate; one core field (`PlayerState.AttackSpeedBonus`, 0 outside Warfront) | the W7 library takes effect in a Warfront node battle through `Warfront*` hooks only; Classic and Musou are unchanged | spec "Added content: Warfront, progression in the node battle (W3b)" | Warfront progression in the node battle (W3b): XP and…: compare with SM1 by counting hits to kill and by video of the health bar. Ours: the owner's rules (2026-11-17); every number our estimate; one core… | ☐ |
 | `C-973022C6` | Warfront stats ledger (W4b): per-player kills by class, assists, deaths, revives, captures, battles, saved with the run; not in SM1 | feeds the end-of-run leaderboard; counters and guard ours | counted once per event id, kept across rejoins | spec "Warfront stats ledger" | Warfront stats ledger (W4b): per-player kills by class…: compare with SM1 by timing a run over a known distance. Ours: feeds the end-of-run leaderboard; counters and guard ours. | ☐ |
 | `C-F85B512C` | Warfront stage flow (W5a): one server process per deployment, `run.json` resume, identity by campaign key, leader-only deploy, the Warfront wire sections; not in SM1 | ours (plan sections 3 and 4); every number is an estimate | a supervisor starts a stage process per deployment, a kill at any moment resumes as the plan says, clients identify with a private campaign key | spec "Added content: Warfront, stage flow" | Warfront stage flow (W5a): one server process per…: compare with SM1 by timing a run over a known distance. Ours: ours (plan sections 3 and 4); every number is an estimate. | ☐ |
 | `C-C5762AEB` | Warfront end of run (W15): one ranked leaderboard on victory and defeat, honor roll, records, Discord copy and export; not in SM1 | the owner's brief (2026-11-17); every weight and the layout ours (estimates) | score = kills 1, elite 5, boss 25, assists 0.5, captures 30, revives 15, squad kills 0.5, squad revives 15; deaths and knockouts never add; ties on captures, revives, fewer deaths, earlier join; nothing is posted | spec "Added content: Warfront, end of run" | Warfront end of run (W15): one ranked leaderboard on…: compare with SM1 by timing a run over a known distance. Ours: the owner's brief (2026-11-17); every weight and the layout ours… | ☐ |

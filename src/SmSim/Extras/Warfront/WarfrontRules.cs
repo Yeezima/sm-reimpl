@@ -6,6 +6,6 @@ namespace SmSim.Extras.Warfront;
 /// </summary>
 public static class WarfrontRules
 {
-    /// <summary>3: the stage flow and the Warfront wire sections (slice W5a: tags 40 to 43, command tags 40 to 42, the supervisor, identity by campaign key, the leader-only deploy, the resume). 2: the node battle rules and hook seams (slice W3: D as a capture point, no Warboss, the fallen human's spectator time and wipe rule, +20 % Ork health per extra human). 1: the switch and the skeleton (slice W1).</summary>
+    /// <summary>3: the progression takes effect in a node battle (slice W3b: XP, level-up refill, the picker and its protection, the stat cards, Ork scaling by level, the AttackSpeedBonus field, the squad and stuck-log seams, assists). 2: the node battle rules and hook seams (slice W3: D as a capture point, no Warboss, the fallen human's spectator time and wipe rule, +20 % Ork health per extra human). 1: the switch and the skeleton (slice W1).</summary>
     public const uint Version = 3;
 }

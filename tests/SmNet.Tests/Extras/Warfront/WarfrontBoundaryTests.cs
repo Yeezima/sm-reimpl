@@ -5,7 +5,7 @@ namespace SmNet.Tests.Extras.Warfront;
 /// <summary>
 /// Warfront W1 (docs/added-content.md section 11): the source boundary of the Warfront folders, as text. No <c>.cs</c> file outside an
 /// <c>Extras/Warfront/</c> folder names an <c>Extras.Warfront</c> namespace (the hash dispatcher <c>SimConfig.Extras.cs</c>, which writes
-/// <c>WarfrontRules.Version</c> under <c>#if SM_WARFRONT</c>, is the one exception), and the list of Warfront hooks is pinned (W3's sixteen).
+/// <c>WarfrontRules.Version</c> under <c>#if SM_WARFRONT</c>, is the one exception), and the list of Warfront hooks is pinned (W3's sixteen, W3b's fifteen more).
 /// A slice that adds a hook (W3, W5) adds it to <see cref="Hooks"/> here.
 /// </summary>
 public class WarfrontBoundaryTests
@@ -38,6 +38,22 @@ public class WarfrontBoundaryTests
         ("src/SmServer/Extras/Musou/Campaign/GameServer.Tfw.cs", "WarfrontGeneratedMap"),
         ("src/SmServer/Extras/Musou/Campaign/GameServer.Tfw.cs", "WarfrontMapNote"),
         ("src/SmServer/Extras/Musou/GameServer.TfwMap.cs", "WarfrontNav"),
+        ("src/SmSim/Extras/Musou/Campaign/World.Tfw.cs", "WarfrontStep"),
+        ("src/SmSim/Extras/Musou/Campaign/World.Tfw.cs", "WarfrontKill"),
+        ("src/SmSim/Extras/Musou/Campaign/TfwRun.cs", "WarfrontBattleChange"),
+        ("src/SmSim/Extras/Musou/Campaign/TfwRun.Coop.cs", "WarfrontJoinLate"),
+        ("src/SmSim/Extras/Musou/World.MusouPowerups.cs", "WarfrontAttackerScales"),
+        ("src/SmSim/Extras/Musou/World.MusouPowerups.cs", "WarfrontAttackerScale"),
+        ("src/SmSim/Extras/Musou/World.MusouPowerups.cs", "WarfrontMeleeCap"),
+        ("src/SmSim/Extras/Musou/World.Musou.cs", "WarfrontDamageTaken"),
+        ("src/SmSim/Extras/Musou/World.Musou.cs", "WarfrontInputLocked"),
+        ("src/SmSim/Extras/Musou/World.Musou.cs", "WarfrontSquadHit"),
+        ("src/SmSim/Extras/Musou/Campaign/TfwFire.cs", "WarfrontCooldown"),
+        ("src/SmSim/Extras/Musou/Campaign/World.TfwSupply.cs", "WarfrontCooldown"),
+        ("src/SmSim/Extras/Musou/Campaign/World.TfwGuards.cs", "WarfrontTargets"),
+        ("src/SmSim/Extras/Musou/Campaign/World.TfwGuards.cs", "WarfrontFought"),
+        ("src/SmSim/Extras/Musou/Campaign/TfwBattle.cs", "WarfrontStuck"),
+        ("src/SmSim/Extras/Musou/MusouSim.cs", "WarfrontDamaged"),
     ];
 
     /// <summary>Files outside the Warfront folders that may name the namespace.</summary>

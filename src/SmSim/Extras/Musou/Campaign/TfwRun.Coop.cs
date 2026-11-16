@@ -27,6 +27,9 @@ public sealed partial class TfwRun
         float yaw = layout.FaceCentre(layout.LandingZone);   // owner 2026-11-09: a spawn faces the map's centre
         foreach (int id in _late)
         {
+            bool allow = true;
+            WarfrontJoinLate(id, ref allow);   // WARFRONT-HOOK
+            if (!allow) continue;
             var at = LandingAt(w, layout, id, _deployed.Count);
             _landingSlots[id] = _deployed.Count;   // TfwRun.Flow.cs: a redeploy comes back here
             _deployed.Add(id);
@@ -38,4 +41,7 @@ public sealed partial class TfwRun
         }
         _deployed.Sort();
     }
+
+    /// <summary>Warfront: whether a late human is landed now (false: it waits in the Stormbird; default true).</summary>
+    partial void WarfrontJoinLate(int player, ref bool allow);
 }
