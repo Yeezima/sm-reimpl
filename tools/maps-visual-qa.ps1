@@ -105,6 +105,7 @@ try {
     Write-Host "client exited $LASTEXITCODE; stills in $out"
 }
 finally {
+    $ErrorActionPreference = 'Continue'   # root cause of the leaks: under 'Stop', taskkill's stderr ('not found') raised a terminating error and ended this block before the server was stopped
     foreach ($p in $pids) { & taskkill.exe /PID $p /T /F 2>$null | Out-Null }
     # HasExited proved unreliable for the quiet-launched server (31 leaked): always kill by its own PID, ignore 'not found'.
     & taskkill.exe /PID $server.Id /T /F 2>$null | Out-Null
