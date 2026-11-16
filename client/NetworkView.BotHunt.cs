@@ -9,16 +9,19 @@ namespace SmClient;
 /// <summary>
 /// The owner's hunt (2026-11-16; Classic PvP, Annihilation and Seize Ground; test script, **ours**, not the original AI; engine-free choice in <see cref="BotHunt"/>): "make
 /// bots leave patrol when no targets are found - they should look for and hunt down enemies that are not in the spawn area. the intent of this hunting is to clear space for
-/// their teammates to safely capture points or take up more powerful positions." A bot with nobody to fight or chase (<see cref="BotChaseTarget"/>: every living enemy is in its
-/// spawn room or in the no-loiter zone round it) used to walk to its centre hold and roam. Now it hunts the nearest enemy outside the spawn room (<see cref="BotHunt"/>),
-/// by the same path walk and the same combat as a chase, instead. Never into the room: an enemy in it is not a candidate; a retreating bot does not hunt; a Seize Ground bot
-/// with a point to take or hold keeps that duty (<see cref="BotSeizeInput"/> runs first; hunting is only what the bot does when that returns null, with every point held).
+/// their teammates to safely capture points or take up more powerful positions." The spawn area is the spawn room plus the 25 m no-loiter zone round it (owner 2026-11-07: a bot never loiters at the enemy's spawn); no enemy in it is hunted
+/// (<c>--bot-hunt-zone</c>, default off, also takes those outside the room). A bot with nobody to fight or chase hunts the nearest enemy outside the spawn area (<see cref="BotHunt"/>),
+/// by the same path walk and the same combat as a chase (so in Annihilation this is the chase itself, now counted and logged). A retreating bot does not hunt. A Seize Ground bot keeps its point
+/// unless it is surplus there (<see cref="BotSeizeSurplus"/>: 2 lower-id teammates already inside), when it hunts an enemy near the points and goes back once none is left; with every point held it hunts as in Annihilation.
 /// What a bot knows: the snapshots give every client every player's state and the chase has always used it, so the hunt adds no channel and no tracking beyond that.
 /// Musou bots return earlier (<c>ExtrasBotInput</c>). <c>--bot-no-hunt</c> restores the old patrol (centre hold and roam).
 /// </summary>
 public partial class NetworkView
 {
     static readonly bool BotNoHunt = CmdFlag("bot-no-hunt");
+    /// <summary><c>--bot-hunt-zone</c> (default off): the hunt also takes enemies in the no-loiter zone round their spawn (outside the room), as the first version did.</summary>
+    static readonly bool BotHuntZone = CmdFlag("bot-hunt-zone");
+    readonly List<HuntCandidate> _huntList = new();
     readonly BotHunt _botHunt = new();
     int _huntLogged, _huntLastTarget = -1;
 
@@ -28,10 +31,10 @@ public partial class NetworkView
     PlayerState? BotHuntTarget(PlayerState me)
     {
         if (BotNoHunt || BotRetreating || me.Team == Team.None || !me.Alive) { _botHunt.End(); _huntLastTarget = -1; return null; }
-        var list = new List<HuntCandidate>();
+        var list = _huntList; list.Clear();
         foreach (var o in _lastOthers)
             if (o.Alive && World.Hostile(me.Team, o.Team)) list.Add(new HuntCandidate(o.PlayerId, o.Position, InEnemyRoom(me, o), InEnemyZone(me, o)));
-        if (_botHunt.Pick(me.Position, list) is not { } id) { _huntLastTarget = -1; return null; }
+        if (_botHunt.Pick(me.Position, list, BotHuntZone) is not { } id) { _huntLastTarget = -1; return null; }
         foreach (var o in _lastOthers)
         {
             if (o.PlayerId != id) continue;
@@ -46,39 +49,34 @@ public partial class NetworkView
         return null;
     }
 
-    /// <summary>Teammates already on a point that make the next bot surplus there, how near a point an enemy must be to be worth hunting (m), and the least length of a Seize hunt (s; ours, estimates).</summary>
-    const int SeizeHoldQuota = 2;
-    const float SeizeHuntNearPoint = 60f;
-    const double SeizeHuntLatch = 8.0;
-    double _seizeHuntUntil = double.NegativeInfinity;
-    int _seizeHunts;
+    readonly BotSeizeSurplus _seizeSurplus = new();
 
     /// <summary>
-    /// Seize Ground (owner 2026-11-16: hunting should "clear space for their teammates to safely capture points"; the share is ours): a bot whose point already has
-    /// <see cref="SeizeHoldQuota"/> or more living teammates inside its capture zone is not needed there, and hunts while some living enemy outside its spawn room stands within
-    /// <see cref="SeizeHuntNearPoint"/> m of any point, for at least <see cref="SeizeHuntLatch"/> s (no flicker as teammates come and go); then it goes back to its point duty.
-    /// True: <see cref="BotSeizeInput"/> hands the bot to the chase and fight code, which hunts the nearest enemy.
+    /// Seize Ground (see <see cref="BotSeizeSurplus"/>, the rule): true when this bot is surplus on its point (2 or more living teammates with a lower id inside its zone) and an
+    /// enemy outside its spawn area (room and no-loiter zone) stands within <see cref="SeizeHuntNearPoint"/> m of any point; <see cref="BotSeizeInput"/> then hands the bot to the
+    /// chase and fight code, which hunts the nearest such enemy. False the moment no such enemy remains (the bot is back on its point).
     /// </summary>
     bool BotSeizeSurplusHunts(PlayerState me, SeizeGroundInfo layout, ControlPointInfo goal)
     {
-        if (BotNoHunt || BotRetreating || me.Team == Team.None) return false;
-        if (_connectedFor < _seizeHuntUntil) return true;
-        int there = 0;
+        if (BotNoHunt || BotRetreating || me.Team == Team.None) { _seizeSurplus.End(); return false; }
+        int lower = 0;
         foreach (var o in _lastOthers)
-            if (o.Alive && o.Team == me.Team && o.PlayerId > 0 && o.PlayerId != me.PlayerId
-                && new Vector2(o.Position.X - goal.Center.X, o.Position.Y - goal.Center.Y).Length() <= goal.Radius) there++;
-        if (there < SeizeHoldQuota) return false;
+            if (o.Alive && o.Team == me.Team && o.PlayerId > 0 && o.PlayerId < me.PlayerId
+                && new Vector2(o.Position.X - goal.Center.X, o.Position.Y - goal.Center.Y).Length() <= goal.Radius) lower++;
         bool near = false;
         foreach (var o in _lastOthers)
         {
-            if (!o.Alive || !World.Hostile(me.Team, o.Team) || InEnemyRoom(me, o)) continue;
+            if (!o.Alive || !World.Hostile(me.Team, o.Team) || InEnemyRoom(me, o) || InEnemyZone(me, o)) continue;
             foreach (var p in layout.Points)
                 if (new Vector2(o.Position.X - p.Center.X, o.Position.Y - p.Center.Y).Length() <= SeizeHuntNearPoint) { near = true; break; }
             if (near) break;
         }
-        if (!near) return false;
-        _seizeHuntUntil = _connectedFor + SeizeHuntLatch;
-        if (_seizeHunts++ < 200) GD.Print($"t {_connectedFor:F1} s: id {_client?.PlayerId} hunt {_seizeHunts} (seize): {there} teammates already on its point, enemy near the points");
-        return true;
+        int before = _seizeSurplus.Starts;
+        bool hunts = _seizeSurplus.Step(_connectedFor, lower, near);
+        if (_seizeSurplus.Starts != before && before < 200) GD.Print($"t {_connectedFor:F1} s: id {_client?.PlayerId} hunt {_seizeSurplus.Starts} (seize): {lower} lower-id teammates stay on its point, enemy near the points");
+        return hunts;
     }
+
+    /// <summary>How near a point an enemy must be to be worth hunting from a point (m; ours, an estimate).</summary>
+    const float SeizeHuntNearPoint = 60f;
 }

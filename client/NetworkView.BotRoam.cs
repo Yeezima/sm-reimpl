@@ -101,7 +101,7 @@ public partial class NetworkView
     void BotNoteDead()
     {
         _botWasAlive = false;
-        _botHunt.End(); _huntLastTarget = -1;
+        _botHunt.End(); _huntLastTarget = -1; _seizeSurplus.End();
         if (_botPush is { Active: true } push) { push.End(_connectedFor, "died"); GD.Print($"t {_connectedFor:F1} s: id {_client?.PlayerId} push ends: died"); }
         if (_botRetreat is { Active: true } retreat) { retreat.End(); _cover = null; GD.Print($"t {_connectedFor:F1} s: id {_client?.PlayerId} retreat ends: died"); }
     }

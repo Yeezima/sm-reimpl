@@ -12,9 +12,9 @@ public readonly record struct HuntCandidate(int Id, Vector3 Position, bool InRoo
 /// knowledge the existing chase uses; no new channel): the bot does not see through walls to shoot, it only knows where the enemy is, as the chase already did.
 /// <list type="bullet">
 /// <item>an enemy in its spawn room is never hunted (the room's blockers stop the bot, and a spawn kill is not the aim);</item>
-/// <item>first choice: the nearest enemy outside both the room and the no-loiter zone (that is the plain chase target, which the bot already took);</item>
-/// <item>second choice (the new part): when no such enemy exists, the nearest enemy outside the room but inside the no-loiter zone, so a bot that would otherwise
-/// walk back to its centre hold hunts the enemies lingering by their own door;</item>
+/// <item>an enemy in the no-loiter zone round its spawn is not hunted either (owner 2026-11-07: a bot never loiters at the enemy's spawn; room plus zone are "the spawn area"),
+/// unless <c>allowZone</c> is set (switch <c>--bot-hunt-zone</c>, default off): then, when no enemy exists outside both, the nearest one outside the room only is the second choice;</item>
+/// <item>the target is the nearest enemy outside the spawn area, which is what the plain chase takes too;</item>
 /// <item>a target is kept while it stays a candidate of the same tier, unless another is <see cref="SwitchGain"/> m nearer (so the bot does not dither).</item>
 /// </list>
 /// </summary>
@@ -23,6 +23,7 @@ public sealed class BotHunt
     /// <summary>Metres a new target must be nearer than the kept one before the bot switches (ours, an estimate).</summary>
     public const float SwitchGain = 15f;
 
+    static readonly bool[] OutsideOnly = [false], BothTiers = [false, true];
     int _target = -1;
     bool _tierTwo;
     /// <summary>Hunts started: one each time the bot takes a target after having none, or switches to another.</summary>
@@ -33,14 +34,14 @@ public sealed class BotHunt
 
     /// <summary>
     /// The enemy to hunt from <paramref name="me"/>, or null when every living enemy is in its spawn room (or none is alive). Tier one candidates are outside the room and the
-    /// zone, tier two outside the room only; the nearest of the better tier wins, the kept target excepted (see the class).
+    /// zone, tier two (only with <paramref name="allowZone"/>) outside the room only; the nearest of the better tier wins, the kept target excepted (see the class).
     /// </summary>
-    public int? Pick(Vector3 me, IReadOnlyList<HuntCandidate> enemies)
+    public int? Pick(Vector3 me, IReadOnlyList<HuntCandidate> enemies, bool allowZone = false)
     {
         HuntCandidate? best = null;
         float bestD = float.MaxValue;
         bool tierTwo = false;
-        foreach (var tier in new[] { false, true })
+        foreach (var tier in allowZone ? BothTiers : OutsideOnly)
         {
             foreach (var e in enemies)
             {
