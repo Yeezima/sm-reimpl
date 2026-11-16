@@ -30,7 +30,10 @@ public sealed class WarfrontStageModel
 
     public WarfrontHubModel Hub { get; } = new();
     public ulong Key { get; }
-    public string Name { get; }
+    /// <summary>The display name Identify carries (read again at send time: it may not be known when the model is made).</summary>
+    public string Name { get; set; }
+    /// <summary>Why this client's key is a throwaway for the session (the key file could not be read or written), shown on the hub note.</summary>
+    public string KeyNote { get; set; } = "";
 
     public WarfrontStageModel(ulong key, string name) { Key = key; Name = name; }
 
@@ -70,12 +73,15 @@ public sealed class WarfrontStageModel
     // ---- identify, deploy, new run: the commands ------------------------------------------------------------------------------------------
 
     int _identifySends;
+    double _identifyFirst;
     double _identifyAt = double.NegativeInfinity;
 
     /// <summary>The Identify to send now (null when the server knows the key, or one went out less than <see cref="ResendSeconds"/> ago). Right after a join, and again until the Hub names this client.</summary>
     public byte[]? IdentifyDue(double now)
     {
-        if (Identified || now - _identifyAt < ResendSeconds || _identifySends >= MaxSends * 6) return null;
+        // no cap: a human is held aboard until the server has the key, and one small datagram a second costs nothing
+        if (Identified || now - _identifyAt < ResendSeconds) return null;
+        if (_identifySends == 0) _identifyFirst = now;
         _identifyAt = now; _identifySends++;
         return WarfrontWire.Encode(new WarfrontClientCommand(WarfrontClientCommandKind.Identify, Key: Key, Name: Name));
     }
@@ -91,16 +97,18 @@ public sealed class WarfrontStageModel
     /// <summary>The leader pressed a deployment row: it is sent now and resent until the Hub or the Stage shows it was taken.</summary>
     public void RequestDeploy(WarfrontTarget target)
     {
+        _deployGaveUp = false;
         _deploy = target; _deploySends = 0; _deployAt = double.NegativeInfinity; Refusal = "";
     }
 
     void ClearDeploy(string why) { _deploy = null; LastDeployNote = why; }
+    bool _deployGaveUp;
     public string LastDeployNote { get; private set; } = "";
 
     public byte[]? DeployDue(double now)
     {
         if (_deploy is not { } t) return null;
-        if (_deploySends >= MaxSends) { ClearDeploy("gave up after " + MaxSends + " sends"); return null; }
+        if (_deploySends >= MaxSends) { ClearDeploy("gave up after " + MaxSends + " sends"); _deployGaveUp = true; return null; }
         if (now - _deployAt < ResendSeconds) return null;
         _deployAt = now; _deploySends++;
         return WarfrontWire.Encode(new WarfrontClientCommand(WarfrontClientCommandKind.Deploy, Target: t));
@@ -120,6 +128,19 @@ public sealed class WarfrontStageModel
         if (now - _newRunAt < ResendSeconds) return null;
         _newRunAt = now; _newRunSends++;
         return WarfrontWire.Encode(new WarfrontClientCommand(WarfrontClientCommandKind.NewRun));
+    }
+
+    /// <summary>Seconds after the first Identify before the screens say the server does not know this client yet.</summary>
+    public const double IdentifyNoteSeconds = 5.0;
+
+    /// <summary>The one line the hub's note (and the travel screen's status) shows instead of its own when something about this client needs saying: a throwaway key, a server that has not answered Identify, a refused or unanswered deploy. Empty when all is well.</summary>
+    public string NoteOverride(double now)
+    {
+        if (KeyNote.Length > 0) return KeyNote;
+        if (!Identified && _identifySends > 0 && now - _identifyFirst >= IdentifyNoteSeconds) return "WAITING FOR THE SERVER TO KNOW YOU";
+        if (Refusal.Length > 0) return Refusal.ToUpperInvariant();
+        if (_deployGaveUp) return "THE DEPLOYMENT WAS NOT ANSWERED";
+        return "";
     }
 
     // ---- Stage and the travel screen ------------------------------------------------------------------------------------------------------

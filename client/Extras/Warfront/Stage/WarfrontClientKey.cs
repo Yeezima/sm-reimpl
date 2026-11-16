@@ -20,24 +20,29 @@ public static class WarfrontClientKey
         return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "sm-reimpl", "warfront");
     }
 
+    /// <summary>Set when the last <see cref="LoadOrCreate"/> could not keep its key on disk (empty otherwise): the key then lasts this session only.</summary>
+    public static string LastProblem { get; private set; } = "";
+
     public static string DefaultPath() => Path.Combine(Folder(), "client.json");
 
     /// <summary>Reads the key from <paramref name="path"/>, or makes one and writes it. A file that cannot be read or written leaves a key for this run only (never zero).</summary>
     public static ulong LoadOrCreate(string path)
     {
+        LastProblem = "";
         try
         {
             if (File.Exists(path) && TryParse(File.ReadAllText(path), out ulong existing)) return existing;
         }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { Console.WriteLine("warfront: the key file could not be read"); }
         ulong key = Random();
+        LastProblem = "";
         try
         {
             string? dir = Path.GetDirectoryName(path);
             if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
             File.WriteAllText(path, Format(key));
         }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { LastProblem = "THE KEY FILE CANNOT BE WRITTEN: THIS SESSION IS A NEW PLAYER"; }
         return key;
     }
 

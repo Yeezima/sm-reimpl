@@ -29,6 +29,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 ## Summary
 
 Scanned 3669 spec table rows: **2649 tagged**, 664 not tagged (read from data with high confidence), 356 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 767 rows of the changes document.
+Scanned 3683 spec table rows: **2661 tagged**, 666 not tagged (read from data with high confidence), 356 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 768 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,10 +51,11 @@ Scanned 3669 spec table rows: **2649 tagged**, 664 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 47 | 37 | 21 | 12 | 7 |
-| Core simulation (provisional values) | 829 | 784 | 614 | 230 | 1 |
-| General game design | 84 | 83 | 63 | 17 | 0 |
+| Core simulation (provisional values) | 830 | 785 | 615 | 230 | 1 |
+| General game design | 96 | 95 | 70 | 17 | 0 |
 | Ork faction | 264 | 251 | 148 | 70 | 0 |
 | **All areas** | **2649** | 2368 | 1990 | 803 | 37 |
+| **All areas** | **2661** | 2380 | 1997 | 803 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -62,9 +64,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | kind: ours | 1536 |
 | confidence: low | 960 |
 | confidence: medium | 921 |
+| kind: ours | 1547 |
+| confidence: low | 961 |
+| confidence: medium | 927 |
 | notes: ours | 465 |
 | kind: interpretation | 430 |
-| kind: estimate | 226 |
+| kind: estimate | 227 |
 | notes: estimate | 211 |
 | confidence: none (low) | 109 |
 | kind: provisional | 106 |
@@ -2625,7 +2630,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-5B955167` | Panel | F8 shows or hides the grid (Esc closes) when the server has the tools; numbered "row.column" cells coloured by state, a bright border where the cell differs from the release default; the inspector (state, from, until, "data timing", the code's own value, note… (key) | kind: ours | the owner (F8 chosen: free in Classic PvP; Musou's Ashfall look keeps it there) | Panel: compare with SM1 by feel or video. Ours: F8 shows or hides the grid (Esc closes) when the server has the… | ☐ |
 | `R-BE15241E` | Export | writes `cancel-table-YYYYMMDD-HHMMSS.json` (the shipped file's format: every cell with note and source, then the overrides) to `%LOCALAPPDATA%\sm-reimpl\cancel-configs\`, never overwriting; import reads one back and applies it live; `smtool cancel-config diff`… | kind: ours | the owner ("hands changes over as an export file") | Export: compare with SM1 by feel or video. Ours: writes cancel-table-YYYYMMDD-HHMMSS.json (the shipped file's format:… | ☐ |
 
-### Core simulation (provisional values) (829)
+### Core simulation (provisional values) (830)
 
 *Spec section: Provisional values in use*
 
@@ -2777,6 +2782,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-74CAE9DD` | Warfront objective D check (W2) | D is `TfwLayout.Hq` (the stronghold centre on the through road, about (0, 138) in the band frame; capture radius `TfwMap.HqRadius` 15 m): on the walking graph (a node within 6 m horizontally, 8 m vertically), reachable on foot from the landing zone and from… (m, degrees) | kind: estimate; confidence: low | the points' approach rule of the battlefield measure applied to D | Warfront objective D check (W2): compare with SM1 with an overlaid screenshot taken from the same position. Ours: D is TfwLayout.Hq (the stronghold centre on the through road, about… | ☐ |
 | `R-61589E53` | Warfront stuck-unit log (W2) | every relocation or removal an Ork gets from the stranded or stuck failsafes is one server line (slot, unit type, position, action, failsafe) and a per-slot count in the report; no gameplay value changes (the failsafes' timings stay the existing ones, 6 s… | kind: choice; confidence: low | Warfront plan section 2 (the pilot's unprofiled stuck units) | Warfront stuck-unit log (W2): compare with SM1 by feel or video. Ours: every relocation or removal an Ork gets from the stranded or stuck… | ☐ |
 | `R-6D9D83B3` | Warfront single-band view (W2, client) | client only, no collision, not in any hash: a lane slot draws its one band as the pilot draws a band (the avenue's openings in the boundary wall, the kit look, the storm look) with the pilot's outside scenery unchanged (10-degree outside ground out to 1200 m… (m, degrees) | kind: provisional; confidence: low | Warfront plan section 2 | Warfront single-band view (W2, client): compare with SM1 with an overlaid screenshot taken from the same position. Ours: client only, no collision, not in any hash: a lane slot draws its one… | ☐ |
+| `R-E4853EFB` | Warfront stage flow: client timings (W5b) | client only, nothing in a hash or on the wire beyond the commands: Identify resent every 1 s until the Hub names the viewer (no cap; the screens say "waiting for the server to know you" after 5 s); Deploy and NewRun resent every 1 s, at most 10 sends, then… (s) | kind: estimate; confidence: low | Warfront plan sections 3 and 4 (our values) | Warfront stage flow: client timings (W5b): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: client only, nothing in a hash or on the wire beyond the commands:… | ☐ |
 | `R-39BE64FA` | Ashfall drawn-box rule (draft 9) | no two placed models' drawn boxes (the whole model's bounds as placed) meet deeper than 0.3 m (the overlap rule's tolerance and moves: the later one moves, shrinks, takes the pool's next model, else is left out); bridges on their supports and the stronghold's… (m) | kind: ours; confidence: low | owner's late batch 2026-11-06 (stream F: "no stacked 3D objects; scale one object instead"); the tolerance and exemptions ours | Ashfall drawn-box rule (draft 9): compare with SM1 by measuring on a flat spot of the same map. Ours: no two placed models' drawn boxes (the whole model's bounds as… | ☐ |
 | `R-40B787AC` | Ashfall rubble props (draft 9) | AR-001..003 (separate small rubble piles, metre scale) placed at the feet of standing walls and buildings and along the plaza's edge and the avenues' kerbs: candidates every 6 m (8 m on the edges) in a seeded order, at most 60, 10 m apart, each leaning on its… (m) | kind: ours; confidence: low | the look lead's request (2026-11-06), the owner's "rubble as separate small props, not fused into buildings"; counts, spacing and pushes ours | Ashfall rubble props (draft 9): compare with SM1 by measuring on a flat spot of the same map. Ours: AR-001..003 (separate small rubble piles, metre scale) placed at the… | ☐ |
 | `R-829BC3E0` | Ashfall urban rules (draft 9) | loose debris (rubble, collapsed wall pieces; not the ring's breach rubble) is placed after the buildings, only within 8 m of a standing building's drawn box (ruin shells and corners, facades, towers, the bunker, walls over 2.5 m); built pieces (cover, walls… (m) | kind: ours; confidence: low | owner's late batch 2026-11-06 (stream F: "the layout follows real urban-design logic"); the 8 m reach and the rules ours | Ashfall urban rules (draft 9): compare with SM1 by measuring on a flat spot of the same map. Ours: loose debris (rubble, collapsed wall pieces; not the ring's breach… | ☐ |
@@ -3931,7 +3937,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-98A893CB` | Picker protection | while an offer stands the player is invulnerable and their input is dropped, others play on; it ends on a valid pick, after 20 s (the server takes card 1) or when the player leaves (the pick stays pending and re-opens with the same cards) (s) | kind: estimate; confidence: medium; notes: ours | owner (protection); the 20 s ours | Picker protection: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: while an offer stands the player is invulnerable and their input is… | ☐ |
 | `R-2024CBEF` | Hard base | `OrkHealthBase` and `OrkDamageBase`, 1.0: the one knob for "hard" (owner answer 8) (multiplier) | kind: estimate; confidence: low; notes: ours | owner (hard, solo must play well, a squad needs teamwork); the value ours | Hard base: compare with SM1 by feel or video. Ours: OrkHealthBase and OrkDamageBase, 1.0: the one knob for "hard" (owner… | ☐ |
 
-### General game design (84)
+### General game design (96)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -4056,6 +4062,23 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-D2E3CAE7` | Keys | F4 opens the squad panel aboard the ship, J sends the jump-pound mark for a class with a jump pack in a battle ("[J] JUMP ASSAULT" on the HUD line); checked by search: neither key is used by the client's key handling, the default bindings (W S A D Shift Ctrl… | kind: ours; confidence: medium | the brief ("pick a free key") | Keys: compare with SM1 by feel or video. Ours: F4 opens the squad panel aboard the ship, J sends the jump-pound mark… | ☐ |
 | `R-8AB4A468` | Roster checks | the sender looks for roster changes twice a second (a recruit or a joining client forces the next check) and keeps the 2 s rotation; the roster section, not the Recruited event, adds a Marine on the client (Hz, s) | kind: ours; confidence: medium | review 1 (export and encode on every send were costly) | Roster checks: compare with SM1 by feel or video. Ours: the sender looks for roster changes twice a second (a recruit or a… | ☐ |
 | `R-539D50D8` | Halves path | the squad shares one extras message with the other sections only if W5a sends it so; W5a sends per slice today, so each squad section would travel in a datagram of its own (471 bytes of state at 10 Hz, about 4.7 KB/s a client, plus the roster rotation about… (bytes) | kind: ours; confidence: low | review 1 finding 9 | Halves path: compare with SM1 by feel or video. Ours: the squad shares one extras message with the other sections only if… | ☐ |
+
+*Spec section: Added content: Warfront: the local campaign (W16: `WarfrontLocal`, client `Extras/Warfront/FrontEnd`; no rules version change; added content, Warfront only)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-FA8489E9` | Server port | a free UDP port on 127.0.0.1 chosen at each start (port) | kind: ours | our choice (a Classic server on 27015 must not block it) | Server port: compare with SM1 by feel or video. Ours: a free UDP port on 127.0.0.1 chosen at each start. | ☐ |
+| `R-0B5FA456` | Continue offered | only when `run.json` reads and its phase is not Won or Lost; the page shows "DEPLOYMENTS n, FRONTS a / b / c, LEVEL l" (deployments fought, the three fronts, the first player's level) | kind: ours; confidence: medium | brief item 1; the line's wording ours | Continue offered: compare with SM1 by feel or video. Ours: only when run.json reads and its phase is not Won or Lost; the page… | ☐ |
+| `R-D7A53FDE` | New asks first | when a run is on disk and not over (or unreadable): "START A NEW CAMPAIGN? THE CURRENT ONE IS ARCHIVED AS ABANDONED." Yes / No, No focused, Esc answers No; the server archives the old run (`--warfront-new`) | kind: ours | brief item 2 | New asks first: compare with SM1 by feel or video. Ours: when a run is on disk and not over (or unreadable): "START A NEW… | ☐ |
+| `R-C3565127` | Finished run | only New campaign; the honor line "RUNS r, VICTORIES v, FASTEST m:ss" from `records\` (read-only, FASTEST only with a victory) | kind: ours; confidence: medium | brief item 8 | Finished run: compare with SM1 by timing a run over a known distance. Ours: only New campaign; the honor line "RUNS r, VICTORIES v, FASTEST m:ss"… | ☐ |
+| `R-16CA2F0E` | Start limit | a start that has not printed its listening line after 600 s is stopped (the first map builds its layout, about 45 s, up to three minutes with the walking graph, seconds when cached) (s) | kind: ours; confidence: medium | measured by the owner's brief; the limit ours | Start limit: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a start that has not printed its listening line after 600 s is… | ☐ |
+| `R-C12D24CE` | Preparing screen | "PREPARING THE BATTLEFIELD", the server's last `warfront:` line, the elapsed time M:SS, CANCEL; the menu stays responsive | kind: ours | brief item 4 | Preparing screen: compare with SM1 by feel or video. Ours: "PREPARING THE BATTLEFIELD", the server's last warfront: line, the… | ☐ |
+| `R-3A0EAFFB` | Failed join | the reason shows and the server stays for one retry; a second failure, or leaving the match, stops it (the message "You left the match." marks a leave) (joins) | kind: ours; confidence: medium | brief item 5 | Failed join: compare with SM1 by feel or video. Ours: the reason shows and the server stays for one retry; a second… | ☐ |
+| `R-323CA234` | Leaving | coming back to the menu stops the one process this game started (`HostedServer.Stop`: only that process, by its handle); closing the game stops it too, and a game that is killed takes it along (the kill-on-close job) | kind: ours; confidence: medium | brief item 6 | Leaving: compare with SM1 by feel or video. Ours: coming back to the menu stops the one process this game started… | ☐ |
+| `R-BA077DD6` | Customizer | the Musou profile's creator (as Musou's page opens it); its BACK returns to the main menu, not to the Warfront page (known difference: the creator's own back step is core; one hook there would fix it, through the lead) | kind: ours; confidence: medium | brief item 1 | Customizer: compare with SM1 by feel or video. Ours: the Musou profile's creator (as Musou's page opens it); its BACK… | ☐ |
+| `R-866C9C19` | Server running | while this game's Warfront server runs the page offers REJOIN CAMPAIGN and STOP SERVER only (never New or Continue, which could join the old campaign under a "new" label); another server running: STOP SERVER alone; nothing running: CONTINUE (with a run in… | kind: ours | review 1 finding 1 | Server running: compare with SM1 by feel or video. Ours: while this game's Warfront server runs the page offers REJOIN… | ☐ |
+| `R-08211600` | Profile after a match | coming back to the menu stops the server and puts the lobby's remembered content profile back (the rebuilt services start from the last joined profile); a failed join keeps both for one retry | kind: ours | review 1 finding 2 | Profile after a match: compare with SM1 by feel or video. Ours: coming back to the menu stops the server and puts the lobby's… | ☐ |
+| `R-29C4A94A` | Status row | the preparing screen shows the server's last lower-case `warfront:` line, cut with an ellipsis inside the column (the full line is the tooltip); the server's "Warfront: enabled" banner is not a status | kind: ours; confidence: medium | review 1 finding 8 | Status row: compare with SM1 by feel or video. Ours: the preparing screen shows the server's last lower-case warfront:… | ☐ |
 
 ## Part B: Ork faction
 
@@ -4796,6 +4819,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-F85B512C` | Warfront stage flow (W5a): one server process per deployment, `run.json` resume, identity by campaign key, leader-only deploy, the Warfront wire sections; not in SM1 | ours (plan sections 3 and 4); every number is an estimate | a supervisor starts a stage process per deployment, a kill at any moment resumes as the plan says, clients identify with a private campaign key | spec "Added content: Warfront, stage flow" | Warfront stage flow (W5a): one server process per…: compare with SM1 by timing a run over a known distance. Ours: ours (plan sections 3 and 4); every number is an estimate. | ☐ |
 | `C-C5762AEB` | Warfront end of run (W15): one ranked leaderboard on victory and defeat, honor roll, records, Discord copy and export; not in SM1 | the owner's brief (2026-11-17); every weight and the layout ours (estimates) | score = kills 1, elite 5, boss 25, assists 0.5, captures 30, revives 15, squad kills 0.5, squad revives 15; deaths and knockouts never add; ties on captures, revives, fewer deaths, earlier join; nothing is posted | spec "Added content: Warfront, end of run" | Warfront end of run (W15): one ranked leaderboard on…: compare with SM1 by timing a run over a known distance. Ours: the owner's brief (2026-11-17); every weight and the layout ours… | ☐ |
 | `C-EE256913` | Warfront co-op rules (W12): a late joiner spectates aboard until the next ship stop, then the median XP, a class confirmation through the customizer and the catch-up cards before the squad deploys; leader handoff and return; a leaver's squad holds, cards queued aboard hold the deploy for every player; not in SM1 | the owner's co-op rules (2026-11-17); the gate's 90 s clock, the same-connection spectating, the returning-in-battle cases and every text ours | spectating joiner held aboard (locked, unharmed, no XP), 90 s class gate, Deploy refused while a connected joiner awaits, a downed or spectating leaver returns as a spectator, a fifth human refused ("The squad is full (4 of 4)") | spec "Added content: Warfront: co-op rules" | Warfront co-op rules (W12): a late joiner spectates aboard…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the owner's co-op rules (2026-11-17); the gate's 90 s clock, the… | ☐ |
+| `C-15F6CD91` | Warfront local campaign (W16): a main-menu row and page that start this PC's Warfront server (loopback, one human), join it, and stop it when the player leaves; not in SM1 | owner answer 3 (2026-11-17): "a local campaign that only he can join. Server run by his local pc."; the page, its texts and the start limit ours | no LAN or internet option; Continue only for a run in progress; New asks first and the old run is archived as abandoned | spec "Warfront: the local campaign" | Warfront local campaign (W16): a main-menu row and page…: compare with SM1 by feel or video. Ours: owner answer 3 (2026-11-17): "a local campaign that only he can join.… | ☐ |
 
 ### Deliberate changes (owner's decisions)
 
