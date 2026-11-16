@@ -37,6 +37,15 @@ public static class SquadRules
     public const float BodyRadius = 0.5f;
     /// <summary>Squad targets are <see cref="TargetBase"/> + index, negated: the Guard squads use -2 to -41, so this range (-1000 to -1035) is its own.</summary>
     public const int TargetBase = 1000;
+    /// <summary>The share of an Ork hit a Marine takes: Musou's puppet Marines take a tenth (<c>TfwSupplyRules.BotDamageTaken</c>, owner 2026-11-06) [estimate: reused as the starting value]. The per-Ork level multiplier is applied by W3b's hook, not here.</summary>
+    public const float DamageTaken = 0.10f;
+    /// <summary>A shared path is rebuilt at most this many times a second per squad, and only when its target moved this far (metres) [ours/estimate].</summary>
+    public const int PathRefreshPerSecond = 2;
+    public const float PathMoved = 2f;
+    /// <summary>A Marine goes straight for a goal this near when the graph says the line is walkable; farther, it follows the path [ours/estimate].</summary>
+    public const float DirectRange = 12f;
+    /// <summary>Rosters kept for a run (every key that ever had one) and Marines that fight at once: the 4 players' squads.</summary>
+    public const int MaxKeptRosters = 64;
     /// <summary>The longest name a Marine can be given.</summary>
     public const int NameMax = 24;
 

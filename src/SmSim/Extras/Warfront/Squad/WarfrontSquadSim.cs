@@ -19,7 +19,8 @@ public sealed class WarfrontSquadSim
     sealed class Agent
     {
         public RosterMarine Marine = null!;
-        public int Owner, OwnerSlot, Slot;
+        public int Owner, OwnerSlot, Slot;   // Owner: the player id this battle; OwnerSlot: the fighting slot 0 to 3
+        public ulong Key;
         public SquadState State;
         public Vector3 Pos, HoldAt;
         public float Yaw, Health, Armour, HealthMax, ArmourMax, ReviveProgress;
@@ -38,6 +39,12 @@ public sealed class WarfrontSquadSim
     readonly SquadOrder[] _order = new SquadOrder[SquadRules.MaxOwners];
     readonly Vector3?[] _point = new Vector3?[SquadRules.MaxOwners];
     readonly int[] _lastSequence = [-1, -1, -1, -1];
+    readonly ulong[] _key = new ulong[SquadRules.MaxOwners];
+    readonly int[] _player = new int[SquadRules.MaxOwners];
+    readonly bool[] _used = new bool[SquadRules.MaxOwners];
+    readonly List<Vector3>?[] _path = new List<Vector3>?[SquadRules.MaxOwners];
+    readonly uint[] _pathBuilt = new uint[SquadRules.MaxOwners];
+    readonly Vector3[] _pathTo = new Vector3[SquadRules.MaxOwners];
     readonly float[] _damageScale = [1f, 1f, 1f, 1f], _healthScale = [1f, 1f, 1f, 1f];
     readonly Dictionary<ushort, DamageNote> _notes = [];
     readonly Dictionary<int, int> _humanAttendant = [];
@@ -72,51 +79,79 @@ public sealed class WarfrontSquadSim
 
     float Dt => 1f / Math.Max(1, _arena.TickRate);
 
-    /// <summary>Marine index of <paramref name="owner"/>'s roster slot <paramref name="slot"/>; -1 when the owner has no roster or the slot is out of range.</summary>
+    /// <summary>Marine index of the fighting player <paramref name="owner"/>'s roster slot <paramref name="slot"/>; -1 when the owner has no roster or the slot is out of range.</summary>
     public int IndexOf(int owner, int slot)
     {
-        int s = _rosters.OwnerSlot(owner);
+        int s = SlotOfPlayer(owner);
         return s >= 0 && slot >= 0 && slot < SquadRules.MaxPerPlayer ? s * SquadRules.MaxPerPlayer + slot : -1;
     }
 
-    /// <summary>The player's damage and health multipliers for its squad (W7's stat share): damage applies at once, health to Marines landed afterwards. 1 and 1 by default.</summary>
-    public void SetScale(int owner, float damage, float health)
+    readonly Dictionary<ulong, (float Damage, float Health)> _scale = [];
+
+    /// <summary>
+    /// A campaign key's damage and health multipliers for its squad (W7's stat share), set before or after it lands: damage applies at once, health to Marines landed afterwards. 1 and 1 by default.
+    /// </summary>
+    public void SetScale(ulong key, float damage, float health)
     {
-        int s = _rosters.OwnerSlot(owner);
-        if (s < 0) return;
-        _damageScale[s] = Math.Max(0f, damage);
-        _healthScale[s] = Math.Max(0.01f, health);
+        _scale[key] = (Math.Max(0f, damage), Math.Max(0.01f, health));
+        int s = SlotOfKey(key);
+        if (s >= 0) { _damageScale[s] = _scale[key].Damage; _healthScale[s] = _scale[key].Health; }
     }
 
     // ---- battle
 
+    int SlotOfPlayer(int player) { for (int i = 0; i < SquadRules.MaxOwners; i++) if (_used[i] && _player[i] == player) return i; return -1; }
+
+    int SlotOfKey(ulong key) { for (int i = 0; i < SquadRules.MaxOwners; i++) if (_used[i] && _key[i] == key) return i; return -1; }
+
+    /// <summary>The fighting slot (0 to 3) of the player id bound this battle; -1 with none.</summary>
+    public int FightingSlotOf(int player) => SlotOfPlayer(player);
+
+    Vector3 Snap(Vector3 p) => _arena.Ground(p, out var g) ? g : p;
+
     /// <summary>
-    /// A new battle: every roster not on hold lands its Marines in a ring round its owner's landing point, standing at full health, order Follow; every earlier state is dropped. The number landed.
+    /// A new battle: every earlier state is dropped, then each entry lands as <see cref="Land"/> does (at most four squads fight at once). The number of Marines landed.
     /// </summary>
-    public int BeginBattle(ReadOnlySpan<(int Owner, Vector3 Landing)> landings)
+    public int BeginBattle(ReadOnlySpan<(ulong Key, int Player, Vector3 Landing)> landings)
     {
         foreach (var a in _a) { a.State = SquadState.Free; a.Attendant = -1; }
+        Array.Clear(_used);
+        for (int i = 0; i < SquadRules.MaxOwners; i++) _path[i] = null;
         _notes.Clear(); _humanAttendant.Clear(); _humanProgress.Clear(); _kills.Clear(); _revives.Clear(); _downs.Clear(); _pendingDowns.Clear(); _pendingRevives.Clear();
         int landed = 0;
-        foreach (var (owner, landing) in landings)
+        foreach (var (key, player, landing) in landings) landed += Land(key, player, landing);
+        return landed;
+    }
+
+    /// <summary>
+    /// Lands the roster of campaign key <paramref name="key"/> in a ring round <paramref name="landing"/>, bound to <paramref name="player"/> (this battle's player id: it changes at every reconnect, the key
+    /// does not), standing at full health, order Follow, without touching any other squad. A key already fighting is re-bound and its Marines landed again (a returning player). Returns the number landed:
+    /// 0 for no roster, a roster on hold, or four other squads already fighting.
+    /// </summary>
+    public int Land(ulong key, int player, Vector3 landing)
+    {
+        if (!_rosters.Has(key) || _rosters.IsHeld(key)) return 0;
+        int os = SlotOfKey(key);
+        if (os < 0) { for (int i = 0; i < SquadRules.MaxOwners; i++) if (!_used[i]) { os = i; break; } }
+        if (os < 0) return 0;
+        _used[os] = true; _key[os] = key; _player[os] = player;
+        _order[os] = SquadOrder.Follow; _point[os] = null; _lastSequence[os] = -1; _path[os] = null;
+        (_damageScale[os], _healthScale[os]) = _scale.TryGetValue(key, out var sc) ? sc : (1f, 1f);
+        int landed = 0;
+        for (int slot = 0; slot < SquadRules.MaxPerPlayer; slot++)
         {
-            int os = _rosters.OwnerSlot(owner);
-            if (os < 0) continue;
-            _order[os] = SquadOrder.Follow; _point[os] = null; _lastSequence[os] = -1;
-            if (_rosters.IsHeldAt(os)) continue;
-            for (int slot = 0; slot < _rosters.MarinesIn(os); slot++)
-            {
-                var m = _rosters.MarineAt(os, slot)!;
-                var a = _a[os * SquadRules.MaxPerPlayer + slot];
-                float angle = slot * 2.4f, radius = SquadRules.LandRadius + slot * SquadRules.LandRadiusStep;
-                a.Marine = m; a.Owner = owner; a.OwnerSlot = os; a.Slot = slot; a.State = SquadState.Standing;
-                a.Pos = landing + new Vector3(MathF.Cos(angle) * radius, MathF.Sin(angle) * radius, 0f);
-                a.HoldAt = a.Pos; a.Yaw = 0f;
-                a.HealthMax = Math.Max(1f, m.Loadout.HealthMax * _healthScale[os]); a.ArmourMax = Math.Max(0f, m.Loadout.ArmourMax * _healthScale[os]);
-                a.Health = a.HealthMax; a.Armour = a.ArmourMax;
-                a.DownedLeft = 0; a.ReviveProgress = 0f; a.NextShot = 0; a.Target = 0; a.DutyMate = -1; a.DutyHuman = int.MinValue; a.Attendant = -1; a.ReviverMarine = -1; a.ReviverHuman = -1; a.Progressed = false;
-                landed++;
-            }
+            var a = _a[os * SquadRules.MaxPerPlayer + slot];
+            a.State = SquadState.Free; a.Attendant = -1;
+            var m = _rosters.Marine(key, slot);
+            if (m is null) continue;
+            float angle = slot * 2.4f, radius = SquadRules.LandRadius + slot * SquadRules.LandRadiusStep;
+            a.Marine = m; a.Owner = player; a.Key = key; a.OwnerSlot = os; a.Slot = slot; a.State = SquadState.Standing;
+            a.Pos = Snap(landing + new Vector3(MathF.Cos(angle) * radius, MathF.Sin(angle) * radius, 0f));
+            a.HoldAt = a.Pos; a.Yaw = 0f;
+            a.HealthMax = Math.Max(1f, m.Loadout.HealthMax * _healthScale[os]); a.ArmourMax = Math.Max(0f, m.Loadout.ArmourMax * _healthScale[os]);
+            a.Health = a.HealthMax; a.Armour = a.ArmourMax;
+            a.DownedLeft = 0; a.ReviveProgress = 0f; a.NextShot = 0; a.Target = 0; a.DutyMate = -1; a.DutyHuman = int.MinValue; a.Attendant = -1; a.ReviverMarine = -1; a.ReviverHuman = -1; a.Progressed = false;
+            landed++;
         }
         return landed;
     }
@@ -134,6 +169,7 @@ public sealed class WarfrontSquadSim
             a.State = SquadState.Free; a.Attendant = -1;
         }
         _notes.Clear(); _humanAttendant.Clear(); _humanProgress.Clear();
+        Array.Clear(_used);
         return survived;
     }
 
@@ -146,7 +182,7 @@ public sealed class WarfrontSquadSim
     public bool AnyReviveWindowOpen { get { foreach (var a in _a) if (a.State == SquadState.Downed) return true; return false; } }
 
     /// <summary>Marines standing in <paramref name="owner"/>'s squad.</summary>
-    public int StandingOf(int owner) { int n = 0; foreach (var a in _a) if (a.State == SquadState.Standing && a.Owner == owner) n++; return n; }
+    public int StandingOf(int player) { int n = 0; foreach (var a in _a) if (a.State == SquadState.Standing && a.Owner == player) n++; return n; }
 
     /// <summary>The state of Marine <paramref name="index"/>.</summary>
     public SquadState StateOf(int index) => index is >= 0 and < Max ? _a[index].State : SquadState.Free;
@@ -156,7 +192,7 @@ public sealed class WarfrontSquadSim
     {
         if (index is < 0 or >= Max || _a[index].State == SquadState.Free) return null;
         var a = _a[index];
-        return new SquadMarineView(index, a.Owner, a.Slot, a.State, a.Pos, a.Yaw, a.HealthMax > 0 ? Math.Clamp(a.Health / a.HealthMax, 0f, 1f) : 0f, a.State == SquadState.Downed ? a.DownedLeft * Dt : 0f);
+        return new SquadMarineView(index, a.Key, a.Slot, a.State, a.Pos, a.Yaw, a.HealthMax > 0 ? Math.Clamp(a.Health / a.HealthMax, 0f, 1f) : 0f, a.State == SquadState.Downed ? a.DownedLeft * Dt : 0f);
     }
 
     /// <summary>Every Marine in this battle as the wire shows it, in index order; the number written.</summary>
@@ -176,7 +212,7 @@ public sealed class WarfrontSquadSim
     /// </summary>
     public bool Order(int player, TfwCommandRecord command)
     {
-        int os = _rosters.OwnerSlot(player);
+        int os = SlotOfPlayer(player);
         if (os < 0 || command.Command is not (TfwCommand.Follow or TfwCommand.Hold or TfwCommand.Attack)) return false;
         if (_lastSequence[os] == command.Sequence) return false;
         _lastSequence[os] = command.Sequence;
@@ -194,7 +230,7 @@ public sealed class WarfrontSquadSim
     }
 
     /// <summary>The order of <paramref name="owner"/>'s squad (Follow without a roster).</summary>
-    public SquadOrder OrderOf(int owner) => _rosters.OwnerSlot(owner) is var s and >= 0 ? _order[s] : SquadOrder.Follow;
+    public SquadOrder OrderOf(int player) => SlotOfPlayer(player) is var s and >= 0 ? _order[s] : SquadOrder.Follow;
 
     // ---- the Orks' side
 
@@ -216,6 +252,7 @@ public sealed class WarfrontSquadSim
         int i = SquadRules.IndexOfTarget(targetId);
         if (i < 0 || _a[i].State != SquadState.Standing || !(damage > 0f)) return false;
         var a = _a[i];
+        damage *= SquadRules.DamageTaken;
         float soak = Math.Min(a.Armour, damage);
         a.Armour -= soak; a.Health -= damage - soak;
         if (a.Health <= 0f) GoDown(i);
@@ -229,7 +266,7 @@ public sealed class WarfrontSquadSim
         a.DownedLeft = Math.Max(1, (int)MathF.Round(SquadRules.DownedSeconds * _arena.TickRate));
         a.DutyMate = -1; a.DutyHuman = int.MinValue;
         a.Marine.Record.TimesDowned++;
-        _pendingDowns.Add(new SquadDown(a.Owner, a.Slot));   // reported by the next Step (a Hit comes before it)
+        _pendingDowns.Add(new SquadDown(a.Key, a.Slot));   // reported by the next Step (a Hit comes before it)
     }
 
     /// <summary>Revives a downed Marine at full health and armour (W3/W12 route a player's hold here); false when it is not downed.</summary>
@@ -246,7 +283,7 @@ public sealed class WarfrontSquadSim
         a.State = SquadState.Standing; a.Health = a.HealthMax; a.Armour = a.ArmourMax; a.DownedLeft = 0; a.ReviveProgress = 0f; a.Attendant = -1; a.Target = 0;
         a.HoldAt = a.Pos;
         if (byMarine >= 0) _a[byMarine].Marine.Record.Revives++;
-        (_inStep ? _revives : _pendingRevives).Add(new SquadRevive(byHuman, byMarine, a.Owner, a.Slot, -1));
+        (_inStep ? _revives : _pendingRevives).Add(new SquadRevive(byHuman, byMarine, a.Key, a.Slot, -1));
     }
 
     /// <summary>Marines standing within <paramref name="radius"/> of a secured point each score an objective (W3 calls it when a point is secured). The number credited.</summary>
@@ -272,6 +309,8 @@ public sealed class WarfrontSquadSim
         _downs.Clear(); _downs.AddRange(_pendingDowns); _pendingDowns.Clear();
         float dt = Dt;
         _inStep = true;
+        _arena.Tick();
+        RefreshPaths(humans);
         BeginDowned(humans, dt);
         for (int i = 0; i < Max; i++) if (_a[i].State == SquadState.Standing) StepAgent(i, humans, dt);
         EndDowned(humans);
@@ -322,7 +361,7 @@ public sealed class WarfrontSquadSim
             _humanProgress.Remove(id); _humanAttendant.Remove(id);
             if (ReviveHuman?.Invoke(id) != true) continue;
             if (by >= 0 && _a[by].State == SquadState.Standing) _a[by].Marine.Record.Revives++;
-            _revives.Add(new SquadRevive(-1, by, -1, -1, id));
+            _revives.Add(new SquadRevive(-1, by, 0, -1, id));
         }
     }
 
@@ -333,7 +372,6 @@ public sealed class WarfrontSquadSim
         var order = _order[os];
         bool ownerKnown = false; Vector3 ownerPos = a.Pos;
         foreach (var h in humans) if (h.Id == a.Owner) { ownerKnown = h.Alive; ownerPos = h.Position; break; }
-        Vector3 anchor = _point[os] is { } p ? p : ownerKnown ? ownerPos : a.Pos;
         var w = a.Marine.Loadout.Weapon;
         bool retarget = (_tick + (uint)i) % SquadRules.RetargetTicks == 0;
 
@@ -344,7 +382,7 @@ public sealed class WarfrontSquadSim
         {
             Vector3 body = a.DutyMate >= 0 ? _a[a.DutyMate].Pos : HumanPos(humans, a.DutyHuman);
             a.Target = 0;
-            if (Flat(body - a.Pos) > SquadRules.MarineReviveReach - 0.2f) { MoveToward(a, body, MarineRules.ReviveApproach, SquadRules.SprintSpeed, dt, anchor); }
+            if (Flat(body - a.Pos) > SquadRules.MarineReviveReach - 0.2f) { MoveToward(a, body, MarineRules.ReviveApproach, SquadRules.SprintSpeed, dt); }
             else if (a.DutyMate >= 0)
             {
                 var d = _a[a.DutyMate];
@@ -393,7 +431,7 @@ public sealed class WarfrontSquadSim
                     break;
             }
         }
-        if (goal is { } g) MoveToward(a, g, stop, sprint ? SquadRules.SprintSpeed : SquadRules.Speed, dt, anchor);
+        if (goal is { } g) MoveToward(a, g, stop, sprint ? SquadRules.SprintSpeed : SquadRules.Speed, dt);
 
         // fire
         if (!haveTarget) return;
@@ -417,7 +455,7 @@ public sealed class WarfrontSquadSim
         var r = a.Marine.Record;
         r.Kills++;
         if (kind == SquadEnemyClass.Elite) r.EliteKills++; else if (kind == SquadEnemyClass.Boss) r.BossKills++;
-        _kills.Add(new SquadKill(a.Owner, a.Slot, enemy, kind));
+        _kills.Add(new SquadKill(a.Key, a.Slot, enemy, kind));
         PayAssists(enemy, i);
     }
 
@@ -527,18 +565,69 @@ public sealed class WarfrontSquadSim
 
     // ---- movement
 
-    void MoveToward(Agent a, Vector3 goal, float stop, float speed, float dt, Vector3 anchor)
+    /// <summary>
+    /// Once per tick: each fighting squad whose owner stands and whose order has no fixed point gets one shared path from the squad's centre to the owner, rebuilt at most
+    /// <see cref="SquadRules.PathRefreshPerSecond"/> times a second and only when the owner moved <see cref="SquadRules.PathMoved"/> m. Squads with a fixed point use the arena's flow field instead.
+    /// </summary>
+    void RefreshPaths(ReadOnlySpan<SquadHuman> humans)
+    {
+        uint every = (uint)Math.Max(1, _arena.TickRate / SquadRules.PathRefreshPerSecond);
+        for (int os = 0; os < SquadRules.MaxOwners; os++)
+        {
+            if (!_used[os] || _point[os] is not null || _order[os] == SquadOrder.Hold) { _path[os] = null; continue; }
+            if (_pathBuilt[os] != 0 && (int)(_tick - _pathBuilt[os]) < (int)every) continue;
+            bool known = false; Vector3 dest = default;
+            foreach (var h in humans) if (h.Id == _player[os] && h.Alive) { known = true; dest = h.Position; break; }
+            if (!known) { _path[os] = null; continue; }
+            if (_path[os] is not null && Flat(dest - _pathTo[os]) <= SquadRules.PathMoved) continue;
+            Vector3 sum = default; int n = 0;
+            for (int k = 0; k < SquadRules.MaxPerPlayer; k++) { var a = _a[os * SquadRules.MaxPerPlayer + k]; if (a.State == SquadState.Standing) { sum += a.Pos; n++; } }
+            if (n == 0) { _path[os] = null; continue; }
+            _pathBuilt[os] = (_pathBuilt[os] == 0 ? _tick + (uint)(os * (every / 4)) : _tick); _pathTo[os] = dest;   // the first rebuild of each squad is staggered so the searches do not land on one tick
+            var found = _arena.FindPath(sum / n, dest);
+            _path[os] = found is null ? null : [.. found];
+        }
+    }
+
+    /// <summary>The next place a Marine should walk to for a goal it cannot walk to straight: the squad's flow field to a fixed point, else the shared path; null when neither has one.</summary>
+    Vector3? Route(Agent a, Vector3 goal)
+    {
+        int os = a.OwnerSlot;
+        if (_point[os] is { } fixedPoint && Flat(goal - fixedPoint) < 12f && _arena.FlowNext(a.Pos, fixedPoint) is { } flow) return flow;
+        var path = _path[os];
+        if (path is null || path.Count == 0) return null;
+        int near = 0; float best = float.MaxValue;
+        for (int k = 0; k < path.Count; k++) { float d = Flat(path[k] - a.Pos); if (d < best) { best = d; near = k; } }
+        int pick = Math.Min(near + 1, path.Count - 1);
+        for (int k = Math.Min(near + 8, path.Count - 1); k > pick; k--)
+            if (Flat(path[k] - a.Pos) >= 1.5f && _arena.CanWalkLine(a.Pos, path[k])) { pick = k; break; }
+        return path[pick];
+    }
+
+    /// <summary>One step toward <paramref name="goal"/> (stopping <paramref name="stop"/> short of it): straight when the goal is near and the graph says the line is floor, else by the route. A step is taken only if it stays on the graph.</summary>
+    void MoveToward(Agent a, Vector3 goal, float stop, float speed, float dt)
     {
         float left = Flat(goal - a.Pos);
         if (left <= stop) return;
-        var wp = _arena.Steer(a.Pos, goal, anchor);
-        var way = new Vector2(wp.X - a.Pos.X, wp.Y - a.Pos.Y);
+        Vector3 aim = goal;
+        if (left > SquadRules.DirectRange || !_arena.CanWalkLine(a.Pos, goal)) aim = Route(a, goal) ?? goal;
+        var way = new Vector2(aim.X - a.Pos.X, aim.Y - a.Pos.Y);
         float len = way.Length();
         if (len < 1e-4f) return;
         float step = Math.Min(Math.Min(speed * dt, len), left - stop);
         var dir = way / len;
-        a.Pos += new Vector3(dir.X * step, dir.Y * step, Math.Clamp(wp.Z - a.Pos.Z, -step, step));
+        if (!TryStep(a, dir, step)
+            && !(MathF.Abs(dir.X) > 0.02f && TryStep(a, new Vector2(MathF.Sign(dir.X), 0f), step))
+            && !(MathF.Abs(dir.Y) > 0.02f && TryStep(a, new Vector2(0f, MathF.Sign(dir.Y)), step))) return;   // slide along a wall (either axis toward the goal), else stay
         a.Yaw = MathF.Atan2(dir.Y, dir.X);
+    }
+
+    bool TryStep(Agent a, Vector2 dir, float step)
+    {
+        var to = a.Pos + new Vector3(dir.X * step, dir.Y * step, 0f);
+        if (!_arena.CanStep(a.Pos, to, out var placed)) return false;
+        a.Pos = placed;
+        return true;
     }
 
     void Separate()
@@ -554,8 +643,8 @@ public sealed class WarfrontSquadSim
                 if (len >= SquadRules.Separation) continue;
                 var axis = len < 1e-4f ? new Vector2(MathF.Cos(i * 2.4f), MathF.Sin(i * 2.4f)) : d / len;
                 float push = (SquadRules.Separation - len) * 0.5f;
-                _a[i].Pos -= new Vector3(axis.X * push, axis.Y * push, 0f);
-                _a[j].Pos += new Vector3(axis.X * push, axis.Y * push, 0f);
+                TryStep(_a[i], -axis, push);   // each Marine moves only where the graph has floor: no pushing through a wall
+                TryStep(_a[j], axis, push);
             }
         }
     }

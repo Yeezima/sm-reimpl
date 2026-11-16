@@ -28,13 +28,12 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3455 spec table rows: **2466 tagged**, 640 not tagged (read from data with high confidence), 349 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 754 rows of the changes document.
-Scanned 3479 spec table rows: **2486 tagged**, 643 not tagged (read from data with high confidence), 350 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 757 rows of the changes document.
+Scanned 3503 spec table rows: **2505 tagged**, 647 not tagged (read from data with high confidence), 351 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 758 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
 | Movement (critical) | 404 | 347 | 344 | 114 | 12 |
-| Combat core (critical) | 21 | 12 | 19 | 14 | 8 |
+| Combat core (critical) | 23 | 14 | 21 | 14 | 8 |
 | Weapons (critical) | 119 | 73 | 106 | 52 | 3 |
 | Melee (critical) | 158 | 138 | 114 | 57 | 5 |
 | Jump pack (critical) | 81 | 73 | 67 | 17 | 0 |
@@ -50,35 +49,23 @@ Scanned 3479 spec table rows: **2486 tagged**, 643 not tagged (read from data wi
 | Customizer and paint | 46 | 43 | 26 | 15 | 0 |
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
-| Networking and render smoothing | 36 | 26 | 17 | 12 | 7 |
-| Core simulation (provisional values) | 775 | 732 | 562 | 213 | 1 |
-| General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 259 | 246 | 144 | 68 | 0 |
-| **All areas** | **2466** | 2194 | 1840 | 757 | 37 |
 | Networking and render smoothing | 47 | 37 | 21 | 12 | 7 |
-| Core simulation (provisional values) | 772 | 729 | 559 | 211 | 1 |
+| Core simulation (provisional values) | 785 | 742 | 572 | 217 | 1 |
 | General game design | 19 | 19 | 17 | 7 | 0 |
-| Ork faction | 260 | 247 | 144 | 69 | 0 |
-| **All areas** | **2486** | 2214 | 1851 | 761 | 37 |
+| Ork faction | 262 | 249 | 146 | 69 | 0 |
+| **All areas** | **2505** | 2233 | 1870 | 769 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1431 |
-| confidence: low | 891 |
-| confidence: medium | 840 |
-| notes: ours | 430 |
-| kind: interpretation | 403 |
+| kind: ours | 1454 |
+| confidence: low | 909 |
+| confidence: medium | 852 |
+| notes: ours | 441 |
+| kind: interpretation | 405 |
 | notes: estimate | 203 |
-| kind: estimate | 188 |
-| kind: ours | 1446 |
-| confidence: low | 901 |
-| confidence: medium | 841 |
-| notes: ours | 433 |
-| kind: interpretation | 401 |
-| notes: estimate | 203 |
-| kind: estimate | 194 |
+| kind: estimate | 201 |
 | confidence: none (low) | 109 |
 | kind: provisional | 104 |
 | kind: user's knowledge | 53 |
@@ -808,9 +795,9 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
-| `R-48398FB1` | Movement | walks 5.5 m/s, sprints 8 m/s when far from its place with nobody to shoot; Marines closer than 0.9 m push apart; a long way is searched once per squad (an anchor), not per Marine (m/s) | kind: estimate; confidence: low; notes: ours | ours | Movement: compare with SM1 by timing a run over a known distance. Ours: walks 5.5 m/s, sprints 8 m/s when far from its place with nobody to… | ☐ |
+| `R-48398FB1` | Movement | walks 5.5 m/s, sprints 8 m/s when far from its place with nobody to shoot; every step (walking and the push between Marines closer than 0.9 m) is taken only if it stays on the walking graph, the height taken from the floor, sliding along a wall on one axis… (m/s, m) | kind: estimate; confidence: low; notes: ours | ours | Movement: compare with SM1 by timing a run over a known distance. Ours: walks 5.5 m/s, sprints 8 m/s when far from its place with nobody to… | ☐ |
 
-### Combat core (gameplay-critical) (21)
+### Combat core (gameplay-critical) (23)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -887,6 +874,13 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-4212C891` | Overcharge: the shockwave's damage | **none** of its own (`DreadnoughtMelee.Overcharge` damage 0): the swing and the stomp's own blast deal their damage; the wave only moves and interrupts (damage) | kind: ours; confidence: medium | the owner: "no extra damage beyond the stomp's own, if it has any"; chosen: none, because the swing already damages every Ork in the cleave | Overcharge: the shockwave's damage: compare with SM1 by counting hits to kill and by video of the health bar. Ours: none of its own (DreadnoughtMelee.Overcharge damage 0): the swing and… | ☐ |
+
+*Spec section: Added content: Warfront: squads (W9: `WarfrontSquadSim`, `SquadRosters`; pure sim, not yet connected to World, the wire or the loadouts)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-00D02E43` | Damage taken | a Marine takes a tenth of an Ork hit (Musou's puppet Marines take 0.10, `TfwSupplyRules.BotDamageTaken`); the per-Ork level multiplier is applied by W3b's hook, not here (x) | kind: estimate; confidence: low | Musou's puppet value (owner 2026-11-06), reused as the starting value | Damage taken: compare with SM1 by counting hits to kill and by video of the health bar. Ours: a Marine takes a tenth of an Ork hit (Musou's puppet Marines take… | ☐ |
+| `R-4A8E78D2` | Known gap: no armour or health recovery | a Marine's armour and health come back only by a revive (players' armour regenerates); W11 | kind: ours; confidence: low | designer review 1 (left for W11) | Known gap: no armour or health recovery: compare with SM1 by counting hits to kill and by video of the health bar. Ours: a Marine's armour and health come back only by a revive (players'… | ☐ |
 
 ### Weapons (gameplay-critical) (119)
 
@@ -2551,7 +2545,6 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-61F47DDE` | Bot difficulty | accuracy 0 to 100 % (the bots' `--bot-accuracy`), damage dealt 0 to 100 % (`World.SetDamageScale`, which only lowers; 100 % also removes the server's `--bot-damage-scale`; the panel starts at that option's value), fire range 5 to 1000 m (`--bot-range`); each… (% , m) | kind: ours | the owner | Bot difficulty: compare with SM1 by feel or video. Ours: accuracy 0 to 100 % (the bots' --bot-accuracy), damage dealt 0 to 100… | ☐ |
 | `R-010FCD37` | Time scale | 1, 1/2, 1/4, 1/10 or paused: the server's tick clock and every client's clock (prediction, interpolation, timeouts) and Godot's `Engine.TimeScale` (animation, effects, deltas) run at that fraction together, on the local client and on bots; sound is not… (factor) | kind: ours; confidence: medium | the owner | Time scale: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 1, 1/2, 1/4, 1/10 or paused: the server's tick clock and every… | ☐ |
 
-### Core simulation (provisional values) (775)
 *Spec section: Cancel table: the live animation cancel matrix editor (cancel-editor; owner 2026-11-17; protocol 80, extended in place; test aid, ours, never on a public server)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
@@ -2568,7 +2561,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-5B955167` | Panel | F8 shows or hides the grid (Esc closes) when the server has the tools; numbered "row.column" cells coloured by state, a bright border where the cell differs from the release default; the inspector (state, from, until, "data timing", the code's own value, note… (key) | kind: ours | the owner (F8 chosen: free in Classic PvP; Musou's Ashfall look keeps it there) | Panel: compare with SM1 by feel or video. Ours: F8 shows or hides the grid (Esc closes) when the server has the… | ☐ |
 | `R-BE15241E` | Export | writes `cancel-table-YYYYMMDD-HHMMSS.json` (the shipped file's format: every cell with note and source, then the overrides) to `%LOCALAPPDATA%\sm-reimpl\cancel-configs\`, never overwriting; import reads one back and applies it live; `smtool cancel-config diff`… | kind: ours | the owner ("hands changes over as an export file") | Export: compare with SM1 by feel or video. Ours: writes cancel-table-YYYYMMDD-HHMMSS.json (the shipped file's format:… | ☐ |
 
-### Core simulation (provisional values) (772)
+### Core simulation (provisional values) (785)
 
 *Spec section: Provisional values in use*
 
@@ -3788,19 +3781,20 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
+| `R-F7113B5C` | Roster key | a roster belongs to the campaign key (not the player id, which changes at every reconnect); every key's roster is kept for the run (at most 64 keys); the key is bound to the player id for each battle (`Land`); a late or returning player lands alone without… (key) | kind: ours; confidence: medium | designer review 1 (plan: campaign key as `WarfrontPlayerState`) | Roster key: compare with SM1 by feel or video. Ours: a roster belongs to the campaign key (not the player id, which… | ☐ |
 | `R-6CE3E208` | Names and records across a loadout change | the name and the service record stay; only the loadout fields change (`Mirror`); a name is trimmed, 1 to 24 characters, no control characters; default names are unique across a run | kind: ours; confidence: medium | owner ("preserve names and service records"); name limits ours | Names and records across a loadout change: compare with SM1 by feel or video. Ours: the name and the service record stay; only the loadout fields change… | ☐ |
 | `R-40CCC335` | Service record | kills (elite, boss), assists, revives given, times downed, objectives, battles survived (counts) | kind: ours; confidence: medium | owner's list; times downed and kill classes ours (the leaderboard's knockouts) | Service record: compare with SM1 by feel or video. Ours: kills (elite, boss), assists, revives given, times downed… | ☐ |
 | `R-FD58F07F` | Assist | a Marine that hurt an Ork another Marine or a human killed within 5 s of its hit (s) | kind: estimate; confidence: low; notes: ours | our reading of "assists" | Assist: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a Marine that hurt an Ork another Marine or a human killed within 5 s… | ☐ |
 | `R-F128D6B8` | Objective | every standing Marine within the point's radius when it is secured | kind: interpretation; confidence: medium; notes: ours | owner (objectives); "standing and on the point" ours | Objective: compare with SM1 by feel or video. Ours: every standing Marine within the point's radius when it is secured. | ☐ |
 | `R-2160BA77` | Battles survived | counted for a Marine standing when the battle ends (downed or out: not) | kind: interpretation; confidence: medium; notes: ours | our reading | Battles survived: compare with SM1 by feel or video. Ours: counted for a Marine standing when the battle ends (downed or out:… | ☐ |
+| `R-424FE662` | Paths | Follow (and an Attack without a point): ONE path per squad from its centre to its owner (`NavGraph.FindPath`, walk links only; it ends at the first jump or drop), rebuilt at most twice a second and only when the owner moved 2 m, first rebuilds staggered per… (per s, m) | kind: ours; confidence: medium | designer review 1 | Paths: compare with SM1 by feel or video. Ours: Follow (and an Attack without a point): ONE path per squad from its… | ☐ |
 | `R-0491F66D` | Retarget | the nearest enemy within the order's sight with a line of sight, every 3 ticks (staggered per Marine) (ticks) | kind: estimate; confidence: low; notes: ours | ours | Retarget: compare with SM1 by feel or video. Ours: the nearest enemy within the order's sight with a line of sight… | ☐ |
 | `R-4E677F18` | Marine body (placeholder until W11) | 200 health, 100 armour (armour first), target radius 0.5 m (HP) | kind: estimate; confidence: low; notes: ours | ours | Marine body (placeholder until W11): compare with SM1 by feel or video. Ours: 200 health, 100 armour (armour first), target radius 0.5 m. | ☐ |
 | `R-F698749A` | Revive by a player | hold Use within 2 m for 2 s; any player, any Marine; full health and armour (m, s) | kind: estimate; confidence: medium; notes: ours | owner (any player, full health); 2 m and 2 s ours (plan section 6) | Revive by a player: compare with SM1 by feel or video. Ours: hold Use within 2 m for 2 s; any player, any Marine; full health and… | ☐ |
 | `R-39E61109` | Revive by a Marine | a standing Marine revives a downed member of its own squad, or a fallen human whose window is open (any squad), standing within 2 m for 2 s, only when no Ork is within 6 m of the body (checked every tick); one Marine per body (m, s) | kind: ours; confidence: medium | owner ("a retainer can help downed members of its own squad when safe"); the human case and the numbers ours (plan section 6) | Revive by a Marine: compare with SM1 by feel or video. Ours: a standing Marine revives a downed member of its own squad, or a… | ☐ |
 | `R-BCF793A2` | Who stands | `AnyStanding`: a Marine neither downed nor out; a downed Marine in its window does not stand (`AnyReviveWindowOpen` tells the cases apart) | kind: interpretation; confidence: medium | W3's rule ("any retainer is standing"); downed not counting ours | Who stands: compare with SM1 by feel or video. Ours: AnyStanding: a Marine neither downed nor out; a downed Marine in its… | ☐ |
-| `R-0CBA316B` | Stat scale | a player's damage multiplier applies at once, its health multiplier to Marines landed afterwards (W7 feeds the one-third share) (x) | kind: ours; confidence: medium | owner (retainers get one third of the bonus); mechanism ours | Stat scale: compare with SM1 by feel or video. Ours: a player's damage multiplier applies at once, its health multiplier… | ☐ |
+| `R-0CBA316B` | Stat scale | a campaign key's damage multiplier applies at once, its health multiplier to Marines landed afterwards (W7 feeds the one-third share) (x) | kind: ours; confidence: medium | owner (retainers get one third of the bonus); mechanism ours | Stat scale: compare with SM1 by feel or video. Ours: a campaign key's damage multiplier applies at once, its health… | ☐ |
 
-### General game design (7)
 *Spec section: Added content: Warfront, progression (W7: `Extras/Warfront/Progression`; server rules, pure; not yet wired into a World)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
@@ -4367,6 +4361,8 @@ The Orks are an addition the owner keeps (the original multiplayer had Space Mar
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-0B5A4A45` | Orks target and hit Marines | Marines are Ork targets with their own id range (-1000 to -1035, the Guard squads use -2 to -41); a downed Marine is nobody's target (id) | kind: ours; confidence: medium | ours (hook lines listed in the W9 report) | Orks target and hit Marines: compare with SM1 by feel or video. Ours: Marines are Ork targets with their own id range (-1000 to -1035, the… | ☐ |
+| `R-03F9F48E` | Known approximation: Marines are Guard squads to the Orks' rules | Musou treats target ids of -2 and below as Guard squads (target weights, reach, Rokkit Boyz never aim at them); Marines inherit that in the first draft | kind: interpretation; confidence: low | designer review 1 (accepted for the first draft) | Known approximation: Marines are Guard squads to the Orks'…: compare with SM1 by feel or video. Ours: Musou treats target ids of -2 and below as Guard squads (target… | ☐ |
+
 *Spec section: Added content: Warfront, progression (W7: `Extras/Warfront/Progression`; server rules, pure; not yet wired into a World)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |

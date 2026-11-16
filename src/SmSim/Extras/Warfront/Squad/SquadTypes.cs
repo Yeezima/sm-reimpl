@@ -52,8 +52,8 @@ public sealed class RosterMarine
     public ServiceRecord Record = new();
 }
 
-/// <summary>The saved form of one player's roster (W5's save file carries it).</summary>
-public sealed record SquadOwnerSave(int Owner, bool Held, IReadOnlyList<SquadMarineSave> Marines);
+/// <summary>The saved form of one campaign key's roster (W5's save file carries it); the key is the campaign key of <c>WarfrontPlayerState</c>, never a player id.</summary>
+public sealed record SquadOwnerSave(ulong Key, bool Held, IReadOnlyList<SquadMarineSave> Marines);
 
 /// <summary>The saved form of one Marine.</summary>
 public sealed record SquadMarineSave(string Name, SquadLoadout Loadout, ServiceRecord Record);
@@ -68,13 +68,13 @@ public sealed record SquadRosterSave(int NextName, IReadOnlyList<SquadOwnerSave>
 public readonly record struct SquadHuman(int Id, Vector3 Position, bool Alive, bool Fallen = false, int ReviveTarget = -1);
 
 /// <summary>A kill by a squad Marine this tick (for the owner's XP and score; W7, W15).</summary>
-public readonly record struct SquadKill(int Owner, int Slot, ushort Enemy, SquadEnemyClass Class);
+public readonly record struct SquadKill(ulong Key, int Slot, ushort Enemy, SquadEnemyClass Class);
 
-/// <summary>A revive this tick: given by a human (<see cref="ByHuman"/>, else -1) or by a Marine (<see cref="ByMarine"/> index, else -1); received by Marine <see cref="Slot"/> of <see cref="Owner"/>'s squad, or by human <see cref="HumanRevived"/> (else -1, and Owner/Slot -1).</summary>
-public readonly record struct SquadRevive(int ByHuman, int ByMarine, int Owner, int Slot, int HumanRevived);
+/// <summary>A revive this tick: given by a human (<see cref="ByHuman"/>, else -1) or by a Marine (<see cref="ByMarine"/> index, else -1); received by Marine <see cref="Slot"/> of campaign key <see cref="Key"/>'s squad, or by human <see cref="HumanRevived"/> (else -1, and Key 0, Slot -1).</summary>
+public readonly record struct SquadRevive(int ByHuman, int ByMarine, ulong Key, int Slot, int HumanRevived);
 
 /// <summary>A Marine knocked down this tick (a "retainer knockout" on the leaderboard).</summary>
-public readonly record struct SquadDown(int Owner, int Slot);
+public readonly record struct SquadDown(ulong Key, int Slot);
 
 /// <summary>A Marine as the wire shows it (W10): ids, state, place, facing, health share, seconds left of the downed window.</summary>
-public readonly record struct SquadMarineView(int Index, int Owner, int Slot, SquadState State, Vector3 Position, float Yaw, float HealthShare, float DownedLeft);
+public readonly record struct SquadMarineView(int Index, ulong Key, int Slot, SquadState State, Vector3 Position, float Yaw, float HealthShare, float DownedLeft);

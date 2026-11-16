@@ -46,7 +46,12 @@ sealed class FakeArena : ISquadArena
 
     public bool HasSight(Vector3 from, Vector3 to) => true;
 
-    public Vector3 Steer(Vector3 from, Vector3 goal, Vector3 anchor) => goal;
+    public bool Ground(Vector3 p, out Vector3 ground) { ground = p; return true; }
+    public bool CanStep(Vector3 from, Vector3 to, out Vector3 placed) { placed = to; return true; }
+    public bool CanWalkLine(Vector3 from, Vector3 to) => true;
+    public IReadOnlyList<Vector3>? FindPath(Vector3 from, Vector3 to) => [to];
+    public Vector3? FlowNext(Vector3 from, Vector3 point) => point;
+    public void Tick() { }
 }
 
 public class SquadTests
@@ -56,7 +61,7 @@ public class SquadTests
     static (SquadRosters Rosters, FakeArena Arena, WarfrontSquadSim Sim) Make(int owners = 1, int marines = 1)
     {
         var rosters = new SquadRosters();
-        for (int o = 1; o <= owners; o++) { rosters.AddOwner(o); for (int k = 1; k < marines; k++) rosters.Recruit(o); }
+        for (ulong o = 1; o <= (ulong)owners; o++) { rosters.AddOwner(o); for (int k = 1; k < marines; k++) rosters.Recruit(o); }
         var arena = new FakeArena();
         return (rosters, arena, new WarfrontSquadSim(rosters, arena));
     }
@@ -69,7 +74,7 @@ public class SquadTests
 
     static SquadHuman Owner(Vector3 at, int id = 1) => new(id, at, true);
 
-    static void Land(WarfrontSquadSim sim, Vector3 at, params int[] owners) => sim.BeginBattle(owners.Select(o => (o, at)).ToArray());
+    static void Land(WarfrontSquadSim sim, Vector3 at, params int[] owners) => sim.BeginBattle(owners.Select(o => ((ulong)o, o, at)).ToArray());
 
     // ---- rosters
 
@@ -90,17 +95,16 @@ public class SquadTests
     public void Four_players_hold_36_in_separate_rosters_and_a_fifth_gets_none()
     {
         var r = new SquadRosters();
-        for (int o = 1; o <= 4; o++) { Assert.True(r.AddOwner(o)); while (r.Recruit(o)) { } }
+        for (ulong o = 1; o <= 4; o++) { Assert.True(r.AddOwner(o)); while (r.Recruit(o)) { } }
         Assert.Equal(36, r.Total);
-        Assert.False(r.AddOwner(5));
-        Assert.False(r.Has(5));
-        Assert.Equal(0, r.Count(5));
+        Assert.True(r.AddOwner(5));   // a fifth key keeps a roster for the run; only four fight at once
+        Assert.Equal(37, r.Total);
         Assert.True(r.AddOwner(2));   // an existing roster is left alone
         Assert.Equal(9, r.Count(2));
         r.Rename(1, 0, "Alpha");
         Assert.Equal("Alpha", r.Marine(1, 0)!.Name);
         Assert.NotEqual("Alpha", r.Marine(2, 0)!.Name);   // separate rosters
-        Assert.Equal(36, Enumerable.Range(1, 4).SelectMany(o => Enumerable.Range(0, 9).Select(s => r.Marine(o, s)!.Name)).Distinct().Count());
+        Assert.Equal(36, Enumerable.Range(1, 4).SelectMany(o => Enumerable.Range(0, 9).Select(s => r.Marine((ulong)o, s)!.Name)).Distinct().Count());
     }
 
     [Fact]
@@ -160,9 +164,9 @@ public class SquadTests
     {
         var (r, _, sim) = Make(2, 3);
         r.SetHeld(2, true);
-        Assert.Equal(3, sim.BeginBattle([(1, Vector3.Zero), (2, Vector3.Zero)]));
+        Assert.Equal(3, sim.BeginBattle([(1UL, 1, Vector3.Zero), (2UL, 2, Vector3.Zero)]));
         r.SetHeld(2, false);
-        Assert.Equal(6, sim.BeginBattle([(1, Vector3.Zero), (2, Vector3.Zero)]));
+        Assert.Equal(6, sim.BeginBattle([(1UL, 1, Vector3.Zero), (2UL, 2, Vector3.Zero)]));
     }
 
     // ---- orders
@@ -251,7 +255,7 @@ public class SquadTests
         Assert.False(arena.Orks[0].Alive);
         Assert.Single(kills);
         Assert.Equal(SquadEnemyClass.Elite, kills[0].Class);
-        Assert.Equal(1, kills[0].Owner);
+        Assert.Equal(1UL, kills[0].Key);
         Assert.Equal(1, r.Marine(1, 0)!.Record.Kills);
         Assert.Equal(1, r.Marine(1, 0)!.Record.EliteKills);
     }
@@ -317,9 +321,9 @@ public class SquadTests
         Assert.Equal(SquadRules.TargetId(0), targets[0].Id);
         Assert.Equal(0, SquadRules.IndexOfTarget(targets[0].Id));
         Assert.Equal(-1, SquadRules.IndexOfTarget(-5));   // a Guard squad's id is not ours
-        Assert.True(sim.Hit(targets[0].Id, 30f, Vector3.Zero));
+        Assert.True(sim.Hit(targets[0].Id, 300f, Vector3.Zero));   // a tenth: 30
         Assert.Equal(1f, sim.View(0)!.Value.HealthShare);   // armour took it
-        Assert.True(sim.Hit(targets[0].Id, 60f, Vector3.Zero));   // 20 armour left, 40 health
+        Assert.True(sim.Hit(targets[0].Id, 600f, Vector3.Zero));   // 60: 20 armour left, 40 health
         Assert.Equal(0.6f, sim.View(0)!.Value.HealthShare, 3);
         Assert.False(sim.Hit(-5, 10f, Vector3.Zero));
     }
@@ -431,7 +435,7 @@ public class SquadTests
         for (int k = 0; k < Rate * 8 && revived.Count == 0; k++) { sim.Step(++_t, [new SquadHuman(1, new Vector3(6, 0, 0), false, true)]); done.AddRange(sim.Revives); }
         Assert.Equal([1], revived);
         Assert.Equal(1, r.Marine(1, 0)!.Record.Revives);
-        Assert.Equal(new SquadRevive(-1, 0, -1, -1, 1), Assert.Single(done));
+        Assert.Equal(new SquadRevive(-1, 0, 0, -1, 1), Assert.Single(done));
     }
 
     [Fact]
@@ -520,7 +524,7 @@ public class SquadTests
     {
         var (r, arena, sim) = Make();
         r.Mirror(1, new SquadLoadout { Weapon = new SquadWeapon(30f, 10f, 1f, 1f), HealthMax = 100f, ArmourMax = 0f });
-        sim.SetScale(1, 2f, 1.5f);
+        sim.SetScale(1UL, 2f, 1.5f);
         Land(sim, Vector3.Zero, 1);
         arena.Add(new Vector3(10, 0, 0), 1000f);
         Run(sim, 2, Owner(Vector3.Zero));   // one shot at tick 1 or 2
@@ -546,7 +550,7 @@ public class SquadTests
                 sim.Step(++t, [Owner(Vector3.Zero), Owner(new Vector3(3, 3, 0), 2)]);
                 if (k % 50 == 0) foreach (var o in arena.Orks) sb.Append(o.Health.ToString("F1")).Append(',');
             }
-            return sb.ToString() + string.Join(',', Enumerable.Range(0, 10).Select(i => r.Marine(i < 5 ? 1 : 2, i % 5)!.Record.Kills));
+            return sb.ToString() + string.Join(',', Enumerable.Range(0, 10).Select(i => r.Marine(i < 5 ? 1UL : 2UL, i % 5)!.Record.Kills));
         }
         Assert.Equal(Trace(), Trace());
     }
