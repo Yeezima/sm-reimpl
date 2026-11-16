@@ -66,6 +66,7 @@ public class ExtrasBoundaryTests
         ("src/SmSim/Simulation.cs", "ExtrasPlayerInput"),          // World.ExtrasPlayerInput(int, ref PlayerInput, ref bool handled), before Step asks for a player's input (the AI Marines have no client)
         ("src/SmServer/GameServer.cs", "ExtrasGeneratedMap"),      // static GameServer.ExtrasGeneratedMap(ContentExtras, string, ref string?, ref GameMap?, ref string?), in GeneratedMap, which Program.cs calls (tfw_war, composed from the install)
         ("src/SmServer/GameServer.cs", "ExtrasPlayerName"),        // GameServer.ExtrasPlayerName(int, ref string), in ScoreboardOf (the AI Marines' names)
+        ("src/SmServer/GameServer.cs", "ExtrasCustomMap"),         // static GameServer.ExtrasCustomMap(string, ref string?, ref GameMap?, ref string?), a Mapmaker .smmap loaded for --custom-map or a cm_ map name (SmMapmaker, Extras only)
         ("src/SmServer/GameServer.Envelope.cs", "ExtrasCommand"),  // GameServer.ExtrasCommand(int, byte, byte[]), a client's command (message kind 17), only under ContentExtras.CommandUsers
         ("client/NetworkView.cs", "ExtrasMapFile"),                // NetworkView.ExtrasMapFile(ref string), the install's map behind a map name (tfw_war_m09: Manufactorum; tfw_war: none), in LoadMap and for the map's effects and sounds
         ("src/SmServer/GameServer.Appearance.cs", "ExtrasPuppetAppearance"),   // GameServer.ExtrasPuppetAppearance(int, ref (ushort, Race, AppearanceCode)?), in PeerlessLook (scoreboard version, appearance query): Musou Mode's retainers wear their owner's look

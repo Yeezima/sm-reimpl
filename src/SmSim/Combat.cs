@@ -349,10 +349,14 @@ public static class Combat
         // feel/buffer-speed: a buffered press is replayed into the tick (InputBuffer.Begin) and the buffer updated from what started (InputBuffer.End).
         // A replayed melee press goes through the melee lock like a fresh one (the input's MeleeTarget is the tick's own).
         var buffer = InputBuffer.Begin(s, input, c);
+        // cancel-editor (developer tools): the owner's edited cancel table (CancelGate); null, and nothing else here, with the default table, in every mode with added content and on a real server.
+        var gate = CancelGate.Evaluate(s, input, c);
+        if (gate is not null) buffer = buffer with { State = gate.Begin(buffer.State, c), Input = gate.Filter(buffer.Input) };
         // feel/jump-pack-2: a long buffered Jump press (held past the dash's decision) takes off committed to the small jump; whether the real button is down decides if it holds on.
         var longJump = buffer.Replayed == BufferedAction.JumpLong ? ((input.Buttons & InputButtons.Jump) != 0 ? LongJump.Held : LongJump.Released) : LongJump.None;
         var next = StepPlayerCore(buffer.State, buffer.Input, c, out events, world, others, out int used, longJump);
-        next = InputBuffer.End(s, input, next, buffer, used, c);
+        next = InputBuffer.End(s, input, next, buffer, used, c, gate?.Queue ?? 0, gate?.Block ?? 0);
+        if (gate is not null) next = gate.Restore(next, input);
         return Spread.After(s, next, input, c, events);   // weapons/spread: the bloom and this tick's shot's scatter (Spread.cs)
     }
 
@@ -1378,6 +1382,7 @@ public static class Combat
             };
         }
         if (health <= 0f) after = Killed(after, c);
+        else if ((shieldDamage > 0f || healthDamage > 0f) && CancelGate.Active(c)) after = CancelGate.OnDamage(after, c);   // cancel-editor: a damage that ends the action in progress when the table says so
         return (after, shieldDamage, healthDamage);
     }
 

@@ -4,6 +4,7 @@
     <Project Path="src/SmFormats/SmFormats.csproj" />
     <Project Path="src/SmLauncher.Core/SmLauncher.Core.csproj" />
     <Project Path="src/SmLauncher/SmLauncher.csproj" />
+    <Project Path="src/SmMapmaker/SmMapmaker.csproj" />
     <Project Path="src/SmNet/SmNet.csproj" />
     <Project Path="src/SmServer/SmServer.csproj" />
     <Project Path="src/SmSim/SmSim.csproj" />
@@ -13,6 +14,7 @@
     <Project Path="tests/SmFormats.Tests/SmFormats.Tests.csproj" />
     <Project Path="tests/SmLauncher.Tests/SmLauncher.Tests.csproj" />
     <Project Path="tests/SmLauncher.UiTests/SmLauncher.UiTests.csproj" />
+    <Project Path="tests/SmMapmaker.Tests/SmMapmaker.Tests.csproj" />
     <Project Path="tests/SmNet.Tests/SmNet.Tests.csproj" />
   </Folder>
 </Solution>

@@ -1,0 +1,26 @@
+<Project Sdk="Godot.NET.Sdk/4.7.2">
+
+  <!-- Mapmaker Phase 1 (docs/mapmaker.md): the Godot editor plugin. Added content; reads SM1 meshes from the install in memory only. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <Nullable>enable</Nullable>
+    <RootNamespace>SmMapmakerEditor</RootNamespace>
+    <AssemblyName>Mapmaker</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\src\SmContent\SmContent.csproj" />
+    <ProjectReference Include="..\src\SmMapmaker\SmMapmaker.csproj" Condition="Exists('..\src\SmMapmaker\SmMapmaker.csproj')" />
+  </ItemGroup>
+
+  <!-- Read-only reuse of the client's map view (namespace SmClient): the same meshes and materials the game draws. -->
+  <ItemGroup>
+    <Compile Include="..\client\MapView.cs" Link="Client\MapView.cs" />
+    <Compile Include="..\client\MapMaterials.cs" Link="Client\MapMaterials.cs" />
+    <Compile Include="..\client\MapDecor.cs" Link="Client\MapDecor.cs" />
+    <Compile Include="..\client\MapDecorLists\MapDecorLists.cs" Link="Client\MapDecorLists.cs" />
+    <Compile Include="..\client\MapSky.cs" Link="Client\MapSky.cs" />
+  </ItemGroup>
+
+</Project>

@@ -49,6 +49,13 @@ $editorRun = -not $exe
 if (-not $exe) { $exe = $Editor }
 if (-not (Test-Path -LiteralPath $exe)) { throw "$exe was not found$(if ($editorRun) { ': run client.cmd once (it downloads Godot 4.7.2)' })." }
 $client = Join-Path $RepoRoot 'client'
+# Mapmaker (docs/mapmaker.md): --path <dir> names another project (e.g. mapmaker); its first import / --build use that folder instead of client\. The default is unchanged.
+$project = $client
+$pathAt = $engine.IndexOf('--path')
+if ($pathAt -ge 0 -and $pathAt + 1 -lt $engine.Count) {
+    $project = $engine[$pathAt + 1]
+    if (-not [IO.Path]::IsPathRooted($project)) { $project = Join-Path (Get-Location) $project }
+}
 if ($editorRun -and -not ($engine -contains '--path') -and -not ($engine -contains '--main-pack')) { $engine.InsertRange(0, [string[]]@('--path', $client)) }
 if ($windowed) {
     if ($engine -contains '--headless') { throw '--windowed and --headless together: drop one' }
@@ -56,13 +63,14 @@ if ($windowed) {
 } elseif (-not ($engine -contains '--headless')) { $engine.Insert(0, '--headless') }
 
 if ($build) {
-    dotnet build (Join-Path $client 'SmClient.csproj') -nologo -v quiet
+    $csproj = Get-ChildItem -LiteralPath $project -Filter '*.csproj' -File | Select-Object -First 1
+    dotnet build $csproj.FullName -nologo -v quiet
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 $state = Join-Path $env:LOCALAPPDATA 'sm-reimpl\tmp-build\godot'
 New-Item -ItemType Directory -Force -Path $state | Out-Null
-if ($editorRun -and -not (Test-Path -LiteralPath (Join-Path $client '.godot'))) {
-    $ip = Start-QuietProcess -FilePath $exe -ArgumentList @('--headless', '--path', $client, '--import') -WorkingDirectory $RepoRoot -StdOut (Join-Path $state 'import.log')
+if ($editorRun -and -not (Test-Path -LiteralPath (Join-Path $project '.godot'))) {
+    $ip = Start-QuietProcess -FilePath $exe -ArgumentList @('--headless', '--path', $project, '--import') -WorkingDirectory $RepoRoot -StdOut (Join-Path $state 'import.log')
     $null = Wait-QuietProcess $ip
 }
 if (-not $log) {
