@@ -213,7 +213,7 @@ public static class InputBuffer
     /// <paramref name="before"/> is the state at the tick's start, <paramref name="real"/> the real input, <paramref name="used"/> the actions
     /// that started this tick (bits of <see cref="Bit"/>).
     /// </summary>
-    internal static PlayerState End(PlayerState before, PlayerInput real, PlayerState next, Tick t, int used, SimConfig c)
+    internal static PlayerState End(PlayerState before, PlayerInput real, PlayerState next, Tick t, int used, SimConfig c, int queued = 0, int blocked = 0)
     {
         if (t.Replayed != BufferedAction.None)
         {
@@ -234,7 +234,7 @@ public static class InputBuffer
                 _ => next,
             };
         }
-        var (action, ticks) = After(before, real.Buttons, t, used, c.InputBufferTicks, c);
+        var (action, ticks) = After(before, real.Buttons, t, used, c.InputBufferTicks, c, queued, blocked);
         // The press's "W held at press time" (a fresh heavy press with W down) is kept with it until it is spent or dropped.
         bool charge = action == BufferedAction.MeleeHeavy && (t.Fresh == BufferedAction.MeleeHeavy ? Loadouts.Rush(c, before) is { } spec && Rush.ChargeHeld(real, spec) : before.BufferedCharge);
         return next.Alive ? next with { Buffered = action, BufferTicks = ticks, BufferedCharge = charge } : next with { Buffered = BufferedAction.None, BufferTicks = 0, BufferedCharge = false };
@@ -248,12 +248,17 @@ public static class InputBuffer
     internal static int WindowOf(PlayerState s, BufferedAction a, SimConfig c, int window) => a == BufferedAction.Grenade && Stims.Reliable(c, s) ? MaxTicks : window;
 
     /// <summary>The buffer after a tick (pure rule; see the class summary).</summary>
-    internal static (BufferedAction Action, int Ticks) After(PlayerState before, InputButtons real, Tick t, int used, int window, SimConfig c)
+    internal static (BufferedAction Action, int Ticks) After(PlayerState before, InputButtons real, Tick t, int used, int window, SimConfig c, int queued = 0, int blocked = 0)
     {
         if (window <= 0 || !before.Alive) return (BufferedAction.None, 0);
         window = Math.Min(window, MaxTicks);
         if (t.Fresh != BufferedAction.None)
+        {
+            // cancel-editor: the table says this press is ignored (blocked) or waits for the action to end (queued, kept as if the action held it).
+            if ((blocked & Bit(t.Fresh)) != 0) return (BufferedAction.None, 0);
+            if ((queued & Bit(t.Fresh)) != 0 && (used & Bit(t.Fresh)) == 0 && !Hold(before, t.Fresh)) return (t.Fresh, WindowOf(before, t.Fresh, c, window));
             return (used & Bit(t.Fresh)) == 0 && Locked(before, t.Fresh) && !Hold(before, t.Fresh) ? (t.Fresh, WindowOf(before, t.Fresh, c, window)) : (BufferedAction.None, 0);
+        }
         var carried = before.Buffered;
         if (carried == BufferedAction.None || t.Dropped) return (BufferedAction.None, 0);
         if (t.Replayed != BufferedAction.None && ((used & Bit(carried)) != 0 || !Locked(before, carried))) return (BufferedAction.None, 0);

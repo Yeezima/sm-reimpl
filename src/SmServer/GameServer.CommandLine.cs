@@ -97,6 +97,8 @@ public sealed record ServerArguments
     public bool DevTools { get; init; }
     /// <summary>--dev-bot-exe: the Godot console executable the tools' bots run (default: the one the repository's tools download).</summary>
     public string? DevBotExe { get; init; }
+    /// <summary>--cancel-table FILE (cancel-editor, protocol 80): start with this cancel table (an export of the F8 panel) instead of the shipped default. Only with --dev-tools on a loopback bind; ignored otherwise, so a public server always plays by the shipped table.</summary>
+    public string? CancelTableFile { get; init; }
     /// <summary>--dev-bot-project: the Godot project folder for those bots (default: the client folder of the checkout the server runs from; not needed for an exported game).</summary>
     public string? DevBotProject { get; init; }
     public bool Help { get; init; }
@@ -235,6 +237,7 @@ public static class ServerCommandLine
                     break;
                 case "--game-dir": a = a with { GameDir = value }; break;
                 case "--dev-bot-exe": a = a with { DevBotExe = value }; break;
+                case "--cancel-table": a = a with { CancelTableFile = value }; break;
                 case "--dev-bot-project": a = a with { DevBotProject = value }; break;
                 case "--map": a = a with { Map = value }; break;
                 case "--maps": a = a with { Maps = value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries) }; break;

@@ -31,6 +31,8 @@ public enum DevCommandKind : byte
     SetBotDamage = 12,
     /// <summary>Sets the distance in metres a bot opens fire from: extra 5 to 1000, 0 back to each weapon's own range.</summary>
     SetBotRange = 13,
+    /// <summary>Asks the server to send the cancel table again (cancel-editor: the client's table hash differs from the server's).</summary>
+    CancelSync = 14,
 }
 
 /// <summary>The server's answer to the last request, shown under the panel (protocol 80).</summary>
@@ -78,7 +80,7 @@ public static partial class Protocol
     {
         uint session = r.U32();
         int kind = r.U8(), argument = r.U8(), value = r.U8(), extra = r.U16();
-        if (kind is < (int)DevCommandKind.SetFlag or > (int)DevCommandKind.SetBotRange || value > 1) return null;
+        if (kind is < (int)DevCommandKind.SetFlag or > (int)DevCommandKind.CancelSync || value > 1) return null;
         return new DevCommand(session, (DevCommandKind)kind, (byte)argument, value == 1, extra);
     }
 
