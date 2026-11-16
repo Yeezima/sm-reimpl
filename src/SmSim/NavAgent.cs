@@ -82,6 +82,26 @@ public sealed class NavAgent(NavGraph graph)
     /// <summary>Metres from the drop's origin within which a stuck detection counts against the drop (the bot must be at the edge, not shoved elsewhere).</summary>
     public float DropStuckNear { get; init; } = 3f;
     readonly Dictionary<long, (int Count, double At)> _dropStuck = new();
+    /// <summary>
+    /// bots/new-maps round 2 (ours; with <see cref="ExcludeStuckDrops"/>): a bot stuck <see cref="StepStuckLimit"/> detections in a row on the ground with its next walk waypoint at least <see cref="StepStuckRise"/> m
+    /// above it (a 0.65 m curb that the graph reads as a 0.3 m slope: Dome Mechanicus' hotspot) gives up every walk link that rises at least <see cref="StepGiveUpMinRise"/> m
+    /// from a cell within <see cref="StepGiveUpRadius"/> m of it for <see cref="StepForgetSeconds"/> s (a curb does not change; a body in the way does, so the entry still decays).
+    /// </summary>
+    public int StepStuckLimit { get; init; } = 2;
+    public float StepStuckRise { get; init; } = 0.25f;
+    public float StepGiveUpRadius { get; init; } = 2.5f;
+    public float StepGiveUpMinRise { get; init; } = 0.12f;
+    public double StepForgetSeconds { get; init; } = 90.0;
+    /// <summary>Detections in a row (and radius of the links given up, heading only) for the low-hump case of the same rule: the next waypoint is not higher but the bot does not get on.</summary>
+    public int BlockedStuckLimit { get; init; } = 3;
+    public double BlockedWindow { get; init; } = 60.0;
+    readonly Dictionary<long, (int Count, double At)> _blockedAt = new();
+    /// <summary>Seconds the low-hump give-up lasts: shorter than a curb's, since a body in the way looks the same.</summary>
+    public double BlockedForgetSeconds { get; init; } = 45.0;
+    public float BlockedRadius { get; init; } = 4f;
+    /// <summary>Walk links given up as steps the motor does not climb (bots/new-maps round 2).</summary>
+    public int ExcludedSteps => _stepExpiry.Count;
+    readonly List<(long Key, double At)> _stepExpiry = new();
     readonly List<(long Key, double At)> _dropExpiry = new();
 
     /// <summary>
@@ -95,6 +115,9 @@ public sealed class NavAgent(NavGraph graph)
 
     void ForgetDrops(double now)
     {
+        if (_blockedAt.Count > 64) foreach (var k in _blockedAt.Where(kv => now - kv.Value.At > BlockedWindow).Select(kv => kv.Key).ToList()) _blockedAt.Remove(k);
+        for (int i = _stepExpiry.Count - 1; i >= 0; i--)
+            if (now > _stepExpiry[i].At) { _bad.Remove(_stepExpiry[i].Key); _stepExpiry.RemoveAt(i); }
         if (_dropExpiry.Count == 0 && _dropStuck.Count == 0) return;
         for (int i = _dropExpiry.Count - 1; i >= 0; i--)
             if (now - _dropExpiry[i].At > DropForgetSeconds) { _bad.Remove(_dropExpiry[i].Key); _dropExpiry.RemoveAt(i); }
@@ -379,6 +402,29 @@ public sealed class NavAgent(NavGraph graph)
                             long key = NavGraph.DropKey(from, to);
                             if (_bad.Add(key)) _dropExpiry.Add((key, now));
                         }
+                    }
+                }
+                bool blockedHere = false;
+                if (ExcludeStuckDrops && grounded && Path is { } bp && Waypoint > 0 && Waypoint < bp.Waypoints.Count && bp.Waypoints[Waypoint].Kind != NavLinkKind.Jump)
+                {
+                    // The same 4 m square stuck BlockedStuckLimit times within BlockedWindow s (not only in a row: the recovery steps move the bot between detections).
+                    long rk = ((long)(int)MathF.Floor(position.X / 4f) << 32) ^ (uint)(int)MathF.Floor(position.Y / 4f);
+                    var seen = _blockedAt.GetValueOrDefault(rk);
+                    int n = (now - seen.At > BlockedWindow ? 0 : seen.Count) + 1;
+                    _blockedAt[rk] = (n, now);
+                    if (n >= BlockedStuckLimit) { _blockedAt.Remove(rk); blockedHere = true; }
+                }
+                if (ExcludeStuckDrops && grounded && Path is { } sp && Waypoint > 0 && Waypoint < sp.Waypoints.Count && sp.Waypoints[Waypoint].Kind != NavLinkKind.Jump
+                    && ((_consecutiveStuck >= StepStuckLimit && sp.Waypoints[Waypoint].Kind == NavLinkKind.Walk && sp.Waypoints[Waypoint].Position.Z - position.Z >= StepStuckRise) || blockedHere))
+                {
+                    // A curb (the next waypoint well above): every rising link round the bot. A low hump, lip or rail the motor does not cross though the graph walks it (Desolation along x = 79: a 0.2 m
+                    // tall lip 12 m long, 18 detections by one bot, 100 in a run): the links that lead the way it was heading, round the bot.
+                    bool curb = sp.Waypoints[Waypoint].Kind == NavLinkKind.Walk && sp.Waypoints[Waypoint].Position.Z - position.Z >= StepStuckRise;
+                    var ahead = Toward(position, sp.Waypoints[Waypoint].Position);
+                    foreach (var (from, to) in curb ? Graph.RiseLinksNear(position, StepGiveUpRadius, 1f, StepGiveUpMinRise) : Graph.RiseLinksNear(position, BlockedRadius, 1f, -1f, ahead, 0.5f))
+                    {
+                        long key = NavGraph.WalkKey(from, to);
+                        if (_bad.Add(key)) _stepExpiry.Add((key, now + (curb ? StepForgetSeconds : BlockedForgetSeconds)));
                     }
                 }
                 Plan(position, goal, now);

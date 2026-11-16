@@ -188,6 +188,9 @@ public sealed partial class NavGraph
     /// <summary>The key of the drop link <paramref name="from"/> to <paramref name="to"/> in the set of excluded links (<see cref="FindPath"/>): a <see cref="JumpKey"/> with the top bit set, so it never meets a jump link's.</summary>
     public static long DropKey(int from, int to) => JumpKey(from, to) | long.MinValue;
 
+    /// <summary>bots/new-maps round 2: the key of the walk link <paramref name="from"/> to <paramref name="to"/> in the set of excluded links: a <see cref="JumpKey"/> with bit 62 set (a step the motor does not climb, a curb the graph thinks a slope).</summary>
+    public static long WalkKey(int from, int to) => JumpKey(from, to) | (1L << 62);
+
     /// <summary>The same graph with <paramref name="jumps"/> (found for exactly this graph's nodes) usable by <see cref="FindPath"/>.</summary>
     public NavGraph WithJumps(NavJumpSet jumps)
     {
@@ -701,6 +704,67 @@ public sealed partial class NavGraph
     }
 
     /// <summary>
+    /// bots/new-maps round 2: the graph cell nearest (3D) to <paramref name="centre"/> among those inside the vertical cylinder of <paramref name="radius"/> m (flat) and <paramref name="halfHeight"/> m round it (a Seize
+    /// Ground point's capture zone: the marker of Hab Center's point D floats 7 m above its floor, so a plain nearest-cell search within 6 m of height found none), or -1.
+    /// </summary>
+    public int NearestInCylinder(Vector3 centre, float radius, float halfHeight)
+    {
+        int cx = (int)MathF.Round((centre.X - _x0) / _cell), cy = (int)MathF.Round((centre.Y - _y0) / _cell);
+        int rings = (int)MathF.Ceiling(radius / _cell);
+        int best = -1;
+        float bestD = float.MaxValue;
+        for (int y = Math.Max(0, cy - rings); y <= Math.Min(_h - 1, cy + rings); y++)
+            for (int x = Math.Max(0, cx - rings); x <= Math.Min(_w - 1, cx + rings); x++)
+            {
+                float hx = _x0 + x * _cell - centre.X, hy = _y0 + y * _cell - centre.Y;
+                if (hx * hx + hy * hy > radius * radius) continue;
+                int c = x + y * _w;
+                for (int i = _colStart[c]; i < _colStart[c + 1]; i++)
+                {
+                    float dz = _z[i] - centre.Z;
+                    if (MathF.Abs(dz) > halfHeight || _linkStart[i + 1] == _linkStart[i]) continue;
+                    float d = hx * hx + hy * hy + dz * dz;
+                    if (d < bestD) { bestD = d; best = i; }
+                }
+            }
+        return best;
+    }
+
+    /// <summary>
+    /// bots/new-maps round 2: the walk links (origin, target) that rise at least <paramref name="minRise"/> m and leave a cell within <paramref name="radius"/> m (flat) and <paramref name="maxDz"/> m of height of
+    /// <paramref name="p"/>: a curb the graph reads as a slope fails along its whole length, not at one link. With <paramref name="heading"/> only the links within <paramref name="minDot"/> (cosine) of that direction.
+    /// </summary>
+    public List<(int From, int To)> RiseLinksNear(Vector3 p, float radius, float maxDz, float minRise, Vector2? heading = null, float minDot = 0.5f)
+    {
+        var found = new List<(int From, int To)>();
+        int cx = (int)MathF.Round((p.X - _x0) / _cell), cy = (int)MathF.Round((p.Y - _y0) / _cell);
+        int rings = (int)MathF.Ceiling(radius / _cell);
+        for (int y = Math.Max(0, cy - rings); y <= Math.Min(_h - 1, cy + rings); y++)
+            for (int x = Math.Max(0, cx - rings); x <= Math.Min(_w - 1, cx + rings); x++)
+            {
+                float hx = _x0 + x * _cell - p.X, hy = _y0 + y * _cell - p.Y;
+                if (hx * hx + hy * hy > radius * radius) continue;
+                int c = x + y * _w;
+                for (int i = _colStart[c]; i < _colStart[c + 1]; i++)
+                {
+                    if (MathF.Abs(_z[i] - p.Z) > maxDz) continue;
+                    for (int l = _linkStart[i]; l < _linkStart[i + 1]; l++)
+                    {
+                        if (_linkKind[l] != (byte)NavLinkKind.Walk || _z[_linkTo[l]] - _z[i] < minRise) continue;
+                        if (heading is { } h)
+                        {
+                            int t = _linkTo[l];
+                            var d = new Vector2(Position(t).X - Position(i).X, Position(t).Y - Position(i).Y);
+                            if (d.LengthSquared() < 1e-6f || Vector2.Dot(Vector2.Normalize(d), h) < minDot) continue;
+                        }
+                        found.Add((i, _linkTo[l]));
+                    }
+                }
+            }
+        return found;
+    }
+
+    /// <summary>
     /// bots/new-maps: up to <paramref name="limit"/> graph cells to step or drop onto from a spot the graph has no cell at (a ledge or rail narrower than the cells' clearance): within
     /// <paramref name="radius"/> m horizontally, at most <paramref name="maxRise"/> m above and <paramref name="maxDrop"/> m below <paramref name="p"/> (feet), the nearest in each of eight
     /// 45 degree sectors about <paramref name="p"/>, nearest first (a rise counts double so a drop is preferred).
@@ -848,6 +912,7 @@ public sealed partial class NavGraph
                 int nb = _linkTo[l];
                 if (sc.Closed[nb] == gen) continue;
                 if (_linkKind[l] == (byte)NavLinkKind.Drop && excludedJumps is { Count: > 0 } && excludedJumps.Contains(DropKey(cur, nb))) continue;   // bots/new-maps: a drop a bot found impassable
+                if (_linkKind[l] == (byte)NavLinkKind.Walk && excludedJumps is { Count: > 0 } && excludedJumps.Contains(WalkKey(cur, nb))) continue;   // bots/new-maps round 2: a step a bot found impassable
                 float g = gc + _linkCost[l];
                 if (sc.Stamp[nb] == gen && sc.G[nb] <= g) continue;
                 sc.Stamp[nb] = gen; sc.G[nb] = g; sc.Parent[nb] = cur; sc.Via[nb] = _linkKind[l]; sc.ViaJump[nb] = -1;

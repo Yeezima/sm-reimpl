@@ -170,3 +170,24 @@ Review round (same day): the stuck-drop give-up now decays after 25 s and counts
 Still weak: **Shattered Bridge**: one jump-pack bot stood in a pit off the graph for minutes before the review round (144 of 175 stuck detections; fixed by the scripted jump, not seen again in the re-run), kills a minute 13.9 against 17 to 19 elsewhere (the bridge is long; the bots meet 80 m apart on
 average). **Dome Mechanicus**: the 0.7 m curb hotspot (a graph and motor mismatch, not fixed). Not verified: Seize Ground on the new maps, other lobby sizes, a cold jump-link
 cache on a machine other than this one, Musou Mode (untouched by construction; not run), the recordings asked for (not made).
+
+### Round 2 (bots-new-maps-r2, 2026-11-16): Seize Ground and the hotspots
+
+Same lobby (6 v 6, 12 headless bots, Tactical / Assault / Devastator rotation, 5 minutes a map and mode after the last bot joined, one run each; `tools/bots-measure.ps1`, `SM_BOT_STATS=30`). "Before" = main at the start of the round (the 22 runs run in parallel, two at a time, on a quiet machine); "after" = the code at the end of the round for Hab Center's point fix and the curb rule (full 22 runs, tag final) and, for Desolation and Dome Mechanicus, the later blocked-square rule (tag c). Kills a minute, deaths by the world, stuck detections (the bots' "nav stuck" lines), standing still % (in Seize Ground 7 to 15 % is bots holding a point, not a fault; Annihilation 0.1 to 1.3 %).
+
+| Map | Annihilation kills/min, stuck (before / after) | Seize Ground kills/min, stuck, point events (before / after) | Note |
+|---|---|---|---|
+| Waste Management `mp_tdm_01` | 15.5, 8 / 15.7, 9 | 17.7, 15, 20 / 16.9, 8, 20 | fine |
+| Basilica `mp_tdm_11` | 14.7, 10 / 15.7, 7 | 12.4, 13, 19 / 15.5, 3, 15 | the 12.4 was one side holding three points (bots on points stand still: 15.6 %), not a nav fault |
+| Shattered Bridge `mp_tdm_17` | 14.3, 14 (1 fall) / 12.7, 19 (3 falls) | 17.7, 3, 8 / 19.9, 8, 4 | falls: Tactical bots on a 1.5 m girder at -30,-38 (z -4.4): they walk or fight off it; weakest map in Annihilation (bridge 80 m long) |
+| Hab Center `mp_tdm_18` | 16.7, 5 / 14.8, 12 (7 "unreachable" samples, 5 before) | **11.9, 330, 8 (4 falls) / 16.5, 4, 14 (0 falls)** | point D's marker floats 7 m above its floor: fixed (stand cell) |
+| Habs Ablaze `mp_dlc1_map1` | 15.3, 16 / 15.1, 19 | 16.1, 2, 17 / 15.5, 4, 15 | fine |
+| Station Tertius `mp_dlc1_map2` | 16.3, 10 / 16.1, 14 | 16.3, 6, 17 / 16.7, 4, 13 | fine |
+| Chem Refinery `mp_dlc2_map1` | 17.9, 8 / 17.1, 10 | 17.7, 12, 11 / 18.3, 5, 19 | fine |
+| Aquila Canyon `mp_dlc2_map2` | 15.7, 10 / 16.9, 12 | 17.3, 4, 13 / 15.5, 4, 17 | fine |
+| Desolation `mp_dlc2_map3` | 16.1, 18 / 15.7, 20 (later rule) | 16.9, 21, 18 / 14.9, 44, 19 (66 and 100 in two runs before the blocked-square rule) | a lip about 0.15 m high along the balcony edge at x = 79 (y 18 to 95): the graph walks and drops over it, the motor does not cross it (`nav-around --walk`: speed 0 at once); bots try it along the whole edge. Mitigated, not solved |
+| Dome Mechanicus `mp_dlc2_map4` | 14.9, 27 / 12.9, 27 | 14.5, 7 / 16.1, 5 | the 0.65 m curb at -14.6,48.5 (the wall stands 0.52 m from the cell centre at knee height, 2 cm beyond the link's 0.5 m ray): each bot now gives the rise up after 2 detections (steps given up 13 to 37) but returns after 90 s; 12 to 16 detections a run, about 0.7 % of bot time |
+| Manufactorum `mp_tdm_09` (pin) | 15.1, 7 / 16.1, 6 | 14.3, 9 / 15.7, 8 | rules unchanged by construction |
+
+Every map is within 12.7 to 18.3 kills a minute in both modes after the round (Shattered Bridge Annihilation lowest; one run a cell, a kill a minute or two is noise). Seize Ground ran on all ten maps for the first time: every map has captures (4 to 20 point events in 5 minutes; Shattered Bridge 4 to 14), no bot stuck at a spawn. **The pit jump** (`NavAgent.PitJump`) did not fire in any of the 66 runs (pit jumps 0 everywhere, escapes 0 to 2 a run): its condition (a jump-pack bot, 3 stuck detections in a row on a spot with no graph cell within 1 m) is met only by a bot that fell into a pit, and with trap cells pruned and bots no longer falling into them (deaths by the world 0 to 4 a run, all from the Shattered Bridge girders) it stays a safety net; it is covered by `BotNewMapsTests`, not seen live. **The fix that was not made**: the graph's walk link keeps a ray 0.5 m long at the knee; a wall 2 cm beyond it is missed (the curb) and a 0.15 m lip below the ray's height is not seen at all (Desolation): the real fix is a stricter link test in `NavGraph.Build` (a `NavSettings` flag, which would rebuild every cache and every jump-link set: 20 builds of 2 to 6 minutes), or the motor's step-up at such lips (`Collision.cs`, not a bot file).
+

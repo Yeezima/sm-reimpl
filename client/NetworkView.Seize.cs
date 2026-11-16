@@ -3,8 +3,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Godot;
+using SmContent;
 using SmNet;
 using SmSim;
+using V3 = System.Numerics.Vector3;
 
 namespace SmClient;
 
@@ -260,7 +262,7 @@ public partial class NetworkView
             return new PlayerInput(tick, 0f, 0f, _yaw, InputButtons.None, 0f);              // hold the point
         }
         // On the way: path following to the point (NetworkView.Nav.cs; until the graph is built, straight with detours).
-        var (to, speed, _, dropAhead) = BotSteer(me, goal.Center, $"point {PointLetter(best)}");
+        var (to, speed, _, dropAhead) = BotSteer(me, BotPointStand(best, goal), $"point {PointLetter(best)}");
         if (to.LengthSquared() < 1e-6f) to = new Vector2(goal.Center.X - me.Position.X, goal.Center.Y - me.Position.Y).Normalized();
         InputButtons buttons = InputButtons.None;
         if (fight && target is { } enemy)
@@ -284,6 +286,25 @@ public partial class NetworkView
         // On a jump link (slowing to the take-off cell, standing, pressing) the agent's speed counts; else full speed as before.
         return BotMoveInput(tick, _navAgent is { OnJumpLink: true } ? to * speed : to, buttons | _navJump);
     }
+
+    /// <summary>
+    /// bots/new-maps round 2 (ours): where a Seize Ground bot walks to for point <paramref name="index"/>: on the new maps the graph cell nearest the marker inside the capture zone (the marker can float far above the
+    /// floor: Hab Center's point D, 7 m, which the planner's 6 m height limit read as off the graph, and its bots stood at their spawn rooms for the whole match); the marker itself elsewhere (Manufactorum, no graph).
+    /// </summary>
+    V3 BotPointStand(int index, ControlPointInfo goal)
+    {
+        if (BotNoEscape || !BotNavigation.NewMapRules(_navMap?.Name ?? "") || _nav is not { } graph) return goal.Center;
+        if (!ReferenceEquals(graph, _botStandGraph)) { _botStandGraph = graph; _botStand.Clear(); }
+        if (!_botStand.TryGetValue(index, out var stand))
+        {
+            int n = graph.NearestInCylinder(goal.Center, goal.Radius * BotPointInside, goal.HalfHeight);
+            _botStand[index] = stand = n >= 0 ? graph.Position(n) : goal.Center;
+        }
+        return stand;
+    }
+
+    NavGraph? _botStandGraph;
+    readonly Dictionary<int, V3> _botStand = new();
 
     /// <summary>The point the Seize Ground bot heads for (sticky while still wanted).</summary>
     int _botSeizeTarget = -1;
