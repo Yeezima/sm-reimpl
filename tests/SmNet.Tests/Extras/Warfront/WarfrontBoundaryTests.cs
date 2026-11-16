@@ -103,14 +103,65 @@ public class WarfrontBoundaryTests
         }
     }
 
+    [Theory]
+    [InlineData("    partial void WarfrontStep(World w);", true)]
+    [InlineData("    partial void WarfrontJoin(ref bool b);", true)]
+    [InlineData("    partial void WarfrontStep(World w)", false)]   // an implementation, not a declaration
+    [InlineData("    void Other();", false)]
+    public void The_declaration_pattern_counts_only_declarations(string line, bool declaration) =>
+        Assert.Equal(declaration, IsHookDeclaration(line));
+
+    static bool IsHookDeclaration(string line) => !IsComment(line) && HookDeclaration.IsMatch(line) && line.TrimEnd().EndsWith(';');
+
+    /// <summary>Hook declarations outside <c>Extras/Warfront/</c> (the implementations live inside it) are exactly the pinned list.</summary>
     [Fact]
-    public void The_hook_list_is_pinned_and_still_empty()
+    public void The_hook_list_is_pinned()
     {
         var found = new HashSet<(string, string)>();
         foreach (var (path, lines) in Sources())
+        {
+            if (InWarfront(path)) continue;
             foreach (string line in lines)
-                if (!IsComment(line) && HookDeclaration.Match(line) is { Success: true } m) found.Add((path, m.Groups[1].Value));
-        Assert.Empty(Hooks);
+                if (IsHookDeclaration(line)) found.Add((path, HookDeclaration.Match(line).Groups[1].Value));
+        }
         Assert.True(found.SetEquals(Hooks), "Warfront hooks found: " + string.Join(", ", found.Select(f => $"{f.Item1}:{f.Item2}")));
+    }
+
+    static readonly Regex HookCall = new(@"(?<![\w.])(?<!(new|record|class|struct|interface)\s+)Warfront[A-Z]\w*\s*\(", RegexOptions.Compiled);
+
+    [Theory]
+    [InlineData("        WarfrontStep(w);   // WARFRONT-HOOK", true)]
+    [InlineData("        WarfrontStep(w);", false)]
+    public void A_hook_call_carries_the_marker(string line, bool marked) =>
+        Assert.Equal(marked, line.Contains("// WARFRONT-HOOK", StringComparison.Ordinal));
+
+    /// <summary>Every call of a Warfront hook outside <c>Extras/Warfront/</c> is marked <c>// WARFRONT-HOOK</c>.</summary>
+    [Fact]
+    public void Every_hook_call_site_is_marked()
+    {
+        var unmarked = new List<string>();
+        foreach (var (path, lines) in Sources())
+        {
+            if (InWarfront(path)) continue;
+            for (int i = 0; i < lines.Length; i++)
+            {
+                string line = lines[i];
+                if (IsComment(line) || !HookCall.IsMatch(line) || HookDeclaration.IsMatch(line)) continue;
+                if (!line.Contains("// WARFRONT-HOOK", StringComparison.Ordinal)) unmarked.Add($"{path}:{i + 1}: {line.Trim()}");
+            }
+        }
+        Assert.True(unmarked.Count == 0, "Warfront hook calls without // WARFRONT-HOOK:" + Environment.NewLine + string.Join(Environment.NewLine, unmarked));
+    }
+
+    /// <summary>The build symbol <c>SM_WARFRONT</c> appears in code only in the switch and the hash dispatcher.</summary>
+    [Fact]
+    public void The_build_symbol_is_used_only_in_the_pinned_files()
+    {
+        var allowed = new HashSet<string> { "src/SmSim/ContentExtras.cs", "src/SmSim/Extras/SimConfig.Extras.cs" };
+        var offenders = new List<string>();
+        foreach (var (path, lines) in Sources())
+            for (int i = 0; i < lines.Length; i++)
+                if (!IsComment(lines[i]) && lines[i].Contains("SM_WARFRONT", StringComparison.Ordinal) && !allowed.Contains(path)) offenders.Add($"{path}:{i + 1}");
+        Assert.True(offenders.Count == 0, "SM_WARFRONT outside its files: " + string.Join(", ", offenders));
     }
 }

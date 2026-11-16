@@ -72,6 +72,17 @@ public class WarfrontProfileTests
         Assert.Equal(ExtrasWireVersion, ContentExtras.WireVersion);
         Assert.Equal(ProtocolVersion, Protocol.Version);
         Assert.Equal(MusouSimVersion, SmSim.Extras.Musou.MusouSim.Version);
-        // TfwRules.Version is pinned by the Musou tests; the faithful, extended and Musou hashes by MusouIsolationTests and ContentProfileTests.
+        Assert.Equal(86u, SmSim.Extras.Musou.Campaign.TfwRules.Version);
+        // Only the faithful hash is literal-pinned elsewhere (ContentProfileTests); literal pins of the extended and Musou hashes come in the separate W0 pins slice.
+    }
+
+    [Theory]
+    [InlineData(ContentExtras.Warfront)]
+    [InlineData(ContentExtras.Warfront | ContentExtras.Orks)]
+    [InlineData(ContentExtras.Warfront | ContentExtras.Musou | ContentExtras.Gore)]
+    public void A_flag_set_with_the_warfront_bit_always_names_warfront(ContentExtras extras)
+    {
+        Assert.Contains("warfront", ContentProfiles.Name(extras));
+        Assert.Contains("warfront", ContentProfiles.Describe(extras));
     }
 }

@@ -200,6 +200,7 @@ public static class ContentProfiles
         if (extras == ContentExtras.All) return Extended;
         if (extras == WarfrontProfile) return Warfront;
         var names = Flags.Where(f => extras.HasFlag(f.Flag)).Select(f => f.Name).ToList();
+        if (extras.HasFlag(ContentExtras.Warfront)) names.Add(Warfront);   // not exactly the profile (a stray flag set): still named, so a refusal is not misleading
         uint unknown = (uint)(extras & ~(ContentExtras.Known | ContentExtras.Warfront));
         if (unknown != 0) names.Add($"0x{unknown:X}");
         return string.Join(",", names);
