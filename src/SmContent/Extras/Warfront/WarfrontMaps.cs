@@ -42,9 +42,10 @@ public static class WarfrontMaps
             }
             if (name == HqName)
             {
-                var hq = WarfrontHqMap.Build();
-                var collision = AshfallContent.ToMapContent(hq.Level).ToCollisionWorld();
-                return new WarfrontLoadedMap(name, collision, [new SpawnPoint(hq.LandingZone, 0f)], hq.Level.Areas, hq.Level.Hash, null, hq.WalkArea);
+                // W13b: the HQ level composed with the hub exactly as a lane slot is (so the run, the classes, the squads and the ship all work on it); the hash is the composed world's
+                var hq = WarfrontHqLayout.Build;
+                var data = TfwMap.Compose(AshfallContent.ToMapContent(hq.Level).ToCollisionWorld(), hq.Level.Points, hq.Level.Areas, hq.Level.Spawns, manufactorum: false);
+                return new WarfrontLoadedMap(name, data.Collision, data.Spawns, data.StartAreas, data.Hash, data, data.Field.WalkArea());
             }
             if (name == FortressName)
             {
@@ -65,11 +66,22 @@ public static class WarfrontMaps
     public static NavGraph Nav(WarfrontLoadedMap map, SimConfig config, out string note, string? cacheDirectory = null)
     {
         if (WarfrontSlots.ByName(map.Name) is { } slot && map.Tfw is { } data) return WarfrontWorld.Nav(slot, data, config, out note, cacheDirectory);
+        if (map.Name == HqName && map.Tfw is { } hq) return NavOf(HqName, hq, config, out note, cacheDirectory);
         var settings = NavSettings.From(config);
         var area = map.WalkArea ?? throw new InvalidOperationException(map.Name + " has no walk area");
         var mesh = map.Collision.Character;
         ulong key = NavGraph.KeyFor(mesh, map.Collision.KillVolumes, settings, area);
         return NavCache.LoadOrBuild(cacheDirectory ?? BotNavigation.CacheDirectory, map.Name + TfwWorld.CacheSuffix, key, settings, () => NavGraph.Build(mesh, map.Collision.KillVolumes, settings, area), out note);
+    }
+
+    /// <summary>The walking graph of a composed non-slot map (the HQ) over its battlefield's walk area, through the cache as <c>&lt;name&gt;-musou-&lt;key&gt;.nav</c>.</summary>
+    public static NavGraph NavOf(string name, TfwMapData data, SimConfig config, out string note, string? cacheDirectory = null)
+    {
+        var settings = NavSettings.From(config);
+        var area = data.Field.WalkArea();
+        var mesh = data.Collision.Character;
+        ulong key = NavGraph.KeyFor(mesh, data.Collision.KillVolumes, settings, area);
+        return NavCache.LoadOrBuild(cacheDirectory ?? BotNavigation.CacheDirectory, name + TfwWorld.CacheSuffix, key, settings, () => NavGraph.Build(mesh, data.Collision.KillVolumes, settings, area), out note);
     }
 
     /// <summary>

@@ -52,6 +52,7 @@ public sealed partial class GameServer
         WarfrontSendProgression();
         WarfrontSendSquad();
         WarfrontSendCoop();
+        WarfrontSendBattle();   // W13b (routed: the lead's fan-out line)
     }
 
     /// <summary>A player's own notice (a refused Identify) as a Stage None section, or null.</summary>

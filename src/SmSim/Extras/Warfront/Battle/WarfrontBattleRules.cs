@@ -1,6 +1,7 @@
 using System.Numerics;
 using SmSim.Extras.Musou;
 using SmSim.Extras.Musou.Campaign;
+using SmSim.Extras.Warfront.Campaign;
 
 namespace SmSim.Extras.Warfront;
 
@@ -81,6 +82,10 @@ public sealed class WarfrontBattleRules
     public int Node { get; internal set; }
     /// <summary>Whether a node battle is under way.</summary>
     public bool InNode { get; internal set; }
+    /// <summary>Whether any Warfront battle is under way (a node, the HQ defence, the fortress).</summary>
+    public bool InBattle => InNode;
+    /// <summary>What the next battle is (W13b): set by the server before the landing; a Node battle until it says otherwise. The run's battle-plan hook reads it.</summary>
+    public WarfrontTargetKind Target { get; set; } = WarfrontTargetKind.Node;
 
     /// <summary>The Orks' health scale of the battle under way (1 outside one).</summary>
     internal float PlayerScaleNow = 1f;

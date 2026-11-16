@@ -142,20 +142,22 @@ public sealed partial class GameServer
         var c = s.Campaign;
         if (World.Tfw is not { } run)
         {
-            // HQ and fortress: no hub and no battle rules before W13b and W14b; the battle begins at once and only SM_WF_RESOLVE ends it.
+            // the fortress (W14b composes it with the hub): no battle rules yet; the battle begins at once and only SM_WF_RESOLVE ends it.
             s.Landing = false;
             c.BeginBattle(); WfSave(s);
             WfLog($"battle begins on {s.Map} (deployment {c.Deployments + 1}); this map has no battle rules yet: it ends under SM_WF_RESOLVE only");
             WarfrontArmResolve(s);
             return;
         }
-        if (target.Kind != WarfrontTargetKind.Node || WarfrontSlots.ByName(s.Map) is not { } slot) { s.Landing = false; WfLog($"cannot land {target.Kind} on {s.Map}"); return; }
+        bool hq = target.Kind == WarfrontTargetKind.Hq && s.Map == WarfrontMaps.HqName;
+        var slot = WarfrontSlots.ByName(s.Map);
+        if (!hq && (target.Kind != WarfrontTargetKind.Node || slot is null)) { s.Landing = false; WfLog($"cannot land {target.Kind} on {s.Map}"); return; }
         if (run.Phase != TfwRunPhase.Hub)
         {
             // the run took the Deploy (Travel, then the battle): the landing is under way
             s.Landing = false;
             s.Landed = true;
-            WfLog($"landing on {slot.Name}: slot {slot.Number}, lane {slot.Lane}, node {slot.Node}, band {slot.Band} ({slot.Profile}), seed {slot.Seed}; deployment {c.Deployments + 1}; fronts set to node {slot.Node}");
+            WfLog(hq ? $"landing on {s.Map}: the HQ defence; deployment {c.Deployments + 1}" : $"landing on {slot!.Name}: slot {slot.Number}, lane {slot.Lane}, node {slot.Node}, band {slot.Band} ({slot.Profile}), seed {slot.Seed}; deployment {c.Deployments + 1}; fronts set to node {slot.Node}");
             return;
         }
         // the run's Deploy is dropped silently unless the match is playing and the leader is alive inside the hub, so it is asked again each second until the run leaves the hub
@@ -163,8 +165,9 @@ public sealed partial class GameServer
         if (WarfrontLeaderPlayer() is not { } leader) { WarfrontLandingWait(s, "no identified leader"); return; }
         if (!World.Players.TryGetValue(leader, out var lp) || !lp.Alive || !run.Field.Hub.Contains(lp.Position)) { WarfrontLandingWait(s, "the leader is not alive aboard yet"); return; }
         if (s.LandingEnqueued != 0 && World.Tick - s.LandingEnqueued < (uint)WarfrontRate) return;
-        run.War.SetFrontsForTests((sbyte)(slot.Node - 1));
-        if (!run.Enqueue(leader, new TfwCommandRecord(++s.CommandSeq, TfwCommand.Deploy, (byte)slot.Lane))) { WarfrontLandingWait(s, "the run refused the Deploy"); return; }
+        if (run.Warfront is { } rules) rules.Target = target.Kind;   // the run's battle plan reads it (the HQ defence's layout)
+        run.War.SetFrontsForTests(hq ? (sbyte)0 : (sbyte)(slot!.Node - 1));   // the HQ: a node battle's frame on lane A; its plan hook replaces the layout
+        if (!run.Enqueue(leader, new TfwCommandRecord(++s.CommandSeq, TfwCommand.Deploy, (byte)(hq ? 0 : slot!.Lane)))) { WarfrontLandingWait(s, "the run refused the Deploy"); return; }
         s.LandingEnqueued = World.Tick;
     }
 

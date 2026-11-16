@@ -122,8 +122,8 @@ static class WarfrontStagePlan
         _ => WarfrontSlots.Of((TfwLane)t.Lane, Math.Clamp(c.Front(t.Lane), 1, 3)).Name,
     };
 
-    /// <summary>A map that has a ship: a lane slot (hub plus battlefield). The HQ and the fortress have none.</summary>
-    public static bool HasShip(string map) => WarfrontSlots.IsLaneMap(map);
+    /// <summary>A map that has a ship: a lane slot or the HQ (each is composed with the hub). The fortress has none until W14b composes it.</summary>
+    public static bool HasShip(string map) => WarfrontSlots.IsLaneMap(map) || map == SmContent.Extras.Warfront.WarfrontMaps.HqName;
 
     /// <summary>The next stage's map: the saved target's while the phase is Travel; otherwise the last lane map the previous stage ran (a ship), or <see cref="FirstMap"/>.</summary>
     public static string NextMap(WarfrontCampaign? c, string? lastShipMap)

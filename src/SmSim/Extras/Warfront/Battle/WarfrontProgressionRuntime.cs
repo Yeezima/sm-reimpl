@@ -224,7 +224,7 @@ public sealed class WarfrontProgressionRuntime
                     Xp.Capture(CaptureXp, (_serial << 4) | (long)k);
                     _newlyPaid.Add(k);
                 }
-        if (change.HasFlag(TfwBattleChange.Won) && _paid.Add(3))
+        if (change.HasFlag(TfwBattleChange.Won) && !battle.WarfrontHq && _paid.Add(3))   // the HQ defence has no D: its win pays the positions still held (above), 400 each
         {
             Xp.Capture(FinalCaptureXp, (_serial << 4) | 3L);
             _newlyPaid.Add(3);

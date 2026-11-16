@@ -1,4 +1,6 @@
 using SmSim.Extras.Warfront;
+using SmSim.Extras.Warfront.Campaign;
+using SmSim.Extras.Warfront.Hq;
 
 namespace SmSim.Extras.Musou.Campaign;
 
@@ -44,10 +46,28 @@ public sealed partial class TfwRun
         }
     }
 
+    /// <summary>The plan of the battle (W13b): the HQ defence's own layout; every lane battle's elite share from its node (Musou's own curve: node 1 the base, node 2 half-way, node 3 full); the HQ's is 0.75 of it.</summary>
+    partial void WarfrontBattlePlan(World w, TfwLane lane, int node, ref TfwLayout layout, ref bool final, ref float elite)
+    {
+        if (Warfront is not { } rules) return;
+        switch (rules.Target)
+        {
+            case WarfrontTargetKind.Hq:
+                layout = WarfrontHqLayout.Layout();
+                final = false;
+                elite = TfwBattleRules.EliteShare(WarfrontHqBattleRules.EliteProgress);
+                break;
+            case WarfrontTargetKind.Node:
+                elite = TfwBattleRules.EliteShare(node switch { <= 1 => 0f, 2 => 0.5f, _ => 1f });
+                break;
+        }
+    }
+
     partial void WarfrontBattleCreated(World w, TfwBattle battle, TfwLane lane, int node)
     {
         if (Warfront is not { } rules) return;
         battle.WarfrontNode = true;
+        battle.WarfrontHq = rules.Target == WarfrontTargetKind.Hq;
         rules.Lane = lane;
         rules.Node = node;
         rules.InNode = true;
@@ -87,6 +107,7 @@ public sealed partial class TfwRun
     {
         if (Warfront is not { } rules || Battle is not { } battle) return;
         handled = true;
+        if (battle.HqLost) { _spectating.Clear(); Leave(w, left: false, TfwMapResult.Lost); return; }   // V fell: the HQ defence is lost
         _warfrontRate = Math.Max(1, rate);
         int window = Math.Max(1, (int)MathF.Round(WarfrontBattleRules.ReviveWindowSeconds * rate));
         int spectate = Math.Max(1, (int)MathF.Round(WarfrontBattleRules.SpectatorSeconds * rate));

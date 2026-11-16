@@ -145,12 +145,18 @@ public sealed partial class GameServer
     /// <summary>The walking graph of a lane slot, through its own cache file (<c>wf_xN-musou-&lt;key&gt;.nav</c>).</summary>
     partial void WarfrontNav(TfwBattlefield field, ref NavGraph? nav, ref string note, ref bool handled)
     {
-        if (Map is null || WarfrontSlots.ByName(Map.Name) is not { } slot || !World.Config.Extras.HasFlag(ContentExtras.Warfront)) return;
+        if (Map is null || !World.Config.Extras.HasFlag(ContentExtras.Warfront)) return;
+        var slot = WarfrontSlots.ByName(Map.Name);
+        bool hq = Map.Name == WarfrontMaps.HqName;
+        if (slot is null && !hq) return;
         handled = true;
         try
         {
             var data = new TfwMapData(Map.Collision, Map.Spawns, Map.StartAreas ?? [], Map.Hash, field);
-            nav = WarfrontWorld.Nav(slot, data, World.Config, out string built, WarfrontRunFiles.NavCacheOverride);
+            nav = slot is not null
+                ? WarfrontWorld.Nav(slot, data, World.Config, out string built0, WarfrontRunFiles.NavCacheOverride)
+                : WarfrontMaps.NavOf(Map.Name, data, World.Config, out built0, WarfrontRunFiles.NavCacheOverride);
+            string built = built0;
             _wfNav = nav;
             note = $"{built}, {nav.NodeCount} nodes";
         }
