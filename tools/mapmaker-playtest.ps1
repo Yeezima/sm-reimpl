@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
   Mapmaker "Play test" (docs/mapmaker.md "Play test"): from a .smmap file to playing it with bots, in one command. Added content.
 .DESCRIPTION

@@ -1,4 +1,4 @@
-﻿using System.Numerics;
+using System.Numerics;
 using System.Text.Json.Nodes;
 using SmContent;
 
@@ -259,18 +259,33 @@ public sealed class MapDocument
         return d;
     }
 
+    /// <summary>Limits on a document read from a file someone else made (shared maps): total text, objects, pieces, and the size of any position or scale.</summary>
+    public const int MaxChars = 8_000_000, MaxObjects = 20_000, MaxPieces = 5_000, MaxNameLength = 200;
+    public const float MaxPosition = 100_000f, MaxScale = 10_000f;
+
     public static MapDocument Parse(string json)
     {
+        if (json.Length > MaxChars) throw new MapException("too-big", $"The map file is larger than {MaxChars / 1_000_000} MB.");
         var o = Json.Obj(Json.ParseText(json, "The map"), "The map");
         if (Json.Str(o["format"], "format", nullable: true) != FormatName) throw new MapException("bad-file", "Not a .smmap document (format must be \"smmap\").");
         if (o["formatVersion"] is null || Json.Int(o["formatVersion"], "formatVersion", "bad-file") != FormatVersion)
             throw new MapException("bad-file", $"Unsupported formatVersion (this build reads {FormatVersion}).");
         var d = new MapDocument { Name = Json.Str(o["name"], "name") ?? "", NextId = Json.Int(o["nextId"], "nextId", "bad-file") };
+        if (d.Name.Length > MaxNameLength) throw new MapException("too-big", $"The map name is longer than {MaxNameLength} characters.");
+        if (d.Name.Length > MaxNameLength) throw new MapException("too-big", $"The map name is longer than {MaxNameLength} characters.");
         if (o["modes"] is { } modesNode) d.Modes = Json.Arr(modesNode, "modes").Select((m, i) => Json.Str(m, $"modes[{i}]")!).Where(m => m.Length > 0).Distinct().ToList();
         var seen = new HashSet<string>();
-        foreach (var (n, i) in Json.Arr(o["objects"], "objects").Select((x, i) => (x, i)))
+        var objectNodes = Json.Arr(o["objects"], "objects");
+        if (objectNodes.Count > MaxObjects) throw new MapException("too-big", $"The map has more than {MaxObjects} objects.");
+        int pieces = 0;
+        foreach (var (n, i) in objectNodes.Select((x, i) => (x, i)))
         {
             var obj = MapObject.FromNode(n, i);
+            if (obj.Piece is not null && ++pieces > MaxPieces) throw new MapException("too-big", $"The map has more than {MaxPieces} pieces.");
+            var tr = obj.Transform;
+            if (MathF.Max(MathF.Abs(tr.Position.X), MathF.Max(MathF.Abs(tr.Position.Y), MathF.Abs(tr.Position.Z))) > MaxPosition
+                || MathF.Max(MathF.Abs(tr.Scale.X), MathF.Max(MathF.Abs(tr.Scale.Y), MathF.Abs(tr.Scale.Z))) > MaxScale)
+                throw new MapException("too-big", $"Object {obj.Id} is placed or sized beyond {MaxPosition:0} m / {MaxScale:0} m.", obj.Id);
             if (!seen.Add(obj.Id)) throw new MapException("bad-file", $"Duplicate object id '{obj.Id}'.", obj.Id);
             d.Objects.Add(obj);
         }

@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
   Downloads Godot 4.7.2-stable .NET into %LOCALAPPDATA%\sm-reimpl\tools\godot when it is missing (official GitHub release, SHA-512 checked); the same step client.ps1 starts with. mapmaker.cmd runs it, so a tester needs no other setup to open the Mapmaker editor.
 #>

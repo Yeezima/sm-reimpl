@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json.Nodes;
@@ -74,6 +74,7 @@ public partial class MapmakerPlugin : EditorPlugin
 
     public override void _ExitTree()
     {
+        if (PlayRunning) StopPlayTest();   // closing the editor mid-test stops that test's server and bots (only the processes it recorded)
         MapHost.RootChanged -= OnRootChanged;
         MapHost.Sm1Changed -= OnSm1Changed;
         try { GetUndoRedo().VersionChanged -= OnUndoVersionChanged; GetUndoRedo().HistoryChanged -= OnUndoVersionChanged; } catch (Exception) { }

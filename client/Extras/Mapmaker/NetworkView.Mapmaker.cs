@@ -1,4 +1,4 @@
-﻿using System.Linq;
+using System.Linq;
 using Godot;
 using SmContent;
 using SmMapmaker;
@@ -8,7 +8,7 @@ namespace SmClient;
 /// <summary>
 /// Mapmaker maps on the client (added content, docs/mapmaker.md "Playing a map"): a map the server names <c>cm_...</c> is a <c>.smmap</c> file found by that name (or given with
 /// <c>--custom-map</c>) and compiled here, with the same code the server ran, into the collision the client predicts with. The core's <c>LoadMap</c> asks <see cref="MapmakerContent"/> for the map's
-/// content (nothing is read from the install) and <see cref="MapmakerVisuals"/> to draw it (<see cref="CustomMapView"/>). The handshake's map hash is the file's hash, so a different copy is refused by the server.
+/// content (nothing is read from the install) and <see cref="MapmakerVisuals"/> to draw it (<see cref="CustomMapView"/>). The handshake's map hash is the first 8 bytes of SHA-256(compiler version + the file's canonical JSON), so a different copy is refused by the server.
 /// </summary>
 public partial class NetworkView
 {

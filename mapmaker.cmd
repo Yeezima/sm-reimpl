@@ -3,7 +3,12 @@ rem Opens the Mapmaker (docs/mapmaker.md, Phase 1) in the Godot 4.7.2 editor on 
 setlocal
 set "ROOT=%~dp0"
 set "GODOT=%LOCALAPPDATA%\sm-reimpl\tools\godot\Godot_v4.7.2-stable_mono_win64\Godot_v4.7.2-stable_mono_win64.exe"
-if not exist "%GODOT%" (
+set "GODOTDONE=%LOCALAPPDATA%\sm-reimpl\tools\godot\Godot_v4.7.2-stable_mono_win64.complete"
+set "NEEDGODOT="
+if not exist "%GODOT%" set "NEEDGODOT=1"
+rem The marker is written only after a full, verified extraction: without it a partial download is fetched again.
+if not exist "%GODOTDONE%" set "NEEDGODOT=1"
+if defined NEEDGODOT (
   echo Godot 4.7.2 is not installed yet: downloading it ^(about 117 MB, once^)...
   powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT%tools\get-godot.ps1" || exit /b 1
 )

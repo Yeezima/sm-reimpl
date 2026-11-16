@@ -1,4 +1,4 @@
-﻿using System.Globalization;
+using System.Globalization;
 using System.Net;
 using System.Text.RegularExpressions;
 using SmNet;
@@ -172,6 +172,7 @@ public static class ServerCommandLine
     static readonly HashSet<string> Valued =
         ["--port", "--bind", "--game-dir", "--map", "--custom-map", "--maps", "--mode", "--score-limit", "--time-limit", "--friendly-fire", "--unlocks", "--countdown", "--pickup-test", "--bot-damage-scale", "--snapshot-rate",
          "--name-seed", "--dev-bot-exe", "--dev-bot-project", "--max-per-ip", "--join-interval", "--idle-kick", "--ban-file", "--content", "--max-spectators"];
+
     /// <summary>Parses the arguments; false with a one-line <paramref name="error"/> for an unknown flag, a missing or invalid value, or a stray word.</summary>
     public static bool TryParse(IReadOnlyList<string> args, out ServerArguments result, out string error)
     {

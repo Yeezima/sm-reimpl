@@ -1,4 +1,4 @@
-﻿using System.Numerics;
+using System.Numerics;
 using System.Text.Json.Nodes;
 using SmContent;
 using SmMapmaker;
@@ -119,7 +119,7 @@ public sealed class CustomMapTests : IDisposable
     [Fact]
     public void The_hash_is_stable_follows_every_edit_and_the_wire_name_is_a_valid_map_name()
     {
-        var doc = Layout("arena", "Ã‡afÃ© Arena #1 with a rather long name indeed");
+        var doc = Layout("arena", "Çafé Arena #1 with a rather long name indeed");
         var a = CustomMap.Compile(doc);
         var b = CustomMap.Compile(MapDocument.Parse(doc.ToJson()));
         Assert.Equal(a.Hash, b.Hash);
@@ -156,7 +156,7 @@ public sealed class CustomMapTests : IDisposable
         try
         {
             Assert.Equal(Path.GetFullPath(file), CustomMaps.Locate("cm_find_me"));
-            Assert.Equal(Path.GetFullPath(file), CustomMaps.Locate(file));
+            Assert.Null(CustomMaps.Locate(file));   // a path is never a wire name: nothing a server sends can name a file
             Assert.Null(CustomMaps.Locate("cm_nobody"));
             var loaded = CustomMaps.LoadForPlay("cm_find_me", null);
             Assert.Equal(CustomMap.Compile(doc).Hash, loaded.Hash);
@@ -168,6 +168,57 @@ public sealed class CustomMapTests : IDisposable
             Assert.Equal("wrong-map", wrong.Code);
         }
         finally { Environment.SetEnvironmentVariable("SM_MAPS_DIR", null); }
+    }
+
+    [Theory]
+    [InlineData(@"..\..\secret")]
+    [InlineData("cm_../x")]
+    [InlineData("cm_a/b")]
+    [InlineData("C:\\Windows\\win.ini")]
+    [InlineData("/etc/passwd")]
+    [InlineData("cm_")]
+    [InlineData("cm_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")]
+    public void A_wire_name_from_the_server_is_never_used_as_a_path(string name)
+    {
+        Assert.False(CustomMaps.IsPlainWireName(name));
+        Assert.Null(CustomMaps.Locate(name));
+        Assert.Equal("bad-map-name", Assert.Throws<MapException>(() => CustomMaps.LoadForPlay(name, null)).Code);
+    }
+
+    [Fact]
+    public void Locate_finds_a_map_by_its_name_field_without_parsing_every_file()
+    {
+        string dir = Path.Combine(_lab.Dir, "named");
+        Directory.CreateDirectory(dir);
+        File.WriteAllText(Path.Combine(dir, "broken-but-named.smmap"), "{ \"format\": \"smmap\", \"name\": \"Header Only\", garbage garbage");
+        File.WriteAllText(Path.Combine(dir, "other.smmap"), "not even json");
+        Environment.SetEnvironmentVariable("SM_MAPS_DIR", dir);
+        try { Assert.Equal(Path.Combine(dir, "broken-but-named.smmap"), CustomMaps.Locate("cm_header_only")); }
+        finally { Environment.SetEnvironmentVariable("SM_MAPS_DIR", null); }
+    }
+
+    [Fact]
+    public void Shared_files_are_limited_in_size_count_and_magnitude()
+    {
+        var doc = Layout("blank");
+        var huge = JsonNode.Parse(doc.ToJson())!.AsObject();
+        huge["objects"]![0]!["transform"]!["position"] = new JsonArray(1e9, 0, 0);
+        Assert.Equal("too-big", Assert.Throws<MapException>(() => MapDocument.Parse(huge.ToJsonString())).Code);
+        var wide = JsonNode.Parse(doc.ToJson())!.AsObject();
+        wide["objects"]![0]!["transform"]!["scale"] = new JsonArray(1e7, 1, 1);
+        Assert.Equal("too-big", Assert.Throws<MapException>(() => MapDocument.Parse(wide.ToJsonString())).Code);
+        var many = JsonNode.Parse(doc.ToJson())!.AsObject();
+        var list = new JsonArray();
+        for (int i = 1; i <= MapDocument.MaxObjects + 1; i++)
+            list.Add(new JsonObject { ["id"] = "o" + i, ["name"] = "g", ["parent"] = null, ["layer"] = "default", ["visible"] = true,
+                ["transform"] = new JsonObject { ["position"] = new JsonArray(0, 0, 0), ["rotation"] = new JsonArray(0, 0, 0), ["scale"] = new JsonArray(1, 1, 1) } });
+        many["objects"] = list; many["nextId"] = MapDocument.MaxObjects + 5;
+        Assert.Equal("too-big", Assert.Throws<MapException>(() => MapDocument.Parse(many.ToJsonString())).Code);
+        Assert.Equal("too-big", Assert.Throws<MapException>(() => MapDocument.Parse(new string(' ', MapDocument.MaxChars + 1))).Code);
+        string big = Path.Combine(_lab.Dir, "big.smmap");
+        using (var fs = File.Create(big)) fs.SetLength(CustomMaps.MaxFileBytes + 1);
+        Assert.Equal("too-big", Assert.Throws<MapException>(() => CustomMaps.Load(big)).Code);
+        Assert.Throws<MapException>(() => MapDocument.Parse(doc.ToJson().Replace("-26", "1e999")));
     }
 
     [Fact]
