@@ -164,6 +164,8 @@ public sealed class WarfrontStageModel
 
     void UpdateTravelFromHub(WarfrontHubView view)
     {
+        // an Arrived stage that the Hub has moved past is history (the server stops sending it): the model does not keep showing it
+        if (Stage is { State: WarfrontStageState.Arrived } && view.Phase is WarfrontPhase.Battle or WarfrontPhase.Ship or WarfrontPhase.Won or WarfrontPhase.Lost) Stage = null;
         // The landing: the battle began (or the ship is back after it). The Go screen stays: the rejoin is coming.
         if (TravelVisible && Last == WarfrontStageState.Arrived && view.Phase is WarfrontPhase.Battle or WarfrontPhase.Ship or WarfrontPhase.Won or WarfrontPhase.Lost) TravelVisible = false;
     }

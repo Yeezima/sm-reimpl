@@ -1,6 +1,8 @@
 using Godot;
 using SmNet.Extras.Warfront;
+using SmNet.Extras.Warfront.Results;
 using SmSim.Extras.Warfront.Campaign;
+using SmSim.Extras.Warfront.Results;
 
 namespace SmClient;
 
@@ -38,5 +40,37 @@ public partial class NetworkView
         if (now - _wfBotLogAt < 5.0) return;
         _wfBotLogAt = now;
         GD.Print($"t {now:F0} s: WFBOT phase {view.Phase} deployments {view.Deployments} leader {view.ViewerIsLeader} identified {m.Identified} stage {m.Stage?.State.ToString() ?? "-"} fronts {string.Join(',', view.Fronts)} alive {me.Alive}");
+    }
+
+    // ---- capture aids for a windowed, human-like client (screenshots of the stage flow; test aids, not game rules) ----------------------------------------------------------
+
+    static readonly bool WarfrontUiDemo = CmdFlag("warfront-ui-demo"), WarfrontResultsDemo = CmdFlag("warfront-results-demo");
+    bool _wfDemoMap, _wfDemoDeployed, _wfDemoResults;
+
+    /// <summary>
+    /// <c>--warfront-ui-demo</c> (windowed, not a bot): 10 s after the join the war map opens as if the player had pressed Use at the station; 18 s after, when this client leads on the ship, the first deployment row is pressed.
+    /// <c>--warfront-results-demo</c>: 10 s after the join a synthetic record (made here, no real run) goes through the Results chunks' own path, so the panel opens as it would at the end of a run.
+    /// </summary>
+    void WarfrontDemoFrame(double now)
+    {
+        if (_bot) return;
+        var m = WarfrontModel;
+        if (WarfrontUiDemo && !_wfDemoMap && now >= 10.0 && m.HubSections > 0 && m.TravelVisible == false) { _wfDemoMap = true; WarfrontOpenHubPanel(); }
+        if (WarfrontUiDemo && !_wfDemoDeployed && now >= 18.0 && m.Hub.View is { Phase: WarfrontPhase.Ship, ViewerIsLeader: true } v && v.Targets.Count > 0)
+        {
+            _wfDemoDeployed = true;
+            GD.Print($"t {now:F1} s: warfront demo: the first deployment row is pressed");
+            m.Hub.RequestDeploy(v.Targets[0]);
+        }
+        if (WarfrontResultsDemo && !_wfDemoResults && now >= 10.0)
+        {
+            _wfDemoResults = true;
+            var c = new WarfrontCampaign(7);
+            c.Join(m.Key, m.Name, out _);
+            c.Join(0x51, "Brann", out _);
+            var record = WarfrontResults.Build(c, null, System.TimeSpan.FromSeconds(2710), new System.DateTime(2026, 11, 17, 12, 0, 0, System.DateTimeKind.Utc));
+            foreach (var chunk in WarfrontResultsWire.Split(WarfrontResultsWire.Encode(record), 1))
+                if (m.ApplyResults(chunk) is { } done) WarfrontRecordArrived(done);
+        }
     }
 }

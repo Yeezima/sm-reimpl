@@ -50,6 +50,7 @@ public partial class NetworkView
             if (!_wfRejoinLogged) { _wfRejoinLogged = true; GD.Print($"t {now:F1} s: warfront: the server moves to {m.Stage?.Map}; joining the same address again"); }
         }
         WarfrontBotFrame(me, now);
+        WarfrontDemoFrame(now);
         WarfrontProgressionFrame(me, dt);
         WarfrontSquadFrame(me, dt);
         WarfrontCoopFrame(me, dt);
@@ -177,7 +178,7 @@ public partial class NetworkView
             _wfResults = WarfrontOpenLayer("WarfrontResults", () => WarfrontBuildResults(record, dir));
             if (_wfResults is not null) { _wfResults.Focus(); GD.Print($"t {now:F1} s: warfront: the results panel opened ({record.Result})"); }
         }
-        if (_wfResults is not null && m.HubSections > 0 && m.Hub.View.Phase is not (WarfrontPhase.Won or WarfrontPhase.Lost)) { _wfResults = null; WarfrontCloseLayer(); }
+        if (_wfResults is not null && !WarfrontResultsDemo && m.HubSections > 0 && m.Hub.View.Phase is not (WarfrontPhase.Won or WarfrontPhase.Lost)) { _wfResults = null; WarfrontCloseLayer(); }
     }
 
     WarfrontResultsPanel WarfrontBuildResults(WarfrontRunRecord record, string dir)
@@ -185,9 +186,10 @@ public partial class NetworkView
         var panel = new WarfrontResultsPanel(record, dir, WarfrontCloseResults);
         var newRun = UiKit.MenuButton("New run", () => { WarfrontModel.RequestNewRun(); GD.Print($"t {_connectedFor:F1} s: warfront: new run pressed"); WarfrontCloseResults(); });
         newRun.Name = "WarfrontNewRun";
+        newRun.AddThemeFontSizeOverride("font_size", 22);   // the results panel's own button size
         newRun.SetAnchorsPreset(Control.LayoutPreset.TopLeft);
         newRun.Position = new Vector2(1260f, 1000f);
-        newRun.Size = new Vector2(360f, 56f);
+        newRun.Size = new Vector2(360f, 38f);
         newRun.Visible = WarfrontModel.Hub.View.ViewerIsLeader;
         panel.AddChild(newRun);
         return panel;
