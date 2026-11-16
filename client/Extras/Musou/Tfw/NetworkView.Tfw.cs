@@ -21,6 +21,7 @@ public partial class NetworkView
     void TfwFrame(PlayerState me, IReadOnlyList<PlayerState> others, double delta, List<ExtrasSection> sections)
     {
         if (!MusouActive || _client is null) return;
+        TfwFrontFrame(me);   // Ashfall/NetworkView.TfwFront.cs: the front pilot's active band (nothing on any other map)
         TfwGuardsFrame(sections, delta);   // the sections, the commands and the Guardsmen (TF7a)
         Ph("tfw: orders, stations, hud, markers");   // musou/perf-pass: --frame-profile's phases
         if (_tfwState.War is not { } war) { TfwLibrarianFrame(me, others, delta); return; }   // the 5-wave run: no war, but a Librarian's tag 16 still comes

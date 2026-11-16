@@ -1068,3 +1068,41 @@ The owner (2026-11-14): "another draft of the ashfall map. include large scaled 
   - **High ground:** a deck is a flat floor 4 m or more over the ground and at least 16 m2 that a flight lands on. Each deck is checked on foot (a flight passes the access check) and by an **Assault jump** (`AssaultJump`: spec apexes 3.79, 11.63, 17.54 m, 16 m/s, gravity 20 / hang 12 / fall 30; take-off delay and air control left out) from open ground or from another deck.
 - **Result:** 210 stairs (78 raised feet), none failing outside the stronghold; 3 dead ends, all authored (keep tower, two AC-008 terraces); 111 doors, 4 blocked, all authored stronghold pieces (ring curtain walls in front of AC-005 doors, the keep tower); **74 decks, all reached on foot and by an Assault jump from open ground, 68 also from another deck**; strong positions (100 m2 or more, 5 m or more up, sees the point) A 5, B 8, C 6; no deck sees all three points. All battlefield constraints pass.
 - **Not done:** the kit's own geometry limits height: AC-051's upper floor is 7-8 m, taller ruins (25 m) put their flight tops on a wall (dead end, so left out). The authored stronghold dead ends are unchanged (owner's earlier decision). Not seen in a match.
+
+## Front pilot (2026-11-16, test branch)
+The owner-approved plan of 2026-11-16 (lead 28's audit): one Musou front is lane B's three positions as **wasteland -> outskirts -> urban core**, the final assault on the core; lanes A and C use the same band mapping on this test map (they start at the outskirts). A test variant beside today's Ashfall: `tfw_war` stays draft 13 (hash `0x0B35BFB12EF8FD3D`, unchanged), Classic PvP untouched. Every place, size and threshold is ours (placeholder demonstration; spec rows "Musou front pilot: ..."; refine register).
+
+### Selection
+- Map **`tfw_war_front`** (`AshfallLayout.Front`; server `--content musou --map tfw_war_front`; a client hosting Musou with `client.cmd --ashfall-layout front`). The client builds whatever the server names; the composed level's hash is in the map hash.
+- No protocol, `TfwRules` or `MusouSim` change: on every other map nothing of it runs (`TfwBattlefield.Bands` is null, the run's band stays 0).
+
+### One world, three battlefields
+- The server cannot change maps, so the three bands are built as **one composed world**, side by side at x = 0, 600 and 1200 m (`AshfallMap.ComposeFront`), each its own 480 m battlefield with its own boundary.
+- `TfwMap.ComposeFront` gives each band its own battlefield (three points, the commander, the Space Marine start, the seeds in its square, its bounds) in `TfwBattlefield.Bands`; the walking graph covers all three (one cache file).
+- `TfwRun.ActiveBand` is set at each landing from the battle's node: node 1 the wasteland, node 2 the outskirts, node 3 and the final assault the urban core (`TfwRun.BandForNode`). `TfwRun.Field` and `TfwRun.Sites` answer for the active band (each band's places on its own part of the graph: `TfwSites(..., within)`); waves, spawns, capture rules and progression are unchanged.
+
+### The order of a band's build (`Extras/Musou/Ashfall/Field/AshfallFront*.cs`, `AshfallBand.cs`)
+1. **Frame:** the square, boundary and backdrop; the main avenue's anchors (24 m at x = 0 at both edges); the base and the stronghold as **through variants**: draft 10's pieces that meet the avenue's 25 m strip are left out (the compound's north and south walls, the ring's gate, the middle of its north leg, the keep AC-044), and the through pieces stand in their place (the compound's walls with 24 m gates, a north gate jamb, the keep's **two wings** either side of the road).
+2. **Skeleton:** the avenue, flank avenues, a south avenue, a cross avenue through B and a north cross (all 24 m); points per band (`AshfallFront.SkeletonOf`).
+3. **Gate A on the empty frame** (`AshfallFront.GateA`): the plan's rules (avenue at both edges, corridor widths, two planned approaches 60 degrees apart, clear zones off the frame, assembly areas 80 x 40 m, planned travel within 120 s) and the battlefield measure on the frame's own collision (army widths, approaches, protected areas, travel, the through road). Up to 8 deterministic retries (each moves the skeleton's free lines), else an `AshfallGateException` naming every failed rule.
+4. **Fabric** from the band's profile (`AshfallBandProfile`): landmarks first (their sightlines then protected), then islands (wasteland: trench walls, berms, low ruins; outskirts: courtyards and blocks) or rows (the core's street walls with breach gaps, back rows, three plazas, walk-through breached blocks off the main avenue). Anything that meets a protected area, a corridor, a clear zone, a plaza or a sightline band is refused. The north fifth blends toward the next band's profile.
+5. **Kit pass** with every standing rule (drafts 7 to 10, draft 12's stair access, draft 13's high-ground clean-up).
+6. **Gate B on the final collision** (`AshfallDraft5Pass.EnforceFront`): the formation rules and the through road; items at the pinch points left out, up to 8 rounds, else the build fails naming the rules.
+
+### Results (front version 1; 5 seeds x 3 bands; `AshfallFrontTests`)
+- Gate A passes on every seed and band (68 to 70 rules); seed 1 and seed 2 needed retries for the wasteland (B's clear zone met the Ork assembly area at attempt 0 to 3).
+- Gate B passes on every seed and band with no removal (51 to 53 formation rules); the through road is 24.3 m at its narrowest (the compound's gates), 25.3 m through the stronghold.
+- Fabric cover of the free land (target in brackets): wasteland 5-6 % (5-8 %), outskirts 17-20 % (20-24 %), urban core about 28 % (34-38 %; the frontage row's stairless buildings are thin facades so the street wall reads as one). The outskirts and the core stay under their targets: the islands' gaps and the corridors' keep-outs fill the land first; the draft-13 dead-end rule leaves out tall AC-051 ruins (buildings with walkable upper floors are now capped at 13 m).
+- Default bands (seed 16): hashes `0x1C0E74F030BD9527`, `0xC301BB5479451A7A`, `0xDC77FE44619EF92D` (`AshfallFrontTests.PinnedBandHashes`); 157,500 / 145,632 / 161,472 collision triangles (draft 13: about 224,000), 340 / 290 / 314 props; all 60 / 60 / 58 battlefield constraints pass (landmarks, high ground and scouting included).
+- The ring's north gate: the jamb meant to narrow it to 24 m is left out by the roadway rule (its model meets the avenue's margin), so the north gate is about 34 m (x -20 to 14).
+- A band builds in 15 to 35 s (gate A about 5 s of it); the composed world about 80 s once, then from the private layout cache.
+
+### Client (F3)
+- The composed world is the collision; the drawing is per band: `AshfallMap.SplitFront` gives each band's level and dressing back in its own frame, drawn under a node at its offset (graybox, kit look, outside scenery). Only the band the player stands in is shown (`NetworkView.TfwFrontFrame`); the storm look is built once and follows the active band.
+- **Outside the boundary** (`AshfallFrontScenery`; client only, no collision, never hashed): the ground out to 1.2 km, flat along the front's line and rising at 10 degrees to the east and west; the avenue on out of both edges; massing copies (one box per kit item) of the neighbouring bands 520 m north and south; 20 manufactorum stacks on the slopes; the cathedral spire (380 m) 1150 m north as the far goal. About 8 to 10 thousand triangles a band (well under the plan's cap of a quarter of a band).
+
+### Open and for the owner
+- The 64 m boundary wall still stands across the avenue's exits: from ground level the outside ground and the stacks show only over it (the spire is tall enough to clear it from most of a band). Whether the client draws an opening there is the owner's call.
+- The neighbouring bands are massing boxes, not the kit's low LODs.
+- The kit has no stairless building model: buildings without walkable upper floors come out as the collapsed-buttress mass AC-030 (round heaps), so the outskirts read as heaps and ruins more than blocks. Raising the upper-floor share (more AC-051 and AC-005) or new models are the owner's choices.
+- Not seen in a match, no bots or waves run on it, no frame times measured (F4).
