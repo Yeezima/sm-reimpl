@@ -29,6 +29,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 ## Summary
 
 Scanned 3683 spec table rows: **2661 tagged**, 666 not tagged (read from data with high confidence), 356 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 768 rows of the changes document.
+Scanned 3669 spec table rows: **2649 tagged**, 664 not tagged (read from data with high confidence), 356 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 767 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -40,7 +41,7 @@ Scanned 3683 spec table rows: **2661 tagged**, 666 not tagged (read from data wi
 | Charge (critical) | 59 | 49 | 48 | 24 | 0 |
 | Reactions (critical) | 25 | 22 | 23 | 13 | 0 |
 | Camera (critical) | 63 | 56 | 52 | 22 | 0 |
-| HUD and hit feedback (critical) | 84 | 79 | 63 | 11 | 0 |
+| HUD and hit feedback (critical) | 85 | 80 | 64 | 11 | 0 |
 | Sound mix (critical) | 99 | 93 | 78 | 12 | 0 |
 | Effects (critical) | 95 | 87 | 79 | 41 | 0 |
 | Game modes | 46 | 42 | 43 | 19 | 1 |
@@ -54,6 +55,7 @@ Scanned 3683 spec table rows: **2661 tagged**, 666 not tagged (read from data wi
 | General game design | 96 | 95 | 70 | 17 | 0 |
 | Ork faction | 264 | 251 | 148 | 70 | 0 |
 | **All areas** | **2661** | 2380 | 1997 | 803 | 37 |
+| **All areas** | **2649** | 2368 | 1990 | 803 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -62,6 +64,9 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | kind: ours | 1547 |
 | confidence: low | 961 |
 | confidence: medium | 927 |
+| kind: ours | 1536 |
+| confidence: low | 960 |
+| confidence: medium | 921 |
 | notes: ours | 465 |
 | kind: interpretation | 430 |
 | kind: estimate | 227 |
@@ -1714,7 +1719,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-76328A88` | Perk texts that no perk file uses | locale 111538 "Quicker Stomp", 111540 "Mission Specialist" ("Capture points faster in Domination, your kills in TDM count as two for scoring purposes, +20% Score in Co-Op"), 111542 "Super Kick" ("15% to instantly explode enemies with a kick"), 111544… | confidence: medium | `ucs.pc` locale, `wargear.oppc` | Perk texts that no perk file uses: compare with SM1 with side-by-side screenshots in the same spot. Ours: locale 111538 "Quicker Stomp", 111540 "Mission Specialist" ("Capture… | ☐ |
 | `R-A93496E7` | Painting: `pattern_enabled` | in the 80 preset schemes (`custom_paint_scheme`), `pattern_enabled` appears 599 times (True 161, False 438; 519 piece entries with three colours each) beside a `decals` list per scheme: a per-piece flag of a preset, with the data's meaning not stated (the… | confidence: medium | `custom_paint_scheme.oppc` | Painting: pattern_enabled: compare with SM1 with side-by-side screenshots in the same spot. Ours: in the 80 preset schemes (custom_paint_scheme), pattern_enabled… | ☐ |
 
-### HUD and hit feedback (gameplay-critical) (84)
+### HUD and hit feedback (gameplay-critical) (85)
 
 *Spec section: Scoreboard ping on the HUD scoreboard (net/scoreboard-ping; protocol 50; ours)*
 
@@ -1877,6 +1882,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-126B9F64` | Picker layout | four cards in a row over a dimmed field, header "CARD k OF n" when more than one pick is pending (a batch grows when a level is earned meanwhile), countdown bar over the server's 20 s, the notes "Card 1 is taken when the time runs out" and "You cannot be… | kind: ours; confidence: low | brief behaviour 3 and 5; layout ours | Picker layout: compare with SM1 with side-by-side screenshots in the same spot. Ours: four cards in a row over a dimmed field, header "CARD k OF n" when… | ☐ |
 | `R-53A0D905` | XP HUD layout | level, thin XP bar, "+N" while picks are pending, five counters plus the retainer count; right edge at mid height (44 from the edge, 420 from the top in the 1920 by 1080 space), hidden on a non-Warfront server and while the picker shows | kind: ours; confidence: low | brief behaviour 1; place ours | XP HUD layout: compare with SM1 with side-by-side screenshots in the same spot. Ours: level, thin XP bar, "+N" while picks are pending, five counters plus… | ☐ |
 | `R-80D71608` | Picker self-close | the panel closes itself when no open Offer record has arrived for 1.0 s, or when Progress shows fewer pending picks than when the offer opened (a lost close datagram must not leave it up); the server repeats the open record while an offer stands and sends the… (s) | kind: ours; confidence: medium | review of W8 | Picker self-close: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the panel closes itself when no open Offer record has arrived for 1.0… | ☐ |
+| `R-1D18E8DA` | Progression sender | the server sends Progress (tag 44) per identified human when its bytes change and every 2 s, and Offer (tag 45) on every send while an offer stands; the picker stays hidden on a live server until W5c's `PickerBusy` hook flips `NetworkView.WarfrontPickerLive`… (s) | kind: ours; confidence: medium | review of W8, finding 1 | Progression sender: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the server sends Progress (tag 44) per identified human when its… | ☐ |
 | `R-6BCFDD9D` | Effect line and banner | the effect line shows the total after the pick ("NOW +20 %, THEN +30 %", the cooldown at its 40 % floor, "SQUAD 3 OF 9"); the LEVEL N banner is not drawn while an offer stands (a banner cut short shows its remaining time after the close); text sizes 28… | kind: ours; confidence: low | review of W8 | Effect line and banner: compare with SM1 with side-by-side screenshots in the same spot. Ours: the effect line shows the total after the pick ("NOW +20 %, THEN +30… | ☐ |
 | `R-EF8CD15C` | Bot pick | a `--warfront-bot` client picks slot (pick index mod 4) after 1 s (s) | kind: ours | brief behaviour 7 (proofs only) | Bot pick: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a --warfront-bot client picks slot (pick index mod 4) after 1 s. | ☐ |
 

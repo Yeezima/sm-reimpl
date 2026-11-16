@@ -25,6 +25,9 @@ public sealed partial class WarfrontPickerPanel : Control
     readonly Draw _draw;
 
     public WarfrontProgressModel Model => _model;
+
+    /// <summary>False keeps the panel hidden and deaf to input whatever the wire says (a live server, until W5c's PickerBusy hook keeps keys 1 to 4 from weapon switching).</summary>
+    public bool Enabled { get; set; } = true;
     public Label HeaderLabel => _header;
     public Label SlotLabel(int i) => _slot[i];
     public Label NameLabel(int i) => _name[i];
@@ -106,8 +109,9 @@ public sealed partial class WarfrontPickerPanel : Control
     public void Refresh()
     {
         var m = _model;
-        if (Visible != m.OfferOpen) Visible = m.OfferOpen;
-        if (!m.OfferOpen) return;
+        bool show = m.OfferOpen && Enabled;
+        if (Visible != show) Visible = show;
+        if (!show) return;
         WarfrontProgressDraw.Set(_header, m.Header);
         for (int i = 0; i < 4; i++)
         {
